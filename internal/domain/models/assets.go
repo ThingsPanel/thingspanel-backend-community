@@ -15,7 +15,7 @@ type Asset struct {
 	BusinessID     sql.NullString `json:"business_id" gorm:"size:36"` // 业务ID
 }
 type Device struct {
-	ID             string         `json:"id "gorm:"primaryKey,size:36"`
+	ID             string         `json:"id" gorm:"primaryKey,size:36"`
 	AssetID        sql.NullString `json:"asset_id" gorm:"size:36"`              // 资产id
 	Token          sql.NullString `json:"token"`                                // 安全key
 	AdditionalInfo sql.NullString `json:"additional_info" gorm:"type:longtext"` // 存储基本配置
