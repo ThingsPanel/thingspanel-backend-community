@@ -2,7 +2,7 @@ package log
 
 import (
 	"context"
-	"github.com/ThingsPanel/ThingsPanel-Go/internal/adaptors"
+	"github.com/ThingsPanel/ThingsPanel-Go/adaptors"
 	"github.com/kosatnkn/veil"
 	"github.com/tryfix/log"
 )

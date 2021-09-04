@@ -65,8 +65,8 @@ func (c *container) Stop(modules ...string) (err error) {
 	return nil
 }
 
-func (c *container) BindModuleConfig(config config.Config) {
-	c.configs[config.Name()] = config
+func (c *container) BindModuleConfig(name string, config config.Config) {
+	c.configs[name] = config
 }
 
 func (c *container) ResolveModuleConfig(name string) (config.Config, error) {

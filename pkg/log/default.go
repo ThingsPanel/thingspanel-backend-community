@@ -2,7 +2,7 @@ package log
 
 import (
 	"context"
-	"github.com/ThingsPanel/ThingsPanel-Go/internal/adaptors"
+	"github.com/ThingsPanel/ThingsPanel-Go/adaptors"
 	"github.com/google/uuid"
 	"github.com/tryfix/log"
 	traceableCtx "github.com/tryfix/traceable-context"

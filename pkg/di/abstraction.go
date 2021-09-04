@@ -9,7 +9,7 @@ import "github.com/ThingsPanel/ThingsPanel-Go/pkg/config"
 // Container : Defines the container interface
 type Container interface {
 	// BindModuleConfig : Binds a static configuration to container.
-	BindModuleConfig(config config.Config)
+	BindModuleConfig(name string, config config.Config)
 	// ResolveModuleConfig : Resolves a static configuration by name. Returns error if not found.
 	ResolveModuleConfig(name string) (c config.Config, err error)
 	// Bind : Binds an instance of a module/implementation to the container
