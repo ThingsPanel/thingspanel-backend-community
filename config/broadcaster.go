@@ -1,7 +1,7 @@
 package config
 
-func NewBroadCaster() *BroadCaster {
-	bc := &BroadCaster{}
+func NewBroadCasterConfig() *BroadCasterConfig {
+	bc := &BroadCasterConfig{}
 	bc.Connections.Pusher.Driver = `pusher`
 	bc.Connections.Pusher.Options.UseTLS = true
 	bc.Connections.Redis.Driver = `redis`
@@ -11,7 +11,7 @@ func NewBroadCaster() *BroadCaster {
 	return bc
 }
 
-type BroadCaster struct {
+type BroadCasterConfig struct {
 	/*
 	   |--------------------------------------------------------------------------
 	   | Default Broadcaster
