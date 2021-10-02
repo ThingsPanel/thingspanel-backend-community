@@ -44,15 +44,11 @@ type Dash struct {
 	// Description : description
 	Description string `json:"description"`
 	// Fields : dash fields
-	Fields []DashFields `json:"fields"`
-}
-
-// DashFields : dash entry fields
-type DashFields struct {
-	// Name : name
+	Fields map[string]string `json:"fields,omitempty"`
+	// Name: dashboard entry name
 	Name string `json:"name"`
-	// Symbol : symbol
-	Symbol string `json:"symbol"`
-	// Type: type
-	Type int `json:"type"`
+	// Template: template
+	Template string `json:"template"`
+	// Thumbnail : reference string to the thumbnail
+	Thumbnail string `json:"thumbnail"`
 }
