@@ -3,9 +3,9 @@ package request
 import "github.com/ThingsPanel/ThingsPanel-Go/http/models"
 
 type Request struct {
-	headers map[models.Header]interface{}
-	query   map[models.QueryParam]interface{}
-	path    map[models.PathParam]interface{}
+	headers map[models.Header]interface{}     `json:"-"`
+	query   map[models.QueryParam]interface{} `json:"-"`
+	path    map[models.PathParam]interface{}  `json:"-"`
 }
 
 func (r *Request) Headers() map[models.Header]interface{} {
