@@ -85,25 +85,6 @@ func (*AssetService) List() []Device {
 
 // add 添加资产
 func (*AssetService) Add(data string) bool {
-	// var data string = `[
-	// 	{
-	// 		"name":"白鸽小屋",
-	// 		"business_id":"03f6ab3e-00c0-d97c-a1be-6395b98645b1",
-	// 		"device":[
-	// 			{
-	// 				"type":"weatherstations",
-	// 				"dm":"代码",
-	// 				"state":"正常",
-	// 				"mapping":[],
-	// 				"name":"水槽",
-	// 				"dash":[
-	// 					{"key":"weather_day","name":"24小时天气概况","description":"24小时天气概况","class":"通信","thumbnail":"/temperature.png","template":"weather_day"}
-	// 				]
-	// 			}
-	// 		],
-	// 		"two":[]
-	// 	}
-	// ]`
 	// 解析json
 	res, err := simplejson.NewJson([]byte(data))
 	if err != nil {
@@ -274,35 +255,6 @@ func (*AssetService) Add(data string) bool {
 // edit 编辑资产
 func (*AssetService) Edit(data string) bool {
 	// 解析json
-	// var data string = `[
-	// 	{
-	// 		"id":"ea9ebb6c-deba-3640-a103-cb4d0baa9866",
-	// 		"name":"白鸽小屋",
-	// 		"customer_id":"",
-	// 		"business_id":"03f6ab3e-00c0-d97c-a1be-6395b98645b1",
-	// 		"widget_id":"",
-	// 		"widget_name":"",
-	// 		"device":[
-	// 			{
-	// 				"id":"6af67cb2-0113-a4e1-fb15-7c0724eadb29",
-	// 				"name":"水槽",
-	// 				"type":"weatherstations",
-	// 				"disabled":true,
-	// 				"dm":"代码",
-	// 				"state":"正常",
-	// 				"dash":[
-	// 					{"key":"air_quality","name":"空气质量","description":"空气质量","class":"通信","thumbnail":"/temperature.png","template":"air_quality"}
-	// 				],
-	// 				"mapping":[
-	// 					{
-	// 						"field_from":"A","field_to":"weather","btnname":"新增","btncolor":"primary","btnevent":"add"
-	// 					}
-	// 				]
-	// 			}
-	// 		],
-	// 		"two":null
-	// 	}
-	// ]`
 	res, err := simplejson.NewJson([]byte(data))
 	if err != nil {
 		fmt.Println("解析出错", err)
@@ -624,7 +576,17 @@ func (*AssetService) GetAssetsByParentID(parent_id string) ([]models.Asset, int6
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	return assets, count
+}
 
+func (*AssetService) GetAssetsByTierAndBusinessID(business_id string) ([]models.Asset, int64) {
+	var assets []models.Asset
+	var count int64
+	result := psql.Mydb.Model(&models.Asset{}).Where("tier=1 AND business_id = ?", business_id).Find(&assets)
+	psql.Mydb.Model(&models.Asset{}).Where("tier=1 AND business_id = ?", business_id).Count(&count)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	return assets, count
 }
 
 // Extension 获取组件

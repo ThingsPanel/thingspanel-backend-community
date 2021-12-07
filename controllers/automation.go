@@ -66,6 +66,34 @@ type AutoUpdate struct {
 	CustomerID string    `json:"customer_id"`
 }
 
+type AssetDevice struct {
+	ID             string         `json:"id"`
+	AdditionalInfo string         `json:"additional_info"`
+	CustomerID     string         `json:"customer_id"`
+	Name           string         `json:"name"`
+	Label          string         `json:"label"`
+	SearchText     string         `json:"search_text"`
+	Type           string         `json:"type"`
+	ParentID       string         `json:"parent_id"`
+	Tier           int64          `json:"tier"`
+	BusinessID     string         `json:"business_id"`
+	Children       []AssetDevice2 `json:"children"`
+}
+
+type AssetDevice2 struct {
+	ID             string         `json:"id"`
+	AdditionalInfo string         `json:"additional_info"`
+	CustomerID     string         `json:"customer_id"`
+	Name           string         `json:"name"`
+	Label          string         `json:"label"`
+	SearchText     string         `json:"search_text"`
+	Type           string         `json:"type"`
+	ParentID       string         `json:"parent_id"`
+	Tier           int64          `json:"tier"`
+	BusinessID     string         `json:"business_id"`
+	Children       []models.Asset `json:"children"`
+}
+
 // 策略列表
 func (this *AutomationController) Index() {
 	automationIndexValidate := valid.AutomationIndex{}
@@ -291,9 +319,45 @@ func (this *AutomationController) Property() {
 		}
 		return
 	}
-	var DeviceService services.DeviceService
-	d, _ := DeviceService.GetDeviceByID(automationPropertyValidate.BusinessID)
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
+	var AssetService services.AssetService
+	d, _ := AssetService.GetAssetsByTierAndBusinessID(automationPropertyValidate.BusinessID)
+	var dl []AssetDevice
+	for _, dv := range d {
+		d2, _ := AssetService.GetAssetsByParentID(dv.ID)
+		var dl2 []AssetDevice2
+		for _, dvv := range d2 {
+			d3, _ := AssetService.GetAssetsByParentID(dvv.ID)
+			i2 := AssetDevice2{
+				ID:             dvv.ID,
+				AdditionalInfo: dvv.AdditionalInfo,
+				CustomerID:     dvv.CustomerID,
+				Name:           dvv.Name,
+				Label:          dvv.Label,
+				SearchText:     dvv.SearchText,
+				Type:           dvv.Type,
+				ParentID:       dvv.ParentID,
+				Tier:           dvv.Tier,
+				BusinessID:     dvv.BusinessID,
+				Children:       d3,
+			}
+			dl2 = append(dl2, i2)
+		}
+		i := AssetDevice{
+			ID:             dv.ID,
+			AdditionalInfo: dv.AdditionalInfo,
+			CustomerID:     dv.CustomerID,
+			Name:           dv.Name,
+			Label:          dv.Label,
+			SearchText:     dv.SearchText,
+			Type:           dv.Type,
+			ParentID:       dv.ParentID,
+			Tier:           dv.Tier,
+			BusinessID:     dv.BusinessID,
+			Children:       dl2,
+		}
+		dl = append(dl, i)
+	}
+	response.SuccessWithDetailed(200, "success", dl, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
 
