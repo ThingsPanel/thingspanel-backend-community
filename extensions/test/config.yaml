@@ -1,0 +1,92 @@
+weatherstations2:
+  type: 'app'
+  name: '气象站插件2'
+  description: '气象站插件 Weather station plug-in'
+  version: '1.0.0'
+  author: ''
+  email: ''
+  widgets:
+    air_quality:
+      name: '空气质量'
+      description: '空气质量'
+      class: '' #通信
+      thumbnail: '/temperature.png'
+      template: 'air_quality'
+      fields: 
+        pm:
+          name: 'PM2.5'
+          type: 3
+          symbol: 'mg/m3'
+        co2:
+          name: '二氧化碳'
+          type: 3
+          symbol: 'mg/h'
+        o3:
+          name: '臭氧浓度'
+          type: 3
+          symbol: 'mg/h'
+        so2:
+          name: '二氧化硫'
+          type: 3
+          symbol: 'mg/h'
+        nai:
+          name: '负氧离子'
+          type: 3
+          symbol: 'mg/h'
+        co:
+          name: '一氧化碳'
+          type: 3
+          symbol: 'mg/h'
+    environmental_parameters:
+      name: '环境参数'
+      description: '环境参数'
+      class: '' #通信
+      thumbnail: '/temperature.png'
+      template: 'environmental_parameters'
+      fields:
+        temp:
+          name: '温度'
+          type: 3
+          symbol: '℃'
+        hum:
+          name: '湿度'
+          type: 3
+          symbol: '%'
+        yl:
+          name: '气压'
+          type: 3
+          symbol: 'kpa'
+        rainfall:
+          name: '降雨概率'
+          type: 3
+          symbol: '%'
+        wind:
+          name: '风向'
+          type: 3
+          symbol: 'm/s'
+        uv: 
+          name: '紫外线'
+          type: 3
+          symbol: 'mW/m3'
+    weather_day:
+      name: '24小时天气概况'
+      description: '24小时天气概况'
+      class: '' #通信
+      thumbnail: '/temperature.png'
+      template: 'weather_day'
+      fields:
+        temps:
+          name: '温度'
+          type: 1
+          symbol: '℃'
+    weather_week:
+      name: '最近7天天气概况'
+      description: '最近7天天气概况'
+      class: '' #通信
+      thumbnail: '/temperature.png'
+      template: 'weather_week'
+      fields:
+        weather:
+          name: '天气'
+          type: 1
+          symbol: 'bb'

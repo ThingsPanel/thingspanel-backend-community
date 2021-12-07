@@ -1,66 +1,136 @@
+// @APIVersion 1.0.0
+// @Title beego Test API
+// @Description beego has a very cool tools to autogenerate documents for your API
+// @Contact astaxie@gmail.com
+// @TermsOfServiceUrl http://beego.me/
+// @License Apache 2.0
+// @LicenseUrl http://www.apache.org/licenses/LICENSE-2.0.html
 package routers
 
 import (
-	"github.com/ThingsPanel/ThingsPanel-Go/controllers"
-	"github.com/ThingsPanel/ThingsPanel-Go/middleware"
+	"ThingsPanel-Go/controllers"
+
 	"github.com/beego/beego/v2/server/web"
 )
 
 func init() {
+	//跨域
+	//middleware.CorsMiddle()
 	//授权登录中间件
-	middleware.AuthMiddle()
-	//admin模块路由
+	//middleware.AuthMiddle()
 	api := web.NewNamespace("/api",
-		// 小程序登录
+		// 登录
 		web.NSRouter("/auth/login", &controllers.AuthController{}, "*:Login"),
-		// 退出登录
 		web.NSRouter("/auth/logout", &controllers.AuthController{}, "*:Logout"),
-		// 个人信息
+		web.NSRouter("/auth/refresh", &controllers.AuthController{}, "*:Refresh"),
 		web.NSRouter("/auth/me", &controllers.AuthController{}, "*:Me"),
-		//试图列表
-		web.NSRouter("/dashboard/index", &controllers.DashboardController{}, "*:Index"),
-		//添加视图
-		web.NSRouter("/dashboard/paneladd", &controllers.DashboardController{}, "*:Paneladd"),
-		//获取图表
-		web.NSRouter("/dashboard/dashboard", &controllers.ChartController{}, "*:Dashboard"),
-		// 遥测数据
-		web.NSRouter("/please_using_websocket", &controllers.ChartController{}, "*:Ws"),
-		// 设备列表
+		web.NSRouter("/auth/register", &controllers.AuthController{}, "*:Register"),
+
+		// 首页
+		web.NSRouter("/home/list", &controllers.HomeController{}, "*:List"),
+		web.NSRouter("/home/chart", &controllers.HomeController{}, "*:Chart"),
+		web.NSRouter("/index/show", &controllers.HomeController{}, "*:Show"),
+		web.NSRouter("/index/device", &controllers.HomeController{}, "*:Device"),
+
+		// 用户
+		web.NSRouter("/user/index", &controllers.UserController{}, "*:Index"),
+		web.NSRouter("/user/add", &controllers.UserController{}, "*:Add"),
+		web.NSRouter("/user/edit", &controllers.UserController{}, "*:Edit"),
+		web.NSRouter("/user/delete", &controllers.UserController{}, "*:Delete"),
+		web.NSRouter("/user/password", &controllers.UserController{}, "*:Password"),
+		web.NSRouter("/user/permission", &controllers.UserController{}, "*:Permission"),
+
+		// 客户管理
+		web.NSRouter("/customer/index", &controllers.CustomerController{}, "*:Index"),
+		web.NSRouter("/customer/add", &controllers.CustomerController{}, "*:Add"),
+		web.NSRouter("/customer/edit", &controllers.CustomerController{}, "*:Edit"),
+		web.NSRouter("/customer/delete", &controllers.CustomerController{}, "*:Delete"),
+
+		// 业务
+		web.NSRouter("/asset/index", &controllers.AssetController{}, "*:Index"),
+		web.NSRouter("/asset/add", &controllers.AssetController{}, "*:Add"),
+		web.NSRouter("/asset/edit", &controllers.AssetController{}, "*:Edit"),
+		web.NSRouter("/asset/delete", &controllers.AssetController{}, "*:Delete"),
+		web.NSRouter("/asset/widget", &controllers.AssetController{}, "*:Widget"),
+		web.NSRouter("/asset/list", &controllers.AssetController{}, "*:List"),
+
+		web.NSRouter("asset/work_index", &controllers.BusinessController{}, "*:Index"),
+		web.NSRouter("asset/work_add", &controllers.BusinessController{}, "*:Add"),
+		web.NSRouter("asset/work_edit", &controllers.BusinessController{}, "*:Edit"),
+		web.NSRouter("asset/work_delete", &controllers.BusinessController{}, "*:Delete"),
+
+		web.NSRouter("business/index", &controllers.BusinessController{}, "*:Index"),
+		web.NSRouter("business/add", &controllers.BusinessController{}, "*:Add"),
+		web.NSRouter("business/edit", &controllers.BusinessController{}, "*:Edit"),
+		web.NSRouter("business/delete", &controllers.BusinessController{}, "*:Delete"),
+
+		// 设备
+		web.NSRouter("/device/token", &controllers.DeviceController{}, "*:Token"),
 		web.NSRouter("/device/index", &controllers.DeviceController{}, "*:Index"),
-		// 扫码激活设备
-		web.NSRouter("/device/scan", &controllers.DeviceController{}, "*:Scan"),
-		// 新增告警策略
-		web.NSRouter("/warning/add", &controllers.WarningController{}, "*:Add"),
-		// 获取所有告警策略
-		web.NSRouter("/warning/show", &controllers.WarningController{}, "*:Show"),
-		// 获取具体某一条告警策略
-		web.NSRouter("/warning/get_by_id", &controllers.WarningController{}, "*:GetById"),
-		// 修改告警策略
-		web.NSRouter("/warning/edit", &controllers.WarningController{}, "*:Edit"),
-		// 删除具体某一条告警策略
-		web.NSRouter("/warning/delete_by_id", &controllers.WarningController{}, "*:DeleteById"),
-		// 获取告警日志
-		web.NSRouter("/warning/index", &controllers.WarningController{}, "*:Index"),
-		// 分页获取告警日志
-		web.NSRouter("/warning/list", &controllers.WarningController{}, "*:List"),
-		// 新增控制策略
-		web.NSRouter("/automation/add", &controllers.AutomationController{}, "*:Add"),
-		// 获取某个控制策略
-		web.NSRouter("/automation/get_by_id", &controllers.AutomationController{}, "*:GetById"),
-		// 修改某个控制策略
-		web.NSRouter("/automation/edit", &controllers.AutomationController{}, "*:Edit"),
-		// 删除某个控制策略
-		web.NSRouter("/automation/delete_by_id", &controllers.AutomationController{}, "*:DeleteById"),
-		// 获取定时执行参数
-		web.NSRouter("/automation/status", &controllers.AutomationController{}, "*:Status"),
-		// 【触发条件】获取设备属性及单位
-		web.NSRouter("/automation/show", &controllers.AutomationController{}, "*:Show"),
-		// 【控制指令】获取设备属性及单位
-		web.NSRouter("/automation/instruct", &controllers.AutomationController{}, "*:Instruct"),
-		// 获取资产信息
-		web.NSRouter("/automation/property", &controllers.AutomationController{}, "*:Property"),
-		// 获取所有控制策略
+		web.NSRouter("/device/edit", &controllers.DeviceController{}, "*:Edit"),
+
+		//可视化
+		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"),
+		web.NSRouter("/dashboard/add", &controllers.WidgetController{}, "*:Add"),
+		web.NSRouter("/dashboard/edit", &controllers.WidgetController{}, "*:Edit"),
+		web.NSRouter("/dashboard/delete", &controllers.WidgetController{}, "*:Delete"),
+		web.NSRouter("/dashboard/paneladd", &controllers.DashBoardController{}, "*:Add"),
+		web.NSRouter("/dashboard/paneladd", &controllers.DashBoardController{}, "*:Add"),
+		web.NSRouter("/dashboard/paneledit", &controllers.DashBoardController{}, "*:Edit"),
+		web.NSRouter("/dashboard/list", &controllers.DashBoardController{}, "*:List"),
+		web.NSRouter("/dashboard/business", &controllers.DashBoardController{}, "*:Business"),
+		web.NSRouter("/dashboard/property", &controllers.DashBoardController{}, "*:Property"),
+		web.NSRouter("/dashboard/device", &controllers.DashBoardController{}, "*:Device"),
+		web.NSRouter("/dashboard/inserttime", &controllers.DashBoardController{}, "*:Inserttime"),
+		web.NSRouter("/dashboard/gettime", &controllers.DashBoardController{}, "*:Gettime"),
+		web.NSRouter("/dashboard/dashboard", &controllers.DashBoardController{}, "*:Dashboard"),
+		web.NSRouter("/dashboard/realTime", &controllers.DashBoardController{}, "*:Realtime"),
+		web.NSRouter("/dashboard/updateDashboard", &controllers.DashBoardController{}, "*:Updatedashboard"),
+		web.NSRouter("/dashboard/component", &controllers.DashBoardController{}, "*:Component"),
+
+		web.NSRouter("/markets/list", &controllers.MarketsController{}, "*:List"),
+
+		//告警策略
+		web.NSRouter("/warning/index", &controllers.WarninglogController{}, "*:Index"),
+		web.NSRouter("/warning/list", &controllers.WarninglogController{}, "*:List"),
+		web.NSRouter("/warning/field", &controllers.WarningconfigController{}, "*:Field"),
+		web.NSRouter("/warning/add", &controllers.WarningconfigController{}, "*:Add"),
+		web.NSRouter("/warning/edit", &controllers.WarningconfigController{}, "*:Edit"),
+		web.NSRouter("/warning/delete", &controllers.WarningconfigController{}, "*:Delete"),
+		web.NSRouter("/warning/show", &controllers.WarningconfigController{}, "*:Index"),
+		web.NSRouter("/warning/update", &controllers.WarningconfigController{}, "*:GetOne"),
+
+		//控制策略
 		web.NSRouter("/automation/index", &controllers.AutomationController{}, "*:Index"),
+		web.NSRouter("/automation/add", &controllers.AutomationController{}, "*:Add"),
+		web.NSRouter("/automation/edit", &controllers.AutomationController{}, "*:Edit"),
+		web.NSRouter("/automation/delete", &controllers.AutomationController{}, "*:Delete"),
+		web.NSRouter("/automation/get_by_id", &controllers.AutomationController{}, "*:GetOne"),
+		web.NSRouter("/automation/status", &controllers.AutomationController{}, "*:Status"),
+		web.NSRouter("/automation/symbol", &controllers.AutomationController{}, "*:Symbol"),
+		web.NSRouter("/automation/property", &controllers.AutomationController{}, "*:Property"),
+		web.NSRouter("/automation/show", &controllers.AutomationController{}, "*:Show"),
+		web.NSRouter("/automation/update", &controllers.AutomationController{}, "*:Update"),
+		web.NSRouter("/automation/instruct", &controllers.AutomationController{}, "*:Instruct"),
+
+		// 操作日志
+		web.NSRouter("/operation/index", &controllers.OperationlogController{}, "*:Index"),
+		web.NSRouter("/operation/list", &controllers.OperationlogController{}, "*:List"),
+
+		web.NSRouter("/structure/add", &controllers.StructureController{}, "*:Add"),
+		web.NSRouter("/structure/list", &controllers.StructureController{}, "*:Index"),
+		web.NSRouter("/structure/update", &controllers.StructureController{}, "*:Edit"),
+		web.NSRouter("/structure/delete", &controllers.StructureController{}, "*:Delete"),
+		web.NSRouter("/structure/field", &controllers.StructureController{}, "*:Field"),
+
+		web.NSRouter("/navigation/add", &controllers.NavigationController{}, "*:Add"),
+		web.NSRouter("/navigation/list", &controllers.NavigationController{}, "*:List"),
+
+		web.NSRouter("/kv/list", &controllers.KvController{}, "*:List"),
+		web.NSRouter("/kv/index", &controllers.KvController{}, "*:Index"),
+		web.NSRouter("/kv/export", &controllers.KvController{}, "*:Export"),
+		// 遥测数据
+		web.NSRouter("/ws", &controllers.WebsocketController{}, "get:WsHandler"),
 	)
 
 	web.AddNamespace(api)
