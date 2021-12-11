@@ -74,11 +74,14 @@ func (*AssetService) List() []Device {
 				}
 				i := Device{
 					ID:   k,
-					Name: str["name"].(string),
+					Name: fmt.Sprint(str["name"]),
 				}
 				list = append(list, i)
 			}
 		}
+	}
+	if len(list) == 0 {
+		list = []Device{}
 	}
 	return list
 }
@@ -118,10 +121,10 @@ func (*AssetService) Add(data string) bool {
 				asset_id = uuid.GetUuid()
 				asset = models.Asset{
 					ID:         asset_id,
-					Name:       each_map["name"].(string),
+					Name:       fmt.Sprint(each_map["name"]),
 					Tier:       1,
 					ParentID:   "0",
-					BusinessID: each_map["business_id"].(string),
+					BusinessID: fmt.Sprint(each_map["business_id"]),
 				}
 				if err := tx.Create(&asset).Error; err != nil {
 					// 回滚事务
@@ -136,8 +139,9 @@ func (*AssetService) Add(data string) bool {
 						ID:        device_id,
 						AssetID:   asset.ID,
 						Token:     token,
-						Type:      each_map2.(map[string]interface{})["type"].(string),
-						Name:      each_map2.(map[string]interface{})["name"].(string),
+						Type:      fmt.Sprint(each_map2.(map[string]interface{})["type"]),
+						Name:      fmt.Sprint(each_map2.(map[string]interface{})["name"]),
+						Protocol:  fmt.Sprint(each_map2.(map[string]interface{})["protocol"]),
 						Extension: "Extensions",
 					}
 					if err := tx.Create(&device).Error; err != nil {
@@ -148,8 +152,8 @@ func (*AssetService) Add(data string) bool {
 						field = models.FieldMapping{
 							ID:        field_id,
 							DeviceID:  device.ID,
-							FieldFrom: each_map22.(map[string]interface{})["field_from"].(string),
-							FieldTo:   each_map22.(map[string]interface{})["field_to"].(string),
+							FieldFrom: fmt.Sprint(each_map22.(map[string]interface{})["field_from"]),
+							FieldTo:   fmt.Sprint(each_map22.(map[string]interface{})["field_to"]),
 						}
 						if err := tx.Create(&field).Error; err != nil {
 							return err
@@ -157,14 +161,13 @@ func (*AssetService) Add(data string) bool {
 					}
 				}
 				for _, each_map3 := range each_map["two"].([]interface{}) {
-					fmt.Println("two:", each_map3.(map[string]interface{})["name"].(string))
 					asset_id2 = uuid.GetUuid()
 					asset2 = models.Asset{
 						ID:         asset_id2,
-						Name:       each_map3.(map[string]interface{})["name"].(string),
+						Name:       fmt.Sprint(each_map3.(map[string]interface{})["name"]),
 						Tier:       2,
 						ParentID:   asset_id,
-						BusinessID: each_map3.(map[string]interface{})["business_id"].(string),
+						BusinessID: fmt.Sprint(each_map3.(map[string]interface{})["business_id"]),
 					}
 					if err := tx.Create(&asset2).Error; err != nil {
 						return err
@@ -178,8 +181,9 @@ func (*AssetService) Add(data string) bool {
 							ID:        device_id2,
 							AssetID:   asset2.ID,
 							Token:     token,
-							Type:      each_map33.(map[string]interface{})["type"].(string),
-							Name:      each_map33.(map[string]interface{})["name"].(string),
+							Type:      fmt.Sprint(each_map33.(map[string]interface{})["type"]),
+							Name:      fmt.Sprint(each_map33.(map[string]interface{})["name"]),
+							Protocol:  fmt.Sprint(each_map33.(map[string]interface{})["protocol"]),
 							Extension: "Extensions",
 						}
 						if err := tx.Create(&device2).Error; err != nil {
@@ -190,8 +194,8 @@ func (*AssetService) Add(data string) bool {
 							field2 = models.FieldMapping{
 								ID:        field_id2,
 								DeviceID:  device2.ID,
-								FieldFrom: each_map333.(map[string]interface{})["field_from"].(string),
-								FieldTo:   each_map333.(map[string]interface{})["field_to"].(string),
+								FieldFrom: fmt.Sprint(each_map333.(map[string]interface{})["field_from"]),
+								FieldTo:   fmt.Sprint(each_map333.(map[string]interface{})["field_to"]),
 							}
 							if err := tx.Create(&field2).Error; err != nil {
 								return err
@@ -202,10 +206,10 @@ func (*AssetService) Add(data string) bool {
 						asset_id3 = uuid.GetUuid()
 						asset3 = models.Asset{
 							ID:         asset_id3,
-							Name:       each_map44.(map[string]interface{})["name"].(string),
+							Name:       fmt.Sprint(each_map44.(map[string]interface{})["name"]),
 							Tier:       3,
 							ParentID:   asset_id2,
-							BusinessID: each_map44.(map[string]interface{})["business_id"].(string),
+							BusinessID: fmt.Sprint(each_map44.(map[string]interface{})["business_id"]),
 						}
 						if err := tx.Create(&asset3).Error; err != nil {
 							return err
@@ -219,8 +223,9 @@ func (*AssetService) Add(data string) bool {
 								ID:        device_id3,
 								AssetID:   asset3.ID,
 								Token:     token,
-								Type:      each_map444.(map[string]interface{})["type"].(string),
-								Name:      each_map444.(map[string]interface{})["name"].(string),
+								Type:      fmt.Sprint(each_map444.(map[string]interface{})["type"]),
+								Name:      fmt.Sprint(each_map444.(map[string]interface{})["name"]),
+								Protocol:  fmt.Sprint(each_map444.(map[string]interface{})["protocol"]),
 								Extension: "Extensions",
 							}
 							if err := tx.Create(&device3).Error; err != nil {
@@ -231,8 +236,8 @@ func (*AssetService) Add(data string) bool {
 								field3 = models.FieldMapping{
 									ID:        field_id3,
 									DeviceID:  device3.ID,
-									FieldFrom: each_map4444.(map[string]interface{})["field_from"].(string),
-									FieldTo:   each_map4444.(map[string]interface{})["field_to"].(string),
+									FieldFrom: fmt.Sprint(each_map4444.(map[string]interface{})["field_from"]),
+									FieldTo:   fmt.Sprint(each_map4444.(map[string]interface{})["field_to"]),
 								}
 								if err := tx.Create(&field3).Error; err != nil {
 									return err
@@ -284,12 +289,12 @@ func (*AssetService) Edit(data string) bool {
 	flag := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 		for _, row := range rows {
 			if each_map, ok := row.(map[string]interface{}); ok {
-				if _, exists := each_map["id"]; exists {
+				if _, exists := each_map["id"]; exists && fmt.Sprint(each_map["id"]) != "0" {
 					// 修改
-					asset_id = each_map["id"].(string)
+					asset_id = fmt.Sprint(each_map["id"])
 					err := tx.Model(&models.Asset{}).Where("id = ?", asset_id).Updates(map[string]interface{}{
-						"name":        each_map["name"].(string),
-						"business_id": each_map["business_id"].(string),
+						"name":        fmt.Sprint(each_map["name"]),
+						"business_id": fmt.Sprint(each_map["business_id"]),
 					}).Error
 					if err != nil {
 						return err
@@ -299,10 +304,10 @@ func (*AssetService) Edit(data string) bool {
 					asset_id = uuid.GetUuid()
 					asset = models.Asset{
 						ID:         asset_id,
-						Name:       each_map["name"].(string),
+						Name:       fmt.Sprint(each_map["name"]),
 						Tier:       1,
 						ParentID:   "0",
-						BusinessID: each_map["business_id"].(string),
+						BusinessID: fmt.Sprint(each_map["business_id"]),
 					}
 					if err := tx.Create(&asset).Error; err != nil {
 						// 回滚事务
@@ -311,13 +316,14 @@ func (*AssetService) Edit(data string) bool {
 				}
 				if each_map["device"] != nil {
 					for _, each_map2 := range each_map["device"].([]interface{}) {
-						if _, exists := each_map2.(map[string]interface{})["id"]; exists {
+						if _, exists := each_map2.(map[string]interface{})["id"]; exists && fmt.Sprint(each_map2.(map[string]interface{})["id"]) != "0" {
 							// 修改
-							device_id = each_map2.(map[string]interface{})["id"].(string)
+							device_id = fmt.Sprint(each_map2.(map[string]interface{})["id"])
 							err := tx.Model(&models.Device{}).Where("id = ?", device_id).Updates(map[string]interface{}{
 								"asset_id": asset_id,
-								"type":     each_map2.(map[string]interface{})["type"].(string),
-								"name":     each_map2.(map[string]interface{})["name"].(string),
+								"type":     fmt.Sprint(each_map2.(map[string]interface{})["type"]),
+								"name":     fmt.Sprint(each_map2.(map[string]interface{})["name"]),
+								"protocol": fmt.Sprint(each_map2.(map[string]interface{})["protocol"]),
 							}).Error
 							if err != nil {
 								return err
@@ -332,8 +338,9 @@ func (*AssetService) Edit(data string) bool {
 								ID:        device_id,
 								AssetID:   asset_id,
 								Token:     token,
-								Type:      each_map2.(map[string]interface{})["type"].(string),
-								Name:      each_map2.(map[string]interface{})["name"].(string),
+								Type:      fmt.Sprint(each_map2.(map[string]interface{})["type"]),
+								Name:      fmt.Sprint(each_map2.(map[string]interface{})["name"]),
+								Protocol:  fmt.Sprint(each_map2.(map[string]interface{})["protocol"]),
 								Extension: "Extensions",
 							}
 							if err := tx.Create(&device).Error; err != nil {
@@ -342,12 +349,12 @@ func (*AssetService) Edit(data string) bool {
 						}
 						if each_map2.(map[string]interface{})["mapping"] != nil {
 							for _, each_map22 := range each_map2.(map[string]interface{})["mapping"].([]interface{}) {
-								if _, exists := each_map22.(map[string]interface{})["id"]; exists {
+								if _, exists := each_map22.(map[string]interface{})["id"]; exists && fmt.Sprint(each_map22.(map[string]interface{})["id"]) != "0" {
 									// 修改
-									err := tx.Model(&models.FieldMapping{}).Where("id = ?", each_map22.(map[string]interface{})["id"].(string)).Updates(map[string]interface{}{
+									err := tx.Model(&models.FieldMapping{}).Where("id = ?", fmt.Sprint(each_map22.(map[string]interface{})["id"])).Updates(map[string]interface{}{
 										"device_id":  device_id,
-										"field_from": each_map22.(map[string]interface{})["field_from"].(string),
-										"field_to":   each_map22.(map[string]interface{})["field_to"].(string),
+										"field_from": fmt.Sprint(each_map22.(map[string]interface{})["field_from"]),
+										"field_to":   fmt.Sprint(each_map22.(map[string]interface{})["field_to"]),
 									}).Error
 									if err != nil {
 										return err
@@ -358,8 +365,8 @@ func (*AssetService) Edit(data string) bool {
 									field = models.FieldMapping{
 										ID:        field_id,
 										DeviceID:  device_id,
-										FieldFrom: each_map22.(map[string]interface{})["field_from"].(string),
-										FieldTo:   each_map22.(map[string]interface{})["field_to"].(string),
+										FieldFrom: fmt.Sprint(each_map22.(map[string]interface{})["field_from"]),
+										FieldTo:   fmt.Sprint(each_map22.(map[string]interface{})["field_to"]),
 									}
 									if err := tx.Create(&field).Error; err != nil {
 										return err
@@ -370,13 +377,13 @@ func (*AssetService) Edit(data string) bool {
 					}
 					if each_map["two"] != nil {
 						for _, each_map3 := range each_map["two"].([]interface{}) {
-							if _, exists := each_map3.(map[string]interface{})["id"]; exists {
+							if _, exists := each_map3.(map[string]interface{})["id"]; exists && fmt.Sprint(each_map3.(map[string]interface{})["id"]) != "0" {
 								// 修改
-								asset_id2 = each_map3.(map[string]interface{})["id"].(string)
+								asset_id2 = fmt.Sprint(each_map3.(map[string]interface{})["id"])
 								err := tx.Model(&models.Asset{}).Where("id = ?", asset_id2).Updates(map[string]interface{}{
-									"name":        each_map3.(map[string]interface{})["name"].(string),
+									"name":        fmt.Sprint(each_map3.(map[string]interface{})["name"]),
 									"parent_id":   asset_id,
-									"business_id": each_map3.(map[string]interface{})["business_id"].(string),
+									"business_id": fmt.Sprint(each_map3.(map[string]interface{})["business_id"]),
 								}).Error
 								if err != nil {
 									return err
@@ -386,10 +393,10 @@ func (*AssetService) Edit(data string) bool {
 								asset_id2 = uuid.GetUuid()
 								asset2 = models.Asset{
 									ID:         asset_id2,
-									Name:       each_map3.(map[string]interface{})["name"].(string),
+									Name:       fmt.Sprint(each_map3.(map[string]interface{})["name"]),
 									Tier:       2,
 									ParentID:   asset_id,
-									BusinessID: each_map3.(map[string]interface{})["business_id"].(string),
+									BusinessID: fmt.Sprint(each_map3.(map[string]interface{})["business_id"]),
 								}
 								if err := tx.Create(&asset2).Error; err != nil {
 									return err
@@ -397,13 +404,14 @@ func (*AssetService) Edit(data string) bool {
 							}
 							if each_map3.(map[string]interface{})["device"] != nil {
 								for _, each_map33 := range each_map3.(map[string]interface{})["device"].([]interface{}) {
-									if _, exists := each_map33.(map[string]interface{})["id"]; exists {
+									if _, exists := each_map33.(map[string]interface{})["id"]; exists && fmt.Sprint(each_map33.(map[string]interface{})["id"]) != "0" {
 										// 修改
-										device_id2 = each_map33.(map[string]interface{})["id"].(string)
+										device_id2 = fmt.Sprint(each_map33.(map[string]interface{})["id"])
 										err := tx.Model(&models.Device{}).Where("id = ?", device_id2).Updates(map[string]interface{}{
 											"asset_id": asset_id2,
-											"type":     each_map33.(map[string]interface{})["type"].(string),
-											"name":     each_map33.(map[string]interface{})["name"].(string),
+											"type":     fmt.Sprint(each_map33.(map[string]interface{})["type"]),
+											"name":     fmt.Sprint(each_map33.(map[string]interface{})["name"]),
+											"protocol": fmt.Sprint(each_map33.(map[string]interface{})["protocol"]),
 										}).Error
 										if err != nil {
 											return err
@@ -418,8 +426,9 @@ func (*AssetService) Edit(data string) bool {
 											ID:        device_id2,
 											AssetID:   asset_id2,
 											Token:     token,
-											Type:      each_map33.(map[string]interface{})["type"].(string),
-											Name:      each_map33.(map[string]interface{})["name"].(string),
+											Type:      fmt.Sprint(each_map33.(map[string]interface{})["type"]),
+											Name:      fmt.Sprint(each_map33.(map[string]interface{})["name"]),
+											Protocol:  fmt.Sprint(each_map33.(map[string]interface{})["protocol"]),
 											Extension: "Extensions",
 										}
 										if err := tx.Create(&device2).Error; err != nil {
@@ -427,12 +436,12 @@ func (*AssetService) Edit(data string) bool {
 										}
 									}
 									for _, each_map333 := range each_map33.(map[string]interface{})["mapping"].([]interface{}) {
-										if _, exists := each_map333.(map[string]interface{})["id"]; exists {
+										if _, exists := each_map333.(map[string]interface{})["id"]; exists && fmt.Sprint(each_map333.(map[string]interface{})["id"]) != "0" {
 											// 修改
-											err := tx.Model(&models.FieldMapping{}).Where("id = ?", each_map333.(map[string]interface{})["id"].(string)).Updates(map[string]interface{}{
+											err := tx.Model(&models.FieldMapping{}).Where("id = ?", fmt.Sprint(each_map333.(map[string]interface{})["id"])).Updates(map[string]interface{}{
 												"device_id":  device_id2,
-												"field_from": each_map333.(map[string]interface{})["field_from"].(string),
-												"field_to":   each_map333.(map[string]interface{})["field_to"].(string),
+												"field_from": fmt.Sprint(each_map333.(map[string]interface{})["field_from"]),
+												"field_to":   fmt.Sprint(each_map333.(map[string]interface{})["field_to"]),
 											}).Error
 											if err != nil {
 												return err
@@ -443,8 +452,8 @@ func (*AssetService) Edit(data string) bool {
 											field2 = models.FieldMapping{
 												ID:        field_id2,
 												DeviceID:  device_id2,
-												FieldFrom: each_map333.(map[string]interface{})["field_from"].(string),
-												FieldTo:   each_map333.(map[string]interface{})["field_to"].(string),
+												FieldFrom: fmt.Sprint(each_map333.(map[string]interface{})["field_from"]),
+												FieldTo:   fmt.Sprint(each_map333.(map[string]interface{})["field_to"]),
 											}
 											if err := tx.Create(&field2).Error; err != nil {
 												return err
@@ -455,13 +464,13 @@ func (*AssetService) Edit(data string) bool {
 							}
 							if each_map3.(map[string]interface{})["there"] != nil {
 								for _, each_map44 := range each_map3.(map[string]interface{})["there"].([]interface{}) {
-									if _, exists := each_map44.(map[string]interface{})["id"]; exists {
+									if _, exists := each_map44.(map[string]interface{})["id"]; exists && fmt.Sprint(each_map44.(map[string]interface{})["id"]) != "0" {
 										// 修改
-										asset_id3 = each_map44.(map[string]interface{})["id"].(string)
+										asset_id3 = fmt.Sprint(each_map44.(map[string]interface{})["id"])
 										err := tx.Model(&models.Asset{}).Where("id = ?", asset_id3).Updates(map[string]interface{}{
-											"name":        each_map44.(map[string]interface{})["name"].(string),
+											"name":        fmt.Sprint(each_map44.(map[string]interface{})["name"]),
 											"parent_id":   asset_id2,
-											"business_id": each_map44.(map[string]interface{})["business_id"].(string),
+											"business_id": fmt.Sprint(each_map44.(map[string]interface{})["business_id"]),
 										}).Error
 										if err != nil {
 											return err
@@ -471,10 +480,10 @@ func (*AssetService) Edit(data string) bool {
 										asset_id3 = uuid.GetUuid()
 										asset3 = models.Asset{
 											ID:         asset_id3,
-											Name:       each_map44.(map[string]interface{})["name"].(string),
+											Name:       fmt.Sprint(each_map44.(map[string]interface{})["name"]),
 											Tier:       3,
 											ParentID:   asset_id2,
-											BusinessID: each_map44.(map[string]interface{})["business_id"].(string),
+											BusinessID: fmt.Sprint(each_map44.(map[string]interface{})["business_id"]),
 										}
 										if err := tx.Create(&asset3).Error; err != nil {
 											return err
@@ -482,13 +491,14 @@ func (*AssetService) Edit(data string) bool {
 									}
 									if each_map44.(map[string]interface{})["device"] != nil {
 										for _, each_map444 := range each_map44.(map[string]interface{})["device"].([]interface{}) {
-											if _, exists := each_map444.(map[string]interface{})["id"]; exists {
+											if _, exists := each_map444.(map[string]interface{})["id"]; exists && fmt.Sprint(each_map444.(map[string]interface{})["id"]) != "0" {
 												// 修改
-												device_id3 = each_map444.(map[string]interface{})["id"].(string)
+												device_id3 = fmt.Sprint(each_map444.(map[string]interface{})["id"])
 												err := tx.Model(&models.Device{}).Where("id = ?", device_id3).Updates(map[string]interface{}{
 													"asset_id": asset_id3,
-													"type":     each_map444.(map[string]interface{})["type"].(string),
-													"name":     each_map444.(map[string]interface{})["name"].(string),
+													"type":     fmt.Sprint(each_map444.(map[string]interface{})["type"]),
+													"name":     fmt.Sprint(each_map444.(map[string]interface{})["name"]),
+													"protocol": fmt.Sprint(each_map444.(map[string]interface{})["protocol"]),
 												}).Error
 												if err != nil {
 													return err
@@ -503,8 +513,9 @@ func (*AssetService) Edit(data string) bool {
 													ID:        device_id3,
 													AssetID:   asset_id3,
 													Token:     token,
-													Type:      each_map444.(map[string]interface{})["type"].(string),
-													Name:      each_map444.(map[string]interface{})["name"].(string),
+													Type:      fmt.Sprint(each_map444.(map[string]interface{})["type"]),
+													Name:      fmt.Sprint(each_map444.(map[string]interface{})["name"]),
+													Protocol:  fmt.Sprint(each_map444.(map[string]interface{})["protocol"]),
 													Extension: "Extensions",
 												}
 												if err := tx.Create(&device3).Error; err != nil {
@@ -513,12 +524,12 @@ func (*AssetService) Edit(data string) bool {
 											}
 											if each_map444.(map[string]interface{})["mapping"] != nil {
 												for _, each_map4444 := range each_map444.(map[string]interface{})["mapping"].([]interface{}) {
-													if _, exists := each_map4444.(map[string]interface{})["id"]; exists {
+													if _, exists := each_map4444.(map[string]interface{})["id"]; exists && fmt.Sprint(each_map4444.(map[string]interface{})["id"]) != "0" {
 														// 修改
-														err := tx.Model(&models.FieldMapping{}).Where("id = ?", each_map4444.(map[string]interface{})["id"].(string)).Updates(map[string]interface{}{
+														err := tx.Model(&models.FieldMapping{}).Where("id = ?", fmt.Sprint(each_map4444.(map[string]interface{})["id"])).Updates(map[string]interface{}{
 															"device_id":  device_id3,
-															"field_from": each_map4444.(map[string]interface{})["field_from"].(string),
-															"field_to":   each_map4444.(map[string]interface{})["field_to"].(string),
+															"field_from": fmt.Sprint(each_map4444.(map[string]interface{})["field_from"]),
+															"field_to":   fmt.Sprint(each_map4444.(map[string]interface{})["field_to"]),
 														}).Error
 														if err != nil {
 															return err
@@ -529,8 +540,8 @@ func (*AssetService) Edit(data string) bool {
 														field3 = models.FieldMapping{
 															ID:        field_id3,
 															DeviceID:  device_id3,
-															FieldFrom: each_map4444.(map[string]interface{})["field_from"].(string),
-															FieldTo:   each_map4444.(map[string]interface{})["field_to"].(string),
+															FieldFrom: fmt.Sprint(each_map4444.(map[string]interface{})["field_from"]),
+															FieldTo:   fmt.Sprint(each_map4444.(map[string]interface{})["field_to"]),
 														}
 														if err := tx.Create(&field3).Error; err != nil {
 															return err
@@ -575,6 +586,9 @@ func (*AssetService) GetAssetsByParentID(parent_id string) ([]models.Asset, int6
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(assets) == 0 {
+		assets = []models.Asset{}
+	}
 	return assets, count
 }
 
@@ -585,6 +599,9 @@ func (*AssetService) GetAssetsByTierAndBusinessID(business_id string) ([]models.
 	psql.Mydb.Model(&models.Asset{}).Where("tier=1 AND business_id = ?", business_id).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(assets) == 0 {
+		assets = []models.Asset{}
 	}
 	return assets, count
 }
@@ -605,17 +622,20 @@ func (*AssetService) Extension() []Extension {
 				if len(e) > 0 {
 					i := Extension{
 						Key:         k,
-						Type:        e["type"].(string),
-						Name:        e["name"].(string),
-						Description: e["description"].(string),
-						Version:     e["version"].(string),
-						Author:      e["author"].(string),
-						Email:       e["email"].(string),
+						Type:        fmt.Sprint(e["type"]),
+						Name:        fmt.Sprint(e["name"]),
+						Description: fmt.Sprint(e["description"]),
+						Version:     fmt.Sprint(e["version"]),
+						Author:      fmt.Sprint(e["author"]),
+						Email:       fmt.Sprint(e["email"]),
 					}
 					es = append(es, i)
 				}
 			}
 		}
+	}
+	if len(es) == 0 {
+		es = []Extension{}
 	}
 	return es
 }
@@ -640,11 +660,11 @@ func (*AssetService) Widget(id string) []Widget {
 							item, _ := wv.(map[string]interface{})
 							i := Widget{
 								Key:         wk,
-								Name:        item["name"].(string),
-								Description: item["description"].(string),
-								Class:       item["class"].(string),
-								Thumbnail:   item["thumbnail"].(string),
-								Template:    item["template"].(string),
+								Name:        fmt.Sprint(item["name"]),
+								Description: fmt.Sprint(item["description"]),
+								Class:       fmt.Sprint(item["class"]),
+								Thumbnail:   fmt.Sprint(item["thumbnail"]),
+								Template:    fmt.Sprint(item["template"]),
 							}
 							w = append(w, i)
 						}
@@ -657,11 +677,11 @@ func (*AssetService) Widget(id string) []Widget {
 							item, _ := wv.(map[string]interface{})
 							i := Widget{
 								Key:         wk,
-								Name:        item["name"].(string),
-								Description: item["description"].(string),
-								Class:       item["class"].(string),
-								Thumbnail:   item["thumbnail"].(string),
-								Template:    item["template"].(string),
+								Name:        fmt.Sprint(item["name"]),
+								Description: fmt.Sprint(item["description"]),
+								Class:       fmt.Sprint(item["class"]),
+								Thumbnail:   fmt.Sprint(item["thumbnail"]),
+								Template:    fmt.Sprint(item["template"]),
 							}
 							w = append(w, i)
 						}
@@ -669,6 +689,9 @@ func (*AssetService) Widget(id string) []Widget {
 				}
 			}
 		}
+	}
+	if len(w) == 0 {
+		w = []Widget{}
 	}
 	return w
 }
@@ -702,7 +725,7 @@ func (*AssetService) Field(id string, widget_id string) []Field {
 										if fieldItem["name"] == nil {
 											fin = ""
 										} else {
-											fin = fieldItem["name"].(string)
+											fin = fmt.Sprint(fieldItem["name"])
 										}
 										if fieldItem["type"] == nil {
 											fit = 0
@@ -712,7 +735,7 @@ func (*AssetService) Field(id string, widget_id string) []Field {
 										if fieldItem["symbol"] == nil {
 											fis = ""
 										} else {
-											fis = fieldItem["symbol"].(string)
+											fis = fmt.Sprint(fieldItem["symbol"])
 										}
 										i := Field{
 											Key:    fk,
@@ -730,6 +753,9 @@ func (*AssetService) Field(id string, widget_id string) []Field {
 			}
 		}
 	}
+	if len(w) == 0 {
+		w = []Field{}
+	}
 	return w
 }
 
@@ -741,6 +767,9 @@ func (*AssetService) GetAssetByBusinessId(business_id string) ([]AssetList, int6
 	psql.Mydb.Model(&models.Asset{}).Where("business_id = ? AND parent_id='0'", business_id).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(assets) == 0 {
+		assets = []AssetList{}
 	}
 	return assets, count
 }
@@ -754,6 +783,9 @@ func (*AssetService) GetAssetDataByBusinessId(business_id string) ([]AssetList, 
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(assets) == 0 {
+		assets = []AssetList{}
+	}
 	return assets, count
 }
 
@@ -766,6 +798,9 @@ func (*AssetService) GetAssetData(business_id string) ([]models.Asset, int64) {
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(assets) == 0 {
+		assets = []models.Asset{}
+	}
 	return assets, count
 }
 
@@ -775,6 +810,9 @@ func (*AssetService) All() ([]models.Asset, int64) {
 	result := psql.Mydb.Find(&assets)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(assets) == 0 {
+		assets = []models.Asset{}
 	}
 	return assets, result.RowsAffected
 }

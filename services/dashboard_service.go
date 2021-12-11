@@ -29,12 +29,18 @@ func (*DashBoardService) Paginate(title string, offset int, pageSize int) ([]mod
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
 		}
+		if len(dashBoards) == 0 {
+			dashBoards = []models.DashBoard{}
+		}
 		return dashBoards, count
 	} else {
 		result := psql.Mydb.Model(&models.DashBoard{}).Limit(pageSize).Offset(offset).Find(&dashBoards)
 		psql.Mydb.Model(&models.DashBoard{}).Count(&count)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
+		}
+		if len(dashBoards) == 0 {
+			dashBoards = []models.DashBoard{}
 		}
 		return dashBoards, count
 	}
@@ -117,6 +123,9 @@ func (*DashBoardService) All() ([]models.DashBoard, int64) {
 	result := psql.Mydb.Find(&dashBoards)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(dashBoards) == 0 {
+		dashBoards = []models.DashBoard{}
 	}
 	return dashBoards, result.RowsAffected
 }

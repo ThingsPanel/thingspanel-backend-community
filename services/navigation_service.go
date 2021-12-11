@@ -25,6 +25,9 @@ func (*NavigationService) List() ([]models.Navigation, int64) {
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(navigations) == 0 {
+		navigations = []models.Navigation{}
+	}
 	return navigations, result.RowsAffected
 }
 

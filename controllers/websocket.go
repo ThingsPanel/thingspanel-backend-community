@@ -1,11 +1,10 @@
 package controllers
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"sync"
-	"time"
+	"strings"
 
 	beego "github.com/beego/beego/v2/server/web"
 	"github.com/gorilla/websocket"
@@ -15,159 +14,124 @@ type WebsocketController struct {
 	beego.Controller
 }
 
-var wsUpgrader = websocket.Upgrader{
-	ReadBufferSize:    4096,
-	WriteBufferSize:   4096,
-	EnableCompression: true,
-	HandshakeTimeout:  5 * time.Second,
-	// CheckOrigin: 处理跨域问题，线上环境慎用
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
 }
 
-// 客户端读写消息
-type wsMessage struct {
-	messageType int
-	data        []byte
+type Client struct {
+	ID   string
+	Conn *websocket.Conn
 }
 
-// 客户端连接
-type wsConnection struct {
-	wsSocket *websocket.Conn // 底层websocket
-	inChan   chan *wsMessage // 读队列
-	outChan  chan *wsMessage // 写队列
-
-	mutex     sync.Mutex // Mutex互斥锁，避免重复关闭管道
-	isClosed  bool
-	closeChan chan byte // 关闭通知
+type Ch struct {
+	JoinChan   chan *Client       //用户加入通道
+	ExitChan   chan *Client       //用户退出通道
+	MsgChan    chan string        //消息通道
+	ClientList map[string]*Client //客户端用户列表
 }
 
-func (wsConn *wsConnection) wsReadLoop() {
-	for {
-		// 读一个message
-		msgType, data, err := wsConn.wsSocket.ReadMessage()
-		if err != nil {
-			goto error
-		}
-		req := &wsMessage{}
-		if string(data) == "test" {
-			req = &wsMessage{
-				msgType,
-				[]byte("Hi, this is a test websocket"),
-			}
-		} else {
-			req = &wsMessage{
-				msgType,
-				data,
-			}
-		}
-
-		// 放入请求队列
-		select {
-		case wsConn.inChan <- req:
-		case <-wsConn.closeChan:
-			goto closed
-		}
-	}
-error:
-	wsConn.wsClose()
-closed:
-	fmt.Println("websocket is closed.")
+var AllCh = Ch{
+	JoinChan:   make(chan *Client),
+	ExitChan:   make(chan *Client),
+	MsgChan:    make(chan string),
+	ClientList: make(map[string]*Client),
 }
 
-func (wsConn *wsConnection) wsWriteLoop() {
+type MsgContent struct {
+	Sender   string `json:"sender"`   //发送者
+	Receiver string `json:"receiver"` //接收者
+	Content  string `json:"content"`  //消息内容
+}
+
+func (ch *Ch) Start() {
 	for {
 		select {
-		// 取一个应答
-		case msg := <-wsConn.outChan:
-			// 写给websocket
-			if err := wsConn.wsSocket.WriteMessage(msg.messageType, msg.data); err != nil {
-				goto error
+		case v := <-ch.JoinChan:
+			fmt.Println("用户加入", v.ID)
+			AllCh.ClientList[v.ID] = v
+		case v := <-ch.ExitChan:
+			fmt.Println("用户退出", v.ID)
+			delete(AllCh.ClientList, v.ID)
+		case v := <-ch.MsgChan:
+			var msgContent MsgContent
+			_ = json.Unmarshal([]byte(v), &msgContent)
+			for id, conn := range AllCh.ClientList {
+				if id == msgContent.Receiver {
+					conn.WriteMsg(v)
+				}
 			}
-		case <-wsConn.closeChan:
-			goto closed
 		}
 	}
-error:
-	wsConn.wsClose()
-closed:
-	fmt.Println("websocket is closed.")
 }
 
-func (wsConn *wsConnection) procLoop() {
-	// 启动一个gouroutine发送心跳
-	go func() {
-		for {
-			time.Sleep(3 * time.Second)
-			if err := wsConn.wsWrite(websocket.TextMessage, []byte("heartbeat from server")); err != nil {
-				fmt.Println("heartbeat fail")
-				wsConn.wsClose()
-				break
-			}
-		}
+func (c *Client) ReadMsg() {
+	defer func() {
+		AllCh.ExitChan <- c
+		_ = c.Conn.Close()
 	}()
-
 	for {
-		msg, err := wsConn.wsRead()
+		_, p, err := c.Conn.ReadMessage()
 		if err != nil {
-			fmt.Println("read fail")
 			break
 		}
-		fmt.Println(string(msg.data))
-		err = wsConn.wsWrite(msg.messageType, msg.data)
-		if err != nil {
-			fmt.Println("write fail")
-			break
-		}
+		var msgContent MsgContent
+		_ = json.Unmarshal(p, &msgContent)
+		msgContent.Sender = c.ID
+		message, _ := json.Marshal(msgContent)
+		fmt.Println("读取到客户端的信息:", string(message))
+		AllCh.MsgChan <- string(message)
 	}
 }
 
-func (w *WebsocketController) WsHandler() {
-	wsSocket, err := wsUpgrader.Upgrade(w.Ctx.ResponseWriter, w.Ctx.Request, nil)
+func (c *Client) WriteMsg(message string) {
+	err := c.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("发送到客户端的信息:", message)
+}
+
+func (this *WebsocketController) WsHandler() {
+	w := this.Ctx.ResponseWriter
+	r := this.Ctx.Request
+	go AllCh.Start()
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
-	wsConn := &wsConnection{
-		wsSocket:  wsSocket,
-		inChan:    make(chan *wsMessage, 1000),
-		outChan:   make(chan *wsMessage, 1000),
-		closeChan: make(chan byte),
-		isClosed:  false,
+	uid := FormatQuery(fmt.Sprintf("%v", r.URL), "uid")
+	c := &Client{
+		ID:   uid,
+		Conn: conn,
 	}
-
-	// 处理器
-	go wsConn.procLoop()
-	// 读协程
-	go wsConn.wsReadLoop()
-	// 写协程
-	go wsConn.wsWriteLoop()
+	AllCh.JoinChan <- c
+	go c.ReadMsg()
 }
 
-func (wsConn *wsConnection) wsWrite(messageType int, data []byte) error {
-	select {
-	case wsConn.outChan <- &wsMessage{messageType, data}:
-	case <-wsConn.closeChan:
-		return errors.New("websocket closed")
+func FormatQuery(url string, paramName string) string {
+	urls := strings.Split(url, "?")
+	strParam := urls[1]
+	strArr := strings.Split(strParam, "&")
+	OutMap := make(map[string]interface{})
+	if strArr[0] != "" && len(strArr) > 0 {
+		for _, str := range strArr {
+			newArr := strings.Split(str, "=")
+			key := newArr[0]
+			value := newArr[1]
+			OutMap[key] = value
+		}
 	}
-	return nil
+	return fmt.Sprintf("%v", OutMap[paramName])
 }
 
-func (wsConn *wsConnection) wsRead() (*wsMessage, error) {
-	select {
-	case msg := <-wsConn.inChan:
-		return msg, nil
-	case <-wsConn.closeChan:
-	}
-	return nil, errors.New("websocket closed")
-}
-
-func (wsConn *wsConnection) wsClose() {
-	wsConn.wsSocket.Close()
-	wsConn.mutex.Lock()
-	defer wsConn.mutex.Unlock()
-	if !wsConn.isClosed {
-		wsConn.isClosed = true
-		close(wsConn.closeChan)
-	}
-}
+// func (this *WebsocketController) WsHandler() {
+// 	fmt.Println("参数解析失败")
+// 	response.SuccessWithMessage(400, "WebsocketController", (*context2.Context)(this.Ctx))
+// 	return
+// }

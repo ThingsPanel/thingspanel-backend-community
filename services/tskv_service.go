@@ -36,6 +36,9 @@ func (*TSKVService) All() ([]models.TSKV, int64) {
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(tskvs) == 0 {
+		tskvs = []models.TSKV{}
+	}
 	return tskvs, result.RowsAffected
 }
 
@@ -54,6 +57,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 		fmt.Println("Msg Consumer: Payload values missing")
 		return false
 	}
+	fmt.Println("bg")
 	var device models.Device
 	var tskv models.TSKV
 	result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
@@ -72,6 +76,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				if rt.Error != nil {
 					errors.Is(rt.Error, gorm.ErrRecordNotFound)
 				}
+				fmt.Println(rt.RowsAffected)
 				if rt.RowsAffected > 0 {
 					// 更新
 					rts := psql.Mydb.Model(&models.TSKV{}).Where("entity_type = ? AND entity_id = ? AND key = ?", "DEVICE", device.ID, string(k)).Updates(map[string]interface{}{
@@ -139,6 +144,9 @@ func (*TSKVService) Paginate(entity_id string, t int64, start_time string, end_t
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(tSKVs) == 0 {
+		tSKVs = []models.TSKV{}
+	}
 	return tSKVs, count
 }
 
@@ -176,6 +184,9 @@ func (*TSKVService) GetAllByCondition(entity_id string, t int64, start_time stri
 	result2.Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(tSKVs) == 0 {
+		tSKVs = []models.TSKV{}
 	}
 	return tSKVs, count
 }

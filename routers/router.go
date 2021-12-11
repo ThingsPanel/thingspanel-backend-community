@@ -9,15 +9,16 @@ package routers
 
 import (
 	"ThingsPanel-Go/controllers"
+	"ThingsPanel-Go/middleware"
 
 	"github.com/beego/beego/v2/server/web"
 )
 
 func init() {
 	//跨域
-	//middleware.CorsMiddle()
+	middleware.CorsMiddle()
 	//授权登录中间件
-	//middleware.AuthMiddle()
+	middleware.AuthMiddle()
 	api := web.NewNamespace("/api",
 		// 登录
 		web.NSRouter("/auth/login", &controllers.AuthController{}, "*:Login"),
@@ -68,6 +69,7 @@ func init() {
 		web.NSRouter("/device/token", &controllers.DeviceController{}, "*:Token"),
 		web.NSRouter("/device/index", &controllers.DeviceController{}, "*:Index"),
 		web.NSRouter("/device/edit", &controllers.DeviceController{}, "*:Edit"),
+		web.NSRouter("/device/add", &controllers.DeviceController{}, "*:Add"),
 
 		//可视化
 		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"),
@@ -129,9 +131,8 @@ func init() {
 		web.NSRouter("/kv/list", &controllers.KvController{}, "*:List"),
 		web.NSRouter("/kv/index", &controllers.KvController{}, "*:Index"),
 		web.NSRouter("/kv/export", &controllers.KvController{}, "*:Export"),
-		// 遥测数据
-		web.NSRouter("/ws", &controllers.WebsocketController{}, "get:WsHandler"),
 	)
-
+	// 图表推送数据
+	web.Router("/ws", &controllers.WebsocketController{}, "*:WsHandler")
 	web.AddNamespace(api)
 }

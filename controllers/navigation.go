@@ -141,6 +141,9 @@ func (this *NavigationController) List() {
 			}
 		}
 	}
+	if len(navigationList) == 0 {
+		navigationList = []NavigationList{}
+	}
 	response.SuccessWithDetailed(200, "success", navigationList, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }

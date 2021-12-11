@@ -10,19 +10,19 @@ type PaginateDashBoard struct {
 // AddDashBoard 校验
 type AddDashBoard struct {
 	BusinessId string `json:"business_id" alias:"业务" valid:"Required; MaxSize(36)"`
-	Title      string `alias:"名称" valid:"Required; MaxSize(255)"`
+	Title      string `json:"title" alias:"名称" valid:"Required; MaxSize(255)"`
 }
 
 // EditDashBoard 校验
 type EditDashBoard struct {
-	ID         string `alias:"ID" valid:"Required; MaxSize(36)"`
+	ID         string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
 	BusinessID string `json:"business_id" alias:"业务" valid:"Required; MaxSize(36)"`
-	Title      string `alias:"名称" valid:"Required; MaxSize(255)"`
+	Title      string `json:"title" alias:"名称" valid:"Required; MaxSize(255)"`
 }
 
 // DeleteDashBoard 校验
 type DeleteDashBoard struct {
-	ID string `alias:"ID" valid:"Required; MaxSize(36)"`
+	ID string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
 }
 
 // ListDashBoard 校验
@@ -52,7 +52,7 @@ type DashBoardDashBoard struct {
 
 // realTime struct
 type RealtimeDashBoard struct {
-	Type int64 `json:"Type" alias:"类型" valid:"Required"`
+	Type int64 `json:"type" json:"Type" alias:"类型" valid:"Required"`
 }
 
 type DeviceDashBoard struct {

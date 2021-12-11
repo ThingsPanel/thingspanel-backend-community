@@ -42,12 +42,18 @@ func (*BusinessService) Paginate(name string, offset int, pageSize int) ([]model
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
 		}
+		if len(businesses) == 0 {
+			businesses = []models.Business{}
+		}
 		return businesses, count
 	} else {
 		result := psql.Mydb.Model(&models.Business{}).Limit(pageSize).Offset(offset).Find(&businesses)
 		psql.Mydb.Model(&models.Business{}).Count(&count)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
+		}
+		if len(businesses) == 0 {
+			businesses = []models.Business{}
 		}
 		return businesses, count
 	}
@@ -103,6 +109,9 @@ func (*BusinessService) All() ([]AllBusiness, int64) {
 	psql.Mydb.Model(&models.Business{}).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(businesses) == 0 {
+		businesses = []AllBusiness{}
 	}
 	return businesses, count
 }

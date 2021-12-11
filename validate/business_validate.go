@@ -9,16 +9,16 @@ type PaginateBusiness struct {
 
 // AddBusiness 校验
 type AddBusiness struct {
-	Name string `alias:"名称" valid:"Required; MaxSize(255)"`
+	Name string `json:"name" alias:"名称" valid:"Required; MaxSize(255)"`
 }
 
 // EditBusiness 校验
 type EditBusiness struct {
-	ID   string `alias:"ID" valid:"Required; MaxSize(36)"`
-	Name string `alias:"名称" valid:"Required; MaxSize(255)"`
+	ID   string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
+	Name string `json:"name" alias:"名称" valid:"Required; MaxSize(255)"`
 }
 
 // DeleteBusiness 校验
 type DeleteBusiness struct {
-	ID string `alias:"ID" valid:"Required; MaxSize(36)"`
+	ID string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
 }

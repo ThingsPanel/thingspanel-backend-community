@@ -64,24 +64,28 @@ func (this *WarningconfigController) Index() {
 			r, e := simplejson.NewJson([]byte(wv.Config))
 			if e != nil {
 				fmt.Println("解析出错", e)
+			} else {
+				rows, _ := r.Array()
+				for _, row := range rows {
+					d = append(d, row.(map[string]interface{}))
+				}
+				i := Warningconfigindex{
+					ID:         wv.ID,
+					Wid:        wv.Wid,
+					Name:       wv.Name,
+					Describe:   wv.Describe,
+					Config:     d,
+					Message:    wv.Message,
+					Bid:        wv.Bid,
+					Sensor:     wv.Sensor,
+					CustomerID: wv.CustomerID,
+				}
+				rd = append(rd, i)
 			}
-			rows, _ := r.Array()
-			for _, row := range rows {
-				d = append(d, row.(map[string]interface{}))
-			}
-			i := Warningconfigindex{
-				ID:         wv.ID,
-				Wid:        wv.Wid,
-				Name:       wv.Name,
-				Describe:   wv.Describe,
-				Config:     d,
-				Message:    wv.Message,
-				Bid:        wv.Bid,
-				Sensor:     wv.Sensor,
-				CustomerID: wv.CustomerID,
-			}
-			rd = append(rd, i)
 		}
+	}
+	if len(rd) == 0 {
+		rd = []Warningconfigindex{}
 	}
 	response.SuccessWithDetailed(200, "success", rd, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
@@ -272,6 +276,9 @@ func (this *WarningconfigController) Field() {
 				}
 			}
 		}
+	}
+	if len(wfs) == 0 {
+		wfs = []Warningconfigfield{}
 	}
 	response.SuccessWithDetailed(200, "success", wfs, map[string]string{}, (*context2.Context)(this.Ctx))
 	return

@@ -73,6 +73,9 @@ func (this *BusinessController) Index() {
 			ResBusinessData = append(ResBusinessData, item)
 		}
 	}
+	if len(ResBusinessData) == 0 {
+		ResBusinessData = []services.PaginateBusiness{}
+	}
 	d := PaginateBusiness{
 		CurrentPage: paginateBusinessValidate.Page,
 		Data:        ResBusinessData,

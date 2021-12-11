@@ -53,6 +53,9 @@ func (*FieldMappingService) GetByDeviceid(device_id string) ([]models.FieldMappi
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(fieldMappings) == 0 {
+		fieldMappings = []models.FieldMapping{}
+	}
 	return fieldMappings, result.RowsAffected
 }
 

@@ -95,12 +95,18 @@ func (*UserService) Paginate(name string, offset int, pageSize int) ([]PaginateU
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
 		}
+		if len(users) == 0 {
+			users = []PaginateUser{}
+		}
 		return users, count
 	} else {
 		result := psql.Mydb.Model(&models.Users{}).Limit(pageSize).Offset(offset).Find(&users)
 		psql.Mydb.Model(&models.Users{}).Count(&count)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
+		}
+		if len(users) == 0 {
+			users = []PaginateUser{}
 		}
 		return users, count
 	}

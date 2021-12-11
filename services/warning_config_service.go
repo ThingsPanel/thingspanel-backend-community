@@ -38,6 +38,9 @@ func (*WarningConfigService) Paginate(wid string, offset int, pageSize int) ([]m
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(warningConfigs) == 0 {
+		warningConfigs = []models.WarningConfig{}
+	}
 	return warningConfigs, count
 }
 

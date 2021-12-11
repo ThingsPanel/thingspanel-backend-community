@@ -39,6 +39,9 @@ func (*WidgetService) Paginate(name string, offset int, pageSize int) ([]models.
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(widgets) == 0 {
+		widgets = []models.Widget{}
+	}
 	return widgets, result.RowsAffected
 }
 
@@ -132,6 +135,9 @@ func (*WidgetService) GetWidgetDashboardId(dashboard_id string) ([]models.Widget
 	result := psql.Mydb.Where("dashboard_id = ?", dashboard_id).Find(&widgets)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(widgets) == 0 {
+		widgets = []models.Widget{}
 	}
 	return widgets, result.RowsAffected
 }

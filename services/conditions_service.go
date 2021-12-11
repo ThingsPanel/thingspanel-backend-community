@@ -18,6 +18,9 @@ func (*ConditionsService) All() ([]models.Condition, int64) {
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(conditions) == 0 {
+		conditions = []models.Condition{}
+	}
 	return conditions, result.RowsAffected
 }
 

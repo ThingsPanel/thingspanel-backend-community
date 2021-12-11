@@ -29,13 +29,13 @@ type Widgetextension struct {
 
 // 列表
 func (this *MarketsController) List() {
-	var wi []Widgetextension
 	var ms []Marketextension
 	var AssetService services.AssetService
 	el := AssetService.Extension()
 	if len(el) > 0 {
 		for _, ev := range el {
 			wl := AssetService.Widget(ev.Key)
+			var wi []Widgetextension
 			if len(wl) > 0 {
 				for _, wv := range wl {
 					i := Widgetextension{
@@ -44,6 +44,9 @@ func (this *MarketsController) List() {
 					}
 					wi = append(wi, i)
 				}
+			}
+			if len(wi) == 0 {
+				wi = []Widgetextension{}
 			}
 			mi := Marketextension{
 				Type:        ev.Type,
@@ -56,6 +59,9 @@ func (this *MarketsController) List() {
 			}
 			ms = append(ms, mi)
 		}
+	}
+	if len(ms) == 0 {
+		ms = []Marketextension{}
 	}
 	response.SuccessWithDetailed(200, "success", ms, map[string]string{}, (*context2.Context)(this.Ctx))
 	return

@@ -24,6 +24,9 @@ func (*WarningLogService) Paginate(name string, offset int, pageSize int) ([]mod
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(warningLogs) == 0 {
+		warningLogs = []models.WarningLog{}
+	}
 	return warningLogs, result.RowsAffected
 }
 
@@ -33,6 +36,9 @@ func (*WarningLogService) GetList(offset int, pageSize int) ([]models.WarningLog
 	result := psql.Mydb.Limit(pageSize).Offset(offset).Find(&warningLogs)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(warningLogs) == 0 {
+		warningLogs = []models.WarningLog{}
 	}
 	return warningLogs, result.RowsAffected
 }

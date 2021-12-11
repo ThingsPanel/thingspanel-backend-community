@@ -1,5 +1,5 @@
 mqtt:
-  broker: localhost:1883
+  broker: 39.98.176.26:10000
   clientid: ThingsPanel
   user: guest
   pass: guest

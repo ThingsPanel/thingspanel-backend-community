@@ -20,6 +20,7 @@ func AuthMiddle() {
 	noLogin := map[string]interface{}{
 		"api/auth/login":    0,
 		"api/auth/register": 1,
+		"/ws":               2,
 	}
 	var filterLogin = func(ctx *context.Context) {
 		url := strings.TrimLeft(ctx.Input.URL(), "/")

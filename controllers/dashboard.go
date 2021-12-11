@@ -282,18 +282,18 @@ func (this *DashBoardController) Property() {
 		return
 	}
 	var AssetService services.AssetService
-	var propertyData3 []PropertyData3
-	var propertyData2 []PropertyData2
 	var propertyData []PropertyData
 	a1, c1 := AssetService.GetAssetData(propertyAssetValidate.BusinessID)
 	if c1 > 0 {
 		for _, av1 := range a1 {
 			// 第二层
 			a2, c2 := AssetService.GetAssetsByParentID(av1.ID)
+			var propertyData2 []PropertyData2
 			if c2 > 0 {
 				for _, av2 := range a2 {
 					// 第三层
 					a3, c3 := AssetService.GetAssetsByParentID(av2.ID)
+					var propertyData3 []PropertyData3
 					if c3 > 0 {
 						for _, av3 := range a3 {
 							ai3 := PropertyData3{
@@ -311,6 +311,9 @@ func (this *DashBoardController) Property() {
 							propertyData3 = append(propertyData3, ai3)
 						}
 					}
+					if len(propertyData3) == 0 {
+						propertyData3 = []PropertyData3{}
+					}
 					ai2 := PropertyData2{
 						ID:             av2.ID,
 						AdditionalInfo: av2.AdditionalInfo,
@@ -327,6 +330,9 @@ func (this *DashBoardController) Property() {
 					propertyData2 = append(propertyData2, ai2)
 				}
 			}
+			if len(propertyData2) == 0 {
+				propertyData2 = []PropertyData2{}
+			}
 			ai1 := PropertyData{
 				ID:             av1.ID,
 				AdditionalInfo: av1.AdditionalInfo,
@@ -342,6 +348,9 @@ func (this *DashBoardController) Property() {
 			}
 			propertyData = append(propertyData, ai1)
 		}
+	}
+	if len(propertyData) == 0 {
+		propertyData = []PropertyData{}
 	}
 	response.SuccessWithDetailed(200, "success", propertyData, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
@@ -486,12 +495,12 @@ func (this *DashBoardController) Dashboard() {
 	var AssetService services.AssetService
 	var config services.DashboardConfig
 	var fieldDashBoardData []DashBoardData
-	var fields []map[string]DashBoardFieldsData
 	wl, wc := WidgetService.GetWidgetDashboardId(dashBoardDashBoardValidate.DashboardID)
 	if wc > 0 {
 		for _, wv := range wl {
 			arr := strings.Split(wv.WidgetIdentifier, ":")
 			fs := AssetService.Field(arr[0], arr[1])
+			var fields []map[string]DashBoardFieldsData
 			if len(fs) > 0 {
 				for _, fv := range fs {
 					fi := map[string]DashBoardFieldsData{
@@ -503,6 +512,9 @@ func (this *DashBoardController) Dashboard() {
 					}
 					fields = append(fields, fi)
 				}
+			}
+			if len(fields) == 0 {
+				fields = []map[string]DashBoardFieldsData{}
 			}
 			err := json.Unmarshal([]byte(wv.Config), &config)
 			if err != nil {
@@ -524,6 +536,9 @@ func (this *DashBoardController) Dashboard() {
 			}
 			fieldDashBoardData = append(fieldDashBoardData, d)
 		}
+	}
+	if len(fieldDashBoardData) == 0 {
+		fieldDashBoardData = []DashBoardData{}
 	}
 	response.SuccessWithDetailed(200, "success", fieldDashBoardData, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
@@ -641,6 +656,9 @@ func (this *DashBoardController) Component() {
 				}
 			}
 		}
+	}
+	if len(wi) == 0 {
+		wi = []WidgetIcon{}
 	}
 	response.SuccessWithDetailed(200, "success", wi, map[string]string{}, (*context2.Context)(this.Ctx))
 	return

@@ -37,6 +37,7 @@ type DeviceData struct {
 	Disabled bool                  `json:"disabled"`
 	Dm       string                `json:"dm"`
 	State    string                `json:"state"`
+	Protocol string                `json:"protocol"`
 	Dash     []services.Widget     `json:"dash"`
 	Mapping  []models.FieldMapping `json:"mapping"`
 }
@@ -257,6 +258,9 @@ func (this *AssetController) List() {
 							ResWidgetData = append(ResWidgetData, wv)
 						}
 					}
+					if len(ResWidgetData) == 0 {
+						ResWidgetData = []services.Widget{}
+					}
 					fml, _ := FieldMappingService.GetByDeviceid(di.ID)
 					rdi := DeviceData{
 						ID:       di.ID,
@@ -265,11 +269,15 @@ func (this *AssetController) List() {
 						Disabled: disabled,
 						Dm:       dm,
 						State:    state,
+						Protocol: di.Protocol,
 						Dash:     ResWidgetData,
 						Mapping:  fml,
 					}
 					ResDeviceData = append(ResDeviceData, rdi)
 				}
+			}
+			if len(ResDeviceData) == 0 {
+				ResDeviceData = []DeviceData{}
 			}
 			//第二层
 			l2, c2 := AssetService.GetAssetsByParentID(s.ID)
@@ -296,6 +304,9 @@ func (this *AssetController) List() {
 									ResWidgetData2 = append(ResWidgetData2, wv)
 								}
 							}
+							if len(ResWidgetData2) == 0 {
+								ResWidgetData2 = []services.Widget{}
+							}
 							fml, _ := FieldMappingService.GetByDeviceid(di.ID)
 							rdi := DeviceData{
 								ID:       di.ID,
@@ -304,11 +315,15 @@ func (this *AssetController) List() {
 								Disabled: disabled,
 								Dm:       dm,
 								State:    state,
+								Protocol: di.Protocol,
 								Dash:     ResWidgetData2,
 								Mapping:  fml,
 							}
 							ResDeviceData2 = append(ResDeviceData2, rdi)
 						}
+					}
+					if len(ResDeviceData2) == 0 {
+						ResDeviceData2 = []DeviceData{}
 					}
 					// 第三层
 					l3, c3 := AssetService.GetAssetsByParentID(s.ID)
@@ -335,6 +350,9 @@ func (this *AssetController) List() {
 											ResWidgetData3 = append(ResWidgetData3, wv)
 										}
 									}
+									if len(ResWidgetData3) == 0 {
+										ResWidgetData3 = []services.Widget{}
+									}
 									fml, _ := FieldMappingService.GetByDeviceid(di.ID)
 									rdi := DeviceData{
 										ID:       di.ID,
@@ -343,11 +361,15 @@ func (this *AssetController) List() {
 										Disabled: disabled,
 										Dm:       dm,
 										State:    state,
+										Protocol: di.Protocol,
 										Dash:     ResWidgetData3,
 										Mapping:  fml,
 									}
 									ResDeviceData3 = append(ResDeviceData3, rdi)
 								}
+							}
+							if len(ResDeviceData3) == 0 {
+								ResDeviceData3 = []DeviceData{}
 							}
 							rd := AssetData3{
 								ID:         s.ID,
@@ -358,6 +380,9 @@ func (this *AssetController) List() {
 							}
 							ResAssetData3 = append(ResAssetData3, rd)
 						}
+					}
+					if len(ResAssetData3) == 0 {
+						ResAssetData3 = []AssetData3{}
 					}
 					rd := AssetData2{
 						ID:         s.ID,
@@ -370,6 +395,9 @@ func (this *AssetController) List() {
 					ResAssetData2 = append(ResAssetData2, rd)
 				}
 			}
+			if len(ResAssetData2) == 0 {
+				ResAssetData2 = []AssetData2{}
+			}
 			rd := AssetData{
 				ID:         s.ID,
 				Name:       s.Name,
@@ -379,6 +407,9 @@ func (this *AssetController) List() {
 				Two:        ResAssetData2,
 			}
 			ResAssetData = append(ResAssetData, rd)
+		}
+		if len(ResAssetData) == 0 {
+			ResAssetData = []AssetData{}
 		}
 		response.SuccessWithDetailed(200, "success", ResAssetData, map[string]string{}, (*context2.Context)(this.Ctx))
 		return

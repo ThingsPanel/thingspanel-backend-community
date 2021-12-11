@@ -29,5 +29,5 @@ type EditCustomer struct {
 
 // DeleteCustomer 校验
 type DeleteCustomer struct {
-	ID string `alias:"ID" valid:"Required; MaxSize(36)"`
+	ID string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
 }

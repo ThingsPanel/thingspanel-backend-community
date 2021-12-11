@@ -3,6 +3,7 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	uuid "ThingsPanel-Go/utils"
 	"errors"
 
 	"gorm.io/gorm"
@@ -30,6 +31,9 @@ func (*DeviceService) GetDevicesByAssetID(asset_id string) ([]models.Device, int
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(devices) == 0 {
+		devices = []models.Device{}
+	}
 	return devices, count
 }
 
@@ -41,6 +45,9 @@ func (*DeviceService) GetAllDeviceByID(id string) ([]models.Device, int64) {
 	psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(devices) == 0 {
+		devices = []models.Device{}
 	}
 	return devices, count
 }
@@ -72,6 +79,9 @@ func (*DeviceService) All() ([]models.Device, int64) {
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(devices) == 0 {
+		devices = []models.Device{}
+	}
 	return devices, result.RowsAffected
 }
 
@@ -86,4 +96,18 @@ func (*DeviceService) Edit(id string, token string, protocol string) bool {
 		return false
 	}
 	return true
+}
+
+func (*DeviceService) Add(token string, protocol string) (bool, string) {
+	var uuid = uuid.GetUuid()
+	device := models.Device{
+		Token:    token,
+		Protocol: protocol,
+	}
+	result := psql.Mydb.Create(&device)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return false, ""
+	}
+	return true, uuid
 }

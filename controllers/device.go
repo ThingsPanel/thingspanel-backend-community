@@ -53,6 +53,36 @@ func (this *DeviceController) Edit() {
 	return
 }
 
+func (this *DeviceController) Add() {
+	addDeviceValidate := valid.AddDevice{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &addDeviceValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(addDeviceValidate)
+	if !status {
+		for _, err := range v.Errors {
+			alias := gvalid.GetAlias(addDeviceValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	var DeviceService services.DeviceService
+	f, _ := DeviceService.Add(
+		addDeviceValidate.Token,
+		addDeviceValidate.Protocol,
+	)
+	if f {
+		response.SuccessWithMessage(200, "添加成功", (*context2.Context)(this.Ctx))
+		return
+	}
+	response.SuccessWithMessage(400, "添加失败", (*context2.Context)(this.Ctx))
+	return
+}
+
 // 扫码激活设备
 func (this *DeviceController) Scan() {
 	this.Data["json"] = "Scan success"

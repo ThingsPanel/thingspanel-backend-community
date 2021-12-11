@@ -24,6 +24,9 @@ func (*OperationLogService) Paginate(offset int, pageSize int) ([]models.Operati
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
+	if len(operationLogs) == 0 {
+		operationLogs = []models.OperationLog{}
+	}
 	return operationLogs, result.RowsAffected
 }
 
@@ -33,6 +36,9 @@ func (*OperationLogService) List(offset int, pageSize int) ([]models.OperationLo
 	result := psql.Mydb.Order("created_at desc").Limit(pageSize).Offset(offset).Find(&operationLogs)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(operationLogs) == 0 {
+		operationLogs = []models.OperationLog{}
 	}
 	return operationLogs, result.RowsAffected
 }

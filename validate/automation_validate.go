@@ -3,18 +3,18 @@ package valid
 // AutomationIndex 校验
 type AutomationIndex struct {
 	BusinessId string `json:"business_id" alias:"业务" valid:"Required; MaxSize(36)"`
-	Page       int    `alias:"页码" valid:"Min(1)"`
-	Limit      int    `alias:"条数" valid:"Min(10)"`
+	Page       int    `json:"page" alias:"页码" valid:"Min(1)"`
+	Limit      int    `json:"limit" alias:"条数" valid:"Min(10)"`
 }
 
 // AutomationAdd 校验
 type AutomationAdd struct {
 	BusinessID string `json:"business_id" alias:"业务" valid:"Required; MaxSize(36)"`
 	Name       string `json:"name" alias:"名称" valid:"Required; MaxSize(36)"`
-	Describe   string `json:"Describe" alias:"描述" valid:"Required; MaxSize(36)"`
-	Status     string `json:"status" alias:"状态" valid:"Required; MaxSize(36)"`
+	Describe   string `json:"describe" alias:"描述" valid:"Required; MaxSize(36)"`
+	Status     int64  `json:"status" alias:"状态" valid:"Required;"`
 	Config     string `json:"config" alias:"配置" valid:"Required; MaxSize(36)"`
-	Sort       int64  `json:"Sort" alias:"排序" valid:"Required; MaxSize(36)"`
+	Sort       int64  `json:"sort" alias:"排序" valid:"Required; MaxSize(36)"`
 	Type       int64  `json:"type" alias:"类型" valid:"Required; MaxSize(36)"`
 	Issued     string `json:"issued" alias:"发布" valid:"Required; MaxSize(36)"`
 	CustomerID string `json:"customer_id" alias:"客户" valid:"Required; MaxSize(36)"`
@@ -25,10 +25,10 @@ type AutomationEdit struct {
 	ID         string `json:"id" alias:"ID" valid:"MaxSize(36)"`
 	BusinessID string `json:"business_id" alias:"业务" valid:"Required; MaxSize(36)"`
 	Name       string `json:"name" alias:"名称" valid:"Required; MaxSize(36)"`
-	Describe   string `json:"Describe" alias:"描述" valid:"Required; MaxSize(36)"`
-	Status     string `json:"status" alias:"状态" valid:"Required; MaxSize(36)"`
+	Describe   string `json:"describe" alias:"描述" valid:"Required; MaxSize(36)"`
+	Status     int64  `json:"status" alias:"状态" valid:"Required;"`
 	Config     string `json:"config" alias:"配置" valid:"Required; MaxSize(36)"`
-	Sort       int64  `json:"Sort" alias:"排序" valid:"Required; MaxSize(36)"`
+	Sort       int64  `json:"sort" alias:"排序" valid:"Required; MaxSize(36)"`
 	Type       int64  `json:"type" alias:"类型" valid:"Required; MaxSize(36)"`
 	Issued     string `json:"issued" alias:"发布" valid:"Required; MaxSize(36)"`
 	CustomerID string `json:"customer_id" alias:"客户" valid:"Required; MaxSize(36)"`

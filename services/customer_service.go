@@ -23,12 +23,18 @@ func (*CustomerService) Paginate(name string, offset int, pageSize int) ([]model
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
 		}
+		if len(customers) == 0 {
+			customers = []models.Customer{}
+		}
 		return customers, count
 	} else {
 		result := psql.Mydb.Model(&models.Customer{}).Limit(pageSize).Offset(offset).Find(&customers)
 		psql.Mydb.Model(&models.Customer{}).Count(&count)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
+		}
+		if len(customers) == 0 {
+			customers = []models.Customer{}
 		}
 		return customers, count
 	}

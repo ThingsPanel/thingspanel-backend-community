@@ -58,9 +58,9 @@ func (this *StructureController) Add() {
 				fm_id := uuid.GetUuid()
 				fieldMapping := models.FieldMapping{
 					ID:        fm_id,
-					DeviceID:  each_map["device_id"].(string),
-					FieldFrom: each_map["field_from"].(string),
-					FieldTo:   each_map["field_to"].(string),
+					DeviceID:  fmt.Sprint(each_map["device_id"]),
+					FieldFrom: fmt.Sprint(each_map["field_from"]),
+					FieldTo:   fmt.Sprint(each_map["field_to"]),
 				}
 				if err := tx.Create(&fieldMapping).Error; err != nil {
 					return err
@@ -130,9 +130,9 @@ func (this *StructureController) Edit() {
 		for _, row := range rows {
 			if each_map, ok := row.(map[string]interface{}); ok {
 				if each_map["id"] != nil {
-					result := tx.Model(&models.FieldMapping{}).Where("id = ?", each_map["id"].(string)).Updates(map[string]interface{}{
-						"field_from": each_map["field_from"].(string),
-						"field_to":   each_map["field_to"].(string),
+					result := tx.Model(&models.FieldMapping{}).Where("id = ?", fmt.Sprint(each_map["id"])).Updates(map[string]interface{}{
+						"field_from": fmt.Sprint(each_map["field_from"]),
+						"field_to":   fmt.Sprint(each_map["field_to"]),
 					})
 					if result.Error != nil {
 						return err
@@ -141,9 +141,9 @@ func (this *StructureController) Edit() {
 					fm_id := uuid.GetUuid()
 					fieldMapping := models.FieldMapping{
 						ID:        fm_id,
-						DeviceID:  each_map["device_id"].(string),
-						FieldFrom: each_map["field_from"].(string),
-						FieldTo:   each_map["field_to"].(string),
+						DeviceID:  fmt.Sprint(each_map["device_id"]),
+						FieldFrom: fmt.Sprint(each_map["field_from"]),
+						FieldTo:   fmt.Sprint(each_map["field_to"]),
 					}
 					if err := tx.Create(&fieldMapping).Error; err != nil {
 						return err
@@ -225,6 +225,9 @@ func (this *StructureController) Field() {
 				}
 			}
 		}
+	}
+	if len(wd) == 0 {
+		wd = []StructureW{}
 	}
 	response.SuccessWithDetailed(200, "success", wd, map[string]string{}, (*context2.Context)(this.Ctx))
 	return

@@ -3,7 +3,6 @@ package tcp
 import (
 	"ThingsPanel-Go/services"
 	"fmt"
-	"runtime/debug"
 	"sync/atomic"
 	"time"
 
@@ -34,7 +33,7 @@ func Listen(tcpPort string) {
 	go func() {
 		time.Sleep(1 * time.Second)
 		if e := srv.Stop(false); e != nil {
-			fmt.Println(fmt.Sprintf("%s \n %s", e.Error(), debug.Stack()))
+			fmt.Println(e.Error())
 		}
 	}()
 }

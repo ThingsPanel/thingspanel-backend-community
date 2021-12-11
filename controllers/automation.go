@@ -58,7 +58,7 @@ type AutoUpdate struct {
 	BusinessID string    `json:"business_id"`
 	Name       string    `json:"name"`
 	Describe   string    `json:"describe"`
-	Status     string    `json:"status"`
+	Status     int64     `json:"status"`
 	Config     ConfigAll `json:"config"`
 	Sort       int64     `json:"sort"`
 	Type       int64     `json:"type"`
@@ -342,6 +342,9 @@ func (this *AutomationController) Property() {
 			}
 			dl2 = append(dl2, i2)
 		}
+		if len(dl2) == 0 {
+			dl2 = []AssetDevice2{}
+		}
 		i := AssetDevice{
 			ID:             dv.ID,
 			AdditionalInfo: dv.AdditionalInfo,
@@ -356,6 +359,9 @@ func (this *AutomationController) Property() {
 			Children:       dl2,
 		}
 		dl = append(dl, i)
+	}
+	if len(dl) == 0 {
+		dl = []AssetDevice{}
 	}
 	response.SuccessWithDetailed(200, "success", dl, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
@@ -397,6 +403,9 @@ func (this *AutomationController) Show() {
 			}
 		}
 	}
+	if len(fd) == 0 {
+		fd = []services.Field{}
+	}
 	response.SuccessWithDetailed(200, "success", fd, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
@@ -435,10 +444,8 @@ func (this *AutomationController) Update() {
 		rows, _ := res.Get("rules").Array()
 		for _, row := range rows {
 			var fd []services.Field
-			var widgetValue []widgetList
-			var component []ConditionArr
 			ri, _ := row.(map[string]interface{})
-			d, _ := DeviceService.GetDeviceByID(ri["device_id"].(string))
+			d, _ := DeviceService.GetDeviceByID(fmt.Sprint(ri["device_id"]))
 			wl := AssetService.Widget(d.Type)
 			if len(wl) > 0 {
 				for _, wv := range wl {
@@ -452,7 +459,11 @@ func (this *AutomationController) Update() {
 					}
 				}
 			}
-			dl, dc := DeviceService.GetDevicesByAssetID(ri["asset_id"].(string))
+			if len(fd) == 0 {
+				fd = []services.Field{}
+			}
+			dl, dc := DeviceService.GetDevicesByAssetID(fmt.Sprint(ri["asset_id"]))
+			var component []ConditionArr
 			if dc > 0 {
 				for _, dv := range dl {
 					el := AssetService.Extension()
@@ -465,6 +476,7 @@ func (this *AutomationController) Update() {
 						}
 					}
 					wl2 := AssetService.Widget(dv.Type)
+					var widgetValue []widgetList
 					if len(wl2) > 0 {
 						for _, wv2 := range wl2 {
 							i2 := widgetList{
@@ -474,6 +486,9 @@ func (this *AutomationController) Update() {
 							widgetValue = append(widgetValue, i2)
 						}
 					}
+					if len(widgetValue) == 0 {
+						widgetValue = []widgetList{}
+					}
 					c := ConditionArr{
 						ID:      dv.ID,
 						Name:    n,
@@ -481,6 +496,9 @@ func (this *AutomationController) Update() {
 					}
 					component = append(component, c)
 				}
+			}
+			if len(component) == 0 {
+				component = []ConditionArr{}
 			}
 			cai := Configrules{
 				Device:       de,
@@ -490,14 +508,14 @@ func (this *AutomationController) Update() {
 			ca = append(ca, cai)
 		}
 	}
-
+	if len(ca) == 0 {
+		ca = []Configrules{}
+	}
 	rows2, _ := res.Get("apply").Array()
 	for _, row2 := range rows2 {
 		var fd2 []services.Field
-		var widgetValue2 []widgetList
-		var component2 []ConditionArr
 		ri2, _ := row2.(map[string]interface{})
-		d2, _ := DeviceService.GetDeviceByID(ri2["device_id"].(string))
+		d2, _ := DeviceService.GetDeviceByID(fmt.Sprint(ri2["device_id"]))
 		wl2 := AssetService.Widget(d2.Type)
 		if len(wl2) > 0 {
 			for _, wv2 := range wl2 {
@@ -511,7 +529,11 @@ func (this *AutomationController) Update() {
 				}
 			}
 		}
-		dl2, dc2 := DeviceService.GetDevicesByAssetID(ri2["asset_id"].(string))
+		if len(fd2) == 0 {
+			fd2 = []services.Field{}
+		}
+		dl2, dc2 := DeviceService.GetDevicesByAssetID(fmt.Sprint(ri2["asset_id"]))
+		var component2 []ConditionArr
 		if dc2 > 0 {
 			for _, dv2 := range dl2 {
 				el2 := AssetService.Extension()
@@ -524,6 +546,7 @@ func (this *AutomationController) Update() {
 					}
 				}
 				wl22 := AssetService.Widget(dv2.Type)
+				var widgetValue2 []widgetList
 				if len(wl22) > 0 {
 					for _, wv22 := range wl22 {
 						i22 := widgetList{
@@ -533,6 +556,9 @@ func (this *AutomationController) Update() {
 						widgetValue2 = append(widgetValue2, i22)
 					}
 				}
+				if len(widgetValue2) == 0 {
+					widgetValue2 = []widgetList{}
+				}
 				c2 := ConditionArr{
 					ID:      dv2.ID,
 					Name:    n2,
@@ -541,12 +567,18 @@ func (this *AutomationController) Update() {
 				component2 = append(component2, c2)
 			}
 		}
+		if len(component2) == 0 {
+			component2 = []ConditionArr{}
+		}
 		cai2 := ConfigApply{
 			Device:       de,
 			AssemblyArr:  fd2,
 			ConditionArr: component2,
 		}
 		ca2 = append(ca2, cai2)
+	}
+	if len(ca2) == 0 {
+		ca2 = []ConfigApply{}
 	}
 	config := ConfigAll{
 		Rules: ca,
@@ -603,6 +635,9 @@ func (this *AutomationController) Instruct() {
 				}
 			}
 		}
+	}
+	if len(fd) == 0 {
+		fd = []services.Field{}
 	}
 	response.SuccessWithDetailed(200, "success", fd, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
