@@ -24,9 +24,8 @@ type TSKVService struct {
 }
 
 type mqttPayload struct {
-	Token  string        `json:"token"`
-	Values []interface{} `json:"values"`
-	Ts     int64         `json:"ts"`
+	Token  string                 `json:"token"`
+	Values map[string]interface{} `json:"values"`
 }
 
 // 获取全部TSKV
@@ -57,50 +56,61 @@ func (*TSKVService) MsgProc(body []byte) bool {
 		fmt.Println("Msg Consumer: Payload values missing")
 		return false
 	}
-	fmt.Println("bg")
 	var device models.Device
-	var tskv models.TSKV
+	var d models.TSKV
 	result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if result.RowsAffected > 0 {
+		ts := time.Now().UnixMicro()
 		for k, v := range payload.Values {
-			vint, ok := v.(float64)
-			if ok {
-				ts := payload.Ts
-				if ts == 0 {
-					ts = time.Now().UnixMicro()
+			switch value := v.(type) {
+			case int64:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        k,
+					TS:         ts,
+					LongV:      value,
 				}
-				rt := psql.Mydb.Where("entity_type = ? AND entity_id = ? AND key = ?", "DEVICE", device.ID, strconv.Itoa(k)).First(&tskv)
-				if rt.Error != nil {
-					errors.Is(rt.Error, gorm.ErrRecordNotFound)
+			case string:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        k,
+					TS:         ts,
+					StrV:       value,
 				}
-				fmt.Println(rt.RowsAffected)
-				if rt.RowsAffected > 0 {
-					// 更新
-					rts := psql.Mydb.Model(&models.TSKV{}).Where("entity_type = ? AND entity_id = ? AND key = ?", "DEVICE", device.ID, string(k)).Updates(map[string]interface{}{
-						"ts":    ts,
-						"dbl_v": vint,
-					})
-					if rts.Error != nil {
-						log.Println("Msg Consumer: Cannot insert into ts_kv")
-						return false
-					}
-				} else {
-					d := models.TSKV{
-						EntityType: "DEVICE",
-						EntityID:   device.ID,
-						Key:        strconv.Itoa(k),
-						TS:         ts,
-						DoubleV:    vint,
-					}
-					rts := psql.Mydb.Create(&d)
-					if rts.Error != nil {
-						log.Println("Msg Consumer: Cannot insert into ts_kv")
-						return false
-					}
+			case bool:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        k,
+					TS:         ts,
+					BoolV:      strconv.FormatBool(value),
 				}
+			case float64:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        k,
+					TS:         ts,
+					DblV:       value,
+				}
+			default:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        k,
+					TS:         ts,
+					StrV:       fmt.Sprint(value),
+				}
+			}
+			rts := psql.Mydb.Create(&d)
+			if rts.Error != nil {
+				log.Println(rts.Error)
+				return false
 			}
 		}
 		return true
@@ -189,4 +199,87 @@ func (*TSKVService) GetAllByCondition(entity_id string, t int64, start_time stri
 		tSKVs = []models.TSKV{}
 	}
 	return tSKVs, count
+}
+
+func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64) []interface{} {
+	var ts_kvs []models.TSKV
+	var devices []interface{}
+	var FieldMappingService FieldMappingService
+	if len(device_ids) > 0 {
+		for _, d := range device_ids {
+			device := make(map[string]interface{})
+			result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ?", startTs, endTs, d).Order("ts asc").Find(&ts_kvs)
+			if result.Error != nil {
+				errors.Is(result.Error, gorm.ErrRecordNotFound)
+			}
+			var fields []map[string]interface{}
+			if result.RowsAffected > 0 {
+				var i int64 = 0
+				var field map[string]interface{}
+				field_from := ""
+				c := result.RowsAffected
+				for k, v := range ts_kvs {
+					if field_from != v.Key {
+						field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
+						if field_from == "" {
+							field_from = v.Key
+						}
+					}
+					if i != v.TS {
+						if i != 0 {
+							fields = append(fields, field)
+						}
+						field = make(map[string]interface{})
+						if v.BoolV != "" {
+							field[field_from] = v.BoolV
+						} else if v.StrV != "" {
+							field[field_from] = v.StrV
+						} else if v.LongV != 0 {
+							field[field_from] = v.LongV
+						} else if v.DblV != 0 {
+							field[field_from] = v.DblV
+						}
+						i = v.TS
+					} else {
+						if v.BoolV != "" {
+							field[field_from] = v.BoolV
+						} else if v.StrV != "" {
+							field[field_from] = v.StrV
+						} else if v.LongV != 0 {
+							field[field_from] = v.LongV
+						} else if v.DblV != 0 {
+							field[field_from] = v.DblV
+						}
+						if c == int64(k+1) {
+							fields = append(fields, field)
+						}
+					}
+				}
+			}
+			device["device_id"] = d
+			if len(fields) == 0 {
+				device["fields"] = make([]string, 0)
+				device["latest"] = make([]string, 0)
+			} else {
+				device["fields"] = fields
+				device["latest"] = fields[len(fields)-1]
+			}
+			devices = append(devices, device)
+		}
+	} else {
+		fmt.Println("device_ids不能为空")
+	}
+	if len(devices) == 0 {
+		devices = make([]interface{}, 0)
+	}
+	return devices
+}
+
+func (*TSKVService) Status(device_id string) (*models.TSKV, int64) {
+	var tskv models.TSKV
+	result := psql.Mydb.Where("entity_id = ?", device_id).Order("ts asc").First(&tskv)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	return &tskv, result.RowsAffected
 }

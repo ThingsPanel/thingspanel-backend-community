@@ -77,7 +77,7 @@ func init() {
 		web.NSRouter("/dashboard/edit", &controllers.WidgetController{}, "*:Edit"),
 		web.NSRouter("/dashboard/delete", &controllers.WidgetController{}, "*:Delete"),
 		web.NSRouter("/dashboard/paneladd", &controllers.DashBoardController{}, "*:Add"),
-		web.NSRouter("/dashboard/paneladd", &controllers.DashBoardController{}, "*:Add"),
+		web.NSRouter("/dashboard/paneldelete", &controllers.DashBoardController{}, "*:Delete"),
 		web.NSRouter("/dashboard/paneledit", &controllers.DashBoardController{}, "*:Edit"),
 		web.NSRouter("/dashboard/list", &controllers.DashBoardController{}, "*:List"),
 		web.NSRouter("/dashboard/business", &controllers.DashBoardController{}, "*:Business"),

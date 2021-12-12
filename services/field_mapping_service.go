@@ -68,3 +68,19 @@ func (*FieldMappingService) Delete(id string) bool {
 	}
 	return true
 }
+
+// 转换FieldMapping
+func (*FieldMappingService) TransformByDeviceid(device_id string, field_to string) string {
+	var fieldMappings models.FieldMapping
+	var field_from string
+	result := psql.Mydb.Where("device_id = ? AND field_to = ?", device_id, field_to).Find(&fieldMappings)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if result.RowsAffected == 0 {
+		field_from = ""
+	} else {
+		field_from = fieldMappings.FieldFrom
+	}
+	return field_from
+}

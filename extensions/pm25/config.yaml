@@ -1,0 +1,31 @@
+pm25:
+  type: 'app'
+  name: 'PM2.5插件'
+  description: 'PM2.5插件 PM2.5 plug-in'
+  version: '1.0.0'
+  author: ''
+  email: ''
+  widgets:
+    pm25_main:
+      name: 'PM信息'
+      description: 'PM信息'
+      receiver: 'Pm25'
+      thumbnail: '/pm25.png'
+      template: 'pm25_main'
+      fields:
+        time:
+          name: '时间'
+          type: 3
+          symbol: ''
+        pm25:
+          name: 'PM2.5'
+          type: 3
+          symbol: 'ug/m3'
+        pa10:
+          name: 'PA10'
+          type: 3
+          symbol: 'mg/h'
+        pm100:
+          name: 'PM100'
+          type: 3
+          symbol: 'ug/h'

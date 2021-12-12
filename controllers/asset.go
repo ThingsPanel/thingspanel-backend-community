@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
@@ -234,6 +235,7 @@ func (this *AssetController) List() {
 	var AssetService services.AssetService
 	var DeviceService services.DeviceService
 	var FieldMappingService services.FieldMappingService
+	var TSKVService services.TSKVService
 	l, c := AssetService.GetAssetByBusinessId(listAssetValidate.BusinessID)
 	if c != 0 {
 		// 第一层
@@ -245,11 +247,20 @@ func (this *AssetController) List() {
 					if di.Type == "-1" {
 						disabled = false
 						dm = ""
-						state = ""
 					} else {
 						disabled = true
 						dm = "代码"
-						state = "正常"
+					}
+					tsl, tsc := TSKVService.Status(di.ID)
+					if tsc == 0 {
+						state = "待接入"
+					} else {
+						ts := time.Now().UnixMicro()
+						if (ts - tsl.TS) > 100000 {
+							state = "异常"
+						} else {
+							state = "正常"
+						}
 					}
 					dd := AssetService.Widget(di.Type)
 					var ResWidgetData []services.Widget
@@ -291,11 +302,20 @@ func (this *AssetController) List() {
 							if di.Type == "-1" {
 								disabled = false
 								dm = ""
-								state = ""
 							} else {
 								disabled = true
 								dm = "代码"
-								state = "正常"
+							}
+							tsl, tsc := TSKVService.Status(di.ID)
+							if tsc == 0 {
+								state = "待接入"
+							} else {
+								ts := time.Now().UnixMicro()
+								if (ts - tsl.TS) > 100000 {
+									state = "异常"
+								} else {
+									state = "正常"
+								}
 							}
 							dd := AssetService.Widget(di.Type)
 							var ResWidgetData2 []services.Widget
@@ -337,11 +357,20 @@ func (this *AssetController) List() {
 									if di.Type == "-1" {
 										disabled = false
 										dm = ""
-										state = ""
 									} else {
 										disabled = true
 										dm = "代码"
-										state = "正常"
+									}
+									tsl, tsc := TSKVService.Status(di.ID)
+									if tsc == 0 {
+										state = "待接入"
+									} else {
+										ts := time.Now().UnixMicro()
+										if (ts - tsl.TS) > 100000 {
+											state = "异常"
+										} else {
+											state = "正常"
+										}
 									}
 									dd := AssetService.Widget(di.Type)
 									var ResWidgetData3 []services.Widget

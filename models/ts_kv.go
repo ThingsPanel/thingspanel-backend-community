@@ -8,7 +8,7 @@ type TSKV struct {
 	BoolV      string  `json:"bool_v" gorm:"size:5"`
 	StrV       string  `json:"str_v" gorm:"type:longtext"`
 	LongV      int64   `json:"long_v"`
-	DoubleV    float64 `json:"dbl_v"` // 数值
+	DblV       float64 `json:"dbl_v"`
 }
 
 func (TSKV) TableName() string {

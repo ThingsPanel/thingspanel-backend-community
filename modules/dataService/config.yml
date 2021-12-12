@@ -1,5 +1,5 @@
 mqtt:
-  broker: 39.98.176.26:10000
+  broker: 127.0.0.1:1883
   clientid: ThingsPanel
   user: guest
   pass: guest

@@ -109,7 +109,7 @@ func (this *KvController) Export() {
 			excel_file.SetCellValue("Sheet1", "B"+is, tv.EntityID)
 			excel_file.SetCellValue("Sheet1", "C"+is, tv.Key)
 			excel_file.SetCellValue("Sheet1", "D"+is, tv.TS)
-			excel_file.SetCellValue("Sheet1", "E"+is, tv.DoubleV)
+			excel_file.SetCellValue("Sheet1", "E"+is, tv.DblV)
 		}
 	}
 	// 根据指定路径保存文件

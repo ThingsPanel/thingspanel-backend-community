@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"ThingsPanel-Go/services"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
 	"github.com/gorilla/websocket"
@@ -13,6 +15,8 @@ import (
 type WebsocketController struct {
 	beego.Controller
 }
+
+//var ticker *time.Ticker
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -23,8 +27,9 @@ var upgrader = websocket.Upgrader{
 }
 
 type Client struct {
-	ID   string
-	Conn *websocket.Conn
+	ID     string
+	Conn   *websocket.Conn
+	Ticker *time.Ticker
 }
 
 type Ch struct {
@@ -42,78 +47,14 @@ var AllCh = Ch{
 }
 
 type MsgContent struct {
-	Sender   string `json:"sender"`   //发送者
-	Receiver string `json:"receiver"` //接收者
-	Content  string `json:"content"`  //消息内容
+	User    string `json:"user"` //用户
+	Wid     string `json:"wid"`  //消息内容
+	StartTs int64  `json:"startTs"`
+	EndTs   int64  `json:"endTs"`
+	Data    string `json:"data"`
 }
 
-func (ch *Ch) Start() {
-	for {
-		select {
-		case v := <-ch.JoinChan:
-			fmt.Println("用户加入", v.ID)
-			AllCh.ClientList[v.ID] = v
-		case v := <-ch.ExitChan:
-			fmt.Println("用户退出", v.ID)
-			delete(AllCh.ClientList, v.ID)
-		case v := <-ch.MsgChan:
-			var msgContent MsgContent
-			_ = json.Unmarshal([]byte(v), &msgContent)
-			for id, conn := range AllCh.ClientList {
-				if id == msgContent.Receiver {
-					conn.WriteMsg(v)
-				}
-			}
-		}
-	}
-}
-
-func (c *Client) ReadMsg() {
-	defer func() {
-		AllCh.ExitChan <- c
-		_ = c.Conn.Close()
-	}()
-	for {
-		_, p, err := c.Conn.ReadMessage()
-		if err != nil {
-			break
-		}
-		var msgContent MsgContent
-		_ = json.Unmarshal(p, &msgContent)
-		msgContent.Sender = c.ID
-		message, _ := json.Marshal(msgContent)
-		fmt.Println("读取到客户端的信息:", string(message))
-		AllCh.MsgChan <- string(message)
-	}
-}
-
-func (c *Client) WriteMsg(message string) {
-	err := c.Conn.WriteMessage(websocket.TextMessage, []byte(message))
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("发送到客户端的信息:", message)
-}
-
-func (this *WebsocketController) WsHandler() {
-	w := this.Ctx.ResponseWriter
-	r := this.Ctx.Request
-	go AllCh.Start()
-
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	uid := FormatQuery(fmt.Sprintf("%v", r.URL), "uid")
-	c := &Client{
-		ID:   uid,
-		Conn: conn,
-	}
-	AllCh.JoinChan <- c
-	go c.ReadMsg()
-}
-
+// 解析token
 func FormatQuery(url string, paramName string) string {
 	urls := strings.Split(url, "?")
 	strParam := urls[1]
@@ -130,8 +71,85 @@ func FormatQuery(url string, paramName string) string {
 	return fmt.Sprintf("%v", OutMap[paramName])
 }
 
-// func (this *WebsocketController) WsHandler() {
-// 	fmt.Println("参数解析失败")
-// 	response.SuccessWithMessage(400, "WebsocketController", (*context2.Context)(this.Ctx))
-// 	return
-// }
+// 主程序
+func (this *WebsocketController) WsHandler() {
+	w := this.Ctx.ResponseWriter
+	r := this.Ctx.Request
+	go AllCh.Start()
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	token := FormatQuery(fmt.Sprintf("%v", r.URL), "token")
+	c := &Client{
+		ID:     token,
+		Conn:   conn,
+		Ticker: nil,
+	}
+	AllCh.JoinChan <- c
+	go c.ReadMsg()
+}
+
+func (ch *Ch) Start() {
+	for {
+		select {
+		case v := <-ch.JoinChan:
+			fmt.Println("用户加入", v.ID)
+			AllCh.ClientList[v.ID] = v
+		case v := <-ch.ExitChan:
+			fmt.Println("用户退出", v.ID)
+			v.Ticker.Stop()
+			delete(AllCh.ClientList, v.ID)
+		case v := <-ch.MsgChan:
+			var msgContent MsgContent
+			_ = json.Unmarshal([]byte(v), &msgContent)
+			for id, conn := range AllCh.ClientList {
+				if id == msgContent.User {
+					conn.WriteMsg(v)
+				}
+			}
+		}
+	}
+}
+
+// 接收数据
+func (c *Client) ReadMsg() {
+	defer func() {
+		AllCh.ExitChan <- c
+		_ = c.Conn.Close()
+	}()
+	for {
+		_, p, err := c.Conn.ReadMessage()
+		if err != nil {
+			break
+		}
+		var WidgetService services.WidgetService
+		var TSKVService services.TSKVService
+		c.Ticker = time.NewTicker(time.Millisecond * 1000)
+		go func() {
+			for t := range c.Ticker.C {
+				fmt.Println(t)
+				var msgContent MsgContent
+				_ = json.Unmarshal(p, &msgContent)
+				msgContent.User = c.ID
+				w, _ := WidgetService.GetWidgetById(msgContent.Wid)
+				device_ids := []string{w.DeviceID}
+				data := TSKVService.GetTelemetry(device_ids, msgContent.StartTs, msgContent.EndTs)
+				msg, _ := json.Marshal(data)
+				msgContent.Data = string(msg)
+				message, _ := json.Marshal(msgContent)
+				AllCh.MsgChan <- string(message)
+			}
+		}()
+	}
+}
+
+// 发送数据
+func (c *Client) WriteMsg(message string) {
+	err := c.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("发送到客户端的信息:", message)
+}
