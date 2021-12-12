@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/zenghouchao/timeHelper"
@@ -88,7 +87,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 					EntityID:   device.ID,
 					Key:        k,
 					TS:         ts,
-					BoolV:      strconv.FormatBool(value),
+					BoolV:      value,
 				}
 			case float64:
 				d = models.TSKV{
@@ -130,24 +129,24 @@ func (*TSKVService) Paginate(entity_id string, t int64, start_time string, end_t
 	}
 	if t == 1 {
 		today_start, today_end := timeHelper.Today()
-		result = result.Where("ts between ? AND ?", today_start*1000, today_end*1000)
-		result2 = result2.Where("ts between ? AND ?", today_start*1000, today_end*1000)
+		result = result.Where("ts between ? AND ?", today_start*1000000, today_end*1000000)
+		result2 = result2.Where("ts between ? AND ?", today_start*1000000, today_end*1000000)
 	} else if t == 2 {
 		week_start, week_end := timeHelper.Week()
-		result = result.Where("ts between ? AND ?", week_start*1000, week_end*1000)
-		result2 = result2.Where("ts between ? AND ?", week_start*1000, week_end*1000)
+		result = result.Where("ts between ? AND ?", week_start*1000000, week_end*1000000)
+		result2 = result2.Where("ts between ? AND ?", week_start*1000000, week_end*1000000)
 	} else if t == 3 {
 		month_start, month_end := timeHelper.Month()
-		result = result.Where("ts between ? AND ?", month_start*1000, month_end*1000)
-		result2 = result2.Where("ts between ? AND ?", month_start*1000, month_end*1000)
+		result = result.Where("ts between ? AND ?", month_start*1000000, month_end*1000000)
+		result2 = result2.Where("ts between ? AND ?", month_start*1000000, month_end*1000000)
 	} else if t == 4 {
 		timeTemplate := "2006-01-02 15:04:05"
 		start_date, _ := time.ParseInLocation(timeTemplate, start_time, time.Local)
 		end_date, _ := time.ParseInLocation(timeTemplate, end_time, time.Local)
 		start := start_date.Unix()
 		end := end_date.Unix()
-		result = result.Where("ts between ? AND ?", start*1000, end*1000)
-		result2 = result2.Where("ts between ? AND ?", start*1000, end*1000)
+		result = result.Where("ts between ? AND ?", start*1000000, end*1000000)
+		result2 = result2.Where("ts between ? AND ?", start*1000000, end*1000000)
 	}
 	result = result.Order("ts desc").Limit(offset).Offset(pageSize).Find(&tSKVs)
 	result2.Count(&count)
@@ -230,7 +229,7 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 							fields = append(fields, field)
 						}
 						field = make(map[string]interface{})
-						if v.BoolV != "" {
+						if fmt.Sprint(v.BoolV) != "" {
 							field[field_from] = v.BoolV
 						} else if v.StrV != "" {
 							field[field_from] = v.StrV
@@ -241,7 +240,7 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 						}
 						i = v.TS
 					} else {
-						if v.BoolV != "" {
+						if fmt.Sprint(v.BoolV) != "" {
 							field[field_from] = v.BoolV
 						} else if v.StrV != "" {
 							field[field_from] = v.StrV
