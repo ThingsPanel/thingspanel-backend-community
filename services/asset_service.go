@@ -19,8 +19,9 @@ type AssetService struct {
 }
 
 type Device struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Device string `json:"device"`
 }
 
 type Extension struct {
@@ -73,8 +74,9 @@ func (*AssetService) List() []Device {
 					fmt.Println(err)
 				}
 				i := Device{
-					ID:   k,
-					Name: fmt.Sprint(str["name"]),
+					ID:     k,
+					Name:   fmt.Sprint(str["name"]),
+					Device: fmt.Sprint(str["device"]),
 				}
 				list = append(list, i)
 			}

@@ -32,6 +32,29 @@ type AddBusiness struct {
 	CreatedAt int64  `json:"created_at"`
 }
 
+type TreeBusinessData struct {
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	Children []TreeBusiness `json:"children"`
+}
+
+type TreeBusiness struct {
+	ID       string          `json:"id"`
+	Name     string          `json:"name"`
+	Children []TreeBusiness2 `json:"children"`
+}
+
+type TreeBusiness2 struct {
+	ID       string          `json:"id"`
+	Name     string          `json:"name"`
+	Children []TreeBusiness3 `json:"children"`
+}
+
+type TreeBusiness3 struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // 获取列表
 func (this *BusinessController) Index() {
 	paginateBusinessValidate := valid.PaginateBusiness{}
@@ -175,5 +198,68 @@ func (this *BusinessController) Delete() {
 		return
 	}
 	response.SuccessWithMessage(400, "删除失败", (*context2.Context)(this.Ctx))
+	return
+}
+
+// 业务资产树
+func (this *BusinessController) Tree() {
+	var BusinessService services.BusinessService
+	var ResTreeBusinessData []TreeBusinessData
+	var AssetService services.AssetService
+	bl, bc := BusinessService.All()
+	if bc > 0 {
+		for _, v := range bl {
+			l, c := AssetService.GetAssetByBusinessId(v.ID)
+			var ResTreeBusiness []TreeBusiness
+			if c != 0 {
+				for _, s := range l {
+					l2, c2 := AssetService.GetAssetsByParentID(s.ID)
+					var ResTreeBusiness2 []TreeBusiness2
+					if c2 != 0 {
+						for _, s2 := range l2 {
+							l3, c3 := AssetService.GetAssetsByParentID(s2.ID)
+							var ResTreeBusiness3 []TreeBusiness3
+							if c3 != 0 {
+								for _, s3 := range l3 {
+									td3 := TreeBusiness3{
+										ID:   s3.ID,
+										Name: s3.Name,
+									}
+									ResTreeBusiness3 = append(ResTreeBusiness3, td3)
+								}
+							}
+							if len(ResTreeBusiness3) == 0 {
+								ResTreeBusiness3 = []TreeBusiness3{}
+							}
+							td2 := TreeBusiness2{
+								ID:       s2.ID,
+								Name:     s2.Name,
+								Children: ResTreeBusiness3,
+							}
+							ResTreeBusiness2 = append(ResTreeBusiness2, td2)
+						}
+					}
+					if len(ResTreeBusiness2) == 0 {
+						ResTreeBusiness2 = []TreeBusiness2{}
+					}
+					td := TreeBusiness{
+						ID:       s.ID,
+						Name:     s.Name,
+						Children: ResTreeBusiness2,
+					}
+					ResTreeBusiness = append(ResTreeBusiness, td)
+				}
+			}
+			tb := TreeBusinessData{
+				ID:       v.ID,
+				Name:     v.Name,
+				Children: ResTreeBusiness,
+			}
+			ResTreeBusinessData = append(ResTreeBusinessData, tb)
+		}
+		response.SuccessWithDetailed(200, "success", ResTreeBusinessData, map[string]string{}, (*context2.Context)(this.Ctx))
+		return
+	}
+	response.SuccessWithDetailed(200, "success", "", map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }

@@ -117,3 +117,31 @@ func (this *DeviceController) Token() {
 	response.SuccessWithMessage(400, "设备不存在", (*context2.Context)(this.Ctx))
 	return
 }
+
+// 删除
+func (this *DeviceController) Delete() {
+	deleteDeviceValidate := valid.DeleteDevice{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &deleteDeviceValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(deleteDeviceValidate)
+	if !status {
+		for _, err := range v.Errors {
+			alias := gvalid.GetAlias(deleteDeviceValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	var DeviceService services.DeviceService
+	f := DeviceService.Delete(deleteDeviceValidate.ID)
+	if f {
+		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
+		return
+	}
+	response.SuccessWithMessage(400, "删除失败", (*context2.Context)(this.Ctx))
+	return
+}

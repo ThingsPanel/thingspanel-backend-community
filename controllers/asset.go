@@ -20,17 +20,6 @@ type AssetController struct {
 	beego.Controller
 }
 
-type AssetData struct {
-	ID         string       `json:"id"`
-	Name       string       `json:"name"`
-	CustomerID string       `json:"customer_id"`
-	BusinessID string       `json:"business_id"`
-	WidgetID   string       `json:"widget_id"`
-	WidgetName string       `json:"widget_name"`
-	Device     []DeviceData `json:"device"`
-	Two        []AssetData2 `json:"two"`
-}
-
 type DeviceData struct {
 	ID       string                `json:"id"`
 	Name     string                `json:"name"`
@@ -41,6 +30,17 @@ type DeviceData struct {
 	Protocol string                `json:"protocol"`
 	Dash     []services.Widget     `json:"dash"`
 	Mapping  []models.FieldMapping `json:"mapping"`
+}
+
+type AssetData struct {
+	ID         string       `json:"id"`
+	Name       string       `json:"name"`
+	CustomerID string       `json:"customer_id"`
+	BusinessID string       `json:"business_id"`
+	WidgetID   string       `json:"widget_id"`
+	WidgetName string       `json:"widget_name"`
+	Device     []DeviceData `json:"device"`
+	Two        []AssetData2 `json:"two"`
 }
 
 type AssetData2 struct {

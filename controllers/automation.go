@@ -8,6 +8,7 @@ import (
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/beego/beego/v2/core/validation"
@@ -58,7 +59,7 @@ type AutoUpdate struct {
 	BusinessID string    `json:"business_id"`
 	Name       string    `json:"name"`
 	Describe   string    `json:"describe"`
-	Status     int64     `json:"status"`
+	Status     string    `json:"status"`
 	Config     ConfigAll `json:"config"`
 	Sort       int64     `json:"sort"`
 	Type       int64     `json:"type"`
@@ -94,6 +95,13 @@ type AssetDevice2 struct {
 	Children       []models.Asset `json:"children"`
 }
 
+type PaginateAutomation struct {
+	CurrentPage int                `json:"current_page"`
+	Data        []models.Condition `json:"data"`
+	Total       int64              `json:"total"`
+	PerPage     int                `json:"per_page"`
+}
+
 // 策略列表
 func (this *AutomationController) Index() {
 	automationIndexValidate := valid.AutomationIndex{}
@@ -114,8 +122,14 @@ func (this *AutomationController) Index() {
 		return
 	}
 	var AutomationService services.AutomationService
-	u, _ := AutomationService.Paginate(automationIndexValidate.BusinessId, automationIndexValidate.Limit, automationIndexValidate.Page-1)
-	response.SuccessWithDetailed(200, "success", u, map[string]string{}, (*context2.Context)(this.Ctx))
+	u, c := AutomationService.Paginate(automationIndexValidate.BusinessId, automationIndexValidate.Limit, automationIndexValidate.Page-1)
+	d := PaginateAutomation{
+		CurrentPage: automationIndexValidate.Page,
+		Data:        u,
+		Total:       c,
+		PerPage:     automationIndexValidate.Limit,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
 
@@ -139,15 +153,16 @@ func (this *AutomationController) Add() {
 		return
 	}
 	var AutomationService services.AutomationService
+	sort, err := strconv.ParseInt(automationAddValidate.Sort, 10, 64)
 	f, _ := AutomationService.Add(
 		automationAddValidate.BusinessID,
 		automationAddValidate.Name,
 		automationAddValidate.Describe,
-		automationAddValidate.Status,
+		fmt.Sprint(automationAddValidate.Status),
 		automationAddValidate.Config,
-		automationAddValidate.Sort,
+		sort,
 		automationAddValidate.Type,
-		automationAddValidate.Issued,
+		fmt.Sprint(automationAddValidate.Issued),
 		automationAddValidate.CustomerID,
 	)
 	if f {
@@ -179,16 +194,17 @@ func (this *AutomationController) Edit() {
 		return
 	}
 	var AutomationService services.AutomationService
+	sort, err := strconv.ParseInt(automationEditValidate.Sort, 10, 64)
 	f := AutomationService.Edit(
 		automationEditValidate.ID,
 		automationEditValidate.BusinessID,
 		automationEditValidate.Name,
 		automationEditValidate.Describe,
-		automationEditValidate.Status,
+		fmt.Sprint(automationEditValidate.Status),
 		automationEditValidate.Config,
-		automationEditValidate.Sort,
+		sort,
 		automationEditValidate.Type,
-		automationEditValidate.Issued,
+		fmt.Sprint(automationEditValidate.Issued),
 		automationEditValidate.CustomerID,
 	)
 	if f {

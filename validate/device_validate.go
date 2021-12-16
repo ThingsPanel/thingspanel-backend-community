@@ -17,3 +17,8 @@ type AddDevice struct {
 	Token    string `json:"token"`
 	Protocol string `json:"protocol"`
 }
+
+// DeleteDevice 校验
+type DeleteDevice struct {
+	ID string `json:"id" alias:"id" valid:"Required;MaxSize(36)"`
+}

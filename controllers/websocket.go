@@ -16,8 +16,6 @@ type WebsocketController struct {
 	beego.Controller
 }
 
-//var ticker *time.Ticker
-
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -99,7 +97,9 @@ func (ch *Ch) Start() {
 			AllCh.ClientList[v.ID] = v
 		case v := <-ch.ExitChan:
 			fmt.Println("用户退出", v.ID)
-			v.Ticker.Stop()
+			if v.Ticker != nil {
+				v.Ticker.Stop()
+			}
 			delete(AllCh.ClientList, v.ID)
 		case v := <-ch.MsgChan:
 			var msgContent MsgContent
@@ -119,14 +119,14 @@ func (c *Client) ReadMsg() {
 		AllCh.ExitChan <- c
 		_ = c.Conn.Close()
 	}()
+	var WidgetService services.WidgetService
+	var TSKVService services.TSKVService
+	c.Ticker = time.NewTicker(time.Millisecond * 3000)
 	for {
 		_, p, err := c.Conn.ReadMessage()
 		if err != nil {
 			break
 		}
-		var WidgetService services.WidgetService
-		var TSKVService services.TSKVService
-		c.Ticker = time.NewTicker(time.Millisecond * 1000)
 		go func() {
 			for t := range c.Ticker.C {
 				fmt.Println(t)

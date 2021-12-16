@@ -43,7 +43,7 @@ func (*AutomationService) Paginate(business_id string, offset int, pageSize int)
 }
 
 // Add新增一条Automation数据
-func (*AutomationService) Add(business_id string, name string, describe string, status int64, config string, sort int64, t int64, issued string, customer_id string) (bool, string) {
+func (*AutomationService) Add(business_id string, name string, describe string, status string, config string, sort int64, t int64, issued string, customer_id string) (bool, string) {
 	var uuid = uuid.GetUuid()
 	condition := models.Condition{
 		ID:         uuid,
@@ -66,7 +66,7 @@ func (*AutomationService) Add(business_id string, name string, describe string, 
 }
 
 // 根据ID编辑一条Automationg数据
-func (*AutomationService) Edit(id string, business_id string, name string, describe string, status int64, config string, sort int64, t int64, issued string, customer_id string) bool {
+func (*AutomationService) Edit(id string, business_id string, name string, describe string, status string, config string, sort int64, t int64, issued string, customer_id string) bool {
 	// updated_at
 	result := psql.Mydb.Model(&models.Condition{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"business_id": business_id,

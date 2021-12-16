@@ -13,11 +13,11 @@ type AutomationAdd struct {
 	Name       string `json:"name" alias:"名称" valid:"Required; MaxSize(36)"`
 	Describe   string `json:"describe" alias:"描述" valid:"Required; MaxSize(36)"`
 	Status     int64  `json:"status" alias:"状态" valid:"Required;"`
-	Config     string `json:"config" alias:"配置" valid:"Required; MaxSize(36)"`
-	Sort       int64  `json:"sort" alias:"排序" valid:"Required; MaxSize(36)"`
-	Type       int64  `json:"type" alias:"类型" valid:"Required; MaxSize(36)"`
-	Issued     string `json:"issued" alias:"发布" valid:"Required; MaxSize(36)"`
-	CustomerID string `json:"customer_id" alias:"客户" valid:"Required; MaxSize(36)"`
+	Config     string `json:"config" alias:"配置" valid:"Required;"`
+	Sort       string `json:"sort" alias:"排序" valid:""`
+	Type       int64  `json:"type" alias:"类型" valid:""`
+	Issued     int64  `json:"issued" alias:"发布" valid:""`
+	CustomerID string `json:"customer_id" alias:"客户" valid:"MaxSize(36)"`
 }
 
 // AutomationEdit 校验
@@ -27,11 +27,11 @@ type AutomationEdit struct {
 	Name       string `json:"name" alias:"名称" valid:"Required; MaxSize(36)"`
 	Describe   string `json:"describe" alias:"描述" valid:"Required; MaxSize(36)"`
 	Status     int64  `json:"status" alias:"状态" valid:"Required;"`
-	Config     string `json:"config" alias:"配置" valid:"Required; MaxSize(36)"`
-	Sort       int64  `json:"sort" alias:"排序" valid:"Required; MaxSize(36)"`
-	Type       int64  `json:"type" alias:"类型" valid:"Required; MaxSize(36)"`
-	Issued     string `json:"issued" alias:"发布" valid:"Required; MaxSize(36)"`
-	CustomerID string `json:"customer_id" alias:"客户" valid:"Required; MaxSize(36)"`
+	Config     string `json:"config" alias:"配置" valid:"Required;"`
+	Sort       string `json:"sort" alias:"排序" valid:""`
+	Type       int64  `json:"type" alias:"类型" valid:""`
+	Issued     int64  `json:"issued" alias:"发布" valid:""`
+	CustomerID string `json:"customer_id" alias:"客户" valid:"MaxSize(36)"`
 }
 
 // AutomationDelete 校验

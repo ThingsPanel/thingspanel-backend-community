@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/zenghouchao/timeHelper"
@@ -62,6 +63,9 @@ func (*TSKVService) MsgProc(body []byte) bool {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if result.RowsAffected > 0 {
+		// 查询警告
+		var WarningConfigService WarningConfigService
+		WarningConfigService.WarningConfigCheck(device.ID, payload.Values)
 		ts := time.Now().UnixMicro()
 		for k, v := range payload.Values {
 			switch value := v.(type) {
@@ -87,7 +91,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 					EntityID:   device.ID,
 					Key:        k,
 					TS:         ts,
-					BoolV:      value,
+					BoolV:      strconv.FormatBool(value),
 				}
 			case float64:
 				d = models.TSKV{
@@ -106,6 +110,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 					StrV:       fmt.Sprint(value),
 				}
 			}
+
 			rts := psql.Mydb.Create(&d)
 			if rts.Error != nil {
 				log.Println(rts.Error)
@@ -118,14 +123,36 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	return false
 }
 
-func (*TSKVService) Paginate(entity_id string, t int64, start_time string, end_time string, offset int, pageSize int) ([]models.TSKV, int64) {
+func (*TSKVService) Paginate(business_id string, t int64, start_time string, end_time string, offset int, pageSize int) ([]models.TSKV, int64) {
 	var tSKVs []models.TSKV
 	var count int64
 	result := psql.Mydb.Model(&models.TSKV{})
 	result2 := psql.Mydb.Model(&models.TSKV{})
-	if entity_id != "" {
-		result = result.Where("entity_id = ?", entity_id)
-		result2 = result2.Where("entity_id = ?", entity_id)
+	if business_id != "" {
+		var AssetService AssetService
+		var DeviceService DeviceService
+		var asset_ids []string
+		var device_ids []string
+		bl, bc := AssetService.GetAssetDataByBusinessId(business_id)
+		if bc > 0 {
+			for _, v := range bl {
+				asset_ids = append(asset_ids, v.ID)
+			}
+		}
+
+		if len(asset_ids) > 0 {
+			dl, dc := DeviceService.GetDevicesByAssetIDs(asset_ids)
+			if dc > 0 {
+				for _, v := range dl {
+					device_ids = append(device_ids, v.ID)
+				}
+			}
+		}
+		fmt.Println(device_ids)
+		if len(device_ids) > 0 {
+			result = result.Where("entity_id IN ?", device_ids)
+			result2 = result2.Where("entity_id IN ?", device_ids)
+		}
 	}
 	if t == 1 {
 		today_start, today_end := timeHelper.Today()
@@ -207,63 +234,123 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 	if len(device_ids) > 0 {
 		for _, d := range device_ids {
 			device := make(map[string]interface{})
-			result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ?", startTs, endTs, d).Order("ts asc").Find(&ts_kvs)
-			if result.Error != nil {
-				errors.Is(result.Error, gorm.ErrRecordNotFound)
-			}
-			var fields []map[string]interface{}
-			if result.RowsAffected > 0 {
-				var i int64 = 0
-				var field map[string]interface{}
-				field_from := ""
-				c := result.RowsAffected
-				for k, v := range ts_kvs {
-					if field_from != v.Key {
-						field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
-						if field_from == "" {
-							field_from = v.Key
+			if startTs == 0 && endTs == 0 {
+				result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", d).Order("ts asc").Find(&ts_kvs)
+				if result.Error != nil {
+					errors.Is(result.Error, gorm.ErrRecordNotFound)
+				}
+				var fields []map[string]interface{}
+				if result.RowsAffected > 0 {
+					var i int64 = 0
+					var field map[string]interface{}
+					field_from := ""
+					c := result.RowsAffected
+					for k, v := range ts_kvs {
+						if field_from != v.Key {
+							field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
+							if field_from == "" {
+								field_from = v.Key
+							}
 						}
-					}
-					if i != v.TS {
-						if i != 0 {
-							fields = append(fields, field)
-						}
-						field = make(map[string]interface{})
-						if fmt.Sprint(v.BoolV) != "" {
-							field[field_from] = v.BoolV
-						} else if v.StrV != "" {
-							field[field_from] = v.StrV
-						} else if v.LongV != 0 {
-							field[field_from] = v.LongV
-						} else if v.DblV != 0 {
-							field[field_from] = v.DblV
-						}
-						i = v.TS
-					} else {
-						if fmt.Sprint(v.BoolV) != "" {
-							field[field_from] = v.BoolV
-						} else if v.StrV != "" {
-							field[field_from] = v.StrV
-						} else if v.LongV != 0 {
-							field[field_from] = v.LongV
-						} else if v.DblV != 0 {
-							field[field_from] = v.DblV
-						}
-						if c == int64(k+1) {
-							fields = append(fields, field)
+						if i != v.TS {
+							if i != 0 {
+								fields = append(fields, field)
+							}
+							field = make(map[string]interface{})
+							if fmt.Sprint(v.BoolV) != "" {
+								field[field_from] = v.BoolV
+							} else if v.StrV != "" {
+								field[field_from] = v.StrV
+							} else if v.LongV != 0 {
+								field[field_from] = v.LongV
+							} else if v.DblV != 0 {
+								field[field_from] = v.DblV
+							}
+							i = v.TS
+						} else {
+							if fmt.Sprint(v.BoolV) != "" {
+								field[field_from] = v.BoolV
+							} else if v.StrV != "" {
+								field[field_from] = v.StrV
+							} else if v.LongV != 0 {
+								field[field_from] = v.LongV
+							} else if v.DblV != 0 {
+								field[field_from] = v.DblV
+							}
+							if c == int64(k+1) {
+								fields = append(fields, field)
+							}
 						}
 					}
 				}
-			}
-			device["device_id"] = d
-			if len(fields) == 0 {
-				device["fields"] = make([]string, 0)
-				device["latest"] = make([]string, 0)
+				device["device_id"] = d
+				if len(fields) == 0 {
+					device["fields"] = make([]string, 0)
+					device["latest"] = make([]string, 0)
+				} else {
+					device["fields"] = fields
+					device["latest"] = fields[len(fields)-1]
+				}
+				devices = append(devices, device)
 			} else {
-				device["fields"] = fields
-				device["latest"] = fields[len(fields)-1]
+				result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ?", startTs*1000, endTs*1000, d).Order("ts asc").Find(&ts_kvs)
+				if result.Error != nil {
+					errors.Is(result.Error, gorm.ErrRecordNotFound)
+				}
+				var fields []map[string]interface{}
+				if result.RowsAffected > 0 {
+					var i int64 = 0
+					var field map[string]interface{}
+					field_from := ""
+					c := result.RowsAffected
+					for k, v := range ts_kvs {
+						if field_from != v.Key {
+							field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
+							if field_from == "" {
+								field_from = v.Key
+							}
+						}
+						if i != v.TS {
+							if i != 0 {
+								fields = append(fields, field)
+							}
+							field = make(map[string]interface{})
+							if fmt.Sprint(v.BoolV) != "" {
+								field[field_from] = v.BoolV
+							} else if v.StrV != "" {
+								field[field_from] = v.StrV
+							} else if v.LongV != 0 {
+								field[field_from] = v.LongV
+							} else if v.DblV != 0 {
+								field[field_from] = v.DblV
+							}
+							i = v.TS
+						} else {
+							if fmt.Sprint(v.BoolV) != "" {
+								field[field_from] = v.BoolV
+							} else if v.StrV != "" {
+								field[field_from] = v.StrV
+							} else if v.LongV != 0 {
+								field[field_from] = v.LongV
+							} else if v.DblV != 0 {
+								field[field_from] = v.DblV
+							}
+							if c == int64(k+1) {
+								fields = append(fields, field)
+							}
+						}
+					}
+				}
+				device["device_id"] = d
+				if len(fields) == 0 {
+					device["fields"] = make([]string, 0)
+					device["latest"] = make([]string, 0)
+				} else {
+					device["fields"] = fields
+					device["latest"] = fields[len(fields)-1]
+				}
+				devices = append(devices, device)
 			}
-			devices = append(devices, device)
 		}
 	} else {
 		fmt.Println("device_ids不能为空")

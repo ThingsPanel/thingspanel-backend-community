@@ -47,6 +47,9 @@ func (*WidgetService) Paginate(name string, offset int, pageSize int) ([]models.
 
 // 根据id获取一条Widget数据
 func (*WidgetService) GetWidgetById(id string) (*models.Widget, int64) {
+	if id == "" {
+		return &models.Widget{}, 0
+	}
 	var widget models.Widget
 	result := psql.Mydb.Where("id = ?", id).First(&widget)
 	if result.Error != nil {

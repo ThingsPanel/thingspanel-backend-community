@@ -41,6 +41,7 @@ func (this *KvController) List() {
 	return
 }
 
+// 升级
 func (this *KvController) Index() {
 	kVIndexValidate := valid.KVIndexValidate{}
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &kVIndexValidate)
@@ -60,7 +61,7 @@ func (this *KvController) Index() {
 		return
 	}
 	var TSKVService services.TSKVService
-	t, c := TSKVService.Paginate(kVIndexValidate.EntityID, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, kVIndexValidate.Page-1)
+	t, c := TSKVService.Paginate(kVIndexValidate.BusinessID, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, kVIndexValidate.Page-1)
 	d := PaginateTSKV{
 		CurrentPage: kVIndexValidate.Page,
 		Data:        t,

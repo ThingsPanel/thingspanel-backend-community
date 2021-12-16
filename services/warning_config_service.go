@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
+	"fmt"
 
 	"ThingsPanel-Go/initialize/psql"
 
@@ -95,4 +96,21 @@ func (*WarningConfigService) GetWarningConfigByWidAndBid(wid string, bid string)
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	return &warningConfig, result.RowsAffected
+}
+
+// GetWarningConfigsByDeviceId 根据id获取多条warningConfig数据
+func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]interface{}) {
+	var warningConfigs []models.WarningConfig
+	var count int64
+	result := psql.Mydb.Model(&models.WarningConfig{}).Where("bid = ?", bid).Find(&warningConfigs)
+	psql.Mydb.Model(&models.WarningConfig{}).Where("bid = ?", bid).Count(&count)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if count > 0 {
+		//var FieldMappingService FieldMappingService
+		for _, wv := range warningConfigs {
+			fmt.Println(wv)
+		}
+	}
 }

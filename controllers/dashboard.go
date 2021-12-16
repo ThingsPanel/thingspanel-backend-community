@@ -92,6 +92,7 @@ type RealtimeData struct {
 }
 
 type DashBoardData struct {
+	ID        string                           `json:"id"`
 	SliceId   int64                            `json:"slice_id"`
 	X         int64                            `json:"x"`
 	Y         int64                            `json:"y"`
@@ -520,8 +521,10 @@ func (this *DashBoardController) Dashboard() {
 			if err != nil {
 				fmt.Println(err)
 			}
+			fmt.Println(config)
 			// 赋值
 			d := DashBoardData{
+				ID:        wv.ID,
 				SliceId:   config.SliceId,
 				X:         config.X,
 				Y:         config.Y,

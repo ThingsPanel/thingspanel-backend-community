@@ -39,6 +39,7 @@ func init() {
 		web.NSRouter("/user/edit", &controllers.UserController{}, "*:Edit"),
 		web.NSRouter("/user/delete", &controllers.UserController{}, "*:Delete"),
 		web.NSRouter("/user/password", &controllers.UserController{}, "*:Password"),
+		web.NSRouter("/user/update", &controllers.UserController{}, "*:Password"),
 		web.NSRouter("/user/permission", &controllers.UserController{}, "*:Permission"),
 
 		// 客户管理
@@ -64,12 +65,14 @@ func init() {
 		web.NSRouter("business/add", &controllers.BusinessController{}, "*:Add"),
 		web.NSRouter("business/edit", &controllers.BusinessController{}, "*:Edit"),
 		web.NSRouter("business/delete", &controllers.BusinessController{}, "*:Delete"),
+		web.NSRouter("business/tree", &controllers.BusinessController{}, "*:Tree"),
 
 		// 设备
 		web.NSRouter("/device/token", &controllers.DeviceController{}, "*:Token"),
 		web.NSRouter("/device/index", &controllers.DeviceController{}, "*:Index"),
 		web.NSRouter("/device/edit", &controllers.DeviceController{}, "*:Edit"),
 		web.NSRouter("/device/add", &controllers.DeviceController{}, "*:Add"),
+		web.NSRouter("/device/delete", &controllers.DeviceController{}, "*:Delete"),
 
 		//可视化
 		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"),
