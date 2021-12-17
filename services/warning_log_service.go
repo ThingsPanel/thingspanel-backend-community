@@ -3,7 +3,9 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	uuid "ThingsPanel-Go/utils"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -41,4 +43,22 @@ func (*WarningLogService) GetList(offset int, pageSize int) ([]models.WarningLog
 		warningLogs = []models.WarningLog{}
 	}
 	return warningLogs, result.RowsAffected
+}
+
+// Add新增一条WarningLogService数据
+func (*WarningLogService) Add(t string, describe string, data_id string) (bool, string) {
+	var uuid = uuid.GetUuid()
+	warningLog := models.WarningLog{
+		ID:        uuid,
+		Type:      t,
+		Describe:  describe,
+		DataID:    data_id,
+		CreatedAt: time.Now().Unix(),
+	}
+	result := psql.Mydb.Create(&warningLog)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return false, ""
+	}
+	return true, uuid
 }

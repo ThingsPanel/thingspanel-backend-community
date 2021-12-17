@@ -44,7 +44,7 @@ func (this *DeviceController) Edit() {
 		return
 	}
 	var DeviceService services.DeviceService
-	f := DeviceService.Edit(editDeviceValidate.ID, editDeviceValidate.Token, editDeviceValidate.Protocol)
+	f := DeviceService.Edit(editDeviceValidate.ID, editDeviceValidate.Token, editDeviceValidate.Protocol, editDeviceValidate.Port, editDeviceValidate.Publish, editDeviceValidate.Subscribe, editDeviceValidate.Username, editDeviceValidate.Password)
 	if f {
 		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
 		return
@@ -74,6 +74,11 @@ func (this *DeviceController) Add() {
 	f, _ := DeviceService.Add(
 		addDeviceValidate.Token,
 		addDeviceValidate.Protocol,
+		addDeviceValidate.Port,
+		addDeviceValidate.Publish,
+		addDeviceValidate.Subscribe,
+		addDeviceValidate.Username,
+		addDeviceValidate.Password,
 	)
 	if f {
 		response.SuccessWithMessage(200, "添加成功", (*context2.Context)(this.Ctx))

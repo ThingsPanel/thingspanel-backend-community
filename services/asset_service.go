@@ -144,6 +144,11 @@ func (*AssetService) Add(data string) bool {
 						Type:      fmt.Sprint(each_map2.(map[string]interface{})["type"]),
 						Name:      fmt.Sprint(each_map2.(map[string]interface{})["name"]),
 						Protocol:  fmt.Sprint(each_map2.(map[string]interface{})["protocol"]),
+						Port:      fmt.Sprint(each_map2.(map[string]interface{})["port"]),
+						Publish:   fmt.Sprint(each_map2.(map[string]interface{})["publish"]),
+						Subscribe: fmt.Sprint(each_map2.(map[string]interface{})["subscribe"]),
+						Username:  fmt.Sprint(each_map2.(map[string]interface{})["username"]),
+						Password:  fmt.Sprint(each_map2.(map[string]interface{})["password"]),
 						Extension: "Extensions",
 					}
 					if err := tx.Create(&device).Error; err != nil {
@@ -156,6 +161,7 @@ func (*AssetService) Add(data string) bool {
 							DeviceID:  device.ID,
 							FieldFrom: fmt.Sprint(each_map22.(map[string]interface{})["field_from"]),
 							FieldTo:   fmt.Sprint(each_map22.(map[string]interface{})["field_to"]),
+							Symbol:    fmt.Sprint(each_map22.(map[string]interface{})["symbol"]),
 						}
 						if err := tx.Create(&field).Error; err != nil {
 							return err
@@ -186,6 +192,11 @@ func (*AssetService) Add(data string) bool {
 							Type:      fmt.Sprint(each_map33.(map[string]interface{})["type"]),
 							Name:      fmt.Sprint(each_map33.(map[string]interface{})["name"]),
 							Protocol:  fmt.Sprint(each_map33.(map[string]interface{})["protocol"]),
+							Port:      fmt.Sprint(each_map33.(map[string]interface{})["port"]),
+							Publish:   fmt.Sprint(each_map33.(map[string]interface{})["publish"]),
+							Subscribe: fmt.Sprint(each_map33.(map[string]interface{})["subscribe"]),
+							Username:  fmt.Sprint(each_map33.(map[string]interface{})["username"]),
+							Password:  fmt.Sprint(each_map33.(map[string]interface{})["password"]),
 							Extension: "Extensions",
 						}
 						if err := tx.Create(&device2).Error; err != nil {
@@ -198,6 +209,7 @@ func (*AssetService) Add(data string) bool {
 								DeviceID:  device2.ID,
 								FieldFrom: fmt.Sprint(each_map333.(map[string]interface{})["field_from"]),
 								FieldTo:   fmt.Sprint(each_map333.(map[string]interface{})["field_to"]),
+								Symbol:    fmt.Sprint(each_map333.(map[string]interface{})["symbol"]),
 							}
 							if err := tx.Create(&field2).Error; err != nil {
 								return err
@@ -228,6 +240,11 @@ func (*AssetService) Add(data string) bool {
 								Type:      fmt.Sprint(each_map444.(map[string]interface{})["type"]),
 								Name:      fmt.Sprint(each_map444.(map[string]interface{})["name"]),
 								Protocol:  fmt.Sprint(each_map444.(map[string]interface{})["protocol"]),
+								Port:      fmt.Sprint(each_map444.(map[string]interface{})["port"]),
+								Publish:   fmt.Sprint(each_map444.(map[string]interface{})["publish"]),
+								Subscribe: fmt.Sprint(each_map444.(map[string]interface{})["subscribe"]),
+								Username:  fmt.Sprint(each_map444.(map[string]interface{})["username"]),
+								Password:  fmt.Sprint(each_map444.(map[string]interface{})["password"]),
 								Extension: "Extensions",
 							}
 							if err := tx.Create(&device3).Error; err != nil {
@@ -240,6 +257,7 @@ func (*AssetService) Add(data string) bool {
 									DeviceID:  device3.ID,
 									FieldFrom: fmt.Sprint(each_map4444.(map[string]interface{})["field_from"]),
 									FieldTo:   fmt.Sprint(each_map4444.(map[string]interface{})["field_to"]),
+									Symbol:    fmt.Sprint(each_map4444.(map[string]interface{})["symbol"]),
 								}
 								if err := tx.Create(&field3).Error; err != nil {
 									return err
@@ -322,10 +340,15 @@ func (*AssetService) Edit(data string) bool {
 							// 修改
 							device_id = fmt.Sprint(each_map2.(map[string]interface{})["id"])
 							err := tx.Model(&models.Device{}).Where("id = ?", device_id).Updates(map[string]interface{}{
-								"asset_id": asset_id,
-								"type":     fmt.Sprint(each_map2.(map[string]interface{})["type"]),
-								"name":     fmt.Sprint(each_map2.(map[string]interface{})["name"]),
-								"protocol": fmt.Sprint(each_map2.(map[string]interface{})["protocol"]),
+								"asset_id":  asset_id,
+								"type":      fmt.Sprint(each_map2.(map[string]interface{})["type"]),
+								"name":      fmt.Sprint(each_map2.(map[string]interface{})["name"]),
+								"protocol":  fmt.Sprint(each_map2.(map[string]interface{})["protocol"]),
+								"port":      fmt.Sprint(each_map2.(map[string]interface{})["port"]),
+								"publish":   fmt.Sprint(each_map2.(map[string]interface{})["publish"]),
+								"subscribe": fmt.Sprint(each_map2.(map[string]interface{})["subscribe"]),
+								"username":  fmt.Sprint(each_map2.(map[string]interface{})["username"]),
+								"password":  fmt.Sprint(each_map2.(map[string]interface{})["password"]),
 							}).Error
 							if err != nil {
 								return err
@@ -343,6 +366,11 @@ func (*AssetService) Edit(data string) bool {
 								Type:      fmt.Sprint(each_map2.(map[string]interface{})["type"]),
 								Name:      fmt.Sprint(each_map2.(map[string]interface{})["name"]),
 								Protocol:  fmt.Sprint(each_map2.(map[string]interface{})["protocol"]),
+								Port:      fmt.Sprint(each_map2.(map[string]interface{})["port"]),
+								Publish:   fmt.Sprint(each_map2.(map[string]interface{})["publish"]),
+								Subscribe: fmt.Sprint(each_map2.(map[string]interface{})["subscribe"]),
+								Username:  fmt.Sprint(each_map2.(map[string]interface{})["username"]),
+								Password:  fmt.Sprint(each_map2.(map[string]interface{})["password"]),
 								Extension: "Extensions",
 							}
 							if err := tx.Create(&device).Error; err != nil {
@@ -357,6 +385,7 @@ func (*AssetService) Edit(data string) bool {
 										"device_id":  device_id,
 										"field_from": fmt.Sprint(each_map22.(map[string]interface{})["field_from"]),
 										"field_to":   fmt.Sprint(each_map22.(map[string]interface{})["field_to"]),
+										"symbol":     fmt.Sprint(each_map22.(map[string]interface{})["symbol"]),
 									}).Error
 									if err != nil {
 										return err
@@ -369,6 +398,7 @@ func (*AssetService) Edit(data string) bool {
 										DeviceID:  device_id,
 										FieldFrom: fmt.Sprint(each_map22.(map[string]interface{})["field_from"]),
 										FieldTo:   fmt.Sprint(each_map22.(map[string]interface{})["field_to"]),
+										Symbol:    fmt.Sprint(each_map22.(map[string]interface{})["symbol"]),
 									}
 									if err := tx.Create(&field).Error; err != nil {
 										return err
@@ -410,10 +440,15 @@ func (*AssetService) Edit(data string) bool {
 										// 修改
 										device_id2 = fmt.Sprint(each_map33.(map[string]interface{})["id"])
 										err := tx.Model(&models.Device{}).Where("id = ?", device_id2).Updates(map[string]interface{}{
-											"asset_id": asset_id2,
-											"type":     fmt.Sprint(each_map33.(map[string]interface{})["type"]),
-											"name":     fmt.Sprint(each_map33.(map[string]interface{})["name"]),
-											"protocol": fmt.Sprint(each_map33.(map[string]interface{})["protocol"]),
+											"asset_id":  asset_id2,
+											"type":      fmt.Sprint(each_map33.(map[string]interface{})["type"]),
+											"name":      fmt.Sprint(each_map33.(map[string]interface{})["name"]),
+											"protocol":  fmt.Sprint(each_map33.(map[string]interface{})["protocol"]),
+											"port":      fmt.Sprint(each_map33.(map[string]interface{})["port"]),
+											"publish":   fmt.Sprint(each_map33.(map[string]interface{})["publish"]),
+											"subscribe": fmt.Sprint(each_map33.(map[string]interface{})["subscribe"]),
+											"username":  fmt.Sprint(each_map33.(map[string]interface{})["username"]),
+											"password":  fmt.Sprint(each_map33.(map[string]interface{})["password"]),
 										}).Error
 										if err != nil {
 											return err
@@ -431,6 +466,11 @@ func (*AssetService) Edit(data string) bool {
 											Type:      fmt.Sprint(each_map33.(map[string]interface{})["type"]),
 											Name:      fmt.Sprint(each_map33.(map[string]interface{})["name"]),
 											Protocol:  fmt.Sprint(each_map33.(map[string]interface{})["protocol"]),
+											Port:      fmt.Sprint(each_map33.(map[string]interface{})["port"]),
+											Publish:   fmt.Sprint(each_map33.(map[string]interface{})["publish"]),
+											Subscribe: fmt.Sprint(each_map33.(map[string]interface{})["subscribe"]),
+											Username:  fmt.Sprint(each_map33.(map[string]interface{})["username"]),
+											Password:  fmt.Sprint(each_map33.(map[string]interface{})["password"]),
 											Extension: "Extensions",
 										}
 										if err := tx.Create(&device2).Error; err != nil {
@@ -444,6 +484,7 @@ func (*AssetService) Edit(data string) bool {
 												"device_id":  device_id2,
 												"field_from": fmt.Sprint(each_map333.(map[string]interface{})["field_from"]),
 												"field_to":   fmt.Sprint(each_map333.(map[string]interface{})["field_to"]),
+												"symbol":     fmt.Sprint(each_map333.(map[string]interface{})["symbol"]),
 											}).Error
 											if err != nil {
 												return err
@@ -456,6 +497,7 @@ func (*AssetService) Edit(data string) bool {
 												DeviceID:  device_id2,
 												FieldFrom: fmt.Sprint(each_map333.(map[string]interface{})["field_from"]),
 												FieldTo:   fmt.Sprint(each_map333.(map[string]interface{})["field_to"]),
+												Symbol:    fmt.Sprint(each_map333.(map[string]interface{})["symbol"]),
 											}
 											if err := tx.Create(&field2).Error; err != nil {
 												return err
@@ -497,10 +539,15 @@ func (*AssetService) Edit(data string) bool {
 												// 修改
 												device_id3 = fmt.Sprint(each_map444.(map[string]interface{})["id"])
 												err := tx.Model(&models.Device{}).Where("id = ?", device_id3).Updates(map[string]interface{}{
-													"asset_id": asset_id3,
-													"type":     fmt.Sprint(each_map444.(map[string]interface{})["type"]),
-													"name":     fmt.Sprint(each_map444.(map[string]interface{})["name"]),
-													"protocol": fmt.Sprint(each_map444.(map[string]interface{})["protocol"]),
+													"asset_id":  asset_id3,
+													"type":      fmt.Sprint(each_map444.(map[string]interface{})["type"]),
+													"name":      fmt.Sprint(each_map444.(map[string]interface{})["name"]),
+													"protocol":  fmt.Sprint(each_map444.(map[string]interface{})["protocol"]),
+													"port":      fmt.Sprint(each_map444.(map[string]interface{})["port"]),
+													"publish":   fmt.Sprint(each_map444.(map[string]interface{})["publish"]),
+													"subscribe": fmt.Sprint(each_map444.(map[string]interface{})["subscribe"]),
+													"username":  fmt.Sprint(each_map444.(map[string]interface{})["username"]),
+													"password":  fmt.Sprint(each_map444.(map[string]interface{})["password"]),
 												}).Error
 												if err != nil {
 													return err
@@ -518,6 +565,11 @@ func (*AssetService) Edit(data string) bool {
 													Type:      fmt.Sprint(each_map444.(map[string]interface{})["type"]),
 													Name:      fmt.Sprint(each_map444.(map[string]interface{})["name"]),
 													Protocol:  fmt.Sprint(each_map444.(map[string]interface{})["protocol"]),
+													Port:      fmt.Sprint(each_map444.(map[string]interface{})["port"]),
+													Publish:   fmt.Sprint(each_map444.(map[string]interface{})["publish"]),
+													Subscribe: fmt.Sprint(each_map444.(map[string]interface{})["subscribe"]),
+													Username:  fmt.Sprint(each_map444.(map[string]interface{})["username"]),
+													Password:  fmt.Sprint(each_map444.(map[string]interface{})["password"]),
 													Extension: "Extensions",
 												}
 												if err := tx.Create(&device3).Error; err != nil {
@@ -532,6 +584,7 @@ func (*AssetService) Edit(data string) bool {
 															"device_id":  device_id3,
 															"field_from": fmt.Sprint(each_map4444.(map[string]interface{})["field_from"]),
 															"field_to":   fmt.Sprint(each_map4444.(map[string]interface{})["field_to"]),
+															"symbol":     fmt.Sprint(each_map4444.(map[string]interface{})["symbol"]),
 														}).Error
 														if err != nil {
 															return err
@@ -544,6 +597,7 @@ func (*AssetService) Edit(data string) bool {
 															DeviceID:  device_id3,
 															FieldFrom: fmt.Sprint(each_map4444.(map[string]interface{})["field_from"]),
 															FieldTo:   fmt.Sprint(each_map4444.(map[string]interface{})["field_to"]),
+															Symbol:    fmt.Sprint(each_map4444.(map[string]interface{})["symbol"]),
 														}
 														if err := tx.Create(&field3).Error; err != nil {
 															return err

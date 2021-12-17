@@ -363,7 +363,7 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 
 func (*TSKVService) Status(device_id string) (*models.TSKV, int64) {
 	var tskv models.TSKV
-	result := psql.Mydb.Where("entity_id = ?", device_id).Order("ts asc").First(&tskv)
+	result := psql.Mydb.Where("entity_id = ?", device_id).Order("ts desc").First(&tskv)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}

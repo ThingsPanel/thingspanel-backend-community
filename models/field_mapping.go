@@ -5,6 +5,7 @@ type FieldMapping struct {
 	DeviceID  string `json:"device_id" gorm:"size:36"`
 	FieldFrom string `json:"field_from"`
 	FieldTo   string `json:"field_to"`
+	Symbol    string `json:"symbol"`
 }
 
 func (FieldMapping) TableName() string {

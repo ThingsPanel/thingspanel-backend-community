@@ -84,3 +84,18 @@ func (*FieldMappingService) TransformByDeviceid(device_id string, field_to strin
 	}
 	return field_from
 }
+
+func (*FieldMappingService) GetSymbol(device_id string, field_from string) string {
+	var fieldMappings models.FieldMapping
+	var symbol string
+	result := psql.Mydb.Where("device_id = ? AND field_from = ?", device_id, field_from).Find(&fieldMappings)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if result.RowsAffected == 0 {
+		symbol = ""
+	} else {
+		symbol = fieldMappings.Symbol
+	}
+	return symbol
+}

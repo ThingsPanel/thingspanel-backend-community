@@ -12,6 +12,11 @@ type Device struct {
 	SearchText     string `json:"search_text"`
 	Extension      string `json:"extension" gorm:"size:50"` // 插件( 目录名)
 	Protocol       string `json:"protocol" gorm:"size:50"`
+	Port           string `json:"port" gorm:"size:50"`
+	Publish        string `json:"publish" gorm:"size:255"`
+	Subscribe      string `json:"subscribe" gorm:"size:255"`
+	Username       string `json:"username" gorm:"size:255"`
+	Password       string `json:"password" gorm:"size:255"`
 }
 
 func (Device) TableName() string {

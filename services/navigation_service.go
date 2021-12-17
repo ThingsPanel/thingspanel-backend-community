@@ -77,3 +77,13 @@ func (*NavigationService) Add(name string, t int64, data string) (bool, string) 
 	}
 	return true, uuid
 }
+
+// 根据BusinessID删除一条Navigation数据
+func (*NavigationService) DeleteByBusinessID(BusinessID string) bool {
+	result := psql.Mydb.Where("data LIKE ?", "%"+BusinessID+"%").Delete(&models.Navigation{})
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return false
+	}
+	return true
+}

@@ -2,12 +2,15 @@ package services
 
 import (
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
 	"fmt"
+	"strings"
 
 	"ThingsPanel-Go/initialize/psql"
 
+	simplejson "github.com/bitly/go-simplejson"
 	"gorm.io/gorm"
 )
 
@@ -108,9 +111,127 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if count > 0 {
-		//var FieldMappingService FieldMappingService
+		original := ""
+		code := ""
+		c := make(map[string]string)
+		m := make(map[string]string)
+		var FieldMappingService FieldMappingService
+		var BusinessService BusinessService
+		var WarningLogService WarningLogService
 		for _, wv := range warningConfigs {
-			fmt.Println(wv)
+			code = ""
+			res, err := simplejson.NewJson([]byte(wv.Config))
+			if err != nil {
+				fmt.Println("解析出错", err)
+			}
+			rows, _ := res.Array()
+			for _, row := range rows {
+				if each_map, ok := row.(map[string]interface{}); ok {
+					if each_map["operator"] != nil {
+						code += fmt.Sprint(each_map["operator"])
+					}
+					if each_map["field"] != nil {
+						tmp := fmt.Sprint(each_map["field"])
+						code += "${" + tmp + "}"
+					}
+					if each_map["condition"] != nil {
+						code += fmt.Sprint(each_map["condition"])
+					}
+					if each_map["value"] != nil {
+						code += fmt.Sprint(each_map["value"])
+						c["${"+fmt.Sprint(each_map["field"])+"}"] = fmt.Sprint(each_map["value"])
+					}
+				}
+			}
+			original = code
+			// 替换变量
+			for k, v := range values {
+				field := FieldMappingService.TransformByDeviceid(bid, k)
+				if field != "" {
+					m["${"+field+"}"] = fmt.Sprint(v)
+					code = strings.Replace(code, "${"+field+"}", fmt.Sprint(v), -1)
+				}
+			}
+			flag := utils.Eval(code)
+			if flag == "true" {
+				message := ""
+				businessName := ""
+				bl, bc := BusinessService.GetBusinessById(wv.Wid)
+				if bc > 0 {
+					businessName = bl.Name
+				}
+				message = businessName + "业务中的设备,"
+				if find := strings.Contains(original, "||"); find {
+					countSplit := strings.Split(original, "||")
+					for _, v1 := range countSplit {
+						if find2 := strings.Contains(v1, "&&"); find2 {
+							countSplit2 := strings.Split(v1, "&&")
+							for _, v2 := range countSplit2 {
+								fieldSplit := strings.Split(v2, "}")
+								tmp := fieldSplit[0]
+								filed_param := tmp[2:]
+								code_param := strings.Replace(v2, "${"+filed_param+"}", m["${"+filed_param+"}"], -1)
+								flag_param := utils.Eval(code_param)
+								if flag_param == "true" {
+									//指标co当前值为xx,预设值为xx
+									symbol := FieldMappingService.GetSymbol(bid, filed_param)
+									message += "指标" + filed_param + "当前值为" + m["${"+filed_param+"}"] + symbol + ",预设值为" + c["${"+filed_param+"}"] + symbol + ";"
+								}
+							}
+						} else {
+							fieldSplit := strings.Split(v1, "}")
+							tmp := fieldSplit[0]
+							filed_param := tmp[2:]
+							code_param := strings.Replace(v1, "${"+filed_param+"}", m["${"+filed_param+"}"], -1)
+							flag_param := utils.Eval(code_param)
+							if flag_param == "true" {
+								symbol := FieldMappingService.GetSymbol(bid, filed_param)
+								message += "指标" + filed_param + "当前值为" + m["${"+filed_param+"}"] + symbol + ",预设值为" + c["${"+filed_param+"}"] + symbol + ";"
+							}
+						}
+					}
+				} else if find := strings.Contains(original, "&&"); find {
+					countSplit := strings.Split(original, "&&")
+					for _, v1 := range countSplit {
+						if find2 := strings.Contains(v1, "||"); find2 {
+							countSplit2 := strings.Split(v1, "||")
+							for _, v2 := range countSplit2 {
+								fieldSplit := strings.Split(v2, "}")
+								tmp := fieldSplit[0]
+								filed_param := tmp[2:]
+								code_param := strings.Replace(v2, "${"+filed_param+"}", m["${"+filed_param+"}"], -1)
+								flag_param := utils.Eval(code_param)
+								if flag_param == "true" {
+									symbol := FieldMappingService.GetSymbol(bid, filed_param)
+									message += "指标" + filed_param + "当前值为" + m["${"+filed_param+"}"] + symbol + ",预设值为" + c["${"+filed_param+"}"] + symbol + ";"
+								}
+							}
+						} else {
+							fieldSplit := strings.Split(v1, "}")
+							tmp := fieldSplit[0]
+							filed_param := tmp[2:]
+							code_param := strings.Replace(v1, "${"+filed_param+"}", m["${"+filed_param+"}"], -1)
+							flag_param := utils.Eval(code_param)
+							if flag_param == "true" {
+								symbol := FieldMappingService.GetSymbol(bid, filed_param)
+								message += "指标" + filed_param + "当前值为" + m["${"+filed_param+"}"] + symbol + ",预设值为" + c["${"+filed_param+"}"] + symbol + ";"
+							}
+						}
+					}
+				} else {
+					fieldSplit := strings.Split(original, "}")
+					tmp := fieldSplit[0]
+					filed_param := tmp[2:]
+					code_param := strings.Replace(original, "${"+filed_param+"}", m["${"+filed_param+"}"], -1)
+					flag_param := utils.Eval(code_param)
+					if flag_param == "true" {
+						//指标co当前值为xx,预设值为xx
+						symbol := FieldMappingService.GetSymbol(bid, filed_param)
+						message += "指标" + filed_param + "当前值为" + m["${"+filed_param+"}"] + symbol + ",预设值为" + c["${"+filed_param+"}"] + symbol + ";"
+					}
+				}
+				WarningLogService.Add("1", message, bid)
+			}
 		}
 	}
 }

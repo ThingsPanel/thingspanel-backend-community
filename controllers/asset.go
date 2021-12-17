@@ -21,15 +21,21 @@ type AssetController struct {
 }
 
 type DeviceData struct {
-	ID       string                `json:"id"`
-	Name     string                `json:"name"`
-	Type     string                `json:"type"`
-	Disabled bool                  `json:"disabled"`
-	Dm       string                `json:"dm"`
-	State    string                `json:"state"`
-	Protocol string                `json:"protocol"`
-	Dash     []services.Widget     `json:"dash"`
-	Mapping  []models.FieldMapping `json:"mapping"`
+	ID         string                `json:"id"`
+	Name       string                `json:"name"`
+	Type       string                `json:"type"`
+	Disabled   bool                  `json:"disabled"`
+	Dm         string                `json:"dm"`
+	State      string                `json:"state"`
+	Protocol   string                `json:"protocol"`
+	Port       string                `json:"port"`
+	Publish    string                `json:"publish"`
+	Subscribe  string                `json:"subscribe"`
+	Username   string                `json:"username"`
+	Password   string                `json:"password"`
+	Dash       []services.Widget     `json:"dash"`
+	Mapping    []models.FieldMapping `json:"mapping"`
+	Latesttime int64                 `json:"latesttime"`
 }
 
 type AssetData struct {
@@ -256,7 +262,8 @@ func (this *AssetController) List() {
 						state = "待接入"
 					} else {
 						ts := time.Now().UnixMicro()
-						if (ts - tsl.TS) > 100000 {
+						//300000000
+						if (ts - tsl.TS) > 300000000 {
 							state = "异常"
 						} else {
 							state = "正常"
@@ -274,15 +281,21 @@ func (this *AssetController) List() {
 					}
 					fml, _ := FieldMappingService.GetByDeviceid(di.ID)
 					rdi := DeviceData{
-						ID:       di.ID,
-						Name:     di.Name,
-						Type:     di.Type,
-						Disabled: disabled,
-						Dm:       dm,
-						State:    state,
-						Protocol: di.Protocol,
-						Dash:     ResWidgetData,
-						Mapping:  fml,
+						ID:         di.ID,
+						Name:       di.Name,
+						Type:       di.Type,
+						Disabled:   disabled,
+						Dm:         dm,
+						State:      state,
+						Protocol:   di.Protocol,
+						Port:       di.Port,
+						Publish:    di.Publish,
+						Subscribe:  di.Subscribe,
+						Username:   di.Username,
+						Password:   di.Password,
+						Dash:       ResWidgetData,
+						Mapping:    fml,
+						Latesttime: tsl.TS,
 					}
 					ResDeviceData = append(ResDeviceData, rdi)
 				}
@@ -311,7 +324,7 @@ func (this *AssetController) List() {
 								state = "待接入"
 							} else {
 								ts := time.Now().UnixMicro()
-								if (ts - tsl.TS) > 100000 {
+								if (ts - tsl.TS) > 300000000 {
 									state = "异常"
 								} else {
 									state = "正常"
@@ -329,15 +342,21 @@ func (this *AssetController) List() {
 							}
 							fml, _ := FieldMappingService.GetByDeviceid(di.ID)
 							rdi := DeviceData{
-								ID:       di.ID,
-								Name:     di.Name,
-								Type:     di.Type,
-								Disabled: disabled,
-								Dm:       dm,
-								State:    state,
-								Protocol: di.Protocol,
-								Dash:     ResWidgetData2,
-								Mapping:  fml,
+								ID:         di.ID,
+								Name:       di.Name,
+								Type:       di.Type,
+								Disabled:   disabled,
+								Dm:         dm,
+								State:      state,
+								Protocol:   di.Protocol,
+								Port:       di.Port,
+								Publish:    di.Publish,
+								Subscribe:  di.Subscribe,
+								Username:   di.Username,
+								Password:   di.Password,
+								Dash:       ResWidgetData2,
+								Mapping:    fml,
+								Latesttime: tsl.TS,
 							}
 							ResDeviceData2 = append(ResDeviceData2, rdi)
 						}
@@ -366,7 +385,7 @@ func (this *AssetController) List() {
 										state = "待接入"
 									} else {
 										ts := time.Now().UnixMicro()
-										if (ts - tsl.TS) > 100000 {
+										if (ts - tsl.TS) > 300000000 {
 											state = "异常"
 										} else {
 											state = "正常"
@@ -384,15 +403,21 @@ func (this *AssetController) List() {
 									}
 									fml, _ := FieldMappingService.GetByDeviceid(di.ID)
 									rdi := DeviceData{
-										ID:       di.ID,
-										Name:     di.Name,
-										Type:     di.Type,
-										Disabled: disabled,
-										Dm:       dm,
-										State:    state,
-										Protocol: di.Protocol,
-										Dash:     ResWidgetData3,
-										Mapping:  fml,
+										ID:         di.ID,
+										Name:       di.Name,
+										Type:       di.Type,
+										Disabled:   disabled,
+										Dm:         dm,
+										State:      state,
+										Protocol:   di.Protocol,
+										Port:       di.Port,
+										Publish:    di.Publish,
+										Subscribe:  di.Subscribe,
+										Username:   di.Username,
+										Password:   di.Password,
+										Dash:       ResWidgetData3,
+										Mapping:    fml,
+										Latesttime: tsl.TS,
 									}
 									ResDeviceData3 = append(ResDeviceData3, rdi)
 								}

@@ -192,8 +192,10 @@ func (this *BusinessController) Delete() {
 		return
 	}
 	var BusinessService services.BusinessService
+	var NavigationService services.NavigationService
 	f := BusinessService.Delete(deleteBusinessValidate.ID)
 	if f {
+		NavigationService.DeleteByBusinessID(deleteBusinessValidate.ID)
 		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
 		return
 	}
