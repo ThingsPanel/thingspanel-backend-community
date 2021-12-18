@@ -14,6 +14,7 @@ import (
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
+	"github.com/bitly/go-simplejson"
 )
 
 type DashBoardController struct {
@@ -104,6 +105,19 @@ type DashBoardData struct {
 	ChartType string                           `json:"chart_type"`
 	Title     string                           `json:"title"`
 	Fields    []map[string]DashBoardFieldsData `json:"fields"`
+}
+
+type DashBoardConfig struct {
+	SliceId   int64  `json:"slice_id"`
+	X         int64  `json:"x"`
+	Y         int64  `json:"y"`
+	W         int64  `json:"w"`
+	H         int64  `json:"h"`
+	Width     int64  `json:"width"`
+	Height    int64  `json:"height"`
+	I         string `json:"i"`
+	ChartType string `json:"chart_type"`
+	Title     string `json:"title"`
 }
 
 type DashBoardFieldsData struct {
@@ -521,7 +535,6 @@ func (this *DashBoardController) Dashboard() {
 			if err != nil {
 				fmt.Println(err)
 			}
-			fmt.Println(config)
 			// 赋值
 			d := DashBoardData{
 				ID:        wv.ID,
@@ -610,10 +623,42 @@ func (this *DashBoardController) Updatedashboard() {
 		}
 		return
 	}
+	var dbc DashBoardConfig
 	var WidgetService services.WidgetService
-	_, c := WidgetService.GetWidgetById(updateDashBoardValidate.WidgetID)
+	w, c := WidgetService.GetWidgetById(updateDashBoardValidate.WidgetID)
 	if c > 0 {
-		f := WidgetService.UpdateConfigByWidgetId(updateDashBoardValidate.WidgetID, updateDashBoardValidate.Config)
+		res, err := simplejson.NewJson([]byte(updateDashBoardValidate.Config))
+		if err != nil {
+			fmt.Println("解析出错", err)
+		}
+		qx := res.Get("x").MustInt64()
+		qy := res.Get("y").MustInt64()
+		qw := res.Get("w").MustInt64()
+		qh := res.Get("h").MustInt64()
+		qwidth := res.Get("width").MustInt64()
+		qheight := res.Get("height").MustInt64()
+		res2, err2 := simplejson.NewJson([]byte(w.Config))
+		if err2 != nil {
+			fmt.Println("解析出错", err2)
+		}
+		slice_id := res2.Get("slice_id").MustInt64()
+		i := res2.Get("i").MustString()
+		chart_type := res2.Get("chart_type").MustString()
+		title := res2.Get("title").MustString()
+		dbc = DashBoardConfig{
+			SliceId:   slice_id,
+			X:         qx,
+			Y:         qy,
+			W:         qw,
+			H:         qh,
+			Width:     qwidth,
+			Height:    qheight,
+			I:         i,
+			ChartType: chart_type,
+			Title:     title,
+		}
+		dbc_string, _ := json.Marshal(&dbc)
+		f := WidgetService.UpdateConfigByWidgetId(updateDashBoardValidate.WidgetID, string(dbc_string))
 		if f {
 			response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
 			return
