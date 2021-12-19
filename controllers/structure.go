@@ -217,11 +217,13 @@ func (this *StructureController) Field() {
 			if len(wl) > 0 {
 				for _, wv := range wl {
 					fl := AssetService.Field(ev.Key, wv.Key)
-					i := StructureW{
-						Name:  wv.Name,
-						Field: fl,
+					if len(fl) > 0 {
+						i := StructureW{
+							Name:  wv.Name,
+							Field: fl,
+						}
+						wd = append(wd, i)
 					}
-					wd = append(wd, i)
 				}
 			}
 		}
