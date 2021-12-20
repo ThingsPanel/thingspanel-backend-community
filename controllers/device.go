@@ -150,3 +150,25 @@ func (this *DeviceController) Delete() {
 	response.SuccessWithMessage(400, "删除失败", (*context2.Context)(this.Ctx))
 	return
 }
+
+// 获取配置参数
+func (this *DeviceController) Configure() {
+	configureDeviceValidate := valid.ConfigureDevice{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &configureDeviceValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(configureDeviceValidate)
+	if !status {
+		for _, err := range v.Errors {
+			alias := gvalid.GetAlias(configureDeviceValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	//var DeviceService services.DeviceService
+	//DeviceService
+}

@@ -121,13 +121,34 @@ func (c *Client) ReadMsg() {
 	}()
 	var WidgetService services.WidgetService
 	var TSKVService services.TSKVService
-	c.Ticker = time.NewTicker(time.Millisecond * 3000)
+	first := true
+	var StartTs int64
+	var EndTs int64
+	c.Ticker = time.NewTicker(time.Millisecond * 10000)
 	for {
 		_, p, err := c.Conn.ReadMessage()
 		if err != nil {
 			break
 		}
 		go func() {
+			if first {
+				var msgContent MsgContent
+				_ = json.Unmarshal(p, &msgContent)
+				msgContent.User = c.ID
+				w, _ := WidgetService.GetWidgetById(msgContent.Wid)
+				device_ids := []string{w.DeviceID}
+				et := time.Now().Unix()
+				st := et - 1800
+				StartTs = st * 1000
+				EndTs = et * 1000
+				fmt.Println(StartTs, ":", EndTs)
+				data := TSKVService.GetTelemetry(device_ids, StartTs, EndTs)
+				msg, _ := json.Marshal(data)
+				msgContent.Data = string(msg)
+				message, _ := json.Marshal(msgContent)
+				AllCh.MsgChan <- string(message)
+				first = false
+			}
 			for t := range c.Ticker.C {
 				fmt.Println(t)
 				var msgContent MsgContent
@@ -135,7 +156,10 @@ func (c *Client) ReadMsg() {
 				msgContent.User = c.ID
 				w, _ := WidgetService.GetWidgetById(msgContent.Wid)
 				device_ids := []string{w.DeviceID}
-				data := TSKVService.GetTelemetry(device_ids, msgContent.StartTs, msgContent.EndTs)
+				StartTs = EndTs
+				EndTs = StartTs + 10000
+				fmt.Println(StartTs, ":", EndTs)
+				data := TSKVService.GetTelemetry(device_ids, StartTs, EndTs)
 				msg, _ := json.Marshal(data)
 				msgContent.Data = string(msg)
 				message, _ := json.Marshal(msgContent)

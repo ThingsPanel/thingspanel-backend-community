@@ -234,123 +234,64 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 	if len(device_ids) > 0 {
 		for _, d := range device_ids {
 			device := make(map[string]interface{})
-			if startTs == 0 && endTs == 0 {
-				result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", d).Order("ts asc").Find(&ts_kvs)
-				if result.Error != nil {
-					errors.Is(result.Error, gorm.ErrRecordNotFound)
-				}
-				var fields []map[string]interface{}
-				if result.RowsAffected > 0 {
-					var i int64 = 0
-					var field map[string]interface{}
-					field_from := ""
-					c := result.RowsAffected
-					for k, v := range ts_kvs {
-						if field_from != v.Key {
-							field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
-							if field_from == "" {
-								field_from = v.Key
-							}
-						}
-						if i != v.TS {
-							if i != 0 {
-								fields = append(fields, field)
-							}
-							field = make(map[string]interface{})
-							if fmt.Sprint(v.BoolV) != "" {
-								field[field_from] = v.BoolV
-							} else if v.StrV != "" {
-								field[field_from] = v.StrV
-							} else if v.LongV != 0 {
-								field[field_from] = v.LongV
-							} else if v.DblV != 0 {
-								field[field_from] = v.DblV
-							}
-							i = v.TS
-						} else {
-							if fmt.Sprint(v.BoolV) != "" {
-								field[field_from] = v.BoolV
-							} else if v.StrV != "" {
-								field[field_from] = v.StrV
-							} else if v.LongV != 0 {
-								field[field_from] = v.LongV
-							} else if v.DblV != 0 {
-								field[field_from] = v.DblV
-							}
-							if c == int64(k+1) {
-								fields = append(fields, field)
-							}
-						}
-					}
-				}
-				device["device_id"] = d
-				if len(fields) == 0 {
-					device["fields"] = make([]string, 0)
-					device["latest"] = make([]string, 0)
-				} else {
-					device["fields"] = fields
-					device["latest"] = fields[len(fields)-1]
-				}
-				devices = append(devices, device)
-			} else {
-				result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ?", startTs*1000, endTs*1000, d).Order("ts asc").Find(&ts_kvs)
-				if result.Error != nil {
-					errors.Is(result.Error, gorm.ErrRecordNotFound)
-				}
-				var fields []map[string]interface{}
-				if result.RowsAffected > 0 {
-					var i int64 = 0
-					var field map[string]interface{}
-					field_from := ""
-					c := result.RowsAffected
-					for k, v := range ts_kvs {
-						if field_from != v.Key {
-							field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
-							if field_from == "" {
-								field_from = v.Key
-							}
-						}
-						if i != v.TS {
-							if i != 0 {
-								fields = append(fields, field)
-							}
-							field = make(map[string]interface{})
-							if fmt.Sprint(v.BoolV) != "" {
-								field[field_from] = v.BoolV
-							} else if v.StrV != "" {
-								field[field_from] = v.StrV
-							} else if v.LongV != 0 {
-								field[field_from] = v.LongV
-							} else if v.DblV != 0 {
-								field[field_from] = v.DblV
-							}
-							i = v.TS
-						} else {
-							if fmt.Sprint(v.BoolV) != "" {
-								field[field_from] = v.BoolV
-							} else if v.StrV != "" {
-								field[field_from] = v.StrV
-							} else if v.LongV != 0 {
-								field[field_from] = v.LongV
-							} else if v.DblV != 0 {
-								field[field_from] = v.DblV
-							}
-							if c == int64(k+1) {
-								fields = append(fields, field)
-							}
-						}
-					}
-				}
-				device["device_id"] = d
-				if len(fields) == 0 {
-					device["fields"] = make([]string, 0)
-					device["latest"] = make([]string, 0)
-				} else {
-					device["fields"] = fields
-					device["latest"] = fields[len(fields)-1]
-				}
-				devices = append(devices, device)
+
+			result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ?", startTs*1000, endTs*1000, d).Order("ts asc").Find(&ts_kvs)
+			if result.Error != nil {
+				errors.Is(result.Error, gorm.ErrRecordNotFound)
 			}
+			var fields []map[string]interface{}
+			if result.RowsAffected > 0 {
+				var i int64 = 0
+				var field map[string]interface{}
+				field_from := ""
+				c := result.RowsAffected
+				for k, v := range ts_kvs {
+					if field_from != v.Key {
+						field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
+						if field_from == "" {
+							field_from = v.Key
+						}
+					}
+					if i != v.TS {
+						if i != 0 {
+							fields = append(fields, field)
+						}
+						field = make(map[string]interface{})
+						if fmt.Sprint(v.BoolV) != "" {
+							field[field_from] = v.BoolV
+						} else if v.StrV != "" {
+							field[field_from] = v.StrV
+						} else if v.LongV != 0 {
+							field[field_from] = v.LongV
+						} else if v.DblV != 0 {
+							field[field_from] = v.DblV
+						}
+						i = v.TS
+					} else {
+						if fmt.Sprint(v.BoolV) != "" {
+							field[field_from] = v.BoolV
+						} else if v.StrV != "" {
+							field[field_from] = v.StrV
+						} else if v.LongV != 0 {
+							field[field_from] = v.LongV
+						} else if v.DblV != 0 {
+							field[field_from] = v.DblV
+						}
+						if c == int64(k+1) {
+							fields = append(fields, field)
+						}
+					}
+				}
+			}
+			device["device_id"] = d
+			if len(fields) == 0 {
+				device["fields"] = make([]string, 0)
+				device["latest"] = make([]string, 0)
+			} else {
+				device["fields"] = fields
+				device["latest"] = fields[len(fields)-1]
+			}
+			devices = append(devices, device)
 		}
 	} else {
 		fmt.Println("device_ids不能为空")

@@ -472,9 +472,17 @@ func (this *DashBoardController) Gettime() {
 		if err != nil {
 			fmt.Println(err)
 		}
+		timeTemplate := "2006-01-02T15:04"
+		et := time.Now().Unix()
+		st := et - 300
+		start_time := time.Unix(st, 0).Format(timeTemplate)
+		end_time := time.Unix(et, 0).Format(timeTemplate)
+		config.StartTime = start_time
+		config.EndTime = end_time
+		config_str, _ := json.Marshal(config)
 		res := GettimeData{
 			ID:                di.ID,
-			Configuration:     di.Configuration,
+			Configuration:     string(config_str),
 			AssignedCustomers: di.AssignedCustomers,
 			SearchText:        di.SearchText,
 			Title:             di.Title,

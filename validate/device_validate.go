@@ -32,3 +32,8 @@ type AddDevice struct {
 type DeleteDevice struct {
 	ID string `json:"id" alias:"id" valid:"Required;MaxSize(36)"`
 }
+
+// ConfigureDevice 校验
+type ConfigureDevice struct {
+	Protocol string `json:"protocol" alias:"protocol" valid:"Required;MaxSize(36)"`
+}

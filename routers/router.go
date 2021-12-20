@@ -73,6 +73,7 @@ func init() {
 		web.NSRouter("/device/edit", &controllers.DeviceController{}, "*:Edit"),
 		web.NSRouter("/device/add", &controllers.DeviceController{}, "*:Add"),
 		web.NSRouter("/device/delete", &controllers.DeviceController{}, "*:Delete"),
+		web.NSRouter("/device/configure", &controllers.DeviceController{}, "*:Configure"),
 
 		//可视化
 		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"),
