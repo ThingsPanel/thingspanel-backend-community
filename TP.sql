@@ -127,7 +127,7 @@ CREATE TABLE "operation_log" (
     "describe" text,
     "data_id" character varying(36),
     "created_at" bigint,
-    "detailed" text,
+    "detailed" json,
     CONSTRAINT "operation_log_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 CREATE TABLE "password_resets" (
