@@ -522,23 +522,27 @@ func (this *DashBoardController) Dashboard() {
 	if wc > 0 {
 		for _, wv := range wl {
 			arr := strings.Split(wv.WidgetIdentifier, ":")
-			fs := AssetService.Field(arr[0], arr[1])
 			var fields []map[string]DashBoardFieldsData
-			if len(fs) > 0 {
-				for _, fv := range fs {
-					fi := map[string]DashBoardFieldsData{
-						fv.Key: {
-							Name:   fv.Name,
-							Type:   fv.Type,
-							Symbol: fv.Symbol,
-						},
+			if len(arr) > 0 {
+				fs := AssetService.Field(arr[0], arr[1])
+				if len(fs) > 0 {
+					for _, fv := range fs {
+						fi := map[string]DashBoardFieldsData{
+							fv.Key: {
+								Name:   fv.Name,
+								Type:   fv.Type,
+								Symbol: fv.Symbol,
+							},
+						}
+						fields = append(fields, fi)
 					}
-					fields = append(fields, fi)
 				}
+
 			}
 			if len(fields) == 0 {
 				fields = []map[string]DashBoardFieldsData{}
 			}
+
 			err := json.Unmarshal([]byte(wv.Config), &config)
 			if err != nil {
 				fmt.Println(err)
