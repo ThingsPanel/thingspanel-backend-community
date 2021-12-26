@@ -18,9 +18,16 @@ type OperationLogService struct {
 }
 
 // Paginate 分页获取OperationLog数据
-func (*OperationLogService) Paginate(offset int, pageSize int) ([]models.OperationLog, int64) {
+func (*OperationLogService) Paginate(offset int, pageSize int, ip string, path string) ([]models.OperationLog, int64) {
 	var operationLogs []models.OperationLog
-	result := psql.Mydb.Order("created_at desc").Limit(pageSize).Offset(offset).Find(&operationLogs)
+	sqlWhere := "1=1"
+	if path != "" {
+		sqlWhere += " and (detailed ::json->>'path' like '%" + path + "%')"
+	}
+	if ip != "" {
+		sqlWhere += " and (detailed ::json->>'ip' like '%" + ip + "%')"
+	}
+	result := psql.Mydb.Where(sqlWhere).Order("created_at desc").Limit(pageSize).Offset(offset).Find(&operationLogs)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}

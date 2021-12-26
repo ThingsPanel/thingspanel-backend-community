@@ -54,7 +54,7 @@ func (this *OperationlogController) List() {
 		return
 	}
 	var OperationLogService services.OperationLogService
-	o, c := OperationLogService.Paginate(operationLogListValidateValidate.Page, operationLogListValidateValidate.Limit)
+	o, c := OperationLogService.Paginate(operationLogListValidateValidate.Page, operationLogListValidateValidate.Limit, operationLogListValidateValidate.Ip, operationLogListValidateValidate.Path)
 	d := PaginateOperationlog{
 		CurrentPage: operationLogListValidateValidate.Page,
 		Data:        o,
