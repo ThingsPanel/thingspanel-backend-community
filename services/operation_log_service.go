@@ -27,6 +27,11 @@ func (*OperationLogService) Paginate(offset int, pageSize int, ip string, path s
 	if ip != "" {
 		sqlWhere += " and (detailed ::json->>'ip' like '%" + ip + "%')"
 	}
+	var count int64
+	countResult := psql.Mydb.Model(&operationLogs).Where(sqlWhere).Count(&count)
+	if countResult.Error != nil {
+		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
+	}
 	result := psql.Mydb.Where(sqlWhere).Order("created_at desc").Limit(pageSize).Offset(offset).Find(&operationLogs)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -34,7 +39,7 @@ func (*OperationLogService) Paginate(offset int, pageSize int, ip string, path s
 	if len(operationLogs) == 0 {
 		operationLogs = []models.OperationLog{}
 	}
-	return operationLogs, result.RowsAffected
+	return operationLogs, count
 }
 
 // 根据id获取100条OperationLog数据
