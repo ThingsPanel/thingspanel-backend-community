@@ -19,6 +19,8 @@ func init() {
 	middleware.CorsMiddle()
 	//授权登录中间件
 	middleware.AuthMiddle()
+	//日志中间件
+	middleware.LogMiddle()
 	api := web.NewNamespace("/api",
 		// 登录
 		web.NSRouter("/auth/login", &controllers.AuthController{}, "*:Login"),
@@ -136,6 +138,7 @@ func init() {
 		web.NSRouter("/kv/index", &controllers.KvController{}, "*:Index"),
 		web.NSRouter("/kv/export", &controllers.KvController{}, "*:Export"),
 	)
+
 	// 图表推送数据
 	web.Router("/ws", &controllers.WebsocketController{}, "*:WsHandler")
 	web.AddNamespace(api)

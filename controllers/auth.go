@@ -90,6 +90,7 @@ func (this *AuthController) Login() {
 	// 生成jwt
 	tokenCliams := jwt.UserClaims{
 		ID:         user.ID,
+		Name:       user.Name,
 		CreateTime: time.Now(),
 		StandardClaims: gjwt.StandardClaims{
 			ExpiresAt: time.Now().Unix() + 3600,

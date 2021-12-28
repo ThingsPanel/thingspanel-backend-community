@@ -5,7 +5,7 @@ type OperationLog struct {
 	Type      string `json:"type" gorm:"size:36"`
 	Describe  string `json:"describe" gorm:"type:longtext"`
 	DataID    string `json:"data_id" gorm:"size:36"`
-	CreatedAt string `json:"created_at"`
+	CreatedAt int64  `json:"created_at"`
 	Detailed  string `json:"detailed" gorm:"type:longtext"`
 }
 

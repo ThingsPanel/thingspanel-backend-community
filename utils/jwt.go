@@ -9,6 +9,7 @@ import (
 
 type UserClaims struct {
 	ID         string    `json:"id"`
+	Name       string    `json:"name"`
 	CreateTime time.Time `json:"create_time"`
 	jwt.StandardClaims
 }
