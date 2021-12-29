@@ -32,6 +32,7 @@ func (*OperationLogService) Paginate(offset int, pageSize int, ip string, path s
 	if countResult.Error != nil {
 		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
 	}
+	offset = offset * (pageSize - 1)
 	result := psql.Mydb.Where(sqlWhere).Order("created_at desc").Limit(pageSize).Offset(offset).Find(&operationLogs)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
