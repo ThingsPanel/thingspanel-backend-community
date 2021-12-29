@@ -81,8 +81,8 @@ func (this *BusinessController) Index() {
 		var AssetService services.AssetService
 		var is_device int
 		for _, bv := range u {
-			_, ac := AssetService.GetAssetDataByBusinessId(bv.ID)
-			if ac == 0 {
+			_, err := AssetService.GetAssetDataByBusinessId(bv.ID)
+			if err !=nil{
 				is_device = 0
 			} else {
 				is_device = 1

@@ -10,6 +10,12 @@ type TSKV struct {
 	LongV      int64   `json:"long_v"`
 	DblV       float64 `json:"dbl_v"`
 }
+type TSKVResult struct {
+	TSKV
+	Token string `json:"token"`
+	Bname string `json:"bname"`
+	Name  string `json:"name"`
+}
 
 func (TSKV) TableName() string {
 	return "ts_kv"

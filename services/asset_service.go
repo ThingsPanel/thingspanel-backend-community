@@ -831,18 +831,12 @@ func (*AssetService) GetAssetByBusinessId(business_id string) ([]AssetList, int6
 }
 
 // GetAssetDataByBusinessId
-func (*AssetService) GetAssetDataByBusinessId(business_id string) ([]AssetList, int64) {
-	var assets []AssetList
-	var count int64
-	result := psql.Mydb.Model(&models.Asset{}).Where("business_id = ?", business_id).Find(&assets)
-	psql.Mydb.Model(&models.Asset{}).Where("business_id = ?", business_id).Count(&count)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+func (*AssetService) GetAssetDataByBusinessId(business_id string) (assets []AssetList, err error) {
+	err = psql.Mydb.Model(&models.Asset{}).Where("business_id = ?", business_id).Find(&assets).Error
+	if err != nil {
+		return assets, err
 	}
-	if len(assets) == 0 {
-		assets = []AssetList{}
-	}
-	return assets, count
+	return assets, err
 }
 
 // 设备数据

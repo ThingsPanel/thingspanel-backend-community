@@ -21,6 +21,7 @@ func init() {
 	middleware.AuthMiddle()
 	//日志中间件
 	middleware.LogMiddle()
+
 	api := web.NewNamespace("/api",
 		// 登录
 		web.NSRouter("/auth/login", &controllers.AuthController{}, "*:Login"),
