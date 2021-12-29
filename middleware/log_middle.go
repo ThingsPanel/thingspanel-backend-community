@@ -27,10 +27,6 @@ type OperationLogDetailed struct {
 // LogMiddle 中间件
 var filterLog = func(ctx *context.Context) {
 	detailedStruct := getRequestDetailed(ctx)
-	detailedJsonByte, err := json.Marshal(detailedStruct) //转换成JSON返回的是byte[]
-	if err != nil {
-		fmt.Println(err.Error())
-	}
 	var name string
 	//非登录接口从token中获取用户name
 	if len(ctx.Request.Header["Authorization"]) != 0 {
@@ -46,6 +42,12 @@ var filterLog = func(ctx *context.Context) {
 	urlType := urlMap(urlKey)
 
 	detailedStruct.Name = name
+	detailedJsonByte, err := json.Marshal(detailedStruct) //转换成JSON返回的是byte[]
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	fmt.Println(detailedJsonByte)
+	fmt.Println(string(detailedJsonByte))
 	describe := name + "-send:" + detailedStruct.Path
 	var uuid = uuid.GetUuid()
 	logData := models.OperationLog{
