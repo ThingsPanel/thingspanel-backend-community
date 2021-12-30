@@ -124,18 +124,27 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	return false
 }
 
-func (*TSKVService) Paginate(business_id, asset_id string, t int64, start_time string, end_time string, limit int, offset int) ([]models.TSKVResult, int64) {
+func (*TSKVService) Paginate(business_id, asset_id, token string, t int64, start_time string, end_time string, limit int, offset int) ([]models.TSKVResult, int64) {
 	var tSKVs []models.TSKVResult
 	var count int64
 	result := psql.Mydb
 	result2 := psql.Mydb
+	if limit <= 0 {
+		limit = 15
+	}
+	if offset <= 0 {
+		offset = 0
+	}
 
 	filters := map[string]interface{}{}
-	if business_id !=""  {//设备id
+	if business_id != "" { //设备id
 		filters["business_id"] = business_id
 	}
-	if asset_id !="" {//资产id
+	if asset_id != "" { //资产id
 		filters["asset_id"] = asset_id
+	}
+	if token != "" { //资产id
+		filters["token"] = token
 	}
 	if start_time != "" && end_time != "" {
 		timeTemplate := "2006-01-02 15:04:05"
@@ -149,15 +158,13 @@ func (*TSKVService) Paginate(business_id, asset_id string, t int64, start_time s
 
 	SQLWhere, params := utils.TsKvFilterToSql(filters)
 	SQL := "select business.name bname,ts_kv.*,asset.name,device.token FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id" + SQLWhere
-	if limit >0 && offset >=0 {
+	if limit > 0 && offset >= 0 {
 		SQL = fmt.Sprintf("%s limit ? offset ? ", SQL)
 		params = append(params, limit, offset)
 	}
 	if err := result.Raw(SQL, params...).Scan(&tSKVs).Error; err != nil {
 		return tSKVs, 0
 	}
-
-
 
 	countsql := "SELECT Count(*) AS count FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id " + SQLWhere
 	if err := result2.Raw(countsql, params...).Scan(&count).Error; err != nil {

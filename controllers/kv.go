@@ -61,7 +61,7 @@ func (this *KvController) Index() {
 		return
 	}
 	var TSKVService services.TSKVService
-	t, c := TSKVService.Paginate(kVIndexValidate.BusinessId, kVIndexValidate.AssetId, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, kVIndexValidate.Page-1)
+	t, c := TSKVService.Paginate(kVIndexValidate.BusinessId, kVIndexValidate.AssetId,kVIndexValidate.Token, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, kVIndexValidate.Page-1)
 	d := PaginateTSKV{
 		CurrentPage: kVIndexValidate.Page,
 		Data:        t,

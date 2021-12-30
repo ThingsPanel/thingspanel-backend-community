@@ -21,6 +21,9 @@ func TsKvFilterToSql(filters map[string]interface{}) (string, []interface{}) {
 		case "asset_id":
 			SQL = fmt.Sprintf("%s and asset.id = ?", SQL)
 			params = append(params, value)
+		case "token":
+			SQL = fmt.Sprintf("%s and device.token = ?", SQL)
+			params = append(params, value)
 		}
 	}
 	return SQL, params
