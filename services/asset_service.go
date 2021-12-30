@@ -866,3 +866,11 @@ func (*AssetService) All() ([]models.Asset, int64) {
 	}
 	return assets, result.RowsAffected
 }
+
+// 资产下拉框
+func (*AssetService) Simple() (assets []models.Simple, err error) {
+	if err = psql.Mydb.Table("asset").Find(&assets).Error; err != nil {
+		return nil, err
+	}
+	return assets, nil
+}

@@ -471,3 +471,14 @@ func (this *AssetController) List() {
 	response.SuccessWithDetailed(200, "success", "", map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
+
+// 设备下拉选择框
+func (this *AssetController) Simple() {
+	var AssetService services.AssetService
+	d, err := AssetService.Simple()
+	if err != nil {
+		response.SuccessWithDetailed(400, "error", err.Error(), map[string]string{}, (*context2.Context)(this.Ctx))
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
+	return
+}

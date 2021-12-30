@@ -59,6 +59,8 @@ func init() {
 		web.NSRouter("/asset/widget", &controllers.AssetController{}, "*:Widget"),
 		web.NSRouter("/asset/list", &controllers.AssetController{}, "*:List"),
 
+		web.NSRouter("/asset/simple", &controllers.AssetController{}, "*:Simple"),
+
 		web.NSRouter("asset/work_index", &controllers.BusinessController{}, "*:Index"),
 		web.NSRouter("asset/work_add", &controllers.BusinessController{}, "*:Add"),
 		web.NSRouter("asset/work_edit", &controllers.BusinessController{}, "*:Edit"),
