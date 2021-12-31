@@ -107,7 +107,7 @@ func (this *AuthController) Login() {
 		TokenType:   "bearer",
 		ExpiresIn:   3600,
 	}
-	cache.Bm.Put(c.TODO(), token, 1, 3600*time.Second)
+	cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
 	// 登录成功
 	response.SuccessWithDetailed(200, "登录成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
