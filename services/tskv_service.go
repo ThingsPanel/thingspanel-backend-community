@@ -45,6 +45,7 @@ func (*TSKVService) All() ([]models.TSKV, int64) {
 // 接收硬件消息
 func (*TSKVService) MsgProc(body []byte) bool {
 	payload := &mqttPayload{}
+	//解析payload
 	if err := json.Unmarshal(body, payload); err != nil {
 		fmt.Println("Msg Consumer: Cannot unmarshal msg payload to JSON:", err)
 		return false
@@ -57,65 +58,68 @@ func (*TSKVService) MsgProc(body []byte) bool {
 		fmt.Println("Msg Consumer: Payload values missing")
 		return false
 	}
-	var device models.Device
+	var device []models.Device
 	var d models.TSKV
-	result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
+	//查询与token对应的设备
+	result := psql.Mydb.Where("token = ?", payload.Token).Find(&device)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if result.RowsAffected > 0 {
-		// 查询警告
+		// 查询警告，并记录告警日志
 		var WarningConfigService WarningConfigService
-		WarningConfigService.WarningConfigCheck(device.ID, payload.Values)
-		ts := time.Now().UnixMicro()
-		for k, v := range payload.Values {
-			switch value := v.(type) {
-			case int64:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        k,
-					TS:         ts,
-					LongV:      value,
+		for _, deviceOne := range device {
+			WarningConfigService.WarningConfigCheck(deviceOne.ID, payload.Values)
+			ts := time.Now().UnixMicro()
+			for k, v := range payload.Values {
+				switch value := v.(type) {
+				case int64:
+					d = models.TSKV{
+						EntityType: "DEVICE",
+						EntityID:   deviceOne.ID,
+						Key:        k,
+						TS:         ts,
+						LongV:      value,
+					}
+				case string:
+					d = models.TSKV{
+						EntityType: "DEVICE",
+						EntityID:   deviceOne.ID,
+						Key:        k,
+						TS:         ts,
+						StrV:       value,
+					}
+				case bool:
+					d = models.TSKV{
+						EntityType: "DEVICE",
+						EntityID:   deviceOne.ID,
+						Key:        k,
+						TS:         ts,
+						BoolV:      strconv.FormatBool(value),
+					}
+				case float64:
+					d = models.TSKV{
+						EntityType: "DEVICE",
+						EntityID:   deviceOne.ID,
+						Key:        k,
+						TS:         ts,
+						DblV:       value,
+					}
+				default:
+					d = models.TSKV{
+						EntityType: "DEVICE",
+						EntityID:   deviceOne.ID,
+						Key:        k,
+						TS:         ts,
+						StrV:       fmt.Sprint(value),
+					}
 				}
-			case string:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        k,
-					TS:         ts,
-					StrV:       value,
-				}
-			case bool:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        k,
-					TS:         ts,
-					BoolV:      strconv.FormatBool(value),
-				}
-			case float64:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        k,
-					TS:         ts,
-					DblV:       value,
-				}
-			default:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        k,
-					TS:         ts,
-					StrV:       fmt.Sprint(value),
-				}
-			}
 
-			rts := psql.Mydb.Create(&d)
-			if rts.Error != nil {
-				log.Println(rts.Error)
-				return false
+				rts := psql.Mydb.Create(&d)
+				if rts.Error != nil {
+					log.Println(rts.Error)
+					return false
+				}
 			}
 		}
 		return true
@@ -125,7 +129,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 }
 
 func (*TSKVService) Paginate(business_id, asset_id, token string, t int64, start_time string, end_time string, limit int, offset int) ([]models.TSKVResult, int64) {
-	tSKVs := []models.TSKVResult{}
+	var tSKVs []models.TSKVResult
 	var count int64
 	result := psql.Mydb
 	result2 := psql.Mydb
