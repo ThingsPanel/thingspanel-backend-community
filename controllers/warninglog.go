@@ -29,7 +29,7 @@ type PaginateWarninglog struct {
 // 获取告警日志
 func (this *WarninglogController) Index() {
 	var WarningLogService services.WarningLogService
-	w, _ := WarningLogService.Paginate("", 0, 10)
+	w, _ := WarningLogService.Paginate("", 0, 10, "", "")
 	response.SuccessWithDetailed(200, "success", w, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
@@ -54,7 +54,7 @@ func (this *WarninglogController) List() {
 		return
 	}
 	var WarningLogService services.WarningLogService
-	w, c := WarningLogService.Paginate("", warningLogListValidate.Page, warningLogListValidate.Limit)
+	w, c := WarningLogService.Paginate("", warningLogListValidate.Page, warningLogListValidate.Limit, warningLogListValidate.StartDate, warningLogListValidate.EndDate)
 	d := PaginateWarninglog{
 		CurrentPage: warningLogListValidate.Page,
 		Data:        w,

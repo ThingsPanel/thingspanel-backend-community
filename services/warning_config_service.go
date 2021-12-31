@@ -103,9 +103,12 @@ func (*WarningConfigService) GetWarningConfigByWidAndBid(wid string, bid string)
 
 // GetWarningConfigsByDeviceId 根据id获取多条warningConfig数据
 func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]interface{}) {
+	//bid为设备id
 	var warningConfigs []models.WarningConfig
 	var count int64
+	//告警策略配置
 	result := psql.Mydb.Model(&models.WarningConfig{}).Where("bid = ?", bid).Find(&warningConfigs)
+	//告警策略数量
 	psql.Mydb.Model(&models.WarningConfig{}).Where("bid = ?", bid).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -124,6 +127,7 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 			if err != nil {
 				fmt.Println("解析出错", err)
 			}
+			//[{"field":"pm25","condition":">","value":"30"}]
 			rows, _ := res.Array()
 			for _, row := range rows {
 				if each_map, ok := row.(map[string]interface{}); ok {

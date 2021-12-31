@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -20,16 +21,32 @@ type WarningLogService struct {
 }
 
 // Paginate 分页获取WarningLog数据
-func (*WarningLogService) Paginate(name string, offset int, pageSize int) ([]models.WarningLog, int64) {
+func (*WarningLogService) Paginate(name string, offset int, pageSize int, startDate string, endDate string) ([]models.WarningLog, int64) {
 	var warningLogs []models.WarningLog
-	result := psql.Mydb.Limit(pageSize).Offset(offset).Find(&warningLogs)
+
+	//日期条件筛选
+	sqlWhere := "1=1"
+	if startDate != "" {
+		//2021/12/01 15:12:37
+		tmp := "2006/01/02 15:04:05"
+		sDate, _ := time.ParseInLocation(tmp, startDate, time.Local)
+		eDate, _ := time.ParseInLocation(tmp, endDate, time.Local)
+		sqlWhere += " and created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)
+	}
+	var count int64
+	countResult := psql.Mydb.Model(&warningLogs).Where(sqlWhere).Count(&count)
+	if countResult.Error != nil {
+		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
+	}
+	offset = pageSize * (offset - 1)
+	result := psql.Mydb.Where(sqlWhere).Limit(pageSize).Offset(offset).Order("created_at desc").Find(&warningLogs)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if len(warningLogs) == 0 {
 		warningLogs = []models.WarningLog{}
 	}
-	return warningLogs, result.RowsAffected
+	return warningLogs, count
 }
 
 // 根据id获取100条WarningLog数据
