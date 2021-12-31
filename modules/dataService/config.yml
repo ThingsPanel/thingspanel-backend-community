@@ -3,6 +3,8 @@ mqtt:
   clientid: ThingsPanel
   user: guest
   pass: guest
+  topicToPublish: thingspanel.telemetry
+  topicToSubscribe: thingspanel.operation
 
 tcp:
   port: 9505

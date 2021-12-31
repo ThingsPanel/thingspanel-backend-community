@@ -40,14 +40,13 @@ var filterLog = func(ctx *context.Context) {
 	//获取url类型
 	urlKey := strings.Replace(ctx.Input.URL(), "/", "_", -1)
 	urlType := urlMap(urlKey)
-
+	//传递name
 	detailedStruct.Name = name
 	detailedJsonByte, err := json.Marshal(detailedStruct) //转换成JSON返回的是byte[]
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	fmt.Println(detailedJsonByte)
-	fmt.Println(string(detailedJsonByte))
+	//组合描述
 	describe := name + "-send:" + detailedStruct.Path
 	var uuid = uuid.GetUuid()
 	logData := models.OperationLog{
@@ -64,6 +63,7 @@ var filterLog = func(ctx *context.Context) {
 
 }
 
+//url映射
 func urlMap(k string) string {
 	myColors := map[string]string{
 		"_api_auth_login":                "1",

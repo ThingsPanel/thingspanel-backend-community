@@ -6,12 +6,14 @@ import (
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"strings"
 
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
+	"github.com/spf13/viper"
 )
 
 type HomeController struct {
@@ -61,6 +63,7 @@ func (this *HomeController) Chart() {
 
 // 首页展示设备 show
 func (this *HomeController) Show() {
+	//验证设备ID
 	homeShowValidate := valid.HomeShowValidate{}
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &homeShowValidate)
 	if err != nil {
@@ -78,8 +81,31 @@ func (this *HomeController) Show() {
 		}
 		return
 	}
+	//通过id获取设备
 	var DeviceService services.DeviceService
 	d, _ := DeviceService.GetDeviceByID(homeShowValidate.ID)
+	//读取配置参数
+	if viper.GetString("mqtt.broker") == "" {
+		var readErr error
+		envConfigFile := flag.String("config", "./modules/dataService/config.yml", "path of configuration file")
+		flag.Parse()
+		viper.SetConfigFile(*envConfigFile)
+		if readErr = viper.ReadInConfig(); readErr != nil {
+			fmt.Println("FAILURE", err)
+		} else {
+			d.Publish = viper.GetString("mqtt.topicToPublish")
+			d.Subscribe = viper.GetString("mqtt.topicToSubscribe")
+			d.Port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
+			d.Username = viper.GetString("mqtt.user")
+			d.Password = viper.GetString("mqtt.pass")
+		}
+	} else {
+		d.Publish = viper.GetString("mqtt.topicToPublish")
+		d.Subscribe = viper.GetString("mqtt.topicToSubscribe")
+		d.Port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
+		d.Username = viper.GetString("mqtt.user")
+		d.Password = viper.GetString("mqtt.pass")
+	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
