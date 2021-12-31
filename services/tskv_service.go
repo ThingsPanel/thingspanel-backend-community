@@ -125,7 +125,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 }
 
 func (*TSKVService) Paginate(business_id, asset_id, token string, t int64, start_time string, end_time string, limit int, offset int) ([]models.TSKVResult, int64) {
-	var tSKVs []models.TSKVResult
+	tSKVs := []models.TSKVResult{}
 	var count int64
 	result := psql.Mydb
 	result2 := psql.Mydb
