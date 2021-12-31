@@ -13,6 +13,11 @@ type Asset struct {
 	BusinessID     string `json:"business_id" gorm:"size:36"` // 业务ID
 }
 
+type Simple struct {
+	ID   string `json:"id" gorm:"primarykey"`
+	Name string `json:"name"` // 名称
+}
+
 func (Asset) TableName() string {
 	return "asset"
 }

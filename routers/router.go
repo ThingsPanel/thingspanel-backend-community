@@ -21,6 +21,7 @@ func init() {
 	middleware.AuthMiddle()
 	//日志中间件
 	middleware.LogMiddle()
+
 	api := web.NewNamespace("/api",
 		// 登录
 		web.NSRouter("/auth/login", &controllers.AuthController{}, "*:Login"),
@@ -57,6 +58,8 @@ func init() {
 		web.NSRouter("/asset/delete", &controllers.AssetController{}, "*:Delete"),
 		web.NSRouter("/asset/widget", &controllers.AssetController{}, "*:Widget"),
 		web.NSRouter("/asset/list", &controllers.AssetController{}, "*:List"),
+
+		web.NSRouter("/asset/simple", &controllers.AssetController{}, "*:Simple"),
 
 		web.NSRouter("asset/work_index", &controllers.BusinessController{}, "*:Index"),
 		web.NSRouter("asset/work_add", &controllers.BusinessController{}, "*:Add"),

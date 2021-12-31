@@ -2,7 +2,9 @@ package valid
 
 // KVIndex 校验
 type KVIndexValidate struct {
-	BusinessID string `json:"business_id" alias:"业务" valid:"MaxSize(36)"`
+	BusinessId string `json:"business_id" alias:"业务" valid:"MaxSize(36)"`
+	AssetId    string `json:"asset_id" alias:"资产id" valid:"MaxSize(36)"`
+	Token      string `json:"token" alias:"token" valid:"MaxSize(36)"`
 	Type       int64  `json:"type" alias:"类型" valid:"Required;"`
 	Limit      int    `json:"limit" alias:"条数" valid:"Max(100)"`
 	Page       int    `json:"page" alias:"页面" valid:"Min(1)"`

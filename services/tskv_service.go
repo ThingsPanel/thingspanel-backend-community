@@ -3,6 +3,7 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -123,65 +124,51 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	return false
 }
 
-func (*TSKVService) Paginate(business_id string, t int64, start_time string, end_time string, offset int, pageSize int) ([]models.TSKV, int64) {
-	var tSKVs []models.TSKV
+func (*TSKVService) Paginate(business_id, asset_id, token string, t int64, start_time string, end_time string, limit int, offset int) ([]models.TSKVResult, int64) {
+	var tSKVs []models.TSKVResult
 	var count int64
-	result := psql.Mydb.Model(&models.TSKV{})
-	result2 := psql.Mydb.Model(&models.TSKV{})
-	if business_id != "" {
-		var AssetService AssetService
-		var DeviceService DeviceService
-		var asset_ids []string
-		var device_ids []string
-		bl, bc := AssetService.GetAssetDataByBusinessId(business_id)
-		if bc > 0 {
-			for _, v := range bl {
-				asset_ids = append(asset_ids, v.ID)
-			}
-		}
-
-		if len(asset_ids) > 0 {
-			dl, dc := DeviceService.GetDevicesByAssetIDs(asset_ids)
-			if dc > 0 {
-				for _, v := range dl {
-					device_ids = append(device_ids, v.ID)
-				}
-			}
-		}
-		fmt.Println(device_ids)
-		if len(device_ids) > 0 {
-			result = result.Where("entity_id IN ?", device_ids)
-			result2 = result2.Where("entity_id IN ?", device_ids)
-		}
+	result := psql.Mydb
+	result2 := psql.Mydb
+	if limit <= 0 {
+		limit = 15
 	}
-	if t == 1 {
-		today_start, today_end := timeHelper.Today()
-		result = result.Where("ts between ? AND ?", today_start*1000000, today_end*1000000)
-		result2 = result2.Where("ts between ? AND ?", today_start*1000000, today_end*1000000)
-	} else if t == 2 {
-		week_start, week_end := timeHelper.Week()
-		result = result.Where("ts between ? AND ?", week_start*1000000, week_end*1000000)
-		result2 = result2.Where("ts between ? AND ?", week_start*1000000, week_end*1000000)
-	} else if t == 3 {
-		month_start, month_end := timeHelper.Month()
-		result = result.Where("ts between ? AND ?", month_start*1000000, month_end*1000000)
-		result2 = result2.Where("ts between ? AND ?", month_start*1000000, month_end*1000000)
-	} else if t == 4 {
+	if offset <= 0 {
+		offset = 0
+	}
+
+	filters := map[string]interface{}{}
+	if business_id != "" { //设备id
+		filters["business_id"] = business_id
+	}
+	if asset_id != "" { //资产id
+		filters["asset_id"] = asset_id
+	}
+	if token != "" { //资产id
+		filters["token"] = token
+	}
+	if start_time != "" && end_time != "" {
 		timeTemplate := "2006-01-02 15:04:05"
 		start_date, _ := time.ParseInLocation(timeTemplate, start_time, time.Local)
 		end_date, _ := time.ParseInLocation(timeTemplate, end_time, time.Local)
-		start := start_date.Unix()
-		end := end_date.Unix()
-		result = result.Where("ts between ? AND ?", start*1000000, end*1000000)
-		result2 = result2.Where("ts between ? AND ?", start*1000000, end*1000000)
+		start := start_date.UnixMicro()
+		end := end_date.UnixMicro()
+		filters["start_date"] = start
+		filters["end_date"] = end
 	}
-	result = result.Order("ts desc").Limit(offset).Offset(pageSize).Find(&tSKVs)
-	result2.Count(&count)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+
+	SQLWhere, params := utils.TsKvFilterToSql(filters)
+	SQL := "select business.name bname,ts_kv.*,asset.name,device.token FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id" + SQLWhere
+	if limit > 0 && offset >= 0 {
+		SQL = fmt.Sprintf("%s limit ? offset ? ", SQL)
+		params = append(params, limit, offset)
 	}
-	if len(tSKVs) == 0 {
-		tSKVs = []models.TSKV{}
+	if err := result.Raw(SQL, params...).Scan(&tSKVs).Error; err != nil {
+		return tSKVs, 0
+	}
+
+	countsql := "SELECT Count(*) AS count FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id " + SQLWhere
+	if err := result2.Raw(countsql, params...).Scan(&count).Error; err != nil {
+		return tSKVs, 0
 	}
 	return tSKVs, count
 }

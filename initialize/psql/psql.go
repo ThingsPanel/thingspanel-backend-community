@@ -2,6 +2,7 @@ package psql
 
 import (
 	"fmt"
+	"gorm.io/gorm/logger"
 	"time"
 
 	adapter "github.com/beego/beego/v2/adapter"
@@ -30,7 +31,9 @@ func init() {
 		psqluser,
 		psqlpass,
 	)
-	Mydb, Err = gorm.Open(postgres.Open(dataSource), &gorm.Config{})
+	Mydb, Err = gorm.Open(postgres.Open(dataSource), &gorm.Config{
+		Logger:logger.Default.LogMode(logger.Info),
+	})
 	if Err != nil {
 		adapter.Error("psql database error:", Err)
 	}

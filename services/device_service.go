@@ -38,18 +38,12 @@ func (*DeviceService) GetDevicesByAssetID(asset_id string) ([]models.Device, int
 }
 
 // GetDevicesByAssetIDs 获取设备列表
-func (*DeviceService) GetDevicesByAssetIDs(asset_ids []string) ([]models.Device, int64) {
-	var devices []models.Device
-	var count int64
-	result := psql.Mydb.Model(&models.Device{}).Where("asset_id IN ?", asset_ids).Find(&devices)
-	psql.Mydb.Model(&models.Device{}).Where("asset_id IN ?", asset_ids).Count(&count)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+func (*DeviceService) GetDevicesByAssetIDs(asset_ids []string) (devices []models.Device, err error) {
+	err = psql.Mydb.Model(&models.Device{}).Where("asset_id IN ?", asset_ids).Find(&devices).Error
+	if err != nil {
+		return devices,err
 	}
-	if len(devices) == 0 {
-		devices = []models.Device{}
-	}
-	return devices, count
+	return devices, nil
 }
 
 // GetAllDevicesByID 获取所有设备
