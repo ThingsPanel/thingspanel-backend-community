@@ -5,6 +5,7 @@ import (
 	"os"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/spf13/viper"
 )
 
 var running bool
@@ -33,6 +34,11 @@ func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Mes
 			panic(token.Error())
 		}
 		if token := _client.Subscribe("ThingsPanel", 0, nil); token.Wait() &&
+			token.Error() != nil {
+			fmt.Println(token.Error())
+			os.Exit(1)
+		}
+		if token := _client.Subscribe(viper.GetString("mqtt.topicToSubscribe"), 0, nil); token.Wait() &&
 			token.Error() != nil {
 			fmt.Println(token.Error())
 			os.Exit(1)
