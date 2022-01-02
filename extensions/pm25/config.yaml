@@ -25,11 +25,11 @@ pm25:
         pm10:
           name: 'PM10'
           type: 3
-          symbol: 'mg/h'
+          symbol: 'ug/m3'
         pm100:
           name: 'PM100'
           type: 3
-          symbol: 'ug/h'
+          symbol: 'ug/m3'
     pm10_main:
       name: 'PM10值'
       description: 'PM10值'

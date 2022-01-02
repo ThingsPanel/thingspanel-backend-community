@@ -60,8 +60,8 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	}
 	var device []models.Device
 	var d models.TSKV
-	//查询与token对应的设备
-	result := psql.Mydb.Where("token = ?", payload.Token).Find(&device)
+	//查询token，验证token
+	result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
@@ -161,7 +161,7 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t int64, start
 	}
 
 	SQLWhere, params := utils.TsKvFilterToSql(filters)
-	SQL := "select business.name bname,ts_kv.*,asset.name,device.token FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id" + SQLWhere
+	SQL := "select business.name bname,ts_kv.*,concat_ws('-',asset.name,device.name) AS name,device.token FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id" + SQLWhere + " ORDER BY ts_kv.ts DESC"
 	if limit > 0 && offset >= 0 {
 		SQL = fmt.Sprintf("%s limit ? offset ? ", SQL)
 		params = append(params, limit, offset)
