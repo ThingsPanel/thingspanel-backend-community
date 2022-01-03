@@ -24,7 +24,7 @@ type KvController struct {
 
 type PaginateTSKV struct {
 	CurrentPage int                 `json:"current_page"`
-	Data        []models.TSKVResult `json:"data"`
+	Data        []models.TSKVDblV `json:"data"`
 	Total       int64               `json:"total"`
 	PerPage     int                 `json:"per_page"`
 }
