@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zenghouchao/timeHelper"
@@ -45,7 +46,6 @@ func (*TSKVService) All() ([]models.TSKV, int64) {
 // 接收硬件消息
 func (*TSKVService) MsgProc(body []byte) bool {
 	payload := &mqttPayload{}
-	//解析payload
 	if err := json.Unmarshal(body, payload); err != nil {
 		fmt.Println("Msg Consumer: Cannot unmarshal msg payload to JSON:", err)
 		return false
@@ -58,68 +58,82 @@ func (*TSKVService) MsgProc(body []byte) bool {
 		fmt.Println("Msg Consumer: Payload values missing")
 		return false
 	}
-	var device []models.Device
+	var device models.Device
 	var d models.TSKV
-	//查询与token对应的设备
-	result := psql.Mydb.Where("token = ?", payload.Token).Find(&device)
+	//查询token，验证token
+	result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if result.RowsAffected > 0 {
-		// 查询警告，并记录告警日志
+		// 查询警告
 		var WarningConfigService WarningConfigService
-		for _, deviceOne := range device {
-			WarningConfigService.WarningConfigCheck(deviceOne.ID, payload.Values)
-			ts := time.Now().UnixMicro()
-			for k, v := range payload.Values {
-				switch value := v.(type) {
-				case int64:
-					d = models.TSKV{
-						EntityType: "DEVICE",
-						EntityID:   deviceOne.ID,
-						Key:        k,
-						TS:         ts,
-						LongV:      value,
-					}
-				case string:
-					d = models.TSKV{
-						EntityType: "DEVICE",
-						EntityID:   deviceOne.ID,
-						Key:        k,
-						TS:         ts,
-						StrV:       value,
-					}
-				case bool:
-					d = models.TSKV{
-						EntityType: "DEVICE",
-						EntityID:   deviceOne.ID,
-						Key:        k,
-						TS:         ts,
-						BoolV:      strconv.FormatBool(value),
-					}
-				case float64:
-					d = models.TSKV{
-						EntityType: "DEVICE",
-						EntityID:   deviceOne.ID,
-						Key:        k,
-						TS:         ts,
-						DblV:       value,
-					}
-				default:
-					d = models.TSKV{
-						EntityType: "DEVICE",
-						EntityID:   deviceOne.ID,
-						Key:        k,
-						TS:         ts,
-						StrV:       fmt.Sprint(value),
-					}
-				}
+		//查找。。。。。
+		WarningConfigService.WarningConfigCheck(device.ID, payload.Values)
+		ts := time.Now().UnixMicro()
+		//查找field_mapping表替换value里面的字段
+		var FieldMappingService FieldMappingService
+		FieldMapping, num := FieldMappingService.GetByDeviceid(device.ID)
+		if num <= 0 {
+			return false
+		}
+		field_map := map[string]string{}
+		for _, v := range FieldMapping {
+			field_map[v.FieldFrom] = v.FieldTo
+		}
+		result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
+		if result.Error != nil {
+			errors.Is(result.Error, gorm.ErrRecordNotFound)
+		}
 
-				rts := psql.Mydb.Create(&d)
-				if rts.Error != nil {
-					log.Println(rts.Error)
-					return false
+		for k, v := range payload.Values {
+			switch value := v.(type) {
+			case int64:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        strings.ToUpper(field_map[k]),
+					TS:         ts,
+					LongV:      value,
 				}
+			case string:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        strings.ToUpper(field_map[k]),
+					TS:         ts,
+					StrV:       value,
+				}
+			case bool:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        strings.ToUpper(field_map[k]),
+					TS:         ts,
+					BoolV:      strconv.FormatBool(value),
+				}
+			case float64:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        strings.ToUpper(field_map[k]),
+					TS:         ts,
+					DblV:       value,
+				}
+			default:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        strings.ToUpper(field_map[k]),
+					TS:         ts,
+					StrV:       fmt.Sprint(value),
+				}
+			}
+
+			rts := psql.Mydb.Create(&d)
+			if rts.Error != nil {
+				log.Println(rts.Error)
+				return false
 			}
 		}
 		return true
@@ -128,8 +142,9 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	return false
 }
 
-func (*TSKVService) Paginate(business_id, asset_id, token string, t int64, start_time string, end_time string, limit int, offset int) ([]models.TSKVResult, int64) {
-	var tSKVs []models.TSKVResult
+func (*TSKVService) Paginate(business_id, asset_id, token string, t int64, start_time string, end_time string, limit int, offset int) ([]models.TSKVDblV, int64) {
+	tSKVs := []models.TSKVResult{}
+	tsk := []models.TSKVDblV{}
 	var count int64
 	result := psql.Mydb
 	result2 := psql.Mydb
@@ -161,20 +176,40 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t int64, start
 	}
 
 	SQLWhere, params := utils.TsKvFilterToSql(filters)
-	SQL := "select business.name bname,ts_kv.*,asset.name,device.token FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id" + SQLWhere
+	SQL := "select business.name bname,ts_kv.*,concat_ws('-',asset.name,device.name) AS name,device.token FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id" + SQLWhere + " ORDER BY ts_kv.ts DESC"
 	if limit > 0 && offset >= 0 {
 		SQL = fmt.Sprintf("%s limit ? offset ? ", SQL)
 		params = append(params, limit, offset)
 	}
 	if err := result.Raw(SQL, params...).Scan(&tSKVs).Error; err != nil {
-		return tSKVs, 0
+		return tsk, 0
 	}
 
 	countsql := "SELECT Count(*) AS count FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id " + SQLWhere
 	if err := result2.Raw(countsql, params...).Scan(&count).Error; err != nil {
-		return tSKVs, 0
+		return tsk, 0
 	}
-	return tSKVs, count
+	for _, v := range tSKVs {
+		ts := models.TSKVDblV{
+			EntityType: v.EntityType,
+			EntityID:   v.EntityID,
+			Key:        v.Key,
+			TS:         v.TS,
+			BoolV:      v.BoolV,
+			StrV:       v.StrV,
+			LongV:      v.LongV,
+			Token:      v.Token,
+			Bname:      v.Bname,
+			Name:       v.Name,
+		}
+		if v.Key == "TIME" {
+			ts.DblV = v.StrV
+		} else {
+			ts.DblV = v.DblV
+		}
+		tsk = append(tsk, ts)
+	}
+	return tsk, count
 }
 
 func (*TSKVService) GetAllByCondition(entity_id string, t int64, start_time string, end_time string) ([]models.TSKV, int64) {
