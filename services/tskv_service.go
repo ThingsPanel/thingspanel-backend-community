@@ -33,14 +33,15 @@ type mqttPayload struct {
 // 获取全部TSKV
 func (*TSKVService) All() ([]models.TSKV, int64) {
 	var tskvs []models.TSKV
-	result := psql.Mydb.Find(&tskvs)
+	var count int64
+	result := psql.Mydb.Model(&tskvs).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if len(tskvs) == 0 {
 		tskvs = []models.TSKV{}
 	}
-	return tskvs, result.RowsAffected
+	return tskvs, count
 }
 
 // 接收硬件消息
