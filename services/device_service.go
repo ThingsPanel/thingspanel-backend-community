@@ -41,7 +41,7 @@ func (*DeviceService) GetDevicesByAssetID(asset_id string) ([]models.Device, int
 func (*DeviceService) GetDevicesByAssetIDs(asset_ids []string) (devices []models.Device, err error) {
 	err = psql.Mydb.Model(&models.Device{}).Where("asset_id IN ?", asset_ids).Find(&devices).Error
 	if err != nil {
-		return devices,err
+		return devices, err
 	}
 	return devices, nil
 }
@@ -84,14 +84,15 @@ func (*DeviceService) Delete(id string) bool {
 // 获取全部Device
 func (*DeviceService) All() ([]models.Device, int64) {
 	var devices []models.Device
-	result := psql.Mydb.Find(&devices)
+	var count int64
+	result := psql.Mydb.Model(&devices).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if len(devices) == 0 {
 		devices = []models.Device{}
 	}
-	return devices, result.RowsAffected
+	return devices, count
 }
 
 // 根据ID编辑Device的Token

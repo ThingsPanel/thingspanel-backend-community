@@ -133,7 +133,7 @@ func (this *AuthController) Logout() {
 // 刷新token
 func (this *AuthController) Refresh() {
 	authorization := this.Ctx.Request.Header["Authorization"][0]
-	userToken := authorization[7:len(authorization)]
+	userToken := authorization[7:]
 	user, err := jwt.ParseCliamsToken(userToken)
 	if err != nil {
 		response.SuccessWithMessage(400, "token异常", (*context2.Context)(this.Ctx))
@@ -152,6 +152,7 @@ func (this *AuthController) Refresh() {
 	// 生成jwt
 	tokenCliams := jwt.UserClaims{
 		ID:         user.ID,
+		Name:       user.Name,
 		CreateTime: time.Now(),
 		StandardClaims: gjwt.StandardClaims{
 			ExpiresAt: time.Now().Unix() + 3600,
@@ -167,7 +168,7 @@ func (this *AuthController) Refresh() {
 		TokenType:   "bearer",
 		ExpiresIn:   3600,
 	}
-	cache.Bm.Put(c.TODO(), token, 1, 3600*time.Second)
+	cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
 	response.SuccessWithDetailed(200, "刷新token成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
