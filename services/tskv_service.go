@@ -82,18 +82,24 @@ func (*TSKVService) MsgProc(body []byte) bool {
 		for _, v := range FieldMapping {
 			field_map[v.FieldFrom] = v.FieldTo
 		}
+
 		result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
 		}
 
 		for k, v := range payload.Values {
+			key, ok := field_map[k]
+			if !ok {
+				continue
+			}
+
 			switch value := v.(type) {
 			case int64:
 				d = models.TSKV{
 					EntityType: "DEVICE",
 					EntityID:   device.ID,
-					Key:        strings.ToUpper(field_map[k]),
+					Key:        strings.ToUpper(key),
 					TS:         ts,
 					LongV:      value,
 				}
@@ -101,7 +107,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				d = models.TSKV{
 					EntityType: "DEVICE",
 					EntityID:   device.ID,
-					Key:        strings.ToUpper(field_map[k]),
+					Key:        strings.ToUpper(key),
 					TS:         ts,
 					StrV:       value,
 				}
@@ -109,7 +115,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				d = models.TSKV{
 					EntityType: "DEVICE",
 					EntityID:   device.ID,
-					Key:        strings.ToUpper(field_map[k]),
+					Key:        strings.ToUpper(key),
 					TS:         ts,
 					BoolV:      strconv.FormatBool(value),
 				}
@@ -117,7 +123,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				d = models.TSKV{
 					EntityType: "DEVICE",
 					EntityID:   device.ID,
-					Key:        strings.ToUpper(field_map[k]),
+					Key:        strings.ToUpper(key),
 					TS:         ts,
 					DblV:       value,
 				}
@@ -125,7 +131,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				d = models.TSKV{
 					EntityType: "DEVICE",
 					EntityID:   device.ID,
-					Key:        strings.ToUpper(field_map[k]),
+					Key:        strings.ToUpper(key),
 					TS:         ts,
 					StrV:       fmt.Sprint(value),
 				}
@@ -276,7 +282,7 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 					if field_from != v.Key {
 						field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
 						if field_from == "" {
-							field_from = v.Key
+							field_from = strings.ToLower(v.Key)
 						}
 					}
 					if i != v.TS {
