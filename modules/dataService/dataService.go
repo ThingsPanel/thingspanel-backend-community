@@ -17,7 +17,7 @@ func init() {
 
 	loadConfig()
 	listenMQTT()
-	//listenTCP()
+	listenTCP()
 }
 
 func loadConfig() {

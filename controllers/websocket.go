@@ -171,6 +171,11 @@ func (c *Client) ReadMsg() {
 
 // 发送数据
 func (c *Client) WriteMsg(message string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in f=========>", r)
+		}
+	}()
 	err := c.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
 		fmt.Println(err)

@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
+	"strings"
 
 	"ThingsPanel-Go/initialize/psql"
 
@@ -80,7 +81,7 @@ func (*FieldMappingService) TransformByDeviceid(device_id string, field_to strin
 	if result.RowsAffected == 0 {
 		field_from = ""
 	} else {
-		field_from = fieldMappings.FieldFrom
+		field_from = strings.ToLower(fieldMappings.FieldTo)
 	}
 	return field_from
 }

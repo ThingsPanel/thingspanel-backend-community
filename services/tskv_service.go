@@ -89,8 +89,9 @@ func (*TSKVService) MsgProc(body []byte) bool {
 		}
 
 		for k, v := range payload.Values {
-			key, ok := field_map[k]
-			if !ok {
+
+			key, ok := field_map[k];
+			if  !ok {
 				continue
 			}
 
