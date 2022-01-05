@@ -36,7 +36,7 @@ type NewResource struct {
 // 获取全部Resources
 func (*ResourcesService) GetNew() *models.Resources {
 	var resources models.Resources
-	result := psql.Mydb.First(&resources)
+	result := psql.Mydb.Order("created_at desc").Limit(1).Find(&resources)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
