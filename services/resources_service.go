@@ -91,16 +91,16 @@ func (*ResourcesService) GetNewResource(field string) NewResource {
 
 func (*ResourcesService) Add(cpu string, mem string, created_at string) (bool, string) {
 	var uuid = uuid.GetUuid()
-	//resources := models.Resources{
-	//	ID:        uuid,
-	//	CPU:       cpu,
-	//	MEM:       mem,
-	//	CreatedAt: created_at,
-	//}
-	//result := psql.Mydb.Create(&resources)
-	//if result.Error != nil {
-	//	errors.Is(result.Error, gorm.ErrRecordNotFound)
-	//	return false, ""
-	//}
+	resources := models.Resources{
+		ID:        uuid,
+		CPU:       cpu,
+		MEM:       mem,
+		CreatedAt: created_at,
+	}
+	result := psql.Mydb.Create(&resources)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return false, ""
+	}
 	return true, uuid
 }
