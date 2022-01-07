@@ -1,7 +1,6 @@
 package utils
 
 import (
-	adapter "github.com/beego/beego/v2/adapter"
 	"github.com/beego/beego/v2/server/web/context"
 )
 
@@ -26,7 +25,7 @@ func Result(code int, msg string, data interface{}, header map[string]string, ct
 			}
 		}
 		ctx.Output.JSON(result, false, false)
-		panic(adapter.ErrAbort)
+		//panic(adapter.ErrAbort)
 	}
 }
 

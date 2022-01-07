@@ -7,6 +7,7 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,52 +16,54 @@ import (
 )
 
 type OperationLogDetailed struct {
-	Input   string `json:"input"`
-	Data    string `json:"data"`
-	Path    string `json:"path"`
-	Method  string `json:"method"`
-	Ip      string `json:"ip"`
-	Usernum string `json:"usernum"`
-	Name    string `json:"name"`
+	Input       string `json:"input"`
+	Data        string `json:"data"`
+	Path        string `json:"path"`
+	Method      string `json:"method"`
+	Ip          string `json:"ip"`
+	Usernum     string `json:"usernum"`
+	Name        string `json:"name"`
+	RequestTime string `json:"request_time"`
 }
 
 // LogMiddle 中间件
 var filterLog = func(ctx *context.Context) {
-	detailedStruct := getRequestDetailed(ctx)
-	var name string
-	//非登录接口从token中获取用户name
-	if len(ctx.Request.Header["Authorization"]) != 0 {
-		authorization := ctx.Request.Header["Authorization"][0]
-		userToken := authorization[7:]
-		userClaims, err := jwt.ParseCliamsToken(userToken)
-		if err == nil {
-			name = userClaims.Name
+	if ctx.Input.URL() != "/api/home/chart" && ctx.Input.URL() != "/api/home/list" {
+		detailedStruct := getRequestDetailed(ctx)
+		var name string
+		//非登录接口从token中获取用户name
+		if len(ctx.Request.Header["Authorization"]) != 0 {
+			authorization := ctx.Request.Header["Authorization"][0]
+			userToken := authorization[7:]
+			userClaims, err := jwt.ParseCliamsToken(userToken)
+			if err == nil {
+				name = userClaims.Name
+			}
+		}
+		//获取url类型
+		urlKey := strings.Replace(ctx.Input.URL(), "/", "_", -1)
+		urlType := urlMap(urlKey)
+		//传递name
+		detailedStruct.Name = name
+		detailedJsonByte, err := json.Marshal(detailedStruct) //转换成JSON返回的是byte[]
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		//组合描述
+		describe := name + "-send:" + detailedStruct.Path
+		var uuid = uuid.GetUuid()
+		logData := models.OperationLog{
+			ID:        uuid,
+			Type:      urlType, //需要确认需求
+			Describe:  describe,
+			DataID:    "",
+			CreatedAt: time.Now().Unix(),
+			Detailed:  string(detailedJsonByte),
+		}
+		if err := psql.Mydb.Create(&logData).Error; err != nil {
+			fmt.Println("log insert fail")
 		}
 	}
-	//获取url类型
-	urlKey := strings.Replace(ctx.Input.URL(), "/", "_", -1)
-	urlType := urlMap(urlKey)
-	//传递name
-	detailedStruct.Name = name
-	detailedJsonByte, err := json.Marshal(detailedStruct) //转换成JSON返回的是byte[]
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	//组合描述
-	describe := name + "-send:" + detailedStruct.Path
-	var uuid = uuid.GetUuid()
-	logData := models.OperationLog{
-		ID:        uuid,
-		Type:      urlType, //需要确认需求
-		Describe:  describe,
-		DataID:    "",
-		CreatedAt: time.Now().Unix(),
-		Detailed:  string(detailedJsonByte),
-	}
-	if err := psql.Mydb.Create(&logData).Error; err != nil {
-		fmt.Println("log insert fail")
-	}
-
 }
 
 //url映射
@@ -166,15 +169,27 @@ func urlMap(k string) string {
 
 //获取请求详细数据
 func getRequestDetailed(ctx *context.Context) *OperationLogDetailed {
-
+	//获取起始时间
+	startTime := ctx.Input.Context.GetCookie("req_start_time")
+	startTimeInt, _ := strconv.ParseInt(startTime, 10, 64)
+	requestTime := time.Now().Unix() - startTimeInt
 	var detailedStruct OperationLogDetailed
 	detailedStruct.Path = ctx.Input.URL()
 	detailedStruct.Method = ctx.Request.Method
 	detailedStruct.Ip = ctx.Input.IP()
+	detailedStruct.RequestTime = strconv.FormatInt(requestTime, 10)
 	return &detailedStruct
 
 }
 
+//将开始时间放入cookie
+var getStartTime = func(ctx *context.Context) {
+	startTime := time.Now().Unix()
+	startTimeStr := strconv.FormatInt(startTime, 10)
+	ctx.Input.Context.SetCookie("req_start_time", startTimeStr)
+}
+
 func LogMiddle() {
-	adapter.InsertFilter("/*", adapter.BeforeRouter, filterLog, false)
+	adapter.InsertFilter("/*", adapter.FinishRouter, filterLog, false)
+	adapter.InsertFilter("/*", adapter.BeforeRouter, getStartTime, false)
 }
