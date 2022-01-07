@@ -28,8 +28,8 @@ type OperationLogDetailed struct {
 
 // LogMiddle 中间件
 var filterLog = func(ctx *context.Context) {
-	if ctx.Input.URL() != "/api/home/chart" && ctx.Input.URL() != "/api/home/list" {
-		detailedStruct := getRequestDetailed(ctx)
+	if ctx.Input.URL() != "/api/home/chart" && ctx.Input.URL() != "/api/home/list" && ctx.Input.URL() != "/api/auth/me" {
+
 		var name string
 		//非登录接口从token中获取用户name
 		if len(ctx.Request.Header["Authorization"]) != 0 {
@@ -44,6 +44,7 @@ var filterLog = func(ctx *context.Context) {
 		urlKey := strings.Replace(ctx.Input.URL(), "/", "_", -1)
 		urlType := urlMap(urlKey)
 		//传递name
+		detailedStruct := getRequestDetailed(ctx)
 		detailedStruct.Name = name
 		detailedJsonByte, err := json.Marshal(detailedStruct) //转换成JSON返回的是byte[]
 		if err != nil {
@@ -64,6 +65,7 @@ var filterLog = func(ctx *context.Context) {
 			fmt.Println("log insert fail")
 		}
 	}
+
 }
 
 //url映射
@@ -170,23 +172,24 @@ func urlMap(k string) string {
 //获取请求详细数据
 func getRequestDetailed(ctx *context.Context) *OperationLogDetailed {
 	//获取起始时间
-	startTime := ctx.Input.Context.GetCookie("req_start_time")
-	startTimeInt, _ := strconv.ParseInt(startTime, 10, 64)
-	requestTime := time.Now().Unix() - startTimeInt
+	startTime := ctx.Request.Header.Get("req_start_time")
+	//string转int
+	startTimeInt, _ := strconv.Atoi(startTime)
+	reqTimeInt := int(time.Now().UnixNano()/1e6) - startTimeInt
 	var detailedStruct OperationLogDetailed
 	detailedStruct.Path = ctx.Input.URL()
 	detailedStruct.Method = ctx.Request.Method
 	detailedStruct.Ip = ctx.Input.IP()
-	detailedStruct.RequestTime = strconv.FormatInt(requestTime, 10)
+	detailedStruct.RequestTime = strconv.Itoa(reqTimeInt)
 	return &detailedStruct
 
 }
 
 //将开始时间放入cookie
 var getStartTime = func(ctx *context.Context) {
-	startTime := time.Now().Unix()
+	startTime := time.Now().UnixNano() / 1e6
 	startTimeStr := strconv.FormatInt(startTime, 10)
-	ctx.Input.Context.SetCookie("req_start_time", startTimeStr)
+	ctx.Request.Header.Set("req_start_time", startTimeStr)
 }
 
 func LogMiddle() {
