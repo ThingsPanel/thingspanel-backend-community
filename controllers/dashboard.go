@@ -518,7 +518,7 @@ func (this *DashBoardController) Dashboard() {
 	var AssetService services.AssetService
 	var config services.DashboardConfig
 	var fieldDashBoardData []DashBoardData
-	wl, wc := WidgetService.GetWidgetDashboardId(dashBoardDashBoardValidate.DashboardID)
+	wl, wc := WidgetService.GetWidgetDashboardIdAndAssetId(dashBoardDashBoardValidate.DashboardID,dashBoardDashBoardValidate.AssetId)
 	if wc > 0 {
 		for _, wv := range wl {
 			arr := strings.Split(wv.WidgetIdentifier, ":")

@@ -3,6 +3,7 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
 	"time"
@@ -136,6 +137,27 @@ func (*WidgetService) Delete(id string) bool {
 func (*WidgetService) GetWidgetDashboardId(dashboard_id string) ([]models.Widget, int64) {
 	var widgets []models.Widget
 	result := psql.Mydb.Where("dashboard_id = ?", dashboard_id).Find(&widgets)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(widgets) == 0 {
+		widgets = []models.Widget{}
+	}
+	return widgets, result.RowsAffected
+}
+
+// 根据dashboard_id获取一条Widget数据
+func (*WidgetService) GetWidgetDashboardIdAndAssetId(dashboard_id,asset_id string) ([]models.Widget, int64) {
+	var widgets []models.Widget
+	filters := map[string]interface{}{}
+	if dashboard_id != "" { //设备id
+		filters["dashboard_id"] = dashboard_id
+	}
+	if asset_id != "" { //资产id
+		filters["asset_id"] = asset_id
+	}
+	SQLWhere, params := utils.WidgetsToSql(filters)
+	result := psql.Mydb.Where(SQLWhere, params...).Find(&widgets)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}

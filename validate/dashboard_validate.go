@@ -27,7 +27,7 @@ type DeleteDashBoard struct {
 
 // ListDashBoard 校验
 type ListDashBoard struct {
-	DashBoardID string `json:"wid" alias:"可视化" valid:"Required; MaxSize(36)"`
+	DashBoardID string `json:"chart_id" alias:"可视化" valid:"Required; MaxSize(36)"`
 }
 
 // Inserttime DashBoard struct
@@ -48,6 +48,7 @@ type GettimeDashBoard struct {
 // DashBoard DashBoard struct
 type DashBoardDashBoard struct {
 	DashboardID string `json:"chart_id" alias:"业务" valid:"Required; MaxSize(36)"`
+	AssetId     string `json:"asset_id" alias:"资产"`
 }
 
 // realTime struct

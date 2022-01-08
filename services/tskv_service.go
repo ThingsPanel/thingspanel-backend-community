@@ -90,8 +90,8 @@ func (*TSKVService) MsgProc(body []byte) bool {
 
 		for k, v := range payload.Values {
 
-			key, ok := field_map[k];
-			if  !ok {
+			key, ok := field_map[k]
+			if !ok {
 				continue
 			}
 
@@ -268,17 +268,17 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 	if len(device_ids) > 0 {
 		for _, d := range device_ids {
 			device := make(map[string]interface{})
-
 			result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ?", startTs*1000, endTs*1000, d).Order("ts asc").Find(&ts_kvs)
 			if result.Error != nil {
 				errors.Is(result.Error, gorm.ErrRecordNotFound)
 			}
+
 			var fields []map[string]interface{}
-			if result.RowsAffected > 0 {
+			if len(ts_kvs) > 0 {
 				var i int64 = 0
 				var field map[string]interface{}
 				field_from := ""
-				c := result.RowsAffected
+				c := len(ts_kvs)
 				for k, v := range ts_kvs {
 					if field_from != v.Key {
 						field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
@@ -311,7 +311,7 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 						} else if v.DblV != 0 {
 							field[field_from] = v.DblV
 						}
-						if c == int64(k+1) {
+						if c == k+1 {
 							fields = append(fields, field)
 						}
 					}
