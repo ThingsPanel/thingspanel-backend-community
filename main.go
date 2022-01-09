@@ -34,5 +34,6 @@ func main() {
 			ResourcesService.Add(cpu_str, mem_str, currentTime)
 		}
 	}()
+	beego.SetStaticPath("/extensions", "extensions")
 	beego.Run()
 }
