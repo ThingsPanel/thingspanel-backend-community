@@ -75,14 +75,15 @@ func (this *BusinessController) Index() {
 		return
 	}
 	var BusinessService services.BusinessService
-	u, c := BusinessService.Paginate(paginateBusinessValidate.Name, paginateBusinessValidate.Page-1, paginateBusinessValidate.Limit)
+	offset := (paginateBusinessValidate.Page - 1) * paginateBusinessValidate.Limit
+	u, c := BusinessService.Paginate(paginateBusinessValidate.Name, offset, paginateBusinessValidate.Limit)
 	var ResBusinessData []services.PaginateBusiness
 	if c != 0 {
 		var AssetService services.AssetService
 		var is_device int
 		for _, bv := range u {
 			_, err := AssetService.GetAssetDataByBusinessId(bv.ID)
-			if err !=nil{
+			if err != nil {
 				is_device = 0
 			} else {
 				is_device = 1

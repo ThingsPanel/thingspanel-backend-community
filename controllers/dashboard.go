@@ -152,7 +152,8 @@ func (this *DashBoardController) Index() {
 		return
 	}
 	var DashBoardService services.DashBoardService
-	u, c := DashBoardService.Paginate(paginateDashBoardValidate.Title, paginateDashBoardValidate.Page-1, paginateDashBoardValidate.Limit)
+	offset := (paginateDashBoardValidate.Page - 1) * paginateDashBoardValidate.Limit
+	u, c := DashBoardService.Paginate(paginateDashBoardValidate.Title, offset, paginateDashBoardValidate.Limit)
 	d := PaginateDashBoard{
 		CurrentPage: paginateDashBoardValidate.Page,
 		Data:        u,
