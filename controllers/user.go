@@ -77,7 +77,8 @@ func (this *UserController) Index() {
 		return
 	}
 	var UserService services.UserService
-	u, c := UserService.Paginate(paginateUserValidate.Search, paginateUserValidate.Page-1, paginateUserValidate.Limit)
+	offset := (paginateUserValidate.Page - 1) * paginateUserValidate.Limit
+	u, c := UserService.Paginate(paginateUserValidate.Search, offset, paginateUserValidate.Limit)
 	d := PaginateUser{
 		CurrentPage: paginateUserValidate.Page,
 		Data:        u,
