@@ -144,6 +144,20 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				return false
 			}
 		}
+		//存入系统时间
+		currentTime := fmt.Sprintf(time.Now().Format("2006-01-02 15:04:05"))
+		d = models.TSKV{
+			EntityType: "DEVICE",
+			EntityID:   device.ID,
+			Key:        strings.ToUpper("systime"),
+			TS:         ts,
+			StrV:       currentTime,
+		}
+		rts := psql.Mydb.Create(&d)
+		if rts.Error != nil {
+			log.Println(rts.Error)
+			return false
+		}
 		return true
 	}
 	fmt.Println("token not matched")

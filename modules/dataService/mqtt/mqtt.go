@@ -39,7 +39,7 @@ func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Mes
 		if token := _client.Connect(); token.Wait() && token.Error() != nil {
 			panic(token.Error())
 		}
-		if token := _client.Subscribe(viper.GetString("mqtt.broker"), 0, nil); token.Wait() &&
+		if token := _client.Subscribe(viper.GetString("mqtt.topicToSubscribe"), 0, nil); token.Wait() &&
 			token.Error() != nil {
 			fmt.Println(token.Error())
 			os.Exit(1)
