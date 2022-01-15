@@ -37,3 +37,9 @@ type DeleteDevice struct {
 type ConfigureDevice struct {
 	Protocol string `json:"protocol" alias:"protocol" valid:"Required;MaxSize(36)"`
 }
+
+// ConfigureDevice 校验
+type OperatingDevice struct {
+	Token   string `json:"token" alias:"token" valid:"Required;MaxSize(500)"`
+	Message string `json:"message" alias:"message" valid:"Required;MaxSize(500)"`
+}
