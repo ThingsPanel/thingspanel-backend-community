@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	cm "ThingsPanel-Go/modules/dataService/mqtt"
+
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
@@ -171,4 +173,31 @@ func (this *DeviceController) Configure() {
 	}
 	//var DeviceService services.DeviceService
 	//DeviceService
+}
+
+//控制设备
+func (request *DeviceController) Operating() {
+	operatingDeviceValidate := valid.OperatingDevice{}
+	err := json.Unmarshal(request.Ctx.Input.RequestBody, &operatingDeviceValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(operatingDeviceValidate)
+	if !status {
+		for _, err := range v.Errors {
+			alias := gvalid.GetAlias(operatingDeviceValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(request.Ctx))
+			break
+		}
+		return
+	}
+	f := cm.Send(request.Ctx.Input.RequestBody)
+	if f == nil {
+		response.SuccessWithMessage(200, "发送成功", (*context2.Context)(request.Ctx))
+		return
+	}
+	response.SuccessWithMessage(400, f.Error(), (*context2.Context)(request.Ctx))
+	return
 }

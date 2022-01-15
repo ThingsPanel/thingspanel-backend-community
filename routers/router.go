@@ -79,6 +79,7 @@ func init() {
 		web.NSRouter("/device/add", &controllers.DeviceController{}, "*:Add"),
 		web.NSRouter("/device/delete", &controllers.DeviceController{}, "*:Delete"),
 		web.NSRouter("/device/configure", &controllers.DeviceController{}, "*:Configure"),
+		web.NSRouter("/device/operating_device", &controllers.DeviceController{}, "*:Operating"),
 
 		//可视化
 		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"),
@@ -98,6 +99,7 @@ func init() {
 		web.NSRouter("/dashboard/realTime", &controllers.DashBoardController{}, "*:Realtime"),
 		web.NSRouter("/dashboard/updateDashboard", &controllers.DashBoardController{}, "*:Updatedashboard"),
 		web.NSRouter("/dashboard/component", &controllers.DashBoardController{}, "*:Component"),
+		web.NSRouter("/dashboard/pluginList", &controllers.DashBoardController{}, "*:PluginList"),
 
 		web.NSRouter("/markets/list", &controllers.MarketsController{}, "*:List"),
 

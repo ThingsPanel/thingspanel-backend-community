@@ -3,8 +3,11 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
+	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -138,4 +141,27 @@ func (*DashBoardService) GetDashBoardByCondition(business_id string, id string) 
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	return &dashBoard, result.RowsAffected
+}
+
+func (*DashBoardService) GetPlugList() []models.PlugSt {
+	pluginList := []models.PlugSt{}
+	_, dirs, _ := utils.GetFilesAndDirs("./extensions")
+	for _, dir := range dirs {
+		dir = strings.Replace(dir, "\\", "/", -1)
+		plugFiles, _ := utils.GetFiles(dir + "/view")
+		for _, file := range plugFiles {
+			fmt.Println(file)
+			if file[len(file)-3:] == ".js" {
+				fmt.Println(file)
+				var plugSt models.PlugSt
+				//大驼峰
+				plugSt.ChartType = utils.Ucfirst(file[:len(file)-3])
+				//中划线
+				plugSt.Component = utils.Camel2Case(file[:len(file)-3])
+				plugSt.Url = (dir + "/view/" + file)[1:]
+				pluginList = append(pluginList, plugSt)
+			}
+		}
+	}
+	return pluginList
 }
