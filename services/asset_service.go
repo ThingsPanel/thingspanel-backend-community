@@ -696,6 +696,63 @@ func (*AssetService) Extension() []Extension {
 	return es
 }
 
+// Extension 插件名列表
+func (*AssetService) ExtensionName(reqField string) []models.ExtensionDataMap {
+	//dirs, _ := utils.GetDirs("./extensions")
+	var dataMapStructList []models.ExtensionDataMap
+	// for _, reqField := range dirs {
+	f := utils.FileExist("./extensions/" + reqField + "/config.yaml")
+	if f {
+		conf, err := yaml.ReadYmlReader("./extensions/" + reqField + "/config.yaml")
+		if err != nil {
+			fmt.Println(err)
+		}
+		//去重list
+		var diffStringList []string
+		//0-没有重复 1-有重复
+		diffFlag := 0
+		var fieldStructList []models.ExtensionFields
+		for _, v := range conf[reqField].(map[string]interface{})["widgets"].(map[string]interface{}) {
+			for km, kv := range v.(map[string]interface{}) {
+				if km == "fields" {
+					vMap, _ := kv.(map[string]interface{})
+					for fk := range vMap {
+						//遍历list，检查是否有重复的值
+						for _, s := range diffStringList {
+							if s == fk {
+								diffFlag = 1
+							}
+						}
+						//如果没有
+						if diffFlag == 0 {
+							//放入去重list
+							diffStringList = append(diffStringList, fk)
+							fieldStruct := models.ExtensionFields{
+								Key:  fk,
+								Name: fk,
+							}
+							fieldStructList = append(fieldStructList, fieldStruct)
+						} else {
+							diffFlag = 0
+						}
+					}
+				}
+			}
+		}
+		if len(fieldStructList) != 0 {
+			dataMapStruct := models.ExtensionDataMap{
+				Name:  reqField,
+				Field: fieldStructList,
+			}
+			dataMapStructList = append(dataMapStructList, dataMapStruct)
+		}
+
+	}
+
+	//}
+	return dataMapStructList
+}
+
 // widget 获取组件
 func (*AssetService) Widget(id string) []Widget {
 	var w []Widget

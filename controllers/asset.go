@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"ThingsPanel-Go/initialize/psql"
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
+	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
@@ -105,6 +107,68 @@ func (this *AssetController) Add() {
 	}
 	response.SuccessWithMessage(400, "插入失败", (*context2.Context)(this.Ctx))
 	return
+}
+
+// 单独添加资产
+func (reqDate *AssetController) AddOnly() {
+	assetValidate := valid.Asset{}
+	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &assetValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(assetValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(assetValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
+			break
+		}
+		return
+	}
+	asset_id := uuid.GetUuid()
+	asset := models.Asset{
+		ID:         asset_id,
+		Name:       assetValidate.Name,
+		Tier:       assetValidate.Tier,
+		ParentID:   assetValidate.ParentID,
+		BusinessID: assetValidate.BusinessID,
+	}
+	result := psql.Mydb.Create(asset)
+	if result.Error == nil {
+		response.SuccessWithDetailed(200, "success", asset, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+		return
+	}
+	response.SuccessWithMessage(400, "插入失败", (*context2.Context)(reqDate.Ctx))
+}
+
+// 单独修改资产
+func (reqDate *AssetController) UpdateOnly() {
+	assetValidate := valid.Asset{}
+	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &assetValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(assetValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(assetValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
+			break
+		}
+		return
+	}
+	result := psql.Mydb.Updates(assetValidate)
+	if result.Error != nil {
+		response.SuccessWithDetailed(200, "success", assetValidate, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+		return
+	}
+	response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
 }
 
 // 编辑资产

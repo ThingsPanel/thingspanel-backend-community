@@ -18,6 +18,15 @@ type Simple struct {
 	Name string `json:"name"` // 名称
 }
 
+type ExtensionFields struct {
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+type ExtensionDataMap struct {
+	Name  string            `json:"name"`
+	Field []ExtensionFields `json:"field"`
+}
+
 func (Asset) TableName() string {
 	return "asset"
 }

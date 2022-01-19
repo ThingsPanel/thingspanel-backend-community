@@ -1,11 +1,15 @@
 package controllers
 
 import (
+	"ThingsPanel-Go/initialize/psql"
 	gvalid "ThingsPanel-Go/initialize/validate"
+	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
+	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -14,6 +18,7 @@ import (
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
+	"gorm.io/gorm"
 )
 
 type DeviceController struct {
@@ -88,6 +93,79 @@ func (this *DeviceController) Add() {
 	}
 	response.SuccessWithMessage(400, "添加失败", (*context2.Context)(this.Ctx))
 	return
+}
+
+func (reqDate *DeviceController) AddOnly() {
+	addDeviceValidate := valid.Device{}
+	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &addDeviceValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(addDeviceValidate)
+	if !status {
+		for _, err := range v.Errors {
+			alias := gvalid.GetAlias(addDeviceValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
+			break
+		}
+		return
+	}
+	var uuid = uuid.GetUuid()
+	deviceData := models.Device{
+		ID:        uuid,
+		AssetID:   addDeviceValidate.AssetID,
+		Token:     addDeviceValidate.Token,
+		Type:      addDeviceValidate.Type,
+		Name:      addDeviceValidate.Name,
+		Extension: addDeviceValidate.Extension,
+		Protocol:  addDeviceValidate.Protocol,
+	}
+	result := psql.Mydb.Create(&deviceData)
+	if result.Error == nil {
+
+		response.SuccessWithDetailed(200, "success", deviceData, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+	} else {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		response.SuccessWithMessage(400, "添加失败", (*context2.Context)(reqDate.Ctx))
+	}
+}
+
+func (reqDate *DeviceController) UpdateOnly() {
+	addDeviceValidate := valid.Device{}
+	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &addDeviceValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(addDeviceValidate)
+	if !status {
+		for _, err := range v.Errors {
+			alias := gvalid.GetAlias(addDeviceValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
+			break
+		}
+		return
+	}
+	deviceData := models.Device{
+		ID:        addDeviceValidate.ID,
+		AssetID:   addDeviceValidate.AssetID,
+		Token:     addDeviceValidate.Token,
+		Type:      addDeviceValidate.Type,
+		Name:      addDeviceValidate.Name,
+		Extension: addDeviceValidate.Extension,
+		Protocol:  addDeviceValidate.Protocol,
+	}
+	result := psql.Mydb.Updates(&deviceData)
+	if result.Error == nil {
+
+		response.SuccessWithDetailed(200, "success", deviceData, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+	} else {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+	}
 }
 
 // 扫码激活设备
