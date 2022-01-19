@@ -50,8 +50,12 @@ func init() {
 		web.NSRouter("/customer/add", &controllers.CustomerController{}, "*:Add"),
 		web.NSRouter("/customer/edit", &controllers.CustomerController{}, "*:Edit"),
 		web.NSRouter("/customer/delete", &controllers.CustomerController{}, "*:Delete"),
-
+		// 映射
+		web.NSRouter("/field/add_only", &controllers.FieldmappingController{}, "*:AddOnly"),
+		web.NSRouter("/field/update_only", &controllers.FieldmappingController{}, "*:UpdateOnly"),
 		// 业务
+		web.NSRouter("/asset/add_only", &controllers.AssetController{}, "*:AddOnly"),
+		web.NSRouter("/asset/update_only", &controllers.AssetController{}, "*:UpdateOnly"),
 		web.NSRouter("/asset/index", &controllers.AssetController{}, "*:Index"),
 		web.NSRouter("/asset/add", &controllers.AssetController{}, "*:Add"),
 		web.NSRouter("/asset/edit", &controllers.AssetController{}, "*:Edit"),
@@ -73,6 +77,8 @@ func init() {
 		web.NSRouter("business/tree", &controllers.BusinessController{}, "*:Tree"),
 
 		// 设备
+		web.NSRouter("/device/add_only", &controllers.DeviceController{}, "*:AddOnly"),
+		web.NSRouter("/device/update_only", &controllers.DeviceController{}, "*:UpdateOnly"),
 		web.NSRouter("/device/token", &controllers.DeviceController{}, "*:Token"),
 		web.NSRouter("/device/index", &controllers.DeviceController{}, "*:Index"),
 		web.NSRouter("/device/edit", &controllers.DeviceController{}, "*:Edit"),
