@@ -38,12 +38,11 @@ type ConfigureDevice struct {
 	Protocol string `json:"protocol" alias:"protocol" valid:"Required;MaxSize(36)"`
 }
 
-<<<<<<< Updated upstream
 // ConfigureDevice 校验
 type OperatingDevice struct {
 	Token   string `json:"token" alias:"token" valid:"Required;MaxSize(500)"`
 	Message string `json:"message" alias:"message" valid:"Required;MaxSize(500)"`
-=======
+}
 type Device struct {
 	ID             string `json:"id" gorm:"primaryKey,size:36"`
 	AssetID        string `json:"asset_id" gorm:"size:36"`              // 资产id
@@ -61,5 +60,4 @@ type Device struct {
 	Subscribe      string `json:"subscribe" gorm:"size:255"`
 	Username       string `json:"username" gorm:"size:255"`
 	Password       string `json:"password" gorm:"size:255"`
->>>>>>> Stashed changes
 }
