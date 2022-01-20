@@ -1,10 +1,10 @@
 mqtt:
-  broker: 127.0.0.1:1883
-  clientid: ThingsPanel
+  broker: localhost:10000
+  clientid: abd12f0d-a9bf-4532-a66d-dcaa95f9
   user: guest
   pass: guest
-  topicToPublish: thingspanel.telemetry
-  topicToSubscribe: thingspanel.operation
+  topicToPublish: thingspanel.operation
+  topicToSubscribe: thingspanel.telemetry
 
 tcp:
   port: 9505
