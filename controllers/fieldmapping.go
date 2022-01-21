@@ -40,22 +40,43 @@ func (reqDate *FieldmappingController) AddOnly() {
 		}
 		return
 	}
+	var fieldMappingList []models.FieldMapping
 	for _, row := range addFieldMappingValidate.Data {
-		var uuid = uuid.GetUuid()
-		fieldMapping := models.FieldMapping{
-			ID:        uuid,
-			DeviceID:  row.DeviceID,
-			FieldFrom: row.FieldFrom,
-			FieldTo:   row.FieldTo,
+		if row.ID == "" {
+			var uuid = uuid.GetUuid()
+			fieldMapping := models.FieldMapping{
+				ID:        uuid,
+				DeviceID:  row.DeviceID,
+				FieldFrom: row.FieldFrom,
+				FieldTo:   row.FieldTo,
+			}
+			result := psql.Mydb.Create(&fieldMapping)
+			if result.Error != nil {
+				errors.Is(result.Error, gorm.ErrRecordNotFound)
+				response.SuccessWithMessage(400, "添加失败", (*context2.Context)(reqDate.Ctx))
+			} else {
+				fieldMappingList = append(fieldMappingList, fieldMapping)
+			}
+
+		} else {
+			fieldMapping := models.FieldMapping{
+				ID:        row.ID,
+				DeviceID:  row.DeviceID,
+				FieldFrom: row.FieldFrom,
+				FieldTo:   row.FieldTo,
+			}
+			result := psql.Mydb.Updates(&fieldMapping)
+			if result.Error != nil {
+				errors.Is(result.Error, gorm.ErrRecordNotFound)
+				response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+			} else {
+				fieldMappingList = append(fieldMappingList, fieldMapping)
+			}
 		}
-		result := psql.Mydb.Create(&fieldMapping)
-		if result.Error != nil {
-			errors.Is(result.Error, gorm.ErrRecordNotFound)
-			response.SuccessWithMessage(400, "添加失败", (*context2.Context)(reqDate.Ctx))
-		}
+
 	}
 
-	response.SuccessWithMessage(200, "success", (*context2.Context)(reqDate.Ctx))
+	response.SuccessWithDetailed(200, "success", fieldMappingList, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 
 }
 

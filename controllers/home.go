@@ -93,6 +93,9 @@ func (this *HomeController) Show() {
 		if readErr = viper.ReadInConfig(); readErr != nil {
 			fmt.Println("FAILURE", err)
 		} else {
+			if d.Token == "" {
+				d.Token = response.GetUuid()
+			}
 			d.Publish = viper.GetString("mqtt.topicToPublish")
 			d.Subscribe = viper.GetString("mqtt.topicToSubscribe")
 			d.Port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
@@ -100,6 +103,9 @@ func (this *HomeController) Show() {
 			d.Password = viper.GetString("mqtt.pass")
 		}
 	} else {
+		if d.Token == "" {
+			d.Token = response.GetUuid()
+		}
 		d.Publish = viper.GetString("mqtt.topicToPublish")
 		d.Subscribe = viper.GetString("mqtt.topicToSubscribe")
 		d.Port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]

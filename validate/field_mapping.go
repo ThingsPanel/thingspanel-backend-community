@@ -7,6 +7,7 @@ type AddFieldMapping struct {
 
 type FieldMapping struct {
 	Data []struct {
+		ID        string `json:"id"`
 		DeviceID  string `json:"device_id"`
 		FieldFrom string `json:"field_from"`
 		FieldTo   string `json:"field_to"`

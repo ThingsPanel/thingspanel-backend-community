@@ -95,6 +95,26 @@ func (this *DeviceController) Add() {
 	return
 }
 
+type DeviceDash struct {
+	ID             string            `json:"id" gorm:"primaryKey,size:36"`
+	AssetID        string            `json:"asset_id" gorm:"size:36"`              // 资产id
+	Token          string            `json:"token"`                                // 安全key
+	AdditionalInfo string            `json:"additional_info" gorm:"type:longtext"` // 存储基本配置
+	CustomerID     string            `json:"customer_id" gorm:"size:36"`
+	Type           string            `json:"type"` // 插件类型
+	Name           string            `json:"name"` // 插件名
+	Label          string            `json:"label"`
+	SearchText     string            `json:"search_text"`
+	Extension      string            `json:"extension" gorm:"size:50"` // 插件( 目录名)
+	Protocol       string            `json:"protocol" gorm:"size:50"`
+	Port           string            `json:"port" gorm:"size:50"`
+	Publish        string            `json:"publish" gorm:"size:255"`
+	Subscribe      string            `json:"subscribe" gorm:"size:255"`
+	Username       string            `json:"username" gorm:"size:255"`
+	Password       string            `json:"password" gorm:"size:255"`
+	Dash           []services.Widget `json:"dash"`
+}
+
 func (reqDate *DeviceController) AddOnly() {
 	addDeviceValidate := valid.Device{}
 	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &addDeviceValidate)
@@ -113,6 +133,16 @@ func (reqDate *DeviceController) AddOnly() {
 		return
 	}
 	var uuid = uuid.GetUuid()
+	var AssetService services.AssetService
+	var ResWidgetData []services.Widget
+	if addDeviceValidate.Type != "" {
+		dd := AssetService.Widget(addDeviceValidate.Type)
+		if len(dd) > 0 {
+			for _, wv := range dd {
+				ResWidgetData = append(ResWidgetData, wv)
+			}
+		}
+	}
 	deviceData := models.Device{
 		ID:        uuid,
 		AssetID:   addDeviceValidate.AssetID,
@@ -122,10 +152,20 @@ func (reqDate *DeviceController) AddOnly() {
 		Extension: addDeviceValidate.Extension,
 		Protocol:  addDeviceValidate.Protocol,
 	}
+
 	result := psql.Mydb.Create(&deviceData)
 	if result.Error == nil {
-
-		response.SuccessWithDetailed(200, "success", deviceData, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+		deviceDash := DeviceDash{
+			ID:        uuid,
+			AssetID:   addDeviceValidate.AssetID,
+			Token:     addDeviceValidate.Token,
+			Type:      addDeviceValidate.Type,
+			Name:      addDeviceValidate.Name,
+			Extension: addDeviceValidate.Extension,
+			Protocol:  addDeviceValidate.Protocol,
+			Dash:      ResWidgetData,
+		}
+		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		response.SuccessWithMessage(400, "添加失败", (*context2.Context)(reqDate.Ctx))
@@ -149,6 +189,16 @@ func (reqDate *DeviceController) UpdateOnly() {
 		}
 		return
 	}
+	var AssetService services.AssetService
+	var ResWidgetData []services.Widget
+	if addDeviceValidate.Type != "" {
+		dd := AssetService.Widget(addDeviceValidate.Type)
+		if len(dd) > 0 {
+			for _, wv := range dd {
+				ResWidgetData = append(ResWidgetData, wv)
+			}
+		}
+	}
 	deviceData := models.Device{
 		ID:        addDeviceValidate.ID,
 		AssetID:   addDeviceValidate.AssetID,
@@ -160,8 +210,17 @@ func (reqDate *DeviceController) UpdateOnly() {
 	}
 	result := psql.Mydb.Updates(&deviceData)
 	if result.Error == nil {
-
-		response.SuccessWithDetailed(200, "success", deviceData, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+		deviceDash := DeviceDash{
+			ID:        addDeviceValidate.ID,
+			AssetID:   addDeviceValidate.AssetID,
+			Token:     addDeviceValidate.Token,
+			Type:      addDeviceValidate.Type,
+			Name:      addDeviceValidate.Name,
+			Extension: addDeviceValidate.Extension,
+			Protocol:  addDeviceValidate.Protocol,
+			Dash:      ResWidgetData,
+		}
+		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
