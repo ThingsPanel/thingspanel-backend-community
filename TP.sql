@@ -109,6 +109,7 @@ CREATE TABLE "field_mapping" (
     "device_id" character varying(36),
     "field_from" character varying(255),
     "field_to" character varying(255),
+    "symbol" character varying(255),
     CONSTRAINT "field_mapping_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
 CREATE TABLE "navigation" (
@@ -241,3 +242,10 @@ CREATE TABLE "widget" (
 ) WITH (oids = false);
 COMMENT ON COLUMN "widget"."device_id" IS '设备id';
 COMMENT ON COLUMN "widget"."widget_identifier" IS '图表标识符如: environmentpanel:normal';
+ALTER TABLE public.asset ADD CONSTRAINT asset_fk FOREIGN KEY (business_id) REFERENCES public.business(id) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE public.device ADD CONSTRAINT device_fk FOREIGN KEY (asset_id) REFERENCES public.asset(id) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE public.field_mapping ADD CONSTRAINT field_mapping_fk FOREIGN KEY (device_id) REFERENCES public.device(id) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE public.dashboard ADD CONSTRAINT dashboard_fk FOREIGN KEY (business_id) REFERENCES public.business(id) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE public.widget ADD CONSTRAINT widget_fk FOREIGN KEY (dashboard_id) REFERENCES public.dashboard(id) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE public.widget ADD CONSTRAINT widget_fk_asset FOREIGN KEY (asset_id) REFERENCES public.asset(id) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE public.conditions ADD CONSTRAINT conditions_fk FOREIGN KEY (business_id) REFERENCES public.business(id) ON DELETE RESTRICT ON UPDATE CASCADE;
