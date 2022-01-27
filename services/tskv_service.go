@@ -278,7 +278,7 @@ func (*TSKVService) GetAllByCondition(entity_id string, t int64, start_time stri
 func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64) []interface{} {
 	var ts_kvs []models.TSKV
 	var devices []interface{}
-	var FieldMappingService FieldMappingService
+	// var FieldMappingService FieldMappingService
 	if len(device_ids) > 0 {
 		for _, d := range device_ids {
 			device := make(map[string]interface{})
@@ -294,11 +294,14 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 				field_from := ""
 				c := len(ts_kvs)
 				for k, v := range ts_kvs {
-					if field_from != v.Key {
-						field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
-						if field_from == "" {
-							field_from = strings.ToLower(v.Key)
-						}
+					// if field_from != v.Key {
+					// 	field_from = FieldMappingService.TransformByDeviceid(d, v.Key)
+					// 	if field_from == "" {
+					// 		field_from = strings.ToLower(v.Key)
+					// 	}
+					// }
+					if v.Key != "" {
+						field_from = strings.ToLower(v.Key)
 					}
 					if i != v.TS {
 						if i != 0 {
