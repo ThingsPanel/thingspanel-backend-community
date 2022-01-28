@@ -75,6 +75,20 @@ func GetFiles(dirPth string) (files []string, err error) {
 	return files, nil
 }
 
+//获取指定目录下的所有目录（所有插件名）
+func GetDirs(dirPth string) (dirs []string, err error) {
+	dir, err := ioutil.ReadDir(dirPth)
+	if err != nil {
+		return nil, err
+	}
+	for _, fi := range dir {
+		if fi.IsDir() {
+			dirs = append(dirs, fi.Name())
+		}
+	}
+	return dirs, nil
+}
+
 // 文件是否存在
 func FileExist(path string) bool {
 	_, err := os.Lstat(path)
