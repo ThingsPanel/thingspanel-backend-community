@@ -64,7 +64,8 @@ func (this *WidgetController) Add() {
 		}
 		t := template[0:2]
 		if t != "x_" {
-			template = strings.ToLower(exts[0] + "-" + template)
+			//template = strings.ToLower(exts[0] + "-" + template)
+			template = strings.ToLower(template)
 		}
 		dc := services.DashboardConfig{
 			SliceId:   slice_id,
@@ -113,7 +114,8 @@ func (this *WidgetController) Add() {
 		}
 		t := template[0:2]
 		if t != "x_" {
-			template = strings.ToLower(exts[0] + "-" + template)
+			//template = strings.ToLower(exts[0] + "-" + template)
+			template = strings.ToLower(template)
 		}
 		dc := services.DashboardConfig{
 			SliceId:   slice_id,
@@ -182,7 +184,8 @@ func (this *WidgetController) Edit() {
 	}
 	t := template[0:2]
 	if t != "x_" {
-		template = strings.ToLower(exts[0] + "-" + template)
+		//template = strings.ToLower(exts[0] + "-" + template)
+		template = strings.ToLower(template)
 	}
 	dc := services.DashboardConfig{
 		SliceId:   slice_id,
