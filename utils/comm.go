@@ -40,6 +40,9 @@ func WidgetsToSql(filters map[string]interface{}) (string, []interface{}) {
 		case "asset_id":
 			SQL = fmt.Sprintf("%s and asset_id = ?", SQL)
 			params = append(params, value)
+		case "device_id":
+			SQL = fmt.Sprintf("%s and device_id = ?", SQL)
+			params = append(params, value)
 		}
 	}
 	return SQL, params
