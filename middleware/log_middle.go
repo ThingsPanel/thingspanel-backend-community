@@ -28,7 +28,7 @@ type OperationLogDetailed struct {
 
 // LogMiddle 中间件
 var filterLog = func(ctx *context.Context) {
-	if ctx.Input.URL() != "/api/home/chart" && ctx.Input.URL() != "/api/home/list" && ctx.Input.URL() != "/api/auth/me" {
+	if ctx.Input.URL() != "/api/home/chart" && ctx.Input.URL() != "/api/home/list" {
 
 		var name string
 		//非登录接口从token中获取用户name
