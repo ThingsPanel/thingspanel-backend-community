@@ -716,7 +716,7 @@ func (*AssetService) ExtensionName(reqField string) []models.ExtensionDataMap {
 			for km, kv := range v.(map[string]interface{}) {
 				if km == "fields" {
 					vMap, _ := kv.(map[string]interface{})
-					for fk := range vMap {
+					for fk, fv := range vMap {
 						//遍历list，检查是否有重复的值
 						for _, s := range diffStringList {
 							if s == fk {
@@ -729,7 +729,7 @@ func (*AssetService) ExtensionName(reqField string) []models.ExtensionDataMap {
 							diffStringList = append(diffStringList, fk)
 							fieldStruct := models.ExtensionFields{
 								Key:  fk,
-								Name: fk,
+								Name: fmt.Sprint(fv.(map[string]interface{})["name"]),
 							}
 							fieldStructList = append(fieldStructList, fieldStruct)
 						} else {
@@ -741,7 +741,7 @@ func (*AssetService) ExtensionName(reqField string) []models.ExtensionDataMap {
 		}
 		if len(fieldStructList) != 0 {
 			dataMapStruct := models.ExtensionDataMap{
-				Name:  reqField,
+				Name:  fmt.Sprint(conf[reqField].(map[string]interface{})["device"]),
 				Field: fieldStructList,
 			}
 			dataMapStructList = append(dataMapStructList, dataMapStruct)
@@ -755,48 +755,51 @@ func (*AssetService) ExtensionName(reqField string) []models.ExtensionDataMap {
 
 // widget 获取组件
 func (*AssetService) Widget(id string) []Widget {
+
 	var w []Widget
-	_, dirs, _ := utils.GetFilesAndDirs("./extensions")
-	for _, dir := range dirs {
-		f := utils.FileExist(dir + "/config.yaml")
-		if f {
-			conf, err := yaml.ReadYmlReader(dir + "/config.yaml")
-			if err != nil {
-				fmt.Println(err)
-			}
-			for k, v := range conf {
-				if id == "" {
-					str, _ := v.(map[string]interface{})
-					widgets, _ := str["widgets"].(map[string]interface{})
-					if len(widgets) > 0 {
-						for wk, wv := range widgets {
-							item, _ := wv.(map[string]interface{})
-							i := Widget{
-								Key:         wk,
-								Name:        fmt.Sprint(item["name"]),
-								Description: fmt.Sprint(item["description"]),
-								Class:       fmt.Sprint(item["class"]),
-								Thumbnail:   fmt.Sprint(item["thumbnail"]),
-								Template:    fmt.Sprint(item["template"]),
+	if id != "" {
+		_, dirs, _ := utils.GetFilesAndDirs("./extensions")
+		for _, dir := range dirs {
+			f := utils.FileExist(dir + "/config.yaml")
+			if f {
+				conf, err := yaml.ReadYmlReader(dir + "/config.yaml")
+				if err != nil {
+					fmt.Println(err)
+				}
+				for k, v := range conf {
+					if id == "" {
+						str, _ := v.(map[string]interface{})
+						widgets, _ := str["widgets"].(map[string]interface{})
+						if len(widgets) > 0 {
+							for wk, wv := range widgets {
+								item, _ := wv.(map[string]interface{})
+								i := Widget{
+									Key:         wk,
+									Name:        fmt.Sprint(item["name"]),
+									Description: fmt.Sprint(item["description"]),
+									Class:       fmt.Sprint(item["class"]),
+									Thumbnail:   fmt.Sprint(item["thumbnail"]),
+									Template:    fmt.Sprint(item["template"]),
+								}
+								w = append(w, i)
 							}
-							w = append(w, i)
 						}
-					}
-				} else if id == k {
-					str, _ := v.(map[string]interface{})
-					widgets, _ := str["widgets"].(map[string]interface{})
-					if len(widgets) > 0 {
-						for wk, wv := range widgets {
-							item, _ := wv.(map[string]interface{})
-							i := Widget{
-								Key:         wk,
-								Name:        fmt.Sprint(item["name"]),
-								Description: fmt.Sprint(item["description"]),
-								Class:       fmt.Sprint(item["class"]),
-								Thumbnail:   fmt.Sprint(item["thumbnail"]),
-								Template:    fmt.Sprint(item["template"]),
+					} else if id == k {
+						str, _ := v.(map[string]interface{})
+						widgets, _ := str["widgets"].(map[string]interface{})
+						if len(widgets) > 0 {
+							for wk, wv := range widgets {
+								item, _ := wv.(map[string]interface{})
+								i := Widget{
+									Key:         wk,
+									Name:        fmt.Sprint(item["name"]),
+									Description: fmt.Sprint(item["description"]),
+									Class:       fmt.Sprint(item["class"]),
+									Thumbnail:   fmt.Sprint(item["thumbnail"]),
+									Template:    fmt.Sprint(item["template"]),
+								}
+								w = append(w, i)
 							}
-							w = append(w, i)
 						}
 					}
 				}
