@@ -40,8 +40,8 @@ type ConfigureDevice struct {
 
 // ConfigureDevice 校验
 type OperatingDevice struct {
-	Token   string `json:"token" alias:"token" valid:"Required;MaxSize(500)"`
-	Message string `json:"message" alias:"message" valid:"Required;MaxSize(500)"`
+	DeviceId string      `json:"device_id" alias:"device_id" valid:"Required;MaxSize(500)"`
+	Value    interface{} `json:"Value" alias:"Value" valid:"Required"`
 }
 type Device struct {
 	ID             string `json:"id" gorm:"primaryKey,size:36"`

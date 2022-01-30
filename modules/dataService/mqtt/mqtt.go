@@ -48,6 +48,7 @@ func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Mes
 	return
 }
 
+//发送消息
 func Send(payload []byte) (err error) {
 	var clientErr = errors.New("_client is error")
 	if _client == nil {
