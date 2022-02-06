@@ -154,7 +154,7 @@ CREATE TABLE "ts_kv" (
     "dbl_v" double precision,
     CONSTRAINT "ts_kv_pkey" PRIMARY KEY ("entity_type", "entity_id", "key", "ts")
 ) WITH (oids = false);
-SELECT create_hypertable('ts_kv', 'ts');
+SELECT create_hypertable('ts_kv', 'ts',chunk_time_interval => 86400000000);
 CREATE INDEX "ts_kv_ts_idx" ON "ts_kv" USING btree ("ts" DESC);
 COMMENT ON COLUMN "ts_kv"."entity_type" IS '类型：DEVICE';
 COMMENT ON COLUMN "ts_kv"."entity_id" IS '设备id';
