@@ -41,7 +41,7 @@ type ConfigureDevice struct {
 // ConfigureDevice 校验
 type OperatingDevice struct {
 	DeviceId string      `json:"device_id" alias:"device_id" valid:"Required;MaxSize(500)"`
-	Value    interface{} `json:"Value" alias:"Value" valid:"Required"`
+	Values    interface{} `json:"values" alias:"values" valid:"Required"`
 }
 type Device struct {
 	ID             string `json:"id" gorm:"primaryKey,size:36"`
