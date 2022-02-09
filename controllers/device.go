@@ -346,7 +346,7 @@ func (request *DeviceController) Operating() {
 	payloadInterface.(map[string]interface{})["token"] = deviceData.Token
 	delete(payloadInterface.(map[string]interface{}), "device_id")
 	//将value中的key做映射
-	valueMap, ok := payloadInterface.(map[string]interface{})["value"].(map[string]interface{})
+	valueMap, ok := payloadInterface.(map[string]interface{})["values"].(map[string]interface{})
 	newMap := make(map[string]interface{})
 	if ok {
 		for k, v := range valueMap {
@@ -359,7 +359,7 @@ func (request *DeviceController) Operating() {
 		}
 	}
 	//将map转为json
-	payloadInterface.(map[string]interface{})["value"] = newMap
+	payloadInterface.(map[string]interface{})["values"] = newMap
 	newPayload, toErr := json.Marshal(payloadInterface)
 	if toErr != nil {
 		fmt.Printf("JSON 编码失败：%v\n", toErr)
