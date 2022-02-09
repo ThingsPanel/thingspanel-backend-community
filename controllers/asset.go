@@ -163,7 +163,12 @@ func (reqDate *AssetController) UpdateOnly() {
 		}
 		return
 	}
-	result := psql.Mydb.Updates(assetValidate)
+	result := psql.Mydb.Model(&models.Asset{}).Where("id = ?", assetValidate.ID).Updates(map[string]interface{}{
+		"name":        assetValidate.Name,
+		"parent_id":   assetValidate.ParentID,
+		"business_id": assetValidate.BusinessID,
+		"tier":        assetValidate.Tier,
+	})
 	if result.Error != nil {
 		response.SuccessWithDetailed(200, "success", assetValidate, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 		return
