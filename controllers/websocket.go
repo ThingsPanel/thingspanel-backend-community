@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
@@ -28,6 +29,7 @@ type Client struct {
 	ID     string
 	Conn   *websocket.Conn
 	Ticker *time.Ticker
+	mutex  sync.Mutex
 }
 
 type Ch struct {
@@ -121,7 +123,6 @@ func (c *Client) ReadMsg() {
 	}()
 	var WidgetService services.WidgetService
 	var TSKVService services.TSKVService
-	first := true
 	var StartTs int64
 	var EndTs int64
 	c.Ticker = time.NewTicker(time.Millisecond * 10000)
@@ -130,6 +131,7 @@ func (c *Client) ReadMsg() {
 		if err != nil {
 			break
 		}
+		first := true
 		go func() {
 			if first {
 				var msgContent MsgContent
@@ -171,14 +173,16 @@ func (c *Client) ReadMsg() {
 
 // 发送数据
 func (c *Client) WriteMsg(message string) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered in f=========>", r)
-		}
-	}()
+	//defer func() {
+	//	if r := recover(); r != nil {
+	//		fmt.Println("Recovered in f=========>", r)
+	//	}
+	//}()
+	c.mutex.Lock()
 	err := c.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+	c.mutex.Unlock()
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println("发送到客户端的信息:", message)
+	fmt.Println("发送到客户端的信息:", len(message))
 }
