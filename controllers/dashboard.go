@@ -548,6 +548,8 @@ func (this *DashBoardController) Dashboard() {
 			if err != nil {
 				fmt.Println(err)
 			}
+			var DeviceService services.DeviceService
+			theDevice, _ := DeviceService.GetDeviceByID(wv.DeviceID)
 			// 赋值
 			d := DashBoardData{
 				ID:        wv.ID,
@@ -560,7 +562,7 @@ func (this *DashBoardController) Dashboard() {
 				Height:    config.Height,
 				I:         config.I,
 				ChartType: config.ChartType,
-				Title:     config.Title,
+				Title:     theDevice.Name,
 				Fields:    fields,
 			}
 			fieldDashBoardData = append(fieldDashBoardData, d)
