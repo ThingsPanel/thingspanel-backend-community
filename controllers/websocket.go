@@ -162,10 +162,14 @@ func (c *Client) ReadMsg() {
 				EndTs = StartTs + 10000
 				fmt.Println(StartTs, ":", EndTs)
 				data := TSKVService.GetTelemetry(device_ids, StartTs, EndTs)
-				msg, _ := json.Marshal(data)
-				msgContent.Data = string(msg)
-				message, _ := json.Marshal(msgContent)
-				AllCh.MsgChan <- string(message)
+				var dataMap = data[0].(map[string]interface{})
+				//if dataMap["fields"] is null,do not send for ws
+				if fmt.Sprintf("%T", dataMap["fields"]) != "[]string" {
+					msg, _ := json.Marshal(data)
+					msgContent.Data = string(msg)
+					message, _ := json.Marshal(msgContent)
+					AllCh.MsgChan <- string(message)
+				}
 			}
 		}()
 	}
