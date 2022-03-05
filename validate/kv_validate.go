@@ -11,6 +11,15 @@ type KVIndexValidate struct {
 	StartTime  string `json:"start_time" alias:"开始时间"`
 	EndTime    string `json:"end_time" alias:"结束时间"`
 }
+type KVExcelValidate struct {
+	BusinessId string `json:"business_id" alias:"业务" valid:"MaxSize(36)"`
+	AssetId    string `json:"asset_id" alias:"资产id" valid:"MaxSize(36)"`
+	Token      string `json:"token" alias:"token" valid:"MaxSize(36)"`
+	Type       int64  `json:"type" alias:"类型" valid:"Required;"`
+	Limit      int    `json:"limit" alias:"条数" valid:"Max(1000000)"`
+	StartTime  string `json:"start_time" alias:"开始时间"`
+	EndTime    string `json:"end_time" alias:"结束时间"`
+}
 
 // KVExport 校验
 type KVExportValidate struct {

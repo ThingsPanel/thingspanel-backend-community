@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
@@ -23,10 +24,10 @@ type KvController struct {
 }
 
 type PaginateTSKV struct {
-	CurrentPage int                 `json:"current_page"`
+	CurrentPage int               `json:"current_page"`
 	Data        []models.TSKVDblV `json:"data"`
-	Total       int64               `json:"total"`
-	PerPage     int                 `json:"per_page"`
+	Total       int64             `json:"total"`
+	PerPage     int               `json:"per_page"`
 }
 
 // 获取KV
@@ -61,7 +62,7 @@ func (this *KvController) Index() {
 		return
 	}
 	var TSKVService services.TSKVService
-	t, c := TSKVService.Paginate(kVIndexValidate.BusinessId, kVIndexValidate.AssetId,kVIndexValidate.Token, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, kVIndexValidate.Page-1)
+	t, c := TSKVService.Paginate(kVIndexValidate.BusinessId, kVIndexValidate.AssetId, kVIndexValidate.Token, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, kVIndexValidate.Page-1)
 	d := PaginateTSKV{
 		CurrentPage: kVIndexValidate.Page,
 		Data:        t,
@@ -72,7 +73,64 @@ func (this *KvController) Index() {
 	return
 }
 
+//导出升级
 func (this *KvController) Export() {
+	KVExcelValidate := valid.KVExcelValidate{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &KVExcelValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(KVExcelValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(KVExcelValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	var TSKVService services.TSKVService
+	t, c := TSKVService.Paginate(KVExcelValidate.BusinessId, KVExcelValidate.AssetId, KVExcelValidate.Token, KVExcelValidate.Type, KVExcelValidate.StartTime, KVExcelValidate.EndTime, KVExcelValidate.Limit, 0)
+	excel_file := excelize.NewFile()
+	index := excel_file.NewSheet("Sheet1")
+	excel_file.SetActiveSheet(index)
+	excel_file.SetCellValue("Sheet1", "A1", "业务名称")
+	excel_file.SetCellValue("Sheet1", "B1", "资产名称")
+	excel_file.SetCellValue("Sheet1", "C1", "token")
+	excel_file.SetCellValue("Sheet1", "D1", "时间")
+	excel_file.SetCellValue("Sheet1", "E1", "数据标签")
+	excel_file.SetCellValue("Sheet1", "F1", "值")
+	excel_file.SetCellValue("Sheet1", "G1", "设备插件")
+	var i int
+	if c > 0 {
+		i = 1
+		for _, tv := range t {
+			i++
+			is := strconv.Itoa(i)
+			excel_file.SetCellValue("Sheet1", "A"+is, tv.Bname)
+			excel_file.SetCellValue("Sheet1", "B"+is, tv.Name)
+			excel_file.SetCellValue("Sheet1", "C"+is, tv.Token)
+			tm := time.Unix(tv.TS/1000000, 0)
+			excel_file.SetCellValue("Sheet1", "D"+is, tm.Format("2006/01/02 03:04:05"))
+			excel_file.SetCellValue("Sheet1", "E"+is, tv.Key)
+			excel_file.SetCellValue("Sheet1", "F"+is, tv.DblV)
+			excel_file.SetCellValue("Sheet1", "G"+is, tv.EntityType)
+		}
+	}
+	// 根据指定路径保存文件
+	uniqid_str := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
+	excelName := "excel/数据列表" + uniqid_str + ".xlsx"
+	if err := excel_file.SaveAs(excelName); err != nil {
+		fmt.Println(err)
+	}
+	response.SuccessWithDetailed(200, "获取成功", excelName, map[string]string{}, (*context2.Context)(this.Ctx))
+	return
+}
+
+func (this *KvController) ExportOld() {
 	kVExportValidate := valid.KVExportValidate{}
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &kVExportValidate)
 	if err != nil {
@@ -115,7 +173,8 @@ func (this *KvController) Export() {
 	}
 	// 根据指定路径保存文件
 	uniqid_str := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
-	if err := excel_file.SaveAs("excel/数据列表" + uniqid_str + ".xlsx"); err != nil {
+	excelName := "excel/数据列表" + uniqid_str + ".xlsx"
+	if err := excel_file.SaveAs(excelName); err != nil {
 		fmt.Println(err)
 	}
 	response.SuccessWithDetailed(200, "获取成功", "", map[string]string{}, (*context2.Context)(this.Ctx))

@@ -35,5 +35,6 @@ func main() {
 		}
 	}()
 	beego.SetStaticPath("/extensions", "extensions")
+	beego.SetStaticPath("/excel", "excel")
 	beego.Run()
 }
