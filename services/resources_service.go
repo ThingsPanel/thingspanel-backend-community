@@ -46,40 +46,22 @@ func (*ResourcesService) GetNew() *models.Resources {
 func (*ResourcesService) GetNewResource(field string) NewResource {
 	var cpuresources []models.Resources
 	var cpuData []CpuData
-	var memresources []models.Resources
 	var memData []MemData
-	cpuResult := psql.Mydb.Select([]string{"created_at", "cpu"}).Order("created_at desc").Limit(10).Find(&cpuresources)
-	if cpuResult.Error != nil {
-		errors.Is(cpuResult.Error, gorm.ErrRecordNotFound)
-	}
-	clength := len(cpuresources)
-	for i := 0; i < clength/2; i++ {
-		temp := cpuresources[clength-1-i]
-		cpuresources[clength-1-i] = cpuresources[i]
-		cpuresources[i] = temp
+	result := psql.Mydb.Raw(`select t.cpu,t.mem,t.created_at,t.id from (select ROW_NUMBER() OVER (ORDER BY created_at desc) 
+		AS XUHAO,id,cpu,created_at,mem from  resources limit 110) as t where t.XUHAO%11=1 order by t.created_at asc`).Scan(&cpuresources)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	for _, cv := range cpuresources {
 		ci := CpuData{
 			CPU:       cv.CPU,
-			CreatedAt: cv.CreatedAt[11 : len(cv.CreatedAt)-3],
+			CreatedAt: cv.CreatedAt[11:len(cv.CreatedAt)],
+		}
+		mi := MemData{
+			MEM:       cv.MEM,
+			CreatedAt: cv.CreatedAt[11:len(cv.CreatedAt)],
 		}
 		cpuData = append(cpuData, ci)
-	}
-	memResult := psql.Mydb.Select([]string{"created_at", "mem"}).Order("created_at desc").Limit(10).Find(&memresources)
-	if memResult.Error != nil {
-		errors.Is(memResult.Error, gorm.ErrRecordNotFound)
-	}
-	mlength := len(memresources)
-	for i := 0; i < mlength/2; i++ {
-		temp := memresources[mlength-1-i]
-		memresources[mlength-1-i] = memresources[i]
-		memresources[i] = temp
-	}
-	for _, mv := range memresources {
-		mi := MemData{
-			MEM:       mv.MEM,
-			CreatedAt: mv.CreatedAt[11 : len(mv.CreatedAt)-3],
-		}
 		memData = append(memData, mi)
 	}
 	nr := NewResource{
