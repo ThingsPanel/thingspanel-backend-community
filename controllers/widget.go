@@ -6,8 +6,10 @@ import (
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
-	"fmt"
+	"math/rand"
 	"strings"
+	"time"
+	"fmt"
 
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
@@ -43,12 +45,12 @@ func (this *WidgetController) Add() {
 		// 更新
 		_, c := WidgetService.GetWidgetDashboardId(addWidgetValidate.DashboardID)
 		var slice_id int64
+		randId := rand.New(rand.NewSource(time.Now().UnixNano()))
+		slice_id = int64(randId.Int())
 		var y int64
 		if c == 0 {
-			slice_id = 1
 			y = 0
 		} else {
-			slice_id = c + 1
 			y = c * 6
 		}
 		var AssetService services.AssetService
@@ -93,12 +95,12 @@ func (this *WidgetController) Add() {
 		// 新增
 		_, c := WidgetService.GetWidgetDashboardId(addWidgetValidate.DashboardID)
 		var slice_id int64
+		randId := rand.New(rand.NewSource(time.Now().UnixNano()))
+		slice_id = int64(randId.Int())
 		var y int64
 		if c == 0 {
-			slice_id = 1
 			y = 0
 		} else {
-			slice_id = c + 1
 			y = c * 6
 		}
 		var AssetService services.AssetService
