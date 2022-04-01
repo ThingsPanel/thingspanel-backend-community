@@ -50,6 +50,18 @@ func (this *DeviceController) Edit() {
 		}
 		return
 	}
+	var count int64
+	tokenResult := psql.Mydb.Model(&models.Device{}).Where("token = ?", editDeviceValidate.Token).Count(&count)
+	if tokenResult.Error != nil {
+		errors.Is(tokenResult.Error, gorm.ErrRecordNotFound)
+		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(this.Ctx))
+		return
+	} else {
+		if count > 0 {
+			response.SuccessWithMessage(400, "设备token已存在，请删除对应设备后再来添加！", (*context2.Context)(this.Ctx))
+			return
+		}
+	}
 	var DeviceService services.DeviceService
 	f := DeviceService.Edit(editDeviceValidate.ID, editDeviceValidate.Token, editDeviceValidate.Protocol, editDeviceValidate.Port, editDeviceValidate.Publish, editDeviceValidate.Subscribe, editDeviceValidate.Username, editDeviceValidate.Password)
 	if f {
