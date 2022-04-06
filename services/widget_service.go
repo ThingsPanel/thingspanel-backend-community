@@ -94,7 +94,7 @@ func (*WidgetService) Add(dashboard_id string, asset_id string, device_id string
 }
 
 func (*WidgetService) ForAddEdit(asset_id string, device_id string, dashboard_id string, widget_identifier string, config string) bool {
-	result := psql.Mydb.Model(models.Widget{}).Where("asset_id = ? AND device_id= ? AND dashboard_id= ?", asset_id, device_id, dashboard_id).Updates(models.Widget{
+	result := psql.Mydb.Model(models.Widget{}).Where("asset_id = ? AND device_id= ? AND dashboard_id= ? and widget_identifier= ?", asset_id, device_id, dashboard_id, widget_identifier).Updates(models.Widget{
 		WidgetIdentifier: widget_identifier,
 		Config:           config,
 		UpdatedAt:        time.Now(),
@@ -147,7 +147,7 @@ func (*WidgetService) GetWidgetDashboardId(dashboard_id string) ([]models.Widget
 }
 
 // 根据dashboard_id获取一条Widget数据
-func (*WidgetService) GetWidgetDashboardIdAndAssetId(dashboard_id,asset_id string) ([]models.Widget, int64) {
+func (*WidgetService) GetWidgetDashboardIdAndAssetId(dashboard_id, asset_id string) ([]models.Widget, int64) {
 	var widgets []models.Widget
 	filters := map[string]interface{}{}
 	if dashboard_id != "" { //设备id
