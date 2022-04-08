@@ -49,6 +49,7 @@ func (reqDate *FieldmappingController) AddOnly() {
 				DeviceID:  row.DeviceID,
 				FieldFrom: row.FieldFrom,
 				FieldTo:   row.FieldTo,
+				Symbol:    row.Symbol,
 			}
 			result := psql.Mydb.Create(&fieldMapping)
 			if result.Error != nil {

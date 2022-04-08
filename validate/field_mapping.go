@@ -11,6 +11,7 @@ type FieldMapping struct {
 		DeviceID  string `json:"device_id"`
 		FieldFrom string `json:"field_from"`
 		FieldTo   string `json:"field_to"`
+		Symbol    string `json:"symbol"`
 	} `json:"data"`
 }
 
@@ -20,5 +21,6 @@ type UpdateFieldMapping struct {
 		DeviceID  string `json:"device_id"`
 		FieldFrom string `json:"field_from"`
 		FieldTo   string `json:"field_to"`
+		Symbol    string `json:"symbol"`
 	} `json:"data"`
 }

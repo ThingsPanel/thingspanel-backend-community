@@ -1,12 +1,15 @@
 package utils
 
 import (
+	"log"
+	"strconv"
 	"strings"
 
+	"github.com/Knetic/govaluate"
 	"github.com/PaulXu-cn/goeval"
 )
 
-func Eval(code string) string {
+func EvalOld(code string) string {
 	template := `
 		var flag = ${code}
 		fmt.Print(flag)
@@ -17,4 +20,18 @@ func Eval(code string) string {
 	} else {
 		return "error"
 	}
+}
+
+func Eval(code string) string {
+	expr, err := govaluate.NewEvaluableExpression(code)
+	if err != nil {
+		log.Fatal("syntax error:", err)
+	}
+
+	result, err := expr.Evaluate(nil)
+	if err != nil {
+		log.Fatal("evaluate error:", err)
+	}
+
+	return strconv.FormatBool(result.(bool))
 }

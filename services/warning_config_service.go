@@ -1,14 +1,14 @@
 package services
 
 import (
+	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
-
-	"ThingsPanel-Go/initialize/psql"
 
 	simplejson "github.com/bitly/go-simplejson"
 	"gorm.io/gorm"
@@ -114,6 +114,7 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if count > 0 {
+		log.Printf("device id %s have warning config", bid)
 		original := ""
 		code := ""
 		c := make(map[string]string)
@@ -131,6 +132,7 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 			rows, _ := res.Array()
 			for _, row := range rows {
 				if each_map, ok := row.(map[string]interface{}); ok {
+					log.Println(each_map)
 					if each_map["operator"] != nil {
 						code += fmt.Sprint(each_map["operator"])
 					}
@@ -148,15 +150,18 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 				}
 			}
 			original = code
+			log.Println(original)
 			// 替换变量
 			for k, v := range values {
-				field := FieldMappingService.TransformByDeviceid(bid, k)
+				field := FieldMappingService.GetFieldTo(bid, k)
 				if field != "" {
 					m["${"+field+"}"] = fmt.Sprint(v)
 					code = strings.Replace(code, "${"+field+"}", fmt.Sprint(v), -1)
 				}
 			}
+			log.Println(code)
 			flag := utils.Eval(code)
+			log.Println(flag)
 			if flag == "true" {
 				message := ""
 				businessName := ""

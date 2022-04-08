@@ -86,6 +86,22 @@ func (*FieldMappingService) TransformByDeviceid(device_id string, field_to strin
 	return field_from
 }
 
+// 转换FieldMapping
+func (*FieldMappingService) GetFieldTo(device_id string, field_from string) string {
+	var fieldMappings models.FieldMapping
+	var field_to string
+	result := psql.Mydb.Where("device_id = ? AND field_from = ?", device_id, field_from).Find(&fieldMappings)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if result.RowsAffected == 0 {
+		field_to = ""
+	} else {
+		field_to = strings.ToLower(fieldMappings.FieldTo)
+	}
+	return field_to
+}
+
 func (*FieldMappingService) GetSymbol(device_id string, field_from string) string {
 	var fieldMappings models.FieldMapping
 	var symbol string

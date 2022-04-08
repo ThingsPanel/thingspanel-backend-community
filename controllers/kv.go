@@ -122,7 +122,7 @@ func (this *KvController) Export() {
 	}
 	// 根据指定路径保存文件
 	uniqid_str := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
-	excelName := "excel/数据列表" + uniqid_str + ".xlsx"
+	excelName := "files/excel/数据列表" + uniqid_str + ".xlsx"
 	if err := excel_file.SaveAs(excelName); err != nil {
 		fmt.Println(err)
 	}
@@ -173,7 +173,7 @@ func (this *KvController) ExportOld() {
 	}
 	// 根据指定路径保存文件
 	uniqid_str := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
-	excelName := "excel/数据列表" + uniqid_str + ".xlsx"
+	excelName := "files/excel/数据列表" + uniqid_str + ".xlsx"
 	if err := excel_file.SaveAs(excelName); err != nil {
 		fmt.Println(err)
 	}

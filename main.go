@@ -11,6 +11,7 @@ import (
 
 	_ "ThingsPanel-Go/modules/dataService"
 	_ "ThingsPanel-Go/routers"
+	"log"
 
 	beego "github.com/beego/beego/v2/server/web"
 	"github.com/shirou/gopsutil/cpu"
@@ -20,6 +21,7 @@ import (
 var Ticker *time.Ticker
 
 func main() {
+	log.SetFlags(log.Lshortfile | log.Ltime | log.Ldate)
 	// 读取服务器信息
 	Ticker = time.NewTicker(time.Millisecond * 5000)
 	go func() {
@@ -35,6 +37,6 @@ func main() {
 		}
 	}()
 	beego.SetStaticPath("/extensions", "extensions")
-	beego.SetStaticPath("/excel", "excel")
+	beego.SetStaticPath("/files", "files")
 	beego.Run()
 }

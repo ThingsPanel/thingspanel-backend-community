@@ -728,8 +728,9 @@ func (*AssetService) ExtensionName(reqField string) []models.ExtensionDataMap {
 							//放入去重list
 							diffStringList = append(diffStringList, fk)
 							fieldStruct := models.ExtensionFields{
-								Key:  fk,
-								Name: fmt.Sprint(fv.(map[string]interface{})["name"]),
+								Key:    fk,
+								Name:   fmt.Sprint(fv.(map[string]interface{})["name"]),
+								Symbol: fmt.Sprint(fv.(map[string]interface{})["symbol"]),
 							}
 							fieldStructList = append(fieldStructList, fieldStruct)
 						} else {

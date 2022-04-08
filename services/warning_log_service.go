@@ -28,7 +28,7 @@ func (*WarningLogService) Paginate(name string, offset int, pageSize int, startD
 	sqlWhere := "1=1"
 	if startDate != "" {
 		//2021/12/01 15:12:37
-		tmp := "2006/01/02 15:04:05"
+		tmp := "2006/1/2 15:4:5"
 		sDate, _ := time.ParseInLocation(tmp, startDate, time.Local)
 		eDate, _ := time.ParseInLocation(tmp, endDate, time.Local)
 		sqlWhere += " and created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)

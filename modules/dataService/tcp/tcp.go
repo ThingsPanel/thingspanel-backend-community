@@ -125,7 +125,7 @@ func Listen(tcpPort string) {
 				if currentNo == 0 {
 					if maxNo == 0 {
 						timeStr := time.Now().Format("2006-01-02")
-						var newFilename interface{} = "/excel/img/" + timeStr + "/" + valuesMap["filename"].(string)
+						var newFilename interface{} = "/files/img/" + timeStr + "/" + valuesMap["filename"].(string)
 						valuesMap["filename"] = newFilename
 						jsonMsg["values"] = valuesMap
 						newJson, err := json.Marshal(jsonMsg)
@@ -170,8 +170,8 @@ func Listen(tcpPort string) {
 }
 func writeFile(data []byte, filename string) {
 	timeStr := time.Now().Format("2006-01-02")
-	os.MkdirAll("./excel/img/"+timeStr, os.ModePerm)
-	filePath := "./excel/img/" + timeStr + "/" + filename
+	os.MkdirAll("./files/img/"+timeStr, os.ModePerm)
+	filePath := "./files/img/" + timeStr + "/" + filename
 	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
 		fmt.Println("文件打开失败", err)
