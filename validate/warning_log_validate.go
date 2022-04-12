@@ -7,3 +7,8 @@ type WarningLogListValidate struct {
 	Page      int    `json:"page" alias:"页码" valid:"Min(1)"`
 	Limit     int    `json:"limit" alias:"条数" valid:"Min(10)"`
 }
+
+type DeviceWarningLogListValidate struct {
+	Limit int    `json:"limit" alias:"条数" valid:"Required;Min(10)"`
+	Wid   string `json:"wid" alias:"图表id" valid:"Required;MaxSize(99)"`
+}

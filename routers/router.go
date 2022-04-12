@@ -118,7 +118,7 @@ func init() {
 		web.NSRouter("/warning/delete", &controllers.WarningconfigController{}, "*:Delete"),
 		web.NSRouter("/warning/show", &controllers.WarningconfigController{}, "*:Index"),
 		web.NSRouter("/warning/update", &controllers.WarningconfigController{}, "*:GetOne"),
-
+		web.NSRouter("/warning/view", &controllers.WarninglogController{}, "*:GetDeviceWarningList"),
 		//控制策略
 		web.NSRouter("/automation/index", &controllers.AutomationController{}, "*:Index"),
 		web.NSRouter("/automation/add", &controllers.AutomationController{}, "*:Add"),

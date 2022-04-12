@@ -96,13 +96,13 @@ func Listen(tcpPort string) {
 			}
 			//消息ID（0x10-心跳包，0x20-数据包）
 			if buf[4] == byte(0x10) {
-				//#心跳包应答#-------------------------------------------------------------------------------------------
+				//#心跳包应答#---
 				TSKVS.MsgProc(msgData)
 				buf[4] = 0x11
 				c.ConnWriter.Write(buf[:n])
 			} else if buf[4] == byte(0x20) {
 				//1-解析包；2-落地文件记录 3-最后一包写完后更新文件状态记录kv
-				//#数据包请求#-------------------------------------------------------------------------------------------                                          //最大包号
+				//#数据包请求#---                                        //最大包号
 				currentNo := int(buf[7+msgLength])*256 + int(buf[8+msgLength]) //当前包号
 				//fmt.Printf("currentNo:%d\n", currentNo)
 				maxNo := int(buf[9+msgLength])*256 + int(buf[10+msgLength]) //最大包号
@@ -139,7 +139,7 @@ func Listen(tcpPort string) {
 					}
 				} else if maxNo == currentNo {
 					timeStr := time.Now().Format("2006-01-02")
-					var newFilename interface{} = "/excel/img/" + timeStr + "/" + valuesMap["filename"].(string)
+					var newFilename interface{} = "/files/img/" + timeStr + "/" + valuesMap["filename"].(string)
 					valuesMap["filename"] = newFilename
 					jsonMsg["values"] = valuesMap
 					newJson, err := json.Marshal(jsonMsg)

@@ -419,11 +419,25 @@ func (this *AutomationController) Show() {
 			}
 		}
 	}
-	if len(fd) == 0 {
-		fd = []services.Field{}
+	// 去重
+	var retData []services.Field
+	var strList []string
+	for _, row := range fd {
+		isHave := 0
+		for _, str := range strList {
+			if str == row.Key {
+				isHave = 1
+			}
+		}
+		if isHave == 0 {
+			retData = append(retData, row)
+			strList = append(strList, row.Key)
+		}
 	}
-	response.SuccessWithDetailed(200, "success", fd, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
+	if len(fd) == 0 {
+		retData = []services.Field{}
+	}
+	response.SuccessWithDetailed(200, "success", retData, map[string]string{}, (*context2.Context)(this.Ctx))
 }
 
 // Update

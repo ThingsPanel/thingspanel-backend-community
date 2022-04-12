@@ -79,3 +79,20 @@ func (*WarningLogService) Add(t string, describe string, data_id string) (bool, 
 	}
 	return true, uuid
 }
+
+// 根据wid获取告警信息
+func (*WarningLogService) WarningForWid(wid string, limit int) []models.WarningLogView {
+	var warningLogs []models.WarningLogView
+	// 通过图表的wid去widget中找到device_id(设备id)，再去warning_log中匹配data_id
+	sqlWhere := `SELECT warning_log.*,device.name as device_name  FROM warning_log left join device on 
+	warning_log.data_id = device.id WHERE data_id = (select device_id from widget where 
+	id = ? limit 1) ORDER BY created_at desc LIMIT ?`
+	result := psql.Mydb.Raw(sqlWhere, wid, strconv.Itoa(limit)).Scan(&warningLogs)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(warningLogs) == 0 {
+		warningLogs = []models.WarningLogView{}
+	}
+	return warningLogs
+}
