@@ -1,0 +1,32 @@
+gps:
+  type: "app"
+  name: "GPS管理器"
+  device: "GPS管理器v1.0"
+  description: ""
+  version: "1.0.0"
+  author: "字段【名称，经度，纬度，地址】"
+  email: ""
+  widgets:
+    gps_marker:
+      name: "GPS位置标记"
+      description: "GPS位置信息显示"
+      receiver: ""
+      thumbnail: "/gps.png"
+      template: "gps-marker"
+      fields:
+        title:
+          name: "名称"
+          type: 3
+          symbol: ""
+        lng:
+          name: "经度"
+          type: 3
+          symbol: ""
+        lat:
+          name: "纬度"
+          type: 3
+          symbol: ""
+        address:
+          name: "地址"
+          type: 3
+          symbol: ""

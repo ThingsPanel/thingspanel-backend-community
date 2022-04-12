@@ -1,0 +1,29 @@
+noise:
+  type: 'app'
+  name: '噪音监测'
+  device: '噪音监测v1.0'
+  description: ''
+  version: '1.0.0'
+  author: '字段【噪音】'
+  email: ''
+  widgets:
+    noise_value:
+      name: '噪音当前值'
+      description: '当前值'
+      receiver: ''
+      template: 'noise-value'
+      fields:
+        noise:
+          name: '噪音'
+          type: 3
+          symbol: ''
+    noise_line:
+      name: '噪音曲线'
+      description: '曲线'
+      receiver: ''
+      template: 'noise-line'
+      fields:
+        noise:
+          name: '噪音'
+          type: 3
+          symbol: ''

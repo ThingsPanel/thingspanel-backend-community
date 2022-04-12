@@ -1,0 +1,49 @@
+humiture:
+  type: 'app'
+  name: '温湿度监测'
+  device: '温湿度监测v1.1'
+  description: ''
+  version: '1.1.0'
+  author: '字段【温度，湿度】'
+  email: ''
+  widgets:
+    humiture_line:
+      name: '湿度曲线'
+      description: '曲线插件图表'
+      receiver: ''
+      template: 'hum-two-chart'
+      fields:
+        hum:
+          name: '湿度'
+          type: 3
+          symbol: '%RH'
+    hum_value:
+      name: '湿度值'
+      description: '值插件图表'
+      receiver: ''
+      template: 'temp-two'
+      fields:
+        hum:
+          name: '湿度'
+          type: 3
+          symbol: '%RH'
+    temp_value:
+      name: '温度值'
+      description: '值插件图表'
+      receiver: ''
+      template: 'temp-one'
+      fields:
+        temp:
+          name: '温度'
+          type: 3
+          symbol: '℃'
+    humiture_chart:
+      name: '温度曲线'
+      description: '曲线插件图表'
+      receiver: ''
+      template: 'hum-one-chart'
+      fields:
+        temp:
+          name: '温度'
+          type: 3
+          symbol: '℃'

@@ -155,13 +155,13 @@ CREATE TABLE "ts_kv" (
     CONSTRAINT "ts_kv_pkey" PRIMARY KEY ("entity_type", "entity_id", "key", "ts")
 ) WITH (oids = false);
 SELECT create_hypertable('ts_kv', 'ts',chunk_time_interval => 86400000000);
-CREATE INDEX "ts_kv_ts_idx" ON "ts_kv" USING btree ("ts" DESC);
+-- CREATE INDEX "ts_kv_ts_idx" ON "ts_kv" USING btree ("ts" DESC);
 COMMENT ON COLUMN "ts_kv"."entity_type" IS '类型：DEVICE';
 COMMENT ON COLUMN "ts_kv"."entity_id" IS '设备id';
 COMMENT ON COLUMN "ts_kv"."key" IS '字段';
 COMMENT ON COLUMN "ts_kv"."ts" IS '毫秒时间戳';
 COMMENT ON COLUMN "ts_kv"."dbl_v" IS '数值';
-CREATE TRIGGER "ts_insert_blocker" BEFORE INSERT ON "ts_kv" FOR EACH ROW EXECUTE FUNCTION _timescaledb_internal.insert_blocker();
+-- CREATE TRIGGER "ts_insert_blocker" BEFORE INSERT ON "ts_kv" FOR EACH ROW EXECUTE FUNCTION _timescaledb_internal.insert_blocker();
 CREATE TABLE "ts_kv_latest" (
     "entity_type" character varying(255) NOT NULL,
     "entity_id" character varying(36) NOT NULL,

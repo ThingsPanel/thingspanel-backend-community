@@ -1,0 +1,69 @@
+formaldehyde:
+  type: 'app'
+  name: '甲醛监测'
+  device: '甲醛监测v1.0'
+  description: '插件plug-in'
+  version: '1.0.0'
+  author: '字段【甲醛浓度，二氧化碳浓度】'
+  email: ''
+  widgets:
+    formaldehyde_line:
+      name: '甲醛曲线'
+      description: '甲醛曲线图表'
+      receiver: ''
+      template: 'formaldehyde-line'
+      fields:
+        formaldehyde:
+          name: '甲醛浓度'
+          type: 3
+          symbol: ''
+    formaldehyde_value:
+      name: '甲醛浓度'
+      description: '值插件图表'
+      receiver: ''
+      template: 'formaldehyde-value'
+      fields:
+        formaldehyde:
+          name: '甲醛浓度'
+          type: 3
+          symbol: ''
+    formaldehyde_height:
+      name: '甲醛当日最高值'
+      description: '值插件图表'
+      receiver: ''
+      template: 'formaldehyde-height'
+      fields:
+        formaldehyde:
+          name: '甲醛浓度'
+          type: 3
+          symbol: ''
+    carbon_dioxide_value:
+      name: '二氧化碳浓度'
+      description: '值插件图表'
+      receiver: ''
+      template: 'carbon-dioxide-value'
+      fields:
+        carbon:
+          name: '二氧化碳浓度'
+          type: 3
+          symbol: ''
+    carbon_dioxide_line:
+      name: '二氧化碳曲线'
+      description: '曲线插件图表'
+      receiver: ''
+      template: 'carbon-dioxide-line'
+      fields:
+        carbon:
+          name: '二氧化碳浓度'
+          type: 3
+          symbol: ''
+    carbon_dioxide_height:
+      name: '二氧化碳当日最高值'
+      description: '值插件图表'
+      receiver: ''
+      template: 'carbon-dioxide-height'
+      fields:
+        carbon:
+          name: '二氧化碳浓度'
+          type: 3
+          symbol: ''
