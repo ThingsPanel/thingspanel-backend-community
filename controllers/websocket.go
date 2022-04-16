@@ -140,7 +140,7 @@ func (c *Client) ReadMsg() {
 				w, _ := WidgetService.GetWidgetById(msgContent.Wid)
 				device_ids := []string{w.DeviceID}
 				et := time.Now().Unix()
-				st := et - 24*60*60
+				st := et - 3*24*60*60
 				StartTs = st * 1000
 				EndTs = et * 1000
 				fmt.Println(StartTs, ":", EndTs)
