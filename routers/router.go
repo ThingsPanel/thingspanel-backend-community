@@ -148,6 +148,8 @@ func init() {
 		web.NSRouter("/kv/list", &controllers.KvController{}, "*:List"),
 		web.NSRouter("/kv/index", &controllers.KvController{}, "*:Index"),
 		web.NSRouter("/kv/export", &controllers.KvController{}, "*:Export"),
+		// 三方数据接口
+		web.NSRouter("/open/data", &controllers.OpenController{}, "*:GetData"),
 	)
 
 	// 图表推送数据

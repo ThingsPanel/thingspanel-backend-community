@@ -18,6 +18,7 @@ import (
 func AuthMiddle() {
 	//不需要验证的url
 	noLogin := map[string]interface{}{
+		"api/open/data":     0,
 		"api/auth/login":    0,
 		"api/auth/refresh":  0,
 		"api/auth/register": 1,

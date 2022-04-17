@@ -80,7 +80,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 		}
 		field_map := map[string]string{}
 		for _, v := range FieldMapping {
-			field_map[v.FieldFrom] = v.FieldTo
+			field_map[v.FieldTo] = v.FieldFrom
 		}
 
 		result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
