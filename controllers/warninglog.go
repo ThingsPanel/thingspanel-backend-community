@@ -88,7 +88,7 @@ func (this *WarninglogController) GetDeviceWarningList() {
 		return
 	}
 	var WarningLogService services.WarningLogService
-	w := WarningLogService.WarningForWid(deviceWarningLogListValidate.Wid, deviceWarningLogListValidate.Limit)
+	w := WarningLogService.WarningForWid(deviceWarningLogListValidate.DeviceId, deviceWarningLogListValidate.Limit)
 	d := ViewWarninglog{
 		Data: w,
 	}

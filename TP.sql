@@ -249,3 +249,4 @@ ALTER TABLE public.dashboard ADD CONSTRAINT dashboard_fk FOREIGN KEY (business_i
 ALTER TABLE public.widget ADD CONSTRAINT widget_fk FOREIGN KEY (dashboard_id) REFERENCES public.dashboard(id) ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE public.widget ADD CONSTRAINT widget_fk_asset FOREIGN KEY (asset_id) REFERENCES public.asset(id) ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE public.conditions ADD CONSTRAINT conditions_fk FOREIGN KEY (business_id) REFERENCES public.business(id) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE public.ts_kv_latest ALTER COLUMN bool_v TYPE varchar(5) USING bool_v::varchar;

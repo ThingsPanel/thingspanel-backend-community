@@ -148,6 +148,9 @@ func init() {
 		web.NSRouter("/kv/list", &controllers.KvController{}, "*:List"),
 		web.NSRouter("/kv/index", &controllers.KvController{}, "*:Index"),
 		web.NSRouter("/kv/export", &controllers.KvController{}, "*:Export"),
+		web.NSRouter("/kv/current", &controllers.KvController{}, "*:CurrentData"),
+		web.NSRouter("/kv/current/business", &controllers.KvController{}, "*:CurrentDataByBusiness"),
+
 		// 三方数据接口
 		web.NSRouter("/open/data", &controllers.OpenController{}, "*:GetData"),
 	)

@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -35,6 +36,21 @@ func (*DeviceService) GetDevicesByAssetID(asset_id string) ([]models.Device, int
 		devices = []models.Device{}
 	}
 	return devices, count
+}
+
+// GetDevicesByBusinessID 根据业务ID获取设备列表
+// return []设备,设备数量
+// 2022-04-18新增
+func (*DeviceService) GetDevicesByBusinessID(business_id string) ([]models.Device, int64) {
+	var devices []models.Device
+	SQL := `select device.id,device.asset_id ,device.additional_info,device."type" ,device."name",device."label",device.protocol from device left join asset on device.asset_id  = asset.id where asset.business_id =?`
+	if err := psql.Mydb.Raw(SQL, business_id).Scan(&devices).Error; err != nil {
+		log.Println(err.Error())
+	}
+	if len(devices) == 0 {
+		devices = []models.Device{}
+	}
+	return devices, int64(len(devices))
 }
 
 // GetDevicesByAssetIDs 获取设备列表

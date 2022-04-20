@@ -28,3 +28,11 @@ type KVExportValidate struct {
 	StartTime string `json:"start_time" alias:"开始时间"`
 	EndTime   string `json:"end_time" alias:"结束时间"`
 }
+
+type CurrentKV struct {
+	EntityID string `json:"entity_id" alias:"设备" valid:"MaxSize(36)"`
+}
+
+type CurrentKVByBusiness struct {
+	BusinessiD string `json:"business_id" alias:"业务" valid:"MaxSize(36)"`
+}

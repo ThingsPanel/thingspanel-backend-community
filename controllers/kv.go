@@ -8,6 +8,7 @@ import (
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -62,7 +63,7 @@ func (this *KvController) Index() {
 		return
 	}
 	var TSKVService services.TSKVService
-	t, c := TSKVService.Paginate(kVIndexValidate.BusinessId, kVIndexValidate.AssetId, kVIndexValidate.Token, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, kVIndexValidate.Page-1)
+	t, c := TSKVService.Paginate(kVIndexValidate.BusinessId, kVIndexValidate.AssetId, kVIndexValidate.Token, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, (kVIndexValidate.Page-1)*kVIndexValidate.Limit)
 	d := PaginateTSKV{
 		CurrentPage: kVIndexValidate.Page,
 		Data:        t,
@@ -179,4 +180,54 @@ func (this *KvController) ExportOld() {
 	}
 	response.SuccessWithDetailed(200, "获取成功", "", map[string]string{}, (*context2.Context)(this.Ctx))
 	return
+}
+
+// 获取当前KV
+func (this *KvController) CurrentData() {
+	CurrentKV := valid.CurrentKV{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &CurrentKV)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(CurrentKV)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(CurrentKV, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	var TSKVService services.TSKVService
+	t := TSKVService.GetCurrentData(CurrentKV.EntityID)
+	log.Println(t)
+	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
+}
+
+// 根据业务获取所有设备和设备当前KV
+func (this *KvController) CurrentDataByBusiness() {
+	CurrentKVByBusiness := valid.CurrentKVByBusiness{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &CurrentKVByBusiness)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(CurrentKVByBusiness)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(CurrentKVByBusiness, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	var TSKVService services.TSKVService
+	t := TSKVService.GetCurrentDataByBusiness(CurrentKVByBusiness.BusinessiD)
+	log.Println(t)
+	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
 }

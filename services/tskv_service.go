@@ -137,7 +137,22 @@ func (*TSKVService) MsgProc(body []byte) bool {
 					StrV:       fmt.Sprint(value),
 				}
 			}
-
+			// 更新当前值表
+			l := models.TSKVLatest{}
+			utils.StructAssign(&l, &d)
+			var latestCount int64
+			psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Count(&latestCount)
+			if latestCount <= 0 {
+				rtsl := psql.Mydb.Create(&l)
+				if rtsl.Error != nil {
+					log.Println(rtsl.Error)
+				}
+			} else {
+				rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Updates(&l)
+				if rtsl.Error != nil {
+					log.Println(rtsl.Error)
+				}
+			}
 			rts := psql.Mydb.Create(&d)
 			if rts.Error != nil {
 				log.Println(rts.Error)
@@ -153,6 +168,23 @@ func (*TSKVService) MsgProc(body []byte) bool {
 			TS:         ts,
 			StrV:       currentTime,
 		}
+		// 更新当前值表
+		l := models.TSKVLatest{}
+		utils.StructAssign(&l, &d)
+		var latestCount int64
+		psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Count(&latestCount)
+		if latestCount <= 0 {
+			rtsl := psql.Mydb.Create(&l)
+			if rtsl.Error != nil {
+				log.Println(rtsl.Error)
+			}
+		} else {
+			rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Updates(&l)
+			if rtsl.Error != nil {
+				log.Println(rtsl.Error)
+			}
+		}
+		// 存储数据
 		rts := psql.Mydb.Create(&d)
 		if rts.Error != nil {
 			log.Println(rts.Error)
@@ -164,7 +196,8 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	return false
 }
 
-func (*TSKVService) Paginate(business_id, asset_id, token string, t int64, start_time string, end_time string, limit int, offset int) ([]models.TSKVDblV, int64) {
+// 分页查询数据
+func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, start_time string, end_time string, limit int, offset int) ([]models.TSKVDblV, int64) {
 	tSKVs := []models.TSKVResult{}
 	tsk := []models.TSKVDblV{}
 	var count int64
@@ -275,6 +308,7 @@ func (*TSKVService) GetAllByCondition(entity_id string, t int64, start_time stri
 	return tSKVs, count
 }
 
+// 通过设备ID获取一段时间的数据
 func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64) []interface{} {
 	var ts_kvs []models.TSKV
 	var devices []interface{}
@@ -353,6 +387,7 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 	return devices
 }
 
+// 返回最新一条的设备数据，用来判断设备状态（待接入，异常，正常）
 func (*TSKVService) Status(device_id string) (*models.TSKV, int64) {
 	var tskv models.TSKV
 	result := psql.Mydb.Where("entity_id = ?", device_id).Order("ts desc").First(&tskv)
@@ -360,4 +395,134 @@ func (*TSKVService) Status(device_id string) (*models.TSKV, int64) {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	return &tskv, result.RowsAffected
+}
+
+// 通过设备ID获取设备当前值
+func (*TSKVService) GetCurrentData(device_id string) []map[string]interface{} {
+	var ts_kvs []models.TSKVLatest
+	device := make(map[string]interface{})
+	result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts asc").Find(&ts_kvs)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	var fields []map[string]interface{}
+	if len(ts_kvs) > 0 {
+		var i int64 = 0
+		var field map[string]interface{}
+		// 0-带接入 1-正常 2-异常
+		var state string
+		var TSKVService TSKVService
+		tsl, tsc := TSKVService.Status(device_id)
+		if tsc == 0 {
+			state = "0"
+		} else {
+			ts := time.Now().UnixMicro()
+			//300000000
+			if (ts - tsl.TS) > 300000000 {
+				state = "2"
+			} else {
+				state = "1"
+			}
+		}
+		field_from := ""
+		c := len(ts_kvs)
+		for k, v := range ts_kvs {
+			if v.Key != "" {
+				field_from = strings.ToLower(v.Key)
+			}
+			if i != v.TS {
+				if i != 0 {
+					fields = append(fields, field)
+				}
+				field = make(map[string]interface{})
+				field["status"] = state
+				if fmt.Sprint(v.BoolV) != "" {
+					field[field_from] = v.BoolV
+				} else if v.StrV != "" {
+					field[field_from] = v.StrV
+				} else if v.LongV != 0 {
+					field[field_from] = v.LongV
+				} else if v.DblV != 0 {
+					field[field_from] = v.DblV
+				}
+				i = v.TS
+			} else {
+				if fmt.Sprint(v.BoolV) != "" {
+					field[field_from] = v.BoolV
+				} else if v.StrV != "" {
+					field[field_from] = v.StrV
+				} else if v.LongV != 0 {
+					field[field_from] = v.LongV
+				} else if v.DblV != 0 {
+					field[field_from] = v.DblV
+				}
+				if c == k+1 {
+					fields = append(fields, field)
+				}
+			}
+		}
+	}
+	if len(fields) == 0 {
+		device["fields"] = make([]string, 0)
+		device["latest"] = make([]string, 0)
+	} else {
+		device["fields"] = fields
+		device["latest"] = fields[len(fields)-1]
+	}
+	return fields
+}
+
+//根据业务id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）
+func (*TSKVService) GetCurrentDataByBusiness(business string) map[string]interface{} {
+	var DeviceService DeviceService
+	deviceList, deviceCount := DeviceService.GetDevicesByBusinessID(business)
+	log.Println(deviceList)
+	log.Println(deviceCount)
+	var devices []map[string]interface{}
+	if len(deviceList) != 0 {
+		for _, device := range deviceList {
+			var deviceData = make(map[string]interface{})
+			deviceData["device_id"] = device.ID
+			deviceData["asset_id"] = device.AssetID
+			deviceData["customer_id"] = device.CustomerID
+			deviceData["additional_id"] = device.AdditionalInfo
+			deviceData["extension"] = device.Extension
+			deviceData["label"] = device.Label
+			deviceData["name"] = device.Name
+			deviceData["protocol"] = device.Protocol
+			deviceData["publish"] = device.Publish
+			deviceData["subscribe"] = device.Subscribe
+			deviceData["type"] = device.Type
+			var TSKVService TSKVService
+			fields := TSKVService.GetCurrentData(device.ID)
+			if len(fields) == 0 {
+				deviceData["values"] = make(map[string]interface{}, 0)
+				deviceData["status"] = "0"
+			} else {
+				// 0-带接入 1-正常 2-异常
+				var state string
+				tsl, tsc := TSKVService.Status(device.ID)
+				if tsc == 0 {
+					state = "0"
+				} else {
+					ts := time.Now().UnixMicro()
+					//300000000
+					if (ts - tsl.TS) > 300000000 {
+						state = "2"
+					} else {
+						state = "1"
+					}
+				}
+				deviceData["status"] = state
+				deviceData["values"] = fields[0]
+			}
+			devices = append(devices, deviceData)
+		}
+	} else {
+		devices = make([]map[string]interface{}, 0)
+	}
+	var datas = make(map[string]interface{})
+	datas["devices"] = devices
+	datas["devicesTotal"] = deviceCount
+	return datas
 }

@@ -9,6 +9,6 @@ type WarningLogListValidate struct {
 }
 
 type DeviceWarningLogListValidate struct {
-	Limit int    `json:"limit" alias:"条数" valid:"Required;Min(10)"`
-	Wid   string `json:"wid" alias:"图表id" valid:"Required;MaxSize(99)"`
+	Limit    int    `json:"limit" alias:"条数" valid:"Required;Min(10)"`
+	DeviceId string `json:"device_id" alias:"设备id" valid:"Required;MaxSize(99)"`
 }
