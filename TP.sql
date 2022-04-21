@@ -250,3 +250,18 @@ ALTER TABLE public.widget ADD CONSTRAINT widget_fk FOREIGN KEY (dashboard_id) RE
 ALTER TABLE public.widget ADD CONSTRAINT widget_fk_asset FOREIGN KEY (asset_id) REFERENCES public.asset(id) ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE public.conditions ADD CONSTRAINT conditions_fk FOREIGN KEY (business_id) REFERENCES public.business(id) ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE public.ts_kv_latest ALTER COLUMN bool_v TYPE varchar(5) USING bool_v::varchar;
+CREATE TABLE public.logo (
+	id varchar(36) NOT NULL,
+	system_name varchar(255) NULL,
+	theme varchar(99) NULL,
+	logo_one varchar(255) NULL,
+	logo_two varchar(255) NULL,
+	logo_three varchar(255) NULL,
+	custom_id varchar(99) NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT logo_pk PRIMARY KEY (id)
+);
+COMMENT ON COLUMN public.logo.system_name IS '系统名称';
+COMMENT ON COLUMN public.logo.theme IS '主题';
+COMMENT ON COLUMN public.logo.logo_one IS '首页logo';
+COMMENT ON COLUMN public.logo.logo_two IS '缓冲logo';

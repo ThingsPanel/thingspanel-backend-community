@@ -1,11 +1,14 @@
 package tcp
 
 import (
+	cache "ThingsPanel-Go/initialize/cache"
 	"ThingsPanel-Go/services"
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -89,7 +92,18 @@ func Listen(tcpPort string) {
 				fmt.Println(err)
 			}
 			if _, ok := jsonMsg["token"]; ok {
-				fmt.Println("token:", jsonMsg["token"])
+				log.Println("token:", jsonMsg["token"])
+				// 让设备重置命令
+				s, _ := cache.Bm.IsExist(context.TODO(), jsonMsg["token"].(string))
+				if s {
+					cacheToken, _ := cache.Bm.Get(context.TODO(), jsonMsg["token"].(string))
+					if cacheToken == 1 {
+						resetMsg := buf[:5]
+						resetMsg[4] = 0x00
+						c.ConnWriter.Write(resetMsg)
+					}
+				}
+				cache.Bm.Put(context.TODO(), jsonMsg["token"].(string), 0, 600*time.Second)
 			} else {
 				c.ConnWriter.Write([]byte("token error!"))
 				continue

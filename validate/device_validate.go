@@ -41,7 +41,7 @@ type ConfigureDevice struct {
 // ConfigureDevice 校验
 type OperatingDevice struct {
 	DeviceId string      `json:"device_id" alias:"device_id" valid:"Required;MaxSize(500)"`
-	Values    interface{} `json:"values" alias:"values" valid:"Required"`
+	Values   interface{} `json:"values" alias:"values" valid:"Required"`
 }
 type Device struct {
 	ID             string `json:"id" gorm:"primaryKey,size:36"`
@@ -60,4 +60,9 @@ type Device struct {
 	Subscribe      string `json:"subscribe" gorm:"size:255"`
 	Username       string `json:"username" gorm:"size:255"`
 	Password       string `json:"password" gorm:"size:255"`
+}
+
+type ResetDevice struct {
+	DeviceId  string `json:"device_id" alias:"device_id" valid:"Required;MaxSize(99)"`
+	ValidTime int    `json:"valid_time" alias:"valid_time" valid:"Required;Min(10)"`
 }

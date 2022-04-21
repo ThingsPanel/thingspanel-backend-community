@@ -86,6 +86,7 @@ func init() {
 		web.NSRouter("/device/delete", &controllers.DeviceController{}, "*:Delete"),
 		web.NSRouter("/device/configure", &controllers.DeviceController{}, "*:Configure"),
 		web.NSRouter("/device/operating_device", &controllers.DeviceController{}, "*:Operating"),
+		web.NSRouter("/device/reset", &controllers.DeviceController{}, "*:Reset"),
 
 		//可视化
 		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"),
@@ -150,7 +151,12 @@ func init() {
 		web.NSRouter("/kv/export", &controllers.KvController{}, "*:Export"),
 		web.NSRouter("/kv/current", &controllers.KvController{}, "*:CurrentData"),
 		web.NSRouter("/kv/current/business", &controllers.KvController{}, "*:CurrentDataByBusiness"),
+		// 系统设置接口
+		web.NSRouter("/system/logo/index", &controllers.LogoController{}, "*:Index"),
+		web.NSRouter("/system/logo/update", &controllers.LogoController{}, "*:Edit"),
 
+		// 文件上传接口
+		web.NSRouter("/file/up", &controllers.UploadController{}, "*:UpFile"),
 		// 三方数据接口
 		web.NSRouter("/open/data", &controllers.OpenController{}, "*:GetData"),
 	)

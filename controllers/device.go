@@ -1,19 +1,22 @@
 package controllers
 
 import (
+	cache "ThingsPanel-Go/initialize/cache"
 	"ThingsPanel-Go/initialize/psql"
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
+	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
-
-	cm "ThingsPanel-Go/modules/dataService/mqtt"
+	"time"
 
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
@@ -384,4 +387,35 @@ func (request *DeviceController) Operating() {
 		return
 	}
 	response.SuccessWithMessage(400, f.Error(), (*context2.Context)(request.Ctx))
+}
+
+// 重置设备
+func (deviceController *DeviceController) Reset() {
+	resetDevice := valid.ResetDevice{}
+	err := json.Unmarshal(deviceController.Ctx.Input.RequestBody, &resetDevice)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(resetDevice)
+	if !status {
+		for _, err := range v.Errors {
+			alias := gvalid.GetAlias(resetDevice, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(deviceController.Ctx))
+			break
+		}
+		return
+	}
+	var DeviceService services.DeviceService
+	f, _ := DeviceService.Token(resetDevice.DeviceId)
+	if f.Token != "" {
+		log.Println(time.Duration(resetDevice.ValidTime) * time.Second)
+		cache.Bm.Put(context.TODO(), f.Token, 1, time.Duration(resetDevice.ValidTime)*time.Second)
+	} else {
+		response.SuccessWithMessage(1000, "token不存在", (*context2.Context)(deviceController.Ctx))
+	}
+	response.SuccessWithMessage(200, "success", (*context2.Context)(deviceController.Ctx))
+	//var DeviceService services.DeviceService
+	//DeviceService
 }
