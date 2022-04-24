@@ -4,6 +4,7 @@ import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
+	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beego/beego/v2/core/config/yaml"
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
@@ -731,4 +733,51 @@ func (thisController *DashBoardController) PluginList() {
 	var DashBoardService services.DashBoardService
 	plugList := DashBoardService.GetPlugList()
 	response.SuccessWithDetailed(200, "success", plugList, map[string]string{}, (*context2.Context)(thisController.Ctx))
+}
+
+// 业务预览的组件列表
+func (dashBoardController *DashBoardController) BidComponent() {
+	BidComponentValidate := valid.BidComponentValidate{}
+	err := json.Unmarshal(dashBoardController.Ctx.Input.RequestBody, &BidComponentValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(BidComponentValidate)
+	if !status {
+		for _, err := range v.Errors {
+			alias := gvalid.GetAlias(BidComponentValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(dashBoardController.Ctx))
+			break
+		}
+		return
+	}
+	var wi []WidgetIcon
+	f := utils.FileExist("./extensions/business/config.yaml")
+	if f {
+		conf, err := yaml.ReadYmlReader("./extensions/business/config.yaml")
+		if err != nil {
+			fmt.Println(err)
+		}
+		for _, v := range conf {
+			str, _ := v.(map[string]interface{})
+			widgets, _ := str["widgets"].(map[string]interface{})
+			if len(widgets) > 0 {
+				for wk, wv := range widgets {
+					item, _ := wv.(map[string]interface{})
+					WidgetIcon := WidgetIcon{
+						Key:       "business:" + wk,
+						Name:      item["name"].(string),
+						Thumbnail: "",
+					}
+					wi = append(wi, WidgetIcon)
+				}
+			}
+		}
+	}
+	if len(wi) == 0 {
+		wi = []WidgetIcon{}
+	}
+	response.SuccessWithDetailed(200, "success", wi, map[string]string{}, (*context2.Context)(dashBoardController.Ctx))
 }

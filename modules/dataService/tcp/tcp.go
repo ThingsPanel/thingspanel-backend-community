@@ -97,10 +97,18 @@ func Listen(tcpPort string) {
 				s, _ := cache.Bm.IsExist(context.TODO(), jsonMsg["token"].(string))
 				if s {
 					cacheToken, _ := cache.Bm.Get(context.TODO(), jsonMsg["token"].(string))
-					if cacheToken == 1 {
-						resetMsg := buf[:5]
-						resetMsg[4] = 0x00
-						c.ConnWriter.Write(resetMsg)
+					if cacheToken != 0 {
+						if value, ok := cacheToken.([]byte); ok {
+							resetMsg := buf[:7]
+							resetMsg[4] = 0x00
+							resetMsg[5] = uint8(len(value) / 256)
+							resetMsg[6] = uint8(len(value) % 256)
+							resetMsg = append(resetMsg, value...)
+							resetMsg = append(resetMsg, byte(0xfd))
+							resetMsg[2] = uint8(len(resetMsg) / 256)
+							resetMsg[3] = uint8(len(resetMsg) / 256)
+							c.ConnWriter.Write(resetMsg)
+						}
 					}
 				}
 				cache.Bm.Put(context.TODO(), jsonMsg["token"].(string), 0, 600*time.Second)
@@ -109,11 +117,14 @@ func Listen(tcpPort string) {
 				continue
 			}
 			//消息ID（0x10-心跳包，0x20-数据包）
-			if buf[4] == byte(0x10) {
+			if buf[4] == byte(0x10) || buf[4] == byte(0x09) {
 				//#心跳包应答#---
 				TSKVS.MsgProc(msgData)
 				buf[4] = 0x11
 				c.ConnWriter.Write(buf[:n])
+			} else if buf[4] == byte(0x01) {
+				// 控制反馈包
+				continue
 			} else if buf[4] == byte(0x20) {
 				//1-解析包；2-落地文件记录 3-最后一包写完后更新文件状态记录kv
 				//#数据包请求#---                                        //最大包号

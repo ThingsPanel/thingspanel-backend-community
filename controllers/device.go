@@ -391,16 +391,16 @@ func (request *DeviceController) Operating() {
 
 // 重置设备
 func (deviceController *DeviceController) Reset() {
-	resetDevice := valid.ResetDevice{}
-	err := json.Unmarshal(deviceController.Ctx.Input.RequestBody, &resetDevice)
+	operatingDevice := valid.OperatingDevice{}
+	err := json.Unmarshal(deviceController.Ctx.Input.RequestBody, &operatingDevice)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(resetDevice)
+	status, _ := v.Valid(operatingDevice)
 	if !status {
 		for _, err := range v.Errors {
-			alias := gvalid.GetAlias(resetDevice, err.Field)
+			alias := gvalid.GetAlias(operatingDevice, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
 			response.SuccessWithMessage(1000, message, (*context2.Context)(deviceController.Ctx))
 			break
@@ -408,10 +408,19 @@ func (deviceController *DeviceController) Reset() {
 		return
 	}
 	var DeviceService services.DeviceService
-	f, _ := DeviceService.Token(resetDevice.DeviceId)
+	f, _ := DeviceService.Token(operatingDevice.DeviceId)
 	if f.Token != "" {
-		log.Println(time.Duration(resetDevice.ValidTime) * time.Second)
-		cache.Bm.Put(context.TODO(), f.Token, 1, time.Duration(resetDevice.ValidTime)*time.Second)
+		operatingMap := map[string]interface{}{
+			"token":  f.Token,
+			"values": operatingDevice.Values,
+		}
+		newPayload, toErr := json.Marshal(operatingMap)
+		if toErr != nil {
+			fmt.Printf("JSON 编码失败：%v\n", toErr)
+			response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(deviceController.Ctx))
+		}
+		log.Println(string(newPayload))
+		cache.Bm.Put(context.TODO(), f.Token, newPayload, 300*time.Second)
 	} else {
 		response.SuccessWithMessage(1000, "token不存在", (*context2.Context)(deviceController.Ctx))
 	}

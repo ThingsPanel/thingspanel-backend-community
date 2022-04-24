@@ -98,6 +98,9 @@ func init() {
 		web.NSRouter("/dashboard/paneledit", &controllers.DashBoardController{}, "*:Edit"),
 		web.NSRouter("/dashboard/list", &controllers.DashBoardController{}, "*:List"),
 		web.NSRouter("/dashboard/business", &controllers.DashBoardController{}, "*:Business"),
+		// 业务预览组件查询临时接口
+		web.NSRouter("/dashboard/business/component", &controllers.DashBoardController{}, "*:BidComponent"),
+		// 业务id去查资产
 		web.NSRouter("/dashboard/property", &controllers.DashBoardController{}, "*:Property"),
 		web.NSRouter("/dashboard/device", &controllers.DashBoardController{}, "*:Device"),
 		web.NSRouter("/dashboard/inserttime", &controllers.DashBoardController{}, "*:Inserttime"),
@@ -142,7 +145,7 @@ func init() {
 		web.NSRouter("/structure/update", &controllers.StructureController{}, "*:Edit"),
 		web.NSRouter("/structure/delete", &controllers.StructureController{}, "*:Delete"),
 		web.NSRouter("/structure/field", &controllers.StructureController{}, "*:Field"),
-
+		// 更新统计点击数量，dashboard_id(chart_id)关联业务id，第一次请求会新增一条，后续为更新
 		web.NSRouter("/navigation/add", &controllers.NavigationController{}, "*:Add"),
 		web.NSRouter("/navigation/list", &controllers.NavigationController{}, "*:List"),
 

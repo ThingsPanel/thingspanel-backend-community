@@ -388,13 +388,13 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 }
 
 // 返回最新一条的设备数据，用来判断设备状态（待接入，异常，正常）
-func (*TSKVService) Status(device_id string) (*models.TSKV, int64) {
-	var tskv models.TSKV
-	result := psql.Mydb.Where("entity_id = ?", device_id).Order("ts desc").First(&tskv)
+func (*TSKVService) Status(device_id string) (*models.TSKVLatest, int64) {
+	var TSKVLatest models.TSKVLatest
+	result := psql.Mydb.Where("entity_id = ?", device_id).Order("ts desc").First(&TSKVLatest)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
-	return &tskv, result.RowsAffected
+	return &TSKVLatest, result.RowsAffected
 }
 
 // 通过设备ID获取设备当前值

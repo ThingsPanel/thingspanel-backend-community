@@ -68,3 +68,8 @@ type UpdateDashBoard struct {
 type ComponentDashBoard struct {
 	DeviceID string `json:"device_id" alias:"设备" valid:"Required"`
 }
+
+// AddDashBoard 校验
+type BidComponentValidate struct {
+	BusinessId string `json:"business_id" alias:"业务" valid:"MaxSize(36)"`
+}
