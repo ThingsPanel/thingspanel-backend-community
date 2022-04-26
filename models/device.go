@@ -17,6 +17,8 @@ type Device struct {
 	Subscribe      string `json:"subscribe" gorm:"size:255"`
 	Username       string `json:"username" gorm:"size:255"`
 	Password       string `json:"password" gorm:"size:255"`
+	DId            string `json:"d_id" gorm:"size:255"`
+	Location       string `json:"location" gorm:"size:255"`
 }
 
 func (Device) TableName() string {

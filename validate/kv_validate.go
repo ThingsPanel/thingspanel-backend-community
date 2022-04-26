@@ -33,6 +33,12 @@ type CurrentKV struct {
 	EntityID string `json:"entity_id" alias:"设备" valid:"MaxSize(36)"`
 }
 
+type DeviceHistoryDataValidate struct {
+	DeviceId string `json:"device_id" alias:"设备" valid:"MaxSize(36)"`
+	Current  int    `json:"current" alias:"条数" valid:"Max(1000000)"`
+	Size     int    `json:"size" alias:"条数" valid:"Max(1000000)"`
+}
+
 type CurrentKVByBusiness struct {
 	BusinessiD string `json:"business_id" alias:"业务" valid:"MaxSize(36)"`
 }

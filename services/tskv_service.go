@@ -80,7 +80,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 		}
 		field_map := map[string]string{}
 		for _, v := range FieldMapping {
-			field_map[v.FieldTo] = v.FieldFrom
+			field_map[v.FieldFrom] = v.FieldTo
 		}
 
 		result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
@@ -493,6 +493,8 @@ func (*TSKVService) GetCurrentDataByBusiness(business string) map[string]interfa
 			deviceData["publish"] = device.Publish
 			deviceData["subscribe"] = device.Subscribe
 			deviceData["type"] = device.Type
+			deviceData["d_id"] = device.DId
+			deviceData["location"] = device.Location
 			var TSKVService TSKVService
 			fields := TSKVService.GetCurrentData(device.ID)
 			if len(fields) == 0 {
@@ -525,4 +527,57 @@ func (*TSKVService) GetCurrentDataByBusiness(business string) map[string]interfa
 	datas["devices"] = devices
 	datas["devicesTotal"] = deviceCount
 	return datas
+}
+
+// 根据设id分页查询设备kv，以{k:v,k:v...}方式返回
+func (*TSKVService) DeviceHistoryData(device_id string, current int, size int) ([]map[string]interface{}, int64) {
+	var ts_kvs []models.TSKV
+	var count int64
+	result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts desc").Limit(size).Offset(current*size - 1).Find(&ts_kvs)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	psql.Mydb.Model(&models.TSKV{}).Where("entity_id = ?", device_id).Count(&count)
+	var fields []map[string]interface{}
+	if len(ts_kvs) > 0 {
+		var i int64 = 0
+		var field map[string]interface{}
+		field_from := ""
+		c := len(ts_kvs)
+		for k, v := range ts_kvs {
+			if v.Key != "" {
+				field_from = strings.ToLower(v.Key)
+			}
+			if i != v.TS {
+				if i != 0 {
+					fields = append(fields, field)
+				}
+				field = make(map[string]interface{})
+				if fmt.Sprint(v.BoolV) != "" {
+					field[field_from] = v.BoolV
+				} else if v.StrV != "" {
+					field[field_from] = v.StrV
+				} else if v.LongV != 0 {
+					field[field_from] = v.LongV
+				} else if v.DblV != 0 {
+					field[field_from] = v.DblV
+				}
+				i = v.TS
+			} else {
+				if fmt.Sprint(v.BoolV) != "" {
+					field[field_from] = v.BoolV
+				} else if v.StrV != "" {
+					field[field_from] = v.StrV
+				} else if v.LongV != 0 {
+					field[field_from] = v.LongV
+				} else if v.DblV != 0 {
+					field[field_from] = v.DblV
+				}
+				if c == k+1 {
+					fields = append(fields, field)
+				}
+			}
+		}
+	}
+	return fields, count
 }

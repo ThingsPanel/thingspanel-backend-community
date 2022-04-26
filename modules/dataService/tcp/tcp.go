@@ -106,7 +106,7 @@ func Listen(tcpPort string) {
 							resetMsg = append(resetMsg, value...)
 							resetMsg = append(resetMsg, byte(0xfd))
 							resetMsg[2] = uint8(len(resetMsg) / 256)
-							resetMsg[3] = uint8(len(resetMsg) / 256)
+							resetMsg[3] = uint8(len(resetMsg) % 256)
 							c.ConnWriter.Write(resetMsg)
 						}
 					}

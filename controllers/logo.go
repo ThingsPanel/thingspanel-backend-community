@@ -62,7 +62,7 @@ func (logoController *LogoController) Edit() {
 		var uuid = uuid.GetUuid()
 		Logo.Id = uuid
 		isSucess, _ = LogoService.Add(Logo)
-	} else {
+	} else { //修改
 		if editLogoValidate.Id == "" {
 			response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(logoController.Ctx))
 		}

@@ -127,6 +127,8 @@ type DeviceDash struct {
 	Subscribe      string            `json:"subscribe" gorm:"size:255"`
 	Username       string            `json:"username" gorm:"size:255"`
 	Password       string            `json:"password" gorm:"size:255"`
+	DId            string            `json:"d_id" gorm:"size:255"`
+	Location       string            `json:"location" gorm:"size:255"`
 	Dash           []services.Widget `json:"dash"`
 }
 
@@ -166,6 +168,8 @@ func (reqDate *DeviceController) AddOnly() {
 		Name:      addDeviceValidate.Name,
 		Extension: addDeviceValidate.Extension,
 		Protocol:  addDeviceValidate.Protocol,
+		DId:       addDeviceValidate.DId,
+		Location:  addDeviceValidate.Location,
 	}
 
 	result := psql.Mydb.Create(&deviceData)
@@ -178,6 +182,8 @@ func (reqDate *DeviceController) AddOnly() {
 			Name:      addDeviceValidate.Name,
 			Extension: addDeviceValidate.Extension,
 			Protocol:  addDeviceValidate.Protocol,
+			DId:       addDeviceValidate.DId,
+			Location:  addDeviceValidate.Location,
 			Dash:      ResWidgetData,
 		}
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
@@ -427,4 +433,26 @@ func (deviceController *DeviceController) Reset() {
 	response.SuccessWithMessage(200, "success", (*context2.Context)(deviceController.Ctx))
 	//var DeviceService services.DeviceService
 	//DeviceService
+}
+
+func (DeviceController *DeviceController) DeviceById() {
+	Device := valid.Device{}
+	err := json.Unmarshal(DeviceController.Ctx.Input.RequestBody, &Device)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(Device)
+	if !status {
+		for _, err := range v.Errors {
+			alias := gvalid.GetAlias(Device, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(DeviceController.Ctx))
+			break
+		}
+		return
+	}
+	var DeviceService services.DeviceService
+	d, _ := DeviceService.GetDeviceByID(Device.ID)
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }

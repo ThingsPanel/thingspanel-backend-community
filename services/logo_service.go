@@ -43,7 +43,7 @@ func (*LogoService) Add(logo models.Logo) (bool, string) {
 
 // 根据ID编辑一条Logo数据
 func (*LogoService) Edit(logo models.Logo) bool {
-	result := psql.Mydb.Model(&models.Customer{}).Where("id = ?", logo.Id).Updates(logo)
+	result := psql.Mydb.Save(&logo)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false

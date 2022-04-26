@@ -87,6 +87,7 @@ func init() {
 		web.NSRouter("/device/configure", &controllers.DeviceController{}, "*:Configure"),
 		web.NSRouter("/device/operating_device", &controllers.DeviceController{}, "*:Operating"),
 		web.NSRouter("/device/reset", &controllers.DeviceController{}, "*:Reset"),
+		web.NSRouter("/device/data", &controllers.DeviceController{}, "*:DeviceById"),
 
 		//可视化
 		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"),
@@ -154,6 +155,8 @@ func init() {
 		web.NSRouter("/kv/export", &controllers.KvController{}, "*:Export"),
 		web.NSRouter("/kv/current", &controllers.KvController{}, "*:CurrentData"),
 		web.NSRouter("/kv/current/business", &controllers.KvController{}, "*:CurrentDataByBusiness"),
+		// 通过设备id查询设备历史数据
+		web.NSRouter("/kv/device/history", &controllers.KvController{}, "*:DeviceHistoryData"),
 		// 系统设置接口
 		web.NSRouter("/system/logo/index", &controllers.LogoController{}, "*:Index"),
 		web.NSRouter("/system/logo/update", &controllers.LogoController{}, "*:Edit"),

@@ -247,7 +247,7 @@ ALTER TABLE public.device ADD CONSTRAINT device_fk FOREIGN KEY (asset_id) REFERE
 ALTER TABLE public.field_mapping ADD CONSTRAINT field_mapping_fk FOREIGN KEY (device_id) REFERENCES public.device(id) ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE public.dashboard ADD CONSTRAINT dashboard_fk FOREIGN KEY (business_id) REFERENCES public.business(id) ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE public.widget ADD CONSTRAINT widget_fk FOREIGN KEY (dashboard_id) REFERENCES public.dashboard(id) ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE public.widget ADD CONSTRAINT widget_fk_asset FOREIGN KEY (asset_id) REFERENCES public.asset(id) ON DELETE RESTRICT ON UPDATE CASCADE;
+--ALTER TABLE public.widget ADD CONSTRAINT widget_fk_asset FOREIGN KEY (asset_id) REFERENCES public.asset(id) ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE public.conditions ADD CONSTRAINT conditions_fk FOREIGN KEY (business_id) REFERENCES public.business(id) ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE public.ts_kv_latest ALTER COLUMN bool_v TYPE varchar(5) USING bool_v::varchar;
 CREATE TABLE public.logo (
@@ -265,3 +265,10 @@ COMMENT ON COLUMN public.logo.system_name IS '系统名称';
 COMMENT ON COLUMN public.logo.theme IS '主题';
 COMMENT ON COLUMN public.logo.logo_one IS '首页logo';
 COMMENT ON COLUMN public.logo.logo_two IS '缓冲logo';
+CREATE INDEX resources_created_at_idx ON public.resources (created_at DESC);
+
+ALTER TABLE public.device ADD "position" varchar(255) NULL;
+COMMENT ON COLUMN public.device."position" IS '设备位置';
+ALTER TABLE public.device ADD d_id varchar(255) NULL;
+COMMENT ON COLUMN public.device.d_id IS '设备唯一标志';
+

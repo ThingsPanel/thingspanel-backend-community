@@ -231,3 +231,30 @@ func (this *KvController) CurrentDataByBusiness() {
 	log.Println(t)
 	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
 }
+
+// 根据设备id分页查询当前kv
+func (KvController *KvController) DeviceHistoryData() {
+	DeviceHistoryDataValidate := valid.DeviceHistoryDataValidate{}
+	err := json.Unmarshal(KvController.Ctx.Input.RequestBody, &DeviceHistoryDataValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(DeviceHistoryDataValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(DeviceHistoryDataValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(KvController.Ctx))
+			break
+		}
+		return
+	}
+	var TSKVService services.TSKVService
+	t, count := TSKVService.DeviceHistoryData(DeviceHistoryDataValidate.DeviceId, DeviceHistoryDataValidate.Current, DeviceHistoryDataValidate.Size)
+	var data = make(map[string]interface{})
+	data["data"] = t
+	data["count"] = count
+	response.SuccessWithDetailed(200, "获取成功", data, map[string]string{}, (*context2.Context)(KvController.Ctx))
+}
