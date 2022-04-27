@@ -228,6 +228,8 @@ func (reqDate *DeviceController) UpdateOnly() {
 		Name:      addDeviceValidate.Name,
 		Extension: addDeviceValidate.Extension,
 		Protocol:  addDeviceValidate.Protocol,
+		Location:  addDeviceValidate.Location,
+		DId:       addDeviceValidate.DId,
 	}
 	result := psql.Mydb.Updates(&deviceData)
 	if result.Error == nil {
@@ -239,6 +241,8 @@ func (reqDate *DeviceController) UpdateOnly() {
 			Name:      addDeviceValidate.Name,
 			Extension: addDeviceValidate.Extension,
 			Protocol:  addDeviceValidate.Protocol,
+			Location:  addDeviceValidate.Location,
+			DId:       addDeviceValidate.DId,
 			Dash:      ResWidgetData,
 		}
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))

@@ -267,8 +267,8 @@ COMMENT ON COLUMN public.logo.logo_one IS '首页logo';
 COMMENT ON COLUMN public.logo.logo_two IS '缓冲logo';
 CREATE INDEX resources_created_at_idx ON public.resources (created_at DESC);
 
-ALTER TABLE public.device ADD "position" varchar(255) NULL;
-COMMENT ON COLUMN public.device."position" IS '设备位置';
+ALTER TABLE public.device ADD "location" varchar(255) NULL;
+COMMENT ON COLUMN public.device."location" IS '设备位置';
 ALTER TABLE public.device ADD d_id varchar(255) NULL;
 COMMENT ON COLUMN public.device.d_id IS '设备唯一标志';
 
