@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -121,6 +122,11 @@ func (this *KvController) Export() {
 			excel_file.SetCellValue("Sheet1", "G"+is, tv.EntityType)
 		}
 	}
+	uploadDir := "./files/excel/"
+	errs := os.MkdirAll(uploadDir, os.ModePerm)
+	if errs != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(this.Ctx))
+	}
 	// 根据指定路径保存文件
 	uniqid_str := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
 	excelName := "files/excel/数据列表" + uniqid_str + ".xlsx"
@@ -128,7 +134,6 @@ func (this *KvController) Export() {
 		fmt.Println(err)
 	}
 	response.SuccessWithDetailed(200, "获取成功", excelName, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
 }
 
 func (this *KvController) ExportOld() {

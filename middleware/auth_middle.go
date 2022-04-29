@@ -18,12 +18,12 @@ import (
 func AuthMiddle() {
 	//不需要验证的url
 	noLogin := map[string]interface{}{
-		"/api/system/logo/index": 0,
-		"api/open/data":          0,
-		"api/auth/login":         0,
-		"api/auth/refresh":       0,
-		"api/auth/register":      1,
-		"/ws":                    2,
+		"api/system/logo/index": 0,
+		"api/open/data":         0,
+		"api/auth/login":        0,
+		"api/auth/refresh":      0,
+		"api/auth/register":     1,
+		"/ws":                   2,
 	}
 	var filterLogin = func(ctx *context.Context) {
 		url := strings.TrimLeft(ctx.Input.URL(), "/")
@@ -53,8 +53,8 @@ func AuthMiddle() {
 
 func isAuthExceptUrl(url string, m map[string]interface{}) bool {
 	urlArr := strings.Split(url, "/")
-	if len(urlArr) > 3 {
-		url = fmt.Sprintf("%s/%s/%s", urlArr[0], urlArr[1], urlArr[2])
+	if len(urlArr) > 4 {
+		url = fmt.Sprintf("%s/%s/%s/%s", urlArr[0], urlArr[1], urlArr[2], urlArr[3])
 	}
 	_, ok := m[url]
 	if ok {
