@@ -250,6 +250,10 @@ ALTER TABLE public.widget ADD CONSTRAINT widget_fk FOREIGN KEY (dashboard_id) RE
 --ALTER TABLE public.widget ADD CONSTRAINT widget_fk_asset FOREIGN KEY (asset_id) REFERENCES public.asset(id) ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE public.conditions ADD CONSTRAINT conditions_fk FOREIGN KEY (business_id) REFERENCES public.business(id) ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE public.ts_kv_latest ALTER COLUMN bool_v TYPE varchar(5) USING bool_v::varchar;
+ALTER TABLE public.ts_kv_latest DROP COLUMN ts;
+ALTER TABLE public.ts_kv_latest ADD ts int8 NOT NULL;
+ALTER TABLE public.ts_kv_latest ALTER COLUMN str_v TYPE varchar(10000) USING str_v::varchar;
+
 CREATE TABLE public.logo (
 	id varchar(36) NOT NULL,
 	system_name varchar(255) NULL,
