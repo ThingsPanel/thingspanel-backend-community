@@ -7,7 +7,7 @@ mqtt:
   topicToSubscribe: thingspanel.telemetry
 
 tcp:
-  port: 9998
+  port: :9998
 
 amqp:
   host: rabbitmq
