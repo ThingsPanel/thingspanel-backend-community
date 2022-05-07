@@ -43,7 +43,7 @@ func (*DeviceService) GetDevicesByAssetID(asset_id string) ([]models.Device, int
 // 2022-04-18新增
 func (*DeviceService) GetDevicesByBusinessID(business_id string) ([]models.Device, int64) {
 	var devices []models.Device
-	SQL := `select device.id,device.asset_id ,device.additional_info,device."type" ,device."name",device."label",device.protocol from device left join asset on device.asset_id  = asset.id where asset.business_id =?`
+	SQL := `select device.id,device.asset_id ,device.additional_info,device."type" ,device."location",device."d_id",device."name",device."label",device.protocol from device left join asset on device.asset_id  = asset.id where asset.business_id =?`
 	if err := psql.Mydb.Raw(SQL, business_id).Scan(&devices).Error; err != nil {
 		log.Println(err.Error())
 	}

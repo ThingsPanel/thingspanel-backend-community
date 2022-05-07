@@ -65,6 +65,45 @@ func (this *WarninglogController) List() {
 	return
 }
 
+type PaginateWarninglogList struct {
+	CurrentPage int                      `json:"current_page"`
+	Data        []map[string]interface{} `json:"data"`
+	Total       int64                    `json:"total"`
+	PerPage     int                      `json:"per_page"`
+}
+
+// 分页获取告警日志
+func (WarninglogController *WarninglogController) PageList() {
+	warningLogPageListValidate := valid.WarningLogPageListValidate{}
+	err := json.Unmarshal(WarninglogController.Ctx.Input.RequestBody, &warningLogPageListValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(warningLogPageListValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(warningLogPageListValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(WarninglogController.Ctx))
+			break
+		}
+		return
+	}
+	var WarningLogService services.WarningLogService
+	w, c := WarningLogService.GetWarningLogByPaging(warningLogPageListValidate.BusinessId, warningLogPageListValidate.DeviceId,
+		warningLogPageListValidate.AssetId, warningLogPageListValidate.Page, warningLogPageListValidate.Limit,
+		warningLogPageListValidate.StartDate, warningLogPageListValidate.EndDate)
+	d := PaginateWarninglogList{
+		CurrentPage: warningLogPageListValidate.Page,
+		Data:        w,
+		Total:       c,
+		PerPage:     warningLogPageListValidate.Limit,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(WarninglogController.Ctx))
+}
+
 type ViewWarninglog struct {
 	Data []models.WarningLogView `json:"data"`
 }

@@ -100,12 +100,12 @@ func Listen(tcpPort string) {
 					if cacheToken != 0 {
 						if value, ok := cacheToken.([]byte); ok {
 							resetMsg := buf[:7]
-							resetMsg[4] = 0x00
-							resetMsg[5] = uint8(len(value) / 256)
+							resetMsg[4] = 0x02
+							resetMsg[5] = 0xee
 							resetMsg[6] = uint8(len(value) % 256)
 							resetMsg = append(resetMsg, value...)
 							resetMsg = append(resetMsg, byte(0xfd))
-							resetMsg[2] = uint8(len(resetMsg) / 256)
+							resetMsg[2] = 0xee
 							resetMsg[3] = uint8(len(resetMsg) % 256)
 							c.ConnWriter.Write(resetMsg)
 						}

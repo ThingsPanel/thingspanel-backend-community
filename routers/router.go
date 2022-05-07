@@ -117,6 +117,7 @@ func init() {
 		//告警策略
 		web.NSRouter("/warning/index", &controllers.WarninglogController{}, "*:Index"),
 		web.NSRouter("/warning/list", &controllers.WarninglogController{}, "*:List"),
+		web.NSRouter("/warning/log/list", &controllers.WarninglogController{}, "*:PageList"),
 		web.NSRouter("/warning/field", &controllers.WarningconfigController{}, "*:Field"),
 		web.NSRouter("/warning/add", &controllers.WarningconfigController{}, "*:Add"),
 		web.NSRouter("/warning/edit", &controllers.WarningconfigController{}, "*:Edit"),

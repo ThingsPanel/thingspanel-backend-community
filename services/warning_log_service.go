@@ -95,3 +95,48 @@ func (*WarningLogService) WarningForWid(device_id string, limit int) []models.Wa
 	}
 	return warningLogs
 }
+
+// 跟据业务ID，设备ID，资产ID，分页查询相关告警信息
+func (*WarningLogService) GetWarningLogByPaging(business_id string, device_id string, asset_id string, current int,
+	pageSize int, startDate string, endDate string) ([]map[string]interface{}, int64) {
+	sqlWhere := `select wl.id ,wl."type" ,wl."describe" ,wl.data_id as device_id,wl.created_at ,d."name" as device_name,
+	b.id as business_id ,a.id as asset_id ,a."name" as asset_name,b."name" as business_name 
+	from warning_log wl left join device d on d.id = wl.data_id 
+	left join asset a on d.asset_id  = a.id 
+	left join business b on a.business_id = b.id where 1=1 `
+	var values []interface{}
+	if business_id != "" {
+		values = append(values, business_id)
+		sqlWhere += " and b.id = ?"
+	}
+	if asset_id != "" {
+		values = append(values, asset_id)
+		sqlWhere += " and a.id = ?"
+	}
+	if device_id != "" {
+		values = append(values, device_id)
+		sqlWhere += " and wl.data_id = ?"
+	}
+	if startDate != "" {
+		//2021/12/01 15:12:37
+		tmp := "2006/1/2 15:4:5"
+		sDate, _ := time.ParseInLocation(tmp, startDate, time.Local)
+		eDate, _ := time.ParseInLocation(tmp, endDate, time.Local)
+		sqlWhere += " and wl.created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)
+	}
+	var count int64
+	result := psql.Mydb.Raw(sqlWhere, values).Count(&count)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	var offset int = (current - 1) * pageSize
+	var limit int = pageSize
+	sqlWhere += "order by wl.created_at desc offset ? limit ?"
+	values = append(values, offset, limit)
+	var warningLogs []map[string]interface{}
+	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&warningLogs)
+	if dataResult.Error != nil {
+		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+	}
+	return warningLogs, count
+}
