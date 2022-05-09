@@ -204,7 +204,7 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 	result := psql.Mydb
 	result2 := psql.Mydb
 	if limit <= 0 {
-		limit = 15
+		limit = 1000000
 	}
 	if offset <= 0 {
 		offset = 0

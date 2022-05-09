@@ -125,7 +125,7 @@ func (*WarningLogService) GetWarningLogByPaging(business_id string, device_id st
 		sqlWhere += " and wl.created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)
 	}
 	var count int64
-	result := psql.Mydb.Raw(sqlWhere, values).Count(&count)
+	result := psql.Mydb.Raw(sqlWhere, values...).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
