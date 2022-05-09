@@ -35,6 +35,7 @@ func (uploadController *UploadController) UpFile() {
 		".png":  true,
 		".svg":  true,
 		".ico":  true,
+		".gif":  true,
 	}
 	if _, ok := AllowExtMap[ext]; !ok {
 		response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))
