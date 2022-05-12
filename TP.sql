@@ -278,6 +278,6 @@ COMMENT ON COLUMN device.d_id IS '设备唯一标志';
 
 INSERT INTO logo
 (id, system_name, theme, logo_one, logo_two, logo_three, custom_id, remark)
-VALUES('1d625cec-bf5b-2ad1-b135-a23b5fad05bf', 'ThingsPanel', 'blue', './files/logo/log-one.svg', './files/logo/logo-two.gif', './files/logo/logo-three.png', '', '');
+VALUES('1d625cec-bf5b-2ad1-b135-a23b5fad05bf', 'ThingsPanel', 'blue', './files/logo/logo-one.svg', './files/logo/logo-two.gif', './files/logo/logo-three.png', '', '');
 
 
