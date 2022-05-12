@@ -324,7 +324,7 @@ func (this *AssetController) List() {
 						dm = ""
 					} else {
 						disabled = true
-						dm = "代码"
+						dm = "参数"
 					}
 					tsl, tsc := TSKVService.Status(di.ID)
 					if tsc == 0 {
@@ -386,7 +386,7 @@ func (this *AssetController) List() {
 								dm = ""
 							} else {
 								disabled = true
-								dm = "代码"
+								dm = "参数"
 							}
 							tsl, tsc := TSKVService.Status(di.ID)
 							if tsc == 0 {
@@ -447,7 +447,7 @@ func (this *AssetController) List() {
 										dm = ""
 									} else {
 										disabled = true
-										dm = "代码"
+										dm = "参数"
 									}
 									tsl, tsc := TSKVService.Status(di.ID)
 									if tsc == 0 {

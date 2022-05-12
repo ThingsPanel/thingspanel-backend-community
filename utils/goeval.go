@@ -26,11 +26,13 @@ func Eval(code string) string {
 	expr, err := govaluate.NewEvaluableExpression(code)
 	if err != nil {
 		log.Fatal("syntax error:", err)
+		return strconv.FormatBool(false)
 	}
 
 	result, err := expr.Evaluate(nil)
 	if err != nil {
 		log.Fatal("evaluate error:", err)
+		return strconv.FormatBool(false)
 	}
 
 	return strconv.FormatBool(result.(bool))
