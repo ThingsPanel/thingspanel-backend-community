@@ -26,3 +26,11 @@ TP.sql
 ## 数据库默认用户
 默认账户和密码
 admin@thingspanel.cn 123456
+
+## 联系我们
+
+[wiki](http://wiki.thingspanel.cn/index.php?title=%E9%A6%96%E9%A1%B5)
+
+论坛：[论坛](http://forum.thingspanel.cn/)
+
+qq群：260150504
