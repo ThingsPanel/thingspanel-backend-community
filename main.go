@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	_ "ThingsPanel-Go/cron"
 	_ "ThingsPanel-Go/modules/dataService"
 	_ "ThingsPanel-Go/routers"
 	"log"

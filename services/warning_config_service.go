@@ -158,9 +158,9 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 				if field != "" {
 					m["${"+field+"}"] = fmt.Sprint(v)
 					code = strings.Replace(code, "${"+field+"}", fmt.Sprint(v), -1)
-					flag = utils.Eval(code)
 				}
 			}
+			flag = utils.Eval(code)
 			log.Println(code)
 			log.Println(flag)
 			if flag == "true" {

@@ -3,10 +3,14 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	uuid "ThingsPanel-Go/utils"
+	"encoding/json"
 	"errors"
 	"log"
 
+	"github.com/beego/beego/v2/core/logs"
+	simplejson "github.com/bitly/go-simplejson"
 	"gorm.io/gorm"
 )
 
@@ -146,4 +150,61 @@ func (*DeviceService) Add(token string, protocol string, port string, publish st
 		return false, ""
 	}
 	return true, uuid
+}
+
+// 向mqtt发送控制指令
+func (*DeviceService) OperatingDevice(deviceId string, field string, value string) bool {
+	reqMap := make(map[string]interface{})
+	valueMap := make(map[string]interface{})
+	logs.Info("通过设备id获取设备token")
+	var DeviceService DeviceService
+	device, _ := DeviceService.Token(deviceId)
+	if device != nil {
+		reqMap["token"] = device.Token
+		logs.Info("token-%s", device.Token)
+	} else {
+		logs.Info("没有匹配的token")
+		return false
+	}
+	logs.Info("把field字段映射回设备端字段")
+	var fieldMappingService FieldMappingService
+	deviceField := fieldMappingService.TransformByDeviceid(deviceId, field)
+	if deviceField != "" {
+		valueMap[deviceField] = value
+	}
+	reqMap["values"] = valueMap
+	logs.Info("将map转json")
+	mjson, _ := json.Marshal(reqMap)
+	logs.Info("json-%s", string(mjson))
+	err := cm.Send(mjson)
+	if err == nil {
+		logs.Info("发送到mqtt成功")
+		return true
+	} else {
+		logs.Info(err.Error())
+		return false
+	}
+}
+
+//自动化发送控制
+func (*DeviceService) ApplyControl(res *simplejson.Json) {
+	logs.Info("执行控制开始")
+	//"apply":[{"asset_id":"xxx","field":"hum","device_id":"xxx","value":"1"}]}
+	applyRows, _ := res.Get("apply").Array()
+	logs.Info("applyRows-", applyRows)
+	for _, applyRow := range applyRows {
+		logs.Info("applyRow-", applyRow)
+		if applyMap, ok := applyRow.(map[string]interface{}); ok {
+			logs.Info(applyMap)
+			// 如果有“或者，并且”操作符，就给code加上操作符
+			if applyMap["field"] != nil && applyMap["value"] != nil {
+				logs.Info("准备执行控制发送函数")
+				var DeviceService DeviceService
+				reqFlag := DeviceService.OperatingDevice(applyMap["device_id"].(string), applyMap["field"].(string), applyMap["value"].(string))
+				if reqFlag {
+					logs.Info("成功发送控制")
+				}
+			}
+		}
+	}
 }

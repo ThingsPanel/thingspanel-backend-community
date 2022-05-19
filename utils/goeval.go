@@ -1,12 +1,12 @@
 package utils
 
 import (
-	"log"
 	"strconv"
 	"strings"
 
 	"github.com/Knetic/govaluate"
 	"github.com/PaulXu-cn/goeval"
+	"github.com/beego/beego/v2/core/logs"
 )
 
 func EvalOld(code string) string {
@@ -25,13 +25,13 @@ func EvalOld(code string) string {
 func Eval(code string) string {
 	expr, err := govaluate.NewEvaluableExpression(code)
 	if err != nil {
-		log.Fatal("syntax error:", err)
+		logs.Error("syntax error:", err)
 		return strconv.FormatBool(false)
 	}
 
 	result, err := expr.Evaluate(nil)
 	if err != nil {
-		log.Fatal("evaluate error:", err)
+		logs.Error("evaluate error:", err)
 		return strconv.FormatBool(false)
 	}
 

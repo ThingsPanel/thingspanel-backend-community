@@ -69,8 +69,11 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	if result.RowsAffected > 0 {
 		// 查询警告
 		var WarningConfigService WarningConfigService
-		//查找。。。。。
 		WarningConfigService.WarningConfigCheck(device.ID, payload.Values)
+		// 设备触发自动化
+		var ConditionsService ConditionsService
+		ConditionsService.ConditionsConfigCheck(device.ID, payload.Values)
+
 		ts := time.Now().UnixMicro()
 		//查找field_mapping表替换value里面的字段
 		var FieldMappingService FieldMappingService
