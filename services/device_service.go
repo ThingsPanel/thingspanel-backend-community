@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	simplejson "github.com/bitly/go-simplejson"
@@ -199,11 +200,25 @@ func (*DeviceService) ApplyControl(res *simplejson.Json) {
 			// 如果有“或者，并且”操作符，就给code加上操作符
 			if applyMap["field"] != nil && applyMap["value"] != nil {
 				logs.Info("准备执行控制发送函数")
+				ConditionsLog := models.ConditionsLog{
+					DeviceId:      applyMap["device_id"].(string),
+					OperationType: "1",
+					Instruct:      applyMap["field"].(string) + ":" + applyMap["value"].(string),
+					ProtocolType:  "mqtt",
+					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
+				}
 				var DeviceService DeviceService
 				reqFlag := DeviceService.OperatingDevice(applyMap["device_id"].(string), applyMap["field"].(string), applyMap["value"].(string))
 				if reqFlag {
 					logs.Info("成功发送控制")
+					ConditionsLog.SendResult = "1"
+				} else {
+					logs.Info("成功发送失败")
+					ConditionsLog.SendResult = "2"
 				}
+				// 记录日志
+				var ConditionsLogService ConditionsLogService
+				ConditionsLogService.Insert(&ConditionsLog)
 			}
 		}
 	}

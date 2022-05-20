@@ -281,3 +281,24 @@ INSERT INTO logo
 VALUES('1d625cec-bf5b-2ad1-b135-a23b5fad05bf', 'ThingsPanel', 'blue', './files/logo/logo-one.svg', './files/logo/logo-two.gif', './files/logo/logo-three.png', '', '');
 
 
+CREATE TABLE public.conditions_log (
+	id varchar(36) NOT NULL,
+	device_id varchar(36) NOT NULL,
+	operation_type varchar(2) NULL,
+	instruct varchar(255) NULL,
+	sender varchar(99) NULL,
+	send_result varchar(2) NULL,
+	respond varchar(255) NULL,
+	cteate_time varchar(50) NULL,
+	remark varchar(255) NULL,
+	protocol_type varchar(50) NULL
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.conditions_log.operation_type IS '操作类型1-定时触发 2-手动控制';
+COMMENT ON COLUMN public.conditions_log.instruct IS '指令';
+COMMENT ON COLUMN public.conditions_log.sender IS '发送者';
+COMMENT ON COLUMN public.conditions_log.send_result IS '发送结果';
+COMMENT ON COLUMN public.conditions_log.respond IS '设备反馈';
+COMMENT ON COLUMN public.conditions_log.protocol_type IS 'mqtt,tcp';

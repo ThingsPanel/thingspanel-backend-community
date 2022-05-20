@@ -166,6 +166,8 @@ func init() {
 		web.NSRouter("/file/up", &controllers.UploadController{}, "*:UpFile"),
 		// 三方数据接口
 		web.NSRouter("/open/data", &controllers.OpenController{}, "*:GetData"),
+		// 控制日志
+		web.NSRouter("/conditions/log/index", &controllers.ConditionslogController{}, "*:Index"),
 	)
 
 	// 图表推送数据
