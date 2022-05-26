@@ -9,6 +9,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	bcrypt "ThingsPanel-Go/utils"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -129,7 +130,7 @@ func (*UserService) Add(name string, email string, password string, enabled stri
 	}
 	result := psql.Mydb.Create(&user)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Info(result.Error, gorm.ErrRecordNotFound)
 		return false, ""
 	}
 	return true, uuid

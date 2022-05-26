@@ -64,7 +64,7 @@ func (this *KvController) Index() {
 		return
 	}
 	var TSKVService services.TSKVService
-	t, c := TSKVService.Paginate(kVIndexValidate.BusinessId, kVIndexValidate.AssetId, kVIndexValidate.Token, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, (kVIndexValidate.Page-1)*kVIndexValidate.Limit)
+	t, c := TSKVService.Paginate(kVIndexValidate.BusinessId, kVIndexValidate.AssetId, kVIndexValidate.Token, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, (kVIndexValidate.Page-1)*kVIndexValidate.Limit, kVIndexValidate.Key)
 	d := PaginateTSKV{
 		CurrentPage: kVIndexValidate.Page,
 		Data:        t,
@@ -95,7 +95,7 @@ func (this *KvController) Export() {
 		return
 	}
 	var TSKVService services.TSKVService
-	t, c := TSKVService.Paginate(KVExcelValidate.BusinessId, KVExcelValidate.AssetId, KVExcelValidate.Token, KVExcelValidate.Type, KVExcelValidate.StartTime, KVExcelValidate.EndTime, KVExcelValidate.Limit, 0)
+	t, c := TSKVService.Paginate(KVExcelValidate.BusinessId, KVExcelValidate.AssetId, KVExcelValidate.Token, KVExcelValidate.Type, KVExcelValidate.StartTime, KVExcelValidate.EndTime, KVExcelValidate.Limit, 0, KVExcelValidate.Key)
 	excel_file := excelize.NewFile()
 	index := excel_file.NewSheet("Sheet1")
 	excel_file.SetActiveSheet(index)

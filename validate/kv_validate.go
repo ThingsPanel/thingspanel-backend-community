@@ -10,6 +10,7 @@ type KVIndexValidate struct {
 	Page       int    `json:"page" alias:"页面" valid:"Min(1)"`
 	StartTime  string `json:"start_time" alias:"开始时间"`
 	EndTime    string `json:"end_time" alias:"结束时间"`
+	Key        string `json:"key" alias:"数据标签"`
 }
 type KVExcelValidate struct {
 	BusinessId string `json:"business_id" alias:"业务" valid:"MaxSize(36)"`
@@ -19,6 +20,7 @@ type KVExcelValidate struct {
 	Limit      int    `json:"limit" alias:"条数" valid:"Max(1000000)"`
 	StartTime  string `json:"start_time" alias:"开始时间"`
 	EndTime    string `json:"end_time" alias:"结束时间"`
+	Key        string `json:"key" alias:"数据标签"`
 }
 
 // KVExport 校验

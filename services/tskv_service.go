@@ -200,7 +200,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 }
 
 // 分页查询数据
-func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, start_time string, end_time string, limit int, offset int) ([]models.TSKVDblV, int64) {
+func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, start_time string, end_time string, limit int, offset int, key string) ([]models.TSKVDblV, int64) {
 	tSKVs := []models.TSKVResult{}
 	tsk := []models.TSKVDblV{}
 	var count int64
@@ -234,6 +234,9 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 	}
 
 	SQLWhere, params := utils.TsKvFilterToSql(filters)
+	if key != "" { //key
+		SQLWhere = SQLWhere + " and key = '" + key + "'"
+	}
 	SQL := "select business.name bname,ts_kv.*,concat_ws('-',asset.name,device.name) AS name,device.token FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id" + SQLWhere + " ORDER BY ts_kv.ts DESC"
 	if limit > 0 && offset >= 0 {
 		SQL = fmt.Sprintf("%s limit ? offset ? ", SQL)
