@@ -296,9 +296,12 @@ CREATE TABLE public.conditions_log (
 
 -- Column comments
 
-COMMENT ON COLUMN public.conditions_log.operation_type IS '操作类型1-定时触发 2-手动控制';
-COMMENT ON COLUMN public.conditions_log.instruct IS '指令';
-COMMENT ON COLUMN public.conditions_log.sender IS '发送者';
-COMMENT ON COLUMN public.conditions_log.send_result IS '发送结果';
-COMMENT ON COLUMN public.conditions_log.respond IS '设备反馈';
-COMMENT ON COLUMN public.conditions_log.protocol_type IS 'mqtt,tcp';
+COMMENT ON COLUMN conditions_log.operation_type IS '操作类型1-定时触发 2-手动控制';
+COMMENT ON COLUMN conditions_log.instruct IS '指令';
+COMMENT ON COLUMN conditions_log.sender IS '发送者';
+COMMENT ON COLUMN conditions_log.send_result IS '发送结果';
+COMMENT ON COLUMN conditions_log.respond IS '设备反馈';
+COMMENT ON COLUMN conditions_log.protocol_type IS 'mqtt,tcp';
+
+ALTER TABLE widget ADD extend varchar(999) NULL;
+

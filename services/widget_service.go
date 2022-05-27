@@ -123,6 +123,19 @@ func (*WidgetService) Edit(id string, dashboard_id string, asset_id string, devi
 	return true
 }
 
+// 根据ID修改扩展功能
+func (*WidgetService) EditExtend(id string, extend string) bool {
+	result := psql.Mydb.Model(&models.Widget{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"extend":     extend,
+		"updated_at": time.Now(),
+	})
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return false
+	}
+	return true
+}
+
 // 根据ID删除一条widget数据
 func (*WidgetService) Delete(id string) bool {
 	result := psql.Mydb.Where("id = ?", id).Delete(&models.Widget{})

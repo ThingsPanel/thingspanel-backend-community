@@ -161,6 +161,8 @@ func init() {
 		// 系统设置接口
 		web.NSRouter("/system/logo/index", &controllers.LogoController{}, "*:Index"),
 		web.NSRouter("/system/logo/update", &controllers.LogoController{}, "*:Edit"),
+		// 图标单元小功能
+		web.NSRouter("/widget/extend/update", &controllers.WidgetController{}, "*:UpdateExtend"),
 
 		// 文件上传接口
 		web.NSRouter("/file/up", &controllers.UploadController{}, "*:UpFile"),

@@ -242,3 +242,33 @@ func (this *WidgetController) Delete() {
 	response.SuccessWithMessage(400, "error", (*context2.Context)(this.Ctx))
 	return
 }
+
+// 修改扩展功能
+func (widgetController *WidgetController) UpdateExtend() {
+	extendWidgetValidate := valid.ExtendWidget{}
+	err := json.Unmarshal(widgetController.Ctx.Input.RequestBody, &extendWidgetValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(extendWidgetValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(extendWidgetValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(widgetController.Ctx))
+			break
+		}
+		return
+	}
+	var WidgetService services.WidgetService
+	f := WidgetService.EditExtend(extendWidgetValidate.ID, extendWidgetValidate.Extend)
+	if f {
+		// 修改成功
+		response.SuccessWithMessage(200, "success", (*context2.Context)(widgetController.Ctx))
+		return
+	}
+	// 修改失败
+	response.SuccessWithMessage(400, "error", (*context2.Context)(widgetController.Ctx))
+}

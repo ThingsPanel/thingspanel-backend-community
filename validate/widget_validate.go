@@ -25,3 +25,9 @@ type EditWidget struct {
 type DeleteWidget struct {
 	ID string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
 }
+
+// DeleteWidget 校验
+type ExtendWidget struct {
+	ID     string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
+	Extend string `json:"extend" alias:"ID" valid:"MaxSize(999)"`
+}

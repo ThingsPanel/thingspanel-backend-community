@@ -14,6 +14,7 @@ type Widget struct {
 	DeviceID         string    `json:"device_id" gorm:"size:36"` // 设备id
 	WidgetIdentifier string    `json:"widget_identifier"`        // 图表标识符如: environmentpanel:normal
 	AssetID          string    `json:"asset_id" gorm:"size:36"`
+	Extend           string    `json:"extend" gorm:"size:999"`
 }
 
 func (Widget) TableName() string {

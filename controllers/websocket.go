@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/beego/beego/v2/core/logs"
 	beego "github.com/beego/beego/v2/server/web"
 	"github.com/gorilla/websocket"
 )
@@ -133,15 +135,46 @@ func (c *Client) ReadMsg() {
 		}
 		first := true
 		go func() {
+			// time_quantum的时间单位是分;默认是三天的时间区间
+			var time_quantum int64 = 0
+			// refresh_rate的时间单位是秒;默认是10秒
+			var refresh_rate int64 = 0
 			if first {
 				var msgContent MsgContent
 				_ = json.Unmarshal(p, &msgContent)
 				msgContent.User = c.ID
 				w, _ := WidgetService.GetWidgetById(msgContent.Wid)
+
+				if w.Extend != "" {
+					extendMap := make(map[string]string)
+					err := json.Unmarshal([]byte(w.Extend), &extendMap)
+					if err == nil {
+						if extendMap["time_quantum"] != "" {
+							time, err := strconv.ParseInt(extendMap["time_quantum"], 10, 64)
+							if err == nil {
+								logs.Info(msgContent.Wid, "图表的时间区间是：", time_quantum, "分")
+								time_quantum = time
+							}
+
+						}
+						if extendMap["refresh_rate"] != "" {
+							rate, err := strconv.ParseInt(extendMap["refresh_rate"], 10, 64)
+							if err == nil {
+								logs.Info(msgContent.Wid, "图表的刷新率是：", rate, "秒")
+								refresh_rate = rate
+							}
+
+						}
+					}
+				}
 				device_ids := []string{w.DeviceID}
 				et := time.Now().Unix()
-				st := et - 3*24*60*60
-				StartTs = st * 1000
+				if time_quantum == int64(0) {
+					st := et - 3*24*60*60
+					StartTs = st * 1000
+				} else {
+					StartTs = (et - time_quantum*60) * 1000
+				}
 				EndTs = et * 1000
 				fmt.Println(StartTs, ":", EndTs)
 				data := TSKVService.GetTelemetry(device_ids, StartTs, EndTs)
@@ -159,7 +192,11 @@ func (c *Client) ReadMsg() {
 				w, _ := WidgetService.GetWidgetById(msgContent.Wid)
 				device_ids := []string{w.DeviceID}
 				StartTs = EndTs
-				EndTs = StartTs + 10000
+				if refresh_rate == int64(0) {
+					EndTs = StartTs + 10000
+				} else {
+					EndTs = StartTs + refresh_rate*1000
+				}
 				fmt.Println(StartTs, ":", EndTs)
 				data := TSKVService.GetTelemetry(device_ids, StartTs, EndTs)
 				var dataMap = data[0].(map[string]interface{})
