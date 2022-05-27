@@ -20,6 +20,6 @@ type Base struct {
 
 func (b *Base) Main(device_ids []string, startTs int64, endTs int64) []interface{} {
 	var TSKVService services.TSKVService
-	t := TSKVService.GetTelemetry(device_ids, startTs, endTs)
+	t := TSKVService.GetTelemetry(device_ids, startTs, endTs, "")
 	return t
 }

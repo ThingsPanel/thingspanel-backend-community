@@ -315,18 +315,24 @@ func (*TSKVService) GetAllByCondition(entity_id string, t int64, start_time stri
 }
 
 // 通过设备ID获取一段时间的数据
-func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64) []interface{} {
+func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64, rate string) []interface{} {
 	var ts_kvs []models.TSKV
 	var devices []interface{}
 	// var FieldMappingService FieldMappingService
 	if len(device_ids) > 0 {
 		for _, d := range device_ids {
 			device := make(map[string]interface{})
-			result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ?", startTs*1000, endTs*1000, d).Order("ts asc").Find(&ts_kvs)
+			var result *gorm.DB
+			if rate == "" {
+				result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ?", startTs*1000, endTs*1000, d).Order("ts asc").Find(&ts_kvs)
+			} else {
+				result = psql.Mydb.Raw("select key, bool_v, str_v, long_v, dbl_v, ts from (select row_number() over "+
+					"(partition by (times,key)) as seq,* from (select tk.ts/"+rate+" as times ,* from ts_kv tk where"+
+					"ts >= ? AND ts <= ? AND entity_id =?) as tks) as group_tk where seq = 1", startTs*1000, endTs*1000, d).Find(&ts_kvs)
+			}
 			if result.Error != nil {
 				errors.Is(result.Error, gorm.ErrRecordNotFound)
 			}
-
 			var fields []map[string]interface{}
 			if len(ts_kvs) > 0 {
 				var i int64 = 0

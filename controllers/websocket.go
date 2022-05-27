@@ -127,7 +127,7 @@ func (c *Client) ReadMsg() {
 	var TSKVService services.TSKVService
 	var StartTs int64
 	var EndTs int64
-	c.Ticker = time.NewTicker(time.Millisecond * 10000)
+	c.Ticker = time.NewTicker(time.Millisecond * 1000)
 	for {
 		_, p, err := c.Conn.ReadMessage()
 		if err != nil {
@@ -139,6 +139,8 @@ func (c *Client) ReadMsg() {
 			var time_quantum int64 = 0
 			// refresh_rate的时间单位是秒;默认是10秒
 			var refresh_rate int64 = 0
+			// sampling_rate的时间单位是秒;默认是10秒
+			var sampling_rate string = ""
 			if first {
 				var msgContent MsgContent
 				_ = json.Unmarshal(p, &msgContent)
@@ -165,6 +167,14 @@ func (c *Client) ReadMsg() {
 							}
 
 						}
+						if extendMap["sampling_rate"] != "" {
+							rate, err := strconv.Atoi(extendMap["sampling_rate"])
+							if err == nil {
+								logs.Info(msgContent.Wid, "图表的刷新率是：", rate, "秒")
+								sampling_rate = strconv.Itoa(rate * 1000000)
+							}
+
+						}
 					}
 				}
 				device_ids := []string{w.DeviceID}
@@ -177,7 +187,8 @@ func (c *Client) ReadMsg() {
 				}
 				EndTs = et * 1000
 				fmt.Println(StartTs, ":", EndTs)
-				data := TSKVService.GetTelemetry(device_ids, StartTs, EndTs)
+
+				data := TSKVService.GetTelemetry(device_ids, StartTs, EndTs, sampling_rate)
 				msg, _ := json.Marshal(data)
 				msgContent.Data = string(msg)
 				message, _ := json.Marshal(msgContent)
@@ -185,27 +196,33 @@ func (c *Client) ReadMsg() {
 				first = false
 			}
 			for t := range c.Ticker.C {
-				fmt.Println(t)
-				var msgContent MsgContent
-				_ = json.Unmarshal(p, &msgContent)
-				msgContent.User = c.ID
-				w, _ := WidgetService.GetWidgetById(msgContent.Wid)
-				device_ids := []string{w.DeviceID}
-				StartTs = EndTs
+				thisTime := time.Now().Unix()
+				var rate_time int64 = 0
 				if refresh_rate == int64(0) {
-					EndTs = StartTs + 10000
+					rate_time = 10000
 				} else {
-					EndTs = StartTs + refresh_rate*1000
+					rate_time = refresh_rate * 1000
 				}
-				fmt.Println(StartTs, ":", EndTs)
-				data := TSKVService.GetTelemetry(device_ids, StartTs, EndTs)
-				var dataMap = data[0].(map[string]interface{})
-				//if dataMap["fields"] is null,do not send for ws
-				if fmt.Sprintf("%T", dataMap["fields"]) != "[]string" {
-					msg, _ := json.Marshal(data)
-					msgContent.Data = string(msg)
-					message, _ := json.Marshal(msgContent)
-					AllCh.MsgChan <- string(message)
+				// 十秒一次推送
+				if thisTime*1000-EndTs > rate_time {
+					fmt.Println(t)
+					var msgContent MsgContent
+					_ = json.Unmarshal(p, &msgContent)
+					msgContent.User = c.ID
+					w, _ := WidgetService.GetWidgetById(msgContent.Wid)
+					device_ids := []string{w.DeviceID}
+					StartTs = EndTs
+					EndTs = StartTs + rate_time
+					fmt.Println(StartTs, ":", EndTs)
+					data := TSKVService.GetTelemetry(device_ids, StartTs, EndTs, sampling_rate)
+					var dataMap = data[0].(map[string]interface{})
+					//if dataMap["fields"] is null,do not send for ws
+					if fmt.Sprintf("%T", dataMap["fields"]) != "[]string" {
+						msg, _ := json.Marshal(data)
+						msgContent.Data = string(msg)
+						message, _ := json.Marshal(msgContent)
+						AllCh.MsgChan <- string(message)
+					}
 				}
 			}
 		}()
