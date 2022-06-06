@@ -62,6 +62,8 @@ func init() {
 		web.NSRouter("/asset/delete", &controllers.AssetController{}, "*:Delete"),
 		web.NSRouter("/asset/widget", &controllers.AssetController{}, "*:Widget"),
 		web.NSRouter("/asset/list", &controllers.AssetController{}, "*:List"),
+		web.NSRouter("/asset/list/a", &controllers.AssetController{}, "*:GetAssetByBusiness"),
+		web.NSRouter("/asset/list/b", &controllers.AssetController{}, "*:GetAssetByAsset"),
 
 		web.NSRouter("/asset/simple", &controllers.AssetController{}, "*:Simple"),
 

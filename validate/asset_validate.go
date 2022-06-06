@@ -24,6 +24,11 @@ type EditAsset struct {
 }
 
 // WidgetAsset 校验
+type GetAsset struct {
+	AssetId string `json:"asset_id" alias:"参数"`
+}
+
+// WidgetAsset 校验
 type WidgetAsset struct {
 	ID string `json:"id" alias:"参数"`
 }
