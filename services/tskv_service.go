@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beego/beego/v2/core/logs"
 	"github.com/zenghouchao/timeHelper"
 	"gorm.io/gorm"
 )
@@ -237,6 +238,11 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 	if key != "" { //key
 		SQLWhere = SQLWhere + " and key = '" + key + "'"
 	}
+	countsql := "SELECT Count(*) AS count FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id " + SQLWhere
+	if err := result2.Raw(countsql, params...).Count(&count).Error; err != nil {
+		logs.Info(err.Error())
+		return tsk, 0
+	}
 	SQL := "select business.name bname,ts_kv.*,concat_ws('-',asset.name,device.name) AS name,device.token FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id" + SQLWhere + " ORDER BY ts_kv.ts DESC"
 	if limit > 0 && offset >= 0 {
 		SQL = fmt.Sprintf("%s limit ? offset ? ", SQL)
@@ -246,10 +252,6 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 		return tsk, 0
 	}
 
-	countsql := "SELECT Count(*) AS count FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id " + SQLWhere
-	if err := result2.Raw(countsql, params...).Scan(&count).Error; err != nil {
-		return tsk, 0
-	}
 	for _, v := range tSKVs {
 		ts := models.TSKVDblV{
 			EntityType: v.EntityType,

@@ -240,7 +240,7 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 						message += "指标" + filed_param + "当前值为" + m["${"+filed_param+"}"] + symbol + ",预设值为" + c["${"+filed_param+"}"] + symbol + ";"
 					}
 				}
-				WarningLogService.Add("1", message, bid)
+				WarningLogService.Add("1", wv.Describe, bid)
 			}
 		}
 	}

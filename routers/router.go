@@ -44,6 +44,14 @@ func init() {
 		web.NSRouter("/user/password", &controllers.UserController{}, "*:Password"),
 		web.NSRouter("/user/update", &controllers.UserController{}, "*:Password"),
 		web.NSRouter("/user/permission", &controllers.UserController{}, "*:Permission"),
+		web.NSRouter("/user/role/add", &controllers.TpRoleController{}, "*:Add"),
+		web.NSRouter("/user/role/list", &controllers.TpRoleController{}, "*:List"),
+		web.NSRouter("/user/role/edit", &controllers.TpRoleController{}, "*:Edit"),
+		web.NSRouter("/user/role/delete", &controllers.TpRoleController{}, "*:Delete"),
+		web.NSRouter("/user/function/add", &controllers.TpFunctionController{}, "*:Add"),
+		web.NSRouter("/user/function/list", &controllers.TpFunctionController{}, "*:List"),
+		web.NSRouter("/user/function/edit", &controllers.TpFunctionController{}, "*:Edit"),
+		web.NSRouter("/user/function/delete", &controllers.TpFunctionController{}, "*:Delete"),
 
 		// 客户管理
 		web.NSRouter("/customer/index", &controllers.CustomerController{}, "*:Index"),
@@ -90,6 +98,7 @@ func init() {
 		web.NSRouter("/device/operating_device", &controllers.DeviceController{}, "*:Operating"),
 		web.NSRouter("/device/reset", &controllers.DeviceController{}, "*:Reset"),
 		web.NSRouter("/device/data", &controllers.DeviceController{}, "*:DeviceById"),
+		web.NSRouter("/device/list", &controllers.DeviceController{}, "*:PageList"),
 
 		//可视化
 		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"),

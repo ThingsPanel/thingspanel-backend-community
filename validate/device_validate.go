@@ -68,3 +68,14 @@ type ResetDevice struct {
 	DeviceId  string `json:"device_id" alias:"device_id" valid:"Required;MaxSize(99)"`
 	ValidTime int    `json:"valid_time" alias:"valid_time" valid:"Required;Min(10)"`
 }
+
+// WarningLogListValidate 校验
+type DevicePageListValidate struct {
+	AssetId     string `json:"asset_id" alias:"资产id" valid:"MaxSize(36)"`
+	BusinessId  string `json:"business_id" alias:"业务id" valid:"MaxSize(36)"`
+	DeviceId    string `json:"device_id" alias:"设备id" valid:"MaxSize(36)"`
+	CurrentPage int    `json:"current_page" alias:"页码" valid:"Required;Min(1)"`
+	PerPage     int    `json:"per_page" alias:"条数" valid:"Required;Min(10)"`
+	DeviceType  string `json:"device_type" alias:"设备id" valid:"MaxSize(36)"`
+	Token       string `json:"token" alias:"设备id" valid:"MaxSize(36)"`
+}

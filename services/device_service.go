@@ -43,6 +43,49 @@ func (*DeviceService) GetDevicesByAssetID(asset_id string) ([]models.Device, int
 	return devices, count
 }
 
+// GetDevicesByAssetID 获取设备列表(business_id string, device_id string, asset_id string, current int, pageSize int,device_type string)
+func (*DeviceService) PageGetDevicesByAssetID(business_id string, asset_id string, device_id string, current int, pageSize int, device_type string, token string) ([]map[string]interface{}, int64) {
+	sqlWhere := `select b.id as business_id ,b."name" as business_name,a.id as asset_id ,a."name" as asset_name,d.id as device ,d."name" as device_name,
+	d."token" as device_token,d."type" as device_type,d.protocol as protocol ,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
+	from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 `
+	var values []interface{}
+	if business_id != "" {
+		values = append(values, business_id)
+		sqlWhere += " and b.id = ?"
+	}
+	if asset_id != "" {
+		values = append(values, asset_id)
+		sqlWhere += " and a.id = ?"
+	}
+	if device_id != "" {
+		values = append(values, device_id)
+		sqlWhere += " and d.id = ?"
+	}
+	if device_type != "" {
+		values = append(values, device_type)
+		sqlWhere += " and d.type = ?"
+	}
+	if token != "" {
+		values = append(values, token)
+		sqlWhere += " and d.token = ?"
+	}
+	var count int64
+	result := psql.Mydb.Raw(sqlWhere, values...).Count(&count)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	var offset int = (current - 1) * pageSize
+	var limit int = pageSize
+	sqlWhere += " offset ? limit ?"
+	values = append(values, offset, limit)
+	var deviceList []map[string]interface{}
+	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
+	if dataResult.Error != nil {
+		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+	}
+	return deviceList, count
+}
+
 // GetDevicesByBusinessID 根据业务ID获取设备列表
 // return []设备,设备数量
 // 2022-04-18新增

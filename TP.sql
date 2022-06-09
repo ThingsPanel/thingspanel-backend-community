@@ -281,7 +281,7 @@ INSERT INTO logo
 VALUES('1d625cec-bf5b-2ad1-b135-a23b5fad05bf', 'ThingsPanel', 'blue', './files/logo/logo-one.svg', './files/logo/logo-two.gif', './files/logo/logo-three.png', '', '');
 
 
-CREATE TABLE public.conditions_log (
+CREATE TABLE conditions_log (
 	id varchar(36) NOT NULL,
 	device_id varchar(36) NOT NULL,
 	operation_type varchar(2) NULL,
@@ -304,4 +304,17 @@ COMMENT ON COLUMN conditions_log.respond IS '设备反馈';
 COMMENT ON COLUMN conditions_log.protocol_type IS 'mqtt,tcp';
 
 ALTER TABLE widget ADD extend varchar(999) NULL;
+
+CREATE TABLE tp_role (
+	id varchar(36) NOT NULL,
+	role_name varchar(99) NOT NULL,
+	parent_id varchar(36) NULL DEFAULT 0,
+	CONSTRAINT tp_role_un UNIQUE (role_name)
+);
+
+CREATE TABLE tp_function (
+	id varchar(36) NOT NULL,
+	function_name varchar(99) NOT NULL,
+	CONSTRAINT tp_function_un UNIQUE (function_name)
+);
 
