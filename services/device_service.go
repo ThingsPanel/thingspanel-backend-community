@@ -45,9 +45,15 @@ func (*DeviceService) GetDevicesByAssetID(asset_id string) ([]models.Device, int
 
 // GetDevicesByAssetID 获取设备列表(business_id string, device_id string, asset_id string, current int, pageSize int,device_type string)
 func (*DeviceService) PageGetDevicesByAssetID(business_id string, asset_id string, device_id string, current int, pageSize int, device_type string, token string) ([]map[string]interface{}, int64) {
-	sqlWhere := `select b.id as business_id ,b."name" as business_name,a.id as asset_id ,a."name" as asset_name,d.id as device ,d."name" as device_name,
-	d."token" as device_token,d."type" as device_type,d.protocol as protocol ,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
-	from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 `
+	sqlWhere := `select (with RECURSIVE ast as 
+		( 
+		(select aa.id,cast(aa.name as varchar(255)),aa.parent_id  from asset aa where id=a.id) 
+		union  
+		(select tt.id,cast (kk.name||'/'||tt.name as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
+		)select  name from ast where parent_id='0' limit 1) 
+		as asset_name,b.id as business_id ,b."name" as business_name,a.id as asset_id ,d.id as device ,d."name" as device_name,
+		   d."token" as device_token,d."type" as device_type,d.protocol as protocol ,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
+		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 `
 	var values []interface{}
 	if business_id != "" {
 		values = append(values, business_id)

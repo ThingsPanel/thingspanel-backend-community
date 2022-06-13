@@ -52,6 +52,16 @@ func init() {
 		web.NSRouter("/user/function/list", &controllers.TpFunctionController{}, "*:List"),
 		web.NSRouter("/user/function/edit", &controllers.TpFunctionController{}, "*:Edit"),
 		web.NSRouter("/user/function/delete", &controllers.TpFunctionController{}, "*:Delete"),
+		// 权限管理
+
+		web.NSRouter("/casbin/role/function/add", &controllers.CasbinController{}, "*:AddFunctionToRole"),
+		web.NSRouter("/casbin/role/function/index", &controllers.CasbinController{}, "*:GetFunctionFromRole"),
+		web.NSRouter("/casbin/role/function/update", &controllers.CasbinController{}, "*:UpdateFunctionFromRole"),
+		web.NSRouter("/casbin/role/function/delete", &controllers.CasbinController{}, "*:DeleteFunctionFromRole"),
+		web.NSRouter("/casbin/user/role/add", &controllers.CasbinController{}, "*:AddRoleToUser"),
+		web.NSRouter("/casbin/user/role/index", &controllers.CasbinController{}, "*:GetRolesFromUser"),
+		web.NSRouter("/casbin/user/role/update", &controllers.CasbinController{}, "*:UpdateRolesFromUser"),
+		web.NSRouter("/casbin/user/role/delete", &controllers.CasbinController{}, "*:DeleteRolesFromUser"),
 
 		// 客户管理
 		web.NSRouter("/customer/index", &controllers.CustomerController{}, "*:Index"),

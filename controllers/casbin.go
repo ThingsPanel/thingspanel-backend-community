@@ -18,41 +18,224 @@ type CasbinController struct {
 	beego.Controller
 }
 
-// 获取操作日志
-func (this *CasbinController) Index() {
-	var OperationLogService services.OperationLogService
-	w, _ := OperationLogService.List(0, 100)
-	response.SuccessWithDetailed(200, "success", w, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
-}
-
-// 分页获取告警日志
-func (this *CasbinController) List() {
-	operationLogListValidateValidate := valid.OperationLogListValidate{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &operationLogListValidateValidate)
+// 角色添加多个功能
+func (CasbinController *CasbinController) AddFunctionToRole() {
+	FunctionsRoleValidate := valid.FunctionsRoleValidate{}
+	err := json.Unmarshal(CasbinController.Ctx.Input.RequestBody, &FunctionsRoleValidate)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(operationLogListValidateValidate)
+	status, _ := v.Valid(FunctionsRoleValidate)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(operationLogListValidateValidate, err.Field)
+			alias := gvalid.GetAlias(FunctionsRoleValidate, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			response.SuccessWithMessage(1000, message, (*context2.Context)(CasbinController.Ctx))
 			break
 		}
 		return
 	}
-	var OperationLogService services.OperationLogService
-	o, c := OperationLogService.Paginate(operationLogListValidateValidate.Page, operationLogListValidateValidate.Limit, operationLogListValidateValidate.Ip, operationLogListValidateValidate.Path)
-	d := PaginateOperationlog{
-		CurrentPage: operationLogListValidateValidate.Page,
-		Data:        o,
-		Total:       c,
-		PerPage:     operationLogListValidateValidate.Limit,
+	var CasbinService services.CasbinService
+	isSuccess := CasbinService.AddFunctionToRole(FunctionsRoleValidate.Role, FunctionsRoleValidate.Functions)
+	if isSuccess {
+		response.SuccessWithMessage(200, "success", (*context2.Context)(CasbinController.Ctx))
 	}
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
+	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+}
+
+// 查询角色的功能
+func (CasbinController *CasbinController) GetFunctionFromRole() {
+	RoleValidate := valid.RoleValidate{}
+	err := json.Unmarshal(CasbinController.Ctx.Input.RequestBody, &RoleValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(RoleValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(RoleValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(CasbinController.Ctx))
+			break
+		}
+		return
+	}
+	var CasbinService services.CasbinService
+	roles, isSuccess := CasbinService.GetFunctionFromRole(RoleValidate.Role)
+	if isSuccess {
+		response.SuccessWithDetailed(200, "success", roles, map[string]string{}, (*context2.Context)(CasbinController.Ctx))
+	}
+	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+}
+
+// 修改角色的功能
+func (CasbinController *CasbinController) UpdateFunctionFromRole() {
+	FunctionsRoleValidate := valid.FunctionsRoleValidate{}
+	err := json.Unmarshal(CasbinController.Ctx.Input.RequestBody, &FunctionsRoleValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(FunctionsRoleValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(FunctionsRoleValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(CasbinController.Ctx))
+			break
+		}
+		return
+	}
+	var CasbinService services.CasbinService
+	isSuccess := CasbinService.RemoveRoleAndFunction(FunctionsRoleValidate.Role)
+	if isSuccess {
+		isSuccess := CasbinService.AddFunctionToRole(FunctionsRoleValidate.Role, FunctionsRoleValidate.Functions)
+		if isSuccess {
+			response.SuccessWithMessage(200, "success", (*context2.Context)(CasbinController.Ctx))
+		}
+	}
+	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+}
+
+// 删除角色的功能
+func (CasbinController *CasbinController) DeleteFunctionFromRole() {
+	RoleValidate := valid.RoleValidate{}
+	err := json.Unmarshal(CasbinController.Ctx.Input.RequestBody, &RoleValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(RoleValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(RoleValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(CasbinController.Ctx))
+			break
+		}
+		return
+	}
+	var CasbinService services.CasbinService
+	isSuccess := CasbinService.RemoveRoleAndFunction(RoleValidate.Role)
+	if isSuccess {
+		response.SuccessWithMessage(200, "success", (*context2.Context)(CasbinController.Ctx))
+	}
+	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+}
+
+// 用户添加多个角色
+func (CasbinController *CasbinController) AddRoleToUser() {
+	RolesUserValidate := valid.RolesUserValidate{}
+	err := json.Unmarshal(CasbinController.Ctx.Input.RequestBody, &RolesUserValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(RolesUserValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(RolesUserValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(CasbinController.Ctx))
+			break
+		}
+		return
+	}
+	var CasbinService services.CasbinService
+	isSuccess := CasbinService.AddRolesToUser(RolesUserValidate.User, RolesUserValidate.Roles)
+	if isSuccess {
+		response.SuccessWithMessage(200, "success", (*context2.Context)(CasbinController.Ctx))
+	}
+	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+}
+
+// 查询用户的角色
+func (CasbinController *CasbinController) GetRolesFromUser() {
+	UserValidate := valid.UserValidate{}
+	err := json.Unmarshal(CasbinController.Ctx.Input.RequestBody, &UserValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(UserValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(UserValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(CasbinController.Ctx))
+			break
+		}
+		return
+	}
+	var CasbinService services.CasbinService
+	roles, isSuccess := CasbinService.GetRoleFromUser(UserValidate.User)
+	if isSuccess {
+		response.SuccessWithDetailed(200, "success", roles, map[string]string{}, (*context2.Context)(CasbinController.Ctx))
+	}
+	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+}
+
+// 修改用户的角色
+func (CasbinController *CasbinController) UpdateRolesFromUser() {
+	RolesUserValidate := valid.RolesUserValidate{}
+	err := json.Unmarshal(CasbinController.Ctx.Input.RequestBody, &RolesUserValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(RolesUserValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(RolesUserValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(CasbinController.Ctx))
+			break
+		}
+		return
+	}
+	var CasbinService services.CasbinService
+	isSuccess := CasbinService.RemoveUserAndRole(RolesUserValidate.User)
+	if isSuccess {
+		isSuccess := CasbinService.AddRolesToUser(RolesUserValidate.User, RolesUserValidate.Roles)
+		if isSuccess {
+			response.SuccessWithMessage(200, "success", (*context2.Context)(CasbinController.Ctx))
+		}
+	}
+	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+}
+
+// 删除角色的功能
+func (CasbinController *CasbinController) DeleteRolesFromUser() {
+	UserValidate := valid.UserValidate{}
+	err := json.Unmarshal(CasbinController.Ctx.Input.RequestBody, &UserValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(UserValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(UserValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(CasbinController.Ctx))
+			break
+		}
+		return
+	}
+	var CasbinService services.CasbinService
+	isSuccess := CasbinService.RemoveUserAndRole(UserValidate.User)
+	if isSuccess {
+		response.SuccessWithMessage(200, "success", (*context2.Context)(CasbinController.Ctx))
+	}
+	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
 }
