@@ -37,7 +37,7 @@ func (*BusinessService) Paginate(name string, offset int, pageSize int) ([]model
 	var businesses []models.Business
 	var count int64
 	if name != "" {
-		result := psql.Mydb.Model(&models.Business{}).Where("name LIKE ?", "%"+name+"%").Limit(pageSize).Offset(offset).Find(&businesses)
+		result := psql.Mydb.Model(&models.Business{}).Where("name LIKE ?", "%"+name+"%").Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses)
 		psql.Mydb.Model(&models.Business{}).Where("name LIKE ?", "%"+name+"%").Count(&count)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -47,7 +47,7 @@ func (*BusinessService) Paginate(name string, offset int, pageSize int) ([]model
 		}
 		return businesses, count
 	} else {
-		result := psql.Mydb.Model(&models.Business{}).Limit(pageSize).Offset(offset).Find(&businesses)
+		result := psql.Mydb.Model(&models.Business{}).Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses)
 		psql.Mydb.Model(&models.Business{}).Count(&count)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)

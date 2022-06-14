@@ -48,3 +48,10 @@ type ListAsset struct {
 type PropertyAsset struct {
 	BusinessID string `json:"wid" alias:"业务ID" valid:"Required; MaxSize(36)"` // 业务ID
 }
+
+// WarningLogListValidate 校验
+type ListAssetGroup struct {
+	BusinessId  string `json:"business_id" alias:"业务id" valid:"MaxSize(36)"`
+	CurrentPage int    `json:"current_page" alias:"页码" valid:"Required;Min(1)"`
+	PerPage     int    `json:"per_page" alias:"条数" valid:"Required;Min(10)"`
+}

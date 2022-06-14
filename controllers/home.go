@@ -116,6 +116,51 @@ func (this *HomeController) Show() {
 	return
 }
 
+// 默认配置获取
+func (HomeController *HomeController) GetDefaultSetting() {
+	//验证设备ID
+	ProtocolValidate := valid.ProtocolValidate{}
+	err := json.Unmarshal(HomeController.Ctx.Input.RequestBody, &ProtocolValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(ProtocolValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(ProtocolValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(HomeController.Ctx))
+			break
+		}
+		return
+	}
+	//读取配置参数
+	d := make(map[string]string)
+	if ProtocolValidate.Protocol == "mqtt" {
+		if viper.GetString("mqtt.broker") == "" {
+			var readErr error
+			envConfigFile := flag.String("config", "./modules/dataService/config.yml", "path of configuration file")
+			flag.Parse()
+			viper.SetConfigFile(*envConfigFile)
+			if readErr = viper.ReadInConfig(); readErr != nil {
+				fmt.Println("FAILURE", err)
+			} else {
+				d["default_setting"] = "端口:" + strings.Split(viper.GetString("mqtt.broker"), ":")[1] + "$$发布主题:" + viper.GetString("mqtt.topicToPublish") +
+					"$$订阅主题:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
+					"$$描述:xxx"
+			}
+		} else {
+			d["default_setting"] = "端口:" + strings.Split(viper.GetString("mqtt.broker"), ":")[1] + "$$发布主题:" + viper.GetString("mqtt.topicToPublish") +
+				"$$订阅主题:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
+				"$$描述:xxx"
+		}
+	}
+	d["Token"] = response.GetUuid()
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(HomeController.Ctx))
+}
+
 // Device
 func (this *HomeController) Device() {
 	var BusinessService services.BusinessService

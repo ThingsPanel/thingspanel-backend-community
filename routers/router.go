@@ -34,6 +34,8 @@ func init() {
 		web.NSRouter("/home/list", &controllers.HomeController{}, "*:List"),
 		web.NSRouter("/home/chart", &controllers.HomeController{}, "*:Chart"),
 		web.NSRouter("/index/show", &controllers.HomeController{}, "*:Show"),
+		web.NSRouter("/index/default_setting", &controllers.HomeController{}, "*:GetDefaultSetting"),
+
 		web.NSRouter("/index/device", &controllers.HomeController{}, "*:Device"),
 
 		// 用户
@@ -82,6 +84,8 @@ func init() {
 		web.NSRouter("/asset/list", &controllers.AssetController{}, "*:List"),
 		web.NSRouter("/asset/list/a", &controllers.AssetController{}, "*:GetAssetByBusiness"),
 		web.NSRouter("/asset/list/b", &controllers.AssetController{}, "*:GetAssetByAsset"),
+		web.NSRouter("/asset/list/c", &controllers.AssetController{}, "*:GetAssetGroupByBusinessId"),
+		web.NSRouter("/asset/list/d", &controllers.AssetController{}, "*:GetAssetGroupByBusinessIdX"),
 
 		web.NSRouter("/asset/simple", &controllers.AssetController{}, "*:Simple"),
 

@@ -601,3 +601,51 @@ func (AssetController *AssetController) GetAssetByAsset() {
 	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
 
 }
+
+// 根据业务id分页查设备分组
+func (AssetController *AssetController) GetAssetGroupByBusinessId() {
+	listAssetValidate := valid.ListAssetGroup{}
+	err := json.Unmarshal(AssetController.Ctx.Input.RequestBody, &listAssetValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(listAssetValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(listAssetValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(AssetController.Ctx))
+			break
+		}
+		return
+	}
+	var AssetService services.AssetService
+	assets, _ := AssetService.PageGetDeviceGroupByBussinessID(listAssetValidate.BusinessId, listAssetValidate.CurrentPage, listAssetValidate.PerPage)
+	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
+}
+
+// 根据业务id查设备分组下拉
+func (AssetController *AssetController) GetAssetGroupByBusinessIdX() {
+	listAssetValidate := valid.ListAsset{}
+	err := json.Unmarshal(AssetController.Ctx.Input.RequestBody, &listAssetValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(listAssetValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(listAssetValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(AssetController.Ctx))
+			break
+		}
+		return
+	}
+	var AssetService services.AssetService
+	assets, _ := AssetService.DeviceGroupByBussinessID(listAssetValidate.BusinessID)
+	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
+}

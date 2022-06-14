@@ -637,8 +637,10 @@ func (*AssetService) Delete(id string) bool {
 func (*AssetService) GetAssetsByParentID(parent_id string) ([]models.Asset, int64) {
 	var assets []models.Asset
 	var count int64
-	result := psql.Mydb.Model(&models.Asset{}).Where("parent_id = ?", parent_id).Find(&assets)
 	psql.Mydb.Model(&models.Asset{}).Where("parent_id = ?", parent_id).Count(&count)
+	//sqlWhere += "order by wl.created_at desc offset ? limit ?"
+	result := psql.Mydb.Model(&models.Asset{}).Where("parent_id = ?", parent_id).Find(&assets)
+
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
@@ -847,7 +849,7 @@ func (*AssetService) Field(id string, widget_id string) []Field {
 										if fieldItem["type"] == nil {
 											fit = 0
 										} else {
-											fit = fieldItem["type"].(int64)
+											fit = int64(fieldItem["type"].(int))
 										}
 										if fieldItem["symbol"] == nil {
 											fis = ""
@@ -934,4 +936,54 @@ func (*AssetService) Simple() (assets []models.Simple, err error) {
 		return nil, err
 	}
 	return assets, nil
+}
+
+// 通过业务id获取设备分组
+func (*AssetService) PageGetDeviceGroupByBussinessID(business_id string, current int, pageSize int) ([]map[string]interface{}, int64) {
+	sqlWhere := `select a.id,a."name" , (with RECURSIVE ast as 
+		( 
+		(select aa.id,cast('/'as varchar(255))as name,aa.parent_id  from asset aa where id=a.id) 
+		union  
+		(select tt.id,cast (CONCAT('/',kk.name,tt.name ) as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
+		)select name from ast where parent_id='0' limit 1) as parent_group from asset a where business_id = ? order by parent_group asc`
+	var values []interface{}
+	values = append(values, business_id)
+	var count int64
+	result := psql.Mydb.Raw(sqlWhere, values...).Count(&count)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	var offset int = (current - 1) * pageSize
+	var limit int = pageSize
+	sqlWhere += " offset ? limit ?"
+	values = append(values, offset, limit)
+	var assetList []map[string]interface{}
+	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&assetList)
+	if dataResult.Error != nil {
+		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+	}
+	return assetList, count
+}
+
+// 通过业务id获取设备分组下拉列表
+func (*AssetService) DeviceGroupByBussinessID(business_id string) ([]map[string]interface{}, int64) {
+	sqlWhere := `select a.id,(with RECURSIVE ast as 
+		( 
+		(select aa.id,cast(CONCAT('/',aa.name) as varchar(255))as name,aa.parent_id  from asset aa where id=a.id) 
+		union  
+		(select tt.id,cast (CONCAT('/',kk.name,tt.name ) as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
+		)select name from ast where parent_id='0' limit 1)  as device_group from asset a where business_id = ? order by device_group asc`
+	var values []interface{}
+	values = append(values, business_id)
+	var count int64
+	result := psql.Mydb.Raw(sqlWhere, values...).Count(&count)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	var assetList []map[string]interface{}
+	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&assetList)
+	if dataResult.Error != nil {
+		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+	}
+	return assetList, count
 }
