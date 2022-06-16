@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
@@ -357,6 +358,7 @@ func (request *DeviceController) Operating() {
 	}
 	var payloadInterface interface{}
 	//将json转为map
+	logs.Info("==手动控制设备开始==")
 	jsonErr := json.Unmarshal(request.Ctx.Input.RequestBody, &payloadInterface)
 	if jsonErr != nil {
 		fmt.Printf("JSON 解码失败：%v\n", jsonErr)
@@ -387,10 +389,10 @@ func (request *DeviceController) Operating() {
 	payloadInterface.(map[string]interface{})["values"] = newMap
 	newPayload, toErr := json.Marshal(payloadInterface)
 	if toErr != nil {
-		fmt.Printf("JSON 编码失败：%v\n", toErr)
+		logs.Info("JSON 编码失败：%v\n", toErr)
 		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(request.Ctx))
 	}
-	fmt.Printf("-------------------------------", string(newPayload))
+	logs.Info("-------------------------------", string(newPayload))
 	f := cm.Send(newPayload)
 	if f == nil {
 		response.SuccessWithDetailed(200, "success", payloadInterface, map[string]string{}, (*context2.Context)(request.Ctx))

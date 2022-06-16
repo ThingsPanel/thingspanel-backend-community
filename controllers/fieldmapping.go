@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
@@ -114,4 +115,29 @@ func (reqDate *FieldmappingController) UpdateOnly() {
 	}
 
 	response.SuccessWithMessage(200, "success", (*context2.Context)(reqDate.Ctx))
+}
+
+func (reqDate *FieldmappingController) GetByDeviceid() {
+	DeviceIdValidate := valid.DeviceIdValidate{}
+	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &DeviceIdValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(DeviceIdValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(DeviceIdValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
+			break
+		}
+		return
+	}
+	var FieldMappingService services.FieldMappingService
+	d, _ := FieldMappingService.GetByDeviceid(DeviceIdValidate.DeviceId)
+
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+
 }

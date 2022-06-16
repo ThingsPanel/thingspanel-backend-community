@@ -73,6 +73,7 @@ func init() {
 		// 映射
 		web.NSRouter("/field/add_only", &controllers.FieldmappingController{}, "*:AddOnly"),
 		web.NSRouter("/field/update_only", &controllers.FieldmappingController{}, "*:UpdateOnly"),
+		web.NSRouter("/field/device/index", &controllers.FieldmappingController{}, "*:GetByDeviceid"),
 		// 业务
 		web.NSRouter("/asset/add_only", &controllers.AssetController{}, "*:AddOnly"),
 		web.NSRouter("/asset/update_only", &controllers.AssetController{}, "*:UpdateOnly"),

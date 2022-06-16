@@ -34,6 +34,8 @@ func Eval(code string) string {
 		logs.Error("evaluate error:", err)
 		return strconv.FormatBool(false)
 	}
-
-	return strconv.FormatBool(result.(bool))
+	if _, ok := result.(bool); ok {
+		return strconv.FormatBool(result.(bool))
+	}
+	return strconv.FormatBool(false)
 }

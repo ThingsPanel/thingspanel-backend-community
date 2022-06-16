@@ -24,3 +24,8 @@ type UpdateFieldMapping struct {
 		Symbol    string `json:"symbol"`
 	} `json:"data"`
 }
+
+// AddFieldMapping 校验
+type DeviceIdValidate struct {
+	DeviceId string `json:"device_id" alias:"设备id" valid:"Required;MaxSize(36)"`
+}
