@@ -945,7 +945,7 @@ func (*AssetService) PageGetDeviceGroupByBussinessID(business_id string, current
 		(select aa.id,cast('/'as varchar(255))as name,aa.parent_id  from asset aa where id=a.id) 
 		union  
 		(select tt.id,cast (CONCAT('/',kk.name,tt.name ) as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
-		)select name from ast where parent_id='0' limit 1) as parent_group from asset a where business_id = ? order by parent_group asc`
+		)select name from ast where parent_id='0' limit 1) as parent_group ,a.parent_id from asset a where business_id = ? order by parent_group asc`
 	var values []interface{}
 	values = append(values, business_id)
 	var count int64

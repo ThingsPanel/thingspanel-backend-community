@@ -485,7 +485,14 @@ func (DeviceController *DeviceController) PageList() {
 	var DeviceService services.DeviceService
 	w, c := DeviceService.PageGetDevicesByAssetID(DevicePageListValidate.BusinessId, DevicePageListValidate.AssetId,
 		DevicePageListValidate.DeviceId, DevicePageListValidate.CurrentPage, DevicePageListValidate.PerPage,
-		DevicePageListValidate.DeviceType, DevicePageListValidate.Token)
+		DevicePageListValidate.DeviceType, DevicePageListValidate.Token, DevicePageListValidate.Name)
+	var AssetService services.AssetService
+	for _, deviceRow := range w {
+		if deviceRow["device_type"] != nil {
+			fields := AssetService.ExtensionName(deviceRow["device_type"].(string))
+			deviceRow["structure"] = fields
+		}
+	}
 	d := PaginateWarninglogList{
 		CurrentPage: DevicePageListValidate.CurrentPage,
 		Data:        w,

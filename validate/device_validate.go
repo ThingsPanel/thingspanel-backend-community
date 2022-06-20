@@ -78,4 +78,5 @@ type DevicePageListValidate struct {
 	PerPage     int    `json:"per_page" alias:"条数" valid:"Required;Min(10)"`
 	DeviceType  string `json:"device_type" alias:"设备id" valid:"MaxSize(36)"`
 	Token       string `json:"token" alias:"设备id" valid:"MaxSize(36)"`
+	Name        string `json:"name" alias:"设备名称" valid:"MaxSize(99)"`
 }

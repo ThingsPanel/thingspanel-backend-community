@@ -119,7 +119,7 @@ func (*WarningLogService) GetWarningLogByPaging(business_id string, device_id st
 	}
 	if startDate != "" {
 		//2021/12/01 15:12:37
-		tmp := "2006/1/2 15:4:5"
+		tmp := "2006-01-02 15:04:05"
 		sDate, _ := time.ParseInLocation(tmp, startDate, time.Local)
 		eDate, _ := time.ParseInLocation(tmp, endDate, time.Local)
 		sqlWhere += " and wl.created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)

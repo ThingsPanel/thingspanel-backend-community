@@ -243,6 +243,11 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 		logs.Info(err.Error())
 		return tsk, 0
 	}
+	//select business.name bname,ts_kv.*,concat_ws('-',asset.name,device.name) AS name,device.token
+	//FROM ts_kv LEFT join device on device.id=ts_kv.entity_id
+	//LEFT JOIN asset  ON asset.id=device.asset_id
+	//LEFT JOIN business ON business.id=asset.business_id
+	//WHERE 1=1  and ts_kv.ts >= 1654790400000000 and ts_kv.ts < 1655481599000000 ORDER BY ts_kv.ts DESC limit 10 offset 0
 	SQL := "select business.name bname,ts_kv.*,concat_ws('-',asset.name,device.name) AS name,device.token FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id" + SQLWhere + " ORDER BY ts_kv.ts DESC"
 	if limit > 0 && offset >= 0 {
 		SQL = fmt.Sprintf("%s limit ? offset ? ", SQL)
