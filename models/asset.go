@@ -22,6 +22,7 @@ type ExtensionFields struct {
 	Key    string `json:"key"`
 	Name   string `json:"name"`
 	Symbol string `json:"symbol"`
+	Type   string `json:"type"`
 }
 type ExtensionDataMap struct {
 	Name  string            `json:"name"`

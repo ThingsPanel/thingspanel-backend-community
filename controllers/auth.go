@@ -28,9 +28,10 @@ type AuthController struct {
 }
 
 type TokenData struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:"expires_in"`
+	AccessToken string   `json:"access_token"`
+	TokenType   string   `json:"token_type"`
+	ExpiresIn   int      `json:"expires_in"`
+	Menus       []string `json:"menus"`
 }
 
 type MeData struct {
@@ -87,10 +88,13 @@ func (this *AuthController) Login() {
 		response.SuccessWithMessage(400, "密码错误", (*context2.Context)(this.Ctx))
 		return
 	}
+
+	var TpRoleMenuService services.TpRoleMenuService
+	_, Menus := TpRoleMenuService.GetRoleMenuListByUser(user.Email)
 	// 生成jwt
 	tokenCliams := jwt.UserClaims{
 		ID:         user.ID,
-		Name:       user.Name,
+		Name:       user.Email,
 		CreateTime: time.Now(),
 		StandardClaims: gjwt.StandardClaims{
 			ExpiresAt: time.Now().Unix() + 3600,
@@ -106,6 +110,7 @@ func (this *AuthController) Login() {
 		AccessToken: token,
 		TokenType:   "bearer",
 		ExpiresIn:   3600,
+		Menus:       Menus,
 	}
 	cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
 	// 登录成功

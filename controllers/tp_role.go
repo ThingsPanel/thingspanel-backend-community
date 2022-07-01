@@ -53,8 +53,9 @@ func (TpRoleController *TpRoleController) Edit() {
 	}
 	var TpRoleService services.TpRoleService
 	TpRole := models.TpRole{
-		Id:       tpRoleValidate.Id,
-		RoleName: tpRoleValidate.RoleName,
+		Id:           tpRoleValidate.Id,
+		RoleName:     tpRoleValidate.RoleName,
+		RoleDescribe: tpRoleValidate.RoleDescribe,
 	}
 	isSucess := TpRoleService.EditRole(TpRole)
 	if isSucess {
@@ -85,8 +86,9 @@ func (TpRoleController *TpRoleController) Add() {
 	}
 	var TpRoleService services.TpRoleService
 	TpRole := models.TpRole{
-		Id:       tpRoleValidate.Id,
-		RoleName: tpRoleValidate.RoleName,
+		Id:           tpRoleValidate.Id,
+		RoleName:     tpRoleValidate.RoleName,
+		RoleDescribe: tpRoleValidate.RoleDescribe,
 	}
 	isSucess, d := TpRoleService.AddRole(TpRole)
 	if isSucess {

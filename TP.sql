@@ -318,3 +318,21 @@ CREATE TABLE tp_function (
 	CONSTRAINT tp_function_un UNIQUE (function_name)
 );
 
+CREATE TABLE tp_menu (
+	id varchar(36) NOT NULL,
+	menu_name varchar(99) NOT NULL,
+	parent_id varchar(36) NOT NULL DEFAULT 0,
+	remark varchar(255) NULL
+);
+ALTER TABLE tp_menu ADD CONSTRAINT tp_menu_pk PRIMARY KEY (id);
+
+CREATE TABLE tp_role_menu (
+	role_id varchar(36) NOT NULL,
+	menu_id varchar(30) NOT NULL
+);
+ALTER TABLE tp_role_menu ADD CONSTRAINT tp_role_menu_pk PRIMARY KEY (role_id,menu_id);
+ALTER TABLE tp_function ADD menu_id varchar(36) NULL;
+ALTER TABLE tp_role ADD CONSTRAINT tp_role_pk PRIMARY KEY (id);
+ALTER TABLE tp_role ADD role_describe varchar(255) NULL;
+
+

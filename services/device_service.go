@@ -110,6 +110,21 @@ func (*DeviceService) GetDevicesByBusinessID(business_id string) ([]models.Devic
 	return devices, int64(len(devices))
 }
 
+// GetDevicesByBusinessID 根据业务ID获取设备列表
+// return []设备,设备数量
+// 2022-04-18新增
+func (*DeviceService) GetDevicesInfoAndCurrentByAssetID(asset_id string) ([]models.Device, int64) {
+	var devices []models.Device
+	SQL := `select device.id,device.asset_id ,device.additional_info,device."type" ,device."location",device."d_id",device."name",device."label",device.protocol from device left join asset on device.asset_id  = asset.id where asset.id =?`
+	if err := psql.Mydb.Raw(SQL, asset_id).Scan(&devices).Error; err != nil {
+		log.Println(err.Error())
+	}
+	if len(devices) == 0 {
+		devices = []models.Device{}
+	}
+	return devices, int64(len(devices))
+}
+
 // GetDevicesByAssetIDs 获取设备列表
 func (*DeviceService) GetDevicesByAssetIDs(asset_ids []string) (devices []models.Device, err error) {
 	err = psql.Mydb.Model(&models.Device{}).Where("asset_id IN ?", asset_ids).Find(&devices).Error

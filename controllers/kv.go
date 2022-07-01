@@ -237,6 +237,56 @@ func (this *KvController) CurrentDataByBusiness() {
 	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
 }
 
+// 根据设备分组获取所有设备和设备当前KV
+func (this *KvController) CurrentDataByAsset() {
+	CurrentKVByAsset := valid.CurrentKVByAsset{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &CurrentKVByAsset)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(CurrentKVByAsset)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(CurrentKVByAsset, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	var TSKVService services.TSKVService
+	t := TSKVService.GetCurrentDataByAsset(CurrentKVByAsset.AssetId)
+	log.Println(t)
+	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
+}
+
+// 根据设备分组获取所有设备和设备当前KV app
+func (this *KvController) CurrentDataByAssetA() {
+	CurrentKVByAsset := valid.CurrentKVByAsset{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &CurrentKVByAsset)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(CurrentKVByAsset)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(CurrentKVByAsset, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	var TSKVService services.TSKVService
+	t := TSKVService.GetCurrentDataByAssetA(CurrentKVByAsset.AssetId)
+	log.Println(t)
+	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
+}
+
 // 根据设备id分页查询当前kv
 func (KvController *KvController) DeviceHistoryData() {
 	DeviceHistoryDataValidate := valid.DeviceHistoryDataValidate{}

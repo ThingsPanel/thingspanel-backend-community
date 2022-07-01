@@ -147,15 +147,17 @@ func (HomeController *HomeController) GetDefaultSetting() {
 			if readErr = viper.ReadInConfig(); readErr != nil {
 				fmt.Println("FAILURE", err)
 			} else {
-				d["default_setting"] = "端口:" + strings.Split(viper.GetString("mqtt.broker"), ":")[1] + "$$发布主题:" + viper.GetString("mqtt.topicToPublish") +
-					"$$订阅主题:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
+				d["default_setting"] = "端口:" + strings.Split(viper.GetString("mqtt.broker"), ":")[1] + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") +
+					"$$订阅主题（设备数据通过这个主题推给平台）:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
 					"$$描述:xxx"
 			}
 		} else {
-			d["default_setting"] = "端口:" + strings.Split(viper.GetString("mqtt.broker"), ":")[1] + "$$发布主题:" + viper.GetString("mqtt.topicToPublish") +
-				"$$订阅主题:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
-				"$$描述:xxx"
+			d["default_setting"] = "端口:" + strings.Split(viper.GetString("mqtt.broker"), ":")[1] + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") +
+				"$$订阅主题（设备数据通过这个主题推给平台）:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
+				"$$描述:推送规范为{\"token\":\"xxxxxx\",\"values\":{\"xx\":\"xxxxxx\",\"xx\":\"xxxxxx\"}}"
 		}
+	} else if ProtocolValidate.Protocol == "tcp" {
+		d["default_setting"] = "端口:" + strings.Split(viper.GetString("tcp.port"), ":")[1] + "$$协议:" + "https://forum.thingspanel.cn/assets/files/2022-06-21/1655774183-644926-thingspanel-tcpv114xlsx.zip"
 	}
 	d["Token"] = response.GetUuid()
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(HomeController.Ctx))

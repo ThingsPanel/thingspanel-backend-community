@@ -369,6 +369,8 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 							field[field_from] = v.LongV
 						} else if v.DblV != 0 {
 							field[field_from] = v.DblV
+						} else {
+							field[field_from] = 0
 						}
 						i = v.TS
 					} else {
@@ -380,6 +382,8 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 							field[field_from] = v.LongV
 						} else if v.DblV != 0 {
 							field[field_from] = v.DblV
+						} else {
+							field[field_from] = 0
 						}
 						if c == k+1 {
 							fields = append(fields, field)
@@ -463,6 +467,8 @@ func (*TSKVService) GetCurrentData(device_id string) []map[string]interface{} {
 					field[field_from] = v.LongV
 				} else if v.DblV != 0 {
 					field[field_from] = v.DblV
+				} else {
+					field[field_from] = 0
 				}
 				i = v.TS
 			} else {
@@ -474,6 +480,8 @@ func (*TSKVService) GetCurrentData(device_id string) []map[string]interface{} {
 					field[field_from] = v.LongV
 				} else if v.DblV != 0 {
 					field[field_from] = v.DblV
+				} else {
+					field[field_from] = 0
 				}
 				if c == k+1 {
 					fields = append(fields, field)
@@ -548,6 +556,138 @@ func (*TSKVService) GetCurrentDataByBusiness(business string) map[string]interfa
 	return datas
 }
 
+//根据设备分组id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）
+func (*TSKVService) GetCurrentDataByAsset(asset_id string) map[string]interface{} {
+	var DeviceService DeviceService
+	deviceList, deviceCount := DeviceService.GetDevicesInfoAndCurrentByAssetID(asset_id)
+	log.Println(deviceList)
+	log.Println(deviceCount)
+	var devices []map[string]interface{}
+	if len(deviceList) != 0 {
+		for _, device := range deviceList {
+			var deviceData = make(map[string]interface{})
+			deviceData["device_id"] = device.ID
+			deviceData["asset_id"] = device.AssetID
+			deviceData["customer_id"] = device.CustomerID
+			deviceData["additional_id"] = device.AdditionalInfo
+			deviceData["extension"] = device.Extension
+			deviceData["label"] = device.Label
+			deviceData["name"] = device.Name
+			deviceData["protocol"] = device.Protocol
+			deviceData["publish"] = device.Publish
+			deviceData["subscribe"] = device.Subscribe
+			deviceData["type"] = device.Type
+			deviceData["d_id"] = device.DId
+			deviceData["location"] = device.Location
+			var TSKVService TSKVService
+			fields := TSKVService.GetCurrentData(device.ID)
+			if len(fields) == 0 {
+				deviceData["values"] = make(map[string]interface{}, 0)
+				deviceData["status"] = "0"
+			} else {
+				// 0-带接入 1-正常 2-异常
+				var state string
+				tsl, tsc := TSKVService.Status(device.ID)
+				if tsc == 0 {
+					state = "0"
+				} else {
+					ts := time.Now().UnixMicro()
+					//300000000
+					if (ts - tsl.TS) > 300000000 {
+						state = "2"
+					} else {
+						state = "1"
+					}
+				}
+				deviceData["status"] = state
+				deviceData["values"] = fields[0]
+			}
+			devices = append(devices, deviceData)
+		}
+	} else {
+		devices = make([]map[string]interface{}, 0)
+	}
+	var datas = make(map[string]interface{})
+	datas["devices"] = devices
+	datas["devicesTotal"] = deviceCount
+	return datas
+}
+
+//根据设备分组id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）app展示接口
+func (*TSKVService) GetCurrentDataByAssetA(asset_id string) map[string]interface{} {
+	var DeviceService DeviceService
+	deviceList, deviceCount := DeviceService.GetDevicesInfoAndCurrentByAssetID(asset_id)
+	log.Println(deviceList)
+	log.Println(deviceCount)
+	var devices []map[string]interface{}
+	if len(deviceList) != 0 {
+		for _, device := range deviceList {
+			var deviceData = make(map[string]interface{})
+			deviceData["device_id"] = device.ID
+			deviceData["asset_id"] = device.AssetID
+			deviceData["customer_id"] = device.CustomerID
+			deviceData["additional_id"] = device.AdditionalInfo
+			deviceData["extension"] = device.Extension
+			deviceData["label"] = device.Label
+			deviceData["name"] = device.Name
+			deviceData["protocol"] = device.Protocol
+			deviceData["publish"] = device.Publish
+			deviceData["subscribe"] = device.Subscribe
+			deviceData["type"] = device.Type
+			deviceData["d_id"] = device.DId
+			deviceData["location"] = device.Location
+
+			var TSKVService TSKVService
+			fields := TSKVService.GetCurrentData(device.ID)
+			if len(fields) == 0 {
+				deviceData["values"] = make(map[string]interface{}, 0)
+				deviceData["status"] = "0"
+			} else {
+				// 0-带接入 1-正常 2-异常
+				var state string
+				tsl, tsc := TSKVService.Status(device.ID)
+				if tsc == 0 {
+					state = "0"
+				} else {
+					ts := time.Now().UnixMicro()
+					//300000000
+					if (ts - tsl.TS) > 300000000 {
+						state = "2"
+					} else {
+						state = "1"
+					}
+				}
+				deviceData["status"] = state
+				//deviceData["values"] = fields[0]
+				// current_data:[{},{}]
+				var current_data []interface{}
+				var AssetService AssetService
+				dd := AssetService.ExtensionName(device.Type)
+				if len(dd) > 0 {
+					for _, wv := range dd[0].Field {
+						var currentData = make(map[string]interface{})
+						currentData["key"] = wv.Key
+						currentData["name"] = wv.Name
+						currentData["symbol"] = wv.Symbol
+						currentData["type"] = wv.Type
+						currentData["value"] = fields[0][wv.Key]
+						current_data = append(current_data, currentData)
+					}
+
+				}
+				deviceData["current_data"] = current_data
+			}
+			devices = append(devices, deviceData)
+		}
+	} else {
+		devices = make([]map[string]interface{}, 0)
+	}
+	var datas = make(map[string]interface{})
+	datas["devices"] = devices
+	datas["devicesTotal"] = deviceCount
+	return datas
+}
+
 // 根据设id分页查询设备kv，以{k:v,k:v...}方式返回
 func (*TSKVService) DeviceHistoryData(device_id string, current int, size int) ([]map[string]interface{}, int64) {
 	var ts_kvs []models.TSKV
@@ -580,6 +720,8 @@ func (*TSKVService) DeviceHistoryData(device_id string, current int, size int) (
 					field[field_from] = v.LongV
 				} else if v.DblV != 0 {
 					field[field_from] = v.DblV
+				} else {
+					field[field_from] = 0
 				}
 				i = v.TS
 			} else {
@@ -591,6 +733,8 @@ func (*TSKVService) DeviceHistoryData(device_id string, current int, size int) (
 					field[field_from] = v.LongV
 				} else if v.DblV != 0 {
 					field[field_from] = v.DblV
+				} else {
+					field[field_from] = 0
 				}
 				if c == k+1 {
 					fields = append(fields, field)
@@ -599,4 +743,12 @@ func (*TSKVService) DeviceHistoryData(device_id string, current int, size int) (
 		}
 	}
 	return fields, count
+}
+
+//删除当前值根据设备id
+func (*TSKVService) DeleteCurrentDataByDeviceId(deviceId string) {
+	rtsl := psql.Mydb.Where("entity_id = ?", deviceId).Delete(&models.TSKVLatest{})
+	if rtsl.Error != nil {
+		log.Println(rtsl.Error)
+	}
 }

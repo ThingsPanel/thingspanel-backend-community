@@ -211,6 +211,13 @@ func (reqDate *DeviceController) UpdateOnly() {
 		}
 		return
 	}
+	// 如果更换了插件需要删除当前值
+	var DeviceService services.DeviceService
+	d, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
+	if addDeviceValidate.Type != d.Type {
+		var TSKVService services.TSKVService
+		TSKVService.DeleteCurrentDataByDeviceId(addDeviceValidate.ID)
+	}
 	var AssetService services.AssetService
 	var ResWidgetData []services.Widget
 	if addDeviceValidate.Type != "" {

@@ -61,3 +61,15 @@ func (*CasbinService) RemoveUserAndRole(user string) bool {
 	isSuccess, _ := casbin.CasbinEnforcer.RemoveFilteredNamedGroupingPolicy("g", 0, user)
 	return isSuccess
 }
+
+// 查询是否存在某个资源
+func (*CasbinService) GetUrl(url string) bool {
+	stringList := casbin.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g2", 0, url)
+	return len(stringList) != 0
+}
+
+//校验
+func (*CasbinService) Verify(user string, url string) bool {
+	isTrue, _ := casbin.CasbinEnforcer.Enforce(user, url, "allow")
+	return isTrue
+}

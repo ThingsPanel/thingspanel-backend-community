@@ -44,3 +44,7 @@ type DeviceHistoryDataValidate struct {
 type CurrentKVByBusiness struct {
 	BusinessiD string `json:"business_id" alias:"业务" valid:"MaxSize(36)"`
 }
+
+type CurrentKVByAsset struct {
+	AssetId string `json:"asset_id" alias:"设备分组id" valid:"MaxSize(36)"`
+}

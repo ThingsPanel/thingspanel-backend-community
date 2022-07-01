@@ -733,6 +733,7 @@ func (*AssetService) ExtensionName(reqField string) []models.ExtensionDataMap {
 								Key:    fk,
 								Name:   fmt.Sprint(fv.(map[string]interface{})["name"]),
 								Symbol: fmt.Sprint(fv.(map[string]interface{})["symbol"]),
+								Type:   fmt.Sprint(fv.(map[string]interface{})["type"]),
 							}
 							fieldStructList = append(fieldStructList, fieldStruct)
 						} else {
