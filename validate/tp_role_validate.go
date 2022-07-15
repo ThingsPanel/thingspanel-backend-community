@@ -19,3 +19,8 @@ type TpRoleIdValidate struct {
 type EmailValidate struct {
 	Email string `json:"email"  alias:"用户邮箱" valid:"Required;MaxSize(36)"` // ID
 }
+
+type GetRoleValidate struct {
+	CurrentPage int `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
+	PerPage     int `json:"per_page"  alias:"每页页数" valid:"Required;Max(36)"`
+}

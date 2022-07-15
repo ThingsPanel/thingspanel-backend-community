@@ -10,6 +10,7 @@ import (
 	"time"
 
 	_ "ThingsPanel-Go/cron"
+	_ "ThingsPanel-Go/gateway"
 	_ "ThingsPanel-Go/modules/dataService"
 	_ "ThingsPanel-Go/routers"
 	"log"

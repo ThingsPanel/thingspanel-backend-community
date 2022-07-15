@@ -183,6 +183,18 @@ func (*DeviceService) All() ([]models.Device, int64) {
 	return devices, count
 }
 
+// 判断token是否存在
+func (*DeviceService) IsToken(token string) bool {
+	var devices []models.Device
+	var count int64
+	result := psql.Mydb.Model(&devices).Where("token = ?", token).Count(&count)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return false
+	}
+	return int(count) > 0
+}
+
 // 根据ID编辑Device的Token
 func (*DeviceService) Edit(id string, token string, protocol string, port string, publish string, subscribe string, username string, password string) bool {
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Updates(map[string]interface{}{

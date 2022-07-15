@@ -89,8 +89,6 @@ func (this *AuthController) Login() {
 		return
 	}
 
-	var TpRoleMenuService services.TpRoleMenuService
-	_, Menus := TpRoleMenuService.GetRoleMenuListByUser(user.Email)
 	// 生成jwt
 	tokenCliams := jwt.UserClaims{
 		ID:         user.ID,
@@ -110,7 +108,6 @@ func (this *AuthController) Login() {
 		AccessToken: token,
 		TokenType:   "bearer",
 		ExpiresIn:   3600,
-		Menus:       Menus,
 	}
 	cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
 	// 登录成功

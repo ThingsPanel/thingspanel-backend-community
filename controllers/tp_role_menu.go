@@ -101,25 +101,11 @@ func (TpRoleMenuController *TpRoleMenuController) Index() {
 
 // 通过用户邮箱获取用户菜单
 func (TpRoleMenuController *TpRoleMenuController) UserMenus() {
-	EmailValidate := valid.EmailValidate{}
-	err := json.Unmarshal(TpRoleMenuController.Ctx.Input.RequestBody, &EmailValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(EmailValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(EmailValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(TpRoleMenuController.Ctx))
-			break
-		}
-		return
-	}
+	authorization := TpRoleMenuController.Ctx.Request.Header["Authorization"][0]
+	userToken := authorization[7:]
+	userClaims, _ := response.ParseCliamsToken(userToken)
 	var TpRoleMenuService services.TpRoleMenuService
-	_, MenuList := TpRoleMenuService.GetRoleMenuListByUser(EmailValidate.Email)
+	_, MenuList := TpRoleMenuService.GetRoleMenuListByUser(userClaims.Name)
 	response.SuccessWithDetailed(200, "success", MenuList, map[string]string{}, (*context2.Context)(TpRoleMenuController.Ctx))
 
 }

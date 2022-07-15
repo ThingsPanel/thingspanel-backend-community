@@ -214,19 +214,25 @@ func (reqDate *DeviceController) UpdateOnly() {
 	// 如果更换了插件需要删除当前值
 	var DeviceService services.DeviceService
 	d, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
-	if addDeviceValidate.Type != d.Type {
-		var TSKVService services.TSKVService
-		TSKVService.DeleteCurrentDataByDeviceId(addDeviceValidate.ID)
+	if d != nil {
+		//更换token要校验重复
+		if d.Token != "" && d.Token != addDeviceValidate.Token {
+			if DeviceService.IsToken(addDeviceValidate.Token) {
+				response.SuccessWithMessage(1000, "与其他设备的token重复", (*context2.Context)(reqDate.Ctx))
+				return
+			}
+		}
+		// 如果更换了插件需要删除当前值
+		if addDeviceValidate.Type != d.Type {
+			var TSKVService services.TSKVService
+			TSKVService.DeleteCurrentDataByDeviceId(addDeviceValidate.ID)
+		}
 	}
 	var AssetService services.AssetService
 	var ResWidgetData []services.Widget
 	if addDeviceValidate.Type != "" {
 		dd := AssetService.Widget(addDeviceValidate.Type)
-		if len(dd) > 0 {
-			for _, wv := range dd {
-				ResWidgetData = append(ResWidgetData, wv)
-			}
-		}
+		ResWidgetData = dd
 	}
 	deviceData := models.Device{
 		ID:        addDeviceValidate.ID,

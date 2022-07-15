@@ -27,7 +27,7 @@ func (*DashBoardService) Paginate(title string, offset int, pageSize int) ([]mod
 	var dashBoards []models.DashBoard
 	var count int64
 	if title != "" {
-		result := psql.Mydb.Model(&models.DashBoard{}).Where("title LIKE ?", "%"+title+"%").Limit(pageSize).Offset(offset).Find(&dashBoards)
+		result := psql.Mydb.Model(&models.DashBoard{}).Where("title LIKE ?", "%"+title+"%").Limit(pageSize).Offset(offset).Order("title asc").Find(&dashBoards)
 		psql.Mydb.Model(&models.DashBoard{}).Where("title LIKE ?", "%"+title+"%").Count(&count)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -37,7 +37,7 @@ func (*DashBoardService) Paginate(title string, offset int, pageSize int) ([]mod
 		}
 		return dashBoards, count
 	} else {
-		result := psql.Mydb.Model(&models.DashBoard{}).Limit(pageSize).Offset(offset).Find(&dashBoards)
+		result := psql.Mydb.Model(&models.DashBoard{}).Limit(pageSize).Offset(offset).Order("title asc").Find(&dashBoards)
 		psql.Mydb.Model(&models.DashBoard{}).Count(&count)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)

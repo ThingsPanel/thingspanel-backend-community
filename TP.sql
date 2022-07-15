@@ -335,4 +335,7 @@ ALTER TABLE tp_function ADD menu_id varchar(36) NULL;
 ALTER TABLE tp_role ADD CONSTRAINT tp_role_pk PRIMARY KEY (id);
 ALTER TABLE tp_role ADD role_describe varchar(255) NULL;
 
+CREATE INDEX conditions_log_cteate_time_idx ON conditions_log (cteate_time);
+
+
 

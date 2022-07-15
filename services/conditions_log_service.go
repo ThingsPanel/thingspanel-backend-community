@@ -32,33 +32,33 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 	 b.id as business_id ,b."name" as business_name from conditions_log cl left join device d on cl.device_id = d.id  
 	 left join asset a on a.id = d.asset_id left join business b on b.id =a.business_id where 1=1`
 	if conditionsLogListValidate.DeviceId != "" {
-		sqlWhere += " and device_id = '" + conditionsLogListValidate.DeviceId + "'"
+		sqlWhere += " and cl.device_id = '" + conditionsLogListValidate.DeviceId + "'"
 	}
 	if conditionsLogListValidate.OperationType != "" {
-		sqlWhere += " and operation_type = '" + conditionsLogListValidate.OperationType + "'"
+		sqlWhere += " and cl.operation_type = '" + conditionsLogListValidate.OperationType + "'"
 	}
 	if conditionsLogListValidate.SendResult != "" {
-		sqlWhere += " and send_result = '" + conditionsLogListValidate.SendResult + "'"
+		sqlWhere += " and cl.send_result = '" + conditionsLogListValidate.SendResult + "'"
 	}
 	if conditionsLogListValidate.BusinessId != "" {
-		sqlWhere += " and business_id = '" + conditionsLogListValidate.BusinessId + "'"
+		sqlWhere += " and b.business_id = '" + conditionsLogListValidate.BusinessId + "'"
 	}
 	if conditionsLogListValidate.AssetId != "" {
-		sqlWhere += " and asset_id = '" + conditionsLogListValidate.AssetId + "'"
+		sqlWhere += " and a.asset_id = '" + conditionsLogListValidate.AssetId + "'"
 	}
 	if conditionsLogListValidate.BusinessName != "" {
-		sqlWhere += " and business_name like '%" + conditionsLogListValidate.BusinessName + "%'"
+		sqlWhere += " and b.name like '%" + conditionsLogListValidate.BusinessName + "%'"
 	}
 	if conditionsLogListValidate.AssetName != "" {
-		sqlWhere += " and asset_name like '%" + conditionsLogListValidate.AssetName + "%'"
+		sqlWhere += " and a.name like '%" + conditionsLogListValidate.AssetName + "%'"
 	}
 	if conditionsLogListValidate.DeviceName != "" {
-		sqlWhere += " and device_name like '%" + conditionsLogListValidate.DeviceName + "%'"
+		sqlWhere += " and d.name like '%" + conditionsLogListValidate.DeviceName + "%'"
 	}
 	var conditionsLogs []map[string]interface{}
 	var values []interface{}
 	var count int64
-	countResult := psql.Mydb.Raw(sqlWhere, values).Count(&count)
+	countResult := psql.Mydb.Raw(sqlWhere).Count(&count)
 	if countResult.Error != nil {
 		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
 	}

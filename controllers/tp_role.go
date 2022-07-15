@@ -18,13 +18,39 @@ import (
 type TpRoleController struct {
 	beego.Controller
 }
+type PaginateRoleList struct {
+	CurrentPage int             `json:"current_page"`
+	Data        []models.TpRole `json:"data"`
+	Total       int64           `json:"total"`
+	PerPage     int             `json:"per_page"`
+}
 
 // 列表
 func (TpRoleController *TpRoleController) List() {
+	GetRoleValidate := valid.GetRoleValidate{}
+	err := json.Unmarshal(TpRoleController.Ctx.Input.RequestBody, &GetRoleValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(GetRoleValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(GetRoleValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(TpRoleController.Ctx))
+			break
+		}
+		return
+	}
 	var TpRoleService services.TpRoleService
-	isSuccess, d := TpRoleService.GetRoleList()
-	if !isSuccess {
-		response.SuccessWithMessage(1000, "查询失败", (*context2.Context)(TpRoleController.Ctx))
+	count, dd := TpRoleService.GetRoleList(GetRoleValidate.PerPage, GetRoleValidate.CurrentPage)
+	d := PaginateRoleList{
+		CurrentPage: GetRoleValidate.CurrentPage,
+		Data:        dd,
+		Total:       count,
+		PerPage:     GetRoleValidate.PerPage,
 	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpRoleController.Ctx))
 }

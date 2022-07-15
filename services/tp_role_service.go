@@ -19,14 +19,18 @@ type TpRoleService struct {
 }
 
 // 获取角色列表
-func (*TpRoleService) GetRoleList() (bool, []models.TpRole) {
+func (*TpRoleService) GetRoleList(pageSize int, offset int) (int64, []models.TpRole) {
 	var TpRoles []models.TpRole
-	result := psql.Mydb.Model(&models.TpRole{}).Find(&TpRoles)
+	var count int64
+	psql.Mydb.Model(&models.TpRole{}).Count(&count)
+	offset = pageSize * (offset - 1)
+	result := psql.Mydb.Model(&models.TpRole{}).Offset(offset).Limit(pageSize).Find(&TpRoles)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false, TpRoles
+		return count, TpRoles
 	}
-	return true, TpRoles
+
+	return count, TpRoles
 }
 
 // Add新增角色

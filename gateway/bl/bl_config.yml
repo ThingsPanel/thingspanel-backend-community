@@ -1,0 +1,10 @@
+mqtt:
+  #BL110Broker
+  broker: 39.98.176.26:10000
+  clientId: sdfsfsdfsddsftbtneewewe
+  user: guest
+  pass: guest
+  #接收BL110的消息
+  topicToSubscribe: bl110/001||bl110/002
+  #发送消息到BL110
+  topicToPublish: bl110/001down||bl110/002down
