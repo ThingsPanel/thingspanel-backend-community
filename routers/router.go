@@ -189,7 +189,9 @@ func init() {
 		//自动化控制添加
 		web.NSRouter("/automation/add", &controllers.AutomationController{}, "*:Add"), //kongzhi-w
 		//自动化控制编辑
-		web.NSRouter("/automation/edit", &controllers.AutomationController{}, "*:Edit"), //kongzhi-w
+		web.NSRouter("/automation/edit", &controllers.AutomationController{}, "*:Edit"),         //kongzhi-w
+		web.NSRouter("/automation/details", &controllers.AutomationController{}, "*:GetDetial"), //kongzhi-w
+
 		//自动化控制删除
 		web.NSRouter("/automation/delete", &controllers.AutomationController{}, "*:Delete"), //kongzhi-w
 		web.NSRouter("/automation/get_by_id", &controllers.AutomationController{}, "*:GetOne"),

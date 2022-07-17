@@ -2,6 +2,7 @@ package services
 
 import (
 	"ThingsPanel-Go/initialize/psql"
+	sendmessage "ThingsPanel-Go/initialize/send_message"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
@@ -49,18 +50,19 @@ func (*WarningConfigService) Paginate(wid string, offset int, pageSize int) ([]m
 }
 
 // Add新增一条warningConfig数据
-func (*WarningConfigService) Add(wid string, name string, describe string, config string, message string, bid string, sensor string, customer_id string) (bool, string) {
+func (*WarningConfigService) Add(wid string, name string, describe string, config string, message string, bid string, sensor string, customer_id string, other_message string) (bool, string) {
 	var uuid = uuid.GetUuid()
 	warningConfig := models.WarningConfig{
-		ID:         uuid,
-		Wid:        wid,
-		Name:       name,
-		Describe:   describe,
-		Config:     config,
-		Message:    message,
-		Bid:        bid,
-		Sensor:     sensor,
-		CustomerID: customer_id,
+		ID:           uuid,
+		Wid:          wid,
+		Name:         name,
+		Describe:     describe,
+		Config:       config,
+		Message:      message,
+		Bid:          bid,
+		Sensor:       sensor,
+		CustomerID:   customer_id,
+		OtherMessage: other_message,
 	}
 	result := psql.Mydb.Create(&warningConfig)
 	if result.Error != nil {
@@ -71,9 +73,9 @@ func (*WarningConfigService) Add(wid string, name string, describe string, confi
 }
 
 // 根据ID编辑一条warningConfig数据
-func (*WarningConfigService) Edit(id string, wid string, name string, describe string, config string, message string, bid string, sensor string, customer_id string) bool {
+func (*WarningConfigService) Edit(id string, wid string, name string, describe string, config string, message string, bid string, sensor string, customer_id string, other_message string) bool {
 	// updated_at
-	result := psql.Mydb.Model(&models.WarningConfig{}).Where("id = ?", id).Updates(map[string]interface{}{"wid": wid, "name": name, "describe": describe, "config": config, "message": message, "bid": bid, "sensor": sensor, "customer_id": customer_id})
+	result := psql.Mydb.Model(&models.WarningConfig{}).Where("id = ?", id).Updates(map[string]interface{}{"wid": wid, "name": name, "describe": describe, "config": config, "message": message, "bid": bid, "sensor": sensor, "customer_id": customer_id, "other_message": other_message})
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
@@ -121,7 +123,9 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 		m := make(map[string]string)
 		var FieldMappingService FieldMappingService
 		var BusinessService BusinessService
+		var AssetService AssetService
 		var WarningLogService WarningLogService
+		var DeviceService DeviceService
 		for _, wv := range warningConfigs {
 			code = ""
 			res, err := simplejson.NewJson([]byte(wv.Config))
@@ -166,11 +170,21 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 			if flag == "true" {
 				message := ""
 				businessName := ""
+				assetName := ""
+				deviceName := ""
 				bl, bc := BusinessService.GetBusinessById(wv.Wid)
 				if bc > 0 {
 					businessName = bl.Name
 				}
-				message = businessName + "业务中的设备,"
+				al, ac := AssetService.GetAssetById(wv.Sensor)
+				if ac > 0 {
+					assetName = al.Name
+				}
+				dl, dc := DeviceService.GetDeviceByID(wv.Sensor)
+				if dc > 0 {
+					deviceName = dl.Name
+				}
+				message = businessName + "业务中设备分组" + assetName + "下的设备" + deviceName
 				if find := strings.Contains(original, "||"); find {
 					countSplit := strings.Split(original, "||")
 					for _, v1 := range countSplit {
@@ -240,7 +254,8 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 						message += "指标" + filed_param + "当前值为" + m["${"+filed_param+"}"] + symbol + ",预设值为" + c["${"+filed_param+"}"] + symbol + ";"
 					}
 				}
-				WarningLogService.Add("1", wv.Describe, bid)
+				WarningLogService.Add("1", message, bid)
+				sendmessage.SendWarningMessage(message, wv.OtherMessage)
 			}
 		}
 	}

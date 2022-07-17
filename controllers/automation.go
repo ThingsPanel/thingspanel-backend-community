@@ -440,6 +440,32 @@ func (this *AutomationController) Show() {
 	response.SuccessWithDetailed(200, "success", retData, map[string]string{}, (*context2.Context)(this.Ctx))
 }
 
+// 策略列表
+func (this *AutomationController) GetDetial() {
+	atomationGet := valid.AutomationGet{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &atomationGet)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(atomationGet)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(atomationGet, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	var ConditionsService services.ConditionsService
+	u, _ := ConditionsService.GetConditionByID(atomationGet.ID)
+
+	response.SuccessWithDetailed(200, "success", u, map[string]string{}, (*context2.Context)(this.Ctx))
+	return
+}
+
 // Update
 func (this *AutomationController) Update() {
 	automationUpdateValidate := valid.AutomationUpdate{}

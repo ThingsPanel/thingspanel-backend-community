@@ -25,15 +25,16 @@ type Warningconfigfield struct {
 }
 
 type Warningconfigindex struct {
-	ID         string                   `json:"id"`
-	Wid        string                   `json:"wid"`
-	Name       string                   `json:"name"`
-	Describe   string                   `json:"describe"`
-	Config     []map[string]interface{} `json:"config"`
-	Message    string                   `json:"message"`
-	Bid        string                   `json:"bid"`
-	Sensor     string                   `json:"sensor"`
-	CustomerID string                   `json:"customer_id"`
+	ID           string                   `json:"id"`
+	Wid          string                   `json:"wid"`
+	Name         string                   `json:"name"`
+	Describe     string                   `json:"describe"`
+	Config       []map[string]interface{} `json:"config"`
+	Message      string                   `json:"message"`
+	Bid          string                   `json:"bid"`
+	Sensor       string                   `json:"sensor"`
+	CustomerID   string                   `json:"customer_id"`
+	OtherMessage string                   `json:"other_message"`
 }
 
 // 警告列表
@@ -70,15 +71,16 @@ func (this *WarningconfigController) Index() {
 					d = append(d, row.(map[string]interface{}))
 				}
 				i := Warningconfigindex{
-					ID:         wv.ID,
-					Wid:        wv.Wid,
-					Name:       wv.Name,
-					Describe:   wv.Describe,
-					Config:     d,
-					Message:    wv.Message,
-					Bid:        wv.Bid,
-					Sensor:     wv.Sensor,
-					CustomerID: wv.CustomerID,
+					ID:           wv.ID,
+					Wid:          wv.Wid,
+					Name:         wv.Name,
+					Describe:     wv.Describe,
+					Config:       d,
+					Message:      wv.Message,
+					Bid:          wv.Bid,
+					Sensor:       wv.Sensor,
+					CustomerID:   wv.CustomerID,
+					OtherMessage: wv.OtherMessage,
 				}
 				rd = append(rd, i)
 			}
@@ -122,6 +124,7 @@ func (this *WarningconfigController) Add() {
 			warningConfigAddValidate.Bid,
 			warningConfigAddValidate.Sensor,
 			warningConfigAddValidate.CustomerID,
+			warningConfigAddValidate.OtherMessage,
 		)
 		if f {
 			response.SuccessWithMessage(200, "success", (*context2.Context)(this.Ctx))
@@ -166,6 +169,7 @@ func (this *WarningconfigController) Edit() {
 		warningConfigEditValidate.Bid,
 		warningConfigEditValidate.Sensor,
 		warningConfigEditValidate.CustomerID,
+		warningConfigEditValidate.OtherMessage,
 	)
 	if f {
 		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))

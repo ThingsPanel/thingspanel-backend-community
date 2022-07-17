@@ -337,5 +337,8 @@ ALTER TABLE tp_role ADD role_describe varchar(255) NULL;
 
 CREATE INDEX conditions_log_cteate_time_idx ON conditions_log (cteate_time);
 
+ALTER TABLE warning_config ADD other_message varchar(255) NULL;
+COMMENT ON COLUMN warning_config.other_message IS '其他信息';
+
 
 

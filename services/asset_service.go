@@ -988,3 +988,13 @@ func (*AssetService) DeviceGroupByBussinessID(business_id string) ([]map[string]
 	}
 	return assetList, count
 }
+
+// 根据id获取一条asset数据
+func (*AssetService) GetAssetById(id string) (*models.Asset, int64) {
+	var asset models.Asset
+	result := psql.Mydb.Where("id = ?", id).First(&asset)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	return &asset, result.RowsAffected
+}
