@@ -12,7 +12,7 @@ type AutomationAdd struct {
 	BusinessID string `json:"business_id" alias:"业务" valid:"Required; MaxSize(36)"`
 	Name       string `json:"name" alias:"名称" valid:"Required; MaxSize(36)"`
 	Describe   string `json:"describe" alias:"描述" valid:"Required; MaxSize(36)"`
-	Status     int64  `json:"status" alias:"状态" valid:"Required;"`
+	Status     int64  `json:"status" alias:"状态" valid:""`
 	Config     string `json:"config" alias:"配置" valid:"Required;"`
 	Sort       string `json:"sort" alias:"排序" valid:""`
 	Type       int64  `json:"type" alias:"类型" valid:""`
@@ -26,7 +26,7 @@ type AutomationEdit struct {
 	BusinessID string `json:"business_id" alias:"业务" valid:"Required; MaxSize(36)"`
 	Name       string `json:"name" alias:"名称" valid:"Required; MaxSize(36)"`
 	Describe   string `json:"describe" alias:"描述" valid:"Required; MaxSize(36)"`
-	Status     int64  `json:"status" alias:"状态" valid:"Required;"`
+	Status     int64  `json:"status" alias:"状态" valid:""`
 	Config     string `json:"config" alias:"配置" valid:"Required;"`
 	Sort       string `json:"sort" alias:"排序" valid:""`
 	Type       int64  `json:"type" alias:"类型" valid:""`

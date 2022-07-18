@@ -25,6 +25,7 @@ func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Mes
 		opts.SetClientID(clientid)
 		opts.AddBroker(broker)
 		opts.SetAutoReconnect(true)
+		opts.SetOrderMatters(false)
 		opts.OnConnectionLost = connectLostHandler
 		opts.SetOnConnectHandler(func(c mqtt.Client) {
 			if !running {

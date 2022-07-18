@@ -40,7 +40,7 @@ func listenMQTT() {
 	user := viper.GetString("mqtt.user")
 	pass := viper.GetString("mqtt.pass")
 	cm.Listen(broker, user, pass, clientid, func(m mqtt.Message) {
-		TSKVS.MsgProc(m.Payload())
+		go TSKVS.MsgProc(m.Payload())
 	})
 }
 
