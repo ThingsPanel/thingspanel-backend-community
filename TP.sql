@@ -342,5 +342,21 @@ COMMENT ON COLUMN warning_config.other_message IS '其他信息';
 
 CREATE INDEX device_token_idx ON device ("token");
 
-
+INSERT INTO tp_menu (id,menu_name,parent_id,remark) VALUES
+	 ('1','homepage','0',NULL),
+	 ('2','buisness','0',NULL),
+	 ('3','dashboard','0',NULL),
+	 ('4','automation','0',NULL),
+	 ('5','alert_message','0',NULL),
+	 ('6','system_log','0',NULL),
+	 ('7','product_management','0',NULL),
+	 ('9','data_management','0',NULL),
+	 ('10','application_management','0',NULL),
+	 ('11','user_management','0',NULL);
+INSERT INTO tp_menu (id,menu_name,parent_id,remark) VALUES
+	 ('12','system_setup','0',NULL),
+	 ('13','logs','6',NULL),
+	 ('14','equipment_log','6',NULL),
+	 ('15','firmware_upgrade','7',NULL),
+	 ('8','data_switching','0',NULL);
 
