@@ -360,3 +360,25 @@ INSERT INTO tp_menu (id,menu_name,parent_id,remark) VALUES
 	 ('15','firmware_upgrade','7',NULL),
 	 ('8','data_switching','0',NULL);
 
+CREATE INDEX device_asset_id_idx ON device (asset_id);
+CREATE TABLE data_transpond (
+	id varchar(36) NOT NULL,
+	process_id varchar(36) NULL,
+	process_type varchar(36) NULL,
+	"label" varchar(255) NULL,
+	disabled varchar(10) NULL,
+	info varchar(255) NULL,
+	env varchar(999) NULL,
+	customer_id varchar(36) NULL,
+	CONSTRAINT data_transpond_pk PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN data_transpond.process_id IS '流程id';
+COMMENT ON COLUMN data_transpond.process_type IS '流程类型';
+COMMENT ON COLUMN data_transpond."label" IS '标签';
+COMMENT ON COLUMN data_transpond.disabled IS '状态';
+
+ALTER TABLE data_transpond ADD created_at int8 NULL;
+

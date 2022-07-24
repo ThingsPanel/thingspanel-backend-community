@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"ThingsPanel-Go/initialize/redis"
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/services"
 	bcrypt "ThingsPanel-Go/utils"
@@ -18,9 +19,6 @@ import (
 	jwt "ThingsPanel-Go/utils"
 
 	gjwt "github.com/dgrijalva/jwt-go"
-
-	cache "ThingsPanel-Go/initialize/cache"
-	c "context"
 )
 
 type AuthController struct {
@@ -109,7 +107,8 @@ func (this *AuthController) Login() {
 		TokenType:   "bearer",
 		ExpiresIn:   3600,
 	}
-	cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
+	redis.SetStr(token, "1", 3000*time.Second)
+	// cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
 	// 登录成功
 	response.SuccessWithDetailed(200, "登录成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
@@ -124,10 +123,14 @@ func (this *AuthController) Logout() {
 		response.SuccessWithMessage(400, "token异常", (*context2.Context)(this.Ctx))
 		return
 	}
-	s, _ := cache.Bm.IsExist(c.TODO(), userToken)
-	if s {
-		cache.Bm.Delete(c.TODO(), userToken)
+	redis.GetStr(userToken)
+	if redis.GetStr(userToken) == "1" {
+		redis.DelKey(userToken)
 	}
+	// s, _ := cache.Bm.IsExist(c.TODO(), userToken)
+	// if s {
+	// 	cache.Bm.Delete(c.TODO(), userToken)
+	// }
 	response.SuccessWithMessage(200, "退出成功", (*context2.Context)(this.Ctx))
 	return
 }
@@ -141,10 +144,13 @@ func (this *AuthController) Refresh() {
 		response.SuccessWithMessage(400, "token异常", (*context2.Context)(this.Ctx))
 		return
 	}
-	s, _ := cache.Bm.IsExist(c.TODO(), userToken)
-	if s {
-		cache.Bm.Delete(c.TODO(), userToken)
+	if redis.GetStr(userToken) == "1" {
+		redis.DelKey(userToken)
 	}
+	// s, _ := cache.Bm.IsExist(c.TODO(), userToken)
+	// if s {
+	// 	cache.Bm.Delete(c.TODO(), userToken)
+	// }
 	var UserService services.UserService
 	_, i := UserService.GetUserById(user.ID)
 	if i == 0 {
@@ -170,7 +176,8 @@ func (this *AuthController) Refresh() {
 		TokenType:   "bearer",
 		ExpiresIn:   3600,
 	}
-	cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
+	redis.SetStr(token, "1", 3000*time.Second)
+	// cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
 	response.SuccessWithDetailed(200, "刷新token成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }

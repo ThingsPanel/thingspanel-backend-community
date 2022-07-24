@@ -1,11 +1,10 @@
 package tcp
 
 import (
-	cache "ThingsPanel-Go/initialize/cache"
+	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/services"
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -94,24 +93,36 @@ func Listen(tcpPort string) {
 			if _, ok := jsonMsg["token"]; ok {
 				log.Println("token:", jsonMsg["token"])
 				// 让设备重置命令
-				s, _ := cache.Bm.IsExist(context.TODO(), jsonMsg["token"].(string))
-				if s {
-					cacheToken, _ := cache.Bm.Get(context.TODO(), jsonMsg["token"].(string))
-					if cacheToken != 0 {
-						if value, ok := cacheToken.([]byte); ok {
-							resetMsg := buf[:7]
-							resetMsg[4] = 0x02
-							resetMsg[5] = 0xee
-							resetMsg[6] = uint8(len(value) % 256)
-							resetMsg = append(resetMsg, value...)
-							resetMsg = append(resetMsg, byte(0xfd))
-							resetMsg[2] = 0xee
-							resetMsg[3] = uint8(len(resetMsg) % 256)
-							c.ConnWriter.Write(resetMsg)
-						}
-					}
+				s := redis.GetStr(jsonMsg["token"].(string))
+				// s, _ := cache.Bm.IsExist(context.TODO(), jsonMsg["token"].(string))
+				if s != "" {
+					// cacheToken, _ := cache.Bm.Get(context.TODO(), jsonMsg["token"].(string))
+					value := []byte(s)
+					// if cacheToken != 0 {
+					// 	if value, ok := cacheToken.([]byte); ok {
+					// 		resetMsg := buf[:7]
+					// 		resetMsg[4] = 0x02
+					// 		resetMsg[5] = 0xee
+					// 		resetMsg[6] = uint8(len(value) % 256)
+					// 		resetMsg = append(resetMsg, value...)
+					// 		resetMsg = append(resetMsg, byte(0xfd))
+					// 		resetMsg[2] = 0xee
+					// 		resetMsg[3] = uint8(len(resetMsg) % 256)
+					// 		c.ConnWriter.Write(resetMsg)
+					// 	}
+					// }
+					resetMsg := buf[:7]
+					resetMsg[4] = 0x02
+					resetMsg[5] = 0xee
+					resetMsg[6] = uint8(len(value) % 256)
+					resetMsg = append(resetMsg, value...)
+					resetMsg = append(resetMsg, byte(0xfd))
+					resetMsg[2] = 0xee
+					resetMsg[3] = uint8(len(resetMsg) % 256)
+					c.ConnWriter.Write(resetMsg)
 				}
-				cache.Bm.Put(context.TODO(), jsonMsg["token"].(string), 0, 600*time.Second)
+				redis.DelKey(jsonMsg["token"].(string))
+				// cache.Bm.Put(context.TODO(), jsonMsg["token"].(string), 0, 600*time.Second)
 			} else {
 				c.ConnWriter.Write([]byte("token error!"))
 				continue

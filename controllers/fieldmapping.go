@@ -5,8 +5,7 @@ import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
-	response "ThingsPanel-Go/utils"
-	uuid "ThingsPanel-Go/utils"
+	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"errors"
@@ -36,7 +35,7 @@ func (reqDate *FieldmappingController) AddOnly() {
 			// 获取字段别称
 			alias := gvalid.GetAlias(addFieldMappingValidate, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
 			break
 		}
 		return
@@ -44,7 +43,7 @@ func (reqDate *FieldmappingController) AddOnly() {
 	var fieldMappingList []models.FieldMapping
 	for _, row := range addFieldMappingValidate.Data {
 		if row.ID == "" {
-			var uuid = uuid.GetUuid()
+			var uuid = utils.GetUuid()
 			fieldMapping := models.FieldMapping{
 				ID:        uuid,
 				DeviceID:  row.DeviceID,
@@ -55,7 +54,7 @@ func (reqDate *FieldmappingController) AddOnly() {
 			result := psql.Mydb.Create(&fieldMapping)
 			if result.Error != nil {
 				errors.Is(result.Error, gorm.ErrRecordNotFound)
-				response.SuccessWithMessage(400, "添加失败", (*context2.Context)(reqDate.Ctx))
+				utils.SuccessWithMessage(400, "添加失败", (*context2.Context)(reqDate.Ctx))
 			} else {
 				fieldMappingList = append(fieldMappingList, fieldMapping)
 			}
@@ -70,7 +69,7 @@ func (reqDate *FieldmappingController) AddOnly() {
 			result := psql.Mydb.Updates(&fieldMapping)
 			if result.Error != nil {
 				errors.Is(result.Error, gorm.ErrRecordNotFound)
-				response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+				utils.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
 			} else {
 				fieldMappingList = append(fieldMappingList, fieldMapping)
 			}
@@ -78,7 +77,7 @@ func (reqDate *FieldmappingController) AddOnly() {
 
 	}
 
-	response.SuccessWithDetailed(200, "success", fieldMappingList, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+	utils.SuccessWithDetailed(200, "success", fieldMappingList, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 
 }
 
@@ -95,7 +94,7 @@ func (reqDate *FieldmappingController) UpdateOnly() {
 			// 获取字段别称
 			alias := gvalid.GetAlias(updateFieldMappingValidate, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
 			break
 		}
 		return
@@ -110,11 +109,11 @@ func (reqDate *FieldmappingController) UpdateOnly() {
 		result := psql.Mydb.Updates(&fieldMapping)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
-			response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+			utils.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
 		}
 	}
 
-	response.SuccessWithMessage(200, "success", (*context2.Context)(reqDate.Ctx))
+	utils.SuccessWithMessage(200, "success", (*context2.Context)(reqDate.Ctx))
 }
 
 func (reqDate *FieldmappingController) GetByDeviceid() {
@@ -130,7 +129,7 @@ func (reqDate *FieldmappingController) GetByDeviceid() {
 			// 获取字段别称
 			alias := gvalid.GetAlias(DeviceIdValidate, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
 			break
 		}
 		return
@@ -138,6 +137,6 @@ func (reqDate *FieldmappingController) GetByDeviceid() {
 	var FieldMappingService services.FieldMappingService
 	d, _ := FieldMappingService.GetByDeviceid(DeviceIdValidate.DeviceId)
 
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+	utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 
 }

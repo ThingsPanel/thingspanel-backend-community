@@ -58,10 +58,12 @@ func InitServer() {
 }
 
 func SendEmailMessage(message string, subject string, to ...string) {
-	messageSend.SetHeader("To", to...)
-	messageSend.SetBody("text/html", message)
-	messageSend.SetHeader("Subject", subject)
-	if err := emailDialer.DialAndSend(messageSend); err != nil {
-		fmt.Println("发送失败...")
+	if MessageConfig.Email.IsOpen == 1 {
+		messageSend.SetHeader("To", to...)
+		messageSend.SetBody("text/html", message)
+		messageSend.SetHeader("Subject", subject)
+		if err := emailDialer.DialAndSend(messageSend); err != nil {
+			fmt.Println("发送失败...")
+		}
 	}
 }

@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	cache "ThingsPanel-Go/initialize/cache"
+	"ThingsPanel-Go/initialize/redis"
 	jwt "ThingsPanel-Go/utils"
-	c "context"
 
 	adapter "github.com/beego/beego/v2/adapter"
 	"github.com/beego/beego/v2/adapter/context"
@@ -41,11 +40,15 @@ func AuthMiddle() {
 				response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
 				return
 			}
-			s, _ := cache.Bm.IsExist(c.TODO(), userToken)
-			if !s {
+			if redis.GetStr(userToken) != "1" {
 				response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
 				return
 			}
+			// s, _ := cache.Bm.IsExist(c.TODO(), userToken)
+			// if !s {
+			// 	response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
+			// 	return
+			// }
 		}
 	}
 	adapter.InsertFilter("/api/*", adapter.BeforeRouter, filterLogin)

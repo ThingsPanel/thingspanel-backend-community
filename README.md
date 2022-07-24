@@ -2,8 +2,8 @@
 # ThingsPanel-Go
 ## 环境版本
 Golang(Go 1.17.5)（下载地址：https://golang.google.cn/dl/）
-
-    $ wget https://golang.google.cn/dl/go1.17.6.linux-amd64.tar.gz
+wget https://golang.google.cn/dl/go1.17.6.linux-arm64.tar.gz
+    $ wget https://golang.google.cn/dl/go1.17.6.linux-amd64.tar.gz （go1.17.6.linux-arm64.tar.gz）
     $ tar -C /usr/local -zxvf go1.17.6.linux-amd64.tar.gz
     $ vim /etc/profile
     将 export PATH=$PATH:/usr/local/go/bin 添加到文件底部

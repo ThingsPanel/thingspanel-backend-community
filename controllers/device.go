@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	cache "ThingsPanel-Go/initialize/cache"
 	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/initialize/redis"
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
@@ -10,7 +10,6 @@ import (
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -445,7 +444,8 @@ func (deviceController *DeviceController) Reset() {
 			response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(deviceController.Ctx))
 		}
 		log.Println(string(newPayload))
-		cache.Bm.Put(context.TODO(), f.Token, newPayload, 300*time.Second)
+		redis.SetStr(f.Token, string(newPayload), 300*time.Second)
+		//cache.Bm.Put(context.TODO(), f.Token, newPayload, 300*time.Second)
 	} else {
 		response.SuccessWithMessage(1000, "token不存在", (*context2.Context)(deviceController.Ctx))
 	}

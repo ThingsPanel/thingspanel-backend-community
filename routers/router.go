@@ -251,6 +251,12 @@ func init() {
 		web.NSRouter("/open/data", &controllers.OpenController{}, "*:GetData"),
 		// 控制日志
 		web.NSRouter("/conditions/log/index", &controllers.ConditionslogController{}, "*:Index"),
+
+		//数据转发
+		web.NSRouter("/data/transpond/add", &controllers.DataTranspondController{}, "*:Add"),
+		web.NSRouter("/data/transpond/list", &controllers.DataTranspondController{}, "*:List"),
+		web.NSRouter("/data/transpond/edit", &controllers.DataTranspondController{}, "*:Edit"),
+		web.NSRouter("/data/transpond/delete", &controllers.DataTranspondController{}, "*:Delete"),
 	)
 
 	// 图表推送数据

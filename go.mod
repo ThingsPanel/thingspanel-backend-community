@@ -102,5 +102,6 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/ini.v1 v1.63.2 // indirect
+	gopkg.in/redis.v5 v5.2.9
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
