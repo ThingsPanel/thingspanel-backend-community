@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	"ThingsPanel-Go/modules/dataService/tcp"
@@ -35,7 +36,11 @@ func loadConfig() {
 
 func listenMQTT() {
 	var TSKVS services.TSKVService
-	broker := viper.GetString("mqtt.broker")
+	mqttHost := os.Getenv("TP_MQTT_HOST")
+	if mqttHost == "" {
+		mqttHost = viper.GetString("mqtt.broker")
+	}
+	broker := mqttHost
 	clientid := viper.GetString("mqtt.clientid")
 	user := viper.GetString("mqtt.user")
 	pass := viper.GetString("mqtt.pass")

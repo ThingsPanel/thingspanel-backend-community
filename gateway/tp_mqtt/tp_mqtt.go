@@ -3,6 +3,7 @@ package tp_mqtt
 import (
 	uuid "ThingsPanel-Go/utils"
 	"fmt"
+	"os"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/spf13/viper"
@@ -61,12 +62,16 @@ func setTpOpts(opts *mqtt.ClientOptions) *mqtt.ClientOptions {
 	opts.SetClientID(clientId)
 	opts.SetUsername(Tp_mqtt_config.Mqtt.User)
 	opts.SetPassword(Tp_mqtt_config.Mqtt.Pass)
-	opts.AddBroker(Tp_mqtt_config.Mqtt.Broker)
+	mqttHost := os.Getenv("TP_MQTT_HOST")
+	if mqttHost == "" {
+		mqttHost = Tp_mqtt_config.Mqtt.Broker
+	}
+	opts.AddBroker(mqttHost)
 	opts.SetAutoReconnect(true)
 	opts.OnConnectionLost = connectLostHandler
 	opts.SetOnConnectHandler(func(c mqtt.Client) {
 		if !running {
-			fmt.Println("send->tp connect success...", Tp_mqtt_config.Mqtt.Broker)
+			fmt.Println("send->tp connect success...", mqttHost)
 		}
 		running = true
 	})

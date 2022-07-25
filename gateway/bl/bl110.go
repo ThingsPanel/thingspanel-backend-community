@@ -5,6 +5,7 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -69,17 +70,20 @@ func setOpts(opts *mqtt.ClientOptions) *mqtt.ClientOptions {
 	var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
 		fmt.Printf("Connect lost: %v;", err)
 	}
-	fmt.Println(Bl110_config.Mqtt.Broker)
+	mqttHost := os.Getenv("TP_MQTT_HOST")
+	if mqttHost == "" {
+		mqttHost = Bl110_config.Mqtt.Broker
+	}
 	clientId := uuid.GetUuid()
 	opts.SetClientID(clientId)
 	opts.SetUsername(Bl110_config.Mqtt.User)
 	opts.SetPassword(Bl110_config.Mqtt.Pass)
-	opts.AddBroker(Bl110_config.Mqtt.Broker)
+	opts.AddBroker(mqttHost)
 	opts.SetAutoReconnect(true)
 	opts.OnConnectionLost = connectLostHandler
 	opts.SetOnConnectHandler(func(c mqtt.Client) {
 		if !tp_running {
-			fmt.Println("bl110-mqtt connect success...", Bl110_config.Mqtt.Broker)
+			fmt.Println("bl110-mqtt connect success...", mqttHost)
 		}
 		tp_running = true
 	})

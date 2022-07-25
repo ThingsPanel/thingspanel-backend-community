@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/beego/beego/v2/core/validation"
@@ -63,6 +64,7 @@ func (this *HomeController) Chart() {
 
 // 首页展示设备 show
 func (this *HomeController) Show() {
+	mqttHost := os.Getenv("TP_MQTT_HOST")
 	//验证设备ID
 	homeShowValidate := valid.HomeShowValidate{}
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &homeShowValidate)
@@ -98,7 +100,11 @@ func (this *HomeController) Show() {
 			}
 			d.Publish = viper.GetString("mqtt.topicToPublish")
 			d.Subscribe = viper.GetString("mqtt.topicToSubscribe")
-			d.Port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
+			if mqttHost == "" {
+				d.Port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
+			} else {
+				d.Port = strings.Split(mqttHost, ":")[1]
+			}
 			d.Username = viper.GetString("mqtt.user")
 			d.Password = viper.GetString("mqtt.pass")
 		}
@@ -108,7 +114,11 @@ func (this *HomeController) Show() {
 		}
 		d.Publish = viper.GetString("mqtt.topicToPublish")
 		d.Subscribe = viper.GetString("mqtt.topicToSubscribe")
-		d.Port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
+		if mqttHost == "" {
+			d.Port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
+		} else {
+			d.Port = strings.Split(mqttHost, ":")[1]
+		}
 		d.Username = viper.GetString("mqtt.user")
 		d.Password = viper.GetString("mqtt.pass")
 	}
@@ -118,6 +128,7 @@ func (this *HomeController) Show() {
 
 // 默认配置获取
 func (HomeController *HomeController) GetDefaultSetting() {
+	mqttHost := os.Getenv("TP_MQTT_HOST")
 	//验证设备ID
 	ProtocolValidate := valid.ProtocolValidate{}
 	err := json.Unmarshal(HomeController.Ctx.Input.RequestBody, &ProtocolValidate)
@@ -138,7 +149,9 @@ func (HomeController *HomeController) GetDefaultSetting() {
 	}
 	//读取配置参数
 	d := make(map[string]string)
+	var port string
 	if ProtocolValidate.Protocol == "mqtt" {
+
 		if viper.GetString("mqtt.broker") == "" {
 			var readErr error
 			envConfigFile := flag.String("config", "./modules/dataService/config.yml", "path of configuration file")
@@ -147,12 +160,23 @@ func (HomeController *HomeController) GetDefaultSetting() {
 			if readErr = viper.ReadInConfig(); readErr != nil {
 				fmt.Println("FAILURE", err)
 			} else {
-				d["default_setting"] = "端口:" + strings.Split(viper.GetString("mqtt.broker"), ":")[1] + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") +
+
+				if mqttHost == "" {
+					port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
+				} else {
+					port = strings.Split(mqttHost, ":")[1]
+				}
+				d["default_setting"] = "端口:" + port + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") +
 					"$$订阅主题（设备数据通过这个主题推给平台）:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
 					"$$描述:xxx"
 			}
 		} else {
-			d["default_setting"] = "端口:" + strings.Split(viper.GetString("mqtt.broker"), ":")[1] + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") +
+			if mqttHost == "" {
+				port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
+			} else {
+				port = strings.Split(mqttHost, ":")[1]
+			}
+			d["default_setting"] = "端口:" + port + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") +
 				"$$订阅主题（设备数据通过这个主题推给平台）:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
 				"$$描述:推送规范为{\"token\":\"xxxxxx\",\"values\":{\"xx\":\"xxxxxx\",\"xx\":\"xxxxxx\"}}"
 		}

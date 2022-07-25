@@ -2,6 +2,7 @@ package redis
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -31,8 +32,10 @@ func createClient(redisHost string, password string, dataBase int) *redis.Client
 }
 
 func init() {
-
-	redisHost, _ := web.AppConfig.String("redis.conn")
+	redisHost := os.Getenv("TP_REDIS_HOST")
+	if redisHost == "" {
+		redisHost, _ = web.AppConfig.String("redis.conn")
+	}
 	dataBase, _ := web.AppConfig.Int("redis.dbNum")
 	password, _ := web.AppConfig.String("redis.password")
 	redisCache = createClient(redisHost, password, dataBase)

@@ -2,6 +2,8 @@ package casbin
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 
 	"github.com/beego/beego/v2/core/logs"
 	beego "github.com/beego/beego/v2/server/web"
@@ -19,8 +21,17 @@ func init() {
 	// You can also use an already existing gorm instance with gormadapter.NewAdapterByDB(gormInstance)
 	psqluser, _ := beego.AppConfig.String("psqluser")
 	psqlpass, _ := beego.AppConfig.String("psqlpass")
-	psqladdr, _ := beego.AppConfig.String("psqladdr")
-	psqlport, _ := beego.AppConfig.Int("psqlport")
+	psqladdr := os.Getenv("TP_PG_IP")
+	if psqladdr == "" {
+		psqladdr, _ = beego.AppConfig.String("psqladdr")
+	}
+	psqlports := os.Getenv("TP_PG_PORT")
+	var psqlport int
+	if psqlports == "" {
+		psqlport, _ = beego.AppConfig.Int("psqlport")
+	} else {
+		psqlport, _ = strconv.Atoi(psqlports)
+	}
 	psqldb, _ := beego.AppConfig.String("psqldb")
 	dataSource := fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=disable TimeZone=Asia/Shanghai",
 		psqladdr,

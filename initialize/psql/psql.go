@@ -2,6 +2,8 @@ package psql
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm/logger"
@@ -30,8 +32,17 @@ func (w Writer) Printf(format string, args ...interface{}) {
 func init() {
 	psqluser, _ := beego.AppConfig.String("psqluser")
 	psqlpass, _ := beego.AppConfig.String("psqlpass")
-	psqladdr, _ := beego.AppConfig.String("psqladdr")
-	psqlport, _ := beego.AppConfig.Int("psqlport")
+	psqladdr := os.Getenv("TP_PG_IP")
+	if psqladdr == "" {
+		psqladdr, _ = beego.AppConfig.String("psqladdr")
+	}
+	psqlports := os.Getenv("TP_PG_PORT")
+	var psqlport int
+	if psqlports == "" {
+		psqlport, _ = beego.AppConfig.Int("psqlport")
+	} else {
+		psqlport, _ = strconv.Atoi(psqlports)
+	}
 	psqldb, _ := beego.AppConfig.String("psqldb")
 	psqlMaxConns, _ := beego.AppConfig.Int("psqlMaxConns")
 	psqlMaxOpen, _ := beego.AppConfig.Int("psqlMaxOpen")
