@@ -45,8 +45,8 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 	var conditionConfigs []models.Condition
 	var count int64
 	//自动化策略配置
-	logs.Info("设备id-%s-设备条件类型->查询自动化配置", deviceId)
-	result := psql.Mydb.Model(&models.Condition{}).Where("type = 1 and (config ::json->>'rules' like '%" + deviceId + "%') order by sort asc").Find(&conditionConfigs)
+	//logs.Info("设备id-%s-设备条件类型->查询自动化配置", deviceId)
+	result := psql.Mydb.Model(&models.Condition{}).Where("type = 1 and status = '1' and (config ::json->>'rules' like '%" + deviceId + "%') order by sort asc").Find(&conditionConfigs)
 	//自动化策略数量
 	count = result.RowsAffected
 	if result.Error != nil {

@@ -2,6 +2,7 @@ package services
 
 import (
 	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/initialize/redis"
 	sendmessage "ThingsPanel-Go/initialize/send_message"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	simplejson "github.com/bitly/go-simplejson"
 	"gorm.io/gorm"
@@ -69,6 +71,8 @@ func (*WarningConfigService) Add(wid string, name string, describe string, confi
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, ""
 	}
+	// 告警缓存-删除标记
+	redis.DelKey("warning" + bid)
 	return true, uuid
 }
 
@@ -80,6 +84,8 @@ func (*WarningConfigService) Edit(id string, wid string, name string, describe s
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
+	// 告警缓存-删除标记
+	redis.DelKey("warning" + bid)
 	return true
 }
 
@@ -115,7 +121,7 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
-	if count > 0 {
+	if count > int64(0) {
 		log.Printf("device id %s have warning config", bid)
 		original := ""
 		code := ""
@@ -258,5 +264,9 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 				sendmessage.SendWarningMessage(message, wv.OtherMessage)
 			}
 		}
+	} else {
+		// 告警缓存-没有策略就进行标记
+		redis.SetStr("warning"+bid, "1", 3600*time.Second)
 	}
+
 }

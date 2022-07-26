@@ -15,9 +15,14 @@ var redisCache *redis.Client
 // 创建 redis 客户端
 func createClient(redisHost string, password string, dataBase int) *redis.Client {
 	client := redis.NewClient(&redis.Options{
-		Addr:     redisHost,
-		Password: password,
-		DB:       dataBase,
+		Addr:         redisHost,
+		Password:     password,
+		DB:           dataBase,
+		ReadTimeout:  2 * time.Minute,
+		WriteTimeout: 1 * time.Minute,
+		PoolTimeout:  2 * time.Minute,
+		IdleTimeout:  10 * time.Minute,
+		PoolSize:     1000,
 	})
 
 	// 通过 cient.Ping() 来检查是否成功连接到了 redis 服务器

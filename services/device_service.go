@@ -2,6 +2,7 @@ package services
 
 import (
 	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/models"
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	uuid "ThingsPanel-Go/utils"
@@ -161,11 +162,14 @@ func (*DeviceService) GetDeviceByID(id string) (*models.Device, int64) {
 
 // Delete 根据ID删除Device
 func (*DeviceService) Delete(id string) bool {
+	var device models.Device
+	psql.Mydb.Where("id = ?", id).First(&device)
 	result := psql.Mydb.Where("id = ?", id).Delete(&models.Device{})
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
+	redis.DelKey("token" + device.Token)
 	return true
 }
 
@@ -197,6 +201,8 @@ func (*DeviceService) IsToken(token string) bool {
 
 // 根据ID编辑Device的Token
 func (*DeviceService) Edit(id string, token string, protocol string, port string, publish string, subscribe string, username string, password string) bool {
+	var device models.Device
+	psql.Mydb.Where("id = ?", id).First(&device)
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"token":     token,
 		"protocol":  protocol,
@@ -210,12 +216,15 @@ func (*DeviceService) Edit(id string, token string, protocol string, port string
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
+	redis.DelKey("token" + device.Token)
+	redis.SetStr("token"+token, id, 3600*time.Second)
 	return true
 }
 
 func (*DeviceService) Add(token string, protocol string, port string, publish string, subscribe string, username string, password string) (bool, string) {
 	var uuid = uuid.GetUuid()
 	device := models.Device{
+		ID:        uuid,
 		Token:     token,
 		Protocol:  protocol,
 		Port:      port,
@@ -229,11 +238,12 @@ func (*DeviceService) Add(token string, protocol string, port string, publish st
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, ""
 	}
+	redis.SetStr("token"+token, uuid, 3600*time.Second)
 	return true, uuid
 }
 
 // 向mqtt发送控制指令
-func (*DeviceService) OperatingDevice(deviceId string, field string, value string) bool {
+func (*DeviceService) OperatingDevice(deviceId string, field string, value interface{}) bool {
 	reqMap := make(map[string]interface{})
 	valueMap := make(map[string]interface{})
 	logs.Info("通过设备id获取设备token")
@@ -279,15 +289,22 @@ func (*DeviceService) ApplyControl(res *simplejson.Json) {
 			// 如果有“或者，并且”操作符，就给code加上操作符
 			if applyMap["field"] != nil && applyMap["value"] != nil {
 				logs.Info("准备执行控制发送函数")
+				var s = ""
+				switch applyMap["value"].(type) {
+				case string:
+					s = applyMap["value"].(string)
+				case json.Number:
+					s = applyMap["value"].(json.Number).String()
+				}
 				ConditionsLog := models.ConditionsLog{
 					DeviceId:      applyMap["device_id"].(string),
-					OperationType: "1",
-					Instruct:      applyMap["field"].(string) + ":" + applyMap["value"].(string),
+					OperationType: "3",
+					Instruct:      applyMap["field"].(string) + ":" + s,
 					ProtocolType:  "mqtt",
 					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
 				}
 				var DeviceService DeviceService
-				reqFlag := DeviceService.OperatingDevice(applyMap["device_id"].(string), applyMap["field"].(string), applyMap["value"].(string))
+				reqFlag := DeviceService.OperatingDevice(applyMap["device_id"].(string), applyMap["field"].(string), applyMap["value"])
 				if reqFlag {
 					logs.Info("成功发送控制")
 					ConditionsLog.SendResult = "1"

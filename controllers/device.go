@@ -368,50 +368,132 @@ func (request *DeviceController) Operating() {
 		}
 		return
 	}
-	var payloadInterface interface{}
-	//将json转为map
-	logs.Info("==手动控制设备开始==")
-	jsonErr := json.Unmarshal(request.Ctx.Input.RequestBody, &payloadInterface)
-	if jsonErr != nil {
-		fmt.Printf("JSON 解码失败：%v\n", jsonErr)
-		response.SuccessWithMessage(400, jsonErr.Error(), (*context2.Context)(request.Ctx))
-	}
+	// var payloadInterface interface{}
+	// //将json转为map
+	// logs.Info("==手动控制设备开始==")
+	// jsonErr := json.Unmarshal(request.Ctx.Input.RequestBody, &payloadInterface)
+	// if jsonErr != nil {
+	// 	fmt.Printf("JSON 解码失败：%v\n", jsonErr)
+	// 	response.SuccessWithMessage(400, jsonErr.Error(), (*context2.Context)(request.Ctx))
+	// }
 	//获取设备token
 	var DeviceService services.DeviceService
 	deviceData, c := DeviceService.Token(operatingDeviceValidate.DeviceId)
 	if c == 0 {
 		response.SuccessWithMessage(400, "no equipment", (*context2.Context)(request.Ctx))
 	}
-	payloadInterface.(map[string]interface{})["token"] = deviceData.Token
-	delete(payloadInterface.(map[string]interface{}), "device_id")
+	var sendMap = make(map[string]interface{})
+	sendMap["token"] = deviceData.Token
 	//将value中的key做映射
-	valueMap, ok := payloadInterface.(map[string]interface{})["values"].(map[string]interface{})
+	valueMap, ok := operatingDeviceValidate.Values.(map[string]interface{})
 	newMap := make(map[string]interface{})
+	var key string = ""
+	var value string = ""
 	if ok {
 		for k, v := range valueMap {
+			key = k
 			var fieldMappingService services.FieldMappingService
+			fmt.Println(operatingDeviceValidate.DeviceId, "======================映射", k)
 			newKey := fieldMappingService.TransformByDeviceid(operatingDeviceValidate.DeviceId, k)
+			fmt.Println("======================", newKey)
 			if newKey != "" {
 				newMap[newKey] = v
 			}
-			delete(valueMap, k)
+			//delete(valueMap, k)
 		}
 	}
 	//将map转为json
-	payloadInterface.(map[string]interface{})["values"] = newMap
-	newPayload, toErr := json.Marshal(payloadInterface)
+	sendMap["values"] = newMap
+	newPayload, toErr := json.Marshal(sendMap)
 	if toErr != nil {
 		logs.Info("JSON 编码失败：%v\n", toErr)
 		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(request.Ctx))
 	}
 	logs.Info("-------------------------------", string(newPayload))
 	f := cm.Send(newPayload)
-	if f == nil {
-		response.SuccessWithDetailed(200, "success", payloadInterface, map[string]string{}, (*context2.Context)(request.Ctx))
-		return
+	ConditionsLog := models.ConditionsLog{
+		DeviceId:      deviceData.ID,
+		OperationType: "2",
+		Instruct:      key + ":" + value,
+		ProtocolType:  "mqtt",
+		CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
 	}
-	response.SuccessWithMessage(400, f.Error(), (*context2.Context)(request.Ctx))
+	var ConditionsLogService services.ConditionsLogService
+	if f == nil {
+		logs.Info("成功发送控制")
+		ConditionsLog.SendResult = "1"
+		ConditionsLogService.Insert(&ConditionsLog)
+		response.SuccessWithDetailed(200, "success", sendMap, map[string]string{}, (*context2.Context)(request.Ctx))
+	} else {
+		logs.Info("成功发送失败")
+		ConditionsLog.SendResult = "2"
+		ConditionsLogService.Insert(&ConditionsLog)
+		response.SuccessWithMessage(400, f.Error(), (*context2.Context)(request.Ctx))
+	}
+	return
 }
+
+// func (request *DeviceController) Operating() {
+// 	operatingDeviceValidate := valid.OperatingDevice{}
+// 	err := json.Unmarshal(request.Ctx.Input.RequestBody, &operatingDeviceValidate)
+// 	if err != nil {
+// 		fmt.Println("参数解析失败", err.Error())
+// 	}
+// 	v := validation.Validation{}
+// 	status, _ := v.Valid(operatingDeviceValidate)
+// 	if !status {
+// 		for _, err := range v.Errors {
+// 			alias := gvalid.GetAlias(operatingDeviceValidate, err.Field)
+// 			message := strings.Replace(err.Message, err.Field, alias, 1)
+// 			response.SuccessWithMessage(1000, message, (*context2.Context)(request.Ctx))
+// 			break
+// 		}
+// 		return
+// 	}
+// 	var payloadInterface interface{}
+// 	//将json转为map
+// 	logs.Info("==手动控制设备开始==")
+// 	jsonErr := json.Unmarshal(request.Ctx.Input.RequestBody, &payloadInterface)
+// 	if jsonErr != nil {
+// 		fmt.Printf("JSON 解码失败：%v\n", jsonErr)
+// 		response.SuccessWithMessage(400, jsonErr.Error(), (*context2.Context)(request.Ctx))
+// 	}
+// 	//获取设备token
+// 	var DeviceService services.DeviceService
+// 	deviceData, c := DeviceService.Token(operatingDeviceValidate.DeviceId)
+// 	if c == 0 {
+// 		response.SuccessWithMessage(400, "no equipment", (*context2.Context)(request.Ctx))
+// 	}
+// 	payloadInterface.(map[string]interface{})["token"] = deviceData.Token
+// 	delete(payloadInterface.(map[string]interface{}), "device_id")
+// 	//将value中的key做映射
+// 	valueMap, ok := payloadInterface.(map[string]interface{})["values"].(map[string]interface{})
+// 	newMap := make(map[string]interface{})
+// 	if ok {
+// 		for k, v := range valueMap {
+// 			var fieldMappingService services.FieldMappingService
+// 			newKey := fieldMappingService.TransformByDeviceid(operatingDeviceValidate.DeviceId, k)
+// 			if newKey != "" {
+// 				newMap[newKey] = v
+// 			}
+// 			delete(valueMap, k)
+// 		}
+// 	}
+// 	//将map转为json
+// 	payloadInterface.(map[string]interface{})["values"] = newMap
+// 	newPayload, toErr := json.Marshal(payloadInterface)
+// 	if toErr != nil {
+// 		logs.Info("JSON 编码失败：%v\n", toErr)
+// 		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(request.Ctx))
+// 	}
+// 	logs.Info("-------------------------------", string(newPayload))
+// 	f := cm.Send(newPayload)
+// 	if f == nil {
+// 		response.SuccessWithDetailed(200, "success", payloadInterface, map[string]string{}, (*context2.Context)(request.Ctx))
+// 		return
+// 	}
+// 	response.SuccessWithMessage(400, f.Error(), (*context2.Context)(request.Ctx))
+// }
 
 // 重置设备
 func (deviceController *DeviceController) Reset() {

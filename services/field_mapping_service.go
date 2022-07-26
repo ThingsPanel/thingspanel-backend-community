@@ -81,7 +81,7 @@ func (*FieldMappingService) TransformByDeviceid(device_id string, field_to strin
 	if result.RowsAffected == 0 {
 		field_from = ""
 	} else {
-		field_from = strings.ToLower(fieldMappings.FieldTo)
+		field_from = strings.ToLower(fieldMappings.FieldFrom)
 	}
 	return field_from
 }

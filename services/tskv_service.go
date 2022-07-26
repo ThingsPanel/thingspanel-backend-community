@@ -2,6 +2,7 @@ package services
 
 import (
 	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
 	"encoding/json"
@@ -62,115 +63,100 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	}
 	var device models.Device
 	var d models.TSKV
-	//查询token，验证token
-	result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
-	if result.RowsAffected > 0 {
-		// 查询警告
-		var WarningConfigService WarningConfigService
-		WarningConfigService.WarningConfigCheck(device.ID, payload.Values)
-		// 设备触发自动化
-		var ConditionsService ConditionsService
-		ConditionsService.ConditionsConfigCheck(device.ID, payload.Values)
-
-		ts := time.Now().UnixMicro()
-		//查找field_mapping表替换value里面的字段
-		var FieldMappingService FieldMappingService
-		FieldMapping, num := FieldMappingService.GetByDeviceid(device.ID)
-		if num <= 0 {
+	//查询token，验证token;修改和删除token的时候需要对缓存进行修改
+	if len(redis.GetStr("token"+payload.Token)) < 1 {
+		result_token := psql.Mydb.Where("token = ?", payload.Token).First(&device)
+		if result_token.Error != nil {
+			errors.Is(result_token.Error, gorm.ErrRecordNotFound)
+			return false
+		} else if result_token.RowsAffected > int64(0) {
+			redis.SetStr("token"+payload.Token, device.ID, 3600*time.Second)
+		} else {
+			fmt.Println("token not matched")
 			return false
 		}
-		field_map := map[string]string{}
-		for _, v := range FieldMapping {
-			field_map[v.FieldFrom] = v.FieldTo
+	} else {
+		//fmt.Println("命中")
+		device.ID = redis.GetStr("token" + payload.Token)
+	}
+	// 告警缓存，先查缓存，如果=1就跳过，没有就进入WarningConfigCheck
+	// 进入没有就设置为1
+	// 新增的时候删除
+	// 修改的时候删除
+	// 有效时间一小时
+	if redis.GetStr("warning"+device.ID) != "1" {
+		var WarningConfigService WarningConfigService
+		WarningConfigService.WarningConfigCheck(device.ID, payload.Values)
+	}
+	// 设备触发自动化
+	var ConditionsService ConditionsService
+	ConditionsService.ConditionsConfigCheck(device.ID, payload.Values)
+
+	ts := time.Now().UnixMicro()
+	//查找field_mapping表替换value里面的字段
+	var FieldMappingService FieldMappingService
+	FieldMapping, num := FieldMappingService.GetByDeviceid(device.ID)
+	if num <= int64(0) {
+		return false
+	}
+	field_map := map[string]string{}
+	for _, v := range FieldMapping {
+		field_map[v.FieldFrom] = v.FieldTo
+	}
+
+	// result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
+	// if result.Error != nil {
+	// 	errors.Is(result.Error, gorm.ErrRecordNotFound)
+	// }
+
+	for k, v := range payload.Values {
+
+		key, ok := field_map[k]
+		if !ok {
+			continue
 		}
 
-		result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
-		if result.Error != nil {
-			errors.Is(result.Error, gorm.ErrRecordNotFound)
-		}
-
-		for k, v := range payload.Values {
-
-			key, ok := field_map[k]
-			if !ok {
-				continue
+		switch value := v.(type) {
+		case int64:
+			d = models.TSKV{
+				EntityType: "DEVICE",
+				EntityID:   device.ID,
+				Key:        strings.ToUpper(key),
+				TS:         ts,
+				LongV:      value,
 			}
-
-			switch value := v.(type) {
-			case int64:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        strings.ToUpper(key),
-					TS:         ts,
-					LongV:      value,
-				}
-			case string:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        strings.ToUpper(key),
-					TS:         ts,
-					StrV:       value,
-				}
-			case bool:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        strings.ToUpper(key),
-					TS:         ts,
-					BoolV:      strconv.FormatBool(value),
-				}
-			case float64:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        strings.ToUpper(key),
-					TS:         ts,
-					DblV:       value,
-				}
-			default:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        strings.ToUpper(key),
-					TS:         ts,
-					StrV:       fmt.Sprint(value),
-				}
+		case string:
+			d = models.TSKV{
+				EntityType: "DEVICE",
+				EntityID:   device.ID,
+				Key:        strings.ToUpper(key),
+				TS:         ts,
+				StrV:       value,
 			}
-			// 更新当前值表
-			l := models.TSKVLatest{}
-			utils.StructAssign(&l, &d)
-			var latestCount int64
-			psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Count(&latestCount)
-			if latestCount <= 0 {
-				rtsl := psql.Mydb.Create(&l)
-				if rtsl.Error != nil {
-					log.Println(rtsl.Error)
-				}
-			} else {
-				rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Updates(&l)
-				if rtsl.Error != nil {
-					log.Println(rtsl.Error)
-				}
+		case bool:
+			d = models.TSKV{
+				EntityType: "DEVICE",
+				EntityID:   device.ID,
+				Key:        strings.ToUpper(key),
+				TS:         ts,
+				BoolV:      strconv.FormatBool(value),
 			}
-			rts := psql.Mydb.Create(&d)
-			if rts.Error != nil {
-				log.Println(rts.Error)
-				return false
+		case float64:
+			d = models.TSKV{
+				EntityType: "DEVICE",
+				EntityID:   device.ID,
+				Key:        strings.ToUpper(key),
+				TS:         ts,
+				DblV:       value,
 			}
-		}
-		//存入系统时间
-		currentTime := fmt.Sprintf(time.Now().Format("2006-01-02 15:04:05"))
-		d = models.TSKV{
-			EntityType: "DEVICE",
-			EntityID:   device.ID,
-			Key:        strings.ToUpper("systime"),
-			TS:         ts,
-			StrV:       currentTime,
+		default:
+			d = models.TSKV{
+				EntityType: "DEVICE",
+				EntityID:   device.ID,
+				Key:        strings.ToUpper(key),
+				TS:         ts,
+				StrV:       fmt.Sprint(value),
+			}
 		}
 		// 更新当前值表
 		l := models.TSKVLatest{}
@@ -188,16 +174,44 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				log.Println(rtsl.Error)
 			}
 		}
-		// 存储数据
 		rts := psql.Mydb.Create(&d)
 		if rts.Error != nil {
 			log.Println(rts.Error)
 			return false
 		}
-		return true
 	}
-	fmt.Println("token not matched")
-	return false
+	//存入系统时间
+	currentTime := fmt.Sprintf(time.Now().Format("2006-01-02 15:04:05"))
+	d = models.TSKV{
+		EntityType: "DEVICE",
+		EntityID:   device.ID,
+		Key:        strings.ToUpper("systime"),
+		TS:         ts,
+		StrV:       currentTime,
+	}
+	// 更新当前值表
+	l := models.TSKVLatest{}
+	utils.StructAssign(&l, &d)
+	var latestCount int64
+	psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Count(&latestCount)
+	if latestCount <= 0 {
+		rtsl := psql.Mydb.Create(&l)
+		if rtsl.Error != nil {
+			log.Println(rtsl.Error)
+		}
+	} else {
+		rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Updates(&l)
+		if rtsl.Error != nil {
+			log.Println(rtsl.Error)
+		}
+	}
+	// 存储数据
+	rts := psql.Mydb.Create(&d)
+	if rts.Error != nil {
+		log.Println(rts.Error)
+		return false
+	}
+	return true
 }
 
 // 分页查询数据

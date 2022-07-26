@@ -381,4 +381,6 @@ COMMENT ON COLUMN data_transpond."label" IS '标签';
 COMMENT ON COLUMN data_transpond.disabled IS '状态';
 
 ALTER TABLE data_transpond ADD created_at int8 NULL;
+CREATE INDEX field_mapping_device_id_idx ON field_mapping (device_id);
+
 

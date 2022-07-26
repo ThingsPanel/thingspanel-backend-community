@@ -64,7 +64,7 @@ func SendMessage(payload []byte) {
 					for key, value := range message.Values {
 						dataMap[0][key] = value
 					}
-					payloadInterface["SensorDatas"] = dataMap
+					payloadInterface["sensorDatas"] = dataMap
 					topic := topicToPublish[i]
 					newPayload, toErr := json.Marshal(payloadInterface)
 					if toErr != nil {
