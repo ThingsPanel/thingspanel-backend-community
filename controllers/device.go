@@ -14,6 +14,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -368,19 +370,12 @@ func (request *DeviceController) Operating() {
 		}
 		return
 	}
-	// var payloadInterface interface{}
-	// //将json转为map
-	// logs.Info("==手动控制设备开始==")
-	// jsonErr := json.Unmarshal(request.Ctx.Input.RequestBody, &payloadInterface)
-	// if jsonErr != nil {
-	// 	fmt.Printf("JSON 解码失败：%v\n", jsonErr)
-	// 	response.SuccessWithMessage(400, jsonErr.Error(), (*context2.Context)(request.Ctx))
-	// }
 	//获取设备token
 	var DeviceService services.DeviceService
 	deviceData, c := DeviceService.Token(operatingDeviceValidate.DeviceId)
 	if c == 0 {
 		response.SuccessWithMessage(400, "no equipment", (*context2.Context)(request.Ctx))
+		return
 	}
 	var sendMap = make(map[string]interface{})
 	sendMap["token"] = deviceData.Token
@@ -389,12 +384,16 @@ func (request *DeviceController) Operating() {
 	newMap := make(map[string]interface{})
 	var instruct string = ""
 	if ok {
+
 		for k, v := range valueMap {
+			fmt.Println(reflect.TypeOf(v))
 			switch v := v.(type) {
 			case string:
-				instruct += k + ":" + v + "|"
+				instruct = instruct + k + ":" + v
 			case json.Number:
-				instruct += k + ":" + v.String() + "|"
+				instruct = instruct + k + ":" + v.String()
+			case float64:
+				instruct = instruct + k + ":" + strconv.Itoa(int(v))
 			}
 			var fieldMappingService services.FieldMappingService
 			newKey := fieldMappingService.TransformByDeviceid(operatingDeviceValidate.DeviceId, k)
@@ -410,6 +409,7 @@ func (request *DeviceController) Operating() {
 	if toErr != nil {
 		logs.Info("JSON 编码失败：%v\n", toErr)
 		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(request.Ctx))
+		return
 	}
 	logs.Info("-------------------------------", string(newPayload))
 	f := cm.Send(newPayload)

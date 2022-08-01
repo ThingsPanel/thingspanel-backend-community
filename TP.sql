@@ -143,7 +143,7 @@ CREATE TABLE "resources" (
     "created_at" character varying(36),
     CONSTRAINT "resources_pkey" PRIMARY KEY ("id")
 ) WITH (oids = false);
-CREATE TABLE "ts_kv" (
+CREATE TABLE "ts_kv_test" (
     "entity_type" character varying(255) NOT NULL,
     "entity_id" character varying(36) NOT NULL,
     "key" character varying(255) NOT NULL,
@@ -335,7 +335,8 @@ ALTER TABLE tp_function ADD menu_id varchar(36) NULL;
 ALTER TABLE tp_role ADD CONSTRAINT tp_role_pk PRIMARY KEY (id);
 ALTER TABLE tp_role ADD role_describe varchar(255) NULL;
 
-CREATE INDEX conditions_log_cteate_time_idx ON conditions_log (cteate_time);
+CREATE INDEX conditions_log_cteate_time_idx_desc ON public.conditions_log (cteate_time DESC);
+
 
 ALTER TABLE warning_config ADD other_message varchar(255) NULL;
 COMMENT ON COLUMN warning_config.other_message IS '其他信息';
@@ -382,5 +383,10 @@ COMMENT ON COLUMN data_transpond.disabled IS '状态';
 
 ALTER TABLE data_transpond ADD created_at int8 NULL;
 CREATE INDEX field_mapping_device_id_idx ON field_mapping (device_id);
+
+ALTER TABLE conditions_log ADD CONSTRAINT conditions_log_pk PRIMARY KEY (id);
+
+CREATE INDEX asset_parent_id_idx ON asset (parent_id);
+CREATE INDEX operation_log_created_at_idx ON operation_log (created_at DESC);
 
 

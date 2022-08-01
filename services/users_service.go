@@ -17,23 +17,24 @@ type UserService struct {
 }
 
 type PaginateUser struct {
-	ID              string `json:"id"`
-	CreatedAt       int64  `json:"created_at"`
-	UpdatedAt       int64  `json:"updated_at"`
-	Enabled         string `json:"enabled"`
-	AdditionalInfo  string `json:"additional_info"`
-	Authority       string `json:"authority"`
-	CustomerID      string `json:"customer_id"`
-	Email           string `json:"email"`
-	Name            string `json:"name"`
-	FirstName       string `json:"first_name"`
-	LastName        string `json:"last_name"`
-	SearchText      string `json:"search_text"`
-	EmailVerifiedAt int64  `json:"email_verified_at"`
-	Mobile          string `json:"mobile"`
-	Remark          string `json:"remark"`
-	IsAdmin         int64  `json:"is_admin"`
-	BusinessId      string `json:"business_id"`
+	ID              string   `json:"id"`
+	CreatedAt       int64    `json:"created_at"`
+	UpdatedAt       int64    `json:"updated_at"`
+	Enabled         string   `json:"enabled"`
+	AdditionalInfo  string   `json:"additional_info"`
+	Authority       string   `json:"authority"`
+	CustomerID      string   `json:"customer_id"`
+	Email           string   `json:"email"`
+	Name            string   `json:"name"`
+	FirstName       string   `json:"first_name"`
+	LastName        string   `json:"last_name"`
+	SearchText      string   `json:"search_text"`
+	EmailVerifiedAt int64    `json:"email_verified_at"`
+	Mobile          string   `json:"mobile"`
+	Remark          string   `json:"remark"`
+	IsAdmin         int64    `json:"is_admin"`
+	BusinessId      string   `json:"business_id"`
+	Roles           []string `json:"roles"`
 }
 
 // GetUserByName 根据name获取一条user数据
@@ -96,21 +97,23 @@ func (*UserService) Paginate(name string, offset int, pageSize int) ([]PaginateU
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
 		}
-		if len(users) == 0 {
-			users = []PaginateUser{}
-		}
-		return users, count
 	} else {
 		result := psql.Mydb.Model(&models.Users{}).Limit(pageSize).Offset(offset).Find(&users)
 		psql.Mydb.Model(&models.Users{}).Count(&count)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
 		}
-		if len(users) == 0 {
-			users = []PaginateUser{}
-		}
-		return users, count
 	}
+	if len(users) == 0 {
+		users = []PaginateUser{}
+	} else {
+		var CasbinService CasbinService
+		for index, user := range users {
+			roles, _ := CasbinService.GetRoleFromUser(user.Email)
+			users[index].Roles = roles
+		}
+	}
+	return users, count
 }
 
 // Add新增一条user数据

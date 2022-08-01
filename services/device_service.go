@@ -55,32 +55,36 @@ func (*DeviceService) PageGetDevicesByAssetID(business_id string, asset_id strin
 		as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,
 		   d."token" as device_token,d."type" as device_type,d.protocol as protocol ,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
 		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 `
+	sqlWhereCount := `select count(1) from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1`
 	var values []interface{}
+	var where = ""
 	if business_id != "" {
 		values = append(values, business_id)
-		sqlWhere += " and b.id = ?"
+		where += " and b.id = ?"
 	}
 	if asset_id != "" {
 		values = append(values, asset_id)
-		sqlWhere += " and a.id = ?"
+		where += " and a.id = ?"
 	}
 	if device_id != "" {
 		values = append(values, device_id)
-		sqlWhere += " and d.id = ?"
+		where += " and d.id = ?"
 	}
 	if device_type != "" {
 		values = append(values, device_type)
-		sqlWhere += " and d.type = ?"
+		where += " and d.type = ?"
 	}
 	if token != "" {
 		values = append(values, token)
-		sqlWhere += " and d.token = ?"
+		where += " and d.token = ?"
 	}
 	if name != "" {
-		sqlWhere += " and d.name like '%" + name + "%'"
+		where += " and d.name like '%" + name + "%'"
 	}
+	sqlWhere += where
+	sqlWhereCount += where
 	var count int64
-	result := psql.Mydb.Raw(sqlWhere, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}

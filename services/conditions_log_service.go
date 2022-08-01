@@ -31,34 +31,38 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 	cl.cteate_time ,cl.remark ,cl.protocol_type ,d."name" as device_name ,a.id as asset_id ,a."name" as asset_name,
 	 b.id as business_id ,b."name" as business_name from conditions_log cl left join device d on cl.device_id = d.id  
 	 left join asset a on a.id = d.asset_id left join business b on b.id =a.business_id where 1=1`
+	sqlWhereCount := `select count(1) from conditions_log cl left join device d on cl.device_id = d.id  
+	 left join asset a on a.id = d.asset_id left join business b on b.id =a.business_id where 1=1`
+	where := ""
 	if conditionsLogListValidate.DeviceId != "" {
-		sqlWhere += " and cl.device_id = '" + conditionsLogListValidate.DeviceId + "'"
+		where += " and cl.device_id = '" + conditionsLogListValidate.DeviceId + "'"
 	}
 	if conditionsLogListValidate.OperationType != "" {
-		sqlWhere += " and cl.operation_type = '" + conditionsLogListValidate.OperationType + "'"
+		where += " and cl.operation_type = '" + conditionsLogListValidate.OperationType + "'"
 	}
 	if conditionsLogListValidate.SendResult != "" {
-		sqlWhere += " and cl.send_result = '" + conditionsLogListValidate.SendResult + "'"
+		where += " and cl.send_result = '" + conditionsLogListValidate.SendResult + "'"
 	}
 	if conditionsLogListValidate.BusinessId != "" {
-		sqlWhere += " and b.business_id = '" + conditionsLogListValidate.BusinessId + "'"
+		where += " and b.business_id = '" + conditionsLogListValidate.BusinessId + "'"
 	}
 	if conditionsLogListValidate.AssetId != "" {
-		sqlWhere += " and a.asset_id = '" + conditionsLogListValidate.AssetId + "'"
+		where += " and a.asset_id = '" + conditionsLogListValidate.AssetId + "'"
 	}
 	if conditionsLogListValidate.BusinessName != "" {
-		sqlWhere += " and b.name like '%" + conditionsLogListValidate.BusinessName + "%'"
+		where += " and b.name like '%" + conditionsLogListValidate.BusinessName + "%'"
 	}
 	if conditionsLogListValidate.AssetName != "" {
-		sqlWhere += " and a.name like '%" + conditionsLogListValidate.AssetName + "%'"
+		where += " and a.name like '%" + conditionsLogListValidate.AssetName + "%'"
 	}
 	if conditionsLogListValidate.DeviceName != "" {
-		sqlWhere += " and d.name like '%" + conditionsLogListValidate.DeviceName + "%'"
+		where += " and d.name like '%" + conditionsLogListValidate.DeviceName + "%'"
 	}
+	sqlWhere += where
 	var conditionsLogs []map[string]interface{}
 	var values []interface{}
 	var count int64
-	countResult := psql.Mydb.Raw(sqlWhere).Count(&count)
+	countResult := psql.Mydb.Raw(sqlWhereCount).Count(&count)
 	if countResult.Error != nil {
 		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
 	}

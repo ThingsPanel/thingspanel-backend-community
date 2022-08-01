@@ -203,12 +203,10 @@ func (CasbinController *CasbinController) UpdateRolesFromUser() {
 		return
 	}
 	var CasbinService services.CasbinService
-	isSuccess := CasbinService.RemoveUserAndRole(RolesUserValidate.User)
+	CasbinService.RemoveUserAndRole(RolesUserValidate.User)
+	isSuccess := CasbinService.AddRolesToUser(RolesUserValidate.User, RolesUserValidate.Roles)
 	if isSuccess {
-		isSuccess := CasbinService.AddRolesToUser(RolesUserValidate.User, RolesUserValidate.Roles)
-		if isSuccess {
-			response.SuccessWithMessage(200, "success", (*context2.Context)(CasbinController.Ctx))
-		}
+		response.SuccessWithMessage(200, "success", (*context2.Context)(CasbinController.Ctx))
 	}
 	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
 }
