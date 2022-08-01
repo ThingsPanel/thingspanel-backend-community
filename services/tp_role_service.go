@@ -47,7 +47,7 @@ func (*TpRoleService) AddRole(tp_role models.TpRole) (bool, models.TpRole) {
 
 // 根据ID编辑role
 func (*TpRoleService) EditRole(tp_role models.TpRole) bool {
-	result := psql.Mydb.Save(&tp_role)
+	result := psql.Mydb.Updates(&tp_role)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false

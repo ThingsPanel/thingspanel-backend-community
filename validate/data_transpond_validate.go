@@ -8,10 +8,10 @@ type DataTranspondValidate struct {
 	ProcessType string `json:"process_type" alias:"流程类型" valid:"MaxSize(36)"`
 	Label       string `json:"label" alias:"标签" valid:"MaxSize(255)"`
 	Disabled    string `json:"disabled" alias:"状态" valid:"MaxSize(10)"`
-	Info        string `json:"info"  alias:"..." valid:"MaxSize(255)"`      //
-	Env         string `json:"env" alias:"..." valid:"MaxSize(999)"`        //
-	CustomerId  string `json:"customer_id" alias:"..." valid:"MaxSize(36)"` //
-	CreatedAt   int64  `json:"created_at" alias:"..." valid:"Max(36)"`      //
+	Info        string `json:"info"  alias:"Info" valid:"MaxSize(255)"`            //
+	Env         string `json:"env" alias:"Env" valid:"MaxSize(999)"`               //
+	CustomerId  string `json:"customer_id" alias:"CustomerId" valid:"MaxSize(36)"` //
+	CreatedAt   int64  `json:"created_at" alias:"CreatedAt" `                      //
 }
 type AddDataTranspondValidate struct {
 	ProcessId   string `json:"process_id" alias:"流程id" valid:"Required;MaxSize(36)"`
@@ -21,7 +21,7 @@ type AddDataTranspondValidate struct {
 	Info        string `json:"info"  alias:"..." valid:"MaxSize(255)"`      //
 	Env         string `json:"env" alias:"..." valid:"MaxSize(999)"`        //
 	CustomerId  string `json:"customer_id" alias:"..." valid:"MaxSize(36)"` //
-	CreatedAt   int64  `json:"created_at" alias:"..." valid:"Max(36)"`      //
+	CreatedAt   int64  `json:"created_at" alias:"..."`                      //
 }
 
 type PaginationValidate struct {

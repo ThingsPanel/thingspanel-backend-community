@@ -54,7 +54,8 @@ func (*DataTranspondService) AddDataTranspond(data_transpond models.DataTranspon
 
 // 修改数据
 func (*DataTranspondService) EditDataTranspond(data_transpond models.DataTranspond) bool {
-	result := psql.Mydb.Save(&data_transpond)
+	result := psql.Mydb.Updates(&data_transpond)
+	//result := psql.Mydb.Save(&data_transpond)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false

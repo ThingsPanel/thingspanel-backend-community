@@ -387,15 +387,17 @@ func (request *DeviceController) Operating() {
 	//将value中的key做映射
 	valueMap, ok := operatingDeviceValidate.Values.(map[string]interface{})
 	newMap := make(map[string]interface{})
-	var key string = ""
-	var value string = ""
+	var instruct string = ""
 	if ok {
 		for k, v := range valueMap {
-			key = k
+			switch v := v.(type) {
+			case string:
+				instruct += k + ":" + v + "|"
+			case json.Number:
+				instruct += k + ":" + v.String() + "|"
+			}
 			var fieldMappingService services.FieldMappingService
-			fmt.Println(operatingDeviceValidate.DeviceId, "======================映射", k)
 			newKey := fieldMappingService.TransformByDeviceid(operatingDeviceValidate.DeviceId, k)
-			fmt.Println("======================", newKey)
 			if newKey != "" {
 				newMap[newKey] = v
 			}
@@ -414,7 +416,7 @@ func (request *DeviceController) Operating() {
 	ConditionsLog := models.ConditionsLog{
 		DeviceId:      deviceData.ID,
 		OperationType: "2",
-		Instruct:      key + ":" + value,
+		Instruct:      instruct,
 		ProtocolType:  "mqtt",
 		CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
 	}

@@ -9,7 +9,7 @@ type DataTranspond struct {
 	Info        string `json:"info"  gorm:"size:255"`
 	Env         string `json:"env" gorm:"size:999"`
 	CustomerId  string `json:"customer_id" gorm:"size:36"`
-	CreatedAt   int64  `json:"created_at" gorm:"size:36"`
+	CreatedAt   int64  `json:"created_at"`
 }
 
 func (DataTranspond) TableName() string {

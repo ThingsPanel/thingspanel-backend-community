@@ -11,6 +11,7 @@ import (
 	"ThingsPanel-Go/services"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/panjf2000/ants/v2"
 	"github.com/spf13/viper"
 )
 
@@ -44,8 +45,12 @@ func listenMQTT() {
 	clientid := viper.GetString("mqtt.clientid")
 	user := viper.GetString("mqtt.user")
 	pass := viper.GetString("mqtt.pass")
+	p, _ := ants.NewPool(1000)
+
 	cm.Listen(broker, user, pass, clientid, func(m mqtt.Message) {
-		go TSKVS.MsgProc(m.Payload())
+		_ = p.Submit(func() {
+			TSKVS.MsgProc(m.Payload())
+		})
 	})
 }
 
