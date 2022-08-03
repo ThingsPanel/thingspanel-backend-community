@@ -145,6 +145,12 @@ func (TpRoleController *TpRoleController) Delete() {
 	}
 	if tpRoleValidate.Id == "" {
 		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpRoleController.Ctx))
+		return
+	}
+	var CasbinService services.CasbinService
+	if CasbinService.HasRole(tpRoleValidate.Id) {
+		response.SuccessWithMessage(1000, "不能删除与用户有绑定的角色", (*context2.Context)(TpRoleController.Ctx))
+		return
 	}
 	var TpRoleService services.TpRoleService
 	TpRole := models.TpRole{
@@ -157,4 +163,5 @@ func (TpRoleController *TpRoleController) Delete() {
 	} else {
 		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(TpRoleController.Ctx))
 	}
+	return
 }

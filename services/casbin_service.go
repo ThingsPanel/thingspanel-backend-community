@@ -68,6 +68,12 @@ func (*CasbinService) GetUrl(url string) bool {
 	return len(stringList) != 0
 }
 
+// 查询用户角色中是否存在某个角色
+func (*CasbinService) HasRole(role string) bool {
+	stringList := casbin.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g", 1, role)
+	return len(stringList) != 0
+}
+
 //校验
 func (*CasbinService) Verify(user string, url string) bool {
 	isTrue, _ := casbin.CasbinEnforcer.Enforce(user, url, "allow")
