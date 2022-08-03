@@ -12,6 +12,7 @@ type DataTranspondValidate struct {
 	Env         string `json:"env" alias:"Env" valid:"MaxSize(999)"`               //
 	CustomerId  string `json:"customer_id" alias:"CustomerId" valid:"MaxSize(36)"` //
 	CreatedAt   int64  `json:"created_at" alias:"CreatedAt" `                      //
+	RoleType    string `json:"role_type" alias:"1-接入引擎 2-数据转发"`
 }
 type AddDataTranspondValidate struct {
 	ProcessId   string `json:"process_id" alias:"流程id" valid:"Required;MaxSize(36)"`
@@ -22,6 +23,7 @@ type AddDataTranspondValidate struct {
 	Env         string `json:"env" alias:"..." valid:"MaxSize(999)"`        //
 	CustomerId  string `json:"customer_id" alias:"..." valid:"MaxSize(36)"` //
 	CreatedAt   int64  `json:"created_at" alias:"..."`                      //
+	RoleType    string `json:"role_type" alias:"1-接入引擎 2-数据转发"`
 }
 
 type PaginationValidate struct {
@@ -29,6 +31,7 @@ type PaginationValidate struct {
 	PerPage     int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(36)"`
 	Disabled    string `json:"disabled" alias:"状态" valid:"MaxSize(10)"`
 	ProcessType string `json:"process_type" alias:"流程类型" valid:"MaxSize(36)"`
+	RoleType    string `json:"role_type" alias:"1-接入引擎 2-数据转发"`
 }
 
 type RspPaginationValidate struct {

@@ -30,6 +30,9 @@ func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.Pagin
 	if PaginationValidate.ProcessType != "" {
 		sqlWhere += " and process_type = '" + PaginationValidate.ProcessType + "'"
 	}
+	if PaginationValidate.RoleType != "" {
+		sqlWhere += " and role_type = '" + PaginationValidate.RoleType + "'"
+	}
 	var count int64
 	psql.Mydb.Model(&models.DataTranspond{}).Where(sqlWhere).Count(&count)
 	result := psql.Mydb.Model(&models.DataTranspond{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DataTransponds)

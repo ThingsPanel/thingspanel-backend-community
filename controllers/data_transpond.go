@@ -87,6 +87,7 @@ func (DataTranspondController *DataTranspondController) Edit() {
 		Info:        DataTranspondValidate.Info,
 		Env:         DataTranspondValidate.Env,
 		CustomerId:  DataTranspondValidate.CustomerId,
+		RoleType:    DataTranspondValidate.RoleType,
 	}
 	isSucess := DataTranspondService.EditDataTranspond(DataTranspond)
 	if isSucess {
@@ -127,6 +128,7 @@ func (DataTranspondController *DataTranspondController) Add() {
 		Env:         AddDataTranspondValidate.Env,
 		CustomerId:  AddDataTranspondValidate.CustomerId,
 		CreatedAt:   time.Now().Unix(),
+		RoleType:    AddDataTranspondValidate.RoleType,
 	}
 	isSucess, d := DataTranspondService.AddDataTranspond(DataTranspond)
 	if isSucess {
@@ -160,14 +162,7 @@ func (DataTranspondController *DataTranspondController) Delete() {
 	}
 	var DataTranspondService services.DataTranspondService
 	DataTranspond := models.DataTranspond{
-		Id:          DataTranspondValidate.Id,
-		ProcessId:   DataTranspondValidate.ProcessId,
-		ProcessType: DataTranspondValidate.ProcessType,
-		Label:       DataTranspondValidate.Label,
-		Disabled:    DataTranspondValidate.Disabled,
-		Info:        DataTranspondValidate.Info,
-		Env:         DataTranspondValidate.Env,
-		CustomerId:  DataTranspondValidate.CustomerId,
+		Id: DataTranspondValidate.Id,
 	}
 	isSucess := DataTranspondService.DeleteDataTranspond(DataTranspond)
 	if isSucess {

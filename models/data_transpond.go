@@ -10,6 +10,7 @@ type DataTranspond struct {
 	Env         string `json:"env" gorm:"size:999"`
 	CustomerId  string `json:"customer_id" gorm:"size:36"`
 	CreatedAt   int64  `json:"created_at"`
+	RoleType    string `json:"role_type" gorm:"size:2"`
 }
 
 func (DataTranspond) TableName() string {
