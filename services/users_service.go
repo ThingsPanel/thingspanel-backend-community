@@ -92,7 +92,7 @@ func (*UserService) Paginate(name string, offset int, pageSize int) ([]PaginateU
 	var users []PaginateUser
 	var count int64
 	if name != "" {
-		result := psql.Mydb.Model(&models.Users{}).Where("name LIKE ?", "%"+name+"%").Limit(pageSize).Offset(offset).Find(&users)
+		result := psql.Mydb.Model(&models.Users{}).Where("name LIKE ?", "%"+name+"%").Limit(pageSize).Offset(offset).Order("name asc").Find(&users)
 		psql.Mydb.Model(&models.Users{}).Where("name LIKE ?", "%"+name+"%").Count(&count)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)

@@ -24,7 +24,7 @@ func (*TpRoleService) GetRoleList(pageSize int, offset int) (int64, []models.TpR
 	var count int64
 	psql.Mydb.Model(&models.TpRole{}).Count(&count)
 	offset = pageSize * (offset - 1)
-	result := psql.Mydb.Model(&models.TpRole{}).Offset(offset).Limit(pageSize).Find(&TpRoles)
+	result := psql.Mydb.Model(&models.TpRole{}).Offset(offset).Limit(pageSize).Order("role_name asc").Find(&TpRoles)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return count, TpRoles

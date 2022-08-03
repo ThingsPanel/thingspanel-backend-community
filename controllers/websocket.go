@@ -170,7 +170,7 @@ func (c *Client) ReadMsg() {
 						if extendMap["sampling_rate"] != "" {
 							rate, err := strconv.Atoi(extendMap["sampling_rate"])
 							if err == nil {
-								logs.Info(msgContent.Wid, "图表的刷新率是：", rate, "秒")
+								logs.Info(msgContent.Wid, "图表的采样率是：", rate, "秒")
 								sampling_rate = strconv.Itoa(rate * 1000000)
 							}
 
