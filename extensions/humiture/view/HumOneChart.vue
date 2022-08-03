@@ -127,7 +127,7 @@
             var d = new Date(item["systime"]);
             if (d >= this.mytime) {
               this.mytime = d.setMinutes(d.getMinutes() + 1);
-              this.noise.push(item["noise"]);
+              this.oneData.push(item["temp"]);
               this.sysTimeData.push(item["systime"].slice(11, 16));
             }
           }
@@ -141,7 +141,7 @@
             if (d >= this.mytime) {
               console.log(this.mytime);
               this.mytime = d.setMinutes(d.getMinutes() + 1);
-              this.noise.push(item["noise"]);
+              this.oneData.push(item["temp"]);
               this.sysTimeData.push(item["systime"].slice(11, 16));
             }
           }

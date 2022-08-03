@@ -1,6 +1,6 @@
 <template>
-  <div class="chart-all-kA6iA2">
-    <div class="chart-top-kA6iA2">
+  <div class="chart-all-fI4bF0">
+    <div class="chart-top-fI4bF0">
       <div style="
       text-align:center;
       color: #fff;
@@ -11,7 +11,7 @@
     ">甲醛浓度当日最高值</div>
       <!-- <div style="color: #5b92ff">Noise concentration</div> -->
     </div>
-    <div class="chart-body-kA6iA2" :id="'chart_' + id"></div>
+    <div class="chart-body-fI4bF0" :id="'chart_' + id"></div>
   </div>
 </template>
 <script>
@@ -77,16 +77,16 @@
         // deep: true,
         immediate: true,
         handler(val, oldVal) {
-          console.log("01-kA6iA2-图表接收到数据");
-          console.log("02-kA6iA2-图表id:" + this.id);
+          console.log("01-fI4bF0-图表接收到数据");
+          console.log("02-fI4bF0-图表id:" + this.id);
           if (val["fields"]) {
-            console.log("03-kA6iA2-fields有值");
-            console.log("04-kA6iA2-device_id:" + val["device_id"]);
+            console.log("03-fI4bF0-fields有值");
+            console.log("04-fI4bF0-device_id:" + val["device_id"]);
             this.latest = val["latest"];
             this.fields = val["fields"];
             this.getData();
           } else {
-            console.log("05-kA6iA2-fields没有值");
+            console.log("05-fI4bF0-fields没有值");
           }
         },
       },
@@ -127,7 +127,7 @@
         // }, 1000);
       },
       initChart() {
-        console.log("05-kA6iA2-初始化图表开始");
+        console.log("05-fI4bF0-初始化图表开始");
         this.chart = echarts.init(document.getElementById("chart_" + this.id));
         var option = {
           title: {
@@ -211,7 +211,7 @@
         // window.addEventListener("resize", () => {
         //   this.chart.resize();
         // });
-        console.log("06-kA6iA2-初始化图表完成");
+        console.log("06-fI4bF0-初始化图表完成");
       },
       /**
        * 重置图表大小
@@ -224,7 +224,7 @@
   };
 </script>
 <style scoped>
-  .chart-all-kA6iA2 {
+  .chart-all-fI4bF0 {
     width: 100%;
     height: 100%;
     /* position: absolute;
@@ -234,7 +234,7 @@
     /* border: 1px solid rgb(41, 189, 139); */
   }
 
-  .chart-top-kA6iA2 {
+  .chart-top-fI4bF0 {
     padding-left: 0px;
     left: 0px;
     top: 0px;
@@ -244,7 +244,7 @@
     /* border: 2px solid rgb(24, 222, 50); */
   }
 
-  .chart-body-kA6iA2 {
+  .chart-body-fI4bF0 {
     width: 100%;
     height: calc(100% - 50px);
     /* border: 2px solid rgb(201, 26, 26); */

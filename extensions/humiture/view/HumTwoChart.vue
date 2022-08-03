@@ -127,7 +127,7 @@
             var d = new Date(item["systime"]);
             if (d >= this.mytime) {
               this.mytime = d.setMinutes(d.getMinutes() + 1);
-              this.noise.push(item["noise"]);
+              this.oneData.push(item["hum"]);
               this.sysTimeData.push(item["systime"].slice(11, 16));
             }
           }
@@ -141,7 +141,7 @@
             if (d >= this.mytime) {
               console.log(this.mytime);
               this.mytime = d.setMinutes(d.getMinutes() + 1);
-              this.noise.push(item["noise"]);
+              this.oneData.push(item["hum"]);
               this.sysTimeData.push(item["systime"].slice(11, 16));
             }
           }
@@ -154,135 +154,135 @@
         console.log("05-oK4dN9-初始化图表开始");
         this.chart = echarts.init(document.getElementById("chart_" + this.id));
         var option = {
-        title: {
-          show: false,
-          text: "曲线图",
-          textStyle: {
-            align: "center",
-            verticalAlign: "middle",
-          },
-          top: 10,
-          left: "10",
-        },
-        legend: {
-          show: true,
-          top: 10,
-          textStyle: {
-            color: "#fff",
-          },
-          // data: [],
-        },
-        tooltip: {
-          trigger: "axis",
-          axisPointer: {
-            type: "cross",
-            label: {
-              backgroundColor: "#6a7985",
+          title: {
+            show: false,
+            text: "曲线图",
+            textStyle: {
+              align: "center",
+              verticalAlign: "middle",
             },
+            top: 10,
+            left: "10",
           },
-        },
-        grid: {
-          top: "15%",
-          right: "2%",
-          left: "5%",
-          bottom: "10%",
-        },
-        xAxis: [
-          {
-            type: "category",
-            boundaryGap: false,
-            axisLabel: {
-              color: "#88adf6",
+          legend: {
+            show: true,
+            top: 10,
+            textStyle: {
+              color: "#fff",
             },
-            axisLine: {
-              show: true,
-              lineStyle: {
-                color: "#0f2486",
+            // data: [],
+          },
+          tooltip: {
+            trigger: "axis",
+            axisPointer: {
+              type: "cross",
+              label: {
+                backgroundColor: "#6a7985",
               },
             },
-            axisTick: {
-              show: true,
-            },
-            splitLine: {
-              show: false,
-              lineStyle: {
-                color: "#0f2486",
-              },
-            },
-            data: this.sysTimeData,
           },
-        ],
-        yAxis: [
-          {
-            type: "value",
-            nameTextStyle: {
-              color: "#88adf6",
-            },
-            /*min: -40,
-                            max: 45,*/
-            axisLabel: {
-              formatter: "{value}",
-              textStyle: {
+          grid: {
+            top: "15%",
+            right: "2%",
+            left: "5%",
+            bottom: "10%",
+          },
+          xAxis: [
+            {
+              type: "category",
+              boundaryGap: false,
+              axisLabel: {
                 color: "#88adf6",
               },
-            },
-            axisLine: {
-              show: true,
-              lineStyle: {
-                color: "#0f2486",
-              },
-            },
-            axisTick: {
-              show: false,
-            },
-            splitLine: {
-              show: false,
-            },
-          },
-        ],
-        series: [
-          {
-            name: "湿度",
-            type: "line",
-            smooth: true,
-            stack: "",
-            symbol: "emptyCircle",
-            symbolSize: 6,
-            itemStyle: {
-              normal: {
-                color: {
-                  type: "linear",
-                  x: 0,
-                  y: 0,
-                  x2: 1,
-                  y2: 0,
-                  colorStops: [
-                    {
-                      offset: 0,
-                      color: "#427DE1", // 0%
-                    },
-                    {
-                      offset: 1,
-                      color: "#21EDFA", // 100%
-                    },
-                  ],
-                },
+              axisLine: {
+                show: true,
                 lineStyle: {
-                  width: 2,
+                  color: "#0f2486",
                 },
               },
+              axisTick: {
+                show: true,
+              },
+              splitLine: {
+                show: false,
+                lineStyle: {
+                  color: "#0f2486",
+                },
+              },
+              data: this.sysTimeData,
             },
-            markPoint: {
+          ],
+          yAxis: [
+            {
+              type: "value",
+              nameTextStyle: {
+                color: "#88adf6",
+              },
+              /*min: -40,
+                              max: 45,*/
+              axisLabel: {
+                formatter: "{value}",
+                textStyle: {
+                  color: "#88adf6",
+                },
+              },
+              axisLine: {
+                show: true,
+                lineStyle: {
+                  color: "#0f2486",
+                },
+              },
+              axisTick: {
+                show: false,
+              },
+              splitLine: {
+                show: false,
+              },
+            },
+          ],
+          series: [
+            {
+              name: "湿度",
+              type: "line",
+              smooth: true,
+              stack: "",
+              symbol: "emptyCircle",
+              symbolSize: 6,
               itemStyle: {
                 normal: {
-                  color: "#fff",
+                  color: {
+                    type: "linear",
+                    x: 0,
+                    y: 0,
+                    x2: 1,
+                    y2: 0,
+                    colorStops: [
+                      {
+                        offset: 0,
+                        color: "#427DE1", // 0%
+                      },
+                      {
+                        offset: 1,
+                        color: "#21EDFA", // 100%
+                      },
+                    ],
+                  },
+                  lineStyle: {
+                    width: 2,
+                  },
                 },
               },
+              markPoint: {
+                itemStyle: {
+                  normal: {
+                    color: "#fff",
+                  },
+                },
+              },
+              data: this.oneData,
             },
-            data: this.oneData,
-          },
-        ],
-      };
+          ],
+        };
         this.chart.setOption(option);
         console.log("06-oK4dN9-初始化图表完成");
         const resizeObserver = new ResizeObserver((entries) => {

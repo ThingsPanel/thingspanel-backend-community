@@ -43,17 +43,21 @@ export default {
         {
           title: "测试",
           icon: "img/mark_b.png",
-          position: [116.405467, 39.907761],
+          // position: [116.405467, 39.907761],
+          position: [117.363391,31.83849],
           text: "测试地址",
         },
       ],
-      center: [116.397128, 39.916527],
-      zoom: 7,
+      // center: [116.397128, 39.916527],
+      center: [117.363391,31.83849],
+      
+      // zoom: 7,
+      zoom: 17,
       // mapStyle: "fresh", //目前支持normal（默认样式）、dark（深色样式）、light（浅色样式）、fresh(osm清新风格样式)四种
       mapEvents: {
         init(o) {
           // o.setMapStyle("amap://styles/c89dd7c67942b35e022a98b0492dd087");
-          o.setMapStyle("amap://styles/darkblue");
+          o.setMapStyle("amap://styles/normal");
         },
       },
     };
@@ -91,6 +95,9 @@ export default {
       //     "AMap.Geolocation", //定位控件，用来获取和展示用户主机所在的经纬度位置
       //   ],
       // });
+      setTimeout(() => {
+          this.initChart();
+        }, 1000);
     },
 
     /**

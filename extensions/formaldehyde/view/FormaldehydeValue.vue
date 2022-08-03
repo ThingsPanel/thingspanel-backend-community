@@ -1,11 +1,11 @@
 <template>
   <!-- 随机密码生成：https://c.runoob.com/front-end/686/ -->
-  <!-- 所有class后必须跟随机密码，打开上面网页勾掉特殊字符生成随机密码如下kA6iA2 -->
-  <div class="chart-out-kA6iA2">
+  <!-- 所有class后必须跟随机密码，打开上面网页勾掉特殊字符生成随机密码如下jG4iA1 -->
+  <div class="chart-out-jG4iA1">
     <!-- 总盒子（总盒子样式勿要修改） -->
-    <div class="chart-all-kA6iA2">
+    <div class="chart-all-jG4iA1">
       <!-- 标题盒子（每个图表必须有标题）格式和样式请勿修改 -->
-      <div class="chart-top-kA6iA2">
+      <div class="chart-top-jG4iA1">
         <div style="
             text-align:center;
             color: #fff;
@@ -18,7 +18,7 @@
         </div>
       </div>
       <!-- 图表主盒子（主盒子样式勿要修改） -->
-      <div class="chart-body-kA6iA2" :id="'chart_' + id"></div>
+      <div class="chart-body-jG4iA1" :id="'chart_' + id"></div>
     </div>
   </div>
 </template>
@@ -81,16 +81,16 @@
         //   }
         immediate: true,
         handler(val, oldVal) {
-          console.log("01-kA6iA2-图表接收到数据");
-          console.log("02-kA6iA2-图表id:" + this.id);
+          console.log("01-jG4iA1-图表接收到数据");
+          console.log("02-jG4iA1-图表id:" + this.id);
           if (val["fields"]) {
-            console.log("03-kA6iA2-fields有值");
-            console.log("04-kA6iA2-device_id:" + val["device_id"]);
+            console.log("03-jG4iA1-fields有值");
+            console.log("04-jG4iA1-device_id:" + val["device_id"]);
             this.latest = val["latest"];
             this.fields = val["fields"];
             this.getData();
           } else {
-            console.log("05-kA6iA2-fields没有值");
+            console.log("05-jG4iA1-fields没有值");
           }
         },
       },
@@ -117,7 +117,7 @@
         }, 1000);
       },
       initChart() {
-        console.log("05-kA6iA2-初始化图表开始");
+        console.log("05-jG4iA1-初始化图表开始");
         this.chart = echarts.init(document.getElementById("chart_" + this.id));
         var option = {
           series: [{
@@ -187,7 +187,7 @@
           }]
         };
         this.chart.setOption(option);
-        console.log("06-kA6iA2-初始化图表完成");
+        console.log("06-jG4iA1-初始化图表完成");
         const resizeObserver = new ResizeObserver((entries) => {
           this.chart && this.chart.resize();
         });
@@ -197,14 +197,14 @@
   };
 </script>
 <style scoped>
-  .chart-out-kA6iA2 {
+  .chart-out-jG4iA1 {
     width: 100%;
     height: 100%;
     position: relative;
   }
 
   /* 请勿修改chart-all */
-  .chart-all-kA6iA2 {
+  .chart-all-jG4iA1 {
     width: 100%;
     height: 100%;
     position: absolute;
@@ -215,7 +215,7 @@
   }
 
   /* 请勿修改chart-top */
-  .chart-top-kA6iA2 {
+  .chart-top-jG4iA1 {
     padding-left: 0px;
     left: 0px;
     top: 0px;
@@ -226,7 +226,7 @@
   }
 
   /* 请勿修改chart-body */
-  .chart-body-kA6iA2 {
+  .chart-body-jG4iA1 {
     width: 100%;
     height: calc(100% - 50px);
     /* border: 2px solid rgb(201, 26, 26); */

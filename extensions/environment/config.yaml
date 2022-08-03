@@ -23,11 +23,25 @@ environment:
       receiver: ''
       template: 'environment-data'
       fields:
-        p_confidence:
+        person:
           name: '人识别度'
           type: 3
           symbol: ''
-        c_confidence:
+        car:
           name: '车识别度'
+          type: 3
+          symbol: ''
+    environment-data-hyperbola:
+      name: '特征数据曲线'
+      description: '特征数据曲线'
+      receiver: ''
+      template: 'environment-data-hyperbola'
+      fields:
+        person:
+          name: '人识别度'
+          type: 3
+          symbol: ''
+        car:
+          name: '人识别度'
           type: 3
           symbol: ''

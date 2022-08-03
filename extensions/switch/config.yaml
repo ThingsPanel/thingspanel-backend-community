@@ -6,15 +6,17 @@ switch:
   version: '1.0.0'
   author: '字段【开关状态（0关闭，1打开）】'
   email: ''
+  img: ''
+  template: 'switch-new'
   widgets:
-    switch_btn:
+    switch_new:
       name: '开关'
       description: '开关'
       receiver: ''
       thumbnail: '/switch.png'
-      template: 'switch-btn'
+      template: 'switch-new'
       fields:
         status:
           name: '开关状态'
-          type: 2
+          type: 3
           symbol: ''

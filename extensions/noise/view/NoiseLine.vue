@@ -1,11 +1,11 @@
 <template>
   <!-- 随机密码生成：https://c.runoob.com/front-end/686/ -->
   <!-- 所有class后必须跟随机密码，打开上面网页勾掉特殊字符生成随机密码如下kA6iA2 -->
-  <div class="chart-out-hI1aC1">
+  <div class="chart-out-aM3bG9">
     <!-- 总盒子（总盒子样式勿要修改） -->
-    <div class="chart-all-hI1aC1">
+    <div class="chart-all-aM3bG9">
       <!-- 标题盒子（每个图表必须有标题）格式和样式请勿修改 -->
-      <div class="chart-top-hI1aC1">
+      <div class="chart-top-aM3bG9">
         <div style="
             text-align:center;
             color: #fff;
@@ -18,7 +18,7 @@
         </div>
       </div>
       <!-- 图表主盒子（主盒子样式勿要修改） -->
-      <div class="chart-body-hI1aC1" :id="'chart_' + id"></div>
+      <div class="chart-body-aM3bG9" :id="'chart_' + id"></div>
     </div>
   </div>
 </template>
@@ -87,18 +87,18 @@
         // deep: true,
         immediate: true,
         handler(val, oldVal) {
-          console.log("hI1aC1 接收到apiData");
-          console.log("hI1aC1 id:" + this.id);
+          console.log("aM3bG9 接收到apiData");
+          console.log("aM3bG9 id:" + this.id);
           if (val["fields"]) {
-            console.log("hI1aC1 fields有值:");
+            console.log("aM3bG9 fields有值:");
             console.log(
-              "hI1aC1 device_id:" + val["device_id"]
+              "aM3bG9 device_id:" + val["device_id"]
             );
             this.latest = val["latest"];
             this.fields = val["fields"];
             this.getData();
           } else {
-            console.log("hI1aC1 fields没有值:");
+            console.log("aM3bG9 fields没有值:");
           }
         },
       },
@@ -115,11 +115,11 @@
     methods: {
       // 插件调试区域03
       getData() {
-        console.log("hI1aC1 进入apiData处理");
+        console.log("aM3bG9 进入apiData处理");
         // 最后再刷新数据
         //判断是否是第一次请求来的数据
         if (this.flag == 0) {
-          console.log("hI1aC1 第一次apiData处理开始");
+          console.log("aM3bG9 第一次apiData处理开始");
           this.flag = 1;
           //遍历数据字典，获取曲线数据
           for (var i = 0; i < this.fields.length; i++) {
@@ -131,9 +131,9 @@
               this.sysTimeData.push(item["systime"].slice(11, 16));
             }
           }
-          console.log("hI1aC1 第一次apiData处理完成");
+          console.log("aM3bG9 第一次apiData处理完成");
         } else {
-          console.log("hI1aC1 apiData后续处理");
+          console.log("aM3bG9 apiData后续处理");
           //遍历数据字典，获取曲线数据
           for (var i = 0; i < this.fields.length; i++) {
             var item = this.fields[i];
@@ -151,7 +151,7 @@
         }, 1000);
       },
       initChart() {
-        console.log("05-hI1aC1-初始化图表开始");
+        console.log("05-aM3bG9-初始化图表开始");
         this.chart = echarts.init(document.getElementById("chart_" + this.id));
         var option = {
           legend: {
@@ -275,7 +275,7 @@
           ],
         };
         this.chart.setOption(option);
-        console.log("06-hI1aC1-初始化图表完成");
+        console.log("06-aM3bG9-初始化图表完成");
         const resizeObserver = new ResizeObserver((entries) => {
           this.chart && this.chart.resize();
         });
@@ -285,14 +285,14 @@
   };
 </script>
 <style scoped>
-  .chart-out-hI1aC1 {
+  .chart-out-aM3bG9 {
     width: 100%;
     height: 100%;
     position: relative;
   }
 
   /* 请勿修改chart-all */
-  .chart-all-hI1aC1 {
+  .chart-all-aM3bG9 {
     width: 100%;
     height: 100%;
     position: absolute;
@@ -303,7 +303,7 @@
   }
 
   /* 请勿修改chart-top */
-  .chart-top-hI1aC1 {
+  .chart-top-aM3bG9 {
     padding-left: 0px;
     left: 0px;
     top: 0px;
@@ -314,7 +314,7 @@
   }
 
   /* 请勿修改chart-body */
-  .chart-body-hI1aC1 {
+  .chart-body-aM3bG9 {
     width: 100%;
     height: calc(100% - 50px);
     /* border: 2px solid rgb(201, 26, 26); */

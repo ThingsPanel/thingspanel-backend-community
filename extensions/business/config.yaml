@@ -1,0 +1,19 @@
+business:
+  type: "app"
+  name: "探针业务"
+  device: "业务v1.0"
+  description: ""
+  version: "1.0.0"
+  author: ""
+  email: ""
+  widgets:
+    device_chart:
+      name: "设备数量"
+      description: "设备数量饼图"
+      receiver: ""
+      template: "device-chart"
+      fields:
+        num:
+          name: "设备数量"
+          type: 3
+          symbol: ""

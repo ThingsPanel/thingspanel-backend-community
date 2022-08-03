@@ -148,7 +148,36 @@ probe:
       receiver: ''
       template: 'tz-accelerated-z-value'
       fields:
-        acceleratedy:
+        acceleratedz:
           name: 'Z轴加速度'
           type: 3
           symbol: 'm²/s'
+    accelerated_ThreeLine:
+      name: 'X、Y、Z轴加速度数据监测'
+      description: 'X、Y、Z轴加速度数据监测'
+      receiver: ''
+      template: 'tz-accelerated-three-line'
+      fields:
+        acceleratedx:
+          name: 'X轴加速度'
+          type: 3
+          symbol: 'm²/s'
+        acceleratedy:
+          name: 'Y轴加速度'
+          type: 3
+          symbol: 'm²/s'
+        acceleratedz:
+          name: 'Z轴加速度'
+          type: 3
+          symbol: 'm²/s'
+    
+    reboot_device:
+      name: '重启设备'
+      description: '重启设备'
+      receiver: ''
+      template: 'reboot-device'
+      fields:
+        acceleratedy:
+          name: '重启设备'
+          type: 3
+          symbol: ''
