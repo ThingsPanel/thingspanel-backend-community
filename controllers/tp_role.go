@@ -163,5 +163,4 @@ func (TpRoleController *TpRoleController) Delete() {
 	} else {
 		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(TpRoleController.Ctx))
 	}
-	return
 }
