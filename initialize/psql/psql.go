@@ -46,6 +46,7 @@ func init() {
 	psqldb, _ := beego.AppConfig.String("psqldb")
 	psqlMaxConns, _ := beego.AppConfig.Int("psqlMaxConns")
 	psqlMaxOpen, _ := beego.AppConfig.Int("psqlMaxOpen")
+	sqlloglevel, _ := beego.AppConfig.Int("sqlloglevel")
 	dataSource := fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable TimeZone=Asia/Shanghai",
 		psqladdr,
 		psqlport,
@@ -57,10 +58,10 @@ func init() {
 	newLogger := logger.New(
 		Writer{},
 		logger.Config{
-			SlowThreshold:             200 * time.Millisecond, // Slow SQL threshold
-			LogLevel:                  logger.Info,            // Log level
-			IgnoreRecordNotFoundError: true,                   // Ignore ErrRecordNotFound error for logger
-			Colorful:                  false,                  // Disable color
+			SlowThreshold:             200 * time.Millisecond,       // Slow SQL threshold
+			LogLevel:                  logger.LogLevel(sqlloglevel), // Log level
+			IgnoreRecordNotFoundError: true,                         // Ignore ErrRecordNotFound error for logger
+			Colorful:                  false,                        // Disable color
 		},
 	)
 	Mydb, Err = gorm.Open(postgres.Open(dataSource), &gorm.Config{

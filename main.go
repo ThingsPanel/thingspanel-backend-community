@@ -1,20 +1,19 @@
 package main
 
 import (
+	_ "ThingsPanel-Go/cron"
+	_ "ThingsPanel-Go/gateway"
 	_ "ThingsPanel-Go/initialize/cache"
 	_ "ThingsPanel-Go/initialize/psql"
 	_ "ThingsPanel-Go/initialize/send_message"
 	_ "ThingsPanel-Go/initialize/session"
 	_ "ThingsPanel-Go/initialize/validate"
-	"ThingsPanel-Go/services"
-	"fmt"
-	"time"
-
-	_ "ThingsPanel-Go/cron"
-	_ "ThingsPanel-Go/gateway"
 	_ "ThingsPanel-Go/modules/dataService"
 	_ "ThingsPanel-Go/routers"
+	"ThingsPanel-Go/services"
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	beego "github.com/beego/beego/v2/server/web"

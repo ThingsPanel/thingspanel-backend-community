@@ -9,6 +9,7 @@ import (
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	"ThingsPanel-Go/modules/dataService/tcp"
 	"ThingsPanel-Go/services"
+	uuid "ThingsPanel-Go/utils"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/panjf2000/ants/v2"
@@ -42,7 +43,8 @@ func listenMQTT() {
 		mqttHost = viper.GetString("mqtt.broker")
 	}
 	broker := mqttHost
-	clientid := viper.GetString("mqtt.clientid")
+	uuid := uuid.GetUuid()
+	clientid := viper.GetString(uuid)
 	user := viper.GetString("mqtt.user")
 	pass := viper.GetString("mqtt.pass")
 	p, _ := ants.NewPool(1000)

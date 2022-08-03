@@ -1,7 +1,6 @@
 mqtt:
   #BL110Broker
   broker: 39.98.176.26:10000
-  clientId: sdfsfsdfsddsftbtneewewe
   user: guest
   pass: guest
   #接收BL110的消息

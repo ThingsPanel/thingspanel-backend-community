@@ -1,6 +1,5 @@
 mqtt:
-  broker: localhost:10000
-  clientid: abd12f0d-a9bf-4532-a66d-dcaa95f9
+  broker: 39.98.176.26:10000
   user: guest
   pass: guest
   topicToPublish: thingspanel.operation
@@ -8,9 +7,3 @@ mqtt:
 
 tcp:
   port: :9998
-
-amqp:
-  host: rabbitmq
-  port: 5672
-  user: guest
-  pass: guest
