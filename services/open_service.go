@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/beego/beego/v2/core/logs"
 )
 
 type OpenService struct {
@@ -48,7 +50,8 @@ func (*OpenService) SaveData(OpenValidate valid.OpenValidate) (bool, error) {
 			return false, errors.New("data values.filename inexistence")
 		}
 	}
-	log.Println(OpenValidate)
+	logs.Info("=======================")
+	logs.Info(OpenValidate)
 	// 解析并存储数据
 	OpenValidateByte, _ := json.Marshal(OpenValidate)
 	var TSKV TSKVService
