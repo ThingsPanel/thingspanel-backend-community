@@ -22,12 +22,36 @@ type TpFunctionController struct {
 
 // 列表
 func (TpFunctionController *TpFunctionController) List() {
+	FunctionPaginationValidate := valid.FunctionPaginationValidate{}
+	err := json.Unmarshal(TpFunctionController.Ctx.Input.RequestBody, &FunctionPaginationValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(FunctionPaginationValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(FunctionPaginationValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(TpFunctionController.Ctx))
+			break
+		}
+		return
+	}
 	var TpFunctionService services.TpFunctionService
-	isSuccess, d := TpFunctionService.GetFunctionList()
+	isSuccess, d, t := TpFunctionService.GetFunctionList(FunctionPaginationValidate)
 	if !isSuccess {
 		response.SuccessWithMessage(1000, "查询失败", (*context2.Context)(TpFunctionController.Ctx))
+		return
 	}
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpFunctionController.Ctx))
+	dd := valid.FunctionPaginationValidate{
+		CurrentPage: FunctionPaginationValidate.CurrentPage,
+		Data:        d,
+		Total:       t,
+		PerPage:     FunctionPaginationValidate.PerPage,
+	}
+	response.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpFunctionController.Ctx))
 }
 
 // 编辑
@@ -155,4 +179,19 @@ func (TpFunctionController *TpFunctionController) FunctionPullDownList() {
 	d := TpFunctionService.FunctionPullDownList()
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpFunctionController.Ctx))
 	return
+}
+
+// 通过用户邮箱获取用户菜单
+func (TpFunctionController *TpFunctionController) UserAuth() {
+	authorization := TpFunctionController.Ctx.Request.Header["Authorization"][0]
+	userToken := authorization[7:]
+	userClaims, _ := response.ParseCliamsToken(userToken)
+	var TpFunctionService services.TpFunctionService
+	MenuTree, FunctionList, pageTree := TpFunctionService.Authority(userClaims.Name)
+	d := map[string]interface{}{
+		"menu_tree":  MenuTree,
+		"page_tree":  pageTree,
+		"other_list": FunctionList,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpFunctionController.Ctx))
 }

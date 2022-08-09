@@ -1,5 +1,7 @@
 package valid
 
+import "ThingsPanel-Go/models"
+
 type TpFunctionValidate struct {
 	Id           string `json:"id"  alias:"ID" valid:"MaxSize(36)"` // ID
 	FunctionName string `json:"function_name"  alias:"功能名称" valid:"MaxSize(99)"`
@@ -45,4 +47,11 @@ type TpFunctionPullDownListValidate struct {
 	FunctionName string                           `json:"function_name"  alias:"功能名称" valid:"MaxSize(99)"`
 	Children     []TpFunctionPullDownListValidate `json:"children,omitempty" alias:"子节点" valid:"MaxSize(36)"` //
 
+}
+
+type FunctionPaginationValidate struct {
+	CurrentPage int                 `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
+	PerPage     int                 `json:"per_page"  alias:"每页页数" valid:"Required;Max(36)"`
+	Data        []models.TpFunction `json:"data,omitempty" alias:"返回数据"`
+	Total       int64               `json:"total,omitempty" alias:"总数"`
 }

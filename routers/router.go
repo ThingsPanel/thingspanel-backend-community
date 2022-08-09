@@ -62,6 +62,7 @@ func init() {
 		web.NSRouter("/user/function/edit", &controllers.TpFunctionController{}, "*:Edit"),
 		web.NSRouter("/user/function/delete", &controllers.TpFunctionController{}, "*:Delete"),
 		web.NSRouter("/user/function/pull-down-list", &controllers.TpFunctionController{}, "*:FunctionPullDownList"),
+		web.NSRouter("/user/function/auth", &controllers.TpFunctionController{}, "*:UserAuth"), //获取用户权限树
 		//菜单管理
 		web.NSRouter("/menu/tree", &controllers.TpMenuController{}, "*:Tree"),
 		web.NSRouter("/menu/role/index", &controllers.TpRoleMenuController{}, "*:Index"),

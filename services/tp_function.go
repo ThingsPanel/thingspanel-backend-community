@@ -19,15 +19,21 @@ type TpFunctionService struct {
 	TimeField []string
 }
 
-// 获取角色列表
-func (*TpFunctionService) GetFunctionList() (bool, []models.TpFunction) {
+// 获取功能列表
+func (*TpFunctionService) GetFunctionList(FunctionPaginationValidate valid.FunctionPaginationValidate) (bool, []models.TpFunction, int64) {
+
 	var TpFunctions []models.TpFunction
-	result := psql.Mydb.Model(&models.TpFunction{}).Find(&TpFunctions)
+	offset := (FunctionPaginationValidate.CurrentPage - 1) * FunctionPaginationValidate.PerPage
+	sqlWhere := "1=1"
+	var count int64
+	psql.Mydb.Model(&models.TpFunction{}).Where(sqlWhere).Count(&count)
+	result := psql.Mydb.Model(&models.TpFunction{}).Where(sqlWhere).Limit(FunctionPaginationValidate.PerPage).Offset(offset).Find(&TpFunctions)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false, TpFunctions
+		return false, TpFunctions, 0
 	}
-	return true, TpFunctions
+	return true, TpFunctions, count
+
 }
 
 // Add新增角色
@@ -117,16 +123,19 @@ func PullDownListTree(parent_id string) []valid.TpFunctionPullDownListValidate {
 // }
 
 // 用户权限查询
-func (*TpFunctionService) Authority() ([]valid.TpFunctionTreeValidate, []string, []valid.TpFunctionTreeValidate) {
+func (*TpFunctionService) Authority(email string) ([]valid.TpFunctionTreeValidate, []string, []valid.TpFunctionTreeValidate) {
 
-	return UserAuthorityTree("0")
+	return UserAuthorityTree(email, "0")
 }
-func UserAuthorityTree(parent_id string) ([]valid.TpFunctionTreeValidate, []string, []valid.TpFunctionTreeValidate) {
+func UserAuthorityTree(email string, parent_id string) ([]valid.TpFunctionTreeValidate, []string, []valid.TpFunctionTreeValidate) {
 	var TpFunctionTreeValidates []valid.TpFunctionTreeValidate
 	var functionList []string
 	var pageList []valid.TpFunctionTreeValidate
 	var TpFunctions []models.TpFunction
-	result := psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ?", parent_id).Order("sort desc").Find(&TpFunctions)
+	//result := psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ?", parent_id).Order("sort desc").Find(&TpFunctions)
+	result := psql.Mydb.Raw(`select tf.id,tf.function_name,tf."path" ,tf."name" ,tf.component ,tf.title ,tf.icon ,tf."type" ,tf.function_code from 
+	(select crp.v1 from casbin_rule crp inner join (select cr.v1 from casbin_rule cr  where cr.ptype ='g' and cr.v0 = ? ) crr
+   on crr.v1 = crp.v0 where crp.ptype ='p') t left join tp_function tf on t.v1 = tf.id where tf.parent_id =? order by tf.sort desc`, email, parent_id).Scan(&TpFunctions)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return TpFunctionTreeValidates, functionList, pageList
@@ -143,7 +152,7 @@ func UserAuthorityTree(parent_id string) ([]valid.TpFunctionTreeValidate, []stri
 				TpFunctionTreeValidate.Icon = TpFunction.Icon
 				TpFunctionTreeValidate.Path = TpFunction.Path
 				TpFunctionTreeValidate.Type = TpFunction.Type
-				TpFunctionTreeValidate.Children, l, page = UserAuthorityTree(TpFunction.Id)
+				TpFunctionTreeValidate.Children, l, page = UserAuthorityTree(email, TpFunction.Id)
 				pageList = append(pageList, page...)
 				functionList = append(functionList, l...)
 				TpFunctionTreeValidates = append(TpFunctionTreeValidates, TpFunctionTreeValidate)
@@ -152,12 +161,12 @@ func UserAuthorityTree(parent_id string) ([]valid.TpFunctionTreeValidate, []stri
 				TpFunctionTreeValidate.Path = TpFunction.Path
 				TpFunctionTreeValidate.Type = TpFunction.Type
 				pageList = append(pageList, TpFunctionTreeValidate)
-				_, l, page = UserAuthorityTree(TpFunction.Id)
+				_, l, page = UserAuthorityTree(email, TpFunction.Id)
 				pageList = append(pageList, page...)
 				functionList = append(functionList, l...)
 			} else if TpFunction.Type == "3" { //按钮等
 				functionList = append(functionList, TpFunction.FunctionCode)
-				_, l, page = UserAuthorityTree(TpFunction.Id)
+				_, l, page = UserAuthorityTree(email, TpFunction.Id)
 				pageList = append(pageList, page...)
 				functionList = append(functionList, l...)
 			}

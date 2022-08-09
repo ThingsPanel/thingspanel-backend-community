@@ -45,6 +45,7 @@ func (DataTranspondController *DataTranspondController) List() {
 
 	if !isSuccess {
 		response.SuccessWithMessage(1000, "查询失败", (*context2.Context)(DataTranspondController.Ctx))
+		return
 	}
 	dd := valid.RspPaginationValidate{
 		CurrentPage: PaginationValidate.CurrentPage,
