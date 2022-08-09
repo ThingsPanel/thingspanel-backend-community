@@ -678,3 +678,25 @@ INSERT INTO tp_menu (id,menu_name,parent_id,remark) VALUES
 	 ('14','equipment_log','6',NULL),
 	 ('15','firmware_upgrade','7',NULL),
 	 ('8','data_switching','0',NULL);
+
+ALTER TABLE public.tp_function ADD "path" varchar(255) NULL;
+COMMENT ON COLUMN public.tp_function."path" IS '页面路径';
+ALTER TABLE public.tp_function ADD name varchar(255) NULL;
+COMMENT ON COLUMN public.tp_function.name IS '页面名称';
+ALTER TABLE public.tp_function ADD component varchar(255) NULL;
+COMMENT ON COLUMN public.tp_function.component IS '组件路径';
+ALTER TABLE public.tp_function ADD title varchar(255) NULL;
+COMMENT ON COLUMN public.tp_function.title IS '页面标题';
+ALTER TABLE public.tp_function ADD icon varchar(255) NULL;
+COMMENT ON COLUMN public.tp_function.icon IS '页面标题';
+ALTER TABLE public.tp_function ADD "type" varchar(2) NULL;
+COMMENT ON COLUMN public.tp_function."type" IS '类型0-目录 1-菜单 2-页面 3-按钮';
+ALTER TABLE public.tp_function ADD function_code varchar(255) NULL;
+COMMENT ON COLUMN public.tp_function.function_code IS '编码';
+ALTER TABLE public.tp_function ADD parent_id varchar(36) NULL;
+
+COMMENT ON COLUMN public.tp_function.icon IS '页面图表';
+ALTER TABLE public.tp_function DROP CONSTRAINT tp_function_un;
+ALTER TABLE public.tp_function ADD CONSTRAINT tp_function_pk PRIMARY KEY (id);
+ALTER TABLE public.tp_function ADD sort int4 NULL;
+

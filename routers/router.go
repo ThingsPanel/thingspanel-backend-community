@@ -61,6 +61,7 @@ func init() {
 		web.NSRouter("/user/function/list", &controllers.TpFunctionController{}, "*:List"),
 		web.NSRouter("/user/function/edit", &controllers.TpFunctionController{}, "*:Edit"),
 		web.NSRouter("/user/function/delete", &controllers.TpFunctionController{}, "*:Delete"),
+		web.NSRouter("/user/function/pull-down-list", &controllers.TpFunctionController{}, "*:FunctionPullDownList"),
 		//菜单管理
 		web.NSRouter("/menu/tree", &controllers.TpMenuController{}, "*:Tree"),
 		web.NSRouter("/menu/role/index", &controllers.TpRoleMenuController{}, "*:Index"),

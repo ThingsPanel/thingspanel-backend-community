@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
+	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
@@ -55,6 +56,14 @@ func (TpFunctionController *TpFunctionController) Edit() {
 	TpFunction := models.TpFunction{
 		Id:           TpFunctionValidate.Id,
 		FunctionName: TpFunctionValidate.FunctionName,
+		Path:         TpFunctionValidate.Path,
+		Name:         TpFunctionValidate.Name,
+		Component:    TpFunctionValidate.Component,
+		Title:        TpFunctionValidate.Title,
+		Icon:         TpFunctionValidate.Icon,
+		Type:         TpFunctionValidate.Type,
+		FunctionCode: TpFunctionValidate.FunctionCode,
+		ParentId:     TpFunctionValidate.ParentId,
 	}
 	isSucess := TpFunctionService.EditFunction(TpFunction)
 	if isSucess {
@@ -84,9 +93,18 @@ func (TpFunctionController *TpFunctionController) Add() {
 		return
 	}
 	var TpFunctionService services.TpFunctionService
+	function_id := uuid.GetUuid()
 	TpFunction := models.TpFunction{
-		Id:           TpFunctionValidate.Id,
+		Id:           function_id,
 		FunctionName: TpFunctionValidate.FunctionName,
+		Path:         TpFunctionValidate.Path,
+		Name:         TpFunctionValidate.Name,
+		Component:    TpFunctionValidate.Component,
+		Title:        TpFunctionValidate.Title,
+		Icon:         TpFunctionValidate.Icon,
+		Type:         TpFunctionValidate.Type,
+		FunctionCode: TpFunctionValidate.FunctionCode,
+		ParentId:     TpFunctionValidate.ParentId,
 	}
 	isSucess, d := TpFunctionService.AddFunction(TpFunction)
 	if isSucess {
@@ -129,4 +147,12 @@ func (TpFunctionController *TpFunctionController) Delete() {
 	} else {
 		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(TpFunctionController.Ctx))
 	}
+}
+
+// 功能下拉列表
+func (TpFunctionController *TpFunctionController) FunctionPullDownList() {
+	var TpFunctionService services.TpFunctionService
+	d := TpFunctionService.FunctionPullDownList()
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpFunctionController.Ctx))
+	return
 }
