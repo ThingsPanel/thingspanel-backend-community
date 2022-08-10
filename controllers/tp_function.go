@@ -197,3 +197,10 @@ func (TpFunctionController *TpFunctionController) UserAuth() {
 	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpFunctionController.Ctx))
 }
+
+// 获取权限树
+func (TpFunctionController *TpFunctionController) AuthorityList() {
+	var TpFunctionService services.TpFunctionService
+	d := TpFunctionService.AuthorityList()
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpFunctionController.Ctx))
+}

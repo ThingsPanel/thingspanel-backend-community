@@ -88,7 +88,7 @@ func PullDownListTree(parent_id string) []valid.TpFunctionPullDownListValidate {
 		for _, TpFunction := range TpFunctions {
 			var TpFunctionPullDownListValidate valid.TpFunctionPullDownListValidate
 			TpFunctionPullDownListValidate.Id = TpFunction.Id
-			TpFunctionPullDownListValidate.FunctionName = TpFunction.Name
+			TpFunctionPullDownListValidate.Name = TpFunction.Name
 			TpFunctionPullDownListValidate.Title = TpFunction.Title
 			TpFunctionPullDownListValidate.Children = PullDownListTree(TpFunction.Id)
 			TpFunctionPullDownListValidates = append(TpFunctionPullDownListValidates, TpFunctionPullDownListValidate)
@@ -100,31 +100,38 @@ func PullDownListTree(parent_id string) []valid.TpFunctionPullDownListValidate {
 }
 
 // 权限树
-// func (*TpFunctionService) AuthorityList() []valid.TpFunctionTreeAuthValidate {
-// 	return AuthorityTree("0")
-// }
+func (*TpFunctionService) AuthorityList() []valid.TpFunctionTreeAuthValidate {
+	return AuthorityTree("0")
+}
 
-// func AuthorityTree(parent_id string) []valid.TpFunctionTreeAuthValidate {
-// 	var TpFunctionTreeAuthValidates []valid.TpFunctionTreeAuthValidate
-// 	var TpFunctions []models.TpFunction
-// 	result := psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ?", parent_id).Order("sort desc").Find(&TpFunctions)
-// 	if result.Error != nil {
-// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
-// 		return TpFunctionTreeAuthValidates
-// 	}
-// 	if len(TpFunctions) > 0 {
-// 		for _, TpFunction := range TpFunctions {
-// 			var TpFunctionTreeAuthValidate valid.TpFunctionTreeAuthValidate
-// 			TpFunctionTreeAuthValidate.Id = TpFunction.Id
-// 			TpFunctionTreeAuthValidate.FunctionName = TpFunction.Name
-// 			TpFunctionTreeAuthValidate.Children = AuthorityTree(TpFunction.Id)
-// 			TpFunctionTreeAuthValidates = append(TpFunctionTreeAuthValidates, TpFunctionTreeAuthValidate)
-// 		}
-// 	} else {
-// 		return TpFunctionTreeAuthValidates
-// 	}
-// 	return TpFunctionTreeAuthValidates
-// }
+func AuthorityTree(parent_id string) []valid.TpFunctionTreeAuthValidate {
+	var TpFunctionTreeAuthValidates []valid.TpFunctionTreeAuthValidate
+	var TpFunctions []models.TpFunction
+	result := psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ?", parent_id).Order("sort desc").Find(&TpFunctions)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return TpFunctionTreeAuthValidates
+	}
+	if len(TpFunctions) > 0 {
+		for _, TpFunction := range TpFunctions {
+			var TpFunctionTreeAuthValidate valid.TpFunctionTreeAuthValidate
+			TpFunctionTreeAuthValidate.Id = TpFunction.Id
+			TpFunctionTreeAuthValidate.Name = TpFunction.Name
+			TpFunctionTreeAuthValidate.Title = TpFunction.Title
+			TpFunctionTreeAuthValidate.Component = TpFunction.Component
+			TpFunctionTreeAuthValidate.FunctionCode = TpFunction.FunctionCode
+			TpFunctionTreeAuthValidate.FunctionName = TpFunction.FunctionName
+			TpFunctionTreeAuthValidate.Icon = TpFunction.Icon
+			TpFunctionTreeAuthValidate.Path = TpFunction.Path
+			TpFunctionTreeAuthValidate.Type = TpFunction.Type
+			TpFunctionTreeAuthValidate.Children = AuthorityTree(TpFunction.Id)
+			TpFunctionTreeAuthValidates = append(TpFunctionTreeAuthValidates, TpFunctionTreeAuthValidate)
+		}
+	} else {
+		return TpFunctionTreeAuthValidates
+	}
+	return TpFunctionTreeAuthValidates
+}
 
 // 用户权限查询
 func (*TpFunctionService) Authority(email string) ([]valid.TpFunctionTreeValidate, []string, []valid.TpFunctionTreeValidate) {
@@ -155,7 +162,7 @@ func UserAuthorityTree(email string, parent_id string) ([]valid.TpFunctionTreeVa
 			var l []string
 			var page []valid.TpFunctionTreeValidate
 			if TpFunction.Type == "0" || TpFunction.Type == "1" { //目录、菜单
-				TpFunctionTreeValidate.FunctionName = TpFunction.Name
+				TpFunctionTreeValidate.Name = TpFunction.Name
 				TpFunctionTreeValidate.Component = TpFunction.Component
 				TpFunctionTreeValidate.Title = TpFunction.Title
 				TpFunctionTreeValidate.Icon = TpFunction.Icon
