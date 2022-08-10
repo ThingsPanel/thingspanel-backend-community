@@ -54,4 +54,5 @@ type FunctionPaginationValidate struct {
 	PerPage     int                 `json:"per_page"  alias:"每页页数" valid:"Required;Max(36)"`
 	Data        []models.TpFunction `json:"data,omitempty" alias:"返回数据"`
 	Total       int64               `json:"total,omitempty" alias:"总数"`
+	Id          string              `json:"id,omitempty" alias:"id"`
 }
