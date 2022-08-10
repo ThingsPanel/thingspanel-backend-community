@@ -98,7 +98,7 @@ func PullDownListTree(parent_id string) []valid.TpFunctionPullDownListValidate {
 	return TpFunctionPullDownListValidates
 }
 
-// // 权限树
+// 权限树
 // func (*TpFunctionService) AuthorityList() []valid.TpFunctionTreeAuthValidate {
 // 	return AuthorityTree("0")
 // }
@@ -135,10 +135,15 @@ func UserAuthorityTree(email string, parent_id string) ([]valid.TpFunctionTreeVa
 	var functionList []string
 	var pageList []valid.TpFunctionTreeValidate
 	var TpFunctions []models.TpFunction
-	//result := psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ?", parent_id).Order("sort desc").Find(&TpFunctions)
-	result := psql.Mydb.Raw(`select tf.id,tf.function_name,tf."path" ,tf."name" ,tf.component ,tf.title ,tf.icon ,tf."type" ,tf.function_code from 
-	(select crp.v1 from casbin_rule crp inner join (select cr.v1 from casbin_rule cr  where cr.ptype ='g' and cr.v0 = ? ) crr
-   on crr.v1 = crp.v0 where crp.ptype ='p') t left join tp_function tf on t.v1 = tf.id where tf.parent_id =? order by tf.sort desc`, email, parent_id).Scan(&TpFunctions)
+	var result *gorm.DB
+	if email == "admin@thingspanel.cn" {
+		result = psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ?", parent_id).Order("sort desc").Find(&TpFunctions)
+	} else {
+		result = psql.Mydb.Raw(`select tf.id,tf.function_name,tf."path" ,tf."name" ,tf.component ,tf.title ,tf.icon ,tf."type" ,tf.function_code from 
+		(select crp.v1 from casbin_rule crp inner join (select cr.v1 from casbin_rule cr  where cr.ptype ='g' and cr.v0 = ? ) crr
+	   on crr.v1 = crp.v0 where crp.ptype ='p') t left join tp_function tf on t.v1 = tf.id where tf.parent_id =? order by tf.sort desc`, email, parent_id).Scan(&TpFunctions)
+	}
+
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return TpFunctionTreeValidates, functionList, pageList
