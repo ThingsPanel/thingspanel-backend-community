@@ -168,6 +168,7 @@ func UserAuthorityTree(email string, parent_id string) ([]valid.TpFunctionTreeVa
 				TpFunctionTreeValidate.Component = TpFunction.Component
 				TpFunctionTreeValidate.Path = TpFunction.Path
 				TpFunctionTreeValidate.Type = TpFunction.Type
+				TpFunctionTreeValidate.Name = TpFunction.Name
 				pageList = append(pageList, TpFunctionTreeValidate)
 				_, l, page = UserAuthorityTree(email, TpFunction.Id)
 				pageList = append(pageList, page...)
