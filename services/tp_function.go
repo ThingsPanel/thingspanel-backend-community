@@ -89,6 +89,7 @@ func PullDownListTree(parent_id string) []valid.TpFunctionPullDownListValidate {
 			var TpFunctionPullDownListValidate valid.TpFunctionPullDownListValidate
 			TpFunctionPullDownListValidate.Id = TpFunction.Id
 			TpFunctionPullDownListValidate.FunctionName = TpFunction.Name
+			TpFunctionPullDownListValidate.Title = TpFunction.Title
 			TpFunctionPullDownListValidate.Children = PullDownListTree(TpFunction.Id)
 			TpFunctionPullDownListValidates = append(TpFunctionPullDownListValidates, TpFunctionPullDownListValidate)
 		}

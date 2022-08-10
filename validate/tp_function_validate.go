@@ -44,7 +44,8 @@ type TpFunctionTreeAuthValidate struct {
 }
 
 type TpFunctionPullDownListValidate struct {
-	Id           string                           `json:"id"  alias:"ID" valid:"MaxSize(36)"` // ID
+	Id           string                           `json:"id"  alias:"ID" valid:"MaxSize(36)"`     // ID
+	Title        string                           `json:"title"  alias:"ID" valid:"MaxSize(255)"` // ID
 	FunctionName string                           `json:"function_name"  alias:"功能名称" valid:"MaxSize(99)"`
 	Children     []TpFunctionPullDownListValidate `json:"children,omitempty" alias:"子节点" valid:"MaxSize(36)"` //
 
