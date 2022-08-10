@@ -88,6 +88,7 @@ func (TpFunctionController *TpFunctionController) Edit() {
 		Type:         TpFunctionValidate.Type,
 		FunctionCode: TpFunctionValidate.FunctionCode,
 		ParentId:     TpFunctionValidate.ParentId,
+		Sort:         TpFunctionValidate.Sort,
 	}
 	isSucess := TpFunctionService.EditFunction(TpFunction)
 	if isSucess {
@@ -129,6 +130,7 @@ func (TpFunctionController *TpFunctionController) Add() {
 		Type:         TpFunctionValidate.Type,
 		FunctionCode: TpFunctionValidate.FunctionCode,
 		ParentId:     TpFunctionValidate.ParentId,
+		Sort:         TpFunctionValidate.Sort,
 	}
 	isSucess, d := TpFunctionService.AddFunction(TpFunction)
 	if isSucess {

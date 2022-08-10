@@ -13,6 +13,7 @@ type TpFunctionValidate struct {
 	Type         string `json:"type" alias:"类型0-目录 1-菜单 2-页面 3-按钮" valid:"MaxSize(255)"` //
 	FunctionCode string `json:"function_code" alias:"编码" valid:"MaxSize(255)"`           //
 	ParentId     string `json:"parent_id" alias:"父id" valid:"MaxSize(36)"`               //
+	Sort         int    `json:"sort,omitempty" alias:"排序" valid:"Max(999)"`
 }
 
 type TpFunctionTreeValidate struct {
