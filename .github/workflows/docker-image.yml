@@ -12,8 +12,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag thingspanel-go:latest
-    - name: Build the Docker image1
-      run: docker tag thingspanel-go:latest ghcr.io/thingspanel/thingspanel-go:latest
-    - name: Build the Docker image2
+      run: docker build . --file Dockerfile --tag ghcr.io/thingspanel/thingspanel-go:latest
+    - name: Login in
+      run: echo $ACTION_TOKEN | docker login ghcr.io -u zjhong --password-stdin
+    - name: Push
       run: docker push ghcr.io/thingspanel/thingspanel-go:latest
+
