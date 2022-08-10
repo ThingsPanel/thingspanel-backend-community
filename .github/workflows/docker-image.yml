@@ -12,4 +12,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag thingspanel-go:$(date +%s)
+      run: docker build . --file Dockerfile --tag thingspanel-go:latest
+      run: docker tag thingspanel-go:latest ghcr.io/OWNER/thingspanel-go:latest
+      run: docker push ghcr.io/thingspanel/thingspanel-go:latest
