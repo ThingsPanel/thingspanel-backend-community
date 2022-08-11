@@ -2,8 +2,8 @@ mqtt:
   broker: 127.0.0.1:1883
   user: guest
   pass: guest
-  topicToPublish: thingspanel.operation
-  topicToSubscribe: thingspanel.telemetry
+  topicToPublish: thingspanel.operation1
+  topicToSubscribe: thingspanel.telemetry1
 
 tcp:
   port: :9998

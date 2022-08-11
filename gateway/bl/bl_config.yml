@@ -1,6 +1,6 @@
 mqtt:
   #BL110Broker
-  broker: 39.98.176.26:10000
+  broker: 127.0.0.1:1883
   user: guest
   pass: guest
   #接收BL110的消息
