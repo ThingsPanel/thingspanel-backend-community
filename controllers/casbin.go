@@ -92,14 +92,21 @@ func (CasbinController *CasbinController) UpdateFunctionFromRole() {
 		return
 	}
 	var CasbinService services.CasbinService
-	isSuccess := CasbinService.RemoveRoleAndFunction(FunctionsRoleValidate.Role)
-	if isSuccess {
-		isSuccess := CasbinService.AddFunctionToRole(FunctionsRoleValidate.Role, FunctionsRoleValidate.Functions)
-		if isSuccess {
-			response.SuccessWithMessage(200, "success", (*context2.Context)(CasbinController.Ctx))
+	f, _ := CasbinService.GetFunctionFromRole(FunctionsRoleValidate.Role)
+	if len(f) > 0 {
+		//没有记录删除会返回false
+		isSuccess := CasbinService.RemoveRoleAndFunction(FunctionsRoleValidate.Role)
+		if !isSuccess {
+			response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+			return
 		}
 	}
-	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+	isSuccess := CasbinService.AddFunctionToRole(FunctionsRoleValidate.Role, FunctionsRoleValidate.Functions)
+	if isSuccess {
+		response.SuccessWithMessage(200, "success", (*context2.Context)(CasbinController.Ctx))
+	} else {
+		response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+	}
 }
 
 // 删除角色的功能
