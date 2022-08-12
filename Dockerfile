@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.17-alpine
+FROM busybox:latest
 WORKDIR /app
 RUN pwd
 ENV TP_PG_IP=172.19.0.4
