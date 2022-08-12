@@ -92,9 +92,7 @@ func (WarninglogController *WarninglogController) PageList() {
 		return
 	}
 	var WarningLogService services.WarningLogService
-	w, c := WarningLogService.GetWarningLogByPaging(warningLogPageListValidate.BusinessId, warningLogPageListValidate.DeviceId,
-		warningLogPageListValidate.AssetId, warningLogPageListValidate.Page, warningLogPageListValidate.Limit,
-		warningLogPageListValidate.StartDate, warningLogPageListValidate.EndDate)
+	w, c := WarningLogService.GetWarningLogByPaging(warningLogPageListValidate)
 	d := PaginateWarninglogList{
 		CurrentPage: warningLogPageListValidate.Page,
 		Data:        w,

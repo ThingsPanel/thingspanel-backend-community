@@ -440,6 +440,8 @@ CREATE TABLE warning_config (
 	CONSTRAINT warning_config_pkey PRIMARY KEY (id)
 );
 COMMENT ON TABLE public.warning_config IS '报警配置';
+CREATE INDEX warning_log_created_at_idx ON public.warning_log (created_at DESC);
+
 
 -- Column comments
 

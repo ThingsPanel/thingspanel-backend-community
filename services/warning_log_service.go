@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
+	valid "ThingsPanel-Go/validate"
 	"errors"
 	"strconv"
 	"time"
@@ -97,41 +98,47 @@ func (*WarningLogService) WarningForWid(device_id string, limit int) []models.Wa
 }
 
 // 跟据业务ID，设备ID，资产ID，分页查询相关告警信息
-func (*WarningLogService) GetWarningLogByPaging(business_id string, device_id string, asset_id string, current int,
-	pageSize int, startDate string, endDate string) ([]map[string]interface{}, int64) {
+func (*WarningLogService) GetWarningLogByPaging(WarningLogReq valid.WarningLogPageListValidate) ([]map[string]interface{}, int64) {
 	sqlWhere := `select wl.id ,wl."type" ,wl."describe" ,wl.data_id as device_id,wl.created_at ,d."name" as device_name,
 	b.id as business_id ,a.id as asset_id ,a."name" as asset_name,b."name" as business_name 
 	from warning_log wl left join device d on d.id = wl.data_id 
 	left join asset a on d.asset_id  = a.id 
 	left join business b on a.business_id = b.id where 1=1 `
+	sqlWhereCount := `select count(1) 
+	from warning_log wl left join device d on d.id = wl.data_id 
+	left join asset a on d.asset_id  = a.id 
+	left join business b on a.business_id = b.id where 1=1 `
 	var values []interface{}
-	if business_id != "" {
-		values = append(values, business_id)
-		sqlWhere += " and b.id = ?"
+	var sqlWhereTail string
+	if WarningLogReq.BusinessId != "" {
+		values = append(values, WarningLogReq.BusinessId)
+		sqlWhereTail += " and b.id = ?"
 	}
-	if asset_id != "" {
-		values = append(values, asset_id)
-		sqlWhere += " and a.id = ?"
+	if WarningLogReq.AssetId != "" {
+		values = append(values, WarningLogReq.AssetId)
+		sqlWhereTail += " and a.id = ?"
 	}
-	if device_id != "" {
-		values = append(values, device_id)
-		sqlWhere += " and wl.data_id = ?"
+	if WarningLogReq.DeviceId != "" {
+		values = append(values, WarningLogReq.DeviceId)
+		sqlWhereTail += " and wl.data_id = ?"
 	}
-	if startDate != "" {
+	if WarningLogReq.StartDate != "" {
 		//2021/12/01 15:12:37
 		tmp := "2006-01-02 15:04:05"
-		sDate, _ := time.ParseInLocation(tmp, startDate, time.Local)
-		eDate, _ := time.ParseInLocation(tmp, endDate, time.Local)
-		sqlWhere += " and wl.created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)
+		sDate, _ := time.ParseInLocation(tmp, WarningLogReq.StartDate, time.Local)
+		eDate, _ := time.ParseInLocation(tmp, WarningLogReq.EndDate, time.Local)
+		sqlWhereTail += " and wl.created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)
 	}
+	sqlWhere += sqlWhereTail
+	sqlWhereCount += sqlWhereTail
 	var count int64
-	result := psql.Mydb.Raw(sqlWhere, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
-	var offset int = (current - 1) * pageSize
-	var limit int = pageSize
-	sqlWhere += "order by wl.created_at desc offset ? limit ?"
+	var offset int = (WarningLogReq.Page - 1) * WarningLogReq.Limit
+	var limit int = WarningLogReq.Limit
+	sqlWhere += " order by wl.created_at desc offset ? limit ?"
 	values = append(values, offset, limit)
 	var warningLogs []map[string]interface{}
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&warningLogs)
