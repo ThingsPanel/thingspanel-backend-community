@@ -746,9 +746,6 @@ INSERT INTO tp_function
 VALUES('7cac14a0-0ff2-57d9-5465-597760bd2cb1', '', NULL, '', 'RuleEngine', '', 'COMMON.RULEENGINE', 'flaticon2-gift-1', '0', '', '0', 992);
 INSERT INTO tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
-VALUES('a8ebb8af-adab-90fa-a553-49667370fc5f', '', NULL, '/access_engine/index', 'AccessEngine', '/pages/network_components/AccessEngineIndex.vue', 'COMMON.NETWORKCOMPONENTS', 'flaticon-upload-1', '1', '', '7cac14a0-0ff2-57d9-5465-597760bd2cb1', 999);
-INSERT INTO tp_function
-(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('3f4348b0-f39d-ec42-14b4-623cbeadb12f', '', NULL, '/transpond/index', 'Transpond', '/pages/transpond/TranspondIndex.vue', 'COMMON.TRANSPOND', 'flaticon-upload-1', '1', '', '7cac14a0-0ff2-57d9-5465-597760bd2cb1', 998);
 INSERT INTO tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
@@ -785,9 +782,6 @@ INSERT INTO tp_function
 VALUES('363116a3-1c00-b875-1386-415ea0839849', '', NULL, '/list/device', 'device', '/pages/device/DeviceIndex.vue', 'COMMON.DEVICE', '', '2', '', 'a53dba0c-3388-0f49-35f3-6e56ff9acc68', 0);
 INSERT INTO tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
-VALUES('9c4d044d-19c4-1b6c-c9d3-4d78e01ecb58', '', NULL, '/editpassword', 'EditPassword', '/pages/users/EditPassword.vue', 'COMMON.CHANGEPASSWORD', '', '2', '', '2a1744d7-8440-c0a5-940a-9386ddfb1d0b', 0);
-INSERT INTO tp_function
-(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('67b97839-919f-0976-2c79-c921adbec66e', '', NULL, '/strategy/alarmlist', 'AlarmStrategy', '/pages/automation/AlarmStrategy.vue', 'COMMON.ALARMSTRATEGY', '', '2', '', 'dce69d1d-8297-c5a4-1502-ace84dfe0209', 0);
 INSERT INTO tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
@@ -798,3 +792,9 @@ VALUES('d8613453-278c-289c-6e18-ee58f6eb540b', '', NULL, '', 'DeletePermission',
 INSERT INTO tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('1988db79-dcb6-f8e5-4984-90e131efa526', '', NULL, '', 'SearchPermission', '', 'COMMON.SEARCH', '', '3', 'sys:permission:search', '4231ea2c-a2fb-bd9c-8966-c7d654289deb', 0);
+INSERT INTO tp_function
+(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
+VALUES('a8ebb8af-adab-90fa-a553-49667370fc5f', '', NULL, '/access_engine/index', 'AccessEngine', '/pages/access-engine/AccessEngineIndex.vue', 'COMMON.NETWORKCOMPONENTS', 'flaticon-upload-1', '1', '', '7cac14a0-0ff2-57d9-5465-597760bd2cb1', 999);
+INSERT INTO tp_function
+(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
+VALUES('9c4d044d-19c4-1b6c-c9d3-4d78e01ecb58', '', NULL, '/editpassword', 'EditPassword', '/pages/users/EditPassword.vue', 'COMMON.CHANGEPASSWORD', '', '3', 'sys:user:editpassword', '2a1744d7-8440-c0a5-940a-9386ddfb1d0b', 0);
