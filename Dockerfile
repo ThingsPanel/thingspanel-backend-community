@@ -13,4 +13,4 @@ EXPOSE 9998
 RUN chmod +x ThingsPanel-Go
 RUN pwd
 RUN ls -lrt
-CMD [ "./ThingsPanel-Go" ]
+CMD [ "/app/ThingsPanel-Go" ]
