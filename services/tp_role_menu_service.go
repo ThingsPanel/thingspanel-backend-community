@@ -18,7 +18,7 @@ func (*TpRoleMenuService) GetRoleMenuListByUser(userName string) (bool, []string
 	var menusMap []string
 	//var menusMap []map[string]interface{}
 	var result *gorm.DB
-	if userName == "admin@thingspanel.cn" || userName == "admin@test.cn" {
+	if userName == "super@super.cn" {
 		result = psql.Mydb.Raw("select menu_name from tp_menu ").Scan(&menusMap)
 	} else {
 		var CasbinService CasbinService
