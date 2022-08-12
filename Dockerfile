@@ -11,6 +11,6 @@ COPY . .
 EXPOSE 9999
 EXPOSE 9998
 RUN chmod +x ThingsPanel-Go
-ENTRYPOINT [ "pwd" ]
-ENTRYPOINT [ "ls -lrt" ]
+RUN pwd
+RUN ls -lrt
 CMD [ "./ThingsPanel-Go" ]
