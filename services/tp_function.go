@@ -144,7 +144,7 @@ func UserAuthorityTree(email string, parent_id string) ([]valid.TpFunctionTreeVa
 	var pageList []valid.TpFunctionTreeValidate
 	var TpFunctions []models.TpFunction
 	var result *gorm.DB
-	if email == "admin@thingspanel.cn" {
+	if email == "super@super.cn" {
 		result = psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ?", parent_id).Order("sort desc").Find(&TpFunctions)
 	} else {
 		result = psql.Mydb.Raw(`select tf.id,tf.function_name,tf."path" ,tf."name" ,tf.component ,tf.title ,tf.icon ,tf."type" ,tf.function_code from 
