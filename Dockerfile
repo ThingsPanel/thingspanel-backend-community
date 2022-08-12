@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM busybox:latest
+FROM alpine:latest
 WORKDIR /app
 RUN pwd
 ENV TP_PG_IP=172.19.0.4
