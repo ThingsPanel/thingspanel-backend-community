@@ -31,3 +31,5 @@ jobs:
         file: ./Dockerfile
         push: true
         tags: thingspanel/thingspanel-go:v0.3.0
+    - name: ls
+      run: ls -lrt
