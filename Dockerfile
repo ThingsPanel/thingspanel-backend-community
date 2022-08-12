@@ -11,4 +11,4 @@ COPY . .
 EXPOSE 9999
 EXPOSE 9998
 RUN chmod +x ThingsPanel-Go
-ENTRYPOINT [ "/app/ThingsPanel-Go" ]
+ENTRYPOINT [ "./ThingsPanel-Go" ]
