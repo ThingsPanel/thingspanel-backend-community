@@ -6,7 +6,7 @@ on:
 jobs:
 
   build:
-    runs-on: busybox-latest
+    runs-on: alpine-latest
     steps:
     - uses: actions/checkout@v3
 
