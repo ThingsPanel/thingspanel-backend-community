@@ -1,4 +1,4 @@
-name: Go
+name: push-docker-image
 
 on:
   workflow_dispatch:
@@ -30,4 +30,4 @@ jobs:
         context: .
         file: ./Dockerfile
         push: true
-        tags: thingspanel/thingspanel-go:latest
+        tags: thingspanel/thingspanel-go:v0.3.0
