@@ -6,14 +6,14 @@ on:
 jobs:
 
   build:
-    runs-on: busybox-latest
+    runs-on: alpine-latest
     steps:
     - uses: actions/checkout@v3
 
     - name: 1-Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.17.3
+        go-version: 1.17.8
 
     - name: 2-Build
       run: go build
