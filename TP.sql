@@ -440,7 +440,7 @@ CREATE TABLE warning_config (
 	CONSTRAINT warning_config_pkey PRIMARY KEY (id)
 );
 COMMENT ON TABLE public.warning_config IS '报警配置';
-CREATE INDEX warning_log_created_at_idx ON public.warning_log (created_at DESC);
+
 
 
 -- Column comments
@@ -469,7 +469,7 @@ CREATE TABLE warning_log (
 	CONSTRAINT warning_log_pkey PRIMARY KEY (id)
 );
 COMMENT ON TABLE public.warning_log IS '报警日志';
-
+CREATE INDEX warning_log_created_at_idx ON public.warning_log (created_at DESC);
 
 -- public.asset definition
 
