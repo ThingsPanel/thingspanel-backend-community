@@ -10,7 +10,7 @@ wget https://golang.google.cn/dl/go1.17.6.linux-arm64.tar.gz
     将 export PATH=$PATH:/usr/local/go/bin 添加到文件底部
     $ source /etc/profile（让配置生效）
     $ go version(查看版本)
-    ```
+```
 ## 后端配置文件
     conf/app.conf（系统配置文件）
     modules/dataService/config.yml（mqtt客户端、tcp端口配置）
