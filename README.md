@@ -1,7 +1,7 @@
 
 # ThingsPanel-Go
 
-![LOGO](files/logo/logo-one.svg)
+![LOGO](files/logo/logo-three.png)
 
 ------
 目录：
@@ -89,8 +89,6 @@ go build #编译
 
 ## 参与讨论和贡献
 
-```text
-- qq群：260150504
-- 欢迎有兴趣者加入沟通和讨论
-- 参与贡献请联系群主
-```
+qq群：260150504  
+欢迎有兴趣者加入沟通和讨论  
+参与贡献请联系群主
