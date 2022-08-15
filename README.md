@@ -1,15 +1,27 @@
 
 # ThingsPanel-Go
 
+![LOGO](files/logo/logo-one.svg)
+
 ------
-
-[toc]
-
 目录：
 
-- [环境版本及linux安装示例](#env)
+- [后端技术栈](#后端技术栈)
+- [环境版本及linux安装示例](#环境版本及linux安装示例)
+- [后端相关配置文件](#后端相关配置文件)
+- [插件目录](#插件目录)
+- [日志存放目录](#日志存放目录)
+- [编译和运行](#编译和运行)
+- [接口文档](#接口文档)
+- [产品文档](#产品文档)
+- [Demo演示地址](#Demo演示地址)
+- [参与讨论和贡献](#参与讨论和贡献)
 
-<a name="env"></a>
+## 后端技术栈
+
+```text
+beego,redis,timescaledb,Gmqtt
+```
 
 ## 环境版本及linux安装示例
 
@@ -58,13 +70,6 @@ go build #编译
 ./TP.sql
 ```
 
-## 数据库默认超级用户
-
-```text
-账户:super@super.cn
-密码:123456
-```
-
 ## 接口文档
 
 <https://www.apifox.cn/apidoc/shared-34b48097-8c3a-4ffe-907e-12ff3c669936>
@@ -73,8 +78,19 @@ go build #编译
 
 <http://thingspanel.io/>
 
-## 联系我们
+## Demo演示地址
+
+<http://dev.thingspanel.cn/>
 
 ```text
-qq群：260150504
+账户:admin@thingspanel.cn
+密码:123456
+```
+
+## 参与讨论和贡献
+
+```text
+- qq群：260150504
+- 欢迎有兴趣者加入沟通和讨论
+- 参与贡献请联系群主
 ```
