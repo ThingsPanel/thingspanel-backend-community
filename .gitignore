@@ -16,3 +16,8 @@
 .idea/
 .vscode/
 config.env
+
+files/logs
+files/excel
+files/outer
+code-remind
