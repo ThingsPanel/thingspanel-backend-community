@@ -1,9 +1,6 @@
 
 # ThingsPanel-Go
 
-![LOGO](files/logo/logo-three.png)
-
-------
 目录：
 
 - [后端技术栈](#后端技术栈)
@@ -14,7 +11,7 @@
 - [编译和运行](#编译和运行)
 - [接口文档](#接口文档)
 - [产品文档](#产品文档)
-- [Demo演示地址](#Demo演示地址)
+- [Demo地址](#Demo地址)
 - [参与讨论和贡献](#参与讨论和贡献)
 
 ## 后端技术栈
@@ -78,7 +75,7 @@ go build #编译
 
 <http://thingspanel.io/>
 
-## Demo演示地址
+## Demo地址
 
 <http://dev.thingspanel.cn/>
 
