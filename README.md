@@ -55,6 +55,10 @@ go build #编译
 密码:123456
 ```
 
+## 接口文档
+
+<https://www.apifox.cn/apidoc/shared-34b48097-8c3a-4ffe-907e-12ff3c669936>
+
 ## 产品文档
 
 <http://thingspanel.io/>
