@@ -1,4 +1,4 @@
-name: push-docker-image
+name: docker-image-v0.3.0
 
 on:
   workflow_dispatch:
