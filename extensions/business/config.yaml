@@ -1,6 +1,6 @@
 business:
   type: "app"
-  name: "探针业务"
+  name: "-"
   device: "业务v1.0"
   description: ""
   version: "1.0.0"
