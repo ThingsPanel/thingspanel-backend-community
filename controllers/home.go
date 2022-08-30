@@ -166,8 +166,8 @@ func (HomeController *HomeController) GetDefaultSetting() {
 				} else {
 					port = strings.Split(mqttHost, ":")[1]
 				}
-				d["default_setting"] = "端口:" + port + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
-					"$$订阅主题（设备数据通过这个主题推给平台）:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
+				d["default_setting"] = "端口:" + port + "$$设备订阅主题:" + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
+					"$$设备发布主题:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:{AccessToken}" +
 					"$$描述:xxx"
 			}
 		} else {
@@ -176,9 +176,9 @@ func (HomeController *HomeController) GetDefaultSetting() {
 			} else {
 				port = strings.Split(mqttHost, ":")[1]
 			}
-			d["default_setting"] = "端口:" + port + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
-				"$$订阅主题（设备数据通过这个主题推给平台）:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
-				"$$描述:推送规范为{\"token\":\"xxxxxx\",\"values\":{\"xx\":\"xxxxxx\",\"xx\":\"xxxxxx\"}}"
+			d["default_setting"] = "端口:" + port + "$$设备订阅主题:" + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
+				"$$设备发布主题:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:{AccessToken}" +
+				"$$描述:推送规范为{\"xx\":\"xxxxxx\",\"xx\":\"xxxxxx\"}"
 		}
 	} else if ProtocolValidate.Protocol == "tcp" {
 		d["default_setting"] = "端口:" + strings.Split(viper.GetString("tcp.port"), ":")[1] + "$$协议:" + "https://forum.thingspanel.cn/assets/files/2022-06-21/1655774183-644926-thingspanel-tcpv114xlsx.zip"
