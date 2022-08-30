@@ -166,7 +166,7 @@ func (HomeController *HomeController) GetDefaultSetting() {
 				} else {
 					port = strings.Split(mqttHost, ":")[1]
 				}
-				d["default_setting"] = "端口:" + port + "$$设备订阅主题:" + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
+				d["default_setting"] = "MQTT接入点:" + viper.GetString("url") + ":" + port + "$$设备订阅主题:" + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
 					"$$设备发布主题:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:{AccessToken}" +
 					"$$描述:xxx"
 			}

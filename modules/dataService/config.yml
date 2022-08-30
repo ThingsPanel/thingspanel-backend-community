@@ -5,6 +5,8 @@ mqtt:
   topicToPublish: device/attributes
   topicToSubscribe: device/attributes
 
+url: dev.thingspanel.cn
+
 tcp:
   port: :9998
 
