@@ -166,10 +166,14 @@ func (HomeController *HomeController) GetDefaultSetting() {
 				} else {
 					port = strings.Split(mqttHost, ":")[1]
 				}
-				d["default_setting"] = "MQTT接入点: " + viper.GetString("url") + ":" + port + "$$设备订阅主题: " + viper.GetString("mqtt.topicToPublish") + "/{Token}" +
-					"$$设备发布主题: " + viper.GetString("mqtt.topicToSubscribe") + "$$设备自定义发布主题: custom/pub/{Token}/+" +
-					"$$设备自定义订阅主题: custom/sub/{Token}/+" + "$$MQTT用户名: {Token}" +
-					"$$描述: 推送规范为{\"key\":\"value\",\"key\":\"value\"...}"
+				d["default_setting"] =
+					"MQTT接入点: " + viper.GetString("url") + ":" + port +
+						"$$设备订阅主题: " + viper.GetString("mqtt.topicToPublish") + "/{Token}" +
+						"$$设备发布主题: " + viper.GetString("mqtt.topicToSubscribe") +
+						"$$设备自定义发布主题: custom/pub/{Token}/+" +
+						"$$设备自定义订阅主题: custom/sub/{Token}/+" +
+						"$$MQTT用户名: {Token}" +
+						"$$描述: 推送规范为{\"key\":\"value\",\"key\":\"value\"...}"
 			}
 		} else {
 			if mqttHost == "" {
@@ -177,10 +181,14 @@ func (HomeController *HomeController) GetDefaultSetting() {
 			} else {
 				port = strings.Split(mqttHost, ":")[1]
 			}
-			d["default_setting"] = "MQTT接入点: " + viper.GetString("url") + ":" + port + "$$设备订阅主题: " + viper.GetString("mqtt.topicToPublish") + "/{Token}" +
-				"$$设备发布主题: " + viper.GetString("mqtt.topicToSubscribe") + "$$设备自定义发布主题: custom/pub/{Token}/+" +
-				"$$设备自定义订阅主题: custom/sub/{Token}/+" + "$$MQTT用户名: {Token}" +
-				"$$描述: 推送规范为{\"key\":\"value\",\"key\":\"value\"...}"
+			d["default_setting"] =
+				"MQTT接入点: " + viper.GetString("url") + ":" + port +
+					"$$设备发布主题: " + viper.GetString("mqtt.topicToSubscribe") +
+					"$$设备订阅主题: " + viper.GetString("mqtt.topicToPublish") + "/{Token}" +
+					"$$设备自定义发布主题: custom/pub/{Token}/+" +
+					"$$设备自定义订阅主题: custom/sub/{Token}/+" +
+					"$$MQTT用户名: {Token}" +
+					"$$描述: 推送规范为{\"key\":\"value\",\"key\":\"value\"...}"
 		}
 	} else if ProtocolValidate.Protocol == "tcp" {
 		d["default_setting"] = "端口:" + strings.Split(viper.GetString("tcp.port"), ":")[1] + "$$协议:" + "https://forum.thingspanel.cn/assets/files/2022-06-21/1655774183-644926-thingspanel-tcpv114xlsx.zip"
