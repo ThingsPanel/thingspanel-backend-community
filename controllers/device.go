@@ -377,8 +377,8 @@ func (request *DeviceController) Operating() {
 		response.SuccessWithMessage(400, "no equipment", (*context2.Context)(request.Ctx))
 		return
 	}
-	var sendMap = make(map[string]interface{})
-	sendMap["token"] = deviceData.Token
+	// var sendMap = make(map[string]interface{})
+	// sendMap["token"] = deviceData.Token
 	//将value中的key做映射
 	valueMap, ok := operatingDeviceValidate.Values.(map[string]interface{})
 	newMap := make(map[string]interface{})
@@ -404,15 +404,15 @@ func (request *DeviceController) Operating() {
 		}
 	}
 	//将map转为json
-	sendMap["values"] = newMap
-	newPayload, toErr := json.Marshal(sendMap)
+	//sendMap["values"] = newMap
+	newPayload, toErr := json.Marshal(newMap)
 	if toErr != nil {
 		logs.Info("JSON 编码失败：%v\n", toErr)
 		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(request.Ctx))
 		return
 	}
 	logs.Info("-------------------------------", string(newPayload))
-	f := cm.Send(newPayload)
+	f := cm.Send(newPayload, deviceData.Token)
 	ConditionsLog := models.ConditionsLog{
 		DeviceId:      deviceData.ID,
 		OperationType: "2",
@@ -425,7 +425,7 @@ func (request *DeviceController) Operating() {
 		logs.Info("成功发送控制")
 		ConditionsLog.SendResult = "1"
 		ConditionsLogService.Insert(&ConditionsLog)
-		response.SuccessWithDetailed(200, "success", sendMap, map[string]string{}, (*context2.Context)(request.Ctx))
+		response.SuccessWithDetailed(200, "success", newMap, map[string]string{}, (*context2.Context)(request.Ctx))
 	} else {
 		logs.Info("成功发送失败")
 		ConditionsLog.SendResult = "2"

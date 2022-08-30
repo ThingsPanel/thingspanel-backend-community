@@ -5,11 +5,14 @@ import (
 	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/models"
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
+	tphttp "ThingsPanel-Go/others/http"
 	uuid "ThingsPanel-Go/utils"
 	"encoding/json"
 	"errors"
 	"log"
 	"time"
+
+	"github.com/spf13/viper"
 
 	"github.com/beego/beego/v2/core/logs"
 	simplejson "github.com/bitly/go-simplejson"
@@ -173,7 +176,10 @@ func (*DeviceService) Delete(id string) bool {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
-	redis.DelKey("token" + device.Token)
+	if device.Token != "" {
+		redis.DelKey("token" + device.Token)
+		tphttp.Delete(viper.GetString("api.delete")+device.Token, "{}")
+	}
 	return true
 }
 
@@ -220,8 +226,15 @@ func (*DeviceService) Edit(id string, token string, protocol string, port string
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
-	redis.DelKey("token" + device.Token)
-	redis.SetStr("token"+token, id, 3600*time.Second)
+	if token != "" {
+		if device.Token != "" {
+			redis.DelKey("token" + device.Token)
+			tphttp.Delete(viper.GetString("api.delete")+device.Token, "{}")
+		}
+		redis.SetStr("token"+token, id, 3600*time.Second)
+		tphttp.Post(viper.GetString("api.add")+token, "{\"password\":\""+password+"\"}")
+	}
+
 	return true
 }
 
@@ -242,35 +255,38 @@ func (*DeviceService) Add(token string, protocol string, port string, publish st
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, ""
 	}
-	redis.SetStr("token"+token, uuid, 3600*time.Second)
+	if token != "" {
+		redis.SetStr("token"+token, uuid, 3600*time.Second)
+		tphttp.Post(viper.GetString("api.add")+token, "{\"password\":\""+password+"\"}")
+	}
+
 	return true, uuid
 }
 
 // 向mqtt发送控制指令
 func (*DeviceService) OperatingDevice(deviceId string, field string, value interface{}) bool {
-	reqMap := make(map[string]interface{})
+	//reqMap := make(map[string]interface{})
 	valueMap := make(map[string]interface{})
 	logs.Info("通过设备id获取设备token")
 	var DeviceService DeviceService
 	device, _ := DeviceService.Token(deviceId)
-	if device != nil {
-		reqMap["token"] = device.Token
-		logs.Info("token-%s", device.Token)
-	} else {
+	if device == nil {
 		logs.Info("没有匹配的token")
 		return false
 	}
+	//reqMap["token"] = device.Token
+	logs.Info("token-%s", device.Token)
 	logs.Info("把field字段映射回设备端字段")
 	var fieldMappingService FieldMappingService
 	deviceField := fieldMappingService.TransformByDeviceid(deviceId, field)
 	if deviceField != "" {
 		valueMap[deviceField] = value
 	}
-	reqMap["values"] = valueMap
+	//reqMap["values"] = valueMap
 	logs.Info("将map转json")
-	mjson, _ := json.Marshal(reqMap)
+	mjson, _ := json.Marshal(valueMap)
 	logs.Info("json-%s", string(mjson))
-	err := cm.Send(mjson)
+	err := cm.Send(mjson, device.Token)
 	if err == nil {
 		logs.Info("发送到mqtt成功")
 		return true

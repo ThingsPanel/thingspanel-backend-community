@@ -50,16 +50,16 @@ func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Mes
 }
 
 //发送消息
-func Send(payload []byte) (err error) {
+func Send(payload []byte, token string) (err error) {
 	var clientErr = errors.New("_client is error")
 	if _client == nil {
 		return clientErr
 	}
-	token := _client.Publish(viper.GetString("mqtt.topicToPublish"), 1, false, string(payload))
-	if token.Error() != nil {
-		fmt.Println(token.Error())
+	t := _client.Publish(viper.GetString("mqtt.topicToPublish")+"/"+token, 1, false, string(payload))
+	if t.Error() != nil {
+		fmt.Println(t.Error())
 	}
-	return token.Error()
+	return t.Error()
 }
 
 func Close() {

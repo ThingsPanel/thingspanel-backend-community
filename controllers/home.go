@@ -166,7 +166,7 @@ func (HomeController *HomeController) GetDefaultSetting() {
 				} else {
 					port = strings.Split(mqttHost, ":")[1]
 				}
-				d["default_setting"] = "端口:" + port + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") +
+				d["default_setting"] = "端口:" + port + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
 					"$$订阅主题（设备数据通过这个主题推给平台）:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
 					"$$描述:xxx"
 			}
@@ -176,7 +176,7 @@ func (HomeController *HomeController) GetDefaultSetting() {
 			} else {
 				port = strings.Split(mqttHost, ":")[1]
 			}
-			d["default_setting"] = "端口:" + port + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") +
+			d["default_setting"] = "端口:" + port + "$$发布主题（平台通过这个主题对设备下发控制）:" + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
 				"$$订阅主题（设备数据通过这个主题推给平台）:" + viper.GetString("mqtt.topicToSubscribe") + "$$用户名:" + viper.GetString("mqtt.user") + "$$密码:" + viper.GetString("mqtt.pass") +
 				"$$描述:推送规范为{\"token\":\"xxxxxx\",\"values\":{\"xx\":\"xxxxxx\",\"xx\":\"xxxxxx\"}}"
 		}
