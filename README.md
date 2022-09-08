@@ -80,7 +80,7 @@ go build #编译
 <http://dev.thingspanel.cn/>
 
 ```text
-账户:admin@thingspanel.cn
+账户:super@super.cn
 密码:123456
 ```
 
