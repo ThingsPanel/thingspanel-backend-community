@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -75,4 +76,36 @@ func (*DeviceModelService) DeleteDeviceModel(device_model models.DeviceModel) bo
 		return false
 	}
 	return true
+}
+
+type DeviceModelTree struct {
+	DictValue   string               `json:"dict_value"`
+	Describe    string               `json:"describe"`
+	DeviceModel []models.DeviceModel `json:"device_model"`
+}
+
+// 插件树
+func (*DeviceModelService) DeviceModelTree() []DeviceModelTree {
+	var trees []DeviceModelTree
+	var tp_dict []models.TpDict
+	logs.Info("------------------------------")
+	result := psql.Mydb.Where("dict_code = 'chart_type'").Find(&tp_dict)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return trees
+	}
+	for _, dict := range tp_dict {
+		var tree DeviceModelTree
+		var device_model []models.DeviceModel
+		result := psql.Mydb.Where("model_type = " + dict.DictValue).Find(&device_model)
+		if result.Error != nil {
+			errors.Is(result.Error, gorm.ErrRecordNotFound)
+			return trees
+		}
+		tree.DictValue = dict.DictValue
+		tree.Describe = dict.Describe
+		tree.DeviceModel = device_model
+		trees = append(trees, tree)
+	}
+	return trees
 }

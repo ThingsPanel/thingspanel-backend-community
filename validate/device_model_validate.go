@@ -33,7 +33,7 @@ type AddDeviceModelValidate struct {
 
 type DeviceModelPaginationValidate struct {
 	CurrentPage int `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
-	PerPage     int `json:"per_page"  alias:"每页页数" valid:"Required;Max(36)"`
+	PerPage     int `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
 	Issued      int `json:"issued" alias:"发布状态" valid:"Max(36)"`
 	ModelType   int `json:"model_type" alias:"插件类型" valid:"Max(36)"`
 	Flag        int `json:"flag" alias:"标志" valid:"Max(36)"`
@@ -41,7 +41,7 @@ type DeviceModelPaginationValidate struct {
 
 type RspDeviceModelPaginationValidate struct {
 	CurrentPage int                  `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
-	PerPage     int                  `json:"per_page"  alias:"每页页数" valid:"Required;Max(36)"`
-	Data        []models.DeviceModel `json:"data" alias:"返回数据" valid:"MaxSize(10)"`
-	Total       int64                `json:"total" alias:"总数" valid:"MaxSize(36)"`
+	PerPage     int                  `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
+	Data        []models.DeviceModel `json:"data" alias:"返回数据"`
+	Total       int64                `json:"total" alias:"总数" valid:"Max(10000)"`
 }

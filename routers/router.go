@@ -271,6 +271,13 @@ func init() {
 		web.NSRouter("/device/model/list", &controllers.DeviceModelController{}, "*:List"),
 		web.NSRouter("/device/model/edit", &controllers.DeviceModelController{}, "*:Edit"),
 		web.NSRouter("/device/model/delete", &controllers.DeviceModelController{}, "*:Delete"),
+		web.NSRouter("/device/model/tree", &controllers.DeviceModelController{}, "*:DeviceModelTree"),
+
+		//字典
+		web.NSRouter("/dict/add", &controllers.TpDictController{}, "*:Add"),
+		web.NSRouter("/dict/list", &controllers.TpDictController{}, "*:List"),
+		web.NSRouter("/dict/edit", &controllers.TpDictController{}, "*:Edit"),
+		web.NSRouter("/dict/delete", &controllers.TpDictController{}, "*:Delete"),
 	)
 
 	// 图表推送数据

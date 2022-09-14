@@ -176,3 +176,10 @@ func (DeviceModelController *DeviceModelController) Delete() {
 		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(DeviceModelController.Ctx))
 	}
 }
+
+// 删除
+func (DeviceModelController *DeviceModelController) DeviceModelTree() {
+	var DeviceModelService services.DeviceModelService
+	trees := DeviceModelService.DeviceModelTree()
+	response.SuccessWithDetailed(200, "success", trees, map[string]string{}, (*context2.Context)(DeviceModelController.Ctx))
+}
