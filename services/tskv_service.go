@@ -64,21 +64,32 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	var device models.Device
 	var d models.TSKV
 	//查询token，验证token;修改和删除token的时候需要对缓存进行修改
-	if len(redis.GetStr("token"+payload.Token)) < 1 {
-		result_token := psql.Mydb.Where("token = ?", payload.Token).First(&device)
-		if result_token.Error != nil {
-			errors.Is(result_token.Error, gorm.ErrRecordNotFound)
-			return false
-		} else if result_token.RowsAffected > int64(0) {
-			redis.SetStr("token"+payload.Token, device.ID, 3600*time.Second)
-		} else {
-			fmt.Println("token not matched")
-			return false
-		}
+	// if len(redis.GetStr("token"+payload.Token)) < 1 {
+	result_token := psql.Mydb.Where("token = ?", payload.Token).First(&device)
+	if result_token.Error != nil {
+		errors.Is(result_token.Error, gorm.ErrRecordNotFound)
+		return false
+	} else if result_token.RowsAffected > int64(0) {
+		redis.SetStr("token"+payload.Token, device.ID, 3600*time.Second)
 	} else {
-		//fmt.Println("命中")
-		device.ID = redis.GetStr("token" + payload.Token)
+		fmt.Println("token not matched")
+		return false
 	}
+	if device.AdditionalInfo != "" {
+		data_values, _ := json.Marshal(payload.Values)
+		req_str, err := utils.ScriptDeal(device.AdditionalInfo, string(data_values))
+		if err != nil {
+			var req_map map[string]interface{}
+			err := json.Unmarshal([]byte(req_str), &req_map)
+			if err != nil {
+				payload.Values = req_map
+			}
+		}
+	}
+	// } else {
+	// 	//fmt.Println("命中")
+	// 	device.ID = redis.GetStr("token" + payload.Token)
+	// }
 	// 告警缓存，先查缓存，如果=1就跳过，没有就进入WarningConfigCheck
 	// 进入没有就设置为1
 	// 新增的时候删除

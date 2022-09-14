@@ -261,6 +261,16 @@ func init() {
 		web.NSRouter("/data/transpond/list", &controllers.DataTranspondController{}, "*:List"),
 		web.NSRouter("/data/transpond/edit", &controllers.DataTranspondController{}, "*:Edit"),
 		web.NSRouter("/data/transpond/delete", &controllers.DataTranspondController{}, "*:Delete"),
+		//图表库
+		web.NSRouter("/chart/add", &controllers.ChartController{}, "*:Add"),
+		web.NSRouter("/chart/list", &controllers.ChartController{}, "*:List"),
+		web.NSRouter("/chart/edit", &controllers.ChartController{}, "*:Edit"),
+		web.NSRouter("/chart/delete", &controllers.ChartController{}, "*:Delete"),
+		//插件库
+		web.NSRouter("/device/model/add", &controllers.DeviceModelController{}, "*:Add"),
+		web.NSRouter("/device/model/list", &controllers.DeviceModelController{}, "*:List"),
+		web.NSRouter("/device/model/edit", &controllers.DeviceModelController{}, "*:Edit"),
+		web.NSRouter("/device/model/delete", &controllers.DeviceModelController{}, "*:Delete"),
 	)
 
 	// 图表推送数据

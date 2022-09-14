@@ -648,6 +648,52 @@ COMMENT ON COLUMN public.widget.device_id IS '设备id';
 COMMENT ON COLUMN public.widget.widget_identifier IS '图表标识符如: environmentpanel:normal';
 COMMENT ON COLUMN public.widget.extend IS '扩展功能';
 
+CREATE TABLE chart (
+	id varchar(36) NOT NULL,
+	chart_type int NULL,
+	chart_data json NULL,
+	chart_name varchar(99) NULL,
+	sort int NULL,
+	issued varchar NULL DEFAULT 0,
+	created_at int8 NULL,
+	remark varchar(255) NULL,
+	flag int NULL
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.chart.chart_type IS '图表类型1-折线 2-仪表';
+COMMENT ON COLUMN public.chart.chart_data IS '数据';
+COMMENT ON COLUMN public.chart.chart_name IS '名称';
+COMMENT ON COLUMN public.chart.sort IS '排序';
+COMMENT ON COLUMN public.chart.issued IS '是否发布0-未发布1-已发布';
+ALTER TABLE public.chart ALTER COLUMN issued TYPE int USING issued::int;
+
+
+CREATE TABLE device_model (
+	id varchar(36) NOT NULL,
+	model_name varchar(255) NULL,
+	flag int NULL,
+	chart_data json NULL,
+	model_type int NULL,
+	"describe" varchar(255) NULL,
+	"version" varchar(36) NULL,
+	author varchar(36) NULL,
+	sort int NULL,
+	issued int NULL,
+	remark varchar(255) NULL
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.device_model.model_name IS '插件名称';
+COMMENT ON COLUMN public.device_model.model_type IS '插件类型';
+COMMENT ON COLUMN public.device_model."describe" IS '描述';
+COMMENT ON COLUMN public.device_model."version" IS '版本';
+ALTER TABLE public.device_model ADD created_at int8 NULL;
+
+
+
 
 
 
