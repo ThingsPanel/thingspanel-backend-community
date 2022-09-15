@@ -29,8 +29,8 @@ func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceMod
 	if PaginationValidate.Issued != 0 {
 		sqlWhere += " and issued = " + strconv.Itoa(PaginationValidate.Issued)
 	}
-	if PaginationValidate.ModelType != 0 {
-		sqlWhere += " and model_type = " + strconv.Itoa(PaginationValidate.ModelType)
+	if PaginationValidate.ModelType != "" {
+		sqlWhere += " and model_type = '" + PaginationValidate.ModelType + "'"
 	}
 	if PaginationValidate.Flag != 0 {
 		sqlWhere += " and flag = " + strconv.Itoa(PaginationValidate.Flag)

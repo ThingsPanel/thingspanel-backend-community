@@ -669,6 +669,8 @@ COMMENT ON COLUMN public.chart.sort IS '排序';
 COMMENT ON COLUMN public.chart.issued IS '是否发布0-未发布1-已发布';
 ALTER TABLE public.chart ALTER COLUMN issued TYPE int USING issued::int;
 ALTER TABLE public.chart ADD CONSTRAINT chart_pk PRIMARY KEY (id);
+ALTER TABLE public.chart ALTER COLUMN chart_type TYPE varchar(36) USING chart_type::varchar;
+
 
 
 CREATE TABLE device_model (
@@ -693,6 +695,8 @@ COMMENT ON COLUMN public.device_model."describe" IS '描述';
 COMMENT ON COLUMN public.device_model."version" IS '版本';
 ALTER TABLE public.device_model ADD created_at int8 NULL;
 ALTER TABLE public.device_model ADD CONSTRAINT device_model_pk PRIMARY KEY (id);
+ALTER TABLE public.device_model ALTER COLUMN model_type TYPE varchar(36) USING model_type::varchar;
+
 
 CREATE TABLE tp_dict (
 	id varchar(36) NOT NULL,

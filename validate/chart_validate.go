@@ -4,7 +4,7 @@ import "ThingsPanel-Go/models"
 
 type ChartValidate struct {
 	Id        string `json:"id" alias:"ID" valid:"Required;MaxSize(36)"`
-	ChartType int64  `json:"chart_type,omitempty" alias:"图表类型"`
+	ChartType string `json:"chart_type,omitempty" alias:"图表类型"`
 	ChartData string `json:"chart_data,omitempty" alias:"数据"`                     // 数据
 	ChartName string `json:"chart_name,omitempty" alias:"名称" valid:"MaxSize(99)"` // 名称
 	Sort      int64  `json:"sort,omitempty" alias:"排序" `                          // 排序
@@ -15,7 +15,7 @@ type ChartValidate struct {
 }
 
 type AddChartValidate struct {
-	ChartType int64  `json:"chart_type,omitempty" alias:"图表类型"`
+	ChartType string `json:"chart_type,omitempty" alias:"图表类型"`
 	ChartData string `json:"chart_data,omitempty" alias:"数据"`                     // 数据
 	ChartName string `json:"chart_name,omitempty" alias:"名称" valid:"MaxSize(99)"` // 名称
 	Sort      int64  `json:"sort,omitempty" alias:"排序" `                          // 排序
@@ -26,11 +26,11 @@ type AddChartValidate struct {
 }
 
 type ChartPaginationValidate struct {
-	CurrentPage int `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
-	PerPage     int `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	Issued      int `json:"issued" alias:"发布状态" valid:"Max(36)"`
-	ChartType   int `json:"chart_type" alias:"图表类型" valid:"Max(36)"`
-	Flag        int `json:"flag" alias:"标志" valid:"Max(36)"`
+	CurrentPage int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
+	PerPage     int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
+	Issued      int    `json:"issued" alias:"发布状态" valid:"Max(36)"`
+	ChartType   string `json:"chart_type" alias:"图表类型" valid:"MaxSize(36)"`
+	Flag        int    `json:"flag" alias:"标志" valid:"Max(36)"`
 }
 
 type RspChartPaginationValidate struct {

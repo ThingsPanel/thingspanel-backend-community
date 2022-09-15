@@ -31,8 +31,8 @@ func (*ChartService) GetChartList(PaginationValidate valid.ChartPaginationValida
 	if PaginationValidate.Issued != 0 {
 		sqlWhere += " and issued = " + strconv.Itoa(PaginationValidate.Issued)
 	}
-	if PaginationValidate.ChartType != 0 {
-		sqlWhere += " and chart_type = " + strconv.Itoa(PaginationValidate.ChartType)
+	if PaginationValidate.ChartType != "" {
+		sqlWhere += " and chart_type = '" + PaginationValidate.ChartType + "'"
 	}
 	var count int64
 	psql.Mydb.Model(&models.Chart{}).Where(sqlWhere).Count(&count)

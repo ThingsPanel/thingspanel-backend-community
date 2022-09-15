@@ -5,7 +5,7 @@ type DeviceModel struct {
 	ModelName string `json:"model_name,omitempty" gorm:"size:99"`
 	Flag      int64  `json:"flag"`
 	ChartData string `json:"chart_data,omitempty" gorm:"type:longtext"`
-	ModelType int64  `json:"model_type,omitempty"`
+	ModelType string `json:"model_type,omitempty" gorm:"size:36"`
 	Describe  string `json:"describe,omitempty" gorm:"size:255"`
 	Version   string `json:"version,omitempty" gorm:"size:36"`
 	Author    string `json:"author,omitempty" gorm:"size:36"`
