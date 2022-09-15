@@ -237,11 +237,11 @@ func (reqDate *DeviceController) UpdateOnly() {
 				return
 			}
 		}
-		// 如果更换了插件需要删除当前值
-		if addDeviceValidate.Type != d.Type {
-			var TSKVService services.TSKVService
-			TSKVService.DeleteCurrentDataByDeviceId(addDeviceValidate.ID)
-		}
+		// // 如果更换了插件需要删除当前值
+		// if addDeviceValidate.Type != d.Type {
+		// 	var TSKVService services.TSKVService
+		// 	TSKVService.DeleteCurrentDataByDeviceId(addDeviceValidate.ID)
+		// }
 	}
 	var AssetService services.AssetService
 	var ResWidgetData []services.Widget
@@ -275,18 +275,18 @@ func (reqDate *DeviceController) UpdateOnly() {
 			Dash:      ResWidgetData,
 		}
 		// 自动映射
-		extensionDataMap := AssetService.ExtensionName(addDeviceValidate.Type)
-		for _, extension := range extensionDataMap[0].Field {
-			var uuid = utils.GetUuid()
-			fieldMapping := models.FieldMapping{
-				ID:        uuid,
-				DeviceID:  addDeviceValidate.ID,
-				FieldFrom: extension.Key,
-				FieldTo:   extension.Key,
-				Symbol:    extension.Symbol,
-			}
-			psql.Mydb.Create(&fieldMapping)
-		}
+		// extensionDataMap := AssetService.ExtensionName(addDeviceValidate.Type)
+		// for _, extension := range extensionDataMap[0].Field {
+		// 	var uuid = utils.GetUuid()
+		// 	fieldMapping := models.FieldMapping{
+		// 		ID:        uuid,
+		// 		DeviceID:  addDeviceValidate.ID,
+		// 		FieldFrom: extension.Key,
+		// 		FieldTo:   extension.Key,
+		// 		Symbol:    extension.Symbol,
+		// 	}
+		// 	psql.Mydb.Create(&fieldMapping)
+		// }
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
