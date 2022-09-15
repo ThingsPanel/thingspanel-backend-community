@@ -97,7 +97,7 @@ func (*DeviceModelService) DeviceModelTree() []DeviceModelTree {
 	for _, dict := range tp_dict {
 		var tree DeviceModelTree
 		var device_model []models.DeviceModel
-		result := psql.Mydb.Where("model_type = " + dict.DictValue).Find(&device_model)
+		result := psql.Mydb.Where("model_type = ?", dict.DictValue).Find(&device_model)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
 			return trees
