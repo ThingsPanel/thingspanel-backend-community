@@ -83,6 +83,7 @@ func (TpDictController *TpDictController) Edit() {
 		DictCode:  TpDictValidate.DictCode,
 		DictValue: TpDictValidate.DictValue,
 		CreatedAt: TpDictValidate.CreatedAt,
+		Describe:  TpDictValidate.Describe,
 	}
 	isSucess := TpDictService.EditTpDict(TpDict)
 	if isSucess {
@@ -118,6 +119,7 @@ func (TpDictController *TpDictController) Add() {
 		DictCode:  AddTpDictValidate.DictCode,
 		DictValue: AddTpDictValidate.DictValue,
 		CreatedAt: AddTpDictValidate.CreatedAt,
+		Describe:  AddTpDictValidate.Describe,
 	}
 	isSucess, d := TpDictService.AddTpDict(TpDict)
 	if isSucess {

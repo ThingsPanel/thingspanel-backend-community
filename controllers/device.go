@@ -7,7 +7,6 @@ import (
 	"ThingsPanel-Go/models"
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	"ThingsPanel-Go/services"
-	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
@@ -190,18 +189,18 @@ func (reqDate *DeviceController) AddOnly() {
 			Dash:      ResWidgetData,
 		}
 		// 自动映射
-		extensionDataMap := AssetService.ExtensionName(addDeviceValidate.Type)
-		for _, extension := range extensionDataMap[0].Field {
-			var uuid = utils.GetUuid()
-			fieldMapping := models.FieldMapping{
-				ID:        uuid,
-				DeviceID:  deviceDash.ID,
-				FieldFrom: extension.Key,
-				FieldTo:   extension.Key,
-				Symbol:    extension.Symbol,
-			}
-			psql.Mydb.Create(&fieldMapping)
-		}
+		// extensionDataMap := AssetService.ExtensionName(addDeviceValidate.Type)
+		// for _, extension := range extensionDataMap[0].Field {
+		// 	var uuid = utils.GetUuid()
+		// 	fieldMapping := models.FieldMapping{
+		// 		ID:        uuid,
+		// 		DeviceID:  deviceDash.ID,
+		// 		FieldFrom: extension.Key,
+		// 		FieldTo:   extension.Key,
+		// 		Symbol:    extension.Symbol,
+		// 	}
+		// 	psql.Mydb.Create(&fieldMapping)
+		// }
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
