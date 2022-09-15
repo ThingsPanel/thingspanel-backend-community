@@ -8,7 +8,6 @@ import (
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
-	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"errors"
@@ -151,31 +150,31 @@ func (reqDate *DeviceController) AddOnly() {
 		}
 		return
 	}
-	var uuid = uuid.GetUuid()
+	//var uuid = uuid.GetUuid()
 	var AssetService services.AssetService
 	var ResWidgetData []services.Widget
 	if addDeviceValidate.Type != "" {
 		dd := AssetService.Widget(addDeviceValidate.Type)
 		if len(dd) > 0 {
-			for _, wv := range dd {
-				ResWidgetData = append(ResWidgetData, wv)
-			}
+			ResWidgetData = append(ResWidgetData, dd...)
 		}
 	}
-	deviceData := models.Device{
-		ID:        uuid,
-		AssetID:   addDeviceValidate.AssetID,
-		Token:     addDeviceValidate.Token,
-		Type:      addDeviceValidate.Type,
-		Name:      addDeviceValidate.Name,
-		Extension: addDeviceValidate.Extension,
-		Protocol:  addDeviceValidate.Protocol,
-		DId:       addDeviceValidate.DId,
-		Location:  addDeviceValidate.Location,
-	}
-
-	result := psql.Mydb.Create(&deviceData)
-	if result.Error == nil {
+	// deviceData := models.Device{
+	// 	ID:        uuid,
+	// 	AssetID:   addDeviceValidate.AssetID,
+	// 	Token:     addDeviceValidate.Token,
+	// 	Type:      addDeviceValidate.Type,
+	// 	Name:      addDeviceValidate.Name,
+	// 	Extension: addDeviceValidate.Extension,
+	// 	Protocol:  addDeviceValidate.Protocol,
+	// 	DId:       addDeviceValidate.DId,
+	// 	Location:  addDeviceValidate.Location,
+	// }
+	var DeviceService services.DeviceService
+	result, uuid := DeviceService.Add(addDeviceValidate.Token, addDeviceValidate.Protocol, addDeviceValidate.Port,
+		addDeviceValidate.Publish, addDeviceValidate.Subscribe, addDeviceValidate.Username, addDeviceValidate.Password)
+	//result := psql.Mydb.Create(&deviceData)
+	if result {
 		deviceDash := DeviceDash{
 			ID:        uuid,
 			AssetID:   addDeviceValidate.AssetID,
@@ -201,9 +200,10 @@ func (reqDate *DeviceController) AddOnly() {
 		// 	}
 		// 	psql.Mydb.Create(&fieldMapping)
 		// }
+
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		response.SuccessWithMessage(400, "添加失败", (*context2.Context)(reqDate.Ctx))
 	}
 }
@@ -248,19 +248,21 @@ func (reqDate *DeviceController) UpdateOnly() {
 		dd := AssetService.Widget(addDeviceValidate.Type)
 		ResWidgetData = dd
 	}
-	deviceData := models.Device{
-		ID:        addDeviceValidate.ID,
-		AssetID:   addDeviceValidate.AssetID,
-		Token:     addDeviceValidate.Token,
-		Type:      addDeviceValidate.Type,
-		Name:      addDeviceValidate.Name,
-		Extension: addDeviceValidate.Extension,
-		Protocol:  addDeviceValidate.Protocol,
-		Location:  addDeviceValidate.Location,
-		DId:       addDeviceValidate.DId,
-	}
-	result := psql.Mydb.Updates(&deviceData)
-	if result.Error == nil {
+	result := DeviceService.Edit(addDeviceValidate.ID, addDeviceValidate.Token, addDeviceValidate.Protocol, addDeviceValidate.Port,
+		addDeviceValidate.Publish, addDeviceValidate.Subscribe, addDeviceValidate.Username, addDeviceValidate.Password)
+	// deviceData := models.Device{
+	// 	ID:        addDeviceValidate.ID,
+	// 	AssetID:   addDeviceValidate.AssetID,
+	// 	Token:     addDeviceValidate.Token,
+	// 	Type:      addDeviceValidate.Type,
+	// 	Name:      addDeviceValidate.Name,
+	// 	Extension: addDeviceValidate.Extension,
+	// 	Protocol:  addDeviceValidate.Protocol,
+	// 	Location:  addDeviceValidate.Location,
+	// 	DId:       addDeviceValidate.DId,
+	// }
+	// result := psql.Mydb.Updates(&deviceData)
+	if result {
 		deviceDash := DeviceDash{
 			ID:        addDeviceValidate.ID,
 			AssetID:   addDeviceValidate.AssetID,
@@ -286,9 +288,9 @@ func (reqDate *DeviceController) UpdateOnly() {
 		// 	}
 		// 	psql.Mydb.Create(&fieldMapping)
 		// }
+
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
 	}
 }
