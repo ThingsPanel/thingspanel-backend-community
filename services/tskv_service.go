@@ -104,16 +104,16 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	ConditionsService.ConditionsConfigCheck(device.ID, payload.Values)
 
 	ts := time.Now().UnixMicro()
-	//查找field_mapping表替换value里面的字段
-	var FieldMappingService FieldMappingService
-	FieldMapping, num := FieldMappingService.GetByDeviceid(device.ID)
-	if num <= int64(0) {
-		return false
-	}
-	field_map := map[string]string{}
-	for _, v := range FieldMapping {
-		field_map[v.FieldFrom] = v.FieldTo
-	}
+	// //查找field_mapping表替换value里面的字段
+	// var FieldMappingService FieldMappingService
+	// FieldMapping, num := FieldMappingService.GetByDeviceid(device.ID)
+	// if num <= int64(0) {
+	// 	return false
+	// }
+	// field_map := map[string]string{}
+	// for _, v := range FieldMapping {
+	// 	field_map[v.FieldFrom] = v.FieldTo
+	// }
 
 	// result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
 	// if result.Error != nil {
@@ -122,17 +122,17 @@ func (*TSKVService) MsgProc(body []byte) bool {
 
 	for k, v := range payload.Values {
 
-		key, ok := field_map[k]
-		if !ok {
-			continue
-		}
+		// key, ok := field_map[k]
+		// if !ok {
+		// 	continue
+		// }
 
 		switch value := v.(type) {
 		case int64:
 			d = models.TSKV{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
-				Key:        strings.ToUpper(key),
+				Key:        strings.ToUpper(k),
 				TS:         ts,
 				LongV:      value,
 			}
@@ -140,7 +140,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 			d = models.TSKV{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
-				Key:        strings.ToUpper(key),
+				Key:        strings.ToUpper(k),
 				TS:         ts,
 				StrV:       value,
 			}
@@ -148,7 +148,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 			d = models.TSKV{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
-				Key:        strings.ToUpper(key),
+				Key:        strings.ToUpper(k),
 				TS:         ts,
 				BoolV:      strconv.FormatBool(value),
 			}
@@ -156,7 +156,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 			d = models.TSKV{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
-				Key:        strings.ToUpper(key),
+				Key:        strings.ToUpper(k),
 				TS:         ts,
 				DblV:       value,
 			}
@@ -164,7 +164,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 			d = models.TSKV{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
-				Key:        strings.ToUpper(key),
+				Key:        strings.ToUpper(k),
 				TS:         ts,
 				StrV:       fmt.Sprint(value),
 			}
