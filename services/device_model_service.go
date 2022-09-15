@@ -80,7 +80,7 @@ func (*DeviceModelService) DeleteDeviceModel(device_model models.DeviceModel) bo
 
 type DeviceModelTree struct {
 	DictValue   string               `json:"dict_value"`
-	Describe    string               `json:"describe"`
+	ModelName   string               `json:"model_name"`
 	DeviceModel []models.DeviceModel `json:"device_model"`
 }
 
@@ -103,7 +103,7 @@ func (*DeviceModelService) DeviceModelTree() []DeviceModelTree {
 			return trees
 		}
 		tree.DictValue = dict.DictValue
-		tree.Describe = dict.Describe
+		tree.ModelName = dict.Describe
 		tree.DeviceModel = device_model
 		trees = append(trees, tree)
 	}
