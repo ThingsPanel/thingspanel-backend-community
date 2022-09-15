@@ -80,7 +80,7 @@ func (*DeviceModelService) DeleteDeviceModel(device_model models.DeviceModel) bo
 
 type DeviceModelTree struct {
 	DictValue   string               `json:"dict_value"`
-	Describe    string               `json:"describe"`
+	ModelName   string               `json:"model_name"`
 	DeviceModel []models.DeviceModel `json:"device_model"`
 }
 
@@ -97,13 +97,13 @@ func (*DeviceModelService) DeviceModelTree() []DeviceModelTree {
 	for _, dict := range tp_dict {
 		var tree DeviceModelTree
 		var device_model []models.DeviceModel
-		result := psql.Mydb.Where("model_type = " + dict.DictValue).Find(&device_model)
+		result := psql.Mydb.Where("model_type = ?", dict.DictValue).Find(&device_model)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
 			return trees
 		}
 		tree.DictValue = dict.DictValue
-		tree.Describe = dict.Describe
+		tree.ModelName = dict.Describe
 		tree.DeviceModel = device_model
 		trees = append(trees, tree)
 	}
