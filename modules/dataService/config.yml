@@ -1,5 +1,5 @@
 mqtt:
-  broker: 39.98.176.26:1883
+  broker: 127.0.0.1:1883
   user: root
   pass: root
   topicToPublish: device/attributes
