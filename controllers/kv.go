@@ -313,3 +313,27 @@ func (KvController *KvController) DeviceHistoryData() {
 	data["count"] = count
 	response.SuccessWithDetailed(200, "获取成功", data, map[string]string{}, (*context2.Context)(KvController.Ctx))
 }
+
+// 查询历史数据
+func (KvController *KvController) HistoryData() {
+	HistoryDataValidate := valid.HistoryDataValidate{}
+	err := json.Unmarshal(KvController.Ctx.Input.RequestBody, &HistoryDataValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(HistoryDataValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(HistoryDataValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(KvController.Ctx))
+			break
+		}
+		return
+	}
+	var TSKVService services.TSKVService
+	trees := TSKVService.GetHistoryData(HistoryDataValidate.DeviceId, HistoryDataValidate.Attribute, HistoryDataValidate.StartTs, HistoryDataValidate.EndTs, HistoryDataValidate.Rate)
+	response.SuccessWithDetailed(200, "success", trees, map[string]string{}, (*context2.Context)(KvController.Ctx))
+}

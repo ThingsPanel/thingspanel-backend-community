@@ -48,3 +48,11 @@ type CurrentKVByBusiness struct {
 type CurrentKVByAsset struct {
 	AssetId string `json:"asset_id" alias:"设备分组id" valid:"MaxSize(36)"`
 }
+
+type HistoryDataValidate struct {
+	DeviceId  string   `json:"device_id" alias:"设备" valid:"MaxSize(36)"`
+	Attribute []string `json:"attribute" alias:"属性" valid:"MaxSize(36)"`
+	StartTs   int64    `json:"start_ts" alias:"开始时间"`
+	EndTs     int64    `json:"end_ts" alias:"结束时间"`
+	Rate      string   `json:"rate" alias:"间隔" valid:"MaxSize(36)"`
+}

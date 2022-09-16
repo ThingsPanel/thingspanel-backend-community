@@ -48,6 +48,9 @@ func (*TSKVService) All() ([]models.TSKV, int64) {
 
 // 接收硬件消息
 func (*TSKVService) MsgProc(body []byte) bool {
+	logs.Info("-------------------------------")
+	logs.Info(string(body))
+	logs.Info("-------------------------------")
 	payload := &mqttPayload{}
 	if err := json.Unmarshal(body, payload); err != nil {
 		fmt.Println("Msg Consumer: Cannot unmarshal msg payload to JSON:", err)
@@ -433,6 +436,23 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 		devices = make([]interface{}, 0)
 	}
 	return devices
+}
+
+// 通过设备ID获取一段时间的数据
+func (*TSKVService) GetHistoryData(device_id string, attribute []string, startTs int64, endTs int64, rate string) []models.TSKV {
+	var ts_kvs []models.TSKV
+	var result *gorm.DB
+	if rate == "" {
+		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ? AND key in ?", startTs*1000, endTs*1000, device_id, attribute).Order("ts asc").Find(&ts_kvs)
+	} else {
+		result = psql.Mydb.Raw("select key, bool_v, str_v, long_v, dbl_v, ts from (select row_number() over "+
+			"(partition by (times,key)) as seq,* from (select tk.ts/"+rate+" as times ,* from ts_kv tk where"+
+			"ts >= ? AND ts <= ? AND entity_id =? AND key in ?) as tks) as group_tk where seq = 1", startTs*1000, endTs*1000, device_id, attribute).Find(&ts_kvs)
+	}
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	return ts_kvs
 }
 
 // 返回最新一条的设备数据，用来判断设备状态（待接入，异常，正常）
