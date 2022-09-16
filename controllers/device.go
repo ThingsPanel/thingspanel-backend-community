@@ -114,7 +114,7 @@ func (this *DeviceController) Add() {
 type DeviceDash struct {
 	ID             string            `json:"id" gorm:"primaryKey,size:36"`
 	AssetID        string            `json:"asset_id" gorm:"size:36"`              // 资产id
-	Token          string            `json:"token"`                                // 安全key
+	Token          string            `json:"token,omitempty"`                      // 安全key
 	AdditionalInfo string            `json:"additional_info" gorm:"type:longtext"` // 存储基本配置
 	CustomerID     string            `json:"customer_id" gorm:"size:36"`
 	Type           string            `json:"type"` // 插件类型
@@ -230,7 +230,11 @@ func (reqDate *DeviceController) UpdateOnly() {
 	d, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
 	if d != nil {
 		//更换token要校验重复
-		if d.Token != "" && d.Token != addDeviceValidate.Token {
+		logs.Info("=====================================")
+		logs.Info(addDeviceValidate.Token)
+		logs.Info(d.Token)
+
+		if addDeviceValidate.Token != "" && d.Token != addDeviceValidate.Token {
 			if DeviceService.IsToken(addDeviceValidate.Token) {
 				response.SuccessWithMessage(1000, "与其他设备的token重复", (*context2.Context)(reqDate.Ctx))
 				return
