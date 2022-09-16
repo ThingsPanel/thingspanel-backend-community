@@ -36,6 +36,7 @@ type DeviceModelPaginationValidate struct {
 	PerPage     int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
 	Issued      int    `json:"issued" alias:"发布状态" valid:"Max(36)"`
 	ModelType   string `json:"model_type" alias:"插件类型" valid:"MaxSize(36)"`
+	Id          string `json:"id" alias:"id" valid:"MaxSize(36)"`
 	Flag        int    `json:"flag" alias:"标志" valid:"Max(36)"`
 }
 

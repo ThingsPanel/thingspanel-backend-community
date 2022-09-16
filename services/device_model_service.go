@@ -35,6 +35,9 @@ func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceMod
 	if PaginationValidate.Flag != 0 {
 		sqlWhere += " and flag = " + strconv.Itoa(PaginationValidate.Flag)
 	}
+	if PaginationValidate.Id != "" {
+		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+	}
 	var count int64
 	psql.Mydb.Model(&models.DeviceModel{}).Where(sqlWhere).Count(&count)
 	result := psql.Mydb.Model(&models.DeviceModel{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DeviceModels)
