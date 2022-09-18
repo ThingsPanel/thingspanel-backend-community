@@ -210,7 +210,7 @@ func (*DeviceService) IsToken(token string) bool {
 }
 
 // 根据ID编辑Device的Token
-func (*DeviceService) Edit(id string, token string, protocol string, port string, publish string, subscribe string, username string, password string, asset_id string) bool {
+func (*DeviceService) Edit(id string, token string, protocol string, port string, publish string, subscribe string, username string, password string, asset_id string, dtype string) bool {
 	var device models.Device
 	psql.Mydb.Where("id = ?", id).First(&device)
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Updates(models.Device{
@@ -222,6 +222,7 @@ func (*DeviceService) Edit(id string, token string, protocol string, port string
 		Username:  username,
 		Password:  password,
 		AssetID:   asset_id,
+		Type:      dtype,
 	})
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)

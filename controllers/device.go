@@ -67,7 +67,7 @@ func (this *DeviceController) Edit() {
 		}
 	}
 	var DeviceService services.DeviceService
-	f := DeviceService.Edit(editDeviceValidate.ID, editDeviceValidate.Token, editDeviceValidate.Protocol, editDeviceValidate.Port, editDeviceValidate.Publish, editDeviceValidate.Subscribe, editDeviceValidate.Username, editDeviceValidate.Password, editDeviceValidate.AssetID)
+	f := DeviceService.Edit(editDeviceValidate.ID, editDeviceValidate.Token, editDeviceValidate.Protocol, editDeviceValidate.Port, editDeviceValidate.Publish, editDeviceValidate.Subscribe, editDeviceValidate.Username, editDeviceValidate.Password, editDeviceValidate.AssetID, editDeviceValidate.Type)
 	if f {
 		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
 		return
@@ -249,7 +249,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 	// 	ResWidgetData = dd
 	// }
 	result := DeviceService.Edit(addDeviceValidate.ID, addDeviceValidate.Token, addDeviceValidate.Protocol, addDeviceValidate.Port,
-		addDeviceValidate.Publish, addDeviceValidate.Subscribe, addDeviceValidate.Username, addDeviceValidate.Password, addDeviceValidate.AssetID)
+		addDeviceValidate.Publish, addDeviceValidate.Subscribe, addDeviceValidate.Username, addDeviceValidate.Password, addDeviceValidate.AssetID, addDeviceValidate.Type)
 	// deviceData := models.Device{
 	// 	ID:        addDeviceValidate.ID,
 	// 	AssetID:   addDeviceValidate.AssetID,

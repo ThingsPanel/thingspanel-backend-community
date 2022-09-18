@@ -16,6 +16,7 @@ type EditDevice struct {
 	Username  string `json:"username"`
 	Password  string `json:"password"`
 	AssetID   string `json:"asset_id"`
+	Type      string `json:"type"`
 }
 
 // AddDevice 校验
