@@ -67,7 +67,7 @@ func (this *DeviceController) Edit() {
 		}
 	}
 	var DeviceService services.DeviceService
-	f := DeviceService.Edit(editDeviceValidate.ID, editDeviceValidate.Token, editDeviceValidate.Protocol, editDeviceValidate.Port, editDeviceValidate.Publish, editDeviceValidate.Subscribe, editDeviceValidate.Username, editDeviceValidate.Password)
+	f := DeviceService.Edit(editDeviceValidate.ID, editDeviceValidate.Token, editDeviceValidate.Protocol, editDeviceValidate.Port, editDeviceValidate.Publish, editDeviceValidate.Subscribe, editDeviceValidate.Username, editDeviceValidate.Password, editDeviceValidate.AssetID)
 	if f {
 		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
 		return
@@ -225,7 +225,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 		}
 		return
 	}
-	// 获取插件详情
+	// 如果更换了插件需要删除当前值
 	var DeviceService services.DeviceService
 	d, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
 	if d != nil {
@@ -244,13 +244,12 @@ func (reqDate *DeviceController) UpdateOnly() {
 	}
 	// var AssetService services.AssetService
 	// var ResWidgetData []services.Widget
-	// // 插件类型
 	// if addDeviceValidate.Type != "" {
 	// 	dd := AssetService.Widget(addDeviceValidate.Type)
 	// 	ResWidgetData = dd
 	// }
 	result := DeviceService.Edit(addDeviceValidate.ID, addDeviceValidate.Token, addDeviceValidate.Protocol, addDeviceValidate.Port,
-		addDeviceValidate.Publish, addDeviceValidate.Subscribe, addDeviceValidate.Username, addDeviceValidate.Password)
+		addDeviceValidate.Publish, addDeviceValidate.Subscribe, addDeviceValidate.Username, addDeviceValidate.Password, addDeviceValidate.AssetID)
 	// deviceData := models.Device{
 	// 	ID:        addDeviceValidate.ID,
 	// 	AssetID:   addDeviceValidate.AssetID,
@@ -264,7 +263,19 @@ func (reqDate *DeviceController) UpdateOnly() {
 	// }
 	// result := psql.Mydb.Updates(&deviceData)
 	if result {
-		dd, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
+		// deviceDash := DeviceDash{
+		// 	ID:        addDeviceValidate.ID,
+		// 	AssetID:   addDeviceValidate.AssetID,
+		// 	Token:     addDeviceValidate.Token,
+		// 	Type:      addDeviceValidate.Type,
+		// 	Name:      addDeviceValidate.Name,
+		// 	Extension: addDeviceValidate.Extension,
+		// 	Protocol:  addDeviceValidate.Protocol,
+		// 	Location:  addDeviceValidate.Location,
+		// 	DId:       addDeviceValidate.DId,
+		// 	Dash:      ResWidgetData,
+		// }
+		deviceDash, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
 		// 自动映射
 		// extensionDataMap := AssetService.ExtensionName(addDeviceValidate.Type)
 		// for _, extension := range extensionDataMap[0].Field {
@@ -279,7 +290,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 		// 	psql.Mydb.Create(&fieldMapping)
 		// }
 
-		response.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
 	}
