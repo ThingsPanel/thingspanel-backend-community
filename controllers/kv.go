@@ -207,7 +207,7 @@ func (this *KvController) CurrentData() {
 		return
 	}
 	var TSKVService services.TSKVService
-	t := TSKVService.GetCurrentData(CurrentKV.EntityID)
+	t := TSKVService.GetCurrentData(CurrentKV.EntityID, CurrentKV.Attribute)
 	log.Println(t)
 	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
 }

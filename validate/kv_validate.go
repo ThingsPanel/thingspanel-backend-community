@@ -32,7 +32,8 @@ type KVExportValidate struct {
 }
 
 type CurrentKV struct {
-	EntityID string `json:"entity_id" alias:"设备" valid:"MaxSize(36)"`
+	EntityID  string   `json:"entity_id" alias:"设备" valid:"MaxSize(36)"`
+	Attribute []string `json:"attribute,omitempty" alias:"属性" valid:"MaxSize(36)"`
 }
 
 type DeviceHistoryDataValidate struct {
@@ -50,9 +51,9 @@ type CurrentKVByAsset struct {
 }
 
 type HistoryDataValidate struct {
-	DeviceId  string   `json:"device_id" alias:"设备" valid:"MaxSize(36)"`
-	Attribute []string `json:"attribute" alias:"属性" valid:"MaxSize(36)"`
-	StartTs   int64    `json:"start_ts" alias:"开始时间"`
-	EndTs     int64    `json:"end_ts" alias:"结束时间"`
-	Rate      string   `json:"rate" alias:"间隔" valid:"MaxSize(36)"`
+	DeviceId  string   `json:"device_id" alias:"设备" valid:"Required;MaxSize(36)"`
+	Attribute []string `json:"attribute" alias:"属性" valid:"Required;MaxSize(36)"`
+	StartTs   int64    `json:"start_ts" alias:"开始时间" valid:"Required"`
+	EndTs     int64    `json:"end_ts" alias:"结束时间" valid:"Required"`
+	Rate      string   `json:"rate" alias:"间隔" valid:"Required;MaxSize(36)"`
 }

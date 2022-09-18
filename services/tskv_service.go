@@ -135,7 +135,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 			d = models.TSKV{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
-				Key:        strings.ToUpper(k),
+				Key:        k,
 				TS:         ts,
 				LongV:      value,
 			}
@@ -143,7 +143,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 			d = models.TSKV{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
-				Key:        strings.ToUpper(k),
+				Key:        k,
 				TS:         ts,
 				StrV:       value,
 			}
@@ -151,7 +151,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 			d = models.TSKV{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
-				Key:        strings.ToUpper(k),
+				Key:        k,
 				TS:         ts,
 				BoolV:      strconv.FormatBool(value),
 			}
@@ -159,7 +159,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 			d = models.TSKV{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
-				Key:        strings.ToUpper(k),
+				Key:        k,
 				TS:         ts,
 				DblV:       value,
 			}
@@ -167,7 +167,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 			d = models.TSKV{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
-				Key:        strings.ToUpper(k),
+				Key:        k,
 				TS:         ts,
 				StrV:       fmt.Sprint(value),
 			}
@@ -199,7 +199,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 	d = models.TSKV{
 		EntityType: "DEVICE",
 		EntityID:   device.ID,
-		Key:        strings.ToUpper("systime"),
+		Key:        "systime",
 		TS:         ts,
 		StrV:       currentTime,
 	}
@@ -439,20 +439,61 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 }
 
 // 通过设备ID获取一段时间的数据
-func (*TSKVService) GetHistoryData(device_id string, attribute []string, startTs int64, endTs int64, rate string) []models.TSKV {
+func (*TSKVService) GetHistoryData(device_id string, attributes []string, startTs int64, endTs int64, rate string) map[string][]interface{} {
 	var ts_kvs []models.TSKV
 	var result *gorm.DB
+	var rsp_map = make(map[string][]interface{})
 	if rate == "" {
-		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ? AND key in ?", startTs*1000, endTs*1000, device_id, attribute).Order("ts asc").Find(&ts_kvs)
+		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where(" ts >= ? AND ts <= ? AND entity_id = ? AND key in ?", startTs*1000, endTs*1000, device_id, attributes).Order("ts asc").Find(&ts_kvs)
 	} else {
 		result = psql.Mydb.Raw("select key, bool_v, str_v, long_v, dbl_v, ts from (select row_number() over "+
 			"(partition by (times,key)) as seq,* from (select tk.ts/"+rate+" as times ,* from ts_kv tk where"+
-			"ts >= ? AND ts <= ? AND entity_id =? AND key in ?) as tks) as group_tk where seq = 1", startTs*1000, endTs*1000, device_id, attribute).Find(&ts_kvs)
+			" ts >= ? AND ts <= ? AND entity_id =? AND key in ?) as tks) as group_tk where seq = 1", startTs*1000, endTs*1000, device_id, attributes).Find(&ts_kvs)
 	}
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return rsp_map
 	}
-	return ts_kvs
+	// for _,attribute := range attributes{
+	// 	rsp_map[attribute] = []interface{}{}
+	// }
+	var i int64 = 0
+	var j int = -1
+	for _, v := range ts_kvs {
+		if i != v.TS {
+			//第一条进来
+			j++
+			for _, attribute := range attributes {
+				rsp_map[attribute] = append(rsp_map[attribute], nil)
+			}
+			if fmt.Sprint(v.BoolV) != "" {
+				rsp_map[v.Key][j] = v.BoolV
+			} else if v.StrV != "" {
+				rsp_map[v.Key][j] = v.StrV
+			} else if v.LongV != 0 {
+				rsp_map[v.Key][j] = v.LongV
+			} else if v.DblV != 0 {
+				rsp_map[v.Key][j] = v.DblV
+			} else {
+				rsp_map[v.Key][j] = 0
+			}
+			i = v.TS
+		} else {
+			//后续的值
+			if fmt.Sprint(v.BoolV) != "" {
+				rsp_map[v.Key][j] = v.BoolV
+			} else if v.StrV != "" {
+				rsp_map[v.Key][j] = v.StrV
+			} else if v.LongV != 0 {
+				rsp_map[v.Key][j] = v.LongV
+			} else if v.DblV != 0 {
+				rsp_map[v.Key][j] = v.DblV
+			} else {
+				rsp_map[v.Key][j] = 0
+			}
+		}
+	}
+	return rsp_map
 }
 
 // 返回最新一条的设备数据，用来判断设备状态（待接入，异常，正常）
@@ -466,18 +507,33 @@ func (*TSKVService) Status(device_id string) (*models.TSKVLatest, int64) {
 }
 
 // 通过设备ID获取设备当前值
-func (*TSKVService) GetCurrentData(device_id string) []map[string]interface{} {
+func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[string]interface{} {
+	var fields []map[string]interface{}
 	var ts_kvs []models.TSKVLatest
 	device := make(map[string]interface{})
-	result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts asc").Find(&ts_kvs)
+	var result *gorm.DB
+	if attributes == nil {
+		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts asc").Find(&ts_kvs)
+	} else {
+		flag := true
+		for _, attribute := range attributes {
+			if attribute == "systime" {
+				flag = false
+			}
+		}
+		if flag {
+			attributes = append(attributes, "systime")
+		}
+		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ? AND key in ?", device_id, attributes).Order("ts asc").Find(&ts_kvs)
+	}
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return fields
 	}
-	var fields []map[string]interface{}
 	if len(ts_kvs) > 0 {
 		var i int64 = 0
 		var field map[string]interface{}
-		// 0-带接入 1-正常 2-异常
+		// 0-未接入 1-正常 2-异常
 		var state string
 		var TSKVService TSKVService
 		tsl, tsc := TSKVService.Status(device_id)
@@ -496,7 +552,7 @@ func (*TSKVService) GetCurrentData(device_id string) []map[string]interface{} {
 		c := len(ts_kvs)
 		for k, v := range ts_kvs {
 			if v.Key != "" {
-				field_from = strings.ToLower(v.Key)
+				field_from = v.Key
 			}
 			if i != v.TS {
 				if i != 0 {
@@ -568,7 +624,7 @@ func (*TSKVService) GetCurrentDataByBusiness(business string) map[string]interfa
 			deviceData["d_id"] = device.DId
 			deviceData["location"] = device.Location
 			var TSKVService TSKVService
-			fields := TSKVService.GetCurrentData(device.ID)
+			fields := TSKVService.GetCurrentData(device.ID, nil)
 			if len(fields) == 0 {
 				deviceData["values"] = make(map[string]interface{}, 0)
 				deviceData["status"] = "0"
@@ -625,7 +681,7 @@ func (*TSKVService) GetCurrentDataByAsset(asset_id string) map[string]interface{
 			deviceData["d_id"] = device.DId
 			deviceData["location"] = device.Location
 			var TSKVService TSKVService
-			fields := TSKVService.GetCurrentData(device.ID)
+			fields := TSKVService.GetCurrentData(device.ID, nil)
 			if len(fields) == 0 {
 				deviceData["values"] = make(map[string]interface{}, 0)
 				deviceData["status"] = "0"
@@ -683,7 +739,7 @@ func (*TSKVService) GetCurrentDataByAssetA(asset_id string) map[string]interface
 			deviceData["location"] = device.Location
 
 			var TSKVService TSKVService
-			fields := TSKVService.GetCurrentData(device.ID)
+			fields := TSKVService.GetCurrentData(device.ID, nil)
 			if len(fields) == 0 {
 				deviceData["values"] = make(map[string]interface{}, 0)
 				deviceData["status"] = "0"

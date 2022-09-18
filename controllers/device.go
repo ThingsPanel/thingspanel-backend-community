@@ -225,15 +225,11 @@ func (reqDate *DeviceController) UpdateOnly() {
 		}
 		return
 	}
-	// 如果更换了插件需要删除当前值
+	// 获取插件详情
 	var DeviceService services.DeviceService
 	d, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
 	if d != nil {
 		//更换token要校验重复
-		logs.Info("=====================================")
-		logs.Info(addDeviceValidate.Token)
-		logs.Info(d.Token)
-
 		if addDeviceValidate.Token != "" && d.Token != addDeviceValidate.Token {
 			if DeviceService.IsToken(addDeviceValidate.Token) {
 				response.SuccessWithMessage(1000, "与其他设备的token重复", (*context2.Context)(reqDate.Ctx))
@@ -246,12 +242,13 @@ func (reqDate *DeviceController) UpdateOnly() {
 		// 	TSKVService.DeleteCurrentDataByDeviceId(addDeviceValidate.ID)
 		// }
 	}
-	var AssetService services.AssetService
-	var ResWidgetData []services.Widget
-	if addDeviceValidate.Type != "" {
-		dd := AssetService.Widget(addDeviceValidate.Type)
-		ResWidgetData = dd
-	}
+	// var AssetService services.AssetService
+	// var ResWidgetData []services.Widget
+	// // 插件类型
+	// if addDeviceValidate.Type != "" {
+	// 	dd := AssetService.Widget(addDeviceValidate.Type)
+	// 	ResWidgetData = dd
+	// }
 	result := DeviceService.Edit(addDeviceValidate.ID, addDeviceValidate.Token, addDeviceValidate.Protocol, addDeviceValidate.Port,
 		addDeviceValidate.Publish, addDeviceValidate.Subscribe, addDeviceValidate.Username, addDeviceValidate.Password)
 	// deviceData := models.Device{
@@ -267,18 +264,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 	// }
 	// result := psql.Mydb.Updates(&deviceData)
 	if result {
-		deviceDash := DeviceDash{
-			ID:        addDeviceValidate.ID,
-			AssetID:   addDeviceValidate.AssetID,
-			Token:     addDeviceValidate.Token,
-			Type:      addDeviceValidate.Type,
-			Name:      addDeviceValidate.Name,
-			Extension: addDeviceValidate.Extension,
-			Protocol:  addDeviceValidate.Protocol,
-			Location:  addDeviceValidate.Location,
-			DId:       addDeviceValidate.DId,
-			Dash:      ResWidgetData,
-		}
+		dd, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
 		// 自动映射
 		// extensionDataMap := AssetService.ExtensionName(addDeviceValidate.Type)
 		// for _, extension := range extensionDataMap[0].Field {
@@ -293,7 +279,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 		// 	psql.Mydb.Create(&fieldMapping)
 		// }
 
-		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+		response.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
 	}
