@@ -67,7 +67,7 @@ func (this *DeviceController) Edit() {
 		}
 	}
 	var DeviceService services.DeviceService
-	f := DeviceService.Edit(editDeviceValidate.ID, editDeviceValidate.Token, editDeviceValidate.Protocol, editDeviceValidate.Port, editDeviceValidate.Publish, editDeviceValidate.Subscribe, editDeviceValidate.Username, editDeviceValidate.Password, editDeviceValidate.AssetID, editDeviceValidate.Type)
+	f := DeviceService.Edit(editDeviceValidate)
 	if f {
 		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
 		return
@@ -209,7 +209,7 @@ func (reqDate *DeviceController) AddOnly() {
 }
 
 func (reqDate *DeviceController) UpdateOnly() {
-	addDeviceValidate := valid.Device{}
+	addDeviceValidate := valid.EditDevice{}
 	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &addDeviceValidate)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
@@ -248,8 +248,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 	// 	dd := AssetService.Widget(addDeviceValidate.Type)
 	// 	ResWidgetData = dd
 	// }
-	result := DeviceService.Edit(addDeviceValidate.ID, addDeviceValidate.Token, addDeviceValidate.Protocol, addDeviceValidate.Port,
-		addDeviceValidate.Publish, addDeviceValidate.Subscribe, addDeviceValidate.Username, addDeviceValidate.Password, addDeviceValidate.AssetID, addDeviceValidate.Type)
+	result := DeviceService.Edit(addDeviceValidate)
 	// deviceData := models.Device{
 	// 	ID:        addDeviceValidate.ID,
 	// 	AssetID:   addDeviceValidate.AssetID,

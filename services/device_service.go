@@ -7,6 +7,7 @@ import (
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	tphttp "ThingsPanel-Go/others/http"
 	uuid "ThingsPanel-Go/utils"
+	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"errors"
 	"log"
@@ -210,31 +211,32 @@ func (*DeviceService) IsToken(token string) bool {
 }
 
 // 根据ID编辑Device的Token
-func (*DeviceService) Edit(id string, token string, protocol string, port string, publish string, subscribe string, username string, password string, asset_id string, dtype string) bool {
+func (*DeviceService) Edit(deviceModel valid.EditDevice) bool {
 	var device models.Device
-	psql.Mydb.Where("id = ?", id).First(&device)
-	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Updates(models.Device{
-		Token:     token,
-		Protocol:  protocol,
-		Port:      port,
-		Publish:   publish,
-		Subscribe: subscribe,
-		Username:  username,
-		Password:  password,
-		AssetID:   asset_id,
-		Type:      dtype,
+	psql.Mydb.Where("id = ?", deviceModel.ID).First(&device)
+	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Updates(models.Device{
+		Token:     deviceModel.Token,
+		Protocol:  deviceModel.Protocol,
+		Port:      deviceModel.Port,
+		Publish:   deviceModel.Publish,
+		Subscribe: deviceModel.Subscribe,
+		Username:  deviceModel.Username,
+		Password:  deviceModel.Password,
+		AssetID:   deviceModel.AssetID,
+		Type:      deviceModel.Type,
+		Name:      deviceModel.Name,
 	})
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
-	if token != "" {
+	if deviceModel.Token != "" {
 		if device.Token != "" {
 			redis.DelKey("token" + device.Token)
 			tphttp.Delete(viper.GetString("api.delete")+device.Token, "{}")
 		}
-		redis.SetStr("token"+token, id, 3600*time.Second)
-		tphttp.Post(viper.GetString("api.add")+token, "{\"password\":\""+password+"\"}")
+		redis.SetStr("token"+deviceModel.Token, deviceModel.ID, 3600*time.Second)
+		tphttp.Post(viper.GetString("api.add")+device.Token, "{\"password\":\""+device.Password+"\"}")
 	}
 
 	return true
