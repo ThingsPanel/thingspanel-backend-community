@@ -22,13 +22,9 @@ type EditDevice struct {
 
 // AddDevice 校验
 type AddDevice struct {
-	Token     string `json:"token"`
-	Protocol  string `json:"protocol"`
-	Port      string `json:"port"`
-	Publish   string `json:"publish"`
-	Subscribe string `json:"subscribe"`
-	Username  string `json:"username"`
-	Password  string `json:"password"`
+	Token   string `json:"token"`
+	Name    string `json:"name"`
+	AssetId string `json:"asset_id"`
 }
 
 // DeleteDevice 校验

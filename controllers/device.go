@@ -8,6 +8,7 @@ import (
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
+	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"errors"
@@ -171,21 +172,16 @@ func (reqDate *DeviceController) AddOnly() {
 	// 	Location:  addDeviceValidate.Location,
 	// }
 	var DeviceService services.DeviceService
-	result, uuid := DeviceService.Add(addDeviceValidate.Token, addDeviceValidate.Protocol, addDeviceValidate.Port,
-		addDeviceValidate.Publish, addDeviceValidate.Subscribe, addDeviceValidate.Username, addDeviceValidate.Password)
+	var uuid = uuid.GetUuid()
+
+	result, uuid := DeviceService.Add(uuid, addDeviceValidate.Name, addDeviceValidate.AssetID)
 	//result := psql.Mydb.Create(&deviceData)
 	if result {
 		deviceDash := DeviceDash{
-			ID:        uuid,
-			AssetID:   addDeviceValidate.AssetID,
-			Token:     addDeviceValidate.Token,
-			Type:      addDeviceValidate.Type,
-			Name:      addDeviceValidate.Name,
-			Extension: addDeviceValidate.Extension,
-			Protocol:  addDeviceValidate.Protocol,
-			DId:       addDeviceValidate.DId,
-			Location:  addDeviceValidate.Location,
-			Dash:      ResWidgetData,
+			ID:      uuid,
+			AssetID: addDeviceValidate.AssetID,
+			Token:   uuid,
+			Name:    addDeviceValidate.Name,
 		}
 		// 自动映射
 		// extensionDataMap := AssetService.ExtensionName(addDeviceValidate.Type)

@@ -242,17 +242,13 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) bool {
 	return true
 }
 
-func (*DeviceService) Add(token string, protocol string, port string, publish string, subscribe string, username string, password string) (bool, string) {
+func (*DeviceService) Add(token string, name string, asset_id string) (bool, string) {
 	var uuid = uuid.GetUuid()
 	device := models.Device{
-		ID:        uuid,
-		Token:     token,
-		Protocol:  protocol,
-		Port:      port,
-		Publish:   publish,
-		Subscribe: subscribe,
-		Username:  username,
-		Password:  password,
+		ID:      uuid,
+		Token:   token,
+		Name:    name,
+		AssetID: asset_id,
 	}
 	result := psql.Mydb.Create(&device)
 	if result.Error != nil {
@@ -261,7 +257,7 @@ func (*DeviceService) Add(token string, protocol string, port string, publish st
 	}
 	if token != "" {
 		redis.SetStr("token"+token, uuid, 3600*time.Second)
-		tphttp.Post(viper.GetString("api.add")+token, "{\"password\":\""+password+"\"}")
+		tphttp.Post(viper.GetString("api.add")+token, "{\"password\":\"\"}")
 	}
 
 	return true, uuid
