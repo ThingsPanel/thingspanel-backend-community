@@ -713,6 +713,11 @@ COMMENT ON COLUMN public.tp_dict.dict_code IS '字典编码';
 COMMENT ON COLUMN public.tp_dict.dict_value IS '值';
 COMMENT ON COLUMN public.tp_dict."describe" IS '描述';
 
+ALTER TABLE public.device DROP COLUMN "extension";
+ALTER TABLE public.device ADD chart_option json NULL;
+COMMENT ON COLUMN public.device.chart_option IS '图表配置';
+
+
 
 
 

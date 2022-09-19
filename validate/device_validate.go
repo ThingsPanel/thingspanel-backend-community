@@ -7,17 +7,18 @@ type TokenDevice struct {
 
 // EditDevice 校验
 type EditDevice struct {
-	ID        string `json:"id" alias:"ID" valid:"Required;MaxSize(36)"`
-	Token     string `json:"token"`
-	Protocol  string `json:"protocol"`
-	Port      string `json:"port"`
-	Publish   string `json:"publish"`
-	Subscribe string `json:"subscribe"`
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	AssetID   string `json:"asset_id"`
-	Type      string `json:"type"`
-	Name      string `json:"name"`
+	ID          string `json:"id" alias:"ID" valid:"Required;MaxSize(36)"`
+	Token       string `json:"token"`
+	Protocol    string `json:"protocol"`
+	Port        string `json:"port"`
+	Publish     string `json:"publish"`
+	Subscribe   string `json:"subscribe"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	AssetID     string `json:"asset_id"`
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	ChartOption string `json:"chart_option"`
 }
 
 // AddDevice 校验
@@ -52,7 +53,7 @@ type Device struct {
 	Name           string `json:"name"` // 插件名
 	Label          string `json:"label"`
 	SearchText     string `json:"search_text"`
-	Extension      string `json:"extension" gorm:"size:50"` // 插件( 目录名)
+	ChartOption    string `json:"chart_option"`
 	Protocol       string `json:"protocol" gorm:"size:50"`
 	Port           string `json:"port" gorm:"size:50"`
 	Publish        string `json:"publish" gorm:"size:255"`
@@ -71,7 +72,7 @@ type UpdateDevice struct {
 	Name           string `json:"name,omitempty"`                                 // 插件名
 	Label          string `json:"label,omitempty"`
 	SearchText     string `json:"search_text,omitempty"`
-	Extension      string `json:"extension,omitempty" gorm:"size:50"` // 插件( 目录名)
+	ChartOption    string `json:"chart_option"`
 	Protocol       string `json:"protocol,omitempty" gorm:"size:50"`
 	Port           string `json:"port,omitempty" gorm:"size:50"`
 	Publish        string `json:"publish,omitempty" gorm:"size:255"`

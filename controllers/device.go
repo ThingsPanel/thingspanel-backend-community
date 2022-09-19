@@ -118,7 +118,7 @@ type DeviceDash struct {
 	Name           string            `json:"name"` // 插件名
 	Label          string            `json:"label"`
 	SearchText     string            `json:"search_text"`
-	Extension      string            `json:"extension" gorm:"size:50"` // 插件( 目录名)
+	ChartOption    string            `json:"chart_option"`
 	Protocol       string            `json:"protocol" gorm:"size:50"`
 	Port           string            `json:"port" gorm:"size:50"`
 	Publish        string            `json:"publish" gorm:"size:255"`
