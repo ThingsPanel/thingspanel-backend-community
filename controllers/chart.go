@@ -79,20 +79,10 @@ func (ChartController *ChartController) Edit() {
 		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(ChartController.Ctx))
 	}
 	var ChartService services.ChartService
-	Chart := models.Chart{
-		ID:        ChartValidate.Id,
-		ChartType: ChartValidate.ChartType,
-		ChartData: ChartValidate.ChartData,
-		ChartName: ChartValidate.ChartName,
-		CreatedAt: ChartValidate.CreatedAt,
-		Sort:      ChartValidate.Sort,
-		Issued:    ChartValidate.Issued,
-		Remark:    ChartValidate.Remark,
-		Flag:      ChartValidate.Flag,
-	}
-	isSucess := ChartService.EditChart(Chart)
+	isSucess := ChartService.EditChart(ChartValidate)
 	if isSucess {
-		response.SuccessWithDetailed(200, "success", Chart, map[string]string{}, (*context2.Context)(ChartController.Ctx))
+		d := ChartService.GetChartDetail(ChartValidate.Id)
+		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(ChartController.Ctx))
 	} else {
 		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(ChartController.Ctx))
 	}

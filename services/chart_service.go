@@ -20,6 +20,12 @@ type ChartService struct {
 	TimeField []string
 }
 
+func (*ChartService) GetChartDetail(chart_id string) []models.Chart {
+	var chart []models.Chart
+	psql.Mydb.First(&chart, chart_id)
+	return chart
+}
+
 // 获取列表
 func (*ChartService) GetChartList(PaginationValidate valid.ChartPaginationValidate) (bool, []models.Chart, int64) {
 	var Charts []models.Chart
@@ -57,9 +63,8 @@ func (*ChartService) AddChart(chart models.Chart) (bool, models.Chart) {
 }
 
 // 修改数据
-func (*ChartService) EditChart(chart models.Chart) bool {
-	result := psql.Mydb.Updates(&chart)
-	//result := psql.Mydb.Save(&chart)
+func (*ChartService) EditChart(chart valid.ChartValidate) bool {
+	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", chart.Id).Updates(&chart)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
