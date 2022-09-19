@@ -21,6 +21,12 @@ type DeviceModelService struct {
 	TimeField []string
 }
 
+func (*DeviceModelService) GetDeviceModelDetail(device_model_id string) []models.DeviceModel {
+	var deviceModel []models.DeviceModel
+	psql.Mydb.First(&deviceModel, "id = ?", device_model_id)
+	return deviceModel
+}
+
 // 获取列表
 func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceModelPaginationValidate) (bool, []models.DeviceModel, int64) {
 	var DeviceModels []models.DeviceModel
@@ -61,9 +67,8 @@ func (*DeviceModelService) AddDeviceModel(device_model models.DeviceModel) (bool
 }
 
 // 修改数据
-func (*DeviceModelService) EditDeviceModel(device_model models.DeviceModel) bool {
-	result := psql.Mydb.Updates(&device_model)
-	//result := psql.Mydb.Save(&device_model)
+func (*DeviceModelService) EditDeviceModel(device_model valid.DeviceModelValidate) bool {
+	result := psql.Mydb.Model(&models.DeviceModel{}).Where("id = ?", device_model.Id).Updates(&device_model)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false

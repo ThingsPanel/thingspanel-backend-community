@@ -78,23 +78,10 @@ func (DeviceModelController *DeviceModelController) Edit() {
 		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(DeviceModelController.Ctx))
 	}
 	var DeviceModelService services.DeviceModelService
-	DeviceModel := models.DeviceModel{
-		ID:        DeviceModelValidate.Id,
-		ModelName: DeviceModelValidate.ModelName,
-		Flag:      DeviceModelValidate.Flag,
-		ChartData: DeviceModelValidate.ChartData,
-		ModelType: DeviceModelValidate.ModelType,
-		Describe:  DeviceModelValidate.Describe,
-		Version:   DeviceModelValidate.Version,
-		Author:    DeviceModelValidate.Author,
-		CreatedAt: DeviceModelValidate.CreatedAt,
-		Sort:      DeviceModelValidate.Sort,
-		Issued:    DeviceModelValidate.Issued,
-		Remark:    DeviceModelValidate.Remark,
-	}
-	isSucess := DeviceModelService.EditDeviceModel(DeviceModel)
+	isSucess := DeviceModelService.EditDeviceModel(DeviceModelValidate)
 	if isSucess {
-		response.SuccessWithDetailed(200, "success", DeviceModel, map[string]string{}, (*context2.Context)(DeviceModelController.Ctx))
+		d := DeviceModelService.GetDeviceModelDetail(DeviceModelValidate.Id)
+		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceModelController.Ctx))
 	} else {
 		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(DeviceModelController.Ctx))
 	}

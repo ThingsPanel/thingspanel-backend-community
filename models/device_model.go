@@ -9,10 +9,10 @@ type DeviceModel struct {
 	Describe  string `json:"describe,omitempty" gorm:"size:255"`
 	Version   string `json:"version,omitempty" gorm:"size:36"`
 	Author    string `json:"author,omitempty" gorm:"size:36"`
-	CreatedAt int64  `json:"created_at,omitempty"`
 	Sort      int64  `json:"sort"`
 	Issued    int64  `json:"issued"`
 	Remark    string `json:"remark,omitempty" gorm:"size:255"`
+	CreatedAt int64  `json:"created_at,omitempty"`
 }
 
 func (DeviceModel) TableName() string {

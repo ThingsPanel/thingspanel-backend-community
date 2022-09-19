@@ -22,7 +22,7 @@ type ChartService struct {
 
 func (*ChartService) GetChartDetail(chart_id string) []models.Chart {
 	var chart []models.Chart
-	psql.Mydb.First(&chart, chart_id)
+	psql.Mydb.First(&chart, "id = ?", chart_id)
 	return chart
 }
 
