@@ -97,12 +97,8 @@ func (this *DeviceController) Add() {
 	var DeviceService services.DeviceService
 	f, _ := DeviceService.Add(
 		addDeviceValidate.Token,
-		addDeviceValidate.Protocol,
-		addDeviceValidate.Port,
-		addDeviceValidate.Publish,
-		addDeviceValidate.Subscribe,
-		addDeviceValidate.Username,
-		addDeviceValidate.Password,
+		addDeviceValidate.Name,
+		addDeviceValidate.AssetId,
 	)
 	if f {
 		response.SuccessWithMessage(200, "添加成功", (*context2.Context)(this.Ctx))
