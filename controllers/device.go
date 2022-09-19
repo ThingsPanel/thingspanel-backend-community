@@ -168,15 +168,15 @@ func (reqDate *DeviceController) AddOnly() {
 	// 	Location:  addDeviceValidate.Location,
 	// }
 	var DeviceService services.DeviceService
-	var uuid = uuid.GetUuid()
+	var uuid_d = uuid.GetUuid()
 
-	result, uuid := DeviceService.Add(uuid, addDeviceValidate.Name, addDeviceValidate.AssetID)
+	result, uuid := DeviceService.Add(uuid_d, addDeviceValidate.Name, addDeviceValidate.AssetID)
 	//result := psql.Mydb.Create(&deviceData)
 	if result {
 		deviceDash := DeviceDash{
 			ID:      uuid,
 			AssetID: addDeviceValidate.AssetID,
-			Token:   uuid,
+			Token:   uuid_d,
 			Name:    addDeviceValidate.Name,
 		}
 		// 自动映射
