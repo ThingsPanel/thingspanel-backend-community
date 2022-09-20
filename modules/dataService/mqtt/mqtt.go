@@ -12,7 +12,7 @@ import (
 var running bool
 var _client mqtt.Client
 
-func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Message)) (err error) {
+func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Message), msgProc1 func(m mqtt.Message)) (err error) {
 	running = false
 	if _client == nil {
 		var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
@@ -41,6 +41,13 @@ func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Mes
 			panic(token.Error())
 		}
 		if token := _client.Subscribe(viper.GetString("mqtt.topicToSubscribe"), 0, nil); token.Wait() &&
+			token.Error() != nil {
+			fmt.Println(token.Error())
+			os.Exit(1)
+		}
+		if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), 0, func(c mqtt.Client, m mqtt.Message) {
+			msgProc1(m)
+		}); token.Wait() &&
 			token.Error() != nil {
 			fmt.Println(token.Error())
 			os.Exit(1)

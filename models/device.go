@@ -10,7 +10,7 @@ type Device struct {
 	Name           string `json:"name,omitempty"` // 插件名
 	Label          string `json:"label,omitempty"`
 	SearchText     string `json:"search_text,omitempty"`
-	Extension      string `json:"extension,omitempty" gorm:"size:50"` // 插件( 目录名)
+	ChartOption    string `json:"chart_option,omitempty"  gorm:"type:longtext"` // 插件( 目录名)
 	Protocol       string `json:"protocol,omitempty" gorm:"size:50"`
 	Port           string `json:"port,omitempty" gorm:"size:50"`
 	Publish        string `json:"publish,omitempty" gorm:"size:255"`

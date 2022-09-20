@@ -149,7 +149,6 @@ func (*AssetService) Add(data string) bool {
 						Subscribe: fmt.Sprint(each_map2.(map[string]interface{})["subscribe"]),
 						Username:  fmt.Sprint(each_map2.(map[string]interface{})["username"]),
 						Password:  fmt.Sprint(each_map2.(map[string]interface{})["password"]),
-						Extension: "Extensions",
 					}
 					if err := tx.Create(&device).Error; err != nil {
 						return err
@@ -197,7 +196,6 @@ func (*AssetService) Add(data string) bool {
 							Subscribe: fmt.Sprint(each_map33.(map[string]interface{})["subscribe"]),
 							Username:  fmt.Sprint(each_map33.(map[string]interface{})["username"]),
 							Password:  fmt.Sprint(each_map33.(map[string]interface{})["password"]),
-							Extension: "Extensions",
 						}
 						if err := tx.Create(&device2).Error; err != nil {
 							return err
@@ -245,7 +243,6 @@ func (*AssetService) Add(data string) bool {
 								Subscribe: fmt.Sprint(each_map444.(map[string]interface{})["subscribe"]),
 								Username:  fmt.Sprint(each_map444.(map[string]interface{})["username"]),
 								Password:  fmt.Sprint(each_map444.(map[string]interface{})["password"]),
-								Extension: "Extensions",
 							}
 							if err := tx.Create(&device3).Error; err != nil {
 								return err
@@ -371,7 +368,6 @@ func (*AssetService) Edit(data string) bool {
 								Subscribe: fmt.Sprint(each_map2.(map[string]interface{})["subscribe"]),
 								Username:  fmt.Sprint(each_map2.(map[string]interface{})["username"]),
 								Password:  fmt.Sprint(each_map2.(map[string]interface{})["password"]),
-								Extension: "Extensions",
 							}
 							if err := tx.Create(&device).Error; err != nil {
 								return err
@@ -471,7 +467,6 @@ func (*AssetService) Edit(data string) bool {
 											Subscribe: fmt.Sprint(each_map33.(map[string]interface{})["subscribe"]),
 											Username:  fmt.Sprint(each_map33.(map[string]interface{})["username"]),
 											Password:  fmt.Sprint(each_map33.(map[string]interface{})["password"]),
-											Extension: "Extensions",
 										}
 										if err := tx.Create(&device2).Error; err != nil {
 											return err
@@ -570,7 +565,6 @@ func (*AssetService) Edit(data string) bool {
 													Subscribe: fmt.Sprint(each_map444.(map[string]interface{})["subscribe"]),
 													Username:  fmt.Sprint(each_map444.(map[string]interface{})["username"]),
 													Password:  fmt.Sprint(each_map444.(map[string]interface{})["password"]),
-													Extension: "Extensions",
 												}
 												if err := tx.Create(&device3).Error; err != nil {
 													return err

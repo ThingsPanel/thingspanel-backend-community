@@ -242,22 +242,18 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) bool {
 	return true
 }
 
-func (*DeviceService) Add(token string, name string, asset_id string) (bool, string) {
+func (*DeviceService) Add(device models.Device) (bool, string) {
+
 	var uuid = uuid.GetUuid()
-	device := models.Device{
-		ID:      uuid,
-		Token:   token,
-		Name:    name,
-		AssetID: asset_id,
-	}
+	device.ID = uuid
 	result := psql.Mydb.Create(&device)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, ""
 	}
-	if token != "" {
-		redis.SetStr("token"+token, uuid, 3600*time.Second)
-		tphttp.Post(viper.GetString("api.add")+token, "{\"password\":\"\"}")
+	if device.Token != "" {
+		redis.SetStr("token"+device.Token, uuid, 3600*time.Second)
+		tphttp.Post(viper.GetString("api.add")+device.Token, "{\"password\":\"\"}")
 	}
 
 	return true, uuid

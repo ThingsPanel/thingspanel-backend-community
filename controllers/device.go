@@ -78,7 +78,7 @@ func (this *DeviceController) Edit() {
 }
 
 func (this *DeviceController) Add() {
-	addDeviceValidate := valid.AddDevice{}
+	addDeviceValidate := valid.Device{}
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &addDeviceValidate)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
@@ -95,11 +95,25 @@ func (this *DeviceController) Add() {
 		return
 	}
 	var DeviceService services.DeviceService
-	f, _ := DeviceService.Add(
-		addDeviceValidate.Token,
-		addDeviceValidate.Name,
-		addDeviceValidate.AssetId,
-	)
+	deviceData := models.Device{
+		AssetID:        addDeviceValidate.AssetID,
+		Token:          addDeviceValidate.Token,
+		AdditionalInfo: addDeviceValidate.AdditionalInfo,
+		Type:           addDeviceValidate.Type,
+		Name:           addDeviceValidate.Name,
+		Label:          addDeviceValidate.Label,
+		SearchText:     addDeviceValidate.SearchText,
+		ChartOption:    "{}",
+		Protocol:       addDeviceValidate.Protocol,
+		Port:           addDeviceValidate.Port,
+		Publish:        addDeviceValidate.Publish,
+		Subscribe:      addDeviceValidate.Subscribe,
+		Username:       addDeviceValidate.Username,
+		Password:       addDeviceValidate.Password,
+		DId:            addDeviceValidate.DId,
+		Location:       addDeviceValidate.Location,
+	}
+	f, _ := DeviceService.Add(deviceData)
 	if f {
 		response.SuccessWithMessage(200, "添加成功", (*context2.Context)(this.Ctx))
 		return
@@ -156,29 +170,36 @@ func (reqDate *DeviceController) AddOnly() {
 			ResWidgetData = append(ResWidgetData, dd...)
 		}
 	}
-	// deviceData := models.Device{
-	// 	ID:        uuid,
-	// 	AssetID:   addDeviceValidate.AssetID,
-	// 	Token:     addDeviceValidate.Token,
-	// 	Type:      addDeviceValidate.Type,
-	// 	Name:      addDeviceValidate.Name,
-	// 	Extension: addDeviceValidate.Extension,
-	// 	Protocol:  addDeviceValidate.Protocol,
-	// 	DId:       addDeviceValidate.DId,
-	// 	Location:  addDeviceValidate.Location,
-	// }
-	var DeviceService services.DeviceService
-	var uuid_d = uuid.GetUuid()
 
-	result, uuid := DeviceService.Add(uuid_d, addDeviceValidate.Name, addDeviceValidate.AssetID)
+	var DeviceService services.DeviceService
+	if addDeviceValidate.Token != "" {
+		var uuid_d = uuid.GetUuid()
+		addDeviceValidate.Token = uuid_d
+	}
+	deviceData := models.Device{
+		AssetID:        addDeviceValidate.AssetID,
+		Token:          addDeviceValidate.Token,
+		AdditionalInfo: addDeviceValidate.AdditionalInfo,
+		Type:           addDeviceValidate.Type,
+		Name:           addDeviceValidate.Name,
+		Label:          addDeviceValidate.Label,
+		SearchText:     addDeviceValidate.SearchText,
+		Protocol:       addDeviceValidate.Protocol,
+		Port:           addDeviceValidate.Port,
+		Publish:        addDeviceValidate.Publish,
+		Subscribe:      addDeviceValidate.Subscribe,
+		Username:       addDeviceValidate.Username,
+		Password:       addDeviceValidate.Password,
+		DId:            addDeviceValidate.DId,
+		Location:       addDeviceValidate.Location,
+	}
+	if deviceData.ChartOption == "" {
+		deviceData.ChartOption = "{}"
+	}
+	result, uuid := DeviceService.Add(deviceData)
 	//result := psql.Mydb.Create(&deviceData)
 	if result {
-		deviceDash := DeviceDash{
-			ID:      uuid,
-			AssetID: addDeviceValidate.AssetID,
-			Token:   uuid_d,
-			Name:    addDeviceValidate.Name,
-		}
+		deviceData.ID = uuid
 		// 自动映射
 		// extensionDataMap := AssetService.ExtensionName(addDeviceValidate.Type)
 		// for _, extension := range extensionDataMap[0].Field {
@@ -193,7 +214,7 @@ func (reqDate *DeviceController) AddOnly() {
 		// 	psql.Mydb.Create(&fieldMapping)
 		// }
 
-		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+		response.SuccessWithDetailed(200, "success", deviceData, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		response.SuccessWithMessage(400, "添加失败", (*context2.Context)(reqDate.Ctx))

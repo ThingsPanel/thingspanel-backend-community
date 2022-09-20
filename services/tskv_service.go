@@ -47,6 +47,12 @@ func (*TSKVService) All() ([]models.TSKV, int64) {
 }
 
 // 接收硬件消息
+func (*TSKVService) MsgStatus(body []byte) bool {
+
+	return true
+}
+
+// 接收硬件消息
 func (*TSKVService) MsgProc(body []byte) bool {
 	logs.Info("-------------------------------")
 	logs.Info(string(body))
@@ -614,7 +620,7 @@ func (*TSKVService) GetCurrentDataByBusiness(business string) map[string]interfa
 			deviceData["asset_id"] = device.AssetID
 			deviceData["customer_id"] = device.CustomerID
 			deviceData["additional_id"] = device.AdditionalInfo
-			deviceData["extension"] = device.Extension
+			deviceData["chart_option"] = device.ChartOption
 			deviceData["label"] = device.Label
 			deviceData["name"] = device.Name
 			deviceData["protocol"] = device.Protocol
@@ -671,7 +677,7 @@ func (*TSKVService) GetCurrentDataByAsset(asset_id string) map[string]interface{
 			deviceData["asset_id"] = device.AssetID
 			deviceData["customer_id"] = device.CustomerID
 			deviceData["additional_id"] = device.AdditionalInfo
-			deviceData["extension"] = device.Extension
+			deviceData["chart_option"] = device.ChartOption
 			deviceData["label"] = device.Label
 			deviceData["name"] = device.Name
 			deviceData["protocol"] = device.Protocol
@@ -728,7 +734,7 @@ func (*TSKVService) GetCurrentDataByAssetA(asset_id string) map[string]interface
 			deviceData["asset_id"] = device.AssetID
 			deviceData["customer_id"] = device.CustomerID
 			deviceData["additional_id"] = device.AdditionalInfo
-			deviceData["extension"] = device.Extension
+			deviceData["chart_option"] = device.ChartOption
 			deviceData["label"] = device.Label
 			deviceData["name"] = device.Name
 			deviceData["protocol"] = device.Protocol
