@@ -168,7 +168,6 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				Key:        k,
 				TS:         ts,
 				DblV:       value,
-				StrV:       "",
 			}
 		default:
 			d = models.TSKV{
@@ -177,7 +176,6 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				Key:        k,
 				TS:         ts,
 				StrV:       fmt.Sprint(value),
-				DblV:       0,
 			}
 		}
 		// 更新当前值表
@@ -191,7 +189,8 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				log.Println(rtsl.Error)
 			}
 		} else {
-			rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Updates(&l)
+			rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID,
+				l.Key).Updates(map[string]interface{}{"entity_type": l.EntityType, "entity_id": l.EntityID, "key": l.Key, "ts": l.TS, "bool_v": l.BoolV, "long_v": l.LongV, "str_v": l.StrV, "dbl_v": l.DblV})
 			if rtsl.Error != nil {
 				log.Println(rtsl.Error)
 			}
