@@ -172,7 +172,7 @@ func (reqDate *DeviceController) AddOnly() {
 	}
 
 	var DeviceService services.DeviceService
-	if addDeviceValidate.Token != "" {
+	if addDeviceValidate.Token == "" {
 		var uuid_d = uuid.GetUuid()
 		addDeviceValidate.Token = uuid_d
 	}
