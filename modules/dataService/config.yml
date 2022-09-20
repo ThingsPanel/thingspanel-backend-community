@@ -4,6 +4,7 @@ mqtt:
   pass: root
   topicToPublish: device/attributes
   topicToSubscribe: device/attributes
+  topicToStatus: device/status
 
 url: dev.thingspanel.cn
 
