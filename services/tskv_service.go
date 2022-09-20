@@ -168,6 +168,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				Key:        k,
 				TS:         ts,
 				DblV:       value,
+				StrV:       "",
 			}
 		default:
 			d = models.TSKV{
@@ -176,6 +177,7 @@ func (*TSKVService) MsgProc(body []byte) bool {
 				Key:        k,
 				TS:         ts,
 				StrV:       fmt.Sprint(value),
+				DblV:       0,
 			}
 		}
 		// 更新当前值表
