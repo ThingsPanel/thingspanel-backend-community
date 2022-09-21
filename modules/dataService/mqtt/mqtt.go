@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/beego/beego/v2/core/logs"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/spf13/viper"
 )
@@ -62,6 +63,10 @@ func Send(payload []byte, token string) (err error) {
 	if _client == nil {
 		return clientErr
 	}
+	logs.Info("-------------------")
+	logs.Info(viper.GetString("mqtt.topicToPublish") + "/" + token)
+	logs.Info(string(payload))
+	logs.Info("-------------------")
 	t := _client.Publish(viper.GetString("mqtt.topicToPublish")+"/"+token, 1, false, string(payload))
 	if t.Error() != nil {
 		fmt.Println(t.Error())

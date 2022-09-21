@@ -411,48 +411,36 @@ func (request *DeviceController) Operating() {
 		}
 		return
 	}
-	//获取设备token
+	// -------------------------------------------
+	// 获取设备token
 	var DeviceService services.DeviceService
 	deviceData, c := DeviceService.Token(operatingDeviceValidate.DeviceId)
 	if c == 0 {
 		response.SuccessWithMessage(400, "no equipment", (*context2.Context)(request.Ctx))
 		return
 	}
-	// var sendMap = make(map[string]interface{})
-	// sendMap["token"] = deviceData.Token
-	//将value中的key做映射
-	valueMap, ok := operatingDeviceValidate.Values.(map[string]interface{})
-	newMap := make(map[string]interface{})
+	// 将struct转map
+	valuesMap, _ := operatingDeviceValidate.Values.(map[string]interface{})
+	// 遍历map拼接指令内容并记录入库
 	var instruct string = ""
-	if ok {
-
-		for k, v := range valueMap {
-			fmt.Println(reflect.TypeOf(v))
-			switch v := v.(type) {
-			case string:
-				instruct = instruct + k + ":" + v
-			case json.Number:
-				instruct = instruct + k + ":" + v.String()
-			case float64:
-				instruct = instruct + k + ":" + strconv.Itoa(int(v))
-			}
-			var fieldMappingService services.FieldMappingService
-			newKey := fieldMappingService.TransformByDeviceid(operatingDeviceValidate.DeviceId, k)
-			if newKey != "" {
-				newMap[newKey] = v
-			}
-			//delete(valueMap, k)
+	for k, v := range valuesMap {
+		fmt.Println(reflect.TypeOf(v))
+		switch v := v.(type) {
+		case string:
+			instruct = instruct + k + ":" + v
+		case json.Number:
+			instruct = instruct + k + ":" + v.String()
+		case float64:
+			instruct = instruct + k + ":" + strconv.Itoa(int(v))
 		}
 	}
-	//将map转为json
-	//sendMap["values"] = newMap
-	newPayload, toErr := json.Marshal(newMap)
+	// 将map转为json
+	newPayload, toErr := json.Marshal(valuesMap)
 	if toErr != nil {
 		logs.Info("JSON 编码失败：%v\n", toErr)
 		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(request.Ctx))
 		return
 	}
-	logs.Info("-------------------------------", string(newPayload))
 	f := cm.Send(newPayload, deviceData.Token)
 	ConditionsLog := models.ConditionsLog{
 		DeviceId:      deviceData.ID,
@@ -466,14 +454,13 @@ func (request *DeviceController) Operating() {
 		logs.Info("成功发送控制")
 		ConditionsLog.SendResult = "1"
 		ConditionsLogService.Insert(&ConditionsLog)
-		response.SuccessWithDetailed(200, "success", newMap, map[string]string{}, (*context2.Context)(request.Ctx))
+		response.SuccessWithDetailed(200, "success", valuesMap, map[string]string{}, (*context2.Context)(request.Ctx))
 	} else {
 		logs.Info("成功发送失败")
 		ConditionsLog.SendResult = "2"
 		ConditionsLogService.Insert(&ConditionsLog)
 		response.SuccessWithMessage(400, f.Error(), (*context2.Context)(request.Ctx))
 	}
-	return
 }
 
 // func (request *DeviceController) Operating() {

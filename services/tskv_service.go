@@ -48,7 +48,34 @@ func (*TSKVService) All() ([]models.TSKV, int64) {
 
 // 接收硬件消息
 func (*TSKVService) MsgStatus(body []byte) bool {
-
+	logs.Info("-------------------------------")
+	logs.Info(string(body))
+	logs.Info("-------------------------------")
+	payload := &mqttPayload{}
+	if err := json.Unmarshal(body, payload); err != nil {
+		fmt.Println("Msg Consumer: Cannot unmarshal msg payload to JSON:", err)
+		return false
+	}
+	if len(payload.Token) == 0 {
+		fmt.Println("Msg Consumer: Payload token missing")
+		return false
+	}
+	if len(payload.Values) == 0 {
+		fmt.Println("Msg Consumer: Payload values missing")
+		return false
+	}
+	device_id := redis.GetStr("token" + payload.Token)
+	d := models.TSKVLatest{
+		EntityType: "DEVICE",
+		EntityID:   device_id,
+		Key:        "SYS_ONLINE",
+		TS:         time.Now().UnixMicro(),
+		StrV:       fmt.Sprint(payload.Values["SYS_ONLINE"]),
+	}
+	rtsl := psql.Mydb.Save(&d)
+	if rtsl.Error != nil {
+		log.Println(rtsl.Error)
+	}
 	return true
 }
 
