@@ -55,5 +55,5 @@ type HistoryDataValidate struct {
 	Attribute []string `json:"attribute" alias:"属性" valid:"Required;MaxSize(36)"`
 	StartTs   int64    `json:"start_ts" alias:"开始时间" valid:"Required"`
 	EndTs     int64    `json:"end_ts" alias:"结束时间" valid:"Required"`
-	Rate      string   `json:"rate" alias:"间隔" valid:"Required;MaxSize(36)"`
+	Rate      string   `json:"rate" alias:"间隔" valid:"MaxSize(36)"`
 }

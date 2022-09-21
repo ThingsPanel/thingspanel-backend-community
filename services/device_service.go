@@ -335,3 +335,46 @@ func (*DeviceService) ApplyControl(res *simplejson.Json) {
 		}
 	}
 }
+
+// func (*DeviceService) ApplyControl(res *simplejson.Json) {
+// 	logs.Info("执行控制开始")
+// 	//"apply":[{"asset_id":"xxx","field":"hum","device_id":"xxx","value":"1"}]}
+// 	applyRows, _ := res.Get("apply").Array()
+// 	logs.Info("applyRows-", applyRows)
+// 	for _, applyRow := range applyRows {
+// 		logs.Info("applyRow-", applyRow)
+// 		if applyMap, ok := applyRow.(map[string]interface{}); ok {
+// 			logs.Info(applyMap)
+// 			// 如果有“或者，并且”操作符，就给code加上操作符
+// 			if applyMap["field"] != nil && applyMap["value"] != nil {
+// 				logs.Info("准备执行控制发送函数")
+// 				var s = ""
+// 				switch applyMap["value"].(type) {
+// 				case string:
+// 					s = applyMap["value"].(string)
+// 				case json.Number:
+// 					s = applyMap["value"].(json.Number).String()
+// 				}
+// 				ConditionsLog := models.ConditionsLog{
+// 					DeviceId:      applyMap["device_id"].(string),
+// 					OperationType: "3",
+// 					Instruct:      applyMap["field"].(string) + ":" + s,
+// 					ProtocolType:  "mqtt",
+// 					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
+// 				}
+// 				var DeviceService DeviceService
+// 				reqFlag := DeviceService.OperatingDevice(applyMap["device_id"].(string), applyMap["field"].(string), applyMap["value"])
+// 				if reqFlag {
+// 					logs.Info("成功发送控制")
+// 					ConditionsLog.SendResult = "1"
+// 				} else {
+// 					logs.Info("成功发送失败")
+// 					ConditionsLog.SendResult = "2"
+// 				}
+// 				// 记录日志
+// 				var ConditionsLogService ConditionsLogService
+// 				ConditionsLogService.Insert(&ConditionsLog)
+// 			}
+// 		}
+// 	}
+// }
