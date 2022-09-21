@@ -110,8 +110,8 @@ func (*DeviceModelService) DeviceModelTree() []DeviceModelTree {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
 			return trees
 		}
-		for _, row_device_model := range device_model {
-			row_device_model.ChartData = ""
+		for i := range device_model {
+			device_model[i].ChartData = ""
 		}
 		tree.DictValue = dict.DictValue
 		tree.ModelName = dict.Describe
