@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
@@ -82,7 +83,6 @@ func (TpDictController *TpDictController) Edit() {
 		ID:        TpDictValidate.ID,
 		DictCode:  TpDictValidate.DictCode,
 		DictValue: TpDictValidate.DictValue,
-		CreatedAt: TpDictValidate.CreatedAt,
 		Describe:  TpDictValidate.Describe,
 	}
 	isSucess := TpDictService.EditTpDict(TpDict)
@@ -118,7 +118,7 @@ func (TpDictController *TpDictController) Add() {
 		ID:        id,
 		DictCode:  AddTpDictValidate.DictCode,
 		DictValue: AddTpDictValidate.DictValue,
-		CreatedAt: AddTpDictValidate.CreatedAt,
+		CreatedAt: time.Now().Unix(),
 		Describe:  AddTpDictValidate.Describe,
 	}
 	isSucess, d := TpDictService.AddTpDict(TpDict)

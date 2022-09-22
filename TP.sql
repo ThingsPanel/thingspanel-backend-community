@@ -719,6 +719,23 @@ ALTER TABLE public.device ADD chart_option json NULL DEFAULT '{}';
 COMMENT ON COLUMN public.device.chart_option IS '图表配置';
 
 
+CREATE TABLE object_model (
+	id varchar(36) NOT NULL,
+	sort int4 NULL,
+	object_describe varchar(255) NULL,
+	object_name varchar(99) NOT NULL,
+	object_type varchar(36) NOT NULL,
+	object_data json NULL,
+	created_at int8 NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT object_model_pk PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.object_model.object_name IS '物模型名称';
+COMMENT ON COLUMN public.object_model.object_type IS '物模型类型';
+COMMENT ON COLUMN public.object_model.object_data IS '物模型json';
 
 
 

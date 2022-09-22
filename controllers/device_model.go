@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
@@ -117,10 +118,13 @@ func (DeviceModelController *DeviceModelController) Add() {
 		Describe:  AddDeviceModelValidate.Describe,
 		Version:   AddDeviceModelValidate.Version,
 		Author:    AddDeviceModelValidate.Author,
-		CreatedAt: AddDeviceModelValidate.CreatedAt,
+		CreatedAt: time.Now().Unix(),
 		Sort:      AddDeviceModelValidate.Sort,
 		Issued:    AddDeviceModelValidate.Issued,
 		Remark:    AddDeviceModelValidate.Remark,
+	}
+	if DeviceModel.ChartData == "" {
+		DeviceModel.ChartData = "{}"
 	}
 	isSucess, d := DeviceModelService.AddDeviceModel(DeviceModel)
 	if isSucess {

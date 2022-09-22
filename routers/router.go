@@ -281,6 +281,12 @@ func init() {
 		web.NSRouter("/dict/list", &controllers.TpDictController{}, "*:List"),
 		web.NSRouter("/dict/edit", &controllers.TpDictController{}, "*:Edit"),
 		web.NSRouter("/dict/delete", &controllers.TpDictController{}, "*:Delete"),
+
+		//物模型库
+		web.NSRouter("/object/model/add", &controllers.ObjectModelController{}, "*:Add"),
+		web.NSRouter("/object/model/list", &controllers.ObjectModelController{}, "*:List"),
+		web.NSRouter("/object/model/edit", &controllers.ObjectModelController{}, "*:Edit"),
+		web.NSRouter("/object/model/delete", &controllers.ObjectModelController{}, "*:Delete"),
 	)
 
 	// 图表推送数据
