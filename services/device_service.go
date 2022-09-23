@@ -272,12 +272,13 @@ func (*DeviceService) OperatingDevice(deviceId string, field string, value inter
 	}
 	//reqMap["token"] = device.Token
 	logs.Info("token-%s", device.Token)
-	logs.Info("把field字段映射回设备端字段")
-	var fieldMappingService FieldMappingService
-	deviceField := fieldMappingService.TransformByDeviceid(deviceId, field)
-	if deviceField != "" {
-		valueMap[deviceField] = value
-	}
+	// logs.Info("把field字段映射回设备端字段")
+	// var fieldMappingService FieldMappingService
+	// deviceField := fieldMappingService.TransformByDeviceid(deviceId, field)
+	// if deviceField != "" {
+	// 	valueMap[deviceField] = value
+	// }
+	valueMap[field] = value
 	//reqMap["values"] = valueMap
 	logs.Info("将map转json")
 	mjson, _ := json.Marshal(valueMap)
