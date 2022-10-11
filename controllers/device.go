@@ -112,6 +112,9 @@ func (this *DeviceController) Add() {
 		Password:       addDeviceValidate.Password,
 		DId:            addDeviceValidate.DId,
 		Location:       addDeviceValidate.Location,
+		DeviceType:     addDeviceValidate.DeviceType,
+		ParentId:       addDeviceValidate.ParentId,
+		ProtocolConfig: addDeviceValidate.ProtocolConfig,
 	}
 	f, _ := DeviceService.Add(deviceData)
 	if f {
@@ -141,6 +144,9 @@ type DeviceDash struct {
 	Password       string            `json:"password" gorm:"size:255"`
 	DId            string            `json:"d_id" gorm:"size:255"`
 	Location       string            `json:"location" gorm:"size:255"`
+	DeviceType     string            `json:"device_type,omitempty" gorm:"size:2"`
+	ParentId       string            `json:"parent_id,omitempty" gorm:"size:36"`
+	ProtocolConfig string            `json:"protocol_config,omitempty" gorm:"type:longtext"`
 	Dash           []services.Widget `json:"dash"`
 }
 
@@ -192,28 +198,20 @@ func (reqDate *DeviceController) AddOnly() {
 		Password:       addDeviceValidate.Password,
 		DId:            addDeviceValidate.DId,
 		Location:       addDeviceValidate.Location,
+		DeviceType:     addDeviceValidate.DeviceType,
+		ParentId:       addDeviceValidate.ParentId,
+		ProtocolConfig: addDeviceValidate.ProtocolConfig,
 	}
 	if deviceData.ChartOption == "" {
 		deviceData.ChartOption = "{}"
+	}
+	if deviceData.ProtocolConfig == "" {
+		deviceData.ProtocolConfig = "{}"
 	}
 	result, uuid := DeviceService.Add(deviceData)
 	//result := psql.Mydb.Create(&deviceData)
 	if result {
 		deviceData.ID = uuid
-		// 自动映射
-		// extensionDataMap := AssetService.ExtensionName(addDeviceValidate.Type)
-		// for _, extension := range extensionDataMap[0].Field {
-		// 	var uuid = utils.GetUuid()
-		// 	fieldMapping := models.FieldMapping{
-		// 		ID:        uuid,
-		// 		DeviceID:  deviceDash.ID,
-		// 		FieldFrom: extension.Key,
-		// 		FieldTo:   extension.Key,
-		// 		Symbol:    extension.Symbol,
-		// 	}
-		// 	psql.Mydb.Create(&fieldMapping)
-		// }
-
 		response.SuccessWithDetailed(200, "success", deviceData, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -249,59 +247,10 @@ func (reqDate *DeviceController) UpdateOnly() {
 				return
 			}
 		}
-		// // 如果更换了插件需要删除当前值
-		// if addDeviceValidate.Type != d.Type {
-		// 	var TSKVService services.TSKVService
-		// 	TSKVService.DeleteCurrentDataByDeviceId(addDeviceValidate.ID)
-		// }
 	}
-	// var AssetService services.AssetService
-	// var ResWidgetData []services.Widget
-	// if addDeviceValidate.Type != "" {
-	// 	dd := AssetService.Widget(addDeviceValidate.Type)
-	// 	ResWidgetData = dd
-	// }
 	result := DeviceService.Edit(addDeviceValidate)
-	// deviceData := models.Device{
-	// 	ID:        addDeviceValidate.ID,
-	// 	AssetID:   addDeviceValidate.AssetID,
-	// 	Token:     addDeviceValidate.Token,
-	// 	Type:      addDeviceValidate.Type,
-	// 	Name:      addDeviceValidate.Name,
-	// 	Extension: addDeviceValidate.Extension,
-	// 	Protocol:  addDeviceValidate.Protocol,
-	// 	Location:  addDeviceValidate.Location,
-	// 	DId:       addDeviceValidate.DId,
-	// }
-	// result := psql.Mydb.Updates(&deviceData)
 	if result {
-		// deviceDash := DeviceDash{
-		// 	ID:        addDeviceValidate.ID,
-		// 	AssetID:   addDeviceValidate.AssetID,
-		// 	Token:     addDeviceValidate.Token,
-		// 	Type:      addDeviceValidate.Type,
-		// 	Name:      addDeviceValidate.Name,
-		// 	Extension: addDeviceValidate.Extension,
-		// 	Protocol:  addDeviceValidate.Protocol,
-		// 	Location:  addDeviceValidate.Location,
-		// 	DId:       addDeviceValidate.DId,
-		// 	Dash:      ResWidgetData,
-		// }
 		deviceDash, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
-		// 自动映射
-		// extensionDataMap := AssetService.ExtensionName(addDeviceValidate.Type)
-		// for _, extension := range extensionDataMap[0].Field {
-		// 	var uuid = utils.GetUuid()
-		// 	fieldMapping := models.FieldMapping{
-		// 		ID:        uuid,
-		// 		DeviceID:  addDeviceValidate.ID,
-		// 		FieldFrom: extension.Key,
-		// 		FieldTo:   extension.Key,
-		// 		Symbol:    extension.Symbol,
-		// 	}
-		// 	psql.Mydb.Create(&fieldMapping)
-		// }
-
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
@@ -618,6 +567,35 @@ func (DeviceController *DeviceController) PageList() {
 			deviceRow["structure"] = fields
 		}
 	}
+	d := PaginateWarninglogList{
+		CurrentPage: DevicePageListValidate.CurrentPage,
+		Data:        w,
+		Total:       c,
+		PerPage:     DevicePageListValidate.PerPage,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
+}
+
+func (DeviceController *DeviceController) PageListTree() {
+	DevicePageListValidate := valid.DevicePageListValidate{}
+	err := json.Unmarshal(DeviceController.Ctx.Input.RequestBody, &DevicePageListValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(DevicePageListValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(DevicePageListValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(DeviceController.Ctx))
+			break
+		}
+		return
+	}
+	var DeviceService services.DeviceService
+	w, c := DeviceService.PageGetDevicesByAssetIDTree(DevicePageListValidate)
 	d := PaginateWarninglogList{
 		CurrentPage: DevicePageListValidate.CurrentPage,
 		Data:        w,

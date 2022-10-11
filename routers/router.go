@@ -137,7 +137,8 @@ func init() {
 		web.NSRouter("/device/reset", &controllers.DeviceController{}, "*:Reset"),
 		web.NSRouter("/device/data", &controllers.DeviceController{}, "*:DeviceById"),
 		// 设备列表分页查询
-		web.NSRouter("/device/list", &controllers.DeviceController{}, "*:PageList"), //shebei-ck
+		web.NSRouter("/device/list", &controllers.DeviceController{}, "*:PageList"),          //shebei-ck
+		web.NSRouter("/device/list/tree", &controllers.DeviceController{}, "*:PageListTree"), //shebei-ck
 
 		//可视化列表分页查询
 		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"), //keshihua-ck

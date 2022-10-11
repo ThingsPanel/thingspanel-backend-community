@@ -737,6 +737,12 @@ COMMENT ON COLUMN public.object_model.object_name IS '物模型名称';
 COMMENT ON COLUMN public.object_model.object_type IS '物模型类型';
 COMMENT ON COLUMN public.object_model.object_data IS '物模型json';
 
+ALTER TABLE public.device ADD device_type varchar(2) NOT NULL DEFAULT 1;
+COMMENT ON COLUMN public.device.device_type IS '1-直连设备 2-网关设备 3-网关子设备';
+ALTER TABLE public.device ADD parent_id varchar(36) NULL;
+ALTER TABLE public.device ADD sub_protocol varchar(10) NULL;
+COMMENT ON COLUMN public.device.sub_protocol IS 'modbus(TCP RTU)';
+ALTER TABLE public.device ADD protocol_config json NULL DEFAULT '{}'::json;
 
 
 

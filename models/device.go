@@ -19,6 +19,9 @@ type Device struct {
 	Password       string `json:"password,omitempty" gorm:"size:255"`
 	DId            string `json:"d_id,omitempty" gorm:"size:255"`
 	Location       string `json:"location,omitempty" gorm:"size:255"`
+	DeviceType     string `json:"device_type,omitempty" gorm:"size:2"`
+	ParentId       string `json:"parent_id,omitempty" gorm:"size:36"`
+	ProtocolConfig string `json:"protocol_config,omitempty" gorm:"type:longtext"`
 }
 
 func (Device) TableName() string {

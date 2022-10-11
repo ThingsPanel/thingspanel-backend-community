@@ -7,25 +7,31 @@ type TokenDevice struct {
 
 // EditDevice 校验
 type EditDevice struct {
-	ID          string `json:"id" alias:"ID" valid:"Required;MaxSize(36)"`
-	Token       string `json:"token"`
-	Protocol    string `json:"protocol"`
-	Port        string `json:"port"`
-	Publish     string `json:"publish"`
-	Subscribe   string `json:"subscribe"`
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	AssetID     string `json:"asset_id"`
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	ChartOption string `json:"chart_option"`
+	ID             string `json:"id" alias:"ID" valid:"Required;MaxSize(36)"`
+	Token          string `json:"token"`
+	Protocol       string `json:"protocol"`
+	Port           string `json:"port"`
+	Publish        string `json:"publish"`
+	Subscribe      string `json:"subscribe"`
+	Username       string `json:"username"`
+	Password       string `json:"password"`
+	AssetID        string `json:"asset_id"`
+	Type           string `json:"type"`
+	Name           string `json:"name"`
+	ChartOption    string `json:"chart_option"`
+	DeviceType     string `json:"device_type" gorm:"size:2"`
+	ParentId       string `json:"parent_id" gorm:"size:36"`
+	ProtocolConfig string `json:"protocol_config"`
 }
 
 // AddDevice 校验
 type AddDevice struct {
-	Token   string `json:"token"`
-	Name    string `json:"name"`
-	AssetId string `json:"asset_id"`
+	Token          string `json:"token"`
+	Name           string `json:"name"`
+	AssetId        string `json:"asset_id"`
+	DeviceType     string `json:"device_type" gorm:"size:2"`
+	ParentId       string `json:"parent_id" gorm:"size:36"`
+	ProtocolConfig string `json:"protocol_config"`
 }
 
 // DeleteDevice 校验
@@ -62,6 +68,9 @@ type Device struct {
 	Password       string `json:"password" gorm:"size:255"`
 	DId            string `json:"d_id" gorm:"size:255"`
 	Location       string `json:"location" gorm:"size:255"`
+	DeviceType     string `json:"device_type" gorm:"size:2"`
+	ParentId       string `json:"parent_id" gorm:"size:36"`
+	ProtocolConfig string `json:"protocol_config"`
 }
 
 type UpdateDevice struct {
@@ -81,6 +90,9 @@ type UpdateDevice struct {
 	Password       string `json:"password,omitempty" gorm:"size:255"`
 	DId            string `json:"d_id,omitempty" gorm:"size:255"`
 	Location       string `json:"location,omitempty" gorm:"size:255"`
+	DeviceType     string `json:"device_type" gorm:"size:2"`
+	ParentId       string `json:"parent_id" gorm:"size:36"`
+	ProtocolConfig string `json:"protocol_config"`
 }
 
 type ResetDevice struct {
@@ -98,4 +110,5 @@ type DevicePageListValidate struct {
 	DeviceType  string `json:"device_type" alias:"设备id" valid:"MaxSize(36)"`
 	Token       string `json:"token" alias:"设备id" valid:"MaxSize(36)"`
 	Name        string `json:"name" alias:"设备名称" valid:"MaxSize(99)"`
+	ParentId    string `json:"parent_id" gorm:"size:36"`
 }
