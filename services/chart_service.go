@@ -64,7 +64,7 @@ func (*ChartService) AddChart(chart models.Chart) (bool, models.Chart) {
 
 // 修改数据
 func (*ChartService) EditChart(chart valid.ChartValidate) bool {
-	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", chart.Id).Updates(&chart)
+	result := psql.Mydb.Model(&models.Chart{}).Where("id = ?", chart.Id).Updates(&chart)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false

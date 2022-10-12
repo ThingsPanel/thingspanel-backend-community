@@ -745,6 +745,20 @@ COMMENT ON COLUMN public.device.sub_protocol IS 'modbus(TCP RTU)';
 ALTER TABLE public.device ADD protocol_config json NULL DEFAULT '{}'::json;
 
 
+CREATE TABLE public.tp_dashboard (
+	id varchar(36) NOT NULL,
+	relation_id varchar(36) NOT NULL,
+	json_data json NULL DEFAULT '{}'::json,
+	dashboard_name varchar(99) NULL,
+	create_at int8 NULL,
+	sort int NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_dashboard_pk PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_dashboard.sort IS '排序';
 
 
 

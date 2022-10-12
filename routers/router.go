@@ -288,6 +288,12 @@ func init() {
 		web.NSRouter("/object/model/list", &controllers.ObjectModelController{}, "*:List"),
 		web.NSRouter("/object/model/edit", &controllers.ObjectModelController{}, "*:Edit"),
 		web.NSRouter("/object/model/delete", &controllers.ObjectModelController{}, "*:Delete"),
+
+		//可视化总览
+		web.NSRouter("/tp_dashboard/add", &controllers.TpDashboardController{}, "*:Add"),
+		web.NSRouter("/tp_dashboard/list", &controllers.TpDashboardController{}, "*:List"),
+		web.NSRouter("/tp_dashboard/edit", &controllers.TpDashboardController{}, "*:Edit"),
+		web.NSRouter("/tp_dashboard/delete", &controllers.TpDashboardController{}, "*:Delete"),
 	)
 
 	// 图表推送数据
