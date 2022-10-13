@@ -297,6 +297,7 @@ func init() {
 
 		//插件模块接口
 		web.NSRouter("/gateway/config", &controllers.DeviceController{}, "*:GetGatewayConfig"),
+		web.NSRouter("/form/config", &controllers.DeviceController{}, "*:GetProtocolForm"),
 	)
 
 	// 图表推送数据

@@ -6,6 +6,7 @@ import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
+	tphttp "ThingsPanel-Go/others/http"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
@@ -626,4 +627,32 @@ func (DeviceController *DeviceController) GetGatewayConfig() {
 	var DeviceService services.DeviceService
 	d := DeviceService.GetConfigByToken(AccessTokenValidate.AccessToken)
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
+}
+func (DeviceController *DeviceController) GetProtocolForm() {
+	ProtocolFormValidate := valid.ProtocolFormValidate{}
+	err := json.Unmarshal(DeviceController.Ctx.Input.RequestBody, &ProtocolFormValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(ProtocolFormValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(ProtocolFormValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(DeviceController.Ctx))
+			break
+		}
+		return
+	}
+	var d = make(map[string]interface{})
+	if ProtocolFormValidate.ProtocolType == "MODBUS_RTU" || ProtocolFormValidate.ProtocolType == "MODBUS_TCP" {
+		rsp, _ := tphttp.Get("http://127.0.0.1:503/api/form/config")
+		err := json.Unmarshal(rsp, &d)
+		if err != nil {
+			response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(DeviceController.Ctx))
+		}
+	}
+	response.SuccessWithDetailed(200, "success", d["data"], map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }

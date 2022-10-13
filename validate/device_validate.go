@@ -116,3 +116,6 @@ type DevicePageListValidate struct {
 type AccessTokenValidate struct {
 	AccessToken string `json:"AccessToken" alias:"密钥" valid:"Required;MaxSize(36)"`
 }
+type ProtocolFormValidate struct {
+	ProtocolType string `json:"protocol_type" alias:"协议类型" valid:"Required;MaxSize(36)"`
+}

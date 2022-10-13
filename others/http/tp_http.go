@@ -1,8 +1,12 @@
 package tphttp
 
 import (
+	"errors"
+	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/beego/beego/v2/core/logs"
 )
 
 func Post(targetUrl string, payload string) (*http.Response, error) {
@@ -17,4 +21,23 @@ func Delete(targetUrl string, payload string) (*http.Response, error) {
 	req.Header.Add("Content-Type", "application/json")
 	response, err := http.DefaultClient.Do(req)
 	return response, err
+}
+
+func Get(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		logs.Error(err.Error())
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 200 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		logs.Info("Response: ", string(body))
+		return body, err
+	} else {
+		return nil, errors.New("Get failed with error: " + resp.Status)
+	}
 }
