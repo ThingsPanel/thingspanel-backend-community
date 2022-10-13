@@ -294,6 +294,9 @@ func init() {
 		web.NSRouter("/tp_dashboard/list", &controllers.TpDashboardController{}, "*:List"),
 		web.NSRouter("/tp_dashboard/edit", &controllers.TpDashboardController{}, "*:Edit"),
 		web.NSRouter("/tp_dashboard/delete", &controllers.TpDashboardController{}, "*:Delete"),
+
+		//插件模块接口
+		web.NSRouter("/gateway/config", &controllers.DeviceController{}, "*:GetGatewayConfig"),
 	)
 
 	// 图表推送数据

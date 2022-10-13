@@ -33,6 +33,9 @@ func (*TpDashboardService) GetTpDashboardList(PaginationValidate valid.TpDashboa
 	if PaginationValidate.RelationId != "" {
 		sqlWhere += " and relation_id = '" + PaginationValidate.RelationId + "'"
 	}
+	if PaginationValidate.Id != "" {
+		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+	}
 	var count int64
 	psql.Mydb.Model(&models.TpDashboard{}).Where(sqlWhere).Count(&count)
 	result := psql.Mydb.Model(&models.TpDashboard{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("create_at desc").Find(&TpDashboards)

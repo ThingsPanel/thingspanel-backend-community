@@ -604,3 +604,26 @@ func (DeviceController *DeviceController) PageListTree() {
 	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }
+
+func (DeviceController *DeviceController) GetGatewayConfig() {
+	AccessTokenValidate := valid.AccessTokenValidate{}
+	err := json.Unmarshal(DeviceController.Ctx.Input.RequestBody, &AccessTokenValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(AccessTokenValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(AccessTokenValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(DeviceController.Ctx))
+			break
+		}
+		return
+	}
+	var DeviceService services.DeviceService
+	d := DeviceService.GetConfigByToken(AccessTokenValidate.AccessToken)
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
+}

@@ -24,7 +24,8 @@ type AddTpDashboardValidate struct {
 type TpDashboardPaginationValidate struct {
 	CurrentPage int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
 	PerPage     int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	RelationId  string `json:"relation_id" alias:"发布状态" valid:"MaxSize(36)"`
+	RelationId  string `json:"relation_id,omitempty" alias:"发布状态" valid:"MaxSize(36)"`
+	Id          string `json:"id,omitempty" alias:"总览Id" valid:"MaxSize(36)"`
 }
 
 type RspTpDashboardPaginationValidate struct {

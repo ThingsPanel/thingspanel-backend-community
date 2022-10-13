@@ -112,3 +112,7 @@ type DevicePageListValidate struct {
 	Name        string `json:"name" alias:"设备名称" valid:"MaxSize(99)"`
 	ParentId    string `json:"parent_id" gorm:"size:36"`
 }
+
+type AccessTokenValidate struct {
+	AccessToken string `json:"AccessToken" alias:"密钥" valid:"Required;MaxSize(36)"`
+}

@@ -460,3 +460,34 @@ func (*DeviceService) ApplyControl(res *simplejson.Json) {
 // 		}
 // 	}
 // }
+
+// 根据token获取网关设备和子设备的配置
+func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
+	var GatewayConfigMap = make(map[string]interface{})
+	var device models.Device
+	result := psql.Mydb.First(&device, "token = ?", token)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return GatewayConfigMap
+	}
+	var sub_devices []models.Device
+	sub_result := psql.Mydb.Find(&sub_devices, "parent_id = ?", device.ID)
+	if sub_result.Error != nil {
+		errors.Is(sub_result.Error, gorm.ErrRecordNotFound)
+	} else {
+
+		GatewayConfigMap["GatewayId"] = device.ID
+		GatewayConfigMap["ProtocolType"] = device.Protocol
+		GatewayConfigMap["AccessToken"] = token
+		for _, sub_device := range sub_devices {
+			var m = make(map[string]interface{})
+			err := json.Unmarshal([]byte(sub_device.ProtocolConfig), &m)
+			if err != nil {
+				fmt.Println("Unmarshal failed:", err)
+			}
+			GatewayConfigMap["SubDevice"] = m
+		}
+		return GatewayConfigMap
+	}
+	return GatewayConfigMap
+}
