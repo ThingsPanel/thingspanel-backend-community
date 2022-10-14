@@ -8,6 +8,7 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -17,13 +18,27 @@ import (
 )
 
 func init() {
+	loadConfig()
 	MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
 	if MqttHttpHost == "" {
 		MqttHttpHost = viper.GetString("api.http_host")
 	}
-	tphttp.Delete("http://"+MqttHttpHost+"/v1/accounts/"+viper.GetString("mqtt.user"), "{}")
-	tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/root", "{\"password\":\""+viper.GetString("mqtt.pass")+"\"}")
-	loadConfig()
+	resps, errs := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/root", "{\"password\":\""+viper.GetString("mqtt.pass")+"\"}")
+	if errs != nil {
+		log.Println("Response1:", errs.Error())
+	} else {
+		defer resps.Body.Close()
+		if resps.StatusCode == 200 {
+			body, errs := ioutil.ReadAll(resps.Body)
+			if errs != nil {
+				log.Println("Response2:", errs.Error())
+			} else {
+				log.Println("Response3: ", string(body))
+			}
+		} else {
+			log.Println("Get failed with error:" + resps.Status)
+		}
+	}
 	listenMQTT()
 	listenTCP()
 }
