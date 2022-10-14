@@ -3,6 +3,7 @@ package dataService
 import (
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	"ThingsPanel-Go/modules/dataService/tcp"
+	tphttp "ThingsPanel-Go/others/http"
 	"ThingsPanel-Go/services"
 	uuid "ThingsPanel-Go/utils"
 	"flag"
@@ -16,7 +17,12 @@ import (
 )
 
 func init() {
-
+	MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
+	if MqttHttpHost == "" {
+		MqttHttpHost = viper.GetString("api.http_host")
+	}
+	tphttp.Delete("http://"+MqttHttpHost+"/v1/accounts/"+viper.GetString("mqtt.user"), "{}")
+	tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/root", "{\"password\":\""+viper.GetString("mqtt.pass")+"\"}")
 	loadConfig()
 	listenMQTT()
 	listenTCP()
