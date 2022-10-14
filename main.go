@@ -2,7 +2,6 @@ package main
 
 import (
 	_ "ThingsPanel-Go/cron"
-	_ "ThingsPanel-Go/gateway"
 	_ "ThingsPanel-Go/initialize/cache"
 	_ "ThingsPanel-Go/initialize/psql"
 	_ "ThingsPanel-Go/initialize/send_message"
