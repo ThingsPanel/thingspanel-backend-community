@@ -253,19 +253,23 @@ func (reqDate *DeviceController) UpdateOnly() {
 	if d.DeviceType == "3" {
 		if addDeviceValidate.ProtocolConfig != "" && addDeviceValidate.ProtocolConfig != d.ProtocolConfig {
 			// 通知插件子设备配置已修改
-			var reqdata []byte
 			var reqmap = make(map[string]interface{})
 			reqmap["GateWayId"] = addDeviceValidate.ParentId
 			reqmap["DeviceId"] = addDeviceValidate.ID
-			reqmap["DeviceConfig"] = addDeviceValidate.ProtocolConfig
-			reqdata, json_err := json.Marshal(reqmap)
-			if json_err != nil {
-				logs.Error(json_err.Error())
+			var protocol_config_map = make(map[string]interface{})
+			j_err := json.Unmarshal([]byte(addDeviceValidate.ProtocolConfig), &protocol_config_map)
+			if j_err != nil {
+				logs.Error(j_err.Error())
 			} else {
-				logs.Info("================================")
-				logs.Info(string(reqdata))
-				tphttp.PostJson("http://127.0.0.1:503/api/device/config/update", reqdata)
+				reqmap["DeviceConfig"] = protocol_config_map
+				reqdata, json_err := json.Marshal(reqmap)
+				if json_err != nil {
+					logs.Error(json_err.Error())
+				} else {
+					tphttp.UpdateDeviceConfig(reqdata)
+				}
 			}
+
 		}
 	}
 	result := DeviceService.Edit(addDeviceValidate)
@@ -331,6 +335,31 @@ func (this *DeviceController) Delete() {
 		return
 	}
 	var DeviceService services.DeviceService
+	d, _ := DeviceService.GetDeviceByID(deleteDeviceValidate.ID)
+	// 判断是否子设备配置修改
+	if d.DeviceType == "3" {
+		if d.ProtocolConfig != "{}" {
+			// 通知插件子设备配置已修改
+			var reqmap = make(map[string]interface{})
+			reqmap["GateWayId"] = d.ParentId
+			reqmap["DeviceId"] = d.ID
+			var protocol_config_map = make(map[string]interface{})
+			j_err := json.Unmarshal([]byte(d.ProtocolConfig), &protocol_config_map)
+			if j_err != nil {
+				logs.Error(j_err.Error())
+			} else {
+				reqmap["DeviceConfig"] = protocol_config_map
+				reqdata, json_err := json.Marshal(reqmap)
+				if json_err != nil {
+					logs.Error(json_err.Error())
+				} else {
+					tphttp.DeleteDeviceConfig(reqdata)
+				}
+			}
+
+		}
+	}
+
 	f := DeviceService.Delete(deleteDeviceValidate.ID)
 	if f {
 		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
@@ -667,7 +696,7 @@ func (DeviceController *DeviceController) GetProtocolForm() {
 	}
 	var d = make(map[string]interface{})
 	if ProtocolFormValidate.ProtocolType == "MODBUS_RTU" || ProtocolFormValidate.ProtocolType == "MODBUS_TCP" {
-		rsp, _ := tphttp.Get("http://127.0.0.1:503/api/form/config")
+		rsp, _ := tphttp.GetPluginFromConfig()
 		err := json.Unmarshal(rsp, &d)
 		if err != nil {
 			response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(DeviceController.Ctx))
