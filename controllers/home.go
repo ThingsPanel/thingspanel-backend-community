@@ -192,6 +192,8 @@ func (HomeController *HomeController) GetDefaultSetting() {
 		}
 	} else if ProtocolValidate.Protocol == "tcp" {
 		d["default_setting"] = "端口:" + strings.Split(viper.GetString("tcp.port"), ":")[1] + "$$协议:" + "https://forum.thingspanel.cn/assets/files/2022-06-21/1655774183-644926-thingspanel-tcpv114xlsx.zip"
+	} else if ProtocolValidate.Protocol == "MODBUS_RTU" || ProtocolValidate.Protocol == "MODBUS_TCP" {
+		d["default_setting"] = "协议端口:" + strings.Split(viper.GetString("plugin.http_host"), ":")[1] + "$$连接:建立tcp连接时，将AccessToken上送。"
 	}
 	d["Token"] = response.GetUuid()
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(HomeController.Ctx))
