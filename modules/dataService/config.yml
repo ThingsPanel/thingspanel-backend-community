@@ -1,5 +1,5 @@
 mqtt:
-  broker: 127.0.0.1:1883
+  broker: 39.98.176.26:1883
   user: root
   pass: root
   topicToPublish: device/attributes
@@ -12,5 +12,7 @@ tcp:
   port: :9998
 
 api:
-  add: http://127.0.0.1:8083/v1/accounts/
-  delete: http://127.0.0.1:8083/v1/accounts/
+  http_host: 127.0.0.1:8083
+
+plugin:
+  http_host: 127.0.0.1:503

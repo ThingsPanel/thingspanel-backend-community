@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -260,7 +261,11 @@ func (*DeviceService) Delete(id string) bool {
 	}
 	if device.Token != "" {
 		redis.DelKey("token" + device.Token)
-		tphttp.Delete(viper.GetString("api.delete")+device.Token, "{}")
+		MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
+		if MqttHttpHost == "" {
+			MqttHttpHost = viper.GetString("api.http_host")
+		}
+		tphttp.Delete("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{}")
 	}
 	return true
 }
@@ -314,15 +319,20 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) bool {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
+	// 	add: http://127.0.0.1:8083/v1/accounts/
+	//  delete: http://127.0.0.1:8083/v1/accounts/
+	MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
+	if MqttHttpHost == "" {
+		MqttHttpHost = viper.GetString("api.http_host")
+	}
 	if deviceModel.Token != "" {
 		if device.Token != "" {
 			redis.DelKey("token" + device.Token)
-			tphttp.Delete(viper.GetString("api.delete")+device.Token, "{}")
+			tphttp.Delete("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{}")
 		}
 		redis.SetStr("token"+deviceModel.Token, deviceModel.ID, 3600*time.Second)
-		tphttp.Post(viper.GetString("api.add")+device.Token, "{\"password\":\""+device.Password+"\"}")
+		tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\""+device.Password+"\"}")
 	}
-
 	return true
 }
 
@@ -336,8 +346,12 @@ func (*DeviceService) Add(device models.Device) (bool, string) {
 		return false, ""
 	}
 	if device.Token != "" {
+		MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
+		if MqttHttpHost == "" {
+			MqttHttpHost = viper.GetString("api.http_host")
+		}
 		redis.SetStr("token"+device.Token, uuid, 3600*time.Second)
-		tphttp.Post(viper.GetString("api.add")+device.Token, "{\"password\":\"\"}")
+		tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\"\"}")
 	}
 
 	return true, uuid
