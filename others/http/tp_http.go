@@ -1,6 +1,7 @@
 package tphttp
 
 import (
+	"bytes"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -40,4 +41,10 @@ func Get(url string) ([]byte, error) {
 	} else {
 		return nil, errors.New("Get failed with error: " + resp.Status)
 	}
+}
+func PostJson(targetUrl string, payload []byte) (*http.Response, error) {
+	req, _ := http.NewRequest("POST", targetUrl, bytes.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(req)
+	return response, err
 }

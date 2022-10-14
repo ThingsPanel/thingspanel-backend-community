@@ -113,7 +113,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 		union  
 		(select tt.id,cast (kk.name||'/'||tt.name as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
 		)select  name from ast where parent_id='0' limit 1) 
-		as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type as device_type,d.parent_id as parent_id,
+		as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,
 		   d."token" as device_token,d."type" as "type",d.protocol as protocol ,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
 		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1  and d.device_type != '3'`
 	sqlWhereCount := `select count(1) from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 and d.device_type != '3'`
@@ -170,7 +170,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 					union  
 					(select tt.id,cast (kk.name||'/'||tt.name as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
 					)select  name from ast where parent_id='0' limit 1) 
-					as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type  as device_type,d.parent_id as parent_id,
+					as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type  as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,
 					   d."token" as device_token,d."type" as "type",d.protocol as protocol ,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
 					   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1  and d.device_type = '3' and d.parent_id = '` + device["device"].(string) + `'`
 				result := psql.Mydb.Raw(sql).Scan(&subDeviceList)
@@ -296,16 +296,19 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) bool {
 	var device models.Device
 	psql.Mydb.Where("id = ?", deviceModel.ID).First(&device)
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Updates(models.Device{
-		Token:     deviceModel.Token,
-		Protocol:  deviceModel.Protocol,
-		Port:      deviceModel.Port,
-		Publish:   deviceModel.Publish,
-		Subscribe: deviceModel.Subscribe,
-		Username:  deviceModel.Username,
-		Password:  deviceModel.Password,
-		AssetID:   deviceModel.AssetID,
-		Type:      deviceModel.Type,
-		Name:      deviceModel.Name,
+		Token:          deviceModel.Token,
+		Protocol:       deviceModel.Protocol,
+		Port:           deviceModel.Port,
+		Publish:        deviceModel.Publish,
+		Subscribe:      deviceModel.Subscribe,
+		Username:       deviceModel.Username,
+		Password:       deviceModel.Password,
+		AssetID:        deviceModel.AssetID,
+		Type:           deviceModel.Type,
+		Name:           deviceModel.Name,
+		DeviceType:     deviceModel.DeviceType,
+		ParentId:       deviceModel.ParentId,
+		ProtocolConfig: deviceModel.ProtocolConfig,
 	})
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)

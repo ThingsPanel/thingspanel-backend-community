@@ -249,6 +249,25 @@ func (reqDate *DeviceController) UpdateOnly() {
 			}
 		}
 	}
+	// 判断是否子设备配置修改
+	if d.DeviceType == "3" {
+		if addDeviceValidate.ProtocolConfig != "" && addDeviceValidate.ProtocolConfig != d.ProtocolConfig {
+			// 通知插件子设备配置已修改
+			var reqdata []byte
+			var reqmap = make(map[string]interface{})
+			reqmap["GateWayId"] = addDeviceValidate.ParentId
+			reqmap["DeviceId"] = addDeviceValidate.ID
+			reqmap["DeviceConfig"] = addDeviceValidate.ProtocolConfig
+			reqdata, json_err := json.Marshal(reqmap)
+			if json_err != nil {
+				logs.Error(json_err.Error())
+			} else {
+				logs.Info("================================")
+				logs.Info(string(reqdata))
+				tphttp.PostJson("http://127.0.0.1:503/api/device/config/update", reqdata)
+			}
+		}
+	}
 	result := DeviceService.Edit(addDeviceValidate)
 	if result {
 		deviceDash, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
