@@ -496,14 +496,16 @@ func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
 		GatewayConfigMap["GatewayId"] = device.ID
 		GatewayConfigMap["ProtocolType"] = device.Protocol
 		GatewayConfigMap["AccessToken"] = token
+		var sub_device_list []map[string]interface{}
 		for _, sub_device := range sub_devices {
 			var m = make(map[string]interface{})
 			err := json.Unmarshal([]byte(sub_device.ProtocolConfig), &m)
 			if err != nil {
 				fmt.Println("Unmarshal failed:", err)
 			}
-			GatewayConfigMap["SubDevice"] = m
+			sub_device_list = append(sub_device_list, m)
 		}
+		GatewayConfigMap["SubDevice"] = sub_device_list
 		return GatewayConfigMap
 	}
 	return GatewayConfigMap

@@ -1034,3 +1034,28 @@ INSERT INTO public.casbin_rule
 (id, ptype, v0, v1, v2, v3, v4, v5, v6, v7)
 VALUES(1293, 'p', '5b0969cb-ed0b-c664-1fab-d0ba90c39e04', '52a23456-775c-b731-7adf-a0fd3cddf649', 'allow', '', '', '', '', '');
 
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('643f254a-0ac2-2616-c730-32c60dac7117', 'other_type', '1', '', 1663225360);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('fd55cc73-427e-7dfc-121e-1e4f73b55e65', 'chart_type', '1', '传感器', 1663226829);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('05fecef3-a1b1-4041-decf-59230f304fce', 'chart_type', '2', '控制器', 1663226845);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('9d855e7b-c949-034f-4b96-f18ac03e0eb6', 'chart_type', '3', '照明', 1663226870);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('c8bdaf38-d4da-5d29-4bf6-7e47ba497c88', 'chart_type', '4', '电力', 1663226875);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('e197fbb7-b3b6-f33d-7c63-6d9fb1d60876', 'chart_type', '5', '摄像头', 1663226918);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('4257cff7-ddf4-9977-a3ad-48630f5dc614', 'chart_type', '6', '其他', 1663226925);
+
+INSERT INTO public.device_model
+(id, model_name, flag, chart_data, model_type, "describe", "version", author, sort, issued, remark, created_at)
+VALUES('5867753e-cb2d-32dc-a76d-7942d7ebcffc', '标准温湿度传感器', 0, '{"info":{"pluginName":"标准温湿度传感器","pluginCategory":"1","author":"thingspanel","version":"v0.1","description":"温湿度传感器： 温度-temperature；湿度-humidity"},"tsl":{"properties":[{"dataType":"float","dataRange":"0-999","stepLength":0.1,"unit":"°C","title":"温度","name":"humidity"},{"dataType":"float","dataRange":"0-999","stepLength":0.1,"unit":"°C","title":"湿度","name":"temperature"}],"option":{"classify":"custom"}},"chart":[{"tooltip":{"formatter":"{a} <br/>{b} : {c}%"},"series":[{"name":"Pressure","type":"gauge","startAngle":200,"endAngle":-20,"offsetCenter":[0,"-15%"],"min":0,"max":60,"axisTick":{"show":true,"splitNumber":2,"length":2,"lineStyle":{"color":"#ddd"}},"splitLine":{"show":false,"length":10,"lineStyle":{"color":"auto"}},"axisLabel":{"show":true,"distance":12,"textStyle":{"color":"#fff","fontSize":12}},"axisLine":{"lineStyle":{"width":6,"color":[[0.3,"#67e0e3"],[0.7,"#37a2da"],[1,"#fd666d"]]}},"progress":{"show":true,"width":8,"itemStyle":{"color":"#63e33d"}},"pointer":{"show":true,"width":3,"itemStyle":{"color":"#63e33d"}},"detail":{"formatter":"{value}°C","fontSize":16,"color":"#63e33d"},"data":[{"value":0,"name":""}]}],"simulator":{"funcArr":["return +(Math.random() * 60).toFixed(2);"],"interval":5000},"name":"温度当前值","mapping":["humidity"],"controlType":"dashboard","id":"k1uazXXEhrtn"},{"series":[{"type":"gauge","progress":{"show":true,"width":18},"axisLine":{"lineStyle":{"width":2}},"axisTick":{"show":false},"splitLine":{"show":false,"length":5,"lineStyle":{"width":2,"color":"#999"}},"axisLabel":{"distance":10,"color":"#fff","fontSize":14},"anchor":{"show":true,"showAbove":true,"size":25,"itemStyle":{"borderWidth":10}},"title":{"show":false},"detail":{"fontSize":20,"offsetCenter":[0,"70%"],"color":"#fff"},"data":[{"value":0}]}],"simulator":{"funcArr":["return +(Math.random() * 60).toFixed(2);"],"interval":5000},"name":"湿度当前值","mapping":["temperature"],"controlType":"dashboard","id":"jOgFNgTzojyA"}],"publish":{"isPub":false}}'::json, '1', '', 'v0.1', 'thingspanel', 0, 0, '', 1665748873);
