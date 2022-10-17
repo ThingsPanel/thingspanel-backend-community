@@ -77,7 +77,12 @@ func listenMQTT() {
 		_ = p1.Submit(func() {
 			TSKVS.MsgProc(m.Payload())
 		})
+	}, func(m mqtt.Message) {
+		_ = p.Submit(func() {
+			TSKVS.GatewayMsgProc(m.Payload())
+		})
 	})
+
 }
 
 func listenTCP() {

@@ -13,7 +13,7 @@ import (
 var running bool
 var _client mqtt.Client
 
-func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Message), msgProc1 func(m mqtt.Message)) (err error) {
+func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Message), msgProc1 func(m mqtt.Message), gatewayMsgProc func(m mqtt.Message)) (err error) {
 	running = false
 	if _client == nil {
 		var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
@@ -46,6 +46,14 @@ func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Mes
 			fmt.Println(token.Error())
 			os.Exit(1)
 		}
+		//订阅网关
+		if token := _client.Subscribe(viper.GetString("mqtt.gateway_topic"), 0, func(c mqtt.Client, m mqtt.Message) {
+			gatewayMsgProc(m)
+		}); token.Wait() &&
+			token.Error() != nil {
+			fmt.Println(token.Error())
+			os.Exit(1)
+		}
 		if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), 0, func(c mqtt.Client, m mqtt.Message) {
 			msgProc1(m)
 		}); token.Wait() &&
@@ -57,7 +65,7 @@ func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Mes
 	return
 }
 
-//发送消息
+//发送消息给直连设备
 func Send(payload []byte, token string) (err error) {
 	var clientErr = errors.New("_client is error")
 	if _client == nil {
@@ -68,6 +76,21 @@ func Send(payload []byte, token string) (err error) {
 	logs.Info(string(payload))
 	logs.Info("-------------------")
 	t := _client.Publish(viper.GetString("mqtt.topicToPublish")+"/"+token, 1, false, string(payload))
+	if t.Error() != nil {
+		fmt.Println(t.Error())
+	}
+	return t.Error()
+}
+func SendGateWay(payload []byte, token string, protocol string) (err error) {
+	var clientErr = errors.New("_client is error")
+	if _client == nil {
+		return clientErr
+	}
+	logs.Info("-------------------")
+	logs.Info(viper.GetString("mqtt.gateway_topic") + "/" + token)
+	logs.Info(string(payload))
+	logs.Info("-------------------")
+	t := _client.Publish(viper.GetString("mqtt.gateway_topic")+"/"+token, 1, false, string(payload))
 	if t.Error() != nil {
 		fmt.Println(t.Error())
 	}

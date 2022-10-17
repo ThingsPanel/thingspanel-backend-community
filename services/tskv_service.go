@@ -79,6 +79,57 @@ func (*TSKVService) MsgStatus(body []byte) bool {
 	return true
 }
 
+// 接收网关消息
+func (*TSKVService) GatewayMsgProc(body []byte) bool {
+	payload := &mqttPayload{}
+	if err := json.Unmarshal(body, payload); err != nil {
+		fmt.Println("Msg Consumer: Cannot unmarshal msg payload to JSON:", err)
+		return false
+	}
+	if len(payload.Token) == 0 {
+		fmt.Println("Msg Consumer: Payload token missing")
+		return false
+	}
+	if len(payload.Values) == 0 {
+		fmt.Println("Msg Consumer: Payload values missing")
+		return false
+	}
+	var device models.Device
+	result_token := psql.Mydb.Where("token = ? and device_type = '2'", payload.Token).First(&device) // 检测网关token是否存在
+	if result_token.Error != nil {
+		errors.Is(result_token.Error, gorm.ErrRecordNotFound)
+		return false
+	} else if result_token.RowsAffected <= int64(0) {
+		logs.Info("token not matched")
+		return false
+	}
+	var sub_device_list []models.Device
+	if device.ParentId != "" {
+		result := psql.Mydb.Where("parent_id = ? and device_type = '3'", device.ParentId).Find(&sub_device_list) // 查询网关下子设备
+		if result.Error != nil {
+			logs.Info(result.Error.Error())
+		} else {
+			for _, sub_device := range sub_device_list {
+				if values, ok := payload.Values[sub_device.SubDeviceAddr]; ok {
+					var sub_device_map = make(map[string]interface{})
+					sub_device_map["token"] = sub_device.Token
+					sub_device_map["values"] = values
+					sub_device_bytes, err := json.Marshal(sub_device_map)
+					if err != nil {
+						logs.Info(err.Error())
+					} else {
+						var TSKVService TSKVService
+						TSKVService.MsgProc(sub_device_bytes)
+					}
+
+				}
+			}
+		}
+	}
+
+	return true
+}
+
 // 接收硬件消息
 func (*TSKVService) MsgProc(body []byte) bool {
 	logs.Info("-------------------------------")

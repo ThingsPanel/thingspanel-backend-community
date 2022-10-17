@@ -2,9 +2,10 @@ mqtt:
   broker: 127.0.0.1:1883
   user: root
   pass: root
-  topicToPublish: device/attributes
   topicToSubscribe: device/attributes
+  topicToPublish: device/attributes
   topicToStatus: device/status
+  gateway_topic: gateway/attributes
 
 url: dev.thingspanel.cn
 

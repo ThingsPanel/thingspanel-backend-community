@@ -5,7 +5,6 @@ import (
 	"ThingsPanel-Go/initialize/redis"
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
-	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	tphttp "ThingsPanel-Go/others/http"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
@@ -69,15 +68,16 @@ func (this *DeviceController) Edit() {
 		}
 	}
 	var DeviceService services.DeviceService
-	f := DeviceService.Edit(editDeviceValidate)
-	if f {
+	e_err := DeviceService.Edit(editDeviceValidate)
+	if e_err == nil {
 		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
 		return
 	}
-	response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(this.Ctx))
+	response.SuccessWithMessage(400, e_err.Error(), (*context2.Context)(this.Ctx))
 	return
 }
 
+// 废弃
 func (this *DeviceController) Add() {
 	addDeviceValidate := valid.Device{}
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &addDeviceValidate)
@@ -148,6 +148,7 @@ type DeviceDash struct {
 	DeviceType     string            `json:"device_type,omitempty" gorm:"size:2"`
 	ParentId       string            `json:"parent_id,omitempty" gorm:"size:36"`
 	ProtocolConfig string            `json:"protocol_config,omitempty" gorm:"type:longtext"`
+	SubDeviceAddr  string            `json:"sub_device_addr,omitempty" gorm:"size:36"`
 	Dash           []services.Widget `json:"dash"`
 }
 
@@ -169,14 +170,14 @@ func (reqDate *DeviceController) AddOnly() {
 		return
 	}
 	//var uuid = uuid.GetUuid()
-	var AssetService services.AssetService
-	var ResWidgetData []services.Widget
-	if addDeviceValidate.Type != "" {
-		dd := AssetService.Widget(addDeviceValidate.Type)
-		if len(dd) > 0 {
-			ResWidgetData = append(ResWidgetData, dd...)
-		}
-	}
+	//var AssetService services.AssetService
+	// var ResWidgetData []services.Widget
+	// if addDeviceValidate.Type != "" {
+	// 	dd := AssetService.Widget(addDeviceValidate.Type)
+	// 	if len(dd) > 0 {
+	// 		ResWidgetData = append(ResWidgetData, dd...)
+	// 	}
+	// }
 
 	var DeviceService services.DeviceService
 	if addDeviceValidate.Token == "" {
@@ -208,6 +209,9 @@ func (reqDate *DeviceController) AddOnly() {
 	}
 	if deviceData.ProtocolConfig == "" {
 		deviceData.ProtocolConfig = "{}"
+	}
+	if deviceData.DeviceType == "3" {
+		deviceData.SubDeviceAddr = strings.Replace(uuid.GetUuid(), "-", "", -1)[0:9]
 	}
 	result, uuid := DeviceService.Add(deviceData)
 	//result := psql.Mydb.Create(&deviceData)
@@ -273,11 +277,11 @@ func (reqDate *DeviceController) UpdateOnly() {
 		}
 	}
 	result := DeviceService.Edit(addDeviceValidate)
-	if result {
+	if result == nil {
 		deviceDash, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
-		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+		response.SuccessWithMessage(400, result.Error(), (*context2.Context)(reqDate.Ctx))
 	}
 }
 
@@ -439,7 +443,7 @@ func (request *DeviceController) Operating() {
 		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(request.Ctx))
 		return
 	}
-	f := cm.Send(newPayload, deviceData.Token)
+	f := DeviceService.SendMessage(newPayload, deviceData)
 	ConditionsLog := models.ConditionsLog{
 		DeviceId:      deviceData.ID,
 		OperationType: "2",

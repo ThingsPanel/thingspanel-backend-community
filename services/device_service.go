@@ -297,7 +297,7 @@ func (*DeviceService) IsToken(token string) bool {
 }
 
 // 根据ID编辑Device的Token
-func (*DeviceService) Edit(deviceModel valid.EditDevice) bool {
+func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 	var device models.Device
 	psql.Mydb.Where("id = ?", deviceModel.ID).First(&device)
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Updates(models.Device{
@@ -314,10 +314,22 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) bool {
 		DeviceType:     deviceModel.DeviceType,
 		ParentId:       deviceModel.ParentId,
 		ProtocolConfig: deviceModel.ProtocolConfig,
+		SubDeviceAddr:  deviceModel.SubDeviceAddr,
 	})
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false
+		return result.Error
+	}
+	if deviceModel.DeviceType == "3" { //子设备
+		if deviceModel.SubDeviceAddr != "" {
+			var chack_device models.Device
+			result := psql.Mydb.Where("parent_id = ? and id!= ?", device.ParentId, device.ID).First(&chack_device) // 检测网关token是否存在
+			if result != nil {
+				if result.RowsAffected > int64(0) {
+					return errors.New("同一个网关下子设备地址不能重复！")
+				}
+			}
+		}
 	}
 	// 	add: http://127.0.0.1:8083/v1/accounts/
 	//  delete: http://127.0.0.1:8083/v1/accounts/
@@ -333,7 +345,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) bool {
 		redis.SetStr("token"+deviceModel.Token, deviceModel.ID, 3600*time.Second)
 		tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\""+device.Password+"\"}")
 	}
-	return true
+	return nil
 }
 
 func (*DeviceService) Add(device models.Device) (bool, string) {
@@ -358,7 +370,7 @@ func (*DeviceService) Add(device models.Device) (bool, string) {
 }
 
 // 向mqtt发送控制指令
-func (*DeviceService) OperatingDevice(deviceId string, field string, value interface{}) bool {
+func (*DeviceService) OperatingDevice(deviceId string, field string, value interface{}) error {
 	//reqMap := make(map[string]interface{})
 	valueMap := make(map[string]interface{})
 	logs.Info("通过设备id获取设备token")
@@ -366,28 +378,44 @@ func (*DeviceService) OperatingDevice(deviceId string, field string, value inter
 	device, _ := DeviceService.Token(deviceId)
 	if device == nil {
 		logs.Info("没有匹配的token")
-		return false
+		return errors.New("没有匹配的设备")
 	}
-	//reqMap["token"] = device.Token
-	logs.Info("token-%s", device.Token)
-	// logs.Info("把field字段映射回设备端字段")
-	// var fieldMappingService FieldMappingService
-	// deviceField := fieldMappingService.TransformByDeviceid(deviceId, field)
-	// if deviceField != "" {
-	// 	valueMap[deviceField] = value
-	// }
 	valueMap[field] = value
-	//reqMap["values"] = valueMap
-	logs.Info("将map转json")
 	mjson, _ := json.Marshal(valueMap)
-	logs.Info("json-%s", string(mjson))
-	err := cm.Send(mjson, device.Token)
+	err := DeviceService.SendMessage(mjson, device)
+	return err
+
+}
+func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
+	var err error
+	if device.Type == "1" { // 直连设备
+		err = cm.Send(msg, device.Token)
+	} else if device.Type == "3" { // 网关子设备
+		if device.ParentId != "" && device.SubDeviceAddr != "" {
+			var gatewayDevice *models.Device
+			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
+			if result.Error != nil {
+				var msgMapValues = make(map[string]interface{})
+				json.Unmarshal(msg, &msgMapValues)
+				var subMap = make(map[string]interface{})
+				subMap[device.SubDeviceAddr] = msgMapValues
+				var msgMap = make(map[string]interface{})
+				msgMap["token"] = gatewayDevice.Token
+				msgMap["values"] = subMap
+				msgBytes, _ := json.Marshal(msgMap)
+				err = cm.SendGateWay(msgBytes, device.Token, gatewayDevice.Protocol)
+			}
+		} else {
+			return errors.New("子设备网关不存在或子设备地址为空！")
+		}
+
+	}
 	if err == nil {
 		logs.Info("发送到mqtt成功")
-		return true
+		return nil
 	} else {
 		logs.Info(err.Error())
-		return false
+		return err
 	}
 }
 
@@ -419,12 +447,12 @@ func (*DeviceService) ApplyControl(res *simplejson.Json) {
 					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
 				}
 				var DeviceService DeviceService
-				reqFlag := DeviceService.OperatingDevice(applyMap["device_id"].(string), applyMap["field"].(string), applyMap["value"])
-				if reqFlag {
+				err := DeviceService.OperatingDevice(applyMap["device_id"].(string), applyMap["field"].(string), applyMap["value"])
+				if err == nil {
 					logs.Info("成功发送控制")
 					ConditionsLog.SendResult = "1"
 				} else {
-					logs.Info("成功发送失败")
+					logs.Info("发送控制失败")
 					ConditionsLog.SendResult = "2"
 				}
 				// 记录日志
