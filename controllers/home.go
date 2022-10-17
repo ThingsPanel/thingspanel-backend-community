@@ -150,50 +150,31 @@ func (HomeController *HomeController) GetDefaultSetting() {
 	//读取配置参数
 	d := make(map[string]string)
 	var port string
-	if ProtocolValidate.Protocol == "mqtt" {
-
-		if viper.GetString("mqtt.broker") == "" {
-			var readErr error
-			envConfigFile := flag.String("config", "./modules/dataService/config.yml", "path of configuration file")
-			flag.Parse()
-			viper.SetConfigFile(*envConfigFile)
-			if readErr = viper.ReadInConfig(); readErr != nil {
-				fmt.Println("FAILURE", err)
-			} else {
-
-				if mqttHost == "" {
-					port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
-				} else {
-					port = strings.Split(mqttHost, ":")[1]
-				}
-				d["default_setting"] =
-					"MQTT接入点: " + viper.GetString("url") + ":" + port +
-						"$$设备发布主题: " + viper.GetString("mqtt.topicToSubscribe") +
-						"$$设备订阅主题: " + viper.GetString("mqtt.topicToPublish") + "/{Token}" +
-						"$$设备自定义发布主题: custom/pub/{Token}/+" +
-						"$$设备自定义订阅主题: custom/sub/{Token}/+" +
-						"$$MQTT用户名: {Token}" +
-						"$$描述: 推送规范为{\"key\":\"value\",\"key\":\"value\"...}"
-			}
+	if ProtocolValidate.Protocol == "mqtt" { //mqtt直连设备
+		if mqttHost == "" {
+			port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
 		} else {
-			if mqttHost == "" {
-				port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
-			} else {
-				port = strings.Split(mqttHost, ":")[1]
-			}
-			d["default_setting"] =
-				"MQTT接入点: " + viper.GetString("url") + ":" + port +
-					"$$设备发布主题: " + viper.GetString("mqtt.topicToSubscribe") +
-					"$$设备订阅主题: " + viper.GetString("mqtt.topicToPublish") + "/{Token}" +
-					"$$设备自定义发布主题: custom/pub/{Token}/+" +
-					"$$设备自定义订阅主题: custom/sub/{Token}/+" +
-					"$$MQTT用户名: {Token}" +
-					"$$描述: 推送规范为{\"key\":\"value\",\"key\":\"value\"...}"
+			port = strings.Split(mqttHost, ":")[1]
 		}
+		d["default_setting"] =
+			"MQTT接入点: " + viper.GetString("url") + ":" + port +
+				"$$设备发布主题: " + viper.GetString("mqtt.topicToSubscribe") +
+				"$$设备订阅主题: " + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
+				"$$设备自定义发布主题: custom/pub/{AccessToken}/+" +
+				"$$设备自定义订阅主题: custom/sub/{AccessToken}/+" +
+				"$$MQTT用户名: {AccessToken}" +
+				"$$描述: 推送规范为{\"key\":\"value\",\"key\":\"value\"...}"
 	} else if ProtocolValidate.Protocol == "tcp" {
 		d["default_setting"] = "端口:" + strings.Split(viper.GetString("tcp.port"), ":")[1] + "$$协议:" + "https://forum.thingspanel.cn/assets/files/2022-06-21/1655774183-644926-thingspanel-tcpv114xlsx.zip"
 	} else if ProtocolValidate.Protocol == "MODBUS_RTU" || ProtocolValidate.Protocol == "MODBUS_TCP" {
 		d["default_setting"] = "协议端口:" + strings.Split(viper.GetString("plugin.http_host"), ":")[1] + "$$连接:建立tcp连接时，将AccessToken上送。"
+	} else if ProtocolValidate.Protocol == "MQTT" { //mqtt网关设备
+		d["default_setting"] =
+			"MQTT接入点: " + viper.GetString("url") + ":" + port +
+				"$$网关设备发布主题: " + viper.GetString("mqtt.gateway_topic") +
+				"$$网关设备订阅主题: " + viper.GetString("mqtt.gateway_topic") + "/{Token}" +
+				"$$MQTT用户名: {AccessToken}" +
+				"$$描述: (sub_device_addr为子设备的设备地址)推送规范为{\"sub_device_addr\":{\"key\":\"value\"...},\"sub_device_addr\":{\"key\":\"value\"...}...}"
 	}
 	d["Token"] = response.GetUuid()
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(HomeController.Ctx))
