@@ -80,7 +80,7 @@ func (*TSKVService) MsgStatus(body []byte) bool {
 }
 
 // 接收网关消息
-func (*TSKVService) GatewayMsgProc(body []byte) bool {
+func (*TSKVService) GatewayMsgProc(body []byte, topic string) bool {
 	logs.Info("------------------------------")
 	logs.Info(string(body))
 	logs.Info("------------------------------")
@@ -106,6 +106,23 @@ func (*TSKVService) GatewayMsgProc(body []byte) bool {
 		logs.Info("token not matched")
 		return false
 	}
+	// 网关脚本
+	if device.ScriptId != "" {
+		var tp_script models.TpScript
+		result_script := psql.Mydb.Where("id = ? and protocol_type = 'MQTT'", device.ScriptId).First(&tp_script)
+		if result_script.Error == nil {
+			data_values, _ := json.Marshal(payload.Values)
+			req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, string(data_values), topic)
+			if err == nil {
+				var req_map map[string]interface{}
+				err := json.Unmarshal([]byte(req_str), &req_map)
+				if err == nil {
+					logs.Info(req_map)
+					payload.Values = req_map
+				}
+			}
+		}
+	}
 	var sub_device_list []models.Device
 	result := psql.Mydb.Where("parent_id = ? and device_type = '3'", device.ID).Find(&sub_device_list) // 查询网关下子设备
 	if result.Error != nil {
@@ -121,7 +138,7 @@ func (*TSKVService) GatewayMsgProc(body []byte) bool {
 					logs.Info(err.Error())
 				} else {
 					var TSKVService TSKVService
-					TSKVService.MsgProc(sub_device_bytes)
+					TSKVService.MsgProc(sub_device_bytes, topic)
 				}
 
 			}
@@ -132,7 +149,7 @@ func (*TSKVService) GatewayMsgProc(body []byte) bool {
 }
 
 // 接收硬件消息
-func (*TSKVService) MsgProc(body []byte) bool {
+func (*TSKVService) MsgProc(body []byte, topic string) bool {
 	logs.Info("-------------------------------")
 	logs.Info(string(body))
 	logs.Info("-------------------------------")
@@ -163,14 +180,20 @@ func (*TSKVService) MsgProc(body []byte) bool {
 		fmt.Println("token not matched")
 		return false
 	}
-	if device.AdditionalInfo != "" {
-		data_values, _ := json.Marshal(payload.Values)
-		req_str, err := utils.ScriptDeal(device.AdditionalInfo, string(data_values))
-		if err != nil {
-			var req_map map[string]interface{}
-			err := json.Unmarshal([]byte(req_str), &req_map)
-			if err != nil {
-				payload.Values = req_map
+	// 但设备脚本
+	if device.ScriptId != "" {
+		var tp_script models.TpScript
+		result_script := psql.Mydb.Where("id = ? and protocol_type = 'mqtt'", device.ScriptId).First(&tp_script)
+		if result_script.Error == nil {
+			data_values, _ := json.Marshal(payload.Values)
+			req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, string(data_values), topic)
+			if err == nil {
+				var req_map map[string]interface{}
+				err := json.Unmarshal([]byte(req_str), &req_map)
+				if err == nil {
+					logs.Info(req_map)
+					payload.Values = req_map
+				}
 			}
 		}
 	}

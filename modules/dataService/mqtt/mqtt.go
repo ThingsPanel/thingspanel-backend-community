@@ -13,7 +13,7 @@ import (
 var running bool
 var _client mqtt.Client
 
-func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Message), msgProc1 func(m mqtt.Message), gatewayMsgProc func(m mqtt.Message)) (err error) {
+func Listen(broker, username, password, clientid string, msgProc func(c mqtt.Client, m mqtt.Message), msgProc1 func(c mqtt.Client, m mqtt.Message), gatewayMsgProc func(c mqtt.Client, m mqtt.Message)) (err error) {
 	running = false
 	if _client == nil {
 		var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
@@ -35,7 +35,7 @@ func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Mes
 			running = true
 		})
 		opts.SetDefaultPublishHandler(func(c mqtt.Client, m mqtt.Message) {
-			msgProc(m)
+			msgProc(c, m)
 		})
 		_client = mqtt.NewClient(opts)
 		if token := _client.Connect(); token.Wait() && token.Error() != nil {
@@ -48,14 +48,14 @@ func Listen(broker, username, password, clientid string, msgProc func(m mqtt.Mes
 		}
 		//订阅网关
 		if token := _client.Subscribe(viper.GetString("mqtt.gateway_topic"), 0, func(c mqtt.Client, m mqtt.Message) {
-			gatewayMsgProc(m)
+			gatewayMsgProc(c, m)
 		}); token.Wait() &&
 			token.Error() != nil {
 			fmt.Println(token.Error())
 			os.Exit(1)
 		}
 		if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), 0, func(c mqtt.Client, m mqtt.Message) {
-			msgProc1(m)
+			msgProc1(c, m)
 		}); token.Wait() &&
 			token.Error() != nil {
 			fmt.Println(token.Error())

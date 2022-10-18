@@ -130,7 +130,7 @@ func Listen(tcpPort string) {
 			//消息ID（0x10-心跳包，0x20-数据包）
 			if buf[4] == byte(0x10) || buf[4] == byte(0x09) {
 				//#心跳包应答#---
-				TSKVS.MsgProc(msgData)
+				TSKVS.MsgProc(msgData, "")
 				buf[4] = 0x11
 				c.ConnWriter.Write(buf[:n])
 			} else if buf[4] == byte(0x01) {
@@ -171,7 +171,7 @@ func Listen(tcpPort string) {
 						}
 						fmt.Println(string(newJson))
 						//直接记录kv
-						TSKVS.MsgProc(newJson)
+						TSKVS.MsgProc(newJson, "")
 					}
 				} else if maxNo == currentNo {
 					timeStr := time.Now().Format("2006-01-02")
@@ -185,7 +185,7 @@ func Listen(tcpPort string) {
 					}
 					fmt.Println(string(newJson))
 					//直接记录kv
-					TSKVS.MsgProc(newJson)
+					TSKVS.MsgProc(newJson, "")
 				}
 				buf[4] = 0x21
 				c.ConnWriter.Write(append(buf[:7+msgLength], byte(0xfd))) //回复客户端

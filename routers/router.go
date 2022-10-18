@@ -298,6 +298,12 @@ func init() {
 		//插件模块接口
 		web.NSRouter("/gateway/config", &controllers.DeviceController{}, "*:GetGatewayConfig"),
 		web.NSRouter("/form/config", &controllers.DeviceController{}, "*:GetProtocolForm"),
+
+		//脚本模块
+		web.NSRouter("/tp_script/add", &controllers.TpScriptController{}, "*:Add"),
+		web.NSRouter("/tp_script/list", &controllers.TpScriptController{}, "*:List"),
+		web.NSRouter("/tp_script/edit", &controllers.TpScriptController{}, "*:Edit"),
+		web.NSRouter("/tp_script/delete", &controllers.TpScriptController{}, "*:Delete"),
 	)
 
 	// 图表推送数据

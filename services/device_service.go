@@ -6,6 +6,7 @@ import (
 	"ThingsPanel-Go/models"
 	cm "ThingsPanel-Go/modules/dataService/mqtt"
 	tphttp "ThingsPanel-Go/others/http"
+	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
@@ -315,6 +316,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		ParentId:       deviceModel.ParentId,
 		ProtocolConfig: deviceModel.ProtocolConfig,
 		SubDeviceAddr:  deviceModel.SubDeviceAddr,
+		ScriptId:       deviceModel.ScriptId,
 	})
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -389,6 +391,25 @@ func (*DeviceService) OperatingDevice(deviceId string, field string, value inter
 func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 	var err error
 	if device.Type == "1" { // 直连设备
+		// 直连脚本
+		if device.ScriptId != "" {
+			var tp_script models.TpScript
+			result_script := psql.Mydb.Where("id = ? and protocol_type = 'mqtt'", device.ScriptId).First(&tp_script)
+			if result_script.Error == nil {
+				req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, string(msg), viper.GetString("mqtt.topicToPublish")+"/"+device.Token)
+				if err == nil {
+					var req_map map[string]interface{}
+					err := json.Unmarshal([]byte(req_str), &req_map)
+					if err == nil {
+						logs.Info(req_map)
+						err := json.Unmarshal(msg, &req_map)
+						if err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
 		err = cm.Send(msg, device.Token)
 	} else if device.Type == "3" { // 网关子设备
 		if device.ParentId != "" && device.SubDeviceAddr != "" {
@@ -403,6 +424,25 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				msgMap["token"] = gatewayDevice.Token
 				msgMap["values"] = subMap
 				msgBytes, _ := json.Marshal(msgMap)
+				// 网关脚本
+				if device.ScriptId != "" {
+					var tp_script models.TpScript
+					result_script := psql.Mydb.Where("id = ? and protocol_type = 'MQTT'", device.ScriptId).First(&tp_script)
+					if result_script.Error == nil {
+						req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, string(msgBytes), viper.GetString("mqtt.gateway_topic")+"/"+device.Token)
+						if err == nil {
+							var req_map map[string]interface{}
+							err := json.Unmarshal([]byte(req_str), &req_map)
+							if err == nil {
+								logs.Info(req_map)
+								err := json.Unmarshal(msgBytes, &req_map)
+								if err != nil {
+									return err
+								}
+							}
+						}
+					}
+				}
 				err = cm.SendGateWay(msgBytes, device.Token, gatewayDevice.Protocol)
 			}
 		} else {

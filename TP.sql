@@ -1071,3 +1071,33 @@ VALUES('0283d426-7397-975c-7ab5-80f5f653f097', 'GATEWAY_PROTOCOL', 'MODBUS_TCP',
 INSERT INTO public.tp_dict
 (id, dict_code, dict_value, "describe", created_at)
 VALUES('8f40f32a-d048-51ca-ceeb-898f5ac11df5', 'GATEWAY_PROTOCOL', 'MODBUS_RTU', 'MODBUS_RTU协议', 1665998545);
+
+CREATE TABLE public.tp_script (
+	id varchar(36) NOT NULL,
+	protocol_type varchar(99) NULL,
+	script_name varchar(99) NULL,
+	company varchar(99) NULL,
+	product_name varchar(99) NULL,
+	script_content text NULL,
+	created_at int8 NULL,
+	script_type varchar(99) NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_script_pk PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_script.protocol_type IS '协议类型';
+COMMENT ON COLUMN public.tp_script.script_name IS '脚本名称';
+COMMENT ON COLUMN public.tp_script.company IS '公司';
+COMMENT ON COLUMN public.tp_script.product_name IS '产品名称';
+COMMENT ON COLUMN public.tp_script.script_content IS '下行脚本';
+COMMENT ON COLUMN public.tp_script.created_at IS '创建时间';
+COMMENT ON COLUMN public.tp_script.script_type IS '脚本类型';
+ALTER TABLE public.tp_script ALTER COLUMN script_type SET DEFAULT 'javascript';
+ALTER TABLE public.tp_script ADD script_content_b text NULL;
+COMMENT ON COLUMN public.tp_script.script_content_b IS '上行脚本';
+ALTER TABLE public.tp_script RENAME COLUMN script_content TO script_content_a;
+
+ALTER TABLE public.device ADD script_id varchar(36) NULL;
+COMMENT ON COLUMN public.device.script_id IS '脚本id';

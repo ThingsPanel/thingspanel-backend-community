@@ -55,7 +55,7 @@ func (*OpenService) SaveData(OpenValidate valid.OpenValidate) (bool, error) {
 	// 解析并存储数据
 	OpenValidateByte, _ := json.Marshal(OpenValidate)
 	var TSKV TSKVService
-	isSucess := TSKV.MsgProc(OpenValidateByte)
+	isSucess := TSKV.MsgProc(OpenValidateByte, "")
 	if isSucess {
 		return isSucess, nil
 	} else {

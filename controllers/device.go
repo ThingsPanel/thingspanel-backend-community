@@ -149,6 +149,7 @@ type DeviceDash struct {
 	ParentId       string            `json:"parent_id,omitempty" gorm:"size:36"`
 	ProtocolConfig string            `json:"protocol_config,omitempty" gorm:"type:longtext"`
 	SubDeviceAddr  string            `json:"sub_device_addr,omitempty" gorm:"size:36"`
+	ScriptId       string            `json:"script_id,omitempty" gorm:"size:36"`
 	Dash           []services.Widget `json:"dash"`
 }
 
@@ -203,6 +204,7 @@ func (reqDate *DeviceController) AddOnly() {
 		DeviceType:     addDeviceValidate.DeviceType,
 		ParentId:       addDeviceValidate.ParentId,
 		ProtocolConfig: addDeviceValidate.ProtocolConfig,
+		ScriptId:       addDeviceValidate.ScriptId,
 	}
 	if deviceData.ChartOption == "" {
 		deviceData.ChartOption = "{}"

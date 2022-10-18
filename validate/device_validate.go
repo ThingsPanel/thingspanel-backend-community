@@ -23,6 +23,7 @@ type EditDevice struct {
 	ParentId       string `json:"parent_id" gorm:"size:36"`
 	ProtocolConfig string `json:"protocol_config"`
 	SubDeviceAddr  string `json:"sub_device_addr,omitempty" alias:"子设备地址" valid:"MaxSize(36)"`
+	ScriptId       string `json:"script_id" gorm:"size:36"`
 }
 
 // AddDevice 校验
@@ -74,6 +75,7 @@ type Device struct {
 	ParentId       string `json:"parent_id" gorm:"size:36"`
 	ProtocolConfig string `json:"protocol_config"`
 	SubDeviceAddr  string `json:"sub_device_addr,omitempty" alias:"子设备地址" valid:"MaxSize(36)"`
+	ScriptId       string `json:"script_id" gorm:"size:36"`
 }
 
 type UpdateDevice struct {
@@ -97,6 +99,7 @@ type UpdateDevice struct {
 	ParentId       string `json:"parent_id" gorm:"size:36"`
 	ProtocolConfig string `json:"protocol_config"`
 	SubDeviceAddr  string `json:"sub_device_addr,omitempty" alias:"子设备地址" valid:"MaxSize(36)"`
+	ScriptId       string `json:"script_id" gorm:"size:36"`
 }
 
 type ResetDevice struct {
