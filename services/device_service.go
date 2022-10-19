@@ -396,7 +396,7 @@ func (*DeviceService) OperatingDevice(deviceId string, field string, value inter
 }
 func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 	var err error
-	if device.Type == "1" { // 直连设备
+	if device.DeviceType == "1" { // 直连设备
 		// 直连脚本
 		if device.ScriptId != "" {
 			var tp_script models.TpScript
@@ -416,8 +416,9 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				}
 			}
 		}
+		logs.Info("--------------准备发到设备", string(msg))
 		err = cm.Send(msg, device.Token)
-	} else if device.Type == "3" { // 网关子设备
+	} else if device.DeviceType == "3" { // 网关子设备
 		if device.ParentId != "" && device.SubDeviceAddr != "" {
 			var gatewayDevice *models.Device
 			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在

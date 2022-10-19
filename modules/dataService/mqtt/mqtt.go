@@ -67,9 +67,8 @@ func Listen(broker, username, password, clientid string, msgProc func(c mqtt.Cli
 
 //发送消息给直连设备
 func Send(payload []byte, token string) (err error) {
-	var clientErr = errors.New("_client is error")
 	if _client == nil {
-		return clientErr
+		return errors.New("_client is error")
 	}
 	logs.Info("-------------------")
 	logs.Info(viper.GetString("mqtt.topicToPublish") + "/" + token)
