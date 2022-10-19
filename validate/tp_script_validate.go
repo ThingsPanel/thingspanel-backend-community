@@ -8,8 +8,8 @@ type TpScriptValidate struct {
 	ScriptName     string `json:"script_name" alias:"脚本名称" valid:"Required;MaxSize(99)"`
 	Company        string `json:"company,omitempty" alias:"公司名称" valid:"MaxSize(99)"`
 	ProductName    string `json:"product_name,omitempty" alias:"产品名称" valid:"MaxSize(99)"`
-	ScriptContentA string `json:"script_content_a,omitempty" alias:"下行脚本内容" valid:"MaxSize(99)"`
-	ScriptContentB string `json:"script_content_b,omitempty" alias:"上行脚本内容" valid:"MaxSize(99)"`
+	ScriptContentA string `json:"script_content_a,omitempty" alias:"下行脚本内容" valid:"MaxSize(10000)"`
+	ScriptContentB string `json:"script_content_b,omitempty" alias:"上行脚本内容" valid:"MaxSize(10000)"`
 	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间"`
 	ScriptType     string `json:"script_type,omitempty" alias:"脚本类型" valid:"MaxSize(99)"`
 	Remark         string `json:"remark,omitempty" alias:"备注" valid:"MaxSize(255)"`
@@ -20,8 +20,8 @@ type AddTpScriptValidate struct {
 	ScriptName     string `json:"script_name" alias:"脚本名称" valid:"Required;MaxSize(99)"`
 	Company        string `json:"company,omitempty" alias:"公司名称" valid:"MaxSize(99)"`
 	ProductName    string `json:"product_name,omitempty" alias:"产品名称" valid:"MaxSize(99)"`
-	ScriptContentA string `json:"script_content_a,omitempty" alias:"下行脚本内容" valid:"MaxSize(99)"`
-	ScriptContentB string `json:"script_content_b,omitempty" alias:"上行脚本内容" valid:"MaxSize(99)"`
+	ScriptContentA string `json:"script_content_a,omitempty" alias:"下行脚本内容" valid:"MaxSize(10000)"`
+	ScriptContentB string `json:"script_content_b,omitempty" alias:"上行脚本内容" valid:"MaxSize(10000)"`
 	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间"`
 	ScriptType     string `json:"script_type,omitempty" alias:"脚本类型" valid:"MaxSize(99)"`
 	Remark         string `json:"remark,omitempty" alias:"备注" valid:"MaxSize(255)"`
