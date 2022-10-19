@@ -295,6 +295,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 		}
 	} else if d.DeviceType == "2" { // 判断是否修改了网关设备的分组
 		if addDeviceValidate.AssetID != "" && d.AssetID != "" && addDeviceValidate.AssetID != d.AssetID {
+			logs.Info("需要修改所有子设备分组")
 			DeviceService.EditSubDeviceAsset(addDeviceValidate.ID, addDeviceValidate.AssetID)
 		}
 	}
