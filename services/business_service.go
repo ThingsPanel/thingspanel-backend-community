@@ -71,14 +71,24 @@ func (*BusinessService) GetBusinessById(id string) (*models.Business, int64) {
 
 // Add新增一条business数据
 func (*BusinessService) Add(name string) (bool, string) {
-	var uuid = uuid.GetUuid()
-	business := models.Business{ID: uuid, Name: name, CreatedAt: time.Now().Unix()}
+	bussiness_id := uuid.GetUuid()
+	business := models.Business{ID: bussiness_id, Name: name, CreatedAt: time.Now().Unix()}
 	result := psql.Mydb.Create(&business)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, ""
 	}
-	return true, uuid
+	//新增根分组
+	asset_id := uuid.GetUuid()
+	asset := models.Asset{
+		ID:         asset_id,
+		Name:       name,
+		Tier:       1,
+		ParentID:   "0",
+		BusinessID: bussiness_id,
+	}
+	psql.Mydb.Create(asset)
+	return true, bussiness_id
 }
 
 // 根据ID编辑一条business数据
