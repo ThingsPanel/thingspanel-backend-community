@@ -293,7 +293,12 @@ func (reqDate *DeviceController) UpdateOnly() {
 			}
 
 		}
+	} else if d.DeviceType == "2" { // 判断是否修改了网关设备的分组
+		if addDeviceValidate.AssetID != "" && d.AssetID != "" && addDeviceValidate.AssetID != d.AssetID {
+			DeviceService.EditSubDeviceAsset(addDeviceValidate.ID, addDeviceValidate.AssetID)
+		}
 	}
+
 	result := DeviceService.Edit(addDeviceValidate)
 	if result == nil {
 		deviceDash, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)

@@ -584,3 +584,9 @@ func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
 	}
 	return GatewayConfigMap
 }
+
+//修改所有子设备分组
+func (*DeviceService) EditSubDeviceAsset(gateway_id string, asset_id string) error {
+	result := psql.Mydb.Raw("UPDATE device SET asset_id = ? WHERE parent_id = ? ", asset_id, gateway_id)
+	return result.Error
+}
