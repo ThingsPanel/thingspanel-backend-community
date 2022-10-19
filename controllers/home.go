@@ -160,10 +160,11 @@ func (HomeController *HomeController) GetDefaultSetting() {
 			"MQTT接入点: " + viper.GetString("url") + ":" + port +
 				"$$设备发布主题: " + viper.GetString("mqtt.topicToSubscribe") +
 				"$$设备订阅主题: " + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
-				"$$设备自定义发布主题: custom/pub/{AccessToken}/+" +
-				"$$设备自定义订阅主题: custom/sub/{AccessToken}/+" +
-				"$$MQTT用户名: {AccessToken}" +
-				"$$描述: 推送规范为{\"key\":\"value\",\"key\":\"value\"...}"
+				"$$其他主题参阅详细文档" +
+				"$$MQTT用户名: AccessToken" +
+				"$$举例:" +
+				"$$  上报属性规范-{key1:value1, key2:value2 ...}" +
+				"$$  例如{\"temp\":18.5, \"hum\":40}"
 	} else if ProtocolValidate.Protocol == "tcp" {
 		d["default_setting"] = "端口:" + strings.Split(viper.GetString("tcp.port"), ":")[1] + "$$协议:" + "https://forum.thingspanel.cn/assets/files/2022-06-21/1655774183-644926-thingspanel-tcpv114xlsx.zip"
 	} else if ProtocolValidate.Protocol == "MODBUS_RTU" || ProtocolValidate.Protocol == "MODBUS_TCP" {
@@ -173,8 +174,11 @@ func (HomeController *HomeController) GetDefaultSetting() {
 			"MQTT接入点: " + viper.GetString("url") + ":" + port +
 				"$$网关设备发布主题: " + viper.GetString("mqtt.gateway_topic") +
 				"$$网关设备订阅主题: " + viper.GetString("mqtt.gateway_topic") + "/{Token}" +
-				"$$MQTT用户名: {AccessToken}" +
-				"$$描述: (sub_device_addr为子设备的设备地址)推送规范为{\"sub_device_addr\":{\"key\":\"value\"...},\"sub_device_addr\":{\"key\":\"value\"...}...}"
+				"$$其他主题参阅详细文档" +
+				"$$MQTT用户名: AccessToken" +
+				"$$举例:" +
+				"$$  上报属性规范(sub_device_addr为子设备的设备地址)->{sub_device_addr:{key:value...},sub_device_addr:{key:value...}...}" +
+				"$$  例如(a2js34和csjs45为设备地址)->{\"a2js34\":{\"temp\":18.5, \"hum\":40},\"csjs45\":{\"temp\":19.5, \"hum\":45}}"
 	}
 	d["Token"] = response.GetUuid()
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(HomeController.Ctx))
