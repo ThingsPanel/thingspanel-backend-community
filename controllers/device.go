@@ -243,8 +243,24 @@ func (reqDate *DeviceController) UpdateOnly() {
 		}
 		return
 	}
-	// 如果更换了插件需要删除当前值
 	var DeviceService services.DeviceService
+	// 零值脚本id修改
+	var reqMap = make(map[string]interface{})
+	errs := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &reqMap)
+	if errs != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	if value, ok := reqMap["script_id"]; ok {
+		if value == "" {
+			err := DeviceService.ScriptIdEdit(addDeviceValidate)
+			if err != nil {
+				response.SuccessWithMessage(1000, "修改脚本id失败", (*context2.Context)(reqDate.Ctx))
+				return
+			}
+		}
+	}
+	// 如果更换了插件需要删除当前值
+
 	d, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
 	if d != nil {
 		//更换token要校验重复

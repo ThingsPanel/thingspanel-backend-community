@@ -298,6 +298,12 @@ func (*DeviceService) IsToken(token string) bool {
 }
 
 // 根据ID编辑Device的Token
+func (*DeviceService) ScriptIdEdit(deviceModel valid.EditDevice) error {
+	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Update("script_id", "")
+	return result.Error
+}
+
+// 根据ID编辑Device的Token
 func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 	var device models.Device
 	psql.Mydb.Where("id = ?", deviceModel.ID).First(&device)
