@@ -843,12 +843,6 @@ INSERT INTO public.tp_function
 VALUES('b143ccd9-eb65-655a-a41f-4311da5ed8c0', '', NULL, '/equipment/index', 'Equipment', '/pages/equipment/EquipmentIndex.vue', 'COMMON.EQUIPMENTLOG', 'flaticon-interface-3', '1', '', 'a59eefbf-de02-a348-30af-d7f16053f884', 998);
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
-VALUES('31bbc554-7c2f-eed1-1c05-30fd4f8d319d', '', NULL, '', 'ProductManagement', '', 'COMMON.PRODUCTMANAGEMENT', 'flaticon2-gift-1', '0', '', '0', 993);
-INSERT INTO public.tp_function
-(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
-VALUES('0e4105f8-8e8e-e985-ee27-32c0a0a458b6', '', NULL, '/firmware/index', 'firmware', '/pages/firmware/FirmwareIndex.vue', 'COMMON.FIRMWAREUPGRADE', 'flaticon-upload-1', '1', '', '31bbc554-7c2f-eed1-1c05-30fd4f8d319d', 999);
-INSERT INTO public.tp_function
-(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('7cac14a0-0ff2-57d9-5465-597760bd2cb1', '', NULL, '', 'RuleEngine', '', 'COMMON.RULEENGINE', 'flaticon2-gift-1', '0', '', '0', 992);
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
@@ -982,12 +976,6 @@ VALUES(1307, 'p', '5b0969cb-ed0b-c664-1fab-d0ba90c39e04', '7c0c8fbb-6ba1-2323-51
 INSERT INTO public.casbin_rule
 (id, ptype, v0, v1, v2, v3, v4, v5, v6, v7)
 VALUES(1308, 'p', '5b0969cb-ed0b-c664-1fab-d0ba90c39e04', 'b143ccd9-eb65-655a-a41f-4311da5ed8c0', 'allow', '', '', '', '', '');
-INSERT INTO public.casbin_rule
-(id, ptype, v0, v1, v2, v3, v4, v5, v6, v7)
-VALUES(1309, 'p', '5b0969cb-ed0b-c664-1fab-d0ba90c39e04', '31bbc554-7c2f-eed1-1c05-30fd4f8d319d', 'allow', '', '', '', '', '');
-INSERT INTO public.casbin_rule
-(id, ptype, v0, v1, v2, v3, v4, v5, v6, v7)
-VALUES(1310, 'p', '5b0969cb-ed0b-c664-1fab-d0ba90c39e04', '0e4105f8-8e8e-e985-ee27-32c0a0a458b6', 'allow', '', '', '', '', '');
 INSERT INTO public.casbin_rule
 (id, ptype, v0, v1, v2, v3, v4, v5, v6, v7)
 VALUES(1311, 'p', '5b0969cb-ed0b-c664-1fab-d0ba90c39e04', '7cac14a0-0ff2-57d9-5465-597760bd2cb1', 'allow', '', '', '', '', '');
