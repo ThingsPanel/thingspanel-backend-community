@@ -971,9 +971,11 @@ func (*AssetService) DeviceGroupByBussinessID(business_id string) ([]map[string]
 	var values []interface{}
 	values = append(values, business_id)
 	var count int64
-	result := psql.Mydb.Raw(sqlWhere, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhere, values...)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	} else {
+		count = result.RowsAffected
 	}
 	var assetList []map[string]interface{}
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&assetList)

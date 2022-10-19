@@ -186,7 +186,11 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 		result_script := psql.Mydb.Where("id = ? and protocol_type = 'mqtt'", device.ScriptId).First(&tp_script)
 		if result_script.Error == nil {
 			data_values, _ := json.Marshal(payload.Values)
-			req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, string(data_values), topic)
+			var msg = string(data_values)
+			req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, msg, topic)
+			logs.Info("-------------------------------")
+			logs.Info(req_str)
+			logs.Info("-------------------------------")
 			if err == nil {
 				var req_map map[string]interface{}
 				err := json.Unmarshal([]byte(req_str), &req_map)
@@ -194,6 +198,8 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 					logs.Info(req_map)
 					payload.Values = req_map
 				}
+			} else {
+				logs.Info("js脚本执行错误:", err.Error())
 			}
 		}
 	}
