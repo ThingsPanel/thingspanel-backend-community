@@ -178,7 +178,7 @@ func (HomeController *HomeController) GetDefaultSetting() {
 				"$$  -MQTT用户名: AccessToken(必须使用用户名才可以连接成功,密码为空)" +
 				"$$  -举例:" +
 				"$$    -规范：{sub_device_addr:{key:value...},sub_device_addr:{key:value...}...};(说明:sub_device_addr为子设备的设备地址)" +
-				"$$    -例如：{\"a2js34\":{\"temp\":18.5, \"hum\":40},\"csjs45\":{\"temp\":19.5, \"hum\":45}};(说明:a2js34和csjs45为设备地址)"
+				"$$    -例如：{\"a2js34\":{\"temp\":18.5, \"hum\":40},\"csjs45\":{\"temp\":19.5, \"hum\":45}};(说明:a2js34和csjs45为子设备的设备地址)"
 	}
 	d["Token"] = response.GetUuid()
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(HomeController.Ctx))
