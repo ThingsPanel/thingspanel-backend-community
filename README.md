@@ -3,22 +3,26 @@
 
 目录：
 
-- [后端技术栈](#后端技术栈)
-- [环境版本及linux安装示例](#环境版本及linux安装示例)
-- [后端相关配置文件](#后端相关配置文件)
-- [插件目录](#插件目录)
-- [日志存放目录](#日志存放目录)
-- [编译和运行](#编译和运行)
-- [接口文档](#接口文档)
-- [产品文档](#产品文档)
-- [Demo地址](#Demo地址)
-- [参与讨论和贡献](#参与讨论和贡献)
+- [ThingsPanel-Go](#thingspanel-go)
+  - [后端技术栈](#后端技术栈)
+  - [环境版本及linux安装示例](#环境版本及linux安装示例)
+  - [后端相关配置文件](#后端相关配置文件)
+  - [日志存放目录](#日志存放目录)
+  - [编译和运行](#编译和运行)
+  - [数据库脚本](#数据库脚本)
+  - [接口文档](#接口文档)
+  - [产品文档](#产品文档)
+  - [Demo地址](#demo地址)
+  - [参与讨论和贡献](#参与讨论和贡献)
 
 ## 后端技术栈
 
-```text
-beego,redis,timescaledb,Gmqtt
-```
+<p>
+<a href="https://golang.org/"><img alt="Go" src="https://img.shields.io/badge/-Go-00ACD7?logo=go&logoColor=white&style="/></a>
+<a href="https://redis.io/"><img alt="redis" src="https://img.shields.io/badge/-redis-red?logo=redis&logoColor=white&style="/></a>
+<a href="https://www.postgresql.org/"><img alt="redis" src="https://img.shields.io/badge/-postgresql-blue?logo=postgresql&logoColor=white&style="/></a>
+<a href="https://www.docker.com/"><img alt="Docker" src="https://img.shields.io/badge/-Docker-2496ED?logo=Docker&logoColor=white&style="/></a>
+</p>
 
 ## 环境版本及linux安装示例
 
@@ -36,14 +40,7 @@ go version #(查看版本)
 
 ```text
 ./conf/app.conf                  --系统配置 
-./modules/dataService/config.yml --mqtt客户端、tcp端口配置
-./gateway/bl/bl_config.yml       --网关转换接入案例的配置
-```
-
-## 插件目录
-
-```text
-./extensions/
+./modules/dataService/config.yml --mqtt客户端等
 ```
 
 ## 日志存放目录
@@ -80,7 +77,7 @@ go build #编译
 <http://dev.thingspanel.cn/>
 
 ```text
-账户:super@super.cn
+账户:admin@thingspanel.cn
 密码:123456
 ```
 
