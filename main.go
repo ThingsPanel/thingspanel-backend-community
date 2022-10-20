@@ -9,7 +9,7 @@ import (
 	_ "ThingsPanel-Go/initialize/validate"
 	_ "ThingsPanel-Go/modules/dataService"
 	_ "ThingsPanel-Go/routers"
-	"ThingsPanel-Go/services"
+	services "ThingsPanel-Go/services"
 	"fmt"
 	"log"
 	"time"
