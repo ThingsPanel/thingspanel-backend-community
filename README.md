@@ -1,10 +1,16 @@
 
 # ThingsPanel-Go
 
+<p>
+<a href="https://golang.org/"><img alt="Go" src="https://img.shields.io/badge/-Go-00ACD7?logo=go&logoColor=white&style="/></a>
+<a href="https://redis.io/"><img alt="redis" src="https://img.shields.io/badge/-redis-red?logo=redis&logoColor=white&style="/></a>
+<a href="https://www.postgresql.org/"><img alt="redis" src="https://img.shields.io/badge/-postgresql-blue?logo=postgresql&logoColor=white&style="/></a>
+<a href="https://www.docker.com/"><img alt="Docker" src="https://img.shields.io/badge/-Docker-2496ED?logo=Docker&logoColor=white&style="/></a>
+</p>
+
 目录：
 
 - [ThingsPanel-Go](#thingspanel-go)
-  - [后端技术栈](#后端技术栈)
   - [环境版本及linux安装示例](#环境版本及linux安装示例)
   - [后端相关配置文件](#后端相关配置文件)
   - [日志存放目录](#日志存放目录)
@@ -15,14 +21,6 @@
   - [Demo地址](#demo地址)
   - [参与讨论和贡献](#参与讨论和贡献)
 
-## 后端技术栈
-
-<p>
-<a href="https://golang.org/"><img alt="Go" src="https://img.shields.io/badge/-Go-00ACD7?logo=go&logoColor=white&style="/></a>
-<a href="https://redis.io/"><img alt="redis" src="https://img.shields.io/badge/-redis-red?logo=redis&logoColor=white&style="/></a>
-<a href="https://www.postgresql.org/"><img alt="redis" src="https://img.shields.io/badge/-postgresql-blue?logo=postgresql&logoColor=white&style="/></a>
-<a href="https://www.docker.com/"><img alt="Docker" src="https://img.shields.io/badge/-Docker-2496ED?logo=Docker&logoColor=white&style="/></a>
-</p>
 
 ## 环境版本及linux安装示例
 
