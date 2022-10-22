@@ -422,15 +422,15 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 		if device.ParentId != "" && device.SubDeviceAddr != "" {
 			var gatewayDevice *models.Device
 			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
-			if result.Error != nil {
+			if result.Error == nil {
 				var msgMapValues = make(map[string]interface{})
 				json.Unmarshal(msg, &msgMapValues)
 				var subMap = make(map[string]interface{})
 				subMap[device.SubDeviceAddr] = msgMapValues
-				var msgMap = make(map[string]interface{})
-				msgMap["token"] = gatewayDevice.Token
-				msgMap["values"] = subMap
-				msgBytes, _ := json.Marshal(msgMap)
+				// var msgMap = make(map[string]interface{})
+				// msgMap["token"] = gatewayDevice.Token
+				// msgMap["values"] = subMap
+				msgBytes, _ := json.Marshal(subMap)
 				// 网关脚本
 				if device.ScriptId != "" {
 					var tp_script models.TpScript
@@ -444,12 +444,20 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 								logs.Info(req_map)
 								err := json.Unmarshal(msgBytes, &req_map)
 								if err != nil {
-									return err
+									logs.Info(err.Error)
 								}
+							} else {
+								logs.Info(err.Error)
 							}
+						} else {
+							logs.Info(err.Error)
 						}
+					} else {
+						logs.Info(result_script.Error)
 					}
 				}
+				logs.Info("----------------")
+				logs.Info(string(msgBytes))
 				err = cm.SendGateWay(msgBytes, device.Token, gatewayDevice.Protocol)
 			}
 		} else {
