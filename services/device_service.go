@@ -432,10 +432,12 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				// msgMap["values"] = subMap
 				msgBytes, _ := json.Marshal(subMap)
 				// 网关脚本
-				if device.ScriptId != "" {
+				logs.Info(device.ScriptId)
+				if gatewayDevice.ScriptId != "" {
 					var tp_script models.TpScript
-					result_script := psql.Mydb.Where("id = ? and protocol_type = 'MQTT'", device.ScriptId).First(&tp_script)
+					result_script := psql.Mydb.Where("id = ? and protocol_type = 'MQTT'", gatewayDevice.ScriptId).First(&tp_script)
 					if result_script.Error == nil {
+						logs.Info("存在网关脚本")
 						req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, string(msgBytes), viper.GetString("mqtt.gateway_topic")+"/"+device.Token)
 						if err == nil {
 							var req_map map[string]interface{}
@@ -458,7 +460,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				}
 				logs.Info("----------------")
 				logs.Info(string(msgBytes))
-				err = cm.SendGateWay(msgBytes, device.Token, gatewayDevice.Protocol)
+				err = cm.SendGateWay(msgBytes, gatewayDevice.Token, gatewayDevice.Protocol)
 			}
 		} else {
 			return errors.New("子设备网关不存在或子设备地址为空！")

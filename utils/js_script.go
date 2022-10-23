@@ -2,6 +2,7 @@
 package utils
 
 import (
+	"github.com/beego/beego/v2/core/logs"
 	"github.com/robertkrimen/otto"
 )
 
@@ -22,15 +23,19 @@ func ScriptDeal(code string, msg string, topic string) (string, error) {
 			return msg;
 		}
 	*/
+	logs.Info("执行脚本")
 	script := code
 	vm := otto.New()
+	logs.Info(script)
 	_, err := vm.Run(script)
 	if err != nil {
 		return "", err
 	}
 	message, err := vm.Call("encodeInp", nil, msg, topic)
 	if err != nil {
+		logs.Info(err.Error())
 		return "", err
 	}
+	logs.Info(message)
 	return message.String(), nil
 }
