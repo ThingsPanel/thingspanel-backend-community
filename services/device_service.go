@@ -402,7 +402,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 			var tp_script models.TpScript
 			result_script := psql.Mydb.Where("id = ? and protocol_type = 'mqtt'", device.ScriptId).First(&tp_script)
 			if result_script.Error == nil {
-				req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, string(msg), viper.GetString("mqtt.topicToPublish")+"/"+device.Token)
+				req_str, err := utils.ScriptDeal(tp_script.ScriptContentB, string(msg), viper.GetString("mqtt.topicToPublish")+"/"+device.Token)
 				if err == nil {
 					var req_map map[string]interface{}
 					err := json.Unmarshal([]byte(req_str), &req_map)
@@ -438,13 +438,14 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 					result_script := psql.Mydb.Where("id = ? and protocol_type = 'MQTT'", gatewayDevice.ScriptId).First(&tp_script)
 					if result_script.Error == nil {
 						logs.Info("存在网关脚本")
-						req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, string(msgBytes), viper.GetString("mqtt.gateway_topic")+"/"+device.Token)
+						req_str, err := utils.ScriptDeal(tp_script.ScriptContentB, string(msgBytes), viper.GetString("mqtt.gateway_topic")+"/"+device.Token)
 						if err == nil {
 							var req_map map[string]interface{}
 							err := json.Unmarshal([]byte(req_str), &req_map)
 							if err == nil {
 								logs.Info(req_map)
-								err := json.Unmarshal(msgBytes, &req_map)
+								m_ytes, err := json.Marshal(&req_map)
+								msgBytes = m_ytes
 								if err != nil {
 									logs.Info(err.Error)
 								}
