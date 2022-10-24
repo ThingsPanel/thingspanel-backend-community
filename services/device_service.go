@@ -297,9 +297,15 @@ func (*DeviceService) IsToken(token string) bool {
 	return int(count) > 0
 }
 
-// 根据ID编辑Device的Token
+// 根据ID编辑Device
 func (*DeviceService) ScriptIdEdit(deviceModel valid.EditDevice) error {
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Update("script_id", "")
+	return result.Error
+}
+
+// 根据ID编辑Device
+func (*DeviceService) PasswordEdit(deviceModel valid.EditDevice) error {
+	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Update("password", "")
 	return result.Error
 }
 

@@ -259,6 +259,15 @@ func (reqDate *DeviceController) UpdateOnly() {
 			}
 		}
 	}
+	if value, ok := reqMap["password"]; ok {
+		if value == "" {
+			err := DeviceService.PasswordEdit(addDeviceValidate)
+			if err != nil {
+				response.SuccessWithMessage(1000, "修改password失败", (*context2.Context)(reqDate.Ctx))
+				return
+			}
+		}
+	}
 	// 如果更换了插件需要删除当前值
 
 	d, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
