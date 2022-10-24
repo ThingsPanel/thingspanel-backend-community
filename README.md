@@ -13,9 +13,6 @@
 <a href="https://redis.io/"><img alt="redis" src="https://img.shields.io/badge/-redis-red?logo=redis&logoColor=white&style="/></a>
 <a href="https://www.postgresql.org/"><img alt="redis" src="https://img.shields.io/badge/-postgresql-blue?logo=postgresql&logoColor=white&style="/></a>
 <a href="https://www.docker.com/"><img alt="Docker" src="https://img.shields.io/badge/-Docker-2496ED?logo=Docker&logoColor=white&style="/></a>
-<video id="video" controls="" autoplay="true" loop="loop" preload="none" poster="封面">
-      <source id="mp4" src="http://dev.thingspanel.cn:9999/files/tp.mp4" type="video/mp4">
-</videos>
 </p>
 
 目录：

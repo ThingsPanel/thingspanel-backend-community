@@ -6,7 +6,6 @@ import (
 	"ThingsPanel-Go/utils"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/beego/beego/v2/core/logs"
 	simplejson "github.com/bitly/go-simplejson"
@@ -54,11 +53,11 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 	}
 	if count > 0 {
 		logs.Info("设备id-%s 存在自动化策略配置,条数-%d", deviceId, count)
-		original := ""
+		//original := ""
 		code := ""
 		c := make(map[string]string)
-		m := make(map[string]string)
-		var FieldMappingService FieldMappingService
+		// m := make(map[string]string)
+		// var FieldMappingService FieldMappingService
 		for _, row := range conditionConfigs {
 			code = ""
 			res, err := simplejson.NewJson([]byte(row.Config))
@@ -90,30 +89,31 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 					// 如果有“值”，就给code加上值
 					if rulesMap["value"] != nil {
 						code += fmt.Sprint(rulesMap["value"])
-						c["${"+fmt.Sprint(rulesMap["field"])+"}"] = fmt.Sprint(rulesMap["value"])
+						c[fmt.Sprint(rulesMap["field"])] = fmt.Sprint(rulesMap["value"])
 					}
 				}
 			}
-			original = code
-			logs.Info("原表达式-%s", original)
+			// original = code
+			// logs.Info("原表达式-%s", original)
 			// 通过设备id和设备端字段查询出映射字段，再替换变量
+			// var flag string = "false"
+			// for k, v := range values {
+			// 	field := FieldMappingService.GetFieldTo(deviceId, k)
+			// 	if field != "" {
+			// 		m["${"+field+"}"] = fmt.Sprint(v)
+			// 		code = strings.Replace(code, "${"+field+"}", fmt.Sprint(v), -1)
+			// 	}
+			// }
+			//判断表达式中的字段是否已经完整替换
+			// if ok := strings.Contains(code, "${"); !ok {
+			// 	flag = utils.Eval(code)
+			// } else {
+			// 	logs.Info("表达式中存在未替换的字段，跳过本次循环")
+			// 	continue
+			// }
 			var flag string = "false"
-			for k, v := range values {
-				field := FieldMappingService.GetFieldTo(deviceId, k)
-				if field != "" {
-					m["${"+field+"}"] = fmt.Sprint(v)
-					code = strings.Replace(code, "${"+field+"}", fmt.Sprint(v), -1)
-				}
-			}
-			// 判断表达式中的字段是否已经完整替换
-			if ok := strings.Contains(code, "${"); !ok {
-				flag = utils.Eval(code)
-			} else {
-				logs.Info("表达式中存在未替换的字段，跳过本次循环")
-				continue
-			}
-			logs.Info("替换后的表达式-%s", code)
-			logs.Info("表达式执行结果-%s", flag)
+			flag = utils.Eval(code)
+			logs.Info("表达式-%s", code)
 			if flag == "true" {
 				logs.Info("控制已触发，开始执行控制策略")
 				//触发控制
