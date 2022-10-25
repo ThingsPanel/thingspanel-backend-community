@@ -164,11 +164,9 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 			// 替换变量
 			var flag string = "false"
 			for k, v := range values {
-				field := FieldMappingService.GetFieldTo(bid, k)
-				if field != "" {
-					m["${"+field+"}"] = fmt.Sprint(v)
-					code = strings.Replace(code, "${"+field+"}", fmt.Sprint(v), -1)
-				}
+				//field := FieldMappingService.GetFieldTo(bid, k)
+				m["${"+k+"}"] = fmt.Sprint(v)
+				code = strings.Replace(code, "${"+k+"}", fmt.Sprint(v), -1)
 			}
 			flag = utils.Eval(code)
 			log.Println(code)
