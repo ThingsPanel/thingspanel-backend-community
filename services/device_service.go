@@ -414,7 +414,8 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 					err := json.Unmarshal([]byte(req_str), &req_map)
 					if err == nil {
 						logs.Info(req_map)
-						err := json.Unmarshal(msg, &req_map)
+						req, err := json.Marshal(&req_map)
+						msg = req
 						if err != nil {
 							return err
 						}

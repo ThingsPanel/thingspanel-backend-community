@@ -180,7 +180,7 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 		fmt.Println("token not matched")
 		return false
 	}
-	// 但设备脚本
+	// 判断设备脚本
 	if device.ScriptId != "" {
 		var tp_script models.TpScript
 		result_script := psql.Mydb.Where("id = ? and protocol_type = 'mqtt'", device.ScriptId).First(&tp_script)
