@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beego/beego/v2/core/logs"
 	simplejson "github.com/bitly/go-simplejson"
 	"gorm.io/gorm"
 )
@@ -168,9 +169,13 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 				m["${"+k+"}"] = fmt.Sprint(v)
 				code = strings.Replace(code, "${"+k+"}", fmt.Sprint(v), -1)
 			}
-			flag = utils.Eval(code)
-			log.Println(code)
-			log.Println(flag)
+			logs.Info("表达式：" + code)
+			if ok := strings.Contains(code, "${"); !ok {
+				flag = utils.Eval(code)
+			} else {
+				logs.Info("表达式中存在未替换的字段，跳过本次循环")
+				break
+			}
 			if flag == "true" {
 				message := ""
 				businessName := ""

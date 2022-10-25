@@ -6,6 +6,7 @@ import (
 	"ThingsPanel-Go/utils"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/beego/beego/v2/core/logs"
 	simplejson "github.com/bitly/go-simplejson"
@@ -56,7 +57,7 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 		//original := ""
 		code := ""
 		c := make(map[string]string)
-		// m := make(map[string]string)
+		m := make(map[string]string)
 		// var FieldMappingService FieldMappingService
 		for _, row := range conditionConfigs {
 			code = ""
@@ -97,23 +98,21 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 			// logs.Info("原表达式-%s", original)
 			// 通过设备id和设备端字段查询出映射字段，再替换变量
 			// var flag string = "false"
-			// for k, v := range values {
-			// 	field := FieldMappingService.GetFieldTo(deviceId, k)
-			// 	if field != "" {
-			// 		m["${"+field+"}"] = fmt.Sprint(v)
-			// 		code = strings.Replace(code, "${"+field+"}", fmt.Sprint(v), -1)
-			// 	}
-			// }
+			for k, v := range values {
+				//field := FieldMappingService.GetFieldTo(deviceId, k)
+				m["${"+k+"}"] = fmt.Sprint(v)
+				code = strings.Replace(code, "${"+k+"}", fmt.Sprint(v), -1)
+
+			}
 			//判断表达式中的字段是否已经完整替换
-			// if ok := strings.Contains(code, "${"); !ok {
-			// 	flag = utils.Eval(code)
-			// } else {
-			// 	logs.Info("表达式中存在未替换的字段，跳过本次循环")
-			// 	continue
-			// }
 			var flag string = "false"
-			flag = utils.Eval(code)
 			logs.Info("表达式-%s", code)
+			if ok := strings.Contains(code, "${"); !ok {
+				flag = utils.Eval(code)
+			} else {
+				logs.Info("表达式中存在未替换的字段，跳过本次循环")
+				break
+			}
 			if flag == "true" {
 				logs.Info("控制已触发，开始执行控制策略")
 				//触发控制
