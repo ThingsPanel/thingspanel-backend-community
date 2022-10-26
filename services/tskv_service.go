@@ -112,6 +112,7 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string) bool {
 		result_script := psql.Mydb.Where("id = ? and protocol_type = 'MQTT'", device.ScriptId).First(&tp_script)
 		if result_script.Error == nil {
 			data_values, _ := json.Marshal(payload.Values)
+			logs.Info("传给脚本执行器的报文：" + string(data_values))
 			req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, string(data_values), topic)
 			if err == nil {
 				var req_map map[string]interface{}
