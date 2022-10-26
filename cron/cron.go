@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
+	"ThingsPanel-Go/utils"
 	"encoding/json"
 	"errors"
 	"time"
@@ -30,6 +31,7 @@ func init() {
 		//获取当前系统时间
 		format0 := "2006/1/2 15:04"
 		format1 := "15:04"
+		timeUnix := time.Now().Unix()
 		now0, _ := time.Parse(format0, time.Now().Format(format0))
 		now1, _ := time.Parse(format1, time.Now().Format(format1))
 		logs.Info("当前时间-", now0)
@@ -52,6 +54,7 @@ func init() {
 				rulesRows, _ := res.Get("rules").Array()
 				for _, rulesRow := range rulesRows {
 					if rulesMap, ok := rulesRow.(map[string]interface{}); ok {
+						//{"interval":2,"time":"2006/1/2 15:04","time_interval":600,"rule_id":"112233"}
 						if rulesMap["interval"] != nil {
 							interval, _ := rulesMap["interval"].(json.Number).Int64()
 							if interval == int64(0) {
@@ -61,7 +64,7 @@ func init() {
 								if err == nil && ruleTime.Equal(now0) {
 									//触发
 									var DeviceService services.DeviceService
-									DeviceService.ApplyControl(res)
+									DeviceService.ApplyControl(res, "")
 								}
 							} else if interval == int64(1) {
 								//每天触发
@@ -70,8 +73,35 @@ func init() {
 								if err == nil && ruleTime.Equal(now1) {
 									//触发
 									var DeviceService services.DeviceService
-									DeviceService.ApplyControl(res)
+									DeviceService.ApplyControl(res, "")
 								}
+							} else if interval == int64(2) {
+								logs.Info("包含时间间隔策略")
+								// 间隔时间触发
+								time_interval := rulesMap["time_interval"].(int64)
+								logs.Info("间隔", time_interval)
+								rule_id := rulesMap["rule_id"].(string)
+								var condition_log models.ConditionsLog
+								result := psql.Mydb.Where("remark = ? and send_result = '1'", rule_id).Order("cteate_time desc").First(&condition_log)
+								if result.Error != nil {
+									logs.Info(result.Error.Error())
+								} else {
+									if result.RowsAffected > int64(0) {
+										logs.Info("上次发送时间", condition_log.CteateTime)
+										if utils.Strtime2Int(condition_log.CteateTime)+time_interval < timeUnix { //是否超过时间间隔
+											//发送指令
+											logs.Info("超过间隔")
+											var DeviceService services.DeviceService
+											DeviceService.ApplyControl(res, rule_id)
+										}
+
+									} else { //首次发送
+										logs.Info("首次发送")
+										var DeviceService services.DeviceService
+										DeviceService.ApplyControl(res, rule_id)
+									}
+								}
+
 							}
 						}
 					}

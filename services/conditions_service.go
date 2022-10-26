@@ -118,7 +118,7 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 				//触发控制
 				//"apply":[{"asset_id":"xxx","field":"hum","device_id":"xxx","value":"1"}]}
 				var DeviceService DeviceService
-				DeviceService.ApplyControl(res)
+				DeviceService.ApplyControl(res, "")
 			}
 		}
 	}

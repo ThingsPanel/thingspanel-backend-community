@@ -485,7 +485,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 }
 
 //自动化发送控制
-func (*DeviceService) ApplyControl(res *simplejson.Json) {
+func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string) {
 	logs.Info("执行控制开始")
 	//"apply":[{"asset_id":"xxx","field":"hum","device_id":"xxx","value":"1"}]}
 	applyRows, _ := res.Get("apply").Array()
@@ -510,6 +510,7 @@ func (*DeviceService) ApplyControl(res *simplejson.Json) {
 					Instruct:      applyMap["field"].(string) + ":" + s,
 					ProtocolType:  "mqtt",
 					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
+					Remark:        rule_id,
 				}
 				var DeviceService DeviceService
 				err := DeviceService.OperatingDevice(applyMap["device_id"].(string), applyMap["field"].(string), applyMap["value"])
