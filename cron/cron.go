@@ -78,7 +78,7 @@ func init() {
 							} else if interval == int64(2) {
 								logs.Info("包含时间间隔策略")
 								// 间隔时间触发
-								time_interval := rulesMap["time_interval"].(int64)
+								time_interval, _ := rulesMap["time_interval"].(json.Number).Int64()
 								logs.Info("间隔", time_interval)
 								rule_id := rulesMap["rule_id"].(string)
 								var condition_log models.ConditionsLog
