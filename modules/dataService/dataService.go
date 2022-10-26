@@ -40,7 +40,7 @@ func init() {
 		}
 	}
 	listenMQTT()
-	listenTCP()
+	// listenTCP()
 }
 
 func loadConfig() {
