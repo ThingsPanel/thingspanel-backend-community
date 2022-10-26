@@ -82,24 +82,34 @@ func init() {
 								logs.Info("间隔", time_interval)
 								rule_id := rulesMap["rule_id"].(string)
 								var condition_log models.ConditionsLog
-								result := psql.Mydb.Where("remark = ? and send_result = '1'", rule_id).Order("cteate_time desc").First(&condition_log)
-								if result.Error != nil {
-									logs.Info(result.Error.Error())
-								} else {
-									if result.RowsAffected > int64(0) {
-										logs.Info("上次发送时间", condition_log.CteateTime)
-										if utils.Strtime2Int(condition_log.CteateTime)+time_interval < timeUnix { //是否超过时间间隔
-											//发送指令
-											logs.Info("超过间隔")
-											var DeviceService services.DeviceService
-											DeviceService.ApplyControl(res, rule_id)
-										}
-
-									} else { //首次发送
+								var count int64
+								result := psql.Mydb.Model(&models.ConditionsLog{}).Where("remark = ? and send_result = '1'", rule_id).Order("cteate_time desc").Count(&count)
+								if result.Error == nil {
+									if count == int64(0) {
 										logs.Info("首次发送")
 										var DeviceService services.DeviceService
 										DeviceService.ApplyControl(res, rule_id)
+									} else {
+										result := psql.Mydb.Where("remark = ? and send_result = '1'", rule_id).Order("cteate_time desc").First(&condition_log)
+										if result.Error != nil {
+											logs.Info(result.Error.Error())
+										} else {
+											if result.RowsAffected > int64(0) {
+												logs.Info("上次发送时间", condition_log.CteateTime)
+												if utils.Strtime2Int(condition_log.CteateTime)+time_interval <= timeUnix { //是否超过时间间隔
+													//发送指令
+													logs.Info("超过间隔")
+													var DeviceService services.DeviceService
+													DeviceService.ApplyControl(res, rule_id)
+												} else {
+													logs.Info(utils.Strtime2Int(condition_log.CteateTime)+time_interval, "--", timeUnix)
+												}
+											}
+										}
 									}
+
+								} else {
+									logs.Info(result.Error)
 								}
 
 							}
