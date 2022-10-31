@@ -843,6 +843,12 @@ INSERT INTO public.tp_function
 VALUES('b143ccd9-eb65-655a-a41f-4311da5ed8c0', '', NULL, '/equipment/index', 'Equipment', '/pages/equipment/EquipmentIndex.vue', 'COMMON.EQUIPMENTLOG', 'flaticon-interface-3', '1', '', 'a59eefbf-de02-a348-30af-d7f16053f884', 998);
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
+VALUES('67b97839-919f-0976-2c79-c921adbec66e', '', NULL, '/strategy/alarmlist', 'AlarmStrategy', '/pages/automation/alarm/AlarmStrategy.vue', 'COMMON.ALARMSTRATEGY', '', '2', '', 'dce69d1d-8297-c5a4-1502-ace84dfe0209', 0);
+INSERT INTO public.tp_function
+(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
+VALUES('8508677d-27ea-1158-c382-2bcf2b630346', '', NULL, '/strategy/strlist', 'ControlStrategy', '/pages/automation/control/ControlStrategy.vue', 'COMMON.CONTROLSTRATRGY', '', '2', '', 'dce69d1d-8297-c5a4-1502-ace84dfe0209', 0);
+INSERT INTO public.tp_function
+(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('7cac14a0-0ff2-57d9-5465-597760bd2cb1', '', NULL, '', 'RuleEngine', '', 'COMMON.RULEENGINE', 'flaticon2-gift-1', '0', '', '0', 992);
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
@@ -883,12 +889,6 @@ VALUES('363116a3-1c00-b875-1386-415ea0839849', '', NULL, '/list/device', 'device
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('b37757aa-3665-3d9d-994f-54e6ad37aff7', '', NULL, '', 'EditRole', '', 'COMMON.EDIT', '', '3', 'sys:role:edit', '7ce628ae-d494-d71c-9eb0-148e6bf47665', 0);
-INSERT INTO public.tp_function
-(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
-VALUES('67b97839-919f-0976-2c79-c921adbec66e', '', NULL, '/strategy/alarmlist', 'AlarmStrategy', '/pages/automation/AlarmStrategy.vue', 'COMMON.ALARMSTRATEGY', '', '2', '', 'dce69d1d-8297-c5a4-1502-ace84dfe0209', 0);
-INSERT INTO public.tp_function
-(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
-VALUES('8508677d-27ea-1158-c382-2bcf2b630346', '', NULL, '/strategy/strlist', 'ControlStrategy', '/pages/automation/ControlStrategy.vue', 'COMMON.CONTROLSTRATRGY', '', '2', '', 'dce69d1d-8297-c5a4-1502-ace84dfe0209', 0);
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('d8613453-278c-289c-6e18-ee58f6eb540b', '', NULL, '', 'DeletePermission', '', 'COMMON.DELETE', '', '3', 'sys:permission:del', '4231ea2c-a2fb-bd9c-8966-c7d654289deb', 0);
