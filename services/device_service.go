@@ -329,6 +329,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		ProtocolConfig: deviceModel.ProtocolConfig,
 		SubDeviceAddr:  deviceModel.SubDeviceAddr,
 		ScriptId:       deviceModel.ScriptId,
+		ChartOption:    deviceModel.ChartOption,
 	})
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
