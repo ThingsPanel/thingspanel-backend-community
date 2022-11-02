@@ -363,6 +363,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		MqttHttpHost = viper.GetString("api.http_host")
 	}
 	if deviceModel.Token != "" {
+		logs.Info("token不为空")
 		// 原token不为空的时候，删除原token
 		if device.Token != "" {
 			redis.DelKey("token" + device.Token)

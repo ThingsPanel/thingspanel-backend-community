@@ -227,6 +227,7 @@ func (reqDate *DeviceController) AddOnly() {
 }
 
 func (reqDate *DeviceController) UpdateOnly() {
+	logs.Info("---------------------设备修改")
 	addDeviceValidate := valid.EditDevice{}
 	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &addDeviceValidate)
 	if err != nil {
