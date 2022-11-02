@@ -304,8 +304,18 @@ func (*DeviceService) ScriptIdEdit(deviceModel valid.EditDevice) error {
 }
 
 // 根据ID编辑Device
-func (*DeviceService) PasswordEdit(deviceModel valid.EditDevice) error {
+func (*DeviceService) PasswordEdit(deviceModel valid.EditDevice, token string) error {
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Update("password", "")
+	if result.Error == nil {
+		if token != "" {
+			MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
+			if MqttHttpHost == "" {
+				MqttHttpHost = viper.GetString("api.http_host")
+			}
+			// mqtt密码制空
+			tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+token, "{\"password\":\"\"}")
+		}
+	}
 	return result.Error
 }
 
@@ -353,12 +363,21 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		MqttHttpHost = viper.GetString("api.http_host")
 	}
 	if deviceModel.Token != "" {
+		// 原token不为空的时候，删除原token
 		if device.Token != "" {
 			redis.DelKey("token" + device.Token)
 			tphttp.Delete("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{}")
 		}
 		redis.SetStr("token"+deviceModel.Token, deviceModel.ID, 3600*time.Second)
-		tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\""+device.Password+"\"}")
+		// 新增mqtt的token
+		var password string
+		// 新密码不为空时用新密码，否则用原密码（原密码可为空）
+		if deviceModel.Password != "" {
+			password = deviceModel.Password
+		} else {
+			password = device.Password
+		}
+		tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+deviceModel.Token, "{\"password\":\""+password+"\"}")
 	}
 	return nil
 }

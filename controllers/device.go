@@ -259,15 +259,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 			}
 		}
 	}
-	if value, ok := reqMap["password"]; ok {
-		if value == "" {
-			err := DeviceService.PasswordEdit(addDeviceValidate)
-			if err != nil {
-				response.SuccessWithMessage(1000, "修改password失败", (*context2.Context)(reqDate.Ctx))
-				return
-			}
-		}
-	}
+
 	// 如果更换了插件需要删除当前值
 
 	d, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
@@ -276,6 +268,16 @@ func (reqDate *DeviceController) UpdateOnly() {
 		if addDeviceValidate.Token != "" && d.Token != addDeviceValidate.Token {
 			if DeviceService.IsToken(addDeviceValidate.Token) {
 				response.SuccessWithMessage(1000, "与其他设备的token重复", (*context2.Context)(reqDate.Ctx))
+				return
+			}
+		}
+	}
+	if value, ok := reqMap["password"]; ok {
+		//密码为空，表中密码制空，mqtt密码制空
+		if value == "" {
+			err := DeviceService.PasswordEdit(addDeviceValidate, d.Token)
+			if err != nil {
+				response.SuccessWithMessage(1000, "修改password失败", (*context2.Context)(reqDate.Ctx))
 				return
 			}
 		}
