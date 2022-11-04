@@ -38,7 +38,7 @@ func (*TpBatchService) GetTpBatchList(PaginationValidate valid.TpBatchPagination
 	}
 	var count int64
 	psql.Mydb.Model(&models.TpBatch{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpBatch{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpBatchs)
+	result := psql.Mydb.Model(&models.TpBatch{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_time desc").Find(&TpBatchs)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, TpBatchs, 0

@@ -38,7 +38,7 @@ func (*TpProductService) GetTpProductList(PaginationValidate valid.TpProductPagi
 	}
 	var count int64
 	psql.Mydb.Model(&models.TpProduct{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpProduct{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpProducts)
+	result := psql.Mydb.Model(&models.TpProduct{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_time desc").Find(&TpProducts)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, TpProducts, 0

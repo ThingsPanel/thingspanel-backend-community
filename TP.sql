@@ -1151,3 +1151,7 @@ CREATE TABLE public.tp_generate_device (
 
 COMMENT ON COLUMN public.tp_generate_device.activate_flag IS '0-未激活 1-已激活';
 COMMENT ON COLUMN public.tp_generate_device.activate_date IS '激活日期';
+
+ALTER TABLE public.tp_batch ADD access_address varchar(36) NULL;
+COMMENT ON COLUMN public.tp_batch.access_address IS '接入地址';
+
