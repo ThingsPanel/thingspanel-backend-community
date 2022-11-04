@@ -4,8 +4,7 @@ import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
-	response "ThingsPanel-Go/utils"
-	uuid "ThingsPanel-Go/utils"
+	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
@@ -35,7 +34,7 @@ func (TpScriptController *TpScriptController) List() {
 			// 获取字段别称
 			alias := gvalid.GetAlias(PaginationValidate, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(TpScriptController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpScriptController.Ctx))
 			break
 		}
 		return
@@ -44,7 +43,7 @@ func (TpScriptController *TpScriptController) List() {
 	isSuccess, d, t := TpScriptService.GetTpScriptList(PaginationValidate)
 
 	if !isSuccess {
-		response.SuccessWithMessage(1000, "查询失败", (*context2.Context)(TpScriptController.Ctx))
+		utils.SuccessWithMessage(1000, "查询失败", (*context2.Context)(TpScriptController.Ctx))
 		return
 	}
 	dd := valid.RspTpScriptPaginationValidate{
@@ -53,7 +52,7 @@ func (TpScriptController *TpScriptController) List() {
 		Total:       t,
 		PerPage:     PaginationValidate.PerPage,
 	}
-	response.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpScriptController.Ctx))
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpScriptController.Ctx))
 }
 
 // 编辑
@@ -70,21 +69,21 @@ func (TpScriptController *TpScriptController) Edit() {
 			// 获取字段别称
 			alias := gvalid.GetAlias(TpScriptValidate, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(TpScriptController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpScriptController.Ctx))
 			break
 		}
 		return
 	}
 	if TpScriptValidate.Id == "" {
-		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpScriptController.Ctx))
+		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpScriptController.Ctx))
 	}
 	var TpScriptService services.TpScriptService
 	isSucess := TpScriptService.EditTpScript(TpScriptValidate)
 	if isSucess {
 		d := TpScriptService.GetTpScriptDetail(TpScriptValidate.Id)
-		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpScriptController.Ctx))
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpScriptController.Ctx))
 	} else {
-		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(TpScriptController.Ctx))
+		utils.SuccessWithMessage(400, "编辑失败", (*context2.Context)(TpScriptController.Ctx))
 	}
 }
 
@@ -102,13 +101,13 @@ func (TpScriptController *TpScriptController) Add() {
 			// 获取字段别称
 			alias := gvalid.GetAlias(AddTpScriptValidate, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(TpScriptController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpScriptController.Ctx))
 			break
 		}
 		return
 	}
 	var TpScriptService services.TpScriptService
-	id := uuid.GetUuid()
+	id := utils.GetUuid()
 	TpScript := models.TpScript{
 		Id:             id,
 		ProtocolType:   AddTpScriptValidate.ProtocolType,
@@ -121,11 +120,11 @@ func (TpScriptController *TpScriptController) Add() {
 		ScriptType:     AddTpScriptValidate.ScriptType,
 		Remark:         AddTpScriptValidate.Remark,
 	}
-	isSucess, d := TpScriptService.AddTpScript(TpScript)
-	if isSucess {
-		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpScriptController.Ctx))
+	d, rsp_err := TpScriptService.AddTpScript(TpScript)
+	if rsp_err == nil {
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpScriptController.Ctx))
 	} else {
-		response.SuccessWithMessage(400, "新增失败", (*context2.Context)(TpScriptController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpScriptController.Ctx))
 	}
 }
 
@@ -143,22 +142,22 @@ func (TpScriptController *TpScriptController) Delete() {
 			// 获取字段别称
 			alias := gvalid.GetAlias(TpScriptIdValidate, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(TpScriptController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpScriptController.Ctx))
 			break
 		}
 		return
 	}
 	if TpScriptIdValidate.Id == "" {
-		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpScriptController.Ctx))
+		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpScriptController.Ctx))
 	}
 	var TpScriptService services.TpScriptService
 	TpScript := models.TpScript{
 		Id: TpScriptIdValidate.Id,
 	}
-	isSucess := TpScriptService.DeleteTpScript(TpScript)
-	if isSucess {
-		response.SuccessWithMessage(200, "success", (*context2.Context)(TpScriptController.Ctx))
+	req_err := TpScriptService.DeleteTpScript(TpScript)
+	if req_err == nil {
+		utils.SuccessWithMessage(200, "success", (*context2.Context)(TpScriptController.Ctx))
 	} else {
-		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(TpScriptController.Ctx))
+		utils.SuccessWithMessage(400, "删除失败", (*context2.Context)(TpScriptController.Ctx))
 	}
 }

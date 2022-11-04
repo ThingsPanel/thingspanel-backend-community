@@ -128,7 +128,6 @@ func (this *HomeController) Show() {
 
 // 默认配置获取
 func (HomeController *HomeController) GetDefaultSetting() {
-	mqttHost := os.Getenv("TP_MQTT_HOST")
 	//验证设备ID
 	ProtocolValidate := valid.ProtocolValidate{}
 	err := json.Unmarshal(HomeController.Ctx.Input.RequestBody, &ProtocolValidate)
@@ -149,15 +148,9 @@ func (HomeController *HomeController) GetDefaultSetting() {
 	}
 	//读取配置参数
 	d := make(map[string]string)
-	var port string
 	if ProtocolValidate.Protocol == "mqtt" { //mqtt直连设备
-		if mqttHost == "" {
-			port = strings.Split(viper.GetString("mqtt.broker"), ":")[1]
-		} else {
-			port = strings.Split(mqttHost, ":")[1]
-		}
 		d["default_setting"] =
-			"MQTT接入点: " + viper.GetString("url") + ":" + port +
+			"MQTT接入点: MQTT服务IP:1883" +
 				"$$  -设备上报属性主题: " + viper.GetString("mqtt.topicToSubscribe") +
 				"$$  -设备订阅属性主题: " + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
 				"$$  -其他主题参阅详细文档" +
@@ -171,7 +164,7 @@ func (HomeController *HomeController) GetDefaultSetting() {
 		d["default_setting"] = "协议端口:" + strings.Split(viper.GetString("plugin.http_host"), ":")[1] + "$$连接:建立tcp连接时，将AccessToken上送。"
 	} else if ProtocolValidate.Protocol == "MQTT" { //mqtt网关设备
 		d["default_setting"] =
-			"MQTT接入点: " + viper.GetString("url") + ":" + port +
+			"MQTT接入点: MQTT服务IP:1883" +
 				"$$  -网关设备上报属性主题: " + viper.GetString("mqtt.gateway_topic") +
 				"$$  -网关设备订阅属性主题: " + viper.GetString("mqtt.gateway_topic") + "/{Token}" +
 				"$$  -其他主题参阅详细文档" +

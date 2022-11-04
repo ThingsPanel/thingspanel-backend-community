@@ -5,8 +5,8 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
-	"errors"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -40,40 +40,40 @@ func (*TpScriptService) GetTpScriptList(PaginationValidate valid.TpScriptPaginat
 	psql.Mydb.Model(&models.TpScript{}).Where(sqlWhere).Count(&count)
 	result := psql.Mydb.Model(&models.TpScript{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpScripts)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, TpScripts, 0
 	}
 	return true, TpScripts, count
 }
 
 // 新增数据
-func (*TpScriptService) AddTpScript(tp_script models.TpScript) (bool, models.TpScript) {
+func (*TpScriptService) AddTpScript(tp_script models.TpScript) (models.TpScript, error) {
 	var uuid = uuid.GetUuid()
 	tp_script.Id = uuid
 	result := psql.Mydb.Create(&tp_script)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false, tp_script
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		return tp_script, result.Error
 	}
-	return true, tp_script
+	return tp_script, nil
 }
 
 // 修改数据
 func (*TpScriptService) EditTpScript(tp_script valid.TpScriptValidate) bool {
 	result := psql.Mydb.Model(&models.TpScript{}).Where("id = ?", tp_script.Id).Updates(&tp_script)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
 	return true
 }
 
 // 删除数据
-func (*TpScriptService) DeleteTpScript(tp_script models.TpScript) bool {
+func (*TpScriptService) DeleteTpScript(tp_script models.TpScript) error {
 	result := psql.Mydb.Delete(&tp_script)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		return result.Error
 	}
-	return true
+	return nil
 }

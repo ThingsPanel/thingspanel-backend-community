@@ -304,6 +304,18 @@ func init() {
 		web.NSRouter("/tp_script/list", &controllers.TpScriptController{}, "*:List"),
 		web.NSRouter("/tp_script/edit", &controllers.TpScriptController{}, "*:Edit"),
 		web.NSRouter("/tp_script/delete", &controllers.TpScriptController{}, "*:Delete"),
+
+		//产品模块
+		web.NSRouter("/tp_product/add", &controllers.TpProductController{}, "*:Add"),
+		web.NSRouter("/tp_product/list", &controllers.TpProductController{}, "*:List"),
+		web.NSRouter("/tp_product/edit", &controllers.TpProductController{}, "*:Edit"),
+		web.NSRouter("/tp_product/delete", &controllers.TpProductController{}, "*:Delete"),
+
+		//批次模块
+		web.NSRouter("/tp_batch/add", &controllers.TpBatchController{}, "*:Add"),
+		web.NSRouter("/tp_batch/list", &controllers.TpBatchController{}, "*:List"),
+		web.NSRouter("/tp_batch/edit", &controllers.TpBatchController{}, "*:Edit"),
+		web.NSRouter("/tp_batch/delete", &controllers.TpBatchController{}, "*:Delete"),
 	)
 
 	// 图表推送数据

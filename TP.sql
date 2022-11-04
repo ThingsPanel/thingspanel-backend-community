@@ -1089,3 +1089,65 @@ ALTER TABLE public.tp_script RENAME COLUMN script_content TO script_content_a;
 
 ALTER TABLE public.device ADD script_id varchar(36) NULL;
 COMMENT ON COLUMN public.device.script_id IS '脚本id';
+
+CREATE TABLE public.tp_product (
+	id varchar(36) NOT NULL,
+	name varchar(99) NOT NULL,
+	serial_number varchar(99) NOT NULL,
+	protocol_type varchar(36) NOT NULL,
+	auth_type varchar(36) NOT NULL,
+	plugin json NOT NULL DEFAULT '{}'::json,
+	"describe" varchar(255) NULL,
+	created_time int8 NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT t_product_pk PRIMARY KEY (id),
+	CONSTRAINT t_product_un UNIQUE (serial_number)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_product.name IS '产品名称';
+COMMENT ON COLUMN public.tp_product.serial_number IS '产品编号';
+COMMENT ON COLUMN public.tp_product.protocol_type IS '协议类型';
+COMMENT ON COLUMN public.tp_product.auth_type IS '认证方式';
+COMMENT ON COLUMN public.tp_product.plugin IS '插件';
+
+CREATE TABLE public.tp_batch (
+	id varchar(36) NOT NULL,
+	batch_number varchar(36) NOT NULL,
+	product_id varchar(36) NOT NULL,
+	device_number int NOT NULL,
+	generate_flag varchar NOT NULL DEFAULT 0,
+	"describe" varchar(255) NULL,
+	created_time int8 NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT t_batch_pk PRIMARY KEY (id),
+	CONSTRAINT t_batch_un UNIQUE (batch_number,product_id),
+	CONSTRAINT t_batch_fk FOREIGN KEY (product_id) REFERENCES public.t_product(id) ON DELETE RESTRICT
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_batch.batch_number IS '批次编号';
+COMMENT ON COLUMN public.tp_batch.product_id IS '产品id';
+COMMENT ON COLUMN public.tp_batch.device_number IS '设备数量';
+COMMENT ON COLUMN public.tp_batch.generate_flag IS '0-未生成 1-已生成';
+
+CREATE TABLE public.tp_generate_device (
+	id varchar(36) NOT NULL,
+	batch_id varchar(36) NOT NULL,
+	"token" varchar(36) NOT NULL,
+	"password" varchar(36) NULL,
+	activate_flag varchar(36) NOT NULL DEFAULT 0,
+	activate_date varchar(36) NULL,
+	device_id varchar(36) NULL,
+	created_time int8 NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT t_generate_device_pk PRIMARY KEY (id),
+	CONSTRAINT t_generate_device_fk FOREIGN KEY (batch_id) REFERENCES public.t_batch(id) ON DELETE CASCADE
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_generate_device.activate_flag IS '0-未激活 1-已激活';
+COMMENT ON COLUMN public.tp_generate_device.activate_date IS '激活日期';
