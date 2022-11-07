@@ -172,7 +172,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 					union  
 					(select tt.id,cast (kk.name||'/'||tt.name as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
 					)select  name from ast where parent_id='0' limit 1) 
-					as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type  as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,
+					as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type  as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,d.sub_device_addr as sub_device_addr,
 					   d."token" as device_token,d."type" as "type",d.protocol as protocol ,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
 					   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1  and d.device_type = '3' and d.parent_id = '` + device["device"].(string) + `'`
 				result := psql.Mydb.Raw(sql).Scan(&subDeviceList)
@@ -402,6 +402,27 @@ func (*DeviceService) Add(device models.Device) (bool, string) {
 	}
 
 	return true, uuid
+}
+
+// add1
+func (*DeviceService) Add1(device models.Device) (models.Device, error) {
+	if device.ID == "" {
+		var uuid = uuid.GetUuid()
+		device.ID = uuid
+	}
+	result := psql.Mydb.Create(&device)
+	if result.Error != nil {
+		return device, result.Error
+	}
+	if device.Token != "" {
+		MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
+		if MqttHttpHost == "" {
+			MqttHttpHost = viper.GetString("api.http_host")
+		}
+		redis.SetStr("token"+device.Token, device.ID, 3600*time.Second)
+		tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\"\"}")
+	}
+	return device, nil
 }
 
 // 向mqtt发送控制指令

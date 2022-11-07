@@ -316,6 +316,10 @@ func init() {
 		web.NSRouter("/tp_batch/list", &controllers.TpBatchController{}, "*:List"),
 		web.NSRouter("/tp_batch/edit", &controllers.TpBatchController{}, "*:Edit"),
 		web.NSRouter("/tp_batch/delete", &controllers.TpBatchController{}, "*:Delete"),
+		web.NSRouter("/tp_batch/generate", &controllers.TpBatchController{}, "*:GenerateBatchById"),
+
+		//生成设备表
+		web.NSRouter("/tp_generate_device/activate", &controllers.TpGenerateDeviceController{}, "*:ActivateDevice"),
 	)
 
 	// 图表推送数据

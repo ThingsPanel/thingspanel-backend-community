@@ -5,6 +5,9 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"errors"
+	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -19,8 +22,8 @@ type TpBatchService struct {
 	TimeField []string
 }
 
-func (*TpBatchService) GetTpBatchDetail(tp_batch_id string) []models.TpBatch {
-	var tp_batch []models.TpBatch
+func (*TpBatchService) GetTpBatchDetail(tp_batch_id string) models.TpBatch {
+	var tp_batch models.TpBatch
 	psql.Mydb.First(&tp_batch, "id = ?", tp_batch_id)
 	return tp_batch
 }
@@ -74,6 +77,52 @@ func (*TpBatchService) DeleteTpBatch(tp_batch models.TpBatch) error {
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return result.Error
+	}
+	return nil
+}
+
+//批次表-产品表关联查询
+func (*TpBatchService) productBatch(tp_batch_id string) (map[string]interface{}, error) {
+	var pb map[string]interface{}
+	result := psql.Mydb.Raw("select * from tp_batch tb left join tp_product tp on  tb.product_id = tp.id where tb.id = ?", tp_batch_id).Scan(&pb)
+	if result.RowsAffected == int64(0) {
+		return pb, errors.New("没有这个批次信息！")
+	}
+	return pb, result.Error
+}
+
+// 批次生成
+func (*TpBatchService) GenerateBatch(tp_batch_id string) error {
+	var TpBatchService TpBatchService
+	var TpGenerateDeviceService TpGenerateDeviceService
+	tp_batch, err := TpBatchService.productBatch(tp_batch_id)
+	if err != nil {
+		logs.Error(err.Error())
+		return err
+	}
+	if tp_batch["generate_flag"].(string) == "1" {
+		return errors.New("已生成的批次，不能再次生成")
+	}
+	for i := 0; i < int(tp_batch["device_number"].(int32)); i++ {
+		var uid string = ""
+		if tp_batch["protocol_type"] == "2" {
+			uid = strings.Replace(uuid.GetUuid(), "-", "", -1)[0:9]
+		}
+		var TpGenerateDevice = models.TpGenerateDevice{
+			BatchId:      tp_batch_id,
+			Token:        uuid.GetUuid(),
+			Password:     uid,
+			ActivateFlag: "0",
+			CreatedTime:  time.Now().Unix(),
+			DeviceId:     uuid.GetUuid(),
+		}
+		// 插入数据
+		TpGenerateDeviceService.AddTpGenerateDevice(TpGenerateDevice)
+		var u = valid.TpBatchValidate{
+			Id:           tp_batch_id,
+			GenerateFlag: "1",
+		}
+		TpBatchService.EditTpBatch(u)
 	}
 	return nil
 }
