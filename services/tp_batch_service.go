@@ -5,11 +5,17 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"encoding/base64"
 	"errors"
+	"io/ioutil"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/skip2/go-qrcode"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -125,4 +131,69 @@ func (*TpBatchService) GenerateBatch(tp_batch_id string) error {
 		TpBatchService.EditTpBatch(u)
 	}
 	return nil
+}
+
+// 导出
+func (*TpBatchService) Export(batch_id string) (string, error) {
+	excel_file := excelize.NewFile()
+	index := excel_file.NewSheet("Sheet1")
+	excel_file.SetActiveSheet(index)
+	excel_file.SetCellValue("Sheet1", "A1", "产品编号")
+	excel_file.SetCellValue("Sheet1", "B1", "批号")
+	excel_file.SetCellValue("Sheet1", "C1", "协议类型")
+	excel_file.SetCellValue("Sheet1", "D1", "接入地址")
+	excel_file.SetCellValue("Sheet1", "E1", "用户名")
+	excel_file.SetCellValue("Sheet1", "F1", "密码")
+	excel_file.SetCellValue("Sheet1", "G1", "二维码bash64")
+	var gpb []map[string]interface{}
+	sql := `select tgd.device_id as device_id,tgd.activate_flag as activate_flag ,tgd.token as token ,tgd.password as password ,tp.protocol_type as protocol_type ,tp.plugin as plugin, 
+	tb.access_address as access_address ,tp.serial_number as serial_number,tb.batch_number as batch_number,tgd.id as generate_device_id
+	from tp_generate_device tgd left join tp_batch tb on tgd.batch_id = tb.id left join tp_product tp on  tb.product_id = tp.id where tb.id = ?`
+	result := psql.Mydb.Raw(sql, batch_id).Scan(&gpb)
+	if result.Error == nil {
+		if result.RowsAffected == int64(0) {
+			return "", errors.New("查询不到批次下已生成的设备")
+		}
+	}
+	uploadDir := "./files/QR/"
+	errs := os.MkdirAll(uploadDir, os.ModePerm)
+	if errs != nil {
+		return "", errs
+	}
+	var i int = 1
+	for _, tv := range gpb {
+		i++
+		is := strconv.Itoa(i)
+		if tv["access_address"] == nil {
+			tv["access_address"] = ""
+		}
+		if tv["password"] == nil {
+			tv["password"] = ""
+		}
+		filepath := "./files/QR/" + tv["generate_device_id"].(string) + ".png"
+		qrcode.WriteFile(tv["generate_device_id"].(string), qrcode.Medium, 256, filepath)
+		srcByte, err := ioutil.ReadFile(filepath)
+		if err != nil {
+			logs.Error(err.Error())
+		}
+		res := base64.StdEncoding.EncodeToString(srcByte)
+		excel_file.SetCellValue("Sheet1", "A"+is, tv["serial_number"].(string))
+		excel_file.SetCellValue("Sheet1", "B"+is, tv["batch_number"].(string))
+		excel_file.SetCellValue("Sheet1", "C"+is, tv["protocol_type"].(string))
+		excel_file.SetCellValue("Sheet1", "D"+is, tv["access_address"].(string))
+		excel_file.SetCellValue("Sheet1", "E"+is, tv["token"].(string))
+		excel_file.SetCellValue("Sheet1", "F"+is, tv["password"].(string))
+		excel_file.SetCellValue("Sheet1", "G"+is, res)
+	}
+	uploadDir1 := "./files/excel/"
+	errs1 := os.MkdirAll(uploadDir1, os.ModePerm)
+	if errs1 != nil {
+		return "", errs1
+	}
+	// 根据指定路径保存文件
+	excelName := "files/excel/产品数据" + time.Now().Format("20060102150405") + ".xlsx"
+	if err := excel_file.SaveAs(excelName); err != nil {
+		logs.Error(err.Error())
+	}
+	return excelName, nil
 }

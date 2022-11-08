@@ -317,6 +317,7 @@ func init() {
 		web.NSRouter("/tp_batch/edit", &controllers.TpBatchController{}, "*:Edit"),
 		web.NSRouter("/tp_batch/delete", &controllers.TpBatchController{}, "*:Delete"),
 		web.NSRouter("/tp_batch/generate", &controllers.TpBatchController{}, "*:GenerateBatchById"),
+		web.NSRouter("/tp_batch/export", &controllers.TpBatchController{}, "*:Export"),
 
 		//生成设备表
 		web.NSRouter("/tp_generate_device/activate", &controllers.TpGenerateDeviceController{}, "*:ActivateDevice"),

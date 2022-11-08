@@ -200,3 +200,34 @@ func (TpBatchController *TpBatchController) GenerateBatchById() {
 		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpBatchController.Ctx))
 	}
 }
+
+// 导出
+func (TpBatchController *TpBatchController) Export() {
+	TpBatchIdValidate := valid.TpBatchIdValidate{}
+	err := json.Unmarshal(TpBatchController.Ctx.Input.RequestBody, &TpBatchIdValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(TpBatchIdValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(TpBatchIdValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpBatchController.Ctx))
+			break
+		}
+		return
+	}
+	// if TpBatchIdValidate.Id == "" {
+	// 	utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpBatchController.Ctx))
+	// }
+	var TpBatchService services.TpBatchService
+	filepath, rsp_err := TpBatchService.Export(TpBatchIdValidate.Id)
+	if rsp_err == nil {
+		utils.SuccessWithDetailed(200, "success", filepath, map[string]string{}, (*context2.Context)(TpBatchController.Ctx))
+	} else {
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpBatchController.Ctx))
+	}
+}

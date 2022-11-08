@@ -1123,7 +1123,7 @@ CREATE TABLE public.tp_batch (
 	remark varchar(255) NULL,
 	CONSTRAINT t_batch_pk PRIMARY KEY (id),
 	CONSTRAINT t_batch_un UNIQUE (batch_number,product_id),
-	CONSTRAINT t_batch_fk FOREIGN KEY (product_id) REFERENCES public.t_product(id) ON DELETE RESTRICT
+	CONSTRAINT t_batch_fk FOREIGN KEY (product_id) REFERENCES public.tp_product(id) ON DELETE RESTRICT
 );
 
 -- Column comments
@@ -1144,7 +1144,7 @@ CREATE TABLE public.tp_generate_device (
 	created_time int8 NULL,
 	remark varchar(255) NULL,
 	CONSTRAINT t_generate_device_pk PRIMARY KEY (id),
-	CONSTRAINT t_generate_device_fk FOREIGN KEY (batch_id) REFERENCES public.t_batch(id) ON DELETE CASCADE
+	CONSTRAINT t_generate_device_fk FOREIGN KEY (batch_id) REFERENCES public.tp_batch(id) ON DELETE CASCADE
 );
 
 -- Column comments
@@ -1154,4 +1154,8 @@ COMMENT ON COLUMN public.tp_generate_device.activate_date IS '激活日期';
 
 ALTER TABLE public.tp_batch ADD access_address varchar(36) NULL;
 COMMENT ON COLUMN public.tp_batch.access_address IS '接入地址';
+
+ALTER TABLE public.tp_product ADD device_model_id varchar(36) NULL;
+COMMENT ON COLUMN public.tp_product.device_model_id IS '插件id';
+
 

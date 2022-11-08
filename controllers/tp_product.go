@@ -113,15 +113,16 @@ func (TpProductController *TpProductController) Add() {
 	}
 	id := uuid.GetUuid()
 	TpProduct := models.TpProduct{
-		Id:           id,
-		ProtocolType: AddTpProductValidate.ProtocolType,
-		AuthType:     AddTpProductValidate.AuthType,
-		Describe:     AddTpProductValidate.Describe,
-		CreatedTime:  time.Now().Unix(),
-		Name:         AddTpProductValidate.Name,
-		Plugin:       AddTpProductValidate.Plugin,
-		Remark:       AddTpProductValidate.Remark,
-		SerialNumber: AddTpProductValidate.SerialNumber,
+		Id:            id,
+		ProtocolType:  AddTpProductValidate.ProtocolType,
+		AuthType:      AddTpProductValidate.AuthType,
+		Describe:      AddTpProductValidate.Describe,
+		CreatedTime:   time.Now().Unix(),
+		Name:          AddTpProductValidate.Name,
+		Plugin:        AddTpProductValidate.Plugin,
+		Remark:        AddTpProductValidate.Remark,
+		SerialNumber:  AddTpProductValidate.SerialNumber,
+		DeviceModelId: AddTpProductValidate.DeviceModelId,
 	}
 	rsp_err, d := TpProductService.AddTpProduct(TpProduct)
 	if rsp_err == nil {
