@@ -45,6 +45,9 @@ func (*TpBatchService) GetTpBatchList(PaginationValidate valid.TpBatchPagination
 	if PaginationValidate.Id != "" {
 		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
 	}
+	if PaginationValidate.ProductId != "" {
+		sqlWhere += " and product_id = '" + PaginationValidate.ProductId + "'"
+	}
 	var count int64
 	psql.Mydb.Model(&models.TpBatch{}).Where(sqlWhere).Count(&count)
 	result := psql.Mydb.Model(&models.TpBatch{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_time desc").Find(&TpBatchs)

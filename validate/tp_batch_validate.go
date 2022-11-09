@@ -30,6 +30,7 @@ type TpBatchPaginationValidate struct {
 	PerPage     int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
 	BatchNumber string `json:"batch_number,omitempty" alias:"批次编号" valid:"MaxSize(99)"`
 	Id          string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
+	ProductId   string `json:"product_id,omitempty" alias:"product_id" valid:"MaxSize(36)"`
 }
 
 type RspTpBatchPaginationValidate struct {
