@@ -112,14 +112,15 @@ func (TpBatchController *TpBatchController) Add() {
 		AddTpBatchValidate.GenerateFlag = "0"
 	}
 	TpBatch := models.TpBatch{
-		Id:           id,
-		BatchNumber:  AddTpBatchValidate.BatchNumber,
-		Describle:    AddTpBatchValidate.Describle,
-		DeviceNumber: AddTpBatchValidate.DeviceNumber,
-		CreatedTime:  time.Now().Unix(),
-		GenerateFlag: AddTpBatchValidate.GenerateFlag,
-		ProductId:    AddTpBatchValidate.ProductId,
-		Remark:       AddTpBatchValidate.Remark,
+		Id:            id,
+		BatchNumber:   AddTpBatchValidate.BatchNumber,
+		Describle:     AddTpBatchValidate.Describle,
+		DeviceNumber:  AddTpBatchValidate.DeviceNumber,
+		CreatedTime:   time.Now().Unix(),
+		GenerateFlag:  AddTpBatchValidate.GenerateFlag,
+		ProductId:     AddTpBatchValidate.ProductId,
+		Remark:        AddTpBatchValidate.Remark,
+		AccessAddress: AddTpBatchValidate.AccessAddress,
 	}
 	d, rsp_err := TpBatchService.AddTpBatch(TpBatch)
 	if rsp_err == nil {
