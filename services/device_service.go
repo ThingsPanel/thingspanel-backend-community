@@ -187,6 +187,92 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 	return deviceList, count
 }
 
+// GetDevicesByAssetID 获取设备列表(business_id string, device_id string, asset_id string, current int, pageSize int,device_type string)
+func (*DeviceService) AllDeviceList(req valid.DevicePageListValidate) ([]map[string]interface{}, int64) {
+	sqlWhere := `select (with RECURSIVE ast as 
+		( 
+		(select aa.id,cast(aa.name as varchar(255)),aa.parent_id  from asset aa where id=a.id) 
+		union  
+		(select tt.id,cast (kk.name||'/'||tt.name as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
+		)select  name from ast where parent_id='0' limit 1) 
+		as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device_id ,d."name" as device_name,d.device_type as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,
+		   d."token" as access_token,d."type" as "type",d.protocol as protocol ,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts,
+		   (select name from device dd where dd.device_type = '2' and dd.parent_id = d.id limit 1) as gateway_name
+		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1`
+	sqlWhereCount := `select count(1) from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1`
+	var values []interface{}
+	var where = ""
+	if req.BusinessId != "" {
+		values = append(values, req.BusinessId)
+		where += " and b.id = ?"
+	}
+	if req.AssetId != "" {
+		values = append(values, req.AssetId)
+		where += " and a.id = ?"
+	}
+	if req.DeviceId != "" {
+		values = append(values, req.DeviceId)
+		where += " and d.id = ?"
+	}
+	if req.DeviceType != "" {
+		values = append(values, req.DeviceType)
+		where += " and d.device_type = ?"
+	}
+	if req.Token != "" {
+		values = append(values, req.Token)
+		where += " and d.token = ?"
+	}
+	if req.Name != "" {
+		where += " and d.name like '%" + req.Name + "%'"
+	}
+	if req.NotGateway == 1 {
+		where += " and d.device_type !='2'"
+	}
+	sqlWhere += where
+	sqlWhereCount += where
+	var count int64
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	var offset int = (req.CurrentPage - 1) * req.PerPage
+	var limit int = req.PerPage
+	sqlWhere += " offset ? limit ?"
+	values = append(values, offset, limit)
+	var deviceList []map[string]interface{}
+	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
+	if dataResult.Error != nil {
+		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+	} else {
+		var TSKVService TSKVService
+		for _, deviceData := range deviceList {
+			fields := TSKVService.GetCurrentData(deviceData["device_id"].(string), nil)
+			if len(fields) == 0 {
+				deviceData["values"] = make(map[string]interface{}, 0)
+				//deviceData["status"] = "0"
+			} else {
+				// 0-带接入 1-正常 2-异常
+				// var state string
+				// tsl, tsc := TSKVService.Status(deviceData["device_id"].(string))
+				// if tsc == 0 {
+				// 	state = "0"
+				// } else {
+				// 	ts := time.Now().UnixMicro()
+				// 	//300000000
+				// 	if (ts - tsl.TS) > 300000000 {
+				// 		state = "2"
+				// 	} else {
+				// 		state = "1"
+				// 	}
+				// }
+				//deviceData["status"] = state
+				deviceData["values"] = fields[0]
+			}
+		}
+	}
+	return deviceList, count
+}
+
 // GetDevicesByBusinessID 根据业务ID获取设备列表
 // return []设备,设备数量
 // 2022-04-18新增

@@ -744,3 +744,32 @@ func (DeviceController *DeviceController) GetProtocolForm() {
 	}
 	response.SuccessWithDetailed(200, "success", d["data"], map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }
+
+func (DeviceController *DeviceController) AllDeviceList() {
+	DevicePageListValidate := valid.DevicePageListValidate{}
+	err := json.Unmarshal(DeviceController.Ctx.Input.RequestBody, &DevicePageListValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(DevicePageListValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(DevicePageListValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(DeviceController.Ctx))
+			break
+		}
+		return
+	}
+	var DeviceService services.DeviceService
+	w, c := DeviceService.AllDeviceList(DevicePageListValidate)
+	d := PaginateWarninglogList{
+		CurrentPage: DevicePageListValidate.CurrentPage,
+		Data:        w,
+		Total:       c,
+		PerPage:     DevicePageListValidate.PerPage,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
+}
