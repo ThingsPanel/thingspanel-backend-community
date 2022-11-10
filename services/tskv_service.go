@@ -649,21 +649,21 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[
 	if len(ts_kvs) > 0 {
 		var i int64 = 0
 		var field map[string]interface{}
-		// 0-未接入 1-正常 2-异常
-		var state string
-		var TSKVService TSKVService
-		tsl, tsc := TSKVService.Status(device_id)
-		if tsc == 0 {
-			state = "0"
-		} else {
-			ts := time.Now().UnixMicro()
-			//300000000
-			if (ts - tsl.TS) > 300000000 {
-				state = "2"
-			} else {
-				state = "1"
-			}
-		}
+		// // 0-未接入 1-正常 2-异常
+		// var state string
+		// var TSKVService TSKVService
+		// tsl, tsc := TSKVService.Status(device_id)
+		// if tsc == 0 {
+		// 	state = "0"
+		// } else {
+		// 	ts := time.Now().UnixMicro()
+		// 	//300000000
+		// 	if (ts - tsl.TS) > 300000000 {
+		// 		state = "2"
+		// 	} else {
+		// 		state = "1"
+		// 	}
+		// }
 		field_from := ""
 		c := len(ts_kvs)
 		for k, v := range ts_kvs {
@@ -675,7 +675,7 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[
 					fields = append(fields, field)
 				}
 				field = make(map[string]interface{})
-				field["status"] = state
+				//field["status"] = state
 				if fmt.Sprint(v.BoolV) != "" {
 					field[field_from] = v.BoolV
 				} else if v.StrV != "" {
