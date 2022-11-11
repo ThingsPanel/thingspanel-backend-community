@@ -114,7 +114,7 @@ func (*TpBatchService) GenerateBatch(tp_batch_id string) error {
 	}
 	for i := 0; i < int(tp_batch["device_number"].(int32)); i++ {
 		var uid string = ""
-		if tp_batch["protocol_type"] == "2" {
+		if tp_batch["auth_type"] == "2" {
 			uid = strings.Replace(uuid.GetUuid(), "-", "", -1)[0:9]
 		}
 		var TpGenerateDevice = models.TpGenerateDevice{
