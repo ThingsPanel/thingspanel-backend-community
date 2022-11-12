@@ -119,6 +119,7 @@ func (*TpGenerateDeviceService) ActivateDevice(generate_device_id string, asset_
 		Type:           gpb["device_model_id"].(string),
 		DeviceType:     "1",
 		ProtocolConfig: "{}",
+		ChartOption:    "{}",
 	}
 	var DeviceService DeviceService
 	_, rsp_err := DeviceService.Add1(device)
