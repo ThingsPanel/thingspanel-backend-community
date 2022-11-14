@@ -631,6 +631,7 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[
 	if attributes == nil {
 		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts asc").Find(&ts_kvs)
 	} else {
+		//给返回加上systime
 		flag := true
 		for _, attribute := range attributes {
 			if attribute == "systime" {
@@ -647,8 +648,8 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[
 		return fields
 	}
 	if len(ts_kvs) > 0 {
-		var i int64 = 0
-		var field map[string]interface{}
+		//var i int64 = 0
+		var field = make(map[string]interface{})
 		// // 0-未接入 1-正常 2-异常
 		// var state string
 		// var TSKVService TSKVService
@@ -667,43 +668,44 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[
 		field_from := ""
 		c := len(ts_kvs)
 		for k, v := range ts_kvs {
-			if v.Key != "" {
-				field_from = v.Key
+			if v.Key == "" {
+				continue
 			}
-			if i != v.TS {
-				if i != 0 {
-					fields = append(fields, field)
-				}
-				field = make(map[string]interface{})
-				//field["status"] = state
-				if fmt.Sprint(v.BoolV) != "" {
-					field[field_from] = v.BoolV
-				} else if v.StrV != "" {
-					field[field_from] = v.StrV
-				} else if v.LongV != 0 {
-					field[field_from] = v.LongV
-				} else if v.DblV != 0 {
-					field[field_from] = v.DblV
-				} else {
-					field[field_from] = 0
-				}
-				i = v.TS
+			field_from = v.Key
+			// if i != v.TS {
+			// 	if i != 0 {
+			// 		fields = append(fields, field)
+			// 	}
+			// 	field = make(map[string]interface{})
+			// 	//field["status"] = state
+			// 	if fmt.Sprint(v.BoolV) != "" {
+			// 		field[field_from] = v.BoolV
+			// 	} else if v.StrV != "" {
+			// 		field[field_from] = v.StrV
+			// 	} else if v.LongV != 0 {
+			// 		field[field_from] = v.LongV
+			// 	} else if v.DblV != 0 {
+			// 		field[field_from] = v.DblV
+			// 	} else {
+			// 		field[field_from] = 0
+			// 	}
+			// 	i = v.TS
+			// } else {
+			if fmt.Sprint(v.BoolV) != "" {
+				field[field_from] = v.BoolV
+			} else if v.StrV != "" {
+				field[field_from] = v.StrV
+			} else if v.LongV != 0 {
+				field[field_from] = v.LongV
+			} else if v.DblV != 0 {
+				field[field_from] = v.DblV
 			} else {
-				if fmt.Sprint(v.BoolV) != "" {
-					field[field_from] = v.BoolV
-				} else if v.StrV != "" {
-					field[field_from] = v.StrV
-				} else if v.LongV != 0 {
-					field[field_from] = v.LongV
-				} else if v.DblV != 0 {
-					field[field_from] = v.DblV
-				} else {
-					field[field_from] = 0
-				}
-				if c == k+1 {
-					fields = append(fields, field)
-				}
+				field[field_from] = 0
 			}
+			if c == k+1 {
+				fields = append(fields, field)
+			}
+			// }
 		}
 	}
 	if len(fields) == 0 {
