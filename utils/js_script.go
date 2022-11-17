@@ -29,6 +29,7 @@ func ScriptDeal(code string, msg string, topic string) (string, error) {
 	logs.Info(script)
 	_, err := vm.Run(script)
 	if err != nil {
+		logs.Info(err.Error())
 		return "", err
 	}
 	message, err := vm.Call("encodeInp", nil, msg, topic)
