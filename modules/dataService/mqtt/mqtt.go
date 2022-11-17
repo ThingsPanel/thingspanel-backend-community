@@ -96,6 +96,22 @@ func SendGateWay(payload []byte, token string, protocol string) (err error) {
 	return t.Error()
 }
 
+func SendPlugin(payload []byte, topic string) (err error) {
+	var clientErr = errors.New("_client is error")
+	if _client == nil {
+		return clientErr
+	}
+	logs.Info("-------------------")
+	logs.Info(topic)
+	logs.Info(string(payload))
+	logs.Info("-------------------")
+	t := _client.Publish(topic, 1, false, string(payload))
+	if t.Error() != nil {
+		fmt.Println(t.Error())
+	}
+	return t.Error()
+}
+
 func Close() {
 	if _client != nil {
 		_client.Disconnect(3000)
