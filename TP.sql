@@ -1158,4 +1158,21 @@ COMMENT ON COLUMN public.tp_batch.access_address IS '接入地址';
 ALTER TABLE public.tp_product ADD device_model_id varchar(36) NULL;
 COMMENT ON COLUMN public.tp_product.device_model_id IS '插件id';
 
+CREATE TABLE public.tp_protocol_plugin (
+	id varchar(36) NOT NULL,
+	"name" varchar(99) NOT NULL,
+	protocol_type varchar(36) NOT NULL,
+	access_address varchar(255) NOT NULL,
+	http_address varchar(255) NULL,
+	sub_topic_prefix varchar(99) NULL,
+	created_at int8 NULL,
+	description varchar(255) NULL,
+	CONSTRAINT tp_protocol_plugin_pk PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_protocol_plugin.sub_topic_prefix IS '订阅主题前缀';
+ALTER TABLE public.tp_protocol_plugin ADD CONSTRAINT tp_protocol_plugin_un UNIQUE (protocol_type);
+
 

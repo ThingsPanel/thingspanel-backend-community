@@ -7,6 +7,7 @@ import (
 	valid "ThingsPanel-Go/validate"
 	"errors"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -68,4 +69,11 @@ func (*TpDictService) DeleteTpDict(tp_dict models.TpDict) bool {
 		return false
 	}
 	return true
+}
+
+// 条件删除
+func (*TpDictService) DeleteRowTpDict(tp_dict models.TpDict) error {
+	logs.Error("删除-------------------")
+	result := psql.Mydb.Exec("DELETE FROM tp_dict WHERE dict_code = ? and dict_value = ?", tp_dict.DictCode, tp_dict.DictValue)
+	return result.Error
 }

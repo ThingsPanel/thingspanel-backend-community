@@ -318,7 +318,11 @@ func init() {
 		web.NSRouter("/tp_batch/delete", &controllers.TpBatchController{}, "*:Delete"),
 		web.NSRouter("/tp_batch/generate", &controllers.TpBatchController{}, "*:GenerateBatchById"),
 		web.NSRouter("/tp_batch/export", &controllers.TpBatchController{}, "*:Export"),
-
+		//协议插件模块
+		web.NSRouter("/tp_protocol_plugin/add", &controllers.TpProtocolPluginController{}, "*:Add"),
+		web.NSRouter("/tp_protocol_plugin/list", &controllers.TpProtocolPluginController{}, "*:List"),
+		web.NSRouter("/tp_protocol_plugin/edit", &controllers.TpProtocolPluginController{}, "*:Edit"),
+		web.NSRouter("/tp_protocol_plugin/delete", &controllers.TpProtocolPluginController{}, "*:Delete"),
 		//生成设备表
 		web.NSRouter("/tp_generate_device/activate", &controllers.TpGenerateDeviceController{}, "*:ActivateDevice"),
 	)
