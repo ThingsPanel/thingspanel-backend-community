@@ -408,16 +408,17 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 
 	for _, v := range tSKVs {
 		ts := models.TSKVDblV{
-			EntityType: v.EntityType,
-			EntityID:   v.EntityID,
-			Key:        v.Key,
-			TS:         v.TS,
-			BoolV:      v.BoolV,
-			StrV:       v.StrV,
-			LongV:      v.LongV,
-			Token:      v.Token,
-			Bname:      v.Bname,
-			Name:       v.Name,
+			EntityType:  v.EntityType,
+			EntityID:    v.EntityID,
+			Key:         v.Key,
+			TS:          v.TS,
+			BoolV:       v.BoolV,
+			StrV:        v.StrV,
+			LongV:       v.LongV,
+			Token:       v.Token,
+			Bname:       v.Bname,
+			Name:        v.Name,
+			GatewayName: v.GatewayName,
 		}
 		if v.Key == "TIME" {
 			ts.DblV = v.StrV
