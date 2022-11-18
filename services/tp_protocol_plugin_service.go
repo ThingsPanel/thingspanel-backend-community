@@ -25,6 +25,12 @@ func (*TpProtocolPluginService) GetTpProtocolPluginDetail(tp_protocol_plugin_id 
 	return tp_protocol_plugin
 }
 
+func (*TpProtocolPluginService) GetByProtocolType(protocol_type string) models.TpProtocolPlugin {
+	var tp_protocol_plugin models.TpProtocolPlugin
+	psql.Mydb.First(&tp_protocol_plugin, "protocol_type = ?", protocol_type)
+	return tp_protocol_plugin
+}
+
 // 获取列表
 func (*TpProtocolPluginService) GetTpProtocolPluginList(PaginationValidate valid.TpProtocolPluginPaginationValidate) (bool, []models.TpProtocolPlugin, int64) {
 	var TpProtocolPlugins []models.TpProtocolPlugin

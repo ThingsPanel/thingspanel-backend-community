@@ -554,9 +554,11 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 		logs.Info("--------------准备发到设备", string(msg))
 		err = cm.Send(msg, device.Token)
 	} else if device.DeviceType == "3" && device.Protocol != "MQTT" { // 协议插件
-		var topic = "plugin/modbus/" + device.ID
+		var TpProtocolPluginService TpProtocolPluginService
+		pp := TpProtocolPluginService.GetByProtocolType(device.Protocol)
+		var topic = pp.SubTopicPrefix + device.ID
 		err = cm.SendPlugin(msg, topic)
-	} else if device.DeviceType == "3" { // 网关子设备
+	} else if device.DeviceType == "3" { // mqtt网关子设备
 		if device.ParentId != "" && device.SubDeviceAddr != "" {
 			var gatewayDevice *models.Device
 			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在

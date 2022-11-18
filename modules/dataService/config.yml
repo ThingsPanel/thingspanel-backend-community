@@ -14,6 +14,3 @@ tcp:
 
 api:
   http_host: 127.0.0.1:8083
-
-plugin:
-  http_host: 127.0.0.1:503

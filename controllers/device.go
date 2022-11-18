@@ -300,7 +300,9 @@ func (reqDate *DeviceController) UpdateOnly() {
 				if json_err != nil {
 					logs.Error(json_err.Error())
 				} else {
-					tphttp.UpdateDeviceConfig(reqdata)
+					var TpProtocolPluginService services.TpProtocolPluginService
+					pp := TpProtocolPluginService.GetByProtocolType(d.Protocol)
+					tphttp.UpdateDeviceConfig(reqdata, pp.HttpAddress)
 				}
 			}
 
@@ -378,7 +380,7 @@ func (this *DeviceController) Delete() {
 	d, _ := DeviceService.GetDeviceByID(deleteDeviceValidate.ID)
 	// 判断是否子设备配置修改
 	if d.DeviceType == "3" {
-		if d.ProtocolConfig != "{}" {
+		if d.ProtocolConfig != "{}" { //存在表单配置
 			// 通知插件子设备配置已修改
 			var reqmap = make(map[string]interface{})
 			reqmap["GateWayId"] = d.ParentId
@@ -393,7 +395,9 @@ func (this *DeviceController) Delete() {
 				if json_err != nil {
 					logs.Error(json_err.Error())
 				} else {
-					tphttp.DeleteDeviceConfig(reqdata)
+					var TpProtocolPluginService services.TpProtocolPluginService
+					pp := TpProtocolPluginService.GetByProtocolType(d.Protocol)
+					tphttp.DeleteDeviceConfig(reqdata, pp.HttpAddress)
 				}
 			}
 
@@ -735,8 +739,13 @@ func (DeviceController *DeviceController) GetProtocolForm() {
 		return
 	}
 	var d = make(map[string]interface{})
-	if ProtocolFormValidate.ProtocolType == "MODBUS_RTU" || ProtocolFormValidate.ProtocolType == "MODBUS_TCP" {
-		rsp, _ := tphttp.GetPluginFromConfig()
+	if ProtocolFormValidate.ProtocolType != "MQTT" && ProtocolFormValidate.ProtocolType != "mqtt" {
+		var TpProtocolPluginService services.TpProtocolPluginService
+		pp := TpProtocolPluginService.GetByProtocolType(ProtocolFormValidate.ProtocolType)
+		rsp, rsp_err := tphttp.GetPluginFromConfig(pp.HttpAddress)
+		if rsp_err != nil {
+			response.SuccessWithMessage(1000, rsp_err.Error(), (*context2.Context)(DeviceController.Ctx))
+		}
 		err := json.Unmarshal(rsp, &d)
 		if err != nil {
 			response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(DeviceController.Ctx))
