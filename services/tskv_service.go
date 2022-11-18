@@ -382,6 +382,7 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 	if key != "" { //key
 		SQLWhere = SQLWhere + " and key = '" + key + "'"
 	}
+	SQLWhere = SQLWhere + " and key != 'systime'"
 	countsql := "SELECT Count(*) AS count FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id " + SQLWhere
 	if err := result2.Raw(countsql, params...).Count(&count).Error; err != nil {
 		logs.Info(err.Error())
