@@ -393,7 +393,8 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 	//LEFT JOIN asset  ON asset.id=device.asset_id
 	//LEFT JOIN business ON business.id=asset.business_id
 	//WHERE 1=1  and ts_kv.ts >= 1654790400000000 and ts_kv.ts < 1655481599000000 ORDER BY ts_kv.ts DESC limit 10 offset 0
-	SQL := `select business.name bname,d."name" as gateway_name,ts_kv.*,concat_ws('-',asset.name,device.name) AS name,device.token FROM business 
+	SQL := `select business.name bname,d."name" as gateway_name,ts_kv.*,asset.name asset_name,
+	device.name device_name,device.token FROM business 
 	LEFT JOIN asset ON business.id=asset.business_id 
 	LEFT JOIN device ON asset.id=device.asset_id 
 	left join device d on device.parent_id = d.id 
@@ -419,6 +420,8 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 			Bname:       v.Bname,
 			Name:        v.Name,
 			GatewayName: v.GatewayName,
+			AssetName:   v.AssetName,
+			DeviceName:  v.DeviceName,
 		}
 		if v.Key == "TIME" {
 			ts.DblV = v.StrV

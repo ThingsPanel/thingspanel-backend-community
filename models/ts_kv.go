@@ -30,6 +30,8 @@ type TSKVDblV struct {
 	Bname       string `json:"bname"`
 	Name        string `json:"name"`
 	GatewayName string `json:"gateway_name"`
+	AssetName   string `json:"asset_name"`
+	DeviceName  string `json:"device_name"`
 }
 
 func (TSKV) TableName() string {
