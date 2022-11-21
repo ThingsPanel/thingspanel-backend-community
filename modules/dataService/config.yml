@@ -7,8 +7,6 @@ mqtt:
   topicToStatus: device/status
   gateway_topic: gateway/attributes
 
-url: dev.thingspanel.cn
-
 tcp:
   port: :9998
 
