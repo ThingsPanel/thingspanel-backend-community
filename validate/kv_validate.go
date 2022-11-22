@@ -11,6 +11,7 @@ type KVIndexValidate struct {
 	StartTime  string `json:"start_time" alias:"开始时间"`
 	EndTime    string `json:"end_time" alias:"结束时间"`
 	Key        string `json:"key" alias:"数据标签"`
+	DeviceName string `json:"device_name" alias:"设备名称"`
 }
 type KVExcelValidate struct {
 	BusinessId string `json:"business_id" alias:"业务" valid:"MaxSize(36)"`
@@ -21,6 +22,7 @@ type KVExcelValidate struct {
 	StartTime  string `json:"start_time" alias:"开始时间"`
 	EndTime    string `json:"end_time" alias:"结束时间"`
 	Key        string `json:"key" alias:"数据标签"`
+	DeviceName string `json:"device_name" alias:"设备名称"`
 }
 
 // KVExport 校验

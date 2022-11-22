@@ -345,7 +345,7 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 }
 
 // 分页查询数据
-func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, start_time string, end_time string, limit int, offset int, key string) ([]models.TSKVDblV, int64) {
+func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, start_time string, end_time string, limit int, offset int, key string, device_name string) ([]models.TSKVDblV, int64) {
 	tSKVs := []models.TSKVResult{}
 	tsk := []models.TSKVDblV{}
 	var count int64
@@ -381,6 +381,9 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 	SQLWhere, params := utils.TsKvFilterToSql(filters)
 	if key != "" { //key
 		SQLWhere = SQLWhere + " and key = '" + key + "'"
+	}
+	if device_name != "" { //key
+		SQLWhere = SQLWhere + ` and device."name" like '%` + device_name + "%'"
 	}
 	SQLWhere = SQLWhere + " and key != 'systime'"
 	countsql := "SELECT Count(*) AS count FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id " + SQLWhere

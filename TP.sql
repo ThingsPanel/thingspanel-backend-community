@@ -1182,5 +1182,7 @@ INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description)
 VALUES('2a95000c-9c29-7aae-58b0-5202daf1546a', 'MODBUS_UDP协议', 'MODBUS_UDP', '127.0.0.1:502', '127.0.0.1:503', 'plugin/modbus/', 1668759841, 'MODBUS_UDP协议插件服务');
 
+-- 0.4.1
+ALTER TABLE public.tp_dict ADD CONSTRAINT tp_dict_un UNIQUE (dict_code,dict_value);
 
 
