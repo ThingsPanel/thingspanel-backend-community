@@ -1196,4 +1196,4 @@ VALUES('19cd0e88-fe7b-a225-a0d6-77bd73757821', 'DRIECT_ATTACHED_PROTOCOL', 'mqtt
 INSERT INTO public.tp_dict
 (id, dict_code, dict_value, "describe", created_at)
 VALUES('8881ffe7-7c2b-43c2-13f3-7227dafa46ba', 'DRIECT_ATTACHED_PROTOCOL', 'video_address', '视频地址接入', 1669281289);
-
+ALTER TABLE public.device ADD created_at int8 NULL;
