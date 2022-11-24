@@ -24,6 +24,7 @@ type Device struct {
 	ProtocolConfig string `json:"protocol_config,omitempty" gorm:"type:longtext"`
 	SubDeviceAddr  string `json:"sub_device_addr,omitempty" gorm:"size:36"`
 	ScriptId       string `json:"script_id" gorm:"size:36"`
+	CreatedAt      int64  `json:"created_at,omitempty"`
 }
 
 func (Device) TableName() string {

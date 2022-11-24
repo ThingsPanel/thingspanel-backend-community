@@ -24,6 +24,7 @@ type EditDevice struct {
 	ProtocolConfig string `json:"protocol_config"`
 	SubDeviceAddr  string `json:"sub_device_addr,omitempty" alias:"子设备地址" valid:"MaxSize(36)"`
 	ScriptId       string `json:"script_id" gorm:"size:36"`
+	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间" `
 }
 
 // AddDevice 校验
@@ -76,6 +77,7 @@ type Device struct {
 	ProtocolConfig string `json:"protocol_config"`
 	SubDeviceAddr  string `json:"sub_device_addr,omitempty" alias:"子设备地址" valid:"MaxSize(36)"`
 	ScriptId       string `json:"script_id" gorm:"size:36"`
+	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间" `
 }
 
 type UpdateDevice struct {

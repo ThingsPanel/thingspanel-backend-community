@@ -116,6 +116,7 @@ func (this *DeviceController) Add() {
 		DeviceType:     addDeviceValidate.DeviceType,
 		ParentId:       addDeviceValidate.ParentId,
 		ProtocolConfig: addDeviceValidate.ProtocolConfig,
+		CreatedAt:      time.Now().Unix(),
 	}
 	f, _ := DeviceService.Add(deviceData)
 	if f {

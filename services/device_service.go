@@ -153,7 +153,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 	}
 	var offset int = (req.CurrentPage - 1) * req.PerPage
 	var limit int = req.PerPage
-	sqlWhere += " offset ? limit ?"
+	sqlWhere += "order by d.created_at desc offset ? limit ?"
 	values = append(values, offset, limit)
 	var deviceList []map[string]interface{}
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
@@ -174,7 +174,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 					)select  name from ast where parent_id='0' limit 1) 
 					as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type  as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,d.sub_device_addr as sub_device_addr,
 					d.additional_info as additional_info,d."token" as device_token,d."type" as "type",d.protocol as protocol ,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
-					   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1  and d.device_type = '3' and d.parent_id = '` + device["device"].(string) + `'`
+					   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1  and d.device_type = '3' and d.parent_id = '` + device["device"].(string) + "' order by d.created_at desc"
 				result := psql.Mydb.Raw(sql).Scan(&subDeviceList)
 				if result.Error != nil {
 					errors.Is(result.Error, gorm.ErrRecordNotFound)

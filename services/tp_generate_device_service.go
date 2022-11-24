@@ -6,6 +6,7 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -120,6 +121,7 @@ func (*TpGenerateDeviceService) ActivateDevice(generate_device_id string, asset_
 		DeviceType:     "1",
 		ProtocolConfig: "{}",
 		ChartOption:    "{}",
+		CreatedAt:      time.Now().Unix(),
 	}
 	var DeviceService DeviceService
 	_, rsp_err := DeviceService.Add1(device)
