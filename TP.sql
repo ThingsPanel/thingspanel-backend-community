@@ -1184,5 +1184,16 @@ VALUES('2a95000c-9c29-7aae-58b0-5202daf1546a', 'MODBUS_UDP协议', 'MODBUS_UDP',
 
 -- 0.4.1
 ALTER TABLE public.tp_dict ADD CONSTRAINT tp_dict_un UNIQUE (dict_code,dict_value);
+ALTER TABLE public.ts_kv_latest ADD CONSTRAINT ts_kv_latest_fk FOREIGN KEY (entity_id) REFERENCES public.device(id) ON DELETE CASCADE;
+ALTER TABLE public.conditions_log ADD CONSTRAINT conditions_log_fk FOREIGN KEY (device_id) REFERENCES public.device(id);
+ALTER TABLE public.warning_config ADD CONSTRAINT warning_config_fk FOREIGN KEY (bid) REFERENCES public.device(id);
+ALTER TABLE public.warning_log ADD CONSTRAINT warning_log_fk FOREIGN KEY (data_id) REFERENCES public.device(id);
+ALTER TABLE public.tp_function ADD CONSTRAINT tp_function_fk FOREIGN KEY (menu_id) REFERENCES public.tp_menu(id);
 
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('19cd0e88-fe7b-a225-a0d6-77bd73757821', 'DRIECT_ATTACHED_PROTOCOL', 'mqtt', 'MQTT协议', 1669281205);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('8881ffe7-7c2b-43c2-13f3-7227dafa46ba', 'DRIECT_ATTACHED_PROTOCOL', 'video_address', '视频地址接入', 1669281289);
 
