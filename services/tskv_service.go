@@ -28,8 +28,46 @@ type TSKVService struct {
 }
 
 type mqttPayload struct {
-	Token  string                 `json:"token"`
-	Values map[string]interface{} `json:"values"`
+	Token  string `json:"token"`
+	Values []byte `json:"values"`
+}
+
+// []byte转mqttPayload结构体，并做token和values验证
+func verifyPayload(body []byte) (*mqttPayload, error) {
+	payload := &mqttPayload{}
+	if err := json.Unmarshal(body, payload); err != nil {
+		logs.Error("解析消息失败:", err)
+		return payload, err
+	}
+	if len(payload.Token) == 0 {
+		return payload, errors.New("token不能为空:" + payload.Token)
+	}
+	if len(payload.Values) == 0 {
+		return payload, errors.New("values消息内容不能为空")
+	}
+	return payload, nil
+}
+
+// 脚本处理
+func scriptDeal(script_id string, device_data []byte, topic string) ([]byte, error) {
+	if script_id == "" {
+		logs.Info("脚本id不存在:", script_id)
+		return device_data, nil
+	}
+	var tp_script models.TpScript
+	result_b := psql.Mydb.Where("id = ?", script_id).First(&tp_script)
+	if result_b.Error == nil {
+		logs.Info("脚本信息存在")
+		req_str, err_a := utils.ScriptDeal(tp_script.ScriptContentA, device_data, topic)
+		if err_a != nil {
+			return device_data, err_a
+		} else {
+			return []byte(req_str), nil
+		}
+	} else {
+		logs.Info("脚本信息不存在")
+		return device_data, nil
+	}
 }
 
 // 获取全部TSKV
@@ -46,22 +84,19 @@ func (*TSKVService) All() ([]models.TSKV, int64) {
 	return tskvs, count
 }
 
-// 接收硬件消息
+// 接收硬件消息(设备在线离线)
 func (*TSKVService) MsgStatus(body []byte) bool {
 	logs.Info("-------------------------------")
 	logs.Info(string(body))
 	logs.Info("-------------------------------")
-	payload := &mqttPayload{}
-	if err := json.Unmarshal(body, payload); err != nil {
-		fmt.Println("Msg Consumer: Cannot unmarshal msg payload to JSON:", err)
+	payload, err := verifyPayload(body)
+	if err != nil {
+		logs.Error(err.Error())
 		return false
 	}
-	if len(payload.Token) == 0 {
-		fmt.Println("Msg Consumer: Payload token missing")
-		return false
-	}
-	if len(payload.Values) == 0 {
-		fmt.Println("Msg Consumer: Payload values missing")
+	var device_data = make(map[string]interface{})
+	if err := json.Unmarshal(payload.Values, &device_data); err != nil {
+		logs.Error("解析消息失败:", err)
 		return false
 	}
 	device_id := redis.GetStr("token" + payload.Token)
@@ -70,7 +105,7 @@ func (*TSKVService) MsgStatus(body []byte) bool {
 		EntityID:   device_id,
 		Key:        "SYS_ONLINE",
 		TS:         time.Now().UnixMicro(),
-		StrV:       fmt.Sprint(payload.Values["SYS_ONLINE"]),
+		StrV:       fmt.Sprint(device_data["SYS_ONLINE"]),
 	}
 	rtsl := psql.Mydb.Save(&d)
 	if rtsl.Error != nil {
@@ -82,132 +117,109 @@ func (*TSKVService) MsgStatus(body []byte) bool {
 // 接收网关消息
 func (*TSKVService) GatewayMsgProc(body []byte, topic string) bool {
 	logs.Info("------------------------------")
+	logs.Info("来自网关设备的消息：")
 	logs.Info(string(body))
 	logs.Info("------------------------------")
-	payload := &mqttPayload{}
-	if err := json.Unmarshal(body, payload); err != nil {
-		fmt.Println("Msg Consumer: Cannot unmarshal msg payload to JSON:", err)
+	payload, err := verifyPayload(body)
+	if err != nil {
+		logs.Error(err.Error())
 		return false
 	}
-	if len(payload.Token) == 0 {
-		fmt.Println("Msg Consumer: Payload token missing")
-		return false
-	}
-	if len(payload.Values) == 0 {
-		fmt.Println("Msg Consumer: Payload values missing")
-		return false
-	}
+	// 通过token获取网关设备信息
 	var device models.Device
-	result_token := psql.Mydb.Where("token = ? and device_type = '2'", payload.Token).First(&device) // 检测网关token是否存在
-	if result_token.Error != nil {
-		errors.Is(result_token.Error, gorm.ErrRecordNotFound)
+	result_a := psql.Mydb.Where("token = ? and device_type = '2'", payload.Token).First(&device)
+	if result_a.Error != nil {
+		logs.Error(result_a.Error, gorm.ErrRecordNotFound)
 		return false
-	} else if result_token.RowsAffected <= int64(0) {
-		logs.Info("token not matched")
+	} else if result_a.RowsAffected <= int64(0) {
+		logs.Error("根据token没查找到设备")
 		return false
 	}
-	// 网关脚本
-	if device.ScriptId != "" {
-		var tp_script models.TpScript
-		result_script := psql.Mydb.Where("id = ? and protocol_type = 'MQTT'", device.ScriptId).First(&tp_script)
-		if result_script.Error == nil {
-			data_values, _ := json.Marshal(payload.Values)
-			logs.Info("传给脚本执行器的报文：" + string(data_values))
-			req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, string(data_values), topic)
-			if err == nil {
-				var req_map map[string]interface{}
-				err := json.Unmarshal([]byte(req_str), &req_map)
-				if err == nil {
-					logs.Info(req_map)
-					payload.Values = req_map
-				}
-			}
-		}
+	logs.Info("设备信息：", device)
+	// 通过脚本执行器
+	req, err := scriptDeal(device.ScriptId, payload.Values, topic)
+
+	if err != nil {
+		logs.Error(err.Error())
+		return false
 	}
+	logs.Info("转码后:", string(req))
+	//byte转map
+	var payload_map = make(map[string]interface{})
+	err = json.Unmarshal(req, &payload_map)
+	if err != nil {
+		logs.Error(err.Error())
+		return false
+	}
+
+	// 子设备数组
 	var sub_device_list []models.Device
 	result := psql.Mydb.Where("parent_id = ? and device_type = '3'", device.ID).Find(&sub_device_list) // 查询网关下子设备
 	if result.Error != nil {
-		logs.Info(result.Error.Error())
-	} else {
-		for _, sub_device := range sub_device_list {
-			if values, ok := payload.Values[sub_device.SubDeviceAddr]; ok {
-				var sub_device_map = make(map[string]interface{})
-				sub_device_map["token"] = sub_device.Token
-				sub_device_map["values"] = values
-				sub_device_bytes, err := json.Marshal(sub_device_map)
-				if err != nil {
-					logs.Info(err.Error())
-				} else {
-					var TSKVService TSKVService
-					TSKVService.MsgProc(sub_device_bytes, topic)
-				}
-
+		logs.Error(result.Error.Error())
+		return false
+	}
+	// 组合单设备消息
+	for _, sub_device := range sub_device_list {
+		if values, ok := payload_map[sub_device.SubDeviceAddr]; ok {
+			var sub_device_map = make(map[string]interface{})
+			sub_device_map["token"] = sub_device.Token
+			values_bytes, err := json.Marshal(values)
+			if err != nil {
+				logs.Error(err.Error())
+			}
+			sub_device_map["values"] = values_bytes
+			// 子设备payload转字节数组
+			sub_payload_bytes, err := json.Marshal(sub_device_map)
+			if err != nil {
+				logs.Error(err.Error())
+				return false
+			} else {
+				var TSKVService TSKVService
+				TSKVService.MsgProc(sub_payload_bytes, topic)
 			}
 		}
 	}
-
 	return true
 }
 
 // 接收硬件消息
 func (*TSKVService) MsgProc(body []byte, topic string) bool {
 	logs.Info("-------------------------------")
+	logs.Info("来自直连设备/网关解析后的子设备的消息：")
 	logs.Info(string(body))
 	logs.Info("-------------------------------")
-	payload := &mqttPayload{}
-	if err := json.Unmarshal(body, payload); err != nil {
-		fmt.Println("Msg Consumer: Cannot unmarshal msg payload to JSON:", err)
+	payload, err := verifyPayload(body)
+	if err != nil {
+		logs.Error(err.Error())
 		return false
 	}
-	if len(payload.Token) == 0 {
-		fmt.Println("Msg Consumer: Payload token missing")
-		return false
-	}
-	if len(payload.Values) == 0 {
-		fmt.Println("Msg Consumer: Payload values missing")
-		return false
-	}
-	var device models.Device
+
 	var d models.TSKV
-	//查询token，验证token;修改和删除token的时候需要对缓存进行修改
-	// if len(redis.GetStr("token"+payload.Token)) < 1 {
-	result_token := psql.Mydb.Where("token = ?", payload.Token).First(&device)
-	if result_token.Error != nil {
-		errors.Is(result_token.Error, gorm.ErrRecordNotFound)
+	// 通过token获取设备信息
+	var device models.Device
+	result_a := psql.Mydb.Where("token = ? and device_type != '2'", payload.Token).First(&device)
+	if result_a.Error != nil {
+		logs.Error(result_a.Error, gorm.ErrRecordNotFound)
 		return false
-	} else if result_token.RowsAffected > int64(0) {
-		redis.SetStr("token"+payload.Token, device.ID, 3600*time.Second)
-	} else {
-		fmt.Println("token not matched")
+	} else if result_a.RowsAffected <= int64(0) {
+		logs.Error("根据token没查找到设备")
 		return false
 	}
-	// 判断设备脚本
-	if device.ScriptId != "" {
-		var tp_script models.TpScript
-		result_script := psql.Mydb.Where("id = ? and protocol_type = 'mqtt'", device.ScriptId).First(&tp_script)
-		if result_script.Error == nil {
-			data_values, _ := json.Marshal(payload.Values)
-			var msg = string(data_values)
-			req_str, err := utils.ScriptDeal(tp_script.ScriptContentA, msg, topic)
-			logs.Info("-------------------------------")
-			logs.Info(req_str)
-			logs.Info("-------------------------------")
-			if err == nil {
-				var req_map map[string]interface{}
-				err := json.Unmarshal([]byte(req_str), &req_map)
-				if err == nil {
-					logs.Info(req_map)
-					payload.Values = req_map
-				}
-			} else {
-				logs.Info("js脚本执行错误:", err.Error())
-			}
-		}
+	// 通过脚本执行器
+	req, err_a := scriptDeal(device.ScriptId, payload.Values, topic)
+	if err_a != nil {
+		logs.Error(err_a.Error())
+		return false
 	}
-	// } else {
-	// 	//fmt.Println("命中")
-	// 	device.ID = redis.GetStr("token" + payload.Token)
-	// }
+	logs.Info("转码后:", string(req))
+	//byte转map
+	var payload_map = make(map[string]interface{})
+	err_b := json.Unmarshal(req, &payload_map)
+	if err_b != nil {
+		logs.Error(err_b.Error())
+		return false
+	}
 	// 告警缓存，先查缓存，如果=1就跳过，没有就进入WarningConfigCheck
 	// 进入没有就设置为1
 	// 新增的时候删除
@@ -215,36 +227,16 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 	// 有效时间一小时
 	if redis.GetStr("warning"+device.ID) != "1" {
 		var WarningConfigService WarningConfigService
-		WarningConfigService.WarningConfigCheck(device.ID, payload.Values)
+		WarningConfigService.WarningConfigCheck(device.ID, payload_map)
 	}
 	// 设备触发自动化
 	var ConditionsService ConditionsService
-	ConditionsService.ConditionsConfigCheck(device.ID, payload.Values)
-
+	ConditionsService.ConditionsConfigCheck(device.ID, payload_map)
+	// 入库
+	//存入系统时间
 	ts := time.Now().UnixMicro()
-	// //查找field_mapping表替换value里面的字段
-	// var FieldMappingService FieldMappingService
-	// FieldMapping, num := FieldMappingService.GetByDeviceid(device.ID)
-	// if num <= int64(0) {
-	// 	return false
-	// }
-	// field_map := map[string]string{}
-	// for _, v := range FieldMapping {
-	// 	field_map[v.FieldFrom] = v.FieldTo
-	// }
-
-	// result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
-	// if result.Error != nil {
-	// 	errors.Is(result.Error, gorm.ErrRecordNotFound)
-	// }
-
-	for k, v := range payload.Values {
-
-		// key, ok := field_map[k]
-		// if !ok {
-		// 	continue
-		// }
-
+	payload_map["systime"] = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
+	for k, v := range payload_map {
 		switch value := v.(type) {
 		case int64:
 			d = models.TSKV{
@@ -304,42 +296,13 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 				log.Println(rtsl.Error)
 			}
 		}
+		// ts_kv入库
+		logs.Debug("tskv入库数据：", d)
 		rts := psql.Mydb.Create(&d)
 		if rts.Error != nil {
 			log.Println(rts.Error)
 			return false
 		}
-	}
-	//存入系统时间
-	currentTime := fmt.Sprintf(time.Now().Format("2006-01-02 15:04:05"))
-	d = models.TSKV{
-		EntityType: "DEVICE",
-		EntityID:   device.ID,
-		Key:        "systime",
-		TS:         ts,
-		StrV:       currentTime,
-	}
-	// 更新当前值表
-	l := models.TSKVLatest{}
-	utils.StructAssign(&l, &d)
-	var latestCount int64
-	psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Count(&latestCount)
-	if latestCount <= 0 {
-		rtsl := psql.Mydb.Create(&l)
-		if rtsl.Error != nil {
-			log.Println(rtsl.Error)
-		}
-	} else {
-		rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Updates(&l)
-		if rtsl.Error != nil {
-			log.Println(rtsl.Error)
-		}
-	}
-	// 存储数据
-	rts := psql.Mydb.Create(&d)
-	if rts.Error != nil {
-		log.Println(rts.Error)
-		return false
 	}
 	return true
 }
@@ -357,7 +320,6 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 	if offset <= 0 {
 		offset = 0
 	}
-
 	filters := map[string]interface{}{}
 	if business_id != "" { //设备id
 		filters["business_id"] = business_id

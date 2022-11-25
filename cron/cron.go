@@ -78,8 +78,17 @@ func init() {
 							} else if interval == int64(2) {
 								logs.Info("包含时间间隔策略")
 								// 间隔时间触发
+								if rulesMap["time_interval"] == nil {
+									logs.Error("间隔时间不能为空")
+									continue
+								}
 								time_interval, _ := rulesMap["time_interval"].(json.Number).Int64()
 								logs.Info("间隔", time_interval)
+								if rulesMap["rule_id"] == nil {
+									logs.Error("rule_id不能为空，否则不能找到上次执行记录")
+									continue
+
+								}
 								rule_id := rulesMap["rule_id"].(string)
 								var condition_log models.ConditionsLog
 								var count int64

@@ -528,35 +528,47 @@ func (*DeviceService) OperatingDevice(deviceId string, field string, value inter
 	return err
 
 }
+
+// 脚本处理
+func scriptDealB(script_id string, device_data []byte, topic string) ([]byte, error) {
+	if script_id == "" {
+		logs.Info("脚本id不存在:", script_id)
+		return device_data, nil
+	}
+	var tp_script models.TpScript
+	result_b := psql.Mydb.Where("id = ?", script_id).First(&tp_script)
+	if result_b.Error == nil {
+		logs.Info("脚本信息存在")
+		req_str, err_a := utils.ScriptDeal(tp_script.ScriptContentB, device_data, topic)
+		if err_a != nil {
+			return device_data, err_a
+		} else {
+			return []byte(req_str), nil
+		}
+	} else {
+		logs.Info("脚本信息不存在")
+		return device_data, nil
+	}
+}
 func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 	var err error
 	if device.DeviceType == "1" { // 直连设备
-		// 直连脚本
-		if device.ScriptId != "" {
-			var tp_script models.TpScript
-			result_script := psql.Mydb.Where("id = ? and protocol_type = 'mqtt'", device.ScriptId).First(&tp_script)
-			if result_script.Error == nil {
-				req_str, err := utils.ScriptDeal(tp_script.ScriptContentB, string(msg), viper.GetString("mqtt.topicToPublish")+"/"+device.Token)
-				if err == nil {
-					var req_map map[string]interface{}
-					err := json.Unmarshal([]byte(req_str), &req_map)
-					if err == nil {
-						logs.Info(req_map)
-						req, err := json.Marshal(&req_map)
-						msg = req
-						if err != nil {
-							return err
-						}
-					}
-				}
-			}
+		// 通过脚本
+		msg, err = scriptDealB(device.ScriptId, msg, viper.GetString("mqtt.topicToPublish")+"/"+device.Token)
+		if err != nil {
+			return err
 		}
-		logs.Info("--------------准备发到设备", string(msg))
+		// 直连脚本
+		logs.Info("直连设备下行脚本处理后：", string(msg))
 		err = cm.Send(msg, device.Token)
 	} else if device.DeviceType == "3" && device.Protocol != "MQTT" { // 协议插件
 		var TpProtocolPluginService TpProtocolPluginService
 		pp := TpProtocolPluginService.GetByProtocolType(device.Protocol)
 		var topic = pp.SubTopicPrefix + device.ID
+		msg, err = scriptDealB(device.ScriptId, msg, topic)
+		if err != nil {
+			return err
+		}
 		err = cm.SendPlugin(msg, topic)
 	} else if device.DeviceType == "3" { // mqtt网关子设备
 		if device.ParentId != "" && device.SubDeviceAddr != "" {
@@ -571,36 +583,12 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				// msgMap["token"] = gatewayDevice.Token
 				// msgMap["values"] = subMap
 				msgBytes, _ := json.Marshal(subMap)
-				// 网关脚本
-				logs.Info(device.ScriptId)
-				if gatewayDevice.ScriptId != "" {
-					var tp_script models.TpScript
-					result_script := psql.Mydb.Where("id = ? and protocol_type = 'MQTT'", gatewayDevice.ScriptId).First(&tp_script)
-					if result_script.Error == nil {
-						logs.Info("存在网关脚本")
-						req_str, err := utils.ScriptDeal(tp_script.ScriptContentB, string(msgBytes), viper.GetString("mqtt.gateway_topic")+"/"+device.Token)
-						if err == nil {
-							var req_map map[string]interface{}
-							err := json.Unmarshal([]byte(req_str), &req_map)
-							if err == nil {
-								logs.Info(req_map)
-								m_ytes, err := json.Marshal(&req_map)
-								msgBytes = m_ytes
-								if err != nil {
-									logs.Info(err.Error)
-								}
-							} else {
-								logs.Info(err.Error)
-							}
-						} else {
-							logs.Info(err.Error)
-						}
-					} else {
-						logs.Info(result_script.Error)
-					}
+				// 通过脚本
+				msg, err = scriptDealB(device.ScriptId, msgBytes, viper.GetString("mqtt.gateway_topic")+"/"+device.Token)
+				if err != nil {
+					return err
 				}
-				logs.Info("----------------")
-				logs.Info(string(msgBytes))
+				logs.Info("网关设备下行脚本处理后：", string(msg))
 				err = cm.SendGateWay(msgBytes, gatewayDevice.Token, gatewayDevice.Protocol)
 			}
 		} else {

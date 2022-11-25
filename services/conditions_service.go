@@ -41,6 +41,7 @@ func (*ConditionsService) GetConditionByID(id string) (*models.Condition, int64)
 
 // GetWarningConfigsByDeviceId 根据id获取多条warningConfig数据
 func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[string]interface{}) {
+	logs.Info("自动化控制检查")
 	//deviceId为设备id
 	var conditionConfigs []models.Condition
 	var count int64

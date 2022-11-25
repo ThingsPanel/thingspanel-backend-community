@@ -6,7 +6,7 @@ import (
 	"github.com/robertkrimen/otto"
 )
 
-func ScriptDeal(code string, msg string, topic string) (string, error) {
+func ScriptDeal(code string, msg interface{}, topic string) (string, error) {
 	/*
 		function encodeInp(msg, topic){
 			//编写脚本处理从设备发来消息msg,转为平台可接收的消息规范
