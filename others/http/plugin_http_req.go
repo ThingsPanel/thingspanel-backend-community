@@ -13,9 +13,9 @@ import (
 // }
 
 // 获取插件的表单配置
-func GetPluginFromConfig(host string) ([]byte, error) {
+func GetPluginFromConfig(host string, protocol_type string, device_type string) ([]byte, error) {
 	//host := getHost()
-	return Get("http://" + host + "/api/form/config")
+	return Get("http://" + host + "/api/form/config?protocol_type=" + protocol_type + "&device_type=" + device_type)
 }
 
 // 删除子设备配置

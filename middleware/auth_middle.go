@@ -17,14 +17,14 @@ import (
 func AuthMiddle() {
 	//不需要验证的url
 	noLogin := map[string]interface{}{
-
-		"api/gateway/config":    0,
-		"api/system/logo/index": 0,
-		"api/open/data":         0,
-		"api/auth/login":        0,
-		"api/auth/refresh":      0,
-		"api/auth/register":     1,
-		"/ws":                   2,
+		"api/plugin/register":      0,
+		"api/plugin/device/config": 0,
+		"api/system/logo/index":    0,
+		"api/open/data":            0,
+		"api/auth/login":           0,
+		"api/auth/refresh":         0,
+		"api/auth/register":        1,
+		"/ws":                      2,
 	}
 	var filterLogin = func(ctx *context.Context) {
 		url := strings.TrimLeft(ctx.Input.URL(), "/")

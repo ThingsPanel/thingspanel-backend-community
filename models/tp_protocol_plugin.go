@@ -9,6 +9,7 @@ type TpProtocolPlugin struct {
 	SubTopicPrefix string `json:"sub_topic_prefix,omitempty"`
 	CreatedAt      int64  `json:"created_at,omitempty"`
 	Description    string `json:"description,omitempty"`
+	DeviceType     string `json:"device_type,omitempty"`
 }
 
 func (TpProtocolPlugin) TableName() string {

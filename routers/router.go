@@ -296,7 +296,7 @@ func init() {
 		web.NSRouter("/tp_dashboard/delete", &controllers.TpDashboardController{}, "*:Delete"),
 
 		//插件模块接口
-		web.NSRouter("/gateway/config", &controllers.DeviceController{}, "*:GetGatewayConfig"),
+		web.NSRouter("/plugin/device/config", &controllers.DeviceController{}, "*:GetGatewayConfig"),
 		web.NSRouter("/form/config", &controllers.DeviceController{}, "*:GetProtocolForm"),
 
 		//脚本模块
@@ -319,6 +319,7 @@ func init() {
 		web.NSRouter("/tp_batch/generate", &controllers.TpBatchController{}, "*:GenerateBatchById"),
 		web.NSRouter("/tp_batch/export", &controllers.TpBatchController{}, "*:Export"),
 		//协议插件模块
+		web.NSRouter("/plugin/register", &controllers.TpProtocolPluginController{}, "*:Add"), //插件调用
 		web.NSRouter("/tp_protocol_plugin/add", &controllers.TpProtocolPluginController{}, "*:Add"),
 		web.NSRouter("/tp_protocol_plugin/list", &controllers.TpProtocolPluginController{}, "*:List"),
 		web.NSRouter("/tp_protocol_plugin/edit", &controllers.TpProtocolPluginController{}, "*:Edit"),

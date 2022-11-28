@@ -289,13 +289,16 @@ func (reqDate *DeviceController) UpdateOnly() {
 		if addDeviceValidate.ProtocolConfig != "" && addDeviceValidate.ProtocolConfig != d.ProtocolConfig {
 			// 通知插件子设备配置已修改
 			var reqmap = make(map[string]interface{})
-			reqmap["GateWayId"] = addDeviceValidate.ParentId
+			reqmap["DeviceType"] = addDeviceValidate.DeviceType
+			reqmap["ParentId"] = addDeviceValidate.ParentId
 			reqmap["DeviceId"] = addDeviceValidate.ID
 			var protocol_config_map = make(map[string]interface{})
 			j_err := json.Unmarshal([]byte(addDeviceValidate.ProtocolConfig), &protocol_config_map)
 			if j_err != nil {
 				logs.Error(j_err.Error())
 			} else {
+				protocol_config_map["AccessToken"] = addDeviceValidate.Token
+				protocol_config_map["SubDeviceAddr"] = addDeviceValidate.Token
 				reqmap["DeviceConfig"] = protocol_config_map
 				reqdata, json_err := json.Marshal(reqmap)
 				if json_err != nil {
@@ -384,7 +387,8 @@ func (this *DeviceController) Delete() {
 		if d.ProtocolConfig != "{}" { //存在表单配置
 			// 通知插件子设备配置已修改
 			var reqmap = make(map[string]interface{})
-			reqmap["GateWayId"] = d.ParentId
+			reqmap["DeviceType"] = d.DeviceType
+			reqmap["ParentId"] = d.ParentId
 			reqmap["DeviceId"] = d.ID
 			var protocol_config_map = make(map[string]interface{})
 			j_err := json.Unmarshal([]byte(d.ProtocolConfig), &protocol_config_map)
@@ -743,7 +747,7 @@ func (DeviceController *DeviceController) GetProtocolForm() {
 	if ProtocolFormValidate.ProtocolType != "MQTT" && ProtocolFormValidate.ProtocolType != "mqtt" {
 		var TpProtocolPluginService services.TpProtocolPluginService
 		pp := TpProtocolPluginService.GetByProtocolType(ProtocolFormValidate.ProtocolType)
-		rsp, rsp_err := tphttp.GetPluginFromConfig(pp.HttpAddress)
+		rsp, rsp_err := tphttp.GetPluginFromConfig(pp.HttpAddress, ProtocolFormValidate.ProtocolType, ProtocolFormValidate.DeviceType)
 		if rsp_err != nil {
 			response.SuccessWithMessage(1000, rsp_err.Error(), (*context2.Context)(DeviceController.Ctx))
 		}

@@ -11,6 +11,7 @@ type TpProtocolPluginValidate struct {
 	SubTopicPrefix string `json:"sub_topic_prefix,omitempty" alias:"订阅主题前缀"`
 	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间"`
 	Description    string `json:"description,omitempty" alias:"描述"`
+	DeviceType     string `json:"device_type,omitempty" alias:"设备类型"`
 }
 
 type AddTpProtocolPluginValidate struct {
@@ -21,6 +22,7 @@ type AddTpProtocolPluginValidate struct {
 	SubTopicPrefix string `json:"sub_topic_prefix,omitempty" alias:"订阅主题前缀"  valid:"MaxSize(99)"`
 	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间"`
 	Description    string `json:"description,omitempty" alias:"描述"  valid:"MaxSize(255)"`
+	DeviceType     string `json:"device_type,omitempty" alias:"设备类型"  valid:"MaxSize(36)"`
 }
 
 type TpProtocolPluginPaginationValidate struct {
@@ -28,6 +30,7 @@ type TpProtocolPluginPaginationValidate struct {
 	PerPage      int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
 	ProtocolType string `json:"protocol_type,omitempty" alias:"协议类型" valid:"MaxSize(99)"`
 	Id           string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
+	DeviceType   string `json:"device_type,omitempty" alias:"设备类型"  valid:"MaxSize(36)"`
 }
 
 type RspTpProtocolPluginPaginationValidate struct {

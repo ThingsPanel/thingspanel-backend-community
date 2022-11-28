@@ -62,8 +62,14 @@ func (*TpProtocolPluginService) AddTpProtocolPlugin(tp_protocol_plugin models.Tp
 		return tp_protocol_plugin, result.Error
 	}
 	var TpDictService TpDictService
+	var dict_code string
+	if tp_protocol_plugin.DeviceType == "1" { //直连设备
+		dict_code = "DRIECT_ATTACHED_PROTOCOL"
+	} else {
+		dict_code = "GATEWAY_PROTOCOL"
+	}
 	var TpDict = models.TpDict{
-		DictCode:  "GATEWAY_PROTOCOL",
+		DictCode:  dict_code,
 		DictValue: tp_protocol_plugin.ProtocolType,
 		Describe:  tp_protocol_plugin.Name,
 		CreatedAt: tp_protocol_plugin.CreatedAt,

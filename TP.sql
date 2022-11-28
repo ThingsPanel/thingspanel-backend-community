@@ -1175,12 +1175,16 @@ CREATE TABLE public.tp_protocol_plugin (
 COMMENT ON COLUMN public.tp_protocol_plugin.sub_topic_prefix IS '订阅主题前缀';
 ALTER TABLE public.tp_protocol_plugin ADD CONSTRAINT tp_protocol_plugin_un UNIQUE (protocol_type);
 
+ALTER TABLE public.tp_protocol_plugin ADD device_type varchar(36) NULL;
+COMMENT ON COLUMN public.tp_protocol_plugin.device_type IS '设备类型1-设备 2-网关';
+
 INSERT INTO public.tp_protocol_plugin
-(id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description)
-VALUES('c8a13166-e010-24e4-0565-e87feea162bb', 'MODBUS_TCP协议', 'MODBUS_TCP', '127.0.0.1:502', '127.0.0.1:503', 'plugin/modbus/', 1668759820, 'MODBUS_TCP协议插件服务');
+(id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
+VALUES('c8a13166-e010-24e4-0565-e87feea162bb', 'MODBUS_TCP协议', 'MODBUS_TCP', '127.0.0.1:502', '127.0.0.1:503', 'plugin/modbus/', 1668759820, 'MODBUS_TCP协议插件服务', '2');
 INSERT INTO public.tp_protocol_plugin
-(id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description)
-VALUES('2a95000c-9c29-7aae-58b0-5202daf1546a', 'MODBUS_UDP协议', 'MODBUS_UDP', '127.0.0.1:502', '127.0.0.1:503', 'plugin/modbus/', 1668759841, 'MODBUS_UDP协议插件服务');
+(id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
+VALUES('2a95000c-9c29-7aae-58b0-5202daf1546a', 'MODBUS_RTU协议', 'MODBUS_RTU', '127.0.0.1:502', '127.0.0.1:503', 'plugin/modbus/', 1668759841, 'MODBUS_UDP协议插件服务', '2');
+
 
 -- 0.4.1
 ALTER TABLE public.tp_dict ADD CONSTRAINT tp_dict_un UNIQUE (dict_code,dict_value);
@@ -1197,3 +1201,5 @@ INSERT INTO public.tp_dict
 (id, dict_code, dict_value, "describe", created_at)
 VALUES('8881ffe7-7c2b-43c2-13f3-7227dafa46ba', 'DRIECT_ATTACHED_PROTOCOL', 'video_address', '视频地址接入', 1669281289);
 ALTER TABLE public.device ADD created_at int8 NULL;
+
+

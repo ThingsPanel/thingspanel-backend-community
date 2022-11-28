@@ -695,35 +695,48 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string) {
 
 // 根据token获取网关设备和子设备的配置
 func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
-	var GatewayConfigMap = make(map[string]interface{})
+	var ConfigMap = make(map[string]interface{})
 	var device models.Device
 	result := psql.Mydb.First(&device, "token = ?", token)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return GatewayConfigMap
+		return ConfigMap
 	}
-	var sub_devices []models.Device
-	sub_result := psql.Mydb.Find(&sub_devices, "parent_id = ?", device.ID)
-	if sub_result.Error != nil {
-		errors.Is(sub_result.Error, gorm.ErrRecordNotFound)
-	} else {
-
-		GatewayConfigMap["GatewayId"] = device.ID
-		GatewayConfigMap["ProtocolType"] = device.Protocol
-		GatewayConfigMap["AccessToken"] = token
-		var sub_device_list []map[string]interface{}
-		for _, sub_device := range sub_devices {
-			var m = make(map[string]interface{})
-			err := json.Unmarshal([]byte(sub_device.ProtocolConfig), &m)
-			if err != nil {
-				fmt.Println("Unmarshal failed:", err)
-			}
-			sub_device_list = append(sub_device_list, m)
+	ConfigMap["ProtocolType"] = device.Protocol
+	ConfigMap["AccessToken"] = token
+	ConfigMap["DeviceType"] = device.DeviceType
+	ConfigMap["Id"] = device.ID
+	if device.DeviceType == "1" { //直连设备
+		var m = make(map[string]interface{})
+		err := json.Unmarshal([]byte(device.ProtocolConfig), &m)
+		if err != nil {
+			fmt.Println("Unmarshal failed:", err)
 		}
-		GatewayConfigMap["SubDevice"] = sub_device_list
-		return GatewayConfigMap
+		ConfigMap["DeviceConfig"] = m
+	} else if device.DeviceType == "2" { //网关设备
+		var sub_devices []models.Device
+		sub_result := psql.Mydb.Find(&sub_devices, "parent_id = ?", device.ID)
+		if sub_result.Error != nil {
+			errors.Is(sub_result.Error, gorm.ErrRecordNotFound)
+		} else {
+			var sub_device_list []map[string]interface{}
+			for _, sub_device := range sub_devices {
+				var m = make(map[string]interface{})
+				err := json.Unmarshal([]byte(sub_device.ProtocolConfig), &m)
+				if err != nil {
+					fmt.Println("Unmarshal failed:", err)
+				}
+				// 子设备表单中返回子设备token和子设备id
+				m["AccessToken"] = sub_device.Token
+				m["DeviceId"] = sub_device.ID
+				m["SubDeviceAddr"] = sub_device.SubDeviceAddr
+				sub_device_list = append(sub_device_list, m)
+			}
+			ConfigMap["SubDevice"] = sub_device_list
+			return ConfigMap
+		}
 	}
-	return GatewayConfigMap
+	return ConfigMap
 }
 
 //修改所有子设备分组
