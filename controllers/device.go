@@ -305,7 +305,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 					logs.Error(json_err.Error())
 				} else {
 					var TpProtocolPluginService services.TpProtocolPluginService
-					pp := TpProtocolPluginService.GetByProtocolType(d.Protocol)
+					pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "2")
 					tphttp.UpdateDeviceConfig(reqdata, pp.HttpAddress)
 				}
 			}
@@ -401,7 +401,7 @@ func (this *DeviceController) Delete() {
 					logs.Error(json_err.Error())
 				} else {
 					var TpProtocolPluginService services.TpProtocolPluginService
-					pp := TpProtocolPluginService.GetByProtocolType(d.Protocol)
+					pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "2")
 					tphttp.DeleteDeviceConfig(reqdata, pp.HttpAddress)
 				}
 			}
@@ -746,7 +746,7 @@ func (DeviceController *DeviceController) GetProtocolForm() {
 	var d = make(map[string]interface{})
 	if ProtocolFormValidate.ProtocolType != "MQTT" && ProtocolFormValidate.ProtocolType != "mqtt" {
 		var TpProtocolPluginService services.TpProtocolPluginService
-		pp := TpProtocolPluginService.GetByProtocolType(ProtocolFormValidate.ProtocolType)
+		pp := TpProtocolPluginService.GetByProtocolType(ProtocolFormValidate.ProtocolType, ProtocolFormValidate.DeviceType)
 		rsp, rsp_err := tphttp.GetPluginFromConfig(pp.HttpAddress, ProtocolFormValidate.ProtocolType, ProtocolFormValidate.DeviceType)
 		if rsp_err != nil {
 			response.SuccessWithMessage(1000, rsp_err.Error(), (*context2.Context)(DeviceController.Ctx))

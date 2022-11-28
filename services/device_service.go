@@ -563,7 +563,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 		err = cm.Send(msg, device.Token)
 	} else if device.DeviceType == "3" && device.Protocol != "MQTT" { // 协议插件
 		var TpProtocolPluginService TpProtocolPluginService
-		pp := TpProtocolPluginService.GetByProtocolType(device.Protocol)
+		pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
 		var topic = pp.SubTopicPrefix + device.ID
 		msg, err = scriptDealB(device.ScriptId, msg, topic)
 		if err != nil {

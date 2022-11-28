@@ -78,12 +78,12 @@ func (TpProtocolPluginController *TpProtocolPluginController) Edit() {
 		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpProtocolPluginController.Ctx))
 	}
 	var TpProtocolPluginService services.TpProtocolPluginService
-	isSucess := TpProtocolPluginService.EditTpProtocolPlugin(TpProtocolPluginValidate)
-	if isSucess {
+	rsp_err := TpProtocolPluginService.EditTpProtocolPlugin(TpProtocolPluginValidate)
+	if rsp_err != nil {
 		d := TpProtocolPluginService.GetTpProtocolPluginDetail(TpProtocolPluginValidate.Id)
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpProtocolPluginController.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, "编辑失败", (*context2.Context)(TpProtocolPluginController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpProtocolPluginController.Ctx))
 	}
 }
 
@@ -107,22 +107,43 @@ func (TpProtocolPluginController *TpProtocolPluginController) Add() {
 		return
 	}
 	var TpProtocolPluginService services.TpProtocolPluginService
-	id := utils.GetUuid()
-	TpProtocolPlugin := models.TpProtocolPlugin{
-		Id:             id,
-		Name:           AddTpProtocolPluginValidate.Name,
-		AccessAddress:  AddTpProtocolPluginValidate.AccessAddress,
-		HttpAddress:    AddTpProtocolPluginValidate.HttpAddress,
-		SubTopicPrefix: AddTpProtocolPluginValidate.SubTopicPrefix,
-		ProtocolType:   AddTpProtocolPluginValidate.ProtocolType,
-		Description:    AddTpProtocolPluginValidate.Description,
-		CreatedAt:      time.Now().Unix(),
-	}
-	d, rsp_err := TpProtocolPluginService.AddTpProtocolPlugin(TpProtocolPlugin)
-	if rsp_err == nil {
-		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpProtocolPluginController.Ctx))
-	} else {
-		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpProtocolPluginController.Ctx))
+	p := TpProtocolPluginService.GetByProtocolType(AddTpProtocolPluginValidate.ProtocolType, AddTpProtocolPluginValidate.DeviceType)
+	//存在记录，更新
+	if p.Id != "" {
+		TpProtocolPlugin := valid.TpProtocolPluginValidate{
+			Name:           AddTpProtocolPluginValidate.Name,
+			AccessAddress:  AddTpProtocolPluginValidate.AccessAddress,
+			HttpAddress:    AddTpProtocolPluginValidate.HttpAddress,
+			SubTopicPrefix: AddTpProtocolPluginValidate.SubTopicPrefix,
+			ProtocolType:   AddTpProtocolPluginValidate.ProtocolType,
+			Description:    AddTpProtocolPluginValidate.Description,
+			DeviceType:     AddTpProtocolPluginValidate.DeviceType,
+		}
+		err := TpProtocolPluginService.EditTpProtocolPlugin(TpProtocolPlugin)
+		if err != nil {
+			utils.SuccessWithMessage(200, "update success", (*context2.Context)(TpProtocolPluginController.Ctx))
+		} else {
+			utils.SuccessWithMessage(400, err.Error(), (*context2.Context)(TpProtocolPluginController.Ctx))
+		}
+	} else { //不存在，新增
+		id := utils.GetUuid()
+		TpProtocolPlugin := models.TpProtocolPlugin{
+			Id:             id,
+			Name:           AddTpProtocolPluginValidate.Name,
+			AccessAddress:  AddTpProtocolPluginValidate.AccessAddress,
+			HttpAddress:    AddTpProtocolPluginValidate.HttpAddress,
+			SubTopicPrefix: AddTpProtocolPluginValidate.SubTopicPrefix,
+			ProtocolType:   AddTpProtocolPluginValidate.ProtocolType,
+			Description:    AddTpProtocolPluginValidate.Description,
+			DeviceType:     AddTpProtocolPluginValidate.DeviceType,
+			CreatedAt:      time.Now().Unix(),
+		}
+		d, rsp_err := TpProtocolPluginService.AddTpProtocolPlugin(TpProtocolPlugin)
+		if rsp_err == nil {
+			utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpProtocolPluginController.Ctx))
+		} else {
+			utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpProtocolPluginController.Ctx))
+		}
 	}
 }
 

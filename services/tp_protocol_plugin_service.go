@@ -25,9 +25,9 @@ func (*TpProtocolPluginService) GetTpProtocolPluginDetail(tp_protocol_plugin_id 
 	return tp_protocol_plugin
 }
 
-func (*TpProtocolPluginService) GetByProtocolType(protocol_type string) models.TpProtocolPlugin {
+func (*TpProtocolPluginService) GetByProtocolType(protocol_type string, device_type string) models.TpProtocolPlugin {
 	var tp_protocol_plugin models.TpProtocolPlugin
-	psql.Mydb.First(&tp_protocol_plugin, "protocol_type = ?", protocol_type)
+	psql.Mydb.First(&tp_protocol_plugin, "protocol_type = ? and device_type = ?", protocol_type, device_type)
 	return tp_protocol_plugin
 }
 
@@ -79,13 +79,13 @@ func (*TpProtocolPluginService) AddTpProtocolPlugin(tp_protocol_plugin models.Tp
 }
 
 // 修改数据
-func (*TpProtocolPluginService) EditTpProtocolPlugin(tp_protocol_plugin valid.TpProtocolPluginValidate) bool {
+func (*TpProtocolPluginService) EditTpProtocolPlugin(tp_protocol_plugin valid.TpProtocolPluginValidate) error {
 	result := psql.Mydb.Model(&models.TpProtocolPlugin{}).Where("id = ?", tp_protocol_plugin.Id).Updates(&tp_protocol_plugin)
 	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return false
+		logs.Error(result.Error.Error(), gorm.ErrRecordNotFound)
+		return result.Error
 	}
-	return true
+	return nil
 }
 
 // 删除数据
