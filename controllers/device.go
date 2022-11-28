@@ -744,16 +744,17 @@ func (DeviceController *DeviceController) GetProtocolForm() {
 		return
 	}
 	var d = make(map[string]interface{})
-	if ProtocolFormValidate.ProtocolType != "MQTT" && ProtocolFormValidate.ProtocolType != "mqtt" {
-		var TpProtocolPluginService services.TpProtocolPluginService
-		pp := TpProtocolPluginService.GetByProtocolType(ProtocolFormValidate.ProtocolType, ProtocolFormValidate.DeviceType)
+	var TpProtocolPluginService services.TpProtocolPluginService
+	// 查询插件注册
+	pp := TpProtocolPluginService.GetByProtocolType(ProtocolFormValidate.ProtocolType, ProtocolFormValidate.DeviceType)
+	if pp.Id != "" {
 		rsp, rsp_err := tphttp.GetPluginFromConfig(pp.HttpAddress, ProtocolFormValidate.ProtocolType, ProtocolFormValidate.DeviceType)
 		if rsp_err != nil {
-			response.SuccessWithMessage(1000, rsp_err.Error(), (*context2.Context)(DeviceController.Ctx))
+			response.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(DeviceController.Ctx))
 		}
-		err := json.Unmarshal(rsp, &d)
-		if err != nil {
-			response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(DeviceController.Ctx))
+		req_err := json.Unmarshal(rsp, &d)
+		if req_err != nil {
+			response.SuccessWithMessage(400, req_err.Error(), (*context2.Context)(DeviceController.Ctx))
 		}
 	}
 	response.SuccessWithDetailed(200, "success", d["data"], map[string]string{}, (*context2.Context)(DeviceController.Ctx))
