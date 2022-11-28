@@ -111,6 +111,7 @@ func (TpProtocolPluginController *TpProtocolPluginController) Add() {
 	//存在记录，更新
 	if p.Id != "" {
 		TpProtocolPlugin := valid.TpProtocolPluginValidate{
+			Id:             p.Id,
 			Name:           AddTpProtocolPluginValidate.Name,
 			AccessAddress:  AddTpProtocolPluginValidate.AccessAddress,
 			HttpAddress:    AddTpProtocolPluginValidate.HttpAddress,
@@ -120,7 +121,7 @@ func (TpProtocolPluginController *TpProtocolPluginController) Add() {
 			DeviceType:     AddTpProtocolPluginValidate.DeviceType,
 		}
 		err := TpProtocolPluginService.EditTpProtocolPlugin(TpProtocolPlugin)
-		if err != nil {
+		if err == nil {
 			utils.SuccessWithMessage(200, "update success", (*context2.Context)(TpProtocolPluginController.Ctx))
 		} else {
 			utils.SuccessWithMessage(400, err.Error(), (*context2.Context)(TpProtocolPluginController.Ctx))
