@@ -5,7 +5,7 @@ type Device struct {
 	AssetID        string `json:"asset_id,omitempty" gorm:"size:36"`              // 资产id
 	Token          string `json:"token,omitempty"`                                // 安全key
 	AdditionalInfo string `json:"additional_info,omitempty" gorm:"type:longtext"` // 存储基本配置
-	CustomerID     string `json:"customer_id" gorm:"size:36"`
+	CustomerID     string `json:"customer_id,omitempty" gorm:"size:36"`
 	Type           string `json:"type,omitempty"` // 插件类型
 	Name           string `json:"name,omitempty"` // 插件名
 	Label          string `json:"label,omitempty"`
@@ -23,7 +23,7 @@ type Device struct {
 	ParentId       string `json:"parent_id,omitempty" gorm:"size:36"`
 	ProtocolConfig string `json:"protocol_config,omitempty" gorm:"type:longtext"`
 	SubDeviceAddr  string `json:"sub_device_addr,omitempty" gorm:"size:36"`
-	ScriptId       string `json:"script_id" gorm:"size:36"`
+	ScriptId       string `json:"script_id,omitempty" gorm:"size:36"`
 	CreatedAt      int64  `json:"created_at,omitempty"`
 }
 

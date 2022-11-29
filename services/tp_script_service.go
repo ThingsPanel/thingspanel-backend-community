@@ -36,6 +36,9 @@ func (*TpScriptService) GetTpScriptList(PaginationValidate valid.TpScriptPaginat
 	if PaginationValidate.Id != "" {
 		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
 	}
+	if PaginationValidate.DeviceType != "" {
+		sqlWhere += " and device_type = '" + PaginationValidate.DeviceType + "'"
+	}
 	var count int64
 	psql.Mydb.Model(&models.TpScript{}).Where(sqlWhere).Count(&count)
 	result := psql.Mydb.Model(&models.TpScript{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpScripts)

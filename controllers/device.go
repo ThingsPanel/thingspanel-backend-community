@@ -821,3 +821,28 @@ func (DeviceController *DeviceController) AllDeviceList() {
 	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }
+func (DeviceController *DeviceController) GetDeviceDetailsByParentTokenAndSubDeviceAddr() {
+	TokenSubDeviceAddrValidate := valid.TokenSubDeviceAddrValidate{}
+	err := json.Unmarshal(DeviceController.Ctx.Input.RequestBody, &TokenSubDeviceAddrValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(TokenSubDeviceAddrValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(TokenSubDeviceAddrValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(DeviceController.Ctx))
+			break
+		}
+		return
+	}
+	var DeviceService services.DeviceService
+	d, err := DeviceService.GetDeviceDetailsByParentTokenAndSubDeviceAddr(TokenSubDeviceAddrValidate.AccessToken, TokenSubDeviceAddrValidate.SubDeviceAddr)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(DeviceController.Ctx))
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
+}

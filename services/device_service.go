@@ -383,6 +383,20 @@ func (*DeviceService) IsToken(token string) bool {
 	return int(count) > 0
 }
 
+// 根据网关token和子设备地址查询子设备信息
+func (*DeviceService) GetDeviceDetailsByParentTokenAndSubDeviceAddr(token string, sub_device_addr string) (models.Device, error) {
+	var device models.Device
+	result := psql.Mydb.Model(&device).
+		Select("d.id, d.token,d.sub_device_addr,d.protocol,d.device_type,d.protocol_config").
+		Joins("left join device d on d.parent_id = device.id").
+		Where("device.token = ? and d.sub_device_addr = ?", token, sub_device_addr).Scan(&device)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return device, result.Error
+	}
+	return device, nil
+}
+
 // 根据ID编辑Device
 func (*DeviceService) ScriptIdEdit(deviceModel valid.EditDevice) error {
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Update("script_id", "")

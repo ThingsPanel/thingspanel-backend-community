@@ -13,6 +13,7 @@ type TpScriptValidate struct {
 	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间"`
 	ScriptType     string `json:"script_type,omitempty" alias:"脚本类型" valid:"MaxSize(99)"`
 	Remark         string `json:"remark,omitempty" alias:"备注" valid:"MaxSize(255)"`
+	DeviceType     string `json:"device_type,omitempty" alias:"设备类型" valid:"MaxSize(36)"`
 }
 
 type AddTpScriptValidate struct {
@@ -25,12 +26,14 @@ type AddTpScriptValidate struct {
 	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间"`
 	ScriptType     string `json:"script_type,omitempty" alias:"脚本类型" valid:"MaxSize(99)"`
 	Remark         string `json:"remark,omitempty" alias:"备注" valid:"MaxSize(255)"`
+	DeviceType     string `json:"device_type,omitempty" alias:"设备类型" valid:"Required;MaxSize(36)"`
 }
 
 type TpScriptPaginationValidate struct {
 	CurrentPage  int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
 	PerPage      int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
 	ProtocolType string `json:"relation_id,omitempty" alias:"协议类型" valid:"MaxSize(99)"`
+	DeviceType   string `json:"device_type,omitempty" alias:"设备类型" valid:"MaxSize(36)"`
 	Id           string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
 }
 

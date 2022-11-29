@@ -298,6 +298,7 @@ func init() {
 		//插件模块接口
 		web.NSRouter("/plugin/device/config", &controllers.DeviceController{}, "*:GetGatewayConfig"),
 		web.NSRouter("/form/config", &controllers.DeviceController{}, "*:GetProtocolForm"),
+		web.NSRouter("/plugin/device/sub-device-detail", &controllers.DeviceController{}, "*:GetDeviceDetailsByParentTokenAndSubDeviceAddr"),
 
 		//脚本模块
 		web.NSRouter("/tp_script/add", &controllers.TpScriptController{}, "*:Add"),
@@ -324,6 +325,7 @@ func init() {
 		web.NSRouter("/tp_protocol_plugin/list", &controllers.TpProtocolPluginController{}, "*:List"),
 		web.NSRouter("/tp_protocol_plugin/edit", &controllers.TpProtocolPluginController{}, "*:Edit"),
 		web.NSRouter("/tp_protocol_plugin/delete", &controllers.TpProtocolPluginController{}, "*:Delete"),
+
 		//生成设备表
 		web.NSRouter("/tp_generate_device/activate", &controllers.TpGenerateDeviceController{}, "*:ActivateDevice"),
 	)

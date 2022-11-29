@@ -1203,3 +1203,5 @@ VALUES('8881ffe7-7c2b-43c2-13f3-7227dafa46ba', 'DRIECT_ATTACHED_PROTOCOL', 'vide
 ALTER TABLE public.device ADD created_at int8 NULL;
 
 
+ALTER TABLE public.tp_script ADD device_type varchar(36) NOT NULL DEFAULT 1;
+COMMENT ON COLUMN public.tp_script.device_type IS '设备类型';

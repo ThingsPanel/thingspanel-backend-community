@@ -119,6 +119,7 @@ func (TpScriptController *TpScriptController) Add() {
 		ScriptContentB: AddTpScriptValidate.ScriptContentB,
 		ScriptType:     AddTpScriptValidate.ScriptType,
 		Remark:         AddTpScriptValidate.Remark,
+		DeviceType:     AddTpScriptValidate.DeviceType,
 	}
 	d, rsp_err := TpScriptService.AddTpScript(TpScript)
 	if rsp_err == nil {
