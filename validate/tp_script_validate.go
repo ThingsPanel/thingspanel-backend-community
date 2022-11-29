@@ -32,7 +32,7 @@ type AddTpScriptValidate struct {
 type TpScriptPaginationValidate struct {
 	CurrentPage  int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
 	PerPage      int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	ProtocolType string `json:"relation_id,omitempty" alias:"协议类型" valid:"MaxSize(99)"`
+	ProtocolType string `json:"protocol_type,omitempty" alias:"协议类型" valid:"MaxSize(99)"`
 	DeviceType   string `json:"device_type,omitempty" alias:"设备类型" valid:"MaxSize(36)"`
 	Id           string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
 }
