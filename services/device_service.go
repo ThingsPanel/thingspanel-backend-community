@@ -590,7 +590,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 			logs.Info("直连协议设备下行脚本处理后：", string(msg))
 			//获取协议插件订阅topic
 			var TpProtocolPluginService TpProtocolPluginService
-			pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
+			pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "1")
 			var topic = pp.SubTopicPrefix + device.Token
 			err = cm.SendPlugin(msg, topic)
 		}
