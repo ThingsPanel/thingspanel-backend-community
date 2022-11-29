@@ -564,10 +564,14 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 		} else { // 协议设备
 			logs.Info("直连协议设备下行脚本处理后：", string(msg))
 			//获取协议插件订阅topic
-			var TpProtocolPluginService TpProtocolPluginService
-			pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
-			var topic = pp.SubTopicPrefix + device.Token
-			err = cm.SendPlugin(msg, topic)
+			var gatewayDevice *models.Device
+			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
+			if result.Error == nil {
+				var TpProtocolPluginService TpProtocolPluginService
+				pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
+				var topic = pp.SubTopicPrefix + gatewayDevice.Token
+				err = cm.SendPlugin(msg, topic)
+			}
 		}
 
 	} else if device.DeviceType == "3" && device.Protocol != "MQTT" { // 协议插件子设备
@@ -588,7 +592,8 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				//获取协议插件订阅topic
 				var TpProtocolPluginService TpProtocolPluginService
 				pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
-				var topic = pp.SubTopicPrefix + device.Token
+				// 前缀+网关设备token
+				var topic = pp.SubTopicPrefix + gatewayDevice.Token
 				//包装子设备地址
 				var msgMapValues = make(map[string]interface{})
 				json.Unmarshal(msg, &msgMapValues)
@@ -601,7 +606,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 					return err
 				}
 				logs.Info("网关设备下行脚本处理后：", string(msg))
-				err = cm.SendPlugin(msgBytes, gatewayDevice.Token)
+				err = cm.SendPlugin(msgBytes, topic)
 			}
 		}
 

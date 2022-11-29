@@ -171,16 +171,6 @@ func (reqDate *DeviceController) AddOnly() {
 		}
 		return
 	}
-	//var uuid = uuid.GetUuid()
-	//var AssetService services.AssetService
-	// var ResWidgetData []services.Widget
-	// if addDeviceValidate.Type != "" {
-	// 	dd := AssetService.Widget(addDeviceValidate.Type)
-	// 	if len(dd) > 0 {
-	// 		ResWidgetData = append(ResWidgetData, dd...)
-	// 	}
-	// }
-
 	var DeviceService services.DeviceService
 	if addDeviceValidate.Token == "" {
 		var uuid_d = uuid.GetUuid()
@@ -220,6 +210,34 @@ func (reqDate *DeviceController) AddOnly() {
 	//result := psql.Mydb.Create(&deviceData)
 	if result {
 		deviceData.ID = uuid
+		// 判断是否是协议插件的网关子设备
+		if deviceData.DeviceType == "3" && deviceData.Protocol != "MQTT" {
+			// 通知插件子设备配置已修改
+			var reqmap = make(map[string]interface{})
+			reqmap["DeviceType"] = deviceData.DeviceType
+			reqmap["ParentId"] = deviceData.ParentId
+			reqmap["DeviceId"] = deviceData.ID
+			var protocol_config_map = make(map[string]interface{})
+			j_err := json.Unmarshal([]byte(deviceData.ProtocolConfig), &protocol_config_map)
+			if j_err != nil {
+				logs.Error(j_err.Error())
+			} else {
+				protocol_config_map["AccessToken"] = deviceData.Token
+				protocol_config_map["SubDeviceAddr"] = deviceData.SubDeviceAddr
+				reqmap["DeviceConfig"] = protocol_config_map
+				reqdata, json_err := json.Marshal(reqmap)
+				if json_err != nil {
+					logs.Error(json_err.Error())
+				} else {
+					var TpProtocolPluginService services.TpProtocolPluginService
+					pp := TpProtocolPluginService.GetByProtocolType(deviceData.Protocol, "2")
+					tphttp.AddDeviceConfig(reqdata, pp.HttpAddress)
+
+				}
+			}
+
+		}
+
 		response.SuccessWithDetailed(200, "success", deviceData, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -228,7 +246,6 @@ func (reqDate *DeviceController) AddOnly() {
 }
 
 func (reqDate *DeviceController) UpdateOnly() {
-	logs.Info("---------------------设备修改")
 	addDeviceValidate := valid.EditDevice{}
 	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &addDeviceValidate)
 	if err != nil {
@@ -246,7 +263,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 		return
 	}
 	var DeviceService services.DeviceService
-	// 零值脚本id修改
+	// 判断前端送来的参数是否有script_id==""
 	var reqMap = make(map[string]interface{})
 	errs := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &reqMap)
 	if errs != nil {
@@ -261,12 +278,11 @@ func (reqDate *DeviceController) UpdateOnly() {
 			}
 		}
 	}
+	// 如果更换了插件需要删除设备属性当前值（未实现）
 
-	// 如果更换了插件需要删除当前值
-
+	//更换token要校验重复
 	d, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
 	if d != nil {
-		//更换token要校验重复
 		if addDeviceValidate.Token != "" && d.Token != addDeviceValidate.Token {
 			if DeviceService.IsToken(addDeviceValidate.Token) {
 				response.SuccessWithMessage(1000, "与其他设备的token重复", (*context2.Context)(reqDate.Ctx))
@@ -274,6 +290,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 			}
 		}
 	}
+	// 是否密码有更新（根据密码的有无判断认证方式，需要改进）
 	if value, ok := reqMap["password"]; ok {
 		//密码为空，表中密码制空，mqtt密码制空
 		if value == "" {
@@ -284,34 +301,9 @@ func (reqDate *DeviceController) UpdateOnly() {
 			}
 		}
 	}
-	// 判断是否子设备配置修改
-	if d.DeviceType == "3" {
-		if addDeviceValidate.ProtocolConfig != "" && addDeviceValidate.ProtocolConfig != d.ProtocolConfig {
-			// 通知插件子设备配置已修改
-			var reqmap = make(map[string]interface{})
-			reqmap["DeviceType"] = addDeviceValidate.DeviceType
-			reqmap["ParentId"] = addDeviceValidate.ParentId
-			reqmap["DeviceId"] = addDeviceValidate.ID
-			var protocol_config_map = make(map[string]interface{})
-			j_err := json.Unmarshal([]byte(addDeviceValidate.ProtocolConfig), &protocol_config_map)
-			if j_err != nil {
-				logs.Error(j_err.Error())
-			} else {
-				protocol_config_map["AccessToken"] = addDeviceValidate.Token
-				protocol_config_map["SubDeviceAddr"] = addDeviceValidate.Token
-				reqmap["DeviceConfig"] = protocol_config_map
-				reqdata, json_err := json.Marshal(reqmap)
-				if json_err != nil {
-					logs.Error(json_err.Error())
-				} else {
-					var TpProtocolPluginService services.TpProtocolPluginService
-					pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "2")
-					tphttp.UpdateDeviceConfig(reqdata, pp.HttpAddress)
-				}
-			}
 
-		}
-	} else if d.DeviceType == "2" { // 判断是否修改了网关设备的分组
+	// 判断是否修改了网关设备的分组
+	if d.DeviceType == "2" {
 		if addDeviceValidate.AssetID != "" && d.AssetID != "" && addDeviceValidate.AssetID != d.AssetID {
 			logs.Info("需要修改所有子设备分组")
 			DeviceService.EditSubDeviceAsset(addDeviceValidate.ID, addDeviceValidate.AssetID)
@@ -321,6 +313,45 @@ func (reqDate *DeviceController) UpdateOnly() {
 	result := DeviceService.Edit(addDeviceValidate)
 	if result == nil {
 		deviceDash, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
+		// 判断议插件修改
+		if d.Protocol != "mqtt" && d.Protocol != "MQTT" {
+			// 判断是否设备表单、子设备地址、直连设备token修改;通知协议插件
+			if d.DeviceType == "3" || d.DeviceType == "1" {
+				if (addDeviceValidate.ProtocolConfig != "" && addDeviceValidate.ProtocolConfig != d.ProtocolConfig) ||
+					(addDeviceValidate.SubDeviceAddr != "" && d.SubDeviceAddr != addDeviceValidate.SubDeviceAddr) ||
+					(d.DeviceType == "1" && addDeviceValidate.Token != "" && d.Token != addDeviceValidate.Token) {
+					dd, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
+					// 通知插件子设备配置已修改
+					var reqmap = make(map[string]interface{})
+					reqmap["DeviceType"] = dd.DeviceType
+					reqmap["ParentId"] = dd.ParentId
+					reqmap["DeviceId"] = dd.ID
+					var protocol_config_map = make(map[string]interface{})
+					j_err := json.Unmarshal([]byte(dd.ProtocolConfig), &protocol_config_map)
+					if j_err != nil {
+						logs.Error(j_err.Error())
+					} else {
+						protocol_config_map["AccessToken"] = dd.Token
+						protocol_config_map["SubDeviceAddr"] = dd.SubDeviceAddr
+						reqmap["DeviceConfig"] = protocol_config_map
+						reqdata, json_err := json.Marshal(reqmap)
+						if json_err != nil {
+							logs.Error(json_err.Error())
+						} else {
+							if d.DeviceType == "1" {
+								var TpProtocolPluginService services.TpProtocolPluginService
+								pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "1")
+								tphttp.UpdateDeviceConfig(reqdata, pp.HttpAddress)
+							} else if d.DeviceType == "3" {
+								var TpProtocolPluginService services.TpProtocolPluginService
+								pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "2")
+								tphttp.UpdateDeviceConfig(reqdata, pp.HttpAddress)
+							}
+						}
+					}
+				}
+			}
+		}
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		response.SuccessWithMessage(400, result.Error(), (*context2.Context)(reqDate.Ctx))
@@ -382,9 +413,10 @@ func (this *DeviceController) Delete() {
 	}
 	var DeviceService services.DeviceService
 	d, _ := DeviceService.GetDeviceByID(deleteDeviceValidate.ID)
-	// 判断是否子设备配置修改
-	if d.DeviceType == "3" {
-		if d.ProtocolConfig != "{}" { //存在表单配置
+	f := DeviceService.Delete(deleteDeviceValidate.ID)
+	if f {
+		// 判断是否协议插件设备删除
+		if d.Protocol != "mqtt" && d.Protocol != "MQTT" {
 			// 通知插件子设备配置已修改
 			var reqmap = make(map[string]interface{})
 			reqmap["DeviceType"] = d.DeviceType
@@ -401,21 +433,20 @@ func (this *DeviceController) Delete() {
 					logs.Error(json_err.Error())
 				} else {
 					var TpProtocolPluginService services.TpProtocolPluginService
-					pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "2")
-					tphttp.DeleteDeviceConfig(reqdata, pp.HttpAddress)
+					if d.DeviceType == "1" {
+						pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "1")
+						tphttp.DeleteDeviceConfig(reqdata, pp.HttpAddress)
+					} else {
+						pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "2")
+						tphttp.DeleteDeviceConfig(reqdata, pp.HttpAddress)
+					}
 				}
 			}
-
 		}
-	}
-
-	f := DeviceService.Delete(deleteDeviceValidate.ID)
-	if f {
 		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
 		return
 	}
 	response.SuccessWithMessage(400, "删除失败", (*context2.Context)(this.Ctx))
-	return
 }
 
 // 获取配置参数

@@ -8,23 +8,28 @@ type TokenDevice struct {
 // EditDevice 校验
 type EditDevice struct {
 	ID             string `json:"id" alias:"ID" valid:"Required;MaxSize(36)"`
-	Token          string `json:"token"`
-	Protocol       string `json:"protocol"`
-	Port           string `json:"port"`
-	Publish        string `json:"publish"`
-	Subscribe      string `json:"subscribe"`
-	Username       string `json:"username"`
-	Password       string `json:"password"`
-	AssetID        string `json:"asset_id"`
-	Type           string `json:"type"`
-	Name           string `json:"name"`
+	AssetID        string `json:"asset_id" gorm:"size:36"`              // 资产id
+	Token          string `json:"token"`                                // 安全key
+	AdditionalInfo string `json:"additional_info" gorm:"type:longtext"` // 存储基本配置
+	CustomerID     string `json:"customer_id" gorm:"size:36"`
+	Type           string `json:"type"` // 插件类型
+	Name           string `json:"name"` // 插件名
+	Label          string `json:"label"`
+	SearchText     string `json:"search_text"`
 	ChartOption    string `json:"chart_option"`
+	Protocol       string `json:"protocol" gorm:"size:50"`
+	Port           string `json:"port" gorm:"size:50"`
+	Publish        string `json:"publish" gorm:"size:255"`
+	Subscribe      string `json:"subscribe" gorm:"size:255"`
+	Username       string `json:"username" gorm:"size:255"`
+	Password       string `json:"password" gorm:"size:255"`
+	DId            string `json:"d_id" gorm:"size:255"`
+	Location       string `json:"location" gorm:"size:255"`
 	DeviceType     string `json:"device_type" gorm:"size:2"`
 	ParentId       string `json:"parent_id" gorm:"size:36"`
 	ProtocolConfig string `json:"protocol_config"`
 	SubDeviceAddr  string `json:"sub_device_addr,omitempty" alias:"子设备地址" valid:"MaxSize(36)"`
 	ScriptId       string `json:"script_id" gorm:"size:36"`
-	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间" `
 }
 
 // AddDevice 校验
