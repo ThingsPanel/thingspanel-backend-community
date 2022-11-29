@@ -409,28 +409,6 @@ func (*DeviceService) PasswordEdit(deviceModel valid.EditDevice, token string) e
 func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 	var device models.Device
 	psql.Mydb.Where("id = ?", deviceModel.ID).First(&device)
-	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Updates(models.Device{
-		Token:          deviceModel.Token,
-		Protocol:       deviceModel.Protocol,
-		Port:           deviceModel.Port,
-		Publish:        deviceModel.Publish,
-		Subscribe:      deviceModel.Subscribe,
-		Username:       deviceModel.Username,
-		Password:       deviceModel.Password,
-		AssetID:        deviceModel.AssetID,
-		Type:           deviceModel.Type,
-		Name:           deviceModel.Name,
-		DeviceType:     deviceModel.DeviceType,
-		ParentId:       deviceModel.ParentId,
-		ProtocolConfig: deviceModel.ProtocolConfig,
-		SubDeviceAddr:  deviceModel.SubDeviceAddr,
-		ScriptId:       deviceModel.ScriptId,
-		ChartOption:    deviceModel.ChartOption,
-	})
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return result.Error
-	}
 	if deviceModel.DeviceType == "3" { //子设备
 		if deviceModel.SubDeviceAddr != "" {
 			var chack_device models.Device
@@ -464,8 +442,37 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		} else {
 			password = device.Password
 		}
-		tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+deviceModel.Token, "{\"password\":\""+password+"\"}")
+		_, err := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+deviceModel.Token, "{\"password\":\""+password+"\"}")
+		if err != nil {
+			return err
+		}
+
 	}
+	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Updates(models.Device{
+		Token:          deviceModel.Token,
+		Protocol:       deviceModel.Protocol,
+		Port:           deviceModel.Port,
+		Publish:        deviceModel.Publish,
+		Subscribe:      deviceModel.Subscribe,
+		Username:       deviceModel.Username,
+		Password:       deviceModel.Password,
+		AssetID:        deviceModel.AssetID,
+		Type:           deviceModel.Type,
+		Name:           deviceModel.Name,
+		DeviceType:     deviceModel.DeviceType,
+		ParentId:       deviceModel.ParentId,
+		ProtocolConfig: deviceModel.ProtocolConfig,
+		SubDeviceAddr:  deviceModel.SubDeviceAddr,
+		ScriptId:       deviceModel.ScriptId,
+		ChartOption:    deviceModel.ChartOption,
+		Location:       deviceModel.Location,
+		AdditionalInfo: deviceModel.AdditionalInfo,
+	})
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return result.Error
+	}
+
 	return nil
 }
 
