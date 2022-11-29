@@ -558,19 +558,54 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 		if err != nil {
 			return err
 		}
-		// 直连脚本
-		logs.Info("直连设备下行脚本处理后：", string(msg))
-		err = cm.Send(msg, device.Token)
-	} else if device.DeviceType == "3" && device.Protocol != "MQTT" { // 协议插件
-		var TpProtocolPluginService TpProtocolPluginService
-		pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
-		var topic = pp.SubTopicPrefix + device.ID
-		msg, err = scriptDealB(device.ScriptId, msg, topic)
-		if err != nil {
-			return err
+		if device.Protocol == "mqtt" {
+			logs.Info("直连设备下行脚本处理后：", string(msg))
+			err = cm.Send(msg, device.Token)
+		} else { // 协议设备
+			logs.Info("直连协议设备下行脚本处理后：", string(msg))
+			//获取协议插件订阅topic
+			var TpProtocolPluginService TpProtocolPluginService
+			pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
+			var topic = pp.SubTopicPrefix + device.Token
+			err = cm.SendPlugin(msg, topic)
 		}
-		err = cm.SendPlugin(msg, topic)
-	} else if device.DeviceType == "3" { // mqtt网关子设备
+
+	} else if device.DeviceType == "3" && device.Protocol != "MQTT" { // 协议插件子设备
+		//暂时对modbus插件做单独处理
+		if device.Protocol == "MODBUS_RTU" || device.Protocol == "MODBUS_TCP" { //modbus
+			var TpProtocolPluginService TpProtocolPluginService
+			pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
+			var topic = pp.SubTopicPrefix + device.ID
+			msg, err = scriptDealB(device.ScriptId, msg, topic)
+			if err != nil {
+				return err
+			}
+			err = cm.SendPlugin(msg, topic)
+		} else { //其他协议插件
+			var gatewayDevice *models.Device
+			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
+			if result.Error == nil {
+				//获取协议插件订阅topic
+				var TpProtocolPluginService TpProtocolPluginService
+				pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
+				var topic = pp.SubTopicPrefix + device.Token
+				//包装子设备地址
+				var msgMapValues = make(map[string]interface{})
+				json.Unmarshal(msg, &msgMapValues)
+				var subMap = make(map[string]interface{})
+				subMap[device.SubDeviceAddr] = msgMapValues
+				msgBytes, _ := json.Marshal(subMap)
+				// 通过脚本
+				msg, err = scriptDealB(device.ScriptId, msgBytes, topic)
+				if err != nil {
+					return err
+				}
+				logs.Info("网关设备下行脚本处理后：", string(msg))
+				err = cm.SendPlugin(msgBytes, gatewayDevice.Token)
+			}
+		}
+
+	} else if device.Protocol != "MQTT" { // mqtt网关子设备
 		if device.ParentId != "" && device.SubDeviceAddr != "" {
 			var gatewayDevice *models.Device
 			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在

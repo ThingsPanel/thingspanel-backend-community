@@ -43,6 +43,9 @@ func (*TpProtocolPluginService) GetTpProtocolPluginList(PaginationValidate valid
 	if PaginationValidate.Id != "" {
 		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
 	}
+	if PaginationValidate.DeviceType != "" {
+		sqlWhere += " and device_type = '" + PaginationValidate.DeviceType + "'"
+	}
 	var count int64
 	psql.Mydb.Model(&models.TpProtocolPlugin{}).Where(sqlWhere).Count(&count)
 	result := psql.Mydb.Model(&models.TpProtocolPlugin{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpProtocolPlugins)
