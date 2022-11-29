@@ -110,8 +110,10 @@ http://dev.thingspanel.cn
 http://thingspanel.io
 
 ## 参与讨论和贡献
-
-qq群：260150504
+```
+qq群①：260150504（已满）
+qq群②：371794256
+```
 
 欢迎有兴趣者加入沟通和讨论
 
