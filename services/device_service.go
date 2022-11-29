@@ -407,8 +407,10 @@ func (*DeviceService) PasswordEdit(deviceModel valid.EditDevice, token string) e
 
 // 根据ID编辑Device的Token
 func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
+	logs.Info("进入设备更新")
 	var device models.Device
 	psql.Mydb.Where("id = ?", deviceModel.ID).First(&device)
+	logs.Info("判断子设备地址")
 	if deviceModel.DeviceType == "3" { //子设备
 		if deviceModel.SubDeviceAddr != "" {
 			var chack_device models.Device
@@ -422,11 +424,12 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 	}
 	// 	add: http://127.0.0.1:8083/v1/accounts/
 	//  delete: http://127.0.0.1:8083/v1/accounts/
-	MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
-	if MqttHttpHost == "" {
-		MqttHttpHost = viper.GetString("api.http_host")
-	}
+
 	if deviceModel.Token != "" {
+		MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
+		if MqttHttpHost == "" {
+			MqttHttpHost = viper.GetString("api.http_host")
+		}
 		logs.Info("token不为空")
 		// 原token不为空的时候，删除原token
 		if device.Token != "" {
@@ -448,6 +451,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		}
 
 	}
+	logs.Info("修改sql")
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Updates(models.Device{
 		Token:          deviceModel.Token,
 		Protocol:       deviceModel.Protocol,

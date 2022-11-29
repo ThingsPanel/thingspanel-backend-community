@@ -264,6 +264,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 	}
 	var DeviceService services.DeviceService
 	// 判断前端送来的参数是否有script_id==""
+	logs.Info("判断script_id")
 	var reqMap = make(map[string]interface{})
 	errs := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &reqMap)
 	if errs != nil {
@@ -281,6 +282,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 	// 如果更换了插件需要删除设备属性当前值（未实现）
 
 	//更换token要校验重复
+	logs.Info("检验token")
 	d, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
 	if d != nil {
 		if addDeviceValidate.Token != "" && d.Token != addDeviceValidate.Token {
@@ -291,6 +293,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 		}
 	}
 	// 是否密码有更新（根据密码的有无判断认证方式，需要改进）
+	logs.Info("判断密码")
 	if value, ok := reqMap["password"]; ok {
 		//密码为空，表中密码制空，mqtt密码制空
 		if value == "" {
@@ -301,7 +304,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 			}
 		}
 	}
-
+	logs.Info("判断是否修改分组")
 	// 判断是否修改了网关设备的分组
 	if d.DeviceType == "2" {
 		if addDeviceValidate.AssetID != "" && d.AssetID != "" && addDeviceValidate.AssetID != d.AssetID {
@@ -309,7 +312,6 @@ func (reqDate *DeviceController) UpdateOnly() {
 			DeviceService.EditSubDeviceAsset(addDeviceValidate.ID, addDeviceValidate.AssetID)
 		}
 	}
-
 	result := DeviceService.Edit(addDeviceValidate)
 	if result == nil {
 		deviceDash, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
