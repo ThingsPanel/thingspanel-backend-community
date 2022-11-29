@@ -102,8 +102,14 @@ func (*TpProtocolPluginService) DeleteTpProtocolPlugin(tp_protocol_plugin models
 		return result.Error
 	}
 	var TpDictService TpDictService
+	var dict_code = ""
+	if tp_protocol_plugin.DeviceType == "1" {
+		dict_code = "DRIECT_ATTACHED_PROTOCOL"
+	} else if tp_protocol_plugin.DeviceType == "2" {
+		dict_code = "GATEWAY_PROTOCOL"
+	}
 	var TpDict = models.TpDict{
-		DictCode:  "GATEWAY_PROTOCOL",
+		DictCode:  dict_code,
 		DictValue: TpProtocolPlugin[0].ProtocolType,
 	}
 	TpDictService.DeleteRowTpDict(TpDict)
