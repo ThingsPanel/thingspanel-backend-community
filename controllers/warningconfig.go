@@ -36,6 +36,12 @@ type Warningconfigindex struct {
 	CustomerID   string                   `json:"customer_id"`
 	OtherMessage string                   `json:"other_message"`
 }
+type WarningconfigRsp struct {
+	Page  int                  `json:"page"`
+	Limit int                  `json:"limt"`
+	Data  []Warningconfigindex `json:"data"`
+	Total int64                `json:"total"`
+}
 
 // 警告列表
 func (this *WarningconfigController) Index() {
@@ -89,7 +95,13 @@ func (this *WarningconfigController) Index() {
 	if len(rd) == 0 {
 		rd = []Warningconfigindex{}
 	}
-	response.SuccessWithDetailed(200, "success", rd, map[string]string{}, (*context2.Context)(this.Ctx))
+	dd := WarningconfigRsp{
+		Page:  warningConfigIndexValidate.Page,
+		Limit: warningConfigIndexValidate.Limit,
+		Total: c,
+		Data:  rd,
+	}
+	response.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
 

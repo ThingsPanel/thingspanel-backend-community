@@ -4,7 +4,7 @@ package valid
 type WarningConfigIndex struct {
 	Wid   string `json:"wid" alias:"业务" valid:"Required;MaxSize(255)"`
 	Page  int    `json:"page" alias:"页码" valid:"Required;Min(1)"`
-	Limit int    `json:"limit" alias:"条数" valid:"Required;Min(10)"`
+	Limit int    `json:"limit" alias:"条数" valid:"Required;Min(1)"`
 }
 
 // WarningConfigAdd 校验
