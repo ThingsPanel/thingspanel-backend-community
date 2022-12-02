@@ -38,7 +38,7 @@ type Warningconfigindex struct {
 }
 type WarningconfigRsp struct {
 	Page  int                  `json:"page"`
-	Limit int                  `json:"limt"`
+	Limit int                  `json:"limit"`
 	Data  []Warningconfigindex `json:"data"`
 	Total int64                `json:"total"`
 }
