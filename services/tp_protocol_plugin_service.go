@@ -101,6 +101,7 @@ func (*TpProtocolPluginService) DeleteTpProtocolPlugin(tp_protocol_plugin models
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return result.Error
 	}
+	//删除字典中的协议插件
 	var TpDictService TpDictService
 	var dict_code = ""
 	if tp_protocol_plugin.DeviceType == "1" {
@@ -112,6 +113,11 @@ func (*TpProtocolPluginService) DeleteTpProtocolPlugin(tp_protocol_plugin models
 		DictCode:  dict_code,
 		DictValue: TpProtocolPlugin[0].ProtocolType,
 	}
-	TpDictService.DeleteRowTpDict(TpDict)
+	err := TpDictService.DeleteRowTpDict(TpDict)
+	if err != nil {
+		logs.Error(err.Error())
+	} else {
+		logs.Info("协议插件对于的字典数据删除成功")
+	}
 	return nil
 }
