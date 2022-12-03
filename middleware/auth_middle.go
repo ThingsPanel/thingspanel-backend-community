@@ -57,13 +57,15 @@ func AuthMiddle() {
 	adapter.InsertFilter("/api/*", adapter.BeforeRouter, filterLogin)
 }
 
+// 不需要授权的url返回true
 func isAuthExceptUrl(url string, m map[string]interface{}) bool {
 	urlArr := strings.Split(url, "/")
+	// url大于4个长度只判断前四个是否在不需授权map中
 	if len(urlArr) > 4 {
 		url = fmt.Sprintf("%s/%s/%s/%s", urlArr[0], urlArr[1], urlArr[2], urlArr[3])
 	}
-	_, ok := m[url]
-	if ok {
+
+	if _, ok := m[url]; ok {
 		return true
 	}
 	return false
