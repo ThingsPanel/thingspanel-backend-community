@@ -15,7 +15,7 @@ import (
 
 // AuthMiddle 中间件
 func AuthMiddle() {
-	//不需要验证的url
+	// 不需要验证的url
 	noLogin := map[string]interface{}{
 		"api/plugin/device/sub-device-detail": 0,
 		"api/plugin/register":                 0,
