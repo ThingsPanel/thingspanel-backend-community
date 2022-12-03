@@ -41,7 +41,7 @@ func (*WarningConfigService) GetWarningConfigById(id string) (*models.WarningCon
 func (*WarningConfigService) Paginate(wid string, offset int, pageSize int) ([]models.WarningConfig, int64) {
 	var warningConfigs []models.WarningConfig
 	var count int64
-	result := psql.Mydb.Model(&models.WarningConfig{}).Where("wid = ?", wid).Limit(pageSize).Offset(offset * (pageSize - 1)).Find(&warningConfigs)
+	result := psql.Mydb.Model(&models.WarningConfig{}).Where("wid = ?", wid).Limit(pageSize).Offset(pageSize * (offset - 1)).Find(&warningConfigs)
 	psql.Mydb.Model(&models.WarningConfig{}).Where("wid = ?", wid).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
