@@ -338,13 +338,23 @@ func (*DeviceService) GetDeviceByID(id string) (*models.Device, int64) {
 }
 
 // Delete 根据ID删除Device
-func (*DeviceService) Delete(id string) bool {
+func (*DeviceService) Delete(id string) error {
 	var device models.Device
-	psql.Mydb.Where("id = ?", id).First(&device)
-	result := psql.Mydb.Where("id = ?", id).Delete(&models.Device{})
+	result := psql.Mydb.Where("id = ?", id).First(&device)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false
+		return result.Error
+	}
+	result = psql.Mydb.Where("id = ?", id).Delete(&models.Device{})
+	if result.Error != nil {
+		return result.Error
+	}
+	// 如果网关下有子设备，必须先删除子设备
+	if device.DeviceType == "2" {
+		var count int64
+		psql.Mydb.Where("parent_id = ?", device.ID).Count(&count)
+		if count > int64(0) {
+			return errors.New("请先删除网关设备下的子设备")
+		}
 	}
 	if device.Token != "" {
 		redis.DelKey("token" + device.Token)
@@ -354,7 +364,7 @@ func (*DeviceService) Delete(id string) bool {
 		}
 		tphttp.Delete("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{}")
 	}
-	return true
+	return nil
 }
 
 // 获取全部Device

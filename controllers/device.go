@@ -415,8 +415,8 @@ func (this *DeviceController) Delete() {
 	}
 	var DeviceService services.DeviceService
 	d, _ := DeviceService.GetDeviceByID(deleteDeviceValidate.ID)
-	f := DeviceService.Delete(deleteDeviceValidate.ID)
-	if f {
+	err = DeviceService.Delete(deleteDeviceValidate.ID)
+	if err == nil {
 		// 判断是否协议插件设备删除
 		if d.Protocol != "mqtt" && d.Protocol != "MQTT" {
 			// 通知插件子设备配置已修改
@@ -447,8 +447,10 @@ func (this *DeviceController) Delete() {
 		}
 		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
 		return
+	} else {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(this.Ctx))
 	}
-	response.SuccessWithMessage(400, "删除失败", (*context2.Context)(this.Ctx))
+
 }
 
 // 获取配置参数

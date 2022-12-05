@@ -252,7 +252,7 @@ func (this *AssetController) Delete() {
 		var FieldMappingService services.FieldMappingService
 		f1 := DeviceService.Delete(deleteAssetValidate.ID)
 		f2 := FieldMappingService.DeleteByDeviceId(deleteAssetValidate.ID)
-		if f1 && f2 {
+		if f1 == nil && f2 {
 			response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
 			return
 		}
