@@ -104,9 +104,9 @@ func (*TpProtocolPluginService) DeleteTpProtocolPlugin(tp_protocol_plugin models
 	//删除字典中的协议插件
 	var TpDictService TpDictService
 	var dict_code = ""
-	if tp_protocol_plugin.DeviceType == "1" {
+	if TpProtocolPlugin[0].DeviceType == "1" {
 		dict_code = "DRIECT_ATTACHED_PROTOCOL"
-	} else if tp_protocol_plugin.DeviceType == "2" {
+	} else if TpProtocolPlugin[0].DeviceType == "2" {
 		dict_code = "GATEWAY_PROTOCOL"
 	}
 	var TpDict = models.TpDict{
@@ -117,7 +117,7 @@ func (*TpProtocolPluginService) DeleteTpProtocolPlugin(tp_protocol_plugin models
 	if err != nil {
 		logs.Error(err.Error())
 	} else {
-		logs.Info("协议插件对于的字典数据删除成功")
+		logs.Info("协议插件对应的字典数据删除成功")
 	}
 	return nil
 }
