@@ -344,17 +344,17 @@ func (*DeviceService) Delete(id string) error {
 	if result.Error != nil {
 		return result.Error
 	}
-	result = psql.Mydb.Where("id = ?", id).Delete(&models.Device{})
-	if result.Error != nil {
-		return result.Error
-	}
 	// 如果网关下有子设备，必须先删除子设备
 	if device.DeviceType == "2" {
 		var count int64
-		psql.Mydb.Where("parent_id = ?", device.ID).Count(&count)
+		psql.Mydb.Raw("select count(1) from device where parent_id = ?", device.ID).Count(&count)
 		if count > int64(0) {
 			return errors.New("请先删除网关设备下的子设备")
 		}
+	}
+	result = psql.Mydb.Where("id = ?", id).Delete(&models.Device{})
+	if result.Error != nil {
+		return result.Error
 	}
 	if device.Token != "" {
 		redis.DelKey("token" + device.Token)
