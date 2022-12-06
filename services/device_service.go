@@ -816,3 +816,57 @@ func (*DeviceService) EditSubDeviceAsset(gateway_id string, asset_id string) err
 	result := psql.Mydb.Raw("UPDATE device SET asset_id = ? WHERE parent_id = ? ", asset_id, gateway_id).Scan(&sub_devices)
 	return result.Error
 }
+
+// 业务、分组、设备级联查询
+func (*DeviceService) GetDeviceByCascade() ([]map[string]interface{}, error) {
+	business_sql := `select b.id as business_id,b.name as business_name from business b order by created_at desc`
+	group_sql := `select a.id as group_id,
+		(with recursive ast as 
+				( 
+					(select
+						aa.id,
+						cast(CONCAT('/', aa.name) as varchar(255))as name,
+						aa.parent_id
+					from asset aa where id = a.id)
+					union  
+					(select
+						tt.id,
+						cast (CONCAT('/', kk.name, tt.name ) as varchar(255))as name ,
+						kk.parent_id
+					from ast tt inner join asset kk on kk.id = tt.parent_id )
+				) select name from ast where parent_id = '0' limit 1
+			) as group_name
+		from
+			asset a
+		where
+			business_id = ?
+		order by
+			group_name asc`
+	device_sql := `select d.id as device_id,case when gd.name is null  then d.name else '('||gd.name||')'||d.name end as device_name,d.type as plugin_in
+		from device d  left join device gd on d.parent_id = gd.id where d.asset_id = ? and d.device_type != '2' and gd.device_type = '2' and gd.asset_id = ?
+		order by d.created_at desc`
+	var business_map []map[string]interface{}
+	result := psql.Mydb.Raw(business_sql).Scan(&business_map)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	for _, business := range business_map {
+		var group_map []map[string]interface{}
+		result = psql.Mydb.Raw(group_sql, business["business_id"]).Scan(&group_map)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+			continue
+		}
+		business["children"] = group_map
+		for _, group := range group_map {
+			var device_map []map[string]interface{}
+			result = psql.Mydb.Raw(device_sql, group["group_id"], group["group_id"]).Scan(&device_map)
+			if result.Error != nil {
+				logs.Error(result.Error.Error())
+				continue
+			}
+			group["children"] = device_map
+		}
+	}
+	return business_map, nil
+}

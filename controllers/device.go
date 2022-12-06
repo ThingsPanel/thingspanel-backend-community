@@ -848,3 +848,12 @@ func (DeviceController *DeviceController) GetDeviceDetailsByParentTokenAndSubDev
 	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }
+
+func (DeviceController *DeviceController) GetDeviceByCascade() {
+	var DeviceService services.DeviceService
+	d, err := DeviceService.GetDeviceByCascade()
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(DeviceController.Ctx))
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
+}
