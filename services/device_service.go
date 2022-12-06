@@ -842,7 +842,7 @@ func (*DeviceService) GetDeviceByCascade() ([]map[string]interface{}, error) {
 			business_id = ?
 		order by
 			group_name asc`
-	device_sql := `select d.id as device_id,case when gd.name is null  then d.name else '('||gd.name||')'||d.name end as device_name,d.type as plugin_in
+	device_sql := `select d.id as device_id,case when gd.name is null  then d.name else '('||gd.name||')'||d.name end as device_name,d.type as plugin_id
 		from device d  left join device gd on d.parent_id = gd.id where d.asset_id = ? and d.device_type != '2' and gd.device_type = '2' and gd.asset_id = ?
 		order by d.created_at desc`
 	var business_map []map[string]interface{}
