@@ -1208,3 +1208,5 @@ COMMENT ON COLUMN public.tp_script.device_type IS '设备类型';
 
 ALTER TABLE public.conditions_log DROP CONSTRAINT conditions_log_fk;
 ALTER TABLE public.conditions_log ADD CONSTRAINT conditions_log_fk FOREIGN KEY (device_id) REFERENCES public.device(id) ON DELETE CASCADE;
+
+ALTER TABLE public.tp_dashboard ALTER COLUMN relation_id DROP NOT NULL;
