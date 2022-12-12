@@ -336,7 +336,7 @@ CREATE TABLE ts_kv (
 	dbl_v float8 NULL,
 	CONSTRAINT ts_kv_pkey PRIMARY KEY (entity_type, entity_id, key, ts)
 );
-CREATE INDEX ts_kv_ts_idx ON public.ts_kv USING btree (ts);
+CREATE INDEX ts_kv_ts_idx ON public.ts_kv USING btree (ts DESC);
 COMMENT ON TABLE public.ts_kv IS '数据管理表';
 
 
@@ -1244,3 +1244,6 @@ VALUES('b9249215-09a2-0298-02c2-0d9085fc40d2', 'DRIECT_ATTACHED_PROTOCOL', 'tcp'
 INSERT INTO public.tp_dict
 (id, dict_code, dict_value, "describe", created_at)
 VALUES('25074e80-b7ca-99a3-e1f7-2fec7ec31b24', 'GATEWAY_PROTOCOL', 'tcp', '官方TCP协议', 1670813749);
+
+CREATE INDEX operation_log_created_at_idx ON public.operation_log (created_at DESC);
+CREATE INDEX ts_kv_entity_id_idx ON public.ts_kv (entity_id,ts DESC);

@@ -1026,3 +1026,21 @@ func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) 
 	}
 	return fields
 }
+
+//设备在线离线判断
+func (*TSKVService) DeviceOnline(device_id string) (string, error) {
+	var ts_kvs models.TSKVLatest
+	result := psql.Mydb.Select("ts").Where("entity_id = ? AND key ='systime'", device_id).Order("ts asc").Find(&ts_kvs)
+	if result.Error != nil {
+		return "0", result.Error
+	}
+	ts := time.Now().UnixMicro()
+	//300000000 300秒 5分钟
+	var state string = "0"
+	if (ts - ts_kvs.TS) > 300000000 {
+		state = "0"
+	} else {
+		state = "1"
+	}
+	return state, nil
+}

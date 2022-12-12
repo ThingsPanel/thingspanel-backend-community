@@ -161,9 +161,15 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
 	} else {
 		for _, device := range deviceList {
-			fmt.Println("=====================================")
-			fmt.Println(device)
-			fmt.Println(device["device_type"])
+			//在线离线状态
+			if device["device_type"].(string) != "3" {
+				var TSKVService TSKVService
+				state, err := TSKVService.DeviceOnline(device["device"].(string))
+				if err != nil {
+					logs.Error(err.Error())
+				}
+				device["device_state"] = state
+			}
 			if device["device_type"].(string) == "2" { // 网关设备需要查询子设备
 				var subDeviceList []map[string]interface{}
 				sql := `select (with RECURSIVE ast as 
