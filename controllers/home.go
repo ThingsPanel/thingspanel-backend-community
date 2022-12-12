@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
@@ -51,6 +52,16 @@ func (this *HomeController) List() {
 		Msg:      tc,
 	}
 	response.SuccessWithDetailed(200, "success", u, map[string]string{}, (*context2.Context)(this.Ctx))
+	return
+}
+
+// 系统时间
+func (this *HomeController) SystemTime() {
+	format := "2006-01-02 15:04:05"
+	now := time.Now().Format(format)
+	var data = make(map[string]interface{})
+	data["systime"] = now
+	response.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
 

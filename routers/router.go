@@ -37,6 +37,8 @@ func init() {
 		web.NSRouter("/home/list", &controllers.HomeController{}, "*:List"),   //ty
 		web.NSRouter("/home/chart", &controllers.HomeController{}, "*:Chart"), //ty
 		web.NSRouter("/index/show", &controllers.HomeController{}, "*:Show"),
+		web.NSRouter("/home/system/time", &controllers.HomeController{}, "*:SystemTime"),
+
 		// 协议默认配置查看
 		web.NSRouter("/index/default_setting", &controllers.HomeController{}, "*:GetDefaultSetting"), //ty
 
@@ -140,6 +142,7 @@ func init() {
 		web.NSRouter("/device/list", &controllers.DeviceController{}, "*:AllDeviceList"),     //shebei-ck
 		web.NSRouter("/device/list/tree", &controllers.DeviceController{}, "*:PageListTree"), //shebei-ck
 		web.NSRouter("/device/cascade", &controllers.DeviceController{}, "*:GetDeviceByCascade"),
+		web.NSRouter("/device/map", &controllers.DeviceController{}, "*:DeviceMapList"),
 
 		//可视化列表分页查询
 		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"), //keshihua-ck
@@ -241,6 +244,7 @@ func init() {
 		web.NSRouter("/kv/current/business", &controllers.KvController{}, "*:CurrentDataByBusiness"), //keshihua-ck
 		web.NSRouter("/kv/current/asset", &controllers.KvController{}, "*:CurrentDataByAsset"),       //keshihua-ck
 		web.NSRouter("/kv/current/asset/a", &controllers.KvController{}, "*:CurrentDataByAssetA"),    //keshihua-ck
+		web.NSRouter("/kv/current/symbol", &controllers.KvController{}, "*:GetCurrentDataAndMap"),
 
 		// 通过设备id查询设备历史数据
 		web.NSRouter("/kv/device/history", &controllers.KvController{}, "*:DeviceHistoryData"),

@@ -1186,6 +1186,7 @@ INSERT INTO public.tp_protocol_plugin
 VALUES('2a95000c-9c29-7aae-58b0-5202daf1546a', 'MODBUS_RTU协议', 'MODBUS_RTU', '127.0.0.1:502', '127.0.0.1:503', 'plugin/modbus/', 1668759841, 'MODBUS_UDP协议插件服务', '2');
 
 
+
 -- 0.4.1
 ALTER TABLE public.tp_dict ADD CONSTRAINT tp_dict_un UNIQUE (dict_code,dict_value);
 ALTER TABLE public.ts_kv_latest ADD CONSTRAINT ts_kv_latest_fk FOREIGN KEY (entity_id) REFERENCES public.device(id) ON DELETE CASCADE;
@@ -1210,3 +1211,17 @@ ALTER TABLE public.conditions_log DROP CONSTRAINT conditions_log_fk;
 ALTER TABLE public.conditions_log ADD CONSTRAINT conditions_log_fk FOREIGN KEY (device_id) REFERENCES public.device(id) ON DELETE CASCADE;
 
 ALTER TABLE public.tp_dashboard ALTER COLUMN relation_id DROP NOT NULL;
+
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('8881ffe7-7c2b-43c2-13f3-7227dafa46bv', 'GATEWAY_PROTOCOL', 'MODBUS_TCP', 'MODBUS_TCP协议', 1669281289);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('8881ffe7-7c2b-43c2-13f3-7227dafa46bs', 'GATEWAY_PROTOCOL', 'MODBUS_RTU', 'MODBUS_RTU协议', 1669281289);
+
+INSERT INTO public.tp_protocol_plugin
+(id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
+VALUES('95c957bc-a53b-6445-e882-1973bb546b12', '自定义TCP协议', 'raw-tcp', '127.0.0.1:7654', '127.0.0.1:8098', 'plugin/tcp/', 1670809899, '请参考文档对接设备', '1');
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('fad00d07-63c7-2685-1ee7-3e92d0142c88', 'DRIECT_ATTACHED_PROTOCOL', 'raw-tcp', '自定义TCP协议', 1670809899);

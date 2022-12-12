@@ -128,6 +128,15 @@ type DevicePageListValidate struct {
 	NotGateway  int    `json:"not_gateway" valid:"Max(2)"`
 }
 
+// 地图显示设备校验
+type DeviceMapValidate struct {
+	GroupId    string `json:"group_id" alias:"分组id" valid:"MaxSize(36)"`
+	BusinessId string `json:"business_id" alias:"业务id" valid:"MaxSize(36)"`
+	DeviceId   string `json:"device_id" alias:"设备id" valid:"MaxSize(36)"`
+	DeviceType string `json:"device_type" alias:"设备id" valid:"MaxSize(36)"`
+	Name       string `json:"name" alias:"设备名称" valid:"MaxSize(99)"`
+}
+
 type AccessTokenValidate struct {
 	AccessToken string `json:"AccessToken" alias:"密钥" valid:"Required;MaxSize(36)"`
 }

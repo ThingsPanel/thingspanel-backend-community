@@ -646,25 +646,6 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[
 				continue
 			}
 			field_from = v.Key
-			// if i != v.TS {
-			// 	if i != 0 {
-			// 		fields = append(fields, field)
-			// 	}
-			// 	field = make(map[string]interface{})
-			// 	//field["status"] = state
-			// 	if fmt.Sprint(v.BoolV) != "" {
-			// 		field[field_from] = v.BoolV
-			// 	} else if v.StrV != "" {
-			// 		field[field_from] = v.StrV
-			// 	} else if v.LongV != 0 {
-			// 		field[field_from] = v.LongV
-			// 	} else if v.DblV != 0 {
-			// 		field[field_from] = v.DblV
-			// 	} else {
-			// 		field[field_from] = 0
-			// 	}
-			// 	i = v.TS
-			// } else {
 			if fmt.Sprint(v.BoolV) != "" {
 				field[field_from] = v.BoolV
 			} else if v.StrV != "" {
@@ -679,7 +660,6 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[
 			if c == k+1 {
 				fields = append(fields, field)
 			}
-			// }
 		}
 	}
 	if len(fields) == 0 {
@@ -944,4 +924,105 @@ func (*TSKVService) DeleteCurrentDataByDeviceId(deviceId string) {
 	if rtsl.Error != nil {
 		log.Println(rtsl.Error)
 	}
+}
+
+// 通过设备ID获取设备当前值和插件映射属性
+func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) []map[string]interface{} {
+	logs.Info("**********************************************")
+	var fields []map[string]interface{}
+	var ts_kvs []models.TSKVLatest
+	var result *gorm.DB
+	if attributes == nil {
+		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts asc").Find(&ts_kvs)
+	} else {
+		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ? AND key in ?", device_id, attributes).Order("ts asc").Find(&ts_kvs)
+	}
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return fields
+	}
+	if len(ts_kvs) > 0 {
+		var field = make(map[string]interface{})
+		// // 0-未接入 1-正常 2-异常
+		// var state string
+		// var TSKVService TSKVService
+		// tsl, tsc := TSKVService.Status(device_id)
+		// if tsc == 0 {
+		// 	state = "0"
+		// } else {
+		// 	ts := time.Now().UnixMicro()
+		// 	//300000000
+		// 	if (ts - tsl.TS) > 300000000 {
+		// 		state = "2"
+		// 	} else {
+		// 		state = "1"
+		// 	}
+		// }
+		//查询设备的插件id
+		var DeviceService DeviceService
+		device, _ := DeviceService.GetDeviceByID(device_id)
+		var DeviceModelService DeviceModelService
+		device_plugin := DeviceModelService.GetDeviceModelDetail(device.Type)
+		logs.Info("设备插件", device_plugin)
+		type Properties struct {
+			DataType   string  `json:"dataType"`
+			DataRange  string  `json:"dataRange"`
+			StepLength float64 `json:"stepLength"`
+			Unit       string  `json:"unit"`
+			Title      string  `json:"title"`
+			Name       string  `json:"name"`
+		}
+		type Tsl struct {
+			Properties []Properties `json:"properties"`
+		}
+		type Data struct {
+			Tsl Tsl `json:"tsl"`
+		}
+		var device_attribute_map Data
+		var properties_key = make(map[string]string)
+		var properties_symbol = make(map[string]string)
+		if err := json.Unmarshal([]byte(device_plugin[0].ChartData), &device_attribute_map); err != nil {
+			logs.Info(err.Error())
+		} else {
+			for _, a_map := range device_attribute_map.Tsl.Properties {
+				if a_map.Title != "" {
+					properties_key[a_map.Name] = a_map.Title
+				}
+				if a_map.Unit != "-" && a_map.Unit != "" {
+					properties_symbol[a_map.Name] = a_map.Unit
+				}
+			}
+		}
+		c := len(ts_kvs)
+		for k, device_c := range ts_kvs {
+			if device_c.Key == "" {
+				continue
+			}
+			field_from := device_c.Key
+			if properties_key[device_c.Key] != "" {
+				field_from = properties_key[device_c.Key]
+			}
+
+			if fmt.Sprint(device_c.BoolV) != "" {
+				field[field_from] = device_c.BoolV + properties_symbol[device_c.Key]
+			} else if device_c.StrV != "" {
+				field[field_from] = device_c.StrV + properties_symbol[device_c.Key]
+			} else if device_c.LongV != 0 {
+				field[field_from] = strconv.FormatInt(device_c.LongV, 10) + properties_symbol[device_c.Key]
+			} else if device_c.DblV != 0 {
+				var result = fmt.Sprintf("%f", device_c.DblV)
+				for strings.HasSuffix(result, "0") {
+					result = strings.TrimSuffix(result, "0")
+				}
+				result = strings.TrimSuffix(result, ".")
+				field[field_from] = result + properties_symbol[device_c.Key]
+			} else {
+				field[field_from] = "0" + properties_symbol[device_c.Key]
+			}
+			if c == k+1 {
+				fields = append(fields, field)
+			}
+		}
+	}
+	return fields
 }

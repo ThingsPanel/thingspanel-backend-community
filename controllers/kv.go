@@ -337,3 +337,27 @@ func (KvController *KvController) HistoryData() {
 	trees := TSKVService.GetHistoryData(HistoryDataValidate.DeviceId, HistoryDataValidate.Attribute, HistoryDataValidate.StartTs, HistoryDataValidate.EndTs, HistoryDataValidate.Rate)
 	response.SuccessWithDetailed(200, "success", trees, map[string]string{}, (*context2.Context)(KvController.Ctx))
 }
+
+// 获取设备当前值
+func (KvController *KvController) GetCurrentDataAndMap() {
+	CurrentKV := valid.CurrentKV{}
+	err := json.Unmarshal(KvController.Ctx.Input.RequestBody, &CurrentKV)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(CurrentKV)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(CurrentKV, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(KvController.Ctx))
+			break
+		}
+		return
+	}
+	var TSKVService services.TSKVService
+	m := TSKVService.GetCurrentDataAndMap(CurrentKV.EntityID, CurrentKV.Attribute)
+	response.SuccessWithDetailed(200, "success", m, map[string]string{}, (*context2.Context)(KvController.Ctx))
+}

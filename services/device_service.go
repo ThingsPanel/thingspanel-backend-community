@@ -870,3 +870,48 @@ func (*DeviceService) GetDeviceByCascade() ([]map[string]interface{}, error) {
 	}
 	return business_map, nil
 }
+
+// GetDevicesByAssetID 获取设备列表(business_id string, device_id string, asset_id string, current int, pageSize int,device_type string)
+func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]interface{}, error) {
+	sqlWhere := `select (with RECURSIVE ast as 
+		( 
+		(select aa.id,cast(aa.name as varchar(255)),aa.parent_id  from asset aa where id=a.id) 
+		union  
+		(select tt.id,cast (kk.name||'/'||tt.name as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
+		)select  name from ast where parent_id='0' limit 1) 
+		as group_name,b.id as business_id ,b."name" as business_name,d.location,a.id as group_id ,d.id as device_id ,d."name" as device_name,d.device_type as device_type,d.parent_id as parent_id,
+		   d.protocol as protocol ,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts,
+		   (select name from device dd where dd.device_type = '2' and dd.parent_id = d.id limit 1) as gateway_name
+		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1`
+	var values []interface{}
+	var where = ""
+	if req.BusinessId != "" {
+		values = append(values, req.BusinessId)
+		where += " and b.id = ?"
+	}
+	if req.GroupId != "" {
+		values = append(values, req.GroupId)
+		where += " and a.id = ?"
+	}
+	if req.DeviceId != "" {
+		values = append(values, req.DeviceId)
+		where += " and d.id = ?"
+	}
+	if req.DeviceType != "" {
+		values = append(values, req.DeviceType)
+		where += " and d.device_type = ?"
+	} else { // 直连设备和网关设备
+		where += " and d.device_type !='3'"
+	}
+	if req.Name != "" {
+		where += " and d.name like '%" + req.Name + "%'"
+	}
+	sqlWhere += where
+	var deviceList []map[string]interface{}
+	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
+	if dataResult.Error != nil {
+		logs.Info(dataResult.Error.Error())
+		return deviceList, dataResult.Error
+	}
+	return deviceList, nil
+}

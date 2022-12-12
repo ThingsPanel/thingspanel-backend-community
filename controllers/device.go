@@ -857,3 +857,30 @@ func (DeviceController *DeviceController) GetDeviceByCascade() {
 	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }
+
+// 地图接口
+func (DeviceController *DeviceController) DeviceMapList() {
+	DeviceMapValidate := valid.DeviceMapValidate{}
+	err := json.Unmarshal(DeviceController.Ctx.Input.RequestBody, &DeviceMapValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(DeviceMapValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(DeviceMapValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(DeviceController.Ctx))
+			break
+		}
+		return
+	}
+	var DeviceService services.DeviceService
+	d, err := DeviceService.DeviceMapList(DeviceMapValidate)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(DeviceController.Ctx))
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
+}
