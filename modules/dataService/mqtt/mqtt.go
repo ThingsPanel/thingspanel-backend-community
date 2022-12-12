@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -16,8 +17,21 @@ var _client mqtt.Client
 func Listen(broker, username, password, clientid string, msgProc func(c mqtt.Client, m mqtt.Message), msgProc1 func(c mqtt.Client, m mqtt.Message), gatewayMsgProc func(c mqtt.Client, m mqtt.Message)) (err error) {
 	running = false
 	if _client == nil {
+		// 掉线重连
 		var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-			fmt.Printf("Connect lost: %v", err)
+			fmt.Printf("Mqtt Connect lost: %v", err)
+			i := 0
+			for {
+
+				time.Sleep(5 * time.Second)
+				if !_client.IsConnectionOpen() {
+					i++
+					fmt.Println("MQTT掉线重连...", i)
+				} else {
+					subscribe(msgProc1, gatewayMsgProc)
+					break
+				}
+			}
 		}
 		opts := mqtt.NewClientOptions()
 		fmt.Println(broker + username + password + clientid)
@@ -38,31 +52,45 @@ func Listen(broker, username, password, clientid string, msgProc func(c mqtt.Cli
 			msgProc(c, m)
 		})
 		_client = mqtt.NewClient(opts)
-		if token := _client.Connect(); token.Wait() && token.Error() != nil {
-			panic(token.Error())
+		reconnec_number := 0
+		for { // 失败重连
+			if token := _client.Connect(); token.Wait() && token.Error() != nil {
+				reconnec_number++
+				fmt.Println("MQTT连接失败...重试", reconnec_number)
+			} else {
+				break
+			}
+			time.Sleep(5 * time.Second)
 		}
-		if token := _client.Subscribe(viper.GetString("mqtt.topicToSubscribe"), 0, nil); token.Wait() &&
-			token.Error() != nil {
-			fmt.Println(token.Error())
-			os.Exit(1)
-		}
-		//订阅网关
-		if token := _client.Subscribe(viper.GetString("mqtt.gateway_topic"), 0, func(c mqtt.Client, m mqtt.Message) {
-			gatewayMsgProc(c, m)
-		}); token.Wait() &&
-			token.Error() != nil {
-			fmt.Println(token.Error())
-			os.Exit(1)
-		}
-		if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), 0, func(c mqtt.Client, m mqtt.Message) {
-			msgProc1(c, m)
-		}); token.Wait() &&
-			token.Error() != nil {
-			fmt.Println(token.Error())
-			os.Exit(1)
-		}
+		subscribe(msgProc1, gatewayMsgProc)
+
 	}
 	return
+}
+
+// mqtt订阅
+func subscribe(msgProc1 func(c mqtt.Client, m mqtt.Message), gatewayMsgProc func(c mqtt.Client, m mqtt.Message)) {
+	// 订阅默认，直连设备
+	if token := _client.Subscribe(viper.GetString("mqtt.topicToSubscribe"), byte(viper.GetUint("mqtt.qos")), nil); token.Wait() &&
+		token.Error() != nil {
+		fmt.Println(token.Error())
+		os.Exit(1)
+	}
+	//订阅网关
+	if token := _client.Subscribe(viper.GetString("mqtt.gateway_topic"), byte(viper.GetUint("mqtt.qos")), func(c mqtt.Client, m mqtt.Message) {
+		gatewayMsgProc(c, m)
+	}); token.Wait() &&
+		token.Error() != nil {
+		fmt.Println(token.Error())
+		os.Exit(1)
+	}
+	if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), byte(viper.GetUint("mqtt.qos")), func(c mqtt.Client, m mqtt.Message) {
+		msgProc1(c, m)
+	}); token.Wait() &&
+		token.Error() != nil {
+		fmt.Println(token.Error())
+		os.Exit(1)
+	}
 }
 
 //发送消息给直连设备

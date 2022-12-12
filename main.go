@@ -1,14 +1,17 @@
 package main
 
 import (
-	_ "ThingsPanel-Go/cron"
+	_ "ThingsPanel-Go/modules/dataService"
+
 	_ "ThingsPanel-Go/initialize/cache"
 	_ "ThingsPanel-Go/initialize/psql"
+
 	_ "ThingsPanel-Go/initialize/send_message"
 	_ "ThingsPanel-Go/initialize/session"
 	_ "ThingsPanel-Go/initialize/validate"
-	_ "ThingsPanel-Go/modules/dataService"
 	_ "ThingsPanel-Go/routers"
+
+	_ "ThingsPanel-Go/cron"
 	services "ThingsPanel-Go/services"
 	"fmt"
 	"log"

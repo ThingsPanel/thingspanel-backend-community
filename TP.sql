@@ -1221,7 +1221,26 @@ VALUES('8881ffe7-7c2b-43c2-13f3-7227dafa46bs', 'GATEWAY_PROTOCOL', 'MODBUS_RTU',
 
 INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
+VALUES('de497b74-1bb6-2fc8-237b-75199304ba78', '自定义TCP协议', 'raw-tcp', '127.0.0.1:7654', '127.0.0.1:8098', 'plugin/tcp/', 1670812659, '请参考文档对接设备', '2');
+INSERT INTO public.tp_protocol_plugin
+(id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
+VALUES('aea3b83a-284d-5738-6d0f-94fc73220c33', '官方TCP协议', 'tcp', '127.0.0.1:7653', '127.0.0.1:8000', 'plugin/tcp/', 1670813735, '请参考文档对接设备', '1');
+INSERT INTO public.tp_protocol_plugin
+(id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
+VALUES('95b7c0b6-5c5b-4b45-c9ea-5bebda5a48ec', '官方TCP协议', 'tcp', '127.0.0.1:7653', '127.0.0.1:8000', 'plugin/tcp/', 1670813749, '请参考文档对接设备', '2');
+INSERT INTO public.tp_protocol_plugin
+(id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
 VALUES('95c957bc-a53b-6445-e882-1973bb546b12', '自定义TCP协议', 'raw-tcp', '127.0.0.1:7654', '127.0.0.1:8098', 'plugin/tcp/', 1670809899, '请参考文档对接设备', '1');
+
 INSERT INTO public.tp_dict
 (id, dict_code, dict_value, "describe", created_at)
 VALUES('fad00d07-63c7-2685-1ee7-3e92d0142c88', 'DRIECT_ATTACHED_PROTOCOL', 'raw-tcp', '自定义TCP协议', 1670809899);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('9663bb03-4881-1965-5cf5-17341a4db761', 'GATEWAY_PROTOCOL', 'raw-tcp', '自定义TCP协议', 1670812659);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('b9249215-09a2-0298-02c2-0d9085fc40d2', 'DRIECT_ATTACHED_PROTOCOL', 'tcp', '官方TCP协议', 1670813735);
+INSERT INTO public.tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('25074e80-b7ca-99a3-e1f7-2fec7ec31b24', 'GATEWAY_PROTOCOL', 'tcp', '官方TCP协议', 1670813749);

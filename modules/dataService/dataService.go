@@ -19,26 +19,7 @@ import (
 
 func init() {
 	loadConfig()
-	MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
-	if MqttHttpHost == "" {
-		MqttHttpHost = viper.GetString("api.http_host")
-	}
-	resps, errs := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/root", "{\"password\":\""+viper.GetString("mqtt.pass")+"\"}")
-	if errs != nil {
-		log.Println("Response1:", errs.Error())
-	} else {
-		defer resps.Body.Close()
-		if resps.StatusCode == 200 {
-			body, errs := ioutil.ReadAll(resps.Body)
-			if errs != nil {
-				log.Println("Response2:", errs.Error())
-			} else {
-				log.Println("Response3: ", string(body))
-			}
-		} else {
-			log.Println("Get failed with error:" + resps.Status)
-		}
-	}
+	reg_mqtt_root()
 	listenMQTT()
 	// listenTCP()
 }
@@ -53,7 +34,6 @@ func loadConfig() {
 		fmt.Println("FAILURE", err)
 		return
 	}
-	return
 }
 
 func listenMQTT() {
@@ -85,8 +65,31 @@ func listenMQTT() {
 
 }
 
-func listenTCP() {
+//废弃
+func ListenTCP() {
 	tcpPort := viper.GetString("tcp.port")
 	log.Printf("config of tcp port -- %s", tcpPort)
 	tcp.Listen(tcpPort)
+}
+func reg_mqtt_root() {
+	MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
+	if MqttHttpHost == "" {
+		MqttHttpHost = viper.GetString("api.http_host")
+	}
+	resps, errs := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/root", "{\"password\":\""+viper.GetString("mqtt.pass")+"\"}")
+	if errs != nil {
+		log.Println("Response1:", errs.Error())
+	} else {
+		defer resps.Body.Close()
+		if resps.StatusCode == 200 {
+			body, errs := ioutil.ReadAll(resps.Body)
+			if errs != nil {
+				log.Println("Response2:", errs.Error())
+			} else {
+				log.Println("Response3: ", string(body))
+			}
+		} else {
+			log.Println("Get failed with error:" + resps.Status)
+		}
+	}
 }
