@@ -12,9 +12,10 @@ type TSKV struct {
 }
 type TSKVResult struct {
 	TSKVDblV
-	Token string `json:"token"`
-	Bname string `json:"bname"`
-	Name  string `json:"name"`
+	Token    string `json:"token"`
+	Bname    string `json:"bname"`
+	Name     string `json:"name"`
+	PluginId string `json:"plugin_id"`
 }
 
 type TSKVDblV struct {
@@ -32,6 +33,7 @@ type TSKVDblV struct {
 	GatewayName string `json:"gateway_name"`
 	AssetName   string `json:"asset_name"`
 	DeviceName  string `json:"device_name"`
+	Alias       string `json:"alias"`
 }
 
 func (TSKV) TableName() string {

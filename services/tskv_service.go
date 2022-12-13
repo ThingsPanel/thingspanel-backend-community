@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/bitly/go-simplejson"
 	"github.com/zenghouchao/timeHelper"
 	"gorm.io/gorm"
 )
@@ -358,7 +359,7 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 	//LEFT JOIN asset  ON asset.id=device.asset_id
 	//LEFT JOIN business ON business.id=asset.business_id
 	//WHERE 1=1  and ts_kv.ts >= 1654790400000000 and ts_kv.ts < 1655481599000000 ORDER BY ts_kv.ts DESC limit 10 offset 0
-	SQL := `select business.name bname,d."name" as gateway_name,ts_kv.*,asset.name asset_name,
+	SQL := `select business.name bname,d."name" as gateway_name,ts_kv.*,asset.name asset_name,device.type as plugin_id,
 	device.name device_name,device.token FROM business 
 	LEFT JOIN asset ON business.id=asset.business_id 
 	LEFT JOIN device ON asset.id=device.asset_id 
@@ -371,8 +372,42 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 	if err := result.Raw(SQL, params...).Scan(&tSKVs).Error; err != nil {
 		return tsk, 0
 	}
-
+	var deviceModelMap = make(map[string]string)
+	var pluginId string
 	for _, v := range tSKVs {
+		// 从物模型中查找属性的映射
+		if v.PluginId != "" {
+			if v.PluginId != pluginId {
+				deviceModelMap = make(map[string]string) //清空map
+				pluginId = v.PluginId
+				var DeviceModel DeviceModelService
+				deviceModels := DeviceModel.GetDeviceModelDetail(v.PluginId)
+				modelData, err := simplejson.NewJson([]byte(deviceModels[0].ChartData))
+				if err != nil {
+					logs.Error(err.Error())
+				} else {
+					propertiesList, err := modelData.Get("tsl").Get("properties").Array()
+					logs.Info(propertiesList)
+					if err != nil {
+						logs.Error(err.Error())
+					} else {
+						for _, properties := range propertiesList {
+							if rulesMap, ok := properties.(map[string]interface{}); ok {
+								if name, ok := rulesMap["name"].(string); ok {
+									if title, ok := rulesMap["title"].(string); ok {
+										deviceModelMap[name] = title
+									}
+								}
+
+							}
+						}
+
+					}
+				}
+			}
+		}
+		logs.Info("映射map:", deviceModelMap)
+		alias := deviceModelMap[v.Key]
 		ts := models.TSKVDblV{
 			EntityType:  v.EntityType,
 			EntityID:    v.EntityID,
@@ -387,6 +422,7 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 			GatewayName: v.GatewayName,
 			AssetName:   v.AssetName,
 			DeviceName:  v.DeviceName,
+			Alias:       alias,
 		}
 		if v.Key == "TIME" {
 			ts.DblV = v.StrV
