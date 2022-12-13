@@ -215,7 +215,9 @@ func init() {
 		// 自动化控制编辑时候查询调用
 		web.NSRouter("/automation/update", &controllers.AutomationController{}, "*:Update"), //kongzhi-ck
 		//自动化控制中设备插件所有字段查询
-		web.NSRouter("/automation/instruct", &controllers.AutomationController{}, "*:Instruct"), //ty
+		web.NSRouter("/automation/instruct", &controllers.AutomationController{}, "*:Instruct"),                //ty
+		web.NSRouter("/automation/manual/trigger", &controllers.AutomationController{}, "*:ManualTrigger"),     //ty
+		web.NSRouter("/automation/pull/list", &controllers.AutomationController{}, "*:ConditionsPullDownList"), //ty
 
 		// 操作日志
 		web.NSRouter("/operation/index", &controllers.OperationlogController{}, "*:Index"),

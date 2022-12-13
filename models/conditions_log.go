@@ -3,7 +3,7 @@ package models
 type ConditionsLog struct {
 	ID            string `json:"id" gorm:"primaryKey,size:36"`
 	DeviceId      string `json:"device_id" gorm:"size:36"`     // 设备ID
-	OperationType string `json:"operation_type" gorm:"size:2"` // 操作类型1-定时触发 2-手动控制
+	OperationType string `json:"operation_type" gorm:"size:2"` // 操作类型1-定时触发 2-手动控制 3-自动控制
 	Instruct      string `json:"instruct" gorm:"size:255"`     // 指令
 	Sender        string `json:"sender" gorm:"size:99"`        // 发送者
 	SendResult    string `json:"send_result" gorm:"size:2"`    //发送结果1-成功 2-失败

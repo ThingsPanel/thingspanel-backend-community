@@ -59,7 +59,7 @@ func init() {
 								if err == nil && ruleTime.Equal(now0) {
 									//触发
 									var DeviceService services.DeviceService
-									DeviceService.ApplyControl(res, "")
+									DeviceService.ApplyControl(res, "", "1")
 								}
 							} else if interval == int64(1) {
 								//每天触发
@@ -68,7 +68,7 @@ func init() {
 								if err == nil && ruleTime.Equal(now1) {
 									//触发
 									var DeviceService services.DeviceService
-									DeviceService.ApplyControl(res, "")
+									DeviceService.ApplyControl(res, "", "1")
 								}
 							} else if interval == int64(2) {
 								logs.Info("包含时间间隔策略")
@@ -92,7 +92,7 @@ func init() {
 									if count == int64(0) {
 										logs.Info("首次发送")
 										var DeviceService services.DeviceService
-										DeviceService.ApplyControl(res, rule_id)
+										DeviceService.ApplyControl(res, rule_id, "1")
 									} else {
 										result := psql.Mydb.Where("remark = ? and send_result = '1'", rule_id).Order("cteate_time desc").First(&condition_log)
 										if result.Error != nil {
@@ -104,7 +104,7 @@ func init() {
 													//发送指令
 													logs.Info("超过间隔")
 													var DeviceService services.DeviceService
-													DeviceService.ApplyControl(res, rule_id)
+													DeviceService.ApplyControl(res, rule_id, "1")
 												} else {
 													logs.Info(utils.Strtime2Int(condition_log.CteateTime)+time_interval, "--", timeUnix)
 												}

@@ -698,3 +698,58 @@ func (this *AutomationController) Instruct() {
 	response.SuccessWithDetailed(200, "success", fd, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
+
+// 手动触发控制指令集
+func (this *AutomationController) ManualTrigger() {
+	ConditionsIdValidate := valid.ConditionsIdValidate{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &ConditionsIdValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(ConditionsIdValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(ConditionsIdValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	var ConditionsService services.ConditionsService
+	err = ConditionsService.ManualTrigger(ConditionsIdValidate.ConditionsId)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(this.Ctx))
+	}
+	response.SuccessWithMessage(200, "success", (*context2.Context)(this.Ctx))
+	return
+}
+
+// 根据业务id获取策略下拉
+func (c *AutomationController) ConditionsPullDownList() {
+	ConditionsPullDownListValidate := valid.ConditionsPullDownListValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &ConditionsPullDownListValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(ConditionsPullDownListValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(ConditionsPullDownListValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+	var ConditionsService services.ConditionsService
+	req, err := ConditionsService.ConditionsPullDownList(ConditionsPullDownListValidate)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	}
+	response.SuccessWithDetailed(200, "success", req, map[string]string{}, (*context2.Context)(c.Ctx))
+}

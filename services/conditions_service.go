@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
+	valid "ThingsPanel-Go/validate"
 	"errors"
 	"fmt"
 	"strings"
@@ -119,8 +120,44 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 				//触发控制
 				//"apply":[{"asset_id":"xxx","field":"hum","device_id":"xxx","value":"1"}]}
 				var DeviceService DeviceService
-				DeviceService.ApplyControl(res, "")
+				DeviceService.ApplyControl(res, "", "3")
 			}
 		}
 	}
+}
+
+// 手动触发控制指令集
+func (*ConditionsService) ManualTrigger(conditions_id string) error {
+	var conditionConfig models.Condition
+	result := psql.Mydb.First(&conditionConfig, "id = ?", conditions_id)
+	if result.Error != nil {
+		return result.Error
+	}
+	res, err := simplejson.NewJson([]byte(conditionConfig.Config))
+	if err != nil {
+		logs.Error(err.Error())
+	}
+	var DeviceService DeviceService
+	DeviceService.ApplyControl(res, "", "2")
+	return nil
+}
+
+// 根据业务id获取策略下拉
+func (*ConditionsService) ConditionsPullDownList(params valid.ConditionsPullDownListValidate) ([]map[string]interface{}, error) {
+	sqlWhere := "business_id = '" + params.BusinessId + "'"
+	if params.Status != "" {
+		sqlWhere += " and status = '" + params.Status + "'"
+	}
+	if params.ConditionsType != "" {
+		sqlWhere += " and type = '" + params.ConditionsType + "'"
+	}
+	if params.Issued != "" {
+		sqlWhere += " and issued = '" + params.Issued + "'"
+	}
+	var conditionConfig []map[string]interface{}
+	result := psql.Mydb.Model(&models.Condition{}).Select("id,name as policy_name,describe").Where(sqlWhere).Order("sort ASC").Find(&conditionConfig)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return conditionConfig, nil
 }

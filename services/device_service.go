@@ -682,8 +682,11 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 	}
 }
 
-//自动化发送控制
-func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string) {
+// 执行控制指令
+// res 指令
+// rule_id(用来判断上次发送间隔) 指令id
+// operation_type 控制类型11-定时触发 2-手动控制 3-自动控制
+func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operation_type string) error {
 	logs.Info("执行控制开始")
 	//"apply":[{"asset_id":"xxx","field":"hum","device_id":"xxx","value":"1"}]}
 	applyRows, _ := res.Get("apply").Array()
@@ -722,9 +725,13 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string) {
 				// 记录日志
 				var ConditionsLogService ConditionsLogService
 				ConditionsLogService.Insert(&ConditionsLog)
+				return err
 			}
+		} else {
+			logs.Error("apply格式错误")
 		}
 	}
+	return nil
 }
 
 // func (*DeviceService) ApplyControl(res *simplejson.Json) {
@@ -911,6 +918,9 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 	}
 	if req.Name != "" {
 		where += " and d.name like '%" + req.Name + "%'"
+	}
+	if req.DeviceModelId != "" {
+		where += " and d.type = '" + req.DeviceModelId + "'"
 	}
 	sqlWhere += where
 	var deviceList []map[string]interface{}

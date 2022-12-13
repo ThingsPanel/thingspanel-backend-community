@@ -63,3 +63,16 @@ type AutomationUpdate struct {
 type AutomationInstruct struct {
 	Bid string `json:"bid" alias:"设备" valid:"Required;MaxSize(36)"`
 }
+
+// 手动触发指令集
+type ConditionsIdValidate struct {
+	ConditionsId string `json:"conditions_id" alias:"控制策略id" valid:"Required;MaxSize(36)"`
+}
+
+// 根据业务id获取策略下拉
+type ConditionsPullDownListValidate struct {
+	BusinessId     string `json:"business_id" alias:"项目id" valid:"Required;MaxSize(36)"`
+	Status         string `json:"status" alias:"策略状态" valid:"MaxSize(10)"`
+	ConditionsType string `json:"conditions_type" alias:"策略类型" valid:"MaxSize(10)"`
+	Issued         string `json:"issued" alias:"发布标志" valid:"MaxSize(10)"`
+}
