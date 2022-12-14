@@ -164,10 +164,11 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 			//在线离线状态
 			if device["device_type"].(string) != "3" {
 				var interval int64
-				if a, ok := device["additional_info"].(string); !ok {
+				if a, ok := device["additional_info"].(string); ok {
 					aJson, err := simplejson.NewJson([]byte(a))
 					if err == nil {
 						thresholdTime, err := aJson.Get("runningInfo").Get("thresholdTime").Int64()
+
 						if err == nil {
 							interval = thresholdTime
 						}

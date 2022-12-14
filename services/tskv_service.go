@@ -1072,8 +1072,11 @@ func (*TSKVService) DeviceOnline(device_id string, interval int64) (string, erro
 	}
 	ts := time.Now().UnixMicro()
 	//300000000 300秒 5分钟
+	logs.Info("判断时间阈值", interval)
 	if interval == int64(0) {
 		interval = 300
+	} else {
+		logs.Info("时间阈值：", interval)
 	}
 	var state string = "0"
 	if (ts - ts_kvs.TS) > interval*1000000 {
