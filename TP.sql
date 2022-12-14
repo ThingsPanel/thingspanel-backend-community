@@ -1171,12 +1171,13 @@ CREATE TABLE public.tp_protocol_plugin (
 );
 
 -- Column comments
+ALTER TABLE public.tp_protocol_plugin ADD device_type varchar(36) NULL;
+COMMENT ON COLUMN public.tp_protocol_plugin.device_type IS '设备类型1-设备 2-网关';
 
 COMMENT ON COLUMN public.tp_protocol_plugin.sub_topic_prefix IS '订阅主题前缀';
 ALTER TABLE public.tp_protocol_plugin ADD CONSTRAINT tp_protocol_plugin_un UNIQUE (protocol_type,device_type);
 
-ALTER TABLE public.tp_protocol_plugin ADD device_type varchar(36) NULL;
-COMMENT ON COLUMN public.tp_protocol_plugin.device_type IS '设备类型1-设备 2-网关';
+
 
 INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
