@@ -163,8 +163,18 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 		for _, device := range deviceList {
 			//在线离线状态
 			if device["device_type"].(string) != "3" {
+				var interval int64
+				if a, ok := device["additional_info"].(string); !ok {
+					aJson, err := simplejson.NewJson([]byte(a))
+					if err == nil {
+						thresholdTime, err := aJson.Get("runningInfo").Get("thresholdTime").Int64()
+						if err == nil {
+							interval = thresholdTime
+						}
+					}
+				}
 				var TSKVService TSKVService
-				state, err := TSKVService.DeviceOnline(device["device"].(string))
+				state, err := TSKVService.DeviceOnline(device["device"].(string), interval)
 				if err != nil {
 					logs.Error(err.Error())
 				}
