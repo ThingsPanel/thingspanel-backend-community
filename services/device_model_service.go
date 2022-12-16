@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/bitly/go-simplejson"
 	"gorm.io/gorm"
 )
 
@@ -119,4 +120,40 @@ func (*DeviceModelService) DeviceModelTree() []DeviceModelTree {
 		trees = append(trees, tree)
 	}
 	return trees
+}
+
+//根据设备插件id获取物模型属性
+func (*DeviceModelService) GetModelByPluginId(pluginId string) ([]interface{}, error) {
+	var model []interface{}
+	var deviceModel models.DeviceModel
+	psql.Mydb.First(&deviceModel, "id = ?", pluginId)
+	chartDate, err := simplejson.NewJson([]byte(deviceModel.ChartData))
+	if err != nil {
+		if value, err := chartDate.Get("tsl").Get("properties").Array(); err != nil {
+			return model, err
+		} else {
+			model = value
+		}
+	} else {
+		return model, err
+	}
+	return model, nil
+}
+
+//根据设备插件id获取物模型属性的类型map
+func (*DeviceModelService) GetTypeMapByPluginId(pluginId string) (map[string]interface{}, error) {
+	var typeMap = make(map[string]interface{})
+	var DeviceModelService DeviceModelService
+	modelList, err := DeviceModelService.GetModelByPluginId(pluginId)
+	if err != nil {
+		return typeMap, err
+	}
+	for _, attribute := range modelList {
+		if attributeMap, ok := attribute.(map[string]interface{}); ok {
+			if name, ok := attributeMap["name"].(string); ok {
+				typeMap[name] = typeMap[attributeMap["dataType"].(string)]
+			}
+		}
+	}
+	return typeMap, nil
 }

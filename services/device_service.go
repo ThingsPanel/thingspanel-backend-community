@@ -14,8 +14,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -716,16 +718,34 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 				case json.Number:
 					s = applyMap["value"].(json.Number).String()
 				}
+				applyField := applyMap["field"].(string)
+				applyDeviceId := applyMap["device_id"].(string)
 				ConditionsLog := models.ConditionsLog{
-					DeviceId:      applyMap["device_id"].(string),
+					DeviceId:      applyDeviceId,
 					OperationType: "3",
-					Instruct:      applyMap["field"].(string) + ":" + s,
+					Instruct:      applyField + ":" + s,
 					ProtocolType:  "mqtt",
 					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
 					Remark:        rule_id,
 				}
+				//根据物模型对值做转换
+				var DeviceModelService DeviceModelService
+				var applyValue interface{}
+				if plugin_id, ok := applyMap["plugin_id"].(string); ok {
+					if attributeMap, err := DeviceModelService.GetTypeMapByPluginId(plugin_id); err != nil {
+						if attributeMap[applyField] != "text" {
+							if find := strings.Contains(s, "."); find {
+								applyValue = cast.ToFloat64(s)
+							} else {
+								applyValue = cast.ToInt(s)
+							}
+
+						}
+					}
+				}
+				//发送控制
 				var DeviceService DeviceService
-				err := DeviceService.OperatingDevice(applyMap["device_id"].(string), applyMap["field"].(string), applyMap["value"])
+				err := DeviceService.OperatingDevice(applyDeviceId, applyField, applyValue)
 				if err == nil {
 					logs.Info("成功发送控制")
 					ConditionsLog.SendResult = "1"
