@@ -720,18 +720,11 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 				}
 				applyField := applyMap["field"].(string)
 				applyDeviceId := applyMap["device_id"].(string)
-				ConditionsLog := models.ConditionsLog{
-					DeviceId:      applyDeviceId,
-					OperationType: "3",
-					Instruct:      applyField + ":" + s,
-					ProtocolType:  "mqtt",
-					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
-					Remark:        rule_id,
-				}
+
 				//根据物模型对值做转换
 				var DeviceModelService DeviceModelService
 				var applyValue interface{}
-				applyValue = s
+				applyValue = applyMap["value"]
 				if plugin_id, ok := applyMap["plugin_id"].(string); ok {
 					if attributeMap, err := DeviceModelService.GetTypeMapByPluginId(plugin_id); err != nil {
 						if attributeMap[applyField] != "text" {
@@ -741,8 +734,18 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 								applyValue = cast.ToInt(s)
 							}
 
+						} else {
+							s = `"` + s + `"`
 						}
 					}
+				}
+				ConditionsLog := models.ConditionsLog{
+					DeviceId:      applyDeviceId,
+					OperationType: "3",
+					Instruct:      applyField + ":" + s,
+					ProtocolType:  "mqtt",
+					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
+					Remark:        rule_id,
 				}
 				//发送控制
 				var DeviceService DeviceService
