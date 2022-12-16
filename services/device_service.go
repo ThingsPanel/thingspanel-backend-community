@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -726,8 +727,8 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 				var applyValue interface{}
 				applyValue = applyMap["value"]
 				if plugin_id, ok := applyMap["plugin_id"].(string); ok {
-					if attributeMap, err := DeviceModelService.GetTypeMapByPluginId(plugin_id); err != nil {
-						if attributeMap[applyField] != "text" {
+					if attributeMap, err := DeviceModelService.GetTypeMapByPluginId(plugin_id); err == nil {
+						if attributeMap[applyField] != nil && attributeMap[applyField] != "text" {
 							if find := strings.Contains(s, "."); find {
 								applyValue = cast.ToFloat64(s)
 							} else {
@@ -737,8 +738,11 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 						} else {
 							s = `"` + s + `"`
 						}
+					} else {
+						logs.Error(err.Error())
 					}
 				}
+				logs.Error(reflect.TypeOf(applyValue))
 				ConditionsLog := models.ConditionsLog{
 					DeviceId:      applyDeviceId,
 					OperationType: "3",

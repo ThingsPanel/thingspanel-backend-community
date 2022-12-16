@@ -129,13 +129,13 @@ func (*DeviceModelService) GetModelByPluginId(pluginId string) ([]interface{}, e
 	psql.Mydb.First(&deviceModel, "id = ?", pluginId)
 	chartDate, err := simplejson.NewJson([]byte(deviceModel.ChartData))
 	if err != nil {
+		return model, err
+	} else {
 		if value, err := chartDate.Get("tsl").Get("properties").Array(); err != nil {
 			return model, err
 		} else {
 			model = value
 		}
-	} else {
-		return model, err
 	}
 	return model, nil
 }
@@ -151,7 +151,7 @@ func (*DeviceModelService) GetTypeMapByPluginId(pluginId string) (map[string]int
 	for _, attribute := range modelList {
 		if attributeMap, ok := attribute.(map[string]interface{}); ok {
 			if name, ok := attributeMap["name"].(string); ok {
-				typeMap[name] = typeMap[attributeMap["dataType"].(string)]
+				typeMap[name] = attributeMap["dataType"].(string)
 			}
 		}
 	}
