@@ -731,6 +731,7 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 				//根据物模型对值做转换
 				var DeviceModelService DeviceModelService
 				var applyValue interface{}
+				applyValue = s
 				if plugin_id, ok := applyMap["plugin_id"].(string); ok {
 					if attributeMap, err := DeviceModelService.GetTypeMapByPluginId(plugin_id); err != nil {
 						if attributeMap[applyField] != "text" {
