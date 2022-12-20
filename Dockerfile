@@ -16,7 +16,6 @@ ENV PLUGIN_HTTP_HOST=172.19.0.8:503
 WORKDIR /go/src/app
 COPY --from=builder /go/src/app .
 EXPOSE 9999
-EXPOSE 9998
 RUN chmod +x ThingsPanel-Go
 RUN pwd
 RUN ls -lrt
