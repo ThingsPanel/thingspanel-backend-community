@@ -150,5 +150,5 @@ type TokenSubDeviceAddrValidate struct {
 	SubDeviceAddr string `json:"SubDeviceAddr" alias:"子设备地址" valid:"Required;MaxSize(36)"`
 }
 type DeviceIdListValidate struct {
-	DeviceIdList []string `json:"device_id" alias:"设备id" valid:"Required;MaxSize(36)"`
+	DeviceIdList []string `json:"device_id_list" alias:"设备id" valid:"Required;MaxSize(36)"`
 }

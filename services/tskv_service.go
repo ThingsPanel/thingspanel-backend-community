@@ -117,7 +117,7 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 	}
 	if values, ok := payload.Values.(map[string]interface{}); ok {
 		var device models.Device
-		result := psql.Mydb.Where("token = ? and device_type = '2'", payload.Token).First(&device)
+		result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
 		if result.Error != nil {
 			logs.Error(result.Error.Error())
 			return
