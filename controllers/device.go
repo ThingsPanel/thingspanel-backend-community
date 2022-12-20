@@ -884,3 +884,30 @@ func (DeviceController *DeviceController) DeviceMapList() {
 	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }
+
+// 设备在线离线状态
+func (c *DeviceController) DeviceStatus() {
+	DeviceMapValidate := valid.DeviceIdListValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &DeviceMapValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(DeviceMapValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(DeviceMapValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+	var DeviceService services.DeviceService
+	d, err := DeviceService.GetDeviceOnlineStatus(DeviceMapValidate)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+}

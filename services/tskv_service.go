@@ -19,6 +19,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var DeviceOnlineState = make(map[string]interface{})
+
 type TSKVService struct {
 	//可搜索字段
 	SearchField []string
@@ -45,6 +47,24 @@ func verifyPayload(body []byte) (*mqttPayload, error) {
 	}
 	if len(payload.Values) == 0 {
 		return payload, errors.New("values消息内容不能为空")
+	}
+	return payload, nil
+}
+
+type mqttPayloadOther struct {
+	Token  string      `json:"token"`
+	Values interface{} `json:"values"`
+}
+
+// []byte转mqttPayload结构体，并做token和values验证
+func verifyPayloadOther(body []byte) (*mqttPayloadOther, error) {
+	payload := &mqttPayloadOther{}
+	if err := json.Unmarshal(body, payload); err != nil {
+		logs.Error("解析消息失败:", err)
+		return payload, err
+	}
+	if len(payload.Token) == 0 {
+		return payload, errors.New("token不能为空:" + payload.Token)
 	}
 	return payload, nil
 }
@@ -85,34 +105,39 @@ func (*TSKVService) All() ([]models.TSKV, int64) {
 	return tskvs, count
 }
 
-// 接收硬件消息(设备在线离线)
-func (*TSKVService) MsgStatus(body []byte) bool {
+// 接收硬件其他消息（在线离线）
+func (*TSKVService) MsgProcOther(body []byte, topic string) {
 	logs.Info("-------------------------------")
 	logs.Info(string(body))
 	logs.Info("-------------------------------")
-	payload, err := verifyPayload(body)
+	payload, err := verifyPayloadOther(body)
 	if err != nil {
 		logs.Error(err.Error())
-		return false
+		return
 	}
-	var device_data = make(map[string]interface{})
-	if err := json.Unmarshal(payload.Values, &device_data); err != nil {
-		logs.Error("解析消息失败:", err)
-		return false
+	if values, ok := payload.Values.(map[string]interface{}); ok {
+		var device models.Device
+		result := psql.Mydb.Where("token = ? and device_type = '2'", payload.Token).First(&device)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+			return
+		}
+		if device.ID == "" {
+			return
+		}
+		DeviceOnlineState[device.ID] = values
+		d := models.TSKVLatest{
+			EntityType: "DEVICE",
+			EntityID:   device.ID,
+			Key:        "SYS_ONLINE",
+			TS:         time.Now().UnixMicro(),
+			StrV:       fmt.Sprint(values["status"]),
+		}
+		rtsl := psql.Mydb.Save(&d)
+		if rtsl.Error != nil {
+			log.Println(rtsl.Error)
+		}
 	}
-	device_id := redis.GetStr("token" + payload.Token)
-	d := models.TSKVLatest{
-		EntityType: "DEVICE",
-		EntityID:   device_id,
-		Key:        "SYS_ONLINE",
-		TS:         time.Now().UnixMicro(),
-		StrV:       fmt.Sprint(device_data["SYS_ONLINE"]),
-	}
-	rtsl := psql.Mydb.Save(&d)
-	if rtsl.Error != nil {
-		log.Println(rtsl.Error)
-	}
-	return true
 }
 
 // 接收网关消息

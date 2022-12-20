@@ -970,3 +970,12 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 	}
 	return deviceList, nil
 }
+
+//修改所有子设备分组
+func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValidate) (map[string]interface{}, error) {
+	var deviceOnlineStatus = make(map[string]interface{})
+	for _, deviceId := range deviceIdList.DeviceIdList {
+		deviceOnlineStatus[deviceId] = DeviceOnlineState[deviceId]
+	}
+	return deviceOnlineStatus, nil
+}

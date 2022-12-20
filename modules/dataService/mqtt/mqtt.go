@@ -14,7 +14,7 @@ import (
 var running bool
 var _client mqtt.Client
 
-func Listen(broker, username, password, clientid string, msgProc func(c mqtt.Client, m mqtt.Message), msgProc1 func(c mqtt.Client, m mqtt.Message), gatewayMsgProc func(c mqtt.Client, m mqtt.Message)) (err error) {
+func Listen(broker, username, password, clientid string, msgProc func(c mqtt.Client, m mqtt.Message), msgProcOther func(c mqtt.Client, m mqtt.Message), gatewayMsgProc func(c mqtt.Client, m mqtt.Message)) (err error) {
 	running = false
 	if _client == nil {
 		// 掉线重连
@@ -28,7 +28,7 @@ func Listen(broker, username, password, clientid string, msgProc func(c mqtt.Cli
 					i++
 					fmt.Println("MQTT掉线重连...", i)
 				} else {
-					subscribe(msgProc1, gatewayMsgProc)
+					subscribe(msgProcOther, gatewayMsgProc)
 					break
 				}
 			}
@@ -62,14 +62,14 @@ func Listen(broker, username, password, clientid string, msgProc func(c mqtt.Cli
 			}
 			time.Sleep(5 * time.Second)
 		}
-		subscribe(msgProc1, gatewayMsgProc)
+		subscribe(msgProcOther, gatewayMsgProc)
 
 	}
 	return
 }
 
 // mqtt订阅
-func subscribe(msgProc1 func(c mqtt.Client, m mqtt.Message), gatewayMsgProc func(c mqtt.Client, m mqtt.Message)) {
+func subscribe(msgProcOther func(c mqtt.Client, m mqtt.Message), gatewayMsgProc func(c mqtt.Client, m mqtt.Message)) {
 	// 订阅默认，直连设备
 	if token := _client.Subscribe(viper.GetString("mqtt.topicToSubscribe"), byte(viper.GetUint("mqtt.qos")), nil); token.Wait() &&
 		token.Error() != nil {
@@ -85,7 +85,7 @@ func subscribe(msgProc1 func(c mqtt.Client, m mqtt.Message), gatewayMsgProc func
 		os.Exit(1)
 	}
 	if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), byte(viper.GetUint("mqtt.qos")), func(c mqtt.Client, m mqtt.Message) {
-		msgProc1(c, m)
+		msgProcOther(c, m)
 	}); token.Wait() &&
 		token.Error() != nil {
 		fmt.Println(token.Error())

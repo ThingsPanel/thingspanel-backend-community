@@ -48,14 +48,14 @@ func listenMQTT() {
 	user := viper.GetString("mqtt.user")
 	pass := viper.GetString("mqtt.pass")
 	p, _ := ants.NewPool(500)
-	p1, _ := ants.NewPool(500)
+	pOther, _ := ants.NewPool(500)
 	cm.Listen(broker, user, pass, clientid, func(c mqtt.Client, m mqtt.Message) {
 		_ = p.Submit(func() {
 			TSKVS.MsgProc(m.Payload(), m.Topic())
 		})
 	}, func(c mqtt.Client, m mqtt.Message) {
-		_ = p1.Submit(func() {
-			TSKVS.MsgProc(m.Payload(), m.Topic())
+		_ = pOther.Submit(func() {
+			TSKVS.MsgProcOther(m.Payload(), m.Topic())
 		})
 	}, func(c mqtt.Client, m mqtt.Message) {
 		_ = p.Submit(func() {
