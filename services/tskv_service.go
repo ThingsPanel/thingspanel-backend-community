@@ -52,8 +52,8 @@ func verifyPayload(body []byte) (*mqttPayload, error) {
 }
 
 type mqttPayloadOther struct {
-	Token  string      `json:"token"`
-	Values interface{} `json:"values"`
+	AccessToken string      `json:"accessToken"`
+	Values      interface{} `json:"values"`
 }
 
 // []byte转mqttPayload结构体，并做token和values验证
@@ -63,8 +63,8 @@ func verifyPayloadOther(body []byte) (*mqttPayloadOther, error) {
 		logs.Error("解析消息失败:", err)
 		return payload, err
 	}
-	if len(payload.Token) == 0 {
-		return payload, errors.New("token不能为空:" + payload.Token)
+	if len(payload.AccessToken) == 0 {
+		return payload, errors.New("token不能为空:" + payload.AccessToken)
 	}
 	return payload, nil
 }
@@ -117,7 +117,7 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 	}
 	if values, ok := payload.Values.(map[string]interface{}); ok {
 		var device models.Device
-		result := psql.Mydb.Where("token = ?", payload.Token).First(&device)
+		result := psql.Mydb.Where("token = ?", payload.AccessToken).First(&device)
 		if result.Error != nil {
 			logs.Error(result.Error.Error())
 			return
