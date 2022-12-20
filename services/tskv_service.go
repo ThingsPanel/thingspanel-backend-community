@@ -125,7 +125,7 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 		if device.ID == "" {
 			return
 		}
-		DeviceOnlineState[device.ID] = values
+		DeviceOnlineState[device.ID] = values["status"]
 		d := models.TSKVLatest{
 			EntityType: "DEVICE",
 			EntityID:   device.ID,
