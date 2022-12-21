@@ -764,7 +764,6 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 				// 记录日志
 				var ConditionsLogService ConditionsLogService
 				ConditionsLogService.Insert(&ConditionsLog)
-				return err
 			}
 		} else {
 			logs.Error("apply格式错误")
