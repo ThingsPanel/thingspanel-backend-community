@@ -316,6 +316,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 			subDeviceCount, _ := DeviceService.GetSubDeviceCount(addDeviceValidate.ID)
 			if subDeviceCount > int64(0) {
 				response.SuccessWithMessage(400, "网关设备下存在子设备，需要先删除子设备！", (*context2.Context)(reqDate.Ctx))
+				return
 			}
 		}
 	}
