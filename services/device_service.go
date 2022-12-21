@@ -39,6 +39,13 @@ func (*DeviceService) Token(id string) (*models.Device, int64) {
 	return &device, result.RowsAffected
 }
 
+// Token 获取设备token
+func (*DeviceService) GetSubDeviceCount(parentId string) (int64, error) {
+	var count int64
+	result := psql.Mydb.Model(models.Device{}).Where("parent_id = ?", parentId).Count(&count)
+	return count, result.Error
+}
+
 // GetDevicesByAssetID 获取设备列表
 func (*DeviceService) GetDevicesByAssetID(asset_id string) ([]models.Device, int64) {
 	var devices []models.Device

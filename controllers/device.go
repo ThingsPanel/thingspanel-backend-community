@@ -311,6 +311,13 @@ func (reqDate *DeviceController) UpdateOnly() {
 			logs.Info("需要修改所有子设备分组")
 			DeviceService.EditSubDeviceAsset(addDeviceValidate.ID, addDeviceValidate.AssetID)
 		}
+		//有子设备的网关，不允许修改设备类型
+		if addDeviceValidate.DeviceType == "1" {
+			subDeviceCount, _ := DeviceService.GetSubDeviceCount(addDeviceValidate.ID)
+			if subDeviceCount > int64(0) {
+				response.SuccessWithMessage(400, "网关设备下存在子设备，需要先删除子设备！", (*context2.Context)(reqDate.Ctx))
+			}
+		}
 	}
 	result := DeviceService.Edit(addDeviceValidate)
 	if result == nil {
