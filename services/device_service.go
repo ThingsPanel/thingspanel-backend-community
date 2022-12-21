@@ -758,7 +758,7 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 					logs.Info("成功发送控制")
 					ConditionsLog.SendResult = "1"
 				} else {
-					logs.Info("发送控制失败")
+					logs.Error("发送控制失败:", err)
 					ConditionsLog.SendResult = "2"
 				}
 				// 记录日志
