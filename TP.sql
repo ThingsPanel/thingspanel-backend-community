@@ -1202,10 +1202,10 @@ ALTER TABLE public.tp_protocol_plugin ADD CONSTRAINT tp_protocol_plugin_un UNIQU
 
 INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
-VALUES('c8a13166-e010-24e4-0565-e87feea162bb', 'MODBUS_TCP协议', 'MODBUS_TCP', '127.0.0.1:502', '127.0.0.1:503', 'plugin/modbus/', 1668759820, 'MODBUS_TCP协议插件服务', '2');
+VALUES('c8a13166-e010-24e4-0565-e87feea162bb', 'MODBUS_TCP协议', 'MODBUS_TCP', '服务ip:502', '127.0.0.1:503', 'plugin/modbus/', 1668759820, '请参考文档对接设备,docker部署将http服务器地址的ip改为172.19.0.8', '2');
 INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
-VALUES('2a95000c-9c29-7aae-58b0-5202daf1546a', 'MODBUS_RTU协议', 'MODBUS_RTU', '127.0.0.1:502', '127.0.0.1:503', 'plugin/modbus/', 1668759841, 'MODBUS_UDP协议插件服务', '2');
+VALUES('2a95000c-9c29-7aae-58b0-5202daf1546a', 'MODBUS_RTU协议', 'MODBUS_RTU', '服务ip:502', '127.0.0.1:503', 'plugin/modbus/', 1668759841, '请参考文档对接设备,docker部署将http服务器地址的ip改为172.19.0.8', '2');
 
 
 
@@ -1243,16 +1243,16 @@ VALUES('8881ffe7-7c2b-43c2-13f3-7227dafa46bs', 'GATEWAY_PROTOCOL', 'MODBUS_RTU',
 
 INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
-VALUES('de497b74-1bb6-2fc8-237b-75199304ba78', '自定义TCP协议', 'raw-tcp', '127.0.0.1:7654', '127.0.0.1:8098', 'plugin/tcp/', 1670812659, '请参考文档对接设备', '2');
+VALUES('de497b74-1bb6-2fc8-237b-75199304ba78', '自定义TCP协议', 'raw-tcp', '服务ip:7654', '127.0.0.1:8098', 'plugin/tcp/', 1670812659, 'docker部署不包含tcp协议插件服务,可根据文档自行部署', '2');
 INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
-VALUES('aea3b83a-284d-5738-6d0f-94fc73220c33', '官方TCP协议', 'tcp', '127.0.0.1:7653', '127.0.0.1:8000', 'plugin/tcp/', 1670813735, '请参考文档对接设备', '1');
+VALUES('aea3b83a-284d-5738-6d0f-94fc73220c33', '官方TCP协议', 'tcp', '服务ip:7653', '127.0.0.1:8000', 'plugin/tcp/', 1670813735, 'docker部署不包含tcp协议插件服务,可根据文档自行部署', '1');
 INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
-VALUES('95b7c0b6-5c5b-4b45-c9ea-5bebda5a48ec', '官方TCP协议', 'tcp', '127.0.0.1:7653', '127.0.0.1:8000', 'plugin/tcp/', 1670813749, '请参考文档对接设备', '2');
+VALUES('95b7c0b6-5c5b-4b45-c9ea-5bebda5a48ec', '官方TCP协议', 'tcp', '服务ip:7653', '127.0.0.1:8000', 'plugin/tcp/', 1670813749, 'docker部署不包含tcp协议插件服务,可根据文档自行部署', '2');
 INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
-VALUES('95c957bc-a53b-6445-e882-1973bb546b12', '自定义TCP协议', 'raw-tcp', '127.0.0.1:7654', '127.0.0.1:8098', 'plugin/tcp/', 1670809899, '请参考文档对接设备', '1');
+VALUES('95c957bc-a53b-6445-e882-1973bb546b12', '自定义TCP协议', 'raw-tcp', '服务ip:7654', '127.0.0.1:8098', 'plugin/tcp/', 1670809899, 'docker部署不包含tcp协议插件服务,可根据文档自行部署', '1');
 
 INSERT INTO public.tp_dict
 (id, dict_code, dict_value, "describe", created_at)

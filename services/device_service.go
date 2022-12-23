@@ -168,9 +168,19 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 	var deviceList []map[string]interface{}
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
 	if dataResult.Error != nil {
-		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(dataResult.Error.Error())
 	} else {
 		for _, device := range deviceList {
+			if device["type"].(string) != "" {
+				var deviceModelService DeviceModelService
+				chartNameList, err := deviceModelService.GetChartNameListByPluginId(device["type"].(string))
+				if err == nil {
+					device["chart_names"] = chartNameList
+				} else {
+					logs.Error(err.Error())
+				}
+			}
+
 			//在线离线状态
 			if device["device_type"].(string) != "3" {
 				var interval int64
@@ -206,6 +216,18 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 				if result.Error != nil {
 					errors.Is(result.Error, gorm.ErrRecordNotFound)
 				} else {
+					for _, subDevice := range subDeviceList {
+						if subDevice["type"].(string) != "" {
+							var deviceModelService DeviceModelService
+							chartNameList, err := deviceModelService.GetChartNameListByPluginId(subDevice["type"].(string))
+							if err == nil {
+								subDevice["chart_names"] = chartNameList
+							} else {
+								logs.Error(err.Error())
+							}
+						}
+					}
+
 					device["children"] = subDeviceList
 				}
 			}

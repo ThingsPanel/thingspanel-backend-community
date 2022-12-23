@@ -157,3 +157,27 @@ func (*DeviceModelService) GetTypeMapByPluginId(pluginId string) (map[string]int
 	}
 	return typeMap, nil
 }
+
+//根据设备插件id获取设备图表单元名称
+func (*DeviceModelService) GetChartNameListByPluginId(pluginId string) ([]string, error) {
+	var chartNameMap []string
+	var deviceModel models.DeviceModel
+	psql.Mydb.First(&deviceModel, "id = ?", pluginId)
+	chartDate, err := simplejson.NewJson([]byte(deviceModel.ChartData))
+	if err != nil {
+		return nil, err
+	} else {
+		if value, err := chartDate.Get("chart").Array(); err != nil {
+			return nil, err
+		} else {
+			for _, charts := range value {
+				if chartMap, ok := charts.(map[string]interface{}); ok {
+					chartNameMap = append(chartNameMap, chartMap["name"].(string))
+				} else {
+					logs.Error("chart属性转map失败")
+				}
+			}
+		}
+	}
+	return chartNameMap, nil
+}
