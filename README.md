@@ -69,12 +69,12 @@ http://dev.thingspanel.cn
 1. 获取docker-compose源码
    
     ```bash
-    git clone https://github.com/ThingsPanel/thingsPanel-go-docker.git
+    git clone https://github.com/ThingsPanel/thingspanel-docker.git
     ```
 1. 进入目录并启动服务
 
     ```bash
-    cd thingsPanel-go-docker
+    cd thingspanel-docker
     docker-compose -f docker-compose.yml up
     ```
 1. 登录
