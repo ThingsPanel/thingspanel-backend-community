@@ -48,13 +48,13 @@ func (logoController *LogoController) Edit() {
 	}
 	var LogoService services.LogoService
 	Logo := models.Logo{
-		Id:         editLogoValidate.Id,
-		SystemName: editLogoValidate.SystemName,
-		Theme:      editLogoValidate.Theme,
-		LogoOne:    editLogoValidate.LogoOne,
-		LogoTwo:    editLogoValidate.LogoTwo,
-		CustomId:   editLogoValidate.CustomId,
-		LogoThree:  editLogoValidate.LogoThree,
+		Id:             editLogoValidate.Id,
+		SystemName:     editLogoValidate.SystemName,
+		Theme:          editLogoValidate.Theme,
+		LogoOne:        editLogoValidate.LogoOne,
+		LogoTwo:        editLogoValidate.LogoTwo,
+		HomeBackground: editLogoValidate.HomeBackground,
+		LogoThree:      editLogoValidate.LogoThree,
 	}
 	d := LogoService.GetLogo()
 	var isSucess bool

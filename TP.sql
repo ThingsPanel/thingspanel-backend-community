@@ -770,9 +770,9 @@ SELECT create_hypertable('ts_kv', 'ts',chunk_time_interval => 86400000000);
 INSERT INTO "users" ("id", "created_at", "updated_at", "enabled", "additional_info", "authority", "customer_id", "email", "password", "name", "first_name", "last_name", "search_text", "email_verified_at", "remember_token", "mobile", "remark", "is_admin", "business_id", "wx_openid", "wx_unionid") VALUES
 ('9212e9fb-a89c-4e35-9509-0a15df64f45a',	1606099326,	1623490224,	't',	NULL,	NULL,	NULL,	'super@super.cn',	'$2a$04$aGFaew.rkRmOUiOZ/3ZncO/HN1BuJc8Dcm1MNuU3HhbUVUgKIx7jG',	'Admin',	NULL,	NULL,	NULL,	0,	NULL,	'18618000000',	NULL,	0,	'',	'',	'');
 
--- INSERT INTO logo
--- (id, system_name, theme, logo_one, logo_two, logo_three, custom_id, remark)
--- VALUES('1d625cec-bf5b-2ad1-b135-a23b5fad05bf', 'ThingsPanel', 'blue', './files/logo/logo-one.svg', './files/logo/logo-two.gif', './files/logo/logo-three.png', '', '');
+INSERT INTO logo
+(id, system_name, theme, logo_one, logo_two, logo_three, custom_id, remark)
+VALUES('1d625cec-bf5b-2ad1-b135-a23b5fad05bf', 'ThingsPanel', 'blue', './files/logo/logo-one.svg', './files/logo/logo-two.gif', './files/logo/logo-three.png', '', '');
 INSERT INTO tp_menu (id,menu_name,parent_id,remark) VALUES
 	 ('1','homepage','0',NULL),
 	 ('2','buisness','0',NULL),
@@ -928,9 +928,9 @@ VALUES('83e18dcd-c6c8-eca2-2859-11dd6c6e7c6d', '', NULL, '/list', 'BusinessList'
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('1bc93bad-41d3-ca37-638b-f79a29c1388b', '', NULL, '/data/index', 'Datas', '/pages/datas/DataIndex.vue', 'COMMON.DATAS', 'menu-icon flaticon2-list', '1', '', '0', 980);
-INSERT INTO public.tp_function
-(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
-VALUES('2a7d5d94-62b5-c1c3-240b-cfeed8d92ec1', '', NULL, '/test123', 'Test123', '/pages/test123/index.vue', '设备地图', 'flaticon2-gear', '1', '', '0', 989);
+-- INSERT INTO public.tp_function
+-- (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
+-- VALUES('2a7d5d94-62b5-c1c3-240b-cfeed8d92ec1', '', NULL, '/test123', 'Test123', '/pages/test123/index.vue', '设备地图', 'flaticon2-gear', '1', '', '0', 989);
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('6455296b-bce4-bd6a-8047-3788ff95f107', '', NULL, '', 'DelDevicePlugin', '', '删除设备插件', '', '3', 'plugin:device:del', 'ec7a22ed-919d-7959-6737-145198f6172f', 0);
@@ -1068,10 +1068,10 @@ VALUES('4257cff7-ddf4-9977-a3ad-48630f5dc614', 'chart_type', '6', '其他', 1663
 
 INSERT INTO public.device_model
 (id, model_name, flag, chart_data, model_type, "describe", "version", author, sort, issued, remark, created_at)
-VALUES('5867753e-cb2d-32dc-a76d-7942d7ebcffc', '温湿度传感器', 0, '{"info":{"pluginName":"温湿度传感器","pluginCategory":"1","author":"thingspanel","version":"v1.0.0","description":"标准温湿度传感器"},"tsl":{"properties":[{"dataType":"float","dataRange":"0-999","stepLength":0.1,"unit":"-","name":"humidity","title":"湿度"},{"dataType":"float","dataRange":"0-999","stepLength":0.1,"unit":"-","name":"temperature","title":"温度"}],"option":{"classify":"custom","catValue":"ambient_sensor"}},"chart":[{"series":[{"type":"gauge","progress":{"show":true,"width":18},"axisLine":{"lineStyle":{"width":2}},"axisTick":{"show":false},"splitLine":{"show":false,"length":5,"lineStyle":{"width":2,"color":"#999"}},"axisLabel":{"distance":10,"color":"#fff","fontSize":14},"anchor":{"show":true,"showAbove":true,"size":25,"itemStyle":{"borderWidth":10}},"title":{"show":false},"detail":{"fontSize":30,"offsetCenter":[0,"70%"],"color":"#fff"},"data":[{"value":0,"name":""}]}],"simulator":{"funcArr":["return +(Math.random() * 60).toFixed(2);"],"interval":5000},"name":"当前温度","mapping":["temperature"],"controlType":"dashboard","style":{"backgroundColor":"#2d3d86","opacity":1},"id":"RxT0RK1h9hUu"},{"series":[{"type":"gauge","progress":{"show":true,"width":18},"axisLine":{"lineStyle":{"width":2}},"axisTick":{"show":false},"splitLine":{"show":false,"length":5,"lineStyle":{"width":2,"color":"#999"}},"axisLabel":{"distance":10,"color":"#fff","fontSize":14},"anchor":{"show":true,"showAbove":true,"size":25,"itemStyle":{"borderWidth":10}},"title":{"show":false},"detail":{"fontSize":30,"offsetCenter":[0,"70%"],"color":"#fff"},"data":[{"value":0,"name":""}]}],"simulator":{"funcArr":["return +(Math.random() * 60).toFixed(2);"],"interval":5000},"name":"当前湿度","mapping":["humidity"],"controlType":"dashboard","style":{"backgroundColor":"#2d3d86","opacity":1},"id":"bjhTocfMbQWD"},{"xAxis":{"type":"category","axisLine":{"lineStyle":{"color":"#fff"}},"data":[""]},"yAxis":{"type":"value","axisLine":{"lineStyle":{"color":"#fff"}}},"series":[{"data":[0],"type":"line"}],"name":"温湿度历史数据","mapping":["humidity","temperature"],"controlType":"history","id":"ADvGm6Yuh2nH"}],"publish":{"isPub":false}}'::json, '1', '', 'v1.0.0', 'thingspanel', 0, 0, '', 1665748873);
+VALUES('49e25564-d0f5-6926-fae7-4d58726248c3', '开关', 0, '{"info":{"pluginName":"开关","pluginCategory":"2","author":"thingspanel","version":"v1.0.0","description":"设备字段：switch（int 1-开 0-关）；别名：开关"},"tsl":{"properties":[{"dataType":"integer","dataRange":"0-999","stepLength":0.1,"unit":"-","title":"开关","name":"switch"}],"option":{"classify":"custom","catValue":"relay"}},"chart":[{"componentName":"单控开关","type":"switch","series":[{"type":"switch","value":false,"id":1,"mapping":{"value":"switch","on":"1","off":"0","attr":{"dataType":"integer","dataRange":"0-999","stepLength":0.1,"unit":"-","title":"开关","name":"switch"}}}],"disabled":false,"name":"开关","controlType":"control","id":"QruyPTrD0AeN"}],"publish":{"isPub":false}}'::json, '2', '', 'v1.0.0', 'thingspanel', 0, 0, '', 1671700085);
 INSERT INTO public.device_model
 (id, model_name, flag, chart_data, model_type, "describe", "version", author, sort, issued, remark, created_at)
-VALUES('49e25564-d0f5-6926-fae7-4d58726248c3', '开关', 0, '{"info":{"pluginName":"开关","pluginCategory":"2","author":"thingspanel","version":"v1.0.0","description":"设备字段：switch（int 1-开 0-关）；别名：开关"},"tsl":{"properties":[{"dataType":"integer","dataRange":"0-999","stepLength":0.1,"unit":"-","title":"开关","name":"switch"}],"option":{"classify":"custom","catValue":"relay"}},"chart":[{"componentName":"单控开关","type":"switch","series":[{"type":"switch","value":false,"id":1,"mapping":{"value":"switch","on":"1","off":"0","attr":{"dataType":"integer","dataRange":"0-999","stepLength":0.1,"unit":"-","title":"开关","name":"switch"}}}],"disabled":false,"name":"开关","controlType":"control","id":"QruyPTrD0AeN"}],"publish":{"isPub":false}}'::json, '2', '', 'v1.0.0', 'thingspanel', 0, 0, '', 1671700085);
+VALUES('5867753e-cb2d-32dc-a76d-7942d7ebcffc', '温湿度传感器', 0, '{"info":{"pluginName":"温湿度传感器","pluginCategory":"1","author":"thingspanel","version":"v1.0.0","description":"标准温湿度传感器"},"tsl":{"properties":[{"dataType":"float","dataRange":"0-999","stepLength":0.1,"unit":"%rh","name":"humidity","title":"湿度"},{"dataType":"float","dataRange":"0-999","stepLength":0.1,"unit":"℃","name":"temperature","title":"温度"}],"option":{"classify":"custom","catValue":"ambient_sensor"}},"chart":[{"series":[{"type":"gauge","progress":{"show":true,"width":18},"axisLine":{"lineStyle":{"width":2}},"axisTick":{"show":false},"splitLine":{"show":false,"length":5,"lineStyle":{"width":2,"color":"#999"}},"axisLabel":{"distance":10,"color":"#fff","fontSize":14},"anchor":{"show":true,"showAbove":true,"size":25,"itemStyle":{"borderWidth":10}},"title":{"show":false},"detail":{"fontSize":30,"offsetCenter":[0,"70%"],"color":"#fff"},"data":[{"value":0,"name":""}]}],"simulator":{"funcArr":["return +(Math.random() * 60).toFixed(2);"],"interval":5000},"name":"当前温度","mapping":["temperature"],"controlType":"dashboard","style":{"backgroundColor":"#2d3d86","opacity":1},"id":"bHEwRZGNTTYk"},{"series":[{"type":"gauge","progress":{"show":true,"width":18},"axisLine":{"lineStyle":{"width":2}},"axisTick":{"show":false},"splitLine":{"show":false,"length":5,"lineStyle":{"width":2,"color":"#999"}},"axisLabel":{"distance":10,"color":"#fff","fontSize":14},"anchor":{"show":true,"showAbove":true,"size":25,"itemStyle":{"borderWidth":10}},"title":{"show":false},"detail":{"fontSize":30,"offsetCenter":[0,"70%"],"color":"#fff"},"data":[{"value":0,"name":""}]}],"simulator":{"funcArr":["return +(Math.random() * 60).toFixed(2);"],"interval":5000},"name":"当前湿度","mapping":["humidity"],"controlType":"dashboard","style":{"backgroundColor":"#2d3d86","opacity":1},"id":"ap4aakzNhLEa"},{"xAxis":{"type":"category","axisLine":{"lineStyle":{"color":"#fff"}},"data":[""]},"yAxis":{"type":"value","axisLine":{"lineStyle":{"color":"#fff"}}},"series":[{"data":[0],"type":"line"}],"name":"温湿度历史数据","mapping":["humidity","temperature"],"controlType":"history","id":"qm9DsAYTktbN"}],"publish":{"isPub":false}}'::json, '1', '', 'v1.0.0', 'thingspanel', 0, 0, '', 1665748873);
 
 
 ALTER TABLE public.device ADD sub_device_addr varchar(36) NULL;
@@ -1202,14 +1202,14 @@ ALTER TABLE public.tp_protocol_plugin ADD CONSTRAINT tp_protocol_plugin_un UNIQU
 
 INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
-VALUES('c8a13166-e010-24e4-0565-e87feea162bb', 'MODBUS_TCP协议', 'MODBUS_TCP', '服务ip:502', '127.0.0.1:503', 'plugin/modbus/', 1668759820, '请参考文档对接设备,docker部署将http服务器地址的ip改为172.19.0.8', '2');
+VALUES('c8a13166-e010-24e4-0565-e87feea162bb', 'MODBUS_TCP协议', 'MODBUS_TCP', '服务ip:502', '127.0.0.1:503', 'plugin/modbus/', 1668759820, '请参考文档对接设备,(应用管理->接入协议)docker部署将http服务器地址的ip改为172.19.0.8', '2');
 INSERT INTO public.tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type)
-VALUES('2a95000c-9c29-7aae-58b0-5202daf1546a', 'MODBUS_RTU协议', 'MODBUS_RTU', '服务ip:502', '127.0.0.1:503', 'plugin/modbus/', 1668759841, '请参考文档对接设备,docker部署将http服务器地址的ip改为172.19.0.8', '2');
+VALUES('2a95000c-9c29-7aae-58b0-5202daf1546a', 'MODBUS_RTU协议', 'MODBUS_RTU', '服务ip:502', '127.0.0.1:503', 'plugin/modbus/', 1668759841, '请参考文档对接设备,(应用管理->接入协议)docker部署将http服务器地址的ip改为172.19.0.8', '2');
 
 
 
--- 0.4.1
+-- 0.4.5
 ALTER TABLE public.tp_dict ADD CONSTRAINT tp_dict_un UNIQUE (dict_code,dict_value);
 ALTER TABLE public.ts_kv_latest ADD CONSTRAINT ts_kv_latest_fk FOREIGN KEY (entity_id) REFERENCES public.device(id) ON DELETE CASCADE;
 ALTER TABLE public.conditions_log ADD CONSTRAINT conditions_log_fk FOREIGN KEY (device_id) REFERENCES public.device(id);
@@ -1269,3 +1269,8 @@ VALUES('25074e80-b7ca-99a3-e1f7-2fec7ec31b24', 'GATEWAY_PROTOCOL', 'tcp', '官�
 
 CREATE INDEX operation_log_created_at_idx ON public.operation_log (created_at DESC);
 CREATE INDEX ts_kv_entity_id_idx ON public.ts_kv (entity_id,ts DESC);
+
+--v0.4.6
+ALTER TABLE public.logo DROP COLUMN custom_id;
+ALTER TABLE public.logo ADD home_background varchar(255) NULL;
+COMMENT ON COLUMN public.logo.home_background IS '首页背景';
