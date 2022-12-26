@@ -5,7 +5,6 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
-	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
@@ -57,20 +56,17 @@ func (logoController *LogoController) Edit() {
 		LogoThree:      editLogoValidate.LogoThree,
 	}
 	d := LogoService.GetLogo()
-	var isSucess bool
 	if d == (models.Logo{}) {
-		var uuid = uuid.GetUuid()
-		Logo.Id = uuid
-		isSucess, _ = LogoService.Add(Logo)
+		Logo.Id, err = LogoService.Add(Logo)
 	} else { //修改
 		if editLogoValidate.Id == "" {
 			response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(logoController.Ctx))
 		}
-		isSucess = LogoService.Edit(Logo)
+		err = LogoService.Edit(Logo)
 	}
-	if isSucess {
+	if err == nil {
 		response.SuccessWithDetailed(200, "success", Logo, map[string]string{}, (*context2.Context)(logoController.Ctx))
 	} else {
-		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(logoController.Ctx))
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(logoController.Ctx))
 	}
 }

@@ -30,23 +30,21 @@ func (*LogoService) GetLogo() models.Logo {
 }
 
 // Add新增一条Logo数据
-func (*LogoService) Add(logo models.Logo) (bool, string) {
+func (*LogoService) Add(logo models.Logo) (string, error) {
 	var uuid = uuid.GetUuid()
 	logo.Id = uuid
 	result := psql.Mydb.Create(&logo)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false, ""
+		return "", result.Error
 	}
-	return true, uuid
+	return uuid, nil
 }
 
 // 根据ID编辑一条Logo数据
-func (*LogoService) Edit(logo models.Logo) bool {
+func (*LogoService) Edit(logo models.Logo) error {
 	result := psql.Mydb.Save(&logo)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false
+		return result.Error
 	}
-	return true
+	return nil
 }
