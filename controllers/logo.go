@@ -54,6 +54,7 @@ func (logoController *LogoController) Edit() {
 		LogoTwo:        editLogoValidate.LogoTwo,
 		HomeBackground: editLogoValidate.HomeBackground,
 		LogoThree:      editLogoValidate.LogoThree,
+		Remark:         editLogoValidate.Remark,
 	}
 	d := LogoService.GetLogo()
 	if d == (models.Logo{}) {
