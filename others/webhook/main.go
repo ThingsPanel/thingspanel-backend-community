@@ -21,6 +21,7 @@ func payload(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func shell() {
+	fmt.Println("开始执行脚本...")
 	//需要执行的命令： free -mh
 	cmd := exec.Command("/bin/bash", "-c", `./z-shell.sh`)
 	// 获取管道输入
