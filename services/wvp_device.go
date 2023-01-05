@@ -104,7 +104,7 @@ func (*WvpDeviceService) AddSubVideoDevice(device valid.EditDevice) error {
 			reqJson, err := wvp.GetPlayAddr(LoginInfo.Host, d.DId, channelId, cookie)
 			if err == nil {
 				logs.Info("获取播放地址成功：")
-				additionalInfoJson.Set("flv", reqJson.Get("data").Get("flv").MustString())
+				additionalInfoJson.Set("video_address", reqJson.Get("data").Get("flv").MustString())
 				additionalInfoByte, _ := additionalInfoJson.MarshalJSON()
 				additionalInfo = string(additionalInfoByte)
 			}
