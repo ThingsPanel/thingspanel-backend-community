@@ -43,8 +43,8 @@ func (*WvpDeviceService) GetWvpLoginInfo(protocolType string) (*LoginInfo, error
 func (*WvpDeviceService) AddSubVideoDevice(device valid.EditDevice) error {
 	var deviceService DeviceService
 	d, _ := deviceService.GetDeviceByID(device.ID)
-	if d.Password == "" { // 设备编号为空退出
-		return nil
+	if d.DId == "" { // 设备编号为空退出
+		return errors.New("设备编号不能为空")
 	}
 	count, err := deviceService.GetSubDeviceCount(device.ID)
 	if err != nil {
