@@ -2,10 +2,12 @@ package wvp
 
 import (
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
+	"github.com/beego/beego/v2/core/logs"
 	"github.com/bitly/go-simplejson"
 )
 
@@ -23,6 +25,15 @@ func Login(host string, username string, password string) (string, error) {
 		return "", err
 	}
 	cookies := res.Cookies()
+	logs.Info(res.Cookies())
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+	bodyJson, _ := simplejson.NewJson(body)
+	if bodyJson.Get("code").MustString() == "-1" {
+		return "", errors.New(bodyJson.Get("msg").MustString())
+	}
 	return cookies[0].Value, nil
 }
 
@@ -42,7 +53,6 @@ func GetDeviceChannels(host string, deviceId string, cookieValue string) (*simpl
 		return nil, err
 	}
 	bodyJson, _ := simplejson.NewJson(body)
-	simplejson.New()
 	return bodyJson, nil
 }
 

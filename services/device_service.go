@@ -554,16 +554,22 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 	return nil
 }
 
-func (*DeviceService) Add(device models.Device) (bool, string) {
+func (*DeviceService) Add(device models.Device) (string, error) {
 
 	var uuid = uuid.GetUuid()
 	device.ID = uuid
+	if device.ProtocolConfig == "" {
+		device.ProtocolConfig = "{}"
+	}
+	if device.ChartOption == "" {
+		device.ChartOption = "{}"
+	}
 	result := psql.Mydb.Create(&device)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false, ""
+		return "", result.Error
 	}
-	if device.Token != "" {
+	if device.Token != "" && device.Protocol[0:4] != "WVP_" {
+		logs.Info("添加gmqtt用户...")
 		MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
 		if MqttHttpHost == "" {
 			MqttHttpHost = viper.GetString("api.http_host")
@@ -571,8 +577,7 @@ func (*DeviceService) Add(device models.Device) (bool, string) {
 		redis.SetStr("token"+device.Token, uuid, 3600*time.Second)
 		tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\"\"}")
 	}
-
-	return true, uuid
+	return uuid, nil
 }
 
 // add1

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/beego/beego/v2/core/logs"
 	"github.com/bitly/go-simplejson"
 )
 
@@ -29,7 +30,7 @@ func (*WvpDeviceService) GetWvpLoginInfo(protocolType string) (*LoginInfo, error
 	if len(loginInfoList) == 3 {
 		loginInfo.Host = loginInfoList[0]
 		loginInfo.Username = loginInfoList[1]
-		loginInfo.Username = loginInfoList[2]
+		loginInfo.Password = loginInfoList[2]
 	} else {
 		return nil, errors.New("协议插件的http服务器地址配置有误,请按照{host}||{username}||{password}格式填写")
 	}
@@ -69,10 +70,12 @@ func (*WvpDeviceService) AddSubVideoDevice(device valid.EditDevice) error {
 	// 	redis.SetStr(d.Protocol, cookieValue, 3000*time.Second)
 	// }
 	//登录获取cookie
+	logs.Info(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
 	cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
 	if err != nil {
 		return err
 	}
+	logs.Info(cookieValue)
 	cookie := cookieValue
 	reqJson, err := wvp.GetDeviceChannels(LoginInfo.Host, d.DId, cookie)
 	if err != nil {
@@ -85,18 +88,22 @@ func (*WvpDeviceService) AddSubVideoDevice(device valid.EditDevice) error {
 			return errors.New("设备下没有开启的通道")
 		}
 	}
+	logs.Info("获取通道列表成功")
 	channelList, err := reqJson.Get("list").Array()
 	if err != nil {
-		return nil
+		return err
 	}
 	for _, channel := range channelList {
+		logs.Info("channel:", channel)
 		if channelMap, ok := channel.(map[string]interface{}); ok {
 			channelId := channelMap["channelId"].(string)
 			var additionalInfoJson simplejson.Json
 			// 调接口查询播放地址
 			var additionalInfo string
+			logs.Info(LoginInfo.Host, d.DId, channelId, cookie)
 			reqJson, err := wvp.GetPlayAddr(LoginInfo.Host, d.DId, channelId, cookie)
-			if err != nil {
+			if err == nil {
+				logs.Info("获取播放地址成功：")
 				additionalInfoJson.Set("flv", reqJson.Get("data").Get("flv").MustString())
 				additionalInfoByte, _ := additionalInfoJson.MarshalJSON()
 				additionalInfo = string(additionalInfoByte)
@@ -105,12 +112,17 @@ func (*WvpDeviceService) AddSubVideoDevice(device valid.EditDevice) error {
 				SubDeviceAddr:  channelId,
 				Name:           channelMap["name"].(string),
 				Protocol:       d.Protocol,
-				ParentId:       d.ParentId,
+				ParentId:       d.ID,
 				Token:          uuid.GetUuid(),
 				DeviceType:     "3",
 				AdditionalInfo: additionalInfo,
+				AssetID:        d.AssetID,
 			}
-			deviceService.Add(subDevice)
+			logs.Info("开始添加子设备...")
+			_, err = deviceService.Add(subDevice)
+			if err != nil {
+				logs.Error(err)
+			}
 		}
 	}
 	return nil

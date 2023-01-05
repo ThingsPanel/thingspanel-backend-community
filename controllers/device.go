@@ -118,12 +118,12 @@ func (this *DeviceController) Add() {
 		ProtocolConfig: addDeviceValidate.ProtocolConfig,
 		CreatedAt:      time.Now().Unix(),
 	}
-	f, _ := DeviceService.Add(deviceData)
-	if f {
+	_, err = DeviceService.Add(deviceData)
+	if err == nil {
 		response.SuccessWithMessage(200, "添加成功", (*context2.Context)(this.Ctx))
 		return
 	}
-	response.SuccessWithMessage(400, "添加失败", (*context2.Context)(this.Ctx))
+	response.SuccessWithMessage(400, err.Error(), (*context2.Context)(this.Ctx))
 	return
 }
 
@@ -206,9 +206,9 @@ func (reqDate *DeviceController) AddOnly() {
 	if deviceData.DeviceType == "3" {
 		deviceData.SubDeviceAddr = strings.Replace(uuid.GetUuid(), "-", "", -1)[0:9]
 	}
-	result, uuid := DeviceService.Add(deviceData)
+	uuid, err := DeviceService.Add(deviceData)
 	//result := psql.Mydb.Create(&deviceData)
-	if result {
+	if err == nil {
 		deviceData.ID = uuid
 		// 判断是否是协议插件的网关子设备
 		if deviceData.DeviceType == "3" && deviceData.Protocol != "MQTT" {
@@ -241,7 +241,7 @@ func (reqDate *DeviceController) AddOnly() {
 		response.SuccessWithDetailed(200, "success", deviceData, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
-		response.SuccessWithMessage(400, "添加失败", (*context2.Context)(reqDate.Ctx))
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(reqDate.Ctx))
 	}
 }
 

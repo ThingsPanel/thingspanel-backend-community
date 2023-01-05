@@ -14,7 +14,7 @@ func TestLogin(t *testing.T) {
 	fmt.Println(cookieValue)
 }
 func TestGetDeviceChannels(t *testing.T) {
-	bodyJson, err := GetDeviceChannels("http://119.91.238.241:18080", "44010200492000000001", "0288F64E62EDB149309C03379557DE9B")
+	bodyJson, err := GetDeviceChannels("http://119.91.238.241:18080", "44010200492000000001", "3DD86F5071587E87606CC9F4FD66FECA")
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -36,7 +36,7 @@ func TestPtzControl(t *testing.T) {
 	fmt.Println(bodyJson)
 }
 func TestGetPlayAddr(t *testing.T) {
-	bodyJson, err := GetPlayAddr("http://119.91.238.241:18080", "44010200492000000001", "34020000001320000001", "F828331DEB67A2254AC5BB08FC77E303")
+	bodyJson, err := GetPlayAddr("http://119.91.238.241:18080", "44010200492000000001", "34020000001320000001", "5336336ADCE0A61009D6CC12E24CB938")
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
