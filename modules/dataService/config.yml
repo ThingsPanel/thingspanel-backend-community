@@ -1,5 +1,5 @@
 mqtt:
-  broker: 127.0.0.1:1883
+  broker: 39.98.176.26:1883
   user: root
   pass: root
   topicToSubscribe: device/attributes
@@ -10,4 +10,4 @@ mqtt:
   qos: 0
 
 api:
-  http_host: 127.0.0.1:8083
+  http_host: 39.98.176.26:8083
