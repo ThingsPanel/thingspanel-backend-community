@@ -544,6 +544,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		ChartOption:    deviceModel.ChartOption,
 		Location:       deviceModel.Location,
 		AdditionalInfo: deviceModel.AdditionalInfo,
+		DId:            deviceModel.DId,
 	})
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)

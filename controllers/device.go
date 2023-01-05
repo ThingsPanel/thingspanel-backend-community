@@ -361,7 +361,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 					}
 				}
 			}
-		} else if d.Protocol[0:4] != "WVP_" && d.DeviceType == "2" {
+		} else if d.Protocol[0:4] == "WVP_" && d.DeviceType == "2" {
 			var wvpDeviceService services.WvpDeviceService
 			err := wvpDeviceService.AddSubVideoDevice(addDeviceValidate)
 			if err != nil {
