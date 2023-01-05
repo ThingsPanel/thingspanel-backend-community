@@ -32,7 +32,8 @@ func (*AutomationService) GetAutomationById(id string) (*models.Condition, int64
 // Paginate 分页获取Automation数据
 func (*AutomationService) Paginate(business_id string, offset int, pageSize int) ([]models.Condition, int64) {
 	var conditions []models.Condition
-	result := psql.Mydb.Where("business_id = ?", business_id).Limit(offset).Offset((pageSize - 1) * offset).Find(&conditions)
+	pageSize = (pageSize - 1) * offset
+	result := psql.Mydb.Where("business_id = ?", business_id).Offset(pageSize).Limit(offset).Find(&conditions)
 	var count int64
 	psql.Mydb.Model(&models.Condition{}).Where("business_id = ?", business_id).Count(&count)
 	if result.Error != nil {
