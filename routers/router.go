@@ -336,6 +336,8 @@ func init() {
 
 		//生成设备表
 		web.NSRouter("/tp_generate_device/activate", &controllers.TpGenerateDeviceController{}, "*:ActivateDevice"),
+		//ptz控制
+		web.NSRouter("/wvp/ptz", &controllers.WvpController{}, "*:PtzControl"),
 	)
 
 	// 图表推送数据

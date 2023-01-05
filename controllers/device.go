@@ -324,7 +324,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 	if result == nil {
 		deviceDash, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)
 		// 判断议插件修改
-		if d.Protocol != "mqtt" && d.Protocol != "MQTT" {
+		if d.Protocol != "mqtt" && d.Protocol != "MQTT" && d.Protocol[0:4] != "WVP_" {
 			// 判断是否设备表单、子设备地址、直连设备token修改;通知协议插件
 			if d.DeviceType == "3" || d.DeviceType == "1" {
 				if (addDeviceValidate.ProtocolConfig != "" && addDeviceValidate.ProtocolConfig != d.ProtocolConfig) ||
@@ -360,6 +360,12 @@ func (reqDate *DeviceController) UpdateOnly() {
 						}
 					}
 				}
+			}
+		} else if d.Protocol[0:4] != "WVP_" && d.DeviceType == "2" {
+			var wvpDeviceService services.WvpDeviceService
+			err := wvpDeviceService.AddSubVideoDevice(addDeviceValidate)
+			if err != nil {
+				response.SuccessWithMessage(400, err.Error(), (*context2.Context)(reqDate.Ctx))
 			}
 		}
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
