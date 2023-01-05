@@ -64,8 +64,10 @@ func (logoController *LogoController) Edit() {
 			response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(logoController.Ctx))
 		}
 		err = LogoService.Edit(Logo)
+
 	}
 	if err == nil {
+		Logo = LogoService.GetLogo()
 		response.SuccessWithDetailed(200, "success", Logo, map[string]string{}, (*context2.Context)(logoController.Ctx))
 	} else {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(logoController.Ctx))
