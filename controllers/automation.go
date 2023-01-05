@@ -122,7 +122,7 @@ func (this *AutomationController) Index() {
 		return
 	}
 	var AutomationService services.AutomationService
-	u, c := AutomationService.Paginate(automationIndexValidate.BusinessId, automationIndexValidate.Limit, automationIndexValidate.Page-1)
+	u, c := AutomationService.Paginate(automationIndexValidate.BusinessId, automationIndexValidate.Limit, automationIndexValidate.Page)
 	d := PaginateAutomation{
 		CurrentPage: automationIndexValidate.Page,
 		Data:        u,
