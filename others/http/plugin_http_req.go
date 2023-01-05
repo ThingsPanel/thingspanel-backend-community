@@ -14,6 +14,9 @@ import (
 
 // 获取插件的表单配置
 func GetPluginFromConfig(host string, protocol_type string, device_type string) ([]byte, error) {
+	if protocol_type[0:4] == "WVP_" {
+		return nil, nil
+	}
 	//host := getHost()
 	return Get("http://" + host + "/api/form/config?protocol_type=" + protocol_type + "&device_type=" + device_type)
 }
