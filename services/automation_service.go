@@ -34,7 +34,7 @@ func (*AutomationService) Paginate(business_id string, offset int, pageSize int)
 	var conditions []models.Condition
 	result := psql.Mydb.Where("business_id = ?", business_id).Limit(offset).Offset(pageSize - 1*offset).Find(&conditions)
 	var count int64
-	psql.Mydb.Where("business_id = ?", business_id).Count(&count)
+	psql.Mydb.Model(&models.Condition{}).Where("business_id = ?", business_id).Count(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
