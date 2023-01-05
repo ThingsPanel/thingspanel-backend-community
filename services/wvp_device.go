@@ -1,14 +1,12 @@
 package services
 
 import (
-	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/models"
 	wvp "ThingsPanel-Go/others/wvp_http"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
 	"strings"
-	"time"
 
 	"github.com/bitly/go-simplejson"
 )
@@ -60,16 +58,22 @@ func (*WvpDeviceService) AddSubVideoDevice(device valid.EditDevice) error {
 		return err
 	}
 	// 根据协议类型在缓存中获取cookie
-	cookie := redis.GetStr(d.Protocol)
-	if cookie == "" {
-		//登录获取cookie
-		cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
-		if err != nil {
-			return err
-		}
-		cookie = cookieValue
-		redis.SetStr(d.Protocol, cookieValue, 3000*time.Second)
+	// cookie := redis.GetStr(d.Protocol)
+	// if cookie == "" {
+	// 	//登录获取cookie
+	// 	cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	cookie = cookieValue
+	// 	redis.SetStr(d.Protocol, cookieValue, 3000*time.Second)
+	// }
+	//登录获取cookie
+	cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
+	if err != nil {
+		return err
 	}
+	cookie := cookieValue
 	reqJson, err := wvp.GetDeviceChannels(LoginInfo.Host, d.DId, cookie)
 	if err != nil {
 		return err
@@ -121,16 +125,22 @@ func (*WvpDeviceService) PtzControl(parentId string, channelId string, queryMap 
 	if err != nil {
 		return err
 	}
-	cookie := redis.GetStr(d.Protocol)
-	if cookie == "" {
-		//登录获取cookie
-		cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
-		if err != nil {
-			return err
-		}
-		cookie = cookieValue
-		redis.SetStr(d.Protocol, cookieValue, 3000*time.Second)
+	// cookie := redis.GetStr(d.Protocol)
+	// if cookie == "" {
+	// 	//登录获取cookie
+	// 	cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	cookie = cookieValue
+	// 	redis.SetStr(d.Protocol, cookieValue, 3000*time.Second)
+	// }
+	//登录获取cookie
+	cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
+	if err != nil {
+		return err
 	}
+	cookie := cookieValue
 	rsp, err := wvp.PtzControl(LoginInfo.Host, d.DId, channelId, cookie, queryMap)
 	if err != nil {
 		return err
