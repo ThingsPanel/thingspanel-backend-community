@@ -696,7 +696,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 			}
 		}
 
-	} else if device.Protocol != "MQTT" { // mqtt网关子设备
+	} else if device.Protocol == "MQTT" { // mqtt网关子设备
 		if device.ParentId != "" && device.SubDeviceAddr != "" {
 			var gatewayDevice *models.Device
 			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
