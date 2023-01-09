@@ -56,16 +56,16 @@ func (logoController *LogoController) Edit() {
 		LogoThree:      editLogoValidate.LogoThree,
 		Remark:         editLogoValidate.Remark,
 	}
-	d := LogoService.GetLogo()
-	if d == (models.Logo{}) {
-		Logo.Id, err = LogoService.Add(Logo)
-	} else { //修改
-		if editLogoValidate.Id == "" {
-			response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(logoController.Ctx))
-		}
-		err = LogoService.Edit(Logo)
-
+	// d := LogoService.GetLogo()
+	// if d == (models.Logo{}) {
+	// 	Logo.Id, err = LogoService.Add(Logo)
+	// } else { //修改
+	if editLogoValidate.Id == "" {
+		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(logoController.Ctx))
 	}
+	err = LogoService.Edit(Logo)
+
+	// }
 	if err == nil {
 		Logo = LogoService.GetLogo()
 		response.SuccessWithDetailed(200, "success", Logo, map[string]string{}, (*context2.Context)(logoController.Ctx))
