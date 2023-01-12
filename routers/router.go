@@ -336,8 +336,10 @@ func init() {
 
 		//生成设备表
 		web.NSRouter("/tp_generate_device/activate", &controllers.TpGenerateDeviceController{}, "*:ActivateDevice"),
-		//ptz控制
+		//WVP接口
 		web.NSRouter("/wvp/ptz", &controllers.WvpController{}, "*:PtzControl"),
+		web.NSRouter("/gb_record/query", &controllers.WvpController{}, "*:GetVideoList"),
+		web.NSRouter("/playback/start", &controllers.WvpController{}, "*:GetPlaybackAddr"),
 	)
 
 	// 图表推送数据

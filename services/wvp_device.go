@@ -38,6 +38,22 @@ func (*WvpDeviceService) GetWvpLoginInfo(protocolType string) (*LoginInfo, error
 	return &loginInfo, nil
 }
 
+// 获取cookie和主机地址
+func (*WvpDeviceService) GetCookie(protocolType string) (string, string, error) {
+	// 地址http://119.91.238.241:18080，用户名admin，密码admin
+	var WvpDeviceService WvpDeviceService
+	LoginInfo, err := WvpDeviceService.GetWvpLoginInfo(protocolType)
+	if err != nil {
+		return "", "", err
+	}
+	//登录获取cookie
+	cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
+	if err != nil {
+		return "", "", err
+	}
+	return cookieValue, LoginInfo.Host, nil
+}
+
 // 如果是视频设备，修改完设备后再调用
 func (*WvpDeviceService) AddSubVideoDevice(device valid.EditDevice) error {
 	var deviceService DeviceService
@@ -52,32 +68,15 @@ func (*WvpDeviceService) AddSubVideoDevice(device valid.EditDevice) error {
 	if count > int64(0) { //有子设备退出
 		return nil
 	}
-	// 地址http://119.91.238.241:18080，用户名admin，密码admin
+	// 通过协议类型获取cookie
 	var WvpDeviceService WvpDeviceService
-	LoginInfo, err := WvpDeviceService.GetWvpLoginInfo(d.Protocol)
-	if err != nil {
-		return err
-	}
-	// 根据协议类型在缓存中获取cookie
-	// cookie := redis.GetStr(d.Protocol)
-	// if cookie == "" {
-	// 	//登录获取cookie
-	// 	cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	cookie = cookieValue
-	// 	redis.SetStr(d.Protocol, cookieValue, 3000*time.Second)
-	// }
-	//登录获取cookie
-	logs.Info(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
-	cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
+	cookieValue, wvpHost, err := WvpDeviceService.GetCookie(d.Protocol)
 	if err != nil {
 		return err
 	}
 	logs.Info(cookieValue)
 	cookie := cookieValue
-	reqJson, err := wvp.GetDeviceChannels(LoginInfo.Host, d.DId, cookie)
+	reqJson, err := wvp.GetDeviceChannels(wvpHost, d.DId, cookie)
 	if err != nil {
 		return err
 	}
@@ -100,8 +99,8 @@ func (*WvpDeviceService) AddSubVideoDevice(device valid.EditDevice) error {
 			var additionalInfoJson simplejson.Json
 			// 调接口查询播放地址
 			var additionalInfo string
-			logs.Info(LoginInfo.Host, d.DId, channelId, cookie)
-			reqJson, err := wvp.GetPlayAddr(LoginInfo.Host, d.DId, channelId, cookie)
+			logs.Info(wvpHost, d.DId, channelId, cookie)
+			reqJson, err := wvp.GetPlayAddr(wvpHost, d.DId, channelId, cookie)
 			if err == nil {
 				logs.Info("获取播放地址成功：")
 				additionalInfoJson.Set("video_address", reqJson.Get("data").Get("flv").MustString())
@@ -133,27 +132,12 @@ func (*WvpDeviceService) PtzControl(parentId string, channelId string, queryMap 
 	var deviceService DeviceService
 	d, _ := deviceService.GetDeviceByID(parentId)
 	var WvpDeviceService WvpDeviceService
-	LoginInfo, err := WvpDeviceService.GetWvpLoginInfo(d.Protocol)
-	if err != nil {
-		return err
-	}
-	// cookie := redis.GetStr(d.Protocol)
-	// if cookie == "" {
-	// 	//登录获取cookie
-	// 	cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	cookie = cookieValue
-	// 	redis.SetStr(d.Protocol, cookieValue, 3000*time.Second)
-	// }
-	//登录获取cookie
-	cookieValue, err := wvp.Login(LoginInfo.Host, LoginInfo.Username, LoginInfo.Password)
+	cookieValue, wvpHost, err := WvpDeviceService.GetCookie(d.Protocol)
 	if err != nil {
 		return err
 	}
 	cookie := cookieValue
-	rsp, err := wvp.PtzControl(LoginInfo.Host, d.DId, channelId, cookie, queryMap)
+	rsp, err := wvp.PtzControl(wvpHost, d.DId, channelId, cookie, queryMap)
 	if err != nil {
 		return err
 	}
@@ -161,4 +145,38 @@ func (*WvpDeviceService) PtzControl(parentId string, channelId string, queryMap 
 		return errors.New(rsp)
 	}
 	return nil
+}
+
+// 获取通道录像列表
+func (*WvpDeviceService) GetVideoList(parentId string, channelId string, queryMap map[string]string) (*simplejson.Json, error) {
+	var deviceService DeviceService
+	d, _ := deviceService.GetDeviceByID(parentId)
+	var WvpDeviceService WvpDeviceService
+	cookieValue, wvpHost, err := WvpDeviceService.GetCookie(d.Protocol)
+	if err != nil {
+		return nil, err
+	}
+	cookie := cookieValue
+	rsp, err := wvp.GetVideoList(wvpHost, d.DId, channelId, cookie, queryMap)
+	if err != nil {
+		return nil, err
+	}
+	return rsp, nil
+}
+
+// 获取录像播放地址
+func (*WvpDeviceService) GetPlaybackAddr(parentId string, channelId string, queryMap map[string]string) (*simplejson.Json, error) {
+	var deviceService DeviceService
+	d, _ := deviceService.GetDeviceByID(parentId)
+	var WvpDeviceService WvpDeviceService
+	cookieValue, wvpHost, err := WvpDeviceService.GetCookie(d.Protocol)
+	if err != nil {
+		return nil, err
+	}
+	cookie := cookieValue
+	rsp, err := wvp.GetPlaybackAddr(wvpHost, d.DId, channelId, cookie, queryMap)
+	if err != nil {
+		return nil, err
+	}
+	return rsp, nil
 }

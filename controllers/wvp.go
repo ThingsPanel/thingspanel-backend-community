@@ -14,13 +14,7 @@ type WvpController struct {
 	beego.Controller
 }
 
-// DeleteWidget 校验
-type PtzControlValid struct {
-	ParentId      string `json:"parent_id" alias:"ID" valid:"Required; MaxSize(36)"`
-	SubDeviceAddr string `json:"sub_device_addr" alias:"ID" valid:"Required;MaxSize(36)"`
-}
-
-// 修改扩展功能
+// ptz控制接口
 func (widgetController *WvpController) PtzControl() {
 	var ptzControlValid = make(map[string]string)
 	err := json.Unmarshal(widgetController.Ctx.Input.RequestBody, &ptzControlValid)
@@ -50,5 +44,67 @@ func (widgetController *WvpController) PtzControl() {
 		return
 	}
 	// 修改失败
+	response.SuccessWithMessage(400, err.Error(), (*context2.Context)(widgetController.Ctx))
+}
+
+// 获取通道的视频列表
+func (widgetController *WvpController) GetVideoList() {
+	var ptzControlValid = make(map[string]string)
+	err := json.Unmarshal(widgetController.Ctx.Input.RequestBody, &ptzControlValid)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	var parentId, subDeviceAddr string
+	if ptzControlValid["parent_id"] == "" {
+		response.SuccessWithMessage(400, "parent_id不能为空", (*context2.Context)(widgetController.Ctx))
+		return
+	} else {
+		parentId = ptzControlValid["parent_id"]
+		delete(ptzControlValid, "parent_id")
+	}
+	if ptzControlValid["sub_device_addr"] == "" {
+		response.SuccessWithMessage(400, "sub_device_addr不能为空", (*context2.Context)(widgetController.Ctx))
+		return
+	} else {
+		subDeviceAddr = ptzControlValid["sub_device_addr"]
+		delete(ptzControlValid, "sub_device_addr")
+	}
+	var wvpDeviceService services.WvpDeviceService
+	rspJson, err := wvpDeviceService.GetVideoList(parentId, subDeviceAddr, ptzControlValid)
+	if err == nil {
+		response.SuccessWithDetailed(200, "success", rspJson, map[string]string{}, (*context2.Context)(widgetController.Ctx))
+		return
+	}
+	response.SuccessWithMessage(400, err.Error(), (*context2.Context)(widgetController.Ctx))
+}
+
+// 获取通道的视频列表
+func (widgetController *WvpController) GetPlaybackAddr() {
+	var ptzControlValid = make(map[string]string)
+	err := json.Unmarshal(widgetController.Ctx.Input.RequestBody, &ptzControlValid)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	var parentId, subDeviceAddr string
+	if ptzControlValid["parent_id"] == "" {
+		response.SuccessWithMessage(400, "parent_id不能为空", (*context2.Context)(widgetController.Ctx))
+		return
+	} else {
+		parentId = ptzControlValid["parent_id"]
+		delete(ptzControlValid, "parent_id")
+	}
+	if ptzControlValid["sub_device_addr"] == "" {
+		response.SuccessWithMessage(400, "sub_device_addr不能为空", (*context2.Context)(widgetController.Ctx))
+		return
+	} else {
+		subDeviceAddr = ptzControlValid["sub_device_addr"]
+		delete(ptzControlValid, "sub_device_addr")
+	}
+	var wvpDeviceService services.WvpDeviceService
+	rspJson, err := wvpDeviceService.GetPlaybackAddr(parentId, subDeviceAddr, ptzControlValid)
+	if err == nil {
+		response.SuccessWithDetailed(200, "success", rspJson, map[string]string{}, (*context2.Context)(widgetController.Ctx))
+		return
+	}
 	response.SuccessWithMessage(400, err.Error(), (*context2.Context)(widgetController.Ctx))
 }

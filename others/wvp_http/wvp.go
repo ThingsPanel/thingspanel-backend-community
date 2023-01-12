@@ -70,7 +70,7 @@ func PtzControl(host string, deviceId string, channelId string, cookieValue stri
 	return string(body), nil
 }
 
-// 获取播放地址
+// 获取监控播放地址
 func GetPlayAddr(host string, deviceId string, channelId string, cookieValue string) (*simplejson.Json, error) {
 	url := host + "/api/play/start/" + deviceId + "/" + channelId
 	res, err := WvpHttpGetReq(url, cookieValue, nil)
@@ -85,6 +85,40 @@ func GetPlayAddr(host string, deviceId string, channelId string, cookieValue str
 	simplejson.New()
 	return bodyJson, nil
 }
+
+// 获取通道录像列表
+func GetVideoList(host string, deviceId string, channelId string, cookieValue string, queryMap map[string]string) (*simplejson.Json, error) {
+	url := host + "/api/gb_record/query/" + deviceId + "/" + channelId
+	res, err := WvpHttpGetReq(url, cookieValue, queryMap)
+	if err != nil {
+		return nil, err
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	bodyJson, _ := simplejson.NewJson(body)
+	simplejson.New()
+	return bodyJson, nil
+}
+
+// 获取录像播放地址
+func GetPlaybackAddr(host string, deviceId string, channelId string, cookieValue string, queryMap map[string]string) (*simplejson.Json, error) {
+	url := host + "/api/playback/start/" + deviceId + "/" + channelId
+	res, err := WvpHttpGetReq(url, cookieValue, queryMap)
+	if err != nil {
+		return nil, err
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	bodyJson, _ := simplejson.NewJson(body)
+	simplejson.New()
+	return bodyJson, nil
+}
+
+//wvp get请求
 func WvpHttpGetReq(url string, cookieValue string, queryMap map[string]string) (*http.Response, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
@@ -107,6 +141,8 @@ func WvpHttpGetReq(url string, cookieValue string, queryMap map[string]string) (
 	}
 	return res, nil
 }
+
+//wvp post请求
 func WvpHttpPostReq(url string, cookieValue string, queryMap map[string]string) (*http.Response, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", url, nil)
