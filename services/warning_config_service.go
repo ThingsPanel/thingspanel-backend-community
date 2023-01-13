@@ -9,7 +9,6 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -123,7 +122,7 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if count > int64(0) {
-		log.Printf("device id %s have warning config", bid)
+		logs.Info("device id %s have warning config", bid)
 		original := ""
 		code := ""
 		c := make(map[string]string)
@@ -143,7 +142,7 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 			rows, _ := res.Array()
 			for _, row := range rows {
 				if each_map, ok := row.(map[string]interface{}); ok {
-					log.Println(each_map)
+					logs.Info(each_map)
 					if each_map["operator"] != nil {
 						code += fmt.Sprint(each_map["operator"])
 					}
@@ -161,7 +160,7 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 				}
 			}
 			original = code
-			log.Println(original)
+			logs.Info(original)
 			// 替换变量
 			var flag string = "false"
 			for k, v := range values {
