@@ -2,9 +2,13 @@ package services
 
 import (
 	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/models"
 	"errors"
+	"strconv"
+	"time"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -28,10 +32,19 @@ func (*OperationLogService) Paginate(offset int, pageSize int, ip string, path s
 		sqlWhere += " and (detailed ::json->>'ip' like '%" + ip + "%')"
 	}
 	var count int64
-	countResult := psql.Mydb.Model(&operationLogs).Where(sqlWhere).Count(&count)
-	if countResult.Error != nil {
-		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
+	operationLogCount := redis.GetStr("OperationLogCount")
+	if operationLogCount != "" {
+		count, _ = strconv.ParseInt(operationLogCount, 10, 64)
+	} else {
+		countResult := psql.Mydb.Model(&operationLogs).Where(sqlWhere).Count(&count)
+		if countResult.Error != nil {
+			logs.Error(countResult.Error.Error())
+		}
+		if count > int64(100000) {
+			redis.SetStr("OperationLogCount", strconv.FormatInt(count, 10), 60*time.Second)
+		}
 	}
+
 	offset = pageSize * (offset - 1)
 	result := psql.Mydb.Where(sqlWhere).Order("created_at desc").Limit(pageSize).Offset(offset).Find(&operationLogs)
 	if result.Error != nil {

@@ -91,21 +91,21 @@ func scriptDeal(script_id string, device_data []byte, topic string) ([]byte, err
 	}
 }
 
-// 获取全部TSKV
+// 获取TSKV总数，这里因为性能的问题做了缓存，限制10W以上数据10秒刷新一次
 func (*TSKVService) All() (int64, error) {
 	var count int64
 	msgCount := redis.GetStr("MsgCount")
 	if msgCount != "" {
 		count, _ = strconv.ParseInt(msgCount, 10, 64)
-		if count > int64(100000) {
-			return count, nil
-		}
+		return count, nil
 	}
 	result := psql.Mydb.Model(&models.TSKV{}).Count(&count)
 	if result.Error != nil {
 		return 0, result.Error
 	}
-	redis.SetStr("MsgCount", strconv.FormatInt(count, 10), 10*time.Second)
+	if count > int64(100000) {
+		redis.SetStr("MsgCount", strconv.FormatInt(count, 10), 10*time.Second)
+	}
 	return count, nil
 }
 
