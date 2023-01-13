@@ -44,7 +44,7 @@ func (this *HomeController) List() {
 	var DeviceService services.DeviceService
 	_, dc := DeviceService.All()
 	var TSKVService services.TSKVService
-	_, tc := TSKVService.All()
+	tc, _ := TSKVService.All()
 	u := HomeList{
 		CpuUsage: r.CPU,
 		MemUsage: r.MEM,

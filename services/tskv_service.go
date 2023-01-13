@@ -92,17 +92,21 @@ func scriptDeal(script_id string, device_data []byte, topic string) ([]byte, err
 }
 
 // 获取全部TSKV
-func (*TSKVService) All() ([]models.TSKV, int64) {
-	var tskvs []models.TSKV
+func (*TSKVService) All() (int64, error) {
 	var count int64
-	result := psql.Mydb.Model(&tskvs).Count(&count)
+	msgCount := redis.GetStr("MsgCount")
+	if msgCount != "" {
+		count, _ = strconv.ParseInt(msgCount, 10, 64)
+		if count > int64(100000) {
+			return count, nil
+		}
+	}
+	result := psql.Mydb.Model(&models.TSKV{}).Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return 0, result.Error
 	}
-	if len(tskvs) == 0 {
-		tskvs = []models.TSKV{}
-	}
-	return tskvs, count
+	redis.SetStr("MsgCount", strconv.FormatInt(count, 10), 10*time.Second)
+	return count, nil
 }
 
 // 接收硬件其他消息（在线离线）
