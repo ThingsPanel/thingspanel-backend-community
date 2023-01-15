@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 )
 
 func TsKvFilterToSql(filters map[string]interface{}) (string, []interface{}) {
@@ -46,4 +48,32 @@ func WidgetsToSql(filters map[string]interface{}) (string, []interface{}) {
 		}
 	}
 	return SQL, params
+}
+
+//用户输入组合路径安全校验
+func CheckPath(param string) error {
+	if count := strings.Count(param, "."); count > 0 {
+		return errors.New("路径中不能包含非法字符“.”")
+	}
+	if count := strings.Count(param, "/"); count > 0 {
+		return errors.New("路径中不能包含非法字符“/”")
+	}
+	if count := strings.Count(param, "\\"); count > 0 {
+		return errors.New("路径中不能包含非法字符“\\”")
+	}
+	return nil
+}
+
+//用户输入文件名安全校验
+func CheckFilename(param string) error {
+	if count := strings.Count(param, "."); count > 1 {
+		return errors.New("文件名中不能超过一个“.”")
+	}
+	if count := strings.Count(param, "/"); count > 0 {
+		return errors.New("文件名中不能包含非法字符“/”")
+	}
+	if count := strings.Count(param, "\\"); count > 0 {
+		return errors.New("文件名中不能包含非法字符“\\”")
+	}
+	return nil
 }

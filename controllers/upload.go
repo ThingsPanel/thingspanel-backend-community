@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	"crypto/md5"
 	"fmt"
@@ -25,6 +26,11 @@ func (uploadController *UploadController) UpFile() {
 	fileType := uploadController.GetString("type")
 	if fileType == "" {
 		response.SuccessWithMessage(1000, "类型为空", (*context2.Context)(uploadController.Ctx))
+	} else {
+		err := utils.CheckPath(fileType)
+		if err != nil {
+			response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(uploadController.Ctx))
+		}
 	}
 	f, h, _ := uploadController.GetFile("file") //获取上传的文件
 	ext := path.Ext(h.Filename)
@@ -52,6 +58,10 @@ func (uploadController *UploadController) UpFile() {
 	randNum := fmt.Sprintf("%d", rand.Intn(9999)+1000)
 	hashName := md5.Sum([]byte(time.Now().Format("2006_01_02_15_04_05_") + randNum))
 	fileName := fmt.Sprintf("%x", hashName) + ext
+	err = utils.CheckFilename(fileName)
+	if err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(uploadController.Ctx))
+	}
 	fpath := uploadDir + fileName
 	defer f.Close() //关闭上传的文件，不然的话会出现临时文件不能清除的情况
 	err = uploadController.SaveToFile("file", fpath)
