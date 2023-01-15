@@ -11,7 +11,6 @@ import (
 )
 
 func Post(targetUrl string, payload string) (*http.Response, error) {
-	logs.Info("Post:", targetUrl, payload)
 	req, _ := http.NewRequest("POST", targetUrl, strings.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	response, err := http.DefaultClient.Do(req)
