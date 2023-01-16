@@ -141,12 +141,12 @@ func (widgetController *WvpController) GetPlayAddr() {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	var parentId, subDeviceAddr string
-	if ptzControlValid["id"] == "" {
+	if ptzControlValid["parent_id"] == "" {
 		response.SuccessWithMessage(400, "parent_id不能为空", (*context2.Context)(widgetController.Ctx))
 		return
 	} else {
-		parentId = ptzControlValid["id"]
-		delete(ptzControlValid, "id")
+		parentId = ptzControlValid["parent_id"]
+		delete(ptzControlValid, "parent_id")
 	}
 	if ptzControlValid["sub_device_addr"] == "" {
 		response.SuccessWithMessage(400, "sub_device_addr不能为空", (*context2.Context)(widgetController.Ctx))
