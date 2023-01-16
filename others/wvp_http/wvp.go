@@ -118,6 +118,22 @@ func GetPlaybackAddr(host string, deviceId string, channelId string, cookieValue
 	return bodyJson, nil
 }
 
+// 获取设备列表
+func GetDeviceList(host string, cookieValue string, queryMap map[string]string) (*simplejson.Json, error) {
+	url := host + "/api/device/query/devices"
+	res, err := WvpHttpGetReq(url, cookieValue, queryMap)
+	if err != nil {
+		return nil, err
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	bodyJson, _ := simplejson.NewJson(body)
+	simplejson.New()
+	return bodyJson, nil
+}
+
 //wvp get请求
 func WvpHttpGetReq(url string, cookieValue string, queryMap map[string]string) (*http.Response, error) {
 	client := &http.Client{}

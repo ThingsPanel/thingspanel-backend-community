@@ -180,3 +180,20 @@ func (*WvpDeviceService) GetPlaybackAddr(parentId string, channelId string, quer
 	}
 	return rsp, nil
 }
+
+// 获取录像播放地址
+func (*WvpDeviceService) GetDeviceList(parentId string, queryMap map[string]string) (*simplejson.Json, error) {
+	var deviceService DeviceService
+	d, _ := deviceService.GetDeviceByID(parentId)
+	var WvpDeviceService WvpDeviceService
+	cookieValue, wvpHost, err := WvpDeviceService.GetCookie(d.Protocol)
+	if err != nil {
+		return nil, err
+	}
+	cookie := cookieValue
+	rsp, err := wvp.GetDeviceList(wvpHost, cookie, queryMap)
+	if err != nil {
+		return nil, err
+	}
+	return rsp, nil
+}

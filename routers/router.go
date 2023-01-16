@@ -340,6 +340,7 @@ func init() {
 		web.NSRouter("/wvp/ptz", &controllers.WvpController{}, "*:PtzControl"),
 		web.NSRouter("/gb_record/query", &controllers.WvpController{}, "*:GetVideoList"),
 		web.NSRouter("/playback/start", &controllers.WvpController{}, "*:GetPlaybackAddr"),
+		web.NSRouter("/wvp/query/devices", &controllers.WvpController{}, "*:GetDeviceList"),
 	)
 
 	// 图表推送数据
