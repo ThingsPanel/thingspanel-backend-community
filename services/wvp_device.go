@@ -197,3 +197,20 @@ func (*WvpDeviceService) GetDeviceList(parentId string, queryMap map[string]stri
 	}
 	return rsp, nil
 }
+
+// 开始播放
+func (*WvpDeviceService) GetPlayAddr(parentId string, channelId string, queryMap map[string]string) (*simplejson.Json, error) {
+	var deviceService DeviceService
+	d, _ := deviceService.GetDeviceByID(parentId)
+	var WvpDeviceService WvpDeviceService
+	cookieValue, wvpHost, err := WvpDeviceService.GetCookie(d.Protocol)
+	if err != nil {
+		return nil, err
+	}
+	cookie := cookieValue
+	reqJson, err := wvp.GetPlayAddr(wvpHost, d.DId, channelId, cookie)
+	if err != nil {
+		return nil, err
+	}
+	return reqJson, nil
+}

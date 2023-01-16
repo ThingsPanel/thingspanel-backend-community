@@ -132,3 +132,34 @@ func (widgetController *WvpController) GetDeviceList() {
 	}
 	response.SuccessWithMessage(400, err.Error(), (*context2.Context)(widgetController.Ctx))
 }
+
+// 开始播放
+func (widgetController *WvpController) GetPlayAddr() {
+	var ptzControlValid = make(map[string]string)
+	err := json.Unmarshal(widgetController.Ctx.Input.RequestBody, &ptzControlValid)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	var parentId, subDeviceAddr string
+	if ptzControlValid["id"] == "" {
+		response.SuccessWithMessage(400, "parent_id不能为空", (*context2.Context)(widgetController.Ctx))
+		return
+	} else {
+		parentId = ptzControlValid["id"]
+		delete(ptzControlValid, "id")
+	}
+	if ptzControlValid["sub_device_addr"] == "" {
+		response.SuccessWithMessage(400, "sub_device_addr不能为空", (*context2.Context)(widgetController.Ctx))
+		return
+	} else {
+		subDeviceAddr = ptzControlValid["sub_device_addr"]
+		delete(ptzControlValid, "sub_device_addr")
+	}
+	var wvpDeviceService services.WvpDeviceService
+	rspJson, err := wvpDeviceService.GetPlayAddr(parentId, subDeviceAddr, ptzControlValid)
+	if err == nil {
+		response.SuccessWithDetailed(200, "success", rspJson, map[string]string{}, (*context2.Context)(widgetController.Ctx))
+		return
+	}
+	response.SuccessWithMessage(400, err.Error(), (*context2.Context)(widgetController.Ctx))
+}

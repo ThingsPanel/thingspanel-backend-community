@@ -341,6 +341,7 @@ func init() {
 		web.NSRouter("/gb_record/query", &controllers.WvpController{}, "*:GetVideoList"),
 		web.NSRouter("/playback/start", &controllers.WvpController{}, "*:GetPlaybackAddr"),
 		web.NSRouter("/wvp/query/devices", &controllers.WvpController{}, "*:GetDeviceList"),
+		web.NSRouter("/wvp/play/start/", &controllers.WvpController{}, "*:GetPlayAddr"),
 	)
 
 	// 图表推送数据
