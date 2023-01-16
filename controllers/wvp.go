@@ -108,3 +108,27 @@ func (widgetController *WvpController) GetPlaybackAddr() {
 	}
 	response.SuccessWithMessage(400, err.Error(), (*context2.Context)(widgetController.Ctx))
 }
+
+// 获取wvp设备列表
+func (widgetController *WvpController) GetDeviceList() {
+	var ptzControlValid = make(map[string]string)
+	err := json.Unmarshal(widgetController.Ctx.Input.RequestBody, &ptzControlValid)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	var parentId string
+	if ptzControlValid["id"] == "" {
+		response.SuccessWithMessage(400, "parent_id不能为空", (*context2.Context)(widgetController.Ctx))
+		return
+	} else {
+		parentId = ptzControlValid["id"]
+		delete(ptzControlValid, "id")
+	}
+	var wvpDeviceService services.WvpDeviceService
+	rspJson, err := wvpDeviceService.GetDeviceList(parentId, ptzControlValid)
+	if err == nil {
+		response.SuccessWithDetailed(200, "success", rspJson, map[string]string{}, (*context2.Context)(widgetController.Ctx))
+		return
+	}
+	response.SuccessWithMessage(400, err.Error(), (*context2.Context)(widgetController.Ctx))
+}
