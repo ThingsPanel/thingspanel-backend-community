@@ -792,6 +792,9 @@ func (DeviceController *DeviceController) GetProtocolForm() {
 		}
 		return
 	}
+	if ProtocolFormValidate.ProtocolType[0:4] == "WVP_" {
+		response.SuccessWithMessage(200, "success", (*context2.Context)(DeviceController.Ctx))
+	}
 	var d = make(map[string]interface{})
 	var TpProtocolPluginService services.TpProtocolPluginService
 	// 查询插件注册
