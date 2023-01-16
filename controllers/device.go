@@ -794,6 +794,7 @@ func (DeviceController *DeviceController) GetProtocolForm() {
 	}
 	if ProtocolFormValidate.ProtocolType[0:4] == "WVP_" {
 		response.SuccessWithMessage(200, "success", (*context2.Context)(DeviceController.Ctx))
+		return
 	}
 	var d = make(map[string]interface{})
 	var TpProtocolPluginService services.TpProtocolPluginService
@@ -807,6 +808,7 @@ func (DeviceController *DeviceController) GetProtocolForm() {
 		req_err := json.Unmarshal(rsp, &d)
 		if req_err != nil {
 			response.SuccessWithMessage(400, req_err.Error(), (*context2.Context)(DeviceController.Ctx))
+			return
 		}
 	}
 	response.SuccessWithDetailed(200, "success", d["data"], map[string]string{}, (*context2.Context)(DeviceController.Ctx))
