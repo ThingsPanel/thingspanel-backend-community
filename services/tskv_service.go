@@ -602,7 +602,7 @@ func (*TSKVService) GetHistoryData(device_id string, attributes []string, startT
 		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where(" ts >= ? AND ts <= ? AND entity_id = ? AND key in ?", startTs*1000, endTs*1000, device_id, attributes).Order("ts asc").Find(&ts_kvs)
 	} else {
 		result = psql.Mydb.Raw("select key, bool_v, str_v, long_v, dbl_v, ts from (select row_number() over "+
-			"(partition by (times,key)) as seq,* from (select tk.ts/"+rate+" as times ,* from ts_kv tk where"+
+			"(partition by (times,key) order by ts,key desc) as seq,* from (select tk.ts/"+rate+" as times ,* from ts_kv tk where"+
 			" ts >= ? AND ts <= ? AND entity_id =? AND key in ?) as tks) as group_tk where seq = 1", startTs*1000, endTs*1000, device_id, attributes).Find(&ts_kvs)
 	}
 	if result.Error != nil {
