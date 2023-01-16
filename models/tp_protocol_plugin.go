@@ -10,6 +10,7 @@ type TpProtocolPlugin struct {
 	CreatedAt      int64  `json:"created_at,omitempty"`
 	Description    string `json:"description,omitempty"`
 	DeviceType     string `json:"device_type,omitempty"`
+	AdditionalInfo string `json:"additional_info,omitempty"`
 }
 
 func (TpProtocolPlugin) TableName() string {

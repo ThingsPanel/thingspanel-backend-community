@@ -12,6 +12,7 @@ type TpProtocolPluginValidate struct {
 	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间"`
 	Description    string `json:"description,omitempty" alias:"描述"`
 	DeviceType     string `json:"device_type,omitempty" alias:"设备类型"`
+	AdditionalInfo string `json:"additional_info,omitempty" alias:"附加信息"`
 }
 
 type AddTpProtocolPluginValidate struct {
@@ -23,6 +24,7 @@ type AddTpProtocolPluginValidate struct {
 	CreatedAt      int64  `json:"created_at,omitempty" alias:"创建时间"`
 	Description    string `json:"description,omitempty" alias:"描述"  valid:"MaxSize(255)"`
 	DeviceType     string `json:"device_type,omitempty" alias:"设备类型"  valid:"Required;MaxSize(36)"`
+	AdditionalInfo string `json:"additional_info,omitempty" alias:"附加信息"`
 }
 
 type TpProtocolPluginPaginationValidate struct {

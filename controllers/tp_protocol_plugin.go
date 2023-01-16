@@ -119,6 +119,7 @@ func (TpProtocolPluginController *TpProtocolPluginController) Add() {
 			ProtocolType:   AddTpProtocolPluginValidate.ProtocolType,
 			Description:    AddTpProtocolPluginValidate.Description,
 			DeviceType:     AddTpProtocolPluginValidate.DeviceType,
+			AdditionalInfo: AddTpProtocolPluginValidate.AdditionalInfo,
 		}
 		err := TpProtocolPluginService.EditTpProtocolPlugin(TpProtocolPlugin)
 		if err == nil {
@@ -137,6 +138,7 @@ func (TpProtocolPluginController *TpProtocolPluginController) Add() {
 			ProtocolType:   AddTpProtocolPluginValidate.ProtocolType,
 			Description:    AddTpProtocolPluginValidate.Description,
 			DeviceType:     AddTpProtocolPluginValidate.DeviceType,
+			AdditionalInfo: AddTpProtocolPluginValidate.AdditionalInfo,
 			CreatedAt:      time.Now().Unix(),
 		}
 		d, rsp_err := TpProtocolPluginService.AddTpProtocolPlugin(TpProtocolPlugin)

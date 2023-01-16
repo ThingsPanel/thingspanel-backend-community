@@ -1274,3 +1274,6 @@ CREATE INDEX ts_kv_entity_id_idx ON public.ts_kv (entity_id,ts DESC);
 ALTER TABLE public.logo DROP COLUMN custom_id;
 ALTER TABLE public.logo ADD home_background varchar(255) NULL;
 COMMENT ON COLUMN public.logo.home_background IS '首页背景';
+
+ALTER TABLE public.tp_protocol_plugin ADD additional_info varchar(1000) NULL;
+COMMENT ON COLUMN public.tp_protocol_plugin.additional_info IS '附加信息';
