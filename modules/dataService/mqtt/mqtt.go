@@ -102,7 +102,7 @@ func Send(payload []byte, token string) (err error) {
 	logs.Info(viper.GetString("mqtt.topicToPublish") + "/" + token)
 	logs.Info(string(payload))
 	logs.Info("-------------------")
-	t := _client.Publish(viper.GetString("mqtt.topicToPublish")+"/"+token, 1, false, string(payload))
+	t := _client.Publish(viper.GetString("mqtt.topicToPublish")+"/"+token, byte(viper.GetUint("mqtt.publishQos")), false, string(payload))
 	if t.Error() != nil {
 		fmt.Println(t.Error())
 	}
