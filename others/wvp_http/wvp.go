@@ -118,6 +118,22 @@ func GetPlaybackAddr(host string, deviceId string, channelId string, cookieValue
 	return bodyJson, nil
 }
 
+// 停止录像播放
+func GetStopPlayback(host string, deviceId string, channelId string, cookieValue string) (*simplejson.Json, error) {
+	url := host + "/api/playback/stop/" + deviceId + "/" + channelId
+	res, err := WvpHttpGetReq(url, cookieValue, nil)
+	if err != nil {
+		return nil, err
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	bodyJson, _ := simplejson.NewJson(body)
+	simplejson.New()
+	return bodyJson, nil
+}
+
 // 获取设备列表
 func GetDeviceList(host string, cookieValue string, queryMap map[string]string) (*simplejson.Json, error) {
 	url := host + "/api/device/query/devices"
