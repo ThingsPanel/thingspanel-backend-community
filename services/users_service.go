@@ -62,7 +62,11 @@ func (*UserService) GetUserByEmail(email string) (*models.Users, int64, error) {
 	var users models.Users
 	result := psql.Mydb.Where("email = ?", email).First(&users)
 	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, 0, errors.New("该用户不存在！")
+		}
 		return nil, 0, result.Error
+
 	}
 	return &users, result.RowsAffected, nil
 }

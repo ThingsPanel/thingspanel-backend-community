@@ -77,17 +77,13 @@ func (this *AuthController) Login() {
 		return
 	}
 	var UserService services.UserService
-	user, i, err := UserService.GetUserByEmail(loginValidate.Email)
+	user, _, err := UserService.GetUserByEmail(loginValidate.Email)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(this.Ctx))
 		return
 	}
-	if i == 0 {
-		response.SuccessWithMessage(400, "该账户不存在", (*context2.Context)(this.Ctx))
-		return
-	}
 	if !bcrypt.ComparePasswords(user.Password, []byte(loginValidate.Password)) {
-		response.SuccessWithMessage(400, "密码错误", (*context2.Context)(this.Ctx))
+		response.SuccessWithMessage(400, "密码错误！", (*context2.Context)(this.Ctx))
 		return
 	}
 
