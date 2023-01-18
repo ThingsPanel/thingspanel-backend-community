@@ -77,7 +77,11 @@ func (this *AuthController) Login() {
 		return
 	}
 	var UserService services.UserService
-	user, i := UserService.GetUserByEmail(loginValidate.Email)
+	user, i, err := UserService.GetUserByEmail(loginValidate.Email)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(this.Ctx))
+		return
+	}
 	if i == 0 {
 		response.SuccessWithMessage(400, "该账户不存在", (*context2.Context)(this.Ctx))
 		return
@@ -241,7 +245,7 @@ func (this *AuthController) Register() {
 		response.SuccessWithMessage(400, "用户名已存在", (*context2.Context)(this.Ctx))
 		return
 	}
-	_, c := UserService.GetUserByEmail(registerValidate.Email)
+	_, c, _ := UserService.GetUserByEmail(registerValidate.Email)
 	if c != 0 {
 		response.SuccessWithMessage(400, "邮箱已存在", (*context2.Context)(this.Ctx))
 		return

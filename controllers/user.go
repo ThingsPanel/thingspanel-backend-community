@@ -114,7 +114,7 @@ func (this *UserController) Add() {
 		response.SuccessWithMessage(400, "用户名已存在", (*context2.Context)(this.Ctx))
 		return
 	}
-	_, c := UserService.GetUserByEmail(addUserValidate.Email)
+	_, c, _ := UserService.GetUserByEmail(addUserValidate.Email)
 	if c != 0 {
 		response.SuccessWithMessage(400, "邮箱已存在", (*context2.Context)(this.Ctx))
 		return
