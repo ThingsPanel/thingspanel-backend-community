@@ -3,7 +3,7 @@
 [![GitHub](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.swo.moe%2Fstats%2Fgithub%2FThingsPanel&query=count&color=181717&label=GitHub&labelColor=282c34&logo=github&suffix=+start&cacheSeconds=3600)](https://github.com/ThingsPanel)
 [![知乎](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.swo.moe%2Fstats%2Fzhihu%2Fthingspanel&query=count&color=282c34&label=%E7%9F%A5%E4%B9%8E&labelColor=0084ff&logo=zhihu&logoColor=ffffff&suffix=+%E5%85%B3%E6%B3%A8&cacheSeconds=3600)](https://www.zhihu.com/people/thingspanel) 
 
-![产品首页](http://thingspanel.io/assets/images/thingspanel-home-9b3b417ce19b7508807a44e8fb125436.png "产品首页")
+![产品首页](http://thingspanel.io/assets/images/thingspanel-home-9b3b417ce19b7508807a44e8fb125436.png)
 
 ***ThingsPanel***是一个通用、开源的物联网应用平台，旨在通过可复用的组件，减少开发工作，加速物联网项目交付。
 
@@ -44,7 +44,7 @@ http://dev.thingspanel.cn
   
 ## 系统架构
 
-![系统架构](http://thingspanel.io/assets/images/thingspanel-system-flow-b92d71e5a8881bc8538355f4e3975882.svg  "系统架构")
+![系统架构](http://thingspanel.io/assets/images/thingspanel-system-flow-b92d71e5a8881bc8538355f4e3975882.svg)
 
 ## 技术栈
 - Golang：天生优异的并发性能，节省硬件成本，可适用于边缘设备。
