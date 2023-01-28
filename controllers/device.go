@@ -320,6 +320,19 @@ func (reqDate *DeviceController) UpdateOnly() {
 			}
 		}
 	}
+	// wvp设备不能重复
+	if addDeviceValidate.Protocol[0:4] == "WVP_" && addDeviceValidate.DeviceType == "2" && addDeviceValidate.DId != "" && addDeviceValidate.DId != d.DId {
+		didCount, err := DeviceService.GetWvpDeviceCount(addDeviceValidate.DId)
+		if err != nil {
+			response.SuccessWithMessage(400, err.Error(), (*context2.Context)(reqDate.Ctx))
+			return
+		}
+		if didCount > int64(0) {
+			response.SuccessWithMessage(400, "不能重复添加设备！", (*context2.Context)(reqDate.Ctx))
+			return
+		}
+
+	}
 	result := DeviceService.Edit(addDeviceValidate)
 	if result == nil {
 		deviceDash, _ := DeviceService.GetDeviceByID(addDeviceValidate.ID)

@@ -1013,3 +1013,9 @@ func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValid
 	}
 	return deviceOnlineStatus, nil
 }
+
+//根据wvp设备编号获取设备数量
+func (*DeviceService) GetWvpDeviceCount(did string) (int64, error) {
+	result := psql.Mydb.Where("device_type = '2' and did = ?", did).Find(&models.Device{})
+	return result.RowsAffected, result.Error
+}
