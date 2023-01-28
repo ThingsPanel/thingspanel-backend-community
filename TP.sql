@@ -1277,3 +1277,6 @@ COMMENT ON COLUMN public.logo.home_background IS '首页背景';
 
 ALTER TABLE public.tp_protocol_plugin ADD additional_info varchar(1000) NULL;
 COMMENT ON COLUMN public.tp_protocol_plugin.additional_info IS '附加信息';
+
+ALTER TABLE public.warning_log DROP CONSTRAINT warning_log_fk;
+ALTER TABLE public.warning_log ADD CONSTRAINT warning_log_fk FOREIGN KEY (data_id) REFERENCES public.device(id) ON DELETE CASCADE ON UPDATE CASCADE;
