@@ -1280,3 +1280,11 @@ COMMENT ON COLUMN public.tp_protocol_plugin.additional_info IS '附加信息';
 
 ALTER TABLE public.warning_log DROP CONSTRAINT warning_log_fk;
 ALTER TABLE public.warning_log ADD CONSTRAINT warning_log_fk FOREIGN KEY (data_id) REFERENCES public.device(id) ON DELETE CASCADE ON UPDATE CASCADE;
+
+INSERT INTO tp_dict
+(id, dict_code, dict_value, "describe", created_at)
+VALUES('9aa72824-e26b-2723-426a-ec8bcff091e9', 'GATEWAY_PROTOCOL', 'WVP_01', 'GB28181', 1673933847);
+
+INSERT INTO tp_protocol_plugin
+(id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type, additional_info)
+VALUES('1cd08053-f08a-8bda-2c22-c0b2582ce0b4', 'GB28181', 'WVP_01', '127.0.0.1:18080', 'http://127.0.0.1:18080||admin||admin', '-', 1673933847, '使用GB28181协议需要自行搭建wvp服务，然后按照http服务器地址样例修改（地址供平台后端调用）；协议类型必须以WVP_开头', '2', '[{"key":"域名称","value":""},{"key":"连接地址","value":""},{"key":"端口","value":""},{"key":"密码","value":""}]');
