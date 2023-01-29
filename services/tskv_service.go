@@ -1032,12 +1032,11 @@ func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) 
 			return fields, nil
 		}
 		type Properties struct {
-			DataType   string  `json:"dataType"`
-			DataRange  string  `json:"dataRange"`
-			StepLength float64 `json:"stepLength"`
-			Unit       string  `json:"unit"`
-			Title      string  `json:"title"`
-			Name       string  `json:"name"`
+			DataType  string `json:"dataType"`
+			DataRange string `json:"dataRange"`
+			Unit      string `json:"unit"`
+			Title     string `json:"title"`
+			Name      string `json:"name"`
 		}
 		type Tsl struct {
 			Properties []Properties `json:"properties"`
