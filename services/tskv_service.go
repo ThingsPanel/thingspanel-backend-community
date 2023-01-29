@@ -992,7 +992,7 @@ func (*TSKVService) DeleteCurrentDataByDeviceId(deviceId string) {
 }
 
 // 通过设备ID获取设备当前值和插件映射属性
-func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) []map[string]interface{} {
+func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) ([]map[string]interface{}, error) {
 	logs.Info("**********************************************")
 	var fields []map[string]interface{}
 	var ts_kvs []models.TSKVLatest
@@ -1003,8 +1003,7 @@ func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) 
 		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ? AND key in ?", device_id, attributes).Order("ts asc").Find(&ts_kvs)
 	}
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return fields
+		return fields, result.Error
 	}
 	if len(ts_kvs) > 0 {
 		var field = make(map[string]interface{})
@@ -1029,6 +1028,9 @@ func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) 
 		var DeviceModelService DeviceModelService
 		device_plugin := DeviceModelService.GetDeviceModelDetail(device.Type)
 		logs.Info("设备插件", device_plugin)
+		if len(device_plugin) == 0 {
+			return fields, nil
+		}
 		type Properties struct {
 			DataType   string  `json:"dataType"`
 			DataRange  string  `json:"dataRange"`
@@ -1043,6 +1045,7 @@ func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) 
 		type Data struct {
 			Tsl Tsl `json:"tsl"`
 		}
+		//映射
 		var device_attribute_map Data
 		var properties_key = make(map[string]string)
 		var properties_symbol = make(map[string]string)
@@ -1089,7 +1092,7 @@ func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) 
 			}
 		}
 	}
-	return fields
+	return fields, nil
 }
 
 //设备在线离线判断

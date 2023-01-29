@@ -358,6 +358,9 @@ func (KvController *KvController) GetCurrentDataAndMap() {
 		return
 	}
 	var TSKVService services.TSKVService
-	m := TSKVService.GetCurrentDataAndMap(CurrentKV.EntityID, CurrentKV.Attribute)
+	m, err := TSKVService.GetCurrentDataAndMap(CurrentKV.EntityID, CurrentKV.Attribute)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(KvController.Ctx))
+	}
 	response.SuccessWithDetailed(200, "success", m, map[string]string{}, (*context2.Context)(KvController.Ctx))
 }
