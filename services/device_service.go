@@ -968,7 +968,7 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 		as group_name,b.id as business_id ,b."name" as business_name,d.location,a.id as group_id ,d.id as device_id ,d."name" as device_name,d.device_type as device_type,d.parent_id as parent_id,
 		   d.protocol as protocol ,d.type as plugin_id,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts,
 		   (select name from device dd where dd.device_type = '2' and dd.parent_id = d.id limit 1) as gateway_name
-		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1`
+		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 and d.location !=''`
 	var values []interface{}
 	var where = ""
 	if req.BusinessId != "" {
