@@ -1288,3 +1288,7 @@ VALUES('9aa72824-e26b-2723-426a-ec8bcff091e9', 'GATEWAY_PROTOCOL', 'WVP_01', 'GB
 INSERT INTO tp_protocol_plugin
 (id, "name", protocol_type, access_address, http_address, sub_topic_prefix, created_at, description, device_type, additional_info)
 VALUES('1cd08053-f08a-8bda-2c22-c0b2582ce0b4', 'GB28181', 'WVP_01', '127.0.0.1:18080', 'http://127.0.0.1:18080||admin||admin', '-', 1673933847, '使用GB28181协议需要自行搭建wvp服务，然后按照http服务器地址样例修改（地址供平台后端调用）；协议类型必须以WVP_开头', '2', '[{"key":"域名称","value":""},{"key":"连接地址","value":""},{"key":"端口","value":""},{"key":"密码","value":""}]');
+
+INSERT INTO tp_function
+(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
+VALUES('2a7d5d94-62b5-c1c3-240b-cfeed8d92ec1', '', NULL, '/test123', 'Test123', '/pages/test123/index.vue', 'MENU.DEVICE_MAP', 'flaticon2-gear', '1', '', '0', 989);
