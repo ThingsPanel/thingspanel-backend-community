@@ -1,7 +1,7 @@
 package valid
 
 type LogoValidate struct {
-	Id             string `json:"id"  alias:"ID" valid:"MaxSize(36)"`             // ID
+	Id             string `json:"id"  alias:"ID" valid:"Required;MaxSize(36)"`    // ID
 	SystemName     string `json:"system_name"  alias:"系统名称" valid:"MaxSize(255)"` // 系统名称
 	Theme          string `json:"theme"  alias:"主题" valid:"MaxSize(99)"`          // 主题
 	LogoOne        string `json:"logo_one"  alias:"首页logo" valid:"MaxSize(255)"`  // 首页logo
