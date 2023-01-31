@@ -182,25 +182,25 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 			}
 
 			//在线离线状态
-			if device["device_type"].(string) != "3" {
-				var interval int64
-				if a, ok := device["additional_info"].(string); ok {
-					aJson, err := simplejson.NewJson([]byte(a))
-					if err == nil {
-						thresholdTime, err := aJson.Get("runningInfo").Get("thresholdTime").Int64()
+			// if device["device_type"].(string) != "3" {
+			// 	var interval int64
+			// 	if a, ok := device["additional_info"].(string); ok {
+			// 		aJson, err := simplejson.NewJson([]byte(a))
+			// 		if err == nil {
+			// 			thresholdTime, err := aJson.Get("runningInfo").Get("thresholdTime").Int64()
 
-						if err == nil {
-							interval = thresholdTime
-						}
-					}
-				}
-				var TSKVService TSKVService
-				state, err := TSKVService.DeviceOnline(device["device"].(string), interval)
-				if err != nil {
-					logs.Error(err.Error())
-				}
-				device["device_state"] = state
-			}
+			// 			if err == nil {
+			// 				interval = thresholdTime
+			// 			}
+			// 		}
+			// 	}
+			// 	var TSKVService TSKVService
+			// 	state, err := TSKVService.DeviceOnline(device["device"].(string), interval)
+			// 	if err != nil {
+			// 		logs.Error(err.Error())
+			// 	}
+			// 	device["device_state"] = state
+			// }
 			if device["device_type"].(string) == "2" { // 网关设备需要查询子设备
 				var subDeviceList []map[string]interface{}
 				sql := `select (with RECURSIVE ast as 

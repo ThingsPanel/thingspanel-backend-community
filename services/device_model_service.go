@@ -172,7 +172,9 @@ func (*DeviceModelService) GetChartNameListByPluginId(pluginId string) ([]string
 		} else {
 			for _, charts := range value {
 				if chartMap, ok := charts.(map[string]interface{}); ok {
-					chartNameMap = append(chartNameMap, chartMap["name"].(string))
+					if _, ok := chartMap["name"].(string); ok {
+						chartNameMap = append(chartNameMap, chartMap["name"].(string))
+					}
 				} else {
 					logs.Error("chart属性转map失败")
 				}
