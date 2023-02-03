@@ -1292,3 +1292,7 @@ VALUES('1cd08053-f08a-8bda-2c22-c0b2582ce0b4', 'GB28181', 'WVP_01', '127.0.0.1:1
 INSERT INTO tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('2a7d5d94-62b5-c1c3-240b-cfeed8d92ec1', '', NULL, '/test123', 'Test123', '/pages/test123/index.vue', 'MENU.DEVICE_MAP', 'flaticon2-gear', '1', '', '0', 989);
+
+UPDATE tp_function
+SET function_name='', menu_id=NULL, "path"='/device_map', "name"='DeviceMap', component='/pages/device-map/index.vue', title='MENU.DEVICE_MAP', icon='flaticon2-gear', "type"='1', function_code='', parent_id='0', sort=989
+WHERE id='2a7d5d94-62b5-c1c3-240b-cfeed8d92ec1';
