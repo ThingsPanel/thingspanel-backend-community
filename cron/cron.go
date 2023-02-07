@@ -54,6 +54,10 @@ func init() {
 							interval, _ := rulesMap["interval"].(json.Number).Int64()
 							if interval == int64(0) {
 								//单次触发
+								if _, ok := rulesMap["time"].(string); !ok {
+									logs.Error("时间触发配置中缺少时间参数")
+									continue
+								}
 								ruleTime, err := time.Parse(format0, rulesMap["time"].(string))
 								logs.Info("单次触发", ruleTime, "比对", now0)
 								if err == nil && ruleTime.Equal(now0) {
