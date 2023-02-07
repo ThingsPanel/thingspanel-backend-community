@@ -19,7 +19,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var DeviceOnlineState = make(map[string]interface{})
+//var DeviceOnlineState = make(map[string]interface{})
 
 type TSKVService struct {
 	//可搜索字段
@@ -129,7 +129,7 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 		if device.ID == "" {
 			return
 		}
-		DeviceOnlineState[device.ID] = values["status"]
+		//DeviceOnlineState[device.ID] = values["status"]
 		d := models.TSKVLatest{
 			EntityType: "DEVICE",
 			EntityID:   device.ID,

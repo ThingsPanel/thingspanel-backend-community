@@ -1005,11 +1005,17 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 	return deviceList, nil
 }
 
-//修改所有子设备分组
+//获取设备列表设备在线离线状态
 func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValidate) (map[string]interface{}, error) {
 	var deviceOnlineStatus = make(map[string]interface{})
 	for _, deviceId := range deviceIdList.DeviceIdList {
-		deviceOnlineStatus[deviceId] = DeviceOnlineState[deviceId]
+		var tskvLatest models.TSKVLatest
+		result := psql.Mydb.Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
+		if result != nil {
+			deviceOnlineStatus[deviceId] = "0"
+		} else {
+			deviceOnlineStatus[deviceId] = tskvLatest.StrV
+		}
 	}
 	return deviceOnlineStatus, nil
 }
