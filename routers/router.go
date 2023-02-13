@@ -343,6 +343,13 @@ func init() {
 		web.NSRouter("/wvp/query/devices", &controllers.WvpController{}, "*:GetDeviceList"),
 		web.NSRouter("/wvp/play/start", &controllers.WvpController{}, "*:GetPlayAddr"),
 		web.NSRouter("/wvp/play/stop", &controllers.WvpController{}, "*:GetStopPlayback"),
+
+		//新自动化
+		web.NSRouter("/scenario/strategy/add", &controllers.TpScenarioStrategyController{}, "*:Add"),
+		web.NSRouter("/scenario/strategy/list", &controllers.TpScenarioStrategyController{}, "*:List"),
+		web.NSRouter("/scenario/strategy/detail", &controllers.TpScenarioStrategyController{}, "*:Detail"),
+		web.NSRouter("/scenario/strategy/edit", &controllers.TpScenarioStrategyController{}, "*:Edit"),
+		web.NSRouter("/scenario/strategy/delete", &controllers.TpScenarioStrategyController{}, "*:Delete"),
 	)
 
 	// 图表推送数据

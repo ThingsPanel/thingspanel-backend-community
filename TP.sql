@@ -1296,3 +1296,123 @@ VALUES('2a7d5d94-62b5-c1c3-240b-cfeed8d92ec1', '', NULL, '/test123', 'Test123', 
 UPDATE tp_function
 SET function_name='', menu_id=NULL, "path"='/device_map', "name"='DeviceMap', component='/pages/device-map/index.vue', title='MENU.DEVICE_MAP', icon='flaticon2-gear', "type"='1', function_code='', parent_id='0', sort=989
 WHERE id='2a7d5d94-62b5-c1c3-240b-cfeed8d92ec1';
+
+--v0.4.7
+CREATE TABLE public.tp_automation (
+	id varchar(36) NOT NULL,
+	tenant_id varchar(36) NULL,
+	automation_name varchar(99) NOT NULL,
+	automation_described varchar(999) NULL,
+	update_time int8 NULL,
+	created_at int8 NOT NULL,
+	created_by varchar(36) NULL,
+	priority int NULL DEFAULT 50,
+	enabled varchar(1) NOT NULL DEFAULT 0,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_automation_pk PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_automation.automation_name IS '自动化名称';
+COMMENT ON COLUMN public.tp_automation.automation_described IS '自动化描述';
+COMMENT ON COLUMN public.tp_automation.priority IS '优先级';
+COMMENT ON COLUMN public.tp_automation.enabled IS '启用状态0-未开启 1-已开启';
+
+CREATE TABLE public.tp_automation_condition (
+	id varchar(36) NOT NULL,
+	automation_id varchar(36) NOT NULL,
+	group_number int NULL,
+	condition_type varchar(2) NOT NULL,
+	device_id varchar(36) NULL,
+	time_condition_type varchar(2) NULL,
+	device_condition_type varchar(2) NULL,
+	v1 varchar(99) NULL,
+	v2 varchar(99) NULL,
+	v3 varchar(99) NULL,
+	v4 varchar(99) NULL,
+	v5 varchar(99) NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_automation_condition_pk PRIMARY KEY (id),
+	CONSTRAINT tp_automation_condition_fk FOREIGN KEY (automation_id) REFERENCES public.tp_automation(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+	CONSTRAINT tp_automation_condition_fk_1 FOREIGN KEY (device_id) REFERENCES public.device(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_automation_condition.group_number IS '小组编号';
+COMMENT ON COLUMN public.tp_automation_condition.condition_type IS '条件类型1-设备条件 2-时间条件';
+COMMENT ON COLUMN public.tp_automation_condition.time_condition_type IS '时间条件类型0-时间范围 1-单次 2-重复';
+COMMENT ON COLUMN public.tp_automation_condition.device_condition_type IS '设备条件类型';
+
+CREATE TABLE public.tp_automation_action (
+	id varchar(36) NOT NULL,
+	automation_id varchar(36) NOT NULL,
+	action_type varchar(2) NOT NULL,
+	device_id varchar(36) NULL,
+	warning_strategy_id varchar(36) NULL,
+	scenario_strategy_id varchar(36) NULL,
+	additional_info varchar(999) NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_automation_action_pk PRIMARY KEY (id),
+	CONSTRAINT tp_automation_action_fk FOREIGN KEY (automation_id) REFERENCES public.tp_automation(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_automation_action.action_type IS '动作类型1-设备输出 2-触发告警 3-激活场景';
+COMMENT ON COLUMN public.tp_automation_action.additional_info IS '附加信息device_model1-设定属性 2-调动服务;instruct指令';
+
+CREATE TABLE public.tp_warning_strategy (
+	id varchar(36) NOT NULL,
+	warning_strategy_name varchar(99) NOT NULL,
+	warning_level varchar(2) NOT NULL,
+	repeat_count int NULL,
+	trigger_count int NULL,
+	inform_way varchar(99) NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_warning_strategy_pk PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_warning_strategy.warning_level IS '告警级别';
+COMMENT ON COLUMN public.tp_warning_strategy.repeat_count IS '重复次数';
+COMMENT ON COLUMN public.tp_warning_strategy.trigger_count IS '已触发次数';
+COMMENT ON COLUMN public.tp_warning_strategy.inform_way IS '通知方式';
+
+CREATE TABLE public.tp_scenario_strategy (
+	id varchar(36) NOT NULL,
+	tenant_id varchar(36) NULL,
+	scenario_name varchar(99) NOT NULL,
+	scenario_description varchar(999) NULL,
+	created_at int8 NOT NULL,
+	created_by varchar(36) NULL,
+	update_time int8 NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_scenario_strategy_pk PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_scenario_strategy.scenario_name IS '场景名称';
+COMMENT ON COLUMN public.tp_scenario_strategy.scenario_description IS '场景描述';
+
+CREATE TABLE public.tp_scenario_action (
+	id varchar(36) NOT NULL,
+	scenario_strategy_id varchar(36) NOT NULL,
+	action_type varchar(2) NOT NULL DEFAULT 1,
+	device_id varchar(36) NULL,
+	device_model varchar(2) NULL,
+	instruct varchar(999) NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_scenario_action_pk PRIMARY KEY (id),
+	CONSTRAINT tp_scenario_action_fk FOREIGN KEY (scenario_strategy_id) REFERENCES public.tp_scenario_strategy(id) ON DELETE CASCADE ON UPDATE CASCADE,
+	CONSTRAINT tp_scenario_action_fk_1 FOREIGN KEY (device_id) REFERENCES public.device(id) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_scenario_action.action_type IS '动作类型 1-设备输出';
+COMMENT ON COLUMN public.tp_scenario_action.device_model IS '模型类型1-设定属性 2-调动服务';
+COMMENT ON COLUMN public.tp_scenario_action.instruct IS '指令';
