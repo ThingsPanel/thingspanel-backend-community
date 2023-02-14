@@ -16,14 +16,17 @@ type TpAutomation struct {
 }
 
 type TpAutomationValidate struct {
-	Id                  string `json:"id"  gorm:"primaryKey" valid:"Required;MaxSize(36)"`
-	TenantId            string `json:"tenant_id,omitempty" valid:"MaxSize(36)"`
-	AutomationName      string `json:"automation_name,omitempty" valid:"MaxSize(99)"`
-	AutomationDescribed string `json:"automation_described,omitempty" valid:"MaxSize(999)"`
-	CreatedBy           string `json:"created_by,omitempty" valid:"MaxSize(36)"`
-	Priority            int64  `json:"priority,omitempty"`                   //优先级|1-100越小越高
-	Enabled             string `json:"enabled,omitempty" valid:"MaxSize(1)"` //启用状态 |0-未开启 1-已开启
-	Remark              string `json:"remark,omitempty" valid:"MaxSize(255)"`
+	Id                   string                          `json:"id"  gorm:"primaryKey" valid:"Required;MaxSize(36)"`
+	TenantId             string                          `json:"tenant_id,omitempty" valid:"MaxSize(36)"`
+	AutomationName       string                          `json:"automation_name,omitempty" valid:"MaxSize(99)"`
+	AutomationDescribed  string                          `json:"automation_described,omitempty" valid:"MaxSize(999)"`
+	CreatedBy            string                          `json:"created_by,omitempty" valid:"MaxSize(36)"`
+	UpdateTime           int64                           `json:"update_time,omitempty"`
+	Priority             int64                           `json:"priority,omitempty"`                   //优先级|1-100越小越高
+	Enabled              string                          `json:"enabled,omitempty" valid:"MaxSize(1)"` //启用状态 |0-未开启 1-已开启
+	Remark               string                          `json:"remark,omitempty" valid:"MaxSize(255)"`
+	AutomationConditions []TpAutomationConditionValidate `json:"automation_conditions,omitempty" valid:"Required"`
+	AutomationActions    []TpAutomationActionValidate    `json:"automation_actions,omitempty" valid:"Required"`
 }
 
 type AddTpAutomationValidate struct {
@@ -32,6 +35,8 @@ type AddTpAutomationValidate struct {
 	AutomationName       string                             `json:"automation_name,omitempty" valid:"MaxSize(99)"`
 	AutomationDescribed  string                             `json:"automation_described,omitempty" valid:"MaxSize(999)"`
 	CreatedBy            string                             `json:"created_by,omitempty" valid:"MaxSize(36)"`
+	CreatedAt            int64                              `json:"created_at,omitempty"`
+	UpdateTime           int64                              `json:"update_time,omitempty"`
 	Priority             int64                              `json:"priority,omitempty"`                   //优先级|1-100越小越高
 	Enabled              string                             `json:"enabled,omitempty" valid:"MaxSize(1)"` //启用状态 |0-未开启 1-已开启
 	Remark               string                             `json:"remark,omitempty" valid:"MaxSize(255)"`

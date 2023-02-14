@@ -39,10 +39,10 @@ func (TpAutomationController *TpAutomationController) List() {
 		return
 	}
 	var TpAutomationService services.TpAutomationService
-	isSuccess, d, t := TpAutomationService.GetTpAutomationList(PaginationValidate)
+	d, t, err := TpAutomationService.GetTpAutomationList(PaginationValidate)
 
-	if !isSuccess {
-		utils.SuccessWithMessage(1000, "查询失败", (*context2.Context)(TpAutomationController.Ctx))
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpAutomationController.Ctx))
 		return
 	}
 	dd := valid.RspTpAutomationPaginationValidate{
@@ -77,12 +77,11 @@ func (TpAutomationController *TpAutomationController) Edit() {
 		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpAutomationController.Ctx))
 	}
 	var TpAutomationService services.TpAutomationService
-	isSucess := TpAutomationService.EditTpAutomation(TpAutomationValidate)
-	if isSucess {
-		d, _ := TpAutomationService.GetTpAutomationDetail(TpAutomationValidate.Id)
+	d, err := TpAutomationService.EditTpAutomation(TpAutomationValidate)
+	if err == nil {
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpAutomationController.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, "编辑失败", (*context2.Context)(TpAutomationController.Ctx))
+		utils.SuccessWithMessage(400, err.Error(), (*context2.Context)(TpAutomationController.Ctx))
 	}
 }
 
@@ -144,6 +143,34 @@ func (TpAutomationController *TpAutomationController) Delete() {
 	if req_err == nil {
 		utils.SuccessWithMessage(200, "success", (*context2.Context)(TpAutomationController.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, "删除失败", (*context2.Context)(TpAutomationController.Ctx))
+		utils.SuccessWithMessage(400, req_err.Error(), (*context2.Context)(TpAutomationController.Ctx))
 	}
+}
+
+// 详情
+func (TpAutomationController *TpAutomationController) Detail() {
+	TpAutomationIdValidate := valid.TpAutomationIdValidate{}
+	err := json.Unmarshal(TpAutomationController.Ctx.Input.RequestBody, &TpAutomationIdValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(TpAutomationIdValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(TpAutomationIdValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpAutomationController.Ctx))
+			break
+		}
+		return
+	}
+	var TpAutomationService services.TpAutomationService
+	d, err := TpAutomationService.GetTpAutomationDetail(TpAutomationIdValidate.Id)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpAutomationController.Ctx))
+		return
+	}
+	utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpAutomationController.Ctx))
 }

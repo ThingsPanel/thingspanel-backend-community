@@ -68,6 +68,7 @@ func (*TpScenarioStrategyService) AddTpScenarioStrategy(tp_scenario_strategy val
 	tx := psql.Mydb.Begin()
 	tp_scenario_strategy.Id = utils.GetUuid()
 	tp_scenario_strategy.CreatedAt = time.Now().Unix()
+	tp_scenario_strategy.UpdateTime = time.Now().Unix()
 	result := tx.Model(&models.TpScenarioStrategy{}).Create(tp_scenario_strategy)
 	if result.Error != nil {
 		tx.Rollback()
@@ -138,7 +139,7 @@ func (*TpScenarioStrategyService) EditTpScenarioStrategy(tp_scenario_strategy va
 func (*TpScenarioStrategyService) DeleteTpScenarioStrategy(tp_scenario_strategy models.TpScenarioStrategy) error {
 	result := psql.Mydb.Delete(&tp_scenario_strategy)
 	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error)
 		return result.Error
 	}
 	return nil

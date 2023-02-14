@@ -350,6 +350,12 @@ func init() {
 		web.NSRouter("/scenario/strategy/detail", &controllers.TpScenarioStrategyController{}, "*:Detail"),
 		web.NSRouter("/scenario/strategy/edit", &controllers.TpScenarioStrategyController{}, "*:Edit"),
 		web.NSRouter("/scenario/strategy/delete", &controllers.TpScenarioStrategyController{}, "*:Delete"),
+
+		web.NSRouter("/v1/automation/add", &controllers.TpAutomationController{}, "*:Add"),
+		web.NSRouter("/v1/automation/list", &controllers.TpAutomationController{}, "*:List"),
+		web.NSRouter("/v1/automation/detail", &controllers.TpAutomationController{}, "*:Detail"),
+		web.NSRouter("/v1/automation/delete", &controllers.TpAutomationController{}, "*:Delete"),
+		web.NSRouter("/v1/automation/edit", &controllers.TpAutomationController{}, "*:Edit"),
 	)
 
 	// 图表推送数据
