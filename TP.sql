@@ -1334,7 +1334,7 @@ CREATE TABLE public.tp_automation_condition (
 	v5 varchar(99) NULL,
 	remark varchar(255) NULL,
 	CONSTRAINT tp_automation_condition_pk PRIMARY KEY (id),
-	CONSTRAINT tp_automation_condition_fk FOREIGN KEY (automation_id) REFERENCES public.tp_automation(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+	CONSTRAINT tp_automation_condition_fk FOREIGN KEY (automation_id) REFERENCES public.tp_automation(id) ON DELETE CASCADE ON UPDATE CASCADE,
 	CONSTRAINT tp_automation_condition_fk_1 FOREIGN KEY (device_id) REFERENCES public.device(id) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
@@ -1355,7 +1355,7 @@ CREATE TABLE public.tp_automation_action (
 	additional_info varchar(999) NULL,
 	remark varchar(255) NULL,
 	CONSTRAINT tp_automation_action_pk PRIMARY KEY (id),
-	CONSTRAINT tp_automation_action_fk FOREIGN KEY (automation_id) REFERENCES public.tp_automation(id) ON DELETE RESTRICT ON UPDATE CASCADE
+	CONSTRAINT tp_automation_action_fk FOREIGN KEY (automation_id) REFERENCES public.tp_automation(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- Column comments
