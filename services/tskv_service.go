@@ -332,6 +332,8 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 		if rts.Error != nil {
 			log.Println(rts.Error)
 			return false
+		} else {
+			go ConditionsService.AutomationConditionCheck(device.ID, payload_map)
 		}
 	}
 	return true
