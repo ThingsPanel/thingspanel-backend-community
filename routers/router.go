@@ -356,6 +356,14 @@ func init() {
 		web.NSRouter("/v1/automation/detail", &controllers.TpAutomationController{}, "*:Detail"),
 		web.NSRouter("/v1/automation/delete", &controllers.TpAutomationController{}, "*:Delete"),
 		web.NSRouter("/v1/automation/edit", &controllers.TpAutomationController{}, "*:Edit"),
+
+		web.NSRouter("/v1/warning/information/list", &controllers.TpWarningInformationController{}, "*:List"),
+		web.NSRouter("/v1/warning/information/edit", &controllers.TpWarningInformationController{}, "*:Edit"),
+
+		web.NSRouter("/v1/automation/log/list", &controllers.TpAutomationLogController{}, "*:List"),
+		web.NSRouter("/v1/automation/log/detail/list", &controllers.TpAutomationLogDetailController{}, "*:List"),
+		web.NSRouter("/v1/scenario/log/list", &controllers.TpScenarioLogController{}, "*:List"),
+		web.NSRouter("/v1/scenario/log/detail/list", &controllers.TpScenarioLogDetailController{}, "*:List"),
 	)
 
 	// 图表推送数据

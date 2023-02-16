@@ -1434,7 +1434,7 @@ COMMENT ON COLUMN public.tp_automation_log.process_result IS '执行状态 1-成
 
 -- public.tp_automation_log foreign keys
 
-ALTER TABLE public.tp_automation_log ADD CONSTRAINT tp_automation_log_fk FOREIGN KEY (id) REFERENCES public.tp_automation(id) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE public.tp_automation_log ADD CONSTRAINT tp_automation_log_fk FOREIGN KEY (automation_id) REFERENCES public.tp_automation(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 CREATE TABLE public.tp_automation_log_detail (
 	id varchar(36) NOT NULL,
@@ -1455,7 +1455,7 @@ COMMENT ON COLUMN public.automation_log_detail.process_result IS '执行状态 1
 COMMENT ON COLUMN public.automation_log_detail.target_id IS '设备id|告警id|场景id';
 
 CREATE TABLE public.tp_warning_information (
-	ip varchar(36) NOT NULL,
+	id varchar(36) NOT NULL,
 	tenant_id varchar(36) NULL,
 	warning_name varchar(99) NOT NULL,
 	warning_level varchar(2) NULL,
@@ -1515,3 +1515,5 @@ CREATE TABLE public.tp_scenario_log_detail (
 COMMENT ON COLUMN public.tp_scenario_log_detail.action_type IS '动作类型 1-设备输出';
 COMMENT ON COLUMN public.tp_scenario_log_detail.process_result IS '执行状态 1-成功 2-失败';
 
+ALTER TABLE public.tp_scenario_log_detail ADD target_id varchar(36) NULL;
+COMMENT ON COLUMN public.tp_scenario_log_detail.target_id IS '设备id|告警id';
