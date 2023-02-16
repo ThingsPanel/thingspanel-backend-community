@@ -24,7 +24,7 @@ type TpScenarioStrategyService struct {
 
 func (*TpScenarioStrategyService) GetTpScenarioStrategyDetail(tp_scenario_strategy_id string) (map[string]interface{}, error) {
 	var tp_scenario_strategy = make(map[string]interface{})
-	result := psql.Mydb.Model(&models.TpScenarioStrategy{Id: tp_scenario_strategy_id}).First(&tp_scenario_strategy)
+	result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where("id = ?", tp_scenario_strategy_id).First(&tp_scenario_strategy)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return tp_scenario_strategy, nil

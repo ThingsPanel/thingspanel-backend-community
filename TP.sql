@@ -1416,3 +1416,102 @@ CREATE TABLE public.tp_scenario_action (
 COMMENT ON COLUMN public.tp_scenario_action.action_type IS '动作类型 1-设备输出';
 COMMENT ON COLUMN public.tp_scenario_action.device_model IS '模型类型1-设定属性 2-调动服务';
 COMMENT ON COLUMN public.tp_scenario_action.instruct IS '指令';
+
+CREATE TABLE public.tp_automation_log (
+	id varchar(36) NOT NULL,
+	automation_id varchar(36) NOT NULL,
+	trigger_time int8 NULL,
+	process_description varchar(999) NULL,
+	process_result varchar(2) NULL, -- 执行状态 1-成功 2-失败
+	remark varchar(255) NULL,
+	CONSTRAINT tp_automation_log_pk PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_automation_log.process_result IS '执行状态 1-成功 2-失败';
+
+
+-- public.tp_automation_log foreign keys
+
+ALTER TABLE public.tp_automation_log ADD CONSTRAINT tp_automation_log_fk FOREIGN KEY (id) REFERENCES public.tp_automation(id) ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE TABLE public.tp_automation_log_detail (
+	id varchar(36) NOT NULL,
+	automation_log_id varchar(36) NOT NULL,
+	action_type varchar(2) NULL,
+	process_description varchar(999) NULL,
+	process_result varchar(2) NULL,
+	remark varchar(255) NULL,
+	target_id varchar(36) NULL,
+	CONSTRAINT automation_log_detail_pk PRIMARY KEY (id),
+	CONSTRAINT automation_log_detail_fk FOREIGN KEY (automation_log_id) REFERENCES public.tp_automation_log(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.automation_log_detail.action_type IS '动作类型 1-设备输出 2-触发告警 3-激活场景';
+COMMENT ON COLUMN public.automation_log_detail.process_result IS '执行状态 1-成功 2-失败';
+COMMENT ON COLUMN public.automation_log_detail.target_id IS '设备id|告警id|场景id';
+
+CREATE TABLE public.tp_warning_information (
+	ip varchar(36) NOT NULL,
+	tenant_id varchar(36) NULL,
+	warning_name varchar(99) NOT NULL,
+	warning_level varchar(2) NULL,
+	warning_description varchar(99) NULL,
+	warning_content varchar(999) NULL,
+	processing_result varchar(1) NULL,
+	processing_instructions varchar(255) NULL,
+	processing_time varchar(50) NULL,
+	processing_people_id varchar(36) NULL,
+	created_at int8 NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_warning_information_pk PRIMARY KEY (ip)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_warning_information.warning_level IS '告警级别';
+COMMENT ON COLUMN public.tp_warning_information.warning_description IS '告警描述';
+COMMENT ON COLUMN public.tp_warning_information.warning_content IS '告警内容';
+COMMENT ON COLUMN public.tp_warning_information.processing_result IS '处理结果 0-未处理 1-已处理 2-已忽略';
+COMMENT ON COLUMN public.tp_warning_information.processing_instructions IS '处理说明';
+COMMENT ON COLUMN public.tp_warning_information.processing_time IS '处理时间';
+COMMENT ON COLUMN public.tp_warning_information.processing_people_id IS '处理人';
+COMMENT ON COLUMN public.tp_warning_information.remark IS '备注';
+
+CREATE TABLE public.tp_scenario_log (
+	id varchar(36) NOT NULL,
+	scenario_strategy_id varchar(36) NOT NULL,
+	process_description varchar(99) NULL,
+	trigger_time varchar(99) NULL,
+	process_result varchar(2) NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_scenario_log_pk PRIMARY KEY (id),
+	CONSTRAINT tp_scenario_log_fk FOREIGN KEY (scenario_strategy_id) REFERENCES public.tp_scenario_strategy(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_scenario_log.process_description IS '过程描述';
+COMMENT ON COLUMN public.tp_scenario_log.process_result IS '执行状态 1-成功 2-失败';
+
+ALTER TABLE public.tp_automation_log ALTER COLUMN trigger_time TYPE varchar(99) USING trigger_time::varchar;
+
+CREATE TABLE public.tp_scenario_log_detail (
+	id varchar(36) NOT NULL,
+	scenario_log_id varchar(36) NOT NULL,
+	action_type varchar(2) NULL,
+	process_description varchar(99) NULL,
+	process_result varchar(1) NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_scenario_log_detail_pk PRIMARY KEY (id),
+	CONSTRAINT tp_scenario_log_detail_fk FOREIGN KEY (scenario_log_id) REFERENCES public.tp_scenario_log(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_scenario_log_detail.action_type IS '动作类型 1-设备输出';
+COMMENT ON COLUMN public.tp_scenario_log_detail.process_result IS '执行状态 1-成功 2-失败';
+
