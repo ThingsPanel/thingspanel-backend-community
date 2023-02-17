@@ -265,3 +265,14 @@ func (*TpAutomationService) DeleteTpAutomation(tp_automation models.TpAutomation
 	}
 	return nil
 }
+
+// 开启和关闭
+func (*TpAutomationService) EnabledAutomation(automationId string, enabled string) error {
+	result := psql.Mydb.Model(&models.TpAutomation{}).Where("id = ?", automationId).
+		Updates(map[string]interface{}{"UpdateTime": time.Now().Unix(), "enabled": enabled})
+	if result.Error != nil {
+		logs.Error(result.Error)
+		return result.Error
+	}
+	return nil
+}

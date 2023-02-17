@@ -174,3 +174,31 @@ func (TpAutomationController *TpAutomationController) Detail() {
 	}
 	utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpAutomationController.Ctx))
 }
+
+// 开启和关闭
+func (TpAutomationController *TpAutomationController) Enabled() {
+	TpAutomationIdValidate := valid.TpAutomationEnabledValidate{}
+	err := json.Unmarshal(TpAutomationController.Ctx.Input.RequestBody, &TpAutomationIdValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(TpAutomationIdValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(TpAutomationIdValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpAutomationController.Ctx))
+			break
+		}
+		return
+	}
+	var TpAutomationService services.TpAutomationService
+	err = TpAutomationService.EnabledAutomation(TpAutomationIdValidate.Id, TpAutomationIdValidate.Enabled)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpAutomationController.Ctx))
+		return
+	}
+	utils.SuccessWithMessage(200, "sucess", (*context2.Context)(TpAutomationController.Ctx))
+}

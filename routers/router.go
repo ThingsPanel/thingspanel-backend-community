@@ -356,6 +356,7 @@ func init() {
 		web.NSRouter("/v1/automation/detail", &controllers.TpAutomationController{}, "*:Detail"),
 		web.NSRouter("/v1/automation/delete", &controllers.TpAutomationController{}, "*:Delete"),
 		web.NSRouter("/v1/automation/edit", &controllers.TpAutomationController{}, "*:Edit"),
+		web.NSRouter("/v1/automation/enabled", &controllers.TpAutomationController{}, "*:Enabled"),
 
 		web.NSRouter("/v1/warning/information/list", &controllers.TpWarningInformationController{}, "*:List"),
 		web.NSRouter("/v1/warning/information/edit", &controllers.TpWarningInformationController{}, "*:Edit"),

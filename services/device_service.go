@@ -488,7 +488,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		if deviceModel.SubDeviceAddr != "" {
 			var chack_device models.Device
 			result := psql.Mydb.Where("parent_id = ? and id!= ?", device.ParentId, device.ID).First(&chack_device) // 检测网关token是否存在
-			if result != nil {
+			if result.Error != nil {
 				if result.RowsAffected > int64(0) {
 					return errors.New("同一个网关下子设备地址不能重复！")
 				}

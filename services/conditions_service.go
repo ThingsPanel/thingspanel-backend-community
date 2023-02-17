@@ -9,9 +9,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	simplejson "github.com/bitly/go-simplejson"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
 )
 
@@ -44,7 +46,12 @@ func (*ConditionsService) GetConditionByID(id string) (*models.Condition, int64)
 //自动化策略检查
 func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[string]interface{}) {
 	var automationConditions []models.TpAutomationCondition
-	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("condition_type = '1' and device_condition_type = '1' device_id = ? ", deviceId).Find(&automationConditions)
+	result := psql.Mydb.Table("tp_automation").
+		Select("tp_automation_condition.*").
+		Joins("left join tp_automation_condition on tp_automation.id = tp_automation_condition.automation_id").
+		Where("tp_automation.enabled = '1' and tp_automation_condition.condition_type = '1' and tp_automation_condition.device_condition_type = '1' and tp_automation_condition.device_id = ? ", deviceId).
+		Order("tp_automation.priority asc").
+		Find(&automationConditions)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return
@@ -65,20 +72,27 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 		}
 		isPass := false
 		isThisDevice := false
+		logMessage := ""
 		// 判断每个条件是否通过
 		for _, conditionData := range conditionGroups {
 			// 设备条件
 			if conditionData.ConditionType == "1" {
 				// 设备属性
 				if conditionData.DeviceConditionType == "1" {
+					//是本次设备的属性
 					if conditionData.DeviceId == deviceId {
-						//是本次推送设备的属性
-						if value, ok := values[conditionData.V1].(string); ok {
+						// 本次上报属性的map中有没有当前判断的属性
+						if value, ok := values[conditionData.V1]; ok {
 							isThisDevice = true
-							isPass = utils.Check(value, conditionData.V2, conditionData.V3)
-						} else {
+							isSuccess, _ := utils.Check(value, conditionData.V2, conditionData.V3)
+							isPass = isSuccess
+							if isPass {
+								logMessage += "设备上报的属性" + conditionData.V1 + ":" + cast.ToString(values[conditionData.V1]) + conditionData.V2 + cast.ToString(conditionData.V3) + "通过；"
+							}
+
+						} else { //如果不是本次设备推送的数据，需要查询设备当前值
 							var tskvLatest models.TSKVLatest
-							//如果不是本次设备推送的数据，需要查询设备当前值
+
 							result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = ?", deviceId, conditionData.V1).First(&tskvLatest)
 							if result.Error != nil {
 								if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -89,11 +103,22 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 								isPass = false
 								break
 							}
+							// 是否是字符串
 							if tskvLatest.StrV != "" {
-								isPass = utils.Check(tskvLatest.StrV, conditionData.V2, conditionData.V3)
+								isSuccess, _ := utils.Check(tskvLatest.StrV, conditionData.V2, conditionData.V3)
+								isPass = isSuccess
+								if isPass {
+									logMessage += "设备的属性(非本次上报)" + conditionData.V1 + ":" + cast.ToString(tskvLatest.StrV) + conditionData.V2 + cast.ToString(conditionData.V3) + "通过；"
+								}
 							} else {
-								isPass = utils.Check(tskvLatest.DblV, conditionData.V2, conditionData.V3)
+								//是float64
+								isSuccess, _ := utils.Check(tskvLatest.DblV, conditionData.V2, conditionData.V3)
+								isPass = isSuccess
+								if isPass {
+									logMessage += "设备的属性(非本次上报)" + conditionData.V1 + ":" + cast.ToString(tskvLatest.DblV) + conditionData.V2 + cast.ToString(conditionData.V3) + "通过；"
+								}
 							}
+
 						}
 					} else {
 						//其他设备属性
@@ -110,9 +135,17 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 							break
 						}
 						if tskvLatest.StrV != "" {
-							isPass = utils.Check(tskvLatest.StrV, conditionData.V2, conditionData.V3)
+							b, _ := utils.Check(tskvLatest.StrV, conditionData.V2, conditionData.V3)
+							isPass = b
+							if isPass {
+								logMessage += "其他设备的属性" + conditionData.V1 + ":" + cast.ToString(tskvLatest.StrV) + conditionData.V2 + cast.ToString(conditionData.V3) + "通过；"
+							}
 						} else {
-							isPass = utils.Check(tskvLatest.DblV, conditionData.V2, conditionData.V3)
+							b, _ := utils.Check(tskvLatest.DblV, conditionData.V2, conditionData.V3)
+							isPass = b
+							if isPass {
+								logMessage += "其他设备的属性" + conditionData.V1 + ":" + cast.ToString(tskvLatest.DblV) + conditionData.V2 + cast.ToString(conditionData.V3) + "通过；"
+							}
 						}
 					}
 				} else {
@@ -123,7 +156,9 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 			} else if conditionData.ConditionType == "2" {
 				if conditionData.TimeConditionType == "0" {
 					//时间范围
-					isPass = utils.CheckTime(conditionData.V1, conditionData.V2)
+					isSuccess, _ := utils.CheckTime(conditionData.V1, conditionData.V2)
+					isPass = isSuccess
+					logMessage += "当前时间：" + time.Now().Format("2006/01/02 15:04:05") + "，在" + conditionData.V1 + "和" + conditionData.V2 + "内；"
 				} else {
 					//非时间范围不通过
 					isPass = false
@@ -137,16 +172,40 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 		}
 		if isPass {
 			passedAutomationList = append(passedAutomationList, automationCondition.AutomationId)
+			logMessage += "自动化条件通过；"
 			logs.Info("成功触发自动化")
-			var conditionsService ConditionsService
-			message, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId)
+			//登记日志
+			var automationLogMap = make(map[string]interface{})
+			var sutomationLogService TpAutomationLogService
+			var automationLog models.TpAutomationLog
+			automationLog.AutomationId = automationCondition.AutomationId
+			automationLog.ProcessDescription = logMessage
+			automationLog.TriggerTime = time.Now().Format("2006/01/02 15:04:05")
+			automationLog.ProcessResult = "2"
+			automationLog, err := sutomationLogService.AddTpAutomationLog(automationLog)
 			if err != nil {
-				//执行失败，记录日志
 				logs.Error(err.Error())
 			} else {
-				//执行成功，记录日志
-				logs.Info(message)
+				var conditionsService ConditionsService
+				msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id)
+				if err != nil {
+					//执行失败，记录日志
+					logs.Error(err.Error())
+					automationLogMap["process_description"] = logMessage + err.Error()
+
+				} else {
+					//执行成功，记录日志
+					logs.Info(logMessage)
+					automationLogMap["process_description"] = logMessage + msg
+					automationLogMap["process_result"] = '1'
+
+				}
+				err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)
+				if err != nil {
+					logs.Error(err.Error())
+				}
 			}
+
 		} else {
 			logs.Info("未触发自动化")
 		}
@@ -155,53 +214,71 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 }
 
 // 执行自动化动作
-func (*ConditionsService) ExecuteAutomationAction(AutomationId string) (string, error) {
+func (*ConditionsService) ExecuteAutomationAction(automationId string, automationLogId string) (string, error) {
 	var automationActions []models.TpAutomationAction
-	result := psql.Mydb.Model(&models.TpAutomationAction{}).Where("automation_id = ?", AutomationId).Find(&automationActions)
+	var logMessage string
+	result := psql.Mydb.Model(&models.TpAutomationAction{}).Where("automation_id = ?", automationId).Find(&automationActions)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return "", result.Error
 	}
 	for _, automationAction := range automationActions {
 		if automationAction.ActionType == "1" {
+			var automationLogDetail models.TpAutomationLogDetail
+			automationLogDetail.TargetId = automationAction.DeviceId
 			//设备输出
 			res, err := simplejson.NewJson([]byte(automationAction.AdditionalInfo))
 			if err != nil {
-				return "", err
-			}
-			deviceModel := res.Get("device_model").MustString()
-			if deviceModel == "1" {
-				//属性
-				instructString := res.Get("instruct").MustString()
-				instructMap := make(map[string]interface{})
-				err = json.Unmarshal([]byte(instructString), &instructMap)
-				if err != nil {
-					return "", err
-				}
-				for k, v := range instructMap {
-					var DeviceService DeviceService
-					err := DeviceService.OperatingDevice(automationAction.DeviceId, k, v)
-					if err == nil {
-						return "成功发送控制，指令为:" + instructString, nil
-					} else {
-						return "", nil
-					}
-				}
-			} else if deviceModel == "2" {
-				return "暂不支持调动服务", nil
+				automationLogDetail.ProcessDescription = "additional_info:" + err.Error()
+				automationLogDetail.ProcessResult = "2"
 			} else {
-				return "deviceModel错误", nil
+				deviceModel := res.Get("device_model").MustString()
+				if deviceModel == "1" {
+					//属性
+					instructString := res.Get("instruct").MustString()
+					instructMap := make(map[string]interface{})
+					err = json.Unmarshal([]byte(instructString), &instructMap)
+					if err != nil {
+						automationLogDetail.ProcessDescription = "instruct:" + err.Error()
+						automationLogDetail.ProcessResult = "2"
+					}
+					for k, v := range instructMap {
+						var DeviceService DeviceService
+						err := DeviceService.OperatingDevice(automationAction.DeviceId, k, v)
+						if err == nil {
+							automationLogDetail.ProcessResult = "1"
+							automationLogDetail.ProcessDescription = "指令为:" + instructString
+						} else {
+							automationLogDetail.ProcessResult = "2"
+							automationLogDetail.ProcessDescription = err.Error()
+						}
+					}
+				} else if deviceModel == "2" {
+					automationLogDetail.ProcessDescription = "暂不支持调动服务;"
+					automationLogDetail.ProcessResult = "2"
+				} else {
+					automationLogDetail.ProcessDescription = "deviceModel错误;"
+					automationLogDetail.ProcessResult = "2"
+				}
+
+			}
+			var automationLogDetailService TpAutomationLogDetailService
+			automationLogDetail.Id = utils.GetUuid()
+			automationLogDetail.AutomationLogId = automationLogId
+			_, err = automationLogDetailService.AddTpAutomationLogDetail(automationLogDetail)
+			if err != nil {
+				logMessage += err.Error()
 			}
 
 		} else if automationAction.ActionType == "2" {
 			//触发告警-？？？
-			return "触发告警-此处未开发完", nil
+			logMessage += "触发告警-此处未开发完;"
 		} else if automationAction.ActionType == "3" {
 			//触发场景-？？？
-			return "触发场景-此处未开发完", nil
+			logMessage += "触发场景-此处未开发完;"
 		}
 	}
-	return "", nil
+	return logMessage, nil
 }
 
 // GetWarningConfigsByDeviceId 根据id获取多条warningConfig数据

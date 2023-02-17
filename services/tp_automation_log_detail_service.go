@@ -69,13 +69,13 @@ func (*TpAutomationLogDetailService) GetTpAutomationLogDetailList(PaginationVali
 }
 
 // 新增数据
-func (*TpAutomationLogDetailService) AddTpAutomationLogDetail(tp_warning_information models.TpAutomationLogDetail) (models.TpAutomationLogDetail, error) {
+func (*TpAutomationLogDetailService) AddTpAutomationLogDetail(automationLogDetail models.TpAutomationLogDetail) (models.TpAutomationLogDetail, error) {
 	var uuid = uuid.GetUuid()
-	tp_warning_information.Id = uuid
-	result := psql.Mydb.Create(&tp_warning_information)
+	automationLogDetail.Id = uuid
+	result := psql.Mydb.Create(&automationLogDetail)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return tp_warning_information, result.Error
+		return automationLogDetail, result.Error
 	}
-	return tp_warning_information, nil
+	return automationLogDetail, nil
 }

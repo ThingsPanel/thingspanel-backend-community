@@ -23,7 +23,7 @@ type TpAutomationConditionService struct {
 func (*TpAutomationConditionService) GetTpAutomationConditionDetail(tp_automation_condition_id string) (models.TpAutomationCondition, error) {
 	var tp_automation_condition models.TpAutomationCondition
 	result := psql.Mydb.First(&tp_automation_condition, "id = ?", tp_automation_condition_id)
-	if result != nil {
+	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return tp_automation_condition, nil
 		} else {

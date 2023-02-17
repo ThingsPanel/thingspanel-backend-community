@@ -7,7 +7,6 @@ import (
 	valid "ThingsPanel-Go/validate"
 
 	"github.com/beego/beego/v2/core/logs"
-	"gorm.io/gorm"
 )
 
 type TpAutomationLogService struct {
@@ -37,20 +36,30 @@ func (*TpAutomationLogService) GetTpAutomationLogList(PaginationValidate valid.T
 	psql.Mydb.Model(&models.TpAutomationLog{}).Where(sqlWhere, paramList...).Count(&count)
 	result := psql.Mydb.Model(&models.TpAutomationLog{}).Where(sqlWhere, paramList...).Limit(PaginationValidate.PerPage).Offset(offset).Order("trigger_time desc").Find(&TpAutomationLogs)
 	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error)
 		return TpAutomationLogs, 0, result.Error
 	}
 	return TpAutomationLogs, count, nil
 }
 
 // 新增数据
-func (*TpAutomationLogService) AddTpAutomationLog(tp_warning_information models.TpAutomationLog) (models.TpAutomationLog, error) {
+func (*TpAutomationLogService) AddTpAutomationLog(automationLog models.TpAutomationLog) (models.TpAutomationLog, error) {
 	var uuid = uuid.GetUuid()
-	tp_warning_information.Id = uuid
-	result := psql.Mydb.Create(&tp_warning_information)
+	automationLog.Id = uuid
+	result := psql.Mydb.Create(&automationLog)
 	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return tp_warning_information, result.Error
+		logs.Error(result.Error)
+		return automationLog, result.Error
 	}
-	return tp_warning_information, nil
+	return automationLog, nil
+}
+
+// 更新数据
+func (*TpAutomationLogService) UpdateTpAutomationLog(automationLogMap map[string]interface{}) error {
+	result := psql.Mydb.Model(&models.TpAutomationLog{}).Updates(automationLogMap)
+	if result.Error != nil {
+		logs.Error(result.Error)
+		return result.Error
+	}
+	return nil
 }

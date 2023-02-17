@@ -23,7 +23,7 @@ type TpWarningStrategyService struct {
 func (*TpWarningStrategyService) GetTpWarningStrategyDetail(tp_warning_strategy_id string) (models.TpWarningStrategy, error) {
 	var tp_warning_strategy models.TpWarningStrategy
 	result := psql.Mydb.First(&tp_warning_strategy, "id = ?", tp_warning_strategy_id)
-	if result != nil {
+	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return tp_warning_strategy, nil
 		} else {

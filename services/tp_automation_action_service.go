@@ -23,7 +23,7 @@ type TpAutomationActionService struct {
 func (*TpAutomationActionService) GetTpAutomationActionDetail(tp_automation_action_id string) (models.TpAutomationAction, error) {
 	var tp_automation_action models.TpAutomationAction
 	result := psql.Mydb.First(&tp_automation_action, "id = ?", tp_automation_action_id)
-	if result != nil {
+	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return tp_automation_action, nil
 		} else {

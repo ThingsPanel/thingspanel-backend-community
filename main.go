@@ -8,12 +8,12 @@ import (
 	_ "ThingsPanel-Go/initialize/cache"
 	_ "ThingsPanel-Go/initialize/psql"
 
+	_ "ThingsPanel-Go/initialize/cron"
 	_ "ThingsPanel-Go/initialize/send_message"
 	_ "ThingsPanel-Go/initialize/session"
 	_ "ThingsPanel-Go/initialize/validate"
 	_ "ThingsPanel-Go/routers"
 
-	_ "ThingsPanel-Go/cron"
 	services "ThingsPanel-Go/services"
 	"fmt"
 	"time"
@@ -21,6 +21,8 @@ import (
 	beego "github.com/beego/beego/v2/server/web"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
+
+	_ "ThingsPanel-Go/cron"
 )
 
 var Ticker *time.Ticker
