@@ -191,12 +191,12 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 				if err != nil {
 					//执行失败，记录日志
 					logs.Error(err.Error())
-					automationLogMap["process_description"] = logMessage + err.Error()
+					automationLogMap["process_description"] = logMessage + "|" + err.Error()
 
 				} else {
 					//执行成功，记录日志
 					logs.Info(logMessage)
-					automationLogMap["process_description"] = logMessage + msg
+					automationLogMap["process_description"] = logMessage + "|" + msg
 					automationLogMap["process_result"] = '1'
 
 				}
@@ -223,8 +223,8 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		return "", result.Error
 	}
 	for _, automationAction := range automationActions {
+		var automationLogDetail models.TpAutomationLogDetail
 		if automationAction.ActionType == "1" {
-			var automationLogDetail models.TpAutomationLogDetail
 			automationLogDetail.TargetId = automationAction.DeviceId
 			//设备输出
 			res, err := simplejson.NewJson([]byte(automationAction.AdditionalInfo))
@@ -241,18 +241,20 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 					if err != nil {
 						automationLogDetail.ProcessDescription = "instruct:" + err.Error()
 						automationLogDetail.ProcessResult = "2"
-					}
-					for k, v := range instructMap {
-						var DeviceService DeviceService
-						err := DeviceService.OperatingDevice(automationAction.DeviceId, k, v)
-						if err == nil {
-							automationLogDetail.ProcessResult = "1"
-							automationLogDetail.ProcessDescription = "指令为:" + instructString
-						} else {
-							automationLogDetail.ProcessResult = "2"
-							automationLogDetail.ProcessDescription = err.Error()
+					} else {
+						for k, v := range instructMap {
+							var DeviceService DeviceService
+							err := DeviceService.OperatingDevice(automationAction.DeviceId, k, v)
+							if err == nil {
+								automationLogDetail.ProcessResult = "1"
+								automationLogDetail.ProcessDescription = "指令为:" + instructString
+							} else {
+								automationLogDetail.ProcessResult = "2"
+								automationLogDetail.ProcessDescription = err.Error()
+							}
 						}
 					}
+
 				} else if deviceModel == "2" {
 					automationLogDetail.ProcessDescription = "暂不支持调动服务;"
 					automationLogDetail.ProcessResult = "2"
@@ -262,20 +264,73 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 				}
 
 			}
-			var automationLogDetailService TpAutomationLogDetailService
-			automationLogDetail.Id = utils.GetUuid()
-			automationLogDetail.AutomationLogId = automationLogId
-			_, err = automationLogDetailService.AddTpAutomationLogDetail(automationLogDetail)
-			if err != nil {
-				logMessage += err.Error()
-			}
 
 		} else if automationAction.ActionType == "2" {
-			//触发告警-？？？
-			logMessage += "触发告警-此处未开发完;"
+			automationLogDetail.TargetId = automationAction.WarningStrategyId
+			//触发告警
+			var warningStrategy models.TpWarningStrategy
+			result := psql.Mydb.Model(&models.TpWarningStrategy{}).Where("id = ?", automationAction.WarningStrategyId).First(&warningStrategy)
+			if result.Error != nil {
+				automationLogDetail.ProcessDescription = result.Error.Error()
+				automationLogDetail.ProcessResult = "2"
+			} else {
+				if warningStrategy.RepeatCount+1 >= warningStrategy.TriggerCount {
+					//触发告警,记录告警信息;triggerCount清零
+					result := psql.Mydb.Model(&models.TpWarningStrategy{}).Where("id = ?", automationAction.WarningStrategyId).Update("trigger_count", 0)
+					if result.Error != nil {
+						automationLogDetail.ProcessDescription = result.Error.Error()
+						automationLogDetail.ProcessResult = "2"
+					} else {
+						var warningInformation models.TpWarningInformation
+						warningInformation.ProcessingInstructions = ""
+						warningInformation.WarningName = warningStrategy.WarningStrategyName
+						warningInformation.ProcessingResult = "0"
+						warningInformation.WarningDescription = warningStrategy.WarningStrategyName
+						warningInformation.WarningLevel = warningStrategy.WarningLevel
+						var automationLog models.TpAutomationLog
+						result := psql.Mydb.Model(&models.TpAutomationLog{}).Where("id = ?", automationLogId).First(&automationLog)
+						if result.Error != nil {
+							logs.Error(result.Error.Error())
+						} else {
+							warningInformation.WarningContent = strings.Split(automationLog.ProcessDescription, "|")[0]
+						}
+						var warningInformationService TpWarningInformationService
+						warningInformation, err := warningInformationService.AddTpWarningInformation(warningInformation)
+						if err != nil {
+							automationLogDetail.ProcessDescription = err.Error()
+							automationLogDetail.ProcessResult = "2"
+						} else {
+							automationLogDetail.ProcessDescription = "成功触发告警"
+							automationLogDetail.ProcessResult = "1"
+						}
+					}
+
+				} else {
+					//重复次数计数+1
+					result := psql.Mydb.Model(&models.TpWarningStrategy{}).Where("id = ?", automationAction.WarningStrategyId).Update("trigger_count", warningStrategy.TriggerCount+1)
+					if result.Error != nil {
+						automationLogDetail.ProcessDescription = result.Error.Error()
+						automationLogDetail.ProcessResult = "2"
+					} else {
+						automationLogDetail.ProcessDescription = "告警当前次数" + cast.ToString(warningStrategy.TriggerCount+1) + ",未达到设定次数" + cast.ToString(warningStrategy.RepeatCount) + ",不触发告警"
+						automationLogDetail.ProcessResult = "1"
+					}
+				}
+			}
+
 		} else if automationAction.ActionType == "3" {
-			//触发场景-？？？
+			automationLogDetail.TargetId = automationAction.ScenarioStrategyId
+			automationLogDetail.ProcessDescription = "触发场景-此处未开发完;"
+			automationLogDetail.ProcessResult = "2"
+			//触发场景
 			logMessage += "触发场景-此处未开发完;"
+		}
+		var automationLogDetailService TpAutomationLogDetailService
+		automationLogDetail.Id = utils.GetUuid()
+		automationLogDetail.AutomationLogId = automationLogId
+		_, err := automationLogDetailService.AddTpAutomationLogDetail(automationLogDetail)
+		if err != nil {
+			logMessage += err.Error()
 		}
 	}
 	return logMessage, nil

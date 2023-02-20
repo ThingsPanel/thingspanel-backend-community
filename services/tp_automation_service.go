@@ -6,11 +6,16 @@ import (
 	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/fatih/structs"
+	"github.com/robfig/cron/v3"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
+
+	tp_cron "ThingsPanel-Go/initialize/cron"
 )
 
 type TpAutomationService struct {
@@ -127,6 +132,19 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 			tx.Rollback()
 			logs.Error(result.Error.Error())
 			return tp_automation, result.Error
+		} else {
+			// 定时任务需要添加cron
+			if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" {
+				var automationCondition models.TpAutomationCondition
+				result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", tp_automation_conditions.Id).First(&automationCondition)
+				if result.Error != nil {
+					err := AutomationCron(automationCondition)
+					if err != nil {
+						logs.Error(err.Error())
+					}
+				}
+
+			}
 		}
 	}
 	// 添加自动化动作
@@ -169,13 +187,57 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 
 // 修改数据
 func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationValidate) (valid.TpAutomationValidate, error) {
+	// 首先查询原定时任务
+	var automationConditions []models.TpAutomationCondition
+	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ? and contion_type = '2' and time_condition_type ='2'", tp_automation.Id).Find(&automationConditions)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return tp_automation, result.Error
+	}
+	if result.RowsAffected > int64(0) {
+		for _, automationCondition := range automationConditions {
+			cronId := cast.ToInt(automationCondition.V2)
+			C := tp_cron.C
+			C.Remove(cron.EntryID(cronId))
+		}
+	}
+	// 开启事务 删除自动化条件
 	tx := psql.Mydb.Begin()
-	result := tx.Delete(&models.TpAutomationCondition{}, "automation_id = ?", tp_automation.Id)
+	result = tx.Delete(&models.TpAutomationCondition{}, "automation_id = ?", tp_automation.Id)
 	//result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where("id = ?", tp_scenario_strategy.Id).Updates(&tp_scenario_strategy)
 	if result.Error != nil {
 		tx.Rollback()
 		logs.Error(result.Error.Error())
 		return tp_automation, result.Error
+	}
+	//重新添加condition
+	for _, tp_automation_conditions := range tp_automation.AutomationConditions {
+		tp_automation_conditions.Id = utils.GetUuid()
+		tp_automation_conditions.AutomationId = tp_automation.Id
+		// DeviceId外键可以为null，需要用map处理
+		automationConditionsMap := structs.Map(&tp_automation_conditions)
+		if tp_automation_conditions.DeviceId == "" {
+			delete(automationConditionsMap, "DeviceId")
+		}
+		result := tx.Model(&models.TpAutomationCondition{}).Create(automationConditionsMap)
+		if result.Error != nil {
+			tx.Rollback()
+			logs.Error(result.Error.Error())
+			return tp_automation, result.Error
+		} else {
+			// 定时任务需要添加cron
+			if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" {
+				var automationCondition models.TpAutomationCondition
+				result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", tp_automation_conditions.Id).First(&automationCondition)
+				if result.Error != nil {
+					err := AutomationCron(automationCondition)
+					if err != nil {
+						logs.Error(err.Error())
+					}
+				}
+
+			}
+		}
 	}
 	// 如果旧记录有告警信息-新记录没有则删除，新记录有则修改
 	// 如果旧记录没有告警信息-新纪录有则新增
@@ -273,6 +335,85 @@ func (*TpAutomationService) EnabledAutomation(automationId string, enabled strin
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return result.Error
+	}
+	return nil
+}
+
+//添加自动化的定时任务
+func AutomationCron(automationCondition models.TpAutomationCondition) error {
+	C := tp_cron.C
+	var logMessage string
+	var cronString string
+	if automationCondition.V1 == "0" {
+		//几分钟
+		number := cast.ToInt(automationCondition.V3)
+		if number > 0 {
+			cronString = "0/" + automationCondition.V3 + " * * * *"
+			logMessage += "触发" + automationCondition.V3 + "分钟执行一次的任务；"
+		} else {
+			logs.Error("cron按分钟不能为空或0")
+			return errors.New("cron按分钟不能为空或0")
+		}
+	} else if automationCondition.V1 == "1" {
+		// 每小时的几分
+		number := cast.ToInt(automationCondition.V3)
+		cronString = cast.ToString(number) + " 0/1 * * * *"
+		logMessage += "触发每小时的" + automationCondition.V3 + "执行一次的任务；"
+	} else if automationCondition.V1 == "2" {
+		// 每天的几点几分
+		timeList := strings.Split(automationCondition.V3, ":")
+		cronString = timeList[1] + " " + timeList[0] + " ? * * *"
+		logMessage += "触发每天的" + automationCondition.V3 + "执行一次的任务；"
+	} else if automationCondition.V1 == "3" {
+		// 星期几的几点几分
+		timeList := strings.Split(automationCondition.V3, ":")
+		cronString = timeList[2] + " " + timeList[1] + " ? " + timeList[0] + " * *"
+		logMessage += "触发每周的" + automationCondition.V3 + "执行一次的任务；"
+	} else if automationCondition.V1 == "4" {
+		// 每月的哪一天的几点几分
+		timeList := strings.Split(automationCondition.V3, ":")
+		cronString = timeList[2] + " " + timeList[1] + " " + timeList[0] + " * ? *"
+		logMessage += "触发每月的" + automationCondition.V3 + "执行一次的任务；"
+	} else if automationCondition.V1 == "5" {
+		cronString = automationCondition.V1
+	}
+	execute := func() {
+		// 触发，记录日志
+		var automationLogMap = make(map[string]interface{})
+		var sutomationLogService TpAutomationLogService
+		var automationLog models.TpAutomationLog
+		automationLog.AutomationId = automationCondition.AutomationId
+		automationLog.ProcessDescription = logMessage
+		automationLog.TriggerTime = time.Now().Format("2006/01/02 15:04:05")
+		automationLog.ProcessResult = "2"
+		automationLog, err := sutomationLogService.AddTpAutomationLog(automationLog)
+		if err != nil {
+			logs.Error(err.Error())
+		} else {
+			var conditionsService ConditionsService
+			msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id)
+			if err != nil {
+				//执行失败，记录日志
+				logs.Error(err.Error())
+				automationLogMap["process_description"] = logMessage + err.Error()
+			} else {
+				//执行成功，记录日志
+				logs.Info(logMessage)
+				automationLogMap["process_description"] = logMessage + msg
+				automationLogMap["process_result"] = '1'
+			}
+			err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)
+			if err != nil {
+				logs.Error(err.Error())
+			}
+		}
+	}
+	cronId, _ := C.AddFunc(cronString, execute)
+	// 将cronId更新到数据库
+	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.AutomationId).Update("V2", cast.ToString(cronId))
+	if result.Error != nil {
+		C.Remove(cronId)
+		logs.Error(result.Error.Error())
 	}
 	return nil
 }

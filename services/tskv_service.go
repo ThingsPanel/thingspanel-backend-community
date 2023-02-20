@@ -260,8 +260,8 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 		WarningConfigService.WarningConfigCheck(device.ID, payload_map)
 	}
 	// 设备触发自动化
-	var ConditionsService ConditionsService
-	ConditionsService.ConditionsConfigCheck(device.ID, payload_map)
+	//var ConditionsService ConditionsService
+	//ConditionsService.ConditionsConfigCheck(device.ID, payload_map)
 	// 入库
 	//存入系统时间
 	ts := time.Now().UnixMicro()
@@ -333,6 +333,7 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 			log.Println(rts.Error)
 			return false
 		} else {
+			var ConditionsService ConditionsService
 			go ConditionsService.AutomationConditionCheck(device.ID, payload_map)
 		}
 	}

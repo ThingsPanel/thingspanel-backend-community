@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -47,6 +48,7 @@ func (*TpWarningInformationService) GetTpWarningInformationList(PaginationValida
 func (*TpWarningInformationService) AddTpWarningInformation(tp_warning_information models.TpWarningInformation) (models.TpWarningInformation, error) {
 	var uuid = uuid.GetUuid()
 	tp_warning_information.Id = uuid
+	tp_warning_information.CreatedAt = time.Now().Unix()
 	result := psql.Mydb.Create(&tp_warning_information)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
