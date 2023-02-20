@@ -3,10 +3,10 @@ package valid
 import "ThingsPanel-Go/models"
 
 type TpAutomationConditionValidate struct {
-	Id                  string `json:"id"  gorm:"primaryKey"`
+	Id                  string `json:"id" `
 	AutomationId        string `json:"automation_id,omitempty" valid:"MaxSize(36)"`
-	GroupNumber         int64  `json:"group_number,omitempty"`                       // 小组编号
-	ConditionType       string `json:"condition_type,omitempty"  valid:"MaxSize(2)"` // 条件类型1-设备条件 2-时间条件
+	GroupNumber         int64  `json:"group_number,omitempty"`                                // 小组编号
+	ConditionType       string `json:"condition_type,omitempty"  valid:"Required;MaxSize(2)"` // 条件类型1-设备条件 2-时间条件
 	DeviceId            string `json:"device_id,omitempty" valid:"MaxSize(36)"`
 	TimeConditionType   string `json:"time_condition_type,omitempty" valid:"MaxSize(2)"`   // 时间条件类型0-时间范围 1-单次 2-重复
 	DeviceConditionType string `json:"device_condition_type,omitempty" valid:"MaxSize(2)"` // 设备条件类型
@@ -19,10 +19,10 @@ type TpAutomationConditionValidate struct {
 }
 
 type AddTpAutomationConditionValidate struct {
-	Id                  string `json:"id"  gorm:"primaryKey" valid:"MaxSize(36)"`
+	Id                  string `json:"id" valid:"MaxSize(36)"`
 	AutomationId        string `json:"automation_id,omitempty" valid:"MaxSize(36)"`
-	GroupNumber         int64  `json:"group_number,omitempty"`                       // 小组编号
-	ConditionType       string `json:"condition_type,omitempty"  valid:"MaxSize(2)"` // 条件类型1-设备条件 2-时间条件
+	GroupNumber         int64  `json:"group_number,omitempty"`                                // 小组编号
+	ConditionType       string `json:"condition_type,omitempty"  valid:"Required;MaxSize(2)"` // 条件类型1-设备条件 2-时间条件
 	DeviceId            string `json:"device_id,omitempty" valid:"MaxSize(36)"`
 	TimeConditionType   string `json:"time_condition_type,omitempty" valid:"MaxSize(2)"`   // 时间条件类型0-时间范围 1-单次 2-重复
 	DeviceConditionType string `json:"device_condition_type,omitempty" valid:"MaxSize(2)"` // 设备条件类型
