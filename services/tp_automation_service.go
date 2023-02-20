@@ -259,34 +259,36 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 		tx.Rollback()
 		return tp_automation, result.Error
 	}
-	for _, tp_automation_actions := range tp_automation.AutomationActions {
-		automationActionsMap := structs.Map(&tp_automation_actions)
-		if tp_automation_actions.DeviceId == "" {
+	for _, tp_automation_action := range tp_automation.AutomationActions {
+		tp_automation_action.AutomationId = tp_automation.Id
+		automationActionsMap := structs.Map(&tp_automation_action)
+		if tp_automation_action.DeviceId == "" {
 			delete(automationActionsMap, "DeviceId")
 		}
-		if tp_automation_actions.WarningStrategyId == "" {
+		if tp_automation_action.WarningStrategyId == "" {
 			delete(automationActionsMap, "WarningStrategyId")
 		}
-		if tp_automation_actions.ScenarioStrategyId == "" {
+		if tp_automation_action.ScenarioStrategyId == "" {
 			delete(automationActionsMap, "ScenarioStrategyId")
 		}
 		delete(automationActionsMap, "WarningStrategy")
-		if tp_automation_actions.ActionType != "2" || oldWarningStrategyFlag == int64(0) {
-			if tp_automation_actions.ActionType == "2" {
+		// （新增）非告警信息或原告警信息没有
+		if tp_automation_action.ActionType != "2" || oldWarningStrategyFlag == int64(0) {
+			if tp_automation_action.ActionType == "2" {
 				newWarningStrategyFlag = 1
 			}
-			tp_automation_actions.Id = utils.GetUuid()
-			automationActionsMap["Id"] = tp_automation_actions.Id
+			tp_automation_action.Id = utils.GetUuid()
+			automationActionsMap["id"] = tp_automation_action.Id
 			result := tx.Model(&models.TpAutomationAction{}).Create(automationActionsMap)
 			if result.Error != nil {
 				tx.Rollback()
 				logs.Error(result.Error.Error())
 				return tp_automation, result.Error
 			}
-		} else if tp_automation_actions.ActionType == "2" {
+		} else if tp_automation_action.ActionType == "2" {
 			//更新告警信息
 			newWarningStrategyFlag = 1
-			result := tx.Model(&models.TpWarningStrategy{}).Where("id = ?", tp_automation_actions.WarningStrategy.Id).Updates(&tp_automation_actions.WarningStrategy)
+			result := tx.Model(&models.TpWarningStrategy{}).Where("id = ?", tp_automation_action.WarningStrategy.Id).Updates(&tp_automation_action.WarningStrategy)
 			if result.Error != nil {
 				tx.Rollback()
 				logs.Error(result.Error.Error())
