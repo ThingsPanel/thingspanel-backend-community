@@ -188,8 +188,9 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 //查询自动化策略是否启用
 func (*TpAutomationService) IsEnabled(automationId string) (bool, error) {
 	var automation models.TpAutomation
-	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationId).First(&automation)
+	result := psql.Mydb.Model(&models.TpAutomation{}).Where("id = ?", automationId).First(&automation)
 	if result.Error != nil {
+		logs.Error(result.Error.Error())
 		return false, result.Error
 	}
 	if automation.Enabled == "0" {
@@ -227,7 +228,7 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 	}
 	// 开启事务 删除自动化条件
 	tx := psql.Mydb.Begin()
-	result := tx.Delete(&models.TpAutomationCondition{}, "automation_id = ?", tp_automation.Id)
+	result := tx.Where("automation_id = ?", tp_automation.Id).Delete(&models.TpAutomationCondition{})
 	//result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where("id = ?", tp_scenario_strategy.Id).Updates(&tp_scenario_strategy)
 	if result.Error != nil {
 		tx.Rollback()
@@ -277,7 +278,7 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 		oldWarningStrategyFlag = 1
 	}
 	// 删除除告警信息外的其他action
-	result = tx.Delete(&models.TpAutomationAction{}, "automation_id = ? and action_type != '2'", tp_automation.Id)
+	result = tx.Where("automation_id = ? and action_type != '2'", tp_automation.Id).Delete(&models.TpAutomationAction{})
 	//result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where("id = ?", tp_scenario_strategy.Id).Updates(&tp_scenario_strategy)
 	if result.Error != nil {
 		tx.Rollback()
@@ -322,7 +323,7 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 	}
 	//删除告警策略
 	if oldWarningStrategyFlag == int64(1) && newWarningStrategyFlag == int64(0) {
-		result = tx.Delete(&models.TpWarningStrategy{}, "id = ?", automationActions[0].WarningStrategyId)
+		result = tx.Where("id = ?", automationActions[0].WarningStrategyId).Delete(&models.TpWarningStrategy{})
 		//result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where("id = ?", tp_scenario_strategy.Id).Updates(&tp_scenario_strategy)
 		if result.Error != nil {
 			logs.Error(result.Error.Error())
@@ -360,7 +361,7 @@ func (*TpAutomationService) DeleteTpAutomation(automationId string) error {
 			return err
 		}
 	}
-	result := psql.Mydb.Delete(&models.TpAutomation{}, automationId)
+	result := psql.Mydb.Where("id = ?", automationId).Delete(&models.TpAutomation{})
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return result.Error

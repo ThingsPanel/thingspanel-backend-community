@@ -78,10 +78,10 @@ func (*TpAutomationConditionService) EditTpAutomationCondition(tp_automation_con
 }
 
 // 删除数据
-func (*TpAutomationConditionService) DeleteTpAutomationCondition(tp_automation_condition models.TpAutomationCondition) error {
-	result := psql.Mydb.Delete(&tp_automation_condition)
+func (*TpAutomationConditionService) DeleteById(automationConditionId string) error {
+	result := psql.Mydb.Where("id = ?", automationConditionId).Delete(&models.TpAutomationCondition{})
 	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error)
 		return result.Error
 	}
 	return nil

@@ -80,7 +80,7 @@ func onceCron() {
 					//执行成功，记录日志
 					logs.Info(logMessage)
 					automationLogMap["process_description"] = logMessage + msg
-					automationLogMap["process_result"] = '1'
+					automationLogMap["process_result"] = "1"
 				}
 				err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)
 				if err != nil {
@@ -88,9 +88,10 @@ func onceCron() {
 				}
 			}
 			//删除条件
-			result := psql.Mydb.Delete(&models.TpAutomationCondition{}, automationCondition.Id)
-			if result.Error != nil {
-				logs.Error(result.Error.Error())
+			var automationConditionService services.TpAutomationConditionService
+			err = automationConditionService.DeleteById(automationCondition.Id)
+			if err != nil {
+				logs.Error(err)
 			}
 		}
 		fmt.Println("检查单次定时任务结束")

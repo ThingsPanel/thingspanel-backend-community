@@ -96,7 +96,7 @@ func (*TpScenarioStrategyService) AddTpScenarioStrategy(tp_scenario_strategy val
 func (*TpScenarioStrategyService) EditTpScenarioStrategy(tp_scenario_strategy valid.EditTpScenarioStrategyValidate) (valid.EditTpScenarioStrategyValidate, error) {
 	tx := psql.Mydb.Begin()
 	// 删除所有action
-	result := tx.Delete(&models.TpScenarioAction{}, "scenario_strategy_id = ?", tp_scenario_strategy.Id)
+	result := tx.Where("scenario_strategy_id = ?", tp_scenario_strategy.Id).Delete(&models.TpScenarioAction{})
 	//result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where("id = ?", tp_scenario_strategy.Id).Updates(&tp_scenario_strategy)
 	if result.Error != nil {
 		tx.Rollback()
