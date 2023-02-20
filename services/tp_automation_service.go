@@ -278,7 +278,7 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 				newWarningStrategyFlag = 1
 			}
 			tp_automation_action.Id = utils.GetUuid()
-			automationActionsMap["id"] = tp_automation_action.Id
+			automationActionsMap["Id"] = tp_automation_action.Id
 			result := tx.Model(&models.TpAutomationAction{}).Create(automationActionsMap)
 			if result.Error != nil {
 				tx.Rollback()
