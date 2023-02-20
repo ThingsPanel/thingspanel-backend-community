@@ -5,7 +5,9 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -82,6 +84,83 @@ func (*TpScenarioActionService) DeleteTpScenarioAction(tp_automation_action mode
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return result.Error
+	}
+	return nil
+}
+
+// 触发场景动作
+func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string) error {
+	var scenarioActions []models.TpScenarioAction
+	result := psql.Mydb.Model(&models.TpScenarioAction{}).Where("scenario_strategy_id = ?", scenarioStrategyId).Find(&scenarioActions)
+	if result.Error != nil {
+		logs.Error(result.Error)
+		return result.Error
+	}
+	var scenarioLog models.TpScenarioLog
+	scenarioLog.ScenarioStrategyId = scenarioStrategyId
+	scenarioLog.TriggerTime = time.Now().Format("2006-01-02 15:04:05")
+	scenarioLog.ProcessResult = "2"
+	var scenarioLogService TpScenarioLogService
+	scenarioLog, err := scenarioLogService.AddTpScenarioLog(scenarioLog)
+	if err != nil {
+		logs.Error(result.Error)
+		return result.Error
+	}
+	scenarioLog.ProcessDescription = "执行成功"
+	scenarioLog.ProcessResult = "1"
+	for _, scenarioAction := range scenarioActions {
+		var scenarioLogDetail models.TpScenarioLogDetail
+		if scenarioAction.ActionType == "1" {
+			scenarioLogDetail.TargetId = scenarioAction.DeviceId
+			//设备输出
+			if scenarioAction.DeviceModel == "1" {
+				//属性
+				instructMap := make(map[string]interface{})
+				err := json.Unmarshal([]byte(scenarioAction.Instruct), &instructMap)
+				if err != nil {
+					scenarioLogDetail.ProcessDescription = "instruct:" + err.Error()
+					scenarioLogDetail.ProcessResult = "2"
+				} else {
+					for k, v := range instructMap {
+						var DeviceService DeviceService
+						err := DeviceService.OperatingDevice(scenarioAction.DeviceId, k, v)
+						if err == nil {
+							scenarioLogDetail.ProcessResult = "1"
+							scenarioLogDetail.ProcessDescription = "指令为:" + scenarioAction.Instruct
+						} else {
+							scenarioLogDetail.ProcessResult = "2"
+							scenarioLogDetail.ProcessDescription = err.Error()
+						}
+					}
+				}
+
+			} else if scenarioAction.ActionType == "2" {
+				scenarioLogDetail.ProcessDescription = "暂不支持调动服务;"
+				scenarioLogDetail.ProcessResult = "2"
+			} else {
+				scenarioLogDetail.ProcessDescription = "deviceModel错误;"
+				scenarioLogDetail.ProcessResult = "2"
+			}
+			//记录日志
+			scenarioLogDetail.ScenarioLogId = scenarioLog.Id
+			var scenarioLogDetailService TpScenarioLogDetailService
+			_, err := scenarioLogDetailService.AddTpScenarioLogDetail(scenarioLogDetail)
+			if err != nil {
+				logs.Error(result.Error)
+			}
+			if scenarioLogDetail.ProcessResult == "2" {
+				scenarioLog.ProcessDescription = "执行中有失败，请查看日志详情"
+				scenarioLog.ProcessResult = "2"
+			}
+		}
+	}
+	_, err = scenarioLogService.UpdateTpScenarioLog(scenarioLog)
+	if err != nil {
+		logs.Error(result.Error)
+		return err
+	}
+	if scenarioLog.ProcessResult == "2" {
+		return errors.New(scenarioLog.ProcessDescription)
 	}
 	return nil
 }

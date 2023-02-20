@@ -44,13 +44,23 @@ func (*TpScenarioLogService) GetTpScenarioLogList(PaginationValidate valid.TpSce
 }
 
 // 新增数据
-func (*TpScenarioLogService) AddTpScenarioLog(tp_warning_information models.TpScenarioLog) (models.TpScenarioLog, error) {
+func (*TpScenarioLogService) AddTpScenarioLog(scenarioLog models.TpScenarioLog) (models.TpScenarioLog, error) {
 	var uuid = uuid.GetUuid()
-	tp_warning_information.Id = uuid
-	result := psql.Mydb.Create(&tp_warning_information)
+	scenarioLog.Id = uuid
+	result := psql.Mydb.Create(&scenarioLog)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return tp_warning_information, result.Error
+		return scenarioLog, result.Error
 	}
-	return tp_warning_information, nil
+	return scenarioLog, nil
+}
+
+// 修改数据
+func (*TpScenarioLogService) UpdateTpScenarioLog(scenarioLog models.TpScenarioLog) (models.TpScenarioLog, error) {
+	result := psql.Mydb.Model(&models.TpScenarioLog{}).Where("id = ?", scenarioLog.Id).Updates(&scenarioLog)
+	if result.Error != nil {
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		return scenarioLog, result.Error
+	}
+	return scenarioLog, nil
 }
