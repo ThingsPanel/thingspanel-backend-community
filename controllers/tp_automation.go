@@ -2,7 +2,6 @@ package controllers
 
 import (
 	gvalid "ThingsPanel-Go/initialize/validate"
-	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
@@ -136,10 +135,7 @@ func (TpAutomationController *TpAutomationController) Delete() {
 		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpAutomationController.Ctx))
 	}
 	var TpAutomationService services.TpAutomationService
-	TpAutomation := models.TpAutomation{
-		Id: TpAutomationIdValidate.Id,
-	}
-	req_err := TpAutomationService.DeleteTpAutomation(TpAutomation)
+	req_err := TpAutomationService.DeleteTpAutomation(TpAutomationIdValidate.Id)
 	if req_err == nil {
 		utils.SuccessWithMessage(200, "success", (*context2.Context)(TpAutomationController.Ctx))
 	} else {

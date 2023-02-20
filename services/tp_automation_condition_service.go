@@ -1,6 +1,7 @@
 package services
 
 import (
+	tp_cron "ThingsPanel-Go/initialize/cron"
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
@@ -8,6 +9,8 @@ import (
 	"errors"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/robfig/cron/v3"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
 )
 
@@ -80,6 +83,22 @@ func (*TpAutomationConditionService) DeleteTpAutomationCondition(tp_automation_c
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return result.Error
+	}
+	return nil
+}
+
+// 根据自动化Id删除自动化条件中的定时任务
+func (*TpAutomationConditionService) DeleteCronsByAutomationId(automationId string) error {
+	var automationConditions []models.TpAutomationCondition
+	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("automation_id = ? and condition_type = '2' and time_condition_type = '2'", automationId).Find(&automationConditions)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return result.Error
+	}
+	for _, automationCondition := range automationConditions {
+		cronId := cast.ToInt(automationCondition.V2)
+		C := tp_cron.C
+		C.Remove(cron.EntryID(cronId))
 	}
 	return nil
 }

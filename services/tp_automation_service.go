@@ -134,7 +134,7 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 			return tp_automation, result.Error
 		} else {
 			// 定时任务需要添加cron
-			if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" {
+			if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" && tp_automation.Enabled == "1" {
 				var automationCondition models.TpAutomationCondition
 				result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", tp_automation_conditions.Id).First(&automationCondition)
 				if result.Error != nil {
@@ -184,26 +184,48 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 	tx.Commit()
 	return tp_automation, nil
 }
+func (*TpAutomationService) IsEnabled(automationId string) (bool, error) {
+	var automation models.TpAutomation
+	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationId).First(&automation)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	if automation.Enabled == "0" {
+		return false, nil
+	} else if automation.Enabled == "1" {
+		return true, nil
+	} else {
+		return false, errors.New("enabled的值不合法")
+	}
+}
 
 // 修改数据
 func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationValidate) (valid.TpAutomationValidate, error) {
-	// 首先查询原定时任务
-	var automationConditions []models.TpAutomationCondition
-	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ? and condition_type = '2' and time_condition_type ='2'", tp_automation.Id).Find(&automationConditions)
-	if result.Error != nil {
-		logs.Error(result.Error.Error())
-		return tp_automation, result.Error
+	// 原设置是否启动
+	var automationService TpAutomationService
+	isEnabled, err := automationService.IsEnabled(tp_automation.Id)
+	if err != nil {
+		return tp_automation, err
 	}
-	if result.RowsAffected > int64(0) {
-		for _, automationCondition := range automationConditions {
-			cronId := cast.ToInt(automationCondition.V2)
-			C := tp_cron.C
-			C.Remove(cron.EntryID(cronId))
+	// 首先查询原定时任务，如果存在已启用的定时任务，需要删除删除定时任务
+	if isEnabled {
+		var automationConditions []models.TpAutomationCondition
+		result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ? and condition_type = '2' and time_condition_type ='2'", tp_automation.Id).Find(&automationConditions)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+			return tp_automation, result.Error
+		}
+		if result.RowsAffected > int64(0) {
+			for _, automationCondition := range automationConditions {
+				cronId := cast.ToInt(automationCondition.V2)
+				C := tp_cron.C
+				C.Remove(cron.EntryID(cronId))
+			}
 		}
 	}
 	// 开启事务 删除自动化条件
 	tx := psql.Mydb.Begin()
-	result = tx.Delete(&models.TpAutomationCondition{}, "automation_id = ?", tp_automation.Id)
+	result := tx.Delete(&models.TpAutomationCondition{}, "automation_id = ?", tp_automation.Id)
 	//result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where("id = ?", tp_scenario_strategy.Id).Updates(&tp_scenario_strategy)
 	if result.Error != nil {
 		tx.Rollback()
@@ -225,8 +247,8 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 			logs.Error(result.Error.Error())
 			return tp_automation, result.Error
 		} else {
-			// 定时任务需要添加cron
-			if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" {
+			// 如果开启的话 定时任务需要添加cron
+			if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" && tp_automation.Enabled == "1" {
 				var automationCondition models.TpAutomationCondition
 				result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", tp_automation_conditions.Id).First(&automationCondition)
 				if result.Error != nil {
@@ -321,8 +343,22 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 }
 
 // 删除数据
-func (*TpAutomationService) DeleteTpAutomation(tp_automation models.TpAutomation) error {
-	result := psql.Mydb.Delete(&tp_automation)
+func (*TpAutomationService) DeleteTpAutomation(automationId string) error {
+	// 如果原策略启动，需要先删除定时任务
+	var automationService TpAutomationService
+	isEnabled, err := automationService.IsEnabled(automationId)
+	if err != nil {
+		return err
+	}
+	if isEnabled {
+		// 删除自动化条件里的定时任务
+		var automationConditionService TpAutomationConditionService
+		err := automationConditionService.DeleteCronsByAutomationId(automationId)
+		if err != nil {
+			return err
+		}
+	}
+	result := psql.Mydb.Delete(&models.TpAutomation{}, automationId)
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return result.Error
@@ -332,11 +368,45 @@ func (*TpAutomationService) DeleteTpAutomation(tp_automation models.TpAutomation
 
 // 开启和关闭
 func (*TpAutomationService) EnabledAutomation(automationId string, enabled string) error {
-	result := psql.Mydb.Model(&models.TpAutomation{}).Where("id = ?", automationId).
+	var automation models.TpAutomation
+	result := psql.Mydb.Model(&models.TpAutomation{}).Where("id = ?", automationId).First(&automation)
+	if result.Error != nil {
+		logs.Error(result.Error)
+		return result.Error
+	}
+	//是否状态变更
+	isAlter := false
+	if enabled != automation.Enabled {
+		isAlter = true
+	}
+	result = psql.Mydb.Model(&models.TpAutomation{}).Where("id = ?", automationId).
 		Updates(map[string]interface{}{"UpdateTime": time.Now().Unix(), "enabled": enabled})
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return result.Error
+	}
+	// 如果状态改变，定时任务需要改变
+	if isAlter {
+		var automationConditions []models.TpAutomationCondition
+		result = psql.Mydb.Model(&models.TpAutomationCondition{}).Where("automation_id = ? and condition_type = '2' and time_condition_type = '2'", automationId).Find(&automationConditions)
+		if result.Error != nil {
+			logs.Error(result.Error)
+		} else {
+			// 定时任务需要添加cron
+			for _, automationCondition := range automationConditions {
+				if enabled == "1" {
+					err := AutomationCron(automationCondition)
+					if err != nil {
+						logs.Error(err.Error())
+					}
+				} else if enabled == "0" {
+					cronId := cast.ToInt(automationCondition.V2)
+					C := tp_cron.C
+					C.Remove(cron.EntryID(cronId))
+				}
+
+			}
+		}
 	}
 	return nil
 }
