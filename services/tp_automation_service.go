@@ -189,7 +189,7 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationValidate) (valid.TpAutomationValidate, error) {
 	// 首先查询原定时任务
 	var automationConditions []models.TpAutomationCondition
-	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ? and contion_type = '2' and time_condition_type ='2'", tp_automation.Id).Find(&automationConditions)
+	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ? and condition_type = '2' and time_condition_type ='2'", tp_automation.Id).Find(&automationConditions)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return tp_automation, result.Error
