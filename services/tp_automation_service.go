@@ -184,6 +184,8 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 	tx.Commit()
 	return tp_automation, nil
 }
+
+//查询自动化策略是否启用
 func (*TpAutomationService) IsEnabled(automationId string) (bool, error) {
 	var automation models.TpAutomation
 	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationId).First(&automation)
@@ -233,24 +235,24 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 		return tp_automation, result.Error
 	}
 	//重新添加condition
-	for _, tp_automation_conditions := range tp_automation.AutomationConditions {
-		tp_automation_conditions.Id = utils.GetUuid()
-		tp_automation_conditions.AutomationId = tp_automation.Id
+	for _, automationCondition := range tp_automation.AutomationConditions {
+		automationCondition.Id = utils.GetUuid()
+		automationCondition.AutomationId = tp_automation.Id
 		// DeviceId外键可以为null，需要用map处理
-		automationConditionsMap := structs.Map(&tp_automation_conditions)
-		if tp_automation_conditions.DeviceId == "" {
-			delete(automationConditionsMap, "DeviceId")
+		automationConditionMap := structs.Map(&automationCondition)
+		if automationCondition.DeviceId == "" {
+			delete(automationConditionMap, "DeviceId")
 		}
-		result := tx.Model(&models.TpAutomationCondition{}).Create(automationConditionsMap)
+		result := tx.Model(&models.TpAutomationCondition{}).Create(automationConditionMap)
 		if result.Error != nil {
 			tx.Rollback()
 			logs.Error(result.Error.Error())
 			return tp_automation, result.Error
 		} else {
-			// 如果开启的话 定时任务需要添加cron
-			if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" && tp_automation.Enabled == "1" {
+			// 如果自动化开启，定时任务需要添加cron
+			if automationCondition.ConditionType == "2" && automationCondition.TimeConditionType == "2" && tp_automation.Enabled == "1" {
 				var automationCondition models.TpAutomationCondition
-				result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", tp_automation_conditions.Id).First(&automationCondition)
+				result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.Id).First(&automationCondition)
 				if result.Error != nil {
 					err := AutomationCron(automationCondition)
 					if err != nil {
