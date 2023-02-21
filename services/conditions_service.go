@@ -227,6 +227,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		logs.Error(result.Error.Error())
 		return "", result.Error
 	}
+	logs.Error(automationActions)
 	for _, automationAction := range automationActions {
 		var automationLogDetail models.TpAutomationLogDetail
 		if automationAction.ActionType == "1" {
@@ -270,12 +271,13 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 
 			}
 
-		} else if automationAction.ActionType == "2" {
+		} else if automationAction.ActionType == "2" { //告警
 			automationLogDetail.TargetId = automationAction.WarningStrategyId
 			//触发告警
 			var warningStrategy models.TpWarningStrategy
 			result := psql.Mydb.Model(&models.TpWarningStrategy{}).Where("id = ?", automationAction.WarningStrategyId).First(&warningStrategy)
 			if result.Error != nil {
+				logs.Error(result.Error.Error())
 				automationLogDetail.ProcessDescription = result.Error.Error()
 				automationLogDetail.ProcessResult = "2"
 			} else {
@@ -283,6 +285,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 					//触发告警,记录告警信息;triggerCount清零
 					result := psql.Mydb.Model(&models.TpWarningStrategy{}).Where("id = ?", automationAction.WarningStrategyId).Update("trigger_count", 0)
 					if result.Error != nil {
+						logs.Error(result.Error.Error())
 						automationLogDetail.ProcessDescription = result.Error.Error()
 						automationLogDetail.ProcessResult = "2"
 					} else {
@@ -323,7 +326,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 				}
 			}
 
-		} else if automationAction.ActionType == "3" {
+		} else if automationAction.ActionType == "3" { //场景激活
 			automationLogDetail.TargetId = automationAction.ScenarioStrategyId
 			//触发场景
 			logMessage += "触发场景-此处未开发完;"
@@ -343,6 +346,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		automationLogDetail.AutomationLogId = automationLogId
 		_, err := automationLogDetailService.AddTpAutomationLogDetail(automationLogDetail)
 		if err != nil {
+			logs.Error(err.Error())
 			logMessage += err.Error()
 		}
 	}

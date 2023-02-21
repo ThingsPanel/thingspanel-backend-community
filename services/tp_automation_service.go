@@ -148,29 +148,29 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 		}
 	}
 	// 添加自动化动作
-	for _, tp_automation_actions := range tp_automation.AutomationActions {
-		tp_automation_actions.Id = utils.GetUuid()
-		if tp_automation_actions.ActionType == "2" {
+	for _, tp_automation_action := range tp_automation.AutomationActions {
+		tp_automation_action.Id = utils.GetUuid()
+		if tp_automation_action.ActionType == "2" {
 			//有告警触发
-			tp_automation_actions.WarningStrategy.Id = utils.GetUuid()
-			result := tx.Model(&models.TpWarningStrategy{}).Create(tp_automation_actions.WarningStrategy)
+			tp_automation_action.WarningStrategy.Id = utils.GetUuid()
+			result := tx.Model(&models.TpWarningStrategy{}).Create(tp_automation_action.WarningStrategy)
 			if result.Error != nil {
 				tx.Rollback()
 				logs.Error(result.Error.Error())
 				return tp_automation, result.Error
 			}
-			tp_automation_actions.WarningStrategyId = tp_automation_actions.WarningStrategy.Id
+			tp_automation_action.WarningStrategyId = tp_automation_action.WarningStrategy.Id
 		}
-		tp_automation_actions.AutomationId = tp_automation.Id
+		tp_automation_action.AutomationId = tp_automation.Id
 		// 外键可以为null，需要用map处理
-		automationActionsMap := structs.Map(&tp_automation_actions)
-		if tp_automation_actions.DeviceId == "" {
+		automationActionsMap := structs.Map(&tp_automation_action)
+		if tp_automation_action.DeviceId == "" {
 			delete(automationActionsMap, "DeviceId")
 		}
-		if tp_automation_actions.WarningStrategyId == "" {
+		if tp_automation_action.WarningStrategyId == "" {
 			delete(automationActionsMap, "WarningStrategyId")
 		}
-		if tp_automation_actions.ScenarioStrategyId == "" {
+		if tp_automation_action.ScenarioStrategyId == "" {
 			delete(automationActionsMap, "ScenarioStrategyId")
 		}
 		delete(automationActionsMap, "WarningStrategy")
@@ -301,6 +301,15 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 		if tp_automation_action.ActionType != "2" || oldWarningStrategyFlag == int64(0) {
 			if tp_automation_action.ActionType == "2" {
 				newWarningStrategyFlag = 1
+				//有告警触发
+				tp_automation_action.WarningStrategy.Id = utils.GetUuid()
+				result := tx.Model(&models.TpWarningStrategy{}).Create(tp_automation_action.WarningStrategy)
+				if result.Error != nil {
+					tx.Rollback()
+					logs.Error(result.Error.Error())
+					return tp_automation, result.Error
+				}
+				automationActionsMap["WarningStrategyId"] = tp_automation_action.WarningStrategy.Id
 			}
 			tp_automation_action.Id = utils.GetUuid()
 			automationActionsMap["Id"] = tp_automation_action.Id
