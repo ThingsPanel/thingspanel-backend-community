@@ -1517,3 +1517,6 @@ COMMENT ON COLUMN public.tp_scenario_log_detail.process_result IS '执行状态 
 
 ALTER TABLE public.tp_scenario_log_detail ADD target_id varchar(36) NULL;
 COMMENT ON COLUMN public.tp_scenario_log_detail.target_id IS '设备id|告警id';
+
+ALTER TABLE public.tp_warning_strategy ADD warning_description varchar(999) NULL;
+COMMENT ON COLUMN public.tp_warning_strategy.warning_description IS '告警描述';

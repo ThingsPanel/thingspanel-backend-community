@@ -8,6 +8,7 @@ type TpWarningStrategy struct {
 	TriggerCount        int64  `json:"trigger_count,omitempty"` // 已触发次数
 	InformWay           string `json:"inform_way,omitempty"`    // 通知方式
 	Remark              string `json:"remark,omitempty"`
+	WarningDescription  string `json:"warning_description,omitempty"`
 }
 
 func (t *TpWarningStrategy) TableName() string {

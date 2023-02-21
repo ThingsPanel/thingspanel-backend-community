@@ -296,7 +296,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						warningInformation.ProcessingInstructions = ""
 						warningInformation.WarningName = warningStrategy.WarningStrategyName
 						warningInformation.ProcessingResult = "0"
-						warningInformation.WarningDescription = warningStrategy.WarningStrategyName
+						warningInformation.WarningDescription = warningStrategy.WarningDescription
 						warningInformation.WarningLevel = warningStrategy.WarningLevel
 						var automationLog models.TpAutomationLog
 						result := psql.Mydb.Model(&models.TpAutomationLog{}).Where("id = ?", automationLogId).First(&automationLog)

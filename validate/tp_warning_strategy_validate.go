@@ -10,6 +10,7 @@ type TpWarningStrategy struct {
 	TriggerCount        int64  `json:"trigger_count,omitempty"` // 已触发次数
 	InformWay           string `json:"inform_way,omitempty"`    // 通知方式
 	Remark              string `json:"remark,omitempty"`
+	WarningDescription  string `json:"warning_description,omitempty" valid:"MaxSize(500)"`
 }
 
 type TpWarningStrategyValidate struct {
@@ -20,6 +21,7 @@ type TpWarningStrategyValidate struct {
 	TriggerCount        int64  `json:"trigger_count,omitempty"`                    // 已触发次数
 	InformWay           string `json:"inform_way,omitempty" valid:"MaxSize(99)"`   // 通知方式
 	Remark              string `json:"remark,omitempty" valid:"MaxSize(255)"`
+	WarningDescription  string `json:"warning_description,omitempty" valid:"MaxSize(500)"`
 }
 
 type AddTpWarningStrategyValidate struct {
@@ -30,6 +32,7 @@ type AddTpWarningStrategyValidate struct {
 	TriggerCount        int64  `json:"trigger_count,omitempty"`                    // 已触发次数
 	InformWay           string `json:"inform_way,omitempty" valid:"MaxSize(99)"`   // 通知方式
 	Remark              string `json:"remark,omitempty" valid:"MaxSize(255)"`
+	WarningDescription  string `json:"warning_description,omitempty" valid:"MaxSize(500)"`
 }
 
 type TpWarningStrategyPaginationValidate struct {
