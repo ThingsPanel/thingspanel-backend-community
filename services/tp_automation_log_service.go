@@ -32,6 +32,10 @@ func (*TpAutomationLogService) GetTpAutomationLogList(PaginationValidate valid.T
 		sqlWhere += " and process_result = ?"
 		paramList = append(paramList, PaginationValidate.ProcessResult)
 	}
+	if PaginationValidate.AutomationId != "" {
+		sqlWhere += " and automation_id = ?"
+		paramList = append(paramList, PaginationValidate.AutomationId)
+	}
 	var count int64
 	psql.Mydb.Model(&models.TpAutomationLog{}).Where(sqlWhere, paramList...).Count(&count)
 	result := psql.Mydb.Model(&models.TpAutomationLog{}).Where(sqlWhere, paramList...).Limit(PaginationValidate.PerPage).Offset(offset).Order("trigger_time desc").Find(&TpAutomationLogs)

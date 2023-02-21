@@ -34,6 +34,7 @@ type TpAutomationLogPaginationValidate struct {
 	PerPage       int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
 	ProcessResult string `json:"process_result,omitempty" alias:"执行状态" valid:"MaxSize(1)"`
 	Id            string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
+	AutomationId  string `json:"automation_id,omitempty" alias:"AutomationId" valid:"MaxSize(36)"`
 }
 
 type RspTpAutomationLogPaginationValidate struct {
