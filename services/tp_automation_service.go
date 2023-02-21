@@ -404,8 +404,10 @@ func (*TpAutomationService) EnabledAutomation(automationId string, enabled strin
 		if result.Error != nil {
 			logs.Error(result.Error)
 		} else {
+
 			// 定时任务需要添加cron
 			for _, automationCondition := range automationConditions {
+				//logs.Warn(enabled, automationCondition.V2)
 				if enabled == "1" {
 					err := AutomationCron(automationCondition)
 					if err != nil {
@@ -496,7 +498,7 @@ func AutomationCron(automationCondition models.TpAutomationCondition) error {
 	}
 	cronId, _ := C.AddFunc(cronString, execute)
 	// 将cronId更新到数据库
-	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.AutomationId).Update("V2", cast.ToString(cronId))
+	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.AutomationId).Update("v2", cast.ToString(cronId))
 	if result.Error != nil {
 		C.Remove(cronId)
 		logs.Error(result.Error.Error())
