@@ -459,6 +459,7 @@ func AutomationCron(automationCondition models.TpAutomationCondition) error {
 		cronString = timeList[2] + " " + timeList[1] + " " + timeList[0] + " * ? *"
 		logMessage += "触发每月的" + automationCondition.V3 + "执行一次的任务；"
 	} else if automationCondition.V1 == "5" {
+		logMessage += "自定义cron(" + automationCondition.V3 + ")到时；"
 		cronString = automationCondition.V3
 	}
 	execute := func() {

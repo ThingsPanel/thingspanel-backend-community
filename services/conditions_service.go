@@ -56,8 +56,8 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 		logs.Error(result.Error.Error())
 		return
 	}
-	logs.Error("自动化-设备条件：", automationConditions)
-	logs.Error("自动化-map:", values)
+	logs.Info("自动化-设备条件：", automationConditions)
+	logs.Info("自动化-map:", values)
 	// 每一条自动化策略；
 	var passedAutomationList []string
 	for _, automationCondition := range automationConditions {
@@ -176,7 +176,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 		logs.Error("自动化条件是否通过？", isPass)
 		if isPass {
 			passedAutomationList = append(passedAutomationList, automationCondition.AutomationId)
-			logMessage += "自动化条件通过；"
+			logMessage += "条件通过；"
 			logs.Info("成功触发自动化")
 			//登记日志
 			var automationLogMap = make(map[string]interface{})
@@ -235,6 +235,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 			//设备输出
 			res, err := simplejson.NewJson([]byte(automationAction.AdditionalInfo))
 			if err != nil {
+				logs.Error(err.Error())
 				automationLogDetail.ProcessDescription = "additional_info:" + err.Error()
 				automationLogDetail.ProcessResult = "2"
 			} else {
@@ -245,6 +246,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 					instructMap := make(map[string]interface{})
 					err = json.Unmarshal([]byte(instructString), &instructMap)
 					if err != nil {
+						logs.Error(err.Error())
 						automationLogDetail.ProcessDescription = "instruct:" + err.Error()
 						automationLogDetail.ProcessResult = "2"
 					} else {
@@ -255,6 +257,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 								automationLogDetail.ProcessResult = "1"
 								automationLogDetail.ProcessDescription = "指令为:" + instructString
 							} else {
+								logs.Error(err.Error())
 								automationLogDetail.ProcessResult = "2"
 								automationLogDetail.ProcessDescription = err.Error()
 							}
@@ -302,14 +305,18 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						} else {
 							warningInformation.WarningContent = strings.Split(automationLog.ProcessDescription, "|")[0]
 						}
+						//记录告警日志
 						var warningInformationService TpWarningInformationService
 						warningInformation, err := warningInformationService.AddTpWarningInformation(warningInformation)
 						if err != nil {
+							logs.Error(err.Error())
 							automationLogDetail.ProcessDescription = err.Error()
 							automationLogDetail.ProcessResult = "2"
 						} else {
+							logs.Info("成功触发告警")
 							automationLogDetail.ProcessDescription = "成功触发告警"
 							automationLogDetail.ProcessResult = "1"
+
 						}
 					}
 
@@ -349,6 +356,9 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 			logs.Error(err.Error())
 			logMessage += err.Error()
 		}
+	}
+	if logMessage == "" {
+		logMessage = " | 执行成功，执行过程请查看详情。"
 	}
 	return logMessage, nil
 }
