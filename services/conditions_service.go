@@ -56,6 +56,8 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 		logs.Error(result.Error.Error())
 		return
 	}
+	logs.Error("自动化-设备条件：", automationConditions)
+	logs.Error("自动化-map:", values)
 	// 每一条自动化策略；
 	var passedAutomationList []string
 	for _, automationCondition := range automationConditions {
@@ -79,12 +81,13 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 			if conditionData.ConditionType == "1" {
 				// 设备属性
 				if conditionData.DeviceConditionType == "1" {
-					//是本次设备的属性
+					//是否本次设备的属性
 					if conditionData.DeviceId == deviceId {
 						// 本次上报属性的map中有没有当前判断的属性
 						if value, ok := values[conditionData.V1]; ok {
 							isThisDevice = true
 							isSuccess, _ := utils.Check(value, conditionData.V2, conditionData.V3)
+							logs.Error("check:", isSuccess)
 							isPass = isSuccess
 							if isPass {
 								logMessage += "设备上报的属性" + conditionData.V1 + ":" + cast.ToString(values[conditionData.V1]) + conditionData.V2 + cast.ToString(conditionData.V3) + "通过；"
@@ -170,6 +173,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 			//非本次推送的属性
 			continue
 		}
+		logs.Error("自动化条件是否通过？", isPass)
 		if isPass {
 			passedAutomationList = append(passedAutomationList, automationCondition.AutomationId)
 			logMessage += "自动化条件通过；"
@@ -186,18 +190,19 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 			if err != nil {
 				logs.Error(err.Error())
 			} else {
+				automationLogMap["Id"] = automationLog.Id
 				var conditionsService ConditionsService
 				msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id)
 				if err != nil {
 					//执行失败，记录日志
 					logs.Error(err.Error())
-					automationLogMap["process_description"] = logMessage + "|" + err.Error()
+					automationLogMap["ProcessDescription"] = logMessage + "|" + err.Error()
 
 				} else {
 					//执行成功，记录日志
 					logs.Info(logMessage)
-					automationLogMap["process_description"] = logMessage + "|" + msg
-					automationLogMap["process_result"] = '1'
+					automationLogMap["ProcessDescription"] = logMessage + "|" + msg
+					automationLogMap["ProcessResult"] = "1"
 
 				}
 				err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)

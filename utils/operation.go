@@ -11,10 +11,12 @@ import (
 
 // 运算
 func Check(value1 interface{}, symbol string, value2 interface{}) (bool, error) {
+	logs.Error(value1, symbol, value2)
 	var valueB string
 	if v, ok := value2.(string); ok {
 		valueB = v
 	} else {
+		logs.Error("比较的值格式不是string")
 		return false, errors.New("比较的值格式不是string")
 	}
 	if valueA, ok := value1.(string); ok {
@@ -25,19 +27,19 @@ func Check(value1 interface{}, symbol string, value2 interface{}) (bool, error) 
 				return true, nil
 			}
 		case ">":
-			if valueA == valueB {
+			if valueA > valueB {
 				return true, nil
 			}
 		case "<":
-			if valueA == valueB {
+			if valueA < valueB {
 				return true, nil
 			}
 		case ">=":
-			if valueA == valueB {
+			if valueA >= valueB {
 				return true, nil
 			}
 		case "<=":
-			if valueA == valueB {
+			if valueA <= valueB {
 				return true, nil
 			}
 		case "in":
@@ -48,6 +50,7 @@ func Check(value1 interface{}, symbol string, value2 interface{}) (bool, error) 
 				return true, nil
 			}
 		default:
+			logs.Error("运算符错误")
 			return false, errors.New("运算符错误")
 		}
 		return false, nil
@@ -61,19 +64,19 @@ func Check(value1 interface{}, symbol string, value2 interface{}) (bool, error) 
 				return true, nil
 			}
 		case ">":
-			if valueA == cast.ToFloat64(valueB) {
+			if valueA > cast.ToFloat64(valueB) {
 				return true, nil
 			}
 		case "<":
-			if valueA == cast.ToFloat64(valueB) {
+			if valueA < cast.ToFloat64(valueB) {
 				return true, nil
 			}
 		case ">=":
-			if valueA == cast.ToFloat64(valueB) {
+			if valueA >= cast.ToFloat64(valueB) {
 				return true, nil
 			}
 		case "<=":
-			if valueA == cast.ToFloat64(valueB) {
+			if valueA <= cast.ToFloat64(valueB) {
 				return true, nil
 			}
 		case "in":
@@ -89,11 +92,13 @@ func Check(value1 interface{}, symbol string, value2 interface{}) (bool, error) 
 				return true, nil
 			}
 		default:
+			logs.Error("运算符错误")
 			return false, errors.New("运算符错误")
 		}
 		return false, nil
 	} else {
 		//不是字符串也不是float64
+		logs.Error("设备上报的值非string,float64")
 		return false, errors.New("设备上报的值非string,float64")
 	}
 

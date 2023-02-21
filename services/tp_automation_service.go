@@ -465,17 +465,18 @@ func AutomationCron(automationCondition models.TpAutomationCondition) error {
 		if err != nil {
 			logs.Error(err.Error())
 		} else {
+			automationLogMap["Id"] = automationLog.Id
 			var conditionsService ConditionsService
 			msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id)
 			if err != nil {
 				//执行失败，记录日志
 				logs.Error(err.Error())
-				automationLogMap["process_description"] = logMessage + err.Error()
+				automationLogMap["ProcessDescription"] = logMessage + err.Error()
 			} else {
 				//执行成功，记录日志
 				logs.Info(logMessage)
-				automationLogMap["process_description"] = logMessage + msg
-				automationLogMap["process_result"] = '1'
+				automationLogMap["ProcessDescription"] = logMessage + msg
+				automationLogMap["ProcessResult"] = "1"
 			}
 			err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)
 			if err != nil {
