@@ -497,7 +497,8 @@ func AutomationCron(automationCondition models.TpAutomationCondition) error {
 	}
 	cronId, _ := C.AddFunc(cronString, execute)
 	// 将cronId更新到数据库
-	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.AutomationId).Update("v2", cast.ToString(int(cronId)))
+	var cronIdString string = cast.ToString(int(cronId))
+	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.Id).Update("v2", cronIdString)
 	if result.Error != nil {
 		C.Remove(cronId)
 		logs.Error(result.Error.Error())
