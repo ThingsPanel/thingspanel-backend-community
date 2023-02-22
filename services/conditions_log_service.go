@@ -6,7 +6,9 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
+	"time"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -16,8 +18,10 @@ type ConditionsLogService struct {
 // 新增控制日志
 func (*ConditionsLogService) Insert(conditionsLog *models.ConditionsLog) (*models.ConditionsLog, error) {
 	conditionsLog.ID = uuid.GetUuid()
+	conditionsLog.CteateTime = time.Now().Format("2006-01-02 15:04:05")
 	err := psql.Mydb.Create(conditionsLog).Error
 	if err != nil {
+		logs.Error(err.Error())
 		return nil, err
 	} else {
 		return conditionsLog, err

@@ -252,15 +252,25 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 					} else {
 						for k, v := range instructMap {
 							var DeviceService DeviceService
+							var conditionsLog models.ConditionsLog
 							err := DeviceService.OperatingDevice(automationAction.DeviceId, k, v)
 							if err == nil {
+								conditionsLog.SendResult = "1"
 								automationLogDetail.ProcessResult = "1"
 								automationLogDetail.ProcessDescription = "指令为:" + instructString
 							} else {
 								logs.Error(err.Error())
+								conditionsLog.SendResult = "2"
 								automationLogDetail.ProcessResult = "2"
 								automationLogDetail.ProcessDescription = err.Error()
 							}
+							//记录发送指令日志
+							var conditionsLogService ConditionsLogService
+							conditionsLog.DeviceId = automationAction.DeviceId
+							conditionsLog.OperationType = "3"
+							conditionsLog.ProtocolType = "mqtt"
+							conditionsLog.Instruct = instructString
+							conditionsLogService.Insert(&conditionsLog)
 						}
 					}
 

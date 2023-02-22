@@ -122,15 +122,25 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string)
 					scenarioLogDetail.ProcessResult = "2"
 				} else {
 					for k, v := range instructMap {
-						var DeviceService DeviceService
-						err := DeviceService.OperatingDevice(scenarioAction.DeviceId, k, v)
+						var deviceService DeviceService
+						var conditionsLog models.ConditionsLog
+						err := deviceService.OperatingDevice(scenarioAction.DeviceId, k, v)
 						if err == nil {
+							conditionsLog.SendResult = "1"
 							scenarioLogDetail.ProcessResult = "1"
 							scenarioLogDetail.ProcessDescription = "指令为:" + scenarioAction.Instruct
 						} else {
+							conditionsLog.SendResult = "2"
 							scenarioLogDetail.ProcessResult = "2"
 							scenarioLogDetail.ProcessDescription = err.Error()
 						}
+						//记录发送指令日志
+						var conditionsLogService ConditionsLogService
+						conditionsLog.DeviceId = scenarioAction.DeviceId
+						conditionsLog.OperationType = "3"
+						conditionsLog.ProtocolType = "mqtt"
+						conditionsLog.Instruct = scenarioAction.Instruct
+						conditionsLogService.Insert(&conditionsLog)
 					}
 				}
 
