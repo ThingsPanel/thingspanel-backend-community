@@ -33,6 +33,10 @@ func (*TpScenarioLogService) GetTpScenarioLogList(PaginationValidate valid.TpSce
 		sqlWhere += " and process_result = ?"
 		paramList = append(paramList, PaginationValidate.ProcessResult)
 	}
+	if PaginationValidate.ScenarioStrategyId != "" {
+		sqlWhere += " and scenario_strategy_id = ?"
+		paramList = append(paramList, PaginationValidate.ScenarioStrategyId)
+	}
 	var count int64
 	psql.Mydb.Model(&models.TpScenarioLog{}).Where(sqlWhere, paramList...).Count(&count)
 	result := psql.Mydb.Model(&models.TpScenarioLog{}).Where(sqlWhere, paramList...).Limit(PaginationValidate.PerPage).Offset(offset).Order("trigger_time desc").Find(&TpScenarioLogs)

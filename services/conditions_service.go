@@ -336,10 +336,10 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		} else if automationAction.ActionType == "3" { //场景激活
 			automationLogDetail.TargetId = automationAction.ScenarioStrategyId
 			//触发场景
-			logMessage += "触发场景-此处未开发完;"
 			var scenarioActionService TpScenarioActionService
 			err := scenarioActionService.ExecuteScenarioAction(automationAction.ScenarioStrategyId)
 			if err != nil {
+				logMessage = "触发场景失败：" + err.Error()
 				automationLogDetail.ProcessDescription = "触发场景失败：" + err.Error()
 				automationLogDetail.ProcessResult = "2"
 			} else {

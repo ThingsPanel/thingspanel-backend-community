@@ -21,10 +21,11 @@ type AddTpScenarioLogValidate struct {
 }
 
 type TpScenarioLogPaginationValidate struct {
-	CurrentPage   int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
-	PerPage       int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	ProcessResult string `json:"process_result,omitempty" alias:"执行状态" valid:"MaxSize(99)"`
-	Id            string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
+	CurrentPage        int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
+	PerPage            int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
+	ProcessResult      string `json:"process_result,omitempty" alias:"执行状态" valid:"MaxSize(99)"`
+	Id                 string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
+	ScenarioStrategyId string `json:"scenario_strategy_id,omitempty" valid:"MaxSize(36)"`
 }
 
 type RspTpScenarioLogPaginationValidate struct {
