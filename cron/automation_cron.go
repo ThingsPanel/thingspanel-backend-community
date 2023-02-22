@@ -76,13 +76,14 @@ func onceCron() {
 				if err != nil {
 					//执行失败，记录日志
 					logs.Error(err.Error())
-					automationLogMap["ProcessRescription"] = logMessage + err.Error()
+					automationLogMap["ProcessDescription"] = logMessage + err.Error()
 				} else {
 					//执行成功，记录日志
 					logs.Info(logMessage)
-					automationLogMap["ProcessRescription"] = logMessage + msg
+					automationLogMap["ProcessDescription"] = logMessage + msg
 					automationLogMap["ProcessResult"] = "1"
 				}
+				logs.Warn(automationLogMap)
 				err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)
 				if err != nil {
 					logs.Error(err.Error())
