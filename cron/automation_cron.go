@@ -59,7 +59,6 @@ func onceCron() {
 		for _, automationCondition := range automationConditions {
 			// 触发，记录日志
 			var logMessage string = "触发" + automationCondition.V1 + "的定时任务;"
-			var automationLogMap = make(map[string]interface{})
 			var sutomationLogService services.TpAutomationLogService
 			var automationLog models.TpAutomationLog
 			automationLog.AutomationId = automationCondition.AutomationId
@@ -70,6 +69,7 @@ func onceCron() {
 			if err != nil {
 				logs.Error(err.Error())
 			} else {
+				var automationLogMap = make(map[string]interface{})
 				automationLogMap["Id"] = automationLog.Id
 				var conditionsService services.ConditionsService
 				msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id)

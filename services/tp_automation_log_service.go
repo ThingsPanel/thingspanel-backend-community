@@ -60,7 +60,7 @@ func (*TpAutomationLogService) AddTpAutomationLog(automationLog models.TpAutomat
 
 // 更新数据
 func (*TpAutomationLogService) UpdateTpAutomationLog(automationLogMap map[string]interface{}) error {
-	logs.Error(automationLogMap)
+	logs.Warn(automationLogMap)
 	result := psql.Mydb.Model(&models.TpAutomationLog{}).Where("id = ?", automationLogMap["Id"]).Updates(&automationLogMap)
 	if result.Error != nil {
 		logs.Error(result.Error)
