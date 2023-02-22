@@ -111,6 +111,7 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string)
 	for _, scenarioAction := range scenarioActions {
 		var scenarioLogDetail models.TpScenarioLogDetail
 		if scenarioAction.ActionType == "1" {
+			scenarioLogDetail.ActionType = "1"
 			scenarioLogDetail.TargetId = scenarioAction.DeviceId
 			//设备输出
 			if scenarioAction.DeviceModel == "1" {

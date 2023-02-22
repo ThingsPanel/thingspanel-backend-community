@@ -231,6 +231,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 	for _, automationAction := range automationActions {
 		var automationLogDetail models.TpAutomationLogDetail
 		if automationAction.ActionType == "1" {
+			automationLogDetail.ActionType = "1"
 			automationLogDetail.TargetId = automationAction.DeviceId
 			//设备输出
 			res, err := simplejson.NewJson([]byte(automationAction.AdditionalInfo))
@@ -285,6 +286,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 			}
 
 		} else if automationAction.ActionType == "2" { //告警
+			automationLogDetail.ActionType = "2"
 			automationLogDetail.TargetId = automationAction.WarningStrategyId
 			//触发告警
 			var warningStrategy models.TpWarningStrategy
@@ -344,6 +346,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 			}
 
 		} else if automationAction.ActionType == "3" { //场景激活
+			automationLogDetail.ActionType = "3"
 			automationLogDetail.TargetId = automationAction.ScenarioStrategyId
 			//触发场景
 			var scenarioActionService TpScenarioActionService
