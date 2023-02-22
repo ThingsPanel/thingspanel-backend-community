@@ -82,3 +82,31 @@ func (TpWarningInformationController *TpWarningInformationController) Edit() {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpWarningInformationController.Ctx))
 	}
 }
+
+//批量处理
+func (TpWarningInformationController *TpWarningInformationController) BatchProcessing() {
+	batchProcessingValidate := valid.BatchProcessingValidate{}
+	err := json.Unmarshal(TpWarningInformationController.Ctx.Input.RequestBody, &batchProcessingValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(batchProcessingValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(batchProcessingValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpWarningInformationController.Ctx))
+			break
+		}
+		return
+	}
+	var TpWarningInformationService services.TpWarningInformationService
+	err = TpWarningInformationService.BatchProcessing(batchProcessingValidate)
+	if err == nil {
+		utils.SuccessWithMessage(200, "sucess", (*context2.Context)(TpWarningInformationController.Ctx))
+	} else {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpWarningInformationController.Ctx))
+	}
+}

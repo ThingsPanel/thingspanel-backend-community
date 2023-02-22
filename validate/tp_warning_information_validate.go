@@ -49,3 +49,9 @@ type RspTpWarningInformationPaginationValidate struct {
 type TpWarningInformationIdValidate struct {
 	Id string `json:"id"  gorm:"primaryKey" valid:"Required;MaxSize(36)"`
 }
+
+type BatchProcessingValidate struct {
+	Id                     []string `json:"id"  valid:"Required"`
+	ProcessingResult       string   `json:"processing_result,omitempty"  valid:"Required;MaxSize(1)"` // 处理结果 0-未处理 1-已处理 2-已忽略
+	ProcessingInstructions string   `json:"processing_instructions,omitempty"  valid:"MaxSize(255)"`  // 处理说明
+}

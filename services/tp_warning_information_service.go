@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"errors"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -60,12 +61,38 @@ func (*TpWarningInformationService) AddTpWarningInformation(tp_warning_informati
 // 修改数据
 func (*TpWarningInformationService) EditTpWarningInformation(tp_warning_information valid.TpWarningInformationValidate) (valid.TpWarningInformationValidate, error) {
 	var warningInformationMap = map[string]interface{}{
-		"processing_result":       tp_warning_information.ProcessingResult,
-		"processing_instructions": tp_warning_information.ProcessingInstructions,
+		"ProcessingResult":       tp_warning_information.ProcessingResult,
+		"ProcessingInstructions": tp_warning_information.ProcessingInstructions,
+		"ProcessingTime":         time.Now().Format("2006/01/02 15:04:05"),
 	}
 	result := psql.Mydb.Model(&models.TpWarningInformation{}).Where("id = ?", tp_warning_information.Id).Updates(&warningInformationMap)
 	if result.Error != nil {
 		return tp_warning_information, result.Error
 	}
 	return tp_warning_information, nil
+}
+
+// 批量处理
+func (*TpWarningInformationService) BatchProcessing(batchProcessing valid.BatchProcessingValidate) error {
+	tx := psql.Mydb.Begin()
+	for _, id := range batchProcessing.Id {
+		var warningInformationMap = make(map[string]interface{})
+		if batchProcessing.ProcessingResult == "1" { //处理
+			warningInformationMap["ProcessingResult"] = batchProcessing.ProcessingResult
+			warningInformationMap["ProcessingInstructions"] = batchProcessing.ProcessingInstructions
+		} else if batchProcessing.ProcessingResult == "2" {
+			warningInformationMap["ProcessingResult"] = batchProcessing.ProcessingResult
+		} else {
+			tx.Rollback()
+			return errors.New("处理状态不正确")
+		}
+		warningInformationMap["ProcessingTime"] = time.Now().Format("2006/01/02 15:04:05")
+		err := tx.Model(&models.TpWarningInformation{}).Where("id = ?", id).Updates(&warningInformationMap).Error
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	tx.Commit()
+	return nil
 }

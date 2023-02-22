@@ -360,6 +360,7 @@ func init() {
 
 		web.NSRouter("/v1/warning/information/list", &controllers.TpWarningInformationController{}, "*:List"),
 		web.NSRouter("/v1/warning/information/edit", &controllers.TpWarningInformationController{}, "*:Edit"),
+		web.NSRouter("/v1/warning/information/batch/processing", &controllers.TpWarningInformationController{}, "*:BatchProcessing"),
 
 		web.NSRouter("/v1/automation/log/list", &controllers.TpAutomationLogController{}, "*:List"),
 		web.NSRouter("/v1/automation/log/detail/list", &controllers.TpAutomationLogDetailController{}, "*:List"),
