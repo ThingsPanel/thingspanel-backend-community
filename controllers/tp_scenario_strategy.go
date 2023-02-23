@@ -170,6 +170,6 @@ func (TpScenarioStrategyController *TpScenarioStrategyController) Delete() {
 	if req_err == nil {
 		utils.SuccessWithMessage(200, "success", (*context2.Context)(TpScenarioStrategyController.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, "删除失败", (*context2.Context)(TpScenarioStrategyController.Ctx))
+		utils.SuccessWithMessage(400, "无法删除；可能的原因：1.被自动化关联的场景无法删除，需要先取消关联；"+req_err.Error(), (*context2.Context)(TpScenarioStrategyController.Ctx))
 	}
 }

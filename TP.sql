@@ -1520,3 +1520,7 @@ COMMENT ON COLUMN public.tp_scenario_log_detail.target_id IS '设备id|告警id'
 
 ALTER TABLE public.tp_warning_strategy ADD warning_description varchar(999) NULL;
 COMMENT ON COLUMN public.tp_warning_strategy.warning_description IS '告警描述';
+
+ALTER TABLE public.tp_automation_action ADD CONSTRAINT tp_automation_action_ss_fk FOREIGN KEY (scenario_strategy_id) REFERENCES public.tp_scenario_strategy(id) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE public.tp_automation_action ADD CONSTRAINT tp_automation_action_d_fk FOREIGN KEY (device_id) REFERENCES public.device(id) ON DELETE RESTRICT ON UPDATE CASCADE;
+
