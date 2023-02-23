@@ -107,6 +107,7 @@ func (*TpAutomationService) GetTpAutomationList(PaginationValidate valid.TpAutom
 func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationValidate) (valid.AddTpAutomationValidate, error) {
 	tx := psql.Mydb.Begin()
 	// 添加自动化
+	tp_automation.Enabled = "0"
 	tp_automation.Id = utils.GetUuid()
 	tp_automation.CreatedAt = time.Now().Unix()
 	tp_automation.UpdateTime = time.Now().Unix()
@@ -133,18 +134,18 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 			logs.Error(result.Error.Error())
 			return tp_automation, result.Error
 		} else {
+			logs.Info("自动化条件创建成功")
 			// 定时任务需要添加cron
-			if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" && tp_automation.Enabled == "1" {
-				var automationCondition models.TpAutomationCondition
-				result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", tp_automation_conditions.Id).First(&automationCondition)
-				if result.Error != nil {
-					err := AutomationCron(automationCondition)
-					if err != nil {
-						logs.Error(err.Error())
-					}
-				}
-
-			}
+			// if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" && tp_automation.Enabled == "1" {
+			// 	var automationCondition models.TpAutomationCondition
+			// 	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", tp_automation_conditions.Id).First(&automationCondition)
+			// 	if result.Error != nil {
+			// 		err := AutomationCron(automationCondition)
+			// 		if err != nil {
+			// 			logs.Error(err.Error())
+			// 		}
+			// 	}
+			// }
 		}
 	}
 	// 添加自动化动作
