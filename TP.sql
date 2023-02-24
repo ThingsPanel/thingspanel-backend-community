@@ -1450,9 +1450,9 @@ CREATE TABLE public.tp_automation_log_detail (
 
 -- Column comments
 
-COMMENT ON COLUMN public.automation_log_detail.action_type IS '动作类型 1-设备输出 2-触发告警 3-激活场景';
-COMMENT ON COLUMN public.automation_log_detail.process_result IS '执行状态 1-成功 2-失败';
-COMMENT ON COLUMN public.automation_log_detail.target_id IS '设备id|告警id|场景id';
+COMMENT ON COLUMN public.tp_automation_log_detail.action_type IS '动作类型 1-设备输出 2-触发告警 3-激活场景';
+COMMENT ON COLUMN public.tp_automation_log_detail.process_result IS '执行状态 1-成功 2-失败';
+COMMENT ON COLUMN public.tp_automation_log_detail.target_id IS '设备id|告警id|场景id';
 
 CREATE TABLE public.tp_warning_information (
 	id varchar(36) NOT NULL,
