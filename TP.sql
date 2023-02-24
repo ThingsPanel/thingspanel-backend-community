@@ -1467,7 +1467,7 @@ CREATE TABLE public.tp_warning_information (
 	processing_people_id varchar(36) NULL,
 	created_at int8 NULL,
 	remark varchar(255) NULL,
-	CONSTRAINT tp_warning_information_pk PRIMARY KEY (ip)
+	CONSTRAINT tp_warning_information_pk PRIMARY KEY (id)
 );
 
 -- Column comments
