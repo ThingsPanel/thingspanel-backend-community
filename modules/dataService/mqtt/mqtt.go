@@ -84,7 +84,9 @@ func subscribe(msgProcOther func(c mqtt.Client, m mqtt.Message), gatewayMsgProc 
 		fmt.Println(token.Error())
 		os.Exit(1)
 	}
-	if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), byte(viper.GetUint("mqtt.qos")), func(c mqtt.Client, m mqtt.Message) {
+	// if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), byte(viper.GetUint("mqtt.qos")), func(c mqtt.Client, m mqtt.Message) {
+	if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), byte(1), func(c mqtt.Client, m mqtt.Message) {
+
 		msgProcOther(c, m)
 	}); token.Wait() &&
 		token.Error() != nil {
