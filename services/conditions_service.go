@@ -43,7 +43,7 @@ func (*ConditionsService) GetConditionByID(id string) (*models.Condition, int64)
 	return &condition, result.RowsAffected
 }
 
-// 上下线触发检查
+// 上下线触发检查1-上线 2-下线
 func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) error {
 	var automationConditions []models.TpAutomationCondition
 	result := psql.Mydb.Table("tp_automation").

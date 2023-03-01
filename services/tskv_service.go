@@ -141,6 +141,13 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 		if rtsl.Error != nil {
 			log.Println(rtsl.Error)
 		}
+		// 设备上下线自动化检查
+		flag := d.StrV
+		if flag == "0" {
+			flag = "2"
+		}
+		var ConditionsService ConditionsService
+		go ConditionsService.OnlineAndOfflineCheck(device.ID, flag)
 	}
 }
 
