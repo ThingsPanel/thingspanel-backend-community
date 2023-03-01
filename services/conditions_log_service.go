@@ -6,6 +6,7 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -39,28 +40,28 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 	 left join asset a on a.id = d.asset_id left join business b on b.id =a.business_id where 1=1`
 	where := ""
 	if conditionsLogListValidate.DeviceId != "" {
-		where += " and cl.device_id = '" + conditionsLogListValidate.DeviceId + "'"
+		where += fmt.Sprintf("and cl.device_id ='%s'", conditionsLogListValidate.DeviceId)
 	}
 	if conditionsLogListValidate.OperationType != "" {
-		where += " and cl.operation_type = '" + conditionsLogListValidate.OperationType + "'"
+		where += fmt.Sprintf(" and cl.operation_type = '%s'", conditionsLogListValidate.OperationType)
 	}
 	if conditionsLogListValidate.SendResult != "" {
-		where += " and cl.send_result = '" + conditionsLogListValidate.SendResult + "'"
+		where += fmt.Sprintf(" and cl.send_result = '%s'", conditionsLogListValidate.SendResult)
 	}
 	if conditionsLogListValidate.BusinessId != "" {
-		where += " and b.business_id = '" + conditionsLogListValidate.BusinessId + "'"
+		where += fmt.Sprintf(" and b.business_id = '%s'", conditionsLogListValidate.BusinessId)
 	}
 	if conditionsLogListValidate.AssetId != "" {
-		where += " and a.asset_id = '" + conditionsLogListValidate.AssetId + "'"
+		where += fmt.Sprintf(" and a.asset_id = '%s'", conditionsLogListValidate.AssetId)
 	}
 	if conditionsLogListValidate.BusinessName != "" {
-		where += " and b.name like '%" + conditionsLogListValidate.BusinessName + "%'"
+		where += fmt.Sprintf(" and b.name like '%%%s%%'", conditionsLogListValidate.BusinessName)
 	}
 	if conditionsLogListValidate.AssetName != "" {
-		where += " and a.name like '%" + conditionsLogListValidate.AssetName + "%'"
+		where += fmt.Sprintf(" and a.name like '%%%s%%'", conditionsLogListValidate.AssetName)
 	}
 	if conditionsLogListValidate.DeviceName != "" {
-		where += " and d.name like '%" + conditionsLogListValidate.DeviceName + "%'"
+		where += fmt.Sprintf(" and d.name like '%%%s%%'", conditionsLogListValidate.DeviceName)
 	}
 	sqlWhere += where
 	var conditionsLogs []map[string]interface{}

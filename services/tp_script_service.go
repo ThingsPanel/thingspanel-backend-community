@@ -29,19 +29,24 @@ func (*TpScriptService) GetTpScriptDetail(tp_script_id string) []models.TpScript
 func (*TpScriptService) GetTpScriptList(PaginationValidate valid.TpScriptPaginationValidate) (bool, []models.TpScript, int64) {
 	var TpScripts []models.TpScript
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
+	sqlWhere := "1=?"
+	var params []interface{}
+	params = append(params, 1)
 	if PaginationValidate.ProtocolType != "" {
-		sqlWhere += " and protocol_type = '" + PaginationValidate.ProtocolType + "'"
+		sqlWhere += " and protocol_type = ?"
+		params = append(params, PaginationValidate.ProtocolType)
 	}
 	if PaginationValidate.Id != "" {
-		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+		sqlWhere += " and id = ?"
+		params = append(params, PaginationValidate.Id)
 	}
 	if PaginationValidate.DeviceType != "" {
-		sqlWhere += " and device_type = '" + PaginationValidate.DeviceType + "'"
+		sqlWhere += " and device_type = ?"
+		params = append(params, PaginationValidate.DeviceType)
 	}
 	var count int64
-	psql.Mydb.Model(&models.TpScript{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpScript{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpScripts)
+	psql.Mydb.Model(&models.TpScript{}).Where(sqlWhere, params...).Count(&count)
+	result := psql.Mydb.Model(&models.TpScript{}).Where(sqlWhere, params...).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpScripts)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, TpScripts, 0

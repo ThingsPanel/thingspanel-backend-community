@@ -29,16 +29,20 @@ func (*TpDashboardService) GetTpDashboardDetail(tp_dashboard_id string) []models
 func (*TpDashboardService) GetTpDashboardList(PaginationValidate valid.TpDashboardPaginationValidate) (bool, []models.TpDashboard, int64) {
 	var TpDashboards []models.TpDashboard
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
+	sqlWhere := "1=?"
+	var params []interface{}
+	params = append(params, 1)
 	if PaginationValidate.RelationId != "" {
-		sqlWhere += " and relation_id = '" + PaginationValidate.RelationId + "'"
+		sqlWhere += " and relation_id = ?"
+		params = append(params, PaginationValidate.RelationId)
 	}
 	if PaginationValidate.Id != "" {
-		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+		sqlWhere += " and id = ?"
+		params = append(params, PaginationValidate.Id)
 	}
 	var count int64
-	psql.Mydb.Model(&models.TpDashboard{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpDashboard{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("create_at desc").Find(&TpDashboards)
+	psql.Mydb.Model(&models.TpDashboard{}).Where(sqlWhere, params...).Count(&count)
+	result := psql.Mydb.Model(&models.TpDashboard{}).Where(sqlWhere, params...).Limit(PaginationValidate.PerPage).Offset(offset).Order("create_at desc").Find(&TpDashboards)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, TpDashboards, 0

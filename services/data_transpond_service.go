@@ -23,19 +23,24 @@ type DataTranspondService struct {
 func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.PaginationValidate) (bool, []models.DataTranspond, int64) {
 	var DataTransponds []models.DataTranspond
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
+	sqlWhere := "1=?"
+	var params []interface{}
+	params = append(params, 1)
 	if PaginationValidate.Disabled != "" {
-		sqlWhere += " and disabled = '" + PaginationValidate.Disabled + "'"
+		sqlWhere += " and disabled = ?"
+		params = append(params, PaginationValidate.Disabled)
 	}
 	if PaginationValidate.ProcessType != "" {
-		sqlWhere += " and process_type = '" + PaginationValidate.ProcessType + "'"
+		sqlWhere += " and process_type = ?"
+		params = append(params, PaginationValidate.ProcessType)
 	}
 	if PaginationValidate.RoleType != "" {
-		sqlWhere += " and role_type = '" + PaginationValidate.RoleType + "'"
+		sqlWhere += " and role_type = ?"
+		params = append(params, PaginationValidate.RoleType)
 	}
 	var count int64
-	psql.Mydb.Model(&models.DataTranspond{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.DataTranspond{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DataTransponds)
+	psql.Mydb.Model(&models.DataTranspond{}).Where(sqlWhere, params...).Count(&count)
+	result := psql.Mydb.Model(&models.DataTranspond{}).Where(sqlWhere, params...).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DataTransponds)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, DataTransponds, 0

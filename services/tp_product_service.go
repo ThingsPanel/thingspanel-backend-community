@@ -29,16 +29,20 @@ func (*TpProductService) GetTpProductDetail(tp_product_id string) []models.TpPro
 func (*TpProductService) GetTpProductList(PaginationValidate valid.TpProductPaginationValidate) (bool, []models.TpProduct, int64) {
 	var TpProducts []models.TpProduct
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
+	sqlWhere := "1=?"
+	var params []interface{}
+	params = append(params, 1)
 	if PaginationValidate.SerialNumber != "" {
-		sqlWhere += " and serial_number like '" + PaginationValidate.SerialNumber + "'"
+		sqlWhere += " and serial_number like ?"
+		params = append(params, PaginationValidate.SerialNumber)
 	}
 	if PaginationValidate.Id != "" {
-		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+		sqlWhere += " and id = ?"
+		params = append(params, PaginationValidate.Id)
 	}
 	var count int64
-	psql.Mydb.Model(&models.TpProduct{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpProduct{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_time desc").Find(&TpProducts)
+	psql.Mydb.Model(&models.TpProduct{}).Where(sqlWhere, params...).Count(&count)
+	result := psql.Mydb.Model(&models.TpProduct{}).Where(sqlWhere, params...).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_time desc").Find(&TpProducts)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, TpProducts, 0

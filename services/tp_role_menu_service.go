@@ -3,6 +3,7 @@ package services
 import (
 	"ThingsPanel-Go/models"
 	"errors"
+	"fmt"
 
 	"ThingsPanel-Go/initialize/psql"
 
@@ -49,7 +50,8 @@ func (*TpRoleMenuService) GetRoleMenuListByUser(userName string) (bool, []string
 // 获取角色的菜单
 func (*TpRoleMenuService) GetRoleMenu(roleId string) []string {
 	var menuIds []string
-	result := psql.Mydb.Raw("select menu_id from tp_role_menu where role_id = '" + roleId + "'").Scan(&menuIds)
+	sqlQuery := fmt.Sprintf("select menu_id from tp_role_menu where role_id = '%s'", roleId)
+	result := psql.Mydb.Raw(sqlQuery).Scan(&menuIds)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}

@@ -32,22 +32,28 @@ func (*DeviceModelService) GetDeviceModelDetail(device_model_id string) []models
 func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceModelPaginationValidate) (bool, []models.DeviceModel, int64) {
 	var DeviceModels []models.DeviceModel
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
+	sqlWhere := "1=?"
+	var params []interface{}
+	params = append(params, 1)
 	if PaginationValidate.Issued != 0 {
-		sqlWhere += " and issued = " + strconv.Itoa(PaginationValidate.Issued)
+		sqlWhere += " and issued = ?"
+		params = append(params, strconv.Itoa(PaginationValidate.Issued))
 	}
 	if PaginationValidate.ModelType != "" {
-		sqlWhere += " and model_type = '" + PaginationValidate.ModelType + "'"
+		sqlWhere += " and model_type = ?"
+		params = append(params, PaginationValidate.ModelType)
 	}
 	if PaginationValidate.Flag != 0 {
-		sqlWhere += " and flag = " + strconv.Itoa(PaginationValidate.Flag)
+		sqlWhere += " and flag = ?"
+		params = append(params, strconv.Itoa(PaginationValidate.Flag))
 	}
 	if PaginationValidate.Id != "" {
-		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+		sqlWhere += " and id = ?"
+		params = append(params, PaginationValidate.Id)
 	}
 	var count int64
-	psql.Mydb.Model(&models.DeviceModel{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.DeviceModel{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DeviceModels)
+	psql.Mydb.Model(&models.DeviceModel{}).Where(sqlWhere, params...).Count(&count)
+	result := psql.Mydb.Model(&models.DeviceModel{}).Where(sqlWhere, params...).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DeviceModels)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, DeviceModels, 0

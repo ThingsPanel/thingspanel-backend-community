@@ -29,16 +29,20 @@ func (*ObjectModelService) GetObjectModelDetail(object_model_id string) []models
 func (*ObjectModelService) GetObjectModelList(PaginationValidate valid.ObjectModelPaginationValidate) (bool, []models.ObjectModel, int64) {
 	var ObjectModels []models.ObjectModel
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
+	sqlWhere := "1=?"
+	var params []interface{}
+	params = append(params, 1)
 	if PaginationValidate.ObjectType != "" {
-		sqlWhere += " and object_type = '" + PaginationValidate.ObjectType + "'"
+		sqlWhere += " and object_type = ?"
+		params = append(params, PaginationValidate.ObjectType)
 	}
 	if PaginationValidate.Id != "" {
-		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+		sqlWhere += " and id = ?"
+		params = append(params, PaginationValidate.Id)
 	}
 	var count int64
-	psql.Mydb.Model(&models.ObjectModel{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.ObjectModel{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&ObjectModels)
+	psql.Mydb.Model(&models.ObjectModel{}).Where(sqlWhere, params...).Count(&count)
+	result := psql.Mydb.Model(&models.ObjectModel{}).Where(sqlWhere, params...).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&ObjectModels)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, ObjectModels, 0

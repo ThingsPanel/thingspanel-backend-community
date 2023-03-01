@@ -23,13 +23,16 @@ type TpDictService struct {
 func (*TpDictService) GetTpDictList(PaginationValidate valid.TpDictPaginationValidate) (bool, []models.TpDict, int64) {
 	var TpDicts []models.TpDict
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
+	sqlWhere := "1=?"
+	var params []interface{}
+	params = append(params, 1)
 	if PaginationValidate.DictCode != "" {
-		sqlWhere += " and dict_code = '" + PaginationValidate.DictCode + "'"
+		sqlWhere += " and dict_code = ?"
+		params = append(params, PaginationValidate.DictCode)
 	}
 	var count int64
-	psql.Mydb.Model(&models.TpDict{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpDict{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpDicts)
+	psql.Mydb.Model(&models.TpDict{}).Where(sqlWhere, params...).Count(&count)
+	result := psql.Mydb.Model(&models.TpDict{}).Where(sqlWhere, params...).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpDicts)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, TpDicts, 0
