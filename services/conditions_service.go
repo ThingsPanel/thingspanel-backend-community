@@ -43,6 +43,38 @@ func (*ConditionsService) GetConditionByID(id string) (*models.Condition, int64)
 	return &condition, result.RowsAffected
 }
 
+// 上下线触发检查
+func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) error {
+	var automationConditions []models.TpAutomationCondition
+	result := psql.Mydb.Table("tp_automation").
+		Select("tp_automation_condition.*").
+		Joins("left join tp_automation_condition on tp_automation.id = tp_automation_condition.automation_id").
+		Where("tp_automation.enabled = '1' and tp_automation_condition.condition_type = '1' and tp_automation_condition.device_condition_type = '3' and tp_automation_condition.device_id = ? and tp_automation_condition.v2 in ('?','3')", deviceId, flag).
+		Order("tp_automation.priority asc").
+		Find(&automationConditions)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return nil
+	}
+	var logMessage string
+	if flag == "1" {
+		logMessage = "设备上线；"
+	} else if flag == "2" {
+		logMessage = "设备下线；"
+	}
+	logs.Info("自动化-设备条件：", automationConditions)
+	for _, automationCondition := range automationConditions {
+		var conditionsService ConditionsService
+
+		err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage)
+		if err != nil {
+			logs.Error(err.Error())
+		}
+
+	}
+	return nil
+}
+
 //自动化策略检查
 func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[string]interface{}) {
 	var automationConditions []models.TpAutomationCondition
@@ -176,46 +208,55 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 		logs.Error("自动化条件是否通过？", isPass)
 		if isPass {
 			passedAutomationList = append(passedAutomationList, automationCondition.AutomationId)
-			logMessage += "条件通过；"
-			logs.Info("成功触发自动化")
-			//登记日志
-			var automationLogMap = make(map[string]interface{})
-			var sutomationLogService TpAutomationLogService
-			var automationLog models.TpAutomationLog
-			automationLog.AutomationId = automationCondition.AutomationId
-			automationLog.ProcessDescription = logMessage
-			automationLog.TriggerTime = time.Now().Format("2006/01/02 15:04:05")
-			automationLog.ProcessResult = "2"
-			automationLog, err := sutomationLogService.AddTpAutomationLog(automationLog)
+			var conditionsService ConditionsService
+			err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage)
 			if err != nil {
 				logs.Error(err.Error())
-			} else {
-				automationLogMap["Id"] = automationLog.Id
-				var conditionsService ConditionsService
-				msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id)
-				if err != nil {
-					//执行失败，记录日志
-					logs.Error(err.Error())
-					automationLogMap["ProcessDescription"] = logMessage + "|" + err.Error()
-
-				} else {
-					//执行成功，记录日志
-					logs.Info(logMessage)
-					automationLogMap["ProcessDescription"] = logMessage + "|" + msg
-					automationLogMap["ProcessResult"] = "1"
-
-				}
-				err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)
-				if err != nil {
-					logs.Error(err.Error())
-				}
 			}
-
 		} else {
 			logs.Info("未触发自动化")
 		}
 
 	}
+}
+
+//记录日志，调用执行action的函数
+func (*ConditionsService) WriteLogAndExecuteActionFunc(automationId string, logMessage string) error {
+	logMessage += "条件通过；"
+	logs.Info("成功触发自动化")
+	//登记日志
+	var automationLogMap = make(map[string]interface{})
+	var sutomationLogService TpAutomationLogService
+	var automationLog models.TpAutomationLog
+	automationLog.AutomationId = automationId
+	automationLog.ProcessDescription = logMessage
+	automationLog.TriggerTime = time.Now().Format("2006/01/02 15:04:05")
+	automationLog.ProcessResult = "2"
+	automationLog, err := sutomationLogService.AddTpAutomationLog(automationLog)
+	if err != nil {
+		logs.Error(err.Error())
+	} else {
+		automationLogMap["Id"] = automationLog.Id
+		var conditionsService ConditionsService
+		msg, err := conditionsService.ExecuteAutomationAction(automationId, automationLog.Id)
+		if err != nil {
+			//执行失败，记录日志
+			logs.Error(err.Error())
+			automationLogMap["ProcessDescription"] = logMessage + "|" + err.Error()
+
+		} else {
+			//执行成功，记录日志
+			logs.Info(logMessage)
+			automationLogMap["ProcessDescription"] = logMessage + "|" + msg
+			automationLogMap["ProcessResult"] = "1"
+
+		}
+		err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)
+		if err != nil {
+			logs.Error(err.Error())
+		}
+	}
+	return nil
 }
 
 // 执行自动化动作
