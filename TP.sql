@@ -1527,7 +1527,7 @@ ALTER TABLE public.tp_automation_action ADD CONSTRAINT tp_automation_action_d_fk
 delete from public.tp_function where id in ('67b97839-919f-0976-2c79-c921adbec66e','dce69d1d-8297-c5a4-1502-ace84dfe0209','8508677d-27ea-1158-c382-2bcf2b630346');
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
-VALUES('a8ebb8af-adab-90fa-a553-49667370fc5f', '', NULL, '/access_engine/index', 'AccessEngine', '/pages/access-engine/AccessEngineIndex.vue', 'MENU.NETWORKCOMPONENTS', 'flaticon-upload-1', '1', '', '7cac14a0-0ff2-57d9-5465-597760bd2cb1', 999);
+VALUES('b29d5b40-b635-e34d-ee5f-5cf161348a62', '', NULL, '', 'Automation', '', '自动化', 'flaticon2-hourglass', '0', '', '0', 960);
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('dce69d1d-8297-c5a4-1502-ace84dfe0209', '', NULL, '/strategy/list', 'StrategyList', '/pages/automation/control/ControlStrategy.vue', '场景联动', 'flaticon2-hourglass', '1', '', 'b29d5b40-b635-e34d-ee5f-5cf161348a62', 960);
