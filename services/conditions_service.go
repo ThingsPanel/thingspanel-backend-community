@@ -412,7 +412,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		}
 	}
 	if logMessage == "" {
-		logMessage = " | 执行成功，执行过程请查看详情。"
+		logMessage = " 执行成功，执行过程请查看详情。"
 	}
 	return logMessage, nil
 }
