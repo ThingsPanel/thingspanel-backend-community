@@ -49,7 +49,7 @@ func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) er
 	result := psql.Mydb.Table("tp_automation").
 		Select("tp_automation_condition.*").
 		Joins("left join tp_automation_condition on tp_automation.id = tp_automation_condition.automation_id").
-		Where("tp_automation.enabled = '1' and tp_automation_condition.condition_type = '1' and tp_automation_condition.device_condition_type = '3' and tp_automation_condition.device_id = ? and tp_automation_condition.v2 in ('?','3')", deviceId, flag).
+		Where("tp_automation.enabled = '1' and tp_automation_condition.condition_type = '1' and tp_automation_condition.device_condition_type = '3' and tp_automation_condition.device_id = ? and tp_automation_condition.v2 in ( ? ,'3')", deviceId, flag).
 		Order("tp_automation.priority asc").
 		Find(&automationConditions)
 	if result.Error != nil {
