@@ -1535,3 +1535,10 @@ INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('2649ac04-2935-0bb1-8a18-1278b9682a5d', '', NULL, '/strategy/scenelist', 'Scene', '/pages/automation/scene/index.vue', '场景管理', 'flaticon-upload-1', '1', 'strategy:scene:list', 'b29d5b40-b635-e34d-ee5f-5cf161348a62', 950);
 
+delete from public.casbin_rule where id in (1661,1662);
+INSERT INTO public.casbin_rule
+(id, ptype, v0, v1, v2, v3, v4, v5, v6, v7)
+VALUES(1661, 'p', '5b0969cb-ed0b-c664-1fab-d0ba90c39e04', 'b29d5b40-b635-e34d-ee5f-5cf161348a62', 'allow', '', '', '', '', '');
+INSERT INTO public.casbin_rule
+(id, ptype, v0, v1, v2, v3, v4, v5, v6, v7)
+VALUES(1662, 'p', '5b0969cb-ed0b-c664-1fab-d0ba90c39e04', '2649ac04-2935-0bb1-8a18-1278b9682a5d', 'allow', '', '', '', '', '');
