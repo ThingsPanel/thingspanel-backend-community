@@ -51,12 +51,14 @@ func (*TpScenarioStrategyService) GetTpScenarioStrategyList(PaginationValidate v
 	var TpScenarioStrategys []models.TpScenarioStrategy
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	sqlWhere := "1=1"
+	var param string
 	if PaginationValidate.Id != "" {
-		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+		sqlWhere += " and id = ?"
+		param = PaginationValidate.Id
 	}
 	var count int64
-	psql.Mydb.Model(&models.TpScenarioStrategy{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpScenarioStrategys)
+	psql.Mydb.Model(&models.TpScenarioStrategy{}).Where(sqlWhere, param).Count(&count)
+	result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where(sqlWhere, param).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpScenarioStrategys)
 	if result.Error != nil {
 		return TpScenarioStrategys, 0, result.Error
 	}
