@@ -50,11 +50,12 @@ func (*TpScenarioStrategyService) GetTpScenarioStrategyDetail(tp_scenario_strate
 func (*TpScenarioStrategyService) GetTpScenarioStrategyList(PaginationValidate valid.TpScenarioStrategyPaginationValidate) ([]models.TpScenarioStrategy, int64, error) {
 	var TpScenarioStrategys []models.TpScenarioStrategy
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
-	var param string
+	sqlWhere := "1=?"
+	var param []interface{}
+	param = append(param, 1)
 	if PaginationValidate.Id != "" {
 		sqlWhere += " and id = ?"
-		param = PaginationValidate.Id
+		param = append(param, PaginationValidate.Id)
 	}
 	var count int64
 	psql.Mydb.Model(&models.TpScenarioStrategy{}).Where(sqlWhere, param).Count(&count)
