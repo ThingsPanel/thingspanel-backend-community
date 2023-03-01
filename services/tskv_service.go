@@ -137,9 +137,16 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 			TS:         time.Now().UnixMicro(),
 			StrV:       fmt.Sprint(values["status"]),
 		}
-		rtsl := psql.Mydb.Save(&d)
-		if rtsl.Error != nil {
-			log.Println(rtsl.Error)
+		result = psql.Mydb.Model(&models.Device{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+		} else {
+			if result.RowsAffected == int64(0) {
+				rtsl := psql.Mydb.Create(&d)
+				if rtsl.Error != nil {
+					logs.Error(rtsl.Error)
+				}
+			}
 		}
 		// 设备上下线自动化检查
 		flag := d.StrV
