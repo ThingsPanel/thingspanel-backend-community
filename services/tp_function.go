@@ -24,13 +24,13 @@ func (*TpFunctionService) GetFunctionList(FunctionPaginationValidate valid.Funct
 
 	var TpFunctions []models.TpFunction
 	offset := (FunctionPaginationValidate.CurrentPage - 1) * FunctionPaginationValidate.PerPage
-	sqlWhere := "1=1 "
+	db := psql.Mydb.Model(&models.TpFunction{})
 	if FunctionPaginationValidate.Id != "" {
-		sqlWhere += "and id = '" + FunctionPaginationValidate.Id + "'"
+		db.Where("and id = ?", FunctionPaginationValidate.Id)
 	}
 	var count int64
-	psql.Mydb.Model(&models.TpFunction{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpFunction{}).Where(sqlWhere).Limit(FunctionPaginationValidate.PerPage).Offset(offset).Find(&TpFunctions)
+	db.Count(&count)
+	result := db.Limit(FunctionPaginationValidate.PerPage).Offset(offset).Find(&TpFunctions)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, TpFunctions, 0
