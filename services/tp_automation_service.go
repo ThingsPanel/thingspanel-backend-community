@@ -86,15 +86,14 @@ func (*TpAutomationService) GetTpAutomationDetail(tp_automation_id string) (map[
 func (*TpAutomationService) GetTpAutomationList(PaginationValidate valid.TpAutomationPaginationValidate) ([]models.TpAutomation, int64, error) {
 	var TpAutomations []models.TpAutomation
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
-
+	db := psql.Mydb.Model(&models.TpAutomation{})
 	if PaginationValidate.Id != "" {
-		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+		db.Where(" and id = ?", PaginationValidate.Id)
 	}
 
 	var count int64
-	psql.Mydb.Model(&models.TpAutomation{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpAutomation{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpAutomations)
+	db.Count(&count)
+	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpAutomations)
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return TpAutomations, 0, result.Error

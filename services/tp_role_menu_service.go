@@ -49,7 +49,7 @@ func (*TpRoleMenuService) GetRoleMenuListByUser(userName string) (bool, []string
 // 获取角色的菜单
 func (*TpRoleMenuService) GetRoleMenu(roleId string) []string {
 	var menuIds []string
-	result := psql.Mydb.Raw("select menu_id from tp_role_menu where role_id = '" + roleId + "'").Scan(&menuIds)
+	result := psql.Mydb.Raw("select menu_id from tp_role_menu where role_id = ?", roleId).Scan(&menuIds)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}

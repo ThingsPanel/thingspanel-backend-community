@@ -96,7 +96,8 @@ func (*DeviceService) PageGetDevicesByAssetID(business_id string, asset_id strin
 		where += " and d.token = ?"
 	}
 	if name != "" {
-		where += " and d.name like '%" + name + "%'"
+		values = append(values, fmt.Sprintf("%%%s%%", name))
+		where += " and d.name like ?"
 	}
 	sqlWhere += where
 	sqlWhereCount += where
@@ -152,7 +153,8 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 		where += " and d.token = ?"
 	}
 	if req.Name != "" {
-		where += " and d.name like '%" + req.Name + "%'"
+		values = append(values, fmt.Sprintf("%%%s%%", req.Name))
+		where += " and d.name like ?"
 	}
 	sqlWhere += where
 	sqlWhereCount += where
@@ -272,7 +274,8 @@ func (*DeviceService) AllDeviceList(req valid.DevicePageListValidate) ([]map[str
 		where += " and d.token = ?"
 	}
 	if req.Name != "" {
-		where += " and d.name like '%" + req.Name + "%'"
+		values = append(values, fmt.Sprintf("%%%s%%", req.Name))
+		where += " and d.name like ?"
 	}
 	if req.NotGateway == 1 {
 		where += " and d.device_type !='2'"
@@ -990,7 +993,8 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 		where += " and d.device_type !='3'"
 	}
 	if req.Name != "" {
-		where += " and d.name like '%" + req.Name + "%'"
+		values = append(values, fmt.Sprintf("%%%s%%", req.Name))
+		where += " and d.name like ?"
 	}
 	if req.DeviceModelId != "" {
 		where += " and d.type = '" + req.DeviceModelId + "'"

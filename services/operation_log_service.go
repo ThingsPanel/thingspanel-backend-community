@@ -24,19 +24,19 @@ type OperationLogService struct {
 // Paginate 分页获取OperationLog数据
 func (*OperationLogService) Paginate(offset int, pageSize int, ip string, path string) ([]models.OperationLog, int64) {
 	var operationLogs []models.OperationLog
-	sqlWhere := "1=1"
+	db := psql.Mydb.Model(&operationLogs)
 	if path != "" {
-		sqlWhere += " and (detailed ::json->>'path' like '%" + path + "%')"
+		db.Where(" and (detailed ::json->>'path' like ?)", "%"+path+"%")
 	}
 	if ip != "" {
-		sqlWhere += " and (detailed ::json->>'ip' like '%" + ip + "%')"
+		db.Where(" and (detailed ::json->>'ip' like ?)", "%"+ip+"%")
 	}
 	var count int64
 	operationLogCount := redis.GetStr("OperationLogCount")
 	if operationLogCount != "" {
 		count, _ = strconv.ParseInt(operationLogCount, 10, 64)
 	} else {
-		countResult := psql.Mydb.Model(&operationLogs).Where(sqlWhere).Count(&count)
+		countResult := db.Count(&count)
 		if countResult.Error != nil {
 			logs.Error(countResult.Error.Error())
 		}
@@ -46,7 +46,7 @@ func (*OperationLogService) Paginate(offset int, pageSize int, ip string, path s
 	}
 
 	offset = pageSize * (offset - 1)
-	result := psql.Mydb.Where(sqlWhere).Order("created_at desc").Limit(pageSize).Offset(offset).Find(&operationLogs)
+	result := db.Order("created_at desc").Limit(pageSize).Offset(offset).Find(&operationLogs)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}

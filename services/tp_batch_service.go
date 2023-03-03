@@ -38,19 +38,19 @@ func (*TpBatchService) GetTpBatchDetail(tp_batch_id string) models.TpBatch {
 func (*TpBatchService) GetTpBatchList(PaginationValidate valid.TpBatchPaginationValidate) (bool, []models.TpBatch, int64) {
 	var TpBatchs []models.TpBatch
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
+	db := psql.Mydb.Model(&models.TpBatch{})
 	if PaginationValidate.BatchNumber != "" {
-		sqlWhere += " and batch_number like '" + PaginationValidate.BatchNumber + "'"
+		db.Where(" and batch_number like ?", "%"+PaginationValidate.BatchNumber+"%")
 	}
 	if PaginationValidate.Id != "" {
-		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+		db.Where(" and id = ?", PaginationValidate.Id)
 	}
 	if PaginationValidate.ProductId != "" {
-		sqlWhere += " and product_id = '" + PaginationValidate.ProductId + "'"
+		db.Where(" and product_id = ?", PaginationValidate.ProductId)
 	}
 	var count int64
-	psql.Mydb.Model(&models.TpBatch{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpBatch{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_time desc").Find(&TpBatchs)
+	db.Count(&count)
+	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_time desc").Find(&TpBatchs)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, TpBatchs, 0

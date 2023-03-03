@@ -23,19 +23,19 @@ type DataTranspondService struct {
 func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.PaginationValidate) (bool, []models.DataTranspond, int64) {
 	var DataTransponds []models.DataTranspond
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
+	db := psql.Mydb.Model(&models.DataTranspond{})
 	if PaginationValidate.Disabled != "" {
-		sqlWhere += " and disabled = '" + PaginationValidate.Disabled + "'"
+		db.Where(" and disabled = ?", PaginationValidate.Disabled)
 	}
 	if PaginationValidate.ProcessType != "" {
-		sqlWhere += " and process_type = '" + PaginationValidate.ProcessType + "'"
+		db.Where(" and process_type = ?", PaginationValidate.ProcessType)
 	}
 	if PaginationValidate.RoleType != "" {
-		sqlWhere += " and role_type = '" + PaginationValidate.RoleType + "'"
+		db.Where(" and role_type = ?", PaginationValidate.RoleType)
 	}
 	var count int64
-	psql.Mydb.Model(&models.DataTranspond{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.DataTranspond{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DataTransponds)
+	db.Count(&count)
+	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DataTransponds)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, DataTransponds, 0
