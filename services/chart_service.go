@@ -30,19 +30,19 @@ func (*ChartService) GetChartDetail(chart_id string) []models.Chart {
 func (*ChartService) GetChartList(PaginationValidate valid.ChartPaginationValidate) (bool, []models.Chart, int64) {
 	var Charts []models.Chart
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
+	db := psql.Mydb.Model(&models.Chart{})
 	if PaginationValidate.Flag != 0 {
-		sqlWhere += " and flag = " + strconv.Itoa(PaginationValidate.Flag)
+		db.Where(" and flag = ?", strconv.Itoa(PaginationValidate.Flag))
 	}
 	if PaginationValidate.Issued != 0 {
-		sqlWhere += " and issued = " + strconv.Itoa(PaginationValidate.Issued)
+		db.Where(" and issued = ?", strconv.Itoa(PaginationValidate.Issued))
 	}
 	if PaginationValidate.ChartType != "" {
-		sqlWhere += " and chart_type = '" + PaginationValidate.ChartType + "'"
+		db.Where(" and chart_type = ?", PaginationValidate.ChartType)
 	}
 	var count int64
-	psql.Mydb.Model(&models.Chart{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.Chart{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&Charts)
+	db.Count(&count)
+	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&Charts)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, Charts, 0

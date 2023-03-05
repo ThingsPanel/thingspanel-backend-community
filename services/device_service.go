@@ -997,7 +997,8 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 		where += " and d.name like ?"
 	}
 	if req.DeviceModelId != "" {
-		where += " and d.type = '" + req.DeviceModelId + "'"
+		values = append(values, fmt.Sprintf("%%%s%%", req.DeviceModelId))
+		where += " and d.type = ?"
 	}
 	sqlWhere += where
 	var deviceList []map[string]interface{}
