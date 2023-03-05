@@ -61,15 +61,15 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 		where += " and a.asset_id = ?"
 	}
 	if conditionsLogListValidate.BusinessName != "" {
-		values = append(values, fmt.Sprintf("'%%%s%%'", conditionsLogListValidate.BusinessName))
+		values = append(values, fmt.Sprintf("%%%s%%", conditionsLogListValidate.BusinessName))
 		where += " and b.name like ?"
 	}
 	if conditionsLogListValidate.AssetName != "" {
-		values = append(values, fmt.Sprintf("'%%%s%%'", conditionsLogListValidate.AssetName))
+		values = append(values, fmt.Sprintf("%%%s%%", conditionsLogListValidate.AssetName))
 		where += " and a.name like ?"
 	}
 	if conditionsLogListValidate.DeviceName != "" {
-		values = append(values, fmt.Sprintf("'%%%s%%'", conditionsLogListValidate.DeviceName))
+		values = append(values, fmt.Sprintf("%%%s%%", conditionsLogListValidate.DeviceName))
 		where += " and d.name like ?"
 	}
 	sqlWhere += where

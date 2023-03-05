@@ -392,7 +392,7 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 		SQLWhere += " and key = ?"
 	}
 	if device_name != "" { //key
-		params = append(params, fmt.Sprintf("'%%%s%%'", device_name))
+		params = append(params, fmt.Sprintf("%%%s%%", device_name))
 		SQLWhere += ` and device."name" like ?`
 	}
 	SQLWhere = SQLWhere + " and key != 'systime'"
