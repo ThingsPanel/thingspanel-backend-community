@@ -429,26 +429,28 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 				pluginId = v.PluginId
 				var DeviceModel DeviceModelService
 				deviceModels := DeviceModel.GetDeviceModelDetail(v.PluginId)
-				modelData, err := simplejson.NewJson([]byte(deviceModels[0].ChartData))
-				if err != nil {
-					logs.Error(err.Error())
-				} else {
-					propertiesList, err := modelData.Get("tsl").Get("properties").Array()
-					logs.Info(propertiesList)
+				if len(deviceModels) != 0 {
+					modelData, err := simplejson.NewJson([]byte(deviceModels[0].ChartData))
 					if err != nil {
 						logs.Error(err.Error())
 					} else {
-						for _, properties := range propertiesList {
-							if rulesMap, ok := properties.(map[string]interface{}); ok {
-								if name, ok := rulesMap["name"].(string); ok {
-									if title, ok := rulesMap["title"].(string); ok {
-										deviceModelMap[name] = title
+						propertiesList, err := modelData.Get("tsl").Get("properties").Array()
+						logs.Info(propertiesList)
+						if err != nil {
+							logs.Error(err.Error())
+						} else {
+							for _, properties := range propertiesList {
+								if rulesMap, ok := properties.(map[string]interface{}); ok {
+									if name, ok := rulesMap["name"].(string); ok {
+										if title, ok := rulesMap["title"].(string); ok {
+											deviceModelMap[name] = title
+										}
 									}
+
 								}
-
 							}
-						}
 
+						}
 					}
 				}
 			}
