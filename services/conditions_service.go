@@ -521,18 +521,23 @@ func (*ConditionsService) ManualTrigger(conditions_id string) error {
 
 // 根据业务id获取策略下拉
 func (*ConditionsService) ConditionsPullDownList(params valid.ConditionsPullDownListValidate) ([]map[string]interface{}, error) {
-	sqlWhere := "business_id = '" + params.BusinessId + "'"
+	var values []interface{}
+	values = append(values, params.BusinessId)
+	sqlWhere := "business_id = ?"
 	if params.Status != "" {
-		sqlWhere += " and status = '" + params.Status + "'"
+		values = append(values, params.Status)
+		sqlWhere += " and status = ?"
 	}
 	if params.ConditionsType != "" {
-		sqlWhere += " and type = '" + params.ConditionsType + "'"
+		values = append(values, params.ConditionsType)
+		sqlWhere += " and type = ?"
 	}
 	if params.Issued != "" {
-		sqlWhere += " and issued = '" + params.Issued + "'"
+		values = append(values, params.Issued)
+		sqlWhere += " and issued = ?"
 	}
 	var conditionConfig []map[string]interface{}
-	result := psql.Mydb.Model(&models.Condition{}).Select("id,name as policy_name,describe").Where(sqlWhere).Order("sort ASC").Find(&conditionConfig)
+	result := psql.Mydb.Model(&models.Condition{}).Select("id,name as policy_name,describe").Where(sqlWhere, values...).Order("sort ASC").Find(&conditionConfig)
 	if result.Error != nil {
 		return nil, result.Error
 	}

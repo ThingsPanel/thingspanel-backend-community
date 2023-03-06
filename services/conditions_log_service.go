@@ -6,6 +6,7 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -37,36 +38,44 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 	 left join asset a on a.id = d.asset_id left join business b on b.id =a.business_id where 1=1`
 	sqlWhereCount := `select count(1) from conditions_log cl left join device d on cl.device_id = d.id  
 	 left join asset a on a.id = d.asset_id left join business b on b.id =a.business_id where 1=1`
+	var values []interface{}
 	where := ""
 	if conditionsLogListValidate.DeviceId != "" {
-		where += " and cl.device_id = '" + conditionsLogListValidate.DeviceId + "'"
+		values = append(values, conditionsLogListValidate.DeviceId)
+		where += " and cl.device_id = ?"
 	}
 	if conditionsLogListValidate.OperationType != "" {
-		where += " and cl.operation_type = '" + conditionsLogListValidate.OperationType + "'"
+		values = append(values, conditionsLogListValidate.OperationType)
+		where += " and cl.operation_type = ?"
 	}
 	if conditionsLogListValidate.SendResult != "" {
-		where += " and cl.send_result = '" + conditionsLogListValidate.SendResult + "'"
+		values = append(values, conditionsLogListValidate.SendResult)
+		where += " and cl.send_result = ?"
 	}
 	if conditionsLogListValidate.BusinessId != "" {
-		where += " and b.business_id = '" + conditionsLogListValidate.BusinessId + "'"
+		values = append(values, conditionsLogListValidate.BusinessId)
+		where += " and b.business_id = ?"
 	}
 	if conditionsLogListValidate.AssetId != "" {
-		where += " and a.asset_id = '" + conditionsLogListValidate.AssetId + "'"
+		values = append(values, conditionsLogListValidate.AssetId)
+		where += " and a.asset_id = ?"
 	}
 	if conditionsLogListValidate.BusinessName != "" {
-		where += " and b.name like '%" + conditionsLogListValidate.BusinessName + "%'"
+		values = append(values, fmt.Sprintf("%%%s%%", conditionsLogListValidate.BusinessName))
+		where += " and b.name like ?"
 	}
 	if conditionsLogListValidate.AssetName != "" {
-		where += " and a.name like '%" + conditionsLogListValidate.AssetName + "%'"
+		values = append(values, fmt.Sprintf("%%%s%%", conditionsLogListValidate.AssetName))
+		where += " and a.name like ?"
 	}
 	if conditionsLogListValidate.DeviceName != "" {
-		where += " and d.name like '%" + conditionsLogListValidate.DeviceName + "%'"
+		values = append(values, fmt.Sprintf("%%%s%%", conditionsLogListValidate.DeviceName))
+		where += " and d.name like ?"
 	}
 	sqlWhere += where
 	var conditionsLogs []map[string]interface{}
-	var values []interface{}
 	var count int64
-	countResult := psql.Mydb.Raw(sqlWhereCount).Count(&count)
+	countResult := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
 	if countResult.Error != nil {
 		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
 	}

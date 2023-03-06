@@ -388,10 +388,12 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 
 	SQLWhere, params := utils.TsKvFilterToSql(filters)
 	if key != "" { //key
-		SQLWhere = SQLWhere + " and key = '" + key + "'"
+		params = append(params, key)
+		SQLWhere += " and key = ?"
 	}
 	if device_name != "" { //key
-		SQLWhere = SQLWhere + ` and device."name" like '%` + device_name + "%'"
+		params = append(params, fmt.Sprintf("%%%s%%", device_name))
+		SQLWhere += ` and device."name" like ?`
 	}
 	SQLWhere = SQLWhere + " and key != 'systime'"
 	countsql := "SELECT Count(*) AS count FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id " + SQLWhere
@@ -427,26 +429,28 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 				pluginId = v.PluginId
 				var DeviceModel DeviceModelService
 				deviceModels := DeviceModel.GetDeviceModelDetail(v.PluginId)
-				modelData, err := simplejson.NewJson([]byte(deviceModels[0].ChartData))
-				if err != nil {
-					logs.Error(err.Error())
-				} else {
-					propertiesList, err := modelData.Get("tsl").Get("properties").Array()
-					logs.Info(propertiesList)
+				if len(deviceModels) != 0 {
+					modelData, err := simplejson.NewJson([]byte(deviceModels[0].ChartData))
 					if err != nil {
 						logs.Error(err.Error())
 					} else {
-						for _, properties := range propertiesList {
-							if rulesMap, ok := properties.(map[string]interface{}); ok {
-								if name, ok := rulesMap["name"].(string); ok {
-									if title, ok := rulesMap["title"].(string); ok {
-										deviceModelMap[name] = title
+						propertiesList, err := modelData.Get("tsl").Get("properties").Array()
+						logs.Info(propertiesList)
+						if err != nil {
+							logs.Error(err.Error())
+						} else {
+							for _, properties := range propertiesList {
+								if rulesMap, ok := properties.(map[string]interface{}); ok {
+									if name, ok := rulesMap["name"].(string); ok {
+										if title, ok := rulesMap["title"].(string); ok {
+											deviceModelMap[name] = title
+										}
 									}
+
 								}
-
 							}
-						}
 
+						}
 					}
 				}
 			}
@@ -617,9 +621,10 @@ func (*TSKVService) GetHistoryData(device_id string, attributes []string, startT
 	if rate == "" {
 		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where(" ts >= ? AND ts <= ? AND entity_id = ? AND key in ?", startTs*1000, endTs*1000, device_id, attributes).Order("ts asc").Find(&ts_kvs)
 	} else {
+		int_rate, _ := strconv.ParseInt(rate, 10, 64)
 		result = psql.Mydb.Raw("select key, bool_v, str_v, long_v, dbl_v, ts from (select row_number() over "+
-			"(partition by (times,key) order by ts,key desc) as seq,* from (select tk.ts/"+rate+" as times ,* from ts_kv tk where"+
-			" ts >= ? AND ts <= ? AND entity_id =? AND key in ?) as tks) as group_tk where seq = 1", startTs*1000, endTs*1000, device_id, attributes).Find(&ts_kvs)
+			"(partition by (times,key) order by ts,key desc) as seq,* from (select tk.ts/? as times ,* from ts_kv tk where"+
+			" ts >= ? AND ts <= ? AND entity_id =? AND key in ?) as tks) as group_tk where seq = 1", int_rate, startTs*1000, endTs*1000, device_id, attributes).Find(&ts_kvs)
 	}
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
