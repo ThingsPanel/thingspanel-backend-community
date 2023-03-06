@@ -77,3 +77,9 @@ func CheckFilename(param string) error {
 	}
 	return nil
 }
+
+//字符串替换非法字符
+func ReplaceUserInput(s string) string {
+	newStringInput := strings.NewReplacer("\n", " ", "\r", " ")
+	return newStringInput.Replace(s)
+}
