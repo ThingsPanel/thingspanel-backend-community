@@ -32,13 +32,13 @@ func (*ChartService) GetChartList(PaginationValidate valid.ChartPaginationValida
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.Chart{})
 	if PaginationValidate.Flag != 0 {
-		db.Where(" and flag = ?", strconv.Itoa(PaginationValidate.Flag))
+		db.Where("flag = ?", strconv.Itoa(PaginationValidate.Flag))
 	}
 	if PaginationValidate.Issued != 0 {
-		db.Where(" and issued = ?", strconv.Itoa(PaginationValidate.Issued))
+		db.Where("issued = ?", strconv.Itoa(PaginationValidate.Issued))
 	}
 	if PaginationValidate.ChartType != "" {
-		db.Where(" and chart_type = ?", PaginationValidate.ChartType)
+		db.Where("chart_type = ?", PaginationValidate.ChartType)
 	}
 	var count int64
 	db.Count(&count)

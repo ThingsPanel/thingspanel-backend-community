@@ -31,10 +31,10 @@ func (*ObjectModelService) GetObjectModelList(PaginationValidate valid.ObjectMod
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.ObjectModel{})
 	if PaginationValidate.ObjectType != "" {
-		db.Where(" and object_type = ?", PaginationValidate.ObjectType)
+		db.Where("object_type = ?", PaginationValidate.ObjectType)
 	}
 	if PaginationValidate.Id != "" {
-		db.Where(" and id = ?", PaginationValidate.Id)
+		db.Where("id = ?", PaginationValidate.Id)
 	}
 	var count int64
 	db.Count(&count)

@@ -25,13 +25,13 @@ func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.Pagin
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.DataTranspond{})
 	if PaginationValidate.Disabled != "" {
-		db.Where(" and disabled = ?", PaginationValidate.Disabled)
+		db.Where("disabled = ?", PaginationValidate.Disabled)
 	}
 	if PaginationValidate.ProcessType != "" {
-		db.Where(" and process_type = ?", PaginationValidate.ProcessType)
+		db.Where("process_type = ?", PaginationValidate.ProcessType)
 	}
 	if PaginationValidate.RoleType != "" {
-		db.Where(" and role_type = ?", PaginationValidate.RoleType)
+		db.Where("role_type = ?", PaginationValidate.RoleType)
 	}
 	var count int64
 	db.Count(&count)

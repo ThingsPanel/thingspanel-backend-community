@@ -88,7 +88,7 @@ func (*TpAutomationService) GetTpAutomationList(PaginationValidate valid.TpAutom
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpAutomation{})
 	if PaginationValidate.Id != "" {
-		db.Where(" and id = ?", PaginationValidate.Id)
+		db.Where("id = ?", PaginationValidate.Id)
 	}
 
 	var count int64

@@ -40,13 +40,13 @@ func (*TpBatchService) GetTpBatchList(PaginationValidate valid.TpBatchPagination
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpBatch{})
 	if PaginationValidate.BatchNumber != "" {
-		db.Where(" and batch_number like ?", "%"+PaginationValidate.BatchNumber+"%")
+		db.Where("batch_number like ?", "%"+PaginationValidate.BatchNumber+"%")
 	}
 	if PaginationValidate.Id != "" {
-		db.Where(" and id = ?", PaginationValidate.Id)
+		db.Where("id = ?", PaginationValidate.Id)
 	}
 	if PaginationValidate.ProductId != "" {
-		db.Where(" and product_id = ?", PaginationValidate.ProductId)
+		db.Where("product_id = ?", PaginationValidate.ProductId)
 	}
 	var count int64
 	db.Count(&count)

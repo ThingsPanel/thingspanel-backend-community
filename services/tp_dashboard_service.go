@@ -31,10 +31,10 @@ func (*TpDashboardService) GetTpDashboardList(PaginationValidate valid.TpDashboa
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpDashboard{})
 	if PaginationValidate.RelationId != "" {
-		db.Where(" and relation_id = ?", PaginationValidate.RelationId)
+		db.Where("relation_id = ?", PaginationValidate.RelationId)
 	}
 	if PaginationValidate.Id != "" {
-		db.Where(" and id = ?", PaginationValidate.Id)
+		db.Where("id = ?", PaginationValidate.Id)
 	}
 	var count int64
 	db.Count(&count)

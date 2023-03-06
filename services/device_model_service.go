@@ -34,16 +34,16 @@ func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceMod
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.DeviceModel{})
 	if PaginationValidate.Issued != 0 {
-		db.Where(" and issued = ?", strconv.Itoa(PaginationValidate.Issued))
+		db.Where("issued = ?", strconv.Itoa(PaginationValidate.Issued))
 	}
 	if PaginationValidate.ModelType != "" {
-		db.Where(" and model_type = ?", PaginationValidate.ModelType)
+		db.Where("model_type = ?", PaginationValidate.ModelType)
 	}
 	if PaginationValidate.Flag != 0 {
-		db.Where(" and flag = ?", strconv.Itoa(PaginationValidate.Flag))
+		db.Where("flag = ?", strconv.Itoa(PaginationValidate.Flag))
 	}
 	if PaginationValidate.Id != "" {
-		db.Where(" and id = ?", PaginationValidate.Id)
+		db.Where("id = ?", PaginationValidate.Id)
 	}
 	var count int64
 	db.Count(&count)

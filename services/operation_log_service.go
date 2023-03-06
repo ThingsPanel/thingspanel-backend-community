@@ -26,10 +26,10 @@ func (*OperationLogService) Paginate(offset int, pageSize int, ip string, path s
 	var operationLogs []models.OperationLog
 	db := psql.Mydb.Model(&operationLogs)
 	if path != "" {
-		db.Where(" and (detailed ::json->>'path' like ?)", "%"+path+"%")
+		db.Where("(detailed ::json->>'path' like ?)", "%"+path+"%")
 	}
 	if ip != "" {
-		db.Where(" and (detailed ::json->>'ip' like ?)", "%"+ip+"%")
+		db.Where("(detailed ::json->>'ip' like ?)", "%"+ip+"%")
 	}
 	var count int64
 	operationLogCount := redis.GetStr("OperationLogCount")

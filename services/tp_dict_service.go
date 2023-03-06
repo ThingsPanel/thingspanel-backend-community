@@ -7,6 +7,7 @@ import (
 	valid "ThingsPanel-Go/validate"
 	"errors"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -25,13 +26,13 @@ func (*TpDictService) GetTpDictList(PaginationValidate valid.TpDictPaginationVal
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpDict{})
 	if PaginationValidate.DictCode != "" {
-		db.Where(" and dict_code = ?", PaginationValidate.DictCode)
+		db.Where("dict_code = ?", PaginationValidate.DictCode)
 	}
 	var count int64
 	db.Count(&count)
 	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpDicts)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, TpDicts, 0
 	}
 	return true, TpDicts, count

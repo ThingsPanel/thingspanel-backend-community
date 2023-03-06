@@ -38,13 +38,13 @@ func (*TpProtocolPluginService) GetTpProtocolPluginList(PaginationValidate valid
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpProtocolPlugin{})
 	if PaginationValidate.ProtocolType != "" {
-		db.Where(" and protocol_type = ?", PaginationValidate.ProtocolType)
+		db.Where("protocol_type = ?", PaginationValidate.ProtocolType)
 	}
 	if PaginationValidate.Id != "" {
-		db.Where(" and id = ?", PaginationValidate.Id)
+		db.Where("id = ?", PaginationValidate.Id)
 	}
 	if PaginationValidate.DeviceType != "" {
-		db.Where(" and device_type = ?", PaginationValidate.DeviceType)
+		db.Where("device_type = ?", PaginationValidate.DeviceType)
 	}
 	var count int64
 	db.Count(&count)

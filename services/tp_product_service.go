@@ -31,10 +31,10 @@ func (*TpProductService) GetTpProductList(PaginationValidate valid.TpProductPagi
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpProduct{})
 	if PaginationValidate.SerialNumber != "" {
-		db.Where(" and serial_number like ?", "%"+PaginationValidate.SerialNumber+"%")
+		db.Where("serial_number like ?", "%"+PaginationValidate.SerialNumber+"%")
 	}
 	if PaginationValidate.Id != "" {
-		db.Where(" and id = ?", PaginationValidate.Id)
+		db.Where("id = ?", PaginationValidate.Id)
 	}
 	var count int64
 	db.Count(&count)
