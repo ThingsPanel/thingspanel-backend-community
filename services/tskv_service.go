@@ -231,7 +231,7 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string) bool {
 func (*TSKVService) MsgProc(body []byte, topic string) bool {
 	logs.Info("-------------------------------")
 	logs.Info("来自直连设备/网关解析后的子设备的消息：")
-	logs.Info(string(body))
+	logs.Info(utils.ReplaceUserInput(string(body)))
 	logs.Info("-------------------------------")
 	payload, err := verifyPayload(body)
 	if err != nil {
@@ -256,7 +256,7 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 		logs.Error(err_a.Error())
 		return false
 	}
-	logs.Info("转码后:", string(req))
+	logs.Info("转码后:", utils.ReplaceUserInput(string(req)))
 	//byte转map
 	var payload_map = make(map[string]interface{})
 	err_b := json.Unmarshal(req, &payload_map)

@@ -652,10 +652,10 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 			return err
 		}
 		if device.Protocol == "mqtt" {
-			logs.Info("直连设备下行脚本处理后：", string(msg))
+			logs.Info("直连设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
 			err = cm.Send(msg, device.Token)
 		} else { // 协议设备
-			logs.Info("直连协议设备下行脚本处理后：", string(msg))
+			logs.Info("直连协议设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
 			//获取协议插件订阅topic
 			var TpProtocolPluginService TpProtocolPluginService
 			pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "1")
@@ -694,7 +694,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				if err != nil {
 					return err
 				}
-				logs.Info("网关设备下行脚本处理后：", string(msg))
+				logs.Info("网关设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
 				err = cm.SendPlugin(msgBytes, topic)
 			}
 		}
@@ -717,7 +717,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				if err != nil {
 					return err
 				}
-				logs.Info("网关设备下行脚本处理后：", string(msg))
+				logs.Info("网关设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
 				err = cm.SendGateWay(msgBytes, gatewayDevice.Token, gatewayDevice.Protocol)
 			}
 		} else {

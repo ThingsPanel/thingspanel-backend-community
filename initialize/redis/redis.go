@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"ThingsPanel-Go/utils"
 	"fmt"
 	"os"
 	"time"
@@ -49,7 +50,7 @@ func init() {
 func SetStr(key, value string, time time.Duration) (err error) {
 	err = redisCache.Set(key, value, time).Err()
 	if err != nil {
-		logs.Error("set key:", key, ",value:", value, err)
+		logs.Error("set key:", utils.ReplaceUserInput(key), ",value:", utils.ReplaceUserInput(value), err)
 	}
 	return
 }

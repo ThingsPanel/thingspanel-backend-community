@@ -1,6 +1,7 @@
 package mqtt
 
 import (
+	"ThingsPanel-Go/utils"
 	"errors"
 	"fmt"
 	"os"
@@ -102,7 +103,7 @@ func Send(payload []byte, token string) (err error) {
 	}
 	logs.Info("-------------------")
 	logs.Info(viper.GetString("mqtt.topicToPublish") + "/" + token)
-	logs.Info(string(payload))
+	logs.Info(utils.ReplaceUserInput(string(payload)))
 	logs.Info("-------------------")
 	t := _client.Publish(viper.GetString("mqtt.topicToPublish")+"/"+token, byte(viper.GetUint("mqtt.publishQos")), false, string(payload))
 	if t.Error() != nil {
@@ -117,7 +118,7 @@ func SendGateWay(payload []byte, token string, protocol string) (err error) {
 	}
 	logs.Info("-------------------")
 	logs.Info(viper.GetString("mqtt.gateway_topic") + "/" + token)
-	logs.Info(string(payload))
+	logs.Info(utils.ReplaceUserInput(string(payload)))
 	logs.Info("-------------------")
 	t := _client.Publish(viper.GetString("mqtt.gateway_topic")+"/"+token, 1, false, string(payload))
 	if t.Error() != nil {
@@ -133,7 +134,7 @@ func SendPlugin(payload []byte, topic string) (err error) {
 	}
 	logs.Info("-------------------")
 	logs.Info(topic)
-	logs.Info(string(payload))
+	logs.Info(utils.ReplaceUserInput(string(payload)))
 	logs.Info("-------------------")
 	t := _client.Publish(topic, 1, false, string(payload))
 	if t.Error() != nil {

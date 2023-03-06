@@ -7,6 +7,7 @@ import (
 	"ThingsPanel-Go/models"
 	tphttp "ThingsPanel-Go/others/http"
 	"ThingsPanel-Go/services"
+	comm "ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
@@ -666,7 +667,7 @@ func (deviceController *DeviceController) Reset() {
 			fmt.Printf("JSON 编码失败：%v\n", toErr)
 			response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(deviceController.Ctx))
 		}
-		log.Println(string(newPayload))
+		log.Println(comm.ReplaceUserInput(string(newPayload)))
 		redis.SetStr(f.Token, string(newPayload), 300*time.Second)
 		//cache.Bm.Put(context.TODO(), f.Token, newPayload, 300*time.Second)
 	} else {
