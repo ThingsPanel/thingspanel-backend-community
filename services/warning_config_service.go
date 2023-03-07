@@ -168,7 +168,7 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 				m["${"+k+"}"] = fmt.Sprint(v)
 				code = strings.Replace(code, "${"+k+"}", fmt.Sprint(v), -1)
 			}
-			logs.Info("表达式：" + code)
+			logs.Info("表达式：%s", utils.ReplaceUserInput(code))
 			if ok := strings.Contains(code, "${"); !ok {
 				flag = utils.Eval(code)
 			} else {

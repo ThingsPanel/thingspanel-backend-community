@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"ThingsPanel-Go/services"
+	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	"strings"
 
@@ -19,7 +20,7 @@ func CasbinMiddle() {
 	//需要验证的url
 	var filterUrl = func(ctx *context.Context) {
 		url := strings.TrimLeft(ctx.Input.URL(), "/")
-		logs.Info("casbin:url--", url)
+		logs.Info("casbin:url--", utils.ReplaceUserInput(url))
 		// 判断接口是否需要校验
 		isVerify := CasbinService.GetUrl(url)
 		if isVerify {

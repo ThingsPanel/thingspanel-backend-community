@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"ThingsPanel-Go/services"
+	"ThingsPanel-Go/utils"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -97,10 +98,10 @@ func (ch *Ch) Start() {
 	for {
 		select {
 		case v := <-ch.JoinChan:
-			fmt.Println("用户加入", v.ID)
+			fmt.Println("用户加入", utils.ReplaceUserInput(v.ID))
 			AllCh.ClientList[v.ID] = v
 		case v := <-ch.ExitChan:
-			fmt.Println("用户退出", v.ID)
+			fmt.Println("用户退出", utils.ReplaceUserInput(v.ID))
 			if v.Ticker != nil {
 				v.Ticker.Stop()
 			}
@@ -154,7 +155,7 @@ func (c *Client) ReadMsg() {
 						if extendMap["time_quantum"] != "" {
 							time, err := strconv.ParseInt(extendMap["time_quantum"], 10, 64)
 							if err == nil {
-								logs.Info(msgContent.Wid, "图表的时间区间是：", time_quantum, "分")
+								logs.Info(utils.ReplaceUserInput(msgContent.Wid), "图表的时间区间是：", time_quantum, "分")
 								time_quantum = time
 							}
 
@@ -162,7 +163,7 @@ func (c *Client) ReadMsg() {
 						if extendMap["refresh_rate"] != "" {
 							rate, err := strconv.ParseInt(extendMap["refresh_rate"], 10, 64)
 							if err == nil {
-								logs.Info(msgContent.Wid, "图表的刷新率是：", rate, "秒")
+								logs.Info(utils.ReplaceUserInput(msgContent.Wid), "图表的刷新率是：", rate, "秒")
 								refresh_rate = rate
 							}
 
@@ -170,7 +171,7 @@ func (c *Client) ReadMsg() {
 						if extendMap["sampling_rate"] != "" {
 							rate, err := strconv.Atoi(extendMap["sampling_rate"])
 							if err == nil {
-								logs.Info(msgContent.Wid, "图表的采样率是：", rate, "秒")
+								logs.Info(utils.ReplaceUserInput(msgContent.Wid), "图表的采样率是：", rate, "秒")
 								sampling_rate = strconv.Itoa(rate * 1000000)
 							}
 

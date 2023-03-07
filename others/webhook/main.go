@@ -1,6 +1,7 @@
 package main
 
 import (
+	"ThingsPanel-Go/utils"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,7 +17,7 @@ func main() {
 func payload(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		result, _ := ioutil.ReadAll(r.Body)
-		fmt.Printf("%s\n", result)
+		fmt.Printf("%s\n", utils.ReplaceUserInput(string(result)))
 		_, _ = io.WriteString(w, "Success")
 		go shell()
 	}
