@@ -5,7 +5,6 @@ import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
-	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
@@ -252,10 +251,6 @@ func (this *StructureController) Field() {
 			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
 			break
 		}
-		return
-	}
-	if utils.ContainsIllegal(structureFieldValidate.Field) {
-		response.SuccessWithMessage(1000, "error", (*context2.Context)(this.Ctx))
 		return
 	}
 	var AssetService services.AssetService
