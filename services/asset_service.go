@@ -697,6 +697,9 @@ func (*AssetService) ExtensionName(reqField string) []models.ExtensionDataMap {
 	//dirs, _ := utils.GetDirs("./extensions")
 	var dataMapStructList []models.ExtensionDataMap
 	// for _, reqField := range dirs {
+	if utils.ContainsIllegal(reqField) {
+		return dataMapStructList
+	}
 	f := utils.FileExist("./extensions/" + reqField + "/config.yaml")
 	if f {
 		conf, err := yaml.ReadYmlReader("./extensions/" + reqField + "/config.yaml")
