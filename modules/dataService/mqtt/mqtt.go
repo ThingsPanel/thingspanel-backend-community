@@ -35,7 +35,7 @@ func Listen(broker, username, password, clientid string, msgProc func(c mqtt.Cli
 			}
 		}
 		opts := mqtt.NewClientOptions()
-		fmt.Println(broker + username + password + clientid)
+		fmt.Println(broker + username + clientid)
 		opts.SetUsername(username)
 		opts.SetPassword(password)
 		opts.SetClientID(clientid)
