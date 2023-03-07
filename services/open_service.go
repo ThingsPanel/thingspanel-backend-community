@@ -40,6 +40,12 @@ func (*OpenService) SaveData(OpenValidate valid.OpenValidate) (bool, error) {
 			if _, ok := v.(string); !ok {
 				return false, errors.New("data values.filename type missing")
 			}
+			if utils.ContainsIllegal(valuesMap["filename"].(string)) {
+				return false, errors.New("data values.filename illegal")
+			}
+			if utils.ContainsIllegal(valuesMap["file"].(string)) {
+				return false, errors.New("data file illegal")
+			}
 			// 保存BASE64文件
 			filename, err := SaveBase64File(valuesMap["filename"].(string), valuesMap["file"].(string))
 			if err != nil {
