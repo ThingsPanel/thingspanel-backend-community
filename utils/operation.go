@@ -11,7 +11,7 @@ import (
 
 // 运算
 func Check(value1 interface{}, symbol string, value2 interface{}) (bool, error) {
-	logs.Error(value1, symbol, value2)
+	//logs.Error(value1, symbol, value2)
 	var valueB string
 	if v, ok := value2.(string); ok {
 		valueB = v

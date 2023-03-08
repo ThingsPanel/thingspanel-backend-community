@@ -1,6 +1,7 @@
 package services
 
 import (
+	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/base64"
 	"encoding/json"
@@ -51,7 +52,7 @@ func (*OpenService) SaveData(OpenValidate valid.OpenValidate) (bool, error) {
 		}
 	}
 	logs.Info("=======================")
-	logs.Info(OpenValidate)
+	//logs.Info(OpenValidate)
 	// 解析并存储数据
 	OpenValidateByte, _ := json.Marshal(OpenValidate)
 	var TSKV TSKVService
@@ -73,6 +74,9 @@ func SaveBase64File(filename string, fileBase string) (string, error) {
 	timeStr := time.Now().Format("2006-01-02")
 	os.MkdirAll("./files/outer/"+timeStr, os.ModePerm)
 	filePath := "./files/outer/" + timeStr + "/" + filename
+	if err := utils.CheckFilename(filename); err != nil {
+		return "", err
+	}
 	err := ioutil.WriteFile(filePath, fileByte, 0667)
 	if err == nil {
 		log.Println(err)

@@ -83,3 +83,14 @@ func ReplaceUserInput(s string) string {
 	newStringInput := strings.NewReplacer("\n", " ", "\r", " ")
 	return newStringInput.Replace(s)
 }
+
+//字符包含非法字符
+func ContainsIllegal(target string) bool {
+	var str_array [3]string = [3]string{"/", "./", "\\"}
+	for _, element := range str_array {
+		if strings.Contains(target, element) {
+			return true
+		}
+	}
+	return false
+}

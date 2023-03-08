@@ -89,7 +89,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 		return
 	}
 	logs.Info("自动化-设备条件：", automationConditions)
-	logs.Info("自动化-map:", values)
+	//logs.Info("自动化-map:", values)
 	// 每一条自动化策略；
 	var passedAutomationList []string
 	for _, automationCondition := range automationConditions {
