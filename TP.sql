@@ -1542,3 +1542,58 @@ VALUES(1661, 'p', '5b0969cb-ed0b-c664-1fab-d0ba90c39e04', 'b29d5b40-b635-e34d-ee
 INSERT INTO public.casbin_rule
 (id, ptype, v0, v1, v2, v3, v4, v5, v6, v7)
 VALUES(1662, 'p', '5b0969cb-ed0b-c664-1fab-d0ba90c39e04', '2649ac04-2935-0bb1-8a18-1278b9682a5d', 'allow', '', '', '', '', '');
+
+-- v0.4.8
+ALTER TABLE public.tp_generate_device ADD device_code varchar(99) NULL;
+COMMENT ON COLUMN public.tp_generate_device.device_code IS '设备编码';
+
+CREATE TABLE public.tp_ota (
+	id varchar(36) NOT NULL,
+	package_name varchar(100) NOT NULL,
+	package_version varchar(20) NOT NULL,
+	package_module varchar(50) NULL,
+	product_id varchar(36) NOT NULL,
+	signature_algorithm varchar(50) NOT NULL,
+	package_url varchar(255) NULL,
+	description varchar(255) NULL,
+	additional_info varchar(500) NULL,
+	created_at int8 NOT NULL,
+	remark varchar(255) NULL,
+	CONSTRAINT tp_ota_pk PRIMARY KEY (id),
+	CONSTRAINT tp_ota_fk FOREIGN KEY (product_id) REFERENCES public.tp_product(id) ON DELETE RESTRICT ON UPDATE RESTRICT
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_ota.package_name IS '升级包名称';
+COMMENT ON COLUMN public.tp_ota.package_module IS '升级包模块';
+COMMENT ON COLUMN public.tp_ota.product_id IS '产品id';
+COMMENT ON COLUMN public.tp_ota.signature_algorithm IS '签名算法';
+
+CREATE TABLE tp_ota_task (
+  id VARCHAR(36) PRIMARY KEY,
+  task_name VARCHAR(100) NOT NULL,
+  upgrade_time_type VARCHAR(1) NOT NULL,
+  start_time VARCHAR(50),
+  end_time VARCHAR(50),
+  device_count int NOT NULL,
+  task_status  VARCHAR(1) NOT NULL,
+  description VARCHAR(500),
+  created_at int8 NOT NULL,
+  remark  VARCHAR(255)
+);
+COMMENT ON COLUMN tp_ota_task.upgrade_time_type IS '升级时间类型 0-立即升级 1-定时升级';
+COMMENT ON COLUMN tp_ota_task.task_status IS '任务状态 0-待升级 1-升级中 2-已完成';
+
+CREATE TABLE tp_ota_device (
+    id VARCHAR(36) PRIMARY KEY,
+    device_id  VARCHAR(36)  NOT NULL,
+    current_version  VARCHAR(50)  ,
+    target_version VARCHAR(50)  NOT NULL,
+    upgrade_progress  VARCHAR(10)  ,
+    status_update_time  VARCHAR(50) ,
+    upgrade_status  VARCHAR(50) ,
+    status_detail  VARCHAR(255)  ,
+	remark  VARCHAR(255)  
+);
+COMMENT ON COLUMN tp_ota_device.upgrade_status IS '状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消';
