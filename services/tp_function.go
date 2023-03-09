@@ -26,7 +26,7 @@ func (*TpFunctionService) GetFunctionList(FunctionPaginationValidate valid.Funct
 	offset := (FunctionPaginationValidate.CurrentPage - 1) * FunctionPaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpFunction{})
 	if FunctionPaginationValidate.Id != "" {
-		db.Where("and id = ?", FunctionPaginationValidate.Id)
+		db.Where("id = ?", FunctionPaginationValidate.Id)
 	}
 	var count int64
 	db.Count(&count)
