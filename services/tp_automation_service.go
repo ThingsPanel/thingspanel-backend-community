@@ -66,7 +66,7 @@ func (*TpAutomationService) GetTpAutomationDetail(tp_automation_id string) (map[
 			if value == "2" {
 				if id, ok := tp_automation_action["warning_strategy_id"].(string); ok {
 					var tp_warning_strategy = make(map[string]interface{})
-					result := psql.Mydb.Model(&models.TpWarningStrategy{Id: id}).First(&tp_warning_strategy)
+					result := psql.Mydb.Model(models.TpWarningStrategy{}).Where(&models.TpWarningStrategy{Id: id}).First(&tp_warning_strategy)
 					if result.Error != nil {
 						if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 							return tp_automation, result.Error
@@ -102,7 +102,7 @@ func (*TpAutomationService) GetTpAutomationList(PaginationValidate valid.TpAutom
 }
 
 // 新增数据
-//新增自动化：添加自动化得到id-》添加自动化条件-》添加自动化动作（判断有无告警信息，有则先添加告警策略）；-》以上动作失败回滚
+// 新增自动化：添加自动化得到id-》添加自动化条件-》添加自动化动作（判断有无告警信息，有则先添加告警策略）；-》以上动作失败回滚
 func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationValidate) (valid.AddTpAutomationValidate, error) {
 	tx := psql.Mydb.Begin()
 	// 添加自动化
@@ -185,7 +185,7 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 	return tp_automation, nil
 }
 
-//查询自动化策略是否启用
+// 查询自动化策略是否启用
 func (*TpAutomationService) IsEnabled(automationId string) (bool, error) {
 	var automation models.TpAutomation
 	result := psql.Mydb.Model(&models.TpAutomation{}).Where("id = ?", automationId).First(&automation)
@@ -424,7 +424,7 @@ func (*TpAutomationService) EnabledAutomation(automationId string, enabled strin
 	return nil
 }
 
-//添加自动化的定时任务
+// 添加自动化的定时任务
 func AutomationCron(automationCondition models.TpAutomationCondition) error {
 	C := tp_cron.C
 	var logMessage string
