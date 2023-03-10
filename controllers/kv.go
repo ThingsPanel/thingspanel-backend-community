@@ -95,7 +95,8 @@ func (this *KvController) Export() {
 		return
 	}
 	var TSKVService services.TSKVService
-	t, c := TSKVService.Paginate(KVExcelValidate.BusinessId, KVExcelValidate.AssetId, KVExcelValidate.Token, KVExcelValidate.Type, KVExcelValidate.StartTime, KVExcelValidate.EndTime, KVExcelValidate.Limit, 0, KVExcelValidate.Key, KVExcelValidate.DeviceName)
+	//每次查10000条
+	num := KVExcelValidate.Limit / 10000
 	excel_file := excelize.NewFile()
 	index := excel_file.NewSheet("Sheet1")
 	excel_file.SetActiveSheet(index)
@@ -106,22 +107,37 @@ func (this *KvController) Export() {
 	excel_file.SetCellValue("Sheet1", "E1", "数据标签")
 	excel_file.SetCellValue("Sheet1", "F1", "值")
 	excel_file.SetCellValue("Sheet1", "G1", "设备插件")
-	var i int
-	if c > 0 {
-		i = 1
-		for _, tv := range t {
-			i++
-			is := strconv.Itoa(i)
-			excel_file.SetCellValue("Sheet1", "A"+is, tv.Bname)
-			excel_file.SetCellValue("Sheet1", "B"+is, tv.Name)
-			excel_file.SetCellValue("Sheet1", "C"+is, tv.Token)
-			tm := time.Unix(tv.TS/1000000, 0)
-			excel_file.SetCellValue("Sheet1", "D"+is, tm.Format("2006/01/02 03:04:05"))
-			excel_file.SetCellValue("Sheet1", "E"+is, tv.Key)
-			excel_file.SetCellValue("Sheet1", "F"+is, tv.DblV)
-			excel_file.SetCellValue("Sheet1", "G"+is, tv.EntityType)
+	for i := 0; i <= num; i++ {
+		var t []models.TSKVDblV
+		var c int64
+		if (i+1)*10000 <= KVExcelValidate.Limit {
+			t, c = TSKVService.Paginate(KVExcelValidate.BusinessId, KVExcelValidate.AssetId, KVExcelValidate.Token, KVExcelValidate.Type, KVExcelValidate.StartTime, KVExcelValidate.EndTime, (i+1)*10000, i*10000, KVExcelValidate.Key, KVExcelValidate.DeviceName)
+		} else {
+			t, c = TSKVService.Paginate(KVExcelValidate.BusinessId, KVExcelValidate.AssetId, KVExcelValidate.Token, KVExcelValidate.Type, KVExcelValidate.StartTime, KVExcelValidate.EndTime, KVExcelValidate.Limit%10000, i*10000, KVExcelValidate.Key, KVExcelValidate.DeviceName)
+		}
+		var i int
+		if c > 0 {
+			i = 1
+			for _, tv := range t {
+				i++
+				is := strconv.Itoa(i)
+				excel_file.SetCellValue("Sheet1", "A"+is, tv.Bname)
+				excel_file.SetCellValue("Sheet1", "B"+is, tv.Name)
+				excel_file.SetCellValue("Sheet1", "C"+is, tv.Token)
+				tm := time.Unix(tv.TS/1000000, 0)
+				excel_file.SetCellValue("Sheet1", "D"+is, tm.Format("2006/01/02 03:04:05"))
+				excel_file.SetCellValue("Sheet1", "E"+is, tv.Key)
+				if tv.StrV == "" {
+					excel_file.SetCellValue("Sheet1", "F"+is, tv.DblV)
+				} else {
+					excel_file.SetCellValue("Sheet1", "F"+is, tv.StrV)
+				}
+				excel_file.SetCellValue("Sheet1", "G"+is, tv.EntityType)
+			}
 		}
 	}
+	//t, c := TSKVService.Paginate(KVExcelValidate.BusinessId, KVExcelValidate.AssetId, KVExcelValidate.Token, KVExcelValidate.Type, KVExcelValidate.StartTime, KVExcelValidate.EndTime, KVExcelValidate.Limit, 0, KVExcelValidate.Key, KVExcelValidate.DeviceName)
+
 	uploadDir := "./files/excel/"
 	errs := os.MkdirAll(uploadDir, os.ModePerm)
 	if errs != nil {
