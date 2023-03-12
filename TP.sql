@@ -1597,3 +1597,6 @@ CREATE TABLE tp_ota_device (
 	remark  VARCHAR(255)  
 );
 COMMENT ON COLUMN tp_ota_device.upgrade_status IS '状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消';
+
+ALTER TABLE public.tp_ota_task ADD ota_id varchar(36) NOT NULL;
+ALTER TABLE public.tp_ota_task ADD CONSTRAINT tp_ota_task_fk FOREIGN KEY (ota_id) REFERENCES public.tp_ota(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
