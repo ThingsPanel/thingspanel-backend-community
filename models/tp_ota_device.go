@@ -9,6 +9,7 @@ type TpOtaDevice struct {
 	StatusUpdateTime string `json:"status_update_time,omitempty"`
 	UpgradeStatus    string `json:"upgrade_status,omitempty"`
 	StatusDetail     string `json:"status_detail,omitempty"`
+	OtaTaskId        string `json:"ota_task_id,omitempty"`
 }
 
 func (TpOtaDevice) TableName() string {

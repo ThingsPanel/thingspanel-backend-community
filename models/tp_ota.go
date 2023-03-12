@@ -9,8 +9,8 @@ type TpOta struct {
 	SignatureAlgorithm string `json:"signature_algorithm,omitempty"` //签名算法
 	PackageUrl         string `json:"package_url,omitempty"`
 	Description        string `json:"description,omitempty"`
-	//OtherConfig        string `json:"other_config,omitempty"`
-	CreatedAt int64 `json:"created_at,omitempty"`
+	AdditionalInfo     string `json:"additional_info,omitempty"`
+	CreatedAt          int64  `json:"created_at,omitempty"`
 }
 
 func (TpOta) TableName() string {

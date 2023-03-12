@@ -86,8 +86,8 @@ func (TpOtaController *TpOtaController) Add() {
 		SignatureAlgorithm: AddTpOtaValidate.SignatureAlgorithm,
 		PackageUrl:         AddTpOtaValidate.PackageUrl,
 		Description:        AddTpOtaValidate.Description,
-		//OtherConfig:        AddTpOtaValidate.OtherConfig,
-		CreatedAt: time.Now().Unix(),
+		AdditionalInfo:     AddTpOtaValidate.AdditionalInfo,
+		CreatedAt:          time.Now().Unix(),
 	}
 	d, rsp_err := TpOtaService.AddTpOta(TpOta)
 	if rsp_err == nil {

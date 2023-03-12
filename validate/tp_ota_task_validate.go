@@ -12,6 +12,7 @@ type TpOtaTaskVaildate struct {
 	TaskStatus      string `json:"task_status,omitempty" alias:"状态 0-待升级 1-升级中 2-已完成"`
 	Description     string `json:"description,omitempty" alias:"说明"`
 	CreatedAt       int64  `json:"created_at,omitempty" alias:"创建日期"`
+	OtaId           string `json:"ota_id,omitempty" alias:"固件包id"`
 }
 type AddTpOtaTaskValidate struct {
 	TaskName        string `json:"task_name,omitempty" alias:"任务名称" valid:"Required;MaxSize(36)"`
@@ -22,11 +23,13 @@ type AddTpOtaTaskValidate struct {
 	TaskStatus      string `json:"task_status,omitempty" alias:"状态 0-待升级 1-升级中 2-已完成"`
 	Description     string `json:"description,omitempty" alias:"说明"`
 	CreatedAt       int64  `json:"created_at,omitempty" alias:"创建日期"`
+	OtaId           string `json:"ota_id,omitempty" alias:"固件包id"`
 }
 type TpOtaTaskPaginationValidate struct {
 	CurrentPage int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
 	PerPage     int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	Id          string `json:"id" gorm:"primaryKey" valid:"MaxSize(36)"`
+	Id          string `json:"id" alias:"升级包id" gorm:"primaryKey" valid:"MaxSize(36)"`
+	OtaId       string `json:"ota_id,omitempty" alias:"升级包id" valid:"Required"`
 }
 
 type RspTpOtaTaskPaginationValidate struct {

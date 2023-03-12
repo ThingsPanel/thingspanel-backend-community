@@ -11,8 +11,8 @@ type TpOtaValidate struct {
 	SignatureAlgorithm string `json:"signature_algorithm,omitempty" ailas:"签名算法" valid:"Required;MaxSize(50)"` //签名算法
 	PackageUrl         string `json:"package_url,omitempty" ailas:"升级包url" valid:"MaxSize(255)"`
 	Description        string `json:"description,omitempty" ailas:"描述" valid:"MaxSize(255)"`
-	//OtherConfig        string `json:"other_config,omitempty" ailas:"其他配置"`
-	CreatedAt int64 `json:"created_at,omitempty" ailas:"创建日期"`
+	AdditionalInfo     string `json:"additional_info,omitempty"  ailas:"其他配置"`
+	CreatedAt          int64  `json:"created_at,omitempty" ailas:"创建日期"`
 }
 type AddTpOtaValidate struct {
 	PackageName        string `json:"package_name,omitempty" ailas:"升级包名称" valid:"Required;MaxSize(36)"`
@@ -22,7 +22,7 @@ type AddTpOtaValidate struct {
 	SignatureAlgorithm string `json:"signature_algorithm,omitempty" ailas:"签名算法" valid:"Required;MaxSize(36)"` //签名算法
 	PackageUrl         string `json:"package_url,omitempty" ailas:"升级包url"`
 	Description        string `json:"description,omitempty" ailas:"描述"`
-	OtherConfig        string `json:"other_config,omitempty" ailas:"其他配置"`
+	AdditionalInfo     string `json:"additional_info,omitempty" ailas:"其他配置"`
 	CreatedAt          int64  `json:"created_at,omitempty" ailas:"创建日期"`
 }
 type TpOtaPaginationValidate struct {

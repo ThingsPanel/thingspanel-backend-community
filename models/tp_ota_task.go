@@ -10,6 +10,7 @@ type TpOtaTask struct {
 	TaskStatus      string `json:"task_status,omitempty"`
 	Description     string `json:"description,omitempty"`
 	CreatedAt       int64  `json:"created_at,omitempty"`
+	OtaId           string `json:"ota_id,omitempty"`
 }
 
 func (TpOtaTask) TableName() string {
