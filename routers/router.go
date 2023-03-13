@@ -336,6 +336,20 @@ func init() {
 
 		//生成设备表
 		web.NSRouter("/tp_generate_device/activate", &controllers.TpGenerateDeviceController{}, "*:ActivateDevice"),
+
+		//固件升级
+		web.NSRouter("/tp_ota/add", &controllers.TpOtaController{}, "*:Add"),
+		web.NSRouter("/tp_ota/list", &controllers.TpOtaController{}, "*:List"),
+		web.NSRouter("/tp_ota/delete", &controllers.TpOtaController{}, "*:Delete"),
+		//固件升级任务
+		//web.NSRouter("/tp_ota_task/modifystatus", &controllers.TpOtaTaskController{}, "*:ModifyStatus"),
+		web.NSRouter("/tp_ota_task/list", &controllers.TpOtaTaskController{}, "*:List"),
+
+		//固件升级设备
+		//web.NSRouter("/tp_ota_device/add", &controllers.TpOtaDeviceController{}, "*:Add"),
+		web.NSRouter("/tp_ota_device/list", &controllers.TpOtaDeviceController{}, "*:List"),
+		//web.NSRouter("/tp_ota_device/delete", &controllers.TpOtaDeviceController{}, "*:Delete"),
+
 		//WVP接口
 		web.NSRouter("/wvp/ptz", &controllers.WvpController{}, "*:PtzControl"),
 		web.NSRouter("/gb_record/query", &controllers.WvpController{}, "*:GetVideoList"),

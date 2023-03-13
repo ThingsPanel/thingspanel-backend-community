@@ -82,6 +82,15 @@ func (*TpBatchService) EditTpBatch(tp_batch valid.TpBatchValidate) bool {
 
 // 删除数据
 func (*TpBatchService) DeleteTpBatch(tp_batch models.TpBatch) error {
+	sql := `select count(*) from tp_generate_device where activate_flag = '1' and batch_id= ?`
+	var count int64
+	if resultcount := psql.Mydb.Raw(sql, tp_batch.Id).Scan(&count); resultcount.Error != nil {
+		logs.Error(resultcount.Error)
+		return resultcount.Error
+	}
+	if count > 0 {
+		return errors.New("有设备已激活,不能删除")
+	}
 	result := psql.Mydb.Delete(&tp_batch)
 	if result.Error != nil {
 		logs.Error(result.Error)
