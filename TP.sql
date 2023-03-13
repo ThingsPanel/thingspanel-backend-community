@@ -1600,3 +1600,6 @@ COMMENT ON COLUMN tp_ota_device.upgrade_status IS '状态 0-待推送 1-已推�
 
 ALTER TABLE public.tp_ota_task ADD ota_id varchar(36) NOT NULL;
 ALTER TABLE public.tp_ota_task ADD CONSTRAINT tp_ota_task_fk FOREIGN KEY (ota_id) REFERENCES public.tp_ota(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE public.device ADD product_id varchar(36) NULL;
+ALTER TABLE public.tp_ota_device ADD ota_task_id varchar(36) NOT NULL;
+ALTER TABLE public.tp_ota ADD sign varchar(99) NULL;
