@@ -13,6 +13,7 @@ type TpOtaValidate struct {
 	Description        string `json:"description,omitempty" ailas:"描述" valid:"MaxSize(255)"`
 	AdditionalInfo     string `json:"additional_info,omitempty"  ailas:"其他配置"`
 	CreatedAt          int64  `json:"created_at,omitempty" ailas:"创建日期"`
+	Sign               string `json:"sign,omitempty"  ailas:"其他配置"`
 }
 type AddTpOtaValidate struct {
 	PackageName        string `json:"package_name,omitempty" ailas:"升级包名称" valid:"Required;MaxSize(36)"`
@@ -21,6 +22,7 @@ type AddTpOtaValidate struct {
 	ProductId          string `json:"product_id,omitempty" ailas:"产品ID" valid:"Required;MaxSize(36)"`
 	SignatureAlgorithm string `json:"signature_algorithm,omitempty" ailas:"签名算法" valid:"Required;MaxSize(36)"` //签名算法
 	PackageUrl         string `json:"package_url,omitempty" ailas:"升级包url"`
+	PackagePath        string `json:"package_path,omitempty" ailas:"升级包url"`
 	Description        string `json:"description,omitempty" ailas:"描述"`
 	AdditionalInfo     string `json:"additional_info,omitempty" ailas:"其他配置"`
 	CreatedAt          int64  `json:"created_at,omitempty" ailas:"创建日期"`

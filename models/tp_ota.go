@@ -11,6 +11,7 @@ type TpOta struct {
 	Description        string `json:"description,omitempty"`
 	AdditionalInfo     string `json:"additional_info,omitempty"`
 	CreatedAt          int64  `json:"created_at,omitempty"`
+	Sign               string `json:"sign,omitempty"`
 }
 
 func (TpOta) TableName() string {

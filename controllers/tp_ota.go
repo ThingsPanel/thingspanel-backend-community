@@ -75,6 +75,13 @@ func (TpOtaController *TpOtaController) Add() {
 		}
 		return
 	}
+	if err := utils.CheckPathFilename(AddTpOtaValidate.PackagePath); err != nil || AddTpOtaValidate.PackagePath == "" || !utils.FileExist(AddTpOtaValidate.PackagePath) {
+		utils.SuccessWithMessage(400, "不存在升级包", (*context2.Context)(TpOtaController.Ctx))
+	}
+	packagesign, md5_err := utils.FileMD5(AddTpOtaValidate.PackagePath)
+	if md5_err != nil {
+		utils.SuccessWithMessage(400, "文件签名计算失败", (*context2.Context)(TpOtaController.Ctx))
+	}
 	var TpOtaService services.TpOtaService
 	id := utils.GetUuid()
 	TpOta := models.TpOta{
@@ -88,6 +95,7 @@ func (TpOtaController *TpOtaController) Add() {
 		Description:        AddTpOtaValidate.Description,
 		AdditionalInfo:     AddTpOtaValidate.AdditionalInfo,
 		CreatedAt:          time.Now().Unix(),
+		Sign:               packagesign,
 	}
 	d, rsp_err := TpOtaService.AddTpOta(TpOta)
 	if rsp_err == nil {

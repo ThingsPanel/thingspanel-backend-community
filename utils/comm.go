@@ -1,8 +1,12 @@
 package utils
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 )
 
@@ -78,6 +82,20 @@ func CheckFilename(param string) error {
 	return nil
 }
 
+//用户文件全路径安全校验
+func CheckPathFilename(param string) error {
+	if count := strings.Count(param, "."); count > 2 {
+		return errors.New("文件全路径中不能超过两个“.”")
+	}
+	if count := strings.Count(param, "/"); count > 0 {
+		return errors.New("文件全路径中不能包含非法字符“/”")
+	}
+	if count := strings.Count(param, "\\"); count > 0 {
+		return errors.New("文件全路径中不能包含非法字符“\\”")
+	}
+	return nil
+}
+
 //字符串替换非法字符
 func ReplaceUserInput(s string) string {
 	newStringInput := strings.NewReplacer("\n", " ", "\r", " ")
@@ -93,4 +111,15 @@ func ContainsIllegal(target string) bool {
 		}
 	}
 	return false
+}
+
+//文件md5计算
+func FileMD5(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	hash := md5.New()
+	_, _ = io.Copy(hash, file)
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
