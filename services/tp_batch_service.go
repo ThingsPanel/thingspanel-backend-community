@@ -126,6 +126,7 @@ func (*TpBatchService) GenerateBatch(tp_batch_id string) error {
 		if tp_batch["auth_type"] == "2" {
 			uid = strings.Replace(uuid.GetUuid(), "-", "", -1)[0:9]
 		}
+		device_code := tp_batch["product_id"].(string) + "-" + tp_batch_id + "-" + uuid.GetUuid()
 		var TpGenerateDevice = models.TpGenerateDevice{
 			BatchId:      tp_batch_id,
 			Token:        uuid.GetUuid(),
@@ -133,6 +134,7 @@ func (*TpBatchService) GenerateBatch(tp_batch_id string) error {
 			ActivateFlag: "0",
 			CreatedTime:  time.Now().Unix(),
 			DeviceId:     uuid.GetUuid(),
+			DeviceCode:   device_code,
 		}
 		// 插入数据
 		TpGenerateDeviceService.AddTpGenerateDevice(TpGenerateDevice)

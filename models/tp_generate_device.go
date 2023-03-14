@@ -10,6 +10,7 @@ type TpGenerateDevice struct {
 	DeviceId     string `json:"device_id,omitempty"`
 	CreatedTime  int64  `json:"created_time,omitempty"`
 	Remark       string `json:"remark,omitempty"`
+	DeviceCode   string `json:"device_code,omitempty"`
 }
 
 func (TpGenerateDevice) TableName() string {
