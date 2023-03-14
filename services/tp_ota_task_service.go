@@ -22,7 +22,7 @@ func (*TpOtaTaskService) GetTpOtaTaskList(PaginationValidate valid.TpOtaTaskPagi
 	var TpOtaTasks []models.TpOtaTask
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpOtaTask{})
-	if PaginationValidate.Id != "" {
+	if PaginationValidate.OtaId != "" {
 		db.Where("ota_id = ?", PaginationValidate.OtaId)
 	}
 	if PaginationValidate.Id != "" {
