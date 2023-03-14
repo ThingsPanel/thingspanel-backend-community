@@ -75,6 +75,18 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 		}
 		return
 	}
+	var DeviceService services.DeviceService
+	var dcount int64
+	var devices []models.Device
+	if AddTpOtaTaskValidate.SelectDeviceFlag == "0" {
+		devices, dcount = DeviceService.GetDevicesByProductID(AddTpOtaTaskValidate.ProductId)
+	} else {
+		for _, v := range AddTpOtaTaskValidate.DeviceIdList {
+			device, _ := DeviceService.GetDeviceByID(v)
+			devices = append(devices, *device)
+			dcount += 1
+		}
+	}
 
 	var TpOtaTaskService services.TpOtaTaskService
 	id := utils.GetUuid()
@@ -84,7 +96,7 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 		UpgradeTimeType: AddTpOtaTaskValidate.UpgradeTimeType,
 		StartTime:       AddTpOtaTaskValidate.StartTime,
 		EndTime:         AddTpOtaTaskValidate.EndTime,
-		DeviceCount:     AddTpOtaTaskValidate.DeviceCount,
+		DeviceCount:     dcount,
 		TaskStatus:      AddTpOtaTaskValidate.TaskStatus,
 		Description:     AddTpOtaTaskValidate.Description,
 		CreatedAt:       time.Now().Unix(),
@@ -94,16 +106,12 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	if rsp_err != nil {
 		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpOtaTaskController.Ctx))
 	}
-	var TpGenerateDeviceService services.TpGenerateDeviceService
-	isSuccess, devices := TpGenerateDeviceService.GetTpGenerateDeviceById(AddTpOtaTaskValidate.DeviceIds)
-	if !isSuccess {
-		utils.SuccessWithMessage(400, "设备查询失败", (*context2.Context)(TpOtaTaskController.Ctx))
-	}
+
 	var tp_ota_devices []models.TpOtaDevice
 	for _, device := range devices {
 		tp_ota_devices = append(tp_ota_devices, models.TpOtaDevice{
 			Id:        utils.GetUuid(),
-			DeviceId:  device.DeviceId,
+			DeviceId:  device.ID,
 			OtaTaskId: d.Id,
 		})
 	}
