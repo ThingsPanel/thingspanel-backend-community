@@ -45,17 +45,6 @@ func (*TpGenerateDeviceService) GetTpGenerateDeviceList(PaginationValidate valid
 	return true, TpGenerateDevices, count
 }
 
-//根据id列表获取设备
-func (*TpGenerateDeviceService) GetTpGenerateDeviceById(ids []string) (bool, []models.TpGenerateDevice) {
-	var TpGenerateDevices []models.TpGenerateDevice
-	result := psql.Mydb.Model(&models.TpGenerateDevice{}).Where("id in ?", ids).Find(&TpGenerateDevices)
-	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return false, TpGenerateDevices
-	}
-	return true, TpGenerateDevices
-}
-
 // 新增数据
 func (*TpGenerateDeviceService) AddTpGenerateDevice(tp_generate_device models.TpGenerateDevice) (models.TpGenerateDevice, error) {
 	var uuid = uuid.GetUuid()
