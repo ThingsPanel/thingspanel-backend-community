@@ -26,7 +26,9 @@ func (*TpOtaDeviceService) GetTpOtaDeviceList(PaginationValidate valid.TpOtaDevi
 	var TpOtaDevices []models.TpOtaDevice
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
-	db.Where("ota_task_id =?", PaginationValidate.OtaTaskId)
+	if PaginationValidate.OtaTaskId != "" {
+		db.Where("ota_task_id =?", PaginationValidate.OtaTaskId)
+	}
 	if PaginationValidate.DeviceId != "" {
 		db.Where("device_id like ?", "%"+PaginationValidate.DeviceId+"%")
 	}
