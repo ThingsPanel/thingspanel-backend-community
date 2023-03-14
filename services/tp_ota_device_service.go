@@ -63,6 +63,18 @@ func (*TpOtaDeviceService) AddTpOtaDevice(tp_ota_device models.TpOtaDevice) (mod
 	}
 	return tp_ota_device, nil
 }
+
+//批量插入数据
+func (*TpOtaDeviceService) AddBathTpOtaDevice(tp_ota_device []models.TpOtaDevice) ([]models.TpOtaDevice, error) {
+	result := psql.Mydb.Create(&tp_ota_device)
+	if result.Error != nil {
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		return tp_ota_device, result.Error
+	}
+	return tp_ota_device, nil
+}
+
+//
 func (*TpOtaDeviceService) DeleteTpOtaDevice(tp_ota_device models.TpOtaDevice) error {
 	result := psql.Mydb.Delete(&tp_ota_device)
 	if result.Error != nil {
