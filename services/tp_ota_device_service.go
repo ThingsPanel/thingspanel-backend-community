@@ -76,12 +76,31 @@ func (*TpOtaDeviceService) AddBathTpOtaDevice(tp_ota_device []models.TpOtaDevice
 	return tp_ota_device, nil
 }
 
-//
-func (*TpOtaDeviceService) DeleteTpOtaDevice(tp_ota_device models.TpOtaDevice) error {
-	result := psql.Mydb.Delete(&tp_ota_device)
+//修改升级状态
+//0-待推送 1-已推送 2-升级中 修改为已取消
+//4-升级失败 修改为待推送
+//3-升级成功 5-已取消 不修改
+func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_device models.TpOtaDevice) error {
+	var upgrade_status_list []string
+	var result *gorm.DB
+	db := psql.Mydb.Model(&models.TpOtaDevice{})
+	if tp_ota_device.OtaTaskId != "" {
+		result = db.Select("upgrade_status").Where("ota_task_id=?", tp_ota_device.OtaTaskId).Find(&upgrade_status_list)
+
+	} else {
+		result = db.Select("upgrade_status").Where("id=?", tp_ota_device.Id).Find(&upgrade_status_list)
+	}
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return result.Error
+	}
+	for _, upgrade_status := range upgrade_status_list {
+		if upgrade_status == "0" || upgrade_status == "1" || upgrade_status == "2" {
+			db.Where("id=?", tp_ota_device.Id).Update("upgrade_status", "5")
+		}
+		if upgrade_status == "4" {
+			db.Where("id=?", tp_ota_device.Id).Update("upgrade_status", "0")
+		}
 	}
 	return nil
 }

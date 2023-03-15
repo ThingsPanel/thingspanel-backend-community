@@ -97,7 +97,7 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 		StartTime:       AddTpOtaTaskValidate.StartTime,
 		EndTime:         AddTpOtaTaskValidate.EndTime,
 		DeviceCount:     dcount,
-		TaskStatus:      AddTpOtaTaskValidate.TaskStatus,
+		TaskStatus:      "0",
 		Description:     AddTpOtaTaskValidate.Description,
 		CreatedAt:       time.Now().Unix(),
 		OtaId:           AddTpOtaTaskValidate.OtaId,
@@ -110,9 +110,10 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	var tp_ota_devices []models.TpOtaDevice
 	for _, device := range devices {
 		tp_ota_devices = append(tp_ota_devices, models.TpOtaDevice{
-			Id:        utils.GetUuid(),
-			DeviceId:  device.ID,
-			OtaTaskId: d.Id,
+			Id:            utils.GetUuid(),
+			DeviceId:      device.ID,
+			OtaTaskId:     d.Id,
+			UpgradeStatus: "0",
 		})
 	}
 	var TpOtaDeviceService services.TpOtaDeviceService

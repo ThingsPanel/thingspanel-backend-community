@@ -26,16 +26,16 @@ type TpOtaDevicePaginationValidate struct {
 	PerPage       int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
 	DeviceId      string `json:"device_id" gorm:"primaryKey" valid:"MaxSize(36)"`
 	UpgradeStatus string `json:"upgrade_status,omitempty" alias:"状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消"`
-	OtaTaskId     string `json:"ota_task_id,omitempty" alias:"ota任务id" valid:"Required;MaxSize(36)"`
+	OtaTaskId     string `json:"ota_task_id,omitempty" alias:"ota任务id" valid:"MaxSize(36)"`
 }
 
 type RspTpOtaDevicePaginationValidate struct {
-	CurrentPage int `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
-	PerPage     int `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	//Data        []models.TpOtaDevice `json:"data" alias:"返回数据"`
-	Data  map[string]interface{} `json:"data" alias:"返回数据"`
-	Total int64                  `json:"total" alias:"总数" valid:"Max(10000)"`
+	CurrentPage int                    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
+	PerPage     int                    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
+	Data        map[string]interface{} `json:"data" alias:"返回数据"`
+	Total       int64                  `json:"total" alias:"总数" valid:"Max(10000)"`
 }
 type TpOtaDeviceIdValidate struct {
-	Id string `json:"id,omitempty"   gorm:"primaryKey"  alias:"Id" valid:"MaxSize(36)"`
+	Id        string `json:"id,omitempty"   gorm:"primaryKey"  alias:"Id" valid:"MaxSize(36)"`
+	OtaTaskId string `json:"ota_task_id,omitempty" alias:"ota任务id" valid:"MaxSize(36)"`
 }

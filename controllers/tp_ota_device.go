@@ -110,7 +110,7 @@ func (TpOtaDeviceController *TpOtaDeviceController) Add() {
 }
 
 //删除
-func (TpOtaDeviceController *TpOtaDeviceController) Delete() {
+func (TpOtaDeviceController *TpOtaDeviceController) ModfiyUpdate() {
 	TpOtaDeviceIdValidate := valid.TpOtaDeviceIdValidate{}
 	err := json.Unmarshal(TpOtaDeviceController.Ctx.Input.RequestBody, &TpOtaDeviceIdValidate)
 	if err != nil {
@@ -128,14 +128,15 @@ func (TpOtaDeviceController *TpOtaDeviceController) Delete() {
 		}
 		return
 	}
-	if TpOtaDeviceIdValidate.Id == "" {
-		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpOtaDeviceController.Ctx))
+	if TpOtaDeviceIdValidate.Id == "" && TpOtaDeviceIdValidate.OtaTaskId == "" {
+		utils.SuccessWithMessage(1000, "id与任务id不能同时为空", (*context2.Context)(TpOtaDeviceController.Ctx))
 	}
 	var TpOtaDeviceService services.TpOtaDeviceService
 	TpOtaDevice := models.TpOtaDevice{
-		Id: TpOtaDeviceIdValidate.Id,
+		Id:        TpOtaDeviceIdValidate.Id,
+		OtaTaskId: TpOtaDeviceIdValidate.OtaTaskId,
 	}
-	rsp_err := TpOtaDeviceService.DeleteTpOtaDevice(TpOtaDevice)
+	rsp_err := TpOtaDeviceService.ModfiyUpdateDevice(TpOtaDevice)
 	if rsp_err == nil {
 		utils.SuccessWithMessage(200, "success", (*context2.Context)(TpOtaDeviceController.Ctx))
 	} else {
