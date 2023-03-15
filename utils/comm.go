@@ -115,6 +115,10 @@ func ContainsIllegal(target string) bool {
 
 //文件md5计算
 func FileMD5(filePath string) (string, error) {
+	check_err := CheckPathFilename(filePath)
+	if check_err != nil {
+		return "", check_err
+	}
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", err
