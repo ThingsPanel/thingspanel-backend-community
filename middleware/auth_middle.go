@@ -31,6 +31,7 @@ func AuthMiddle() {
 		url := strings.TrimLeft(ctx.Input.URL(), "/")
 		if !isAuthExceptUrl(strings.ToLower(url), noLogin) {
 			//获取TOKEN
+			fmt.Println(ctx.Request.Header["Authorization"])
 			if len(ctx.Request.Header["Authorization"]) == 0 {
 				response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
 				return

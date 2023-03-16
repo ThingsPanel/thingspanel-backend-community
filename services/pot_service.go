@@ -28,7 +28,7 @@ func (*PotTypeService) GetPotTypeDetail(tp_product_id string) []models.PotType {
 func (*PotTypeService) GetPotTypeList(PaginationValidate valid.TpProductPaginationValidate) (bool, []models.PotType, int64) {
 	var PotType []models.PotType
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	db := psql.Mydb.Model(&models.PotType{})
+	db := psql.Mydb.Model(&models.PotType{}).Where("is_del", false)
 	if PaginationValidate.Name != "" {
 		db.Where("name like ?", "%"+PaginationValidate.Name+"%")
 	}
@@ -69,7 +69,7 @@ func (*PotTypeService) EditPotType(pot valid.PotType) bool {
 
 // 删除数据
 func (*PotTypeService) DeletePotType(pot models.PotType) error {
-	result := psql.Mydb.Delete(&pot)
+	result := psql.Mydb.Model(&models.PotType{}).Where("id = ?", pot.Id).Update("is_del", true)
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return result.Error
