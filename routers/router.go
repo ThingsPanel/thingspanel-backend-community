@@ -380,6 +380,12 @@ func init() {
 		web.NSRouter("/v1/automation/log/detail/list", &controllers.TpAutomationLogDetailController{}, "*:List"),
 		web.NSRouter("/v1/scenario/log/list", &controllers.TpScenarioLogController{}, "*:List"),
 		web.NSRouter("/v1/scenario/log/detail/list", &controllers.TpScenarioLogDetailController{}, "*:List"),
+
+		//锅型
+		web.NSRouter("/v1/pot/index", &controllers.PotTypeController{}, "*:Index"),
+		web.NSRouter("/v1/pot/add", &controllers.PotTypeController{}, "*:Add"),
+		web.NSRouter("/v1/pot/edit", &controllers.PotTypeController{}, "*:Edit"),
+		web.NSRouter("/v1/pot/delete", &controllers.PotTypeController{}, "*:Delete"),
 	)
 
 	// 图表推送数据
