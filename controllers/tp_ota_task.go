@@ -75,6 +75,19 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 		}
 		return
 	}
+	var DeviceService services.DeviceService
+	var dcount int64
+	var devices []models.Device
+	if AddTpOtaTaskValidate.SelectDeviceFlag == "0" {
+		devices, dcount = DeviceService.GetDevicesByProductID(AddTpOtaTaskValidate.ProductId)
+	} else {
+		for _, v := range AddTpOtaTaskValidate.DeviceIdList {
+			device, _ := DeviceService.GetDeviceByID(v)
+			devices = append(devices, *device)
+			dcount += 1
+		}
+	}
+
 	var TpOtaTaskService services.TpOtaTaskService
 	id := utils.GetUuid()
 	TpOtaTask := models.TpOtaTask{
@@ -83,19 +96,35 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 		UpgradeTimeType: AddTpOtaTaskValidate.UpgradeTimeType,
 		StartTime:       AddTpOtaTaskValidate.StartTime,
 		EndTime:         AddTpOtaTaskValidate.EndTime,
-		DeviceCount:     AddTpOtaTaskValidate.DeviceCount,
-		TaskStatus:      AddTpOtaTaskValidate.TaskStatus,
+		DeviceCount:     dcount,
+		TaskStatus:      "0",
 		Description:     AddTpOtaTaskValidate.Description,
 		CreatedAt:       time.Now().Unix(),
+		OtaId:           AddTpOtaTaskValidate.OtaId,
 	}
 	d, rsp_err := TpOtaTaskService.AddTpOtaTask(TpOtaTask)
-	if rsp_err == nil {
+	if rsp_err != nil {
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpOtaTaskController.Ctx))
+	}
+
+	var tp_ota_devices []models.TpOtaDevice
+	for _, device := range devices {
+		tp_ota_devices = append(tp_ota_devices, models.TpOtaDevice{
+			Id:            utils.GetUuid(),
+			DeviceId:      device.ID,
+			OtaTaskId:     d.Id,
+			UpgradeStatus: "0",
+		})
+	}
+	var TpOtaDeviceService services.TpOtaDeviceService
+	_, rsp_device_err := TpOtaDeviceService.AddBathTpOtaDevice(tp_ota_devices)
+	if rsp_err == nil && rsp_device_err == nil {
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpOtaTaskController.Ctx))
 	} else {
 		var err string
 		isTrue := strings.Contains(rsp_err.Error(), "23505")
 		if isTrue {
-			err = "批次编号不能重复！"
+			err = "不能重复！"
 		} else {
 			err = rsp_err.Error()
 		}

@@ -344,11 +344,12 @@ func init() {
 		//固件升级任务
 		//web.NSRouter("/tp_ota_task/modifystatus", &controllers.TpOtaTaskController{}, "*:ModifyStatus"),
 		web.NSRouter("/tp_ota_task/list", &controllers.TpOtaTaskController{}, "*:List"),
+		web.NSRouter("/tp_ota_task/add", &controllers.TpOtaTaskController{}, "*:Add"),
 
 		//固件升级设备
 		//web.NSRouter("/tp_ota_device/add", &controllers.TpOtaDeviceController{}, "*:Add"),
 		web.NSRouter("/tp_ota_device/list", &controllers.TpOtaDeviceController{}, "*:List"),
-		//web.NSRouter("/tp_ota_device/delete", &controllers.TpOtaDeviceController{}, "*:Delete"),
+		web.NSRouter("/tp_ota_device/modfiyupdate", &controllers.TpOtaDeviceController{}, "*:ModfiyUpdate"),
 
 		//WVP接口
 		web.NSRouter("/wvp/ptz", &controllers.WvpController{}, "*:PtzControl"),

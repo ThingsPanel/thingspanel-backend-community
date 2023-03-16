@@ -26,7 +26,9 @@ func (*TpOtaDeviceService) GetTpOtaDeviceList(PaginationValidate valid.TpOtaDevi
 	var TpOtaDevices []models.TpOtaDevice
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
-	db.Where("ota_task_id =?", PaginationValidate.OtaTaskId)
+	if PaginationValidate.OtaTaskId != "" {
+		db.Where("ota_task_id =?", PaginationValidate.OtaTaskId)
+	}
 	if PaginationValidate.DeviceId != "" {
 		db.Where("device_id like ?", "%"+PaginationValidate.DeviceId+"%")
 	}
@@ -63,11 +65,42 @@ func (*TpOtaDeviceService) AddTpOtaDevice(tp_ota_device models.TpOtaDevice) (mod
 	}
 	return tp_ota_device, nil
 }
-func (*TpOtaDeviceService) DeleteTpOtaDevice(tp_ota_device models.TpOtaDevice) error {
-	result := psql.Mydb.Delete(&tp_ota_device)
+
+//批量插入数据
+func (*TpOtaDeviceService) AddBathTpOtaDevice(tp_ota_device []models.TpOtaDevice) ([]models.TpOtaDevice, error) {
+	result := psql.Mydb.Create(&tp_ota_device)
+	if result.Error != nil {
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		return tp_ota_device, result.Error
+	}
+	return tp_ota_device, nil
+}
+
+//修改升级状态
+//0-待推送 1-已推送 2-升级中 修改为已取消
+//4-升级失败 修改为待推送
+//3-升级成功 5-已取消 不修改
+func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_device models.TpOtaDevice) error {
+	var devices []models.TpOtaDevice
+	var result *gorm.DB
+	db := psql.Mydb.Model(&models.TpOtaDevice{})
+	if tp_ota_device.OtaTaskId != "" {
+		result = db.Where("ota_task_id=?", tp_ota_device.OtaTaskId).Find(&devices)
+
+	} else {
+		result = db.Where("id=?", tp_ota_device.Id).Find(&devices)
+	}
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return result.Error
+	}
+	for _, device := range devices {
+		if device.UpgradeStatus == "0" || device.UpgradeStatus == "1" || device.UpgradeStatus == "2" {
+			psql.Mydb.Model(&device).Update("upgrade_status", "5")
+		}
+		if device.UpgradeStatus == "4" {
+			psql.Mydb.Model(&device).Update("upgrade_status", "0")
+		}
 	}
 	return nil
 }

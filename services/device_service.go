@@ -340,6 +340,21 @@ func (*DeviceService) GetDevicesByBusinessID(business_id string) ([]models.Devic
 	return devices, int64(len(devices))
 }
 
+// GetDevicesByProductID 根据产品ID获取设备列表
+// return []设备,设备数量
+// 2023-03-14新增
+func (*DeviceService) GetDevicesByProductID(product_id string) ([]models.Device, int64) {
+	var devices []models.Device
+	SQL := `select device.id,device.asset_id ,device.additional_info,device."type" ,device."location",device."d_id",device."name",device."label",device.protocol from device where product_id =?`
+	if err := psql.Mydb.Raw(SQL, product_id).Scan(&devices).Error; err != nil {
+		log.Println(err.Error())
+	}
+	if len(devices) == 0 {
+		devices = []models.Device{}
+	}
+	return devices, int64(len(devices))
+}
+
 // GetDevicesByBusinessID 根据业务ID获取设备列表
 // return []设备,设备数量
 // 2022-04-18新增
