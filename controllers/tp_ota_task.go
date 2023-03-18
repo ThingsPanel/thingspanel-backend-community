@@ -90,6 +90,10 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 
 	var TpOtaTaskService services.TpOtaTaskService
 	id := utils.GetUuid()
+	taskstatus := "1"
+	if AddTpOtaTaskValidate.UpgradeTimeType == "1" {
+		taskstatus = "0"
+	}
 	TpOtaTask := models.TpOtaTask{
 		Id:              id,
 		TaskName:        AddTpOtaTaskValidate.TaskName,
@@ -97,7 +101,7 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 		StartTime:       AddTpOtaTaskValidate.StartTime,
 		EndTime:         AddTpOtaTaskValidate.EndTime,
 		DeviceCount:     dcount,
-		TaskStatus:      "0",
+		TaskStatus:      taskstatus,
 		Description:     AddTpOtaTaskValidate.Description,
 		CreatedAt:       time.Now().Unix(),
 		OtaId:           AddTpOtaTaskValidate.OtaId,
