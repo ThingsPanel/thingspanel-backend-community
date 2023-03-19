@@ -38,6 +38,7 @@ func loadConfig() {
 
 func listenMQTT() {
 	var TSKVS services.TSKVService
+	var OtaDevice services.TpOtaDeviceService
 	mqttHost := os.Getenv("TP_MQTT_HOST")
 	if mqttHost == "" {
 		mqttHost = viper.GetString("mqtt.broker")
@@ -60,6 +61,14 @@ func listenMQTT() {
 	}, func(c mqtt.Client, m mqtt.Message) {
 		_ = p.Submit(func() {
 			TSKVS.GatewayMsgProc(m.Payload(), m.Topic())
+		})
+	}, func(c mqtt.Client, m mqtt.Message) {
+		_ = p.Submit(func() {
+			OtaDevice.OtaProgressMsgProc(m.Payload(), m.Topic())
+		})
+	}, func(c mqtt.Client, m mqtt.Message) {
+		_ = p.Submit(func() {
+			OtaDevice.OtaToinfromMsgProcOther(m.Payload(), m.Topic())
 		})
 	})
 
