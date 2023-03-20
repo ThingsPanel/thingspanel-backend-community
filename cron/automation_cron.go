@@ -19,6 +19,7 @@ func init() {
 	fmt.Println("定时任务初始化开始")
 	onceCron()
 	automationCron()
+	otaCron()
 	fmt.Println("定时任务初始化完成")
 }
 

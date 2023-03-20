@@ -18,6 +18,7 @@ type TpOtaTaskService struct {
 	TimeField []string
 }
 
+//获取列表
 func (*TpOtaTaskService) GetTpOtaTaskList(PaginationValidate valid.TpOtaTaskPaginationValidate) (bool, []models.TpOtaTask, int64) {
 	var TpOtaTasks []models.TpOtaTask
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage

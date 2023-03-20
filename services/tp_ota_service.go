@@ -18,6 +18,7 @@ type TpOtaService struct {
 	TimeField []string
 }
 
+//获取列表
 func (*TpOtaService) GetTpOtaList(PaginationValidate valid.TpOtaPaginationValidate) (bool, []models.TpOta, int64) {
 	var TpOtas []models.TpOta
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
@@ -39,6 +40,17 @@ func (*TpOtaService) GetTpOtaList(PaginationValidate valid.TpOtaPaginationValida
 		return false, TpOtas, 0
 	}
 	return true, TpOtas, count
+}
+
+//根据id获取版本
+func (*TpOtaService) GetTpOtaVersionById(otaid string) (bool, string) {
+	var package_version string
+	result := psql.Mydb.Model(&models.TpOta{}).Where("id=?", otaid).Find(&package_version)
+	if result.Error != nil {
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		return false, ""
+	}
+	return true, package_version
 }
 
 // 新增数据
