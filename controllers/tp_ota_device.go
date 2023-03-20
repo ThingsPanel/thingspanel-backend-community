@@ -47,8 +47,8 @@ func (TpOtaDeviceController *TpOtaDeviceController) List() {
 	}
 	datamap := make(map[string]interface{})
 	datamap["list"] = d
-	aaa, c := TpOtaDeviceService.GetTpOtaDeviceStatusCount(PaginationValidate)
-	if !aaa {
+	success, c := TpOtaDeviceService.GetTpOtaDeviceStatusCount(PaginationValidate)
+	if !success {
 		utils.SuccessWithMessage(1000, "查询失败", (*context2.Context)(TpOtaDeviceController.Ctx))
 		return
 	}

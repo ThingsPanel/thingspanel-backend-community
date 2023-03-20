@@ -1,7 +1,5 @@
 package valid
 
-import "ThingsPanel-Go/models"
-
 type TpOtaValidate struct {
 	Id                 string `json:"id" gorm:"primaryKey" valid:"Required;MaxSize(36)"`
 	PackageName        string `json:"package_name,omitempty" ailas:"升级包名称" valid:"Required;MaxSize(100)"`
@@ -36,10 +34,10 @@ type TpOtaPaginationValidate struct {
 }
 
 type RspTpOtaPaginationValidate struct {
-	CurrentPage int            `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
-	PerPage     int            `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	Data        []models.TpOta `json:"data" alias:"返回数据"`
-	Total       int64          `json:"total" alias:"总数" valid:"Max(10000)"`
+	CurrentPage int                      `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
+	PerPage     int                      `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
+	Data        []map[string]interface{} `json:"data" alias:"返回数据"`
+	Total       int64                    `json:"total" alias:"总数" valid:"Max(10000)"`
 }
 type TpOtaIdValidate struct {
 	Id string `json:"id,omitempty"   gorm:"primaryKey"  alias:"Id" valid:"MaxSize(36)"`

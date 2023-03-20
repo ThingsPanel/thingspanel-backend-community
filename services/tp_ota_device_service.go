@@ -3,9 +3,11 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/modules/dataService/mqtt"
 	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -50,33 +52,46 @@ type OtaModel struct {
 	PackageModule  string `json:"module,omitempty" alias:"描述"`
 }
 
-func (*TpOtaDeviceService) GetTpOtaDeviceList(PaginationValidate valid.TpOtaDevicePaginationValidate) (bool, []models.TpOtaDevice, int64) {
-	var TpOtaDevices []models.TpOtaDevice
-	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	db := psql.Mydb.Model(&models.TpOtaDevice{})
-	if PaginationValidate.OtaTaskId != "" {
-		db.Where("ota_task_id =?", PaginationValidate.OtaTaskId)
+func (*TpOtaDeviceService) GetTpOtaDeviceList(PaginationValidate valid.TpOtaDevicePaginationValidate) (bool, []map[string]interface{}, int64) {
+	sqlWhere := `select od.*,d.name from tp_ota_device od left join device d on od.device_id=d.id where 1=1`
+	sqlWhereCount := `select count(1) from tp_ota_device od left join device d on od.device_id=d.id where 1=1`
+	var values []interface{}
+	var where = ""
+	if PaginationValidate.Name != "" {
+		values = append(values, "%"+PaginationValidate.Name+"%")
+		where += " and d.name like ?"
 	}
 	if PaginationValidate.DeviceId != "" {
-		db.Where("device_id like ?", "%"+PaginationValidate.DeviceId+"%")
+		values = append(values, PaginationValidate.DeviceId)
+		where += " and od.device_id = ?"
 	}
-	if PaginationValidate.UpgradeStatus != "" {
-		db.Where("upgrade_status =?", PaginationValidate.UpgradeStatus)
+	if PaginationValidate.OtaTaskId != "" {
+		values = append(values, PaginationValidate.OtaTaskId)
+		where += " and od.ota_task_id = ?"
 	}
+	sqlWhere += where
+	sqlWhereCount += where
 	var count int64
-	db.Count(&count)
-	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Find(&TpOtaDevices)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
 	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return false, TpOtaDevices, 0
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
-	return true, TpOtaDevices, count
+	var offset int = (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
+	var limit int = PaginationValidate.PerPage
+	sqlWhere += " offset ? limit ?"
+	values = append(values, offset, limit)
+	var deviceList []map[string]interface{}
+	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
+	if dataResult.Error != nil {
+		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+	}
+	return true, deviceList, count
 }
 
 func (*TpOtaDeviceService) GetTpOtaDeviceStatusCount(PaginationValidate valid.TpOtaDevicePaginationValidate) (bool, []DeviceStatusCount) {
 	StatusCount := make([]DeviceStatusCount, 0)
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
-	re := db.Select("upgrade_status as upgrade_status,count(*) as count").Where("remark = ? ", "ccc").Group("upgrade_status").Scan(&StatusCount)
+	re := db.Select("upgrade_status as upgrade_status,count(*) as count").Where("ota_task_id = ? ", PaginationValidate.OtaTaskId).Group("upgrade_status").Scan(&StatusCount)
 	if re.Error != nil {
 		return false, StatusCount
 	}
@@ -112,11 +127,13 @@ func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_device models.TpOtaDevice) 
 	var devices []models.TpOtaDevice
 	var result *gorm.DB
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
-	if tp_ota_device.OtaTaskId != "" {
-		result = db.Where("ota_task_id=?", tp_ota_device.OtaTaskId).Find(&devices)
+	if tp_ota_device.OtaTaskId != "" && tp_ota_device.Id != "" {
+		//单个设备
+		result = db.Where("ota_task_id=? and id=? ", tp_ota_device.OtaTaskId, tp_ota_device.Id).Find(&devices)
 
 	} else {
-		result = db.Where("id=?", tp_ota_device.Id).Find(&devices)
+		//任务下的所有设备
+		result = db.Where("ota_task_id=?", tp_ota_device.OtaTaskId).Find(&devices)
 	}
 	if result.Error != nil {
 		logs.Error(result.Error)
@@ -136,7 +153,7 @@ func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_device models.TpOtaDevice) 
 //接收升级进度信息
 func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 	logs.Info("-------------------------------")
-	logs.Info("来自直连设备/网关解析后的OTA升级消息：")
+	logs.Info("来自直连设备解析后的OTA升级消息：")
 	logs.Info(utils.ReplaceUserInput(string(body)))
 	logs.Info("-------------------------------")
 	payload, err := verifyPayload(body)
@@ -147,7 +164,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 
 	// 通过token获取设备信息
 	var deviceid string
-	result_a := psql.Mydb.Select("device_id").Where("token = ? and activate_flag = '1'", payload.Token).First(&deviceid)
+	result_a := psql.Mydb.Model(models.Device{}).Select("device_id").Where("token = ?", payload.Token).First(&deviceid)
 	if result_a.Error != nil {
 		logs.Error(result_a.Error, gorm.ErrRecordNotFound)
 		return false
@@ -172,7 +189,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 	progressMsg.StatusUpdateTime = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
 	var otadevice []string
 	psql.Mydb.Raw(`select d.id,d.ota_task_id from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' 
-	             and d.device_id=? andd.UpgradeStatus not in ('0','3','5') `, progressMsg.Module, deviceid).Scan(&otadevice)
+	             and d.device_id=? and d.upgrade_status not in ('0','3','5') `, progressMsg.Module, deviceid).Scan(&otadevice)
 	if otadevice[0] != "" && otadevice[1] != "" {
 		//升级失败判断
 		isUpgradeSuccess := utils.In(progressMsg.UpgradeProgress, upgreadFailure)
@@ -194,7 +211,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 //接收固件版本信息
 func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bool {
 	logs.Info("-------------------------------")
-	logs.Info("来自直连设备/网关解析后的子设备的消息：")
+	logs.Info("来自直连设备解析后的ota消息：")
 	logs.Info(utils.ReplaceUserInput(string(body)))
 	logs.Info("-------------------------------")
 	payload, err := verifyPayload(body)
@@ -205,7 +222,7 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 
 	// 通过token获取设备信息
 	var deviceid string
-	result_a := psql.Mydb.Select("device_id").Where("token = ? and activate_flag = '1'", payload.Token).First(&deviceid)
+	result_a := psql.Mydb.Model(models.Device{}).Select("device_id").Where("token = ?", payload.Token).First(&deviceid)
 	if result_a.Error != nil {
 		logs.Error(result_a.Error, gorm.ErrRecordNotFound)
 		return false
@@ -225,10 +242,40 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 	var otadevice []string
 	psql.Mydb.Raw(`select d.id,d.ota_task_id from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' and d.device_id =?`, otamsg.OtaModel.PackageModule, deviceid).Scan(&otadevice)
 	if otadevice[0] != "" && otadevice[1] != "" {
+		psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceid).Update("current_version", otamsg.OtaModel.PackageVersion)
 		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id", otadevice[0], otadevice[1]).Update("current_version", otamsg.OtaModel.PackageVersion)
 		return true
 	}
 
 	return false
 
+}
+
+//推送升级包到设备
+func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string) error {
+	var ota models.TpOta
+	if err := psql.Mydb.Where("id=?", otaid).Find(&ota); err != nil {
+		logs.Error("不存在该ota固件")
+		return errors.New("无对应固件")
+	}
+	for _, device := range devices {
+		var otamsg = make(map[string]interface{})
+		otamsg["id"] = "123"
+		otamsg["code"] = "200"
+		var otamsgparams = make(map[string]interface{})
+		otamsgparams["version"] = ota.PackageVersion
+		otamsgparams["url"] = "http://127.0.0.1:8080" + ota.PackageUrl
+		otamsgparams["signMethod"] = ota.SignatureAlgorithm
+		otamsgparams["sign"] = ota.Sign
+		otamsgparams["module"] = ota.PackageModule
+		otamsgparams["extData"] = ota.AdditionalInfo
+		otamsg["params"] = otamsgparams
+		msgdata, json_err := json.Marshal(otamsg)
+		if json_err != nil {
+			logs.Error(json_err.Error())
+		} else {
+			go mqtt.SendOtaAdress(msgdata, device.Token)
+		}
+	}
+	return nil
 }
