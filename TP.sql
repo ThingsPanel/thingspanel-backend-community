@@ -1603,3 +1603,8 @@ ALTER TABLE public.tp_ota_task ADD CONSTRAINT tp_ota_task_fk FOREIGN KEY (ota_id
 ALTER TABLE public.device ADD product_id varchar(36) NULL;
 ALTER TABLE public.tp_ota_device ADD ota_task_id varchar(36) NOT NULL;
 ALTER TABLE public.tp_ota ADD sign varchar(99) NULL;
+
+ALTER TABLE public.device ADD current_version varchar(99) NULL;
+COMMENT ON COLUMN public.device.current_version IS '当前固件版本号';
+ALTER TABLE public.tp_ota ADD file_size varchar(20) NULL;
+COMMENT ON COLUMN public.tp_ota.file_size IS '文件大小';
