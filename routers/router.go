@@ -336,7 +336,8 @@ func init() {
 
 		//生成设备表
 		web.NSRouter("/tp_generate_device/activate", &controllers.TpGenerateDeviceController{}, "*:ActivateDevice"),
-
+		//通过产品id获取设备列表
+		web.NSRouter("/device/listbyproduct", &controllers.DeviceController{}, "*:DeviceListByProductId"),
 		//固件升级
 		web.NSRouter("/tp_ota/add", &controllers.TpOtaController{}, "*:Add"),
 		web.NSRouter("/tp_ota/list", &controllers.TpOtaController{}, "*:List"),

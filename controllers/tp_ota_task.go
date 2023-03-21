@@ -89,10 +89,13 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	}
 
 	var TpOtaTaskService services.TpOtaTaskService
+	var TpOtaDeviceService services.TpOtaDeviceService
 	id := utils.GetUuid()
-	taskstatus := "1"
-	if AddTpOtaTaskValidate.UpgradeTimeType == "1" {
-		taskstatus = "0"
+	taskstatus := "0"
+	if AddTpOtaTaskValidate.UpgradeTimeType == "0" {
+		taskstatus = "1"
+		//推送ota升级地址消息
+		_ = TpOtaDeviceService.OtaToUpgradeMsg(devices, AddTpOtaTaskValidate.OtaId)
 	}
 	TpOtaTask := models.TpOtaTask{
 		Id:              id,
@@ -111,7 +114,7 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpOtaTaskController.Ctx))
 	}
 	var OtaService services.TpOtaService
-	isSuccess, targetversion := OtaService.GetTpOtaVersionById(AddTpOtaTaskValidate.OtaId)
+	isSuccess, tpota := OtaService.GetTpOtaVersionById(AddTpOtaTaskValidate.OtaId)
 	if !isSuccess {
 		utils.SuccessWithMessage(400, "无对应ota信息", (*context2.Context)(TpOtaTaskController.Ctx))
 	}
@@ -120,12 +123,11 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 		tp_ota_devices = append(tp_ota_devices, models.TpOtaDevice{
 			Id:            utils.GetUuid(),
 			DeviceId:      device.ID,
-			TargetVersion: targetversion,
+			TargetVersion: tpota.PackageVersion,
 			OtaTaskId:     d.Id,
 			UpgradeStatus: "0",
 		})
 	}
-	var TpOtaDeviceService services.TpOtaDeviceService
 	_, rsp_device_err := TpOtaDeviceService.AddBathTpOtaDevice(tp_ota_devices)
 	if rsp_err == nil && rsp_device_err == nil {
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpOtaTaskController.Ctx))
@@ -139,6 +141,7 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 		}
 		utils.SuccessWithMessage(400, err, (*context2.Context)(TpOtaTaskController.Ctx))
 	}
+
 }
 
 //删除

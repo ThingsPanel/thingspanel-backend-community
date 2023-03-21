@@ -10,6 +10,7 @@ type TpOtaDeviceVaildate struct {
 	UpgradeStatus    string `json:"upgrade_status,omitempty" alias:"状态"`
 	StatusDetail     string `json:"status_detail,omitempty" alias:"状态详情" valid:"MaxSize(255)"`
 	OtaTaskId        string `json:"ota_task_id,omitempty" alias:"ota任务id" valid:"MaxSize(36)"`
+	Name             string `json:"name,omitempty" alias:"设备名"`
 }
 type AddTpOtaDeviceValidate struct {
 	DeviceId         string `json:"device_id,omitempty" alias:"设备ID" valid:"Required;MaxSize(36)"`
@@ -24,7 +25,8 @@ type AddTpOtaDeviceValidate struct {
 type TpOtaDevicePaginationValidate struct {
 	CurrentPage   int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
 	PerPage       int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	DeviceId      string `json:"device_id" gorm:"primaryKey" valid:"MaxSize(36)"`
+	DeviceId      string `json:"device_id"  valid:"MaxSize(36)"`
+	Name          string `json:"name"  valid:"MaxSize(36)"`
 	UpgradeStatus string `json:"upgrade_status,omitempty" alias:"状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消"`
 	OtaTaskId     string `json:"ota_task_id,omitempty" alias:"ota任务id" valid:"MaxSize(36)"`
 }

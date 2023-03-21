@@ -87,7 +87,7 @@ func CheckPathFilename(param string) error {
 	if count := strings.Count(param, "."); count > 2 {
 		return errors.New("文件全路径中不能超过两个“.”")
 	}
-	if count := strings.Count(param, "/"); count > 0 {
+	if count := strings.Count(param, "/"); count > 5 {
 		return errors.New("文件全路径中不能包含非法字符“/”")
 	}
 	if count := strings.Count(param, "\\"); count > 0 {

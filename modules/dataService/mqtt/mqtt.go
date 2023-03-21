@@ -94,6 +94,7 @@ func subscribe(msgProcOther func(c mqtt.Client, m mqtt.Message), gatewayMsgProc 
 		fmt.Println(token.Error())
 		os.Exit(1)
 	}
+	//订阅ota升级信息
 	if token := _client.Subscribe(viper.GetString("mqtt.topicToProgress"), byte(1), func(c mqtt.Client, m mqtt.Message) {
 
 		otaProgressMsgProc(c, m)
@@ -102,6 +103,7 @@ func subscribe(msgProcOther func(c mqtt.Client, m mqtt.Message), gatewayMsgProc 
 		fmt.Println(token.Error())
 		os.Exit(1)
 	}
+	//订阅ota版本上报信息
 	if token := _client.Subscribe(viper.GetString("mqtt.topicToInfrom"), byte(1), func(c mqtt.Client, m mqtt.Message) {
 
 		otaToinfromMsgProc(c, m)
@@ -122,6 +124,22 @@ func Send(payload []byte, token string) (err error) {
 	logs.Info(utils.ReplaceUserInput(string(payload)))
 	logs.Info("-------------------")
 	t := _client.Publish(viper.GetString("mqtt.topicToPublish")+"/"+token, byte(viper.GetUint("mqtt.publishQos")), false, string(payload))
+	if t.Error() != nil {
+		fmt.Println(t.Error())
+	}
+	return t.Error()
+}
+
+//发送ota版本包消息给直连设备
+func SendOtaAdress(payload []byte, token string) (err error) {
+	if _client == nil {
+		return errors.New("_client is error")
+	}
+	logs.Info("-------------------")
+	logs.Info(viper.GetString("mqtt.topicToInfrom") + "/" + token)
+	logs.Info(utils.ReplaceUserInput(string(payload)))
+	logs.Info("-------------------")
+	t := _client.Publish(viper.GetString("mqtt.topicToInfrom")+"/"+token, byte(viper.GetUint("mqtt.publishQos")), false, string(payload))
 	if t.Error() != nil {
 		fmt.Println(t.Error())
 	}
