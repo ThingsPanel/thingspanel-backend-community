@@ -10,26 +10,17 @@ type TpGenerateDeviceValidate struct {
 	ActivateFlag string `json:"activate_flag,omitempty" alias:"激活状态" valid:"MaxSize(36)"`
 	ActivateDate string `json:"activate_date,omitempty" alias:"激活日期" valid:"MaxSize(36)"`
 	DeviceId     string `json:"device_id,omitempty" alias:"设备id" valid:"MaxSize(36)"`
-	CreatedTime  int64  `json:"created_time,omitempty"`
-	Remark       string `json:"remark,omitempty" valid:"Required;MaxSize(255)"`
-}
-
-type AddTpGenerateDeviceValidate struct {
-	Id           string `json:"id" valid:"Required;MaxSize(99)"`
-	BatchId      string `json:"batch_id,omitempty" alias:"批次id" valid:"Required;MaxSize(36)"`
-	Token        string `json:"token,omitempty" valid:"MaxSize(36)"`
-	Password     string `json:"password,omitempty" valid:"MaxSize(36)"`
-	ActivateFlag string `json:"activate_flag,omitempty" alias:"激活状态" valid:"MaxSize(36)"`
-	ActivateDate string `json:"activate_date,omitempty" alias:"激活日期" valid:"MaxSize(36)"`
-	DeviceId     string `json:"device_id,omitempty" alias:"设备id" valid:"MaxSize(36)"`
+	DeviceCode   string `json:"device_code,omitempty" alias:"设备编码" valid:"MaxSize(36)"`
 	CreatedTime  int64  `json:"created_time,omitempty"`
 	Remark       string `json:"remark,omitempty" valid:"Required;MaxSize(255)"`
 }
 
 type TpGenerateDevicePaginationValidate struct {
-	CurrentPage int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
-	PerPage     int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	Id          string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
+	CurrentPage  int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
+	PerPage      int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
+	BatchId      string `json:"batch_id,omitempty" alias:"批次id" valid:"Required;MaxSize(36)"`
+	DeviceCode   string `json:"device_code,omitempty" alias:"设备编码" valid:"MaxSize(36)"`
+	ActivateFlag string `json:"activate_flag,omitempty" alias:"激活状态" valid:"MaxSize(36)"`
 }
 
 type RspTpGenerateDevicePaginationValidate struct {

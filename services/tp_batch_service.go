@@ -3,10 +3,12 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -126,7 +128,7 @@ func (*TpBatchService) GenerateBatch(tp_batch_id string) error {
 		if tp_batch["auth_type"] == "2" {
 			uid = strings.Replace(uuid.GetUuid(), "-", "", -1)[0:9]
 		}
-		device_code := tp_batch["product_id"].(string) + "-" + tp_batch_id + "-" + strings.Replace(uuid.GetUuid(), "-", "", -1)[0:9]
+		device_code := tp_batch["product_id"].(string) + "-" + tp_batch_id + "-" + fmt.Sprintf("%04d", i+1)
 		var TpGenerateDevice = models.TpGenerateDevice{
 			BatchId:      tp_batch_id,
 			Token:        uuid.GetUuid(),
@@ -210,4 +212,58 @@ func (*TpBatchService) Export(batch_id string) (string, error) {
 		logs.Error(err.Error())
 	}
 	return excelName, nil
+}
+
+//导入
+func (*TpBatchService) Import(bath_id, batch_number, product_id, file string) ([]models.TpGenerateDevice, error) {
+	var authtype string
+	if err := psql.Mydb.Model(&models.TpProduct{}).Select("auth_type").Where("id=?", product_id).Find(&authtype).Error; err != nil {
+		return nil, errors.New("产品查询失败")
+	}
+	f, err := excelize.OpenFile("." + file)
+	if err != nil {
+		logs.Error("打开文件失败")
+		return nil, errors.New("打开文件失败")
+	}
+	fl := f.GetSheetList()
+	if len(fl) < 0 {
+		return nil, errors.New("无sheet处理")
+	}
+	rows, err1 := f.GetRows(fl[0])
+	if err1 != nil {
+		return nil, errors.New("获取行失败")
+	}
+	devicenumber := len(rows)
+	if len(rows) <= 1 {
+		return nil, errors.New("无设备数据不能创建批次")
+	}
+	if len(rows) > 10000 {
+		return nil, errors.New("设备数量超上限")
+	}
+	var generatedevices []models.TpGenerateDevice
+
+	for i := 1; i < devicenumber; i++ {
+		if authtype == "2" && rows[i][2] == "" {
+			return nil, errors.New("MQTTBasic认证方式必须有密码")
+		}
+		if rows[i][1] == "" {
+			return nil, errors.New("必须有token")
+		}
+		generatedevices = append(generatedevices, models.TpGenerateDevice{
+			Id:           utils.GetUuid(),
+			BatchId:      bath_id,
+			Token:        rows[i][1],
+			Password:     rows[i][2],
+			ActivateFlag: "0",
+			CreatedTime:  time.Now().Unix(),
+			DeviceCode:   product_id + "-" + batch_number + "-" + fmt.Sprintf("%04d", i),
+		})
+	}
+	result := psql.Mydb.Create(&generatedevices)
+	if result.Error != nil {
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		return generatedevices, result.Error
+	}
+	return generatedevices, nil
+
 }
