@@ -81,9 +81,18 @@ func (TpOtaController *TpOtaController) Add() {
 	if err := utils.CheckPathFilename(AddTpOtaValidate.PackageUrl); err != nil || AddTpOtaValidate.PackageUrl == "" || !utils.FileExist("."+AddTpOtaValidate.PackageUrl) {
 		utils.SuccessWithMessage(400, "不存在升级包", (*context2.Context)(TpOtaController.Ctx))
 	}
+	//md5计算
 	packagesign, md5_err := utils.FileMD5(AddTpOtaValidate.PackagePath)
 	if md5_err != nil {
 		utils.SuccessWithMessage(400, "文件签名计算失败", (*context2.Context)(TpOtaController.Ctx))
+	}
+	//文件大小检查
+	packageLength, pl_err := utils.GetFileSize(AddTpOtaValidate.PackagePath)
+	if pl_err != nil {
+		utils.SuccessWithMessage(400, "文件大小计算失败", (*context2.Context)(TpOtaController.Ctx))
+	}
+	if packageLength > 1024*1024*1024*1024 {
+		utils.SuccessWithMessage(400, "文件大小超出1G", (*context2.Context)(TpOtaController.Ctx))
 	}
 	var TpOtaService services.TpOtaService
 	id := utils.GetUuid()
@@ -99,6 +108,7 @@ func (TpOtaController *TpOtaController) Add() {
 		AdditionalInfo:     AddTpOtaValidate.AdditionalInfo,
 		CreatedAt:          time.Now().Unix(),
 		Sign:               packagesign,
+		FileSize:           utils.FormatFileSize(packageLength),
 	}
 	d, rsp_err := TpOtaService.AddTpOta(TpOta)
 	if rsp_err == nil {

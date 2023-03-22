@@ -264,7 +264,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
-		otamsgparams["url"] = "http://127.0.0.1:8080" + ota.PackageUrl
+		otamsgparams["url"] = "http://dev.thingspanel.cn:8080" + ota.PackageUrl
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
 		otamsgparams["module"] = ota.PackageModule
