@@ -40,7 +40,7 @@ func (*TpGenerateDeviceService) GetTpGenerateDeviceList(PaginationValidate valid
 	}
 	var count int64
 	db.Where("batch_id=?", PaginationValidate.BatchId).Count(&count)
-	result := db.Where("batch_id=?", PaginationValidate.BatchId).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpGenerateDevices)
+	result := db.Where("batch_id=?", PaginationValidate.BatchId).Limit(PaginationValidate.PerPage).Offset(offset).Find(&TpGenerateDevices)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, TpGenerateDevices, 0
