@@ -452,8 +452,13 @@ func AutomationCron(automationCondition models.TpAutomationCondition) error {
 	} else if automationCondition.V1 == "3" {
 		// 星期几的几点几分
 		timeList := strings.Split(automationCondition.V3, ":")
-		cronString = timeList[2] + " " + timeList[1] + " ? " + timeList[0] + " * *"
-		logMessage += "触发每周的" + automationCondition.V3 + "执行一次的任务；"
+		if len(timeList) >= 3 {
+			cronString = timeList[2] + " " + timeList[1] + " ? " + timeList[0] + " * *"
+			logMessage += "触发每周的" + automationCondition.V3 + "执行一次的任务；"
+		} else {
+			return errors.New("配置错误")
+		}
+
 	} else if automationCondition.V1 == "4" {
 		// 每月的哪一天的几点几分
 		timeList := strings.Split(automationCondition.V3, ":")
