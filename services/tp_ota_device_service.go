@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -264,7 +265,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
-		otamsgparams["url"] = "http://dev.thingspanel.cn:8080" + ota.PackageUrl
+		otamsgparams["url"] = "http://dev.thingspanel.cn:8080//" + fmt.Sprintf("[%q]n", strings.Trim("ota.PackageUrl", "."))
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
 		otamsgparams["module"] = ota.PackageModule

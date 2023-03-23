@@ -75,11 +75,8 @@ func (TpOtaController *TpOtaController) Add() {
 		}
 		return
 	}
-	if err := utils.CheckPathFilename(AddTpOtaValidate.PackagePath); err != nil || AddTpOtaValidate.PackagePath == "" || !utils.FileExist("."+AddTpOtaValidate.PackagePath) {
-		utils.SuccessWithMessage(400, "不存在升级包", (*context2.Context)(TpOtaController.Ctx))
-	}
-	if err := utils.CheckPathFilename(AddTpOtaValidate.PackageUrl); err != nil || AddTpOtaValidate.PackageUrl == "" || !utils.FileExist("."+AddTpOtaValidate.PackageUrl) {
-		utils.SuccessWithMessage(400, "不存在升级包", (*context2.Context)(TpOtaController.Ctx))
+	if err := utils.CheckPathFilename(AddTpOtaValidate.PackageUrl); err != nil || AddTpOtaValidate.PackageUrl == "" || !utils.FileExist(AddTpOtaValidate.PackageUrl) {
+		utils.SuccessWithMessage(400, "不存在升级包或升级包路径不合法", (*context2.Context)(TpOtaController.Ctx))
 	}
 	//md5计算
 	packagesign, md5_err := utils.FileMD5(AddTpOtaValidate.PackagePath)

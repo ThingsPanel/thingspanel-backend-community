@@ -50,6 +50,8 @@ func (uploadController *UploadController) UpFile() {
 		".apk":  true,
 		".dav":  true,
 		".pack": true,
+		".xlsx": true,
+		".xls":  true,
 	}
 	if _, ok := AllowExtMap[ext]; !ok {
 		response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))

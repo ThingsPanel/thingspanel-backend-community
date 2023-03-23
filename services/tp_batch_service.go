@@ -220,7 +220,7 @@ func (*TpBatchService) Import(bath_id, batch_number, product_id, file string) ([
 	if err := psql.Mydb.Model(&models.TpProduct{}).Select("auth_type").Where("id=?", product_id).Find(&authtype).Error; err != nil {
 		return nil, errors.New("产品查询失败")
 	}
-	f, err := excelize.OpenFile("." + file)
+	f, err := excelize.OpenFile(file)
 	if err != nil {
 		logs.Error("打开文件失败")
 		return nil, errors.New("打开文件失败")
