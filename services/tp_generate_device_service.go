@@ -31,13 +31,16 @@ func (*TpGenerateDeviceService) GetTpGenerateDeviceDetail(tp_generate_device_id 
 func (*TpGenerateDeviceService) GetTpGenerateDeviceList(PaginationValidate valid.TpGenerateDevicePaginationValidate) (bool, []models.TpGenerateDevice, int64) {
 	var TpGenerateDevices []models.TpGenerateDevice
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	sqlWhere := "1=1"
-	if PaginationValidate.Id != "" {
-		sqlWhere += " and id = '" + PaginationValidate.Id + "'"
+	db := psql.Mydb.Model(&models.TpGenerateDevice{})
+	if PaginationValidate.ActivateFlag != "" {
+		db.Where("activate_flag=?", PaginationValidate.ActivateFlag)
+	}
+	if PaginationValidate.DeviceCode != "" {
+		db.Where("device_code like ?", "%"+PaginationValidate.DeviceCode+"%")
 	}
 	var count int64
-	psql.Mydb.Model(&models.TpGenerateDevice{}).Where(sqlWhere).Count(&count)
-	result := psql.Mydb.Model(&models.TpGenerateDevice{}).Where(sqlWhere).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpGenerateDevices)
+	db.Where("batch_id=?", PaginationValidate.BatchId).Count(&count)
+	result := db.Where("batch_id=?", PaginationValidate.BatchId).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpGenerateDevices)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, TpGenerateDevices, 0
@@ -69,6 +72,11 @@ func (*TpGenerateDeviceService) EditTpGenerateDevice(tp_generate_device valid.Tp
 
 // 删除数据
 func (*TpGenerateDeviceService) DeleteTpGenerateDevice(tp_generate_device models.TpGenerateDevice) error {
+	var activatflag string
+	psql.Mydb.Select("activate_flag").Where("id=?", tp_generate_device.Id).Find(&activatflag)
+	if activatflag == "1" {
+		return errors.New("已激活不能删除")
+	}
 	result := psql.Mydb.Delete(&tp_generate_device)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)

@@ -39,8 +39,8 @@ func otaCron() {
 				continue
 			}
 			var devices []models.Device
-			if err := psql.Mydb.Raw(sql, otatask.Id).Scan(&devices); err != nil {
-				logs.Error(err.Error.Error())
+			if err := psql.Mydb.Raw(sql, otatask.Id).Scan(&devices).Error; err != nil {
+				logs.Error(err)
 				continue
 			}
 			var tpOtaDeviceService services.TpOtaDeviceService

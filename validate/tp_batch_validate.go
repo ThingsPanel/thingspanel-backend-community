@@ -43,3 +43,9 @@ type RspTpBatchPaginationValidate struct {
 type TpBatchIdValidate struct {
 	Id string `json:"id"  gorm:"primaryKey" valid:"Required;MaxSize(36)"`
 }
+
+type ImportTpBatchValidate struct {
+	BatchNumber string `json:"batch_number,omitempty" alias:"批次编号" valid:"Required;MaxSize(36)"`
+	ProductId   string `json:"product_id,omitempty" alias:"产品id" valid:"Required;MaxSize(36)"`
+	File        string `json:"file,omitempty"  alias:"文件" valid:"Required;MaxSize(500)"`
+}

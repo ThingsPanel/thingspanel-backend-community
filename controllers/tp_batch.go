@@ -232,3 +232,56 @@ func (TpBatchController *TpBatchController) Export() {
 		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpBatchController.Ctx))
 	}
 }
+
+//导入
+func (TpBatchController *TpBatchController) Import() {
+	ImportTpBatchValidate := valid.ImportTpBatchValidate{}
+	err := json.Unmarshal(TpBatchController.Ctx.Input.RequestBody, &ImportTpBatchValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(ImportTpBatchValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(ImportTpBatchValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpBatchController.Ctx))
+			break
+		}
+		return
+	}
+	if err := utils.CheckPathFilename(ImportTpBatchValidate.File); err != nil || ImportTpBatchValidate.File == "" {
+		utils.SuccessWithMessage(1000, "文件不合法或不存在", (*context2.Context)(TpBatchController.Ctx))
+	}
+	var TpBatchService services.TpBatchService
+	id := utils.GetUuid()
+	TpBatch := models.TpBatch{
+		Id:           id,
+		BatchNumber:  ImportTpBatchValidate.BatchNumber,
+		CreatedTime:  time.Now().Unix(),
+		GenerateFlag: "0",
+		ProductId:    ImportTpBatchValidate.ProductId,
+	}
+	var data map[string]interface{}
+	d, rsp_err := TpBatchService.Import(id, ImportTpBatchValidate.BatchNumber, ImportTpBatchValidate.ProductId, ImportTpBatchValidate.File)
+	if rsp_err != nil {
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpBatchController.Ctx))
+	}
+	tpbath, rsp_err1 := TpBatchService.AddTpBatch(TpBatch)
+	if rsp_err1 == nil {
+		data["tpbath"] = tpbath
+		data["generate_devices"] = d
+		utils.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(TpBatchController.Ctx))
+	} else {
+		var err string
+		isTrue := strings.Contains(rsp_err.Error(), "23505")
+		if isTrue {
+			err = "批次编号不能重复！"
+		} else {
+			err = rsp_err1.Error()
+		}
+		utils.SuccessWithMessage(400, err, (*context2.Context)(TpBatchController.Ctx))
+	}
+}

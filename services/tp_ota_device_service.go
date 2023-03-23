@@ -254,7 +254,7 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 //推送升级包到设备
 func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string) error {
 	var ota models.TpOta
-	if err := psql.Mydb.Where("id=?", otaid).Find(&ota); err != nil {
+	if err := psql.Mydb.Where("id=?", otaid).Find(&ota).Error; err != nil {
 		logs.Error("不存在该ota固件")
 		return errors.New("无对应固件")
 	}
@@ -264,7 +264,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
-		otamsgparams["url"] = "http://127.0.0.1:8080" + ota.PackageUrl
+		otamsgparams["url"] = "http://dev.thingspanel.cn:8080" + ota.PackageUrl
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
 		otamsgparams["module"] = ota.PackageModule

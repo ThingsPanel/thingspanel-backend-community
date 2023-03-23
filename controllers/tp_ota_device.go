@@ -109,7 +109,7 @@ func (TpOtaDeviceController *TpOtaDeviceController) Add() {
 	}
 }
 
-//删除
+//修改状态
 func (TpOtaDeviceController *TpOtaDeviceController) ModfiyUpdate() {
 	TpOtaDeviceIdValidate := valid.TpOtaDeviceIdValidate{}
 	err := json.Unmarshal(TpOtaDeviceController.Ctx.Input.RequestBody, &TpOtaDeviceIdValidate)
