@@ -25,6 +25,8 @@ type Device struct {
 	SubDeviceAddr  string `json:"sub_device_addr,omitempty" gorm:"size:36"`
 	ScriptId       string `json:"script_id,omitempty" gorm:"size:36"`
 	CreatedAt      int64  `json:"created_at,omitempty"`
+	ProductId      string `json:"product_id,omitempty" gorm:"size:36"`
+	CurrentVersion string `json:"current_version,omitempty" gorm:"size:36"`
 }
 
 func (Device) TableName() string {
