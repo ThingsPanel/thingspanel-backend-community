@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/beego/beego/v2/server/web"
 	"gorm.io/gorm"
 )
 
@@ -53,8 +54,9 @@ type OtaModel struct {
 	PackageModule  string `json:"module,omitempty" alias:"描述"`
 }
 
+//列表
 func (*TpOtaDeviceService) GetTpOtaDeviceList(PaginationValidate valid.TpOtaDevicePaginationValidate) (bool, []map[string]interface{}, int64) {
-	sqlWhere := `select od.*,d.name from tp_ota_device od left join device d on od.device_id=d.id where 1=1`
+	sqlWhere := `select od.*,d.name,gd.device_code from tp_ota_device od left join device d on od.device_id=d.id left join tp_generate_device gd on od.device_id =gd.device_id where 1=1`
 	sqlWhereCount := `select count(1) from tp_ota_device od left join device d on od.device_id=d.id where 1=1`
 	var values []interface{}
 	var where = ""
@@ -89,6 +91,7 @@ func (*TpOtaDeviceService) GetTpOtaDeviceList(PaginationValidate valid.TpOtaDevi
 	return true, deviceList, count
 }
 
+//状态详情
 func (*TpOtaDeviceService) GetTpOtaDeviceStatusCount(PaginationValidate valid.TpOtaDevicePaginationValidate) (bool, []DeviceStatusCount) {
 	StatusCount := make([]DeviceStatusCount, 0)
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
@@ -124,21 +127,21 @@ func (*TpOtaDeviceService) AddBathTpOtaDevice(tp_ota_device []models.TpOtaDevice
 //0-待推送 1-已推送 2-升级中 修改为已取消
 //4-升级失败 修改为待推送
 //3-升级成功 5-已取消 不修改
-func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_device models.TpOtaDevice) error {
+func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDeviceIdValidate) error {
 	var devices []models.TpOtaDevice
 	var result *gorm.DB
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
-	if tp_ota_device.OtaTaskId != "" && tp_ota_device.Id != "" {
+	if tp_ota_modfiystatus.OtaTaskId != "" && tp_ota_modfiystatus.Id != "" {
 		//单个设备
-		result = db.Where("ota_task_id=? and id=? ", tp_ota_device.OtaTaskId, tp_ota_device.Id).Find(&devices)
-
+		result = db.Where("ota_task_id=? and id=? and upgrade_status=?", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id, tp_ota_modfiystatus.UpgradeStatus).Find(&devices)
 	} else {
 		//任务下的所有设备
-		result = db.Where("ota_task_id=?", tp_ota_device.OtaTaskId).Find(&devices)
+		result = db.Where("ota_task_id=? ", tp_ota_modfiystatus.OtaTaskId).Find(&devices)
+		psql.Mydb.Model(&models.TpOtaTask{}).Where("ota_task_id=?", tp_ota_modfiystatus.OtaTaskId).Update("task_status", "2")
 	}
-	if result.Error != nil {
+	if result.Error != nil || len(devices) == 0 {
 		logs.Error(result.Error)
-		return result.Error
+		return errors.New("修改状态失败")
 	}
 	for _, device := range devices {
 		if device.UpgradeStatus == "0" || device.UpgradeStatus == "1" || device.UpgradeStatus == "2" {
@@ -189,9 +192,12 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 	//查询升级信息对应的设备
 	progressMsg.StatusUpdateTime = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
 	var otadevice []string
-	psql.Mydb.Raw(`select d.id,d.ota_task_id from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' 
+	psql.Mydb.Raw(`select d.id,d.ota_task_id,d.upgrade_status from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' 
 	             and d.device_id=? and d.upgrade_status not in ('0','3','5') `, progressMsg.Module, deviceid).Scan(&otadevice)
 	if otadevice[0] != "" && otadevice[1] != "" {
+		if otadevice[2] == "4" || otadevice[2] == "5" || otadevice[2] == "3" {
+			return false
+		}
 		//升级失败判断
 		isUpgradeSuccess := utils.In(progressMsg.UpgradeProgress, upgreadFailure)
 		if isUpgradeSuccess {
@@ -201,7 +207,6 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 		if progressMsg.UpgradeProgress == "100" {
 			progressMsg.UpgradeStatus = "5"
 		}
-
 		//修改升级信息
 		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id", otadevice[0], otadevice[1]).Updates(progressMsg)
 		return true
@@ -253,19 +258,29 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 }
 
 //推送升级包到设备
-func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string) error {
+func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string, otataskid string) error {
+	otapackageaddress, _ := web.AppConfig.String("otapackageaddress")
 	var ota models.TpOta
 	if err := psql.Mydb.Where("id=?", otaid).Find(&ota).Error; err != nil {
 		logs.Error("不存在该ota固件")
 		return errors.New("无对应固件")
 	}
 	for _, device := range devices {
+		//检查是否有正在升级中的任务
+		var count int64
+		psql.Mydb.Where("device_id = ? and ota_task_id != ? and upgrade_status  in ('0','1','2')", device.ID, otataskid).Count(&count)
+		if count != 0 {
+			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Update("upgrade_status", "4")
+			logs.Info("OTA任务id为%s,设备id为%s,有任务进行中", otataskid, device.ID)
+			continue
+		}
+		//检查升级包
 		var otamsg = make(map[string]interface{})
 		otamsg["id"] = "123"
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
-		otamsgparams["url"] = "http://dev.thingspanel.cn:8080//" + fmt.Sprintf("[%q]n", strings.Trim("ota.PackageUrl", "."))
+		otamsgparams["url"] = otapackageaddress + fmt.Sprintf("[%q]n", strings.Trim("ota.PackageUrl", "."))
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
 		otamsgparams["module"] = ota.PackageModule
@@ -275,6 +290,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		if json_err != nil {
 			logs.Error(json_err.Error())
 		} else {
+			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Update("upgrade_status", "1")
 			go mqtt.SendOtaAdress(msgdata, device.Token)
 		}
 	}

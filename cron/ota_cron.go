@@ -44,7 +44,7 @@ func otaCron() {
 				continue
 			}
 			var tpOtaDeviceService services.TpOtaDeviceService
-			if err := tpOtaDeviceService.OtaToUpgradeMsg(devices, ota.Id); err != nil {
+			if err := tpOtaDeviceService.OtaToUpgradeMsg(devices, ota.Id, otatask.Id); err != nil {
 				logs.Error(err)
 				continue
 			}
