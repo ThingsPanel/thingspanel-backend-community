@@ -14,9 +14,7 @@ func Post(targetUrl string, payload string) (*http.Response, error) {
 	req, _ := http.NewRequest("POST", targetUrl, strings.NewReader(payload))
 	req.Header.Add("Content-Type", "application/json")
 	response, err := http.DefaultClient.Do(req)
-	if err == nil {
-		logs.Info(response.Body)
-	} else {
+	if err != nil {
 		logs.Info(err.Error())
 	}
 	return response, err

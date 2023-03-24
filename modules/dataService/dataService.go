@@ -19,8 +19,12 @@ import (
 
 func init() {
 	loadConfig()
+	log.Println("注册mqtt用户...")
 	reg_mqtt_root()
+	log.Println("注册mqtt用户完成")
+	log.Println("链接mqtt服务...")
 	listenMQTT()
+	log.Println("链接mqtt服务完成")
 	// listenTCP()
 }
 
@@ -87,15 +91,15 @@ func reg_mqtt_root() {
 	}
 	resps, errs := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/root", "{\"password\":\""+viper.GetString("mqtt.pass")+"\"}")
 	if errs != nil {
-		log.Println("Response1:", errs.Error())
+		log.Println("失败:", errs.Error())
 	} else {
 		defer resps.Body.Close()
 		if resps.StatusCode == 200 {
 			body, errs := ioutil.ReadAll(resps.Body)
 			if errs != nil {
-				log.Println("Response2:", errs.Error())
+				log.Println("失败:", errs.Error())
 			} else {
-				log.Println("Response3: ", string(body))
+				log.Println("注册成功: ", string(body))
 			}
 		} else {
 			log.Println("Get failed with error:" + resps.Status)

@@ -2,6 +2,7 @@ package psql
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -30,6 +31,7 @@ func (w Writer) Printf(format string, args ...interface{}) {
 
 // 设置psql
 func init() {
+	log.Println("连接数据库...")
 	psqluser, _ := beego.AppConfig.String("psqluser")
 	psqlpass, _ := beego.AppConfig.String("psqlpass")
 	psqladdr := os.Getenv("TP_PG_IP")
@@ -78,4 +80,8 @@ func init() {
 	SqlDB.SetMaxIdleConns(psqlMaxConns)
 	SqlDB.SetMaxOpenConns(psqlMaxOpen)
 	SqlDB.SetConnMaxLifetime(time.Hour)
+	log.Println("连接数据库完成...")
+	log.Println("初始化数据库...")
+	init_db(psqluser, psqlpass, psqldb, psqladdr, psqlport)
+	log.Println("初始化数据库完成")
 }

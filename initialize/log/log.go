@@ -12,7 +12,7 @@ import (
 func init() {
 	// go基本log设置
 	log.SetFlags(log.Lshortfile | log.Ltime | log.Ldate)
-	log.Println("系统日志初始化开始...")
+	log.Println("系统日志初始化...")
 	//beego日志模块配置
 	dateStr := time.Now().Format("2006-01-02")
 	maxdays, _ := beego.AppConfig.String("maxdays")

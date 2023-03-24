@@ -2,7 +2,7 @@ package redis
 
 import (
 	"ThingsPanel-Go/utils"
-	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -15,6 +15,7 @@ var redisCache *redis.Client
 
 // 创建 redis 客户端
 func createClient(redisHost string, password string, dataBase int) *redis.Client {
+	log.Println("连接redis...")
 	client := redis.NewClient(&redis.Options{
 		Addr:         redisHost,
 		Password:     password,
@@ -29,9 +30,9 @@ func createClient(redisHost string, password string, dataBase int) *redis.Client
 	// 通过 cient.Ping() 来检查是否成功连接到了 redis 服务器
 	_, err := client.Ping().Result()
 	if err != nil {
-		logs.Error("连接失败,", err)
+		logs.Error("连接redis连接失败,", err)
 	} else {
-		fmt.Println("redis连接成功...")
+		log.Println("连接redis成完成...")
 	}
 
 	return client
