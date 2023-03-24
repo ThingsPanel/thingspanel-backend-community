@@ -54,7 +54,7 @@ type OtaModel struct {
 }
 
 func (*TpOtaDeviceService) GetTpOtaDeviceList(PaginationValidate valid.TpOtaDevicePaginationValidate) (bool, []map[string]interface{}, int64) {
-	sqlWhere := `select od.*,d.name from tp_ota_device od left join device d on od.device_id=d.id where 1=1`
+	sqlWhere := `select od.*,d.name,gd.device_code from tp_ota_device od left join device d on od.device_id=d.id left join tp_generate_device gd on od.device_id =gd.device_id where 1=1`
 	sqlWhereCount := `select count(1) from tp_ota_device od left join device d on od.device_id=d.id where 1=1`
 	var values []interface{}
 	var where = ""
