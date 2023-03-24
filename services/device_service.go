@@ -359,7 +359,7 @@ func (*DeviceService) GetDevicesByProductID(product_id string) ([]models.Device,
 // return []设备,设备数量
 // 2023-03-14新增
 func (*DeviceService) DeviceListByProductId(PaginationValidate valid.DevicePaginationValidate) (bool, []map[string]interface{}, int64) {
-	sqlWhere := `select d.id,d.name,device.product_id,d.current_version,td.device_code from device d left join tp_generate_device td on td.device_id=d.id where d.product_id =?`
+	sqlWhere := `select d.id as id,d.name as name,d.product_id as product_id,d.current_version as current_version,td.device_code as device_code from device d left join tp_generate_device td on td.device_id=d.id where d.product_id =?`
 	sqlWhereCount := `select count(1) from device where product_id =?`
 	var values []interface{}
 	var where = ""
@@ -383,7 +383,7 @@ func (*DeviceService) DeviceListByProductId(PaginationValidate valid.DevicePagin
 	}
 	var offset int = (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	var limit int = PaginationValidate.PerPage
-	sqlWhere += " offset ? limit ?"
+	sqlWhere += "order by d.created_at desc offset ? limit ?"
 	values = append(values, offset, limit)
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
 	if dataResult.Error != nil {
