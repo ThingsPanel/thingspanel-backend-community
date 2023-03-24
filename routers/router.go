@@ -386,6 +386,16 @@ func init() {
 		web.NSRouter("/v1/pot/add", &controllers.PotTypeController{}, "*:Add"),
 		web.NSRouter("/v1/pot/edit", &controllers.PotTypeController{}, "*:Edit"),
 		web.NSRouter("/v1/pot/delete", &controllers.PotTypeController{}, "*:Delete"),
+
+
+		//配方
+		web.NSRouter("/v1/recipe/index", &controllers.RecipeController{}, "*:Index"),
+		web.NSRouter("/v1/recipe/add", &controllers.RecipeController{}, "*:Add"),
+		web.NSRouter("/v1/recipe/edit", &controllers.RecipeController{}, "*:Edit"),
+		web.NSRouter("/v1/recipe/delete", &controllers.RecipeController{}, "*:Delete"),
+
+		//加汤数据管理
+		web.NSRouter("/v1/user/index",&controllers.SoupDataController{},"*:Index"),
 	)
 
 	// 图表推送数据
