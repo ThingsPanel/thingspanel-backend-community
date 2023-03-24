@@ -2,10 +2,10 @@ package casbin
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
-	"github.com/beego/beego/v2/core/logs"
 	beego "github.com/beego/beego/v2/server/web"
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
@@ -14,7 +14,7 @@ import (
 var CasbinEnforcer *casbin.Enforcer
 
 func init() {
-	logs.Info("casbin初始化开始。。。")
+	log.Println("casbin启动...")
 	// Initialize a Gorm adapter and use it in a Casbin enforcer:
 	// The adapter will use the MySQL database named "casbin".
 	// If it doesn't exist, the adapter will create it automatically.
@@ -51,4 +51,5 @@ func init() {
 	}
 	CasbinEnforcer = e
 	CasbinEnforcer.LoadPolicy()
+	log.Println("casbin启动完成")
 }

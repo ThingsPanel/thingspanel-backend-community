@@ -42,7 +42,9 @@ func main() {
 			ResourcesService.Add(cpu_str, mem_str, currentTime)
 		}
 	}()
-	beego.SetStaticPath("/extensions", "extensions")
+	// 系统初始化的images
+	beego.SetStaticPath("/files/init-images", "others/init_images")
+	// 静态文件路径
 	beego.SetStaticPath("/files", "files")
 	beego.Run()
 }
