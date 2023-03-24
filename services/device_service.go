@@ -359,18 +359,18 @@ func (*DeviceService) GetDevicesByProductID(product_id string) ([]models.Device,
 // return []设备,设备数量
 // 2023-03-14新增
 func (*DeviceService) DeviceListByProductId(PaginationValidate valid.DevicePaginationValidate) (bool, []map[string]interface{}, int64) {
-	sqlWhere := `select device.id,device.product_id,device.current_version from device where product_id =?`
+	sqlWhere := `select d.id,d.name,device.product_id,d.current_version,td.device_code from device d left join tp_generate_device td on td.device_id=d.id where d.product_id =?`
 	sqlWhereCount := `select count(1) from device where product_id =?`
 	var values []interface{}
 	var where = ""
 	values = append(values, PaginationValidate.ProductId)
 	if PaginationValidate.CurrentVersion != "" {
 		values = append(values, "%"+PaginationValidate.CurrentVersion+"%")
-		where += " and current_version like ?"
+		where += " and d.current_version like ?"
 	}
 	if PaginationValidate.Name != "" {
 		values = append(values, "%"+PaginationValidate.Name+"%")
-		where += " and name like ?"
+		where += " and d.name like ?"
 	}
 	sqlWhere += where
 	sqlWhereCount += where
