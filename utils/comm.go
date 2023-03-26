@@ -2,9 +2,11 @@ package utils
 
 import (
 	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 	"strings"
@@ -114,7 +116,7 @@ func ContainsIllegal(target string) bool {
 }
 
 //文件md5计算
-func FileMD5(filePath string) (string, error) {
+func FileSign(filePath string, sign string) (string, error) {
 	check_err := CheckPathFilename(filePath)
 	if check_err != nil {
 		return "", check_err
@@ -123,7 +125,13 @@ func FileMD5(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	hash := md5.New()
+	defer file.Close()
+	var hash hash.Hash
+	if sign == "MD5" {
+		hash = md5.New()
+	} else {
+		hash = sha256.New()
+	}
 	_, _ = io.Copy(hash, file)
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
