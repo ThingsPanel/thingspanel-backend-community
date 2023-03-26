@@ -63,7 +63,7 @@ func otaCron() {
 			//过了升级时间还未推送的设备标记为升级失败4
 			psql.Mydb.Model(&models.TpOtaDevice{}).Where("ota_task_id=? and upgrade_status=?", tpOtaTask.Id, "0").Updates(&models.TpOtaDevice{UpgradeStatus: "4", StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05")})
 		}
-		fmt.Println("检查待升级ota定时任务结束")
+		fmt.Println("检查ota定时任务结束")
 	}
 	crontab.AddFunc(spec, task)
 	crontab.Start()
