@@ -129,7 +129,7 @@ func (TpOtaDeviceController *TpOtaDeviceController) ModfiyUpdate() {
 		return
 	}
 	if TpOtaDeviceIdValidate.Id == "" && TpOtaDeviceIdValidate.OtaTaskId == "" {
-		utils.SuccessWithMessage(1000, "id与任务id不能同时为空", (*context2.Context)(TpOtaDeviceController.Ctx))
+		utils.SuccessWithMessage(1000, "id与任务id不能全部为空", (*context2.Context)(TpOtaDeviceController.Ctx))
 	}
 	var TpOtaDeviceService services.TpOtaDeviceService
 	rsp_err := TpOtaDeviceService.ModfiyUpdateDevice(TpOtaDeviceIdValidate)
