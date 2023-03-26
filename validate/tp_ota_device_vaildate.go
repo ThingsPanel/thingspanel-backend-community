@@ -38,6 +38,7 @@ type RspTpOtaDevicePaginationValidate struct {
 	Total       int64                  `json:"total" alias:"总数" valid:"Max(10000)"`
 }
 type TpOtaDeviceIdValidate struct {
-	Id        string `json:"id,omitempty"   gorm:"primaryKey"  alias:"Id" valid:"MaxSize(36)"`
-	OtaTaskId string `json:"ota_task_id,omitempty" alias:"ota任务id" valid:"MaxSize(36)"`
+	Id            string `json:"id,omitempty"   gorm:"primaryKey"  alias:"Id" valid:"Required;MaxSize(36)"`
+	OtaTaskId     string `json:"ota_task_id,omitempty" alias:"ota任务id" valid:"Required;MaxSize(36)"`
+	UpgradeStatus string `json:"upgrade_status,omitempty" alias:"状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消" valid:"Required"`
 }

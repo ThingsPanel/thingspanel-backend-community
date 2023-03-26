@@ -92,10 +92,11 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	var TpOtaDeviceService services.TpOtaDeviceService
 	id := utils.GetUuid()
 	taskstatus := "0"
+	upgradestatus := "0"
 	if AddTpOtaTaskValidate.UpgradeTimeType == "0" {
 		taskstatus = "1"
+		upgradestatus = "1"
 		//推送ota升级地址消息
-		_ = TpOtaDeviceService.OtaToUpgradeMsg(devices, AddTpOtaTaskValidate.OtaId)
 	}
 	TpOtaTask := models.TpOtaTask{
 		Id:              id,
@@ -125,21 +126,15 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 			DeviceId:      device.ID,
 			TargetVersion: tpota.PackageVersion,
 			OtaTaskId:     d.Id,
-			UpgradeStatus: "0",
+			UpgradeStatus: upgradestatus,
 		})
 	}
 	_, rsp_device_err := TpOtaDeviceService.AddBathTpOtaDevice(tp_ota_devices)
 	if rsp_err == nil && rsp_device_err == nil {
+		go TpOtaDeviceService.OtaToUpgradeMsg(devices, AddTpOtaTaskValidate.OtaId, id)
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpOtaTaskController.Ctx))
 	} else {
-		var err string
-		isTrue := strings.Contains(rsp_err.Error(), "23505")
-		if isTrue {
-			err = "不能重复！"
-		} else {
-			err = rsp_err.Error()
-		}
-		utils.SuccessWithMessage(400, err, (*context2.Context)(TpOtaTaskController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpOtaTaskController.Ctx))
 	}
 
 }
