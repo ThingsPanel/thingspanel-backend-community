@@ -78,11 +78,12 @@ func (TpOtaController *TpOtaController) Add() {
 	if err := utils.CheckPathFilename(AddTpOtaValidate.PackageUrl); err != nil || AddTpOtaValidate.PackageUrl == "" || !utils.FileExist(AddTpOtaValidate.PackageUrl) {
 		utils.SuccessWithMessage(400, "不存在升级包或升级包路径不合法", (*context2.Context)(TpOtaController.Ctx))
 	}
-	//md5计算
-	packagesign, md5_err := utils.FileMD5(AddTpOtaValidate.PackagePath)
-	if md5_err != nil {
+	//文件sign计算
+	packagesign, sign_err := utils.FileSign(AddTpOtaValidate.PackagePath, AddTpOtaValidate.SignatureAlgorithm)
+	if sign_err != nil {
 		utils.SuccessWithMessage(400, "文件签名计算失败", (*context2.Context)(TpOtaController.Ctx))
 	}
+
 	//文件大小检查
 	packageLength, pl_err := utils.GetFileSize(AddTpOtaValidate.PackagePath)
 	if pl_err != nil {
