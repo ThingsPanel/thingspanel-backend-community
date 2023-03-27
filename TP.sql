@@ -1626,3 +1626,8 @@ WHERE id='b29d5b40-b635-e34d-ee5f-5cf161348a62';
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('b29d5b40-b635-e34d-ee5f-5cf161348a62', '', NULL, '', 'Automation', '', 'MENU.AUTOMATION', 'flaticon2-hourglass', '0', '', '0', 960);
+DELETE FROM public.logo
+WHERE id='1d625cec-bf5b-2ad1-b135-a23b5fad05bf';
+INSERT INTO logo
+(id, system_name, theme, logo_one, logo_two, logo_three, custom_id, remark)
+VALUES('1d625cec-bf5b-2ad1-b135-a23b5fad05bf', 'ThingsPanel', 'blue', './files/init-images/logo-one.svg', './files/init-images/logo-two.gif', './files/init-images/logo-three.png', '', '');
