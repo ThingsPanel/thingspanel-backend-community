@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
@@ -90,7 +91,7 @@ func (TpOtaDeviceController *TpOtaDeviceController) Add() {
 		CurrentVersion:   AddTpOtaDeviceValidate.CurrentVersion,
 		TargetVersion:    AddTpOtaDeviceValidate.TargetVersion,
 		UpgradeProgress:  AddTpOtaDeviceValidate.UpgradeProgress,
-		StatusUpdateTime: AddTpOtaDeviceValidate.StatusUpdateTime,
+		StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"),
 		UpgradeStatus:    AddTpOtaDeviceValidate.UpgradeStatus,
 		StatusDetail:     AddTpOtaDeviceValidate.StatusDetail,
 	}

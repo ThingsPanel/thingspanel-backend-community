@@ -136,7 +136,7 @@ func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDev
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
 	if tp_ota_modfiystatus.OtaTaskId != "" && tp_ota_modfiystatus.Id != "" {
 		//单个设备
-		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Update("upgrade_status", tp_ota_modfiystatus.UpgradeStatus).Error; err != nil {
+		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Updates(&models.TpOtaDevice{UpgradeStatus: tp_ota_modfiystatus.UpgradeStatus, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05")}).Error; err != nil {
 			return err
 		}
 		return nil
@@ -149,7 +149,7 @@ func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDev
 	}
 	for _, device := range devices {
 		if device.UpgradeStatus == "0" || device.UpgradeStatus == "1" || device.UpgradeStatus == "2" {
-			psql.Mydb.Model(&device).Update("upgrade_status", "5")
+			psql.Mydb.Model(&device).Updates(&models.TpOtaDevice{UpgradeStatus: "5", StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05")})
 		}
 	}
 	return nil
