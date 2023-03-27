@@ -93,9 +93,11 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	id := utils.GetUuid()
 	taskstatus := "0"
 	upgradestatus := "0"
+	statusdetail := ""
 	if AddTpOtaTaskValidate.UpgradeTimeType == "0" {
 		taskstatus = "1"
 		upgradestatus = "1"
+		statusdetail = fmt.Sprintf("定时：(%s)", AddTpOtaTaskValidate.StartTime)
 		//推送ota升级地址消息
 	}
 	TpOtaTask := models.TpOtaTask{
@@ -127,6 +129,7 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 			TargetVersion: tpota.PackageVersion,
 			OtaTaskId:     d.Id,
 			UpgradeStatus: upgradestatus,
+			StatusDetail:  statusdetail,
 		})
 	}
 	_, rsp_device_err := TpOtaDeviceService.AddBathTpOtaDevice(tp_ota_devices)
