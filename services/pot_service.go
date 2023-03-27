@@ -59,7 +59,7 @@ func (*PotTypeService) AddPotType(pot models.PotType) (error, models.PotType) {
 
 // 修改数据
 func (*PotTypeService) EditPotType(pot valid.PotType) bool {
-	result := psql.Mydb.Model(&models.PotType{}).Where("id = ?", pot.Id).Updates(&pot)
+	result := psql.Mydb.Where("id = ?", pot.Id).Updates(&pot)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false

@@ -13,6 +13,6 @@ type SoupDataPaginationValidate struct {
 type RspSoupDataPaginationValidate struct {
 	CurrentPage int                  `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
 	PerPage     int                  `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	Data        []models.AddSoupData `json:"data" alias:"返回数据"`
+	Data        []models.AddSoupDataValue `json:"data" alias:"返回数据"`
 	Total       int64                `json:"total" alias:"总数" valid:"Max(10000)"`
 }

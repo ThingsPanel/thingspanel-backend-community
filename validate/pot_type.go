@@ -1,12 +1,20 @@
 package valid
 
-import "ThingsPanel-Go/models"
+import (
+	"ThingsPanel-Go/models"
+)
 
 // PotType 校验
 type PotType struct {
-	Id        string `alias:"锅型ID"`
-	Name      string `alias:"锅型名称" valid:"Required; MaxSize(255)"`
-	Image     string `alias:"图片" valid:"Required"`
+	Id           string `alias:"锅型ID"`
+	Name         string `alias:"锅型名称" valid:"Required; MaxSize(255)"`
+	Image        string `alias:"图片" valid:"Required"`
+	SoupStandard int    `alias:"加汤水位线标准" valid:"Required"`
+	PotTypeId    string `alias:"锅型ID" valid:"Required"`
+}
+
+func (p *PotType) TableName() string {
+	return "pot_type"
 }
 
 type RspPotTypePaginationValidate struct {

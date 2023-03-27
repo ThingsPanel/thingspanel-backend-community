@@ -395,7 +395,8 @@ func init() {
 		web.NSRouter("/v1/recipe/delete", &controllers.RecipeController{}, "*:Delete"),
 
 		//加汤数据管理
-		web.NSRouter("/v1/user/index",&controllers.SoupDataController{},"*:Index"),
+		web.NSRouter("/v1/soup/data/index",&controllers.SoupDataController{},"*:Index"),
+		web.NSRouter("/v1/soup/data/export",&controllers.SoupDataController{},"*:Export"),
 	)
 
 	// 图表推送数据

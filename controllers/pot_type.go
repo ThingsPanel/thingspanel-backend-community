@@ -80,10 +80,12 @@ func (pot *PotTypeController) Add() {
 
 	id := uuid.GetUuid()
 	PotType := models.PotType{
-		Id:       id,
-		CreateAt: time.Now().Unix(),
-		Name:     potTypeValidate.Name,
-		Image:    potTypeValidate.Image,
+		Id:           id,
+		CreateAt:     time.Now().Unix(),
+		Name:         potTypeValidate.Name,
+		Image:        potTypeValidate.Image,
+		SoupStandard: potTypeValidate.SoupStandard,
+		PotTypeId:    potTypeValidate.PotTypeId,
 	}
 	rsp_err, d := PotTypeService.AddPotType(PotType)
 	if rsp_err == nil {
