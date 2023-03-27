@@ -3,7 +3,6 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
-	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -43,8 +42,7 @@ func (*RecipeService) GetRecipeList(PaginationValidate valid.RecipePaginationVal
 
 // 新增数据
 func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []models.Taste) (error, models.Recipe) {
-	var uuid = uuid.GetUuid()
-	pot.Id = uuid
+
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 		result := tx.Create(&pot)
 		if result.Error != nil {

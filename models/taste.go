@@ -17,6 +17,7 @@ type Taste struct {
 	IsDel         bool      `gorm:"column:is_del"`
 	WaterLine     int       `gorm:"column:water_line"`
 	Station       string    `gorm:"column:station"`
+	RecipeID      string    `gorm:"column:recipe_id"`
 }
 
 func (t *Taste) TableName() string {

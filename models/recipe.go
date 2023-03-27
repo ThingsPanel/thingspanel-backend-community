@@ -15,7 +15,7 @@ type Recipe struct {
 	TasteId          string    `gorm:"column:taste_id"`
 	Taste            string    `gorm:"column:taste"`
 	BottomProperties string    `gorm:"column:bottom_properties"`
-	SoupStandard     string    `gorm:"column:soup_standard"`
+	SoupStandard     int64     `gorm:"column:soup_standard"`
 	CreateAt         int64     `gorm:"column:create_at"`
 	UpdateAt         time.Time `gorm:"column:update_at;default:CURRENT_TIMESTAMP"`
 	DeleteAt         time.Time `gorm:"column:delete_at"`

@@ -15,7 +15,7 @@ type AddRecipeValidator struct {
 	Tastes           string     `json:"Tastes" alias:"口味"`
 	TastesArr        []Taste    `json:"TastesArr" alias:"口味" valid:"Required"`
 	BottomProperties string     `json:"BottomProperties" alias:"锅底属性" valid:"Required"`
-	SoupStandard     string     `json:"SoupStandard" alias:"加汤水位标准" `
+	SoupStandard     int64      `json:"SoupStandard" alias:"加汤水位标准" `
 	MaterialsArr     []Material `json:"MaterialsArr" alias:"物料"`
 	Materials        string     `json:"Materials" alias:"物料"`
 }

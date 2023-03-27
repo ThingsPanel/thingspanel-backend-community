@@ -96,6 +96,8 @@ func (pot *RecipeController) Add() {
 	MaterialIdArr := make([]string, 0)
 	TasteArr := make([]models.Taste, 0)
 	TasteIdArr := make([]string, 0)
+	var recipeId = uuid.GetUuid()
+	Recipe.Id = recipeId
 	for _, v := range addRecipeValidate.MaterialsArr {
 		materialUuid := uuid.GetUuid()
 		MaterialIdArr = append(MaterialIdArr, materialUuid)
@@ -106,6 +108,7 @@ func (pot *RecipeController) Add() {
 			Unit:      v.Unit,
 			WaterLine: v.WaterLine,
 			Station:   v.Station,
+			RecipeID:  recipeId,
 		})
 	}
 
@@ -122,6 +125,7 @@ func (pot *RecipeController) Add() {
 			CreateAt:      time.Now().Unix(),
 			WaterLine:     v.WaterLine,
 			Station:       v.Station,
+			RecipeID:      recipeId,
 		})
 	}
 	Recipe.MaterialsId = strings.Join(MaterialIdArr, ",")
