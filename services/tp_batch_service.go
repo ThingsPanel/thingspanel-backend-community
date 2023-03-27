@@ -266,11 +266,6 @@ func (*TpBatchService) Import(bath_id, batch_number, product_id, file string) ([
 			DeviceCode:   product_serial_number + "-" + batch_number + "-" + fmt.Sprintf("%04d", i),
 		})
 	}
-	result := psql.Mydb.Create(&generatedevices)
-	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return generatedevices, result.Error
-	}
 	return generatedevices, nil
 
 }
