@@ -133,26 +133,23 @@ func (*TpOtaDeviceService) AddBathTpOtaDevice(tp_ota_device []models.TpOtaDevice
 //3-升级成功 5-已取消 不修改
 func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDeviceIdValidate) error {
 	var devices []models.TpOtaDevice
-	var result *gorm.DB
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
 	if tp_ota_modfiystatus.OtaTaskId != "" && tp_ota_modfiystatus.Id != "" {
 		//单个设备
-		result = db.Where("ota_task_id=? and id=? and upgrade_status=?", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id, tp_ota_modfiystatus.UpgradeStatus).Find(&devices)
+		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Update("upgrade_status", tp_ota_modfiystatus.UpgradeStatus).Error; err != nil {
+			return err
+		}
+		return nil
 	} else {
 		//任务下的所有设备
-		result = db.Where("ota_task_id=? ", tp_ota_modfiystatus.OtaTaskId).Find(&devices)
+		if err := db.Where("ota_task_id=? ", tp_ota_modfiystatus.OtaTaskId).Find(&devices).Error; err != nil {
+			return err
+		}
 		psql.Mydb.Model(&models.TpOtaTask{}).Where("ota_task_id=?", tp_ota_modfiystatus.OtaTaskId).Update("task_status", "2")
-	}
-	if result.Error != nil || len(devices) == 0 {
-		logs.Error(result.Error)
-		return errors.New("修改状态失败")
 	}
 	for _, device := range devices {
 		if device.UpgradeStatus == "0" || device.UpgradeStatus == "1" || device.UpgradeStatus == "2" {
 			psql.Mydb.Model(&device).Update("upgrade_status", "5")
-		}
-		if device.UpgradeStatus == "4" {
-			psql.Mydb.Model(&device).Update("upgrade_status", "0")
 		}
 	}
 	return nil
