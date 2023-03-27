@@ -62,8 +62,6 @@ func (*TpBatchService) GetTpBatchList(PaginationValidate valid.TpBatchPagination
 
 // 新增数据
 func (*TpBatchService) AddTpBatch(tp_batch models.TpBatch) (models.TpBatch, error) {
-	var uuid = uuid.GetUuid()
-	tp_batch.Id = uuid
 	result := psql.Mydb.Create(&tp_batch)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)

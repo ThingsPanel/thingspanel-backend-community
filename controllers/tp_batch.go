@@ -260,17 +260,17 @@ func (TpBatchController *TpBatchController) Import() {
 	}
 	var TpBatchService services.TpBatchService
 	id := utils.GetUuid()
+	d, rsp_err := TpBatchService.Import(id, ImportTpBatchValidate.BatchNumber, ImportTpBatchValidate.ProductId, ImportTpBatchValidate.File)
+	if rsp_err != nil {
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpBatchController.Ctx))
+	}
 	TpBatch := models.TpBatch{
 		Id:           id,
 		BatchNumber:  ImportTpBatchValidate.BatchNumber,
 		CreatedTime:  time.Now().Unix(),
-		GenerateFlag: "0",
+		GenerateFlag: "1",
 		ProductId:    ImportTpBatchValidate.ProductId,
-	}
-
-	d, rsp_err := TpBatchService.Import(id, ImportTpBatchValidate.BatchNumber, ImportTpBatchValidate.ProductId, ImportTpBatchValidate.File)
-	if rsp_err != nil {
-		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpBatchController.Ctx))
+		DeviceNumber: len(d),
 	}
 	tpbath, rsp_err1 := TpBatchService.AddTpBatch(TpBatch)
 	if rsp_err1 == nil {
