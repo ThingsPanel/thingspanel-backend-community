@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"os"
 	"strings"
@@ -125,15 +124,16 @@ func FileSign(filePath string, sign string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
-	var hash hash.Hash
 	if sign == "MD5" {
-		hash = md5.New()
+		hash := md5.New()
+		_, _ = io.Copy(hash, file)
+		return hex.EncodeToString(hash.Sum(nil)), nil
 	} else {
-		hash = sha256.New()
+		hash := sha256.New()
+		_, _ = io.Copy(hash, file)
+		return hex.EncodeToString(hash.Sum(nil)), nil
 	}
-	_, _ = io.Copy(hash, file)
-	return hex.EncodeToString(hash.Sum(nil)), nil
+
 }
 
 func GetFileSize(filePath string) (int64, error) {
