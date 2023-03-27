@@ -53,9 +53,34 @@ func (uploadController *UploadController) UpFile() {
 		".xlsx": true,
 		".xls":  true,
 	}
-	if _, ok := AllowExtMap[ext]; !ok {
-		response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))
+	var AllowUpgradePackageMap map[string]bool = map[string]bool{
+		".bin":  true,
+		".tar":  true,
+		".gz":   true,
+		".zip":  true,
+		".gzip": true,
+		".apk":  true,
+		".dav":  true,
+		".pack": true,
 	}
+	var AllowimportBatchMap map[string]bool = map[string]bool{
+		".xlsx": true,
+	}
+	switch fileType {
+	case "upgradePackage":
+		if _, ok := AllowUpgradePackageMap[ext]; !ok {
+			response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))
+		}
+	case "importBatchMap":
+		if _, ok := AllowimportBatchMap[ext]; !ok {
+			response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))
+		}
+	default:
+		if _, ok := AllowExtMap[ext]; !ok {
+			response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))
+		}
+	}
+
 	//创建目录
 
 	uploadDir := "./files/" + fileType + "/" + time.Now().Format("2006-01-02/")
