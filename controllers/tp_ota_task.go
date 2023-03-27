@@ -99,11 +99,11 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	if AddTpOtaTaskValidate.UpgradeTimeType == "1" {
 		taskstatus = "0"
 		upgradestatus = "0"
-		statusdetail = fmt.Sprintf("定时：(%s)", AddTpOtaTaskValidate.StartTime)
 		st, _ := time.Parse("2006-01-02T15:04:05Z", AddTpOtaTaskValidate.StartTime)
 		et, _ := time.Parse("2006-01-02T15:04:05Z", AddTpOtaTaskValidate.EndTime)
 		starttime = st.Format("2006-01-02 15:04:05")
 		endtime = et.Format("2006-01-02 15:04:05")
+		statusdetail = fmt.Sprintf("定时：(%s)", starttime)
 	}
 	TpOtaTask := models.TpOtaTask{
 		Id:              id,
@@ -139,7 +139,9 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	}
 	_, rsp_device_err := TpOtaDeviceService.AddBathTpOtaDevice(tp_ota_devices)
 	if rsp_err == nil && rsp_device_err == nil {
-		go TpOtaDeviceService.OtaToUpgradeMsg(devices, AddTpOtaTaskValidate.OtaId, id)
+		if AddTpOtaTaskValidate.UpgradeTimeType == "0" {
+			go TpOtaDeviceService.OtaToUpgradeMsg(devices, AddTpOtaTaskValidate.OtaId, id)
+		}
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpOtaTaskController.Ctx))
 	} else {
 		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpOtaTaskController.Ctx))
