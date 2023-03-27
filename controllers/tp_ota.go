@@ -115,7 +115,7 @@ func (TpOtaController *TpOtaController) Add() {
 		var err string
 		isTrue := strings.Contains(rsp_err.Error(), "23505")
 		if isTrue {
-			err = "批次编号不能重复！"
+			err = "有值不能重复！"
 		} else {
 			err = rsp_err.Error()
 		}
