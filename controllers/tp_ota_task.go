@@ -93,11 +93,11 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	id := utils.GetUuid()
 	taskstatus := "0"
 	upgradestatus := "0"
-	statusdetail := ""
+	statusdetail := fmt.Sprintf("定时：(%s)", AddTpOtaTaskValidate.StartTime)
 	if AddTpOtaTaskValidate.UpgradeTimeType == "0" {
 		taskstatus = "1"
 		upgradestatus = "1"
-		statusdetail = fmt.Sprintf("定时：(%s)", AddTpOtaTaskValidate.StartTime)
+		statusdetail = ""
 		//推送ota升级地址消息
 	}
 	TpOtaTask := models.TpOtaTask{
