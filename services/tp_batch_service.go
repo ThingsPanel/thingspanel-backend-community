@@ -245,19 +245,22 @@ func (*TpBatchService) Import(bath_id, batch_number, product_id, file string) ([
 		return nil, errors.New("设备数量超上限")
 	}
 	var generatedevices []models.TpGenerateDevice
-
+	passwd := ""
 	for i := 1; i < devicenumber; i++ {
-		if authtype == "2" && rows[i][2] == "" {
+		if authtype == "2" && len(rows[i]) <= 2 {
 			return nil, errors.New("MQTTBasic认证方式必须有密码")
 		}
 		if rows[i][1] == "" {
 			return nil, errors.New("必须有token")
 		}
+		if len(rows[i]) == 3 {
+			passwd = rows[i][2]
+		}
 		generatedevices = append(generatedevices, models.TpGenerateDevice{
 			Id:           utils.GetUuid(),
 			BatchId:      bath_id,
 			Token:        rows[i][1],
-			Password:     rows[i][2],
+			Password:     passwd,
 			ActivateFlag: "0",
 			CreatedTime:  time.Now().Unix(),
 			DeviceCode:   product_serial_number + "-" + batch_number + "-" + fmt.Sprintf("%04d", i),
