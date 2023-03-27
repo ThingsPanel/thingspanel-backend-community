@@ -255,6 +255,9 @@ func (TpBatchController *TpBatchController) Import() {
 	if err := utils.CheckPathFilename(ImportTpBatchValidate.File); err != nil || ImportTpBatchValidate.File == "" {
 		utils.SuccessWithMessage(1000, "文件不合法或不存在", (*context2.Context)(TpBatchController.Ctx))
 	}
+	if filetype := strings.Split(ImportTpBatchValidate.File, "."); len(filetype) == 3 && filetype[2] != "xlsx" {
+		utils.SuccessWithMessage(1000, "文件必须为2007版及以上的Excel", (*context2.Context)(TpBatchController.Ctx))
+	}
 	var TpBatchService services.TpBatchService
 	id := utils.GetUuid()
 	TpBatch := models.TpBatch{
