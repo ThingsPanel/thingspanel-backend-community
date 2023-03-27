@@ -72,6 +72,10 @@ func (*TpOtaDeviceService) GetTpOtaDeviceList(PaginationValidate valid.TpOtaDevi
 		values = append(values, PaginationValidate.OtaTaskId)
 		where += " and od.ota_task_id = ?"
 	}
+	if PaginationValidate.UpgradeStatus != "" {
+		values = append(values, PaginationValidate.UpgradeStatus)
+		where += " and od.upgrade_status = ?"
+	}
 	sqlWhere += where
 	sqlWhereCount += where
 	var count int64
