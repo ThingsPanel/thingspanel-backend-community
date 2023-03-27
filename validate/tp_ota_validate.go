@@ -18,7 +18,7 @@ type AddTpOtaValidate struct {
 	PackageVersion     string `json:"package_version,omitempty" ailas:"升级包版本号" valid:"Required;MaxSize(36)"`
 	PackageModule      string `json:"package_module,omitempty" ailas:"升级包模块"`
 	ProductId          string `json:"product_id,omitempty" ailas:"产品ID" valid:"Required;MaxSize(36)"`
-	SignatureAlgorithm string `json:"signature_algorithm,omitempty" ailas:"签名算法" valid:"Required;MaxSize(36);In('MD5','SHA256')"` //签名算法
+	SignatureAlgorithm string `json:"signature_algorithm,omitempty" ailas:"签名算法" valid:"Required;MaxSize(36)"` //签名算法
 	PackageUrl         string `json:"package_url,omitempty" ailas:"升级包url"`
 	PackagePath        string `json:"package_path,omitempty" ailas:"升级包url"`
 	Description        string `json:"description,omitempty" ailas:"描述"`
