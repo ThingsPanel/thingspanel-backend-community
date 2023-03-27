@@ -134,9 +134,14 @@ func (*TpOtaDeviceService) AddBathTpOtaDevice(tp_ota_device []models.TpOtaDevice
 func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDeviceIdValidate) error {
 	var devices []models.TpOtaDevice
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
+	status_detail := "已取消"
 	if tp_ota_modfiystatus.OtaTaskId != "" && tp_ota_modfiystatus.Id != "" {
 		//单个设备
-		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Updates(&models.TpOtaDevice{UpgradeStatus: tp_ota_modfiystatus.UpgradeStatus, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05")}).Error; err != nil {
+
+		if tp_ota_modfiystatus.UpgradeStatus != "5" {
+			status_detail = "重升级中"
+		}
+		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Updates(&models.TpOtaDevice{UpgradeStatus: tp_ota_modfiystatus.UpgradeStatus, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: status_detail}).Error; err != nil {
 			return err
 		}
 		return nil
@@ -149,7 +154,7 @@ func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDev
 	}
 	for _, device := range devices {
 		if device.UpgradeStatus == "0" || device.UpgradeStatus == "1" || device.UpgradeStatus == "2" {
-			psql.Mydb.Model(&device).Updates(&models.TpOtaDevice{UpgradeStatus: "5", StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05")})
+			psql.Mydb.Model(&device).Updates(&models.TpOtaDevice{UpgradeStatus: "5", StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: status_detail})
 		}
 	}
 	return nil
