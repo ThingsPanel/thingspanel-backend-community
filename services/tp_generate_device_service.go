@@ -60,6 +60,16 @@ func (*TpGenerateDeviceService) AddTpGenerateDevice(tp_generate_device models.Tp
 	return tp_generate_device, nil
 }
 
+//批量新增
+func (*TpGenerateDeviceService) AddBathTpGenerateDevice(tp_generate_devices []models.TpGenerateDevice) ([]models.TpGenerateDevice, error) {
+	result := psql.Mydb.Create(&tp_generate_devices)
+	if result.Error != nil {
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		return tp_generate_devices, result.Error
+	}
+	return tp_generate_devices, nil
+}
+
 // 修改数据
 func (*TpGenerateDeviceService) EditTpGenerateDevice(tp_generate_device valid.TpGenerateDeviceValidate) bool {
 	result := psql.Mydb.Model(&models.TpGenerateDevice{}).Where("id = ?", tp_generate_device.Id).Updates(&tp_generate_device)

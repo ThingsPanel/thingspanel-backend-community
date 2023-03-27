@@ -21,13 +21,13 @@ func otaCron() {
 
 		var tpOtaTasks []models.TpOtaTask
 		//查询待升级的任务
-		result := psql.Mydb.Model(&models.TpOtaTask{}).Where("task_status = '0' and start_time <= ?", now).Find(&tpOtaTasks)
+		result := psql.Mydb.Model(&models.TpOtaTask{}).Where("upgrade_time_type = '1' and task_status = '0' and start_time <= ?", now).Find(&tpOtaTasks)
 		if result.Error != nil {
 			logs.Error(result.Error.Error())
 			return
 		}
 		//修改定时任务状态为升级中
-		psql.Mydb.Model(&models.TpOtaTask{}).Where("task_status = '0' and start_time <= ?", now).Update("task_status", "1")
+		psql.Mydb.Model(&models.TpOtaTask{}).Where("upgrade_time_type = '1' and task_status = '0' and start_time <= ?", now).Update("task_status", "1")
 		//推送固件版本至设备
 		sql := `select d.id,d.token from tp_ota_device od left join tp_ota_task ot on od.ota_task_id =ot.id
 		left join device d on od.device_id=d.id  where od.upgrade_status='0' and od.ota_task_id=?`

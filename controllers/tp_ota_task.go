@@ -91,21 +91,26 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	var TpOtaTaskService services.TpOtaTaskService
 	var TpOtaDeviceService services.TpOtaDeviceService
 	id := utils.GetUuid()
-	taskstatus := "0"
-	upgradestatus := "0"
-	statusdetail := fmt.Sprintf("定时：(%s)", AddTpOtaTaskValidate.StartTime)
-	if AddTpOtaTaskValidate.UpgradeTimeType == "0" {
-		taskstatus = "1"
-		upgradestatus = "1"
-		statusdetail = ""
-		//推送ota升级地址消息
+	taskstatus := "1"
+	upgradestatus := "1"
+	statusdetail := ""
+	starttime := ""
+	endtime := ""
+	if AddTpOtaTaskValidate.UpgradeTimeType == "1" {
+		taskstatus = "0"
+		upgradestatus = "0"
+		statusdetail = fmt.Sprintf("定时：(%s)", AddTpOtaTaskValidate.StartTime)
+		st, _ := time.Parse("2006-01-02T15:04:05Z", AddTpOtaTaskValidate.StartTime)
+		et, _ := time.Parse("2006-01-02T15:04:05Z", AddTpOtaTaskValidate.EndTime)
+		starttime = st.Format("2006-01-02 15:04:05")
+		endtime = et.Format("2006-01-02 15:04:05")
 	}
 	TpOtaTask := models.TpOtaTask{
 		Id:              id,
 		TaskName:        AddTpOtaTaskValidate.TaskName,
 		UpgradeTimeType: AddTpOtaTaskValidate.UpgradeTimeType,
-		StartTime:       AddTpOtaTaskValidate.StartTime,
-		EndTime:         AddTpOtaTaskValidate.EndTime,
+		StartTime:       starttime,
+		EndTime:         endtime,
 		DeviceCount:     dcount,
 		TaskStatus:      taskstatus,
 		Description:     AddTpOtaTaskValidate.Description,
