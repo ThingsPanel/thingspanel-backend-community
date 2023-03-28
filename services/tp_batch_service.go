@@ -62,8 +62,6 @@ func (*TpBatchService) GetTpBatchList(PaginationValidate valid.TpBatchPagination
 
 // 新增数据
 func (*TpBatchService) AddTpBatch(tp_batch models.TpBatch) (models.TpBatch, error) {
-	var uuid = uuid.GetUuid()
-	tp_batch.Id = uuid
 	result := psql.Mydb.Create(&tp_batch)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
@@ -104,7 +102,7 @@ func (*TpBatchService) DeleteTpBatch(tp_batch models.TpBatch) error {
 //批次表-产品表关联查询
 func (*TpBatchService) productBatch(tp_batch_id string) (map[string]interface{}, error) {
 	var pb map[string]interface{}
-	result := psql.Mydb.Raw("select * from tp_batch tb left join tp_product tp on  tb.product_id = tp.id where tb.id = ?", tp_batch_id).Scan(&pb)
+	result := psql.Mydb.Raw("select tb.*,tp.serial_number from tp_batch tb left join tp_product tp on  tb.product_id = tp.id where tb.id = ?", tp_batch_id).Scan(&pb)
 	if result.RowsAffected == int64(0) {
 		return pb, errors.New("没有这个批次信息！")
 	}
@@ -128,7 +126,7 @@ func (*TpBatchService) GenerateBatch(tp_batch_id string) error {
 		if tp_batch["auth_type"] == "2" {
 			uid = strings.Replace(uuid.GetUuid(), "-", "", -1)[0:9]
 		}
-		device_code := tp_batch["product_id"].(string) + "-" + tp_batch_id + "-" + fmt.Sprintf("%04d", i+1)
+		device_code := tp_batch["serial_number"].(string) + "-" + tp_batch["batch_number"].(string) + "-" + fmt.Sprintf("%04d", i+1)
 		var TpGenerateDevice = models.TpGenerateDevice{
 			BatchId:     tp_batch_id,
 			Token:       uuid.GetUuid(),
@@ -220,7 +218,11 @@ func (*TpBatchService) Import(bath_id, batch_number, product_id, file string) ([
 	if err := psql.Mydb.Model(&models.TpProduct{}).Select("auth_type").Where("id=?", product_id).Find(&authtype).Error; err != nil {
 		return nil, errors.New("产品查询失败")
 	}
-	f, err := excelize.OpenFile("." + file)
+	var product_serial_number string
+	if err := psql.Mydb.Model(&models.TpProduct{}).Select("serial_number").Where("id=?", product_id).Find(&product_serial_number).Error; err != nil {
+		return nil, errors.New("产品编号查询失败")
+	}
+	f, err := excelize.OpenFile(file)
 	if err != nil {
 		logs.Error("打开文件失败")
 		return nil, errors.New("打开文件失败")
@@ -241,13 +243,16 @@ func (*TpBatchService) Import(bath_id, batch_number, product_id, file string) ([
 		return nil, errors.New("设备数量超上限")
 	}
 	var generatedevices []models.TpGenerateDevice
-
+	passwd := ""
 	for i := 1; i < devicenumber; i++ {
-		if authtype == "2" && rows[i][2] == "" {
+		if authtype == "2" && len(rows[i]) <= 2 {
 			return nil, errors.New("MQTTBasic认证方式必须有密码")
 		}
 		if rows[i][1] == "" {
 			return nil, errors.New("必须有token")
+		}
+		if len(rows[i]) == 3 {
+			passwd = rows[i][2]
 		}
 		generatedevices = append(generatedevices, models.TpGenerateDevice{
 			Id:          utils.GetUuid(),
@@ -256,13 +261,8 @@ func (*TpBatchService) Import(bath_id, batch_number, product_id, file string) ([
 			Password:    rows[i][2],
 			AddFlag:     "0",
 			CreatedTime: time.Now().Unix(),
-			DeviceCode:  product_id + "-" + batch_number + "-" + fmt.Sprintf("%04d", i),
+			DeviceCode:   product_serial_number + "-" + batch_number + "-" + fmt.Sprintf("%04d", i),
 		})
-	}
-	result := psql.Mydb.Create(&generatedevices)
-	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return generatedevices, result.Error
 	}
 	return generatedevices, nil
 

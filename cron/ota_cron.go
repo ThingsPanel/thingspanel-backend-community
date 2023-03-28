@@ -21,13 +21,13 @@ func otaCron() {
 
 		var tpOtaTasks []models.TpOtaTask
 		//查询待升级的任务
-		result := psql.Mydb.Model(&models.TpOtaTask{}).Where("task_status = '0' and start_time <= ?", now).Find(&tpOtaTasks)
+		result := psql.Mydb.Model(&models.TpOtaTask{}).Where("upgrade_time_type = '1' and task_status = '0' and start_time <= ?", now).Find(&tpOtaTasks)
 		if result.Error != nil {
 			logs.Error(result.Error.Error())
 			return
 		}
 		//修改定时任务状态为升级中
-		psql.Mydb.Model(&models.TpOtaTask{}).Where("task_status = '0' and start_time <= ?", now).Update("task_status", "1")
+		psql.Mydb.Model(&models.TpOtaTask{}).Where("upgrade_time_type = '1' and task_status = '0' and start_time <= ?", now).Update("task_status", "1")
 		//推送固件版本至设备
 		sql := `select d.id,d.token from tp_ota_device od left join tp_ota_task ot on od.ota_task_id =ot.id
 		left join device d on od.device_id=d.id  where od.upgrade_status='0' and od.ota_task_id=?`
@@ -44,7 +44,7 @@ func otaCron() {
 				continue
 			}
 			var tpOtaDeviceService services.TpOtaDeviceService
-			if err := tpOtaDeviceService.OtaToUpgradeMsg(devices, ota.Id); err != nil {
+			if err := tpOtaDeviceService.OtaToUpgradeMsg(devices, ota.Id, otatask.Id); err != nil {
 				logs.Error(err)
 				continue
 			}
@@ -63,7 +63,7 @@ func otaCron() {
 			//过了升级时间还未推送的设备标记为升级失败4
 			psql.Mydb.Model(&models.TpOtaDevice{}).Where("ota_task_id=? and upgrade_status=?", tpOtaTask.Id, "0").Updates(&models.TpOtaDevice{UpgradeStatus: "4", StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05")})
 		}
-		fmt.Println("检查待升级ota定时任务结束")
+		fmt.Println("检查ota定时任务结束")
 	}
 	crontab.AddFunc(spec, task)
 	crontab.Start()

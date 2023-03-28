@@ -21,7 +21,7 @@ type TpOtaService struct {
 
 //获取列表
 func (*TpOtaService) GetTpOtaList(PaginationValidate valid.TpOtaPaginationValidate) (bool, []map[string]interface{}, int64) {
-	sqlWhere := `select o.*,p.name from tp_ota o left join tp_product p on o.product_id=p.id where 1=1 `
+	sqlWhere := `select o.*,p.name as product_name from tp_ota o left join tp_product p on o.product_id=p.id where 1=1 `
 	sqlWhereCount := `select count(1) from tp_ota o left join tp_product p on o.product_id=p.id where 1=1`
 	var values []interface{}
 	var where = ""
@@ -68,15 +68,26 @@ func (*TpOtaService) GetTpOtaVersionById(otaid string) (bool, models.TpOta) {
 }
 
 // 新增数据
-func (*TpOtaService) AddTpOta(tp_ota models.TpOta) (models.TpOta, error) {
+func (*TpOtaService) AddTpOta(tp_ota models.TpOta) (map[string]interface{}, error) {
+	var data map[string]interface{}
 	result := psql.Mydb.Create(&tp_ota)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return tp_ota, result.Error
+		return data, result.Error
 	}
-	return tp_ota, nil
+	if err := psql.Mydb.Raw(`select o.*,p.name as product_name from tp_ota o left join tp_product p on o.product_id=p.id and where o.id = ?`, tp_ota.Id).Scan(&data).Error; err != nil {
+		return data, err
+	}
+	return data, nil
 }
 func (*TpOtaService) DeleteTpOta(tp_ota models.TpOta) error {
+	var count int64
+	if err := psql.Mydb.Model(&models.TpOtaTask{}).Where("ota_id = ?", tp_ota.Id).Count(&count).Error; err != nil {
+		return err
+	}
+	if count != 0 {
+		return errors.New("存在升级任务不能删除固件")
+	}
 	result := psql.Mydb.Delete(&tp_ota)
 	if result.Error != nil {
 		logs.Error(result.Error)

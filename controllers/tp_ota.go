@@ -75,17 +75,15 @@ func (TpOtaController *TpOtaController) Add() {
 		}
 		return
 	}
-	if err := utils.CheckPathFilename(AddTpOtaValidate.PackagePath); err != nil || AddTpOtaValidate.PackagePath == "" || !utils.FileExist("."+AddTpOtaValidate.PackagePath) {
-		utils.SuccessWithMessage(400, "不存在升级包", (*context2.Context)(TpOtaController.Ctx))
+	if err := utils.CheckPathFilename(AddTpOtaValidate.PackageUrl); err != nil || AddTpOtaValidate.PackageUrl == "" || !utils.FileExist(AddTpOtaValidate.PackageUrl) {
+		utils.SuccessWithMessage(400, "不存在升级包或升级包路径不合法", (*context2.Context)(TpOtaController.Ctx))
 	}
-	if err := utils.CheckPathFilename(AddTpOtaValidate.PackageUrl); err != nil || AddTpOtaValidate.PackageUrl == "" || !utils.FileExist("."+AddTpOtaValidate.PackageUrl) {
-		utils.SuccessWithMessage(400, "不存在升级包", (*context2.Context)(TpOtaController.Ctx))
-	}
-	//md5计算
-	packagesign, md5_err := utils.FileMD5(AddTpOtaValidate.PackagePath)
-	if md5_err != nil {
+	//文件sign计算
+	packagesign, sign_err := utils.FileSign(AddTpOtaValidate.PackagePath, AddTpOtaValidate.SignatureAlgorithm)
+	if sign_err != nil {
 		utils.SuccessWithMessage(400, "文件签名计算失败", (*context2.Context)(TpOtaController.Ctx))
 	}
+
 	//文件大小检查
 	packageLength, pl_err := utils.GetFileSize(AddTpOtaValidate.PackagePath)
 	if pl_err != nil {
@@ -117,7 +115,7 @@ func (TpOtaController *TpOtaController) Add() {
 		var err string
 		isTrue := strings.Contains(rsp_err.Error(), "23505")
 		if isTrue {
-			err = "批次编号不能重复！"
+			err = "有值不能重复！"
 		} else {
 			err = rsp_err.Error()
 		}

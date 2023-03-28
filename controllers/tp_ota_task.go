@@ -91,18 +91,26 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	var TpOtaTaskService services.TpOtaTaskService
 	var TpOtaDeviceService services.TpOtaDeviceService
 	id := utils.GetUuid()
-	taskstatus := "0"
-	if AddTpOtaTaskValidate.UpgradeTimeType == "0" {
-		taskstatus = "1"
-		//推送ota升级地址消息
-		_ = TpOtaDeviceService.OtaToUpgradeMsg(devices, AddTpOtaTaskValidate.OtaId)
+	taskstatus := "1"
+	upgradestatus := "1"
+	statusdetail := ""
+	starttime := ""
+	endtime := ""
+	if AddTpOtaTaskValidate.UpgradeTimeType == "1" {
+		taskstatus = "0"
+		upgradestatus = "0"
+		st, _ := time.Parse("2006-01-02T15:04:05Z", AddTpOtaTaskValidate.StartTime)
+		et, _ := time.Parse("2006-01-02T15:04:05Z", AddTpOtaTaskValidate.EndTime)
+		starttime = st.Format("2006-01-02 15:04:05")
+		endtime = et.Format("2006-01-02 15:04:05")
+		statusdetail = fmt.Sprintf("定时：(%s)", starttime)
 	}
 	TpOtaTask := models.TpOtaTask{
 		Id:              id,
 		TaskName:        AddTpOtaTaskValidate.TaskName,
 		UpgradeTimeType: AddTpOtaTaskValidate.UpgradeTimeType,
-		StartTime:       AddTpOtaTaskValidate.StartTime,
-		EndTime:         AddTpOtaTaskValidate.EndTime,
+		StartTime:       starttime,
+		EndTime:         endtime,
 		DeviceCount:     dcount,
 		TaskStatus:      taskstatus,
 		Description:     AddTpOtaTaskValidate.Description,
@@ -125,21 +133,18 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 			DeviceId:      device.ID,
 			TargetVersion: tpota.PackageVersion,
 			OtaTaskId:     d.Id,
-			UpgradeStatus: "0",
+			UpgradeStatus: upgradestatus,
+			StatusDetail:  statusdetail,
 		})
 	}
 	_, rsp_device_err := TpOtaDeviceService.AddBathTpOtaDevice(tp_ota_devices)
 	if rsp_err == nil && rsp_device_err == nil {
+		if AddTpOtaTaskValidate.UpgradeTimeType == "0" {
+			go TpOtaDeviceService.OtaToUpgradeMsg(devices, AddTpOtaTaskValidate.OtaId, id)
+		}
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpOtaTaskController.Ctx))
 	} else {
-		var err string
-		isTrue := strings.Contains(rsp_err.Error(), "23505")
-		if isTrue {
-			err = "不能重复！"
-		} else {
-			err = rsp_err.Error()
-		}
-		utils.SuccessWithMessage(400, err, (*context2.Context)(TpOtaTaskController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpOtaTaskController.Ctx))
 	}
 
 }

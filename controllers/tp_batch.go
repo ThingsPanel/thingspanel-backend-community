@@ -255,24 +255,33 @@ func (TpBatchController *TpBatchController) Import() {
 	if err := utils.CheckPathFilename(ImportTpBatchValidate.File); err != nil || ImportTpBatchValidate.File == "" {
 		utils.SuccessWithMessage(1000, "文件不合法或不存在", (*context2.Context)(TpBatchController.Ctx))
 	}
+	if filetype := strings.Split(ImportTpBatchValidate.File, "."); len(filetype) == 3 && filetype[2] != "xlsx" {
+		utils.SuccessWithMessage(1000, "文件必须为2007版及以上的Excel", (*context2.Context)(TpBatchController.Ctx))
+	}
 	var TpBatchService services.TpBatchService
 	id := utils.GetUuid()
-	TpBatch := models.TpBatch{
-		Id:           id,
-		BatchNumber:  ImportTpBatchValidate.BatchNumber,
-		CreatedTime:  time.Now().Unix(),
-		GenerateFlag: "0",
-		ProductId:    ImportTpBatchValidate.ProductId,
-	}
-	var data map[string]interface{}
 	d, rsp_err := TpBatchService.Import(id, ImportTpBatchValidate.BatchNumber, ImportTpBatchValidate.ProductId, ImportTpBatchValidate.File)
 	if rsp_err != nil {
 		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpBatchController.Ctx))
 	}
+	TpBatch := models.TpBatch{
+		Id:           id,
+		BatchNumber:  ImportTpBatchValidate.BatchNumber,
+		CreatedTime:  time.Now().Unix(),
+		GenerateFlag: "1",
+		ProductId:    ImportTpBatchValidate.ProductId,
+		DeviceNumber: len(d),
+	}
 	tpbath, rsp_err1 := TpBatchService.AddTpBatch(TpBatch)
 	if rsp_err1 == nil {
+		data := make(map[string]interface{})
+		var TpGenerateDevicesService services.TpGenerateDeviceService
+		generated, err := TpGenerateDevicesService.AddBathTpGenerateDevice(d)
+		if err != nil || len(generated) == 0 {
+			utils.SuccessWithMessage(400, "生成数据失败", (*context2.Context)(TpBatchController.Ctx))
+		}
 		data["tpbath"] = tpbath
-		data["generate_devices"] = d
+		data["generate_devices"] = generated
 		utils.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(TpBatchController.Ctx))
 	} else {
 		var err string
