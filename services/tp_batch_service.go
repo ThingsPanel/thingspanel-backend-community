@@ -132,7 +132,7 @@ func (*TpBatchService) GenerateBatch(tp_batch_id string) error {
 			Token:       uuid.GetUuid(),
 			Password:    uid,
 			AddFlag:     "0",
-			CreatedTime: time.Now().Unix(),
+			CreatedTime: time.Now().UnixMicro(),
 			DeviceId:    uuid.GetUuid(),
 			DeviceCode:  device_code,
 		}
