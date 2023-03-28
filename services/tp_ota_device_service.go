@@ -144,31 +144,31 @@ func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDev
 			status_detail = "开始重新升级"
 		}
 		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Updates(&models.TpOtaDevice{UpgradeStatus: tp_ota_modfiystatus.UpgradeStatus, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: status_detail}).Error; err != nil {
-			if err != nil {
-				// 重新升级需要推送升级包
-				if tp_ota_modfiystatus.UpgradeStatus == "0" {
-					// 查询待升级设备信息
-					if err := db.Where("ota_task_id=? and id = ?", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Find(&devices).Error; err != nil {
-						return err
-					}
-					// 查询设备信息
-					var deviceList []models.Device
-					if err := psql.Mydb.Model(&models.Device{}).Where("id=?", devices[0].DeviceId).Find(&deviceList).Error; err != nil {
-						return err
-					}
-					var tpOtaTask models.TpOtaTask
-					// 查询固件设计任务
-					if err := psql.Mydb.Model(&models.TpOtaTask{}).Where("ota_task_id=?", tp_ota_modfiystatus.OtaTaskId).First(&tpOtaTask).Error; err != nil {
-						return err
-					}
-					var tpOtaDeviceService TpOtaDeviceService
-					// 推送升级包
-					if err := tpOtaDeviceService.OtaToUpgradeMsg(deviceList, tpOtaTask.OtaId, tp_ota_modfiystatus.OtaTaskId); err != nil {
-						return err
-					}
+			return err
+		} else {
+			// 重新升级需要推送升级包
+			if tp_ota_modfiystatus.UpgradeStatus == "0" {
+				logs.Info("重新升级需要推送升级包")
+				// 查询待升级设备信息
+				if err := db.Where("ota_task_id=? and id = ?", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Find(&devices).Error; err != nil {
+					return err
+				}
+				// 查询设备信息
+				var deviceList []models.Device
+				if err := psql.Mydb.Model(&models.Device{}).Where("id=?", devices[0].DeviceId).Find(&deviceList).Error; err != nil {
+					return err
+				}
+				var tpOtaTask models.TpOtaTask
+				// 查询固件设计任务
+				if err := psql.Mydb.Model(&models.TpOtaTask{}).Where("id=?", tp_ota_modfiystatus.OtaTaskId).First(&tpOtaTask).Error; err != nil {
+					return err
+				}
+				var tpOtaDeviceService TpOtaDeviceService
+				// 推送升级包
+				if err := tpOtaDeviceService.OtaToUpgradeMsg(deviceList, tpOtaTask.OtaId, tp_ota_modfiystatus.OtaTaskId); err != nil {
+					return err
 				}
 			}
-			return err
 		}
 		return nil
 	} else {
