@@ -150,9 +150,13 @@ func (*TpGenerateDeviceService) ActivateDevice(generate_device_id string, asset_
 	if rsp_err != nil {
 		return rsp_err
 	}
+	// 获取当前日期并格式化为2006-01-02 15:04:05
+	t := time.Now().Format("2006-01-02 15:04:05")
+
 	//更新激活
 	var tp_generate_device = valid.TpGenerateDeviceValidate{
 		Id:      generate_device_id,
+		AddDate: t,
 		AddFlag: "1",
 	}
 	TpGenerateDeviceService.EditTpGenerateDevice(tp_generate_device)
