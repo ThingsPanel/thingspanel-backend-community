@@ -75,7 +75,7 @@ func (*TpOtaService) AddTpOta(tp_ota models.TpOta) (map[string]interface{}, erro
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return data, result.Error
 	}
-	if err := psql.Mydb.Raw(`select o.*,p.name as product_name from tp_ota o left join tp_product p on o.product_id=p.id and where o.id = ?`, tp_ota.Id).Scan(&data).Error; err != nil {
+	if err := psql.Mydb.Raw(`select o.*,p.name as product_name from tp_ota o left join tp_product p on o.product_id=p.id where o.id = ?`, tp_ota.Id).Scan(&data).Error; err != nil {
 		return data, err
 	}
 	return data, nil
