@@ -101,7 +101,7 @@ func (*TpGenerateDeviceService) DeleteTpGenerateDevice(tp_generate_device models
 //生成设备表-批次表-产品表关联查询
 func (*TpGenerateDeviceService) generateDeviceProductBatch(id string) (map[string]interface{}, error) {
 	var gpb map[string]interface{}
-	sql := `select tgd.device_id as device_id,tb.product_id as product_id,tgd.activate_flag as activate_flag ,tgd.token as token ,tgd.password as password ,tp.protocol_type as protocol_type ,tp.plugin as plugin, 
+	sql := `select tgd.device_id as device_id,tb.product_id as product_id,tgd.add_flag as add_flag ,tgd.token as token ,tgd.password as password ,tp.protocol_type as protocol_type ,tp.plugin as plugin, 
 	tb.access_address as access_address ,tp.serial_number as serial_number,tb.batch_number as serial_number,tp.device_model_id as device_model_id
 	from tp_generate_device tgd left join tp_batch tb on tgd.batch_id = tb.id left join tp_product tp on  tb.product_id = tp.id where tgd.id = ?`
 	result := psql.Mydb.Raw(sql, id).Scan(&gpb)
