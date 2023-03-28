@@ -43,7 +43,7 @@ func (*TpGenerateDeviceService) GetTpGenerateDeviceList(PaginationValidate valid
 	result := db.Model(&models.TpGenerateDevice{}).
 		Select("tp_generate_device.id,tp_generate_device.add_flag,tp_generate_device.add_date,tp_generate_device.device_code,CASE WHEN ts_kv_latest.key='SYS_ONLINE' THEN '1' ELSE '0' END AS activate_flag").
 		Joins("left join ts_kv_latest on ts_kv_latest.entity_id = tp_generate_device.device_id  and ts_kv_latest.key='SYS_ONLINE' ").
-		Where("tp_generate_device.batch_id=?", PaginationValidate.BatchId).Limit(PaginationValidate.PerPage).Offset(offset).Find(&TpGenerateDevices)
+		Where("tp_generate_device.batch_id=?", PaginationValidate.BatchId).Limit(PaginationValidate.PerPage).Offset(offset).Find(&TpGenerateDevices).Order("tp_generate_device.created_time asc")
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, TpGenerateDevices, 0
