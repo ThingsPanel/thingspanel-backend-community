@@ -1086,6 +1086,9 @@ func (*DeviceService) IsDeviceOnline(deviceId string) (bool, error) {
 	result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
 	if result.Error != nil {
 		logs.Error(result.Error)
+		if result.Error == gorm.ErrRecordNotFound {
+			return false, nil
+		}
 		return false, result.Error
 	}
 	if tskvLatest.StrV == "1" {

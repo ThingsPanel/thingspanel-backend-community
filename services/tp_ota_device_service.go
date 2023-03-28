@@ -308,7 +308,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		if idOnline, err := deviceService.IsDeviceOnline(device.ID); err != nil {
 			logs.Error(err.Error())
 		} else if !idOnline {
-			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Update("upgrade_status", "4")
+			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Updates(map[string]interface{}{"upgrade_status": "4", "status_detail": "设备不在线，升级失败", "status_update_time": time.Now().Format("2006-01-02 15:04:05")})
 			logs.Info("OTA任务id为%s,设备id为%s,设备不在线", otataskid, device.ID)
 			continue
 		}
@@ -317,7 +317,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		//状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消
 		psql.Mydb.Where("device_id = ? and ota_task_id != ? and upgrade_status  in ('0','1','2')", device.ID, otataskid).Count(&count)
 		if count != 0 {
-			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Update("upgrade_status", "4")
+			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Updates(map[string]interface{}{"upgrade_status": "4", "status_detail": "上次升级未完成", "status_update_time": time.Now().Format("2006-01-02 15:04:05")})
 			logs.Info("OTA任务id为%s,设备id为%s,有任务进行中", otataskid, device.ID)
 			continue
 		}
@@ -340,7 +340,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		if json_err != nil {
 			logs.Error(json_err.Error())
 		} else {
-			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Update("upgrade_status", "1")
+			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Updates(map[string]interface{}{"upgrade_status": "4", "status_detail": "已通知设备", "status_update_time": time.Now().Format("2006-01-02 15:04:05")})
 			go mqtt.SendOtaAdress(msgdata, device.Token)
 		}
 	}
