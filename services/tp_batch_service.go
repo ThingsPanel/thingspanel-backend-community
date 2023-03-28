@@ -82,7 +82,7 @@ func (*TpBatchService) EditTpBatch(tp_batch valid.TpBatchValidate) bool {
 
 // 删除数据
 func (*TpBatchService) DeleteTpBatch(tp_batch models.TpBatch) error {
-	sql := `select count(*) from tp_generate_device where activate_flag = '1' and batch_id= ?`
+	sql := `select count(*) from tp_generate_device where add_flag = '1' and batch_id= ?`
 	var count int64
 	if resultcount := psql.Mydb.Raw(sql, tp_batch.Id).Scan(&count); resultcount.Error != nil {
 		logs.Error(resultcount.Error)
@@ -128,13 +128,13 @@ func (*TpBatchService) GenerateBatch(tp_batch_id string) error {
 		}
 		device_code := tp_batch["serial_number"].(string) + "-" + tp_batch["batch_number"].(string) + "-" + fmt.Sprintf("%04d", i+1)
 		var TpGenerateDevice = models.TpGenerateDevice{
-			BatchId:      tp_batch_id,
-			Token:        uuid.GetUuid(),
-			Password:     uid,
-			ActivateFlag: "0",
-			CreatedTime:  time.Now().Unix(),
-			DeviceId:     uuid.GetUuid(),
-			DeviceCode:   device_code,
+			BatchId:     tp_batch_id,
+			Token:       uuid.GetUuid(),
+			Password:    uid,
+			AddFlag:     "0",
+			CreatedTime: time.Now().Unix(),
+			DeviceId:    uuid.GetUuid(),
+			DeviceCode:  device_code,
 		}
 		// 插入数据
 		TpGenerateDeviceService.AddTpGenerateDevice(TpGenerateDevice)
@@ -160,7 +160,7 @@ func (*TpBatchService) Export(batch_id string) (string, error) {
 	excel_file.SetCellValue("Sheet1", "F1", "密码")
 	excel_file.SetCellValue("Sheet1", "G1", "二维码bash64")
 	var gpb []map[string]interface{}
-	sql := `select tgd.device_id as device_id,tgd.activate_flag as activate_flag ,tgd.token as token ,tgd.password as password ,tp.protocol_type as protocol_type ,tp.plugin as plugin, 
+	sql := `select tgd.device_id as device_id,tgd.add_flag as add_flag ,tgd.token as token ,tgd.password as password ,tp.protocol_type as protocol_type ,tp.plugin as plugin, 
 	tb.access_address as access_address ,tp.serial_number as serial_number,tb.batch_number as batch_number,tgd.id as generate_device_id
 	from tp_generate_device tgd left join tp_batch tb on tgd.batch_id = tb.id left join tp_product tp on  tb.product_id = tp.id where tb.id = ?`
 	result := psql.Mydb.Raw(sql, batch_id).Scan(&gpb)
@@ -255,12 +255,12 @@ func (*TpBatchService) Import(bath_id, batch_number, product_id, file string) ([
 			passwd = rows[i][2]
 		}
 		generatedevices = append(generatedevices, models.TpGenerateDevice{
-			Id:           utils.GetUuid(),
-			BatchId:      bath_id,
-			Token:        rows[i][1],
-			Password:     passwd,
-			ActivateFlag: "0",
-			CreatedTime:  time.Now().Unix(),
+			Id:          utils.GetUuid(),
+			BatchId:     bath_id,
+			Token:       rows[i][1],
+			Password:    rows[i][2],
+			AddFlag:     "0",
+			CreatedTime: time.Now().Unix(),
 			DeviceCode:   product_serial_number + "-" + batch_number + "-" + fmt.Sprintf("%04d", i),
 		})
 	}
