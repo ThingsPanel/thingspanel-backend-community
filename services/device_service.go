@@ -1080,6 +1080,20 @@ func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValid
 	return deviceOnlineStatus, nil
 }
 
+//设备是否在线
+func (*DeviceService) IsDeviceOnline(deviceId string) (bool, error) {
+	var tskvLatest models.TSKVLatest
+	result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
+	if result.Error != nil {
+		logs.Error(result.Error)
+		return false, result.Error
+	}
+	if tskvLatest.StrV == "1" {
+		return true, nil
+	}
+	return false, nil
+}
+
 //根据wvp设备编号获取设备数量
 func (*DeviceService) GetWvpDeviceCount(did string) (int64, error) {
 	result := psql.Mydb.Where("device_type = '2' and did = ?", did).Find(&models.Device{})
