@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -127,26 +128,51 @@ func (*TpOtaDeviceService) AddBathTpOtaDevice(tp_ota_device []models.TpOtaDevice
 	return tp_ota_device, nil
 }
 
-//修改升级状态
+//设备状态修改
 //0-待推送 1-已推送 2-升级中 修改为已取消
 //4-升级失败 修改为待推送
 //3-升级成功 5-已取消 不修改
 func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDeviceIdValidate) error {
 	var devices []models.TpOtaDevice
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
-	status_detail := "已取消"
+	status_detail := ""
+	//OtaTaskId存在的时候，属于单个操作
 	if tp_ota_modfiystatus.OtaTaskId != "" && tp_ota_modfiystatus.Id != "" {
-		//单个设备
-
-		if tp_ota_modfiystatus.UpgradeStatus != "5" {
-			status_detail = "重升级中"
+		if tp_ota_modfiystatus.UpgradeStatus == "5" {
+			status_detail = "已取消"
+		} else if tp_ota_modfiystatus.UpgradeStatus == "0" {
+			status_detail = "开始重新升级"
 		}
 		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Updates(&models.TpOtaDevice{UpgradeStatus: tp_ota_modfiystatus.UpgradeStatus, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: status_detail}).Error; err != nil {
+			if err != nil {
+				// 重新升级需要推送升级包
+				if tp_ota_modfiystatus.UpgradeStatus == "0" {
+					// 查询待升级设备信息
+					if err := db.Where("ota_task_id=? and id = ?", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Find(&devices).Error; err != nil {
+						return err
+					}
+					// 查询设备信息
+					var deviceList []models.Device
+					if err := psql.Mydb.Model(&models.Device{}).Where("id=?", devices[0].DeviceId).Find(&deviceList).Error; err != nil {
+						return err
+					}
+					var tpOtaTask models.TpOtaTask
+					// 查询固件设计任务
+					if err := psql.Mydb.Model(&models.TpOtaTask{}).Where("ota_task_id=?", tp_ota_modfiystatus.OtaTaskId).First(&tpOtaTask).Error; err != nil {
+						return err
+					}
+					var tpOtaDeviceService TpOtaDeviceService
+					// 推送升级包
+					if err := tpOtaDeviceService.OtaToUpgradeMsg(deviceList, tpOtaTask.OtaId, tp_ota_modfiystatus.OtaTaskId); err != nil {
+						return err
+					}
+				}
+			}
 			return err
 		}
 		return nil
 	} else {
-		//任务下的所有设备
+		//任务下所有设备操作
 		if err := db.Where("ota_task_id=? ", tp_ota_modfiystatus.OtaTaskId).Find(&devices).Error; err != nil {
 			return err
 		}
@@ -265,18 +291,21 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 
 //推送升级包到设备
 func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string, otataskid string) error {
+	//获取升级包地址
 	otapackageurl, _ := web.AppConfig.String("otapackageurl")
 	if otapackageurl == "" {
 		fmt.Println("otapackageurl 为空")
 	}
 	var ota models.TpOta
+	//查询ota信息
 	if err := psql.Mydb.Where("id=?", otaid).Find(&ota).Error; err != nil {
 		logs.Error("不存在该ota固件")
 		return errors.New("无对应固件")
 	}
 	for _, device := range devices {
-		//检查是否有正在升级中的任务
+		//检查这个设备在其他任务中是否正在升级中
 		var count int64
+		//状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消
 		psql.Mydb.Where("device_id = ? and ota_task_id != ? and upgrade_status  in ('0','1','2')", device.ID, otataskid).Count(&count)
 		if count != 0 {
 			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Update("upgrade_status", "4")
@@ -285,7 +314,10 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		}
 		//检查升级包
 		var otamsg = make(map[string]interface{})
-		otamsg["id"] = "123"
+		// 获取随机九位数字并转换为字符串
+		rand.Seed(time.Now().UnixNano())
+		randNum := rand.Intn(999999999)
+		otamsg["id"] = strconv.Itoa(randNum)
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
