@@ -1631,3 +1631,7 @@ WHERE id='1d625cec-bf5b-2ad1-b135-a23b5fad05bf';
 INSERT INTO logo
 (id, system_name, theme, logo_one, logo_two, logo_three, custom_id, remark)
 VALUES('1d625cec-bf5b-2ad1-b135-a23b5fad05bf', 'ThingsPanel', 'blue', './files/init-images/logo-one.svg', './files/init-images/logo-two.gif', './files/init-images/logo-three.png', '', '');
+ALTER TABLE public.tp_generate_device RENAME COLUMN activate_flag TO add_flag;
+ALTER TABLE public.tp_generate_device RENAME COLUMN activate_date TO add_date;
+COMMENT ON COLUMN public.tp_generate_device.add_date IS '添加日期';
+COMMENT ON COLUMN public.tp_generate_device.add_flag IS '0-未添加 1-已添加';
