@@ -138,6 +138,7 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 		})
 	}
 	_, rsp_device_err := TpOtaDeviceService.AddBathTpOtaDevice(tp_ota_devices)
+	// 如果升级任务和升级设备都添加成功，且是立即升级，发送升级消息
 	if rsp_err == nil && rsp_device_err == nil {
 		if AddTpOtaTaskValidate.UpgradeTimeType == "0" {
 			go TpOtaDeviceService.OtaToUpgradeMsg(devices, AddTpOtaTaskValidate.OtaId, id)
