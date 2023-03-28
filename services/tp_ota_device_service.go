@@ -329,11 +329,22 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
-		otamsgparams["url"] = otapackageurl + fmt.Sprintf("[%q]n", strings.Trim("ota.PackageUrl", "."))
+		otamsgparams["url"] = otapackageurl + fmt.Sprintf("[%q]n", strings.Trim(ota.PackageUrl, "."))
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
 		otamsgparams["module"] = ota.PackageModule
-		otamsgparams["extData"] = ota.AdditionalInfo
+		//其他配置格式成map
+		additionalinfo := fmt.Sprintf("[%q]n", strings.Trim(ota.AdditionalInfo, "[{"))
+		otherconfig := fmt.Sprintf("[%q]n", strings.Trim(additionalinfo, "}]"))
+		m := make(map[string]interface{})
+		otherconfiglist := strings.Split(otherconfig, ",")
+		for _, v := range otherconfiglist {
+			kv := strings.Split(fmt.Sprintf("[%q]n", strings.Trim(v, "\"")), ":")
+			if len(kv) == 2 {
+				m[kv[0]] = kv[1]
+			}
+		}
+		otamsgparams["extData"] = m
 		otamsg["params"] = otamsgparams
 		msgdata, json_err := json.Marshal(otamsg)
 		if json_err != nil {
