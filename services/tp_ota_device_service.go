@@ -303,6 +303,15 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		return errors.New("无对应固件")
 	}
 	for _, device := range devices {
+		//设备是否在线
+		var deviceService DeviceService
+		if idOnline, err := deviceService.IsDeviceOnline(device.ID); err != nil {
+			logs.Error(err.Error())
+		} else if !idOnline {
+			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Update("upgrade_status", "4")
+			logs.Info("OTA任务id为%s,设备id为%s,设备不在线", otataskid, device.ID)
+			continue
+		}
 		//检查这个设备在其他任务中是否正在升级中
 		var count int64
 		//状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消
