@@ -35,6 +35,24 @@ func (*TpWarningInformationService) GetTpWarningInformationList(PaginationValida
 		sqlWhere += " and processing_result = ?"
 		paramList = append(paramList, PaginationValidate.ProcessingResult)
 	}
+	if PaginationValidate.StartTime != "" && PaginationValidate.EndTime != "" {
+		// 把字符串形式2006-01-02 15:04:05的开始时间和结束时间转为整数的10位时间戳
+		startTime, err := time.Parse("2006-01-02 15:04:05", PaginationValidate.StartTime)
+		if err != nil {
+			logs.Error(err)
+			return TpWarningInformations, 0, err
+		}
+		endTime, err := time.Parse("2006-01-02 15:04:05", PaginationValidate.EndTime)
+		if err != nil {
+			logs.Error(err)
+			return TpWarningInformations, 0, err
+		}
+		if startTime.Unix() > endTime.Unix() {
+			return TpWarningInformations, 0, errors.New("开始时间不能大于结束时间")
+		}
+		sqlWhere += " and created_at between ? and ?"
+		paramList = append(paramList, startTime.Unix(), endTime.Unix())
+	}
 	var count int64
 	psql.Mydb.Model(&models.TpWarningInformation{}).Where(sqlWhere, paramList...).Count(&count)
 	result := psql.Mydb.Model(&models.TpWarningInformation{}).Where(sqlWhere, paramList...).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpWarningInformations)

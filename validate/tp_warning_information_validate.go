@@ -36,6 +36,8 @@ type TpWarningInformationPaginationValidate struct {
 	CurrentPage      int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
 	PerPage          int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
 	ProcessingResult string `json:"processing_result,omitempty" alias:"处理结果" valid:"MaxSize(1)"`
+	StartTime        string `json:"start_time,omitempty" alias:"开始日期" valid:"MaxSize(50)"`
+	EndTime          string `json:"end_time,omitempty" alias:"结束日期" valid:"MaxSize(50)"`
 	Id               string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
 }
 
