@@ -38,17 +38,17 @@ func (*TpOtaTaskService) GetTpOtaTaskList(PaginationValidate valid.TpOtaTaskPagi
 		return false, TpOtaTasks, 0
 	}
 	// 判断升级状态
-	for _, tpOtaTask := range TpOtaTasks {
+	for i, tpOtaTask := range TpOtaTasks {
 		// 获取当前时间并格式化为2006-01-02 15:04:05
 		nowTime := time.Now().Format("2006-01-02 15:04:05")
 		// 如果升级时间类型是1-定时升级
 		if tpOtaTask.UpgradeTimeType == "1" {
 			// 如果开始时间大于当前时间，说明还未开始升级
 			if tpOtaTask.StartTime > nowTime {
-				tpOtaTask.TaskStatus = "0"
+				TpOtaTasks[i].TaskStatus = "0"
 				continue
 			} else if tpOtaTask.EndTime < nowTime {
-				tpOtaTask.TaskStatus = "2"
+				TpOtaTasks[i].TaskStatus = "2"
 				continue
 			}
 		}
@@ -57,14 +57,15 @@ func (*TpOtaTaskService) GetTpOtaTaskList(PaginationValidate valid.TpOtaTaskPagi
 		if err := psql.Mydb.Model(&models.TpOtaDevice{}).Where("ota_task_id = ? and upgrade_status not in ('3','4','5')", tpOtaTask.Id).Count(&count).Error; err != nil {
 			logs.Error(err)
 			// 设置升级状态为空
-			tpOtaTask.TaskStatus = ""
+			TpOtaTasks[i].TaskStatus = ""
 			continue
 		} else {
 			// 如果count大于0，说明还有设备没有升级完成
-			if count == 0 {
-				tpOtaTask.TaskStatus = "2"
+			logs.Info("count:", count)
+			if count == int64(0) {
+				TpOtaTasks[i].TaskStatus = "2"
 			} else {
-				tpOtaTask.TaskStatus = "1"
+				TpOtaTasks[i].TaskStatus = "1"
 			}
 		}
 
