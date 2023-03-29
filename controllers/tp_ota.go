@@ -75,9 +75,17 @@ func (TpOtaController *TpOtaController) Add() {
 		}
 		return
 	}
-	if err := utils.CheckPathFilename(AddTpOtaValidate.PackageUrl); err != nil || AddTpOtaValidate.PackageUrl == "" || !utils.FileExist(AddTpOtaValidate.PackageUrl) {
-		utils.SuccessWithMessage(400, "不存在升级包或升级包路径不合法", (*context2.Context)(TpOtaController.Ctx))
+	if err := utils.CheckOtaUrl(AddTpOtaValidate.PackageUrl); err != nil || AddTpOtaValidate.PackageUrl == "" {
+		utils.SuccessWithMessage(400, "升级包路径不合法或升级包路径是空", (*context2.Context)(TpOtaController.Ctx))
 	}
+	// 判断文件是否存在|| !utils.FileExist(AddTpOtaValidate.PackageUrl)
+	path := "./" + utils.GetUrlPath(AddTpOtaValidate.PackageUrl)
+	if !utils.FileExist(path) {
+		utils.SuccessWithMessage(400, "升级包不存在", (*context2.Context)(TpOtaController.Ctx))
+	}
+	// 提取主机地址后的路由
+	AddTpOtaValidate.PackageUrl = utils.GetUrlPath(AddTpOtaValidate.PackageUrl)
+
 	//文件sign计算
 	packagesign, sign_err := utils.FileSign(AddTpOtaValidate.PackagePath, AddTpOtaValidate.SignatureAlgorithm)
 	if sign_err != nil {
