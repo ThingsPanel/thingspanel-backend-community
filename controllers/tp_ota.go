@@ -85,13 +85,13 @@ func (TpOtaController *TpOtaController) Add() {
 		utils.SuccessWithMessage(400, "升级包路径不合法或升级包路径是空", (*context2.Context)(TpOtaController.Ctx))
 	}
 	//文件sign计算
-	packagesign, sign_err := utils.FileSign(AddTpOtaValidate.PackagePath, AddTpOtaValidate.SignatureAlgorithm)
+	packagesign, sign_err := utils.FileSign(path, AddTpOtaValidate.SignatureAlgorithm)
 	if sign_err != nil {
 		utils.SuccessWithMessage(400, "文件签名计算失败", (*context2.Context)(TpOtaController.Ctx))
 	}
 
 	//文件大小检查
-	packageLength, pl_err := utils.GetFileSize(AddTpOtaValidate.PackagePath)
+	packageLength, pl_err := utils.GetFileSize(path)
 	if pl_err != nil {
 		utils.SuccessWithMessage(400, "文件大小计算失败", (*context2.Context)(TpOtaController.Ctx))
 	}
