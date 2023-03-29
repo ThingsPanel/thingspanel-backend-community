@@ -350,7 +350,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		if json_err != nil {
 			logs.Error(json_err.Error())
 		} else {
-			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Updates(map[string]interface{}{"upgrade_status": "4", "status_detail": "已通知设备", "status_update_time": time.Now().Format("2006-01-02 15:04:05")})
+			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Updates(map[string]interface{}{"upgrade_status": "1", "status_detail": "已通知设备", "status_update_time": time.Now().Format("2006-01-02 15:04:05")})
 			go mqtt.SendOtaAdress(msgdata, device.Token)
 		}
 	}
