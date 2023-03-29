@@ -235,6 +235,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 		isUpgradeSuccess := utils.In(progressMsg.UpgradeProgress, upgreadFailure)
 		if isUpgradeSuccess {
 			progressMsg.UpgradeStatus = "4"
+			progressMsg.StatusDetail = progressMsg.UpgradeProgress + progressMsg.StatusDetail
 		} else if progressMsg.UpgradeProgress == "100" {
 			//升级成功判断
 			progressMsg.UpgradeStatus = "5"
@@ -283,16 +284,25 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 		logs.Error(err_b.Error())
 		return false
 	}
-	//查询升级信息对应的设备
-	var otadevice models.TpOtaDevice
-	psql.Mydb.Raw(`select d.* from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' and d.device_id =?`, otamsg.OtaModel.PackageModule, deviceid).Scan(&otadevice)
-	if otadevice.DeviceId != "" && otadevice.OtaTaskId != "" {
-		psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceid).Update("current_version", otamsg.OtaModel.PackageVersion)
-		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.DeviceId, otadevice.OtaTaskId).Update("current_version", otamsg.OtaModel.PackageVersion)
-		return true
+	//修改设备当前版本
+	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceid).Update("current_version", otamsg.OtaModel.PackageVersion)
+	if result.Error != nil {
+		logs.Error(result.Error)
+		return false
 	}
+	// //查询升级信息对应的设备
+	// var otadevice models.TpOtaDevice
+	// result = psql.Mydb.Raw(`select d.* from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' and d.device_id =?`, otamsg.OtaModel.PackageModule, deviceid).Scan(&otadevice)
+	// if result.Error != nil {
+	// 	logs.Error(result.Error)
+	// 	return false
+	// }
+	// if otadevice.DeviceId != "" && otadevice.OtaTaskId != "" {
 
-	return false
+	// 	psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.DeviceId, otadevice.OtaTaskId).Update("current_version", otamsg.OtaModel.PackageVersion)
+	// 	return true
+	// }
+	return true
 
 }
 
