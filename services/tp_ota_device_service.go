@@ -230,23 +230,20 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 		//升级失败判断
 		intProgress, err := strconv.Atoi(progressMsg.UpgradeProgress)
 		if err != nil {
-			progressMsg.StatusDetail = "升级进度不是数字"
+			progressMsg.StatusDetail = progressMsg.UpgradeProgress + progressMsg.StatusDetail
 		}
 		isUpgradeSuccess := utils.In(progressMsg.UpgradeProgress, upgreadFailure)
 		if isUpgradeSuccess {
 			progressMsg.UpgradeStatus = "4"
-			progressMsg.StatusDetail = "升级失败" + progressMsg.UpgradeProgress
 		} else if progressMsg.UpgradeProgress == "100" {
 			//升级成功判断
 			progressMsg.UpgradeStatus = "5"
-			progressMsg.StatusDetail = "升级成功"
 		} else {
 			// 判断升级步骤是不是数字字符串0-100之间
 			if intProgress > 0 && intProgress < 100 {
 				progressMsg.UpgradeStatus = "2"
-				progressMsg.StatusDetail = "升级中"
 			} else {
-				progressMsg.StatusDetail = "升级进度不合法"
+				progressMsg.StatusDetail = progressMsg.UpgradeProgress + progressMsg.StatusDetail
 			}
 
 		}
