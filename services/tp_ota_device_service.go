@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -138,12 +137,15 @@ func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDev
 	status_detail := ""
 	//OtaTaskId存在的时候，属于单个操作
 	if tp_ota_modfiystatus.OtaTaskId != "" && tp_ota_modfiystatus.Id != "" {
+		var tpOtaDevice = models.TpOtaDevice{UpgradeStatus: tp_ota_modfiystatus.UpgradeStatus, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: status_detail}
 		if tp_ota_modfiystatus.UpgradeStatus == "5" {
 			status_detail = "已取消"
 		} else if tp_ota_modfiystatus.UpgradeStatus == "0" {
 			status_detail = "开始重新升级"
+			// 重新升级需要把进度置为0
+			tpOtaDevice.UpgradeProgress = "0"
 		}
-		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Updates(&models.TpOtaDevice{UpgradeStatus: tp_ota_modfiystatus.UpgradeStatus, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: status_detail}).Error; err != nil {
+		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Updates(&tpOtaDevice).Error; err != nil {
 			return err
 		} else {
 			// 重新升级需要推送升级包
@@ -215,12 +217,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 		logs.Error(err_b.Error())
 		return false
 	}
-	//升级进度上报失败判断
-	intProgress, err := strconv.Atoi(progressMsg.UpgradeProgress)
-	if err != nil || intProgress > 100 {
-		logs.Error(fmt.Sprintf("设备id:%s 上报升级进度失败", deviceid))
-		return false
-	}
+
 	//查询升级信息对应的设备
 	progressMsg.StatusUpdateTime = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
 	var otadevice models.TpOtaDevice
@@ -231,16 +228,30 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 			return false
 		}
 		//升级失败判断
+		intProgress, err := strconv.Atoi(progressMsg.UpgradeProgress)
+		if err != nil {
+			progressMsg.StatusDetail = "升级进度不是数字"
+		}
 		isUpgradeSuccess := utils.In(progressMsg.UpgradeProgress, upgreadFailure)
 		if isUpgradeSuccess {
 			progressMsg.UpgradeStatus = "4"
-		}
-		//升级成功判断
-		if progressMsg.UpgradeProgress == "100" {
+			progressMsg.StatusDetail = "升级失败" + progressMsg.UpgradeProgress
+		} else if progressMsg.UpgradeProgress == "100" {
+			//升级成功判断
 			progressMsg.UpgradeStatus = "5"
+			progressMsg.StatusDetail = "升级成功"
+		} else {
+			// 判断升级步骤是不是数字字符串0-100之间
+			if intProgress > 0 && intProgress < 100 {
+				progressMsg.UpgradeStatus = "2"
+				progressMsg.StatusDetail = "升级中"
+			} else {
+				progressMsg.StatusDetail = "升级进度不合法"
+			}
+
 		}
 		//修改升级信息
-		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(progressMsg)
+		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(&progressMsg)
 		return true
 	}
 	return false
@@ -329,20 +340,15 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
-		otamsgparams["url"] = otapackageurl + fmt.Sprintf("[%q]n", strings.Trim(ota.PackageUrl, "."))
+		otamsgparams["url"] = otapackageurl + ota.PackageUrl[2:]
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
 		otamsgparams["module"] = ota.PackageModule
 		//其他配置格式成map
-		additionalinfo := fmt.Sprintf("[%q]n", strings.Trim(ota.AdditionalInfo, "[{"))
-		otherconfig := fmt.Sprintf("[%q]n", strings.Trim(additionalinfo, "}]"))
-		m := make(map[string]interface{})
-		otherconfiglist := strings.Split(otherconfig, ",")
-		for _, v := range otherconfiglist {
-			kv := strings.Split(fmt.Sprintf("[%q]n", strings.Trim(v, "\"")), ":")
-			if len(kv) == 2 {
-				m[kv[0]] = kv[1]
-			}
+		var m map[string]interface{}
+		err := json.Unmarshal([]byte(ota.AdditionalInfo), &m)
+		if err != nil {
+			return err
 		}
 		otamsgparams["extData"] = m
 		otamsg["params"] = otamsgparams
