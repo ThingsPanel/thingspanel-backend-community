@@ -78,8 +78,13 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	var DeviceService services.DeviceService
 	var dcount int64
 	var devices []models.Device
+	// 0: 全部 1: 指定
 	if AddTpOtaTaskValidate.SelectDeviceFlag == "0" {
 		devices, dcount = DeviceService.GetDevicesByProductID(AddTpOtaTaskValidate.ProductId)
+		if dcount == 0 {
+			utils.SuccessWithMessage(400, "无对应设备信息", (*context2.Context)(TpOtaTaskController.Ctx))
+			return
+		}
 	} else {
 		for _, v := range AddTpOtaTaskValidate.DeviceIdList {
 			device, _ := DeviceService.GetDeviceByID(v)
