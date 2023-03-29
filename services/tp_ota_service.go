@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	valid "ThingsPanel-Go/validate"
 	"errors"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -50,6 +51,34 @@ func (*TpOtaService) GetTpOtaList(PaginationValidate valid.TpOtaPaginationValida
 	values = append(values, offset, limit)
 	var otaList []map[string]interface{}
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&otaList)
+	// 判断升级状态
+	for i := 0; i < len(otaList); i++ {
+		// 获取当前时间并格式化为2006-01-02 15:04:05
+		nowTime := time.Now().Format("2006-01-02 15:04:05")
+		// 如果升级时间类型是1-定时升级
+		if otaList[i]["upgrade_time_type"] == "1" {
+			// 如果开始时间大于当前时间，说明还未开始升级
+			if otaList[i]["start_time"].(time.Time).Format("2006-01-02 15:04:05") > nowTime {
+				otaList[i]["task_status"] = "0"
+			} else if otaList[i]["end_time"].(time.Time).Format("2006-01-02 15:04:05") < nowTime {
+				otaList[i]["task_status"] = "2"
+			}
+		}
+		// 查询升级任务下的设备不是升级成功或者失败或已取消状态的数量
+		var count int64
+		if err := psql.Mydb.Model(&models.TpOtaDevice{}).Where("ota_task_id = ? and upgrade_status not in (3,4,5)", otaList[i]["id"]).Count(&count).Error; err != nil {
+			logs.Error(err)
+			// 设置升级状态为空
+			otaList[i]["task_status"] = ""
+		}
+		// 如果count大于0，说明还有设备没有升级完成
+		if count == 0 {
+			otaList[i]["task_status"] = "2"
+		} else {
+			otaList[i]["task_status"] = "1"
+		}
+
+	}
 	if dataResult.Error != nil {
 		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
 	}
