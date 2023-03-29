@@ -447,14 +447,14 @@ func AutomationCron(automationCondition models.TpAutomationCondition) error {
 	} else if automationCondition.V1 == "2" {
 		// 每天的几点几分
 		timeList := strings.Split(automationCondition.V3, ":")
-		cronString = timeList[1] + " " + timeList[0] + " ? * * *"
+		cronString = timeList[1] + " " + timeList[0] + " * * *"
 		logMessage += "触发每天的" + automationCondition.V3 + "执行一次的任务；"
 	} else if automationCondition.V1 == "3" {
 		// 星期几的几点几分
 		timeList := strings.Split(automationCondition.V3, ":")
 		if len(timeList) >= 3 {
-			cronString = timeList[2] + " " + timeList[1] + " ? " + timeList[0] + " * *"
-			logMessage += "触发每周的" + automationCondition.V3 + "执行一次的任务；"
+			cronString = timeList[1] + " " + timeList[0] + " * * " + automationCondition.V4
+			logMessage += "触发每周" + automationCondition.V4 + "的" + automationCondition.V3 + "执行一次的任务；"
 		} else {
 			return errors.New("配置错误")
 		}
@@ -462,8 +462,8 @@ func AutomationCron(automationCondition models.TpAutomationCondition) error {
 	} else if automationCondition.V1 == "4" {
 		// 每月的哪一天的几点几分
 		timeList := strings.Split(automationCondition.V3, ":")
-		cronString = timeList[2] + " " + timeList[1] + " " + timeList[0] + " * ? *"
-		logMessage += "触发每月的" + automationCondition.V3 + "执行一次的任务；"
+		cronString = timeList[2] + " " + timeList[1] + " " + timeList[0] + " * *"
+		logMessage += "触发每月" + timeList[0] + "日的" + timeList[1] + ":" + timeList[2] + "执行一次的任务；"
 	} else if automationCondition.V1 == "5" {
 		logMessage += "自定义cron(" + automationCondition.V3 + ")到时；"
 		cronString = automationCondition.V3
