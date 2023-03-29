@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
-	"github.com/beego/beego/v2/server/web"
 	"gorm.io/gorm"
 )
 
@@ -310,11 +309,6 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 
 //推送升级包到设备
 func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string, otataskid string) error {
-	//获取升级包地址
-	otapackageurl, _ := web.AppConfig.String("otapackageurl")
-	if otapackageurl == "" {
-		fmt.Println("otapackageurl 为空")
-	}
 	var ota models.TpOta
 	//查询ota信息
 	if err := psql.Mydb.Where("id=?", otaid).Find(&ota).Error; err != nil {
@@ -349,7 +343,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
-		otamsgparams["url"] = otapackageurl + ota.PackageUrl[2:]
+		otamsgparams["url"] = ota.PackageUrl
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
 		otamsgparams["module"] = ota.PackageModule
