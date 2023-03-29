@@ -60,22 +60,26 @@ func (*TpOtaService) GetTpOtaList(PaginationValidate valid.TpOtaPaginationValida
 			// 如果开始时间大于当前时间，说明还未开始升级
 			if otaList[i]["start_time"].(time.Time).Format("2006-01-02 15:04:05") > nowTime {
 				otaList[i]["task_status"] = "0"
+				continue
 			} else if otaList[i]["end_time"].(time.Time).Format("2006-01-02 15:04:05") < nowTime {
 				otaList[i]["task_status"] = "2"
+				continue
 			}
 		}
 		// 查询升级任务下的设备不是升级成功或者失败或已取消状态的数量
 		var count int64
-		if err := psql.Mydb.Model(&models.TpOtaDevice{}).Where("ota_task_id = ? and upgrade_status not in (3,4,5)", otaList[i]["id"]).Count(&count).Error; err != nil {
+		if err := psql.Mydb.Model(&models.TpOtaDevice{}).Where("ota_task_id = ? and upgrade_status not in ('3','4','5')", otaList[i]["id"]).Count(&count).Error; err != nil {
 			logs.Error(err)
 			// 设置升级状态为空
 			otaList[i]["task_status"] = ""
-		}
-		// 如果count大于0，说明还有设备没有升级完成
-		if count == 0 {
-			otaList[i]["task_status"] = "2"
+			continue
 		} else {
-			otaList[i]["task_status"] = "1"
+			// 如果count大于0，说明还有设备没有升级完成
+			if count == 0 {
+				otaList[i]["task_status"] = "2"
+			} else {
+				otaList[i]["task_status"] = "1"
+			}
 		}
 
 	}
