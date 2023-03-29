@@ -46,11 +46,11 @@ type DeviceProgressMsg struct {
 var upgreadFailure []string = []string{"-1", "-2", "-3", "-4"}
 
 type OtaMsg struct {
-	Id string `json:"id,omitempty" alias:"序号"`
-	OtaModel
+	Id     string   `json:"id,omitempty" alias:"序号"`
+	Params OtaModel `json:"params,omitempty" alias:"参数"`
 }
 type OtaModel struct {
-	PackageVersion string `json:"version,omitempty" alias:"进度"`
+	PackageVersion string `json:"version,omitempty" alias:"版本号"` //版本号
 	PackageModule  string `json:"module,omitempty" alias:"描述"`
 }
 
@@ -285,7 +285,8 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 		return false
 	}
 	//修改设备当前版本
-	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceid).Update("current_version", otamsg.OtaModel.PackageVersion)
+	logs.Info(otamsg)
+	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceid).Update("current_version", otamsg.Params.PackageVersion)
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return false
@@ -302,6 +303,7 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 	// 	psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.DeviceId, otadevice.OtaTaskId).Update("current_version", otamsg.OtaModel.PackageVersion)
 	// 	return true
 	// }
+	logs.Info("更新版本成功")
 	return true
 
 }
