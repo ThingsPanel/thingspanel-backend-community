@@ -7,8 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
+
+	"github.com/beego/beego/v2/core/logs"
 )
 
 func TsKvFilterToSql(filters map[string]interface{}) (string, []interface{}) {
@@ -98,11 +101,13 @@ func CheckPathFilename(param string) error {
 }
 
 // 提取url中的路径
-func GetUrlPath(url string) string {
-	if strings.Contains(url, "/") {
-		return url[strings.LastIndex(url, "/")+1:]
+func GetUrlPath(rawURL string) string {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		logs.Error("url parse error: %v", err)
+		return ""
 	}
-	return url
+	return parsedURL.Path
 }
 
 //字符串替换非法字符
