@@ -1,6 +1,7 @@
 package mqtt
 
 import (
+	"ThingsPanel-Go/models"
 	"errors"
 	"fmt"
 	"os"
@@ -8,6 +9,20 @@ import (
 	"github.com/beego/beego/v2/core/logs"
 	"gopkg.in/yaml.v3"
 )
+
+type ShopContent struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	Number  string `json:"number"`
+}
+
+type SendConfig struct {
+	Shop      ShopContent
+	PotType   []*models.PotType
+	Taste     []*models.Taste
+	Materials []*models.Materials
+	Recipe    []*models.Recipe
+}
 
 /*店铺配置信息json案例,potType锅型,taste口味,materials配料,recipe锅底配方,shop店铺
 {

@@ -393,10 +393,12 @@ func init() {
 		web.NSRouter("/v1/recipe/add", &controllers.RecipeController{}, "*:Add"),
 		web.NSRouter("/v1/recipe/edit", &controllers.RecipeController{}, "*:Edit"),
 		web.NSRouter("/v1/recipe/delete", &controllers.RecipeController{}, "*:Delete"),
+		web.NSRouter("/v1/recipe/send/to/mqtt", &controllers.RecipeController{}, "*:SendToHDL"),
+		web.NSRouter("/v1/recipe/search/materials",&controllers.RecipeController{},"*:GetMaterialList"),
 
 		//加汤数据管理
-		web.NSRouter("/v1/soup/data/index",&controllers.SoupDataController{},"*:Index"),
-		web.NSRouter("/v1/soup/data/export",&controllers.SoupDataController{},"*:Export"),
+		web.NSRouter("/v1/soup/data/index", &controllers.SoupDataController{}, "*:Index"),
+		web.NSRouter("/v1/soup/data/export", &controllers.SoupDataController{}, "*:Export"),
 	)
 
 	// 图表推送数据

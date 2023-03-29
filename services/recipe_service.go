@@ -3,6 +3,7 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/modules/dataService/mqtt"
 	valid "ThingsPanel-Go/validate"
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -20,19 +21,19 @@ type RecipeService struct {
 
 func (*RecipeService) GetRecipeDetail(recipeId string) []models.Recipe {
 	var recipe []models.Recipe
-	psql.Mydb.First(&recipe, "id = ?", recipeId)
+	psql.Mydb.First(&recipe, "recipe.id = ?", recipeId)
 	return recipe
 }
 
 // 获取列表
-func (*RecipeService) GetRecipeList(PaginationValidate valid.RecipePaginationValidate) (bool, []models.Recipe, int64) {
-	var Recipe []models.Recipe
+func (*RecipeService) GetRecipeList(PaginationValidate valid.RecipePaginationValidate) (bool, []models.RecipeValue, int64) {
+	var Recipe []models.RecipeValue
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	db := psql.Mydb.Model(&models.Recipe{}).Where("is_del", false)
+	db := psql.Mydb.Model(&models.Recipe{}).Select("recipe.id,recipe.bottom_pot_id,recipe.bottom_pot,recipe.pot_type_id,recipe.materials,recipe.taste,recipe.bottom_properties,recipe.soup_standard,recipe.current_water_line,pot_type.name").Joins("left join pot_type on recipe.pot_type_id = pot_type.pot_type_id").Where("recipe.is_del", false)
 
 	var count int64
 	db.Count(&count)
-	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("create_at desc").Find(&Recipe)
+	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("recipe.create_at desc").Find(&Recipe)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, Recipe, 0
@@ -86,4 +87,64 @@ func (*RecipeService) DeleteRecipe(pot models.Recipe) error {
 		return result.Error
 	}
 	return nil
+}
+
+func (*RecipeService) GetSendToMQTTData() ([]*mqtt.SendConfig, error) {
+	AssetArr := make([]*models.Asset, 0)
+	err2 := psql.Mydb.Where("asset_id = ?", "10000").Find(&AssetArr).Error
+	if err2 != nil {
+		return nil, err2
+	}
+	list := make([]*mqtt.SendConfig, 0)
+	for _, v := range AssetArr {
+		tmpSendConfig := &mqtt.SendConfig{
+			Shop: mqtt.ShopContent{
+				Name:   v.Name,
+				Number: v.ID,
+			},
+			PotType:   make([]*models.PotType, 0),
+			Taste:     make([]*models.Taste, 0),
+			Materials: make([]*models.Materials, 0),
+			Recipe:    make([]*models.Recipe, 0),
+		}
+		var Recipe []*models.Recipe
+		err := psql.Mydb.Where("status = ?", 0).Where("asset_id = ?", v.ID).Find(&Recipe).Error
+		if err != nil {
+			return nil, err
+		}
+		tmpSendConfig.Recipe = Recipe
+
+		recipeIdArr := make([]string, 0)
+		for _, v := range Recipe {
+			recipeIdArr = append(recipeIdArr, v.Id)
+		}
+		materialList := make([]*models.Materials, 0)
+		err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Find(&materialList).Error
+		if err != nil {
+			return nil, err
+		}
+		tmpSendConfig.Materials = materialList
+		tasteList := make([]*models.Taste, 0)
+		err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Find(&tasteList).Error
+		if err != nil {
+			return nil, err
+		}
+		tmpSendConfig.Taste = tasteList
+		list = append(list, tmpSendConfig)
+	}
+
+	return list, nil
+}
+
+func (*RecipeService) FindMaterialByName(keyword string) ([]*models.Materials, error) {
+	list := make([]*models.Materials, 0)
+	db := psql.Mydb
+	if keyword != "" {
+		db = db.Where("name  like ?", "%"+keyword+"%")
+	}
+	err := db.Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
 }

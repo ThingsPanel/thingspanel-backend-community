@@ -5,19 +5,20 @@ import (
 )
 
 type AddRecipeValidator struct {
-	Id               string     `json:"id"`
-	BottomPotId      string     `json:"BottomPotId" alias:"锅底ID" valid:"Required"`
-	BottomPot        string     `json:"BottomPot" alias:"锅底" valid:"Required"`
-	PotTypeId        string     `json:"PotTypeId" alias:"锅型ID" valid:"Required"`
-	PotTypeName      string     `json:"PotTypeName" alias:"锅型名称" valid:"Required"`
+	Id          string `json:"id"`
+	BottomPotId string `json:"BottomPotId" alias:"锅底ID" valid:"Required"`
+	BottomPot   string `json:"BottomPot" alias:"锅底" valid:"Required"`
+	PotTypeId   string `json:"PotTypeId" alias:"锅型ID" valid:"Required"`
+	//PotTypeName      string     `json:"PotTypeName" alias:"锅型名称" valid:"Required"`
 	MaterialsId      string     `json:"MaterialsId" alias:"物料ID"`
 	TasteId          string     `json:"TasteId" alias:"口味ID"`
-	Tastes           string     `json:"Tastes" alias:"口味"`
+	Tastes           string     `json:"Taste" alias:"口味"`
 	TastesArr        []Taste    `json:"TastesArr" alias:"口味" valid:"Required"`
 	BottomProperties string     `json:"BottomProperties" alias:"锅底属性" valid:"Required"`
 	SoupStandard     int64      `json:"SoupStandard" alias:"加汤水位标准" `
 	MaterialsArr     []Material `json:"MaterialsArr" alias:"物料"`
 	Materials        string     `json:"Materials" alias:"物料"`
+	CurrentWaterLine int64      `json:"CurrentWaterLine" alias:"当前加汤水位线"`
 }
 
 type Taste struct {
@@ -46,12 +47,17 @@ type RecipePaginationValidate struct {
 }
 
 type RspRecipePaginationValidate struct {
-	CurrentPage int             `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
-	PerPage     int             `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	Data        []models.Recipe `json:"data" alias:"返回数据"`
-	Total       int64           `json:"total" alias:"总数" valid:"Max(10000)"`
+	CurrentPage int                  `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
+	PerPage     int                  `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
+	Data        []models.RecipeValue `json:"data" alias:"返回数据"`
+	Total       int64                `json:"total" alias:"总数" valid:"Max(10000)"`
 }
 
 type DelRecipeValidator struct {
 	Id string `json:"id" valid:"Required"`
+}
+
+
+type SearchMaterialNameValidator struct {
+	Keywords string `json:"keywords"`
 }

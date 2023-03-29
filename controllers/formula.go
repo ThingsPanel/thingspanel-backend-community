@@ -3,6 +3,7 @@ package controllers
 import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/modules/dataService/mqtt"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
@@ -75,21 +76,24 @@ func (pot *RecipeController) Add() {
 		}
 		return
 	}
+	AssetId := "1000"
 
 	var RecipeService services.RecipeService
 
 	id := uuid.GetUuid()
 	Recipe := models.Recipe{
-		Id:               id,
-		BottomPotId:      addRecipeValidate.BottomPotId,
-		BottomPot:        addRecipeValidate.BottomPot,
-		PotTypeId:        addRecipeValidate.PotTypeId,
-		PotTypeName:      addRecipeValidate.PotTypeName,
+		Id:          id,
+		BottomPotId: addRecipeValidate.BottomPotId,
+		BottomPot:   addRecipeValidate.BottomPot,
+		PotTypeId:   addRecipeValidate.PotTypeId,
+		//PotTypeName:      addRecipeValidate.PotTypeName,
 		Materials:        addRecipeValidate.Materials,
 		Taste:            addRecipeValidate.Tastes,
 		BottomProperties: addRecipeValidate.BottomProperties,
 		SoupStandard:     addRecipeValidate.SoupStandard,
+		CurrentWaterLine: addRecipeValidate.CurrentWaterLine,
 		CreateAt:         time.Now().Unix(),
+		AssetId:          AssetId,
 	}
 
 	MaterialArr := make([]models.Materials, 0)
@@ -204,5 +208,33 @@ func (pot *RecipeController) Delete() {
 		response.SuccessWithMessage(200, "success", (*context2.Context)(pot.Ctx))
 	} else {
 		response.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(pot.Ctx))
+	}
+}
+
+func (pot *RecipeController) SendToHDL() {
+	list := make([]*mqtt.SendConfig, 0)
+	Recipe := services.RecipeService{}
+	Recipe.GetSendToMQTTData()
+	bytes, err := json.Marshal(list)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
+		return
+	}
+	mqtt.SendToHDL(bytes, "")
+}
+
+func (pot *RecipeController) GetMaterialList() {
+	searchValidator := valid.SearchMaterialNameValidator{}
+	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &searchValidator)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	var RecipeService services.RecipeService
+
+	list, err := RecipeService.FindMaterialByName(searchValidator.Keywords)
+	if err == nil {
+		response.SuccessWithDetailed(200, "success", list, map[string]string{}, (*context2.Context)(pot.Ctx))
+	} else {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
 	}
 }
