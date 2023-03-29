@@ -200,7 +200,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 
 	// 通过token获取设备信息
 	var deviceid string
-	result_a := psql.Mydb.Model(models.Device{}).Select("device_id").Where("token = ?", payload.Token).First(&deviceid)
+	result_a := psql.Mydb.Model(models.Device{}).Select("id").Where("token = ?", payload.Token).First(&deviceid)
 	if result_a.Error != nil {
 		logs.Error(result_a.Error, gorm.ErrRecordNotFound)
 		return false
@@ -223,11 +223,11 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 	}
 	//查询升级信息对应的设备
 	progressMsg.StatusUpdateTime = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
-	var otadevice []string
-	psql.Mydb.Raw(`select d.id,d.ota_task_id,d.upgrade_status from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' 
+	var otadevice models.TpOtaDevice
+	psql.Mydb.Raw(`select d.* from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' 
 	             and d.device_id=? and d.upgrade_status not in ('0','3','5') `, progressMsg.Module, deviceid).Scan(&otadevice)
-	if otadevice[0] != "" && otadevice[1] != "" {
-		if otadevice[2] == "4" || otadevice[2] == "5" || otadevice[2] == "3" {
+	if otadevice.Id != "" && otadevice.OtaTaskId != "" {
+		if otadevice.UpgradeStatus == "4" {
 			return false
 		}
 		//升级失败判断
@@ -240,7 +240,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 			progressMsg.UpgradeStatus = "5"
 		}
 		//修改升级信息
-		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id", otadevice[0], otadevice[1]).Updates(progressMsg)
+		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(progressMsg)
 		return true
 	}
 	return false
@@ -260,7 +260,7 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 
 	// 通过token获取设备信息
 	var deviceid string
-	result_a := psql.Mydb.Model(models.Device{}).Select("device_id").Where("token = ?", payload.Token).First(&deviceid)
+	result_a := psql.Mydb.Model(models.Device{}).Select("id").Where("token = ?", payload.Token).First(&deviceid)
 	if result_a.Error != nil {
 		logs.Error(result_a.Error, gorm.ErrRecordNotFound)
 		return false
@@ -268,7 +268,6 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 		logs.Error("根据token没查找到设备")
 		return false
 	}
-
 	//byte转map
 	var otamsg OtaMsg
 	err_b := json.Unmarshal(payload.Values, &otamsg)
@@ -277,11 +276,11 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 		return false
 	}
 	//查询升级信息对应的设备
-	var otadevice []string
-	psql.Mydb.Raw(`select d.id,d.ota_task_id from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' and d.device_id =?`, otamsg.OtaModel.PackageModule, deviceid).Scan(&otadevice)
-	if otadevice[0] != "" && otadevice[1] != "" {
+	var otadevice models.TpOtaDevice
+	psql.Mydb.Raw(`select d.* from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' and d.device_id =?`, otamsg.OtaModel.PackageModule, deviceid).Scan(&otadevice)
+	if otadevice.DeviceId != "" && otadevice.OtaTaskId != "" {
 		psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceid).Update("current_version", otamsg.OtaModel.PackageVersion)
-		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id", otadevice[0], otadevice[1]).Update("current_version", otamsg.OtaModel.PackageVersion)
+		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.DeviceId, otadevice.OtaTaskId).Update("current_version", otamsg.OtaModel.PackageVersion)
 		return true
 	}
 
@@ -330,11 +329,22 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
-		otamsgparams["url"] = otapackageurl + fmt.Sprintf("[%q]n", strings.Trim("ota.PackageUrl", "."))
+		otamsgparams["url"] = otapackageurl + fmt.Sprintf("[%q]n", strings.Trim(ota.PackageUrl, "."))
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
 		otamsgparams["module"] = ota.PackageModule
-		otamsgparams["extData"] = ota.AdditionalInfo
+		//其他配置格式成map
+		additionalinfo := fmt.Sprintf("[%q]n", strings.Trim(ota.AdditionalInfo, "[{"))
+		otherconfig := fmt.Sprintf("[%q]n", strings.Trim(additionalinfo, "}]"))
+		m := make(map[string]interface{})
+		otherconfiglist := strings.Split(otherconfig, ",")
+		for _, v := range otherconfiglist {
+			kv := strings.Split(fmt.Sprintf("[%q]n", strings.Trim(v, "\"")), ":")
+			if len(kv) == 2 {
+				m[kv[0]] = kv[1]
+			}
+		}
+		otamsgparams["extData"] = m
 		otamsg["params"] = otamsgparams
 		msgdata, json_err := json.Marshal(otamsg)
 		if json_err != nil {
