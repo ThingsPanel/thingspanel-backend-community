@@ -8,7 +8,7 @@ type TpBatchValidate struct {
 	ProductId     string `json:"product_id,omitempty" alias:"产品id" valid:"MaxSize(36)"`
 	DeviceNumber  int    `json:"device_number,omitempty"  alias:"设备数量"`
 	GenerateFlag  string `json:"generate_flag,omitempty" alias:"生成标志 0-未生成 1-已生成" valid:"MaxSize(36)"`
-	Describle     string `json:"describle,omitempty" alias:"描述" valid:"MaxSize(255)"`
+	Describe      string `json:"describe,omitempty" alias:"描述" valid:"MaxSize(255)"`
 	CreatedTime   int64  `json:"created_time,omitempty"`
 	Remark        string `json:"remark,omitempty" alias:"备注" valid:"MaxSize(255)"`
 	AccessAddress string `json:"access_address,omitempty" alias:"接入地址" valid:"MaxSize(36)"`
@@ -19,7 +19,7 @@ type AddTpBatchValidate struct {
 	ProductId     string `json:"product_id,omitempty" alias:"产品id" valid:"Required;MaxSize(36)"`
 	DeviceNumber  int    `json:"device_number,omitempty"  alias:"设备数量"`
 	GenerateFlag  string `json:"generate_flag,omitempty" alias:"生成标志 0-未生成 1-已生成" valid:"MaxSize(36)"`
-	Describle     string `json:"describle,omitempty" alias:"描述" valid:"MaxSize(255)"`
+	Describe      string `json:"describe,omitempty" alias:"描述" valid:"MaxSize(255)"`
 	CreatedTime   int64  `json:"created_time,omitempty"`
 	Remark        string `json:"remark,omitempty" alias:"备注" valid:"MaxSize(255)"`
 	AccessAddress string `json:"access_address,omitempty" alias:"接入地址" valid:"MaxSize(36)"`

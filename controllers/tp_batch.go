@@ -114,7 +114,7 @@ func (TpBatchController *TpBatchController) Add() {
 	TpBatch := models.TpBatch{
 		Id:            id,
 		BatchNumber:   AddTpBatchValidate.BatchNumber,
-		Describle:     AddTpBatchValidate.Describle,
+		Describe:      AddTpBatchValidate.Describe,
 		DeviceNumber:  AddTpBatchValidate.DeviceNumber,
 		CreatedTime:   time.Now().Unix(),
 		GenerateFlag:  AddTpBatchValidate.GenerateFlag,
