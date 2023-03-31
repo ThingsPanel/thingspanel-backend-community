@@ -42,16 +42,6 @@ func (uploadController *UploadController) UpFile() {
 		".svg":  true,
 		".ico":  true,
 		".gif":  true,
-		".bin":  true,
-		".tar":  true,
-		".gz":   true,
-		".zip":  true,
-		".gzip": true,
-		".apk":  true,
-		".dav":  true,
-		".pack": true,
-		".xlsx": true,
-		".xls":  true,
 	}
 	var AllowUpgradePackageMap map[string]bool = map[string]bool{
 		".bin":  true,
@@ -82,7 +72,6 @@ func (uploadController *UploadController) UpFile() {
 	}
 
 	//创建目录
-
 	uploadDir := "./files/" + fileType + "/" + time.Now().Format("2006-01-02/")
 	err := os.MkdirAll(uploadDir, os.ModePerm)
 	if err != nil {
