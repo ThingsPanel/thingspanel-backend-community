@@ -260,7 +260,7 @@ func (*TpBatchService) Import(bath_id, batch_number, product_id, file string) ([
 			Token:       rows[i][1],
 			Password:    passwd,
 			AddFlag:     "0",
-			CreatedTime: time.Now().Unix(),
+			CreatedTime: time.Now().UnixMicro(),
 			DeviceCode:  product_serial_number + "-" + batch_number + "-" + fmt.Sprintf("%04d", i),
 		})
 	}

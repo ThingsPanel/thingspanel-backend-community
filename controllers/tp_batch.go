@@ -267,7 +267,7 @@ func (TpBatchController *TpBatchController) Import() {
 	TpBatch := models.TpBatch{
 		Id:           id,
 		BatchNumber:  ImportTpBatchValidate.BatchNumber,
-		CreatedTime:  time.Now().UnixMicro(),
+		CreatedTime:  time.Now().Unix(),
 		GenerateFlag: "1",
 		ProductId:    ImportTpBatchValidate.ProductId,
 		DeviceNumber: len(d),
