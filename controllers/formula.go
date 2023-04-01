@@ -231,7 +231,7 @@ func (pot *RecipeController) GetMaterialList() {
 	}
 	var RecipeService services.RecipeService
 
-	list, err := RecipeService.FindMaterialByName(searchValidator.Keywords)
+	list, err := RecipeService.FindMaterialByName(searchValidator.Keyword)
 	if err == nil {
 		response.SuccessWithDetailed(200, "success", list, map[string]string{}, (*context2.Context)(pot.Ctx))
 	} else {

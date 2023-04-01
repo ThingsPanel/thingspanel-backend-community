@@ -59,5 +59,5 @@ type DelRecipeValidator struct {
 
 
 type SearchMaterialNameValidator struct {
-	Keywords string `json:"keywords"`
+	Keyword string `json:"keyword"`
 }
