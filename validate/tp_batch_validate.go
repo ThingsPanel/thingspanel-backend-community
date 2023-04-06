@@ -17,7 +17,7 @@ type TpBatchValidate struct {
 type AddTpBatchValidate struct {
 	BatchNumber   string `json:"batch_number,omitempty" alias:"批次编号" valid:"Required;MaxSize(36)"`
 	ProductId     string `json:"product_id,omitempty" alias:"产品id" valid:"Required;MaxSize(36)"`
-	DeviceNumber  int    `json:"device_number,omitempty"  alias:"设备数量"`
+	DeviceNumber  int    `json:"device_number,omitempty"  alias:"设备数量" valid:"Required;Min(1);Max(10000)"` //最大及最小值
 	GenerateFlag  string `json:"generate_flag,omitempty" alias:"生成标志 0-未生成 1-已生成" valid:"MaxSize(36)"`
 	Describe      string `json:"describe,omitempty" alias:"描述" valid:"MaxSize(255)"`
 	CreatedTime   int64  `json:"created_time,omitempty"`
