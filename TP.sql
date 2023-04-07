@@ -1630,3 +1630,17 @@ ALTER TABLE public.tp_generate_device RENAME COLUMN activate_flag TO add_flag;
 ALTER TABLE public.tp_generate_device RENAME COLUMN activate_date TO add_date;
 COMMENT ON COLUMN public.tp_generate_device.add_date IS '添加日期';
 COMMENT ON COLUMN public.tp_generate_device.add_flag IS '0-未添加 1-已添加';
+
+--0.5.0
+ALTER TABLE public.users
+DROP COLUMN search_text,
+DROP COLUMN first_name,
+DROP COLUMN last_name,
+DROP COLUMN remember_token,
+DROP COLUMN email_verified_at,
+DROP COLUMN is_admin,
+DROP COLUMN business_id,
+DROP COLUMN wx_openid,
+DROP COLUMN wx_unionid,
+ADD COLUMN tenant_id varchar(36) NULL;
+CREATE INDEX users_tenant_id_idx ON public.users (tenant_id);

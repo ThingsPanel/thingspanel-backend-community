@@ -1,17 +1,21 @@
 package middleware
 
 import (
-	response "ThingsPanel-Go/utils"
+	utils "ThingsPanel-Go/utils"
+	"errors"
 	"fmt"
 	"strings"
 
 	"ThingsPanel-Go/initialize/redis"
-	jwt "ThingsPanel-Go/utils"
+
+	"ThingsPanel-Go/services"
 
 	adapter "github.com/beego/beego/v2/adapter"
 	"github.com/beego/beego/v2/adapter/context"
 	context2 "github.com/beego/beego/v2/server/web/context"
 )
+
+const ErrUnauthorized = "Unauthorized"
 
 // AuthMiddle 中间件
 func AuthMiddle() {
@@ -31,22 +35,31 @@ func AuthMiddle() {
 		url := strings.TrimLeft(ctx.Input.URL(), "/")
 		if !isAuthExceptUrl(strings.ToLower(url), noLogin) {
 			//获取TOKEN
-			if len(ctx.Request.Header["Authorization"]) == 0 {
-				response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
+			userToken, err := GetToken(ctx)
+			if err != nil {
+				utils.SuccessWithMessage(401, err.Error(), (*context2.Context)(ctx))
 				return
 			}
-			authorization := ctx.Request.Header["Authorization"][0]
-			userToken := authorization[7:len(authorization)]
-			_, err := jwt.ParseCliamsToken(userToken)
+			// 解析token
+			userMsg, err := utils.ParseCliamsToken(userToken)
 			if err != nil {
 				// 异常
-				response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
+				utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
 				return
 			}
+			// 判断token是否存在
 			if redis.GetStr(userToken) != "1" {
-				response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
+				utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
 				return
 			}
+			// 设置用户ID
+			ctx.Input.SetData("user_id", userMsg.ID)
+			// 设置用户权限
+			if err := SetUserAuth(ctx, userMsg); err != nil {
+				utils.SuccessWithMessage(401, err.Error(), (*context2.Context)(ctx))
+				return
+			}
+
 			// s, _ := cache.Bm.IsExist(c.TODO(), userToken)
 			// if !s {
 			// 	response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
@@ -69,4 +82,32 @@ func isAuthExceptUrl(url string, m map[string]interface{}) bool {
 		return true
 	}
 	return false
+}
+
+//获取token
+func GetToken(ctx *context.Context) (string, error) {
+	authorization := ctx.Input.Header("Authorization")
+	if len(authorization) == 0 {
+		return "", errors.New(ErrUnauthorized)
+	}
+	if !strings.HasPrefix(authorization, "bearer ") {
+		return "", errors.New(ErrUnauthorized)
+	}
+	userToken := authorization[7:]
+	return userToken, nil
+}
+
+// 设置用户权限和租户id
+func SetUserAuth(ctx *context.Context, userClaims *utils.UserClaims) (err error) {
+	// 通过用户id获取用户权限
+	var userService *services.UserService
+	authority, tenant_id, err := userService.GetUserAuthorityById(userClaims.ID)
+	if err != nil {
+		return err
+	} else if authority == "" {
+		return errors.New("用户权限为空")
+	}
+	ctx.Input.SetData("tenant_id", tenant_id)
+	ctx.Input.SetData("authority", authority)
+	return nil
 }

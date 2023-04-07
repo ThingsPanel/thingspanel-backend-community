@@ -1,13 +1,13 @@
 package services
 
 import (
+	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	bcrypt "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
+	valid "ThingsPanel-Go/validate"
 	"errors"
 	"time"
-
-	"ThingsPanel-Go/initialize/psql"
-	bcrypt "ThingsPanel-Go/utils"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -91,33 +91,58 @@ func (*UserService) GetUserById(id string) (*models.Users, int64) {
 	return &users, result.RowsAffected
 }
 
+// 通过id获取用户权限和租户id
+func (*UserService) GetUserAuthorityById(id string) (string, string, error) {
+	var users models.Users
+	result := psql.Mydb.Where("id = ?", id).First(&users)
+	if result.Error != nil {
+		return "", "", result.Error
+	}
+	return users.Authority, users.TenantID, nil
+}
+
+// 通过用户id和租户id获取用户信息
+func (*UserService) GetUserByIdAndTenantId(id string, tenantId string) (*models.Users, error) {
+	var users models.Users
+	result := psql.Mydb.Where("id = ? AND tenant_id = ?", id, tenantId).First(&users)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &users, nil
+}
+
 // Paginate 分页获取user数据
-func (*UserService) Paginate(name string, offset int, pageSize int) ([]PaginateUser, int64) {
+func (*UserService) Paginate(name string, offset int, pageSize int, authority string, tenantId string) ([]PaginateUser, int64, error) {
 	var users []PaginateUser
 	var count int64
+	tx := psql.Mydb.Model(&models.Users{})
 	if name != "" {
-		result := psql.Mydb.Model(&models.Users{}).Where("name LIKE ?", "%"+name+"%").Limit(pageSize).Offset(offset).Order("name asc").Find(&users)
-		psql.Mydb.Model(&models.Users{}).Where("name LIKE ?", "%"+name+"%").Count(&count)
-		if result.Error != nil {
-			errors.Is(result.Error, gorm.ErrRecordNotFound)
-		}
-	} else {
-		result := psql.Mydb.Model(&models.Users{}).Limit(pageSize).Offset(offset).Find(&users)
-		psql.Mydb.Model(&models.Users{}).Count(&count)
-		if result.Error != nil {
-			errors.Is(result.Error, gorm.ErrRecordNotFound)
-		}
+		tx.Where("name LIKE ?", "%"+name+"%")
 	}
-	if len(users) == 0 {
-		users = []PaginateUser{}
+	if tenantId != "" {
+		tx.Where("name = ?", tenantId)
+	}
+	if authority != "" {
+		tx.Where("authority = ?", authority)
 	} else {
+		return users, 0, errors.New("权限不足！")
+	}
+	if err := tx.Count(&count).Error; err != nil {
+		logs.Info(err)
+		return users, 0, err
+	}
+	if err := tx.Limit(pageSize).Offset(offset).Find(&users).Error; err != nil {
+		logs.Info(err)
+		return users, 0, err
+	}
+	if len(users) != 0 {
 		var CasbinService CasbinService
 		for index, user := range users {
 			roles, _ := CasbinService.GetRoleFromUser(user.Email)
 			users[index].Roles = roles
 		}
 	}
-	return users, count
+	return users, count, nil
 }
 
 // Add新增一条user数据
@@ -143,14 +168,39 @@ func (*UserService) Add(name string, email string, password string, enabled stri
 	return true, uuid
 }
 
+// 添加用户
+func (*UserService) AddUser(user valid.AddUser) (userModel models.Users, err error) {
+	var uuid = uuid.GetUuid()
+	pass := bcrypt.HashAndSalt([]byte(user.Password))
+	userModel = models.Users{
+		ID:             uuid,
+		Name:           user.Name,
+		Email:          user.Email,
+		Password:       pass,
+		Enabled:        user.Enabled,
+		Mobile:         user.Mobile,
+		Remark:         user.Remark,
+		CreatedAt:      time.Now().Unix(),
+		UpdatedAt:      time.Now().Unix(),
+		Authority:      user.Authority,
+		AdditionalInfo: user.AdditionalInfo,
+	}
+	result := psql.Mydb.Create(&userModel)
+	if result.Error != nil {
+		return userModel, result.Error
+	}
+	return userModel, result.Error
+}
+
 // 根据ID编辑一条user数据
-func (*UserService) Edit(id string, name string, email string, mobile string, remark string) bool {
+func (*UserService) Edit(id string, name string, email string, mobile string, remark string, enabled string) bool {
 	result := psql.Mydb.Model(&models.Users{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"name":       name,
 		"email":      email,
 		"mobile":     mobile,
 		"remark":     remark,
 		"updated_at": time.Now().Unix(),
+		"enabled":    enabled,
 	})
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -199,4 +249,26 @@ func (*UserService) Register(email string, name string, password string, custome
 		return false, ""
 	}
 	return true, uuid
+}
+
+// 判断是否有添加用户的权限：SYS_ADMIN只能添加TENANT_ADMIN，TENANT_ADMIN和TENANT_USER只能添加TENANT_USER
+func (*UserService) HasAddAuthority(authority string, add_authority string) bool {
+	if authority == "SYS_ADMIN" && add_authority == "TENANT_ADMIN" {
+		return true
+	}
+	if (authority == "TENANT_ADMIN" || authority == "TENANT_USER") && add_authority == "TENANT_USER" {
+		return true
+	}
+	return false
+}
+
+// 判断是否有编辑用户的权限：SYS_ADMIN只能编辑TENANT_ADMIN，TENANT_ADMIN和TENANT_USER只能编辑TENANT_USER
+func (*UserService) HasEditAuthority(authority string, edit_authority string) bool {
+	if authority == "SYS_ADMIN" && edit_authority == "TENANT_ADMIN" {
+		return true
+	}
+	if (authority == "TENANT_ADMIN" || authority == "TENANT_USER") && edit_authority == "TENANT_USER" {
+		return true
+	}
+	return false
 }

@@ -58,69 +58,46 @@ type RegisterData struct {
 }
 
 // 登录
-func (this *AuthController) Login() {
-	loginValidate := valid.LoginValidate{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &loginValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(loginValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(loginValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
-		return
-	}
-	var UserService services.UserService
-	user, _, err := UserService.GetUserByEmail(loginValidate.Email)
-	if err != nil {
-		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(this.Ctx))
-		return
-	}
-	if !bcrypt.ComparePasswords(user.Password, []byte(loginValidate.Password)) {
-		response.SuccessWithMessage(400, "密码错误！", (*context2.Context)(this.Ctx))
+func (c *AuthController) Login() {
+	var reqData valid.LoginValidate
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 
-	// 生成jwt
-	tokenCliams := jwt.UserClaims{
-		ID:         user.ID,
-		Name:       user.Email,
-		CreateTime: time.Now(),
-		StandardClaims: gjwt.StandardClaims{
-			ExpiresAt: time.Now().Unix() + 3600,
-		},
-	}
-	token, err := jwt.MakeCliamsToken(tokenCliams)
+	var UserService services.UserService
+	user, _, err := UserService.GetUserByEmail(reqData.Email)
 	if err != nil {
-		// jwt失败
-		response.SuccessWithMessage(400, "token不正确", (*context2.Context)(this.Ctx))
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
+	if !bcrypt.ComparePasswords(user.Password, []byte(reqData.Password)) {
+		response.SuccessWithMessage(400, "密码错误！", (*context2.Context)(c.Ctx))
+		return
+	}
+	// 生成token
+	token, err := jwt.GenerateToken(user)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	// 存入redis
+	redis.SetStr(token, "1", time.Hour)
 	d := TokenData{
 		AccessToken: token,
 		TokenType:   "bearer",
-		ExpiresIn:   3600,
+		ExpiresIn:   int(time.Hour.Seconds()),
 	}
-	redis.SetStr(token, "1", 3000*time.Second)
-	// cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
-	// 登录成功
-	response.SuccessWithDetailed(200, "登录成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
+	response.SuccessWithDetailed(200, "登录成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 退出登录
-func (this *AuthController) Logout() {
-	authorization := this.Ctx.Request.Header["Authorization"][0]
-	userToken := authorization[7:len(authorization)]
+func (t *AuthController) Logout() {
+	authorization := t.Ctx.Request.Header["Authorization"][0]
+	userToken := authorization[7:]
 	_, err := jwt.ParseCliamsToken(userToken)
 	if err != nil {
-		response.SuccessWithMessage(400, "token异常", (*context2.Context)(this.Ctx))
+		response.SuccessWithMessage(400, "token异常", (*context2.Context)(t.Ctx))
 		return
 	}
 	redis.GetStr(userToken)
@@ -131,8 +108,7 @@ func (this *AuthController) Logout() {
 	// if s {
 	// 	cache.Bm.Delete(c.TODO(), userToken)
 	// }
-	response.SuccessWithMessage(200, "退出成功", (*context2.Context)(this.Ctx))
-	return
+	response.SuccessWithMessage(200, "退出成功", (*context2.Context)(t.Ctx))
 }
 
 // 刷新token
@@ -144,6 +120,7 @@ func (this *AuthController) Refresh() {
 		response.SuccessWithMessage(400, "token异常", (*context2.Context)(this.Ctx))
 		return
 	}
+	// 生成jwt
 	if redis.GetStr(userToken) == "1" {
 		redis.DelKey(userToken)
 	}
@@ -179,7 +156,6 @@ func (this *AuthController) Refresh() {
 	redis.SetStr(token, "1", 3000*time.Second)
 	// cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
 	response.SuccessWithDetailed(200, "刷新token成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
 }
 
 // 个人信息
@@ -198,19 +174,15 @@ func (this *AuthController) Me() {
 		return
 	}
 	d := MeData{
-		ID:              me.ID,
-		CreatedAt:       me.CreatedAt,
-		UpdatedAt:       me.UpdatedAt,
-		Enabled:         me.Enabled,
-		AdditionalInfo:  me.AdditionalInfo,
-		Authority:       me.Authority,
-		CustomerID:      me.CustomerID,
-		Email:           me.Email,
-		Name:            me.Name,
-		FirstName:       me.FirstName,
-		LastName:        me.LastName,
-		SearchText:      me.SearchText,
-		EmailVerifiedAt: me.EmailVerifiedAt,
+		ID:             me.ID,
+		CreatedAt:      me.CreatedAt,
+		UpdatedAt:      me.UpdatedAt,
+		Enabled:        me.Enabled,
+		AdditionalInfo: me.AdditionalInfo,
+		Authority:      me.Authority,
+		CustomerID:     me.CustomerID,
+		Email:          me.Email,
+		Name:           me.Name,
 	}
 	response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
