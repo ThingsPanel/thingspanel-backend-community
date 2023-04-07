@@ -1644,3 +1644,19 @@ DROP COLUMN wx_openid,
 DROP COLUMN wx_unionid,
 ADD COLUMN tenant_id varchar(36) NULL;
 CREATE INDEX users_tenant_id_idx ON public.users (tenant_id);
+
+ALTER TABLE public.business ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.asset ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_role ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.conditions_log ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.device ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.operation_log ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_function ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_generate_device ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_ota ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_product ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_scenario_strategy ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_script ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_warning_information ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.ts_kv ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.ts_kv_latest ADD COLUMN tenant_id varchar(36) NULL;
