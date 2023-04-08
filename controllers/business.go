@@ -230,13 +230,19 @@ func (this *BusinessController) Delete() {
 
 // 业务资产树
 func (this *BusinessController) Tree() {
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var BusinessService services.BusinessService
 	var ResTreeBusinessData []TreeBusinessData
 	var AssetService services.AssetService
 	bl, bc := BusinessService.All()
 	if bc > 0 {
 		for _, v := range bl {
-			l, c := AssetService.GetAssetByBusinessId(v.ID)
+			l, c := AssetService.GetAssetByBusinessId(v.ID, tenantId)
 			var ResTreeBusiness []TreeBusiness
 			if c != 0 {
 				for _, s := range l {

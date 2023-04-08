@@ -445,8 +445,14 @@ func (this *DeviceController) Delete() {
 		return
 	}
 	var DeviceService services.DeviceService
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	d, _ := DeviceService.GetDeviceByID(deleteDeviceValidate.ID)
-	err = DeviceService.Delete(deleteDeviceValidate.ID)
+	err = DeviceService.Delete(deleteDeviceValidate.ID, tenantId)
 	if err == nil {
 		// 判断是否协议插件设备删除
 		if d.Protocol != "mqtt" && d.Protocol != "MQTT" {

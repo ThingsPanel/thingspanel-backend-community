@@ -443,9 +443,9 @@ func (*DeviceService) GetDeviceByID(id string) (*models.Device, int64) {
 }
 
 // Delete 根据ID删除Device
-func (*DeviceService) Delete(id string) error {
+func (*DeviceService) Delete(id, tenantId string) error {
 	var device models.Device
-	result := psql.Mydb.Where("id = ?", id).First(&device)
+	result := psql.Mydb.Where("id = ? and tenant_id = ?", id, tenantId).First(&device)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -457,7 +457,7 @@ func (*DeviceService) Delete(id string) error {
 			return errors.New("请先删除网关设备下的子设备")
 		}
 	}
-	result = psql.Mydb.Where("id = ?", id).Delete(&models.Device{})
+	result = psql.Mydb.Where("id = ? and tenant_id = ?", id, tenantId).Delete(&models.Device{})
 	if result.Error != nil {
 		return result.Error
 	}
