@@ -889,8 +889,8 @@ func (*AssetService) GetAssetByBusinessId(business_id string) ([]AssetList, int6
 }
 
 // GetAssetDataByBusinessId根据业务id查询业务下所有资产
-func (*AssetService) GetAssetDataByBusinessId(business_id string) (assets []AssetList, err error) {
-	err = psql.Mydb.Model(&models.Asset{}).Where("business_id = ?", business_id).Find(&assets).Error
+func (*AssetService) GetAssetDataByBusinessId(business_id, tenantId string) (assets []AssetList, err error) {
+	err = psql.Mydb.Model(&models.Asset{}).Where("business_id = ? and tenant_id = ?", business_id, tenantId).Find(&assets).Error
 	if err != nil {
 		return assets, err
 	}

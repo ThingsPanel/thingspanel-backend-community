@@ -74,6 +74,12 @@ func (this *BusinessController) Index() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var BusinessService services.BusinessService
 	offset := (paginateBusinessValidate.Page - 1) * paginateBusinessValidate.Limit
 	u, c := BusinessService.Paginate(paginateBusinessValidate.Name, offset, paginateBusinessValidate.Limit)
@@ -82,7 +88,7 @@ func (this *BusinessController) Index() {
 		var AssetService services.AssetService
 		var is_device int
 		for _, bv := range u {
-			_, err := AssetService.GetAssetDataByBusinessId(bv.ID)
+			_, err := AssetService.GetAssetDataByBusinessId(bv.ID, tenantId)
 			if err != nil {
 				is_device = 0
 			} else {
@@ -129,8 +135,14 @@ func (this *BusinessController) Add() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var BusinessService services.BusinessService
-	f, id := BusinessService.Add(addBusinessValidate.Name)
+	f, id := BusinessService.Add(addBusinessValidate.Name, tenantId)
 	if f {
 		b, _ := BusinessService.GetBusinessById(id)
 		u := AddBusiness{
@@ -163,8 +175,14 @@ func (this *BusinessController) Edit() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var BusinessService services.BusinessService
-	f := BusinessService.Edit(editBusinessValidate.ID, editBusinessValidate.Name)
+	f := BusinessService.Edit(editBusinessValidate.ID, editBusinessValidate.Name, tenantId)
 	if f {
 		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
 		return
@@ -192,9 +210,15 @@ func (this *BusinessController) Delete() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var BusinessService services.BusinessService
 	var NavigationService services.NavigationService
-	f := BusinessService.Delete(deleteBusinessValidate.ID)
+	f := BusinessService.Delete(deleteBusinessValidate.ID, tenantId)
 	if f {
 		NavigationService.DeleteByBusinessID(deleteBusinessValidate.ID)
 		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))

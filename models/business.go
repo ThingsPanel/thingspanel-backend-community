@@ -7,6 +7,7 @@ type Business struct {
 	AppType   string `json:"app_type"`   // 应用类型
 	AppID     string `json:"app_id"`     // application id
 	AppSecret string `json:"app_secret"` // 密钥
+	TenantId  string `json:"tenant_id"`  // 租户id
 }
 
 func (Business) TableName() string {
