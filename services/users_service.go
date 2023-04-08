@@ -211,7 +211,7 @@ func (*UserService) Edit(id string, name string, email string, mobile string, re
 
 // 根据ID删除一条user数据
 func (*UserService) Delete(id string) bool {
-	result := psql.Mydb.Where("id = ?", id).Delete(&models.Users{})
+	result := psql.Mydb.Model(&models.Users{}).Where("id = ?", id).Update("enabled", "A")
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false

@@ -265,6 +265,38 @@ func (this *UserController) Delete() {
 		return
 	}
 	var UserService services.UserService
+
+	// 获取请求用户权限
+	authority, ok := this.Ctx.Input.GetData("authority").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	// 获取请求用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	// 根据请求id及租户id获取待删除用户信息
+	e_user, err := UserService.GetUserByIdAndTenantId(deleteUserValidate.ID, tenantId)
+	if err != nil {
+		response.SuccessWithMessage(400, "获取用户信息失败", (*context2.Context)(this.Ctx))
+		return
+	}
+	if authority != "SYS_ADMIN" {
+		// 如果不是系统管理员，要判断是否同一个租户
+		if e_user.TenantID != tenantId {
+			response.SuccessWithMessage(400, "没有删除该用户的权限", (*context2.Context)(this.Ctx))
+			return
+		}
+
+	}
+	if !UserService.HasEditAuthority(authority, e_user.Authority) {
+		response.SuccessWithMessage(400, "没有删除该用户的权限", (*context2.Context)(this.Ctx))
+		return
+	}
+
 	f := UserService.Delete(deleteUserValidate.ID)
 	if f {
 		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
@@ -276,16 +308,16 @@ func (this *UserController) Delete() {
 
 // 修改密码
 func (this *UserController) Password() {
-	passwordUserValidate := valid.PasswordUser{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &passwordUserValidate)
+	reqData := valid.PasswordUser{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(passwordUserValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
-			alias := gvalid.GetAlias(passwordUserValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
 			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
 			break
@@ -293,7 +325,48 @@ func (this *UserController) Password() {
 		return
 	}
 	var UserService services.UserService
-	f := UserService.Password(passwordUserValidate.ID, passwordUserValidate.Password)
+	// 获取请求用户id
+	userId, ok := this.Ctx.Input.GetData("user_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	// 获取请求用户权限
+	authority, ok := this.Ctx.Input.GetData("authority").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	// 获取请求用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	//修改其它用户密码
+	if userId != reqData.ID {
+		// 根据用户id获取被编辑用户信息
+		e_user, err := UserService.GetUserByIdAndTenantId(reqData.ID, tenantId)
+		if err != nil {
+			response.SuccessWithMessage(400, "获取用户信息失败", (*context2.Context)(this.Ctx))
+			return
+		}
+		//系统管理员不能修改租户用户密码
+		if authority != "SYS_ADMIN" {
+			// 如果不是系统管理员，要判断是否同一个租户
+			if e_user.TenantID != tenantId {
+				response.SuccessWithMessage(400, "没有修改该用户密码的权限", (*context2.Context)(this.Ctx))
+				return
+			}
+
+		}
+		//判断是否有编辑该用户权限
+		if !UserService.HasEditAuthority(authority, e_user.Authority) {
+			response.SuccessWithMessage(400, "没有修改该用户密码的权限", (*context2.Context)(this.Ctx))
+			return
+		}
+	}
+	f := UserService.Password(reqData.ID, reqData.Password)
 	if f {
 		response.SuccessWithMessage(200, "修改成功", (*context2.Context)(this.Ctx))
 		return
