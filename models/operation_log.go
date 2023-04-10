@@ -7,6 +7,7 @@ type OperationLog struct {
 	DataID    string `json:"data_id" gorm:"size:36"`
 	CreatedAt int64  `json:"created_at"`
 	Detailed  string `json:"detailed" gorm:"type:longtext"`
+	TenantId  string `json:"tenant_id,omitempty"` //租户id
 }
 
 func (OperationLog) TableName() string {

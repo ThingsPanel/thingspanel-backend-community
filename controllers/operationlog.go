@@ -53,8 +53,13 @@ func (this *OperationlogController) List() {
 		}
 		return
 	}
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var OperationLogService services.OperationLogService
-	o, c := OperationLogService.Paginate(operationLogListValidateValidate.Page, operationLogListValidateValidate.Limit, operationLogListValidateValidate.Ip, operationLogListValidateValidate.Path)
+	o, c := OperationLogService.Paginate(operationLogListValidateValidate.Page, operationLogListValidateValidate.Limit, operationLogListValidateValidate.Ip, operationLogListValidateValidate.Path, tenantId)
 	d := PaginateOperationlog{
 		CurrentPage: operationLogListValidateValidate.Page,
 		Data:        o,

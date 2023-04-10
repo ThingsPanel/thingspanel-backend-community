@@ -124,8 +124,14 @@ func (this *WarninglogController) GetDeviceWarningList() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var WarningLogService services.WarningLogService
-	w := WarningLogService.WarningForWid(deviceWarningLogListValidate.DeviceId, deviceWarningLogListValidate.Limit)
+	w := WarningLogService.WarningForWid(deviceWarningLogListValidate.DeviceId, tenantId, deviceWarningLogListValidate.Limit)
 	d := ViewWarninglog{
 		Data: w,
 	}

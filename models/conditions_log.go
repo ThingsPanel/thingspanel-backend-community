@@ -11,6 +11,7 @@ type ConditionsLog struct {
 	CteateTime    string `json:"cteate_time" gorm:"size:50"`
 	ProtocolType  string `json:"protocol_type" gorm:"size:10"` //mqtt,tcp
 	Remark        string `json:"remark" gorm:"size:2"`
+	TenantId      string `json:"tenant_id,omitempty"` //租户id
 }
 
 func (ConditionsLog) TableName() string {

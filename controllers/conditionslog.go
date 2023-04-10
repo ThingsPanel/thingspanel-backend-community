@@ -44,8 +44,14 @@ func (conditionslogController *ConditionslogController) Index() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := conditionslogController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(conditionslogController.Ctx))
+		return
+	}
 	var ConditionsLogService services.ConditionsLogService
-	w, count := ConditionsLogService.Paginate(conditionsLogListValidate)
+	w, count := ConditionsLogService.Paginate(conditionsLogListValidate, tenantId)
 	d := PaginateConditionslog{
 		CurrentPage: conditionsLogListValidate.Current,
 		PerPage:     conditionsLogListValidate.Size,

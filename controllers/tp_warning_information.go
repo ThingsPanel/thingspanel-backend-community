@@ -4,6 +4,7 @@ import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
+	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
@@ -37,8 +38,14 @@ func (TpWarningInformationController *TpWarningInformationController) List() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := TpWarningInformationController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(TpWarningInformationController.Ctx))
+		return
+	}
 	var TpWarningInformationService services.TpWarningInformationService
-	d, t, err := TpWarningInformationService.GetTpWarningInformationList(PaginationValidate)
+	d, t, err := TpWarningInformationService.GetTpWarningInformationList(PaginationValidate, tenantId)
 	if err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpWarningInformationController.Ctx))
 		return
@@ -74,8 +81,14 @@ func (TpWarningInformationController *TpWarningInformationController) Edit() {
 	if EditTpWarningInformationValidate.Id == "" {
 		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpWarningInformationController.Ctx))
 	}
+	// 获取用户租户id
+	tenantId, ok := TpWarningInformationController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(TpWarningInformationController.Ctx))
+		return
+	}
 	var TpWarningInformationService services.TpWarningInformationService
-	d, err := TpWarningInformationService.EditTpWarningInformation(EditTpWarningInformationValidate)
+	d, err := TpWarningInformationService.EditTpWarningInformation(EditTpWarningInformationValidate, tenantId)
 	if err == nil {
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpWarningInformationController.Ctx))
 	} else {
@@ -102,8 +115,14 @@ func (TpWarningInformationController *TpWarningInformationController) BatchProce
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := TpWarningInformationController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(TpWarningInformationController.Ctx))
+		return
+	}
 	var TpWarningInformationService services.TpWarningInformationService
-	err = TpWarningInformationService.BatchProcessing(batchProcessingValidate)
+	err = TpWarningInformationService.BatchProcessing(batchProcessingValidate, tenantId)
 	if err == nil {
 		utils.SuccessWithMessage(200, "sucess", (*context2.Context)(TpWarningInformationController.Ctx))
 	} else {
