@@ -6,6 +6,7 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -140,7 +141,9 @@ func (*TpFunctionService) Authority(email string) ([]valid.TpFunctionTreeValidat
 }
 func UserAuthorityTree(email string, parent_id string) ([]valid.TpFunctionTreeValidate, []string, []valid.TpFunctionTreeValidate) {
 	// 根据email查询用户，获取用户权限
+	fmt.Println(email)
 	getUserByEmail, _, _ := new(UserService).GetUserByEmail(email)
+	fmt.Println(getUserByEmail)
 	authority := getUserByEmail.Authority
 	var TpFunctionTreeValidates []valid.TpFunctionTreeValidate
 	var functionList []string

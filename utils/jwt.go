@@ -41,7 +41,7 @@ func ParseCliamsToken(token string) (*UserClaims, error) {
 func GenerateToken(user *models.Users) (string, error) {
 	claims := UserClaims{
 		ID:         user.ID,
-		Name:       user.Name,
+		Name:       user.Email,
 		CreateTime: time.Now(),
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour).Unix(),
