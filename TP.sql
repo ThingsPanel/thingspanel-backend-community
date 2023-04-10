@@ -1662,3 +1662,6 @@ ALTER TABLE public.ts_kv ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.ts_kv_latest ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_function ADD sys_flag varchar(2) NULL;
 COMMENT ON COLUMN public.tp_function.sys_flag IS '系统管理员菜单标志';
+INSERT INTO public.tp_function
+(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, sys_flag)
+VALUES('229de465-24a1-467d-d3a2-d146db43bffa', '', NULL, '/tenant', 'TenantManagment', '/pages/system/tenant', '租户管理', '', '1', '', '4f2791e5-3c13-7249-c25f-77f6f787f574', 0, NULL);

@@ -190,13 +190,14 @@ func (*UserService) AddUser(user valid.AddUser) (userModel models.Users, err err
 		Name:           user.Name,
 		Email:          user.Email,
 		Password:       pass,
-		Enabled:        user.Enabled,
+		Enabled:        "1",
 		Mobile:         user.Mobile,
 		Remark:         user.Remark,
 		CreatedAt:      time.Now().Unix(),
 		UpdatedAt:      time.Now().Unix(),
 		Authority:      user.Authority,
 		AdditionalInfo: user.AdditionalInfo,
+		TenantID:       user.TenantID,
 	}
 	result := psql.Mydb.Create(&userModel)
 	if result.Error != nil {
