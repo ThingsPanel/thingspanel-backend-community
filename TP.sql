@@ -1660,3 +1660,5 @@ ALTER TABLE public.tp_script ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_warning_information ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.ts_kv ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.ts_kv_latest ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_function ADD sys_flag varchar(2) NULL;
+COMMENT ON COLUMN public.tp_function.sys_flag IS '系统管理员菜单标志';

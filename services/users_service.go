@@ -71,6 +71,19 @@ func (*UserService) GetUserByEmail(email string) (*models.Users, int64, error) {
 	return &users, result.RowsAffected, nil
 }
 
+// 登录判断，根据email获取一条未删除的user数据
+func (*UserService) GetEnabledUserByEmail(email string) (*models.Users, int64, error) {
+	var users models.Users
+	result := psql.Mydb.Where("email = ? and enabled = '1'", email).First(&users)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, 0, errors.New("该用户不存在！")
+		}
+		return nil, 0, result.Error
+	}
+	return &users, result.RowsAffected, nil
+}
+
 // GetSameUserByEmail 根据email获取一条同名称的user数据
 func (*UserService) GetSameUserByEmail(email string, id string) (*models.Users, int64) {
 	var users models.Users

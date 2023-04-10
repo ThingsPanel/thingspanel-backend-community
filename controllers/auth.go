@@ -66,7 +66,7 @@ func (c *AuthController) Login() {
 	}
 
 	var UserService services.UserService
-	user, _, err := UserService.GetUserByEmail(reqData.Email)
+	user, _, err := UserService.GetEnabledUserByEmail(reqData.Email)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 		return
