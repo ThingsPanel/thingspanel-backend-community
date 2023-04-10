@@ -154,7 +154,8 @@ func UserAuthorityTree(email string, parent_id string) ([]valid.TpFunctionTreeVa
 		//sys_flag：1代表系统管理员独有的功能 2代表租户管理员和系统管理员共有的功能
 		result = psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ? and sys_flag in ('1','2')", parent_id).Order("sort desc").Find(&TpFunctions)
 	} else if authority == "TENANT_ADMIN" {
-		result = psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ? and sys_flag != '1'", parent_id).Order("sort desc").Find(&TpFunctions)
+		result = psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ? and sys_flag != '1' or sys_flag is null", parent_id).Order("sort desc").Find(&TpFunctions)
+		fmt.Println(TpFunctions)
 	} else {
 		result = psql.Mydb.Raw(`select tf.id,tf.function_name,tf."path" ,tf."name" ,tf.component ,tf.title ,tf.icon ,tf."type" ,tf.function_code from 
 		(select distinct (crp.v1) from casbin_rule crp inner join (select cr.v1 from casbin_rule cr  where cr.ptype ='g' and cr.v0 = ? ) crr
