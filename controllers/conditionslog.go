@@ -26,37 +26,37 @@ type PaginateConditionslog struct {
 }
 
 // 获取控制日志
-func (conditionslogController *ConditionslogController) Index() {
-	conditionsLogListValidate := valid.ConditionsLogListValidate{}
-	err := json.Unmarshal(conditionslogController.Ctx.Input.RequestBody, &conditionsLogListValidate)
+func (c *ConditionslogController) Index() {
+	reqData := valid.ConditionsLogListValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(conditionsLogListValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(conditionsLogListValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(conditionslogController.Ctx))
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
 	// 获取用户租户id
-	tenantId, ok := conditionslogController.Ctx.Input.GetData("tenant_id").(string)
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(conditionslogController.Ctx))
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var ConditionsLogService services.ConditionsLogService
-	w, count := ConditionsLogService.Paginate(conditionsLogListValidate, tenantId)
+	w, count := ConditionsLogService.Paginate(reqData, tenantId)
 	d := PaginateConditionslog{
-		CurrentPage: conditionsLogListValidate.Current,
-		PerPage:     conditionsLogListValidate.Size,
+		CurrentPage: reqData.Current,
+		PerPage:     reqData.Size,
 		Data:        w,
 		Total:       count,
 	}
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(conditionslogController.Ctx))
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }

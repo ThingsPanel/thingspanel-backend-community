@@ -27,45 +27,46 @@ type PaginateOperationlog struct {
 }
 
 // 获取操作日志
-func (this *OperationlogController) Index() {
+func (c *OperationlogController) Index() {
 	var OperationLogService services.OperationLogService
 	w, _ := OperationLogService.List(0, 100)
-	response.SuccessWithDetailed(200, "success", w, map[string]string{}, (*context2.Context)(this.Ctx))
+	response.SuccessWithDetailed(200, "success", w, map[string]string{}, (*context2.Context)(c.Ctx))
 	return
 }
 
 // 分页获取告警日志
-func (this *OperationlogController) List() {
-	operationLogListValidateValidate := valid.OperationLogListValidate{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &operationLogListValidateValidate)
+func (c *OperationlogController) List() {
+	reqData := valid.OperationLogListValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(operationLogListValidateValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(operationLogListValidateValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
-	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var OperationLogService services.OperationLogService
-	o, c := OperationLogService.Paginate(operationLogListValidateValidate.Page, operationLogListValidateValidate.Limit, operationLogListValidateValidate.Ip, operationLogListValidateValidate.Path, tenantId)
+	o, count := OperationLogService.Paginate(reqData.Page, reqData.Limit, reqData.Ip, reqData.Path, tenantId)
 	d := PaginateOperationlog{
-		CurrentPage: operationLogListValidateValidate.Page,
+		CurrentPage: reqData.Page,
 		Data:        o,
-		Total:       c,
-		PerPage:     operationLogListValidateValidate.Limit,
+		Total:       count,
+		PerPage:     reqData.Limit,
 	}
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	return
 }
