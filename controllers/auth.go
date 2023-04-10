@@ -85,7 +85,7 @@ func (c *AuthController) Login() {
 	redis.SetStr(token, "1", time.Hour)
 	d := TokenData{
 		AccessToken: token,
-		TokenType:   "bearer",
+		TokenType:   "Bearer",
 		ExpiresIn:   int(time.Hour.Seconds()),
 	}
 	response.SuccessWithDetailed(200, "登录成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
@@ -150,7 +150,7 @@ func (this *AuthController) Refresh() {
 	}
 	d := TokenData{
 		AccessToken: token,
-		TokenType:   "bearer",
+		TokenType:   "Bearer",
 		ExpiresIn:   3600,
 	}
 	redis.SetStr(token, "1", 3000*time.Second)
