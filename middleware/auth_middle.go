@@ -90,7 +90,7 @@ func GetToken(ctx *context.Context) (string, error) {
 	if len(authorization) == 0 {
 		return "", errors.New(ErrUnauthorized)
 	}
-	if !strings.HasPrefix(authorization, "bearer ") {
+	if !strings.HasPrefix(authorization, "Bearer ") {
 		return "", errors.New(ErrUnauthorized)
 	}
 	userToken := authorization[7:]
