@@ -21,38 +21,33 @@ type TpScriptController struct {
 }
 
 // 列表
-func (TpScriptController *TpScriptController) List() {
-	PaginationValidate := valid.TpScriptPaginationValidate{}
-	err := json.Unmarshal(TpScriptController.Ctx.Input.RequestBody, &PaginationValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
+func (c *TpScriptController) List() {
+	reqData := valid.TpScriptPaginationValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(PaginationValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(PaginationValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpScriptController.Ctx))
-			break
-		}
+
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		utils.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var TpScriptService services.TpScriptService
-	isSuccess, d, t := TpScriptService.GetTpScriptList(PaginationValidate)
+	isSuccess, d, t := TpScriptService.GetTpScriptList(reqData, tenantId)
 
 	if !isSuccess {
-		utils.SuccessWithMessage(1000, "查询失败", (*context2.Context)(TpScriptController.Ctx))
+		utils.SuccessWithMessage(1000, "查询失败", (*context2.Context)(c.Ctx))
 		return
 	}
 	dd := valid.RspTpScriptPaginationValidate{
-		CurrentPage: PaginationValidate.CurrentPage,
+		CurrentPage: reqData.CurrentPage,
 		Data:        d,
 		Total:       t,
-		PerPage:     PaginationValidate.PerPage,
+		PerPage:     reqData.PerPage,
 	}
-	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpScriptController.Ctx))
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 编辑
@@ -88,44 +83,40 @@ func (TpScriptController *TpScriptController) Edit() {
 }
 
 // 新增
-func (TpScriptController *TpScriptController) Add() {
-	AddTpScriptValidate := valid.AddTpScriptValidate{}
-	err := json.Unmarshal(TpScriptController.Ctx.Input.RequestBody, &AddTpScriptValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
+func (c *TpScriptController) Add() {
+	reqData := valid.AddTpScriptValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(AddTpScriptValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(AddTpScriptValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpScriptController.Ctx))
-			break
-		}
+
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		utils.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var TpScriptService services.TpScriptService
 	id := utils.GetUuid()
 	TpScript := models.TpScript{
 		Id:             id,
-		ProtocolType:   AddTpScriptValidate.ProtocolType,
-		ScriptName:     AddTpScriptValidate.ScriptName,
-		Company:        AddTpScriptValidate.Company,
+		ProtocolType:   reqData.ProtocolType,
+		ScriptName:     reqData.ScriptName,
+		Company:        reqData.Company,
 		CreatedAt:      time.Now().Unix(),
-		ProductName:    AddTpScriptValidate.ProductName,
-		ScriptContentA: AddTpScriptValidate.ScriptContentA,
-		ScriptContentB: AddTpScriptValidate.ScriptContentB,
-		ScriptType:     AddTpScriptValidate.ScriptType,
-		Remark:         AddTpScriptValidate.Remark,
-		DeviceType:     AddTpScriptValidate.DeviceType,
+		ProductName:    reqData.ProductName,
+		ScriptContentA: reqData.ScriptContentA,
+		ScriptContentB: reqData.ScriptContentB,
+		ScriptType:     reqData.ScriptType,
+		Remark:         reqData.Remark,
+		DeviceType:     reqData.DeviceType,
+		TenantId:       tenantId,
 	}
 	d, rsp_err := TpScriptService.AddTpScript(TpScript)
 	if rsp_err == nil {
-		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpScriptController.Ctx))
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpScriptController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
 	}
 }
 
