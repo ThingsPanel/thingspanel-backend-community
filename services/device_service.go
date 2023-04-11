@@ -1056,7 +1056,7 @@ func (*DeviceService) GetDeviceByCascade() ([]map[string]interface{}, error) {
 }
 
 // GetDevicesByAssetID 获取设备列表(business_id string, device_id string, asset_id string, current int, pageSize int,device_type string)
-func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]interface{}, error) {
+func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate, tenantId string) ([]map[string]interface{}, error) {
 	sqlWhere := `select (with RECURSIVE ast as 
 		( 
 		(select aa.id,cast(aa.name as varchar(255)),aa.parent_id  from asset aa where id=a.id) 
@@ -1068,7 +1068,8 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 		   (select name from device dd where dd.device_type = '2' and dd.parent_id = d.id limit 1) as gateway_name
 		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 and d.location !=''`
 	var values []interface{}
-	var where = ""
+	var where = "and tenant_id = ?"
+	values = append(values, tenantId)
 	if req.BusinessId != "" {
 		values = append(values, req.BusinessId)
 		where += " and b.id = ?"
