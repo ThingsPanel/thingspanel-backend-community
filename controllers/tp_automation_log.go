@@ -20,14 +20,8 @@ func (c *TpAutomationLogController) List() {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
-	// 获取用户租户id
-	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	if !ok {
-		utils.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
-		return
-	}
 	var TpAutomationLogService services.TpAutomationLogService
-	d, t, err := TpAutomationLogService.GetTpAutomationLogList(reqData, tenantId)
+	d, t, err := TpAutomationLogService.GetTpAutomationLogList(reqData)
 	if err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return

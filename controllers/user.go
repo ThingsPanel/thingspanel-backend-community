@@ -279,20 +279,20 @@ func (this *UserController) Delete() {
 		return
 	}
 	// 根据请求id及租户id获取待删除用户信息
-	e_user, err := UserService.GetUserByIdAndTenantId(deleteUserValidate.ID, tenantId)
+	eAuthority, eTenantID, err := UserService.GetUserAuthorityById(deleteUserValidate.ID)
 	if err != nil {
 		response.SuccessWithMessage(400, "获取用户信息失败", (*context2.Context)(this.Ctx))
 		return
 	}
 	if authority != "SYS_ADMIN" {
 		// 如果不是系统管理员，要判断是否同一个租户
-		if e_user.TenantID != tenantId {
+		if eTenantID != tenantId {
 			response.SuccessWithMessage(400, "没有删除该用户的权限", (*context2.Context)(this.Ctx))
 			return
 		}
 
 	}
-	if !UserService.HasEditAuthority(authority, e_user.Authority) {
+	if !UserService.HasEditAuthority(authority, eAuthority) {
 		response.SuccessWithMessage(400, "没有删除该用户的权限", (*context2.Context)(this.Ctx))
 		return
 	}
@@ -303,7 +303,6 @@ func (this *UserController) Delete() {
 		return
 	}
 	response.SuccessWithMessage(400, "删除失败", (*context2.Context)(this.Ctx))
-	return
 }
 
 // 修改密码
