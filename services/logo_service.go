@@ -1,13 +1,10 @@
 package services
 
 import (
+	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
-	"errors"
-
-	"ThingsPanel-Go/initialize/psql"
-
-	"gorm.io/gorm"
+	"github.com/beego/beego/v2/core/logs"
 )
 
 type LogoService struct {
@@ -19,7 +16,8 @@ func (*LogoService) GetLogo() models.Logo {
 	var Logo models.Logo
 	result := psql.Mydb.Model(&models.Logo{}).Limit(1).Find(&Logos)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if len(Logos) == 0 {
 		Logo = models.Logo{}

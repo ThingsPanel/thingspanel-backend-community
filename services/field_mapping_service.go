@@ -3,12 +3,10 @@ package services
 import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
-	"errors"
+	"github.com/beego/beego/v2/core/logs"
 	"strings"
 
 	"ThingsPanel-Go/initialize/psql"
-
-	"gorm.io/gorm"
 )
 
 type FieldMappingService struct {
@@ -24,7 +22,8 @@ type FieldMappingService struct {
 func (*FieldMappingService) DeleteByDeviceId(device_id string) bool {
 	result := psql.Mydb.Where("device_id = ?", device_id).Delete(&models.FieldMapping{})
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
@@ -41,7 +40,8 @@ func (*FieldMappingService) Add(device_id string, field_from string, field_to st
 	}
 	result := psql.Mydb.Create(&fieldMapping)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, ""
 	}
 	return true, uuid
@@ -52,7 +52,8 @@ func (*FieldMappingService) GetByDeviceid(device_id string) ([]models.FieldMappi
 	var fieldMappings []models.FieldMapping
 	result := psql.Mydb.Where("device_id = ?", device_id).Find(&fieldMappings)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	if len(fieldMappings) == 0 {
 		fieldMappings = []models.FieldMapping{}
@@ -64,7 +65,8 @@ func (*FieldMappingService) GetByDeviceid(device_id string) ([]models.FieldMappi
 func (*FieldMappingService) Delete(id string) bool {
 	result := psql.Mydb.Where("id = ?", id).Delete(&models.FieldMapping{})
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
@@ -76,7 +78,8 @@ func (*FieldMappingService) TransformByDeviceid(device_id string, field_to strin
 	var field_from string
 	result := psql.Mydb.Where("device_id = ? AND field_to = ?", device_id, field_to).Find(&fieldMappings)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if result.RowsAffected == 0 {
 		field_from = ""
@@ -92,7 +95,8 @@ func (*FieldMappingService) GetFieldTo(device_id string, field_from string) stri
 	var field_to string
 	result := psql.Mydb.Where("device_id = ? AND field_from = ?", device_id, field_from).Find(&fieldMappings)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if result.RowsAffected == 0 {
 		field_to = ""
@@ -107,7 +111,8 @@ func (*FieldMappingService) GetSymbol(device_id string, field_from string) strin
 	var symbol string
 	result := psql.Mydb.Where("device_id = ? AND field_from = ?", device_id, field_from).Find(&fieldMappings)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if result.RowsAffected == 0 {
 		symbol = ""

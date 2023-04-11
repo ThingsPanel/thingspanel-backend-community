@@ -5,10 +5,8 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
-	"errors"
+	"github.com/beego/beego/v2/core/logs"
 	"strconv"
-
-	"gorm.io/gorm"
 )
 
 type ChartService struct {
@@ -44,7 +42,8 @@ func (*ChartService) GetChartList(PaginationValidate valid.ChartPaginationValida
 	db.Count(&count)
 	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&Charts)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, Charts, 0
 	}
 	return true, Charts, count
@@ -56,7 +55,8 @@ func (*ChartService) AddChart(chart models.Chart) (bool, models.Chart) {
 	chart.ID = uuid
 	result := psql.Mydb.Create(&chart)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, chart
 	}
 	return true, chart
@@ -66,7 +66,8 @@ func (*ChartService) AddChart(chart models.Chart) (bool, models.Chart) {
 func (*ChartService) EditChart(chart valid.ChartValidate) bool {
 	result := psql.Mydb.Model(&models.Chart{}).Where("id = ?", chart.Id).Updates(&chart)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
@@ -76,7 +77,8 @@ func (*ChartService) EditChart(chart valid.ChartValidate) bool {
 func (*ChartService) DeleteChart(chart models.Chart) bool {
 	result := psql.Mydb.Delete(&chart)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
