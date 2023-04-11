@@ -163,6 +163,25 @@ func (reqDate *AssetController) UpdateOnly() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := reqDate.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(reqDate.Ctx))
+		return
+	}
+	//修改的数据是否属于该租户
+	var AssetService services.AssetService
+	f, c := AssetService.GetAssetById(assetValidate.ID)
+	//无数据修改
+	if c <= 0 {
+		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+		return
+	}
+	//修改的数据不属于该租户
+	if f.TenantId != tenantId {
+		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+		return
+	}
 	var asset = models.Asset{
 		ID:         assetValidate.ID,
 		Name:       assetValidate.Name,
@@ -227,20 +246,26 @@ func (this *AssetController) Delete() {
 		return
 	}
 	var AssetService services.AssetService
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	if deleteAssetValidate.TYPE == 1 {
-		_, c := AssetService.GetAssetsByParentID(deleteAssetValidate.ID)
+		_, c := AssetService.GetAssetsByParentIDAndTenantId(deleteAssetValidate.ID, tenantId)
 		if c != 0 {
 			response.SuccessWithMessage(400, "请先删除下一级", (*context2.Context)(this.Ctx))
 			return
 		}
-		f := AssetService.Delete(deleteAssetValidate.ID)
+		f := AssetService.Delete(deleteAssetValidate.ID, tenantId)
 		if f {
 			var DeviceService services.DeviceService
 			var FieldMappingService services.FieldMappingService
 			d, s := DeviceService.GetDevicesByAssetID(deleteAssetValidate.ID)
 			if s != 0 {
 				for _, ds := range d {
-					DeviceService.Delete(ds.ID)
+					DeviceService.Delete(ds.ID, tenantId)
 					FieldMappingService.DeleteByDeviceId(ds.ID)
 				}
 			}
@@ -250,7 +275,7 @@ func (this *AssetController) Delete() {
 	} else {
 		var DeviceService services.DeviceService
 		var FieldMappingService services.FieldMappingService
-		f1 := DeviceService.Delete(deleteAssetValidate.ID)
+		f1 := DeviceService.Delete(deleteAssetValidate.ID, tenantId)
 		f2 := FieldMappingService.DeleteByDeviceId(deleteAssetValidate.ID)
 		if f1 == nil && f2 {
 			response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
@@ -305,6 +330,12 @@ func (this *AssetController) List() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var disabled bool
 	var dm string
 	var state string
@@ -313,7 +344,7 @@ func (this *AssetController) List() {
 	var DeviceService services.DeviceService
 	var FieldMappingService services.FieldMappingService
 	var TSKVService services.TSKVService
-	l, c := AssetService.GetAssetByBusinessId(listAssetValidate.BusinessID)
+	l, c := AssetService.GetAssetByBusinessId(listAssetValidate.BusinessID, tenantId)
 	if c != 0 {
 		// 第一层
 		for _, s := range l {
@@ -573,8 +604,14 @@ func (AssetController *AssetController) GetAssetByBusiness() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := AssetController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(AssetController.Ctx))
+		return
+	}
 	var AssetService services.AssetService
-	assets, _ := AssetService.GetAssetByBusinessId(listAssetValidate.BusinessID)
+	assets, _ := AssetService.GetAssetByBusinessId(listAssetValidate.BusinessID, tenantId)
 	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
 
 }
@@ -623,8 +660,14 @@ func (AssetController *AssetController) GetAssetGroupByBusinessId() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := AssetController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(AssetController.Ctx))
+		return
+	}
 	var AssetService services.AssetService
-	assets, _ := AssetService.PageGetDeviceGroupByBussinessID(listAssetValidate.BusinessId, listAssetValidate.CurrentPage, listAssetValidate.PerPage)
+	assets, _ := AssetService.PageGetDeviceGroupByBussinessID(listAssetValidate.BusinessId, tenantId, listAssetValidate.CurrentPage, listAssetValidate.PerPage)
 	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
 }
 
@@ -647,7 +690,13 @@ func (AssetController *AssetController) GetAssetGroupByBusinessIdX() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := AssetController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(AssetController.Ctx))
+		return
+	}
 	var AssetService services.AssetService
-	assets, _ := AssetService.DeviceGroupByBussinessID(listAssetValidate.BusinessID)
+	assets, _ := AssetService.DeviceGroupByBussinessID(listAssetValidate.BusinessID, tenantId)
 	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
 }

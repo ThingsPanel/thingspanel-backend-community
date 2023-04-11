@@ -26,10 +26,11 @@ func (*TpScriptService) GetTpScriptDetail(tp_script_id string) []models.TpScript
 }
 
 // 获取列表
-func (*TpScriptService) GetTpScriptList(PaginationValidate valid.TpScriptPaginationValidate) (bool, []models.TpScript, int64) {
+func (*TpScriptService) GetTpScriptList(PaginationValidate valid.TpScriptPaginationValidate, tenantId string) (bool, []models.TpScript, int64) {
 	var TpScripts []models.TpScript
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpScript{})
+	db.Where("tenant_id = ?", tenantId)
 	if PaginationValidate.ProtocolType != "" {
 		db.Where("protocol_type = ?", PaginationValidate.ProtocolType)
 	}

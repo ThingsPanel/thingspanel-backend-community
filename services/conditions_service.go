@@ -319,6 +319,9 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 							conditionsLog.OperationType = "3"
 							conditionsLog.ProtocolType = "mqtt"
 							conditionsLog.Instruct = instructString
+							//根据设备id获取租户id
+							tenantId, _ := DeviceService.GetTenantIdByDeviceId(automationAction.DeviceId)
+							conditionsLog.TenantId = tenantId
 							conditionsLogService.Insert(&conditionsLog)
 						}
 					}

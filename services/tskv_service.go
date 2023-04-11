@@ -289,6 +289,7 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 				Key:        k,
 				TS:         ts,
 				LongV:      value,
+				TenantID:   device.TenantId,
 			}
 		case string:
 			d = models.TSKV{
@@ -297,6 +298,7 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 				Key:        k,
 				TS:         ts,
 				StrV:       value,
+				TenantID:   device.TenantId,
 			}
 		case bool:
 			d = models.TSKV{
@@ -305,6 +307,7 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 				Key:        k,
 				TS:         ts,
 				BoolV:      strconv.FormatBool(value),
+				TenantID:   device.TenantId,
 			}
 		case float64:
 			d = models.TSKV{
@@ -313,6 +316,7 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 				Key:        k,
 				TS:         ts,
 				DblV:       value,
+				TenantID:   device.TenantId,
 			}
 		default:
 			d = models.TSKV{
@@ -321,21 +325,22 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 				Key:        k,
 				TS:         ts,
 				StrV:       fmt.Sprint(value),
+				TenantID:   device.TenantId,
 			}
 		}
 		// 更新当前值表
 		l := models.TSKVLatest{}
 		utils.StructAssign(&l, &d)
 		var latestCount int64
-		psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID, l.Key).Count(&latestCount)
+		psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", l.EntityType, l.EntityID, l.Key, l.TenantID).Count(&latestCount)
 		if latestCount <= 0 {
 			rtsl := psql.Mydb.Create(&l)
 			if rtsl.Error != nil {
 				log.Println(rtsl.Error)
 			}
 		} else {
-			rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ?", l.EntityType, l.EntityID,
-				l.Key).Updates(map[string]interface{}{"entity_type": l.EntityType, "entity_id": l.EntityID, "key": l.Key, "ts": l.TS, "bool_v": l.BoolV, "long_v": l.LongV, "str_v": l.StrV, "dbl_v": l.DblV})
+			rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", l.EntityType, l.EntityID,
+				l.Key, l.TenantID).Updates(map[string]interface{}{"entity_type": l.EntityType, "entity_id": l.EntityID, "key": l.Key, "ts": l.TS, "bool_v": l.BoolV, "long_v": l.LongV, "str_v": l.StrV, "dbl_v": l.DblV})
 			if rtsl.Error != nil {
 				log.Println(rtsl.Error)
 			}
@@ -354,7 +359,7 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 }
 
 // 分页查询数据
-func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, start_time string, end_time string, limit int, offset int, key string, device_name string) ([]models.TSKVDblV, int64) {
+func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, start_time string, end_time string, limit int, offset int, key string, device_name string, tenant_id string) ([]models.TSKVDblV, int64) {
 	tSKVs := []models.TSKVResult{}
 	tsk := []models.TSKVDblV{}
 	var count int64
@@ -396,6 +401,10 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 		SQLWhere += ` and device."name" like ?`
 	}
 	SQLWhere = SQLWhere + " and key != 'systime'"
+	// 多租户
+	params = append(params, tenant_id)
+	SQLWhere += ` and device.tenant_id = ?`
+
 	countsql := "SELECT Count(*) AS count FROM business LEFT JOIN asset ON business.id=asset.business_id LEFT JOIN device ON asset.id=device.asset_id LEFT JOIN ts_kv ON device.id=ts_kv.entity_id " + SQLWhere
 	if err := result2.Raw(countsql, params...).Count(&count).Error; err != nil {
 		logs.Info(err.Error())

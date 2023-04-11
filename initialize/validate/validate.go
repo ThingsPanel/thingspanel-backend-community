@@ -6,7 +6,12 @@ import (
 	"github.com/beego/beego/v2/core/validation"
 )
 
+// var Validate *validator.Validate
+// var Trans ut.Translator
+
 func init() {
+	// 初始化 validator
+	//Validate, Trans, _ = InitValidator()
 	// 汉化官方Validation
 	var MessageTmpls = map[string]string{
 		"Required":     "不能为空",

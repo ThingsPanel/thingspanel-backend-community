@@ -20,37 +20,31 @@ type TpScenarioStrategyController struct {
 }
 
 // 列表
-func (TpScenarioStrategyController *TpScenarioStrategyController) List() {
-	PaginationValidate := valid.TpScenarioStrategyPaginationValidate{}
-	err := json.Unmarshal(TpScenarioStrategyController.Ctx.Input.RequestBody, &PaginationValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
+func (c *TpScenarioStrategyController) List() {
+	reqData := valid.TpScenarioStrategyPaginationValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(PaginationValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(PaginationValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpScenarioStrategyController.Ctx))
-			break
-		}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		utils.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var TpScenarioStrategyService services.TpScenarioStrategyService
-	d, t, err := TpScenarioStrategyService.GetTpScenarioStrategyList(PaginationValidate)
+	d, t, err := TpScenarioStrategyService.GetTpScenarioStrategyList(reqData, tenantId)
 	if err != nil {
-		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpScenarioStrategyController.Ctx))
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	dd := valid.RspTpScenarioStrategyPaginationValidate{
-		CurrentPage: PaginationValidate.CurrentPage,
+		CurrentPage: reqData.CurrentPage,
 		Data:        d,
 		Total:       t,
-		PerPage:     PaginationValidate.PerPage,
+		PerPage:     reqData.PerPage,
 	}
-	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpScenarioStrategyController.Ctx))
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 详情
@@ -113,30 +107,25 @@ func (TpScenarioStrategyController *TpScenarioStrategyController) Edit() {
 }
 
 // 新增
-func (TpScenarioStrategyController *TpScenarioStrategyController) Add() {
-	AddTpScenarioStrategyValidate := valid.AddTpScenarioStrategyValidate{}
-	err := json.Unmarshal(TpScenarioStrategyController.Ctx.Input.RequestBody, &AddTpScenarioStrategyValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(AddTpScenarioStrategyValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(AddTpScenarioStrategyValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpScenarioStrategyController.Ctx))
-			break
-		}
+func (c *TpScenarioStrategyController) Add() {
+	reqData := valid.AddTpScenarioStrategyValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		utils.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	reqData.TenantId = tenantId
 	var TpScenarioStrategyService services.TpScenarioStrategyService
-	d, rsp_err := TpScenarioStrategyService.AddTpScenarioStrategy(AddTpScenarioStrategyValidate)
+	d, rsp_err := TpScenarioStrategyService.AddTpScenarioStrategy(reqData)
 	if rsp_err == nil {
-		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpScenarioStrategyController.Ctx))
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpScenarioStrategyController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
 	}
 }
 
