@@ -56,35 +56,23 @@ type TreeBusiness3 struct {
 }
 
 // 获取列表
-func (this *BusinessController) Index() {
-	paginateBusinessValidate := valid.PaginateBusiness{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &paginateBusinessValidate)
+func (c *BusinessController) Index() {
+	reqData := valid.PaginateBusiness{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(paginateBusinessValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(paginateBusinessValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
-		return
-	}
 	// 获取用户租户id
-	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var BusinessService services.BusinessService
-	offset := (paginateBusinessValidate.Page - 1) * paginateBusinessValidate.Limit
-	u, c := BusinessService.Paginate(paginateBusinessValidate.Name, offset, paginateBusinessValidate.Limit)
+	offset := (reqData.Page - 1) * reqData.Limit
+	u, i := BusinessService.Paginate(reqData.Name, offset, reqData.Limit, tenantId)
 	var ResBusinessData []services.PaginateBusiness
-	if c != 0 {
+	if i != 0 {
 		var AssetService services.AssetService
 		var is_device int
 		for _, bv := range u {
@@ -107,13 +95,12 @@ func (this *BusinessController) Index() {
 		ResBusinessData = []services.PaginateBusiness{}
 	}
 	d := PaginateBusiness{
-		CurrentPage: paginateBusinessValidate.Page,
+		CurrentPage: reqData.Page,
 		Data:        ResBusinessData,
-		Total:       c,
-		PerPage:     paginateBusinessValidate.Limit,
+		Total:       i,
+		PerPage:     reqData.Limit,
 	}
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 新增
