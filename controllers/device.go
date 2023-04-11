@@ -510,33 +510,22 @@ func (this *DeviceController) Configure() {
 }
 
 //控制设备
-func (request *DeviceController) Operating() {
-	operatingDeviceValidate := valid.OperatingDevice{}
-	err := json.Unmarshal(request.Ctx.Input.RequestBody, &operatingDeviceValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(operatingDeviceValidate)
-	if !status {
-		for _, err := range v.Errors {
-			alias := gvalid.GetAlias(operatingDeviceValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(request.Ctx))
-			break
-		}
+func (c *DeviceController) Operating() {
+	reqData := valid.OperatingDevice{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	// -------------------------------------------
 	// 获取设备token
 	var DeviceService services.DeviceService
-	deviceData, c := DeviceService.Token(operatingDeviceValidate.DeviceId)
-	if c == 0 {
-		response.SuccessWithMessage(400, "no equipment", (*context2.Context)(request.Ctx))
+	deviceData, i := DeviceService.Token(reqData.DeviceId)
+	if i == 0 {
+		response.SuccessWithMessage(400, "no equipment", (*context2.Context)(c.Ctx))
 		return
 	}
 	// 将struct转map
-	valuesMap, _ := operatingDeviceValidate.Values.(map[string]interface{})
+	valuesMap, _ := reqData.Values.(map[string]interface{})
 	// 遍历map拼接指令内容并记录入库
 	var instruct string = ""
 	for k, v := range valuesMap {
@@ -554,7 +543,7 @@ func (request *DeviceController) Operating() {
 	newPayload, toErr := json.Marshal(valuesMap)
 	if toErr != nil {
 		logs.Info("JSON 编码失败：%v\n", toErr)
-		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(request.Ctx))
+		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	f := DeviceService.SendMessage(newPayload, deviceData)
@@ -564,18 +553,19 @@ func (request *DeviceController) Operating() {
 		Instruct:      instruct,
 		ProtocolType:  "mqtt",
 		CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
+		TenantId:      deviceData.TenantId,
 	}
 	var ConditionsLogService services.ConditionsLogService
 	if f == nil {
 		logs.Info("成功发送控制")
 		ConditionsLog.SendResult = "1"
 		ConditionsLogService.Insert(&ConditionsLog)
-		response.SuccessWithDetailed(200, "success", valuesMap, map[string]string{}, (*context2.Context)(request.Ctx))
+		response.SuccessWithDetailed(200, "success", valuesMap, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
 		logs.Info("成功发送失败")
 		ConditionsLog.SendResult = "2"
 		ConditionsLogService.Insert(&ConditionsLog)
-		response.SuccessWithMessage(400, f.Error(), (*context2.Context)(request.Ctx))
+		response.SuccessWithMessage(400, f.Error(), (*context2.Context)(c.Ctx))
 	}
 }
 

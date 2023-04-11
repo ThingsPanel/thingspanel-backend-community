@@ -446,6 +446,16 @@ func (*DeviceService) GetDeviceByID(id string) (*models.Device, int64) {
 	return &device, result.RowsAffected
 }
 
+// 根据设备ID获取租户ID
+func (*DeviceService) GetTenantIdByDeviceId(id string) (tenantId string, err error) {
+	var device models.Device
+	result := psql.Mydb.Where("id = ?", id).First(&device)
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return device.TenantId, nil
+}
+
 // Delete 根据ID删除Device
 func (*DeviceService) Delete(id, tenantId string) error {
 	var device models.Device
@@ -838,6 +848,9 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 					}
 				}
 				logs.Error(reflect.TypeOf(applyValue))
+				//根据设备id获取租户id
+				var deviceService DeviceService
+				tenantId, _ := deviceService.GetTenantIdByDeviceId(applyDeviceId)
 				ConditionsLog := models.ConditionsLog{
 					DeviceId:      applyDeviceId,
 					OperationType: "3",
@@ -845,6 +858,7 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 					ProtocolType:  "mqtt",
 					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
 					Remark:        rule_id,
+					TenantId:      tenantId,
 				}
 				//发送控制
 				var DeviceService DeviceService
