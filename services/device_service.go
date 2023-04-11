@@ -1068,7 +1068,7 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate, tenantId string
 		   (select name from device dd where dd.device_type = '2' and dd.parent_id = d.id limit 1) as gateway_name
 		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 and d.location !=''`
 	var values []interface{}
-	var where = "and tenant_id = ?"
+	var where = "and d.tenant_id = ?"
 	values = append(values, tenantId)
 	if req.BusinessId != "" {
 		values = append(values, req.BusinessId)
