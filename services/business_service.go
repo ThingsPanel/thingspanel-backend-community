@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -62,7 +64,11 @@ func (*BusinessService) GetBusinessById(id string) (*models.Business, int64) {
 	var business models.Business
 	result := psql.Mydb.Where("id = ?", id).First(&business)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return &business, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &business, result.RowsAffected
 }
@@ -73,7 +79,7 @@ func (*BusinessService) Add(name, tenantId string) (bool, string) {
 	business := models.Business{ID: bussiness_id, Name: name, TenantId: tenantId, CreatedAt: time.Now().Unix()}
 	result := psql.Mydb.Create(&business)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, ""
 	}
 	//新增根分组
@@ -94,7 +100,7 @@ func (*BusinessService) Add(name, tenantId string) (bool, string) {
 func (*BusinessService) Edit(id string, name string, tenantId string) bool {
 	result := psql.Mydb.Model(&models.Business{}).Where("id = ? and tenant_id = ?", id, tenantId).Update("name", name)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
@@ -104,7 +110,7 @@ func (*BusinessService) Edit(id string, name string, tenantId string) bool {
 func (*BusinessService) Delete(id, tenantId string) bool {
 	result := psql.Mydb.Where("id = ? and tenantid = ?", id, tenantId).Delete(&models.Business{})
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
@@ -117,7 +123,7 @@ func (*BusinessService) All() ([]AllBusiness, int64) {
 	result := psql.Mydb.Model(&models.Business{}).Find(&businesses)
 	psql.Mydb.Model(&models.Business{}).Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	if len(businesses) == 0 {
 		businesses = []AllBusiness{}

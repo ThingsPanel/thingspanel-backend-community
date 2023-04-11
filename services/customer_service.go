@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
+	"github.com/beego/beego/v2/core/logs"
 
 	"ThingsPanel-Go/initialize/psql"
 
@@ -20,21 +21,29 @@ func (*CustomerService) Paginate(name string, offset int, pageSize int) ([]model
 	if name != "" {
 		result := psql.Mydb.Model(&models.Customer{}).Where("name LIKE ?", "%"+name+"%").Limit(pageSize).Offset(offset).Find(&customers)
 		psql.Mydb.Model(&models.Customer{}).Where("name LIKE ?", "%"+name+"%").Count(&count)
-		if result.Error != nil {
-			errors.Is(result.Error, gorm.ErrRecordNotFound)
-		}
 		if len(customers) == 0 {
 			customers = []models.Customer{}
+		}
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound){
+				return customers, 0
+			}
+			logs.Error(result.Error.Error())
+			return customers, 0
 		}
 		return customers, count
 	} else {
 		result := psql.Mydb.Model(&models.Customer{}).Limit(pageSize).Offset(offset).Find(&customers)
 		psql.Mydb.Model(&models.Customer{}).Count(&count)
-		if result.Error != nil {
-			errors.Is(result.Error, gorm.ErrRecordNotFound)
-		}
 		if len(customers) == 0 {
 			customers = []models.Customer{}
+		}
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound){
+				return customers, 0
+			}
+			logs.Error(result.Error.Error())
+			return customers, 0
 		}
 		return customers, count
 	}
@@ -50,7 +59,8 @@ func (*CustomerService) Add(title string, email string) (bool, string) {
 	}
 	result := psql.Mydb.Create(&customer)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, ""
 	}
 	return true, uuid
@@ -70,7 +80,8 @@ func (*CustomerService) Edit(id string, title string, email string, additional_i
 		"zip":             zip,
 	})
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
@@ -80,7 +91,8 @@ func (*CustomerService) Edit(id string, title string, email string, additional_i
 func (*CustomerService) Delete(id string) bool {
 	result := psql.Mydb.Where("id = ?", id).Delete(&models.Customer{})
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
@@ -91,7 +103,8 @@ func (*CustomerService) GetCustomerByTitle(title string) (*models.Customer, int6
 	var customer models.Customer
 	result := psql.Mydb.Where("title = ?", title).First(&customer)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	return &customer, result.RowsAffected
 }
@@ -101,7 +114,11 @@ func (*CustomerService) GetSameCustomerByTitle(title string, id string) (*models
 	var customer models.Customer
 	result := psql.Mydb.Where("title = ? AND id <> ?", title, id).First(&customer)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound){
+			return &customer, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &customer, result.RowsAffected
 }
@@ -111,7 +128,11 @@ func (*CustomerService) GetUserByEmail(email string) (*models.Customer, int64) {
 	var customer models.Customer
 	result := psql.Mydb.Where("email = ?", email).First(&customer)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound){
+			return &customer, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &customer, result.RowsAffected
 }
@@ -131,7 +152,11 @@ func (*CustomerService) GetCustomerById(id string) (*models.Customer, int64) {
 	var customer models.Customer
 	result := psql.Mydb.Where("id = ?", id).First(&customer)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound){
+			return &customer, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &customer, result.RowsAffected
 }

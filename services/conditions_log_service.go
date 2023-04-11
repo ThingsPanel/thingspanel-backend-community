@@ -5,12 +5,10 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
-	"gorm.io/gorm"
 )
 
 type ConditionsLogService struct {
@@ -78,7 +76,8 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 	var count int64
 	countResult := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
 	if countResult.Error != nil {
-		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
+		//errors.Is(countResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(countResult.Error.Error())
 	}
 	//计算分页
 	offset := conditionsLogListValidate.Size * (conditionsLogListValidate.Current - 1)
@@ -86,7 +85,8 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 	sqlWhere += "order by cl.cteate_time desc offset ? limit ?"
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&conditionsLogs)
 	if dataResult.Error != nil {
-		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		//errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(dataResult.Error.Error())
 	}
 	return conditionsLogs, count
 }

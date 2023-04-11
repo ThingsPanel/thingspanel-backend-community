@@ -316,7 +316,6 @@ func (this *AutomationController) Symbol() {
 	return
 }
 
-//
 func (this *AutomationController) Property() {
 	automationPropertyValidate := valid.AutomationProperty{}
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &automationPropertyValidate)
@@ -336,45 +335,47 @@ func (this *AutomationController) Property() {
 		return
 	}
 	var AssetService services.AssetService
-	d, _ := AssetService.GetAssetsByTierAndBusinessID(automationPropertyValidate.BusinessID)
+	d, c := AssetService.GetAssetsByTierAndBusinessID(automationPropertyValidate.BusinessID)
 	var dl []AssetDevice
-	for _, dv := range d {
-		d2, _ := AssetService.GetAssetsByParentID(dv.ID)
-		var dl2 []AssetDevice2
-		for _, dvv := range d2 {
-			d3, _ := AssetService.GetAssetsByParentID(dvv.ID)
-			i2 := AssetDevice2{
-				ID:             dvv.ID,
-				AdditionalInfo: dvv.AdditionalInfo,
-				CustomerID:     dvv.CustomerID,
-				Name:           dvv.Name,
-				Label:          dvv.Label,
-				SearchText:     dvv.SearchText,
-				Type:           dvv.Type,
-				ParentID:       dvv.ParentID,
-				Tier:           dvv.Tier,
-				BusinessID:     dvv.BusinessID,
-				Children:       d3,
+	if c != 0 {
+		for _, dv := range d {
+			d2, _ := AssetService.GetAssetsByParentID(dv.ID)
+			var dl2 []AssetDevice2
+			for _, dvv := range d2 {
+				d3, _ := AssetService.GetAssetsByParentID(dvv.ID)
+				i2 := AssetDevice2{
+					ID:             dvv.ID,
+					AdditionalInfo: dvv.AdditionalInfo,
+					CustomerID:     dvv.CustomerID,
+					Name:           dvv.Name,
+					Label:          dvv.Label,
+					SearchText:     dvv.SearchText,
+					Type:           dvv.Type,
+					ParentID:       dvv.ParentID,
+					Tier:           dvv.Tier,
+					BusinessID:     dvv.BusinessID,
+					Children:       d3,
+				}
+				dl2 = append(dl2, i2)
 			}
-			dl2 = append(dl2, i2)
+			if len(dl2) == 0 {
+				dl2 = []AssetDevice2{}
+			}
+			i := AssetDevice{
+				ID:             dv.ID,
+				AdditionalInfo: dv.AdditionalInfo,
+				CustomerID:     dv.CustomerID,
+				Name:           dv.Name,
+				Label:          dv.Label,
+				SearchText:     dv.SearchText,
+				Type:           dv.Type,
+				ParentID:       dv.ParentID,
+				Tier:           dv.Tier,
+				BusinessID:     dv.BusinessID,
+				Children:       dl2,
+			}
+			dl = append(dl, i)
 		}
-		if len(dl2) == 0 {
-			dl2 = []AssetDevice2{}
-		}
-		i := AssetDevice{
-			ID:             dv.ID,
-			AdditionalInfo: dv.AdditionalInfo,
-			CustomerID:     dv.CustomerID,
-			Name:           dv.Name,
-			Label:          dv.Label,
-			SearchText:     dv.SearchText,
-			Type:           dv.Type,
-			ParentID:       dv.ParentID,
-			Tier:           dv.Tier,
-			BusinessID:     dv.BusinessID,
-			Children:       dl2,
-		}
-		dl = append(dl, i)
 	}
 	if len(dl) == 0 {
 		dl = []AssetDevice{}
@@ -461,7 +462,6 @@ func (this *AutomationController) GetDetial() {
 	}
 	var ConditionsService services.ConditionsService
 	u, _ := ConditionsService.GetConditionByID(atomationGet.ID)
-
 	response.SuccessWithDetailed(200, "success", u, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
