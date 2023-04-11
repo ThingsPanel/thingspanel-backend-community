@@ -129,6 +129,7 @@ func (*UserService) Paginate(name string, offset int, pageSize int, authority st
 	var users []PaginateUser
 	var count int64
 	tx := psql.Mydb.Model(&models.Users{})
+	tx.Where("enabled = '1'")
 	if name != "" {
 		tx.Where("name LIKE ?", "%"+name+"%")
 	}
