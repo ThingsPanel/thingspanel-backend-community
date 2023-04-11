@@ -34,7 +34,11 @@ func (*DeviceService) Token(id string) (*models.Device, int64) {
 	var device models.Device
 	result := psql.Mydb.Where("id = ?", id).First(&device)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return &device, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &device, result.RowsAffected
 }
@@ -50,10 +54,15 @@ func (*DeviceService) GetSubDeviceCount(parentId string) (int64, error) {
 func (*DeviceService) GetDevicesByAssetID(asset_id string) ([]models.Device, int64) {
 	var devices []models.Device
 	var count int64
-	result := psql.Mydb.Model(&models.Device{}).Where("asset_id = ?", asset_id).Find(&devices)
-	psql.Mydb.Model(&models.Device{}).Where("asset_id = ?", asset_id).Count(&count)
+	db := psql.Mydb.Model(&models.Device{}).Where("asset_id = ?", asset_id)
+	result := db.Find(&devices)
+	db.Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return devices, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	if len(devices) == 0 {
 		devices = []models.Device{}
@@ -104,7 +113,8 @@ func (*DeviceService) PageGetDevicesByAssetID(business_id string, asset_id strin
 	var count int64
 	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	var offset int = (current - 1) * pageSize
 	var limit int = pageSize
@@ -113,7 +123,8 @@ func (*DeviceService) PageGetDevicesByAssetID(business_id string, asset_id strin
 	var deviceList []map[string]interface{}
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
 	if dataResult.Error != nil {
-		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		//errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(dataResult.Error.Error())
 	}
 	return deviceList, count
 }
@@ -161,7 +172,8 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 	var count int64
 	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	var offset int = (req.CurrentPage - 1) * req.PerPage
 	var limit int = req.PerPage
@@ -216,7 +228,8 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 					   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id LEFT JOIN device_model dm ON d.type = dm.id where 1=1  and d.device_type = '3' and d.parent_id = '` + device["device"].(string) + "' order by d.created_at desc"
 				result := psql.Mydb.Raw(sql).Scan(&subDeviceList)
 				if result.Error != nil {
-					errors.Is(result.Error, gorm.ErrRecordNotFound)
+					//errors.Is(result.Error, gorm.ErrRecordNotFound)
+					logs.Error(result.Error.Error())
 				} else {
 					for _, subDevice := range subDeviceList {
 						if subDevice["type"].(string) != "" {
@@ -285,7 +298,8 @@ func (*DeviceService) AllDeviceList(req valid.DevicePageListValidate) ([]map[str
 	var count int64
 	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	var offset int = (req.CurrentPage - 1) * req.PerPage
 	var limit int = req.PerPage
@@ -294,7 +308,8 @@ func (*DeviceService) AllDeviceList(req valid.DevicePageListValidate) ([]map[str
 	var deviceList []map[string]interface{}
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
 	if dataResult.Error != nil {
-		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		//errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(dataResult.Error.Error())
 	} else {
 		var TSKVService TSKVService
 		for _, deviceData := range deviceList {
@@ -378,7 +393,8 @@ func (*DeviceService) DeviceListByProductId(PaginationValidate valid.DevicePagin
 	var count int64
 	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, deviceList, 0
 	}
 	var offset int = (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
@@ -387,7 +403,8 @@ func (*DeviceService) DeviceListByProductId(PaginationValidate valid.DevicePagin
 	values = append(values, offset, limit)
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
 	if dataResult.Error != nil {
-		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		//errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(dataResult.Error.Error())
 		return false, deviceList, 0
 	}
 	return true, deviceList, count
@@ -424,7 +441,10 @@ func (*DeviceService) GetAllDeviceByID(id string) ([]models.Device, int64) {
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Find(&devices)
 	psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return devices, 0
+		}
+		return nil, 0
 	}
 	if len(devices) == 0 {
 		devices = []models.Device{}
@@ -437,7 +457,7 @@ func (*DeviceService) GetDeviceByID(id string) (*models.Device, int64) {
 	var device models.Device
 	result := psql.Mydb.Where("id = ?", id).First(&device)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return nil, 0
 	}
 	return &device, result.RowsAffected
 }
@@ -477,11 +497,14 @@ func (*DeviceService) All() ([]models.Device, int64) {
 	var devices []models.Device
 	var count int64
 	result := psql.Mydb.Model(&devices).Count(&count)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
 	if len(devices) == 0 {
 		devices = []models.Device{}
+	}
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return devices, 0
+		}
+		return nil, 0
 	}
 	return devices, count
 }
@@ -492,7 +515,6 @@ func (*DeviceService) IsToken(token string) bool {
 	var count int64
 	result := psql.Mydb.Model(&devices).Where("token = ?", token).Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
 	return int(count) > 0
@@ -602,12 +624,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		AdditionalInfo: deviceModel.AdditionalInfo,
 		DId:            deviceModel.DId,
 	})
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return result.Error
-	}
-
-	return nil
+	return result.Error
 }
 
 func (*DeviceService) Add(device models.Device) (string, error) {
@@ -912,8 +929,11 @@ func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
 	var device models.Device
 	result := psql.Mydb.First(&device, "token = ?", token)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return ConfigMap
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return ConfigMap
+		}
+		logs.Error(result.Error)
+		return nil
 	}
 	ConfigMap["ProtocolType"] = device.Protocol
 	ConfigMap["AccessToken"] = token
@@ -930,7 +950,11 @@ func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
 		var sub_devices []models.Device
 		sub_result := psql.Mydb.Find(&sub_devices, "parent_id = ?", device.ID)
 		if sub_result.Error != nil {
-			errors.Is(sub_result.Error, gorm.ErrRecordNotFound)
+			if errors.Is(sub_result.Error, gorm.ErrRecordNotFound) {
+				return ConfigMap
+			}
+			logs.Error(sub_result.Error)
+			return nil
 		} else {
 			var sub_device_list []map[string]interface{}
 			for _, sub_device := range sub_devices {
@@ -952,7 +976,7 @@ func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
 	return ConfigMap
 }
 
-//修改所有子设备分组
+// 修改所有子设备分组
 func (*DeviceService) EditSubDeviceAsset(gateway_id string, asset_id string) error {
 	var sub_devices []models.Device
 	result := psql.Mydb.Raw("UPDATE device SET asset_id = ? WHERE parent_id = ? ", asset_id, gateway_id).Scan(&sub_devices)
@@ -1063,7 +1087,7 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 	return deviceList, nil
 }
 
-//获取设备列表设备在线离线状态
+// 获取设备列表设备在线离线状态
 func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValidate) (map[string]interface{}, error) {
 	var deviceOnlineStatus = make(map[string]interface{})
 	for _, deviceId := range deviceIdList.DeviceIdList {
@@ -1080,7 +1104,7 @@ func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValid
 	return deviceOnlineStatus, nil
 }
 
-//设备是否在线
+// 设备是否在线
 func (*DeviceService) IsDeviceOnline(deviceId string) (bool, error) {
 	var tskvLatest models.TSKVLatest
 	result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
@@ -1097,7 +1121,7 @@ func (*DeviceService) IsDeviceOnline(deviceId string) (bool, error) {
 	return false, nil
 }
 
-//根据wvp设备编号获取设备数量
+// 根据wvp设备编号获取设备数量
 func (*DeviceService) GetWvpDeviceCount(did string) (int64, error) {
 	result := psql.Mydb.Where("device_type = '2' and did = ?", did).Find(&models.Device{})
 	return result.RowsAffected, result.Error

@@ -24,11 +24,15 @@ type ConditionsService struct {
 func (*ConditionsService) All() ([]models.Condition, int64) {
 	var conditions []models.Condition
 	result := psql.Mydb.Find(&conditions)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
 	if len(conditions) == 0 {
 		conditions = []models.Condition{}
+	}
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return conditions, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return conditions, result.RowsAffected
 }
@@ -38,7 +42,11 @@ func (*ConditionsService) GetConditionByID(id string) (*models.Condition, int64)
 	var condition models.Condition
 	result := psql.Mydb.Where("id = ?", id).First(&condition)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return &condition, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &condition, result.RowsAffected
 }
@@ -65,7 +73,6 @@ func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) er
 	logs.Info("自动化-设备条件：", automationConditions)
 	for _, automationCondition := range automationConditions {
 		var conditionsService ConditionsService
-
 		err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage)
 		if err != nil {
 			logs.Error(err.Error())
@@ -75,7 +82,7 @@ func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) er
 	return nil
 }
 
-//自动化策略检查
+// 自动化策略检查
 func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[string]interface{}) {
 	var automationConditions []models.TpAutomationCondition
 	result := psql.Mydb.Table("tp_automation").
@@ -220,7 +227,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 	}
 }
 
-//记录日志，调用执行action的函数
+// 记录日志，调用执行action的函数
 func (*ConditionsService) WriteLogAndExecuteActionFunc(automationId string, logMessage string) error {
 	logMessage += "条件通过；"
 	logs.Info("成功触发自动化")
@@ -429,7 +436,8 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 	//自动化策略数量
 	count = result.RowsAffected
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		// errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	if count > 0 {
 		logs.Info("设备id-%s 存在自动化策略配置,条数-%d", deviceId, count)

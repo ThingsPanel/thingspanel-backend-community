@@ -4,9 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
-	"errors"
-
-	"gorm.io/gorm"
+	"github.com/beego/beego/v2/core/logs"
 )
 
 type NavigationService struct {
@@ -23,7 +21,8 @@ func (*NavigationService) List() ([]models.Navigation, int64) {
 	var navigations []models.Navigation
 	result := psql.Mydb.Order("count desc").Find(&navigations)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	if len(navigations) == 0 {
 		navigations = []models.Navigation{}
@@ -35,7 +34,8 @@ func (*NavigationService) List() ([]models.Navigation, int64) {
 func (*NavigationService) Delete(id string) bool {
 	result := psql.Mydb.Where("id = ?", id).Delete(&models.Navigation{})
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
 	return true
@@ -46,7 +46,8 @@ func (*NavigationService) GetNavigationByCondition(t int64, name string, data st
 	var navigation models.Navigation
 	result := psql.Mydb.Where("type = ? AND name = ? AND data = ?", t, name, data).First(&navigation)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	return &navigation, result.RowsAffected
 }
@@ -56,7 +57,8 @@ func (*NavigationService) Increment(id string, count int64, step int64) bool {
 		"count": count + step,
 	})
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
 	return true
@@ -72,7 +74,8 @@ func (*NavigationService) Add(name string, t int64, data string) (bool, string) 
 	}
 	result := psql.Mydb.Create(&navigation)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, ""
 	}
 	return true, uuid
@@ -82,7 +85,8 @@ func (*NavigationService) Add(name string, t int64, data string) (bool, string) 
 func (*NavigationService) DeleteByBusinessID(BusinessID string) bool {
 	result := psql.Mydb.Where("data LIKE ?", "%"+BusinessID+"%").Delete(&models.Navigation{})
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
 	return true
