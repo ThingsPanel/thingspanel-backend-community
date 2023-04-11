@@ -126,7 +126,7 @@ func (*UserService) GetUserByIdAndTenantId(id string, tenantId string) (*models.
 
 // Paginate 分页获取user数据
 func (*UserService) Paginate(name string, offset int, pageSize int, authority string, tenantId string) ([]PaginateUser, int64, error) {
-	var users []PaginateUser
+	var paginateUsers []PaginateUser
 	var count int64
 	tx := psql.Mydb.Model(&models.Users{})
 	tx.Where("enabled = '1'")
@@ -134,29 +134,29 @@ func (*UserService) Paginate(name string, offset int, pageSize int, authority st
 		tx.Where("name LIKE ?", "%"+name+"%")
 	}
 	if tenantId != "" {
-		tx.Where("name = ?", tenantId)
+		tx.Where("tenant_id = ?", tenantId)
 	}
 	if authority != "" {
 		tx.Where("authority = ?", authority)
 	} else {
-		return users, 0, errors.New("权限不足！")
+		return paginateUsers, 0, errors.New("权限不足！")
 	}
 	if err := tx.Count(&count).Error; err != nil {
 		logs.Info(err)
-		return users, 0, err
+		return paginateUsers, 0, err
 	}
-	if err := tx.Limit(pageSize).Offset(offset).Find(&users).Error; err != nil {
-		logs.Info(err)
-		return users, 0, err
+	if err := tx.Limit(pageSize).Offset(offset).Scan(&paginateUsers).Error; err != nil {
+		logs.Error(err)
+		return paginateUsers, 0, err
 	}
-	if len(users) != 0 {
+	if len(paginateUsers) != 0 {
 		var CasbinService CasbinService
-		for index, user := range users {
+		for index, user := range paginateUsers {
 			roles, _ := CasbinService.GetRoleFromUser(user.Email)
-			users[index].Roles = roles
+			paginateUsers[index].Roles = roles
 		}
 	}
-	return users, count, nil
+	return paginateUsers, count, nil
 }
 
 // Add新增一条user数据
