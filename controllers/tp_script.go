@@ -27,7 +27,6 @@ func (c *TpScriptController) List() {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
-
 	// 获取用户租户id
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {

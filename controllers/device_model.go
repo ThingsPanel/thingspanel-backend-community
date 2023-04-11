@@ -24,20 +24,8 @@ type DeviceModelController struct {
 // 列表
 func (c *DeviceModelController) List() {
 	reqData := valid.DeviceModelPaginationValidate{}
-	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(reqData)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(reqData, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
-			break
-		}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	//获取租户id
@@ -130,7 +118,7 @@ func (c *DeviceModelController) Add() {
 	DeviceModel := models.DeviceModel{
 		ID:        id,
 		ModelName: reqData.ModelName,
-		Flag:      reqData.Flag,
+		Flag:      1,
 		ChartData: reqData.ChartData,
 		ModelType: reqData.ModelType,
 		Describe:  reqData.Describe,
