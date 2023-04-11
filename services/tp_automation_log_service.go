@@ -19,11 +19,13 @@ type TpAutomationLogService struct {
 }
 
 // 获取列表
-func (*TpAutomationLogService) GetTpAutomationLogList(PaginationValidate valid.TpAutomationLogPaginationValidate) ([]models.TpAutomationLog, int64, error) {
+func (*TpAutomationLogService) GetTpAutomationLogList(PaginationValidate valid.TpAutomationLogPaginationValidate, tenantId string) ([]models.TpAutomationLog, int64, error) {
 	var TpAutomationLogs []models.TpAutomationLog
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	sqlWhere := "1=1"
 	var paramList []interface{}
+	sqlWhere += " and tenant_id = ?"
+	paramList = append(paramList, tenantId)
 	if PaginationValidate.Id != "" {
 		sqlWhere += " and id = ?"
 		paramList = append(paramList, PaginationValidate.Id)

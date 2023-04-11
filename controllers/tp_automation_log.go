@@ -1,15 +1,10 @@
 package controllers
 
 import (
-	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
-	"encoding/json"
-	"fmt"
-	"strings"
 
-	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
 )
@@ -19,35 +14,29 @@ type TpAutomationLogController struct {
 }
 
 // 列表
-func (TpAutomationLogController *TpAutomationLogController) List() {
-	PaginationValidate := valid.TpAutomationLogPaginationValidate{}
-	err := json.Unmarshal(TpAutomationLogController.Ctx.Input.RequestBody, &PaginationValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
+func (c *TpAutomationLogController) List() {
+	reqData := valid.TpAutomationLogPaginationValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(PaginationValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(PaginationValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpAutomationLogController.Ctx))
-			break
-		}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		utils.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var TpAutomationLogService services.TpAutomationLogService
-	d, t, err := TpAutomationLogService.GetTpAutomationLogList(PaginationValidate)
+	d, t, err := TpAutomationLogService.GetTpAutomationLogList(reqData, tenantId)
 	if err != nil {
-		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpAutomationLogController.Ctx))
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	dd := valid.RspTpAutomationLogPaginationValidate{
-		CurrentPage: PaginationValidate.CurrentPage,
+		CurrentPage: reqData.CurrentPage,
 		Data:        d,
 		Total:       t,
-		PerPage:     PaginationValidate.PerPage,
+		PerPage:     reqData.PerPage,
 	}
-	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpAutomationLogController.Ctx))
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
 }
