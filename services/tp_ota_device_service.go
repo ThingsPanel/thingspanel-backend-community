@@ -26,13 +26,13 @@ type TpOtaDeviceService struct {
 	TimeField []string
 }
 
-//设备设计状态统计信息
+// 设备设计状态统计信息
 type DeviceStatusCount struct {
 	UpgradeStatus string `json:"upgrade_status,omitempty" alias:"状态"`
 	Count         int    `json:"count" alias:"数量"`
 }
 
-//升级进度信息
+// 升级进度信息
 type DeviceProgressMsg struct {
 	UpgradeProgress  string `json:"step,omitempty" alias:"进度"`
 	StatusDetail     string `json:"desc" alias:"描述"`
@@ -41,7 +41,7 @@ type DeviceProgressMsg struct {
 	StatusUpdateTime string `json:"status_update_time" alias:"升级更新时间"`
 }
 
-//升级失败详情
+// 升级失败详情
 var upgreadFailure []string = []string{"-1", "-2", "-3", "-4"}
 
 type OtaMsg struct {
@@ -53,7 +53,7 @@ type OtaModel struct {
 	PackageModule  string `json:"module,omitempty" alias:"描述"`
 }
 
-//列表
+// 列表
 func (*TpOtaDeviceService) GetTpOtaDeviceList(PaginationValidate valid.TpOtaDevicePaginationValidate) (bool, []map[string]interface{}, int64) {
 	sqlWhere := `select od.*,d.name,gd.device_code from tp_ota_device od left join device d on od.device_id=d.id left join tp_generate_device gd on od.device_id =gd.device_id where 1=1`
 	sqlWhereCount := `select count(1) from tp_ota_device od left join device d on od.device_id=d.id where 1=1`
@@ -94,7 +94,7 @@ func (*TpOtaDeviceService) GetTpOtaDeviceList(PaginationValidate valid.TpOtaDevi
 	return true, deviceList, count
 }
 
-//状态详情
+// 状态详情
 func (*TpOtaDeviceService) GetTpOtaDeviceStatusCount(PaginationValidate valid.TpOtaDevicePaginationValidate) (bool, []DeviceStatusCount) {
 	StatusCount := make([]DeviceStatusCount, 0)
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
@@ -116,7 +116,7 @@ func (*TpOtaDeviceService) AddTpOtaDevice(tp_ota_device models.TpOtaDevice) (mod
 	return tp_ota_device, nil
 }
 
-//批量插入数据
+// 批量插入数据
 func (*TpOtaDeviceService) AddBathTpOtaDevice(tp_ota_device []models.TpOtaDevice) ([]models.TpOtaDevice, error) {
 	result := psql.Mydb.Create(&tp_ota_device)
 	if result.Error != nil {
@@ -126,10 +126,10 @@ func (*TpOtaDeviceService) AddBathTpOtaDevice(tp_ota_device []models.TpOtaDevice
 	return tp_ota_device, nil
 }
 
-//设备状态修改
-//0-待推送 1-已推送 2-升级中 修改为已取消
-//4-升级失败 修改为待推送
-//3-升级成功 5-已取消 不修改
+// 设备状态修改
+// 0-待推送 1-已推送 2-升级中 修改为已取消
+// 4-升级失败 修改为待推送
+// 3-升级成功 5-已取消 不修改
 func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDeviceIdValidate) error {
 	var devices []models.TpOtaDevice
 	db := psql.Mydb.Model(&models.TpOtaDevice{})
@@ -139,10 +139,12 @@ func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDev
 		var tpOtaDevice = models.TpOtaDevice{UpgradeStatus: tp_ota_modfiystatus.UpgradeStatus, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: status_detail}
 		if tp_ota_modfiystatus.UpgradeStatus == "5" {
 			status_detail = "已取消"
+			tpOtaDevice.StatusDetail = "手动取消升级"
 		} else if tp_ota_modfiystatus.UpgradeStatus == "0" {
 			status_detail = "开始重新升级"
 			// 重新升级需要把进度置为0
 			tpOtaDevice.UpgradeProgress = "0"
+			tpOtaDevice.StatusDetail = "手动开始重新升级"
 		}
 		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Updates(&tpOtaDevice).Error; err != nil {
 			return err
@@ -187,7 +189,7 @@ func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDev
 	return nil
 }
 
-//接收升级进度信息
+// 接收升级进度信息
 func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 	logs.Info("-------------------------------")
 	logs.Info("来自直连设备解析后的OTA升级消息：")
@@ -237,7 +239,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 			progressMsg.StatusDetail = progressMsg.UpgradeProgress + progressMsg.StatusDetail
 		} else if progressMsg.UpgradeProgress == "100" {
 			//升级成功判断
-			progressMsg.UpgradeStatus = "5"
+			progressMsg.UpgradeStatus = "3"
 		} else {
 			// 判断升级步骤是不是数字字符串0-100之间
 			if intProgress > 0 && intProgress < 100 {
@@ -254,7 +256,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 	return false
 }
 
-//接收固件版本信息
+// 接收固件版本信息
 func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bool {
 	logs.Info("-------------------------------")
 	logs.Info("来自直连设备解析后的ota消息：")
@@ -307,7 +309,7 @@ func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bo
 
 }
 
-//推送升级包到设备
+// 推送升级包到设备
 func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string, otataskid string) error {
 	var ota models.TpOta
 	//查询ota信息
