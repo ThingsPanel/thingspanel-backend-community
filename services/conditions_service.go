@@ -275,7 +275,6 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		logs.Error(result.Error.Error())
 		return "", result.Error
 	}
-	logs.Error(automationActions)
 	for _, automationAction := range automationActions {
 		var automationLogDetail models.TpAutomationLogDetail
 		if automationAction.ActionType == "1" {

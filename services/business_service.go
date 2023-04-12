@@ -5,9 +5,9 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
-	"github.com/beego/beego/v2/core/logs"
 	"time"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -34,36 +34,27 @@ type AllBusiness struct {
 }
 
 // Paginate 分页获取business数据
-func (*BusinessService) Paginate(name string, offset int, pageSize int) ([]models.Business, int64) {
+func (*BusinessService) Paginate(name string, offset int, pageSize int, tenantId string) ([]models.Business, int64) {
 	var businesses []models.Business
 	var count int64
+
+	tx := psql.Mydb.Model(&models.Business{})
+	tx.Where("tenant_id = ?", tenantId)
 	if name != "" {
-		result := psql.Mydb.Model(&models.Business{}).Where("name LIKE ?", "%"+name+"%").Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses)
-		psql.Mydb.Model(&models.Business{}).Where("name LIKE ?", "%"+name+"%").Count(&count)
-		if len(businesses) == 0 {
-			businesses = []models.Business{}
-		}
-		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return businesses, 0
-			}
-			return nil, 0
-		}
-		return businesses, count
-	} else {
-		result := psql.Mydb.Model(&models.Business{}).Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses)
-		psql.Mydb.Model(&models.Business{}).Count(&count)
-		if len(businesses) == 0 {
-			businesses = []models.Business{}
-		}
-		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return businesses, 0
-			}
-			return nil, 0
-		}
+		tx.Where("name LIKE ?", "%"+name+"%")
+	}
+	err := tx.Count(&count).Error
+	if err != nil {
+		logs.Error(err.Error())
 		return businesses, count
 	}
+	err = tx.Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses).Error
+
+	if err != nil {
+		logs.Error(err.Error())
+		return businesses, count
+	}
+	return businesses, count
 }
 
 // 根据id获取一条business数据

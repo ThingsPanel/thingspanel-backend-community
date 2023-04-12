@@ -345,7 +345,7 @@ func (this *UserController) Password() {
 	//修改其它用户密码
 	if userId != reqData.ID {
 		// 根据用户id获取被编辑用户信息
-		e_user, err := UserService.GetUserByIdAndTenantId(reqData.ID, tenantId)
+		eAuthority, eTenantID, err := UserService.GetUserAuthorityById(reqData.ID)
 		if err != nil {
 			response.SuccessWithMessage(400, "获取用户信息失败", (*context2.Context)(this.Ctx))
 			return
@@ -353,14 +353,14 @@ func (this *UserController) Password() {
 		//系统管理员不能修改租户用户密码
 		if authority != "SYS_ADMIN" {
 			// 如果不是系统管理员，要判断是否同一个租户
-			if e_user.TenantID != tenantId {
+			if eTenantID != tenantId {
 				response.SuccessWithMessage(400, "没有修改该用户密码的权限", (*context2.Context)(this.Ctx))
 				return
 			}
 
 		}
 		//判断是否有编辑该用户权限
-		if !UserService.HasEditAuthority(authority, e_user.Authority) {
+		if !UserService.HasEditAuthority(authority, eAuthority) {
 			response.SuccessWithMessage(400, "没有修改该用户密码的权限", (*context2.Context)(this.Ctx))
 			return
 		}
