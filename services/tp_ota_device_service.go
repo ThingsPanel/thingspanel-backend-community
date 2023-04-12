@@ -34,6 +34,13 @@ type DeviceStatusCount struct {
 
 // 升级进度信息
 type DeviceProgressMsg struct {
+	UpgradeProgress  interface{} `json:"step,omitempty" alias:"进度"`
+	StatusDetail     string      `json:"desc" alias:"描述"`
+	Module           string      `json:"module,omitempty" alias:"模块"`
+	UpgradeStatus    string      `json:"upgrade_status,omitempty"`
+	StatusUpdateTime string      `json:"status_update_time" alias:"升级更新时间"`
+}
+type DeviceProgressMsgSql struct {
 	UpgradeProgress  string `json:"step,omitempty" alias:"进度"`
 	StatusDetail     string `json:"desc" alias:"描述"`
 	Module           string `json:"module,omitempty" alias:"模块"`
@@ -219,6 +226,19 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 		return false
 	}
 
+	// 很多其他公司，可能只能int型 只能文本 不合适
+	switch progressMsg.UpgradeProgress.(type) {
+	case float64: // json转的数值 100%为 float64
+		// 数值转文本
+		progressMsg.UpgradeProgress = strconv.FormatInt(int64(progressMsg.UpgradeProgress.(float64)), 10) // 抛弃小数
+
+	case string:
+		// 直接越过
+	default:
+		logs.Error("不支持的数据类型")
+		return false
+	}
+
 	//查询升级信息对应的设备
 	progressMsg.StatusUpdateTime = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
 	var otadevice models.TpOtaDevice
@@ -229,14 +249,14 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 			return false
 		}
 		//升级失败判断
-		intProgress, err := strconv.Atoi(progressMsg.UpgradeProgress)
+		intProgress, err := strconv.Atoi(progressMsg.UpgradeProgress.(string))
 		if err != nil {
-			progressMsg.StatusDetail = progressMsg.UpgradeProgress + progressMsg.StatusDetail
+			progressMsg.StatusDetail = progressMsg.UpgradeProgress.(string) + progressMsg.StatusDetail
 		}
-		isUpgradeSuccess := utils.In(progressMsg.UpgradeProgress, upgreadFailure)
+		isUpgradeSuccess := utils.In(progressMsg.UpgradeProgress.(string), upgreadFailure)
 		if isUpgradeSuccess {
 			progressMsg.UpgradeStatus = "4"
-			progressMsg.StatusDetail = progressMsg.UpgradeProgress + progressMsg.StatusDetail
+			progressMsg.StatusDetail = progressMsg.UpgradeProgress.(string) + progressMsg.StatusDetail
 		} else if progressMsg.UpgradeProgress == "100" {
 			//升级成功判断
 			progressMsg.UpgradeStatus = "3"
@@ -245,12 +265,19 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 			if intProgress > 0 && intProgress < 100 {
 				progressMsg.UpgradeStatus = "2"
 			} else {
-				progressMsg.StatusDetail = progressMsg.UpgradeProgress + progressMsg.StatusDetail
+				progressMsg.StatusDetail = progressMsg.UpgradeProgress.(string) + progressMsg.StatusDetail
 			}
 
 		}
 		//修改升级信息
-		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(&progressMsg)
+		//psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(&progressMsg)
+		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(&DeviceProgressMsgSql{
+			UpgradeProgress:  progressMsg.UpgradeProgress.(string),
+			StatusDetail:     progressMsg.StatusDetail,
+			Module:           progressMsg.Module,
+			UpgradeStatus:    progressMsg.UpgradeStatus,
+			StatusUpdateTime: progressMsg.StatusUpdateTime,
+		})
 		return true
 	}
 	return false
