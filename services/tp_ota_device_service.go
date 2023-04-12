@@ -243,7 +243,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 	progressMsg.StatusUpdateTime = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
 	var otadevice models.TpOtaDevice
 	psql.Mydb.Raw(`select d.* from tp_ota o left join tp_ota_task t on t.ota_id=o.id left join tp_ota_device d on d.ota_task_id=t.id where o.package_module = ? and t.task_status !='2' 
-	             and d.device_id=? and d.upgrade_status not in ('0','3','5') `, progressMsg.Module, deviceid).Scan(&otadevice)
+	             and d.device_id=? and d.upgrade_status not in ('0','3','4','5') `, progressMsg.Module, deviceid).Scan(&otadevice)
 	if otadevice.Id != "" && otadevice.OtaTaskId != "" {
 		if otadevice.UpgradeStatus == "4" {
 			return false
