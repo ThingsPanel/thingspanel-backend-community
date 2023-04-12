@@ -44,59 +44,46 @@ func (this *KvController) List() {
 	return
 }
 
-// 升级
-func (this *KvController) Index() {
-	kVIndexValidate := valid.KVIndexValidate{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &kVIndexValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
+// 数据列表查询
+func (c *KvController) Index() {
+	reqData := valid.KVIndexValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(kVIndexValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(kVIndexValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var TSKVService services.TSKVService
-	t, c := TSKVService.Paginate(kVIndexValidate.BusinessId, kVIndexValidate.AssetId, kVIndexValidate.Token, kVIndexValidate.Type, kVIndexValidate.StartTime, kVIndexValidate.EndTime, kVIndexValidate.Limit, (kVIndexValidate.Page-1)*kVIndexValidate.Limit, kVIndexValidate.Key, kVIndexValidate.DeviceName)
+	t, i := TSKVService.Paginate(reqData.BusinessId, reqData.AssetId, reqData.Token, reqData.Type, reqData.StartTime, reqData.EndTime, reqData.Limit, (reqData.Page-1)*reqData.Limit, reqData.Key, reqData.DeviceName, tenantId)
 	d := PaginateTSKV{
-		CurrentPage: kVIndexValidate.Page,
+		CurrentPage: reqData.Page,
 		Data:        t,
-		Total:       c,
-		PerPage:     kVIndexValidate.Limit,
+		Total:       i,
+		PerPage:     reqData.Limit,
 	}
-	response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
+	response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 //导出升级
-func (this *KvController) Export() {
-	KVExcelValidate := valid.KVExcelValidate{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &KVExcelValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
+func (c *KvController) Export() {
+	reqData := valid.KVExcelValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(KVExcelValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(KVExcelValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var TSKVService services.TSKVService
 	//每次查10000条
-	num := KVExcelValidate.Limit / 10000
+	num := reqData.Limit / 10000
 	excel_file := excelize.NewFile()
 	index := excel_file.NewSheet("Sheet1")
 	excel_file.SetActiveSheet(index)
@@ -110,10 +97,10 @@ func (this *KvController) Export() {
 	for i := 0; i <= num; i++ {
 		var t []models.TSKVDblV
 		var c int64
-		if (i+1)*10000 <= KVExcelValidate.Limit {
-			t, c = TSKVService.Paginate(KVExcelValidate.BusinessId, KVExcelValidate.AssetId, KVExcelValidate.Token, KVExcelValidate.Type, KVExcelValidate.StartTime, KVExcelValidate.EndTime, (i+1)*10000, i*10000, KVExcelValidate.Key, KVExcelValidate.DeviceName)
+		if (i+1)*10000 <= reqData.Limit {
+			t, c = TSKVService.Paginate(reqData.BusinessId, reqData.AssetId, reqData.Token, reqData.Type, reqData.StartTime, reqData.EndTime, (i+1)*10000, i*10000, reqData.Key, reqData.DeviceName, tenantId)
 		} else {
-			t, c = TSKVService.Paginate(KVExcelValidate.BusinessId, KVExcelValidate.AssetId, KVExcelValidate.Token, KVExcelValidate.Type, KVExcelValidate.StartTime, KVExcelValidate.EndTime, KVExcelValidate.Limit%10000, i*10000, KVExcelValidate.Key, KVExcelValidate.DeviceName)
+			t, c = TSKVService.Paginate(reqData.BusinessId, reqData.AssetId, reqData.Token, reqData.Type, reqData.StartTime, reqData.EndTime, reqData.Limit%10000, i*10000, reqData.Key, reqData.DeviceName, tenantId)
 		}
 		var i int
 		if c > 0 {
@@ -141,7 +128,7 @@ func (this *KvController) Export() {
 	uploadDir := "./files/excel/"
 	errs := os.MkdirAll(uploadDir, os.ModePerm)
 	if errs != nil {
-		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(this.Ctx))
+		response.SuccessWithMessage(1000, errs.Error(), (*context2.Context)(c.Ctx))
 	}
 	// 根据指定路径保存文件
 	uniqid_str := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
@@ -149,59 +136,59 @@ func (this *KvController) Export() {
 	if err := excel_file.SaveAs(excelName); err != nil {
 		fmt.Println(err)
 	}
-	response.SuccessWithDetailed(200, "获取成功", excelName, map[string]string{}, (*context2.Context)(this.Ctx))
+	response.SuccessWithDetailed(200, "获取成功", excelName, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
-func (this *KvController) ExportOld() {
-	kVExportValidate := valid.KVExportValidate{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &kVExportValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(kVExportValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(kVExportValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
-		return
-	}
-	var TSKVService services.TSKVService
-	t, c := TSKVService.GetAllByCondition(kVExportValidate.EntityID, kVExportValidate.Type, kVExportValidate.StartTime, kVExportValidate.EndTime)
-	excel_file := excelize.NewFile()
-	index := excel_file.NewSheet("Sheet1")
-	excel_file.SetActiveSheet(index)
-	excel_file.SetCellValue("Sheet1", "A1", "设备类型")
-	excel_file.SetCellValue("Sheet1", "B1", "设备ID")
-	excel_file.SetCellValue("Sheet1", "C1", "设备key")
-	excel_file.SetCellValue("Sheet1", "D1", "时间")
-	excel_file.SetCellValue("Sheet1", "E1", "设备值")
-	var i int
-	if c > 0 {
-		i = 1
-		for _, tv := range t {
-			i++
-			is := strconv.Itoa(i)
-			excel_file.SetCellValue("Sheet1", "A"+is, tv.EntityType)
-			excel_file.SetCellValue("Sheet1", "B"+is, tv.EntityID)
-			excel_file.SetCellValue("Sheet1", "C"+is, tv.Key)
-			excel_file.SetCellValue("Sheet1", "D"+is, tv.TS)
-			excel_file.SetCellValue("Sheet1", "E"+is, tv.DblV)
-		}
-	}
-	// 根据指定路径保存文件
-	uniqid_str := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
-	excelName := "files/excel/数据列表" + uniqid_str + ".xlsx"
-	if err := excel_file.SaveAs(excelName); err != nil {
-		fmt.Println(err)
-	}
-	response.SuccessWithDetailed(200, "获取成功", "", map[string]string{}, (*context2.Context)(this.Ctx))
-	return
-}
+// func (this *KvController) ExportOld() {
+// 	kVExportValidate := valid.KVExportValidate{}
+// 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &kVExportValidate)
+// 	if err != nil {
+// 		fmt.Println("参数解析失败", err.Error())
+// 	}
+// 	v := validation.Validation{}
+// 	status, _ := v.Valid(kVExportValidate)
+// 	if !status {
+// 		for _, err := range v.Errors {
+// 			// 获取字段别称
+// 			alias := gvalid.GetAlias(kVExportValidate, err.Field)
+// 			message := strings.Replace(err.Message, err.Field, alias, 1)
+// 			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+// 			break
+// 		}
+// 		return
+// 	}
+// 	var TSKVService services.TSKVService
+// 	t, c := TSKVService.GetAllByCondition(kVExportValidate.EntityID, kVExportValidate.Type, kVExportValidate.StartTime, kVExportValidate.EndTime)
+// 	excel_file := excelize.NewFile()
+// 	index := excel_file.NewSheet("Sheet1")
+// 	excel_file.SetActiveSheet(index)
+// 	excel_file.SetCellValue("Sheet1", "A1", "设备类型")
+// 	excel_file.SetCellValue("Sheet1", "B1", "设备ID")
+// 	excel_file.SetCellValue("Sheet1", "C1", "设备key")
+// 	excel_file.SetCellValue("Sheet1", "D1", "时间")
+// 	excel_file.SetCellValue("Sheet1", "E1", "设备值")
+// 	var i int
+// 	if c > 0 {
+// 		i = 1
+// 		for _, tv := range t {
+// 			i++
+// 			is := strconv.Itoa(i)
+// 			excel_file.SetCellValue("Sheet1", "A"+is, tv.EntityType)
+// 			excel_file.SetCellValue("Sheet1", "B"+is, tv.EntityID)
+// 			excel_file.SetCellValue("Sheet1", "C"+is, tv.Key)
+// 			excel_file.SetCellValue("Sheet1", "D"+is, tv.TS)
+// 			excel_file.SetCellValue("Sheet1", "E"+is, tv.DblV)
+// 		}
+// 	}
+// 	// 根据指定路径保存文件
+// 	uniqid_str := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
+// 	excelName := "files/excel/数据列表" + uniqid_str + ".xlsx"
+// 	if err := excel_file.SaveAs(excelName); err != nil {
+// 		fmt.Println(err)
+// 	}
+// 	response.SuccessWithDetailed(200, "获取成功", "", map[string]string{}, (*context2.Context)(this.Ctx))
+// 	return
+// }
 
 // 获取当前KV
 func (this *KvController) CurrentData() {

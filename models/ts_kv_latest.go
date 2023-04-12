@@ -20,6 +20,7 @@ type TSKVLatest struct {
 	StrV       string  `json:"str_v" gorm:"type:longtext"`
 	LongV      int64   `json:"long_v"`
 	DblV       float64 `json:"dbl_v"`
+	TenantID   string  `json:"tenant_id"`
 }
 
 func (TSKVLatest) TableName() string {

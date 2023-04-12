@@ -768,7 +768,7 @@ COMMENT ON COLUMN public.tp_dashboard.sort IS '排序';
 SELECT create_hypertable('ts_kv', 'ts',chunk_time_interval => 86400000000);
 
 INSERT INTO "users" ("id", "created_at", "updated_at", "enabled", "additional_info", "authority", "customer_id", "email", "password", "name", "first_name", "last_name", "search_text", "email_verified_at", "remember_token", "mobile", "remark", "is_admin", "business_id", "wx_openid", "wx_unionid") VALUES
-('9212e9fb-a89c-4e35-9509-0a15df64f45a',	1606099326,	1623490224,	't',	NULL,	NULL,	NULL,	'super@super.cn',	'$2a$04$aGFaew.rkRmOUiOZ/3ZncO/HN1BuJc8Dcm1MNuU3HhbUVUgKIx7jG',	'Admin',	NULL,	NULL,	NULL,	0,	NULL,	'18618000000',	NULL,	0,	'',	'',	'');
+('9212e9fb-a89c-4e35-9509-0a15df64f45a',	1606099326,	1623490224,	'1',	NULL,	NULL,	NULL,	'super@super.cn',	'$2a$04$aGFaew.rkRmOUiOZ/3ZncO/HN1BuJc8Dcm1MNuU3HhbUVUgKIx7jG',	'Admin',	NULL,	NULL,	NULL,	0,	NULL,	'18618000000',	NULL,	0,	'',	'',	'');
 
 INSERT INTO logo
 (id, system_name, theme, logo_one, logo_two, logo_three, custom_id, remark)
@@ -1630,3 +1630,39 @@ ALTER TABLE public.tp_generate_device RENAME COLUMN activate_flag TO add_flag;
 ALTER TABLE public.tp_generate_device RENAME COLUMN activate_date TO add_date;
 COMMENT ON COLUMN public.tp_generate_device.add_date IS '添加日期';
 COMMENT ON COLUMN public.tp_generate_device.add_flag IS '0-未添加 1-已添加';
+
+--0.5.0
+ALTER TABLE public.users
+DROP COLUMN search_text,
+DROP COLUMN first_name,
+DROP COLUMN last_name,
+DROP COLUMN remember_token,
+DROP COLUMN email_verified_at,
+DROP COLUMN is_admin,
+DROP COLUMN business_id,
+DROP COLUMN wx_openid,
+DROP COLUMN wx_unionid,
+ADD COLUMN tenant_id varchar(36) NULL;
+CREATE INDEX users_tenant_id_idx ON public.users (tenant_id);
+
+ALTER TABLE public.business ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.asset ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_role ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.conditions_log ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.device ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.operation_log ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_function ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_generate_device ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_ota ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_product ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_scenario_strategy ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_script ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_warning_information ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.ts_kv ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.ts_kv_latest ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_function ADD sys_flag varchar(2) NULL;
+COMMENT ON COLUMN public.tp_function.sys_flag IS '系统管理员菜单标志';
+INSERT INTO public.tp_function
+(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, sys_flag)
+VALUES('229de465-24a1-467d-d3a2-d146db43bffa', '', NULL, '/tenant', 'TenantManagment', '/pages/system/tenant', '租户管理', '', '1', '', '4f2791e5-3c13-7249-c25f-77f6f787f574', 0, NULL);
+ALTER TABLE public.tp_script ADD tenant_id varchar(36) NULL;

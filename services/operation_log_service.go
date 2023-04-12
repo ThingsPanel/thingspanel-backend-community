@@ -22,9 +22,10 @@ type OperationLogService struct {
 }
 
 // Paginate 分页获取OperationLog数据
-func (*OperationLogService) Paginate(offset int, pageSize int, ip string, path string) ([]models.OperationLog, int64) {
+func (*OperationLogService) Paginate(offset int, pageSize int, ip string, path string, tenantId string) ([]models.OperationLog, int64) {
 	var operationLogs []models.OperationLog
 	db := psql.Mydb.Model(&operationLogs)
+	db.Where("tenant_id = ?", tenantId)
 	if path != "" {
 		db.Where("(detailed ::json->>'path' like ?)", "%"+path+"%")
 	}

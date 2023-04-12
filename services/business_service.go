@@ -81,9 +81,9 @@ func (*BusinessService) GetBusinessById(id string) (*models.Business, int64) {
 }
 
 // Add新增一条business数据
-func (*BusinessService) Add(name string) (bool, string) {
+func (*BusinessService) Add(name, tenantId string) (bool, string) {
 	bussiness_id := uuid.GetUuid()
-	business := models.Business{ID: bussiness_id, Name: name, CreatedAt: time.Now().Unix()}
+	business := models.Business{ID: bussiness_id, Name: name, TenantId: tenantId, CreatedAt: time.Now().Unix()}
 	result := psql.Mydb.Create(&business)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
@@ -97,14 +97,15 @@ func (*BusinessService) Add(name string) (bool, string) {
 		Tier:       1,
 		ParentID:   "0",
 		BusinessID: bussiness_id,
+		TenantId:   tenantId,
 	}
 	psql.Mydb.Create(asset)
 	return true, bussiness_id
 }
 
 // 根据ID编辑一条business数据
-func (*BusinessService) Edit(id string, name string) bool {
-	result := psql.Mydb.Model(&models.Business{}).Where("id = ?", id).Update("name", name)
+func (*BusinessService) Edit(id string, name string, tenantId string) bool {
+	result := psql.Mydb.Model(&models.Business{}).Where("id = ? and tenant_id = ?", id, tenantId).Update("name", name)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return false
@@ -113,8 +114,8 @@ func (*BusinessService) Edit(id string, name string) bool {
 }
 
 // 根据ID删除一条business数据
-func (*BusinessService) Delete(id string) bool {
-	result := psql.Mydb.Where("id = ?", id).Delete(&models.Business{})
+func (*BusinessService) Delete(id, tenantId string) bool {
+	result := psql.Mydb.Where("id = ? and tenantid = ?", id, tenantId).Delete(&models.Business{})
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return false
