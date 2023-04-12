@@ -28,7 +28,7 @@ type TpOtaDevicePaginationValidate struct {
 	DeviceId      string `json:"device_id"  valid:"MaxSize(36)"`
 	Name          string `json:"name"  valid:"MaxSize(36)"`
 	UpgradeStatus string `json:"upgrade_status,omitempty" alias:"状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消"`
-	OtaTaskId     string `json:"ota_task_id,omitempty" alias:"ota任务id" valid:"MaxSize(36)"`
+	OtaTaskId     string `json:"ota_task_id,omitempty" alias:"ota任务id" valid:"Required;MaxSize(36)"`
 }
 
 type RspTpOtaDevicePaginationValidate struct {
