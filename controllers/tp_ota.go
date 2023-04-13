@@ -80,23 +80,28 @@ func (TpOtaController *TpOtaController) Add() {
 	path := "." + utils.GetUrlPath(AddTpOtaValidate.PackageUrl)
 	if !utils.FileExist(path) {
 		utils.SuccessWithMessage(400, "升级包不存在", (*context2.Context)(TpOtaController.Ctx))
+		return
 	}
 	if err := utils.CheckPathFilename(path); err != nil || AddTpOtaValidate.PackageUrl == "" {
 		utils.SuccessWithMessage(400, "升级包路径不合法或升级包路径是空", (*context2.Context)(TpOtaController.Ctx))
+		return
 	}
 	//文件sign计算
 	packagesign, sign_err := utils.FileSign(path, AddTpOtaValidate.SignatureAlgorithm)
 	if sign_err != nil {
 		utils.SuccessWithMessage(400, "文件签名计算失败", (*context2.Context)(TpOtaController.Ctx))
+		return
 	}
 
 	//文件大小检查
 	packageLength, pl_err := utils.GetFileSize(path)
 	if pl_err != nil {
 		utils.SuccessWithMessage(400, "文件大小计算失败", (*context2.Context)(TpOtaController.Ctx))
+		return
 	}
 	if packageLength > 1024*1024*1024*1024 {
 		utils.SuccessWithMessage(400, "文件大小超出1G", (*context2.Context)(TpOtaController.Ctx))
+		return
 	}
 	var TpOtaService services.TpOtaService
 	id := utils.GetUuid()
@@ -129,7 +134,7 @@ func (TpOtaController *TpOtaController) Add() {
 	}
 }
 
-//删除
+// 删除
 func (TpOtaController *TpOtaController) Delete() {
 	TpOtaIdValidate := valid.TpOtaIdValidate{}
 	err := json.Unmarshal(TpOtaController.Ctx.Input.RequestBody, &TpOtaIdValidate)
@@ -150,6 +155,7 @@ func (TpOtaController *TpOtaController) Delete() {
 	}
 	if TpOtaIdValidate.Id == "" {
 		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpOtaController.Ctx))
+		return
 	}
 	var TpOtaService services.TpOtaService
 	TpOta := models.TpOta{

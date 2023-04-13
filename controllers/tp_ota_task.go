@@ -125,11 +125,13 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	d, rsp_err := TpOtaTaskService.AddTpOtaTask(TpOtaTask)
 	if rsp_err != nil {
 		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpOtaTaskController.Ctx))
+		return
 	}
 	var OtaService services.TpOtaService
 	isSuccess, tpota := OtaService.GetTpOtaVersionById(AddTpOtaTaskValidate.OtaId)
 	if !isSuccess {
 		utils.SuccessWithMessage(400, "无对应ota信息", (*context2.Context)(TpOtaTaskController.Ctx))
+		return
 	}
 	var tp_ota_devices []models.TpOtaDevice
 	for _, device := range devices {
@@ -155,7 +157,7 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 
 }
 
-//删除
+// 删除
 func (TpOtaTaskController *TpOtaTaskController) Delete() {
 	TpOtaTaskIdValidate := valid.TpOtaTaskIdValidate{}
 	err := json.Unmarshal(TpOtaTaskController.Ctx.Input.RequestBody, &TpOtaTaskIdValidate)
@@ -176,6 +178,7 @@ func (TpOtaTaskController *TpOtaTaskController) Delete() {
 	}
 	if TpOtaTaskIdValidate.Id == "" {
 		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpOtaTaskController.Ctx))
+		return
 	}
 	var TpOtaTaskService services.TpOtaTaskService
 	TpOtaTask := models.TpOtaTask{

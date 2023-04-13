@@ -110,7 +110,7 @@ func (TpOtaDeviceController *TpOtaDeviceController) Add() {
 	}
 }
 
-//修改状态
+// 修改状态
 func (TpOtaDeviceController *TpOtaDeviceController) ModfiyUpdate() {
 	TpOtaDeviceIdValidate := valid.TpOtaDeviceIdValidate{}
 	err := json.Unmarshal(TpOtaDeviceController.Ctx.Input.RequestBody, &TpOtaDeviceIdValidate)
@@ -131,6 +131,7 @@ func (TpOtaDeviceController *TpOtaDeviceController) ModfiyUpdate() {
 	}
 	if TpOtaDeviceIdValidate.Id == "" && TpOtaDeviceIdValidate.OtaTaskId == "" {
 		utils.SuccessWithMessage(1000, "id与任务id不能全部为空", (*context2.Context)(TpOtaDeviceController.Ctx))
+		return
 	}
 	var TpOtaDeviceService services.TpOtaDeviceService
 	rsp_err := TpOtaDeviceService.ModfiyUpdateDevice(TpOtaDeviceIdValidate)
