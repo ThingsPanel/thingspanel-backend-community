@@ -87,23 +87,28 @@ func (c *TpOtaController) Add() {
 	path := "." + utils.GetUrlPath(reqData.PackageUrl)
 	if !utils.FileExist(path) {
 		utils.SuccessWithMessage(400, "升级包不存在", (*context2.Context)(c.Ctx))
+		return
 	}
 	if err := utils.CheckPathFilename(path); err != nil || reqData.PackageUrl == "" {
 		utils.SuccessWithMessage(400, "升级包路径不合法或升级包路径是空", (*context2.Context)(c.Ctx))
+		return
 	}
 	//文件sign计算
 	packagesign, sign_err := utils.FileSign(path, reqData.SignatureAlgorithm)
 	if sign_err != nil {
 		utils.SuccessWithMessage(400, "文件签名计算失败", (*context2.Context)(c.Ctx))
+		return
 	}
 
 	//文件大小检查
 	packageLength, pl_err := utils.GetFileSize(path)
 	if pl_err != nil {
 		utils.SuccessWithMessage(400, "文件大小计算失败", (*context2.Context)(c.Ctx))
+		return
 	}
 	if packageLength > 1024*1024*1024*1024 {
 		utils.SuccessWithMessage(400, "文件大小超出1G", (*context2.Context)(c.Ctx))
+		return
 	}
 	//获取租户id
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
@@ -164,6 +169,7 @@ func (c *TpOtaController) Delete() {
 	}
 	if reqData.Id == "" {
 		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(c.Ctx))
+		return
 	}
 	//获取租户id
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)

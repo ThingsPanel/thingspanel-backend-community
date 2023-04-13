@@ -218,7 +218,8 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 		logs.Error(err_b.Error())
 		return false
 	}
-
+	logs.Info(progressMsg)
+	logs.Info("-------------------------------")
 	// 很多其他公司，可能只能int型 只能文本 不合适
 	switch progressMsg.UpgradeProgress.(type) {
 	case float64: // json转的数值 100%为 float64
