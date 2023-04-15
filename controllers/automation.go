@@ -339,10 +339,16 @@ func (this *AutomationController) Property() {
 	var dl []AssetDevice
 	if c != 0 {
 		for _, dv := range d {
-			d2, _ := AssetService.GetAssetsByParentID(dv.ID)
+			d2, _, err := AssetService.GetAssetsByParentID(dv.ID)
+			if err != nil {
+				fmt.Println(err)
+			}
 			var dl2 []AssetDevice2
 			for _, dvv := range d2 {
-				d3, _ := AssetService.GetAssetsByParentID(dvv.ID)
+				d3, _, err := AssetService.GetAssetsByParentID(dvv.ID)
+				if err != nil {
+					fmt.Println(err)
+				}
 				i2 := AssetDevice2{
 					ID:             dvv.ID,
 					AdditionalInfo: dvv.AdditionalInfo,
@@ -376,6 +382,9 @@ func (this *AutomationController) Property() {
 			}
 			dl = append(dl, i)
 		}
+	} else {
+		response.SuccessWithMessage(500, "error", (*context2.Context)(this.Ctx))
+		return
 	}
 	if len(dl) == 0 {
 		dl = []AssetDevice{}

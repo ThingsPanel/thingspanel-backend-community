@@ -128,7 +128,11 @@ func (this *UserController) Add() {
 		addUserValidate.Remark,
 	)
 	if f {
-		u, _ := UserService.GetUserById(id)
+		u, i := UserService.GetUserById(id)
+		if i == 0 {
+			response.SuccessWithMessage(400, "注册失败", (*context2.Context)(this.Ctx))
+			return
+		}
 		d := AddUser{
 			ID:              u.ID,
 			CreatedAt:       u.CreatedAt,
@@ -189,7 +193,11 @@ func (this *UserController) Edit() {
 		editUserValidate.Remark,
 	)
 	if f {
-		u, _ := UserService.GetUserById(editUserValidate.ID)
+		u, i := UserService.GetUserById(editUserValidate.ID)
+		if i == 0 {
+			response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(this.Ctx))
+			return
+		}
 		d := EditUser{
 			ID:              u.ID,
 			CreatedAt:       u.CreatedAt,

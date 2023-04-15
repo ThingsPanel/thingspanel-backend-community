@@ -94,7 +94,11 @@ func (this *CustomerController) Add() {
 		addCustomerValidate.Email,
 	)
 	if f {
-		u, _ := CustomerService.GetCustomerById(id)
+		u, i := CustomerService.GetCustomerById(id)
+		if i == 0 {
+			response.SuccessWithMessage(400, "添加失败", (*context2.Context)(this.Ctx))
+			return
+		}
 		d := AddCustomer{
 			ID:    u.ID,
 			Title: u.Title,
@@ -140,7 +144,11 @@ func (this *CustomerController) Edit() {
 		editCustomerValidate.Zip,
 	)
 	if f {
-		u, _ := CustomerService.GetCustomerById(editCustomerValidate.ID)
+		u, i := CustomerService.GetCustomerById(editCustomerValidate.ID)
+		if i == 0 {
+			response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(this.Ctx))
+			return
+		}
 		d := EditCustomer{
 			ID:    u.ID,
 			Title: u.Title,
