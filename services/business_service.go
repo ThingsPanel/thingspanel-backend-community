@@ -34,7 +34,7 @@ type AllBusiness struct {
 }
 
 // Paginate 分页获取business数据
-func (*BusinessService) Paginate(name string, offset int, pageSize int) ([]models.Business, int64) {
+func (*BusinessService) Paginate(name string, offset int, pageSize int) ([]models.Business, int64, error) {
 	var businesses []models.Business
 	var count int64
 	if name != "" {
@@ -45,11 +45,11 @@ func (*BusinessService) Paginate(name string, offset int, pageSize int) ([]model
 		}
 		if result.Error != nil {
 			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return businesses, 0
+				return businesses, 0, nil
 			}
-			return nil, 0
+			return nil, 0, result.Error
 		}
-		return businesses, count
+		return businesses, count, nil
 	} else {
 		result := psql.Mydb.Model(&models.Business{}).Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses)
 		psql.Mydb.Model(&models.Business{}).Count(&count)
@@ -58,26 +58,26 @@ func (*BusinessService) Paginate(name string, offset int, pageSize int) ([]model
 		}
 		if result.Error != nil {
 			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return businesses, 0
+				return businesses, 0, nil
 			}
-			return nil, 0
+			return nil, 0, result.Error
 		}
-		return businesses, count
+		return businesses, count, nil
 	}
 }
 
 // 根据id获取一条business数据
-func (*BusinessService) GetBusinessById(id string) (*models.Business, int64) {
+func (*BusinessService) GetBusinessById(id string) (*models.Business, int64, error) {
 	var business models.Business
 	result := psql.Mydb.Where("id = ?", id).First(&business)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return &business, 0
+			return &business, 0, nil
 		}
 		logs.Error(result.Error.Error())
-		return nil, 0
+		return nil, 0, result.Error
 	}
-	return &business, result.RowsAffected
+	return &business, result.RowsAffected, nil
 }
 
 // Add新增一条business数据

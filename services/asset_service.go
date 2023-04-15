@@ -624,7 +624,7 @@ func (*AssetService) Delete(id string) bool {
 }
 
 // 根据ID获取下级资产
-func (*AssetService) GetAssetsByParentID(parent_id string) ([]models.Asset, int64) {
+func (*AssetService) GetAssetsByParentID(parent_id string) ([]models.Asset, int64, error) {
 	var assets []models.Asset
 	var count int64
 	db := psql.Mydb.Model(&models.Asset{}).Where("parent_id = ?", parent_id)
@@ -636,11 +636,11 @@ func (*AssetService) GetAssetsByParentID(parent_id string) ([]models.Asset, int6
 	}
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return assets, 1
+			return assets, 0, nil
 		}
-		return nil, 0
+		return nil, 0, result.Error
 	}
-	return assets, count
+	return assets, count, nil
 }
 
 func (*AssetService) GetAssetsByTierAndBusinessID(business_id string) ([]models.Asset, int64) {
@@ -899,22 +899,24 @@ func (*AssetService) GetAssetByBusinessId(business_id string) ([]AssetList, int6
 func (*AssetService) GetAssetDataByBusinessId(business_id string) (assets []AssetList, err error) {
 	err = psql.Mydb.Model(&models.Asset{}).Where("business_id = ?", business_id).Find(&assets).Error
 	if err != nil {
-		return assets, err
+		return nil, err
 	}
-	return assets, err
+	return assets, nil
 }
 
 // 设备数据
 func (*AssetService) GetAssetData(business_id string) ([]models.Asset, int64) {
 	var assets []models.Asset
 	var count int64
-	result := psql.Mydb.Model(&models.Asset{}).Where("business_id = ? AND tier=1", business_id).Find(&assets)
-	psql.Mydb.Model(&models.Asset{}).Where("business_id = ? AND tier=1", business_id).Count(&count)
-	if result.Error != nil {
-		logs.Error("GetAssetData", result.Error)
-	}
+	db := psql.Mydb.Model(&models.Asset{}).Where("business_id = ? AND tier=1", business_id)
+	result := db.Find(&assets)
+	db.Count(&count)
 	if len(assets) == 0 {
 		assets = []models.Asset{}
+	}
+	if result.Error != nil {
+		logs.Error("GetAssetData", result.Error)
+		return assets, 0
 	}
 	return assets, count
 }
