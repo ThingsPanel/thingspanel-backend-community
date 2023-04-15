@@ -1,8 +1,11 @@
 package middleware
 
 import (
+	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/models"
 	response "ThingsPanel-Go/utils"
 	"fmt"
+	"gorm.io/gorm"
 	"strings"
 
 	"ThingsPanel-Go/initialize/redis"
@@ -36,14 +39,16 @@ func AuthMiddle() {
 				return
 			}
 			authorization := ctx.Request.Header["Authorization"][0]
-			userToken := authorization[7:len(authorization)]
-			_, err := jwt.ParseCliamsToken(userToken)
-			if err != nil {
+			userToken := authorization[7:]
+			user, err := jwt.ParseCliamsToken(userToken)
+			if err != nil || redis.GetStr(userToken) != "1" {
 				// 异常
 				response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
 				return
 			}
-			if redis.GetStr(userToken) != "1" {
+			// 验证用户是否存在
+			// 双层校验
+			if psql.Mydb.Where("id = ? and name = ? ", user.ID, user.Name).First(&models.Users{}).Error == gorm.ErrRecordNotFound {
 				response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
 				return
 			}
@@ -64,9 +69,6 @@ func isAuthExceptUrl(url string, m map[string]interface{}) bool {
 	if len(urlArr) > 4 {
 		url = fmt.Sprintf("%s/%s/%s/%s", urlArr[0], urlArr[1], urlArr[2], urlArr[3])
 	}
-
-	if _, ok := m[url]; ok {
-		return true
-	}
-	return false
+	_, ok := m[url]
+	return ok
 }
