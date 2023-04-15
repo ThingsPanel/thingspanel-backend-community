@@ -5,9 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
-	"errors"
-
-	"gorm.io/gorm"
+	"github.com/beego/beego/v2/core/logs"
 )
 
 type ObjectModelService struct {
@@ -40,7 +38,8 @@ func (*ObjectModelService) GetObjectModelList(PaginationValidate valid.ObjectMod
 	db.Count(&count)
 	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&ObjectModels)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, ObjectModels, 0
 	}
 	return true, ObjectModels, count
@@ -52,7 +51,8 @@ func (*ObjectModelService) AddObjectModel(object_model models.ObjectModel) (bool
 	object_model.Id = uuid
 	result := psql.Mydb.Create(&object_model)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, object_model
 	}
 	return true, object_model
@@ -61,19 +61,11 @@ func (*ObjectModelService) AddObjectModel(object_model models.ObjectModel) (bool
 // 修改数据
 func (*ObjectModelService) EditObjectModel(object_model valid.ObjectModelValidate) bool {
 	result := psql.Mydb.Model(&models.ObjectModel{}).Where("id = ?", object_model.Id).Updates(&object_model)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false
-	}
-	return true
+	return result.Error == nil
 }
 
 // 删除数据
 func (*ObjectModelService) DeleteObjectModel(object_model models.ObjectModel) bool {
 	result := psql.Mydb.Delete(&object_model)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false
-	}
-	return true
+	return result.Error == nil
 }

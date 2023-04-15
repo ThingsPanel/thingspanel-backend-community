@@ -42,7 +42,9 @@ func (*UserService) GetUserByName(name string) (*models.Users, int64) {
 	var users models.Users
 	result := psql.Mydb.Where("name = ?", name).First(&users)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &users, result.RowsAffected
 }
@@ -52,7 +54,11 @@ func (*UserService) GetSameUserByName(name string, id string) (*models.Users, in
 	var users models.Users
 	result := psql.Mydb.Where("name = ? AND id <> ?", name, id).First(&users)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &users, result.RowsAffected
 }
@@ -76,7 +82,9 @@ func (*UserService) GetSameUserByEmail(email string, id string) (*models.Users, 
 	var users models.Users
 	result := psql.Mydb.Where("email = ? AND id <> ?", email, id).First(&users)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &users, result.RowsAffected
 }
@@ -86,7 +94,9 @@ func (*UserService) GetUserById(id string) (*models.Users, int64) {
 	var users models.Users
 	result := psql.Mydb.Where("id = ?", id).First(&users)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &users, result.RowsAffected
 }
@@ -99,22 +109,24 @@ func (*UserService) Paginate(name string, offset int, pageSize int) ([]PaginateU
 		result := psql.Mydb.Model(&models.Users{}).Where("name LIKE ?", "%"+name+"%").Limit(pageSize).Offset(offset).Order("name asc").Find(&users)
 		psql.Mydb.Model(&models.Users{}).Where("name LIKE ?", "%"+name+"%").Count(&count)
 		if result.Error != nil {
-			errors.Is(result.Error, gorm.ErrRecordNotFound)
+			//errors.Is(result.Error, gorm.ErrRecordNotFound)
+			logs.Error(result.Error.Error())
 		}
 	} else {
 		result := psql.Mydb.Model(&models.Users{}).Limit(pageSize).Offset(offset).Find(&users)
 		psql.Mydb.Model(&models.Users{}).Count(&count)
 		if result.Error != nil {
-			errors.Is(result.Error, gorm.ErrRecordNotFound)
+			//errors.Is(result.Error, gorm.ErrRecordNotFound)
+			logs.Error(result.Error.Error())
 		}
 	}
 	if len(users) == 0 {
 		users = []PaginateUser{}
 	} else {
 		var CasbinService CasbinService
-		for index, user := range users {
+		for _, user := range users {
 			roles, _ := CasbinService.GetRoleFromUser(user.Email)
-			users[index].Roles = roles
+			user.Roles = roles
 		}
 	}
 	return users, count
@@ -137,7 +149,7 @@ func (*UserService) Add(name string, email string, password string, enabled stri
 	}
 	result := psql.Mydb.Create(&user)
 	if result.Error != nil {
-		logs.Info(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, ""
 	}
 	return true, uuid
@@ -153,7 +165,8 @@ func (*UserService) Edit(id string, name string, email string, mobile string, re
 		"updated_at": time.Now().Unix(),
 	})
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
@@ -163,7 +176,8 @@ func (*UserService) Edit(id string, name string, email string, mobile string, re
 func (*UserService) Delete(id string) bool {
 	result := psql.Mydb.Where("id = ?", id).Delete(&models.Users{})
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
@@ -174,7 +188,8 @@ func (*UserService) Password(id string, password string) bool {
 	pass := bcrypt.HashAndSalt([]byte(password))
 	result := psql.Mydb.Model(&models.Users{}).Where("id = ?", id).Update("password", pass)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
@@ -195,7 +210,8 @@ func (*UserService) Register(email string, name string, password string, custome
 	}
 	result := psql.Mydb.Create(&user)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, ""
 	}
 	return true, uuid
