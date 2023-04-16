@@ -507,10 +507,10 @@ func (*DeviceService) Delete(id, tenantId string) error {
 }
 
 // 获取全部Device
-func (*DeviceService) All() ([]models.Device, int64) {
+func (*DeviceService) All(tenantId string) ([]models.Device, int64) {
 	var devices []models.Device
 	var count int64
-	result := psql.Mydb.Model(&devices).Count(&count)
+	result := psql.Mydb.Model(&devices).Where("tenant_id = ?", tenantId).Count(&count)
 	if len(devices) == 0 {
 		devices = []models.Device{}
 	}

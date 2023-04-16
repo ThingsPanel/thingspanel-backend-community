@@ -33,14 +33,20 @@ type PaginateTSKV struct {
 }
 
 // 获取KV
-func (this *KvController) List() {
-	var DeviceService services.DeviceService
-	d, c := DeviceService.All()
-	if c != 0 {
-		response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
+func (c *KvController) List() {
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
-	response.SuccessWithMessage(400, "获取失败", (*context2.Context)(this.Ctx))
+	var DeviceService services.DeviceService
+	d, ct := DeviceService.All(tenantId)
+	if ct != 0 {
+		response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
+		return
+	}
+	response.SuccessWithMessage(400, "获取失败", (*context2.Context)(c.Ctx))
 	return
 }
 

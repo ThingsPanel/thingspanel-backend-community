@@ -38,20 +38,26 @@ type HomeDevice struct {
 }
 
 // 首页数据统计
-func (this *HomeController) List() {
+func (c *HomeController) List() {
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	var ResourcesService services.ResourcesService
 	r := ResourcesService.GetNew()
 	var DeviceService services.DeviceService
-	_, dc := DeviceService.All()
+	_, dc := DeviceService.All(tenantId)
 	var TSKVService services.TSKVService
-	tc, _ := TSKVService.All()
+	tc, _ := TSKVService.All(tenantId)
 	u := HomeList{
 		CpuUsage: r.CPU,
 		MemUsage: r.MEM,
 		Device:   dc,
 		Msg:      tc,
 	}
-	response.SuccessWithDetailed(200, "success", u, map[string]string{}, (*context2.Context)(this.Ctx))
+	response.SuccessWithDetailed(200, "success", u, map[string]string{}, (*context2.Context)(c.Ctx))
 	return
 }
 
@@ -189,13 +195,19 @@ func (HomeController *HomeController) GetDefaultSetting() {
 }
 
 // Device
-func (this *HomeController) Device() {
+func (c *HomeController) Device() {
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	var BusinessService services.BusinessService
 	_, bc := BusinessService.All()
 	var AssetService services.AssetService
 	_, ac := AssetService.All()
 	var DeviceService services.DeviceService
-	_, dc := DeviceService.All()
+	_, dc := DeviceService.All(tenantId)
 	var DashBoardService services.DashBoardService
 	_, dac := DashBoardService.All()
 	var ConditionsService services.ConditionsService
@@ -207,6 +219,6 @@ func (this *HomeController) Device() {
 		Dashboard:  dac,
 		Conditions: cc,
 	}
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	return
 }
