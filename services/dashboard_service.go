@@ -33,11 +33,8 @@ func (*DashBoardService) Paginate(title string, offset int, pageSize int) ([]mod
 			dashBoards = []models.DashBoard{}
 		}
 		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return dashBoards, 0
-			}
 			logs.Error(result.Error.Error())
-			return nil, 0
+			return dashBoards, 0
 		}
 		return dashBoards, count
 	} else {
@@ -47,10 +44,8 @@ func (*DashBoardService) Paginate(title string, offset int, pageSize int) ([]mod
 			dashBoards = []models.DashBoard{}
 		}
 		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return dashBoards, 0
-			}
 			logs.Error(result.Error.Error())
+			return dashBoards, 0
 		}
 		return dashBoards, count
 	}
@@ -128,7 +123,7 @@ func (*DashBoardService) ConfigurationEdit(id string, configuration string) (*mo
 		logs.Error(edit.Error.Error())
 		return &dashBoard, false
 	}
-	add := psql.Mydb.Where("id = ?", id).First(&dashBoard)
+	add := psql.Mydb.Model(&models.DashBoard{}).Where("id = ?", id).First(&dashBoard)
 	if add.Error != nil {
 		//errors.Is(add.Error, gorm.ErrRecordNotFound)
 		logs.Error(add.Error.Error())
@@ -166,7 +161,7 @@ func (*DashBoardService) GetDashBoardByCondition(business_id string, id string) 
 }
 
 func (*DashBoardService) GetPlugList() []models.PlugSt {
-	pluginList := []models.PlugSt{}
+	var pluginList []models.PlugSt
 	_, dirs, _ := utils.GetFilesAndDirs("./extensions")
 	for _, dir := range dirs {
 		dir = strings.Replace(dir, "\\", "/", -1)

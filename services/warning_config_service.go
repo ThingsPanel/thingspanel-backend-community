@@ -180,7 +180,7 @@ func (*WarningConfigService) WarningConfigCheck(bid string, values map[string]in
 				businessName := ""
 				assetName := ""
 				deviceName := ""
-				bl, bc := BusinessService.GetBusinessById(wv.Wid)
+				bl, bc, _ := BusinessService.GetBusinessById(wv.Wid)
 				if bc > 0 {
 					businessName = bl.Name
 				}

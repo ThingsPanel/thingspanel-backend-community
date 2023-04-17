@@ -30,7 +30,7 @@ func (*NavigationService) List() ([]models.Navigation, int64) {
 	return navigations, result.RowsAffected
 }
 
-// 根据ID删除一条Navigation数据
+// Delete 根据ID删除一条Navigation数据
 func (*NavigationService) Delete(id string) bool {
 	result := psql.Mydb.Where("id = ?", id).Delete(&models.Navigation{})
 	if result.Error != nil {
@@ -41,17 +41,19 @@ func (*NavigationService) Delete(id string) bool {
 	return true
 }
 
-// 根据id获取一条Navigation数据
+// GetNavigationByCondition 根据id获取一条Navigation数据
 func (*NavigationService) GetNavigationByCondition(t int64, name string, data string) (*models.Navigation, int64) {
 	var navigation models.Navigation
 	result := psql.Mydb.Where("type = ? AND name = ? AND data = ?", t, name, data).First(&navigation)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return &navigation, 0
 	}
 	return &navigation, result.RowsAffected
 }
 
+// Increment 根据id增加一条Navigation数据的count
 func (*NavigationService) Increment(id string, count int64, step int64) bool {
 	result := psql.Mydb.Model(&models.Navigation{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"count": count + step,
@@ -64,6 +66,7 @@ func (*NavigationService) Increment(id string, count int64, step int64) bool {
 	return true
 }
 
+// Add 新增一条Navigation数据
 func (*NavigationService) Add(name string, t int64, data string) (bool, string) {
 	var uuid = uuid.GetUuid()
 	navigation := models.Navigation{
@@ -81,7 +84,7 @@ func (*NavigationService) Add(name string, t int64, data string) (bool, string) 
 	return true, uuid
 }
 
-// 根据BusinessID删除一条Navigation数据
+// DeleteByBusinessID 根据BusinessID删除一条Navigation数据
 func (*NavigationService) DeleteByBusinessID(BusinessID string) bool {
 	result := psql.Mydb.Where("data LIKE ?", "%"+BusinessID+"%").Delete(&models.Navigation{})
 	if result.Error != nil {

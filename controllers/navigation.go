@@ -95,7 +95,7 @@ func (this *NavigationController) List() {
 			}
 			if len(navigationList) < 6 {
 				if nv.Type == 1 || nv.Type == 2 {
-					_, bc := BusinessService.GetBusinessById(ni.ID)
+					_, bc, _ := BusinessService.GetBusinessById(ni.ID)
 					if bc > 0 {
 						// 复制
 						nai := NavigationList{

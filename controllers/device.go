@@ -506,7 +506,7 @@ func (this *DeviceController) Configure() {
 	//DeviceService
 }
 
-//控制设备
+// 控制设备
 func (request *DeviceController) Operating() {
 	operatingDeviceValidate := valid.OperatingDevice{}
 	err := json.Unmarshal(request.Ctx.Input.RequestBody, &operatingDeviceValidate)
@@ -657,8 +657,8 @@ func (deviceController *DeviceController) Reset() {
 		return
 	}
 	var DeviceService services.DeviceService
-	f, _ := DeviceService.Token(operatingDevice.DeviceId)
-	if f.Token != "" {
+	f, i := DeviceService.Token(operatingDevice.DeviceId)
+	if i != 0 {
 		operatingMap := map[string]interface{}{
 			"token":  f.Token,
 			"values": operatingDevice.Values,
@@ -948,8 +948,8 @@ func (c *DeviceController) DeviceStatus() {
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
-//新增某产品下的所有设备列表
-//2023-3-20
+// 新增某产品下的所有设备列表
+// 2023-3-20
 func (c *DeviceController) DeviceListByProductId() {
 	PaginationValidate := valid.DevicePaginationValidate{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &PaginationValidate)
