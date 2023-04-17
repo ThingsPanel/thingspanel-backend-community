@@ -156,48 +156,45 @@ type DeviceDash struct {
 	Dash           []services.Widget `json:"dash"`
 }
 
-func (reqDate *DeviceController) AddOnly() {
-	addDeviceValidate := valid.Device{}
-	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &addDeviceValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
+func (c *DeviceController) AddOnly() {
+	reqData := valid.Device{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(addDeviceValidate)
-	if !status {
-		for _, err := range v.Errors {
-			alias := gvalid.GetAlias(addDeviceValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
-			break
-		}
+
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var DeviceService services.DeviceService
-	if addDeviceValidate.Token == "" {
+	if reqData.Token == "" {
 		var uuid_d = uuid.GetUuid()
-		addDeviceValidate.Token = uuid_d
+		reqData.Token = uuid_d
 	}
 	deviceData := models.Device{
-		AssetID:        addDeviceValidate.AssetID,
-		Token:          addDeviceValidate.Token,
-		AdditionalInfo: addDeviceValidate.AdditionalInfo,
-		Type:           addDeviceValidate.Type,
-		Name:           addDeviceValidate.Name,
-		Label:          addDeviceValidate.Label,
-		SearchText:     addDeviceValidate.SearchText,
-		Protocol:       addDeviceValidate.Protocol,
-		Port:           addDeviceValidate.Port,
-		Publish:        addDeviceValidate.Publish,
-		Subscribe:      addDeviceValidate.Subscribe,
-		Username:       addDeviceValidate.Username,
-		Password:       addDeviceValidate.Password,
-		DId:            addDeviceValidate.DId,
-		Location:       addDeviceValidate.Location,
-		DeviceType:     addDeviceValidate.DeviceType,
-		ParentId:       addDeviceValidate.ParentId,
-		ProtocolConfig: addDeviceValidate.ProtocolConfig,
-		ScriptId:       addDeviceValidate.ScriptId,
+		AssetID:        reqData.AssetID,
+		Token:          reqData.Token,
+		AdditionalInfo: reqData.AdditionalInfo,
+		Type:           reqData.Type,
+		Name:           reqData.Name,
+		Label:          reqData.Label,
+		SearchText:     reqData.SearchText,
+		Protocol:       reqData.Protocol,
+		Port:           reqData.Port,
+		Publish:        reqData.Publish,
+		Subscribe:      reqData.Subscribe,
+		Username:       reqData.Username,
+		Password:       reqData.Password,
+		DId:            reqData.DId,
+		Location:       reqData.Location,
+		DeviceType:     reqData.DeviceType,
+		ParentId:       reqData.ParentId,
+		ProtocolConfig: reqData.ProtocolConfig,
+		ScriptId:       reqData.ScriptId,
+		TenantId:       tenantId,
 	}
 	if deviceData.ChartOption == "" {
 		deviceData.ChartOption = "{}"
@@ -240,10 +237,10 @@ func (reqDate *DeviceController) AddOnly() {
 
 		}
 
-		response.SuccessWithDetailed(200, "success", deviceData, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+		response.SuccessWithDetailed(200, "success", deviceData, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
-		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(reqDate.Ctx))
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 	}
 }
 
@@ -445,8 +442,14 @@ func (this *DeviceController) Delete() {
 		return
 	}
 	var DeviceService services.DeviceService
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	d, _ := DeviceService.GetDeviceByID(deleteDeviceValidate.ID)
-	err = DeviceService.Delete(deleteDeviceValidate.ID)
+	err = DeviceService.Delete(deleteDeviceValidate.ID, tenantId)
 	if err == nil {
 		// 判断是否协议插件设备删除
 		if d.Protocol != "mqtt" && d.Protocol != "MQTT" {
@@ -506,34 +509,24 @@ func (this *DeviceController) Configure() {
 	//DeviceService
 }
 
-// 控制设备
-func (request *DeviceController) Operating() {
-	operatingDeviceValidate := valid.OperatingDevice{}
-	err := json.Unmarshal(request.Ctx.Input.RequestBody, &operatingDeviceValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(operatingDeviceValidate)
-	if !status {
-		for _, err := range v.Errors {
-			alias := gvalid.GetAlias(operatingDeviceValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(request.Ctx))
-			break
-		}
+
+//控制设备
+func (c *DeviceController) Operating() {
+	reqData := valid.OperatingDevice{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	// -------------------------------------------
 	// 获取设备token
 	var DeviceService services.DeviceService
-	deviceData, c := DeviceService.Token(operatingDeviceValidate.DeviceId)
-	if c == 0 {
-		response.SuccessWithMessage(400, "no equipment", (*context2.Context)(request.Ctx))
+	deviceData, i := DeviceService.Token(reqData.DeviceId)
+	if i == 0 {
+		response.SuccessWithMessage(400, "no equipment", (*context2.Context)(c.Ctx))
 		return
 	}
 	// 将struct转map
-	valuesMap, _ := operatingDeviceValidate.Values.(map[string]interface{})
+	valuesMap, _ := reqData.Values.(map[string]interface{})
 	// 遍历map拼接指令内容并记录入库
 	var instruct string = ""
 	for k, v := range valuesMap {
@@ -551,7 +544,7 @@ func (request *DeviceController) Operating() {
 	newPayload, toErr := json.Marshal(valuesMap)
 	if toErr != nil {
 		logs.Info("JSON 编码失败：%v\n", toErr)
-		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(request.Ctx))
+		response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	f := DeviceService.SendMessage(newPayload, deviceData)
@@ -561,18 +554,19 @@ func (request *DeviceController) Operating() {
 		Instruct:      instruct,
 		ProtocolType:  "mqtt",
 		CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
+		TenantId:      deviceData.TenantId,
 	}
 	var ConditionsLogService services.ConditionsLogService
 	if f == nil {
 		logs.Info("成功发送控制")
 		ConditionsLog.SendResult = "1"
 		ConditionsLogService.Insert(&ConditionsLog)
-		response.SuccessWithDetailed(200, "success", valuesMap, map[string]string{}, (*context2.Context)(request.Ctx))
+		response.SuccessWithDetailed(200, "success", valuesMap, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
 		logs.Info("成功发送失败")
 		ConditionsLog.SendResult = "2"
 		ConditionsLogService.Insert(&ConditionsLog)
-		response.SuccessWithMessage(400, f.Error(), (*context2.Context)(request.Ctx))
+		response.SuccessWithMessage(400, f.Error(), (*context2.Context)(c.Ctx))
 	}
 }
 
@@ -740,33 +734,27 @@ func (DeviceController *DeviceController) PageList() {
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }
 
-func (DeviceController *DeviceController) PageListTree() {
-	DevicePageListValidate := valid.DevicePageListValidate{}
-	err := json.Unmarshal(DeviceController.Ctx.Input.RequestBody, &DevicePageListValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
+func (c *DeviceController) PageListTree() {
+	reqData := valid.DevicePageListValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(DevicePageListValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(DevicePageListValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(DeviceController.Ctx))
-			break
-		}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var DeviceService services.DeviceService
-	w, c := DeviceService.PageGetDevicesByAssetIDTree(DevicePageListValidate)
+	w, i := DeviceService.PageGetDevicesByAssetIDTree(reqData, tenantId)
 	d := PaginateWarninglogList{
-		CurrentPage: DevicePageListValidate.CurrentPage,
+		CurrentPage: reqData.CurrentPage,
 		Data:        w,
-		Total:       c,
-		PerPage:     DevicePageListValidate.PerPage,
+		Total:       i,
+		PerPage:     reqData.PerPage,
 	}
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 func (DeviceController *DeviceController) GetGatewayConfig() {
@@ -895,30 +883,36 @@ func (DeviceController *DeviceController) GetDeviceByCascade() {
 }
 
 // 地图接口
-func (DeviceController *DeviceController) DeviceMapList() {
-	DeviceMapValidate := valid.DeviceMapValidate{}
-	err := json.Unmarshal(DeviceController.Ctx.Input.RequestBody, &DeviceMapValidate)
+func (c *DeviceController) DeviceMapList() {
+	reqData := valid.DeviceMapValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(DeviceMapValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(DeviceMapValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(DeviceController.Ctx))
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
-	var DeviceService services.DeviceService
-	d, err := DeviceService.DeviceMapList(DeviceMapValidate)
-	if err != nil {
-		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(DeviceController.Ctx))
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
 	}
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
+	var DeviceService services.DeviceService
+	d, err := DeviceService.DeviceMapList(reqData, tenantId)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 设备在线离线状态

@@ -26,10 +26,10 @@ func (*TpProductService) GetTpProductDetail(tp_product_id string) []models.TpPro
 }
 
 // 获取列表
-func (*TpProductService) GetTpProductList(PaginationValidate valid.TpProductPaginationValidate) (bool, []models.TpProduct, int64) {
+func (*TpProductService) GetTpProductList(PaginationValidate valid.TpProductPaginationValidate, tenantId string) (bool, []models.TpProduct, int64) {
 	var TpProducts []models.TpProduct
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	db := psql.Mydb.Model(&models.TpProduct{})
+	db := psql.Mydb.Model(&models.TpProduct{}).Where("tenant_id = ?", tenantId)
 	if PaginationValidate.SerialNumber != "" {
 		db.Where("serial_number like ?", "%"+PaginationValidate.SerialNumber+"%")
 	}
@@ -59,8 +59,8 @@ func (*TpProductService) AddTpProduct(tp_product models.TpProduct) (error, model
 }
 
 // 修改数据
-func (*TpProductService) EditTpProduct(tp_product valid.TpProductValidate) bool {
-	result := psql.Mydb.Model(&models.TpProduct{}).Where("id = ?", tp_product.Id).Updates(&tp_product)
+func (*TpProductService) EditTpProduct(tp_product valid.TpProductValidate, tenantId string) bool {
+	result := psql.Mydb.Model(&models.TpProduct{}).Where("id = ? and tenant_id", tp_product.Id, tenantId).Updates(&tp_product)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false

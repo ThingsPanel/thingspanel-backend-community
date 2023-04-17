@@ -4,6 +4,7 @@ import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
+	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
@@ -19,94 +20,112 @@ type TpWarningInformationController struct {
 }
 
 // 列表
-func (TpWarningInformationController *TpWarningInformationController) List() {
-	PaginationValidate := valid.TpWarningInformationPaginationValidate{}
-	err := json.Unmarshal(TpWarningInformationController.Ctx.Input.RequestBody, &PaginationValidate)
+func (c *TpWarningInformationController) List() {
+	reqData := valid.TpWarningInformationPaginationValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(PaginationValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(PaginationValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpWarningInformationController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	var TpWarningInformationService services.TpWarningInformationService
-	d, t, err := TpWarningInformationService.GetTpWarningInformationList(PaginationValidate)
+	d, t, err := TpWarningInformationService.GetTpWarningInformationList(reqData, tenantId)
 	if err != nil {
-		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpWarningInformationController.Ctx))
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	dd := valid.RspTpWarningInformationPaginationValidate{
-		CurrentPage: PaginationValidate.CurrentPage,
+		CurrentPage: reqData.CurrentPage,
 		Data:        d,
 		Total:       t,
-		PerPage:     PaginationValidate.PerPage,
+		PerPage:     reqData.PerPage,
 	}
-	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpWarningInformationController.Ctx))
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 编辑
-func (TpWarningInformationController *TpWarningInformationController) Edit() {
-	EditTpWarningInformationValidate := valid.TpWarningInformationValidate{}
-	err := json.Unmarshal(TpWarningInformationController.Ctx.Input.RequestBody, &EditTpWarningInformationValidate)
+func (c *TpWarningInformationController) Edit() {
+	reqData := valid.TpWarningInformationValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(EditTpWarningInformationValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(EditTpWarningInformationValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpWarningInformationController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
-	if EditTpWarningInformationValidate.Id == "" {
-		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpWarningInformationController.Ctx))
+	if reqData.Id == "" {
+		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(c.Ctx))
+	}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
 	}
 	var TpWarningInformationService services.TpWarningInformationService
-	d, err := TpWarningInformationService.EditTpWarningInformation(EditTpWarningInformationValidate)
+	d, err := TpWarningInformationService.EditTpWarningInformation(reqData, tenantId)
 	if err == nil {
-		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpWarningInformationController.Ctx))
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
-		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpWarningInformationController.Ctx))
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 	}
 }
 
 //批量处理
-func (TpWarningInformationController *TpWarningInformationController) BatchProcessing() {
-	batchProcessingValidate := valid.BatchProcessingValidate{}
-	err := json.Unmarshal(TpWarningInformationController.Ctx.Input.RequestBody, &batchProcessingValidate)
+func (c *TpWarningInformationController) BatchProcessing() {
+	reqData := valid.BatchProcessingValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(batchProcessingValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(batchProcessingValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpWarningInformationController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	var TpWarningInformationService services.TpWarningInformationService
-	err = TpWarningInformationService.BatchProcessing(batchProcessingValidate)
+	err = TpWarningInformationService.BatchProcessing(reqData, tenantId)
 	if err == nil {
-		utils.SuccessWithMessage(200, "sucess", (*context2.Context)(TpWarningInformationController.Ctx))
+		utils.SuccessWithMessage(200, "sucess", (*context2.Context)(c.Ctx))
 	} else {
-		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpWarningInformationController.Ctx))
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 	}
 }

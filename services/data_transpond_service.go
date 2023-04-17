@@ -3,8 +3,8 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
-	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+
 	"github.com/beego/beego/v2/core/logs"
 )
 
@@ -18,10 +18,10 @@ type DataTranspondService struct {
 }
 
 // 获取列表
-func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.PaginationValidate) (bool, []models.DataTranspond, int64) {
+func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.PaginationValidate, tenantId string) (bool, []models.DataTranspond, int64) {
 	var DataTransponds []models.DataTranspond
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	db := psql.Mydb.Model(&models.DataTranspond{})
+	db := psql.Mydb.Model(&models.DataTranspond{}).Where("tenant_id = ? ", tenantId)
 	if PaginationValidate.Disabled != "" {
 		db.Where("disabled = ?", PaginationValidate.Disabled)
 	}
@@ -44,8 +44,6 @@ func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.Pagin
 
 // 新增数据
 func (*DataTranspondService) AddDataTranspond(data_transpond models.DataTranspond) (bool, models.DataTranspond) {
-	var uuid = uuid.GetUuid()
-	data_transpond.Id = uuid
 	result := psql.Mydb.Create(&data_transpond)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())

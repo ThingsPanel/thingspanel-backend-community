@@ -618,8 +618,9 @@ func (*AssetService) Edit(data string) bool {
 }
 
 // 根据ID删除一条asset数据
-func (*AssetService) Delete(id string) bool {
-	result := psql.Mydb.Where("id = ?", id).Delete(&models.Asset{})
+
+func (*AssetService) Delete(id, tenantId string) bool {
+	result := psql.Mydb.Where("id = ? and tenant_id = ?", id, tenantId).Delete(&models.Asset{})
 	return result.Error == nil
 }
 
@@ -641,6 +642,23 @@ func (*AssetService) GetAssetsByParentID(parent_id string) ([]models.Asset, int6
 		return nil, 0, result.Error
 	}
 	return assets, count, nil
+}
+
+// 根据ID和TenantId获取下级资产
+func (*AssetService) GetAssetsByParentIDAndTenantId(parent_id, tenant_id string) ([]models.Asset, int64) {
+	var assets []models.Asset
+	var count int64
+	psql.Mydb.Model(&models.Asset{}).Where("parent_id = ? and tenant_id = ?", parent_id, tenant_id).Count(&count)
+	//sqlWhere += "order by wl.created_at desc offset ? limit ?"
+	result := psql.Mydb.Model(&models.Asset{}).Where("parent_id = ? and tenant_id = ?", parent_id, tenant_id).Find(&assets)
+
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+	}
+	if len(assets) == 0 {
+		assets = []models.Asset{}
+	}
+	return assets, count
 }
 
 func (*AssetService) GetAssetsByTierAndBusinessID(business_id string) ([]models.Asset, int64) {
@@ -877,7 +895,7 @@ func (*AssetService) Field(id string, widget_id string) []Field {
 }
 
 // 根据业务id查询父资产
-func (*AssetService) GetAssetByBusinessId(business_id string) ([]AssetList, int64) {
+func (*AssetService) GetAssetByBusinessId(business_id, tenant_id string) ([]AssetList, int64) {
 	var assets []AssetList
 	var count int64
 	db := psql.Mydb.Model(&models.Asset{}).Where("business_id = ? AND parent_id='0'", business_id)
@@ -896,8 +914,8 @@ func (*AssetService) GetAssetByBusinessId(business_id string) ([]AssetList, int6
 }
 
 // GetAssetDataByBusinessId根据业务id查询业务下所有资产
-func (*AssetService) GetAssetDataByBusinessId(business_id string) (assets []AssetList, err error) {
-	err = psql.Mydb.Model(&models.Asset{}).Where("business_id = ?", business_id).Find(&assets).Error
+func (*AssetService) GetAssetDataByBusinessId(business_id, tenantId string) (assets []AssetList, err error) {
+	err = psql.Mydb.Model(&models.Asset{}).Where("business_id = ? and tenant_id = ?", business_id, tenantId).Find(&assets).Error
 	if err != nil {
 		return nil, err
 	}
@@ -944,15 +962,15 @@ func (*AssetService) Simple() (assets []models.Simple, err error) {
 }
 
 // 通过业务id获取设备分组
-func (*AssetService) PageGetDeviceGroupByBussinessID(business_id string, current int, pageSize int) ([]map[string]interface{}, int64) {
+func (*AssetService) PageGetDeviceGroupByBussinessID(business_id, tenant_id string, current int, pageSize int) ([]map[string]interface{}, int64) {
 	sqlWhere := `select a.id,a."name" , (with RECURSIVE ast as 
 		( 
 		(select aa.id,cast('/'as varchar(255))as name,aa.parent_id  from asset aa where id=a.id) 
 		union  
 		(select tt.id,cast (CONCAT('/',kk.name,tt.name ) as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
-		)select name from ast where parent_id='0' limit 1) as parent_group ,a.parent_id from asset a where business_id = ? order by parent_group asc`
+		)select name from ast where parent_id='0' limit 1) as parent_group ,a.parent_id from asset a where business_id = ? and tenant_id = ? order by parent_group asc`
 	var values []interface{}
-	values = append(values, business_id)
+	values = append(values, business_id, tenant_id)
 	var count int64
 	result := psql.Mydb.Raw(sqlWhere, values...).Count(&count)
 	if result.Error != nil {
@@ -973,15 +991,15 @@ func (*AssetService) PageGetDeviceGroupByBussinessID(business_id string, current
 }
 
 // 通过业务id获取设备分组下拉列表
-func (*AssetService) DeviceGroupByBussinessID(business_id string) ([]map[string]interface{}, int64) {
+func (*AssetService) DeviceGroupByBussinessID(business_id, tenant_id string) ([]map[string]interface{}, int64) {
 	sqlWhere := `select a.id,(with RECURSIVE ast as 
 		( 
 		(select aa.id,cast(CONCAT('/',aa.name) as varchar(255))as name,aa.parent_id  from asset aa where id=a.id) 
 		union  
 		(select tt.id,cast (CONCAT('/',kk.name,tt.name ) as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
-		)select name from ast where parent_id='0' limit 1)  as device_group from asset a where business_id = ? order by device_group asc`
+		)select name from ast where parent_id='0' limit 1)  as device_group from asset a where business_id = ? and tenant_id = ? order by device_group asc`
 	var values []interface{}
-	values = append(values, business_id)
+	values = append(values, business_id, tenant_id)
 	var count int64
 	result := psql.Mydb.Raw(sqlWhere, values...)
 	if result.Error != nil {

@@ -11,6 +11,7 @@ type Asset struct {
 	ParentID       string `json:"parent_id" gorm:"size:36"`   // 父级ID
 	Tier           int64  `json:"tier"`                       // 层级
 	BusinessID     string `json:"business_id" gorm:"size:36"` // 业务ID
+	TenantId       string `json:"tenant_id"`                  // 租户id
 }
 
 type Simple struct {

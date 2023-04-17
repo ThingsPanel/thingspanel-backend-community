@@ -22,76 +22,88 @@ type TpDashboardController struct {
 }
 
 // 列表
-func (TpDashboardController *TpDashboardController) List() {
-	PaginationValidate := valid.TpDashboardPaginationValidate{}
-	err := json.Unmarshal(TpDashboardController.Ctx.Input.RequestBody, &PaginationValidate)
+func (c *TpDashboardController) List() {
+	reqData := valid.TpDashboardPaginationValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(PaginationValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(PaginationValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(TpDashboardController.Ctx))
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	var TpDashboardService services.TpDashboardService
-	isSuccess, d, t := TpDashboardService.GetTpDashboardList(PaginationValidate)
+	isSuccess, d, t := TpDashboardService.GetTpDashboardList(reqData, tenantId)
 
 	if !isSuccess {
-		response.SuccessWithMessage(1000, "查询失败", (*context2.Context)(TpDashboardController.Ctx))
+		response.SuccessWithMessage(1000, "查询失败", (*context2.Context)(c.Ctx))
 		return
 	}
 	dd := valid.RspTpDashboardPaginationValidate{
-		CurrentPage: PaginationValidate.CurrentPage,
+		CurrentPage: reqData.CurrentPage,
 		Data:        d,
 		Total:       t,
-		PerPage:     PaginationValidate.PerPage,
+		PerPage:     reqData.PerPage,
 	}
-	response.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpDashboardController.Ctx))
+	response.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 编辑
-func (TpDashboardController *TpDashboardController) Edit() {
-	TpDashboardValidate := valid.TpDashboardValidate{}
-	err := json.Unmarshal(TpDashboardController.Ctx.Input.RequestBody, &TpDashboardValidate)
+func (c *TpDashboardController) Edit() {
+	reqData := valid.TpDashboardValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	v := validation.Validation{}
-	status, _ := v.Valid(TpDashboardValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(TpDashboardValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(TpDashboardController.Ctx))
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
-	if TpDashboardValidate.Id == "" {
-		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpDashboardController.Ctx))
+	if reqData.Id == "" {
+		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(c.Ctx))
 	}
 	var TpDashboardService services.TpDashboardService
-	isSucess := TpDashboardService.EditTpDashboard(TpDashboardValidate)
+	isSucess := TpDashboardService.EditTpDashboard(reqData, tenantId)
 	if isSucess {
-		d := TpDashboardService.GetTpDashboardDetail(TpDashboardValidate.Id)
-		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpDashboardController.Ctx))
+		d := TpDashboardService.GetTpDashboardDetail(reqData.Id)
+		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
-		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(TpDashboardController.Ctx))
+		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(c.Ctx))
 	}
 }
 
 // 新增
-func (TpDashboardController *TpDashboardController) Add() {
+func (c *TpDashboardController) Add() {
 	AddTpDashboardValidate := valid.AddTpDashboardValidate{}
-	err := json.Unmarshal(TpDashboardController.Ctx.Input.RequestBody, &AddTpDashboardValidate)
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &AddTpDashboardValidate)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
@@ -102,9 +114,15 @@ func (TpDashboardController *TpDashboardController) Add() {
 			// 获取字段别称
 			alias := gvalid.GetAlias(AddTpDashboardValidate, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(TpDashboardController.Ctx))
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
+		return
+	}
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var TpDashboardService services.TpDashboardService
@@ -117,48 +135,57 @@ func (TpDashboardController *TpDashboardController) Add() {
 		CreateAt:      time.Now().Unix(),
 		Sort:          AddTpDashboardValidate.Sort,
 		Remark:        AddTpDashboardValidate.Remark,
+		TenantId:      tenantId,
 	}
 	if TpDashboard.JsonData == "" {
 		TpDashboard.JsonData = "{}"
 	}
 	isSucess, d := TpDashboardService.AddTpDashboard(TpDashboard)
 	if isSucess {
-		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpDashboardController.Ctx))
+		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
-		response.SuccessWithMessage(400, "新增失败", (*context2.Context)(TpDashboardController.Ctx))
+		response.SuccessWithMessage(400, "新增失败", (*context2.Context)(c.Ctx))
 	}
 }
 
 // 删除
-func (TpDashboardController *TpDashboardController) Delete() {
-	TpDashboardValidate := valid.TpDashboardValidate{}
-	err := json.Unmarshal(TpDashboardController.Ctx.Input.RequestBody, &TpDashboardValidate)
+func (c *TpDashboardController) Delete() {
+	reqData := valid.TpDashboardValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(TpDashboardValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(TpDashboardValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(TpDashboardController.Ctx))
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
-	if TpDashboardValidate.Id == "" {
-		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpDashboardController.Ctx))
+	if reqData.Id == "" {
+		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(c.Ctx))
+		return
+	}
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
 	}
 	var TpDashboardService services.TpDashboardService
 	TpDashboard := models.TpDashboard{
-		Id: TpDashboardValidate.Id,
+		Id:       reqData.Id,
+		TenantId: tenantId,
 	}
 	isSucess := TpDashboardService.DeleteTpDashboard(TpDashboard)
 	if isSucess {
-		response.SuccessWithMessage(200, "success", (*context2.Context)(TpDashboardController.Ctx))
+		response.SuccessWithMessage(200, "success", (*context2.Context)(c.Ctx))
 	} else {
-		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(TpDashboardController.Ctx))
+		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(c.Ctx))
 	}
 }

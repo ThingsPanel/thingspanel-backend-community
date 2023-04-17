@@ -20,11 +20,12 @@ type TpOtaService struct {
 }
 
 //获取列表
-func (*TpOtaService) GetTpOtaList(PaginationValidate valid.TpOtaPaginationValidate) (bool, []map[string]interface{}, int64) {
+func (*TpOtaService) GetTpOtaList(PaginationValidate valid.TpOtaPaginationValidate, tenantId string) (bool, []map[string]interface{}, int64) {
 	sqlWhere := `select o.*,p.name as product_name from tp_ota o left join tp_product p on o.product_id=p.id where 1=1 `
 	sqlWhereCount := `select count(1) from tp_ota o left join tp_product p on o.product_id=p.id where 1=1`
 	var values []interface{}
-	var where = ""
+	var where = "and o.tenant_id = ?"
+	values = append(values, tenantId)
 	if PaginationValidate.PackageName != "" {
 		values = append(values, "%"+PaginationValidate.PackageName+"%")
 		where += " and o.package_name like ?"

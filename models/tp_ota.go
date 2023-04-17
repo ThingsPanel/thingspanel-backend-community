@@ -13,6 +13,7 @@ type TpOta struct {
 	AdditionalInfo     string `json:"additional_info,omitempty"`
 	CreatedAt          int64  `json:"created_at,omitempty"`
 	Sign               string `json:"sign,omitempty"`
+	TenantId           string `json:"tenant_id,omitempty" gorm:"size:36"` // 租户id
 }
 
 func (TpOta) TableName() string {

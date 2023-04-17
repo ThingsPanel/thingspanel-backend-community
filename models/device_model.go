@@ -13,6 +13,7 @@ type DeviceModel struct {
 	Issued    int64  `json:"issued"`
 	Remark    string `json:"remark,omitempty" gorm:"size:255"`
 	CreatedAt int64  `json:"created_at,omitempty"`
+	TenantId  string `json:"tenant_id,omitempty"`
 }
 
 func (DeviceModel) TableName() string {

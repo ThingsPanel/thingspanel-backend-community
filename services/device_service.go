@@ -127,7 +127,7 @@ func (*DeviceService) PageGetDevicesByAssetID(business_id string, asset_id strin
 }
 
 // GetDevicesByAssetID 获取设备列表(business_id string, device_id string, asset_id string, current int, pageSize int,device_type string)
-func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValidate) ([]map[string]interface{}, int64) {
+func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValidate, tenantId string) ([]map[string]interface{}, int64) {
 	sqlWhere := `select (with RECURSIVE ast as 
 		( 
 		(select aa.id,cast(aa.name as varchar(255)),aa.parent_id  from asset aa where id=a.id) 
@@ -137,9 +137,13 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 		as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,
 		d.additional_info as additional_info,d.sub_device_addr as sub_device_addr,d."token" as device_token,d."type" as "type",d.protocol as protocol ,dm.model_name as plugin_name,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
 		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id LEFT JOIN device_model dm ON d.type = dm.id where 1=1  and d.device_type != '3'`
-	sqlWhereCount := `select count(1) from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 and d.device_type != '3'`
+	sqlWhereCount := `select count(1) from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where d.device_type != '3'`
 	var values []interface{}
 	var where = ""
+	// 增加租户id查询条件
+	values = append(values, tenantId)
+	where += " and d.tenant_id = ?"
+
 	if req.BusinessId != "" {
 		values = append(values, req.BusinessId)
 		where += " and b.id = ?"
@@ -459,10 +463,20 @@ func (*DeviceService) GetDeviceByID(id string) (*models.Device, int64) {
 	return &device, result.RowsAffected
 }
 
-// Delete 根据ID删除Device
-func (*DeviceService) Delete(id string) error {
+// 根据设备ID获取租户ID
+func (*DeviceService) GetTenantIdByDeviceId(id string) (tenantId string, err error) {
 	var device models.Device
 	result := psql.Mydb.Where("id = ?", id).First(&device)
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return device.TenantId, nil
+}
+
+// Delete 根据ID删除Device
+func (*DeviceService) Delete(id, tenantId string) error {
+	var device models.Device
+	result := psql.Mydb.Where("id = ? and tenant_id = ?", id, tenantId).First(&device)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -474,7 +488,7 @@ func (*DeviceService) Delete(id string) error {
 			return errors.New("请先删除网关设备下的子设备")
 		}
 	}
-	result = psql.Mydb.Where("id = ?", id).Delete(&models.Device{})
+	result = psql.Mydb.Where("id = ? and tenant_id = ?", id, tenantId).Delete(&models.Device{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -490,10 +504,10 @@ func (*DeviceService) Delete(id string) error {
 }
 
 // 获取全部Device
-func (*DeviceService) All() ([]models.Device, int64) {
+func (*DeviceService) All(tenantId string) ([]models.Device, int64) {
 	var devices []models.Device
 	var count int64
-	result := psql.Mydb.Model(&devices).Count(&count)
+	result := psql.Mydb.Model(&devices).Where("tenant_id = ?", tenantId).Count(&count)
 	if len(devices) == 0 {
 		devices = []models.Device{}
 	}
@@ -850,6 +864,9 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 					}
 				}
 				logs.Error(reflect.TypeOf(applyValue))
+				//根据设备id获取租户id
+				var deviceService DeviceService
+				tenantId, _ := deviceService.GetTenantIdByDeviceId(applyDeviceId)
 				ConditionsLog := models.ConditionsLog{
 					DeviceId:      applyDeviceId,
 					OperationType: "3",
@@ -857,6 +874,7 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 					ProtocolType:  "mqtt",
 					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
 					Remark:        rule_id,
+					TenantId:      tenantId,
 				}
 				//发送控制
 				var DeviceService DeviceService
@@ -1037,7 +1055,7 @@ func (*DeviceService) GetDeviceByCascade() ([]map[string]interface{}, error) {
 }
 
 // GetDevicesByAssetID 获取设备列表(business_id string, device_id string, asset_id string, current int, pageSize int,device_type string)
-func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]interface{}, error) {
+func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate, tenantId string) ([]map[string]interface{}, error) {
 	sqlWhere := `select (with RECURSIVE ast as 
 		( 
 		(select aa.id,cast(aa.name as varchar(255)),aa.parent_id  from asset aa where id=a.id) 
@@ -1049,7 +1067,8 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 		   (select name from device dd where dd.device_type = '2' and dd.parent_id = d.id limit 1) as gateway_name
 		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 and d.location !=''`
 	var values []interface{}
-	var where = ""
+	var where = "and d.tenant_id = ?"
+	values = append(values, tenantId)
 	if req.BusinessId != "" {
 		values = append(values, req.BusinessId)
 		where += " and b.id = ?"

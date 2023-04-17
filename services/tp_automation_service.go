@@ -83,14 +83,14 @@ func (*TpAutomationService) GetTpAutomationDetail(tp_automation_id string) (map[
 }
 
 // 获取列表
-func (*TpAutomationService) GetTpAutomationList(PaginationValidate valid.TpAutomationPaginationValidate) ([]models.TpAutomation, int64, error) {
+func (*TpAutomationService) GetTpAutomationList(PaginationValidate valid.TpAutomationPaginationValidate, tenantId string) ([]models.TpAutomation, int64, error) {
 	var TpAutomations []models.TpAutomation
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpAutomation{})
+	db.Where("tenant_id = ?", tenantId)
 	if PaginationValidate.Id != "" {
 		db.Where("id = ?", PaginationValidate.Id)
 	}
-
 	var count int64
 	db.Count(&count)
 	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpAutomations)

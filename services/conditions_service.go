@@ -275,7 +275,6 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		logs.Error(result.Error.Error())
 		return "", result.Error
 	}
-	logs.Error(automationActions)
 	for _, automationAction := range automationActions {
 		var automationLogDetail models.TpAutomationLogDetail
 		if automationAction.ActionType == "1" {
@@ -319,6 +318,9 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 							conditionsLog.OperationType = "3"
 							conditionsLog.ProtocolType = "mqtt"
 							conditionsLog.Instruct = instructString
+							//根据设备id获取租户id
+							tenantId, _ := DeviceService.GetTenantIdByDeviceId(automationAction.DeviceId)
+							conditionsLog.TenantId = tenantId
 							conditionsLogService.Insert(&conditionsLog)
 						}
 					}

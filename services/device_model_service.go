@@ -3,7 +3,6 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
-	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"strconv"
 
@@ -27,10 +26,11 @@ func (*DeviceModelService) GetDeviceModelDetail(device_model_id string) []models
 }
 
 // 获取列表
-func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceModelPaginationValidate) (bool, []models.DeviceModel, int64) {
+func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceModelPaginationValidate, tenantId string) (bool, []models.DeviceModel, int64) {
 	var DeviceModels []models.DeviceModel
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.DeviceModel{})
+	db.Where("tenant_id = ? or flag = 0", tenantId)
 	if PaginationValidate.Issued != 0 {
 		db.Where("issued = ?", strconv.Itoa(PaginationValidate.Issued))
 	}
@@ -48,7 +48,6 @@ func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceMod
 	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DeviceModels)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
-		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, DeviceModels, 0
 	}
 	return true, DeviceModels, count
@@ -56,8 +55,6 @@ func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceMod
 
 // 新增数据
 func (*DeviceModelService) AddDeviceModel(device_model models.DeviceModel) (bool, models.DeviceModel) {
-	var uuid = uuid.GetUuid()
-	device_model.ID = uuid
 	result := psql.Mydb.Create(&device_model)
 	if result.Error != nil {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -68,8 +65,8 @@ func (*DeviceModelService) AddDeviceModel(device_model models.DeviceModel) (bool
 }
 
 // 修改数据
-func (*DeviceModelService) EditDeviceModel(device_model valid.DeviceModelValidate) bool {
-	result := psql.Mydb.Model(&models.DeviceModel{}).Where("id = ?", device_model.Id).Updates(&device_model)
+func (*DeviceModelService) EditDeviceModel(device_model valid.DeviceModelValidate, tenantId string) bool {
+	result := psql.Mydb.Model(&models.DeviceModel{}).Where("id = ? and tenant_id = ?", device_model.Id, tenantId).Updates(&device_model)
 	if result.Error != nil {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		logs.Error(result.Error.Error())

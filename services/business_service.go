@@ -5,9 +5,9 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
-	"github.com/beego/beego/v2/core/logs"
 	"time"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -34,36 +34,27 @@ type AllBusiness struct {
 }
 
 // Paginate 分页获取business数据
-func (*BusinessService) Paginate(name string, offset int, pageSize int) ([]models.Business, int64, error) {
+func (*BusinessService) Paginate(name string, offset int, pageSize int, tenantId string) ([]models.Business, int64) {
 	var businesses []models.Business
 	var count int64
+
+	tx := psql.Mydb.Model(&models.Business{})
+	tx.Where("tenant_id = ?", tenantId)
 	if name != "" {
-		result := psql.Mydb.Model(&models.Business{}).Where("name LIKE ?", "%"+name+"%").Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses)
-		psql.Mydb.Model(&models.Business{}).Where("name LIKE ?", "%"+name+"%").Count(&count)
-		if len(businesses) == 0 {
-			businesses = []models.Business{}
-		}
-		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return businesses, 0, nil
-			}
-			return nil, 0, result.Error
-		}
-		return businesses, count, nil
-	} else {
-		result := psql.Mydb.Model(&models.Business{}).Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses)
-		psql.Mydb.Model(&models.Business{}).Count(&count)
-		if len(businesses) == 0 {
-			businesses = []models.Business{}
-		}
-		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return businesses, 0, nil
-			}
-			return nil, 0, result.Error
-		}
-		return businesses, count, nil
+		tx.Where("name LIKE ?", "%"+name+"%")
 	}
+	err := tx.Count(&count).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return businesses, count
+	}
+	err = tx.Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses).Error
+
+	if err != nil {
+		logs.Error(err.Error())
+		return businesses, count
+	}
+	return businesses, count
 }
 
 // 根据id获取一条business数据
@@ -81,9 +72,9 @@ func (*BusinessService) GetBusinessById(id string) (*models.Business, int64, err
 }
 
 // Add新增一条business数据
-func (*BusinessService) Add(name string) (bool, string) {
+func (*BusinessService) Add(name, tenantId string) (bool, string) {
 	bussiness_id := uuid.GetUuid()
-	business := models.Business{ID: bussiness_id, Name: name, CreatedAt: time.Now().Unix()}
+	business := models.Business{ID: bussiness_id, Name: name, TenantId: tenantId, CreatedAt: time.Now().Unix()}
 	result := psql.Mydb.Create(&business)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
@@ -97,14 +88,15 @@ func (*BusinessService) Add(name string) (bool, string) {
 		Tier:       1,
 		ParentID:   "0",
 		BusinessID: bussiness_id,
+		TenantId:   tenantId,
 	}
 	psql.Mydb.Create(asset)
 	return true, bussiness_id
 }
 
 // 根据ID编辑一条business数据
-func (*BusinessService) Edit(id string, name string) bool {
-	result := psql.Mydb.Model(&models.Business{}).Where("id = ?", id).Update("name", name)
+func (*BusinessService) Edit(id string, name string, tenantId string) bool {
+	result := psql.Mydb.Model(&models.Business{}).Where("id = ? and tenant_id = ?", id, tenantId).Update("name", name)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return false
@@ -113,8 +105,8 @@ func (*BusinessService) Edit(id string, name string) bool {
 }
 
 // 根据ID删除一条business数据
-func (*BusinessService) Delete(id string) bool {
-	result := psql.Mydb.Where("id = ?", id).Delete(&models.Business{})
+func (*BusinessService) Delete(id, tenantId string) bool {
+	result := psql.Mydb.Where("id = ? and tenantid = ?", id, tenantId).Delete(&models.Business{})
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return false
