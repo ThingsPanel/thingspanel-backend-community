@@ -18,7 +18,7 @@ import (
 
 	jwt "ThingsPanel-Go/utils"
 
-	gjwt "github.com/dgrijalva/jwt-go"
+	gjwt "github.com/golang-jwt/jwt"
 )
 
 type AuthController struct {
