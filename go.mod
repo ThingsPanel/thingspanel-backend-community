@@ -10,9 +10,11 @@ require (
 	github.com/casbin/casbin/v2 v2.47.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/eclipse/paho.mqtt.golang v1.3.5
+	github.com/fatih/structs v1.1.0
 	github.com/fwhezfwhez/tcpx v0.0.0-20210320021234-0c5332cf59e0
 	github.com/go-basic/uuid v1.0.0
 	github.com/gorilla/websocket v1.5.0
+	github.com/lib/pq v1.10.7
 	github.com/mintance/go-uniqid v0.0.0-20180517195806-49cb885aad99
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spf13/viper v1.15.0
@@ -29,10 +31,6 @@ require (
 	github.com/cosiner/argv v0.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denisenkom/go-mssqldb v0.12.0 // indirect
-	github.com/derekparker/trie v0.0.0-20221221181808-1424fce0c981 // indirect
-	github.com/fatih/structs v1.1.0 // indirect
-	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
-	github.com/flosch/pongo2/v6 v6.0.0 // indirect
 	github.com/glebarez/go-sqlite v1.16.0 // indirect
 	github.com/glebarez/sqlite v1.4.3 // indirect
 	github.com/go-delve/delve v1.20.2 // indirect
@@ -42,11 +40,7 @@ require (
 	github.com/golang-sql/sqlexp v0.0.0-20170517235910-f1bb20e5a188 // indirect
 	github.com/google/go-dap v0.7.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
-	github.com/lib/pq v1.10.7 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.18 // indirect
-	github.com/mattn/go-runewidth v0.0.14 // indirect
+	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.24.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
@@ -111,7 +105,6 @@ require (
 	github.com/richardlehane/mscfb v1.0.3 // indirect
 	github.com/richardlehane/msoleps v1.0.1 // indirect
 	github.com/robertkrimen/otto v0.0.0-20211024170158-b87d35c0b86f
-	github.com/robfig/cron v1.2.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shiena/ansicolor v0.0.0-20200904210342-c7312218db18 // indirect
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e

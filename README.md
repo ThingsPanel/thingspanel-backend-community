@@ -130,6 +130,14 @@ http://dev.thingspanel.cn
 ## 项目文档
 http://thingspanel.io
 
+## 贡献者
+
+感谢您对ThingsPanel的贡献!
+
+<a href="https://github.com/ThingsPanel/ThingsPanel-Go/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ThingsPanel/ThingsPanel-Go" />
+</a>
+
 ## 参与讨论和贡献
 ```
 qq群①：260150504（已满）
