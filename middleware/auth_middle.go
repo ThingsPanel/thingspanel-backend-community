@@ -4,7 +4,6 @@ import (
 	utils "ThingsPanel-Go/utils"
 	"errors"
 	"fmt"
-	"gorm.io/gorm"
 	"strings"
 
 	"ThingsPanel-Go/initialize/redis"

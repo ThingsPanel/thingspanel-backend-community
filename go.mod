@@ -8,7 +8,6 @@ require (
 	github.com/PaulXu-cn/goeval v0.1.1
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/casbin/casbin/v2 v2.47.1
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/fatih/structs v1.1.0
 	github.com/fwhezfwhez/tcpx v0.0.0-20210320021234-0c5332cf59e0
@@ -26,37 +25,22 @@ require (
 )
 
 require (
-	github.com/beego/bee/v2 v2.0.5 // indirect
-	github.com/cilium/ebpf v0.10.0 // indirect
-	github.com/cosiner/argv v0.1.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denisenkom/go-mssqldb v0.12.0 // indirect
+	github.com/frankban/quicktest v1.14.4 // indirect
 	github.com/glebarez/go-sqlite v1.16.0 // indirect
 	github.com/glebarez/sqlite v1.4.3 // indirect
-	github.com/go-delve/delve v1.20.2 // indirect
-	github.com/go-delve/liner v1.2.3-0.20220127212407-d32d89dd2a5d // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.0.0-20170517235910-f1bb20e5a188 // indirect
-	github.com/google/go-dap v0.7.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.24.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
-	github.com/peterh/liner v1.2.2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
-	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/smartwalle/pongo2render v1.0.2 // indirect
-	go.starlark.net v0.0.0-20230302034142-4b1e35fe2254 // indirect
-	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/mod v0.10.0 // indirect
-	golang.org/x/tools v0.8.0 // indirect
 	github.com/stretchr/testify v1.8.2 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.3.3 // indirect
@@ -79,6 +63,7 @@ require (
 	github.com/fwhezfwhez/errorx v0.0.0-20200421094746-a2781b3fd382 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -97,7 +82,6 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/panjf2000/ants/v2 v2.5.0
-	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect

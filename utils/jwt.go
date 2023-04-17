@@ -5,7 +5,7 @@ import (
 	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 )
 
 type UserClaims struct {
