@@ -1,11 +1,8 @@
 package middleware
 
 import (
-	"ThingsPanel-Go/initialize/psql"
-	"ThingsPanel-Go/models"
 	response "ThingsPanel-Go/utils"
 	"fmt"
-	"gorm.io/gorm"
 	"strings"
 
 	"ThingsPanel-Go/initialize/redis"
@@ -40,7 +37,7 @@ func AuthMiddle() {
 			}
 			authorization := ctx.Request.Header["Authorization"][0]
 			userToken := authorization[7:]
-			user, err := jwt.ParseCliamsToken(userToken)
+			_, err := jwt.ParseCliamsToken(userToken)
 			if err != nil || redis.GetStr(userToken) != "1" {
 				// 异常
 				response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
@@ -48,10 +45,10 @@ func AuthMiddle() {
 			}
 			// 验证用户是否存在
 			// 双层校验
-			if psql.Mydb.Where("id = ? and name = ? ", user.ID, user.Name).First(&models.Users{}).Error == gorm.ErrRecordNotFound {
-				response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
-				return
-			}
+			// if psql.Mydb.Where("id = ? and name = ? ", user.ID, user.Name).First(&models.Users{}).Error == gorm.ErrRecordNotFound {
+			// 	response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
+			// 	return
+			// }
 			// s, _ := cache.Bm.IsExist(c.TODO(), userToken)
 			// if !s {
 			// 	response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
