@@ -58,17 +58,17 @@ func (*BusinessService) Paginate(name string, offset int, pageSize int, tenantId
 }
 
 // 根据id获取一条business数据
-func (*BusinessService) GetBusinessById(id string) (*models.Business, int64) {
+func (*BusinessService) GetBusinessById(id string) (*models.Business, int64, error) {
 	var business models.Business
 	result := psql.Mydb.Where("id = ?", id).First(&business)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return &business, 0
+			return &business, 0, nil
 		}
 		logs.Error(result.Error.Error())
-		return nil, 0
+		return nil, 0, result.Error
 	}
-	return &business, result.RowsAffected
+	return &business, result.RowsAffected, nil
 }
 
 // Add新增一条business数据

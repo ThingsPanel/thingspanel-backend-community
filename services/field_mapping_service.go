@@ -51,12 +51,13 @@ func (*FieldMappingService) Add(device_id string, field_from string, field_to st
 func (*FieldMappingService) GetByDeviceid(device_id string) ([]models.FieldMapping, int64) {
 	var fieldMappings []models.FieldMapping
 	result := psql.Mydb.Where("device_id = ?", device_id).Find(&fieldMappings)
+	if len(fieldMappings) == 0 {
+		fieldMappings = []models.FieldMapping{}
+	}
 	if result.Error != nil {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		logs.Error(result.Error.Error())
-	}
-	if len(fieldMappings) == 0 {
-		fieldMappings = []models.FieldMapping{}
+		return fieldMappings, 0
 	}
 	return fieldMappings, result.RowsAffected
 }
@@ -72,7 +73,7 @@ func (*FieldMappingService) Delete(id string) bool {
 	return true
 }
 
-// 转换FieldMapping
+// TransformByDeviceid 转换FieldMapping
 func (*FieldMappingService) TransformByDeviceid(device_id string, field_to string) string {
 	var fieldMappings models.FieldMapping
 	var field_from string
@@ -80,6 +81,7 @@ func (*FieldMappingService) TransformByDeviceid(device_id string, field_to strin
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return ""
 	}
 	if result.RowsAffected == 0 {
 		field_from = ""
@@ -89,7 +91,7 @@ func (*FieldMappingService) TransformByDeviceid(device_id string, field_to strin
 	return field_from
 }
 
-// 转换FieldMapping
+// GetFieldTo 根据device_id和field_from获取field_to
 func (*FieldMappingService) GetFieldTo(device_id string, field_from string) string {
 	var fieldMappings models.FieldMapping
 	var field_to string
@@ -97,6 +99,7 @@ func (*FieldMappingService) GetFieldTo(device_id string, field_from string) stri
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return ""
 	}
 	if result.RowsAffected == 0 {
 		field_to = ""
@@ -113,6 +116,7 @@ func (*FieldMappingService) GetSymbol(device_id string, field_from string) strin
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return ""
 	}
 	if result.RowsAffected == 0 {
 		symbol = ""

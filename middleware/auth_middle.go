@@ -4,6 +4,7 @@ import (
 	utils "ThingsPanel-Go/utils"
 	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"strings"
 
 	"ThingsPanel-Go/initialize/redis"
@@ -77,11 +78,8 @@ func isAuthExceptUrl(url string, m map[string]interface{}) bool {
 	if len(urlArr) > 4 {
 		url = fmt.Sprintf("%s/%s/%s/%s", urlArr[0], urlArr[1], urlArr[2], urlArr[3])
 	}
-
-	if _, ok := m[url]; ok {
-		return true
-	}
-	return false
+	_, ok := m[url]
+	return ok
 }
 
 //获取token

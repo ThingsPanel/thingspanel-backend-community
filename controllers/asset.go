@@ -406,7 +406,7 @@ func (this *AssetController) List() {
 				ResDeviceData = []DeviceData{}
 			}
 			//第二层
-			l2, c2 := AssetService.GetAssetsByParentID(s.ID)
+			l2, c2, err := AssetService.GetAssetsByParentID(s.ID)
 			var ResAssetData2 []AssetData2
 			if c2 != 0 {
 				for _, s := range l2 {
@@ -467,7 +467,7 @@ func (this *AssetController) List() {
 						ResDeviceData2 = []DeviceData{}
 					}
 					// 第三层
-					l3, c3 := AssetService.GetAssetsByParentID(s.ID)
+					l3, c3, err := AssetService.GetAssetsByParentID(s.ID)
 					var ResAssetData3 []AssetData3
 					if c3 != 0 {
 						for _, s := range l3 {
@@ -536,6 +536,8 @@ func (this *AssetController) List() {
 							}
 							ResAssetData3 = append(ResAssetData3, rd)
 						}
+					} else {
+						fmt.Println(err)
 					}
 					if len(ResAssetData3) == 0 {
 						ResAssetData3 = []AssetData3{}
@@ -550,6 +552,8 @@ func (this *AssetController) List() {
 					}
 					ResAssetData2 = append(ResAssetData2, rd)
 				}
+			} else {
+				fmt.Println(err)
 			}
 			if len(ResAssetData2) == 0 {
 				ResAssetData2 = []AssetData2{}
@@ -636,7 +640,7 @@ func (AssetController *AssetController) GetAssetByAsset() {
 		return
 	}
 	var AssetService services.AssetService
-	assets, _ := AssetService.GetAssetsByParentID(listAssetValidate.AssetId)
+	assets, _, _ := AssetService.GetAssetsByParentID(listAssetValidate.AssetId)
 	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
 
 }

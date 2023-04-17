@@ -34,16 +34,13 @@ func (*DeviceService) Token(id string) (*models.Device, int64) {
 	var device models.Device
 	result := psql.Mydb.Where("id = ?", id).First(&device)
 	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return &device, 0
-		}
 		logs.Error(result.Error.Error())
 		return nil, 0
 	}
 	return &device, result.RowsAffected
 }
 
-// Token 获取设备token
+// GetSubDeviceCount 获取子设备数量
 func (*DeviceService) GetSubDeviceCount(parentId string) (int64, error) {
 	var count int64
 	result := psql.Mydb.Model(models.Device{}).Where("parent_id = ?", parentId).Count(&count)
@@ -694,8 +691,10 @@ func (*DeviceService) OperatingDevice(deviceId string, field string, value inter
 	valueMap := make(map[string]interface{})
 	logs.Info("通过设备id获取设备token")
 	var DeviceService DeviceService
-	device, _ := DeviceService.Token(deviceId)
-	if device == nil {
+	device, i := DeviceService.Token(deviceId)
+	// 此处如果用device == nil 判断，会产生错误，因为device是一个空结构体，即使没有查到数据，也不会返回nil
+	//if device == nil
+	if i == 0 {
 		logs.Info("没有匹配的token")
 		return errors.New("没有匹配的设备")
 	}

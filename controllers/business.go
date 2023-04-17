@@ -131,7 +131,11 @@ func (this *BusinessController) Add() {
 	var BusinessService services.BusinessService
 	f, id := BusinessService.Add(addBusinessValidate.Name, tenantId)
 	if f {
-		b, _ := BusinessService.GetBusinessById(id)
+		b, i, err := BusinessService.GetBusinessById(id)
+		if err != nil && i == 0 {
+			response.SuccessWithMessage(400, "新增失败", (*context2.Context)(this.Ctx))
+			return
+		}
 		u := AddBusiness{
 			ID:        b.ID,
 			Name:      b.Name,
@@ -233,13 +237,13 @@ func (this *BusinessController) Tree() {
 			var ResTreeBusiness []TreeBusiness
 			if c != 0 {
 				for _, s := range l {
-					l2, c2 := AssetService.GetAssetsByParentID(s.ID)
+					l2, c2, err := AssetService.GetAssetsByParentID(s.ID)
 					var ResTreeBusiness2 []TreeBusiness2
-					if c2 != 0 {
+					if c2 != 0 && err == nil {
 						for _, s2 := range l2 {
-							l3, c3 := AssetService.GetAssetsByParentID(s2.ID)
+							l3, c3, err := AssetService.GetAssetsByParentID(s2.ID)
 							var ResTreeBusiness3 []TreeBusiness3
-							if c3 != 0 {
+							if c3 != 0 && err == nil {
 								for _, s3 := range l3 {
 									td3 := TreeBusiness3{
 										ID:   s3.ID,
@@ -247,6 +251,8 @@ func (this *BusinessController) Tree() {
 									}
 									ResTreeBusiness3 = append(ResTreeBusiness3, td3)
 								}
+							} else if err != nil {
+								fmt.Println(err)
 							}
 							if len(ResTreeBusiness3) == 0 {
 								ResTreeBusiness3 = []TreeBusiness3{}
@@ -258,6 +264,8 @@ func (this *BusinessController) Tree() {
 							}
 							ResTreeBusiness2 = append(ResTreeBusiness2, td2)
 						}
+					} else if err != nil {
+						fmt.Println(err)
 					}
 					if len(ResTreeBusiness2) == 0 {
 						ResTreeBusiness2 = []TreeBusiness2{}

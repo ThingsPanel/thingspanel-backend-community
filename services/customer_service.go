@@ -25,9 +25,6 @@ func (*CustomerService) Paginate(name string, offset int, pageSize int) ([]model
 			customers = []models.Customer{}
 		}
 		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound){
-				return customers, 0
-			}
 			logs.Error(result.Error.Error())
 			return customers, 0
 		}
@@ -39,9 +36,6 @@ func (*CustomerService) Paginate(name string, offset int, pageSize int) ([]model
 			customers = []models.Customer{}
 		}
 		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound){
-				return customers, 0
-			}
 			logs.Error(result.Error.Error())
 			return customers, 0
 		}
@@ -114,7 +108,7 @@ func (*CustomerService) GetSameCustomerByTitle(title string, id string) (*models
 	var customer models.Customer
 	result := psql.Mydb.Where("title = ? AND id <> ?", title, id).First(&customer)
 	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound){
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return &customer, 0
 		}
 		logs.Error(result.Error.Error())
@@ -128,7 +122,7 @@ func (*CustomerService) GetUserByEmail(email string) (*models.Customer, int64) {
 	var customer models.Customer
 	result := psql.Mydb.Where("email = ?", email).First(&customer)
 	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound){
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return &customer, 0
 		}
 		logs.Error(result.Error.Error())
@@ -152,7 +146,7 @@ func (*CustomerService) GetCustomerById(id string) (*models.Customer, int64) {
 	var customer models.Customer
 	result := psql.Mydb.Where("id = ?", id).First(&customer)
 	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound){
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return &customer, 0
 		}
 		logs.Error(result.Error.Error())

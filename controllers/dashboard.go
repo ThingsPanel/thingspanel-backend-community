@@ -281,7 +281,7 @@ func (this *DashBoardController) List() {
 	return
 }
 
-//设备数据
+// 设备数据
 func (this *DashBoardController) Property() {
 	propertyAssetValidate := valid.PropertyAsset{}
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &propertyAssetValidate)
@@ -305,14 +305,14 @@ func (this *DashBoardController) Property() {
 	if c1 > 0 {
 		for _, av1 := range a1 {
 			// 第二层
-			a2, c2 := AssetService.GetAssetsByParentID(av1.ID)
+			a2, c2, err := AssetService.GetAssetsByParentID(av1.ID)
 			var propertyData2 []PropertyData2
-			if c2 > 0 {
+			if c2 > 0 && err == nil {
 				for _, av2 := range a2 {
 					// 第三层
-					a3, c3 := AssetService.GetAssetsByParentID(av2.ID)
+					a3, c3, err := AssetService.GetAssetsByParentID(av2.ID)
 					var propertyData3 []PropertyData3
-					if c3 > 0 {
+					if c3 > 0 && err == nil {
 						for _, av3 := range a3 {
 							ai3 := PropertyData3{
 								ID:             av3.ID,
@@ -328,6 +328,8 @@ func (this *DashBoardController) Property() {
 							}
 							propertyData3 = append(propertyData3, ai3)
 						}
+					} else if err != nil {
+						fmt.Println(err)
 					}
 					if len(propertyData3) == 0 {
 						propertyData3 = []PropertyData3{}
@@ -347,6 +349,8 @@ func (this *DashBoardController) Property() {
 					}
 					propertyData2 = append(propertyData2, ai2)
 				}
+			} else if err != nil {
+				fmt.Println(err)
 			}
 			if len(propertyData2) == 0 {
 				propertyData2 = []PropertyData2{}
@@ -685,7 +689,6 @@ func (this *DashBoardController) Updatedashboard() {
 	return
 }
 
-//
 func (this *DashBoardController) Component() {
 	componentDashBoardValidate := valid.ComponentDashBoard{}
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &componentDashBoardValidate)

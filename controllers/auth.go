@@ -220,7 +220,11 @@ func (this *AuthController) Register() {
 	}
 	s, id := UserService.Register(registerValidate.Email, registerValidate.Name, registerValidate.Password, registerValidate.CustomerID)
 	if s {
-		u, _ := UserService.GetUserById(id)
+		u, i := UserService.GetUserById(id)
+		if i == 0 {
+			response.SuccessWithMessage(400, "注册失败", (*context2.Context)(this.Ctx))
+			return
+		}
 		d := RegisterData{
 			ID:         u.ID,
 			CreatedAt:  u.CreatedAt,
