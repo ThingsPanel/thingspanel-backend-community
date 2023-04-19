@@ -1656,7 +1656,6 @@ ALTER TABLE public.tp_function ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_generate_device ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_ota ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_product ADD COLUMN tenant_id varchar(36) NULL;
-ALTER TABLE public.tp_scenario_strategy ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_script ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_warning_information ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.ts_kv ADD COLUMN tenant_id varchar(36) NULL;
