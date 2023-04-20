@@ -3,7 +3,6 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
-	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
 	"time"
@@ -60,18 +59,18 @@ func (*WidgetService) GetWidgetById(id string) (*models.Widget, int64) {
 }
 
 // 查重
-func (*WidgetService) GetRepeat(dashboard_id string, asset_id string, device_id string, widget_identifier string) bool {
-	var widget models.Widget
-	result := psql.Mydb.Where("dashboard_id = ? AND asset_id = ? AND device_id = ? AND widget_identifier = ?", dashboard_id, asset_id, device_id, widget_identifier).First(&widget)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
-	if result.RowsAffected == 0 {
-		return false
-	} else {
-		return true
-	}
-}
+// func (*WidgetService) GetRepeat(dashboard_id string, asset_id string, device_id string, widget_identifier string) bool {
+// 	var widget models.Widget
+// 	result := psql.Mydb.Where("dashboard_id = ? AND asset_id = ? AND device_id = ? AND widget_identifier = ?", dashboard_id, asset_id, device_id, widget_identifier).First(&widget)
+// 	if result.Error != nil {
+// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+// 	}
+// 	if result.RowsAffected == 0 {
+// 		return false
+// 	} else {
+// 		return true
+// 	}
+// }
 
 // Add新增一条widget数据
 func (*WidgetService) Add(dashboard_id string, asset_id string, device_id string, widget_identifier string, config string) (bool, string) {
@@ -107,88 +106,88 @@ func (*WidgetService) ForAddEdit(asset_id string, device_id string, dashboard_id
 }
 
 // 根据ID编辑一条widget数据
-func (*WidgetService) Edit(id string, dashboard_id string, asset_id string, device_id string, widget_identifier string, config string) bool {
-	result := psql.Mydb.Model(&models.Widget{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"dashboard_id":      dashboard_id,
-		"asset_id":          asset_id,
-		"device_id":         device_id,
-		"widget_identifier": widget_identifier,
-		"config":            config,
-		"updated_at":        time.Now(),
-	})
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false
-	}
-	return true
-}
+// func (*WidgetService) Edit(id string, dashboard_id string, asset_id string, device_id string, widget_identifier string, config string) bool {
+// 	result := psql.Mydb.Model(&models.Widget{}).Where("id = ?", id).Updates(map[string]interface{}{
+// 		"dashboard_id":      dashboard_id,
+// 		"asset_id":          asset_id,
+// 		"device_id":         device_id,
+// 		"widget_identifier": widget_identifier,
+// 		"config":            config,
+// 		"updated_at":        time.Now(),
+// 	})
+// 	if result.Error != nil {
+// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+// 		return false
+// 	}
+// 	return true
+// }
 
 // 根据ID修改扩展功能
-func (*WidgetService) EditExtend(id string, extend string) bool {
-	result := psql.Mydb.Model(&models.Widget{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"extend":     extend,
-		"updated_at": time.Now(),
-	})
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false
-	}
-	return true
-}
+// func (*WidgetService) EditExtend(id string, extend string) bool {
+// 	result := psql.Mydb.Model(&models.Widget{}).Where("id = ?", id).Updates(map[string]interface{}{
+// 		"extend":     extend,
+// 		"updated_at": time.Now(),
+// 	})
+// 	if result.Error != nil {
+// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+// 		return false
+// 	}
+// 	return true
+// }
 
 // 根据ID删除一条widget数据
-func (*WidgetService) Delete(id string) bool {
-	result := psql.Mydb.Where("id = ?", id).Delete(&models.Widget{})
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false
-	}
-	return true
-}
+// func (*WidgetService) Delete(id string) bool {
+// 	result := psql.Mydb.Where("id = ?", id).Delete(&models.Widget{})
+// 	if result.Error != nil {
+// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+// 		return false
+// 	}
+// 	return true
+// }
 
 // 根据dashboard_id获取一条Widget数据
-func (*WidgetService) GetWidgetDashboardId(dashboard_id string) ([]models.Widget, int64) {
-	var widgets []models.Widget
-	result := psql.Mydb.Where("dashboard_id = ?", dashboard_id).Find(&widgets)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
-	if len(widgets) == 0 {
-		widgets = []models.Widget{}
-	}
-	return widgets, result.RowsAffected
-}
+// func (*WidgetService) GetWidgetDashboardId(dashboard_id string) ([]models.Widget, int64) {
+// 	var widgets []models.Widget
+// 	result := psql.Mydb.Where("dashboard_id = ?", dashboard_id).Find(&widgets)
+// 	if result.Error != nil {
+// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+// 	}
+// 	if len(widgets) == 0 {
+// 		widgets = []models.Widget{}
+// 	}
+// 	return widgets, result.RowsAffected
+// }
 
 // 根据dashboard_id获取一条Widget数据
-func (*WidgetService) GetWidgetDashboardIdAndAssetId(dashboard_id, asset_id string) ([]models.Widget, int64) {
-	var widgets []models.Widget
-	filters := map[string]interface{}{}
-	if dashboard_id != "" { //设备id
-		filters["dashboard_id"] = dashboard_id
-	}
-	if asset_id != "" { //资产id
-		filters["asset_id"] = asset_id
-	}
-	SQLWhere, params := utils.WidgetsToSql(filters)
-	result := psql.Mydb.Where(SQLWhere, params...).Find(&widgets)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
-	if len(widgets) == 0 {
-		widgets = []models.Widget{}
-	}
-	return widgets, result.RowsAffected
-}
+// func (*WidgetService) GetWidgetDashboardIdAndAssetId(dashboard_id, asset_id string) ([]models.Widget, int64) {
+// 	var widgets []models.Widget
+// 	filters := map[string]interface{}{}
+// 	if dashboard_id != "" { //设备id
+// 		filters["dashboard_id"] = dashboard_id
+// 	}
+// 	if asset_id != "" { //资产id
+// 		filters["asset_id"] = asset_id
+// 	}
+// 	SQLWhere, params := utils.WidgetsToSql(filters)
+// 	result := psql.Mydb.Where(SQLWhere, params...).Find(&widgets)
+// 	if result.Error != nil {
+// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+// 	}
+// 	if len(widgets) == 0 {
+// 		widgets = []models.Widget{}
+// 	}
+// 	return widgets, result.RowsAffected
+// }
 
 // 跟新 config
-func (*WidgetService) UpdateConfigByWidgetId(id string, config string) bool {
-	result := psql.Mydb.Model(&models.Widget{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"config":     config,
-		"updated_at": time.Now(),
-	})
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return false
-	}
-	return true
-}
+// func (*WidgetService) UpdateConfigByWidgetId(id string, config string) bool {
+// 	result := psql.Mydb.Model(&models.Widget{}).Where("id = ?", id).Updates(map[string]interface{}{
+// 		"config":     config,
+// 		"updated_at": time.Now(),
+// 	})
+// 	if result.Error != nil {
+// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+// 		return false
+// 	}
+// 	return true
+// }

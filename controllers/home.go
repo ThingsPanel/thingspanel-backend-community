@@ -144,55 +144,55 @@ func (this *HomeController) Show() {
 }
 
 // 默认配置获取
-func (HomeController *HomeController) GetDefaultSetting() {
-	//验证设备ID
-	ProtocolValidate := valid.ProtocolValidate{}
-	err := json.Unmarshal(HomeController.Ctx.Input.RequestBody, &ProtocolValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(ProtocolValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(ProtocolValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(HomeController.Ctx))
-			break
-		}
-		return
-	}
-	//读取配置参数
-	d := make(map[string]string)
-	if ProtocolValidate.Protocol == "mqtt" { //mqtt直连设备
-		d["default_setting"] =
-			"MQTT接入点: MQTT服务IP:1883" +
-				"$$  -设备上报属性主题: " + viper.GetString("mqtt.topicToSubscribe") +
-				"$$  -设备订阅属性主题: " + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
-				"$$  -其他主题参阅详细文档" +
-				"$$  -MQTT用户名: AccessToken(必须使用用户名才可以连接成功,密码为空)" +
-				"$$  -举例:" +
-				"$$    -规范：{key1:value1, key2:value2 ...}" +
-				"$$    -例如：{\"temp\":18.5, \"hum\":40}"
-	} else if ProtocolValidate.Protocol == "tcp" {
-		d["default_setting"] = "端口:" + strings.Split(viper.GetString("tcp.port"), ":")[1] + "$$协议:" + "https://forum.thingspanel.cn/assets/files/2022-06-21/1655774183-644926-thingspanel-tcpv114xlsx.zip"
-	} else if ProtocolValidate.Protocol == "MODBUS_RTU" || ProtocolValidate.Protocol == "MODBUS_TCP" {
-		d["default_setting"] = "协议端口:" + strings.Split(viper.GetString("plugin.http_host"), ":")[1] + "$$连接:建立tcp连接时，将AccessToken上送。"
-	} else if ProtocolValidate.Protocol == "MQTT" { //mqtt网关设备
-		d["default_setting"] =
-			"MQTT接入点: MQTT服务IP:1883" +
-				"$$  -网关设备上报属性主题: " + viper.GetString("mqtt.gateway_topic") +
-				"$$  -网关设备订阅属性主题: " + viper.GetString("mqtt.gateway_topic") + "/{Token}" +
-				"$$  -其他主题参阅详细文档" +
-				"$$  -MQTT用户名: AccessToken(必须使用用户名才可以连接成功,密码为空)" +
-				"$$  -举例:" +
-				"$$    -规范：{sub_device_addr:{key:value...},sub_device_addr:{key:value...}...};(说明:sub_device_addr为子设备的设备地址)" +
-				"$$    -例如：{\"a2js34\":{\"temp\":18.5, \"hum\":40},\"csjs45\":{\"temp\":19.5, \"hum\":45}};(说明:a2js34和csjs45为子设备的设备地址)"
-	}
-	d["Token"] = response.GetUuid()
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(HomeController.Ctx))
-}
+// func (HomeController *HomeController) GetDefaultSetting() {
+// 	//验证设备ID
+// 	ProtocolValidate := valid.ProtocolValidate{}
+// 	err := json.Unmarshal(HomeController.Ctx.Input.RequestBody, &ProtocolValidate)
+// 	if err != nil {
+// 		fmt.Println("参数解析失败", err.Error())
+// 	}
+// 	v := validation.Validation{}
+// 	status, _ := v.Valid(ProtocolValidate)
+// 	if !status {
+// 		for _, err := range v.Errors {
+// 			// 获取字段别称
+// 			alias := gvalid.GetAlias(ProtocolValidate, err.Field)
+// 			message := strings.Replace(err.Message, err.Field, alias, 1)
+// 			response.SuccessWithMessage(1000, message, (*context2.Context)(HomeController.Ctx))
+// 			break
+// 		}
+// 		return
+// 	}
+// 	//读取配置参数
+// 	d := make(map[string]string)
+// 	if ProtocolValidate.Protocol == "mqtt" { //mqtt直连设备
+// 		d["default_setting"] =
+// 			"MQTT接入点: MQTT服务IP:1883" +
+// 				"$$  -设备上报属性主题: " + viper.GetString("mqtt.topicToSubscribe") +
+// 				"$$  -设备订阅属性主题: " + viper.GetString("mqtt.topicToPublish") + "/{AccessToken}" +
+// 				"$$  -其他主题参阅详细文档" +
+// 				"$$  -MQTT用户名: AccessToken(必须使用用户名才可以连接成功,密码为空)" +
+// 				"$$  -举例:" +
+// 				"$$    -规范：{key1:value1, key2:value2 ...}" +
+// 				"$$    -例如：{\"temp\":18.5, \"hum\":40}"
+// 	} else if ProtocolValidate.Protocol == "tcp" {
+// 		d["default_setting"] = "端口:" + strings.Split(viper.GetString("tcp.port"), ":")[1] + "$$协议:" + "https://forum.thingspanel.cn/assets/files/2022-06-21/1655774183-644926-thingspanel-tcpv114xlsx.zip"
+// 	} else if ProtocolValidate.Protocol == "MODBUS_RTU" || ProtocolValidate.Protocol == "MODBUS_TCP" {
+// 		d["default_setting"] = "协议端口:" + strings.Split(viper.GetString("plugin.http_host"), ":")[1] + "$$连接:建立tcp连接时，将AccessToken上送。"
+// 	} else if ProtocolValidate.Protocol == "MQTT" { //mqtt网关设备
+// 		d["default_setting"] =
+// 			"MQTT接入点: MQTT服务IP:1883" +
+// 				"$$  -网关设备上报属性主题: " + viper.GetString("mqtt.gateway_topic") +
+// 				"$$  -网关设备订阅属性主题: " + viper.GetString("mqtt.gateway_topic") + "/{Token}" +
+// 				"$$  -其他主题参阅详细文档" +
+// 				"$$  -MQTT用户名: AccessToken(必须使用用户名才可以连接成功,密码为空)" +
+// 				"$$  -举例:" +
+// 				"$$    -规范：{sub_device_addr:{key:value...},sub_device_addr:{key:value...}...};(说明:sub_device_addr为子设备的设备地址)" +
+// 				"$$    -例如：{\"a2js34\":{\"temp\":18.5, \"hum\":40},\"csjs45\":{\"temp\":19.5, \"hum\":45}};(说明:a2js34和csjs45为子设备的设备地址)"
+// 	}
+// 	d["Token"] = response.GetUuid()
+// 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(HomeController.Ctx))
+// }
 
 // Device
 func (c *HomeController) Device() {

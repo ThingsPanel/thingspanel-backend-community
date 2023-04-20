@@ -2,20 +2,17 @@ package controllers
 
 import (
 	"ThingsPanel-Go/initialize/psql"
-	"ThingsPanel-Go/initialize/redis"
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	tphttp "ThingsPanel-Go/others/http"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
-	comm "ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -509,7 +506,6 @@ func (this *DeviceController) Configure() {
 	//DeviceService
 }
 
-
 //控制设备
 func (c *DeviceController) Operating() {
 	reqData := valid.OperatingDevice{}
@@ -633,45 +629,45 @@ func (c *DeviceController) Operating() {
 // }
 
 // 重置设备
-func (deviceController *DeviceController) Reset() {
-	operatingDevice := valid.OperatingDevice{}
-	err := json.Unmarshal(deviceController.Ctx.Input.RequestBody, &operatingDevice)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(operatingDevice)
-	if !status {
-		for _, err := range v.Errors {
-			alias := gvalid.GetAlias(operatingDevice, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(deviceController.Ctx))
-			break
-		}
-		return
-	}
-	var DeviceService services.DeviceService
-	f, i := DeviceService.Token(operatingDevice.DeviceId)
-	if i != 0 {
-		operatingMap := map[string]interface{}{
-			"token":  f.Token,
-			"values": operatingDevice.Values,
-		}
-		newPayload, toErr := json.Marshal(operatingMap)
-		if toErr != nil {
-			fmt.Printf("JSON 编码失败：%v\n", toErr)
-			response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(deviceController.Ctx))
-		}
-		log.Println(comm.ReplaceUserInput(string(newPayload)))
-		redis.SetStr(f.Token, string(newPayload), 300*time.Second)
-		//cache.Bm.Put(context.TODO(), f.Token, newPayload, 300*time.Second)
-	} else {
-		response.SuccessWithMessage(1000, "token不存在", (*context2.Context)(deviceController.Ctx))
-	}
-	response.SuccessWithMessage(200, "success", (*context2.Context)(deviceController.Ctx))
-	//var DeviceService services.DeviceService
-	//DeviceService
-}
+// func (deviceController *DeviceController) Reset() {
+// 	operatingDevice := valid.OperatingDevice{}
+// 	err := json.Unmarshal(deviceController.Ctx.Input.RequestBody, &operatingDevice)
+// 	if err != nil {
+// 		fmt.Println("参数解析失败", err.Error())
+// 	}
+// 	v := validation.Validation{}
+// 	status, _ := v.Valid(operatingDevice)
+// 	if !status {
+// 		for _, err := range v.Errors {
+// 			alias := gvalid.GetAlias(operatingDevice, err.Field)
+// 			message := strings.Replace(err.Message, err.Field, alias, 1)
+// 			response.SuccessWithMessage(1000, message, (*context2.Context)(deviceController.Ctx))
+// 			break
+// 		}
+// 		return
+// 	}
+// 	var DeviceService services.DeviceService
+// 	f, i := DeviceService.Token(operatingDevice.DeviceId)
+// 	if i != 0 {
+// 		operatingMap := map[string]interface{}{
+// 			"token":  f.Token,
+// 			"values": operatingDevice.Values,
+// 		}
+// 		newPayload, toErr := json.Marshal(operatingMap)
+// 		if toErr != nil {
+// 			fmt.Printf("JSON 编码失败：%v\n", toErr)
+// 			response.SuccessWithMessage(400, toErr.Error(), (*context2.Context)(deviceController.Ctx))
+// 		}
+// 		log.Println(comm.ReplaceUserInput(string(newPayload)))
+// 		redis.SetStr(f.Token, string(newPayload), 300*time.Second)
+// 		//cache.Bm.Put(context.TODO(), f.Token, newPayload, 300*time.Second)
+// 	} else {
+// 		response.SuccessWithMessage(1000, "token不存在", (*context2.Context)(deviceController.Ctx))
+// 	}
+// 	response.SuccessWithMessage(200, "success", (*context2.Context)(deviceController.Ctx))
+// 	//var DeviceService services.DeviceService
+// 	//DeviceService
+// }
 
 func (DeviceController *DeviceController) DeviceById() {
 	Device := valid.Device{}
