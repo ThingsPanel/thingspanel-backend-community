@@ -1665,3 +1665,36 @@ INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, sys_flag)
 VALUES('229de465-24a1-467d-d3a2-d146db43bffa', '', NULL, '/tenant', 'TenantManagment', '/pages/system/tenant', '租户管理', '', '1', '', '4f2791e5-3c13-7249-c25f-77f6f787f574', 0, NULL);
 
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='', "name"='AddPermission', component='', title='COMMON.PERMISSIONADD', icon='', "type"='3', function_code='sys:permission:add', parent_id='4231ea2c-a2fb-bd9c-8966-c7d654289deb', sort=0, sys_flag='1'
+WHERE id='539b8e97-b791-3260-8b23-1beca9497b19';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='/permission/index', "name"='PermissionManagement', component='/pages/system/permissions/Index.vue', title='COMMON.PERMISSIONMANAGEMENT', icon='flaticon-upload-1', "type"='1', function_code='', parent_id='4f2791e5-3c13-7249-c25f-77f6f787f574', sort=950, sys_flag='1'
+WHERE id='4231ea2c-a2fb-bd9c-8966-c7d654289deb';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='', "name"='SystemManagement', component='', title='COMMON.SYSTEMMANAGEMENT', icon='flaticon2-gear', "type"='0', function_code='', parent_id='0', sort=900, sys_flag='2'
+WHERE id='4f2791e5-3c13-7249-c25f-77f6f787f574';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='', "name"='EditPermission', component='', title='COMMON.EDIT', icon='', "type"='3', function_code='sys:permission:edit', parent_id='4231ea2c-a2fb-bd9c-8966-c7d654289deb', sort=0, sys_flag='1'
+WHERE id='17f776f0-be0c-a216-a03a-00944865e8d7';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='', "name"='DeletePermission', component='', title='COMMON.DELETE', icon='', "type"='3', function_code='sys:permission:del', parent_id='4231ea2c-a2fb-bd9c-8966-c7d654289deb', sort=0, sys_flag='1'
+WHERE id='d8613453-278c-289c-6e18-ee58f6eb540b';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='', "name"='SearchPermission', component='', title='COMMON.SEARCH', icon='', "type"='3', function_code='sys:permission:search', parent_id='4231ea2c-a2fb-bd9c-8966-c7d654289deb', sort=0, sys_flag='1'
+WHERE id='1988db79-dcb6-f8e5-4984-90e131efa526';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='/system/index', "name"='SystemSetup', component='/pages/system/index.vue', title='COMMON.SYSTEMSETUP', icon='flaticon-upload-1', "type"='1', function_code='', parent_id='4f2791e5-3c13-7249-c25f-77f6f787f574', sort=990, sys_flag='1'
+WHERE id='3786391a-6e8f-659d-1500-d2c3f82d6933';
+
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='/market', "name"='Market', component='/pages/plugin/index.vue', title='COMMON.MARKET', icon='flaticon2-supermarket', "type"='0', function_code='', parent_id='0', sort=910, sys_flag='2'
+WHERE id='ec7a22ed-919d-7959-6737-145198f6172f';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='/tenant', "name"='TenantManagment', component='/pages/system/tenant', title='租户管理', icon='flaticon2-user', "type"='1', function_code='', parent_id='4f2791e5-3c13-7249-c25f-77f6f787f574', sort=965, sys_flag='1'
+WHERE id='229de465-24a1-467d-d3a2-d146db43bffa';
+INSERT INTO public.tp_function
+(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, sys_flag)
+VALUES('a89634a6-1912-1f24-612b-10ae60a65197', '', NULL, '/protocol/list', 'ProtocolManagment', '/pages/system/protocol', '协议插件', 'flaticon2-supermarket', '1', '', 'ec7a22ed-919d-7959-6737-145198f6172f', 980, '1');
+
+ALTER TABLE public.device_model ADD COLUMN tenant_id varchar(36) NULL;
