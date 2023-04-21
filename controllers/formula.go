@@ -212,14 +212,18 @@ func (pot *RecipeController) Delete() {
 }
 
 func (pot *RecipeController) SendToHDL() {
-	list := make([]*mqtt.SendConfig, 0)
 	Recipe := services.RecipeService{}
-	Recipe.GetSendToMQTTData()
+	list, err := Recipe.GetSendToMQTTData("10000")
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
+		return
+	}
 	bytes, err := json.Marshal(list)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
 		return
 	}
+
 	mqtt.SendToHDL(bytes, "")
 }
 

@@ -89,9 +89,9 @@ func (*RecipeService) DeleteRecipe(pot models.Recipe) error {
 	return nil
 }
 
-func (*RecipeService) GetSendToMQTTData() ([]*mqtt.SendConfig, error) {
+func (*RecipeService) GetSendToMQTTData(assetId string) ([]*mqtt.SendConfig, error) {
 	AssetArr := make([]*models.Asset, 0)
-	err2 := psql.Mydb.Where("asset_id = ?", "10000").Find(&AssetArr).Error
+	err2 := psql.Mydb.Where("id = ?", assetId).Find(&AssetArr).Error
 	if err2 != nil {
 		return nil, err2
 	}
@@ -108,16 +108,23 @@ func (*RecipeService) GetSendToMQTTData() ([]*mqtt.SendConfig, error) {
 			Recipe:    make([]*models.Recipe, 0),
 		}
 		var Recipe []*models.Recipe
-		err := psql.Mydb.Where("status = ?", 0).Where("asset_id = ?", v.ID).Find(&Recipe).Error
+		err := psql.Mydb.Where("is_del = ?", false).Where("asset_id = ?", v.ID).Find(&Recipe).Error
 		if err != nil {
 			return nil, err
 		}
 		tmpSendConfig.Recipe = Recipe
-
 		recipeIdArr := make([]string, 0)
+		potTypeArr := make([]string, 0)
 		for _, v := range Recipe {
 			recipeIdArr = append(recipeIdArr, v.Id)
+			potTypeArr = append(potTypeArr, v.PotTypeId)
 		}
+		potTypeList := make([]*models.PotType, 0)
+		err = psql.Mydb.Where("pot_type_id in (?)", potTypeArr).Find(&potTypeList).Error
+		if err != nil {
+			return nil, err
+		}
+		tmpSendConfig.PotType = potTypeList
 		materialList := make([]*models.Materials, 0)
 		err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Find(&materialList).Error
 		if err != nil {
@@ -125,12 +132,13 @@ func (*RecipeService) GetSendToMQTTData() ([]*mqtt.SendConfig, error) {
 		}
 		tmpSendConfig.Materials = materialList
 		tasteList := make([]*models.Taste, 0)
-		err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Find(&tasteList).Error
+		err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Where("is_del", false).Find(&tasteList).Error
 		if err != nil {
 			return nil, err
 		}
 		tmpSendConfig.Taste = tasteList
 		list = append(list, tmpSendConfig)
+
 	}
 
 	return list, nil
