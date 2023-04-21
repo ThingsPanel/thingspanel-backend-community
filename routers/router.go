@@ -156,7 +156,7 @@ func init() {
 		web.NSRouter("/dashboard/paneladd", &controllers.DashBoardController{}, "*:Add"),       //keshihua-w
 		web.NSRouter("/dashboard/paneldelete", &controllers.DashBoardController{}, "*:Delete"), //keshihua-w
 		web.NSRouter("/dashboard/paneledit", &controllers.DashBoardController{}, "*:Edit"),     //keshihua-w
-		web.NSRouter("/dashboard/list", &controllers.DashBoardController{}, "*:List"),
+		// web.NSRouter("/dashboard/list", &controllers.DashBoardController{}, "*:List"),
 		// 新增可视化的业务下拉选项
 		// web.NSRouter("/dashboard/business", &controllers.DashBoardController{}, "*:Business"), //keshihua-ck
 		// 业务预览组件查询临时接口
@@ -173,7 +173,7 @@ func init() {
 		// web.NSRouter("/dashboard/realTime", &controllers.DashBoardController{}, "*:Realtime"),
 		// 可视化图表调整
 		// web.NSRouter("/dashboard/updateDashboard", &controllers.DashBoardController{}, "*:Updatedashboard"), //keshih-w
-		web.NSRouter("/dashboard/component", &controllers.DashBoardController{}, "*:Component"),
+		// web.NSRouter("/dashboard/component", &controllers.DashBoardController{}, "*:Component"),
 		// 插件列表查询
 		// web.NSRouter("/dashboard/pluginList", &controllers.DashBoardController{}, "*:PluginList"), //ty
 		// 应用管理列表查询
