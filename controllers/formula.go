@@ -60,6 +60,7 @@ func (pot *RecipeController) Index() {
 创建
 */
 func (pot *RecipeController) Add() {
+	AssetId := "10000"
 	addRecipeValidate := valid.AddRecipeValidator{}
 	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &addRecipeValidate)
 	if err != nil {
@@ -76,7 +77,6 @@ func (pot *RecipeController) Add() {
 		}
 		return
 	}
-	AssetId := "1000"
 
 	var RecipeService services.RecipeService
 
