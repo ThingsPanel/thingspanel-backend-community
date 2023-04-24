@@ -108,7 +108,7 @@ type HDLConfig struct {
 func ParseYaml() (HDLConfig, error) {
 	var hdlConfig HDLConfig
 	// 读取配置文件
-	file, err := os.Open("HDLConfig.yaml")
+	file, err := os.Open("modules/dataService/HDLConfig.yaml")
 	if err != nil {
 		logs.Error("open file error: %v", err)
 		return hdlConfig, err
