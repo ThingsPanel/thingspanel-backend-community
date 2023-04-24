@@ -118,7 +118,7 @@ func (c *KvController) Export() {
 				excel_file.SetCellValue("Sheet1", "B"+is, tv.Name)
 				excel_file.SetCellValue("Sheet1", "C"+is, tv.Token)
 				tm := time.Unix(tv.TS/1000000, 0)
-				excel_file.SetCellValue("Sheet1", "D"+is, tm.Format("2006/01/02 03:04:05"))
+				excel_file.SetCellValue("Sheet1", "D"+is, tm.Format("2006/01/02 15:04:05"))
 				excel_file.SetCellValue("Sheet1", "E"+is, tv.Key)
 				if tv.StrV == "" {
 					excel_file.SetCellValue("Sheet1", "F"+is, tv.DblV)
