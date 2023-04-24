@@ -394,8 +394,9 @@ func init() {
 		web.NSRouter("/v1/recipe/edit", &controllers.RecipeController{}, "*:Edit"),
 		web.NSRouter("/v1/recipe/delete", &controllers.RecipeController{}, "*:Delete"),
 		web.NSRouter("/v1/recipe/send/to/mqtt", &controllers.RecipeController{}, "*:SendToHDL"),
-		web.NSRouter("/v1/recipe/search/materials",&controllers.RecipeController{},"*:GetMaterialList"),
-
+		web.NSRouter("/v1/recipe/search/materials", &controllers.RecipeController{}, "*:GetMaterialList"),
+		web.NSRouter("/v1/recipe/delete/materials", &controllers.RecipeController{}, "*:DeleteMaterial"),
+		web.NSRouter("/v1/recipe/delete/taste", &controllers.RecipeController{}, "*:DeleteTaste"),
 		//加汤数据管理
 		web.NSRouter("/v1/soup/data/index", &controllers.SoupDataController{}, "*:Index"),
 		web.NSRouter("/v1/soup/data/export", &controllers.SoupDataController{}, "*:Export"),

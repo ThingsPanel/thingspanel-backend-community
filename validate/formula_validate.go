@@ -2,42 +2,63 @@ package valid
 
 import (
 	"ThingsPanel-Go/models"
+	"time"
 )
 
 type AddRecipeValidator struct {
-	Id          string `json:"id"`
-	BottomPotId string `json:"BottomPotId" alias:"锅底ID" valid:"Required"`
-	BottomPot   string `json:"BottomPot" alias:"锅底" valid:"Required"`
-	PotTypeId   string `json:"PotTypeId" alias:"锅型ID" valid:"Required"`
-	//PotTypeName      string     `json:"PotTypeName" alias:"锅型名称" valid:"Required"`
+	Id               string     `json:"Id"`
+	BottomPotId      string     `json:"BottomPotId" alias:"锅底ID" valid:"Required"`
+	BottomPot        string     `json:"BottomPot" alias:"锅底" valid:"Required"`
+	PotTypeId        string     `json:"PotTypeId" alias:"锅型ID" valid:"Required"`
+	PotTypeName      string     `json:"PotTypeName" alias:"锅型名称" valid:"Required"`
 	MaterialsId      string     `json:"MaterialsId" alias:"物料ID"`
 	TasteId          string     `json:"TasteId" alias:"口味ID"`
-	Tastes           string     `json:"Taste" alias:"口味"`
-	TastesArr        []Taste    `json:"TastesArr" alias:"口味" valid:"Required"`
+	Tastes           []string   `json:"Taste" alias:"口味"`
+	TastesArr        []Taste    `json:"TasteArr" alias:"口味" `
 	BottomProperties string     `json:"BottomProperties" alias:"锅底属性" valid:"Required"`
 	SoupStandard     int64      `json:"SoupStandard" alias:"加汤水位标准" `
-	MaterialsArr     []Material `json:"MaterialsArr" alias:"物料"`
-	Materials        string     `json:"Materials" alias:"物料"`
+	MaterialsArr     []Material `json:"MaterialArr" alias:"物料"`
+	Materials        []string   `json:"Materials" alias:"物料"`
 	CurrentWaterLine int64      `json:"CurrentWaterLine" alias:"当前加汤水位线"`
 }
 
+type EditRecipeValidator struct {
+	Id               string     `json:"Id"`
+	BottomPotId      string     `json:"BottomPotId" alias:"锅底ID" valid:"Required"`
+	BottomPot        string     `json:"BottomPot" alias:"锅底" valid:"Required"`
+	PotTypeId        string     `json:"PotTypeId" alias:"锅型ID" valid:"Required"`
+	PotTypeName      string     `json:"PotTypeName" alias:"锅型名称" valid:"Required"`
+	MaterialsId      string     `json:"MaterialsId" alias:"物料ID"`
+	TasteId          string     `json:"TasteId" alias:"口味ID"`
+	Tastes           []string   `json:"Taste" alias:"口味"`
+	TastesArr        []Taste    `json:"TasteArr" alias:"口味" `
+	BottomProperties string     `json:"BottomProperties" alias:"锅底属性" valid:"Required"`
+	SoupStandard     int64      `json:"SoupStandard" alias:"加汤水位标准" `
+	MaterialsArr     []Material `json:"MaterialArr" alias:"物料"`
+	Materials        []string   `json:"Materials" alias:"物料"`
+	CurrentWaterLine int64      `json:"CurrentWaterLine" alias:"当前加汤水位线"`
+	CreateAt         int        `json:"CreateAt"`
+	DeleteAt         time.Time  `json:"DeleteAt"`
+	IsDel            bool       `json:"IsDel"`
+}
+
 type Taste struct {
-	Name          string `json:"name"`
-	TasteId       string `json:"taste_id"`
-	MaterialsName string `json:"materials_name"`
-	Dosage        int    `json:"dosage"`
-	Unit          string `json:"unit"`
-	WaterLine     int    `json:"water_line"`
-	Station       string `json:"station"`
+	Taste   string `json:"Taste"`
+	TasteId string `json:"TasteId"`
+	//MaterialsName    string `json:"materials_name"`
+	Dosage           int    `json:"Dosage"`
+	Unit             string `json:"Unit"`
+	WaterLine int    `json:"WaterLine"`
+	Station          string `json:"Station"`
 }
 
 type Material struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	Dosage    int    `json:"dosage"`
-	Unit      string `json:"unit"`
-	WaterLine int    `json:"water_line"`
-	Station   string `json:"station"`
+	Id               string `json:"id"`
+	Name             string `json:"Name"`
+	Dosage           int    `json:"Dosage"`
+	Unit             string `json:"Unit"`
+	WaterLine int    `json:"WaterLine"`
+	Station          string `json:"Station"`
 }
 
 type RecipePaginationValidate struct {
@@ -57,7 +78,14 @@ type DelRecipeValidator struct {
 	Id string `json:"id" valid:"Required"`
 }
 
-
 type SearchMaterialNameValidator struct {
 	Keyword string `json:"keyword"`
+}
+
+type DelMaterialValidator struct {
+	Id string `json:"id" valid:"Required"`
+}
+
+type DelTasteValidator struct {
+	Id string `json:"id" valid:"Required"`
 }

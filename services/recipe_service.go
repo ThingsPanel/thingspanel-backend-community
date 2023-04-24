@@ -5,8 +5,11 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/modules/dataService/mqtt"
 	valid "ThingsPanel-Go/validate"
+	"encoding/json"
+	"fmt"
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
+	"strings"
 	"time"
 )
 
@@ -70,13 +73,40 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 }
 
 // 修改数据
-func (*RecipeService) EditRecipe(pot valid.AddRecipeValidator) bool {
-	result := psql.Mydb.Model(&models.Recipe{}).Where("id = ?", pot.Id).Updates(&pot)
-	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return false
+func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.Materials, list2 []models.Taste) error {
+
+	updates := &models.EditRecipeValue{
+		BottomPotId:      pot.BottomPotId,
+		BottomPot:        pot.BottomPot,
+		PotTypeId:        pot.PotTypeId,
+		Materials:        strings.Join(pot.Materials, ","),
+		Taste:            strings.Join(pot.Tastes, ","),
+		BottomProperties: pot.BottomProperties,
+		SoupStandard:     pot.SoupStandard,
+		UpdateAt:         time.Now(),
 	}
-	return true
+	by, _ := json.Marshal(updates)
+	fmt.Println(string(by))
+	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
+		err := tx.Model(models.Recipe{}).Where("id = ?", pot.Id).Updates(updates).Error
+		if err != nil {
+			return err
+		}
+		if len(list1) > 0 {
+			if err := tx.Create(&list1).Error; err != nil {
+				return err
+			}
+		}
+		if len(list2) > 0 {
+			if err := tx.Create(&list2).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	return err
+
 }
 
 // 删除数据
