@@ -510,6 +510,7 @@ func AutomationCron(automationCondition models.TpAutomationCondition) error {
 		}
 	}
 	cronId, _ := C.AddFunc(cronString, execute)
+	logs.Error("提示：" + cronString + "的定时任务已添加")
 	// 将cronId更新到数据库
 	var cronIdString string = cast.ToString(int(cronId))
 	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.Id).Update("v2", cronIdString)

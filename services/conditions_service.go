@@ -289,9 +289,17 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 				deviceModel := res.Get("device_model").MustString()
 				if deviceModel == "1" {
 					//属性
-					instructString := res.Get("instruct").MustString()
-					instructMap := make(map[string]interface{})
-					err = json.Unmarshal([]byte(instructString), &instructMap)
+					// instructString := res.Get("instruct").MustString()
+					// instructMap := make(map[string]interface{})
+					// err = json.Unmarshal([]byte(instructString), &instructMap)
+					// if err != nil {
+					// 	logs.Error(err.Error())
+					// 	automationLogDetail.ProcessDescription = "instruct:" + err.Error()
+					// 	automationLogDetail.ProcessResult = "2"
+					// } else {
+					instructMap := res.Get("instruct").MustMap()
+					instructByte, err := json.Marshal(instructMap)
+					instructString := string(instructByte)
 					if err != nil {
 						logs.Error(err.Error())
 						automationLogDetail.ProcessDescription = "instruct:" + err.Error()
