@@ -74,7 +74,7 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 	sqlWhere += where
 	var conditionsLogs []map[string]interface{}
 	var count int64
-	countResult := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	countResult := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if countResult.Error != nil {
 		//errors.Is(countResult.Error, gorm.ErrRecordNotFound)
 		logs.Error(countResult.Error.Error())
