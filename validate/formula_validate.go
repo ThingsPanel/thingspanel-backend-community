@@ -46,19 +46,19 @@ type Taste struct {
 	Taste   string `json:"Taste"`
 	TasteId string `json:"TasteId"`
 	//MaterialsName    string `json:"materials_name"`
-	Dosage           int    `json:"Dosage"`
-	Unit             string `json:"Unit"`
+	Dosage    int    `json:"Dosage"`
+	Unit      string `json:"Unit"`
 	WaterLine int    `json:"WaterLine"`
-	Station          string `json:"Station"`
+	Station   string `json:"Station"`
 }
 
 type Material struct {
-	Id               string `json:"id"`
-	Name             string `json:"Name"`
-	Dosage           int    `json:"Dosage"`
-	Unit             string `json:"Unit"`
+	Id        string `json:"id"`
+	Name      string `json:"Name"`
+	Dosage    int    `json:"Dosage"`
+	Unit      string `json:"Unit"`
 	WaterLine int    `json:"WaterLine"`
-	Station          string `json:"Station"`
+	Station   string `json:"Station"`
 }
 
 type RecipePaginationValidate struct {
@@ -88,4 +88,9 @@ type DelMaterialValidator struct {
 
 type DelTasteValidator struct {
 	Id string `json:"id" valid:"Required"`
+}
+
+type SendToMQTTValidator struct {
+	AccessToken string `json:"access_token" valid:"Required"`
+	AssetId     string `json:"asset_id" valid:"Required"`
 }

@@ -33,8 +33,18 @@ type DeviceController struct {
 
 // 设备列表
 func (this *DeviceController) Index() {
-	this.Data["json"] = "test devices"
-	this.ServeJSON()
+	deviceListValidate := valid.DeviceListByAssetValidate{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &deviceListValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	var DeviceService services.DeviceService
+	d, cd := DeviceService.GetDevicesByAssetID(deviceListValidate.AssetId)
+	if cd == 0 {
+		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
+	}
+
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
 }
 
 // 设备列表

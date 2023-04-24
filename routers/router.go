@@ -144,6 +144,7 @@ func init() {
 		web.NSRouter("/device/cascade", &controllers.DeviceController{}, "*:GetDeviceByCascade"),
 		web.NSRouter("/device/map", &controllers.DeviceController{}, "*:DeviceMapList"),
 		web.NSRouter("/device/status", &controllers.DeviceController{}, "*:DeviceStatus"),
+		web.NSRouter("/device/page/list", &controllers.DeviceController{}, "*:PageList"), //shebei-ck
 
 		//可视化列表分页查询
 		web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"), //keshihua-ck

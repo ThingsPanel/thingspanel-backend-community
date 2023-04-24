@@ -152,3 +152,9 @@ type TokenSubDeviceAddrValidate struct {
 type DeviceIdListValidate struct {
 	DeviceIdList []string `json:"device_id_list" alias:"设备id" valid:"Required;MaxSize(36)"`
 }
+
+type DeviceListByAssetValidate struct {
+	AssetId string `json:"asset_id" alias:"分组id" valid:"Required;MaxSize(36)"`
+}
+
+
