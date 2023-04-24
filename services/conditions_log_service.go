@@ -72,6 +72,7 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 		where += " and d.name like ?"
 	}
 	sqlWhere += where
+	sqlWhereCount += where
 	var conditionsLogs []map[string]interface{}
 	var count int64
 	countResult := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)

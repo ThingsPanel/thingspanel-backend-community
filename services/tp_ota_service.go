@@ -42,7 +42,7 @@ func (*TpOtaService) GetTpOtaList(PaginationValidate valid.TpOtaPaginationValida
 	sqlWhere += where
 	sqlWhereCount += where
 	var count int64
-	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}

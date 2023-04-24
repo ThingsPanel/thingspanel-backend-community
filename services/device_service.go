@@ -108,7 +108,7 @@ func (*DeviceService) PageGetDevicesByAssetID(business_id string, asset_id strin
 	sqlWhere += where
 	sqlWhereCount += where
 	var count int64
-	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if result.Error != nil {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		logs.Error(result.Error.Error())
@@ -171,7 +171,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 	sqlWhere += where
 	sqlWhereCount += where
 	var count int64
-	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if result.Error != nil {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		logs.Error(result.Error.Error())
@@ -297,7 +297,7 @@ func (*DeviceService) AllDeviceList(req valid.DevicePageListValidate) ([]map[str
 	sqlWhere += where
 	sqlWhereCount += where
 	var count int64
-	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if result.Error != nil {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		logs.Error(result.Error.Error())
@@ -392,7 +392,7 @@ func (*DeviceService) DeviceListByProductId(PaginationValidate valid.DevicePagin
 	sqlWhereCount += where
 	var deviceList []map[string]interface{}
 	var count int64
-	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if result.Error != nil {
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		logs.Error(result.Error.Error())
@@ -483,7 +483,7 @@ func (*DeviceService) Delete(id, tenantId string) error {
 	// 如果网关下有子设备，必须先删除子设备
 	if device.DeviceType == "2" {
 		var count int64
-		psql.Mydb.Raw("select count(1) from device where parent_id = ?", device.ID).Count(&count)
+		psql.Mydb.Raw("select count(1) from device where parent_id = ?", device.ID).Scan(&count)
 		if count > int64(0) {
 			return errors.New("请先删除网关设备下的子设备")
 		}
