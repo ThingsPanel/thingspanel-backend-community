@@ -158,6 +158,14 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 	}
 }
 
+// 接收海底捞订单消息
+func (*TSKVService) HdlOrderMsgProc(body []byte, topic string) bool {
+	//写处理和入库逻辑
+	// 原发送数据为payload，到这里就变成{"token":"xxx","values":payload},payload为[]byte
+	// 参考上下两个接收数据方法
+	return true
+}
+
 // 接收网关消息
 func (*TSKVService) GatewayMsgProc(body []byte, topic string) bool {
 	logs.Info("------------------------------")
