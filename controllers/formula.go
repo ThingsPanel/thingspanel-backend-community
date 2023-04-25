@@ -306,7 +306,6 @@ func (pot *RecipeController) SendToHDL() {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
 		return
 	}
-
 	err = mqtt.SendToHDL(bytes, SendToMQTTValidator.AccessToken)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
