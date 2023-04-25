@@ -135,7 +135,7 @@ func (pot *RecipeController) Add() {
 		MaterialIdArr = append(MaterialIdArr, materialUuid)
 		MaterialArr = append(MaterialArr, models.Materials{
 			Id:        materialUuid,
-			Name:      v.Name,
+			Name:      fmt.Sprintf("%s%d%s", v.Name, v.Dosage, v.Unit),
 			Dosage:    v.Dosage,
 			Unit:      v.Unit,
 			WaterLine: v.WaterLine,
@@ -149,7 +149,7 @@ func (pot *RecipeController) Add() {
 		TasteIdArr = append(TasteIdArr, tasteUuid)
 		TasteArr = append(TasteArr, models.Taste{
 			Id:        tasteUuid,
-			Name:      v.Taste,
+			Name:      fmt.Sprintf("%s%d%s", v.Taste, v.Dosage, v.Unit),
 			TasteId:   v.TasteId,
 			Dosage:    v.Dosage,
 			Unit:      v.Unit,
