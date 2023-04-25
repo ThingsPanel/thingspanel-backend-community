@@ -34,7 +34,7 @@ func (*RecipeService) GetRecipeList(PaginationValidate valid.RecipePaginationVal
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.Recipe{})
 	if PaginationValidate.Id != "" {
-		db = db.Where("id = ?", PaginationValidate.Id)
+		db = db.Where("recipe.id = ?", PaginationValidate.Id)
 	}
 	db = db.Select("recipe.id,recipe.bottom_pot_id,recipe.bottom_pot,recipe.pot_type_id,recipe.materials,recipe.taste,recipe.bottom_properties,recipe.soup_standard,recipe.current_water_line,pot_type.name").Joins("left join pot_type on recipe.pot_type_id = pot_type.pot_type_id").Where("recipe.is_del", false)
 
