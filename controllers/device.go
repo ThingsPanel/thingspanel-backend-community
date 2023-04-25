@@ -514,7 +514,7 @@ func (c *DeviceController) Operating() {
 		return
 	}
 	// -------------------------------------------
-	// 获取设备token
+	// 获取设备信息
 	var DeviceService services.DeviceService
 	deviceData, i := DeviceService.Token(reqData.DeviceId)
 	if i == 0 {

@@ -726,6 +726,8 @@ func scriptDealB(script_id string, device_data []byte, topic string) ([]byte, er
 		return device_data, nil
 	}
 }
+
+// 发送消息 device为子设备
 func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 	var err error
 	if device.DeviceType == "1" { // 直连设备
@@ -796,12 +798,12 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				// msgMap["values"] = subMap
 				msgBytes, _ := json.Marshal(subMap)
 				// 通过脚本
-				msg, err = scriptDealB(device.ScriptId, msgBytes, viper.GetString("mqtt.gateway_topic")+"/"+device.Token)
+				msg, err = scriptDealB(gatewayDevice.ScriptId, msgBytes, viper.GetString("mqtt.gateway_topic")+"/"+device.Token)
 				if err != nil {
 					return err
 				}
 				logs.Info("网关设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
-				err = cm.SendGateWay(msgBytes, gatewayDevice.Token, gatewayDevice.Protocol)
+				err = cm.SendGateWay(msg, gatewayDevice.Token, gatewayDevice.Protocol)
 			}
 		} else {
 			return errors.New("子设备网关不存在或子设备地址为空！")
