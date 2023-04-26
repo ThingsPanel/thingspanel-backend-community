@@ -177,6 +177,6 @@ func (c *TpScriptController) Quiz() {
 	if req_err == nil {
 		utils.SuccessWithMessage(200, "success", (*context2.Context)(c.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, "req_err", (*context2.Context)(c.Ctx))
+		utils.SuccessWithMessage(200, req_err.Error(), (*context2.Context)(c.Ctx))
 	}
 }
