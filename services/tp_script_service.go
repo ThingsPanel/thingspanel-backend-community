@@ -95,12 +95,12 @@ func (*TpScriptService) QuizTpScript(code, msgcontent string) error {
 	var data scriptdata
 	err := json.Unmarshal([]byte(msgcontent), &data)
 	if err != nil {
-		return err
+		return errors.New("数据存在错误")
 	}
 	flag := utils.Eval(code)
 	if flag == "true" {
 		response, err := utils.ScriptDeal(code, data.Msg, data.Topic)
-		if err != nil || response != string(data.Msg) {
+		if err != nil || response != data.Msg {
 			logs.Error(err.Error())
 			return err
 		}

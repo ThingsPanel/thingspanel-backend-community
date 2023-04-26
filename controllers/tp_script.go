@@ -173,7 +173,7 @@ func (c *TpScriptController) Quiz() {
 		return
 	}
 	var TpScriptService services.TpScriptService
-	req_err := TpScriptService.QuizTpScript(reqData.ScriptContentA, reqData.MsgContentA)
+	req_err := TpScriptService.QuizTpScript(reqData.ScriptContent, reqData.MsgContent)
 	if req_err == nil {
 		utils.SuccessWithMessage(200, "success", (*context2.Context)(c.Ctx))
 	} else {
