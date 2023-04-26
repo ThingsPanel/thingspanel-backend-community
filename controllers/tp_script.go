@@ -173,9 +173,9 @@ func (c *TpScriptController) Quiz() {
 		return
 	}
 	var TpScriptService services.TpScriptService
-	req_err := TpScriptService.QuizTpScript(reqData.ScriptContent, reqData.MsgContent)
+	req, req_err := TpScriptService.QuizTpScript(reqData.ScriptContent, reqData.MsgContent)
 	if req_err == nil {
-		utils.SuccessWithMessage(200, "success", (*context2.Context)(c.Ctx))
+		utils.SuccessWithMessage(200, req, (*context2.Context)(c.Ctx))
 	} else {
 		utils.SuccessWithMessage(200, req_err.Error(), (*context2.Context)(c.Ctx))
 	}
