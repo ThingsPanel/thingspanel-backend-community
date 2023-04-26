@@ -43,16 +43,17 @@ type EditRecipeValidator struct {
 }
 
 type Taste struct {
-	Id            string `json:"Id"`
-	Taste         string `json:"Taste"`
-	TasteId       string `json:"TasteId"`
-	MaterialsName string `json:"materials_name"`
-	Dosage        int    `json:"Dosage"`
-	Unit          string `json:"Unit"`
-	WaterLine     int    `json:"WaterLine"`
-	Station       string `json:"Station"`
-	Action        string `json:"Action"`
-	Operate       string `json:"Operate"`
+	Id          string `json:"Id"`
+	Taste       string `json:"Taste"`
+	TasteId     string `json:"TasteId"`
+	Material    string `json:"Material"`
+	MaterialsId string `json:"MaterialsId"`
+	Dosage      int    `json:"Dosage"`
+	Unit        string `json:"Unit"`
+	WaterLine   int    `json:"WaterLine"`
+	Station     string `json:"Station"`
+	Action      string `json:"Action"`
+	Operate     string `json:"Operate"`
 }
 
 type Material struct {

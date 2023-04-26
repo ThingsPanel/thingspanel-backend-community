@@ -49,7 +49,7 @@ func (*RecipeService) GetRecipeList(PaginationValidate valid.RecipePaginationVal
 }
 
 // 新增数据
-func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []models.Taste, list3 []models.OriginalTaste, list4 []models.OriginalMaterials) (error, models.Recipe) {
+func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []*models.Taste, list3 []models.OriginalTaste, list4 []models.OriginalMaterials) (error, models.Recipe) {
 
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 		result := tx.Create(&pot)
@@ -91,7 +91,7 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 }
 
 // 修改数据
-func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.Materials, list2 []models.Taste, list3 []string, list4 []string) error {
+func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.Materials, list2 []models.Taste, list3 []string, list4 []string, list5 []models.OriginalMaterials, list6 []models.OriginalTaste) error {
 
 	updates := &models.EditRecipeValue{
 		BottomPotId:      pot.BottomPotId,
@@ -131,6 +131,18 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 		if len(list4) > 0 {
 			var material models.Materials
 			if err := tx.Where("id in (?)", list4).Delete(&material).Error; err != nil {
+				return err
+			}
+		}
+
+		if len(list5) > 0 {
+			if err := tx.Create(&list5).Error; err != nil {
+				return err
+			}
+		}
+
+		if len(list6) > 0 {
+			if err := tx.Create(&list6).Error; err != nil {
 				return err
 			}
 		}

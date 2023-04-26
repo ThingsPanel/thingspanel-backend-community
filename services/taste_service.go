@@ -20,7 +20,7 @@ func (TasteService) GetTasteList(recipeId []string) (map[string][]*models.Taste,
 	}
 	tmpMap := make(map[string][]*models.Taste)
 	for _, value := range materials {
-		tmpMap[value.RecipeID] = append(tmpMap[value.Id], value)
+		tmpMap[value.RecipeID] = append(tmpMap[value.RecipeID], value)
 	}
 
 	return tmpMap, nil
