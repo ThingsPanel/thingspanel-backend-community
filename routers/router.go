@@ -313,6 +313,7 @@ func init() {
 		web.NSRouter("/tp_script/list", &controllers.TpScriptController{}, "*:List"),
 		web.NSRouter("/tp_script/edit", &controllers.TpScriptController{}, "*:Edit"),
 		web.NSRouter("/tp_script/delete", &controllers.TpScriptController{}, "*:Delete"),
+		web.NSRouter("/tp_script/quiz", &controllers.TpScriptController{}, "*:Quiz"),
 
 		//产品模块
 		web.NSRouter("/tp_product/add", &controllers.TpProductController{}, "*:Add"),

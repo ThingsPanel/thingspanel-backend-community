@@ -47,3 +47,9 @@ type RspTpScriptPaginationValidate struct {
 type TpScriptIdValidate struct {
 	Id string `json:"id"  gorm:"primaryKey" valid:"Required;MaxSize(36)"`
 }
+type TpScriptTestValidate struct {
+	ScriptContentA string `json:"script_content_a,omitempty" alias:"下行脚本内容" valid:"MaxSize(10000)"`
+	ScriptContentB string `json:"script_content_b,omitempty" alias:"上行脚本内容" valid:"MaxSize(10000)"`
+	MsgContentA    string `json:"msg_content_a,omitempty" alias:"下行消息内容" valid:"MaxSize(10000)"`
+	MsgContentB    string `json:"msg_content_b,omitempty" alias:"上行消息内容" valid:"MaxSize(10000)"`
+}

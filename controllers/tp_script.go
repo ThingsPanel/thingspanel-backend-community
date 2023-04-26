@@ -152,3 +152,31 @@ func (TpScriptController *TpScriptController) Delete() {
 		utils.SuccessWithMessage(400, "删除失败", (*context2.Context)(TpScriptController.Ctx))
 	}
 }
+
+// 调试
+func (c *TpScriptController) Quiz() {
+	reqData := valid.TpScriptTestValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(reqData)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(reqData, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+	var TpScriptService services.TpScriptService
+	req_err := TpScriptService.QuizTpScript(reqData.ScriptContentA, reqData.MsgContentA)
+	if req_err == nil {
+		utils.SuccessWithMessage(200, "success", (*context2.Context)(c.Ctx))
+	} else {
+		utils.SuccessWithMessage(200, "req_err", (*context2.Context)(c.Ctx))
+	}
+}

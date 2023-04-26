@@ -3,8 +3,11 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"encoding/json"
+	"errors"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -80,4 +83,28 @@ func (*TpScriptService) DeleteTpScript(tp_script models.TpScript) error {
 		return result.Error
 	}
 	return nil
+}
+
+type scriptdata struct {
+	Msg   string `json:"msg"`
+	Topic string `json:"topic"`
+}
+
+// 调试脚本
+func (*TpScriptService) QuizTpScript(code, msgcontent string) error {
+	var data scriptdata
+	err := json.Unmarshal([]byte(msgcontent), &data)
+	if err != nil {
+		return err
+	}
+	flag := utils.Eval(code)
+	if flag == "true" {
+		response, err := utils.ScriptDeal(code, data.Msg, data.Topic)
+		if err != nil || response != string(data.Msg) {
+			logs.Error(err.Error())
+			return err
+		}
+		return nil
+	}
+	return errors.New("脚本格式错误")
 }
