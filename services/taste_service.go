@@ -34,3 +34,22 @@ func (TasteService) DeleteTaste(id string) error {
 	}
 	return nil
 }
+
+func (TasteService) SearchTasteList(keyword string) ([]*models.OriginalTaste, error) {
+	taste := make([]*models.OriginalTaste, 0)
+	db := psql.Mydb
+	if keyword != "" {
+		db = db.Where("name = ?", keyword)
+	}
+	result := db.Find(&taste)
+	if result.Error != nil {
+		if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, result.Error
+		}
+	}
+
+	return taste, nil
+}
+
+
+

@@ -398,6 +398,10 @@ func init() {
 		web.NSRouter("/v1/recipe/search/materials", &controllers.RecipeController{}, "*:GetMaterialList"),
 		web.NSRouter("/v1/recipe/delete/materials", &controllers.RecipeController{}, "*:DeleteMaterial"),
 		web.NSRouter("/v1/recipe/delete/taste", &controllers.RecipeController{}, "*:DeleteTaste"),
+		web.NSRouter("/v1/recipe/search/taste", &controllers.RecipeController{}, "*:GetTasteList"),
+		web.NSRouter("/v1/recipe/get/material", &controllers.RecipeController{}, "*:GetMaterialByName"),
+		web.NSRouter("/v1/recipe/material/create", &controllers.RecipeController{}, "*:CreateMaterial"),
+		web.NSRouter("/v1/recipe/taste/create", &controllers.RecipeController{}, "*:CreateTaste"),
 		//加汤数据管理
 		web.NSRouter("/v1/soup/data/index", &controllers.SoupDataController{}, "*:Index"),
 		web.NSRouter("/v1/soup/data/export", &controllers.SoupDataController{}, "*:Export"),

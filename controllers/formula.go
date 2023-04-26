@@ -25,7 +25,7 @@ func (pot *RecipeController) Index() {
 	PaginationValidate := valid.RecipePaginationValidate{}
 	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &PaginationValidate)
 	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
+		fmt.Println("参数解析Delete失败", err.Error())
 	}
 	v := validation.Validation{}
 	status, _ := v.Valid(PaginationValidate)
@@ -125,8 +125,10 @@ func (pot *RecipeController) Add() {
 	}
 
 	MaterialArr := make([]models.Materials, 0)
+	OriginalMaterialsArr := make([]models.OriginalMaterials, 0)
 	MaterialIdArr := make([]string, 0)
 	TasteArr := make([]models.Taste, 0)
+	OriginalTasteArr := make([]models.OriginalTaste, 0)
 	TasteIdArr := make([]string, 0)
 	var recipeId = uuid.GetUuid()
 	Recipe.Id = recipeId
@@ -142,26 +144,48 @@ func (pot *RecipeController) Add() {
 			Station:   v.Station,
 			RecipeID:  recipeId,
 		})
+		if v.Action != "GET" {
+			originalMaterialUuid := uuid.GetUuid()
+			OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
+				Id:        originalMaterialUuid,
+				Name:      fmt.Sprintf("%s%d%s",v.Name,v.Dosage,v.Unit),
+				Dosage:    v.Dosage,
+				Unit:      v.Unit,
+				WaterLine: v.WaterLine,
+				Station:   v.Station,
+			})
+		}
 	}
 
 	for _, v := range addRecipeValidate.TastesArr {
 		tasteUuid := uuid.GetUuid()
 		TasteIdArr = append(TasteIdArr, tasteUuid)
 		TasteArr = append(TasteArr, models.Taste{
-			Id:        tasteUuid,
-			Name:      fmt.Sprintf("%s%d%s", v.Taste, v.Dosage, v.Unit),
-			TasteId:   v.TasteId,
-			Dosage:    v.Dosage,
-			Unit:      v.Unit,
-			CreateAt:  time.Now().Unix(),
-			WaterLine: v.WaterLine,
-			Station:   v.Station,
-			RecipeID:  recipeId,
+			Id:            tasteUuid,
+			Name:          v.Taste,
+			TasteId:       v.TasteId,
+			Dosage:        v.Dosage,
+			Unit:          v.Unit,
+			CreateAt:      time.Now().Unix(),
+			MaterialsName: v.MaterialsName,
+			WaterLine:     v.WaterLine,
+			Station:       v.Station,
+			RecipeID:      recipeId,
 		})
+
+		if v.Action != "GET" {
+			originalTasteUuid := uuid.GetUuid()
+			OriginalTasteArr = append(OriginalTasteArr, models.OriginalTaste{
+				Id:         originalTasteUuid,
+				Name:       v.Taste,
+				TasteId:    v.TasteId,
+				MaterialId: v.MaterialsName,
+			})
+		}
 	}
 	Recipe.MaterialsId = strings.Join(MaterialIdArr, ",")
 	Recipe.TasteId = strings.Join(TasteIdArr, ",")
-	rsp_err, d := RecipeService.AddRecipe(Recipe, MaterialArr, TasteArr)
+	rsp_err, d := RecipeService.AddRecipe(Recipe, MaterialArr, TasteArr, OriginalTasteArr, OriginalMaterialsArr)
 	if rsp_err == nil {
 		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(pot.Ctx))
 	} else {
@@ -306,6 +330,7 @@ func (pot *RecipeController) SendToHDL() {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
 		return
 	}
+	fmt.Println(string(bytes))
 	err = mqtt.SendToHDL(bytes, SendToMQTTValidator.AccessToken)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
@@ -327,6 +352,50 @@ func (pot *RecipeController) GetMaterialList() {
 		response.SuccessWithDetailed(200, "success", list, map[string]string{}, (*context2.Context)(pot.Ctx))
 	} else {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
+	}
+}
+
+func (pot *RecipeController) CreateMaterial() {
+	createValidator := valid.CreateMaterialValidator{}
+	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &createValidator)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+
+	var recipeService services.RecipeService
+	isExit, err := recipeService.CreateMaterial(&models.OriginalMaterials{
+		Id:        uuid.GetUuid(),
+		Name:      createValidator.Name,
+		Dosage:    createValidator.Dosage,
+		Unit:      createValidator.Unit,
+		WaterLine: createValidator.WaterLine,
+		Station:   createValidator.Station,
+	})
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
+	} else {
+		response.SuccessWithDetailed(200, "success", map[string]interface{}{"status": isExit}, map[string]string{}, (*context2.Context)(pot.Ctx))
+	}
+}
+
+func (pot *RecipeController) CreateTaste() {
+	createValidator := valid.CreateTasteValidator{}
+	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &createValidator)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+
+	var recipeService services.RecipeService
+	err = recipeService.CreateTaste(&models.OriginalTaste{
+		Id:         uuid.GetUuid(),
+		Name:       createValidator.Taste,
+		TasteId:    createValidator.TasteId,
+		MaterialId: createValidator.MaterialId,
+	}, createValidator.Action)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
+	} else {
+		response.SuccessWithMessage(200, "success", (*context2.Context)(pot.Ctx))
 	}
 }
 
@@ -366,6 +435,34 @@ func (pot *RecipeController) DeleteTaste() {
 	}
 }
 
-func (pot *RecipeController) GetProjectList() {
+func (pot *RecipeController) GetTasteList() {
+	searchValidator := valid.SearchTasteValidator{}
+	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &searchValidator)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	var RecipeService services.TasteService
 
+	list, err := RecipeService.SearchTasteList(searchValidator.Keyword)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
+	} else {
+		response.SuccessWithDetailed(200, "success", list, map[string]string{}, (*context2.Context)(pot.Ctx))
+	}
+}
+
+func (pot *RecipeController) GetMaterialByName() {
+	searchValidator := valid.GetMaterialValidator{}
+	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &searchValidator)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	var RecipeService services.MaterialService
+
+	bools := RecipeService.GetMaterialByName(searchValidator.Name)
+	if bools {
+		response.SuccessWithDetailed(200, "success", map[string]string{"status": "EXIST"}, map[string]string{}, (*context2.Context)(pot.Ctx))
+	} else {
+		response.SuccessWithDetailed(200, "success", map[string]string{"status": "NOTEXIST"}, map[string]string{}, (*context2.Context)(pot.Ctx))
+	}
 }

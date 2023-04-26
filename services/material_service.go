@@ -20,7 +20,7 @@ func (*MaterialService) GetMaterialList(id []string) (map[string][]*models.Mater
 	}
 	tmpMap := make(map[string][]*models.Materials)
 	for _, value := range materials {
-		tmpMap[value.RecipeID]  = append(tmpMap[value.RecipeID],value)
+		tmpMap[value.RecipeID] = append(tmpMap[value.RecipeID], value)
 	}
 
 	return tmpMap, nil
@@ -33,4 +33,13 @@ func (*MaterialService) DeleteMaterial(id string) error {
 		return err
 	}
 	return nil
+}
+
+func (*MaterialService) GetMaterialByName(name string) bool {
+	var materials models.Materials
+	err := psql.Mydb.Where("name = ?", name).First(&materials).Error
+	if err != nil {
+		return false
+	}
+	return true
 }

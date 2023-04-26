@@ -43,13 +43,14 @@ type EditRecipeValidator struct {
 }
 
 type Taste struct {
-	Taste   string `json:"Taste"`
-	TasteId string `json:"TasteId"`
-	//MaterialsName    string `json:"materials_name"`
-	Dosage    int    `json:"Dosage"`
-	Unit      string `json:"Unit"`
-	WaterLine int    `json:"WaterLine"`
-	Station   string `json:"Station"`
+	Taste         string `json:"Taste"`
+	TasteId       string `json:"TasteId"`
+	MaterialsName string `json:"materials_name"`
+	Dosage        int    `json:"Dosage"`
+	Unit          string `json:"Unit"`
+	WaterLine     int    `json:"WaterLine"`
+	Station       string `json:"Station"`
+	Action        string `json:"Action"`
 }
 
 type Material struct {
@@ -59,6 +60,7 @@ type Material struct {
 	Unit      string `json:"Unit"`
 	WaterLine int    `json:"WaterLine"`
 	Station   string `json:"Station"`
+	Action    string `json:"Action"`
 }
 
 type RecipePaginationValidate struct {
@@ -93,4 +95,27 @@ type DelTasteValidator struct {
 type SendToMQTTValidator struct {
 	AccessToken string `json:"access_token" valid:"Required"`
 	AssetId     string `json:"asset_id" valid:"Required"`
+}
+
+type SearchTasteValidator struct {
+	Keyword string `json:"keyword"`
+}
+
+type GetMaterialValidator struct {
+	Name string `json:"name" valid:"Required"`
+}
+
+type CreateMaterialValidator struct {
+	Name      string `json:"Name" valid:"Required"`
+	Dosage    int    `json:"Dosage" valid:"Required"`
+	Unit      string `json:"Unit" valid:"Required"`
+	WaterLine int    `json:"WaterLine" valid:"Required"`
+	Station   string `json:"Station" valid:"Required"`
+}
+
+type CreateTasteValidator struct {
+	Taste      string `json:"Taste" valid:"Required"`
+	TasteId    string `json:"TasteId" valid:"Required"`
+	MaterialId string `json:"MaterialId" valid:"Required"`
+	Action string `json:"Action"`
 }

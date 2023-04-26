@@ -49,7 +49,7 @@ func (*RecipeService) GetRecipeList(PaginationValidate valid.RecipePaginationVal
 }
 
 // 新增数据
-func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []models.Taste) (error, models.Recipe) {
+func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []models.Taste, list3 []models.OriginalTaste, list4 []models.OriginalMaterials) (error, models.Recipe) {
 
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 		result := tx.Create(&pot)
@@ -65,6 +65,20 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 			logs.Error(err)
 			return err
 		}
+		if len(list3) > 0 {
+			if err := tx.Create(list3).Error; err != nil {
+				logs.Error(err)
+				return err
+			}
+		}
+
+		if len(list4) > 0 {
+			if err := tx.Create(list4).Error; err != nil {
+				logs.Error(err)
+				return err
+			}
+		}
+
 		return nil
 
 	})
@@ -115,71 +129,79 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 
 // 删除数据
 func (*RecipeService) DeleteRecipe(pot models.Recipe) error {
-	result := psql.Mydb.Model(&models.Recipe{}).Where("id = ?", pot.Id).UpdateColumns(map[string]interface{}{"is_del": true, "delete_at": time.Now()})
-	if result.Error != nil {
-		logs.Error(result.Error)
-		return result.Error
-	}
-	return nil
+	return psql.Mydb.Transaction(func(tx *gorm.DB) error {
+		err := tx.Model(&models.Recipe{}).Where("id = ?", pot.Id).UpdateColumns(map[string]interface{}{"is_del": true, "delete_at": time.Now()}).Error
+		if err != nil {
+			return err
+		}
+		var material models.Materials
+		err = tx.Where("recipe_id = ?", pot.Id).Delete(&material).Error
+		if err != nil {
+			return err
+		}
+		var taste models.Taste
+		err = tx.Where("recipe_id = ?", pot.Id).Delete(&taste).Error
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 }
 
-func (*RecipeService) GetSendToMQTTData(assetId string) ([]*mqtt.SendConfig, error) {
-	AssetArr := make([]*models.Asset, 0)
-	err2 := psql.Mydb.Where("id = ?", assetId).Find(&AssetArr).Error
+func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error) {
+	var Asset models.Asset
+	err2 := psql.Mydb.Where("id = ?", assetId).First(&Asset).Error
 	if err2 != nil {
 		return nil, err2
 	}
-	list := make([]*mqtt.SendConfig, 0)
-	for _, v := range AssetArr {
-		tmpSendConfig := &mqtt.SendConfig{
-			Shop: mqtt.ShopContent{
-				Name:   v.Name,
-				Number: v.ID,
-			},
-			PotType:   make([]*models.PotType, 0),
-			Taste:     make([]*models.Taste, 0),
-			Materials: make([]*models.Materials, 0),
-			Recipe:    make([]*models.Recipe, 0),
-		}
-		var Recipe []*models.Recipe
-		err := psql.Mydb.Where("is_del = ?", false).Where("asset_id = ?", v.ID).Find(&Recipe).Error
-		if err != nil {
-			return nil, err
-		}
-		tmpSendConfig.Recipe = Recipe
-		recipeIdArr := make([]string, 0)
-		potTypeArr := make([]string, 0)
-		for _, v := range Recipe {
-			recipeIdArr = append(recipeIdArr, v.Id)
-			potTypeArr = append(potTypeArr, v.PotTypeId)
-		}
-		potTypeList := make([]*models.PotType, 0)
-		err = psql.Mydb.Where("pot_type_id in (?)", potTypeArr).Find(&potTypeList).Error
-		if err != nil {
-			return nil, err
-		}
-		tmpSendConfig.PotType = potTypeList
-		materialList := make([]*models.Materials, 0)
-		err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Find(&materialList).Error
-		if err != nil {
-			return nil, err
-		}
-		tmpSendConfig.Materials = materialList
-		tasteList := make([]*models.Taste, 0)
-		err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Where("is_del", false).Find(&tasteList).Error
-		if err != nil {
-			return nil, err
-		}
-		tmpSendConfig.Taste = tasteList
-		list = append(list, tmpSendConfig)
 
+	tmpSendConfig := &mqtt.SendConfig{
+		Shop: mqtt.ShopContent{
+			Name:   Asset.Name,
+			Number: Asset.ID,
+		},
+		PotType:   make([]*models.PotType, 0),
+		Taste:     make([]*models.Taste, 0),
+		Materials: make([]*models.Materials, 0),
+		Recipe:    make([]*models.Recipe, 0),
 	}
+	var Recipe []*models.Recipe
+	err := psql.Mydb.Where("is_del = ?", false).Where("asset_id = ?", Asset.ID).Find(&Recipe).Error
+	if err != nil {
+		return nil, err
+	}
+	tmpSendConfig.Recipe = Recipe
+	recipeIdArr := make([]string, 0)
+	potTypeArr := make([]string, 0)
+	for _, v := range Recipe {
+		recipeIdArr = append(recipeIdArr, v.Id)
+		potTypeArr = append(potTypeArr, v.PotTypeId)
+	}
+	potTypeList := make([]*models.PotType, 0)
+	err = psql.Mydb.Where("pot_type_id in (?)", potTypeArr).Find(&potTypeList).Error
+	if err != nil {
+		return nil, err
+	}
+	tmpSendConfig.PotType = potTypeList
+	materialList := make([]*models.Materials, 0)
+	err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Find(&materialList).Error
+	if err != nil {
+		return nil, err
+	}
+	tmpSendConfig.Materials = materialList
+	tasteList := make([]*models.Taste, 0)
+	err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Where("is_del", false).Find(&tasteList).Error
+	if err != nil {
+		return nil, err
+	}
+	tmpSendConfig.Taste = tasteList
 
-	return list, nil
+	return tmpSendConfig, nil
 }
 
-func (*RecipeService) FindMaterialByName(keyword string) ([]*models.Materials, error) {
-	list := make([]*models.Materials, 0)
+func (*RecipeService) FindMaterialByName(keyword string) ([]*models.OriginalMaterials, error) {
+	list := make([]*models.OriginalMaterials, 0)
 	db := psql.Mydb
 	if keyword != "" {
 		db = db.Where("name  like ?", "%"+keyword+"%")
@@ -189,4 +211,40 @@ func (*RecipeService) FindMaterialByName(keyword string) ([]*models.Materials, e
 		return nil, err
 	}
 	return list, nil
+}
+
+func (*RecipeService) CreateMaterial(material *models.OriginalMaterials) (bool, error) {
+	var createModel models.OriginalMaterials
+	err := psql.Mydb.Where("name = ?", material.Name).First(&createModel).Error
+	if err != nil {
+		if strings.Contains(err.Error(), "record not found") {
+			if psql.Mydb.Create(&material).Error != nil {
+				return false, err
+			}
+			return false, nil
+		}
+
+	}
+	return true, nil
+}
+
+func (*RecipeService) CreateTaste(taste *models.OriginalTaste, action string) error {
+	var createModel models.OriginalTaste
+	if action == "CHECK" {
+		err := psql.Mydb.Where("name = ?", taste.Name).First(&createModel).Error
+		if err != nil {
+			fmt.Println(strings.Contains(err.Error(), "record not found"))
+			if strings.Contains(err.Error(), "record not found") {
+				return nil
+			}
+			return err
+		}
+	} else {
+		if err := psql.Mydb.Create(&taste).Error; err != nil {
+			return err
+		}
+		return nil
+	}
+
+	return nil
 }
