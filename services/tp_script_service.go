@@ -100,7 +100,7 @@ func (*TpScriptService) QuizTpScript(code, msgcontent string) error {
 	flag := utils.Eval(code)
 	if flag == "true" {
 		response, err := utils.ScriptDeal(code, data.Msg, data.Topic)
-		if err != nil || response != string(data.Msg) {
+		if err != nil || response != data.Msg {
 			logs.Error(err.Error())
 			return err
 		}
