@@ -43,6 +43,7 @@ type EditRecipeValidator struct {
 }
 
 type Taste struct {
+	Id            string `json:"Id"`
 	Taste         string `json:"Taste"`
 	TasteId       string `json:"TasteId"`
 	MaterialsName string `json:"materials_name"`
@@ -51,6 +52,7 @@ type Taste struct {
 	WaterLine     int    `json:"WaterLine"`
 	Station       string `json:"Station"`
 	Action        string `json:"Action"`
+	Operate       string `json:"Operate"`
 }
 
 type Material struct {
@@ -61,6 +63,7 @@ type Material struct {
 	WaterLine int    `json:"WaterLine"`
 	Station   string `json:"Station"`
 	Action    string `json:"Action"`
+	Operate   string `json:"Operate"`
 }
 
 type RecipePaginationValidate struct {
@@ -117,5 +120,5 @@ type CreateTasteValidator struct {
 	Taste      string `json:"Taste" valid:"Required"`
 	TasteId    string `json:"TasteId" valid:"Required"`
 	MaterialId string `json:"MaterialId" valid:"Required"`
-	Action string `json:"Action"`
+	Action     string `json:"Action"`
 }

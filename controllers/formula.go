@@ -70,8 +70,8 @@ func (pot *RecipeController) Index() {
 	for key, value := range d {
 		d[key].MaterialArr = list[value.Id]
 		d[key].TasteArr = tasteList[value.Id]
-		d[key].Materials = strings.Replace(d[key].Materials, ",", "\n", 1)
-		d[key].Taste = strings.Replace(d[key].Taste, ",", "\n", 1)
+		d[key].Materials = strings.ReplaceAll(d[key].Materials, ",", "\n")
+		d[key].Taste = strings.ReplaceAll(d[key].Taste, ",", "\n")
 	}
 
 	dd := valid.RspRecipePaginationValidate{
@@ -148,7 +148,7 @@ func (pot *RecipeController) Add() {
 			originalMaterialUuid := uuid.GetUuid()
 			OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
 				Id:        originalMaterialUuid,
-				Name:      fmt.Sprintf("%s%d%s",v.Name,v.Dosage,v.Unit),
+				Name:      fmt.Sprintf("%s%d%s", v.Name, v.Dosage, v.Unit),
 				Dosage:    v.Dosage,
 				Unit:      v.Unit,
 				WaterLine: v.WaterLine,
@@ -222,7 +222,9 @@ func (pot *RecipeController) Edit() {
 	}
 	var Recipe services.RecipeService
 	MaterialArr := make([]models.Materials, 0)
+	DeleteMaterialArr := make([]string, 0)
 	TasteArr := make([]models.Taste, 0)
+	DeleteTasteArr := make([]string, 0)
 	for _, v := range RecipeValidate.MaterialsArr {
 		materialUuid := ""
 		if v.Id == "" {
@@ -237,11 +239,14 @@ func (pot *RecipeController) Edit() {
 				RecipeID:  RecipeValidate.Id,
 			})
 		}
+		if v.Operate == "delete" {
+			DeleteMaterialArr = append(DeleteMaterialArr, v.Id)
+		}
 
 	}
 
 	for _, v := range RecipeValidate.TastesArr {
-		if v.TasteId == "" {
+		if v.Id == "" {
 			tasteUuid := uuid.GetUuid()
 			TasteArr = append(TasteArr, models.Taste{
 				Id:        tasteUuid,
@@ -256,9 +261,13 @@ func (pot *RecipeController) Edit() {
 			})
 		}
 
+		if v.Operate == "delete" {
+			DeleteTasteArr = append(DeleteTasteArr, v.Id)
+		}
+
 	}
 
-	isSucess := Recipe.EditRecipe(RecipeValidate, MaterialArr, TasteArr)
+	isSucess := Recipe.EditRecipe(RecipeValidate, MaterialArr, TasteArr,DeleteTasteArr,DeleteMaterialArr)
 	if isSucess == nil {
 		d := Recipe.GetRecipeDetail(RecipeValidate.Id)
 		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(pot.Ctx))

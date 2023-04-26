@@ -91,7 +91,7 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 }
 
 // 修改数据
-func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.Materials, list2 []models.Taste) error {
+func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.Materials, list2 []models.Taste, list3 []string, list4 []string) error {
 
 	updates := &models.EditRecipeValue{
 		BottomPotId:      pot.BottomPotId,
@@ -120,6 +120,21 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 				return err
 			}
 		}
+
+		if len(list3) > 0 {
+			var taste models.Taste
+			if err := tx.Where("id in (?)", list3).Delete(&taste).Error; err != nil {
+				return err
+			}
+		}
+
+		if len(list4) > 0 {
+			var material models.Materials
+			if err := tx.Where("id in (?)", list4).Delete(&material).Error; err != nil {
+				return err
+			}
+		}
+
 		return nil
 	})
 
