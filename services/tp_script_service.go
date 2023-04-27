@@ -96,8 +96,8 @@ func (*TpScriptService) QuizTpScript(code, msgcontent string) (res string, err e
 		return "", errors.New("提交数据存在错误")
 	}
 	var msg []byte
-	if strings.HasPrefix(data["msg"].(string), "0x") {
-		msg, err = hex.DecodeString(strings.ReplaceAll(data["msg"].(string), "0x", ""))
+	if vv, ok := data["msg"].(string); ok && strings.HasPrefix(vv, "0x") {
+		msg, err = hex.DecodeString(strings.ReplaceAll(vv, "0x", ""))
 		if err != nil {
 			return "", errors.New("报文存在错误")
 		}
