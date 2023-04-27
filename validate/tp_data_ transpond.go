@@ -1,6 +1,6 @@
 package valid
 
-type TpDataTransponValid struct {
+type TpDataTransponAddValid struct {
 	Name       string                          `json:"name" valid:"Required;MaxSize(36)"`
 	Desc       string                          `json:"desc,omitempty"`
 	Script     string                          `json:"script,omitempty"`
@@ -25,4 +25,9 @@ type TpDataTransponTargetInfoMQTTValid struct {
 type TpDataTransponDeviceInfoValid struct {
 	DeviceId    string `json:"device_id"`
 	MessageType int    `json:"message_type"`
+}
+
+type TpDataTransponListValid struct {
+	CurrentPage int `json:"current_page"`
+	PerPage     int `json:"per_page"`
 }

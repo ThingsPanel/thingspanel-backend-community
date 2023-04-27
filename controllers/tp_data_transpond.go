@@ -18,19 +18,42 @@ type TpDataTransponController struct {
 	beego.Controller
 }
 
+type DataTransponList struct {
+	CurrentPage int         `json:"current_page"`
+	Data        interface{} `json:"data"`
+	Total       int64       `json:"total"`
+	PerPage     int         `json:"per_page"`
+}
+
 func (c *TpDataTransponController) List() {
+	reqData := valid.TpDataTransponListValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	fmt.Println(tenantId)
 	if !ok {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
-	response.Success(200, (*context2.Context)(c.Ctx))
+
+	offset := (reqData.CurrentPage - 1) * reqData.PerPage
+	var dataTranspondService services.TpDataTranspondService
+	data, count := dataTranspondService.GetListByTenantId(offset, reqData.PerPage, tenantId)
+	d := DataTransponList{
+		CurrentPage: reqData.CurrentPage,
+		Total:       count,
+		PerPage:     reqData.PerPage,
+		Data:        data,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+
 }
 
 func (c *TpDataTransponController) Add() {
 	// 验证入参
-	reqData := valid.TpDataTransponValid{}
+	reqData := valid.TpDataTransponAddValid{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))

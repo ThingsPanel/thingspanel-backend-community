@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	"errors"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -43,4 +44,27 @@ func (*TpDataTranspondService) AddTpDataTranspond(
 	}
 
 	return true
+}
+
+func (*TpDataTranspondService) GetListByTenantId(
+	offset int, pageSize int, tenantId string) ([]models.TpDataTranspon, int64) {
+
+	var dataTranspon []models.TpDataTranspon
+	var count int64
+
+	tx := psql.Mydb.Model(&models.TpDataTranspon{})
+	tx.Where("tenant_id = ?", tenantId)
+
+	err := tx.Count(&count).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return dataTranspon, count
+	}
+
+	err = tx.Order("create_time desc").Limit(pageSize).Offset(offset).Find(&dataTranspon).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return dataTranspon, count
+	}
+	return dataTranspon, count
 }
