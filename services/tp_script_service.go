@@ -85,26 +85,24 @@ func (*TpScriptService) DeleteTpScript(tp_script models.TpScript) error {
 	return nil
 }
 
-type scriptdata struct {
-	Msg   string `json:"msg"`
-	Topic string `json:"topic"`
-}
-
 // 调试脚本
 func (*TpScriptService) QuizTpScript(code, msgcontent string) (string, error) {
-	var data scriptdata
-	err := json.Unmarshal([]byte(msgcontent), &data)
-	if err != nil {
-		return msgcontent, errors.New("数据存在错误")
-	}
-	flag := utils.Eval(code)
-	if flag == "true" {
-		response, err := utils.ScriptDeal(code, data.Msg, data.Topic)
+	var v interface{}
+	_ = json.Unmarshal([]byte(msgcontent), &v)
+	switch v.(type) {
+	case map[string]interface{}:
+		data := v.(map[string]interface{})
+		msg, err := json.Marshal(data["msg"])
+		if err != nil {
+			return "", errors.New("报文存在错误")
+		}
+		response, err := utils.ScriptDeal(code, msg, data["topic"].(string))
 		if err != nil {
 			logs.Error(err.Error())
 			return "", err
 		}
 		return response, nil
+	default:
+		return "", errors.New("报文存在错误")
 	}
-	return "", errors.New("脚本格式错误")
 }
