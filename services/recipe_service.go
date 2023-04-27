@@ -217,12 +217,26 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 		return nil, err
 	}
 	tmpSendConfig.Materials = materialList
+	materialIdList := make(map[string][]string, 0)
+	for _, v := range materialList {
+		materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], v.Id)
+	}
 	tasteList := make([]*models.Taste, 0)
+
 	err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Where("is_del", false).Find(&tasteList).Error
 	if err != nil {
 		return nil, err
 	}
 	tmpSendConfig.Taste = tasteList
+	tasteIdList := make(map[string][]string, 0)
+	for _, v := range tasteList {
+		tasteIdList[v.RecipeID] = append(tasteIdList[v.RecipeID], v.Id)
+	}
+
+	for key, value := range tmpSendConfig.Recipe {
+		tmpSendConfig.Recipe[key].MaterialIdList = materialIdList[value.Id]
+		tmpSendConfig.Recipe[key].TasteIdList = tasteIdList[value.Id]
+	}
 
 	return tmpSendConfig, nil
 }
