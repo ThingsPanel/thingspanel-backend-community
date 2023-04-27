@@ -105,7 +105,7 @@ func (pot *RecipeController) Add() {
 
 	var RecipeService services.RecipeService
 
-	isExit, err := RecipeService.CheckBottomIdIsRepeat(addRecipeValidate.BottomPotId)
+	isExit, err := RecipeService.CheckBottomIdIsRepeat(addRecipeValidate.BottomPotId,"","ADD")
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
 		return
@@ -264,7 +264,7 @@ func (pot *RecipeController) Edit() {
 	}
 	var Recipe services.RecipeService
 
-	isExit, err := Recipe.CheckBottomIdIsRepeat(RecipeValidate.BottomPotId)
+	isExit, err := Recipe.CheckBottomIdIsRepeat(RecipeValidate.BottomPotId,RecipeValidate.Id,"EDIT")
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
 		return

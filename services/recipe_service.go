@@ -5,7 +5,6 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/modules/dataService/mqtt"
 	valid "ThingsPanel-Go/validate"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/beego/beego/v2/core/logs"
@@ -53,6 +52,17 @@ func (*RecipeService) GetRecipeList(PaginationValidate valid.RecipePaginationVal
 func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []*models.Taste, list3 []models.OriginalTaste, list4 []models.OriginalMaterials, list5 []string) (error, models.Recipe) {
 
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
+		if len(list5) > 0 {
+			list := make([]*models.Taste, 0)
+			err := tx.Where("taste_id in (?)", list5).Find(&list).Error
+			if err != nil {
+				return err
+			}
+			fmt.Println(list)
+			if len(list) > 0 {
+				return errors.New("Pos口味ID不能重复")
+			}
+		}
 		result := tx.Create(&pot)
 		if result.Error != nil {
 			logs.Error(result.Error, gorm.ErrRecordNotFound)
@@ -80,16 +90,7 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 			}
 		}
 
-		if len(list5) > 0 {
-			list := make([]*models.Taste, 0)
-			err := tx.Where("taste_id in (?)", list5).Find(&list).Error
-			if err != nil {
-				return err
-			}
-			if len(list) > 0 {
-				return errors.New("Pos口味ID不能重复")
-			}
-		}
+
 
 		return nil
 
@@ -115,20 +116,32 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 		SoupStandard:     pot.SoupStandard,
 		UpdateAt:         time.Now(),
 	}
-	by, _ := json.Marshal(updates)
-	fmt.Println(string(by))
+
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
+		if len(list7) > 0 {
+			list := make([]*models.Taste, 0)
+			if err := tx.Where("taste_id in (?)", list7).Find(&list).Error; err != nil {
+				fmt.Println(err)
+				return err
+			}
+			if len(list) > 0 {
+				return errors.New("Pos口味ID不能重复")
+			}
+		}
 		err := tx.Model(models.Recipe{}).Where("id = ?", pot.Id).Updates(updates).Error
 		if err != nil {
+			fmt.Println(err)
 			return err
 		}
 		if len(list1) > 0 {
 			if err := tx.Create(&list1).Error; err != nil {
+				fmt.Println(err)
 				return err
 			}
 		}
 		if len(list2) > 0 {
 			if err := tx.Create(&list2).Error; err != nil {
+				fmt.Println(err)
 				return err
 			}
 		}
@@ -136,6 +149,7 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 		if len(list3) > 0 {
 			var taste models.Taste
 			if err := tx.Where("id in (?)", list3).Delete(&taste).Error; err != nil {
+				fmt.Println(err)
 				return err
 			}
 		}
@@ -143,35 +157,28 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 		if len(list4) > 0 {
 			var material models.Materials
 			if err := tx.Where("id in (?)", list4).Delete(&material).Error; err != nil {
+				fmt.Println(err)
 				return err
 			}
 		}
 
 		if len(list5) > 0 {
 			if err := tx.Create(&list5).Error; err != nil {
+				fmt.Println(err)
 				return err
 			}
 		}
 
 		if len(list6) > 0 {
 			if err := tx.Create(&list6).Error; err != nil {
+				fmt.Println(err)
 				return err
-			}
-		}
-
-		if len(list7) > 0 {
-			list := make([]*models.Taste, 0)
-			if err := tx.Where("taste_id in (?)", list5).Find(&list).Error; err != nil {
-				return err
-			}
-			if len(list) > 0 {
-				return errors.New("Pos口味ID不能重复")
 			}
 		}
 
 		return nil
 	})
-
+	fmt.Println(err)
 	return err
 
 }
@@ -345,9 +352,15 @@ func (*RecipeService) CreateTaste(taste *models.OriginalTaste, action string) er
 	return nil
 }
 
-func (*RecipeService) CheckBottomIdIsRepeat(bottomId string) (bool, error) {
+func (*RecipeService) CheckBottomIdIsRepeat(bottomId,recipeId string,action string) (bool, error) {
 	var model models.Recipe
-	err := psql.Mydb.Where("bottom_pot_id = ?", bottomId).First(&model).Error
+	var err error
+	if action == "ADD" {
+		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).First(&model).Error
+	}else{
+		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).Where("id <> ?",recipeId).First(&model).Error
+	}
+
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, nil
 	}
