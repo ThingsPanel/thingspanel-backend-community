@@ -91,7 +91,7 @@ func SendToHDL(payload []byte, token string) (err error) {
 		return err
 	}
 	// 发送消息
-	err = Publish(hdlConfig.TopicToPublish+"/"+token, byte(hdlConfig.Qos), false, string(payload))
+	err = Publish("device/attributes"+"/"+token, byte(hdlConfig.Qos), false, string(payload))
 	if err != nil {
 		logs.Error("publish error: %v", err)
 		return err
