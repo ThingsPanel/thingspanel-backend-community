@@ -8,6 +8,10 @@ type TpDataTransponAddValid struct {
 	DeviceInfo []TpDataTransponDeviceInfoValid `json:"device_info"`
 }
 
+type TpDataTransponDetailValid struct {
+	DataTranspondId string `json:"data_transpond_id" valid:"Required;MaxSize(36)"`
+}
+
 type TpDataTransponTargetInfoValid struct {
 	URL  string                            `json:"url,omitempty"`
 	MQTT TpDataTransponTargetInfoMQTTValid `json:"mqtt"`

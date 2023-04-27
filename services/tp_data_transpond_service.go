@@ -68,3 +68,39 @@ func (*TpDataTranspondService) GetListByTenantId(
 	}
 	return dataTranspon, count
 }
+
+// 根据 dataTranspondId 查找 tp_data_transpond 表
+func (*TpDataTranspondService) GetDataTranspondByDataTranspondId(dataTranspondId string) (models.TpDataTranspon, bool) {
+	var dataTranspon models.TpDataTranspon
+	tx := psql.Mydb.Model(&models.TpDataTranspon{})
+	err := tx.Where("id = ?", dataTranspondId).Find(&dataTranspon).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return dataTranspon, false
+	}
+	return dataTranspon, true
+}
+
+// 根据 dataTranspondId 查找 tp_data_transpond_detail 表
+func (*TpDataTranspondService) GetDataTranspondDetailByDataTranspondId(dataTranspondId string) ([]models.TpDataTransponDetail, bool) {
+	var dataTranspondDetail []models.TpDataTransponDetail
+	tx := psql.Mydb.Model(&models.TpDataTransponDetail{})
+	err := tx.Where("data_transpond_id = ?", dataTranspondId).Omit("id").Find(&dataTranspondDetail).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return dataTranspondDetail, false
+	}
+	return dataTranspondDetail, true
+}
+
+// 根据 dataTranspondId 查找 tp_data_transpond_target 表
+func (*TpDataTranspondService) GetDataTranspondTargetByDataTranspondId(dataTranspondId string) ([]models.TpDataTransponTarget, bool) {
+	var dataTranspondTarget []models.TpDataTransponTarget
+	tx := psql.Mydb.Model(&models.TpDataTransponTarget{})
+	err := tx.Where("data_transpond_id = ?", dataTranspondId).Omit("id").Find(&dataTranspondTarget).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return dataTranspondTarget, false
+	}
+	return dataTranspondTarget, true
+}

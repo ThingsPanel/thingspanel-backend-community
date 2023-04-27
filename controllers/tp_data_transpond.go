@@ -25,6 +25,34 @@ type DataTransponList struct {
 	PerPage     int         `json:"per_page"`
 }
 
+type DataTranspondDetail struct {
+	Id         string                    `json:"id"`
+	Name       string                    `json:"name"`
+	Desc       string                    `json:"desc"`
+	Script     string                    `json:"script"`
+	TargetInfo DataTranspondTarget       `json:"target_info"`
+	DeviceInfo []DataTranspondDeviceInfo `json:"device_info"`
+}
+
+type DataTranspondTarget struct {
+	URL  string                     `json:"url"`
+	MQTT DataTransponTargetInfoMQTT `json:"mqtt"`
+}
+
+type DataTransponTargetInfoMQTT struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	UserName string `json:"username"`
+	Password string `json:"password"`
+	ClientId string `json:"client_id"`
+	Topic    string `json:"topic"`
+}
+
+type DataTranspondDeviceInfo struct {
+	DeviceId    string `json:"device_id"`
+	MessageType int    `json:"message_type"`
+}
+
 func (c *TpDataTransponController) List() {
 	reqData := valid.TpDataTransponListValid{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
@@ -145,7 +173,80 @@ func (c *TpDataTransponController) Add() {
 }
 
 func (c *TpDataTransponController) Detail() {
-	response.Success(200, (*context2.Context)(c.Ctx))
+	reqData := valid.TpDataTransponDetailValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 根据 Authorization 获取租户ID
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var find services.TpDataTranspondService
+	dataTranspond, e := find.GetDataTranspondByDataTranspondId(reqData.DataTranspondId)
+	// 如果数据库查询失败 或 租户ID不符，返回错误
+	if !e || tenantId != dataTranspond.TenantId {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 查询详情表
+	dataTranspondDetail, e := find.GetDataTranspondDetailByDataTranspondId(reqData.DataTranspondId)
+	if !e {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 查询数据目标表
+	dataTranspondTarget, e := find.GetDataTranspondTargetByDataTranspondId(reqData.DataTranspondId)
+	if !e {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var deviceInfo []DataTranspondDeviceInfo
+	for _, v := range dataTranspondDetail {
+		everyDevice := DataTranspondDeviceInfo{
+			DeviceId:    v.DeviceId,
+			MessageType: v.MessageType,
+		}
+		deviceInfo = append(deviceInfo, everyDevice)
+	}
+
+	var targetInfo DataTranspondTarget
+	for _, v := range dataTranspondTarget {
+		switch v.DataType {
+		case models.DataTypeURL:
+			// 如果是URL，填入URL
+			targetInfo.URL = v.Target
+		case models.DataTypeMQTT:
+			// 如果是MQTT，填入MQTT
+			var d DataTransponTargetInfoMQTT
+			err := json.Unmarshal([]byte(v.Target), &d)
+			if err != nil {
+				response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+				return
+			}
+			targetInfo.MQTT = d
+		}
+
+	}
+
+	d := DataTranspondDetail{
+		Id:         reqData.DataTranspondId,
+		Name:       dataTranspond.Name,
+		Desc:       dataTranspond.Desc,
+		Script:     dataTranspond.Script,
+		DeviceInfo: deviceInfo,
+		TargetInfo: targetInfo,
+	}
+
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 func (c *TpDataTransponController) Edit() {
