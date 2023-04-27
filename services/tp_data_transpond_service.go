@@ -3,6 +3,9 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"errors"
+
+	"gorm.io/gorm"
 )
 
 type TpDataTranspondService struct {
@@ -21,13 +24,23 @@ func (*TpDataTranspondService) AddTpDataTranspond(
 	dataTranspondTarget []models.TpDataTransponTarget,
 ) bool {
 
-	// fmt.Println(dataTranspond, dataTranspondDetail, dataTranspondTarget)
+	err := psql.Mydb.Create(&dataTranspond)
+	if err.Error != nil {
+		errors.Is(err.Error, gorm.ErrRecordNotFound)
+		return false
+	}
 
-	// 启动事物
+	err = psql.Mydb.Create(&dataTranspondDetail)
+	if err.Error != nil {
+		errors.Is(err.Error, gorm.ErrRecordNotFound)
+		return false
+	}
 
-	psql.Mydb.Create(&dataTranspond)
-	psql.Mydb.Create(&dataTranspondDetail)
-	psql.Mydb.Create(&dataTranspondTarget)
+	err = psql.Mydb.Create(&dataTranspondTarget)
+	if err.Error != nil {
+		errors.Is(err.Error, gorm.ErrRecordNotFound)
+		return false
+	}
 
 	return true
 }

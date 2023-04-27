@@ -69,6 +69,12 @@ func (c *TpDataTransponController) Add() {
 		dataTranspondDetail = append(dataTranspondDetail, tmp)
 	}
 
+	// 没有目标
+	if len(reqData.TargetInfo.URL) == 0 && len(reqData.TargetInfo.MQTT.Host) == 0 {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
 	// 组装 dataTranspondTarget 发送到URL
 	if len(reqData.TargetInfo.URL) != 0 {
 		tmp := models.TpDataTransponTarget{
@@ -82,46 +88,35 @@ func (c *TpDataTransponController) Add() {
 
 	// 组装 dataTranspondTarget 发送到MQTT
 	if len(reqData.TargetInfo.MQTT.Host) != 0 {
+
+		mqttInfo := make(map[string]interface{})
+		mqttInfo["host"] = reqData.TargetInfo.MQTT.Host
+		mqttInfo["port"] = reqData.TargetInfo.MQTT.Port
+		mqttInfo["username"] = reqData.TargetInfo.MQTT.UserName
+		mqttInfo["password"] = reqData.TargetInfo.MQTT.Password
+		mqttInfo["client_id"] = reqData.TargetInfo.MQTT.ClientId
+		mqttInfo["topic"] = reqData.TargetInfo.MQTT.Topic
+
+		mqttInfoJson, err := json.Marshal(mqttInfo)
+		if err != nil {
+			response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+
+		}
+
 		tmp := models.TpDataTransponTarget{
 			Id:              utils.GetUuid(),
 			DataTranspondId: dataTranspondId,
 			DataType:        models.DataTypeMQTT,
-			Target:          reqData.TargetInfo.URL,
+			Target:          string(mqttInfoJson),
 		}
 		dataTranspondTarget = append(dataTranspondTarget, tmp)
 	}
 
 	var create services.TpDataTranspondService
-	create.AddTpDataTranspond(dataTranspond, dataTranspondDetail, dataTranspondTarget)
 
-	// {
-	// 	"name": "速要识自",
-	// 	"desc": "minim cupidatat et",
-	// 	"script": "eiusmod esse ullamco enim consequat",
-	// 	"tenant_id": "15",
-	// 	"target_info": {
-	// 		"mqtt": {
-	// 			"host": "Lorem consectetur laborum est",
-	// 			"topic": "http://dummyimage.com/400x400",
-	// 			"password": "sit in",
-	// 			"username": "傅霞",
-	// 			"client_id": "61",
-	// 			"port": "dolor nulla et occaecat in"
-	// 		},
-	// 		"url": "http://bidiaajwe.tk/cerlvpop"
-	// 	},
-	// 	"device_info": [
-	// 		{
-	// 			"device_id": "26",
-	// 			"message_type": 80
-	// 		}
-	// 	]
-	// }
-
-	// uuid := utils.GetUuid()
-	// test := models.TpDataTranspon{
-	// 	Id: uuid,
-	// }
+	if ok := create.AddTpDataTranspond(dataTranspond, dataTranspondDetail, dataTranspondTarget); !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+	}
 
 	response.Success(200, (*context2.Context)(c.Ctx))
 }
