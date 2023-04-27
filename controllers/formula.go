@@ -287,6 +287,15 @@ func (pot *RecipeController) Edit() {
 					Station:   v.Station,
 					RecipeID:  RecipeValidate.Id,
 				})
+				originalMaterialUuid := uuid.GetUuid()
+				OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
+					Id:        originalMaterialUuid,
+					Name:      fmt.Sprintf("%s%d%s", v.Name, v.Dosage, v.Unit),
+					Dosage:    v.Dosage,
+					Unit:      v.Unit,
+					WaterLine: v.WaterLine,
+					Station:   v.Station,
+				})
 			}
 
 		}
