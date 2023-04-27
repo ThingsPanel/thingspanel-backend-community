@@ -52,7 +52,7 @@ type SendConfig struct {
 type Recipe struct {
 	BottomPotId      string    `json:"BottomPotId"`
 	BottomPot        string    `json:"BottomPot"`
-	PotTypeId        string    `json:"PotTypeId"`
+	//PotTypeId        string    `json:"PotTypeId"`
 	BottomProperties string    `json:"BottomProperties"`
 	SoupStandard     int64     `json:"SoupStandard"`
 	MaterialIdList   []string  `json:"-"`
