@@ -109,11 +109,11 @@ func (soup *SoupDataController) Export() {
 				excel_file.SetCellValue("Sheet1", "B"+is, tv.OrderSn)
 				excel_file.SetCellValue("Sheet1", "C"+is, tv.BottomPot)
 				excel_file.SetCellValue("Sheet1", "D"+is, tv.TableNumber)
-				excel_file.SetCellValue("Sheet1", "E"+is, time.Unix(tv.OrderTime/1000, 0).Format("2006-01-02 15:04:05"))
-				excel_file.SetCellValue("Sheet1", "F"+is, time.Unix(tv.SoupStartTime/1000, 0).Format("2006-01-02 15:04:05"))
-				excel_file.SetCellValue("Sheet1", "G"+is, time.Unix(tv.SoupEndTime/1000, 0).Format("2006-01-02 15:04:05"))
-				excel_file.SetCellValue("Sheet1", "H"+is, time.Unix(tv.FeedingEndTime/1000, 0).Format("2006-01-02 15:04:05"))
-				excel_file.SetCellValue("Sheet1", "I"+is, time.Unix(tv.TurningPotEnd/1000, 0).Format("2006-01-02 15:04:05"))
+				excel_file.SetCellValue("Sheet1", "E"+is, time.Unix(tv.OrderTime/1000, 0).Format("2006/01/02 15:04:05"))
+				excel_file.SetCellValue("Sheet1", "F"+is, time.Unix(tv.SoupStartTime/1000, 0).Format("2006/01/02 15:04:05"))
+				excel_file.SetCellValue("Sheet1", "G"+is, time.Unix(tv.SoupEndTime/1000, 0).Format("2006/01/02 15:04:05"))
+				excel_file.SetCellValue("Sheet1", "H"+is, time.Unix(tv.FeedingEndTime/1000, 0).Format("2006/01/02 15:04:05"))
+				excel_file.SetCellValue("Sheet1", "I"+is, time.Unix(tv.TurningPotEnd/1000, 0).Format("2006/01/02 15:04:05"))
 			}
 		}
 	}

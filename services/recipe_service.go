@@ -6,6 +6,7 @@ import (
 	"ThingsPanel-Go/modules/dataService/mqtt"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -49,7 +50,7 @@ func (*RecipeService) GetRecipeList(PaginationValidate valid.RecipePaginationVal
 }
 
 // 新增数据
-func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []*models.Taste, list3 []models.OriginalTaste, list4 []models.OriginalMaterials) (error, models.Recipe) {
+func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []*models.Taste, list3 []models.OriginalTaste, list4 []models.OriginalMaterials, list5 []string) (error, models.Recipe) {
 
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 		result := tx.Create(&pot)
@@ -79,6 +80,17 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 			}
 		}
 
+		if len(list5) > 0 {
+			list := make([]*models.Taste, 0)
+			err := tx.Where("taste_id in (?)", list5).Find(&list).Error
+			if err != nil {
+				return err
+			}
+			if len(list) > 0 {
+				return errors.New("Pos口味ID不能重复")
+			}
+		}
+
 		return nil
 
 	})
@@ -91,7 +103,7 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 }
 
 // 修改数据
-func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.Materials, list2 []models.Taste, list3 []string, list4 []string, list5 []models.OriginalMaterials, list6 []models.OriginalTaste) error {
+func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.Materials, list2 []models.Taste, list3 []string, list4 []string, list5 []models.OriginalMaterials, list6 []models.OriginalTaste, list7 []string) error {
 
 	updates := &models.EditRecipeValue{
 		BottomPotId:      pot.BottomPotId,
@@ -144,6 +156,16 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 		if len(list6) > 0 {
 			if err := tx.Create(&list6).Error; err != nil {
 				return err
+			}
+		}
+
+		if len(list7) > 0 {
+			list := make([]*models.Taste, 0)
+			if err := tx.Where("taste_id in (?)", list5).Find(&list).Error; err != nil {
+				return err
+			}
+			if len(list) > 0 {
+				return errors.New("Pos口味ID不能重复")
 			}
 		}
 
@@ -200,11 +222,11 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	}
 	for _, v := range Recipe {
 		tmpSendConfig.Recipe = append(tmpSendConfig.Recipe, &mqtt.Recipe{
-			BottomPotId:      v.BottomPotId,
-			BottomPot:        v.BottomPot,
+			BottomPotId: v.BottomPotId,
+			BottomPot:   v.BottomPot,
 			//PotTypeId:        v.PotTypeId,
 			BottomProperties: v.BottomProperties,
-			SoupStandard:     v.SoupStandard,
+			//SoupStandard:     v.SoupStandard,
 		})
 	}
 
@@ -321,4 +343,19 @@ func (*RecipeService) CreateTaste(taste *models.OriginalTaste, action string) er
 	}
 
 	return nil
+}
+
+func (*RecipeService) CheckBottomIdIsRepeat(bottomId string) (bool, error) {
+	var model models.Recipe
+	err := psql.Mydb.Where("bottom_pot_id = ?", bottomId).First(&model).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+
 }

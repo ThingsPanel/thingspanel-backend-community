@@ -54,7 +54,7 @@ type Recipe struct {
 	BottomPot        string    `json:"BottomPot"`
 	//PotTypeId        string    `json:"PotTypeId"`
 	BottomProperties string    `json:"BottomProperties"`
-	SoupStandard     int64     `json:"SoupStandard"`
+	//SoupStandard     int64     `json:"SoupStandard"`
 	MaterialIdList   []string  `json:"-"`
 }
 
