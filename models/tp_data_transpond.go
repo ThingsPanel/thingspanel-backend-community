@@ -7,7 +7,7 @@ type TpDataTranspon struct {
 	Status     int    `json:"status,omitempty"`
 	TenantId   string `json:"tenant_id,omitempty"`
 	Script     string `json:"script,omitempty"`
-	CreateTime int    `json:"create_time,omitempty"`
+	CreateTime int64  `json:"create_time,omitempty"`
 }
 
 func (TpDataTranspon) TableName() string {

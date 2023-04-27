@@ -7,6 +7,12 @@ type TpDataTransponTarget struct {
 	Target          string `json:"target"`
 }
 
+// 发送类型为URL
+const DataTypeURL = 1
+
+// 发送类型为MQTT
+const DataTypeMQTT = 2
+
 func (TpDataTransponTarget) TableName() string {
 	return "tp_data_transpond_target"
 }

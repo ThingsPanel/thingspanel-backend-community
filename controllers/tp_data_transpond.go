@@ -1,13 +1,14 @@
 package controllers
 
 import (
-	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
@@ -42,19 +43,57 @@ func (c *TpDataTransponController) Add() {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
-	uuid := utils.GetUuid()
-	DataTranspond := models.TpDataTranspon{
-		Id:         uuid,
+
+	dataTranspondId := utils.GetUuid()
+	dataTranspond := models.TpDataTranspon{
+		Id:         dataTranspondId,
 		Name:       reqData.Name,
 		Desc:       reqData.Desc,
-		Status:     0, // 默认未启动
+		Status:     0, // 默认关闭
 		TenantId:   tenantId,
 		Script:     reqData.Script,
-		CreateTime: 11,
+		CreateTime: time.Now().Unix(),
 	}
 
-	result := psql.Mydb.Create(&DataTranspond)
-	fmt.Println(result)
+	var dataTranspondDetail []models.TpDataTransponDetail
+	var dataTranspondTarget []models.TpDataTransponTarget
+
+	// 组装 dataTranspondDetail
+	for _, v := range reqData.DeviceInfo {
+		tmp := models.TpDataTransponDetail{
+			Id:              utils.GetUuid(),
+			DataTranspondId: dataTranspondId,
+			DeviceId:        v.DeviceId,
+			MessageType:     v.MessageType,
+		}
+		dataTranspondDetail = append(dataTranspondDetail, tmp)
+	}
+
+	// 组装 dataTranspondTarget 发送到URL
+	if len(reqData.TargetInfo.URL) != 0 {
+		tmp := models.TpDataTransponTarget{
+			Id:              utils.GetUuid(),
+			DataTranspondId: dataTranspondId,
+			DataType:        models.DataTypeURL,
+			Target:          reqData.TargetInfo.URL,
+		}
+		dataTranspondTarget = append(dataTranspondTarget, tmp)
+	}
+
+	// 组装 dataTranspondTarget 发送到MQTT
+	if len(reqData.TargetInfo.MQTT.Host) != 0 {
+		tmp := models.TpDataTransponTarget{
+			Id:              utils.GetUuid(),
+			DataTranspondId: dataTranspondId,
+			DataType:        models.DataTypeMQTT,
+			Target:          reqData.TargetInfo.URL,
+		}
+		dataTranspondTarget = append(dataTranspondTarget, tmp)
+	}
+
+	var create services.TpDataTranspondService
+	create.AddTpDataTranspond(dataTranspond, dataTranspondDetail, dataTranspondTarget)
+
 	// {
 	// 	"name": "速要识自",
 	// 	"desc": "minim cupidatat et",
