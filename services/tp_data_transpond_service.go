@@ -18,6 +18,11 @@ type TpDataTranspondService struct {
 	TimeField []string
 }
 
+const DeviceMessageTypeAttributeReport = 1 // 属性上报
+const DeviceMessageTypeAttributeSend = 2   // 属性下发
+const DeviceMessageTypeEvnetReport = 3     // 事件上报
+const DeviceMessageTypeCustomReport = 4    // 自定义上报
+
 // 新建转发规则
 func (*TpDataTranspondService) AddTpDataTranspond(
 	dataTranspond models.TpDataTranspon,
