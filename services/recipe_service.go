@@ -245,7 +245,7 @@ func (*RecipeService) FindMaterialByName(keyword string) ([]*models.OriginalMate
 	list := make([]*models.OriginalMaterials, 0)
 	db := psql.Mydb
 	if keyword != "" {
-		db = db.Where("name  like ?", "%"+keyword+"%")
+		db = db.Where("name  = ?", keyword)
 	}
 	err := db.Find(&list).Error
 	if err != nil {
