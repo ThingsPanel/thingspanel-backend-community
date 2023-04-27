@@ -273,6 +273,15 @@ func init() {
 		web.NSRouter("/data/transpond/list", &controllers.DataTranspondController{}, "*:List"),
 		web.NSRouter("/data/transpond/edit", &controllers.DataTranspondController{}, "*:Edit"),
 		web.NSRouter("/data/transpond/delete", &controllers.DataTranspondController{}, "*:Delete"),
+
+		// 新数据转发
+		web.NSRouter("/tp_data/transpond/add", &controllers.TpDataTransponController{}, "*:Add"),       // 新增
+		web.NSRouter("/tp_data/transpond/list", &controllers.TpDataTransponController{}, "*:List"),     // 列表
+		web.NSRouter("/tp_data/transpond/detail", &controllers.TpDataTransponController{}, "*:Detail"), // 详情
+		web.NSRouter("/tp_data/transpond/edit", &controllers.TpDataTransponController{}, "*:Edit"),     // 编辑
+		web.NSRouter("/tp_data/transpond/delete", &controllers.TpDataTransponController{}, "*:Delete"), // 删除
+		web.NSRouter("/tp_data/transpond/switch", &controllers.TpDataTransponController{}, "*:Switch"), // 更改状态（启动/关闭）
+
 		//图表库
 		web.NSRouter("/chart/add", &controllers.ChartController{}, "*:Add"),
 		web.NSRouter("/chart/list", &controllers.ChartController{}, "*:List"),
