@@ -260,21 +260,71 @@ func (c *TpDataTransponController) Edit() {
 }
 
 func (c *TpDataTransponController) Delete() {
+	reqData := valid.TpDataTransponDetailValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	fmt.Println(tenantId)
 	if !ok {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
+
+	var operate services.TpDataTranspondService
+	dataTranspond, e := operate.GetDataTranspondByDataTranspondId(reqData.DataTranspondId)
+	// 如果数据库查询失败 或 租户ID不符，返回错误
+	if !e || tenantId != dataTranspond.TenantId {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 删除数据
+	res := operate.DeletaByDataTranspondId(reqData.DataTranspondId)
+	if !res {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
 	response.Success(200, (*context2.Context)(c.Ctx))
 }
 
 func (c *TpDataTransponController) Switch() {
+	reqData := valid.TpDataTransponSwitchValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 根据 Authorization 获取租户ID
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	fmt.Println(tenantId)
 	if !ok {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
+
+	var find services.TpDataTranspondService
+	dataTranspond, e := find.GetDataTranspondByDataTranspondId(reqData.DataTranspondId)
+	// 如果数据库查询失败 或 租户ID不符，返回错误
+	if !e || tenantId != dataTranspond.TenantId {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 如果要修改的状态与数据库一致 直接返回成功
+	if reqData.Switch == dataTranspond.Status {
+		response.Success(200, (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 不一致，则修改数据库的状态
+	var update services.TpDataTranspondService
+	if ok := update.UpdateDataTranspondStatusByDataTranspondId(reqData.DataTranspondId, reqData.Switch); !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
 	response.Success(200, (*context2.Context)(c.Ctx))
 }

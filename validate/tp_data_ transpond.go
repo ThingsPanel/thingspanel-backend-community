@@ -12,6 +12,11 @@ type TpDataTransponDetailValid struct {
 	DataTranspondId string `json:"data_transpond_id" valid:"Required;MaxSize(36)"`
 }
 
+type TpDataTransponSwitchValid struct {
+	DataTranspondId string `json:"data_transpond_id" valid:"Required;MaxSize(36)"`
+	Switch          int    `json:"switch"`
+}
+
 type TpDataTransponTargetInfoValid struct {
 	URL  string                            `json:"url,omitempty"`
 	MQTT TpDataTransponTargetInfoMQTTValid `json:"mqtt"`

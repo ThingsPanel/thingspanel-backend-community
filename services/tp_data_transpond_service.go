@@ -104,3 +104,36 @@ func (*TpDataTranspondService) GetDataTranspondTargetByDataTranspondId(dataTrans
 	}
 	return dataTranspondTarget, true
 }
+
+func (*TpDataTranspondService) UpdateDataTranspondStatusByDataTranspondId(dataTranspondId string, swtich int) bool {
+	tx := psql.Mydb.Model(&models.TpDataTranspon{})
+	err := tx.Where("id = ?", dataTranspondId).Update("status", swtich).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return false
+	}
+	return true
+}
+
+func (*TpDataTranspondService) DeletaByDataTranspondId(dataTranspondId string) bool {
+
+	result := psql.Mydb.Where("id = ?", dataTranspondId).Delete(&models.TpDataTranspon{})
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return false
+	}
+
+	result = psql.Mydb.Where("data_transpond_id = ?", dataTranspondId).Delete(&models.TpDataTransponDetail{})
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return false
+	}
+
+	result = psql.Mydb.Where("data_transpond_id = ?", dataTranspondId).Delete(&models.TpDataTransponTarget{})
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return false
+	}
+
+	return true
+}
