@@ -1,27 +1,61 @@
 package mqtt
 
 import (
-	"ThingsPanel-Go/models"
 	"errors"
 	"fmt"
-	"os"
-
 	"github.com/beego/beego/v2/core/logs"
 	"gopkg.in/yaml.v3"
+	"os"
 )
 
 type ShopContent struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	Number  string `json:"number"`
+	Name    string `json:"Name"`
+	Address string `json:"Address"`
+	Number  string `json:"Number"`
+}
+
+type PotType struct {
+	Name         string    `json:"Name"`
+	SoupStandard int       `json:"SoupStandard"`
+	PotTypeId    string    `json:"PotTypeId"`
+}
+
+
+type Taste struct {
+	Name      string    `json:"Name"`
+	TasteId   string    `json:"TasteId"`
+	Material  string    `json:"Material"`
+	Dosage    int       `json:"Dosage"`
+	Unit      string    `json:"Unit"`
+	WaterLine int       `json:"WaterLine"`
+	Station   string    `json:"Station"`
+}
+
+type Materials struct {
+	Id        string `json:"Id"`
+	Name      string `json:"Name"`
+	Dosage    int    `json:"Dosage"`
+	Unit      string `json:"Unit"`
+	WaterLine int    `json:"WaterLine"`
+	Station   string `json:"Station"`
 }
 
 type SendConfig struct {
 	Shop      ShopContent
-	PotType   []*models.PotType
-	Taste     []*models.Taste
-	Materials []*models.Materials
-	Recipe    []*models.Recipe
+	PotType   []*PotType
+	Taste     []*Taste
+	Materials []*Materials
+	Recipe    []*Recipe
+}
+
+
+type Recipe struct {
+	BottomPotId      string    `json:"BottomPotId"`
+	BottomPot        string    `json:"BottomPot"`
+	PotTypeId        string    `json:"PotTypeId"`
+	BottomProperties string    `json:"BottomProperties"`
+	SoupStandard     int64     `json:"SoupStandard"`
+	MaterialIdList   []string  `json:"-"`
 }
 
 /*店铺配置信息json案例,potType锅型,taste口味,materials配料,recipe锅底配方,shop店铺

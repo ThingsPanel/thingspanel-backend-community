@@ -188,17 +188,26 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 			Name:   Asset.Name,
 			Number: Asset.ID,
 		},
-		PotType:   make([]*models.PotType, 0),
-		Taste:     make([]*models.Taste, 0),
-		Materials: make([]*models.Materials, 0),
-		Recipe:    make([]*models.Recipe, 0),
+		PotType:   make([]*mqtt.PotType, 0),
+		Taste:     make([]*mqtt.Taste, 0),
+		Materials: make([]*mqtt.Materials, 0),
+		Recipe:    make([]*mqtt.Recipe, 0),
 	}
 	var Recipe []*models.Recipe
 	err := psql.Mydb.Where("is_del = ?", false).Where("asset_id = ?", Asset.ID).Find(&Recipe).Error
 	if err != nil {
 		return nil, err
 	}
-	tmpSendConfig.Recipe = Recipe
+	for _, v := range Recipe {
+		tmpSendConfig.Recipe = append(tmpSendConfig.Recipe, &mqtt.Recipe{
+			BottomPotId:      v.BottomPotId,
+			BottomPot:        v.BottomPot,
+			PotTypeId:        v.PotTypeId,
+			BottomProperties: v.BottomProperties,
+			SoupStandard:     v.SoupStandard,
+		})
+	}
+
 	recipeIdArr := make([]string, 0)
 	potTypeArr := make([]string, 0)
 	for _, v := range Recipe {
@@ -210,13 +219,28 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	if err != nil {
 		return nil, err
 	}
-	tmpSendConfig.PotType = potTypeList
+	for _, v := range potTypeList {
+		tmpSendConfig.PotType = append(tmpSendConfig.PotType, &mqtt.PotType{
+			Name:         v.Name,
+			SoupStandard: v.SoupStandard,
+			PotTypeId:    v.PotTypeId,
+		})
+	}
 	materialList := make([]*models.Materials, 0)
 	err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Find(&materialList).Error
 	if err != nil {
 		return nil, err
 	}
-	tmpSendConfig.Materials = materialList
+	for _, v := range materialList {
+		tmpSendConfig.Materials = append(tmpSendConfig.Materials, &mqtt.Materials{
+			Id:        v.Id,
+			Name:      v.Name,
+			Dosage:    v.Dosage,
+			Unit:      v.Unit,
+			WaterLine: v.WaterLine,
+			Station:   v.Station,
+		})
+	}
 	materialIdList := make(map[string][]string, 0)
 	for _, v := range materialList {
 		materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], v.Id)
@@ -227,15 +251,24 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	if err != nil {
 		return nil, err
 	}
-	tmpSendConfig.Taste = tasteList
+	for _, v := range tasteList {
+		tmpSendConfig.Taste = append(tmpSendConfig.Taste, &mqtt.Taste{
+			Name:      v.Name,
+			TasteId:   v.TasteId,
+			Material:  v.Material,
+			Dosage:    v.Dosage,
+			Unit:      v.Unit,
+			WaterLine: v.WaterLine,
+			Station:   v.Station,
+		})
+	}
 	tasteIdList := make(map[string][]string, 0)
 	for _, v := range tasteList {
 		tasteIdList[v.RecipeID] = append(tasteIdList[v.RecipeID], v.Id)
 	}
 
-	for key, value := range tmpSendConfig.Recipe {
+	for key, value := range Recipe {
 		tmpSendConfig.Recipe[key].MaterialIdList = materialIdList[value.Id]
-		tmpSendConfig.Recipe[key].TasteIdList = tasteIdList[value.Id]
 	}
 
 	return tmpSendConfig, nil
