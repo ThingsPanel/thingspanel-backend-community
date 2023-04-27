@@ -91,20 +91,20 @@ type scriptdata struct {
 }
 
 // 调试脚本
-func (*TpScriptService) QuizTpScript(code, msgcontent string) error {
+func (*TpScriptService) QuizTpScript(code, msgcontent string) (string, error) {
 	var data scriptdata
 	err := json.Unmarshal([]byte(msgcontent), &data)
 	if err != nil {
-		return errors.New("数据存在错误")
+		return msgcontent, errors.New("数据存在错误")
 	}
 	flag := utils.Eval(code)
 	if flag == "true" {
 		response, err := utils.ScriptDeal(code, data.Msg, data.Topic)
-		if err != nil || response != data.Msg {
+		if err != nil {
 			logs.Error(err.Error())
-			return err
+			return "", err
 		}
-		return nil
+		return response, nil
 	}
-	return errors.New("脚本格式错误")
+	return "", errors.New("脚本格式错误")
 }
