@@ -96,16 +96,12 @@ func (*TpScriptService) QuizTpScript(code, msgcontent string) (string, error) {
 		if err != nil {
 			return "", errors.New("报文存在错误")
 		}
-		flag := utils.Eval(code)
-		if flag == "true" {
-			response, err := utils.ScriptDeal(code, msg, data["topic"].(string))
-			if err != nil {
-				logs.Error(err.Error())
-				return "", err
-			}
-			return response, nil
+		response, err := utils.ScriptDeal(code, msg, data["topic"].(string))
+		if err != nil {
+			logs.Error(err.Error())
+			return "", err
 		}
-		return "", errors.New("脚本存在错误")
+		return response, nil
 	default:
 		return "", errors.New("报文存在错误")
 	}
