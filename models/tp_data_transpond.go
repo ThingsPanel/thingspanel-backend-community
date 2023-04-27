@@ -2,6 +2,7 @@ package models
 
 type TpDataTranspon struct {
 	Id         string `json:"id,omitempty"`
+	Name       string `json:"name"`
 	Desc       string `json:"desc,omitempty"`
 	Status     int    `json:"status,omitempty"`
 	TenantId   string `json:"tenant_id,omitempty"`
@@ -12,15 +13,3 @@ type TpDataTranspon struct {
 func (TpDataTranspon) TableName() string {
 	return "tp_data_transpond"
 }
-
-// create table tp_data_transpond
-// (
-// 	id varchar(36) not null
-// 		constraint tp_data_transpond_pk
-// 			primary key,
-// 	"desc" varchar,
-// 	status integer not null,
-// 	tenant_id varchar(36) not null,
-// 	script text,
-// 	create_time integer
-// );
