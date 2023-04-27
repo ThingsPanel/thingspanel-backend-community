@@ -7,7 +7,6 @@ import (
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
@@ -249,16 +248,6 @@ func (c *TpDataTransponController) Detail() {
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
-func (c *TpDataTransponController) Edit() {
-	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	fmt.Println(tenantId)
-	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
-		return
-	}
-	response.Success(200, (*context2.Context)(c.Ctx))
-}
-
 func (c *TpDataTransponController) Delete() {
 	reqData := valid.TpDataTransponDetailValid{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
@@ -322,6 +311,114 @@ func (c *TpDataTransponController) Switch() {
 	// 不一致，则修改数据库的状态
 	var update services.TpDataTranspondService
 	if ok := update.UpdateDataTranspondStatusByDataTranspondId(reqData.DataTranspondId, reqData.Switch); !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	response.Success(200, (*context2.Context)(c.Ctx))
+}
+
+func (c *TpDataTransponController) Edit() {
+	reqData := valid.TpDataTransponEditValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	var operate services.TpDataTranspondService
+	dataTranspond, e := operate.GetDataTranspondByDataTranspondId(reqData.Id)
+	// 如果数据库查询失败 或 租户ID不符，返回错误
+	if !e || tenantId != dataTranspond.TenantId {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	updateData := models.TpDataTranspon{
+		Id:         reqData.Id,
+		Name:       reqData.Name,
+		Desc:       reqData.Desc,
+		Status:     0,
+		TenantId:   tenantId,
+		Script:     reqData.Script,
+		CreateTime: time.Now().Unix(),
+	}
+
+	// 更新Transpond表，
+	if ok := operate.UpdateDataTranspond(updateData); !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 删除Detail,Target表，
+	if ok := operate.DeletaDeviceTargetByDataTranspondId(reqData.Id); !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var dataTranspondDetail []models.TpDataTransponDetail
+	var dataTranspondTarget []models.TpDataTransponTarget
+
+	// 插入Detail,Target表
+	// 组装 dataTranspondDetail
+	for _, v := range reqData.DeviceInfo {
+		tmp := models.TpDataTransponDetail{
+			Id:              utils.GetUuid(),
+			DataTranspondId: reqData.Id,
+			DeviceId:        v.DeviceId,
+			MessageType:     v.MessageType,
+		}
+		dataTranspondDetail = append(dataTranspondDetail, tmp)
+	}
+
+	// 没有目标
+	if len(reqData.TargetInfo.URL) == 0 && len(reqData.TargetInfo.MQTT.Host) == 0 {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 组装 dataTranspondTarget 发送到URL
+	if len(reqData.TargetInfo.URL) != 0 {
+		tmp := models.TpDataTransponTarget{
+			Id:              utils.GetUuid(),
+			DataTranspondId: reqData.Id,
+			DataType:        models.DataTypeURL,
+			Target:          reqData.TargetInfo.URL,
+		}
+		dataTranspondTarget = append(dataTranspondTarget, tmp)
+	}
+
+	// 组装 dataTranspondTarget 发送到MQTT
+	if len(reqData.TargetInfo.MQTT.Host) != 0 {
+
+		mqttInfo := make(map[string]interface{})
+		mqttInfo["host"] = reqData.TargetInfo.MQTT.Host
+		mqttInfo["port"] = reqData.TargetInfo.MQTT.Port
+		mqttInfo["username"] = reqData.TargetInfo.MQTT.UserName
+		mqttInfo["password"] = reqData.TargetInfo.MQTT.Password
+		mqttInfo["client_id"] = reqData.TargetInfo.MQTT.ClientId
+		mqttInfo["topic"] = reqData.TargetInfo.MQTT.Topic
+
+		mqttInfoJson, err := json.Marshal(mqttInfo)
+		if err != nil {
+			response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+			return
+		}
+
+		tmp := models.TpDataTransponTarget{
+			Id:              utils.GetUuid(),
+			DataTranspondId: reqData.Id,
+			DataType:        models.DataTypeMQTT,
+			Target:          string(mqttInfoJson),
+		}
+		dataTranspondTarget = append(dataTranspondTarget, tmp)
+	}
+
+	if ok := operate.AddTpDataTranspondForEdit(dataTranspondDetail, dataTranspondTarget); !ok {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}

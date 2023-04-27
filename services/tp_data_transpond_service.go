@@ -46,6 +46,26 @@ func (*TpDataTranspondService) AddTpDataTranspond(
 	return true
 }
 
+func (*TpDataTranspondService) AddTpDataTranspondForEdit(
+	dataTranspondDetail []models.TpDataTransponDetail,
+	dataTranspondTarget []models.TpDataTransponTarget,
+) bool {
+
+	err := psql.Mydb.Create(&dataTranspondDetail)
+	if err.Error != nil {
+		errors.Is(err.Error, gorm.ErrRecordNotFound)
+		return false
+	}
+
+	err = psql.Mydb.Create(&dataTranspondTarget)
+	if err.Error != nil {
+		errors.Is(err.Error, gorm.ErrRecordNotFound)
+		return false
+	}
+
+	return true
+}
+
 func (*TpDataTranspondService) GetListByTenantId(
 	offset int, pageSize int, tenantId string) ([]models.TpDataTranspon, int64) {
 
@@ -135,5 +155,31 @@ func (*TpDataTranspondService) DeletaByDataTranspondId(dataTranspondId string) b
 		return false
 	}
 
+	return true
+}
+
+func (*TpDataTranspondService) DeletaDeviceTargetByDataTranspondId(dataTranspondId string) bool {
+
+	result := psql.Mydb.Where("data_transpond_id = ?", dataTranspondId).Delete(&models.TpDataTransponDetail{})
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return false
+	}
+
+	result = psql.Mydb.Where("data_transpond_id = ?", dataTranspondId).Delete(&models.TpDataTransponTarget{})
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return false
+	}
+
+	return true
+}
+
+func (*TpDataTranspondService) UpdateDataTranspond(input models.TpDataTranspon) bool {
+	result := psql.Mydb.Where("id = ?", input.Id).Save(&input)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return false
+	}
 	return true
 }
