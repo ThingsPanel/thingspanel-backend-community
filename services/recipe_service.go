@@ -303,13 +303,13 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	return tmpSendConfig, nil
 }
 
-func (*RecipeService) FindMaterialByName(keyword string) ([]*models.OriginalMaterials, error) {
+func (*RecipeService) FindMaterialByName(keyword,materialType string) ([]*models.OriginalMaterials, error) {
 	list := make([]*models.OriginalMaterials, 0)
 	db := psql.Mydb
 	if keyword != "" {
 		db = db.Where("name  = ?", keyword)
 	}
-	err := db.Find(&list).Error
+	err := db.Where("resource = ?",materialType).Find(&list).Error
 	if err != nil {
 		return nil, err
 	}

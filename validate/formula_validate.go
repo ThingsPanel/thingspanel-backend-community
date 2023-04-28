@@ -65,6 +65,7 @@ type Material struct {
 	Station   string `json:"Station"`
 	Action    string `json:"Action"`
 	Operate   string `json:"Operate"`
+	Resource  string `json:"Resource"`
 }
 
 type RecipePaginationValidate struct {
@@ -85,7 +86,8 @@ type DelRecipeValidator struct {
 }
 
 type SearchMaterialNameValidator struct {
-	Keyword string `json:"keyword"`
+	Keyword      string `json:"keyword"`
+	MaterialType string `json:"material_type"`
 }
 
 type DelMaterialValidator struct {

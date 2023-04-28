@@ -83,6 +83,7 @@ func (pot *RecipeController) Index() {
 	response.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(pot.Ctx))
 
 }
+
 /**创建*/
 func (pot *RecipeController) Add() {
 	AssetId := "10000"
@@ -105,7 +106,7 @@ func (pot *RecipeController) Add() {
 
 	var RecipeService services.RecipeService
 
-	isExit, err := RecipeService.CheckBottomIdIsRepeat(addRecipeValidate.BottomPotId,"","ADD")
+	isExit, err := RecipeService.CheckBottomIdIsRepeat(addRecipeValidate.BottomPotId, "", "ADD")
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
 		return
@@ -117,10 +118,10 @@ func (pot *RecipeController) Add() {
 
 	id := uuid.GetUuid()
 	Recipe := models.Recipe{
-		Id:          id,
-		BottomPotId: addRecipeValidate.BottomPotId,
-		BottomPot:   addRecipeValidate.BottomPot,
-		PotTypeId:   addRecipeValidate.PotTypeId,
+		Id:               id,
+		BottomPotId:      addRecipeValidate.BottomPotId,
+		BottomPot:        addRecipeValidate.BottomPot,
+		PotTypeId:        addRecipeValidate.PotTypeId,
 		Materials:        strings.Join(addRecipeValidate.Materials, ","),
 		Taste:            strings.Join(addRecipeValidate.Tastes, ","),
 		BottomProperties: addRecipeValidate.BottomProperties,
@@ -159,6 +160,7 @@ func (pot *RecipeController) Add() {
 				Unit:      v.Unit,
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
+				Resource:  v.Resource,
 			})
 			break
 		default:
@@ -180,14 +182,15 @@ func (pot *RecipeController) Add() {
 				Unit:      v.Unit,
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
+				Resource:  v.Resource,
 			})
 
 		}
 
 	}
-	tasteIdArr := make([]string,0)
+	tasteIdArr := make([]string, 0)
 	for _, v := range addRecipeValidate.TastesArr {
-		tasteIdArr = append(tasteIdArr,v.TasteId)
+		tasteIdArr = append(tasteIdArr, v.TasteId)
 		switch v.Action {
 		case "GET":
 			tasteUuid := uuid.GetUuid()
@@ -228,7 +231,7 @@ func (pot *RecipeController) Add() {
 		}
 
 	}
-	rsp_err, d := RecipeService.AddRecipe(Recipe, MaterialArr, TasteArr, OriginalTasteArr, OriginalMaterialsArr,tasteIdArr)
+	rsp_err, d := RecipeService.AddRecipe(Recipe, MaterialArr, TasteArr, OriginalTasteArr, OriginalMaterialsArr, tasteIdArr)
 	if rsp_err == nil {
 		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(pot.Ctx))
 	} else {
@@ -238,6 +241,7 @@ func (pot *RecipeController) Add() {
 	}
 	response.SuccessWithMessage(200, "success", (*context2.Context)(pot.Ctx))
 }
+
 // 编辑
 func (pot *RecipeController) Edit() {
 	RecipeValidate := valid.EditRecipeValidator{}
@@ -264,7 +268,7 @@ func (pot *RecipeController) Edit() {
 	}
 	var Recipe services.RecipeService
 
-	isExit, err := Recipe.CheckBottomIdIsRepeat(RecipeValidate.BottomPotId,RecipeValidate.Id,"EDIT")
+	isExit, err := Recipe.CheckBottomIdIsRepeat(RecipeValidate.BottomPotId, RecipeValidate.Id, "EDIT")
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
 		return
@@ -292,6 +296,7 @@ func (pot *RecipeController) Edit() {
 					Unit:      v.Unit,
 					WaterLine: v.WaterLine,
 					Station:   v.Station,
+					Resource:  v.Resource,
 				})
 			} else {
 				materialUuid = uuid.GetUuid()
@@ -312,6 +317,7 @@ func (pot *RecipeController) Edit() {
 					Unit:      v.Unit,
 					WaterLine: v.WaterLine,
 					Station:   v.Station,
+					Resource:  v.Resource,
 				})
 			}
 
@@ -321,10 +327,10 @@ func (pot *RecipeController) Edit() {
 		}
 
 	}
-	tasteIdArr := make([]string,0)
+	tasteIdArr := make([]string, 0)
 	for _, v := range RecipeValidate.TastesArr {
 		if v.Id == "" {
-			tasteIdArr = append(tasteIdArr,v.TasteId)
+			tasteIdArr = append(tasteIdArr, v.TasteId)
 			tasteUuid := uuid.GetUuid()
 			TasteArr = append(TasteArr, models.Taste{
 				Id:        tasteUuid,
@@ -353,7 +359,7 @@ func (pot *RecipeController) Edit() {
 
 	}
 
-	isSucess := Recipe.EditRecipe(RecipeValidate, MaterialArr, TasteArr, DeleteTasteArr, DeleteMaterialArr, OriginalMaterialsArr, OriginalTasteArr,tasteIdArr)
+	isSucess := Recipe.EditRecipe(RecipeValidate, MaterialArr, TasteArr, DeleteTasteArr, DeleteMaterialArr, OriginalMaterialsArr, OriginalTasteArr, tasteIdArr)
 	if isSucess == nil {
 		d := Recipe.GetRecipeDetail(RecipeValidate.Id)
 		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(pot.Ctx))
@@ -361,6 +367,7 @@ func (pot *RecipeController) Edit() {
 		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(pot.Ctx))
 	}
 }
+
 // 删除
 func (pot *RecipeController) Delete() {
 	DelRecipeValidator := valid.DelRecipeValidator{}
@@ -441,7 +448,7 @@ func (pot *RecipeController) GetMaterialList() {
 	}
 	var RecipeService services.RecipeService
 
-	list, err := RecipeService.FindMaterialByName(searchValidator.Keyword)
+	list, err := RecipeService.FindMaterialByName(searchValidator.Keyword, searchValidator.MaterialType)
 	if err == nil {
 		response.SuccessWithDetailed(200, "success", list, map[string]string{}, (*context2.Context)(pot.Ctx))
 	} else {

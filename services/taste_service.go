@@ -50,6 +50,3 @@ func (TasteService) SearchTasteList(keyword string) ([]*models.OriginalTaste, er
 
 	return taste, nil
 }
-
-
-
