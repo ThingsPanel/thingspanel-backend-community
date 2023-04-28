@@ -377,6 +377,8 @@ func (c *TpDataTransponController) Edit() {
 			DataTranspondId: reqData.Id,
 			DeviceId:        v.DeviceId,
 			MessageType:     v.MessageType,
+			BusinessId:      v.BusinessId,
+			AssetGroupId:    v.AssetGroupId,
 		}
 		dataTranspondDetail = append(dataTranspondDetail, tmp)
 	}
