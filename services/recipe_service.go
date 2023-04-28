@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/modules/dataService/mqtt"
 	valid "ThingsPanel-Go/validate"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/beego/beego/v2/core/logs"
@@ -248,9 +249,11 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	if err != nil {
 		return nil, err
 	}
+
 	tmpMaterialMap := make(map[string]*mqtt.Materials)
+	materialIdList := make(map[string][]string, 0)
 	for _, v := range materialList {
-		tmpMaterialMap[v.Id] = &mqtt.Materials{
+		tmpMaterialMap[fmt.Sprintf("%s%d%s",v.Name,v.Dosage,v.Unit)] = &mqtt.Materials{
 			Id:        v.Id,
 			Name:      v.Name,
 			Dosage:    v.Dosage,
@@ -258,16 +261,15 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 			WaterLine: v.WaterLine,
 			Station:   v.Station,
 		}
+		materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], v.Id)
 	}
 
+	by, _ := json.Marshal(materialIdList)
+	fmt.Println(string(by))
 	for _, v := range tmpMaterialMap {
 		tmpSendConfig.Materials = append(tmpSendConfig.Materials, v)
 	}
 
-	materialIdList := make(map[string][]string, 0)
-	for _, v := range materialList {
-		materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], v.Id)
-	}
 	tasteList := make([]*models.Taste, 0)
 
 	err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Where("is_del", false).Find(&tasteList).Error
@@ -291,10 +293,6 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 		tmpSendConfig.Taste = append(tmpSendConfig.Taste, v)
 	}
 
-	tasteIdList := make(map[string][]string, 0)
-	for _, v := range tasteList {
-		tasteIdList[v.RecipeID] = append(tasteIdList[v.RecipeID], v.Id)
-	}
 
 	for key, value := range Recipe {
 		tmpSendConfig.Recipe[key].MaterialIdList = materialIdList[value.Id]

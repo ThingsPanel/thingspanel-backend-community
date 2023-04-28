@@ -55,7 +55,7 @@ type Recipe struct {
 	//PotTypeId        string    `json:"PotTypeId"`
 	BottomProperties string    `json:"BottomProperties"`
 	//SoupStandard     int64     `json:"SoupStandard"`
-	MaterialIdList   []string  `json:"-"`
+	MaterialIdList   []string  `json:"MaterialIdList"`
 }
 
 /*店铺配置信息json案例,potType锅型,taste口味,materials配料,recipe锅底配方,shop店铺
