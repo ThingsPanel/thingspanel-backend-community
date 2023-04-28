@@ -48,8 +48,10 @@ type DataTransponTargetInfoMQTT struct {
 }
 
 type DataTranspondDeviceInfo struct {
-	DeviceId    string `json:"device_id"`
-	MessageType int    `json:"message_type"`
+	DeviceId     string `json:"device_id"`
+	MessageType  int    `json:"message_type"`
+	BusinessId   string `json:"business_id"`
+	AssetGroupId string `json:"asset_group_id"`
 }
 
 func (c *TpDataTransponController) List() {
@@ -115,6 +117,8 @@ func (c *TpDataTransponController) Add() {
 			DataTranspondId: dataTranspondId,
 			DeviceId:        v.DeviceId,
 			MessageType:     v.MessageType,
+			BusinessId:      v.BusinessId,
+			AssetGroupId:    v.AssetGroupId,
 		}
 		dataTranspondDetail = append(dataTranspondDetail, tmp)
 	}
@@ -211,8 +215,10 @@ func (c *TpDataTransponController) Detail() {
 	var deviceInfo []DataTranspondDeviceInfo
 	for _, v := range dataTranspondDetail {
 		everyDevice := DataTranspondDeviceInfo{
-			DeviceId:    v.DeviceId,
-			MessageType: v.MessageType,
+			DeviceId:     v.DeviceId,
+			MessageType:  v.MessageType,
+			BusinessId:   v.BusinessId,
+			AssetGroupId: v.AssetGroupId,
 		}
 		deviceInfo = append(deviceInfo, everyDevice)
 	}

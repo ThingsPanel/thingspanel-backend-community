@@ -41,8 +41,10 @@ type TpDataTransponTargetInfoMQTTValid struct {
 }
 
 type TpDataTransponDeviceInfoValid struct {
-	DeviceId    string `json:"device_id"`
-	MessageType int    `json:"message_type"`
+	DeviceId     string `json:"device_id"`
+	MessageType  int    `json:"message_type"`
+	BusinessId   string `json:"business_id"`
+	AssetGroupId string `json:"asset_group_id"`
 }
 
 type TpDataTransponListValid struct {
