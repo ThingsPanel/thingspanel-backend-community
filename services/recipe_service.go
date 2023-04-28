@@ -49,20 +49,10 @@ func (*RecipeService) GetRecipeList(PaginationValidate valid.RecipePaginationVal
 }
 
 // 新增数据
-func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []*models.Taste, list3 []models.OriginalTaste, list4 []models.OriginalMaterials, list5 []string) (error, models.Recipe) {
+func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []*models.Taste, list3 []models.OriginalTaste, list4 []models.OriginalMaterials) (error, models.Recipe) {
 
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
-		if len(list5) > 0 {
-			list := make([]*models.Taste, 0)
-			err := tx.Where("taste_id in (?)", list5).Find(&list).Error
-			if err != nil {
-				return err
-			}
-			fmt.Println(list)
-			if len(list) > 0 {
-				return errors.New("Pos口味ID不能重复")
-			}
-		}
+
 		result := tx.Create(&pot)
 		if result.Error != nil {
 			logs.Error(result.Error, gorm.ErrRecordNotFound)
@@ -89,8 +79,6 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 				return err
 			}
 		}
-
-
 
 		return nil
 
@@ -260,16 +248,22 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	if err != nil {
 		return nil, err
 	}
+	tmpMaterialMap := make(map[string]*mqtt.Materials)
 	for _, v := range materialList {
-		tmpSendConfig.Materials = append(tmpSendConfig.Materials, &mqtt.Materials{
+		tmpMaterialMap[v.Id] = &mqtt.Materials{
 			Id:        v.Id,
 			Name:      v.Name,
 			Dosage:    v.Dosage,
 			Unit:      v.Unit,
 			WaterLine: v.WaterLine,
 			Station:   v.Station,
-		})
+		}
 	}
+
+	for _, v := range tmpMaterialMap {
+		tmpSendConfig.Materials = append(tmpSendConfig.Materials, v)
+	}
+
 	materialIdList := make(map[string][]string, 0)
 	for _, v := range materialList {
 		materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], v.Id)
@@ -280,8 +274,9 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	if err != nil {
 		return nil, err
 	}
+	tmpTasteMap := make(map[string]*mqtt.Taste)
 	for _, v := range tasteList {
-		tmpSendConfig.Taste = append(tmpSendConfig.Taste, &mqtt.Taste{
+		tmpTasteMap[v.TasteId] = &mqtt.Taste{
 			Name:      v.Name,
 			TasteId:   v.TasteId,
 			Material:  v.Material,
@@ -289,8 +284,13 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 			Unit:      v.Unit,
 			WaterLine: v.WaterLine,
 			Station:   v.Station,
-		})
+		}
 	}
+
+	for _, v := range tmpTasteMap {
+		tmpSendConfig.Taste = append(tmpSendConfig.Taste, v)
+	}
+
 	tasteIdList := make(map[string][]string, 0)
 	for _, v := range tasteList {
 		tasteIdList[v.RecipeID] = append(tasteIdList[v.RecipeID], v.Id)
@@ -303,13 +303,13 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	return tmpSendConfig, nil
 }
 
-func (*RecipeService) FindMaterialByName(keyword,materialType string) ([]*models.OriginalMaterials, error) {
+func (*RecipeService) FindMaterialByName(keyword, materialType string) ([]*models.OriginalMaterials, error) {
 	list := make([]*models.OriginalMaterials, 0)
 	db := psql.Mydb
 	if keyword != "" {
 		db = db.Where("name  = ?", keyword)
 	}
-	err := db.Where("resource = ?",materialType).Find(&list).Error
+	err := db.Where("resource = ?", materialType).Find(&list).Error
 	if err != nil {
 		return nil, err
 	}
@@ -352,13 +352,13 @@ func (*RecipeService) CreateTaste(taste *models.OriginalTaste, action string) er
 	return nil
 }
 
-func (*RecipeService) CheckBottomIdIsRepeat(bottomId,recipeId string,action string) (bool, error) {
+func (*RecipeService) CheckBottomIdIsRepeat(bottomId, recipeId string, action string) (bool, error) {
 	var model models.Recipe
 	var err error
 	if action == "ADD" {
 		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).First(&model).Error
-	}else{
-		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).Where("id <> ?",recipeId).First(&model).Error
+	} else {
+		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).Where("id <> ?", recipeId).First(&model).Error
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -371,4 +371,20 @@ func (*RecipeService) CheckBottomIdIsRepeat(bottomId,recipeId string,action stri
 
 	return true, nil
 
+}
+
+func (*RecipeService) CheckPosTasteIdIsRepeat(list5 string) (bool, error) {
+	if len(list5) > 0 {
+		list := make([]*models.Taste, 0)
+		err := psql.Mydb.Where("taste_id = ?", list5).First(&list).Error
+		if err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return false, err
+			}
+		}
+		if len(list) > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }

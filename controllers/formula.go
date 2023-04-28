@@ -188,9 +188,8 @@ func (pot *RecipeController) Add() {
 		}
 
 	}
-	tasteIdArr := make([]string, 0)
+
 	for _, v := range addRecipeValidate.TastesArr {
-		tasteIdArr = append(tasteIdArr, v.TasteId)
 		switch v.Action {
 		case "GET":
 			tasteUuid := uuid.GetUuid()
@@ -231,7 +230,7 @@ func (pot *RecipeController) Add() {
 		}
 
 	}
-	rsp_err, d := RecipeService.AddRecipe(Recipe, MaterialArr, TasteArr, OriginalTasteArr, OriginalMaterialsArr, tasteIdArr)
+	rsp_err, d := RecipeService.AddRecipe(Recipe, MaterialArr, TasteArr, OriginalTasteArr, OriginalMaterialsArr)
 	if rsp_err == nil {
 		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(pot.Ctx))
 	} else {
@@ -566,4 +565,29 @@ func (pot *RecipeController) GetMaterialByName() {
 	} else {
 		response.SuccessWithDetailed(200, "success", map[string]string{"status": "NOTEXIST"}, map[string]string{}, (*context2.Context)(pot.Ctx))
 	}
+}
+
+func (pot *RecipeController) CheckPosTasteIdIsRepeat() {
+	checkValidator := valid.CheckValidator{}
+	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &checkValidator)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
+		return
+	}
+
+	var recipeService services.RecipeService
+	isExist, err := recipeService.CheckPosTasteIdIsRepeat(checkValidator.TasteId)
+
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
+		return
+	}
+	if isExist {
+		response.SuccessWithDetailed(200, "success", map[string]string{"status": "EXIST"}, map[string]string{}, (*context2.Context)(pot.Ctx))
+		return
+	}
+	response.SuccessWithDetailed(200, "success", map[string]string{"status": "NOTEXIST"}, map[string]string{}, (*context2.Context)(pot.Ctx))
+	return
+
 }

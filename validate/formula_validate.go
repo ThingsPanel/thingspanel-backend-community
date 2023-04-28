@@ -125,3 +125,7 @@ type CreateTasteValidator struct {
 	MaterialId string `json:"MaterialId" valid:"Required"`
 	Action     string `json:"Action"`
 }
+
+type CheckValidator struct {
+	TasteId string `json:"taste_id" valid:"Required"`
+}

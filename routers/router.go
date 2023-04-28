@@ -402,6 +402,8 @@ func init() {
 		web.NSRouter("/v1/recipe/get/material", &controllers.RecipeController{}, "*:GetMaterialByName"),
 		web.NSRouter("/v1/recipe/material/create", &controllers.RecipeController{}, "*:CreateMaterial"),
 		web.NSRouter("/v1/recipe/taste/create", &controllers.RecipeController{}, "*:CreateTaste"),
+		web.NSRouter("/v1/recipe/check/taste", &controllers.RecipeController{}, "*:CheckPosTasteIdIsRepeat"),
+
 		//加汤数据管理
 		web.NSRouter("/v1/soup/data/index", &controllers.SoupDataController{}, "*:Index"),
 		web.NSRouter("/v1/soup/data/export", &controllers.SoupDataController{}, "*:Export"),
