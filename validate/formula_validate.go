@@ -19,6 +19,7 @@ type AddRecipeValidator struct {
 	SoupStandard     int64      `json:"SoupStandard" alias:"加汤水位标准" `
 	MaterialsArr     []Material `json:"MaterialArr" alias:"物料"`
 	Materials        []string   `json:"Materials" alias:"物料"`
+	TasteMaterialArr []Material `json:"TasteMaterialArr" alias:"口味物料"`
 	CurrentWaterLine int64      `json:"CurrentWaterLine" alias:"当前加汤水位线"`
 }
 
@@ -36,6 +37,7 @@ type EditRecipeValidator struct {
 	SoupStandard     int64      `json:"SoupStandard" alias:"加汤水位标准" `
 	MaterialsArr     []Material `json:"MaterialArr" alias:"物料"`
 	Materials        []string   `json:"Materials" alias:"物料"`
+	TasteMaterialArr []Material `json:"TasteMaterialArr" alias:"口味物料"`
 	CurrentWaterLine int64      `json:"CurrentWaterLine" alias:"当前加汤水位线"`
 	CreateAt         int        `json:"CreateAt"`
 	DeleteAt         time.Time  `json:"DeleteAt"`
@@ -43,29 +45,32 @@ type EditRecipeValidator struct {
 }
 
 type Taste struct {
-	Id          string `json:"Id"`
-	Taste       string `json:"Taste"`
-	TasteId     string `json:"TasteId"`
-	Material    string `json:"Material"`
-	MaterialsId string `json:"MaterialsId"`
-	Dosage      int    `json:"Dosage"`
-	Unit        string `json:"Unit"`
-	WaterLine   int    `json:"WaterLine"`
-	Station     string `json:"Station"`
-	Action      string `json:"Action"`
-	Operate     string `json:"Operate"`
+	Id              string     `json:"Id"`
+	Taste           string     `json:"Taste"`
+	TasteId         string     `json:"TasteId"`
+	Material        string     `json:"Material"`
+	MaterialsId     string     `json:"MaterialsId"`
+	Dosage          int        `json:"Dosage"`
+	Unit            string     `json:"Unit"`
+	WaterLine       int        `json:"WaterLine"`
+	Station         string     `json:"Station"`
+	Action          string     `json:"Action"`
+	Operate         string     `json:"Operate"`
+	OriginalTasteId string     `json:"OriginalTasteId"`
+	MaterialArr     []Material `json:"MaterialArr"`
 }
 
 type Material struct {
-	Id        string `json:"id"`
-	Name      string `json:"Name"`
-	Dosage    int    `json:"Dosage"`
-	Unit      string `json:"Unit"`
-	WaterLine int    `json:"WaterLine"`
-	Station   string `json:"Station"`
-	Action    string `json:"Action"`
-	Operate   string `json:"Operate"`
-	Resource  string `json:"Resource"`
+	Id                 string `json:"id"`
+	Name               string `json:"Name"`
+	Dosage             int    `json:"Dosage"`
+	Unit               string `json:"Unit"`
+	WaterLine          int    `json:"WaterLine"`
+	Station            string `json:"Station"`
+	Action             string `json:"Action"`
+	Operate            string `json:"Operate"`
+	Resource           string `json:"Resource"`
+	OriginalMaterialId string `json:"OriginalMaterialId"`
 }
 
 type RecipePaginationValidate struct {
@@ -128,4 +133,5 @@ type CreateTasteValidator struct {
 
 type CheckValidator struct {
 	TasteId string `json:"taste_id" valid:"Required"`
+	Action  string `json:"action" `
 }

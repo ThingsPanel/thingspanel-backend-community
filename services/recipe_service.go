@@ -5,7 +5,8 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/modules/dataService/mqtt"
 	valid "ThingsPanel-Go/validate"
-	"encoding/json"
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/beego/beego/v2/core/logs"
@@ -50,7 +51,7 @@ func (*RecipeService) GetRecipeList(PaginationValidate valid.RecipePaginationVal
 }
 
 // 新增数据
-func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []*models.Taste, list3 []models.OriginalTaste, list4 []models.OriginalMaterials) (error, models.Recipe) {
+func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, list2 []*models.Taste) (error, models.Recipe) {
 
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 
@@ -67,19 +68,6 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 			logs.Error(err)
 			return err
 		}
-		if len(list3) > 0 {
-			if err := tx.Create(list3).Error; err != nil {
-				logs.Error(err)
-				return err
-			}
-		}
-
-		if len(list4) > 0 {
-			if err := tx.Create(list4).Error; err != nil {
-				logs.Error(err)
-				return err
-			}
-		}
 
 		return nil
 
@@ -93,7 +81,7 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 }
 
 // 修改数据
-func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.Materials, list2 []models.Taste, list3 []string, list4 []string, list5 []models.OriginalMaterials, list6 []models.OriginalTaste, list7 []string) error {
+func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.Materials, list2 []*models.Taste, list3 []string, list4 []string, list5 []models.OriginalMaterials, list6 []models.OriginalTaste) error {
 
 	updates := &models.EditRecipeValue{
 		BottomPotId:      pot.BottomPotId,
@@ -107,59 +95,125 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 	}
 
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
-		if len(list7) > 0 {
-			list := make([]*models.Taste, 0)
-			if err := tx.Where("taste_id in (?)", list7).Find(&list).Error; err != nil {
-				fmt.Println(err)
-				return err
-			}
-			if len(list) > 0 {
-				return errors.New("Pos口味ID不能重复")
-			}
-		}
+
 		err := tx.Model(models.Recipe{}).Where("id = ?", pot.Id).Updates(updates).Error
 		if err != nil {
 			fmt.Println(err)
 			return err
 		}
 		if len(list1) > 0 {
-			if err := tx.Create(&list1).Error; err != nil {
+			if err = tx.Create(&list1).Error; err != nil {
 				fmt.Println(err)
 				return err
 			}
 		}
 		if len(list2) > 0 {
-			if err := tx.Create(&list2).Error; err != nil {
+			if err = tx.Create(&list2).Error; err != nil {
 				fmt.Println(err)
 				return err
 			}
 		}
 
 		if len(list3) > 0 {
+
 			var taste models.Taste
-			if err := tx.Where("id in (?)", list3).Delete(&taste).Error; err != nil {
-				fmt.Println(err)
+			if err = tx.Where("id in (?)", list3).Delete(&taste).Error; err != nil {
 				return err
 			}
+
+			//RecipeTaste := make([]*models.Taste, 0)
+			//err = tx.Where("recipe_id = ?", pot.Id).Find(&RecipeTaste).Error
+			//if err != nil {
+			//	if !errors.Is(err, gorm.ErrRecordNotFound) {
+			//		return err
+			//	}
+			//}
+			//tasteIdArr := make([]string, 0)
+			//for _, v := range RecipeTaste {
+			//	tasteIdArr = append(tasteIdArr, v.OriginalTasteId)
+			//}
+			//
+			//otherRecipeTasteArr := make([]*models.Taste, 0)
+			//err = tx.Where("recipe_id <> ?", pot.Id).Where("original_taste_id in (?)", tasteIdArr).Find(&otherRecipeTasteArr).Error
+			//if err != nil {
+			//	if errors.Is(err, gorm.ErrRecordNotFound) {
+			//		var tastes models.OriginalTaste
+			//		if err = tx.Where("id in (?)", tasteIdArr).Delete(&tastes).Error; err != nil {
+			//			return err
+			//		}
+			//	} else {
+			//		return err
+			//	}
+			//}
+			//else {
+			//	existRecipeTasteArr := make([]string, 0)
+			//	for _, v := range otherRecipeTasteArr {
+			//		existRecipeTasteArr = append(existRecipeTasteArr, v.OriginalTasteId)
+			//	}
+			//
+			//	diffArr := FindDiff(existRecipeTasteArr, tasteIdArr)
+			//	var tastes models.OriginalTaste
+			//	if err = tx.Where("id in (?)", diffArr).Delete(&tastes).Error; err != nil {
+			//		return err
+			//	}
+			//}
+
 		}
 
 		if len(list4) > 0 {
 			var material models.Materials
-			if err := tx.Where("id in (?)", list4).Delete(&material).Error; err != nil {
+			if err = tx.Where("id in (?)", list4).Delete(&material).Error; err != nil {
 				fmt.Println(err)
 				return err
 			}
+			//
+			//RecipeMaterial := make([]*models.Materials, 0)
+			//err = tx.Where("recipe_id = ?", pot.Id).Find(&RecipeMaterial).Error
+			//if err != nil {
+			//	if !errors.Is(err, gorm.ErrRecordNotFound) {
+			//		return err
+			//	}
+			//}
+			//materialIdArr := make([]string, 0)
+			//for _, v := range RecipeMaterial {
+			//	materialIdArr = append(materialIdArr, v.OriginalMaterialId)
+			//}
+			//
+			//otherRecipeMaterialArr := make([]*models.Materials, 0)
+			//err = tx.Where("recipe_id <> ?", pot.Id).Where("original_material_id in (?)", materialIdArr).Find(&otherRecipeMaterialArr).Error
+			//if err != nil {
+			//	if errors.Is(err, gorm.ErrRecordNotFound) {
+			//		var taste models.OriginalMaterials
+			//		if err = tx.Where("id in (?)", materialIdArr).Delete(&taste).Error; err != nil {
+			//			return err
+			//		}
+			//	} else {
+			//		return err
+			//	}
+			//} else {
+			//	existRecipeMaterialArr := make([]string, 0)
+			//	for _, v := range otherRecipeMaterialArr {
+			//		existRecipeMaterialArr = append(existRecipeMaterialArr, v.OriginalMaterialId)
+			//	}
+			//
+			//	diffArr := FindDiff(existRecipeMaterialArr, materialIdArr)
+			//	var materials models.OriginalMaterials
+			//	if err = tx.Where("id in (?)", diffArr).Delete(&materials).Error; err != nil {
+			//		return err
+			//	}
+			//}
+
 		}
 
 		if len(list5) > 0 {
-			if err := tx.Create(&list5).Error; err != nil {
+			if err = tx.Create(&list5).Error; err != nil {
 				fmt.Println(err)
 				return err
 			}
 		}
 
 		if len(list6) > 0 {
-			if err := tx.Create(&list6).Error; err != nil {
+			if err = tx.Create(&list6).Error; err != nil {
 				fmt.Println(err)
 				return err
 			}
@@ -179,11 +233,89 @@ func (*RecipeService) DeleteRecipe(pot models.Recipe) error {
 		if err != nil {
 			return err
 		}
+		//查询其他配方是否含有此物料、没有则删除原始物料
+		//list := make([]*models.Materials, 0)
+		//err = tx.Where("recipe_id = ?", pot.Id).Find(&list).Error
+		//if err != nil {
+		//	return err
+		//}
+		//originalMaterialId := make([]string, 0)
+		//for _, v := range list {
+		//	originalMaterialId = append(originalMaterialId, v.OriginalMaterialId)
+		//}
+		//otherRecipeMaterial := make([]*models.Materials, 0)
+		//err = tx.Where("recipe_id <> ?", pot.Id).Where("original_material_id in (?)", originalMaterialId).Find(&otherRecipeMaterial).Error
+
+		//if err != nil {
+		//	fmt.Println("=====" + err.Error())
+		//	if errors.Is(err, gorm.ErrRecordNotFound) {
+		//		var originalMaterial models.OriginalMaterials
+		//		err = tx.Where("id in (?)", originalMaterialId).Delete(&originalMaterial).Error
+		//		if err != nil {
+		//			return err
+		//		}
+		//	} else {
+		//		return err
+		//	}
+		//} else {
+		//	otherRecipeExitMaterialIdArr := make([]string, 0)
+		//	for _, v := range otherRecipeMaterial {
+		//		otherRecipeExitMaterialIdArr = append(otherRecipeExitMaterialIdArr, v.OriginalMaterialId)
+		//	}
+		//	diff := FindDiff(originalMaterialId, otherRecipeExitMaterialIdArr)
+		//	if len(diff) > 0 {
+		//		var originalMaterial models.OriginalMaterials
+		//		err = tx.Where("id in(?)", diff).Delete(&originalMaterial).Error
+		//		if err != nil {
+		//			return err
+		//		}
+		//	}
+		//}
+
 		var material models.Materials
 		err = tx.Where("recipe_id = ?", pot.Id).Delete(&material).Error
 		if err != nil {
 			return err
 		}
+
+		//查询其他配方是否含有此口味、没有则删除原始口味
+		//tasteList := make([]*models.Taste, 0)
+		//err = tx.Where("recipe_id = ?", pot.Id).Find(&tasteList).Error
+		//if err != nil {
+		//	return err
+		//}
+		//originalTasteId := make([]string, 0)
+		//for _, v := range tasteList {
+		//	originalTasteId = append(originalTasteId, v.OriginalTasteId)
+		//}
+		//
+		//otherRecipeTaste := make([]*models.Taste, 0)
+		//err = tx.Where("recipe_id <> ?", pot.Id).Where("original_taste_id in(?)", originalTasteId).Find(&otherRecipeTaste).Error
+		//if err != nil {
+		//	if errors.Is(err, gorm.ErrRecordNotFound) {
+		//		var originalTaste models.OriginalTaste
+		//		err = tx.Where("id in (?)", originalTasteId).Delete(&originalTaste).Error
+		//		if err != nil {
+		//			return err
+		//		}
+		//	} else {
+		//		return err
+		//	}
+		//} else {
+		//	otherRecipeExitTasteIdArr := make([]string, 0)
+		//	for _, v := range otherRecipeTaste {
+		//		otherRecipeExitTasteIdArr = append(otherRecipeExitTasteIdArr, v.OriginalTasteId)
+		//	}
+		//	diff := FindDiff(originalTasteId, otherRecipeExitTasteIdArr)
+		//	if len(diff) > 0 {
+		//		var originalTaste models.OriginalTaste
+		//		err = tx.Where("id in(?)", diff).Delete(&originalTaste).Error
+		//		if err != nil {
+		//			return err
+		//		}
+		//	}
+		//}
+
 		var taste models.Taste
 		err = tx.Where("recipe_id = ?", pot.Id).Delete(&taste).Error
 		if err != nil {
@@ -253,19 +385,22 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	tmpMaterialMap := make(map[string]*mqtt.Materials)
 	materialIdList := make(map[string][]string, 0)
 	for _, v := range materialList {
-		tmpMaterialMap[fmt.Sprintf("%s%d%s",v.Name,v.Dosage,v.Unit)] = &mqtt.Materials{
-			Id:        v.Id,
-			Name:      v.Name,
-			Dosage:    v.Dosage,
-			Unit:      v.Unit,
-			WaterLine: v.WaterLine,
-			Station:   v.Station,
+		if value, ok := tmpMaterialMap[fmt.Sprintf("%s%d%s%d", v.Name, v.Dosage, v.Unit, v.WaterLine)]; ok {
+			materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], value.Id)
+		} else {
+			materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], v.Id)
+			tmpMaterialMap[fmt.Sprintf("%s%d%s%d", v.Name, v.Dosage, v.Unit, v.WaterLine)] = &mqtt.Materials{
+				Id:        v.Id,
+				Name:      v.Name,
+				Dosage:    v.Dosage,
+				Unit:      v.Unit,
+				WaterLine: v.WaterLine,
+				Station:   v.Station,
+			}
 		}
-		materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], v.Id)
+
 	}
 
-	by, _ := json.Marshal(materialIdList)
-	fmt.Println(string(by))
 	for _, v := range tmpMaterialMap {
 		tmpSendConfig.Materials = append(tmpSendConfig.Materials, v)
 	}
@@ -293,7 +428,6 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 		tmpSendConfig.Taste = append(tmpSendConfig.Taste, v)
 	}
 
-
 	for key, value := range Recipe {
 		tmpSendConfig.Recipe[key].MaterialIdList = materialIdList[value.Id]
 	}
@@ -301,17 +435,47 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	return tmpSendConfig, nil
 }
 
-func (*RecipeService) FindMaterialByName(keyword, materialType string) ([]*models.OriginalMaterials, error) {
-	list := make([]*models.OriginalMaterials, 0)
-	db := psql.Mydb
-	if keyword != "" {
-		db = db.Where("name  = ?", keyword)
-	}
-	err := db.Where("resource = ?", materialType).Find(&list).Error
+func (*RecipeService) FindMaterialByName() ([]*models.Materials, error) {
+	list := make([]*models.Materials, 0)
+	err := psql.Mydb.Find(&list).Error
 	if err != nil {
 		return nil, err
 	}
-	return list, nil
+	list1 := make(map[string]*models.Materials, 0)
+	for _, v := range list {
+		list1[MD5(fmt.Sprintf("%s%d%s%d", v.Name, v.Dosage, v.Unit, v.WaterLine))] = v
+	}
+	list2 := make([]*models.Materials, 0)
+	for _, v := range list1 {
+		list2 = append(list2, v)
+	}
+
+	return list2, nil
+}
+
+func (*RecipeService) FindTasteMaterialList() ([]*models.Taste, error) {
+	list := make([]*models.Taste, 0)
+	err := psql.Mydb.Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	list1 := make(map[string]*models.Taste, 0)
+	for _, v := range list {
+		list1[MD5(fmt.Sprintf("%s%d%s%d", v.Material, v.Dosage, v.Unit, v.WaterLine))] = v
+	}
+	list2 := make([]*models.Taste, 0)
+	for _, v := range list1 {
+		list2 = append(list2, v)
+	}
+
+	return list2, nil
+}
+
+func MD5(data string) string {
+	h := md5.New()
+	h.Write([]byte(data)) // 需要加密的字符串为 123456
+	cipherStr := h.Sum(nil)
+	return hex.EncodeToString(cipherStr) // 输出加密结果
 }
 
 func (*RecipeService) CreateMaterial(material *models.OriginalMaterials) (bool, error) {
@@ -354,9 +518,9 @@ func (*RecipeService) CheckBottomIdIsRepeat(bottomId, recipeId string, action st
 	var model models.Recipe
 	var err error
 	if action == "ADD" {
-		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).First(&model).Error
+		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).Where("is_del", false).First(&model).Error
 	} else {
-		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).Where("id <> ?", recipeId).First(&model).Error
+		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).Where("id <> ?", recipeId).Where("is_del", false).First(&model).Error
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -371,9 +535,12 @@ func (*RecipeService) CheckBottomIdIsRepeat(bottomId, recipeId string, action st
 
 }
 
-func (*RecipeService) CheckPosTasteIdIsRepeat(list5 string) (bool, error) {
+func (*RecipeService) CheckPosTasteIdIsRepeat(list5 string, action string) (bool, error) {
 	if len(list5) > 0 {
 		list := make([]*models.Taste, 0)
+		if action == "GET" {
+			return false, nil
+		}
 		err := psql.Mydb.Where("taste_id = ?", list5).First(&list).Error
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -385,4 +552,37 @@ func (*RecipeService) CheckPosTasteIdIsRepeat(list5 string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func FindDiff(arr1, arr2 []string) []string {
+
+	diff := make([]string, 0)
+
+	for _, str1 := range arr1 {
+		found := false
+		for _, str2 := range arr2 {
+			if str1 == str2 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			diff = append(diff, str1)
+		}
+	}
+
+	for _, str2 := range arr2 {
+		found := false
+		for _, str1 := range arr1 {
+			if str2 == str1 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			diff = append(diff, str2)
+		}
+	}
+
+	return diff
 }

@@ -107,3 +107,44 @@ func checkFloatValue1(x float64, arr []float64) bool {
 	}
 	return true
 }
+
+func TestRecipe(t *testing.T) {
+	arr1 := []string{"12","13","14","15"}
+	arr2 := []string{"12","15"}
+	fmt.Println(FindDiff(arr1,arr2))
+}
+
+
+
+func FindDiff(arr1, arr2 []string) []string {
+
+	diff := make([]string, 0)
+
+	for _, str1 := range arr1 {
+		found := false
+		for _, str2 := range arr2 {
+			if str1 == str2 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			diff = append(diff, str1)
+		}
+	}
+
+	for _, str2 := range arr2 {
+		found := false
+		for _, str1 := range arr1 {
+			if str2 == str1 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			diff = append(diff, str2)
+		}
+	}
+
+	return diff
+}
