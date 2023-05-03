@@ -465,6 +465,9 @@ func (*RecipeService) FindTasteMaterialList() ([]*models.Taste, error) {
 	}
 	list1 := make(map[string]*models.Taste, 0)
 	for _, v := range list {
+		if v.Material == "" {
+			continue
+		}
 		list1[MD5(fmt.Sprintf("%s%d%s%d", v.Material, v.Dosage, v.Unit, v.WaterLine))] = v
 	}
 	list2 := make([]*models.Taste, 0)
