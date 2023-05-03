@@ -64,16 +64,16 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 			logs.Error(err)
 			return err
 		}
-		if err := tx.Create(list2).Error; err != nil {
-			logs.Error(err)
-			return err
+		if len(list2) >0   {
+			if err := tx.Create(list2).Error; err != nil {
+				logs.Error(err)
+				return err
+			}
 		}
-
 		return nil
 
 	})
 	if err != nil {
-		logs.Error(err)
 		return err, pot
 	}
 
