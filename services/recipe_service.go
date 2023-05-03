@@ -348,6 +348,10 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	if err != nil {
 		return nil, err
 	}
+
+	if len(Recipe) == 0 {
+		return nil,errors.New("该店铺下不存在配方")
+	}
 	for _, v := range Recipe {
 		tmpSendConfig.Recipe = append(tmpSendConfig.Recipe, &mqtt.Recipe{
 			BottomPotId: v.BottomPotId,
