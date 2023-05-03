@@ -126,7 +126,6 @@ func (pot *RecipeController) Add() {
 		Taste:            strings.Join(addRecipeValidate.Tastes, ","),
 		BottomProperties: addRecipeValidate.BottomProperties,
 		SoupStandard:     addRecipeValidate.SoupStandard,
-		CurrentWaterLine: addRecipeValidate.CurrentWaterLine,
 		CreateAt:         time.Now().Unix(),
 		AssetId:          AssetId,
 	}
@@ -140,25 +139,25 @@ func (pot *RecipeController) Add() {
 		case "GET":
 			materialUuid := uuid.GetUuid()
 			MaterialArr = append(MaterialArr, models.Materials{
-				Id:                 materialUuid,
-				Name:               v.Name,
-				Dosage:             v.Dosage,
-				Unit:               v.Unit,
-				WaterLine:          v.WaterLine,
-				Station:            v.Station,
-				RecipeID:           recipeId,
+				Id:        materialUuid,
+				Name:      v.Name,
+				Dosage:    v.Dosage,
+				Unit:      v.Unit,
+				WaterLine: v.WaterLine,
+				Station:   v.Station,
+				RecipeID:  recipeId,
 			})
 			break
 		default:
 			materialUuid := uuid.GetUuid()
 			MaterialArr = append(MaterialArr, models.Materials{
-				Id:                 materialUuid,
-				Name:               v.Name,
-				Dosage:             v.Dosage,
-				Unit:               v.Unit,
-				WaterLine:          v.WaterLine,
-				Station:            v.Station,
-				RecipeID:           recipeId,
+				Id:        materialUuid,
+				Name:      v.Name,
+				Dosage:    v.Dosage,
+				Unit:      v.Unit,
+				WaterLine: v.WaterLine,
+				Station:   v.Station,
+				RecipeID:  recipeId,
 			})
 			//OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
 			//	Id:        originalMaterialUuid,
@@ -179,33 +178,32 @@ func (pot *RecipeController) Add() {
 		case "GET":
 			tasteUuid := uuid.GetUuid()
 			TasteArr = append(TasteArr, &models.Taste{
-				Id:              tasteUuid,
-				Name:            v.Taste,
-				TasteId:         v.TasteId,
-				Dosage:          v.Dosage,
-				Unit:            v.Unit,
-				CreateAt:        time.Now().Unix(),
-				Material:        v.Material,
-				WaterLine:       v.WaterLine,
-				Station:         v.Station,
-				RecipeID:        recipeId,
+				Id:        tasteUuid,
+				Name:      v.Taste,
+				TasteId:   v.TasteId,
+				Dosage:    v.Dosage,
+				Unit:      v.Unit,
+				CreateAt:  time.Now().Unix(),
+				Material:  v.Material,
+				WaterLine: v.WaterLine,
+				Station:   v.Station,
+				RecipeID:  recipeId,
 			})
 			break
 		default:
 			tasteUuid := uuid.GetUuid()
 
 			TasteArr = append(TasteArr, &models.Taste{
-				Id:              tasteUuid,
-				Name:            v.Taste,
-				TasteId:         v.TasteId,
-				Dosage:          v.Dosage,
-				Unit:            v.Unit,
-				CreateAt:        time.Now().Unix(),
-				Material:        v.Material,
-				WaterLine:       v.WaterLine,
-				Station:         v.Station,
-				RecipeID:        recipeId,
-
+				Id:        tasteUuid,
+				Name:      v.Taste,
+				TasteId:   v.TasteId,
+				Dosage:    v.Dosage,
+				Unit:      v.Unit,
+				CreateAt:  time.Now().Unix(),
+				Material:  v.Material,
+				WaterLine: v.WaterLine,
+				Station:   v.Station,
+				RecipeID:  recipeId,
 			})
 			//
 			//OriginalTasteArr = append(OriginalTasteArr, models.OriginalTaste{
@@ -293,13 +291,13 @@ func (pot *RecipeController) Edit() {
 		if v.Id == "" {
 			materialUuid = uuid.GetUuid()
 			MaterialArr = append(MaterialArr, models.Materials{
-				Id:                 materialUuid,
-				Name:               v.Name,
-				Dosage:             v.Dosage,
-				Unit:               v.Unit,
-				WaterLine:          v.WaterLine,
-				Station:            v.Station,
-				RecipeID:           RecipeValidate.Id,
+				Id:        materialUuid,
+				Name:      v.Name,
+				Dosage:    v.Dosage,
+				Unit:      v.Unit,
+				WaterLine: v.WaterLine,
+				Station:   v.Station,
+				RecipeID:  RecipeValidate.Id,
 			})
 			//if v.Action != "GET" {
 			//	OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
@@ -465,7 +463,6 @@ func (pot *RecipeController) GetMaterialList() {
 	}
 }
 
-
 func (pot *RecipeController) GetTasteMaterialList() {
 	searchValidator := valid.SearchMaterialNameValidator{}
 	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &searchValidator)
@@ -481,8 +478,6 @@ func (pot *RecipeController) GetTasteMaterialList() {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
 	}
 }
-
-
 
 func (pot *RecipeController) CreateMaterial() {
 	createValidator := valid.CreateMaterialValidator{}

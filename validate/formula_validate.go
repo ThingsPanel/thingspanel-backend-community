@@ -11,8 +11,6 @@ type AddRecipeValidator struct {
 	BottomPot        string     `json:"BottomPot" alias:"锅底" valid:"Required"`
 	PotTypeId        string     `json:"PotTypeId" alias:"锅型ID" valid:"Required"`
 	PotTypeName      string     `json:"PotTypeName" alias:"锅型名称" valid:"Required"`
-	MaterialsId      string     `json:"MaterialsId" alias:"物料ID"`
-	TasteId          string     `json:"TasteId" alias:"口味ID"`
 	Tastes           []string   `json:"Taste" alias:"口味"`
 	TastesArr        []Taste    `json:"TasteArr" alias:"口味" `
 	BottomProperties string     `json:"BottomProperties" alias:"锅底属性" valid:"Required"`
@@ -20,7 +18,6 @@ type AddRecipeValidator struct {
 	MaterialsArr     []Material `json:"MaterialArr" alias:"物料"`
 	Materials        []string   `json:"Materials" alias:"物料"`
 	TasteMaterialArr []Material `json:"TasteMaterialArr" alias:"口味物料"`
-	CurrentWaterLine int64      `json:"CurrentWaterLine" alias:"当前加汤水位线"`
 }
 
 type EditRecipeValidator struct {

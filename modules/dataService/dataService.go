@@ -20,7 +20,7 @@ import (
 func init() {
 	loadConfig()
 	reg_mqtt_root()
-	listenMQTT()
+	//listenMQTT()
 	// listenTCP()
 }
 
