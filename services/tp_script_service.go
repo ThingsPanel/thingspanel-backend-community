@@ -88,26 +88,20 @@ func (*TpScriptService) DeleteTpScript(tp_script models.TpScript) error {
 }
 
 // 调试脚本
-func (*TpScriptService) QuizTpScript(code, msgcontent string) (res string, err error) {
-	var v interface{}
-	_ = json.Unmarshal([]byte(msgcontent), &v)
-	data, ok := v.(map[string]interface{})
-	if !ok {
-		return "", errors.New("提交数据存在错误")
-	}
+func (*TpScriptService) QuizTpScript(code, msgcotent, topic string) (res string, err error) {
 	var msg []byte
-	if vv, ok := data["msg"].(string); ok && strings.HasPrefix(vv, "0x") {
-		msg, err = hex.DecodeString(strings.ReplaceAll(vv, "0x", ""))
+	if strings.HasPrefix(msgcotent, "0x") {
+		msg, err = hex.DecodeString(strings.ReplaceAll(msgcotent, "0x", ""))
 		if err != nil {
 			return "", errors.New("报文存在错误")
 		}
 	} else {
-		msg, err = json.Marshal(data["msg"])
+		msg, err = json.Marshal(msgcotent)
 		if err != nil {
 			return "", errors.New("报文存在错误")
 		}
 	}
-	res, err = utils.ScriptDeal(code, msg, data["topic"].(string))
+	res, err = utils.ScriptDeal(code, msg, topic)
 	return
 
 }
