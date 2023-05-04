@@ -42,32 +42,32 @@ type EditRecipeValidator struct {
 }
 
 type Taste struct {
-	Id              string     `json:"Id"`
-	Taste           string     `json:"Taste"`
-	TasteId         string     `json:"TasteId"`
-	Material        string     `json:"Material"`
-	MaterialsId     string     `json:"MaterialsId"`
-	Dosage          int        `json:"Dosage"`
-	Unit            string     `json:"Unit"`
-	WaterLine       int        `json:"WaterLine"`
-	Station         string     `json:"Station"`
-	Action          string     `json:"Action"`
-	Operate         string     `json:"Operate"`
-	OriginalTasteId string     `json:"OriginalTasteId"`
-	MaterialArr     []Material `json:"MaterialArr"`
+	Id              string `json:"Id"`
+	Taste           string `json:"Taste"`
+	TasteId         string `json:"TasteId"`
+	Material        string `json:"Material"`
+	MaterialsId     string `json:"MaterialsId"`
+	Dosage          int    `json:"Dosage"`
+	Unit            string `json:"Unit"`
+	WaterLine       int    `json:"WaterLine"`
+	Station         string `json:"Station"`
+	Action          string `json:"Action"`
+	Operate         string `json:"Operate"`
+	OriginalTasteId string `json:"OriginalTasteId"`
+	PotTypeId       string `json:"PotTypeId"`
 }
 
 type Material struct {
-	Id                 string `json:"id"`
-	Name               string `json:"Name"`
-	Dosage             int    `json:"Dosage"`
-	Unit               string `json:"Unit"`
-	WaterLine          int    `json:"WaterLine"`
-	Station            string `json:"Station"`
-	Action             string `json:"Action"`
-	Operate            string `json:"Operate"`
-	Resource           string `json:"Resource"`
-	OriginalMaterialId string `json:"OriginalMaterialId"`
+	Id        string `json:"id"`
+	Name      string `json:"Name"`
+	Dosage    int    `json:"Dosage"`
+	Unit      string `json:"Unit"`
+	WaterLine int    `json:"WaterLine"`
+	Station   string `json:"Station"`
+	Action    string `json:"Action"`
+	Operate   string `json:"Operate"`
+	Resource  string `json:"Resource"`
+	PotTypeId string `json:"PotTypeId"`
 }
 
 type RecipePaginationValidate struct {
@@ -84,12 +84,14 @@ type RspRecipePaginationValidate struct {
 }
 
 type DelRecipeValidator struct {
-	Id string `json:"id" valid:"Required"`
+	Id        string `json:"id" valid:"Required"`
+	PotTypeId string `json:"pot_type_id" valid:"Required"`
 }
 
 type SearchMaterialNameValidator struct {
 	Keyword      string `json:"keyword"`
 	MaterialType string `json:"material_type"`
+	PotTypeId    string `json:"pot_type_id"`
 }
 
 type DelMaterialValidator struct {
@@ -106,7 +108,8 @@ type SendToMQTTValidator struct {
 }
 
 type SearchTasteValidator struct {
-	Keyword string `json:"keyword"`
+	Keyword   string `json:"keyword"`
+	PotTypeId string `json:"pot_type_id"`
 }
 
 type GetMaterialValidator struct {

@@ -18,6 +18,7 @@ type Taste struct {
 	WaterLine          int       `gorm:"column:water_line"`
 	Station            string    `gorm:"column:station"`
 	RecipeID           string    `gorm:"column:recipe_id"`
+	PotTypeId string `gorm:"column:pot_type_id"`
 }
 
 func (t *Taste) TableName() string {

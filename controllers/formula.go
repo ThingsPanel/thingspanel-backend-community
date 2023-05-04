@@ -146,6 +146,7 @@ func (pot *RecipeController) Add() {
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
 				RecipeID:  recipeId,
+				PotTypeId: v.PotTypeId,
 			})
 			break
 		default:
@@ -158,6 +159,7 @@ func (pot *RecipeController) Add() {
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
 				RecipeID:  recipeId,
+				PotTypeId: v.PotTypeId,
 			})
 			//OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
 			//	Id:        originalMaterialUuid,
@@ -188,6 +190,7 @@ func (pot *RecipeController) Add() {
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
 				RecipeID:  recipeId,
+				PotTypeId: v.PotTypeId,
 			})
 			break
 		default:
@@ -204,6 +207,7 @@ func (pot *RecipeController) Add() {
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
 				RecipeID:  recipeId,
+				PotTypeId: v.PotTypeId,
 			})
 			//
 			//OriginalTasteArr = append(OriginalTasteArr, models.OriginalTaste{
@@ -298,6 +302,7 @@ func (pot *RecipeController) Edit() {
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
 				RecipeID:  RecipeValidate.Id,
+				PotTypeId: v.PotTypeId,
 			})
 			//if v.Action != "GET" {
 			//	OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
@@ -331,6 +336,7 @@ func (pot *RecipeController) Edit() {
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
 				RecipeID:  RecipeValidate.Id,
+				PotTypeId: v.PotTypeId,
 			})
 			//if v.Action != "GET" {
 			//	OriginalTasteArr = append(OriginalTasteArr, models.OriginalTaste{
@@ -399,7 +405,8 @@ func (pot *RecipeController) Delete() {
 	}
 	var RecipeService services.RecipeService
 	TpProduct := models.Recipe{
-		Id: DelRecipeValidator.Id,
+		Id:        DelRecipeValidator.Id,
+		PotTypeId: DelRecipeValidator.PotTypeId,
 	}
 	rsp_err := RecipeService.DeleteRecipe(TpProduct)
 	if rsp_err == nil {
@@ -455,7 +462,7 @@ func (pot *RecipeController) GetMaterialList() {
 	}
 	var RecipeService services.RecipeService
 
-	list, err := RecipeService.FindMaterialByName()
+	list, err := RecipeService.FindMaterialByName(searchValidator.PotTypeId)
 	if err == nil {
 		response.SuccessWithDetailed(200, "success", list, map[string]string{}, (*context2.Context)(pot.Ctx))
 	} else {
@@ -471,7 +478,7 @@ func (pot *RecipeController) GetTasteMaterialList() {
 	}
 	var RecipeService services.RecipeService
 
-	list, err := RecipeService.FindTasteMaterialList()
+	list, err := RecipeService.FindTasteMaterialList(searchValidator.PotTypeId)
 	if err == nil {
 		response.SuccessWithDetailed(200, "success", list, map[string]string{}, (*context2.Context)(pot.Ctx))
 	} else {
@@ -567,7 +574,7 @@ func (pot *RecipeController) GetTasteList() {
 	}
 	var RecipeService services.TasteService
 
-	list, err := RecipeService.SearchTasteList()
+	list, err := RecipeService.SearchTasteList(searchValidator.PotTypeId)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
 	} else {

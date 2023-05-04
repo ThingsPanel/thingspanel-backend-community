@@ -64,7 +64,7 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 			logs.Error(err)
 			return err
 		}
-		if len(list2) >0   {
+		if len(list2) > 0 {
 			if err := tx.Create(list2).Error; err != nil {
 				logs.Error(err)
 				return err
@@ -233,91 +233,15 @@ func (*RecipeService) DeleteRecipe(pot models.Recipe) error {
 		if err != nil {
 			return err
 		}
-		//查询其他配方是否含有此物料、没有则删除原始物料
-		//list := make([]*models.Materials, 0)
-		//err = tx.Where("recipe_id = ?", pot.Id).Find(&list).Error
-		//if err != nil {
-		//	return err
-		//}
-		//originalMaterialId := make([]string, 0)
-		//for _, v := range list {
-		//	originalMaterialId = append(originalMaterialId, v.OriginalMaterialId)
-		//}
-		//otherRecipeMaterial := make([]*models.Materials, 0)
-		//err = tx.Where("recipe_id <> ?", pot.Id).Where("original_material_id in (?)", originalMaterialId).Find(&otherRecipeMaterial).Error
-
-		//if err != nil {
-		//	fmt.Println("=====" + err.Error())
-		//	if errors.Is(err, gorm.ErrRecordNotFound) {
-		//		var originalMaterial models.OriginalMaterials
-		//		err = tx.Where("id in (?)", originalMaterialId).Delete(&originalMaterial).Error
-		//		if err != nil {
-		//			return err
-		//		}
-		//	} else {
-		//		return err
-		//	}
-		//} else {
-		//	otherRecipeExitMaterialIdArr := make([]string, 0)
-		//	for _, v := range otherRecipeMaterial {
-		//		otherRecipeExitMaterialIdArr = append(otherRecipeExitMaterialIdArr, v.OriginalMaterialId)
-		//	}
-		//	diff := FindDiff(originalMaterialId, otherRecipeExitMaterialIdArr)
-		//	if len(diff) > 0 {
-		//		var originalMaterial models.OriginalMaterials
-		//		err = tx.Where("id in(?)", diff).Delete(&originalMaterial).Error
-		//		if err != nil {
-		//			return err
-		//		}
-		//	}
-		//}
 
 		var material models.Materials
-		err = tx.Where("recipe_id = ?", pot.Id).Delete(&material).Error
+		err = tx.Where("recipe_id = ?", pot.Id).Where("pot_type_id = ?", pot.PotTypeId).Delete(&material).Error
 		if err != nil {
 			return err
 		}
 
-		//查询其他配方是否含有此口味、没有则删除原始口味
-		//tasteList := make([]*models.Taste, 0)
-		//err = tx.Where("recipe_id = ?", pot.Id).Find(&tasteList).Error
-		//if err != nil {
-		//	return err
-		//}
-		//originalTasteId := make([]string, 0)
-		//for _, v := range tasteList {
-		//	originalTasteId = append(originalTasteId, v.OriginalTasteId)
-		//}
-		//
-		//otherRecipeTaste := make([]*models.Taste, 0)
-		//err = tx.Where("recipe_id <> ?", pot.Id).Where("original_taste_id in(?)", originalTasteId).Find(&otherRecipeTaste).Error
-		//if err != nil {
-		//	if errors.Is(err, gorm.ErrRecordNotFound) {
-		//		var originalTaste models.OriginalTaste
-		//		err = tx.Where("id in (?)", originalTasteId).Delete(&originalTaste).Error
-		//		if err != nil {
-		//			return err
-		//		}
-		//	} else {
-		//		return err
-		//	}
-		//} else {
-		//	otherRecipeExitTasteIdArr := make([]string, 0)
-		//	for _, v := range otherRecipeTaste {
-		//		otherRecipeExitTasteIdArr = append(otherRecipeExitTasteIdArr, v.OriginalTasteId)
-		//	}
-		//	diff := FindDiff(originalTasteId, otherRecipeExitTasteIdArr)
-		//	if len(diff) > 0 {
-		//		var originalTaste models.OriginalTaste
-		//		err = tx.Where("id in(?)", diff).Delete(&originalTaste).Error
-		//		if err != nil {
-		//			return err
-		//		}
-		//	}
-		//}
-
 		var taste models.Taste
-		err = tx.Where("recipe_id = ?", pot.Id).Delete(&taste).Error
+		err = tx.Where("recipe_id = ?", pot.Id).Where("pot_type_id = ?", pot.PotTypeId).Delete(&taste).Error
 		if err != nil {
 			return err
 		}
@@ -350,7 +274,7 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	}
 
 	if len(Recipe) == 0 {
-		return nil,errors.New("该店铺下不存在配方")
+		return nil, errors.New("该店铺下不存在配方")
 	}
 	for _, v := range Recipe {
 		tmpSendConfig.Recipe = append(tmpSendConfig.Recipe, &mqtt.Recipe{
@@ -439,9 +363,13 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	return tmpSendConfig, nil
 }
 
-func (*RecipeService) FindMaterialByName() ([]*models.Materials, error) {
+func (*RecipeService) FindMaterialByName(potTypeId string) ([]*models.Materials, error) {
 	list := make([]*models.Materials, 0)
-	err := psql.Mydb.Find(&list).Error
+	db := psql.Mydb
+	if potTypeId != "" {
+		db = db.Where("pot_type_id = ?", potTypeId)
+	}
+	err := db.Find(&list).Error
 	if err != nil {
 		return nil, err
 	}
@@ -457,9 +385,13 @@ func (*RecipeService) FindMaterialByName() ([]*models.Materials, error) {
 	return list2, nil
 }
 
-func (*RecipeService) FindTasteMaterialList() ([]*models.Taste, error) {
+func (*RecipeService) FindTasteMaterialList(potTypeId string) ([]*models.Taste, error) {
 	list := make([]*models.Taste, 0)
-	err := psql.Mydb.Find(&list).Error
+	db := psql.Mydb
+	if potTypeId != "" {
+		db = db.Where("pot_type_id = ?", potTypeId)
+	}
+	err := db.Find(&list).Error
 	if err != nil {
 		return nil, err
 	}

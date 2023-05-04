@@ -36,9 +36,13 @@ func (TasteService) DeleteTaste(id string) error {
 	return nil
 }
 
-func (TasteService) SearchTasteList() ([]*models.Taste, error) {
+func (TasteService) SearchTasteList(potTypeId string) ([]*models.Taste, error) {
 	taste := make([]*models.Taste, 0)
-	result := psql.Mydb.Find(&taste)
+	db := psql.Mydb
+	if potTypeId != "" {
+		db = db.Where("pot_type_id = ?", potTypeId)
+	}
+	result := db.Find(&taste)
 	if result.Error != nil {
 		if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, result.Error
