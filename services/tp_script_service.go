@@ -8,7 +8,6 @@ import (
 	valid "ThingsPanel-Go/validate"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"strings"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -93,15 +92,14 @@ func (*TpScriptService) QuizTpScript(code, msgcotent, topic string) (res string,
 	if strings.HasPrefix(msgcotent, "0x") {
 		msg, err = hex.DecodeString(strings.ReplaceAll(msgcotent, "0x", ""))
 		if err != nil {
-			return "", errors.New("报文存在错误")
+			return "", err
 		}
 	} else {
 		msg, err = json.Marshal(msgcotent)
 		if err != nil {
-			return "", errors.New("报文存在错误")
+			return "", err
 		}
 	}
 	res, err = utils.ScriptDeal(code, msg, topic)
 	return
-
 }
