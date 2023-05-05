@@ -324,6 +324,7 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 				Unit:      v.Unit,
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
+				PotTypeId: v.PotTypeId,
 			}
 		}
 
@@ -349,6 +350,7 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 			Unit:      v.Unit,
 			WaterLine: v.WaterLine,
 			Station:   v.Station,
+			PotTypeId: v.PotTypeId,
 		}
 	}
 
@@ -453,13 +455,13 @@ func (*RecipeService) CreateTaste(taste *models.OriginalTaste, action string) er
 	return nil
 }
 
-func (*RecipeService) CheckBottomIdIsRepeat(bottomId, recipeId string, action string,potTypeId string) (bool, error) {
+func (*RecipeService) CheckBottomIdIsRepeat(bottomId, recipeId string, action string, potTypeId string) (bool, error) {
 	var model models.Recipe
 	var err error
 	if action == "ADD" {
-		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).Where("pot_type_id = ?",potTypeId).Where("is_del", false).First(&model).Error
+		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).Where("pot_type_id = ?", potTypeId).Where("is_del", false).First(&model).Error
 	} else {
-		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).Where("id <> ?", recipeId).Where("pot_type_id = ?",potTypeId).Where("is_del", false).First(&model).Error
+		err = psql.Mydb.Where("bottom_pot_id = ?", bottomId).Where("id <> ?", recipeId).Where("pot_type_id = ?", potTypeId).Where("is_del", false).First(&model).Error
 	}
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {

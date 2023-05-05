@@ -29,6 +29,7 @@ type Taste struct {
 	Unit      string    `json:"Unit"`
 	WaterLine int       `json:"WaterLine"`
 	Station   string    `json:"Station"`
+	PotTypeId string `json:"PotTypeId"`
 }
 
 type Materials struct {
@@ -38,6 +39,7 @@ type Materials struct {
 	Unit      string `json:"Unit"`
 	WaterLine int    `json:"WaterLine"`
 	Station   string `json:"Station"`
+	PotTypeId string `json:"PotTypeId"`
 }
 
 type SendConfig struct {
