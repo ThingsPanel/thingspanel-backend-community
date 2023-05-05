@@ -104,7 +104,7 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 		err := tx.Exec("UPDATE recipe SET bottom_pot_id = $1,"+
 			"bottom_pot= $2,pot_type_id= $3,materials= $4,bottom_properties = $5,"+
 			"soup_standard = $6,taste = $7 ,update_at = $8 WHERE id = $9",
-			pot.BottomPotId, pot.BottomPot, pot.PotTypeId, pot.Materials, pot.BottomProperties, pot.SoupStandard, taste, time.Now(), pot.Id).Error
+			pot.BottomPotId, pot.BottomPot, pot.PotTypeId, strings.Join(pot.Materials,","), pot.BottomProperties, pot.SoupStandard, taste, time.Now(), pot.Id).Error
 		if err != nil {
 			return err
 		}
