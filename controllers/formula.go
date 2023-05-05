@@ -338,14 +338,6 @@ func (pot *RecipeController) Edit() {
 				RecipeID:  RecipeValidate.Id,
 				PotTypeId: v.PotTypeId,
 			})
-			//if v.Action != "GET" {
-			//	OriginalTasteArr = append(OriginalTasteArr, models.OriginalTaste{
-			//		Id:         originalTasteUuid,
-			//		Name:       v.Taste,
-			//		TasteId:    v.TasteId,
-			//		MaterialId: v.MaterialsId,
-			//	})
-			//}
 		}
 
 		if v.Operate == "delete" {
@@ -353,24 +345,7 @@ func (pot *RecipeController) Edit() {
 		}
 
 	}
-	//for _, v := range RecipeValidate.TasteMaterialArr {
-	//	switch v.Action {
-	//	case "GET":
-	//		break
-	//	default:
-	//		originalMaterialUuid := uuid.GetUuid()
-	//		OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
-	//			Id:        originalMaterialUuid,
-	//			Name:      v.Name,
-	//			Dosage:    v.Dosage,
-	//			Unit:      v.Unit,
-	//			WaterLine: v.WaterLine,
-	//			Station:   v.Station,
-	//			Resource:  v.Resource,
-	//		})
-	//
-	//	}
-	//}
+
 
 	isSucess := Recipe.EditRecipe(RecipeValidate, MaterialArr, TasteArr, DeleteTasteArr, DeleteMaterialArr, OriginalMaterialsArr, OriginalTasteArr)
 	if isSucess == nil {

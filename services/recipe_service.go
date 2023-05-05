@@ -82,23 +82,30 @@ func (*RecipeService) AddRecipe(pot models.Recipe, list1 []models.Materials, lis
 
 // 修改数据
 func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.Materials, list2 []*models.Taste, list3 []string, list4 []string, list5 []models.OriginalMaterials, list6 []models.OriginalTaste) error {
-
-	updates := &models.EditRecipeValue{
-		BottomPotId:      pot.BottomPotId,
-		BottomPot:        pot.BottomPot,
-		PotTypeId:        pot.PotTypeId,
-		Materials:        strings.Join(pot.Materials, ","),
-		Taste:            strings.Join(pot.Tastes, ","),
-		BottomProperties: pot.BottomProperties,
-		SoupStandard:     pot.SoupStandard,
-		UpdateAt:         time.Now(),
+	taste := ""
+	if len(pot.Tastes) == 0 {
+		taste = ""
+	} else {
+		taste = strings.Join(pot.Tastes, ",")
 	}
+	//updates := models.EditRecipeValue{
+	//	BottomPotId:      pot.BottomPotId,
+	//	BottomPot:        pot.BottomPot,
+	//	PotTypeId:        pot.PotTypeId,
+	//	Materials:        strings.Join(pot.Materials, ","),
+	//	Taste:            taste,
+	//	BottomProperties: pot.BottomProperties,
+	//	SoupStandard:     pot.SoupStandard,
+	//	UpdateAt:         time.Now(),
+	//}
 
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 
-		err := tx.Model(models.Recipe{}).Where("id = ?", pot.Id).Updates(updates).Error
+		err := tx.Model(models.Recipe{}).Exec("UPDATE recipe SET bottom_pot_id = ?,"+
+			"bottom_pot= ?,pot_type_id= ?,materials= ?,bottom_properties = ?,"+
+			"soup_standard = ?,taste = ? ,update_at = ? WHERE id = ?",
+			pot.BottomPotId, pot.BottomPot, pot.PotTypeId, pot.Materials, pot.BottomProperties, pot.SoupStandard, taste, time.Now(), pot.Id).Error
 		if err != nil {
-			fmt.Println(err)
 			return err
 		}
 		if len(list1) > 0 {
@@ -278,8 +285,8 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	}
 	for _, v := range Recipe {
 		tmpSendConfig.Recipe = append(tmpSendConfig.Recipe, &mqtt.Recipe{
-			BottomPotId: v.BottomPotId,
-			BottomPot:   v.BottomPot,
+			BottomPotId:      v.BottomPotId,
+			BottomPot:        v.BottomPot,
 			PotTypeId:        v.PotTypeId,
 			BottomProperties: v.BottomProperties,
 			//SoupStandard:     v.SoupStandard,
