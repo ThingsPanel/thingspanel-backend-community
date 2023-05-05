@@ -482,13 +482,13 @@ func (*RecipeService) CheckBottomIdIsRepeat(bottomId, recipeId string, action st
 
 }
 
-func (*RecipeService) CheckPosTasteIdIsRepeat(list5 string, action string) (bool, error) {
+func (*RecipeService) CheckPosTasteIdIsRepeat(list5 string, action string, potTypeIs string) (bool, error) {
 	if len(list5) > 0 {
 		list := make([]*models.Taste, 0)
 		if action == "GET" {
 			return false, nil
 		}
-		err := psql.Mydb.Where("taste_id = ?", list5).First(&list).Error
+		err := psql.Mydb.Where("taste_id = ?", list5).Where("pot_type_id = ?", potTypeIs).First(&list).Error
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return false, err

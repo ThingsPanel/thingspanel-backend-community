@@ -132,6 +132,7 @@ type CreateTasteValidator struct {
 }
 
 type CheckValidator struct {
-	TasteId string `json:"taste_id" valid:"Required"`
-	Action  string `json:"action" `
+	TasteId   string `json:"taste_id" valid:"Required"`
+	Action    string `json:"action" `
+	PotTypeId string `json:"pot_type_id"`
 }

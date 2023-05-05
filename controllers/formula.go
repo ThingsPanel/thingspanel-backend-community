@@ -583,7 +583,7 @@ func (pot *RecipeController) CheckPosTasteIdIsRepeat() {
 	}
 
 	var recipeService services.RecipeService
-	isExist, err := recipeService.CheckPosTasteIdIsRepeat(checkValidator.TasteId, checkValidator.Action)
+	isExist, err := recipeService.CheckPosTasteIdIsRepeat(checkValidator.TasteId, checkValidator.Action,checkValidator.PotTypeId)
 
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
