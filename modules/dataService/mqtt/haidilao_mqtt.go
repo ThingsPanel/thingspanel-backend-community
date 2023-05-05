@@ -39,7 +39,6 @@ type Materials struct {
 	Unit      string `json:"Unit"`
 	WaterLine int    `json:"WaterLine"`
 	Station   string `json:"Station"`
-	PotTypeId string `json:"PotTypeId"`
 }
 
 type SendConfig struct {
@@ -54,7 +53,7 @@ type SendConfig struct {
 type Recipe struct {
 	BottomPotId      string    `json:"BottomPotId"`
 	BottomPot        string    `json:"BottomPot"`
-	//PotTypeId        string    `json:"PotTypeId"`
+	PotTypeId        string    `json:"PotTypeId"`
 	BottomProperties string    `json:"BottomProperties"`
 	//SoupStandard     int64     `json:"SoupStandard"`
 	MaterialIdList   []string  `json:"MaterialIdList"`

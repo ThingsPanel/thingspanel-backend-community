@@ -280,7 +280,7 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 		tmpSendConfig.Recipe = append(tmpSendConfig.Recipe, &mqtt.Recipe{
 			BottomPotId: v.BottomPotId,
 			BottomPot:   v.BottomPot,
-			//PotTypeId:        v.PotTypeId,
+			PotTypeId:        v.PotTypeId,
 			BottomProperties: v.BottomProperties,
 			//SoupStandard:     v.SoupStandard,
 		})
@@ -324,7 +324,6 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 				Unit:      v.Unit,
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
-				PotTypeId: v.PotTypeId,
 			}
 		}
 
