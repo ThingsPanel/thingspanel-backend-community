@@ -15,21 +15,22 @@ type ShopContent struct {
 }
 
 type PotType struct {
-	Name         string    `json:"Name"`
-	SoupStandard int       `json:"SoupStandard"`
-	PotTypeId    string    `json:"PotTypeId"`
+	Name         string `json:"Name"`
+	SoupStandard int    `json:"SoupStandard"`
+	PotTypeId    string `json:"PotTypeId"`
 }
 
-
 type Taste struct {
-	Name      string    `json:"Name"`
-	TasteId   string    `json:"TasteId"`
-	Material  string    `json:"Material"`
-	Dosage    int       `json:"Dosage"`
-	Unit      string    `json:"Unit"`
-	WaterLine int       `json:"WaterLine"`
-	Station   string    `json:"Station"`
-	PotTypeId string `json:"PotTypeId"`
+	Name           string   `json:"Name"`
+	TasteId        string   `json:"TasteId"`
+	Material       string   `json:"Material"`
+	Dosage         int      `json:"Dosage"`
+	Unit           string   `json:"Unit"`
+	WaterLine      int      `json:"WaterLine"`
+	Station        string   `json:"Station"`
+	PotTypeId      string   `json:"PotTypeId"`
+	MaterialIdList []string `json:"MaterialIdList"`
+	RecipeId       string   `json:"RecipeId"`
 }
 
 type Materials struct {
@@ -49,14 +50,13 @@ type SendConfig struct {
 	Recipe    []*Recipe
 }
 
-
 type Recipe struct {
-	BottomPotId      string    `json:"BottomPotId"`
-	BottomPot        string    `json:"BottomPot"`
-	PotTypeId        string    `json:"PotTypeId"`
-	BottomProperties string    `json:"BottomProperties"`
+	BottomPotId      string `json:"BottomPotId"`
+	BottomPot        string `json:"BottomPot"`
+	PotTypeId        string `json:"PotTypeId"`
+	BottomProperties string `json:"BottomProperties"`
 	//SoupStandard     int64     `json:"SoupStandard"`
-	MaterialIdList   []string  `json:"MaterialIdList"`
+	MaterialIdList []string `json:"MaterialIdList"`
 }
 
 /*店铺配置信息json案例,potType锅型,taste口味,materials配料,recipe锅底配方,shop店铺

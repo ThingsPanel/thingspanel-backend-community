@@ -88,29 +88,18 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 	} else {
 		taste = strings.Join(pot.Tastes, ",")
 	}
-	//updates := models.EditRecipeValue{
-	//	BottomPotId:      pot.BottomPotId,
-	//	BottomPot:        pot.BottomPot,
-	//	PotTypeId:        pot.PotTypeId,
-	//	Materials:        strings.Join(pot.Materials, ","),
-	//	Taste:            taste,
-	//	BottomProperties: pot.BottomProperties,
-	//	SoupStandard:     pot.SoupStandard,
-	//	UpdateAt:         time.Now(),
-	//}
 
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 
 		err := tx.Exec("UPDATE recipe SET bottom_pot_id = $1,"+
 			"bottom_pot= $2,pot_type_id= $3,materials= $4,bottom_properties = $5,"+
 			"soup_standard = $6,taste = $7 ,update_at = $8 WHERE id = $9",
-			pot.BottomPotId, pot.BottomPot, pot.PotTypeId, strings.Join(pot.Materials,","), pot.BottomProperties, pot.SoupStandard, taste, time.Now(), pot.Id).Error
+			pot.BottomPotId, pot.BottomPot, pot.PotTypeId, strings.Join(pot.Materials, ","), pot.BottomProperties, pot.SoupStandard, taste, time.Now(), pot.Id).Error
 		if err != nil {
 			return err
 		}
 		if len(list1) > 0 {
 			if err = tx.Create(&list1).Error; err != nil {
-				fmt.Println(err)
 				return err
 			}
 		}
@@ -128,43 +117,6 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 				return err
 			}
 
-			//RecipeTaste := make([]*models.Taste, 0)
-			//err = tx.Where("recipe_id = ?", pot.Id).Find(&RecipeTaste).Error
-			//if err != nil {
-			//	if !errors.Is(err, gorm.ErrRecordNotFound) {
-			//		return err
-			//	}
-			//}
-			//tasteIdArr := make([]string, 0)
-			//for _, v := range RecipeTaste {
-			//	tasteIdArr = append(tasteIdArr, v.OriginalTasteId)
-			//}
-			//
-			//otherRecipeTasteArr := make([]*models.Taste, 0)
-			//err = tx.Where("recipe_id <> ?", pot.Id).Where("original_taste_id in (?)", tasteIdArr).Find(&otherRecipeTasteArr).Error
-			//if err != nil {
-			//	if errors.Is(err, gorm.ErrRecordNotFound) {
-			//		var tastes models.OriginalTaste
-			//		if err = tx.Where("id in (?)", tasteIdArr).Delete(&tastes).Error; err != nil {
-			//			return err
-			//		}
-			//	} else {
-			//		return err
-			//	}
-			//}
-			//else {
-			//	existRecipeTasteArr := make([]string, 0)
-			//	for _, v := range otherRecipeTasteArr {
-			//		existRecipeTasteArr = append(existRecipeTasteArr, v.OriginalTasteId)
-			//	}
-			//
-			//	diffArr := FindDiff(existRecipeTasteArr, tasteIdArr)
-			//	var tastes models.OriginalTaste
-			//	if err = tx.Where("id in (?)", diffArr).Delete(&tastes).Error; err != nil {
-			//		return err
-			//	}
-			//}
-
 		}
 
 		if len(list4) > 0 {
@@ -173,42 +125,6 @@ func (*RecipeService) EditRecipe(pot valid.EditRecipeValidator, list1 []models.M
 				fmt.Println(err)
 				return err
 			}
-			//
-			//RecipeMaterial := make([]*models.Materials, 0)
-			//err = tx.Where("recipe_id = ?", pot.Id).Find(&RecipeMaterial).Error
-			//if err != nil {
-			//	if !errors.Is(err, gorm.ErrRecordNotFound) {
-			//		return err
-			//	}
-			//}
-			//materialIdArr := make([]string, 0)
-			//for _, v := range RecipeMaterial {
-			//	materialIdArr = append(materialIdArr, v.OriginalMaterialId)
-			//}
-			//
-			//otherRecipeMaterialArr := make([]*models.Materials, 0)
-			//err = tx.Where("recipe_id <> ?", pot.Id).Where("original_material_id in (?)", materialIdArr).Find(&otherRecipeMaterialArr).Error
-			//if err != nil {
-			//	if errors.Is(err, gorm.ErrRecordNotFound) {
-			//		var taste models.OriginalMaterials
-			//		if err = tx.Where("id in (?)", materialIdArr).Delete(&taste).Error; err != nil {
-			//			return err
-			//		}
-			//	} else {
-			//		return err
-			//	}
-			//} else {
-			//	existRecipeMaterialArr := make([]string, 0)
-			//	for _, v := range otherRecipeMaterialArr {
-			//		existRecipeMaterialArr = append(existRecipeMaterialArr, v.OriginalMaterialId)
-			//	}
-			//
-			//	diffArr := FindDiff(existRecipeMaterialArr, materialIdArr)
-			//	var materials models.OriginalMaterials
-			//	if err = tx.Where("id in (?)", diffArr).Delete(&materials).Error; err != nil {
-			//		return err
-			//	}
-			//}
 
 		}
 
@@ -316,6 +232,11 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 	if err != nil {
 		return nil, err
 	}
+	tasteMaterialList := make([]*models.Taste, 0)
+	err = psql.Mydb.Where("recipe_id in (?)", recipeIdArr).Find(&tasteMaterialList).Error
+	if err != nil {
+		return nil, err
+	}
 
 	tmpMaterialMap := make(map[string]*mqtt.Materials)
 	materialIdList := make(map[string][]string, 0)
@@ -336,6 +257,22 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 
 	}
 
+	for _, v := range tasteMaterialList {
+		if value, ok := tmpMaterialMap[fmt.Sprintf("%s%d%s%d", v.Material, v.Dosage, v.Unit, v.WaterLine)]; ok {
+			materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], value.Id)
+		} else {
+			materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], v.Id)
+			tmpMaterialMap[fmt.Sprintf("%s%d%s%d", v.Material, v.Dosage, v.Unit, v.WaterLine)] = &mqtt.Materials{
+				Id:        v.Id,
+				Name:      v.Material,
+				Dosage:    v.Dosage,
+				Unit:      v.Unit,
+				WaterLine: v.WaterLine,
+				Station:   v.Station,
+			}
+		}
+	}
+
 	for _, v := range tmpMaterialMap {
 		tmpSendConfig.Materials = append(tmpSendConfig.Materials, v)
 	}
@@ -347,6 +284,7 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 		return nil, err
 	}
 	tmpTasteMap := make(map[string]*mqtt.Taste)
+	tasteMaterialIdArr := make(map[string][]string, 0)
 	for _, v := range tasteList {
 		tmpTasteMap[v.TasteId] = &mqtt.Taste{
 			Name:      v.Name,
@@ -357,11 +295,17 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 			WaterLine: v.WaterLine,
 			Station:   v.Station,
 			PotTypeId: v.PotTypeId,
+			RecipeId:  v.RecipeID,
 		}
+		tasteMaterialIdArr[v.TasteId] = append(tasteMaterialIdArr[v.TasteId], v.Id)
 	}
 
 	for _, v := range tmpTasteMap {
 		tmpSendConfig.Taste = append(tmpSendConfig.Taste, v)
+	}
+
+	for key, v := range tmpSendConfig.Taste {
+		tmpSendConfig.Taste[key].MaterialIdList = tasteMaterialIdArr[v.TasteId]
 	}
 
 	for key, value := range Recipe {
