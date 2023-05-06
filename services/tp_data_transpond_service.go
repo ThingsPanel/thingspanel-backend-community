@@ -199,6 +199,21 @@ func (*TpDataTranspondService) UpdateDataTranspond(input models.TpDataTranspon) 
 	return true
 }
 
+// 删除/编辑规则，和修改开关，直接删除缓存
+func (*TpDataTranspondService) DeleteCacheByDataTranspondId(dataTranspondId string) bool {
+	var m []models.TpDataTransponDetail
+	result := psql.Mydb.Where("data_transpond_id = ?", dataTranspondId).Find(&m)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return false
+	}
+	for _, v := range m {
+		key := fmt.Sprintf(DeviceTranspondInfoRedisKeyPrefix, v.DeviceId)
+		redis.DelKey(key)
+	}
+	return true
+}
+
 // 通过设备ID，查询是否需要转发，以及转发的地址
 // 会设置缓存
 func (*TpDataTranspondService) GetDeviceDataTranspondInfo(deviceId string) (bool, DataTranspondCache) {
@@ -207,16 +222,19 @@ func (*TpDataTranspondService) GetDeviceDataTranspondInfo(deviceId string) (bool
 	// 从redis中获取数据
 	redisKey := fmt.Sprintf(DeviceTranspondInfoRedisKeyPrefix, deviceId)
 	redisInfo := redis.GetStr(redisKey)
-
+	fmt.Println("key", redisKey)
+	fmt.Println(redisInfo)
 	// 如果是 {} 证明为空缓存，不继续查询数据库，直接返回
 	if redisInfo == "{}" {
 		return false, data
 	}
 
-	// 尝试解析json
-	err := json.Unmarshal([]byte(redisInfo), &data)
-	if err != nil {
-		return false, data
+	if len(redisInfo) > 10 {
+		// 尝试解析json
+		err := json.Unmarshal([]byte(redisInfo), &data)
+		if err != nil {
+			return false, data
+		}
 	}
 
 	// 如果json有数据，证明开关为开，直接返回，不查询数据库
