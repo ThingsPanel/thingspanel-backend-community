@@ -21,6 +21,7 @@ type Recipe struct {
 	AssetId          string    `gorm:"column:asset_id"`
 	MaterialIdList   []string  `gorm:"-"`
 	TasteIdList      []string  `gorm:"-"`
+	TasteMaterials   string    `gorm:"taste_materials"`
 }
 
 type RecipeValue struct {
@@ -32,6 +33,7 @@ type RecipeValue struct {
 	Materials        string       `gorm:"column:materials"`
 	MaterialArr      []*Materials `gorm:"-"`
 	Taste            string       `gorm:"column:taste"`
+	TasteMaterials   string       `gorm:"column:taste_materials"`
 	TasteArr         []*Taste     `gorm:"-"`
 	BottomProperties string       `gorm:"column:bottom_properties"`
 	SoupStandard     int64        `gorm:"column:soup_standard"`
@@ -39,6 +41,7 @@ type RecipeValue struct {
 	UpdateAt         time.Time    `gorm:"column:update_at;default:CURRENT_TIMESTAMP"`
 	DeleteAt         time.Time    `gorm:"column:delete_at"`
 	IsDel            bool         `gorm:"column:is_del;default:false"`
+	TasteMaterialArr []*Materials `gorm:"-"`
 }
 
 type EditRecipeValue struct {

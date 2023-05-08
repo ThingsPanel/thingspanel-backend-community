@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"strings"
 )
 
 type TasteService struct {
@@ -48,9 +49,19 @@ func (TasteService) SearchTasteList(potTypeId string) ([]*models.Taste, error) {
 			return nil, result.Error
 		}
 	}
+
 	list1 := make(map[string]*models.Taste, 0)
+
+	tmpMaps := make(map[string][]*models.Materials)
+	materialService := new(MaterialService)
 	for _, v := range taste {
-		list1[MD5(fmt.Sprintf("%s%s", v.Name, v.TasteId))] = v
+		tmpMaps[MD5(fmt.Sprintf("%s%s%s", v.Name, v.PotTypeId, v.TasteId))], _ = materialService.GetMaterialListByID(strings.Split(v.MaterialIdList, ","), "taste")
+	}
+
+	for _, v := range taste {
+		v.TasteMaterialArr = make([]*models.Materials, 0)
+		v.TasteMaterialArr = tmpMaps[MD5(fmt.Sprintf("%s%s%s", v.Name, v.PotTypeId, v.TasteId))]
+		list1[MD5(fmt.Sprintf("%s%s%s", v.Name, v.PotTypeId, v.TasteId))] = v
 	}
 	list2 := make([]*models.Taste, 0)
 	for _, v := range list1 {

@@ -23,11 +23,6 @@ type PotType struct {
 type Taste struct {
 	Name           string   `json:"Name"`
 	TasteId        string   `json:"TasteId"`
-	Material       string   `json:"Material"`
-	Dosage         int      `json:"Dosage"`
-	Unit           string   `json:"Unit"`
-	WaterLine      int      `json:"WaterLine"`
-	Station        string   `json:"Station"`
 	PotTypeId      string   `json:"PotTypeId"`
 	MaterialIdList []string `json:"MaterialIdList"`
 	RecipeId       string   `json:"RecipeId"`

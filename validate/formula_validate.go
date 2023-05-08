@@ -15,9 +15,9 @@ type AddRecipeValidator struct {
 	TastesArr        []Taste    `json:"TasteArr" alias:"口味" `
 	BottomProperties string     `json:"BottomProperties" alias:"锅底属性" valid:"Required"`
 	SoupStandard     int64      `json:"SoupStandard" alias:"加汤水位标准" `
-	MaterialsArr     []Material `json:"MaterialArr" alias:"物料"`
+	MaterialsArr     []Material `json:"MaterialArr" alias:"物料数组"`
 	Materials        []string   `json:"Materials" alias:"物料"`
-	TasteMaterialArr []Material `json:"TasteMaterialArr" alias:"口味物料"`
+	TasteMaterials   []string   `json:"TasteMaterials" alias:"口味物料"`
 }
 
 type EditRecipeValidator struct {
@@ -29,32 +29,28 @@ type EditRecipeValidator struct {
 	MaterialsId      string     `json:"MaterialsId" alias:"物料ID"`
 	TasteId          string     `json:"TasteId" alias:"口味ID"`
 	Tastes           []string   `json:"Taste" alias:"口味"`
-	TastesArr        []Taste    `json:"TasteArr" alias:"口味" `
+	TastesArr        []*Taste   `json:"TasteArr" alias:"口味" `
 	BottomProperties string     `json:"BottomProperties" alias:"锅底属性" valid:"Required"`
 	SoupStandard     int64      `json:"SoupStandard" alias:"加汤水位标准" `
 	MaterialsArr     []Material `json:"MaterialArr" alias:"物料"`
 	Materials        []string   `json:"Materials" alias:"物料"`
-	TasteMaterialArr []Material `json:"TasteMaterialArr" alias:"口味物料"`
 	CurrentWaterLine int64      `json:"CurrentWaterLine" alias:"当前加汤水位线"`
 	CreateAt         int        `json:"CreateAt"`
 	DeleteAt         time.Time  `json:"DeleteAt"`
 	IsDel            bool       `json:"IsDel"`
+	TasteMaterials   []string   `json:"TasteMaterials" alias:"口味物料"`
 }
 
 type Taste struct {
-	Id              string `json:"Id"`
-	Taste           string `json:"Taste"`
-	TasteId         string `json:"TasteId"`
-	Material        string `json:"Material"`
-	MaterialsId     string `json:"MaterialsId"`
-	Dosage          int    `json:"Dosage"`
-	Unit            string `json:"Unit"`
-	WaterLine       int    `json:"WaterLine"`
-	Station         string `json:"Station"`
-	Action          string `json:"Action"`
-	Operate         string `json:"Operate"`
-	OriginalTasteId string `json:"OriginalTasteId"`
-	PotTypeId       string `json:"PotTypeId"`
+	Id               string      `json:"Id"`
+	Taste            string      `json:"Taste"`
+	TasteId          string      `json:"TasteId"`
+	Material         string      `json:"Material"`
+	MaterialsId      string      `json:"MaterialsId"`
+	Action           string      `json:"Action"`
+	Operate          string      `json:"Operate"`
+	PotTypeId        string      `json:"PotTypeId"`
+	TasteMaterialArr []*Material `json:"TasteMaterialArr" alias:"口味物料"`
 }
 
 type Material struct {
@@ -89,9 +85,9 @@ type DelRecipeValidator struct {
 }
 
 type SearchMaterialNameValidator struct {
-	Keyword      string `json:"keyword"`
-	MaterialType string `json:"material_type"`
-	PotTypeId    string `json:"pot_type_id"`
+	Keyword   string `json:"keyword"`
+	Resource  string `json:"resource"`
+	PotTypeId string `json:"pot_type_id"`
 }
 
 type DelMaterialValidator struct {

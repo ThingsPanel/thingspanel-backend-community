@@ -53,7 +53,13 @@ func (pot *RecipeController) Index() {
 	}
 
 	var materialService services.MaterialService
-	list, err := materialService.GetMaterialList(recipeIdArr)
+	list, err := materialService.GetMaterialList(recipeIdArr, "material")
+	if err != nil {
+		response.SuccessWithMessage(1000, "查询失败", (*context2.Context)(pot.Ctx))
+		return
+	}
+
+	tasteMaterialList, err := materialService.GetMaterialList(recipeIdArr, "taste")
 	if err != nil {
 		response.SuccessWithMessage(1000, "查询失败", (*context2.Context)(pot.Ctx))
 		return
@@ -70,6 +76,10 @@ func (pot *RecipeController) Index() {
 	for key, value := range d {
 		d[key].MaterialArr = list[value.Id]
 		d[key].TasteArr = tasteList[value.Id]
+		for _, vs := range d[key].TasteArr {
+			vs.TasteMaterialArr = append(vs.TasteMaterialArr, tasteMaterialList[vs.RecipeID]...)
+		}
+		d[key].TasteMaterialArr = tasteMaterialList[value.Id]
 		d[key].Materials = strings.ReplaceAll(d[key].Materials, ",", "\n")
 		d[key].Taste = strings.ReplaceAll(d[key].Taste, ",", "\n")
 	}
@@ -128,6 +138,7 @@ func (pot *RecipeController) Add() {
 		SoupStandard:     addRecipeValidate.SoupStandard,
 		CreateAt:         time.Now().Unix(),
 		AssetId:          AssetId,
+		TasteMaterials:   strings.Join(addRecipeValidate.TasteMaterials, ","),
 	}
 
 	MaterialArr := make([]models.Materials, 0)
@@ -135,109 +146,62 @@ func (pot *RecipeController) Add() {
 	var recipeId = uuid.GetUuid()
 	Recipe.Id = recipeId
 	for _, v := range addRecipeValidate.MaterialsArr {
-		switch v.Action {
-		case "GET":
-			materialUuid := uuid.GetUuid()
-			MaterialArr = append(MaterialArr, models.Materials{
-				Id:        materialUuid,
-				Name:      v.Name,
-				Dosage:    v.Dosage,
-				Unit:      v.Unit,
-				WaterLine: v.WaterLine,
-				Station:   v.Station,
-				RecipeID:  recipeId,
-				PotTypeId: v.PotTypeId,
-			})
-			break
-		default:
-			materialUuid := uuid.GetUuid()
-			MaterialArr = append(MaterialArr, models.Materials{
-				Id:        materialUuid,
-				Name:      v.Name,
-				Dosage:    v.Dosage,
-				Unit:      v.Unit,
-				WaterLine: v.WaterLine,
-				Station:   v.Station,
-				RecipeID:  recipeId,
-				PotTypeId: v.PotTypeId,
-			})
-			//OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
-			//	Id:        originalMaterialUuid,
-			//	Name:      v.Name,
-			//	Dosage:    v.Dosage,
-			//	Unit:      v.Unit,
-			//	WaterLine: v.WaterLine,
-			//	Station:   v.Station,
-			//	Resource:  v.Resource,
-			//})
 
-		}
+		materialUuid := uuid.GetUuid()
+		MaterialArr = append(MaterialArr, models.Materials{
+			Id:        materialUuid,
+			Name:      v.Name,
+			Dosage:    v.Dosage,
+			Unit:      v.Unit,
+			WaterLine: v.WaterLine,
+			Station:   v.Station,
+			RecipeID:  recipeId,
+			PotTypeId: v.PotTypeId,
+			Resource:  v.Resource,
+		})
 
 	}
 
 	for _, v := range addRecipeValidate.TastesArr {
+		tasteUuid := uuid.GetUuid()
+		arr := make([]string, 0)
+		for _, vs := range v.TasteMaterialArr {
+			materialUuid := uuid.GetUuid()
+			arr = append(arr, materialUuid)
+			MaterialArr = append(MaterialArr, models.Materials{
+				Id:        materialUuid,
+				Name:      vs.Name,
+				Dosage:    vs.Dosage,
+				Unit:      vs.Unit,
+				WaterLine: vs.WaterLine,
+				Station:   vs.Station,
+				RecipeID:  recipeId,
+				PotTypeId: vs.PotTypeId,
+				Resource:  vs.Resource,
+			})
+
+		}
+
+		taste := &models.Taste{
+			Id:             tasteUuid,
+			Name:           v.Taste,
+			TasteId:        v.TasteId,
+			CreateAt:       time.Now().Unix(),
+			RecipeID:       recipeId,
+			PotTypeId:      v.PotTypeId,
+			MaterialIdList: strings.Join(arr, ","),
+		}
 		switch v.Action {
 		case "GET":
-			tasteUuid := uuid.GetUuid()
-			TasteArr = append(TasteArr, &models.Taste{
-				Id:        tasteUuid,
-				Name:      v.Taste,
-				TasteId:   v.TasteId,
-				Dosage:    v.Dosage,
-				Unit:      v.Unit,
-				CreateAt:  time.Now().Unix(),
-				Material:  v.Material,
-				WaterLine: v.WaterLine,
-				Station:   v.Station,
-				RecipeID:  recipeId,
-				PotTypeId: v.PotTypeId,
-			})
+			TasteArr = append(TasteArr, taste)
 			break
 		default:
-			tasteUuid := uuid.GetUuid()
 
-			TasteArr = append(TasteArr, &models.Taste{
-				Id:        tasteUuid,
-				Name:      v.Taste,
-				TasteId:   v.TasteId,
-				Dosage:    v.Dosage,
-				Unit:      v.Unit,
-				CreateAt:  time.Now().Unix(),
-				Material:  v.Material,
-				WaterLine: v.WaterLine,
-				Station:   v.Station,
-				RecipeID:  recipeId,
-				PotTypeId: v.PotTypeId,
-			})
-			//
-			//OriginalTasteArr = append(OriginalTasteArr, models.OriginalTaste{
-			//	Id:         originalTasteUuid,
-			//	Name:       v.Taste,
-			//	TasteId:    v.TasteId,
-			//	MaterialId: v.MaterialsId,
-			//})
+			TasteArr = append(TasteArr, taste)
 		}
 
 	}
 
-	//for _, v := range addRecipeValidate.TasteMaterialArr {
-	//	switch v.Action {
-	//	case "GET":
-	//		break
-	//	default:
-	//		originalMaterialUuid := uuid.GetUuid()
-	//		OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
-	//			Id:        originalMaterialUuid,
-	//			Name:      v.Name,
-	//			Dosage:    v.Dosage,
-	//			Unit:      v.Unit,
-	//			WaterLine: v.WaterLine,
-	//			Station:   v.Station,
-	//			Resource:  v.Resource,
-	//		})
-	//
-	//	}
-	//}
 	rsp_err, d := RecipeService.AddRecipe(Recipe, MaterialArr, TasteArr)
 	if rsp_err == nil {
 		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(pot.Ctx))
@@ -288,8 +252,7 @@ func (pot *RecipeController) Edit() {
 	DeleteMaterialArr := make([]string, 0)
 	TasteArr := make([]*models.Taste, 0)
 	DeleteTasteArr := make([]string, 0)
-	OriginalMaterialsArr := make([]models.OriginalMaterials, 0)
-	OriginalTasteArr := make([]models.OriginalTaste, 0)
+
 	for _, v := range RecipeValidate.MaterialsArr {
 		materialUuid := ""
 		if v.Id == "" {
@@ -303,51 +266,65 @@ func (pot *RecipeController) Edit() {
 				Station:   v.Station,
 				RecipeID:  RecipeValidate.Id,
 				PotTypeId: v.PotTypeId,
+				Resource:  v.Resource,
 			})
-			//if v.Action != "GET" {
-			//	OriginalMaterialsArr = append(OriginalMaterialsArr, models.OriginalMaterials{
-			//		Id:        originalMaterialUuid,
-			//		Name:      v.Name,
-			//		Dosage:    v.Dosage,
-			//		Unit:      v.Unit,
-			//		WaterLine: v.WaterLine,
-			//		Station:   v.Station,
-			//		Resource:  v.Resource,
-			//	})
-			//}
 
 		}
 		if v.Operate == "delete" {
 			DeleteMaterialArr = append(DeleteMaterialArr, v.Id)
 		}
-
 	}
+
 	for _, v := range RecipeValidate.TastesArr {
+		arr := make([]string, 0)
+
+		for _, vs := range v.TasteMaterialArr {
+			materialUuid := uuid.GetUuid()
+			if vs.Id == "" {
+				arr = append(arr, materialUuid)
+				MaterialArr = append(MaterialArr, models.Materials{
+					Id:        materialUuid,
+					Name:      vs.Name,
+					Dosage:    vs.Dosage,
+					Unit:      vs.Unit,
+					WaterLine: vs.WaterLine,
+					Station:   vs.Station,
+					RecipeID:  RecipeValidate.Id,
+					PotTypeId: vs.PotTypeId,
+					Resource:  vs.Resource,
+				})
+			} else {
+				arr = append(arr, vs.Id)
+			}
+
+			if vs.Operate == "delete" {
+				DeleteTasteArr = append(DeleteTasteArr, vs.Id)
+			}
+
+		}
+
 		if v.Id == "" {
 			tasteUuid := uuid.GetUuid()
 			TasteArr = append(TasteArr, &models.Taste{
-				Id:        tasteUuid,
-				Name:      v.Taste,
-				TasteId:   v.TasteId,
-				Dosage:    v.Dosage,
-				Unit:      v.Unit,
-				Material:  v.Material,
-				CreateAt:  time.Now().Unix(),
-				WaterLine: v.WaterLine,
-				Station:   v.Station,
-				RecipeID:  RecipeValidate.Id,
-				PotTypeId: v.PotTypeId,
+				Id:             tasteUuid,
+				Name:           v.Taste,
+				TasteId:        v.TasteId,
+				CreateAt:       time.Now().Unix(),
+				RecipeID:       RecipeValidate.Id,
+				PotTypeId:      v.PotTypeId,
+				MaterialIdList: strings.Join(arr, ","),
 			})
+
 		}
 
 		if v.Operate == "delete" {
+			DeleteMaterialArr = append(DeleteMaterialArr, arr...)
 			DeleteTasteArr = append(DeleteTasteArr, v.Id)
 		}
 
 	}
 
-
-	isSucess := Recipe.EditRecipe(RecipeValidate, MaterialArr, TasteArr, DeleteTasteArr, DeleteMaterialArr, OriginalMaterialsArr, OriginalTasteArr)
+	isSucess := Recipe.EditRecipe(RecipeValidate, MaterialArr, TasteArr, DeleteTasteArr, DeleteMaterialArr)
 	if isSucess == nil {
 		d := Recipe.GetRecipeDetail(RecipeValidate.Id)
 		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(pot.Ctx))
@@ -437,7 +414,7 @@ func (pot *RecipeController) GetMaterialList() {
 	}
 	var RecipeService services.RecipeService
 
-	list, err := RecipeService.FindMaterialByName(searchValidator.PotTypeId)
+	list, err := RecipeService.FindMaterialByName(searchValidator.PotTypeId, searchValidator.Resource)
 	if err == nil {
 		response.SuccessWithDetailed(200, "success", list, map[string]string{}, (*context2.Context)(pot.Ctx))
 	} else {
@@ -445,21 +422,21 @@ func (pot *RecipeController) GetMaterialList() {
 	}
 }
 
-func (pot *RecipeController) GetTasteMaterialList() {
-	searchValidator := valid.SearchMaterialNameValidator{}
-	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &searchValidator)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	var RecipeService services.RecipeService
-
-	list, err := RecipeService.FindTasteMaterialList(searchValidator.PotTypeId)
-	if err == nil {
-		response.SuccessWithDetailed(200, "success", list, map[string]string{}, (*context2.Context)(pot.Ctx))
-	} else {
-		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
-	}
-}
+//func (pot *RecipeController) GetTasteMaterialList() {
+//	searchValidator := valid.SearchMaterialNameValidator{}
+//	err := json.Unmarshal(pot.Ctx.Input.RequestBody, &searchValidator)
+//	if err != nil {
+//		fmt.Println("参数解析失败", err.Error())
+//	}
+//	var RecipeService services.RecipeService
+//
+//	list, err := RecipeService.FindTasteMaterialList(searchValidator.PotTypeId)
+//	if err == nil {
+//		response.SuccessWithDetailed(200, "success", list, map[string]string{}, (*context2.Context)(pot.Ctx))
+//	} else {
+//		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))
+//	}
+//}
 
 func (pot *RecipeController) CreateMaterial() {
 	createValidator := valid.CreateMaterialValidator{}
@@ -583,7 +560,7 @@ func (pot *RecipeController) CheckPosTasteIdIsRepeat() {
 	}
 
 	var recipeService services.RecipeService
-	isExist, err := recipeService.CheckPosTasteIdIsRepeat(checkValidator.TasteId, checkValidator.Action,checkValidator.PotTypeId)
+	isExist, err := recipeService.CheckPosTasteIdIsRepeat(checkValidator.TasteId, checkValidator.Action, checkValidator.PotTypeId)
 
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(pot.Ctx))

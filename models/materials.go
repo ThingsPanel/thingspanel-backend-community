@@ -9,6 +9,7 @@ type Materials struct {
 	Station   string `gorm:"column:station"`
 	RecipeID  string `gorm:"column:recipe_id"`
 	PotTypeId string `gorm:"column:pot_type_id"`
+	Resource  string `gorm:"column:resource"`
 }
 
 func (m *Materials) TableName() string {

@@ -10,9 +10,9 @@ import (
 type MaterialService struct {
 }
 
-func (*MaterialService) GetMaterialList(id []string) (map[string][]*models.Materials, error) {
+func (*MaterialService) GetMaterialList(id []string, resource string) (map[string][]*models.Materials, error) {
 	var materials []*models.Materials
-	result := psql.Mydb.Where("recipe_id in (?)", id).Find(&materials)
+	result := psql.Mydb.Where("recipe_id in (?)", id).Where("resource = ?", resource).Find(&materials)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, result.Error
@@ -24,6 +24,20 @@ func (*MaterialService) GetMaterialList(id []string) (map[string][]*models.Mater
 	}
 
 	return tmpMap, nil
+}
+
+
+func (*MaterialService) GetMaterialListByID(id []string, resource string) ([]*models.Materials, error) {
+	var materials []*models.Materials
+	result := psql.Mydb.Where("id in (?)", id).Where("resource = ?", resource).Find(&materials)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, result.Error
+		}
+	}
+
+
+	return materials, nil
 }
 
 func (*MaterialService) DeleteMaterial(id string) error {
