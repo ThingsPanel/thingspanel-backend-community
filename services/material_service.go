@@ -26,6 +26,17 @@ func (*MaterialService) GetMaterialList(id []string, resource string) (map[strin
 	return tmpMap, nil
 }
 
+func (*MaterialService) GetMaterialListByMaterialID(id []string, materialId []string, resource string) ([]*models.Materials, error) {
+	var materials []*models.Materials
+	result := psql.Mydb.Where("recipe_id in (?)", id).Where("id in (?)", materialId).Where("resource = ?", resource).Find(&materials)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, result.Error
+		}
+	}
+
+	return materials, nil
+}
 
 func (*MaterialService) GetMaterialListByID(id []string, resource string) ([]*models.Materials, error) {
 	var materials []*models.Materials
@@ -35,7 +46,6 @@ func (*MaterialService) GetMaterialListByID(id []string, resource string) ([]*mo
 			return nil, result.Error
 		}
 	}
-
 
 	return materials, nil
 }

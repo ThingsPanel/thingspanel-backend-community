@@ -77,7 +77,7 @@ func (pot *RecipeController) Index() {
 		d[key].MaterialArr = list[value.Id]
 		d[key].TasteArr = tasteList[value.Id]
 		for _, vs := range d[key].TasteArr {
-			vs.TasteMaterialArr = append(vs.TasteMaterialArr, tasteMaterialList[vs.RecipeID]...)
+			vs.TasteMaterialArr, _ = materialService.GetMaterialListByMaterialID(recipeIdArr, strings.Split(vs.MaterialIdList, ","), "taste")
 		}
 		d[key].TasteMaterialArr = tasteMaterialList[value.Id]
 		d[key].Materials = strings.ReplaceAll(d[key].Materials, ",", "\n")

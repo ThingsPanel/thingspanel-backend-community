@@ -238,16 +238,17 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 				Unit:      v.Unit,
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
+				Resource:  v.Resource,
 			}
 		}
 
 	}
 
 	for _, v := range tasteMaterialList {
-		if value, ok := tmpMaterialMap[fmt.Sprintf("%s%d%s%d", v.Name, v.Dosage, v.Unit, v.WaterLine)]; ok {
-			materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], value.Id)
+		if _, ok := tmpMaterialMap[fmt.Sprintf("%s%d%s%d", v.Name, v.Dosage, v.Unit, v.WaterLine)]; ok {
+			//materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], value.Id)
 		} else {
-			materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], v.Id)
+			//materialIdList[v.RecipeID] = append(materialIdList[v.RecipeID], v.Id)
 			tmpMaterialMap[fmt.Sprintf("%s%d%s%d", v.Name, v.Dosage, v.Unit, v.WaterLine)] = &mqtt.Materials{
 				Id:        v.Id,
 				Name:      v.Name,
@@ -255,6 +256,7 @@ func (*RecipeService) GetSendToMQTTData(assetId string) (*mqtt.SendConfig, error
 				Unit:      v.Unit,
 				WaterLine: v.WaterLine,
 				Station:   v.Station,
+				Resource:  v.Resource,
 			}
 		}
 	}

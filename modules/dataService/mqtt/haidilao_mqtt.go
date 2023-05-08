@@ -35,6 +35,7 @@ type Materials struct {
 	Unit      string `json:"Unit"`
 	WaterLine int    `json:"WaterLine"`
 	Station   string `json:"Station"`
+	Resource  string `json:"Resource"`
 }
 
 type SendConfig struct {
