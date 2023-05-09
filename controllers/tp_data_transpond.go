@@ -438,6 +438,9 @@ func (c *TpDataTransponController) Edit() {
 
 // for test
 func (c *TpDataTransponController) EnchantedDoor() {
-	var operate services.TpDataTranspondService
-	operate.GetDeviceDataTranspondInfo("yanhao-01010102222")
+
+
+	//var operate services.DataTranspondCache
+
+	//GetDeviceDataTranspondInfo("yanhao-01010101yy")
 }

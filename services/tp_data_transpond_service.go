@@ -4,9 +4,12 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/models"
+	tphttp "ThingsPanel-Go/others/http"
 	"encoding/json"
 	"errors"
 	"fmt"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"strconv"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -24,11 +27,11 @@ type TpDataTranspondService struct {
 
 const DeviceMessageTypeAttributeReport = 1 // 属性上报
 const DeviceMessageTypeAttributeSend = 2   // 属性下发
-const DeviceMessageTypeEvnetReport = 3     // 事件上报
+const DeviceMessageTypeEventReport = 3     // 事件上报
 const DeviceMessageTypeCustomReport = 4    // 自定义上报
 
 // DTI- device id
-const DeviceTranspondInfoRedisKeyPrefix = "DTI-%s" //缓存前缀
+const DeviceTranspondInfoRedisKeyPrefix = "DTI2-%s" //缓存前缀
 
 const DataTranspondDetailSwitchOpen = 1  // 开启转发
 const DataTranspondDetailSwitchClose = 0 // 关闭转发
@@ -216,7 +219,7 @@ func (*TpDataTranspondService) DeleteCacheByDataTranspondId(dataTranspondId stri
 
 // 通过设备ID，查询是否需要转发，以及转发的地址
 // 会设置缓存
-func (*TpDataTranspondService) GetDeviceDataTranspondInfo(deviceId string) (bool, DataTranspondCache) {
+func GetDeviceDataTranspondInfo(deviceId string) (bool, DataTranspondCache) {
 
 	var data DataTranspondCache
 	// 从redis中获取数据
@@ -250,7 +253,7 @@ func (*TpDataTranspondService) GetDeviceDataTranspondInfo(deviceId string) (bool
 
 	// 配置为空，这是空缓存，返回
 	if resTpDataTransponDetail.DataTranspondId == "" {
-		setEmptyCache(redisKey)
+		_ = setEmptyCache(redisKey)
 		return false, data
 	}
 
@@ -261,7 +264,7 @@ func (*TpDataTranspondService) GetDeviceDataTranspondInfo(deviceId string) (bool
 
 	// 如果关闭，设置空缓存
 	if resTpDataTranspon.Status == DataTranspondDetailSwitchClose {
-		setEmptyCache(redisKey)
+		_ = setEmptyCache(redisKey)
 		return false, data
 	}
 
@@ -291,8 +294,48 @@ func (*TpDataTranspondService) GetDeviceDataTranspondInfo(deviceId string) (bool
 
 	data.TargetInfo = targetInfo
 	// 设置缓存
-	setCache(redisKey, data)
+	_ = setCache(redisKey, data)
 	return true, data
+}
+
+// 用于验证是否需要转发，以及转发数据
+func CheckAndTranspondData(deviceId string, msg []byte, messageType int) {
+	fmt.Println("deviceId", deviceId)
+	ok, data := GetDeviceDataTranspondInfo(deviceId)
+	// 无转发配置或messageType不符
+	if !ok || data.MessageType != messageType {
+		fmt.Println("无转发配置或messageType不符")
+		return
+	}
+	// 转发到mqtt或http接口
+	if len(data.TargetInfo.URL) > 1 {
+		// send post
+		_, _ = tphttp.Post(data.TargetInfo.URL, string(msg))
+	}
+
+	if len(data.TargetInfo.MQTT.Host) > 1 {
+		// send mqtt
+		ConnectAndSend(data, msg)
+	}
+}
+
+func ConnectAndSend(t DataTranspondCache, msg []byte) {
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker(fmt.Sprintf("tcp://%s:%s", t.TargetInfo.MQTT.Host, strconv.Itoa(t.TargetInfo.MQTT.Port)))
+	fmt.Println(fmt.Sprintf("tcp://%s:%s", t.TargetInfo.MQTT.Host, strconv.Itoa(t.TargetInfo.MQTT.Port)))
+	opts.SetClientID(t.TargetInfo.MQTT.ClientId)
+	opts.SetUsername(t.TargetInfo.MQTT.UserName)
+	opts.SetPassword(t.TargetInfo.MQTT.Password)
+	client := mqtt.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		fmt.Println(token.Error())
+		return
+	}
+	m := client.Publish(t.TargetInfo.MQTT.Topic, 0, false, msg)
+	if m.Error() != nil {
+		fmt.Println(m.Error())
+	}
+	defer client.Disconnect(1)
 }
 
 // 查询 tp_data_transpond_detail 中是否有配置该设备的转发信息
