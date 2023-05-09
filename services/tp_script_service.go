@@ -6,8 +6,10 @@ import (
 	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -86,23 +88,19 @@ func (*TpScriptService) DeleteTpScript(tp_script models.TpScript) error {
 }
 
 // 调试脚本
-func (*TpScriptService) QuizTpScript(code, msgcontent string) (string, error) {
-	var v interface{}
-	_ = json.Unmarshal([]byte(msgcontent), &v)
-	switch v.(type) {
-	case map[string]interface{}:
-		data := v.(map[string]interface{})
-		msg, err := json.Marshal(data["msg"])
+func (*TpScriptService) QuizTpScript(code, msgcotent, topic string) (string, error) {
+	if msgcotent == "" || code == "" {
+		return "", errors.New("msg or code is null")
+	}
+	msg, err := json.Marshal(msgcotent)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(msgcotent, "0x") {
+		msg, err = hex.DecodeString(strings.ReplaceAll(msgcotent, "0x", ""))
 		if err != nil {
-			return "", errors.New("报文存在错误")
-		}
-		response, err := utils.ScriptDeal(code, msg, data["topic"].(string))
-		if err != nil {
-			logs.Error(err.Error())
 			return "", err
 		}
-		return response, nil
-	default:
-		return "", errors.New("报文存在错误")
 	}
+	return utils.ScriptDeal(code, msg, topic)
 }
