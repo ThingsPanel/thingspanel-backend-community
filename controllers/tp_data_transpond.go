@@ -276,6 +276,7 @@ func (c *TpDataTransponController) Delete() {
 	}
 
 	// 删除数据
+	operate.DeleteCacheByDataTranspondId(reqData.DataTranspondId)
 	res := operate.DeletaByDataTranspondId(reqData.DataTranspondId)
 	if !res {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
@@ -321,6 +322,7 @@ func (c *TpDataTransponController) Switch() {
 		return
 	}
 
+	find.DeleteCacheByDataTranspondId(reqData.DataTranspondId)
 	response.Success(200, (*context2.Context)(c.Ctx))
 }
 
@@ -343,7 +345,7 @@ func (c *TpDataTransponController) Edit() {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
-
+	operate.DeleteCacheByDataTranspondId(reqData.Id)
 	updateData := models.TpDataTranspon{
 		Id:         reqData.Id,
 		Name:       reqData.Name,
@@ -432,4 +434,13 @@ func (c *TpDataTransponController) Edit() {
 	}
 
 	response.Success(200, (*context2.Context)(c.Ctx))
+}
+
+// for test
+func (c *TpDataTransponController) EnchantedDoor() {
+
+
+	//var operate services.DataTranspondCache
+
+	//GetDeviceDataTranspondInfo("yanhao-01010101yy")
 }

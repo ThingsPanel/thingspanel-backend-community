@@ -730,6 +730,8 @@ func scriptDealB(script_id string, device_data []byte, topic string) ([]byte, er
 // 发送消息 device为子设备
 func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 	var err error
+	// 转发消息 - 属性下发 - MessageType 2
+	CheckAndTranspondData(device.ID, msg, DeviceMessageTypeAttributeSend)
 	if device.DeviceType == "1" { // 直连设备
 		// 通过脚本
 		msg, err = scriptDealB(device.ScriptId, msg, viper.GetString("mqtt.topicToPublish")+"/"+device.Token)
