@@ -271,7 +271,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 }
 
 // 接收固件版本信息
-func (*TpOtaDeviceService) OtaToinfromMsgProcOther(body []byte, topic string) bool {
+func (*TpOtaDeviceService) OtaToinformMsgProcOther(body []byte, topic string) bool {
 	logs.Info("-------------------------------")
 	logs.Info("来自直连设备解析后的ota消息：")
 	logs.Info(utils.ReplaceUserInput(string(body)))
