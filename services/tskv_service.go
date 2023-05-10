@@ -227,7 +227,7 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string) bool {
 	return true
 }
 
-// 接收硬件消息
+// 接收硬件消息 ，数据转发切入点，（设备上报）
 func (*TSKVService) MsgProc(body []byte, topic string) bool {
 	logs.Info("-------------------------------")
 	logs.Info("来自直连设备/网关解析后的子设备的消息：")
@@ -256,6 +256,10 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 		logs.Error(err_a.Error())
 		return false
 	}
+
+	// 上面脚本处理后转发
+	CheckAndTranspondData(device.ID, req, DeviceMessageTypeAttributeReport)
+
 	logs.Info("转码后:", utils.ReplaceUserInput(string(req)))
 	//byte转map
 	var payload_map = make(map[string]interface{})
@@ -767,7 +771,7 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[
 	return fields
 }
 
-//根据业务id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）
+// 根据业务id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）
 func (*TSKVService) GetCurrentDataByBusiness(business string) map[string]interface{} {
 	var DeviceService DeviceService
 	deviceList, deviceCount := DeviceService.GetDevicesByBusinessID(business)
@@ -824,7 +828,7 @@ func (*TSKVService) GetCurrentDataByBusiness(business string) map[string]interfa
 	return datas
 }
 
-//根据设备分组id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）
+// 根据设备分组id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）
 func (*TSKVService) GetCurrentDataByAsset(asset_id string) map[string]interface{} {
 	var DeviceService DeviceService
 	deviceList, deviceCount := DeviceService.GetDevicesInfoAndCurrentByAssetID(asset_id)
@@ -881,7 +885,7 @@ func (*TSKVService) GetCurrentDataByAsset(asset_id string) map[string]interface{
 	return datas
 }
 
-//根据设备分组id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）app展示接口
+// 根据设备分组id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）app展示接口
 func (*TSKVService) GetCurrentDataByAssetA(asset_id string) map[string]interface{} {
 	var DeviceService DeviceService
 	deviceList, deviceCount := DeviceService.GetDevicesInfoAndCurrentByAssetID(asset_id)
@@ -1013,7 +1017,7 @@ func (*TSKVService) DeviceHistoryData(device_id string, current int, size int) (
 	return fields, count
 }
 
-//删除当前值根据设备id
+// 删除当前值根据设备id
 func (*TSKVService) DeleteCurrentDataByDeviceId(deviceId string) {
 	rtsl := psql.Mydb.Where("entity_id = ?", deviceId).Delete(&models.TSKVLatest{})
 	if rtsl.Error != nil {
@@ -1124,7 +1128,7 @@ func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) 
 	return fields, nil
 }
 
-//设备在线离线判断
+// 设备在线离线判断
 func (*TSKVService) DeviceOnline(device_id string, interval int64) (string, error) {
 	var ts_kvs models.TSKVLatest
 	result := psql.Mydb.Select("ts").Where("entity_id = ? AND key ='systime'", device_id).Order("ts asc").Find(&ts_kvs)

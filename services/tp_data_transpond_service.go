@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/robertkrimen/otto"
 	"strconv"
 	"time"
 
@@ -307,6 +308,30 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int) {
 		fmt.Println("无转发配置或messageType不符")
 		return
 	}
+
+	var message string
+	if len(data.Script) > 1 {
+		script := data.Script
+		vm := otto.New()
+		_, err := vm.Run(script)
+		if err != nil {
+			fmt.Println("js run error")
+			return
+		}
+		callRes, err := vm.Call("encodeInp", nil, msg)
+		if err != nil {
+			fmt.Println("js call error")
+			return
+		}
+		fmt.Println("run js success")
+		message = callRes.String()
+	}
+
+	if len(message) > 1 {
+		msg = []byte(message)
+	}
+
+	fmt.Println("msg info :", msg)
 	// 转发到mqtt或http接口
 	if len(data.TargetInfo.URL) > 1 {
 		// send post
