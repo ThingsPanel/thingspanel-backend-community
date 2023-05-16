@@ -506,7 +506,7 @@ func (this *DeviceController) Configure() {
 	//DeviceService
 }
 
-//控制设备
+// 控制设备
 func (c *DeviceController) Operating() {
 	reqData := valid.OperatingDevice{}
 	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
@@ -972,4 +972,14 @@ func (c *DeviceController) DeviceListByProductId() {
 	}
 	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
 
+}
+
+// 设备事件上报历史纪录查询
+func (c *DeviceController) DeviceEventList() {
+	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
+}
+
+// 设备命令下发历史纪录查询
+func (c *DeviceController) DeviceCommandList() {
+	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
 }
