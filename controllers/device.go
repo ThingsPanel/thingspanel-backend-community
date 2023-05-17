@@ -976,10 +976,40 @@ func (c *DeviceController) DeviceListByProductId() {
 
 // 设备事件上报历史纪录查询
 func (c *DeviceController) DeviceEventList() {
-	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
+	inputData := valid.DeviceEventCommandHistoryValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	offset := (inputData.CurrentPage - 1) * inputData.PerPage
+	var s services.DeviceEvnetHistory
+	data, count := s.GetDeviceEvnetHistoryListByDeviceId(offset, inputData.PerPage, inputData.DeviceId)
+	d := DataTransponList{
+		CurrentPage: inputData.CurrentPage,
+		Total:       count,
+		PerPage:     inputData.PerPage,
+		Data:        data,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+
 }
 
 // 设备命令下发历史纪录查询
 func (c *DeviceController) DeviceCommandList() {
-	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
+	inputData := valid.DeviceEventCommandHistoryValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+
+	offset := (inputData.CurrentPage - 1) * inputData.PerPage
+	var s services.DeviceCommandHistory
+	data, count := s.GetDeviceCommandHistoryListByDeviceId(offset, inputData.PerPage, inputData.DeviceId)
+	d := DataTransponList{
+		CurrentPage: inputData.CurrentPage,
+		Total:       count,
+		PerPage:     inputData.PerPage,
+		Data:        data,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }

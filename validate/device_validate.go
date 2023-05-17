@@ -166,3 +166,9 @@ type DevicePaginationValidate struct {
 	Name           string `json:"name"  alias:"名称" valid:"MaxSize(36)"`
 	ProductId      string `json:"product_id,omitempty" alias:"产品id"`
 }
+
+type DeviceEventCommandHistoryValid struct {
+	DeviceId    string `json:"device_id"`
+	CurrentPage int    `json:"current_page"`
+	PerPage     int    `json:"per_page"`
+}

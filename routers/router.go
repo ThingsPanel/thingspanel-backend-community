@@ -146,8 +146,8 @@ func init() {
 		web.NSRouter("/device/status", &controllers.DeviceController{}, "*:DeviceStatus"),
 
 		// 设备事件上报/命令下发历史列表
-		web.NSRouter("/device/event/list", &controllers.DeviceController{}, "*:DeviceEventList"),
-		web.NSRouter("/device/command/list", &controllers.DeviceController{}, "*:DeviceCommandList"),
+		web.NSRouter("/device/event/history/list", &controllers.DeviceController{}, "*:DeviceEventList"),
+		web.NSRouter("/device/command/history/list", &controllers.DeviceController{}, "*:DeviceCommandList"),
 
 		//可视化列表分页查询
 		// web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"), //keshihua-ck
