@@ -3,7 +3,6 @@ package middleware
 import (
 	utils "ThingsPanel-Go/utils"
 	"errors"
-	response "ThingsPanel-Go/utils"
 	"fmt"
 	"strings"
 
@@ -44,10 +43,10 @@ func AuthMiddle() {
 			// 解析token
 			userMsg, err := utils.ParseCliamsToken(userToken)
 			if err != nil {
-// 			authorization := ctx.Request.Header["Authorization"][0]
-// 			userToken := authorization[7:]
-// 			_, err := jwt.ParseCliamsToken(userToken)
-// 			if err != nil || redis.GetStr(userToken) != "1" {
+				// 			authorization := ctx.Request.Header["Authorization"][0]
+				// 			userToken := authorization[7:]
+				// 			_, err := jwt.ParseCliamsToken(userToken)
+				// 			if err != nil || redis.GetStr(userToken) != "1" {
 				// 异常
 				utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
 				return

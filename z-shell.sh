@@ -1,3 +1,3 @@
 go build
 echo "编译完成"
-supervisorctl restart beego
+pm2 restart ThingsPanel-Go
