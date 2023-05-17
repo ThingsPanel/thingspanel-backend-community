@@ -21,56 +21,56 @@ type TpOtaTaskController struct {
 }
 
 // 列表
-func (TpOtaTaskController *TpOtaTaskController) List() {
-	PaginationValidate := valid.TpOtaTaskPaginationValidate{}
-	err := json.Unmarshal(TpOtaTaskController.Ctx.Input.RequestBody, &PaginationValidate)
+func (c *TpOtaTaskController) List() {
+	reqData := valid.TpOtaTaskPaginationValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(PaginationValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(PaginationValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpOtaTaskController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
 	var TpOtaTaskService services.TpOtaTaskService
-	isSuccess, d, t := TpOtaTaskService.GetTpOtaTaskList(PaginationValidate)
+	isSuccess, d, t := TpOtaTaskService.GetTpOtaTaskList(reqData)
 
 	if !isSuccess {
-		utils.SuccessWithMessage(1000, "查询失败", (*context2.Context)(TpOtaTaskController.Ctx))
+		utils.SuccessWithMessage(1000, "查询失败", (*context2.Context)(c.Ctx))
 		return
 	}
 	dd := valid.RspTpOtaTaskPaginationValidate{
-		CurrentPage: PaginationValidate.CurrentPage,
+		CurrentPage: reqData.CurrentPage,
 		Data:        d,
 		Total:       t,
-		PerPage:     PaginationValidate.PerPage,
+		PerPage:     reqData.PerPage,
 	}
-	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpOtaTaskController.Ctx))
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
 
 }
 
 // 新增
-func (TpOtaTaskController *TpOtaTaskController) Add() {
-	AddTpOtaTaskValidate := valid.AddTpOtaTaskValidate{}
-	err := json.Unmarshal(TpOtaTaskController.Ctx.Input.RequestBody, &AddTpOtaTaskValidate)
+func (c *TpOtaTaskController) Add() {
+	reqData := valid.AddTpOtaTaskValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(AddTpOtaTaskValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(AddTpOtaTaskValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpOtaTaskController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
@@ -79,14 +79,14 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	var dcount int64
 	var devices []models.Device
 	// 0: 全部 1: 指定
-	if AddTpOtaTaskValidate.SelectDeviceFlag == "0" {
-		devices, dcount = DeviceService.GetDevicesByProductID(AddTpOtaTaskValidate.ProductId)
+	if reqData.SelectDeviceFlag == "0" {
+		devices, dcount = DeviceService.GetDevicesByProductID(reqData.ProductId)
 		if dcount == 0 {
-			utils.SuccessWithMessage(400, "无对应设备信息", (*context2.Context)(TpOtaTaskController.Ctx))
+			utils.SuccessWithMessage(400, "无对应设备信息", (*context2.Context)(c.Ctx))
 			return
 		}
 	} else {
-		for _, v := range AddTpOtaTaskValidate.DeviceIdList {
+		for _, v := range reqData.DeviceIdList {
 			device, _ := DeviceService.GetDeviceByID(v)
 			devices = append(devices, *device)
 			dcount += 1
@@ -101,35 +101,37 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	statusdetail := ""
 	starttime := ""
 	endtime := ""
-	if AddTpOtaTaskValidate.UpgradeTimeType == "1" {
+	if reqData.UpgradeTimeType == "1" {
 		taskstatus = "0"
 		upgradestatus = "0"
-		st, _ := time.Parse("2006-01-02T15:04:05Z", AddTpOtaTaskValidate.StartTime)
-		et, _ := time.Parse("2006-01-02T15:04:05Z", AddTpOtaTaskValidate.EndTime)
+		st, _ := time.Parse("2006-01-02T15:04:05Z", reqData.StartTime)
+		et, _ := time.Parse("2006-01-02T15:04:05Z", reqData.EndTime)
 		starttime = st.Format("2006-01-02 15:04:05")
 		endtime = et.Format("2006-01-02 15:04:05")
 		statusdetail = fmt.Sprintf("定时：(%s)", starttime)
 	}
 	TpOtaTask := models.TpOtaTask{
 		Id:              id,
-		TaskName:        AddTpOtaTaskValidate.TaskName,
-		UpgradeTimeType: AddTpOtaTaskValidate.UpgradeTimeType,
+		TaskName:        reqData.TaskName,
+		UpgradeTimeType: reqData.UpgradeTimeType,
 		StartTime:       starttime,
 		EndTime:         endtime,
 		DeviceCount:     dcount,
 		TaskStatus:      taskstatus,
-		Description:     AddTpOtaTaskValidate.Description,
+		Description:     reqData.Description,
 		CreatedAt:       time.Now().Unix(),
-		OtaId:           AddTpOtaTaskValidate.OtaId,
+		OtaId:           reqData.OtaId,
 	}
 	d, rsp_err := TpOtaTaskService.AddTpOtaTask(TpOtaTask)
 	if rsp_err != nil {
-		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpOtaTaskController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
 	var OtaService services.TpOtaService
-	isSuccess, tpota := OtaService.GetTpOtaVersionById(AddTpOtaTaskValidate.OtaId)
+	isSuccess, tpota := OtaService.GetTpOtaVersionById(reqData.OtaId)
 	if !isSuccess {
-		utils.SuccessWithMessage(400, "无对应ota信息", (*context2.Context)(TpOtaTaskController.Ctx))
+		utils.SuccessWithMessage(400, "无对应ota信息", (*context2.Context)(c.Ctx))
+		return
 	}
 	var tp_ota_devices []models.TpOtaDevice
 	for _, device := range devices {
@@ -145,46 +147,47 @@ func (TpOtaTaskController *TpOtaTaskController) Add() {
 	_, rsp_device_err := TpOtaDeviceService.AddBathTpOtaDevice(tp_ota_devices)
 	// 如果升级任务和升级设备都添加成功，且是立即升级，发送升级消息
 	if rsp_err == nil && rsp_device_err == nil {
-		if AddTpOtaTaskValidate.UpgradeTimeType == "0" {
-			go TpOtaDeviceService.OtaToUpgradeMsg(devices, AddTpOtaTaskValidate.OtaId, id)
+		if reqData.UpgradeTimeType == "0" {
+			go TpOtaDeviceService.OtaToUpgradeMsg(devices, reqData.OtaId, id)
 		}
-		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpOtaTaskController.Ctx))
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpOtaTaskController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
 	}
 
 }
 
 //删除
-func (TpOtaTaskController *TpOtaTaskController) Delete() {
-	TpOtaTaskIdValidate := valid.TpOtaTaskIdValidate{}
-	err := json.Unmarshal(TpOtaTaskController.Ctx.Input.RequestBody, &TpOtaTaskIdValidate)
+func (c *TpOtaTaskController) Delete() {
+	reqData := valid.TpOtaTaskIdValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(TpOtaTaskIdValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(TpOtaTaskIdValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpOtaTaskController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
-	if TpOtaTaskIdValidate.Id == "" {
-		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(TpOtaTaskController.Ctx))
+	if reqData.Id == "" {
+		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(c.Ctx))
+		return
 	}
 	var TpOtaTaskService services.TpOtaTaskService
 	TpOtaTask := models.TpOtaTask{
-		Id: TpOtaTaskIdValidate.Id,
+		Id: reqData.Id,
 	}
 	rsp_err := TpOtaTaskService.DeleteTpOtaTask(TpOtaTask)
 	if rsp_err == nil {
-		utils.SuccessWithMessage(200, "success", (*context2.Context)(TpOtaTaskController.Ctx))
+		utils.SuccessWithMessage(200, "success", (*context2.Context)(c.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpOtaTaskController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
 	}
 }

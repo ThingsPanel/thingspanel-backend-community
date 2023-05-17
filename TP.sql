@@ -768,7 +768,8 @@ COMMENT ON COLUMN public.tp_dashboard.sort IS '排序';
 SELECT create_hypertable('ts_kv', 'ts',chunk_time_interval => 86400000000);
 
 INSERT INTO "users" ("id", "created_at", "updated_at", "enabled", "additional_info", "authority", "customer_id", "email", "password", "name", "first_name", "last_name", "search_text", "email_verified_at", "remember_token", "mobile", "remark", "is_admin", "business_id", "wx_openid", "wx_unionid") VALUES
-('9212e9fb-a89c-4e35-9509-0a15df64f45a',	1606099326,	1623490224,	't',	NULL,	NULL,	NULL,	'super@super.cn',	'$2a$04$aGFaew.rkRmOUiOZ/3ZncO/HN1BuJc8Dcm1MNuU3HhbUVUgKIx7jG',	'Admin',	NULL,	NULL,	NULL,	0,	NULL,	'18618000000',	NULL,	0,	'',	'',	'');
+
+('9212e9fb-a89c-4e35-9509-0a15df64f45a',	1606099326,	1623490224,	'1',	NULL,	'SYS_ADMIN',	NULL,	'super@super.cn',	'$2a$04$aGFaew.rkRmOUiOZ/3ZncO/HN1BuJc8Dcm1MNuU3HhbUVUgKIx7jG',	'Admin',	NULL,	NULL,	NULL,	0,	NULL,	'18618000000',	NULL,	0,	'',	'',	'');
 
 INSERT INTO logo
 (id, system_name, theme, logo_one, logo_two, logo_three, custom_id, remark)
@@ -1630,3 +1631,70 @@ ALTER TABLE public.tp_generate_device RENAME COLUMN activate_flag TO add_flag;
 ALTER TABLE public.tp_generate_device RENAME COLUMN activate_date TO add_date;
 COMMENT ON COLUMN public.tp_generate_device.add_date IS '添加日期';
 COMMENT ON COLUMN public.tp_generate_device.add_flag IS '0-未添加 1-已添加';
+
+--0.5.0
+ALTER TABLE public.users
+DROP COLUMN search_text,
+DROP COLUMN first_name,
+DROP COLUMN last_name,
+DROP COLUMN remember_token,
+DROP COLUMN email_verified_at,
+DROP COLUMN is_admin,
+DROP COLUMN business_id,
+DROP COLUMN wx_openid,
+DROP COLUMN wx_unionid,
+ADD COLUMN tenant_id varchar(36) NULL;
+CREATE INDEX users_tenant_id_idx ON public.users (tenant_id);
+
+ALTER TABLE public.business ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.asset ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_role ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.conditions_log ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.device ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.operation_log ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_function ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_generate_device ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_ota ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_product ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_script ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.ts_kv ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.ts_kv_latest ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_function ADD sys_flag varchar(2) NULL;
+COMMENT ON COLUMN public.tp_function.sys_flag IS '系统管理员菜单标志';
+INSERT INTO public.tp_function
+(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, sys_flag)
+VALUES('229de465-24a1-467d-d3a2-d146db43bffa', '', NULL, '/tenant', 'TenantManagment', '/pages/system/tenant', '租户管理', '', '1', '', '4f2791e5-3c13-7249-c25f-77f6f787f574', 0, NULL);
+
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='', "name"='AddPermission', component='', title='COMMON.PERMISSIONADD', icon='', "type"='3', function_code='sys:permission:add', parent_id='4231ea2c-a2fb-bd9c-8966-c7d654289deb', sort=0, sys_flag='1'
+WHERE id='539b8e97-b791-3260-8b23-1beca9497b19';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='/permission/index', "name"='PermissionManagement', component='/pages/system/permissions/Index.vue', title='COMMON.PERMISSIONMANAGEMENT', icon='flaticon-upload-1', "type"='1', function_code='', parent_id='4f2791e5-3c13-7249-c25f-77f6f787f574', sort=950, sys_flag='1'
+WHERE id='4231ea2c-a2fb-bd9c-8966-c7d654289deb';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='', "name"='SystemManagement', component='', title='COMMON.SYSTEMMANAGEMENT', icon='flaticon2-gear', "type"='0', function_code='', parent_id='0', sort=900, sys_flag='2'
+WHERE id='4f2791e5-3c13-7249-c25f-77f6f787f574';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='', "name"='EditPermission', component='', title='COMMON.EDIT', icon='', "type"='3', function_code='sys:permission:edit', parent_id='4231ea2c-a2fb-bd9c-8966-c7d654289deb', sort=0, sys_flag='1'
+WHERE id='17f776f0-be0c-a216-a03a-00944865e8d7';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='', "name"='DeletePermission', component='', title='COMMON.DELETE', icon='', "type"='3', function_code='sys:permission:del', parent_id='4231ea2c-a2fb-bd9c-8966-c7d654289deb', sort=0, sys_flag='1'
+WHERE id='d8613453-278c-289c-6e18-ee58f6eb540b';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='', "name"='SearchPermission', component='', title='COMMON.SEARCH', icon='', "type"='3', function_code='sys:permission:search', parent_id='4231ea2c-a2fb-bd9c-8966-c7d654289deb', sort=0, sys_flag='1'
+WHERE id='1988db79-dcb6-f8e5-4984-90e131efa526';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='/system/index', "name"='SystemSetup', component='/pages/system/index.vue', title='COMMON.SYSTEMSETUP', icon='flaticon-upload-1', "type"='1', function_code='', parent_id='4f2791e5-3c13-7249-c25f-77f6f787f574', sort=990, sys_flag='1'
+WHERE id='3786391a-6e8f-659d-1500-d2c3f82d6933';
+
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='/market', "name"='Market', component='/pages/plugin/index.vue', title='COMMON.MARKET', icon='flaticon2-supermarket', "type"='0', function_code='', parent_id='0', sort=910, sys_flag='2'
+WHERE id='ec7a22ed-919d-7959-6737-145198f6172f';
+UPDATE public.tp_function
+SET function_name='', menu_id=NULL, "path"='/tenant', "name"='TenantManagment', component='/pages/system/tenant', title='租户管理', icon='flaticon2-user', "type"='1', function_code='', parent_id='4f2791e5-3c13-7249-c25f-77f6f787f574', sort=965, sys_flag='1'
+WHERE id='229de465-24a1-467d-d3a2-d146db43bffa';
+INSERT INTO public.tp_function
+(id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, sys_flag)
+VALUES('a89634a6-1912-1f24-612b-10ae60a65197', '', NULL, '/protocol/list', 'ProtocolManagment', '/pages/system/protocol', '协议插件', 'flaticon2-supermarket', '1', '', 'ec7a22ed-919d-7959-6737-145198f6172f', 980, '1');
+
+ALTER TABLE public.device_model ADD COLUMN tenant_id varchar(36) NULL;

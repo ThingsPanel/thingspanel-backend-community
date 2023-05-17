@@ -11,6 +11,7 @@ type DataTranspond struct {
 	CustomerId  string `json:"customer_id" gorm:"size:36"`
 	CreatedAt   int64  `json:"created_at"`
 	RoleType    string `json:"role_type" gorm:"size:2"`
+	TenantId    string `json:"tenant_id"` // 租户id
 }
 
 func (DataTranspond) TableName() string {

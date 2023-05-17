@@ -4,9 +4,8 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
-	"errors"
 
-	"gorm.io/gorm"
+	"github.com/beego/beego/v2/core/logs"
 )
 
 type TpRoleService struct {
@@ -19,14 +18,14 @@ type TpRoleService struct {
 }
 
 // 获取角色列表
-func (*TpRoleService) GetRoleList(pageSize int, offset int) (int64, []models.TpRole) {
+func (*TpRoleService) GetRoleList(pageSize int, offset int, tenantId string) (int64, []models.TpRole) {
 	var TpRoles []models.TpRole
 	var count int64
-	psql.Mydb.Model(&models.TpRole{}).Count(&count)
+	psql.Mydb.Model(&models.TpRole{}).Where("tenant_id = ?", tenantId).Count(&count)
 	offset = pageSize * (offset - 1)
-	result := psql.Mydb.Model(&models.TpRole{}).Offset(offset).Limit(pageSize).Order("role_name asc").Find(&TpRoles)
+	result := psql.Mydb.Model(&models.TpRole{}).Where("tenant_id = ?", tenantId).Offset(offset).Limit(pageSize).Order("role_name asc").Find(&TpRoles)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return count, TpRoles
 	}
 
@@ -39,27 +38,27 @@ func (*TpRoleService) AddRole(tp_role models.TpRole) (bool, models.TpRole) {
 	tp_role.Id = uuid
 	result := psql.Mydb.Create(&tp_role)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, tp_role
 	}
 	return true, tp_role
 }
 
 // 根据ID编辑role
-func (*TpRoleService) EditRole(tp_role models.TpRole) bool {
-	result := psql.Mydb.Updates(&tp_role)
+func (*TpRoleService) EditRole(tp_role models.TpRole, tenantId string) bool {
+	result := psql.Mydb.Model(&models.TpRole{}).Where("tenant_id = ?", tenantId).Updates(&tp_role)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true
 }
 
 // 删除角色
-func (*TpRoleService) DeleteRole(tp_role models.TpRole) bool {
-	result := psql.Mydb.Delete(&tp_role)
+func (*TpRoleService) DeleteRole(tp_role models.TpRole, tenantId string) bool {
+	result := psql.Mydb.Model(&models.TpRole{}).Where("tenant_id = ?", tenantId).Delete(&tp_role)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false
 	}
 	return true

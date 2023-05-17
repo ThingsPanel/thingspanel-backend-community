@@ -3,8 +3,13 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"strings"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -26,10 +31,11 @@ func (*TpScriptService) GetTpScriptDetail(tp_script_id string) []models.TpScript
 }
 
 // 获取列表
-func (*TpScriptService) GetTpScriptList(PaginationValidate valid.TpScriptPaginationValidate) (bool, []models.TpScript, int64) {
+func (*TpScriptService) GetTpScriptList(PaginationValidate valid.TpScriptPaginationValidate, tenantId string) (bool, []models.TpScript, int64) {
 	var TpScripts []models.TpScript
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpScript{})
+	db.Where("tenant_id = ?", tenantId)
 	if PaginationValidate.ProtocolType != "" {
 		db.Where("protocol_type = ?", PaginationValidate.ProtocolType)
 	}
@@ -79,4 +85,22 @@ func (*TpScriptService) DeleteTpScript(tp_script models.TpScript) error {
 		return result.Error
 	}
 	return nil
+}
+
+// 调试脚本
+func (*TpScriptService) QuizTpScript(code, msgcotent, topic string) (string, error) {
+	if msgcotent == "" || code == "" {
+		return "", errors.New("msg or code is null")
+	}
+	msg, err := json.Marshal(msgcotent)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(msgcotent, "0x") {
+		msg, err = hex.DecodeString(strings.ReplaceAll(msgcotent, "0x", ""))
+		if err != nil {
+			return "", err
+		}
+	}
+	return utils.ScriptDeal(code, msg, topic)
 }

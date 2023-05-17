@@ -4,6 +4,7 @@ import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
+	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
@@ -58,167 +59,185 @@ type EditUser struct {
 }
 
 // 列表
-func (this *UserController) Index() {
-	paginateUserValidate := valid.PaginateUser{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &paginateUserValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(paginateUserValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(paginateUserValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
+func (c *UserController) Index() {
+	var reqData valid.PaginateUser
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	var UserService services.UserService
-	offset := (paginateUserValidate.Page - 1) * paginateUserValidate.Limit
-	u, c := UserService.Paginate(paginateUserValidate.Search, offset, paginateUserValidate.Limit)
-	d := PaginateUser{
-		CurrentPage: paginateUserValidate.Page,
-		Data:        u,
-		Total:       c,
-		PerPage:     paginateUserValidate.Limit,
+	// 获取用户权限
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
 	}
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	// SYS_ADMIN只能查询TENANT_ADMIN，TENANT_ADMIN和TENANT_USER只能查询TENANT_USER
+	if authority == "SYS_ADMIN" {
+		reqData.Authority = "TENANT_ADMIN"
+	} else if authority == "TENANT_ADMIN" || authority == "TENANT_USER" {
+		reqData.Authority = "TENANT_USER"
+	}
 
+	offset := (reqData.Page - 1) * reqData.Limit
+	u, i, err := UserService.Paginate(reqData.Search, offset, reqData.Limit, reqData.Authority, tenantId)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	d := PaginateUser{
+		CurrentPage: reqData.Page,
+		Data:        u,
+		Total:       i,
+		PerPage:     reqData.Limit,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 添加
-func (this *UserController) Add() {
-	addUserValidate := valid.AddUser{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &addUserValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(addUserValidate)
-	if !status {
-		for _, err := range v.Errors {
-			alias := gvalid.GetAlias(addUserValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
+func (c *UserController) Add() {
+	var reqData valid.AddUser
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
+
 	var UserService services.UserService
-	_, i := UserService.GetUserByName(addUserValidate.Name)
-	if i != 0 {
-		response.SuccessWithMessage(400, "用户名已存在", (*context2.Context)(this.Ctx))
-		return
-	}
-	_, c, _ := UserService.GetUserByEmail(addUserValidate.Email)
-	if c != 0 {
-		response.SuccessWithMessage(400, "邮箱已存在", (*context2.Context)(this.Ctx))
-		return
-	}
-	f, id := UserService.Add(
-		addUserValidate.Name,
-		addUserValidate.Email,
-		addUserValidate.Password,
-		addUserValidate.Enabled,
-		addUserValidate.Mobile,
-		addUserValidate.Remark,
-	)
-	if f {
-		u, i := UserService.GetUserById(id)
-		if i == 0 {
-			response.SuccessWithMessage(400, "注册失败", (*context2.Context)(this.Ctx))
+	// 判断是否有添加用户权限
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if ok {
+		if !UserService.HasAddAuthority(authority, reqData.Authority) {
+			response.SuccessWithMessage(400, "没有添加该类型用户的权限", (*context2.Context)(c.Ctx))
 			return
 		}
-		d := AddUser{
-			ID:              u.ID,
-			CreatedAt:       u.CreatedAt,
-			UpdatedAt:       u.UpdatedAt,
-			Enabled:         u.Enabled,
-			AdditionalInfo:  u.AdditionalInfo,
-			Authority:       u.Authority,
-			CustomerID:      u.CustomerID,
-			Email:           u.Email,
-			Name:            u.Name,
-			FirstName:       u.FirstName,
-			LastName:        u.LastName,
-			SearchText:      u.SearchText,
-			EmailVerifiedAt: u.EmailVerifiedAt,
-		}
-		response.SuccessWithDetailed(200, "添加成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
+	} else {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
-	response.SuccessWithMessage(400, "添加失败", (*context2.Context)(this.Ctx))
-	return
+	// 判断用户名和邮箱是否存在
+	_, i := UserService.GetUserByName(reqData.Name)
+	if i != 0 {
+		response.SuccessWithMessage(400, "用户名已存在", (*context2.Context)(c.Ctx))
+		return
+	}
+	_, s, _ := UserService.GetUserByEmail(reqData.Email)
+	if s != 0 {
+		response.SuccessWithMessage(400, "邮箱已存在", (*context2.Context)(c.Ctx))
+		return
+	}
+	// 如果是系统管理员添加租户管理员，需要生成租户ID
+	if authority == "SYS_ADMIN" {
+		var uuid = uuid.GetUuid()
+		reqData.TenantID = uuid[9:13] + uuid[14:18]
+	} else if authority == "TENANT_ADMIN" { // 如果是租户管理员或者租户用户添加租户用户，需要设置租户ID
+		// 获取用户租户id
+		tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+		if !ok {
+			response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+			return
+		}
+		reqData.TenantID = tenantId
+	}
+	// 添加用户
+	if d, err := UserService.AddUser(reqData); err != nil {
+		response.SuccessWithMessage(400, "添加失败", (*context2.Context)(c.Ctx))
+		return
+	} else {
+		response.SuccessWithDetailed(200, "添加成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
+	}
 }
 
 // 编辑
-func (this *UserController) Edit() {
-	editUserValidate := valid.EditUser{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &editUserValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(editUserValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(editUserValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
+func (c *UserController) Edit() {
+	var reqData valid.EditUser
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
+	// 判断是否有编辑用户权限
 	var UserService services.UserService
-	_, i := UserService.GetSameUserByName(editUserValidate.Name, editUserValidate.ID)
-	if i != 0 {
-		response.SuccessWithMessage(400, "用户名已存在", (*context2.Context)(this.Ctx))
+	// 获取用户权限
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
-	_, c := UserService.GetSameUserByEmail(editUserValidate.Email, editUserValidate.ID)
-	if c != 0 {
-		response.SuccessWithMessage(400, "邮箱已存在", (*context2.Context)(this.Ctx))
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	// 获取用户id
+	userId, ok := c.Ctx.Input.GetData("user_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	// 如果修改的不是自己的信息需要判断是否有编辑用户权限
+	if userId != reqData.ID {
+		// 根据用户id获取被编辑用户权限
+		e_user, err := UserService.GetUserByIdAndTenantId(reqData.ID, tenantId)
+		if err != nil {
+			response.SuccessWithMessage(400, "获取被编辑用户权限失败", (*context2.Context)(c.Ctx))
+			return
+		}
+		// 如果不是系统管理员，要判断是否同一个租户
+		if authority != "SYS_ADMIN" {
+			if e_user.TenantID != tenantId {
+				response.SuccessWithMessage(400, "没有编辑该用户的权限", (*context2.Context)(c.Ctx))
+				return
+			}
+		}
+		// 判断是否有编辑用户权限
+		if !UserService.HasEditAuthority(authority, e_user.Authority) {
+			response.SuccessWithMessage(400, "没有编辑该用户的权限", (*context2.Context)(c.Ctx))
+			return
+		}
+	}
+
+	_, i := UserService.GetSameUserByName(reqData.Name, reqData.ID)
+	if i != 0 {
+		response.SuccessWithMessage(400, "用户名已存在", (*context2.Context)(c.Ctx))
+		return
+	}
+	_, n := UserService.GetSameUserByEmail(reqData.Email, reqData.ID)
+	if n != 0 {
+		response.SuccessWithMessage(400, "邮箱已存在", (*context2.Context)(c.Ctx))
 		return
 	}
 	f := UserService.Edit(
-		editUserValidate.ID,
-		editUserValidate.Name,
-		editUserValidate.Email,
-		editUserValidate.Mobile,
-		editUserValidate.Remark,
+		reqData.ID,
+		reqData.Name,
+		reqData.Email,
+		reqData.Mobile,
+		reqData.Remark,
+		reqData.Enabled,
 	)
 	if f {
-		u, i := UserService.GetUserById(editUserValidate.ID)
-		if i == 0 {
-			response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(this.Ctx))
-			return
-		}
+		u, _ := UserService.GetUserById(reqData.ID)
 		d := EditUser{
-			ID:              u.ID,
-			CreatedAt:       u.CreatedAt,
-			UpdatedAt:       u.UpdatedAt,
-			Enabled:         u.Enabled,
-			AdditionalInfo:  u.AdditionalInfo,
-			Authority:       u.Authority,
-			CustomerID:      u.CustomerID,
-			Email:           u.Email,
-			Name:            u.Name,
-			FirstName:       u.FirstName,
-			LastName:        u.LastName,
-			SearchText:      u.SearchText,
-			EmailVerifiedAt: u.EmailVerifiedAt,
+			ID:             u.ID,
+			CreatedAt:      u.CreatedAt,
+			UpdatedAt:      u.UpdatedAt,
+			Enabled:        u.Enabled,
+			AdditionalInfo: u.AdditionalInfo,
+			Authority:      u.Authority,
+			CustomerID:     u.CustomerID,
+			Email:          u.Email,
+			Name:           u.Name,
 		}
-		response.SuccessWithDetailed(200, "编辑成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
+		response.SuccessWithDetailed(200, "编辑成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
 		return
 	}
 	// 编辑失败
-	response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(this.Ctx))
-	return
+	response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(c.Ctx))
 }
 
 // 添加权限
@@ -246,27 +265,58 @@ func (this *UserController) Delete() {
 		return
 	}
 	var UserService services.UserService
+
+	// 获取请求用户权限
+	authority, ok := this.Ctx.Input.GetData("authority").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	// 获取请求用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	// 根据请求id及租户id获取待删除用户信息
+	eAuthority, eTenantID, err := UserService.GetUserAuthorityById(deleteUserValidate.ID)
+	if err != nil {
+		response.SuccessWithMessage(400, "获取用户信息失败", (*context2.Context)(this.Ctx))
+		return
+	}
+	if authority != "SYS_ADMIN" {
+		// 如果不是系统管理员，要判断是否同一个租户
+		if eTenantID != tenantId {
+			response.SuccessWithMessage(400, "没有删除该用户的权限", (*context2.Context)(this.Ctx))
+			return
+		}
+
+	}
+	if !UserService.HasEditAuthority(authority, eAuthority) {
+		response.SuccessWithMessage(400, "没有删除该用户的权限", (*context2.Context)(this.Ctx))
+		return
+	}
+
 	f := UserService.Delete(deleteUserValidate.ID)
 	if f {
 		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
 		return
 	}
 	response.SuccessWithMessage(400, "删除失败", (*context2.Context)(this.Ctx))
-	return
 }
 
 // 修改密码
 func (this *UserController) Password() {
-	passwordUserValidate := valid.PasswordUser{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &passwordUserValidate)
+	reqData := valid.PasswordUser{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(passwordUserValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
-			alias := gvalid.GetAlias(passwordUserValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
 			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
 			break
@@ -274,7 +324,48 @@ func (this *UserController) Password() {
 		return
 	}
 	var UserService services.UserService
-	f := UserService.Password(passwordUserValidate.ID, passwordUserValidate.Password)
+	// 获取请求用户id
+	userId, ok := this.Ctx.Input.GetData("user_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	// 获取请求用户权限
+	authority, ok := this.Ctx.Input.GetData("authority").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	// 获取请求用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	//修改其它用户密码
+	if userId != reqData.ID {
+		// 根据用户id获取被编辑用户信息
+		eAuthority, eTenantID, err := UserService.GetUserAuthorityById(reqData.ID)
+		if err != nil {
+			response.SuccessWithMessage(400, "获取用户信息失败", (*context2.Context)(this.Ctx))
+			return
+		}
+		//系统管理员不能修改租户用户密码
+		if authority != "SYS_ADMIN" {
+			// 如果不是系统管理员，要判断是否同一个租户
+			if eTenantID != tenantId {
+				response.SuccessWithMessage(400, "没有修改该用户密码的权限", (*context2.Context)(this.Ctx))
+				return
+			}
+
+		}
+		//判断是否有编辑该用户权限
+		if !UserService.HasEditAuthority(authority, eAuthority) {
+			response.SuccessWithMessage(400, "没有修改该用户密码的权限", (*context2.Context)(this.Ctx))
+			return
+		}
+	}
+	f := UserService.Password(reqData.ID, reqData.Password)
 	if f {
 		response.SuccessWithMessage(200, "修改成功", (*context2.Context)(this.Ctx))
 		return

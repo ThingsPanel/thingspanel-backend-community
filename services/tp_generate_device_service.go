@@ -114,7 +114,7 @@ func (*TpGenerateDeviceService) generateDeviceProductBatch(id string) (map[strin
 }
 
 // 设备激活
-func (*TpGenerateDeviceService) ActivateDevice(generate_device_id string, asset_id string, device_name string) error {
+func (*TpGenerateDeviceService) ActivateDevice(generate_device_id string, asset_id string, device_name string, tenantid string) error {
 	var TpGenerateDeviceService TpGenerateDeviceService
 	gpb, err := TpGenerateDeviceService.generateDeviceProductBatch(generate_device_id)
 	if err != nil {
@@ -144,6 +144,7 @@ func (*TpGenerateDeviceService) ActivateDevice(generate_device_id string, asset_
 		ProtocolConfig: "{}",
 		ChartOption:    "{}",
 		CreatedAt:      time.Now().Unix(),
+		TenantId:       tenantid,
 	}
 	var DeviceService DeviceService
 	_, rsp_err := DeviceService.Add1(device)

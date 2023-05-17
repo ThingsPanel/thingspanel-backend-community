@@ -141,6 +141,9 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string)
 						conditionsLog.OperationType = "3"
 						conditionsLog.ProtocolType = "mqtt"
 						conditionsLog.Instruct = scenarioAction.Instruct
+						//根据设备id获取租户id
+						tenantId, _ := deviceService.GetTenantIdByDeviceId(scenarioAction.DeviceId)
+						conditionsLog.TenantId = tenantId
 						conditionsLogService.Insert(&conditionsLog)
 					}
 				}

@@ -11,6 +11,7 @@ type TpProduct struct {
 	CreatedTime   int64  `json:"created_time,omitempty"`
 	Remark        string `json:"remark,omitempty"`
 	DeviceModelId string `json:"device_model_id,omitempty"`
+	TenantId      string `json:"tenant_id,omitempty"` // 租户id
 }
 
 func (TpProduct) TableName() string {

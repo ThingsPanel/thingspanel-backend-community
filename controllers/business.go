@@ -56,37 +56,27 @@ type TreeBusiness3 struct {
 }
 
 // 获取列表
-func (this *BusinessController) Index() {
-	paginateBusinessValidate := valid.PaginateBusiness{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &paginateBusinessValidate)
+func (c *BusinessController) Index() {
+	reqData := valid.PaginateBusiness{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(paginateBusinessValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(paginateBusinessValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var BusinessService services.BusinessService
-	offset := (paginateBusinessValidate.Page - 1) * paginateBusinessValidate.Limit
-	u, c, err := BusinessService.Paginate(paginateBusinessValidate.Name, offset, paginateBusinessValidate.Limit)
-	if err != nil {
-		response.SuccessWithMessage(400, "查询失败", (*context2.Context)(this.Ctx))
-		return
-	}
+	offset := (reqData.Page - 1) * reqData.Limit
+	u, i := BusinessService.Paginate(reqData.Name, offset, reqData.Limit, tenantId)
 	var ResBusinessData []services.PaginateBusiness
-	if c != 0 {
+	if i != 0 {
 		var AssetService services.AssetService
 		var is_device int
 		for _, bv := range u {
-			_, err := AssetService.GetAssetDataByBusinessId(bv.ID)
+			_, err := AssetService.GetAssetDataByBusinessId(bv.ID, tenantId)
 			if err != nil {
 				is_device = 0
 			} else {
@@ -105,13 +95,12 @@ func (this *BusinessController) Index() {
 		ResBusinessData = []services.PaginateBusiness{}
 	}
 	d := PaginateBusiness{
-		CurrentPage: paginateBusinessValidate.Page,
+		CurrentPage: reqData.Page,
 		Data:        ResBusinessData,
-		Total:       c,
-		PerPage:     paginateBusinessValidate.Limit,
+		Total:       i,
+		PerPage:     reqData.Limit,
 	}
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 新增
@@ -133,8 +122,14 @@ func (this *BusinessController) Add() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var BusinessService services.BusinessService
-	f, id := BusinessService.Add(addBusinessValidate.Name)
+	f, id := BusinessService.Add(addBusinessValidate.Name, tenantId)
 	if f {
 		b, i, err := BusinessService.GetBusinessById(id)
 		if err != nil && i == 0 {
@@ -171,8 +166,14 @@ func (this *BusinessController) Edit() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var BusinessService services.BusinessService
-	f := BusinessService.Edit(editBusinessValidate.ID, editBusinessValidate.Name)
+	f := BusinessService.Edit(editBusinessValidate.ID, editBusinessValidate.Name, tenantId)
 	if f {
 		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
 		return
@@ -200,9 +201,15 @@ func (this *BusinessController) Delete() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var BusinessService services.BusinessService
 	var NavigationService services.NavigationService
-	f := BusinessService.Delete(deleteBusinessValidate.ID)
+	f := BusinessService.Delete(deleteBusinessValidate.ID, tenantId)
 	if f {
 		NavigationService.DeleteByBusinessID(deleteBusinessValidate.ID)
 		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
@@ -214,13 +221,19 @@ func (this *BusinessController) Delete() {
 
 // 业务资产树
 func (this *BusinessController) Tree() {
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var BusinessService services.BusinessService
 	var ResTreeBusinessData []TreeBusinessData
 	var AssetService services.AssetService
 	bl, bc := BusinessService.All()
 	if bc > 0 {
 		for _, v := range bl {
-			l, c := AssetService.GetAssetByBusinessId(v.ID)
+			l, c := AssetService.GetAssetByBusinessId(v.ID, tenantId)
 			var ResTreeBusiness []TreeBusiness
 			if c != 0 {
 				for _, s := range l {

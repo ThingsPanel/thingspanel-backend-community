@@ -12,6 +12,7 @@ type TpScript struct {
 	ScriptType     string `json:"script_type,omitempty"`
 	Remark         string `json:"remark,omitempty"`
 	DeviceType     string `json:"device_type,omitempty"`
+	TenantId       string `json:"tenant_id,omitempty"`
 }
 
 func (TpScript) TableName() string {

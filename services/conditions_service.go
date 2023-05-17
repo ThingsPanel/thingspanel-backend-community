@@ -4,7 +4,6 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
-	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,18 +37,18 @@ func (*ConditionsService) All() ([]models.Condition, int64) {
 }
 
 // 获取策略
-func (*ConditionsService) GetConditionByID(id string) (*models.Condition, int64) {
-	var condition models.Condition
-	result := psql.Mydb.Where("id = ?", id).First(&condition)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return &condition, 0
-		}
-		logs.Error(result.Error.Error())
-		return nil, 0
-	}
-	return &condition, result.RowsAffected
-}
+// func (*ConditionsService) GetConditionByID(id string) (*models.Condition, int64) {
+// 	var condition models.Condition
+// 	result := psql.Mydb.Where("id = ?", id).First(&condition)
+// 	if result.Error != nil {
+// 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+// 			return &condition, 0
+// 		}
+// 		logs.Error(result.Error.Error())
+// 		return nil, 0
+// 	}
+// 	return &condition, result.RowsAffected
+// }
 
 // 上下线触发检查1-上线 2-下线
 func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) error {
@@ -275,7 +274,6 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		logs.Error(result.Error.Error())
 		return "", result.Error
 	}
-	logs.Error(automationActions)
 	for _, automationAction := range automationActions {
 		var automationLogDetail models.TpAutomationLogDetail
 		if automationAction.ActionType == "1" {
@@ -327,6 +325,9 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 							conditionsLog.OperationType = "3"
 							conditionsLog.ProtocolType = "mqtt"
 							conditionsLog.Instruct = instructString
+							//根据设备id获取租户id
+							tenantId, _ := DeviceService.GetTenantIdByDeviceId(automationAction.DeviceId)
+							conditionsLog.TenantId = tenantId
 							conditionsLogService.Insert(&conditionsLog)
 						}
 					}
@@ -520,42 +521,42 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 }
 
 // 手动触发控制指令集
-func (*ConditionsService) ManualTrigger(conditions_id string) error {
-	var conditionConfig models.Condition
-	result := psql.Mydb.First(&conditionConfig, "id = ?", conditions_id)
-	if result.Error != nil {
-		return result.Error
-	}
-	res, err := simplejson.NewJson([]byte(conditionConfig.Config))
-	if err != nil {
-		logs.Error(err.Error())
-	}
-	var DeviceService DeviceService
-	DeviceService.ApplyControl(res, "", "2")
-	return nil
-}
+// func (*ConditionsService) ManualTrigger(conditions_id string) error {
+// 	var conditionConfig models.Condition
+// 	result := psql.Mydb.First(&conditionConfig, "id = ?", conditions_id)
+// 	if result.Error != nil {
+// 		return result.Error
+// 	}
+// 	res, err := simplejson.NewJson([]byte(conditionConfig.Config))
+// 	if err != nil {
+// 		logs.Error(err.Error())
+// 	}
+// 	var DeviceService DeviceService
+// 	DeviceService.ApplyControl(res, "", "2")
+// 	return nil
+// }
 
 // 根据业务id获取策略下拉
-func (*ConditionsService) ConditionsPullDownList(params valid.ConditionsPullDownListValidate) ([]map[string]interface{}, error) {
-	var values []interface{}
-	values = append(values, params.BusinessId)
-	sqlWhere := "business_id = ?"
-	if params.Status != "" {
-		values = append(values, params.Status)
-		sqlWhere += " and status = ?"
-	}
-	if params.ConditionsType != "" {
-		values = append(values, params.ConditionsType)
-		sqlWhere += " and type = ?"
-	}
-	if params.Issued != "" {
-		values = append(values, params.Issued)
-		sqlWhere += " and issued = ?"
-	}
-	var conditionConfig []map[string]interface{}
-	result := psql.Mydb.Model(&models.Condition{}).Select("id,name as policy_name,describe").Where(sqlWhere, values...).Order("sort ASC").Find(&conditionConfig)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return conditionConfig, nil
-}
+// func (*ConditionsService) ConditionsPullDownList(params valid.ConditionsPullDownListValidate) ([]map[string]interface{}, error) {
+// 	var values []interface{}
+// 	values = append(values, params.BusinessId)
+// 	sqlWhere := "business_id = ?"
+// 	if params.Status != "" {
+// 		values = append(values, params.Status)
+// 		sqlWhere += " and status = ?"
+// 	}
+// 	if params.ConditionsType != "" {
+// 		values = append(values, params.ConditionsType)
+// 		sqlWhere += " and type = ?"
+// 	}
+// 	if params.Issued != "" {
+// 		values = append(values, params.Issued)
+// 		sqlWhere += " and issued = ?"
+// 	}
+// 	var conditionConfig []map[string]interface{}
+// 	result := psql.Mydb.Model(&models.Condition{}).Select("id,name as policy_name,describe").Where(sqlWhere, values...).Order("sort ASC").Find(&conditionConfig)
+// 	if result.Error != nil {
+// 		return nil, result.Error
+// 	}
+// 	return conditionConfig, nil
+// }
