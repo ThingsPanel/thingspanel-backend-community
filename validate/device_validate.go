@@ -172,3 +172,7 @@ type DeviceEventCommandHistoryValid struct {
 	CurrentPage int    `json:"current_page"`
 	PerPage     int    `json:"per_page"`
 }
+
+type DeviceCommandListValid struct {
+	DeviceId string `json:"device_id" valid:"Required;MaxSize(36)"`
+}

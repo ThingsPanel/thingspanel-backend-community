@@ -975,7 +975,7 @@ func (c *DeviceController) DeviceListByProductId() {
 }
 
 // 设备事件上报历史纪录查询
-func (c *DeviceController) DeviceEventList() {
+func (c *DeviceController) DeviceEventHistoryList() {
 	inputData := valid.DeviceEventCommandHistoryValid{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
 	if err != nil {
@@ -995,7 +995,7 @@ func (c *DeviceController) DeviceEventList() {
 }
 
 // 设备命令下发历史纪录查询
-func (c *DeviceController) DeviceCommandList() {
+func (c *DeviceController) DeviceCommandHistoryList() {
 	inputData := valid.DeviceEventCommandHistoryValid{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
 	if err != nil {
@@ -1012,4 +1012,34 @@ func (c *DeviceController) DeviceCommandList() {
 		Data:        data,
 	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+}
+
+// 查询设备支持的命令
+func (c *DeviceController) DeviceCommandList() {
+
+	inputData := valid.DeviceCommandListValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil || len(inputData.DeviceId) == 0 {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	}
+
+	var device services.DeviceService
+
+	deviceInfo, _ := device.GetDeviceByID(inputData.DeviceId)
+
+	// 没有设备或者没有绑定device_model
+	if len(deviceInfo.Type) == 0 {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	}
+
+	// 根据device.type，查询device_model.id
+	var deviceModel services.DeviceModelService
+	data, err := deviceModel.GetModelCommandsByPluginId(deviceInfo.Type)
+
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	response.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(c.Ctx))
 }
