@@ -60,14 +60,17 @@ func (uploadController *UploadController) UpFile() {
 	case "upgradePackage":
 		if _, ok := AllowUpgradePackageMap[ext]; !ok {
 			response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))
+			return
 		}
-	case "importBatchMap":
+	case "importBatch":
 		if _, ok := AllowimportBatchMap[ext]; !ok {
 			response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))
+			return
 		}
 	default:
 		if _, ok := AllowExtMap[ext]; !ok {
 			response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))
+			return
 		}
 	}
 
