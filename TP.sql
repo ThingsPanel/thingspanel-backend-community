@@ -1698,3 +1698,7 @@ INSERT INTO public.tp_function
 VALUES('a89634a6-1912-1f24-612b-10ae60a65197', '', NULL, '/protocol/list', 'ProtocolManagment', '/pages/system/protocol', '协议插件', 'flaticon2-supermarket', '1', '', 'ec7a22ed-919d-7959-6737-145198f6172f', 980, '1');
 
 ALTER TABLE public.device_model ADD COLUMN tenant_id varchar(36) NULL;
+
+INSERT INTO tp_function
+(id, function_name, menu_id, "path", name, component, title, icon, "type", function_code, parent_id, sort, sys_flag)
+VALUES('fe29af27-9ae9-7baf-4e34-8051e1b8dd65', '', NULL, '/transpondNew/index', 'TranspondNew', '/pages/transpondNew/index.vue', 'MENU.TRANSPONDNEW', 'flaticon-upload-1', '1', '', '7cac14a0-0ff2-57d9-5465-597760bd2cb1', 997, NULL);
