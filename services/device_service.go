@@ -1148,3 +1148,82 @@ func (*DeviceService) GetWvpDeviceCount(did string) (int64, error) {
 	result := psql.Mydb.Where("device_type = '2' and did = ?", did).Find(&models.Device{})
 	return result.RowsAffected, result.Error
 }
+
+func (*DeviceService) SendCommandToDevice(
+	device *models.Device,
+	commandIdentifier string,
+	commandData []byte,
+	commandName string,
+	commandDesc string,
+) error {
+
+	topic := viper.GetString("mqtt.topicToCommand") + "/"
+	sendRes := 2
+	switch device.DeviceType {
+
+	case models.DeviceTypeDirect, models.DeviceTypeGatway:
+		// 直连设备，网关，直接发
+		topic += device.Token
+		fmt.Println("topic-2:", topic)
+
+		if cm.SendMQTT(commandData, topic, 1) == nil {
+			sendRes = 1
+		}
+
+		saveCommandSendHistory(
+			device.ID,
+			commandIdentifier,
+			commandName,
+			commandDesc,
+			string(commandData),
+			sendRes)
+
+	case models.DeviceTypeSubGatway:
+		// 子网关，给网关发
+		if len(device.ParentId) != 0 {
+			var gatewayDevice *models.Device
+			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
+			if result.Error != nil {
+				return result.Error
+			}
+			topic += gatewayDevice.Token
+
+			if cm.SendMQTT(commandData, topic, 1) == nil {
+				sendRes = 1
+			}
+
+			saveCommandSendHistory(
+				gatewayDevice.ID,
+				commandIdentifier,
+				commandName,
+				commandDesc,
+				string(commandData),
+				sendRes)
+		}
+
+	default:
+		break
+	}
+	return nil
+}
+
+// 记录发送日志
+func saveCommandSendHistory(
+	deviceId, identify, name, desc, data string,
+	sendStatus int,
+) {
+	m := models.DeviceCommandHistory{
+		ID:              utils.GetUuid(),
+		DeviceId:        deviceId,
+		CommandIdentify: identify,
+		Data:            data,
+		Desc:            desc,
+		CommandName:     name,
+		SendTime:        time.Now().Unix(),
+		SendStatus:      int64(sendStatus),
+	}
+	err := psql.Mydb.Create(&m)
+	if err.Error != nil {
+		errors.Is(err.Error, gorm.ErrRecordNotFound)
+	}
+}

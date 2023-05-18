@@ -33,3 +33,9 @@ type Device struct {
 func (Device) TableName() string {
 	return "device"
 }
+
+const (
+	DeviceTypeDirect    = "1"
+	DeviceTypeGatway    = "2"
+	DeviceTypeSubGatway = "3"
+)

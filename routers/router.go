@@ -152,6 +152,9 @@ func init() {
 		// 根据设备ID查询设备支持的命令列表
 		web.NSRouter("/device/command/list", &controllers.DeviceController{}, "*:DeviceCommandList"),
 
+		// 向设备发送命令
+		web.NSRouter("/device/command/send", &controllers.DeviceController{}, "*:DeviceCommandSend"),
+
 		//可视化列表分页查询
 		// web.NSRouter("/dashboard/index", &controllers.DashBoardController{}, "*:Index"), //keshihua-ck
 		//可视化中添加图表单元

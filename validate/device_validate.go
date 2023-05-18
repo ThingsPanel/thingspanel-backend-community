@@ -176,3 +176,11 @@ type DeviceEventCommandHistoryValid struct {
 type DeviceCommandListValid struct {
 	DeviceId string `json:"device_id" valid:"Required;MaxSize(36)"`
 }
+
+type DeviceCommandSendValid struct {
+	DeviceId          string `json:"device_id" valid:"Required;MaxSize(36)"`
+	CommandIdentifier string `json:"command_identifier" valid:"Required"`
+	CommandData       string `json:"command_data" valid:"Required"`
+	CommandName       string `json:"command_name,omitempty"`
+	Desc              string `json:"desc,omitempty"`
+}

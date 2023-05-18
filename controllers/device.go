@@ -1043,3 +1043,30 @@ func (c *DeviceController) DeviceCommandList() {
 
 	response.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(c.Ctx))
 }
+
+// 向设备发送命令
+func (c *DeviceController) DeviceCommandSend() {
+	inputData := valid.DeviceCommandSendValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	}
+
+	var d services.DeviceService
+	device, i := d.Token(inputData.DeviceId)
+	if i == 0 {
+		response.SuccessWithMessage(400, "no device", (*context2.Context)(c.Ctx))
+	}
+
+	if device.Protocol != "mqtt" && device.Protocol != "MQTT" {
+		response.SuccessWithMessage(400, "protocol error", (*context2.Context)(c.Ctx))
+	}
+
+	d.SendCommandToDevice(
+		device, inputData.CommandIdentifier,
+		[]byte(inputData.CommandData),
+		inputData.CommandName,
+		inputData.Desc)
+
+	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
+}

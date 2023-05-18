@@ -114,7 +114,7 @@ func subscribe(msgProcOther func(c mqtt.Client, m mqtt.Message), gatewayMsgProc 
 	}
 }
 
-//发送消息给直连设备
+// 发送消息给直连设备
 func Send(payload []byte, token string) (err error) {
 	if _client == nil {
 		return errors.New("_client is error")
@@ -130,7 +130,7 @@ func Send(payload []byte, token string) (err error) {
 	return t.Error()
 }
 
-//发送ota版本包消息给直连设备
+// 发送ota版本包消息给直连设备
 func SendOtaAdress(payload []byte, token string) (err error) {
 	if _client == nil {
 		return errors.New("_client is error")
@@ -175,6 +175,18 @@ func SendPlugin(payload []byte, topic string) (err error) {
 		fmt.Println(t.Error())
 	}
 	return t.Error()
+}
+
+func SendMQTT(payload []byte, topic string, qos byte) (err error) {
+	var clientErr = errors.New("_client is error")
+	if _client == nil {
+		return clientErr
+	}
+	t := _client.Publish(topic, qos, false, string(payload))
+	if t.Error() != nil {
+		return t.Error()
+	}
+	return nil
 }
 
 func Close() {
