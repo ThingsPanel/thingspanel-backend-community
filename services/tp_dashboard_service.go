@@ -3,7 +3,6 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
-	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
 
@@ -26,10 +25,10 @@ func (*TpDashboardService) GetTpDashboardDetail(tp_dashboard_id string) []models
 }
 
 // 获取列表
-func (*TpDashboardService) GetTpDashboardList(PaginationValidate valid.TpDashboardPaginationValidate) (bool, []models.TpDashboard, int64) {
+func (*TpDashboardService) GetTpDashboardList(PaginationValidate valid.TpDashboardPaginationValidate, tenantId string) (bool, []models.TpDashboard, int64) {
 	var TpDashboards []models.TpDashboard
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	db := psql.Mydb.Model(&models.TpDashboard{})
+	db := psql.Mydb.Model(&models.TpDashboard{}).Where("tenant_id = ? ", tenantId)
 	if PaginationValidate.RelationId != "" {
 		db.Where("relation_id = ?", PaginationValidate.RelationId)
 	}
@@ -48,8 +47,6 @@ func (*TpDashboardService) GetTpDashboardList(PaginationValidate valid.TpDashboa
 
 // 新增数据
 func (*TpDashboardService) AddTpDashboard(tp_dashboard models.TpDashboard) (bool, models.TpDashboard) {
-	var uuid = uuid.GetUuid()
-	tp_dashboard.Id = uuid
 	result := psql.Mydb.Create(&tp_dashboard)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -59,8 +56,8 @@ func (*TpDashboardService) AddTpDashboard(tp_dashboard models.TpDashboard) (bool
 }
 
 // 修改数据
-func (*TpDashboardService) EditTpDashboard(tp_dashboard valid.TpDashboardValidate) bool {
-	result := psql.Mydb.Model(&models.TpDashboard{}).Where("id = ?", tp_dashboard.Id).Updates(&tp_dashboard)
+func (*TpDashboardService) EditTpDashboard(tp_dashboard valid.TpDashboardValidate, tenantId string) bool {
+	result := psql.Mydb.Model(&models.TpDashboard{}).Where("id = ? and tenant_id = ?", tp_dashboard.Id, tenantId).Updates(&tp_dashboard)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false

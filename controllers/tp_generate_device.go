@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
+	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
@@ -20,95 +21,101 @@ type TpGenerateDeviceController struct {
 }
 
 //列表
-func (TpGenerateDeviceController *TpGenerateDeviceController) List() {
-	PaginationValidate := valid.TpGenerateDevicePaginationValidate{}
-	err := json.Unmarshal(TpGenerateDeviceController.Ctx.Input.RequestBody, &PaginationValidate)
+func (c *TpGenerateDeviceController) List() {
+	reqData := valid.TpGenerateDevicePaginationValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(PaginationValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(PaginationValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpGenerateDeviceController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
 	var TpGenerateDeviceService services.TpGenerateDeviceService
-	isSuccess, d, t := TpGenerateDeviceService.GetTpGenerateDeviceList(PaginationValidate)
+	isSuccess, d, t := TpGenerateDeviceService.GetTpGenerateDeviceList(reqData)
 	if !isSuccess {
-		utils.SuccessWithMessage(1000, "查询失败", (*context2.Context)(TpGenerateDeviceController.Ctx))
+		utils.SuccessWithMessage(1000, "查询失败", (*context2.Context)(c.Ctx))
 		return
 	}
 	dd := valid.RspTpGenerateDevicePaginationValidate{
-		CurrentPage: PaginationValidate.CurrentPage,
+		CurrentPage: reqData.CurrentPage,
 		Data:        d,
 		Total:       t,
-		PerPage:     PaginationValidate.PerPage,
+		PerPage:     reqData.PerPage,
 	}
-	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpGenerateDeviceController.Ctx))
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
 
 }
 
 //删除
-func (TpGenerateDeviceController *TpGenerateDeviceController) Delete() {
-	TpGenerateDeviceIdValidate := valid.TpGenerateDeviceIdValidate{}
-	err := json.Unmarshal(TpGenerateDeviceController.Ctx.Input.RequestBody, &TpGenerateDeviceIdValidate)
+func (c *TpGenerateDeviceController) Delete() {
+	reqData := valid.TpGenerateDeviceIdValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(TpGenerateDeviceIdValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(TpGenerateDeviceIdValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpGenerateDeviceController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
 	var TpGenerateDeviceService services.TpGenerateDeviceService
 	TpGenerateDevice := models.TpGenerateDevice{
-		Id: TpGenerateDeviceIdValidate.Id,
+		Id: reqData.Id,
 	}
 	rsp_err := TpGenerateDeviceService.DeleteTpGenerateDevice(TpGenerateDevice)
 	if rsp_err == nil {
-		utils.SuccessWithMessage(200, "success", (*context2.Context)(TpGenerateDeviceController.Ctx))
+		utils.SuccessWithMessage(200, "success", (*context2.Context)(c.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpGenerateDeviceController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
 	}
 }
 
 // 激活设备
-func (TpGenerateDeviceController *TpGenerateDeviceController) ActivateDevice() {
-	ActivateDeviceValidate := valid.ActivateDeviceValidate{}
-	err := json.Unmarshal(TpGenerateDeviceController.Ctx.Input.RequestBody, &ActivateDeviceValidate)
+func (c *TpGenerateDeviceController) ActivateDevice() {
+	reqData := valid.ActivateDeviceValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(ActivateDeviceValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(ActivateDeviceValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpGenerateDeviceController.Ctx))
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
-	var TpGenerateDeviceService services.TpGenerateDeviceService
-	rsp_err := TpGenerateDeviceService.ActivateDevice(ActivateDeviceValidate.ActivationCode, ActivateDeviceValidate.AccessId, ActivateDeviceValidate.Name)
-	if rsp_err != nil {
-		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpGenerateDeviceController.Ctx))
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
-	utils.SuccessWithMessage(200, "success", (*context2.Context)(TpGenerateDeviceController.Ctx))
+	var TpGenerateDeviceService services.TpGenerateDeviceService
+	rsp_err := TpGenerateDeviceService.ActivateDevice(reqData.ActivationCode, reqData.AccessId, reqData.Name, tenantId)
+	if rsp_err != nil {
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	utils.SuccessWithMessage(200, "success", (*context2.Context)(c.Ctx))
 }

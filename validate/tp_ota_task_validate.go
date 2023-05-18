@@ -28,8 +28,8 @@ type AddTpOtaTaskValidate struct {
 type TpOtaTaskPaginationValidate struct {
 	CurrentPage int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
 	PerPage     int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	Id          string `json:"id" alias:"升级包id" gorm:"primaryKey" valid:"MaxSize(36)"`
-	OtaId       string `json:"ota_id,omitempty" alias:"升级包id"`
+	Id          string `json:"id" alias:"任务id" gorm:"primaryKey" valid:"MaxSize(36)"`
+	OtaId       string `json:"ota_id,omitempty" alias:"升级包id" valid:"Required"`
 }
 
 type RspTpOtaTaskPaginationValidate struct {

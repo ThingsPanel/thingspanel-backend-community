@@ -34,12 +34,13 @@ func (*DeviceService) Token(id string) (*models.Device, int64) {
 	var device models.Device
 	result := psql.Mydb.Where("id = ?", id).First(&device)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return &device, result.RowsAffected
 }
 
-// Token 获取设备token
+// GetSubDeviceCount 获取子设备数量
 func (*DeviceService) GetSubDeviceCount(parentId string) (int64, error) {
 	var count int64
 	result := psql.Mydb.Model(models.Device{}).Where("parent_id = ?", parentId).Count(&count)
@@ -50,10 +51,15 @@ func (*DeviceService) GetSubDeviceCount(parentId string) (int64, error) {
 func (*DeviceService) GetDevicesByAssetID(asset_id string) ([]models.Device, int64) {
 	var devices []models.Device
 	var count int64
-	result := psql.Mydb.Model(&models.Device{}).Where("asset_id = ?", asset_id).Find(&devices)
-	psql.Mydb.Model(&models.Device{}).Where("asset_id = ?", asset_id).Count(&count)
+	db := psql.Mydb.Model(&models.Device{}).Where("asset_id = ?", asset_id)
+	result := db.Find(&devices)
+	db.Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return devices, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	if len(devices) == 0 {
 		devices = []models.Device{}
@@ -102,9 +108,10 @@ func (*DeviceService) PageGetDevicesByAssetID(business_id string, asset_id strin
 	sqlWhere += where
 	sqlWhereCount += where
 	var count int64
-	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	var offset int = (current - 1) * pageSize
 	var limit int = pageSize
@@ -113,13 +120,14 @@ func (*DeviceService) PageGetDevicesByAssetID(business_id string, asset_id strin
 	var deviceList []map[string]interface{}
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
 	if dataResult.Error != nil {
-		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		//errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(dataResult.Error.Error())
 	}
 	return deviceList, count
 }
 
 // GetDevicesByAssetID 获取设备列表(business_id string, device_id string, asset_id string, current int, pageSize int,device_type string)
-func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValidate) ([]map[string]interface{}, int64) {
+func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValidate, tenantId string) ([]map[string]interface{}, int64) {
 	sqlWhere := `select (with RECURSIVE ast as 
 		( 
 		(select aa.id,cast(aa.name as varchar(255)),aa.parent_id  from asset aa where id=a.id) 
@@ -129,9 +137,13 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 		as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,
 		d.additional_info as additional_info,d.sub_device_addr as sub_device_addr,d."token" as device_token,d."type" as "type",d.protocol as protocol ,dm.model_name as plugin_name,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
 		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id LEFT JOIN device_model dm ON d.type = dm.id where 1=1  and d.device_type != '3'`
-	sqlWhereCount := `select count(1) from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 and d.device_type != '3'`
+	sqlWhereCount := `select count(1) from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where d.device_type != '3'`
 	var values []interface{}
 	var where = ""
+	// 增加租户id查询条件
+	values = append(values, tenantId)
+	where += " and d.tenant_id = ?"
+
 	if req.BusinessId != "" {
 		values = append(values, req.BusinessId)
 		where += " and b.id = ?"
@@ -159,9 +171,10 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 	sqlWhere += where
 	sqlWhereCount += where
 	var count int64
-	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	var offset int = (req.CurrentPage - 1) * req.PerPage
 	var limit int = req.PerPage
@@ -216,7 +229,8 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 					   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id LEFT JOIN device_model dm ON d.type = dm.id where 1=1  and d.device_type = '3' and d.parent_id = '` + device["device"].(string) + "' order by d.created_at desc"
 				result := psql.Mydb.Raw(sql).Scan(&subDeviceList)
 				if result.Error != nil {
-					errors.Is(result.Error, gorm.ErrRecordNotFound)
+					//errors.Is(result.Error, gorm.ErrRecordNotFound)
+					logs.Error(result.Error.Error())
 				} else {
 					for _, subDevice := range subDeviceList {
 						if subDevice["type"].(string) != "" {
@@ -283,9 +297,10 @@ func (*DeviceService) AllDeviceList(req valid.DevicePageListValidate) ([]map[str
 	sqlWhere += where
 	sqlWhereCount += where
 	var count int64
-	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	var offset int = (req.CurrentPage - 1) * req.PerPage
 	var limit int = req.PerPage
@@ -294,7 +309,8 @@ func (*DeviceService) AllDeviceList(req valid.DevicePageListValidate) ([]map[str
 	var deviceList []map[string]interface{}
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
 	if dataResult.Error != nil {
-		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		//errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(dataResult.Error.Error())
 	} else {
 		var TSKVService TSKVService
 		for _, deviceData := range deviceList {
@@ -376,9 +392,10 @@ func (*DeviceService) DeviceListByProductId(PaginationValidate valid.DevicePagin
 	sqlWhereCount += where
 	var deviceList []map[string]interface{}
 	var count int64
-	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	result := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 		return false, deviceList, 0
 	}
 	var offset int = (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
@@ -387,7 +404,8 @@ func (*DeviceService) DeviceListByProductId(PaginationValidate valid.DevicePagin
 	values = append(values, offset, limit)
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
 	if dataResult.Error != nil {
-		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		//errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(dataResult.Error.Error())
 		return false, deviceList, 0
 	}
 	return true, deviceList, count
@@ -418,46 +436,59 @@ func (*DeviceService) GetDevicesByAssetIDs(asset_ids []string) (devices []models
 }
 
 // GetAllDevicesByID 获取所有设备
-func (*DeviceService) GetAllDeviceByID(id string) ([]models.Device, int64) {
-	var devices []models.Device
-	var count int64
-	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Find(&devices)
-	psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Count(&count)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
-	if len(devices) == 0 {
-		devices = []models.Device{}
-	}
-	return devices, count
-}
+// func (*DeviceService) GetAllDeviceByID(id string) ([]models.Device, int64) {
+// 	var devices []models.Device
+// 	var count int64
+// 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Find(&devices)
+// 	psql.Mydb.Model(&models.Device{}).Where("id = ?", id).Count(&count)
+// 	if result.Error != nil {
+// 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+// 			return devices, 0
+// 		}
+// 		return nil, 0
+// 	}
+// 	if len(devices) == 0 {
+// 		devices = []models.Device{}
+// 	}
+// 	return devices, count
+// }
 
 // GetDevicesByID 获取设备
 func (*DeviceService) GetDeviceByID(id string) (*models.Device, int64) {
 	var device models.Device
 	result := psql.Mydb.Where("id = ?", id).First(&device)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return nil, 0
 	}
 	return &device, result.RowsAffected
 }
 
-// Delete 根据ID删除Device
-func (*DeviceService) Delete(id string) error {
+// 根据设备ID获取租户ID
+func (*DeviceService) GetTenantIdByDeviceId(id string) (tenantId string, err error) {
 	var device models.Device
 	result := psql.Mydb.Where("id = ?", id).First(&device)
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return device.TenantId, nil
+}
+
+// Delete 根据ID删除Device
+func (*DeviceService) Delete(id, tenantId string) error {
+	var device models.Device
+	result := psql.Mydb.Where("id = ? and tenant_id = ?", id, tenantId).First(&device)
 	if result.Error != nil {
 		return result.Error
 	}
 	// 如果网关下有子设备，必须先删除子设备
 	if device.DeviceType == "2" {
 		var count int64
-		psql.Mydb.Raw("select count(1) from device where parent_id = ?", device.ID).Count(&count)
+		psql.Mydb.Raw("select count(1) from device where parent_id = ?", device.ID).Scan(&count)
 		if count > int64(0) {
 			return errors.New("请先删除网关设备下的子设备")
 		}
 	}
-	result = psql.Mydb.Where("id = ?", id).Delete(&models.Device{})
+	result = psql.Mydb.Where("id = ? and tenant_id = ?", id, tenantId).Delete(&models.Device{})
 	if result.Error != nil {
 		return result.Error
 	}
@@ -473,15 +504,18 @@ func (*DeviceService) Delete(id string) error {
 }
 
 // 获取全部Device
-func (*DeviceService) All() ([]models.Device, int64) {
+func (*DeviceService) All(tenantId string) ([]models.Device, int64) {
 	var devices []models.Device
 	var count int64
-	result := psql.Mydb.Model(&devices).Count(&count)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
+	result := psql.Mydb.Model(&devices).Where("tenant_id = ?", tenantId).Count(&count)
 	if len(devices) == 0 {
 		devices = []models.Device{}
+	}
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return devices, 0
+		}
+		return nil, 0
 	}
 	return devices, count
 }
@@ -492,7 +526,6 @@ func (*DeviceService) IsToken(token string) bool {
 	var count int64
 	result := psql.Mydb.Model(&devices).Where("token = ?", token).Count(&count)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
 	return int(count) > 0
@@ -602,12 +635,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		AdditionalInfo: deviceModel.AdditionalInfo,
 		DId:            deviceModel.DId,
 	})
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return result.Error
-	}
-
-	return nil
+	return result.Error
 }
 
 func (*DeviceService) Add(device models.Device) (string, error) {
@@ -663,8 +691,10 @@ func (*DeviceService) OperatingDevice(deviceId string, field string, value inter
 	valueMap := make(map[string]interface{})
 	logs.Info("通过设备id获取设备token")
 	var DeviceService DeviceService
-	device, _ := DeviceService.Token(deviceId)
-	if device == nil {
+	device, i := DeviceService.Token(deviceId)
+	// 此处如果用device == nil 判断，会产生错误，因为device是一个空结构体，即使没有查到数据，也不会返回nil
+	//if device == nil
+	if i == 0 {
 		logs.Info("没有匹配的token")
 		return errors.New("没有匹配的设备")
 	}
@@ -696,8 +726,12 @@ func scriptDealB(script_id string, device_data []byte, topic string) ([]byte, er
 		return device_data, nil
 	}
 }
+
+// 发送消息 device为子设备
 func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 	var err error
+	// 转发消息 - 属性下发 - MessageType 2
+	CheckAndTranspondData(device.ID, msg, DeviceMessageTypeAttributeSend)
 	if device.DeviceType == "1" { // 直连设备
 		// 通过脚本
 		msg, err = scriptDealB(device.ScriptId, msg, viper.GetString("mqtt.topicToPublish")+"/"+device.Token)
@@ -766,12 +800,12 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				// msgMap["values"] = subMap
 				msgBytes, _ := json.Marshal(subMap)
 				// 通过脚本
-				msg, err = scriptDealB(device.ScriptId, msgBytes, viper.GetString("mqtt.gateway_topic")+"/"+device.Token)
+				msg, err = scriptDealB(gatewayDevice.ScriptId, msgBytes, viper.GetString("mqtt.gateway_topic")+"/"+device.Token)
 				if err != nil {
 					return err
 				}
 				logs.Info("网关设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
-				err = cm.SendGateWay(msgBytes, gatewayDevice.Token, gatewayDevice.Protocol)
+				err = cm.SendGateWay(msg, gatewayDevice.Token, gatewayDevice.Protocol)
 			}
 		} else {
 			return errors.New("子设备网关不存在或子设备地址为空！")
@@ -834,6 +868,9 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 					}
 				}
 				logs.Error(reflect.TypeOf(applyValue))
+				//根据设备id获取租户id
+				var deviceService DeviceService
+				tenantId, _ := deviceService.GetTenantIdByDeviceId(applyDeviceId)
 				ConditionsLog := models.ConditionsLog{
 					DeviceId:      applyDeviceId,
 					OperationType: "3",
@@ -841,6 +878,7 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 					ProtocolType:  "mqtt",
 					CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
 					Remark:        rule_id,
+					TenantId:      tenantId,
 				}
 				//发送控制
 				var DeviceService DeviceService
@@ -912,8 +950,11 @@ func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
 	var device models.Device
 	result := psql.Mydb.First(&device, "token = ?", token)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return ConfigMap
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return ConfigMap
+		}
+		logs.Error(result.Error)
+		return nil
 	}
 	ConfigMap["ProtocolType"] = device.Protocol
 	ConfigMap["AccessToken"] = token
@@ -930,7 +971,11 @@ func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
 		var sub_devices []models.Device
 		sub_result := psql.Mydb.Find(&sub_devices, "parent_id = ?", device.ID)
 		if sub_result.Error != nil {
-			errors.Is(sub_result.Error, gorm.ErrRecordNotFound)
+			if errors.Is(sub_result.Error, gorm.ErrRecordNotFound) {
+				return ConfigMap
+			}
+			logs.Error(sub_result.Error)
+			return nil
 		} else {
 			var sub_device_list []map[string]interface{}
 			for _, sub_device := range sub_devices {
@@ -952,7 +997,7 @@ func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
 	return ConfigMap
 }
 
-//修改所有子设备分组
+// 修改所有子设备分组
 func (*DeviceService) EditSubDeviceAsset(gateway_id string, asset_id string) error {
 	var sub_devices []models.Device
 	result := psql.Mydb.Raw("UPDATE device SET asset_id = ? WHERE parent_id = ? ", asset_id, gateway_id).Scan(&sub_devices)
@@ -1014,7 +1059,7 @@ func (*DeviceService) GetDeviceByCascade() ([]map[string]interface{}, error) {
 }
 
 // GetDevicesByAssetID 获取设备列表(business_id string, device_id string, asset_id string, current int, pageSize int,device_type string)
-func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]interface{}, error) {
+func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate, tenantId string) ([]map[string]interface{}, error) {
 	sqlWhere := `select (with RECURSIVE ast as 
 		( 
 		(select aa.id,cast(aa.name as varchar(255)),aa.parent_id  from asset aa where id=a.id) 
@@ -1026,7 +1071,8 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 		   (select name from device dd where dd.device_type = '2' and dd.parent_id = d.id limit 1) as gateway_name
 		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where 1=1 and d.location !=''`
 	var values []interface{}
-	var where = ""
+	var where = "and d.tenant_id = ?"
+	values = append(values, tenantId)
 	if req.BusinessId != "" {
 		values = append(values, req.BusinessId)
 		where += " and b.id = ?"
@@ -1063,7 +1109,7 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate) ([]map[string]i
 	return deviceList, nil
 }
 
-//获取设备列表设备在线离线状态
+// 获取设备列表设备在线离线状态
 func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValidate) (map[string]interface{}, error) {
 	var deviceOnlineStatus = make(map[string]interface{})
 	for _, deviceId := range deviceIdList.DeviceIdList {
@@ -1080,7 +1126,7 @@ func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValid
 	return deviceOnlineStatus, nil
 }
 
-//设备是否在线
+// 设备是否在线
 func (*DeviceService) IsDeviceOnline(deviceId string) (bool, error) {
 	var tskvLatest models.TSKVLatest
 	result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
@@ -1097,7 +1143,7 @@ func (*DeviceService) IsDeviceOnline(deviceId string) (bool, error) {
 	return false, nil
 }
 
-//根据wvp设备编号获取设备数量
+// 根据wvp设备编号获取设备数量
 func (*DeviceService) GetWvpDeviceCount(did string) (int64, error) {
 	result := psql.Mydb.Where("device_type = '2' and did = ?", did).Find(&models.Device{})
 	return result.RowsAffected, result.Error

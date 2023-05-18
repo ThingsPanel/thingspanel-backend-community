@@ -81,33 +81,33 @@ func (this *AssetController) Index() {
 }
 
 // 添加资产
-func (this *AssetController) Add() {
-	addAssetValidate := valid.AddAsset{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &addAssetValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(addAssetValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(addAssetValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
-		return
-	}
-	var AssetService services.AssetService
-	f := AssetService.Add(addAssetValidate.Data)
-	if f {
-		response.SuccessWithMessage(200, "插入成功", (*context2.Context)(this.Ctx))
-		return
-	}
-	response.SuccessWithMessage(400, "插入失败", (*context2.Context)(this.Ctx))
-	return
-}
+// func (this *AssetController) Add() {
+// 	addAssetValidate := valid.AddAsset{}
+// 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &addAssetValidate)
+// 	if err != nil {
+// 		fmt.Println("参数解析失败", err.Error())
+// 	}
+// 	v := validation.Validation{}
+// 	status, _ := v.Valid(addAssetValidate)
+// 	if !status {
+// 		for _, err := range v.Errors {
+// 			// 获取字段别称
+// 			alias := gvalid.GetAlias(addAssetValidate, err.Field)
+// 			message := strings.Replace(err.Message, err.Field, alias, 1)
+// 			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+// 			break
+// 		}
+// 		return
+// 	}
+// 	var AssetService services.AssetService
+// 	f := AssetService.Add(addAssetValidate.Data)
+// 	if f {
+// 		response.SuccessWithMessage(200, "插入成功", (*context2.Context)(this.Ctx))
+// 		return
+// 	}
+// 	response.SuccessWithMessage(400, "插入失败", (*context2.Context)(this.Ctx))
+// 	return
+// }
 
 // 单独添加资产
 func (reqDate *AssetController) AddOnly() {
@@ -163,6 +163,25 @@ func (reqDate *AssetController) UpdateOnly() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := reqDate.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(reqDate.Ctx))
+		return
+	}
+	//修改的数据是否属于该租户
+	var AssetService services.AssetService
+	f, c := AssetService.GetAssetById(assetValidate.ID)
+	//无数据修改
+	if c <= 0 {
+		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+		return
+	}
+	//修改的数据不属于该租户
+	if f.TenantId != tenantId {
+		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+		return
+	}
 	var asset = models.Asset{
 		ID:         assetValidate.ID,
 		Name:       assetValidate.Name,
@@ -179,33 +198,33 @@ func (reqDate *AssetController) UpdateOnly() {
 }
 
 // 编辑资产
-func (this *AssetController) Edit() {
-	editAssetValidate := valid.EditAsset{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &editAssetValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(editAssetValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(editAssetValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
-		return
-	}
-	var AssetService services.AssetService
-	f := AssetService.Edit(editAssetValidate.Data)
-	if f {
-		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
-		return
-	}
-	response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(this.Ctx))
-	return
-}
+// func (this *AssetController) Edit() {
+// 	editAssetValidate := valid.EditAsset{}
+// 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &editAssetValidate)
+// 	if err != nil {
+// 		fmt.Println("参数解析失败", err.Error())
+// 	}
+// 	v := validation.Validation{}
+// 	status, _ := v.Valid(editAssetValidate)
+// 	if !status {
+// 		for _, err := range v.Errors {
+// 			// 获取字段别称
+// 			alias := gvalid.GetAlias(editAssetValidate, err.Field)
+// 			message := strings.Replace(err.Message, err.Field, alias, 1)
+// 			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+// 			break
+// 		}
+// 		return
+// 	}
+// 	var AssetService services.AssetService
+// 	f := AssetService.Edit(editAssetValidate.Data)
+// 	if f {
+// 		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
+// 		return
+// 	}
+// 	response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(this.Ctx))
+// 	return
+// }
 
 // 删除资产
 func (this *AssetController) Delete() {
@@ -227,20 +246,26 @@ func (this *AssetController) Delete() {
 		return
 	}
 	var AssetService services.AssetService
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	if deleteAssetValidate.TYPE == 1 {
-		_, c := AssetService.GetAssetsByParentID(deleteAssetValidate.ID)
+		_, c := AssetService.GetAssetsByParentIDAndTenantId(deleteAssetValidate.ID, tenantId)
 		if c != 0 {
 			response.SuccessWithMessage(400, "请先删除下一级", (*context2.Context)(this.Ctx))
 			return
 		}
-		f := AssetService.Delete(deleteAssetValidate.ID)
+		f := AssetService.Delete(deleteAssetValidate.ID, tenantId)
 		if f {
 			var DeviceService services.DeviceService
 			var FieldMappingService services.FieldMappingService
 			d, s := DeviceService.GetDevicesByAssetID(deleteAssetValidate.ID)
 			if s != 0 {
 				for _, ds := range d {
-					DeviceService.Delete(ds.ID)
+					DeviceService.Delete(ds.ID, tenantId)
 					FieldMappingService.DeleteByDeviceId(ds.ID)
 				}
 			}
@@ -250,7 +275,7 @@ func (this *AssetController) Delete() {
 	} else {
 		var DeviceService services.DeviceService
 		var FieldMappingService services.FieldMappingService
-		f1 := DeviceService.Delete(deleteAssetValidate.ID)
+		f1 := DeviceService.Delete(deleteAssetValidate.ID, tenantId)
 		f2 := FieldMappingService.DeleteByDeviceId(deleteAssetValidate.ID)
 		if f1 == nil && f2 {
 			response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
@@ -262,29 +287,29 @@ func (this *AssetController) Delete() {
 }
 
 // 获取组件
-func (this *AssetController) Widget() {
-	widgetAssetValidate := valid.WidgetAsset{}
-	err := json.Unmarshal(this.Ctx.Input.RequestBody, &widgetAssetValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(widgetAssetValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(widgetAssetValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-			break
-		}
-		return
-	}
-	var AssetService services.AssetService
-	a := AssetService.Widget(widgetAssetValidate.ID)
-	response.SuccessWithDetailed(200, "success", a, map[string]string{}, (*context2.Context)(this.Ctx))
-	return
-}
+// func (this *AssetController) Widget() {
+// 	widgetAssetValidate := valid.WidgetAsset{}
+// 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &widgetAssetValidate)
+// 	if err != nil {
+// 		fmt.Println("参数解析失败", err.Error())
+// 	}
+// 	v := validation.Validation{}
+// 	status, _ := v.Valid(widgetAssetValidate)
+// 	if !status {
+// 		for _, err := range v.Errors {
+// 			// 获取字段别称
+// 			alias := gvalid.GetAlias(widgetAssetValidate, err.Field)
+// 			message := strings.Replace(err.Message, err.Field, alias, 1)
+// 			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+// 			break
+// 		}
+// 		return
+// 	}
+// 	var AssetService services.AssetService
+// 	a := AssetService.Widget(widgetAssetValidate.ID)
+// 	response.SuccessWithDetailed(200, "success", a, map[string]string{}, (*context2.Context)(this.Ctx))
+// 	return
+// }
 
 // 资产列表
 func (this *AssetController) List() {
@@ -305,6 +330,12 @@ func (this *AssetController) List() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
 	var disabled bool
 	var dm string
 	var state string
@@ -313,7 +344,7 @@ func (this *AssetController) List() {
 	var DeviceService services.DeviceService
 	var FieldMappingService services.FieldMappingService
 	var TSKVService services.TSKVService
-	l, c := AssetService.GetAssetByBusinessId(listAssetValidate.BusinessID)
+	l, c := AssetService.GetAssetByBusinessId(listAssetValidate.BusinessID, tenantId)
 	if c != 0 {
 		// 第一层
 		for _, s := range l {
@@ -375,7 +406,7 @@ func (this *AssetController) List() {
 				ResDeviceData = []DeviceData{}
 			}
 			//第二层
-			l2, c2 := AssetService.GetAssetsByParentID(s.ID)
+			l2, c2, err := AssetService.GetAssetsByParentID(s.ID)
 			var ResAssetData2 []AssetData2
 			if c2 != 0 {
 				for _, s := range l2 {
@@ -436,7 +467,7 @@ func (this *AssetController) List() {
 						ResDeviceData2 = []DeviceData{}
 					}
 					// 第三层
-					l3, c3 := AssetService.GetAssetsByParentID(s.ID)
+					l3, c3, err := AssetService.GetAssetsByParentID(s.ID)
 					var ResAssetData3 []AssetData3
 					if c3 != 0 {
 						for _, s := range l3 {
@@ -505,6 +536,8 @@ func (this *AssetController) List() {
 							}
 							ResAssetData3 = append(ResAssetData3, rd)
 						}
+					} else {
+						fmt.Println(err)
 					}
 					if len(ResAssetData3) == 0 {
 						ResAssetData3 = []AssetData3{}
@@ -519,6 +552,8 @@ func (this *AssetController) List() {
 					}
 					ResAssetData2 = append(ResAssetData2, rd)
 				}
+			} else {
+				fmt.Println(err)
 			}
 			if len(ResAssetData2) == 0 {
 				ResAssetData2 = []AssetData2{}
@@ -573,36 +608,42 @@ func (AssetController *AssetController) GetAssetByBusiness() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := AssetController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(AssetController.Ctx))
+		return
+	}
 	var AssetService services.AssetService
-	assets, _ := AssetService.GetAssetByBusinessId(listAssetValidate.BusinessID)
+	assets, _ := AssetService.GetAssetByBusinessId(listAssetValidate.BusinessID, tenantId)
 	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
 
 }
 
 // 根据资产id查询子资产
-func (AssetController *AssetController) GetAssetByAsset() {
-	listAssetValidate := valid.GetAsset{}
-	err := json.Unmarshal(AssetController.Ctx.Input.RequestBody, &listAssetValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(listAssetValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(listAssetValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(AssetController.Ctx))
-			break
-		}
-		return
-	}
-	var AssetService services.AssetService
-	assets, _ := AssetService.GetAssetsByParentID(listAssetValidate.AssetId)
-	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
+// func (AssetController *AssetController) GetAssetByAsset() {
+// 	listAssetValidate := valid.GetAsset{}
+// 	err := json.Unmarshal(AssetController.Ctx.Input.RequestBody, &listAssetValidate)
+// 	if err != nil {
+// 		fmt.Println("参数解析失败", err.Error())
+// 	}
+// 	v := validation.Validation{}
+// 	status, _ := v.Valid(listAssetValidate)
+// 	if !status {
+// 		for _, err := range v.Errors {
+// 			// 获取字段别称
+// 			alias := gvalid.GetAlias(listAssetValidate, err.Field)
+// 			message := strings.Replace(err.Message, err.Field, alias, 1)
+// 			response.SuccessWithMessage(1000, message, (*context2.Context)(AssetController.Ctx))
+// 			break
+// 		}
+// 		return
+// 	}
+// 	var AssetService services.AssetService
+// 	assets, _, _ := AssetService.GetAssetsByParentID(listAssetValidate.AssetId)
+// 	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
 
-}
+// }
 
 // 根据业务id分页查设备分组
 func (AssetController *AssetController) GetAssetGroupByBusinessId() {
@@ -623,8 +664,14 @@ func (AssetController *AssetController) GetAssetGroupByBusinessId() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := AssetController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(AssetController.Ctx))
+		return
+	}
 	var AssetService services.AssetService
-	assets, _ := AssetService.PageGetDeviceGroupByBussinessID(listAssetValidate.BusinessId, listAssetValidate.CurrentPage, listAssetValidate.PerPage)
+	assets, _ := AssetService.PageGetDeviceGroupByBussinessID(listAssetValidate.BusinessId, tenantId, listAssetValidate.CurrentPage, listAssetValidate.PerPage)
 	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
 }
 
@@ -647,7 +694,13 @@ func (AssetController *AssetController) GetAssetGroupByBusinessIdX() {
 		}
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := AssetController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(AssetController.Ctx))
+		return
+	}
 	var AssetService services.AssetService
-	assets, _ := AssetService.DeviceGroupByBussinessID(listAssetValidate.BusinessID)
+	assets, _ := AssetService.DeviceGroupByBussinessID(listAssetValidate.BusinessID, tenantId)
 	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
 }

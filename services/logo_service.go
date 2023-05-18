@@ -1,13 +1,10 @@
 package services
 
 import (
+	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
-	"errors"
-
-	"ThingsPanel-Go/initialize/psql"
-
-	"gorm.io/gorm"
+	"github.com/beego/beego/v2/core/logs"
 )
 
 type LogoService struct {
@@ -15,16 +12,11 @@ type LogoService struct {
 
 // 获取logo配置
 func (*LogoService) GetLogo() models.Logo {
-	var Logos []models.Logo
 	var Logo models.Logo
-	result := psql.Mydb.Model(&models.Logo{}).Limit(1).Find(&Logos)
+	result := psql.Mydb.Model(&models.Logo{}).Find(&Logo)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
-	if len(Logos) == 0 {
-		Logo = models.Logo{}
-	} else {
-		Logo = Logos[0]
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	return Logo
 }
@@ -43,8 +35,5 @@ func (*LogoService) Add(logo models.Logo) (string, error) {
 // 根据ID编辑一条Logo数据
 func (*LogoService) Edit(logo models.Logo) error {
 	result := psql.Mydb.Save(&logo)
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
+	return result.Error
 }

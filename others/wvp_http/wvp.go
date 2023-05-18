@@ -30,7 +30,10 @@ func Login(host string, username string, password string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	bodyJson, _ := simplejson.NewJson(body)
+	bodyJson, err := simplejson.NewJson(body)
+	if err != nil {
+		return "", err
+	}
 	if bodyJson.Get("code").MustString() == "-1" {
 		return "", errors.New(bodyJson.Get("msg").MustString())
 	}

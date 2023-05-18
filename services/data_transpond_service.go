@@ -3,11 +3,9 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
-	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
-	"errors"
 
-	"gorm.io/gorm"
+	"github.com/beego/beego/v2/core/logs"
 )
 
 type DataTranspondService struct {
@@ -20,10 +18,10 @@ type DataTranspondService struct {
 }
 
 // 获取列表
-func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.PaginationValidate) (bool, []models.DataTranspond, int64) {
+func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.PaginationValidate, tenantId string) (bool, []models.DataTranspond, int64) {
 	var DataTransponds []models.DataTranspond
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	db := psql.Mydb.Model(&models.DataTranspond{})
+	db := psql.Mydb.Model(&models.DataTranspond{}).Where("tenant_id = ? ", tenantId)
 	if PaginationValidate.Disabled != "" {
 		db.Where("disabled = ?", PaginationValidate.Disabled)
 	}
@@ -37,7 +35,8 @@ func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.Pagin
 	db.Count(&count)
 	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DataTransponds)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, DataTransponds, 0
 	}
 	return true, DataTransponds, count
@@ -45,11 +44,10 @@ func (*DataTranspondService) GetDataTranspondList(PaginationValidate valid.Pagin
 
 // 新增数据
 func (*DataTranspondService) AddDataTranspond(data_transpond models.DataTranspond) (bool, models.DataTranspond) {
-	var uuid = uuid.GetUuid()
-	data_transpond.Id = uuid
 	result := psql.Mydb.Create(&data_transpond)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false, data_transpond
 	}
 	return true, data_transpond
@@ -60,7 +58,8 @@ func (*DataTranspondService) EditDataTranspond(data_transpond models.DataTranspo
 	result := psql.Mydb.Updates(&data_transpond)
 	//result := psql.Mydb.Save(&data_transpond)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
 	return true
@@ -70,7 +69,8 @@ func (*DataTranspondService) EditDataTranspond(data_transpond models.DataTranspo
 func (*DataTranspondService) DeleteDataTranspond(data_transpond models.DataTranspond) bool {
 	result := psql.Mydb.Delete(&data_transpond)
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
+		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		return false
 	}
 	return true

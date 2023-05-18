@@ -83,14 +83,14 @@ func (*TpAutomationService) GetTpAutomationDetail(tp_automation_id string) (map[
 }
 
 // 获取列表
-func (*TpAutomationService) GetTpAutomationList(PaginationValidate valid.TpAutomationPaginationValidate) ([]models.TpAutomation, int64, error) {
+func (*TpAutomationService) GetTpAutomationList(PaginationValidate valid.TpAutomationPaginationValidate, tenantId string) ([]models.TpAutomation, int64, error) {
 	var TpAutomations []models.TpAutomation
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpAutomation{})
+	db.Where("tenant_id = ?", tenantId)
 	if PaginationValidate.Id != "" {
 		db.Where("id = ?", PaginationValidate.Id)
 	}
-
 	var count int64
 	db.Count(&count)
 	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpAutomations)
@@ -269,6 +269,7 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 	var oldWarningStrategyFlag int64
 	var newWarningStrategyFlag int64
 	var automationActions []models.TpAutomationAction
+	// 查询旧记录是否有告警信息
 	result = psql.Mydb.Model(&models.TpAutomationAction{}).Where("automation_id = ? and action_type = '2'", tp_automation.Id).Find(&automationActions)
 	if result.Error != nil {
 		tx.Rollback()
@@ -330,10 +331,18 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 			}
 		}
 	}
-	//删除告警策略
+	//删除告警策略和action
 	if oldWarningStrategyFlag == int64(1) && newWarningStrategyFlag == int64(0) {
+		logs.Error("删除告警策略")
 		result = tx.Where("id = ?", automationActions[0].WarningStrategyId).Delete(&models.TpWarningStrategy{})
 		//result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where("id = ?", tp_scenario_strategy.Id).Updates(&tp_scenario_strategy)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+			tx.Rollback()
+			return tp_automation, result.Error
+		}
+		//删除action
+		result = tx.Where("id = ?", automationActions[0].Id).Delete(&models.TpAutomationAction{})
 		if result.Error != nil {
 			logs.Error(result.Error.Error())
 			tx.Rollback()
@@ -501,6 +510,7 @@ func AutomationCron(automationCondition models.TpAutomationCondition) error {
 		}
 	}
 	cronId, _ := C.AddFunc(cronString, execute)
+	logs.Error("提示：" + cronString + "的定时任务已添加")
 	// 将cronId更新到数据库
 	var cronIdString string = cast.ToString(int(cronId))
 	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.Id).Update("v2", cronIdString)

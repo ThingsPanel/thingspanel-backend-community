@@ -5,12 +5,10 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
-	"gorm.io/gorm"
 )
 
 type ConditionsLogService struct {
@@ -31,7 +29,7 @@ func (*ConditionsLogService) Insert(conditionsLog *models.ConditionsLog) (*model
 
 // 新增控制日志
 // Paginate 分页获取OperationLog数据
-func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.ConditionsLogListValidate) ([]map[string]interface{}, int64) {
+func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.ConditionsLogListValidate, tenantId string) ([]map[string]interface{}, int64) {
 	sqlWhere := `select cl.id ,cl.device_id ,cl.operation_type ,cl.instruct ,cl.sender ,cl.send_result ,cl.respond ,
 	cl.cteate_time ,cl.remark ,cl.protocol_type ,d."name" as device_name ,a.id as asset_id ,a."name" as asset_name,
 	 b.id as business_id ,b."name" as business_name from conditions_log cl left join device d on cl.device_id = d.id  
@@ -39,7 +37,8 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 	sqlWhereCount := `select count(1) from conditions_log cl left join device d on cl.device_id = d.id  
 	 left join asset a on a.id = d.asset_id left join business b on b.id =a.business_id where 1=1`
 	var values []interface{}
-	where := ""
+	where := "and cl.tenant_id = ?"
+	values = append(values, tenantId)
 	if conditionsLogListValidate.DeviceId != "" {
 		values = append(values, conditionsLogListValidate.DeviceId)
 		where += " and cl.device_id = ?"
@@ -73,11 +72,13 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 		where += " and d.name like ?"
 	}
 	sqlWhere += where
+	sqlWhereCount += where
 	var conditionsLogs []map[string]interface{}
 	var count int64
-	countResult := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+	countResult := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)
 	if countResult.Error != nil {
-		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
+		//errors.Is(countResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(countResult.Error.Error())
 	}
 	//计算分页
 	offset := conditionsLogListValidate.Size * (conditionsLogListValidate.Current - 1)
@@ -85,7 +86,8 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 	sqlWhere += "order by cl.cteate_time desc offset ? limit ?"
 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&conditionsLogs)
 	if dataResult.Error != nil {
-		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		//errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+		logs.Error(dataResult.Error.Error())
 	}
 	return conditionsLogs, count
 }

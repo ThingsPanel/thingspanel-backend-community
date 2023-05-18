@@ -47,7 +47,7 @@ func (*TpScenarioStrategyService) GetTpScenarioStrategyDetail(tp_scenario_strate
 }
 
 // 获取列表
-func (*TpScenarioStrategyService) GetTpScenarioStrategyList(PaginationValidate valid.TpScenarioStrategyPaginationValidate) ([]models.TpScenarioStrategy, int64, error) {
+func (*TpScenarioStrategyService) GetTpScenarioStrategyList(PaginationValidate valid.TpScenarioStrategyPaginationValidate, tenantId string) ([]models.TpScenarioStrategy, int64, error) {
 	var TpScenarioStrategys []models.TpScenarioStrategy
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	sqlWhere := "1=?"
@@ -57,6 +57,8 @@ func (*TpScenarioStrategyService) GetTpScenarioStrategyList(PaginationValidate v
 		sqlWhere += " and id = ?"
 		param = append(param, PaginationValidate.Id)
 	}
+	sqlWhere += " and tenant_id = ?"
+	param = append(param, tenantId)
 	var count int64
 	psql.Mydb.Model(&models.TpScenarioStrategy{}).Where(sqlWhere, param...).Count(&count)
 	result := psql.Mydb.Model(&models.TpScenarioStrategy{}).Where(sqlWhere, param...).Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpScenarioStrategys)

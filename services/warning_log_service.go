@@ -4,7 +4,6 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
-	valid "ThingsPanel-Go/validate"
 	"errors"
 	"strconv"
 	"time"
@@ -22,33 +21,33 @@ type WarningLogService struct {
 }
 
 // Paginate 分页获取WarningLog数据
-func (*WarningLogService) Paginate(name string, offset int, pageSize int, startDate string, endDate string) ([]models.WarningLog, int64) {
-	var warningLogs []models.WarningLog
+// func (*WarningLogService) Paginate(name string, offset int, pageSize int, startDate string, endDate string) ([]models.WarningLog, int64) {
+// 	var warningLogs []models.WarningLog
 
-	//日期条件筛选
-	sqlWhere := "1=1"
-	if startDate != "" {
-		//2021/12/01 15:12:37
-		tmp := "2006/1/2 15:4:5"
-		sDate, _ := time.ParseInLocation(tmp, startDate, time.Local)
-		eDate, _ := time.ParseInLocation(tmp, endDate, time.Local)
-		sqlWhere += " and created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)
-	}
-	var count int64
-	countResult := psql.Mydb.Model(&warningLogs).Where(sqlWhere).Count(&count)
-	if countResult.Error != nil {
-		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
-	}
-	offset = pageSize * (offset - 1)
-	result := psql.Mydb.Where(sqlWhere).Limit(pageSize).Offset(offset).Order("created_at desc").Find(&warningLogs)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
-	if len(warningLogs) == 0 {
-		warningLogs = []models.WarningLog{}
-	}
-	return warningLogs, count
-}
+// 	//日期条件筛选
+// 	sqlWhere := "1=1"
+// 	if startDate != "" {
+// 		//2021/12/01 15:12:37
+// 		tmp := "2006/1/2 15:4:5"
+// 		sDate, _ := time.ParseInLocation(tmp, startDate, time.Local)
+// 		eDate, _ := time.ParseInLocation(tmp, endDate, time.Local)
+// 		sqlWhere += " and created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)
+// 	}
+// 	var count int64
+// 	countResult := psql.Mydb.Model(&warningLogs).Where(sqlWhere).Count(&count)
+// 	if countResult.Error != nil {
+// 		errors.Is(countResult.Error, gorm.ErrRecordNotFound)
+// 	}
+// 	offset = pageSize * (offset - 1)
+// 	result := psql.Mydb.Where(sqlWhere).Limit(pageSize).Offset(offset).Order("created_at desc").Find(&warningLogs)
+// 	if result.Error != nil {
+// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+// 	}
+// 	if len(warningLogs) == 0 {
+// 		warningLogs = []models.WarningLog{}
+// 	}
+// 	return warningLogs, count
+// }
 
 // 根据id获取100条WarningLog数据
 func (*WarningLogService) GetList(offset int, pageSize int) ([]models.WarningLog, int64) {
@@ -82,12 +81,12 @@ func (*WarningLogService) Add(t string, describe string, data_id string) (bool, 
 }
 
 // 根据wid获取告警信息
-func (*WarningLogService) WarningForWid(device_id string, limit int) []models.WarningLogView {
+func (*WarningLogService) WarningForWid(device_id, tenantId string, limit int) []models.WarningLogView {
 	var warningLogs []models.WarningLogView
 	// 通过图表的wid去widget中找到device_id(设备id)，再去warning_log中匹配data_id
 	sqlWhere := `SELECT warning_log.*,device.name as device_name  FROM warning_log left join device on 
-	warning_log.data_id = device.id WHERE data_id = ? ORDER BY created_at desc LIMIT ?`
-	result := psql.Mydb.Raw(sqlWhere, device_id, strconv.Itoa(limit)).Scan(&warningLogs)
+	warning_log.data_id = device.id WHERE data_id = ? and device.tenant_id = ? ORDER BY created_at desc LIMIT ?`
+	result := psql.Mydb.Raw(sqlWhere, device_id, tenantId, strconv.Itoa(limit)).Scan(&warningLogs)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
@@ -98,52 +97,52 @@ func (*WarningLogService) WarningForWid(device_id string, limit int) []models.Wa
 }
 
 // 跟据业务ID，设备ID，资产ID，分页查询相关告警信息
-func (*WarningLogService) GetWarningLogByPaging(WarningLogReq valid.WarningLogPageListValidate) ([]map[string]interface{}, int64) {
-	sqlWhere := `select wl.id ,wl."type" ,wl."describe" ,wl.data_id as device_id,wl.created_at ,d."name" as device_name,
-	b.id as business_id ,a.id as asset_id ,a."name" as asset_name,b."name" as business_name 
-	from warning_log wl left join device d on d.id = wl.data_id 
-	left join asset a on d.asset_id  = a.id 
-	left join business b on a.business_id = b.id where 1=1 `
-	sqlWhereCount := `select count(1) 
-	from warning_log wl left join device d on d.id = wl.data_id 
-	left join asset a on d.asset_id  = a.id 
-	left join business b on a.business_id = b.id where 1=1 `
-	var values []interface{}
-	var sqlWhereTail string
-	if WarningLogReq.BusinessId != "" {
-		values = append(values, WarningLogReq.BusinessId)
-		sqlWhereTail += " and b.id = ?"
-	}
-	if WarningLogReq.AssetId != "" {
-		values = append(values, WarningLogReq.AssetId)
-		sqlWhereTail += " and a.id = ?"
-	}
-	if WarningLogReq.DeviceId != "" {
-		values = append(values, WarningLogReq.DeviceId)
-		sqlWhereTail += " and wl.data_id = ?"
-	}
-	if WarningLogReq.StartDate != "" {
-		//2021/12/01 15:12:37
-		tmp := "2006-01-02 15:04:05"
-		sDate, _ := time.ParseInLocation(tmp, WarningLogReq.StartDate, time.Local)
-		eDate, _ := time.ParseInLocation(tmp, WarningLogReq.EndDate, time.Local)
-		sqlWhereTail += " and wl.created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)
-	}
-	sqlWhere += sqlWhereTail
-	sqlWhereCount += sqlWhereTail
-	var count int64
-	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
-	var offset int = (WarningLogReq.Page - 1) * WarningLogReq.Limit
-	var limit int = WarningLogReq.Limit
-	sqlWhere += " order by wl.created_at desc offset ? limit ?"
-	values = append(values, offset, limit)
-	var warningLogs []map[string]interface{}
-	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&warningLogs)
-	if dataResult.Error != nil {
-		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
-	}
-	return warningLogs, count
-}
+// func (*WarningLogService) GetWarningLogByPaging(WarningLogReq valid.WarningLogPageListValidate) ([]map[string]interface{}, int64) {
+// 	sqlWhere := `select wl.id ,wl."type" ,wl."describe" ,wl.data_id as device_id,wl.created_at ,d."name" as device_name,
+// 	b.id as business_id ,a.id as asset_id ,a."name" as asset_name,b."name" as business_name
+// 	from warning_log wl left join device d on d.id = wl.data_id
+// 	left join asset a on d.asset_id  = a.id
+// 	left join business b on a.business_id = b.id where 1=1 `
+// 	sqlWhereCount := `select count(1)
+// 	from warning_log wl left join device d on d.id = wl.data_id
+// 	left join asset a on d.asset_id  = a.id
+// 	left join business b on a.business_id = b.id where 1=1 `
+// 	var values []interface{}
+// 	var sqlWhereTail string
+// 	if WarningLogReq.BusinessId != "" {
+// 		values = append(values, WarningLogReq.BusinessId)
+// 		sqlWhereTail += " and b.id = ?"
+// 	}
+// 	if WarningLogReq.AssetId != "" {
+// 		values = append(values, WarningLogReq.AssetId)
+// 		sqlWhereTail += " and a.id = ?"
+// 	}
+// 	if WarningLogReq.DeviceId != "" {
+// 		values = append(values, WarningLogReq.DeviceId)
+// 		sqlWhereTail += " and wl.data_id = ?"
+// 	}
+// 	if WarningLogReq.StartDate != "" {
+// 		//2021/12/01 15:12:37
+// 		tmp := "2006-01-02 15:04:05"
+// 		sDate, _ := time.ParseInLocation(tmp, WarningLogReq.StartDate, time.Local)
+// 		eDate, _ := time.ParseInLocation(tmp, WarningLogReq.EndDate, time.Local)
+// 		sqlWhereTail += " and wl.created_at between " + strconv.FormatInt(sDate.Unix(), 10) + " and " + strconv.FormatInt(eDate.Unix(), 10)
+// 	}
+// 	sqlWhere += sqlWhereTail
+// 	sqlWhereCount += sqlWhereTail
+// 	var count int64
+// 	result := psql.Mydb.Raw(sqlWhereCount, values...).Count(&count)
+// 	if result.Error != nil {
+// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+// 	}
+// 	var offset int = (WarningLogReq.Page - 1) * WarningLogReq.Limit
+// 	var limit int = WarningLogReq.Limit
+// 	sqlWhere += " order by wl.created_at desc offset ? limit ?"
+// 	values = append(values, offset, limit)
+// 	var warningLogs []map[string]interface{}
+// 	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&warningLogs)
+// 	if dataResult.Error != nil {
+// 		errors.Is(dataResult.Error, gorm.ErrRecordNotFound)
+// 	}
+// 	return warningLogs, count
+// }

@@ -4,7 +4,6 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
-	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,24 +23,32 @@ type ConditionsService struct {
 func (*ConditionsService) All() ([]models.Condition, int64) {
 	var conditions []models.Condition
 	result := psql.Mydb.Find(&conditions)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
 	if len(conditions) == 0 {
 		conditions = []models.Condition{}
+	}
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return conditions, 0
+		}
+		logs.Error(result.Error.Error())
+		return nil, 0
 	}
 	return conditions, result.RowsAffected
 }
 
 // 获取策略
-func (*ConditionsService) GetConditionByID(id string) (*models.Condition, int64) {
-	var condition models.Condition
-	result := psql.Mydb.Where("id = ?", id).First(&condition)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
-	return &condition, result.RowsAffected
-}
+// func (*ConditionsService) GetConditionByID(id string) (*models.Condition, int64) {
+// 	var condition models.Condition
+// 	result := psql.Mydb.Where("id = ?", id).First(&condition)
+// 	if result.Error != nil {
+// 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+// 			return &condition, 0
+// 		}
+// 		logs.Error(result.Error.Error())
+// 		return nil, 0
+// 	}
+// 	return &condition, result.RowsAffected
+// }
 
 // 上下线触发检查1-上线 2-下线
 func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) error {
@@ -65,7 +72,6 @@ func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) er
 	logs.Info("自动化-设备条件：", automationConditions)
 	for _, automationCondition := range automationConditions {
 		var conditionsService ConditionsService
-
 		err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage)
 		if err != nil {
 			logs.Error(err.Error())
@@ -75,7 +81,7 @@ func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) er
 	return nil
 }
 
-//自动化策略检查
+// 自动化策略检查
 func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[string]interface{}) {
 	var automationConditions []models.TpAutomationCondition
 	result := psql.Mydb.Table("tp_automation").
@@ -220,7 +226,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 	}
 }
 
-//记录日志，调用执行action的函数
+// 记录日志，调用执行action的函数
 func (*ConditionsService) WriteLogAndExecuteActionFunc(automationId string, logMessage string) error {
 	logMessage += "条件通过；"
 	logs.Info("成功触发自动化")
@@ -268,7 +274,6 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		logs.Error(result.Error.Error())
 		return "", result.Error
 	}
-	logs.Error(automationActions)
 	for _, automationAction := range automationActions {
 		var automationLogDetail models.TpAutomationLogDetail
 		if automationAction.ActionType == "1" {
@@ -284,9 +289,17 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 				deviceModel := res.Get("device_model").MustString()
 				if deviceModel == "1" {
 					//属性
-					instructString := res.Get("instruct").MustString()
-					instructMap := make(map[string]interface{})
-					err = json.Unmarshal([]byte(instructString), &instructMap)
+					// instructString := res.Get("instruct").MustString()
+					// instructMap := make(map[string]interface{})
+					// err = json.Unmarshal([]byte(instructString), &instructMap)
+					// if err != nil {
+					// 	logs.Error(err.Error())
+					// 	automationLogDetail.ProcessDescription = "instruct:" + err.Error()
+					// 	automationLogDetail.ProcessResult = "2"
+					// } else {
+					instructMap := res.Get("instruct").MustMap()
+					instructByte, err := json.Marshal(instructMap)
+					instructString := string(instructByte)
 					if err != nil {
 						logs.Error(err.Error())
 						automationLogDetail.ProcessDescription = "instruct:" + err.Error()
@@ -312,6 +325,9 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 							conditionsLog.OperationType = "3"
 							conditionsLog.ProtocolType = "mqtt"
 							conditionsLog.Instruct = instructString
+							//根据设备id获取租户id
+							tenantId, _ := DeviceService.GetTenantIdByDeviceId(automationAction.DeviceId)
+							conditionsLog.TenantId = tenantId
 							conditionsLogService.Insert(&conditionsLog)
 						}
 					}
@@ -429,7 +445,8 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 	//自动化策略数量
 	count = result.RowsAffected
 	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		// errors.Is(result.Error, gorm.ErrRecordNotFound)
+		logs.Error(result.Error.Error())
 	}
 	if count > 0 {
 		logs.Info("设备id-%s 存在自动化策略配置,条数-%d", deviceId, count)
@@ -504,42 +521,42 @@ func (*ConditionsService) ConditionsConfigCheck(deviceId string, values map[stri
 }
 
 // 手动触发控制指令集
-func (*ConditionsService) ManualTrigger(conditions_id string) error {
-	var conditionConfig models.Condition
-	result := psql.Mydb.First(&conditionConfig, "id = ?", conditions_id)
-	if result.Error != nil {
-		return result.Error
-	}
-	res, err := simplejson.NewJson([]byte(conditionConfig.Config))
-	if err != nil {
-		logs.Error(err.Error())
-	}
-	var DeviceService DeviceService
-	DeviceService.ApplyControl(res, "", "2")
-	return nil
-}
+// func (*ConditionsService) ManualTrigger(conditions_id string) error {
+// 	var conditionConfig models.Condition
+// 	result := psql.Mydb.First(&conditionConfig, "id = ?", conditions_id)
+// 	if result.Error != nil {
+// 		return result.Error
+// 	}
+// 	res, err := simplejson.NewJson([]byte(conditionConfig.Config))
+// 	if err != nil {
+// 		logs.Error(err.Error())
+// 	}
+// 	var DeviceService DeviceService
+// 	DeviceService.ApplyControl(res, "", "2")
+// 	return nil
+// }
 
 // 根据业务id获取策略下拉
-func (*ConditionsService) ConditionsPullDownList(params valid.ConditionsPullDownListValidate) ([]map[string]interface{}, error) {
-	var values []interface{}
-	values = append(values, params.BusinessId)
-	sqlWhere := "business_id = ?"
-	if params.Status != "" {
-		values = append(values, params.Status)
-		sqlWhere += " and status = ?"
-	}
-	if params.ConditionsType != "" {
-		values = append(values, params.ConditionsType)
-		sqlWhere += " and type = ?"
-	}
-	if params.Issued != "" {
-		values = append(values, params.Issued)
-		sqlWhere += " and issued = ?"
-	}
-	var conditionConfig []map[string]interface{}
-	result := psql.Mydb.Model(&models.Condition{}).Select("id,name as policy_name,describe").Where(sqlWhere, values...).Order("sort ASC").Find(&conditionConfig)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return conditionConfig, nil
-}
+// func (*ConditionsService) ConditionsPullDownList(params valid.ConditionsPullDownListValidate) ([]map[string]interface{}, error) {
+// 	var values []interface{}
+// 	values = append(values, params.BusinessId)
+// 	sqlWhere := "business_id = ?"
+// 	if params.Status != "" {
+// 		values = append(values, params.Status)
+// 		sqlWhere += " and status = ?"
+// 	}
+// 	if params.ConditionsType != "" {
+// 		values = append(values, params.ConditionsType)
+// 		sqlWhere += " and type = ?"
+// 	}
+// 	if params.Issued != "" {
+// 		values = append(values, params.Issued)
+// 		sqlWhere += " and issued = ?"
+// 	}
+// 	var conditionConfig []map[string]interface{}
+// 	result := psql.Mydb.Model(&models.Condition{}).Select("id,name as policy_name,describe").Where(sqlWhere, values...).Order("sort ASC").Find(&conditionConfig)
+// 	if result.Error != nil {
+// 		return nil, result.Error
+// 	}
+// 	return conditionConfig, nil
+// }

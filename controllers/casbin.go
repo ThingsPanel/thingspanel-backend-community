@@ -46,30 +46,18 @@ func (CasbinController *CasbinController) AddFunctionToRole() {
 }
 
 // 查询角色的功能
-func (CasbinController *CasbinController) GetFunctionFromRole() {
-	RoleValidate := valid.RoleValidate{}
-	err := json.Unmarshal(CasbinController.Ctx.Input.RequestBody, &RoleValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(RoleValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(RoleValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(CasbinController.Ctx))
-			break
-		}
+func (c *CasbinController) GetFunctionFromRole() {
+	reqData := valid.RoleValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	var CasbinService services.CasbinService
-	roles, isSuccess := CasbinService.GetFunctionFromRole(RoleValidate.Role)
+	roles, isSuccess := CasbinService.GetFunctionFromRole(reqData.Role)
 	if isSuccess {
-		response.SuccessWithDetailed(200, "success", roles, map[string]string{}, (*context2.Context)(CasbinController.Ctx))
+		response.SuccessWithDetailed(200, "success", roles, map[string]string{}, (*context2.Context)(c.Ctx))
 	}
-	response.SuccessWithMessage(1000, "failed", (*context2.Context)(CasbinController.Ctx))
+	response.SuccessWithMessage(1000, "failed", (*context2.Context)(c.Ctx))
 }
 
 // 修改角色的功能

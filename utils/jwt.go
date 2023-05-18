@@ -1,10 +1,11 @@
 package utils
 
 import (
+	"ThingsPanel-Go/models"
 	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 )
 
 type UserClaims struct {
@@ -34,4 +35,17 @@ func ParseCliamsToken(token string) (*UserClaims, error) {
 		}
 	}
 	return nil, err
+}
+
+// 生成token,并返回token,过期时间1小时
+func GenerateToken(user *models.Users) (string, error) {
+	claims := UserClaims{
+		ID:         user.ID,
+		Name:       user.Email,
+		CreateTime: time.Now(),
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(time.Hour).Unix(),
+		}, //过期时间1小时
+	}
+	return MakeCliamsToken(claims)
 }

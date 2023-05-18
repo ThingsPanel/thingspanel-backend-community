@@ -19,38 +19,32 @@ type TpAutomationController struct {
 }
 
 // 列表
-func (TpAutomationController *TpAutomationController) List() {
-	PaginationValidate := valid.TpAutomationPaginationValidate{}
-	err := json.Unmarshal(TpAutomationController.Ctx.Input.RequestBody, &PaginationValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
+func (c *TpAutomationController) List() {
+	reqData := valid.TpAutomationPaginationValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(PaginationValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(PaginationValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpAutomationController.Ctx))
-			break
-		}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		utils.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	var TpAutomationService services.TpAutomationService
-	d, t, err := TpAutomationService.GetTpAutomationList(PaginationValidate)
+	d, t, err := TpAutomationService.GetTpAutomationList(reqData, tenantId)
 
 	if err != nil {
-		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(TpAutomationController.Ctx))
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	dd := valid.RspTpAutomationPaginationValidate{
-		CurrentPage: PaginationValidate.CurrentPage,
+		CurrentPage: reqData.CurrentPage,
 		Data:        d,
 		Total:       t,
-		PerPage:     PaginationValidate.PerPage,
+		PerPage:     reqData.PerPage,
 	}
-	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(TpAutomationController.Ctx))
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 编辑
@@ -85,30 +79,25 @@ func (TpAutomationController *TpAutomationController) Edit() {
 }
 
 // 新增
-func (TpAutomationController *TpAutomationController) Add() {
-	AddTpAutomationValidate := valid.AddTpAutomationValidate{}
-	err := json.Unmarshal(TpAutomationController.Ctx.Input.RequestBody, &AddTpAutomationValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(AddTpAutomationValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(AddTpAutomationValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpAutomationController.Ctx))
-			break
-		}
+func (c *TpAutomationController) Add() {
+	reqData := valid.AddTpAutomationValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		utils.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	reqData.TenantId = tenantId
 	var TpAutomationService services.TpAutomationService
-	d, rsp_err := TpAutomationService.AddTpAutomation(AddTpAutomationValidate)
+	d, rsp_err := TpAutomationService.AddTpAutomation(reqData)
 	if rsp_err == nil {
-		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpAutomationController.Ctx))
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(TpAutomationController.Ctx))
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
 	}
 }
 
