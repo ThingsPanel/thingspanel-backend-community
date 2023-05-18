@@ -43,6 +43,10 @@ func AuthMiddle() {
 			// 解析token
 			userMsg, err := utils.ParseCliamsToken(userToken)
 			if err != nil {
+				// 			authorization := ctx.Request.Header["Authorization"][0]
+				// 			userToken := authorization[7:]
+				// 			_, err := jwt.ParseCliamsToken(userToken)
+				// 			if err != nil || redis.GetStr(userToken) != "1" {
 				// 异常
 				utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
 				return
@@ -60,6 +64,12 @@ func AuthMiddle() {
 				return
 			}
 
+			// 验证用户是否存在
+			// 双层校验
+			// if psql.Mydb.Where("id = ? and name = ? ", user.ID, user.Name).First(&models.Users{}).Error == gorm.ErrRecordNotFound {
+			// 	response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))
+			// 	return
+			// }
 			// s, _ := cache.Bm.IsExist(c.TODO(), userToken)
 			// if !s {
 			// 	response.SuccessWithMessage(401, "Unauthorized", (*context2.Context)(ctx))

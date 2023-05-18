@@ -121,6 +121,8 @@ func (*WvpDeviceService) AddSubVideoDevice(device valid.EditDevice) error {
 			_, err = deviceService.Add(subDevice)
 			if err != nil {
 				logs.Error(err)
+				// 有失败设备就直接报错，以暴漏问题
+				return err
 			}
 		}
 	}
