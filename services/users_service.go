@@ -219,16 +219,27 @@ func (*UserService) AddUser(user valid.AddUser) (userModel models.Users, err err
 
 // 根据ID编辑一条user数据
 func (*UserService) Edit(id string, name string, email string, mobile string, remark string, enabled string) bool {
-	result := psql.Mydb.Model(&models.Users{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"name":       name,
-		"email":      email,
-		"mobile":     mobile,
-		"remark":     remark,
-		"updated_at": time.Now().Unix(),
-		"enabled":    enabled,
-	})
+
+	var result *gorm.DB
+	if len(enabled) == 0 {
+		result = psql.Mydb.Model(&models.Users{}).Where("id = ?", id).Updates(map[string]interface{}{
+			"name":       name,
+			"email":      email,
+			"mobile":     mobile,
+			"remark":     remark,
+			"updated_at": time.Now().Unix(),
+		})
+	} else {
+		result = psql.Mydb.Model(&models.Users{}).Where("id = ?", id).Updates(map[string]interface{}{
+			"name":       name,
+			"email":      email,
+			"mobile":     mobile,
+			"remark":     remark,
+			"updated_at": time.Now().Unix(),
+			"enabled":    enabled,
+		})
+	}
 	if result.Error != nil {
-		//errors.Is(result.Error, gorm.ErrRecordNotFound)
 		logs.Error(result.Error.Error())
 		return false
 	}
