@@ -141,6 +141,24 @@ func (*DeviceModelService) GetModelByPluginId(pluginId string) ([]interface{}, e
 	return model, nil
 }
 
+// 根据设备插件id获取物模型命令列表
+func (*DeviceModelService) GetModelCommandsByPluginId(pluginId string) ([]interface{}, error) {
+	var model []interface{}
+	var deviceModel models.DeviceModel
+	psql.Mydb.First(&deviceModel, "id = ?", pluginId)
+	chartDate, err := simplejson.NewJson([]byte(deviceModel.ChartData))
+	if err != nil {
+		return model, err
+	} else {
+		if value, err := chartDate.Get("tsl").Get("services").Array(); err != nil {
+			return model, err
+		} else {
+			model = value
+		}
+	}
+	return model, nil
+}
+
 // 根据设备插件id获取物模型属性的类型map
 func (*DeviceModelService) GetTypeMapByPluginId(pluginId string) (map[string]interface{}, error) {
 	var typeMap = make(map[string]interface{})

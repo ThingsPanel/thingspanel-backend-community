@@ -506,7 +506,7 @@ func (this *DeviceController) Configure() {
 	//DeviceService
 }
 
-//控制设备
+// 控制设备
 func (c *DeviceController) Operating() {
 	reqData := valid.OperatingDevice{}
 	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
@@ -972,4 +972,101 @@ func (c *DeviceController) DeviceListByProductId() {
 	}
 	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
 
+}
+
+// 设备事件上报历史纪录查询
+func (c *DeviceController) DeviceEventHistoryList() {
+	inputData := valid.DeviceEventCommandHistoryValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	offset := (inputData.CurrentPage - 1) * inputData.PerPage
+	var s services.DeviceEvnetHistory
+	data, count := s.GetDeviceEvnetHistoryListByDeviceId(offset, inputData.PerPage, inputData.DeviceId)
+	d := DataTransponList{
+		CurrentPage: inputData.CurrentPage,
+		Total:       count,
+		PerPage:     inputData.PerPage,
+		Data:        data,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+
+}
+
+// 设备命令下发历史纪录查询
+func (c *DeviceController) DeviceCommandHistoryList() {
+	inputData := valid.DeviceEventCommandHistoryValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+
+	offset := (inputData.CurrentPage - 1) * inputData.PerPage
+	var s services.DeviceCommandHistory
+	data, count := s.GetDeviceCommandHistoryListByDeviceId(offset, inputData.PerPage, inputData.DeviceId)
+	d := DataTransponList{
+		CurrentPage: inputData.CurrentPage,
+		Total:       count,
+		PerPage:     inputData.PerPage,
+		Data:        data,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+}
+
+// 查询设备支持的命令
+func (c *DeviceController) DeviceCommandList() {
+
+	inputData := valid.DeviceCommandListValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil || len(inputData.DeviceId) == 0 {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	}
+
+	var device services.DeviceService
+
+	deviceInfo, _ := device.GetDeviceByID(inputData.DeviceId)
+
+	// 没有设备或者没有绑定device_model
+	if len(deviceInfo.Type) == 0 {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	}
+
+	// 根据device.type，查询device_model.id
+	var deviceModel services.DeviceModelService
+	data, err := deviceModel.GetModelCommandsByPluginId(deviceInfo.Type)
+
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	response.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(c.Ctx))
+}
+
+// 向设备发送命令
+func (c *DeviceController) DeviceCommandSend() {
+	inputData := valid.DeviceCommandSendValid{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	}
+
+	var d services.DeviceService
+	device, i := d.Token(inputData.DeviceId)
+	if i == 0 {
+		response.SuccessWithMessage(400, "no device", (*context2.Context)(c.Ctx))
+	}
+
+	if device.Protocol != "mqtt" && device.Protocol != "MQTT" {
+		response.SuccessWithMessage(400, "protocol error", (*context2.Context)(c.Ctx))
+	}
+
+	d.SendCommandToDevice(
+		device, inputData.CommandIdentifier,
+		[]byte(inputData.CommandData),
+		inputData.CommandName,
+		inputData.Desc)
+
+	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
 }
