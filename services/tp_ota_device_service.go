@@ -218,7 +218,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 		logs.Error(err_b.Error())
 		return false
 	}
-	logs.Info(progressMsg)
+	logs.Info("收到设备", deviceid, "升级进度信息:", progressMsg)
 	logs.Info("-------------------------------")
 	// 很多其他公司，可能只能int型 只能文本 不合适
 	switch progressMsg.UpgradeProgress.(type) {
@@ -249,14 +249,18 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 		}
 		isUpgradeSuccess := utils.In(progressMsg.UpgradeProgress.(string), upgreadFailure)
 		if isUpgradeSuccess {
+			logs.Info("设备%s升级失败", deviceid)
 			progressMsg.UpgradeStatus = "4"
 			progressMsg.StatusDetail = progressMsg.UpgradeProgress.(string) + progressMsg.StatusDetail
 		} else if progressMsg.UpgradeProgress == "100" {
 			//升级成功判断
+			logs.Info("设备%s升级成功", deviceid)
 			progressMsg.UpgradeStatus = "3"
+			psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceid).Update("current_version", progressMsg.Module)
 		} else {
 			// 判断升级步骤是不是数字字符串0-100之间
 			if intProgress > 0 && intProgress < 100 {
+				logs.Info("设备%s升级进度更新%d", deviceid, intProgress)
 				progressMsg.UpgradeStatus = "2"
 			} else {
 				progressMsg.StatusDetail = progressMsg.UpgradeProgress.(string) + progressMsg.StatusDetail
@@ -264,7 +268,7 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 
 		}
 		//修改升级信息
-		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(&progressMsg)
+		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(models.TpOtaDevice{UpgradeProgress: progressMsg.UpgradeProgress.(string), UpgradeStatus: progressMsg.UpgradeStatus, StatusUpdateTime: progressMsg.StatusUpdateTime, StatusDetail: progressMsg.StatusDetail})
 		return true
 	}
 	return false
