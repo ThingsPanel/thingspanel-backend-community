@@ -128,3 +128,16 @@ func (*BusinessService) All() ([]AllBusiness, int64) {
 	}
 	return businesses, count
 }
+
+// 获取当前租户的所有business
+func (*BusinessService) GetBusinessByTenantId(tenantId string) []models.Business {
+	var businesses []models.Business
+	result := psql.Mydb.Where("tenant_id = ?", tenantId).Find(&businesses)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+	}
+	if len(businesses) == 0 {
+		businesses = []models.Business{}
+	}
+	return businesses
+}

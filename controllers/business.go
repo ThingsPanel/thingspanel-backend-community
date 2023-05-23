@@ -55,6 +55,13 @@ type TreeBusiness3 struct {
 	Name string `json:"name"`
 }
 
+type TreeBusinessAsset struct {
+	ID        string                   `json:"id"`
+	Name      string                   `json:"name"`
+	CreatedAt int64                    `json:"created_at"`
+	Assets    []map[string]interface{} `json:"asset_list"`
+}
+
 // 获取列表
 func (c *BusinessController) Index() {
 	reqData := valid.PaginateBusiness{}
@@ -290,4 +297,32 @@ func (this *BusinessController) Tree() {
 	}
 	response.SuccessWithDetailed(200, "success", "", map[string]string{}, (*context2.Context)(this.Ctx))
 	return
+}
+
+// 根据租户ID，查询所有business/
+func (c *BusinessController) BusinessAssetTree() {
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var rData []TreeBusinessAsset
+	var bs services.BusinessService
+	allB := bs.GetBusinessByTenantId(tenantId)
+	if len(allB) == 0 {
+		response.SuccessWithDetailed(200, "success", rData, map[string]string{}, (*context2.Context)(c.Ctx))
+		return
+	}
+	var as services.AssetService
+	for _, v := range allB {
+		aData, _ := as.DeviceGroupByBussinessID(v.ID, tenantId)
+		var tmpTree TreeBusinessAsset
+		tmpTree.ID = v.ID
+		tmpTree.Name = v.Name
+		tmpTree.CreatedAt = v.CreatedAt
+		tmpTree.Assets = aData
+		rData = append(rData, tmpTree)
+	}
+	response.SuccessWithDetailed(200, "success", rData, map[string]string{}, (*context2.Context)(c.Ctx))
 }
