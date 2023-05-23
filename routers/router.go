@@ -126,6 +126,9 @@ func init() {
 		web.NSRouter("business/delete", &controllers.BusinessController{}, "*:Delete"), //yewu-w
 		web.NSRouter("business/tree", &controllers.BusinessController{}, "*:Tree"),
 
+		// 业务和分组查询
+		web.NSRouter("business/asset/tree", &controllers.BusinessController{}, "*:BusinessAssetTree"),
+
 		// 设备新增
 		web.NSRouter("/device/add_only", &controllers.DeviceController{}, "*:AddOnly"),       //shebei-w
 		web.NSRouter("/device/update_only", &controllers.DeviceController{}, "*:UpdateOnly"), //shebei-w
