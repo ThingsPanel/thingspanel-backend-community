@@ -287,7 +287,7 @@ func (TpBatchController *TpBatchController) Import() {
 		utils.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(TpBatchController.Ctx))
 	} else {
 		var err string
-		isTrue := strings.Contains(rsp_err.Error(), "23505")
+		isTrue := strings.Contains(rsp_err1.Error(), "23505")
 		if isTrue {
 			err = "批次编号不能重复！"
 		} else {
