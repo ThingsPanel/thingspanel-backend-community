@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -178,30 +177,4 @@ func FormatFileSize(fileSize int64) (size string) {
 	} else { //if fileSize < (1024 * 1024 * 1024 * 1024 * 1024 * 1024)
 		return fmt.Sprintf("%.2fEB", float64(fileSize)/float64(1024*1024*1024*1024*1024))
 	}
-}
-
-type HttpRange struct {
-	Start int64
-	End   int64
-}
-
-// 解析 Range 头部信息
-func ParseRange(rangeHeader string) ([]HttpRange, error) {
-	rangeStr := strings.Replace(rangeHeader, "bytes=", "", 1)
-	rangeParts := strings.Split(rangeStr, "-")
-	if len(rangeParts) != 2 {
-		return nil, fmt.Errorf("Invalid Range header")
-	}
-
-	start, err := strconv.ParseInt(rangeParts[0], 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid Range header")
-	}
-
-	end, err := strconv.ParseInt(rangeParts[1], 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid Range header")
-	}
-
-	return []HttpRange{{Start: start, End: end}}, nil
 }

@@ -379,7 +379,7 @@ func init() {
 		web.NSRouter("/tp_ota_device/list", &controllers.TpOtaDeviceController{}, "*:List"),
 		web.NSRouter("/tp_ota_device/modfiyupdate", &controllers.TpOtaDeviceController{}, "*:ModfiyUpdate"),
 		//固件下载断点续传
-		web.NSRouter("/ota/download/:date/:path", &controllers.TpOtaDeviceController{}, "get:Download"),
+		web.NSRouter("/ota/download/*", &controllers.TpOtaDeviceController{}, "get:Download"),
 		//WVP接口
 		web.NSRouter("/wvp/ptz", &controllers.WvpController{}, "*:PtzControl"),
 		web.NSRouter("/gb_record/query", &controllers.WvpController{}, "*:GetVideoList"),
