@@ -25,6 +25,7 @@ require (
 )
 
 require (
+	github.com/beego/beego v1.12.12 // indirect
 	github.com/denisenkom/go-mssqldb v0.12.0 // indirect
 	github.com/frankban/quicktest v1.14.4 // indirect
 	github.com/glebarez/go-sqlite v1.16.0 // indirect
@@ -36,6 +37,7 @@ require (
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.24.1 // indirect
+	github.com/panjf2000/ants v1.2.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect

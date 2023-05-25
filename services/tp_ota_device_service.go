@@ -3,7 +3,7 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
-	"ThingsPanel-Go/modules/dataService/mqtt"
+	sendmqtt "ThingsPanel-Go/modules/dataService/mqtt/sendMqtt"
 	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
@@ -381,7 +381,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 			logs.Error(json_err.Error())
 		} else {
 			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Updates(map[string]interface{}{"upgrade_status": "1", "status_detail": "已通知设备", "status_update_time": time.Now().Format("2006-01-02 15:04:05")})
-			go mqtt.SendOtaAdress(msgdata, device.Token)
+			go sendmqtt.SendOtaAdress(msgdata, device.Token)
 		}
 	}
 	return nil

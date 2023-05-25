@@ -4,7 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/models"
-	cm "ThingsPanel-Go/modules/dataService/mqtt"
+	sendmqtt "ThingsPanel-Go/modules/dataService/mqtt/sendMqtt"
 	tphttp "ThingsPanel-Go/others/http"
 	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
@@ -740,14 +740,15 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 		}
 		if device.Protocol == "mqtt" {
 			logs.Info("直连设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
-			err = cm.Send(msg, device.Token)
+
+			err = sendmqtt.Send(msg, device.Token)
 		} else { // 协议设备
 			logs.Info("直连协议设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
 			//获取协议插件订阅topic
 			var TpProtocolPluginService TpProtocolPluginService
 			pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "1")
 			var topic = pp.SubTopicPrefix + device.Token
-			err = cm.SendPlugin(msg, topic)
+			err = sendmqtt.SendPlugin(msg, topic)
 		}
 
 	} else if device.DeviceType == "3" && device.Protocol != "MQTT" { // 协议插件子设备
@@ -760,7 +761,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 			if err != nil {
 				return err
 			}
-			err = cm.SendPlugin(msg, topic)
+			err = sendmqtt.SendPlugin(msg, topic)
 		} else { //其他协议插件
 			var gatewayDevice *models.Device
 			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
@@ -782,7 +783,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 					return err
 				}
 				logs.Info("网关设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
-				err = cm.SendPlugin(msgBytes, topic)
+				err = sendmqtt.SendPlugin(msgBytes, topic)
 			}
 		}
 
@@ -805,7 +806,7 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 					return err
 				}
 				logs.Info("网关设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
-				err = cm.SendGateWay(msg, gatewayDevice.Token, gatewayDevice.Protocol)
+				err = sendmqtt.SendGateWay(msg, gatewayDevice.Token, gatewayDevice.Protocol)
 			}
 		} else {
 			return errors.New("子设备网关不存在或子设备地址为空！")
@@ -1166,7 +1167,7 @@ func (*DeviceService) SendCommandToDevice(
 		topic += device.Token
 		fmt.Println("topic-2:", topic)
 
-		if cm.SendMQTT(commandData, topic, 1) == nil {
+		if sendmqtt.SendMQTT(commandData, topic, 1) == nil {
 			sendRes = 1
 		}
 
@@ -1188,7 +1189,7 @@ func (*DeviceService) SendCommandToDevice(
 			}
 			topic += gatewayDevice.Token
 
-			if cm.SendMQTT(commandData, topic, 1) == nil {
+			if sendmqtt.SendMQTT(commandData, topic, 1) == nil {
 				sendRes = 1
 			}
 

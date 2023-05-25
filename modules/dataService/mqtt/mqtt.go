@@ -1,216 +1,107 @@
 package mqtt
 
 import (
+	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
-	"errors"
 	"fmt"
 	"os"
 	"time"
 
-	"github.com/beego/beego/v2/core/logs"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/spf13/viper"
+	"github.com/panjf2000/ants"
 )
 
-var running bool
-var _client mqtt.Client
+var MqttClient mqtt.Client
 
-func Listen(broker, username, password, clientid string, msgProc func(c mqtt.Client, m mqtt.Message),
-	msgProcOther func(c mqtt.Client, m mqtt.Message),
-	gatewayMsgProc func(c mqtt.Client, m mqtt.Message),
-	otaProgressMsgProc func(c mqtt.Client, m mqtt.Message),
-	otaToinformMsgProc func(c mqtt.Client, m mqtt.Message),
-	deviceEvent func(c mqtt.Client, m mqtt.Message),
-) (err error) {
-	running = false
-	if _client == nil {
-		// 掉线重连
-		var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-			fmt.Printf("Mqtt Connect lost: %v", err)
-			i := 0
-			for {
+const (
+	Qos0 = byte(0)
+	Qos1 = byte(1)
+	Qos2 = byte(2)
+)
 
-				time.Sleep(5 * time.Second)
-				if !_client.IsConnectionOpen() {
-					i++
-					fmt.Println("MQTT掉线重连...", i)
-				} else {
-					subscribe(msgProcOther, gatewayMsgProc, otaProgressMsgProc, otaToinformMsgProc, deviceEvent)
-					break
-				}
-			}
+const (
+	Topic_DeviceAttributes  = "device/attributes"
+	Topic_DeviceStatus      = "device/status"
+	Topic_OtaDeviceProgress = "ota/device/progress"
+	Topic_OtaDeviceInform   = "ota/device/inform"
+	Topic_DeviceCommand     = "device/command"
+	Topic_DeviceEvent       = "device/event"
+	Topic_GatewayAttributes = "gateway/attributes"
+)
+
+// 所有订阅的Topic
+var TopicList = map[string]byte{
+	Topic_DeviceAttributes:  Qos0,
+	Topic_DeviceStatus:      Qos0,
+	Topic_OtaDeviceProgress: Qos0,
+	Topic_DeviceCommand:     Qos0,
+	Topic_DeviceEvent:       Qos0,
+	Topic_OtaDeviceInform:   Qos0,
+	Topic_GatewayAttributes: Qos0,
+}
+
+func ListenNew(broker, username, password string) (err error) {
+	opts := mqtt.NewClientOptions()
+	opts.SetUsername(username)
+	opts.SetPassword(password)
+	opts.SetClientID(utils.GetUuid())
+	opts.AddBroker(broker)
+	// 自动重连
+	opts.SetAutoReconnect(true)
+	// 重连间隔时间
+	opts.SetConnectRetryInterval(time.Duration(5) * time.Second)
+	opts.SetOrderMatters(false)
+
+	var s services.TSKVService
+	var device services.DeviceService
+	var otaDevice services.TpOtaDeviceService
+
+	opts.SetDefaultPublishHandler(func(c mqtt.Client, m mqtt.Message) {
+		s.MsgProc(m.Payload(), m.Topic())
+	})
+
+	MqttClient = mqtt.NewClient(opts)
+
+	if token := MqttClient.Connect(); token.Wait() && token.Error() != nil {
+		panic(token.Error())
+	}
+	p1, _ := ants.NewPool(500)
+	pOther, _ := ants.NewPool(500)
+	var messageHandler mqtt.MessageHandler = func(c mqtt.Client, d mqtt.Message) {
+		switch d.Topic() {
+		case Topic_DeviceAttributes: // device/attributes // topicToSubscribe
+			_ = p1.Submit(func() {
+				s.MsgProc(d.Payload(), d.Topic())
+			})
+		case Topic_DeviceStatus: // "device/status" // topicToStatus
+			_ = pOther.Submit(func() {
+				s.MsgProcOther(d.Payload(), d.Topic())
+			})
+		case Topic_DeviceEvent: // device/event // topicToEvent
+			_ = p1.Submit(func() {
+				device.SubscribeDeviceEvent(d.Payload(), d.Topic())
+			})
+		case Topic_OtaDeviceInform: // ota/device/inform // topicToInform
+			_ = p1.Submit(func() {
+				otaDevice.OtaToinformMsgProcOther(d.Payload(), d.Topic())
+			})
+		case Topic_OtaDeviceProgress: // ota/device/progress // topicToProgress
+			_ = p1.Submit(func() {
+				otaDevice.OtaProgressMsgProc(d.Payload(), d.Topic())
+			})
+		case Topic_GatewayAttributes: // gateway/attributes // gateway_topic
+			_ = p1.Submit(func() {
+				s.GatewayMsgProc(d.Payload(), d.Topic())
+			})
+		default:
+			fmt.Println("undefine topic")
 		}
-		opts := mqtt.NewClientOptions()
-		fmt.Println(broker + username + clientid)
-		opts.SetUsername(username)
-		opts.SetPassword(password)
-		opts.SetClientID(clientid)
-		opts.AddBroker(broker)
-		opts.SetAutoReconnect(true)
-		opts.SetOrderMatters(false)
-		opts.OnConnectionLost = connectLostHandler
-		opts.SetOnConnectHandler(func(c mqtt.Client) {
-			if !running {
-				fmt.Println("MQTT CONNECT SUCCESS -- ", broker)
-			}
-			running = true
-		})
-		opts.SetDefaultPublishHandler(func(c mqtt.Client, m mqtt.Message) {
-			msgProc(c, m)
-		})
-		_client = mqtt.NewClient(opts)
-		reconnec_number := 0
-		for { // 失败重连
-			if token := _client.Connect(); token.Wait() && token.Error() != nil {
-				reconnec_number++
-				fmt.Println("MQTT连接失败...重试", reconnec_number)
-			} else {
-				break
-			}
-			time.Sleep(5 * time.Second)
-		}
-		subscribe(msgProcOther, gatewayMsgProc, otaProgressMsgProc, otaToinformMsgProc, deviceEvent)
-
 	}
-	return
-}
-
-// mqtt订阅
-func subscribe(
-	msgProcOther func(c mqtt.Client, m mqtt.Message),
-	gatewayMsgProc func(c mqtt.Client, m mqtt.Message),
-	otaProgressMsgProc func(c mqtt.Client, m mqtt.Message),
-	otaToinformMsgProc func(c mqtt.Client, m mqtt.Message),
-	deviceEvent func(c mqtt.Client, m mqtt.Message)) {
-	// 订阅默认，直连设备
-	if token := _client.Subscribe(viper.GetString("mqtt.topicToSubscribe"), byte(viper.GetUint("mqtt.qos")), nil); token.Wait() &&
-		token.Error() != nil {
-		fmt.Println(token.Error())
-		os.Exit(1)
-	}
-	//订阅网关
-	if token := _client.Subscribe(viper.GetString("mqtt.gateway_topic"), byte(viper.GetUint("mqtt.qos")), func(c mqtt.Client, m mqtt.Message) {
-		gatewayMsgProc(c, m)
-	}); token.Wait() &&
-		token.Error() != nil {
-		fmt.Println(token.Error())
-		os.Exit(1)
-	}
-	// if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), byte(viper.GetUint("mqtt.qos")), func(c mqtt.Client, m mqtt.Message) {
-	if token := _client.Subscribe(viper.GetString("mqtt.topicToStatus"), byte(1), func(c mqtt.Client, m mqtt.Message) {
-
-		msgProcOther(c, m)
-	}); token.Wait() &&
-		token.Error() != nil {
-		fmt.Println(token.Error())
-		os.Exit(1)
-	}
-	//订阅ota升级信息
-	if token := _client.Subscribe(viper.GetString("mqtt.topicToProgress"), byte(1), func(c mqtt.Client, m mqtt.Message) {
-
-		otaProgressMsgProc(c, m)
-	}); token.Wait() &&
-		token.Error() != nil {
-		fmt.Println(token.Error())
-		os.Exit(1)
-	}
-	//订阅ota版本上报信息
-	if token := _client.Subscribe(viper.GetString("mqtt.topicToInform"), byte(1), func(c mqtt.Client, m mqtt.Message) {
-
-		otaToinformMsgProc(c, m)
-	}); token.Wait() &&
-		token.Error() != nil {
+	// 批量订阅
+	if token := MqttClient.SubscribeMultiple(TopicList, messageHandler); token.Wait() && token.Error() != nil {
 		fmt.Println(token.Error())
 		os.Exit(1)
 	}
 
-	//订阅设备上报的事件
-	if token := _client.Subscribe(viper.GetString("mqtt.topicToEvent"), byte(1), func(c mqtt.Client, m mqtt.Message) {
-		deviceEvent(c, m)
-	}); token.Wait() &&
-		token.Error() != nil {
-		fmt.Println(token.Error())
-		os.Exit(1)
-	}
-}
-
-// 发送消息给直连设备
-func Send(payload []byte, token string) (err error) {
-	if _client == nil {
-		return errors.New("_client is error")
-	}
-	logs.Info("-------------------")
-	logs.Info(viper.GetString("mqtt.topicToPublish") + "/" + token)
-	logs.Info(utils.ReplaceUserInput(string(payload)))
-	logs.Info("-------------------")
-	t := _client.Publish(viper.GetString("mqtt.topicToPublish")+"/"+token, byte(viper.GetUint("mqtt.publishQos")), false, string(payload))
-	if t.Error() != nil {
-		fmt.Println(t.Error())
-	}
-	return t.Error()
-}
-
-// 发送ota版本包消息给直连设备
-func SendOtaAdress(payload []byte, token string) (err error) {
-	if _client == nil {
-		return errors.New("_client is error")
-	}
-	logs.Info("-------------------")
-	logs.Info(viper.GetString("mqtt.topicToInform") + "/" + token)
-	logs.Info(utils.ReplaceUserInput(string(payload)))
-	logs.Info("-------------------")
-	t := _client.Publish(viper.GetString("mqtt.topicToInform")+"/"+token, byte(viper.GetUint("mqtt.publishQos")), false, string(payload))
-	if t.Error() != nil {
-		fmt.Println(t.Error())
-	}
-	return t.Error()
-}
-func SendGateWay(payload []byte, token string, protocol string) (err error) {
-	var clientErr = errors.New("_client is error")
-	if _client == nil {
-		return clientErr
-	}
-	logs.Info("-------------------")
-	logs.Info(viper.GetString("mqtt.gateway_topic") + "/" + token)
-	logs.Info(utils.ReplaceUserInput(string(payload)))
-	logs.Info("-------------------")
-	t := _client.Publish(viper.GetString("mqtt.gateway_topic")+"/"+token, 1, false, string(payload))
-	if t.Error() != nil {
-		fmt.Println(t.Error())
-	}
-	return t.Error()
-}
-
-func SendPlugin(payload []byte, topic string) (err error) {
-	var clientErr = errors.New("_client is error")
-	if _client == nil {
-		return clientErr
-	}
-	logs.Info("-------------------")
-	logs.Info(topic)
-	logs.Info(utils.ReplaceUserInput(string(payload)))
-	logs.Info("-------------------")
-	t := _client.Publish(topic, 1, false, string(payload))
-	if t.Error() != nil {
-		fmt.Println(t.Error())
-	}
-	return t.Error()
-}
-
-func SendMQTT(payload []byte, topic string, qos byte) (err error) {
-	var clientErr = errors.New("_client is error")
-	if _client == nil {
-		return clientErr
-	}
-	t := _client.Publish(topic, qos, false, string(payload))
-	if t.Error() != nil {
-		return t.Error()
-	}
-	return nil
-}
-
-func Close() {
-	if _client != nil {
-		_client.Disconnect(3000)
-	}
+	return err
 }
