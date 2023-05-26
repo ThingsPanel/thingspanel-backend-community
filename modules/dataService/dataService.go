@@ -2,6 +2,7 @@ package dataService
 
 import (
 	"ThingsPanel-Go/modules/dataService/mqtt"
+	mqtts "ThingsPanel-Go/modules/dataService/mqtts/connect"
 	"ThingsPanel-Go/modules/dataService/tcp"
 	tphttp "ThingsPanel-Go/others/http"
 	"flag"
@@ -21,6 +22,10 @@ func init() {
 	log.Println("链接mqtt服务...")
 	listenMQTTNew()
 	log.Println("链接mqtt服务完成")
+
+	// log.Println("连接mqtt over tls服务...")
+	// listenMQTTS()
+	// log.Println("连接mqtt over tls完成...")
 	// listenTCP()
 }
 
@@ -45,6 +50,16 @@ func listenMQTTNew() {
 	user := viper.GetString("mqtt.user")
 	pass := viper.GetString("mqtt.pass")
 	mqtt.ListenNew(broker, user, pass)
+}
+
+func listenMQTTS() {
+	broker := viper.GetString("mqtts.broker")
+	user := viper.GetString("mqtts.user")
+	pass := viper.GetString("mqtts.pass")
+	caPath := viper.GetString("mqtts.caPath")
+	crtPath := viper.GetString("mqtts.crtPath")
+	keyPath := viper.GetString("mqtts.keyPath")
+	mqtts.Connect(broker, user, pass, caPath, crtPath, keyPath)
 }
 
 // 废弃
