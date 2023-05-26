@@ -110,91 +110,98 @@ func (this *AssetController) Index() {
 // }
 
 // 单独添加资产
-func (reqDate *AssetController) AddOnly() {
-	assetValidate := valid.Asset{}
-	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &assetValidate)
+func (c *AssetController) AddOnly() {
+	reqData := valid.Asset{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(assetValidate)
+	status, _ := v.Valid(reqData)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(assetValidate, err.Field)
+			alias := gvalid.GetAlias(reqData, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
-			break
-		}
-		return
-	}
-	asset_id := uuid.GetUuid()
-	asset := models.Asset{
-		ID:         asset_id,
-		Name:       assetValidate.Name,
-		Tier:       assetValidate.Tier,
-		ParentID:   assetValidate.ParentID,
-		BusinessID: assetValidate.BusinessID,
-	}
-	result := psql.Mydb.Create(asset)
-	if result.Error == nil {
-		response.SuccessWithDetailed(200, "success", asset, map[string]string{}, (*context2.Context)(reqDate.Ctx))
-		return
-	}
-	response.SuccessWithMessage(400, "插入失败", (*context2.Context)(reqDate.Ctx))
-}
-
-// 单独修改资产
-func (reqDate *AssetController) UpdateOnly() {
-	assetValidate := valid.Asset{}
-	err := json.Unmarshal(reqDate.Ctx.Input.RequestBody, &assetValidate)
-	if err != nil {
-		fmt.Println("参数解析失败", err.Error())
-	}
-	v := validation.Validation{}
-	status, _ := v.Valid(assetValidate)
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(assetValidate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			response.SuccessWithMessage(1000, message, (*context2.Context)(reqDate.Ctx))
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
 	// 获取用户租户id
-	tenantId, ok := reqDate.Ctx.Input.GetData("tenant_id").(string)
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(reqDate.Ctx))
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	asset_id := uuid.GetUuid()
+	asset := models.Asset{
+		ID:         asset_id,
+		Name:       reqData.Name,
+		Tier:       reqData.Tier,
+		ParentID:   reqData.ParentID,
+		BusinessID: reqData.BusinessID,
+		TenantId:   tenantId,
+	}
+	result := psql.Mydb.Create(asset)
+	if result.Error == nil {
+		response.SuccessWithDetailed(200, "success", asset, map[string]string{}, (*context2.Context)(c.Ctx))
+		return
+	}
+	response.SuccessWithMessage(400, "插入失败", (*context2.Context)(c.Ctx))
+}
+
+// 单独修改资产
+func (c *AssetController) UpdateOnly() {
+	reqData := valid.Asset{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(reqData)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(reqData, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
 	//修改的数据是否属于该租户
 	var AssetService services.AssetService
-	f, c := AssetService.GetAssetById(assetValidate.ID)
+	f, count := AssetService.GetAssetById(reqData.ID)
 	//无数据修改
-	if c <= 0 {
-		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+	if count <= 0 {
+		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(c.Ctx))
 		return
 	}
 	//修改的数据不属于该租户
 	if f.TenantId != tenantId {
-		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(c.Ctx))
 		return
 	}
 	var asset = models.Asset{
-		ID:         assetValidate.ID,
-		Name:       assetValidate.Name,
-		ParentID:   assetValidate.ParentID,
-		BusinessID: assetValidate.BusinessID,
-		Tier:       assetValidate.Tier,
+		ID:         reqData.ID,
+		Name:       reqData.Name,
+		ParentID:   reqData.ParentID,
+		BusinessID: reqData.BusinessID,
+		Tier:       reqData.Tier,
 	}
 	result := psql.Mydb.Save(&asset)
 	if result.Error == nil {
-		response.SuccessWithDetailed(200, "success", assetValidate, map[string]string{}, (*context2.Context)(reqDate.Ctx))
+		response.SuccessWithDetailed(200, "success", reqData, map[string]string{}, (*context2.Context)(c.Ctx))
 		return
 	}
-	response.SuccessWithMessage(400, "修改失败", (*context2.Context)(reqDate.Ctx))
+	response.SuccessWithMessage(400, "修改失败", (*context2.Context)(c.Ctx))
 }
 
 // 编辑资产
