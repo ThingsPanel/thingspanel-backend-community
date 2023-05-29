@@ -6,6 +6,7 @@ require github.com/beego/beego/v2 v2.0.7
 
 require (
 	github.com/PaulXu-cn/goeval v0.1.1
+	github.com/beego/beego v1.12.12
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/casbin/casbin/v2 v2.47.1
 	github.com/eclipse/paho.mqtt.golang v1.3.5
@@ -15,17 +16,16 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/lib/pq v1.10.7
 	github.com/mintance/go-uniqid v0.0.0-20180517195806-49cb885aad99
+	github.com/panjf2000/ants v1.2.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spf13/viper v1.15.0
 	github.com/xuri/excelize/v2 v2.4.1
-	github.com/zenghouchao/timeHelper v0.0.0-20201203030136-4b25ad48f2bd
 	golang.org/x/crypto v0.8.0
 	gorm.io/driver/postgres v1.3.4
 	gorm.io/gorm v1.23.4
 )
 
 require (
-	github.com/beego/beego v1.12.12 // indirect
 	github.com/denisenkom/go-mssqldb v0.12.0 // indirect
 	github.com/frankban/quicktest v1.14.4 // indirect
 	github.com/glebarez/go-sqlite v1.16.0 // indirect
@@ -37,7 +37,6 @@ require (
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.24.1 // indirect
-	github.com/panjf2000/ants v1.2.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
@@ -83,7 +82,6 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
-	github.com/panjf2000/ants/v2 v2.5.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
