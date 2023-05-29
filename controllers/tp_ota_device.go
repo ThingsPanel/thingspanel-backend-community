@@ -8,6 +8,10 @@ import (
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -140,4 +144,84 @@ func (c *TpOtaDeviceController) ModfiyUpdate() {
 	} else {
 		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
 	}
+}
+
+//升级包下载
+func (c *TpOtaDeviceController) Download() {
+	filepath := c.Ctx.Input.Param(":splat")
+	fmt.Println("filepath:", filepath)
+	if filepath == "" {
+		utils.SuccessWithMessage(1000, "参数错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	//判断文件是否存在
+	if !utils.FileExist(filepath) {
+		utils.SuccessWithMessage(1000, "文件不存在", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	//检查是否存在Range头部信息
+	rangeHeader := c.Ctx.Input.Header("Range")
+	//如果不存在则直接下载
+	if rangeHeader == "" {
+		c.Ctx.Output.Download(filepath)
+	}
+	//发送文件部分内容
+	c.serveRangeFile(filepath, rangeHeader)
+
+}
+
+//断点续传下载
+func (c *TpOtaDeviceController) serveRangeFile(filePath string, rangeHeader string) {
+	//解析Range头部信息
+	rangeStr := strings.Replace(rangeHeader, "bytes=", "", 1)
+	rangeParts := strings.Split(rangeStr, "-")
+	if len(rangeParts) != 2 {
+		c.Abort("416")
+	}
+
+	start, err := strconv.ParseInt(rangeParts[0], 10, 64)
+	if err != nil {
+		c.Abort("416")
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		c.Abort("500")
+	}
+	defer file.Close()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		c.Abort("500")
+	}
+
+	fileSize := fileInfo.Size()
+
+	if rangeParts[1] == "" {
+		rangeParts[1] = fmt.Sprintf("%d", fileSize-1)
+	}
+	end, err := strconv.ParseInt(rangeParts[1], 10, 64)
+	if err != nil {
+		c.Abort("416")
+	}
+
+	if start >= fileSize || end >= fileSize {
+		c.Abort("400")
+	}
+
+	contentLength := end - start + 1
+
+	c.Ctx.Output.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
+	c.Ctx.Output.Header("Accept-Ranges", "bytes")
+	c.Ctx.Output.Header("Content-Length", fmt.Sprintf("%d", contentLength))
+	c.Ctx.Output.Header("Content-Type", filePath[len(filePath)-3:])
+	c.Ctx.Output.SetStatus(http.StatusPartialContent)
+
+	_, err = file.Seek(start, io.SeekStart)
+	if err != nil {
+		c.Abort("500")
+	}
+
+	io.CopyN(c.Ctx.ResponseWriter, file, contentLength)
 }

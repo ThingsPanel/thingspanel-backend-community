@@ -90,8 +90,12 @@ func (uploadController *UploadController) UpFile() {
 		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(uploadController.Ctx))
 	}
 	fpath := uploadDir + fileName
+
 	defer f.Close() //关闭上传的文件，不然的话会出现临时文件不能清除的情况
 	err = uploadController.SaveToFile("file", fpath)
+	if fileType == "upgradePackage" {
+		fpath = "./api/ota/download/files/" + fileType + "/" + time.Now().Format("2006-01-02/") + fileName
+	}
 	if err != nil {
 		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(uploadController.Ctx))
 	}
