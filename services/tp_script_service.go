@@ -7,7 +7,6 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"strings"
 
@@ -92,15 +91,14 @@ func (*TpScriptService) QuizTpScript(code, msgcotent, topic string) (string, err
 	if msgcotent == "" || code == "" {
 		return "", errors.New("msg or code is null")
 	}
-	msg, err := json.Marshal(msgcotent)
-	if err != nil {
-		return "", err
-	}
 	if strings.HasPrefix(msgcotent, "0x") {
-		msg, err = hex.DecodeString(strings.ReplaceAll(msgcotent, "0x", ""))
+		msg, err := hex.DecodeString(strings.ReplaceAll(msgcotent, "0x", ""))
 		if err != nil {
 			return "", err
 		}
+		return utils.ScriptDeal(code, msg, topic)
+	} else {
+		return utils.ScriptDeal(code, []byte(msgcotent), topic)
 	}
-	return utils.ScriptDeal(code, msg, topic)
+
 }
