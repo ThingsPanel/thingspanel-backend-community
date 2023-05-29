@@ -15,7 +15,8 @@ import (
 
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/bitly/go-simplejson"
-	"github.com/zenghouchao/timeHelper"
+
+	//"github.com/zenghouchao/timeHelper"
 	"gorm.io/gorm"
 )
 
@@ -496,46 +497,46 @@ func (*TSKVService) Paginate(business_id, asset_id, token string, t_type int64, 
 	return tsk, count
 }
 
-func (*TSKVService) GetAllByCondition(entity_id string, t int64, start_time string, end_time string) ([]models.TSKV, int64) {
-	var tSKVs []models.TSKV
-	var count int64
-	result := psql.Mydb.Model(&models.TSKV{})
-	result2 := psql.Mydb.Model(&models.TSKV{})
-	if entity_id != "" {
-		result = result.Where("entity_id = ?", entity_id)
-		result2 = result2.Where("entity_id = ?", entity_id)
-	}
-	if t == 1 {
-		today_start, today_end := timeHelper.Today()
-		result = result.Where("ts between ? AND ?", today_start*1000, today_end*1000)
-		result2 = result2.Where("ts between ? AND ?", today_start*1000, today_end*1000)
-	} else if t == 2 {
-		week_start, week_end := timeHelper.Week()
-		result = result.Where("ts between ? AND ?", week_start*1000, week_end*1000)
-		result2 = result2.Where("ts between ? AND ?", week_start*1000, week_end*1000)
-	} else if t == 3 {
-		month_start, month_end := timeHelper.Month()
-		result = result.Where("ts between ? AND ?", month_start*1000, month_end*1000)
-		result2 = result2.Where("ts between ? AND ?", month_start*1000, month_end*1000)
-	} else if t == 4 {
-		timeTemplate := "2006-01-02 15:04:05"
-		start_date, _ := time.ParseInLocation(timeTemplate, start_time, time.Local)
-		end_date, _ := time.ParseInLocation(timeTemplate, end_time, time.Local)
-		start := start_date.Unix()
-		end := end_date.Unix()
-		result = result.Where("ts between ? AND ?", start*1000, end*1000)
-		result2 = result2.Where("ts between ? AND ?", start*1000, end*1000)
-	}
-	result = result.Order("ts desc").Find(&tSKVs)
-	result2.Count(&count)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-	}
-	if len(tSKVs) == 0 {
-		tSKVs = []models.TSKV{}
-	}
-	return tSKVs, count
-}
+// func (*TSKVService) GetAllByCondition(entity_id string, t int64, start_time string, end_time string) ([]models.TSKV, int64) {
+// 	var tSKVs []models.TSKV
+// 	var count int64
+// 	result := psql.Mydb.Model(&models.TSKV{})
+// 	result2 := psql.Mydb.Model(&models.TSKV{})
+// 	if entity_id != "" {
+// 		result = result.Where("entity_id = ?", entity_id)
+// 		result2 = result2.Where("entity_id = ?", entity_id)
+// 	}
+// 	if t == 1 {
+// 		today_start, today_end := timeHelper.Today()
+// 		result = result.Where("ts between ? AND ?", today_start*1000, today_end*1000)
+// 		result2 = result2.Where("ts between ? AND ?", today_start*1000, today_end*1000)
+// 	} else if t == 2 {
+// 		week_start, week_end := timeHelper.Week()
+// 		result = result.Where("ts between ? AND ?", week_start*1000, week_end*1000)
+// 		result2 = result2.Where("ts between ? AND ?", week_start*1000, week_end*1000)
+// 	} else if t == 3 {
+// 		month_start, month_end := timeHelper.Month()
+// 		result = result.Where("ts between ? AND ?", month_start*1000, month_end*1000)
+// 		result2 = result2.Where("ts between ? AND ?", month_start*1000, month_end*1000)
+// 	} else if t == 4 {
+// 		timeTemplate := "2006-01-02 15:04:05"
+// 		start_date, _ := time.ParseInLocation(timeTemplate, start_time, time.Local)
+// 		end_date, _ := time.ParseInLocation(timeTemplate, end_time, time.Local)
+// 		start := start_date.Unix()
+// 		end := end_date.Unix()
+// 		result = result.Where("ts between ? AND ?", start*1000, end*1000)
+// 		result2 = result2.Where("ts between ? AND ?", start*1000, end*1000)
+// 	}
+// 	result = result.Order("ts desc").Find(&tSKVs)
+// 	result2.Count(&count)
+// 	if result.Error != nil {
+// 		errors.Is(result.Error, gorm.ErrRecordNotFound)
+// 	}
+// 	if len(tSKVs) == 0 {
+// 		tSKVs = []models.TSKV{}
+// 	}
+// 	return tSKVs, count
+// }
 
 // 通过设备ID获取一段时间的数据
 func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64, rate string) []interface{} {
