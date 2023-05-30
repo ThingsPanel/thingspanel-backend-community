@@ -1158,6 +1158,26 @@ func (*DeviceService) SendCommandToDevice(
 	commandDesc string,
 ) error {
 
+	// 格式化内容：
+	var sendStruct struct {
+		Method string      `json:"method"`
+		Params interface{} `json:"params"`
+	}
+
+	commandDataMap := make(map[string]interface{})
+	err := json.Unmarshal(commandData, &commandDataMap)
+	if err != nil {
+		return err
+	}
+	sendStruct.Method = commandIdentifier
+	sendStruct.Params = commandDataMap
+	msg, err := json.Marshal(sendStruct)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("d", sendStruct)
+
 	topic := viper.GetString("mqtt.topicToCommand") + "/"
 	sendRes := 2
 	switch device.DeviceType {
@@ -1168,12 +1188,12 @@ func (*DeviceService) SendCommandToDevice(
 		fmt.Println("topic-2:", topic)
 
 		// 通过脚本
-		commandData, err := scriptDealB(device.ScriptId, commandData, topic)
+		msg, err := scriptDealB(device.ScriptId, msg, topic)
 		if err != nil {
 			return err
 		}
 
-		if sendmqtt.SendMQTT(commandData, topic, 1) == nil {
+		if sendmqtt.SendMQTT(msg, topic, 1) == nil {
 			sendRes = 1
 		}
 
@@ -1182,7 +1202,7 @@ func (*DeviceService) SendCommandToDevice(
 			commandIdentifier,
 			commandName,
 			commandDesc,
-			string(commandData),
+			string(msg),
 			sendRes)
 
 	case models.DeviceTypeSubGatway:
@@ -1195,12 +1215,12 @@ func (*DeviceService) SendCommandToDevice(
 			}
 			topic += gatewayDevice.Token
 
-			commandData, err := scriptDealB(gatewayDevice.ScriptId, commandData, topic)
+			msg, err := scriptDealB(gatewayDevice.ScriptId, msg, topic)
 			if err != nil {
 				return err
 			}
 			// 通过脚本
-			if sendmqtt.SendMQTT(commandData, topic, 1) == nil {
+			if sendmqtt.SendMQTT(msg, topic, 1) == nil {
 				sendRes = 1
 			}
 
@@ -1209,7 +1229,7 @@ func (*DeviceService) SendCommandToDevice(
 				commandIdentifier,
 				commandName,
 				commandDesc,
-				string(commandData),
+				string(msg),
 				sendRes)
 		}
 
