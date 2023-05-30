@@ -1034,12 +1034,12 @@ func (c *DeviceController) DeviceCommandList() {
 
 	// 根据device.type，查询device_model.id
 	var deviceModel services.DeviceModelService
-	data, err := deviceModel.GetModelCommandsByPluginId(deviceInfo.Type)
+	data, _ := deviceModel.GetModelCommandsByPluginId(deviceInfo.Type)
 
-	if err != nil {
-		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
-		return
-	}
+	// if err != nil {
+	// 	response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	// 	return
+	// }
 
 	response.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(c.Ctx))
 }
@@ -1061,6 +1061,8 @@ func (c *DeviceController) DeviceCommandSend() {
 	if device.Protocol != "mqtt" && device.Protocol != "MQTT" {
 		response.SuccessWithMessage(400, "protocol error", (*context2.Context)(c.Ctx))
 	}
+
+	//
 
 	d.SendCommandToDevice(
 		device, inputData.CommandIdentifier,
