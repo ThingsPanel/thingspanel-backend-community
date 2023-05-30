@@ -1726,3 +1726,30 @@ CREATE TABLE "public"."device_event_history" (
   "desc" text COLLATE "pg_catalog"."default",
   "device_id" varchar(36) COLLATE "pg_catalog"."default"
 );
+
+-- 数据转发相关
+CREATE TABLE "public"."tp_data_transpond" (
+  "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+  "desc" varchar COLLATE "pg_catalog"."default",
+  "status" int4 NOT NULL,
+  "tenant_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+  "script" text COLLATE "pg_catalog"."default",
+  "create_time" int4,
+  "name" varchar COLLATE "pg_catalog"."default"
+);
+
+CREATE TABLE "public"."tp_data_transpond_detail" (
+  "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+  "data_transpond_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+  "message_type" int4 NOT NULL,
+  "device_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+  "business_id" varchar(36) COLLATE "pg_catalog"."default",
+  "asset_group_id" varchar(36) COLLATE "pg_catalog"."default"
+);
+
+CREATE TABLE "public"."tp_data_transpond_target" (
+  "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+  "data_transpond_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+  "data_type" int2 NOT NULL,
+  "target" varchar COLLATE "pg_catalog"."default" NOT NULL
+);
