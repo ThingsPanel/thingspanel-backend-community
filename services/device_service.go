@@ -1167,6 +1167,12 @@ func (*DeviceService) SendCommandToDevice(
 		topic += device.Token
 		fmt.Println("topic-2:", topic)
 
+		// 通过脚本
+		commandData, err := scriptDealB(device.ScriptId, commandData, topic)
+		if err != nil {
+			return err
+		}
+
 		if sendmqtt.SendMQTT(commandData, topic, 1) == nil {
 			sendRes = 1
 		}
@@ -1189,6 +1195,11 @@ func (*DeviceService) SendCommandToDevice(
 			}
 			topic += gatewayDevice.Token
 
+			commandData, err := scriptDealB(gatewayDevice.ScriptId, commandData, topic)
+			if err != nil {
+				return err
+			}
+			// 通过脚本
 			if sendmqtt.SendMQTT(commandData, topic, 1) == nil {
 				sendRes = 1
 			}
