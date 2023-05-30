@@ -1703,3 +1703,26 @@ INSERT INTO tp_function
 (id, function_name, menu_id, "path", name, component, title, icon, "type", function_code, parent_id, sort, sys_flag)
 VALUES('fe29af27-9ae9-7baf-4e34-8051e1b8dd65', '', NULL, '/transpondNew/index', 'TranspondNew', '/pages/transpondNew/index.vue', 'MENU.TRANSPONDNEW', 'flaticon-upload-1', '1', '', '7cac14a0-0ff2-57d9-5465-597760bd2cb1', 997, NULL);
 UPDATE public.tp_function SET sys_flag='1' WHERE id='7c7ef553-5342-f38e-6c07-222290f1c32d';
+
+-- 设备命令历史记录
+CREATE TABLE "public"."device_command_history" (
+  "id" varchar(36) COLLATE "pg_catalog"."default",
+  "device_id" varchar(36) COLLATE "pg_catalog"."default",
+  "command_identify" varchar(50) COLLATE "pg_catalog"."default",
+  "command_name" varchar(255) COLLATE "pg_catalog"."default",
+  "desc" text COLLATE "pg_catalog"."default",
+  "data" text COLLATE "pg_catalog"."default",
+  "send_time" int4,
+  "send_status" int4
+);
+
+-- 设备事件历史记录
+CREATE TABLE "public"."device_event_history" (
+  "id" varchar(36) COLLATE "pg_catalog"."default",
+  "event_identify" varchar(50) COLLATE "pg_catalog"."default",
+  "event_name" varchar(50) COLLATE "pg_catalog"."default",
+  "report_time" int4,
+  "data" text COLLATE "pg_catalog"."default",
+  "desc" text COLLATE "pg_catalog"."default",
+  "device_id" varchar(36) COLLATE "pg_catalog"."default"
+);
