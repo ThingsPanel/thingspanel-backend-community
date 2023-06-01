@@ -1191,7 +1191,7 @@ func (*DeviceService) SendCommandToDevice(
 		if device.Protocol != "mqtt" && device.Protocol != "MQTT" {
 			var tpProtocolPluginService TpProtocolPluginService
 			pp := tpProtocolPluginService.GetByProtocolType(device.Protocol, device.DeviceType)
-			topic = pp.SubTopicPrefix + device.Token
+			topic = pp.SubTopicPrefix + "command/" + device.Token
 		}
 		// 通过脚本
 		msg, err := scriptDealB(device.ScriptId, msg, topic)
@@ -1225,7 +1225,7 @@ func (*DeviceService) SendCommandToDevice(
 			if gatewayDevice.Protocol != "mqtt" && gatewayDevice.Protocol != "MQTT" {
 				var tpProtocolPluginService TpProtocolPluginService
 				pp := tpProtocolPluginService.GetByProtocolType(gatewayDevice.Protocol, gatewayDevice.DeviceType)
-				topic = pp.SubTopicPrefix + gatewayDevice.Token
+				topic = pp.SubTopicPrefix + "command/" + gatewayDevice.Token
 			}
 
 			msg, err := scriptDealB(gatewayDevice.ScriptId, msg, topic)
