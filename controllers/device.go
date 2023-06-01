@@ -1021,6 +1021,7 @@ func (c *DeviceController) DeviceCommandList() {
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
 	if err != nil || len(inputData.DeviceId) == 0 {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
 
 	var device services.DeviceService
@@ -1030,6 +1031,7 @@ func (c *DeviceController) DeviceCommandList() {
 	// 没有设备或者没有绑定device_model
 	if len(deviceInfo.Type) == 0 {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
 
 	// 根据device.type，查询device_model.id
@@ -1050,17 +1052,19 @@ func (c *DeviceController) DeviceCommandSend() {
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
 	}
 
 	var d services.DeviceService
 	device, i := d.Token(inputData.DeviceId)
 	if i == 0 {
 		response.SuccessWithMessage(400, "no device", (*context2.Context)(c.Ctx))
+		return
 	}
 
-	if device.Protocol != "mqtt" && device.Protocol != "MQTT" {
-		response.SuccessWithMessage(400, "protocol error", (*context2.Context)(c.Ctx))
-	}
+	// if device.Protocol != "mqtt" && device.Protocol != "MQTT" {
+	// 	response.SuccessWithMessage(400, "protocol error", (*context2.Context)(c.Ctx))
+	// }
 
 	//
 
