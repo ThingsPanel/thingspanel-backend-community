@@ -363,6 +363,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
+		otamsgparams["size"] = ota.FileSize
 		otamsgparams["url"] = ota.PackageUrl
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
