@@ -1747,9 +1747,38 @@ CREATE TABLE "public"."tp_data_transpond_detail" (
   "asset_group_id" varchar(36) COLLATE "pg_catalog"."default"
 );
 
+
 CREATE TABLE "public"."tp_data_transpond_target" (
   "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
   "data_transpond_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
   "data_type" int2 NOT NULL,
   "target" varchar COLLATE "pg_catalog"."default" NOT NULL
 );
+
+--可视化插件相关
+CREATE TABLE "public"."tp_vis_plugin" (
+  id VARCHAR(36) PRIMARY KEY,
+  tenant_id VARCHAR(36) NOT NULL,
+  plugin_name VARCHAR(1) NOT NULL,
+  plugin_description VARCHAR(150),
+  create_at int8 NULL,
+  remark VARCHAR(50) NOT NULL
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_vis_plugin.plugin_name IS '可视化插件名称';
+COMMENT ON COLUMN public.tp_vis_plugin.plugin_description IS '插件描述';
+
+
+CREATE TABLE "public"."tp_vis_files" (
+  id VARCHAR(36) PRIMARY KEY,
+  vis_plugin_id VARCHAR(1) NOT NULL,
+  file_name VARCHAR(150),
+  file_url VARCHAR(150),
+  file_size VARCHAR(20),
+  create_at int8 NULL,
+  remark VARCHAR(50) NOT NULL
+);
+
+COMMENT ON COLUMN public.tp_vis_files.vis_plugin_id IS '可视化插件id';

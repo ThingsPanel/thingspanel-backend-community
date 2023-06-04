@@ -325,6 +325,10 @@ func init() {
 		web.NSRouter("/tp_dashboard/edit", &controllers.TpDashboardController{}, "*:Edit"),
 		web.NSRouter("/tp_dashboard/delete", &controllers.TpDashboardController{}, "*:Delete"),
 
+		//可视化插件
+		web.NSRouter("/tp_vis_plugin/list", &controllers.TpVisPluginController{}, "*:List"),
+		web.NSRouter("/tp_vis_files/up", &controllers.TpVisPluginController{}, "*:Upload"),
+
 		//插件模块接口
 		web.NSRouter("/plugin/device/config", &controllers.DeviceController{}, "*:GetGatewayConfig"),
 		web.NSRouter("/form/config", &controllers.DeviceController{}, "*:GetProtocolForm"),
