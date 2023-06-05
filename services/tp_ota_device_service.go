@@ -308,7 +308,7 @@ func (*TpOtaDeviceService) OtaToinformMsgProcOther(body []byte, topic string) bo
 	var count int64
 	_ = psql.Mydb.Model(&models.Device{}).Where("upgrade_status = '2' and device_id = ? and target_version != ?", deviceid, otamsg.Params.PackageVersion).First(&otadevice).Count(&count).Error
 	if count != 0 {
-		if otadevice.RetryCount >= 3 {
+		if otadevice.RetryCount == 0 {
 			logs.Info("设备%s升级失败", deviceid)
 			psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(models.TpOtaDevice{UpgradeStatus: "4", StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: "升级失败"})
 			return true
@@ -355,7 +355,7 @@ func (*TpOtaDeviceService) OtaToinformMsgProcOther(body []byte, topic string) bo
 			go sendmqtt.SendOtaAdress(msgdata, payload.Token)
 		}
 		//修改升级信息
-		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(models.TpOtaDevice{RetryCount: otadevice.RetryCount + 1, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: "重新推送升级包第" + strconv.Itoa(otadevice.RetryCount+1) + "次"})
+		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(models.TpOtaDevice{RetryCount: otadevice.RetryCount - 1, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: "重新推送了升级包"})
 	}
 
 	//修改设备当前版本

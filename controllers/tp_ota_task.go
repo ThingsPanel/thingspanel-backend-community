@@ -135,7 +135,7 @@ func (c *TpOtaTaskController) Add() {
 	}
 	//推送次数
 	if reqData.RetryCount == 0 {
-		reqData.RetryCount = 1
+		reqData.RetryCount = 3
 	}
 	var tp_ota_devices []models.TpOtaDevice
 	for _, device := range devices {
