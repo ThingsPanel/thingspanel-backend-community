@@ -303,6 +303,60 @@ func (*TpOtaDeviceService) OtaToinformMsgProcOther(body []byte, topic string) bo
 		return false
 	}
 	logs.Info(otamsg)
+	//判断设备在升级中，且推送的版本低于升级任务版本，再次推送
+	var otadevice models.TpOtaDevice
+	var count int64
+	_ = psql.Mydb.Model(&models.Device{}).Where("upgrade_status = '2' and device_id = ? and target_version != ?", deviceid, otamsg.Params.PackageVersion).First(&otadevice).Count(&count).Error
+	if count != 0 {
+		if otadevice.RetryCount >= 3 {
+			logs.Info("设备%s升级失败", deviceid)
+			psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(models.TpOtaDevice{UpgradeStatus: "4", StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: "升级失败"})
+			return true
+		}
+		//推送升级包
+		var tpOtaTask models.TpOtaTask
+		err = psql.Mydb.Model(&models.TpOtaTask{}).Where("id=? and task_status!='2'", otadevice.OtaTaskId).First(&tpOtaTask).Error
+		if err != nil {
+			logs.Error(err)
+			return false
+		}
+		var ota models.TpOta
+		err = psql.Mydb.Model(&models.TpOta{}).Where("id=?", tpOtaTask.OtaId).First(&ota).Error
+		if err != nil {
+			logs.Error(err)
+			return false
+		}
+		var otamsg = make(map[string]interface{})
+		// 获取随机九位数字并转换为字符串
+		rand.Seed(time.Now().UnixNano())
+		randNum := rand.Intn(999999999)
+		otamsg["id"] = strconv.Itoa(randNum)
+		otamsg["code"] = "200"
+		var otamsgparams = make(map[string]interface{})
+		otamsgparams["version"] = ota.PackageVersion
+		otamsgparams["size"] = ota.FileSize
+		otamsgparams["url"] = ota.PackageUrl
+		otamsgparams["signMethod"] = ota.SignatureAlgorithm
+		otamsgparams["sign"] = ota.Sign
+		otamsgparams["module"] = ota.PackageModule
+		//其他配置格式成map
+		var m map[string]interface{}
+		err = json.Unmarshal([]byte(ota.AdditionalInfo), &m)
+		if err != nil {
+			logs.Error(err)
+			return false
+		}
+		otamsgparams["extData"] = m
+		otamsg["params"] = otamsgparams
+		msgdata, json_err := json.Marshal(otamsg)
+		if json_err != nil {
+			logs.Error(json_err.Error())
+		} else {
+			go sendmqtt.SendOtaAdress(msgdata, payload.Token)
+		}
+		//修改升级信息
+		psql.Mydb.Model(&models.TpOtaDevice{}).Where("id = ? and ota_task_id=?", otadevice.Id, otadevice.OtaTaskId).Updates(models.TpOtaDevice{RetryCount: otadevice.RetryCount + 1, StatusUpdateTime: time.Now().Format("2006-01-02 15:04:05"), StatusDetail: "重新推送升级包第" + strconv.Itoa(otadevice.RetryCount+1) + "次"})
+	}
 
 	//修改设备当前版本
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceid).Update("current_version", otamsg.Params.PackageVersion)
@@ -354,7 +408,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 			logs.Info("OTA任务id为%s,设备id为%s,有任务进行中", otataskid, device.ID)
 			continue
 		}
-		//检查升级包
+
 		var otamsg = make(map[string]interface{})
 		// 获取随机九位数字并转换为字符串
 		rand.Seed(time.Now().UnixNano())
