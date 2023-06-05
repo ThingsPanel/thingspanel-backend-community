@@ -256,7 +256,6 @@ func (*TpOtaDeviceService) OtaProgressMsgProc(body []byte, topic string) bool {
 			//升级成功判断
 			logs.Info("设备%s升级成功", deviceid)
 			progressMsg.UpgradeStatus = "3"
-			psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceid).Update("current_version", progressMsg.Module)
 		} else {
 			// 判断升级步骤是不是数字字符串0-100之间
 			if intProgress > 0 && intProgress < 100 {
@@ -303,8 +302,9 @@ func (*TpOtaDeviceService) OtaToinformMsgProcOther(body []byte, topic string) bo
 		logs.Error(err_b.Error())
 		return false
 	}
-	//修改设备当前版本
 	logs.Info(otamsg)
+
+	//修改设备当前版本
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceid).Update("current_version", otamsg.Params.PackageVersion)
 	if result.Error != nil {
 		logs.Error(result.Error)
@@ -363,6 +363,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
+		otamsgparams["size"] = ota.FileSize
 		otamsgparams["url"] = ota.PackageUrl
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign

@@ -79,7 +79,7 @@ func (TpProtocolPluginController *TpProtocolPluginController) Edit() {
 	}
 	var TpProtocolPluginService services.TpProtocolPluginService
 	rsp_err := TpProtocolPluginService.EditTpProtocolPlugin(TpProtocolPluginValidate)
-	if rsp_err != nil {
+	if rsp_err == nil {
 		d := TpProtocolPluginService.GetTpProtocolPluginDetail(TpProtocolPluginValidate.Id)
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpProtocolPluginController.Ctx))
 	} else {

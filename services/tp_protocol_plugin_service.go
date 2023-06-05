@@ -84,11 +84,34 @@ func (*TpProtocolPluginService) AddTpProtocolPlugin(tp_protocol_plugin models.Tp
 
 // 修改数据
 func (*TpProtocolPluginService) EditTpProtocolPlugin(tp_protocol_plugin valid.TpProtocolPluginValidate) error {
-	result := psql.Mydb.Model(&models.TpProtocolPlugin{}).Where("id = ?", tp_protocol_plugin.Id).Updates(&tp_protocol_plugin)
+	tpProtocolPlugin := models.TpProtocolPlugin{}
+	query := psql.Mydb.Model(tpProtocolPlugin)
+	query.Where("id = ?", tp_protocol_plugin.Id).First(&tpProtocolPlugin)
+	result := query.Updates(&tp_protocol_plugin)
 	if result.Error != nil {
 		logs.Error(result.Error.Error(), gorm.ErrRecordNotFound)
 		return result.Error
 	}
+	var TpDictService TpDictService
+	tpDict := models.TpDict{}
+	var old_dict_code string
+	if tpProtocolPlugin.DeviceType == "1" { //直连设备
+		old_dict_code = "DRIECT_ATTACHED_PROTOCOL"
+	} else {
+		old_dict_code = "GATEWAY_PROTOCOL"
+	}
+	psql.Mydb.Model(tpDict).Where("dict_value = ? and dict_code = ?", tpProtocolPlugin.ProtocolType, old_dict_code).First(&tpDict)
+
+	var dict_code string
+	if tp_protocol_plugin.DeviceType == "1" { //直连设备
+		dict_code = "DRIECT_ATTACHED_PROTOCOL"
+	} else {
+		dict_code = "GATEWAY_PROTOCOL"
+	}
+	tpDict.DictCode = dict_code
+	tpDict.DictValue = tp_protocol_plugin.ProtocolType
+	tpDict.Describe = tp_protocol_plugin.Name
+	TpDictService.EditTpDict(tpDict)
 	return nil
 }
 
