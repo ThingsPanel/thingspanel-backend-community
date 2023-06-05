@@ -24,6 +24,7 @@ type AddTpOtaTaskValidate struct {
 	ProductId        string   `json:"product_id,omitempty" alias:"产品id"`
 	SelectDeviceFlag string   `json:"select_device_flag,omitempty" alias:"0-全部设备,1-选择设备"`
 	DeviceIdList     []string `json:"device_id_list,omitempty" alias:"设备"`
+	RetryCount       int      `json:"retry_count,omitempty" alias:"产品id"`
 }
 type TpOtaTaskPaginationValidate struct {
 	CurrentPage int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
