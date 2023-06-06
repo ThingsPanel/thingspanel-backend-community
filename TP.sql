@@ -1659,7 +1659,7 @@ ALTER TABLE public.tp_product ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_script ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.ts_kv ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.ts_kv_latest ADD COLUMN tenant_id varchar(36) NULL;
-ALTER TABLE public.tp_function ADD sys_flag varchar(2) NULL;
+
 COMMENT ON COLUMN public.tp_function.sys_flag IS '系统管理员菜单标志';
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, sys_flag)
@@ -1782,3 +1782,5 @@ CREATE TABLE "public"."tp_vis_files" (
 );
 
 COMMENT ON COLUMN public.tp_vis_files.vis_plugin_id IS '可视化插件id';
+
+ALTER TABLE public.tp_ota_device ADD retry_count int8 NULL;

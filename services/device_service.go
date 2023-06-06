@@ -1114,8 +1114,58 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate, tenantId string
 func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValidate) (map[string]interface{}, error) {
 	var deviceOnlineStatus = make(map[string]interface{})
 	for _, deviceId := range deviceIdList.DeviceIdList {
+		var device models.Device
+		//根据阈值判断设备是否在线
+		result := psql.Mydb.Where("id = ?", deviceId).First(&device)
+		if result.Error != nil {
+			logs.Error(result.Error)
+			if result.Error == gorm.ErrRecordNotFound {
+				deviceOnlineStatus[deviceId] = "0"
+				continue
+			}
+		}
+		if device.AdditionalInfo != "" {
+			var additionalInfo map[string]interface{}
+			err := json.Unmarshal([]byte(device.AdditionalInfo), &additionalInfo)
+			if err != nil {
+				logs.Error(err)
+				deviceOnlineStatus[deviceId] = "0"
+				continue
+			}
+			if additionalInfo["runninginfo"] != nil {
+				var runningInfo map[string]interface{}
+				err := json.Unmarshal([]byte(additionalInfo["runninginfo"].(string)), &runningInfo)
+				if err != nil {
+					logs.Error(err)
+				} else {
+					if runningInfo["thresholdTime"] != nil {
+						thresholdTime := runningInfo["thresholdTime"].(float64)
+						//获取最新的数据时间
+						var latest_ts int64
+						result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? ", deviceId).Select("max(ts)").First(&latest_ts)
+						if result.Error != nil {
+							logs.Error(result.Error)
+							deviceOnlineStatus[deviceId] = "0"
+							continue
+						}
+						if latest_ts != 0 {
+							timeDifference := time.Now().Unix() - latest_ts
+							if timeDifference > int64(thresholdTime) {
+								deviceOnlineStatus[deviceId] = "0"
+							} else {
+								deviceOnlineStatus[deviceId] = "1"
+							}
+							continue
+						}
+					}
+				}
+			}
+
+		}
+
+		//原流程
 		var tskvLatest models.TSKVLatest
-		result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
+		result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
 		logs.Info("------------------------------------------------ceshi")
 		if result.Error != nil {
 			logs.Error(result.Error)
