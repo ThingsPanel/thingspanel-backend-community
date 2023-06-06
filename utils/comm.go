@@ -178,3 +178,41 @@ func FormatFileSize(fileSize int64) (size string) {
 		return fmt.Sprintf("%.2fEB", float64(fileSize)/float64(1024*1024*1024*1024*1024))
 	}
 }
+
+//KB,MB,GB转换为B
+func FormatFileSizeToB(fileSize string) (size int64) {
+	if strings.Contains(fileSize, "KB") {
+		fileSize = strings.ReplaceAll(fileSize, "KB", "")
+		return int64(float64(GetFloat(fileSize)) * 1024)
+	} else if strings.Contains(fileSize, "MB") {
+		fileSize = strings.ReplaceAll(fileSize, "MB", "")
+		return int64(float64(GetFloat(fileSize)) * 1024 * 1024)
+	} else if strings.Contains(fileSize, "GB") {
+		fileSize = strings.ReplaceAll(fileSize, "GB", "")
+		return int64(float64(GetFloat(fileSize)) * 1024 * 1024 * 1024)
+	} else if strings.Contains(fileSize, "TB") {
+		fileSize = strings.ReplaceAll(fileSize, "TB", "")
+		return int64(float64(GetFloat(fileSize)) * 1024 * 1024 * 1024 * 1024)
+	} else if strings.Contains(fileSize, "EB") {
+		fileSize = strings.ReplaceAll(fileSize, "EB", "")
+		return int64(float64(GetFloat(fileSize)) * 1024 * 1024 * 1024 * 1024 * 1024)
+	} else { //if fileSize < (1024 * 1024 * 1024 * 1024 * 1024 * 1024)
+		return GetInt64(fileSize)
+	}
+}
+func GetFloat(str string) float64 {
+	var f float64
+	_, err := fmt.Sscanf(str, "%f", &f)
+	if err != nil {
+		return 0
+	}
+	return f
+}
+func GetInt64(str string) int64 {
+	var f int64
+	_, err := fmt.Sscanf(str, "%d", &f)
+	if err != nil {
+		return 0
+	}
+	return f
+}
