@@ -334,7 +334,8 @@ func (*TpOtaDeviceService) OtaToinformMsgProcOther(body []byte, topic string) bo
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
-		otamsgparams["size"] = utils.FormatFileSizeToB(ota.FileSize)
+		size, _ := strconv.ParseInt(ota.FileSize, 10, 64)
+		otamsgparams["size"] = size
 		otamsgparams["url"] = ota.PackageUrl
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
@@ -417,7 +418,8 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		otamsg["code"] = "200"
 		var otamsgparams = make(map[string]interface{})
 		otamsgparams["version"] = ota.PackageVersion
-		otamsgparams["size"] = ota.FileSize
+		size, _ := strconv.ParseInt(ota.FileSize, 10, 64)
+		otamsgparams["size"] = size
 		otamsgparams["url"] = ota.PackageUrl
 		otamsgparams["signMethod"] = ota.SignatureAlgorithm
 		otamsgparams["sign"] = ota.Sign
