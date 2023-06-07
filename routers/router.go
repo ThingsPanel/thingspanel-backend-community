@@ -414,6 +414,13 @@ func init() {
 		web.NSRouter("/v1/automation/log/detail/list", &controllers.TpAutomationLogDetailController{}, "*:List"),
 		web.NSRouter("/v1/scenario/log/list", &controllers.TpScenarioLogController{}, "*:List"),
 		web.NSRouter("/v1/scenario/log/detail/list", &controllers.TpScenarioLogDetailController{}, "*:List"),
+
+		// 通知组
+		web.NSRouter("/notification/list", &controllers.TpNotification{}, "*:List"),
+		web.NSRouter("/notification/save", &controllers.TpNotification{}, "*:Save"),
+		web.NSRouter("/notification/detail", &controllers.TpNotification{}, "*:Detail"),
+		web.NSRouter("/notification/delete", &controllers.TpNotification{}, "*:Delete"),
+		web.NSRouter("/notification/switch", &controllers.TpNotification{}, "*:Switch"),
 	)
 
 	// 图表推送数据
