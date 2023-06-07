@@ -361,9 +361,9 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						automationLogDetail.ProcessDescription = result.Error.Error()
 						automationLogDetail.ProcessResult = "2"
 					} else {
-						var DeviceService DeviceService
+						var tpautomation TpAutomationService
 						//根据设备id获取租户id
-						tenantId, _ := DeviceService.GetTenantIdByDeviceId(automationAction.DeviceId)
+						tenantId, _ := tpautomation.GetTpAutomationTenantId(automationAction.AutomationId)
 						var warningInformation models.TpWarningInformation
 						warningInformation.ProcessingInstructions = ""
 						warningInformation.WarningName = warningStrategy.WarningStrategyName
