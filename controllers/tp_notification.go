@@ -17,6 +17,34 @@ type TpNotification struct {
 }
 
 func (c *TpNotification) List() {
+	var input struct {
+		CurrentPage int `json:"current_page"`
+		PerPage     int `json:"per_page"`
+	}
+
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	offset := (input.CurrentPage - 1) * input.PerPage
+	data, count := services.GetNotificationListByTenantId(offset, input.PerPage, tenantId)
+	d := DataTransponList{
+		CurrentPage: input.CurrentPage,
+		Total:       count,
+		PerPage:     input.PerPage,
+		Data:        data,
+	}
+
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 
 }
 
@@ -114,6 +142,25 @@ func (c *TpNotification) Detail() {
 		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
 		return
 	}
+
+	n := services.GetNotificationGroups(input.Id)
+
+	detail := make(map[string]interface{})
+	detail["notification_config"] = n.NotificationConfig
+	var m []models.TpNotificationMembers
+	// 如果是成员通知，则需要继续查找member表
+	if n.NotificationType == models.NotificationType_Members {
+		m = services.GetNotificationMenbers(input.Id)
+		detail["notification_config"] = m
+	}
+
+	detail["id"] = n.Id
+	detail["status"] = n.Status
+	detail["notification_type"] = n.NotificationType
+	detail["desc"] = n.Desc
+	detail["group_name"] = n.GroupName
+
+	response.SuccessWithDetailed(200, "success", detail, map[string]string{}, (*context2.Context)(c.Ctx))
 
 }
 

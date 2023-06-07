@@ -43,6 +43,27 @@ func GetNotificationGroupsStatus(id string) int {
 	return res.Status
 }
 
+func GetNotificationGroups(id string) models.TpNotificationGroups {
+	var res models.TpNotificationGroups
+	result := psql.Mydb.Where("id = ?", id).Find(&res)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return res
+	}
+	return res
+}
+
+func GetNotificationMenbers(id string) []models.TpNotificationMembers {
+	var res []models.TpNotificationMembers
+	tx := psql.Mydb.Model(&models.TpNotificationMembers{})
+	err := tx.Where("tp_notification_groups_id = ?", id).Find(&res).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return res
+	}
+	return res
+}
+
 func UpdateNotificationGroupsStatus(id string, s int) bool {
 	tx := psql.Mydb.Model(&models.TpNotificationGroups{})
 	err := tx.Where("id = ?", id).Update("status", s).Error
@@ -71,4 +92,27 @@ func DeleteNotificationMembers(id string) bool {
 		}
 	}
 	return true
+}
+
+func GetNotificationListByTenantId(
+	offset int, pageSize int, tenantId string) ([]models.TpNotificationGroups, int64) {
+
+	var nG []models.TpNotificationGroups
+	var count int64
+
+	tx := psql.Mydb.Model(&models.TpNotificationGroups{})
+	tx.Where("tenant_id = ?", tenantId)
+
+	err := tx.Count(&count).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return nG, count
+	}
+
+	err = tx.Limit(pageSize).Offset(offset).Find(&nG).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return nG, count
+	}
+	return nG, count
 }
