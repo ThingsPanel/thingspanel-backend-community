@@ -145,6 +145,7 @@ func (*TpOtaDeviceService) ModfiyUpdateDevice(tp_ota_modfiystatus valid.TpOtaDev
 			// 重新升级需要把进度置为0
 			tpOtaDevice.UpgradeProgress = "0"
 			tpOtaDevice.StatusDetail = "手动开始重新升级"
+			tpOtaDevice.RetryCount = 3
 		}
 		if err := db.Where("ota_task_id=? and id=? ", tp_ota_modfiystatus.OtaTaskId, tp_ota_modfiystatus.Id).Updates(&tpOtaDevice).Error; err != nil {
 			return err
@@ -396,7 +397,7 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 		if idOnline, err := deviceService.IsDeviceOnline(device.ID); err != nil {
 			logs.Error(err.Error())
 		} else if !idOnline {
-			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Updates(map[string]interface{}{"upgrade_status": "4", "status_detail": "设备不在线，升级失败", "status_update_time": time.Now().Format("2006-01-02 15:04:05")})
+			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Updates(map[string]interface{}{"upgrade_status": "2", "status_detail": "设备不在线，等待升级", "status_update_time": time.Now().Format("2006-01-02 15:04:05")})
 			logs.Info("OTA任务id为%s,设备id为%s,设备不在线", otataskid, device.ID)
 			continue
 		}
