@@ -27,6 +27,20 @@ type TpAutomationService struct {
 	TimeField []string
 }
 
+func (*TpAutomationService) GetTpAutomationTenantId(tp_automation_id string) (string, error) {
+	var tp_automation models.TpAutomation
+	result := psql.Mydb.Model(&models.TpAutomation{}).Select("tenant_id").Where("id = ?", tp_automation_id).First(&tp_automation)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return "", nil
+		} else {
+			return "", result.Error
+		}
+
+	}
+	return tp_automation.TenantId, nil
+}
+
 func (*TpAutomationService) GetTpAutomationDetail(tp_automation_id string) (map[string]interface{}, error) {
 	var tp_automation = make(map[string]interface{})
 	result := psql.Mydb.Model(&models.TpAutomation{}).Where("id = ?", tp_automation_id).First(&tp_automation)
