@@ -151,7 +151,7 @@ func (c *TpNotification) Detail() {
 	// 如果是成员通知，则需要继续查找member表
 	if n.NotificationType == models.NotificationType_Members {
 		m = services.GetNotificationMenbers(input.Id)
-		detail["notification_config"] = m
+		detail["notification_members"] = m
 	}
 
 	detail["id"] = n.Id
