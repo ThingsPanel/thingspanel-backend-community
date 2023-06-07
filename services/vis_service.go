@@ -40,7 +40,7 @@ func (*TpVis) GetTpVisPluginList(PaginationValidate valid.TpVisPluginPaginationV
 	for _, v := range visplugins {
 		data = append(data, map[string]interface{}{
 			"plugin_name": v.PluginName,
-			"files":       []string{},
+			"files":       []map[string]string{},
 		})
 		visfiles, err := GetTpVisFilesListByPluginId(v.Id)
 		if err != nil {
@@ -48,7 +48,10 @@ func (*TpVis) GetTpVisPluginList(PaginationValidate valid.TpVisPluginPaginationV
 			continue
 		}
 		for _, f := range visfiles {
-			data[len(data)-1]["files"] = append(data[len(data)-1]["files"].([]string), f.FileUrl)
+			data[len(data)-1]["files"] = append(data[len(data)-1]["files"].([]map[string]string), map[string]string{
+				"file_name": f.FileName,
+				"file_url":  f.FileUrl,
+			})
 		}
 	}
 

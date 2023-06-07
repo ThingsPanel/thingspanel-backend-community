@@ -130,7 +130,7 @@ func (c *TpOtaController) Add() {
 		AdditionalInfo:     reqData.AdditionalInfo,
 		CreatedAt:          time.Now().Unix(),
 		Sign:               packagesign,
-		FileSize:           utils.FormatFileSize(packageLength),
+		FileSize:           fmt.Sprintf("%d", packageLength),
 		TenantId:           tenantId,
 	}
 	d, rsp_err := TpOtaService.AddTpOta(TpOta)

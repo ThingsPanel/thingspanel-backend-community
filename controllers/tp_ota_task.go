@@ -133,6 +133,10 @@ func (c *TpOtaTaskController) Add() {
 		utils.SuccessWithMessage(400, "无对应ota信息", (*context2.Context)(c.Ctx))
 		return
 	}
+	//推送次数
+	if reqData.RetryCount == 0 {
+		reqData.RetryCount = 3
+	}
 	var tp_ota_devices []models.TpOtaDevice
 	for _, device := range devices {
 		tp_ota_devices = append(tp_ota_devices, models.TpOtaDevice{
@@ -142,6 +146,7 @@ func (c *TpOtaTaskController) Add() {
 			OtaTaskId:     d.Id,
 			UpgradeStatus: upgradestatus,
 			StatusDetail:  statusdetail,
+			RetryCount:    reqData.RetryCount,
 		})
 	}
 	_, rsp_device_err := TpOtaDeviceService.AddBathTpOtaDevice(tp_ota_devices)
