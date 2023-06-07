@@ -361,12 +361,16 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						automationLogDetail.ProcessDescription = result.Error.Error()
 						automationLogDetail.ProcessResult = "2"
 					} else {
+						var DeviceService DeviceService
+						//根据设备id获取租户id
+						tenantId, _ := DeviceService.GetTenantIdByDeviceId(automationAction.DeviceId)
 						var warningInformation models.TpWarningInformation
 						warningInformation.ProcessingInstructions = ""
 						warningInformation.WarningName = warningStrategy.WarningStrategyName
 						warningInformation.ProcessingResult = "0"
 						warningInformation.WarningDescription = warningStrategy.WarningDescription
 						warningInformation.WarningLevel = warningStrategy.WarningLevel
+						warningInformation.TenantId = tenantId
 						var automationLog models.TpAutomationLog
 						result := psql.Mydb.Model(&models.TpAutomationLog{}).Where("id = ?", automationLogId).First(&automationLog)
 						if result.Error != nil {
