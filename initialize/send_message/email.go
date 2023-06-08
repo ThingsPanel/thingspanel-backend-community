@@ -3,6 +3,7 @@ package sendmessage
 import (
 	"crypto/tls"
 	"fmt"
+	"log"
 
 	"github.com/spf13/viper"
 	"gopkg.in/gomail.v2"
@@ -26,6 +27,7 @@ var emailDialer *gomail.Dialer
 var messageSend *gomail.Message
 
 func init() {
+	log.Println("启动邮件服务")
 	InitConfigByViper()
 	if MessageConfig.Email.IsOpen == 1 {
 		InitServer()
