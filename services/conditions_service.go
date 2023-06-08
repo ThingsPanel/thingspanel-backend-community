@@ -389,8 +389,12 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 							logs.Info("成功触发告警")
 							automationLogDetail.ProcessDescription = "成功触发告警"
 							automationLogDetail.ProcessResult = "1"
-
 						}
+
+						// 通知告警组
+						var notification TpNotificationService
+						notification.ExecuteNotification(automationAction.WarningStrategyId)
+
 					}
 
 				} else {

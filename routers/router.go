@@ -421,6 +421,8 @@ func init() {
 		web.NSRouter("/notification/detail", &controllers.TpNotification{}, "*:Detail"),
 		web.NSRouter("/notification/delete", &controllers.TpNotification{}, "*:Delete"),
 		web.NSRouter("/notification/switch", &controllers.TpNotification{}, "*:Switch"),
+
+		web.NSRouter("/notification/test", &controllers.TpNotification{}, "*:Test"),
 	)
 
 	// 图表推送数据

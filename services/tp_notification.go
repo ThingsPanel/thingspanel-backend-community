@@ -3,6 +3,9 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/beego/beego/v2/core/logs"
 )
@@ -115,4 +118,78 @@ func GetNotificationListByTenantId(
 		return nG, count
 	}
 	return nG, count
+}
+
+func (*TpNotificationService) ExecuteNotification(strategyId string) {
+	// 通过策略ID ，获取info_way中的信息
+	var WarningStrategyService TpWarningStrategyService
+	StrategyDetail, _ := WarningStrategyService.GetTpWarningStrategyDetail(strategyId)
+	// 解析InformWay，可以是多个告警组ID
+	infoWayList := strings.Split(StrategyDetail.InformWay, ",")
+
+	// 未配置告警组
+	if len(infoWayList) == 0 {
+		return
+	}
+
+	groupList, err := BatchGetNotificationGroups(infoWayList)
+	if err != nil || len(groupList) == 0 {
+		return
+	}
+
+	var UsersService UserService
+	// 向每一组发送通知
+	for _, v := range groupList {
+		switch v.NotificationType {
+		case models.NotificationType_Members:
+			// 继续查询members表
+			members := GetNotificationMenbers(v.Id)
+			for _, v2 := range members {
+				// 查询每一个用户
+				user, cnt := UsersService.GetUserById(v2.UsersId)
+				if cnt != 0 {
+					if v2.IsEmail == 1 {
+						// 发送邮件
+						fmt.Println(user.Email)
+					}
+				}
+			}
+
+		case models.NotificationType_Email:
+			// 解析config
+			fmt.Println(v.NotificationConfig)
+			nConfig := make(map[string]string)
+			err := json.Unmarshal([]byte(v.NotificationConfig), &nConfig)
+			if err != nil {
+				continue
+			}
+			emailList := strings.Split(nConfig["email"], ",")
+			fmt.Println("emailList", emailList)
+
+		case models.NotificationType_Webhook:
+			// 解析config
+			fmt.Println(v.NotificationConfig)
+			nConfig := make(map[string]string)
+			err := json.Unmarshal([]byte(v.NotificationConfig), &nConfig)
+			if err != nil {
+				continue
+			}
+			webhookList := strings.Split(nConfig["webhook"], ",")
+			fmt.Println("emailList", webhookList)
+		default:
+
+			return
+		}
+	}
+
+}
+
+// 查询当前启用的告警组
+func BatchGetNotificationGroups(id []string) ([]models.TpNotificationGroups, error) {
+	var groupInfo []models.TpNotificationGroups
+	err := psql.Mydb.Model(&models.TpNotificationGroups{}).Where("id IN (?) AND status = ?", groupInfo, models.NotificationSwitch_Open).Find(&groupInfo).Error
+	if err != nil {
+		return groupInfo, err
+	}
+	return groupInfo, err
 }

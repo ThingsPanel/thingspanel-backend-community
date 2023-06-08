@@ -222,3 +222,14 @@ func (c *TpNotification) Switch() {
 	response.Success(200, c.Ctx)
 
 }
+
+// 开关
+func (c *TpNotification) Test() {
+
+	var s services.TpNotificationService
+
+	s.ExecuteNotification("c2c6a6c3-be83-6096-1a93-5cfa40b01316")
+
+	response.Success(200, c.Ctx)
+
+}
