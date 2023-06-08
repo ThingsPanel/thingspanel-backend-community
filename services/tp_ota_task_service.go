@@ -88,5 +88,10 @@ func (*TpOtaTaskService) DeleteTpOtaTask(tp_ota_task models.TpOtaTask) error {
 		logs.Error(result.Error)
 		return result.Error
 	}
+	result = psql.Mydb.Where("ota_task_id = ?", tp_ota_task.Id).Delete(&models.TpOtaDevice{})
+	if result.Error != nil {
+		logs.Error(result.Error)
+		return result.Error
+	}
 	return nil
 }
