@@ -84,7 +84,7 @@ func (*TpOtaTaskService) AddTpOtaTask(tp_ota_task models.TpOtaTask) (models.TpOt
 	return tp_ota_task, nil
 }
 func (*TpOtaTaskService) DeleteTpOtaTask(tp_ota_task models.TpOtaTask) error {
-	psql.Mydb.Where("id = ?", tp_ota_task.Id).First(&models.TpOtaTask{})
+	psql.Mydb.Where("id = ?", tp_ota_task.Id).First(&tp_ota_task)
 	if tp_ota_task.TaskStatus != "2" {
 		return errors.New("任务未完成，无法删除")
 	}
