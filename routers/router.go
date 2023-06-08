@@ -373,10 +373,12 @@ func init() {
 		web.NSRouter("/tp_ota/add", &controllers.TpOtaController{}, "*:Add"),
 		web.NSRouter("/tp_ota/list", &controllers.TpOtaController{}, "*:List"),
 		web.NSRouter("/tp_ota/delete", &controllers.TpOtaController{}, "*:Delete"),
+
 		//固件升级任务
 		//web.NSRouter("/tp_ota_task/modifystatus", &controllers.TpOtaTaskController{}, "*:ModifyStatus"),
 		web.NSRouter("/tp_ota_task/list", &controllers.TpOtaTaskController{}, "*:List"),
 		web.NSRouter("/tp_ota_task/add", &controllers.TpOtaTaskController{}, "*:Add"),
+		web.NSRouter("/tp_ota_task/delete", &controllers.TpOtaTaskController{}, "*:Delete"),
 
 		//固件升级设备
 		//web.NSRouter("/tp_ota_device/add", &controllers.TpOtaDeviceController{}, "*:Add"),
