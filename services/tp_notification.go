@@ -2,6 +2,7 @@ package services
 
 import (
 	"ThingsPanel-Go/initialize/psql"
+	sendmessage "ThingsPanel-Go/initialize/send_message"
 	"ThingsPanel-Go/models"
 	"encoding/json"
 	"fmt"
@@ -121,6 +122,7 @@ func GetNotificationListByTenantId(
 }
 
 func (*TpNotificationService) ExecuteNotification(strategyId string) {
+
 	// 通过策略ID ，获取info_way中的信息
 	var WarningStrategyService TpWarningStrategyService
 	StrategyDetail, _ := WarningStrategyService.GetTpWarningStrategyDetail(strategyId)
@@ -150,7 +152,7 @@ func (*TpNotificationService) ExecuteNotification(strategyId string) {
 				if cnt != 0 {
 					if v2.IsEmail == 1 {
 						// 发送邮件
-						fmt.Println(user.Email)
+						sendmessage.SendEmailMessage("告警邮件测试发送", "测试内容", user.Email)
 					}
 				}
 			}
@@ -164,8 +166,9 @@ func (*TpNotificationService) ExecuteNotification(strategyId string) {
 				continue
 			}
 			emailList := strings.Split(nConfig["email"], ",")
-			fmt.Println("emailList", emailList)
-
+			for _, ev := range emailList {
+				sendmessage.SendEmailMessage("告警邮件测试发送", "测试内容", ev)
+			}
 		case models.NotificationType_Webhook:
 			// 解析config
 			fmt.Println(v.NotificationConfig)
