@@ -12,6 +12,8 @@ type TpFunction struct {
 	FunctionCode string `json:"function_code,omitempty" gorm:"size:255"` //
 	ParentId     string `json:"parent_id,omitempty" gorm:"size:36"`      //
 	Sort         int    `json:"sort,omitempty"`                          //
+	TenantId     string `json:"tenant_id,omitempty" gorm:"size:36"`      //
+	SysFlag      string `json:"sys_flag,omitempty" gorm:"size:1"`        //
 }
 
 func (TpFunction) TableName() string {

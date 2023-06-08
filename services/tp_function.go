@@ -72,25 +72,40 @@ func (*TpFunctionService) DeleteFunction(tp_function models.TpFunction) bool {
 }
 
 // 功能下拉列表
-func (*TpFunctionService) FunctionPullDownList() []valid.TpFunctionPullDownListValidate {
-	return PullDownListTree("0")
+func (*TpFunctionService) FunctionPullDownList(tenantid string) []valid.TpFunctionPullDownListValidate {
+	if tenantid == "" {
+		return PullDownListTree("0", "1")
+	} else {
+		return PullDownListTree("0", "")
+	}
+
 }
 
-func PullDownListTree(parent_id string) []valid.TpFunctionPullDownListValidate {
+func PullDownListTree(parent_id, sys_flag string) []valid.TpFunctionPullDownListValidate {
 	var TpFunctionPullDownListValidates []valid.TpFunctionPullDownListValidate
 	var TpFunctions []models.TpFunction
-	result := psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ?", parent_id).Order("sort desc").Find(&TpFunctions)
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return TpFunctionPullDownListValidates
+	if sys_flag == "1" { //系统管理员独有的功能
+		result := psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ?", parent_id).Order("sort desc").Find(&TpFunctions)
+		if result.Error != nil {
+			errors.Is(result.Error, gorm.ErrRecordNotFound)
+			return TpFunctionPullDownListValidates
+		}
+	} else {
+		result := psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ? and (sys_flag != '1' or sys_flag is null)", parent_id).Order("sort desc").Find(&TpFunctions)
+		if result.Error != nil {
+			errors.Is(result.Error, gorm.ErrRecordNotFound)
+			return TpFunctionPullDownListValidates
+		}
 	}
+
 	if len(TpFunctions) > 0 {
+
 		for _, TpFunction := range TpFunctions {
 			var TpFunctionPullDownListValidate valid.TpFunctionPullDownListValidate
 			TpFunctionPullDownListValidate.Id = TpFunction.Id
 			TpFunctionPullDownListValidate.Name = TpFunction.Name
 			TpFunctionPullDownListValidate.Title = TpFunction.Title
-			TpFunctionPullDownListValidate.Children = PullDownListTree(TpFunction.Id)
+			TpFunctionPullDownListValidate.Children = PullDownListTree(TpFunction.Id, sys_flag)
 			TpFunctionPullDownListValidates = append(TpFunctionPullDownListValidates, TpFunctionPullDownListValidate)
 		}
 	} else {
