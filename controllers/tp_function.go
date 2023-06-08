@@ -176,10 +176,16 @@ func (TpFunctionController *TpFunctionController) Delete() {
 }
 
 // 功能下拉列表
-func (TpFunctionController *TpFunctionController) FunctionPullDownList() {
+func (c *TpFunctionController) FunctionPullDownList() {
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	var TpFunctionService services.TpFunctionService
-	d := TpFunctionService.FunctionPullDownList()
-	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(TpFunctionController.Ctx))
+	d := TpFunctionService.FunctionPullDownList(tenantId)
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	return
 }
 
