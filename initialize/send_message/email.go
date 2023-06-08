@@ -65,7 +65,9 @@ func SendEmailMessage(message string, subject string, to ...string) {
 		messageSend.SetBody("text/html", message)
 		messageSend.SetHeader("Subject", subject)
 		if err := emailDialer.DialAndSend(messageSend); err != nil {
-			fmt.Println("发送失败...")
+			log.Println("邮件发送失败")
+		} else {
+			log.Println("邮件发送成功")
 		}
 	}
 }
