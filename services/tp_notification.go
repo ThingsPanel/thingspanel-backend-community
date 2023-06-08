@@ -142,10 +142,12 @@ func (*TpNotificationService) ExecuteNotification(strategyId string) {
 	var UsersService UserService
 	// 向每一组发送通知
 	for _, v := range groupList {
+
 		switch v.NotificationType {
 		case models.NotificationType_Members:
 			// 继续查询members表
 			members := GetNotificationMenbers(v.Id)
+			fmt.Println("members", members)
 			for _, v2 := range members {
 				// 查询每一个用户
 				user, cnt := UsersService.GetUserById(v2.UsersId)
@@ -190,7 +192,10 @@ func (*TpNotificationService) ExecuteNotification(strategyId string) {
 // 查询当前启用的告警组
 func BatchGetNotificationGroups(id []string) ([]models.TpNotificationGroups, error) {
 	var groupInfo []models.TpNotificationGroups
-	err := psql.Mydb.Model(&models.TpNotificationGroups{}).Where("id IN (?) AND status = ?", groupInfo, models.NotificationSwitch_Open).Find(&groupInfo).Error
+	err := psql.Mydb.
+		Model(&models.TpNotificationGroups{}).
+		Where("id IN (?) AND status = ?", id, models.NotificationSwitch_Open).
+		Find(&groupInfo).Error
 	if err != nil {
 		return groupInfo, err
 	}
