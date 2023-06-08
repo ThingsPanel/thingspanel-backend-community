@@ -259,38 +259,37 @@ func (this *AssetController) Delete() {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
 		return
 	}
-	if deleteAssetValidate.TYPE == 1 {
-		_, c := AssetService.GetAssetsByParentIDAndTenantId(deleteAssetValidate.ID, tenantId)
-		if c != 0 {
-			response.SuccessWithMessage(400, "请先删除下一级", (*context2.Context)(this.Ctx))
-			return
-		}
-		f := AssetService.Delete(deleteAssetValidate.ID, tenantId)
-		if f {
-			var DeviceService services.DeviceService
-			var FieldMappingService services.FieldMappingService
-			d, s := DeviceService.GetDevicesByAssetID(deleteAssetValidate.ID)
-			if s != 0 {
-				for _, ds := range d {
-					DeviceService.Delete(ds.ID, tenantId)
-					FieldMappingService.DeleteByDeviceId(ds.ID)
-				}
-			}
-			response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
-			return
-		}
-	} else {
+	// if deleteAssetValidate.TYPE == 1 {
+	_, c := AssetService.GetAssetsByParentIDAndTenantId(deleteAssetValidate.ID, tenantId)
+	if c != 0 {
+		response.SuccessWithMessage(400, "请先删除下一级", (*context2.Context)(this.Ctx))
+		return
+	}
+	f := AssetService.Delete(deleteAssetValidate.ID, tenantId)
+	if f {
 		var DeviceService services.DeviceService
 		var FieldMappingService services.FieldMappingService
-		f1 := DeviceService.Delete(deleteAssetValidate.ID, tenantId)
-		f2 := FieldMappingService.DeleteByDeviceId(deleteAssetValidate.ID)
-		if f1 == nil && f2 {
-			response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
-			return
+		d, s := DeviceService.GetDevicesByAssetID(deleteAssetValidate.ID)
+		if s != 0 {
+			for _, ds := range d {
+				DeviceService.Delete(ds.ID, tenantId)
+				FieldMappingService.DeleteByDeviceId(ds.ID)
+			}
 		}
+		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
+		return
 	}
+	// } else {
+	// 	var DeviceService services.DeviceService
+	// 	var FieldMappingService services.FieldMappingService
+	// 	f1 := DeviceService.Delete(deleteAssetValidate.ID, tenantId)
+	// 	f2 := FieldMappingService.DeleteByDeviceId(deleteAssetValidate.ID)
+	// 	if f1 == nil && f2 {
+	// 		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(this.Ctx))
+	// 		return
+	// 	}
+	// }
 	response.SuccessWithMessage(400, "删除失败", (*context2.Context)(this.Ctx))
-	return
 }
 
 // 获取组件

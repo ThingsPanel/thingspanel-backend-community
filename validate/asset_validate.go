@@ -35,8 +35,8 @@ type WidgetAsset struct {
 
 // DeleteAsset 校验
 type DeleteAsset struct {
-	ID   string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
-	TYPE int    `json:"type" alias:"type" valid:"Required;"`
+	ID string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
+	// TYPE int    `json:"type" alias:"type" valid:"Required;"`
 }
 
 // ListAsset 校验
