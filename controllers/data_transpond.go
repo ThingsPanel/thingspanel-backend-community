@@ -50,7 +50,7 @@ func (c *DataTranspondController) List() {
 	isSuccess, d, t := DataTranspondService.GetDataTranspondList(reqData, tenantId)
 
 	if !isSuccess {
-		response.SuccessWithMessage(1000, "查询失败", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "查询失败", (*context2.Context)(c.Ctx))
 		return
 	}
 	dd := valid.RspPaginationValidate{
@@ -82,7 +82,7 @@ func (c *DataTranspondController) Edit() {
 		return
 	}
 	if reqData.Id == "" {
-		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "id不能为空", (*context2.Context)(c.Ctx))
 		return
 	}
 	// 获取用户租户id
@@ -180,7 +180,7 @@ func (c *DataTranspondController) Delete() {
 		return
 	}
 	if reqData.Id == "" {
-		response.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "id不能为空", (*context2.Context)(c.Ctx))
 		return
 	}
 	// 获取用户租户id
