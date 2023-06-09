@@ -1477,3 +1477,41 @@ CREATE TABLE "public"."tp_vis_files" (
 COMMENT ON COLUMN public.tp_vis_files.vis_plugin_id IS '可视化插件id';
 
 ALTER TABLE public.tp_ota_device ADD retry_count int8 NULL;
+
+
+-- 通知组相关
+CREATE TABLE "public"."tp_notification_groups" (
+  "id" varchar(36) COLLATE "pg_catalog"."default",
+  "group_name" varchar(255) COLLATE "pg_catalog"."default",
+  "notification_type" int4,
+  "status" int4,
+  "notification_config" text COLLATE "pg_catalog"."default",
+  "desc" varchar(255) COLLATE "pg_catalog"."default",
+  "tenant_id" varchar(36) COLLATE "pg_catalog"."default"
+)
+;
+ALTER TABLE "public"."tp_notification_groups" OWNER TO "postgres";
+COMMENT ON COLUMN "public"."tp_notification_groups"."id" IS 'uuid';
+COMMENT ON COLUMN "public"."tp_notification_groups"."group_name" IS '通知组名称';
+COMMENT ON COLUMN "public"."tp_notification_groups"."notification_type" IS '通知类型';
+COMMENT ON COLUMN "public"."tp_notification_groups"."status" IS '通知状态
+';
+COMMENT ON COLUMN "public"."tp_notification_groups"."notification_config" IS '通知配置';
+COMMENT ON COLUMN "public"."tp_notification_groups"."desc" IS '通知组描述';
+COMMENT ON COLUMN "public"."tp_notification_groups"."tenant_id" IS '租户ID';
+
+CREATE TABLE "public"."tp_notification_members" (
+  "id" varchar(36) COLLATE "pg_catalog"."default",
+  "tp_notification_groups_id" varchar(36) COLLATE "pg_catalog"."default",
+  "users_id" varchar(36) COLLATE "pg_catalog"."default",
+  "is_email" int4,
+  "is_phone" int4,
+  "is_message" int4,
+  "remark" text COLLATE "pg_catalog"."default"
+)
+;
+ALTER TABLE "public"."tp_notification_members" OWNER TO "postgres";
+COMMENT ON COLUMN "public"."tp_notification_members"."id" IS 'uuid';
+COMMENT ON COLUMN "public"."tp_notification_members"."tp_notification_groups_id" IS '关联tp_notification_groups表id';
+COMMENT ON COLUMN "public"."tp_notification_members"."users_id" IS '关联users表id';
+
