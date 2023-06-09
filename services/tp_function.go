@@ -72,19 +72,16 @@ func (*TpFunctionService) DeleteFunction(tp_function models.TpFunction) bool {
 }
 
 // 功能下拉列表
-func (*TpFunctionService) FunctionPullDownList(tenantid string) []valid.TpFunctionPullDownListValidate {
-	if tenantid == "" {
-		return PullDownListTree("0", "1")
-	} else {
-		return PullDownListTree("0", "")
-	}
+func (*TpFunctionService) FunctionPullDownList(authority string) []valid.TpFunctionPullDownListValidate {
+
+	return PullDownListTree("0", authority)
 
 }
 
-func PullDownListTree(parent_id, sys_flag string) []valid.TpFunctionPullDownListValidate {
+func PullDownListTree(parent_id, authority string) []valid.TpFunctionPullDownListValidate {
 	var TpFunctionPullDownListValidates []valid.TpFunctionPullDownListValidate
 	var TpFunctions []models.TpFunction
-	if sys_flag == "1" { //系统管理员独有的功能
+	if authority == "SYS_ADMIN" { //系统管理员独有的功能
 		result := psql.Mydb.Model(&models.TpFunction{}).Where("parent_id = ?", parent_id).Order("sort desc").Find(&TpFunctions)
 		if result.Error != nil {
 			errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -105,7 +102,7 @@ func PullDownListTree(parent_id, sys_flag string) []valid.TpFunctionPullDownList
 			TpFunctionPullDownListValidate.Id = TpFunction.Id
 			TpFunctionPullDownListValidate.Name = TpFunction.Name
 			TpFunctionPullDownListValidate.Title = TpFunction.Title
-			TpFunctionPullDownListValidate.Children = PullDownListTree(TpFunction.Id, sys_flag)
+			TpFunctionPullDownListValidate.Children = PullDownListTree(TpFunction.Id, authority)
 			TpFunctionPullDownListValidates = append(TpFunctionPullDownListValidates, TpFunctionPullDownListValidate)
 		}
 	} else {
