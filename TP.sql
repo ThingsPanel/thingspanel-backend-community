@@ -1532,3 +1532,5 @@ COMMENT ON COLUMN "public"."tp_notification_members"."users_id" IS '关联users�
 INSERT INTO public.users
 (id, created_at, updated_at, enabled, additional_info, authority, customer_id, email, "password", "name", mobile, remark, tenant_id)
 VALUES('33b2336c-9e9a-86e5-101e-4864e6b7724b', 1684309245, 1684309245, '1', '', 'TENANT_ADMIN', '', 'tenant@tenant.cn', '$2a$04$.O6d.vy.yOcYrqaQ2zkpAuApP4aDISxGdzlXol3NAR4vmZKex6jam', '租户', '13211111111', '', 'e481b0c0');
+
+ALTER TABLE public.tp_dashboard ADD tenant_id varchar(36) NULL;
