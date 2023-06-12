@@ -1124,33 +1124,23 @@ func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValid
 				continue
 			}
 		}
-		if device.AdditionalInfo != "" {
-			var additionalInfo map[string]interface{}
-			err := json.Unmarshal([]byte(device.AdditionalInfo), &additionalInfo)
-			if err != nil {
-				logs.Error(err)
-				deviceOnlineStatus[deviceId] = "0"
-				continue
-			}
-			if additionalInfo["runninginfo"] != nil {
-				var runningInfo map[string]interface{}
-				err := json.Unmarshal([]byte(additionalInfo["runninginfo"].(string)), &runningInfo)
-				if err != nil {
-					logs.Error(err)
-				} else {
-					if runningInfo["thresholdTime"] != nil {
-						thresholdTime := runningInfo["thresholdTime"].(float64)
+		if device.Protocol == "mqtt" || device.Protocol == "MQTT" {
+
+			if device.AdditionalInfo != "" {
+				aJson, err := simplejson.NewJson([]byte(device.AdditionalInfo))
+				if err == nil {
+					thresholdTime, err := aJson.Get("runningInfo").Get("thresholdTime").Int64()
+
+					if err == nil {
 						//获取最新的数据时间
 						var latest_ts int64
-						result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? ", deviceId).Select("max(ts)").First(&latest_ts)
+						result = psql.Mydb.Model(&models.TSKVLatest{}).Select("max(ts) as ts").Where("entity_id = ? ", deviceId).Group("entity_type").First(&latest_ts)
 						if result.Error != nil {
 							logs.Error(result.Error)
-							deviceOnlineStatus[deviceId] = "0"
-							continue
 						}
 						if latest_ts != 0 {
-							timeDifference := time.Now().Unix() - latest_ts
-							if timeDifference > int64(thresholdTime) {
+							timeDifference := time.Now().UnixMicro() - latest_ts
+							if timeDifference >= int64(thresholdTime*1e6) {
 								deviceOnlineStatus[deviceId] = "0"
 							} else {
 								deviceOnlineStatus[deviceId] = "1"
