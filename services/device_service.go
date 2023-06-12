@@ -1131,7 +1131,7 @@ func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValid
 				if err == nil {
 					thresholdTime, err := aJson.Get("runningInfo").Get("thresholdTime").Int64()
 
-					if err == nil {
+					if err == nil && thresholdTime != 0 {
 						//获取最新的数据时间
 						var latest_ts int64
 						result = psql.Mydb.Model(&models.TSKVLatest{}).Select("max(ts) as ts").Where("entity_id = ? ", deviceId).Group("entity_type").First(&latest_ts)
@@ -1139,8 +1139,7 @@ func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValid
 							logs.Error(result.Error)
 						}
 						if latest_ts != 0 {
-							timeDifference := time.Now().UnixMicro() - latest_ts
-							if timeDifference >= int64(thresholdTime*1e6) {
+							if time.Now().UnixMicro()-latest_ts >= int64(thresholdTime*1e7) {
 								deviceOnlineStatus[deviceId] = "0"
 							} else {
 								deviceOnlineStatus[deviceId] = "1"
