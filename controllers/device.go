@@ -547,7 +547,7 @@ func (c *DeviceController) Operating() {
 	ConditionsLog := models.ConditionsLog{
 		DeviceId:      deviceData.ID,
 		OperationType: "2",
-		Instruct:      instruct,
+		Instruct:      string(newPayload),
 		ProtocolType:  "mqtt",
 		CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
 		TenantId:      deviceData.TenantId,
