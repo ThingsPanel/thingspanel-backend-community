@@ -106,6 +106,26 @@ COMMENT ON COLUMN public.data_transpond.disabled IS '状态';
 COMMENT ON COLUMN public.data_transpond.role_type IS '1-接入引擎 2-数据转发';
 
 
+-- public.navigation definition
+
+-- Drop table
+
+-- DROP TABLE navigation;
+
+CREATE TABLE navigation (
+	id varchar(36) NOT NULL,
+	"type" int4 NULL, -- 1:业务  2：自动化-控制策略 3：自动化-告警策略  4：可视化
+	"name" varchar(255) NULL,
+	"data" varchar(255) NULL,
+	count int4 NULL DEFAULT 1, -- 数量
+	CONSTRAINT navigation_pkey PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.navigation."type" IS '1:业务  2：自动化-控制策略 3：自动化-告警策略  4：可视化';
+COMMENT ON COLUMN public.navigation.count IS '数量';
+
 -- public.logo definition
 
 -- Drop table
@@ -1534,3 +1554,4 @@ INSERT INTO public.users
 VALUES('33b2336c-9e9a-86e5-101e-4864e6b7724b', 1684309245, 1684309245, '1', '', 'TENANT_ADMIN', '', 'tenant@tenant.cn', '$2a$04$.O6d.vy.yOcYrqaQ2zkpAuApP4aDISxGdzlXol3NAR4vmZKex6jam', '租户', '13211111111', '', 'e481b0c0');
 
 ALTER TABLE public.tp_dashboard ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.data_transpond ADD tenant_id varchar(36) NULL;
