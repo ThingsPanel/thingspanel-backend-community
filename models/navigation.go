@@ -9,11 +9,12 @@ const (
 )
 
 type Navigation struct {
-	ID    string `json:"id" gorm:"primaryKey,size:36"`
-	Type  int64  `json:"type"`
-	Name  string `json:"name"`
-	Data  string `json:"data"`
-	Count int64  `json:"count"`
+	ID       string `json:"id" gorm:"primaryKey,size:36"`
+	Type     int64  `json:"type"`
+	Name     string `json:"name"`
+	Data     string `json:"data"`
+	Count    int64  `json:"count"`
+	TenantId string `json:"tenant_id,omitempty"` // 租户id
 }
 
 func (Navigation) TableName() string {

@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
+
 	"github.com/beego/beego/v2/core/logs"
 )
 
@@ -17,9 +18,9 @@ type NavigationService struct {
 }
 
 // 根据id获取100条Navigation数据
-func (*NavigationService) List() ([]models.Navigation, int64) {
+func (*NavigationService) List(tenantId string) ([]models.Navigation, int64) {
 	var navigations []models.Navigation
-	result := psql.Mydb.Order("count desc").Find(&navigations)
+	result := psql.Mydb.Where("tenant_id= ?", tenantId).Order("count desc").Find(&navigations)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -42,9 +43,9 @@ func (*NavigationService) Delete(id string) bool {
 }
 
 // GetNavigationByCondition 根据id获取一条Navigation数据
-func (*NavigationService) GetNavigationByCondition(t int64, name string, data string) (*models.Navigation, int64) {
+func (*NavigationService) GetNavigationByCondition(t int64, name string, data, tenantId string) (*models.Navigation, int64) {
 	var navigation models.Navigation
-	result := psql.Mydb.Where("type = ? AND name = ? AND data = ?", t, name, data).First(&navigation)
+	result := psql.Mydb.Where("type = ? AND name = ? AND data = ? and tenant_id = ?", t, name, data, tenantId).First(&navigation)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		//errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -67,13 +68,14 @@ func (*NavigationService) Increment(id string, count int64, step int64) bool {
 }
 
 // Add 新增一条Navigation数据
-func (*NavigationService) Add(name string, t int64, data string) (bool, string) {
+func (*NavigationService) Add(name string, t int64, data, tenantId string) (bool, string) {
 	var uuid = uuid.GetUuid()
 	navigation := models.Navigation{
-		ID:   uuid,
-		Type: t,
-		Name: name,
-		Data: data,
+		ID:       uuid,
+		Type:     t,
+		Name:     name,
+		Data:     data,
+		TenantId: tenantId,
 	}
 	result := psql.Mydb.Create(&navigation)
 	if result.Error != nil {
