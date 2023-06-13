@@ -1139,7 +1139,7 @@ func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValid
 							logs.Error(result.Error)
 						}
 						if latest_ts != 0 {
-							if time.Now().UnixMicro()-latest_ts >= int64(thresholdTime*1e7) {
+							if time.Now().UnixMicro()-latest_ts >= int64(thresholdTime*1e6) {
 								deviceOnlineStatus[deviceId] = "0"
 							} else {
 								deviceOnlineStatus[deviceId] = "1"
