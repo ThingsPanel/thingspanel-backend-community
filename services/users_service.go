@@ -124,16 +124,6 @@ func (*UserService) GetUserAuthorityById(id string) (string, string, error) {
 	return users.Authority, users.TenantID, nil
 }
 
-// 通过用户id和租户id获取用户信息
-func (*UserService) GetUserByIdAndTenantId(id string, tenantId string) (*models.Users, error) {
-	var users models.Users
-	result := psql.Mydb.Where("id = ? AND tenant_id = ?", id, tenantId).First(&users)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return &users, nil
-}
-
 // Paginate 分页获取user数据
 func (*UserService) Paginate(name string, offset int, pageSize int, authority string, tenantId string) ([]PaginateUser, int64, error) {
 	var paginateUsers []PaginateUser
