@@ -189,14 +189,11 @@ func (c *AssetController) UpdateOnly() {
 		response.SuccessWithMessage(400, "修改失败", (*context2.Context)(c.Ctx))
 		return
 	}
-	var asset = models.Asset{
-		ID:         reqData.ID,
-		Name:       reqData.Name,
-		ParentID:   reqData.ParentID,
-		BusinessID: reqData.BusinessID,
-		Tier:       reqData.Tier,
-	}
-	result := psql.Mydb.Save(&asset)
+	f.BusinessID = reqData.BusinessID
+	f.Name = reqData.Name
+	f.ParentID = reqData.ParentID
+	f.Tier = reqData.Tier
+	result := psql.Mydb.Save(&f)
 	if result.Error == nil {
 		response.SuccessWithDetailed(200, "success", reqData, map[string]string{}, (*context2.Context)(c.Ctx))
 		return
