@@ -39,6 +39,7 @@ type TpWarningInformationPaginationValidate struct {
 	StartTime        string `json:"start_time,omitempty" alias:"开始日期" valid:"MaxSize(50)"`
 	EndTime          string `json:"end_time,omitempty" alias:"结束日期" valid:"MaxSize(50)"`
 	Id               string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
+	WarningLevel     string `json:"warning_level,omitempty" alias:"告警级别" valid:"MaxSize(1)"`
 }
 
 type RspTpWarningInformationPaginationValidate struct {
