@@ -1489,7 +1489,7 @@ CREATE TABLE "public"."tp_vis_plugin" (
   plugin_name VARCHAR(150) NOT NULL,
   plugin_description VARCHAR(150),
   create_at int8 NULL,
-  remark VARCHAR(255) NOT NULL
+  remark VARCHAR(255)
 );
 
 -- Column comments
@@ -1505,7 +1505,7 @@ CREATE TABLE "public"."tp_vis_files" (
   file_url VARCHAR(150),
   file_size VARCHAR(20),
   create_at int8 NULL,
-  remark VARCHAR(255) NOT NULL
+  remark VARCHAR(255)
 );
 
 COMMENT ON COLUMN public.tp_vis_files.vis_plugin_id IS '可视化插件id';
