@@ -1486,10 +1486,10 @@ CREATE TABLE "public"."tp_data_transpond_target" (
 CREATE TABLE "public"."tp_vis_plugin" (
   id VARCHAR(36) PRIMARY KEY,
   tenant_id VARCHAR(36) NOT NULL,
-  plugin_name VARCHAR(1) NOT NULL,
+  plugin_name VARCHAR(150) NOT NULL,
   plugin_description VARCHAR(150),
   create_at int8 NULL,
-  remark VARCHAR(50) NOT NULL
+  remark VARCHAR(255) NOT NULL
 );
 
 -- Column comments
@@ -1500,12 +1500,12 @@ COMMENT ON COLUMN public.tp_vis_plugin.plugin_description IS '插件描述';
 
 CREATE TABLE "public"."tp_vis_files" (
   id VARCHAR(36) PRIMARY KEY,
-  vis_plugin_id VARCHAR(1) NOT NULL,
+  vis_plugin_id VARCHAR(36) NOT NULL,
   file_name VARCHAR(150),
   file_url VARCHAR(150),
   file_size VARCHAR(20),
   create_at int8 NULL,
-  remark VARCHAR(50) NOT NULL
+  remark VARCHAR(255) NOT NULL
 );
 
 COMMENT ON COLUMN public.tp_vis_files.vis_plugin_id IS '可视化插件id';
