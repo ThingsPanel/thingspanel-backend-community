@@ -1556,3 +1556,5 @@ VALUES('33b2336c-9e9a-86e5-101e-4864e6b7724b', 1684309245, 1684309245, '1', '', 
 ALTER TABLE public.tp_dashboard ADD tenant_id varchar(36) NULL;
 ALTER TABLE public.data_transpond ADD tenant_id varchar(36) NULL;
 ALTER TABLE public.navigation ADD tenant_id varchar(36) NULL;
+DELETE FROM public.tp_function
+WHERE id='3f4348b0-f39d-ec42-14b4-623cbeadb12f';
