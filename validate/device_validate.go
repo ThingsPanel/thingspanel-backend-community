@@ -15,6 +15,7 @@ type EditDevice struct {
 	Type           string `json:"type"` // 插件类型
 	Name           string `json:"name"` // 插件名
 	Label          string `json:"label"`
+	Sort           int64  `json:"sort"`
 	SearchText     string `json:"search_text"`
 	ChartOption    string `json:"chart_option"`
 	Protocol       string `json:"protocol" gorm:"size:50"`
@@ -36,6 +37,7 @@ type EditDevice struct {
 type AddDevice struct {
 	Token          string `json:"token"`
 	Name           string `json:"name"`
+	Sort           int64  `json:"sort"`
 	AssetId        string `json:"asset_id"`
 	DeviceType     string `json:"device_type" gorm:"size:2"`
 	ParentId       string `json:"parent_id" gorm:"size:36"`
@@ -66,6 +68,7 @@ type Device struct {
 	CustomerID     string `json:"customer_id" gorm:"size:36"`
 	Type           string `json:"type"` // 插件类型
 	Name           string `json:"name"` // 插件名
+	Sort           int64  `json:"sort"`
 	Label          string `json:"label"`
 	SearchText     string `json:"search_text"`
 	ChartOption    string `json:"chart_option"`
@@ -91,6 +94,7 @@ type UpdateDevice struct {
 	AdditionalInfo string `json:"additional_info,omitempty" gorm:"type:longtext"` // 存储基本配置
 	Type           string `json:"type,omitempty"`                                 // 插件类型
 	Name           string `json:"name,omitempty"`                                 // 插件名
+	Sort           int64  `json:"sort"`
 	Label          string `json:"label,omitempty"`
 	SearchText     string `json:"search_text,omitempty"`
 	ChartOption    string `json:"chart_option"`
@@ -124,6 +128,7 @@ type DevicePageListValidate struct {
 	DeviceType  string `json:"device_type" alias:"设备id" valid:"MaxSize(36)"`
 	Token       string `json:"token" alias:"设备id" valid:"MaxSize(36)"`
 	Name        string `json:"name" alias:"设备名称" valid:"MaxSize(99)"`
+	Sort        int64  `json:"sort" alias:"排序"`
 	ParentId    string `json:"parent_id" gorm:"size:36"`
 	NotGateway  int    `json:"not_gateway" valid:"Max(2)"`
 }

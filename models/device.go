@@ -8,6 +8,7 @@ type Device struct {
 	CustomerID     string `json:"customer_id,omitempty" gorm:"size:36"`
 	Type           string `json:"type,omitempty"` // 插件类型
 	Name           string `json:"name,omitempty"` // 插件名
+	Sort           int64  `json:"sort,omitempty"`
 	Label          string `json:"label,omitempty"`
 	SearchText     string `json:"search_text,omitempty"`
 	ChartOption    string `json:"chart_option,omitempty"  gorm:"type:longtext"` // 插件( 目录名)

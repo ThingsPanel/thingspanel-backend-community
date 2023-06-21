@@ -191,6 +191,7 @@ func (c *AssetController) UpdateOnly() {
 	}
 	f.BusinessID = reqData.BusinessID
 	f.Name = reqData.Name
+	f.Sort = reqData.Sort
 	f.ParentID = reqData.ParentID
 	f.Tier = reqData.Tier
 	result := psql.Mydb.Save(&f)

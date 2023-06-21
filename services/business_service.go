@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
+	valid "ThingsPanel-Go/validate"
 	"errors"
 	"time"
 
@@ -23,6 +24,7 @@ type BusinessService struct {
 type PaginateBusiness struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
+	Sort      int64  `json:"sort"`
 	CreatedAt int64  `json:"created_at"`
 	IsDevice  int    `json:"is_device"`
 }
@@ -48,7 +50,7 @@ func (*BusinessService) Paginate(name string, offset int, pageSize int, tenantId
 		logs.Error(err.Error())
 		return businesses, count
 	}
-	err = tx.Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses).Error
+	err = tx.Order("sort desc").Order("created_at desc").Limit(pageSize).Offset(offset).Find(&businesses).Error
 
 	if err != nil {
 		logs.Error(err.Error())
@@ -72,9 +74,9 @@ func (*BusinessService) GetBusinessById(id string) (*models.Business, int64, err
 }
 
 // Add新增一条business数据
-func (*BusinessService) Add(name, tenantId string) (bool, string) {
+func (*BusinessService) Add(name string, sort int64, tenantId string) (bool, string) {
 	bussiness_id := uuid.GetUuid()
-	business := models.Business{ID: bussiness_id, Name: name, TenantId: tenantId, CreatedAt: time.Now().Unix()}
+	business := models.Business{ID: bussiness_id, Name: name, Sort: sort, TenantId: tenantId, CreatedAt: time.Now().Unix()}
 	result := psql.Mydb.Create(&business)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
@@ -85,6 +87,7 @@ func (*BusinessService) Add(name, tenantId string) (bool, string) {
 	asset := models.Asset{
 		ID:         asset_id,
 		Name:       name,
+		Sort:       10,
 		Tier:       1,
 		ParentID:   "0",
 		BusinessID: bussiness_id,
@@ -95,8 +98,8 @@ func (*BusinessService) Add(name, tenantId string) (bool, string) {
 }
 
 // 根据ID编辑一条business数据
-func (*BusinessService) Edit(id string, name string, tenantId string) bool {
-	result := psql.Mydb.Model(&models.Business{}).Where("id = ? and tenant_id = ?", id, tenantId).Update("name", name)
+func (*BusinessService) Edit(model valid.EditBusiness, tenantId string) bool {
+	result := psql.Mydb.Model(&models.Business{}).Where("id = ? and tenant_id = ?", model.ID, tenantId).Updates(&model)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return false

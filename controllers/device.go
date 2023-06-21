@@ -134,6 +134,7 @@ type DeviceDash struct {
 	CustomerID     string            `json:"customer_id" gorm:"size:36"`
 	Type           string            `json:"type"` // 插件类型
 	Name           string            `json:"name"` // 插件名
+	Sort           int64             `json:"sort"`
 	Label          string            `json:"label"`
 	SearchText     string            `json:"search_text"`
 	ChartOption    string            `json:"chart_option"`
@@ -177,6 +178,7 @@ func (c *DeviceController) AddOnly() {
 		AdditionalInfo: reqData.AdditionalInfo,
 		Type:           reqData.Type,
 		Name:           reqData.Name,
+		Sort:           reqData.Sort,
 		Label:          reqData.Label,
 		SearchText:     reqData.SearchText,
 		Protocol:       reqData.Protocol,
