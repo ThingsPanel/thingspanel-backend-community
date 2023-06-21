@@ -30,7 +30,7 @@ func (*TpVis) GetTpVisPluginList(PaginationValidate valid.TpVisPluginPaginationV
 
 	var count int64
 	db.Count(&count)
-	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at").Find(&visplugins)
+	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("create_at").Find(&visplugins)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, nil, 0
