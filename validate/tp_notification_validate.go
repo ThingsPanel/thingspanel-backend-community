@@ -17,6 +17,11 @@ type TpNotificationMenbersValidate struct {
 }
 
 type TpNotificationConfigValidate struct {
-	Email   string `json:"email,omitempty"`
-	Webhook string `json:"webhook,omitempty"`
+	Email       string `json:"email,omitempty"`
+	Webhook     string `json:"webhook,omitempty"`
+	Message     string `json:"message,omitempty"`
+	Phone       string `json:"phone,omitempty"`
+	WeChatBot   string `json:"wechat,omitempty"`
+	DingDingBot string `json:"dingding,omitempty"`
+	FeiShuBot   string `json:"feishu,omitempty"`
 }
