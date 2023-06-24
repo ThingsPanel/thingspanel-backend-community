@@ -90,6 +90,11 @@ func (c *TpNotification) Save() {
 	config := make(map[string]string)
 	config["email"] = ""
 	config["webhook"] = ""
+	config["message"] = ""
+	config["phone"] = ""
+	config["wechat"] = ""
+	config["dingding"] = ""
+	config["feishu"] = ""
 
 	var members []models.TpNotificationMembers
 	switch reqData.NotificationType {
@@ -118,6 +123,31 @@ func (c *TpNotification) Save() {
 	case models.NotificationType_Webhook:
 		// webhook通知
 		config["webhook"] = reqData.NotificationConfig.Webhook
+		confStr, _ := json.Marshal(config)
+		group.NotificationConfig = string(confStr)
+	case models.NotificationType_Message:
+
+		config["message"] = reqData.NotificationConfig.Message
+		confStr, _ := json.Marshal(config)
+		group.NotificationConfig = string(confStr)
+	case models.NotificationType_Phone:
+		// webhook通知
+		config["phone"] = reqData.NotificationConfig.Phone
+		confStr, _ := json.Marshal(config)
+		group.NotificationConfig = string(confStr)
+	case models.NotificationType_WeChat:
+		// webhook通知
+		config["wechat"] = reqData.NotificationConfig.WeChatBot
+		confStr, _ := json.Marshal(config)
+		group.NotificationConfig = string(confStr)
+	case models.NotificationType_DingDing:
+		// webhook通知
+		config["dingding"] = reqData.NotificationConfig.DingDingBot
+		confStr, _ := json.Marshal(config)
+		group.NotificationConfig = string(confStr)
+	case models.NotificationType_Feishu:
+		// webhook通知
+		config["feishu"] = reqData.NotificationConfig.FeiShuBot
 		confStr, _ := json.Marshal(config)
 		group.NotificationConfig = string(confStr)
 	default:
