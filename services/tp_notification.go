@@ -28,10 +28,12 @@ func SaveNotification(ng models.TpNotificationGroups, nm []models.TpNotification
 		return false
 	}
 
-	result = psql.Mydb.Create(&nm)
-	if result.Error != nil {
-		logs.Error(result.Error.Error())
-		return false
+	if len(nm) > 0 {
+		result = psql.Mydb.Create(&nm)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+			return false
+		}
 	}
 
 	return true
