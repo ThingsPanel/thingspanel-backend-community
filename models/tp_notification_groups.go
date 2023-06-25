@@ -4,6 +4,12 @@ const (
 	NotificationType_Members = 1
 	NotificationType_Email   = 2
 	NotificationType_Webhook = 3
+	NotificationType_Message = 4
+
+	NotificationType_Phone    = 5
+	NotificationType_WeChat   = 6
+	NotificationType_DingDing = 7
+	NotificationType_Feishu   = 8
 )
 
 const (
