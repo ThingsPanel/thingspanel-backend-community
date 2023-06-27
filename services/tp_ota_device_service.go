@@ -394,9 +394,10 @@ func (*TpOtaDeviceService) OtaToUpgradeMsg(devices []models.Device, otaid string
 	for _, device := range devices {
 		//设备是否在线
 		var deviceService DeviceService
-		if idOnline, err := deviceService.IsDeviceOnline(device.ID); err != nil {
+		if idOnline, err := deviceService.GetDeviceOnlineStatus(
+			valid.DeviceIdListValidate{DeviceIdList: []string{device.ID}}); err != nil {
 			logs.Error(err.Error())
-		} else if !idOnline {
+		} else if idOnline[device.ID].(string) == "0" {
 			psql.Mydb.Model(&models.TpOtaDevice{}).Where("device_id = ? and ota_task_id = ?", device.ID, otataskid).Updates(map[string]interface{}{"upgrade_status": "2", "status_detail": "设备不在线，等待升级", "status_update_time": time.Now().Format("2006-01-02 15:04:05")})
 			logs.Info("OTA任务id为%s,设备id为%s,设备不在线", otataskid, device.ID)
 			continue
