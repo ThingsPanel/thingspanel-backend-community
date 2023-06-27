@@ -140,13 +140,14 @@ func (c *TpOtaTaskController) Add() {
 	var tp_ota_devices []models.TpOtaDevice
 	for _, device := range devices {
 		tp_ota_devices = append(tp_ota_devices, models.TpOtaDevice{
-			Id:            utils.GetUuid(),
-			DeviceId:      device.ID,
-			TargetVersion: tpota.PackageVersion,
-			OtaTaskId:     d.Id,
-			UpgradeStatus: upgradestatus,
-			StatusDetail:  statusdetail,
-			RetryCount:    reqData.RetryCount,
+			Id:             utils.GetUuid(),
+			DeviceId:       device.ID,
+			CurrentVersion: device.CurrentVersion,
+			TargetVersion:  tpota.PackageVersion,
+			OtaTaskId:      d.Id,
+			UpgradeStatus:  upgradestatus,
+			StatusDetail:   statusdetail,
+			RetryCount:     reqData.RetryCount,
 		})
 	}
 	_, rsp_device_err := TpOtaDeviceService.AddBathTpOtaDevice(tp_ota_devices)
