@@ -134,7 +134,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 		union  
 		(select tt.id,cast (kk.name||'/'||tt.name as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
 		)select  name from ast where parent_id='0' limit 1) 
-		as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,
+		as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type as device_type,d.current_version as current_version,d.parent_id as parent_id,d.protocol_config as protocol_config,
 		d.additional_info as additional_info,d.sub_device_addr as sub_device_addr,d."token" as device_token,d."type" as "type",d.protocol as protocol ,dm.model_name as plugin_name,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
 		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id LEFT JOIN device_model dm ON d.type = dm.id where 1=1  and d.device_type != '3'`
 	sqlWhereCount := `select count(1) from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where d.device_type != '3'`
@@ -224,7 +224,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 					union  
 					(select tt.id,cast (kk.name||'/'||tt.name as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
 					)select  name from ast where parent_id='0' limit 1) 
-					as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type  as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,d.sub_device_addr as sub_device_addr,
+					as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type  as device_type,d.current_version as current_version,d.parent_id as parent_id,d.protocol_config as protocol_config,d.sub_device_addr as sub_device_addr,
 					d.additional_info as additional_info,d."token" as device_token,d."type" as "type",d.protocol as protocol ,dm.model_name as plugin_name,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
 					   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id LEFT JOIN device_model dm ON d.type = dm.id where 1=1  and d.device_type = '3' and d.parent_id = '` + device["device"].(string) + "' order by d.created_at desc"
 				result := psql.Mydb.Raw(sql).Scan(&subDeviceList)
