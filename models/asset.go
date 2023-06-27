@@ -7,7 +7,8 @@ type Asset struct {
 	Name           string `json:"name"`                       // 名称
 	Label          string `json:"label"`                      // 标签
 	SearchText     string `json:"search_text"`
-	Type           string `json:"type"`                       // 类型
+	Type           string `json:"type"` // 类型
+	Sort           int64  `json:"sort"`
 	ParentID       string `json:"parent_id" gorm:"size:36"`   // 父级ID
 	Tier           int64  `json:"tier"`                       // 层级
 	BusinessID     string `json:"business_id" gorm:"size:36"` // 业务ID

@@ -7,6 +7,7 @@
 CREATE TABLE business (
 	id varchar(36) NOT NULL,
 	"name" varchar(255) NULL,
+    "sort" int NOT NULL,
 	created_at int8 NULL,
 	app_type varchar(255) NOT NULL DEFAULT ''::character varying, -- 应用类型
 	app_id varchar(255) NOT NULL DEFAULT ''::character varying, -- app id
@@ -340,6 +341,7 @@ CREATE TABLE asset (
 	customer_id varchar(36) NULL, -- 客户ID
 	"name" varchar(255) NULL, -- 名称
 	"label" varchar(255) NULL, -- 标签
+    "sort" int NOT NULL,
 	search_text varchar(255) NULL,
 	"type" varchar(255) NULL, -- 类型
 	parent_id varchar(36) NULL, -- 父级ID
@@ -377,6 +379,7 @@ CREATE TABLE device (
 	"type" varchar(255) NULL, -- 插件类型
 	"name" varchar(255) NULL, -- 插件名
 	"label" varchar(255) NULL,
+    "sort" int NOT NULL,
 	search_text varchar(255) NULL,
 	"extension" varchar(50) NULL, -- 插件( 目录名)
 	protocol varchar(50) NULL,

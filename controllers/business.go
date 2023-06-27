@@ -29,6 +29,7 @@ type PaginateBusiness struct {
 type AddBusiness struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
+	Sort      int64  `json:"sort"`
 	CreatedAt int64  `json:"created_at"`
 }
 
@@ -92,6 +93,7 @@ func (c *BusinessController) Index() {
 			item := services.PaginateBusiness{
 				ID:        bv.ID,
 				Name:      bv.Name,
+				Sort:      bv.Sort,
 				CreatedAt: bv.CreatedAt,
 				IsDevice:  is_device,
 			}
@@ -136,7 +138,7 @@ func (this *BusinessController) Add() {
 		return
 	}
 	var BusinessService services.BusinessService
-	f, id := BusinessService.Add(addBusinessValidate.Name, tenantId)
+	f, id := BusinessService.Add(addBusinessValidate.Name, addBusinessValidate.Sort, tenantId)
 	if f {
 		b, i, err := BusinessService.GetBusinessById(id)
 		if err != nil && i == 0 {
@@ -146,6 +148,7 @@ func (this *BusinessController) Add() {
 		u := AddBusiness{
 			ID:        b.ID,
 			Name:      b.Name,
+			Sort:      b.Sort,
 			CreatedAt: b.CreatedAt,
 		}
 		response.SuccessWithDetailed(200, "新增成功", u, map[string]string{}, (*context2.Context)(this.Ctx))
@@ -180,7 +183,7 @@ func (this *BusinessController) Edit() {
 		return
 	}
 	var BusinessService services.BusinessService
-	f := BusinessService.Edit(editBusinessValidate.ID, editBusinessValidate.Name, tenantId)
+	f := BusinessService.Edit(editBusinessValidate, tenantId)
 	if f {
 		response.SuccessWithMessage(200, "编辑成功", (*context2.Context)(this.Ctx))
 		return

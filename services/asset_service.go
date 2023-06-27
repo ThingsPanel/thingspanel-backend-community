@@ -964,12 +964,12 @@ func (*AssetService) Simple() (assets []models.Simple, err error) {
 
 // 通过业务id获取设备分组
 func (*AssetService) PageGetDeviceGroupByBussinessID(business_id, tenant_id string, current int, pageSize int) ([]map[string]interface{}, int64) {
-	sqlWhere := `select a.id,a."name" , (with RECURSIVE ast as 
+	sqlWhere := `select a.id, a."name", a."sort", (with RECURSIVE ast as 
 		( 
-		(select aa.id,cast('/'as varchar(255))as name,aa.parent_id  from asset aa where id=a.id) 
+		(select aa.id,cast('/'as varchar(255))as name, aa.parent_id from asset aa where id=a.id) 
 		union  
-		(select tt.id,cast (CONCAT('/',kk.name,tt.name ) as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
-		)select name from ast where parent_id='0' limit 1) as parent_group ,a.parent_id from asset a where business_id = ? and tenant_id = ? order by parent_group asc`
+		(select tt.id,cast (CONCAT('/',kk.name,tt.name ) as varchar(255))as name, kk.parent_id from ast tt inner join asset kk on kk.id = tt.parent_id )
+		)select name from ast where parent_id='0' limit 1) as parent_group ,a.parent_id from asset a where business_id = ? and tenant_id = ? order by a.sort desc`
 	var values []interface{}
 	values = append(values, business_id, tenant_id)
 	var count int64
