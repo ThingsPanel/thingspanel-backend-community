@@ -7,6 +7,7 @@ import (
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
+	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
@@ -71,10 +72,13 @@ func (c *TpNotification) Save() {
 	}
 
 	var id string
+	var isCreate bool
 	if len(reqData.Id) != 0 {
 		id = reqData.Id
+		isCreate = false
 	} else {
 		id = utils.GetUuid()
+		isCreate = true
 	}
 
 	// 组装  NotificationGroups
@@ -85,6 +89,10 @@ func (c *TpNotification) Save() {
 		NotificationType: reqData.NotificationType,
 		Status:           models.NotificationSwitch_Close, // 默认关闭
 		TenantId:         tenantId,
+	}
+
+	if isCreate {
+		group.CreateTime = time.Now().Unix()
 	}
 
 	config := make(map[string]string)
@@ -155,7 +163,7 @@ func (c *TpNotification) Save() {
 		return
 	}
 
-	if !services.SaveNotification(group, members) {
+	if !services.SaveNotification(group, members, isCreate) {
 		response.SuccessWithMessage(400, "mysql error", (*context2.Context)(c.Ctx))
 		return
 	}
