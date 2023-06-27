@@ -307,7 +307,7 @@ func (*TpOtaDeviceService) OtaToinformMsgProcOther(body []byte, topic string) bo
 	//判断设备在升级中，且推送的版本低于升级任务版本，再次推送
 	var otadevice models.TpOtaDevice
 	var count int64
-	_ = psql.Mydb.Model(&models.Device{}).Where("upgrade_status = '2' and device_id = ? and target_version != ?", deviceid, otamsg.Params.PackageVersion).First(&otadevice).Count(&count).Error
+	_ = psql.Mydb.Model(&models.TpOtaDevice{}).Where("upgrade_status = '2' and device_id = ? and target_version != ?", deviceid, otamsg.Params.PackageVersion).First(&otadevice).Count(&count).Error
 	if count != 0 {
 		if otadevice.RetryCount == 0 {
 			logs.Info("设备%s升级失败", deviceid)
