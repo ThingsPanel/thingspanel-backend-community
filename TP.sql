@@ -1521,18 +1521,19 @@ CREATE TABLE "public"."tp_notification_groups" (
   "status" int4,
   "notification_config" text COLLATE "pg_catalog"."default",
   "desc" varchar(255) COLLATE "pg_catalog"."default",
-  "tenant_id" varchar(36) COLLATE "pg_catalog"."default"
+  "tenant_id" varchar(36) COLLATE "pg_catalog"."default",
+  "create_time" int4
 )
 ;
 ALTER TABLE "public"."tp_notification_groups" OWNER TO "postgres";
 COMMENT ON COLUMN "public"."tp_notification_groups"."id" IS 'uuid';
 COMMENT ON COLUMN "public"."tp_notification_groups"."group_name" IS '通知组名称';
 COMMENT ON COLUMN "public"."tp_notification_groups"."notification_type" IS '通知类型';
-COMMENT ON COLUMN "public"."tp_notification_groups"."status" IS '通知状态
-';
+COMMENT ON COLUMN "public"."tp_notification_groups"."status" IS '通知状态';
 COMMENT ON COLUMN "public"."tp_notification_groups"."notification_config" IS '通知配置';
 COMMENT ON COLUMN "public"."tp_notification_groups"."desc" IS '通知组描述';
 COMMENT ON COLUMN "public"."tp_notification_groups"."tenant_id" IS '租户ID';
+COMMENT ON COLUMN "public"."tp_notification_groups"."create_time" IS '创建时间';
 
 CREATE TABLE "public"."tp_notification_members" (
   "id" varchar(36) COLLATE "pg_catalog"."default",
