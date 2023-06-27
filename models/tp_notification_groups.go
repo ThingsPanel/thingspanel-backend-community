@@ -25,6 +25,7 @@ type TpNotificationGroups struct {
 	Status             int    `json:"status"`
 	NotificationConfig string `json:"notification_config"`
 	TenantId           string `json:"tenant_id"`
+	CreateTime         int64  `json:"create_time"`
 }
 
 func (TpNotificationGroups) TableName() string {

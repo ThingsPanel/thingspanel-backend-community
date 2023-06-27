@@ -9,14 +9,21 @@ import (
 	"strings"
 
 	"github.com/beego/beego/v2/core/logs"
+	"gorm.io/gorm"
 )
 
 type TpNotificationService struct {
 }
 
-func SaveNotification(ng models.TpNotificationGroups, nm []models.TpNotificationMembers) bool {
+func SaveNotification(ng models.TpNotificationGroups, nm []models.TpNotificationMembers, isCreate bool) bool {
 
-	result := psql.Mydb.Save(ng)
+	var result *gorm.DB
+	if !isCreate {
+		result = psql.Mydb.Omit("create_time").Save(ng)
+	} else {
+		result = psql.Mydb.Save(ng)
+	}
+
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return false
@@ -115,7 +122,7 @@ func GetNotificationListByTenantId(
 		return nG, count
 	}
 
-	err = tx.Limit(pageSize).Offset(offset).Find(&nG).Error
+	err = tx.Limit(pageSize).Offset(offset).Order("create_time desc").Find(&nG).Error
 	if err != nil {
 		logs.Error(err.Error())
 		return nG, count
