@@ -50,8 +50,16 @@ func (this *NavigationController) Add() {
 		}
 		return
 	}
+
+	//获取租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+
 	var NavigationService services.NavigationService
-	n, c := NavigationService.GetNavigationByCondition(navigationAddValidate.Type, navigationAddValidate.Name, navigationAddValidate.Data)
+	n, c := NavigationService.GetNavigationByCondition(navigationAddValidate.Type, navigationAddValidate.Name, navigationAddValidate.Data, tenantId)
 	if c > 0 {
 		f := NavigationService.Increment(n.ID, n.Count, 1)
 		if f {
@@ -62,7 +70,7 @@ func (this *NavigationController) Add() {
 			return
 		}
 	} else {
-		f, _ := NavigationService.Add(navigationAddValidate.Name, navigationAddValidate.Type, navigationAddValidate.Data)
+		f, _ := NavigationService.Add(navigationAddValidate.Name, navigationAddValidate.Type, navigationAddValidate.Data, tenantId)
 		if f {
 			response.SuccessWithMessage(200, "新增成功", (*context2.Context)(this.Ctx))
 			return
@@ -74,12 +82,20 @@ func (this *NavigationController) Add() {
 }
 
 func (this *NavigationController) List() {
+
+	//获取租户id
+	tenantId, ok := this.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+
 	var navigationList []NavigationList
 	var NavigationService services.NavigationService
 	var BusinessService services.BusinessService
 	var WarningConfigService services.WarningConfigService
 	var DashBoardService services.DashBoardService
-	nl, nc := NavigationService.List()
+	nl, nc := NavigationService.List(tenantId)
 	if nc > 0 {
 		for _, nv := range nl {
 			var ni NavigationItem

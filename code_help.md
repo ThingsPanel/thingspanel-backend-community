@@ -18,3 +18,8 @@ if PaginationValidate.AutomationLogId != "" {
 	var count int64
 	psql.Mydb.Model(&models.TpAutomationLogDetail{}).Where(sqlWhere, paramList...).Count(&count)
 
+# 超文本传输协议 （HTTP） 状态代码注册表
+http://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
+
+# Open API规范
+https://openapi.apifox.cn/

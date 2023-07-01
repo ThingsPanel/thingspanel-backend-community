@@ -134,7 +134,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 		union  
 		(select tt.id,cast (kk.name||'/'||tt.name as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
 		)select  name from ast where parent_id='0' limit 1) 
-		as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,
+		as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type as device_type,d.current_version as current_version,d.parent_id as parent_id,d.protocol_config as protocol_config,
 		d.additional_info as additional_info,d.sub_device_addr as sub_device_addr,d."token" as device_token,d."type" as "type",d.protocol as protocol ,dm.model_name as plugin_name,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
 		   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id LEFT JOIN device_model dm ON d.type = dm.id where 1=1  and d.device_type != '3'`
 	sqlWhereCount := `select count(1) from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id  where d.device_type != '3'`
@@ -224,7 +224,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 					union  
 					(select tt.id,cast (kk.name||'/'||tt.name as varchar(255))as name ,kk.parent_id from ast tt inner join asset  kk on kk.id = tt.parent_id )
 					)select  name from ast where parent_id='0' limit 1) 
-					as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type  as device_type,d.parent_id as parent_id,d.protocol_config as protocol_config,d.sub_device_addr as sub_device_addr,
+					as asset_name,b.id as business_id ,b."name" as business_name,d.d_id,d.location,a.id as asset_id ,d.id as device ,d."name" as device_name,d.device_type  as device_type,d.current_version as current_version,d.parent_id as parent_id,d.protocol_config as protocol_config,d.sub_device_addr as sub_device_addr,
 					d.additional_info as additional_info,d."token" as device_token,d."type" as "type",d.protocol as protocol ,dm.model_name as plugin_name,(select ts from ts_kv_latest tkl where tkl.entity_id = d.id order by ts desc limit 1) as latest_ts
 					   from device d left join asset a on d.asset_id =  a.id left join business b on b.id = a.business_id LEFT JOIN device_model dm ON d.type = dm.id where 1=1  and d.device_type = '3' and d.parent_id = '` + device["device"].(string) + "' order by d.created_at desc"
 				result := psql.Mydb.Raw(sql).Scan(&subDeviceList)
@@ -361,7 +361,7 @@ func (*DeviceService) GetDevicesByBusinessID(business_id string) ([]models.Devic
 // 2023-03-14新增
 func (*DeviceService) GetDevicesByProductID(product_id string) ([]models.Device, int64) {
 	var devices []models.Device
-	SQL := `select device.id,device.token,device.product_id,device.asset_id ,device.additional_info,device."type" ,device."location",device."d_id",device."name",device."label",device.protocol from device where product_id =?`
+	SQL := `select device.id,device.token,device.product_id,device.asset_id ,device.current_version ,device.additional_info,device."type" ,device."location",device."d_id",device."name",device."label",device.protocol from device where product_id =?`
 	if err := psql.Mydb.Raw(SQL, product_id).Scan(&devices).Error; err != nil {
 		log.Println(err.Error())
 	}
@@ -1114,8 +1114,47 @@ func (*DeviceService) DeviceMapList(req valid.DeviceMapValidate, tenantId string
 func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValidate) (map[string]interface{}, error) {
 	var deviceOnlineStatus = make(map[string]interface{})
 	for _, deviceId := range deviceIdList.DeviceIdList {
+		var device models.Device
+		//根据阈值判断设备是否在线
+		result := psql.Mydb.Where("id = ?", deviceId).First(&device)
+		if result.Error != nil {
+			logs.Error(result.Error)
+			if result.Error == gorm.ErrRecordNotFound {
+				deviceOnlineStatus[deviceId] = "0"
+				continue
+			}
+		}
+		if device.Protocol == "mqtt" || device.Protocol == "MQTT" {
+
+			if device.AdditionalInfo != "" {
+				aJson, err := simplejson.NewJson([]byte(device.AdditionalInfo))
+				if err == nil {
+					thresholdTime, err := aJson.Get("runningInfo").Get("thresholdTime").Int64()
+
+					if err == nil && thresholdTime != 0 {
+						//获取最新的数据时间
+						var latest_ts int64
+						result = psql.Mydb.Model(&models.TSKVLatest{}).Select("max(ts) as ts").Where("entity_id = ? ", deviceId).Group("entity_type").First(&latest_ts)
+						if result.Error != nil {
+							logs.Error(result.Error)
+						}
+						if latest_ts != 0 {
+							if time.Now().UnixMicro()-latest_ts >= int64(thresholdTime*1e6) {
+								deviceOnlineStatus[deviceId] = "0"
+							} else {
+								deviceOnlineStatus[deviceId] = "1"
+							}
+							continue
+						}
+					}
+				}
+			}
+
+		}
+
+		//原流程
 		var tskvLatest models.TSKVLatest
-		result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
+		result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
 		logs.Info("------------------------------------------------ceshi")
 		if result.Error != nil {
 			logs.Error(result.Error)

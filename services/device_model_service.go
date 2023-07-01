@@ -177,6 +177,20 @@ func (*DeviceModelService) GetTypeMapByPluginId(pluginId string) (map[string]int
 	return typeMap, nil
 }
 
+// 根据物模型id和属性名称获取属性类型
+func (*DeviceModelService) GetTypeByModelIdAndName(modelId string, name string) (string, error) {
+	var DeviceModelService DeviceModelService
+	typeMap, err := DeviceModelService.GetTypeMapByPluginId(modelId)
+	if err != nil {
+		return "", err
+	}
+	if value, ok := typeMap[name]; ok {
+		return value.(string), nil
+	} else {
+		return "", nil
+	}
+}
+
 // 根据设备插件id获取设备图表单元名称
 func (*DeviceModelService) GetChartNameListByPluginId(pluginId string) ([]string, error) {
 	var chartNameMap []string

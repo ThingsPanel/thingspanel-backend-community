@@ -183,8 +183,8 @@ func (c *UserController) Edit() {
 	// 如果修改的不是自己的信息需要判断是否有编辑用户权限
 	if userId != reqData.ID {
 		// 根据用户id获取被编辑用户权限
-		e_user, err := UserService.GetUserByIdAndTenantId(reqData.ID, tenantId)
-		if err != nil {
+		e_user, count := UserService.GetUserById(reqData.ID)
+		if count == 0 {
 			response.SuccessWithMessage(400, "获取被编辑用户权限失败", (*context2.Context)(c.Ctx))
 			return
 		}

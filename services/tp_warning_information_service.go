@@ -37,6 +37,10 @@ func (*TpWarningInformationService) GetTpWarningInformationList(PaginationValida
 		sqlWhere += " and processing_result = ?"
 		paramList = append(paramList, PaginationValidate.ProcessingResult)
 	}
+	if PaginationValidate.WarningLevel != "" {
+		sqlWhere += " and warning_level = ?"
+		paramList = append(paramList, PaginationValidate.WarningLevel)
+	}
 	if PaginationValidate.StartTime != "" && PaginationValidate.EndTime != "" {
 		// 字符串转int64
 		startTime, _ := strconv.ParseInt(PaginationValidate.StartTime, 10, 64)

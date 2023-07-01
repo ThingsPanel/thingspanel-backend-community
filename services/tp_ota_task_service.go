@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	valid "ThingsPanel-Go/validate"
+	"errors"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -83,7 +84,16 @@ func (*TpOtaTaskService) AddTpOtaTask(tp_ota_task models.TpOtaTask) (models.TpOt
 	return tp_ota_task, nil
 }
 func (*TpOtaTaskService) DeleteTpOtaTask(tp_ota_task models.TpOtaTask) error {
+	psql.Mydb.Where("id = ?", tp_ota_task.Id).First(&tp_ota_task)
+	if tp_ota_task.TaskStatus != "2" {
+		return errors.New("任务未完成，无法删除")
+	}
 	result := psql.Mydb.Delete(&tp_ota_task)
+	if result.Error != nil {
+		logs.Error(result.Error)
+		return result.Error
+	}
+	result = psql.Mydb.Where("ota_task_id = ?", tp_ota_task.Id).Delete(&models.TpOtaDevice{})
 	if result.Error != nil {
 		logs.Error(result.Error)
 		return result.Error

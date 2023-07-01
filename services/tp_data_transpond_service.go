@@ -8,10 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/robertkrimen/otto"
 	"strconv"
 	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/robertkrimen/otto"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -226,8 +227,6 @@ func GetDeviceDataTranspondInfo(deviceId string) (bool, DataTranspondCache) {
 	// 从redis中获取数据
 	redisKey := fmt.Sprintf(DeviceTranspondInfoRedisKeyPrefix, deviceId)
 	redisInfo := redis.GetStr(redisKey)
-	fmt.Println("key", redisKey)
-	fmt.Println(redisInfo)
 	// 如果是 {} 证明为空缓存，不继续查询数据库，直接返回
 	if redisInfo == "{}" {
 		return false, data
@@ -301,11 +300,9 @@ func GetDeviceDataTranspondInfo(deviceId string) (bool, DataTranspondCache) {
 
 // 用于验证是否需要转发，以及转发数据
 func CheckAndTranspondData(deviceId string, msg []byte, messageType int) {
-	fmt.Println("deviceId", deviceId)
 	ok, data := GetDeviceDataTranspondInfo(deviceId)
 	// 无转发配置或messageType不符
 	if !ok || data.MessageType != messageType {
-		fmt.Println("无转发配置或messageType不符")
 		return
 	}
 

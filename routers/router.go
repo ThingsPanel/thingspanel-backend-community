@@ -325,6 +325,10 @@ func init() {
 		web.NSRouter("/tp_dashboard/edit", &controllers.TpDashboardController{}, "*:Edit"),
 		web.NSRouter("/tp_dashboard/delete", &controllers.TpDashboardController{}, "*:Delete"),
 
+		//可视化插件
+		web.NSRouter("/tp_vis_plugin/list", &controllers.TpVisPluginController{}, "*:List"),
+		web.NSRouter("/tp_vis_files/up", &controllers.TpVisPluginController{}, "*:Upload"),
+
 		//插件模块接口
 		web.NSRouter("/plugin/device/config", &controllers.DeviceController{}, "*:GetGatewayConfig"),
 		web.NSRouter("/form/config", &controllers.DeviceController{}, "*:GetProtocolForm"),
@@ -369,10 +373,12 @@ func init() {
 		web.NSRouter("/tp_ota/add", &controllers.TpOtaController{}, "*:Add"),
 		web.NSRouter("/tp_ota/list", &controllers.TpOtaController{}, "*:List"),
 		web.NSRouter("/tp_ota/delete", &controllers.TpOtaController{}, "*:Delete"),
+
 		//固件升级任务
 		//web.NSRouter("/tp_ota_task/modifystatus", &controllers.TpOtaTaskController{}, "*:ModifyStatus"),
 		web.NSRouter("/tp_ota_task/list", &controllers.TpOtaTaskController{}, "*:List"),
 		web.NSRouter("/tp_ota_task/add", &controllers.TpOtaTaskController{}, "*:Add"),
+		web.NSRouter("/tp_ota_task/delete", &controllers.TpOtaTaskController{}, "*:Delete"),
 
 		//固件升级设备
 		//web.NSRouter("/tp_ota_device/add", &controllers.TpOtaDeviceController{}, "*:Add"),
@@ -410,6 +416,13 @@ func init() {
 		web.NSRouter("/v1/automation/log/detail/list", &controllers.TpAutomationLogDetailController{}, "*:List"),
 		web.NSRouter("/v1/scenario/log/list", &controllers.TpScenarioLogController{}, "*:List"),
 		web.NSRouter("/v1/scenario/log/detail/list", &controllers.TpScenarioLogDetailController{}, "*:List"),
+
+		// 通知组
+		web.NSRouter("/notification/list", &controllers.TpNotification{}, "*:List"),
+		web.NSRouter("/notification/save", &controllers.TpNotification{}, "*:Save"),
+		web.NSRouter("/notification/detail", &controllers.TpNotification{}, "*:Detail"),
+		web.NSRouter("/notification/delete", &controllers.TpNotification{}, "*:Delete"),
+		web.NSRouter("/notification/switch", &controllers.TpNotification{}, "*:Switch"),
 	)
 
 	// 图表推送数据

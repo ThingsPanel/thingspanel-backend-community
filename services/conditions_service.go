@@ -361,12 +361,16 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						automationLogDetail.ProcessDescription = result.Error.Error()
 						automationLogDetail.ProcessResult = "2"
 					} else {
+						var tpautomation TpAutomationService
+						//根据设备id获取租户id
+						tenantId, _ := tpautomation.GetTpAutomationTenantId(automationAction.AutomationId)
 						var warningInformation models.TpWarningInformation
 						warningInformation.ProcessingInstructions = ""
 						warningInformation.WarningName = warningStrategy.WarningStrategyName
 						warningInformation.ProcessingResult = "0"
 						warningInformation.WarningDescription = warningStrategy.WarningDescription
 						warningInformation.WarningLevel = warningStrategy.WarningLevel
+						warningInformation.TenantId = tenantId
 						var automationLog models.TpAutomationLog
 						result := psql.Mydb.Model(&models.TpAutomationLog{}).Where("id = ?", automationLogId).First(&automationLog)
 						if result.Error != nil {
@@ -385,8 +389,12 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 							logs.Info("成功触发告警")
 							automationLogDetail.ProcessDescription = "成功触发告警"
 							automationLogDetail.ProcessResult = "1"
-
 						}
+
+						// 通知告警组
+						var notification TpNotificationService
+						notification.ExecuteNotification(automationAction.WarningStrategyId)
+
 					}
 
 				} else {

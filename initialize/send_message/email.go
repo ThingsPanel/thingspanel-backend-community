@@ -3,6 +3,7 @@ package sendmessage
 import (
 	"crypto/tls"
 	"fmt"
+	"log"
 
 	"github.com/spf13/viper"
 	"gopkg.in/gomail.v2"
@@ -11,24 +12,41 @@ import (
 var MessageConfig Config
 
 type Config struct {
-	Email *EmailClient `yaml:"email"`
+	Email        EmailConfig   `mapstructure:"email"`
+	Alibabacloud AlibabaConfig `mapstructure:"aliyunmessage"`
 }
-type EmailClient struct {
-	IsOpen             int    `yaml:"isOpen"`
-	ServerHost         string `yaml:"serverHost"`
-	ServerPort         int    `yaml:"serverPort"`
-	FromPasswd         string `yaml:"fromPasswd"`
-	FromEmail          string `yaml:"fromEmail"`
-	InsecureSkipVerify bool   `yaml:"insecureSkipVerify"`
+
+type EmailConfig struct {
+	IsOpen             int    `mapstructure:"isOpen"`
+	ServerHost         string `mapstructure:"serverHost"`
+	ServerPort         int    `mapstructure:"serverPort"`
+	FromPasswd         string `mapstructure:"fromPasswd"`
+	FromEmail          string `mapstructure:"fromEmail"`
+	InsecureSkipVerify bool   `mapstructure:"insecureSkipVerify"`
+}
+
+type AlibabaConfig struct {
+	IsOpen          int    `mapstructure:"isOpen"`
+	AccessKeyId     string `mapstructure:"accessKeyId"`
+	AccessKeySecret string `mapstructure:"accessKeySecret"`
+	Endpoint        string `mapstructure:"endpoint"`
 }
 
 var emailDialer *gomail.Dialer
 var messageSend *gomail.Message
 
 func init() {
+
 	InitConfigByViper()
+
 	if MessageConfig.Email.IsOpen == 1 {
+		log.Println("启动邮件服务")
 		InitServer()
+	}
+
+	if MessageConfig.Alibabacloud.IsOpen == 1 {
+		log.Println("启动短信服务")
+		initAlibabaCloud()
 	}
 
 }
@@ -63,7 +81,9 @@ func SendEmailMessage(message string, subject string, to ...string) {
 		messageSend.SetBody("text/html", message)
 		messageSend.SetHeader("Subject", subject)
 		if err := emailDialer.DialAndSend(messageSend); err != nil {
-			fmt.Println("发送失败...")
+			log.Println("邮件发送失败")
+		} else {
+			log.Println("邮件发送成功")
 		}
 	}
 }

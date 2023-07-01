@@ -74,28 +74,6 @@ COMMENT ON COLUMN public.conditions_log.respond IS '设备反馈';
 COMMENT ON COLUMN public.conditions_log.protocol_type IS 'mqtt,tcp';
 
 
--- public.customers definition
-
--- Drop table
-
--- DROP TABLE customers;
-
-CREATE TABLE customers (
-	id varchar(36) NOT NULL,
-	additional_info varchar NULL,
-	address varchar NULL,
-	address2 varchar NULL,
-	city varchar(255) NULL DEFAULT ''::character varying,
-	country varchar(255) NULL DEFAULT ''::character varying,
-	email varchar(255) NULL DEFAULT ''::character varying,
-	phone varchar(255) NULL DEFAULT ''::character varying,
-	search_text varchar(255) NULL DEFAULT ''::character varying,
-	state varchar(255) NULL DEFAULT ''::character varying,
-	title varchar(255) NULL DEFAULT ''::character varying,
-	zip varchar(255) NULL DEFAULT ''::character varying,
-	CONSTRAINT customer_pkey PRIMARY KEY (id)
-);
-
 
 -- public.data_transpond definition
 
@@ -128,6 +106,26 @@ COMMENT ON COLUMN public.data_transpond.disabled IS '状态';
 COMMENT ON COLUMN public.data_transpond.role_type IS '1-接入引擎 2-数据转发';
 
 
+-- public.navigation definition
+
+-- Drop table
+
+-- DROP TABLE navigation;
+
+CREATE TABLE navigation (
+	id varchar(36) NOT NULL,
+	"type" int4 NULL, -- 1:业务  2：自动化-控制策略 3：自动化-告警策略  4：可视化
+	"name" varchar(255) NULL,
+	"data" varchar(255) NULL,
+	count int4 NULL DEFAULT 1, -- 数量
+	CONSTRAINT navigation_pkey PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.navigation."type" IS '1:业务  2：自动化-控制策略 3：自动化-告警策略  4：可视化';
+COMMENT ON COLUMN public.navigation.count IS '数量';
+
 -- public.logo definition
 
 -- Drop table
@@ -154,40 +152,6 @@ COMMENT ON COLUMN public.logo.logo_one IS '首页logo';
 COMMENT ON COLUMN public.logo.logo_two IS '缓冲logo';
 
 
--- public.migrations definition
-
--- Drop table
-
--- DROP TABLE migrations;
-
-CREATE TABLE migrations (
-	id serial4 NOT NULL,
-	migration varchar(255) NOT NULL,
-	batch int4 NOT NULL,
-	CONSTRAINT migrations_pkey PRIMARY KEY (id)
-);
-
-
--- public.navigation definition
-
--- Drop table
-
--- DROP TABLE navigation;
-
-CREATE TABLE navigation (
-	id varchar(36) NOT NULL,
-	"type" int4 NULL, -- 1:业务  2：自动化-控制策略 3：自动化-告警策略  4：可视化
-	"name" varchar(255) NULL,
-	"data" varchar(255) NULL,
-	count int4 NULL DEFAULT 1, -- 数量
-	CONSTRAINT navigation_pkey PRIMARY KEY (id)
-);
-
--- Column comments
-
-COMMENT ON COLUMN public.navigation."type" IS '1:业务  2：自动化-控制策略 3：自动化-告警策略  4：可视化';
-COMMENT ON COLUMN public.navigation.count IS '数量';
-
 
 -- public.operation_log definition
 
@@ -205,44 +169,6 @@ CREATE TABLE operation_log (
 	CONSTRAINT operation_log_pkey PRIMARY KEY (id)
 );
 COMMENT ON TABLE public.operation_log IS '操作日志';
-
-
--- public.password_resets definition
-
--- Drop table
-
--- DROP TABLE password_resets;
-
-CREATE TABLE password_resets (
-	email varchar(255) NOT NULL,
-	"token" varchar(255) NOT NULL,
-	created_at timestamp(0) NULL
-);
-
-
--- public.production definition
-
--- Drop table
-
--- DROP TABLE production;
-
-CREATE TABLE production (
-	id varchar(36) NOT NULL,
-	"type" int4 NULL, -- 种植｜用药｜收获
-	"name" varchar(255) NULL, -- 字段名
-	value varchar(255) NULL, -- 值
-	created_at int8 NULL,
-	remark varchar(255) NULL, -- 备注
-	insert_at int8 NULL,
-	CONSTRAINT production_pkey PRIMARY KEY (id)
-);
-
--- Column comments
-
-COMMENT ON COLUMN public.production."type" IS '种植｜用药｜收获';
-COMMENT ON COLUMN public.production."name" IS '字段名';
-COMMENT ON COLUMN public.production.value IS '值';
-COMMENT ON COLUMN public.production.remark IS '备注';
 
 
 -- public.resources definition
@@ -361,24 +287,6 @@ CREATE UNIQUE INDEX "INDEX_KEY" ON public.ts_kv_latest USING btree (entity_type,
 COMMENT ON TABLE public.ts_kv_latest IS '最新数据';
 
 
--- public.ts_kv_test definition
-
--- Drop table
-
--- DROP TABLE ts_kv_test;
-
-CREATE TABLE ts_kv_test (
-	entity_type varchar(255) NOT NULL,
-	entity_id varchar(36) NOT NULL,
-	"key" varchar(255) NOT NULL,
-	ts int8 NOT NULL,
-	bool_v varchar(5) NULL,
-	str_v text NULL,
-	long_v int8 NULL,
-	dbl_v float8 NULL,
-	CONSTRAINT ts_kv_pkey2 PRIMARY KEY (entity_type, entity_id, key, ts)
-);
-
 
 -- public.users definition
 
@@ -420,57 +328,6 @@ COMMENT ON COLUMN public.users.wx_openid IS '微信openid';
 COMMENT ON COLUMN public.users.wx_unionid IS '微信unionid';
 
 
--- public.warning_config definition
-
--- Drop table
-
--- DROP TABLE warning_config;
-
-CREATE TABLE warning_config (
-	id varchar(36) NOT NULL,
-	wid varchar(255) NOT NULL, -- 业务ID
-	"name" varchar(255) NULL, -- 预警名称
-	"describe" varchar(255) NULL, -- 预警描述
-	config varchar(10000) NULL, -- 配置
-	message varchar(1000) NULL, -- 消息模板
-	bid varchar(255) NULL, -- 设备ID
-	sensor varchar(100) NULL,
-	customer_id varchar(36) NULL,
-	other_message varchar(255) NULL, -- 其他信息
-	CONSTRAINT warning_config_pkey PRIMARY KEY (id)
-);
-COMMENT ON TABLE public.warning_config IS '报警配置';
-
-
-
--- Column comments
-
-COMMENT ON COLUMN public.warning_config.wid IS '业务ID';
-COMMENT ON COLUMN public.warning_config."name" IS '预警名称';
-COMMENT ON COLUMN public.warning_config."describe" IS '预警描述';
-COMMENT ON COLUMN public.warning_config.config IS '配置';
-COMMENT ON COLUMN public.warning_config.message IS '消息模板';
-COMMENT ON COLUMN public.warning_config.bid IS '设备ID';
-COMMENT ON COLUMN public.warning_config.other_message IS '其他信息';
-
-
--- public.warning_log definition
-
--- Drop table
-
--- DROP TABLE warning_log;
-
-CREATE TABLE warning_log (
-	id varchar(36) NOT NULL,
-	"type" varchar(36) NULL,
-	"describe" varchar(255) NULL,
-	data_id varchar(36) NULL,
-	created_at int8 NULL,
-	CONSTRAINT warning_log_pkey PRIMARY KEY (id)
-);
-COMMENT ON TABLE public.warning_log IS '报警日志';
-CREATE INDEX warning_log_created_at_idx ON public.warning_log (created_at DESC);
-
 -- public.asset definition
 
 -- Drop table
@@ -503,60 +360,6 @@ COMMENT ON COLUMN public.asset."type" IS '类型';
 COMMENT ON COLUMN public.asset.parent_id IS '父级ID';
 COMMENT ON COLUMN public.asset.tier IS '层级';
 COMMENT ON COLUMN public.asset.business_id IS '业务ID';
-
-
--- public.conditions definition
-
--- Drop table
-
--- DROP TABLE conditions;
-
-CREATE TABLE conditions (
-	id varchar(36) NOT NULL,
-	business_id varchar(36) NULL, -- 业务ID
-	"name" varchar(255) NULL, -- 策略名称
-	"describe" varchar(255) NULL, -- 策略描述
-	status varchar(255) NULL, -- 策略状态
-	config varchar(10000) NULL, -- 配置
-	sort int8 NULL DEFAULT 100,
-	"type" int8 NULL,
-	issued varchar(20) NULL DEFAULT 0,
-	customer_id varchar(36) NULL,
-	CONSTRAINT conditions_pkey PRIMARY KEY (id),
-	CONSTRAINT conditions_fk FOREIGN KEY (business_id) REFERENCES business(id) ON DELETE RESTRICT ON UPDATE CASCADE
-);
-COMMENT ON TABLE public.conditions IS '自动化规则';
-
--- Column comments
-
-COMMENT ON COLUMN public.conditions.business_id IS '业务ID';
-COMMENT ON COLUMN public.conditions."name" IS '策略名称';
-COMMENT ON COLUMN public.conditions."describe" IS '策略描述';
-COMMENT ON COLUMN public.conditions.status IS '策略状态';
-COMMENT ON COLUMN public.conditions.config IS '配置';
-
-
--- public.dashboard definition
-
--- Drop table
-
--- DROP TABLE dashboard;
-
-CREATE TABLE dashboard (
-	id varchar(36) NOT NULL,
-	"configuration" varchar(10000000) NULL,
-	assigned_customers varchar(1000000) NULL,
-	search_text varchar(255) NULL,
-	title varchar(255) NULL,
-	business_id varchar(36) NULL, -- 业务id
-	CONSTRAINT dashboard_pkey PRIMARY KEY (id),
-	CONSTRAINT dashboard_fk FOREIGN KEY (business_id) REFERENCES business(id) ON DELETE RESTRICT ON UPDATE CASCADE
-);
-COMMENT ON TABLE public.dashboard IS '仪表盘';
-
--- Column comments
-
-COMMENT ON COLUMN public.dashboard.business_id IS '业务id';
 
 
 -- public.device definition
@@ -601,75 +404,6 @@ COMMENT ON COLUMN public.device."name" IS '插件名';
 COMMENT ON COLUMN public.device."extension" IS '插件( 目录名)';
 COMMENT ON COLUMN public.device."location" IS '设备位置';
 COMMENT ON COLUMN public.device.d_id IS '设备唯一标志';
-
-
--- public.field_mapping definition
-
--- Drop table
-
--- DROP TABLE field_mapping;
-
-CREATE TABLE field_mapping (
-	id varchar(36) NOT NULL,
-	device_id varchar(36) NULL,
-	field_from varchar(255) NULL,
-	field_to varchar(255) NULL,
-	symbol varchar(255) NULL,
-	CONSTRAINT field_mapping_pkey PRIMARY KEY (id),
-	CONSTRAINT field_mapping_fk FOREIGN KEY (device_id) REFERENCES device(id) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-
--- public.widget definition
-
--- Drop table
-
--- DROP TABLE widget;
-
-CREATE TABLE widget (
-	id varchar(36) NOT NULL,
-	dashboard_id varchar(36) NULL,
-	config varchar NULL,
-	"type" varchar(255) NULL,
-	"action" varchar(1000) NULL,
-	updated_at timestamp(6) NULL,
-	device_id varchar(36) NULL, -- 设备id
-	widget_identifier varchar(255) NULL, -- 图表标识符如: environmentpanel:normal
-	asset_id varchar(36) NULL,
-	extend varchar(999) NULL, -- 扩展功能
-	CONSTRAINT widget_pkey PRIMARY KEY (id),
-	CONSTRAINT widget_fk FOREIGN KEY (dashboard_id) REFERENCES dashboard(id) ON DELETE CASCADE ON UPDATE CASCADE
-);
-COMMENT ON TABLE public.widget IS '图表';
-
--- Column comments
-
-COMMENT ON COLUMN public.widget.device_id IS '设备id';
-COMMENT ON COLUMN public.widget.widget_identifier IS '图表标识符如: environmentpanel:normal';
-COMMENT ON COLUMN public.widget.extend IS '扩展功能';
-
-CREATE TABLE chart (
-	id varchar(36) NOT NULL,
-	chart_type int NULL,
-	chart_data json NULL,
-	chart_name varchar(99) NULL,
-	sort int NULL,
-	issued varchar NULL DEFAULT 0,
-	created_at int8 NULL,
-	remark varchar(255) NULL,
-	flag int NULL
-);
-
--- Column comments
-
-COMMENT ON COLUMN public.chart.chart_type IS '图表类型1-折线 2-仪表';
-COMMENT ON COLUMN public.chart.chart_data IS '数据';
-COMMENT ON COLUMN public.chart.chart_name IS '名称';
-COMMENT ON COLUMN public.chart.sort IS '排序';
-COMMENT ON COLUMN public.chart.issued IS '是否发布0-未发布1-已发布';
-ALTER TABLE public.chart ALTER COLUMN issued TYPE int USING issued::int;
-ALTER TABLE public.chart ADD CONSTRAINT chart_pk PRIMARY KEY (id);
-ALTER TABLE public.chart ALTER COLUMN chart_type TYPE varchar(36) USING chart_type::varchar;
 
 
 
@@ -744,7 +478,6 @@ ALTER TABLE public.device ADD sub_protocol varchar(10) NULL;
 COMMENT ON COLUMN public.device.sub_protocol IS 'modbus(TCP RTU)';
 ALTER TABLE public.device ADD protocol_config json NULL DEFAULT '{}'::json;
 
-
 CREATE TABLE public.tp_dashboard (
 	id varchar(36) NOT NULL,
 	relation_id varchar(36) NOT NULL,
@@ -759,9 +492,6 @@ CREATE TABLE public.tp_dashboard (
 -- Column comments
 
 COMMENT ON COLUMN public.tp_dashboard.sort IS '排序';
-
-
-
 
 -- init sql
 --24小时分区
@@ -1214,8 +944,6 @@ VALUES('2a95000c-9c29-7aae-58b0-5202daf1546a', 'MODBUS_RTU协议', 'MODBUS_RTU',
 ALTER TABLE public.tp_dict ADD CONSTRAINT tp_dict_un UNIQUE (dict_code,dict_value);
 ALTER TABLE public.ts_kv_latest ADD CONSTRAINT ts_kv_latest_fk FOREIGN KEY (entity_id) REFERENCES public.device(id) ON DELETE CASCADE;
 ALTER TABLE public.conditions_log ADD CONSTRAINT conditions_log_fk FOREIGN KEY (device_id) REFERENCES public.device(id);
-ALTER TABLE public.warning_config ADD CONSTRAINT warning_config_fk FOREIGN KEY (bid) REFERENCES public.device(id);
-ALTER TABLE public.warning_log ADD CONSTRAINT warning_log_fk FOREIGN KEY (data_id) REFERENCES public.device(id);
 ALTER TABLE public.tp_function ADD CONSTRAINT tp_function_fk FOREIGN KEY (menu_id) REFERENCES public.tp_menu(id);
 
 INSERT INTO public.tp_dict
@@ -1279,8 +1007,6 @@ COMMENT ON COLUMN public.logo.home_background IS '首页背景';
 ALTER TABLE public.tp_protocol_plugin ADD additional_info varchar(1000) NULL;
 COMMENT ON COLUMN public.tp_protocol_plugin.additional_info IS '附加信息';
 
-ALTER TABLE public.warning_log DROP CONSTRAINT warning_log_fk;
-ALTER TABLE public.warning_log ADD CONSTRAINT warning_log_fk FOREIGN KEY (data_id) REFERENCES public.device(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 INSERT INTO tp_dict
 (id, dict_code, dict_value, "describe", created_at)
@@ -1653,13 +1379,14 @@ ALTER TABLE public.conditions_log ADD tenant_id varchar(36) NULL;
 ALTER TABLE public.device ADD tenant_id varchar(36) NULL;
 ALTER TABLE public.operation_log ADD tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_function ADD COLUMN tenant_id varchar(36) NULL;
+ALTER TABLE public.tp_function ADD COLUMN sys_flag varchar(2) NULL;
 ALTER TABLE public.tp_generate_device ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_ota ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_product ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.tp_script ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.ts_kv ADD COLUMN tenant_id varchar(36) NULL;
 ALTER TABLE public.ts_kv_latest ADD COLUMN tenant_id varchar(36) NULL;
-ALTER TABLE public.tp_function ADD sys_flag varchar(2) NULL;
+
 COMMENT ON COLUMN public.tp_function.sys_flag IS '系统管理员菜单标志';
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, sys_flag)
@@ -1747,9 +1474,93 @@ CREATE TABLE "public"."tp_data_transpond_detail" (
   "asset_group_id" varchar(36) COLLATE "pg_catalog"."default"
 );
 
+
 CREATE TABLE "public"."tp_data_transpond_target" (
   "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
   "data_transpond_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
   "data_type" int2 NOT NULL,
   "target" varchar COLLATE "pg_catalog"."default" NOT NULL
 );
+
+--可视化插件相关
+CREATE TABLE "public"."tp_vis_plugin" (
+  id VARCHAR(36) PRIMARY KEY,
+  tenant_id VARCHAR(36) NOT NULL,
+  plugin_name VARCHAR(150) NOT NULL,
+  plugin_description VARCHAR(150),
+  create_at int8 NULL,
+  remark VARCHAR(255)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_vis_plugin.plugin_name IS '可视化插件名称';
+COMMENT ON COLUMN public.tp_vis_plugin.plugin_description IS '插件描述';
+
+
+CREATE TABLE "public"."tp_vis_files" (
+  id VARCHAR(36) PRIMARY KEY,
+  vis_plugin_id VARCHAR(36) NOT NULL,
+  file_name VARCHAR(150),
+  file_url VARCHAR(150),
+  file_size VARCHAR(20),
+  create_at int8 NULL,
+  remark VARCHAR(255)
+);
+
+COMMENT ON COLUMN public.tp_vis_files.vis_plugin_id IS '可视化插件id';
+
+ALTER TABLE public.tp_ota_device ADD retry_count int8 NULL;
+
+
+-- 通知组相关
+CREATE TABLE "public"."tp_notification_groups" (
+  "id" varchar(36) COLLATE "pg_catalog"."default",
+  "group_name" varchar(255) COLLATE "pg_catalog"."default",
+  "notification_type" int4,
+  "status" int4,
+  "notification_config" text COLLATE "pg_catalog"."default",
+  "desc" varchar(255) COLLATE "pg_catalog"."default",
+  "tenant_id" varchar(36) COLLATE "pg_catalog"."default",
+  "create_time" int4
+)
+;
+ALTER TABLE "public"."tp_notification_groups" OWNER TO "postgres";
+COMMENT ON COLUMN "public"."tp_notification_groups"."id" IS 'uuid';
+COMMENT ON COLUMN "public"."tp_notification_groups"."group_name" IS '通知组名称';
+COMMENT ON COLUMN "public"."tp_notification_groups"."notification_type" IS '通知类型';
+COMMENT ON COLUMN "public"."tp_notification_groups"."status" IS '通知状态';
+COMMENT ON COLUMN "public"."tp_notification_groups"."notification_config" IS '通知配置';
+COMMENT ON COLUMN "public"."tp_notification_groups"."desc" IS '通知组描述';
+COMMENT ON COLUMN "public"."tp_notification_groups"."tenant_id" IS '租户ID';
+COMMENT ON COLUMN "public"."tp_notification_groups"."create_time" IS '创建时间';
+
+CREATE TABLE "public"."tp_notification_members" (
+  "id" varchar(36) COLLATE "pg_catalog"."default",
+  "tp_notification_groups_id" varchar(36) COLLATE "pg_catalog"."default",
+  "users_id" varchar(36) COLLATE "pg_catalog"."default",
+  "is_email" int4,
+  "is_phone" int4,
+  "is_message" int4,
+  "remark" text COLLATE "pg_catalog"."default"
+)
+;
+ALTER TABLE "public"."tp_notification_members" OWNER TO "postgres";
+COMMENT ON COLUMN "public"."tp_notification_members"."id" IS 'uuid';
+COMMENT ON COLUMN "public"."tp_notification_members"."tp_notification_groups_id" IS '关联tp_notification_groups表id';
+COMMENT ON COLUMN "public"."tp_notification_members"."users_id" IS '关联users表id';
+
+INSERT INTO public.users
+(id, created_at, updated_at, enabled, additional_info, authority, customer_id, email, "password", "name", mobile, remark, tenant_id)
+VALUES('33b2336c-9e9a-86e5-101e-4864e6b7724b', 1684309245, 1684309245, '1', '', 'TENANT_ADMIN', '', 'tenant@tenant.cn', '$2a$04$.O6d.vy.yOcYrqaQ2zkpAuApP4aDISxGdzlXol3NAR4vmZKex6jam', '租户', '13211111111', '', 'e481b0c0');
+
+ALTER TABLE public.tp_dashboard ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.data_transpond ADD tenant_id varchar(36) NULL;
+ALTER TABLE public.navigation ADD tenant_id varchar(36) NULL;
+DELETE FROM public.tp_function
+WHERE id='3f4348b0-f39d-ec42-14b4-623cbeadb12f';
+
+-- 0.5.0.1
+INSERT INTO public.tp_function (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag) VALUES('e9a36fd0-fe8a-896b-713c-c809cef6128e', '', NULL, '', 'Alarm', '', '告警', 'flaticon2-warning', '0', '', '0', 950, '', '');
+UPDATE public.tp_function SET function_name='', menu_id=NULL, "path"='/alarm/list', "name"='AlarmInformation', component='/pages/alarm/AlarmIndex.vue', title='COMMON.WARNINFO', icon='flaticon2-warning', "type"='1', function_code='', parent_id='e9a36fd0-fe8a-896b-713c-c809cef6128e', sort=999, tenant_id='', sys_flag='' WHERE id='c17a3b9e-bd1f-2f10-4c65-d2ae7030087b';
+UPDATE public.tp_function SET function_name='', menu_id=NULL, "path"='/notice/index', "name"='Notice', component='/pages/notice/index', title='COMMON.NOTICE', icon='flaticon-upload-1', "type"='1', function_code='', parent_id='e9a36fd0-fe8a-896b-713c-c809cef6128e', sort=980, tenant_id='', sys_flag='' WHERE id='7b30818a-4c58-ae4a-9c13-4a00cf3b61c2';

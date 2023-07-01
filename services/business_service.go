@@ -106,7 +106,7 @@ func (*BusinessService) Edit(id string, name string, tenantId string) bool {
 
 // 根据ID删除一条business数据
 func (*BusinessService) Delete(id, tenantId string) bool {
-	result := psql.Mydb.Where("id = ? and tenantid = ?", id, tenantId).Delete(&models.Business{})
+	result := psql.Mydb.Where("id = ? and tenant_id = ?", id, tenantId).Delete(&models.Business{})
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return false
