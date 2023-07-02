@@ -13,7 +13,8 @@ type TpFunction struct {
 	ParentId     string `json:"parent_id,omitempty" gorm:"size:36"`      //
 	Sort         int    `json:"sort,omitempty"`                          //
 	TenantId     string `json:"tenant_id,omitempty" gorm:"size:36"`      //
-	SysFlag      string `json:"sys_flag,omitempty" gorm:"size:1"`        //
+	SysFlag      string `json:"sys_flag,omitempty" gorm:"size:2"`        //访问标识
+	Describe     string `json:"describe,omitempty" gorm:"size:500"`      //描述
 }
 
 func (TpFunction) TableName() string {

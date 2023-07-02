@@ -136,6 +136,8 @@ func AuthorityTree(parent_id string) []valid.TpFunctionTreeAuthValidate {
 			TpFunctionTreeAuthValidate.Icon = TpFunction.Icon
 			TpFunctionTreeAuthValidate.Path = TpFunction.Path
 			TpFunctionTreeAuthValidate.Type = TpFunction.Type
+			TpFunctionTreeAuthValidate.SysFlag = TpFunction.SysFlag
+			TpFunctionTreeAuthValidate.Describe = TpFunction.Describe
 			TpFunctionTreeAuthValidate.Children = AuthorityTree(TpFunction.Id)
 			TpFunctionTreeAuthValidates = append(TpFunctionTreeAuthValidates, TpFunctionTreeAuthValidate)
 		}
