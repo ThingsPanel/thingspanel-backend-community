@@ -4,7 +4,7 @@ type TpVisPlugin struct {
 	Id                string `json:"id" gorm:"primaryKey"`
 	PluginName        string `json:"plugin_name,omitempty"`
 	PluginDescription string `json:"plugin_description"`
-	CreatedAt         int64  `json:"create_at,omitempty"`
+	CreatedAt         int64  `gorm:"column:create_at" json:"create_at,omitempty"`
 	TenantId          string `json:"tenant_id,omitempty" gorm:"size:36"` // 租户id
 }
 
@@ -18,7 +18,7 @@ type TpVisFiles struct {
 	FileName    string `json:"file_name,omitempty"`
 	FileUrl     string `json:"file_url,omitempty"`
 	FileSize    string `json:"file_size,omitempty"`
-	CreatedAt   int64  `json:"create_at,omitempty"`
+	CreatedAt   int64  `gorm:"column:create_at" json:"create_at,omitempty"`
 }
 
 func (TpVisFiles) TableName() string {
