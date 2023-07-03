@@ -14,6 +14,8 @@ type TpFunctionValidate struct {
 	FunctionCode string `json:"function_code" alias:"编码" valid:"MaxSize(255)"`           //
 	ParentId     string `json:"parent_id" alias:"父id" valid:"MaxSize(36)"`               //
 	Sort         int    `json:"sort,omitempty" alias:"排序" valid:"Max(999)"`
+	SysFlag      string `json:"sys_flag" alias:"访问标识" valid:"MaxSize(2)"`
+	Describe     string `json:"describe,omitempty" alias:"描述" valid:"MaxSize(500)"`
 }
 
 type TpFunctionTreeValidate struct {
@@ -39,6 +41,8 @@ type TpFunctionTreeAuthValidate struct {
 	Icon         string                       `json:"icon,omitempty" alias:"页面图表" valid:"MaxSize(255)"`        //
 	Type         string                       `json:"type" alias:"类型0-目录 1-菜单 2-页面 3-按钮" valid:"MaxSize(255)"` //
 	FunctionCode string                       `json:"function_code,omitempty" alias:"编码" valid:"MaxSize(255)"` //
+	SysFlag      string                       `json:"sys_flag,omitempty" alias:"访问标识" valid:"MaxSize(2)"`      //
+	Describe     string                       `json:"describe,omitempty" alias:"描述" valid:"MaxSize(500)"`      //
 	Children     []TpFunctionTreeAuthValidate `json:"children,omitempty" alias:"子节点" valid:"MaxSize(36)"`      //
 
 }
