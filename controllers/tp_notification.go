@@ -7,6 +7,7 @@ import (
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
@@ -258,5 +259,61 @@ func (c *TpNotification) Switch() {
 	}
 
 	response.Success(200, c.Ctx)
+
+}
+
+func (c *TpNotification) ConfigDetail() {
+
+}
+
+func (c *TpNotification) ConfigSave() {
+	var input struct {
+		NoticeType int    `json:"notice_type" valid:"Required"`
+		Config     string `json:"config" valid:"Required"`
+		Status     int    `json:"status" valid:"Required"`
+	}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	fmt.Println("22:", string(input.Config))
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误1", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var s services.TpNotificationService
+
+	// message
+	if input.NoticeType == models.NotificationConfigType_Message {
+
+		var configInfo models.CloudServicesConfig_Ali
+
+		err := json.Unmarshal([]byte(input.Config), &configInfo)
+		if err != nil {
+			response.SuccessWithMessage(400, "参数解析错误2", (*context2.Context)(c.Ctx))
+			return
+		}
+
+		res := s.SaveNotificationConfigAli(configInfo, input.Status)
+		if err != nil {
+			response.SuccessWithMessage(400, res.Error(), (*context2.Context)(c.Ctx))
+		}
+
+	} else if input.NoticeType == models.NotificationConfigType_Email {
+
+		// 按邮箱解析
+	} else {
+		response.SuccessWithMessage(400, "不支持的通知类型", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	response.Success(200, c.Ctx)
+
+}
+
+func (c *TpNotification) SendEmail() {
+
+}
+
+func (c *TpNotification) SendMessage() {
 
 }

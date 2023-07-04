@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	sendmessage "ThingsPanel-Go/initialize/send_message"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -209,4 +210,64 @@ func BatchGetNotificationGroups(id []string) ([]models.TpNotificationGroups, err
 		return groupInfo, err
 	}
 	return groupInfo, err
+}
+
+func (*TpNotificationService) SaveNotificationConfigAli(config models.CloudServicesConfig_Ali, status int) (err error) {
+
+	exists, err := GetThirdPartyCloudServicesConfigByNoticeType(models.NotificationConfigType_Message)
+	if err != nil {
+		return err
+	}
+	configStr, err := json.Marshal(config)
+	if len(exists) == 0 {
+		if err != nil {
+			return err
+		}
+		t := models.ThirdPartyCloudServicesConfig{
+			Id:         utils.GetUuid(),
+			NoticeType: models.NotificationConfigType_Message,
+			Config:     string(configStr),
+			Status:     status,
+		}
+		result := psql.Mydb.Save(t)
+		if result.Error != nil {
+			return result.Error
+		}
+	} else {
+		for _, v := range exists {
+			var tmp models.CloudServicesConfig_Ali
+			err = json.Unmarshal([]byte(v.Config), &tmp)
+			if err != nil {
+				return err
+			}
+			if tmp.CloudType == models.NotificationCloudType_Ali {
+				t := models.ThirdPartyCloudServicesConfig{
+					Id:         v.Id,
+					NoticeType: models.NotificationConfigType_Message,
+					Config:     string(configStr),
+					Status:     status,
+				}
+				fmt.Println(t.Id)
+				result := psql.Mydb.Save(t)
+				if result.Error != nil {
+					return result.Error
+				}
+				break
+			}
+
+		}
+	}
+
+	return err
+}
+
+func GetThirdPartyCloudServicesConfigByNoticeType(noticeType int) (res []models.ThirdPartyCloudServicesConfig, err error) {
+	err = psql.Mydb.
+		Model(&models.ThirdPartyCloudServicesConfig{}).
+		Where("notice_type = ?", noticeType).
+		Find(&res).Error
+	if err != nil {
+		return res, err
+	}
+	return res, err
 }

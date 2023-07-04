@@ -423,6 +423,12 @@ func init() {
 		web.NSRouter("/notification/detail", &controllers.TpNotification{}, "*:Detail"),
 		web.NSRouter("/notification/delete", &controllers.TpNotification{}, "*:Delete"),
 		web.NSRouter("/notification/switch", &controllers.TpNotification{}, "*:Switch"),
+
+		web.NSRouter("/notification/config/detail", &controllers.TpNotification{}, "*:ConfigDetail"),
+
+		web.NSRouter("/notification/config/save", &controllers.TpNotification{}, "*:ConfigSave"),
+		web.NSRouter("/notification/send/email", &controllers.TpNotification{}, "*:SendEmail"),
+		web.NSRouter("/notification/send/message", &controllers.TpNotification{}, "*:SendMessage"),
 	)
 
 	// 图表推送数据
