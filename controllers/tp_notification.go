@@ -7,7 +7,6 @@ import (
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
@@ -274,7 +273,6 @@ func (c *TpNotification) ConfigSave() {
 	}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
 
-	fmt.Println("22:", string(input.Config))
 	if err != nil {
 		response.SuccessWithMessage(400, "参数解析错误1", (*context2.Context)(c.Ctx))
 		return

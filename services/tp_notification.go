@@ -247,14 +247,12 @@ func (*TpNotificationService) SaveNotificationConfigAli(config models.CloudServi
 					Config:     string(configStr),
 					Status:     status,
 				}
-				fmt.Println(t.Id)
 				result := psql.Mydb.Save(t)
 				if result.Error != nil {
 					return result.Error
 				}
 				break
 			}
-
 		}
 	}
 
