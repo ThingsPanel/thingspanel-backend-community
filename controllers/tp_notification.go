@@ -378,7 +378,14 @@ func (c *TpNotification) SendEmail() {
 		return
 	}
 
-	err = sendmessage.SendEmailMessage(input.Content, "极益科技邮件", input.Email)
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	err = sendmessage.SendEmailMessage(input.Content, "极益科技邮件", tenantId, input.Email)
 
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
@@ -407,7 +414,14 @@ func (c *TpNotification) SendMessage() {
 		return
 	}
 
-	err = sendmessage.SendSMS_SMS_461790263(input.PhoneNumber, arr[0], arr[1], arr[2])
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	err = sendmessage.SendSMS_SMS_461790263(input.PhoneNumber, arr[0], arr[1], arr[2], tenantId)
 
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))

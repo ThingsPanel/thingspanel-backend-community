@@ -2,6 +2,7 @@ package sendmessage
 
 import (
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -9,7 +10,7 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-func SendEmailMessage(message string, subject string, to ...string) (err error) {
+func SendEmailMessage(message string, subject string, tenantId string, to ...string) (err error) {
 
 	c, err := models.NotificationConfigByNoticeTypeAndStatus(models.NotificationConfigType_Email, models.NotificationSwitch_Open)
 
@@ -33,8 +34,13 @@ func SendEmailMessage(message string, subject string, to ...string) (err error) 
 	m.SetBody("text/html", message)
 	m.SetHeader("Subject", subject)
 	// 记录数据库
+
 	if err := d.DialAndSend(m); err != nil {
+
+		models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendFail, models.NotificationConfigType_Email, tenantId)
 		return err
+	} else {
+		models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendSuccess, models.NotificationConfigType_Email, tenantId)
 	}
 	return nil
 }

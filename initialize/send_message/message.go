@@ -2,6 +2,7 @@ package sendmessage
 
 import (
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -29,7 +30,7 @@ func CreateClient(accessKeyId *string, accessKeySecret *string, endpoint string)
 
 // code 必须是 string
 // 如果是int，且发送的验证码为 0000，收到的是 0
-func SendSMSVerificationCode(phoneNumber int, code string) (err error) {
+func SendSMSVerificationCode(phoneNumber int, code, tenantId string) (err error) {
 
 	codeMap := make(map[string]string)
 	codeMap["code"] = code
@@ -44,7 +45,7 @@ func SendSMSVerificationCode(phoneNumber int, code string) (err error) {
 		TemplateParam: tea.String(string(codeStr)),
 	}
 
-	err = SendSMS(*sendSmsRequest, &util.RuntimeOptions{})
+	err = SendSMS(*sendSmsRequest, &util.RuntimeOptions{}, tenantId)
 
 	if err != nil {
 		log.Println(err)
@@ -53,7 +54,7 @@ func SendSMSVerificationCode(phoneNumber int, code string) (err error) {
 	return err
 }
 
-func SendSMS_SMS_461790263(phoneNumber int, level, name, time string) (err error) {
+func SendSMS_SMS_461790263(phoneNumber int, level, name, time, tenantId string) (err error) {
 
 	codeMap := make(map[string]string)
 	codeMap["level"] = level
@@ -69,9 +70,8 @@ func SendSMS_SMS_461790263(phoneNumber int, level, name, time string) (err error
 		TemplateCode:  tea.String("SMS_461790263"),
 		TemplateParam: tea.String(string(codeStr)),
 	}
-	// sendRes, err := AlibabacloudServer.SendSmsWithOptions(sendSmsRequest, &util.RuntimeOptions{})
 
-	err = SendSMS(*sendSmsRequest, &util.RuntimeOptions{})
+	err = SendSMS(*sendSmsRequest, &util.RuntimeOptions{}, tenantId)
 
 	if err != nil {
 		log.Println(err)
@@ -80,7 +80,7 @@ func SendSMS_SMS_461790263(phoneNumber int, level, name, time string) (err error
 	return err
 }
 
-func SendSMS(request dysmsapi20170525.SendSmsRequest, runtime *util.RuntimeOptions) (err error) {
+func SendSMS(request dysmsapi20170525.SendSmsRequest, runtime *util.RuntimeOptions, tenantId string) (err error) {
 
 	// 查找当前开启的SMS服务配置
 	c, err := models.NotificationConfigByNoticeTypeAndStatus(models.NotificationConfigType_Message, models.NotificationSwitch_Open)
@@ -102,7 +102,9 @@ func SendSMS(request dysmsapi20170525.SendSmsRequest, runtime *util.RuntimeOptio
 
 	sendRes, err := client.SendSmsWithOptions(&request, &util.RuntimeOptions{})
 	if err != nil {
-		log.Println(err)
+		models.SaveNotificationHistory(utils.GetUuid(), *request.TemplateParam, *request.PhoneNumbers, models.NotificationSendFail, models.NotificationConfigType_Message, tenantId)
+	} else {
+		models.SaveNotificationHistory(utils.GetUuid(), *request.TemplateParam, *request.PhoneNumbers, models.NotificationSendSuccess, models.NotificationConfigType_Message, tenantId)
 	}
 	// 记录数据库
 	log.Println(sendRes.Body)
@@ -114,6 +116,6 @@ func SendWarningMessage(message string, username string) {
 	if username != "" {
 		name := []string{username}
 		subject := "IOT告警信息"
-		SendEmailMessage(message, subject, name...)
+		SendEmailMessage(message, subject, "", name...)
 	}
 }
