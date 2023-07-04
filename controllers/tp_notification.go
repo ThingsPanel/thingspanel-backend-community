@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
@@ -262,6 +263,28 @@ func (c *TpNotification) Switch() {
 }
 
 func (c *TpNotification) ConfigDetail() {
+	var input struct {
+		NoticeType int `json:"notice_type" valid:"Required"`
+	}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var res []models.ThirdPartyCloudServicesConfig
+
+	err = psql.Mydb.
+		Model(&models.ThirdPartyCloudServicesConfig{}).
+		Where("notice_type = ?", input.NoticeType).
+		Find(&res).Error
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	response.SuccessWithDetailed(200, "success", res, map[string]string{}, (*context2.Context)(c.Ctx))
 
 }
 
