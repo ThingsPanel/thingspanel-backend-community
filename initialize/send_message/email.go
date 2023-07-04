@@ -80,6 +80,7 @@ func SendEmailMessage(message string, subject string, to ...string) {
 		messageSend.SetHeader("To", to...)
 		messageSend.SetBody("text/html", message)
 		messageSend.SetHeader("Subject", subject)
+		// 记录数据库
 		if err := emailDialer.DialAndSend(messageSend); err != nil {
 			log.Println("邮件发送失败")
 		} else {
