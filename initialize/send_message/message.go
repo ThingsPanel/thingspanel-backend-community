@@ -59,13 +59,50 @@ func SendSMSVerificationCode(phoneNumber int, code string) (err error) {
 		TemplateCode:  tea.String("SMS_98355081"),
 		TemplateParam: tea.String(string(codeStr)),
 	}
-	sendRes, err := AlibabacloudServer.SendSmsWithOptions(sendSmsRequest, &util.RuntimeOptions{})
+
+	err = SendSMS(*sendSmsRequest, &util.RuntimeOptions{})
+
 	if err != nil {
 		log.Println(err)
 	}
 
-	log.Println(sendRes.Body)
+	return err
+}
 
+func SendSMS_SMS_461790263(phoneNumber int, level, name, time string) (err error) {
+
+	codeMap := make(map[string]string)
+	codeMap["level"] = level
+	codeMap["name"] = name
+	codeMap["time"] = time
+
+	codeStr, _ := json.Marshal(codeMap)
+	phoneNumberStr := strconv.Itoa(phoneNumber)
+
+	sendSmsRequest := &dysmsapi20170525.SendSmsRequest{
+		PhoneNumbers:  tea.String(phoneNumberStr),
+		SignName:      tea.String("极益科技"),
+		TemplateCode:  tea.String("SMS_461790263"),
+		TemplateParam: tea.String(string(codeStr)),
+	}
+	// sendRes, err := AlibabacloudServer.SendSmsWithOptions(sendSmsRequest, &util.RuntimeOptions{})
+
+	err = SendSMS(*sendSmsRequest, &util.RuntimeOptions{})
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	return err
+}
+
+func SendSMS(request dysmsapi20170525.SendSmsRequest, runtime *util.RuntimeOptions) (err error) {
+	sendRes, err := AlibabacloudServer.SendSmsWithOptions(&request, &util.RuntimeOptions{})
+	if err != nil {
+		log.Println(err)
+	}
+	// 记录数据库
+	log.Println(sendRes.Body)
 	return err
 }
 

@@ -2,12 +2,14 @@ package controllers
 
 import (
 	"ThingsPanel-Go/initialize/psql"
+	sendmessage "ThingsPanel-Go/initialize/send_message"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
+	"strings"
 	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
@@ -266,6 +268,7 @@ func (c *TpNotification) ConfigDetail() {
 	var input struct {
 		NoticeType int `json:"notice_type" valid:"Required"`
 	}
+
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
 
 	if err != nil {
@@ -357,9 +360,41 @@ func (c *TpNotification) ConfigSave() {
 }
 
 func (c *TpNotification) SendEmail() {
+	var input struct {
+		Email   string `json:"email" valid:"Required"`
+		Content string `json:"content" valid:"Required"`
+	}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
 
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
 }
 
 func (c *TpNotification) SendMessage() {
+	var input struct {
+		PhoneNumber int    `json:"phone_number" valid:"Required"`
+		Content     string `json:"content" valid:"Required"`
+	}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
 
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	arr := strings.Split(input.Content, ",")
+
+	if len(arr) != 3 {
+		response.SuccessWithMessage(400, "content解析错误", (*context2.Context)(c.Ctx))
+	}
+
+	err = sendmessage.SendSMS_SMS_461790263(input.PhoneNumber, arr[0], arr[1], arr[2])
+
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	response.Success(200, c.Ctx)
 }
