@@ -378,7 +378,12 @@ func (c *TpNotification) SendEmail() {
 		return
 	}
 
-	sendmessage.SendEmailMessage(input.Content, "极益科技邮件", input.Email)
+	err = sendmessage.SendEmailMessage(input.Content, "极益科技邮件", input.Email)
+
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
 	response.Success(200, c.Ctx)
 }
 
@@ -399,6 +404,7 @@ func (c *TpNotification) SendMessage() {
 
 	if len(arr) != 3 {
 		response.SuccessWithMessage(400, "content解析错误", (*context2.Context)(c.Ctx))
+		return
 	}
 
 	err = sendmessage.SendSMS_SMS_461790263(input.PhoneNumber, arr[0], arr[1], arr[2])

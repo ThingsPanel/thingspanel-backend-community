@@ -1,5 +1,9 @@
 package models
 
+import (
+	"ThingsPanel-Go/initialize/psql"
+)
+
 const (
 	NotificationConfigType_Message = 1
 	NotificationConfigType_Email   = 2
@@ -38,4 +42,14 @@ type CloudServicesConfig_Email struct {
 }
 
 type CloudServicesConfig_Tencent struct {
+}
+
+func NotificationConfigByNoticeTypeAndStatus(noticeType, status int) (c ThirdPartyCloudServicesConfig, err error) {
+
+	err = psql.Mydb.
+		Model(&ThirdPartyCloudServicesConfig{}).
+		Where("notice_type = ? AND status = ? ", noticeType, status).
+		First(&c).Error
+
+	return c, err
 }

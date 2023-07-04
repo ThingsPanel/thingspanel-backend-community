@@ -1,6 +1,7 @@
 package sendmessage
 
 import (
+	"ThingsPanel-Go/models"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,24 +13,7 @@ import (
 	"github.com/alibabacloud-go/tea/tea"
 )
 
-var AlibabacloudServer *dysmsapi20170525.Client
-
-func initAlibabaCloud() {
-	log.Println("启动短信服务")
-	initAlibabacloudMessageServer()
-
-}
-
-func initAlibabacloudMessageServer() {
-	client, err := CreateClient(tea.String(MessageConfig.Alibabacloud.AccessKeyId),
-		tea.String(MessageConfig.Alibabacloud.AccessKeySecret))
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	AlibabacloudServer = client
-}
-
-func CreateClient(accessKeyId *string, accessKeySecret *string) (_result *dysmsapi20170525.Client, _err error) {
+func CreateClient(accessKeyId *string, accessKeySecret *string, endpoint string) (_result *dysmsapi20170525.Client, _err error) {
 	config := &openapi.Config{
 		// 必填，您的 AccessKey ID
 		AccessKeyId: accessKeyId,
@@ -37,7 +21,7 @@ func CreateClient(accessKeyId *string, accessKeySecret *string) (_result *dysmsa
 		AccessKeySecret: accessKeySecret,
 	}
 	// 访问的域名
-	config.Endpoint = tea.String(MessageConfig.Alibabacloud.Endpoint)
+	config.Endpoint = tea.String(endpoint)
 	_result = &dysmsapi20170525.Client{}
 	_result, _err = dysmsapi20170525.NewClient(config)
 	return _result, _err
@@ -97,7 +81,26 @@ func SendSMS_SMS_461790263(phoneNumber int, level, name, time string) (err error
 }
 
 func SendSMS(request dysmsapi20170525.SendSmsRequest, runtime *util.RuntimeOptions) (err error) {
-	sendRes, err := AlibabacloudServer.SendSmsWithOptions(&request, &util.RuntimeOptions{})
+
+	// 查找当前开启的SMS服务配置
+	c, err := models.NotificationConfigByNoticeTypeAndStatus(models.NotificationConfigType_Message, models.NotificationSwitch_Open)
+	if err != nil {
+		return err
+	}
+
+	var aliConfig models.CloudServicesConfig_Ali
+
+	if err == nil {
+		json.Unmarshal([]byte(c.Config), &aliConfig)
+	}
+
+	client, err := CreateClient(tea.String(aliConfig.AccessKeyId),
+		tea.String(aliConfig.AccessKeySecret), aliConfig.Endpoint)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	sendRes, err := client.SendSmsWithOptions(&request, &util.RuntimeOptions{})
 	if err != nil {
 		log.Println(err)
 	}
