@@ -429,3 +429,52 @@ func (c *TpNotification) SendMessage() {
 	}
 	response.Success(200, c.Ctx)
 }
+
+func (c *TpNotification) HistoryList() {
+	var input struct {
+		CurrentPage      int    `json:"current_page"`
+		PerPage          int    `json:"per_page"`
+		NotificationType int    `json:"notification_type"`
+		ReceiveTarget    string `json:"receive_target"`
+		StartTime        int64  `json:"start_time"`
+		EndTime          int64  `json:"end_time"`
+	}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	if input.StartTime > input.EndTime {
+		response.SuccessWithMessage(400, "time error", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var s services.TpNotificationService
+
+	offset := (input.CurrentPage - 1) * input.PerPage
+
+	d, count := s.GetNotificationHistory(offset, input.PerPage, input.NotificationType, input.ReceiveTarget, input.StartTime, input.EndTime, tenantId)
+
+	if err != nil {
+		response.SuccessWithMessage(400, "mysql search error", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	ret := make(map[string]interface{})
+
+	ret["total"] = count
+	ret["data"] = d
+	ret["current_page"] = input.CurrentPage
+	ret["per_page"] = input.PerPage
+
+	response.SuccessWithDetailed(200, "success", ret, map[string]string{}, (*context2.Context)(c.Ctx))
+}

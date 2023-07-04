@@ -315,3 +315,42 @@ func GetThirdPartyCloudServicesConfigByNoticeType(noticeType int) (res []models.
 	}
 	return res, err
 }
+
+func (*TpNotificationService) GetNotificationHistory(
+	Offset, PerPage, NotificationType int, ReceiveTarget string, StartTime, EndTime int64, TenantId string,
+) (d []models.TpNotificationHistory, count int64) {
+
+	where := make(map[string]interface{})
+
+	where["tenant_id"] = TenantId
+
+	if NotificationType != 0 {
+		where["notification_type"] = NotificationType
+	}
+	if ReceiveTarget != "" {
+		where["send_target"] = ReceiveTarget
+	}
+	if StartTime > 0 {
+		where["start_time >= ?"] = StartTime
+	}
+	if EndTime > 0 {
+		where["end_time <= ?"] = EndTime
+	}
+
+	tx := psql.Mydb.Model(&models.TpNotificationHistory{})
+	tx.Where(where)
+
+	err := tx.Count(&count).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return d, count
+	}
+
+	err = tx.Limit(PerPage).Offset(Offset).Order("send_time desc").Find(&d).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return d, count
+	}
+	return d, count
+
+}

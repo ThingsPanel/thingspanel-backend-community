@@ -429,6 +429,8 @@ func init() {
 		web.NSRouter("/notification/config/save", &controllers.TpNotification{}, "*:ConfigSave"),
 		web.NSRouter("/notification/send/email", &controllers.TpNotification{}, "*:SendEmail"),
 		web.NSRouter("/notification/send/message", &controllers.TpNotification{}, "*:SendMessage"),
+
+		web.NSRouter("/notification/history/list", &controllers.TpNotification{}, "*:HistoryList"),
 	)
 
 	// 图表推送数据
