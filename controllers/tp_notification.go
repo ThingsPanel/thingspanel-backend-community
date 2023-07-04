@@ -280,7 +280,14 @@ func (c *TpNotification) ConfigSave() {
 
 	var s services.TpNotificationService
 
-	// message
+	// 阿里云 短信
+	// {
+	// 	"notice_type" :1,
+	// 	"config" :"{\"cloud_type\":1,\"access_key_id\":\"yanhao\",\"access_key_secret\":\"haoyan\",\"endpoint\":\"www.qq.com\",\"sign_name\":\"tp\",\"template_code\":\"sm2s1123123\"}"
+	// ,
+	// 	"status":2
+	// }
+
 	if input.NoticeType == models.NotificationConfigType_Message {
 
 		var configInfo models.CloudServicesConfig_Ali
@@ -298,7 +305,17 @@ func (c *TpNotification) ConfigSave() {
 
 	} else if input.NoticeType == models.NotificationConfigType_Email {
 
-		// 按邮箱解析
+		var configInfo models.CloudServicesConfig_Email
+		err := json.Unmarshal([]byte(input.Config), &configInfo)
+		if err != nil {
+			response.SuccessWithMessage(400, "参数解析错误2", (*context2.Context)(c.Ctx))
+			return
+		}
+		res := s.SaveNotificationConfigEmail(configInfo, input.Status)
+		if err != nil {
+			response.SuccessWithMessage(400, res.Error(), (*context2.Context)(c.Ctx))
+		}
+
 	} else {
 		response.SuccessWithMessage(400, "不支持的通知类型", (*context2.Context)(c.Ctx))
 		return

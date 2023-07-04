@@ -259,6 +259,52 @@ func (*TpNotificationService) SaveNotificationConfigAli(config models.CloudServi
 	return err
 }
 
+func (*TpNotificationService) SaveNotificationConfigEmail(config models.CloudServicesConfig_Email, status int) (err error) {
+
+	exists, err := GetThirdPartyCloudServicesConfigByNoticeType(models.NotificationConfigType_Email)
+	if err != nil {
+		return err
+	}
+	configStr, err := json.Marshal(config)
+	if len(exists) == 0 {
+		if err != nil {
+			return err
+		}
+		t := models.ThirdPartyCloudServicesConfig{
+			Id:         utils.GetUuid(),
+			NoticeType: models.NotificationType_Email,
+			Config:     string(configStr),
+			Status:     status,
+		}
+		result := psql.Mydb.Save(t)
+		if result.Error != nil {
+			return result.Error
+		}
+	} else {
+		for _, v := range exists {
+			var tmp models.CloudServicesConfig_Email
+			err = json.Unmarshal([]byte(v.Config), &tmp)
+			if err != nil {
+				return err
+			}
+
+			t := models.ThirdPartyCloudServicesConfig{
+				Id:         v.Id,
+				NoticeType: models.NotificationType_Email,
+				Config:     string(configStr),
+				Status:     status,
+			}
+			result := psql.Mydb.Save(t)
+			if result.Error != nil {
+				return result.Error
+			}
+			break
+		}
+	}
+
+	return err
+}
+
 func GetThirdPartyCloudServicesConfigByNoticeType(noticeType int) (res []models.ThirdPartyCloudServicesConfig, err error) {
 	err = psql.Mydb.
 		Model(&models.ThirdPartyCloudServicesConfig{}).

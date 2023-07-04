@@ -29,5 +29,13 @@ type CloudServicesConfig_Ali struct {
 	TemplateCode    string `json:"template_code" valid:"Required"`
 }
 
+type CloudServicesConfig_Email struct {
+	Host         string `json:"host" valid:"Required"`
+	Port         int    `json:"port" valid:"Required"`
+	FromPassword string `json:"from_password" valid:"Required"`
+	FromEmail    string `json:"from_email" valid:"Required"`
+	SSL          bool   `json:"ssl" valid:"Required"`
+}
+
 type CloudServicesConfig_Tencent struct {
 }
