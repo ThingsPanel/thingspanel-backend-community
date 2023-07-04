@@ -265,6 +265,9 @@ func (c *TpNotification) Switch() {
 }
 
 func (c *TpNotification) ConfigDetail() {
+
+	// TODO 限制超级管理员
+
 	var input struct {
 		NoticeType int `json:"notice_type" valid:"Required"`
 	}
@@ -292,6 +295,9 @@ func (c *TpNotification) ConfigDetail() {
 }
 
 func (c *TpNotification) ConfigSave() {
+
+	// TODO 限制超级管理员
+
 	var input struct {
 		NoticeType int    `json:"notice_type" valid:"Required"`
 		Config     string `json:"config" valid:"Required"`
@@ -360,6 +366,7 @@ func (c *TpNotification) ConfigSave() {
 }
 
 func (c *TpNotification) SendEmail() {
+	// TODO 限制超级管理员
 	var input struct {
 		Email   string `json:"email" valid:"Required"`
 		Content string `json:"content" valid:"Required"`
@@ -370,9 +377,13 @@ func (c *TpNotification) SendEmail() {
 		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
 		return
 	}
+
+	sendmessage.SendEmailMessage(input.Content, "极益科技邮件", input.Email)
+	response.Success(200, c.Ctx)
 }
 
 func (c *TpNotification) SendMessage() {
+	// TODO 限制超级管理员
 	var input struct {
 		PhoneNumber int    `json:"phone_number" valid:"Required"`
 		Content     string `json:"content" valid:"Required"`
