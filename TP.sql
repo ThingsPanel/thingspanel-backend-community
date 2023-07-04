@@ -1550,6 +1550,21 @@ COMMENT ON COLUMN "public"."tp_notification_members"."id" IS 'uuid';
 COMMENT ON COLUMN "public"."tp_notification_members"."tp_notification_groups_id" IS '关联tp_notification_groups表id';
 COMMENT ON COLUMN "public"."tp_notification_members"."users_id" IS '关联users表id';
 
+
+CREATE TABLE "public"."third_party_cloud_services_config" (
+  "id" varchar(36) COLLATE "pg_catalog"."default",
+  "notice_type" int4,
+  "config" varchar(255) COLLATE "pg_catalog"."default",
+  "status" int4
+)
+;
+ALTER TABLE "public"."third_party_cloud_services_config" OWNER TO "postgres";
+COMMENT ON COLUMN "public"."third_party_cloud_services_config"."id" IS 'Uuid
+';
+COMMENT ON COLUMN "public"."third_party_cloud_services_config"."notice_type" IS '通知类型（1:短信 2:邮件 3:电话）';
+COMMENT ON COLUMN "public"."third_party_cloud_services_config"."config" IS '配置信息';
+COMMENT ON COLUMN "public"."third_party_cloud_services_config"."status" IS '开关（1：启用 2：关闭）';
+
 INSERT INTO public.users
 (id, created_at, updated_at, enabled, additional_info, authority, customer_id, email, "password", "name", mobile, remark, tenant_id)
 VALUES('33b2336c-9e9a-86e5-101e-4864e6b7724b', 1684309245, 1684309245, '1', '', 'TENANT_ADMIN', '', 'tenant@tenant.cn', '$2a$04$.O6d.vy.yOcYrqaQ2zkpAuApP4aDISxGdzlXol3NAR4vmZKex6jam', '租户', '13211111111', '', 'e481b0c0');
