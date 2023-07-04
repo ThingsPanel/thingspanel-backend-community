@@ -305,6 +305,14 @@ func (c *TpNotification) ConfigSave() {
 
 	} else if input.NoticeType == models.NotificationConfigType_Email {
 
+		// 网易邮箱：
+
+		// {
+		// 	"notice_type" :2,
+		// 	"config" :"{\"host\":\"ww2w\",\"port\":122,\"from_password\":\"fasef\",\"from_email\":\"f\",\"ssl\":false}",
+		// 	"status":2
+		// }
+
 		var configInfo models.CloudServicesConfig_Email
 		err := json.Unmarshal([]byte(input.Config), &configInfo)
 		if err != nil {
