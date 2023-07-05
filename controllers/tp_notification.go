@@ -266,13 +266,22 @@ func (c *TpNotification) Switch() {
 
 func (c *TpNotification) ConfigDetail() {
 
-	// TODO 限制超级管理员
-
 	var input struct {
 		NoticeType int `json:"notice_type" valid:"Required"`
 	}
 
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if ok {
+		if authority != "SYS_ADMIN" {
+			response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+			return
+		}
+	} else {
+		response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+		return
+	}
 
 	if err != nil {
 		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
@@ -304,6 +313,17 @@ func (c *TpNotification) ConfigSave() {
 		Status     int    `json:"status" valid:"Required"`
 	}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if ok {
+		if authority != "SYS_ADMIN" {
+			response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+			return
+		}
+	} else {
+		response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+		return
+	}
 
 	if err != nil {
 		response.SuccessWithMessage(400, "参数解析错误1", (*context2.Context)(c.Ctx))
@@ -378,6 +398,17 @@ func (c *TpNotification) SendEmail() {
 		return
 	}
 
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if ok {
+		if authority != "SYS_ADMIN" {
+			response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+			return
+		}
+	} else {
+		response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+		return
+	}
+
 	// 获取用户租户id
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
@@ -401,6 +432,17 @@ func (c *TpNotification) SendMessage() {
 		Content     string `json:"content" valid:"Required"`
 	}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if ok {
+		if authority != "SYS_ADMIN" {
+			response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+			return
+		}
+	} else {
+		response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+		return
+	}
 
 	if err != nil {
 		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
