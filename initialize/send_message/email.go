@@ -26,7 +26,7 @@ func SendEmailMessage(message string, subject string, tenantId string, to ...str
 
 	d := gomail.NewDialer(NetEase.Host, NetEase.Port, NetEase.FromEmail, NetEase.FromPassword)
 
-	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: NetEase.SSL}
 	m := gomail.NewMessage()
 	m.SetHeader("From", NetEase.FromEmail)
 
