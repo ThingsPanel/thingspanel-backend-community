@@ -18,6 +18,7 @@ import (
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
+	"github.com/howeyc/crc16"
 )
 
 type TpOtaDeviceController struct {
@@ -162,17 +163,20 @@ func (c *TpOtaDeviceController) Download() {
 
 	//检查是否存在Range头部信息
 	rangeHeader := c.Ctx.Input.Header("Range")
+	//检查是否存在crc16Method头部信息
+	crc16Method := c.Ctx.Input.Header("Crc16-Method")
+
 	//如果不存在则直接下载
 	if rangeHeader == "" {
 		c.Ctx.Output.Download(filepath)
 	}
 	//发送文件部分内容
-	c.serveRangeFile(filepath, rangeHeader)
+	c.serveRangeFile(filepath, rangeHeader, crc16Method)
 
 }
 
 //断点续传下载
-func (c *TpOtaDeviceController) serveRangeFile(filePath string, rangeHeader string) {
+func (c *TpOtaDeviceController) serveRangeFile(filePath string, rangeHeader, crc16Method string) {
 	//解析Range头部信息
 	rangeStr := strings.Replace(rangeHeader, "bytes=", "", 1)
 	rangeParts := strings.Split(rangeStr, "-")
@@ -222,6 +226,39 @@ func (c *TpOtaDeviceController) serveRangeFile(filePath string, rangeHeader stri
 	if err != nil {
 		c.Abort("500")
 	}
+	// 创建一个缓冲区
+	buffer := make([]byte, contentLength)
 
-	io.CopyN(c.Ctx.ResponseWriter, file, contentLength)
+	// 从文件中读取数据到缓冲区
+	_, err = file.Read(buffer)
+	if err != nil {
+		c.Abort("500")
+	}
+	switch crc16Method {
+	case "CCITT":
+		// 计算CRC16校验码
+		crcValue := crc16.ChecksumCCITT(buffer)
+		// 将校验码添加到HTTP响应的头部中
+		c.Ctx.Output.Header("X-CRC16", fmt.Sprintf("%04x", crcValue))
+		// 将缓冲区数据写入响应
+		c.Ctx.ResponseWriter.Write(buffer)
+
+	case "MODBUS":
+		// 计算CRC16校验码
+		crcValue := crc16.ChecksumMBus(buffer)
+		// 将校验码添加到HTTP响应的头部中
+		c.Ctx.Output.Header("X-CRC16", fmt.Sprintf("%04x", crcValue))
+
+		// 将缓冲区数据写入响应
+		c.Ctx.ResponseWriter.Write(buffer)
+	default:
+		// 计算CRC16-IBM校验码
+		crcValue := crc16.ChecksumIBM(buffer)
+
+		// 将校验码添加到HTTP响应的头部中
+		c.Ctx.Output.Header("X-CRC16", fmt.Sprintf("%04x", crcValue))
+
+		// 将缓冲区数据写入响应
+		c.Ctx.ResponseWriter.Write(buffer)
+	}
 }
