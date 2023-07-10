@@ -134,6 +134,8 @@ http://thingspanel.io
 ### 模拟数据仿真测试，也可以改造为压力测试使用
 https://gitee.com/paddy235/thingspanel_simulation_python
 
+## 特别鸣谢
+我们要感谢[paddy235](https://gitee.com/paddy235)对ThingsPanel进行的测试，并且还为该项目贡献了大量的脚本，让该项目变得更加完善。
 ## 贡献者
 
 感谢您对ThingsPanel的贡献!
