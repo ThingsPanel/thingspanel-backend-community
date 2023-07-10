@@ -130,6 +130,10 @@ http://dev.thingspanel.cn
 ## 项目文档
 http://thingspanel.io
 
+## 测试脚本贡献
+### 模拟数据仿真测试，也可以改造为压力测试使用
+https://gitee.com/paddy235/thingspanel_simulation_python
+
 ## 贡献者
 
 感谢您对ThingsPanel的贡献!
