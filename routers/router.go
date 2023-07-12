@@ -328,6 +328,11 @@ func init() {
 		//可视化插件
 		web.NSRouter("/tp_vis_plugin/list", &controllers.TpVisPluginController{}, "*:List"),
 		web.NSRouter("/tp_vis_files/up", &controllers.TpVisPluginController{}, "*:Upload"),
+		//本地可视化插件
+		web.NSRouter("/tp_local_vis_plugin/list", &controllers.TpLocalVisPluginController{}, "*:List"),
+		web.NSRouter("/tp_local_vis_plugin/add", &controllers.TpLocalVisPluginController{}, "*:Add"),
+		web.NSRouter("/tp_local_vis_plugin/edit", &controllers.TpLocalVisPluginController{}, "*:Edit"),
+		web.NSRouter("/tp_local_vis_plugin/del", &controllers.TpLocalVisPluginController{}, "*:Del"),
 
 		//插件模块接口
 		web.NSRouter("/plugin/device/config", &controllers.DeviceController{}, "*:GetGatewayConfig"),
