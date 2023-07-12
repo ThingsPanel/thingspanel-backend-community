@@ -24,3 +24,16 @@ type TpVisFiles struct {
 func (TpVisFiles) TableName() string {
 	return "tp_vis_files"
 }
+
+//add 2023-07-12
+type TpLocalVisPlugin struct {
+	Id        string `json:"id" gorm:"primaryKey"`
+	PluginUrl string `json:"plugin_url,omitempty"`
+	CreateAt  int64  `json:"create_at,omitempty"`
+	TenantId  string `json:"tenant_id,omitempty" gorm:"size:36"` // 租户id
+	Remark    string `json:"remark,omitempty"`
+}
+
+func (TpLocalVisPlugin) TableName() string {
+	return "tp_local_vis_plugin"
+}
