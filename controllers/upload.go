@@ -67,6 +67,8 @@ func (uploadController *UploadController) UpFile() {
 			response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))
 			return
 		}
+	case "d_plugin":
+		// 不做限制
 	default:
 		if _, ok := AllowExtMap[ext]; !ok {
 			response.SuccessWithMessage(1000, "文件类型不正确", (*context2.Context)(uploadController.Ctx))
