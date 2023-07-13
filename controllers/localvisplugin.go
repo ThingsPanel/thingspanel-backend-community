@@ -56,6 +56,11 @@ func (c *TpLocalVisPluginController) Add() {
 		return
 	}
 	var tplocalvisplugin services.TpLocalVis
+
+	if sd := tplocalvisplugin.GetTpLocalVisPluginDetail(reqData.Id, tenantId); len(sd) > 0 {
+		utils.SuccessWithMessage(400, "id已存在", (*context2.Context)(c.Ctx))
+		return
+	}
 	d, rsp_err := tplocalvisplugin.AddTpLocalVisPlugin(reqData, tenantId)
 	if rsp_err == nil {
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
@@ -71,10 +76,16 @@ func (c *TpLocalVisPluginController) Edit() {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	var tplocalvisplugin services.TpLocalVis
-	err := tplocalvisplugin.EditTpLocalVisPlugin(reqData)
+	err := tplocalvisplugin.EditTpLocalVisPlugin(reqData, tenantId)
 	if err == nil {
-		d := tplocalvisplugin.GetTpLocalVisPluginDetail(reqData.Id)
+		d := tplocalvisplugin.GetTpLocalVisPluginDetail(reqData.Id, tenantId)
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
 		utils.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
@@ -103,9 +114,16 @@ func (c *TpLocalVisPluginController) Del() {
 	if reqData.Id == "" {
 		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(c.Ctx))
 	}
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	var tplocalvisplugin services.TpLocalVis
 	TpLocalVisPlugin := models.TpLocalVisPlugin{
-		Id: reqData.Id,
+		Id:       reqData.Id,
+		TenantId: tenantId,
 	}
 	req_err := tplocalvisplugin.DeleteTpLocalVisPlugin(TpLocalVisPlugin)
 	if req_err == nil {

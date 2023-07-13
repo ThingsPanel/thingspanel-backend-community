@@ -19,9 +19,9 @@ type TpLocalVis struct {
 	TimeField []string
 }
 
-func (*TpLocalVis) GetTpLocalVisPluginDetail(tp_local_vis_plugin_id string) []models.TpLocalVisPlugin {
+func (*TpLocalVis) GetTpLocalVisPluginDetail(tp_local_vis_plugin_id, tenant_id string) []models.TpLocalVisPlugin {
 	var tplocalvisplugin []models.TpLocalVisPlugin
-	psql.Mydb.First(&tplocalvisplugin, "id = ?", tp_local_vis_plugin_id)
+	psql.Mydb.First(&tplocalvisplugin, "id = ? and tenant_id=?", tp_local_vis_plugin_id, tenant_id)
 	return tplocalvisplugin
 }
 
@@ -63,10 +63,10 @@ func (*TpLocalVis) AddTpLocalVisPlugin(TpLocalVisPlugin valid.AddTpLocalVisPlugi
 }
 
 // 修改数据
-func (*TpLocalVis) EditTpLocalVisPlugin(TpLocalVisPlugin valid.EditTpLocalVisPluginValidate) error {
+func (*TpLocalVis) EditTpLocalVisPlugin(TpLocalVisPlugin valid.EditTpLocalVisPluginValidate, tenantId string) error {
 	// 验证id是否存在
 	var TpLocalVisPluginModel models.TpLocalVisPlugin
-	result := psql.Mydb.First(&TpLocalVisPluginModel, "id = ?", TpLocalVisPlugin.Id)
+	result := psql.Mydb.First(&TpLocalVisPluginModel, "id = ? and tenant_id=?", TpLocalVisPlugin.Id, tenantId)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return result.Error
@@ -76,7 +76,7 @@ func (*TpLocalVis) EditTpLocalVisPlugin(TpLocalVisPlugin valid.EditTpLocalVisPlu
 		Id:        TpLocalVisPlugin.Id,
 		PluginUrl: TpLocalVisPlugin.PluginUrl,
 	}
-	result = psql.Mydb.Model(&models.TpLocalVisPlugin{}).Where("id = ?", TpLocalVisPlugin.Id).Updates(&TpLocalVisPluginModel)
+	result = psql.Mydb.Model(&models.TpLocalVisPlugin{}).Where("id = ? and tenant_id = ?", TpLocalVisPlugin.Id, tenantId).Updates(&TpLocalVisPluginModel)
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return result.Error
