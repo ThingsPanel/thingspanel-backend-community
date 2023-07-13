@@ -1,89 +1,46 @@
 package sendmessage
 
 import (
+	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
-	"log"
 
-	"github.com/spf13/viper"
 	"gopkg.in/gomail.v2"
 )
 
-var MessageConfig Config
+func SendEmailMessage(message string, subject string, tenantId string, to ...string) (err error) {
 
-type Config struct {
-	Email        EmailConfig   `mapstructure:"email"`
-	Alibabacloud AlibabaConfig `mapstructure:"aliyunmessage"`
-}
+	c, err := models.NotificationConfigByNoticeTypeAndStatus(models.NotificationConfigType_Email, models.NotificationSwitch_Open)
 
-type EmailConfig struct {
-	IsOpen             int    `mapstructure:"isOpen"`
-	ServerHost         string `mapstructure:"serverHost"`
-	ServerPort         int    `mapstructure:"serverPort"`
-	FromPasswd         string `mapstructure:"fromPasswd"`
-	FromEmail          string `mapstructure:"fromEmail"`
-	InsecureSkipVerify bool   `mapstructure:"insecureSkipVerify"`
-}
-
-type AlibabaConfig struct {
-	IsOpen          int    `mapstructure:"isOpen"`
-	AccessKeyId     string `mapstructure:"accessKeyId"`
-	AccessKeySecret string `mapstructure:"accessKeySecret"`
-	Endpoint        string `mapstructure:"endpoint"`
-}
-
-var emailDialer *gomail.Dialer
-var messageSend *gomail.Message
-
-func init() {
-
-	InitConfigByViper()
-
-	if MessageConfig.Email.IsOpen == 1 {
-		log.Println("启动邮件服务")
-		InitServer()
+	if len(c.Config) == 0 {
+		return fmt.Errorf("无可用配置")
 	}
 
-	if MessageConfig.Alibabacloud.IsOpen == 1 {
-		log.Println("启动短信服务")
-		initAlibabaCloud()
+	var NetEase models.CloudServicesConfig_Email
+
+	if err == nil {
+		json.Unmarshal([]byte(c.Config), &NetEase)
 	}
 
-}
+	d := gomail.NewDialer(NetEase.Host, NetEase.Port, NetEase.FromEmail, NetEase.FromPassword)
 
-// 读取配置文件
-func InitConfigByViper() {
-	viper.SetConfigType("yaml")
-	viper.SetConfigFile("./initialize/send_message/message.yml")
-	err := viper.ReadInConfig()
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	err = viper.Unmarshal(&MessageConfig)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-}
-
-func InitServer() {
-	fmt.Println("邮箱服务地址：", MessageConfig.Email.ServerHost)
-	d := gomail.NewDialer(MessageConfig.Email.ServerHost, MessageConfig.Email.ServerPort, MessageConfig.Email.FromEmail, MessageConfig.Email.FromPasswd)
-	d.TLSConfig = &tls.Config{InsecureSkipVerify: MessageConfig.Email.InsecureSkipVerify}
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: NetEase.SSL}
 	m := gomail.NewMessage()
-	m.SetHeader("From", MessageConfig.Email.FromEmail)
-	emailDialer = d
-	messageSend = m
-}
+	m.SetHeader("From", NetEase.FromEmail)
 
-func SendEmailMessage(message string, subject string, to ...string) {
-	if MessageConfig.Email.IsOpen == 1 {
-		messageSend.SetHeader("To", to...)
-		messageSend.SetBody("text/html", message)
-		messageSend.SetHeader("Subject", subject)
-		if err := emailDialer.DialAndSend(messageSend); err != nil {
-			log.Println("邮件发送失败")
-		} else {
-			log.Println("邮件发送成功")
-		}
+	m.SetHeader("To", to...)
+	m.SetBody("text/html", message)
+	m.SetHeader("Subject", subject)
+	// 记录数据库
+
+	if err := d.DialAndSend(m); err != nil {
+
+		models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendFail, models.NotificationConfigType_Email, tenantId)
+		return err
+	} else {
+		models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendSuccess, models.NotificationConfigType_Email, tenantId)
 	}
+	return nil
 }

@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"ThingsPanel-Go/initialize/psql"
+	sendmessage "ThingsPanel-Go/initialize/send_message"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
+	"strings"
 	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
@@ -259,4 +262,261 @@ func (c *TpNotification) Switch() {
 
 	response.Success(200, c.Ctx)
 
+}
+
+func (c *TpNotification) ConfigDetail() {
+
+	var input struct {
+		NoticeType int `json:"notice_type" valid:"Required"`
+	}
+
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if ok {
+		if authority != "SYS_ADMIN" {
+			response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+			return
+		}
+	} else {
+		response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var res []models.ThirdPartyCloudServicesConfig
+
+	err = psql.Mydb.
+		Model(&models.ThirdPartyCloudServicesConfig{}).
+		Where("notice_type = ?", input.NoticeType).
+		Find(&res).Error
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	response.SuccessWithDetailed(200, "success", res, map[string]string{}, (*context2.Context)(c.Ctx))
+
+}
+
+func (c *TpNotification) ConfigSave() {
+
+	// TODO 限制超级管理员
+
+	var input struct {
+		NoticeType int    `json:"notice_type" valid:"Required"`
+		Config     string `json:"config" valid:"Required"`
+		Status     int    `json:"status" valid:"Required"`
+	}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if ok {
+		if authority != "SYS_ADMIN" {
+			response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+			return
+		}
+	} else {
+		response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误1", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var s services.TpNotificationService
+
+	// 阿里云 短信
+	// {
+	// 	"notice_type" :1,
+	// 	"config" :"{\"cloud_type\":1,\"access_key_id\":\"yanhao\",\"access_key_secret\":\"haoyan\",\"endpoint\":\"www.qq.com\",\"sign_name\":\"tp\",\"template_code\":\"sm2s1123123\"}"
+	// ,
+	// 	"status":2
+	// }
+
+	if input.NoticeType == models.NotificationConfigType_Message {
+
+		var configInfo models.CloudServicesConfig_Ali
+
+		err := json.Unmarshal([]byte(input.Config), &configInfo)
+		if err != nil {
+			response.SuccessWithMessage(400, "参数解析错误2", (*context2.Context)(c.Ctx))
+			return
+		}
+
+		res := s.SaveNotificationConfigAli(configInfo, input.Status)
+		if err != nil {
+			response.SuccessWithMessage(400, res.Error(), (*context2.Context)(c.Ctx))
+		}
+
+	} else if input.NoticeType == models.NotificationConfigType_Email {
+
+		// 网易邮箱：
+
+		// {
+		// 	"notice_type" :2,
+		// 	"config" :"{\"host\":\"ww2w\",\"port\":122,\"from_password\":\"fasef\",\"from_email\":\"f\",\"ssl\":false}",
+		// 	"status":2
+		// }
+
+		var configInfo models.CloudServicesConfig_Email
+		err := json.Unmarshal([]byte(input.Config), &configInfo)
+		if err != nil {
+			response.SuccessWithMessage(400, "参数解析错误2", (*context2.Context)(c.Ctx))
+			return
+		}
+		res := s.SaveNotificationConfigEmail(configInfo, input.Status)
+		if err != nil {
+			response.SuccessWithMessage(400, res.Error(), (*context2.Context)(c.Ctx))
+		}
+
+	} else {
+		response.SuccessWithMessage(400, "不支持的通知类型", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	response.Success(200, c.Ctx)
+
+}
+
+func (c *TpNotification) SendEmail() {
+	// TODO 限制超级管理员
+	var input struct {
+		Email   string `json:"email" valid:"Required"`
+		Content string `json:"content" valid:"Required"`
+	}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if ok {
+		if authority != "SYS_ADMIN" {
+			response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+			return
+		}
+	} else {
+		response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	err = sendmessage.SendEmailMessage(input.Content, "极益科技邮件", tenantId, input.Email)
+
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	response.Success(200, c.Ctx)
+}
+
+func (c *TpNotification) SendMessage() {
+	// TODO 限制超级管理员
+	var input struct {
+		PhoneNumber int    `json:"phone_number" valid:"Required"`
+		Content     string `json:"content" valid:"Required"`
+	}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if ok {
+		if authority != "SYS_ADMIN" {
+			response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+			return
+		}
+	} else {
+		response.SuccessWithMessage(400, "authority error", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	arr := strings.Split(input.Content, ",")
+
+	if len(arr) != 3 {
+		response.SuccessWithMessage(400, "content解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	err = sendmessage.SendSMS_SMS_461790263(input.PhoneNumber, arr[0], arr[1], arr[2], tenantId)
+
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	response.Success(200, c.Ctx)
+}
+
+func (c *TpNotification) HistoryList() {
+	var input struct {
+		CurrentPage      int    `json:"current_page"`
+		PerPage          int    `json:"per_page"`
+		NotificationType int    `json:"notification_type"`
+		ReceiveTarget    string `json:"receive_target"`
+		StartTime        int64  `json:"start_time"`
+		EndTime          int64  `json:"end_time"`
+	}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	if input.StartTime > input.EndTime {
+		response.SuccessWithMessage(400, "time error", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var s services.TpNotificationService
+
+	offset := (input.CurrentPage - 1) * input.PerPage
+
+	d, count := s.GetNotificationHistory(offset, input.PerPage, input.NotificationType, input.ReceiveTarget, input.StartTime, input.EndTime, tenantId)
+
+	if err != nil {
+		response.SuccessWithMessage(400, "mysql search error", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	ret := make(map[string]interface{})
+
+	ret["total"] = count
+	ret["data"] = d
+	ret["current_page"] = input.CurrentPage
+	ret["per_page"] = input.PerPage
+
+	response.SuccessWithDetailed(200, "success", ret, map[string]string{}, (*context2.Context)(c.Ctx))
 }

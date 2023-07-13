@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	sendmessage "ThingsPanel-Go/initialize/send_message"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -163,7 +164,7 @@ func (*TpNotificationService) ExecuteNotification(strategyId string) {
 				if cnt != 0 {
 					if v2.IsEmail == 1 {
 						// 发送邮件
-						sendmessage.SendEmailMessage("告警邮件测试发送", "测试内容", user.Email)
+						sendmessage.SendEmailMessage("告警邮件测试发送", "测试内容", "", user.Email)
 					}
 				}
 			}
@@ -178,7 +179,7 @@ func (*TpNotificationService) ExecuteNotification(strategyId string) {
 			}
 			emailList := strings.Split(nConfig["email"], ",")
 			for _, ev := range emailList {
-				sendmessage.SendEmailMessage("告警邮件测试发送", "测试内容", ev)
+				sendmessage.SendEmailMessage("告警邮件测试发送", "测试内容", "", ev)
 			}
 		case models.NotificationType_Webhook:
 			// 解析config
@@ -209,4 +210,147 @@ func BatchGetNotificationGroups(id []string) ([]models.TpNotificationGroups, err
 		return groupInfo, err
 	}
 	return groupInfo, err
+}
+
+func (*TpNotificationService) SaveNotificationConfigAli(config models.CloudServicesConfig_Ali, status int) (err error) {
+
+	exists, err := GetThirdPartyCloudServicesConfigByNoticeType(models.NotificationConfigType_Message)
+	if err != nil {
+		return err
+	}
+	configStr, err := json.Marshal(config)
+	if len(exists) == 0 {
+		if err != nil {
+			return err
+		}
+		t := models.ThirdPartyCloudServicesConfig{
+			Id:         utils.GetUuid(),
+			NoticeType: models.NotificationConfigType_Message,
+			Config:     string(configStr),
+			Status:     status,
+		}
+		result := psql.Mydb.Save(t)
+		if result.Error != nil {
+			return result.Error
+		}
+	} else {
+		for _, v := range exists {
+			var tmp models.CloudServicesConfig_Ali
+			err = json.Unmarshal([]byte(v.Config), &tmp)
+			if err != nil {
+				return err
+			}
+			if tmp.CloudType == models.NotificationCloudType_Ali {
+				t := models.ThirdPartyCloudServicesConfig{
+					Id:         v.Id,
+					NoticeType: models.NotificationConfigType_Message,
+					Config:     string(configStr),
+					Status:     status,
+				}
+				result := psql.Mydb.Save(t)
+				if result.Error != nil {
+					return result.Error
+				}
+				break
+			}
+		}
+	}
+
+	return err
+}
+
+func (*TpNotificationService) SaveNotificationConfigEmail(config models.CloudServicesConfig_Email, status int) (err error) {
+
+	exists, err := GetThirdPartyCloudServicesConfigByNoticeType(models.NotificationConfigType_Email)
+	if err != nil {
+		return err
+	}
+	configStr, err := json.Marshal(config)
+	if len(exists) == 0 {
+		if err != nil {
+			return err
+		}
+		t := models.ThirdPartyCloudServicesConfig{
+			Id:         utils.GetUuid(),
+			NoticeType: models.NotificationType_Email,
+			Config:     string(configStr),
+			Status:     status,
+		}
+		result := psql.Mydb.Save(t)
+		if result.Error != nil {
+			return result.Error
+		}
+	} else {
+		for _, v := range exists {
+			var tmp models.CloudServicesConfig_Email
+			err = json.Unmarshal([]byte(v.Config), &tmp)
+			if err != nil {
+				return err
+			}
+
+			t := models.ThirdPartyCloudServicesConfig{
+				Id:         v.Id,
+				NoticeType: models.NotificationType_Email,
+				Config:     string(configStr),
+				Status:     status,
+			}
+			result := psql.Mydb.Save(t)
+			if result.Error != nil {
+				return result.Error
+			}
+			break
+		}
+	}
+
+	return err
+}
+
+func GetThirdPartyCloudServicesConfigByNoticeType(noticeType int) (res []models.ThirdPartyCloudServicesConfig, err error) {
+	err = psql.Mydb.
+		Model(&models.ThirdPartyCloudServicesConfig{}).
+		Where("notice_type = ?", noticeType).
+		Find(&res).Error
+	if err != nil {
+		return res, err
+	}
+	return res, err
+}
+
+func (*TpNotificationService) GetNotificationHistory(
+	Offset, PerPage, NotificationType int, ReceiveTarget string, StartTime, EndTime int64, TenantId string,
+) (d []models.TpNotificationHistory, count int64) {
+
+	where := make(map[string]interface{})
+
+	where["tenant_id"] = TenantId
+
+	if NotificationType != 0 {
+		where["notification_type"] = NotificationType
+	}
+	if ReceiveTarget != "" {
+		where["send_target"] = ReceiveTarget
+	}
+	if StartTime > 0 {
+		where["start_time >= ?"] = StartTime
+	}
+	if EndTime > 0 {
+		where["end_time <= ?"] = EndTime
+	}
+
+	tx := psql.Mydb.Model(&models.TpNotificationHistory{})
+	tx.Where(where)
+
+	err := tx.Count(&count).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return d, count
+	}
+
+	err = tx.Limit(PerPage).Offset(Offset).Order("send_time desc").Find(&d).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return d, count
+	}
+	return d, count
+
 }
