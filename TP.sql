@@ -1609,6 +1609,5 @@ CREATE TABLE public.tp_local_vis_plugin (
 	tenant_id varchar(36) NOT NULL,
 	plugin_url varchar(500) NOT NULL,
 	create_at int8 NULL,
-	remark varchar(255) NULL,
-	CONSTRAINT tp_local_vis_plugin_pkey PRIMARY KEY (id)
+	remark varchar(255) NULL
 );
