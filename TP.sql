@@ -1611,3 +1611,45 @@ CREATE TABLE public.tp_local_vis_plugin (
 	create_at int8 NULL,
 	remark varchar(255) NULL
 );
+
+-- public.tp_data_services_config definition
+
+-- Drop table
+
+-- DROP TABLE public.tp_data_services_config;
+
+-- public.tp_data_services_config definition
+
+-- Drop table
+
+-- DROP TABLE public.tp_data_services_config;
+
+CREATE TABLE public.tp_data_services_config (
+	id varchar(36) NOT NULL,
+	"name" varchar(50) NULL, -- 名称
+	app_key varchar(500) NULL, -- key
+	secret_key varchar(500) NULL, -- 密钥
+	signature_mode varchar(50) NULL, -- 签名方式：MD5 or SHA256
+	ip_whitelist varchar(500) NULL, -- ip白名单
+	data_sql varchar(5000) NULL, -- sql语句
+	api_flag varchar(2) NULL, -- 支持接口标志 0-http接口 1-http和ws接口
+	time_interval int8 NULL, --  ws接口推送数据间隔（s）
+	enable_flag varchar(1) NULL, -- 启停标志
+	description varchar(500) NULL, -- 描述
+	created_at int8 NULL,
+	remark varchar(500) NULL,
+	CONSTRAINT tp_data_services_config_pk PRIMARY KEY (id)
+);
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_data_services_config."name" IS '名称';
+COMMENT ON COLUMN public.tp_data_services_config.app_key IS 'key';
+COMMENT ON COLUMN public.tp_data_services_config.secret_key IS '密钥';
+COMMENT ON COLUMN public.tp_data_services_config.signature_mode IS '签名方式：MD5 or SHA256';
+COMMENT ON COLUMN public.tp_data_services_config.ip_whitelist IS 'ip白名单';
+COMMENT ON COLUMN public.tp_data_services_config.data_sql IS 'sql语句';
+COMMENT ON COLUMN public.tp_data_services_config.api_flag IS '支持接口标志 0-http接口 1-http和ws接口';
+COMMENT ON COLUMN public.tp_data_services_config.time_interval IS '	ws接口推送数据间隔（s）';
+COMMENT ON COLUMN public.tp_data_services_config.enable_flag IS '启停标志';
+COMMENT ON COLUMN public.tp_data_services_config.description IS '描述';

@@ -5,7 +5,6 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
-	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
@@ -16,24 +15,24 @@ import (
 	context2 "github.com/beego/beego/v2/server/web/context"
 )
 
-type TpLocalVisPluginController struct {
+type TpDataServicesConfigController struct {
 	beego.Controller
 }
 
 // 列表
-func (c *TpLocalVisPluginController) List() {
-	reqData := valid.TpLocalVisPluginPaginationValidate{}
+func (c *TpDataServicesConfigController) List() {
+	reqData := valid.TpDataServicesConfigPaginationValidate{}
 	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
-	var tplocalvisplugin services.TpLocalVis
-	isSuccess, d, t := tplocalvisplugin.GetTpLocalVisPluginList(reqData)
+	var tpdataservicesconfig services.TpDataServicesConfig
+	isSuccess, d, t := tpdataservicesconfig.GetTpDataServicesConfigList(reqData)
 	if !isSuccess {
 		utils.SuccessWithMessage(1000, "查询失败", (*context2.Context)(c.Ctx))
 		return
 	}
-	dd := valid.RspTpLocalVisPluginPaginationValidate{
+	dd := valid.RspTpDataServicesConfigPaginationValidate{
 		CurrentPage: reqData.CurrentPage,
 		Data:        d,
 		Total:       t,
@@ -43,25 +42,15 @@ func (c *TpLocalVisPluginController) List() {
 }
 
 // 新增
-func (c *TpLocalVisPluginController) Add() {
-	reqData := valid.AddTpLocalVisPluginValidate{}
+func (c *TpDataServicesConfigController) Add() {
+	reqData := valid.AddTpDataServicesConfigValidate{}
 	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
-	//获取租户id
-	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
-		return
-	}
-	var tplocalvisplugin services.TpLocalVis
 
-	if sd := tplocalvisplugin.GetTpLocalVisPluginDetail(reqData.Id, tenantId); len(sd) > 0 {
-		utils.SuccessWithMessage(400, "id已存在", (*context2.Context)(c.Ctx))
-		return
-	}
-	d, rsp_err := tplocalvisplugin.AddTpLocalVisPlugin(reqData, tenantId)
+	var tpdataservicesconfig services.TpDataServicesConfig
+	d, rsp_err := tpdataservicesconfig.AddTpDataServicesConfig(reqData)
 	if rsp_err == nil {
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
@@ -70,22 +59,17 @@ func (c *TpLocalVisPluginController) Add() {
 }
 
 // 编辑
-func (c *TpLocalVisPluginController) Edit() {
-	reqData := valid.EditTpLocalVisPluginValidate{}
+func (c *TpDataServicesConfigController) Edit() {
+	reqData := valid.EditTpDataServicesConfigValidate{}
 	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
-	//获取租户id
-	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
-		return
-	}
-	var tplocalvisplugin services.TpLocalVis
-	err := tplocalvisplugin.EditTpLocalVisPlugin(reqData, tenantId)
+
+	var tpdataservicesconfig services.TpDataServicesConfig
+	err := tpdataservicesconfig.EditTpDataServicesConfig(reqData)
 	if err == nil {
-		d := tplocalvisplugin.GetTpLocalVisPluginDetail(reqData.Id, tenantId)
+		d := tpdataservicesconfig.GetTpDataServicesConfigDetail(reqData.Id)
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
 		utils.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
@@ -93,8 +77,8 @@ func (c *TpLocalVisPluginController) Edit() {
 }
 
 // 删除
-func (c *TpLocalVisPluginController) Del() {
-	reqData := valid.TpLocalVisPluginIdValidate{}
+func (c *TpDataServicesConfigController) Del() {
+	reqData := valid.TpDataServicesConfigIdValidate{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
@@ -115,22 +99,50 @@ func (c *TpLocalVisPluginController) Del() {
 		utils.SuccessWithMessage(1000, "id不能为空", (*context2.Context)(c.Ctx))
 		return
 	}
-	//获取租户id
-	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
-		return
+
+	var tpdataservicesconfig services.TpDataServicesConfig
+	tpdataservicesconfigmodel := models.TpDataServicesConfig{
+		Id: reqData.Id,
 	}
-	var tplocalvisplugin services.TpLocalVis
-	TpLocalVisPlugin := models.TpLocalVisPlugin{
-		Id:       reqData.Id,
-		TenantId: tenantId,
-	}
-	req_err := tplocalvisplugin.DeleteTpLocalVisPlugin(TpLocalVisPlugin)
+	req_err := tpdataservicesconfig.DeleteTpDataServicesConfig(tpdataservicesconfigmodel)
 	if req_err == nil {
 		utils.SuccessWithMessage(200, "success", (*context2.Context)(c.Ctx))
 	} else {
-		utils.SuccessWithMessage(400, "删除失败", (*context2.Context)(c.Ctx))
+		utils.SuccessWithMessage(400, "编辑失败", (*context2.Context)(c.Ctx))
+	}
+
+}
+
+//调试
+func (c *TpDataServicesConfigController) Quize() {
+	reqData := valid.TpDataServicesConfigQuizeValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(reqData)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(reqData, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+	if reqData.DataSql == "" {
+		utils.SuccessWithMessage(1000, "sql不能为空", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var tpdataservicesconfig services.TpDataServicesConfig
+	d, rsp_err := tpdataservicesconfig.QuizeTpDataServicesConfig(reqData.DataSql)
+	if rsp_err == nil {
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+	} else {
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
 	}
 
 }

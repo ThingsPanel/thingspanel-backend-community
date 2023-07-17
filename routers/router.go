@@ -436,6 +436,13 @@ func init() {
 		web.NSRouter("/notification/send/message", &controllers.TpNotification{}, "*:SendMessage"),
 
 		web.NSRouter("/notification/history/list", &controllers.TpNotification{}, "*:HistoryList"),
+		//数据服务配置
+		//本地可视化插件
+		web.NSRouter("/tp_data_services_config/list", &controllers.TpDataServicesConfigController{}, "*:List"),
+		web.NSRouter("/tp_data_services_config/add", &controllers.TpDataServicesConfigController{}, "*:Add"),
+		web.NSRouter("/tp_data_services_config/edit", &controllers.TpDataServicesConfigController{}, "*:Edit"),
+		web.NSRouter("/tp_data_services_config/del", &controllers.TpDataServicesConfigController{}, "*:Del"),
+		web.NSRouter("/tp_data_services_config/quize", &controllers.TpDataServicesConfigController{}, "*:Quize"),
 	)
 
 	// 图表推送数据
