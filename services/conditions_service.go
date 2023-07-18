@@ -393,7 +393,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 
 						// 通知告警组
 						var notification TpNotificationService
-						notification.ExecuteNotification(automationAction.WarningStrategyId)
+						notification.ExecuteNotification(automationAction.WarningStrategyId, tenantId)
 
 					}
 
