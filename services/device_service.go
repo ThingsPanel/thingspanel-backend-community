@@ -586,7 +586,14 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 	}
 	// 	add: http://127.0.0.1:8083/v1/accounts/
 	//  delete: http://127.0.0.1:8083/v1/accounts/
-
+	// 判断是否是device_type变更
+	if deviceModel.DeviceType != device.DeviceType {
+		// 清理设备id关联的ts_kv_latest数据
+		err := psql.Mydb.Delete(&models.TSKVLatest{}, "entity_id = ?", deviceModel.ID).Error
+		if err != nil {
+			return err
+		}
+	}
 	if deviceModel.Token != "" {
 		MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
 		if MqttHttpHost == "" {
