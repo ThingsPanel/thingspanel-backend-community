@@ -115,6 +115,26 @@ func (t *AuthController) Logout() {
 func (this *AuthController) Refresh() {
 	authorization := this.Ctx.Request.Header["Authorization"][0]
 	userToken := authorization[7:]
+	_, err := jwt.ParseCliamsToken(userToken)
+	if err != nil {
+		response.SuccessWithMessage(400, "token异常", (*context2.Context)(this.Ctx))
+		return
+	}
+	// 更新token时间
+	redis.SetStr(userToken, "1", 3000*time.Second)
+	d := TokenData{
+		AccessToken: userToken,
+		TokenType:   "Bearer",
+		ExpiresIn:   3600,
+	}
+	// cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
+	response.SuccessWithDetailed(200, "刷新token成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
+}
+
+// 刷新token
+func (this *AuthController) ChangeToken() {
+	authorization := this.Ctx.Request.Header["Authorization"][0]
+	userToken := authorization[7:]
 	user, err := jwt.ParseCliamsToken(userToken)
 	if err != nil {
 		response.SuccessWithMessage(400, "token异常", (*context2.Context)(this.Ctx))
