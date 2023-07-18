@@ -1653,3 +1653,10 @@ COMMENT ON COLUMN public.tp_data_services_config.api_flag IS '支持接口标志
 COMMENT ON COLUMN public.tp_data_services_config.time_interval IS '	ws接口推送数据间隔（s）';
 COMMENT ON COLUMN public.tp_data_services_config.enable_flag IS '启停标志';
 COMMENT ON COLUMN public.tp_data_services_config.description IS '描述';
+
+UPDATE tp_function
+SET function_name='', menu_id=NULL, "path"='', name='RuleEngine', component='', title='COMMON.RULEENGINE', icon='flaticon2-gift-1', "type"='0', function_code='', parent_id='0', sort=920, tenant_id='', sys_flag='2', "describe"='规则引擎目录'
+WHERE id='7cac14a0-0ff2-57d9-5465-597760bd2cb1';
+UPDATE tp_function
+SET function_name='', menu_id=NULL, "path"='/access_engine/index', name='AccessEngine', component='/pages/access-engine/AccessEngineIndex.vue', title='COMMON.NETWORKCOMPONENTS', icon='flaticon-upload-1', "type"='1', function_code='', parent_id='7cac14a0-0ff2-57d9-5465-597760bd2cb1', sort=999, tenant_id='', sys_flag='1', "describe"='规则引擎菜单'
+WHERE id='a8ebb8af-adab-90fa-a553-49667370fc5f';
