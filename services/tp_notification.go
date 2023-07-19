@@ -131,7 +131,7 @@ func GetNotificationListByTenantId(
 	return nG, count
 }
 
-func (*TpNotificationService) ExecuteNotification(strategyId, tenantId string) {
+func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, content string) {
 
 	// 通过策略ID ，获取info_way中的信息
 	var WarningStrategyService TpWarningStrategyService
@@ -164,7 +164,7 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId string) {
 				if cnt != 0 {
 					if v2.IsEmail == 1 {
 						// 发送邮件
-						sendmessage.SendEmailMessage("告警邮件测试发送", "测试内容", tenantId, user.Email)
+						sendmessage.SendEmailMessage(title, content, tenantId, user.Email)
 					}
 				}
 			}
@@ -179,7 +179,7 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId string) {
 			}
 			emailList := strings.Split(nConfig["email"], ",")
 			for _, ev := range emailList {
-				sendmessage.SendEmailMessage("告警邮件测试发送", "测试内容", tenantId, ev)
+				sendmessage.SendEmailMessage(title, content, tenantId, ev)
 			}
 		case models.NotificationType_Webhook:
 			// 解析config
