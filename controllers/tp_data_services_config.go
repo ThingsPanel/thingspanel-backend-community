@@ -5,7 +5,6 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
-	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"fmt"
@@ -49,20 +48,8 @@ func (c *TpDataServicesConfigController) Add() {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
-	//获取appkey
-	appkey, ok := c.Ctx.Input.GetData("X-OpenAPI-AppKey").(string)
-	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
-		return
-	}
-	//获取signature
-	secretKey, ok := c.Ctx.Input.GetData("secretKey").(string)
-	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
-		return
-	}
 	var tpdataservicesconfig services.TpDataServicesConfig
-	d, rsp_err := tpdataservicesconfig.AddTpDataServicesConfig(reqData, appkey, secretKey)
+	d, rsp_err := tpdataservicesconfig.AddTpDataServicesConfig(reqData)
 	if rsp_err == nil {
 		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {

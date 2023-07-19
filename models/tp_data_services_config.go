@@ -19,3 +19,8 @@ type TpDataServicesConfig struct {
 func (TpDataServicesConfig) TableName() string {
 	return "tp_data_services_config"
 }
+
+const (
+	Appkey_Length    int = 10
+	SecretKey_Length int = 12
+)

@@ -30,7 +30,7 @@ func (*TpDataServicesConfig) GetTpDataServicesConfigDetail(id string) models.TpD
 
 // 获取列表
 func (*TpDataServicesConfig) GetTpDataServicesConfigList(PaginationValidate valid.TpDataServicesConfigPaginationValidate) (bool, []models.TpDataServicesConfig, int64) {
-	var TpDataServicesConfigs []models.TpDataServicesConfig
+	var tpDataServicesConfigs []models.TpDataServicesConfig
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.TpDataServicesConfig{})
 	if PaginationValidate.Name != "" {
@@ -50,17 +50,27 @@ func (*TpDataServicesConfig) GetTpDataServicesConfigList(PaginationValidate vali
 	// }
 	var count int64
 	db.Count(&count)
-	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&TpDataServicesConfigs)
+	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&tpDataServicesConfigs)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return false, TpDataServicesConfigs, 0
+		return false, tpDataServicesConfigs, 0
 	}
-	return true, TpDataServicesConfigs, count
+	return true, tpDataServicesConfigs, count
 }
 
 // 新增数据
-func (*TpDataServicesConfig) AddTpDataServicesConfig(reqdata valid.AddTpDataServicesConfigValidate, appkey, secretKey string) (models.TpDataServicesConfig, error) {
-	var TpDataServicesConfigModel models.TpDataServicesConfig = models.TpDataServicesConfig{
+func (*TpDataServicesConfig) AddTpDataServicesConfig(reqdata valid.AddTpDataServicesConfigValidate) (models.TpDataServicesConfig, error) {
+
+	var TpDataServicesConfigModel models.TpDataServicesConfig
+
+	if illegalDataSql(reqdata.DataSql) {
+		return TpDataServicesConfigModel, errors.New("sql语句不合法")
+	}
+
+	appkey := utils.GenerateAppKey(models.Appkey_Length)
+	secretKey := utils.GenerateAppKey(models.SecretKey_Length)
+
+	TpDataServicesConfigModel = models.TpDataServicesConfig{
 		Id:            utils.GetUuid(),
 		Name:          reqdata.Name,
 		AppKey:        appkey,
@@ -80,11 +90,17 @@ func (*TpDataServicesConfig) AddTpDataServicesConfig(reqdata valid.AddTpDataServ
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return TpDataServicesConfigModel, result.Error
 	}
+
+	TpDataServicesConfigModel.SecretKey = ""
 	return TpDataServicesConfigModel, nil
 }
 
 // 修改数据
 func (*TpDataServicesConfig) EditTpDataServicesConfig(reqdata valid.EditTpDataServicesConfigValidate) error {
+
+	if illegalDataSql(reqdata.DataSql) {
+		return errors.New("sql语句不合法")
+	}
 
 	var tpdataservicesconfigmodel = models.TpDataServicesConfig{
 		Name:          reqdata.Name,
@@ -116,9 +132,23 @@ func (*TpDataServicesConfig) DeleteTpDataServicesConfig(TpDataServicesConfig mod
 }
 
 func (*TpDataServicesConfig) QuizeTpDataServicesConfig(reqsql string) ([]map[string]interface{}, error) {
+	if illegalDataSql(reqsql) {
+		return nil, errors.New("sql语句不合法")
+	}
+	var result []map[string]interface{}
+	db := psql.Mydb.Raw(reqsql + " limit 10").Scan(&result)
+	if db.Error != nil {
+		logs.Error(db.Error, gorm.ErrRecordNotFound)
+		return result, db.Error
 
+	}
+	return result, nil
+}
+
+// 检查sql语句是否合法
+func illegalDataSql(reqsql string) bool {
 	if !strings.Contains(reqsql, "select") || !strings.Contains(reqsql, "SELECT") {
-		return nil, errors.New("无效sql语句")
+		return true
 	}
 
 	var not_allow_key = [8]string{}
@@ -133,16 +163,8 @@ func (*TpDataServicesConfig) QuizeTpDataServicesConfig(reqsql string) ([]map[str
 
 	for _, v := range not_allow_key {
 		if strings.Contains(reqsql, v) || strings.Contains(reqsql, strings.ToUpper(v)) {
-			return nil, errors.New("sql语句只能查询")
+			return true
 		}
 	}
-
-	var result []map[string]interface{}
-	db := psql.Mydb.Raw(reqsql + " limit 10").Scan(&result)
-	if db.Error != nil {
-		logs.Error(db.Error, gorm.ErrRecordNotFound)
-		return result, db.Error
-
-	}
-	return result, nil
+	return false
 }
