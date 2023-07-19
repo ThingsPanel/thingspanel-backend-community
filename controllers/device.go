@@ -752,6 +752,32 @@ func (c *DeviceController) PageListTree() {
 	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
+func (c *DeviceController) OpenApiPageListTree() {
+	reqData := valid.OpenApiDeviceListValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	var DeviceService services.DeviceService
+	w, i, err := DeviceService.AllDeviceListByTenantId(reqData, tenantId)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	d := PaginateWarninglogList{
+		CurrentPage: reqData.CurrentPage,
+		Data:        w,
+		Total:       i,
+		PerPage:     reqData.PerPage,
+	}
+	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+}
 
 func (DeviceController *DeviceController) GetGatewayConfig() {
 	AccessTokenValidate := valid.AccessTokenValidate{}

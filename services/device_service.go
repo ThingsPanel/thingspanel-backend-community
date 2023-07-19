@@ -341,6 +341,49 @@ func (*DeviceService) AllDeviceList(req valid.DevicePageListValidate) ([]map[str
 	return deviceList, count
 }
 
+// 获取租户下所有设备列表,数据网关相关
+func (*DeviceService) AllDeviceListByTenantId(req valid.OpenApiDeviceListValidate, tenantId string) ([]map[string]interface{}, int64, error) {
+	var deviceList []map[string]interface{}
+	var count int64
+	var sqlWhere string
+	var sqlHead string = "select d.id as device_id,d.name as device_name,b.name as business_name,a.name as asset_name"
+	var sqlHeadCount string = "select count(1)"
+	// 相关的表有business,asset,device,tp_r_openapi_auth_device
+	// 如果isAdd是1，表示查询已添加的设备，如果是0，表示查询未添加的设备
+	if req.IsAdd == 1 {
+		sqlWhere = ` from tp_r_openapi_auth_device r left join device d on r.device_id = d.id left join asset a on d.asset_id = a.id left join business b on a.business_id = b.id where d.tenant_id = ? and r.tp_openapi_auth_id = ?`
+	} else {
+		sqlWhere = ` from device d left join asset a on d.asset_id = a.id left join business b on a.business_id = b.id where d.tenant_id = ? and d.id not in (select device_id from tp_r_openapi_auth_device where tp_openapi_auth_id = ?)`
+	}
+	var values []interface{}
+	values = append(values, tenantId, req.TpOpenapiAuthId)
+	if req.BusinessId != "" {
+		sqlWhere += " and b.id = ?"
+		values = append(values, req.BusinessId)
+	}
+	if req.AssetId != "" {
+		sqlWhere += " and a.id = ?"
+		values = append(values, req.AssetId)
+	}
+	// 获取总数
+	countResult := psql.Mydb.Raw(sqlHeadCount+sqlWhere, values...).Count(&count)
+	if countResult.Error != nil {
+		logs.Error(countResult.Error.Error())
+		return deviceList, 0, countResult.Error
+	}
+	// 设置分页
+	var offset int = (req.CurrentPage - 1) * req.PerPage
+	var limit int = req.PerPage
+	sqlWhere += " order by d.created_at desc offset " + cast.ToString(offset) + " limit " + cast.ToString(limit)
+	// 执行sql语句
+	result := psql.Mydb.Raw(sqlHead+sqlWhere, values...).Scan(&deviceList)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return deviceList, count, result.Error
+	}
+	return deviceList, count, nil
+}
+
 // GetDevicesByBusinessID 根据业务ID获取设备列表
 // return []设备,设备数量
 // 2022-04-18新增
