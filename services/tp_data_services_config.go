@@ -59,12 +59,12 @@ func (*TpDataServicesConfig) GetTpDataServicesConfigList(PaginationValidate vali
 }
 
 // 新增数据
-func (*TpDataServicesConfig) AddTpDataServicesConfig(reqdata valid.AddTpDataServicesConfigValidate) (models.TpDataServicesConfig, error) {
+func (*TpDataServicesConfig) AddTpDataServicesConfig(reqdata valid.AddTpDataServicesConfigValidate, appkey, secretKey string) (models.TpDataServicesConfig, error) {
 	var TpDataServicesConfigModel models.TpDataServicesConfig = models.TpDataServicesConfig{
 		Id:            utils.GetUuid(),
 		Name:          reqdata.Name,
-		AppKey:        reqdata.AppKey,
-		SecretKey:     reqdata.SecretKey,
+		AppKey:        appkey,
+		SecretKey:     secretKey,
 		SignatureMode: reqdata.SignatureMode,
 		IpWhitelist:   reqdata.IpWhitelist,
 		DataSql:       reqdata.DataSql,
@@ -88,8 +88,6 @@ func (*TpDataServicesConfig) EditTpDataServicesConfig(reqdata valid.EditTpDataSe
 
 	var tpdataservicesconfigmodel = models.TpDataServicesConfig{
 		Name:          reqdata.Name,
-		AppKey:        reqdata.AppKey,
-		SecretKey:     reqdata.SecretKey,
 		SignatureMode: reqdata.SignatureMode,
 		IpWhitelist:   reqdata.IpWhitelist,
 		DataSql:       reqdata.DataSql,
@@ -119,6 +117,10 @@ func (*TpDataServicesConfig) DeleteTpDataServicesConfig(TpDataServicesConfig mod
 
 func (*TpDataServicesConfig) QuizeTpDataServicesConfig(reqsql string) ([]map[string]interface{}, error) {
 
+	if !strings.Contains(reqsql, "select") || !strings.Contains(reqsql, "SELECT") {
+		return nil, errors.New("无效sql语句")
+	}
+
 	var not_allow_key = [8]string{}
 	not_allow_key[0] = "delete"
 	not_allow_key[1] = "drop"
@@ -130,7 +132,7 @@ func (*TpDataServicesConfig) QuizeTpDataServicesConfig(reqsql string) ([]map[str
 	not_allow_key[7] = "replace"
 
 	for _, v := range not_allow_key {
-		if strings.Contains(reqsql, v) {
+		if strings.Contains(reqsql, v) || strings.Contains(reqsql, strings.ToUpper(v)) {
 			return nil, errors.New("sql语句只能查询")
 		}
 	}

@@ -26,8 +26,6 @@ type RspTpDataServicesConfigPaginationValidate struct {
 
 type AddTpDataServicesConfigValidate struct {
 	Name          string `json:"name"  alias:"名称" valid:"Required"`            //名称
-	AppKey        string `json:"app_key"  alias:"appkey"`                      //appkey
-	SecretKey     string `json:"secret_key" alias:"密钥"`                        //密钥
 	SignatureMode string `json:"signature_mode" alias:"签名方式" valid:"Required"` //签名方式
 	IpWhitelist   string `json:"ip_whitelist" alias:"ip白名单"`                   //ip白名单
 	DataSql       string `json:"data_sql" alias:"数据sql"`                       //数据sql
@@ -42,8 +40,6 @@ type AddTpDataServicesConfigValidate struct {
 type EditTpDataServicesConfigValidate struct {
 	Id            string `json:"id" alias:"id" valid:"Required"`
 	Name          string `json:"name"  alias:"名称" valid:"Required"`            //名称
-	AppKey        string `json:"app_key"  alias:"appkey"`                      //appkey
-	SecretKey     string `json:"secret_key" alias:"密钥"`                        //密钥
 	SignatureMode string `json:"signature_mode" alias:"签名方式" valid:"Required"` //签名方式
 	IpWhitelist   string `json:"ip_whitelist" alias:"ip白名单"`                   //ip白名单
 	DataSql       string `json:"data_sql" alias:"数据sql"`                       //数据sql
