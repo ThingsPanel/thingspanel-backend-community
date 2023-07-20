@@ -147,9 +147,6 @@ func (*TpDataServicesConfig) QuizeTpDataServicesConfig(reqsql string) ([]map[str
 
 // 检查sql语句是否合法
 func illegalDataSql(reqsql string) bool {
-	if !strings.Contains(reqsql, "select") || !strings.Contains(reqsql, "SELECT") {
-		return true
-	}
 
 	var not_allow_key = [8]string{}
 	not_allow_key[0] = "delete"
