@@ -46,7 +46,7 @@ func (*TpDataServicesConfig) GetTpDataServicesConfigList(PaginationValidate vali
 	// 	db.Where("ip_whitelist like ?", "%"+PaginationValidate.IpWhitelist+"%")
 	// }
 	if PaginationValidate.EnableFlag != "" {
-	 	db.Where("name = ?", PaginationValidate.EnableFlag)
+	 	db.Where("enable_flag = ?", PaginationValidate.EnableFlag)
 	}
 	var count int64
 	db.Count(&count)
