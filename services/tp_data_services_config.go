@@ -45,9 +45,9 @@ func (*TpDataServicesConfig) GetTpDataServicesConfigList(PaginationValidate vali
 	// if PaginationValidate.IpWhitelist != "" {
 	// 	db.Where("ip_whitelist like ?", "%"+PaginationValidate.IpWhitelist+"%")
 	// }
-	// if PaginationValidate.EnableFlag != "" {
-	// 	db.Where("name = ?", PaginationValidate.EnableFlag)
-	// }
+	if PaginationValidate.EnableFlag != "" {
+	 	db.Where("name = ?", PaginationValidate.EnableFlag)
+	}
 	var count int64
 	db.Count(&count)
 	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&tpDataServicesConfigs)
