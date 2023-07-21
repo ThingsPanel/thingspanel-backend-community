@@ -21,7 +21,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"time"
 
@@ -53,9 +55,19 @@ func main() {
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: *name})
+	// r, err := c.SayHello(ctx, &pb.HelloRequest{Name: *name})
+	r, err := c.PluginDeviceConfig(ctx, &pb.PluginDeviceConfigRequest{AccessToken: "15ffb096-7128-db08-6757-2938d5b83b06"})
+
+	var data map[string]interface{}
+	err = json.Unmarshal(r.Data.GetValue(), &data)
+	if err != nil {
+		// 处理错误
+	}
+
+	fmt.Println(data)
+
 	if err != nil {
 		log.Fatalf("could not greet: %v", err)
 	}
-	log.Printf("Greeting: %s", r.GetMessage())
+	// log.Printf("Greeting: %s", r.GetMessage())
 }
