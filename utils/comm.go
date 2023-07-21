@@ -2,6 +2,7 @@ package utils
 
 import (
 	"crypto/md5"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -159,4 +160,14 @@ func GetFileSize(filePath string) (int64, error) {
 		return 0, err
 	}
 	return fi.Size(), nil
+}
+
+// GenerateAppKey 生成指定字节长度的随机字符串
+func GenerateAppKey(length int) string {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
 }

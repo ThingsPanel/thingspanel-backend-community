@@ -48,7 +48,6 @@ func (c *TpDataServicesConfigController) Add() {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
-
 	var tpdataservicesconfig services.TpDataServicesConfig
 	d, rsp_err := tpdataservicesconfig.AddTpDataServicesConfig(reqData)
 	if rsp_err == nil {

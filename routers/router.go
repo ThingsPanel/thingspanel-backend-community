@@ -148,6 +148,7 @@ func init() {
 		web.NSRouter("/device/cascade", &controllers.DeviceController{}, "*:GetDeviceByCascade"),
 		web.NSRouter("/device/map", &controllers.DeviceController{}, "*:DeviceMapList"),
 		web.NSRouter("/device/status", &controllers.DeviceController{}, "*:DeviceStatus"),
+		web.NSRouter("/device/business/asset/permissions", &controllers.DeviceController{}, "*:OpenApiPageListTree"),
 
 		// 设备事件上报/命令下发历史列表
 		web.NSRouter("/device/event/history/list", &controllers.DeviceController{}, "*:DeviceEventHistoryList"),
@@ -463,6 +464,8 @@ func init() {
 
 	// 图表推送数据
 	web.Router("/ws", &controllers.WebsocketController{}, "*:WsHandler")
+	web.Router("/ws/demo", &controllers.TpWsOpenapiController{}, "*:WsHandler")
+
 	web.AddNamespace(api)
 
 	// openapi 路由

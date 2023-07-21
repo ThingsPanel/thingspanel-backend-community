@@ -173,6 +173,16 @@ type DeviceEventCommandHistoryValid struct {
 	PerPage     int    `json:"per_page"`
 }
 
+type OpenApiDeviceListValidate struct {
+	DeviceId        string `json:"device_id"`
+	CurrentPage     int    `json:"current_page"`
+	PerPage         int    `json:"per_page"`
+	TpOpenapiAuthId string `json:"tp_openapi_auth_id"`
+	IsAdd           int    `json:"is_add"`
+	BusinessId      string `json:"business_id"`
+	AssetId         string `json:"asset_id"`
+}
+
 type DeviceCommandListValid struct {
 	DeviceId string `json:"device_id" valid:"Required;MaxSize(36)"`
 }
