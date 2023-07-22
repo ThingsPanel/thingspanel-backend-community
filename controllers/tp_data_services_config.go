@@ -145,3 +145,21 @@ func (c *TpDataServicesConfigController) Quize() {
 	}
 
 }
+
+// 获取数据
+func (c *TpDataServicesConfigController) GetData() {
+	reqData := valid.GetDataPaginationValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	// 获取appkey
+	appkey := c.Ctx.Input.Header("X-OpenAPI-AppKey")
+	var tpdataservicesconfig services.TpDataServicesConfig
+	d, rsp_err := tpdataservicesconfig.GetDataByAppkey(reqData, appkey)
+	if rsp_err == nil {
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+	} else {
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
+	}
+}

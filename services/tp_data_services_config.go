@@ -6,6 +6,7 @@ import (
 	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,7 +47,7 @@ func (*TpDataServicesConfig) GetTpDataServicesConfigList(PaginationValidate vali
 	// 	db.Where("ip_whitelist like ?", "%"+PaginationValidate.IpWhitelist+"%")
 	// }
 	if PaginationValidate.EnableFlag != "" {
-	 	db.Where("enable_flag = ?", PaginationValidate.EnableFlag)
+		db.Where("enable_flag = ?", PaginationValidate.EnableFlag)
 	}
 	var count int64
 	db.Count(&count)
@@ -164,4 +165,45 @@ func illegalDataSql(reqsql string) bool {
 		}
 	}
 	return false
+}
+
+// 通过appkey获取数据服务配置
+func (*TpDataServicesConfig) GetTpDataServicesConfigByAppKey(appkey string) (models.TpDataServicesConfig, error) {
+	var TpDataServicesConfig models.TpDataServicesConfig
+	result := psql.Mydb.Where("app_key = ? and enable_flag = '1'", appkey).First(&TpDataServicesConfig)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return TpDataServicesConfig, result.Error
+	}
+	return TpDataServicesConfig, nil
+}
+
+// 通过appkey获取数据
+func (*TpDataServicesConfig) GetDataByAppkey(reqData valid.GetDataPaginationValidate, appKey string) ([]map[string]interface{}, error) {
+	var tpDataServicesConfig TpDataServicesConfig
+	// 根据appKey获取数据服务配置
+	dataServicesConfig, err := tpDataServicesConfig.GetTpDataServicesConfigByAppKey(appKey)
+	if err != nil {
+		return nil, err
+	}
+	var reqsql string = dataServicesConfig.DataSql
+	if illegalDataSql(reqsql) {
+		return nil, errors.New("sql语句不合法")
+	}
+	// 判断是否有分页
+	if reqData.CurrentPage > 0 && reqData.PerPage > 0 {
+		offset := (reqData.CurrentPage - 1) * reqData.PerPage
+		// 整数转字符串
+		reqsql = reqsql + " limit " + strconv.Itoa(reqData.PerPage) + " offset " + strconv.Itoa(offset)
+	} else {
+		reqsql = reqsql + " limit 1000"
+	}
+	var result []map[string]interface{}
+	db := psql.Mydb.Raw(reqsql + " limit 10").Scan(&result)
+	if db.Error != nil {
+		logs.Error(db.Error, gorm.ErrRecordNotFound)
+		return result, db.Error
+
+	}
+	return result, nil
 }

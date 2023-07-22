@@ -10,6 +10,7 @@ package routers
 import (
 	"ThingsPanel-Go/controllers"
 	"ThingsPanel-Go/middleware"
+
 	"github.com/beego/beego/v2/server/web"
 )
 
@@ -470,6 +471,9 @@ func init() {
 
 	// openapi 路由
 	openapi := web.NewNamespace("/openapi",
+		// 数据服务相关
+		web.NSRouter("/v1/data/services/http/share", &controllers.TpDataServicesConfigController{}, "*:GetData"),
+
 		// 查看业务下所有设备当前值
 		web.NSRouter("/kv/current/business", &controllers.OpenapiKvController{}, "*:CurrentDataByBusiness"), //keshihua-ck
 		web.NSRouter("/kv/current/asset", &controllers.OpenapiKvController{}, "*:CurrentDataByAsset"),       //keshihua-ck
