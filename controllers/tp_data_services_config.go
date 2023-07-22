@@ -163,3 +163,31 @@ func (c *TpDataServicesConfigController) GetData() {
 		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
 	}
 }
+
+//表名查询
+func (c *TpDataServicesConfigController) TpTable() {
+
+	var tpdataservicesconfig services.TpDataServicesConfig
+	d, rsp_err := tpdataservicesconfig.GetTableNames()
+	if rsp_err == nil {
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+	} else {
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
+	}
+}
+
+//表字段查询
+func (c *TpDataServicesConfigController) TpTableField() {
+	reqData := valid.GetTpTableFieldValidate{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	var tpdataservicesconfig services.TpDataServicesConfig
+	d, rsp_err := tpdataservicesconfig.GetTableField(reqData.TableName)
+	if rsp_err == nil {
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+	} else {
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
+	}
+}
