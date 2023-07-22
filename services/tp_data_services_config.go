@@ -23,6 +23,13 @@ type TpDataServicesConfig struct {
 	TimeField []string
 }
 
+//表面结构体
+type TableInfo struct {
+	TableName string `json:"table_name" alias:"名称" gorm:"column:table_name"`
+	Comment   string `json:"comment" alias:"描述" gorm:"column:table_description"`
+}
+
+//获取一条数详情
 func (*TpDataServicesConfig) GetTpDataServicesConfigDetail(id string) models.TpDataServicesConfig {
 	var TpDataServicesConfig models.TpDataServicesConfig
 	psql.Mydb.First(&TpDataServicesConfig, "id = ? ", id)
@@ -37,15 +44,6 @@ func (*TpDataServicesConfig) GetTpDataServicesConfigList(PaginationValidate vali
 	if PaginationValidate.Name != "" {
 		db.Where("name like ?", "%"+PaginationValidate.Name+"%")
 	}
-	// if PaginationValidate.AppKey != "" {
-	// 	db.Where("app_key like ?", "%"+PaginationValidate.AppKey+"%")
-	// }
-	// if PaginationValidate.SignatureMode != "" {
-	// 	db.Where("SignatureMode = ?", PaginationValidate.SignatureMode)
-	// }
-	// if PaginationValidate.IpWhitelist != "" {
-	// 	db.Where("ip_whitelist like ?", "%"+PaginationValidate.IpWhitelist+"%")
-	// }
 	if PaginationValidate.EnableFlag != "" {
 		db.Where("enable_flag = ?", PaginationValidate.EnableFlag)
 	}
@@ -200,6 +198,42 @@ func (*TpDataServicesConfig) GetDataByAppkey(reqData valid.GetDataPaginationVali
 	}
 	var result []map[string]interface{}
 	db := psql.Mydb.Raw(reqsql + " limit 10").Scan(&result)
+	if db.Error != nil {
+		logs.Error(db.Error, gorm.ErrRecordNotFound)
+		return result, db.Error
+
+	}
+	return result, nil
+}
+
+func (*TpDataServicesConfig) GetTableNames() ([]TableInfo, error) {
+	var tableNames []TableInfo
+	sql := `SELECT table_name, obj_description (c.oid) AS table_description
+	FROM information_schema.tables t
+	LEFT JOIN pg_class c ON t.table_name = c.relname
+	WHERE table_type = 'BASE TABLE' AND table_schema = 'public'`
+	result := psql.Mydb.Raw(sql).Scan(&tableNames)
+	if result.Error != nil {
+		logs.Error(result.Error, gorm.ErrRecordNotFound)
+		return tableNames, result.Error
+	}
+	return tableNames, nil
+
+}
+func (*TpDataServicesConfig) GetTableField(table string) ([]map[string]interface{}, error) {
+	sql := `SELECT 
+    a.attname AS field,
+    format_type ( a.atttypid,a.atttypmod ) AS TYPE,
+    col_description(a.attrelid, a.attnum) AS comment
+FROM 
+    pg_class as c,
+    pg_attribute as a 
+WHERE 
+    c.relname = 'asset' 
+    AND a.attnum > 0 
+    AND a.attrelid = c.oid`
+	var result []map[string]interface{}
+	db := psql.Mydb.Raw(sql).Scan(&result)
 	if db.Error != nil {
 		logs.Error(db.Error, gorm.ErrRecordNotFound)
 		return result, db.Error

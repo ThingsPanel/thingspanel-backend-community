@@ -68,3 +68,7 @@ type TpDataServicesConfigIdValidate struct {
 type TpDataServicesConfigQuizeValidate struct {
 	DataSql string `json:"data_sql"  alias:"Sql" valid:"Required"`
 }
+
+type GetTpTableFieldValidate struct {
+	TableName string `json:"table_name"  alias:"表名" `
+}
