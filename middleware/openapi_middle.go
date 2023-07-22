@@ -4,17 +4,18 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
 	adapter "github.com/beego/beego/v2/adapter"
 	"github.com/beego/beego/v2/adapter/context"
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
 	"github.com/thinkeridea/go-extend/exnet"
-	"net"
-	"net/http"
-	"strconv"
-	"strings"
-	"time"
 )
 
 // OpenapiMiddle 中间件
@@ -61,15 +62,17 @@ func openapiFilter(ctx *context.Context) {
 				return
 			}
 		}
-
-		//验签X-OpenAPI-Signature
-		Signature := ctx.Request.Header.Get("X-OpenAPI-Signature")
-		verifySignature := openapisercie.GenerateAppSecretSignatureHash(openapiInfo.SecretKey, openapiInfo.SignatureMode, timestamp)
-		if Signature != verifySignature {
-			utils.SuccessWithMessage(401, "非法签名", (*context2.Context)(ctx))
-			return
+		// 获取配置文件中的openapi.sign
+		signFlag, _ := web.AppConfig.Bool("openapi.sign")
+		if signFlag {
+			//验签X-OpenAPI-Signature
+			Signature := ctx.Request.Header.Get("X-OpenAPI-Signature")
+			verifySignature := openapisercie.GenerateAppSecretSignatureHash(openapiInfo.SecretKey, openapiInfo.SignatureMode, timestamp)
+			if Signature != verifySignature {
+				utils.SuccessWithMessage(401, "非法签名", (*context2.Context)(ctx))
+				return
+			}
 		}
-
 		//接口权限验证
 		if !isAuthUrl(ctx, openapiInfo) {
 			utils.SuccessWithMessage(401, "无接口权限", (*context2.Context)(ctx))
