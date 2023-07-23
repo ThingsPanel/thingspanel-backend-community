@@ -1,8 +1,8 @@
-package controllers
+package controller
 
 import (
 	gvalid "ThingsPanel-Go/initialize/validate"
-	"ThingsPanel-Go/services"
+	services2 "ThingsPanel-Go/openapi/service"
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
@@ -16,7 +16,6 @@ import (
 
 type OpenapiKvController struct {
 	beego.Controller
-	services.OpenApiCommonService
 }
 
 // 根据业务获取所有设备和设备当前KV
@@ -38,8 +37,8 @@ func (this *OpenapiKvController) CurrentDataByBusiness() {
 		}
 		return
 	}
-	var TSKVService services.TSKVService
-	t := TSKVService.GetCurrentDataByBusiness(CurrentKVByBusiness.BusinessiD)
+	var TSKVService services2.OpenapiTSKVService
+	t := TSKVService.GetCurrentDataByBusiness(this.Ctx, CurrentKVByBusiness.BusinessiD)
 	log.Println(t)
 	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
 }
@@ -63,8 +62,8 @@ func (this *OpenapiKvController) CurrentDataByAsset() {
 		}
 		return
 	}
-	var TSKVService services.TSKVService
-	t := TSKVService.GetCurrentDataByAsset(CurrentKVByAsset.AssetId)
+	var openapiTSKVService services2.OpenapiTSKVService
+	t := openapiTSKVService.GetCurrentDataByAsset(this.Ctx, CurrentKVByAsset.AssetId)
 	log.Println(t)
 	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
 }
@@ -88,8 +87,8 @@ func (this *OpenapiKvController) CurrentDataByAssetA() {
 		}
 		return
 	}
-	var TSKVService services.TSKVService
-	t := TSKVService.GetCurrentDataByAssetA(CurrentKVByAsset.AssetId)
+	var openapiTSKVService services2.OpenapiTSKVService
+	t := openapiTSKVService.GetCurrentDataByAssetA(this.Ctx, CurrentKVByAsset.AssetId)
 	log.Println(t)
 	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
 }
@@ -100,6 +99,10 @@ func (KvController *OpenapiKvController) DeviceHistoryData() {
 	err := json.Unmarshal(KvController.Ctx.Input.RequestBody, &DeviceHistoryDataValidate)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
+	}
+	var openapiTSKVService services2.OpenapiTSKVService
+	if !openapiTSKVService.IsAccessDeviceId(KvController.Ctx, DeviceHistoryDataValidate.DeviceId) {
+		response.SuccessWithMessage(401, "无设备访问权限", KvController.Ctx)
 	}
 	v := validation.Validation{}
 	status, _ := v.Valid(DeviceHistoryDataValidate)
@@ -113,8 +116,7 @@ func (KvController *OpenapiKvController) DeviceHistoryData() {
 		}
 		return
 	}
-	var TSKVService services.TSKVService
-	t, count := TSKVService.DeviceHistoryData(DeviceHistoryDataValidate.DeviceId, DeviceHistoryDataValidate.Current, DeviceHistoryDataValidate.Size)
+	t, count := openapiTSKVService.DeviceHistoryData(DeviceHistoryDataValidate.DeviceId, DeviceHistoryDataValidate.Current, DeviceHistoryDataValidate.Size)
 	var data = make(map[string]interface{})
 	data["data"] = t
 	data["count"] = count
@@ -128,7 +130,8 @@ func (KvController *OpenapiKvController) HistoryData() {
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
-	if !KvController.IsAccessDeviceId(KvController.Ctx, HistoryDataValidate.DeviceId) {
+	var openapiTSKVService services2.OpenapiTSKVService
+	if !openapiTSKVService.IsAccessDeviceId(KvController.Ctx, HistoryDataValidate.DeviceId) {
 		response.SuccessWithMessage(401, "无设备访问权限", KvController.Ctx)
 	}
 	v := validation.Validation{}
@@ -143,8 +146,7 @@ func (KvController *OpenapiKvController) HistoryData() {
 		}
 		return
 	}
-	var TSKVService services.TSKVService
-	trees := TSKVService.GetHistoryData(HistoryDataValidate.DeviceId, HistoryDataValidate.Attribute, HistoryDataValidate.StartTs, HistoryDataValidate.EndTs, HistoryDataValidate.Rate)
+	trees := openapiTSKVService.GetHistoryData(HistoryDataValidate.DeviceId, HistoryDataValidate.Attribute, HistoryDataValidate.StartTs, HistoryDataValidate.EndTs, HistoryDataValidate.Rate)
 	response.SuccessWithDetailed(200, "success", trees, map[string]string{}, (*context2.Context)(KvController.Ctx))
 }
 
@@ -155,7 +157,8 @@ func (KvController *OpenapiKvController) GetCurrentDataAndMap() {
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
-	if !KvController.IsAccessDeviceId(KvController.Ctx, CurrentKV.EntityID) {
+	var openapiTSKVService services2.OpenapiTSKVService
+	if !openapiTSKVService.IsAccessDeviceId(KvController.Ctx, CurrentKV.EntityID) {
 		response.SuccessWithMessage(401, "无设备访问权限", KvController.Ctx)
 	}
 	v := validation.Validation{}
@@ -170,8 +173,7 @@ func (KvController *OpenapiKvController) GetCurrentDataAndMap() {
 		}
 		return
 	}
-	var TSKVService services.TSKVService
-	m, err := TSKVService.GetCurrentDataAndMap(CurrentKV.EntityID, CurrentKV.Attribute)
+	m, err := openapiTSKVService.GetCurrentDataAndMap(CurrentKV.EntityID, CurrentKV.Attribute)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(KvController.Ctx))
 	}

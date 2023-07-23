@@ -10,7 +10,7 @@ package routers
 import (
 	"ThingsPanel-Go/controllers"
 	"ThingsPanel-Go/middleware"
-
+	"ThingsPanel-Go/openapi/controller"
 	"github.com/beego/beego/v2/server/web"
 )
 
@@ -440,13 +440,12 @@ func init() {
 
 		web.NSRouter("/notification/history/list", &controllers.TpNotification{}, "*:HistoryList"),
 		//数据服务配置
+		//本地可视化插件
 		web.NSRouter("/tp_data_services_config/list", &controllers.TpDataServicesConfigController{}, "*:List"),
 		web.NSRouter("/tp_data_services_config/add", &controllers.TpDataServicesConfigController{}, "*:Add"),
 		web.NSRouter("/tp_data_services_config/edit", &controllers.TpDataServicesConfigController{}, "*:Edit"),
 		web.NSRouter("/tp_data_services_config/del", &controllers.TpDataServicesConfigController{}, "*:Del"),
 		web.NSRouter("/tp_data_services_config/quize", &controllers.TpDataServicesConfigController{}, "*:Quize"),
-		web.NSRouter("/tp_data_services_config/tptable", &controllers.TpDataServicesConfigController{}, "*:TpTable"),
-		web.NSRouter("/tp_data_services_config/tptablefield", &controllers.TpDataServicesConfigController{}, "*:TpTableField"),
 
 		// openapi
 		web.NSRouter("/openapi/auth/list", &controllers.OpenApiController{}, "*:List"),
@@ -472,32 +471,29 @@ func init() {
 
 	// openapi 路由
 	openapi := web.NewNamespace("/openapi",
-		// 数据服务相关
-		web.NSRouter("/v1/data/services/http/share", &controllers.TpDataServicesConfigController{}, "*:GetData"),
-
 		// 查看业务下所有设备当前值
-		web.NSRouter("/kv/current/business", &controllers.OpenapiKvController{}, "*:CurrentDataByBusiness"), //keshihua-ck
-		web.NSRouter("/kv/current/asset", &controllers.OpenapiKvController{}, "*:CurrentDataByAsset"),       //keshihua-ck
-		web.NSRouter("/kv/current/asset/a", &controllers.OpenapiKvController{}, "*:CurrentDataByAssetA"),    //keshihua-ck
-		web.NSRouter("/kv/current/symbol", &controllers.OpenapiKvController{}, "*:GetCurrentDataAndMap"),
+		web.NSRouter("/kv/current/business", &controller.OpenapiKvController{}, "*:CurrentDataByBusiness"), //keshihua-ck
+		web.NSRouter("/kv/current/asset", &controller.OpenapiKvController{}, "*:CurrentDataByAsset"),       //keshihua-ck
+		web.NSRouter("/kv/current/asset/a", &controller.OpenapiKvController{}, "*:CurrentDataByAssetA"),    //keshihua-ck
+		web.NSRouter("/kv/current/symbol", &controller.OpenapiKvController{}, "*:GetCurrentDataAndMap"),
 
 		// 通过设备id查询设备历史数据
-		web.NSRouter("/kv/device/history", &controllers.OpenapiKvController{}, "*:DeviceHistoryData"),
+		web.NSRouter("/kv/device/history", &controller.OpenapiKvController{}, "*:DeviceHistoryData"),
 		// 通过属性名查询设备历史数据
-		web.NSRouter("/kv/history", &controllers.OpenapiKvController{}, "*:HistoryData"),
+		web.NSRouter("/kv/history", &controller.OpenapiKvController{}, "*:HistoryData"),
 
 		//告警信息列表
-		web.NSRouter("/warning/view", &controllers.OpenapiWarninglogController{}, "*:GetDeviceWarningList"),
+		web.NSRouter("/warning/view", &controller.OpenapiWarninglogController{}, "*:GetDeviceWarningList"),
 
 		// 设备事件列表
-		web.NSRouter("/device/event/history/list", &controllers.OpenapiDeviceController{}, "*:DeviceEventHistoryList"),
-		web.NSRouter("/device/command/history/list", &controllers.OpenapiDeviceController{}, "*:DeviceCommandHistoryList"),
+		web.NSRouter("/device/event/history/list", &controller.OpenapiDeviceController{}, "*:DeviceEventHistoryList"),
+		web.NSRouter("/device/command/history/list", &controller.OpenapiDeviceController{}, "*:DeviceCommandHistoryList"),
 
 		// 向设备发送命令
-		web.NSRouter("/device/command/send", &controllers.OpenapiDeviceController{}, "*:DeviceCommandSend"),
+		web.NSRouter("/device/command/send", &controller.OpenapiDeviceController{}, "*:DeviceCommandSend"),
 
 		// 在线离线状态
-		web.NSRouter("/device/status", &controllers.OpenapiDeviceController{}, "*:DeviceStatus"),
+		web.NSRouter("/device/status", &controller.OpenapiDeviceController{}, "*:DeviceStatus"),
 	)
 	web.AddNamespace(openapi)
 }

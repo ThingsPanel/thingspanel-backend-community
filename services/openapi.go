@@ -82,6 +82,17 @@ func (s *OpenApiService) GetApiList(validate valid.ApiPaginationValidate) (bool,
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
 		return false, nil, 0
 	}
+	rapis := s.GetROpenApiByAuthId(validate.TpOpenapiAuthId)
+	// 判断是否已授权 isAdd 1 已添加 0 未添加
+	for _, api := range apis {
+		for _, ra := range rapis {
+			if api.ID == ra.TpApiId {
+				api.IsAdd = "1"
+			} else {
+				api.IsAdd = "0"
+			}
+		}
+	}
 	return true, apis, count
 }
 
@@ -237,7 +248,7 @@ func (s *OpenApiService) EditRDevice(data valid.RDeviceValidate) error {
 	return err
 }
 
-func (s *OpenApiService) getAuthDevicesByAuthId(id string) []models.TpROpenapiAuthDevice {
+func (s *OpenApiService) GetAuthDevicesByAuthId(id string) []models.TpROpenapiAuthDevice {
 	rapis := []models.TpROpenapiAuthDevice{}
 	db := psql.Mydb.Model(models.TpROpenapiAuthDevice{})
 	db.Where("tp_openapi_auth_id = ?", id).Find(&rapis)
