@@ -3,6 +3,7 @@ package controllers
 import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/services"
+	bcrypt "ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
@@ -365,6 +366,19 @@ func (this *UserController) Password() {
 			return
 		}
 	}
+
+	// 获取原密码
+	userInfo, userRow := UserService.GetUserById(reqData.ID)
+	if userRow != 1 {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(this.Ctx))
+		return
+	}
+	// 校验原密码是否正确
+	if !bcrypt.ComparePasswords(userInfo.Password, []byte(reqData.OldPassword)) {
+		response.SuccessWithMessage(400, "原密码错误", (*context2.Context)(this.Ctx))
+		return
+	}
+
 	f := UserService.Password(reqData.ID, reqData.Password)
 	if f {
 		response.SuccessWithMessage(200, "修改成功", (*context2.Context)(this.Ctx))
