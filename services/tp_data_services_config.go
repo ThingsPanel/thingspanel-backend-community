@@ -229,11 +229,11 @@ FROM
     pg_class as c,
     pg_attribute as a 
 WHERE 
-    c.relname = 'asset' 
+    c.relname = ? 
     AND a.attnum > 0 
     AND a.attrelid = c.oid`
 	var result []map[string]interface{}
-	db := psql.Mydb.Raw(sql).Scan(&result)
+	db := psql.Mydb.Raw(sql,table).Scan(&result)
 	if db.Error != nil {
 		logs.Error(db.Error, gorm.ErrRecordNotFound)
 		return result, db.Error
