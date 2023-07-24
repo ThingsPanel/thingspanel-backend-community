@@ -1,7 +1,9 @@
-package controllers
+package controller
 
 import (
+	"ThingsPanel-Go/controllers"
 	gvalid "ThingsPanel-Go/initialize/validate"
+	services2 "ThingsPanel-Go/openapi/service"
 	"ThingsPanel-Go/services"
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
@@ -16,7 +18,6 @@ import (
 
 type OpenapiWarninglogController struct {
 	beego.Controller
-	services.OpenApiCommonService
 }
 
 func (this *OpenapiWarninglogController) GetDeviceWarningList() {
@@ -25,7 +26,8 @@ func (this *OpenapiWarninglogController) GetDeviceWarningList() {
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
-	if !this.IsAccessDeviceId(this.Ctx, deviceWarningLogListValidate.DeviceId) {
+	var openApiCommonService = services2.OpenApiCommonService{}
+	if !openApiCommonService.IsAccessDeviceId(this.Ctx, deviceWarningLogListValidate.DeviceId) {
 		response.SuccessWithMessage(401, "无设备访问权限", this.Ctx)
 	}
 	v := validation.Validation{}
@@ -48,7 +50,7 @@ func (this *OpenapiWarninglogController) GetDeviceWarningList() {
 	}
 	var WarningLogService services.WarningLogService
 	w := WarningLogService.WarningForWid(deviceWarningLogListValidate.DeviceId, tenantId, deviceWarningLogListValidate.Limit)
-	d := ViewWarninglog{
+	d := controllers.ViewWarninglog{
 		Data: w,
 	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(this.Ctx))

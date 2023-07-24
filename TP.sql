@@ -1660,6 +1660,112 @@ WHERE id='7cac14a0-0ff2-57d9-5465-597760bd2cb1';
 UPDATE tp_function
 SET function_name='', menu_id=NULL, "path"='/access_engine/index', name='AccessEngine', component='/pages/access-engine/AccessEngineIndex.vue', title='COMMON.NETWORKCOMPONENTS', icon='flaticon-upload-1', "type"='1', function_code='', parent_id='7cac14a0-0ff2-57d9-5465-597760bd2cb1', sort=999, tenant_id='', sys_flag='1', "describe"='规则引擎菜单'
 WHERE id='a8ebb8af-adab-90fa-a553-49667370fc5f';
+
+
+-- ----------------------------
+-- Table structure for tp_api
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."tp_api";
+CREATE TABLE "public"."tp_api" (
+                                   "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+                                   "name" varchar(50) COLLATE "pg_catalog"."default" NOT NULL,
+                                   "url" varchar(500) COLLATE "pg_catalog"."default" NOT NULL,
+                                   "api_type" varchar(20) COLLATE "pg_catalog"."default" NOT NULL,
+                                   "service_type" varchar(2) COLLATE "pg_catalog"."default",
+                                   "remark" varchar(500) COLLATE "pg_catalog"."default"
+)
+;
+COMMENT ON COLUMN "public"."tp_api"."name" IS '接口名称';
+COMMENT ON COLUMN "public"."tp_api"."url" IS '接口地址';
+COMMENT ON COLUMN "public"."tp_api"."api_type" IS '接口类型(http socket)';
+COMMENT ON COLUMN "public"."tp_api"."service_type" IS '服务类型(1-OpenApi)';
+COMMENT ON COLUMN "public"."tp_api"."remark" IS '描述';
+COMMENT ON TABLE "public"."tp_api" IS 'api接口表';
+
+ALTER TABLE "public"."tp_api" ADD CONSTRAINT "tp_api_pk" PRIMARY KEY ("id");
+
+
+-- ----------------------------
+-- Table structure for tp_openapi_auth
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."tp_openapi_auth";
+CREATE TABLE "public"."tp_openapi_auth" (
+                                            "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+                                            "tenant_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+                                            "name" varchar(50) COLLATE "pg_catalog"."default" NOT NULL,
+                                            "app_key" varchar(500) COLLATE "pg_catalog"."default" NOT NULL,
+                                            "secret_key" varchar(500) COLLATE "pg_catalog"."default" NOT NULL,
+                                            "signature_mode" varchar(50) COLLATE "pg_catalog"."default",
+                                            "ip_whitelist" varchar(500) COLLATE "pg_catalog"."default",
+                                            "device_access_scope" varchar(2) COLLATE "pg_catalog"."default",
+                                            "api_access_scope" varchar(2) COLLATE "pg_catalog"."default",
+                                            "description" varchar(500) COLLATE "pg_catalog"."default",
+                                            "created_at" int8,
+                                            "remark" varchar(500) COLLATE "pg_catalog"."default"
+)
+;
+COMMENT ON COLUMN "public"."tp_openapi_auth"."tenant_id" IS '租户id';
+COMMENT ON COLUMN "public"."tp_openapi_auth"."name" IS '名称';
+COMMENT ON COLUMN "public"."tp_openapi_auth"."app_key" IS 'keyy';
+COMMENT ON COLUMN "public"."tp_openapi_auth"."secret_key" IS '密钥';
+COMMENT ON COLUMN "public"."tp_openapi_auth"."signature_mode" IS '签名方式 MD5 SHA256';
+COMMENT ON COLUMN "public"."tp_openapi_auth"."ip_whitelist" IS 'ip白名单';
+COMMENT ON COLUMN "public"."tp_openapi_auth"."device_access_scope" IS '设备访问范围';
+COMMENT ON COLUMN "public"."tp_openapi_auth"."api_access_scope" IS '接口访问范围';
+COMMENT ON COLUMN "public"."tp_openapi_auth"."description" IS '描述';
+COMMENT ON COLUMN "public"."tp_openapi_auth"."remark" IS '备注';
+
+-- ----------------------------
+-- Primary Key structure for table tp_openapi_auth
+-- ----------------------------
+ALTER TABLE "public"."tp_openapi_auth" ADD CONSTRAINT "tp_openapi_auth_pk" PRIMARY KEY ("id");
+
+
+-- ----------------------------
+-- Table structure for tp_r_openapi_auth_api
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."tp_r_openapi_auth_api";
+CREATE TABLE "public"."tp_r_openapi_auth_api" (
+                                                  "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+                                                  "tp_openapi_auth_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+                                                  "tp_api_id" varchar(36) COLLATE "pg_catalog"."default"
+)
+;
+COMMENT ON TABLE "public"."tp_r_openapi_auth_api" IS 'OpenApi授权和接口关系表';
+
+-- ----------------------------
+-- Primary Key structure for table tp_r_openapi_auth_api
+-- ----------------------------
+ALTER TABLE "public"."tp_r_openapi_auth_api" ADD CONSTRAINT "tp_r_openapi_auth_api_pk" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Foreign Keys structure for table tp_r_openapi_auth_api
+-- ----------------------------
+ALTER TABLE "public"."tp_r_openapi_auth_api" ADD CONSTRAINT "tp_r_openapi_auth_api_tp_openapi_auth_id_fk" FOREIGN KEY ("tp_openapi_auth_id") REFERENCES "public"."tp_openapi_auth" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+
+-- ----------------------------
+-- Table structure for tp_r_openapi_auth_device
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."tp_r_openapi_auth_device";
+CREATE TABLE "public"."tp_r_openapi_auth_device" (
+                                                     "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+                                                     "tp_openapi_auth_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+                                                     "device_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL
+)
+;
+COMMENT ON TABLE "public"."tp_r_openapi_auth_device" IS 'OpenApi授权和设备关系表';
+
+-- ----------------------------
+-- Primary Key structure for table tp_r_openapi_auth_device
+-- ----------------------------
+ALTER TABLE "public"."tp_r_openapi_auth_device" ADD CONSTRAINT "tp_r_openapi_auth_device_pk" PRIMARY KEY ("id");
+
+-- ----------------------------
+-- Foreign Keys structure for table tp_r_openapi_auth_device
+-- ----------------------------
+ALTER TABLE "public"."tp_r_openapi_auth_device" ADD CONSTRAINT "tp_r_openapi_auth_api_tp_openapi_auth_id_fk" FOREIGN KEY ("tp_openapi_auth_id") REFERENCES "public"."tp_openapi_auth" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
 INSERT INTO public.tp_function (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag, "describe") VALUES('bcbb4d09-7918-6b6c-4721-cfd41fa7dca0', '', NULL, '/noticeList/index', 'NoticeList', '/pages/noticeList/index', 'COMMON.NOTICERECORD', 'flaticon-upload-1', '1', '', 'e9a36fd0-fe8a-896b-713c-c809cef6128e', 979, '', '0', '');
 
 INSERT INTO public.tp_function (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag, "describe") VALUES('e21c59aa-cb88-84f6-bbec-784cc263ad0b', '', NULL, '', 'DataService', '', '数据服务', 'flaticon-open-box', '0', '', '0', 915, '', '2', '数据服务目录');
