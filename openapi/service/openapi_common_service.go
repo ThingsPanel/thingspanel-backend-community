@@ -74,7 +74,7 @@ func (s *OpenApiCommonService) GetDeviceIds(ctx *context2.Context) []string {
 	accessDevices := openapiService.GetAuthDevicesByAuthId(apiAuth.ID)
 	ids := []string{}
 	for _, d := range accessDevices {
-		ids = append(ids, d.TpDeviceId)
+		ids = append(ids, d.DeviceId)
 	}
 	return ids
 }

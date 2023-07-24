@@ -35,14 +35,12 @@ type OpenapiAuthValidate struct {
 	Description       string `json:"description,omitempty" alias:"描述"  valid:"MaxSize(255)"`
 }
 
-type ApiPaginationValidate struct {
-	CurrentPage     int    `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
-	PerPage         int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
+type ApiSearchValidate struct {
 	Id              string `json:"id,omitempty" alias:"Id" valid:"MaxSize(36)"`
 	Name            string `json:"name,omitempty" alias:"名称"  valid:"MaxSize(50)"`
 	ApiType         string `json:"api_type,omitempty" alias:"接口类型"  valid:"MaxSize(20)"`
 	ServiceType     string `json:"api_type,omitempty" alias:"服务类型"  valid:"MaxSize(2)"`
-	TpOpenapiAuthId string `json:"tp_openapi_auth_id,omitempty" alias:"授权表Id"  valid:"MaxSize(2)"`
+	TpOpenapiAuthId string `json:"tp_openapi_auth_id,omitempty" alias:"授权表Id"  valid:"MaxSize(36)"`
 }
 
 type ApiValidate struct {
@@ -62,14 +60,7 @@ type AddApiValidate struct {
 	Remark      string `json:"remark,omitempty" alias:"描述"  valid:"MaxSize(255)"`
 }
 
-type RspApiPaginationValidate struct {
-	CurrentPage int            `json:"current_page"  alias:"当前页" valid:"Required;Min(1)"`
-	PerPage     int            `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
-	Data        []models.TpApi `json:"data" alias:"返回数据"`
-	Total       int64          `json:"total" alias:"总数" valid:"Max(10000)"`
-}
-
-// 接口授权关系
+// 接口授权关系添加
 type AddROpenApiValidate struct {
 	TpOpenapiAuthId string   `json:"tp_openapi_auth_id,omitempty" alias:"授权id"  valid:"Required;MaxSize(36)"`
 	TpApiId         []string `json:"tp_api_id,omitempty" alias:"接口id"  valid:"Required;"`
@@ -80,6 +71,12 @@ type ROpenApiValidate struct {
 	Id              string   `json:"id,omitempty" alias:"id"  valid:"Required;MaxSize(36)"`
 	TpOpenapiAuthId string   `json:"tp_openapi_auth_id,omitempty" alias:"授权id"  valid:"Required;MaxSize(36)"`
 	TpApiId         []string `json:"tp_api_id,omitempty" alias:"接口id"  valid:"Required;"`
+}
+
+// 设备授权关系
+type RDeviceAddValidate struct {
+	TpOpenapiAuthId string `json:"tp_openapi_auth_id,omitempty" alias:"授权id"  valid:"Required;MaxSize(36)"`
+	DeviceId        string `json:"device_id,omitempty" alias:"设备id"  valid:"Required;"`
 }
 
 // 设备授权关系

@@ -1742,6 +1742,13 @@ ALTER TABLE "public"."tp_r_openapi_auth_api" ADD CONSTRAINT "tp_r_openapi_auth_a
 -- Foreign Keys structure for table tp_r_openapi_auth_api
 -- ----------------------------
 ALTER TABLE "public"."tp_r_openapi_auth_api" ADD CONSTRAINT "tp_r_openapi_auth_api_tp_openapi_auth_id_fk" FOREIGN KEY ("tp_openapi_auth_id") REFERENCES "public"."tp_openapi_auth" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+-- ----------------------------
+-- Uniques structure for table tp_r_openapi_auth_api
+-- ----------------------------
+ALTER TABLE "public"."tp_r_openapi_auth_api"
+    ADD CONSTRAINT "open_auth_id_api_id_pk" UNIQUE ("tp_openapi_auth_id", "tp_api_id");
+
+COMMENT ON CONSTRAINT "open_auth_id_api_id_pk" ON "public"."tp_r_openapi_auth_api" IS 'auth_id_api_id联合唯一';
 
 
 -- ----------------------------
@@ -1765,6 +1772,12 @@ ALTER TABLE "public"."tp_r_openapi_auth_device" ADD CONSTRAINT "tp_r_openapi_aut
 -- Foreign Keys structure for table tp_r_openapi_auth_device
 -- ----------------------------
 ALTER TABLE "public"."tp_r_openapi_auth_device" ADD CONSTRAINT "tp_r_openapi_auth_api_tp_openapi_auth_id_fk" FOREIGN KEY ("tp_openapi_auth_id") REFERENCES "public"."tp_openapi_auth" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+-- ----------------------------
+-- Uniques structure for table tp_r_openapi_auth_device
+-- ----------------------------
+ALTER TABLE "public"."tp_r_openapi_auth_device" ADD CONSTRAINT "open_auth_id_device_id_pk" UNIQUE ("tp_openapi_auth_id", "device_id");
+COMMENT ON CONSTRAINT "open_auth_id_device_id_pk" ON "public"."tp_r_openapi_auth_device" IS 'auth_id_device_id联合唯一';
+
 
 INSERT INTO public.tp_function (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag, "describe") VALUES('bcbb4d09-7918-6b6c-4721-cfd41fa7dca0', '', NULL, '/noticeList/index', 'NoticeList', '/pages/noticeList/index', 'COMMON.NOTICERECORD', 'flaticon-upload-1', '1', '', 'e9a36fd0-fe8a-896b-713c-c809cef6128e', 979, '', '0', '');
 
