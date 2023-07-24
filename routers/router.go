@@ -11,6 +11,7 @@ import (
 	"ThingsPanel-Go/controllers"
 	"ThingsPanel-Go/middleware"
 	"ThingsPanel-Go/openapi/controller"
+
 	"github.com/beego/beego/v2/server/web"
 )
 
@@ -446,6 +447,8 @@ func init() {
 		web.NSRouter("/tp_data_services_config/edit", &controllers.TpDataServicesConfigController{}, "*:Edit"),
 		web.NSRouter("/tp_data_services_config/del", &controllers.TpDataServicesConfigController{}, "*:Del"),
 		web.NSRouter("/tp_data_services_config/quize", &controllers.TpDataServicesConfigController{}, "*:Quize"),
+		web.NSRouter("/tp_data_services_config/tptable", &controllers.TpDataServicesConfigController{}, "*:TpTable"),
+		web.NSRouter("/tp_data_services_config/tptablefield", &controllers.TpDataServicesConfigController{}, "*:TpTableField"),
 
 		// openapi
 		web.NSRouter("/openapi/auth/list", &controllers.OpenApiController{}, "*:List"),
