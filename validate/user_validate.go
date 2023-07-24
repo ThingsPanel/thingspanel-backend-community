@@ -38,6 +38,7 @@ type DeleteUser struct {
 
 // PasswordUser 校验
 type PasswordUser struct {
-	ID       string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
-	Password string `json:"password" alias:"密码" valid:"Required; MaxSize(255)"`
+	ID          string `json:"id" alias:"ID" valid:"Required; MaxSize(36)"`
+	OldPassword string `json:"old_password" alias:"密码" valid:"Required; MaxSize(255)"`
+	Password    string `json:"password" alias:"密码" valid:"Required; MaxSize(255)"`
 }
