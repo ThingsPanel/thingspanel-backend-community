@@ -315,7 +315,7 @@ func (c *OpenApiController) ROpenApiAdd() {
 	}
 }
 
-// openapi 接口授权添加
+// openapi 接口授权修改
 func (c *OpenApiController) ROpenApiEdit() {
 	validate := valid.AddROpenApiValidate{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &validate)
