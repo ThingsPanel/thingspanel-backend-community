@@ -315,6 +315,37 @@ func (c *OpenApiController) ROpenApiAdd() {
 	}
 }
 
+// openapi 接口授权添加
+func (c *OpenApiController) ROpenApiEdit() {
+	validate := valid.AddROpenApiValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &validate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(validate)
+
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(validate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, c.Ctx)
+			break
+
+		}
+	}
+
+	service := services.OpenApiService{}
+
+	err = service.EditROpenApi(validate)
+	if err == nil {
+		utils.SuccessWithMessage(200, "success", c.Ctx)
+	} else {
+		utils.SuccessWithMessage(400, err.Error(), c.Ctx)
+	}
+}
+
 // openapi 接口授权删除
 func (c *OpenApiController) ROpenApiDelete() {
 	validate := valid.ROpenApiValidate{}
@@ -334,9 +365,6 @@ func (c *OpenApiController) ROpenApiDelete() {
 			break
 
 		}
-	}
-	if validate.Id == "" {
-		utils.SuccessWithMessage(1000, "id不能为空", c.Ctx)
 	}
 	service := services.OpenApiService{}
 

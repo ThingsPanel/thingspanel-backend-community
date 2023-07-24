@@ -81,12 +81,12 @@ func (s *OpenApiService) GetApiList(validate valid.ApiSearchValidate) (bool, []m
 	}
 	rapis := s.GetROpenApiByAuthId(validate.TpOpenapiAuthId)
 	// 判断是否已授权 isAdd 1 已添加 0 未添加
-	for _, api := range apis {
+	for i, api := range apis {
 		for _, ra := range rapis {
 			if api.ID == ra.TpApiId {
-				api.IsAdd = "1"
+				apis[i].IsAdd = 1
 			} else {
-				api.IsAdd = "0"
+				apis[i].IsAdd = 0
 			}
 		}
 	}
@@ -162,6 +162,35 @@ func (s *OpenApiService) AddROpenApi(validate valid.AddROpenApiValidate) error {
 				TpOpenapiAuthId: validate.TpOpenapiAuthId,
 				TpApiId:         r,
 			}
+			if err := tx.Create(rapi).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		logs.Error(err)
+	}
+	return err
+}
+
+func (s *OpenApiService) EditROpenApi(validate valid.AddROpenApiValidate) error {
+
+	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
+		//先删除
+		query := tx.Where("tp_openapi_auth_id = ?", validate.TpOpenapiAuthId)
+		if err := query.Delete(models.TpROpenapiAuthApi{}).Error; err != nil {
+			return err
+		}
+		//再添加
+		for _, r := range validate.TpApiId {
+			rapi := models.TpROpenapiAuthApi{
+				ID:              utils.GetUUID(),
+				TpOpenapiAuthId: validate.TpOpenapiAuthId,
+				TpApiId:         r,
+			}
+
 			if err := tx.Create(rapi).Error; err != nil {
 				return err
 			}
