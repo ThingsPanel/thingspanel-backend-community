@@ -462,8 +462,11 @@ func init() {
 		web.NSRouter("/openapi/api/del", &controllers.OpenApiController{}, "*:ApiDelete"),
 
 		web.NSRouter("/openapi/rapi/add", &controllers.OpenApiController{}, "*:ROpenApiAdd"),
+		web.NSRouter("/openapi/rapi/edit", &controllers.OpenApiController{}, "*:ROpenApiEdit"),
 		web.NSRouter("/openapi/rapi/del", &controllers.OpenApiController{}, "*:ROpenApiDelete"),
+		web.NSRouter("/openapi/rdevice/add", &controllers.OpenApiController{}, "*:RDeviceAdd"),
 		web.NSRouter("/openapi/rdevice/edit", &controllers.OpenApiController{}, "*:RDeviceEdit"),
+		web.NSRouter("/openapi/rdevice/del", &controllers.OpenApiController{}, "*:RDeviceDelete"),
 	)
 
 	// 图表推送数据

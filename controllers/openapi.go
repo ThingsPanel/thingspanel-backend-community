@@ -165,7 +165,7 @@ func (c *OpenApiController) Delete() {
 
 // openapi 接口列表
 func (c *OpenApiController) ApiList() {
-	paginationValidate := valid.ApiPaginationValidate{}
+	paginationValidate := valid.ApiSearchValidate{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &paginationValidate)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
@@ -184,18 +184,11 @@ func (c *OpenApiController) ApiList() {
 	}
 
 	service := services.OpenApiService{}
-	isSuccess, d, t := service.GetApiList(paginationValidate)
+	isSuccess, d := service.GetApiList(paginationValidate)
 	if !isSuccess {
 		utils.SuccessWithMessage(1000, "查询失败", c.Ctx)
 	}
-
-	dd := valid.RspApiPaginationValidate{
-		CurrentPage: paginationValidate.CurrentPage,
-		PerPage:     paginationValidate.PerPage,
-		Data:        d,
-		Total:       t,
-	}
-	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, c.Ctx)
+	utils.SuccessWithDetailed(200, "success", d, map[string]string{}, c.Ctx)
 }
 
 // api新增
@@ -322,6 +315,37 @@ func (c *OpenApiController) ROpenApiAdd() {
 	}
 }
 
+// openapi 接口授权修改
+func (c *OpenApiController) ROpenApiEdit() {
+	validate := valid.AddROpenApiValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &validate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(validate)
+
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(validate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, c.Ctx)
+			break
+
+		}
+	}
+
+	service := services.OpenApiService{}
+
+	err = service.EditROpenApi(validate)
+	if err == nil {
+		utils.SuccessWithMessage(200, "success", c.Ctx)
+	} else {
+		utils.SuccessWithMessage(400, err.Error(), c.Ctx)
+	}
+}
+
 // openapi 接口授权删除
 func (c *OpenApiController) ROpenApiDelete() {
 	validate := valid.ROpenApiValidate{}
@@ -342,9 +366,6 @@ func (c *OpenApiController) ROpenApiDelete() {
 
 		}
 	}
-	if validate.Id == "" {
-		utils.SuccessWithMessage(1000, "id不能为空", c.Ctx)
-	}
 	service := services.OpenApiService{}
 
 	err = service.DelROpenApi(validate)
@@ -355,7 +376,36 @@ func (c *OpenApiController) ROpenApiDelete() {
 	}
 }
 
-// openapi 设备授权
+// openapi 设备授权添加
+func (c *OpenApiController) RDeviceAdd() {
+	validate := valid.RDeviceAddValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &validate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(validate)
+
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(validate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, c.Ctx)
+			break
+
+		}
+	}
+
+	rsp_err := c.AddRDevice(validate)
+	if rsp_err == nil {
+		utils.SuccessWithMessage(200, "success", c.Ctx)
+	} else {
+		utils.SuccessWithMessage(400, rsp_err.Error(), c.Ctx)
+	}
+}
+
+// openapi 设备授权修改
 func (c *OpenApiController) RDeviceEdit() {
 	validate := valid.RDeviceValidate{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &validate)
@@ -380,6 +430,35 @@ func (c *OpenApiController) RDeviceEdit() {
 	}
 
 	rsp_err := c.EditRDevice(validate)
+	if rsp_err == nil {
+		utils.SuccessWithMessage(200, "success", c.Ctx)
+	} else {
+		utils.SuccessWithMessage(400, rsp_err.Error(), c.Ctx)
+	}
+}
+
+// openapi 设备授权删除
+func (c *OpenApiController) RDeviceDelete() {
+	validate := valid.RDeviceAddValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &validate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(validate)
+
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(validate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, c.Ctx)
+			break
+
+		}
+	}
+
+	rsp_err := c.DeleteRDevice(validate)
 	if rsp_err == nil {
 		utils.SuccessWithMessage(200, "success", c.Ctx)
 	} else {

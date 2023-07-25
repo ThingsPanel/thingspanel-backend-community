@@ -21,7 +21,7 @@ func (*OpenApiService) GetOpenApiAuthList(validate valid.OpenApiPaginationValida
 	offset := (validate.CurrentPage - 1) * validate.PerPage
 	db := psql.Mydb.Model(&models.TpOpenapiAuth{})
 	if validate.Name != "" {
-		db.Where("name like ?", validate.Name+"%")
+		db.Where("name like ?", "%"+validate.Name+"%")
 	}
 	var count int64
 	db.Count(&count)
@@ -62,9 +62,8 @@ func (s *OpenApiService) DelOpenApiAuthById(id string) error {
 	return result.Error
 }
 
-func (s *OpenApiService) GetApiList(validate valid.ApiPaginationValidate) (bool, []models.TpApi, int64) {
+func (s *OpenApiService) GetApiList(validate valid.ApiSearchValidate) (bool, []models.TpApi) {
 	apis := []models.TpApi{}
-	offset := (validate.CurrentPage - 1) * validate.PerPage
 	db := psql.Mydb.Model(&models.TpApi{})
 	if validate.ApiType != "" {
 		db.Where("api_type = ?", validate.ApiType)
@@ -73,27 +72,25 @@ func (s *OpenApiService) GetApiList(validate valid.ApiPaginationValidate) (bool,
 		db.Where("service_type = ?", validate.ServiceType)
 	}
 	if validate.Name != "" {
-		db.Where("name like ?", validate.Name+"%")
+		db.Where("name like ?", "%"+validate.Name+"%")
 	}
-	var count int64
-	db.Count(&count)
-	result := db.Limit(validate.PerPage).Offset(offset).Find(&apis)
+	result := db.Find(&apis)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return false, nil, 0
+		return false, nil
 	}
 	rapis := s.GetROpenApiByAuthId(validate.TpOpenapiAuthId)
 	// 判断是否已授权 isAdd 1 已添加 0 未添加
-	for _, api := range apis {
+	for i, api := range apis {
 		for _, ra := range rapis {
 			if api.ID == ra.TpApiId {
-				api.IsAdd = "1"
+				apis[i].IsAdd = 1
 			} else {
-				api.IsAdd = "0"
+				apis[i].IsAdd = 0
 			}
 		}
 	}
-	return true, apis, count
+	return true, apis
 }
 
 func (s *OpenApiService) AddApi(api models.TpApi) (models.TpApi, error) {
@@ -178,6 +175,35 @@ func (s *OpenApiService) AddROpenApi(validate valid.AddROpenApiValidate) error {
 	return err
 }
 
+func (s *OpenApiService) EditROpenApi(validate valid.AddROpenApiValidate) error {
+
+	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
+		//先删除
+		query := tx.Where("tp_openapi_auth_id = ?", validate.TpOpenapiAuthId)
+		if err := query.Delete(models.TpROpenapiAuthApi{}).Error; err != nil {
+			return err
+		}
+		//再添加
+		for _, r := range validate.TpApiId {
+			rapi := models.TpROpenapiAuthApi{
+				ID:              utils.GetUUID(),
+				TpOpenapiAuthId: validate.TpOpenapiAuthId,
+				TpApiId:         r,
+			}
+
+			if err := tx.Create(rapi).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		logs.Error(err)
+	}
+	return err
+}
+
 func (s *OpenApiService) DelROpenApi(validate valid.ROpenApiValidate) error {
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 		for _, r := range validate.TpApiId {
@@ -221,19 +247,32 @@ func (s *OpenApiService) GetROpenApiByAuthId(id string) []models.TpROpenapiAuthA
 	return rapis
 }
 
+func (s *OpenApiService) AddRDevice(data valid.RDeviceAddValidate) error {
+	rdevice := models.TpROpenapiAuthDevice{
+		ID:              utils.GetUUID(),
+		TpOpenapiAuthId: data.TpOpenapiAuthId,
+		DeviceId:        data.DeviceId,
+	}
+	if err := psql.Mydb.Create(rdevice).Error; err != nil {
+		logs.Error(err)
+		return err
+	}
+	return nil
+}
+
 func (s *OpenApiService) EditRDevice(data valid.RDeviceValidate) error {
 
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 		//先删除
 		for _, d := range data.DeviceId {
-			query := tx.Where("tp_openapi_auth_id = ? and tp_device_id = ?", data.TpOpenapiAuthId, d)
-			if err := query.Delete(models.TpROpenapiAuthApi{}).Error; err != nil {
+			query := tx.Where("tp_openapi_auth_id = ? and device_id = ?", data.TpOpenapiAuthId, d)
+			if err := query.Delete(models.TpROpenapiAuthDevice{}).Error; err != nil {
 				return err
 			}
 			rdevice := models.TpROpenapiAuthDevice{
 				ID:              utils.GetUUID(),
 				TpOpenapiAuthId: data.TpOpenapiAuthId,
-				TpDeviceId:      d,
+				DeviceId:        d,
 			}
 			if err := tx.Create(rdevice).Error; err != nil {
 				return err
@@ -246,6 +285,15 @@ func (s *OpenApiService) EditRDevice(data valid.RDeviceValidate) error {
 		logs.Error(err)
 	}
 	return err
+}
+
+func (s *OpenApiService) DeleteRDevice(data valid.RDeviceAddValidate) error {
+	query := psql.Mydb.Where("device_id = ?  and tp_openapi_auth_id = ?", data.DeviceId, data.TpOpenapiAuthId)
+	result := query.Delete(models.TpROpenapiAuthDevice{})
+	if result.Error != nil {
+		logs.Error(result.Error.Error(), gorm.ErrRecordNotFound)
+	}
+	return result.Error
 }
 
 func (s *OpenApiService) GetAuthDevicesByAuthId(id string) []models.TpROpenapiAuthDevice {
