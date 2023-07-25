@@ -1653,7 +1653,8 @@ COMMENT ON COLUMN public.tp_data_services_config.api_flag IS '支持接口标志
 COMMENT ON COLUMN public.tp_data_services_config.time_interval IS '	ws接口推送数据间隔（s）';
 COMMENT ON COLUMN public.tp_data_services_config.enable_flag IS '启停标志';
 COMMENT ON COLUMN public.tp_data_services_config.description IS '描述';
-
+ALTER TABLE public.tp_function ADD "describe" varchar(500) NULL;
+COMMENT ON COLUMN public.tp_function."describe" IS '描述';
 UPDATE tp_function
 SET function_name='', menu_id=NULL, "path"='', name='RuleEngine', component='', title='COMMON.RULEENGINE', icon='flaticon2-gift-1', "type"='0', function_code='', parent_id='0', sort=920, tenant_id='', sys_flag='2', "describe"='规则引擎目录'
 WHERE id='7cac14a0-0ff2-57d9-5465-597760bd2cb1';
@@ -1834,5 +1835,3 @@ COMMENT ON TABLE public.ts_kv IS '设备属性历史数据表';
 COMMENT ON TABLE public.ts_kv_latest IS '设备属性当前值表';
 COMMENT ON TABLE public.users IS '用户表';
 
-ALTER TABLE public.tp_function ADD "describe" varchar(500) NULL;
-COMMENT ON COLUMN public.tp_function."describe" IS '描述';
