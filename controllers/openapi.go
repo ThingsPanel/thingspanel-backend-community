@@ -322,20 +322,9 @@ func (c *OpenApiController) ROpenApiEdit() {
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
-	v := validation.Validation{}
-	status, _ := v.Valid(validate)
-
-	if !status {
-		for _, err := range v.Errors {
-			// 获取字段别称
-			alias := gvalid.GetAlias(validate, err.Field)
-			message := strings.Replace(err.Message, err.Field, alias, 1)
-			utils.SuccessWithMessage(1000, message, c.Ctx)
-			break
-
-		}
+	if validate.TpOpenapiAuthId == "" {
+		utils.SuccessWithMessage(1000, "授权id不能为空", c.Ctx)
 	}
-
 	service := services.OpenApiService{}
 
 	err = service.EditROpenApi(validate)

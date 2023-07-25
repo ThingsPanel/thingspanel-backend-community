@@ -85,8 +85,6 @@ func (s *OpenApiService) GetApiList(validate valid.ApiSearchValidate) (bool, []m
 		for _, ra := range rapis {
 			if api.ID == ra.TpApiId {
 				apis[i].IsAdd = 1
-			} else {
-				apis[i].IsAdd = 0
 			}
 		}
 	}
