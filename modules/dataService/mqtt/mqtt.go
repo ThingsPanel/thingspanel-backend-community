@@ -27,6 +27,8 @@ const (
 	Topic_DeviceCommand     = "device/command"
 	Topic_DeviceEvent       = "device/event"
 	Topic_GatewayAttributes = "gateway/attributes"
+	Topic_GatewayCommand    = "gateway/command"
+	Topic_GatewayEvent      = "gateway/event"
 )
 
 // 所有订阅的Topic
@@ -38,6 +40,8 @@ var TopicList = map[string]byte{
 	Topic_DeviceEvent:       Qos0,
 	Topic_OtaDeviceInform:   Qos0,
 	Topic_GatewayAttributes: Qos0,
+	Topic_GatewayCommand:    Qos0,
+	Topic_GatewayEvent:      Qos0,
 }
 
 func ListenNew(broker, username, password string) (err error) {
@@ -93,6 +97,11 @@ func ListenNew(broker, username, password string) (err error) {
 			_ = p1.Submit(func() {
 				s.GatewayMsgProc(d.Payload(), d.Topic())
 			})
+		case Topic_GatewayEvent: // gateway/event // gateway_topic
+			_ = p1.Submit(func() {
+				device.SubscribeGatwayEvent(d.Payload(), d.Topic())
+			})
+
 		default:
 			fmt.Println("undefine topic")
 		}
