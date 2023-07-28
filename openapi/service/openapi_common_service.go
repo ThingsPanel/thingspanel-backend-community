@@ -17,7 +17,7 @@ func (s *OpenApiCommonService) IsAccessDeviceId(ctx *context2.Context, id string
 	if device_access_scope == "1" {
 		return true
 	}
-	accessDevices := s.GetDeviceIds(ctx)
+	accessDevices := s.getDeviceIds(ctx)
 	for _, d := range accessDevices {
 		if id == d {
 			return true
@@ -33,7 +33,7 @@ func (s *OpenApiCommonService) GetAccessDeviceIds(ctx *context2.Context, ids []s
 	if device_access_scope == "1" {
 		return true, nil
 	}
-	authIds := s.GetDeviceIds(ctx)
+	authIds := s.getDeviceIds(ctx)
 	accessIds := []string{}
 	for _, id := range ids {
 		for _, aid := range authIds {
@@ -53,7 +53,7 @@ func (s *OpenApiCommonService) GetAccessDevices(ctx *context2.Context, devices [
 	if device_access_scope == "1" {
 		return true, nil
 	}
-	authIds := s.GetDeviceIds(ctx)
+	authIds := s.getDeviceIds(ctx)
 	accessDevices := []models.Device{}
 	for _, device := range devices {
 		for _, aid := range authIds {
@@ -67,7 +67,7 @@ func (s *OpenApiCommonService) GetAccessDevices(ctx *context2.Context, devices [
 }
 
 // 获取所有有权限的设备id
-func (s *OpenApiCommonService) GetDeviceIds(ctx *context2.Context) []string {
+func (s *OpenApiCommonService) getDeviceIds(ctx *context2.Context) []string {
 	appKey := ctx.Input.GetData("app_key")
 	var openapiService services.OpenApiService
 	apiAuth := openapiService.GetOpenApiAuth(fmt.Sprint(appKey))
@@ -77,4 +77,16 @@ func (s *OpenApiCommonService) GetDeviceIds(ctx *context2.Context) []string {
 		ids = append(ids, d.DeviceId)
 	}
 	return ids
+}
+
+// 对比 传入ids 和权限ids  返回 设备集合
+func (s *OpenApiCommonService) GetAllAccessDeviceIds(ctx *context2.Context) (bool, []string) {
+	//设备范围
+	device_access_scope := ctx.Input.GetData("device_access_scope")
+	if device_access_scope == "1" {
+		return true, nil
+	}
+	authIds := s.getDeviceIds(ctx)
+	return false, authIds
+
 }
