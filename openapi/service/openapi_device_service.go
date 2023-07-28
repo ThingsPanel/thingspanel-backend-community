@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/beego/beego/v2/core/logs"
+	context2 "github.com/beego/beego/v2/server/web/context"
 	"github.com/bitly/go-simplejson"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
@@ -77,14 +78,16 @@ func (*OpenapiDeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdLi
 	return deviceOnlineStatus, nil
 }
 
-func (*OpenapiDeviceService) GetDeviceEvnetHistoryListByDeviceId(
-	offset int, pageSize int, deviceId string) ([]models.DeviceEvnetHistory, int64) {
+func (s *OpenapiDeviceService) GetDeviceEvnetHistoryList(offset int, pageSize int, ctx *context2.Context) ([]models.DeviceEvnetHistory, int64) {
 
 	var evnetHistroy []models.DeviceEvnetHistory
 	var count int64
-
+	// 设备权限范围内
+	isAll, ids := s.GetAllAccessDeviceIds(ctx)
 	tx := psql.Mydb.Model(&models.DeviceEvnetHistory{})
-	tx.Where("device_id = ?", deviceId)
+	if !isAll {
+		tx.Where("device_id IN", ids)
+	}
 
 	err := tx.Count(&count).Error
 	if err != nil {
@@ -277,4 +280,41 @@ func scriptDealB(script_id string, device_data []byte, topic string) ([]byte, er
 		logs.Info("脚本信息不存在")
 		return device_data, nil
 	}
+}
+
+// 设备总数 和 在线数
+func (s *OpenapiDeviceService) GetDeviceCountOnlineCount(ctx *context2.Context) (map[string]int64, error) {
+	count := make(map[string]int64)
+	//获取租户id
+	tenantId, _ := ctx.Input.GetData("tenant_id").(string)
+	var deviceList []models.Device
+	query := psql.Mydb.Model(&models.Device{}).Where("tenant_id = ? ", tenantId)
+	isAll, accessdevices := s.GetAllAccessDeviceIds(ctx)
+	if !isAll {
+		query.Where("id in ?", accessdevices)
+	}
+	query.Find(&deviceList)
+	// 设备总数
+	deviceCount := int64(len(deviceList))
+	var devices []string
+	for _, d := range deviceList {
+		devices = append(devices, d.ID)
+	}
+
+	onlines, err := s.GetDeviceOnlineStatus(valid.DeviceIdListValidate{DeviceIdList: devices})
+	if err != nil {
+		logs.Error("查询异常", err.Error())
+		return nil, err
+	}
+	// 设备在线数
+	deviceOnlineCount := int64(0)
+	//deviceStatus :=int64(len(onlines))
+	for _, d := range onlines {
+		if d == "1" {
+			deviceOnlineCount++
+		}
+	}
+	count["device_count"] = deviceCount
+	count["device_online_count"] = deviceOnlineCount
+	return count, nil
 }
