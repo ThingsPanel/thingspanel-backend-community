@@ -27,6 +27,7 @@ const (
 	Topic_DeviceCommand     = "device/command"
 	Topic_DeviceEvent       = "device/event"
 	Topic_GatewayAttributes = "gateway/attributes"
+	Topic_GatewayCommand    = "gateway/command"
 	Topic_GatewayEvent      = "gateway/event"
 )
 
@@ -39,6 +40,7 @@ var TopicList = map[string]byte{
 	Topic_DeviceEvent:       Qos0,
 	Topic_OtaDeviceInform:   Qos0,
 	Topic_GatewayAttributes: Qos0,
+	Topic_GatewayCommand:    Qos0,
 	Topic_GatewayEvent:      Qos0,
 }
 
