@@ -476,17 +476,15 @@ func init() {
 	web.AddNamespace(api)
 
 	// openapi 路由
-	openapi := web.NewNamespace("/openapi",
-		// 查看业务下所有设备当前值
-		web.NSRouter("/kv/current/business", &controller.OpenapiKvController{}, "*:CurrentDataByBusiness"), //keshihua-ck
-		web.NSRouter("/kv/current/asset", &controller.OpenapiKvController{}, "*:CurrentDataByAsset"),       //keshihua-ck
-		web.NSRouter("/kv/current/asset/a", &controller.OpenapiKvController{}, "*:CurrentDataByAssetA"),    //keshihua-ck
+	openapi := web.NewNamespace("/openapi/v1",
+		// 单个设备当前值查询
 		web.NSRouter("/kv/current/symbol", &controller.OpenapiKvController{}, "*:GetCurrentDataAndMap"),
 
 		// 通过设备id查询设备历史数据
 		web.NSRouter("/kv/device/history", &controller.OpenapiKvController{}, "*:DeviceHistoryData"),
-		// 通过属性名查询设备历史数据
-		web.NSRouter("/kv/history", &controller.OpenapiKvController{}, "*:HistoryData"),
+
+		// 租户下设备范围内设备总数、当前在线数
+		web.NSRouter("/device/deviceCountOnlineCount", &controller.OpenapiDeviceController{}, "*:DeviceCountOnlineCount"),
 
 		//告警信息列表
 		web.NSRouter("/warning/view", &controller.OpenapiWarninglogController{}, "*:GetDeviceWarningList"),

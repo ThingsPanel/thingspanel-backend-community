@@ -67,7 +67,7 @@ func (c *OpenapiDeviceController) DeviceEventHistoryList() {
 	}
 	offset := (inputData.CurrentPage - 1) * inputData.PerPage
 
-	data, count := s.GetDeviceEvnetHistoryListByDeviceId(offset, inputData.PerPage, inputData.DeviceId)
+	data, count := s.GetDeviceEvnetHistoryList(offset, inputData.PerPage, c.Ctx)
 	d := controllers.DataTransponList{
 		CurrentPage: inputData.CurrentPage,
 		Total:       count,
@@ -133,4 +133,16 @@ func (c *OpenapiDeviceController) DeviceCommandSend() {
 		inputData.Desc)
 
 	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
+}
+
+// 设备总数和设备在线数
+func (c *OpenapiDeviceController) DeviceCountOnlineCount() {
+
+	var s services2.OpenapiDeviceService
+	data, err := s.GetDeviceCountOnlineCount(c.Ctx)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	response.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(c.Ctx))
 }
