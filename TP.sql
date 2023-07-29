@@ -858,11 +858,14 @@ CREATE TABLE public.tp_product (
 
 -- Column comments
 
-COMMENT ON COLUMN public.tp_product.name IS '产品名称';
+COMMENT ON COLUMN public.tp_product."name" IS '产品名称';
 COMMENT ON COLUMN public.tp_product.serial_number IS '产品编号';
 COMMENT ON COLUMN public.tp_product.protocol_type IS '协议类型';
 COMMENT ON COLUMN public.tp_product.auth_type IS '认证方式';
 COMMENT ON COLUMN public.tp_product.plugin IS '插件';
+COMMENT ON COLUMN public.tp_product."describe" IS '描述';
+COMMENT ON COLUMN public.tp_product.created_time IS '创建时间';
+COMMENT ON COLUMN public.tp_product.tenant_id IS '租户id';
 
 CREATE TABLE public.tp_batch (
 	id varchar(36) NOT NULL,
@@ -1292,10 +1295,6 @@ CREATE TABLE public.tp_ota (
 
 -- Column comments
 
-COMMENT ON COLUMN public.tp_ota.package_name IS '升级包名称';
-COMMENT ON COLUMN public.tp_ota.package_module IS '升级包模块';
-COMMENT ON COLUMN public.tp_ota.product_id IS '产品id';
-COMMENT ON COLUMN public.tp_ota.signature_algorithm IS '签名算法';
 
 CREATE TABLE tp_ota_task (
   id VARCHAR(36) PRIMARY KEY,
@@ -1309,8 +1308,7 @@ CREATE TABLE tp_ota_task (
   created_at int8 NOT NULL,
   remark  VARCHAR(255)
 );
-COMMENT ON COLUMN tp_ota_task.upgrade_time_type IS '升级时间类型 0-立即升级 1-定时升级';
-COMMENT ON COLUMN tp_ota_task.task_status IS '任务状态 0-待升级 1-升级中 2-已完成';
+
 
 CREATE TABLE tp_ota_device (
     id VARCHAR(36) PRIMARY KEY,
@@ -1323,13 +1321,19 @@ CREATE TABLE tp_ota_device (
     status_detail  VARCHAR(255)  ,
 	remark  VARCHAR(255)  
 );
-COMMENT ON COLUMN tp_ota_device.upgrade_status IS '状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消';
+
+
 
 ALTER TABLE public.tp_ota_task ADD ota_id varchar(36) NOT NULL;
 ALTER TABLE public.tp_ota_task ADD CONSTRAINT tp_ota_task_fk FOREIGN KEY (ota_id) REFERENCES public.tp_ota(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE public.device ADD product_id varchar(36) NULL;
+
 ALTER TABLE public.tp_ota_device ADD ota_task_id varchar(36) NOT NULL;
+COMMENT ON COLUMN public.tp_ota_device.ota_task_id IS '任务id';
+
 ALTER TABLE public.tp_ota ADD sign varchar(99) NULL;
+
+
 
 ALTER TABLE public.device ADD current_version varchar(99) NULL;
 COMMENT ON COLUMN public.device.current_version IS '当前固件版本号';
@@ -1835,4 +1839,60 @@ COMMENT ON TABLE public.ts_kv IS '设备属性历史数据表';
 COMMENT ON TABLE public.ts_kv_latest IS '设备属性当前值表';
 COMMENT ON TABLE public.users IS '用户表';
 
+-- Column comments
+
+COMMENT ON COLUMN public.tp_ota.package_name IS '升级包名称';
+COMMENT ON COLUMN public.tp_ota.package_version IS '升级包版本';
+COMMENT ON COLUMN public.tp_ota.package_module IS '升级包模块';
+COMMENT ON COLUMN public.tp_ota.product_id IS '产品id';
+COMMENT ON COLUMN public.tp_ota.signature_algorithm IS '签名算法';
+COMMENT ON COLUMN public.tp_ota.package_url IS '升级包url';
+COMMENT ON COLUMN public.tp_ota.description IS '描述';
+COMMENT ON COLUMN public.tp_ota.additional_info IS '其他配置';
+COMMENT ON COLUMN public.tp_ota.created_at IS '创建时间';
+COMMENT ON COLUMN public.tp_ota.sign IS '签名';
+COMMENT ON COLUMN public.tp_ota.file_size IS '文件大小';
+-- Column comments
+
+COMMENT ON COLUMN public.tp_ota_task.task_name IS '任务名称';
+COMMENT ON COLUMN public.tp_ota_task.upgrade_time_type IS '升级时间类型 0-立即升级 1-定时升级';
+COMMENT ON COLUMN public.tp_ota_task.start_time IS '开始时间';
+COMMENT ON COLUMN public.tp_ota_task.end_time IS '结束时间';
+COMMENT ON COLUMN public.tp_ota_task.device_count IS '设备数量';
+COMMENT ON COLUMN public.tp_ota_task.task_status IS '任务状态 0-待升级 1-升级中 2-已完成';
+COMMENT ON COLUMN public.tp_ota_task.description IS '描述';
+COMMENT ON COLUMN public.tp_ota_task.created_at IS '创建时间';
+COMMENT ON COLUMN public.tp_ota_task.ota_id IS 'ota表id';
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_ota_device.device_id IS '设备id';
+COMMENT ON COLUMN public.tp_ota_device.current_version IS '当前版本';
+COMMENT ON COLUMN public.tp_ota_device.target_version IS '目标版本';
+COMMENT ON COLUMN public.tp_ota_device.upgrade_progress IS '升级进度';
+COMMENT ON COLUMN public.tp_ota_device.status_update_time IS '状态修改时间';
+COMMENT ON COLUMN public.tp_ota_device.upgrade_status IS '状态 0-待推送 1-已推送 2-升级中 3-升级成功 4-升级失败 5-已取消';
+COMMENT ON COLUMN public.tp_ota_device.status_detail IS '状态详情';
+COMMENT ON COLUMN public.tp_ota_device.retry_count IS '推送次数';
+
+-- Column comments
+
+COMMENT ON COLUMN public.tp_protocol_plugin."name" IS '插件名称';
+COMMENT ON COLUMN public.tp_protocol_plugin.protocol_type IS '插件类型';
+COMMENT ON COLUMN public.tp_protocol_plugin.http_address IS 'http地址';
+COMMENT ON COLUMN public.tp_protocol_plugin.sub_topic_prefix IS '订阅主题前缀';
+COMMENT ON COLUMN public.tp_protocol_plugin.created_at IS '创建时间';
+COMMENT ON COLUMN public.tp_protocol_plugin.description IS '描述';
+COMMENT ON COLUMN public.tp_protocol_plugin.device_type IS '设备类型1-设备 2-网关';
+COMMENT ON COLUMN public.tp_protocol_plugin.additional_info IS '附加信息';
+
+COMMENT ON COLUMN public.tp_vis_files.file_name IS '名称';
+COMMENT ON COLUMN public.tp_vis_files.file_url IS 'url地址';
+COMMENT ON COLUMN public.tp_vis_files.file_size IS '文件大小';
+
+COMMENT ON COLUMN public.tp_vis_plugin.tenant_id IS '租户id';
+
+COMMENT ON COLUMN public.tp_local_vis_plugin.tenant_id IS '租户id';
+COMMENT ON COLUMN public.tp_local_vis_plugin.create_at IS '创建时间';
 -- v0.5.2
+
