@@ -1894,5 +1894,13 @@ COMMENT ON COLUMN public.tp_vis_plugin.tenant_id IS '租户id';
 
 COMMENT ON COLUMN public.tp_local_vis_plugin.tenant_id IS '租户id';
 COMMENT ON COLUMN public.tp_local_vis_plugin.create_at IS '创建时间';
--- v0.5.2
 
+
+INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('824a7f35-c49b-4b47-e303-5db484e186db', '通过设备id查询设备历史数据', '/openapi/v1/kv/device/history', 'http', '1', '');
+INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('c4f32994-9369-d599-26ac-ac05f433c10d', '多设备离线在线状态', '/openapi/v1/device/status', 'http', '1', '');
+INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('6ff0eb5d-de39-1bbf-6664-65efc6264916', '单个设备当前属性查询', '/openapi/v1/kv/current/symbol', 'http', '1', '');
+INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('08e91176-a481-11f7-903b-0a01e160a25a', '单个设备命令下发', '/openapi/v1/device/command/send', 'http', '1', '');
+INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('3baf3a11-d3c0-b97f-56b9-1616e9202845', '告警信息列表', '/openapi/v1/warning/view', 'http', '1', '');
+INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('24d60ed1-9723-f930-a7bd-8f8e0fbbe695', '单个设备事件列表', '/openapi/v1/device/event/history/list', 'http', '1', '');
+INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('24d60ed1-9723-f930-a7bd-8f8e0fbbe691', '单个设备命令列表', '/openapi/v1/device/command/history/list', 'http', '1', '');
+INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('24d60ed1-9723-f930-a7bd-8f8e0fbbe692', '设备总数、当前在线数', '/openapi/v1/device/deviceCountOnlineCount', 'http', '1', '');
