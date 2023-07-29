@@ -21,6 +21,6 @@ func (TpDataServicesConfig) TableName() string {
 }
 
 const (
-	Appkey_Length    int = 10
-	SecretKey_Length int = 12
+	Appkey_Length    int = 32
+	SecretKey_Length int = 32
 )
