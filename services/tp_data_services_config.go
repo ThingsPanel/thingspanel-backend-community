@@ -197,7 +197,7 @@ func (*TpDataServicesConfig) GetDataByAppkey(reqData valid.GetDataPaginationVali
 		reqsql = reqsql + " limit 1000"
 	}
 	var result []map[string]interface{}
-	db := psql.Mydb.Raw(reqsql + " limit 10").Scan(&result)
+	db := psql.Mydb.Raw(reqsql).Scan(&result)
 	if db.Error != nil {
 		logs.Error(db.Error, gorm.ErrRecordNotFound)
 		return result, db.Error
@@ -233,7 +233,7 @@ WHERE
     AND a.attnum > 0 
     AND a.attrelid = c.oid`
 	var result []map[string]interface{}
-	db := psql.Mydb.Raw(sql,table).Scan(&result)
+	db := psql.Mydb.Raw(sql, table).Scan(&result)
 	if db.Error != nil {
 		logs.Error(db.Error, gorm.ErrRecordNotFound)
 		return result, db.Error
