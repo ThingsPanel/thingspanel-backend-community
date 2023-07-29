@@ -1894,3 +1894,5 @@ COMMENT ON COLUMN public.tp_vis_plugin.tenant_id IS '租户id';
 
 COMMENT ON COLUMN public.tp_local_vis_plugin.tenant_id IS '租户id';
 COMMENT ON COLUMN public.tp_local_vis_plugin.create_at IS '创建时间';
+-- v0.5.2
+

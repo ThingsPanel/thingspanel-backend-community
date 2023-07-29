@@ -477,6 +477,7 @@ func init() {
 
 	// openapi 路由
 	openapi := web.NewNamespace("/openapi/v1",
+		web.NSRouter("/data/services/http/share", &controllers.TpDataServicesConfigController{}, "*:GetData"),
 		// 单个设备当前值查询
 		web.NSRouter("/kv/current/symbol", &controller.OpenapiKvController{}, "*:GetCurrentDataAndMap"),
 
