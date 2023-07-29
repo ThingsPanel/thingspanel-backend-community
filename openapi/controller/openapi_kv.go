@@ -95,7 +95,7 @@ func (this *OpenapiKvController) CurrentDataByAssetA() {
 
 // 根据设备id分页查询当前kv
 func (KvController *OpenapiKvController) DeviceHistoryData() {
-	DeviceHistoryDataValidate := valid.DeviceHistoryDataValidate{}
+	DeviceHistoryDataValidate := valid.OpenapiDeviceHistoryDataValidate{}
 	err := json.Unmarshal(KvController.Ctx.Input.RequestBody, &DeviceHistoryDataValidate)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
@@ -152,13 +152,13 @@ func (KvController *OpenapiKvController) HistoryData() {
 
 // 获取设备当前值
 func (KvController *OpenapiKvController) GetCurrentDataAndMap() {
-	CurrentKV := valid.CurrentKV{}
+	CurrentKV := valid.OpenapiCurrentKV{}
 	err := json.Unmarshal(KvController.Ctx.Input.RequestBody, &CurrentKV)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	var openapiTSKVService services2.OpenapiTSKVService
-	if !openapiTSKVService.IsAccessDeviceId(KvController.Ctx, CurrentKV.EntityID) {
+	if !openapiTSKVService.IsAccessDeviceId(KvController.Ctx, CurrentKV.DeviceId) {
 		response.SuccessWithMessage(401, "无设备访问权限", KvController.Ctx)
 	}
 	v := validation.Validation{}
@@ -173,7 +173,7 @@ func (KvController *OpenapiKvController) GetCurrentDataAndMap() {
 		}
 		return
 	}
-	m, err := openapiTSKVService.GetCurrentDataAndMap(CurrentKV.EntityID, CurrentKV.Attribute)
+	m, err := openapiTSKVService.GetCurrentDataAndMap(CurrentKV)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(KvController.Ctx))
 	}
