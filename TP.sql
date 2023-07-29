@@ -1835,3 +1835,4 @@ COMMENT ON TABLE public.ts_kv IS '设备属性历史数据表';
 COMMENT ON TABLE public.ts_kv_latest IS '设备属性当前值表';
 COMMENT ON TABLE public.users IS '用户表';
 
+-- v0.5.2
