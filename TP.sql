@@ -865,7 +865,6 @@ COMMENT ON COLUMN public.tp_product.auth_type IS '认证方式';
 COMMENT ON COLUMN public.tp_product.plugin IS '插件';
 COMMENT ON COLUMN public.tp_product."describe" IS '描述';
 COMMENT ON COLUMN public.tp_product.created_time IS '创建时间';
-COMMENT ON COLUMN public.tp_product.tenant_id IS '租户id';
 
 CREATE TABLE public.tp_batch (
 	id varchar(36) NOT NULL,
@@ -1894,7 +1893,7 @@ COMMENT ON COLUMN public.tp_vis_plugin.tenant_id IS '租户id';
 
 COMMENT ON COLUMN public.tp_local_vis_plugin.tenant_id IS '租户id';
 COMMENT ON COLUMN public.tp_local_vis_plugin.create_at IS '创建时间';
-
+COMMENT ON COLUMN public.tp_product.tenant_id IS '租户id';
 
 INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('824a7f35-c49b-4b47-e303-5db484e186db', '通过设备id查询设备历史数据', '/openapi/v1/kv/device/history', 'http', '1', '');
 INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('c4f32994-9369-d599-26ac-ac05f433c10d', '多设备离线在线状态', '/openapi/v1/device/status', 'http', '1', '');
