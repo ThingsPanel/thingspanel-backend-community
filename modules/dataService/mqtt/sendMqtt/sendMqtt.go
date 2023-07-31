@@ -13,6 +13,37 @@ import (
 
 var _client mqtt.Client
 
+const (
+	Qos0 = byte(0)
+	Qos1 = byte(1)
+	Qos2 = byte(2)
+)
+
+const (
+	Topic_DeviceAttributes  = "device/attributes"
+	Topic_DeviceStatus      = "device/status"
+	Topic_OtaDeviceProgress = "ota/device/progress"
+	Topic_OtaDeviceInform   = "ota/device/inform"
+	Topic_DeviceCommand     = "device/command"
+	Topic_DeviceEvent       = "device/event"
+	Topic_GatewayAttributes = "gateway/attributes"
+	Topic_GatewayCommand    = "gateway/command"
+	Topic_GatewayEvent      = "gateway/event"
+)
+
+// 所有订阅的Topic
+var TopicList = map[string]byte{
+	Topic_DeviceAttributes:  Qos0,
+	Topic_DeviceStatus:      Qos0,
+	Topic_OtaDeviceProgress: Qos0,
+	Topic_DeviceCommand:     Qos0,
+	Topic_DeviceEvent:       Qos0,
+	Topic_OtaDeviceInform:   Qos0,
+	Topic_GatewayAttributes: Qos0,
+	Topic_GatewayCommand:    Qos0,
+	Topic_GatewayEvent:      Qos0,
+}
+
 func connect() {
 	mqttHost := os.Getenv("TP_MQTT_HOST")
 	if mqttHost == "" {
