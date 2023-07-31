@@ -1265,12 +1265,12 @@ func (*DeviceService) SendCommandToDevice(
 		return err
 	}
 
-	topic := viper.GetString("mqtt.topicToCommand") + "/"
 	sendRes := 2
 	switch device.DeviceType {
 
-	case models.DeviceTypeDirect, models.DeviceTypeGatway:
-		// 直连设备，网关，直接发
+	case models.DeviceTypeDirect:
+		// 直连设备
+		topic := sendmqtt.Topic_DeviceCommand + "/"
 		topic += device.Token
 
 		// 协议设备topic
@@ -1296,9 +1296,37 @@ func (*DeviceService) SendCommandToDevice(
 			commandDesc,
 			string(msg),
 			sendRes)
+	case models.DeviceTypeGatway:
+		// 网关
+		topic := sendmqtt.Topic_GatewayCommand + "/"
+		topic += device.Token
+
+		if device.Protocol != "mqtt" && device.Protocol != "MQTT" {
+			var tpProtocolPluginService TpProtocolPluginService
+			pp := tpProtocolPluginService.GetByProtocolType(device.Protocol, device.DeviceType)
+			topic = pp.SubTopicPrefix + "command/" + device.Token
+		}
+		// 通过脚本
+		msg, err := scriptDealB(device.ScriptId, msg, topic)
+		if err != nil {
+			return err
+		}
+
+		if sendmqtt.SendMQTT(msg, topic, 1) == nil {
+			sendRes = 1
+		}
+
+		saveCommandSendHistory(
+			device.ID,
+			commandIdentifier,
+			commandName,
+			commandDesc,
+			string(msg),
+			sendRes)
 
 	case models.DeviceTypeSubGatway:
 		// 子网关，给网关发
+		topic := sendmqtt.Topic_GatewayCommand + "/"
 		if len(device.ParentId) != 0 {
 			var gatewayDevice *models.Device
 			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
