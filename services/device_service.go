@@ -4,7 +4,6 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/models"
-	"ThingsPanel-Go/modules/dataService/mqtt"
 	sendmqtt "ThingsPanel-Go/modules/dataService/mqtt/sendMqtt"
 	tphttp "ThingsPanel-Go/others/http"
 	"ThingsPanel-Go/utils"
@@ -1271,7 +1270,7 @@ func (*DeviceService) SendCommandToDevice(
 
 	case models.DeviceTypeDirect:
 		// 直连设备
-		topic := mqtt.Topic_DeviceCommand + "/"
+		topic := "device/command/"
 		topic += device.Token
 
 		// 协议设备topic
@@ -1299,7 +1298,7 @@ func (*DeviceService) SendCommandToDevice(
 			sendRes)
 	case models.DeviceTypeGatway:
 		// 网关
-		topic := mqtt.Topic_GatewayCommand + "/"
+		topic := "gateway/command/"
 		topic += device.Token
 
 		if device.Protocol != "mqtt" && device.Protocol != "MQTT" {
@@ -1327,7 +1326,7 @@ func (*DeviceService) SendCommandToDevice(
 
 	case models.DeviceTypeSubGatway:
 		// 子网关，给网关发
-		topic := mqtt.Topic_GatewayCommand + "/"
+		topic := "gateway/command/"
 		if len(device.ParentId) != 0 {
 			var gatewayDevice *models.Device
 			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
