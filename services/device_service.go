@@ -1335,12 +1335,27 @@ func (*DeviceService) SendCommandToDevice(
 				return result.Error
 			}
 			topic += gatewayDevice.Token
-
 			// 协议设备topic
 			if gatewayDevice.Protocol != "mqtt" && gatewayDevice.Protocol != "MQTT" {
 				var tpProtocolPluginService TpProtocolPluginService
 				pp := tpProtocolPluginService.GetByProtocolType(gatewayDevice.Protocol, gatewayDevice.DeviceType)
 				topic = pp.SubTopicPrefix + "command/" + gatewayDevice.Token
+			}
+
+			if gatewayDevice.Protocol == "MQTT" {
+				// 查找子设备的SubDeviceAddr
+				var subDevice *models.Device
+				result2 := psql.Mydb.Where("id = ?", originalDeviceId).First(&subDevice)
+				if result2.Error != nil {
+					return result2.Error
+				}
+				// 格式组装：{"A0001":{"method":"reset","params":{"rs":1}}}
+				data := make(map[string]interface{})
+				data[subDevice.SubDeviceAddr] = sendStruct
+				msg, err = json.Marshal(data)
+				if err != nil {
+					return err
+				}
 			}
 
 			msg, err := scriptDealB(gatewayDevice.ScriptId, msg, topic)
