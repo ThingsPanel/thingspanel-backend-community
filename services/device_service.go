@@ -1240,7 +1240,8 @@ func (*DeviceService) GetWvpDeviceCount(did string) (int64, error) {
 }
 
 func (*DeviceService) SendCommandToDevice(
-	device *models.Device,
+	targetDevice *models.Device,
+	originalDeviceId string,
 	commandIdentifier string,
 	commandData []byte,
 	commandName string,
@@ -1266,21 +1267,21 @@ func (*DeviceService) SendCommandToDevice(
 	}
 
 	sendRes := 2
-	switch device.DeviceType {
+	switch targetDevice.DeviceType {
 
 	case models.DeviceTypeDirect:
 		// 直连设备
 		topic := sendmqtt.Topic_DeviceCommand + "/"
-		topic += device.Token
+		topic += targetDevice.Token
 
 		// 协议设备topic
-		if device.Protocol != "mqtt" && device.Protocol != "MQTT" {
+		if targetDevice.Protocol != "mqtt" && targetDevice.Protocol != "MQTT" {
 			var tpProtocolPluginService TpProtocolPluginService
-			pp := tpProtocolPluginService.GetByProtocolType(device.Protocol, device.DeviceType)
-			topic = pp.SubTopicPrefix + "command/" + device.Token
+			pp := tpProtocolPluginService.GetByProtocolType(targetDevice.Protocol, targetDevice.DeviceType)
+			topic = pp.SubTopicPrefix + "command/" + targetDevice.Token
 		}
 		// 通过脚本
-		msg, err := scriptDealB(device.ScriptId, msg, topic)
+		msg, err := scriptDealB(targetDevice.ScriptId, msg, topic)
 		if err != nil {
 			return err
 		}
@@ -1290,7 +1291,7 @@ func (*DeviceService) SendCommandToDevice(
 		}
 
 		saveCommandSendHistory(
-			device.ID,
+			targetDevice.ID,
 			commandIdentifier,
 			commandName,
 			commandDesc,
@@ -1299,15 +1300,15 @@ func (*DeviceService) SendCommandToDevice(
 	case models.DeviceTypeGatway:
 		// 网关
 		topic := sendmqtt.Topic_GatewayCommand + "/"
-		topic += device.Token
+		topic += targetDevice.Token
 
-		if device.Protocol != "mqtt" && device.Protocol != "MQTT" {
+		if targetDevice.Protocol != "mqtt" && targetDevice.Protocol != "MQTT" {
 			var tpProtocolPluginService TpProtocolPluginService
-			pp := tpProtocolPluginService.GetByProtocolType(device.Protocol, device.DeviceType)
-			topic = pp.SubTopicPrefix + "command/" + device.Token
+			pp := tpProtocolPluginService.GetByProtocolType(targetDevice.Protocol, targetDevice.DeviceType)
+			topic = pp.SubTopicPrefix + "command/" + targetDevice.Token
 		}
 		// 通过脚本
-		msg, err := scriptDealB(device.ScriptId, msg, topic)
+		msg, err := scriptDealB(targetDevice.ScriptId, msg, topic)
 		if err != nil {
 			return err
 		}
@@ -1317,7 +1318,7 @@ func (*DeviceService) SendCommandToDevice(
 		}
 
 		saveCommandSendHistory(
-			device.ID,
+			targetDevice.ID,
 			commandIdentifier,
 			commandName,
 			commandDesc,
@@ -1327,9 +1328,9 @@ func (*DeviceService) SendCommandToDevice(
 	case models.DeviceTypeSubGatway:
 		// 子网关，给网关发
 		topic := sendmqtt.Topic_GatewayCommand + "/"
-		if len(device.ParentId) != 0 {
+		if len(targetDevice.ParentId) != 0 {
 			var gatewayDevice *models.Device
-			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
+			result := psql.Mydb.Where("id = ?", targetDevice.ParentId).First(&gatewayDevice) // 检测网关token是否存在
 			if result.Error != nil {
 				return result.Error
 			}
@@ -1352,7 +1353,7 @@ func (*DeviceService) SendCommandToDevice(
 			}
 
 			saveCommandSendHistory(
-				gatewayDevice.ID,
+				originalDeviceId,
 				commandIdentifier,
 				commandName,
 				commandDesc,
@@ -1412,6 +1413,11 @@ func (*DeviceService) SubscribeDeviceEvent(body []byte, topic string) bool {
 	return true
 }
 
+type SubDevice struct {
+	Method string                 `json:"method"`
+	Params map[string]interface{} `json:"params"`
+}
+
 // 订阅来自网关的事件上报
 func (*DeviceService) SubscribeGatwayEvent(body []byte, topic string) bool {
 	payload, err := verifyPayload(body)
@@ -1419,42 +1425,51 @@ func (*DeviceService) SubscribeGatwayEvent(body []byte, topic string) bool {
 		logs.Error(err.Error())
 		return false
 	}
+
 	// 根据token查找设备ID
-	var deviceid string
-	result := psql.Mydb.Model(models.Device{}).Select("id").Where("token = ?", payload.Token).First(&deviceid)
-	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return false
-	} else if result.RowsAffected <= int64(0) {
-		logs.Error("no device")
-		return false
-	}
+	// var deviceid string
+	// result := psql.Mydb.Model(models.Device{}).Select("id").Where("token = ?", payload.Token).First(&deviceid)
+	// if result.Error != nil {
+	// 	logs.Error(result.Error, gorm.ErrRecordNotFound)
+	// 	return false
+	// } else if result.RowsAffected <= int64(0) {
+	// 	logs.Error("no device")
+	// 	return false
+	// }
 
-	var payLoadData struct {
-		Method string                 `json:"method"`
-		Params map[string]interface{} `json:"params"`
-	}
-
-	e := json.Unmarshal(payload.Values, &payLoadData)
+	data := map[string]SubDevice{}
+	e := json.Unmarshal(payload.Values, &data)
 	if e != nil {
 		return false
 	}
 
-	datastr, _ := json.Marshal(payLoadData.Params)
+	for subDeviceAddr, subData := range data {
+		var subDeviceInfo models.Device
+		result := psql.Mydb.Where("sub_device_addr = ?", subDeviceAddr).Find(&subDeviceInfo)
+		if result.Error != nil {
+			logs.Error(result.Error)
+			if result.Error == gorm.ErrRecordNotFound {
+				return false
+			}
+			return false
+		}
 
-	// 存储//
-	m := models.DeviceEvnetHistory{
-		ID:            utils.GetUuid(),
-		DeviceId:      deviceid,
-		EventIdentify: payLoadData.Method,
-		Data:          string(datastr),
-		EventName:     "",
-		Desc:          "",
-		ReportTime:    time.Now().Unix(),
+		// 通过subaddr 查询设备的id
+		datastr, _ := json.Marshal(subData.Params)
+		m := models.DeviceEvnetHistory{
+			ID:            utils.GetUuid(),
+			DeviceId:      subDeviceInfo.ID,
+			EventIdentify: subData.Method,
+			Data:          string(datastr),
+			EventName:     "",
+			Desc:          "",
+			ReportTime:    time.Now().Unix(),
+		}
+
+		ea := psql.Mydb.Create(&m)
+		fmt.Println(ea.Error)
 	}
 
-	ea := psql.Mydb.Create(&m)
-	fmt.Println(ea.Error)
 	return true
 }
 
