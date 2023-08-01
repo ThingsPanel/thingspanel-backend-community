@@ -1412,6 +1412,11 @@ func (*DeviceService) SubscribeDeviceEvent(body []byte, topic string) bool {
 	return true
 }
 
+type SubDevice struct {
+	Method string                 `json:"method"`
+	Params map[string]interface{} `json:"params"`
+}
+
 // 订阅来自网关的事件上报
 func (*DeviceService) SubscribeGatwayEvent(body []byte, topic string) bool {
 	payload, err := verifyPayload(body)
@@ -1419,42 +1424,51 @@ func (*DeviceService) SubscribeGatwayEvent(body []byte, topic string) bool {
 		logs.Error(err.Error())
 		return false
 	}
+
 	// 根据token查找设备ID
-	var deviceid string
-	result := psql.Mydb.Model(models.Device{}).Select("id").Where("token = ?", payload.Token).First(&deviceid)
-	if result.Error != nil {
-		logs.Error(result.Error, gorm.ErrRecordNotFound)
-		return false
-	} else if result.RowsAffected <= int64(0) {
-		logs.Error("no device")
-		return false
-	}
+	// var deviceid string
+	// result := psql.Mydb.Model(models.Device{}).Select("id").Where("token = ?", payload.Token).First(&deviceid)
+	// if result.Error != nil {
+	// 	logs.Error(result.Error, gorm.ErrRecordNotFound)
+	// 	return false
+	// } else if result.RowsAffected <= int64(0) {
+	// 	logs.Error("no device")
+	// 	return false
+	// }
 
-	var payLoadData struct {
-		Method string                 `json:"method"`
-		Params map[string]interface{} `json:"params"`
-	}
-
-	e := json.Unmarshal(payload.Values, &payLoadData)
+	data := map[string]SubDevice{}
+	e := json.Unmarshal(payload.Values, &data)
 	if e != nil {
 		return false
 	}
 
-	datastr, _ := json.Marshal(payLoadData.Params)
+	for subDeviceAddr, subData := range data {
+		var subDeviceInfo models.Device
+		result := psql.Mydb.Where("sub_device_addr = ?", subDeviceAddr).Find(&subDeviceInfo)
+		if result.Error != nil {
+			logs.Error(result.Error)
+			if result.Error == gorm.ErrRecordNotFound {
+				return false
+			}
+			return false
+		}
 
-	// 存储//
-	m := models.DeviceEvnetHistory{
-		ID:            utils.GetUuid(),
-		DeviceId:      deviceid,
-		EventIdentify: payLoadData.Method,
-		Data:          string(datastr),
-		EventName:     "",
-		Desc:          "",
-		ReportTime:    time.Now().Unix(),
+		// 通过subaddr 查询设备的id
+		datastr, _ := json.Marshal(subData.Params)
+		m := models.DeviceEvnetHistory{
+			ID:            utils.GetUuid(),
+			DeviceId:      subDeviceInfo.ID,
+			EventIdentify: subData.Method,
+			Data:          string(datastr),
+			EventName:     "",
+			Desc:          "",
+			ReportTime:    time.Now().Unix(),
+		}
+
+		ea := psql.Mydb.Create(&m)
+		fmt.Println(ea.Error)
 	}
 
-	ea := psql.Mydb.Create(&m)
-	fmt.Println(ea.Error)
 	return true
 }
 
