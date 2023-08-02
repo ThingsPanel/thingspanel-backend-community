@@ -4,6 +4,7 @@ WORKDIR $GOPATH/src/app
 ADD . ./
 ENV GO111MODULE=on
 ENV GOPROXY="https://goproxy.io"
+RUN apk update && apk add --no-cache tzdata
 RUN go build
 
 FROM alpine:latest
