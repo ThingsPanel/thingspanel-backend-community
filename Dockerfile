@@ -4,7 +4,6 @@ WORKDIR $GOPATH/src/app
 ADD . ./
 ENV GO111MODULE=on
 ENV GOPROXY="https://goproxy.io"
-RUN apk update && apk add --no-cache tzdata
 RUN go build
 
 FROM alpine:latest
@@ -15,6 +14,7 @@ ENV MQTT_HTTP_HOST=172.19.0.5:8083
 ENV TP_REDIS_HOST=172.19.0.6:6379
 ENV PLUGIN_HTTP_HOST=172.19.0.8:503
 WORKDIR /go/src/app
+RUN apk update && apk add --no-cache tzdata
 COPY --from=builder /go/src/app .
 EXPOSE 9999
 RUN chmod +x ThingsPanel-Go
