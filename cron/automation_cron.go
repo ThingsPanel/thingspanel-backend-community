@@ -8,10 +8,12 @@ import (
 	"ThingsPanel-Go/utils"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/robfig/cron/v3"
+	"github.com/spf13/cast"
 
 	tp_cron "ThingsPanel-Go/initialize/cron"
 )
@@ -185,8 +187,37 @@ func ExecuteTask(lockKey string) {
 	// 释放锁
 	redis.DelNX(lockKey)
 	for _, automationCondition := range automationConditions {
+		var logMessage string
+		switch automationCondition.V1 {
+		case "0":
+			//几分钟
+			number := cast.ToInt(automationCondition.V3)
+			if number > 0 {
+				logMessage += "触发" + automationCondition.V3 + "分钟执行一次的任务；"
+			} else {
+				logs.Error("cron按分钟不能为空或0")
+				continue
+			}
+		case "1":
+			// 每小时的几分
+			logMessage += "触发每小时的" + automationCondition.V3 + "执行一次的任务；"
+		case "2":
+			// 每天的几点几分
+			logMessage += "触发每天的" + automationCondition.V3 + "执行一次的任务；"
+		case "3":
+			logMessage += "触发每周" + automationCondition.V4 + "的" + automationCondition.V3 + "执行一次的任务；"
+		case "4":
+			// 每月的哪一天的几点几分
+			timeList := strings.Split(automationCondition.V3, ":")
+			logMessage += "触发每月" + timeList[0] + "日的" + timeList[1] + ":" + timeList[2] + "执行一次的任务；"
+		case "5":
+			logMessage += "自定义cron(" + automationCondition.V3 + ")到时；"
+		default:
+			logs.Error("cron类型错误")
+			continue
+		}
 		// 触发，记录日志
-		var logMessage string = "触发" + automationCondition.V1 + "的定时任务;"
+		var automationLogMap = make(map[string]interface{})
 		var sutomationLogService services.TpAutomationLogService
 		var automationLog models.TpAutomationLog
 		automationLog.AutomationId = automationCondition.AutomationId
@@ -197,31 +228,23 @@ func ExecuteTask(lockKey string) {
 		if err != nil {
 			logs.Error(err.Error())
 		} else {
-			var automationLogMap = make(map[string]interface{})
 			automationLogMap["Id"] = automationLog.Id
 			var conditionsService services.ConditionsService
 			msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id)
 			if err != nil {
 				//执行失败，记录日志
 				logs.Error(err.Error())
-				automationLogMap["ProcessDescription"] = logMessage + err.Error()
+				automationLogMap["ProcessDescription"] = logMessage + "|" + err.Error()
 			} else {
 				//执行成功，记录日志
 				logs.Info(logMessage)
-				automationLogMap["ProcessDescription"] = logMessage + msg
+				automationLogMap["ProcessDescription"] = logMessage + "|" + msg
 				automationLogMap["ProcessResult"] = "1"
 			}
-			logs.Warn(automationLogMap)
 			err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)
 			if err != nil {
 				logs.Error(err.Error())
 			}
-		}
-		//删除条件
-		var automationConditionService services.TpAutomationConditionService
-		err = automationConditionService.DeleteById(automationCondition.Id)
-		if err != nil {
-			logs.Error(err)
 		}
 	}
 }
