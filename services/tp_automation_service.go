@@ -142,6 +142,17 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 		if tp_automation_conditions.DeviceId == "" {
 			delete(automationConditionsMap, "DeviceId")
 		}
+		// 判断是否是定时任务，如果是定时任务，需要计算下次执行时间
+		if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" {
+			// 计算下次执行时间
+			nextTime, err := utils.GetNextTime(tp_automation_conditions.V1, tp_automation_conditions.V2, tp_automation_conditions.V3, tp_automation_conditions.V4)
+			if err != nil {
+				tx.Rollback()
+				return tp_automation, err
+			}
+			tp_automation_conditions.V5 = nextTime
+		}
+
 		result := tx.Model(&models.TpAutomationCondition{}).Create(automationConditionsMap)
 		if result.Error != nil {
 			tx.Rollback()
@@ -326,6 +337,16 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 		automationConditionMap := structs.Map(&automationCondition)
 		if automationCondition.DeviceId == "" {
 			delete(automationConditionMap, "DeviceId")
+		}
+		// 判断是否是定时任务，如果是定时任务，需要计算下次执行时间
+		if automationCondition.ConditionType == "2" && automationCondition.TimeConditionType == "2" {
+			// 计算下次执行时间
+			nextTime, err := utils.GetNextTime(automationCondition.V1, automationCondition.V2, automationCondition.V3, automationCondition.V4)
+			if err != nil {
+				tx.Rollback()
+				return tp_automation, err
+			}
+			automationCondition.V5 = nextTime
 		}
 		result := tx.Model(&models.TpAutomationCondition{}).Create(automationConditionMap)
 		if result.Error != nil {
