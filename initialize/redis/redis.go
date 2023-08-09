@@ -65,3 +65,15 @@ func DelKey(key string) (err error) {
 	err = redisCache.Del(key).Err()
 	return
 }
+
+// SetNX 尝试获取锁
+func SetNX(key, value string, expiration time.Duration) (ok bool, err error) {
+	ok, err = redisCache.SetNX(key, value, expiration).Result()
+	return
+}
+
+// SetNX 释放锁
+func DelNX(key string) (err error) {
+	err = redisCache.Del(key).Err()
+	return
+}

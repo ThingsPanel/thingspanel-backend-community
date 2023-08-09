@@ -192,7 +192,7 @@ func GetNextTime(v1 string, v2 string, v3 string, v4 string) (string, error) {
 	} else if v1 == "1" {
 		// 每小时的几分
 		number := cast.ToInt(v3)
-		cronString = cast.ToString(number) + " 0/1 * * * *"
+		cronString = cast.ToString(number) + " 0/1 * * *"
 	} else if v1 == "2" {
 		// 每天的几点几分
 		timeList := strings.Split(v3, ":")
@@ -213,6 +213,8 @@ func GetNextTime(v1 string, v2 string, v3 string, v4 string) (string, error) {
 	} else if v1 == "5" {
 		cronString = v3
 	}
+	// 打印
+	logs.Info("cron表达式：", cronString)
 	// 解析 cron 表达式
 	specParser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 	sched, err := specParser.Parse(cronString)
@@ -222,5 +224,7 @@ func GetNextTime(v1 string, v2 string, v3 string, v4 string) (string, error) {
 	}
 	// 获取下次执行时间
 	nextTime = sched.Next(time.Now()).Format("2006-01-02 15:04:05")
+	// 打印下次执行时间
+	logs.Info("下次执行时间：", nextTime)
 	return nextTime, err
 }
