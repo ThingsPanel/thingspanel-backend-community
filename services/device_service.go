@@ -598,13 +598,16 @@ func (*DeviceService) ScriptIdEdit(deviceModel valid.EditDevice) error {
 func (*DeviceService) PasswordEdit(deviceModel valid.EditDevice, token string) error {
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Update("password", "")
 	if result.Error == nil {
-		if token != "" {
-			MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
-			if MqttHttpHost == "" {
-				MqttHttpHost = viper.GetString("api.http_host")
+		//判断是否gmqtt
+		if viper.GetString("mqtt_server") == "gmqtt" {
+			if token != "" {
+				MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
+				if MqttHttpHost == "" {
+					MqttHttpHost = viper.GetString("api.http_host")
+				}
+				// mqtt密码制空
+				tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+token, "{\"password\":\"\"}")
 			}
-			// mqtt密码制空
-			tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+token, "{\"password\":\"\"}")
 		}
 	}
 	return result.Error
@@ -646,7 +649,10 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		// 原token不为空的时候，删除原token
 		if device.Token != "" {
 			redis.DelKey("token" + device.Token)
-			tphttp.Delete("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{}")
+			// 判断是否是gmqtt
+			if viper.GetString("mqtt.type") == "gmqtt" {
+				tphttp.Delete("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{}")
+			}
 		}
 		redis.SetStr("token"+deviceModel.Token, deviceModel.ID, 3600*time.Second)
 		// 新增mqtt的token
@@ -657,9 +663,11 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		} else {
 			password = device.Password
 		}
-		_, err := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+deviceModel.Token, "{\"password\":\""+password+"\"}")
-		if err != nil {
-			return err
+		if viper.GetString("mqtt_server") == "gmqtt" {
+			_, err := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+deviceModel.Token, "{\"password\":\""+password+"\"}")
+			if err != nil {
+				return err
+			}
 		}
 
 	}
@@ -709,7 +717,10 @@ func (*DeviceService) Add(device models.Device) (string, error) {
 			MqttHttpHost = viper.GetString("api.http_host")
 		}
 		redis.SetStr("token"+device.Token, uuid, 3600*time.Second)
-		tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\"\"}")
+		//判断是否是gmqtt
+		if viper.GetString("mqtt_server") == "gmqtt" {
+			tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\"\"}")
+		}
 	}
 	return uuid, nil
 }
@@ -730,7 +741,10 @@ func (*DeviceService) Add1(device models.Device) (models.Device, error) {
 			MqttHttpHost = viper.GetString("api.http_host")
 		}
 		redis.SetStr("token"+device.Token, device.ID, 3600*time.Second)
-		tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\"\"}")
+		//判断是否是gmqtt
+		if viper.GetString("mqtt_server") == "gmqtt" {
+			tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\"\"}")
+		}
 	}
 	return device, nil
 }
