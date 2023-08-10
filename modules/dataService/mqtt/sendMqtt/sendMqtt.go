@@ -13,35 +13,38 @@ import (
 
 var _client mqtt.Client
 
-const (
-	Qos0 = byte(0)
-	Qos1 = byte(1)
-	Qos2 = byte(2)
+var (
+	Qos = byte(viper.GetUint("mqtt.qos"))
 )
 
-const (
-	Topic_DeviceAttributes  = "device/attributes"
-	Topic_DeviceStatus      = "device/status"
-	Topic_OtaDeviceProgress = "ota/device/progress"
-	Topic_OtaDeviceInform   = "ota/device/inform"
-	Topic_DeviceCommand     = "device/command"
-	Topic_DeviceEvent       = "device/event"
-	Topic_GatewayAttributes = "gateway/attributes"
-	Topic_GatewayCommand    = "gateway/command"
-	Topic_GatewayEvent      = "gateway/event"
+var (
+	Topic_DeviceAttributes  = "device/attributes"   // 订阅、发布
+	Topic_DeviceStatus      = "device/status"       // 订阅
+	Topic_OtaDeviceProgress = "ota/device/progress" // 订阅
+	Topic_DeviceEvent       = "device/event"        // 订阅
+	Topic_GatewayAttributes = "gateway/attributes"  // 订阅、发布
+	Topic_GatewayEvent      = "gateway/event"       // 订阅
+
+	Topic_DeviceCommand   = "device/command"    // 发布
+	Topic_GatewayCommand  = "gateway/command"   // 发布
+	Topic_OtaDeviceInform = "ota/device/inform" // 发布
 )
 
-// 所有订阅的Topic
-var TopicList = map[string]byte{
-	Topic_DeviceAttributes:  Qos0,
-	Topic_DeviceStatus:      Qos0,
-	Topic_OtaDeviceProgress: Qos0,
-	Topic_DeviceCommand:     Qos0,
-	Topic_DeviceEvent:       Qos0,
-	Topic_OtaDeviceInform:   Qos0,
-	Topic_GatewayAttributes: Qos0,
-	Topic_GatewayCommand:    Qos0,
-	Topic_GatewayEvent:      Qos0,
+// 所有订阅的Topic,用在批量订阅
+var TopicToSubscribeList = map[string]byte{
+	Topic_DeviceAttributes:  Qos,
+	Topic_DeviceStatus:      Qos,
+	Topic_OtaDeviceProgress: Qos,
+	Topic_DeviceEvent:       Qos,
+	Topic_GatewayAttributes: Qos,
+	Topic_GatewayEvent:      Qos,
+}
+
+// 所有发布的Topic,暂未使用
+var TopicToPublishList = map[string]byte{
+	Topic_DeviceCommand:   Qos,
+	Topic_GatewayCommand:  Qos,
+	Topic_OtaDeviceInform: Qos,
 }
 
 func connect() {

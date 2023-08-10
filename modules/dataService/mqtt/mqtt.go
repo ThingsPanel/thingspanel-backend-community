@@ -10,6 +10,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/panjf2000/ants"
+	"github.com/spf13/viper"
 )
 
 var MqttClient mqtt.Client
@@ -76,8 +77,17 @@ func ListenNew(broker, username, password string) (err error) {
 			fmt.Println("undefine topic")
 		}
 	}
+	// mqtt服务如果是vernemq,需要在订阅前增加共享订阅前缀
+	var topicToSubscribeMap = make(map[string]byte)
+	if viper.GetString("mqtt.broker") == "vernemq" {
+		for k, v := range sendmqtt.TopicToSubscribeList {
+			topicToSubscribeMap["$share/group/"+k] = v
+		}
+	} else {
+		topicToSubscribeMap = sendmqtt.TopicToSubscribeList
+	}
 	// 批量订阅
-	if token := MqttClient.SubscribeMultiple(sendmqtt.TopicList, messageHandler); token.Wait() && token.Error() != nil {
+	if token := MqttClient.SubscribeMultiple(topicToSubscribeMap, messageHandler); token.Wait() && token.Error() != nil {
 		fmt.Println(token.Error())
 		os.Exit(1)
 	}
