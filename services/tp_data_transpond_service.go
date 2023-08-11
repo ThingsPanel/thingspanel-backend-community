@@ -365,8 +365,13 @@ func getDataTranspondDetailByDeviceId(deviceId string) (e bool, data models.TpDa
 	resultA := psql.Mydb.Where("device_id = ?", deviceId).First(&data)
 	// 出错或未配置
 	if resultA.Error != nil {
-		logs.Error(resultA.Error.Error())
-		return false, data
+		if errors.Is(resultA.Error, gorm.ErrRecordNotFound) {
+			logs.Info("未配置转发信息")
+			return false, data
+		} else {
+			logs.Error(resultA.Error.Error())
+			return false, data
+		}
 	}
 	return true, data
 }
