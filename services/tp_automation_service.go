@@ -137,11 +137,22 @@ func (*TpAutomationService) AddTpAutomation(tp_automation valid.AddTpAutomationV
 	for _, tp_automation_conditions := range tp_automation.AutomationConditions {
 		tp_automation_conditions.Id = utils.GetUuid()
 		tp_automation_conditions.AutomationId = tp_automation.Id
+		// 判断是否是定时任务，如果是定时任务，需要计算下次执行时间
+		if tp_automation_conditions.ConditionType == "2" && tp_automation_conditions.TimeConditionType == "2" {
+			// 计算下次执行时间
+			nextTime, err := utils.GetNextTime(tp_automation_conditions.V1, tp_automation_conditions.V2, tp_automation_conditions.V3, tp_automation_conditions.V4)
+			if err != nil {
+				tx.Rollback()
+				return tp_automation, err
+			}
+			tp_automation_conditions.V5 = nextTime
+		}
 		// DeviceId外键可以为null，需要用map处理
 		automationConditionsMap := structs.Map(&tp_automation_conditions)
 		if tp_automation_conditions.DeviceId == "" {
 			delete(automationConditionsMap, "DeviceId")
 		}
+
 		result := tx.Model(&models.TpAutomationCondition{}).Create(automationConditionsMap)
 		if result.Error != nil {
 			tx.Rollback()
@@ -322,29 +333,41 @@ func (*TpAutomationService) EditTpAutomation(tp_automation valid.TpAutomationVal
 	for _, automationCondition := range tp_automation.AutomationConditions {
 		automationCondition.Id = utils.GetUuid()
 		automationCondition.AutomationId = tp_automation.Id
+		// 判断是否是定时任务，如果是定时任务，需要计算下次执行时间
+		if automationCondition.ConditionType == "2" && automationCondition.TimeConditionType == "2" {
+			// 计算下次执行时间
+			nextTime, err := utils.GetNextTime(automationCondition.V1, automationCondition.V2, automationCondition.V3, automationCondition.V4)
+			if err != nil {
+				tx.Rollback()
+				return tp_automation, err
+			}
+			automationCondition.V5 = nextTime
+		}
 		// DeviceId外键可以为null，需要用map处理
 		automationConditionMap := structs.Map(&automationCondition)
 		if automationCondition.DeviceId == "" {
 			delete(automationConditionMap, "DeviceId")
 		}
+
 		result := tx.Model(&models.TpAutomationCondition{}).Create(automationConditionMap)
 		if result.Error != nil {
 			tx.Rollback()
 			logs.Error(result.Error.Error())
 			return tp_automation, result.Error
 		} else {
+			logs.Info("自动化条件修改成功")
 			// 如果自动化开启，定时任务需要添加cron
-			if automationCondition.ConditionType == "2" && automationCondition.TimeConditionType == "2" && tp_automation.Enabled == "1" {
-				var automationCondition models.TpAutomationCondition
-				result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.Id).First(&automationCondition)
-				if result.Error != nil {
-					err := AutomationCron(automationCondition)
-					if err != nil {
-						logs.Error(err.Error())
-					}
-				}
+			// if automationCondition.ConditionType == "2" && automationCondition.TimeConditionType == "2" && tp_automation.Enabled == "1" {
+			// 	var automationCondition models.TpAutomationCondition
+			// 	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.Id).First(&automationCondition)
+			// 	if result.Error != nil {
+			// 		err := AutomationCron(automationCondition)
+			// 		if err != nil {
+			// 			logs.Error(err.Error())
+			// 		}
+			// 	}
 
-			}
+			// }
 		}
 	}
 	// 如果旧记录有告警信息-新记录没有则删除，新记录有则修改
@@ -490,10 +513,10 @@ func (*TpAutomationService) EnabledAutomation(automationId string, enabled strin
 		return result.Error
 	}
 	//是否状态变更
-	isAlter := false
-	if enabled != automation.Enabled {
-		isAlter = true
-	}
+	// isAlter := false
+	// if enabled != automation.Enabled {
+	// 	isAlter = true
+	// }
 	result = psql.Mydb.Model(&models.TpAutomation{}).Where("id = ?", automationId).
 		Updates(map[string]interface{}{"UpdateTime": time.Now().Unix(), "enabled": enabled})
 	if result.Error != nil {
@@ -501,29 +524,29 @@ func (*TpAutomationService) EnabledAutomation(automationId string, enabled strin
 		return result.Error
 	}
 	// 如果状态改变，定时任务需要改变
-	if isAlter {
-		var automationConditions []models.TpAutomationCondition
-		result = psql.Mydb.Model(&models.TpAutomationCondition{}).Where("automation_id = ? and condition_type = '2' and time_condition_type = '2'", automationId).Find(&automationConditions)
-		if result.Error != nil {
-			logs.Error(result.Error)
-		} else {
+	// if isAlter {
+	// 	var automationConditions []models.TpAutomationCondition
+	// 	result = psql.Mydb.Model(&models.TpAutomationCondition{}).Where("automation_id = ? and condition_type = '2' and time_condition_type = '2'", automationId).Find(&automationConditions)
+	// 	if result.Error != nil {
+	// 		logs.Error(result.Error)
+	// 	} else {
 
-			// 定时任务需要添加cron
-			for _, automationCondition := range automationConditions {
-				if enabled == "1" {
-					err := AutomationCron(automationCondition)
-					if err != nil {
-						logs.Error(err.Error())
-					}
-				} else if enabled == "0" {
-					cronId := cast.ToInt(automationCondition.V2)
-					C := tp_cron.C
-					C.Remove(cron.EntryID(cronId))
-				}
+	// 		// 定时任务需要添加cron
+	// 		for _, automationCondition := range automationConditions {
+	// 			if enabled == "1" {
+	// 				err := AutomationCron(automationCondition)
+	// 				if err != nil {
+	// 					logs.Error(err.Error())
+	// 				}
+	// 			} else if enabled == "0" {
+	// 				cronId := cast.ToInt(automationCondition.V2)
+	// 				C := tp_cron.C
+	// 				C.Remove(cron.EntryID(cronId))
+	// 			}
 
-			}
-		}
-	}
+	// 		}
+	// 	}
+	// }
 	return nil
 }
 

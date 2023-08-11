@@ -1,15 +1,19 @@
+
+# mqtt服务：gmqtt、vernemq
+mqtt_server: gmqtt
 mqtt:
   broker: 127.0.0.1:1883
   user: root
   pass: root
-  topicToSubscribe: device/attributes
-  topicToPublish: device/attributes
-  topicToStatus: device/status
-  topicToProgress: ota/device/progress
-  topicToCommand: device/command
-  topicToEvent: device/event
-  topicToInform: ota/device/inform
-  gateway_topic: gateway/attributes
+  topicToSubscribe: device/attributes  #属性订阅主题
+  topicToStatus: device/status         #在线离线订阅主题
+  topicToProgress: ota/device/progress #ota上报订阅主题
+  topicToEvent: device/event           #事件订阅主题
+  gateway_topic: gateway/attributes #网关订阅、发布主题
+  topicToPublish: device/attributes #属性发布主题
+  topicToCommand: device/command    #发布主题
+  topicToInform: ota/device/inform  #发布主题
+  
   #消息服务质量 0：消息最多传递一次，如果当时客户端不可用，则会丢失该消息。1：消息传递至少 1 次。2：消息仅传送一次。
   qos: 0
 

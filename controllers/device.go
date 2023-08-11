@@ -1095,7 +1095,7 @@ func (c *DeviceController) DeviceCommandSend() {
 	//
 
 	d.SendCommandToDevice(
-		device, inputData.CommandIdentifier,
+		device, inputData.DeviceId, inputData.CommandIdentifier,
 		[]byte(inputData.CommandData),
 		inputData.CommandName,
 		inputData.Desc)

@@ -78,16 +78,13 @@ func (*OpenapiDeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdLi
 	return deviceOnlineStatus, nil
 }
 
-func (s *OpenapiDeviceService) GetDeviceEvnetHistoryList(offset int, pageSize int, ctx *context2.Context) ([]models.DeviceEvnetHistory, int64) {
+func (s *OpenapiDeviceService) GetDeviceEvnetHistoryList(paramas valid.OpenapiDeviceEventCommandHistoryValid) ([]models.DeviceEvnetHistory, int64) {
 
 	var evnetHistroy []models.DeviceEvnetHistory
 	var count int64
-	// 设备权限范围内
-	isAll, ids := s.GetAllAccessDeviceIds(ctx)
-	tx := psql.Mydb.Model(&models.DeviceEvnetHistory{})
-	if !isAll {
-		tx.Where("device_id IN", ids)
-	}
+
+	offset := (paramas.CurrentPage - 1) * paramas.PerPage
+	tx := psql.Mydb.Model(&models.DeviceEvnetHistory{}).Where("device_id = ?", paramas.DeviceId)
 
 	err := tx.Count(&count).Error
 	if err != nil {
@@ -95,7 +92,7 @@ func (s *OpenapiDeviceService) GetDeviceEvnetHistoryList(offset int, pageSize in
 		return evnetHistroy, count
 	}
 
-	err = tx.Order("report_time desc").Limit(pageSize).Offset(offset).Find(&evnetHistroy).Error
+	err = tx.Order("report_time desc").Limit(paramas.PerPage).Offset(offset).Find(&evnetHistroy).Error
 	if err != nil {
 		logs.Error(err.Error())
 		return evnetHistroy, count
@@ -317,4 +314,58 @@ func (s *OpenapiDeviceService) GetDeviceCountOnlineCount(ctx *context2.Context) 
 	count["device_count"] = deviceCount
 	count["device_online_count"] = deviceOnlineCount
 	return count, nil
+}
+
+func (s *OpenapiDeviceService) GetDeviceOnlineStatusOne(params valid.DeviceIdValidate) (map[string]string, error) {
+	deviceOnlineStatus := make(map[string]string)
+	var device models.Device
+	//根据阈值判断设备是否在线
+	result := psql.Mydb.Where("id = ?", params.DeviceId).First(&device)
+	if result.Error != nil {
+		logs.Error(result.Error)
+		if result.Error == gorm.ErrRecordNotFound {
+			deviceOnlineStatus["satatus"] = "0"
+			return deviceOnlineStatus, nil
+		}
+		return nil, result.Error
+	}
+	if device.Protocol == "mqtt" || device.Protocol == "MQTT" {
+
+		if device.AdditionalInfo != "" {
+			aJson, err := simplejson.NewJson([]byte(device.AdditionalInfo))
+			if err == nil {
+				thresholdTime, err := aJson.Get("runningInfo").Get("thresholdTime").Int64()
+
+				if err == nil && thresholdTime != 0 {
+					//获取最新的数据时间
+					var latest_ts int64
+					result = psql.Mydb.Model(&models.TSKVLatest{}).Select("max(ts) as ts").Where("entity_id = ? ", params.DeviceId).Group("entity_type").First(&latest_ts)
+					if result.Error != nil {
+						logs.Error(result.Error)
+					}
+					if latest_ts != 0 {
+						if time.Now().UnixMicro()-latest_ts >= int64(thresholdTime*1e6) {
+							deviceOnlineStatus["satatus"] = "0"
+						} else {
+							deviceOnlineStatus["satatus"] = "1"
+						}
+						return deviceOnlineStatus, nil
+					}
+				}
+			}
+		}
+
+	}
+	//原流程
+	var tskvLatest models.TSKVLatest
+	result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'").First(&tskvLatest)
+	logs.Info("------------------------------------------------ceshi")
+	if result.Error != nil {
+		logs.Error(result.Error)
+		deviceOnlineStatus["status"] = "0"
+	} else {
+		deviceOnlineStatus["status"] = tskvLatest.StrV
+	}
+	return deviceOnlineStatus, nil
+
 }

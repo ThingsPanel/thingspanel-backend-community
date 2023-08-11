@@ -6,6 +6,7 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
+	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1041,16 +1042,12 @@ func (*OpenapiTSKVService) DeleteCurrentDataByDeviceId(deviceId string) {
 }
 
 // 通过设备ID获取设备当前值和插件映射属性
-func (*OpenapiTSKVService) GetCurrentDataAndMap(device_id string, attributes []string) ([]map[string]interface{}, error) {
+func (*OpenapiTSKVService) GetCurrentDataAndMap(params valid.OpenapiCurrentKV) ([]map[string]interface{}, error) {
 	logs.Info("**********************************************")
 	var fields []map[string]interface{}
 	var ts_kvs []models.TSKVLatest
 	var result *gorm.DB
-	if attributes == nil {
-		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts asc").Find(&ts_kvs)
-	} else {
-		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ? AND key in ?", device_id, attributes).Order("ts asc").Find(&ts_kvs)
-	}
+	result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", params.DeviceId).Order("ts asc").Find(&ts_kvs)
 	if result.Error != nil {
 		return fields, result.Error
 	}
@@ -1073,7 +1070,7 @@ func (*OpenapiTSKVService) GetCurrentDataAndMap(device_id string, attributes []s
 		// }
 		//查询设备的插件id
 		var DeviceService services.DeviceService
-		device, _ := DeviceService.GetDeviceByID(device_id)
+		device, _ := DeviceService.GetDeviceByID(params.DeviceId)
 		var DeviceModelService services.DeviceModelService
 		device_plugin := DeviceModelService.GetDeviceModelDetail(device.Type)
 		logs.Info("设备插件", device_plugin)

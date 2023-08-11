@@ -13,6 +13,40 @@ import (
 
 var _client mqtt.Client
 
+var (
+	Qos = byte(viper.GetUint("mqtt.qos"))
+)
+
+var (
+	Topic_DeviceAttributes  = "device/attributes"   // 订阅、发布
+	Topic_DeviceStatus      = "device/status"       // 订阅
+	Topic_OtaDeviceProgress = "ota/device/progress" // 订阅
+	Topic_DeviceEvent       = "device/event"        // 订阅
+	Topic_GatewayAttributes = "gateway/attributes"  // 订阅、发布
+	Topic_GatewayEvent      = "gateway/event"       // 订阅
+
+	Topic_DeviceCommand   = "device/command"    // 发布
+	Topic_GatewayCommand  = "gateway/command"   // 发布
+	Topic_OtaDeviceInform = "ota/device/inform" // 发布
+)
+
+// 所有订阅的Topic,用在批量订阅
+var TopicToSubscribeList = map[string]byte{
+	Topic_DeviceAttributes:  Qos,
+	Topic_DeviceStatus:      Qos,
+	Topic_OtaDeviceProgress: Qos,
+	Topic_DeviceEvent:       Qos,
+	Topic_GatewayAttributes: Qos,
+	Topic_GatewayEvent:      Qos,
+}
+
+// 所有发布的Topic,暂未使用
+var TopicToPublishList = map[string]byte{
+	Topic_DeviceCommand:   Qos,
+	Topic_GatewayCommand:  Qos,
+	Topic_OtaDeviceInform: Qos,
+}
+
 func connect() {
 	mqttHost := os.Getenv("TP_MQTT_HOST")
 	if mqttHost == "" {

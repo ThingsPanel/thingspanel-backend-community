@@ -17,7 +17,10 @@ import (
 func init() {
 	loadConfig()
 	log.Println("注册mqtt用户...")
-	reg_mqtt_root()
+	//是否gmqtt
+	if viper.GetString("mqtt_server") == "gmqtt" {
+		reg_mqtt_root()
+	}
 	log.Println("注册mqtt用户完成")
 	log.Println("链接mqtt服务...")
 	listenMQTTNew()

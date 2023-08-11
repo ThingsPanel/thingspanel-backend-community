@@ -20,26 +20,22 @@ type OpenapiDeviceController struct {
 
 // 设备在线离线状态
 func (c *OpenapiDeviceController) DeviceStatus() {
-	DeviceMapValidate := valid.DeviceIdListValidate{}
-	err := json.Unmarshal(c.Ctx.Input.RequestBody, &DeviceMapValidate)
+	deviceIdValidate := valid.DeviceIdValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &deviceIdValidate)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	var DeviceService services2.OpenapiDeviceService
-	isAll, ids := DeviceService.GetAccessDeviceIds(c.Ctx, DeviceMapValidate.DeviceIdList)
-	if !isAll {
-		if len(ids) == 0 {
-			response.SuccessWithMessage(401, "无设备访问权限", (*context2.Context)(c.Ctx))
-		} else {
-			DeviceMapValidate.DeviceIdList = ids
-		}
+	isOk := DeviceService.IsAccessDeviceId(c.Ctx, deviceIdValidate.DeviceId)
+	if !isOk {
+		response.SuccessWithMessage(401, "无设备访问权限", (*context2.Context)(c.Ctx))
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(DeviceMapValidate)
+	status, _ := v.Valid(deviceIdValidate)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(DeviceMapValidate, err.Field)
+			alias := gvalid.GetAlias(deviceIdValidate, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
 			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
@@ -47,7 +43,7 @@ func (c *OpenapiDeviceController) DeviceStatus() {
 		return
 	}
 
-	d, err := DeviceService.GetDeviceOnlineStatus(DeviceMapValidate)
+	d, err := DeviceService.GetDeviceOnlineStatusOne(deviceIdValidate)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 	}
@@ -56,7 +52,7 @@ func (c *OpenapiDeviceController) DeviceStatus() {
 
 // 设备事件上报历史纪录查询
 func (c *OpenapiDeviceController) DeviceEventHistoryList() {
-	inputData := valid.DeviceEventCommandHistoryValid{}
+	inputData := valid.OpenapiDeviceEventCommandHistoryValid{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
@@ -65,9 +61,21 @@ func (c *OpenapiDeviceController) DeviceEventHistoryList() {
 	if !s.IsAccessDeviceId(c.Ctx, inputData.DeviceId) {
 		response.SuccessWithMessage(401, "无设备访问权限", c.Ctx)
 	}
-	offset := (inputData.CurrentPage - 1) * inputData.PerPage
 
-	data, count := s.GetDeviceEvnetHistoryList(offset, inputData.PerPage, c.Ctx)
+	v := validation.Validation{}
+	status, _ := v.Valid(inputData)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(inputData, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+
+	data, count := s.GetDeviceEvnetHistoryList(inputData)
 	d := controllers.DataTransponList{
 		CurrentPage: inputData.CurrentPage,
 		Total:       count,
@@ -126,11 +134,14 @@ func (c *OpenapiDeviceController) DeviceCommandSend() {
 
 	//
 
-	s.SendCommandToDevice(
+	err = s.SendCommandToDevice(
 		device, inputData.CommandIdentifier,
 		[]byte(inputData.CommandData),
 		inputData.CommandName,
 		inputData.Desc)
+	if err != nil {
+		response.SuccessWithMessage(400, "命令下发失败:"+err.Error(), (*context2.Context)(c.Ctx))
+	}
 
 	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
 }

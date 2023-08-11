@@ -11,8 +11,11 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/robfig/cron/v3"
+	"github.com/spf13/cast"
 )
 
 func TsKvFilterToSql(filters map[string]interface{}) (string, []interface{}) {
@@ -170,4 +173,58 @@ func GenerateAppKey(length int) string {
 		panic(err)
 	}
 	return hex.EncodeToString(b)
+}
+
+// 计算定时任务下次执行时间
+func GetNextTime(v1 string, v2 string, v3 string, v4 string) (string, error) {
+	var nextTime string
+	var err error
+	var cronString string
+	if v1 == "0" {
+		//几分钟
+		number := cast.ToInt(v3)
+		if number > 0 {
+			cronString = "0/" + v3 + " * * * *"
+		} else {
+			logs.Error("cron按分钟不能为空或0")
+			return nextTime, errors.New("cron按分钟不能为空或0")
+		}
+	} else if v1 == "1" {
+		// 每小时的几分
+		number := cast.ToInt(v3)
+		cronString = cast.ToString(number) + " 0/1 * * *"
+	} else if v1 == "2" {
+		// 每天的几点几分
+		timeList := strings.Split(v3, ":")
+		cronString = timeList[1] + " " + timeList[0] + " * * *"
+	} else if v1 == "3" {
+		// 星期几的几点几分
+		timeList := strings.Split(v3, ":")
+		if len(timeList) >= 3 {
+			cronString = timeList[1] + " " + timeList[0] + " * * " + v4
+		} else {
+			return nextTime, errors.New("配置错误")
+		}
+
+	} else if v1 == "4" {
+		// 每月的哪一天的几点几分
+		timeList := strings.Split(v3, ":")
+		cronString = timeList[2] + " " + timeList[1] + " " + timeList[0] + " * *"
+	} else if v1 == "5" {
+		cronString = v3
+	}
+	// 打印
+	logs.Info("cron表达式：", cronString)
+	// 解析 cron 表达式
+	specParser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	sched, err := specParser.Parse(cronString)
+	if err != nil {
+		logs.Error("cron表达式解析错误")
+		return nextTime, err
+	}
+	// 获取下次执行时间
+	nextTime = sched.Next(time.Now()).Format("2006-01-02 15:04:05")
+	// 打印下次执行时间
+	logs.Info("下次执行时间：", nextTime)
+	return nextTime, err
 }
