@@ -578,7 +578,7 @@ func AutomationCron(automationCondition models.TpAutomationCondition) error {
 	} else if automationCondition.V1 == "3" {
 		// 星期几的几点几分
 		timeList := strings.Split(automationCondition.V3, ":")
-		if len(timeList) >= 3 {
+		if len(timeList) >= 2 {
 			cronString = timeList[1] + " " + timeList[0] + " * * " + automationCondition.V4
 			logMessage += "触发每周" + automationCondition.V4 + "的" + automationCondition.V3 + "执行一次的任务；"
 		} else {
