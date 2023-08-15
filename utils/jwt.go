@@ -44,8 +44,9 @@ func GenerateToken(user *models.Users) (string, error) {
 		Name:       user.Email,
 		CreateTime: time.Now(),
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-		}, //过期时间1小时
+			// 过期时间24小时
+			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+		},
 	}
 	return MakeCliamsToken(claims)
 }
