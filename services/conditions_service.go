@@ -115,8 +115,8 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 		logMessage := ""
 		// 判断每个条件是否通过
 		for _, conditionData := range conditionGroups {
-			// 设备条件
-			if conditionData.ConditionType == "1" {
+			// 设备条件，并且v4是属性1-属性
+			if conditionData.ConditionType == "1" && conditionData.V4 == "1" {
 				// 设备属性
 				if conditionData.DeviceConditionType == "1" {
 					//是否本次设备的属性

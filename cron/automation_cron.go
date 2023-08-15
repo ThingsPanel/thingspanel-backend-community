@@ -14,8 +14,6 @@ import (
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cast"
-
-	tp_cron "ThingsPanel-Go/initialize/cron"
 )
 
 //var C *cron.Cron
@@ -32,25 +30,25 @@ func init() {
 }
 
 //初始化定时任务，已弃用
-func AutomationCron() {
-	C := tp_cron.C
-	//C = cron.New()
-	var automationConditions []models.TpAutomationCondition
-	result := psql.Mydb.Table("tp_automation").
-		Select("tp_automation_condition.*").
-		Joins("left join tp_automation_condition on tp_automation.id = tp_automation_condition.automation_id").
-		Where("tp_automation.enabled = '1' and tp_automation_condition.condition_type = '2' and tp_automation_condition.time_condition_type = '2'").
-		Order("tp_automation.priority asc").
-		Find(&automationConditions)
-	if result.Error != nil {
-		logs.Error(result.Error.Error())
-		logs.Error("定时任务初始化失败！")
-	}
-	for _, automationCondition := range automationConditions {
-		services.AutomationCron(automationCondition)
-	}
-	C.Start()
-}
+// func AutomationCron() {
+// 	C := tp_cron.C
+// 	//C = cron.New()
+// 	var automationConditions []models.TpAutomationCondition
+// 	result := psql.Mydb.Table("tp_automation").
+// 		Select("tp_automation_condition.*").
+// 		Joins("left join tp_automation_condition on tp_automation.id = tp_automation_condition.automation_id").
+// 		Where("tp_automation.enabled = '1' and tp_automation_condition.condition_type = '2' and tp_automation_condition.time_condition_type = '2'").
+// 		Order("tp_automation.priority asc").
+// 		Find(&automationConditions)
+// 	if result.Error != nil {
+// 		logs.Error(result.Error.Error())
+// 		logs.Error("定时任务初始化失败！")
+// 	}
+// 	for _, automationCondition := range automationConditions {
+// 		services.AutomationCron(automationCondition)
+// 	}
+// 	C.Start()
+// }
 
 func onceCron() {
 	//c = cron.New(cron.WithSeconds())
@@ -130,6 +128,7 @@ func onceCron() {
 	crontab.Start()
 }
 
+// 一秒扫一次action表，判断是否有需要执行的定时任务
 func TaskCron() {
 	// 循环
 	for {

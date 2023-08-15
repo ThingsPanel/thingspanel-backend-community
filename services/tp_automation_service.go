@@ -7,7 +7,6 @@ import (
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
 	tp_cron "ThingsPanel-Go/initialize/cron"
@@ -550,90 +549,90 @@ func (*TpAutomationService) EnabledAutomation(automationId string, enabled strin
 	return nil
 }
 
-// 添加自动化的定时任务
-func AutomationCron(automationCondition models.TpAutomationCondition) error {
-	C := tp_cron.C
-	var logMessage string
-	var cronString string
-	if automationCondition.V1 == "0" {
-		//几分钟
-		number := cast.ToInt(automationCondition.V3)
-		if number > 0 {
-			cronString = "0/" + automationCondition.V3 + " * * * *"
-			logMessage += "触发" + automationCondition.V3 + "分钟执行一次的任务；"
-		} else {
-			logs.Error("cron按分钟不能为空或0")
-			return errors.New("cron按分钟不能为空或0")
-		}
-	} else if automationCondition.V1 == "1" {
-		// 每小时的几分
-		number := cast.ToInt(automationCondition.V3)
-		cronString = cast.ToString(number) + " 0/1 * * * *"
-		logMessage += "触发每小时的" + automationCondition.V3 + "执行一次的任务；"
-	} else if automationCondition.V1 == "2" {
-		// 每天的几点几分
-		timeList := strings.Split(automationCondition.V3, ":")
-		cronString = timeList[1] + " " + timeList[0] + " * * *"
-		logMessage += "触发每天的" + automationCondition.V3 + "执行一次的任务；"
-	} else if automationCondition.V1 == "3" {
-		// 星期几的几点几分
-		timeList := strings.Split(automationCondition.V3, ":")
-		if len(timeList) >= 2 {
-			cronString = timeList[1] + " " + timeList[0] + " * * " + automationCondition.V4
-			logMessage += "触发每周" + automationCondition.V4 + "的" + automationCondition.V3 + "执行一次的任务；"
-		} else {
-			return errors.New("配置错误")
-		}
+// 添加自动化的定时任务，已弃用
+//func AutomationCron(automationCondition models.TpAutomationCondition) error {
+// 	C := tp_cron.C
+// 	var logMessage string
+// 	var cronString string
+// 	if automationCondition.V1 == "0" {
+// 		//几分钟
+// 		number := cast.ToInt(automationCondition.V3)
+// 		if number > 0 {
+// 			cronString = "0/" + automationCondition.V3 + " * * * *"
+// 			logMessage += "触发" + automationCondition.V3 + "分钟执行一次的任务；"
+// 		} else {
+// 			logs.Error("cron按分钟不能为空或0")
+// 			return errors.New("cron按分钟不能为空或0")
+// 		}
+// 	} else if automationCondition.V1 == "1" {
+// 		// 每小时的几分
+// 		number := cast.ToInt(automationCondition.V3)
+// 		cronString = cast.ToString(number) + " 0/1 * * * *"
+// 		logMessage += "触发每小时的" + automationCondition.V3 + "执行一次的任务；"
+// 	} else if automationCondition.V1 == "2" {
+// 		// 每天的几点几分
+// 		timeList := strings.Split(automationCondition.V3, ":")
+// 		cronString = timeList[1] + " " + timeList[0] + " * * *"
+// 		logMessage += "触发每天的" + automationCondition.V3 + "执行一次的任务；"
+// 	} else if automationCondition.V1 == "3" {
+// 		// 星期几的几点几分
+// 		timeList := strings.Split(automationCondition.V3, ":")
+// 		if len(timeList) >= 2 {
+// 			cronString = timeList[1] + " " + timeList[0] + " * * " + automationCondition.V4
+// 			logMessage += "触发每周" + automationCondition.V4 + "的" + automationCondition.V3 + "执行一次的任务；"
+// 		} else {
+// 			return errors.New("配置错误")
+// 		}
 
-	} else if automationCondition.V1 == "4" {
-		// 每月的哪一天的几点几分
-		timeList := strings.Split(automationCondition.V3, ":")
-		cronString = timeList[2] + " " + timeList[1] + " " + timeList[0] + " * *"
-		logMessage += "触发每月" + timeList[0] + "日的" + timeList[1] + ":" + timeList[2] + "执行一次的任务；"
-	} else if automationCondition.V1 == "5" {
-		logMessage += "自定义cron(" + automationCondition.V3 + ")到时；"
-		cronString = automationCondition.V3
-	}
-	execute := func() {
-		// 触发，记录日志
-		var automationLogMap = make(map[string]interface{})
-		var sutomationLogService TpAutomationLogService
-		var automationLog models.TpAutomationLog
-		automationLog.AutomationId = automationCondition.AutomationId
-		automationLog.ProcessDescription = logMessage
-		automationLog.TriggerTime = time.Now().Format("2006/01/02 15:04:05")
-		automationLog.ProcessResult = "2"
-		automationLog, err := sutomationLogService.AddTpAutomationLog(automationLog)
-		if err != nil {
-			logs.Error(err.Error())
-		} else {
-			automationLogMap["Id"] = automationLog.Id
-			var conditionsService ConditionsService
-			msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id)
-			if err != nil {
-				//执行失败，记录日志
-				logs.Error(err.Error())
-				automationLogMap["ProcessDescription"] = logMessage + "|" + err.Error()
-			} else {
-				//执行成功，记录日志
-				logs.Info(logMessage)
-				automationLogMap["ProcessDescription"] = logMessage + "|" + msg
-				automationLogMap["ProcessResult"] = "1"
-			}
-			err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)
-			if err != nil {
-				logs.Error(err.Error())
-			}
-		}
-	}
-	cronId, _ := C.AddFunc(cronString, execute)
-	logs.Error("提示：" + cronString + "的定时任务已添加")
-	// 将cronId更新到数据库
-	var cronIdString string = cast.ToString(int(cronId))
-	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.Id).Update("v2", cronIdString)
-	if result.Error != nil {
-		C.Remove(cronId)
-		logs.Error(result.Error.Error())
-	}
-	return nil
-}
+// 	} else if automationCondition.V1 == "4" {
+// 		// 每月的哪一天的几点几分
+// 		timeList := strings.Split(automationCondition.V3, ":")
+// 		cronString = timeList[2] + " " + timeList[1] + " " + timeList[0] + " * *"
+// 		logMessage += "触发每月" + timeList[0] + "日的" + timeList[1] + ":" + timeList[2] + "执行一次的任务；"
+// 	} else if automationCondition.V1 == "5" {
+// 		logMessage += "自定义cron(" + automationCondition.V3 + ")到时；"
+// 		cronString = automationCondition.V3
+// 	}
+// 	execute := func() {
+// 		// 触发，记录日志
+// 		var automationLogMap = make(map[string]interface{})
+// 		var sutomationLogService TpAutomationLogService
+// 		var automationLog models.TpAutomationLog
+// 		automationLog.AutomationId = automationCondition.AutomationId
+// 		automationLog.ProcessDescription = logMessage
+// 		automationLog.TriggerTime = time.Now().Format("2006/01/02 15:04:05")
+// 		automationLog.ProcessResult = "2"
+// 		automationLog, err := sutomationLogService.AddTpAutomationLog(automationLog)
+// 		if err != nil {
+// 			logs.Error(err.Error())
+// 		} else {
+// 			automationLogMap["Id"] = automationLog.Id
+// 			var conditionsService ConditionsService
+// 			msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id)
+// 			if err != nil {
+// 				//执行失败，记录日志
+// 				logs.Error(err.Error())
+// 				automationLogMap["ProcessDescription"] = logMessage + "|" + err.Error()
+// 			} else {
+// 				//执行成功，记录日志
+// 				logs.Info(logMessage)
+// 				automationLogMap["ProcessDescription"] = logMessage + "|" + msg
+// 				automationLogMap["ProcessResult"] = "1"
+// 			}
+// 			err = sutomationLogService.UpdateTpAutomationLog(automationLogMap)
+// 			if err != nil {
+// 				logs.Error(err.Error())
+// 			}
+// 		}
+// 	}
+// 	cronId, _ := C.AddFunc(cronString, execute)
+// 	logs.Error("提示：" + cronString + "的定时任务已添加")
+// 	// 将cronId更新到数据库
+// 	var cronIdString string = cast.ToString(int(cronId))
+// 	result := psql.Mydb.Model(&models.TpAutomationCondition{}).Where("id = ?", automationCondition.Id).Update("v2", cronIdString)
+// 	if result.Error != nil {
+// 		C.Remove(cronId)
+// 		logs.Error(result.Error.Error())
+// 	}
+// 	return nil
+// }

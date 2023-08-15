@@ -200,7 +200,7 @@ func GetNextTime(v1 string, v2 string, v3 string, v4 string) (string, error) {
 	} else if v1 == "3" {
 		// 星期几的几点几分
 		timeList := strings.Split(v3, ":")
-		if len(timeList) >= 3 {
+		if len(timeList) >= 2 {
 			cronString = timeList[1] + " " + timeList[0] + " * * " + v4
 		} else {
 			return nextTime, errors.New("配置错误")

@@ -10,11 +10,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	context2 "github.com/beego/beego/v2/server/web/context"
 	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	context2 "github.com/beego/beego/v2/server/web/context"
 
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/bitly/go-simplejson"
@@ -362,6 +363,7 @@ func (*OpenapiTSKVService) MsgProc(body []byte, topic string) bool {
 		}
 	}
 	var ConditionsService services.ConditionsService
+	// 自动化检查
 	go ConditionsService.AutomationConditionCheck(device.ID, payload_map)
 	return true
 }
