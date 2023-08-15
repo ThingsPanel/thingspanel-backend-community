@@ -204,7 +204,7 @@ func ExecuteTask(lockKey string) {
 			// 每天的几点几分
 			logMessage += "触发每天的" + automationCondition.V3 + "执行一次的任务；"
 		case "3":
-			logMessage += "触发每周" + automationCondition.V4 + "的" + automationCondition.V3 + "执行一次的任务；"
+			logMessage += "触发每周" + automationCondition.V3 + "的" + automationCondition.V4 + "执行一次的任务；"
 		case "4":
 			// 每月的哪一天的几点几分
 			timeList := strings.Split(automationCondition.V3, ":")

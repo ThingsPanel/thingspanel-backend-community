@@ -199,17 +199,21 @@ func GetNextTime(v1 string, v2 string, v3 string, v4 string) (string, error) {
 		cronString = timeList[1] + " " + timeList[0] + " * * *"
 	} else if v1 == "3" {
 		// 星期几的几点几分
-		timeList := strings.Split(v3, ":")
+		timeList := strings.Split(v4, ":")
 		if len(timeList) >= 2 {
-			cronString = timeList[1] + " " + timeList[0] + " * * " + v4
+			cronString = timeList[1] + " " + timeList[0] + " * * " + v3
 		} else {
-			return nextTime, errors.New("配置错误")
+			return nextTime, errors.New("配置错误,时间格式是：15:04")
 		}
 
 	} else if v1 == "4" {
 		// 每月的哪一天的几点几分
 		timeList := strings.Split(v3, ":")
-		cronString = timeList[2] + " " + timeList[1] + " " + timeList[0] + " * *"
+		if len(timeList) >= 3 {
+			cronString = timeList[2] + " " + timeList[1] + " " + timeList[0] + " * *"
+		} else {
+			return nextTime, errors.New("配置错误,时间格式不正确")
+		}
 	} else if v1 == "5" {
 		cronString = v3
 	}
