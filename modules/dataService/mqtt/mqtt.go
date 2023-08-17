@@ -81,7 +81,7 @@ func ListenNew(broker, username, password string) (err error) {
 	var topicToSubscribeMap = make(map[string]byte)
 	if viper.GetString("mqtt.broker") == "vernemq" {
 		for k, v := range sendmqtt.TopicToSubscribeList {
-			topicToSubscribeMap["$share/group/"+k] = v
+			topicToSubscribeMap["$share/group/"+k+"/+"] = v
 		}
 	} else {
 		topicToSubscribeMap = sendmqtt.TopicToSubscribeList
