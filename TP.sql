@@ -1903,3 +1903,5 @@ INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALU
 INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('24d60ed1-9723-f930-a7bd-8f8e0fbbe695', '单个设备事件列表', '/openapi/v1/device/event/history/list', 'http', '1', '');
 INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('24d60ed1-9723-f930-a7bd-8f8e0fbbe691', '单个设备命令列表', '/openapi/v1/device/command/history/list', 'http', '1', '');
 INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALUES('24d60ed1-9723-f930-a7bd-8f8e0fbbe692', '设备总数、当前在线数', '/openapi/v1/device/deviceCountOnlineCount', 'http', '1', '');
+
+ALTER TABLE public.device ADD CONSTRAINT device_un UNIQUE ("token");

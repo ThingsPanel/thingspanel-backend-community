@@ -74,18 +74,35 @@ func ListenNew(broker, username, password string) (err error) {
 			})
 
 		default:
+			// 判断topic是否是以device/attributes/开头
+			// 判断topic长度是否大于device/attributes/长度
+			if len(d.Topic()) > len(sendmqtt.Topic_DeviceAttributes) {
+				if d.Topic()[:len(sendmqtt.Topic_DeviceAttributes)] == sendmqtt.Topic_DeviceAttributes {
+					_ = p1.Submit(func() {
+						s.MsgProc(d.Payload(), d.Topic())
+					})
+					return
+				}
+			}
 			fmt.Println("undefine topic")
 		}
 	}
 	// mqtt服务如果是vernemq,需要在订阅前增加共享订阅前缀
 	var topicToSubscribeMap = make(map[string]byte)
-	if viper.GetString("mqtt.broker") == "vernemq" {
+	if viper.GetString("mqtt_server") == "vernemq" {
 		for k, v := range sendmqtt.TopicToSubscribeList {
-			topicToSubscribeMap["$share/group/"+k+"/+"] = v
+
+			if k == "device/attributes" {
+				topicToSubscribeMap["$share/group/"+k+"/+"] = v
+			} else {
+				topicToSubscribeMap["$share/group/"+k] = v
+			}
 		}
 	} else {
 		topicToSubscribeMap = sendmqtt.TopicToSubscribeList
 	}
+	// 打印topicToSubscribeMap
+	fmt.Println("----------------------:", topicToSubscribeMap)
 	// 批量订阅
 	if token := MqttClient.SubscribeMultiple(topicToSubscribeMap, messageHandler); token.Wait() && token.Error() != nil {
 		fmt.Println(token.Error())
