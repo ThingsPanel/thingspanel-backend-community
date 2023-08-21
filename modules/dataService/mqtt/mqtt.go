@@ -16,6 +16,25 @@ import (
 var MqttClient mqtt.Client
 
 func ListenNew(broker, username, password string) (err error) {
+	var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
+		fmt.Printf("Mqtt Connect lost: %v", err)
+		i := 0
+		for {
+			time.Sleep(5 * time.Second)
+			if !MqttClient.IsConnected() {
+				fmt.Println("Mqtt reconnecting...")
+				if token := MqttClient.Connect(); token.Wait() && token.Error() != nil {
+					fmt.Println(token.Error())
+					i++
+				} else {
+					fmt.Println("Mqtt reconnect success")
+					break
+				}
+			} else {
+				break
+			}
+		}
+	}
 	opts := mqtt.NewClientOptions()
 	opts.SetUsername(username)
 	opts.SetPassword(password)
@@ -26,7 +45,7 @@ func ListenNew(broker, username, password string) (err error) {
 	// 重连间隔时间
 	opts.SetConnectRetryInterval(time.Duration(5) * time.Second)
 	opts.SetOrderMatters(false)
-
+	opts.OnConnectionLost = connectLostHandler
 	var s services.TSKVService
 	var device services.DeviceService
 	var otaDevice services.TpOtaDeviceService
