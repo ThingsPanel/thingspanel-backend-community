@@ -33,7 +33,7 @@ var (
 // 所有订阅的Topic,用在批量订阅
 var TopicToSubscribeList = map[string]byte{
 	Topic_DeviceAttributes:  Qos,
-	Topic_DeviceStatus:      Qos,
+	Topic_DeviceStatus:      1,
 	Topic_OtaDeviceProgress: Qos,
 	Topic_DeviceEvent:       Qos,
 	Topic_GatewayAttributes: Qos,
