@@ -53,7 +53,10 @@ func ListenNew(broker, username, password string) (err error) {
 	opts.SetDefaultPublishHandler(func(c mqtt.Client, m mqtt.Message) {
 		s.MsgProc(m.Payload(), m.Topic())
 	})
-
+	opts.SetOnConnectHandler(func(c mqtt.Client) {
+		fmt.Println("Mqtt客户端已连接")
+	})
+	opts.SetCleanSession(false)
 	MqttClient = mqtt.NewClient(opts)
 
 	if token := MqttClient.Connect(); token.Wait() && token.Error() != nil {
