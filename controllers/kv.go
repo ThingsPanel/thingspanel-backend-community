@@ -216,7 +216,10 @@ func (this *KvController) CurrentData() {
 		return
 	}
 	var TSKVService services.TSKVService
-	t := TSKVService.GetCurrentData(CurrentKV.EntityID, CurrentKV.Attribute)
+	t, err := TSKVService.GetCurrentData(CurrentKV.EntityID, CurrentKV.Attribute)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(this.Ctx))
+	}
 	//log.Println(t)
 	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
 }
@@ -296,6 +299,30 @@ func (this *KvController) CurrentDataByAssetA() {
 	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
 }
 
+//GetHistoryDataByKey
+func (this *KvController) GetHistoryDataByKey() {
+	HistoryDataByKeyValidate := valid.HistoryDataByKeyValidate{}
+	err := json.Unmarshal(this.Ctx.Input.RequestBody, &HistoryDataByKeyValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(HistoryDataByKeyValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(HistoryDataByKeyValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
+			break
+		}
+		return
+	}
+	var TSKVService services.TSKVService
+	trees, _ := TSKVService.GetHistoryDataByKey(HistoryDataByKeyValidate.DeviceId, HistoryDataByKeyValidate.Key, HistoryDataByKeyValidate.StartTime, HistoryDataByKeyValidate.EndTime, HistoryDataByKeyValidate.Limit)
+	response.SuccessWithDetailed(200, "success", trees, map[string]string{}, (*context2.Context)(this.Ctx))
+}
+
 // 根据设备id分页查询当前kv
 func (KvController *KvController) DeviceHistoryData() {
 	DeviceHistoryDataValidate := valid.DeviceHistoryDataValidate{}
@@ -343,7 +370,7 @@ func (KvController *KvController) HistoryData() {
 		return
 	}
 	var TSKVService services.TSKVService
-	trees := TSKVService.GetHistoryData(HistoryDataValidate.DeviceId, HistoryDataValidate.Attribute, HistoryDataValidate.StartTs, HistoryDataValidate.EndTs, HistoryDataValidate.Rate)
+	trees, _ := TSKVService.GetHistoryData(HistoryDataValidate.DeviceId, HistoryDataValidate.Attribute, HistoryDataValidate.StartTs, HistoryDataValidate.EndTs, HistoryDataValidate.Rate)
 	response.SuccessWithDetailed(200, "success", trees, map[string]string{}, (*context2.Context)(KvController.Ctx))
 }
 

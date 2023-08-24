@@ -270,7 +270,8 @@ func init() {
 		web.NSRouter("/kv/device/history", &controllers.KvController{}, "*:DeviceHistoryData"),
 		// 通过属性名查询设备历史数据
 		web.NSRouter("/kv/history", &controllers.KvController{}, "*:HistoryData"),
-
+		// 通过设备id、key查询设备历史数据
+		web.NSRouter("/kv/history/key", &controllers.KvController{}, "*:GetHistoryDataByKey"),
 		// 系统设置接口
 		web.NSRouter("/system/logo/index", &controllers.LogoController{}, "*:Index"), //ty
 		//常规设置修改

@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,9 +15,13 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/beego/beego/v2/server/web"
 	"github.com/bitly/go-simplejson"
 
 	//"github.com/zenghouchao/timeHelper"
+	tptodb "ThingsPanel-Go/grpc/tptodb_client"
+	pb "ThingsPanel-Go/grpc/tptodb_client/grpc_tptodb"
+
 	"gorm.io/gorm"
 )
 
@@ -220,8 +225,17 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string) bool {
 				logs.Error(err.Error())
 				return false
 			} else {
+				// 通道缓冲区大小
+				channelBufferSize, _ := web.AppConfig.Int("channel_buffer_size")
+				messages := make(chan map[string]interface{}, channelBufferSize)
+				// 写入协程数
+				writeWorkers, _ := web.AppConfig.Int("write_workers")
+				for i := 0; i < writeWorkers; i++ {
+					var TSKVService TSKVService
+					go TSKVService.BatchWrite(messages)
+				}
 				var TSKVService TSKVService
-				TSKVService.MsgProc(sub_payload_bytes, topic)
+				TSKVService.MsgProc(messages, sub_payload_bytes, topic)
 			}
 		}
 	}
@@ -229,7 +243,7 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string) bool {
 }
 
 // 接收硬件消息 ，数据转发切入点，（设备上报）
-func (*TSKVService) MsgProc(body []byte, topic string) bool {
+func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte, topic string) bool {
 	logs.Info("-------------------------------")
 	logs.Info("来自直连设备/网关解析后的子设备的消息：")
 	logs.Info(utils.ReplaceUserInput(string(body)))
@@ -278,89 +292,159 @@ func (*TSKVService) MsgProc(body []byte, topic string) bool {
 		var WarningConfigService WarningConfigService
 		WarningConfigService.WarningConfigCheck(device.ID, payload_map)
 	}
-	// 设备触发自动化
-	//var ConditionsService ConditionsService
-	//ConditionsService.ConditionsConfigCheck(device.ID, payload_map)
-	// 入库
-	//存入系统时间
-	ts := time.Now().UnixMicro()
-	payload_map["systime"] = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
-	for k, v := range payload_map {
-		switch value := v.(type) {
-		case int64:
-			d = models.TSKV{
-				EntityType: "DEVICE",
-				EntityID:   device.ID,
-				Key:        k,
-				TS:         ts,
-				LongV:      value,
-				TenantID:   device.TenantId,
+	// 非系统数据库不需要入库
+	dbType, _ := web.AppConfig.String("dbType")
+	if dbType != "cassandra" {
+		// 入库
+		//存入系统时间
+		ts := time.Now().UnixMicro()
+		payload_map["systime"] = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
+		for k, v := range payload_map {
+			switch value := v.(type) {
+			case int64:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        k,
+					TS:         ts,
+					LongV:      value,
+					TenantID:   device.TenantId,
+				}
+			case string:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        k,
+					TS:         ts,
+					StrV:       value,
+					TenantID:   device.TenantId,
+				}
+			case bool:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        k,
+					TS:         ts,
+					BoolV:      strconv.FormatBool(value),
+					TenantID:   device.TenantId,
+				}
+			case float64:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        k,
+					TS:         ts,
+					DblV:       value,
+					TenantID:   device.TenantId,
+				}
+			default:
+				d = models.TSKV{
+					EntityType: "DEVICE",
+					EntityID:   device.ID,
+					Key:        k,
+					TS:         ts,
+					StrV:       fmt.Sprint(value),
+					TenantID:   device.TenantId,
+				}
 			}
-		case string:
-			d = models.TSKV{
-				EntityType: "DEVICE",
-				EntityID:   device.ID,
-				Key:        k,
-				TS:         ts,
-				StrV:       value,
-				TenantID:   device.TenantId,
+			// ts_kv批量入库
+			logs.Warn("tskv入库数据：", d)
+			messages <- map[string]interface{}{
+				"tskv": d,
 			}
-		case bool:
-			d = models.TSKV{
-				EntityType: "DEVICE",
-				EntityID:   device.ID,
-				Key:        k,
-				TS:         ts,
-				BoolV:      strconv.FormatBool(value),
-				TenantID:   device.TenantId,
-			}
-		case float64:
-			d = models.TSKV{
-				EntityType: "DEVICE",
-				EntityID:   device.ID,
-				Key:        k,
-				TS:         ts,
-				DblV:       value,
-				TenantID:   device.TenantId,
-			}
-		default:
-			d = models.TSKV{
-				EntityType: "DEVICE",
-				EntityID:   device.ID,
-				Key:        k,
-				TS:         ts,
-				StrV:       fmt.Sprint(value),
-				TenantID:   device.TenantId,
-			}
-		}
-		// 更新当前值表
-		l := models.TSKVLatest{}
-		utils.StructAssign(&l, &d)
-		var latestCount int64
-		psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", l.EntityType, l.EntityID, l.Key, l.TenantID).Count(&latestCount)
-		if latestCount <= 0 {
-			rtsl := psql.Mydb.Create(&l)
-			if rtsl.Error != nil {
-				log.Println(rtsl.Error)
-			}
-		} else {
-			rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", l.EntityType, l.EntityID,
-				l.Key, l.TenantID).Updates(map[string]interface{}{"entity_type": l.EntityType, "entity_id": l.EntityID, "key": l.Key, "ts": l.TS, "bool_v": l.BoolV, "long_v": l.LongV, "str_v": l.StrV, "dbl_v": l.DblV})
-			if rtsl.Error != nil {
-				log.Println(rtsl.Error)
-			}
-		}
-		// ts_kv入库
-		logs.Debug("tskv入库数据：", d)
-		rts := psql.Mydb.Create(&d)
-		if rts.Error != nil {
-			log.Println(rts.Error)
-			return false
+			// 更新当前值表
+			// l := models.TSKVLatest{}
+			// utils.StructAssign(&l, &d)
+			// var latestCount int64
+			// psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", l.EntityType, l.EntityID, l.Key, l.TenantID).Count(&latestCount)
+			// if latestCount <= 0 {
+			// 	rtsl := psql.Mydb.Create(&l)
+			// 	if rtsl.Error != nil {
+			// 		log.Println(rtsl.Error)
+			// 	}
+			// } else {
+			// 	rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", l.EntityType, l.EntityID,
+			// 		l.Key, l.TenantID).Updates(map[string]interface{}{"entity_type": l.EntityType, "entity_id": l.EntityID, "key": l.Key, "ts": l.TS, "bool_v": l.BoolV, "long_v": l.LongV, "str_v": l.StrV, "dbl_v": l.DblV})
+			// 	if rtsl.Error != nil {
+			// 		log.Println(rtsl.Error)
+			// 	}
+			// }
+
+			// rts := psql.Mydb.Create(&d)
+			// if rts.Error != nil {
+			// 	log.Println(rts.Error)
+			// 	return false
+			// }
 		}
 	}
+
 	var ConditionsService ConditionsService
 	go ConditionsService.AutomationConditionCheck(device.ID, payload_map)
 	return true
+}
+
+// 批量写入
+func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
+	logs.Info("批量写入协程启动")
+	var tskvList []models.TSKV
+	var tskvLatestList []models.TSKVLatest
+	batchWaitTime, _ := web.AppConfig.Int("batch_wait_time")
+	logs.Info("批量写入等待时间：", batchWaitTime)
+	// 转time.Duration
+	batchWaitTimeDuration := time.Duration(batchWaitTime) * time.Second
+	batchSize, _ := web.AppConfig.Int("batch_size")
+	logs.Warn("批量写入大小：", batchSize)
+	for {
+
+		// 如果超过1秒钟messages没有收到任何消息，则将批处理写入
+		startTime := time.Now()
+		for i := 0; i < batchSize; i++ {
+			// 判断是否超时
+			// 超时时间
+			if time.Since(startTime) > batchWaitTimeDuration {
+				break
+			}
+			message, ok := <-messages
+			if !ok {
+				break
+			}
+			if tskv, ok := message["tskv"].(models.TSKV); ok {
+				tskvList = append(tskvList, tskv)
+				var tskvLatest models.TSKVLatest
+				utils.StructAssign(&tskvLatest, &tskv)
+				tskvLatestList = append(tskvLatestList, tskvLatest)
+			}
+		}
+		if len(tskvList) > 0 {
+			if err := psql.Mydb.Create(&tskvList).Error; err != nil {
+				logs.Error(err.Error())
+			}
+			fmt.Println("批量写入ts_kv：", len(tskvList))
+			tskvList = []models.TSKV{}
+		}
+		// 更新ts_kv_latest
+		if len(tskvLatestList) > 0 {
+			// 创建事务
+			for _, tskvLatest := range tskvLatestList {
+				var latestCount int64
+				// 根据条件entity_type，entity_id，key，tenant_id查询是否存在
+				psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", tskvLatest.EntityType, tskvLatest.EntityID, tskvLatest.Key, tskvLatest.TenantID).Count(&latestCount)
+				if latestCount <= 0 {
+					rtsl := psql.Mydb.Create(&tskvLatest)
+					if rtsl.Error != nil {
+						logs.Error(rtsl.Error)
+					}
+				} else {
+					rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", tskvLatest.EntityType, tskvLatest.EntityID,
+						tskvLatest.Key, tskvLatest.TenantID).Updates(map[string]interface{}{"entity_type": tskvLatest.EntityType, "entity_id": tskvLatest.EntityID, "key": tskvLatest.Key, "ts": tskvLatest.TS, "bool_v": tskvLatest.BoolV, "long_v": tskvLatest.LongV, "str_v": tskvLatest.StrV, "dbl_v": tskvLatest.DblV})
+					if rtsl.Error != nil {
+						logs.Error(rtsl.Error)
+					}
+				}
+			}
+		}
+
+	}
 }
 
 // 分页查询数据
@@ -628,10 +712,34 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 }
 
 // 通过设备ID获取一段时间的数据
-func (*TSKVService) GetHistoryData(device_id string, attributes []string, startTs int64, endTs int64, rate string) map[string][]interface{} {
+func (*TSKVService) GetHistoryData(device_id string, attributes []string, startTs int64, endTs int64, rate string) (map[string][]interface{}, error) {
+	var rsp_map = make(map[string][]interface{})
+	dbType, _ := web.AppConfig.String("dbType")
+	if dbType == "cassandra" {
+		// 通过grpc获取数据
+		request := &pb.GetDeviceAttributesHistoryRequest{
+			DeviceId:  device_id,
+			Attribute: attributes,
+			StartTime: startTs,
+			EndTime:   endTs,
+		}
+		r, err := tptodb.TptodbClient.GetDeviceAttributesHistory(context.Background(), request)
+		if err != nil {
+			logs.Error(err.Error())
+			return rsp_map, err
+		}
+		// r.data为json字符串，转map
+		var data map[string][]interface{}
+		err = json.Unmarshal([]byte(r.Data), &data)
+		if err != nil {
+			logs.Error(err.Error())
+			return rsp_map, err
+		}
+		return data, nil
+	}
 	var ts_kvs []models.TSKV
 	var result *gorm.DB
-	var rsp_map = make(map[string][]interface{})
+
 	if rate == "" {
 		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where(" ts >= ? AND ts <= ? AND entity_id = ? AND key in ?", startTs*1000, endTs*1000, device_id, attributes).Order("ts asc").Find(&ts_kvs)
 	} else {
@@ -642,7 +750,7 @@ func (*TSKVService) GetHistoryData(device_id string, attributes []string, startT
 	}
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return rsp_map
+		return rsp_map, result.Error
 	}
 	// for _,attribute := range attributes{
 	// 	rsp_map[attribute] = []interface{}{}
@@ -683,7 +791,7 @@ func (*TSKVService) GetHistoryData(device_id string, attributes []string, startT
 			}
 		}
 	}
-	return rsp_map
+	return rsp_map, nil
 }
 
 // 返回最新一条的设备数据，用来判断设备状态（待接入，异常，正常）
@@ -697,8 +805,30 @@ func (*TSKVService) Status(device_id string) (*models.TSKVLatest, int64) {
 }
 
 // 通过设备ID获取设备当前值
-func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[string]interface{} {
+func (*TSKVService) GetCurrentData(device_id string, attributes []string) ([]map[string]interface{}, error) {
 	var fields []map[string]interface{}
+	dbType, _ := web.AppConfig.String("dbType")
+	if dbType == "cassandra" {
+		// 通过grpc获取数据
+		request := &pb.GetDeviceAttributesCurrentsRequest{
+			DeviceId:  device_id,
+			Attribute: attributes,
+		}
+		r, err := tptodb.TptodbClient.GetDeviceAttributesCurrents(context.Background(), request)
+		if err != nil {
+			logs.Error(err.Error())
+			return fields, err
+		}
+		// r.data为json字符串，转map
+		var data map[string]interface{}
+		err = json.Unmarshal([]byte(r.Data), &data)
+		if err != nil {
+			logs.Error(err.Error())
+			return fields, err
+		}
+		fields = append(fields, data)
+		return fields, nil
+	}
 	var ts_kvs []models.TSKVLatest
 	device := make(map[string]interface{})
 	var result *gorm.DB
@@ -719,7 +849,7 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[
 	}
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return fields
+		return fields, result.Error
 	}
 	if len(ts_kvs) > 0 {
 		//var i int64 = 0
@@ -769,7 +899,7 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) []map[
 		device["fields"] = fields
 		device["latest"] = fields[len(fields)-1]
 	}
-	return fields
+	return fields, nil
 }
 
 // 根据业务id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）
@@ -796,7 +926,7 @@ func (*TSKVService) GetCurrentDataByBusiness(business string) map[string]interfa
 			deviceData["d_id"] = device.DId
 			deviceData["location"] = device.Location
 			var TSKVService TSKVService
-			fields := TSKVService.GetCurrentData(device.ID, nil)
+			fields, _ := TSKVService.GetCurrentData(device.ID, nil)
 			if len(fields) == 0 {
 				deviceData["values"] = make(map[string]interface{}, 0)
 				deviceData["status"] = "0"
@@ -853,7 +983,7 @@ func (*TSKVService) GetCurrentDataByAsset(asset_id string) map[string]interface{
 			deviceData["d_id"] = device.DId
 			deviceData["location"] = device.Location
 			var TSKVService TSKVService
-			fields := TSKVService.GetCurrentData(device.ID, nil)
+			fields, _ := TSKVService.GetCurrentData(device.ID, nil)
 			if len(fields) == 0 {
 				deviceData["values"] = make(map[string]interface{}, 0)
 				deviceData["status"] = "0"
@@ -911,7 +1041,7 @@ func (*TSKVService) GetCurrentDataByAssetA(asset_id string) map[string]interface
 			deviceData["location"] = device.Location
 
 			var TSKVService TSKVService
-			fields := TSKVService.GetCurrentData(device.ID, nil)
+			fields, _ := TSKVService.GetCurrentData(device.ID, nil)
 			if len(fields) == 0 {
 				deviceData["values"] = make(map[string]interface{}, 0)
 				deviceData["status"] = "0"
@@ -961,8 +1091,70 @@ func (*TSKVService) GetCurrentDataByAssetA(asset_id string) map[string]interface
 	return datas
 }
 
+// 根据设备id查询key的历史数据
+func (*TSKVService) GetHistoryDataByKey(device_id string, key string, startTs int64, endTs int64, limit int64) (map[string]interface{}, error) {
+	var rsp_map = make(map[string]interface{})
+	dbType, _ := web.AppConfig.String("dbType")
+	if dbType == "cassandra" {
+		// 通过grpc获取数据
+		request := &pb.GetDeviceHistoryRequest{
+			DeviceId:  device_id,
+			Key:       key,
+			StartTime: startTs,
+			EndTime:   endTs,
+			Limit:     limit,
+		}
+		r, err := tptodb.TptodbClient.GetDeviceHistory(context.Background(), request)
+		if err != nil {
+			logs.Error(err.Error())
+			return rsp_map, err
+		}
+		// r.data为json字符串，转map
+		var data map[string]interface{}
+		err = json.Unmarshal([]byte(r.Data), &data)
+		if err != nil {
+			logs.Error(err.Error())
+			return rsp_map, err
+		}
+		return data, nil
+	}
+	var ts_kvs []models.TSKV
+	// 时间跨度不能超过100天，超过100天按100天算
+	if (endTs - startTs) > 8640000000 {
+		startTs = endTs - 8640000000
+	}
+	// 获取total
+	var count int64
+	result2 := psql.Mydb.Model(&models.TSKV{}).Where("ts >= ? AND ts <= ? AND entity_id = ? AND key = ?", startTs*1000, endTs*1000, device_id, key).Count(&count)
+	if result2.Error != nil {
+		errors.Is(result2.Error, gorm.ErrRecordNotFound)
+		return rsp_map, result2.Error
+	}
+	result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("ts >= ? AND ts <= ? AND entity_id = ? AND key = ?", startTs*1000, endTs*1000, device_id, key).Order("ts desc").Limit(int(limit)).Find(&ts_kvs)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return rsp_map, result.Error
+	}
+	var dataMap []map[string]interface{}
+	for _, v := range ts_kvs {
+		var data = make(map[string]interface{})
+		data["ts"] = v.TS
+		if fmt.Sprint(v.StrV) != "" {
+			data["value"] = v.StrV
+		} else if v.DblV != 0 {
+			data["value"] = v.DblV
+		}
+		dataMap = append(dataMap, data)
+	}
+	rsp_map["data"] = dataMap
+	rsp_map["total"] = count
+	return rsp_map, nil
+
+}
+
 // 根据设id分页查询设备kv，以{k:v,k:v...}方式返回
 func (*TSKVService) DeviceHistoryData(device_id string, current int, size int) ([]map[string]interface{}, int64) {
+	var fields []map[string]interface{}
 	var ts_kvs []models.TSKV
 	var count int64
 	result := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts desc").Limit(size).Offset((current - 1) * size).Find(&ts_kvs)
@@ -970,7 +1162,7 @@ func (*TSKVService) DeviceHistoryData(device_id string, current int, size int) (
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
 	}
 	psql.Mydb.Model(&models.TSKV{}).Where("entity_id = ?", device_id).Count(&count)
-	var fields []map[string]interface{}
+
 	if len(ts_kvs) > 0 {
 		var i int64 = 0
 		var field map[string]interface{}
@@ -1028,8 +1220,77 @@ func (*TSKVService) DeleteCurrentDataByDeviceId(deviceId string) {
 
 // 通过设备ID获取设备当前值和插件映射属性
 func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) ([]map[string]interface{}, error) {
+
 	logs.Info("**********************************************")
 	var fields []map[string]interface{}
+	dbType, _ := web.AppConfig.String("dbType")
+	if dbType == "cassandra" {
+		// 通过grpc获取数据
+		request := &pb.GetDeviceAttributesCurrentsRequest{
+			DeviceId:  device_id,
+			Attribute: attributes,
+		}
+		r, err := tptodb.TptodbClient.GetDeviceAttributesCurrents(context.Background(), request)
+		if err != nil {
+			logs.Error(err.Error())
+			return fields, err
+		}
+		// r.data为json字符串，转map
+		var data map[string]interface{}
+		err = json.Unmarshal([]byte(r.Data), &data)
+		if err != nil {
+			logs.Error(err.Error())
+			return fields, err
+		}
+		fields = append(fields, data)
+		// 查询物模型映射
+		var DeviceService DeviceService
+		device, _ := DeviceService.GetDeviceByID(device_id)
+		var DeviceModelService DeviceModelService
+		device_plugin := DeviceModelService.GetDeviceModelDetail(device.Type)
+		logs.Info("设备插件", device_plugin)
+		if len(device_plugin) == 0 {
+			return fields, nil
+		}
+		type Properties struct {
+			DataType  string `json:"dataType"`
+			DataRange string `json:"dataRange"`
+			Unit      string `json:"unit"`
+			Title     string `json:"title"`
+			Name      string `json:"name"`
+		}
+		type Tsl struct {
+			Properties []Properties `json:"properties"`
+		}
+		type Data struct {
+			Tsl Tsl `json:"tsl"`
+		}
+		//映射
+		var device_attribute_map Data
+		var properties_key = make(map[string]string)
+		var properties_symbol = make(map[string]string)
+		if err := json.Unmarshal([]byte(device_plugin[0].ChartData), &device_attribute_map); err != nil {
+			logs.Info(err.Error())
+		} else {
+			for _, a_map := range device_attribute_map.Tsl.Properties {
+				if a_map.Title != "" {
+					properties_key[a_map.Name] = a_map.Title
+				}
+				if a_map.Unit != "-" && a_map.Unit != "" {
+					properties_symbol[a_map.Name] = a_map.Unit
+				}
+			}
+		}
+		for k, v := range fields {
+			for key, value := range v {
+				if properties_key[key] != "" {
+					fields[k][properties_key[key]] = value
+					delete(fields[k], key)
+				}
+			}
+		}
+		return fields, nil
+	}
 	var ts_kvs []models.TSKVLatest
 	var result *gorm.DB
 	if attributes == nil {

@@ -30,21 +30,18 @@ var (
 	Topic_OtaDeviceInform = "ota/device/inform" // 发布
 )
 
-// 所有订阅的Topic,用在批量订阅
-var TopicToSubscribeList = map[string]byte{
-	Topic_DeviceAttributes:  Qos,
-	Topic_DeviceStatus:      1,
-	Topic_OtaDeviceProgress: Qos,
-	Topic_DeviceEvent:       Qos,
-	Topic_GatewayAttributes: Qos,
-	Topic_GatewayEvent:      Qos,
-}
-
-// 所有发布的Topic,暂未使用
-var TopicToPublishList = map[string]byte{
-	Topic_DeviceCommand:   Qos,
-	Topic_GatewayCommand:  Qos,
-	Topic_OtaDeviceInform: Qos,
+func InitTopic() {
+	// mqtt服务如果是vernemq,需要在订阅前增加共享订阅前缀，否则不需要
+	fmt.Println("mqtt_server:", viper.GetString("mqtt_server"))
+	if viper.GetString("mqtt_server") == "vernemq" {
+		fmt.Println("mqtt_server is vernemq")
+		Topic_DeviceAttributes = "$share/group/device/attributes/+"
+		Topic_GatewayAttributes = "$share/group/gateway/attributes/+"
+		Topic_DeviceStatus = "$share/group/device/status" // root用户发送的状态，没有deviceid后缀
+		Topic_OtaDeviceProgress = "$share/group/ota/device/progress/+"
+		Topic_DeviceEvent = "$share/group/device/event/+"
+		Topic_GatewayEvent = "$share/group/gateway/event/+"
+	}
 }
 
 func connect() {

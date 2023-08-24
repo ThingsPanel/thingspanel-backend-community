@@ -130,6 +130,7 @@ func Listen(tcpPort string) {
 			//消息ID（0x10-心跳包，0x20-数据包）
 			if buf[4] == byte(0x10) || buf[4] == byte(0x09) {
 				//#心跳包应答#---
+				
 				TSKVS.MsgProc(msgData, "")
 				buf[4] = 0x11
 				c.ConnWriter.Write(buf[:n])

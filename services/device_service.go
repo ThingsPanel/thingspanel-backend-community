@@ -314,7 +314,7 @@ func (*DeviceService) AllDeviceList(req valid.DevicePageListValidate) ([]map[str
 	} else {
 		var TSKVService TSKVService
 		for _, deviceData := range deviceList {
-			fields := TSKVService.GetCurrentData(deviceData["device_id"].(string), nil)
+			fields, _ := TSKVService.GetCurrentData(deviceData["device_id"].(string), nil)
 			if len(fields) == 0 {
 				deviceData["values"] = make(map[string]interface{}, 0)
 				//deviceData["status"] = "0"

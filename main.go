@@ -1,6 +1,8 @@
 package main
 
 import (
+	beego "github.com/beego/beego/v2/server/web"
+
 	_ "ThingsPanel-Go/initialize/log"
 
 	_ "ThingsPanel-Go/modules/dataService"
@@ -18,18 +20,21 @@ import (
 	"fmt"
 	"time"
 
-	beego "github.com/beego/beego/v2/server/web"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 
 	_ "ThingsPanel-Go/grpc/server"
 
 	_ "ThingsPanel-Go/cron"
+
+	tptodbClient "ThingsPanel-Go/grpc/tptodb_client"
 )
 
 var Ticker *time.Ticker
 
 func main() {
+	// 初始化grpc
+	go tptodbClient.GrpcTptodbInit()
 	// 读取服务器信息
 	Ticker = time.NewTicker(time.Millisecond * 5000)
 	go func() {

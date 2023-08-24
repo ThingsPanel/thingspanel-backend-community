@@ -24,7 +24,10 @@ func init() {
 		maxlines,
 		maxdays,
 	)
-	levelInt, _ := beego.AppConfig.Int("level")
+	levelInt, err := beego.AppConfig.Int("level")
+	if err != nil {
+		log.Println("日志等级配置错误")
+	}
 	logs.SetLevel(levelInt) // 如果不设置日志等级，logs.AdapterConsole适配器不生效
 	//maxdays 文件最多保存多少天，默认保存 7 天
 	logs.SetLogger(logs.AdapterFile, dataSource)

@@ -3,7 +3,6 @@ package dataService
 import (
 	"ThingsPanel-Go/modules/dataService/mqtt"
 	mqtts "ThingsPanel-Go/modules/dataService/mqtts/connect"
-	"ThingsPanel-Go/modules/dataService/tcp"
 	tphttp "ThingsPanel-Go/others/http"
 	"flag"
 	"fmt"
@@ -69,7 +68,7 @@ func listenMQTTS() {
 func ListenTCP() {
 	tcpPort := viper.GetString("tcp.port")
 	log.Printf("config of tcp port -- %s", tcpPort)
-	tcp.Listen(tcpPort)
+	//tcp.Listen(tcpPort)
 }
 func reg_mqtt_root() {
 	MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")

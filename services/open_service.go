@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/beego/beego/v2/server/web"
 )
 
 type OpenService struct {
@@ -53,9 +54,18 @@ func (*OpenService) SaveData(OpenValidate valid.OpenValidate) (bool, error) {
 	logs.Info("=======================")
 	//logs.Info(OpenValidate)
 	// 解析并存储数据
+	// 通道缓冲区大小
+	channelBufferSize, _ := web.AppConfig.Int("channel_buffer_size")
+	messages := make(chan map[string]interface{}, channelBufferSize)
+	// 写入协程数
+	writeWorkers, _ := web.AppConfig.Int("write_workers")
+	for i := 0; i < writeWorkers; i++ {
+		var TSKVService TSKVService
+		go TSKVService.BatchWrite(messages)
+	}
 	OpenValidateByte, _ := json.Marshal(OpenValidate)
 	var TSKV TSKVService
-	isSucess := TSKV.MsgProc(OpenValidateByte, "")
+	isSucess := TSKV.MsgProc(messages, OpenValidateByte, "")
 	if isSucess {
 		return isSucess, nil
 	} else {

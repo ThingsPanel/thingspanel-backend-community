@@ -59,3 +59,12 @@ type HistoryDataValidate struct {
 	EndTs     int64    `json:"end_ts" alias:"结束时间" valid:"Required"`
 	Rate      string   `json:"rate" alias:"间隔" valid:"MaxSize(36)"`
 }
+
+//GetHistoryDataByKey 校验
+type HistoryDataByKeyValidate struct {
+	DeviceId  string `json:"device_id" alias:"设备" valid:"Required;MaxSize(36)"`
+	Key       string `json:"key" alias:"属性" valid:"Required;MaxSize(36)"`
+	StartTime int64  `json:"start_time" alias:"开始时间" valid:"Required"`
+	EndTime   int64  `json:"end_time" alias:"结束时间" valid:"Required"`
+	Limit     int64  `json:"limit" alias:"条数" valid:"Max(1000000)"`
+}
