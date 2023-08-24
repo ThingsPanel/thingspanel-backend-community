@@ -126,7 +126,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 						if value, ok := values[conditionData.V1]; ok {
 							isThisDevice = true
 							isSuccess, _ := utils.Check(value, conditionData.V2, conditionData.V3)
-							logs.Warn("check:", isSuccess)
+							logs.Info("check:", isSuccess)
 							isPass = isSuccess
 							if isPass {
 								logMessage += "设备上报的属性" + conditionData.V1 + ":" + cast.ToString(values[conditionData.V1]) + conditionData.V2 + cast.ToString(conditionData.V3) + "通过；"
