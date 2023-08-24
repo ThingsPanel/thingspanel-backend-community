@@ -348,7 +348,7 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 				}
 			}
 			// ts_kv批量入库
-			logs.Warn("tskv入库数据：", d)
+			logs.Info("tskv入库数据：", d)
 			messages <- map[string]interface{}{
 				"tskv": d,
 			}
