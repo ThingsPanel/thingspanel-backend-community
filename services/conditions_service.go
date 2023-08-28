@@ -336,7 +336,24 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 				} else if deviceModel == "2" {
 					automationLogDetail.ProcessDescription = "暂不支持调动服务;"
 					automationLogDetail.ProcessResult = "2"
-				} else {
+				} else if deviceModel == "3" { // 自定义属性下发
+					instructMap := res.Get("instruct").MustMap()
+					instructByte, err := json.Marshal(instructMap)
+					if err != nil {
+						logs.Error(err.Error())
+						automationLogDetail.ProcessDescription = "instruct:" + err.Error()
+						automationLogDetail.ProcessResult = "2"
+					} else {
+						var Device DeviceService
+						deviceData, _ := Device.Token(automationAction.DeviceId)
+						err := Device.SendMessage(instructByte, deviceData)
+						if err != nil {
+							logs.Error(err.Error())
+							automationLogDetail.ProcessDescription = "instruct:" + err.Error()
+							automationLogDetail.ProcessResult = "2"
+						}
+					}
+				} else { // 暂不支持的deviceModel
 					automationLogDetail.ProcessDescription = "deviceModel错误;"
 					automationLogDetail.ProcessResult = "2"
 				}
