@@ -18,15 +18,14 @@ type TpWsOpenapi struct {
 	TimeField []string
 }
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
 func (*TpWsOpenapi) HandleConnections(w http.ResponseWriter, r *http.Request) {
+	var upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
 	// 获取头信息示例
 	key := r.Header.Get("Authorization")
 	log.Printf("Received: %s", key)

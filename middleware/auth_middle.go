@@ -79,6 +79,7 @@ func AuthMiddle() {
 		}
 	}
 	adapter.InsertFilter("/api/*", adapter.BeforeRouter, filterLogin)
+	adapter.InsertFilter("/ws/*", adapter.BeforeRouter, filterLogin)
 }
 
 // 不需要授权的url返回true

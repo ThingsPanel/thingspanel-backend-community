@@ -473,6 +473,7 @@ func init() {
 	// 图表推送数据
 	web.Router("/ws", &controllers.WebsocketController{}, "*:WsHandler")
 	web.Router("/ws/demo", &controllers.TpWsOpenapiController{}, "*:WsHandler")
+	web.Router("/ws/device/current", &controllers.TpWsOpenapiController{}, "*:CurrentData")
 
 	web.AddNamespace(api)
 

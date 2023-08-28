@@ -11,6 +11,8 @@ import (
 	"os"
 
 	"github.com/spf13/viper"
+
+	ws_mqtt "ThingsPanel-Go/modules/dataService/ws_mqtt"
 )
 
 func init() {
@@ -24,7 +26,8 @@ func init() {
 	log.Println("链接mqtt服务...")
 	listenMQTTNew()
 	log.Println("链接mqtt服务完成")
-
+	// 创建ws_mqtt客户端
+	ws_mqtt.CreateWsMqttClient()
 	// log.Println("连接mqtt over tls服务...")
 	// listenMQTTS()
 	// log.Println("连接mqtt over tls完成...")

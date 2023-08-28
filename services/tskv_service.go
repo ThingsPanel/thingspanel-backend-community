@@ -17,6 +17,7 @@ import (
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/server/web"
 	"github.com/bitly/go-simplejson"
+	"github.com/spf13/viper"
 
 	//"github.com/zenghouchao/timeHelper"
 	tptodb "ThingsPanel-Go/grpc/tptodb_client"
@@ -136,26 +137,29 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 			return
 		}
 		//DeviceOnlineState[device.ID] = values["status"]
-		d := models.TSKVLatest{
-			EntityType: "DEVICE",
-			EntityID:   device.ID,
-			Key:        "SYS_ONLINE",
-			TS:         time.Now().UnixMicro(),
-			StrV:       fmt.Sprint(values["status"]),
-		}
-		result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
-		if result.Error != nil {
-			logs.Error(result.Error.Error())
-		} else {
-			if result.RowsAffected == int64(0) {
-				rtsl := psql.Mydb.Create(&d)
-				if rtsl.Error != nil {
-					logs.Error(rtsl.Error)
+		// 如果mqtt_server为vernemq,则不需要更新ts_kv_latest表
+		if viper.GetString("mqtt_server") != "vernemq" {
+			d := models.TSKVLatest{
+				EntityType: "DEVICE",
+				EntityID:   device.ID,
+				Key:        "SYS_ONLINE",
+				TS:         time.Now().UnixMicro(),
+				StrV:       fmt.Sprint(values["status"]),
+			}
+			result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
+			if result.Error != nil {
+				logs.Error(result.Error.Error())
+			} else {
+				if result.RowsAffected == int64(0) {
+					rtsl := psql.Mydb.Create(&d)
+					if rtsl.Error != nil {
+						logs.Error(rtsl.Error)
+					}
 				}
 			}
 		}
 		// 设备上下线自动化检查
-		flag := d.StrV
+		flag := fmt.Sprint(values["status"])
 		if flag == "0" {
 			flag = "2"
 		}
@@ -404,6 +408,8 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 			if time.Since(startTime) > batchWaitTimeDuration {
 				break
 			}
+			// 判断管道是否有消息
+
 			message, ok := <-messages
 			if !ok {
 				break
@@ -442,6 +448,8 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 					}
 				}
 			}
+			// 清空tskvLatestList
+			tskvLatestList = []models.TSKVLatest{}
 		}
 
 	}

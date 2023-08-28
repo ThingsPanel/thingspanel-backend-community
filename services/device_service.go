@@ -40,6 +40,17 @@ func (*DeviceService) Token(id string) (*models.Device, int64) {
 	return &device, result.RowsAffected
 }
 
+// 根据租户id和设备id判断设备是否存在
+func (*DeviceService) IsDeviceExistByTenantIdAndDeviceId(tenantId string, deviceId string) bool {
+	var device models.Device
+	result := psql.Mydb.Where("tenant_id = ? and id = ?", tenantId, deviceId).First(&device)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return false
+	}
+	return true
+}
+
 // GetSubDeviceCount 获取子设备数量
 func (*DeviceService) GetSubDeviceCount(parentId string) (int64, error) {
 	var count int64
