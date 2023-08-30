@@ -87,7 +87,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 	result := psql.Mydb.Table("tp_automation").
 		Select("tp_automation_condition.*").
 		Joins("left join tp_automation_condition on tp_automation.id = tp_automation_condition.automation_id").
-		Where("tp_automation.enabled = '1' and tp_automation_condition.condition_type = '1' and tp_automation_condition.device_condition_type = '1' and tp_automation_condition.device_id = ? ", deviceId).
+		Where("tp_automation.enabled = '1' and tp_automation_condition.condition_type = '1' and tp_automation_condition.device_condition_type in ('1','2') and tp_automation_condition.device_id = ? ", deviceId).
 		Order("tp_automation.priority asc").
 		Find(&automationConditions)
 	if result.Error != nil {
@@ -95,6 +95,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 		return
 	}
 	logs.Info("自动化-设备条件：", automationConditions)
+
 	//logs.Info("自动化-map:", values)
 	// 每一条自动化策略；
 	var passedAutomationList []string
@@ -190,6 +191,30 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 							}
 						}
 					}
+				} else if conditionData.DeviceConditionType == "2" {
+					// 如果配置了事件
+					if _, ok := values["method"]; !ok {
+						isPass = false
+						break
+					}
+					if _, ok := values["params"]; !ok {
+						isPass = false
+						break
+					}
+					method := values["method"].(string)
+					params := values["params"].(string)
+					if method == conditionData.V1 && params == conditionData.V3 {
+						// 上报的事件标识符和事件内容完全一致，则通过
+						isPass = true
+						if isPass {
+							logMessage += "设备上报的事件:[" + conditionData.V1 + "]事件数据" + conditionData.V3 + "通过；"
+							fmt.Println("log", logMessage)
+						}
+					} else {
+						isPass = false
+						break
+					}
+
 				} else {
 					//不是设备属性的都不通过
 					isPass = false
