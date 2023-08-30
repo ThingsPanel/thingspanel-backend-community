@@ -26,7 +26,27 @@ func init() {
 	go TaskCron()
 	//
 	otaCron()
+	// 定时删除resources表中的数据
+	deleteResourcesCron()
 	log.Println("定时任务初始化完成")
+}
+
+// 每小时执行一次删除resources表中的数据
+func deleteResourcesCron() {
+	crontab := cron.New()
+	spec := "0 0 * * *"
+	task := func() {
+		logs.Info("删除resources表中的数据开始")
+		var resourcesService services.ResourcesService
+		isSuccess := resourcesService.Delete()
+		if isSuccess {
+			logs.Info("删除resources表中的数据成功")
+		} else {
+			logs.Error("删除resources表中的数据失败")
+		}
+	}
+	crontab.AddFunc(spec, task)
+	crontab.Start()
 }
 
 //初始化定时任务，已弃用
