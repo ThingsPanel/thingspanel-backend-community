@@ -275,6 +275,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		logs.Error(result.Error.Error())
 		return "", result.Error
 	}
+	var Device DeviceService
 	for _, automationAction := range automationActions {
 		var automationLogDetail models.TpAutomationLogDetail
 		if automationAction.ActionType == "1" {
@@ -334,8 +335,23 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 					}
 
 				} else if deviceModel == "2" {
-					automationLogDetail.ProcessDescription = "暂不支持调动服务;"
-					automationLogDetail.ProcessResult = "2"
+					// 向设备发送命令
+					instructMap := res.Get("instruct").MustMap()
+					if err != nil {
+						logs.Error(err.Error())
+						automationLogDetail.ProcessDescription = "instruct:" + err.Error()
+						automationLogDetail.ProcessResult = "2"
+					} else {
+						deviceData, _ := Device.Token(automationAction.DeviceId)
+						paramsByte, _ := json.Marshal(instructMap["params"])
+						err = Device.SendCommandToDevice(deviceData, deviceData.ID, instructMap["method"].(string), paramsByte, "场景联动触发", "")
+						if err != nil {
+							logs.Error(err.Error())
+							automationLogDetail.ProcessDescription = "instruct:" + err.Error()
+							automationLogDetail.ProcessResult = "2"
+						}
+					}
+
 				} else if deviceModel == "3" { // 自定义属性下发
 					instructMap := res.Get("instruct").MustMap()
 					instructByte, err := json.Marshal(instructMap)
@@ -344,7 +360,6 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						automationLogDetail.ProcessDescription = "instruct:" + err.Error()
 						automationLogDetail.ProcessResult = "2"
 					} else {
-						var Device DeviceService
 						deviceData, _ := Device.Token(automationAction.DeviceId)
 						err := Device.SendMessage(instructByte, deviceData)
 						if err != nil {
