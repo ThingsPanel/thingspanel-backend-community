@@ -202,13 +202,13 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 						break
 					}
 					method := values["method"].(string)
-					params := values["params"].(string)
-					if method == conditionData.V1 && params == conditionData.V3 {
+					paramsByte, _ := json.Marshal(values["params"])
+
+					if method == conditionData.V1 && (string(paramsByte)) == conditionData.V3 {
 						// 上报的事件标识符和事件内容完全一致，则通过
 						isPass = true
 						if isPass {
 							logMessage += "设备上报的事件:[" + conditionData.V1 + "]事件数据" + conditionData.V3 + "通过；"
-							fmt.Println("log", logMessage)
 						}
 					} else {
 						isPass = false
