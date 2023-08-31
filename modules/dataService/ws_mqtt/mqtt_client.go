@@ -38,15 +38,15 @@ func CreateWsMqttClient() (err error) {
 	opts.AddBroker(viper.GetString("mqtt.broker"))
 	// 自动重连
 	opts.SetAutoReconnect(true)
-	opts.CleanSession = false
 	// 重连间隔时间
+	opts.SetResumeSubs(true)
+	opts.SetCleanSession(false)
 	opts.SetConnectRetryInterval(time.Duration(5) * time.Second)
 	opts.SetOrderMatters(false)
 	opts.OnConnectionLost = connectLostHandler
 	opts.SetOnConnectHandler(func(c mqtt.Client) {
 		fmt.Println("wsmqtt客户端已连接")
 	})
-	opts.SetCleanSession(false)
 	WsMqttClient = mqtt.NewClient(opts)
 	for {
 		if token := WsMqttClient.Connect(); token.Wait() && token.Error() != nil {
