@@ -309,8 +309,9 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 	// }
 	// 判断mqtt服务是否为vernemq，如果是不需要转发,主要服务ws接口
 	if viper.GetString("mqtt_server") == "gmqtt" {
+
 		// 发送数据到mqtt服务
-		topic := sendMqtt.Topic_DeviceAttributes + "/" + device.ID
+		topic := viper.GetString("mqtt.topicToSubscribe") + "/" + device.ID
 		sendMqtt.SendMQTT(body, topic, 0)
 	}
 	// 非系统数据库不需要入库

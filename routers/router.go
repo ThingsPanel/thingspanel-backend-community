@@ -474,6 +474,7 @@ func init() {
 	web.Router("/ws", &controllers.WebsocketController{}, "*:WsHandler")
 	web.Router("/ws/demo", &controllers.TpWsOpenapiController{}, "*:WsHandler")
 	web.Router("/ws/device/current", &controllers.TpWsOpenapiController{}, "*:CurrentData")
+	web.Router("/ws/device/event", &controllers.TpWsOpenapiController{}, "*:EventData")
 
 	web.AddNamespace(api)
 
