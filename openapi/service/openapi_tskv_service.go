@@ -278,10 +278,10 @@ func (*OpenapiTSKVService) MsgProc(body []byte, topic string) bool {
 	// 新增的时候删除
 	// 修改的时候删除
 	// 有效时间一小时
-	if redis.GetStr("warning"+device.ID) != "1" {
-		var WarningConfigService services.WarningConfigService
-		WarningConfigService.WarningConfigCheck(device.ID, payload_map)
-	}
+	// if redis.GetStr("warning"+device.ID) != "1" {
+	// 	var WarningConfigService services.WarningConfigService
+	// 	WarningConfigService.WarningConfigCheck(device.ID, payload_map)
+	// }
 	// 设备触发自动化
 	//var ConditionsService ConditionsService
 	//ConditionsService.ConditionsConfigCheck(device.ID, payload_map)
@@ -1033,14 +1033,6 @@ func (*OpenapiTSKVService) DeviceHistoryData(device_id string, current int, size
 		}
 	}
 	return fields, count
-}
-
-// 删除当前值根据设备id
-func (*OpenapiTSKVService) DeleteCurrentDataByDeviceId(deviceId string) {
-	rtsl := psql.Mydb.Where("entity_id = ?", deviceId).Delete(&models.TSKVLatest{})
-	if rtsl.Error != nil {
-		log.Println(rtsl.Error)
-	}
 }
 
 // 通过设备ID获取设备当前值和插件映射属性

@@ -301,10 +301,10 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 	// 新增的时候删除
 	// 修改的时候删除
 	// 有效时间一小时
-	if redis.GetStr("warning"+device.ID) != "1" {
-		var WarningConfigService WarningConfigService
-		WarningConfigService.WarningConfigCheck(device.ID, payload_map)
-	}
+	// if redis.GetStr("warning"+device.ID) != "1" {
+	// 	var WarningConfigService WarningConfigService
+	// 	WarningConfigService.WarningConfigCheck(device.ID, payload_map)
+	// }
 	// 非系统数据库不需要入库
 	dbType, _ := web.AppConfig.String("dbType")
 	if dbType != "cassandra" {
