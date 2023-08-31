@@ -23,6 +23,8 @@ import (
 	tptodb "ThingsPanel-Go/grpc/tptodb_client"
 	pb "ThingsPanel-Go/grpc/tptodb_client/grpc_tptodb"
 
+	sendMqtt "ThingsPanel-Go/modules/dataService/mqtt/sendMqtt"
+
 	"gorm.io/gorm"
 )
 
@@ -305,6 +307,12 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 	// 	var WarningConfigService WarningConfigService
 	// 	WarningConfigService.WarningConfigCheck(device.ID, payload_map)
 	// }
+	// 判断mqtt服务是否为vernemq，如果是不需要转发,主要服务ws接口
+	if viper.GetString("mqtt_server") == "gmqtt" {
+		// 发送数据到mqtt服务
+		topic := sendMqtt.Topic_DeviceAttributes + "/" + device.ID
+		sendMqtt.SendMQTT(body, topic, 0)
+	}
 	// 非系统数据库不需要入库
 	dbType, _ := web.AppConfig.String("dbType")
 	if dbType != "cassandra" {

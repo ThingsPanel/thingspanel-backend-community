@@ -1424,7 +1424,12 @@ func (*DeviceService) SubscribeDeviceEvent(body []byte, topic string) bool {
 		logs.Error("no device")
 		return false
 	}
-
+	// 判断mqtt服务是否为vernemq，如果是不需要转发,主要服务ws接口
+	if viper.GetString("mqtt_server") == "gmqtt" {
+		// 发送数据到mqtt服务
+		topic := sendmqtt.Topic_DeviceEvent + "/" + deviceid
+		sendmqtt.SendMQTT(body, topic, 0)
+	}
 	var payLoadData struct {
 		Method string                 `json:"method"`
 		Params map[string]interface{} `json:"params"`
