@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -17,40 +18,52 @@ import (
 
 var MqttClient mqtt.Client
 
-func ListenNew(broker, username, password string) (err error) {
+func ListenNew(broker, username, password string) error {
 	sendmqtt.InitTopic()
 	var s services.TSKVService
-	p1, _ := ants.NewPool(500) //设备属性，网关属性
-	pOther, _ := ants.NewPool(50)
-	var qos = byte(viper.GetUint("mqtt.qos"))
-	// 启动批量写入
-	// 通道缓冲区大小
+	p1, err := ants.NewPool(500)
+	if err != nil {
+		return err
+	}
+	//defer p1.Release()
+
+	pOther, err := ants.NewPool(50)
+	if err != nil {
+		return err
+	}
+	//defer pOther.Release()
+
+	qos := byte(viper.GetUint("mqtt.qos"))
+
 	channelBufferSize, err := web.AppConfig.Int("channel_buffer_size")
 	if err != nil {
-		logs.Error("channelBufferSize:", err)
+		return err
 	}
+
 	messages := make(chan map[string]interface{}, channelBufferSize)
-	// 写入协程数
+
 	writeWorkers, _ := web.AppConfig.Int("write_workers")
 	for i := 0; i < writeWorkers; i++ {
 		go s.BatchWrite(messages)
 	}
+
 	var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-		fmt.Printf("Mqtt Connect lost: %v", err)
+		log.Println("Mqtt Connect lost:", err)
 		for !MqttClient.IsConnected() {
-			fmt.Println("Mqtt reconnecting...")
+			log.Println("Mqtt reconnecting...")
 			if token := MqttClient.Connect(); token.Wait() && token.Error() != nil {
-				fmt.Println(token.Error())
+				log.Println(token.Error())
 				time.Sleep(5 * time.Second)
 			} else {
-				fmt.Println("Mqtt reconnect success")
+				log.Println("Mqtt reconnect success")
 			}
 		}
-		// 如果mqtt服务是gmqtt，需要重新订阅
+
 		if viper.GetString("mqtt_server") == "gmqtt" {
 			sub(p1, pOther, qos, messages)
 		}
 	}
+
 	opts := mqtt.NewClientOptions()
 	opts.SetUsername(username)
 	opts.SetPassword(password)
@@ -58,20 +71,20 @@ func ListenNew(broker, username, password string) (err error) {
 	opts.AddBroker(broker)
 	opts.SetResumeSubs(true)
 	opts.SetCleanSession(false)
-	// 自动重连
 	opts.SetAutoReconnect(true)
-	// 重连间隔时间
-	opts.SetConnectRetryInterval(time.Duration(5) * time.Second)
+	opts.SetConnectRetryInterval(5 * time.Second)
+	opts.SetMaxReconnectInterval(20 * time.Second)
 	opts.SetOrderMatters(false)
 	opts.OnConnectionLost = connectLostHandler
 
 	opts.SetOnConnectHandler(func(c mqtt.Client) {
-		fmt.Println("Mqtt客户端已连接")
+		log.Println("Mqtt client connected")
 	})
+
 	MqttClient = mqtt.NewClient(opts)
 	for {
 		if token := MqttClient.Connect(); token.Wait() && token.Error() != nil {
-			fmt.Println(token.Error())
+			log.Println(token.Error())
 			time.Sleep(5 * time.Second)
 		} else {
 			break
@@ -80,7 +93,7 @@ func ListenNew(broker, username, password string) (err error) {
 
 	sub(p1, pOther, qos, messages)
 
-	return err
+	return nil
 }
 func sub(p1 *ants.Pool, pOther *ants.Pool, qos byte, messages chan map[string]interface{}) {
 	var s services.TSKVService
