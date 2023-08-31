@@ -45,6 +45,7 @@ func ListenNew(broker, username, password string) (err error) {
 	opts.AddBroker(broker)
 	// 自动重连
 	opts.SetAutoReconnect(true)
+	opts.CleanSession = false
 	// 重连间隔时间
 	opts.SetConnectRetryInterval(time.Duration(5) * time.Second)
 	opts.SetOrderMatters(false)
