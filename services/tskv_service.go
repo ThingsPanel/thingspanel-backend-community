@@ -128,14 +128,23 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 	}
 	if values, ok := payload.Values.(map[string]interface{}); ok {
 		var device models.Device
-		result := psql.Mydb.Where("token = ?", payload.AccessToken).First(&device)
-		if result.Error != nil {
-			logs.Error(result.Error.Error())
-			return
-		}
+		// 首先从redis中获设备id
+		device.ID = redis.GetStr(payload.AccessToken)
 		if device.ID == "" {
-			return
+			// 从数据库中获取设备id
+			result := psql.Mydb.Where("token = ?", payload.AccessToken).First(&device)
+			if result.Error != nil {
+				logs.Error(result.Error.Error())
+				return
+			}
+			if device.ID == "" {
+				return
+			} else {
+				// 存储24小时
+				redis.SetStr(payload.AccessToken, device.ID, 24*time.Hour)
+			}
 		}
+
 		//DeviceOnlineState[device.ID] = values["status"]
 		// 如果mqtt_server为vernemq,则不需要更新ts_kv_latest表
 		if viper.GetString("mqtt_server") != "vernemq" {
@@ -146,7 +155,7 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 				TS:         time.Now().UnixMicro(),
 				StrV:       fmt.Sprint(values["status"]),
 			}
-			result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
+			result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
 			if result.Error != nil {
 				logs.Error(result.Error.Error())
 			} else {
@@ -292,10 +301,10 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 	// 新增的时候删除
 	// 修改的时候删除
 	// 有效时间一小时
-	if redis.GetStr("warning"+device.ID) != "1" {
-		var WarningConfigService WarningConfigService
-		WarningConfigService.WarningConfigCheck(device.ID, payload_map)
-	}
+	// if redis.GetStr("warning"+device.ID) != "1" {
+	// 	var WarningConfigService WarningConfigService
+	// 	WarningConfigService.WarningConfigCheck(device.ID, payload_map)
+	// }
 	// 非系统数据库不需要入库
 	dbType, _ := web.AppConfig.String("dbType")
 	if dbType != "cassandra" {
@@ -425,27 +434,29 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 			if err := psql.Mydb.Create(&tskvList).Error; err != nil {
 				logs.Error(err.Error())
 			}
-			fmt.Println("批量写入ts_kv：", len(tskvList))
+			logs.Info("批量写入ts_kv：", len(tskvList))
 			tskvList = []models.TSKV{}
 		}
 		// 更新ts_kv_latest
 		if len(tskvLatestList) > 0 {
 			// 创建事务
 			for _, tskvLatest := range tskvLatestList {
-				var latestCount int64
-				// 根据条件entity_type，entity_id，key，tenant_id查询是否存在
-				psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", tskvLatest.EntityType, tskvLatest.EntityID, tskvLatest.Key, tskvLatest.TenantID).Count(&latestCount)
-				if latestCount <= 0 {
-					rtsl := psql.Mydb.Create(&tskvLatest)
-					if rtsl.Error != nil {
-						logs.Error(rtsl.Error)
-					}
-				} else {
-					rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", tskvLatest.EntityType, tskvLatest.EntityID,
-						tskvLatest.Key, tskvLatest.TenantID).Updates(map[string]interface{}{"entity_type": tskvLatest.EntityType, "entity_id": tskvLatest.EntityID, "key": tskvLatest.Key, "ts": tskvLatest.TS, "bool_v": tskvLatest.BoolV, "long_v": tskvLatest.LongV, "str_v": tskvLatest.StrV, "dbl_v": tskvLatest.DblV})
-					if rtsl.Error != nil {
-						logs.Error(rtsl.Error)
-					}
+				// Update the record in the database
+				rtsl := psql.Mydb.Where(models.TSKVLatest{
+					EntityType: tskvLatest.EntityType,
+					EntityID:   tskvLatest.EntityID,
+					Key:        tskvLatest.Key,
+					TenantID:   tskvLatest.TenantID,
+				}).Assign(models.TSKVLatest{
+					TS:    tskvLatest.TS,
+					BoolV: tskvLatest.BoolV,
+					LongV: tskvLatest.LongV,
+					StrV:  tskvLatest.StrV,
+					DblV:  tskvLatest.DblV,
+				}).FirstOrCreate(&tskvLatest)
+
+				if rtsl.Error != nil {
+					logs.Error(rtsl.Error)
 				}
 			}
 			// 清空tskvLatestList

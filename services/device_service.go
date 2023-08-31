@@ -1232,7 +1232,7 @@ func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValid
 		result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
 		logs.Info("------------------------------------------------ceshi")
 		if result.Error != nil {
-			logs.Error(result.Error)
+			logs.Warn(result.Error)
 			deviceOnlineStatus[deviceId] = "0"
 		} else {
 			deviceOnlineStatus[deviceId] = tskvLatest.StrV

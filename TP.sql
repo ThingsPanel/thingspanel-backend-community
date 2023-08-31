@@ -1906,4 +1906,8 @@ INSERT INTO public.tp_api (id, "name", url, api_type, service_type, remark) VALU
 
 ALTER TABLE public.device ADD CONSTRAINT device_un UNIQUE ("token");
 CREATE INDEX device_search_text_idx ON public.device (search_text);
+DROP INDEX public.device_token_idx;
+DROP INDEX public."INDEX_KEY";
+CREATE INDEX ts_kv_latest_tenant_id_idx ON public.ts_kv_latest (tenant_id);
+CREATE INDEX tp_data_transpond_detail_device_id_idx ON public.tp_data_transpond_detail (device_id);
 

@@ -5,7 +5,9 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	"errors"
+	"time"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
 )
 
@@ -85,4 +87,16 @@ func (*ResourcesService) Add(cpu string, mem string, created_at string) (bool, s
 		return false, ""
 	}
 	return true, uuid
+}
+
+// 删除一个小时前的数据
+func (*ResourcesService) Delete() bool {
+	// 获取一个小时前的时间
+	oneHourAgo := time.Now().Add(-time.Hour).Format("2006-01-02 15:04:05")
+	result := psql.Mydb.Where("created_at < ?", oneHourAgo).Delete(&models.Resources{})
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return false
+	}
+	return true
 }
