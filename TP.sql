@@ -1910,4 +1910,3 @@ DROP INDEX public.device_token_idx;
 DROP INDEX public."INDEX_KEY";
 CREATE INDEX ts_kv_latest_tenant_id_idx ON public.ts_kv_latest (tenant_id);
 CREATE INDEX tp_data_transpond_detail_device_id_idx ON public.tp_data_transpond_detail (device_id);
-

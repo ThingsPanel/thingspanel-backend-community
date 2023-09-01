@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	beego "github.com/beego/beego/v2/server/web"
 
 	_ "ThingsPanel-Go/initialize/log"
@@ -35,20 +37,31 @@ var Ticker *time.Ticker
 func main() {
 	// 初始化grpc
 	go tptodbClient.GrpcTptodbInit()
-	// 读取服务器信息
-	Ticker = time.NewTicker(time.Millisecond * 5000)
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
 	go func() {
-		for t := range Ticker.C {
-			fmt.Println(t)
+		for t := range ticker.C {
+			log.Println(t)
 			var ResourcesService services.ResourcesService
-			percent, _ := cpu.Percent(time.Second, false)
+			percent, err := cpu.Percent(time.Second, false)
+			if err != nil {
+				log.Println("Error getting CPU percent:", err)
+				continue
+			}
 			cpu_str := fmt.Sprintf("%.2f", percent[0])
-			memInfo, _ := mem.VirtualMemory()
+			memInfo, err := mem.VirtualMemory()
+			if err != nil {
+				log.Println("Error getting virtual memory:", err)
+				continue
+			}
 			mem_str := fmt.Sprintf("%.2f", memInfo.UsedPercent)
 			currentTime := fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
 			ResourcesService.Add(cpu_str, mem_str, currentTime)
 		}
 	}()
+
 	// 系统初始化的images
 	beego.SetStaticPath("/files/init-images", "others/init_images")
 	// 静态文件路径
