@@ -1448,8 +1448,7 @@ func (*DeviceService) SubscribeDeviceEvent(body []byte, topic string) bool {
 		ReportTime:    time.Now().Unix(),
 	}
 
-	ea := psql.Mydb.Create(&m)
-	fmt.Println(ea.Error)
+	_ = psql.Mydb.Create(&m)
 	return true
 }
 
