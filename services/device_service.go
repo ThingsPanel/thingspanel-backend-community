@@ -1453,8 +1453,15 @@ func (*DeviceService) SubscribeDeviceEvent(body []byte, topic string) bool {
 		ReportTime:    time.Now().Unix(),
 	}
 
-	ea := psql.Mydb.Create(&m)
-	fmt.Println(ea.Error)
+	_ = psql.Mydb.Create(&m)
+
+	payloadMap := make(map[string]interface{})
+
+	json.Unmarshal(payload.Values, &payloadMap)
+
+	var ConditionsService ConditionsService
+	go ConditionsService.AutomationConditionCheck(deviceid, payloadMap)
+
 	return true
 }
 
@@ -1511,8 +1518,7 @@ func (*DeviceService) SubscribeGatwayEvent(body []byte, topic string) bool {
 			ReportTime:    time.Now().Unix(),
 		}
 
-		ea := psql.Mydb.Create(&m)
-		fmt.Println(ea.Error)
+		_ = psql.Mydb.Create(&m)
 	}
 
 	return true
