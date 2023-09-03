@@ -341,6 +341,7 @@ func init() {
 
 		//插件模块接口
 		web.NSRouter("/plugin/device/config", &controllers.DeviceController{}, "*:GetGatewayConfig"),
+		web.NSRouter("/plugin/all_device/config", &controllers.DeviceController{}, "*:GetAllDeviceConfig"),
 		web.NSRouter("/form/config", &controllers.DeviceController{}, "*:GetProtocolForm"),
 		web.NSRouter("/plugin/device/sub-device-detail", &controllers.DeviceController{}, "*:GetDeviceDetailsByParentTokenAndSubDeviceAddr"),
 

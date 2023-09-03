@@ -24,6 +24,7 @@ func AuthMiddle() {
 		"api/plugin/device/sub-device-detail": 0,
 		"api/plugin/register":                 0,
 		"api/plugin/device/config":            0,
+		"api/plugin/all_device/config":        0,
 		"api/system/logo/index":               0,
 		"api/open/data":                       0,
 		"api/auth/login":                      0,

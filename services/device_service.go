@@ -1073,6 +1073,62 @@ func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
 	return ConfigMap
 }
 
+// 根据协议类型和设备类型获取设备列表
+func (*DeviceService) GetConfigByProtocolAndDeviceType(protocol string, device_type string) ([]map[string]interface{}, error) {
+	var AllConfigMap []map[string]interface{}
+	var deviceList []models.Device
+	result := psql.Mydb.Find(&deviceList, "protocol = ? and device_type = ?", protocol, device_type)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return AllConfigMap, nil
+		}
+		logs.Error(result.Error)
+		return AllConfigMap, result.Error
+	}
+	for _, device := range deviceList {
+		var ConfigMap = make(map[string]interface{})
+		ConfigMap["ProtocolType"] = device.Protocol
+		ConfigMap["AccessToken"] = device.Token
+		ConfigMap["DeviceType"] = device.DeviceType
+		ConfigMap["Id"] = device.ID
+		if device.DeviceType == "1" { //直连设备
+			var m = make(map[string]interface{})
+			err := json.Unmarshal([]byte(device.ProtocolConfig), &m)
+			if err != nil {
+				fmt.Println("Unmarshal failed:", err)
+			}
+			ConfigMap["DeviceConfig"] = m
+		} else if device.DeviceType == "2" { //网关设备
+			var sub_devices []models.Device
+			sub_result := psql.Mydb.Find(&sub_devices, "parent_id = ?", device.ID)
+			if sub_result.Error != nil {
+				if !errors.Is(sub_result.Error, gorm.ErrRecordNotFound) {
+					logs.Error(sub_result.Error)
+					continue
+				}
+			} else {
+				var sub_device_list []map[string]interface{}
+				for _, sub_device := range sub_devices {
+					var m = make(map[string]interface{})
+					err := json.Unmarshal([]byte(sub_device.ProtocolConfig), &m)
+					if err != nil {
+						fmt.Println("Unmarshal failed:", err)
+					}
+					// 子设备表单中返回子设备token和子设备id
+					m["AccessToken"] = sub_device.Token
+					m["DeviceId"] = sub_device.ID
+					m["SubDeviceAddr"] = sub_device.SubDeviceAddr
+					sub_device_list = append(sub_device_list, m)
+				}
+				ConfigMap["SubDevice"] = sub_device_list
+			}
+
+		}
+		AllConfigMap = append(AllConfigMap, ConfigMap)
+	}
+	return AllConfigMap, nil
+}
+
 // 修改所有子设备分组
 func (*DeviceService) EditSubDeviceAsset(gateway_id string, asset_id string) error {
 	var sub_devices []models.Device
