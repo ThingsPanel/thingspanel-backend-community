@@ -11,7 +11,7 @@ import (
 
 func (s *server) PluginDeviceConfig(ctx context.Context, in *pb.PluginDeviceConfigRequest) (*pb.PluginDeviceReply, error) {
 	var DeviceService services.DeviceService
-	d := DeviceService.GetConfigByToken(in.AccessToken)
+	d := DeviceService.GetConfigByToken(in.AccessToken, "")
 	jsonData, err := json.Marshal(d)
 	if err != nil {
 		return nil, err

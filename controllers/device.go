@@ -798,7 +798,7 @@ func (DeviceController *DeviceController) GetGatewayConfig() {
 		return
 	}
 	var DeviceService services.DeviceService
-	d := DeviceService.GetConfigByToken(AccessTokenValidate.AccessToken)
+	d := DeviceService.GetConfigByToken(AccessTokenValidate.AccessToken, AccessTokenValidate.DeviceId)
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }
 

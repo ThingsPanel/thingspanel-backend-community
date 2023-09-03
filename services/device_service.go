@@ -1021,10 +1021,15 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 // }
 
 // 根据token获取网关设备和子设备的配置
-func (*DeviceService) GetConfigByToken(token string) map[string]interface{} {
+func (*DeviceService) GetConfigByToken(token string, deviceId string) map[string]interface{} {
 	var ConfigMap = make(map[string]interface{})
 	var device models.Device
-	result := psql.Mydb.First(&device, "token = ?", token)
+	var result *gorm.DB
+	if deviceId != "" {
+		result = psql.Mydb.First(&device, "token = ?", token)
+	} else {
+		result = psql.Mydb.First(&device, "id = ?", deviceId)
+	}
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return ConfigMap
