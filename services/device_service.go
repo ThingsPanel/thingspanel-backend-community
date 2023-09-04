@@ -1031,9 +1031,9 @@ func (*DeviceService) GetConfigByToken(token string, deviceId string) map[string
 	var device models.Device
 	var result *gorm.DB
 	if deviceId != "" {
-		result = psql.Mydb.First(&device, "id = ?", token)
+		result = psql.Mydb.First(&device, "id = ?", deviceId)
 	} else {
-		result = psql.Mydb.First(&device, "token = ?", deviceId)
+		result = psql.Mydb.First(&device, "token = ?", token)
 	}
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
