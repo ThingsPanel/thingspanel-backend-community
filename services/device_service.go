@@ -845,7 +845,8 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				var TpProtocolPluginService TpProtocolPluginService
 				pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
 				// 前缀+网关设备token
-				var topic = pp.SubTopicPrefix + gatewayDevice.Token
+				var topic1 = pp.SubTopicPrefix + gatewayDevice.Token
+				var topic2 = pp.SubTopicPrefix + gatewayDevice.ID
 				//包装子设备地址
 				var msgMapValues = make(map[string]interface{})
 				json.Unmarshal(msg, &msgMapValues)
@@ -853,12 +854,16 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				subMap[device.SubDeviceAddr] = msgMapValues
 				msgBytes, _ := json.Marshal(subMap)
 				// 通过脚本
-				msg, err = scriptDealB(device.ScriptId, msgBytes, topic)
+				msg, err = scriptDealB(device.ScriptId, msgBytes, topic1)
 				if err != nil {
 					return err
 				}
 				logs.Info("网关设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
-				err = sendmqtt.SendPlugin(msgBytes, topic)
+				err = sendmqtt.SendPlugin(msgBytes, topic1)
+				if err != nil {
+					logs.Error(err.Error())
+				}
+				err = sendmqtt.SendPlugin(msgBytes, topic2)
 			}
 		}
 
