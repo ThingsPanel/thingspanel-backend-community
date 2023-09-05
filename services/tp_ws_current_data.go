@@ -105,6 +105,22 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 		ws.WriteMessage(msgType, []byte("device is not exist"))
 		return
 	}
+	// 发送设备当前数据
+	var TSKVService TSKVService
+	var dataByte []byte
+	data, err := TSKVService.GetCurrentData(msgMap["device_id"], nil)
+	if err != nil {
+		ws.WriteMessage(msgType, []byte(err.Error()))
+	} else {
+		// data转[]byte
+		dataByte, err = json.Marshal(data[0])
+		if err != nil {
+			logs.Error(err)
+			ws.WriteMessage(msgType, []byte(err.Error()))
+		} else {
+			ws.WriteMessage(msgType, dataByte)
+		}
+	}
 
 	// 订阅mqtt主题
 	topic := viper.GetString("mqtt.topicToSubscribe") + "/" + deviceID
