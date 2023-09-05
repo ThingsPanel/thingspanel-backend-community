@@ -27,13 +27,7 @@ func (c *TpWsOpenapiController) CurrentData() {
 	r := c.Ctx.Request
 	// 调用HandleConnections方法
 	var tpWsCurrentData services.TpWsCurrentData
-	// 获取用户租户id
-	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	if !ok {
-		logs.Error("tenant_id is missing")
-		return
-	}
-	tpWsCurrentData.CurrentData(w, r, tenantId)
+	tpWsCurrentData.CurrentData(w, r)
 }
 
 // 主程序

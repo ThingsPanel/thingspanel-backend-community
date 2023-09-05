@@ -2,10 +2,13 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
+	"ThingsPanel-Go/initialize/redis"
 	ws_mqtt "ThingsPanel-Go/modules/dataService/ws_mqtt"
+	"ThingsPanel-Go/utils"
 
 	"github.com/beego/beego/v2/core/logs"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -22,7 +25,34 @@ type TpWsCurrentData struct {
 	TimeField []string
 }
 
-func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request, tenantId string) {
+func AuthenticateAndFetchTenantID(token string, deviceID string) (string, error) {
+	if redis.GetStr(token) != "1" {
+		return "", fmt.Errorf("token is not exist")
+	}
+
+	// 解析token
+	userMsg, err := utils.ParseCliamsToken(token)
+	if err != nil {
+		return "", err
+	}
+
+	// 获取用户权限
+	var userService UserService
+	_, tenantID, err := userService.GetUserAuthorityById(userMsg.ID)
+	if err != nil {
+		return "", err
+	}
+
+	// 验证设备是否存在
+	var deviceService DeviceService
+	if !deviceService.IsDeviceExistByTenantIdAndDeviceId(tenantID, deviceID) {
+		return "", fmt.Errorf("device is not exist")
+	}
+
+	return tenantID, nil
+}
+
+func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -30,73 +60,64 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request, tena
 			return true
 		},
 	}
-	// 获取头信息示例
-	key := r.Header.Get("Authorization")
-	log.Printf("Received: %s", key)
-	// key = "Bearer "+ token,获取token
-	// 升级初始 GET 请求为 websocket
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		logs.Error(err)
 		return
 	}
-
-	// 关闭连接
 	defer ws.Close()
-	// 获取ip信息
-	headers := ws.RemoteAddr().String()
-	//[]byte转string
-	ms := string(headers)
-	log.Printf("Received: %s", ms)
 
-	// 读取新的消息
+	clientIp := ws.RemoteAddr().String()
+	log.Printf("Received: %s", clientIp)
+
 	msgType, msg, err := ws.ReadMessage()
 	if err != nil {
 		logs.Error(err)
 		return
 	}
-	log.Printf("Received: %s", msg)
-	// 创建map
-	var msgMap map[string]interface{}
-	// 解析json
-	if err := json.Unmarshal([]byte(msg), &msgMap); err != nil {
+
+	var msgMap map[string]string
+	if err := json.Unmarshal(msg, &msgMap); err != nil {
+		logs.Error("断开连接", err)
+		return
+	}
+
+	token, ok := msgMap["token"]
+	deviceID, ok2 := msgMap["device_id"]
+	if !ok || !ok2 {
+		errMsg := "token or device_id is missing"
+		ws.WriteMessage(msgType, []byte(errMsg))
+		return
+	}
+	// 验证token是否存在
+	tenantID, err := AuthenticateAndFetchTenantID(token, deviceID)
+	if err != nil {
+		logs.Error("断开连接", err)
+		ws.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+	// 验证设备是否存在
+	var DeviceService DeviceService
+	if !DeviceService.IsDeviceExistByTenantIdAndDeviceId(tenantID, msgMap["device_id"]) {
 		// 异常退出并断开连接
 		logs.Error("断开连接", err)
 		// 回复错误信息
-		ws.WriteMessage(msgType, []byte(err.Error()))
+		ws.WriteMessage(msgType, []byte("device is not exist"))
 		return
-	} else {
-		if _, ok := msgMap["device_id"]; !ok {
-			// 异常退出并断开连接
-			logs.Error("断开连接", err)
-			// 回复错误信息
-			ws.WriteMessage(msgType, []byte("device_id is missing"))
-			return
-		}
-		// 验证设备是否存在
-		var DeviceService DeviceService
-		if !DeviceService.IsDeviceExistByTenantIdAndDeviceId(tenantId, msgMap["device_id"].(string)) {
-			// 异常退出并断开连接
-			logs.Error("断开连接", err)
-			// 回复错误信息
-			ws.WriteMessage(msgType, []byte("device is not exist"))
-			return
-		}
-
 	}
-	topic := viper.GetString("mqtt.topicToSubscribe") + "/" + msgMap["device_id"].(string)
-	// 创建mqtt订阅
+
+	// 订阅mqtt主题
+	topic := viper.GetString("mqtt.topicToSubscribe") + "/" + deviceID
 	ws_mqtt.WsMqttClient.Subscribe(topic, 0, func(client mqtt.Client, message mqtt.Message) {
 		type mqttPayload struct {
 			Token  string `json:"token"`
 			Values []byte `json:"values"`
 		}
-		// 解析Payload
+
 		var payload mqttPayload
 		if err := json.Unmarshal(message.Payload(), &payload); err != nil {
 			logs.Error(err)
 		} else {
-			// 回复消息
 			if err = ws.WriteMessage(msgType, payload.Values); err != nil {
 				logs.Error(err)
 				return
@@ -104,11 +125,10 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request, tena
 		}
 
 	})
-	//取消订阅
+
 	defer ws_mqtt.WsMqttClient.Unsubscribe(topic)
-	// 等待客户端断开连接
+	// 循环读取消息
 	for {
-		// 读取新的消息
 		_, msg, err := ws.ReadMessage()
 		if err != nil {
 			logs.Error(err)
