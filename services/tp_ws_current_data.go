@@ -112,13 +112,16 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ws.WriteMessage(msgType, []byte(err.Error()))
 	} else {
-		// data转[]byte
-		dataByte, err = json.Marshal(data[0])
-		if err != nil {
-			logs.Error(err)
-			ws.WriteMessage(msgType, []byte(err.Error()))
-		} else {
-			ws.WriteMessage(msgType, dataByte)
+		// 判断是否有数据
+		if len(data) != 0 {
+			// data转[]byte
+			dataByte, err = json.Marshal(data[0])
+			if err != nil {
+				logs.Error(err)
+				ws.WriteMessage(msgType, []byte(err.Error()))
+			} else {
+				ws.WriteMessage(msgType, dataByte)
+			}
 		}
 	}
 
