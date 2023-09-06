@@ -9,17 +9,19 @@ import (
 	"github.com/spf13/viper"
 )
 
-var WsMqttClient mqtt.Client
+type WsMqtt struct {
+	WsMqttClient mqtt.Client
+}
 
-func CreateWsMqttClient() (err error) {
+func (w *WsMqtt) NewMqttClient() (err error) {
 	var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
 		fmt.Printf("Mqtt Connect lost: %v", err)
 		i := 0
 		for {
 			time.Sleep(5 * time.Second)
-			if !WsMqttClient.IsConnected() {
+			if !w.WsMqttClient.IsConnected() {
 				fmt.Println("Mqtt reconnecting...")
-				if token := WsMqttClient.Connect(); token.Wait() && token.Error() != nil {
+				if token := w.WsMqttClient.Connect(); token.Wait() && token.Error() != nil {
 					fmt.Println(token.Error())
 					i++
 				} else {
@@ -47,9 +49,9 @@ func CreateWsMqttClient() (err error) {
 	opts.SetOnConnectHandler(func(c mqtt.Client) {
 		fmt.Println("wsmqtt客户端已连接")
 	})
-	WsMqttClient = mqtt.NewClient(opts)
+	w.WsMqttClient = mqtt.NewClient(opts)
 	for {
-		if token := WsMqttClient.Connect(); token.Wait() && token.Error() != nil {
+		if token := w.WsMqttClient.Connect(); token.Wait() && token.Error() != nil {
 			fmt.Println(token.Error())
 			time.Sleep(5 * time.Second)
 		} else {

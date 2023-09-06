@@ -78,7 +78,14 @@ func (*TpWsEventData) EventData(w http.ResponseWriter, r *http.Request, tenantId
 
 	topic := viper.GetString("mqtt.topicToEvent") + "/" + msgMap["device_id"]
 	// 创建mqtt订阅
-	ws_mqtt.WsMqttClient.Subscribe(topic, 0, func(client mqtt.Client, message mqtt.Message) {
+	var WsMqtt ws_mqtt.WsMqtt
+	err = WsMqtt.NewMqttClient()
+	if err != nil {
+		logs.Error(err)
+		ws.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+	WsMqtt.WsMqttClient.Subscribe(topic, 0, func(client mqtt.Client, message mqtt.Message) {
 		type mqttPayload struct {
 			Token  string `json:"token"`
 			Values []byte `json:"values"`
@@ -91,13 +98,14 @@ func (*TpWsEventData) EventData(w http.ResponseWriter, r *http.Request, tenantId
 			// 回复消息
 			if err = ws.WriteMessage(msgType, payload.Values); err != nil {
 				logs.Error(err)
+				ws.WriteMessage(msgType, []byte(err.Error()))
 				return
 			}
 		}
 
 	})
 	//取消订阅
-	defer ws_mqtt.WsMqttClient.Unsubscribe(topic)
+	defer WsMqtt.WsMqttClient.Disconnect(250)
 	// 等待客户端断开连接
 	for {
 		// 读取新的消息

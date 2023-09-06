@@ -127,7 +127,14 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 
 	// 订阅mqtt主题
 	topic := viper.GetString("mqtt.topicToSubscribe") + "/" + deviceID
-	ws_mqtt.WsMqttClient.Subscribe(topic, 0, func(client mqtt.Client, message mqtt.Message) {
+	var wsMqtt ws_mqtt.WsMqtt
+	err = wsMqtt.NewMqttClient()
+	if err != nil {
+		logs.Error(err)
+		ws.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+	wsMqtt.WsMqttClient.Subscribe(topic, 0, func(client mqtt.Client, message mqtt.Message) {
 		type mqttPayload struct {
 			Token  string `json:"token"`
 			Values []byte `json:"values"`
@@ -139,13 +146,14 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 		} else {
 			if err = ws.WriteMessage(msgType, payload.Values); err != nil {
 				logs.Error(err)
+				ws.WriteMessage(msgType, []byte(err.Error()))
 				return
 			}
 		}
 
 	})
 
-	defer ws_mqtt.WsMqttClient.Unsubscribe(topic)
+	defer wsMqtt.WsMqttClient.Disconnect(250)
 	// 循环读取消息
 	for {
 		_, msg, err := ws.ReadMessage()
