@@ -868,12 +868,12 @@ func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}
 	tx := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts")
 	// 判断attributes是否为空
 	if len(attributes) == 0 {
-		tx.Where("entity_id = ? ", device_id)
+		tx = tx.Where("entity_id = ? ", device_id)
 	} else {
 		if !contains(attributes, "systime") {
 			attributes = append(attributes, "systime")
 		}
-		tx.Where("entity_id = ? AND key in ?", device_id, attributes)
+		tx = tx.Where("entity_id = ? AND key in ?", device_id, attributes)
 	}
 	var ts_kvs []models.TSKVLatest
 	result := tx.Order("ts asc").Find(&ts_kvs)
