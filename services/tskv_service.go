@@ -880,6 +880,10 @@ func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return nil, result.Error
+	} else {
+		if len(ts_kvs) == 0 {
+			return nil, errors.New("no data")
+		}
 	}
 
 	field := make(map[string]interface{})
