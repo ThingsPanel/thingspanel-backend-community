@@ -833,7 +833,7 @@ func (*TSKVService) Status(device_id string) (*models.TSKVLatest, int64) {
 }
 
 // GetCurrentData 通过设备ID和属性来获取数据
-func (*TSKVService) GetCurrentData(device_id string, attributes []string) ([]map[string]interface{}, error) {
+func (*TSKVService) GetCurrentData(device_id string, attributes []string) (map[string]interface{}, error) {
 	dbType, _ := web.AppConfig.String("dbType")
 	if dbType == "cassandra" {
 		return fetchFromCassandra(device_id, attributes)
@@ -842,7 +842,7 @@ func (*TSKVService) GetCurrentData(device_id string, attributes []string) ([]map
 }
 
 // fetchFromCassandra 从Cassandra数据库中获取数据
-func fetchFromCassandra(device_id string, attributes []string) ([]map[string]interface{}, error) {
+func fetchFromCassandra(device_id string, attributes []string) (map[string]interface{}, error) {
 	request := &pb.GetDeviceAttributesCurrentsRequest{
 		DeviceId:  device_id,
 		Attribute: attributes,
@@ -860,11 +860,11 @@ func fetchFromCassandra(device_id string, attributes []string) ([]map[string]int
 		logs.Error(err.Error())
 		return nil, err
 	}
-	return []map[string]interface{}{data}, nil
+	return data, nil
 }
 
 // fetchFromSQL 从SQL数据库中获取数据
-func fetchFromSQL(device_id string, attributes []string) ([]map[string]interface{}, error) {
+func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}, error) {
 	tx := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts")
 	// 判断attributes是否为空
 	if len(attributes) == 0 {
@@ -877,11 +877,11 @@ func fetchFromSQL(device_id string, attributes []string) ([]map[string]interface
 	}
 	var ts_kvs []models.TSKVLatest
 	result := tx.Order("ts asc").Find(&ts_kvs)
-	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
 		return nil, result.Error
 	}
 
-	fields := make([]map[string]interface{}, 0, len(ts_kvs))
 	field := make(map[string]interface{})
 	for _, v := range ts_kvs {
 		if v.Key == "" {
@@ -889,8 +889,7 @@ func fetchFromSQL(device_id string, attributes []string) ([]map[string]interface
 		}
 		field[v.Key] = getValue(v)
 	}
-	fields = append(fields, field)
-	return fields, nil
+	return field, nil
 }
 
 // contains 判断字符串切片中是否包含特定的字符串
@@ -964,7 +963,7 @@ func (*TSKVService) GetCurrentDataByBusiness(business string) map[string]interfa
 					}
 				}
 				deviceData["status"] = state
-				deviceData["values"] = fields[0]
+				deviceData["values"] = fields
 			}
 			devices = append(devices, deviceData)
 		}
@@ -1021,7 +1020,7 @@ func (*TSKVService) GetCurrentDataByAsset(asset_id string) map[string]interface{
 					}
 				}
 				deviceData["status"] = state
-				deviceData["values"] = fields[0]
+				deviceData["values"] = fields
 			}
 			devices = append(devices, deviceData)
 		}
@@ -1091,7 +1090,7 @@ func (*TSKVService) GetCurrentDataByAssetA(asset_id string) map[string]interface
 						currentData["name"] = wv.Name
 						currentData["symbol"] = wv.Symbol
 						currentData["type"] = wv.Type
-						currentData["value"] = fields[0][wv.Key]
+						currentData["value"] = fields[wv.Key]
 						current_data = append(current_data, currentData)
 					}
 

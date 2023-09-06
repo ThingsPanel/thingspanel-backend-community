@@ -110,12 +110,12 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 	var dataByte []byte
 	data, err := TSKVService.GetCurrentData(msgMap["device_id"], nil)
 	if err != nil {
-		ws.WriteMessage(msgType, []byte(err.Error()))
+		ws.WriteMessage(msgType, []byte("Error:"+err.Error()))
 	} else {
 		// 判断是否有数据
 		if len(data) != 0 {
 			// data转[]byte
-			dataByte, err = json.Marshal(data[0])
+			dataByte, err = json.Marshal(data)
 			if err != nil {
 				logs.Error(err)
 				ws.WriteMessage(msgType, []byte(err.Error()))

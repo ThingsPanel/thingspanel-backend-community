@@ -345,7 +345,7 @@ func (*DeviceService) AllDeviceList(req valid.DevicePageListValidate) ([]map[str
 				// 	}
 				// }
 				//deviceData["status"] = state
-				deviceData["values"] = fields[0]
+				deviceData["values"] = fields
 			}
 		}
 	}
