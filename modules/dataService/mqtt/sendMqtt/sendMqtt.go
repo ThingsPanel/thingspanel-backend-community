@@ -18,12 +18,12 @@ var (
 )
 
 var (
-	Topic_DeviceAttributes  = "$share/group/device/attributes"   // 订阅、发布
-	Topic_DeviceStatus      = "$share/group/device/status"       // 订阅
-	Topic_OtaDeviceProgress = "$share/group/ota/device/progress" // 订阅
-	Topic_DeviceEvent       = "$share/group/device/event"        // 订阅
-	Topic_GatewayAttributes = "$share/group/gateway/attributes"  // 订阅、发布
-	Topic_GatewayEvent      = "$share/group/gateway/event"       // 订阅
+	Topic_DeviceAttributes  = "device/attributes"   // 订阅、发布
+	Topic_DeviceStatus      = "device/status"       // 订阅
+	Topic_OtaDeviceProgress = "ota/device/progress" // 订阅
+	Topic_DeviceEvent       = "device/event"        // 订阅
+	Topic_GatewayAttributes = "gateway/attributes"  // 订阅、发布
+	Topic_GatewayEvent      = "gateway/event"       // 订阅
 
 	Topic_DeviceCommand   = "device/command"    // 发布
 	Topic_GatewayCommand  = "gateway/command"   // 发布
@@ -35,11 +35,12 @@ func InitTopic() {
 	fmt.Println("mqtt_server:", viper.GetString("mqtt_server"))
 	if viper.GetString("mqtt_server") == "vernemq" {
 		fmt.Println("mqtt_server is vernemq")
-		Topic_DeviceAttributes = Topic_DeviceAttributes + "/+"
-		Topic_GatewayAttributes = Topic_GatewayAttributes + "/+"
-		Topic_OtaDeviceProgress = Topic_OtaDeviceProgress + "/+"
-		Topic_DeviceEvent = Topic_DeviceEvent + "/+"
-		Topic_GatewayEvent = Topic_GatewayEvent + "/+"
+		Topic_DeviceAttributes = "$share/group/" + Topic_DeviceAttributes + "/+"
+		Topic_GatewayAttributes = "$share/group/" + Topic_GatewayAttributes + "/+"
+		Topic_OtaDeviceProgress = "$share/group/" + Topic_OtaDeviceProgress + "/+"
+		Topic_DeviceEvent = "$share/group/" + Topic_DeviceEvent + "/+"
+		Topic_GatewayEvent = "$share/group/" + Topic_GatewayEvent + "/+"
+		Topic_DeviceStatus = "$share/group/" + Topic_DeviceStatus
 	}
 	connect()
 }
