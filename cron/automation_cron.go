@@ -153,7 +153,7 @@ func TaskCron() {
 	// 循环
 	for {
 		// 休眠1秒
-		time.Sleep(1 * time.Second)
+		time.Sleep(5 * time.Second)
 		// 获取锁
 		lockKey := "taskCronLock"
 		lockValue := "1"

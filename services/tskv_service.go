@@ -832,102 +832,92 @@ func (*TSKVService) Status(device_id string) (*models.TSKVLatest, int64) {
 	return &TSKVLatest, result.RowsAffected
 }
 
-// 通过设备ID获取设备当前值
+// GetCurrentData 通过设备ID和属性来获取数据
 func (*TSKVService) GetCurrentData(device_id string, attributes []string) ([]map[string]interface{}, error) {
-	var fields []map[string]interface{}
 	dbType, _ := web.AppConfig.String("dbType")
 	if dbType == "cassandra" {
-		// 通过grpc获取数据
-		request := &pb.GetDeviceAttributesCurrentsRequest{
-			DeviceId:  device_id,
-			Attribute: attributes,
-		}
-		r, err := tptodb.TptodbClient.GetDeviceAttributesCurrents(context.Background(), request)
-		if err != nil {
-			logs.Error(err.Error())
-			return fields, err
-		}
-		// r.data为json字符串，转map
-		var data map[string]interface{}
-		err = json.Unmarshal([]byte(r.Data), &data)
-		if err != nil {
-			logs.Error(err.Error())
-			return fields, err
-		}
-		fields = append(fields, data)
-		return fields, nil
+		return fetchFromCassandra(device_id, attributes)
 	}
-	var ts_kvs []models.TSKVLatest
-	device := make(map[string]interface{})
-	var result *gorm.DB
-	if attributes == nil {
-		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts asc").Find(&ts_kvs)
+	return fetchFromSQL(device_id, attributes)
+}
+
+// fetchFromCassandra 从Cassandra数据库中获取数据
+func fetchFromCassandra(device_id string, attributes []string) ([]map[string]interface{}, error) {
+	request := &pb.GetDeviceAttributesCurrentsRequest{
+		DeviceId:  device_id,
+		Attribute: attributes,
+	}
+
+	// 通过grpc获取数据
+	r, err := tptodb.TptodbClient.GetDeviceAttributesCurrents(context.Background(), request)
+	if err != nil {
+		logs.Error(err.Error())
+		return nil, err
+	}
+
+	var data map[string]interface{}
+	if err = json.Unmarshal([]byte(r.Data), &data); err != nil {
+		logs.Error(err.Error())
+		return nil, err
+	}
+	return []map[string]interface{}{data}, nil
+}
+
+// fetchFromSQL 从SQL数据库中获取数据
+func fetchFromSQL(device_id string, attributes []string) ([]map[string]interface{}, error) {
+	tx := psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts")
+	// 判断attributes是否为空
+	if len(attributes) == 0 {
+		tx.Where("entity_id = ? ", device_id)
 	} else {
-		//给返回加上systime
-		flag := true
-		for _, attribute := range attributes {
-			if attribute == "systime" {
-				flag = false
-			}
-		}
-		if flag {
+		if !contains(attributes, "systime") {
 			attributes = append(attributes, "systime")
 		}
-		result = psql.Mydb.Select("key, bool_v, str_v, long_v, dbl_v, ts").Where("entity_id = ? AND key in ?", device_id, attributes).Order("ts asc").Find(&ts_kvs)
+		tx.Where("entity_id = ? AND key in ?", device_id, attributes)
 	}
-	if result.Error != nil {
-		errors.Is(result.Error, gorm.ErrRecordNotFound)
-		return fields, result.Error
+	var ts_kvs []models.TSKVLatest
+	result := tx.Order("ts asc").Find(&ts_kvs)
+	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, result.Error
 	}
-	if len(ts_kvs) > 0 {
-		//var i int64 = 0
-		var field = make(map[string]interface{})
-		// // 0-未接入 1-正常 2-异常
-		// var state string
-		// var TSKVService TSKVService
-		// tsl, tsc := TSKVService.Status(device_id)
-		// if tsc == 0 {
-		// 	state = "0"
-		// } else {
-		// 	ts := time.Now().UnixMicro()
-		// 	//300000000
-		// 	if (ts - tsl.TS) > 300000000 {
-		// 		state = "2"
-		// 	} else {
-		// 		state = "1"
-		// 	}
-		// }
-		field_from := ""
-		c := len(ts_kvs)
-		for k, v := range ts_kvs {
-			if v.Key == "" {
-				continue
-			}
-			field_from = v.Key
-			if fmt.Sprint(v.BoolV) != "" {
-				field[field_from] = v.BoolV
-			} else if v.StrV != "" {
-				field[field_from] = v.StrV
-			} else if v.LongV != 0 {
-				field[field_from] = v.LongV
-			} else if v.DblV != 0 {
-				field[field_from] = v.DblV
-			} else {
-				field[field_from] = 0
-			}
-			if c == k+1 {
-				fields = append(fields, field)
-			}
+
+	fields := make([]map[string]interface{}, 0, len(ts_kvs))
+	field := make(map[string]interface{})
+	for _, v := range ts_kvs {
+		if v.Key == "" {
+			continue
+		}
+		field[v.Key] = getValue(v)
+	}
+	fields = append(fields, field)
+	return fields, nil
+}
+
+// contains 判断字符串切片中是否包含特定的字符串
+func contains(slice []string, item string) bool {
+	for _, a := range slice {
+		if a == item {
+			return true
 		}
 	}
-	if len(fields) == 0 {
-		device["fields"] = make([]string, 0)
-		device["latest"] = make([]string, 0)
-	} else {
-		device["fields"] = fields
-		device["latest"] = fields[len(fields)-1]
+	return false
+}
+
+// getValue 根据TSKVLatest的值返回相应的数据类型的值
+func getValue(v models.TSKVLatest) interface{} {
+	if fmt.Sprint(v.BoolV) != "" {
+		return v.BoolV
 	}
-	return fields, nil
+	if v.StrV != "" {
+		return v.StrV
+	}
+	if v.LongV != 0 {
+		return v.LongV
+	}
+	if v.DblV != 0 {
+		return v.DblV
+	}
+	return 0
 }
 
 // 根据业务id查询所有设备和设备当前值（包含设备状态）（在线数量?，离线数量?）
