@@ -458,12 +458,10 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 						EntityID:   tskvLatest.EntityID,
 						Key:        tskvLatest.Key,
 						TenantID:   tskvLatest.TenantID,
-					}).Updates(models.TSKVLatest{
-						TS:    tskvLatest.TS,
-						BoolV: tskvLatest.BoolV,
-						LongV: tskvLatest.LongV,
-						StrV:  tskvLatest.StrV,
-						DblV:  tskvLatest.DblV,
+					}).Select("TS", "StrV", "DblV").Updates(models.TSKVLatest{
+						TS:   tskvLatest.TS,
+						StrV: tskvLatest.StrV,
+						DblV: tskvLatest.DblV,
 					})
 
 					// 检查是否有记录被更新
