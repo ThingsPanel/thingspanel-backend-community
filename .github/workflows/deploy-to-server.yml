@@ -19,7 +19,12 @@ jobs:
         host: ${{ secrets.DEV_HOST }}
         user: ${{ secrets.DEV_USER }}
         pass: ${{ secrets.DEV_PASS }}
-        first_ssh: "ls -la /home/hd/"
+        first_ssh: |
+          rm -rf /home/hd/*   # 清空目录，但保留目录本身
+          ls -la /home/hd/    # 显示清空后的目录
         scp: |
           ./* => /home/hd/
-        last_ssh: "ls -la /home/hd/"
+        last_ssh: |
+          go build 
+          ls -la /home/hd/  # 显示传输后的目录
+          ./z-shell.sh     # 执行脚本
