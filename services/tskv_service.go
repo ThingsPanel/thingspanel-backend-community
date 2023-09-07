@@ -871,7 +871,7 @@ func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}
 	args = append(args, device_id)
 
 	if len(attributes) == 0 {
-		query = "SELECT key, bool_v, str_v, long_v, dbl_v, ts FROM ts_kv_latest WHERE entity_id = ? FOR UPDATE"
+		query = "SELECT key, bool_v, str_v, long_v, dbl_v, ts FROM ts_kv_latest WHERE entity_id = ?"
 	} else {
 		if !contains(attributes, "systime") {
 			attributes = append(attributes, "systime")
