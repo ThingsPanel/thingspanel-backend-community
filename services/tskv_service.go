@@ -447,25 +447,29 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 			tskvList = []models.TSKV{}
 		}
 		// 更新ts_kv_latest
-		if len(tskvLatestList) < 0 {
+		if len(tskvLatestList) > 0 {
+			// 创建事务
 			for _, tskvLatest := range tskvLatestList {
-				// Update the record in the database
-				rtsl := psql.Mydb.Where(models.TSKVLatest{
-					EntityType: tskvLatest.EntityType,
-					EntityID:   tskvLatest.EntityID,
-					Key:        tskvLatest.Key,
-					TenantID:   tskvLatest.TenantID,
-				}).Assign(models.TSKVLatest{
-					TS:    tskvLatest.TS,
-					BoolV: tskvLatest.BoolV,
-					LongV: tskvLatest.LongV,
-					StrV:  tskvLatest.StrV,
-					DblV:  tskvLatest.DblV,
-				}).FirstOrCreate(&tskvLatest)
+				if tskvLatest.EntityID == "663a93e0-bd5c-726b-3804-5e28525ef3c4" {
+					// Update the record in the database
+					rtsl := psql.Mydb.Debug().Where(models.TSKVLatest{
+						EntityType: tskvLatest.EntityType,
+						EntityID:   tskvLatest.EntityID,
+						Key:        tskvLatest.Key,
+						TenantID:   tskvLatest.TenantID,
+					}).Assign(models.TSKVLatest{
+						TS:    tskvLatest.TS,
+						BoolV: tskvLatest.BoolV,
+						LongV: tskvLatest.LongV,
+						StrV:  tskvLatest.StrV,
+						DblV:  tskvLatest.DblV,
+					}).FirstOrCreate(&tskvLatest)
 
-				if rtsl.Error != nil {
-					logs.Error(rtsl.Error)
+					if rtsl.Error != nil {
+						logs.Error(rtsl.Error)
+					}
 				}
+
 			}
 			// 清空tskvLatestList
 			tskvLatestList = []models.TSKVLatest{}
