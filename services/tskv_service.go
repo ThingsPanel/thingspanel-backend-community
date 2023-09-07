@@ -885,12 +885,6 @@ func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}
 	if err := psql.Mydb.Debug().Raw(query, args...).Scan(&ts_kvs).Error; err != nil {
 		return nil, err
 	}
-	if err := psql.Mydb.Debug().Raw(query, args...).Scan(&ts_kvs).Error; err != nil {
-		return nil, err
-	}
-	if err := psql.Mydb.Debug().Raw(query, args...).Scan(&ts_kvs).Error; err != nil {
-		return nil, err
-	}
 	field := make(map[string]interface{}, len(ts_kvs))
 	for _, v := range ts_kvs {
 		if v.Key == "" {
