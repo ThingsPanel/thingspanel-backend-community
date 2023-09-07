@@ -451,7 +451,7 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 			// 创建事务
 			for _, tskvLatest := range tskvLatestList {
 				if tskvLatest.EntityID == "663a93e0-bd5c-726b-3804-5e28525ef3c4" {
-					// Update the record in the database
+					fmt.Println(tskvLatest.DblV, tskvLatest.Key)
 					rtsl := psql.Mydb.Debug().Where(models.TSKVLatest{
 						EntityType: tskvLatest.EntityType,
 						EntityID:   tskvLatest.EntityID,
@@ -465,9 +465,15 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 						DblV:  tskvLatest.DblV,
 					}).FirstOrCreate(&tskvLatest)
 
+					if rtsl.RowsAffected == 0 {
+						// No rows were affected, so we should create a new record
+						psql.Mydb.Debug().Create(&tskvLatest)
+					}
+
 					if rtsl.Error != nil {
 						logs.Error(rtsl.Error)
 					}
+
 				}
 
 			}
