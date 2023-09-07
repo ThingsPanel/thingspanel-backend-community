@@ -866,7 +866,7 @@ func fetchFromCassandra(device_id string, attributes []string) (map[string]inter
 // fetchFromSQL 从SQL数据库中获取数据
 func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}, error) {
 
-	tx := psql.Mydb.Debug().Select("key, bool_v, str_v, long_v, dbl_v, ts").Set("gorm:query_option", "FOR KEY SHARE")
+	tx := psql.Mydb.Debug().Set("gorm:query_option", "FOR KEY SHARE").Select("key, bool_v, str_v, long_v, dbl_v, ts")
 	// 判断attributes是否为空
 	if len(attributes) == 0 {
 		tx.Where("entity_id = ? ", device_id)
