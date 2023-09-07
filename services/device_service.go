@@ -651,7 +651,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 			return err
 		}
 	}
-	if deviceModel.Token != "" {
+	if deviceModel.Token != "" && deviceModel.Token != device.Token {
 		MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
 		if MqttHttpHost == "" {
 			MqttHttpHost = viper.GetString("api.http_host")
