@@ -16,9 +16,9 @@ jobs:
     - name: Deploy and Check contents
       uses: cross-the-world/ssh-scp-ssh-pipelines@latest
       with:
-        host: ${{ secrets.DC_HOST }}
-        user: ${{ secrets.DC_USER }}
-        pass: ${{ secrets.DC_PASS }}
+        host: ${{ secrets.DEV_HOST }}
+        user: ${{ secrets.DEV_USER }}
+        pass: ${{ secrets.DEV_PASS }}
         first_ssh: "ls -la /home/hd/"
         scp: |
           - source: .
