@@ -447,7 +447,7 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 			tskvList = []models.TSKV{}
 		}
 		// 更新ts_kv_latest
-		if len(tskvLatestList) > 0 {
+		if len(tskvLatestList) < 0 {
 			for _, tskvLatest := range tskvLatestList {
 				// Update the record in the database
 				rtsl := psql.Mydb.Where(models.TSKVLatest{
