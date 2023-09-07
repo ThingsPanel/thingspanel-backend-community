@@ -448,10 +448,9 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 		}
 		// 更新ts_kv_latest
 		if len(tskvLatestList) > 0 {
-			// 创建事务
 			for _, tskvLatest := range tskvLatestList {
 				// Update the record in the database
-				rtsl := psql.Mydb.Debug().Where(models.TSKVLatest{
+				rtsl := psql.Mydb.Where(models.TSKVLatest{
 					EntityType: tskvLatest.EntityType,
 					EntityID:   tskvLatest.EntityID,
 					Key:        tskvLatest.Key,
