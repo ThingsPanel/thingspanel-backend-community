@@ -13,27 +13,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Check contents before SCP
+    - name: Deploy and Check contents
       uses: cross-the-world/ssh-scp-ssh-pipelines@latest
       with:
         host: ${{ secrets.DC_HOST }}
         username: ${{ secrets.DC_USER }}
         password: ${{ secrets.DC_PASS }}
-        script: ls -la /home/hd/
-
-    - name: Deploy to server
-      uses: cross-the-world/ssh-scp-ssh-pipelines@latest
-      with:
-        host: ${{ secrets.DC_HOST }}
-        username: ${{ secrets.DC_USER }}
-        password: ${{ secrets.DC_PASS }}
-        source: "."
-        target: "/home/hd/"
-
-    - name: Check contents after SCP
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.DC_HOST }}
-        username: ${{ secrets.DC_USER }}
-        password: ${{ secrets.DC_PASS }}
-        script: ls -la /home/hd/
+        first_ssh: "ls -la /home/hd/"
+        scp: |
+          - source: .
+            target: /home/hd/
+        last_ssh: "ls -la /home/hd/"
