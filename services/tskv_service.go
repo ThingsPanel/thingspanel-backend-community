@@ -867,21 +867,23 @@ func fetchFromCassandra(device_id string, attributes []string) (map[string]inter
 func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}, error) {
 	var ts_kvs []models.TSKVLatest
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
-		tx.Debug().Set("gorm:query_option", "FOR UPDATE").Select("key, bool_v, str_v, long_v, dbl_v, ts")
-		// 判断attributes是否为空
+		tx = tx.Set("gorm:query_option", "FOR UPDATE")
+
+		query := tx.Select("key, bool_v, str_v, long_v, dbl_v, ts")
+
 		if len(attributes) == 0 {
-			tx.Where("entity_id = ? ", device_id)
+			query = query.Where("entity_id = ?", device_id)
 		} else {
 			if !contains(attributes, "systime") {
 				attributes = append(attributes, "systime")
 			}
-			tx.Where("entity_id = ? AND key in ?", device_id, attributes)
+			query = query.Where("entity_id = ? AND key IN ?", device_id, attributes)
 		}
 
-		result := tx.Find(&ts_kvs)
-		if result.Error != nil {
-			return result.Error
+		if err := query.Find(&ts_kvs).Error; err != nil {
+			return err
 		}
+
 		return nil
 	})
 	if err != nil {
