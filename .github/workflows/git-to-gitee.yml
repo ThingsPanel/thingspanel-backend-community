@@ -16,14 +16,15 @@ jobs:
         fetch-depth: 0
 
     - name: Push to Gitee
-      env:
-        GITEE_TOKEN: ${{ secrets.HZ_GITEE_TOKEN }}
-      run: |
-        git config --global user.name "he-zhuozhuo"
-        git config --global user.email "421045249@qq.com"
-
-        git remote add gitee https://he-zhuozhuo:${GITEE_TOKEN}@gitee.com/ThingsPanel/thingspanel-go
-        git push --force gitee main
+      uses: nick-invision/retry@v2
+      with:
+        max_attempts: 3
+        timeout_minutes: 5
+        command: |
+          git config --global user.name "he-zhuozhuo"
+          git config --global user.email "421045249@qq.com"
+          git remote add gitee https://he-zhuozhuo:${{ secrets.HZ_GITEE_TOKEN }}@gitee.com/ThingsPanel/thingspanel-go
+          git push --force gitee main
 
     - name: Deploy and Check contents
       uses: cross-the-world/ssh-scp-ssh-pipelines@latest
