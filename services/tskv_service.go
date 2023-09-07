@@ -451,7 +451,7 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 			// 创建事务
 			for _, tskvLatest := range tskvLatestList {
 				// Update the record in the database
-				rtsl := psql.Mydb.Where(models.TSKVLatest{
+				rtsl := psql.Mydb.Debug().Where(models.TSKVLatest{
 					EntityType: tskvLatest.EntityType,
 					EntityID:   tskvLatest.EntityID,
 					Key:        tskvLatest.Key,
