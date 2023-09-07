@@ -877,14 +877,12 @@ func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}
 			attributes = append(attributes, "systime")
 		}
 		placeholders := strings.Trim(strings.Repeat("?,", len(attributes)), ",")
-		query = fmt.Sprintf("SELECT key, bool_v, str_v, long_v, dbl_v, ts FROM ts_kv_latest WHERE entity_id = ? AND key IN (%s) FOR UPDATE", placeholders)
+		query = fmt.Sprintf("SELECT key, bool_v, str_v, long_v, dbl_v, ts FROM ts_kv_latest WHERE entity_id = ? AND key IN (%s)", placeholders)
 		for _, attr := range attributes {
 			args = append(args, attr)
 		}
 	}
-	tx := psql.Mydb.Begin()
-	defer tx.Commit()
-	if err := tx.Debug().Raw(query, args...).Scan(&ts_kvs).Error; err != nil {
+	if err := psql.Mydb.Debug().Raw(query, args...).Scan(&ts_kvs).Error; err != nil {
 		return nil, err
 	}
 	field := make(map[string]interface{}, len(ts_kvs))
