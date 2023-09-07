@@ -888,6 +888,7 @@ func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}
 
 	field := make(map[string]interface{}, len(ts_kvs))
 	fmt.Println(ts_kvs)
+
 	for _, v := range ts_kvs {
 		if v.Key == "" {
 			continue
