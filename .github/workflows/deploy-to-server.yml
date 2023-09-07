@@ -21,6 +21,5 @@ jobs:
         pass: ${{ secrets.DEV_PASS }}
         first_ssh: "ls -la /home/hd/"
         scp: |
-          - source: ${{ github.workspace }}
-            target: /home/hd/
+          ./* => /home/hd/
         last_ssh: "ls -la /home/hd/"
