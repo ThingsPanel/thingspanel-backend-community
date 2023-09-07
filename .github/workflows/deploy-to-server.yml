@@ -1,0 +1,31 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main  # 或者您想要部署的其他分支名
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Clear target directory on server
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.DC_HOST }}
+        username: ${{ secrets.DC_USER }}
+        password: ${{ secrets.DC_PASS }}
+        script: rm -rf /home/hd/* 
+
+    - name: Deploy to server
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.DC_HOST }}
+        username: ${{ secrets.DC_USER }}
+        password: ${{ secrets.DC_PASS }}
+        source: "."
+        target: "/home/hd/"
