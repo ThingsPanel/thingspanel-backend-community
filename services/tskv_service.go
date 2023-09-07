@@ -26,7 +26,6 @@ import (
 	sendMqtt "ThingsPanel-Go/modules/dataService/mqtt/sendMqtt"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 //var DeviceOnlineState = make(map[string]interface{})
@@ -866,7 +865,13 @@ func fetchFromCassandra(device_id string, attributes []string) (map[string]inter
 
 // fetchFromSQL 从SQL数据库中获取数据
 func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}, error) {
-	tx := psql.Mydb.Debug().Clauses(clause.Locking{Strength: "UPDATE"}).Select("key, bool_v, str_v, long_v, dbl_v, ts")
+	tx := psql.Mydb.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	tx = psql.Mydb.Debug().Select("key, bool_v, str_v, long_v, dbl_v, ts").Set("gorm:query_option", "FOR UPDATE")
 	// 判断attributes是否为空
 	if len(attributes) == 0 {
 		tx.Where("entity_id = ? ", device_id)
