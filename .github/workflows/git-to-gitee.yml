@@ -12,6 +12,8 @@ jobs:
     steps:
     - name: Checkout code from GitHub
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
 
     - name: Push to Gitee
       env:
