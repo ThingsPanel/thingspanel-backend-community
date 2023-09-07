@@ -870,14 +870,14 @@ func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}
 	var args []interface{}
 
 	if len(attributes) == 0 {
-		query = "SELECT key, bool_v, str_v, long_v, dbl_v, ts FROM your_table_name WHERE entity_id = ? FOR UPDATE"
+		query = "SELECT key, bool_v, str_v, long_v, dbl_v, ts FROM ts_kv_latest WHERE entity_id = ? FOR UPDATE"
 		args = append(args, device_id)
 	} else {
 		if !contains(attributes, "systime") {
 			attributes = append(attributes, "systime")
 		}
 		placeholders := strings.Trim(strings.Repeat("?,", len(attributes)), ",")
-		query = fmt.Sprintf("SELECT key, bool_v, str_v, long_v, dbl_v, ts FROM your_table_name WHERE entity_id = ? AND key IN (%s) FOR UPDATE", placeholders)
+		query = fmt.Sprintf("SELECT key, bool_v, str_v, long_v, dbl_v, ts FROM ts_kv_latest WHERE entity_id = ? AND key IN (%s) FOR UPDATE", placeholders)
 		args = append(args, device_id)
 		for _, attr := range attributes {
 			args = append(args, attr)
