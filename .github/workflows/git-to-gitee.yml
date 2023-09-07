@@ -1,0 +1,24 @@
+name: Sync to Gitee
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code from GitHub
+      uses: actions/checkout@v2
+
+    - name: Push to Gitee
+      env:
+        GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+      run: |
+        git config --global user.name "he-zhuozhuo"
+        git config --global user.email "421045249@qq.com"
+
+        git remote add gitee https://he-zhuozhuo:${HZ_GITEE_TOKEN}@gitee.com/ThingsPanel/thingspanel-go
+        git push --force gitee main
