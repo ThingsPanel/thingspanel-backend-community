@@ -13,13 +13,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Clear target directory on server
-      uses: cross-the-world/ssh-scp-ssh-pipelines@latest
+    - name: Check contents before SCP
+      uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.DC_HOST }}
         username: ${{ secrets.DC_USER }}
         password: ${{ secrets.DC_PASS }}
-        script: rm -rf /home/hd/* 
+        script: ls -la /home/hd/
 
     - name: Deploy to server
       uses: cross-the-world/ssh-scp-ssh-pipelines@latest
@@ -29,3 +29,11 @@ jobs:
         password: ${{ secrets.DC_PASS }}
         source: "."
         target: "/home/hd/"
+
+    - name: Check contents after SCP
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.DC_HOST }}
+        username: ${{ secrets.DC_USER }}
+        password: ${{ secrets.DC_PASS }}
+        script: ls -la /home/hd/
