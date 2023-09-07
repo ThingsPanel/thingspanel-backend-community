@@ -867,7 +867,7 @@ func fetchFromCassandra(device_id string, attributes []string) (map[string]inter
 func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}, error) {
 	var ts_kvs []models.TSKVLatest
 	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
-		tx.Debug().Set("gorm:query_option", "FOR KEY SHARE").Select("key, bool_v, str_v, long_v, dbl_v, ts")
+		tx.Debug().Set("gorm:query_option", "FOR UPDATE").Select("key, bool_v, str_v, long_v, dbl_v, ts")
 		// 判断attributes是否为空
 		if len(attributes) == 0 {
 			tx.Where("entity_id = ? ", device_id)
