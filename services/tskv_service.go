@@ -26,6 +26,7 @@ import (
 	sendMqtt "ThingsPanel-Go/modules/dataService/mqtt/sendMqtt"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 //var DeviceOnlineState = make(map[string]interface{})
@@ -865,8 +866,7 @@ func fetchFromCassandra(device_id string, attributes []string) (map[string]inter
 
 // fetchFromSQL 从SQL数据库中获取数据
 func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}, error) {
-	fmt.Println("开始查询")
-	tx := psql.Mydb.Debug().Select("key, bool_v, str_v, long_v, dbl_v, ts")
+	tx := psql.Mydb.Debug().Clauses(clause.Locking{Strength: "SHARE"}).Select("key, bool_v, str_v, long_v, dbl_v, ts")
 	// 判断attributes是否为空
 	if len(attributes) == 0 {
 		tx.Where("entity_id = ? ", device_id)
@@ -878,7 +878,6 @@ func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}
 	}
 	var ts_kvs []models.TSKVLatest
 	result := tx.Find(&ts_kvs)
-	fmt.Println("结束查询")
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return nil, result.Error
