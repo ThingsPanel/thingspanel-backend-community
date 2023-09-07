@@ -452,26 +452,28 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 			for _, tskvLatest := range tskvLatestList {
 				if tskvLatest.EntityID == "663a93e0-bd5c-726b-3804-5e28525ef3c4" {
 					fmt.Println(tskvLatest.DblV, tskvLatest.Key)
-					rtsl := psql.Mydb.Debug().Where(models.TSKVLatest{
+					// 尝试更新记录
+					result := psql.Mydb.Debug().Model(&models.TSKVLatest{}).Where(models.TSKVLatest{
 						EntityType: tskvLatest.EntityType,
 						EntityID:   tskvLatest.EntityID,
 						Key:        tskvLatest.Key,
 						TenantID:   tskvLatest.TenantID,
-					}).Assign(models.TSKVLatest{
+					}).Updates(models.TSKVLatest{
 						TS:    tskvLatest.TS,
 						BoolV: tskvLatest.BoolV,
 						LongV: tskvLatest.LongV,
 						StrV:  tskvLatest.StrV,
 						DblV:  tskvLatest.DblV,
-					}).FirstOrCreate(&tskvLatest)
+					})
 
-					if rtsl.RowsAffected == 0 {
-						// No rows were affected, so we should create a new record
-						psql.Mydb.Debug().Create(&tskvLatest)
+					// 检查是否有记录被更新
+					if result.RowsAffected == 0 {
+						// 没有记录被更新，执行插入操作
+						result = psql.Mydb.Debug().Create(&tskvLatest)
 					}
 
-					if rtsl.Error != nil {
-						logs.Error(rtsl.Error)
+					if result.Error != nil {
+						logs.Error(result.Error)
 					}
 
 				}
