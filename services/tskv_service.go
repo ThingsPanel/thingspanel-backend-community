@@ -866,27 +866,25 @@ func fetchFromCassandra(device_id string, attributes []string) (map[string]inter
 // fetchFromSQL 从SQL数据库中获取数据
 func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}, error) {
 	var ts_kvs []models.TSKVLatest
-	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
-		tx = tx.Set("gorm:query_option", "FOR UPDATE")
+	var query string
+	var args []interface{}
 
-		query := tx.Select("key, bool_v, str_v, long_v, dbl_v, ts")
-
-		if len(attributes) == 0 {
-			query = query.Where("entity_id = ?", device_id)
-		} else {
-			if !contains(attributes, "systime") {
-				attributes = append(attributes, "systime")
-			}
-			query = query.Where("entity_id = ? AND key IN ?", device_id, attributes)
+	if len(attributes) == 0 {
+		query = "SELECT key, bool_v, str_v, long_v, dbl_v, ts FROM your_table_name WHERE entity_id = ? FOR UPDATE"
+		args = append(args, device_id)
+	} else {
+		if !contains(attributes, "systime") {
+			attributes = append(attributes, "systime")
 		}
-
-		if err := query.Find(&ts_kvs).Error; err != nil {
-			return err
+		placeholders := strings.Trim(strings.Repeat("?,", len(attributes)), ",")
+		query = fmt.Sprintf("SELECT key, bool_v, str_v, long_v, dbl_v, ts FROM your_table_name WHERE entity_id = ? AND key IN (%s) FOR UPDATE", placeholders)
+		args = append(args, device_id)
+		for _, attr := range attributes {
+			args = append(args, attr)
 		}
+	}
 
-		return nil
-	})
-	if err != nil {
+	if err := psql.Mydb.Debug().Raw(query, args...).Scan(&ts_kvs).Error; err != nil {
 		return nil, err
 	}
 	field := make(map[string]interface{})
