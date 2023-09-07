@@ -865,26 +865,27 @@ func fetchFromCassandra(device_id string, attributes []string) (map[string]inter
 
 // fetchFromSQL 从SQL数据库中获取数据
 func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}, error) {
-
-	tx := psql.Mydb.Debug().Set("gorm:query_option", "FOR KEY SHARE").Select("key, bool_v, str_v, long_v, dbl_v, ts")
-	// 判断attributes是否为空
-	if len(attributes) == 0 {
-		tx.Where("entity_id = ? ", device_id)
-	} else {
-		if !contains(attributes, "systime") {
-			attributes = append(attributes, "systime")
-		}
-		tx.Where("entity_id = ? AND key in ?", device_id, attributes)
-	}
 	var ts_kvs []models.TSKVLatest
-	result := tx.Find(&ts_kvs)
-	if result.Error != nil {
-		logs.Error(result.Error.Error())
-		return nil, result.Error
-	} else {
-		if len(ts_kvs) == 0 {
-			return nil, errors.New("no data")
+	err := psql.Mydb.Transaction(func(tx *gorm.DB) error {
+		tx.Debug().Set("gorm:query_option", "FOR KEY SHARE").Select("key, bool_v, str_v, long_v, dbl_v, ts")
+		// 判断attributes是否为空
+		if len(attributes) == 0 {
+			tx.Where("entity_id = ? ", device_id)
+		} else {
+			if !contains(attributes, "systime") {
+				attributes = append(attributes, "systime")
+			}
+			tx.Where("entity_id = ? AND key in ?", device_id, attributes)
 		}
+
+		result := tx.Find(&ts_kvs)
+		if result.Error != nil {
+			return result.Error
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	field := make(map[string]interface{})
 	for _, v := range ts_kvs {
