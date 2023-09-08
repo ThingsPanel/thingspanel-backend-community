@@ -3,14 +3,14 @@ package main
 import (
 	"log"
 
-	beego "github.com/beego/beego/v2/server/web"
-
 	_ "ThingsPanel-Go/initialize/log"
+	_ "ThingsPanel-Go/initialize/psql"
+
+	beego "github.com/beego/beego/v2/server/web"
 
 	_ "ThingsPanel-Go/modules/dataService"
 
 	_ "ThingsPanel-Go/initialize/cache"
-	_ "ThingsPanel-Go/initialize/psql"
 
 	_ "ThingsPanel-Go/initialize/cron"
 	_ "ThingsPanel-Go/initialize/send_message"
