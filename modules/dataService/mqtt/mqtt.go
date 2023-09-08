@@ -133,7 +133,7 @@ func sub(p1 *ants.Pool, pOther *ants.Pool, qos byte, messages chan map[string]in
 	// 订阅网关属性
 	gatewayAttributesMessageHandler := func(c mqtt.Client, d mqtt.Message) {
 		_ = p1.Submit(func() {
-			s.GatewayMsgProc(d.Payload(), d.Topic())
+			s.GatewayMsgProc(d.Payload(), d.Topic(), messages)
 		})
 	}
 	if token := MqttClient.Subscribe(sendmqtt.Topic_GatewayAttributes, qos, gatewayAttributesMessageHandler); token.Wait() && token.Error() != nil {

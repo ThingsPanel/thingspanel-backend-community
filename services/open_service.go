@@ -1,18 +1,12 @@
 package services
 
 import (
-	valid "ThingsPanel-Go/validate"
 	"encoding/base64"
-	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
 	"time"
-
-	"github.com/beego/beego/v2/core/logs"
-	"github.com/beego/beego/v2/server/web"
 )
 
 type OpenService struct {
@@ -22,55 +16,6 @@ type OpenService struct {
 	WhereField []string
 	//可做为时间范围查询的字段
 	TimeField []string
-}
-
-// 保存三方数据
-func (*OpenService) SaveData(OpenValidate valid.OpenValidate) (bool, error) {
-	if len(OpenValidate.Token) == 0 {
-		return false, errors.New("data token missing")
-	}
-	if len(OpenValidate.Values) == 0 {
-		return false, errors.New("data values missing")
-	}
-	valuesMap := OpenValidate.Values
-	// 是否存在file，
-	if _, ok := valuesMap["file"]; ok {
-		// filename是否存在
-		if v, ok := valuesMap["filename"]; ok {
-			if _, ok := v.(string); !ok {
-				return false, errors.New("data values.filename type missing")
-			}
-			// 保存BASE64文件
-			filename, err := SaveBase64File(valuesMap["filename"].(string), valuesMap["file"].(string))
-			if err != nil {
-				return false, err
-			}
-			valuesMap["filename"] = filename
-			delete(valuesMap, "file")
-		} else {
-			return false, errors.New("data values.filename inexistence")
-		}
-	}
-	logs.Info("=======================")
-	//logs.Info(OpenValidate)
-	// 解析并存储数据
-	// 通道缓冲区大小
-	channelBufferSize, _ := web.AppConfig.Int("channel_buffer_size")
-	messages := make(chan map[string]interface{}, channelBufferSize)
-	// 写入协程数
-	writeWorkers, _ := web.AppConfig.Int("write_workers")
-	for i := 0; i < writeWorkers; i++ {
-		var TSKVService TSKVService
-		go TSKVService.BatchWrite(messages)
-	}
-	OpenValidateByte, _ := json.Marshal(OpenValidate)
-	var TSKV TSKVService
-	isSucess := TSKV.MsgProc(messages, OpenValidateByte, "")
-	if isSucess {
-		return isSucess, nil
-	} else {
-		return isSucess, errors.New("save faild")
-	}
 }
 
 // 存储base64文件并返回文件名

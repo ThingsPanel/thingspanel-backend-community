@@ -281,8 +281,6 @@ func init() {
 
 		// 文件上传接口
 		web.NSRouter("/file/up", &controllers.UploadController{}, "*:UpFile"), //logo-w
-		// 三方数据接口
-		web.NSRouter("/open/data", &controllers.OpenController{}, "*:GetData"),
 		// 控制日志
 		web.NSRouter("/conditions/log/index", &controllers.ConditionslogController{}, "*:Index"),
 

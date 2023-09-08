@@ -180,7 +180,7 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 }
 
 // 接收网关消息
-func (*TSKVService) GatewayMsgProc(body []byte, topic string) bool {
+func (*TSKVService) GatewayMsgProc(body []byte, topic string, messages chan map[string]interface{}) bool {
 	logs.Info("------------------------------")
 	logs.Info("来自网关设备的消息：")
 	logs.Info(string(body))
@@ -240,9 +240,7 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string) bool {
 				logs.Error(err.Error())
 				return false
 			} else {
-				// 通道缓冲区大小
-				channelBufferSize, _ := web.AppConfig.Int("channel_buffer_size")
-				messages := make(chan map[string]interface{}, channelBufferSize)
+
 				// 写入协程数
 				writeWorkers, _ := web.AppConfig.Int("write_workers")
 				for i := 0; i < writeWorkers; i++ {
