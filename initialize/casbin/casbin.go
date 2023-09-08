@@ -15,24 +15,44 @@ var CasbinEnforcer *casbin.Enforcer
 
 func init() {
 	log.Println("casbin启动...")
-	// Initialize a Gorm adapter and use it in a Casbin enforcer:
-	// The adapter will use the MySQL database named "casbin".
-	// If it doesn't exist, the adapter will create it automatically.
-	// You can also use an already existing gorm instance with gormadapter.NewAdapterByDB(gormInstance)
-	psqluser, _ := beego.AppConfig.String("psqluser")
-	psqlpass, _ := beego.AppConfig.String("psqlpass")
+
+	psqluser, err := beego.AppConfig.String("psqluser")
+	if err != nil {
+		log.Fatalf("Failed to get psqluser: %v", err)
+	}
+
+	psqlpass, err := beego.AppConfig.String("psqlpass")
+	if err != nil {
+		log.Fatalf("Failed to get psqlpass: %v", err)
+	}
+
 	psqladdr := os.Getenv("TP_PG_IP")
 	if psqladdr == "" {
-		psqladdr, _ = beego.AppConfig.String("psqladdr")
+		psqladdr, err = beego.AppConfig.String("psqladdr")
+		if err != nil {
+			log.Fatalf("Failed to get psqladdr: %v", err)
+		}
 	}
+
 	psqlports := os.Getenv("TP_PG_PORT")
 	var psqlport int
 	if psqlports == "" {
-		psqlport, _ = beego.AppConfig.Int("psqlport")
+		psqlport, err = beego.AppConfig.Int("psqlport")
+		if err != nil {
+			log.Fatalf("Failed to get psqlport: %v", err)
+		}
 	} else {
-		psqlport, _ = strconv.Atoi(psqlports)
+		psqlport, err = strconv.Atoi(psqlports)
+		if err != nil {
+			log.Fatalf("Failed to convert psqlports to int: %v", err)
+		}
 	}
-	psqldb, _ := beego.AppConfig.String("psqldb")
+
+	psqldb, err := beego.AppConfig.String("psqldb")
+	if err != nil {
+		log.Fatalf("Failed to get psqldb: %v", err)
+	}
+
 	dataSource := fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=disable TimeZone=Asia/Shanghai",
 		psqladdr,
 		psqlport,
@@ -40,16 +60,22 @@ func init() {
 		psqldb,
 		psqlpass,
 	)
-	a, _ := gormadapter.NewAdapter("postgres", dataSource, true)
-	e, err := casbin.NewEnforcer("initialize/casbin/model.conf", a)
-	// Or you can use an existing DB "abc" like this:
-	// The adapter will use the table named "casbin_rule".
-	// If it doesn't exist, the adapter will create it automatically.
-	// a := gormadapter.NewAdapter("mysql", "mysql_username:mysql_password@tcp(127.0.0.1:3306)/abc", true)
+
+	a, err := gormadapter.NewAdapter("postgres", dataSource, false) // 设置为 false 以禁止自动创建表
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Fatalf("Failed to create new adapter: %v", err)
 	}
+
+	e, err := casbin.NewEnforcer("initialize/casbin/model.conf", a)
+	if err != nil {
+		log.Fatalf("Failed to create new enforcer: %v", err)
+	}
+
 	CasbinEnforcer = e
-	CasbinEnforcer.LoadPolicy()
+	err = CasbinEnforcer.LoadPolicy()
+	if err != nil {
+		log.Fatalf("Failed to load policy: %v", err)
+	}
+
 	log.Println("casbin启动完成")
 }
