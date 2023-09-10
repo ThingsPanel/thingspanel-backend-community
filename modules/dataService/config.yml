@@ -1,5 +1,5 @@
 
-# mqtt服务：gmqtt、vernemq
+# GOTP_MQTT_SERVER mqtt服务：gmqtt、vernemq
 mqtt_server: gmqtt
 mqtt:
   broker: 127.0.0.1:1883

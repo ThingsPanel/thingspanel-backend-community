@@ -35,6 +35,10 @@ func loadConfig() {
 	var err error
 	envConfigFile := flag.String("config", "./modules/dataService/config.yml", "path of configuration file")
 	flag.Parse()
+	// 设置环境变量前缀
+	viper.SetEnvPrefix("GOTP")
+	// 使 Viper 能够读取环境变量
+	viper.AutomaticEnv()
 	viper.SetConfigFile(*envConfigFile)
 	if err = viper.ReadInConfig(); err != nil {
 		fmt.Println("FAILURE", err)
