@@ -74,7 +74,7 @@ func (c *KvController) Index() {
 	response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
-//导出升级
+// 导出升级
 func (c *KvController) Export() {
 	reqData := valid.KVExcelValidate{}
 	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
@@ -299,7 +299,7 @@ func (this *KvController) CurrentDataByAssetA() {
 	response.SuccessWithDetailed(200, "获取成功", t, map[string]string{}, (*context2.Context)(this.Ctx))
 }
 
-//GetHistoryDataByKey
+// GetHistoryDataByKey
 func (this *KvController) GetHistoryDataByKey() {
 	HistoryDataByKeyValidate := valid.HistoryDataByKeyValidate{}
 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &HistoryDataByKeyValidate)
@@ -426,4 +426,75 @@ func (KvController *KvController) GetCurrentDataAndMapList() {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(KvController.Ctx))
 	}
 	response.SuccessWithDetailed(200, "success", m, map[string]string{}, (*context2.Context)(KvController.Ctx))
+}
+
+func (c *KvController) GetStatisticDataByKey() {
+	StatisticDataValidate := valid.StatisticDataValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &StatisticDataValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(StatisticDataValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(StatisticDataValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+
+	// 继续进行参数校验，暂仅支持不聚合的数据
+	if StatisticDataValidate.AggregateWindow == "no_aggregate" {
+		if StatisticDataValidate.TimeRange == "custom" {
+			// 如果是自定义时间，判断时间范围是否超过3小时
+			if (StatisticDataValidate.EndTime - StatisticDataValidate.StartTime) > int64(time.Duration(3)*time.Hour/time.Microsecond) {
+				response.SuccessWithMessage(400, "时间段大于3小时", (*context2.Context)(c.Ctx))
+				return
+			}
+		}
+
+		if _, ok := TimeRangeMap[StatisticDataValidate.TimeRange]; !ok {
+			response.SuccessWithMessage(400, "暂不支持的数据筛选条件", (*context2.Context)(c.Ctx))
+			return
+		}
+
+	} else {
+		response.SuccessWithMessage(400, "暂不支持的数据筛选条件", (*context2.Context)(c.Ctx))
+		return
+	}
+	var TSKVService services.TSKVService
+	data, err := TSKVService.GetKVDataWithNoAggregate(
+		StatisticDataValidate.DeviceId,
+		StatisticDataValidate.Key,
+		StatisticDataValidate.StartTime,
+		StatisticDataValidate.EndTime)
+
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	rData := make(map[string]interface{})
+	rData["time_series"] = data
+	rData["duration"] = StatisticDataValidate.EndTime - StatisticDataValidate.StartTime
+	tData := make(map[string]int64)
+	tData["start"] = StatisticDataValidate.StartTime
+	tData["end"] = StatisticDataValidate.EndTime
+	rData["x_time_range"] = tData
+
+	// 继续组装
+	response.SuccessWithDetailed(200, "success", rData, map[string]string{}, (*context2.Context)(c.Ctx))
+}
+
+var TimeRangeMap = map[string]int{
+	"custom":   0, // 自定义时间段
+	"last_5m":  0,
+	"last_15m": 0,
+	"last_30m": 0,
+	"last_1h":  0,
+	"last_3h":  0,
 }
