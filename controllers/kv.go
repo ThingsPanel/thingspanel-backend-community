@@ -490,6 +490,7 @@ func (c *KvController) GetStatisticDataByKey() {
 	response.SuccessWithDetailed(200, "success", rData, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
+// 暂时先放在这里，后序优化
 var TimeRangeMap = map[string]int{
 	"custom":   0, // 自定义时间段
 	"last_5m":  0,
