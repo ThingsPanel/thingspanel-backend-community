@@ -123,7 +123,7 @@ func (*DeviceModelService) DeviceModelTree() []DeviceModelTree {
 	return trees
 }
 
-// 根据设备插件id获取物模型属性
+// 根据设备插件id获取物模型属性[map,map]
 func (*DeviceModelService) GetModelByPluginId(pluginId string) ([]interface{}, error) {
 	var model []interface{}
 	var deviceModel models.DeviceModel

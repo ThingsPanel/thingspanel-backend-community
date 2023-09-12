@@ -265,6 +265,7 @@ func init() {
 		web.NSRouter("/kv/current/asset", &controllers.KvController{}, "*:CurrentDataByAsset"),       //keshihua-ck
 		web.NSRouter("/kv/current/asset/a", &controllers.KvController{}, "*:CurrentDataByAssetA"),    //keshihua-ck
 		web.NSRouter("/kv/current/symbol", &controllers.KvController{}, "*:GetCurrentDataAndMap"),
+		web.NSRouter("/kv/current/detail", &controllers.KvController{}, "*:GetCurrentDataAndMapList"),
 
 		// 通过设备id查询设备历史数据
 		web.NSRouter("/kv/device/history", &controllers.KvController{}, "*:DeviceHistoryData"),

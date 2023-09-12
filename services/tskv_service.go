@@ -242,11 +242,11 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string, messages chan map[
 			} else {
 
 				// 写入协程数
-				writeWorkers, _ := web.AppConfig.Int("write_workers")
-				for i := 0; i < writeWorkers; i++ {
-					var TSKVService TSKVService
-					go TSKVService.BatchWrite(messages)
-				}
+				// writeWorkers, _ := web.AppConfig.Int("write_workers")
+				// for i := 0; i < writeWorkers; i++ {
+				// 	var TSKVService TSKVService
+				// 	go TSKVService.BatchWrite(messages)
+				// }
 				var TSKVService TSKVService
 				TSKVService.MsgProc(messages, sub_payload_bytes, topic)
 			}
@@ -887,7 +887,6 @@ func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}
 	if err := psql.Mydb.Raw(query, args...).Scan(&ts_kvs).Error; err != nil {
 		return nil, err
 	}
-
 	field := make(map[string]interface{}, len(ts_kvs))
 	fmt.Println(ts_kvs)
 
@@ -1437,4 +1436,45 @@ func (*TSKVService) DeviceOnline(device_id string, interval int64) (string, erro
 		state = "1"
 	}
 	return state, nil
+}
+
+// 查询设备当前值，与物模型映射，返回map列表
+func (*TSKVService) GetCurrentDataAndMapList(device_id string) ([]map[string]interface{}, error) {
+	var fields []map[string]interface{}
+	dbType, _ := web.AppConfig.String("dbType")
+	if dbType == "cassandra" {
+		return fields, errors.New("cassandra不支持此接口")
+	}
+	result := psql.Mydb.Model(&models.TSKVLatest{}).Select("key, str_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts desc").Find(&fields)
+	if result.Error != nil {
+		return fields, result.Error
+	}
+	if len(fields) > 0 {
+		// 查询物模型映射
+		var device models.Device
+		result := psql.Mydb.Where("id = ?", device_id).First(&device)
+		if result.Error != nil {
+			return fields, result.Error
+		}
+		var DeviceModelService DeviceModelService
+		attributeList, err := DeviceModelService.GetModelByPluginId(device.Type)
+		if err != nil {
+			logs.Error(err.Error())
+			return fields, nil
+		}
+		var typeMap = make(map[string]string)
+		for _, attribute := range attributeList {
+			if attributeMap, ok := attribute.(map[string]interface{}); ok {
+				if name, ok := attributeMap["name"].(string); ok {
+					typeMap[name] = attributeMap["title"].(string)
+				}
+			}
+		}
+		for i, v := range fields {
+			if typeMap[v["key"].(string)] != "" {
+				fields[i]["name"] = typeMap[v["key"].(string)]
+			}
+		}
+	}
+	return fields, nil
 }

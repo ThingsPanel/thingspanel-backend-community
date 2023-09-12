@@ -38,6 +38,10 @@ type CurrentKV struct {
 	Attribute []string `json:"attribute,omitempty" alias:"属性" valid:"MaxSize(36)"`
 }
 
+type CurrentKVByDeviceId struct {
+	DeviceId string `json:"device_id" alias:"设备" valid:"MaxSize(36)"`
+}
+
 type DeviceHistoryDataValidate struct {
 	DeviceId string `json:"device_id" alias:"设备" valid:"MaxSize(36)"`
 	Current  int    `json:"current" alias:"条数" valid:"Max(1000000)"`
