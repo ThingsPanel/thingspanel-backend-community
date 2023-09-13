@@ -275,6 +275,8 @@ func init() {
 		web.NSRouter("/kv/history/key", &controllers.KvController{}, "*:GetHistoryDataByKey"),
 		// 通过设备ID、key查询某个时间范围内的设备统计类数据
 		web.NSRouter("/kv/statistic", &controllers.KvController{}, "*:GetStatisticDataByKey"),
+		// 通过设备id、key删除设备历史数据
+		web.NSRouter("/kv/history/delete", &controllers.KvController{}, "*:DeleteHistoryData"),
 		// 系统设置接口
 		web.NSRouter("/system/logo/index", &controllers.LogoController{}, "*:Index"), //ty
 		//常规设置修改
