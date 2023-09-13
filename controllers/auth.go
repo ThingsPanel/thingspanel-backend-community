@@ -82,11 +82,11 @@ func (c *AuthController) Login() {
 		return
 	}
 	// 存入redis
-	redis.SetStr(token, "1", time.Hour)
+	redis.SetStr(token, "12", time.Hour)
 	d := TokenData{
 		AccessToken: token,
 		TokenType:   "Bearer",
-		ExpiresIn:   int(time.Hour.Seconds()),
+		ExpiresIn:   int(12 * time.Hour.Seconds()),
 	}
 	response.SuccessWithDetailed(200, "登录成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
