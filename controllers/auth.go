@@ -80,7 +80,7 @@ func (c *AuthController) Login() {
 		return
 	}
 	// 存入redis
-	redis.SetStr(token, "24", time.Hour)
+	redis.SetStr(token, "1", 24*time.Hour)
 	d := TokenData{
 		AccessToken: token,
 		TokenType:   "Bearer",
