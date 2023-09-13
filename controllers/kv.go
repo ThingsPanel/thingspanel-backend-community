@@ -374,6 +374,34 @@ func (KvController *KvController) HistoryData() {
 	response.SuccessWithDetailed(200, "success", trees, map[string]string{}, (*context2.Context)(KvController.Ctx))
 }
 
+// 删除指定属性历史数据
+func (KvController *KvController) DeleteHistoryData() {
+	var TSKVService services.TSKVService
+	DeleteHistoryDataValidate := valid.DeleteHistoryDataValidate{}
+	err := json.Unmarshal(KvController.Ctx.Input.RequestBody, &DeleteHistoryDataValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(DeleteHistoryDataValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(DeleteHistoryDataValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(KvController.Ctx))
+			break
+		}
+		return
+	}
+	isDelete, _ := TSKVService.DeleteHistoryData(DeleteHistoryDataValidate.DeviceId, DeleteHistoryDataValidate.Attribute)
+	if isDelete {
+		response.SuccessWithDetailed(200, "success", "", map[string]string{}, (*context2.Context)(KvController.Ctx))
+	}else {
+		response.SuccessWithMessage(400, "failed", (*context2.Context)(KvController.Ctx))
+	}
+}
+
 // 获取设备当前值
 func (KvController *KvController) GetCurrentDataAndMap() {
 	CurrentKV := valid.CurrentKV{}

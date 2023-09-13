@@ -83,3 +83,8 @@ type StatisticDataValidate struct {
 	AggregateWindow   string `json:"aggregate_window" alias:"聚合间隔"`
 	AggregateFunction string `json:"aggregate_function" alias:"聚合方法"`
 }
+// 删除历史数据校验
+type DeleteHistoryDataValidate struct {
+	DeviceId  string `json:"device_id" alias:"设备" valid:"Required;MaxSize(36)"`
+	Attribute string `json:"attribute" alias:"属性" valid:"Required;MaxSize(36)"`
+}
