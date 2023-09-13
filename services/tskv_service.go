@@ -1478,3 +1478,38 @@ func (*TSKVService) GetCurrentDataAndMapList(device_id string) ([]map[string]int
 	}
 	return fields, nil
 }
+
+// 获取不聚合的数据
+func (*TSKVService) GetKVDataWithNoAggregate(deviceId, key string, sTime, eTime int64) ([]map[string]interface{}, error) {
+
+	var fields []models.TSKV
+	resultData := psql.Mydb.
+		Select("ts, bool_v, str_v, long_v, dbl_v").
+		Where("entity_id = ? and key = ? and ts >= ? and ts <= ?", deviceId, key, sTime, eTime).
+		Find(&fields)
+	if resultData.Error != nil {
+		return nil, resultData.Error
+	}
+	timeSeries := make([]map[string]interface{}, resultData.RowsAffected)
+	if resultData.RowsAffected > 0 {
+		for i, v := range fields {
+			tmpMap := make(map[string]interface{})
+			tmpMap["x"] = v.TS // 横轴为时间
+			// 处理横轴
+			if fmt.Sprint(v.BoolV) != "" {
+				tmpMap["y"] = v.BoolV
+			} else if v.StrV != "" {
+				tmpMap["y"] = v.StrV
+			} else if v.LongV != 0 {
+				tmpMap["y"] = v.LongV
+			} else if v.DblV != 0 {
+				tmpMap["y"] = v.DblV
+			} else {
+				tmpMap["y"] = 0
+			}
+			timeSeries[i] = tmpMap
+		}
+	}
+
+	return timeSeries, nil
+}
