@@ -61,7 +61,7 @@ func init() {
 		psqlpass,
 	)
 
-	a, err := gormadapter.NewAdapter("postgres", dataSource, false) // 设置为 false 以禁止自动创建表
+	a, err := gormadapter.NewAdapter("postgres", dataSource, true) // 设置为 true
 	if err != nil {
 		log.Fatalf("Failed to create new adapter: %v", err)
 	}
