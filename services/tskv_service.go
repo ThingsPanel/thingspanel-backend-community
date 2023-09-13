@@ -1506,6 +1506,7 @@ func (*TSKVService) GetKVDataWithNoAggregate(deviceId, key string, sTime, eTime 
 	resultData := psql.Mydb.
 		Select("ts, bool_v, str_v, long_v, dbl_v").
 		Where("entity_id = ? and key = ? and ts >= ? and ts <= ?", deviceId, key, sTime, eTime).
+		Order("ts desc").
 		Find(&fields)
 	if resultData.Error != nil {
 		return nil, resultData.Error
