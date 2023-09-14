@@ -16,7 +16,6 @@ syntax = "proto3";
 
 option go_package = "ThingsPanel-Go/grpc/protocol_plugin/";
 
-import "google/protobuf/any.proto";
 
 // option java_multiple_files = true;
 // option java_package = "io.grpc.examples.helloworld";
@@ -25,30 +24,58 @@ import "google/protobuf/any.proto";
 package protocol_plugin;
 
 // The greeting service definition.
-service Greeter {
-  // Sends a greeting
-  rpc SayHello (HelloRequest) returns (HelloReply) {}
-  rpc SayHelloAgain (HelloRequest) returns (HelloReply) {}
-  rpc PluginDeviceConfig (PluginDeviceConfigRequest) returns (PluginDeviceReply) {}
-
+service ProtocolPluginService {
+  rpc PluginDeviceConfig (PluginDeviceConfigRequest) returns (PluginDeviceConfigReply) {}
+  rpc PluginDeviceConfigList (PluginDeviceConfigListRequest) returns (PluginDeviceConfigListReply) {}
 }
 
-// The request message containing the user's name.
-message HelloRequest {
-  string name = 1;
-}
-
-// The response message containing the greetings
-message HelloReply {
-  string message = 1;
-}
-
+// PluginDeviceConfig
 message PluginDeviceConfigRequest {
   string accessToken = 1;
+  string deviceID = 2;
+}
+/*
+type SubDeviceConfig struct {
+		AccessToken   string                 `json:"AccessToken"`
+		DeviceID      string                 `json:"DeviceId"`
+		SubDeviceAddr string                 `json:"SubDeviceAddr"`
+		Config        map[string]interface{} `json:"Config"` // 表单配置
+	}
+	type DeviceConfig struct {
+		ProtocolType string                 `json:"ProtocolType"`
+		AccessToken  string                 `json:"AccessToken"`
+		DeviceType   string                 `json:"DeviceType"`
+		ID           string                 `json:"Id"`
+		DeviceConfig map[string]interface{} `json:"DeviceConfig,omitempty"` // 表单配置
+		SubDevices   []SubDeviceConfig      `json:"SubDevices,omitempty"`
+	}
+  */
+message PluginDeviceConfigReply {
+  bytes data = 1;
 }
 
-
-// The response message for your new method
-message PluginDeviceReply {
-  google.protobuf.Any data = 1;
+// PluginDeviceConfigList
+message PluginDeviceConfigListRequest {
+  string protocolType = 1;
+  string deviceType = 2;
+}
+/*
+type SubDevice struct {
+		AccessToken   string                 `json:"AccessToken"`
+		DeviceId      string                 `json:"DeviceId"`
+		SubDeviceAddr string                 `json:"SubDeviceAddr"`
+		DeviceConfig  map[string]interface{} `json:"DeviceConfig"`
+	}
+	type DeviceConfig struct {
+		ProtocolType string                 `json:"ProtocolType"`
+		AccessToken  string                 `json:"AccessToken"`
+		DeviceType   string                 `json:"DeviceType"`
+		ID           string                 `json:"Id"`
+		DeviceConfig map[string]interface{} `json:"DeviceConfig,omitempty"`
+		SubDevice    []SubDevice            `json:"SubDevice,omitempty"`
+	}
+  []DeviceConfig
+*/
+message PluginDeviceConfigListReply {
+  bytes data = 1;
 }

@@ -1025,118 +1025,176 @@ func (*DeviceService) ApplyControl(res *simplejson.Json, rule_id string, operati
 // 	}
 // }
 
-// 根据token获取网关设备和子设备的配置
-func (*DeviceService) GetConfigByToken(token string, deviceId string) map[string]interface{} {
-	var ConfigMap = make(map[string]interface{})
+// GetConfigByToken 根据提供的 token 或 deviceID 获取设备配置。如果是网关设备，则返回其所有子设备的列表。
+func (*DeviceService) GetConfigByToken(token string, deviceId string) (map[string]interface{}, error) {
+	type SubDeviceConfig struct {
+		AccessToken   string                 `json:"AccessToken"`
+		DeviceID      string                 `json:"DeviceId"`
+		SubDeviceAddr string                 `json:"SubDeviceAddr"`
+		Config        map[string]interface{} `json:"Config"` // 表单配置
+	}
+	type DeviceConfig struct {
+		ProtocolType string                 `json:"ProtocolType"`
+		AccessToken  string                 `json:"AccessToken"`
+		DeviceType   string                 `json:"DeviceType"`
+		ID           string                 `json:"Id"`
+		DeviceConfig map[string]interface{} `json:"DeviceConfig,omitempty"` // 表单配置
+		SubDevices   []SubDeviceConfig      `json:"SubDevices,omitempty"`
+	}
+
 	var device models.Device
 	var result *gorm.DB
+	// 根据deviceId或token查询设备
 	if deviceId != "" {
 		result = psql.Mydb.First(&device, "id = ?", deviceId)
 	} else {
 		result = psql.Mydb.First(&device, "token = ?", token)
 	}
+
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return ConfigMap
+			return nil, fmt.Errorf("device not found")
 		}
-		logs.Error(result.Error)
-		return nil
+		return nil, result.Error
 	}
-	ConfigMap["ProtocolType"] = device.Protocol
-	ConfigMap["AccessToken"] = token
-	ConfigMap["DeviceType"] = device.DeviceType
-	ConfigMap["Id"] = device.ID
-	if device.DeviceType == "1" { //直连设备
-		var m = make(map[string]interface{})
-		err := json.Unmarshal([]byte(device.ProtocolConfig), &m)
-		if err != nil {
-			fmt.Println("Unmarshal failed:", err)
+
+	var protocolConfig map[string]interface{}
+	if err := json.Unmarshal([]byte(device.ProtocolConfig), &protocolConfig); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal protocol config: %w", err)
+	}
+
+	config := DeviceConfig{
+		ProtocolType: device.Protocol,
+		AccessToken:  token,
+		DeviceType:   device.DeviceType,
+		ID:           device.ID,
+		DeviceConfig: protocolConfig,
+	}
+
+	if device.DeviceType == "2" {
+		var subDevices []models.Device
+		subResult := psql.Mydb.Find(&subDevices, "parent_id = ?", device.ID)
+
+		if subResult.Error != nil {
+			if errors.Is(subResult.Error, gorm.ErrRecordNotFound) {
+				return nil, nil
+			}
+			return nil, subResult.Error
 		}
-		ConfigMap["DeviceConfig"] = m
-	} else if device.DeviceType == "2" { //网关设备
-		var sub_devices []models.Device
-		sub_result := psql.Mydb.Find(&sub_devices, "parent_id = ?", device.ID)
-		if sub_result.Error != nil {
-			if errors.Is(sub_result.Error, gorm.ErrRecordNotFound) {
-				return ConfigMap
+
+		config.SubDevices = make([]SubDeviceConfig, len(subDevices))
+
+		for i, subDevice := range subDevices {
+			var subDeviceConfig map[string]interface{}
+			if err := json.Unmarshal([]byte(subDevice.ProtocolConfig), &subDeviceConfig); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal subdevice protocol config: %w", err)
 			}
-			logs.Error(sub_result.Error)
-			return nil
-		} else {
-			var sub_device_list []map[string]interface{}
-			for _, sub_device := range sub_devices {
-				var m = make(map[string]interface{})
-				err := json.Unmarshal([]byte(sub_device.ProtocolConfig), &m)
-				if err != nil {
-					fmt.Println("Unmarshal failed:", err)
-				}
-				// 子设备表单中返回子设备token和子设备id
-				m["AccessToken"] = sub_device.Token
-				m["DeviceId"] = sub_device.ID
-				m["SubDeviceAddr"] = sub_device.SubDeviceAddr
-				sub_device_list = append(sub_device_list, m)
+
+			config.SubDevices[i] = SubDeviceConfig{
+				AccessToken:   subDevice.Token,
+				DeviceID:      subDevice.ID,
+				SubDeviceAddr: subDevice.SubDeviceAddr,
+				Config:        subDeviceConfig,
 			}
-			ConfigMap["SubDevice"] = sub_device_list
-			return ConfigMap
 		}
 	}
-	return ConfigMap
+	// struct转map
+	jsonData, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+	var mapResult map[string]interface{}
+	if err := json.Unmarshal(jsonData, &mapResult); err != nil {
+		return nil, err
+	}
+	return mapResult, nil
 }
 
-// 根据协议类型和设备类型获取设备列表
-func (*DeviceService) GetConfigByProtocolAndDeviceType(protocol string, device_type string) ([]map[string]interface{}, error) {
-	var AllConfigMap []map[string]interface{}
+func (*DeviceService) GetConfigByProtocolAndDeviceType(protocol string, deviceType string) ([]map[string]interface{}, error) {
+	type SubDevice struct {
+		AccessToken   string                 `json:"AccessToken"`
+		DeviceId      string                 `json:"DeviceId"`
+		SubDeviceAddr string                 `json:"SubDeviceAddr"`
+		DeviceConfig  map[string]interface{} `json:"DeviceConfig"`
+	}
+	type DeviceConfig struct {
+		ProtocolType string                 `json:"ProtocolType"`
+		AccessToken  string                 `json:"AccessToken"`
+		DeviceType   string                 `json:"DeviceType"`
+		ID           string                 `json:"Id"`
+		DeviceConfig map[string]interface{} `json:"DeviceConfig,omitempty"`
+		SubDevice    []SubDevice            `json:"SubDevice,omitempty"`
+	}
+
+	var allConfig []DeviceConfig
 	var deviceList []models.Device
-	result := psql.Mydb.Find(&deviceList, "protocol = ? and device_type = ?", protocol, device_type)
+
+	result := psql.Mydb.Find(&deviceList, "protocol = ? and device_type = ?", protocol, deviceType)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return AllConfigMap, nil
+			return nil, nil
 		}
 		logs.Error(result.Error)
-		return AllConfigMap, result.Error
+		return nil, result.Error
 	}
+
+	allConfig = make([]DeviceConfig, 0, len(deviceList))
+
 	for _, device := range deviceList {
-		var ConfigMap = make(map[string]interface{})
-		ConfigMap["ProtocolType"] = device.Protocol
-		ConfigMap["AccessToken"] = device.Token
-		ConfigMap["DeviceType"] = device.DeviceType
-		ConfigMap["Id"] = device.ID
-		if device.DeviceType == "1" { //直连设备
-			var m = make(map[string]interface{})
-			err := json.Unmarshal([]byte(device.ProtocolConfig), &m)
-			if err != nil {
-				fmt.Println("Unmarshal failed:", err)
+		var m map[string]interface{}
+		if err := json.Unmarshal([]byte(device.ProtocolConfig), &m); err != nil {
+			logs.Error("Unmarshal failed:", err)
+			continue
+		}
+		var config DeviceConfig
+		config.ProtocolType = device.Protocol
+		config.AccessToken = device.Token
+		config.DeviceType = device.DeviceType
+		config.ID = device.ID
+		// 网关设备
+		if device.DeviceType == "2" {
+			var subDevices []models.Device
+			subResult := psql.Mydb.Find(&subDevices, "parent_id = ?", device.ID)
+			if subResult.Error != nil && !errors.Is(subResult.Error, gorm.ErrRecordNotFound) {
+				logs.Error(subResult.Error)
+				continue
 			}
-			ConfigMap["DeviceConfig"] = m
-		} else if device.DeviceType == "2" { //网关设备
-			var sub_devices []models.Device
-			sub_result := psql.Mydb.Find(&sub_devices, "parent_id = ?", device.ID)
-			if sub_result.Error != nil {
-				if !errors.Is(sub_result.Error, gorm.ErrRecordNotFound) {
-					logs.Error(sub_result.Error)
+			for _, subDevice := range subDevices {
+				sub := SubDevice{
+					AccessToken:   subDevice.Token,
+					DeviceId:      subDevice.ID,
+					SubDeviceAddr: subDevice.SubDeviceAddr,
+				}
+
+				if err := json.Unmarshal([]byte(subDevice.ProtocolConfig), &m); err != nil {
+					logs.Error("Unmarshal failed:", err)
 					continue
 				}
-			} else {
-				var sub_device_list []map[string]interface{}
-				for _, sub_device := range sub_devices {
-					var m = make(map[string]interface{})
-					err := json.Unmarshal([]byte(sub_device.ProtocolConfig), &m)
-					if err != nil {
-						fmt.Println("Unmarshal failed:", err)
-					}
-					// 子设备表单中返回子设备token和子设备id
-					m["AccessToken"] = sub_device.Token
-					m["DeviceId"] = sub_device.ID
-					m["SubDeviceAddr"] = sub_device.SubDeviceAddr
-					sub_device_list = append(sub_device_list, m)
-				}
-				ConfigMap["SubDevice"] = sub_device_list
+				sub.DeviceConfig = m
+				config.SubDevice = append(config.SubDevice, sub)
 			}
-
 		}
-		AllConfigMap = append(AllConfigMap, ConfigMap)
+
+		allConfig = append(allConfig, config)
 	}
-	return AllConfigMap, nil
+
+	// Convert the struct slice to a slice of map[string]interface{}
+	var allConfigMap []map[string]interface{}
+	for _, config := range allConfig {
+		var configMap map[string]interface{}
+		bytes, err := json.Marshal(config)
+		if err != nil {
+			logs.Error("Marshal failed:", err)
+			continue
+		}
+		if err := json.Unmarshal(bytes, &configMap); err != nil {
+			logs.Error("Unmarshal failed:", err)
+			continue
+		}
+		allConfigMap = append(allConfigMap, configMap)
+	}
+
+	return allConfigMap, nil
 }
 
 // 修改所有子设备分组

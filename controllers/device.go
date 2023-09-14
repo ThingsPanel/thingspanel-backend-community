@@ -798,7 +798,11 @@ func (DeviceController *DeviceController) GetGatewayConfig() {
 		return
 	}
 	var DeviceService services.DeviceService
-	d := DeviceService.GetConfigByToken(AccessTokenValidate.AccessToken, AccessTokenValidate.DeviceId)
+	d, err := DeviceService.GetConfigByToken(AccessTokenValidate.AccessToken, AccessTokenValidate.DeviceId)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(DeviceController.Ctx))
+		return
+	}
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(DeviceController.Ctx))
 }
 
