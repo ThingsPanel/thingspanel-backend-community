@@ -394,11 +394,18 @@ func (KvController *KvController) DeleteHistoryData() {
 		}
 		return
 	}
-	isDelete, _ := TSKVService.DeleteHistoryData(DeleteHistoryDataValidate.DeviceId, DeleteHistoryDataValidate.Attribute)
+
+	tenantId, ok := KvController.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(KvController.Ctx))
+		return
+	}
+
+	isDelete, _ := TSKVService.DeleteHistoryData(tenantId, DeleteHistoryDataValidate.DeviceId, DeleteHistoryDataValidate.Attribute)
 	if isDelete {
-		response.SuccessWithDetailed(200, "success", "", map[string]string{}, (*context2.Context)(KvController.Ctx))
-	}else {
-		response.SuccessWithMessage(400, "failed", (*context2.Context)(KvController.Ctx))
+		response.SuccessWithMessage(200, "删除成功", (*context2.Context)(KvController.Ctx))
+	} else {
+		response.SuccessWithMessage(400, "删除失败", (*context2.Context)(KvController.Ctx))
 	}
 }
 
