@@ -17,8 +17,6 @@ import (
 	context2 "github.com/beego/beego/v2/server/web/context"
 
 	jwt "ThingsPanel-Go/utils"
-
-	gjwt "github.com/golang-jwt/jwt"
 )
 
 type AuthController struct {
@@ -82,11 +80,11 @@ func (c *AuthController) Login() {
 		return
 	}
 	// 存入redis
-	redis.SetStr(token, "1", time.Hour)
+	redis.SetStr(token, "1", 24*time.Hour)
 	d := TokenData{
 		AccessToken: token,
 		TokenType:   "Bearer",
-		ExpiresIn:   int(time.Hour.Seconds()),
+		ExpiresIn:   int(24 * time.Hour.Seconds()),
 	}
 	response.SuccessWithDetailed(200, "登录成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
@@ -112,14 +110,15 @@ func (t *AuthController) Logout() {
 }
 
 // 刷新token
-func (this *AuthController) Refresh() {
-	authorization := this.Ctx.Request.Header["Authorization"][0]
+func (c *AuthController) ChangeToken() {
+	authorization := c.Ctx.Request.Header["Authorization"][0]
 	userToken := authorization[7:]
 	_, err := jwt.ParseCliamsToken(userToken)
 	if err != nil {
-		response.SuccessWithMessage(400, "token异常", (*context2.Context)(this.Ctx))
+		response.SuccessWithMessage(400, "token异常", (*context2.Context)(c.Ctx))
 		return
 	}
+	// 生成令牌
 	// 更新token时间
 	redis.SetStr(userToken, "1", 3000*time.Second)
 	d := TokenData{
@@ -128,54 +127,37 @@ func (this *AuthController) Refresh() {
 		ExpiresIn:   3600,
 	}
 	// cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
-	response.SuccessWithDetailed(200, "刷新token成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
+	response.SuccessWithDetailed(200, "刷新token成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 刷新token
-func (this *AuthController) ChangeToken() {
-	authorization := this.Ctx.Request.Header["Authorization"][0]
+func (c *AuthController) Refresh() {
+	authorization := c.Ctx.Request.Header["Authorization"][0]
 	userToken := authorization[7:]
-	user, err := jwt.ParseCliamsToken(userToken)
+	jwtuser, err := jwt.ParseCliamsToken(userToken)
 	if err != nil {
-		response.SuccessWithMessage(400, "token异常", (*context2.Context)(this.Ctx))
+		response.SuccessWithMessage(400, "token异常", (*context2.Context)(c.Ctx))
 		return
 	}
-	// 生成jwt
-	if redis.GetStr(userToken) == "1" {
-		redis.DelKey(userToken)
-	}
-	// s, _ := cache.Bm.IsExist(c.TODO(), userToken)
-	// if s {
-	// 	cache.Bm.Delete(c.TODO(), userToken)
-	// }
 	var UserService services.UserService
-	_, i := UserService.GetUserById(user.ID)
+	user, i := UserService.GetUserById(jwtuser.ID)
 	if i == 0 {
-		response.SuccessWithMessage(400, "该账户不存在", (*context2.Context)(this.Ctx))
+		response.SuccessWithMessage(400, "该账户不存在", (*context2.Context)(c.Ctx))
 		return
 	}
-	// 生成jwt
-	tokenCliams := jwt.UserClaims{
-		ID:         user.ID,
-		Name:       user.Name,
-		CreateTime: time.Now(),
-		StandardClaims: gjwt.StandardClaims{
-			ExpiresAt: time.Now().Unix() + 3600,
-		},
-	}
-	token, err := jwt.MakeCliamsToken(tokenCliams)
+	token, err := jwt.GenerateToken(user)
 	if err != nil {
-		response.SuccessWithMessage(400, "jwt失败", (*context2.Context)(this.Ctx))
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 	d := TokenData{
 		AccessToken: token,
 		TokenType:   "Bearer",
-		ExpiresIn:   3600,
+		ExpiresIn:   int(24 * time.Hour.Seconds()),
 	}
-	redis.SetStr(token, "1", 3000*time.Second)
+	redis.SetStr(token, "24", time.Hour)
 	// cache.Bm.Put(c.TODO(), token, 1, 3000*time.Second)
-	response.SuccessWithDetailed(200, "刷新token成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
+	response.SuccessWithDetailed(200, "刷新token成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 // 个人信息

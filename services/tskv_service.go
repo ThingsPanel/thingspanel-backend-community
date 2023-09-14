@@ -824,6 +824,26 @@ func (*TSKVService) GetHistoryData(device_id string, attributes []string, startT
 	return rsp_map, nil
 }
 
+// 通过设备ID删除历史数据
+func (*TSKVService) DeleteHistoryData(device_id string, attributes string) (bool, error) {
+	var ts_kvs []models.TSKV
+	var ts_kv_latest []models.TSKVLatest
+
+	result1 := psql.Mydb.Where(" entity_id = ? AND key = ?", device_id, attributes).Delete(&ts_kvs)
+	if result1.Error != nil {
+		logs.Error(result1.Error.Error())
+		return false, result1.Error
+	}
+
+	result2 := psql.Mydb.Where(" entity_id = ? AND key = ?", device_id, attributes).Delete(&ts_kv_latest)
+	if result2.Error != nil {
+		logs.Error(result2.Error.Error())
+		return false, result2.Error
+	}
+
+	return true, nil
+}
+
 // 返回最新一条的设备数据，用来判断设备状态（待接入，异常，正常）
 func (*TSKVService) Status(device_id string) (*models.TSKVLatest, int64) {
 	var TSKVLatest models.TSKVLatest

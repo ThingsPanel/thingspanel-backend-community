@@ -119,3 +119,9 @@ var StatisticTimeRangeMap = map[string]int{
 	"last_3h":  0,
 	"last_1y":  0,
 }
+
+// 删除历史数据校验
+type DeleteHistoryDataValidate struct {
+	DeviceId  string `json:"device_id" alias:"设备" valid:"Required;MaxSize(36)"`
+	Attribute string `json:"attribute" alias:"属性" valid:"Required;MaxSize(36)"`
+}
