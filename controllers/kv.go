@@ -446,36 +446,39 @@ func (c *KvController) GetStatisticDataByKey() {
 		}
 		return
 	}
-
-	// 继续进行参数校验，暂仅支持不聚合的数据
+	var TSKVService services.TSKVService
+	var data []map[string]interface{}
+	// 继续进行参数校验,如果是不聚合，仅校验时间范围是否是3小时内
 	if StatisticDataValidate.AggregateWindow == "no_aggregate" {
-		if StatisticDataValidate.TimeRange == "custom" {
-			// 如果是自定义时间，判断时间范围是否超过3小时
-			if (StatisticDataValidate.EndTime - StatisticDataValidate.StartTime) > int64(time.Duration(3)*time.Hour/time.Microsecond) {
-				response.SuccessWithMessage(400, "时间段大于3小时", (*context2.Context)(c.Ctx))
+		if (StatisticDataValidate.EndTime - StatisticDataValidate.StartTime) > int64(time.Duration(3)*time.Hour/time.Microsecond) {
+			response.SuccessWithMessage(400, "时间段大于3小时", (*context2.Context)(c.Ctx))
+			return
+		} else {
+			// 不聚合查询
+			data, err = TSKVService.GetKVDataWithNoAggregate(
+				StatisticDataValidate.DeviceId,
+				StatisticDataValidate.Key,
+				StatisticDataValidate.StartTime,
+				StatisticDataValidate.EndTime)
+			if err != nil {
+				response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 				return
 			}
 		}
-
-		if _, ok := TimeRangeMap[StatisticDataValidate.TimeRange]; !ok {
-			response.SuccessWithMessage(400, "暂不支持的数据筛选条件", (*context2.Context)(c.Ctx))
+	} else {
+		// 聚合查询
+		data, err = TSKVService.GetKVDataWithAggregate(
+			StatisticDataValidate.DeviceId,
+			StatisticDataValidate.Key,
+			StatisticDataValidate.StartTime,
+			StatisticDataValidate.EndTime,
+			valid.StatisticAggregateWindow[StatisticDataValidate.AggregateWindow],     // 30s -> 30000000
+			valid.StatisticAggregateFunction[StatisticDataValidate.AggregateFunction], // avg -> AVG
+		)
+		if err != nil {
+			response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 			return
 		}
-
-	} else {
-		response.SuccessWithMessage(400, "暂不支持的数据筛选条件", (*context2.Context)(c.Ctx))
-		return
-	}
-	var TSKVService services.TSKVService
-	data, err := TSKVService.GetKVDataWithNoAggregate(
-		StatisticDataValidate.DeviceId,
-		StatisticDataValidate.Key,
-		StatisticDataValidate.StartTime,
-		StatisticDataValidate.EndTime)
-
-	if err != nil {
-		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
-		return
 	}
 
 	rData := make(map[string]interface{})
@@ -491,11 +494,3 @@ func (c *KvController) GetStatisticDataByKey() {
 }
 
 // 暂时先放在这里，后序优化
-var TimeRangeMap = map[string]int{
-	"custom":   0, // 自定义时间段
-	"last_5m":  0,
-	"last_15m": 0,
-	"last_30m": 0,
-	"last_1h":  0,
-	"last_3h":  0,
-}

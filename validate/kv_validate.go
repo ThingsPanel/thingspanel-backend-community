@@ -1,5 +1,7 @@
 package valid
 
+import "time"
+
 // KVIndex 校验
 type KVIndexValidate struct {
 	BusinessId string `json:"business_id" alias:"业务" valid:"MaxSize(36)"`
@@ -82,4 +84,38 @@ type StatisticDataValidate struct {
 	TimeRange         string `json:"time_range" alias:"时间范围"`
 	AggregateWindow   string `json:"aggregate_window" alias:"聚合间隔"`
 	AggregateFunction string `json:"aggregate_function" alias:"聚合方法"`
+}
+
+// 支持的间隔之间
+var StatisticAggregateWindow = map[string]int64{
+	"30s": int64(time.Second * 30 / time.Microsecond),
+	"1m":  int64(time.Minute / time.Microsecond),
+	"2m":  int64(time.Minute * 2 / time.Microsecond),
+	"5m":  int64(time.Minute * 5 / time.Microsecond),
+	"10m": int64(time.Minute * 10 / time.Microsecond),
+	"30m": int64(time.Minute * 30 / time.Microsecond),
+	"1h":  int64(time.Hour / time.Microsecond),
+	"3h":  int64(time.Hour * 3 / time.Microsecond),
+	"6h":  int64(time.Hour * 6 / time.Microsecond),
+	"1d":  int64(time.Hour * 24 / time.Microsecond),
+	"7d":  int64(time.Hour * 24 * 7 / time.Microsecond),
+	"1mo": int64(time.Hour * 24 * 30 / time.Microsecond),
+}
+
+// 支持的统计方法
+var StatisticAggregateFunction = map[string]string{
+	"max":  "MAX",
+	"avg":  "AVG",
+	"test": "",
+}
+
+// 支持的时间段选择(暂时忽略
+var StatisticTimeRangeMap = map[string]int{
+	"custom":   0, // 自定义时间段
+	"last_5m":  0,
+	"last_15m": 0,
+	"last_30m": 0,
+	"last_1h":  0,
+	"last_3h":  0,
+	"last_1y":  0,
 }
