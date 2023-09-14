@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -17,7 +18,9 @@ import (
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/server/web"
 	"github.com/bitly/go-simplejson"
+	"github.com/mintance/go-uniqid"
 	"github.com/spf13/viper"
+	"github.com/xuri/excelize/v2"
 
 	//"github.com/zenghouchao/timeHelper"
 	tptodb "ThingsPanel-Go/grpc/tptodb_client"
@@ -1574,4 +1577,101 @@ func (*TSKVService) GetKVDataWithAggregate(deviceId, key string, sTime, eTime, a
 		return nil, resultData.Error
 	}
 	return data, nil
+}
+
+func (*TSKVService) KVDataExportExcel(s, e int64, key, aggregateWindow, aggregateFunc string, data []map[string]interface{}) (string, error) {
+
+	var addr string
+	var err error
+	file := excelize.NewFile()
+	// 合并 A1 到 B2 的单元格
+	err = file.MergeCell("Sheet1", "A1", "B1")
+	if err != nil {
+		return addr, err
+	}
+
+	sStr := time.Unix(s/1e6, 0).Format("2006-01-02 15:04:05")
+	eStr := time.Unix(e/1e6, 0).Format("2006-01-02 15:04:05")
+
+	var aggfunc string
+	if aggregateFunc == "avg" {
+		aggfunc = "平均数"
+	} else {
+		aggfunc = "最大值"
+	}
+
+	text := "数据列表(" + sStr + "-" + eStr + ")\n" + aggregateWindow + "  " + key + "  " + aggfunc
+
+	// 创建换行文本样式
+	style, err := file.NewStyle(`{"alignment": {"wrap_text": true}}`)
+	if err != nil {
+		return addr, err
+	}
+
+	// 设置单元格的值和样式
+	file.SetCellValue("Sheet1", "A1", text)
+	file.SetCellStyle("Sheet1", "A1", "A1", style)
+
+	file.SetCellValue("Sheet1", "A2", "时间")
+	file.SetCellValue("Sheet1", "B2", "数值")
+
+	err = file.SetColWidth("Sheet1", "A", "B", 30)
+	if err != nil {
+		return addr, err
+	}
+
+	i := 3
+	for _, v := range data {
+		var timeStr string
+		if x, ok := v["x"].(int64); !ok {
+			return addr, err
+		} else {
+			timeStr = time.Unix(x/1e6, 0).Format("2006-01-02 15:04:05")
+		}
+		file.SetCellValue("Sheet1", "A"+strconv.Itoa(i), timeStr)
+		file.SetCellValue("Sheet1", "B"+strconv.Itoa(i), v["y"])
+		err = file.SetRowHeight("Sheet1", i, 23)
+		if err != nil {
+			return addr, err
+		}
+		i++
+	}
+
+	// 单元格美化操作
+	style, err = file.NewStyle(`{
+			"alignment": {
+				"horizontal": "center",
+				"vertical": "center"
+			}
+		}`)
+	if err != nil {
+		return addr, err
+
+	}
+	// 全文水平垂直居中
+	file.SetCellStyle("Sheet1", "A1", "B"+strconv.Itoa(i), style)
+
+	// 行高
+	err = file.SetRowHeight("Sheet1", 1, 50)
+	if err != nil {
+		return addr, err
+	}
+
+	err = file.SetRowHeight("Sheet1", 2, 30)
+	if err != nil {
+		return addr, err
+	}
+
+	uploadDir := "./files/excel/"
+	errs := os.MkdirAll(uploadDir, os.ModePerm)
+	if errs != nil {
+		return addr, err
+	}
+	// 根据指定路径保存文件
+	uniqid_str := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
+	addr = "files/excel/数据列表" + uniqid_str + ".xlsx"
+	if err := file.SaveAs(addr); err != nil {
+		return addr, err
+	}
+	return addr, err
 }
