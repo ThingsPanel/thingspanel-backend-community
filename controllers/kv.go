@@ -481,6 +481,7 @@ func (c *KvController) GetStatisticDataByKey() {
 		}
 		return
 	}
+
 	var TSKVService services.TSKVService
 	var data []map[string]interface{}
 	// 继续进行参数校验,如果是不聚合，仅校验时间范围是否是3小时内
@@ -516,6 +517,24 @@ func (c *KvController) GetStatisticDataByKey() {
 		}
 	}
 
+	// 导出Excel
+	if StatisticDataValidate.ExportExcel {
+		addr, err := TSKVService.KVDataExportExcel(
+			StatisticDataValidate.StartTime,
+			StatisticDataValidate.EndTime,
+			StatisticDataValidate.Key,
+			StatisticDataValidate.AggregateWindow,
+			StatisticDataValidate.AggregateFunction,
+			data)
+		if err != nil {
+			response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		} else {
+			response.SuccessWithDetailed(200, "success", addr, map[string]string{}, (*context2.Context)(c.Ctx))
+			return
+		}
+	}
+
 	rData := make(map[string]interface{})
 	rData["time_series"] = data
 	rData["duration"] = StatisticDataValidate.EndTime - StatisticDataValidate.StartTime
@@ -527,5 +546,3 @@ func (c *KvController) GetStatisticDataByKey() {
 	// 继续组装
 	response.SuccessWithDetailed(200, "success", rData, map[string]string{}, (*context2.Context)(c.Ctx))
 }
-
-// 暂时先放在这里，后序优化

@@ -84,6 +84,7 @@ type StatisticDataValidate struct {
 	TimeRange         string `json:"time_range" alias:"时间范围"`
 	AggregateWindow   string `json:"aggregate_window" alias:"聚合间隔"`
 	AggregateFunction string `json:"aggregate_function" alias:"聚合方法"`
+	ExportExcel       bool   `json:"export_excel" alias:"聚合方法"`
 }
 
 // 支持的间隔之间
