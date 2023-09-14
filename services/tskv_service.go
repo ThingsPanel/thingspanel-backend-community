@@ -825,23 +825,41 @@ func (*TSKVService) GetHistoryData(device_id string, attributes []string, startT
 }
 
 // 通过设备ID删除历史数据
-func (*TSKVService) DeleteHistoryData(device_id string, attributes string) (bool, error) {
-	var ts_kvs []models.TSKV
-	var ts_kv_latest []models.TSKVLatest
+func (*TSKVService) DeleteHistoryData(tenantId string, deviceId string, attributes string) (bool, error) {
+	var tsKvs []models.TSKV
+	var tsKvLatest []models.TSKVLatest
+	var device models.Device
 
-	result1 := psql.Mydb.Where(" entity_id = ? AND key = ?", device_id, attributes).Delete(&ts_kvs)
-	if result1.Error != nil {
-		logs.Error(result1.Error.Error())
-		return false, result1.Error
+	// 判断当前租户是否有权限删除
+	result := psql.Mydb.Where("id = ? AND tenant_id = ?", deviceId, tenantId).First(&device)
+	if result.Error != nil {
+		return false, errors.New("没有权限删除该设备的数据")
 	}
 
-	result2 := psql.Mydb.Where(" entity_id = ? AND key = ?", device_id, attributes).Delete(&ts_kv_latest)
-	if result2.Error != nil {
-		logs.Error(result2.Error.Error())
-		return false, result2.Error
-	}
+	// 使用事务同步删除历史数据和最新数据
+	flag := psql.Mydb.Transaction(func(tx *gorm.DB) error {
 
-	return true, nil
+		// 删除当前数据
+		result = tx.Where(" entity_id = ? AND key = ?", deviceId, attributes).Delete(&tsKvLatest)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+			return result.Error
+		}
+
+		// 删除历史数据
+		result = tx.Where(" entity_id = ? AND key = ?", deviceId, attributes).Delete(&tsKvs)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+			return result.Error
+		}
+
+		return nil
+	})
+
+	if flag != nil {
+		return false, flag
+	}
+	return true, flag
 }
 
 // 返回最新一条的设备数据，用来判断设备状态（待接入，异常，正常）
