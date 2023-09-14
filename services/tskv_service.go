@@ -1522,7 +1522,7 @@ func (*TSKVService) GetKVDataWithNoAggregate(deviceId, key string, sTime, eTime 
 
 	var fields []models.TSKV
 	resultData := psql.Mydb.
-		Select("ts, bool_v, str_v, long_v, dbl_v").
+		Select("ts, dbl_v").
 		Where("entity_id = ? and key = ? and ts >= ? and ts <= ?", deviceId, key, sTime, eTime).
 		Order("ts desc").
 		Find(&fields)
@@ -1533,22 +1533,45 @@ func (*TSKVService) GetKVDataWithNoAggregate(deviceId, key string, sTime, eTime 
 	if resultData.RowsAffected > 0 {
 		for i, v := range fields {
 			tmpMap := make(map[string]interface{})
-			tmpMap["x"] = v.TS // 横轴为时间
-			// 处理横轴
-			if fmt.Sprint(v.BoolV) != "" {
-				tmpMap["y"] = v.BoolV
-			} else if v.StrV != "" {
-				tmpMap["y"] = v.StrV
-			} else if v.LongV != 0 {
-				tmpMap["y"] = v.LongV
-			} else if v.DblV != 0 {
-				tmpMap["y"] = v.DblV
-			} else {
-				tmpMap["y"] = 0
-			}
+			tmpMap["x"] = v.TS   // 横轴为时间
+			tmpMap["y"] = v.DblV // 处理横轴
 			timeSeries[i] = tmpMap
 		}
 	}
 
 	return timeSeries, nil
+}
+
+// 获取聚合的数据
+func (*TSKVService) GetKVDataWithAggregate(deviceId, key string, sTime, eTime, aggregateWindow int64, aggregateFunc string) ([]map[string]interface{}, error) {
+	var data []map[string]interface{}
+	queryString := fmt.Sprintf(
+		`WITH TimeIntervals AS (
+			SELECT 
+				ts - (ts %% ?) AS x, 
+				%s(dbl_v) AS y 
+			FROM 
+				ts_kv 
+			WHERE 
+				ts BETWEEN ? AND ? AND key = ? AND entity_id = ? 
+			GROUP BY 
+				x
+		)
+		SELECT 
+			x, 
+			x + ? AS x2, 
+			y 
+		FROM 
+			TimeIntervals 
+		WHERE 
+			y IS NOT NULL 
+		ORDER BY 
+			x;`,
+		aggregateFunc,
+	)
+	resultData := psql.Mydb.Raw(queryString, aggregateWindow, sTime, eTime, key, deviceId, aggregateWindow).Scan(&data)
+	if resultData.Error != nil {
+		return nil, resultData.Error
+	}
+	return data, nil
 }
