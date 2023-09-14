@@ -1566,7 +1566,7 @@ func (*TSKVService) GetKVDataWithAggregate(deviceId, key string, sTime, eTime, a
 		WHERE 
 			y IS NOT NULL 
 		ORDER BY 
-			x;`,
+			x desc;`,
 		aggregateFunc,
 	)
 	resultData := psql.Mydb.Raw(queryString, aggregateWindow, sTime, eTime, key, deviceId, aggregateWindow).Scan(&data)
