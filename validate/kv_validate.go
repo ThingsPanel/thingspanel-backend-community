@@ -84,7 +84,7 @@ type StatisticDataValidate struct {
 	TimeRange         string `json:"time_range" alias:"时间范围"`
 	AggregateWindow   string `json:"aggregate_window" alias:"聚合间隔"`
 	AggregateFunction string `json:"aggregate_function" alias:"聚合方法"`
-	ExportExcel       bool   `json:"export_excel" alias:"聚合方法"`
+	ExportExcel       bool   `json:"export_excel" alias:"导出开关"`
 }
 
 // 支持的间隔之间
@@ -125,4 +125,14 @@ var StatisticTimeRangeMap = map[string]int{
 type DeleteHistoryDataValidate struct {
 	DeviceId  string `json:"device_id" alias:"设备" valid:"Required;MaxSize(36)"`
 	Attribute string `json:"attribute" alias:"属性" valid:"Required;MaxSize(36)"`
+}
+
+type KVHistoryDataValidate struct {
+	DeviceId    string `json:"device_id" alias:"设备ID" valid:"Required;MaxSize(36)"`
+	Key         string `json:"key" alias:"属性" valid:"Required;MaxSize(36)"`
+	StartTime   int64  `json:"start_time" alias:"开始时间" valid:"Required"`
+	EndTime     int64  `json:"end_time" alias:"结束时间" valid:"Required"`
+	Page        int    `json:"page" alias:"当前页码" valid:"Required"`
+	PageRecords int    `json:"page_records" alias:"每页数量" valid:"Required"`
+	ExportExcel bool   `json:"export_excel" alias:"导出开关"`
 }

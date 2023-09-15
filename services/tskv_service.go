@@ -1675,3 +1675,18 @@ func (*TSKVService) KVDataExportExcel(s, e int64, key, aggregateWindow, aggregat
 	}
 	return addr, err
 }
+
+func (*TSKVService) GetKVDataWithPageAndPageRecords(
+	deviceId, key string, sTime, eTime int64, page, pageRecords int) ([]models.TSKV, error) {
+	var fields []models.TSKV
+	result := psql.Mydb.
+		Select("ts, key, dbl_v, str_v").
+		Where("ts BETWEEN ? AND ? AND entity_id = ? AND  key = ?", sTime, eTime, deviceId, key).
+		Offset((page - 1) * pageRecords).
+		Limit(pageRecords).
+		Find(&fields)
+	if result.Error != nil {
+		return fields, result.Error
+	}
+	return fields, nil
+}

@@ -546,3 +546,39 @@ func (c *KvController) GetStatisticDataByKey() {
 	// 继续组装
 	response.SuccessWithDetailed(200, "success", rData, map[string]string{}, (*context2.Context)(c.Ctx))
 }
+
+func (c *KvController) GetKVHistoryData() {
+	inputData := valid.KVHistoryDataValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(inputData)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(inputData, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+
+	var TSKVService services.TSKVService
+	data, err := TSKVService.GetKVDataWithPageAndPageRecords(
+		inputData.DeviceId,
+		inputData.Key,
+		inputData.StartTime,
+		inputData.EndTime,
+		inputData.Page,
+		inputData.PageRecords)
+
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	response.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(c.Ctx))
+}
