@@ -1690,3 +1690,55 @@ func (*TSKVService) GetKVDataWithPageAndPageRecords(
 	}
 	return fields, nil
 }
+
+func (*TSKVService) BatchExportKVHistoryData(
+	deviceId, key string, sTime, eTime int64) (string, error) {
+	var addr string
+	var err error
+
+	f := excelize.NewFile()
+	f.SetCellValue("Sheet1", "A1", "时间")
+	f.SetCellValue("Sheet1", "B1", "数值")
+
+	batchSize := 100000
+	offset := 0
+	rowNumber := 2
+
+	for {
+		var fields []models.TSKV
+		err := psql.Mydb.
+			Table("ts_kv").
+			Where("ts BETWEEN ? AND ?  AND entity_id = ? AND  key = ?", sTime, eTime, deviceId, key).
+			Offset(offset).
+			Limit(batchSize).
+			Find(&fields).Error
+		if err != nil {
+			return addr, err
+		}
+
+		if len(fields) == 0 {
+			break
+		}
+
+		for _, data := range fields {
+			f.SetCellValue("Sheet1", fmt.Sprintf("A%d", rowNumber), time.Unix(0, data.TS*1000).Format(time.RFC3339))
+			f.SetCellValue("Sheet1", fmt.Sprintf("B%d", rowNumber), data.DblV)
+			rowNumber++
+		}
+
+		offset += batchSize
+	}
+
+	uploadDir := "./files/excel/"
+	errs := os.MkdirAll(uploadDir, os.ModePerm)
+	if errs != nil {
+		return addr, err
+	}
+	// 根据指定路径保存文件
+	uniqid_str := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
+	addr = "files/excel/数据列表" + uniqid_str + ".xlsx"
+	if err := f.SaveAs(addr); err != nil {
+		return addr, err
+	}
+	return addr, err
+}

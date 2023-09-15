@@ -567,6 +567,18 @@ func (c *KvController) GetKVHistoryData() {
 	}
 
 	var TSKVService services.TSKVService
+	if inputData.ExportExcel {
+		// 导出excel，按照开始和结束时间导出所有数据，无视page字段
+		addr, err := TSKVService.BatchExportKVHistoryData(inputData.DeviceId, inputData.Key, inputData.StartTime, inputData.EndTime)
+		if err != nil {
+			response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		} else {
+			response.SuccessWithDetailed(200, "success", addr, map[string]string{}, (*context2.Context)(c.Ctx))
+			return
+		}
+	}
+
 	data, err := TSKVService.GetKVDataWithPageAndPageRecords(
 		inputData.DeviceId,
 		inputData.Key,
@@ -592,6 +604,5 @@ func (c *KvController) GetKVHistoryData() {
 		}
 		easyData = append(easyData, d)
 	}
-
 	response.SuccessWithDetailed(200, "success", easyData, map[string]string{}, (*context2.Context)(c.Ctx))
 }
