@@ -25,7 +25,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 
-	_ "ThingsPanel-Go/grpc/server"
+	_ "ThingsPanel-Go/grpc/protocol_plugin/server"
 
 	_ "ThingsPanel-Go/cron"
 
@@ -34,6 +34,9 @@ import (
 
 var Ticker *time.Ticker
 
+func init() {
+	log.Println("系统初始化")
+}
 func main() {
 	// 初始化grpc
 	go tptodbClient.GrpcTptodbInit()
