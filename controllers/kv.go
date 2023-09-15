@@ -566,6 +566,11 @@ func (c *KvController) GetKVHistoryData() {
 		return
 	}
 
+	if inputData.EndTime-inputData.StartTime > int64(time.Hour*24*30/time.Microsecond) {
+		response.SuccessWithMessage(400, "仅限查询1个月内的数据", (*context2.Context)(c.Ctx))
+		return
+	}
+
 	var TSKVService services.TSKVService
 	if inputData.ExportExcel {
 		// 导出excel，按照开始和结束时间导出所有数据，无视page字段
