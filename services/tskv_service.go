@@ -1700,7 +1700,7 @@ func (*TSKVService) BatchExportKVHistoryData(
 	f.SetCellValue("Sheet1", "A1", "时间")
 	f.SetCellValue("Sheet1", "B1", "数值")
 
-	batchSize := 10
+	batchSize := 100000
 	offset := 0
 	rowNumber := 2
 
