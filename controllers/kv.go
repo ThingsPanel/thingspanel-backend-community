@@ -580,5 +580,18 @@ func (c *KvController) GetKVHistoryData() {
 		return
 	}
 
-	response.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(c.Ctx))
+	// 简化返回值
+	var easyData []map[string]interface{}
+	for _, v := range data {
+		d := make(map[string]interface{})
+		d["ts"] = v.TS
+		if v.StrV == "" {
+			d["value"] = v.DblV
+		} else {
+			d["value"] = v.StrV
+		}
+		easyData = append(easyData, d)
+	}
+
+	response.SuccessWithDetailed(200, "success", easyData, map[string]string{}, (*context2.Context)(c.Ctx))
 }
