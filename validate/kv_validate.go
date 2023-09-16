@@ -136,3 +136,16 @@ type KVHistoryDataValidate struct {
 	PageRecords int    `json:"page_records" alias:"每页数量" valid:"Required"`
 	ExportExcel bool   `json:"export_excel" alias:"导出开关"`
 }
+
+type BatchStatisticDataValidate struct {
+	Data              []BatchStatisticDataDeviceInfoValidate `json:"data" alias:"设备信息" valid:"Required"`
+	StartTime         int64                                  `json:"start_time" alias:"开始时间" valid:"Required"`
+	EndTime           int64                                  `json:"end_time" alias:"结束时间" valid:"Required"`
+	AggregateWindow   string                                 `json:"aggregate_window" alias:"聚合间隔"`
+	AggregateFunction string                                 `json:"aggregate_function" alias:"聚合方法"`
+}
+
+type BatchStatisticDataDeviceInfoValidate struct {
+	DeviceId string `json:"device_id" alias:"设备ID" valid:"Required;MaxSize(36)"`
+	Key      string `json:"key" alias:"属性" valid:"Required;MaxSize(36)"`
+}
