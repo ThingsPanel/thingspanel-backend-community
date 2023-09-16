@@ -611,3 +611,72 @@ func (c *KvController) GetKVHistoryData() {
 	}
 	response.SuccessWithDetailed(200, "success", easyData, map[string]string{}, (*context2.Context)(c.Ctx))
 }
+
+func (c *KvController) BatchGetStatisticDataByKey() {
+	inputData := valid.BatchStatisticDataValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(inputData)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(inputData, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+
+	if (inputData.EndTime - inputData.StartTime) > int64(time.Duration(3)*time.Hour/time.Microsecond) {
+		response.SuccessWithMessage(400, "时间段大于3小时", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var TSKVService services.TSKVService
+
+	var result []map[string]interface{}
+	for _, v := range inputData.Data {
+		var data []map[string]interface{}
+		// 继续进行参数校验,如果是不聚合，仅校验时间范围是否是3小时内
+		if inputData.AggregateWindow == "no_aggregate" {
+			// 不聚合查询
+			data, err = TSKVService.GetKVDataWithNoAggregate(
+				v.DeviceId,
+				v.Key,
+				inputData.StartTime,
+				inputData.EndTime)
+			if err != nil {
+				response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+				return
+			}
+		} else {
+			// 聚合查询
+			data, err = TSKVService.GetKVDataWithAggregate(
+				v.DeviceId,
+				v.Key,
+				inputData.StartTime,
+				inputData.EndTime,
+				valid.StatisticAggregateWindow[inputData.AggregateWindow],     // 30s -> 30000000
+				valid.StatisticAggregateFunction[inputData.AggregateFunction], // avg -> AVG
+			)
+			if err != nil {
+				response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+				return
+			}
+		}
+
+		bigData := make(map[string]interface{})
+
+		bigData["device_id"] = v.DeviceId
+		bigData["key"] = v.Key
+		bigData["time_series"] = data
+
+		result = append(result, bigData)
+	}
+	response.SuccessWithDetailed(200, "success", result, map[string]string{}, (*context2.Context)(c.Ctx))
+
+}

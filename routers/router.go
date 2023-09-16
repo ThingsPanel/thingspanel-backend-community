@@ -279,6 +279,9 @@ func init() {
 
 		// 通过设备ID、key查询某个时间范围内的设备统计类数据
 		web.NSRouter("/kv/statistic", &controllers.KvController{}, "*:GetStatisticDataByKey"),
+
+		// 批量通过设备ID、key查询某个时间范围内的设备统计类数据
+		web.NSRouter("/kv/statistic/batch", &controllers.KvController{}, "*:BatchGetStatisticDataByKey"),
 		// 通过设备id、key删除设备历史数据
 		web.NSRouter("/kv/history/delete", &controllers.KvController{}, "*:DeleteHistoryData"),
 		// 系统设置接口
