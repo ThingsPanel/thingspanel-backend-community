@@ -25,7 +25,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 
-	_ "ThingsPanel-Go/grpc/protocol_plugin/server"
+	//_ "ThingsPanel-Go/grpc/protocol_plugin/server"
 
 	_ "ThingsPanel-Go/cron"
 
