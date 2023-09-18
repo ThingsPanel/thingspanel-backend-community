@@ -273,8 +273,15 @@ func init() {
 		web.NSRouter("/kv/history", &controllers.KvController{}, "*:HistoryData"),
 		// 通过设备id、key查询设备历史数据
 		web.NSRouter("/kv/history/key", &controllers.KvController{}, "*:GetHistoryDataByKey"),
+
+		// 获取设备历史属性 含导出EXCEL功能
+		web.NSRouter("/kv/history/data", &controllers.KvController{}, "*:GetKVHistoryData"),
+
 		// 通过设备ID、key查询某个时间范围内的设备统计类数据
 		web.NSRouter("/kv/statistic", &controllers.KvController{}, "*:GetStatisticDataByKey"),
+
+		// 批量通过设备ID、key查询某个时间范围内的设备统计类数据
+		web.NSRouter("/kv/statistic/batch", &controllers.KvController{}, "*:BatchGetStatisticDataByKey"),
 		// 通过设备id、key删除设备历史数据
 		web.NSRouter("/kv/history/delete", &controllers.KvController{}, "*:DeleteHistoryData"),
 		// 系统设置接口

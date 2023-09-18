@@ -546,3 +546,137 @@ func (c *KvController) GetStatisticDataByKey() {
 	// 继续组装
 	response.SuccessWithDetailed(200, "success", rData, map[string]string{}, (*context2.Context)(c.Ctx))
 }
+
+func (c *KvController) GetKVHistoryData() {
+	inputData := valid.KVHistoryDataValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(inputData)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(inputData, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+
+	if inputData.EndTime-inputData.StartTime > int64(time.Hour*24*30/time.Microsecond) {
+		response.SuccessWithMessage(400, "仅限查询1个月内的数据", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var TSKVService services.TSKVService
+	if inputData.ExportExcel {
+		// 导出excel，按照开始和结束时间导出所有数据，无视page字段
+		addr, err := TSKVService.BatchExportKVHistoryData(inputData.DeviceId, inputData.Key, inputData.StartTime, inputData.EndTime)
+		if err != nil {
+			response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		} else {
+			response.SuccessWithDetailed(200, "success", addr, map[string]string{}, (*context2.Context)(c.Ctx))
+			return
+		}
+	}
+
+	data, err := TSKVService.GetKVDataWithPageAndPageRecords(
+		inputData.DeviceId,
+		inputData.Key,
+		inputData.StartTime,
+		inputData.EndTime,
+		inputData.Page,
+		inputData.PageRecords)
+
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 简化返回值
+	var easyData []map[string]interface{}
+	for _, v := range data {
+		d := make(map[string]interface{})
+		d["ts"] = v.TS
+		if v.StrV == "" {
+			d["value"] = v.DblV
+		} else {
+			d["value"] = v.StrV
+		}
+		easyData = append(easyData, d)
+	}
+	response.SuccessWithDetailed(200, "success", easyData, map[string]string{}, (*context2.Context)(c.Ctx))
+}
+
+func (c *KvController) BatchGetStatisticDataByKey() {
+	inputData := valid.BatchStatisticDataValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(inputData)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(inputData, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+
+	if (inputData.EndTime - inputData.StartTime) > int64(time.Duration(3)*time.Hour/time.Microsecond) {
+		response.SuccessWithMessage(400, "时间段大于3小时", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var TSKVService services.TSKVService
+
+	var result []map[string]interface{}
+	for _, v := range inputData.Data {
+		var data []map[string]interface{}
+		// 继续进行参数校验,如果是不聚合，仅校验时间范围是否是3小时内
+		if inputData.AggregateWindow == "no_aggregate" {
+			// 不聚合查询
+			data, err = TSKVService.GetKVDataWithNoAggregate(
+				v.DeviceId,
+				v.Key,
+				inputData.StartTime,
+				inputData.EndTime)
+			if err != nil {
+				response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+				return
+			}
+		} else {
+			// 聚合查询
+			data, err = TSKVService.GetKVDataWithAggregate(
+				v.DeviceId,
+				v.Key,
+				inputData.StartTime,
+				inputData.EndTime,
+				valid.StatisticAggregateWindow[inputData.AggregateWindow],     // 30s -> 30000000
+				valid.StatisticAggregateFunction[inputData.AggregateFunction], // avg -> AVG
+			)
+			if err != nil {
+				response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+				return
+			}
+		}
+
+		bigData := make(map[string]interface{})
+
+		bigData["device_id"] = v.DeviceId
+		bigData["key"] = v.Key
+		bigData["time_series"] = data
+
+		result = append(result, bigData)
+	}
+	response.SuccessWithDetailed(200, "success", result, map[string]string{}, (*context2.Context)(c.Ctx))
+
+}
