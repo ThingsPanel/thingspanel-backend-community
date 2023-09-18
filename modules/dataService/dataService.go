@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -39,6 +40,7 @@ func loadConfig() {
 	viper.SetEnvPrefix("GOTP")
 	// 使 Viper 能够读取环境变量
 	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.SetConfigFile(*envConfigFile)
 	if err = viper.ReadInConfig(); err != nil {
 		fmt.Println("FAILURE", err)
