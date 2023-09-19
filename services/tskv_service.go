@@ -1508,12 +1508,20 @@ func (*TSKVService) GetCurrentDataAndMapList(device_id string) ([]map[string]int
 			if attributeMap, ok := attribute.(map[string]interface{}); ok {
 				if name, ok := attributeMap["name"].(string); ok {
 					typeMap[name] = attributeMap["title"].(string)
+					if unit, ok := attributeMap["unit"].(string); ok {
+						typeMap[name+"_"+"unit"] = unit
+					}
 				}
+
 			}
 		}
 		for i, v := range fields {
 			if typeMap[v["key"].(string)] != "" {
 				fields[i]["name"] = typeMap[v["key"].(string)]
+				// 判断typeMap[v["key"].(string)+"_"+"unit"]是否存在
+				if typeMap[v["key"].(string)+"_"+"unit"] != "" {
+					fields[i]["unit"] = typeMap[v["key"].(string)+"_"+"unit"]
+				}
 			}
 		}
 	}
