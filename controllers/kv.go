@@ -631,11 +631,6 @@ func (c *KvController) BatchGetStatisticDataByKey() {
 		return
 	}
 
-	if (inputData.EndTime - inputData.StartTime) > int64(time.Duration(3)*time.Hour/time.Microsecond) {
-		response.SuccessWithMessage(400, "时间段大于3小时", (*context2.Context)(c.Ctx))
-		return
-	}
-
 	var TSKVService services.TSKVService
 
 	var result []map[string]interface{}
@@ -644,6 +639,10 @@ func (c *KvController) BatchGetStatisticDataByKey() {
 		// 继续进行参数校验,如果是不聚合，仅校验时间范围是否是3小时内
 		if inputData.AggregateWindow == "no_aggregate" {
 			// 不聚合查询
+			if (inputData.EndTime - inputData.StartTime) > int64(time.Duration(3)*time.Hour/time.Microsecond) {
+				response.SuccessWithMessage(400, "时间段大于3小时", (*context2.Context)(c.Ctx))
+				return
+			}
 			data, err = TSKVService.GetKVDataWithNoAggregate(
 				v.DeviceId,
 				v.Key,
