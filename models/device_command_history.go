@@ -9,6 +9,7 @@ type DeviceCommandHistory struct {
 	Data            string `json:"data,omitempty"`
 	SendTime        int64  `json:"send_time"`
 	SendStatus      int64  `json:"send_status"`
+	UserId          string `json:"user_id,omitempty"`
 }
 
 func (DeviceCommandHistory) TableName() string {

@@ -1124,12 +1124,18 @@ func (c *DeviceController) DeviceCommandSend() {
 	// }
 
 	//
+	//获取用户id
+	userID, ok := c.Ctx.Input.GetData("user_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 
 	d.SendCommandToDevice(
 		device, inputData.DeviceId, inputData.CommandIdentifier,
 		[]byte(inputData.CommandData),
 		inputData.CommandName,
-		inputData.Desc)
+		inputData.Desc, userID)
 
 	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
 }
