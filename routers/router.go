@@ -35,7 +35,8 @@ func init() {
 		web.NSRouter("/auth/me", &controllers.AuthController{}, "*:Me"),           //ty
 		// 用户注册
 		web.NSRouter("/auth/register", &controllers.AuthController{}, "*:Register"), //ty
-
+		//租户注册TenantRegister
+		web.NSRouter("/auth/tenant/register", &controllers.AuthController{}, "*:TenantRegister"), //ty
 		// 首页cpu和内存监控
 		web.NSRouter("/home/list", &controllers.HomeController{}, "*:List"),   //ty
 		web.NSRouter("/home/chart", &controllers.HomeController{}, "*:Chart"), //ty

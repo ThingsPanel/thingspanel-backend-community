@@ -425,6 +425,7 @@ func (c *TpNotification) SendEmail() {
 	response.Success(200, c.Ctx)
 }
 
+// 发送短信
 func (c *TpNotification) SendMessage() {
 	// TODO 限制超级管理员
 	var input struct {

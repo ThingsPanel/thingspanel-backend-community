@@ -30,6 +30,7 @@ func AuthMiddle() {
 		"api/auth/login":                      0,
 		"api/auth/refresh":                    0,
 		"api/auth/register":                   1,
+		"api/auth/tenant/register":            0,
 		"/ws":                                 2,
 		"api/ota/download":                    0,
 	}

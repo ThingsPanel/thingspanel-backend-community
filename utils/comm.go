@@ -232,3 +232,14 @@ func GetNextTime(v1 string, v2 string, v3 string, v4 string) (string, error) {
 	logs.Info("下次执行时间：", nextTime)
 	return nextTime, err
 }
+
+// 校验邮箱格式
+func CheckEmail(email string) error {
+	if email == "" {
+		return errors.New("邮箱不能为空")
+	}
+	if !strings.Contains(email, "@") {
+		return errors.New("邮箱格式不正确")
+	}
+	return nil
+}
