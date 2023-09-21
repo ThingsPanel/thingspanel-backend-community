@@ -1914,3 +1914,6 @@ CREATE INDEX tp_data_transpond_detail_device_id_idx ON public.tp_data_transpond_
 -- 0.5.4
 ALTER TABLE public.device_command_history ADD user_id varchar(36) NULL;
 COMMENT ON COLUMN public.device_command_history.user_id IS '用户id';
+
+ALTER TABLE public.conditions_log ADD user_id varchar(36) NULL;
+COMMENT ON COLUMN public.device_command_history.user_id IS '操作用户id';

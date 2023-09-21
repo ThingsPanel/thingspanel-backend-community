@@ -12,6 +12,7 @@ type ConditionsLog struct {
 	ProtocolType  string `json:"protocol_type" gorm:"size:10"` //mqtt,tcp
 	Remark        string `json:"remark" gorm:"size:2"`
 	TenantId      string `json:"tenant_id,omitempty"` //租户id
+	UserId        string `json:"user_id,omitempty"`   //租户id
 }
 
 func (ConditionsLog) TableName() string {
