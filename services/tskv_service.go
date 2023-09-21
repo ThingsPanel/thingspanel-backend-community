@@ -182,6 +182,26 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 	}
 }
 
+// 判断设备是否在线，不在线更新ts_kv_latest表为在线
+func checkDeviceOnline(deviceId string) {
+	// 如果dbType为timescaledb,则不更新ts_kv_latest表
+	if dbType, _ := web.AppConfig.String("dbType"); dbType == "timescaledb" {
+		var count int64
+		// 判断设备是否在线
+		result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE' and str_v = '0'", deviceId).Count(&count)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+		} else {
+			if count > int64(0) {
+				result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).Update("str_v", "1")
+				if result.Error != nil {
+					logs.Error(result.Error.Error())
+				}
+			}
+		}
+	}
+}
+
 // 接收网关消息
 func (*TSKVService) GatewayMsgProc(body []byte, topic string, messages chan map[string]interface{}) bool {
 	logs.Info("------------------------------")
@@ -203,6 +223,8 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string, messages chan map[
 		logs.Error("根据token没查找到设备")
 		return false
 	}
+	// 在线离线检查修复
+	checkDeviceOnline(device.ID)
 	logs.Info("设备信息：", device)
 	// 通过脚本执行器
 	req, err := scriptDeal(device.ScriptId, payload.Values, topic)
@@ -280,6 +302,10 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 	} else if result_a.RowsAffected <= int64(0) {
 		logs.Error("根据token没查找到设备")
 		return false
+	}
+	if device.DeviceType == "1" {
+		// 在线离线检查修复
+		checkDeviceOnline(device.ID)
 	}
 	// 通过脚本执行器
 	req, err_a := scriptDeal(device.ScriptId, payload.Values, topic)
