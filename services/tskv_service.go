@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -106,18 +107,36 @@ func scriptDeal(script_id string, device_data []byte, topic string) ([]byte, err
 // 获取TSKV总数，这里因为性能的问题做了缓存，限制10W以上数据10秒刷新一次
 func (*TSKVService) All(tenantId string) (int64, error) {
 	var count int64
-	msgCount := redis.GetStr("MsgCount")
-	if msgCount != "" {
-		count, _ = strconv.ParseInt(msgCount, 10, 64)
-		return count, nil
+	var explainOutput string
+	err := psql.Mydb.Raw("EXPLAIN select * from ts_kv where tenant_id = ?", tenantId).Row().Scan(&explainOutput)
+	if err != nil {
+		logs.Error(err.Error())
+		return 0, err
 	}
-	result := psql.Mydb.Model(&models.TSKV{}).Where("tenant_id = ?", tenantId).Count(&count)
-	if result.Error != nil {
-		return 0, result.Error
+
+	// 正则匹配rows value
+	re := regexp.MustCompile(`rows=(\d+)`)
+	match := re.FindStringSubmatch(explainOutput)
+	if len(match) > 1 {
+		count, err = strconv.ParseInt(match[1], 10, 64)
+		if err != nil {
+			logs.Error(err.Error())
+			return 0, err
+		}
 	}
-	if count > int64(100000) {
-		redis.SetStr("MsgCount", strconv.FormatInt(count, 10), 10*time.Second)
-	}
+
+	// msgCount := redis.GetStr("MsgCount")
+	// if msgCount != "" {
+	// 	count, _ = strconv.ParseInt(msgCount, 10, 64)
+	// 	return count, nil
+	// }
+	// result := psql.Mydb.Model(&models.TSKV{}).Where("tenant_id = ?", tenantId).Count(&count)
+	// if result.Error != nil {
+	// 	return 0, result.Error
+	// }
+	// if count > int64(100000) {
+	// 	redis.SetStr("MsgCount", strconv.FormatInt(count, 10), 10*time.Second)
+	// }
 	return count, nil
 }
 
