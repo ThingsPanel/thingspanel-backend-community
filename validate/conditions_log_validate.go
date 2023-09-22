@@ -12,4 +12,5 @@ type ConditionsLogListValidate struct {
 	BusinessName  string `json:"business_name" alias:"业务名" valid:"MaxSize(255)"`
 	AssetName     string `json:"asset_name" alias:"资产名" valid:"MaxSize(255)"`
 	DeviceName    string `json:"device_name" alias:"设备名" valid:"MaxSize(255)"`
+	UserName      string `json:"user_name" alias:"操作用户" valid:"MaxSize(255)"`
 }

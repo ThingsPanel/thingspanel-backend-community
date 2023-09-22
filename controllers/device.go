@@ -544,6 +544,12 @@ func (c *DeviceController) Operating() {
 		return
 	}
 	f := DeviceService.SendMessage(newPayload, deviceData)
+	//获取用户id
+	userID, ok := c.Ctx.Input.GetData("user_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	ConditionsLog := models.ConditionsLog{
 		DeviceId:      deviceData.ID,
 		OperationType: "2",
@@ -551,6 +557,7 @@ func (c *DeviceController) Operating() {
 		ProtocolType:  "mqtt",
 		CteateTime:    time.Now().Format("2006-01-02 15:04:05"),
 		TenantId:      deviceData.TenantId,
+		UserId:        userID,
 	}
 	var ConditionsLogService services.ConditionsLogService
 	if f == nil {
@@ -1124,12 +1131,18 @@ func (c *DeviceController) DeviceCommandSend() {
 	// }
 
 	//
+	//获取用户id
+	userID, ok := c.Ctx.Input.GetData("user_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 
 	d.SendCommandToDevice(
 		device, inputData.DeviceId, inputData.CommandIdentifier,
 		[]byte(inputData.CommandData),
 		inputData.CommandName,
-		inputData.Desc)
+		inputData.Desc, userID)
 
 	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
 }
