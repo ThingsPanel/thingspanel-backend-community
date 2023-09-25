@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"ThingsPanel-Go/initialize/redis"
 	ws_mqtt "ThingsPanel-Go/modules/dataService/ws_mqtt"
@@ -144,6 +145,23 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 		if err := json.Unmarshal(message.Payload(), &payload); err != nil {
 			logs.Error(err)
 		} else {
+			// 给payload.Values加上时间戳
+			// 先转map
+			var valuesMap map[string]interface{}
+			if err := json.Unmarshal(payload.Values, &valuesMap); err != nil {
+				logs.Error(err)
+				ws.WriteMessage(msgType, []byte(err.Error()))
+				return
+			}
+			// 加时间戳systime 2023-09-25 16:32:26
+			valuesMap["systime"] = time.Now().Format("2006-01-02 15:04:05")
+			// 转json
+			payload.Values, err = json.Marshal(valuesMap)
+			if err != nil {
+				logs.Error(err)
+				ws.WriteMessage(msgType, []byte(err.Error()))
+				return
+			}
 			if err = ws.WriteMessage(msgType, payload.Values); err != nil {
 				logs.Error(err)
 				ws.WriteMessage(msgType, []byte(err.Error()))
