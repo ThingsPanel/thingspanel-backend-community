@@ -30,29 +30,29 @@ func CreateClient(accessKeyId *string, accessKeySecret *string, endpoint string)
 
 // code 必须是 string
 // 如果是int，且发送的验证码为 0000，收到的是 0
-func SendSMSVerificationCode(phoneNumber int, code, tenantId string) (err error) {
+// func SendSMSVerificationCode(phoneNumber int, code, tenantId string) (err error) {
 
-	codeMap := make(map[string]string)
-	codeMap["code"] = code
+// 	codeMap := make(map[string]string)
+// 	codeMap["code"] = code
 
-	codeStr, _ := json.Marshal(codeMap)
-	phoneNumberStr := strconv.Itoa(phoneNumber)
+// 	codeStr, _ := json.Marshal(codeMap)
+// 	phoneNumberStr := strconv.Itoa(phoneNumber)
 
-	sendSmsRequest := &dysmsapi20170525.SendSmsRequest{
-		PhoneNumbers:  tea.String(phoneNumberStr),
-		SignName:      tea.String("ThingsPanel"),
-		TemplateCode:  tea.String("SMS_98355081"),
-		TemplateParam: tea.String(string(codeStr)),
-	}
+// 	sendSmsRequest := &dysmsapi20170525.SendSmsRequest{
+// 		PhoneNumbers:  tea.String(phoneNumberStr),
+// 		SignName:      tea.String("ThingsPanel"),
+// 		TemplateCode:  tea.String("SMS_98355081"),
+// 		TemplateParam: tea.String(string(codeStr)),
+// 	}
 
-	err = SendSMS(*sendSmsRequest, &util.RuntimeOptions{}, tenantId)
+// 	err = SendSMS(*sendSmsRequest, &util.RuntimeOptions{}, tenantId)
 
-	if err != nil {
-		log.Println(err)
-	}
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
 
-	return err
-}
+// 	return err
+// }
 
 func SendSMS_SMS_461790263(phoneNumber int, level, name, time, tenantId string) (err error) {
 
@@ -63,16 +63,7 @@ func SendSMS_SMS_461790263(phoneNumber int, level, name, time, tenantId string) 
 
 	codeStr, _ := json.Marshal(codeMap)
 	phoneNumberStr := strconv.Itoa(phoneNumber)
-
-	sendSmsRequest := &dysmsapi20170525.SendSmsRequest{
-		PhoneNumbers:  tea.String(phoneNumberStr),
-		SignName:      tea.String("极益科技"),
-		TemplateCode:  tea.String("SMS_461790263"),
-		TemplateParam: tea.String(string(codeStr)),
-	}
-
-	err = SendSMS(*sendSmsRequest, &util.RuntimeOptions{}, tenantId)
-
+	err = SendSMS(phoneNumberStr, codeStr, &util.RuntimeOptions{}, tenantId)
 	if err != nil {
 		log.Println(err)
 	}
@@ -80,7 +71,7 @@ func SendSMS_SMS_461790263(phoneNumber int, level, name, time, tenantId string) 
 	return err
 }
 
-func SendSMS(request dysmsapi20170525.SendSmsRequest, runtime *util.RuntimeOptions, tenantId string) (err error) {
+func SendSMS(phoneNumberStr string, codeStr []byte, runtime *util.RuntimeOptions, tenantId string) (err error) {
 
 	// 查找当前开启的SMS服务配置
 	c, err := models.NotificationConfigByNoticeTypeAndStatus(models.NotificationConfigType_Message, models.NotificationSwitch_Open)
@@ -94,13 +85,20 @@ func SendSMS(request dysmsapi20170525.SendSmsRequest, runtime *util.RuntimeOptio
 		json.Unmarshal([]byte(c.Config), &aliConfig)
 	}
 
+	request := &dysmsapi20170525.SendSmsRequest{
+		PhoneNumbers:  tea.String(phoneNumberStr),
+		SignName:      tea.String(aliConfig.SignName),
+		TemplateCode:  tea.String(aliConfig.TemplateCode),
+		TemplateParam: tea.String(string(codeStr)),
+	}
+
 	client, err := CreateClient(tea.String(aliConfig.AccessKeyId),
 		tea.String(aliConfig.AccessKeySecret), aliConfig.Endpoint)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 
-	sendRes, err := client.SendSmsWithOptions(&request, &util.RuntimeOptions{})
+	sendRes, err := client.SendSmsWithOptions(request, &util.RuntimeOptions{})
 	if err != nil {
 		models.SaveNotificationHistory(utils.GetUuid(), *request.TemplateParam, *request.PhoneNumbers, models.NotificationSendFail, models.NotificationConfigType_Message, tenantId)
 	} else {
