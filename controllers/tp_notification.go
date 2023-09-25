@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/initialize/redis"
 	sendmessage "ThingsPanel-Go/initialize/send_message"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
@@ -9,6 +10,9 @@ import (
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
+	"fmt"
+	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -522,4 +526,40 @@ func (c *TpNotification) HistoryList() {
 	ret["per_page"] = input.PerPage
 
 	response.SuccessWithDetailed(200, "success", ret, map[string]string{}, (*context2.Context)(c.Ctx))
+}
+
+func (c *TpNotification) GetCaptcha() {
+	var input struct {
+		PhoneNumber string `json:"phone_number" valid:"Required"`
+	}
+
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
+
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	verificationCode := fmt.Sprintf("%04d", rand.Intn(10000))
+	err = redis.SetStr(input.PhoneNumber+"_code", verificationCode, 3*time.Minute)
+
+	if err != nil {
+		response.SuccessWithMessage(400, "redis err", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	num, err := strconv.Atoi(input.PhoneNumber)
+	if err != nil {
+		response.SuccessWithMessage(400, "参数解析错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	err = sendmessage.SendSMSVerificationCode(num, verificationCode, "")
+
+	if err != nil {
+		response.SuccessWithMessage(400, "message err", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
 }
