@@ -1395,6 +1395,7 @@ func (*DeviceService) SendCommandToDevice(
 	commandData []byte,
 	commandName string,
 	commandDesc string,
+	userID string,
 ) error {
 
 	// 格式化内容：
@@ -1440,12 +1441,14 @@ func (*DeviceService) SendCommandToDevice(
 		}
 
 		saveCommandSendHistory(
+			userID,
 			targetDevice.ID,
 			commandIdentifier,
 			commandName,
 			commandDesc,
 			string(msg),
-			sendRes)
+			sendRes,
+		)
 	case models.DeviceTypeGatway:
 		// 网关
 		topic := sendmqtt.Topic_GatewayCommand + "/"
@@ -1467,6 +1470,7 @@ func (*DeviceService) SendCommandToDevice(
 		}
 
 		saveCommandSendHistory(
+			userID,
 			targetDevice.ID,
 			commandIdentifier,
 			commandName,
@@ -1517,6 +1521,7 @@ func (*DeviceService) SendCommandToDevice(
 			}
 
 			saveCommandSendHistory(
+				userID,
 				originalDeviceId,
 				commandIdentifier,
 				commandName,
@@ -1650,7 +1655,7 @@ func (*DeviceService) SubscribeGatwayEvent(body []byte, topic string) bool {
 
 // 记录发送日志
 func saveCommandSendHistory(
-	deviceId, identify, name, desc, data string,
+	userId, deviceId, identify, name, desc, data string,
 	sendStatus int,
 ) {
 	m := models.DeviceCommandHistory{
@@ -1662,6 +1667,7 @@ func saveCommandSendHistory(
 		CommandName:     name,
 		SendTime:        time.Now().Unix(),
 		SendStatus:      int64(sendStatus),
+		UserId:          userId,
 	}
 	err := psql.Mydb.Create(&m)
 	if err.Error != nil {

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -106,18 +107,36 @@ func scriptDeal(script_id string, device_data []byte, topic string) ([]byte, err
 // 获取TSKV总数，这里因为性能的问题做了缓存，限制10W以上数据10秒刷新一次
 func (*TSKVService) All(tenantId string) (int64, error) {
 	var count int64
-	msgCount := redis.GetStr("MsgCount")
-	if msgCount != "" {
-		count, _ = strconv.ParseInt(msgCount, 10, 64)
-		return count, nil
+	var explainOutput string
+	err := psql.Mydb.Raw("EXPLAIN select * from ts_kv where tenant_id = ?", tenantId).Row().Scan(&explainOutput)
+	if err != nil {
+		logs.Error(err.Error())
+		return 0, err
 	}
-	result := psql.Mydb.Model(&models.TSKV{}).Where("tenant_id = ?", tenantId).Count(&count)
-	if result.Error != nil {
-		return 0, result.Error
+
+	// 正则匹配rows value
+	re := regexp.MustCompile(`rows=(\d+)`)
+	match := re.FindStringSubmatch(explainOutput)
+	if len(match) > 1 {
+		count, err = strconv.ParseInt(match[1], 10, 64)
+		if err != nil {
+			logs.Error(err.Error())
+			return 0, err
+		}
 	}
-	if count > int64(100000) {
-		redis.SetStr("MsgCount", strconv.FormatInt(count, 10), 10*time.Second)
-	}
+
+	// msgCount := redis.GetStr("MsgCount")
+	// if msgCount != "" {
+	// 	count, _ = strconv.ParseInt(msgCount, 10, 64)
+	// 	return count, nil
+	// }
+	// result := psql.Mydb.Model(&models.TSKV{}).Where("tenant_id = ?", tenantId).Count(&count)
+	// if result.Error != nil {
+	// 	return 0, result.Error
+	// }
+	// if count > int64(100000) {
+	// 	redis.SetStr("MsgCount", strconv.FormatInt(count, 10), 10*time.Second)
+	// }
 	return count, nil
 }
 
@@ -182,6 +201,26 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 	}
 }
 
+// 判断设备是否在线，不在线更新ts_kv_latest表为在线
+func checkDeviceOnline(deviceId string) {
+	// 如果dbType为timescaledb,则不更新ts_kv_latest表
+	if dbType, _ := web.AppConfig.String("dbType"); dbType == "timescaledb" {
+		var count int64
+		// 判断设备是否在线
+		result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE' and str_v = '0'", deviceId).Count(&count)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+		} else {
+			if count > int64(0) {
+				result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).Update("str_v", "1")
+				if result.Error != nil {
+					logs.Error(result.Error.Error())
+				}
+			}
+		}
+	}
+}
+
 // 接收网关消息
 func (*TSKVService) GatewayMsgProc(body []byte, topic string, messages chan map[string]interface{}) bool {
 	logs.Info("------------------------------")
@@ -203,6 +242,8 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string, messages chan map[
 		logs.Error("根据token没查找到设备")
 		return false
 	}
+	// 在线离线检查修复
+	checkDeviceOnline(device.ID)
 	logs.Info("设备信息：", device)
 	// 通过脚本执行器
 	req, err := scriptDeal(device.ScriptId, payload.Values, topic)
@@ -280,6 +321,10 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 	} else if result_a.RowsAffected <= int64(0) {
 		logs.Error("根据token没查找到设备")
 		return false
+	}
+	if device.DeviceType == "1" {
+		// 在线离线检查修复
+		checkDeviceOnline(device.ID)
 	}
 	// 通过脚本执行器
 	req, err_a := scriptDeal(device.ScriptId, payload.Values, topic)
@@ -1508,12 +1553,20 @@ func (*TSKVService) GetCurrentDataAndMapList(device_id string) ([]map[string]int
 			if attributeMap, ok := attribute.(map[string]interface{}); ok {
 				if name, ok := attributeMap["name"].(string); ok {
 					typeMap[name] = attributeMap["title"].(string)
+					if unit, ok := attributeMap["unit"].(string); ok {
+						typeMap[name+"_"+"unit"] = unit
+					}
 				}
+
 			}
 		}
 		for i, v := range fields {
 			if typeMap[v["key"].(string)] != "" {
 				fields[i]["name"] = typeMap[v["key"].(string)]
+				// 判断typeMap[v["key"].(string)+"_"+"unit"]是否存在
+				if typeMap[v["key"].(string)+"_"+"unit"] != "" {
+					fields[i]["unit"] = typeMap[v["key"].(string)+"_"+"unit"]
+				}
 			}
 		}
 	}

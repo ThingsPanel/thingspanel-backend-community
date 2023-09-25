@@ -32,8 +32,8 @@ func (*ConditionsLogService) Insert(conditionsLog *models.ConditionsLog) (*model
 func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.ConditionsLogListValidate, tenantId string) ([]map[string]interface{}, int64) {
 	sqlWhere := `select cl.id ,cl.device_id ,cl.operation_type ,cl.instruct ,cl.sender ,cl.send_result ,cl.respond ,
 	cl.cteate_time ,cl.remark ,cl.protocol_type ,d."name" as device_name ,a.id as asset_id ,a."name" as asset_name,
-	 b.id as business_id ,b."name" as business_name from conditions_log cl left join device d on cl.device_id = d.id  
-	 left join asset a on a.id = d.asset_id left join business b on b.id =a.business_id where 1=1`
+	 b.id as business_id ,b."name" as business_name,u."name" as user_name from conditions_log cl left join device d on cl.device_id = d.id  
+	 left join asset a on a.id = d.asset_id left join business b on b.id =a.business_id left join users u on u.id=cl.user_id where 1=1`
 	sqlWhereCount := `select count(1) from conditions_log cl left join device d on cl.device_id = d.id  
 	 left join asset a on a.id = d.asset_id left join business b on b.id =a.business_id where 1=1`
 	var values []interface{}
@@ -70,6 +70,10 @@ func (*ConditionsLogService) Paginate(conditionsLogListValidate valid.Conditions
 	if conditionsLogListValidate.DeviceName != "" {
 		values = append(values, fmt.Sprintf("%%%s%%", conditionsLogListValidate.DeviceName))
 		where += " and d.name like ?"
+	}
+	if conditionsLogListValidate.DeviceName != "" {
+		values = append(values, fmt.Sprintf("%%%s%%", conditionsLogListValidate.DeviceName))
+		where += " and u.name like ?"
 	}
 	sqlWhere += where
 	sqlWhereCount += where

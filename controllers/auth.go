@@ -4,7 +4,6 @@ import (
 	"ThingsPanel-Go/initialize/redis"
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/services"
-	bcrypt "ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
@@ -64,13 +63,9 @@ func (c *AuthController) Login() {
 	}
 
 	var UserService services.UserService
-	user, _, err := UserService.GetEnabledUserByEmail(reqData.Email)
+	user, err := UserService.Login(reqData)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
-		return
-	}
-	if !bcrypt.ComparePasswords(user.Password, []byte(reqData.Password)) {
-		response.SuccessWithMessage(400, "密码错误！", (*context2.Context)(c.Ctx))
 		return
 	}
 	// 生成token
@@ -188,6 +183,35 @@ func (this *AuthController) Me() {
 	}
 	response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
+}
+
+// 租户注册
+func (c *AuthController) TenantRegister() {
+	registerValidate := valid.TenantRegisterValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &registerValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(registerValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(registerValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+	var UserService services.UserService
+	_, err = UserService.TenantRegister(registerValidate)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	} else {
+		response.SuccessWithMessage(400, "注册成功", (*context2.Context)(c.Ctx))
+	}
+
 }
 
 // 注册 register
