@@ -340,7 +340,7 @@ func (c *TpNotification) ConfigSave() {
 	// 	"status":2
 	// }
 
-	if input.NoticeType == models.NotificationConfigType_Message {
+	if input.NoticeType == models.NotificationConfigType_Message || input.NoticeType == models.NotificationConfigType_VerificationCode {
 
 		var configInfo models.CloudServicesConfig_Ali
 
@@ -350,7 +350,7 @@ func (c *TpNotification) ConfigSave() {
 			return
 		}
 
-		res := s.SaveNotificationConfigAli(configInfo, input.Status)
+		res := s.SaveNotificationConfigAli(input.NoticeType, configInfo, input.Status)
 		if err != nil {
 			response.SuccessWithMessage(400, res.Error(), (*context2.Context)(c.Ctx))
 		}
@@ -452,11 +452,6 @@ func (c *TpNotification) SendMessage() {
 
 	arr := strings.Split(input.Content, ",")
 
-	if len(arr) != 3 {
-		response.SuccessWithMessage(400, "content解析错误", (*context2.Context)(c.Ctx))
-		return
-	}
-
 	// 获取用户租户id
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
@@ -464,7 +459,14 @@ func (c *TpNotification) SendMessage() {
 		return
 	}
 
-	err = sendmessage.SendSMS_SMS_461790263(input.PhoneNumber, arr[0], arr[1], arr[2], tenantId)
+	if len(arr) == 3 {
+		err = sendmessage.SendSMS_SMS_461790263(input.PhoneNumber, arr[0], arr[1], arr[2], tenantId)
+	} else if len(arr) == 1 {
+		err = sendmessage.SendSMSVerificationCode(input.PhoneNumber, input.Content, tenantId)
+	} else {
+		response.SuccessWithMessage(400, "暂不支持的消息类型", (*context2.Context)(c.Ctx))
+		return
+	}
 
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))

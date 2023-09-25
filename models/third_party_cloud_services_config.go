@@ -5,8 +5,9 @@ import (
 )
 
 const (
-	NotificationConfigType_Message = 1
-	NotificationConfigType_Email   = 2
+	NotificationConfigType_Message          = 1 // 短信告警信息
+	NotificationConfigType_Email            = 2
+	NotificationConfigType_VerificationCode = 3 // 短信验证码
 )
 
 const (
