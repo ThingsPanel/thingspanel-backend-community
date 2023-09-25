@@ -31,6 +31,7 @@ func AuthMiddle() {
 		"api/auth/refresh":                    0,
 		"api/auth/register":                   1,
 		"api/auth/tenant/register":            0,
+		"api/auth/captcha":                    0,
 		"/ws":                                 2,
 		"api/ota/download":                    0,
 	}
@@ -78,7 +79,7 @@ func isAuthExceptUrl(url string, m map[string]interface{}) bool {
 	return ok
 }
 
-//获取token
+// 获取token
 func GetToken(ctx *context.Context) (string, error) {
 	authorization := ctx.Input.Header("Authorization")
 	if len(authorization) == 0 {
