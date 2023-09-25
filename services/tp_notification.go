@@ -212,9 +212,9 @@ func BatchGetNotificationGroups(id []string) ([]models.TpNotificationGroups, err
 	return groupInfo, err
 }
 
-func (*TpNotificationService) SaveNotificationConfigAli(config models.CloudServicesConfig_Ali, status int) (err error) {
+func (*TpNotificationService) SaveNotificationConfigAli(noticeType int, config models.CloudServicesConfig_Ali, status int) (err error) {
 
-	exists, err := GetThirdPartyCloudServicesConfigByNoticeType(models.NotificationConfigType_Message)
+	exists, err := GetThirdPartyCloudServicesConfigByNoticeType(noticeType)
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func (*TpNotificationService) SaveNotificationConfigAli(config models.CloudServi
 		}
 		t := models.ThirdPartyCloudServicesConfig{
 			Id:         utils.GetUuid(),
-			NoticeType: models.NotificationConfigType_Message,
+			NoticeType: noticeType,
 			Config:     string(configStr),
 			Status:     status,
 		}
@@ -243,7 +243,7 @@ func (*TpNotificationService) SaveNotificationConfigAli(config models.CloudServi
 			if tmp.CloudType == models.NotificationCloudType_Ali {
 				t := models.ThirdPartyCloudServicesConfig{
 					Id:         v.Id,
-					NoticeType: models.NotificationConfigType_Message,
+					NoticeType: noticeType,
 					Config:     string(configStr),
 					Status:     status,
 				}
