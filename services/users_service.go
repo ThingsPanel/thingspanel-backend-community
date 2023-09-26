@@ -198,6 +198,8 @@ func (*UserService) Login(reqData valid.LoginValidate) (*models.Users, error) {
 				return &users, errors.New("密码错误！")
 			}
 		}
+	} else {
+		return &users, errors.New("账号不能为空！")
 	}
 	// 判断用户状态
 	if users.Enabled == "0" {
