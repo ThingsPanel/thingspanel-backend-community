@@ -59,7 +59,7 @@ func init() {
 	checkErr(err, "Failed to open gorm db")
 
 	// 使用GORM DB实例和表名创建Casbin适配器，而不检查或创建表\
-	a, err := gormadapter.NewAdapterByDBUseTableName(db, "postgres", "casbin_rule")
+	a, err := gormadapter.NewAdapterByDBUseTableName(db, "", "casbin_rule")
 	checkErr(err, "Failed to create new adapter")
 
 	// 创建和配置Casbin执行器
