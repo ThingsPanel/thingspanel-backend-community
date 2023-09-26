@@ -541,7 +541,7 @@ func (c *TpNotification) GetCaptcha() {
 	}
 
 	verificationCode := fmt.Sprintf("%04d", rand.Intn(10000))
-	err = redis.SetStr(input.PhoneNumber+"_code", verificationCode, 3*time.Minute)
+	err = redis.SetStr(input.PhoneNumber+"_code", verificationCode, 5*time.Minute)
 
 	if err != nil {
 		response.SuccessWithMessage(400, "redis err", (*context2.Context)(c.Ctx))
