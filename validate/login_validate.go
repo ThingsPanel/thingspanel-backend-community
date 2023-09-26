@@ -23,3 +23,11 @@ type TenantRegisterValidate struct {
 	PhoneNumber      string `json:"phone_number" alias:"手机号" valid:"Required;MaxSize(11)"`
 	VerificationCode string `json:"verification_code" alias:"验证码" valid:"Required;MaxSize(36)"`
 }
+
+
+// ChangePassword 校验
+type ChangePasswordValidate struct {
+	PhoneNumber      string `json:"phone_number" alias:"手机号" valid:"Required;MaxSize(11)"`
+	Password         string `json:"password" alias:"密码" valid:"Required; MinSize(6)"`
+	VerificationCode string `json:"verification_code" alias:"验证码" valid:"Required;MaxSize(36)"`
+}
