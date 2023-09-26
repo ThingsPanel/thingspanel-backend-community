@@ -214,6 +214,35 @@ func (c *AuthController) TenantRegister() {
 
 }
 
+// 修改密码
+func (c *AuthController) ChangePassword() {
+	changePasswordValidate := valid.ChangePasswordValidate{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &changePasswordValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(changePasswordValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(changePasswordValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
+	var UserService services.UserService
+	_, err = UserService.ChangePassword(changePasswordValidate)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	} else {
+		response.SuccessWithMessage(200, "修改成功", (*context2.Context)(c.Ctx))
+	}
+
+}
+
 // 注册 register
 func (this *AuthController) Register() {
 	registerValidate := valid.RegisterValidate{}

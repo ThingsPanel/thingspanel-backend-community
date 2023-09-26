@@ -94,7 +94,7 @@ func (*UserService) TenantRegister(reqData valid.TenantRegisterValidate) (*model
 	repeatFlag := true
 	// 判断手机号是否重复
 	result := psql.Mydb.Where("mobile = ?", reqData.PhoneNumber).First(&users)
-	if result.Error != nil {
+		if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			repeatFlag = false
 		} else {
@@ -204,6 +204,47 @@ func (*UserService) Login(reqData valid.LoginValidate) (*models.Users, error) {
 	// 判断用户状态
 	if users.Enabled == "0" {
 		return &users, errors.New("账户状态异常，请联系管理员！")
+	}
+	return &users, nil
+}
+
+// 修改密码
+func (*UserService) ChangePassword(reqData valid.ChangePasswordValidate) (*models.Users, error) {
+	var users models.Users
+	// 从redis中获取验证码
+	redisCode := redis.GetStr(reqData.PhoneNumber + "_code")
+	if redisCode != reqData.VerificationCode || redisCode == "" {
+		return &users, errors.New("验证码错误！")
+	}
+
+	// 监测上次请求时间，防爆破
+	lastRequestTime := redis.GetStr(reqData.PhoneNumber + "_change_password")
+	if lastRequestTime != ""  {
+		return &users, errors.New("验证码校验错误！")
+		
+	}
+
+	// 设置上次请求时间标志位
+	err := redis.SetStr(reqData.PhoneNumber+"_change_password", "1", 1*time.Minute)
+	if err != nil {
+		return &users, errors.New("验证码校验设置错误！")
+	}
+	
+	// 查询用户是否存在
+	result := psql.Mydb.Where("mobile = ?", reqData.PhoneNumber).First(&users)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return &users, errors.New("该手机号未注册！")
+		} else {
+			return &users, result.Error
+		}
+	}
+	users.Password = bcrypt.HashAndSalt([]byte(reqData.Password))
+	result = psql.Mydb.Save(&users)
+	
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+		return &users, result.Error
 	}
 	return &users, nil
 }

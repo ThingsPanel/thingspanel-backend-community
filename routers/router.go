@@ -33,6 +33,7 @@ func init() {
 		web.NSRouter("/auth/logout", &controllers.AuthController{}, "*:Logout"),   //ty
 		web.NSRouter("/auth/refresh", &controllers.AuthController{}, "*:Refresh"), //ty
 		web.NSRouter("/auth/me", &controllers.AuthController{}, "*:Me"),           //ty
+		web.NSRouter("/auth/change_password", &controllers.AuthController{}, "*:ChangePassword"),           //ty
 
 		// 获取验证码
 		web.NSRouter("/auth/captcha", &controllers.TpNotification{}, "*:GetCaptcha"),
