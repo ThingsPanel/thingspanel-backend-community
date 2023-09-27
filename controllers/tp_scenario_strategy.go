@@ -185,7 +185,7 @@ func (TpScenarioStrategyController *TpScenarioStrategyController) Activate() {
 
 	var s services.TpScenarioActionService
 
-	if s.ExecuteScenarioAction(TpScenarioStrategyIdValidate.Id) != nil {
+	if s.ExecuteScenarioAction(TpScenarioStrategyIdValidate.Id, models.ManualActivation) != nil {
 		utils.SuccessWithMessage(400, err.Error(), (*context2.Context)(TpScenarioStrategyController.Ctx))
 		return
 	}
