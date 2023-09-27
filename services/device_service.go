@@ -1065,7 +1065,7 @@ func (*DeviceService) GetConfigByToken(token string, deviceId string) (map[strin
 
 	config := DeviceConfig{
 		ProtocolType: device.Protocol,
-		AccessToken:  token,
+		AccessToken:  device.Token,
 		DeviceType:   device.DeviceType,
 		ID:           device.ID,
 		DeviceConfig: protocolConfig,
