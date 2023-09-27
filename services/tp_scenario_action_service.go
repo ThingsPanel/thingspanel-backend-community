@@ -112,7 +112,7 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string,
 	} else {
 		scenarioLog.ProcessDescription = "执行激活"
 	}
-
+	var scenarioLogDetailService TpScenarioLogDetailService
 	scenarioLog.ProcessResult = "1"
 	for _, scenarioAction := range scenarioActions {
 		var scenarioLogDetail models.TpScenarioLogDetail
@@ -163,7 +163,6 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string,
 			}
 			//记录日志
 			scenarioLogDetail.ScenarioLogId = scenarioLog.Id
-			var scenarioLogDetailService TpScenarioLogDetailService
 			_, err := scenarioLogDetailService.AddTpScenarioLogDetail(scenarioLogDetail)
 			if err != nil {
 				logs.Error(result.Error)
@@ -172,6 +171,39 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string,
 				scenarioLog.ProcessDescription = "执行中有失败，请查看日志详情"
 				scenarioLog.ProcessResult = "2"
 			}
+		} else if scenarioAction.ActionType == "2" {
+			// 触发其他场景
+			scenarioLogDetail.ActionType = "2"
+			instructMap := make(map[string]string)
+			err := json.Unmarshal([]byte(scenarioAction.Instruct), &instructMap)
+			if err != nil {
+				scenarioLogDetail.ProcessDescription = "instruct:" + err.Error()
+				scenarioLogDetail.ProcessResult = "2"
+			} else {
+				if _, ok := instructMap["automation_id"]; ok {
+					var s TpScenarioActionService
+					err = s.ExecuteScenarioAction(instructMap["automation_id"], models.AutomaticallyActivated)
+					if err != nil {
+						scenarioLogDetail.ProcessDescription = "instruct:" + err.Error()
+						scenarioLogDetail.ProcessResult = "2"
+					}
+				} else {
+					scenarioLogDetail.ProcessDescription = "instruct:参数错误"
+					scenarioLogDetail.ProcessResult = "2"
+				}
+			}
+			//记录日志
+			scenarioLogDetail.ScenarioLogId = scenarioLog.Id
+			_, err = scenarioLogDetailService.AddTpScenarioLogDetail(scenarioLogDetail)
+			if err != nil {
+				logs.Error(result.Error)
+			}
+			if scenarioLogDetail.ProcessResult == "2" {
+				scenarioLog.ProcessDescription = "执行中有失败，请查看日志详情"
+				scenarioLog.ProcessResult = "2"
+			}
+		} else if scenarioAction.ActionType == "3" {
+			// 触发告警
 		}
 	}
 	_, err = scenarioLogService.UpdateTpScenarioLog(scenarioLog)
