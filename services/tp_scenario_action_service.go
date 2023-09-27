@@ -203,7 +203,36 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string,
 				scenarioLog.ProcessResult = "2"
 			}
 		} else if scenarioAction.ActionType == "3" {
-			// 触发告警
+			scenarioLogDetail.ActionType = "3"
+			instructMap := make(map[string]string)
+			err := json.Unmarshal([]byte(scenarioAction.Instruct), &instructMap)
+			if err != nil {
+				scenarioLogDetail.ProcessDescription = "instruct:" + err.Error()
+				scenarioLogDetail.ProcessResult = "2"
+			} else {
+				if _, ok := instructMap["warning_strategy_id"]; ok {
+					var notification TpNotificationService
+					notification.ExecuteNotification(instructMap["warning_strategy_id"], "", "执行激活", "执行激活")
+					if err != nil {
+						scenarioLogDetail.ProcessDescription = "instruct:" + err.Error()
+						scenarioLogDetail.ProcessResult = "2"
+					}
+				} else {
+					scenarioLogDetail.ProcessDescription = "instruct:参数错误"
+					scenarioLogDetail.ProcessResult = "2"
+				}
+			}
+			//记录日志
+			scenarioLogDetail.ScenarioLogId = scenarioLog.Id
+			_, err = scenarioLogDetailService.AddTpScenarioLogDetail(scenarioLogDetail)
+			if err != nil {
+				logs.Error(result.Error)
+			}
+			if scenarioLogDetail.ProcessResult == "2" {
+				scenarioLog.ProcessDescription = "执行中有失败，请查看日志详情"
+				scenarioLog.ProcessResult = "2"
+			}
+
 		}
 	}
 	_, err = scenarioLogService.UpdateTpScenarioLog(scenarioLog)
