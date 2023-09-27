@@ -39,5 +39,5 @@ type RspTpScenarioStrategyPaginationValidate struct {
 }
 
 type TpScenarioStrategyIdValidate struct {
-	Id string `json:"id"  gorm:"primaryKey" valid:"Required;MaxSize(36)"`
+	Id string `json:"id" alias:"id" gorm:"primaryKey" valid:"Required;MaxSize(36)"`
 }
