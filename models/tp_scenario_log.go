@@ -12,3 +12,8 @@ type TpScenarioLog struct {
 func (t *TpScenarioLog) TableName() string {
 	return "tp_scenario_log"
 }
+
+const (
+	AutomaticallyActivated = 1
+	ManualActivation       = 2
+)

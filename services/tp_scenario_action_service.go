@@ -89,7 +89,7 @@ func (*TpScenarioActionService) DeleteTpScenarioAction(tp_automation_action mode
 }
 
 // 触发场景动作
-func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string) error {
+func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string, source int) error {
 	var scenarioActions []models.TpScenarioAction
 	result := psql.Mydb.Model(&models.TpScenarioAction{}).Where("scenario_strategy_id = ?", scenarioStrategyId).Find(&scenarioActions)
 	if result.Error != nil {
@@ -106,7 +106,13 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string)
 		logs.Error(result.Error)
 		return result.Error
 	}
-	scenarioLog.ProcessDescription = "执行成功"
+
+	if source == models.AutomaticallyActivated {
+		scenarioLog.ProcessDescription = "执行成功"
+	} else {
+		scenarioLog.ProcessDescription = "执行激活"
+	}
+
 	scenarioLog.ProcessResult = "1"
 	for _, scenarioAction := range scenarioActions {
 		var scenarioLogDetail models.TpScenarioLogDetail

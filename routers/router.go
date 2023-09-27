@@ -29,11 +29,11 @@ func init() {
 
 	api := web.NewNamespace("/api",
 		// 登录
-		web.NSRouter("/auth/login", &controllers.AuthController{}, "*:Login"),     //ty
-		web.NSRouter("/auth/logout", &controllers.AuthController{}, "*:Logout"),   //ty
-		web.NSRouter("/auth/refresh", &controllers.AuthController{}, "*:Refresh"), //ty
-		web.NSRouter("/auth/me", &controllers.AuthController{}, "*:Me"),           //ty
-		web.NSRouter("/auth/change_password", &controllers.AuthController{}, "*:ChangePassword"),           //ty
+		web.NSRouter("/auth/login", &controllers.AuthController{}, "*:Login"),                    //ty
+		web.NSRouter("/auth/logout", &controllers.AuthController{}, "*:Logout"),                  //ty
+		web.NSRouter("/auth/refresh", &controllers.AuthController{}, "*:Refresh"),                //ty
+		web.NSRouter("/auth/me", &controllers.AuthController{}, "*:Me"),                          //ty
+		web.NSRouter("/auth/change_password", &controllers.AuthController{}, "*:ChangePassword"), //ty
 
 		// 获取验证码
 		web.NSRouter("/auth/captcha", &controllers.TpNotification{}, "*:GetCaptcha"),
@@ -427,6 +427,8 @@ func init() {
 		web.NSRouter("/scenario/strategy/detail", &controllers.TpScenarioStrategyController{}, "*:Detail"),
 		web.NSRouter("/scenario/strategy/edit", &controllers.TpScenarioStrategyController{}, "*:Edit"),
 		web.NSRouter("/scenario/strategy/delete", &controllers.TpScenarioStrategyController{}, "*:Delete"),
+		// 手动激活一次
+		web.NSRouter("/scenario/strategy/activate", &controllers.TpScenarioStrategyController{}, "*:Activate"),
 
 		web.NSRouter("/v1/automation/add", &controllers.TpAutomationController{}, "*:Add"),
 		web.NSRouter("/v1/automation/list", &controllers.TpAutomationController{}, "*:List"),

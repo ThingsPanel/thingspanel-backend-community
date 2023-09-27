@@ -162,3 +162,32 @@ func (TpScenarioStrategyController *TpScenarioStrategyController) Delete() {
 		utils.SuccessWithMessage(400, "无法删除；可能的原因：1.被自动化关联的场景无法删除，需要先取消关联；"+req_err.Error(), (*context2.Context)(TpScenarioStrategyController.Ctx))
 	}
 }
+
+// 激活
+func (TpScenarioStrategyController *TpScenarioStrategyController) Activate() {
+	TpScenarioStrategyIdValidate := valid.TpScenarioStrategyIdValidate{}
+	err := json.Unmarshal(TpScenarioStrategyController.Ctx.Input.RequestBody, &TpScenarioStrategyIdValidate)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(TpScenarioStrategyIdValidate)
+	if !status {
+		for _, err := range v.Errors {
+			// 获取字段别称
+			alias := gvalid.GetAlias(TpScenarioStrategyIdValidate, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			utils.SuccessWithMessage(1000, message, (*context2.Context)(TpScenarioStrategyController.Ctx))
+			break
+		}
+		return
+	}
+
+	var s services.TpScenarioActionService
+
+	if s.ExecuteScenarioAction(TpScenarioStrategyIdValidate.Id, models.ManualActivation) != nil {
+		utils.SuccessWithMessage(400, err.Error(), (*context2.Context)(TpScenarioStrategyController.Ctx))
+		return
+	}
+	utils.SuccessWithMessage(200, "success", (*context2.Context)(TpScenarioStrategyController.Ctx))
+}
