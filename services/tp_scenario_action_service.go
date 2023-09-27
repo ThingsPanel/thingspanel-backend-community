@@ -174,6 +174,7 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string,
 		} else if scenarioAction.ActionType == "2" {
 			// 触发其他场景
 			scenarioLogDetail.ActionType = "2"
+			scenarioLogDetail.ProcessResult = "1"
 			instructMap := make(map[string]string)
 			err := json.Unmarshal([]byte(scenarioAction.Instruct), &instructMap)
 			if err != nil {
@@ -204,6 +205,7 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string,
 			}
 		} else if scenarioAction.ActionType == "3" {
 			scenarioLogDetail.ActionType = "3"
+			scenarioLogDetail.ProcessResult = "1"
 			instructMap := make(map[string]string)
 			err := json.Unmarshal([]byte(scenarioAction.Instruct), &instructMap)
 			if err != nil {
