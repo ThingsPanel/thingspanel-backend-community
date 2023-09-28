@@ -827,44 +827,34 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 		}
 
 	} else if device.DeviceType == "3" && device.Protocol != "MQTT" { // 协议插件子设备
-		//暂时对modbus插件做单独处理
-		if device.Protocol == "MODBUS_RTU" || device.Protocol == "MODBUS_TCP" { //modbus
+		//其他协议插件
+		var gatewayDevice *models.Device
+		result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
+		if result.Error == nil {
+			//获取协议插件订阅topic
 			var TpProtocolPluginService TpProtocolPluginService
 			pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
-			var topic = pp.SubTopicPrefix + device.ID
-			msg, err = scriptDealB(device.ScriptId, msg, topic)
+			// 前缀+网关设备token
+			var topic1 = pp.SubTopicPrefix + gatewayDevice.Token
+			var topic2 = pp.SubTopicPrefix + gatewayDevice.ID
+			//包装子设备地址
+			var msgMapValues = make(map[string]interface{})
+			json.Unmarshal(msg, &msgMapValues)
+			var subMap = make(map[string]interface{})
+			subMap[device.SubDeviceAddr] = msgMapValues
+			msgBytes, _ := json.Marshal(subMap)
+			// 通过脚本
+			msg, err = scriptDealB(device.ScriptId, msgBytes, topic1)
 			if err != nil {
 				return err
 			}
-			err = sendmqtt.SendPlugin(msg, topic)
-		} else { //其他协议插件
-			var gatewayDevice *models.Device
-			result := psql.Mydb.Where("id = ?", device.ParentId).First(&gatewayDevice) // 检测网关token是否存在
-			if result.Error == nil {
-				//获取协议插件订阅topic
-				var TpProtocolPluginService TpProtocolPluginService
-				pp := TpProtocolPluginService.GetByProtocolType(device.Protocol, "2")
-				// 前缀+网关设备token
-				var topic1 = pp.SubTopicPrefix + gatewayDevice.Token
-				var topic2 = pp.SubTopicPrefix + gatewayDevice.ID
-				//包装子设备地址
-				var msgMapValues = make(map[string]interface{})
-				json.Unmarshal(msg, &msgMapValues)
-				var subMap = make(map[string]interface{})
-				subMap[device.SubDeviceAddr] = msgMapValues
-				msgBytes, _ := json.Marshal(subMap)
-				// 通过脚本
-				msg, err = scriptDealB(device.ScriptId, msgBytes, topic1)
-				if err != nil {
-					return err
-				}
-				logs.Info("网关设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
-				err = sendmqtt.SendPlugin(msgBytes, topic1)
-				if err != nil {
-					logs.Error(err.Error())
-				}
-				err = sendmqtt.SendPlugin(msgBytes, topic2)
+			logs.Info("网关设备下行脚本处理后：", utils.ReplaceUserInput(string(msg)))
+			err = sendmqtt.SendPlugin(msgBytes, topic1)
+			if err != nil {
+				logs.Error(err.Error())
 			}
+			err = sendmqtt.SendPlugin(msgBytes, topic2)
+
 		}
 
 	} else if device.Protocol == "MQTT" { // mqtt网关子设备
