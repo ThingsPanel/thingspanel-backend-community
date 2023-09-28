@@ -18,7 +18,6 @@ import (
 	_ "ThingsPanel-Go/initialize/validate"
 	_ "ThingsPanel-Go/routers"
 
-	services "ThingsPanel-Go/services"
 	"fmt"
 	"time"
 
@@ -30,6 +29,7 @@ import (
 	_ "ThingsPanel-Go/cron"
 
 	tptodbClient "ThingsPanel-Go/grpc/tptodb_client"
+	services "ThingsPanel-Go/services"
 )
 
 var Ticker *time.Ticker
