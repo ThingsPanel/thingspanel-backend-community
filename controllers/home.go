@@ -64,9 +64,12 @@ func (c *HomeController) List() {
 // 系统时间
 func (this *HomeController) SystemTime() {
 	format := "2006-01-02 15:04:05"
-	now := time.Now().Format(format)
+	now := time.Now()
+	nowStr := now.Format(format)
 	var data = make(map[string]interface{})
-	data["systime"] = now
+	data["systime"] = nowStr
+	//毫秒
+	data["timestamp"] = now.UnixNano() / 1e6
 	response.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(this.Ctx))
 	return
 }
