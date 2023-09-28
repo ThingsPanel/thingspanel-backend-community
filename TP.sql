@@ -553,7 +553,7 @@ INSERT INTO public.tp_function
 VALUES('39936c5b-14fd-588f-60be-77f422aa2d32', '', NULL, '', 'ProductManagment', '', 'COMMON.PRODUCTMANAGEMENT', 'menu-icon flaticon2-list', '0', '', '0', 930);
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
-VALUES('7c0c8fbb-6ba1-2323-511d-859c7923f954', '', NULL, '/log/list', 'LogList', '/pages/log/LogIndex.vue', 'COMMON.OPERATIONLOG', 'flaticon2-paper', '1', '', 'a59eefbf-de02-a348-30af-d7f16053f884', 999);
+VALUES('7c0c8fbb-6ba1-2323-511d-859c7923f954', '', NULL, '/log/list', 'LogList', '/pages/log/LogEquipmentIndex.vue', 'COMMON.OPERATIONLOG', 'flaticon2-paper', '1', '', 'a59eefbf-de02-a348-30af-d7f16053f884', 999);
 INSERT INTO public.tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort)
 VALUES('52a23456-775c-b731-7adf-a0fd3cddf649', '', NULL, '', 'BusinessAddButton', '', 'COMMON.NEWBUSINESS', '', '3', 'business:add', '83e18dcd-c6c8-eca2-2859-11dd6c6e7c6d', 999);
@@ -1911,9 +1911,13 @@ DROP INDEX public."INDEX_KEY";
 CREATE INDEX ts_kv_latest_tenant_id_idx ON public.ts_kv_latest (tenant_id);
 CREATE INDEX tp_data_transpond_detail_device_id_idx ON public.tp_data_transpond_detail (device_id);
 
--- 0.5.4
 ALTER TABLE public.device_command_history ADD user_id varchar(36) NULL;
 COMMENT ON COLUMN public.device_command_history.user_id IS '用户id';
 
 ALTER TABLE public.conditions_log ADD user_id varchar(36) NULL;
 COMMENT ON COLUMN public.device_command_history.user_id IS '操作用户id';
+
+delete from public.tp_function where id = '1bc93bad-41d3-ca37-638b-f79a29c1388b';
+delete from public.tp_function where id = 'b143ccd9-eb65-655a-a41f-4311da5ed8c0';
+delete from public.casbin_rule where v1='1bc93bad-41d3-ca37-638b-f79a29c1388b';
+delete from public.casbin_rule where v1='b143ccd9-eb65-655a-a41f-4311da5ed8c0';
