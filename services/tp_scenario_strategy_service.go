@@ -166,6 +166,27 @@ func (*TpScenarioStrategyService) EditTpScenarioStrategy(tp_scenario_strategy va
 		if scenarioAction.DeviceId == "" {
 			delete(scenarioActionMap, "DeviceId")
 		}
+
+		// 告警
+		if scenarioAction.ActionType == "3" {
+			// 创建策略
+			delete(scenarioActionMap, "Instruct")
+			scenarioAction.WarningStrategy.Id = utils.GetUuid()
+			result := tx.Model(&models.TpWarningStrategy{}).Create(scenarioAction.WarningStrategy)
+			if result.Error != nil {
+				tx.Rollback()
+				logs.Error(result.Error.Error())
+				return tp_scenario_strategy, result.Error
+			}
+			warning_strategy := make(map[string]interface{})
+			warning_strategy["warning_strategy_id"] = scenarioAction.WarningStrategy.Id
+			jsonData, err := json.Marshal(warning_strategy)
+			if err != nil {
+				return tp_scenario_strategy, err
+			}
+			scenarioActionMap["instruct"] = jsonData
+		}
+		delete(scenarioActionMap, "WarningStrategy")
 		result := tx.Model(&models.TpScenarioAction{}).Create(scenarioActionMap)
 		if result.Error != nil {
 			tx.Rollback()
