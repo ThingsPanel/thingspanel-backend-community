@@ -13,13 +13,14 @@ type EditTpScenarioActionValidate struct {
 }
 
 type AddTpScenarioActionValidate struct {
-	Id                 string `json:"id" gorm:"primaryKey" valid:"MaxSize(36)"`
-	ScenarioStrategyId string `json:"scenario_strategy_id,omitempty" valid:"MaxSize(36)"`
-	ActionType         string `json:"action_type,omitempty" valid:"MaxSize(2)"`
-	DeviceId           string `json:"device_id,omitempty" valid:"MaxSize(36)"`
-	DeviceModel        string `json:"device_model,omitempty" valid:"MaxSize(2)"` // 模型类型1-设定属性 2-调动服务
-	Instruct           string `json:"instruct,omitempty" valid:"MaxSize(999)"`   // 指令
-	Remark             string `json:"remark,omitempty" valid:"MaxSize(255)"`
+	Id                 string                       `json:"id" gorm:"primaryKey" valid:"MaxSize(36)"`
+	ScenarioStrategyId string                       `json:"scenario_strategy_id,omitempty" valid:"MaxSize(36)"`
+	ActionType         string                       `json:"action_type,omitempty" valid:"MaxSize(2)"`
+	DeviceId           string                       `json:"device_id,omitempty" valid:"MaxSize(36)"`
+	DeviceModel        string                       `json:"device_model,omitempty" valid:"MaxSize(2)"` // 模型类型1-设定属性 2-调动服务
+	Instruct           string                       `json:"instruct,omitempty" valid:"MaxSize(999)"`   // 指令
+	Remark             string                       `json:"remark,omitempty" valid:"MaxSize(255)"`
+	WarningStrategy    AddTpWarningStrategyValidate `json:"warning_strategy,omitempty"`
 }
 
 type TpScenarioActionPaginationValidate struct {

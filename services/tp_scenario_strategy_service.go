@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -80,6 +81,7 @@ func (*TpScenarioStrategyService) AddTpScenarioStrategy(tp_scenario_strategy val
 		return tp_scenario_strategy, result.Error
 	}
 	for _, scenarioAction := range tp_scenario_strategy.AddTpScenarioActions {
+
 		scenarioAction.Id = utils.GetUuid()
 		scenarioAction.ScenarioStrategyId = tp_scenario_strategy.Id
 		// DeviceId外键可以为null，需要用map处理
@@ -87,6 +89,27 @@ func (*TpScenarioStrategyService) AddTpScenarioStrategy(tp_scenario_strategy val
 		if scenarioAction.DeviceId == "" {
 			delete(scenarioActionMap, "DeviceId")
 		}
+		// 告警
+		if scenarioAction.ActionType == "3" {
+			// 创建策略
+			delete(scenarioActionMap, "Instruct")
+			scenarioAction.WarningStrategy.Id = utils.GetUuid()
+			result := tx.Model(&models.TpWarningStrategy{}).Create(scenarioAction.WarningStrategy)
+			if result.Error != nil {
+				tx.Rollback()
+				logs.Error(result.Error.Error())
+				return tp_scenario_strategy, result.Error
+			}
+			warning_strategy := make(map[string]interface{})
+			warning_strategy["warning_strategy_id"] = scenarioAction.WarningStrategy.Id
+			jsonData, err := json.Marshal(warning_strategy)
+			if err != nil {
+				return tp_scenario_strategy, err
+			}
+			scenarioActionMap["instruct"] = jsonData
+		}
+
+		delete(scenarioActionMap, "WarningStrategy")
 		result := tx.Model(&models.TpScenarioAction{}).Create(scenarioActionMap)
 		if result.Error != nil {
 			tx.Rollback()
