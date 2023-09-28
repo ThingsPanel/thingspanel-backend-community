@@ -209,7 +209,7 @@ func (c *AuthController) TenantRegister() {
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 	} else {
-		response.SuccessWithMessage(400, "注册成功", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(200, "注册成功", (*context2.Context)(c.Ctx))
 	}
 
 }
