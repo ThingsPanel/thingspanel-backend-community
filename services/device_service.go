@@ -854,7 +854,6 @@ func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 				logs.Error(err.Error())
 			}
 			err = sendmqtt.SendPlugin(msgBytes, topic2)
-
 		}
 
 	} else if device.Protocol == "MQTT" { // mqtt网关子设备
