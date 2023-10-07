@@ -8,7 +8,9 @@ import (
 	valid "ThingsPanel-Go/validate"
 	"encoding/hex"
 	"errors"
+	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -98,7 +100,33 @@ func (*TpScriptService) QuizTpScript(code, msgcotent, topic string) (string, err
 		}
 		return utils.ScriptDeal(code, msg, topic)
 	} else {
-		return utils.ScriptDeal(code, []byte(msgcotent), topic)
+		if containsChinese(msgcotent) {
+			unicodePoints := convertToUnicodePoints(msgcotent)
+			return utils.ScriptDeal(code, unicodePoints, topic)
+		} else {
+			return utils.ScriptDeal(code, []byte(msgcotent), topic)
+		}
+
 	}
 
+}
+
+//是否含有中文
+func containsChinese(str string) bool {
+	// 使用正则表达式来匹配中文字符
+	regex := regexp.MustCompile(`[\p{Han}]`)
+	return regex.MatchString(str)
+}
+
+//中文转换为UnicodePoints
+func convertToUnicodePoints(str string) []int {
+	unicodePoints := []int{}
+
+	for len(str) > 0 {
+		r, size := utf8.DecodeRuneInString(str)
+		unicodePoints = append(unicodePoints, int(r))
+		str = str[size:]
+	}
+
+	return unicodePoints
 }
