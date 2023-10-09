@@ -1618,6 +1618,27 @@ func (*TSKVService) GetKVDataWithNoAggregate(deviceId, key string, sTime, eTime 
 
 // 获取聚合的数据
 func (*TSKVService) GetKVDataWithAggregate(deviceId, key string, sTime, eTime, aggregateWindow int64, aggregateFunc string) ([]map[string]interface{}, error) {
+
+	dbType, _ := web.AppConfig.String("dbType")
+	if dbType == "cassandra" {
+		var fields []map[string]interface{}
+		request := &pb.GetDeviceKVDataWithAggregateRequest{
+			DeviceId:        deviceId,
+			Key:             key,
+			StartTime:       sTime,
+			EndTime:         eTime,
+			AggregateWindow: aggregateWindow,
+			AggregateFunc:   aggregateFunc,
+		}
+		r, err := tptodb.TptodbClient.GetDeviceKVDataWithAggregate(context.Background(), request)
+		if err != nil {
+			logs.Error(err.Error())
+			return fields, err
+		}
+		err = json.Unmarshal([]byte(r.Data), &fields)
+		return fields, err
+	}
+
 	var data []map[string]interface{}
 	queryString := fmt.Sprintf(
 		`WITH TimeIntervals AS (
