@@ -1576,6 +1576,27 @@ func (*TSKVService) GetCurrentDataAndMapList(device_id string) ([]map[string]int
 // 获取不聚合的数据
 func (*TSKVService) GetKVDataWithNoAggregate(deviceId, key string, sTime, eTime int64) ([]map[string]interface{}, error) {
 
+	dbType, _ := web.AppConfig.String("dbType")
+	if dbType == "cassandra" {
+		var fields []map[string]interface{}
+		request := &pb.GetDeviceKVDataWithNoAggregateRequest{
+			DeviceId:  deviceId,
+			Key:       key,
+			StartTime: sTime,
+			EndTime:   eTime,
+		}
+		r, err := tptodb.TptodbClient.GetDeviceKVDataWithNoAggregate(context.Background(), request)
+		if err != nil {
+			logs.Error(err.Error())
+			return fields, err
+		}
+		err = json.Unmarshal([]byte(r.Data), &fields)
+		if err != nil {
+			logs.Error(err.Error())
+			return fields, err
+		}
+	}
+
 	var fields []models.TSKV
 	resultData := psql.Mydb.
 		Select("ts, dbl_v").
