@@ -93,7 +93,7 @@ type DeviceModelTree struct {
 }
 
 // 插件树
-func (*DeviceModelService) DeviceModelTree() []DeviceModelTree {
+func (*DeviceModelService) DeviceModelTree(tenant_id string) []DeviceModelTree {
 	var trees []DeviceModelTree
 	var tp_dict []models.TpDict
 	logs.Info("------------------------------")
@@ -106,7 +106,7 @@ func (*DeviceModelService) DeviceModelTree() []DeviceModelTree {
 	for _, dict := range tp_dict {
 		var tree DeviceModelTree
 		var device_model []models.DeviceModel
-		result := psql.Mydb.Where("model_type = ?", dict.DictValue).Find(&device_model)
+		result := psql.Mydb.Where("model_type = ? and tenant_id = ?", dict.DictValue, tenant_id).Find(&device_model)
 		if result.Error != nil {
 			//errors.Is(result.Error, gorm.ErrRecordNotFound)
 			logs.Error(result.Error.Error())

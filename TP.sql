@@ -1921,3 +1921,5 @@ delete from public.tp_function where id = '1bc93bad-41d3-ca37-638b-f79a29c1388b'
 delete from public.tp_function where id = 'b143ccd9-eb65-655a-a41f-4311da5ed8c0';
 delete from public.casbin_rule where v1='1bc93bad-41d3-ca37-638b-f79a29c1388b';
 delete from public.casbin_rule where v1='b143ccd9-eb65-655a-a41f-4311da5ed8c0';
+
+ALTER TABLE public.tp_role DROP CONSTRAINT tp_role_un;

@@ -182,9 +182,17 @@ func (c *DeviceModelController) Delete() {
 	}
 }
 
-// 删除
+// 获取树
 func (c *DeviceModelController) DeviceModelTree() {
+
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
 	var DeviceModelService services.DeviceModelService
-	trees := DeviceModelService.DeviceModelTree()
+	trees := DeviceModelService.DeviceModelTree(tenantId)
 	response.SuccessWithDetailed(200, "success", trees, map[string]string{}, (*context2.Context)(c.Ctx))
 }
