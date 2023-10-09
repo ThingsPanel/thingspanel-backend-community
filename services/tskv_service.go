@@ -1591,10 +1591,7 @@ func (*TSKVService) GetKVDataWithNoAggregate(deviceId, key string, sTime, eTime 
 			return fields, err
 		}
 		err = json.Unmarshal([]byte(r.Data), &fields)
-		if err != nil {
-			logs.Error(err.Error())
-			return fields, err
-		}
+		return fields, err
 	}
 
 	var fields []models.TSKV
