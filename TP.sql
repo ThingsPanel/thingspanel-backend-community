@@ -852,8 +852,7 @@ CREATE TABLE public.tp_product (
 	"describe" varchar(255) NULL,
 	created_time int8 NULL,
 	remark varchar(255) NULL,
-	CONSTRAINT t_product_pk PRIMARY KEY (id),
-	CONSTRAINT t_product_un UNIQUE (serial_number)
+	CONSTRAINT t_product_pk PRIMARY KEY (id)
 );
 
 -- Column comments
