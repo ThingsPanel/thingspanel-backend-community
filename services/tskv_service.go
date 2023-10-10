@@ -206,8 +206,9 @@ func checkDeviceOnline(deviceId string) {
 	// 如果dbType为timescaledb,则不更新ts_kv_latest表
 	if dbType, _ := web.AppConfig.String("dbType"); dbType == "timescaledb" {
 		var count int64
-		// 判断设备是否在线
-		result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE' and str_v = '0'", deviceId).Count(&count)
+		// 判断5秒外设备是否在线
+		var currentData = time.Now().UnixMicro() - 5000000
+		result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE' and str_v = '0' and ts < ?", deviceId, currentData).Count(&count)
 		if result.Error != nil {
 			logs.Error(result.Error.Error())
 		} else {
