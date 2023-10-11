@@ -89,7 +89,7 @@ func (*TpBatchService) DeleteTpBatch(tp_batch models.TpBatch) error {
 		return resultcount.Error
 	}
 	if count > 0 {
-		return errors.New("有设备已激活,不能删除")
+		return errors.New("已添加设备的批次无法删除！")
 	}
 	result := psql.Mydb.Delete(&tp_batch)
 	if result.Error != nil {
@@ -99,7 +99,7 @@ func (*TpBatchService) DeleteTpBatch(tp_batch models.TpBatch) error {
 	return nil
 }
 
-//批次表-产品表关联查询
+// 批次表-产品表关联查询
 func (*TpBatchService) productBatch(tp_batch_id string) (map[string]interface{}, error) {
 	var pb map[string]interface{}
 	result := psql.Mydb.Raw("select tb.*,tp.serial_number from tp_batch tb left join tp_product tp on  tb.product_id = tp.id where tb.id = ?", tp_batch_id).Scan(&pb)
@@ -212,7 +212,7 @@ func (*TpBatchService) Export(batch_id string) (string, error) {
 	return excelName, nil
 }
 
-//导入
+// 导入
 func (*TpBatchService) Import(bath_id, batch_number, product_id, file string) ([]models.TpGenerateDevice, error) {
 	var authtype string
 	if err := psql.Mydb.Model(&models.TpProduct{}).Select("auth_type").Where("id=?", product_id).Find(&authtype).Error; err != nil {
