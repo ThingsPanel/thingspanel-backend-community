@@ -172,7 +172,7 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string,
 				scenarioLog.ProcessResult = "2"
 			}
 		} else if scenarioAction.ActionType == "2" {
-			// 触发其他场景
+			// 控制“场景联动”启动/停止
 			scenarioLogDetail.ActionType = "2"
 			scenarioLogDetail.ProcessResult = "1"
 			instructMap := make(map[string]string)
@@ -182,8 +182,16 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string,
 				scenarioLogDetail.ProcessResult = "2"
 			} else {
 				if _, ok := instructMap["automation_id"]; ok {
-					var s TpScenarioActionService
-					err = s.ExecuteScenarioAction(instructMap["automation_id"], models.AutomaticallyActivated)
+
+					if _, ok := instructMap["switch"]; ok {
+						// 启动/停止 其他场景联动
+						var TpAutomationService TpAutomationService
+						err = TpAutomationService.EnabledAutomation(instructMap["automation_id"], instructMap["switch"])
+						if err != nil {
+							scenarioLogDetail.ProcessResult = "2"
+							scenarioLogDetail.ProcessDescription = err.Error()
+						}
+					}
 					if err != nil {
 						scenarioLogDetail.ProcessDescription = "instruct:" + err.Error()
 						scenarioLogDetail.ProcessResult = "2"
