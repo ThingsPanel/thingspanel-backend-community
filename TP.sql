@@ -1925,3 +1925,4 @@ ALTER TABLE public.tp_role DROP CONSTRAINT tp_role_un;
 
 -- 产品编号/租户ID 唯一索引
 ALTER TABLE public.tp_product ADD CONSTRAINT tp_product_unique_serial_tenant UNIQUE (serial_number, tenant_id);
+
