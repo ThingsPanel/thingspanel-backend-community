@@ -25,6 +25,7 @@ import (
 
 	pb "ThingsPanel-Go/grpc/tptodb_client/grpc_tptodb"
 
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -35,10 +36,10 @@ func GrpcTptodbInit() {
 	fmt.Println("grpc tptodb init...")
 	var conn *grpc.ClientConn
 	var err error
-
+	grpcHost := viper.GetString("grpc.tptodb_server")
 	for {
 		// 尝试连接服务器
-		conn, err = grpc.Dial("127.0.0.1:50052", grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err = grpc.Dial(grpcHost, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 		if err == nil {
 			// 如果连接成功，则退出循环
