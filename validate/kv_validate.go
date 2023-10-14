@@ -128,13 +128,15 @@ type DeleteHistoryDataValidate struct {
 }
 
 type KVHistoryDataValidate struct {
-	DeviceId    string `json:"device_id" alias:"设备ID" valid:"Required;MaxSize(36)"`
-	Key         string `json:"key" alias:"属性" valid:"Required;MaxSize(36)"`
-	StartTime   int64  `json:"start_time" alias:"开始时间" valid:"Required"`
-	EndTime     int64  `json:"end_time" alias:"结束时间" valid:"Required"`
-	Page        int    `json:"page" alias:"当前页码" valid:"Required"`
-	PageRecords int    `json:"page_records" alias:"每页数量" valid:"Required"`
-	ExportExcel bool   `json:"export_excel" alias:"导出开关"`
+	DeviceId      string `json:"device_id" alias:"设备ID" valid:"Required;MaxSize(36)"`
+	Key           string `json:"key" alias:"属性" valid:"Required;MaxSize(36)"`
+	StartTime     int64  `json:"start_time" alias:"开始时间" valid:"Required"`
+	EndTime       int64  `json:"end_time" alias:"结束时间" valid:"Required"`
+	Page          int    `json:"page" alias:"当前页码" valid:"Required"`
+	PageRecords   int    `json:"page_records" alias:"每页数量" valid:"Required"`
+	FirstDataTime int64  `json:"first_data_time" alias:"第一条数据时间"` // cassandra查询专用参数
+	EndDataTime   int64  `json:"end_data_time" alias:"最后一条数据时间"`  // cassandra查询专用参数
+	ExportExcel   bool   `json:"export_excel" alias:"导出开关"`
 }
 
 type BatchStatisticDataValidate struct {

@@ -22,7 +22,7 @@
 // option java_package = "io.grpc.examples.helloworld";
 // option java_outer_classname = "HelloWorldProto";
 
-package __
+package tptodb
 
 import (
 	context "context"
@@ -129,11 +129,12 @@ var Greeter_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ThingsPanel_GetDeviceHistory_FullMethodName               = "/tptodb.ThingsPanel/GetDeviceHistory"
-	ThingsPanel_GetDeviceAttributesHistory_FullMethodName     = "/tptodb.ThingsPanel/GetDeviceAttributesHistory"
-	ThingsPanel_GetDeviceAttributesCurrents_FullMethodName    = "/tptodb.ThingsPanel/GetDeviceAttributesCurrents"
-	ThingsPanel_GetDeviceKVDataWithNoAggregate_FullMethodName = "/tptodb.ThingsPanel/GetDeviceKVDataWithNoAggregate"
-	ThingsPanel_GetDeviceKVDataWithAggregate_FullMethodName   = "/tptodb.ThingsPanel/GetDeviceKVDataWithAggregate"
+	ThingsPanel_GetDeviceHistory_FullMethodName                = "/tptodb.ThingsPanel/GetDeviceHistory"
+	ThingsPanel_GetDeviceHistoryWithPageAndPage_FullMethodName = "/tptodb.ThingsPanel/GetDeviceHistoryWithPageAndPage"
+	ThingsPanel_GetDeviceAttributesHistory_FullMethodName      = "/tptodb.ThingsPanel/GetDeviceAttributesHistory"
+	ThingsPanel_GetDeviceAttributesCurrents_FullMethodName     = "/tptodb.ThingsPanel/GetDeviceAttributesCurrents"
+	ThingsPanel_GetDeviceKVDataWithNoAggregate_FullMethodName  = "/tptodb.ThingsPanel/GetDeviceKVDataWithNoAggregate"
+	ThingsPanel_GetDeviceKVDataWithAggregate_FullMethodName    = "/tptodb.ThingsPanel/GetDeviceKVDataWithAggregate"
 )
 
 // ThingsPanelClient is the client API for ThingsPanel service.
@@ -142,6 +143,7 @@ const (
 type ThingsPanelClient interface {
 	// 获取设备属性历史数据
 	GetDeviceHistory(ctx context.Context, in *GetDeviceHistoryRequest, opts ...grpc.CallOption) (*GetDeviceHistoryReply, error)
+	GetDeviceHistoryWithPageAndPage(ctx context.Context, in *GetDeviceHistoryWithPageAndPageRequest, opts ...grpc.CallOption) (*GetDeviceHistoryWithPageAndPageReply, error)
 	GetDeviceAttributesHistory(ctx context.Context, in *GetDeviceAttributesHistoryRequest, opts ...grpc.CallOption) (*GetDeviceAttributesHistoryReply, error)
 	GetDeviceAttributesCurrents(ctx context.Context, in *GetDeviceAttributesCurrentsRequest, opts ...grpc.CallOption) (*GetDeviceAttributesCurrentsReply, error)
 	GetDeviceKVDataWithNoAggregate(ctx context.Context, in *GetDeviceKVDataWithNoAggregateRequest, opts ...grpc.CallOption) (*GetDeviceKVDataWithNoAggregateReply, error)
@@ -159,6 +161,15 @@ func NewThingsPanelClient(cc grpc.ClientConnInterface) ThingsPanelClient {
 func (c *thingsPanelClient) GetDeviceHistory(ctx context.Context, in *GetDeviceHistoryRequest, opts ...grpc.CallOption) (*GetDeviceHistoryReply, error) {
 	out := new(GetDeviceHistoryReply)
 	err := c.cc.Invoke(ctx, ThingsPanel_GetDeviceHistory_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *thingsPanelClient) GetDeviceHistoryWithPageAndPage(ctx context.Context, in *GetDeviceHistoryWithPageAndPageRequest, opts ...grpc.CallOption) (*GetDeviceHistoryWithPageAndPageReply, error) {
+	out := new(GetDeviceHistoryWithPageAndPageReply)
+	err := c.cc.Invoke(ctx, ThingsPanel_GetDeviceHistoryWithPageAndPage_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -207,6 +218,7 @@ func (c *thingsPanelClient) GetDeviceKVDataWithAggregate(ctx context.Context, in
 type ThingsPanelServer interface {
 	// 获取设备属性历史数据
 	GetDeviceHistory(context.Context, *GetDeviceHistoryRequest) (*GetDeviceHistoryReply, error)
+	GetDeviceHistoryWithPageAndPage(context.Context, *GetDeviceHistoryWithPageAndPageRequest) (*GetDeviceHistoryWithPageAndPageReply, error)
 	GetDeviceAttributesHistory(context.Context, *GetDeviceAttributesHistoryRequest) (*GetDeviceAttributesHistoryReply, error)
 	GetDeviceAttributesCurrents(context.Context, *GetDeviceAttributesCurrentsRequest) (*GetDeviceAttributesCurrentsReply, error)
 	GetDeviceKVDataWithNoAggregate(context.Context, *GetDeviceKVDataWithNoAggregateRequest) (*GetDeviceKVDataWithNoAggregateReply, error)
@@ -220,6 +232,9 @@ type UnimplementedThingsPanelServer struct {
 
 func (UnimplementedThingsPanelServer) GetDeviceHistory(context.Context, *GetDeviceHistoryRequest) (*GetDeviceHistoryReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDeviceHistory not implemented")
+}
+func (UnimplementedThingsPanelServer) GetDeviceHistoryWithPageAndPage(context.Context, *GetDeviceHistoryWithPageAndPageRequest) (*GetDeviceHistoryWithPageAndPageReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDeviceHistoryWithPageAndPage not implemented")
 }
 func (UnimplementedThingsPanelServer) GetDeviceAttributesHistory(context.Context, *GetDeviceAttributesHistoryRequest) (*GetDeviceAttributesHistoryReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDeviceAttributesHistory not implemented")
@@ -260,6 +275,24 @@ func _ThingsPanel_GetDeviceHistory_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ThingsPanelServer).GetDeviceHistory(ctx, req.(*GetDeviceHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ThingsPanel_GetDeviceHistoryWithPageAndPage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDeviceHistoryWithPageAndPageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ThingsPanelServer).GetDeviceHistoryWithPageAndPage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ThingsPanel_GetDeviceHistoryWithPageAndPage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ThingsPanelServer).GetDeviceHistoryWithPageAndPage(ctx, req.(*GetDeviceHistoryWithPageAndPageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -346,6 +379,10 @@ var ThingsPanel_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetDeviceHistory",
 			Handler:    _ThingsPanel_GetDeviceHistory_Handler,
+		},
+		{
+			MethodName: "GetDeviceHistoryWithPageAndPage",
+			Handler:    _ThingsPanel_GetDeviceHistoryWithPageAndPage_Handler,
 		},
 		{
 			MethodName: "GetDeviceAttributesHistory",
