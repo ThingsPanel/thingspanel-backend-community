@@ -1853,8 +1853,73 @@ func (*TSKVService) KVDataExportExcel(s, e int64, key, aggregateWindow, aggregat
 }
 
 func (*TSKVService) GetKVDataWithPageAndPageRecords(
-	deviceId, key string, sTime, eTime int64, page, pageRecords int) ([]models.TSKV, error) {
+	deviceId, key string, sTime, eTime int64, page, pageRecords int, firstDataTime, EndDataTime int64) ([]models.TSKV, error) {
+
 	var fields []models.TSKV
+
+	dbType := os.Getenv("TP_DB_TYPE")
+	if dbType == "" {
+		var err error
+		dbType, err = web.AppConfig.String("dbType")
+		if err != nil {
+			dbType = "timescaledb"
+		}
+	}
+	if dbType == "cassandra" {
+		request := &pb.GetDeviceHistoryWithPageAndPageRequest{
+			DeviceId:      deviceId,
+			Key:           key,
+			StartTime:     sTime,
+			EndTime:       eTime,
+			Page:          int64(page),
+			PageRecords:   int64(pageRecords),
+			FirstDataTime: firstDataTime,
+			EndDataTime:   EndDataTime,
+		}
+		// 通过grpc获取数据
+		r, err := tptodb.TptodbClient.GetDeviceHistoryWithPageAndPage(context.Background(), request)
+		if err != nil {
+			return fields, err
+		}
+
+		var dataList []map[string]interface{}
+
+		err = json.Unmarshal([]byte(r.Data), &dataList)
+		if err != nil {
+			return fields, err
+		}
+
+		for _, v := range dataList {
+			var tmp models.TSKV
+			value, ok := v["dbl_v"].(int64)
+			if ok {
+				tmp.DblV = float64(value)
+			} else {
+				tmp.DblV = 0
+			}
+			value2, ok2 := v["str_v"].(string)
+			if ok2 {
+				tmp.StrV = value2
+			} else {
+				tmp.StrV = ""
+			}
+
+			timestamp, ok3 := v["ts"].(string)
+			if !ok3 {
+				return nil, nil
+			}
+
+			parsedTime, err := time.Parse(time.RFC3339Nano, timestamp)
+			if err != nil {
+				return fields, err
+			}
+
+			tmp.TS = parsedTime.UnixNano() / int64(time.Millisecond)
+			fields = append(fields, tmp)
+		}
+		return fields, nil
+	}
+
 	result := psql.Mydb.
 		Select("ts, key, dbl_v, str_v").
 		Where("ts BETWEEN ? AND ? AND entity_id = ? AND  key = ?", sTime, eTime, deviceId, key).

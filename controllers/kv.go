@@ -590,7 +590,10 @@ func (c *KvController) GetKVHistoryData() {
 		inputData.StartTime,
 		inputData.EndTime,
 		inputData.Page,
-		inputData.PageRecords)
+		inputData.PageRecords,
+		inputData.FirstDataTime, // cassandra查询专用参数
+		inputData.EndDataTime,   // cassandra查询专用参数
+	)
 
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
