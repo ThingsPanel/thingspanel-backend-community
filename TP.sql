@@ -1926,3 +1926,5 @@ ALTER TABLE public.tp_role DROP CONSTRAINT tp_role_un;
 -- 产品编号/租户ID 唯一索引
 ALTER TABLE public.tp_product ADD CONSTRAINT tp_product_unique_serial_tenant UNIQUE (serial_number, tenant_id);
 
+-- 修改操作日志菜单
+UPDATE public.tp_function SET function_name='', menu_id=NULL, "path"='/log/list', "name"='LogList', component='/pages/log/LogIndex.vue', title='COMMON.OPERATIONLOG', icon='flaticon2-paper', "type"='1', function_code='', parent_id='a59eefbf-de02-a348-30af-d7f16053f884', sort=999, tenant_id=NULL, sys_flag=NULL, "describe"=NULL WHERE id='7c0c8fbb-6ba1-2323-511d-859c7923f954';
