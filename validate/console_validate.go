@@ -23,5 +23,7 @@ type DetailAndDetailConsole struct {
 }
 
 type ListConsole struct {
-	Name string `json:"name" alias:"name"`
+	Name        string `json:"name" alias:"name"`
+	CurrentPage int    `json:"current_page"`
+	PerPage     int    `json:"per_page"`
 }
