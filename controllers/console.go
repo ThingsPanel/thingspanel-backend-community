@@ -44,8 +44,15 @@ func (c *ConsoleController) Add() {
 		return
 	}
 
+	//获取用户id
+	userID, ok := c.Ctx.Input.GetData("user_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
 	var ConsoleService services.ConsoleService
-	err = ConsoleService.AddConsole(input.Name, input.CreatedBy, input.Data, input.Config, input.Template, input.Code, tenantId)
+	err = ConsoleService.AddConsole(input.Name, userID, input.Data, input.Config, input.Template, input.Code, tenantId)
 	if err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
@@ -54,23 +61,31 @@ func (c *ConsoleController) Add() {
 }
 
 func (c *ConsoleController) Edit() {
-	vaild := valid.EditConsole{}
-	err := json.Unmarshal(c.Ctx.Input.RequestBody, &vaild)
+	input := valid.EditConsole{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(vaild)
+	status, _ := v.Valid(input)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(vaild, err.Field)
+			alias := gvalid.GetAlias(input, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
 			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
+	var ConsoleService services.ConsoleService
+
+	err = ConsoleService.EditConsole(input.ID, input.Name, input.Data, input.Config, input.Template, input.Code)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	utils.Success(200, c.Ctx)
 }
 
 func (c *ConsoleController) Delete() {

@@ -28,8 +28,34 @@ func (*ConsoleService) AddConsole(name, createdBy, data, config, template, code,
 	return result.Error
 }
 
-func (*ConsoleService) EditConsole() int {
-	return 0
+func (*ConsoleService) EditConsole(id, name, data, config, template, code string) error {
+
+	update := make(map[string]interface{})
+
+	update["update_at"] = time.Now().Unix()
+	// 只修改传过来的字段
+	if name != "" {
+		update["name"] = name
+	}
+
+	if data != "" {
+		update["data"] = data
+	}
+
+	if config != "" {
+		update["config"] = config
+	}
+
+	if template != "" {
+		update["template"] = template
+	}
+
+	if code != "" {
+		update["code"] = code
+	}
+
+	err := psql.Mydb.Model(&models.Console{}).Where("id = ?", id).Updates(update).Error
+	return err
 }
 
 func (*ConsoleService) DeleteConsoleById() int {
