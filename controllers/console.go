@@ -78,9 +78,16 @@ func (c *ConsoleController) Edit() {
 		}
 		return
 	}
+
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
 	var ConsoleService services.ConsoleService
 
-	err = ConsoleService.EditConsole(input.ID, input.Name, input.Data, input.Config, input.Template, input.Code)
+	err = ConsoleService.EditConsole(input.ID, input.Name, input.Data, input.Config, input.Template, input.Code, tenantId)
 	if err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
@@ -107,8 +114,14 @@ func (c *ConsoleController) Delete() {
 		return
 	}
 
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
 	var ConsoleService services.ConsoleService
-	err = ConsoleService.DeleteConsoleById(input.ID)
+	err = ConsoleService.DeleteConsoleById(input.ID, tenantId)
 	if err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return

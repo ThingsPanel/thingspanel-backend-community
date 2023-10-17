@@ -28,7 +28,7 @@ func (*ConsoleService) AddConsole(name, createdBy, data, config, template, code,
 	return result.Error
 }
 
-func (*ConsoleService) EditConsole(id, name, data, config, template, code string) error {
+func (*ConsoleService) EditConsole(id, name, data, config, template, code, tenant_id string) error {
 
 	update := make(map[string]interface{})
 
@@ -54,12 +54,12 @@ func (*ConsoleService) EditConsole(id, name, data, config, template, code string
 		update["code"] = code
 	}
 
-	err := psql.Mydb.Model(&models.Console{}).Where("id = ?", id).Updates(update).Error
+	err := psql.Mydb.Model(&models.Console{}).Where("id = ? and tenant_id = ? ", id, tenant_id).Updates(update).Error
 	return err
 }
 
-func (*ConsoleService) DeleteConsoleById(id string) error {
-	err := psql.Mydb.Where("id = ?", id).Delete(&models.Console{}).Error
+func (*ConsoleService) DeleteConsoleById(id, tenant_id string) error {
+	err := psql.Mydb.Where("id = ? and tenant_id = ?", id, tenant_id).Delete(&models.Console{}).Error
 	return err
 }
 
