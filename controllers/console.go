@@ -148,13 +148,29 @@ func (c *ConsoleController) List() {
 		return
 	}
 
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	offset := (input.CurrentPage - 1) * input.PerPage
+
 	var ConsoleService services.ConsoleService
-	data, err := ConsoleService.GetConsoleList(input.Name)
+	err, data, count := ConsoleService.GetConsoleList(input.Name, offset, input.PerPage, tenantId)
+
 	if err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
-	utils.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(c.Ctx))
+
+	d := make(map[string]interface{})
+	d["current_page"] = input.CurrentPage
+	d["total"] = count
+	d["per_page"] = input.PerPage
+	d["data"] = data
+
+	utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 func (c *ConsoleController) Detail() {

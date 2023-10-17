@@ -5,6 +5,8 @@ import (
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
 	"time"
+
+	"github.com/beego/beego/v2/core/logs"
 )
 
 type ConsoleService struct {
@@ -63,11 +65,36 @@ func (*ConsoleService) DeleteConsoleById(id, tenant_id string) error {
 	return err
 }
 
-func (*ConsoleService) GetConsoleList(name string) ([]models.Console, error) {
-	var data []models.Console
-	searchTerm := "%" + name + "%"
-	err := psql.Mydb.Where("name LIKE ?", searchTerm).Find(&data).Error
-	return data, err
+func (*ConsoleService) GetConsoleList(name string, offset, pageSize int, tenantId string) (error, []models.Console, int64) {
+
+	var nG []models.Console
+	var count int64
+
+	// 有name
+	if name != "" {
+		searchTerm := "%" + name + "%"
+		tx := psql.Mydb.Model(&models.Console{})
+		tx.Where("tenant_id = ? AND name like ?", tenantId, name)
+		err := tx.Count(&count).Error
+		if err != nil {
+			logs.Error(err.Error())
+			return err, nG, count
+		}
+
+		err = psql.Mydb.Limit(pageSize).Offset(offset).Where("name LIKE ? and tenant_id = ?", searchTerm, tenantId).Find(&nG).Error
+		return err, nG, count
+	}
+
+	// 无name
+	tx := psql.Mydb.Model(&models.Console{})
+	tx.Where("tenant_id = ? ", tenantId)
+	err := tx.Count(&count).Error
+	if err != nil {
+		logs.Error(err.Error())
+		return err, nG, count
+	}
+	err = psql.Mydb.Limit(pageSize).Offset(offset).Where("tenant_id = ?", tenantId).Find(&nG).Error
+	return err, nG, count
 
 }
 
