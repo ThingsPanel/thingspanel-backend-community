@@ -89,17 +89,17 @@ func (c *ConsoleController) Edit() {
 }
 
 func (c *ConsoleController) Delete() {
-	vaild := valid.DetailAndDetailConsole{}
-	err := json.Unmarshal(c.Ctx.Input.RequestBody, &vaild)
+	input := valid.DetailAndDetailConsole{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(vaild)
+	status, _ := v.Valid(input)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(vaild, err.Field)
+			alias := gvalid.GetAlias(input, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
 			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
@@ -107,44 +107,67 @@ func (c *ConsoleController) Delete() {
 		return
 	}
 
+	var ConsoleService services.ConsoleService
+	err = ConsoleService.DeleteConsoleById(input.ID)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	utils.Success(200, c.Ctx)
 }
 
 func (c *ConsoleController) List() {
-	vaild := valid.ListConsole{}
-	err := json.Unmarshal(c.Ctx.Input.RequestBody, &vaild)
+	input := valid.ListConsole{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(vaild)
+	status, _ := v.Valid(input)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(vaild, err.Field)
+			alias := gvalid.GetAlias(input, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
 			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
+
+	var ConsoleService services.ConsoleService
+	data, err := ConsoleService.GetConsoleList(input.Name)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	utils.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(c.Ctx))
 }
 
 func (c *ConsoleController) Detail() {
-	vaild := valid.DetailAndDetailConsole{}
-	err := json.Unmarshal(c.Ctx.Input.RequestBody, &vaild)
+	input := valid.DetailAndDetailConsole{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
 	if err != nil {
 		fmt.Println("参数解析失败", err.Error())
 	}
 	v := validation.Validation{}
-	status, _ := v.Valid(vaild)
+	status, _ := v.Valid(input)
 	if !status {
 		for _, err := range v.Errors {
 			// 获取字段别称
-			alias := gvalid.GetAlias(vaild, err.Field)
+			alias := gvalid.GetAlias(input, err.Field)
 			message := strings.Replace(err.Message, err.Field, alias, 1)
 			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
 			break
 		}
 		return
 	}
+
+	var ConsoleService services.ConsoleService
+	data, err := ConsoleService.GetConsoleDetail(input.ID)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	utils.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(c.Ctx))
 }

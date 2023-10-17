@@ -58,14 +58,21 @@ func (*ConsoleService) EditConsole(id, name, data, config, template, code string
 	return err
 }
 
-func (*ConsoleService) DeleteConsoleById() int {
-	return 0
+func (*ConsoleService) DeleteConsoleById(id string) error {
+	err := psql.Mydb.Where("id = ?", id).Delete(&models.Console{}).Error
+	return err
 }
 
-func (*ConsoleService) GetConsoleList() int {
-	return 0
+func (*ConsoleService) GetConsoleList(name string) ([]models.Console, error) {
+	var data []models.Console
+	searchTerm := "%" + name + "%"
+	err := psql.Mydb.Where("name LIKE ?", searchTerm).Find(&data).Error
+	return data, err
+
 }
 
-func (*ConsoleService) GetConsoleDetail() int {
-	return 0
+func (*ConsoleService) GetConsoleDetail(id string) (models.Console, error) {
+	var data models.Console
+	err := psql.Mydb.Select("name", "created_at", "created_by", "code").First(&data, "id = ?", id).Error
+	return data, err
 }
