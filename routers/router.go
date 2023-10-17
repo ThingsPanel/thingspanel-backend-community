@@ -98,6 +98,13 @@ func init() {
 		web.NSRouter("/customer/add", &controllers.CustomerController{}, "*:Add"),
 		web.NSRouter("/customer/edit", &controllers.CustomerController{}, "*:Edit"),
 		web.NSRouter("/customer/delete", &controllers.CustomerController{}, "*:Delete"),
+
+		web.NSRouter("/console/add", &controllers.ConsoleController{}, "*:Add"),
+		web.NSRouter("/console/edit", &controllers.ConsoleController{}, "*:Edit"),
+		web.NSRouter("/console/delete", &controllers.ConsoleController{}, "*:Delete"),
+		web.NSRouter("/console/list", &controllers.ConsoleController{}, "*:List"),
+		web.NSRouter("/console/detail", &controllers.ConsoleController{}, "*:Detail"),
+
 		// 设备管理配置映射
 		web.NSRouter("/field/add_only", &controllers.FieldmappingController{}, "*:AddOnly"), //shebei-w
 		web.NSRouter("/field/update_only", &controllers.FieldmappingController{}, "*:UpdateOnly"),
