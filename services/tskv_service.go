@@ -171,7 +171,7 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 
 		//DeviceOnlineState[device.ID] = values["status"]
 		// 如果mqtt_server为vernemq,则不需要更新ts_kv_latest表
-		if viper.GetString("mqtt_server") != "vernemq" {
+		if viper.GetString("mqtt_server") != "-" {
 			d := models.TSKVLatest{
 				EntityType: "DEVICE",
 				EntityID:   device.ID,
