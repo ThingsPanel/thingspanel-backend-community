@@ -1928,3 +1928,41 @@ ALTER TABLE public.tp_product ADD CONSTRAINT tp_product_unique_serial_tenant UNI
 
 -- 修改操作日志菜单
 UPDATE public.tp_function SET function_name='', menu_id=NULL, "path"='/log/list', "name"='LogList', component='/pages/log/LogIndex.vue', title='COMMON.OPERATIONLOG', icon='flaticon2-paper', "type"='1', function_code='', parent_id='a59eefbf-de02-a348-30af-d7f16053f884', sort=999, tenant_id=NULL, sys_flag=NULL, "describe"=NULL WHERE id='7c0c8fbb-6ba1-2323-511d-859c7923f954';
+
+
+-- ----------------------------
+-- Table structure for tp_console
+-- ----------------------------
+DROP TABLE IF EXISTS "public"."tp_console";
+CREATE TABLE "public"."tp_console" (
+  "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+  "name" varchar(500) COLLATE "pg_catalog"."default",
+  "created_at" int8,
+  "created_by" varchar(36) COLLATE "pg_catalog"."default",
+  "update_at" int8,
+  "data" json,
+  "config" json,
+  "template" json,
+  "code" varchar(255) COLLATE "pg_catalog"."default",
+  "tenant_id" varchar(36) COLLATE "pg_catalog"."default"
+)
+;
+ALTER TABLE "public"."tp_console" OWNER TO "postgres";
+COMMENT ON COLUMN "public"."tp_console"."id" IS 'ID';
+COMMENT ON COLUMN "public"."tp_console"."name" IS '看板名称';
+COMMENT ON COLUMN "public"."tp_console"."created_at" IS '创建时间';
+COMMENT ON COLUMN "public"."tp_console"."created_by" IS '创建人ID';
+COMMENT ON COLUMN "public"."tp_console"."update_at" IS '更新时间';
+COMMENT ON COLUMN "public"."tp_console"."data" IS '看板数据-用来映射图表和设备
+';
+COMMENT ON COLUMN "public"."tp_console"."config" IS '看板配置-存储看板背景颜色及其他配置
+';
+COMMENT ON COLUMN "public"."tp_console"."template" IS '看板模版-用来存储模版
+';
+COMMENT ON COLUMN "public"."tp_console"."code" IS '通过模版编号去第三方会获取模版';
+COMMENT ON COLUMN "public"."tp_console"."tenant_id" IS '租户ID';
+
+-- ----------------------------
+-- Primary Key structure for table tp_console
+-- ----------------------------
+ALTER TABLE "public"."tp_console" ADD CONSTRAINT "tp_console_pkey" PRIMARY KEY ("id");
