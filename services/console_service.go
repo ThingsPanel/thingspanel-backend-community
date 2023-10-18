@@ -4,6 +4,8 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
+	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -12,8 +14,24 @@ import (
 type ConsoleService struct {
 }
 
-func (*ConsoleService) AddConsole(name, createdBy, data, config, template, code, tenantId string) error {
+func (*ConsoleService) AddConsole(name, createdBy, data, config, template, tenantId string) error {
 	id := uuid.GetUuid()
+	if data == "" {
+		data = "{}"
+	}
+
+	if config == "" {
+		config = "{}"
+	}
+
+	if template == "" {
+		template = "{}"
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	randomNumber := rand.Intn(90000000) + 10000000
+	randomString := strconv.Itoa(randomNumber)
+
 	save := models.Console{
 		ID:        id,
 		Name:      name,
@@ -23,14 +41,14 @@ func (*ConsoleService) AddConsole(name, createdBy, data, config, template, code,
 		Data:      data,
 		Config:    config,
 		Template:  template,
-		Code:      code,
+		Code:      randomString,
 		TenantId:  tenantId,
 	}
 	result := psql.Mydb.Create(&save)
 	return result.Error
 }
 
-func (*ConsoleService) EditConsole(id, name, data, config, template, code, tenant_id string) error {
+func (*ConsoleService) EditConsole(id, name, data, config, template, tenant_id string) error {
 
 	update := make(map[string]interface{})
 
@@ -50,10 +68,6 @@ func (*ConsoleService) EditConsole(id, name, data, config, template, code, tenan
 
 	if template != "" {
 		update["template"] = template
-	}
-
-	if code != "" {
-		update["code"] = code
 	}
 
 	err := psql.Mydb.Model(&models.Console{}).Where("id = ? and tenant_id = ? ", id, tenant_id).Updates(update).Error
