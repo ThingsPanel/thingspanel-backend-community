@@ -52,7 +52,7 @@ func (c *ConsoleController) Add() {
 	}
 
 	var ConsoleService services.ConsoleService
-	err = ConsoleService.AddConsole(input.Name, userID, input.Data, input.Config, input.Template, input.Code, tenantId)
+	err = ConsoleService.AddConsole(input.Name, userID, input.Data, input.Config, input.Template, tenantId)
 	if err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
@@ -87,7 +87,7 @@ func (c *ConsoleController) Edit() {
 
 	var ConsoleService services.ConsoleService
 
-	err = ConsoleService.EditConsole(input.ID, input.Name, input.Data, input.Config, input.Template, input.Code, tenantId)
+	err = ConsoleService.EditConsole(input.ID, input.Name, input.Data, input.Config, input.Template, tenantId)
 	if err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
