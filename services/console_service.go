@@ -114,6 +114,6 @@ func (*ConsoleService) GetConsoleList(name string, offset, pageSize int, tenantI
 
 func (*ConsoleService) GetConsoleDetail(id string) (models.Console, error) {
 	var data models.Console
-	err := psql.Mydb.Select("name", "created_at", "created_by", "code").First(&data, "id = ?", id).Error
+	err := psql.Mydb.Where("id = ?", id).First(&data).Error
 	return data, err
 }
