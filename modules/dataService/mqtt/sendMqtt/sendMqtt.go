@@ -4,7 +4,9 @@ import (
 	"ThingsPanel-Go/utils"
 	"errors"
 	"fmt"
+	"log"
 	"os"
+	"time"
 
 	"github.com/beego/beego/logs"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -42,7 +44,7 @@ func InitTopic() {
 		Topic_GatewayEvent = "$share/group/" + Topic_GatewayEvent + "/+"
 		Topic_DeviceStatus = "$share/group/" + Topic_DeviceStatus
 	}
-	connect()
+	go connect()
 }
 
 func connect() {
@@ -62,11 +64,14 @@ func connect() {
 	options.SetUsername(user)
 
 	client := mqtt.NewClient(options)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		fmt.Println(token.Error())
-		os.Exit(1)
+	for {
+		if token := client.Connect(); token.Wait() && token.Error() != nil {
+			log.Println(token.Error())
+			time.Sleep(5 * time.Second)
+		} else {
+			break
+		}
 	}
-
 	_client = client
 }
 

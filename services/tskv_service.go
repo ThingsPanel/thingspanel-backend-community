@@ -1582,27 +1582,27 @@ func (*TSKVService) GetCurrentDataAndMapList(device_id string) ([]map[string]int
 	if dbType == "cassandra" {
 		var attributes []string
 		// 通过grpc获取数据
-		request := &pb.GetDeviceAttributesCurrentsRequest{
+		request := &pb.GetDeviceAttributesCurrentListRequest{
 			DeviceId:  device_id,
 			Attribute: attributes,
 		}
-		r, err := tptodb.TptodbClient.GetDeviceAttributesCurrents(context.Background(), request)
+		r, err := tptodb.TptodbClient.GetDeviceAttributesCurrentList(context.Background(), request)
 		if err != nil {
 			logs.Error(err.Error())
 			return fields, err
 		}
 		// r.data为json字符串，转map
-		var data map[string]interface{}
-		err = json.Unmarshal([]byte(r.Data), &data)
+		var dataList []map[string]interface{}
+		err = json.Unmarshal([]byte(r.Data), &dataList)
 		if err != nil {
 			logs.Error(err.Error())
 			return fields, err
 		}
 		// 判断data是否为空
-		if len(data) == 0 {
+		if len(dataList) == 0 {
 			return fields, nil
 		}
-		fields = append(fields, data)
+		fields = dataList
 		// return fields, errors.New("cassandra不支持此接口")
 	}
 	result := psql.Mydb.Model(&models.TSKVLatest{}).Select("key, str_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts desc").Find(&fields)

@@ -56,7 +56,7 @@ func listenMQTTNew() {
 	broker := mqttHost
 	user := viper.GetString("mqtt.user")
 	pass := viper.GetString("mqtt.pass")
-	mqtt.ListenNew(broker, user, pass)
+	go mqtt.ListenNew(broker, user, pass)
 }
 
 func listenMQTTS() {
