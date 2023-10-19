@@ -1604,11 +1604,17 @@ func (*TSKVService) GetCurrentDataAndMapList(device_id string) ([]map[string]int
 		}
 		fields = dataList
 		// return fields, errors.New("cassandra不支持此接口")
+		result := psql.Mydb.Model(&models.TSKVLatest{}).Select("key, str_v, dbl_v, ts").Where("entity_id = ? and key = 'SYS_ONLINE'", device_id).Order("ts desc").Find(&fields)
+		if result.Error != nil {
+			return fields, result.Error
+		}
+	} else {
+		result := psql.Mydb.Model(&models.TSKVLatest{}).Select("key, str_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts desc").Find(&fields)
+		if result.Error != nil {
+			return fields, result.Error
+		}
 	}
-	result := psql.Mydb.Model(&models.TSKVLatest{}).Select("key, str_v, dbl_v, ts").Where("entity_id = ?", device_id).Order("ts desc").Find(&fields)
-	if result.Error != nil {
-		return fields, result.Error
-	}
+
 	if len(fields) > 0 {
 		// 查询物模型映射
 		var device models.Device
