@@ -4,8 +4,6 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
 	uuid "ThingsPanel-Go/utils"
-	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -28,10 +26,7 @@ func (*ConsoleService) AddConsole(name, createdBy, data, config, template, tenan
 		template = "{}"
 	}
 
-	rand.Seed(time.Now().UnixNano())
-	randomNumber := rand.Intn(90000000) + 10000000
-	randomString := strconv.Itoa(randomNumber)
-
+	shortUUID := id[:8]
 	save := models.Console{
 		ID:        id,
 		Name:      name,
@@ -41,7 +36,7 @@ func (*ConsoleService) AddConsole(name, createdBy, data, config, template, tenan
 		Data:      data,
 		Config:    config,
 		Template:  template,
-		Code:      randomString,
+		Code:      shortUUID,
 		TenantId:  tenantId,
 	}
 	result := psql.Mydb.Create(&save)
