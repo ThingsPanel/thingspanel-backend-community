@@ -29,4 +29,4 @@ api:
   http_host: 127.0.0.1:8083
 
 grpc:
-  tptodb_server: 127.0.0.1:50052
+  tptodb_server: 0.0.0.0:50052
