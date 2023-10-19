@@ -1598,6 +1598,10 @@ func (*TSKVService) GetCurrentDataAndMapList(device_id string) ([]map[string]int
 			logs.Error(err.Error())
 			return fields, err
 		}
+		// 判断data是否为空
+		if len(data) == 0 {
+			return fields, nil
+		}
 		fields = append(fields, data)
 		// return fields, errors.New("cassandra不支持此接口")
 	}
