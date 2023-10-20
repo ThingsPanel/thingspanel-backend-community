@@ -1686,7 +1686,7 @@ func (*TSKVService) GetKVDataWithNoAggregate(deviceId, key string, sTime, eTime 
 	resultData := psql.Mydb.
 		Select("ts, dbl_v").
 		Where("entity_id = ? and key = ? and ts >= ? and ts <= ?", deviceId, key, sTime, eTime).
-		Order("ts desc").
+		Order("ts asc").
 		Find(&fields)
 	if resultData.Error != nil {
 		return nil, resultData.Error
@@ -1756,7 +1756,7 @@ func (*TSKVService) GetKVDataWithAggregate(deviceId, key string, sTime, eTime, a
 		WHERE 
 			y IS NOT NULL 
 		ORDER BY 
-			x desc;`,
+			x asc;`,
 		aggregateFunc,
 	)
 	resultData := psql.Mydb.Raw(queryString, aggregateWindow, sTime, eTime, key, deviceId, aggregateWindow).Scan(&data)
