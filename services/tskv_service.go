@@ -212,7 +212,8 @@ func checkDeviceOnline(deviceId string) {
 			dbType = "timescaledb"
 		}
 	}
-	if dbType == "timescaledb" {
+	//if dbType == "timescaledb" {
+	if dbType != "" { //不管哪个数据库，在线离线状态都存储在pg的ts_kv_latest表中
 		var count int64
 		// 判断5秒外设备是否在线
 		var currentData = time.Now().UnixMicro() - 5000000
