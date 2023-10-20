@@ -3,7 +3,6 @@ package controllers
 import (
 	"ThingsPanel-Go/services"
 
-	"github.com/beego/beego/v2/core/logs"
 	beego "github.com/beego/beego/v2/server/web"
 )
 
@@ -36,11 +35,5 @@ func (c *TpWsOpenapiController) EventData() {
 	r := c.Ctx.Request
 	// 调用HandleConnections方法
 	var tpWsEventData services.TpWsEventData
-	// 获取用户租户id
-	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	if !ok {
-		logs.Error("tenant_id is missing")
-		return
-	}
-	tpWsEventData.EventData(w, r, tenantId)
+	tpWsEventData.EventData(w, r)
 }

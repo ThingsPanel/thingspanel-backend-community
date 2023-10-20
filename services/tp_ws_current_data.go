@@ -26,6 +26,7 @@ type TpWsCurrentData struct {
 	TimeField []string
 }
 
+// 验证token是否存在
 func AuthenticateAndFetchTenantID(token string, deviceID string) (string, error) {
 	if redis.GetStr(token) != "1" {
 		return "", fmt.Errorf("token is not exist")

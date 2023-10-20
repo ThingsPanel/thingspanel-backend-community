@@ -22,7 +22,7 @@ type TpWsEventData struct {
 	TimeField []string
 }
 
-func (*TpWsEventData) EventData(w http.ResponseWriter, r *http.Request, tenantId string) {
+func (*TpWsEventData) EventData(w http.ResponseWriter, r *http.Request) {
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
