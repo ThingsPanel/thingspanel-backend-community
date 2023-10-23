@@ -1146,3 +1146,24 @@ func (c *DeviceController) DeviceCommandSend() {
 
 	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
 }
+
+// 租户设备总数
+func (c *DeviceController) DeviceTenantCount() {
+	reqData := valid.DeviceTenantCountType{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	var s services.DeviceService
+	dd := s.GetTenantDeviceCount(tenantId, reqData.CountType)
+
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
+	return
+
+}

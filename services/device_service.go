@@ -1663,3 +1663,29 @@ func saveCommandSendHistory(
 		errors.Is(err.Error, gorm.ErrRecordNotFound)
 	}
 }
+
+//获取租户设备数
+// 获取全部Device
+func (*DeviceService) GetTenantDeviceCount(tenantId string, deviceType string) map[string]int64 {
+	var count int64
+	switch {
+	case deviceType == "0": //全部设备不包含子设备
+		result := psql.Mydb.Model(&models.Device{}).Where("tenant_id = ? and parent_id=''", tenantId).Count(&count)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return map[string]int64{"count": 0}
+			}
+		}
+		return map[string]int64{"count": count}
+	case deviceType == "1": //在线设备总数
+		sql := `select count(distinct entity_id) from ts_kv_latest where tenant_id = ? and key='SYS_ONLINE' and str_v='1' `
+		result := psql.Mydb.Raw(sql, tenantId).Count(&count)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return map[string]int64{"count": 0}
+			}
+		}
+		return map[string]int64{"count": count}
+	}
+	return map[string]int64{"count": 0}
+}
