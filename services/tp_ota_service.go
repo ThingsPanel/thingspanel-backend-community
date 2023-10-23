@@ -39,7 +39,7 @@ func (*TpOtaService) GetTpOtaList(PaginationValidate valid.TpOtaPaginationValida
 		values = append(values, PaginationValidate.ProductId)
 		where += " and o.product_id = ?"
 	}
-	sqlWhere += where
+	sqlWhere = sqlWhere + where + "order by o.CreatedAt desc"
 	sqlWhereCount += where
 	var count int64
 	result := psql.Mydb.Raw(sqlWhereCount, values...).Scan(&count)

@@ -195,3 +195,8 @@ type DeviceCommandSendValid struct {
 	CommandName       string `json:"command_name,omitempty"`
 	Desc              string `json:"desc,omitempty"`
 }
+
+// 总数 校验
+type DeviceTenantCountType struct {
+	CountType string `json:"count_type" alias:"counttype" valid:"Required;MaxSize(1)"` //0-全部，1-在线设备数，2-离线
+}
