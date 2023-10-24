@@ -1673,19 +1673,19 @@ func (*DeviceService) GetTenantDeviceCount(tenantId string, deviceType string) m
 		result := psql.Mydb.Model(&models.Device{}).Where("tenant_id = ? and parent_id=''", tenantId).Count(&count)
 		if result.Error != nil {
 			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return map[string]int64{"count": 0}
+				return map[string]int64{"all": 0}
 			}
 		}
-		return map[string]int64{"count": count}
+		return map[string]int64{"all": count}
 	case deviceType == "1": //在线设备总数
 		sql := `select count(distinct entity_id) from ts_kv_latest where tenant_id = ? and key='SYS_ONLINE' and str_v='1' `
 		result := psql.Mydb.Raw(sql, tenantId).Count(&count)
 		if result.Error != nil {
 			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return map[string]int64{"count": 0}
+				return map[string]int64{"online": 0}
 			}
 		}
-		return map[string]int64{"count": count}
+		return map[string]int64{"online": count}
 	default: //默认全部
 		result := psql.Mydb.Model(&models.Device{}).Where("tenant_id = ? and parent_id=''", tenantId).Count(&count)
 		if result.Error != nil {
