@@ -1686,6 +1686,22 @@ func (*DeviceService) GetTenantDeviceCount(tenantId string, deviceType string) m
 			}
 		}
 		return map[string]int64{"count": count}
+	default: //默认全部
+		result := psql.Mydb.Model(&models.Device{}).Where("tenant_id = ? and parent_id=''", tenantId).Count(&count)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				count = 0
+			}
+		}
+		var oncount int64
+		sql := `select count(distinct entity_id) from ts_kv_latest where tenant_id = ? and key='SYS_ONLINE' and str_v='1' `
+		result2 := psql.Mydb.Raw(sql, tenantId).Count(&oncount)
+		if result2.Error != nil {
+			if errors.Is(result2.Error, gorm.ErrRecordNotFound) {
+				oncount = 0
+			}
+		}
+		return map[string]int64{"all": count, "online": oncount}
+
 	}
-	return map[string]int64{"count": 0}
 }

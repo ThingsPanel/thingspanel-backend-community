@@ -113,3 +113,41 @@ func (*TpWarningInformationService) BatchProcessing(batchProcessing valid.BatchP
 	tx.Commit()
 	return nil
 }
+
+// 获取告警总数
+func (*TpWarningInformationService) GetTenantWarningInformationCount(tenantId string, processingresult string) map[string]int64 {
+	var count int64
+	switch {
+	case processingresult == "0": //未处理消息数
+		result := psql.Mydb.Model(&models.TpWarningInformation{}).Where("tenant_id = ? and processing_result=?", tenantId, processingresult).Count(&count)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return map[string]int64{"count": 0}
+			}
+		}
+		return map[string]int64{"count": count}
+	case processingresult == "1": //已处理消息数
+		result := psql.Mydb.Model(&models.TpWarningInformation{}).Where("tenant_id = ? and processing_result=?", tenantId, processingresult).Count(&count)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return map[string]int64{"count": 0}
+			}
+		}
+		return map[string]int64{"count": count}
+	default:
+		var dcount, ucount int64
+		result := psql.Mydb.Model(&models.TpWarningInformation{}).Where("tenant_id = ? and processing_result='1'", tenantId, processingresult).Count(&dcount)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				dcount = 0
+			}
+		}
+		result2 := psql.Mydb.Model(&models.TpWarningInformation{}).Where("tenant_id = ? and processing_result='0'", tenantId, processingresult).Count(&ucount)
+		if result2.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				ucount = 0
+			}
+		}
+		return map[string]int64{"1": dcount, "0": ucount}
+	}
+}

@@ -58,3 +58,7 @@ type BatchProcessingValidate struct {
 	ProcessingResult       string   `json:"processing_result,omitempty"  valid:"Required;MaxSize(1)"` // 处理结果 0-未处理 1-已处理 2-已忽略
 	ProcessingInstructions string   `json:"processing_instructions,omitempty"  valid:"MaxSize(255)"`  // 处理说明
 }
+
+type WarningInformationTenantCountType struct {
+	ProcessingResult string `json:"processing_result,omitempty"  valid:"MaxSize(1)"` // 处理结果 0-未处理 1-已处理 2-已忽略
+}
