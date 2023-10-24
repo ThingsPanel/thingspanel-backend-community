@@ -163,6 +163,8 @@ func init() {
 		web.NSRouter("/device/cascade", &controllers.DeviceController{}, "*:GetDeviceByCascade"),
 		web.NSRouter("/device/map", &controllers.DeviceController{}, "*:DeviceMapList"),
 		web.NSRouter("/device/status", &controllers.DeviceController{}, "*:DeviceStatus"),
+
+		web.NSRouter("/device/business/asset", &controllers.DeviceController{}, "*:GetBusinessIdAssetIdByDevice"),
 		web.NSRouter("/device/business/asset/permissions", &controllers.DeviceController{}, "*:OpenApiPageListTree"),
 
 		// 设备事件上报/命令下发历史列表
