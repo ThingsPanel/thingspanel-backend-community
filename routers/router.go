@@ -167,6 +167,8 @@ func init() {
 		web.NSRouter("/device/business/asset", &controllers.DeviceController{}, "*:GetBusinessIdAssetIdByDevice"),
 		web.NSRouter("/device/business/asset/permissions", &controllers.DeviceController{}, "*:OpenApiPageListTree"),
 
+		web.NSRouter("/device/tenant/count", &controllers.DeviceController{}, "*:DeviceTenantCount"),
+
 		// 设备事件上报/命令下发历史列表
 		web.NSRouter("/device/event/history/list", &controllers.DeviceController{}, "*:DeviceEventHistoryList"),
 		web.NSRouter("/device/command/history/list", &controllers.DeviceController{}, "*:DeviceCommandHistoryList"),
