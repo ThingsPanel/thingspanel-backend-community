@@ -1,3 +1,4 @@
+CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 -- public.business definition
 
 -- Drop table
@@ -1980,3 +1981,16 @@ VALUES('2b1e1c45-d033-8ed7-d69e-ec5dfc93549b', '', NULL, '/console', 'Console', 
 INSERT INTO tp_function
 (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag, "describe")
 VALUES('2a214487-f01f-c7ca-88f3-dce54e7d25f1', '', NULL, '/console/dashboard', 'Dashboard', '/pages/console/Dashboard.vue', '看板', '', '2', '', '2b1e1c45-d033-8ed7-d69e-ec5dfc93549b', 0, '', '0', '');
+
+
+-- 分享功能对应表结构
+CREATE TABLE public.shared_visualization (
+	dashboard_id varchar(36) NOT NULL,
+	share_id varchar NOT NULL,
+	device_list json NOT NULL DEFAULT '{}'::json,
+	created_at int8 NULL,
+	CONSTRAINT shared_visualization_pkey PRIMARY KEY (dashboard_id)
+);
+
+ALTER TABLE public.tp_dashboard ADD share_id varchar(36) NULL;
+COMMENT ON COLUMN public.tp_dashboard.share_id IS '分享id';
