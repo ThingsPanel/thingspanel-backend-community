@@ -47,6 +47,7 @@ func init() {
 		web.NSRouter("/home/chart", &controllers.HomeController{}, "*:Chart"), //ty
 		web.NSRouter("/index/show", &controllers.HomeController{}, "*:Show"),
 		web.NSRouter("/home/system/time", &controllers.HomeController{}, "*:SystemTime"),
+		web.NSRouter("/v1/warning/information/count", &controllers.TpWarningInformationController{}, "*:TenantCount"),
 
 		// 协议默认配置查看
 		// web.NSRouter("/index/default_setting", &controllers.HomeController{}, "*:GetDefaultSetting"), //ty
