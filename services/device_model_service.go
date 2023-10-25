@@ -30,7 +30,7 @@ func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceMod
 	var DeviceModels []models.DeviceModel
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
 	db := psql.Mydb.Model(&models.DeviceModel{})
-	db.Where("tenant_id = ? or flag = 0", tenantId)
+	db.Where("tenant_id = ?", tenantId)
 	if PaginationValidate.Issued != 0 {
 		db.Where("issued = ?", strconv.Itoa(PaginationValidate.Issued))
 	}

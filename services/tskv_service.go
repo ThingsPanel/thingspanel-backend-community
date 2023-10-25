@@ -178,6 +178,7 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 				Key:        "SYS_ONLINE",
 				TS:         time.Now().UnixMicro(),
 				StrV:       fmt.Sprint(values["status"]),
+				TenantID:   device.TenantId,
 			}
 			result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
 			if result.Error != nil {
