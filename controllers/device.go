@@ -1146,3 +1146,57 @@ func (c *DeviceController) DeviceCommandSend() {
 
 	response.SuccessWithDetailed(200, "success", nil, map[string]string{}, (*context2.Context)(c.Ctx))
 }
+
+func (c *DeviceController) GetBusinessIdAssetIdByDevice() {
+	var inputData struct {
+		ID string `json:"id" alias:"设备ID" valid:"Required;MaxSize(36)"`
+	}
+
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &inputData)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var d services.DeviceService
+	device, i := d.Token(inputData.ID)
+	if i == 0 {
+		response.SuccessWithMessage(400, "no device", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var a services.AssetService
+	asset, i := a.GetAssetById(device.AssetID)
+	if i == 0 {
+		response.SuccessWithMessage(400, "no asset", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	r := make(map[string]string)
+	r["device_id"] = inputData.ID
+	r["asset_id"] = device.AssetID
+	r["business_id"] = asset.BusinessID
+
+	response.SuccessWithDetailed(200, "success", r, map[string]string{}, (*context2.Context)(c.Ctx))
+}
+
+// 租户设备总数
+func (c *DeviceController) DeviceTenantCount() {
+	reqData := valid.DeviceTenantCountType{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	var s services.DeviceService
+	dd := s.GetTenantDeviceCount(tenantId, reqData.CountType)
+
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
+	return
+
+}

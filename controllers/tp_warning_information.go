@@ -129,3 +129,23 @@ func (c *TpWarningInformationController) BatchProcessing() {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 	}
 }
+
+func (c *TpWarningInformationController) TenantCount() {
+	reqData := valid.WarningInformationTenantCountType{}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+	var s services.TpWarningInformationService
+	dd := s.GetTenantWarningInformationCount(tenantId, reqData.ProcessingResult)
+
+	utils.SuccessWithDetailed(200, "success", dd, map[string]string{}, (*context2.Context)(c.Ctx))
+	return
+
+}
