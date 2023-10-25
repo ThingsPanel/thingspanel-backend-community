@@ -136,15 +136,15 @@ func (*TpWarningInformationService) GetTenantWarningInformationCount(tenantId st
 		return map[string]int64{"processed": count}
 	default:
 		var dcount, ucount int64
-		result := psql.Mydb.Model(&models.TpWarningInformation{}).Where("tenant_id = ? and processing_result='1'", tenantId, processingresult).Count(&dcount)
+		result := psql.Mydb.Model(&models.TpWarningInformation{}).Where("tenant_id = ? and processing_result='1'", tenantId).Count(&dcount)
 		if result.Error != nil {
 			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 				dcount = 0
 			}
 		}
-		result2 := psql.Mydb.Model(&models.TpWarningInformation{}).Where("tenant_id = ? and processing_result='0'", tenantId, processingresult).Count(&ucount)
+		result2 := psql.Mydb.Model(&models.TpWarningInformation{}).Where("tenant_id = ? and processing_result='0'", tenantId).Count(&ucount)
 		if result2.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			if errors.Is(result2.Error, gorm.ErrRecordNotFound) {
 				ucount = 0
 			}
 		}
