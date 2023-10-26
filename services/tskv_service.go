@@ -1937,8 +1937,8 @@ func (*TSKVService) GetKVDataWithPageAndPageRecords(
 		Where("ts BETWEEN ? AND ? AND entity_id = ? AND  key = ?", sTime, eTime, deviceId, key).
 		Offset((page - 1) * pageRecords).
 		Limit(pageRecords).
-		Find(&fields).
-		Order("ts desc")
+		Order("ts desc").
+		Find(&fields)
 	if result.Error != nil {
 		return fields, result.Error
 	}
