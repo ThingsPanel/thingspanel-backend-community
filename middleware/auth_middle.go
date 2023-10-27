@@ -2,6 +2,7 @@ package middleware
 
 import (
 	utils "ThingsPanel-Go/utils"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	adapter "github.com/beego/beego/v2/adapter"
 	"github.com/beego/beego/v2/adapter/context"
+	"github.com/beego/beego/v2/core/logs"
 	context2 "github.com/beego/beego/v2/server/web/context"
 )
 
@@ -35,15 +37,64 @@ func AuthMiddle() {
 		"api/auth/change_password":            0,
 		"/ws":                                 2,
 		"api/ota/download":                    0,
+		"api/share/get":                       0,
+	}
+	shareUrl := map[string]bool{
+		"api/tp_dashboard/list": true,
+		"api/kv/current": true,
+		"api/kv/history": true,
+		"api/device/operating_device": true,
 	}
 	var filterLogin = func(ctx *context.Context) {
 		url := strings.TrimLeft(ctx.Input.URL(), "/")
 		if !isAuthExceptUrl(strings.ToLower(url), noLogin) {
 			//获取TOKEN
-			userToken, err := GetToken(ctx)
+			userToken, tokenType, err := GetToken(ctx)
 			if err != nil {
 				utils.SuccessWithMessage(401, err.Error(), (*context2.Context)(ctx))
 				return
+			}
+
+			// 判断token类型
+			if tokenType == "Share" {
+				// 判断是否是分享的url
+				if !shareUrl[url] {
+					utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
+					return
+				}
+
+				// 从请求参数中获取设备id
+				bodyData := make(map[string]interface{})
+				err := json.Unmarshal(ctx.Input.RequestBody, &bodyData)
+				if err != nil {
+					utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
+					return
+				}
+
+				deviceID, _ := bodyData["device_id"].(string)
+				if deviceID == "" {
+					deviceID, _ = bodyData["entity_id"].(string)
+				}
+
+				// 从请求参数中获取可视化id
+				var dashboardID string
+				if url == "api/tp_dashboard/list" {
+					dashboardID, _ = bodyData["id"].(string)
+				} else {
+					dashboardID = ""
+				}
+
+				// 判断有无分享访问权限
+				var shareVisualizationService *services.ShareVisualizationService
+				isShared := shareVisualizationService.HasPermissionByDeviceID(userToken, dashboardID, deviceID)
+				logs.Debug("deviceId: ", isShared, deviceID, dashboardID, userToken)
+
+				if !isShared {
+					utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
+					return
+				}
+				return 
+
 			}
 			// 解析token
 			userMsg, err := utils.ParseCliamsToken(userToken)
@@ -80,17 +131,20 @@ func isAuthExceptUrl(url string, m map[string]interface{}) bool {
 	return ok
 }
 
-// 获取token
-func GetToken(ctx *context.Context) (string, error) {
+// 获取token, 有share、user两种token
+func GetToken(ctx *context.Context) (string, string, error) {
 	authorization := ctx.Input.Header("Authorization")
 	if len(authorization) == 0 {
-		return "", errors.New(ErrUnauthorized)
+		return "", "", errors.New(ErrUnauthorized)
+	}
+	if strings.HasPrefix(authorization, "ShareID ") {
+		return authorization[8:], "Share", nil
 	}
 	if !strings.HasPrefix(authorization, "Bearer ") {
-		return "", errors.New(ErrUnauthorized)
-	}
+		return "", "", errors.New(ErrUnauthorized)
+	} 
 	userToken := authorization[7:]
-	return userToken, nil
+	return userToken, "Bearer", nil
 }
 
 // 设置用户权限和租户id

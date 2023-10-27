@@ -9,6 +9,7 @@ type TpDashboard struct {
 	Sort          int64  `json:"sort,omitempty"`
 	Remark        string `json:"remark,omitempty"`
 	TenantId      string `json:"tenant_id,omitempty"` // 租户id
+	ShareId       string `json:"share_id,omitempty"`  // 分享id
 }
 
 func (TpDashboard) TableName() string {

@@ -189,10 +189,10 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 	}
 	var offset int = (req.CurrentPage - 1) * req.PerPage
 	var limit int = req.PerPage
-	sqlWhere += "order by d.created_at desc offset ? limit ?"
+	sqlWhere += " order by d.created_at desc offset ? limit ?"
 	values = append(values, offset, limit)
 	var deviceList []map[string]interface{}
-	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
+		dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
 	if dataResult.Error != nil {
 		logs.Error(dataResult.Error.Error())
 	} else {

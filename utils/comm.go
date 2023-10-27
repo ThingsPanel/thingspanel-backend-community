@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -242,4 +243,71 @@ func CheckEmail(email string) error {
 		return errors.New("邮箱格式不正确")
 	}
 	return nil
+}
+
+// 从可视化jsondata中获取绑定的设备id列表
+func GetDeviceListByVisualizationData(inputStr string) ([]string, error) {
+	var result map[string]interface{}
+	deviceIds := make(map[string]bool)
+	var uniqueDeviceIds []string
+	err := json.Unmarshal([]byte(inputStr), &result)
+	if err != nil {
+		fmt.Println("Error unmarshalling main JSON:", err)
+		return uniqueDeviceIds, err
+	}
+
+	cells, ok := result["cells"].([]interface{})
+	if !ok {
+		return uniqueDeviceIds, errors.New("cells not found")
+	}
+	for _, item := range cells {
+		cell, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		data, ok := cell["data"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		jsonData, ok := data["jsonData"].(string)
+		if !ok {
+			continue
+		}
+
+		var jsonDataContent map[string]interface{}
+		err := json.Unmarshal([]byte(jsonData), &jsonDataContent)
+		if err != nil {
+			continue
+		}
+
+		dataContent, ok := jsonDataContent["data"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		deviceDataList, ok := dataContent["deviceData"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		for _, deviceDataItem := range deviceDataList {
+			deviceData, ok := deviceDataItem.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			deviceID, ok := deviceData["deviceId"].(string)
+			if ok && deviceID != "" {
+				deviceIds[deviceID] = true
+			}
+		}
+	}
+
+	for key := range deviceIds {
+		uniqueDeviceIds = append(uniqueDeviceIds, key)
+	}
+
+	return uniqueDeviceIds, nil
 }

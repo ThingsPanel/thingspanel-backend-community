@@ -3,6 +3,7 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
 
@@ -73,4 +74,34 @@ func (*TpDashboardService) DeleteTpDashboard(tp_dashboard models.TpDashboard) bo
 		return false
 	}
 	return true
+}
+
+// 根据id保存对应的分享id
+func (*TpDashboardService) UpdateShareId(tp_dashboard_id string, shareId string) bool {
+	result := psql.Mydb.Model(&models.TpDashboard{}).Where("id = ?", tp_dashboard_id).Update("share_id", shareId)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return false
+	}
+	return true
+}
+
+// 查询可视化对应的设备列表
+func (*TpDashboardService) GetDeviceListByVisualizationID(tp_dashboard_id string) ([]string, error) {
+	var dashboard models.TpDashboard
+	
+	// 查询可视化对应的设备列表
+	result := psql.Mydb.Where("id = ?", tp_dashboard_id).First(&dashboard)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, errors.New("visualization not found")
+		}
+		return nil, result.Error
+	}
+
+	deviceList, err := utils.GetDeviceListByVisualizationData(dashboard.JsonData)
+	if err != nil {
+		return nil, err
+	}
+	return deviceList, nil
 }

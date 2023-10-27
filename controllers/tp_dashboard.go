@@ -4,6 +4,7 @@ import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
+	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
@@ -93,7 +95,23 @@ func (c *TpDashboardController) Edit() {
 	var TpDashboardService services.TpDashboardService
 	isSucess := TpDashboardService.EditTpDashboard(reqData, tenantId)
 	if isSucess {
+		// 存在分享id时，更新对应设备id到分享可视化里
 		d := TpDashboardService.GetTpDashboardDetail(reqData.Id)
+		if len(d) != 0 {
+			shareId := d[0].ShareId
+			JsonData := d[0].JsonData
+			if shareId != "" {
+				var SharedVisualizationService services.ShareVisualizationService
+				deviceList, err := utils.GetDeviceListByVisualizationData(JsonData)
+				logs.Error(deviceList, err)
+				deviceListJSON, err := json.Marshal(deviceList)
+				if err == nil {
+					isSaved := SharedVisualizationService.UpdateDeviceList(reqData.Id, string(deviceListJSON))
+					logs.Error(isSaved)
+				}
+			}
+		}
+
 		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {
 		response.SuccessWithMessage(400, "编辑失败", (*context2.Context)(c.Ctx))

@@ -499,6 +499,10 @@ func init() {
 		web.NSRouter("/openapi/rdevice/add", &controllers.OpenApiController{}, "*:RDeviceAdd"),
 		web.NSRouter("/openapi/rdevice/edit", &controllers.OpenApiController{}, "*:RDeviceEdit"),
 		web.NSRouter("/openapi/rdevice/del", &controllers.OpenApiController{}, "*:RDeviceDelete"),
+
+		// 可视化分享
+		web.NSRouter("/share/generate", &controllers.ShareVisualizationController{}, "*:GenerateShareId"),
+		web.NSRouter("/share/get", &controllers.ShareVisualizationController{}, "*:Get"),
 	)
 
 	// 图表推送数据
