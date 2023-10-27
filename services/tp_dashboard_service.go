@@ -29,7 +29,12 @@ func (*TpDashboardService) GetTpDashboardDetail(tp_dashboard_id string) []models
 func (*TpDashboardService) GetTpDashboardList(PaginationValidate valid.TpDashboardPaginationValidate, tenantId string) (bool, []models.TpDashboard, int64) {
 	var TpDashboards []models.TpDashboard
 	offset := (PaginationValidate.CurrentPage - 1) * PaginationValidate.PerPage
-	db := psql.Mydb.Model(&models.TpDashboard{}).Where("tenant_id = ? ", tenantId)
+	db := psql.Mydb.Model(&models.TpDashboard{})
+	if PaginationValidate.ShareId != "" {
+		db.Where("share_id = ?", PaginationValidate.ShareId)
+	} else {
+		db.Where("tenant_id = ? ", tenantId)
+	}
 	if PaginationValidate.RelationId != "" {
 		db.Where("relation_id = ?", PaginationValidate.RelationId)
 	}

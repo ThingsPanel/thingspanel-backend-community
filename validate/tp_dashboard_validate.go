@@ -26,6 +26,7 @@ type TpDashboardPaginationValidate struct {
 	PerPage     int    `json:"per_page"  alias:"每页页数" valid:"Required;Max(10000)"`
 	RelationId  string `json:"relation_id,omitempty" alias:"关联id" valid:"MaxSize(36)"`
 	Id          string `json:"id,omitempty" alias:"总览Id" valid:"MaxSize(36)"`
+	ShareId          string `json:"share_id,omitempty" alias:"分享Id" valid:"MaxSize(36)"`
 }
 
 type RspTpDashboardPaginationValidate struct {

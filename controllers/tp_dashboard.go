@@ -44,7 +44,8 @@ func (c *TpDashboardController) List() {
 	}
 	//获取租户id
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	if !ok {
+	// 不存在租户id且无分享id时，返回错误
+	if !ok && reqData.ShareId == "" {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
 	}
