@@ -110,3 +110,18 @@ func (*TpDashboardService) GetDeviceListByVisualizationID(tp_dashboard_id string
 	}
 	return deviceList, nil
 }
+
+// 查询可视化对应的设备列表
+func (*TpDashboardService) GetDeviceListByShareID(share_id string) (models.TpDashboard, error) {
+	var dashboard models.TpDashboard
+	
+	// 查询可视化对应的设备列表
+	result := psql.Mydb.Where("share_id = ?", share_id).First(&dashboard)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return models.TpDashboard{}, errors.New("visualization not found")
+		}
+		return models.TpDashboard{}, result.Error
+	}
+	return dashboard, nil
+}
