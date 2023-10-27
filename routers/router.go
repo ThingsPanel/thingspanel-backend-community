@@ -501,8 +501,8 @@ func init() {
 		web.NSRouter("/openapi/rdevice/del", &controllers.OpenApiController{}, "*:RDeviceDelete"),
 
 		// 可视化分享
-		web.NSRouter("/share/generate", &controllers.ShareVisualizationController{}, "*:GenerateShareId"),
-		web.NSRouter("/share/get", &controllers.ShareVisualizationController{}, "*:Get"),
+		web.NSRouter("/share/generate", &controllers.SharedVisualizationController{}, "*:GenerateShareId"),
+		web.NSRouter("/share/get", &controllers.SharedVisualizationController{}, "*:Get"),
 	)
 
 	// 图表推送数据

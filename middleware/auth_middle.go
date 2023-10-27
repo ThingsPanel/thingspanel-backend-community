@@ -85,8 +85,8 @@ func AuthMiddle() {
 				}
 
 				// 判断有无分享访问权限
-				var shareVisualizationService *services.ShareVisualizationService
-				isShared := shareVisualizationService.HasPermissionByDeviceID(userToken, dashboardID, deviceID)
+				var SharedVisualizationService *services.SharedVisualizationService
+				isShared := SharedVisualizationService.HasPermissionByDeviceID(userToken, dashboardID, deviceID)
 				logs.Debug("deviceId: ", isShared, deviceID, dashboardID, userToken)
 
 				if !isShared {

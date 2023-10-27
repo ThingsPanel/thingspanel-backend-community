@@ -17,14 +17,14 @@ import (
 	context2 "github.com/beego/beego/v2/server/web/context"
 )
 
-type ShareVisualizationController struct {
+type SharedVisualizationController struct {
 	beego.Controller
 }
 
 
 // 根据指定的分享id获取分享信息
-func (c *ShareVisualizationController) Get() {
-	var SharedVisualizationService services.ShareVisualizationService
+func (c *SharedVisualizationController) Get() {
+	var SharedVisualizationService services.SharedVisualizationService
 	GetShareInfoValidate := valid.GetShareInfoValidate{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &GetShareInfoValidate)
 	if err != nil {
@@ -54,9 +54,9 @@ func (c *ShareVisualizationController) Get() {
 
 
 // 根据可视化id创建对应可视化的分享
-func (c *ShareVisualizationController)GenerateShareId() {
+func (c *SharedVisualizationController)GenerateShareId() {
 	var TpDashboardService services.TpDashboardService
-	var SharedVisualizationService services.ShareVisualizationService
+	var SharedVisualizationService services.SharedVisualizationService
 	GetShareLinkValidate := valid.GetShareLinkValidate{}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &GetShareLinkValidate)
 	if err != nil {
@@ -97,14 +97,14 @@ func (c *ShareVisualizationController)GenerateShareId() {
 	}
 
 	// 创建可视化分享模型
-	ShareVisualization := models.SharedVisualization{
+	SharedVisualization := models.SharedVisualization{
 		ShareID:    shareId,
 		DeviceList: string(deviceListJSON),
 		DashboardID: GetShareLinkValidate.Id,
 		CreatedAt:      time.Now().Unix(),
 	}
 
-	isSucess, d := SharedVisualizationService.CreateSharedVisualization(ShareVisualization)
+	isSucess, d := SharedVisualizationService.CreateSharedVisualization(SharedVisualization)
 	if isSucess {
 		response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
 	} else {

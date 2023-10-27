@@ -101,7 +101,7 @@ func (c *TpDashboardController) Edit() {
 			shareId := d[0].ShareId
 			JsonData := d[0].JsonData
 			if shareId != "" {
-				var SharedVisualizationService services.ShareVisualizationService
+				var SharedVisualizationService services.SharedVisualizationService
 				deviceList, err := utils.GetDeviceListByVisualizationData(JsonData)
 				logs.Error(deviceList, err)
 				deviceListJSON, err := json.Marshal(deviceList)

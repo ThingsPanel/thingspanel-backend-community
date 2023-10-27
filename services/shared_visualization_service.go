@@ -10,12 +10,12 @@ import (
 	"gorm.io/gorm"
 )
 
-type ShareVisualizationService struct {
+type SharedVisualizationService struct {
 }
 
 
 // 根据分享id获取分享信息
-func (*ShareVisualizationService) GetShareInfo(shareId string) (*models.SharedVisualization, error) {
+func (*SharedVisualizationService) GetShareInfo(shareId string) (*models.SharedVisualization, error) {
 	var sharedVisualization models.SharedVisualization
 	result := psql.Mydb.Model(&models.SharedVisualization{}).Where("share_id = ?", shareId).Find(&sharedVisualization)
 	
@@ -27,7 +27,7 @@ func (*ShareVisualizationService) GetShareInfo(shareId string) (*models.SharedVi
 }
 
 // 更新设备列表
-func (*ShareVisualizationService) UpdateDeviceList(dashboardId string, deviceList string) bool {
+func (*SharedVisualizationService) UpdateDeviceList(dashboardId string, deviceList string) bool {
 	result := psql.Mydb.Model(&models.SharedVisualization{}).Where("dashboard_id = ?", dashboardId).Update("device_list", deviceList)
 	if result.Error != nil {
 		errors.Is(result.Error, gorm.ErrRecordNotFound)
@@ -38,7 +38,7 @@ func (*ShareVisualizationService) UpdateDeviceList(dashboardId string, deviceLis
 
 
 // 新建可视化分享
-func (*ShareVisualizationService) CreateSharedVisualization(sharedVisualization models.SharedVisualization) (bool, models.SharedVisualization) {
+func (*SharedVisualizationService) CreateSharedVisualization(sharedVisualization models.SharedVisualization) (bool, models.SharedVisualization) {
 	result := psql.Mydb.Create(&sharedVisualization)
 	if result.Error != nil {
 		return false, sharedVisualization
@@ -48,7 +48,7 @@ func (*ShareVisualizationService) CreateSharedVisualization(sharedVisualization 
 
 
 // 根据可视化id和设备id判断是否有权限
-func (*ShareVisualizationService) HasPermissionByDeviceID(share_id string, dashboard_id string, device_id string) bool {
+func (*SharedVisualizationService) HasPermissionByDeviceID(share_id string, dashboard_id string, device_id string) bool {
 	var sharedVisualization models.SharedVisualization
 	// 查询可视化
 	result := psql.Mydb.Where("share_id = ?", share_id).First(&sharedVisualization)
