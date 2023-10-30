@@ -90,7 +90,7 @@ func (*ConsoleService) GetConsoleList(name string, offset, pageSize int, tenantI
 			return err, nG, count
 		}
 
-		err = psql.Mydb.Limit(pageSize).Offset(offset).Where("name LIKE ? and tenant_id = ?", searchTerm, tenantId).Find(&nG).Error
+		err = psql.Mydb.Limit(pageSize).Offset(offset).Where("name LIKE ? and tenant_id = ?", searchTerm, tenantId).Order("created_at desc").Find(&nG).Error
 		return err, nG, count
 	}
 
@@ -102,7 +102,7 @@ func (*ConsoleService) GetConsoleList(name string, offset, pageSize int, tenantI
 		logs.Error(err.Error())
 		return err, nG, count
 	}
-	err = psql.Mydb.Limit(pageSize).Offset(offset).Where("tenant_id = ?", tenantId).Find(&nG).Error
+	err = psql.Mydb.Limit(pageSize).Offset(offset).Where("tenant_id = ?", tenantId).Order("created_at desc").Find(&nG).Error
 	return err, nG, count
 
 }
