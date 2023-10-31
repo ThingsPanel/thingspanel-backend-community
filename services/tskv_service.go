@@ -1903,12 +1903,18 @@ func (*TSKVService) GetKVDataWithPageAndPageRecords(
 
 		for _, v := range dataList {
 			var tmp models.TSKV
-			value, ok := v["dbl_v"].(int64)
+			value, ok := v["dbl_v"].(float64)
 			if ok {
-				tmp.DblV = float64(value)
+				tmp.DblV = value
 			} else {
-				tmp.DblV = 0
+				value4, ok4 := v["dbl_v"].(int64)
+				if ok4 {
+					tmp.DblV = float64(value4)
+				} else {
+					tmp.DblV = 0
+				}
 			}
+
 			value2, ok2 := v["str_v"].(string)
 			if ok2 {
 				tmp.StrV = value2
