@@ -4,18 +4,13 @@ import (
 	"ThingsPanel-Go/modules/dataService/mqtt"
 	mqtts "ThingsPanel-Go/modules/dataService/mqtts/connect"
 	tphttp "ThingsPanel-Go/others/http"
-	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
-	"strings"
 
 	"github.com/spf13/viper"
 )
 
 func init() {
-	loadConfig()
 	log.Println("注册mqtt用户...")
 	//是否gmqtt
 	if viper.GetString("mqtt_server") == "gmqtt" {
@@ -31,29 +26,8 @@ func init() {
 	// listenTCP()
 }
 
-func loadConfig() {
-	log.Println("read config")
-	var err error
-	envConfigFile := flag.String("config", "./modules/dataService/config.yml", "path of configuration file")
-	flag.Parse()
-	// 设置环境变量前缀
-	viper.SetEnvPrefix("GOTP")
-	// 使 Viper 能够读取环境变量
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.SetConfigFile(*envConfigFile)
-	if err = viper.ReadInConfig(); err != nil {
-		fmt.Println("FAILURE", err)
-		return
-	}
-}
-
 func listenMQTTNew() {
-	mqttHost := os.Getenv("TP_MQTT_HOST")
-	if mqttHost == "" {
-		mqttHost = viper.GetString("mqtt.broker")
-	}
-	broker := mqttHost
+	broker := viper.GetString("mqtt.broker")
 	user := viper.GetString("mqtt.user")
 	pass := viper.GetString("mqtt.pass")
 	go mqtt.ListenNew(broker, user, pass)
@@ -76,10 +50,8 @@ func ListenTCP() {
 	//tcp.Listen(tcpPort)
 }
 func reg_mqtt_root() {
-	MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
-	if MqttHttpHost == "" {
-		MqttHttpHost = viper.GetString("api.http_host")
-	}
+
+	MqttHttpHost := viper.GetString("api.http_host")
 	resps, errs := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/root", "{\"password\":\""+viper.GetString("mqtt.pass")+"\"}")
 	if errs != nil {
 		log.Println("失败:", errs.Error())

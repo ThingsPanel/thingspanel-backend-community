@@ -4,12 +4,10 @@ import (
 	_ "ThingsPanel-Go/initialize/psql"
 	"fmt"
 	"log"
-	"os"
-	"strconv"
 
-	beego "github.com/beego/beego/v2/server/web"
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
+	"github.com/spf13/viper"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -18,32 +16,11 @@ var CasbinEnforcer *casbin.Enforcer
 
 func init() {
 	log.Println("casbin启动...")
-
-	// 从配置文件中获取PostgreSQL数据库的配置信息
-	psqluser, err := beego.AppConfig.String("psqluser")
-	checkErr(err, "Failed to get psqluser")
-
-	psqlpass, err := beego.AppConfig.String("psqlpass")
-	checkErr(err, "Failed to get psqlpass")
-
-	psqladdr := os.Getenv("TP_PG_IP")
-	if psqladdr == "" {
-		psqladdr, err = beego.AppConfig.String("psqladdr")
-		checkErr(err, "Failed to get psqladdr")
-	}
-
-	psqlports := os.Getenv("TP_PG_PORT")
-	var psqlport int
-	if psqlports == "" {
-		psqlport, err = beego.AppConfig.Int("psqlport")
-		checkErr(err, "Failed to get psqlport")
-	} else {
-		psqlport, err = strconv.Atoi(psqlports)
-		checkErr(err, "Failed to convert psqlports to int")
-	}
-
-	psqldb, err := beego.AppConfig.String("psqldb")
-	checkErr(err, "Failed to get psqldb")
+	psqladdr := viper.GetString("db.psql.psqladdr")
+	psqlport := viper.GetInt("db.psql.psqlport")
+	psqluser := viper.GetString("db.psql.psqluser")
+	psqlpass := viper.GetString("db.psql.psqlpass")
+	psqldb := viper.GetString("db.psql.psqldb")
 
 	// 构建数据源字符串
 	dataSource := fmt.Sprintf("host=%s port=%d user=%s dbname=%s password=%s sslmode=disable TimeZone=Asia/Shanghai",

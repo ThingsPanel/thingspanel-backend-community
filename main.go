@@ -3,6 +3,9 @@ package main
 import (
 	"log"
 
+	// 初始化配置，顺序似乎要排第一个
+	_ "ThingsPanel-Go/initialize/conf"
+
 	_ "ThingsPanel-Go/initialize/log"
 	_ "ThingsPanel-Go/initialize/psql"
 

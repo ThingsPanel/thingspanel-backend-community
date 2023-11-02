@@ -1,0 +1,65 @@
+log:
+  # 0-控制台输出 1-文件输出 2-文件和控制台输出
+  adapter_type: 0
+  # 文件最多保存多少天
+  maxdays: 7
+  # 日志级别 (0-紧急 1-报警 2-严重错误 3-错误 4-警告 5-注意 6-信息 7-调试)
+  level: 4
+  # 每个文件保存的最大行数
+  maxlines: 10000
+
+db:
+  psql:
+    psqladdr: "39.98.176.26"
+    psqlport: 5432
+    psqldb: ThingsPanel
+    psqluser: postgres
+    psqlpass: ThingsPanel2023
+    psqlMaxConns: 10
+    psqlMaxOpen: 50
+
+    # SQL日志级别 (1-静音 2-错误 3-警告 4-信息). 注意: sql日志只在level大于等于5级别才会输出。
+    sqlloglevel: 2
+
+    # 慢SQL阈值（毫秒）。慢SQL会在sqlloglevel大于等于3时输出。
+    slow_threshold: 200
+  redis:
+    # redis 连接字符串
+    conn: 39.98.176.26:6379
+    # redis 数据库号
+    dbNum: 0
+    # redis 密码
+    password: "redis2022"
+
+
+
+# GOTP_MQTT_SERVER mqtt服务：gmqtt、vernemq
+mqtt_server: gmqtt
+mqtt:
+  broker: 39.98.176.26:1883
+  user: root
+  pass: root
+  topicToSubscribe: device/attributes  #属性订阅主题
+  topicToStatus: device/status         #在线离线订阅主题
+  topicToProgress: ota/device/progress #ota上报订阅主题
+  topicToEvent: device/event           #事件订阅主题
+  gateway_topic: gateway/attributes #网关订阅、发布主题
+  topicToPublish: device/attributes #属性发布主题
+  topicToCommand: device/command    #发布主题
+  topicToInform: ota/device/inform  #发布主题
+  #消息服务质量 0：消息最多传递一次，如果当时客户端不可用，则会丢失该消息。1：消息传递至少 1 次。2：消息仅传送一次。
+  qos: 0
+
+mqtts:
+  broker: 39.98.176.26:8883
+  user: root
+  pass: root
+  caPath : ./conf/certificate/ca.crt
+  crtPath: ./conf/certificate/client.crt
+  keyPath : ./conf/certificate/client.key
+
+api:
+  http_host: 39.98.176.26:8083
+
+grpc:
+  tptodb_server: 39.98.176.26:50052

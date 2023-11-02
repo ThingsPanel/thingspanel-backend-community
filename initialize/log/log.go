@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
-	beego "github.com/beego/beego/v2/server/web"
+	"github.com/spf13/viper"
 )
 
 func init() {
@@ -15,21 +15,9 @@ func init() {
 	log.Println("系统日志初始化...")
 
 	dateStr := time.Now().Format("2006-01-02")
-
-	maxdays, err := beego.AppConfig.Int("maxdays")
-	if err != nil {
-		log.Println("无法获取maxdays:", err)
-	}
-
-	level, err := beego.AppConfig.Int("level")
-	if err != nil {
-		log.Println("无法获取level:", err)
-	}
-
-	maxlines, err := beego.AppConfig.Int("maxlines")
-	if err != nil {
-		log.Println("无法获取maxlines:", err)
-	}
+	maxdays := viper.GetInt("log.maxdays")
+	level := viper.GetInt("log.level")
+	maxlines := viper.GetInt("log.maxlines")
 
 	dataSource := &struct {
 		Filename string `json:"filename"`
@@ -53,10 +41,8 @@ func init() {
 		log.Println("无法创建dataSource:", err)
 	}
 	logs.SetLevel(level)
-	adapter_type, err := beego.AppConfig.Int("adapter_type")
-	if err != nil {
-		log.Println("无法获取adapter_type:", err)
-	}
+	adapter_type := viper.GetInt("log.adapter_type")
+
 	// 日志输出选择
 	switch adapter_type {
 	case 0:
