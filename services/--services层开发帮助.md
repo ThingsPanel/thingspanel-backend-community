@@ -2,6 +2,12 @@
 
 开发中尽量考虑代码的复用，以便于后期维护。
 
+## 注意
+如果生产环境在外网，就需要设置不能让用户自定义AccessToken，否则有设备数据泄露的风险
+
+## vernemq相关
+- vernemq需要所有MQTT协议直连设备的MQTTclientID唯一，生产使用vernemq需要对程序稍作调整
+
 ## 时序数据库相关
 
 - timescaleDB数据库也是一个时序数据库，它在查询方面有很大的优势，但在高并发写入方面有很大的限制，还有水平扩展的问题。
@@ -10,7 +16,7 @@
 
 ## 在线离线相关
 
-- 目前在线离线状态是通过订阅device/status获取，将其存储在ts_kv_latest的SYS_ONLINE（str_v 1-在线 0-离线）
+- 目前在线离线状态是通过订阅device/status获取，将其存储在ts_kv_latest的SYS_ONLINE（str_v 1-在线 0-离线）,并将状态缓存到redis(key:"status"+diviceID)
 - 当数据类型不是timescaledb的时候，SYS_ONLINE仍然存储在timescaledb的ts_kv_latest的SYS_ONLINE字段
 
 - 有时候device/status会因为各种原因（大多时候是因为broker没将状态的改变获取到），可能会漏掉状态上报

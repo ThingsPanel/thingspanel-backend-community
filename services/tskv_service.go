@@ -152,42 +152,45 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 	if values, ok := payload.Values.(map[string]interface{}); ok {
 		var device models.Device
 		// 首先从redis中获设备id
-		device.ID = redis.GetStr(payload.AccessToken)
-		if device.ID == "" {
-			// 从数据库中获取设备id
-			result := psql.Mydb.Where("token = ?", payload.AccessToken).First(&device)
-			if result.Error != nil {
-				logs.Error(result.Error.Error())
-				return
-			}
-			if device.ID == "" {
-				return
-			} else {
-				// 存储24小时
-				redis.SetStr(payload.AccessToken, device.ID, 24*time.Hour)
-			}
+		// device.ID = redis.GetStr(payload.AccessToken)
+		// 为了保证数据准确性，在线离线相关直接从数据库中获取设备id
+		result := psql.Mydb.Where("token = ?", payload.AccessToken).First(&device)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+			return
 		}
-
-		//DeviceOnlineState[device.ID] = values["status"]
-		// 如果mqtt_server为vernemq,则不需要更新ts_kv_latest表
-		if viper.GetString("mqtt_server") != "-" {
-			d := models.TSKVLatest{
-				EntityType: "DEVICE",
-				EntityID:   device.ID,
-				Key:        "SYS_ONLINE",
-				TS:         time.Now().UnixMicro(),
-				StrV:       fmt.Sprint(values["status"]),
-				TenantID:   device.TenantId,
-			}
-			result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
-			if result.Error != nil {
-				logs.Error(result.Error.Error())
-			} else {
-				if result.RowsAffected == int64(0) {
-					rtsl := psql.Mydb.Create(&d)
-					if rtsl.Error != nil {
-						logs.Error(rtsl.Error)
-					}
+		if device.ID == "" {
+			return
+		} else {
+			// 存储24小时
+			redis.SetStr(payload.AccessToken, device.ID, 24*time.Hour)
+		}
+		status := fmt.Sprint(values["status"])
+		// 存入redis
+		if status == "0" {
+			// 延时一秒，等最后一个消息处理完，防止在线状态修复程序在下线后修改状态
+			time.Sleep(1 * time.Second)
+		}
+		err := redis.SetStr("status"+device.ID, status, 72*time.Hour)
+		if err != nil {
+			logs.Error(err.Error())
+		}
+		d := models.TSKVLatest{
+			EntityType: "DEVICE",
+			EntityID:   device.ID,
+			Key:        "SYS_ONLINE",
+			TS:         time.Now().UnixMicro(),
+			StrV:       fmt.Sprint(values["status"]),
+			TenantID:   device.TenantId,
+		}
+		result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+		} else {
+			if result.RowsAffected == int64(0) {
+				rtsl := psql.Mydb.Create(&d)
+				if rtsl.Error != nil {
+					logs.Error(rtsl.Error)
 				}
 			}
 		}
@@ -202,25 +205,55 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 }
 
 // 判断设备是否在线，不在线更新ts_kv_latest表为在线
-func checkDeviceOnline(deviceId string) {
-	// 如果dbType为timescaledb,则不更新ts_kv_latest表
-	dbType := viper.GetString("db.psql.dbType")
-	//if dbType == "timescaledb" {
-	if dbType != "" { //不管哪个数据库，在线离线状态都存储在pg的ts_kv_latest表中
-		var count int64
-		// 判断5秒外设备是否在线
-		var currentData = time.Now().UnixMicro() - 5000000
-		result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE' and str_v = '0' and ts < ?", deviceId, currentData).Count(&count)
-		if result.Error != nil {
-			logs.Error(result.Error.Error())
-		} else {
-			if count > int64(0) {
-				result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).Update("str_v", "1")
-				if result.Error != nil {
-					logs.Error(result.Error.Error())
+func checkDeviceOnline(deviceId string, tenantId string) {
+	//不管哪个数据库，在线离线状态都存储在pg的ts_kv_latest表中
+	// 从redis中获取设备状态
+	status := redis.GetStr("status" + deviceId)
+	if status == "1" {
+		return
+	} else {
+		if status == "" {
+			// 从数据库中获取设备状态
+			var count int64
+			result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE' and str_v = '1'", deviceId).Count(&count)
+			if result.Error != nil {
+				logs.Error(result.Error.Error())
+			} else {
+				if count == int64(1) {
+					return
 				}
 			}
 		}
+		// 更新redis
+		err := redis.SetStr("status"+deviceId, "1", 72*time.Hour)
+		if err != nil {
+			logs.Error(err.Error())
+		}
+		// 更新ts_kv_latest表
+		result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).Update("str_v", "1")
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+		} else {
+			// 如果不存在，就插入一条
+			if result.RowsAffected == int64(0) {
+				d := models.TSKVLatest{
+					EntityType: "DEVICE",
+					EntityID:   deviceId,
+					Key:        "SYS_ONLINE",
+					TS:         time.Now().UnixMicro(),
+					StrV:       "1",
+					TenantID:   tenantId,
+				}
+				rtsl := psql.Mydb.Create(&d)
+				if rtsl.Error != nil {
+					logs.Error(rtsl.Error)
+				}
+			}
+		}
+
+		// 设备上下线自动化检查
+		var ConditionsService ConditionsService
+		go ConditionsService.OnlineAndOfflineCheck(deviceId, "1")
 	}
 }
 
@@ -246,7 +279,7 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string, messages chan map[
 		return false
 	}
 	// 在线离线检查修复
-	checkDeviceOnline(device.ID)
+	go checkDeviceOnline(device.ID, device.TenantId)
 	logs.Info("设备信息：", device)
 	// 通过脚本执行器
 	req, err := scriptDeal(device.ScriptId, payload.Values, topic)
@@ -327,7 +360,7 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 	}
 	if device.DeviceType == "1" {
 		// 在线离线检查修复
-		checkDeviceOnline(device.ID)
+		checkDeviceOnline(device.ID, device.TenantId)
 	}
 	// 通过脚本执行器
 	req, err_a := scriptDeal(device.ScriptId, payload.Values, topic)
@@ -363,9 +396,9 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 		topic := viper.GetString("mqtt.topicToSubscribe") + "/" + device.ID
 		sendMqtt.SendMQTT(body, topic, 0)
 	}
-	// 非系统数据库不需要入库
+	// timescaledb数据库需要入库
 	dbType := viper.GetString("db.psql.dbType")
-	if dbType != "cassandra" {
+	if dbType == "timescaledb" {
 		// 入库
 		//存入系统时间
 		ts := time.Now().UnixMicro()
@@ -423,29 +456,6 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 			messages <- map[string]interface{}{
 				"tskv": d,
 			}
-			// 更新当前值表
-			// l := models.TSKVLatest{}
-			// utils.StructAssign(&l, &d)
-			// var latestCount int64
-			// psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", l.EntityType, l.EntityID, l.Key, l.TenantID).Count(&latestCount)
-			// if latestCount <= 0 {
-			// 	rtsl := psql.Mydb.Create(&l)
-			// 	if rtsl.Error != nil {
-			// 		log.Println(rtsl.Error)
-			// 	}
-			// } else {
-			// 	rtsl := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_type = ? and entity_id = ? and key = ? and tenant_id = ?", l.EntityType, l.EntityID,
-			// 		l.Key, l.TenantID).Updates(map[string]interface{}{"entity_type": l.EntityType, "entity_id": l.EntityID, "key": l.Key, "ts": l.TS, "bool_v": l.BoolV, "long_v": l.LongV, "str_v": l.StrV, "dbl_v": l.DblV})
-			// 	if rtsl.Error != nil {
-			// 		log.Println(rtsl.Error)
-			// 	}
-			// }
-
-			// rts := psql.Mydb.Create(&d)
-			// if rts.Error != nil {
-			// 	log.Println(rts.Error)
-			// 	return false
-			// }
 		}
 	}
 

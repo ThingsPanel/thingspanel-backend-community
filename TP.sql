@@ -1994,3 +1994,5 @@ CREATE TABLE public.shared_visualization (
 
 ALTER TABLE public.tp_dashboard ADD share_id varchar(36) NULL;
 COMMENT ON COLUMN public.tp_dashboard.share_id IS '分享id';
+
+-- 0.5.4.1
