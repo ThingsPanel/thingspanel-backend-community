@@ -205,14 +205,7 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 // 判断设备是否在线，不在线更新ts_kv_latest表为在线
 func checkDeviceOnline(deviceId string) {
 	// 如果dbType为timescaledb,则不更新ts_kv_latest表
-	dbType := os.Getenv("TP_DB_TYPE")
-	if dbType == "" {
-		var err error
-		dbType, err = web.AppConfig.String("dbType")
-		if err != nil {
-			dbType = "timescaledb"
-		}
-	}
+	dbType := viper.GetString("db.psql.dbType")
 	//if dbType == "timescaledb" {
 	if dbType != "" { //不管哪个数据库，在线离线状态都存储在pg的ts_kv_latest表中
 		var count int64
@@ -372,14 +365,7 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 		sendMqtt.SendMQTT(body, topic, 0)
 	}
 	// 非系统数据库不需要入库
-	dbType := os.Getenv("TP_DB_TYPE")
-	if dbType == "" {
-		var err error
-		dbType, err = web.AppConfig.String("dbType")
-		if err != nil {
-			dbType = "timescaledb"
-		}
-	}
+	dbType := viper.GetString("db.psql.dbType")
 	if dbType != "cassandra" {
 		// 入库
 		//存入系统时间
@@ -810,14 +796,7 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 // 通过设备ID获取一段时间的数据
 func (*TSKVService) GetHistoryData(device_id string, attributes []string, startTs int64, endTs int64, rate string) (map[string][]interface{}, error) {
 	var rsp_map = make(map[string][]interface{})
-	dbType := os.Getenv("TP_DB_TYPE")
-	if dbType == "" {
-		var err error
-		dbType, err = web.AppConfig.String("dbType")
-		if err != nil {
-			dbType = "timescaledb"
-		}
-	}
+	dbType := viper.GetString("db.psql.dbType")
 	if dbType == "cassandra" {
 		// 通过grpc获取数据
 		request := &pb.GetDeviceAttributesHistoryRequest{
@@ -947,14 +926,7 @@ func (*TSKVService) Status(device_id string) (*models.TSKVLatest, int64) {
 
 // GetCurrentData 通过设备ID和属性来获取数据
 func (*TSKVService) GetCurrentData(device_id string, attributes []string) (map[string]interface{}, error) {
-	dbType := os.Getenv("TP_DB_TYPE")
-	if dbType == "" {
-		var err error
-		dbType, err = web.AppConfig.String("dbType")
-		if err != nil {
-			dbType = "timescaledb"
-		}
-	}
+	dbType := viper.GetString("db.psql.dbType")
 	if dbType == "cassandra" {
 		return fetchFromCassandra(device_id, attributes)
 	}
@@ -1236,14 +1208,7 @@ func (*TSKVService) GetCurrentDataByAssetA(asset_id string) map[string]interface
 // 根据设备id查询key的历史数据
 func (*TSKVService) GetHistoryDataByKey(device_id string, key string, startTs int64, endTs int64, limit int64) (map[string]interface{}, error) {
 	var rsp_map = make(map[string]interface{})
-	dbType := os.Getenv("TP_DB_TYPE")
-	if dbType == "" {
-		var err error
-		dbType, err = web.AppConfig.String("dbType")
-		if err != nil {
-			dbType = "timescaledb"
-		}
-	}
+	dbType := viper.GetString("db.psql.dbType")
 	if dbType == "cassandra" {
 		// 通过grpc获取数据
 		request := &pb.GetDeviceHistoryRequest{
@@ -1372,14 +1337,7 @@ func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) 
 
 	logs.Info("**********************************************")
 	var fields []map[string]interface{}
-	dbType := os.Getenv("TP_DB_TYPE")
-	if dbType == "" {
-		var err error
-		dbType, err = web.AppConfig.String("dbType")
-		if err != nil {
-			dbType = "timescaledb"
-		}
-	}
+	dbType := viper.GetString("db.psql.dbType")
 	if dbType == "cassandra" {
 		// 通过grpc获取数据
 		request := &pb.GetDeviceAttributesCurrentsRequest{
@@ -1573,14 +1531,7 @@ func (*TSKVService) DeviceOnline(device_id string, interval int64) (string, erro
 // 查询设备当前值，与物模型映射，返回map列表
 func (*TSKVService) GetCurrentDataAndMapList(device_id string) ([]map[string]interface{}, error) {
 	var fields []map[string]interface{}
-	dbType := os.Getenv("TP_DB_TYPE")
-	if dbType == "" {
-		var err error
-		dbType, err = web.AppConfig.String("dbType")
-		if err != nil {
-			dbType = "timescaledb"
-		}
-	}
+	dbType := viper.GetString("db.psql.dbType")
 	if dbType == "cassandra" {
 		var attributes []string
 		// 通过grpc获取数据
@@ -1658,14 +1609,7 @@ func (*TSKVService) GetCurrentDataAndMapList(device_id string) ([]map[string]int
 // 获取不聚合的数据
 func (*TSKVService) GetKVDataWithNoAggregate(deviceId, key string, sTime, eTime int64) ([]map[string]interface{}, error) {
 
-	dbType := os.Getenv("TP_DB_TYPE")
-	if dbType == "" {
-		var err error
-		dbType, err = web.AppConfig.String("dbType")
-		if err != nil {
-			dbType = "timescaledb"
-		}
-	}
+	dbType := viper.GetString("db.psql.dbType")
 	if dbType == "cassandra" {
 		var fields []map[string]interface{}
 		request := &pb.GetDeviceKVDataWithNoAggregateRequest{
@@ -1708,14 +1652,7 @@ func (*TSKVService) GetKVDataWithNoAggregate(deviceId, key string, sTime, eTime 
 // 获取聚合的数据
 func (*TSKVService) GetKVDataWithAggregate(deviceId, key string, sTime, eTime, aggregateWindow int64, aggregateFunc string) ([]map[string]interface{}, error) {
 
-	dbType := os.Getenv("TP_DB_TYPE")
-	if dbType == "" {
-		var err error
-		dbType, err = web.AppConfig.String("dbType")
-		if err != nil {
-			dbType = "timescaledb"
-		}
-	}
+	dbType := viper.GetString("db.psql.dbType")
 	if dbType == "cassandra" {
 		var fields []map[string]interface{}
 		request := &pb.GetDeviceKVDataWithAggregateRequest{
@@ -1869,14 +1806,7 @@ func (*TSKVService) GetKVDataWithPageAndPageRecords(
 
 	var fields []models.TSKV
 
-	dbType := os.Getenv("TP_DB_TYPE")
-	if dbType == "" {
-		var err error
-		dbType, err = web.AppConfig.String("dbType")
-		if err != nil {
-			dbType = "timescaledb"
-		}
-	}
+	dbType := viper.GetString("db.psql.dbType")
 	if dbType == "cassandra" {
 		request := &pb.GetDeviceHistoryWithPageAndPageRequest{
 			DeviceId:      deviceId,
