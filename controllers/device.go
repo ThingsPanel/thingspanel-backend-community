@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"reflect"
 	"strconv"
 	"strings"
@@ -362,7 +363,31 @@ func (reqDate *DeviceController) UpdateOnly() {
 							if d.DeviceType == "1" {
 								var TpProtocolPluginService services.TpProtocolPluginService
 								pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "1")
-								tphttp.UpdateDeviceConfig(reqdata, pp.HttpAddress)
+								rsp, _ := tphttp.UpdateDeviceConfig(reqdata, pp.HttpAddress)
+								if rsp.StatusCode == 200 {
+									// 读取响应体
+									bodyBytes, err := ioutil.ReadAll(rsp.Body)
+									if err != nil {
+										// 处理错误
+										fmt.Println("Error reading response body:", err)
+									} else {
+										// 始终记得关闭响应体
+										defer rsp.Body.Close()
+										// 解析为map[string]interface{}
+										var responseMap map[string]interface{}
+										err = json.Unmarshal(bodyBytes, &responseMap)
+										if err != nil {
+											// 处理错误
+											fmt.Println("Error unmarshaling JSON:", err)
+										} else {
+											if responseMap["code"].(float64) == 400 {
+												//返回错误
+												response.SuccessWithMessage(400, responseMap["message"].(string), (*context2.Context)(reqDate.Ctx))
+												return
+											}
+										}
+									}
+								}
 							} else if d.DeviceType == "3" {
 								var TpProtocolPluginService services.TpProtocolPluginService
 								pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "2")
