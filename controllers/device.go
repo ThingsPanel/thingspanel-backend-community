@@ -383,6 +383,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 											if responseMap["code"].(float64) != 400 {
 												//返回错误
 												response.SuccessWithMessage(400, responseMap["message"].(string), (*context2.Context)(reqDate.Ctx))
+												return
 											}
 										}
 									}
