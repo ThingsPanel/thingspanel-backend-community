@@ -380,7 +380,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 											// 处理错误
 											fmt.Println("Error unmarshaling JSON:", err)
 										} else {
-											if responseMap["code"].(float64) != 400 {
+											if responseMap["code"].(float64) == 400 {
 												//返回错误
 												response.SuccessWithMessage(400, responseMap["message"].(string), (*context2.Context)(reqDate.Ctx))
 												return
