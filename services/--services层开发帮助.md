@@ -10,7 +10,7 @@
 
 ## 在线离线相关
 
-- 目前在线离线状态是通过订阅device/status获取，将其存储在ts_kv_latest的SYS_ONLINE（str_v 1-在线 0-离线）
+- 目前在线离线状态是通过订阅device/status获取，将其存储在ts_kv_latest的SYS_ONLINE（str_v 1-在线 0-离线）,并将状态缓存到redis(key:"status"+diviceID)
 - 当数据类型不是timescaledb的时候，SYS_ONLINE仍然存储在timescaledb的ts_kv_latest的SYS_ONLINE字段
 
 - 有时候device/status会因为各种原因（大多时候是因为broker没将状态的改变获取到），可能会漏掉状态上报
