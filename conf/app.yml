@@ -10,6 +10,7 @@ log:
 
 db:
   psql:
+    dbType: timescaledb
     psqladdr: "127.0.0.1"
     psqlport: 5432
     psqldb: ThingsPanel
