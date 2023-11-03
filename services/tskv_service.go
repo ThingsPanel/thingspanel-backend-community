@@ -169,26 +169,22 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 			}
 		}
 
-		//DeviceOnlineState[device.ID] = values["status"]
-		// 如果mqtt_server为vernemq,则不需要更新ts_kv_latest表
-		if viper.GetString("mqtt_server") != "-" {
-			d := models.TSKVLatest{
-				EntityType: "DEVICE",
-				EntityID:   device.ID,
-				Key:        "SYS_ONLINE",
-				TS:         time.Now().UnixMicro(),
-				StrV:       fmt.Sprint(values["status"]),
-				TenantID:   device.TenantId,
-			}
-			result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
-			if result.Error != nil {
-				logs.Error(result.Error.Error())
-			} else {
-				if result.RowsAffected == int64(0) {
-					rtsl := psql.Mydb.Create(&d)
-					if rtsl.Error != nil {
-						logs.Error(rtsl.Error)
-					}
+		d := models.TSKVLatest{
+			EntityType: "DEVICE",
+			EntityID:   device.ID,
+			Key:        "SYS_ONLINE",
+			TS:         time.Now().UnixMicro(),
+			StrV:       fmt.Sprint(values["status"]),
+			TenantID:   device.TenantId,
+		}
+		result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+		} else {
+			if result.RowsAffected == int64(0) {
+				rtsl := psql.Mydb.Create(&d)
+				if rtsl.Error != nil {
+					logs.Error(rtsl.Error)
 				}
 			}
 		}
