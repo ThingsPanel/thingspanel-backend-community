@@ -1,10 +1,14 @@
+app:
+  runmode: prod
+  httpport: 127.0.0.1:9999
+
 log:
   # 0-控制台输出 1-文件输出 2-文件和控制台输出
   adapter_type: 0
   # 文件最多保存多少天
   maxdays: 7
   # 日志级别 (0-紧急 1-报警 2-严重错误 3-错误 4-警告 5-注意 6-信息 7-调试)
-  level: 4
+  level: 7
   # 每个文件保存的最大行数
   maxlines: 10000
 

@@ -10,6 +10,7 @@ import (
 	_ "ThingsPanel-Go/initialize/psql"
 
 	beego "github.com/beego/beego/v2/server/web"
+	"github.com/spf13/viper"
 
 	_ "ThingsPanel-Go/modules/dataService"
 
@@ -76,6 +77,9 @@ func main() {
 	beego.BConfig.CopyRequestBody = true
 	beego.BConfig.WebConfig.Session.SessionOn = true
 	beego.BConfig.WebConfig.AutoRender = false
+	beego.BConfig.AppName = "ThingsPanel-Go"
 
-	beego.Run(":9999")
+	beego.BConfig.RunMode = viper.GetString("app.runmode")
+	httpport := viper.GetString("app.httpport")
+	beego.Run(httpport)
 }
