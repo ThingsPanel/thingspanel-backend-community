@@ -3,14 +3,12 @@ package psql
 import (
 	"fmt"
 	"log"
-	"os"
-	"strconv"
 	"time"
 
 	"gorm.io/gorm/logger"
 
 	"github.com/beego/beego/v2/core/logs"
-	beego "github.com/beego/beego/v2/server/web"
+	"github.com/spf13/viper"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -31,54 +29,15 @@ func (w Writer) Printf(format string, args ...interface{}) {
 // 设置psql
 func init() {
 	log.Println("连接数据库...")
-	psqladdr := os.Getenv("TP_PG_IP")
-	var err error
-	if psqladdr == "" {
-		psqladdr, err = beego.AppConfig.String("psqladdr")
-		if err != nil {
-			log.Fatalf("无法获取psqladdr: %v", err)
-		}
-	}
 
-	psqlportStr := os.Getenv("TP_PG_PORT")
-	psqlport, err := strconv.Atoi(psqlportStr)
-	if err != nil || psqlport == 0 {
-		psqlport, err = beego.AppConfig.Int("psqlport")
-		if err != nil {
-			log.Fatalf("无法获取psqlport: %v", err)
-		}
-	}
-
-	psqluser, err := beego.AppConfig.String("psqluser")
-	if err != nil {
-		log.Fatalf("无法获取psqluser: %v", err)
-	}
-
-	psqlpass, err := beego.AppConfig.String("psqlpass")
-	if err != nil {
-		log.Fatalf("无法获取psqlpass: %v", err)
-	}
-
-	psqldb, err := beego.AppConfig.String("psqldb")
-	if err != nil {
-		log.Fatalf("无法获取psqldb: %v", err)
-	}
-
-	psqlMaxConns, err := beego.AppConfig.Int("psqlMaxConns")
-	if err != nil {
-		log.Fatalf("无法获取psqlMaxConns: %v", err)
-	}
-
-	psqlMaxOpen, err := beego.AppConfig.Int("psqlMaxOpen")
-	if err != nil {
-		log.Fatalf("无法获取psqlMaxOpen: %v", err)
-	}
-
-	sqlloglevel, err := beego.AppConfig.Int("sqlloglevel")
-	if err != nil {
-		log.Fatalf("无法获取sqlloglevel: %v", err)
-	}
-
+	psqladdr := viper.GetString("db.psql.psqladdr")
+	psqlport := viper.GetInt("db.psql.psqlport")
+	psqluser := viper.GetString("db.psql.psqluser")
+	psqlpass := viper.GetString("db.psql.psqlpass")
+	psqldb := viper.GetString("db.psql.psqldb")
+	psqlMaxConns := viper.GetInt("db.psql.psqlMaxConns")
+	psqlMaxOpen := viper.GetInt("db.psql.psqlMaxOpen")
+	sqlloglevel := viper.GetInt("db.psql.sqlloglevel")
 	dataSource := fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable TimeZone=Asia/Shanghai",
 		psqladdr,
 		psqlport,
@@ -86,10 +45,9 @@ func init() {
 		psqluser,
 		psqlpass,
 	)
-	slow_threshold, err := beego.AppConfig.Int("slow_threshold")
-	if err != nil {
-		log.Fatalf("无法获取slow_threshold: %v", err)
-	}
+
+	slow_threshold := viper.GetInt("db.psql.slow_threshold")
+
 	//设置gorm日志规则
 	newLogger := logger.New(
 		// log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer 单独设置grom日志输出

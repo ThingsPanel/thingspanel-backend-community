@@ -3,11 +3,10 @@ package redis
 import (
 	"ThingsPanel-Go/utils"
 	"log"
-	"os"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
-	"github.com/beego/beego/v2/server/web"
+	"github.com/spf13/viper"
 	"gopkg.in/redis.v5"
 )
 
@@ -39,12 +38,10 @@ func createClient(redisHost string, password string, dataBase int) *redis.Client
 }
 
 func init() {
-	redisHost := os.Getenv("TP_REDIS_HOST")
-	if redisHost == "" {
-		redisHost, _ = web.AppConfig.String("redis.conn")
-	}
-	dataBase, _ := web.AppConfig.Int("redis.dbNum")
-	password, _ := web.AppConfig.String("redis.password")
+	redisHost := viper.GetString("db.redis.conn")
+	dataBase := viper.GetInt("db.redis.dbNum")
+	password := viper.GetString("db.redis.password")
+
 	redisCache = createClient(redisHost, password, dataBase)
 }
 
