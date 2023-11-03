@@ -72,5 +72,10 @@ func main() {
 	beego.SetStaticPath("/files/init-images", "others/init_images")
 	// 静态文件路径
 	beego.SetStaticPath("/files", "files")
+
+	beego.BConfig.CopyRequestBody = true
+	beego.BConfig.WebConfig.Session.SessionOn = true
+	beego.BConfig.WebConfig.AutoRender = false
+
 	beego.Run(":9999")
 }
