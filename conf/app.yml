@@ -10,7 +10,7 @@ log:
 
 db:
   psql:
-    psqladdr: "39.98.176.26"
+    psqladdr: "127.0.0.1"
     psqlport: 5432
     psqldb: ThingsPanel
     psqluser: postgres
@@ -25,7 +25,7 @@ db:
     slow_threshold: 200
   redis:
     # redis 连接字符串
-    conn: 39.98.176.26:6379
+    conn: 127.0.0.1:6379
     # redis 数据库号
     dbNum: 0
     # redis 密码
@@ -36,7 +36,7 @@ db:
 # GOTP_MQTT_SERVER mqtt服务：gmqtt、vernemq
 mqtt_server: gmqtt
 mqtt:
-  broker: 39.98.176.26:1883
+  broker: 127.0.0.1:1883
   user: root
   pass: root
   topicToSubscribe: device/attributes  #属性订阅主题
@@ -51,7 +51,7 @@ mqtt:
   qos: 0
 
 mqtts:
-  broker: 39.98.176.26:8883
+  broker: 127.0.0.1:8883
   user: root
   pass: root
   caPath : ./conf/certificate/ca.crt
@@ -59,7 +59,7 @@ mqtts:
   keyPath : ./conf/certificate/client.key
 
 api:
-  http_host: 39.98.176.26:8083
+  http_host: 127.0.0.1:8083
 
 grpc:
-  tptodb_server: 39.98.176.26:50052
+  tptodb_server: 127.0.0.1:50052
