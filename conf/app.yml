@@ -3,6 +3,10 @@
 app:
   runmode: prod
   httpport: 127.0.0.1:9999
+  channel_buffer_size: 10000
+  write_workers: 2
+  batch_wait_time: 1
+  batch_size: 1000
 
 db:
   psql:

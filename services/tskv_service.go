@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
-	"github.com/beego/beego/v2/server/web"
 	"github.com/bitly/go-simplejson"
 	"github.com/mintance/go-uniqid"
 	"github.com/spf13/viper"
@@ -470,11 +469,11 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 	logs.Info("批量写入协程启动")
 	var tskvList []models.TSKV
 	var tskvLatestList []models.TSKVLatest
-	batchWaitTime, _ := web.AppConfig.Int("batch_wait_time")
+	batchWaitTime := viper.GetInt("app.batch_wait_time")
 	logs.Info("批量写入等待时间：", batchWaitTime)
 	// 转time.Duration
 	batchWaitTimeDuration := time.Duration(batchWaitTime) * time.Second
-	batchSize, _ := web.AppConfig.Int("batch_size")
+	batchSize := viper.GetInt("app.batch_size")
 	logs.Warn("批量写入大小：", batchSize)
 	for {
 

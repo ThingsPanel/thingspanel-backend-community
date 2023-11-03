@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
-	"github.com/beego/beego/v2/server/web"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/panjf2000/ants"
 	"github.com/spf13/viper"
@@ -34,15 +33,11 @@ func ListenNew(broker, username, password string) error {
 	//defer pOther.Release()
 
 	qos := byte(viper.GetUint("mqtt.qos"))
-
-	channelBufferSize, err := web.AppConfig.Int("channel_buffer_size")
-	if err != nil {
-		return err
-	}
+	channelBufferSize := viper.GetInt("app.channel_buffer_size")
 
 	messages := make(chan map[string]interface{}, channelBufferSize)
+	writeWorkers := viper.GetInt("app.write_workers")
 
-	writeWorkers, _ := web.AppConfig.Int("write_workers")
 	for i := 0; i < writeWorkers; i++ {
 		go s.BatchWrite(messages)
 	}
