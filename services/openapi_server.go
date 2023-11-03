@@ -3,11 +3,12 @@ package services
 import (
 	"bytes"
 	"fmt"
-	"github.com/beego/beego/logs"
-	"github.com/beego/beego/v2/server/web"
 	"io"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/beego/beego/logs"
+	"github.com/spf13/viper"
 )
 
 func init() {
@@ -15,7 +16,7 @@ func init() {
 
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", handler)
-		port, _ := web.AppConfig.String("openapi.httpport")
+		port := viper.GetString("openapi.httpport")
 		err := http.ListenAndServe(":"+port, mux)
 		if err != nil {
 			logs.Error("OpenApi服务启动失败", err.Error())
@@ -32,7 +33,7 @@ func handler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	req.Body = ioutil.NopCloser(bytes.NewReader(body))
-	apiPort, _ := web.AppConfig.String("httpport")
+	apiPort := viper.GetString("openapi.httpport")
 	url := fmt.Sprintf("%s://%s%s", "http", "127.0.0.1:"+apiPort, req.RequestURI)
 
 	proxyReq, err := http.NewRequest(req.Method, url, bytes.NewReader(body))
