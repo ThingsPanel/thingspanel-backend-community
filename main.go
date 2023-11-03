@@ -72,5 +72,5 @@ func main() {
 	beego.SetStaticPath("/files/init-images", "others/init_images")
 	// 静态文件路径
 	beego.SetStaticPath("/files", "files")
-	beego.Run()
+	beego.Run(":9999")
 }
