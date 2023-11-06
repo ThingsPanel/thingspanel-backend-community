@@ -1,20 +1,12 @@
+# 如需在系统变量中设置配置项，可使用GOTP_开头的变量名，如：GOTP_DB_PSQL_DBTYPE为db.psql.dbType
+
 app:
   runmode: prod
-  httpport: 127.0.0.1:9999
+  httpport: :9999
   channel_buffer_size: 10000
   write_workers: 2
   batch_wait_time: 1
   batch_size: 1000
-
-log:
-  # 0-控制台输出 1-文件输出 2-文件和控制台输出
-  adapter_type: 0
-  # 文件最多保存多少天
-  maxdays: 7
-  # 日志级别 (0-紧急 1-报警 2-严重错误 3-错误 4-警告 5-注意 6-信息 7-调试)
-  level: 7
-  # 每个文件保存的最大行数
-  maxlines: 10000
 
 db:
   psql:
@@ -24,14 +16,13 @@ db:
     psqldb: ThingsPanel
     psqluser: postgres
     psqlpass: ThingsPanel2023
-    psqlMaxConns: 10
-    psqlMaxOpen: 50
-
-    # SQL日志级别 (1-静音 2-错误 3-警告 4-信息). 注意: sql日志只在level大于等于5级别才会输出。
+    psqlMaxConns: 5 # 空闲连接池中的最大连接数，建议为psqlMaxOpen的百分之5-20之间
+    psqlMaxOpen: 50 # 最大打开连接数,不能大于timescaledb默认为100,考虑到其他服务也会使用数据库，建议这里设置为50
+    # SQL日志级别 (1-静音 2-错误 3-警告 4-信息). 注意: sql日志只在log.level大于等于5级别才会输出。
     sqlloglevel: 2
-
     # 慢SQL阈值（毫秒）。慢SQL会在sqlloglevel大于等于3时输出。
-    slow_threshold: 200
+    slow_threshold: 1000
+
   redis:
     # redis 连接字符串
     conn: 127.0.0.1:6379
@@ -40,10 +31,19 @@ db:
     # redis 密码
     password: "redis2022"
 
+log:
+  # 0-控制台输出 1-文件输出 2-文件和控制台输出
+  adapter_type: 0
+  # 文件最多保存多少天
+  maxdays: 7
+  # 日志级别 (0-紧急 1-报警 2-严重错误 3-错误 4-警告 5-注意 6-信息 7-调试)
+  level: 2
+  # 每个文件保存的最大行数
+  maxlines: 10000
 
-
-# GOTP_MQTT_SERVER mqtt服务：gmqtt、vernemq
+# mqtt服务：gmqtt、vernemq
 mqtt_server: gmqtt
+
 mqtt:
   broker: 127.0.0.1:1883
   user: root
