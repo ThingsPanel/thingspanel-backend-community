@@ -72,3 +72,8 @@ api:
 
 grpc:
   tptodb_server: 127.0.0.1:50052
+
+openapi:
+  httpport: 9990
+  sign : false
+  timestamp: 5   # X-OpenAPI-Timestamp 过期时间（分钟）

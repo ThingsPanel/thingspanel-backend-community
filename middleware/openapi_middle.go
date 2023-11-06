@@ -14,8 +14,8 @@ import (
 	adapter "github.com/beego/beego/v2/adapter"
 	"github.com/beego/beego/v2/adapter/context"
 	"github.com/beego/beego/v2/core/logs"
-	"github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
+	"github.com/spf13/viper"
 	"github.com/thinkeridea/go-extend/exnet"
 )
 
@@ -33,12 +33,14 @@ var dataServicesApiList []string = []string{
 // openapi 访问过滤
 func openapiFilter(ctx *context.Context) {
 	fmt.Println("请求接口：", ctx.Request.URL.Path)
+
+	signFlag := viper.GetBool("openapi.sign")
 	// 判断 请求头中是否携带X-OpenAPI-Timestamp
 	if timestamp := ctx.Request.Header.Get("X-OpenAPI-Timestamp"); timestamp == "" {
 		utils.SuccessWithMessage(401, "时间戳不存在", (*context2.Context)(ctx))
 		return
 	} else {
-		signFlag, _ := web.AppConfig.Bool("openapi.sign")
+
 		if signFlag {
 			//校验X-OpenAPI-Timestamp时间
 			curTimestamp := time.Now().Unix()
@@ -47,7 +49,7 @@ func openapiFilter(ctx *context.Context) {
 				logs.Error("时间戳格式错误", err.Error())
 			}
 			// 过期时间
-			expirTime, _ := web.AppConfig.Int64("openapi.timestamp")
+			expirTime := viper.GetInt64("openapi.timestamp")
 			if (curTimestamp - reqTimestamp) > (expirTime * 60) {
 				utils.SuccessWithMessage(401, "访问权限超时", (*context2.Context)(ctx))
 				return
@@ -90,8 +92,6 @@ func openapiFilter(ctx *context.Context) {
 					return
 				}
 			}
-			// 获取配置文件中的openapi.sign
-			signFlag, _ := web.AppConfig.Bool("openapi.sign")
 			if signFlag {
 				//验签X-OpenAPI-Signature
 				Signature := ctx.Request.Header.Get("X-OpenAPI-Signature")
@@ -119,8 +119,6 @@ func openapiFilter(ctx *context.Context) {
 					return
 				}
 			}
-			// 获取配置文件中的openapi.sign
-			signFlag, _ := web.AppConfig.Bool("openapi.sign")
 			if signFlag {
 				//验签X-OpenAPI-Signature
 				Signature := ctx.Request.Header.Get("X-OpenAPI-Signature")

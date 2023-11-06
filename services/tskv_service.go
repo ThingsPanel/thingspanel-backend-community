@@ -320,7 +320,6 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string, messages chan map[
 				logs.Error(err.Error())
 				return false
 			} else {
-
 				// 写入协程数
 				// writeWorkers, _ := web.AppConfig.Int("write_workers")
 				// for i := 0; i < writeWorkers; i++ {
