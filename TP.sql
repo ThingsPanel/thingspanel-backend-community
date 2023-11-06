@@ -1996,3 +1996,4 @@ ALTER TABLE public.tp_dashboard ADD share_id varchar(36) NULL;
 COMMENT ON COLUMN public.tp_dashboard.share_id IS '分享id';
 
 -- 0.5.4.1
+INSERT INTO public.tp_function (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag, "describe") VALUES('80393021-d9b4-4747-00f0-daab3a7aecbb', '', NULL, '/visual_editor', 'VisualEditor', '/pages/chart/List.vue', '大屏', 'flaticon2-laptop', '1', '', '6dab000b-7ced-a5ce-5fb0-5427f3bb8073', 980, '', '0', '');
