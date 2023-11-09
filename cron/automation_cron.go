@@ -28,6 +28,8 @@ func init() {
 	otaCron()
 	// 定时删除resources表中的数据
 	deleteResourcesCron()
+	// 数据清理
+	TpDataCleanup()
 	log.Println("定时任务初始化完成")
 }
 
@@ -43,6 +45,24 @@ func deleteResourcesCron() {
 			logs.Info("删除resources表中的数据成功")
 		} else {
 			logs.Error("删除resources表中的数据失败")
+		}
+	}
+	crontab.AddFunc(spec, task)
+	crontab.Start()
+}
+
+func TpDataCleanup() {
+	crontab := cron.New()
+	spec := "0 2 * * *"
+	// spec := "*/1 * * * *"
+	task := func() {
+		logs.Info("执行数据清理")
+		var s services.TpDataCleanupService
+		err := s.ExecuteTpDataCleanup()
+		if err != nil {
+			logs.Error("数据清理失败")
+		} else {
+			logs.Info("数据清理成功")
 		}
 	}
 	crontab.AddFunc(spec, task)

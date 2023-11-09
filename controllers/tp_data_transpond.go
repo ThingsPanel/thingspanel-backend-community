@@ -435,12 +435,3 @@ func (c *TpDataTransponController) Edit() {
 
 	response.Success(200, (*context2.Context)(c.Ctx))
 }
-
-// for test
-func (c *TpDataTransponController) EnchantedDoor() {
-
-
-	//var operate services.DataTranspondCache
-
-	//GetDeviceDataTranspondInfo("yanhao-01010101yy")
-}

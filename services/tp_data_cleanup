@@ -1,0 +1,28 @@
+package services
+
+import (
+	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/models"
+)
+
+type TpDataCleanupService struct {
+}
+
+func (*TpDataCleanupService) GetTpDataCleanupDetail() ([]models.TpDataCleanup, error) {
+	var data []models.TpDataCleanup
+	result := psql.Mydb.Model(&models.TpDataCleanup{}).Find(&data)
+	return data, result.Error
+}
+
+func (*TpDataCleanupService) EditTpDataCleanup(id string, retentionDays int, remark string) error {
+	result := psql.Mydb.
+		Model(&models.TpDataCleanup{}).
+		Omit("cleanup_type", "last_cleanup_time", "last_cleanup_data_time").
+		Where("id = ?", id).
+		Updates(map[string]interface{}{"retention_days": retentionDays, "remark": remark})
+	return result.Error
+}
+
+func (*TpDataCleanupService) ExecuteTpDataCleanup() error {
+	return nil
+}

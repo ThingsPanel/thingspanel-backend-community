@@ -503,6 +503,9 @@ func init() {
 		// 可视化分享
 		web.NSRouter("/share/generate", &controllers.SharedVisualizationController{}, "*:GenerateShareId"),
 		web.NSRouter("/share/get", &controllers.SharedVisualizationController{}, "*:Get"),
+
+		web.NSRouter("/data/cleanup/list", &controllers.DataCleanupController{}, "*:List"),
+		web.NSRouter("/data/cleanup/edit", &controllers.DataCleanupController{}, "*:Edit"),
 	)
 
 	// 图表推送数据
