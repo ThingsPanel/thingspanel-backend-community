@@ -1996,4 +1996,30 @@ ALTER TABLE public.tp_dashboard ADD share_id varchar(36) NULL;
 COMMENT ON COLUMN public.tp_dashboard.share_id IS '分享id';
 
 -- 0.5.4.1
-INSERT INTO public.tp_function (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag, "describe") VALUES('80393021-d9b4-4747-00f0-daab3a7aecbb', '', NULL, '/visual_editor', 'VisualEditor', '/pages/chart/List.vue', '大屏', 'flaticon2-laptop', '1', '', '6dab000b-7ced-a5ce-5fb0-5427f3bb8073', 980, '', '0', '');
+INSERT INTO public.tp_function (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag, "describe") VALUES('80393021-d9b4-4747-00f0-daab3a7aecbb', '', NULL, '/visual_editor', 'VisualEditor', '/pages/chart/List.vue', '大屏', 'flaticon2-laptop', '1', '', '6dab000b-7ced-a5ce-5fb0-5427f3bb8073', 980, '', '0', '');\
+
+
+
+CREATE TABLE "public"."tp_data_cleanup_config" (
+  "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
+  "cleanup_type" int4 NOT NULL,
+  "retention_days" int4,
+  "last_cleanup_time" int8,
+  "last_cleanup_data_time" int8,
+  "remark" varchar(255) COLLATE "pg_catalog"."default"
+)
+;
+ALTER TABLE "public"."tp_data_cleanup_config" OWNER TO "postgres";
+COMMENT ON COLUMN "public"."tp_data_cleanup_config"."id" IS 'uuid';
+COMMENT ON COLUMN "public"."tp_data_cleanup_config"."cleanup_type" IS '清理类型 1-设备数据 2-操作日志  int';
+COMMENT ON COLUMN "public"."tp_data_cleanup_config"."retention_days" IS '数据保留时间（天）';
+COMMENT ON COLUMN "public"."tp_data_cleanup_config"."last_cleanup_time" IS '上次清理时间';
+COMMENT ON COLUMN "public"."tp_data_cleanup_config"."last_cleanup_data_time" IS '上次清理的数据时间节点（实际清理的数据时间点）';
+COMMENT ON COLUMN "public"."tp_data_cleanup_config"."remark" IS '备注';
+
+-- ----------------------------
+-- Records of tp_data_cleanup_config
+-- ----------------------------
+
+INSERT INTO "public"."tp_data_cleanup_config" ("id", "cleanup_type", "retention_days", "last_cleanup_time", "last_cleanup_data_time", "remark") VALUES ('a', 1, 30, 0, 0, '');
+INSERT INTO "public"."tp_data_cleanup_config" ("id", "cleanup_type", "retention_days", "last_cleanup_time", "last_cleanup_data_time", "remark") VALUES ('b', 2, 30, 0, 0, '');
