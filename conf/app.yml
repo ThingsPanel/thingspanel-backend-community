@@ -19,9 +19,9 @@ db:
     psqlMaxConns: 5 # 空闲连接池中的最大连接数，建议为psqlMaxOpen的百分之5-20之间
     psqlMaxOpen: 50 # 最大打开连接数,不能大于timescaledb默认为100,考虑到其他服务也会使用数据库，建议这里设置为50
     # SQL日志级别 (1-静音 2-错误 3-警告 4-信息). 注意: sql日志只在log.level大于等于5级别才会输出。
-    sqlloglevel: 2
+    sqlloglevel: 3
     # 慢SQL阈值（毫秒）。慢SQL会在sqlloglevel大于等于3时输出。
-    slow_threshold: 1000
+    slow_threshold: 3000
 
   redis:
     # redis 连接字符串
@@ -37,7 +37,7 @@ log:
   # 文件最多保存多少天
   maxdays: 7
   # 日志级别 (0-紧急 1-报警 2-严重错误 3-错误 4-警告 5-注意 6-信息 7-调试)
-  level: 2
+  level: 3
   # 每个文件保存的最大行数
   maxlines: 10000
 
