@@ -1,24 +1,32 @@
 package valid
 
 type TpDataTransponAddValid struct {
-	Name              string                          `json:"name" valid:"Required;MaxSize(36)"`
-	Desc              string                          `json:"desc,omitempty"`
-	Script            string                          `json:"script,omitempty"`
-	WarningStrategyId string                          `json:"warning_strategy_id,omitempty"`
-	WarningSwitch     int                             `json:"warning_switch,omitempty"`
-	TargetInfo        TpDataTransponTargetInfoValid   `json:"target_info,omitempty"`
-	DeviceInfo        []TpDataTransponDeviceInfoValid `json:"device_info"`
+	Name            string                             `json:"name" valid:"Required;MaxSize(36)"`
+	Desc            string                             `json:"desc,omitempty"`
+	Script          string                             `json:"script,omitempty"`
+	WarningStrategy TpDataTransponWarningStratedyValid `json:"warning_strategy,omitempty"`
+	WarningSwitch   int                                `json:"warning_switch,omitempty"`
+	TargetInfo      TpDataTransponTargetInfoValid      `json:"target_info,omitempty"`
+	DeviceInfo      []TpDataTransponDeviceInfoValid    `json:"device_info"`
 }
 
 type TpDataTransponEditValid struct {
-	Id                string                          `json:"id" valid:"Required;MaxSize(36)"`
-	Name              string                          `json:"name" valid:"Required;MaxSize(36)"`
-	Desc              string                          `json:"desc,omitempty"`
-	Script            string                          `json:"script,omitempty"`
-	WarningStrategyId string                          `json:"warning_strategy_id,omitempty"`
-	WarningSwitch     int                             `json:"warning_switch,omitempty"`
-	TargetInfo        TpDataTransponTargetInfoValid   `json:"target_info"`
-	DeviceInfo        []TpDataTransponDeviceInfoValid `json:"device_info"`
+	Id              string                             `json:"id" valid:"Required;MaxSize(36)"`
+	Name            string                             `json:"name" valid:"Required;MaxSize(36)"`
+	Desc            string                             `json:"desc,omitempty"`
+	Script          string                             `json:"script,omitempty"`
+	WarningStrategy TpDataTransponWarningStratedyValid `json:"warning_strategy,omitempty"`
+	WarningSwitch   int                                `json:"warning_switch,omitempty"`
+	TargetInfo      TpDataTransponTargetInfoValid      `json:"target_info"`
+	DeviceInfo      []TpDataTransponDeviceInfoValid    `json:"device_info"`
+}
+
+type TpDataTransponWarningStratedyValid struct {
+	WarningStrategyName string `json:"warning_strategy_name,omitempty"`
+	WarningLevel        string `json:"warning_level,omitempty"`
+	RepeatCount         int64  `json:"repeat_count,omitempty"`
+	InformWay           string `json:"inform_way,omitempty"`
+	WarningDesc         string `json:"warning_description,omitempty"`
 }
 
 type TpDataTransponDetailValid struct {

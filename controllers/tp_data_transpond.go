@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
+	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"time"
@@ -98,6 +99,29 @@ func (c *TpDataTransponController) Add() {
 		return
 	}
 
+	warningStratedyId := ""
+	// 如果有告警策略，优先创建告警策略
+	if reqData.WarningSwitch == 1 {
+		warningStratedyId = uuid.GetUuid()
+		var s services.TpWarningStrategyService
+		data := models.TpWarningStrategy{
+			Id:                  warningStratedyId,
+			WarningStrategyName: reqData.WarningStrategy.WarningStrategyName,
+			WarningLevel:        reqData.WarningStrategy.WarningLevel,
+			RepeatCount:         reqData.WarningStrategy.RepeatCount,
+			TriggerCount:        0,
+			InformWay:           reqData.WarningStrategy.InformWay,
+			Remark:              "",
+			WarningDescription:  reqData.WarningStrategy.WarningDesc,
+		}
+		_, err := s.AddTpWarningStrategy(data)
+		if err != nil {
+			utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		}
+
+	}
+
 	dataTranspondId := utils.GetUuid()
 	dataTranspond := models.TpDataTranspon{
 		Id:                dataTranspondId,
@@ -107,7 +131,7 @@ func (c *TpDataTransponController) Add() {
 		TenantId:          tenantId,
 		Script:            reqData.Script,
 		CreateTime:        time.Now().Unix(),
-		WarningStrategyId: reqData.WarningStrategyId,
+		WarningStrategyId: warningStratedyId,
 		WarningSwitch:     reqData.WarningSwitch,
 	}
 
@@ -352,6 +376,44 @@ func (c *TpDataTransponController) Edit() {
 		return
 	}
 	operate.DeleteCacheByDataTranspondId(reqData.Id)
+
+	// 以前有，先删除
+	if dataTranspond.WarningStrategyId != "" {
+		var s services.TpWarningStrategyService
+		delete := models.TpWarningStrategy{
+			Id: dataTranspond.WarningStrategyId,
+		}
+		err := s.DeleteTpWarningStrategy(delete)
+		if err != nil {
+			utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		}
+	}
+
+	// 创建
+	warningStratedyId := ""
+	// 如果有告警策略，优先创建告警策略
+	if reqData.WarningSwitch == 1 {
+		warningStratedyId = uuid.GetUuid()
+		var s services.TpWarningStrategyService
+		data := models.TpWarningStrategy{
+			Id:                  warningStratedyId,
+			WarningStrategyName: reqData.WarningStrategy.WarningStrategyName,
+			WarningLevel:        reqData.WarningStrategy.WarningLevel,
+			RepeatCount:         reqData.WarningStrategy.RepeatCount,
+			TriggerCount:        0,
+			InformWay:           reqData.WarningStrategy.InformWay,
+			Remark:              "",
+			WarningDescription:  reqData.WarningStrategy.WarningDesc,
+		}
+		_, err := s.AddTpWarningStrategy(data)
+		if err != nil {
+			utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		}
+
+	}
+
 	updateData := models.TpDataTranspon{
 		Id:                reqData.Id,
 		Name:              reqData.Name,
@@ -360,7 +422,7 @@ func (c *TpDataTransponController) Edit() {
 		TenantId:          tenantId,
 		Script:            reqData.Script,
 		CreateTime:        time.Now().Unix(),
-		WarningStrategyId: reqData.WarningStrategyId,
+		WarningStrategyId: warningStratedyId,
 		WarningSwitch:     reqData.WarningSwitch,
 	}
 
