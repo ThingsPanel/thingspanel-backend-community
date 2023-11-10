@@ -26,14 +26,15 @@ type DataTransponList struct {
 }
 
 type DataTranspondDetail struct {
-	Id                string                    `json:"id"`
-	Name              string                    `json:"name"`
-	Desc              string                    `json:"desc"`
-	Script            string                    `json:"script"`
-	WarningStrategyId string                    `json:"warning_strategy_id"`
-	WarningSwitch     int                       `json:"warning_switch"`
-	TargetInfo        DataTranspondTarget       `json:"target_info"`
-	DeviceInfo        []DataTranspondDeviceInfo `json:"device_info"`
+	Id                  string                    `json:"id"`
+	Name                string                    `json:"name"`
+	Desc                string                    `json:"desc"`
+	Script              string                    `json:"script"`
+	WarningStrategyId   string                    `json:"warning_strategy_id"`
+	WarningSwitch       int                       `json:"warning_switch"`
+	WarningStratedyInfo models.TpWarningStrategy  `json:"warning_strategy"`
+	TargetInfo          DataTranspondTarget       `json:"target_info"`
+	DeviceInfo          []DataTranspondDeviceInfo `json:"device_info"`
 }
 
 type DataTranspondTarget struct {
@@ -270,15 +271,24 @@ func (c *TpDataTransponController) Detail() {
 
 	}
 
+	var s services.TpWarningStrategyService
+
+	wd, err := s.GetTpWarningStrategyDetail(dataTranspond.WarningStrategyId)
+	if err != nil {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
 	d := DataTranspondDetail{
-		Id:                reqData.DataTranspondId,
-		Name:              dataTranspond.Name,
-		Desc:              dataTranspond.Desc,
-		Script:            dataTranspond.Script,
-		WarningStrategyId: dataTranspond.WarningStrategyId,
-		WarningSwitch:     dataTranspond.WarningSwitch,
-		DeviceInfo:        deviceInfo,
-		TargetInfo:        targetInfo,
+		Id:                  reqData.DataTranspondId,
+		Name:                dataTranspond.Name,
+		Desc:                dataTranspond.Desc,
+		Script:              dataTranspond.Script,
+		WarningStrategyId:   dataTranspond.WarningStrategyId,
+		WarningSwitch:       dataTranspond.WarningSwitch,
+		WarningStratedyInfo: wd,
+		DeviceInfo:          deviceInfo,
+		TargetInfo:          targetInfo,
 	}
 
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
@@ -303,6 +313,18 @@ func (c *TpDataTransponController) Delete() {
 	if !e || tenantId != dataTranspond.TenantId {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
+	}
+
+	if dataTranspond.WarningStrategyId != "" {
+		var s services.TpWarningStrategyService
+		delete := models.TpWarningStrategy{
+			Id: dataTranspond.WarningStrategyId,
+		}
+		err := s.DeleteTpWarningStrategy(delete)
+		if err != nil {
+			utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		}
 	}
 
 	// 删除数据
