@@ -222,7 +222,7 @@ func (*TpScenarioActionService) ExecuteScenarioAction(scenarioStrategyId string,
 			} else {
 				if _, ok := instructMap["warning_strategy_id"]; ok {
 					var notification TpNotificationService
-					notification.ExecuteNotification(instructMap["warning_strategy_id"], "", "执行激活", "执行激活")
+					notification.ExecuteNotification(instructMap["warning_strategy_id"], "", "执行激活", "执行激活", false)
 					if err != nil {
 						scenarioLogDetail.ProcessDescription = "instruct:" + err.Error()
 						scenarioLogDetail.ProcessResult = "2"
