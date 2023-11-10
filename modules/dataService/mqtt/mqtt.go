@@ -20,7 +20,7 @@ var MqttClient mqtt.Client
 func ListenNew(broker, username, password string) error {
 	sendmqtt.InitTopic()
 	var s services.TSKVService
-	p1, err := ants.NewPool(500)
+	p1, err := ants.NewPool(1000)
 	if err != nil {
 		return err
 	}

@@ -361,13 +361,18 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 		// 在线离线检查修复
 		checkDeviceOnline(device.ID, device.TenantId)
 	}
+	var req []byte
 	// 通过脚本执行器
-	req, err_a := scriptDeal(device.ScriptId, payload.Values, topic)
-	if err_a != nil {
-		logs.Error(err_a.Error())
-		return false
+	if device.ScriptId != "" {
+		b, err_a := scriptDeal(device.ScriptId, payload.Values, topic)
+		req = b
+		if err_a != nil {
+			logs.Error(err_a.Error())
+			return false
+		}
+	} else {
+		req = payload.Values
 	}
-
 	// 上面脚本处理后转发
 	go CheckAndTranspondData(device.ID, req, DeviceMessageTypeAttributeReport, device.Token)
 
