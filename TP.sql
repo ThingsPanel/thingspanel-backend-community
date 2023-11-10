@@ -1465,8 +1465,10 @@ CREATE TABLE "public"."tp_data_transpond" (
   "tenant_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
   "script" text COLLATE "pg_catalog"."default",
   "create_time" int4,
-  "name" varchar COLLATE "pg_catalog"."default"
-);
+  "name" varchar COLLATE "pg_catalog"."default",
+  "warning_strategy_id" varchar(36) COLLATE "pg_catalog"."default",
+  "warning_switch" int4
+)
 
 CREATE TABLE "public"."tp_data_transpond_detail" (
   "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
