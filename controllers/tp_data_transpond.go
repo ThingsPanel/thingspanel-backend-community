@@ -25,12 +25,14 @@ type DataTransponList struct {
 }
 
 type DataTranspondDetail struct {
-	Id         string                    `json:"id"`
-	Name       string                    `json:"name"`
-	Desc       string                    `json:"desc"`
-	Script     string                    `json:"script"`
-	TargetInfo DataTranspondTarget       `json:"target_info"`
-	DeviceInfo []DataTranspondDeviceInfo `json:"device_info"`
+	Id                string                    `json:"id"`
+	Name              string                    `json:"name"`
+	Desc              string                    `json:"desc"`
+	Script            string                    `json:"script"`
+	WarningStrategyId string                    `json:"warning_strategy_id"`
+	WarningSwitch     int                       `json:"warning_switch"`
+	TargetInfo        DataTranspondTarget       `json:"target_info"`
+	DeviceInfo        []DataTranspondDeviceInfo `json:"device_info"`
 }
 
 type DataTranspondTarget struct {
@@ -98,13 +100,15 @@ func (c *TpDataTransponController) Add() {
 
 	dataTranspondId := utils.GetUuid()
 	dataTranspond := models.TpDataTranspon{
-		Id:         dataTranspondId,
-		Name:       reqData.Name,
-		Desc:       reqData.Desc,
-		Status:     0, // 默认关闭
-		TenantId:   tenantId,
-		Script:     reqData.Script,
-		CreateTime: time.Now().Unix(),
+		Id:                dataTranspondId,
+		Name:              reqData.Name,
+		Desc:              reqData.Desc,
+		Status:            0, // 默认关闭
+		TenantId:          tenantId,
+		Script:            reqData.Script,
+		CreateTime:        time.Now().Unix(),
+		WarningStrategyId: reqData.WarningStrategyId,
+		WarningSwitch:     reqData.WarningSwitch,
 	}
 
 	var dataTranspondDetail []models.TpDataTransponDetail
@@ -243,12 +247,14 @@ func (c *TpDataTransponController) Detail() {
 	}
 
 	d := DataTranspondDetail{
-		Id:         reqData.DataTranspondId,
-		Name:       dataTranspond.Name,
-		Desc:       dataTranspond.Desc,
-		Script:     dataTranspond.Script,
-		DeviceInfo: deviceInfo,
-		TargetInfo: targetInfo,
+		Id:                reqData.DataTranspondId,
+		Name:              dataTranspond.Name,
+		Desc:              dataTranspond.Desc,
+		Script:            dataTranspond.Script,
+		WarningStrategyId: dataTranspond.WarningStrategyId,
+		WarningSwitch:     dataTranspond.WarningSwitch,
+		DeviceInfo:        deviceInfo,
+		TargetInfo:        targetInfo,
 	}
 
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
@@ -347,13 +353,15 @@ func (c *TpDataTransponController) Edit() {
 	}
 	operate.DeleteCacheByDataTranspondId(reqData.Id)
 	updateData := models.TpDataTranspon{
-		Id:         reqData.Id,
-		Name:       reqData.Name,
-		Desc:       reqData.Desc,
-		Status:     0,
-		TenantId:   tenantId,
-		Script:     reqData.Script,
-		CreateTime: time.Now().Unix(),
+		Id:                reqData.Id,
+		Name:              reqData.Name,
+		Desc:              reqData.Desc,
+		Status:            0,
+		TenantId:          tenantId,
+		Script:            reqData.Script,
+		CreateTime:        time.Now().Unix(),
+		WarningStrategyId: reqData.WarningStrategyId,
+		WarningSwitch:     reqData.WarningSwitch,
 	}
 
 	// 更新Transpond表，

@@ -293,6 +293,10 @@ func GetDeviceDataTranspondInfo(deviceId string) (bool, DataTranspondCache) {
 	}
 
 	data.TargetInfo = targetInfo
+	data.WarningStrategyId = resTpDataTranspon.WarningStrategyId
+	data.WarningSwitch = resTpDataTranspon.WarningSwitch
+	data.TenantId = resTpDataTranspon.TenantId
+
 	// 设置缓存
 	_ = setCache(redisKey, data)
 	return true, data
@@ -306,18 +310,31 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int) {
 		return
 	}
 
+	var warnSwitch bool
+	// 开启告警
+	if data.WarningSwitch == 1 {
+		warnSwitch = true
+	} else {
+		warnSwitch = false
+	}
+	var s TpNotificationService
+
 	var message string
 	if len(data.Script) > 1 {
 		script := data.Script
 		vm := otto.New()
 		_, err := vm.Run(script)
 		if err != nil {
-			fmt.Println("js run error")
+			if warnSwitch {
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error())
+			}
 			return
 		}
 		callRes, err := vm.Call("encodeInp", nil, msg)
 		if err != nil {
-			fmt.Println("js call error")
+			if warnSwitch {
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error())
+			}
 			return
 		}
 		fmt.Println("run js success")
@@ -332,32 +349,41 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int) {
 	// 转发到mqtt或http接口
 	if len(data.TargetInfo.URL) > 1 {
 		// send post
-		_, _ = tphttp.Post(data.TargetInfo.URL, string(msg))
+		_, err := tphttp.Post(data.TargetInfo.URL, string(msg))
+		if err != nil {
+			if warnSwitch {
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error())
+			}
+		}
 	}
 
 	if len(data.TargetInfo.MQTT.Host) > 1 {
 		// send mqtt
-		ConnectAndSend(data, msg)
+		err := ConnectAndSend(data, msg)
+		if err != nil {
+			if warnSwitch {
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error())
+			}
+		}
 	}
 }
 
-func ConnectAndSend(t DataTranspondCache, msg []byte) {
+func ConnectAndSend(t DataTranspondCache, msg []byte) error {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tcp://%s:%s", t.TargetInfo.MQTT.Host, strconv.Itoa(t.TargetInfo.MQTT.Port)))
-	fmt.Println(fmt.Sprintf("tcp://%s:%s", t.TargetInfo.MQTT.Host, strconv.Itoa(t.TargetInfo.MQTT.Port)))
 	opts.SetClientID(t.TargetInfo.MQTT.ClientId)
 	opts.SetUsername(t.TargetInfo.MQTT.UserName)
 	opts.SetPassword(t.TargetInfo.MQTT.Password)
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		fmt.Println(token.Error())
-		return
+		return token.Error()
 	}
 	m := client.Publish(t.TargetInfo.MQTT.Topic, 0, false, msg)
 	if m.Error() != nil {
-		fmt.Println(m.Error())
+		return m.Error()
 	}
 	defer client.Disconnect(1)
+	return nil
 }
 
 // 查询 tp_data_transpond_detail 中是否有配置该设备的转发信息
@@ -411,10 +437,13 @@ func setCache(key string, data DataTranspondCache) error {
 }
 
 type DataTranspondCache struct {
-	DeviceId    string                   `json:"device_id"`
-	MessageType int                      `json:"message_type"`
-	Script      string                   `json:"script"`
-	TargetInfo  dataTranspondTargetCache `json:"target_info"`
+	DeviceId          string                   `json:"device_id"`
+	MessageType       int                      `json:"message_type"`
+	Script            string                   `json:"script"`
+	TargetInfo        dataTranspondTargetCache `json:"target_info"`
+	WarningStrategyId string                   `json:"warning_strategy_id"`
+	WarningSwitch     int                      `json:"warning_switch"`
+	TenantId          string                   `json:"tenant_id"`
 }
 
 type dataTranspondTargetCache struct {
