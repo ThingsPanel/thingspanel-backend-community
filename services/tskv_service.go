@@ -369,7 +369,7 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 	}
 
 	// 上面脚本处理后转发
-	go CheckAndTranspondData(device.ID, req, DeviceMessageTypeAttributeReport)
+	go CheckAndTranspondData(device.ID, req, DeviceMessageTypeAttributeReport, device.Token)
 
 	logs.Info("转码后:", utils.ReplaceUserInput(string(req)))
 	//byte转map

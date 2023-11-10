@@ -303,7 +303,7 @@ func GetDeviceDataTranspondInfo(deviceId string) (bool, DataTranspondCache) {
 }
 
 // 用于验证是否需要转发，以及转发数据
-func CheckAndTranspondData(deviceId string, msg []byte, messageType int) {
+func CheckAndTranspondData(deviceId string, msg []byte, messageType int, accessToken string) {
 	ok, data := GetDeviceDataTranspondInfo(deviceId)
 	// 无转发配置或messageType不符
 	if !ok || data.MessageType != messageType {
@@ -349,7 +349,7 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int) {
 	// 转发到mqtt或http接口
 	if len(data.TargetInfo.URL) > 1 {
 		// send post
-		_, err := tphttp.Post(data.TargetInfo.URL, string(msg))
+		_, err := tphttp.PostWithDeviceInfo(data.TargetInfo.URL, string(msg), deviceId, accessToken)
 		if err != nil {
 			if warnSwitch {
 				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error())

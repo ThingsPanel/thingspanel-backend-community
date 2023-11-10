@@ -264,7 +264,7 @@ func (*OpenapiTSKVService) MsgProc(body []byte, topic string) bool {
 	}
 
 	// 上面脚本处理后转发
-	services.CheckAndTranspondData(device.ID, req, services.DeviceMessageTypeAttributeReport)
+	services.CheckAndTranspondData(device.ID, req, services.DeviceMessageTypeAttributeReport, payload.Token)
 
 	logs.Info("转码后:", utils.ReplaceUserInput(string(req)))
 	//byte转map

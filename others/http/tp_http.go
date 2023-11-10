@@ -20,6 +20,18 @@ func Post(targetUrl string, payload string) (*http.Response, error) {
 	return response, err
 }
 
+func PostWithDeviceInfo(targetUrl, payload, deviceId, accessToken string) (*http.Response, error) {
+	req, _ := http.NewRequest("POST", targetUrl, strings.NewReader(payload))
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("DeviceID", deviceId)
+	req.Header.Add("AccessToken", accessToken)
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		logs.Info(err.Error())
+	}
+	return response, err
+}
+
 func Delete(targetUrl string, payload string) (*http.Response, error) {
 	logs.Info("Delete:", targetUrl, payload)
 	req, _ := http.NewRequest("DELETE", targetUrl, strings.NewReader(payload))

@@ -192,7 +192,7 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 	sqlWhere += " order by d.created_at desc offset ? limit ?"
 	values = append(values, offset, limit)
 	var deviceList []map[string]interface{}
-		dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
+	dataResult := psql.Mydb.Raw(sqlWhere, values...).Scan(&deviceList)
 	if dataResult.Error != nil {
 		logs.Error(dataResult.Error.Error())
 	} else {
@@ -806,7 +806,7 @@ func scriptDealB(script_id string, device_data []byte, topic string) ([]byte, er
 func (*DeviceService) SendMessage(msg []byte, device *models.Device) error {
 	var err error
 	// 转发消息 - 属性下发 - MessageType 2
-	CheckAndTranspondData(device.ID, msg, DeviceMessageTypeAttributeSend)
+	CheckAndTranspondData(device.ID, msg, DeviceMessageTypeAttributeSend, device.Token)
 	if device.DeviceType == "1" { // 直连设备
 		// 通过脚本
 		msg, err = scriptDealB(device.ScriptId, msg, viper.GetString("mqtt.topicToPublish")+"/"+device.Token)
@@ -1664,7 +1664,7 @@ func saveCommandSendHistory(
 	}
 }
 
-//获取租户设备数
+// 获取租户设备数
 // 获取全部Device
 func (*DeviceService) GetTenantDeviceCount(tenantId string, deviceType string) map[string]int64 {
 	var count int64
