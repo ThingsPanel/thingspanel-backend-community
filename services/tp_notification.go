@@ -136,7 +136,7 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 	var WarningStrategyService TpWarningStrategyService
 	StrategyDetail, _ := WarningStrategyService.GetTpWarningStrategyDetail(strategyId)
 
-	// 临时增加
+	// 临时增加开关，因为自动化那边本身带有计数，后续统一收敛到这里计数
 	if countSwitch {
 		// 计数
 		if StrategyDetail.RepeatCount+1 >= StrategyDetail.TriggerCount {
