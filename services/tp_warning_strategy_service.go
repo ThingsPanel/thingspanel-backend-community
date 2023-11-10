@@ -54,8 +54,9 @@ func (*TpWarningStrategyService) GetTpWarningStrategyList(PaginationValidate val
 
 // 新增数据
 func (*TpWarningStrategyService) AddTpWarningStrategy(tp_warning_strategy models.TpWarningStrategy) (models.TpWarningStrategy, error) {
-	var uuid = uuid.GetUuid()
-	tp_warning_strategy.Id = uuid
+	if tp_warning_strategy.Id == "" {
+		tp_warning_strategy.Id = uuid.GetUuid()
+	}
 	result := psql.Mydb.Create(&tp_warning_strategy)
 	if result.Error != nil {
 		logs.Error(result.Error, gorm.ErrRecordNotFound)
