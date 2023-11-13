@@ -15,7 +15,7 @@ type TSKVLatest struct {
 	EntityType string  `json:"entity_type" gorm:"primaryKey"`
 	EntityID   string  `json:"entity_id" gorm:"entity_id,size:36"`
 	Key        string  `json:"key" gorm:"primaryKey"`
-	TS         int64   `json:"ts"`
+	TS         int64   `json:"ts"` //微秒
 	BoolV      string  `json:"bool_v" gorm:"size:5"`
 	StrV       string  `json:"str_v" gorm:"type:longtext"`
 	LongV      int64   `json:"long_v"`

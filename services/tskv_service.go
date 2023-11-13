@@ -167,10 +167,11 @@ func (*TSKVService) MsgProcOther(body []byte, topic string) {
 		}
 		status := fmt.Sprint(values["status"])
 		// 存入redis
-		if status == "0" {
-			// 延时一秒，等最后一个消息处理完，防止在线状态修复程序在下线后修改状态
-			time.Sleep(1 * time.Second)
-		}
+		// vernemq不能保证消息顺序，延迟时间可能会保证消息的顺序，但是大量设备离线可能会导致延迟
+		// if status == "0" {
+		// 	// 延时一秒，等最后一个消息处理完，防止在线状态修复程序在下线后修改状态
+		// 	time.Sleep(1 * time.Second)
+		// }
 		err := redis.SetStr("status"+device.ID, status, 72*time.Hour)
 		if err != nil {
 			logs.Error(err.Error())
@@ -214,12 +215,15 @@ func checkDeviceOnline(deviceId string, tenantId string) {
 	} else {
 		if status == "" {
 			// 从数据库中获取设备状态
-			var count int64
-			result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE' and str_v = '1'", deviceId).Count(&count)
+			var tskv models.TSKVLatest
+			result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE' and str_v = '0'", deviceId).First(&tskv)
 			if result.Error != nil {
+				// 设备没有离线或没有记录
 				logs.Error(result.Error.Error())
+				return
 			} else {
-				if count == int64(1) {
+				//设备确定是离线状态，需要判断离线时间（tskv.TS微秒）是否小于60秒
+				if time.Now().UnixMicro()-tskv.TS < 60*1000000 {
 					return
 				}
 			}
