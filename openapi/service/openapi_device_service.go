@@ -9,13 +9,13 @@ import (
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"time"
+
 	"github.com/beego/beego/v2/core/logs"
 	context2 "github.com/beego/beego/v2/server/web/context"
 	"github.com/bitly/go-simplejson"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
-	"time"
 )
 
 type OpenapiDeviceService struct {
@@ -160,7 +160,7 @@ func (*OpenapiDeviceService) SendCommandToDevice(
 		return err
 	}
 
-	fmt.Println("d", sendStruct)
+	logs.Info("d", sendStruct)
 
 	topic := viper.GetString("mqtt.topicToCommand") + "/"
 	sendRes := 2
@@ -169,7 +169,7 @@ func (*OpenapiDeviceService) SendCommandToDevice(
 	case models.DeviceTypeDirect, models.DeviceTypeGatway:
 		// 直连设备，网关，直接发
 		topic += device.Token
-		fmt.Println("topic-2:", topic)
+		logs.Info("topic-2:", topic)
 
 		// 协议设备topic
 		if device.Protocol != "mqtt" && device.Protocol != "MQTT" {

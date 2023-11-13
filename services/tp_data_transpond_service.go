@@ -345,7 +345,6 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int, accessT
 		msg = []byte(message)
 	}
 
-	fmt.Println("msg info :", msg)
 	// 转发到mqtt或http接口
 	if len(data.TargetInfo.URL) > 1 {
 		// send post

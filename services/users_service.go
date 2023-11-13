@@ -9,7 +9,6 @@ import (
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -94,7 +93,7 @@ func (*UserService) TenantRegister(reqData valid.TenantRegisterValidate) (*model
 	repeatFlag := true
 	// 判断手机号是否重复
 	result := psql.Mydb.Where("mobile = ?", reqData.PhoneNumber).First(&users)
-		if result.Error != nil {
+	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			repeatFlag = false
 		} else {
@@ -194,7 +193,7 @@ func (*UserService) Login(reqData valid.LoginValidate) (*models.Users, error) {
 			}
 			// 校验密码
 			if !bcrypt.ComparePasswords(users.Password, []byte(reqData.Password)) {
-				fmt.Println("密码错误！", users.Password, reqData.Password)
+				logs.Error("密码错误！", users.Password, reqData.Password)
 				return &users, errors.New("密码错误！")
 			}
 		}
@@ -219,9 +218,9 @@ func (*UserService) ChangePassword(reqData valid.ChangePasswordValidate) (*model
 
 	// 监测上次请求时间，防爆破
 	lastRequestTime := redis.GetStr(reqData.PhoneNumber + "_change_password")
-	if lastRequestTime != ""  {
+	if lastRequestTime != "" {
 		return &users, errors.New("验证码校验错误！")
-		
+
 	}
 
 	// 设置上次请求时间标志位
@@ -229,7 +228,7 @@ func (*UserService) ChangePassword(reqData valid.ChangePasswordValidate) (*model
 	if err != nil {
 		return &users, errors.New("验证码校验设置错误！")
 	}
-	
+
 	// 查询用户是否存在
 	result := psql.Mydb.Where("mobile = ?", reqData.PhoneNumber).First(&users)
 	if result.Error != nil {
@@ -241,7 +240,7 @@ func (*UserService) ChangePassword(reqData valid.ChangePasswordValidate) (*model
 	}
 	users.Password = bcrypt.HashAndSalt([]byte(reqData.Password))
 	result = psql.Mydb.Save(&users)
-	
+
 	if result.Error != nil {
 		logs.Error(result.Error.Error())
 		return &users, result.Error

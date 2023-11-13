@@ -802,7 +802,7 @@ func (*TSKVService) GetTelemetry(device_ids []string, startTs int64, endTs int64
 			devices = append(devices, device)
 		}
 	} else {
-		fmt.Println("device_ids不能为空")
+		logs.Info("device_ids不能为空")
 	}
 	if len(devices) == 0 {
 		devices = make([]interface{}, 0)
@@ -995,7 +995,6 @@ func fetchFromSQL(device_id string, attributes []string) (map[string]interface{}
 		return nil, err
 	}
 	field := make(map[string]interface{}, len(ts_kvs))
-	fmt.Println(ts_kvs)
 
 	for _, v := range ts_kvs {
 		if v.Key == "" {
