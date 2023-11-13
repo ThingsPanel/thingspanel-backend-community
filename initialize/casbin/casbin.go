@@ -14,7 +14,7 @@ import (
 
 var CasbinEnforcer *casbin.Enforcer
 
-func init() {
+func Init() {
 	log.Println("casbin启动...")
 	psqladdr := viper.GetString("db.psql.psqladdr")
 	psqlport := viper.GetInt("db.psql.psqlport")

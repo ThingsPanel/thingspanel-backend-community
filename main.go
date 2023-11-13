@@ -5,6 +5,7 @@ import (
 
 	// 初始化配置，顺序似乎要排第一个
 	"ThingsPanel-Go/initialize/cache"
+	"ThingsPanel-Go/initialize/casbin"
 	"ThingsPanel-Go/initialize/conf"
 	tp_log "ThingsPanel-Go/initialize/log"
 	"ThingsPanel-Go/initialize/psql"
@@ -40,6 +41,7 @@ func init() {
 	conf.Init()
 	tp_log.Init()
 	psql.Init()
+	casbin.Init()
 	dataService.Init()
 	cache.Init()
 	tp_cron.Init()
