@@ -40,12 +40,12 @@ func AuthMiddle() {
 		"api/share/get":                       0,
 	}
 	shareUrl := map[string]bool{
-		"api/tp_vis_plugin/list": true,
+		"api/tp_vis_plugin/list":       true,
 		"api/tp_local_vis_plugin/list": true,
-		"api/tp_dashboard/list": true,
-		"api/kv/current": true,
-		"api/kv/history": true,
-		"api/device/operating_device": true,
+		"api/tp_dashboard/list":        true,
+		"api/kv/current":               true,
+		"api/kv/history":               true,
+		"api/device/operating_device":  true,
 	}
 	var filterLogin = func(ctx *context.Context) {
 		url := strings.TrimLeft(ctx.Input.URL(), "/")
@@ -69,7 +69,7 @@ func AuthMiddle() {
 
 				// 请求插件文件时，插入租户id
 				if url == "api/tp_local_vis_plugin/list" || url == "api/tp_vis_plugin/list" {
-					
+
 					shareInfo, err := TpDashboardService.GetDeviceListByShareID(userToken)
 					if err != nil {
 						utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
@@ -102,13 +102,12 @@ func AuthMiddle() {
 				// 判断有无分享访问权限
 				isShared := SharedVisualizationService.HasPermissionByDeviceID(userToken, dashboardID, deviceID)
 				logs.Debug("deviceId: ", isShared, deviceID, dashboardID, userToken)
-				logs.Error("deviceId: ", isShared, deviceID, dashboardID, userToken)
 
 				if !isShared {
 					utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
 					return
 				}
-				return 
+				return
 
 			}
 			// 解析token
@@ -157,7 +156,7 @@ func GetToken(ctx *context.Context) (string, string, error) {
 	}
 	if !strings.HasPrefix(authorization, "Bearer ") {
 		return "", "", errors.New(ErrUnauthorized)
-	} 
+	}
 	userToken := authorization[7:]
 	return userToken, "Bearer", nil
 }
