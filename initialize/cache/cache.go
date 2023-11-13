@@ -9,7 +9,7 @@ import (
 var Bm cache.Cache
 var Err error
 
-func init() {
+func Init() {
 	Bm, Err = cache.NewCache("memory", `{"interval":60}`)
 	if Err != nil {
 		fmt.Println("初始化cache失败", Err)

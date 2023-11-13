@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func init() {
+func Init() {
 	log.SetFlags(log.Lshortfile | log.Ltime | log.Ldate)
 	log.Println("系统日志初始化...")
 

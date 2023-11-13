@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func init() {
+func Init() {
 	log.Println("系统配置文件初始化...")
 	viper.SetEnvPrefix("GOTP")
 	viper.AutomaticEnv()

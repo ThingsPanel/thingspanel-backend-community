@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func init() {
+func Init() {
 	log.Println("注册mqtt用户...")
 	//是否gmqtt
 	if viper.GetString("mqtt_server") == "gmqtt" {

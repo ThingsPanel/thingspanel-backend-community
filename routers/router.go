@@ -15,7 +15,7 @@ import (
 	"github.com/beego/beego/v2/server/web"
 )
 
-func init() {
+func Init() {
 	//跨域
 	middleware.CorsMiddle()
 	//授权登录中间件

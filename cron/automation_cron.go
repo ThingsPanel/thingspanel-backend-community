@@ -18,7 +18,7 @@ import (
 
 //var C *cron.Cron
 
-func init() {
+func Init() {
 	log.Println("定时任务初始化...")
 	// 一次性的定时任务，间隔1分钟扫一次
 	onceCron()

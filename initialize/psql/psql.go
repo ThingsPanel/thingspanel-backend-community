@@ -27,7 +27,7 @@ func (w Writer) Printf(format string, args ...interface{}) {
 }
 
 // 设置psql
-func init() {
+func Init() {
 	log.Println("连接数据库...")
 
 	psqladdr := viper.GetString("db.psql.psqladdr")

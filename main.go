@@ -4,23 +4,21 @@ import (
 	"log"
 
 	// 初始化配置，顺序似乎要排第一个
-	_ "ThingsPanel-Go/initialize/conf"
-
-	_ "ThingsPanel-Go/initialize/log"
-	_ "ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/initialize/cache"
+	"ThingsPanel-Go/initialize/conf"
+	tp_log "ThingsPanel-Go/initialize/log"
+	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/initialize/session"
+	"ThingsPanel-Go/routers"
 
 	beego "github.com/beego/beego/v2/server/web"
 	"github.com/spf13/viper"
 
-	_ "ThingsPanel-Go/modules/dataService"
+	"ThingsPanel-Go/modules/dataService"
 
-	_ "ThingsPanel-Go/initialize/cache"
-
-	_ "ThingsPanel-Go/initialize/cron"
-	_ "ThingsPanel-Go/initialize/send_message"
-	_ "ThingsPanel-Go/initialize/session"
-	_ "ThingsPanel-Go/initialize/validate"
-	_ "ThingsPanel-Go/routers"
+	tp_cron "ThingsPanel-Go/initialize/cron"
+	//_ "ThingsPanel-Go/initialize/send_message"
+	//_ "ThingsPanel-Go/initialize/validate"
 
 	"fmt"
 	"time"
@@ -30,7 +28,7 @@ import (
 
 	//_ "ThingsPanel-Go/grpc/protocol_plugin/server"
 
-	_ "ThingsPanel-Go/cron"
+	c "ThingsPanel-Go/cron"
 
 	tptodbClient "ThingsPanel-Go/grpc/tptodb_client"
 	services "ThingsPanel-Go/services"
@@ -39,6 +37,15 @@ import (
 var Ticker *time.Ticker
 
 func init() {
+	conf.Init()
+	tp_log.Init()
+	psql.Init()
+	dataService.Init()
+	cache.Init()
+	tp_cron.Init()
+	session.Init()
+	routers.Init()
+	c.Init()
 	log.Println("系统初始化")
 }
 func main() {
