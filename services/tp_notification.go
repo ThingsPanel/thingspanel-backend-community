@@ -6,7 +6,6 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/beego/beego/v2/core/logs"
@@ -131,11 +130,31 @@ func GetNotificationListByTenantId(
 	return nG, count
 }
 
-func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, content string) {
+func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, content string, countSwitch bool) {
 
 	// 通过策略ID ，获取info_way中的信息
 	var WarningStrategyService TpWarningStrategyService
 	StrategyDetail, _ := WarningStrategyService.GetTpWarningStrategyDetail(strategyId)
+
+	// 临时增加开关，因为自动化那边本身带有计数，后续统一收敛到这里计数
+	if countSwitch {
+		// 计数
+		if StrategyDetail.RepeatCount+1 >= StrategyDetail.TriggerCount {
+			// 达到次数，次数清零。
+			result := psql.Mydb.Model(&models.TpWarningStrategy{}).Where("id = ?", strategyId).Update("trigger_count", 0)
+			if result.Error != nil {
+				logs.Error(result.Error)
+			}
+		} else {
+			// 为达到次数，次数+1，退出
+			result := psql.Mydb.Model(&models.TpWarningStrategy{}).Where("id = ?", strategyId).Update("trigger_count", StrategyDetail.TriggerCount+1)
+			if result.Error != nil {
+				logs.Error(result.Error)
+			}
+			return
+		}
+	}
+
 	// 解析InformWay，可以是多个告警组ID
 	infoWayList := strings.Split(StrategyDetail.InformWay, ",")
 
@@ -157,7 +176,6 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 		case models.NotificationType_Members:
 			// 继续查询members表
 			members := GetNotificationMenbers(v.Id)
-			fmt.Println("members", members)
 			for _, v2 := range members {
 				// 查询每一个用户
 				user, cnt := UsersService.GetUserById(v2.UsersId)
@@ -171,7 +189,6 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 
 		case models.NotificationType_Email:
 			// 解析config
-			fmt.Println(v.NotificationConfig)
 			nConfig := make(map[string]string)
 			err := json.Unmarshal([]byte(v.NotificationConfig), &nConfig)
 			if err != nil {
@@ -183,7 +200,6 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 			}
 		case models.NotificationType_Webhook:
 			// 解析config
-			fmt.Println(v.NotificationConfig)
 			nConfig := make(map[string]string)
 			err := json.Unmarshal([]byte(v.NotificationConfig), &nConfig)
 			if err != nil {

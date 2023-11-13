@@ -452,7 +452,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 
 						// 通知告警组
 						var notification TpNotificationService
-						notification.ExecuteNotification(automationAction.WarningStrategyId, tenantId, "自动化告警", warningStrategy.WarningDescription)
+						notification.ExecuteNotification(automationAction.WarningStrategyId, tenantId, "自动化告警", warningStrategy.WarningDescription, false)
 
 					}
 

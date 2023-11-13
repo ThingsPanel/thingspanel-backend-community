@@ -326,14 +326,14 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int, accessT
 		_, err := vm.Run(script)
 		if err != nil {
 			if warnSwitch {
-				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error())
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error(), true)
 			}
 			return
 		}
 		callRes, err := vm.Call("encodeInp", nil, msg)
 		if err != nil {
 			if warnSwitch {
-				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error())
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error(), true)
 			}
 			return
 		}
@@ -352,7 +352,7 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int, accessT
 		_, err := tphttp.PostWithDeviceInfo(data.TargetInfo.URL, string(msg), deviceId, accessToken)
 		if err != nil {
 			if warnSwitch {
-				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error())
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error(), true)
 			}
 		}
 	}
@@ -362,7 +362,7 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int, accessT
 		err := ConnectAndSend(data, msg)
 		if err != nil {
 			if warnSwitch {
-				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error())
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error(), true)
 			}
 		}
 	}

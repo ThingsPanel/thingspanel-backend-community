@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/services"
 	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
+	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
 	"encoding/json"
 	"time"
@@ -25,14 +26,15 @@ type DataTransponList struct {
 }
 
 type DataTranspondDetail struct {
-	Id                string                    `json:"id"`
-	Name              string                    `json:"name"`
-	Desc              string                    `json:"desc"`
-	Script            string                    `json:"script"`
-	WarningStrategyId string                    `json:"warning_strategy_id"`
-	WarningSwitch     int                       `json:"warning_switch"`
-	TargetInfo        DataTranspondTarget       `json:"target_info"`
-	DeviceInfo        []DataTranspondDeviceInfo `json:"device_info"`
+	Id                  string                    `json:"id"`
+	Name                string                    `json:"name"`
+	Desc                string                    `json:"desc"`
+	Script              string                    `json:"script"`
+	WarningStrategyId   string                    `json:"warning_strategy_id"`
+	WarningSwitch       int                       `json:"warning_switch"`
+	WarningStratedyInfo models.TpWarningStrategy  `json:"warning_strategy"`
+	TargetInfo          DataTranspondTarget       `json:"target_info"`
+	DeviceInfo          []DataTranspondDeviceInfo `json:"device_info"`
 }
 
 type DataTranspondTarget struct {
@@ -98,6 +100,29 @@ func (c *TpDataTransponController) Add() {
 		return
 	}
 
+	warningStratedyId := ""
+	// 如果有告警策略，优先创建告警策略
+	if reqData.WarningSwitch == 1 {
+		warningStratedyId = uuid.GetUuid()
+		var s services.TpWarningStrategyService
+		data := models.TpWarningStrategy{
+			Id:                  warningStratedyId,
+			WarningStrategyName: reqData.WarningStrategy.WarningStrategyName,
+			WarningLevel:        reqData.WarningStrategy.WarningLevel,
+			RepeatCount:         reqData.WarningStrategy.RepeatCount,
+			TriggerCount:        0,
+			InformWay:           reqData.WarningStrategy.InformWay,
+			Remark:              "",
+			WarningDescription:  reqData.WarningStrategy.WarningDesc,
+		}
+		_, err := s.AddTpWarningStrategy(data)
+		if err != nil {
+			utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		}
+
+	}
+
 	dataTranspondId := utils.GetUuid()
 	dataTranspond := models.TpDataTranspon{
 		Id:                dataTranspondId,
@@ -107,7 +132,7 @@ func (c *TpDataTransponController) Add() {
 		TenantId:          tenantId,
 		Script:            reqData.Script,
 		CreateTime:        time.Now().Unix(),
-		WarningStrategyId: reqData.WarningStrategyId,
+		WarningStrategyId: warningStratedyId,
 		WarningSwitch:     reqData.WarningSwitch,
 	}
 
@@ -246,15 +271,24 @@ func (c *TpDataTransponController) Detail() {
 
 	}
 
+	var s services.TpWarningStrategyService
+
+	wd, err := s.GetTpWarningStrategyDetail(dataTranspond.WarningStrategyId)
+	if err != nil {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
 	d := DataTranspondDetail{
-		Id:                reqData.DataTranspondId,
-		Name:              dataTranspond.Name,
-		Desc:              dataTranspond.Desc,
-		Script:            dataTranspond.Script,
-		WarningStrategyId: dataTranspond.WarningStrategyId,
-		WarningSwitch:     dataTranspond.WarningSwitch,
-		DeviceInfo:        deviceInfo,
-		TargetInfo:        targetInfo,
+		Id:                  reqData.DataTranspondId,
+		Name:                dataTranspond.Name,
+		Desc:                dataTranspond.Desc,
+		Script:              dataTranspond.Script,
+		WarningStrategyId:   dataTranspond.WarningStrategyId,
+		WarningSwitch:       dataTranspond.WarningSwitch,
+		WarningStratedyInfo: wd,
+		DeviceInfo:          deviceInfo,
+		TargetInfo:          targetInfo,
 	}
 
 	response.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
@@ -279,6 +313,18 @@ func (c *TpDataTransponController) Delete() {
 	if !e || tenantId != dataTranspond.TenantId {
 		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
 		return
+	}
+
+	if dataTranspond.WarningStrategyId != "" {
+		var s services.TpWarningStrategyService
+		delete := models.TpWarningStrategy{
+			Id: dataTranspond.WarningStrategyId,
+		}
+		err := s.DeleteTpWarningStrategy(delete)
+		if err != nil {
+			utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		}
 	}
 
 	// 删除数据
@@ -352,6 +398,44 @@ func (c *TpDataTransponController) Edit() {
 		return
 	}
 	operate.DeleteCacheByDataTranspondId(reqData.Id)
+
+	// 以前有，先删除
+	if dataTranspond.WarningStrategyId != "" {
+		var s services.TpWarningStrategyService
+		delete := models.TpWarningStrategy{
+			Id: dataTranspond.WarningStrategyId,
+		}
+		err := s.DeleteTpWarningStrategy(delete)
+		if err != nil {
+			utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		}
+	}
+
+	// 创建
+	warningStratedyId := ""
+	// 如果有告警策略，优先创建告警策略
+	if reqData.WarningSwitch == 1 {
+		warningStratedyId = uuid.GetUuid()
+		var s services.TpWarningStrategyService
+		data := models.TpWarningStrategy{
+			Id:                  warningStratedyId,
+			WarningStrategyName: reqData.WarningStrategy.WarningStrategyName,
+			WarningLevel:        reqData.WarningStrategy.WarningLevel,
+			RepeatCount:         reqData.WarningStrategy.RepeatCount,
+			TriggerCount:        0,
+			InformWay:           reqData.WarningStrategy.InformWay,
+			Remark:              "",
+			WarningDescription:  reqData.WarningStrategy.WarningDesc,
+		}
+		_, err := s.AddTpWarningStrategy(data)
+		if err != nil {
+			utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+			return
+		}
+
+	}
+
 	updateData := models.TpDataTranspon{
 		Id:                reqData.Id,
 		Name:              reqData.Name,
@@ -360,7 +444,7 @@ func (c *TpDataTransponController) Edit() {
 		TenantId:          tenantId,
 		Script:            reqData.Script,
 		CreateTime:        time.Now().Unix(),
-		WarningStrategyId: reqData.WarningStrategyId,
+		WarningStrategyId: warningStratedyId,
 		WarningSwitch:     reqData.WarningSwitch,
 	}
 
