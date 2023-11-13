@@ -1468,7 +1468,7 @@ CREATE TABLE "public"."tp_data_transpond" (
   "name" varchar COLLATE "pg_catalog"."default",
   "warning_strategy_id" varchar(36) COLLATE "pg_catalog"."default",
   "warning_switch" int4
-)
+);
 
 CREATE TABLE "public"."tp_data_transpond_detail" (
   "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
