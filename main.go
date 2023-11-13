@@ -9,6 +9,7 @@ import (
 	"ThingsPanel-Go/initialize/conf"
 	tp_log "ThingsPanel-Go/initialize/log"
 	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/initialize/session"
 	"ThingsPanel-Go/routers"
 
@@ -39,6 +40,7 @@ var Ticker *time.Ticker
 
 func init() {
 	conf.Init()
+	redis.Init()
 	tp_log.Init()
 	psql.Init()
 	casbin.Init()

@@ -37,7 +37,7 @@ func createClient(redisHost string, password string, dataBase int) *redis.Client
 	return client
 }
 
-func init() {
+func Init() {
 	redisHost := viper.GetString("db.redis.conn")
 	dataBase := viper.GetInt("db.redis.dbNum")
 	password := viper.GetString("db.redis.password")

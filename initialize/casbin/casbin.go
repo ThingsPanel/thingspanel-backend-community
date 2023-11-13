@@ -1,7 +1,7 @@
 package casbin
 
 import (
-	_ "ThingsPanel-Go/initialize/psql"
+	//_ "ThingsPanel-Go/initialize/psql"
 	"fmt"
 	"log"
 
