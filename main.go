@@ -1,39 +1,27 @@
 package main
 
 import (
-	"log"
-
-	// 初始化配置，顺序似乎要排第一个
+	c "ThingsPanel-Go/cron"
+	tptodbClient "ThingsPanel-Go/grpc/tptodb_client"
 	"ThingsPanel-Go/initialize/cache"
 	"ThingsPanel-Go/initialize/casbin"
 	"ThingsPanel-Go/initialize/conf"
+	tp_cron "ThingsPanel-Go/initialize/cron"
 	tp_log "ThingsPanel-Go/initialize/log"
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/initialize/session"
-	"ThingsPanel-Go/routers"
-
-	beego "github.com/beego/beego/v2/server/web"
-	"github.com/spf13/viper"
-
 	"ThingsPanel-Go/modules/dataService"
-
-	tp_cron "ThingsPanel-Go/initialize/cron"
-	//_ "ThingsPanel-Go/initialize/send_message"
-	//_ "ThingsPanel-Go/initialize/validate"
-
+	"ThingsPanel-Go/routers"
+	services "ThingsPanel-Go/services"
 	"fmt"
+	"log"
 	"time"
 
+	beego "github.com/beego/beego/v2/server/web"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
-
-	//_ "ThingsPanel-Go/grpc/protocol_plugin/server"
-
-	c "ThingsPanel-Go/cron"
-
-	tptodbClient "ThingsPanel-Go/grpc/tptodb_client"
-	services "ThingsPanel-Go/services"
+	"github.com/spf13/viper"
 )
 
 var Ticker *time.Ticker

@@ -25,7 +25,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/spf13/viper v1.15.0
 	github.com/xuri/excelize/v2 v2.4.1
-	golang.org/x/crypto v0.8.0
+	golang.org/x/crypto v0.15.0
 	google.golang.org/grpc v1.52.0
 	gorm.io/driver/postgres v1.3.4
 	gorm.io/gorm v1.23.4
@@ -60,6 +60,9 @@ require (
 	github.com/stretchr/testify v1.8.2 // indirect
 	github.com/thinkeridea/go-extend v1.3.2 // indirect
 	github.com/tjfoc/gmsm v1.3.2 // indirect
+	github.com/yuin/goldmark v1.4.13 // indirect
+	golang.org/x/mod v0.14.0 // indirect
+	golang.org/x/tools v0.15.0 // indirect
 	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef // indirect
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
@@ -123,9 +126,9 @@ require (
 	github.com/tklauser/numcpus v0.3.0 // indirect
 	github.com/xuri/efp v0.0.0-20210322160811-ab561f5b45e3 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
-	golang.org/x/net v0.9.0 // indirect
-	golang.org/x/sys v0.7.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/net v0.18.0 // indirect
+	golang.org/x/sys v0.14.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/ini.v1 v1.67.0 // indirect
