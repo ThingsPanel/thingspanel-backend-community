@@ -483,7 +483,7 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 	batchWaitTimeDuration := time.Duration(batchWaitTime) * time.Second
 
 	batchSize := viper.GetInt("app.batch_size")
-	log.Println("每次写入条数：", batchSize)
+	log.Println("每次最大写入条数：", batchSize)
 
 	for {
 
@@ -514,7 +514,7 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 			if err := psql.Mydb.Create(&tskvList).Error; err != nil {
 				logs.Error(err.Error())
 			}
-			logs.Info("批量写入ts_kv：", len(tskvList))
+			logs.Info("批量写入ts_kv的条数:", len(tskvList))
 			tskvList = []models.TSKV{}
 		}
 
@@ -1523,30 +1523,6 @@ func (*TSKVService) GetCurrentDataAndMap(device_id string, attributes []string) 
 		}
 	}
 	return fields, nil
-}
-
-// 设备在线离线判断
-func (*TSKVService) DeviceOnline(device_id string, interval int64) (string, error) {
-	var ts_kvs models.TSKVLatest
-	result := psql.Mydb.Select("ts").Where("entity_id = ? AND key ='systime'", device_id).Order("ts asc").Find(&ts_kvs)
-	if result.Error != nil {
-		return "0", result.Error
-	}
-	ts := time.Now().UnixMicro()
-	//300000000 300秒 5分钟
-	logs.Info("判断时间阈值", interval)
-	if interval == int64(0) {
-		interval = 300
-	} else {
-		logs.Info("时间阈值：", interval)
-	}
-	var state string = "0"
-	if (ts - ts_kvs.TS) > interval*1000000 {
-		state = "0"
-	} else {
-		state = "1"
-	}
-	return state, nil
 }
 
 // 查询设备当前值，与物模型映射，返回map列表

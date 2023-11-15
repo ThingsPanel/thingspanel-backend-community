@@ -15,5 +15,6 @@
 - [ ] 给docker部署增加重启策略
 - [ ] 设备数据中去掉systime
 - [ ] 去掉设备当前值表，改用缓存方式，只将key存储到数据库
+- [ ] 实时的在线离线，建立ws接口后将标志改为1关闭改为空，当设备触发在线离线的时候如果标志为1就往某个主题发送状态
 
 beego：https://beego.gocn.vip/beego/zh/developing/

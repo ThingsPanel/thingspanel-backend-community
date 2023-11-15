@@ -1312,38 +1312,34 @@ func (*DeviceService) GetDeviceOnlineStatus(deviceIdList valid.DeviceIdListValid
 				continue
 			}
 		}
-		if device.Protocol == "mqtt" || device.Protocol == "MQTT" {
 
-			if device.AdditionalInfo != "" {
-				aJson, err := simplejson.NewJson([]byte(device.AdditionalInfo))
-				if err == nil {
-					thresholdTime, err := aJson.Get("runningInfo").Get("thresholdTime").Int64()
-
-					if err == nil && thresholdTime != 0 {
-						//获取最新的数据时间
-						var latest_ts int64
-						result = psql.Mydb.Model(&models.TSKVLatest{}).Select("max(ts) as ts").Where("entity_id = ? ", deviceId).Group("entity_type").First(&latest_ts)
-						if result.Error != nil {
-							logs.Error(result.Error)
+		// 检查是否设置了在线离线阈值
+		if device.AdditionalInfo != "" {
+			aJson, err := simplejson.NewJson([]byte(device.AdditionalInfo))
+			if err == nil {
+				thresholdTime, err := aJson.Get("runningInfo").Get("thresholdTime").Int64()
+				if err == nil && thresholdTime != 0 {
+					//获取最新的数据时间
+					var latest_ts int64
+					result = psql.Mydb.Model(&models.TSKVLatest{}).Select("max(ts) as ts").Where("entity_id = ? ", deviceId).Group("entity_type").First(&latest_ts)
+					if result.Error != nil {
+						logs.Error(result.Error)
+					}
+					if latest_ts != 0 {
+						if time.Now().UnixMicro()-latest_ts >= int64(thresholdTime*1e6) {
+							deviceOnlineStatus[deviceId] = "0"
+						} else {
+							deviceOnlineStatus[deviceId] = "1"
 						}
-						if latest_ts != 0 {
-							if time.Now().UnixMicro()-latest_ts >= int64(thresholdTime*1e6) {
-								deviceOnlineStatus[deviceId] = "0"
-							} else {
-								deviceOnlineStatus[deviceId] = "1"
-							}
-							continue
-						}
+						continue
 					}
 				}
 			}
-
 		}
 
 		//原流程
 		var tskvLatest models.TSKVLatest
 		result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
-		logs.Info("------------------------------------------------ceshi")
 		if result.Error != nil {
 			logs.Warn(result.Error)
 			deviceOnlineStatus[deviceId] = "0"

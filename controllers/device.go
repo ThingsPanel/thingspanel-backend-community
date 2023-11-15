@@ -202,6 +202,8 @@ func (c *DeviceController) AddOnly() {
 	}
 	if deviceData.DeviceType == "3" {
 		deviceData.SubDeviceAddr = strings.Replace(uuid.GetUuid(), "-", "", -1)[0:9]
+		//设置离线阈值为60
+		deviceData.AdditionalInfo = `{"runningInfo":{"thresholdTime":60}}`
 	}
 	uuid, err := DeviceService.Add(deviceData)
 	//result := psql.Mydb.Create(&deviceData)

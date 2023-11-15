@@ -154,7 +154,7 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 				ws.WriteMessage(msgType, []byte(err.Error()))
 				return
 			}
-			// 加时间戳systime 2023-09-25 16:32:26
+			// 加时间，mqtt消息里没有系统时间，systime 2023-09-25 16:32:26
 			valuesMap["systime"] = time.Now().Format("2006-01-02 15:04:05")
 			// 转json
 			payload.Values, err = json.Marshal(valuesMap)
