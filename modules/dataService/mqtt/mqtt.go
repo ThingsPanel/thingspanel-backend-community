@@ -108,7 +108,7 @@ func sub(p1 *ants.Pool, pOther *ants.Pool, qos byte, messages chan map[string]in
 	// 订阅设备状态
 	deviceStatusMessageHandler := func(c mqtt.Client, d mqtt.Message) {
 		_ = pOther.Submit(func() {
-			s.MsgProcOther(d.Payload(), d.Topic())
+			s.DeviceStatusMsgProc(d.Payload(), d.Topic())
 		})
 	}
 	if token := MqttClient.Subscribe(sendmqtt.Topic_DeviceStatus, 1, deviceStatusMessageHandler); token.Wait() && token.Error() != nil {

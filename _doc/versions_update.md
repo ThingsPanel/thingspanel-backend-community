@@ -13,5 +13,7 @@
 - [ ] 增加批量下发控制设备的功能
 - [ ] 代码日志整理
 - [ ] 给docker部署增加重启策略
+- [ ] 设备数据中去掉systime
+- [ ] 去掉设备当前值表，改用缓存方式，只将key存储到数据库
 
 beego：https://beego.gocn.vip/beego/zh/developing/

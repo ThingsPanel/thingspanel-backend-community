@@ -42,45 +42,6 @@ type TSKVService struct {
 	TimeField []string
 }
 
-type mqttPayload struct {
-	Token  string `json:"token"`
-	Values []byte `json:"values"`
-}
-
-// []byte转mqttPayload结构体，并做token和values验证
-func verifyPayload(body []byte) (*mqttPayload, error) {
-	payload := &mqttPayload{}
-	if err := json.Unmarshal(body, payload); err != nil {
-		logs.Error("解析消息失败:", err)
-		return payload, err
-	}
-	if len(payload.Token) == 0 {
-		return payload, errors.New("token不能为空:" + payload.Token)
-	}
-	if len(payload.Values) == 0 {
-		return payload, errors.New("values消息内容不能为空")
-	}
-	return payload, nil
-}
-
-type mqttPayloadOther struct {
-	AccessToken string      `json:"accessToken"`
-	Values      interface{} `json:"values"`
-}
-
-// []byte转mqttPayload结构体，并做token和values验证
-func verifyPayloadOther(body []byte) (*mqttPayloadOther, error) {
-	payload := &mqttPayloadOther{}
-	if err := json.Unmarshal(body, payload); err != nil {
-		logs.Error("解析消息失败:", err)
-		return payload, err
-	}
-	if len(payload.AccessToken) == 0 {
-		return payload, errors.New("token不能为空:" + payload.AccessToken)
-	}
-	return payload, nil
-}
-
 // 脚本处理
 func scriptDeal(script_id string, device_data []byte, topic string) ([]byte, error) {
 	if script_id == "" {
@@ -103,7 +64,7 @@ func scriptDeal(script_id string, device_data []byte, topic string) ([]byte, err
 	}
 }
 
-// 获取TSKV总数，这里因为性能的问题做了缓存，限制10W以上数据10秒刷新一次
+// 获取租户下设备消息总数，取的近似值
 func (*TSKVService) All(tenantId string) (int64, error) {
 	var count int64
 	var explainOutput string
@@ -123,142 +84,171 @@ func (*TSKVService) All(tenantId string) (int64, error) {
 			return 0, err
 		}
 	}
-
-	// msgCount := redis.GetStr("MsgCount")
-	// if msgCount != "" {
-	// 	count, _ = strconv.ParseInt(msgCount, 10, 64)
-	// 	return count, nil
-	// }
-	// result := psql.Mydb.Model(&models.TSKV{}).Where("tenant_id = ?", tenantId).Count(&count)
-	// if result.Error != nil {
-	// 	return 0, result.Error
-	// }
-	// if count > int64(100000) {
-	// 	redis.SetStr("MsgCount", strconv.FormatInt(count, 10), 10*time.Second)
-	// }
 	return count, nil
 }
 
-// 接收硬件其他消息（在线离线）
-func (*TSKVService) MsgProcOther(body []byte, topic string) {
-	logs.Info("-------------------------------")
-	logs.Info(string(body))
-	logs.Info("-------------------------------")
-	payload, err := verifyPayloadOther(body)
+// deviceStatusPayLoad是设备状态消息的有效负载。
+type deviceStatusPayLoad struct {
+	AccessToken string      `json:"accessToken"` // 设备访问令牌。
+	Values      interface{} `json:"values"`      // 设备状态对象。
+}
+
+// verifyDeviceStatusPayLoad 函数验证设备状态消息的有效负载。
+func verifyDeviceStatusPayLoad(body []byte) (*deviceStatusPayLoad, error) {
+	payload := &deviceStatusPayLoad{}
+	if err := json.Unmarshal(body, payload); err != nil {
+		return payload, err
+	}
+
+	if len(payload.AccessToken) == 0 {
+		return payload, errors.New("verifyDeviceStatusPayLoad:accesstoken 为空")
+	}
+
+	return payload, nil
+}
+
+// DeviceStatusMsgProc 函数接收设备上下线消息，更新ts_kv_latest表
+// 此函数处理的消息具有 qos 等级为 1。
+//
+// 参数:
+//   body - 是包含设备状态信息的 JSON 消息体。
+//   topic - 是消息的 MQTT 主题，通常为 "device/status"。
+//
+// 示例:
+//   DeviceStatusMsgProc('{"accessToken":"xxx","values":{"status":1}}', "device/status")
+func (*TSKVService) DeviceStatusMsgProc(payload []byte, topic string) {
+	logs.Debug("开始处理订阅到的设备状态消息")
+	logs.Debug("消息主题:", topic)
+	logs.Debug("消息内容:", string(payload))
+
+	deviceStatusPayLoad, err := verifyDeviceStatusPayLoad(payload)
 	if err != nil {
 		logs.Error(err.Error())
 		return
 	}
-	if values, ok := payload.Values.(map[string]interface{}); ok {
-		var device models.Device
-		// 首先从redis中获设备id
-		// device.ID = redis.GetStr(payload.AccessToken)
-		// 为了保证数据准确性，在线离线相关直接从数据库中获取设备id
-		result := psql.Mydb.Where("token = ?", payload.AccessToken).First(&device)
-		if result.Error != nil {
-			logs.Error(result.Error.Error())
-			return
-		}
-		if device.ID == "" {
-			return
-		} else {
-			// 存储24小时
-			redis.SetStr(payload.AccessToken, device.ID, 24*time.Hour)
-		}
-		status := fmt.Sprint(values["status"])
-		// 存入redis
-		// vernemq不能保证消息顺序，延迟时间可能会保证消息的顺序，但是大量设备离线可能会导致延迟
-		// if status == "0" {
-		// 	// 延时一秒，等最后一个消息处理完，防止在线状态修复程序在下线后修改状态
-		// 	time.Sleep(1 * time.Second)
-		// }
-		err := redis.SetStr("status"+device.ID, status, 72*time.Hour)
-		if err != nil {
-			logs.Error(err.Error())
-		}
-		d := models.TSKVLatest{
-			EntityType: "DEVICE",
-			EntityID:   device.ID,
-			Key:        "SYS_ONLINE",
-			TS:         time.Now().UnixMicro(),
-			StrV:       fmt.Sprint(values["status"]),
-			TenantID:   device.TenantId,
-		}
-		result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
-		if result.Error != nil {
-			logs.Error(result.Error.Error())
-		} else {
-			if result.RowsAffected == int64(0) {
-				rtsl := psql.Mydb.Create(&d)
-				if rtsl.Error != nil {
-					logs.Error(rtsl.Error)
-				}
+
+	var valuesMap map[string]interface{}
+	if values, ok := deviceStatusPayLoad.Values.(map[string]interface{}); ok {
+		valuesMap = values
+	} else {
+		logs.Error("payload的values不是map[string]interface{}类型")
+		return
+	}
+
+	// 从redis中获取device
+	device, err := redis.GetDeviceByToken(deviceStatusPayLoad.AccessToken)
+	if err != nil {
+		logs.Error(err.Error())
+		return
+	}
+
+	// 更新redis中设备状态
+	// TODO: 删除设备的时候，redis中的设备状态也要删除
+	status := fmt.Sprint(valuesMap["status"])
+	err = redis.SetStr("status"+device.ID, status, 0)
+	if err != nil {
+		logs.Error(err.Error())
+	}
+
+	// 更新ts_kv_latest表
+	d := models.TSKVLatest{
+		EntityType: "DEVICE",
+		EntityID:   device.ID,
+		Key:        "SYS_ONLINE",
+		TS:         time.Now().UnixMicro(),
+		StrV:       fmt.Sprint(valuesMap["status"]),
+		TenantID:   device.TenantId,
+	}
+	result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", device.ID).Update("str_v", d.StrV)
+	if result.Error != nil {
+		logs.Error(result.Error.Error())
+	} else {
+		if result.RowsAffected == int64(0) {
+			rtsl := psql.Mydb.Create(&d)
+			if rtsl.Error != nil {
+				logs.Error(rtsl.Error)
 			}
 		}
-		// 设备上下线自动化检查
-		flag := fmt.Sprint(values["status"])
-		if flag == "0" {
-			flag = "2"
-		}
-		var ConditionsService ConditionsService
-		go ConditionsService.OnlineAndOfflineCheck(device.ID, flag)
 	}
+
+	// 设备上下线自动化检查
+	flag := fmt.Sprint(valuesMap["status"])
+	if flag == "0" {
+		flag = "2"
+	}
+	var ConditionsService ConditionsService
+	go ConditionsService.OnlineAndOfflineCheck(device.ID, flag)
+
 }
 
-// 判断设备是否在线，不在线更新ts_kv_latest表为在线
+// 判断设备是否在线，不在线且离线时间大于1分钟，更新ts_kv_latest表
+// HACK: 目前在线离线状态都存储在pg的ts_kv_latest表中，后续需要优化根据数据库类型来判断,这个函数也是为了解决设备的假离线问题，但是可能在大批量设备离线时候出现新问题
+//
+// 参数:
+//   deviceId - 设备id
+//   tenantId - 租户id
+//
+// 示例:
+//   checkDeviceOnline("xxx", "xxx")
 func checkDeviceOnline(deviceId string, tenantId string) {
-	//不管哪个数据库，在线离线状态都存储在pg的ts_kv_latest表中
+	// 目前在线离线状态都存储在pg的ts_kv_latest表中
 	// 从redis中获取设备状态
 	status := redis.GetStr("status" + deviceId)
-	if status == "1" {
+	if status == "1" || status == "" {
 		return
 	} else {
-		if status == "" {
-			// 从数据库中获取设备状态
-			var tskv models.TSKVLatest
-			result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE' and str_v = '0'", deviceId).First(&tskv)
-			if result.Error != nil {
-				// 设备没有离线或没有记录
-				logs.Error(result.Error.Error())
-				return
-			} else {
-				//设备确定是离线状态，需要判断离线时间（tskv.TS微秒）是否小于60秒
-				if time.Now().UnixMicro()-tskv.TS < 60*1000000 {
-					return
-				}
-			}
+		// 获取上次更新时间
+		var tskvLatest models.TSKVLatest
+		result := psql.Mydb.Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).First(&tskvLatest)
+		if result.Error != nil {
+			logs.Error(result.Error.Error())
+			return
+		}
+		// 判断是否小于1分钟
+		if time.Now().UnixMicro()-tskvLatest.TS < 60*1000*1000 {
+			logs.Warn("checkDeviceOnline:距离上设备状态次更新时间小于1分钟，不更新ts_kv_latest表")
+			return
 		}
 		// 更新redis
-		err := redis.SetStr("status"+deviceId, "1", 72*time.Hour)
+		err := redis.SetStr("status"+deviceId, "1", 0)
 		if err != nil {
 			logs.Error(err.Error())
 		}
 		// 更新ts_kv_latest表
-		result := psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).Update("str_v", "1")
+		result = psql.Mydb.Model(&models.TSKVLatest{}).Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).Update("str_v", "1")
 		if result.Error != nil {
 			logs.Error(result.Error.Error())
 		} else {
-			// 如果不存在，就插入一条
+			// 如果不存在，报告异常
 			if result.RowsAffected == int64(0) {
-				d := models.TSKVLatest{
-					EntityType: "DEVICE",
-					EntityID:   deviceId,
-					Key:        "SYS_ONLINE",
-					TS:         time.Now().UnixMicro(),
-					StrV:       "1",
-					TenantID:   tenantId,
-				}
-				rtsl := psql.Mydb.Create(&d)
-				if rtsl.Error != nil {
-					logs.Error(rtsl.Error)
-				}
+				logs.Error("checkDeviceOnline:ts_kv_latest表中不存在设备在线状态")
+				return
 			}
 		}
-
-		// 设备上下线自动化检查
-		var ConditionsService ConditionsService
-		go ConditionsService.OnlineAndOfflineCheck(deviceId, "1")
+		// HACK: 不做自动化检查，不确定是什么原因导致的离线，可能是设备离线，也可能是网络问题
 	}
+}
+
+// 设备上报属性消息的有效负载。
+type mqttPayload struct {
+	Token  string `json:"token"`
+	Values []byte `json:"values"`
+}
+
+// verifyPayload 函数验证设备上报属性消息的有效负载。
+func verifyPayload(body []byte) (*mqttPayload, error) {
+	payload := &mqttPayload{}
+	if err := json.Unmarshal(body, payload); err != nil {
+		logs.Error("解析消息失败:", err)
+		return payload, err
+	}
+	if len(payload.Token) == 0 {
+		return payload, errors.New("token不能为空:" + payload.Token)
+	}
+	if len(payload.Values) == 0 {
+		return payload, errors.New("values消息内容不能为空")
+	}
+	return payload, nil
 }
 
 // 接收网关消息
@@ -338,90 +328,85 @@ func (*TSKVService) GatewayMsgProc(body []byte, topic string, messages chan map[
 	return true
 }
 
-// 接收硬件消息 ，数据转发切入点，（设备上报）
+// MsgProc 函数处理设备消息，将消息存入队列管道。
+//
+// 参数:
+//   messages - 是一个管道，用于存储设备消息。
+//   body - 是包含设备消息的 JSON 消息体。
+//   topic - 是消息的 MQTT 主题，通常为 "v1/devices/me/telemetry"。
 func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte, topic string) bool {
-	logs.Info("-------------------------------")
-	logs.Info("来自直连设备/网关解析后的子设备的消息：")
-	logs.Info(utils.ReplaceUserInput(string(body)))
-	logs.Info("-------------------------------")
+	logs.Debug("开始处理订阅到的设备消息")
+	logs.Debug("消息主题:", topic)
+	logs.Debug("消息内容:", string(body))
+
+	// 验证消息有效负载
 	payload, err := verifyPayload(body)
 	if err != nil {
 		logs.Error(err.Error())
 		return false
 	}
 
-	var d models.TSKV
+	logs.Info("valuse:", string(payload.Values))
 	// 通过token获取设备信息
-	var device models.Device
-	result_a := psql.Mydb.Where("token = ? and device_type != '2'", payload.Token).First(&device)
-	if result_a.Error != nil {
-		logs.Error(result_a.Error, gorm.ErrRecordNotFound)
-		return false
-	} else if result_a.RowsAffected <= int64(0) {
-		logs.Error("根据token没查找到设备")
+	device, err := redis.GetDeviceByToken(payload.Token)
+	if err != nil {
+		logs.Error(err.Error())
 		return false
 	}
+
+	if device.DeviceType == "2" {
+		// 网关消息
+		logs.Warn("MsgProc:网关消息不应该走这里")
+		return false
+	}
+
+	// 如果是直连设备而不是子设备，需要检测设备是否在线
 	if device.DeviceType == "1" {
 		// 在线离线检查修复
 		checkDeviceOnline(device.ID, device.TenantId)
 	}
+
+	// tp规范的设备消息
 	var req []byte
 	// 通过脚本执行器
 	if device.ScriptId != "" {
-		b, err_a := scriptDeal(device.ScriptId, payload.Values, topic)
-		req = b
-		if err_a != nil {
-			logs.Error(err_a.Error())
+		req, err = scriptDeal(device.ScriptId, payload.Values, topic)
+		if err != nil {
+			logs.Error(err.Error())
 			return false
 		}
+		logs.Info("通过脚本执行器后:", string(req))
 	} else {
 		req = payload.Values
 	}
-	// 上面脚本处理后转发
-	go CheckAndTranspondData(device.ID, req, DeviceMessageTypeAttributeReport, device.Token)
 
-	logs.Info("转码后:", utils.ReplaceUserInput(string(req)))
 	//byte转map
-	var payload_map = make(map[string]interface{})
-	err_b := json.Unmarshal(req, &payload_map)
-	if err_b != nil {
-		logs.Error(err_b.Error())
+	var reqMap = make(map[string]interface{})
+	err = json.Unmarshal(req, &reqMap)
+	if err != nil {
+		logs.Error(err.Error())
 		return false
 	}
-	// 告警缓存，先查缓存，如果=1就跳过，没有就进入WarningConfigCheck
-	// 进入没有就设置为1
-	// 新增的时候删除
-	// 修改的时候删除
-	// 有效时间一小时
-	// if redis.GetStr("warning"+device.ID) != "1" {
-	// 	var WarningConfigService WarningConfigService
-	// 	WarningConfigService.WarningConfigCheck(device.ID, payload_map)
-	// }
-	// 判断mqtt服务是否为vernemq，如果是不需要转发,主要服务ws接口
-	if viper.GetString("mqtt_server") == "gmqtt" {
 
+	// 判断mqtt服务是否为vernemq，如果是则不需要转发（vernemq已做转发）,主要服务ws接口
+	if viper.GetString("mqtt_server") == "gmqtt" {
 		// 发送数据到mqtt服务
 		topic := viper.GetString("mqtt.topicToSubscribe") + "/" + device.ID
-		sendMqtt.SendMQTT(body, topic, 0)
+		err = sendMqtt.SendMQTT(body, topic, 0)
+		if err != nil {
+			logs.Error(err.Error())
+			return false
+		}
 	}
-	// timescaledb数据库需要入库
+
+	// 判断数据库类型是否是timescaledb，是则需要入库
 	dbType := viper.GetString("db.psql.dbType")
 	if dbType == "timescaledb" {
-		// 入库
-		//存入系统时间
 		ts := time.Now().UnixMicro()
-		payload_map["systime"] = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
-		for k, v := range payload_map {
+		// reqMap["systime"] = fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
+		for k, v := range reqMap {
+			var d models.TSKV
 			switch value := v.(type) {
-			case int64:
-				d = models.TSKV{
-					EntityType: "DEVICE",
-					EntityID:   device.ID,
-					Key:        k,
-					TS:         ts,
-					LongV:      value,
-					TenantID:   device.TenantId,
-				}
 			case string:
 				d = models.TSKV{
 					EntityType: "DEVICE",
@@ -459,30 +444,47 @@ func (*TSKVService) MsgProc(messages chan<- map[string]interface{}, body []byte,
 					TenantID:   device.TenantId,
 				}
 			}
+
 			// ts_kv批量入库
-			logs.Info("tskv入库数据：", d)
+			logs.Debug("tskv入库数据：", d)
 			messages <- map[string]interface{}{
 				"tskv": d,
 			}
 		}
 	}
 
+	// 数据转发检查
+	go CheckAndTranspondData(device.ID, req, DeviceMessageTypeAttributeReport, device.Token)
+	// 告警缓存，先查缓存，如果=1就跳过，没有就进入WarningConfigCheck
+	// 进入没有就设置为1
+	// 新增的时候删除
+	// 修改的时候删除
+	// 有效时间一小时
+	// if redis.GetStr("warning"+device.ID) != "1" {
+	// 	var WarningConfigService WarningConfigService
+	// 	WarningConfigService.WarningConfigCheck(device.ID, payload_map)
+	// }
+
+	// 自动化检查
 	var ConditionsService ConditionsService
-	go ConditionsService.AutomationConditionCheck(device.ID, payload_map)
+	go ConditionsService.AutomationConditionCheck(device.ID, reqMap)
 	return true
 }
 
 // 批量写入
+// FIXME: 这里可能有个BUG，读管道阻塞的bug
 func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
-	logs.Info("批量写入协程启动")
+	log.Println("批量写入协程启动")
 	var tskvList []models.TSKV
 	var tskvLatestList []models.TSKVLatest
+
 	batchWaitTime := viper.GetInt("app.batch_wait_time")
-	logs.Info("批量写入等待时间：", batchWaitTime)
-	// 转time.Duration
+	log.Println("批量写入等待时间：", batchWaitTime)
 	batchWaitTimeDuration := time.Duration(batchWaitTime) * time.Second
+
 	batchSize := viper.GetInt("app.batch_size")
-	logs.Warn("批量写入大小：", batchSize)
+	log.Println("每次写入条数：", batchSize)
+
 	for {
 
 		// 如果超过1秒钟messages没有收到任何消息，则将批处理写入
@@ -493,8 +495,8 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 			if time.Since(startTime) > batchWaitTimeDuration {
 				break
 			}
-			// 判断管道是否有消息
 
+			// 判断管道是否有消息
 			message, ok := <-messages
 			if !ok {
 				break
@@ -506,6 +508,8 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 				tskvLatestList = append(tskvLatestList, tskvLatest)
 			}
 		}
+
+		// 如果tskvList有数据，则写入数据库
 		if len(tskvList) > 0 {
 			if err := psql.Mydb.Create(&tskvList).Error; err != nil {
 				logs.Error(err.Error())
@@ -513,7 +517,8 @@ func (*TSKVService) BatchWrite(messages <-chan map[string]interface{}) error {
 			logs.Info("批量写入ts_kv：", len(tskvList))
 			tskvList = []models.TSKV{}
 		}
-		// 更新ts_kv_latest
+
+		// 更新ts_kv_latest，不能批量更新，不确定表中是否有记录
 		if len(tskvLatestList) > 0 {
 			// 创建事务
 			for _, tskvLatest := range tskvLatestList {
