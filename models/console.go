@@ -11,6 +11,7 @@ type Console struct {
 	Template  string `json:"template"`
 	Code      string `json:"code"`
 	TenantId  string `json:"tenant_id"`
+	ShareId   string `json:"share_id"`
 }
 
 func (Console) TableName() string {

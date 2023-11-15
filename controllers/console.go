@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/core/validation"
 	beego "github.com/beego/beego/v2/server/web"
 	context2 "github.com/beego/beego/v2/server/web/context"
@@ -88,9 +89,29 @@ func (c *ConsoleController) Edit() {
 	var ConsoleService services.ConsoleService
 
 	err = ConsoleService.EditConsole(input.ID, input.Name, input.Data, input.Config, input.Template, tenantId)
+	
 	if err != nil {
 		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
+	}
+	
+	// 存在分享id时，更新对应设备id到分享可视化里
+	
+	data, err := ConsoleService.GetConsoleDetail(input.ID)
+	if err != nil {
+		utils.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	shareId := data.ShareId
+	JsonData := data.Data
+	if shareId != "" {
+		var SharedVisualizationService services.SharedVisualizationService
+		deviceList, err := utils.GetDeviceListByConsoleData(JsonData)
+		deviceListJSON, err := json.Marshal(deviceList)
+		if err == nil {
+			isSaved := SharedVisualizationService.UpdateDeviceList(input.ID, string(deviceListJSON))
+			logs.Info("update shared device id list", isSaved)
+		}
 	}
 	utils.Success(200, c.Ctx)
 }

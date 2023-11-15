@@ -104,11 +104,10 @@ func (c *TpDashboardController) Edit() {
 			if shareId != "" {
 				var SharedVisualizationService services.SharedVisualizationService
 				deviceList, err := utils.GetDeviceListByVisualizationData(JsonData)
-				logs.Error(deviceList, err)
 				deviceListJSON, err := json.Marshal(deviceList)
 				if err == nil {
 					isSaved := SharedVisualizationService.UpdateDeviceList(reqData.Id, string(deviceListJSON))
-					logs.Error(isSaved)
+					logs.Info("update shared device id list", isSaved)
 				}
 			}
 		}

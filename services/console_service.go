@@ -3,10 +3,13 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
+	"errors"
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"gorm.io/gorm"
 )
 
 type ConsoleService struct {
@@ -111,4 +114,35 @@ func (*ConsoleService) GetConsoleDetail(id string) (models.Console, error) {
 	var data models.Console
 	err := psql.Mydb.Where("id = ?", id).First(&data).Error
 	return data, err
+}
+
+// 根据id保存对应的分享id
+func (*ConsoleService) UpdateShareId(id string, shareId string) bool {
+	result := psql.Mydb.Model(&models.Console{}).Where("id = ?", id).Update("share_id", shareId)
+	if result.Error != nil {
+		errors.Is(result.Error, gorm.ErrRecordNotFound)
+		return false
+	}
+	return true
+}
+
+
+// 查询可视化对应的设备列表
+func (*ConsoleService) GetDeviceListByID(id string) ([]string, error) {
+	var console models.Console
+	
+	// 查询可视化对应的设备列表
+	result := psql.Mydb.Where("id = ?", id).First(&console)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, errors.New("visualization not found")
+		}
+		return nil, result.Error
+	}
+
+	deviceList, err := utils.GetDeviceListByConsoleData(console.Data)
+	if err != nil {
+		return nil, err
+	}
+	return deviceList, nil
 }
