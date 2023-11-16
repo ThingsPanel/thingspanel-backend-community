@@ -245,14 +245,14 @@ func CheckEmail(email string) error {
 	return nil
 }
 
-// 从可视化jsondata中获取绑定的设备id列表
+// 从可视化大屏jsondata中获取绑定的设备id列表
 func GetDeviceListByVisualizationData(inputStr string) ([]string, error) {
 	var result map[string]interface{}
 	deviceIds := make(map[string]bool)
 	var uniqueDeviceIds []string
 	err := json.Unmarshal([]byte(inputStr), &result)
 	if err != nil {
-		fmt.Println("Error unmarshalling main JSON:", err)
+		logs.Error("Error unmarshalling main JSON:", err)
 		return uniqueDeviceIds, err
 	}
 
@@ -302,6 +302,31 @@ func GetDeviceListByVisualizationData(inputStr string) ([]string, error) {
 			if ok && deviceID != "" {
 				deviceIds[deviceID] = true
 			}
+		}
+	}
+
+	for key := range deviceIds {
+		uniqueDeviceIds = append(uniqueDeviceIds, key)
+	}
+
+	return uniqueDeviceIds, nil
+}
+
+// 从可视化看板data中获取绑定的设备id列表
+func GetDeviceListByConsoleData(inputStr string) ([]string, error) {
+	var data []map[string]interface{}
+	deviceIds := make(map[string]bool)
+	var uniqueDeviceIds []string
+
+	err := json.Unmarshal([]byte(inputStr), &data)
+	if err != nil {
+		logs.Error("Error unmarshalling JSON:", err)
+		return uniqueDeviceIds, err
+	}
+
+	for _, item := range data {
+		if deviceId, ok := item["deviceId"].(string); ok && deviceId != "" {
+			deviceIds[deviceId] = true
 		}
 	}
 
