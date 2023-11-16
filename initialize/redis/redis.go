@@ -106,14 +106,14 @@ func GetDeviceByToken(token string) (*models.Device, error) {
 		if result.Error != nil {
 			return nil, result.Error
 		}
-		// TODO: 修改token的时候，需要删除旧的token
+		// 修改token的时候，需要删除旧的token
 		// 将token存入redis
 		err := SetStr(token, device.ID, 0)
 		if err != nil {
 			return nil, err
 		}
 		// 将设备信息存入redis
-		err = SetRedisForJsondata(device.ID, device, 0)
+		err = SetRedisForJsondata(device.ID, *device, 0)
 		if err != nil {
 			return nil, err
 		}
