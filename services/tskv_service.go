@@ -143,7 +143,7 @@ func (*TSKVService) DeviceStatusMsgProc(payload []byte, topic string) {
 	}
 
 	// 更新redis中设备状态
-	// TODO: 删除设备的时候，redis中的设备状态也要删除
+	// 删除设备和网关的时候，redis中的设备状态也要删除（已开发）
 	status := fmt.Sprint(valuesMap["status"])
 	err = redis.SetStr("status"+device.ID, status, 0)
 	if err != nil {

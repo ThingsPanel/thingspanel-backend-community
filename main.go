@@ -27,6 +27,7 @@ import (
 var Ticker *time.Ticker
 
 func init() {
+	log.Println("系统初始化开始")
 	conf.Init()
 	redis.Init()
 	tp_log.Init()
@@ -38,7 +39,7 @@ func init() {
 	session.Init()
 	routers.Init()
 	c.Init()
-	log.Println("系统初始化")
+	log.Println("系统初始化完成")
 }
 func main() {
 	// 初始化grpc

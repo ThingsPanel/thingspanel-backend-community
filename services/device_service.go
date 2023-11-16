@@ -544,15 +544,29 @@ func (*DeviceService) Delete(id, tenantId string) error {
 	}
 	result = psql.Mydb.Where("id = ? and tenant_id = ?", id, tenantId).Delete(&models.Device{})
 	if result.Error != nil {
+		// 如果错误信息中包含字符tp_automation则提示用户先接触此设备与自动化任务的关联
+		if strings.Contains(result.Error.Error(), "tp_automation") {
+			return errors.New("请先删除设备与自动化任务的关联")
+		}
 		return result.Error
 	}
+
+	// 删除设备后，清理redis中的数据
+	redis.DelKey(device.ID)
+	redis.DelKey("status" + device.ID)
 	if device.Token != "" {
 		redis.DelKey("token" + device.Token)
-		MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
-		if MqttHttpHost == "" {
-			MqttHttpHost = viper.GetString("api.http_host")
+		redis.DelKey(device.Token)
+
+		// 判断是否是gmqtt
+		if viper.GetString("mqtt_server") == "gmqtt" {
+			// 删除mqtt的认证信息
+			mqttHttpHost := viper.GetString("api.http_host")
+			_, err := tphttp.Delete("http://"+mqttHttpHost+"/v1/accounts/"+device.Token, "{}")
+			if err != nil {
+				logs.Warn(err.Error())
+			}
 		}
-		tphttp.Delete("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{}")
 	}
 	return nil
 }
