@@ -40,9 +40,14 @@ func AuthMiddle() {
 		"api/share/get":                       0,
 	}
 	shareUrl := map[string]bool{
-		"api/tp_vis_plugin/list":       true,
+		// 请求数据集
+		"api/console/detail": 			true,
 		"api/tp_local_vis_plugin/list": true,
+		// 请求插件
+		"api/tp_vis_plugin/list":       true,
 		"api/tp_dashboard/list":        true,
+		// 获取、操作设备数据
+		"api/device/status":            true,
 		"api/kv/current":               true,
 		"api/kv/history":               true,
 		"api/device/operating_device":  true,
@@ -64,6 +69,10 @@ func AuthMiddle() {
 				// 判断是否是分享的url
 				if !shareUrl[url] {
 					utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
+					return
+				}
+
+				if url == "api/device/status" {
 					return
 				}
 
@@ -93,7 +102,7 @@ func AuthMiddle() {
 
 				// 从请求参数中获取可视化id
 				var dashboardID string
-				if url == "api/tp_dashboard/list" {
+				if url == "api/tp_dashboard/list" || url == "api/console/detail"  {
 					dashboardID, _ = bodyData["id"].(string)
 				} else {
 					dashboardID = ""

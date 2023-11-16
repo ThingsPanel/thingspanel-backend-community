@@ -60,6 +60,11 @@ func (*SharedVisualizationService) HasPermissionByDeviceID(share_id string, dash
 		return false
 	}
 	if dashboard_id != "" && sharedVisualization.DashboardID != dashboard_id {
+		return false
+	}
+
+	// 不传入设备id时，可视化id和分享id匹配即有权限
+	if dashboard_id != "" && sharedVisualization.DashboardID == dashboard_id && device_id == "" {
 		return true
 	}
 
