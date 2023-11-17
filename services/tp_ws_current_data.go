@@ -83,31 +83,50 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 		logs.Error("断开连接", err)
 		return
 	}
-
-	token, ok := msgMap["token"]
+	
 	deviceID, ok2 := msgMap["device_id"]
-	if !ok || !ok2 {
-		errMsg := "token or device_id is missing"
+	if !ok2 {
+		errMsg := "device_id is missing"
 		ws.WriteMessage(msgType, []byte(errMsg))
 		return
 	}
-	// 验证token是否存在
-	tenantID, err := AuthenticateAndFetchTenantID(token, deviceID)
-	if err != nil {
-		logs.Error("断开连接", err)
-		ws.WriteMessage(msgType, []byte(err.Error()))
-		return
+	// 共享数据接口判断
+	shareId, IsExist := msgMap["shareId"]
+	if IsExist {
+		var sharedVisualizationService SharedVisualizationService
+		isShared := sharedVisualizationService.isDeviceIDShared(shareId, deviceID)
+		if !isShared {
+			// 异常退出并断开连接
+			logs.Error("断开连接", err)
+			// 回复错误信息
+			ws.WriteMessage(msgType, []byte("device is not shared"))
+			return
+		}
+	} else {
+		token, ok := msgMap["token"]
+		if !ok {
+			errMsg := "token or device_id is missing"
+			ws.WriteMessage(msgType, []byte(errMsg))
+			return
+		}
+		// 验证token是否存在
+		tenantID, err := AuthenticateAndFetchTenantID(token, deviceID)
+		if err != nil {
+			logs.Error("断开连接", err)
+			ws.WriteMessage(msgType, []byte(err.Error()))
+			return
+		}
+		// 验证设备是否存在
+		var DeviceService DeviceService
+		if !DeviceService.IsDeviceExistByTenantIdAndDeviceId(tenantID, msgMap["device_id"]) {
+			// 异常退出并断开连接
+			logs.Error("断开连接", err)
+			// 回复错误信息
+			ws.WriteMessage(msgType, []byte("device is not exist"))
+			return
+		}
 	}
-	// 验证设备是否存在
-	var DeviceService DeviceService
-	if !DeviceService.IsDeviceExistByTenantIdAndDeviceId(tenantID, msgMap["device_id"]) {
-		// 异常退出并断开连接
-		logs.Error("断开连接", err)
-		// 回复错误信息
-		ws.WriteMessage(msgType, []byte("device is not exist"))
-		return
-	}
-	// 发送设备当前数据
+// 发送设备当前数据
 	var TSKVService TSKVService
 	var dataByte []byte
 	data, err := TSKVService.GetCurrentData(msgMap["device_id"], nil)

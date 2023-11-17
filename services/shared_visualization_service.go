@@ -76,3 +76,24 @@ func (*SharedVisualizationService) HasPermissionByDeviceID(share_id string, dash
 	return false
 }
 
+// 根据设备id判断是否有权限
+func (*SharedVisualizationService) isDeviceIDShared(share_id string, device_id string) bool {
+	var sharedVisualization models.SharedVisualization
+	// 查询可视化
+	result := psql.Mydb.Where("share_id = ?", share_id).First(&sharedVisualization)
+	if result.Error != nil {
+		logs.Error(result.Error)
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return false
+		}
+		return false
+	}
+
+	// 判断设备列表中是否包含该设备
+	if strings.Contains(sharedVisualization.DeviceList, device_id) {
+		return true
+	}
+
+	return false
+}
+
