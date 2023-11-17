@@ -2027,3 +2027,16 @@ INSERT INTO "public"."tp_data_cleanup_config" ("id", "cleanup_type", "retention_
 
 --0.5.5
 INSERT INTO public.tp_function (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag, "describe") VALUES('7b30818a-4c58-ae4a-9c13-4a00cf3b61c2', '', NULL, '/notice/index', 'Notice', '/pages/notice/index', 'COMMON.NOTICE', 'flaticon-upload-1', '1', '', 'e9a36fd0-fe8a-896b-713c-c809cef6128e', 980, '', '', NULL);
+
+-- 添加可视化分享列：分享类型
+ALTER TABLE public.shared_visualization ADD share_type varchar NULL;
+COMMENT ON COLUMN public.shared_visualization.share_type IS '分享类型';
+
+-- 添加可视化看板列：分享类型
+ALTER TABLE public.tp_console ADD share_id varchar(36) NULL;
+COMMENT ON COLUMN public.tp_console.share_id IS '分享id';
+
+-- 原有数据更新
+UPDATE public.shared_visualization
+SET share_type = 'dashboard'
+WHERE share_type is null;

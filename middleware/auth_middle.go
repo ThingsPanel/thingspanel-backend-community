@@ -51,6 +51,7 @@ func AuthMiddle() {
 		"api/kv/current":               true,
 		"api/kv/history":               true,
 		"api/device/operating_device":  true,
+		"api/kv/statistic/batch":       true,
 	}
 	var filterLogin = func(ctx *context.Context) {
 		url := strings.TrimLeft(ctx.Input.URL(), "/")
@@ -98,17 +99,45 @@ func AuthMiddle() {
 					return
 				}
 
-				deviceID, _ := bodyData["device_id"].(string)
-				if deviceID == "" {
-					deviceID, _ = bodyData["entity_id"].(string)
-				}
+				// 当批量查询历史数据时
+				if url == "api/kv/statistic/batch" {
+					var deviceIDs []string
+					if data, ok := bodyData["data"].([]interface{}); ok {
+						for _, item := range data {
+							if device, ok := item.(map[string]interface{}); ok {
+								if deviceID, ok := device["device_id"].(string); ok {
+									deviceIDs = append(deviceIDs, deviceID)
+								}
+							}
+						}
+					}
 
+					if len(deviceIDs) == 0{
+						return
+					}
+
+					// 判断有无分享访问权限
+					isShared := SharedVisualizationService.AreDeviceIDsShared(userToken, deviceIDs)
+		logs.Error(url, !isAuthExceptUrl(strings.ToLower(url), noLogin), isShared)
+
+					if !isShared {
+						utils.SuccessWithMessage(401, ErrUnauthorized, (*context2.Context)(ctx))
+						return
+					}
+					return
+				}
+		
 				// 从请求参数中获取可视化id
 				var dashboardID string
 				if url == "api/tp_dashboard/list" || url == "api/console/detail"  {
 					dashboardID, _ = bodyData["id"].(string)
 				} else {
 					dashboardID = ""
+				}
+
+				deviceID, _ := bodyData["device_id"].(string)
+				if deviceID == "" {
+					deviceID, _ = bodyData["entity_id"].(string)
 				}
 
 				// 判断有无分享访问权限

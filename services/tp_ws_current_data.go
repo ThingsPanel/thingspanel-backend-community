@@ -94,7 +94,7 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 	shareId, IsExist := msgMap["shareId"]
 	if IsExist {
 		var sharedVisualizationService SharedVisualizationService
-		isShared := sharedVisualizationService.isDeviceIDShared(shareId, deviceID)
+		isShared := sharedVisualizationService.IsDeviceIDShared(shareId, deviceID)
 		if !isShared {
 			// 异常退出并断开连接
 			logs.Error("断开连接", err)
