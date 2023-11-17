@@ -664,10 +664,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 		}
 	}
 	if deviceModel.Token != "" && deviceModel.Token != device.Token {
-		MqttHttpHost := os.Getenv("MQTT_HTTP_HOST")
-		if MqttHttpHost == "" {
-			MqttHttpHost = viper.GetString("api.http_host")
-		}
+		MqttHttpHost := viper.GetString("api.http_host")
 		logs.Info("token不为空")
 		// 原token不为空的时候，删除原token
 		if device.Token != "" {
@@ -693,6 +690,20 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 			}
 		}
 
+	}
+	// 如果修改了密码，需要认证到gmqtt
+	if deviceModel.Password != "" {
+		if viper.GetString("mqtt_server") == "gmqtt" {
+			MqttHttpHost := viper.GetString("api.http_host")
+			var token string
+			if deviceModel.Token == "" {
+				token = device.Token
+			}
+			_, err := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+token, "{\"password\":\""+deviceModel.Password+"\"}")
+			if err != nil {
+				return err
+			}
+		}
 	}
 	logs.Info("修改sql")
 	result := psql.Mydb.Model(&models.Device{}).Where("id = ?", deviceModel.ID).Updates(models.Device{
