@@ -674,8 +674,11 @@ func (AssetController *AssetController) GetAssetGroupByBusinessId() {
 		return
 	}
 	var AssetService services.AssetService
-	assets, _ := AssetService.PageGetDeviceGroupByBussinessID(listAssetValidate.BusinessId, tenantId, listAssetValidate.CurrentPage, listAssetValidate.PerPage)
-	response.SuccessWithDetailed(200, "success", assets, map[string]string{}, (*context2.Context)(AssetController.Ctx))
+	assets, count := AssetService.PageGetDeviceGroupByBussinessID(listAssetValidate.BusinessId, tenantId, listAssetValidate.CurrentPage, listAssetValidate.PerPage)
+	var data = make(map[string]interface{})
+	data["total"] = count
+	data["data"] = assets
+	response.SuccessWithDetailed(200, "success", data, map[string]string{}, (*context2.Context)(AssetController.Ctx))
 }
 
 // 根据业务id查设备分组下拉
