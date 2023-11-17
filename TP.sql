@@ -1606,7 +1606,6 @@ WHERE id='3f4348b0-f39d-ec42-14b4-623cbeadb12f';
 -- 0.5.0.1
 INSERT INTO public.tp_function (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag) VALUES('e9a36fd0-fe8a-896b-713c-c809cef6128e', '', NULL, '', 'Alarm', '', '告警', 'flaticon2-warning', '0', '', '0', 950, '', '');
 UPDATE public.tp_function SET function_name='', menu_id=NULL, "path"='/alarm/list', "name"='AlarmInformation', component='/pages/alarm/AlarmIndex.vue', title='COMMON.WARNINFO', icon='flaticon2-warning', "type"='1', function_code='', parent_id='e9a36fd0-fe8a-896b-713c-c809cef6128e', sort=999, tenant_id='', sys_flag='' WHERE id='c17a3b9e-bd1f-2f10-4c65-d2ae7030087b';
-UPDATE public.tp_function SET function_name='', menu_id=NULL, "path"='/notice/index', "name"='Notice', component='/pages/notice/index', title='COMMON.NOTICE', icon='flaticon-upload-1', "type"='1', function_code='', parent_id='e9a36fd0-fe8a-896b-713c-c809cef6128e', sort=980, tenant_id='', sys_flag='' WHERE id='7b30818a-4c58-ae4a-9c13-4a00cf3b61c2';
 
 --- add
 CREATE TABLE public.tp_local_vis_plugin (
@@ -2025,3 +2024,6 @@ COMMENT ON COLUMN "public"."tp_data_cleanup_config"."remark" IS '备注';
 
 INSERT INTO "public"."tp_data_cleanup_config" ("id", "cleanup_type", "retention_days", "last_cleanup_time", "last_cleanup_data_time", "remark") VALUES ('a', 1, 30, 0, 0, '');
 INSERT INTO "public"."tp_data_cleanup_config" ("id", "cleanup_type", "retention_days", "last_cleanup_time", "last_cleanup_data_time", "remark") VALUES ('b', 2, 30, 0, 0, '');
+
+--0.5.5
+INSERT INTO public.tp_function (id, function_name, menu_id, "path", "name", component, title, icon, "type", function_code, parent_id, sort, tenant_id, sys_flag, "describe") VALUES('7b30818a-4c58-ae4a-9c13-4a00cf3b61c2', '', NULL, '/notice/index', 'Notice', '/pages/notice/index', 'COMMON.NOTICE', 'flaticon-upload-1', '1', '', 'e9a36fd0-fe8a-896b-713c-c809cef6128e', 980, '', '', NULL);

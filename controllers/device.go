@@ -292,7 +292,7 @@ func (reqDate *DeviceController) UpdateOnly() {
 		}
 	}
 	// 是否密码有更新（根据密码的有无判断认证方式，需要改进）
-	logs.Info("判断密码")
+	logs.Info("判断密码是否被设置为空")
 	if value, ok := reqMap["password"]; ok {
 		//密码为空，表中密码制空，mqtt密码制空
 		if value == "" {

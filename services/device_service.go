@@ -655,8 +655,6 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 			}
 		}
 	}
-	// 	add: http://127.0.0.1:8083/v1/accounts/
-	//  delete: http://127.0.0.1:8083/v1/accounts/
 	// 判断是否是device_type变更
 	if deviceModel.DeviceType != "" && deviceModel.DeviceType != device.DeviceType {
 		// 清理设备id关联的ts_kv_latest数据
@@ -689,7 +687,7 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 			password = device.Password
 		}
 		if viper.GetString("mqtt_server") == "gmqtt" {
-			_, err := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+deviceModel.Token, "{\"password\":\""+password+"\"}")
+			_, err := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+device.Token, "{\"password\":\""+password+"\"}")
 			if err != nil {
 				return err
 			}
