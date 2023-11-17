@@ -38,13 +38,19 @@ func SendEmailMessage(message string, subject string, tenantId string, to ...str
 	m.SetHeader("Subject", subject)
 
 	// 记录数据库
-	// TODO: 调试接口不需要记录数据库
 	if err := d.DialAndSend(m); err != nil {
 		logs.Error(err)
-		models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendFail, models.NotificationConfigType_Email, tenantId)
+		// 调试时不记录数据库
+		if subject != "Debug!" {
+			models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendFail, models.NotificationConfigType_Email, tenantId)
+		}
 		return err
 	} else {
-		models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendSuccess, models.NotificationConfigType_Email, tenantId)
+		// 调试时不记录数据库
+		if subject != "Debug!" {
+			models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendSuccess, models.NotificationConfigType_Email, tenantId)
+
+		}
 	}
 	return nil
 }
