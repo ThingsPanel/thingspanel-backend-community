@@ -692,12 +692,15 @@ func (*DeviceService) Edit(deviceModel valid.EditDevice) error {
 
 	}
 	// 如果修改了密码，需要认证到gmqtt
+	logs.Info("判断是否修改了密码")
 	if deviceModel.Password != "" {
 		if viper.GetString("mqtt_server") == "gmqtt" {
 			MqttHttpHost := viper.GetString("api.http_host")
 			var token string
 			if deviceModel.Token == "" {
 				token = device.Token
+			} else {
+				token = deviceModel.Token
 			}
 			_, err := tphttp.Post("http://"+MqttHttpHost+"/v1/accounts/"+token, "{\"password\":\""+deviceModel.Password+"\"}")
 			if err != nil {
