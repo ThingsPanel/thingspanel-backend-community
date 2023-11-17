@@ -55,6 +55,9 @@ func AuthMiddle() {
 	var filterLogin = func(ctx *context.Context) {
 		url := strings.TrimLeft(ctx.Input.URL(), "/")
 		if !isAuthExceptUrl(strings.ToLower(url), noLogin) {
+			if url == "ws/device/current"{
+				return
+			}
 			//获取TOKEN
 			userToken, tokenType, err := GetToken(ctx)
 			if err != nil {
