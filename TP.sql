@@ -2040,3 +2040,4 @@ COMMENT ON COLUMN public.tp_console.share_id IS '分享id';
 UPDATE public.shared_visualization
 SET share_type = 'dashboard'
 WHERE share_type is null;
+
