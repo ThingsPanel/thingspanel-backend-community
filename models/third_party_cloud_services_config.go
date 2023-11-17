@@ -6,7 +6,7 @@ import (
 
 const (
 	NotificationConfigType_Message          = 1 // 短信告警信息
-	NotificationConfigType_Email            = 2
+	NotificationConfigType_Email            = 2 // 邮件告警服务
 	NotificationConfigType_VerificationCode = 3 // 短信验证码
 )
 
@@ -35,8 +35,8 @@ type CloudServicesConfig_Ali struct {
 }
 
 type CloudServicesConfig_Email struct {
-	Host         string `json:"host" valid:"Required"`
-	Port         int    `json:"port" valid:"Required"`
+	Host         string `json:"host" valid:"Required"` // 如smtp.163.com
+	Port         int    `json:"port" valid:"Required"` // 如25
 	FromPassword string `json:"from_password" valid:"Required"`
 	FromEmail    string `json:"from_email" valid:"Required"`
 	SSL          bool   `json:"ssl" valid:"Required"`

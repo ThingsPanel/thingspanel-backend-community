@@ -11,27 +11,29 @@ import (
 )
 
 func SendEmailMessage(message string, subject string, tenantId string, to ...string) (err error) {
-
+	var NetEase models.CloudServicesConfig_Email
 	c, err := models.NotificationConfigByNoticeTypeAndStatus(models.NotificationConfigType_Email, models.NotificationSwitch_Open)
-
-	if len(c.Config) == 0 {
-		return fmt.Errorf("无可用配置")
+	if err != nil {
+		return err
+	} else if len(c.Config) == 0 {
+		return fmt.Errorf("查询不到配置，请检查配置是否保存")
 	}
 
-	var NetEase models.CloudServicesConfig_Email
-
-	if err == nil {
-		json.Unmarshal([]byte(c.Config), &NetEase)
+	err = json.Unmarshal([]byte(c.Config), &NetEase)
+	if err != nil {
+		return err
 	}
 
 	d := gomail.NewDialer(NetEase.Host, NetEase.Port, NetEase.FromEmail, NetEase.FromPassword)
+	if NetEase.SSL {
+		d.TLSConfig = &tls.Config{InsecureSkipVerify: NetEase.SSL}
+	}
 
-	d.TLSConfig = &tls.Config{InsecureSkipVerify: NetEase.SSL}
 	m := gomail.NewMessage()
 	m.SetHeader("From", NetEase.FromEmail)
 
 	m.SetHeader("To", to...)
-	m.SetBody("text/html", message)
+	m.SetBody("text/plain", message)
 	m.SetHeader("Subject", subject)
 	// 记录数据库
 
