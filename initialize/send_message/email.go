@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/beego/beego/v2/core/logs"
 	"gopkg.in/gomail.v2"
 )
 
+// 发送邮件
 func SendEmailMessage(message string, subject string, tenantId string, to ...string) (err error) {
 	var NetEase models.CloudServicesConfig_Email
 	c, err := models.NotificationConfigByNoticeTypeAndStatus(models.NotificationConfigType_Email, models.NotificationSwitch_Open)
@@ -31,14 +33,14 @@ func SendEmailMessage(message string, subject string, tenantId string, to ...str
 
 	m := gomail.NewMessage()
 	m.SetHeader("From", NetEase.FromEmail)
-
 	m.SetHeader("To", to...)
 	m.SetBody("text/plain", message)
 	m.SetHeader("Subject", subject)
+
 	// 记录数据库
-
+	// TODO: 调试接口不需要记录数据库
 	if err := d.DialAndSend(m); err != nil {
-
+		logs.Error(err)
 		models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendFail, models.NotificationConfigType_Email, tenantId)
 		return err
 	} else {

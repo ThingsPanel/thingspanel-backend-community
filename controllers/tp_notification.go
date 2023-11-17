@@ -420,7 +420,7 @@ func (c *TpNotification) SendEmail() {
 		return
 	}
 
-	err = sendmessage.SendEmailMessage(input.Content, "极益科技邮件", tenantId, input.Email)
+	err = sendmessage.SendEmailMessage(input.Content, "Debug!", tenantId, input.Email)
 
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
