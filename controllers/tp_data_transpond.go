@@ -67,7 +67,7 @@ func (c *TpDataTransponController) List() {
 	}
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -96,7 +96,7 @@ func (c *TpDataTransponController) Add() {
 	// 根据 Authorization 获取租户ID
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -182,7 +182,7 @@ func (c *TpDataTransponController) Add() {
 
 		mqttInfoJson, err := json.Marshal(mqttInfo)
 		if err != nil {
-			response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+			response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 
 		}
 
@@ -198,7 +198,7 @@ func (c *TpDataTransponController) Add() {
 	var create services.TpDataTranspondService
 
 	if ok := create.AddTpDataTranspond(dataTranspond, dataTranspondDetail, dataTranspondTarget); !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "创建转发规则失败", (*context2.Context)(c.Ctx))
 	}
 
 	response.Success(200, (*context2.Context)(c.Ctx))
@@ -215,7 +215,7 @@ func (c *TpDataTransponController) Detail() {
 	// 根据 Authorization 获取租户ID
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -223,21 +223,21 @@ func (c *TpDataTransponController) Detail() {
 	dataTranspond, e := find.GetDataTranspondByDataTranspondId(reqData.DataTranspondId)
 	// 如果数据库查询失败 或 租户ID不符，返回错误
 	if !e || tenantId != dataTranspond.TenantId {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "未找到对应的转发信息或租户ID不匹配", (*context2.Context)(c.Ctx))
 		return
 	}
 
 	// 查询详情表
 	dataTranspondDetail, e := find.GetDataTranspondDetailByDataTranspondId(reqData.DataTranspondId)
 	if !e {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "未找到对应的转发详情信息", (*context2.Context)(c.Ctx))
 		return
 	}
 
 	// 查询数据目标表
 	dataTranspondTarget, e := find.GetDataTranspondTargetByDataTranspondId(reqData.DataTranspondId)
 	if !e {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "未找到转发目标信息", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -263,7 +263,7 @@ func (c *TpDataTransponController) Detail() {
 			var d DataTransponTargetInfoMQTT
 			err := json.Unmarshal([]byte(v.Target), &d)
 			if err != nil {
-				response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+				response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 				return
 			}
 			targetInfo.MQTT = d
@@ -275,7 +275,7 @@ func (c *TpDataTransponController) Detail() {
 
 	wd, err := s.GetTpWarningStrategyDetail(dataTranspond.WarningStrategyId)
 	if err != nil {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -303,7 +303,7 @@ func (c *TpDataTransponController) Delete() {
 	}
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -311,7 +311,7 @@ func (c *TpDataTransponController) Delete() {
 	dataTranspond, e := operate.GetDataTranspondByDataTranspondId(reqData.DataTranspondId)
 	// 如果数据库查询失败 或 租户ID不符，返回错误
 	if !e || tenantId != dataTranspond.TenantId {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "未找到对应的转发信息或租户ID不匹配", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -331,7 +331,7 @@ func (c *TpDataTransponController) Delete() {
 	operate.DeleteCacheByDataTranspondId(reqData.DataTranspondId)
 	res := operate.DeletaByDataTranspondId(reqData.DataTranspondId)
 	if !res {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "数据删除失败", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -349,7 +349,7 @@ func (c *TpDataTransponController) Switch() {
 	// 根据 Authorization 获取租户ID
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -357,7 +357,7 @@ func (c *TpDataTransponController) Switch() {
 	dataTranspond, e := find.GetDataTranspondByDataTranspondId(reqData.DataTranspondId)
 	// 如果数据库查询失败 或 租户ID不符，返回错误
 	if !e || tenantId != dataTranspond.TenantId {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "未找到对应的转发信息或租户ID不匹配", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -370,7 +370,7 @@ func (c *TpDataTransponController) Switch() {
 	// 不一致，则修改数据库的状态
 	var update services.TpDataTranspondService
 	if ok := update.UpdateDataTranspondStatusByDataTranspondId(reqData.DataTranspondId, reqData.Switch); !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "修改数据库失败", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -387,14 +387,14 @@ func (c *TpDataTransponController) Edit() {
 	}
 	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
 	if !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
 		return
 	}
 	var operate services.TpDataTranspondService
 	dataTranspond, e := operate.GetDataTranspondByDataTranspondId(reqData.Id)
 	// 如果数据库查询失败 或 租户ID不符，返回错误
 	if !e || tenantId != dataTranspond.TenantId {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "未找到对应的转发信息或租户ID不匹配", (*context2.Context)(c.Ctx))
 		return
 	}
 	operate.DeleteCacheByDataTranspondId(reqData.Id)
@@ -450,13 +450,13 @@ func (c *TpDataTransponController) Edit() {
 
 	// 更新Transpond表，
 	if ok := operate.UpdateDataTranspond(updateData); !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "更新Transpond表失败", (*context2.Context)(c.Ctx))
 		return
 	}
 
 	// 删除Detail,Target表，
 	if ok := operate.DeletaDeviceTargetByDataTranspondId(reqData.Id); !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "删除Detail,Target表失败", (*context2.Context)(c.Ctx))
 		return
 	}
 
@@ -507,7 +507,7 @@ func (c *TpDataTransponController) Edit() {
 
 		mqttInfoJson, err := json.Marshal(mqttInfo)
 		if err != nil {
-			response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+			response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 			return
 		}
 
@@ -521,7 +521,7 @@ func (c *TpDataTransponController) Edit() {
 	}
 
 	if ok := operate.AddTpDataTranspondForEdit(dataTranspondDetail, dataTranspondTarget); !ok {
-		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		response.SuccessWithMessage(400, "创建转发详情或转发目标失败", (*context2.Context)(c.Ctx))
 		return
 	}
 
