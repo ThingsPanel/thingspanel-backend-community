@@ -390,10 +390,14 @@ func (c *TpNotification) ConfigSave() {
 }
 
 func (c *TpNotification) SendEmail() {
-	// TODO 限制超级管理员
 	var input struct {
-		Email   string `json:"email" valid:"Required"`
-		Content string `json:"content" valid:"Required"`
+		Email        string `json:"email" valid:"Required"`
+		Content      string `json:"content" valid:"Required"`
+		Host         string `json:"host" valid:"Required"`
+		Port         int    `json:"port" valid:"Required"`
+		FromPassword string `json:"from_password" valid:"Required"`
+		FromEmail    string `json:"from_email" valid:"Required"`
+		SSL          bool   `json:"ssl" valid:"Required"`
 	}
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &input)
 
@@ -413,14 +417,8 @@ func (c *TpNotification) SendEmail() {
 		return
 	}
 
-	// 获取用户租户id
-	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	if !ok {
-		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
-		return
-	}
-
-	err = sendmessage.SendEmailMessage(input.Content, "Debug!", tenantId, input.Email)
+	err = sendmessage.SendEmailMessageForDebug(
+		input.Content, input.Host, input.Port, input.FromPassword, input.Email, input.Email, input.SSL)
 
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))

@@ -40,17 +40,28 @@ func SendEmailMessage(message string, subject string, tenantId string, to ...str
 	// 记录数据库
 	if err := d.DialAndSend(m); err != nil {
 		logs.Error(err)
-		// 调试时不记录数据库
-		if subject != "Debug!" {
-			models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendFail, models.NotificationConfigType_Email, tenantId)
-		}
+		models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendFail, models.NotificationConfigType_Email, tenantId)
 		return err
 	} else {
-		// 调试时不记录数据库
-		if subject != "Debug!" {
-			models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendSuccess, models.NotificationConfigType_Email, tenantId)
+		models.SaveNotificationHistory(utils.GetUuid(), message, to[0], models.NotificationSendSuccess, models.NotificationConfigType_Email, tenantId)
+	}
+	return nil
+}
 
-		}
+// 发送调试邮件
+func SendEmailMessageForDebug(message, host string, port int, fromPassword, fromEmail, toEmail string, ssl bool) (err error) {
+	d := gomail.NewDialer(host, port, fromEmail, fromPassword)
+	if ssl {
+		d.TLSConfig = &tls.Config{InsecureSkipVerify: ssl}
+	}
+	m := gomail.NewMessage()
+	m.SetHeader("From", fromEmail)
+	m.SetHeader("To", toEmail)
+	m.SetBody("text/plain", message)
+	m.SetHeader("Subject", "Debug!")
+	if err := d.DialAndSend(m); err != nil {
+		logs.Error(err)
+		return err
 	}
 	return nil
 }
