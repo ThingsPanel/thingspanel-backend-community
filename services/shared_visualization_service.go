@@ -3,6 +3,7 @@ package services
 import (
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/models"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -77,7 +78,7 @@ func (*SharedVisualizationService) HasPermissionByDeviceID(share_id string, dash
 }
 
 // 根据设备id判断是否有权限
-func (*SharedVisualizationService) isDeviceIDShared(share_id string, device_id string) bool {
+func (*SharedVisualizationService) IsDeviceIDShared(share_id string, device_id string) bool {
 	var sharedVisualization models.SharedVisualization
 	// 查询可视化
 	result := psql.Mydb.Where("share_id = ?", share_id).First(&sharedVisualization)
@@ -95,5 +96,38 @@ func (*SharedVisualizationService) isDeviceIDShared(share_id string, device_id s
 	}
 
 	return false
+}
+
+// 根据设备id列表判断是否所有设备都有权限
+func (*SharedVisualizationService) AreDeviceIDsShared(share_id string, device_ids []string) bool {
+    var sharedVisualization models.SharedVisualization
+    // 查询可视化
+    result := psql.Mydb.Where("share_id = ?", share_id).First(&sharedVisualization)
+    if result.Error != nil {
+        logs.Error(result.Error)
+        if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+            return false
+        }
+        return false
+    }
+
+	var deviceList []string
+	err := json.Unmarshal([]byte(sharedVisualization.DeviceList), &deviceList)
+	if err != nil {
+		logs.Error("Unmarshal error")
+		return false
+	}
+    // 将查询出的设备列表转换为 Set
+    deviceSet := make(map[string]struct{})
+    for _, id := range deviceList {
+        deviceSet[id] = struct{}{}
+    }
+    // 检查每个输入的设备 ID 是否在 Set 中
+    for _, device_id := range device_ids {
+        if _, exists := deviceSet[device_id]; !exists {
+            return false
+        }
+    }
+    return true
 }
 
