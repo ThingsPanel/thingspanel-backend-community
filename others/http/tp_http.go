@@ -6,8 +6,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/spf13/viper"
 )
 
 func Post(targetUrl string, payload string) (*http.Response, error) {
@@ -21,15 +23,31 @@ func Post(targetUrl string, payload string) (*http.Response, error) {
 }
 
 func PostWithDeviceInfo(targetUrl, payload, deviceId, accessToken string) (*http.Response, error) {
-	req, _ := http.NewRequest("POST", targetUrl, strings.NewReader(payload))
+
+	timeout := time.Duration(viper.GetInt("data_transpond.http_timeout")) * time.Second
+	if timeout == 0 {
+		timeout = 3 * time.Second
+	}
+
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	req, err := http.NewRequest("POST", targetUrl, strings.NewReader(payload))
+	if err != nil {
+		logs.Error(err.Error())
+		return nil, err
+	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("DeviceID", deviceId)
 	req.Header.Add("AccessToken", accessToken)
-	response, err := http.DefaultClient.Do(req)
+	response, err := client.Do(req)
 	if err != nil {
-		logs.Info(err.Error())
+		logs.Error(err.Error())
+		return nil, err
 	}
-	return response, err
+
+	return response, nil
 }
 
 func Delete(targetUrl string, payload string) (*http.Response, error) {
