@@ -449,13 +449,9 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						assetInfo, _ := AssetServices.GetAssetById(deviceData.AssetID)
 						// 查询Business.Name
 						businessName, _, _ := BusinessServices.GetBusinessById(assetInfo.BusinessID)
-						warnContentPlus += "("
-						warnContentPlus += businessName.Name
-						warnContentPlus += "项目"
-						warnContentPlus += assetGroup
-						warnContentPlus += ")"
-
 						// 组装到报警信息
+						warnContentPlus += fmt.Sprintf("(%s项目%s下的%s设备上报)", businessName.Name, assetGroup, deviceData.Name)
+						// 填充到WarningContent
 						warningInformation.WarningContent += warnContentPlus
 
 						warningInformation, err := warningInformationService.AddTpWarningInformation(warningInformation)
