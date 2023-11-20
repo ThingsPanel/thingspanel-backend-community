@@ -1068,6 +1068,7 @@ func (*AssetService) GetAssetFamilyInfoById(id string) string {
 		return ""
 	}
 	var assetNames string
+	// 反向组装，将父级放在前面
 	for i := rowsAffected - 1; i >= 0; i-- {
 		assetNames += data[i].Name
 		if i == (rowsAffected - 1) {
