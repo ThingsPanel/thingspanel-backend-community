@@ -77,3 +77,7 @@ openapi:
   httpport: 9990
   sign : false
   timestamp: 5   # X-OpenAPI-Timestamp 过期时间（分钟）
+
+
+data_transpond:
+  http_timeout: 3 #配置数据转发的http超时时间（秒）
