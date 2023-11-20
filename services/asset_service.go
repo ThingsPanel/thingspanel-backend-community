@@ -1028,3 +1028,53 @@ func (*AssetService) GetAssetById(id string) (*models.Asset, int64) {
 	}
 	return &asset, result.RowsAffected
 }
+
+// 根据id获取所有父级数据
+func GetAssetFamilyById(id string) ([]models.Asset, int64) {
+	var asset []models.Asset
+	sqlWhere := `WITH RECURSIVE parent_chain AS (
+		SELECT
+		  id,
+		  parent_id,
+		  name,
+			  tier
+		FROM
+		  asset
+		WHERE
+		  id = ?
+		UNION ALL
+		SELECT
+		  yt.id,
+		  yt.parent_id,
+		  yt.name,
+			  yt.tier
+		FROM
+		  asset yt
+		INNER JOIN
+		  parent_chain pc ON yt.id = pc.parent_id
+	  )
+	  SELECT * FROM parent_chain`
+	result := psql.Mydb.Raw(sqlWhere, id).Scan(&asset)
+	if result.Error != nil {
+		return nil, 0
+	}
+	return asset, result.RowsAffected
+}
+
+// 根据GetAssetFamilyById的数据，用于组装告警信息
+func (*AssetService) GetAssetFamilyInfoById(id string) string {
+	data, rowsAffected := GetAssetFamilyById(id)
+	if rowsAffected == 0 {
+		return ""
+	}
+	var assetNames string
+	for i := rowsAffected - 1; i >= 0; i-- {
+		assetNames += data[i].Name
+		if i == (rowsAffected - 1) {
+			assetNames += "分组/"
+		} else {
+			assetNames += "子分组/"
+		}
+	}
+	return assetNames
+}

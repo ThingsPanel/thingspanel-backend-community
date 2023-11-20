@@ -302,8 +302,11 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		return "", result.Error
 	}
 	var Device DeviceService
+	var AssetServices AssetService
+	var BusinessServices BusinessService
 	for _, automationAction := range automationActions {
 		var automationLogDetail models.TpAutomationLogDetail
+		deviceData, _ := Device.Token(automationAction.DeviceId)
 		if automationAction.ActionType == "1" {
 			automationLogDetail.ActionType = "1"
 			automationLogDetail.TargetId = automationAction.DeviceId
@@ -368,7 +371,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						automationLogDetail.ProcessDescription = "instruct:" + err.Error()
 						automationLogDetail.ProcessResult = "2"
 					} else {
-						deviceData, _ := Device.Token(automationAction.DeviceId)
+
 						paramsByte, _ := json.Marshal(instructMap["params"])
 						err = Device.SendCommandToDevice(deviceData, deviceData.ID, instructMap["method"].(string), paramsByte, "场景联动触发", "", "")
 						if err != nil {
@@ -386,7 +389,6 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						automationLogDetail.ProcessDescription = "instruct:" + err.Error()
 						automationLogDetail.ProcessResult = "2"
 					} else {
-						deviceData, _ := Device.Token(automationAction.DeviceId)
 						err := Device.SendMessage(instructByte, deviceData)
 						if err != nil {
 							logs.Error(err.Error())
@@ -439,6 +441,23 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						}
 						//记录告警日志
 						var warningInformationService TpWarningInformationService
+
+						var warnContentPlus string
+						// 获取类似“xx分组/子分组/”的字符串
+						assetGroup := AssetServices.GetAssetFamilyInfoById(deviceData.AssetID)
+						// 获取BusinessID
+						assetInfo, _ := AssetServices.GetAssetById(deviceData.AssetID)
+						// 查询Business.Name
+						businessName, _, _ := BusinessServices.GetBusinessById(assetInfo.BusinessID)
+						warnContentPlus += "("
+						warnContentPlus += businessName.Name
+						warnContentPlus += "项目"
+						warnContentPlus += assetGroup
+						warnContentPlus += ")"
+
+						// 组装到报警信息
+						warningInformation.WarningContent += warnContentPlus
+
 						warningInformation, err := warningInformationService.AddTpWarningInformation(warningInformation)
 						if err != nil {
 							logs.Error(err.Error())
