@@ -38,6 +38,7 @@ type DeviceModelPaginationValidate struct {
 	ModelType   string `json:"model_type" alias:"插件类型" valid:"MaxSize(36)"`
 	Id          string `json:"id" alias:"id" valid:"MaxSize(36)"`
 	Flag        int    `json:"flag" alias:"标志" valid:"Max(36)"`
+	ModelName   string `json:"model_name" alias:"插件名称" valid:"MaxSize(99)"`
 }
 
 type RspDeviceModelPaginationValidate struct {

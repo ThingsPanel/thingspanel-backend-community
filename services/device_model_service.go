@@ -43,6 +43,9 @@ func (*DeviceModelService) GetDeviceModelList(PaginationValidate valid.DeviceMod
 	if PaginationValidate.Id != "" {
 		db.Where("id = ?", PaginationValidate.Id)
 	}
+	if PaginationValidate.ModelName != "" {
+		db.Where("model_name like ?", "%"+PaginationValidate.ModelName+"%")
+	}
 	var count int64
 	db.Count(&count)
 	result := db.Limit(PaginationValidate.PerPage).Offset(offset).Order("created_at desc").Find(&DeviceModels)
