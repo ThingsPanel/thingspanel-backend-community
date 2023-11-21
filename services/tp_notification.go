@@ -198,7 +198,7 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 			for _, ev := range emailList {
 				sendmessage.SendEmailMessage(title, content, tenantId, ev)
 			}
-		case models.NotificationType_Webhook:
+		case models.NotificationType_Webhook: // TODO: webhook，发送参数自己定义，一般是告警信息的json，包含告警级别，告警内容，告警时间，告警详情等
 			// 解析config
 			nConfig := make(map[string]string)
 			err := json.Unmarshal([]byte(v.NotificationConfig), &nConfig)
@@ -206,7 +206,8 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 				continue
 			}
 			_ = strings.Split(nConfig["webhook"], ",")
-
+		// TODO: 企业微信群机器人/钉钉群机器人/飞书群机器人
+		// 需要确定这些机器人的接口，以及接口的参数
 		default:
 
 			return
