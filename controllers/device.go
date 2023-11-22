@@ -1233,3 +1233,22 @@ func (c *DeviceController) DeviceTenantCount() {
 	return
 
 }
+
+// 操作设备“在/离线”状态
+func (c *DeviceController) DeviceOnlineStatus() {
+	var inputData struct {
+		ID     string `json:"id" alias:"设备ID" valid:"Required;MaxSize(36)"`
+		Status string `json:"status" alias:"设备状态" valid:"Required"`
+	}
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &inputData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	var s services.DeviceService
+	err := s.OperateDeviceStatus(inputData.ID, inputData.Status)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+	response.Success(200, (*context2.Context)(c.Ctx))
+}
