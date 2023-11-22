@@ -1741,8 +1741,7 @@ func (*DeviceService) OperateDeviceStatus(deviceId, deviceStatus string) error {
 		return result.Error
 	}
 
-	// 删除Redis
-	err := redis.DelKey("status" + deviceId)
+	err := redis.SetStr("status"+deviceId, deviceStatus, 0)
 	if err != nil {
 		return err
 	}
