@@ -76,7 +76,7 @@ func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) er
 	// 查询Business.Name
 	businessName, _, _ := BusinessServices.GetBusinessById(assetInfo.BusinessID)
 	// 组装到报警信息
-	warnContentPlus = fmt.Sprintf("(%s项目%s下的%s设备上报)；", businessName.Name, assetGroup, deviceData.Name)
+	warnContentPlus = fmt.Sprintf("(%s项目%s下的%s设备触发)；", businessName.Name, assetGroup, deviceData.Name)
 
 	var logMessage string
 	if flag == "1" {
@@ -271,7 +271,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 			// 查询Business.Name
 			businessName, _, _ := BusinessServices.GetBusinessById(assetInfo.BusinessID)
 			// 组装到报警信息
-			warnContentPlus = fmt.Sprintf("(%s项目%s下的%s设备上报)；", businessName.Name, assetGroup, deviceData.Name)
+			warnContentPlus = fmt.Sprintf("(%s项目%s下的%s设备触发)；", businessName.Name, assetGroup, deviceData.Name)
 			// 填充到logMessage
 			logMessage += warnContentPlus
 			err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage, warnContentPlus)
