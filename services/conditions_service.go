@@ -247,7 +247,6 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 			var warnContentPlus string
 			var Device DeviceService
 			deviceData, _ := Device.Token(deviceId)
-			fmt.Println("??", deviceData)
 			// 获取类似“xx分组/子分组/”的字符串
 			assetGroup := AssetServices.GetAssetFamilyInfoById(deviceData.AssetID)
 			// 获取BusinessID
@@ -256,7 +255,6 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 			businessName, _, _ := BusinessServices.GetBusinessById(assetInfo.BusinessID)
 			// 组装到报警信息
 			warnContentPlus = fmt.Sprintf("(%s项目%s下的%s设备上报)", businessName.Name, assetGroup, deviceData.Name)
-			fmt.Println("warnContentPlus", warnContentPlus)
 			// 填充到logMessage
 			logMessage += warnContentPlus
 			err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage, warnContentPlus)
