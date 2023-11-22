@@ -1244,8 +1244,14 @@ func (c *DeviceController) DeviceOnlineStatus() {
 		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
 		return
 	}
+	//获取租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
 	var s services.DeviceService
-	err := s.OperateDeviceStatus(inputData.ID, inputData.Status)
+	err := s.OperateDeviceStatus(inputData.ID, inputData.Status, tenantId)
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
 		return

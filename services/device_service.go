@@ -1728,17 +1728,46 @@ func (*DeviceService) GetTenantDeviceCount(tenantId string, deviceType string) m
 	}
 }
 
-func (*DeviceService) OperateDeviceStatus(deviceId, deviceStatus string) error {
+func (*DeviceService) OperateDeviceStatus(deviceId, deviceStatus, tenantId string) error {
 	if deviceStatus != "0" && deviceStatus != "1" {
 		return fmt.Errorf("设备状态必须为0或1,当前设置为:%s", deviceStatus)
 	}
 	// 修改数据库中的设备状态
-	result := psql.Mydb.Model(&models.TSKVLatest{}).
+
+	var ls models.TSKVLatest
+	record := psql.Mydb.
+		Model(&models.TSKVLatest{}).
 		Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).
-		Updates(models.TSKVLatest{StrV: deviceStatus, TS: utils.GetMicrosecondTimestamp()})
-	if result.Error != nil {
-		logs.Error(result.Error)
-		return result.Error
+		First(&ls)
+
+	if record.Error != nil {
+		return record.Error
+	}
+
+	// 无记录，创建
+	if record.RowsAffected == 0 {
+		d := models.TSKVLatest{
+			EntityType: "DEVICE",
+			EntityID:   deviceId,
+			Key:        "SYS_ONLINE",
+			TS:         utils.GetMicrosecondTimestamp(),
+			StrV:       deviceStatus,
+			TenantID:   tenantId,
+		}
+		create := psql.Mydb.Create(&d)
+		if create.Error != nil {
+			logs.Error(create.Error)
+			return create.Error
+		}
+	} else {
+		// 有记录，修改
+		update := psql.Mydb.Model(&models.TSKVLatest{}).
+			Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).
+			Updates(models.TSKVLatest{StrV: deviceStatus, TS: utils.GetMicrosecondTimestamp()})
+		if update.Error != nil {
+			logs.Error(update.Error)
+			return update.Error
+		}
 	}
 
 	err := redis.SetStr("status"+deviceId, deviceStatus, 0)
