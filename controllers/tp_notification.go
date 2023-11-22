@@ -418,7 +418,7 @@ func (c *TpNotification) SendEmail() {
 	}
 
 	err = sendmessage.SendEmailMessageForDebug(
-		input.Content, input.Host, input.Port, input.FromPassword, input.Email, input.Email, input.SSL)
+		input.Content, input.Host, input.Port, input.FromPassword, input.FromEmail, input.Email, input.SSL)
 
 	if err != nil {
 		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
