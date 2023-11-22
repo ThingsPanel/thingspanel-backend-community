@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"ThingsPanel-Go/initialize/psql"
+	"ThingsPanel-Go/initialize/redis"
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	tphttp "ThingsPanel-Go/others/http"
@@ -405,6 +406,11 @@ func (reqDate *DeviceController) UpdateOnly() {
 			if err != nil {
 				response.SuccessWithMessage(400, err.Error(), (*context2.Context)(reqDate.Ctx))
 			}
+		}
+		// 更新缓存
+		err := redis.SetRedisForJsondata(addDeviceValidate.ID, deviceDash, 0)
+		if err != nil {
+			logs.Error(err.Error())
 		}
 		response.SuccessWithDetailed(200, "success", deviceDash, map[string]string{}, (*context2.Context)(reqDate.Ctx))
 	} else {
