@@ -1740,10 +1740,6 @@ func (*DeviceService) OperateDeviceStatus(deviceId, deviceStatus, tenantId strin
 		Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).
 		First(&ls)
 
-	if record.Error != nil {
-		return record.Error
-	}
-
 	// 无记录，创建
 	if record.RowsAffected == 0 {
 		d := models.TSKVLatest{
