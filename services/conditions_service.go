@@ -72,7 +72,7 @@ func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) er
 	logs.Info("自动化-设备条件：", automationConditions)
 	for _, automationCondition := range automationConditions {
 		var conditionsService ConditionsService
-		err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage)
+		err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage, "")
 		if err != nil {
 			logs.Error(err.Error())
 		}
@@ -242,7 +242,24 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 		if isPass {
 			passedAutomationList = append(passedAutomationList, automationCondition.AutomationId)
 			var conditionsService ConditionsService
-			err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage)
+			var AssetServices AssetService
+			var BusinessServices BusinessService
+			var warnContentPlus string
+			var Device DeviceService
+			deviceData, _ := Device.Token(deviceId)
+			fmt.Println("??", deviceData)
+			// 获取类似“xx分组/子分组/”的字符串
+			assetGroup := AssetServices.GetAssetFamilyInfoById(deviceData.AssetID)
+			// 获取BusinessID
+			assetInfo, _ := AssetServices.GetAssetById(deviceData.AssetID)
+			// 查询Business.Name
+			businessName, _, _ := BusinessServices.GetBusinessById(assetInfo.BusinessID)
+			// 组装到报警信息
+			warnContentPlus = fmt.Sprintf("(%s项目%s下的%s设备上报)", businessName.Name, assetGroup, deviceData.Name)
+			fmt.Println("warnContentPlus", warnContentPlus)
+			// 填充到logMessage
+			logMessage += warnContentPlus
+			err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage, warnContentPlus)
 			if err != nil {
 				logs.Error(err.Error())
 			}
@@ -254,7 +271,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 }
 
 // 记录日志，调用执行action的函数
-func (*ConditionsService) WriteLogAndExecuteActionFunc(automationId string, logMessage string) error {
+func (*ConditionsService) WriteLogAndExecuteActionFunc(automationId string, logMessage, assetBusinessInfo string) error {
 	logMessage += "条件通过；"
 	logs.Info("成功触发自动化")
 	//登记日志
@@ -271,7 +288,7 @@ func (*ConditionsService) WriteLogAndExecuteActionFunc(automationId string, logM
 	} else {
 		automationLogMap["Id"] = automationLog.Id
 		var conditionsService ConditionsService
-		msg, err := conditionsService.ExecuteAutomationAction(automationId, automationLog.Id)
+		msg, err := conditionsService.ExecuteAutomationAction(automationId, automationLog.Id, assetBusinessInfo)
 		if err != nil {
 			//执行失败，记录日志
 			logs.Error(err.Error())
@@ -293,7 +310,7 @@ func (*ConditionsService) WriteLogAndExecuteActionFunc(automationId string, logM
 }
 
 // 执行自动化动作
-func (*ConditionsService) ExecuteAutomationAction(automationId string, automationLogId string) (string, error) {
+func (*ConditionsService) ExecuteAutomationAction(automationId, automationLogId, assetBusinessInfo string) (string, error) {
 	var automationActions []models.TpAutomationAction
 	var logMessage string
 	result := psql.Mydb.Model(&models.TpAutomationAction{}).Where("automation_id = ?", automationId).Find(&automationActions)
@@ -302,8 +319,6 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 		return "", result.Error
 	}
 	var Device DeviceService
-	var AssetServices AssetService
-	var BusinessServices BusinessService
 	for _, automationAction := range automationActions {
 		var automationLogDetail models.TpAutomationLogDetail
 		deviceData, _ := Device.Token(automationAction.DeviceId)
@@ -441,19 +456,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId string, automatio
 						}
 						//记录告警日志
 						var warningInformationService TpWarningInformationService
-
-						var warnContentPlus string
-						// 获取类似“xx分组/子分组/”的字符串
-						assetGroup := AssetServices.GetAssetFamilyInfoById(deviceData.AssetID)
-						// 获取BusinessID
-						assetInfo, _ := AssetServices.GetAssetById(deviceData.AssetID)
-						// 查询Business.Name
-						businessName, _, _ := BusinessServices.GetBusinessById(assetInfo.BusinessID)
-						// 组装到报警信息
-						warnContentPlus += fmt.Sprintf("(%s项目%s下的%s设备上报)", businessName.Name, assetGroup, deviceData.Name)
-						// 填充到WarningContent
-						warningInformation.WarningContent += warnContentPlus
-
+						warningInformation.WarningDescription += assetBusinessInfo
 						warningInformation, err := warningInformationService.AddTpWarningInformation(warningInformation)
 						if err != nil {
 							logs.Error(err.Error())
