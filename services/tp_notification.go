@@ -4,6 +4,7 @@ import (
 	"ThingsPanel-Go/initialize/psql"
 	sendmessage "ThingsPanel-Go/initialize/send_message"
 	"ThingsPanel-Go/models"
+	tphttp "ThingsPanel-Go/others/http"
 	"ThingsPanel-Go/utils"
 	"encoding/json"
 	"strings"
@@ -205,7 +206,14 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 			if err != nil {
 				continue
 			}
-			_ = strings.Split(nConfig["webhook"], ",")
+			webs := strings.Split(nConfig["webhook"], ",")
+			info := make(map[string]string)
+			info["title"] = title
+			info["content"] = content
+			infoByte, _ := json.Marshal(info)
+			for _, target := range webs {
+				tphttp.PostJson(target, infoByte)
+			}
 		// TODO: 企业微信群机器人/钉钉群机器人/飞书群机器人
 		// 需要确定这些机器人的接口，以及接口的参数
 		default:
