@@ -63,12 +63,29 @@ func (*ConditionsService) OnlineAndOfflineCheck(deviceId string, flag string) er
 		logs.Error(result.Error.Error())
 		return nil
 	}
+
+	var AssetServices AssetService
+	var BusinessServices BusinessService
+	var warnContentPlus string
+	var Device DeviceService
+	deviceData, _ := Device.Token(deviceId)
+	// 获取类似“xx分组/子分组/”的字符串
+	assetGroup := AssetServices.GetAssetFamilyInfoById(deviceData.AssetID)
+	// 获取BusinessID
+	assetInfo, _ := AssetServices.GetAssetById(deviceData.AssetID)
+	// 查询Business.Name
+	businessName, _, _ := BusinessServices.GetBusinessById(assetInfo.BusinessID)
+	// 组装到报警信息
+	warnContentPlus = fmt.Sprintf("(%s项目%s下的%s设备上报)；", businessName.Name, assetGroup, deviceData.Name)
+
 	var logMessage string
 	if flag == "1" {
 		logMessage = "设备上线；"
 	} else if flag == "2" {
 		logMessage = "设备下线；"
 	}
+
+	logMessage += warnContentPlus
 	logs.Info("自动化-设备条件：", automationConditions)
 	for _, automationCondition := range automationConditions {
 		var conditionsService ConditionsService
@@ -254,7 +271,7 @@ func (*ConditionsService) AutomationConditionCheck(deviceId string, values map[s
 			// 查询Business.Name
 			businessName, _, _ := BusinessServices.GetBusinessById(assetInfo.BusinessID)
 			// 组装到报警信息
-			warnContentPlus = fmt.Sprintf("(%s项目%s下的%s设备上报)", businessName.Name, assetGroup, deviceData.Name)
+			warnContentPlus = fmt.Sprintf("(%s项目%s下的%s设备上报)；", businessName.Name, assetGroup, deviceData.Name)
 			// 填充到logMessage
 			logMessage += warnContentPlus
 			err := conditionsService.WriteLogAndExecuteActionFunc(automationCondition.AutomationId, logMessage, warnContentPlus)
