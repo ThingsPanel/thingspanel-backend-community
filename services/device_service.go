@@ -1727,3 +1727,24 @@ func (*DeviceService) GetTenantDeviceCount(tenantId string, deviceType string) m
 
 	}
 }
+
+func (*DeviceService) OperateDeviceStatus(deviceId, deviceStatus string) error {
+	if deviceStatus != "0" && deviceStatus != "1" {
+		return fmt.Errorf("设备状态必须为0或1,当前设置为:%s", deviceStatus)
+	}
+	// 修改数据库中的设备状态
+	result := psql.Mydb.Model(&models.TSKVLatest{}).
+		Where("entity_id = ? and key = 'SYS_ONLINE'", deviceId).
+		Updates(models.TSKVLatest{StrV: deviceStatus, TS: utils.GetMicrosecondTimestamp()})
+	if result.Error != nil {
+		logs.Error(result.Error)
+		return result.Error
+	}
+
+	// 删除Redis
+	err := redis.DelKey("status" + deviceId)
+	if err != nil {
+		return err
+	}
+	return nil
+}

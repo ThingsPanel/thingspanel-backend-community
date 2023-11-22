@@ -344,3 +344,8 @@ func IsToday(ts int64) bool {
 	t := time.Unix(ts, 0)
 	return t.After(startOfToday) && t.Before(endOfToday)
 }
+
+// 获取当前微秒时间戳
+func GetMicrosecondTimestamp() int64 {
+	return time.Now().UnixNano() / 1000
+}

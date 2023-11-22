@@ -164,6 +164,8 @@ func Init() {
 		web.NSRouter("/device/cascade", &controllers.DeviceController{}, "*:GetDeviceByCascade"),
 		web.NSRouter("/device/map", &controllers.DeviceController{}, "*:DeviceMapList"),
 		web.NSRouter("/device/status", &controllers.DeviceController{}, "*:DeviceStatus"),
+		// 操作设备“在线”，“离线状态”
+		web.NSRouter("/device/online/status", &controllers.DeviceController{}, "*:DeviceOnlineStatus"),
 
 		web.NSRouter("/device/business/asset", &controllers.DeviceController{}, "*:GetBusinessIdAssetIdByDevice"),
 		web.NSRouter("/device/business/asset/permissions", &controllers.DeviceController{}, "*:OpenApiPageListTree"),
