@@ -1072,9 +1072,9 @@ func (*AssetService) GetAssetFamilyInfoById(id string) string {
 	for i := rowsAffected - 1; i >= 0; i-- {
 		assetNames += data[i].Name
 		if i == (rowsAffected - 1) {
-			assetNames += "分组/"
+			assetNames += "/"
 		} else {
-			assetNames += "子分组/"
+			assetNames += "/"
 		}
 	}
 	return assetNames
