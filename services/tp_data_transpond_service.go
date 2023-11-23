@@ -311,9 +311,14 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int, accessT
 	}
 
 	var warnSwitch bool
+
+	var deviceName string
 	// 开启告警
 	if data.WarningSwitch == 1 {
 		warnSwitch = true
+		var s DeviceService
+		d, _ := s.GetDeviceByID(deviceId)
+		deviceName = d.Name
 	} else {
 		warnSwitch = false
 	}
@@ -326,14 +331,14 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int, accessT
 		_, err := vm.Run(script)
 		if err != nil {
 			if warnSwitch {
-				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error(), true)
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, deviceName+"设备数据转发告警", "运行脚本失败:"+err.Error(), true)
 			}
 			return
 		}
 		callRes, err := vm.Call("encodeInp", nil, msg)
 		if err != nil {
 			if warnSwitch {
-				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error(), true)
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, deviceName+"设备数据转发告警", "运行脚本失败:"+err.Error(), true)
 			}
 			return
 		}
@@ -351,7 +356,7 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int, accessT
 		_, err := tphttp.PostWithDeviceInfo(data.TargetInfo.URL, string(msg), deviceId, accessToken)
 		if err != nil {
 			if warnSwitch {
-				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error(), true)
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, deviceName+"设备数据转发告警", "转发到指定http接口失败:"+err.Error(), true)
 			}
 		}
 	}
@@ -361,7 +366,7 @@ func CheckAndTranspondData(deviceId string, msg []byte, messageType int, accessT
 		err := ConnectAndSend(data, msg)
 		if err != nil {
 			if warnSwitch {
-				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, "数据转发告警", err.Error(), true)
+				s.ExecuteNotification(data.WarningStrategyId, data.TenantId, deviceName+"设备数据转发告警", "发送到指定mqtt失败:"+err.Error(), true)
 			}
 		}
 	}
