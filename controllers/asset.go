@@ -80,35 +80,6 @@ func (this *AssetController) Index() {
 	return
 }
 
-// 添加资产
-// func (this *AssetController) Add() {
-// 	addAssetValidate := valid.AddAsset{}
-// 	err := json.Unmarshal(this.Ctx.Input.RequestBody, &addAssetValidate)
-// 	if err != nil {
-// 		fmt.Println("参数解析失败", err.Error())
-// 	}
-// 	v := validation.Validation{}
-// 	status, _ := v.Valid(addAssetValidate)
-// 	if !status {
-// 		for _, err := range v.Errors {
-// 			// 获取字段别称
-// 			alias := gvalid.GetAlias(addAssetValidate, err.Field)
-// 			message := strings.Replace(err.Message, err.Field, alias, 1)
-// 			response.SuccessWithMessage(1000, message, (*context2.Context)(this.Ctx))
-// 			break
-// 		}
-// 		return
-// 	}
-// 	var AssetService services.AssetService
-// 	f := AssetService.Add(addAssetValidate.Data)
-// 	if f {
-// 		response.SuccessWithMessage(200, "插入成功", (*context2.Context)(this.Ctx))
-// 		return
-// 	}
-// 	response.SuccessWithMessage(400, "插入失败", (*context2.Context)(this.Ctx))
-// 	return
-// }
-
 // 单独添加资产
 func (c *AssetController) AddOnly() {
 	reqData := valid.Asset{}
