@@ -131,7 +131,7 @@ func onceCron() {
 					var automationLogMap = make(map[string]interface{})
 					automationLogMap["Id"] = automationLog.Id
 					var conditionsService services.ConditionsService
-					msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id, "")
+					msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id, "", "")
 					if err != nil {
 						//执行失败，记录日志
 						logs.Error(err.Error())
@@ -269,7 +269,7 @@ func ExecuteTask(lockKey string) {
 		} else {
 			automationLogMap["Id"] = automationLog.Id
 			var conditionsService services.ConditionsService
-			msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id, "")
+			msg, err := conditionsService.ExecuteAutomationAction(automationCondition.AutomationId, automationLog.Id, "", "")
 			if err != nil {
 				//执行失败，记录日志
 				logs.Error(err.Error())

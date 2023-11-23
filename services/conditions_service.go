@@ -303,7 +303,7 @@ func (*ConditionsService) WriteLogAndExecuteActionFunc(automationId string, logM
 	} else {
 		automationLogMap["Id"] = automationLog.Id
 		var conditionsService ConditionsService
-		msg, err := conditionsService.ExecuteAutomationAction(automationId, automationLog.Id, assetBusinessInfo)
+		msg, err := conditionsService.ExecuteAutomationAction(automationId, automationLog.Id, assetBusinessInfo, logMessage)
 		if err != nil {
 			//执行失败，记录日志
 			logs.Error(err.Error())
@@ -325,7 +325,7 @@ func (*ConditionsService) WriteLogAndExecuteActionFunc(automationId string, logM
 }
 
 // 执行自动化动作
-func (*ConditionsService) ExecuteAutomationAction(automationId, automationLogId, assetBusinessInfo string) (string, error) {
+func (*ConditionsService) ExecuteAutomationAction(automationId, automationLogId, assetBusinessInfo, log string) (string, error) {
 	var automationActions []models.TpAutomationAction
 	var logMessage string
 	result := psql.Mydb.Model(&models.TpAutomationAction{}).Where("automation_id = ?", automationId).Find(&automationActions)
@@ -485,7 +485,7 @@ func (*ConditionsService) ExecuteAutomationAction(automationId, automationLogId,
 
 						// 通知告警组
 						var notification TpNotificationService
-						notification.ExecuteNotification(automationAction.WarningStrategyId, tenantId, "自动化告警", warningStrategy.WarningDescription, false)
+						notification.ExecuteNotification(automationAction.WarningStrategyId, tenantId, "自动化告警", warningStrategy.WarningDescription, false, log)
 
 					}
 

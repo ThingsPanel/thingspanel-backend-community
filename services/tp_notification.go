@@ -8,6 +8,7 @@ import (
 	"ThingsPanel-Go/utils"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"gorm.io/gorm"
@@ -131,7 +132,7 @@ func GetNotificationListByTenantId(
 	return nG, count
 }
 
-func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, content string, countSwitch bool) {
+func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, content string, countSwitch bool, log string) {
 
 	// 通过策略ID ，获取info_way中的信息
 	var WarningStrategyService TpWarningStrategyService
@@ -208,8 +209,10 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 			}
 			webs := strings.Split(nConfig["webhook"], ",")
 			info := make(map[string]string)
-			info["title"] = title
-			info["content"] = content
+			info["alert_level"] = StrategyDetail.WarningLevel
+			info["alert_description"] = StrategyDetail.WarningDescription
+			info["alert_time"] = time.Now().Format("2006-01-02T15:04:05Z")
+			info["alert_details"] = log
 			infoByte, _ := json.Marshal(info)
 			for _, target := range webs {
 				tphttp.PostJson(target, infoByte)
