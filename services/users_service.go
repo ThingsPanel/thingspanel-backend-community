@@ -480,3 +480,19 @@ func (*UserService) HasEditAuthority(authority string, edit_authority string) bo
 	}
 	return false
 }
+
+func (*UserService) CountUsers(authority, tenantId string) (int64, error) {
+	var count int64
+	if authority == "SYS_ADMIN" {
+		result := psql.Mydb.Model(&models.Users{}).Where("authority = ? and enabled = '1'", "TENANT_ADMIN").Count(&count)
+		if result.Error != nil {
+			return count, result.Error
+		}
+	} else if authority == "TENANT_ADMIN" {
+		result := psql.Mydb.Model(&models.Users{}).Where("authority = ? and enabled = '1' and tenant_id = ?", "TENANT_USER", tenantId).Count(&count)
+		if result.Error != nil {
+			return count, result.Error
+		}
+	}
+	return count, nil
+}

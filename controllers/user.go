@@ -387,3 +387,33 @@ func (this *UserController) Password() {
 	response.SuccessWithMessage(400, "修改失败", (*context2.Context)(this.Ctx))
 	return
 }
+
+func (c *UserController) Count() {
+	// 获取请求用户权限
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "用户权限获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	if authority != "SYS_ADMIN" && authority != "TENANT_ADMIN" {
+		response.SuccessWithMessage(400, "无权限访问该接口", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 获取请求用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var UserService services.UserService
+	userCount, err := UserService.CountUsers(authority, tenantId)
+	if err != nil {
+		response.SuccessWithMessage(400, err.Error(), (*context2.Context)(c.Ctx))
+	}
+	d := make(map[string]int64)
+	d["count"] = userCount
+	response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
+}
