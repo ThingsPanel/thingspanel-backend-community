@@ -5,6 +5,7 @@ import (
 	gvalid "ThingsPanel-Go/initialize/validate"
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
+	"ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
@@ -120,6 +121,39 @@ func (c *AssetController) AddOnly() {
 		return
 	}
 	response.SuccessWithMessage(400, "插入失败", (*context2.Context)(c.Ctx))
+}
+
+// AddOnlyNew是一个新的方法，用于替换AddOnly,创建设备分组
+// 将创建逻辑写入services层，去掉请求参数层级，自动计算
+// 2023-11-26
+func (c *AssetController) AddOnlyNew() {
+	var reqData valid.AddAsset
+	if err := valid.ParseAndValidate(&c.Ctx.Input.RequestBody, &reqData); err != nil {
+		response.SuccessWithMessage(1000, err.Error(), (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 获取用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "代码逻辑错误", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	asset := models.Asset{
+		Name:       reqData.Name,
+		ParentID:   reqData.ParentID,
+		BusinessID: reqData.BusinessID,
+		TenantId:   tenantId,
+	}
+
+	var assetService services.AssetService
+	d, rsp_err := assetService.Add_New(asset)
+	if rsp_err == nil {
+		utils.SuccessWithDetailed(200, "success", d, map[string]string{}, (*context2.Context)(c.Ctx))
+	} else {
+		utils.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(c.Ctx))
+	}
 }
 
 // 单独修改资产
