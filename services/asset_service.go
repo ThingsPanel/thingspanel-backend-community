@@ -5,15 +5,12 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
-	"crypto/md5"
 	"errors"
 	"fmt"
 
 	"github.com/beego/beego/v2/core/logs"
 
 	"github.com/beego/beego/v2/core/config/yaml"
-	simplejson "github.com/bitly/go-simplejson"
-	"github.com/mintance/go-uniqid"
 	"gorm.io/gorm"
 )
 
@@ -91,189 +88,210 @@ func (*AssetService) List() []Device {
 }
 
 // add 添加资产
-func (*AssetService) Add(data string) bool {
-	// 解析json
-	res, err := simplejson.NewJson([]byte(data))
-	if err != nil {
-		fmt.Println("解析出错", err)
+// func (*AssetService) Add(data string) bool {
+// 	// 解析json
+// 	res, err := simplejson.NewJson([]byte(data))
+// 	if err != nil {
+// 		fmt.Println("解析出错", err)
+// 	}
+// 	rows, _ := res.Array()
+// 	var asset_id string
+// 	var asset models.Asset
+// 	var device_id string
+// 	var device models.Device
+// 	var field_id string
+// 	var field models.FieldMapping
+
+// 	var asset_id2 string
+// 	var asset2 models.Asset
+// 	var device_id2 string
+// 	var device2 models.Device
+// 	var field_id2 string
+// 	var field2 models.FieldMapping
+
+// 	var asset_id3 string
+// 	var asset3 models.Asset
+// 	var device_id3 string
+// 	var device3 models.Device
+// 	var field_id3 string
+// 	var field3 models.FieldMapping
+
+// 	flag := psql.Mydb.Transaction(func(tx *gorm.DB) error {
+// 		for _, row := range rows {
+// 			if each_map, ok := row.(map[string]interface{}); ok {
+// 				asset_id = uuid.GetUuid()
+// 				asset = models.Asset{
+// 					ID:         asset_id,
+// 					Name:       fmt.Sprint(each_map["name"]),
+// 					Tier:       1,
+// 					ParentID:   "0",
+// 					BusinessID: fmt.Sprint(each_map["business_id"]),
+// 				}
+// 				if err := tx.Create(&asset).Error; err != nil {
+// 					// 回滚事务
+// 					return err
+// 				}
+// 				for _, each_map2 := range each_map["device"].([]interface{}) {
+// 					device_id = uuid.GetUuid()
+// 					uniqid_str := uniqid.New(uniqid.Params{Prefix: "token", MoreEntropy: true})
+// 					m := md5.Sum([]byte(uniqid_str))
+// 					token := fmt.Sprintf("%x", m)
+// 					device = models.Device{
+// 						ID:        device_id,
+// 						AssetID:   asset.ID,
+// 						Token:     token,
+// 						Type:      fmt.Sprint(each_map2.(map[string]interface{})["type"]),
+// 						Name:      fmt.Sprint(each_map2.(map[string]interface{})["name"]),
+// 						Protocol:  fmt.Sprint(each_map2.(map[string]interface{})["protocol"]),
+// 						Port:      fmt.Sprint(each_map2.(map[string]interface{})["port"]),
+// 						Publish:   fmt.Sprint(each_map2.(map[string]interface{})["publish"]),
+// 						Subscribe: fmt.Sprint(each_map2.(map[string]interface{})["subscribe"]),
+// 						Username:  fmt.Sprint(each_map2.(map[string]interface{})["username"]),
+// 						Password:  fmt.Sprint(each_map2.(map[string]interface{})["password"]),
+// 					}
+// 					if err := tx.Create(&device).Error; err != nil {
+// 						return err
+// 					}
+// 					for _, each_map22 := range each_map2.(map[string]interface{})["mapping"].([]interface{}) {
+// 						field_id = uuid.GetUuid()
+// 						field = models.FieldMapping{
+// 							ID:        field_id,
+// 							DeviceID:  device.ID,
+// 							FieldFrom: fmt.Sprint(each_map22.(map[string]interface{})["field_from"]),
+// 							FieldTo:   fmt.Sprint(each_map22.(map[string]interface{})["field_to"]),
+// 							Symbol:    fmt.Sprint(each_map22.(map[string]interface{})["symbol"]),
+// 						}
+// 						if err := tx.Create(&field).Error; err != nil {
+// 							return err
+// 						}
+// 					}
+// 				}
+// 				for _, each_map3 := range each_map["two"].([]interface{}) {
+// 					asset_id2 = uuid.GetUuid()
+// 					asset2 = models.Asset{
+// 						ID:         asset_id2,
+// 						Name:       fmt.Sprint(each_map3.(map[string]interface{})["name"]),
+// 						Tier:       2,
+// 						ParentID:   asset_id,
+// 						BusinessID: fmt.Sprint(each_map3.(map[string]interface{})["business_id"]),
+// 					}
+// 					if err := tx.Create(&asset2).Error; err != nil {
+// 						return err
+// 					}
+// 					for _, each_map33 := range each_map3.(map[string]interface{})["device"].([]interface{}) {
+// 						device_id2 = uuid.GetUuid()
+// 						uniqid_str := uniqid.New(uniqid.Params{Prefix: "token", MoreEntropy: true})
+// 						m := md5.Sum([]byte(uniqid_str))
+// 						token := fmt.Sprintf("%x", m)
+// 						device2 = models.Device{
+// 							ID:        device_id2,
+// 							AssetID:   asset2.ID,
+// 							Token:     token,
+// 							Type:      fmt.Sprint(each_map33.(map[string]interface{})["type"]),
+// 							Name:      fmt.Sprint(each_map33.(map[string]interface{})["name"]),
+// 							Protocol:  fmt.Sprint(each_map33.(map[string]interface{})["protocol"]),
+// 							Port:      fmt.Sprint(each_map33.(map[string]interface{})["port"]),
+// 							Publish:   fmt.Sprint(each_map33.(map[string]interface{})["publish"]),
+// 							Subscribe: fmt.Sprint(each_map33.(map[string]interface{})["subscribe"]),
+// 							Username:  fmt.Sprint(each_map33.(map[string]interface{})["username"]),
+// 							Password:  fmt.Sprint(each_map33.(map[string]interface{})["password"]),
+// 						}
+// 						if err := tx.Create(&device2).Error; err != nil {
+// 							return err
+// 						}
+// 						for _, each_map333 := range each_map33.(map[string]interface{})["mapping"].([]interface{}) {
+// 							field_id2 = uuid.GetUuid()
+// 							field2 = models.FieldMapping{
+// 								ID:        field_id2,
+// 								DeviceID:  device2.ID,
+// 								FieldFrom: fmt.Sprint(each_map333.(map[string]interface{})["field_from"]),
+// 								FieldTo:   fmt.Sprint(each_map333.(map[string]interface{})["field_to"]),
+// 								Symbol:    fmt.Sprint(each_map333.(map[string]interface{})["symbol"]),
+// 							}
+// 							if err := tx.Create(&field2).Error; err != nil {
+// 								return err
+// 							}
+// 						}
+// 					}
+// 					for _, each_map44 := range each_map3.(map[string]interface{})["there"].([]interface{}) {
+// 						asset_id3 = uuid.GetUuid()
+// 						asset3 = models.Asset{
+// 							ID:         asset_id3,
+// 							Name:       fmt.Sprint(each_map44.(map[string]interface{})["name"]),
+// 							Tier:       3,
+// 							ParentID:   asset_id2,
+// 							BusinessID: fmt.Sprint(each_map44.(map[string]interface{})["business_id"]),
+// 						}
+// 						if err := tx.Create(&asset3).Error; err != nil {
+// 							return err
+// 						}
+// 						for _, each_map444 := range each_map44.(map[string]interface{})["device"].([]interface{}) {
+// 							device_id3 = uuid.GetUuid()
+// 							uniqid_str := uniqid.New(uniqid.Params{Prefix: "token", MoreEntropy: true})
+// 							m := md5.Sum([]byte(uniqid_str))
+// 							token := fmt.Sprintf("%x", m)
+// 							device3 = models.Device{
+// 								ID:        device_id3,
+// 								AssetID:   asset3.ID,
+// 								Token:     token,
+// 								Type:      fmt.Sprint(each_map444.(map[string]interface{})["type"]),
+// 								Name:      fmt.Sprint(each_map444.(map[string]interface{})["name"]),
+// 								Protocol:  fmt.Sprint(each_map444.(map[string]interface{})["protocol"]),
+// 								Port:      fmt.Sprint(each_map444.(map[string]interface{})["port"]),
+// 								Publish:   fmt.Sprint(each_map444.(map[string]interface{})["publish"]),
+// 								Subscribe: fmt.Sprint(each_map444.(map[string]interface{})["subscribe"]),
+// 								Username:  fmt.Sprint(each_map444.(map[string]interface{})["username"]),
+// 								Password:  fmt.Sprint(each_map444.(map[string]interface{})["password"]),
+// 							}
+// 							if err := tx.Create(&device3).Error; err != nil {
+// 								return err
+// 							}
+// 							for _, each_map4444 := range each_map444.(map[string]interface{})["mapping"].([]interface{}) {
+// 								field_id3 = uuid.GetUuid()
+// 								field3 = models.FieldMapping{
+// 									ID:        field_id3,
+// 									DeviceID:  device3.ID,
+// 									FieldFrom: fmt.Sprint(each_map4444.(map[string]interface{})["field_from"]),
+// 									FieldTo:   fmt.Sprint(each_map4444.(map[string]interface{})["field_to"]),
+// 									Symbol:    fmt.Sprint(each_map4444.(map[string]interface{})["symbol"]),
+// 								}
+// 								if err := tx.Create(&field3).Error; err != nil {
+// 									return err
+// 								}
+// 							}
+// 						}
+// 					}
+// 				}
+// 			}
+// 		}
+// 		return nil
+// 	})
+
+// 	if flag != nil {
+// 		return false
+// 	}
+// 	return true
+// }
+
+// 新增设备分组方法,自动计算层级
+// 2023-11-26
+func (*AssetService) Add_New(data models.Asset) (models.Asset, error) {
+	logs.Debug("新增设备分组方法,自动计算层级")
+	if data.ParentID == "0" {
+		data.Tier = 1
+	} else {
+		var parent models.Asset
+		psql.Mydb.Where("id = ?", data.ParentID).First(&parent)
+		data.Tier = parent.Tier + 1
 	}
-	rows, _ := res.Array()
-	var asset_id string
-	var asset models.Asset
-	var device_id string
-	var device models.Device
-	var field_id string
-	var field models.FieldMapping
-
-	var asset_id2 string
-	var asset2 models.Asset
-	var device_id2 string
-	var device2 models.Device
-	var field_id2 string
-	var field2 models.FieldMapping
-
-	var asset_id3 string
-	var asset3 models.Asset
-	var device_id3 string
-	var device3 models.Device
-	var field_id3 string
-	var field3 models.FieldMapping
-
-	flag := psql.Mydb.Transaction(func(tx *gorm.DB) error {
-		for _, row := range rows {
-			if each_map, ok := row.(map[string]interface{}); ok {
-				asset_id = uuid.GetUuid()
-				asset = models.Asset{
-					ID:         asset_id,
-					Name:       fmt.Sprint(each_map["name"]),
-					Tier:       1,
-					ParentID:   "0",
-					BusinessID: fmt.Sprint(each_map["business_id"]),
-				}
-				if err := tx.Create(&asset).Error; err != nil {
-					// 回滚事务
-					return err
-				}
-				for _, each_map2 := range each_map["device"].([]interface{}) {
-					device_id = uuid.GetUuid()
-					uniqid_str := uniqid.New(uniqid.Params{Prefix: "token", MoreEntropy: true})
-					m := md5.Sum([]byte(uniqid_str))
-					token := fmt.Sprintf("%x", m)
-					device = models.Device{
-						ID:        device_id,
-						AssetID:   asset.ID,
-						Token:     token,
-						Type:      fmt.Sprint(each_map2.(map[string]interface{})["type"]),
-						Name:      fmt.Sprint(each_map2.(map[string]interface{})["name"]),
-						Protocol:  fmt.Sprint(each_map2.(map[string]interface{})["protocol"]),
-						Port:      fmt.Sprint(each_map2.(map[string]interface{})["port"]),
-						Publish:   fmt.Sprint(each_map2.(map[string]interface{})["publish"]),
-						Subscribe: fmt.Sprint(each_map2.(map[string]interface{})["subscribe"]),
-						Username:  fmt.Sprint(each_map2.(map[string]interface{})["username"]),
-						Password:  fmt.Sprint(each_map2.(map[string]interface{})["password"]),
-					}
-					if err := tx.Create(&device).Error; err != nil {
-						return err
-					}
-					for _, each_map22 := range each_map2.(map[string]interface{})["mapping"].([]interface{}) {
-						field_id = uuid.GetUuid()
-						field = models.FieldMapping{
-							ID:        field_id,
-							DeviceID:  device.ID,
-							FieldFrom: fmt.Sprint(each_map22.(map[string]interface{})["field_from"]),
-							FieldTo:   fmt.Sprint(each_map22.(map[string]interface{})["field_to"]),
-							Symbol:    fmt.Sprint(each_map22.(map[string]interface{})["symbol"]),
-						}
-						if err := tx.Create(&field).Error; err != nil {
-							return err
-						}
-					}
-				}
-				for _, each_map3 := range each_map["two"].([]interface{}) {
-					asset_id2 = uuid.GetUuid()
-					asset2 = models.Asset{
-						ID:         asset_id2,
-						Name:       fmt.Sprint(each_map3.(map[string]interface{})["name"]),
-						Tier:       2,
-						ParentID:   asset_id,
-						BusinessID: fmt.Sprint(each_map3.(map[string]interface{})["business_id"]),
-					}
-					if err := tx.Create(&asset2).Error; err != nil {
-						return err
-					}
-					for _, each_map33 := range each_map3.(map[string]interface{})["device"].([]interface{}) {
-						device_id2 = uuid.GetUuid()
-						uniqid_str := uniqid.New(uniqid.Params{Prefix: "token", MoreEntropy: true})
-						m := md5.Sum([]byte(uniqid_str))
-						token := fmt.Sprintf("%x", m)
-						device2 = models.Device{
-							ID:        device_id2,
-							AssetID:   asset2.ID,
-							Token:     token,
-							Type:      fmt.Sprint(each_map33.(map[string]interface{})["type"]),
-							Name:      fmt.Sprint(each_map33.(map[string]interface{})["name"]),
-							Protocol:  fmt.Sprint(each_map33.(map[string]interface{})["protocol"]),
-							Port:      fmt.Sprint(each_map33.(map[string]interface{})["port"]),
-							Publish:   fmt.Sprint(each_map33.(map[string]interface{})["publish"]),
-							Subscribe: fmt.Sprint(each_map33.(map[string]interface{})["subscribe"]),
-							Username:  fmt.Sprint(each_map33.(map[string]interface{})["username"]),
-							Password:  fmt.Sprint(each_map33.(map[string]interface{})["password"]),
-						}
-						if err := tx.Create(&device2).Error; err != nil {
-							return err
-						}
-						for _, each_map333 := range each_map33.(map[string]interface{})["mapping"].([]interface{}) {
-							field_id2 = uuid.GetUuid()
-							field2 = models.FieldMapping{
-								ID:        field_id2,
-								DeviceID:  device2.ID,
-								FieldFrom: fmt.Sprint(each_map333.(map[string]interface{})["field_from"]),
-								FieldTo:   fmt.Sprint(each_map333.(map[string]interface{})["field_to"]),
-								Symbol:    fmt.Sprint(each_map333.(map[string]interface{})["symbol"]),
-							}
-							if err := tx.Create(&field2).Error; err != nil {
-								return err
-							}
-						}
-					}
-					for _, each_map44 := range each_map3.(map[string]interface{})["there"].([]interface{}) {
-						asset_id3 = uuid.GetUuid()
-						asset3 = models.Asset{
-							ID:         asset_id3,
-							Name:       fmt.Sprint(each_map44.(map[string]interface{})["name"]),
-							Tier:       3,
-							ParentID:   asset_id2,
-							BusinessID: fmt.Sprint(each_map44.(map[string]interface{})["business_id"]),
-						}
-						if err := tx.Create(&asset3).Error; err != nil {
-							return err
-						}
-						for _, each_map444 := range each_map44.(map[string]interface{})["device"].([]interface{}) {
-							device_id3 = uuid.GetUuid()
-							uniqid_str := uniqid.New(uniqid.Params{Prefix: "token", MoreEntropy: true})
-							m := md5.Sum([]byte(uniqid_str))
-							token := fmt.Sprintf("%x", m)
-							device3 = models.Device{
-								ID:        device_id3,
-								AssetID:   asset3.ID,
-								Token:     token,
-								Type:      fmt.Sprint(each_map444.(map[string]interface{})["type"]),
-								Name:      fmt.Sprint(each_map444.(map[string]interface{})["name"]),
-								Protocol:  fmt.Sprint(each_map444.(map[string]interface{})["protocol"]),
-								Port:      fmt.Sprint(each_map444.(map[string]interface{})["port"]),
-								Publish:   fmt.Sprint(each_map444.(map[string]interface{})["publish"]),
-								Subscribe: fmt.Sprint(each_map444.(map[string]interface{})["subscribe"]),
-								Username:  fmt.Sprint(each_map444.(map[string]interface{})["username"]),
-								Password:  fmt.Sprint(each_map444.(map[string]interface{})["password"]),
-							}
-							if err := tx.Create(&device3).Error; err != nil {
-								return err
-							}
-							for _, each_map4444 := range each_map444.(map[string]interface{})["mapping"].([]interface{}) {
-								field_id3 = uuid.GetUuid()
-								field3 = models.FieldMapping{
-									ID:        field_id3,
-									DeviceID:  device3.ID,
-									FieldFrom: fmt.Sprint(each_map4444.(map[string]interface{})["field_from"]),
-									FieldTo:   fmt.Sprint(each_map4444.(map[string]interface{})["field_to"]),
-									Symbol:    fmt.Sprint(each_map4444.(map[string]interface{})["symbol"]),
-								}
-								if err := tx.Create(&field3).Error; err != nil {
-									return err
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		return nil
-	})
-
-	if flag != nil {
-		return false
+	logs.Debug("新增设备分组方法,自动计算层级,层级为", data.Tier)
+	data.ID = uuid.GetUuid()
+	if err := psql.Mydb.Create(&data).Error; err != nil {
+		logs.Error("新增设备分组方法,自动计算层级,新增失败", err)
+		return data, err
 	}
-	return true
+	logs.Info("新增设备分组方法,自动计算层级,新增成功")
+	return data, nil
 }
 
 // edit 编辑资产

@@ -15,7 +15,9 @@ type Asset struct {
 
 // AddAsset 校验
 type AddAsset struct {
-	Data string `json:"data" alias:"参数" valid:"Required"`
+	Name       string `json:"name" alias:"参数" valid:"Required"`        // 名称
+	ParentID   string `json:"parent_id" alias:"参数" valid:"Required"`   // 父级ID
+	BusinessID string `json:"business_id" alias:"参数" valid:"Required"` // 业务ID
 }
 
 // EditAsset 校验
