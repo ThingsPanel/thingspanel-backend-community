@@ -117,6 +117,7 @@ func Init() {
 		// 创建设备分组-new
 		web.NSRouter("/asset/add_only_new", &controllers.AssetController{}, "*:AddOnlyNew"), //shebei-w
 		web.NSRouter("/asset/update_only", &controllers.AssetController{}, "*:UpdateOnly"),
+		web.NSRouter("/asset/update_only_new", &controllers.AssetController{}, "*:UpdateOnlyNew"),
 		//设备管理的插件选择下拉
 		web.NSRouter("/asset/index", &controllers.AssetController{}, "*:Index"), //shebei-ck
 		// web.NSRouter("/asset/add", &controllers.AssetController{}, "*:Add"),

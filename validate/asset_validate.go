@@ -18,11 +18,15 @@ type AddAsset struct {
 	Name       string `json:"name" alias:"参数" valid:"Required"`        // 名称
 	ParentID   string `json:"parent_id" alias:"参数" valid:"Required"`   // 父级ID
 	BusinessID string `json:"business_id" alias:"参数" valid:"Required"` // 业务ID
+	TenantID   string `json:"tenant_id" alias:"参数" `                   // 租户ID
 }
 
 // EditAsset 校验
 type EditAsset struct {
-	Data string `json:"data" alias:"参数" valid:"Required"`
+	ID         string `json:"id" alias:"参数" valid:"Required"` // ID
+	Name       string `json:"name" alias:"参数" `               // 名称
+	ParentID   string `json:"parent_id" alias:"参数" `          // 父级ID
+	BusinessID string `json:"business_id" alias:"参数" `        // 业务ID
 }
 
 // WidgetAsset 校验
