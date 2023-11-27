@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
+	valid "ThingsPanel-Go/validate"
 	"errors"
 	"fmt"
 
@@ -275,23 +276,91 @@ func (*AssetService) List() []Device {
 
 // 新增设备分组方法,自动计算层级
 // 2023-11-26
-func (*AssetService) Add_New(data models.Asset) (models.Asset, error) {
+func (*AssetService) AddNew(data valid.AddAsset) (models.Asset, error) {
 	logs.Debug("新增设备分组方法,自动计算层级")
+	var asset = &models.Asset{
+		ID:         uuid.GetUuid(),
+		Name:       data.Name,
+		ParentID:   data.ParentID,
+		BusinessID: data.BusinessID,
+	}
+
 	if data.ParentID == "0" {
-		data.Tier = 1
+		asset.Tier = 1
 	} else {
 		var parent models.Asset
 		psql.Mydb.Where("id = ?", data.ParentID).First(&parent)
-		data.Tier = parent.Tier + 1
+		asset.Tier = parent.Tier + 1
 	}
-	logs.Debug("新增设备分组方法,自动计算层级,层级为", data.Tier)
-	data.ID = uuid.GetUuid()
+	logs.Debug("新增设备分组方法,自动计算层级,层级为", asset.Tier)
+
 	if err := psql.Mydb.Create(&data).Error; err != nil {
 		logs.Error("新增设备分组方法,自动计算层级,新增失败", err)
-		return data, err
+		return *asset, err
 	}
 	logs.Info("新增设备分组方法,自动计算层级,新增成功")
-	return data, nil
+	return *asset, nil
+}
+
+// 修改设备分组方法
+// 校验parentid 不能为自己的id
+// 校验parentid 不能为自己的子级id
+// 2023-11-27
+func (*AssetService) UpdateOnlyNew(data valid.EditAsset) (models.Asset, error) {
+	logs.Debug("修改设备分组方法")
+	var asset models.Asset
+	psql.Mydb.Where("id = ?", data.ID).First(&asset)
+	if asset.ID == "" {
+		logs.Error("修改设备分组方法,修改失败,未找到该设备分组")
+		return asset, errors.New("未找到该设备分组")
+	}
+	if asset.ID == data.ParentID {
+		logs.Error("修改设备分组方法,修改失败,父级不能为自己")
+		return asset, errors.New("父级不能为自己")
+	}
+
+	//校验parentid 不能为自己的子级id或者子级的子级等
+	var parents []models.Asset
+	parents, d := GetAssetFamilyById(data.ParentID)
+	if d != 0 {
+		//循环遍历parents中是否有asset
+		for _, v := range parents {
+			if v.ID == asset.ID {
+				logs.Error("修改设备分组方法,修改失败,父级不能为自己的子级")
+				return asset, errors.New("父级不能为自己的子级")
+			}
+		}
+	}
+
+	var parent models.Asset
+	psql.Mydb.Where("id = ?", data.ParentID).First(&parent)
+
+	//向上修改
+	if parent.Tier+1 > asset.Tier {
+		//修改asset层级及asset子级的层级
+		return asset, nil
+	}
+	//同级修改
+	if parent.Tier+1 == asset.Tier {
+		//只修改asset
+		if err := psql.Mydb.Model(&asset).Where("id = ?", data.ID).Updates(map[string]interface{}{
+			"name":        data.Name,
+			"parent_id":   data.ParentID,
+			"business_id": data.BusinessID,
+		}).Error; err != nil {
+			logs.Error("修改设备分组方法,修改失败", err)
+			return asset, err
+		}
+		logs.Info("修改设备分组方法,修改成功")
+		return asset, nil
+	}
+	//向下修改
+	if parent.Tier+1 < asset.Tier {
+		return asset, nil
+
+	}
+	return asset, nil
+
 }
 
 // edit 编辑资产
