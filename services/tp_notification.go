@@ -190,7 +190,6 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 			}
 
 		case models.NotificationType_Email:
-			// 解析config
 			nConfig := make(map[string]string)
 			err := json.Unmarshal([]byte(v.NotificationConfig), &nConfig)
 			if err != nil {
@@ -201,8 +200,7 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 			for _, ev := range emailList {
 				sendmessage.SendEmailMessage(title, content, tenantId, ev)
 			}
-		case models.NotificationType_Webhook: // TODO: webhook，发送参数自己定义，一般是告警信息的json，包含告警级别，告警内容，告警时间，告警详情等
-			// 解析config
+		case models.NotificationType_Webhook:
 			type WebhookConfig struct {
 				PayloadURL string `json:"payload_url"`
 				Secret     string `json:"secret"`

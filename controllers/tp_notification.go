@@ -102,7 +102,7 @@ func (c *TpNotification) Save() {
 		group.CreateTime = time.Now().Unix()
 	}
 
-	config := make(map[string]string)
+	config := make(map[string]interface{})
 	config["email"] = ""
 	config["webhook"] = ""
 	config["message"] = ""
