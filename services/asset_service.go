@@ -283,6 +283,7 @@ func (*AssetService) AddNew(data valid.AddAsset) (models.Asset, error) {
 		Name:       data.Name,
 		ParentID:   data.ParentID,
 		BusinessID: data.BusinessID,
+		TenantId:   data.TenantID,
 	}
 
 	if data.ParentID == "0" {
