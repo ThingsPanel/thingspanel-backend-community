@@ -203,26 +203,28 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 			}
 		case models.NotificationType_Webhook: // TODO: webhook，发送参数自己定义，一般是告警信息的json，包含告警级别，告警内容，告警时间，告警详情等
 			// 解析config
-			nConfig := make(map[string]string)
+			type WebhookConfig struct {
+				PayloadURL string `json:"payload_url"`
+				Secret     string `json:"secret"`
+			}
+			nConfig := make(map[string]WebhookConfig)
 			err := json.Unmarshal([]byte(v.NotificationConfig), &nConfig)
 			if err != nil {
 				logs.Error(err.Error())
 				continue
 			}
-			webs := strings.Split(nConfig["webhook"], ",")
 			info := make(map[string]string)
 			info["alert_level"] = StrategyDetail.WarningLevel
 			info["alert_description"] = StrategyDetail.WarningDescription
 			info["alert_time"] = time.Now().Format("2006-01-02T15:04:05Z")
 			info["alert_details"] = log
 			infoByte, _ := json.Marshal(info)
-			for _, target := range webs {
-				err = tphttp.SendSignedRequest(target, string(infoByte), nConfig["secret"])
-				if err != nil {
-					logs.Error(err.Error())
-					continue
-				}
+			err = tphttp.SendSignedRequest(nConfig["webhook"].PayloadURL, string(infoByte), nConfig["webhook"].Secret)
+			if err != nil {
+				logs.Error(err.Error())
+				continue
 			}
+
 		// TODO: 企业微信群机器人/钉钉群机器人/飞书群机器人
 		// 需要确定这些机器人的接口，以及接口的参数
 		default:
