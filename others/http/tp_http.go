@@ -2,7 +2,11 @@ package tphttp
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -86,4 +90,37 @@ func PostJson(targetUrl string, payload []byte) (*http.Response, error) {
 	req.Header.Add("Content-Type", "application/json")
 	response, err := http.DefaultClient.Do(req)
 	return response, err
+}
+
+func SendSignedRequest(url, message, secret string) error {
+	signature := GenerateHMAC(message, secret)
+
+	// Creating the request
+	req, err := http.NewRequest("POST", url, bytes.NewBufferString(message))
+	if err != nil {
+		return fmt.Errorf("创建请求失败: %v", err)
+	}
+
+	// Adding the signature to the request header
+	req.Header.Set("X-Signature-256", "sha256="+signature)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Sending the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("请求已发送。状态码: %d\n", resp.StatusCode)
+	return nil
+}
+
+func GenerateHMAC(message, secret string) string {
+	key := []byte(secret)
+	h := hmac.New(sha256.New, key)
+	h.Write([]byte(message))
+	signature := h.Sum(nil)
+	return hex.EncodeToString(signature)
 }

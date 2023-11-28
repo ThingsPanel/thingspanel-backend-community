@@ -194,6 +194,7 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 			nConfig := make(map[string]string)
 			err := json.Unmarshal([]byte(v.NotificationConfig), &nConfig)
 			if err != nil {
+				logs.Error(err.Error())
 				continue
 			}
 			emailList := strings.Split(nConfig["email"], ",")
@@ -205,6 +206,7 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 			nConfig := make(map[string]string)
 			err := json.Unmarshal([]byte(v.NotificationConfig), &nConfig)
 			if err != nil {
+				logs.Error(err.Error())
 				continue
 			}
 			webs := strings.Split(nConfig["webhook"], ",")
@@ -215,7 +217,11 @@ func (*TpNotificationService) ExecuteNotification(strategyId, tenantId, title, c
 			info["alert_details"] = log
 			infoByte, _ := json.Marshal(info)
 			for _, target := range webs {
-				tphttp.PostJson(target, infoByte)
+				err = tphttp.SendSignedRequest(target, string(infoByte), nConfig["secret"])
+				if err != nil {
+					logs.Error(err.Error())
+					continue
+				}
 			}
 		// TODO: 企业微信群机器人/钉钉群机器人/飞书群机器人
 		// 需要确定这些机器人的接口，以及接口的参数
