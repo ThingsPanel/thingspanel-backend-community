@@ -332,33 +332,15 @@ func (*AssetService) UpdateOnlyNew(data valid.EditAsset) (models.Asset, error) {
 		}
 	}
 
-	var parent models.Asset
-	psql.Mydb.Where("id = ?", data.ParentID).First(&parent)
-
-	//向上修改
-	if parent.Tier+1 > asset.Tier {
-		//修改asset层级及asset子级的层级
-		return asset, nil
+	if err := psql.Mydb.Model(&asset).Where("id = ?", data.ID).Updates(map[string]interface{}{
+		"name":        data.Name,
+		"parent_id":   data.ParentID,
+		"business_id": data.BusinessID,
+	}).Error; err != nil {
+		logs.Error("修改设备分组方法,修改失败", err)
+		return asset, err
 	}
-	//同级修改
-	if parent.Tier+1 == asset.Tier {
-		//只修改asset
-		if err := psql.Mydb.Model(&asset).Where("id = ?", data.ID).Updates(map[string]interface{}{
-			"name":        data.Name,
-			"parent_id":   data.ParentID,
-			"business_id": data.BusinessID,
-		}).Error; err != nil {
-			logs.Error("修改设备分组方法,修改失败", err)
-			return asset, err
-		}
-		logs.Info("修改设备分组方法,修改成功")
-		return asset, nil
-	}
-	//向下修改
-	if parent.Tier+1 < asset.Tier {
-		return asset, nil
-
-	}
+	logs.Info("修改设备分组方法,修改成功")
 	return asset, nil
 
 }

@@ -113,10 +113,10 @@ func Init() {
 		web.NSRouter("/field/update_only", &controllers.FieldmappingController{}, "*:UpdateOnly"),
 		//web.NSRouter("/field/device/index", &controllers.FieldmappingController{}, "*:GetByDeviceid"),
 		// 设备分组添加
-		web.NSRouter("/asset/add_only", &controllers.AssetController{}, "*:AddOnly"), //shebei-w
+		web.NSRouter("/asset/add_only", &controllers.AssetController{}, "*:AddOnlyNew"), //shebei-w
 		// 创建设备分组-new
 		web.NSRouter("/asset/add_only_new", &controllers.AssetController{}, "*:AddOnlyNew"), //shebei-w
-		web.NSRouter("/asset/update_only", &controllers.AssetController{}, "*:UpdateOnly"),
+		web.NSRouter("/asset/update_only", &controllers.AssetController{}, "*:UpdateOnlyNew"),
 		web.NSRouter("/asset/update_only_new", &controllers.AssetController{}, "*:UpdateOnlyNew"),
 		//设备管理的插件选择下拉
 		web.NSRouter("/asset/index", &controllers.AssetController{}, "*:Index"), //shebei-ck
