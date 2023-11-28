@@ -294,7 +294,7 @@ func (*AssetService) AddNew(data valid.AddAsset) (models.Asset, error) {
 	}
 	logs.Debug("新增设备分组方法,自动计算层级,层级为", asset.Tier)
 
-	if err := psql.Mydb.Create(&data).Error; err != nil {
+	if err := psql.Mydb.Create(asset).Error; err != nil {
 		logs.Error("新增设备分组方法,自动计算层级,新增失败", err)
 		return *asset, err
 	}
