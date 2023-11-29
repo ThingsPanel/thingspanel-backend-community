@@ -228,6 +228,8 @@ func (*DeviceService) PageGetDevicesByAssetIDTree(req valid.DevicePageListValida
 			// 	device["device_state"] = state
 			// }
 			if device["device_type"].(string) == "2" { // 网关设备需要查询子设备
+				// 网关设备不输出latest_ts
+				device["latest_ts"] = ""
 				var subDeviceList []map[string]interface{}
 				sql := `select (with RECURSIVE ast as 
 					( 
