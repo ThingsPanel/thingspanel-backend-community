@@ -434,16 +434,13 @@ func (c *UserController) TenantConfigIndex() {
 		return
 	}
 
-	// 转换
-	d := make(map[string]interface{})
-	var cc map[string]models.TpTenantAIConfig
+	var cc models.TpTenantAIConfig
 	err = json.Unmarshal([]byte(config.CustomConfig), &cc)
 	if err != nil {
 		response.SuccessWithMessage(400, "CustomConfig解析失败", (*context2.Context)(c.Ctx))
 		return
 	}
-	d["custom_config"] = cc
-	response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
+	response.SuccessWithDetailed(200, "获取成功", cc, map[string]string{}, (*context2.Context)(c.Ctx))
 
 }
 
