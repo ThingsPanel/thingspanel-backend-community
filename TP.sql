@@ -2043,8 +2043,7 @@ WHERE share_type is null;
 
 
 CREATE TABLE "public"."tp_tenant_config" (
-  "id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
-  "tenant_id" varchar(36) COLLATE "pg_catalog"."default",
+  "tenant_id" varchar(36) COLLATE "pg_catalog"."default" NOT NULL,
   "custom_config" text COLLATE "pg_catalog"."default",
   "sys_config" text COLLATE "pg_catalog"."default",
   "remark" varchar(255) COLLATE "pg_catalog"."default"
@@ -2060,4 +2059,4 @@ ALTER TABLE "public"."tp_tenant_config" ADD CONSTRAINT "tenant_id" UNIQUE ("tena
 -- ----------------------------
 -- Primary Key structure for table tp_tenant_config
 -- ----------------------------
-ALTER TABLE "public"."tp_tenant_config" ADD CONSTRAINT "tp_tenant_config_pkey" PRIMARY KEY ("id");
+ALTER TABLE "public"."tp_tenant_config" ADD CONSTRAINT "tp_tenant_config_pkey" PRIMARY KEY ("tenant_id");
