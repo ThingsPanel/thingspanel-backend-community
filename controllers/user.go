@@ -426,14 +426,7 @@ func (c *UserController) TenantConfigIndex() {
 		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
 		return
 	}
-	// {
-	// 	"ai_config": {
-	// 		"model_type": "OpenAI",
-	// 		"api_key": "",
-	// 		"bash_url": "",
-	// 		"update_at": 167204642154
-	// 	}
-	// }
+
 	var UserService services.UserService
 	config, err := UserService.GetTenantConfigByTenantId(tenantId)
 	if err != nil {
@@ -443,8 +436,6 @@ func (c *UserController) TenantConfigIndex() {
 
 	// 转换
 	d := make(map[string]interface{})
-	d["tenant_id"] = config.TenantId
-	d["remark"] = config.Remark
 	var cc map[string]models.TpTenantAIConfig
 	err = json.Unmarshal([]byte(config.CustomConfig), &cc)
 	if err != nil {
@@ -452,13 +443,6 @@ func (c *UserController) TenantConfigIndex() {
 		return
 	}
 	d["custom_config"] = cc
-	var sc map[string]interface{}
-	err = json.Unmarshal([]byte(config.SYSConfig), &sc)
-	if err != nil {
-		response.SuccessWithMessage(400, "sys_config", (*context2.Context)(c.Ctx))
-		return
-	}
-	d["sys_config"] = sc
 	response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
 
 }
