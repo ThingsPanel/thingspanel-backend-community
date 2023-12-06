@@ -427,6 +427,8 @@ func (c *UserController) TenantConfigIndex() {
 		return
 	}
 
+	// todo 增加校验逻辑
+
 	var UserService services.UserService
 	config, err := UserService.GetTenantConfigByTenantId(tenantId)
 	if err != nil {
@@ -445,11 +447,45 @@ func (c *UserController) TenantConfigIndex() {
 }
 
 func (c *UserController) TenantConfigSave() {
+	reqData := valid.SaveTenantConfig{}
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &reqData)
+	if err != nil {
+		fmt.Println("参数解析失败", err.Error())
+	}
+	v := validation.Validation{}
+	status, _ := v.Valid(reqData)
+	if !status {
+		for _, err := range v.Errors {
+			alias := gvalid.GetAlias(reqData, err.Field)
+			message := strings.Replace(err.Message, err.Field, alias, 1)
+			response.SuccessWithMessage(1000, message, (*context2.Context)(c.Ctx))
+			break
+		}
+		return
+	}
 	// 获取请求用户租户id
-	// tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
-	// if !ok {
-	// 	response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
-	// 	return
-	// }
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+	authority, ok := c.Ctx.Input.GetData("authority").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "用户权限获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+	// 限制超级管理员和租户管理员访问
+	if authority != "SYS_ADMIN" && authority != "TENANT_ADMIN" {
+		response.SuccessWithMessage(400, "无权限访问该接口", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	var UserService services.UserService
+	err = UserService.SaveTenantConfig(tenantId, reqData.ApiKey, reqData.BashUrl, reqData.ModelType)
+	if err != nil {
+		response.SuccessWithMessage(400, "数据库保存失败", (*context2.Context)(c.Ctx))
+		return
+	}
+	response.SuccessWithMessage(200, "修改成功", (*context2.Context)(c.Ctx))
 
 }

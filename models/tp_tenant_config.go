@@ -15,5 +15,6 @@ type TpTenantAIConfig struct {
 	ModelType string `json:"model_type"`
 	APIKey    string `json:"api_key"`
 	BashURL   string `json:"bash_url"`
+	WhiteList string `json:"white_list"`
 	UpdateAt  int64  `json:"update_at"`
 }

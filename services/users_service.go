@@ -8,6 +8,7 @@ import (
 	bcrypt "ThingsPanel-Go/utils"
 	uuid "ThingsPanel-Go/utils"
 	valid "ThingsPanel-Go/validate"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -501,4 +502,22 @@ func (*UserService) GetTenantConfigByTenantId(tenantId string) (models.TpTenantC
 	var config models.TpTenantConfig
 	result := psql.Mydb.Model(&models.TpTenantConfig{}).Where("tenant_id = ? ", tenantId).Find(&config)
 	return config, result.Error
+}
+
+func (*UserService) SaveTenantConfig(tenantId, apiKey, baseUrl, modelType string) error {
+
+	var CustomConfig models.TpTenantAIConfig
+	CustomConfig.APIKey = apiKey
+	CustomConfig.BashURL = baseUrl
+	CustomConfig.ModelType = modelType
+	CustomConfig.UpdateAt = utils.GetTimeStamp()
+	jsonData, err := json.MarshalIndent(CustomConfig, "", "")
+	if err != nil {
+		return err
+	}
+	var config models.TpTenantConfig
+	config.TenantId = tenantId
+	config.CustomConfig = string(jsonData)
+	result := psql.Mydb.Model(&models.TpTenantConfig{}).Where("tenant_id = ? ", tenantId).Save(&config)
+	return result.Error
 }

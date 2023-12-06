@@ -349,3 +349,7 @@ func IsToday(ts int64) bool {
 func GetMicrosecondTimestamp() int64 {
 	return time.Now().UnixNano() / 1000
 }
+
+func GetTimeStamp() int64 {
+	return time.Now().Unix()
+}

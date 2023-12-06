@@ -44,7 +44,7 @@ type PasswordUser struct {
 }
 
 type SaveTenantConfig struct {
-	Remark    string `json:"remark"`
+	// Remark    string `json:"remark"`
 	ModelType string `json:"model_type" alias:"ModelType" valid:"Required"`
 	ApiKey    string `json:"api_key" alias:"ApiKey" valid:"Required"`
 	BashUrl   string `json:"bash_url" alias:"BashUrl"`
