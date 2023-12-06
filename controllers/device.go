@@ -290,6 +290,8 @@ func (reqDate *DeviceController) UpdateOnly() {
 				response.SuccessWithMessage(1000, "与其他设备的token重复", (*context2.Context)(reqDate.Ctx))
 				return
 			}
+			// 删除redis中的token
+			redis.DelKey(d.Token)
 		}
 	}
 	// 是否密码有更新（根据密码的有无判断认证方式，需要改进）
