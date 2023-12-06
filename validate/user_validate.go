@@ -42,3 +42,10 @@ type PasswordUser struct {
 	OldPassword string `json:"old_password" alias:"原密码" valid:"Required; MaxSize(255)"`
 	Password    string `json:"password" alias:"密码" valid:"Required; MaxSize(255)"`
 }
+
+type SaveTenantConfig struct {
+	Remark    string `json:"remark"`
+	ModelType string `json:"model_type" alias:"ModelType" valid:"Required"`
+	ApiKey    string `json:"api_key" alias:"ApiKey" valid:"Required"`
+	BashUrl   string `json:"bash_url" alias:"BashUrl"`
+}

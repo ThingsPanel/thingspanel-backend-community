@@ -1,8 +1,7 @@
 package models
 
 type TpTenantConfig struct {
-	Id           string `json:"id"  gorm:"primaryKey"`
-	TenantId     string `json:"tenant_id"`
+	TenantId     string `json:"tenant_id"  gorm:"primaryKey"`
 	CustomConfig string `json:"custom_config"`
 	SYSConfig    string `json:"sys_config,omitempty"`
 	Remark       string `json:"remark,omitempty"`
