@@ -2,6 +2,7 @@ package controllers
 
 import (
 	gvalid "ThingsPanel-Go/initialize/validate"
+	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/services"
 	bcrypt "ThingsPanel-Go/utils"
 	response "ThingsPanel-Go/utils"
@@ -416,4 +417,58 @@ func (c *UserController) Count() {
 	d := make(map[string]int64)
 	d["count"] = userCount
 	response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
+}
+
+func (c *UserController) TenantConfigIndex() {
+	// 获取请求用户租户id
+	tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	if !ok {
+		response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+		return
+	}
+	// {
+	// 	"ai_config": {
+	// 		"model_type": "OpenAI",
+	// 		"api_key": "",
+	// 		"bash_url": "",
+	// 		"update_at": 167204642154
+	// 	}
+	// }
+	var UserService services.UserService
+	config, err := UserService.GetTenantConfigByTenantId(tenantId)
+	if err != nil {
+		response.SuccessWithMessage(400, "查询失败", (*context2.Context)(c.Ctx))
+		return
+	}
+
+	// 转换
+	d := make(map[string]interface{})
+	d["tenant_id"] = config.TenantId
+	d["remark"] = config.Remark
+	var cc map[string]models.TpTenantAIConfig
+	err = json.Unmarshal([]byte(config.CustomConfig), &cc)
+	if err != nil {
+		response.SuccessWithMessage(400, "CustomConfig解析失败", (*context2.Context)(c.Ctx))
+		return
+	}
+	d["custom_config"] = cc
+	var sc map[string]interface{}
+	err = json.Unmarshal([]byte(config.SYSConfig), &sc)
+	if err != nil {
+		response.SuccessWithMessage(400, "sys_config", (*context2.Context)(c.Ctx))
+		return
+	}
+	d["sys_config"] = sc
+	response.SuccessWithDetailed(200, "获取成功", d, map[string]string{}, (*context2.Context)(c.Ctx))
+
+}
+
+func (c *UserController) TenantConfigSave() {
+	// 获取请求用户租户id
+	// tenantId, ok := c.Ctx.Input.GetData("tenant_id").(string)
+	// if !ok {
+	// 	response.SuccessWithMessage(400, "租户ID获取失败", (*context2.Context)(c.Ctx))
+	// 	return
+	// }
+
 }

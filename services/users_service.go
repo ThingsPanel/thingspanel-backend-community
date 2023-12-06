@@ -496,3 +496,9 @@ func (*UserService) CountUsers(authority, tenantId string) (int64, error) {
 	}
 	return count, nil
 }
+
+func (*UserService) GetTenantConfigByTenantId(tenantId string) (models.TpTenantConfig, error) {
+	var config models.TpTenantConfig
+	result := psql.Mydb.Model(&models.TpTenantConfig{}).Where("tenant_id = ? ", tenantId).Find(&config)
+	return config, result.Error
+}

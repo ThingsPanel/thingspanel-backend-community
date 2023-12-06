@@ -65,6 +65,10 @@ func Init() {
 		//个人用户密码修改
 		web.NSRouter("/user/update", &controllers.UserController{}, "*:Password"), //ty
 		web.NSRouter("/user/permission", &controllers.UserController{}, "*:Permission"),
+
+		web.NSRouter("/user/tenant/config/index", &controllers.UserController{}, "*:TenantConfigIndex"),
+		web.NSRouter("/user/tenant/config/save", &controllers.UserController{}, "*:TenantConfigSave"),
+
 		// 用户数量计算
 		web.NSRouter("/user/count", &controllers.UserController{}, "*:Count"),
 		web.NSRouter("/user/role/add", &controllers.TpRoleController{}, "*:Add"),
