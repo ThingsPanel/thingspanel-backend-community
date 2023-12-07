@@ -508,7 +508,7 @@ func (*UserService) SaveTenantConfig(tenantId, apiKey, baseUrl, modelType string
 
 	var CustomConfig models.TpTenantAIConfig
 	CustomConfig.APIKey = apiKey
-	CustomConfig.BashURL = baseUrl
+	CustomConfig.BaseUrl = baseUrl
 	CustomConfig.ModelType = modelType
 	CustomConfig.UpdateAt = utils.GetTimeStamp()
 	jsonData, err := json.MarshalIndent(CustomConfig, "", "")
