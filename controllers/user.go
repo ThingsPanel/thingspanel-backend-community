@@ -437,11 +437,7 @@ func (c *UserController) TenantConfigIndex() {
 	}
 
 	var cc models.TpTenantAIConfig
-	err = json.Unmarshal([]byte(config.CustomConfig), &cc)
-	if err != nil {
-		response.SuccessWithMessage(400, "CustomConfig解析失败", (*context2.Context)(c.Ctx))
-		return
-	}
+	_ = json.Unmarshal([]byte(config.CustomConfig), &cc)
 	response.SuccessWithDetailed(200, "获取成功", cc, map[string]string{}, (*context2.Context)(c.Ctx))
 
 }
