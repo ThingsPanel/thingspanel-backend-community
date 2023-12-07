@@ -35,7 +35,7 @@ func (c *TpDataCleanupService) ExecuteTpDataCleanup() error {
 	for _, v := range data {
 		now := time.Now().Unix()
 		// 判断今天是否清理过
-		if utils.IsToday(now) {
+		if utils.IsToday(v.LastCleanupTime) {
 			continue
 		}
 		if v.CleanupType == 1 {
