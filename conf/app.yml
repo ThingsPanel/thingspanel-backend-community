@@ -81,3 +81,7 @@ openapi:
 
 data_transpond:
   http_timeout: 3 #配置数据转发的http超时时间（秒）
+
+plugins:
+  - name: demo
+    enabled: false

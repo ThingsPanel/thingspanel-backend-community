@@ -109,9 +109,10 @@ func (this *HomeController) Show() {
 	//读取配置参数
 	if viper.GetString("mqtt.broker") == "" {
 		var readErr error
-		envConfigFile := flag.String("config", "./modules/dataService/config.yml", "path of configuration file")
+		// envConfigFile := flag.String("config", "./modules/dataService/config.yml", "path of configuration file")
+		var envConfigFile string
 		flag.Parse()
-		viper.SetConfigFile(*envConfigFile)
+		viper.SetConfigFile(envConfigFile)
 		if readErr = viper.ReadInConfig(); readErr != nil {
 			fmt.Println("FAILURE", err)
 		} else {

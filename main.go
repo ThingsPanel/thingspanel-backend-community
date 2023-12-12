@@ -3,6 +3,7 @@ package main
 import (
 	c "ThingsPanel-Go/cron"
 	tptodbClient "ThingsPanel-Go/grpc/tptodb_client"
+	"ThingsPanel-Go/hook"
 	"ThingsPanel-Go/initialize/cache"
 	"ThingsPanel-Go/initialize/casbin"
 	"ThingsPanel-Go/initialize/conf"
@@ -12,6 +13,7 @@ import (
 	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/initialize/session"
 	"ThingsPanel-Go/modules/dataService"
+	"ThingsPanel-Go/plugin"
 	"ThingsPanel-Go/routers"
 	services "ThingsPanel-Go/services"
 	"fmt"
@@ -35,6 +37,8 @@ func init() {
 	casbin.Init()
 	dataService.Init()
 	cache.Init()
+	plugin.Init()
+	hook.Init()
 	tp_cron.Init()
 	session.Init()
 	routers.Init()

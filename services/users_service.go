@@ -1,6 +1,7 @@
 package services
 
 import (
+	hook "ThingsPanel-Go/hook"
 	"ThingsPanel-Go/initialize/psql"
 	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/models"
@@ -204,6 +205,13 @@ func (*UserService) Login(reqData valid.LoginValidate) (*models.Users, error) {
 	// 判断用户状态
 	if users.Enabled == "0" {
 		return &users, errors.New("账户状态异常，请联系管理员！")
+	}
+	// 遍历插件列表PluginSlice
+	for _, plugin := range hook.PluginSlice {
+		err := plugin.LoginAdditionalInfoVerifyHook(&users)
+		if err != nil {
+			return &users, err
+		}
 	}
 	return &users, nil
 }

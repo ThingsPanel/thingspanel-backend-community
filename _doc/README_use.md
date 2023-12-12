@@ -46,8 +46,7 @@ go version #(查看版本)
 ## 后端相关配置文件
 
 ```text
-./conf/app.conf                  --系统配置 
-./modules/dataService/config.yml --mqtt客户端等
+./conf/app.yml                --系统配置 
 ```
 
 ## 日志存放目录
