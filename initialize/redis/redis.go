@@ -5,6 +5,7 @@ import (
 	"ThingsPanel-Go/models"
 	"ThingsPanel-Go/utils"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -148,4 +149,49 @@ func GetDeviceById(deviceId string) (*models.Device, error) {
 		}
 	}
 	return &device, nil
+}
+
+// 根据token获取订阅信息
+type UserPub struct {
+	Attribute string `json:"attribute"`
+	Event     string `json:"event"`
+}
+type UserSub struct {
+	Attribute string `json:"attribute"`
+	Commands  string `json:"commands"`
+}
+type UserTopic struct {
+	UserPub UserPub `json:"user_pub"`
+	UserSub UserSub `json:"user_sub"`
+}
+
+func GetUserTopicByToken(token string) (*UserTopic, error) {
+	var userTopic UserTopic
+	device, err := GetDeviceByToken(token)
+	if err != nil {
+		return nil, err
+	}
+	if device.AdditionalInfo == "" {
+		return nil, fmt.Errorf("empty")
+	}
+	// 转map
+	var additionalInfo map[string]interface{}
+	err = json.Unmarshal([]byte(device.AdditionalInfo), &additionalInfo)
+	if err != nil {
+		return nil, err
+	}
+	// 判断有没有pub_topic
+	if _, ok := additionalInfo["user_topic"]; !ok {
+		return nil, fmt.Errorf("empty")
+	}
+	// additionalInfo["user_topic"]转UserTopic
+	userTopicJson, err := json.Marshal(additionalInfo["user_topic"])
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(userTopicJson, &userTopic)
+	if err != nil {
+		return nil, err
+	}
+	return &userTopic, nil
 }

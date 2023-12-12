@@ -1,11 +1,13 @@
 package sendmqtt
 
 import (
+	"ThingsPanel-Go/initialize/redis"
 	"ThingsPanel-Go/utils"
 	"errors"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/beego/beego/logs"
@@ -147,6 +149,28 @@ func SendMQTT(payload []byte, topic string, qos byte) (err error) {
 	var clientErr = errors.New("_client is error")
 	if _client == nil {
 		return clientErr
+	}
+	// 判断主题是否包含device/attributes/或device/command/
+	if strings.Contains(topic, "device/attributes/") || strings.Contains(topic, "device/command/") {
+		//获取最后一个/位置的字符串
+		splitList := strings.Split(topic, "/")
+		token := splitList[len(strings.Split(topic, "/"))-1]
+		userTopic, err := redis.GetUserTopicByToken(token)
+		if err == nil {
+			if splitList[1] == "attributes" {
+				if userTopic.UserPub.Attribute != "" {
+					if strings.Contains(userTopic.UserPub.Attribute, "{username}") {
+						topic = strings.Replace(userTopic.UserPub.Attribute, "{username}", token, 1)
+					}
+				}
+			} else if splitList[1] == "command" {
+				if userTopic.UserSub.Commands != "" {
+					if strings.Contains(userTopic.UserSub.Commands, "{username}") {
+						topic = strings.Replace(userTopic.UserSub.Commands, "{username}", token, 1)
+					}
+				}
+			}
+		}
 	}
 	t := _client.Publish(topic, qos, false, string(payload))
 	if t.Error() != nil {
