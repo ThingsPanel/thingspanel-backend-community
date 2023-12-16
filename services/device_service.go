@@ -1182,7 +1182,7 @@ func (*DeviceService) GetConfigByProtocolAndDeviceType(protocol string, deviceTy
 					DeviceId:      subDevice.ID,
 					SubDeviceAddr: subDevice.SubDeviceAddr,
 				}
-
+				var m map[string]interface{}
 				if err := json.Unmarshal([]byte(subDevice.ProtocolConfig), &m); err != nil {
 					logs.Error("Unmarshal failed:", err)
 					continue
