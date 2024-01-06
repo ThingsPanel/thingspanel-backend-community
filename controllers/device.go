@@ -901,7 +901,13 @@ func (DeviceController *DeviceController) GetProtocolForm() {
 	// 查询插件注册
 	pp := TpProtocolPluginService.GetByProtocolType(ProtocolFormValidate.ProtocolType, ProtocolFormValidate.DeviceType)
 	if pp.Id != "" {
-		rsp, rsp_err := tphttp.GetPluginFromConfig(pp.HttpAddress, ProtocolFormValidate.ProtocolType, ProtocolFormValidate.DeviceType)
+		var formType = ""
+		if ProtocolFormValidate.DeviceType == "3" {
+			formType = "2"
+		} else {
+			formType = "1"
+		}
+		rsp, rsp_err := tphttp.GetPluginFromConfig(pp.HttpAddress, ProtocolFormValidate.ProtocolType, formType)
 		if rsp_err != nil {
 			response.SuccessWithMessage(400, rsp_err.Error(), (*context2.Context)(DeviceController.Ctx))
 		}
