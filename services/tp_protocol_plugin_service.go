@@ -27,6 +27,9 @@ func (*TpProtocolPluginService) GetTpProtocolPluginDetail(tp_protocol_plugin_id 
 
 func (*TpProtocolPluginService) GetByProtocolType(protocol_type string, device_type string) models.TpProtocolPlugin {
 	var tp_protocol_plugin models.TpProtocolPlugin
+	if device_type == "3" {
+		device_type = "2"
+	}
 	psql.Mydb.First(&tp_protocol_plugin, "protocol_type = ? and device_type = ?", protocol_type, device_type)
 	return tp_protocol_plugin
 
