@@ -1168,8 +1168,9 @@ func (*DeviceService) GetConfigByProtocolAndDeviceType(protocol string, deviceTy
 		config.AccessToken = device.Token
 		config.DeviceType = device.DeviceType
 		config.ID = device.ID
+		logs.Error("-----------------", device.ProtocolConfig)
 		var fm map[string]interface{}
-		if err := json.Unmarshal([]byte(device.ProtocolConfig), &m); err != nil {
+		if err := json.Unmarshal([]byte(device.ProtocolConfig), &fm); err != nil {
 			logs.Error("Unmarshal failed:", err)
 			continue
 		}
