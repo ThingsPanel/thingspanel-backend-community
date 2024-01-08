@@ -1168,6 +1168,12 @@ func (*DeviceService) GetConfigByProtocolAndDeviceType(protocol string, deviceTy
 		config.AccessToken = device.Token
 		config.DeviceType = device.DeviceType
 		config.ID = device.ID
+		var fm map[string]interface{}
+		if err := json.Unmarshal([]byte(device.ProtocolConfig), &m); err != nil {
+			logs.Error("Unmarshal failed:", err)
+			continue
+		}
+		config.DeviceConfig = fm
 		// 网关设备
 		if device.DeviceType == "2" {
 			var subDevices []models.Device
