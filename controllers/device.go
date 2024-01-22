@@ -401,26 +401,26 @@ func (reqDate *DeviceController) UpdateOnly() {
 						}
 					}
 				}
+			} else if d.DeviceType == "2" {
+				if (addDeviceValidate.ProtocolConfig != "" && addDeviceValidate.ProtocolConfig != d.ProtocolConfig) || (addDeviceValidate.Token != "" && d.Token != addDeviceValidate.Token) {
+					var DeviceService services.DeviceService
+					dd, err := DeviceService.GetConfigByToken("", d.ID)
+					if err != nil {
+						logs.Error(err.Error())
+					} else {
+						var TpProtocolPluginService services.TpProtocolPluginService
+						pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "2")
+						// dd转json字节
+						ddByte, _ := json.Marshal(dd)
+						tphttp.UpdateDeviceConfig(ddByte, pp.HttpAddress)
+					}
+				}
 			}
 		} else if d.Protocol[0:4] == "WVP_" && d.DeviceType == "2" {
 			var wvpDeviceService services.WvpDeviceService
 			err := wvpDeviceService.AddSubVideoDevice(addDeviceValidate)
 			if err != nil {
 				response.SuccessWithMessage(400, err.Error(), (*context2.Context)(reqDate.Ctx))
-			}
-		} else if d.DeviceType == "2" {
-			if (addDeviceValidate.ProtocolConfig != "" && addDeviceValidate.ProtocolConfig != d.ProtocolConfig) || (addDeviceValidate.Token != "" && d.Token != addDeviceValidate.Token) {
-				var DeviceService services.DeviceService
-				dd, err := DeviceService.GetConfigByToken("", d.ID)
-				if err != nil {
-					logs.Error(err.Error())
-				} else {
-					var TpProtocolPluginService services.TpProtocolPluginService
-					pp := TpProtocolPluginService.GetByProtocolType(d.Protocol, "2")
-					// dd转json字节
-					ddByte, _ := json.Marshal(dd)
-					tphttp.UpdateDeviceConfig(ddByte, pp.HttpAddress)
-				}
 			}
 		}
 		// 更新缓存
