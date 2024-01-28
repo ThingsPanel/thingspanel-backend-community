@@ -49,6 +49,11 @@ func (c *TpDataCleanupService) ExecuteTpDataCleanup() error {
 				err = psql.Mydb.Model(&models.TpDataCleanup{}).Where("id = ?", v.Id).Updates(map[string]interface{}{"last_cleanup_time": now, "last_cleanup_data_time": ts}).Error
 				if err != nil {
 					logs.Error("保存清理结果失败", err.Error())
+				} else {
+					result := psql.Mydb.Raw("vacuum full ts_kv")
+					if result.Error != nil {
+						logs.Error("执行vacuum full ts_kv失败", result.Error.Error())
+					}
 				}
 			}
 
