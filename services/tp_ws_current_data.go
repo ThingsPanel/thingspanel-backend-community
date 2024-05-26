@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"ThingsPanel-Go/initialize/redis"
@@ -83,7 +84,7 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 		logs.Error("断开连接", err)
 		return
 	}
-	
+
 	deviceID, ok2 := msgMap["device_id"]
 	if !ok2 {
 		errMsg := "device_id is missing"
@@ -126,7 +127,7 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-// 发送设备当前数据
+	// 发送设备当前数据
 	var TSKVService TSKVService
 	var dataByte []byte
 	data, err := TSKVService.GetCurrentData(msgMap["device_id"], nil)
@@ -155,6 +156,7 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 		ws.WriteMessage(msgType, []byte(err.Error()))
 		return
 	}
+	var mu sync.Mutex
 	wsMqtt.WsMqttClient.Subscribe(topic, 0, func(client mqtt.Client, message mqtt.Message) {
 		type mqttPayload struct {
 			Token  string `json:"token"`
@@ -182,7 +184,10 @@ func (*TpWsCurrentData) CurrentData(w http.ResponseWriter, r *http.Request) {
 				ws.WriteMessage(msgType, []byte(err.Error()))
 				return
 			}
-			if err = ws.WriteMessage(msgType, payload.Values); err != nil {
+			mu.Lock()
+			err = ws.WriteMessage(msgType, payload.Values)
+			mu.Unlock()
+			if err != nil {
 				logs.Error(err)
 				ws.WriteMessage(msgType, []byte(err.Error()))
 				return
