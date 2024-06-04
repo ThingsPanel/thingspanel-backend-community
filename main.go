@@ -1,89 +1,108 @@
 package main
 
 import (
-	c "ThingsPanel-Go/cron"
-	tptodbClient "ThingsPanel-Go/grpc/tptodb_client"
-	"ThingsPanel-Go/hook"
-	"ThingsPanel-Go/initialize/cache"
-	"ThingsPanel-Go/initialize/casbin"
-	"ThingsPanel-Go/initialize/conf"
-	tp_cron "ThingsPanel-Go/initialize/cron"
-	tp_log "ThingsPanel-Go/initialize/log"
-	"ThingsPanel-Go/initialize/psql"
-	"ThingsPanel-Go/initialize/redis"
-	"ThingsPanel-Go/initialize/session"
-	"ThingsPanel-Go/modules/dataService"
-	"ThingsPanel-Go/plugin"
-	"ThingsPanel-Go/routers"
-	services "ThingsPanel-Go/services"
+	"context"
 	"fmt"
-	"log"
+	"net/http"
+	"os"
+	"os/signal"
 	"time"
 
-	beego "github.com/beego/beego/v2/server/web"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
+	"project/croninit"
+	initialize "project/initialize"
+	"project/mqtt"
+	"project/mqtt/publish"
+	"project/mqtt/subscribe"
+	query "project/query"
+	router "project/router"
+
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-var Ticker *time.Ticker
-
 func init() {
-	log.Println("系统初始化开始")
-	conf.Init()
-	redis.Init()
-	tp_log.Init()
-	psql.Init()
-	casbin.Init()
-	dataService.Init()
-	cache.Init()
-	plugin.Init()
-	hook.Init()
-	tp_cron.Init()
-	session.Init()
-	routers.Init()
-	c.Init()
-	log.Println("系统初始化完成")
+	initialize.ViperInit("./configs/conf.yml")
+	//initialize.ViperInit("./configs/conf-localdev.yml")
+	initialize.LogInIt()
+	db := initialize.PgInit()
+	initialize.RedisInit()
+	query.SetDefault(db)
+	initialize.CasbinInit()
+
+	mqtt.MqttInit()
+	subscribe.SubscribeInit()
+	publish.PublishInit()
+	//定时任务
+	croninit.CronInit()
 }
+
+// @title           ThingsPanel API
+// @version         1.0
+// @description     ThingsPanel API.
+// @schemes         http
+// @host      localhost:9999
+// @BasePath
+// @securityDefinitions.apikey  ApiKeyAuth
+// @in                          header
+// @name                        x-token
 func main() {
-	// 初始化grpc
-	go tptodbClient.GrpcTptodbInit()
+	// gin.SetMode(gin.ReleaseMode)
 
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+	// TODO: 替换gin默认日志，默认日志不支持日志级别设置
+	host, port := loadConfig()
+	router := router.RouterInit()
+	srv := initServer(host, port, router)
 
-	go func() {
-		for t := range ticker.C {
-			log.Println(t)
-			var ResourcesService services.ResourcesService
-			percent, err := cpu.Percent(time.Second, false)
-			if err != nil {
-				log.Println("Error getting CPU percent:", err)
-				continue
-			}
-			cpu_str := fmt.Sprintf("%.2f", percent[0])
-			memInfo, err := mem.VirtualMemory()
-			if err != nil {
-				log.Println("Error getting virtual memory:", err)
-				continue
-			}
-			mem_str := fmt.Sprintf("%.2f", memInfo.UsedPercent)
-			currentTime := fmt.Sprint(time.Now().Format("2006-01-02 15:04:05"))
-			ResourcesService.Add(cpu_str, mem_str, currentTime)
-		}
-	}()
+	// 启动服务
+	go startServer(srv, host, port)
 
-	// 系统初始化的images
-	beego.SetStaticPath("/files/init-images", "others/init_images")
-	// 静态文件路径
-	beego.SetStaticPath("/files", "files")
+	// 优雅关闭
+	gracefulShutdown(srv)
 
-	beego.BConfig.CopyRequestBody = true
-	beego.BConfig.WebConfig.Session.SessionOn = true
-	beego.BConfig.WebConfig.AutoRender = false
-	beego.BConfig.AppName = "ThingsPanel-Go"
+}
 
-	beego.BConfig.RunMode = viper.GetString("app.runmode")
-	httpport := viper.GetString("app.httpport")
-	beego.Run(httpport)
+func loadConfig() (host, port string) {
+	host = viper.GetString("service.http.host")
+	if host == "" {
+		host = "localhost"
+		logrus.Println("Using default host:", host)
+	}
+
+	port = viper.GetString("service.http.port")
+	if port == "" {
+		port = "9999"
+		logrus.Println("Using default port:", port)
+	}
+
+	return host, port
+}
+
+func initServer(host, port string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:         fmt.Sprintf("%s:%s", host, port),
+		Handler:      handler,
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 60 * time.Second,
+	}
+}
+
+func startServer(srv *http.Server, host, port string) {
+	logrus.Println("Listening and serving HTTP on", host, ":", port)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logrus.Fatalf("listen: %s\n", err)
+	}
+}
+
+func gracefulShutdown(srv *http.Server) {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	logrus.Println("Shutdown Server ...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		logrus.Fatal("Server Shutdown:", err)
+	}
+	logrus.Println("Server exiting")
 }

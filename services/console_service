@@ -1,8 +1,0 @@
-package services
-
-type ConsoleService struct {
-}
-
-func (*ConsoleService) AddConsole(name string, offset int, pageSize int) int {
-
-}

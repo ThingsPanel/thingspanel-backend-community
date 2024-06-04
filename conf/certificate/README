@@ -1,4 +1,0 @@
-  这里存放三个文件
-  caPath : ./conf/certificate/ca.crt
-  crtPath: ./conf/certificate/client.crt
-  keyPath : ./conf/certificate/client.key

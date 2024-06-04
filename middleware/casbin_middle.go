@@ -1,43 +1,34 @@
 package middleware
 
 import (
-	"ThingsPanel-Go/services"
-	"ThingsPanel-Go/utils"
-	response "ThingsPanel-Go/utils"
+	"net/http"
 	"strings"
 
-	adapter "github.com/beego/beego/v2/adapter"
-	"github.com/beego/beego/v2/adapter/context"
-	"github.com/beego/beego/v2/core/logs"
-	context2 "github.com/beego/beego/v2/server/web/context"
+	service "project/service"
+	utils "project/utils"
+
+	"github.com/gin-gonic/gin"
 )
 
 // 采用casbin，如果资源在表中，就需要校验，不在表中不做校验
 // RBAC：用户-角色-功能-资源-动作
-func CasbinMiddle() {
-	logs.Info("casbin:进入中间件")
-	var CasbinService services.CasbinService
-	//需要验证的url
-	var filterUrl = func(ctx *context.Context) {
-		url := strings.TrimLeft(ctx.Input.URL(), "/")
-		logs.Info("casbin:url--", utils.ReplaceUserInput(url))
-		// 判断接口是否需要校验
-		isVerify := CasbinService.GetUrl(url)
-		if isVerify {
-			logs.Info("casbin:需要校验")
-			authorization := ctx.Request.Header["Authorization"][0]
-			userToken := authorization[7:]
-			userClaims, err := response.ParseCliamsToken(userToken)
-			if err == nil {
-				name := userClaims.Name
-				logs.Info("casbin:username--", name)
-				isSuccess := CasbinService.Verify(name, url)
+
+func CasbinRBAC() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		//需要验证的url:*api*
+		if strings.Contains(c.Request.URL.Path, "api") {
+			url := strings.TrimLeft(c.Request.URL.Path, "/")
+			// 判断接口是否需要校验
+			isVerify := service.GroupApp.Casbin.GetUrl(url)
+			if isVerify {
+				userClaims := c.MustGet("claims").(*utils.UserClaims)
+				isSuccess := service.GroupApp.Casbin.Verify(userClaims.ID, url)
 				if !isSuccess {
-					response.SuccessWithMessage(999, "You don't have access.", (*context2.Context)(ctx))
+					c.JSON(http.StatusBadRequest, gin.H{"error": "非法访问"})
+					c.Abort()
+					return
 				}
 			}
 		}
-
 	}
-	adapter.InsertFilter("/api/*", adapter.BeforeRouter, filterUrl)
 }

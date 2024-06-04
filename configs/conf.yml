@@ -1,0 +1,139 @@
+# 如需在系统变量中设置配置项，可使用GOTP_开头的变量名，如：GOTP_DB_PSQL_DBTYPE为db.psql.dbType
+
+service:
+  http: 
+    host: 0.0.0.0 # 默认localhost
+    port: # 默认9999
+
+log:
+  # 0-控制台输出 1-文件输出 2-文件和控制台输出
+  adapter_type: 0
+  # 文件最多保存多少天
+  maxdays: 7
+  # 日志级别 (panic fatal error warn info debug trace)
+  level: debug # 默认info
+  # 每个文件保存的最大行数
+  maxlines: 10000
+
+jwt:
+  key: 1hj5b0sp9
+
+
+
+db:
+  psql:
+    host: 127.0.0.1 # 默认localhost
+    port: 5432 # 默认5432
+    dbname: ThingsPanel
+    username: postgres
+    password: postgresThingsPanel
+    time_zone: Asia/Shanghai # 默认Asia/Shanghai
+
+    idle_conns: 5 # 空闲连接池中的最大连接数，建议为open_conns的百分之5-20之间
+    open_conns: 50 # 最大打开连接数,timescaledb默认为100,考虑到其他服务也会使用数据库，建议这里设置为50
+    # SQL日志级别 (1-静音 2-错误 3-警告 4-信息)
+    log_level: 4 # 默认1
+    # 慢SQL阈值（毫秒）。慢SQL会在sqlloglevel大于等于3时输出。
+    slow_threshold: 200 # 默认200毫秒
+
+  redis:
+    addr: 127.0.0.1:6379 # 默认localhost:6379
+    db: 1 # 默认0
+    password: "redis"
+
+
+
+# mqtt服务：gmqtt、vernemq
+mqtt_server: gmqtt
+
+mqtt:
+  access_address: 47.92.253.145:1883
+  broker: 127.0.0.1:1883 # 默认localhost:1883
+#  broker: 47.115.210.16:1883
+  user: root # 默认root
+  pass: root # 默认root
+  channel_buffer_size: 10000 # 默认10000
+  write_workers: 1 # 消息队列入库线程数，默认10
+  #消息服务质量 0：消息最多传递一次，如果当时客户端不可用，则会丢失该消息。1：消息传递至少 1 次。2：消息仅传送一次。
+  # 以下主题都为默认主题
+  telemetry:
+    # devices/telemetry/control/{device_number}
+    # 如果发给协议插件，则是devices/telemetry/control/{device_id}
+    publish_topic: devices/telemetry/control/
+    subscribe_topic: devices/telemetry
+    gateway_subscribe_topic: gateway/telemetry
+    #gateway/telemetry/{device_number}/+
+    gateway_publish_topic: gateway/telemetry/control/%s
+    pool_size: 10 # 消息处理线程池，默认100
+    batch_size: 100 # 默认100 最大一次批量写入数据库的数据量
+    qos: 0
+  attributes:
+    # 订阅属性：+位置是{message_id} 
+    subscribe_topic: devices/attributes/+
+    # 发布接收属性响应：devices/attributes/response/{device_number}/{message_id}
+    publish_response_topic: devices/attributes/response/
+    # 发布设置属性请求：devices/attributes/set/{device_number}/{message_id}
+    publish_topic: devices/attributes/set/
+    # 订阅设置属性响应：+位置是{message_id} 
+    subscribe_response_topic: devices/attributes/set/response/+
+    # 发布获取属性请求：devices/attributes/get/{device_number}
+    publish_get_topic: devices/attributes/get/
+    
+    # 设备属性上报 gateway/attributes/{message_id}
+    gateway_subscribe_topic: gateway/attributes/+
+    # 订阅平台收到属性的响应  gateway/attributes/response/{device_number}/+
+    gateway_publish_response_topic: gateway/attributes/response/%s/%s
+    # 平台设置设备属性 gateway/attributes/set/{device_number}/+
+    gateway_publish_topic: gateway/attributes/set/%s/%s
+    # 平台设置属性 设备响应 gateway/attributes/set/response/{message_id}
+    gateway_subscribe_response_topic: gateway/attributes/set/response/+
+    # 平台下发请求获取属性 gateway/attributes/get/{device_number}
+    gateway_publish_get_topic: gateway/attributes/get/%s
+
+    qos: 1
+  commands:
+    # devices/command/{device_number}/{message_id}
+    publish_topic: devices/command/
+    subscribe_topic: devices/command/response/+
+    # 设备接受命令回应 gateway/command/response/{message_id}
+    gateway_subscribe_topic: gateway/command/response/+
+    # 下发命令 gateway/command/{device_number}/+
+    gateway_publish_topic: gateway/command/%s/%s
+    # 测试
+    # gateway_publish_topic: devices/command/%s/%s
+    qos: 1
+  events:
+    # 订阅事件：+位置是message_id
+    subscribe_topic: devices/event/+
+    # 发布事件响应：devices/event/response/{device_number}/{message_id}
+    publish_topic: devices/event/response/
+
+    # 设备上报事件 gateway/event/{message_id}
+    gateway_subscribe_topic: gateway/event/+
+    # 平台接受到事件响应 gateway/event/response/{device_number}/+
+    gateway_publish_topic: gateway/event/response/%s/%s
+
+    qos: 1
+  ota:
+    # ota升级包消息推送：ota/devices/infrom/{device_number}
+    publish_topic: ota/devices/infrom/
+    subscribe_topic: ota/devices/progress
+    qos: 1
+
+
+
+mqtts:
+  broker: 127.0.0.1:8883
+  user: root
+  pass: root
+  caPath : ./conf/certificate/ca.crt
+  crtPath: ./conf/certificate/client.crt
+  keyPath : ./conf/certificate/client.key
+
+automation_task_confg:
+  once_task_limit: 100
+  periodic_task_limit: 100
+
+ota:
+ #推送到设备端的ota升级包下载地址
+  download_address: http://demo.thingspanel.cn 

@@ -1,52 +1,52 @@
 package utils
 
 import (
-	"ThingsPanel-Go/models"
 	"time"
 
-	beego "github.com/beego/beego/v2/server/web"
 	"github.com/golang-jwt/jwt"
+	"github.com/sirupsen/logrus"
 )
+
+type JWT struct {
+	Key interface{}
+}
 
 type UserClaims struct {
 	ID         string    `json:"id"`
-	Name       string    `json:"name"`
+	Email      string    `json:"email"`
 	CreateTime time.Time `json:"create_time"`
+	Authority  string    `json:"authority"`
+	TenantID   string    `json:"tenant_id"`
 	jwt.StandardClaims
 }
 
-// 生成jwt的token
-func MakeCliamsToken(o UserClaims) (string, error) {
-	jwt_secret, _ := beego.AppConfig.String("jwt_secret")
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, o)
-	tokenString, err := token.SignedString([]byte(jwt_secret))
-	return tokenString, err
+func NewJWT(key interface{}) *JWT {
+	return &JWT{
+		Key: key,
+	}
 }
 
-// 解密jwt的token
-func ParseCliamsToken(token string) (*UserClaims, error) {
-	jwt_secret, _ := beego.AppConfig.String("jwt_secret")
+// 生成token
+func (j *JWT) GenerateToken(claims UserClaims) (string, error) {
+	claims.ExpiresAt = time.Now().Add(time.Hour * 24 * 30).Unix()
+	tokenClaims := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// 生成token
+	return tokenClaims.SignedString(j.Key)
+}
+
+// 解析token
+func (j *JWT) ParseToken(token string) (*UserClaims, error) {
 	tokenClaims, err := jwt.ParseWithClaims(token, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(jwt_secret), nil
+		return j.Key, nil
 	})
-	if tokenClaims != nil {
-		if claims, ok := tokenClaims.Claims.(*UserClaims); ok && tokenClaims.Valid {
-			return claims, nil
-		}
+	if err != nil {
+		logrus.Error(err.Error())
+		return nil, err
 	}
+	if claims, ok := tokenClaims.Claims.(*UserClaims); ok && tokenClaims.Valid {
+		return claims, nil
+	}
+	logrus.Error(err.Error())
 	return nil, err
-}
-
-// 生成token,并返回token,过期时间1小时
-func GenerateToken(user *models.Users) (string, error) {
-	claims := UserClaims{
-		ID:         user.ID,
-		Name:       user.Email,
-		CreateTime: time.Now(),
-		StandardClaims: jwt.StandardClaims{
-			// 过期时间24小时
-			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
-		},
-	}
-	return MakeCliamsToken(claims)
 }

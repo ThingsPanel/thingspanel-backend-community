@@ -4,7 +4,7 @@ WORKDIR $GOPATH/src/app
 ADD . ./
 ENV GO111MODULE=on
 ENV GOPROXY="https://goproxy.io"
-RUN go build
+RUN go build -o ThingsPanel-Go .
 
 FROM alpine:latest
 WORKDIR /go/src/app

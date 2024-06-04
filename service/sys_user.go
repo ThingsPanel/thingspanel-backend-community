@@ -1,0 +1,412 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"strings"
+	"time"
+
+	dal "project/dal"
+	global "project/global"
+	model "project/model"
+	query "project/query"
+	utils "project/utils"
+
+	"github.com/go-basic/uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+)
+
+type User struct{}
+
+// @description  创建用户
+func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.UserClaims) error {
+
+	var user = model.User{}
+	// uuid生成用户id
+	user.ID = uuid.New()
+	user.Name = createUserReq.Name
+	user.PhoneNumber = createUserReq.PhoneNumber
+	user.Email = createUserReq.Email
+	user.Status = StringPtr("N")
+	user.Remark = createUserReq.Remark
+
+	// 其他信息
+	if createUserReq.AdditionalInfo == nil {
+		user.AdditionalInfo = StringPtr("{}")
+	} else {
+		user.AdditionalInfo = createUserReq.AdditionalInfo
+	}
+	// 判断用户权限
+	if claims.Authority == "SYS_ADMIN" { // 系统管理员创建租户管理员
+		user.Authority = StringPtr("TENANT_ADMIN")
+		user.TenantID = StringPtr(strings.Split(uuid.New(), "-")[0])
+	} else if claims.Authority == "TENANT_ADMIN" { // 租户管理员创建租户用户
+		user.Authority = StringPtr("TENANT_USER")
+		a, err := u.GetUserById(claims.ID)
+		if err != nil {
+			logrus.Error(err)
+			return err
+		}
+		user.TenantID = a.TenantID
+	}
+	t := time.Now().UTC()
+	user.CreatedAt = &t
+	user.UpdatedAt = &t
+
+	// 生成密码
+	user.Password = utils.BcryptHash(createUserReq.Password)
+	err := dal.CreateUsers(&user)
+	if err != nil {
+		logrus.Error(err)
+		if strings.Contains(err.Error(), "users_un") {
+			return fmt.Errorf("email already exists")
+		}
+		return err
+	}
+	if createUserReq.RoleIDs != nil {
+		// 绑定角色
+		ok := GroupApp.Casbin.AddRolesToUser(user.ID, createUserReq.RoleIDs)
+		if !ok {
+			logrus.Error(err)
+			return fmt.Errorf("add role to user failed")
+		}
+	}
+	return err
+}
+
+// @description  用户登录
+func (u *User) Login(loginReq *model.LoginReq) (*model.LoginRsp, error) {
+	// 通过邮箱获取用户信息
+	user, err := dal.GetUsersByEmail(loginReq.Email)
+	if err != nil {
+		return nil, err
+	}
+	// 对比密码
+	if !utils.BcryptCheck(loginReq.Password, user.Password) {
+		return nil, fmt.Errorf("wrong user password")
+	}
+
+	// 判断用户状态
+	if *user.Status != "N" {
+		return nil, fmt.Errorf("user status exception")
+	}
+
+	key := viper.GetString("jwt.key")
+	// 生成token
+	jwt := utils.NewJWT([]byte(key))
+	claims := utils.UserClaims{
+		ID:         user.ID,
+		Email:      user.Email,
+		Authority:  *user.Authority,
+		CreateTime: time.Now().UTC(),
+		TenantID:   *user.TenantID,
+	}
+	token, err := jwt.GenerateToken(claims)
+	if err != nil {
+		return nil, err
+	}
+
+	global.REDIS.Set(token, "1", 24*7*time.Hour)
+
+	loginRsp := &model.LoginRsp{
+		Token:     &token,
+		ExpiresIn: int64(24 * 7 * time.Hour.Seconds()),
+	}
+	return loginRsp, nil
+}
+
+// @description 退出登录
+func (u *User) Logout(token string) error {
+	// 删除redis中的token
+	global.REDIS.Del(token)
+	return nil
+}
+
+// @description 刷新token
+func (u *User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, error) {
+	// 通过邮箱获取用户信息
+	user, err := dal.GetUsersByEmail(userClaims.Email)
+	if err != nil {
+		return nil, err
+	}
+
+	// 判断用户状态
+	if *user.Status != "N" {
+		return nil, fmt.Errorf("user status exception")
+	}
+
+	key := viper.GetString("jwt.key")
+	// 生成token
+	jwt := utils.NewJWT([]byte(key))
+	claims := utils.UserClaims{
+		ID:         user.ID,
+		Email:      user.Email,
+		Authority:  *user.Authority,
+		CreateTime: time.Now().UTC(),
+		TenantID:   *user.TenantID,
+	}
+	token, err := jwt.GenerateToken(claims)
+	if err != nil {
+		return nil, err
+	}
+
+	global.REDIS.Set(token, "1", 24*7*time.Hour)
+
+	loginRsp := &model.LoginRsp{
+		Token:     &token,
+		ExpiresIn: int64(24 * 7 * time.Hour.Seconds()),
+	}
+	return loginRsp, nil
+}
+
+// @description 发送验证码
+func (u *User) GetVerificationCode(email string) error {
+	// 通过邮箱获取用户信息
+	user, err := dal.GetUsersByEmail(email)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return fmt.Errorf("email does not exist")
+	}
+	verificationCode := fmt.Sprintf("%06d", rand.Intn(10000))
+	err = global.REDIS.Set(email+"_code", verificationCode, 5*time.Minute).Err()
+	if err != nil {
+		return err
+	}
+
+	err = GroupApp.NotificationServicesConfig.SendTestEmail(&model.SendTestEmailReq{
+		Email: email,
+		Body:  fmt.Sprintf("Your verification code is %s", verificationCode),
+	})
+	return err
+}
+
+// @description ResetPassword By VerifyCode and Email
+func (u *User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPasswordReq) error {
+	verificationCode, err := global.REDIS.Get(resetPasswordReq.Email + "_code").Result()
+	if err != nil {
+		return fmt.Errorf("verification code expired")
+	}
+	if verificationCode != resetPasswordReq.VerifyCode {
+		return fmt.Errorf("verification code error")
+	}
+
+	var (
+		db   = dal.UserQuery{}
+		user = query.User
+	)
+	info, err := db.First(ctx, user.Email.Eq(resetPasswordReq.Email))
+	if err != nil {
+		logrus.Error(ctx, "[ResetPasswordByCode]Get Users info failed:", err)
+		return err
+	}
+
+	info.Password = utils.BcryptHash(resetPasswordReq.Password)
+	if err = db.UpdateByEmail(ctx, info, user.Password); err != nil {
+		logrus.Error(ctx, "[ResetPasswordByCode]Update Users info failed:", err)
+		return err
+	}
+	return nil
+}
+
+// @description  通过id获取用户信息
+func (u *User) GetUserById(id string) (*model.User, error) {
+	user, err := dal.GetUsersById(id)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// @description  分页获取用户列表
+func (u *User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
+	total, list, err := dal.GetUserListByPage(userListReq, claims)
+	if err != nil {
+		return nil, err
+	}
+	userListRspMap := make(map[string]interface{})
+	userListRspMap["total"] = total
+	userListRspMap["list"] = list
+	return userListRspMap, nil
+}
+
+// @description  修改用户信息
+func (u *User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserClaims) error {
+	user, err := dal.GetUsersById(updateUserReq.ID)
+	if err != nil {
+		return err
+	}
+
+	// 判断用户权限，租户管理员和租户用户不能修改其他租户的信息
+	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
+		if *user.TenantID != claims.TenantID {
+			return fmt.Errorf("you cannot modify information about other tenants")
+		}
+
+		// 租户管理员不能修改自己的状态
+		if claims.Authority == "TENANT_ADMIN" && *user.Authority == "TENANT_ADMIN" && *user.Status != *updateUserReq.Status {
+			if updateUserReq.Status != nil {
+				if updateUserReq.Status != nil {
+					return fmt.Errorf("tenant administrators cannot change their own status")
+				}
+			}
+		}
+	}
+
+	// 密码修改特殊处理
+	if updateUserReq.Password != nil {
+		user.Password = *StringPtr(utils.BcryptHash(*updateUserReq.Password))
+	}
+
+	t := time.Now().UTC()
+	user.UpdatedAt = &t
+	user.Name = updateUserReq.Name
+	user.PhoneNumber = *updateUserReq.PhoneNumber
+	user.AdditionalInfo = updateUserReq.AdditionalInfo
+	user.Status = updateUserReq.Status
+	user.Remark = updateUserReq.Remark
+
+	_, err = dal.UpdateUserInfoById(claims.ID, user)
+	if err != nil {
+		return err
+	}
+
+	// 修改角色
+	if updateUserReq.RoleIDs != nil {
+		// 先删除原有角色
+		GroupApp.Casbin.RemoveUserAndRole(updateUserReq.ID)
+		// 绑定新角色
+		if len(updateUserReq.RoleIDs) > 0 {
+			ok := GroupApp.Casbin.AddRolesToUser(updateUserReq.ID, updateUserReq.RoleIDs)
+			if !ok {
+				return fmt.Errorf("update user failed")
+			}
+		}
+	}
+
+	return nil
+}
+
+// @description  删除用户
+func (u *User) DeleteUser(id string, claims *utils.UserClaims) error {
+	user, err := dal.GetUsersById(id)
+	if err != nil {
+		return err
+	}
+
+	// 判断用户权限，租户管理员和租户用户不能修改其他租户的信息
+	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
+		if *user.TenantID != claims.TenantID {
+			return fmt.Errorf("authority exception")
+		}
+		// 租户管理员不能删除自己
+		if claims.Authority == "TENANT_ADMIN" {
+			if *user.Authority == "TENANT_ADMIN" {
+				return fmt.Errorf("authority exception")
+			}
+		}
+	}
+
+	// 不能删除系统管理员
+	if *user.Authority == "SYS_ADMIN" {
+		return fmt.Errorf("authority exception")
+	}
+
+	err = dal.DeleteUsersById(id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// 获取用户信息
+func (u *User) GetUser(id string, claims *utils.UserClaims) (*model.User, error) {
+	user, err := dal.GetUsersById(id)
+	if err != nil {
+		return nil, err
+	}
+	// 判断用户权限，租户管理员和租户用户不能查看其他租户的信息
+	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
+		if *user.TenantID != claims.TenantID {
+			return nil, fmt.Errorf("authority exception")
+		}
+	}
+	return user, nil
+}
+
+// 获取用户详细信息
+func (u *User) GetUserDetail(claims *utils.UserClaims) (*model.User, error) {
+	user, err := dal.GetUsersById(claims.ID)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// @description 修改用户信息（只能修改自己）
+func (u *User) UpdateUserInfo(updateUserReq *model.UpdateUserInfoReq, claims *utils.UserClaims) error {
+	user, err := dal.GetUsersById(claims.ID)
+	if err != nil {
+		return err
+	}
+
+	// 限制用户只能修改自己的信息
+	if user.ID != claims.ID {
+		return fmt.Errorf("authority exception")
+	}
+
+	// 处理修改密码的情况
+	if updateUserReq.Password != nil {
+		updateUserReq.Password = StringPtr(utils.BcryptHash(*updateUserReq.Password))
+	}
+
+	r, err := dal.UpdateUserInfoByIdPersonal(user.ID, updateUserReq)
+	if r == 0 {
+		return fmt.Errorf("0 rows affected")
+	}
+	return err
+}
+
+// @description SuperAdmin Become Other admin
+func (u *User) TransformUser(transformUserReq *model.TransformUserReq, claims *utils.UserClaims) (*model.LoginRsp, error) {
+
+	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
+		return nil, fmt.Errorf("authority wrong")
+	}
+
+	becomeUser, err := dal.GetUsersById(transformUserReq.BecomeUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 判断用户状态
+	if *becomeUser.Status != "N" {
+		return nil, fmt.Errorf("user status unexception  ")
+	}
+
+	key := viper.GetString("jwt.key")
+	// 生成token
+	jwt := utils.NewJWT([]byte(key))
+	becomeUserClaims := utils.UserClaims{
+		ID:         becomeUser.ID,
+		Email:      becomeUser.Email,
+		Authority:  *becomeUser.Authority,
+		CreateTime: time.Now().UTC(),
+		TenantID:   *becomeUser.TenantID,
+	}
+	token, err := jwt.GenerateToken(becomeUserClaims)
+	if err != nil {
+		return nil, err
+	}
+
+	global.REDIS.Set(token, "1", 24*7*time.Hour)
+
+	loginRsp := &model.LoginRsp{
+		Token:     &token,
+		ExpiresIn: int64(24 * 7 * time.Hour.Seconds()),
+	}
+	return loginRsp, nil
+}
