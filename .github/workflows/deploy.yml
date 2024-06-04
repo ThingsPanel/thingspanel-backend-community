@@ -1,0 +1,55 @@
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: deploy
+
+# 触发构建时机
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+# 任务
+jobs:
+  build:
+
+    # Github Action CI/CD的机器选择。
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+      - name: tar 
+        run: tar -zcvf thingspanel-backend-community.tar.gz ./*
+      - name: Transfer packets server
+        uses: garygrossgarten/github-action-scp@release
+        with:
+          # Github Action 的服务器文件路径
+          local: thingspanel-backend-community.tar.gz
+          remote: /home/thingspanel/thingspanel-backend-community.tar.gz
+          host: ${{ secrets.C_HOST }}
+          username: ${{ secrets.C_USER }}
+          password: ${{ secrets.C_PASS }}
+      # 部署运行
+      - name: Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.C_HOST }}
+          username: ${{ secrets.C_USER }}
+          password: ${{ secrets.C_PASS }}
+          port: 22
+          script: |
+            source ~/.bash_profile
+            find /home/thingspanel/thingspanel-backend-community -mindepth 1 ! -path '/home/thingspanel/thingspanel-backend-community/files*' -exec rm -rf {} +
+            tar -zxvf /home/thingspanel/thingspanel-backend-community.tar.gz -C /home/thingspanel/thingspanel-backend-community
+            cd /home/thingspanel/thingspanel-backend-community/ && go build -o thingspanel-backend-community
+            /root/.local/share/pnpm/pm2 stop thingspanel-backend-community
+            /root/.local/share/pnpm/pm2 start thingspanel-backend-community
