@@ -28,7 +28,7 @@ func (rl *AutomateLimiter) GetLimiter(key string) *rate.Limiter {
 
 	limiter, ok := rl.limiters[key]
 	if !ok {
-		limiter = rate.NewLimiter(rate.Limit(1), 10) // 每秒处理1个请求，最多允许10个并发请求
+		limiter = rate.NewLimiter(rate.Limit(1.0/3.0), 10) // 每秒处理1个请求，最多允许10个并发请求
 		rl.limiters[key] = limiter
 	}
 	return limiter

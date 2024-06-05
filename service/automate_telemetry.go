@@ -482,7 +482,8 @@ func (a *Automate) AutomateActionExecute(sceneId string, deviceIds []string, act
 	return result, resultErr
 }
 
-// @description QueryAutomateInfoAndSetCache 查询设备自动化信息并缓存
+// QueryAutomateInfoAndSetCache
+// @description  查询设备自动化信息并缓存
 // @params deviceId string
 // @return initialize.AutomateExecteParams, int, error
 func (a *Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string) (initialize.AutomateExecteParams, int, error) {

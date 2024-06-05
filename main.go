@@ -8,6 +8,8 @@ import (
 	"os/signal"
 	"time"
 
+	grpc_tptodb "project/grpc/tptodb_client"
+
 	"project/croninit"
 	initialize "project/initialize"
 	"project/mqtt"
@@ -28,6 +30,8 @@ func init() {
 	initialize.RedisInit()
 	query.SetDefault(db)
 	initialize.CasbinInit()
+
+	grpc_tptodb.GrpcTptodbInit()
 
 	mqtt.MqttInit()
 	subscribe.SubscribeInit()
