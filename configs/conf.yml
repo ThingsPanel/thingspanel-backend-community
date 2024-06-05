@@ -22,11 +22,11 @@ jwt:
 
 db:
   psql:
-    host: 47.115.213.71 # 默认localhost
+    host: 127.0.0.1 # 默认localhost
     port: 5432 # 默认5432
-    dbname: irrigate
+    dbname: ThingsPanel
     username: postgres
-    password: ThingsPanel2023
+    password: postgresThingsPanel
     time_zone: Asia/Shanghai # 默认Asia/Shanghai
 
     idle_conns: 5 # 空闲连接池中的最大连接数，建议为open_conns的百分之5-20之间
@@ -37,9 +37,9 @@ db:
     slow_threshold: 200 # 默认200毫秒
 
   redis:
-    addr: 47.115.213.71:6379 # 默认localhost:6379
+    addr: 127.0.0.1:6379 # 默认localhost:6379
     db: 1 # 默认0
-    password: "redis2022"
+    password: "redis"
 
 grpc:
   tptodb_server: 127.0.0.1:50052
@@ -49,7 +49,7 @@ grpc:
 mqtt_server: gmqtt
 
 mqtt:
-  access_address: 47.115.210.16:1883
+  access_address: 47.92.253.145:1883
   broker: 127.0.0.1:1883 # 默认localhost:1883
 #  broker: 47.115.210.16:1883
   user: root # 默认root
