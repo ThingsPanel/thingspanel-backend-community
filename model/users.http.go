@@ -38,7 +38,7 @@ type UpdateUserReq struct {
 	PhoneNumber    *string    `json:"phone_number" validate:"omitempty,max=50"`       // 手机号
 	Remark         *string    `json:"remark" validate:"omitempty,max=255"`            // 备注
 	Status         *string    `json:"status" validate:"omitempty,oneof=N F"`          // 用户状态 F-冻结 N-正常
-	Password       *string    `json:"password" validate:"omitempty,min=6,max=255"`    // 密码
+	Password       *string    `json:"password" validate:"omitempty,max=255"`          // 密码
 	UpdatedAt      *time.Time `json:"updated_at" validate:"omitempty"`                // 更新时间
 	RoleIDs        []string   `json:"userRoles" validate:"omitempty"`                 // 角色ID
 }

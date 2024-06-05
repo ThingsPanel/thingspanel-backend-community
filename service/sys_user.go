@@ -235,6 +235,15 @@ func (u *User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.U
 
 // @description  修改用户信息
 func (u *User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserClaims) error {
+	//密码不能小于6位，如果等于空则不修改密码
+	if updateUserReq.Password != nil {
+		if len(*updateUserReq.Password) == 0 {
+			updateUserReq.Password = nil
+		} else if len(*updateUserReq.Password) < 6 {
+			return fmt.Errorf("password length must be greater than 6")
+		}
+	}
+
 	user, err := dal.GetUsersById(updateUserReq.ID)
 	if err != nil {
 		return err
