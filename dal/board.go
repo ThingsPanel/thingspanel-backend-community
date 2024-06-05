@@ -2,12 +2,14 @@ package dal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	model "project/model"
 	query "project/query"
 
 	"gorm.io/gen"
+	"gorm.io/gorm"
 
 	"github.com/sirupsen/logrus"
 )
@@ -92,7 +94,7 @@ func GetBoardListByTenantId(tenantid string) (int64, interface{}, error) {
 	boardsList, err := queryBuilder.Where(q.TenantID.Eq(tenantid), q.HomeFlag.Eq("Y")).Select().First()
 	if err != nil {
 		// 如果没有首页看板，返回空
-		if err == gen.ErrEmptyCondition {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return count, nil, nil
 		}
 		logrus.Error(err)
