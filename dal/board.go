@@ -91,6 +91,10 @@ func GetBoardListByTenantId(tenantid string) (int64, interface{}, error) {
 	queryBuilder := q.WithContext(context.Background())
 	boardsList, err := queryBuilder.Where(q.TenantID.Eq(tenantid), q.HomeFlag.Eq("Y")).Select().First()
 	if err != nil {
+		// 如果没有首页看板，返回空
+		if err == gen.ErrEmptyCondition {
+			return count, nil, nil
+		}
 		logrus.Error(err)
 		return count, boardsList, err
 	}
