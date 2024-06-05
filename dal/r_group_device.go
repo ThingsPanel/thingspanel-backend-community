@@ -61,7 +61,7 @@ func GetDeviceSelectByGroupId(tenantId string, group_id string, deviceName strin
 	d := query.Device
 	dc := query.DeviceConfig
 	err := rgd.
-		Select(rgd.DeviceID, d.Name, d.DeviceConfigID, dc.Name.As("device_config_name")).
+		Select(rgd.DeviceID.As("id"), d.Name, d.DeviceConfigID, dc.Name.As("device_config_name")).
 		Join(d, d.ID.EqCol(rgd.DeviceID)).
 		Join(dc, d.DeviceConfigID.EqCol(dc.ID)).
 		Where(rgd.GroupID.Eq(group_id)).
