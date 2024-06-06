@@ -133,10 +133,10 @@ func DeviceSetAttributeResponse(payload []byte, topic string) {
 	logrus.Debug("command message:", string(payload))
 	var messageId string
 	topicList := strings.Split(topic, "/")
-	if len(topicList) < 4 {
+	if len(topicList) < 5 {
 		messageId = ""
 	} else {
-		messageId = topicList[3]
+		messageId = topicList[4]
 	}
 	// 验证消息有效性
 	attributePayload, err := verifyPayload(payload)
