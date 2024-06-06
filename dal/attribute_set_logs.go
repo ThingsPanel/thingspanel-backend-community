@@ -62,7 +62,7 @@ func (a AttributeSetLogsQuery) SetAttributeResultUpdate(ctx context.Context, log
 	attribute := query.AttributeSetLog
 	valueByte, _ := json.Marshal(response)
 	values := string(valueByte)
-	updates := model.CommandSetLog{
+	updates := model.AttributeSetLog{
 		RspDatum: &values,
 	}
 	if response.Result == 0 {
