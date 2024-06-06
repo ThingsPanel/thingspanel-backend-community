@@ -1,107 +1,114 @@
-# 项目说明
-
-## APIfox文档（暂不维护swagger文档，转到apifox）
-
->注意：不要使用apifox的导入功能，操作不当会覆盖掉所有已编写的接口
-
-`APIfox文档规范` https://docs.qq.com/doc/DZVZKc2FCTE1EblBX
+ThingsPanel是一款轻量级、组件化的开源物联网应用支撑平台，旨在通过可复用的插件，减少开发工作，加速物联网项目构建。
 
 
+ThingsPanel的插件主要有如下几类，分别是：
+- **设备功能模板**：整合物模型与图表。
+- **设备配置模板**：整合设备功能模板、协议插件。
+- **协议接入插件**：解决各类协议接入的问题。
+- **服务接入插件**：通过第三方平台接入设备。
+- **看板卡片**：扩展看板展示能力
+- **可视化插件**：扩展可视化大屏功能
+- **依赖型插件**：行业解决方案积木
 
-## Gen（必读）
-**model和query生成**：[查看README文档](/cmd/gen/REANME.md)
+通过以上插件的**复用**，可以大大提高研发效率。
+## 使用示例
+## 产品截图
+![系统架构](http://thingspanel.io/assets/images/ThingsPanel-0.6.0-homepage-27308c5423090237c9e13e5560b7162e.png)
+## 演示
+地址：http://demo.thingspanel.cn
 
-## 运行调试
+账户：test@test.cn
 
-**运行**：go run .
-**接口调试**：http://localhost:9999/swagger/index.html
+密码：123456
+## 快速安装使用
+通过容器化部署是搭建ThingsPanel的最快方式。
 
-## 注意事项
+1. 获取docker-compose源码
+   
+    ```bash
+    git clone https://github.com/ThingsPanel/thingspanel-docker.git
+    ```
+1. 进入目录并启动服务
 
-- 日志使用logrus
-- 获取配置文件使用viper，取不到值要设置默认值
-- model和query都用gen工具生成
-- 初次编码，请参考用户管理、通知组相关接口示例
-- 编码时候注意权限的逻辑
-  - 用户共分三种，通过用户的authority字段区分（TENANT_ADMIN-租户管理员 TENANT_USER-租户用户 SYS_ADMIN-系统管理员）
-  - 每个租户都有一个租户管理员，租户之前的数据是隔离的，比如用户是租户管理员或者租户用户，请求过来后后端只能去查这个租户的数据，表中以tenant_id区分租户
-  - 系统管理员账号：super@super.cn 123456
-  - 系统管理员登录后，可在租户管理中创建租户管理员；以租户管理员登录，可在用户管理可以创建租户用户
-- 新增的sql要更新的/sql/1.sql文件中
-- 指针赋值转换service/enter.go里有公共方法
-- 由于数据库在写入时候的报错不友好，所以需要手动校验json字段，如
-  ```go
-    // 校验是否json格式字符串
-    if CreateDeviceConfigReq.AdditionalInfo != nil && !IsJSON(*CreateDeviceConfigReq.AdditionalInfo) {
-      return fmt.Errorf("additional_info is not a valid JSON")
-    }
-    deviceconfig.AdditionalInfo = CreateDeviceConfigReq.AdditionalInfo
-  ```
-  或者在转map过程中校验
-  ```go
-    condsMap, err := StructToMapAndVerifyJson(req, "additional_info", "protocol_config")
-    if err != nil {
-      return nil, err
-    }
-    deviceconfig.AdditionalInfo = CreateDeviceConfigReq.AdditionalInfo
-  ```
-- 缓存相关查看initialize/缓存说明.md
+    ```bash
+    cd thingspanel-docker
+    docker-compose -f docker-compose.yml up
+    ```
+1. 登录
+    ```text
+    输入网址:服务器ip:8080
+    输入账户:super@super.cn
+    输入密码:123456
+    ```
+## 产品用途
+- 设备统一管理
+- 物联网中台
+- 设备商设备管理后台
+## 解决问题
+- **爱好者**：开放的架构释放创造的乐趣。
+- **集成商**：一套平台交付所有智能化项目。
+- **方案商**：节省时间和成本快速实现业务目的。
+- **设备商**：实现目的只需要做好设备，不再需要关注软件。
+- **最终客户**：一套平台实现所有设备接入，实现物联网数据中台。
+## 独特优势
+- 易用性：简化了物联网，让物联网更容易理解。
+- 兼容性：兼容各类设备协议，降低系统扩展成本。
+- 组件化：开放架构，多种组件设计、快速搭建。
+## 功能概要
+- **多租户功能**： 超级管理员管理、租户账户管理业务系统、租户用户管理设备查看数据
+- **设备接入**： 编辑创建项目、按照分组添加管理设备、查看设备推送状态、设备插件接入、网关与子设备接入、Modbus RTU/TCP协议接入、TCP协议接入、GB28181安防摄像头接入、自定- 义协议插件接入
+- **监控看板**： 设备添加后的监控图表、可设置看板为菜单或首页，创建多个看板。
+- **设备功能模板**：设置物模型、Web和App图表，可导出JSON。 
+- **设备配置模板**：关联设备、属性与功能、协议配置、数据处理、自动化、告警、扩展信息、设备设置、一型一密设置
+- **设备地图**： 根据项目与分组筛选设备、设备类型筛选
+- **可视化**： 可视化编辑基本功能、开放式架构、预绑定数据图表、添加自己的图元、和系统松耦合，支持组态、大屏、3D、Three.js
+- **产品管理**： 创建产品、批量管理、二维码数据、手动激活、预注册管理
+- **固件升级**： 为产品添加固件、创建升级任务、固件升级报表
+- **自动化**： 场景联动、场景日志、定时触发、设备触发、多种触发
+- **告警信息**： 根据项目和分组显示告警、时间段筛选
+- **通知功能**：短信、邮件、电话、webhook多种通知方式
+- **系统日志**： IP访问路径、设备操作记录
+- **应用管理**： 设备插件管理、插件生成器、插件安装、应用市场
+- **协议接入**： 开发自定义协议配置、配置后的接入参数
+- **服务接入**： 通过第三方平台接入设备
+- **用户管理**： Casbin方案、页面权限控制、项目权限控制、多角色定义
+- **规则引擎**： 数据转发第三方、接收设备数据并转换、接入各种协议、实时数据计算
+- **数据网关**：OpenAPI，数据库SQL-to-HTTP，对接三方系统，限制IP与数据范围，授权读取
+- **系统设置**： 更换Logo、更换系统标题、更换主题风格
+- **物联网APP**： Uniapp开发、扫码添加设备、查看监测值、切换项目和设备分组、手动控制、设置控制策略、查看操作日志、个人账号管理、手机验证码登录
+- **依赖型插件**： 依赖型插件为行业解决方案、基于设备插件和其他功能与数据、可视化调用、iframe代码引入、插件复用
 
-## 开发中的一些说明和规范
+## 技术栈
+* Golang：天生优异的并发性能，节省硬件成本，可适用于边缘设备。
+* Vue.js(3)：简单易上手
+* Node.js(16.13)：免费、开源、跨平台。 
+* 数据库
+  * PostgreSQL：广泛的社区与低成本。
+  * TimescaleDB ：时序数据库，PostgreSQL插件。
+  * TDengine ：   国产高性能时序数据库
+  * Cassandra：开源分布式Key-Value存储系统
+  * TDSQL-PostgreSQL：腾讯自主研发的分布式数据库系统
+  *  PloarDB-PostgreSQL：阿里云自主研发的高性能云原生分布式数据库
+  *  KingBase：人大金仓
+* Nginx：高性能Web服务器。
+* MQTT broker
+  * GMQTT：高性能消息队列处理。
+  * VerneMQ：高性能分布式MQTT消息代理
+* Redis：NoSQL缓存数据库
+## 贡献指南
+可直接克隆项目修改后提交PR。
+## API文档链接
+https://docs.qq.com/doc/DZVZKc2FCTE1EblBX
+## 社区与支持
+```
+qq群①：260150504（已满）
+qq群②：371794256
+```
+## 致谢
+感谢您对ThingsPanel的贡献!
+感谢[paddy235](https://gitee.com/paddy235)开发的ThingsPanel仿真测试脚本,可用于仿真和压力测试，脚本地址是：https://gitee.com/paddy235/thingspanel_simulation_python
 
-### 基本功能的路径命名和请求方法
 
-- **新增资源**
-  - 路径：`POST /resources` 
-  - 使用`POST`方法，不添加`/create`后缀，将新资源的数据包含在请求体中。
-- **查看详情**
-  - 路径：`GET /resources/{id}`
-  - 使用`GET`方法获取特定资源的详细信息，资源ID通过路径参数传递。
-- **编辑/更新资源**
-  - 路径：`PUT /resources/{id}` 
-  - 使用`PUT`方法更新资源，将更新的数据包含在请求体中。路径参数中传递资源ID。
-- **删除资源**
-  - 路径：`DELETE /resources/{id}`
-  - 使用`DELETE`方法删除指定的资源，资源ID通过路径参数传递。
-- **获取资源列表（支持过滤、排序）**
-  - 路径：`GET /resources`
-  - 使用`GET`方法检索资源列表，支持通过查询参数进行过滤和排序。
-
-### 请求数据传递
-
-- **查询参数**：适用于`GET`请求，用于过滤、排序或指定返回的数据格式等。例如，`GET /resources?role=admin&page=2&limit=10`。
-- **路径参数**：用于指定资源的请求（如`GET`、`DELETE`、`PUT`），标识特定资源。例如，`DELETE /resources/{id}`。
-- **请求体**：适用于需要传递复杂数据的`POST`和`PUT`请求，请求体可以是JSON、XML等格式。
-
-### 返回数据
-- `POST`请求返回新创建的资源的完整表示。这包括由服务器端生成的任何属性（如ID、创建时间等），以确保客户端具有最新的资源状态。
-- `PUT`返回更新后的资源的完整表示。即使客户端可能已提供完整的资源表示，返回更新后的状态也有助于确认更新的结果，包括任何由服务器自动修改的字段（如修改时间）。
-
-### 复杂查询与原生SQL
-
-- 对于复杂的查询逻辑，可以使用原生SQL编写以提高维护效率和代码的清晰度。这种方法特别适合于难以通过ORM工具直接实现的复杂查询需求。在代码库中，可参考具体实现方法，如`dal/ota_upgrade_tasks.go`的`GetOtaUpgradeTaskListByPage`方法，来看如何在实践中应用。
-
-### 提交代码规范
->`提交信息应使用英语撰写`
-- Feat：新功能
-- Fix：修补bug
-- Docs：文档（documentation）
-- Style： 格式（不影响代码运行的变动）
-- Refactor：重构（即不是新增功能，也不是修改bug的代码变动）
-- Test：增加测试
-- Chore：构建过程或辅助工具的变动
-
-## 虽然大家都知道
-`golang的核心原则和哲学`
-
-- 简洁性（"Less is exponentially more"）: 这是 Rob Pike 在其著名的博客文章中提到的。他强调，通过减少语言中的元素数量，可以实现更大的表达力和灵活性。
-
-- 高效的并发（"Concurrency is not parallelism"）: Pike 在这方面强调区分并发（Concurrency）和并行（Parallelism）。Go 语言的并发模型（goroutines 和 channels）被设计为一种有效管理并发操作的手段，而不仅仅是实现多核并行计算。
-
-- 清晰的错误处理（"Clear is better than clever"）: 这是 Go 语言中一个核心理念，强调代码的清晰性和可读性。例如，Go 避免使用传统的异常处理机制，而是采用显式的错误检查，使得错误处理更加清晰和直接。
-
-- 代码的统一格式（"Gofmt's style is no one's favorite, yet gofmt is everyone's favorite"）: Go 引入了 gofmt 工具，强制统一的代码格式。这样做的目的是消除关于代码格式的争论，使所有 Go 代码看起来都一致，提高可读性。
-
-- 避免隐藏的复杂性（"Do less. Enable more."）: Go 设计的另一个核心理念是**避免过度抽象和隐藏的复杂性**。Go 语言鼓励直接的解决方案，而不是那些表面上看起来很聪明，但实际上可能隐藏了复杂性和潜在问题的方法。
-
-- 工具和社区（"The bigger the interface, the weaker the abstraction"）: 这个原则是关于接口设计的，它鼓励**创建小而专注的接口，而不是大而全能的接口**。这与 Go 社区和工具链的设计理念是一致的，即提供简单、有效的工具，以及鼓励社区贡献和合作。
+<a href="https://github.com/ThingsPanel/ThingsPanel-Go/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ThingsPanel/ThingsPanel-Go" />
+</a>
