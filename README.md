@@ -103,6 +103,14 @@ ThingsPanel的插件主要有如下几类，分别是：
 可直接克隆项目修改后提交PR。
 ## API文档链接
 https://docs.qq.com/doc/DZVZKc2FCTE1EblBX
+## 许可和商用授权
+
+ThingsPanel是在[GNU Affero General Public License version 3 (AGPLv3)](https://www.gnu.org/licenses/agpl-3.0.html)下发布的，这意味着您可以下载、使用和修改代码，前提是任何修改后的版本也必须在同一许可证下发布，并且如果您通过网络运行修改后的程序，您必须向网络用户提供源代码。
+
+对于希望在商业环境中使用ThingsPanel的用户，我们提供商用授权选项。商用授权允许您在不完全遵守AGPLv3开源许可要求的情况下使用ThingsPanel，例如在不向最终用户公开源代码的情况下使用ThingsPanel。这为企业提供了更大的灵活性和保密性。
+
+如果您对商用授权感兴趣，或者需要更多信息，请通过以下联系方式与我们沟通：[商业授权查询](mailto:zjh@jiyikeji.cn)，或者加入微信群、QQ群与我们的商务联系。我们将提供详细的授权选项，以满足您的商业需求。
+
 ## 社区与支持
 ```
 qq群①：260150504（已满）
