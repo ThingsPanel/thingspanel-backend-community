@@ -1,11 +1,12 @@
 package main
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"testing"
 )
 
 // 定义数据库表结构
@@ -48,7 +49,7 @@ func TestMultiDb(t *testing.T) {
 }
 
 func getPgDB() (*gorm.DB, error) {
-	dsn := "host=localhost user=postgres password=ThingsPanel2023 dbname=postgres port=5432 sslmode=disable"
+	dsn := "host=localhost dbname=postgres port=5432 sslmode=disable"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	return db, err
 }
