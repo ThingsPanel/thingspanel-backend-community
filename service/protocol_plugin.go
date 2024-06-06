@@ -168,6 +168,17 @@ func (p *ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interfac
 	if deviceConfig != nil {
 		deviceConfigForProtocolPlugin.DeviceType = deviceConfig.DeviceType
 		deviceConfigForProtocolPlugin.ProtocolType = *deviceConfig.ProtocolType
+		if deviceConfig.ProtocolConfig != nil && IsJSON(*deviceConfig.ProtocolConfig) {
+			// 转换为map[string]interface{}
+			var config map[string]interface{}
+			err := json.Unmarshal([]byte(*deviceConfig.ProtocolConfig), &config)
+			if err != nil {
+				return nil, err
+			}
+			deviceConfigForProtocolPlugin.ProtocolConfigTemplate = config
+		} else {
+			deviceConfigForProtocolPlugin.ProtocolConfigTemplate = nil
+		}
 		// 判断device.ProtocolConfig是否为json格式字符串
 		if IsJSON(*device.ProtocolConfig) {
 			// 转换为map[string]interface{}
