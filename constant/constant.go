@@ -20,10 +20,10 @@ const (
 )
 
 const (
-	StatusOK            int = iota + 1 // 发送成功
-	StatusFailed                       // 发送失败
-	CommandStatusOk                    // 设备命令执行成功
-	CommandStatusFailed                // 设备命令执行失败
+	StatusOK              int = iota + 1 // 发送成功
+	StatusFailed                         // 发送失败
+	ResponseStatusOk                     // 设备命令执行成功
+	ResponseSStatusFailed                // 设备命令执行失败
 )
 
 // DeviceModelSource 模型数据源类型

@@ -66,10 +66,10 @@ func (a AttributeSetLogsQuery) SetAttributeResultUpdate(ctx context.Context, log
 		RspDatum: &values,
 	}
 	if response.Result == 0 {
-		status := strconv.Itoa(constant.CommandStatusOk)
+		status := strconv.Itoa(constant.ResponseStatusOk)
 		updates.Status = &status
 	} else {
-		status := strconv.Itoa(constant.CommandStatusFailed)
+		status := strconv.Itoa(constant.ResponseSStatusFailed)
 		updates.Status = &status
 		updates.ErrorMessage = &response.Message
 	}

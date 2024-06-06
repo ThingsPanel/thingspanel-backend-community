@@ -69,13 +69,13 @@ func (c CommandSetLogsQuery) CommandResultUpdate(ctx context.Context, logId stri
 		RspDatum: &values,
 	}
 	if response.Result == 0 {
-		status := strconv.Itoa(constant.CommandStatusOk)
+		status := strconv.Itoa(constant.ResponseStatusOk)
 		updates.Status = &status
 		//updates["status"] = constant.CommandStatusOk
 	} else {
 		//updates["status"] = constant.CommandStatusFailed
 		//updates["error_message"] = response.Message
-		status := strconv.Itoa(constant.CommandStatusFailed)
+		status := strconv.Itoa(constant.ResponseSStatusFailed)
 		updates.Status = &status
 		updates.ErrorMessage = &response.Message
 	}
