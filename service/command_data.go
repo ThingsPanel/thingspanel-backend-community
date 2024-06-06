@@ -116,23 +116,25 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 		logInfo.Status = &status
 	}
 	_, err = log.Create(ctx, logInfo)
-	if len(fn) > 0 {
-		config.MqttDirectResponseFuncMap[messageID] = make(chan model.MqttResponse)
-		go func() {
-			select {
-			case data := <-config.MqttDirectResponseFuncMap[messageID]:
-				fmt.Println("接收到数据:", data)
-				fn[0](data)
-				close(config.MqttDirectResponseFuncMap[messageID])
-				delete(config.MqttDirectResponseFuncMap, messageID)
-			case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
-				fmt.Println("超时，关闭通道")
-				close(config.MqttDirectResponseFuncMap[messageID])
-				delete(config.MqttDirectResponseFuncMap, messageID)
-				return
+	config.MqttDirectResponseFuncMap[messageID] = make(chan model.MqttResponse)
+	go func() {
+		select {
+		case response := <-config.MqttDirectResponseFuncMap[messageID]:
+			fmt.Println("接收到数据:", data)
+			if len(fn) > 0 {
+				_ = fn[0](response)
 			}
-		}()
-	}
+			log.CommandResultUpdate(context.Background(), logInfo.ID, response)
+			close(config.MqttDirectResponseFuncMap[messageID])
+			delete(config.MqttDirectResponseFuncMap, messageID)
+		case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
+			fmt.Println("超时，关闭通道")
+			close(config.MqttDirectResponseFuncMap[messageID])
+			delete(config.MqttDirectResponseFuncMap, messageID)
+			return
+		}
+	}()
+
 	return err
 }
 

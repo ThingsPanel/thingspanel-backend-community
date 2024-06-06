@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -56,6 +57,16 @@ func (c CommandSetLogsQuery) Create(ctx context.Context, info *model.CommandSetL
 		logrus.Error("[CommandSetLogsQuery]create failed:", err)
 	}
 	return info.ID, err
+}
+
+func (c CommandSetLogsQuery) CommandResultUpdate(ctx context.Context, logId string, response model.MqttResponse) {
+	command := query.CommandSetLog
+	values, _ := json.Marshal(response)
+	_, err := command.WithContext(ctx).Where(command.ID.Eq(logId)).Update(command.RspDatum, string(values))
+	if err != nil {
+		logrus.Error("[CommandSetLogsQuery]create failed:", err)
+	}
+
 }
 
 func (c CommandSetLogsQuery) Update(ctx context.Context, info *model.CommandSetLog) error {
