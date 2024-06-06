@@ -68,7 +68,7 @@ func GatewaySubscribeAttributesCallback(c mqtt.Client, d mqtt.Message) {
 }
 
 func GatewaySubscribeSetAttributesResponseCallback(c mqtt.Client, d mqtt.Message) {
-	GatewayDeviceSetAttributesReponse(d.Payload(), d.Topic())
+	GatewayDeviceSetAttributesResponse(d.Payload(), d.Topic())
 }
 
 func GatewaySubscribeEventCallback(c mqtt.Client, d mqtt.Message) {
@@ -86,8 +86,8 @@ func GatewaySubscribeCommandResponseCallback(c mqtt.Client, d mqtt.Message) {
 	GatewayDeviceCommandResponse(d.Payload(), d.Topic())
 }
 
-// 网关批量订阅消息
-// @description GatewaySubscribeTopic
+// GatewaySubscribeTopic
+// @description 网关批量订阅消息
 // @return void
 func GatewaySubscribeTopic() {
 	p, err := ants.NewPool(config.MqttConfig.Telemetry.PoolSize)

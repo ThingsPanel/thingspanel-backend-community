@@ -84,13 +84,15 @@ func getWagewayResponse(err error, extends ...string) *model.MqttResponse {
 	return mqttResponse
 }
 
-// 平台设置属性
-// @description GatewayDeviceSetAttributesReponse
+// GatewayDeviceSetAttributesResponse
+//
+// @description 平台设置属性
 // @param payload []byte
 // @param topic string
 // @return messageId string, gatewayDeive *model.Device, respon model.GatewayResponse, err error
 // 订阅topic gateway/attributes/{message_id}
-func GatewayDeviceSetAttributesReponse(payload []byte, topic string) {
+func GatewayDeviceSetAttributesResponse(payload []byte, topic string) {
+	//devices/attributes/set/response/+
 	var messageId string
 	topicList := strings.Split(topic, "/")
 	if len(topicList) >= 5 {

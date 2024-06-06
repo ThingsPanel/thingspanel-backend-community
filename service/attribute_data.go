@@ -72,7 +72,7 @@ func (t *AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttribute
 	return dataMap, nil
 }
 
-func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, param *model.AttributePutMessage, operationType string) error {
+func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, param *model.AttributePutMessage, operationType string, fn ...config.MqttDirectResponseFunc) error {
 	var (
 		log = dal.AttributeSetLogsQuery{}
 
@@ -115,6 +115,31 @@ func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, 
 		logInfo.Status = &status
 	}
 	_, err = log.Create(ctx, logInfo)
+	config.MqttDirectResponseFuncMap[messageID] = make(chan model.MqttResponse)
+	go func() {
+		select {
+		case response := <-config.MqttDirectResponseFuncMap[messageID]:
+			fmt.Println("接收到数据:", response)
+			if len(fn) > 0 {
+				_ = fn[0](response)
+			}
+			log.SetAttributeResultUpdate(context.Background(), logInfo.ID, response)
+			close(config.MqttDirectResponseFuncMap[messageID])
+			delete(config.MqttDirectResponseFuncMap, messageID)
+		case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
+			fmt.Println("超时，关闭通道")
+			log.SetAttributeResultUpdate(context.Background(), logInfo.ID, model.MqttResponse{
+				Result:  1,
+				Errcode: "timeout",
+				Message: "设备响应超时",
+				Ts:      time.Now().Unix(),
+			})
+			close(config.MqttDirectResponseFuncMap[messageID])
+			delete(config.MqttDirectResponseFuncMap, messageID)
+
+			return
+		}
+	}()
 	return err
 }
 

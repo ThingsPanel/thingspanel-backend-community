@@ -28,6 +28,8 @@ func SubscribeInit() {
 	telemetryMessagesChan()
 	// 订阅attribute消息
 	SubscribeAttribute()
+	// 订阅设置设备属性回应
+	SubscribeSetAttribute()
 	// 订阅event消息
 	SubscribeEvent()
 	//订阅telemetry消息
@@ -134,6 +136,22 @@ func SubscribeAttribute() {
 		}
 	}
 	topic := config.MqttConfig.Attributes.SubscribeTopic
+	logrus.Debug("subscribe topic:", topic)
+	qos := byte(config.MqttConfig.Attributes.QoS)
+	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceAttributeHandler); token.Wait() && token.Error() != nil {
+		logrus.Error(token.Error())
+		os.Exit(1)
+	}
+}
+
+func SubscribeSetAttribute() {
+	// 订阅attribute消息
+	deviceAttributeHandler := func(c mqtt.Client, d mqtt.Message) {
+		// 处理消息
+		logrus.Debug("attribute message:", string(d.Payload()))
+		DeviceSetAttributeResponse(d.Payload(), d.Topic())
+	}
+	topic := config.MqttConfig.Attributes.SubscribeResponseTopic
 	logrus.Debug("subscribe topic:", topic)
 	qos := byte(config.MqttConfig.Attributes.QoS)
 	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceAttributeHandler); token.Wait() && token.Error() != nil {

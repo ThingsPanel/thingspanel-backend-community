@@ -120,7 +120,7 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 	go func() {
 		select {
 		case response := <-config.MqttDirectResponseFuncMap[messageID]:
-			fmt.Println("接收到数据:", data)
+			fmt.Println("接收到数据:", response)
 			if len(fn) > 0 {
 				_ = fn[0](response)
 			}
