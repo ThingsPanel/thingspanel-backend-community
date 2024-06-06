@@ -1,3 +1,5 @@
+[English](./README_EN.md) | 中文
+
 ThingsPanel是一款**轻量级、组件化**的开源物联网应用支撑平台，旨在通过可复用的插件，减少开发工作，加速物联网项目构建。
 
 ThingsPanel的插件主要有如下几类，分别是：
@@ -102,7 +104,7 @@ ThingsPanel的插件主要有如下几类，分别是：
 ## 贡献指南
 可直接克隆项目修改后提交PR。
 ## API文档链接
-https://docs.qq.com/doc/DZVZKc2FCTE1EblBX
+[https://docs.qq.com/doc/DZVZKc2FCTE1EblBX](https://apifox.com/apidoc/shared-754c3f13-b1c0-44fe-905d-c75e3210d509)
 ## 许可和商用授权
 
 ThingsPanel是在[GNU Affero General Public License version 3 (AGPLv3)](https://www.gnu.org/licenses/agpl-3.0.html)下发布的，这意味着您可以下载、使用和修改代码，前提是任何修改后的版本也必须在同一许可证下发布，并且如果您通过网络运行修改后的程序，您必须向网络用户提供源代码。
