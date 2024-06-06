@@ -1,7 +1,6 @@
 package subscribe
 
 import (
-	dal "project/dal"
 	config "project/mqtt"
 	"strings"
 
@@ -39,12 +38,12 @@ func DeviceCommand(payload []byte, topic string) (string, error) {
 	}
 	logrus.Debug("command response message:", commandResponsePayload)
 
-	log := dal.CommandSetLogsQuery{}
-	// 通过消息id检查命令历史一小时内是否存在消息
-	if m, err := log.FilterOneHourByMessageID(messageId); err != nil || m == nil {
-		logrus.Error(err.Error())
-		return "", err
-	}
+	//log := dal.CommandSetLogsQuery{}
+	//// 通过消息id检查命令历史一小时内是否存在消息
+	//if m, err := log.FilterOneHourByMessageID(messageId); err != nil || m == nil {
+	//	logrus.Error(err.Error())
+	//	return "", err
+	//}
 	//// 存在消息id,处理消息,入库
 	//logInfo := &model.CommandSetLog{
 	//	MessageID: &messageId,

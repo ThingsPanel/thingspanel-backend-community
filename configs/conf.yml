@@ -23,6 +23,7 @@ jwt:
 db:
   psql:
     host: 127.0.0.1 # 默认localhost
+#    host: 47.92.253.145 # 默认localhost
     port: 5432 # 默认5432
     dbname: ThingsPanel
     username: postgres
@@ -51,7 +52,7 @@ mqtt_server: gmqtt
 mqtt:
   access_address: 47.92.253.145:1883
   broker: 127.0.0.1:1883 # 默认localhost:1883
-#  broker: 47.115.210.16:1883
+#  broker: 47.92.253.145:1883
   user: root # 默认root
   pass: root # 默认root
   channel_buffer_size: 10000 # 默认10000
