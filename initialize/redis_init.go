@@ -94,20 +94,22 @@ func GetRedisForJsondata(key string, dest interface{}) error {
 // 通过设备id从redis中获取设备信息
 // 先从redis中获取设备信息，如果没有则从数据库中获取设备信息，并将设备信息存入redis
 func GetDeviceById(deviceId string) (*model.Device, error) {
-	var device *model.Device
-	err := GetRedisForJsondata(deviceId, device)
-	if err != nil {
-		device, err = dal.GetDeviceById(deviceId)
-		if err != nil {
-			return nil, err
-		}
-		// 将设备信息存入redis
-		err = SetRedisForJsondata(deviceId, device, 0)
-		if err != nil {
-			return nil, err
-		}
+	var device model.Device
+	err := GetRedisForJsondata(deviceId, &device)
+	if err == nil {
+		return &device, nil
 	}
-	return device, nil
+	// 从数据库中获取设备信息
+	deviceFromDB, err := dal.GetDeviceById(deviceId)
+	if err != nil {
+		return nil, err
+	}
+	// 将设备信息存入redis
+	err = SetRedisForJsondata(deviceId, deviceFromDB, 0)
+	if err != nil {
+		return nil, err
+	}
+	return deviceFromDB, nil
 }
 
 // 通过设备和脚本类型从redis中获取脚本标志
