@@ -2,6 +2,9 @@ package dal
 
 import (
 	"context"
+	"encoding/json"
+	"project/constant"
+	"strconv"
 
 	model "project/model"
 	query "project/query"
@@ -53,4 +56,27 @@ func (a AttributeSetLogsQuery) Create(ctx context.Context, info *model.Attribute
 		logrus.Error("[AttributeSetLogsQuery]create failed:", err)
 	}
 	return info.ID, err
+}
+
+func (a AttributeSetLogsQuery) SetAttributeResultUpdate(ctx context.Context, logId string, response model.MqttResponse) {
+	attribute := query.AttributeSetLog
+	valueByte, _ := json.Marshal(response)
+	values := string(valueByte)
+	updates := model.CommandSetLog{
+		RspDatum: &values,
+	}
+	if response.Result == 0 {
+		status := strconv.Itoa(constant.CommandStatusOk)
+		updates.Status = &status
+	} else {
+		status := strconv.Itoa(constant.CommandStatusFailed)
+		updates.Status = &status
+		updates.ErrorMessage = &response.Message
+	}
+	//updates["rsp_data"] = string(values)
+	_, err := attribute.WithContext(ctx).Where(attribute.ID.Eq(logId)).Updates(updates)
+	if err != nil {
+		logrus.Error("[CommandSetLogsQuery]create failed:", err)
+	}
+
 }

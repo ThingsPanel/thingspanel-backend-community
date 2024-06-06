@@ -6,6 +6,7 @@ import (
 	dal "project/dal"
 	initialize "project/initialize"
 	"project/model"
+	config "project/mqtt"
 	service "project/service"
 	"strings"
 	"time"
@@ -126,4 +127,33 @@ func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{})
 		}
 	}
 	return nil
+}
+
+func DeviceSetAttributeResponse(payload []byte, topic string) {
+	logrus.Debug("command message:", string(payload))
+	var messageId string
+	topicList := strings.Split(topic, "/")
+	if len(topicList) < 4 {
+		messageId = ""
+	} else {
+		messageId = topicList[3]
+	}
+	// 验证消息有效性
+	attributePayload, err := verifyPayload(payload)
+	if err != nil {
+		return
+	}
+	logrus.Debug("command values message:", string(attributePayload.Values))
+	// 验证消息有效性
+	commandResponsePayload, err := verifyCommandResponsePayload(attributePayload.Values)
+	if err != nil {
+		logrus.Error(err.Error())
+		return
+	}
+	logrus.Debug("command response message:", commandResponsePayload)
+
+	if ch, ok := config.MqttDirectResponseFuncMap[messageId]; ok {
+		ch <- *commandResponsePayload
+	}
+
 }
