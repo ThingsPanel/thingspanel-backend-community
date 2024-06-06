@@ -130,10 +130,12 @@ If you are interested in commercial licensing, or need more information, please 
 
 QQ Group 1: 260150504 (Full)
 
+QQ Group 2: 371794256
+
 ## Acknowledgments
 Thank you for your contributions to ThingsPanel!
 Special thanks to [paddy235](https://gitee.com/paddy235) for developing the ThingsPanel simulation test script, which can be used for simulation and stress testing. The script is available at: [ThingsPanel Simulation Test Script](https://gitee.com/paddy235/thingspanel_simulation_python).
 
 ![Contributors](https://contrib.rocks/image?repo=ThingsPanel/ThingsPanel-Go)
 
-QQ Group 2: 371794256
+
