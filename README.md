@@ -1,5 +1,4 @@
-ThingsPanel是一款轻量级、组件化的开源物联网应用支撑平台，旨在通过可复用的插件，减少开发工作，加速物联网项目构建。
-
+ThingsPanel是一款**轻量级、组件化**的开源物联网应用支撑平台，旨在通过可复用的插件，减少开发工作，加速物联网项目构建。
 
 ThingsPanel的插件主要有如下几类，分别是：
 - **设备功能模板**：整合物模型与图表。
@@ -12,7 +11,12 @@ ThingsPanel的插件主要有如下几类，分别是：
 
 通过以上插件的**复用**，可以大大提高研发效率。
 ## 使用示例
-## 产品截图
+1. [有人M300网关接温湿度传感器使用MQTT接入ThingsPanel-v1.0.0](https://www.thingspanel.cn/posts/80)
+2. [Fox-Shifu 接入 ThingsPanel](https://bianwuji.feishu.cn/docx/LQS4dyVf4o5WMrxzPlKcP5Ftnpg)
+3. [Fox-Edge灵狐物联网边缘计算平台对接ThingsPanel](http://docs.fox-tech.cn/#/fox-edge-3rd-cloud-thingspanel)
+4. [ThingsPanel通过ESP8266遥控风扇转速](http://thingspanel.cn/posts/72)
+5. [使用ESP-8266和BMP280传感器测量大气压-ThingsPanel](http://thingspanel.cn/posts/71)
+6. ## 产品截图
 ![系统架构](http://thingspanel.io/assets/images/ThingsPanel-0.6.0-homepage-27308c5423090237c9e13e5560b7162e.png)
 ## 演示
 地址：http://demo.thingspanel.cn
