@@ -2,7 +2,6 @@ package subscribe
 
 import (
 	dal "project/dal"
-	"project/model"
 	config "project/mqtt"
 	"strings"
 
@@ -46,20 +45,20 @@ func DeviceCommand(payload []byte, topic string) (string, error) {
 		logrus.Error(err.Error())
 		return "", err
 	}
-	// 存在消息id,处理消息,入库
-	logInfo := &model.CommandSetLog{
-		MessageID: &messageId,
-	}
-	if commandResponsePayload.Result == 0 {
-		execFail := "3"
-		logInfo.Status = &execFail
-	} else {
-		execSuccess := "4"
-		logInfo.Status = &execSuccess
-		logInfo.RspDatum = &commandResponsePayload.Errcode
-		logInfo.ErrorMessage = &commandResponsePayload.Message
-	}
-	err = log.Update(nil, logInfo)
+	//// 存在消息id,处理消息,入库
+	//logInfo := &model.CommandSetLog{
+	//	MessageID: &messageId,
+	//}
+	//if commandResponsePayload.Result == 0 {
+	//	execFail := "3"
+	//	logInfo.Status = &execFail
+	//} else {
+	//	execSuccess := "4"
+	//	logInfo.Status = &execSuccess
+	//	logInfo.RspDatum = &commandResponsePayload.Errcode
+	//	logInfo.ErrorMessage = &commandResponsePayload.Message
+	//}
+	//err = log.Update(nil, logInfo)
 	if ch, ok := config.MqttDirectResponseFuncMap[messageId]; ok {
 		ch <- *commandResponsePayload
 	}

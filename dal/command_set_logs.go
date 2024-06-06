@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"project/constant"
 	"time"
 
 	model "project/model"
@@ -62,7 +63,15 @@ func (c CommandSetLogsQuery) Create(ctx context.Context, info *model.CommandSetL
 func (c CommandSetLogsQuery) CommandResultUpdate(ctx context.Context, logId string, response model.MqttResponse) {
 	command := query.CommandSetLog
 	values, _ := json.Marshal(response)
-	_, err := command.WithContext(ctx).Where(command.ID.Eq(logId)).Update(command.RspDatum, string(values))
+	updates := make(map[string]interface{})
+	if response.Result == 0 {
+		updates["status"] = constant.CommandStatusOk
+	} else {
+		updates["status"] = constant.CommandStatusFailed
+		updates["error_message"] = response.Message
+	}
+	updates["rsp_data"] = string(values)
+	_, err := command.WithContext(ctx).Where(command.ID.Eq(logId)).Updates(updates)
 	if err != nil {
 		logrus.Error("[CommandSetLogsQuery]create failed:", err)
 	}
