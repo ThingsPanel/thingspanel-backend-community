@@ -16,7 +16,7 @@ ThingsPanel的插件主要有如下几类，分别是：
 3. [Fox-Edge灵狐物联网边缘计算平台对接ThingsPanel](http://docs.fox-tech.cn/#/fox-edge-3rd-cloud-thingspanel)
 4. [ThingsPanel通过ESP8266遥控风扇转速](http://thingspanel.cn/posts/72)
 5. [使用ESP-8266和BMP280传感器测量大气压-ThingsPanel](http://thingspanel.cn/posts/71)
-6. ## 产品截图
+## 产品截图
 ![系统架构](http://thingspanel.io/assets/images/ThingsPanel-0.6.0-homepage-27308c5423090237c9e13e5560b7162e.png)
 ## 演示
 地址：http://demo.thingspanel.cn
