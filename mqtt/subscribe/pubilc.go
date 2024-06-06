@@ -65,3 +65,12 @@ func verifyCommandResponsePayload(values interface{}) (*model.MqttResponse, erro
 	}
 	return payload, nil
 }
+
+func verifyAttributeResponsePayload(values interface{}) (*model.MqttResponse, error) {
+	payload := &model.MqttResponse{}
+	if err := json.Unmarshal(values.([]byte), payload); err != nil {
+		logrus.Error("解析消息失败:", err)
+		return payload, err
+	}
+	return payload, nil
+}

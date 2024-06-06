@@ -145,7 +145,7 @@ func DeviceSetAttributeResponse(payload []byte, topic string) {
 	}
 	logrus.Debug("command values message:", string(attributePayload.Values))
 	// 验证消息有效性
-	commandResponsePayload, err := verifyCommandResponsePayload(attributePayload.Values)
+	commandResponsePayload, err := verifyAttributeResponsePayload(attributePayload.Values)
 	if err != nil {
 		logrus.Error(err.Error())
 		return
