@@ -10,13 +10,20 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []*model.EventData, error) {
+func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []map[string]interface{}, error) {
 
 	var count int64
 	q := query.EventData
+	d := query.Device
+	dc := query.DeviceConfig
+	dme := query.DeviceModelEvent
+
 	queryBuilder := q.WithContext(context.Background())
 
-	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(req.DeviceId))
+	queryBuilder = queryBuilder.LeftJoin(d, q.DeviceID.EqCol(d.ID)).
+		LeftJoin(dc, d.DeviceConfigID.EqCol(dc.ID)).
+		LeftJoin(dme, dc.DeviceTemplateID.EqCol(dme.DeviceTemplateID), dme.DataIdentifier.EqCol(q.Identify)).
+		Where(q.DeviceID.Eq(req.DeviceId))
 
 	if req.Identify != nil && *req.Identify != "" {
 		queryBuilder = queryBuilder.Where(q.Identify.Eq(*req.Identify))
@@ -33,7 +40,8 @@ func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []*m
 		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
 	}
 	queryBuilder = queryBuilder.Order(q.T.Desc())
-	list, err := queryBuilder.Select().Find()
+	var list []map[string]interface{}
+	err = queryBuilder.Select(q.ALL, dme.DataName).Scan(&list)
 	if err != nil {
 		logrus.Error(err)
 		return count, list, err
