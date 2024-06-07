@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []*model.EventData, error) {
+func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []map[string]interface{}, error) {
 
 	var count int64
 	q := query.EventData
@@ -40,7 +40,8 @@ func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []*m
 		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
 	}
 	queryBuilder = queryBuilder.Order(q.T.Desc())
-	list, err := queryBuilder.Select(q.ALL, dme.DataName).Find()
+	var list []map[string]interface{}
+	err = queryBuilder.Select(q.ALL, dme.DataName).Scan(&list)
 	if err != nil {
 		logrus.Error(err)
 		return count, list, err
