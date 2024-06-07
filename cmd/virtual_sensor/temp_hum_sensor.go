@@ -51,10 +51,10 @@ func createClient() {
 func createGatewayClient() {
 	// 初始化配置
 	opts := MqttConfig{
-		//Broker: "localhost:1883",
-		Broker: "47.92.253.145:1883",
-		User:   "3f07250e-bdcd-1692-ea2",
-		Pass:   "",
+		Broker: "localhost:1883",
+		//Broker: "47.92.253.145:1883",
+		User: "3f07250e-bdcd-1692-ea2",
+		Pass: "",
 	}
 	gatewayMqttClient = CreateMqttClient(opts)
 }
