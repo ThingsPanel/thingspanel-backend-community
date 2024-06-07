@@ -137,7 +137,7 @@ func GetDeviceBySubDeviceAddress(deviceAddress []string, parentId string) (map[s
 	}
 	var result = make(map[string]*model.Device)
 	for _, d := range devices {
-		result[d.DeviceNumber] = d
+		result[*d.SubDeviceAddr] = d
 	}
 	return result, err
 }

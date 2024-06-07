@@ -44,8 +44,8 @@ func GatewayTelemetryMessages(payload []byte, topic string) {
 		subDeviceAddrs = append(subDeviceAddrs, deviceAddr)
 	}
 	subDeviceInfos, _ := dal.GetDeviceBySubDeviceAddress(subDeviceAddrs, deviceInfo.ID)
-	for deviceNumber, data := range *payloads.SubDeviceData {
-		if subInfo, ok := subDeviceInfos[deviceNumber]; ok {
+	for subDeviceAddr, data := range *payloads.SubDeviceData {
+		if subInfo, ok := subDeviceInfos[subDeviceAddr]; ok {
 			subDeviceBoy, err := json.Marshal(data)
 			if err != nil {
 				logrus.Error(pkgerrors.Wrap(err, "[GatewayTelemetryMessages][GetDeviceById]fail"))
