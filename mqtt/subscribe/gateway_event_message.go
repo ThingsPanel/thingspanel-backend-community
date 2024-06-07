@@ -56,8 +56,8 @@ func GatewayEventCallback(payload []byte, topic string) (string, *model.Device, 
 			subDeviceAddrs = append(subDeviceAddrs, deviceAddr)
 		}
 		subDeviceInfos, _ := dal.GetDeviceBySubDeviceAddress(subDeviceAddrs, deviceInfo.ID)
-		for deviceNumber, data := range *payloads.SubDeviceData {
-			if subInfo, ok := subDeviceInfos[deviceNumber]; ok {
+		for subDeviceAddr, data := range *payloads.SubDeviceData {
+			if subInfo, ok := subDeviceInfos[subDeviceAddr]; ok {
 				// eventValues, err := verifyEventPayload(data)
 				// if err == nil {
 				// 	err = deviceEventHandle(subInfo, eventValues)
@@ -67,7 +67,7 @@ func GatewayEventCallback(payload []byte, topic string) (string, *model.Device, 
 				// }
 				err = deviceEventHandle(subInfo, &data)
 			}
-			subDeviceData[deviceNumber] = *getWagewayResponse(err)
+			subDeviceData[subDeviceAddr] = *getWagewayResponse(err)
 		}
 		response.SubDeviceData = subDeviceData
 	}
