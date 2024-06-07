@@ -39,6 +39,7 @@ db:
 
   redis:
     addr: 127.0.0.1:6379 # 默认localhost:6379
+#    addr: 47.92.253.145:6379 # 默认localhost:6379
     db: 1 # 默认0
     password: "redis"
 

@@ -128,12 +128,12 @@ func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, 
 			delete(config.MqttDirectResponseFuncMap, messageID)
 		case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
 			fmt.Println("超时，关闭通道")
-			log.SetAttributeResultUpdate(context.Background(), logInfo.ID, model.MqttResponse{
-				Result:  1,
-				Errcode: "timeout",
-				Message: "设备响应超时",
-				Ts:      time.Now().Unix(),
-			})
+			//log.SetAttributeResultUpdate(context.Background(), logInfo.ID, model.MqttResponse{
+			//	Result:  1,
+			//	Errcode: "timeout",
+			//	Message: "设备响应超时",
+			//	Ts:      time.Now().Unix(),
+			//})
 			close(config.MqttDirectResponseFuncMap[messageID])
 			delete(config.MqttDirectResponseFuncMap, messageID)
 
