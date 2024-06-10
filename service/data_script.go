@@ -79,11 +79,7 @@ func (p *DataScript) DeleteDataScript(id string) error {
 		logrus.Error(err)
 		return err
 	}
-	err = DelTelemetryFlagCache(id)
-	if err != nil {
-		logrus.Error(err)
-		return err
-	}
+	_ = DelTelemetryFlagCache(id)
 
 	return err
 }
