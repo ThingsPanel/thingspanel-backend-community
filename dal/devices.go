@@ -93,9 +93,12 @@ func GetDeviceByID(id string) (*model.Device, error) {
 func GetDeviceDetail(id string) (map[string]interface{}, error) {
 	var device = query.Device
 	var deviceConfig = query.DeviceConfig
+	var gatewayDevice = query.Device
 	var data = make(map[string]interface{})
-	err := device.LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).Where(device.ID.Eq(id)).
-		Select(device.ALL, deviceConfig.Name.As("device_config_name")).Scan(&data)
+	err := device.LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
+		LeftJoin(gatewayDevice, gatewayDevice.ID.EqCol(device.ParentID)).
+		Where(device.ID.Eq(id)).
+		Select(device.ALL, deviceConfig.Name.As("device_config_name"), gatewayDevice.Name.As("gateway_device_name")).Scan(&data)
 	if err != nil {
 		logrus.Error(err)
 	}
