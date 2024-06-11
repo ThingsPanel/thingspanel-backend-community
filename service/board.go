@@ -207,12 +207,12 @@ func (p *Board) GetDeviceByTenantID(ctx context.Context, tenantID string) (data 
 		db        = dal.DeviceQuery{}
 	)
 
-	total, err = db.CountByWhere(ctx, device.TenantID.Eq(tenantID))
+	total, err = db.CountByWhere(ctx, device.TenantID.Eq(tenantID), device.ActivateFlag.Neq("inactive"))
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count failed:", err)
 		return
 	}
-	on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.TenantID.Eq(tenantID))
+	on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.TenantID.Eq(tenantID), device.IsOnline.Eq(1))
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count/on failed:", err)
 		return
