@@ -142,7 +142,7 @@ func BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
 		return err
 	}
 	if len(devices) > 0 {
-		return errors.Errorf("设备id:%#v已绑定其他配置", devices)
+		return errors.Errorf("设备id:%s已绑定其他配置", devices)
 	}
 	t := time.Now().UTC()
 	_, err = q.Where(q.ID.In(req.DeviceIds...)).Updates(&model.Device{DeviceConfigID: &req.DeviceConfigID, UpdateAt: &t})
