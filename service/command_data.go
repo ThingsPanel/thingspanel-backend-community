@@ -186,6 +186,12 @@ func (t *CommandData) GetCommonList(ctx context.Context, id string) ([]model.Get
 		if info.DataName != nil {
 			commandRes.Name = *info.DataName
 		}
+		if info.Param != nil {
+			commandRes.Params = *info.Param
+		}
+		if info.Description != nil {
+			commandRes.Description = *info.Description
+		}
 		list = append(list, commandRes)
 	}
 

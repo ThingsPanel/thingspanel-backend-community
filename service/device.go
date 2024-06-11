@@ -524,6 +524,7 @@ func (d *Device) GetVoucherTypeForm(voucherType string, deviceType string, proto
 		if voucherType == "BASIC" {
 			return []*model.DeviceConnectFormRes{p1, p2}, nil
 		} else if voucherType == "ACCESSTOKEN" {
+			p1.Label = "MQTT Username(Password is empty)"
 			return []*model.DeviceConnectFormRes{p1}, nil
 		} else {
 			return nil, fmt.Errorf("voucher type is error: %s", voucherType)

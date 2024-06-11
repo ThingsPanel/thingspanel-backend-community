@@ -94,10 +94,18 @@ func GetDeviceDetail(id string) (map[string]interface{}, error) {
 	var device = query.Device
 	var deviceConfig = query.DeviceConfig
 	var data = make(map[string]interface{})
-	err := device.LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).Where(device.ID.Eq(id)).
+	err := device.LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
+		Where(device.ID.Eq(id)).
 		Select(device.ALL, deviceConfig.Name.As("device_config_name")).Scan(&data)
 	if err != nil {
 		logrus.Error(err)
+	}
+	if data["parent_id"] != nil {
+		parentDevice, err := GetDeviceByID(data["parent_id"].(string))
+		if err != nil {
+			logrus.Error(err)
+		}
+		data["gateway_device_name"] = parentDevice.Name
 	}
 	return data, err
 }

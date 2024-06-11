@@ -29,9 +29,12 @@ func UpdateDataScript(data *model.UpdateDataScriptReq) error {
 }
 
 func DeleteDataScript(id string) error {
-	_, err := query.DataScript.Where(query.DataScript.ID.Eq(id)).Delete()
+	info, err := query.DataScript.Where(query.DataScript.ID.Eq(id)).Delete()
 	if err != nil {
 		logrus.Error(err)
+	}
+	if info.RowsAffected == 0 {
+		return nil
 	}
 	return err
 }
