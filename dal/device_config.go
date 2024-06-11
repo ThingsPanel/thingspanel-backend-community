@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"time"
 
 	model "project/model"
@@ -135,8 +136,16 @@ func GetDeviceConfigSelectList(deviceConfigName *string, tenantID string, device
 
 func BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
 	q := query.Device
+	var devices []string
+	err := q.Where(q.ID.In(req.DeviceIds...), q.DeviceConfigID.IsNotNull(), q.DeviceConfigID.Neq(req.DeviceConfigID)).Select(q.ID).Scan(&devices)
+	if err != nil {
+		return err
+	}
+	if len(devices) > 0 {
+		return errors.Errorf("设备id:%#v已绑定其他配置", devices)
+	}
 	t := time.Now().UTC()
-	_, err := q.Where(q.ID.In(req.DeviceIds...)).Updates(&model.Device{DeviceConfigID: &req.DeviceConfigID, UpdateAt: &t})
+	_, err = q.Where(q.ID.In(req.DeviceIds...)).Updates(&model.Device{DeviceConfigID: &req.DeviceConfigID, UpdateAt: &t})
 	if err != nil {
 		logrus.Error(err)
 		return err

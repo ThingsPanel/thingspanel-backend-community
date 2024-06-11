@@ -183,6 +183,7 @@ type RemoveSonDeviceReq struct {
 type GetDeviceMenuReq struct {
 	GroupId    string `json:"group_id" form:"group_id" validate:"omitempty,max=36"`        // 设备组ID
 	DeviceName string `json:"device_name" form:"device_name" validate:"omitempty,max=255"` // 设备名称
+	BindConfig int    `json:"bind_config" form:"bind_config" validate:"omitempty"`         //绑定设置 0全部 1绑定 2未绑定
 }
 
 type GetTenantDeviceListReq struct {

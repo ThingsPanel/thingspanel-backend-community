@@ -338,12 +338,12 @@ func (d *Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID strin
 
 	if req.GroupId != "" {
 		// 获取设备组下的设备
-		data, err = dal.GetDeviceSelectByGroupId(tenantID, req.GroupId, req.DeviceName)
+		data, err = dal.GetDeviceSelectByGroupId(tenantID, req.GroupId, req.DeviceName, req.BindConfig)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		data, err = dal.DeviceQuery{}.GetDeviceSelect(tenantID, req.DeviceName)
+		data, err = dal.DeviceQuery{}.GetDeviceSelect(tenantID, req.DeviceName, req.BindConfig)
 		if err != nil {
 			return nil, err
 		}

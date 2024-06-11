@@ -412,18 +412,24 @@ func (d DeviceQuery) Find(ctx context.Context, option ...gen.Condition) (list []
 
 // 获取设备下拉列表
 // 返回设备id、设备名称、设备配置id、设备配置名称
-func (d DeviceQuery) GetDeviceSelect(tenantId string, deviceName string) (list []map[string]interface{}, err error) {
+func (d DeviceQuery) GetDeviceSelect(tenantId string, deviceName string, bindConfig int) (list []map[string]interface{}, err error) {
 
 	var device = query.Device
 	var deviceConfig = query.DeviceConfig
-	err = device.
+	query := device.
 		WithContext(context.Background()).
 		Select(device.ID, device.Name, device.DeviceConfigID.As("device_config_id"), deviceConfig.Name.As("device_config_name")).
 		Where(device.TenantID.Eq(tenantId)).
 		Where(device.ActivateFlag.Eq("active")). // 激活状态
 		Where(device.Name.Like(fmt.Sprintf("%%%s%%", deviceName))).
-		LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).Order(device.CreatedAt.Desc()).
-		Scan(&list)
+		LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).Order(device.CreatedAt.Desc())
+	switch bindConfig {
+	case 1:
+		query = query.Where(device.DeviceConfigID.IsNotNull())
+	case 2:
+		query = query.Where(device.DeviceConfigID.IsNull())
+	}
+	err = query.Scan(&list)
 	if err != nil {
 		logrus.Error(err)
 	}
