@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	model "project/model"
 	"project/query"
@@ -76,15 +77,20 @@ func UpdateSceneInfo(req model.UpdateSceneReq, claims *utils.UserClaims) (string
 	var sceneInfo = model.SceneInfo{}
 
 	t := time.Now().UTC()
-	sceneInfo.ID = req.ID
+	//sceneInfo.ID = req.ID
 	sceneInfo.Name = req.Name
 	sceneInfo.Description = &req.Description
 	sceneInfo.Updator = &claims.ID
 	sceneInfo.UpdatedAt = &t
-
-	err = tx.SceneInfo.Save(&sceneInfo)
+	//err = tx.SceneInfo.Save(&sceneInfo)
+	result, err := tx.SceneInfo.Where(tx.SceneInfo.ID.Eq(req.ID)).Updates(sceneInfo)
 	if err != nil {
+		Rollback(tx)
 		return "", err
+	}
+	if result.RowsAffected == 0 {
+		Rollback(tx)
+		return "", errors.New("编辑失败")
 	}
 
 	_, err = tx.SceneActionInfo.Where(query.SceneActionInfo.SceneID.Eq(req.ID)).Delete()
