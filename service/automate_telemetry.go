@@ -73,14 +73,22 @@ func (a *Automate) Execute(devieInfo *model.Device) error {
 	defer a.ErrorRecover()
 	a.device = devieInfo
 	//
-	var deviceConfigId string
+
 	//单类设备t
 	if devieInfo.DeviceConfigID != nil {
+		var deviceConfigId string
 		deviceConfigId = *devieInfo.DeviceConfigID
+		err := a.execute(devieInfo.ID, deviceConfigId)
+		if err != nil {
+			logrus.Error("自动化执行失败", err)
+		}
 	}
+	return a.execute(devieInfo.ID, "")
 
-	//var info initialize.AutomateExecteParams
-	info, resultInt, err := initialize.NewAutomateCache().GetCacheByDeviceId(devieInfo.ID, deviceConfigId)
+}
+
+func (a *Automate) execute(deviceId, deviceConfigId string) error {
+	info, resultInt, err := initialize.NewAutomateCache().GetCacheByDeviceId(deviceId, deviceConfigId)
 	logrus.Debugf("info:%#v, resultInt:%d", info, resultInt)
 	if err != nil {
 		return pkgerrors.Wrap(err, "查询缓存信息失败")
@@ -91,7 +99,7 @@ func (a *Automate) Execute(devieInfo *model.Device) error {
 	}
 	//缓存未查询到数据 数据查询存入缓存
 	if resultInt == initialize.AUTOMATE_CACHE_RESULT_NOT_FOUND {
-		info, resultInt, err = a.QueryAutomateInfoAndSetCache(devieInfo.ID, deviceConfigId)
+		info, resultInt, err = a.QueryAutomateInfoAndSetCache(deviceId, deviceConfigId)
 		if err != nil {
 			return pkgerrors.Wrap(err, "查询设置 设置缓存失败")
 		}
