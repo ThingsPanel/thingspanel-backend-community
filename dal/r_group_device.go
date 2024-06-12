@@ -55,21 +55,26 @@ func GetRGroupDeviceByGroupId(req model.GetDeviceListByGroup) (int64, interface{
 
 // 获取分组下设备下拉菜单
 // 返回设备id、设备名称、设备配置id、设备配置名称
-func GetDeviceSelectByGroupId(tenantId string, group_id string, deviceName string) ([]map[string]interface{}, error) {
+func GetDeviceSelectByGroupId(tenantId string, group_id string, deviceName string, bindConfig int) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
 	rgd := query.RGroupDevice
 	d := query.Device
 	dc := query.DeviceConfig
-	err := rgd.
+	query := rgd.
 		Select(rgd.DeviceID.As("id"), d.Name, d.DeviceConfigID, dc.Name.As("device_config_name")).
 		Join(d, d.ID.EqCol(rgd.DeviceID)).
 		Join(dc, d.DeviceConfigID.EqCol(dc.ID)).
 		Where(rgd.GroupID.Eq(group_id)).
 		Where(d.TenantID.Eq(tenantId)).
 		Where(d.ActivateFlag.Eq("active")). // 激活状态
-		Where(d.Name.Like("%" + deviceName + "%")).Order(d.CreatedAt.Desc()).
-		Scan(&data)
-	return data, err
+		Where(d.Name.Like("%" + deviceName + "%")).Order(d.CreatedAt.Desc())
+	switch bindConfig {
+	case 1:
+		query = query.Where(d.DeviceConfigID.IsNotNull())
+	case 2:
+		query = query.Where(d.DeviceConfigID.IsNull())
+	}
+	return data, query.Scan(&data)
 }
 
 func GetRGroupDeviceByDeviceId(device_id string) ([]*model.RGroupDevice, error) {
