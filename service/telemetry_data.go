@@ -674,7 +674,7 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		}
 
 		dbType := viper.GetString("grpc.tptodb_type")
-		if dbType == "tdengine" {
+		if dbType == "TSDB" {
 			var fields []map[string]interface{}
 			request := &pb.GetDeviceKVDataWithNoAggregateRequest{
 				DeviceId:  req.DeviceId,
@@ -708,7 +708,7 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		}
 
 		dbType := viper.GetString("grpc.tptodb_type")
-		if dbType == "tdengine" {
+		if dbType == "TSDB" {
 			var fields []map[string]interface{}
 			logrus.Printf("req.StartTime: %+v\n", req.StartTime)
 			request := &pb.GetDeviceKVDataWithAggregateRequest{
