@@ -4,7 +4,7 @@ import "time"
 
 type CreateSceneAutomationReq struct {
 	Name                   string        `json:"name" validate:"required,max=36"`
-	Description            string        `json:"description" validate:"required"`
+	Description            string        `json:"description"`
 	Enabled                string        `json:"enabled" validate:"omitempty,oneof=Y N"`
 	TriggerConditionGroups [][]Condition `json:"trigger_condition_groups" validate:"required"`
 	Actions                []Action      `json:"actions" validate:"required"`
@@ -14,7 +14,7 @@ type CreateSceneAutomationReq struct {
 type UpdateSceneAutomationReq struct {
 	ID                     string        `json:"id" validate:"required,max=36"`
 	Name                   string        `json:"name" validate:"required,max=36"`
-	Description            string        `json:"description" validate:"required"`
+	Description            string        `json:"description"`
 	Enabled                string        `json:"enabled" validate:"required,oneof=Y N"`
 	TriggerConditionGroups [][]Condition `json:"trigger_condition_groups" validate:"required"`
 	Actions                []Action      `json:"actions" validate:"required"`
