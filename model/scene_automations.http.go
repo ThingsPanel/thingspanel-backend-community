@@ -8,7 +8,7 @@ type CreateSceneAutomationReq struct {
 	Enabled                string        `json:"enabled" validate:"omitempty,oneof=Y N"`
 	TriggerConditionGroups [][]Condition `json:"trigger_condition_groups" validate:"required"`
 	Actions                []Action      `json:"actions" validate:"required"`
-	Remark                 string        `json:"remark" validate:"omitempty"`
+	Remark                 string        `json:"remark" `
 }
 
 type UpdateSceneAutomationReq struct {
@@ -18,7 +18,7 @@ type UpdateSceneAutomationReq struct {
 	Enabled                string        `json:"enabled" validate:"required,oneof=Y N"`
 	TriggerConditionGroups [][]Condition `json:"trigger_condition_groups" validate:"required"`
 	Actions                []Action      `json:"actions" validate:"required"`
-	Remark                 string        `json:"remark" validate:"omitempty"`
+	Remark                 string        `json:"remark" `
 }
 
 type Condition struct {
