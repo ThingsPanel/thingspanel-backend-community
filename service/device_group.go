@@ -27,6 +27,15 @@ func (d *DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *
 	// 代表创建的是子分组
 	if req.ParentId != nil {
 		deviceGroup.ParentID = req.ParentId
+
+		// 验证子分组重名问题
+		g, err := dal.GetChildrenGroupNameExist(*req.ParentId, req.Name, claims.TenantID)
+		if err != nil {
+			return err
+		}
+		if g.ID != "" {
+			return fmt.Errorf("子分组名称重复")
+		}
 	}
 
 	// TODO 缺少验证父分组是否真实存在

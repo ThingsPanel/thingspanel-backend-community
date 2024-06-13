@@ -133,3 +133,16 @@ func GetTopGroupNameExist(name string, tenantId string) (*model.Group, error) {
 	}
 	return g, nil
 }
+
+func GetChildrenGroupNameExist(parentId string, name string, tenantId string) (*model.Group, error) {
+	g, err := query.Group.
+		Where(query.Group.TenantID.Eq(tenantId)).
+		Where(query.Group.ParentID.Eq(parentId)).
+		Where(query.Group.Name.Eq(name)).
+		First()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return g, nil
+}
