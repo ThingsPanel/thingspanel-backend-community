@@ -31,8 +31,8 @@ jobs:
       uses: docker/login-action@v2.2.0
       with:
         registry: registry.cn-hangzhou.aliyuncs.com
-        username: ${{ secrets.IMAG_USER}}
-        password: ${{ secrets.IMAG_PASS}}
+        username: ${{ secrets.IMAGE_USER }}
+        password: ${{ secrets.IMAGE_PASS }}
         logout: false
         
     - name: Use Skopeo Tools Sync Image to Aliyuncs Docker Hub
