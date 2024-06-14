@@ -127,13 +127,14 @@ func UpdateTelemetrDataBatch(data []*model.TelemetryData) error {
 		dc.Key = d.Key
 		dc.NumberV = d.NumberV
 		dc.StringV = d.StringV
+		dc.BoolV = d.BoolV
 		//时间戳转time.Time
 		dc.T = time.Unix(0, d.T*int64(time.Millisecond)).UTC()
 		dc.TenantID = d.TenantID
 		info, err := query.TelemetryCurrentData.
 			Where(query.TelemetryCurrentData.DeviceID.Eq(d.DeviceID)).
 			Where(query.TelemetryCurrentData.Key.Eq(d.Key)).
-			Updates(dc)
+			Updates(map[string]interface{}{"number_v": d.NumberV, "string_v": d.StringV, "bool_v": d.BoolV, "t": dc.T})
 		if err != nil {
 			return err
 		} else if info.RowsAffected == 0 {
