@@ -45,7 +45,7 @@ db:
 
 grpc:
   tptodb_server: 127.0.0.1:50052
-  tptodb_type: NONE # NONE、TSDB
+  tptodb_type: TSDB # NONE、TSDB
 
 # mqtt服务：gmqtt、vernemq
 mqtt_server: gmqtt
