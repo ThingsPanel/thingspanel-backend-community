@@ -33,8 +33,8 @@ func (d *DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *
 		if err != nil {
 			return err
 		}
-		if g.ID != "" {
-			return fmt.Errorf("子分组名称重复")
+		if g != nil {
+			return fmt.Errorf("group name is exist")
 		}
 	}
 
@@ -48,7 +48,7 @@ func (d *DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *
 			return err
 		}
 		if g.ID != "" {
-			return fmt.Errorf("分组名称重复")
+			return fmt.Errorf("group name is exist")
 		}
 	}
 
