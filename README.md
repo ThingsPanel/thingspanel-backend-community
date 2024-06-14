@@ -1,4 +1,4 @@
-English | [中文](./README.md)
+English | [中文](./README_ZH.md)
 # ThingsPanel
 ThingsPanel is a **lightweight, componentized** open-source IoT application support platform, designed to reduce development efforts and accelerate IoT project construction through reusable plugins.
 
