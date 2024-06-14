@@ -1,4 +1,4 @@
-[English](./README_EN.md) | 中文
+[English](./README.md) | 中文
 
 ThingsPanel是一款**轻量级、组件化**的开源物联网应用支撑平台，旨在通过可复用的插件，减少开发工作，加速物联网项目构建。
 
