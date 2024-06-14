@@ -134,7 +134,7 @@ func UpdateTelemetrDataBatch(data []*model.TelemetryData) error {
 		info, err := query.TelemetryCurrentData.
 			Where(query.TelemetryCurrentData.DeviceID.Eq(d.DeviceID)).
 			Where(query.TelemetryCurrentData.Key.Eq(d.Key)).
-			Updates(map[string]interface{}{"number_v": d.NumberV, "string_v": d.StringV, "bool_v": d.BoolV, "t": dc.T})
+			Updates(map[string]interface{}{"number_v": d.NumberV, "string_v": d.StringV, "bool_v": d.BoolV, "ts": dc.T})
 		if err != nil {
 			return err
 		} else if info.RowsAffected == 0 {
