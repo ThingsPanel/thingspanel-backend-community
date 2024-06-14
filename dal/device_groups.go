@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	global "project/global"
@@ -9,6 +10,7 @@ import (
 	query "project/query"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 func CreateDeviceGroup(r *model.Group) error {
@@ -119,4 +121,33 @@ func GetGroupChildrenIds(id string) ([]string, error) {
 		return nil, err.Error
 	}
 	return ids, nil
+}
+
+func GetTopGroupNameExist(name string, tenantId string) (*model.Group, error) {
+	g, err := query.Group.
+		Where(query.Group.TenantID.Eq(tenantId)).
+		Where(query.Group.ParentID.Eq("0")).
+		Where(query.Group.Name.Eq(name)).
+		First()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return g, nil
+}
+
+func GetChildrenGroupNameExist(parentId string, name string, tenantId string) (*model.Group, error) {
+	g, err := query.Group.
+		Where(query.Group.TenantID.Eq(tenantId)).
+		Where(query.Group.ParentID.Eq(parentId)).
+		Where(query.Group.Name.Eq(name)).
+		First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return g, nil
+		}
+		logrus.Error(err)
+		return nil, err
+	}
+	return g, nil
 }

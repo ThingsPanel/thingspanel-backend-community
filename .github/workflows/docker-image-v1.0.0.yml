@@ -25,3 +25,16 @@ jobs:
         file: ./Dockerfile
         push: true
         tags: thingspanel/thingspanel-go:v1.0.0
+
+
+    - name: Login to Aliyuncs Docker Hub
+      uses: docker/login-action@v2.2.0
+      with:
+        registry: registry.cn-hangzhou.aliyuncs.com
+        username: ${{ secrets.IMAGE_USER }}
+        password: ${{ secrets.IMAGE_PASS }}
+        logout: false
+        
+    - name: Use Skopeo Tools Sync Image to Aliyuncs Docker Hub
+      run: |
+         skopeo copy docker://docker.io/thingspanel/thingspanel-go:v1.0.0 docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/thingspanel-go:v1.0.0

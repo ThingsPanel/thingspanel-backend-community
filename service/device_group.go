@@ -27,9 +27,30 @@ func (d *DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *
 	// 代表创建的是子分组
 	if req.ParentId != nil {
 		deviceGroup.ParentID = req.ParentId
+
+		// 验证子分组重名问题
+		g, err := dal.GetChildrenGroupNameExist(*req.ParentId, req.Name, claims.TenantID)
+		if err != nil {
+			return err
+		}
+		if g != nil {
+			return fmt.Errorf("group name is exist")
+		}
 	}
 
 	// TODO 缺少验证父分组是否真实存在
+
+	// 验证重名问题(创建的是顶级)
+	if req.ParentId == nil {
+		// 查找
+		g, err := dal.GetTopGroupNameExist(req.Name, claims.TenantID)
+		if err != nil {
+			return err
+		}
+		if g.ID != "" {
+			return fmt.Errorf("group name is exist")
+		}
+	}
 
 	// 暂时不计算层级
 	deviceGroup.Tier = -1

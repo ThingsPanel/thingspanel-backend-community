@@ -139,5 +139,5 @@ automation_task_confg:
   periodic_task_limit: 100
 
 ota:
- #推送到设备端的ota升级包下载地址
+ # 推送设备端的ota升级包下载地址
   download_address: http://demo.thingspanel.cn 
