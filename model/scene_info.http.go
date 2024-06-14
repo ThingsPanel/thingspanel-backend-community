@@ -4,7 +4,7 @@ import "time"
 
 type CreateSceneReq struct {
 	Name        string            `json:"name" validate:"required,max=36"`
-	Description string            `json:"description" validate:"required"`
+	Description string            `json:"description"`
 	Actions     []SceneActionsReq `json:"actions" validate:"required"`
 }
 
@@ -20,7 +20,7 @@ type SceneActionsReq struct {
 type UpdateSceneReq struct {
 	ID          string            `json:"id" validate:"required,max=36"`
 	Name        string            `json:"name" validate:"required,max=36"`
-	Description string            `json:"description" validate:"required"`
+	Description string            `json:"description"`
 	Actions     []SceneActionsReq `json:"actions" validate:"required"`
 }
 
