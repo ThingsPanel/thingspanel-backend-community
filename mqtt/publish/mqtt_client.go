@@ -47,6 +47,20 @@ func CreateMqttClient() {
 	opts.SetOnConnectHandler(func(c mqtt.Client) {
 		logrus.Println("mqtt connect success")
 	})
+	// 断线重连
+	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
+		logrus.Println("mqtt connect  lost: ", err)
+		// 等待连接成功，失败重新连接
+		for {
+			if token := client.Connect(); token.Wait() && token.Error() == nil {
+				fmt.Println("Reconnected to MQTT broker")
+				break
+			} else {
+				fmt.Printf("Reconnect failed: %v\n", token.Error())
+			}
+			time.Sleep(5 * time.Second)
+		}
+	})
 
 	mqttClient = mqtt.NewClient(opts)
 	for {
