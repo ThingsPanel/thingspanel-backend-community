@@ -142,7 +142,7 @@ func GetTelemetryScriptFlagByDeviceAndScriptType(device *model.Device, script_ty
 func GetScriptByDeviceAndScriptType(device *model.Device, script_type string) (*model.DataScript, error) {
 	var script *model.DataScript
 	script = &model.DataScript{}
-	key := device.ID + "_script"
+	key := device.ID + "_" + script_type + "_script"
 	err := GetRedisForJsondata(key, script)
 	if err != nil {
 		logrus.Debug("Get redis_cache key:"+key+" failed with err:", err.Error())

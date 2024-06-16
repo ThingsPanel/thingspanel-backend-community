@@ -28,7 +28,7 @@ func DelDataScriptCache(data_script *model.DataScript) error {
 		if data_script.ScriptType == "A" {
 			_ = global.REDIS.Del(deviceID + "_telemetry_script_flag").Err()
 		} else {
-			_ = global.REDIS.Del(deviceID + "_script").Err()
+			_ = global.REDIS.Del(deviceID + "_" + data_script.ScriptType + "_script").Err()
 		}
 	}
 	return nil
