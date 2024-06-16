@@ -86,6 +86,19 @@ func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, 
 	}
 	messageID := common.GetMessageID()
 	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.PublishTopic, deviceInfo.DeviceNumber, messageID)
+
+	// 脚本预处理
+	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+		newValue, err := GroupApp.DataScript.Exec(deviceInfo, "D", []byte(param.Value), topic)
+		if err != nil {
+			logrus.Error(ctx, "[AttributePutMessage][ExecDataScript]failed:", err)
+			return err
+		}
+		if newValue != nil {
+			param.Value = string(newValue)
+		}
+	}
+
 	err = publish.PublishAttributeMessage(topic, []byte(param.Value))
 	if err != nil {
 		logrus.Error(ctx, "下发失败", err)

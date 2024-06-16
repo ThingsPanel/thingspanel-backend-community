@@ -86,8 +86,7 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 	var err error
 	// TODO脚本处理
 	if device.DeviceConfigID != nil {
-		scriptType := "A"
-		telemetryBody, err = service.GroupApp.DataScript.Exec(device, scriptType, telemetryBody, topic)
+		telemetryBody, err = service.GroupApp.DataScript.Exec(device, "A", telemetryBody, topic)
 		if err != nil {
 			logrus.Error(err.Error())
 			return

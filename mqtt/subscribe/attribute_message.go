@@ -70,7 +70,20 @@ func DeviceAttributeReport(payload []byte, topic string) (string, string, error)
 // @return err error
 func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{}) error {
 	// TODO脚本处理
-
+	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
+		scriptType := "C"
+		telemetryBody, _ := json.Marshal(reqMap)
+		newtelemetryBody, err := service.GroupApp.DataScript.Exec(device, scriptType, telemetryBody, "devices/attributes/")
+		if err != nil {
+			logrus.Error("Error in attribute script processing: ", err.Error())
+		}
+		if newtelemetryBody != nil {
+			err = json.Unmarshal(newtelemetryBody, &reqMap)
+			if err != nil {
+				logrus.Error("Error in attribute script processing: ", err.Error())
+			}
+		}
+	}
 	//自动化处理
 	go func() {
 		err := service.GroupApp.Execute(device)

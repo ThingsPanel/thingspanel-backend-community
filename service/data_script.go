@@ -17,16 +17,19 @@ import (
 
 type DataScript struct{}
 
-func DelTelemetryFlagCache(data_script_id string) error {
-	deviceIDs, err := dal.GetDeviceIDsByDataScriptID(data_script_id)
+func DelDataScriptCache(data_script *model.DataScript) error {
+	deviceIDs, err := dal.GetDeviceIDsByDataScriptID(data_script.ID)
 	if err != nil {
 		logrus.Error(err)
 		return err
 	}
 
 	for _, deviceID := range deviceIDs {
-		_ = global.REDIS.Del(deviceID + "_telemetry_script_flag").Err()
-		_ = global.REDIS.Del(deviceID + "_script").Err()
+		if data_script.ScriptType == "A" {
+			_ = global.REDIS.Del(deviceID + "_telemetry_script_flag").Err()
+		} else {
+			_ = global.REDIS.Del(deviceID + "_script").Err()
+		}
 	}
 	return nil
 }
@@ -64,7 +67,8 @@ func (p *DataScript) UpdateDataScript(UpdateDataScriptReq *model.UpdateDataScrip
 		return err
 	}
 
-	err = DelTelemetryFlagCache(UpdateDataScriptReq.Id)
+	new_script, _ := dal.GetDataScriptById(UpdateDataScriptReq.Id)
+	err = DelDataScriptCache(new_script)
 	if err != nil {
 		logrus.Error(err)
 		return err
@@ -79,7 +83,12 @@ func (p *DataScript) DeleteDataScript(id string) error {
 		logrus.Error(err)
 		return err
 	}
-	_ = DelTelemetryFlagCache(id)
+	new_script, _ := dal.GetDataScriptById(id)
+	err = DelDataScriptCache(new_script)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
 
 	return err
 }
@@ -128,37 +137,41 @@ func (p *DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
 		return err
 	}
 
-	err = DelTelemetryFlagCache(req.Id)
-	if err != nil {
-		logrus.Error(err)
-		return err
+	if req.EnableFlag == "N" {
+		new_script, _ := dal.GetDataScriptById(req.Id)
+		err = DelDataScriptCache(new_script)
+		if err != nil {
+			logrus.Error(err)
+			return err
+		}
 	}
 
 	return err
 }
 
-func (p *DataScript) Exec(device *model.Device, scriptType string, msg []byte, topic string) ([]byte, error) {
+func (p *DataScript) Exec(device *model.Device, scriptType string, msg []byte, topic string) (data []byte, err error) {
+	var script_id string
 
-	script_id, err := initialize.GetTelemetryScriptFlagByDeviceAndScriptType(device, scriptType)
-	if err != nil {
-		return nil, err
-	}
-	if script_id != "" {
-		script, err := initialize.GetScriptByDeviceAndScriptType(device, scriptType)
+	if scriptType == "A" || scriptType == "B" {
+		script_id, err = initialize.GetTelemetryScriptFlagByDeviceAndScriptType(device, scriptType)
 		if err != nil {
-			logrus.Error(err.Error())
-			return nil, err
+			return msg, err
 		}
-		if script == nil {
+		if script_id == "" {
 			return msg, nil
 		}
-		newMsg, err := utils.ScriptDeal(*script.Content, msg, topic)
-		if err != nil {
-			logrus.Error(err.Error())
-			return nil, err
-		}
-		return []byte(newMsg), nil
 	}
 
-	return msg, nil
+	script, err := initialize.GetScriptByDeviceAndScriptType(device, scriptType)
+	if err != nil {
+		return msg, err
+	}
+	if script == nil {
+		return msg, nil
+	}
+	newMsg, err := utils.ScriptDeal(*script.Content, msg, topic)
+	if err != nil {
+		return msg, err
+	}
+	return []byte(newMsg), nil
 }
