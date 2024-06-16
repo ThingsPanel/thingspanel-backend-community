@@ -152,7 +152,7 @@ func (p *DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
 func (p *DataScript) Exec(device *model.Device, scriptType string, msg []byte, topic string) (data []byte, err error) {
 	var script_id string
 
-	if scriptType == "A" || scriptType == "B" {
+	if scriptType == "A" {
 		script_id, err = initialize.GetTelemetryScriptFlagByDeviceAndScriptType(device, scriptType)
 		if err != nil {
 			return msg, err
