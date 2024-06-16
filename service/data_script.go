@@ -78,18 +78,20 @@ func (p *DataScript) UpdateDataScript(UpdateDataScriptReq *model.UpdateDataScrip
 }
 
 func (p *DataScript) DeleteDataScript(id string) error {
-	err := dal.DeleteDataScript(id)
-	if err != nil {
-		logrus.Error(err)
-		return err
-	}
-	new_script, _ := dal.GetDataScriptById(id)
-	err = DelDataScriptCache(new_script)
+	new_script, err := dal.GetDataScriptById(id)
 	if err != nil {
 		logrus.Error(err)
 		return err
 	}
 
+	err = dal.DeleteDataScript(id)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	if new_script.EnableFlag == "Y" {
+		_ = DelDataScriptCache(new_script)
+	}
 	return err
 }
 
@@ -149,9 +151,9 @@ func (p *DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
 	return err
 }
 
-func (p *DataScript) Exec(device *model.Device, scriptType string, msg []byte, topic string) (data []byte, err error) {
+func (p *DataScript) Exec(device *model.Device, scriptType string, msg []byte, topic string) ([]byte, error) {
 	var script_id string
-
+	var err error
 	if scriptType == "A" {
 		script_id, err = initialize.GetTelemetryScriptFlagByDeviceAndScriptType(device, scriptType)
 		if err != nil {

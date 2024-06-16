@@ -83,16 +83,16 @@ func TelemetryMessages(payload []byte, topic string) {
 }
 
 func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic string) {
-	var err error
 	// TODO脚本处理
 	if device.DeviceConfigID != nil {
-		telemetryBody, err = service.GroupApp.DataScript.Exec(device, "A", telemetryBody, topic)
+		newtelemetryBody, err := service.GroupApp.DataScript.Exec(device, "A", telemetryBody, topic)
 		if err != nil {
 			logrus.Error(err.Error())
 			return
 		}
+		telemetryBody = newtelemetryBody
 	}
-	err = publish.ForwardTelemetryMessage(device.ID, telemetryBody)
+	err := publish.ForwardTelemetryMessage(device.ID, telemetryBody)
 	if err != nil {
 		logrus.Error("telemetry forward error:", err.Error())
 	}

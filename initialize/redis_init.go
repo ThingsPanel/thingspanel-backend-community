@@ -121,18 +121,12 @@ func GetTelemetryScriptFlagByDeviceAndScriptType(device *model.Device, script_ty
 		logrus.Debugf("Get redis_cache key: %s failed with err:%s", key, err.Error())
 		script, err = dal.GetDataScriptByDeviceConfigIdAndScriptType(device.DeviceConfigID, script_type)
 		if err != nil {
+			_ = global.REDIS.Set(key, "", 0).Err()
 			return "", err
 		}
 		if script != nil {
 			err = global.REDIS.Set(key, script.ID, 0).Err()
-			if err != nil {
-				return "", err
-			}
-		} else {
-			err = global.REDIS.Set(key, "", 0).Err()
-			if err != nil {
-				return "", err
-			}
+			return script.ID, err
 		}
 	}
 	return script_id, nil

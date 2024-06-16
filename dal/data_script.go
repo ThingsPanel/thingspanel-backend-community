@@ -30,9 +30,6 @@ func UpdateDataScript(data *model.UpdateDataScriptReq) error {
 
 func DeleteDataScript(id string) error {
 	info, err := query.DataScript.Where(query.DataScript.ID.Eq(id)).Delete()
-	if err != nil {
-		logrus.Error(err)
-	}
 	if info.RowsAffected == 0 {
 		return nil
 	}
@@ -44,7 +41,7 @@ func GetDataScriptById(id string) (*model.DataScript, error) {
 	if err != nil {
 		logrus.Error(err)
 	}
-	if data == nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("data script not found")
 	}
 	return data, err
@@ -148,7 +145,7 @@ func GetDeviceIDsByDataScriptID(dataScriptID string) ([]string, error) {
 
 func GetDataScriptByDeviceConfigIdAndScriptType(deviceConfigId *string, scriptType string) (*model.DataScript, error) {
 	if deviceConfigId == nil || *deviceConfigId == "" {
-		return nil, nil
+		return nil, fmt.Errorf("no device config id provided")
 	}
 	data, err := query.DataScript.
 		Where(
@@ -157,7 +154,7 @@ func GetDataScriptByDeviceConfigIdAndScriptType(deviceConfigId *string, scriptTy
 			query.DataScript.EnableFlag.Eq("Y")).
 		First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, fmt.Errorf("no data script found")
 	}
 	if err != nil {
 		return nil, err
