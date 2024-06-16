@@ -145,7 +145,7 @@ func GetDeviceIDsByDataScriptID(dataScriptID string) ([]string, error) {
 
 func GetDataScriptByDeviceConfigIdAndScriptType(deviceConfigId *string, scriptType string) (*model.DataScript, error) {
 	if deviceConfigId == nil || *deviceConfigId == "" {
-		return nil, fmt.Errorf("no device config id provided")
+		return nil, nil
 	}
 	data, err := query.DataScript.
 		Where(
@@ -154,7 +154,7 @@ func GetDataScriptByDeviceConfigIdAndScriptType(deviceConfigId *string, scriptTy
 			query.DataScript.EnableFlag.Eq("Y")).
 		First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("no data script found")
+		return nil, nil
 	}
 	if err != nil {
 		return nil, err

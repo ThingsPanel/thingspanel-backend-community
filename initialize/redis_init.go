@@ -126,7 +126,13 @@ func GetTelemetryScriptFlagByDeviceAndScriptType(device *model.Device, script_ty
 		}
 		if script != nil {
 			err = global.REDIS.Set(key, script.ID, 0).Err()
-			return script.ID, err
+			if err != nil {
+				return "", err
+			}
+			return script.ID, nil
+		} else {
+			err = global.REDIS.Set(key, "", 0).Err()
+			return "", err
 		}
 	}
 	return script_id, nil
