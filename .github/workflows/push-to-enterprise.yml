@@ -22,7 +22,7 @@ jobs:
     - name: Push changes
       uses: ad-m/github-push-action@v0.8.0
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        github_token: ${{ secrets.ACCESS_TOKEN }}
         branch: thingspanel-backend-community
         repository: ThingsPanel/thingspanel-backend-enterprise
         force: false  # 根据需要选择是否使用 force 推送
