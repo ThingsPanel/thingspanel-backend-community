@@ -1,0 +1,51 @@
+name: push-to-enterprise
+
+on:
+  workflow_dispatch:
+    # 允许手动触发
+
+jobs:
+  sync-code:
+    runs-on: ubuntu-latest
+    steps:
+      # 检出企业版仓库
+      - name: Checkout Enterprise repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'ThingsPanel/thingspanel-backend-enterprise'
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: 'enterprise'
+          fetch-depth: 0
+
+      # 切换到thingspanel-backend-community分支或创建它
+      - name: Setup or create target branch in enterprise
+        run: |
+          cd enterprise
+          git checkout thingspanel-backend-community || git checkout -b thingspanel-backend-community
+          git rm -r --cached .
+          git clean -fdx
+        shell: bash
+
+      # 检出社区版仓库
+      - name: Checkout Community repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'ThingsPanel/thingspanel-backend-community'
+          token: ${{ secrets.ACCESS_TOKEN }}
+          path: 'community'
+          fetch-depth: 0
+
+      # 复制社区版代码到企业版thingspanel-backend-community分支
+      - name: Copy Community code to Enterprise branch
+        run: |
+          rsync -av --exclude='.git' --exclude='.github' community/ enterprise/
+        shell: bash
+
+      # 提交变更到企业版的thingspanel-backend-community分支
+      - name: Commit and push changes
+        run: |
+          cd enterprise
+          git add .
+          git commit -m 'merge community changes to enterprise'
+          git push origin thingspanel-backend-community
+        shell: bash
