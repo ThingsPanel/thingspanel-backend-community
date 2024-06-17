@@ -13,18 +13,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false  # 防止自动使用 GitHub 的凭证
-          fetch-depth: '0'  # 获取所有提交历史以确保完整同步
+          fetch-depth: 0  # 获取所有提交历史
 
-      - name: Configure Git
+      - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "zjhong@users.noreply.github.com"
+          git config --local http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n x-access-token:${{ secrets.ACCESS_TOKEN }} | base64)"
 
-      - name: Add target repository as a remote
-        run: git remote add target https://github.com/ThingsPanel/thingspanel-backend-enterprise.git
-
-      - name: Push changes to target repository
-        run: git push target main:thingspanel-backend-community --force
+      - name: Push changes
+        run: |
+          git push https://github.com/ThingsPanel/thingspanel-backend-enterprise.git main:thingspanel-backend-community --force
         env:
-          GIT_ASKPASS: echo  # 防止 Git 操作时请求用户名和密码
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}  # 使用您提供的访问令牌
+          PAT: ${{ secrets.ACCESS_TOKEN }}
+
