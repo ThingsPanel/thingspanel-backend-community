@@ -1,0 +1,22 @@
+name: push-to-enterprise
+
+on:
+  push:
+    branches:
+      - main  # 监听仓库A的main分支
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout source repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # 确保获取所有历史
+
+    - name: Push changes to target repository
+      uses: ad-m/github-push-action@v0.6.0
+      with:
+        github_token: ${{ secrets.ACCESS_TOKEN }}
+        repository: ThingsPanel/thingspanel-backend-enterprise
+        branch: thingspanel-backend-community
