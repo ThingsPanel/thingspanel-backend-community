@@ -3,21 +3,27 @@ name: push-to-enterprise
 on:
   push:
     branches:
-      - main  # 监听源仓库的main分支
-  workflow_dispatch:  # 手动触发
+      - main  # 监听main分支的更新
+  workflow_dispatch:  # 允许手动触发工作流
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout source repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
+        persist-credentials: false  # 确保使用的是我们提供的凭证
         fetch-depth: 0  # 获取所有提交历史
 
-    - name: Push changes to target repository
-      uses: ad-m/github-push-action@v0.6.0
+    - name: Create local changes
+      run: echo "Dummy step for demonstration purposes"
+
+    - name: Push changes
+      uses: ad-m/github-push-action@v0.8.0
       with:
-        github_token: ${{ secrets.ACCESS_TOKEN }}
-        repository: ThingsPanel/thingspanel-backend-enterprise
+        github_token: ${{ secrets.GITHUB_TOKEN }}
         branch: thingspanel-backend-community
+        repository: ThingsPanel/thingspanel-backend-enterprise
+        force: false  # 根据需要选择是否使用 force 推送
+        tags: true  # 如果需要推送标签，设为 true
