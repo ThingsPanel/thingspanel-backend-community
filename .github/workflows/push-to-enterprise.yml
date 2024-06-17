@@ -35,6 +35,14 @@ jobs:
           path: 'community'
           fetch-depth: 0
 
+      # 配置 Git 用户信息
+      - name: Configure git identity
+        run: |
+          cd enterprise
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+        shell: bash
+
       # 复制社区版代码到企业版thingspanel-backend-community分支
       - name: Copy Community code to Enterprise branch
         run: |
