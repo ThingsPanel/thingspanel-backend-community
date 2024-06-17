@@ -27,5 +27,5 @@ jobs:
           github_token: ${{ secrets.ACCESS_TOKEN }}
           branch: thingspanel-backend-community
           repository: ThingsPanel/thingspanel-backend-enterprise
-          force: false  # 根据需要选择是否使用 force 推送
+          force: true  # 根据需要选择是否使用 force 推送
           tags: true  # 如果需要推送标签，设为 true
