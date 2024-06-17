@@ -82,6 +82,8 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 			return err
 		}
 		if protocolPluginInfo != nil && protocolPluginInfo.SubTopicPrefix != nil {
+			// 修改主题
+			topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
 			// 增加主题前缀
 			topic = fmt.Sprintf("%s%s", *protocolPluginInfo.SubTopicPrefix, topic)
 		}
