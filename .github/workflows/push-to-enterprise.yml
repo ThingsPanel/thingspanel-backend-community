@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main  # 监听源仓库的main分支
+  workflow_dispatch:  # 手动触发
 
 jobs:
   sync:
