@@ -69,7 +69,7 @@ func GetSceneAutomationByPage(req *model.GetSceneAutomationByPageReq, tenant_id 
 		//查询设备配置id
 		deviceInfo, _ := query.Device.Where(query.Device.ID.Eq(*req.DeviceId)).Select(query.Device.DeviceConfigID).First()
 		if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
-			sceneIds2, _ := getSceneAutomationIdByDeviceConfigId(ctx, *req.DeviceConfigId)
+			sceneIds2, _ := getSceneAutomationIdByDeviceConfigId(ctx, *deviceInfo.DeviceConfigID)
 			sceneIds = append(sceneIds, sceneIds2...)
 		}
 		if len(sceneIds) == 0 {
