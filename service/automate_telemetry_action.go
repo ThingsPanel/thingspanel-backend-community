@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"project/constant"
+	"project/dal"
 	model "project/model"
 	"strconv"
 
@@ -112,8 +113,8 @@ func (a *AutomateTelemetryActionMultiple) AutomateActionRun(action model.ActionI
 			errs = err
 		}
 		messages = append(messages, msg)
-
 	}
+
 	return "单类设置:" + fmt.Sprintf("%s", messages), errs
 }
 
@@ -147,8 +148,8 @@ func (a *AutomateTelemetryActionAlarm) AutomateActionRun(action model.ActionInfo
 	if ok, alarmName := AlarmExecute(*action.ActionTarget, action.SceneAutomationID); ok {
 		return fmt.Sprintf("告警服务(%s)", alarmName), nil
 	}
-
-	return fmt.Sprintf("告警id: %s", *action.ActionTarget), errors.New("执行失败")
+	alarmName := dal.GetAlarmNameWithCache(*action.ActionTarget)
+	return fmt.Sprintf("告警服务(%s)", alarmName), errors.New("执行失败")
 }
 
 // 服务 40

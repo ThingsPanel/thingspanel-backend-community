@@ -240,7 +240,6 @@ func (d *Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils
 				list[i].WarnStatus = "N"
 			}
 		}
-		//查询告警信息
 	}
 	deviceListRsp := make(map[string]interface{})
 	deviceListRsp["total"] = total

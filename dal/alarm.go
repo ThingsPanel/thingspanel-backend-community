@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"project/global"
 	model "project/model"
 	query "project/query"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/datatypes"
@@ -248,4 +250,19 @@ func GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 		return false
 	}
 	return true
+}
+
+func GetAlarmNameWithCache(alarmId string) string {
+	redis := global.REDIS
+	cacheKey := fmt.Sprintf("GetAlarmNameWithCache:alarmId:%s", alarmId)
+	cmdResult := redis.Get(cacheKey)
+	if cmdResult != nil {
+		return cmdResult.String()
+	}
+	alarmConfig, err := query.AlarmConfig.Where(query.AlarmConfig.ID.Eq(alarmId)).Select(query.AlarmConfig.Name).First()
+	if err != nil {
+		return ""
+	}
+	redis.Set(cacheKey, alarmConfig.Name, time.Hour)
+	return alarmConfig.Name
 }
