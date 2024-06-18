@@ -128,6 +128,10 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 		if !a.LimiterAllow(v.SceneAutomationId) {
 			continue
 		}
+		//查询自动化是否关闭
+		if a.checkSceneAutomationHasClose(v.SceneAutomationId) {
+			continue
+		}
 		//条件判断
 		if !a.AutomateConditionCheck(v.GroupsCondition, info.DeviceId) {
 			continue
@@ -139,6 +143,17 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 	}
 
 	return nil
+}
+
+// checkSceneAutomationHasClose
+// @description 查询是否关闭了自动化
+func (a *Automate) checkSceneAutomationHasClose(sceneAutomationId string) bool {
+	ok := dal.CheckSceneAutomationHasClose(sceneAutomationId)
+	//删除缓存
+	if ok {
+		_ = initialize.NewAutomateCache().DeleteCacheBySceneAutomationId(sceneAutomationId)
+	}
+	return ok
 }
 
 // SceneAutomateExecute

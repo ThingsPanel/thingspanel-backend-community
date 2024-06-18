@@ -66,7 +66,12 @@ func GetSceneAutomationByPage(req *model.GetSceneAutomationByPageReq, tenant_id 
 	}
 	if req.DeviceId != nil && *req.DeviceId != "" {
 		sceneIds, _ := getSceneAutomationIdByDeviceId(ctx, *req.DeviceId)
-		//logrus.Warning(sceneIds)
+		//查询设备配置id
+		deviceInfo, _ := query.Device.Where(query.Device.ID.Eq(*req.DeviceId)).Select(query.Device.DeviceConfigID).First()
+		if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+			sceneIds2, _ := getSceneAutomationIdByDeviceConfigId(ctx, *req.DeviceConfigId)
+			sceneIds = append(sceneIds, sceneIds2...)
+		}
 		if len(sceneIds) == 0 {
 			return count, nil, nil
 		}
@@ -198,6 +203,11 @@ func getSceneAutomationIdByDeviceConfigId(ctx context.Context, deviceConfigId st
 		sceneIds = append(sceneIds, v.SceneAutomationID)
 	}
 	return sceneIds, nil
+}
+
+func CheckSceneAutomationHasClose(id string) bool {
+	index, _ := query.SceneAutomation.Where(query.SceneAutomation.ID.Eq(id), query.SceneAutomation.Enabled.Eq("N")).Count()
+	return index == 1
 }
 
 func GetSceneAutomationTenantID(ctx context.Context, scene_id string) string {
