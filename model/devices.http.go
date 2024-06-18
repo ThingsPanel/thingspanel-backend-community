@@ -87,6 +87,7 @@ type GetDeviceListByPageRsp struct {
 	AccessWay        string     `json:"access_way"`         // 接入方式
 	ProtocolType     string     `json:"protocol_type"`      // 协议类型
 	DeviceStatus     int        `json:"device_status"`      // 设备状态
+	WarnStatus       string     `json:"warn_status"`        //设备是否告警 Y告警 N未告警
 }
 
 type CreateDeviceGroupReq struct {

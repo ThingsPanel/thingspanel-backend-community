@@ -234,7 +234,13 @@ func (d *Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils
 				list[i].DeviceStatus = val.IsOnline
 			}
 			list[i].IsOnline = list[i].DeviceStatus
+			if dal.GetDeviceAlarmStatus(&model.GetDeviceAlarmStatusReq{DeviceId: val.ID}) {
+				list[i].WarnStatus = "Y"
+			} else {
+				list[i].WarnStatus = "N"
+			}
 		}
+		//查询告警信息
 	}
 	deviceListRsp := make(map[string]interface{})
 	deviceListRsp["total"] = total
