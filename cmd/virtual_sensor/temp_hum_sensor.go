@@ -78,8 +78,12 @@ func publishTelemetryMessage(topic string) {
 			return
 		}
 		token := (*mqttClient).Publish(topic, 0, false, payload)
-		token.Wait()
-		log.Println("Publish message:", string(payload))
+		isSuccess := token.Wait()
+		if !isSuccess {
+			log.Println("Publish message failed", string(payload))
+		} else {
+			log.Println("Publish message successful:", string(payload))
+		}
 		// 每隔10秒发布一次消息
 		<-time.After(30 * time.Second)
 	}
@@ -101,8 +105,12 @@ func publishAttributeMessage(topic string) {
 		}
 		messageId := GetMessageID()
 		token := (*mqttClient).Publish(topic+messageId, 0, false, payload)
-		token.Wait()
-		log.Println("Publish message:", string(payload))
+		isSuccess := token.Wait()
+		if !isSuccess {
+			log.Println("Publish message failed", string(payload))
+		} else {
+			log.Println("Publish message successful:", string(payload))
+		}
 		// 每隔30秒发布一次消息
 		<-time.After(120 * time.Second)
 	}
@@ -128,8 +136,12 @@ func publishEventMessage(topic string) {
 		}
 		messageId := GetMessageID()
 		token := (*mqttClient).Publish(topic+messageId, 0, false, payload)
-		token.Wait()
-		log.Println("Publish message:", string(payload))
+		isSuccess := token.Wait()
+		if !isSuccess {
+			log.Println("Publish message failed", string(payload))
+		} else {
+			log.Println("Publish message successful:", string(payload))
+		}
 		// 每隔60秒发布一次消息
 		<-time.After(120 * time.Second)
 	}
