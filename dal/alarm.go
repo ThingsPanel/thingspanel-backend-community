@@ -255,9 +255,10 @@ func GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 func GetAlarmNameWithCache(alarmId string) string {
 	redis := global.REDIS
 	cacheKey := fmt.Sprintf("GetAlarmNameWithCache:alarmId:%s", alarmId)
-	cmdResult := redis.Get(cacheKey)
-	if cmdResult != nil {
-		return cmdResult.String()
+	var result string
+	err := redis.Get(cacheKey).Scan(&result)
+	if err == nil && result != "" {
+		return result
 	}
 	alarmConfig, err := query.AlarmConfig.Where(query.AlarmConfig.ID.Eq(alarmId)).Select(query.AlarmConfig.Name).First()
 	if err != nil {
