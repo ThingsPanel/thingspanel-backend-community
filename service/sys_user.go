@@ -328,6 +328,9 @@ func (u *User) DeleteUser(id string, claims *utils.UserClaims) error {
 	if err != nil {
 		return err
 	}
+	// 先删除原有角色
+	GroupApp.Casbin.RemoveUserAndRole(id)
+
 	return nil
 }
 

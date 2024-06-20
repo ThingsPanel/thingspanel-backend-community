@@ -17,6 +17,7 @@ import (
 
 type DataScript struct{}
 
+// DelDataScriptCache 根据脚本删除数据脚本缓存
 func DelDataScriptCache(data_script *model.DataScript) error {
 	deviceIDs, err := dal.GetDeviceIDsByDataScriptID(data_script.ID)
 	if err != nil {
@@ -25,11 +26,7 @@ func DelDataScriptCache(data_script *model.DataScript) error {
 	}
 
 	for _, deviceID := range deviceIDs {
-		if data_script.ScriptType == "A" {
-			_ = global.REDIS.Del(deviceID + "_telemetry_script_flag").Err()
-		} else {
-			_ = global.REDIS.Del(deviceID + "_" + data_script.ScriptType + "_script").Err()
-		}
+		_ = global.REDIS.Del(deviceID + "_" + data_script.ScriptType + "_script").Err()
 	}
 	return nil
 }
@@ -152,17 +149,7 @@ func (p *DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
 }
 
 func (p *DataScript) Exec(device *model.Device, scriptType string, msg []byte, topic string) ([]byte, error) {
-	var script_id string
 	var err error
-	if scriptType == "A" {
-		script_id, err = initialize.GetTelemetryScriptFlagByDeviceAndScriptType(device, scriptType)
-		if err != nil {
-			return msg, err
-		}
-		if script_id == "" {
-			return msg, nil
-		}
-	}
 
 	script, err := initialize.GetScriptByDeviceAndScriptType(device, scriptType)
 	if err != nil {

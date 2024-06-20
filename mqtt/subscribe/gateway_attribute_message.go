@@ -42,7 +42,7 @@ func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Devi
 		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayAttributeMessages][GetDeviceById]fail")
 	}
 	if payloads.GatewayData != nil {
-		err = deviceAttributesHandle(deviceInfo, *payloads.GatewayData)
+		err = deviceAttributesHandle(deviceInfo, *payloads.GatewayData, topic)
 		response.GatewayData = getWagewayResponse(err)
 	}
 	if payloads.SubDeviceData != nil {
@@ -54,7 +54,7 @@ func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Devi
 		subDeviceInfos, _ := dal.GetDeviceBySubDeviceAddress(subDeviceAddrs, deviceInfo.ID)
 		for subDeviceAddr, data := range *payloads.SubDeviceData {
 			if subInfo, ok := subDeviceInfos[subDeviceAddr]; ok {
-				err = deviceAttributesHandle(subInfo, data)
+				err = deviceAttributesHandle(subInfo, data, topic)
 			}
 			subDeviceData[subDeviceAddr] = *getWagewayResponse(err)
 		}

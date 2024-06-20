@@ -54,7 +54,7 @@ func DeviceAttributeReport(payload []byte, topic string) (string, string, error)
 		logrus.Error(err.Error())
 		return device.DeviceNumber, messageId, err
 	}
-	err = deviceAttributesHandle(device, reqMap)
+	err = deviceAttributesHandle(device, reqMap, topic)
 	if err != nil {
 		logrus.Error(err.Error())
 		return device.DeviceNumber, messageId, err
@@ -68,17 +68,17 @@ func DeviceAttributeReport(payload []byte, topic string) (string, string, error)
 // @param device *model.Device
 // @param reqMap map[string]interface{
 // @return err error
-func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{}) error {
+func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{}, topic string) error {
 	// TODO脚本处理
 	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
 		scriptType := "C"
-		telemetryBody, _ := json.Marshal(reqMap)
-		newtelemetryBody, err := service.GroupApp.DataScript.Exec(device, scriptType, telemetryBody, "devices/attributes/")
+		attributesBody, _ := json.Marshal(reqMap)
+		newAttributesBody, err := service.GroupApp.DataScript.Exec(device, scriptType, attributesBody, topic)
 		if err != nil {
 			logrus.Error("Error in attribute script processing: ", err.Error())
 		}
-		if newtelemetryBody != nil {
-			err = json.Unmarshal(newtelemetryBody, &reqMap)
+		if newAttributesBody != nil {
+			err = json.Unmarshal(newAttributesBody, &reqMap)
 			if err != nil {
 				logrus.Error("Error in attribute script processing: ", err.Error())
 			}

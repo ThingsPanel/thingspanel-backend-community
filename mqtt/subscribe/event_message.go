@@ -52,7 +52,7 @@ func DeviceEvent(payload []byte, topic string) (string, string, string, error) {
 	}
 	logrus.Debug("event message:", eventValues)
 	// 处理消息
-	err = deviceEventHandle(device, eventValues)
+	err = deviceEventHandle(device, eventValues, topic)
 	if err != nil {
 		logrus.Error(err.Error())
 		return device.DeviceNumber, messageId, "", err
@@ -62,8 +62,25 @@ func DeviceEvent(payload []byte, topic string) (string, string, string, error) {
 
 }
 
-func deviceEventHandle(device *model.Device, eventValues *model.EventInfo) error {
+func deviceEventHandle(device *model.Device, eventValues *model.EventInfo, topic string) error {
 	// TODO脚本处理
+	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
+		eventValuesByte, err := json.Marshal(eventValues)
+		if err != nil {
+			logrus.Error("JSON marshaling failed:", err)
+			return err
+		}
+		neweventValues, err := service.GroupApp.DataScript.Exec(device, "F", eventValuesByte, topic)
+		if err != nil {
+			logrus.Error("Error in event script processing: ", err.Error())
+		}
+		if neweventValues != nil {
+			err = json.Unmarshal(neweventValues, &eventValues)
+			if err != nil {
+				logrus.Error("Error in attribute script processing: ", err.Error())
+			}
+		}
+	}
 	// TODO自动化处理
 	go func() {
 		err := service.GroupApp.Execute(device)

@@ -46,7 +46,7 @@ func GatewayEventCallback(payload []byte, topic string) (string, *model.Device, 
 		// if err != nil {
 		// 	return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayEventCallback][verifyEventPayload]fail")
 		// }
-		err = deviceEventHandle(deviceInfo, payloads.GatewayData)
+		err = deviceEventHandle(deviceInfo, payloads.GatewayData, topic)
 		response.GatewayData = getWagewayResponse(err)
 	}
 	if payloads.SubDeviceData != nil {
@@ -65,7 +65,7 @@ func GatewayEventCallback(payload []byte, topic string) (string, *model.Device, 
 				// 		logrus.Warning(err)
 				// 	}
 				// }
-				err = deviceEventHandle(subInfo, &data)
+				err = deviceEventHandle(subInfo, &data, topic)
 			}
 			subDeviceData[subDeviceAddr] = *getWagewayResponse(err)
 		}

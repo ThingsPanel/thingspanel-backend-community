@@ -76,21 +76,21 @@ func CreateMqttClient() {
 // 下发telemetry消息
 func PublishTelemetryMessage(topic string, device *model.Device, param *model.PutMessage) error {
 	// TODO脚本处理
-
-	script, err := initialize.GetScriptByDeviceAndScriptType(device, "B")
-	if err != nil {
-		logrus.Error(err.Error())
-		return err
-	}
-	if script != nil {
-		msg, err := utils.ScriptDeal(*script.Content, []byte(param.Value), topic)
+	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
+		script, err := initialize.GetScriptByDeviceAndScriptType(device, "B")
 		if err != nil {
 			logrus.Error(err.Error())
 			return err
 		}
-		param.Value = msg
+		if script != nil && script.Content != nil && *script.Content != "" {
+			msg, err := utils.ScriptDeal(*script.Content, []byte(param.Value), topic)
+			if err != nil {
+				logrus.Error(err.Error())
+				return err
+			}
+			param.Value = msg
+		}
 	}
-
 	qos := byte(config.MqttConfig.Telemetry.QoS)
 	// 发布消息
 	token := mqttClient.Publish(topic, qos, false, []byte(param.Value))
