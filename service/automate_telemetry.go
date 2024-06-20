@@ -380,21 +380,21 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 		triggerKey = *cond.TriggerParam
 		logrus.Debug("GetCurrentTelemetryDataOneKeys:.", triggerOperator, *cond.TriggerParam, triggerValue, actualValue)
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameTelemetry())
-		result = fmt.Sprintf("设备(%s)%s [%s]: %s %s %s", deviceName, trigger, dataValue, triggerValue, triggerOperator, actualValue)
+		result = fmt.Sprintf("设备(%s)%s [%s]: %s %s %s", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
 	case model.TRIGGER_PARAM_TYPE_ATTR: //属性
 		trigger = "属性"
 		actualValue, _ = dal.GetAttributeOneKeys(deviceId, *cond.TriggerParam)
 		triggerValue = cond.TriggerValue
 		triggerKey = *cond.TriggerParam
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameAttribute())
-		result = fmt.Sprintf("设备(%s)%s [%s]: %s %s %s", deviceName, trigger, dataValue, triggerValue, triggerOperator, actualValue)
+		result = fmt.Sprintf("设备(%s)%s [%s]: %s %s %s", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
 	case model.TRIGGER_PARAM_TYPE_EVT: //事件
 		trigger = "事件"
 		actualValue, _ = dal.GetDeviceEventOneKeys(deviceId, *cond.TriggerParam)
 		triggerValue = cond.TriggerValue
 		triggerKey = *cond.TriggerParam
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameEvent())
-		result = fmt.Sprintf("设备(%s)%s [%s]: %s %s %s", deviceName, trigger, dataValue, triggerValue, triggerOperator, actualValue)
+		result = fmt.Sprintf("设备(%s)%s [%s]: %s %s %s", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
 	case model.TRIGGER_PARAM_TYPE_STATUS: //状态
 		trigger = "下线"
 		actualValue, _ = dal.GetDeviceCurrentStatus(deviceId)
@@ -421,7 +421,8 @@ func (a *Automate) getTriggerParamsValue(triggerKey string, fc DataIdentifierNam
 	return fc(tempId, triggerKey)
 }
 
-// @description automateConditionCheckByOperator 运算符处理
+// automateConditionCheckByOperator
+// @description  运算符处理
 // @params cond model.DeviceTriggerCondition
 // @return bool
 func (a *Automate) automateConditionCheckByOperator(operator string, condValue string, actualValue string) bool {
@@ -456,7 +457,8 @@ func (a *Automate) automateConditionCheckByOperator(operator string, condValue s
 	return false
 }
 
-// @description AutomateActionExecute 自动化动作执行
+// AutomateActionExecute
+// @description  自动化动作执行
 // @params deviceId string
 // @params actions []model.ActionInf
 // @return void
