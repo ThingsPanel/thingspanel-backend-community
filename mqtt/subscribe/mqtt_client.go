@@ -27,6 +27,12 @@ func SubscribeInit() {
 	subscribeMqttClient()
 	// 创建消息队列
 	telemetryMessagesChan()
+
+	//消息订阅
+	subscribe()
+}
+
+func subscribe() {
 	// 订阅attribute消息
 	SubscribeAttribute()
 	// 订阅设置设备属性回应
@@ -76,6 +82,7 @@ func subscribeMqttClient() {
 		// 等待连接成功，失败重新连接
 		for {
 			if token := client.Connect(); token.Wait() && token.Error() == nil {
+				subscribe()
 				fmt.Println("Reconnected to MQTT broker")
 				break
 			} else {
