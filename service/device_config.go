@@ -410,7 +410,8 @@ func (d *DeviceConfig) GetConditionByDeviceConfigID(deviceConfigID string) (any,
 		attributeOptions = append(attributeOptions, &o)
 	}
 	// 获取设备模板命令
-	eventDatas, err := dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
+	//eventDatas, err := dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
+	eventDatas, err := dal.GetDeviceModelEventDataList(*deviceConfig.DeviceTemplateID)
 	if err != nil {
 		return nil, err
 	}
