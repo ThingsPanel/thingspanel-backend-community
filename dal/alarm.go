@@ -253,16 +253,24 @@ func GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 }
 
 func GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.AlarmConfig, error) {
-	var result []string
-	err := query.AlarmHistory.Where(gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(req.DeviceId))...).Group(query.AlarmHistory.AlarmConfigID).Scan(&result)
+	var result = make([]map[string]interface{})
+	err := query.AlarmHistory.Where(gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(req.DeviceId))...).
+		Select(query.AlarmHistory.AlarmConfigID, query.AlarmHistory.AlarmConfigID.Count()).Group(query.AlarmHistory.AlarmConfigID).Scan(&result)
 	if err != nil {
 		return nil, err
 	}
 	if len(result) == 0 {
 		return nil, nil
 	}
-	var config []model.AlarmConfig
-	return config, query.AlarmConfig.Where(query.AlarmConfig.ID.In(result...)).Scan(&config)
+
+	var (
+		configId []string
+		config   []model.AlarmConfig
+	)
+	for _, v := range result {
+		configId = append(configId, v["alarm_config_id"].(string))
+	}
+	return config, query.AlarmConfig.Where(query.AlarmConfig.ID.In(configId...)).Scan(&config)
 }
 
 func GetAlarmNameWithCache(alarmId string) string {
