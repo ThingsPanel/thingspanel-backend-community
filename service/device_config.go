@@ -166,7 +166,7 @@ func (p *DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListB
 
 func (p *DeviceConfig) GetDeviceConfigListMenu(req *model.GetDeviceConfigListMenuReq, claims *utils.UserClaims) (any, error) {
 
-	return dal.GetDeviceConfigSelectList(req.DeviceConfigName, claims.TenantID, req.DeviceType)
+	return dal.GetDeviceConfigSelectList(req.DeviceConfigName, claims.TenantID, req.DeviceType, req.ProtocolType)
 }
 
 func (p *DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {

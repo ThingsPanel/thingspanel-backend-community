@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"time"
+
+	"github.com/pkg/errors"
 
 	model "project/model"
 	query "project/query"
@@ -115,7 +116,7 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 }
 
 // 获取设备配置下拉菜单
-func GetDeviceConfigSelectList(deviceConfigName *string, tenantID string, deviceType *string) (any, error) {
+func GetDeviceConfigSelectList(deviceConfigName *string, tenantID string, deviceType *string, protocolType *string) (any, error) {
 	q := query.DeviceConfig
 	queryBuilder := q.WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
@@ -124,6 +125,9 @@ func GetDeviceConfigSelectList(deviceConfigName *string, tenantID string, device
 	}
 	if deviceType != nil {
 		queryBuilder = queryBuilder.Where(q.DeviceType.Eq(*deviceType))
+	}
+	if protocolType != nil {
+		queryBuilder = queryBuilder.Where(q.ProtocolType.Eq(*protocolType))
 	}
 	var data []map[string]interface{}
 	err := queryBuilder.Select(q.ID, q.Name).Scan(&data)

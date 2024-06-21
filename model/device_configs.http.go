@@ -41,6 +41,7 @@ type GetDeviceConfigListByPageReq struct {
 type GetDeviceConfigListMenuReq struct {
 	DeviceConfigName *string `json:"device_config_name" form:"device_config_name" validate:"omitempty,max=99"` // 设备配置名称
 	DeviceType       *string `json:"device_type" form:"device_type" validate:"omitempty,max=9,oneof=1 2 3"`    // 设备类型
+	ProtocolType     *string `json:"protocol_type" form:"protocol_type" validate:"omitempty,max=50"`           // 协议类型
 }
 
 type BatchUpdateDeviceConfigReq struct {
