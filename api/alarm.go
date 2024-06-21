@@ -182,9 +182,10 @@ func (a *AlarmApi) GetConfigByDevice(c *gin.Context) {
 	}
 	//var userClaims = c.MustGet("claims").(*utils.UserClaims)
 
-	ok := service.GroupApp.Alarm.GetConfigByDevice(&req)
-
-	SuccessHandler(c, "Get successfully", map[string]bool{
-		"alarm": ok,
-	})
+	list, err := service.GroupApp.Alarm.GetConfigByDevice(&req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "Get successfully", list)
 }

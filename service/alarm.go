@@ -140,7 +140,7 @@ func (a *Alarm) GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 	return dal.GetDeviceAlarmStatus(req)
 }
 
-func (a *Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) bool {
+func (a *Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.AlarmConfig, error) {
 
 	return dal.GetConfigByDevice(req)
 }
