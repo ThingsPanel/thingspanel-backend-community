@@ -253,7 +253,7 @@ func GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 }
 
 func GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.AlarmConfig, error) {
-	var result = make([]map[string]interface{})
+	var result []map[string]interface{}
 	err := query.AlarmHistory.Where(gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(req.DeviceId))...).
 		Select(query.AlarmHistory.AlarmConfigID, query.AlarmHistory.AlarmConfigID.Count()).Group(query.AlarmHistory.AlarmConfigID).Scan(&result)
 	if err != nil {
