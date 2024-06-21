@@ -252,6 +252,19 @@ func GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 	return true
 }
 
+func GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.AlarmConfig, error) {
+	var result []string
+	err := query.AlarmHistory.Where(gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(req.DeviceId))...).Group(query.AlarmHistory.AlarmConfigID).Scan(&result)
+	if err != nil {
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, nil
+	}
+	var config []model.AlarmConfig
+	return config, query.AlarmConfig.Where(query.AlarmConfig.ID.In(result...)).Scan(&config)
+}
+
 func GetAlarmNameWithCache(alarmId string) string {
 	redis := global.REDIS
 	cacheKey := fmt.Sprintf("GetAlarmNameWithCache:alarmId:%s", alarmId)

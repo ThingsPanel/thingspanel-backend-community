@@ -173,3 +173,18 @@ func (a *AlarmApi) GetDeviceAlarmStatus(c *gin.Context) {
 		"alarm": ok,
 	})
 }
+
+func (a *AlarmApi) GetConfigByDevice(c *gin.Context) {
+	//
+	var req model.GetDeviceAlarmStatusReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	//var userClaims = c.MustGet("claims").(*utils.UserClaims)
+
+	ok := service.GroupApp.Alarm.GetConfigByDevice(&req)
+
+	SuccessHandler(c, "Get successfully", map[string]bool{
+		"alarm": ok,
+	})
+}

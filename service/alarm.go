@@ -140,6 +140,11 @@ func (a *Alarm) GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 	return dal.GetDeviceAlarmStatus(req)
 }
 
+func (a *Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) bool {
+
+	return dal.GetConfigByDevice(req)
+}
+
 // AddAlarmInfo 触发告警信息，增加告警信息及发送通知
 func (a *Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
 
