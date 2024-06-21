@@ -48,12 +48,41 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 		return err
 	}
 	messageID := common.GetMessageID()
+
+	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.DeviceNumber, messageID)
+	// 判断是否协议插件，如果是则下发到协议插件
+	if deviceInfo.DeviceConfigID != nil {
+		// 查询协议插件信息
+		protocolPluginInfo, err := dal.GetProtocolPluginByDeviceConfigID(*deviceInfo.DeviceConfigID)
+		if err != nil {
+			logrus.Error(ctx, "[CommandPutMessage][GetProtocolPluginByDeviceConfigID]failed:", err)
+			return err
+		}
+		if protocolPluginInfo != nil && protocolPluginInfo.SubTopicPrefix != nil {
+			// 修改主题
+			topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
+			// 增加主题前缀
+			topic = fmt.Sprintf("%s%s", *protocolPluginInfo.SubTopicPrefix, topic)
+		}
+	}
+
 	var paramsMap map[string]interface{}
 	if param.Value != nil && *param.Value != "" {
 		// 验证是否为json格式
 		if !IsJSON(*param.Value) {
 			err = errors.New("value is not json format")
 			return err
+		}
+		// 脚本预处理
+		if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+			newpayload, err := GroupApp.DataScript.Exec(deviceInfo, "E", []byte(*param.Value), topic)
+			if err != nil {
+				logrus.Error(err.Error())
+				return err
+			}
+			if newpayload != nil {
+				*param.Value = string(newpayload)
+			}
 		}
 		err = json.Unmarshal([]byte(*param.Value), &paramsMap)
 		if err != nil {
@@ -72,22 +101,7 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 		logrus.Error(ctx, "[CommandPutMessage][Marshal]failed:", err)
 		return err
 	}
-	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.DeviceNumber, messageID)
-	// 判断是否协议插件，如果是则下发到协议插件
-	if deviceInfo.DeviceConfigID != nil {
-		// 查询协议插件信息
-		protocolPluginInfo, err := dal.GetProtocolPluginByDeviceConfigID(*deviceInfo.DeviceConfigID)
-		if err != nil {
-			logrus.Error(ctx, "[CommandPutMessage][GetProtocolPluginByDeviceConfigID]failed:", err)
-			return err
-		}
-		if protocolPluginInfo != nil && protocolPluginInfo.SubTopicPrefix != nil {
-			// 修改主题
-			topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
-			// 增加主题前缀
-			topic = fmt.Sprintf("%s%s", *protocolPluginInfo.SubTopicPrefix, topic)
-		}
-	}
+
 	err = publish.PublishCommandMessage(topic, payload)
 	if err != nil {
 		logrus.Error(ctx, "下发失败", err)

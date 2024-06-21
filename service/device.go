@@ -139,6 +139,7 @@ func (d *Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 	device.ActivateFlag = "active"
 	t := time.Now().UTC()
 	device.UpdateAt = &t
+	device.ActivateAt = &t
 	device, e := dal.UpdateDevice(device)
 	if e != nil {
 		return nil, e
@@ -663,6 +664,8 @@ func (d *Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
 	}
 	// 清除设备缓存
 	initialize.DelDeviceCache(param.DeviceID)
+	// 清除设备数据脚本缓存
+	initialize.DelDeviceDataScriptCache(param.DeviceID)
 	return err
 }
 

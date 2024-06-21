@@ -84,13 +84,15 @@ func TelemetryMessages(payload []byte, topic string) {
 
 func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic string) {
 	// TODO脚本处理
-	if device.DeviceConfigID != nil {
+	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
 		newtelemetryBody, err := service.GroupApp.DataScript.Exec(device, "A", telemetryBody, topic)
 		if err != nil {
 			logrus.Error(err.Error())
 			return
 		}
-		telemetryBody = newtelemetryBody
+		if newtelemetryBody != nil {
+			telemetryBody = newtelemetryBody
+		}
 	}
 	err := publish.ForwardTelemetryMessage(device.ID, telemetryBody)
 	if err != nil {

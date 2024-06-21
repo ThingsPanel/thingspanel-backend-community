@@ -135,6 +135,7 @@ func (p *DeviceConfig) DeleteDeviceConfig(id string) error {
 	}
 	// 清除设备配置信息缓存
 	initialize.DelDeviceConfigCache(id)
+	initialize.DelDeviceDataScriptCache(id)
 	return err
 }
 
@@ -165,7 +166,7 @@ func (p *DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListB
 
 func (p *DeviceConfig) GetDeviceConfigListMenu(req *model.GetDeviceConfigListMenuReq, claims *utils.UserClaims) (any, error) {
 
-	return dal.GetDeviceConfigSelectList(req.DeviceConfigName, claims.TenantID, req.DeviceType)
+	return dal.GetDeviceConfigSelectList(req.DeviceConfigName, claims.TenantID, req.DeviceType, req.ProtocolType)
 }
 
 func (p *DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
@@ -177,6 +178,7 @@ func (p *DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfi
 	// 清除设备信息缓存
 	for _, id := range req.DeviceIds {
 		initialize.DelDeviceCache(id)
+		initialize.DelDeviceDataScriptCache(id)
 	}
 	return err
 }

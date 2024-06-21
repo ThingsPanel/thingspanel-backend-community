@@ -72,7 +72,7 @@ func GetDataScriptListByPage(data *model.GetDataScriptListByPageReq) (int64, int
 		queryBuilder = queryBuilder.Offset((data.Page - 1) * data.PageSize)
 	}
 
-	dataList, err = queryBuilder.Select().Find()
+	dataList, err = queryBuilder.Select().Order(q.CreatedAt).Find()
 	if err != nil {
 		logrus.Error(err)
 		return count, dataList, err

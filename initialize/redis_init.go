@@ -112,32 +112,6 @@ func GetDeviceById(deviceId string) (*model.Device, error) {
 	return deviceFromDB, nil
 }
 
-// 通过设备和脚本类型从redis中获取脚本标志
-func GetTelemetryScriptFlagByDeviceAndScriptType(device *model.Device, script_type string) (string, error) {
-	var script *model.DataScript
-	key := device.ID + "_telemetry_script_flag"
-	script_id, err := global.REDIS.Get(key).Result()
-	if err != nil {
-		logrus.Debugf("Get redis_cache key: %s failed with err:%s", key, err.Error())
-		script, err = dal.GetDataScriptByDeviceConfigIdAndScriptType(device.DeviceConfigID, script_type)
-		if err != nil {
-			_ = global.REDIS.Set(key, "", 0).Err()
-			return "", err
-		}
-		if script != nil {
-			err = global.REDIS.Set(key, script.ID, 0).Err()
-			if err != nil {
-				return "", err
-			}
-			return script.ID, nil
-		} else {
-			err = global.REDIS.Set(key, "", 0).Err()
-			return "", err
-		}
-	}
-	return script_id, nil
-}
-
 // 通过设备和脚本类型从redis中获取脚本
 func GetScriptByDeviceAndScriptType(device *model.Device, script_type string) (*model.DataScript, error) {
 	var script *model.DataScript
@@ -177,6 +151,21 @@ func DelDeviceConfigCache(deviceConfigId string) error {
 	err := global.REDIS.Del(deviceConfigId + "_config").Err()
 	if err != nil {
 		logrus.Warn("del redis_cache key(deviceConfigId):", deviceConfigId+"_config", " failed with err:", err.Error())
+	}
+	return err
+}
+
+// 清除设备对应的脚本缓存
+func DelDeviceDataScriptCache(deviceID string) error {
+	scriptType := []string{"A", "B", "C", "D", "E"}
+	key := []string{}
+	for _, scriptType := range scriptType {
+		key = append(key, deviceID+"_"+scriptType+"_script")
+	}
+
+	err := global.REDIS.Del(key...).Err()
+	if err != nil {
+		logrus.Warn("del redis_cache key:", key, " failed with err:", err.Error())
 	}
 	return err
 }
