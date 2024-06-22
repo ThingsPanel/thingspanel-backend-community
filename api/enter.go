@@ -42,6 +42,8 @@ type Controller struct {
 	SystemApi                     //系统相关
 	SysFunctionApi                //功能设置
 	VisPluginApi                  //可视化插件
+	ServicePluginApi              //插件管理
+	ServiceAccessApi              //服务接入管理
 }
 
 var Controllers = new(Controller)

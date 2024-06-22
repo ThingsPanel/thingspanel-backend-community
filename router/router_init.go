@@ -111,6 +111,8 @@ func RouterInit() *gin.Engine {
 			apps.Model.SysFunction.Init(v1) //功能设置
 
 			apps.Model.VisPlugin.Init(v1) // 可视化插件
+
+			apps.Model.ServicePlugin.Init(v1) // 插件管理
 		}
 	}
 

@@ -41,6 +41,8 @@ type ServiceGroup struct {
 	AutomateTask
 	SysFunction
 	VisPlugin
+	ServicePlugin
+	ServiceAccess
 }
 
 var GroupApp = new(ServiceGroup)

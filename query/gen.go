@@ -59,6 +59,8 @@ var (
 	SceneAutomationLog         *sceneAutomationLog
 	SceneInfo                  *sceneInfo
 	SceneLog                   *sceneLog
+	ServiceAccess              *serviceAccess
+	ServicePlugin              *servicePlugin
 	SysDict                    *sysDict
 	SysDictLanguage            *sysDictLanguage
 	SysFunction                *sysFunction
@@ -117,6 +119,8 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	SceneAutomationLog = &Q.SceneAutomationLog
 	SceneInfo = &Q.SceneInfo
 	SceneLog = &Q.SceneLog
+	ServiceAccess = &Q.ServiceAccess
+	ServicePlugin = &Q.ServicePlugin
 	SysDict = &Q.SysDict
 	SysDictLanguage = &Q.SysDictLanguage
 	SysFunction = &Q.SysFunction
@@ -176,6 +180,8 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		SceneAutomationLog:         newSceneAutomationLog(db, opts...),
 		SceneInfo:                  newSceneInfo(db, opts...),
 		SceneLog:                   newSceneLog(db, opts...),
+		ServiceAccess:              newServiceAccess(db, opts...),
+		ServicePlugin:              newServicePlugin(db, opts...),
 		SysDict:                    newSysDict(db, opts...),
 		SysDictLanguage:            newSysDictLanguage(db, opts...),
 		SysFunction:                newSysFunction(db, opts...),
@@ -236,6 +242,8 @@ type Query struct {
 	SceneAutomationLog         sceneAutomationLog
 	SceneInfo                  sceneInfo
 	SceneLog                   sceneLog
+	ServiceAccess              serviceAccess
+	ServicePlugin              servicePlugin
 	SysDict                    sysDict
 	SysDictLanguage            sysDictLanguage
 	SysFunction                sysFunction
@@ -297,6 +305,8 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		SceneAutomationLog:         q.SceneAutomationLog.clone(db),
 		SceneInfo:                  q.SceneInfo.clone(db),
 		SceneLog:                   q.SceneLog.clone(db),
+		ServiceAccess:              q.ServiceAccess.clone(db),
+		ServicePlugin:              q.ServicePlugin.clone(db),
 		SysDict:                    q.SysDict.clone(db),
 		SysDictLanguage:            q.SysDictLanguage.clone(db),
 		SysFunction:                q.SysFunction.clone(db),
@@ -365,6 +375,8 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		SceneAutomationLog:         q.SceneAutomationLog.replaceDB(db),
 		SceneInfo:                  q.SceneInfo.replaceDB(db),
 		SceneLog:                   q.SceneLog.replaceDB(db),
+		ServiceAccess:              q.ServiceAccess.replaceDB(db),
+		ServicePlugin:              q.ServicePlugin.replaceDB(db),
 		SysDict:                    q.SysDict.replaceDB(db),
 		SysDictLanguage:            q.SysDictLanguage.replaceDB(db),
 		SysFunction:                q.SysFunction.replaceDB(db),
@@ -423,6 +435,8 @@ type queryCtx struct {
 	SceneAutomationLog         ISceneAutomationLogDo
 	SceneInfo                  ISceneInfoDo
 	SceneLog                   ISceneLogDo
+	ServiceAccess              IServiceAccessDo
+	ServicePlugin              IServicePluginDo
 	SysDict                    ISysDictDo
 	SysDictLanguage            ISysDictLanguageDo
 	SysFunction                ISysFunctionDo
@@ -481,6 +495,8 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		SceneAutomationLog:         q.SceneAutomationLog.WithContext(ctx),
 		SceneInfo:                  q.SceneInfo.WithContext(ctx),
 		SceneLog:                   q.SceneLog.WithContext(ctx),
+		ServiceAccess:              q.ServiceAccess.WithContext(ctx),
+		ServicePlugin:              q.ServicePlugin.WithContext(ctx),
 		SysDict:                    q.SysDict.WithContext(ctx),
 		SysDictLanguage:            q.SysDictLanguage.WithContext(ctx),
 		SysFunction:                q.SysFunction.WithContext(ctx),

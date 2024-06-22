@@ -28,7 +28,9 @@ type apps struct {
 	SceneAutomations
 	Scene
 	SysFunction
-	VisPlugin // 可视化插件
+	VisPlugin     // 可视化插件
+	ServicePlugin // 插件管理
+
 }
 
 var Model = new(apps)

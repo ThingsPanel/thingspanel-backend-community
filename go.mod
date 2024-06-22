@@ -11,6 +11,7 @@ require (
 	github.com/go-playground/validator/v10 v10.20.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.5.1
+	github.com/jinzhu/copier v0.4.0
 	github.com/mintance/go-uniqid v0.0.0-20180517195806-49cb885aad99
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron v1.2.0
