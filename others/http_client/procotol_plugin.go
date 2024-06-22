@@ -20,6 +20,12 @@ func GetPluginFromConfig(host string, protocol_type string, device_type string, 
 	return Get("http://" + host + "/api/v1/form/config?protocol_type=" + protocol_type + "&device_type=" + device_type + "&form_type=" + form_type + "&voucher_type=" + voucher_type)
 }
 
+// /api/v2/form/config
+// CFG-配置表单 VCR-凭证表单 VCRT-凭证类型表单 SVCRT-服务凭证表单
+func GetPluginFromConfigV2(host string, service_identifier string, device_type string, form_type string) ([]byte, error) {
+	return Get("http://" + host + "/api/v2/form/config?service_identifier=" + service_identifier + "&device_type=" + device_type + "&form_type=" + form_type)
+}
+
 // 断开设备连接让设备重新连接
 func DisconnectDevice(reqdata []byte, host string) (*http.Response, error) {
 	return PostJson("http://"+host+"/api/v1/device/disconnect", reqdata)
@@ -38,4 +44,10 @@ func UpdateDeviceConfig(reqdata []byte, host string) (*http.Response, error) {
 // 新增设备或子设备通知（设备协议变更也被认为是新增）
 func AddDevice(reqdata []byte, host string) (*http.Response, error) {
 	return PostJson("http://"+host+"/api/v1/device/add", reqdata)
+}
+
+// /api/v1/service/access/device/list
+// 三方服务列表查询
+func GetServiceAccessDeviceList(host string, voucher string, page_size string, page string) ([]byte, error) {
+	return Get("http://" + host + "/api/v1/service/access/device/list?voucher=" + voucher + "&page_size=" + page_size + "&page=" + page)
 }
