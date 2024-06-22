@@ -54,6 +54,7 @@ func newDevice(db *gorm.DB, opts ...gen.DOOption) device {
 	_device.IsOnline = field.NewInt16(tableName, "is_online")
 	_device.AccessWay = field.NewString(tableName, "access_way")
 	_device.Description = field.NewString(tableName, "description")
+	_device.ServiceAccessID = field.NewString(tableName, "service_access_id")
 
 	_device.fillFieldMap()
 
@@ -88,17 +89,19 @@ type device struct {
 	/*
 		设备配置id（外键）
 
+
 	*/
 	DeviceConfigID field.String
 	/*
 		批次编号
 
 	*/
-	BatchNumber field.String
-	ActivateAt  field.Time   // 激活日期
-	IsOnline    field.Int16  // 是否在线 1-在线 0-离线
-	AccessWay   field.String // 接入方式A-通过协议 B通过服务
-	Description field.String // 描述
+	BatchNumber     field.String
+	ActivateAt      field.Time   // 激活日期
+	IsOnline        field.Int16  // 是否在线 1-在线 0-离线
+	AccessWay       field.String // 接入方式A-通过协议 B通过服务
+	Description     field.String // 描述
+	ServiceAccessID field.String
 
 	fieldMap map[string]field.Expr
 }
@@ -142,6 +145,7 @@ func (d *device) updateTableName(table string) *device {
 	d.IsOnline = field.NewInt16(table, "is_online")
 	d.AccessWay = field.NewString(table, "access_way")
 	d.Description = field.NewString(table, "description")
+	d.ServiceAccessID = field.NewString(table, "service_access_id")
 
 	d.fillFieldMap()
 
@@ -158,7 +162,7 @@ func (d *device) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (d *device) fillFieldMap() {
-	d.fieldMap = make(map[string]field.Expr, 27)
+	d.fieldMap = make(map[string]field.Expr, 28)
 	d.fieldMap["id"] = d.ID
 	d.fieldMap["name"] = d.Name
 	d.fieldMap["voucher"] = d.Voucher
@@ -186,6 +190,7 @@ func (d *device) fillFieldMap() {
 	d.fieldMap["is_online"] = d.IsOnline
 	d.fieldMap["access_way"] = d.AccessWay
 	d.fieldMap["description"] = d.Description
+	d.fieldMap["service_access_id"] = d.ServiceAccessID
 }
 
 func (d device) clone(db *gorm.DB) device {
