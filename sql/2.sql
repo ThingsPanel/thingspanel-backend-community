@@ -45,3 +45,7 @@ ALTER TABLE "public"."service_access"
 ALTER TABLE "public"."service_access"
     ALTER COLUMN "create_at" SET NOT NULL,
 ALTER COLUMN "update_at" SET NOT NULL;
+
+ALTER TABLE "public"."devices"
+    ADD COLUMN "service_access_id" varchar(36) NOT NULL,
+    ADD CONSTRAINT fk_service_access_id FOREIGN KEY (service_access_id) REFERENCES public.service_access(id) ON DELETE RESTRICT;
