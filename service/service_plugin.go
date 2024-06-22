@@ -18,6 +18,9 @@ func (s *ServicePlugin) Create(req *model.CreateServicePluginReq) (map[string]in
 	servicePlugin.ID = uuid.New()
 	servicePlugin.CreateAt = time.Now().UTC()
 	servicePlugin.UpdateAt = time.Now().UTC()
+	if *servicePlugin.ServiceConfig == "" {
+		*servicePlugin.ServiceConfig = "{}"
+	}
 	err := query.ServicePlugin.Create(&servicePlugin)
 	if err != nil {
 		return nil, err
