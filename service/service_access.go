@@ -78,6 +78,21 @@ func (s *ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDevic
 	if err != nil {
 		return nil, err
 	}
-	// 数字转字符串
-	return http_client.GetServiceAccessDeviceList(httpAddress, req.Voucher, strconv.Itoa(req.PageSize), strconv.Itoa(req.Page))
+	data, err := http_client.GetServiceAccessDeviceList(httpAddress, req.Voucher, strconv.Itoa(req.PageSize), strconv.Itoa(req.Page))
+	if err != nil {
+		return nil, err
+	}
+	// 查询已绑定设备列表
+	devices, err := dal.GetServiceDeviceList(serviceAccess.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, dataDevice := range data.List {
+		for _, device := range devices {
+			if dataDevice.DeviceNumber == device.DeviceNumber {
+				dataDevice.IsBind = true
+			}
+		}
+	}
+	return data, nil
 }
