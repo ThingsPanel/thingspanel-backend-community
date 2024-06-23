@@ -6,7 +6,6 @@ type CreateAccessReq struct {
 	Voucher             string `json:"voucher" binding:"required"`
 	Description         string `json:"description"`
 	ServiceAccessConfig string `json:"service_access_config"`
-	TenantID            string `json:"tenant_id" binding:"required"`
 	Remark              string `json:"remark" `
 }
 

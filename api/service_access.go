@@ -16,8 +16,8 @@ func (api *ServiceAccessApi) Create(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	//var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ServiceAccess.CreateAccess(&req)
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	resp, err := service.GroupApp.ServiceAccess.CreateAccess(&req, userClaims)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return

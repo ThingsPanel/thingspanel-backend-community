@@ -15,10 +15,11 @@ import (
 
 type ServiceAccess struct{}
 
-func (s *ServiceAccess) CreateAccess(req *model.CreateAccessReq) (map[string]interface{}, error) {
+func (s *ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 	var serviceAccess model.ServiceAccess
 	copier.Copy(&serviceAccess, req)
 	serviceAccess.ID = uuid.New()
+	serviceAccess.TenantID = userClaims.TenantID
 	if *serviceAccess.ServiceAccessConfig == "" {
 		*serviceAccess.ServiceAccessConfig = "{}"
 	}
