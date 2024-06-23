@@ -1,5 +1,19 @@
 package model
 
+// 服务接入配置
+type ServiceAccessConfig struct {
+	HttpAddress    string `json:"http_address"`
+	SubTopicPrefix string `json:"sub_topic_prefix"`
+}
+
+// 协议接入配置
+type ProtocolAccessConfig struct {
+	DeviceType     string `json:"device_type"`
+	AccessAddress  string `json:"access_address"`
+	HttpAddress    string `json:"http_address"`
+	SubTopicPrefix string `json:"sub_topic_prefix"`
+}
+
 type CreateServicePluginReq struct {
 	Name              string `json:"name" binding:"required,max=255"`
 	ServiceIdentifier string `json:"service_identifier" binding:"required,max=100"`

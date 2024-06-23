@@ -23,3 +23,7 @@ type GetServiceAccessByPageReq struct {
 	PageReq
 	ServicePluginID string `json:"service_plugin_id" form:"service_plugin_id"`
 }
+
+type GetServiceAccessVoucherFormReq struct {
+	ServicePluginID string `json:"service_plugin_id" form:"service_plugin_id"  binding:"required"`
+}

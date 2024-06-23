@@ -2,9 +2,10 @@ package dal
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"project/model"
 	"project/query"
+
+	"github.com/sirupsen/logrus"
 )
 
 func DeleteServicePlugin(id string) error {
@@ -63,4 +64,17 @@ func GetServicePlugin(req *model.GetServicePluginReq) (interface{}, error) {
 		return nil, err
 	}
 	return servicePlugin, err
+}
+
+// 通过service_plugin_id获取插件服务信息
+func GetServicePluginByID(id string) (*model.ServicePlugin, error) {
+	// 使用first查询
+	q := query.ServicePlugin
+	queryBuilder := q.WithContext(context.Background())
+	servicePlugin, err := queryBuilder.Where(q.ID.Eq(id)).Select().First()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return servicePlugin, nil
 }

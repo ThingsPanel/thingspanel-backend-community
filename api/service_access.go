@@ -1,10 +1,11 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"project/model"
 	"project/service"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ServiceAccessApi struct{}
@@ -60,4 +61,19 @@ func (api *ServiceAccessApi) Delete(c *gin.Context) {
 		return
 	}
 	SuccessHandler(c, "delete service access successfully", map[string]interface{}{})
+}
+
+// /api/v1/service/access/config/form
+// 服务接入点凭证表单查询
+func (api *ServiceAccessApi) GetVoucherForm(c *gin.Context) {
+	var req model.GetServiceAccessVoucherFormReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	resp, err := service.GroupApp.ServiceAccess.GetVoucherForm(&req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "get service access config form successfully", resp)
 }

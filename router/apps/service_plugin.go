@@ -1,8 +1,9 @@
 package apps
 
 import (
-	"github.com/gin-gonic/gin"
 	"project/api"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ServicePlugin struct {
@@ -29,5 +30,7 @@ func (p *ServicePlugin) Init(Router *gin.RouterGroup) {
 		access.PUT("/", api.Controllers.ServiceAccessApi.Update)
 
 		access.DELETE("/", api.Controllers.ServiceAccessApi.Delete)
+		// /voucher/form
+		access.GET("/voucher/form", api.Controllers.ServiceAccessApi.GetVoucherForm)
 	}
 }

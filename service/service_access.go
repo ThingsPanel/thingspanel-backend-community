@@ -1,12 +1,16 @@
 package service
 
 import (
-	"github.com/go-basic/uuid"
-	"github.com/jinzhu/copier"
+	"encoding/json"
+	"errors"
 	"project/dal"
 	"project/model"
+	"project/others/http_client"
 	"project/query"
 	"time"
+
+	"github.com/go-basic/uuid"
+	"github.com/jinzhu/copier"
 )
 
 type ServiceAccess struct{}
@@ -49,4 +53,29 @@ func (s *ServiceAccess) Update(req *model.UpdateAccessReq) error {
 func (s *ServiceAccess) Delete(req *model.DeleteAccessReq) error {
 	err := dal.DeleteServiceAccess(req.ID)
 	return err
+}
+
+// GetVoucherForm
+func (s *ServiceAccess) GetVoucherForm(req *model.GetServiceAccessVoucherFormReq) (interface{}, error) {
+	// 根据service_plugin_id获取插件服务信息
+	servicePlugin, err := dal.GetServicePluginByID(req.ServicePluginID)
+	if err != nil {
+		return nil, err
+	}
+
+	if servicePlugin.ServiceConfig == nil || *servicePlugin.ServiceConfig == "" {
+		// 服务配置错误，无法获取表单
+		return nil, errors.New("service plugin config error, can not get form")
+	}
+	// 解析服务配置model.ServicePluginConfig
+	var serviceAccessConfig model.ServiceAccessConfig
+	err = json.Unmarshal([]byte(*servicePlugin.ServiceConfig), &serviceAccessConfig)
+	if err != nil {
+		return nil, errors.New("service plugin config error: " + err.Error())
+	}
+	// 校验服务配置的HttpAddress是否是ip:port格式
+	if serviceAccessConfig.HttpAddress == "" {
+		return nil, errors.New("service plugin config error: host is empty")
+	}
+	return http_client.GetPluginFromConfigV2(serviceAccessConfig.HttpAddress, servicePlugin.ServiceIdentifier, "", "SVCRT")
 }
