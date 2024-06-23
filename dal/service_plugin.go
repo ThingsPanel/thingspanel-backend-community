@@ -2,6 +2,8 @@ package dal
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"project/model"
 	"project/query"
 
@@ -77,4 +79,28 @@ func GetServicePluginByID(id string) (*model.ServicePlugin, error) {
 		return nil, err
 	}
 	return servicePlugin, nil
+}
+
+// 通过service_plugin_id获取配置文件中的http_address
+func GetServicePluginHttpAddressByID(id string) (*model.ServicePlugin, string, error) {
+	servicePlugin, err := GetServicePluginByID(id)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if servicePlugin.ServiceConfig == nil || *servicePlugin.ServiceConfig == "" {
+		// 服务配置错误，无法获取表单
+		return nil, "", errors.New("service plugin config error, can not get form")
+	}
+	// 解析服务配置model.ServicePluginConfig
+	var serviceAccessConfig model.ServiceAccessConfig
+	err = json.Unmarshal([]byte(*servicePlugin.ServiceConfig), &serviceAccessConfig)
+	if err != nil {
+		return nil, "", errors.New("service plugin config error: " + err.Error())
+	}
+	// 校验服务配置的HttpAddress是否是ip:port格式
+	if serviceAccessConfig.HttpAddress == "" {
+		return nil, "", errors.New("service plugin config error: host is empty")
+	}
+	return servicePlugin, serviceAccessConfig.HttpAddress, nil
 }

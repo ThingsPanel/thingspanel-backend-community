@@ -2,9 +2,10 @@ package dal
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"project/model"
 	"project/query"
+
+	"github.com/sirupsen/logrus"
 )
 
 func DeleteServiceAccess(id string) error {
@@ -45,4 +46,17 @@ func GetServiceAccessListByPage(req *model.GetServiceAccessByPageReq) (int64, in
 		return count, serviceAccess, err
 	}
 	return count, serviceAccess, err
+}
+
+// 通过凭证获取服务接入点信息
+func GetServiceAccessByVoucher(voucher string, tenantID string) (*model.ServiceAccess, error) {
+	// 使用first查询
+	q := query.ServiceAccess
+	queryBuilder := q.WithContext(context.Background())
+	serviceAccess, err := queryBuilder.Where(q.Voucher.Eq(voucher)).Where(q.TenantID.Eq(tenantID)).First()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return serviceAccess, nil
 }

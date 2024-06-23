@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"project/model"
 	"project/service"
+	"project/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -63,7 +64,7 @@ func (api *ServiceAccessApi) Delete(c *gin.Context) {
 	SuccessHandler(c, "delete service access successfully", map[string]interface{}{})
 }
 
-// /api/v1/service/access/config/form
+// /api/v1/service/access/voucher/form
 // 服务接入点凭证表单查询
 func (api *ServiceAccessApi) GetVoucherForm(c *gin.Context) {
 	var req model.GetServiceAccessVoucherFormReq
@@ -76,4 +77,20 @@ func (api *ServiceAccessApi) GetVoucherForm(c *gin.Context) {
 		return
 	}
 	SuccessHandler(c, "get service access config form successfully", resp)
+}
+
+// /api/v1/service/access/device/list
+// 三方服务设备列表查询
+func (api *ServiceAccessApi) GetDeviceList(c *gin.Context) {
+	var req model.ServiceAccessDeviceListReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	resp, err := service.GroupApp.ServiceAccess.GetServiceAccessDeviceList(&req, userClaims)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "get device list successfully", resp)
 }

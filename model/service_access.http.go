@@ -27,3 +27,9 @@ type GetServiceAccessByPageReq struct {
 type GetServiceAccessVoucherFormReq struct {
 	ServicePluginID string `json:"service_plugin_id" form:"service_plugin_id"  binding:"required"`
 }
+
+// 服务接入点设备列表 voucher page_size page
+type ServiceAccessDeviceListReq struct {
+	PageReq
+	Voucher string `json:"voucher" form:"voucher" binding:"required"`
+}

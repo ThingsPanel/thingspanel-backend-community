@@ -32,5 +32,7 @@ func (p *ServicePlugin) Init(Router *gin.RouterGroup) {
 		access.DELETE("/", api.Controllers.ServiceAccessApi.Delete)
 		// /voucher/form
 		access.GET("/voucher/form", api.Controllers.ServiceAccessApi.GetVoucherForm)
+		//GetDeviceList
+		access.GET("/device/list", api.Controllers.ServiceAccessApi.GetDeviceList)
 	}
 }

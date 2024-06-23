@@ -1,12 +1,12 @@
 package service
 
 import (
-	"encoding/json"
-	"errors"
 	"project/dal"
 	"project/model"
 	"project/others/http_client"
 	"project/query"
+	utils "project/utils"
+	"strconv"
 	"time"
 
 	"github.com/go-basic/uuid"
@@ -57,25 +57,26 @@ func (s *ServiceAccess) Delete(req *model.DeleteAccessReq) error {
 
 // GetVoucherForm
 func (s *ServiceAccess) GetVoucherForm(req *model.GetServiceAccessVoucherFormReq) (interface{}, error) {
-	// 根据service_plugin_id获取插件服务信息
-	servicePlugin, err := dal.GetServicePluginByID(req.ServicePluginID)
+	// 根据service_plugin_id获取插件服务信息http地址
+	servicePlugin, httpAddress, err := dal.GetServicePluginHttpAddressByID(req.ServicePluginID)
 	if err != nil {
 		return nil, err
 	}
+	return http_client.GetPluginFromConfigV2(httpAddress, servicePlugin.ServiceIdentifier, "", "SVCRT")
+}
 
-	if servicePlugin.ServiceConfig == nil || *servicePlugin.ServiceConfig == "" {
-		// 服务配置错误，无法获取表单
-		return nil, errors.New("service plugin config error, can not get form")
-	}
-	// 解析服务配置model.ServicePluginConfig
-	var serviceAccessConfig model.ServiceAccessConfig
-	err = json.Unmarshal([]byte(*servicePlugin.ServiceConfig), &serviceAccessConfig)
+// GetServiceAccessDeviceList
+func (s *ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDeviceListReq, userClaims *utils.UserClaims) (interface{}, error) {
+	// 通过voucher获取service_plugin_id
+	serviceAccess, err := dal.GetServiceAccessByVoucher(req.Voucher, userClaims.TenantID)
 	if err != nil {
-		return nil, errors.New("service plugin config error: " + err.Error())
+		return nil, err
 	}
-	// 校验服务配置的HttpAddress是否是ip:port格式
-	if serviceAccessConfig.HttpAddress == "" {
-		return nil, errors.New("service plugin config error: host is empty")
+	// 根据service_plugin_id获取插件服务信息的http地址
+	_, httpAddress, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ID)
+	if err != nil {
+		return nil, err
 	}
-	return http_client.GetPluginFromConfigV2(serviceAccessConfig.HttpAddress, servicePlugin.ServiceIdentifier, "", "SVCRT")
+	// 数字转字符串
+	return http_client.GetServiceAccessDeviceList(httpAddress, req.Voucher, strconv.Itoa(req.PageSize), strconv.Itoa(req.Page))
 }
