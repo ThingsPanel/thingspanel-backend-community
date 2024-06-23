@@ -74,6 +74,9 @@ func (d *Device) InitDevice(Router *gin.RouterGroup) {
 
 		// 设备在线状态查询
 		deviceapi.GET("online/status/:id", api.Controllers.DeviceApi.GetDeviceOnlineStatus)
+
+		// 服务接入点批量创建设备
+		deviceapi.POST("service/access/batch", api.Controllers.DeviceApi.CreateDeviceBatch)
 	}
 
 	// 设备模版路由

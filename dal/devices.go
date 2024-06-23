@@ -19,6 +19,11 @@ func CreateDevice(device *model.Device) error {
 	return query.Device.Create(device)
 }
 
+// 批量创建设备
+func CreateDeviceBatch(devices []*model.Device) error {
+	return query.Device.Create(devices...)
+}
+
 func CreateDeviceBath(devices []*model.Device) error {
 	return query.Device.Create(devices...)
 }

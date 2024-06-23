@@ -23,6 +23,16 @@ type CreateDeviceReq struct {
 	Description    *string `json:"description" validate:"omitempty,max=500"`     // 接入方式
 }
 
+type BatchCreateDeviceReq struct {
+	ServiceAccessId string `json:"service_access_id" validate:"required,max=36"` // 服务接入点ID
+	DeviceList      []struct {
+		DeviceName     string  `json:"device_name" validate:"required,max=255"`      // 设备名称
+		DeviceNumber   string  `json:"device_number" validate:"required,max=36"`     // 设备编号
+		Description    *string `json:"description" validate:"omitempty,max=500"`     // 描述
+		DeviceConfigId string  `json:"device_config_id" validate:"omitempty,max=36"` // 设备配置ID
+	} `json:"device_list" validate:"required"`
+}
+
 type UpdateDeviceReq struct {
 	Id             string  `json:"id" validate:"required,max=36"`                // 设备ID
 	Name           *string `json:"name" validate:"omitempty,max=255"`            // 设备名称
