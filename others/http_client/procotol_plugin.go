@@ -68,6 +68,22 @@ func AddDevice(reqdata []byte, host string) (*http.Response, error) {
 
 // /api/v1/service/access/device/list
 // 三方服务列表查询
-func GetServiceAccessDeviceList(host string, voucher string, page_size string, page string) ([]byte, error) {
-	return Get("http://" + host + "/api/v1/service/access/device/list?voucher=" + voucher + "&page_size=" + page_size + "&page=" + page)
+func GetServiceAccessDeviceList(host string, voucher string, page_size string, page string) (interface{}, error) {
+	b, err := Get("http://" + host + "/api/v1/service/access/device/list?voucher=" + voucher + "&page_size=" + page_size + "&page=" + page)
+	if err != nil {
+		logrus.Error(err)
+		return nil, fmt.Errorf("get plugin form failed: %s", err)
+	}
+	// 解析表单
+	var rspdata RspData
+	err = json.Unmarshal(b, &rspdata)
+	if err != nil {
+		logrus.Error(err)
+		return nil, fmt.Errorf("unmarshal response data failed: %s", err)
+	}
+	if rspdata.Code != 200 {
+		err = fmt.Errorf("protocol plugin response message: %s", rspdata.Message)
+		logrus.Error(err)
+	}
+	return rspdata.Data, nil
 }
