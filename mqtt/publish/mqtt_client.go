@@ -50,9 +50,10 @@ func CreateMqttClient() {
 	// 断线重连
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
 		logrus.Println("mqtt connect  lost: ", err)
+		mqttClient.Disconnect(250)
 		// 等待连接成功，失败重新连接
 		for {
-			if token := client.Connect(); token.Wait() && token.Error() == nil {
+			if token := mqttClient.Connect(); token.Wait() && token.Error() == nil {
 				fmt.Println("Reconnected to MQTT broker")
 				break
 			} else {

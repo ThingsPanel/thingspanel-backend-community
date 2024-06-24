@@ -1,7 +1,6 @@
 package subscribe
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -79,16 +78,15 @@ func subscribeMqttClient() {
 	// 断线重连
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
 		logrus.Println("mqtt connect  lost: ", err)
-		// 等待连接成功，失败重新连接
+		SubscribeMqttClient.Disconnect(250)
 		for {
-			if token := client.Connect(); token.Wait() && token.Error() == nil {
-				subscribe()
-				fmt.Println("Reconnected to MQTT broker")
-				break
-			} else {
-				fmt.Printf("Reconnect failed: %v\n", token.Error())
+			if token := SubscribeMqttClient.Connect(); token.Wait() && token.Error() != nil {
+				logrus.Error("MQTT Broker 1 连接失败:", token.Error())
+				time.Sleep(5 * time.Second)
+				continue
 			}
-			time.Sleep(5 * time.Second)
+			subscribe()
+			break
 		}
 	})
 
