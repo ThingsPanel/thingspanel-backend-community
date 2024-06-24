@@ -38,6 +38,22 @@ func (d *DeviceApi) CreateDevice(c *gin.Context) {
 	SuccessHandler(c, "Create product successfully", data)
 }
 
+// 服务接入点批量创建设备
+// /api/v1/device/service/access/batch
+func (d *DeviceApi) CreateDeviceBatch(c *gin.Context) {
+	var req model.BatchCreateDeviceReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.Device.CreateDeviceBatch(req, userClaims)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "Create product successfully", data)
+}
+
 // DeleteDevice 删除设备
 // @Tags     设备管理
 // @Summary  删除设备

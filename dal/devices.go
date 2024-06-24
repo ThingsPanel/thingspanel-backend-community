@@ -19,6 +19,11 @@ func CreateDevice(device *model.Device) error {
 	return query.Device.Create(device)
 }
 
+// 批量创建设备
+func CreateDeviceBatch(devices []*model.Device) error {
+	return query.Device.Create(devices...)
+}
+
 func CreateDeviceBath(devices []*model.Device) error {
 	return query.Device.Create(devices...)
 }
@@ -569,4 +574,15 @@ func GetGatewayDevicesBySubDeviceConfigID(deviceConfigID string) ([]string, erro
 		logrus.Error(err)
 	}
 	return deviceIDList, err
+}
+
+// 查询服务接入点关联的设备
+func GetServiceDeviceList(serviceAccessId string) ([]model.Device, error) {
+	var devices []model.Device
+	err := query.Device.Where(query.Device.ServiceAccessID.Eq(serviceAccessId)).Scan(&devices)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return devices, err
 }
