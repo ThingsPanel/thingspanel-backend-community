@@ -39,8 +39,8 @@ func (s *ServicePlugin) List(req *model.GetServicePluginByPageReq) (map[string]i
 	return listRsp, err
 }
 
-func (s *ServicePlugin) Get(req *model.GetServicePluginReq) (interface{}, error) {
-	resp, err := dal.GetServicePlugin(req)
+func (s *ServicePlugin) Get(id string) (interface{}, error) {
+	resp, err := dal.GetServicePlugin(id)
 	return resp, err
 }
 

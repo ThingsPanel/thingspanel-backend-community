@@ -37,11 +37,8 @@ func (api *ServicePluginApi) GetList(c *gin.Context) {
 }
 
 func (api *ServicePluginApi) Get(c *gin.Context) {
-	var req model.GetServicePluginReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	resp, err := service.GroupApp.ServicePlugin.Get(&req)
+	id := c.Param("id")
+	resp, err := service.GroupApp.ServicePlugin.Get(id)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return

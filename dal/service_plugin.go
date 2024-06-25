@@ -52,15 +52,15 @@ func GetServicePluginListByPage(req *model.GetServicePluginByPageReq) (int64, in
 	return count, servicePlugins, err
 }
 
-func GetServicePlugin(req *model.GetServicePluginReq) (interface{}, error) {
-	var servicePlugin model.ServicePlugin
+func GetServicePlugin(id string) (interface{}, error) {
+	var servicePlugin *model.ServicePlugin
 
 	q := query.ServicePlugin
 	queryBuilder := q.WithContext(context.Background())
 
-	queryBuilder.Where(q.ID.Eq(req.ID))
+	queryBuilder = queryBuilder.Where(q.ID.Eq(id))
 
-	err := queryBuilder.Select().Scan(&servicePlugin)
+	servicePlugin, err := queryBuilder.First()
 	if err != nil {
 		logrus.Error(err)
 		return nil, err

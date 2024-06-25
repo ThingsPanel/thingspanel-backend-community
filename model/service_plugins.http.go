@@ -29,10 +29,6 @@ type GetServicePluginByPageReq struct {
 	ServiceType int32 `json:"service_type" form:"service_type"`
 }
 
-type GetServicePluginReq struct {
-	ID string `json:"id" form:"id"`
-}
-
 type UpdateServicePluginReq struct {
 	ID string `json:"id" form:"id" binding:"required"`
 

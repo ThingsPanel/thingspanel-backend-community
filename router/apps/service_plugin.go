@@ -16,7 +16,7 @@ func (p *ServicePlugin) Init(Router *gin.RouterGroup) {
 
 		url.GET("list", api.Controllers.ServicePluginApi.GetList)
 
-		url.GET("/select", api.Controllers.ServicePluginApi.Get)
+		url.GET("/detail/:id", api.Controllers.ServicePluginApi.Get)
 
 		url.PUT("/", api.Controllers.ServicePluginApi.Update)
 
