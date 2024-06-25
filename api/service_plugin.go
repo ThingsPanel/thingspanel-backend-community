@@ -82,10 +82,10 @@ func (api *ServicePluginApi) Heartbeat(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	resp, err := service.GroupApp.ServicePlugin.Heartbeat(&req)
+	err := service.GroupApp.ServicePlugin.Heartbeat(&req)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return
 	}
-	SuccessHandler(c, "heartbeat service successfully", resp)
+	SuccessHandler(c, "heartbeat service successfully", map[string]interface{}{})
 }
