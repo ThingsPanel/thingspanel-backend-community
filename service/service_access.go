@@ -126,3 +126,20 @@ func (s *ServiceAccess) GetPluginServiceAccessList(req *model.GetPluginServiceAc
 	}
 	return serviceAccessMapList, nil
 }
+
+// GetPluginServiceAccess
+func (s *ServiceAccess) GetPluginServiceAccess(req *model.GetPluginServiceAccessReq) (interface{}, error) {
+	// 通过service_access_id获取服务接入点信息
+	serviceAccess, err := dal.GetServiceAccessByID(req.ServiceAccessID)
+	if err != nil {
+		return nil, err
+	}
+	// 获取设备列表
+	devices, err := dal.GetServiceDeviceList(serviceAccess.ID)
+	if err != nil {
+		return nil, err
+	}
+	serviceAccessMap := StructToMap(serviceAccess)
+	serviceAccessMap["devices"] = devices
+	return serviceAccessMap, nil
+}

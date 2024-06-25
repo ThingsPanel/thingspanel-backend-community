@@ -31,7 +31,8 @@ func RouterInit() *gin.Engine {
 		v1 := api.Group("v1")
 		{
 			v1.POST("plugin/device/config", controllers.GetDeviceConfigForProtocolPlugin)
-			v1.GET("plugin/service/access/list", controllers.GetPluginServiceAccessList)
+			v1.POST("plugin/service/access/list", controllers.GetPluginServiceAccessList)
+			v1.POST("plugin/service/access", controllers.GetPluginServiceAccess)
 			v1.POST("login", controllers.Login)
 			v1.GET("verification/code", controllers.GetVerificationCode)
 			v1.POST("reset/password", controllers.ResetPassword)

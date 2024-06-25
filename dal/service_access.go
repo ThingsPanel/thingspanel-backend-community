@@ -73,3 +73,16 @@ func GetServiceAccessListByServicePluginID(servicePluginID string) ([]model.Serv
 	}
 	return serviceAccess, nil
 }
+
+// 通过id获取服务接入点信息
+func GetServiceAccessByID(id string) (*model.ServiceAccess, error) {
+	// 使用first查询
+	q := query.ServiceAccess
+	queryBuilder := q.WithContext(context.Background())
+	serviceAccess, err := queryBuilder.Where(q.ID.Eq(id)).First()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return serviceAccess, nil
+}
