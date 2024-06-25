@@ -87,12 +87,12 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 		return nil, err
 	}
 	for _, service := range services {
-		if service.ServiceType == 2 {
+		if service.ServiceType == int32(2) {
 			serviceList = append(serviceList, map[string]interface{}{
 				"service_identifier": service.ServiceIdentifier,
 				"name":               service.Name,
 			})
-		} else if service.ServiceType == 1 {
+		} else if service.ServiceType == int32(1) {
 			protocolList = append(protocolList, map[string]interface{}{
 				"service_identifier": service.ServiceIdentifier,
 				"name":               service.Name,
@@ -101,5 +101,5 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 	}
 	resp["protocol"] = protocolList
 	resp["service"] = serviceList
-	return serviceList, err
+	return resp, err
 }
