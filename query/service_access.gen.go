@@ -47,16 +47,16 @@ type serviceAccess struct {
 	serviceAccessDo
 
 	ALL                 field.Asterisk
-	ID                  field.String
-	Name                field.String
-	ServicePluginID     field.String
-	Voucher             field.String
-	Description         field.String
-	ServiceAccessConfig field.String
-	Remark              field.String
-	CreateAt            field.Time
-	UpdateAt            field.Time
-	TenantID            field.String
+	ID                  field.String // 接入ID
+	Name                field.String // 名称
+	ServicePluginID     field.String // 服务ID
+	Voucher             field.String // 凭证
+	Description         field.String // 描述
+	ServiceAccessConfig field.String // 服务配置
+	Remark              field.String // 备注
+	CreateAt            field.Time   // 创建时间
+	UpdateAt            field.Time   // 更新时间
+	TenantID            field.String // 租户ID
 
 	fieldMap map[string]field.Expr
 }

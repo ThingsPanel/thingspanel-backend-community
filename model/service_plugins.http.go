@@ -29,10 +29,6 @@ type GetServicePluginByPageReq struct {
 	ServiceType int32 `json:"service_type" form:"service_type"`
 }
 
-type GetServicePluginReq struct {
-	ID string `json:"id" form:"id"`
-}
-
 type UpdateServicePluginReq struct {
 	ID string `json:"id" form:"id" binding:"required"`
 
@@ -48,4 +44,14 @@ type UpdateServicePluginReq struct {
 
 type DeleteServicePluginReq struct {
 	ID string `json:"id" form:"id" binding:"required"`
+}
+
+//HeartbeatReq
+type HeartbeatReq struct {
+	ServiceIdentifier string `json:"service_identifier" binding:"required"`
+}
+
+//GetServiceSelectReq
+type GetServiceSelectReq struct {
+	DeviceType *int `json:"device_type" form:"service_type"`
 }

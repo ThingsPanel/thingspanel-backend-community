@@ -12,16 +12,16 @@ const TableNameServiceAccess = "service_access"
 
 // ServiceAccess mapped from table <service_access>
 type ServiceAccess struct {
-	ID                  string    `gorm:"column:id;primaryKey" json:"id"`
-	Name                string    `gorm:"column:name;not null" json:"name"`
-	ServicePluginID     string    `gorm:"column:service_plugin_id;not null" json:"service_plugin_id"`
-	Voucher             string    `gorm:"column:voucher;not null" json:"voucher"`
-	Description         *string   `gorm:"column:description" json:"description"`
-	ServiceAccessConfig *string   `gorm:"column:service_access_config" json:"service_access_config"`
-	Remark              *string   `gorm:"column:remark" json:"remark"`
-	CreateAt            time.Time `gorm:"column:create_at;not null" json:"create_at"`
-	UpdateAt            time.Time `gorm:"column:update_at;not null" json:"update_at"`
-	TenantID            string    `gorm:"column:tenant_id;not null" json:"tenant_id"`
+	ID                  string    `gorm:"column:id;primaryKey;comment:接入ID" json:"id"`                             // 接入ID
+	Name                string    `gorm:"column:name;not null;comment:名称" json:"name"`                             // 名称
+	ServicePluginID     string    `gorm:"column:service_plugin_id;not null;comment:服务ID" json:"service_plugin_id"` // 服务ID
+	Voucher             string    `gorm:"column:voucher;not null;comment:凭证" json:"voucher"`                       // 凭证
+	Description         *string   `gorm:"column:description;comment:描述" json:"description"`                        // 描述
+	ServiceAccessConfig *string   `gorm:"column:service_access_config;comment:服务配置" json:"service_access_config"`  // 服务配置
+	Remark              *string   `gorm:"column:remark;comment:备注" json:"remark"`                                  // 备注
+	CreateAt            time.Time `gorm:"column:create_at;not null;comment:创建时间" json:"create_at"`                 // 创建时间
+	UpdateAt            time.Time `gorm:"column:update_at;not null;comment:更新时间" json:"update_at"`                 // 更新时间
+	TenantID            string    `gorm:"column:tenant_id;not null;comment:租户ID" json:"tenant_id"`                 // 租户ID
 }
 
 // TableName ServiceAccess's table name

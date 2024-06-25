@@ -1,10 +1,11 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"project/model"
 	"project/service"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ServicePluginApi struct{}
@@ -37,11 +38,8 @@ func (api *ServicePluginApi) GetList(c *gin.Context) {
 }
 
 func (api *ServicePluginApi) Get(c *gin.Context) {
-	var req model.GetServicePluginReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	resp, err := service.GroupApp.ServicePlugin.Get(&req)
+	id := c.Param("id")
+	resp, err := service.GroupApp.ServicePlugin.Get(id)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return
@@ -73,4 +71,32 @@ func (api *ServicePluginApi) Delete(c *gin.Context) {
 		return
 	}
 	SuccessHandler(c, "delete service successfully", map[string]interface{}{})
+}
+
+// /api/v1/plugin/heartbeat
+func (api *ServicePluginApi) Heartbeat(c *gin.Context) {
+	var req model.HeartbeatReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	err := service.GroupApp.ServicePlugin.Heartbeat(&req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "heartbeat service successfully", map[string]interface{}{})
+}
+
+// GetServiceSelect
+func (api *ServicePluginApi) GetServiceSelect(c *gin.Context) {
+	var req model.GetServiceSelectReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	resp, err := service.GroupApp.ServicePlugin.GetServiceSelect(&req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "get service select successfully", resp)
 }

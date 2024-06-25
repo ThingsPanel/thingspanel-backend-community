@@ -60,3 +60,29 @@ func GetServiceAccessByVoucher(voucher string, tenantID string) (*model.ServiceA
 	}
 	return serviceAccess, nil
 }
+
+// 通过service_plugin_id获取服务接入点列表
+func GetServiceAccessListByServicePluginID(servicePluginID string) ([]model.ServiceAccess, error) {
+	q := query.ServiceAccess
+	queryBuilder := q.WithContext(context.Background())
+	var serviceAccess = []model.ServiceAccess{}
+	err := queryBuilder.Where(q.ServicePluginID.Eq(servicePluginID)).Select().Scan(&serviceAccess)
+	if err != nil {
+		logrus.Error(err)
+		return serviceAccess, err
+	}
+	return serviceAccess, nil
+}
+
+// 通过id获取服务接入点信息
+func GetServiceAccessByID(id string) (*model.ServiceAccess, error) {
+	// 使用first查询
+	q := query.ServiceAccess
+	queryBuilder := q.WithContext(context.Background())
+	serviceAccess, err := queryBuilder.Where(q.ID.Eq(id)).First()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return serviceAccess, nil
+}
