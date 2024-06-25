@@ -50,3 +50,8 @@ type DeleteServicePluginReq struct {
 type HeartbeatReq struct {
 	ServiceIdentifier string `json:"service_identifier" binding:"required"`
 }
+
+//GetServiceSelectReq
+type GetServiceSelectReq struct {
+	ServiceType int32 `json:"service_type" form:"service_type"`
+}

@@ -86,3 +86,17 @@ func (api *ServicePluginApi) Heartbeat(c *gin.Context) {
 	}
 	SuccessHandler(c, "heartbeat service successfully", map[string]interface{}{})
 }
+
+// GetServiceSelect
+func (api *ServicePluginApi) GetServiceSelect(c *gin.Context) {
+	var req model.GetServiceSelectReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	resp, err := service.GroupApp.ServicePlugin.GetServiceSelect(&req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "get service select successfully", resp)
+}

@@ -134,3 +134,16 @@ func UpdateServicePluginHeartbeat(serviceIdentifier string) error {
 	}
 	return err
 }
+
+// GetServiceSelectList
+func GetServiceSelectList() ([]model.ServicePlugin, error) {
+	q := query.ServicePlugin
+	queryBuilder := q.WithContext(context.Background())
+	var servicePlugins []model.ServicePlugin
+	err := queryBuilder.Select().Scan(&servicePlugins)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return servicePlugins, nil
+}

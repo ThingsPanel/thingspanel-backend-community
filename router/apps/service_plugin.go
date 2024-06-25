@@ -21,7 +21,8 @@ func (p *ServicePlugin) Init(Router *gin.RouterGroup) {
 		url.PUT("/", api.Controllers.ServicePluginApi.Update)
 
 		url.DELETE("/", api.Controllers.ServicePluginApi.Delete)
-
+		// 获取服务选择器
+		url.GET("/plugin/select", api.Controllers.ServicePluginApi.GetServiceSelect)
 		access := url.Group("access")
 		access.POST("/", api.Controllers.ServiceAccessApi.Create)
 
