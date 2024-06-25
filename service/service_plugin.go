@@ -1,12 +1,14 @@
 package service
 
 import (
+	"encoding/json"
 	"project/dal"
 	"project/model"
 	"project/query"
 	"time"
 
 	"github.com/go-basic/uuid"
+	"github.com/sirupsen/logrus"
 
 	"github.com/jinzhu/copier"
 )
@@ -87,11 +89,36 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 		return nil, err
 	}
 	for _, service := range services {
+		flag := true
 		if service.ServiceType == int32(2) {
-			serviceList = append(serviceList, map[string]interface{}{
-				"service_identifier": service.ServiceIdentifier,
-				"name":               service.Name,
-			})
+			if req.DeviceType != nil {
+				flag = false
+				// 解析service.ServiceConfig
+				var serviceAccessConfig model.ProtocolAccessConfig
+				err = json.Unmarshal([]byte(*service.ServiceConfig), &serviceAccessConfig)
+				if err != nil {
+					logrus.Warn("service plugin config error: ", err)
+					continue
+				}
+				switch *req.DeviceType {
+				case 1:
+					if serviceAccessConfig.DeviceType == "1" {
+						flag = true
+					}
+				case 2:
+					if serviceAccessConfig.DeviceType == "2" || serviceAccessConfig.DeviceType == "3" {
+						flag = true
+					}
+				default:
+					logrus.Warn("device type is error: ", *req.DeviceType)
+				}
+			}
+			if flag {
+				serviceList = append(serviceList, map[string]interface{}{
+					"service_identifier": service.ServiceIdentifier,
+					"name":               service.Name,
+				})
+			}
 		} else if service.ServiceType == int32(1) {
 			protocolList = append(protocolList, map[string]interface{}{
 				"service_identifier": service.ServiceIdentifier,

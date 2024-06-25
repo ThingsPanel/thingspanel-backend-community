@@ -53,5 +53,5 @@ type HeartbeatReq struct {
 
 //GetServiceSelectReq
 type GetServiceSelectReq struct {
-	ServiceType int32 `json:"service_type" form:"service_type"`
+	DeviceType *int `json:"device_type" form:"service_type"`
 }
