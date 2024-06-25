@@ -32,3 +32,7 @@ type ServiceAccessDeviceListReq struct {
 	PageReq
 	Voucher string `json:"voucher" form:"voucher" binding:"required"`
 }
+
+type GetPluginServiceAccessListReq struct {
+	ServiceIdentifier string `json:"service_identifier" form:"service_identifier" binding:"required"`
+}

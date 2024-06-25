@@ -31,6 +31,7 @@ func RouterInit() *gin.Engine {
 		v1 := api.Group("v1")
 		{
 			v1.POST("plugin/device/config", controllers.GetDeviceConfigForProtocolPlugin)
+			v1.GET("plugin/service/access/list", controllers.GetPluginServiceAccessList)
 			v1.POST("login", controllers.Login)
 			v1.GET("verification/code", controllers.GetVerificationCode)
 			v1.POST("reset/password", controllers.ResetPassword)
@@ -42,11 +43,9 @@ func RouterInit() *gin.Engine {
 			// 设备遥测keys（ws）
 			v1.GET("telemetry/datas/current/keys/ws", controllers.TelemetryDataApi.GetCurrentDataByKey)
 			v1.GET("ota/download/files/upgradePackage/:path/:file", controllers.OTAApi.DownloadOTAUpgradePackage)
-
 			// 获取系统时间
 			v1.GET("systime", controllers.SystemApi.GetSystime)
 		}
-
 		// 需要权限校验
 		v1.Use(middleware.JWTAuth())
 

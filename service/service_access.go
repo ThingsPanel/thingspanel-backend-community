@@ -96,3 +96,33 @@ func (s *ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDevic
 	}
 	return data, nil
 }
+
+// 通过service_identifier获取插件服务信息
+func (s *ServiceAccess) GetPluginServiceAccessList(req *model.GetPluginServiceAccessListReq) (interface{}, error) {
+	// 通过service_identifier获取插件服务信息
+	servicePlugin, err := dal.GetServicePluginByServiceIdentifier(req.ServiceIdentifier)
+	if err != nil {
+		return nil, err
+	}
+	// 根据service_plugin_id获取服务接入点列表
+	serviceAccessList, err := dal.GetServiceAccessListByServicePluginID(servicePlugin.ID)
+	if err != nil {
+		return nil, err
+	}
+	var serviceAccessMapList []map[string]interface{}
+
+	// 遍历serviceAccessMap获取每个接入点的设备信息
+	for _, serviceAccess := range serviceAccessList {
+		// 获取设备列表
+		devices, err := dal.GetServiceDeviceList(serviceAccess.ID)
+		if err != nil {
+			return nil, err
+		}
+		if len(devices) > 0 {
+			serviceAccessMap := StructToMap(serviceAccess)
+			serviceAccessMap["devices"] = devices
+			serviceAccessMapList = append(serviceAccessMapList, serviceAccessMap)
+		}
+	}
+	return serviceAccessMapList, nil
+}

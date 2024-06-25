@@ -104,3 +104,16 @@ func GetServicePluginHttpAddressByID(id string) (*model.ServicePlugin, string, e
 	}
 	return servicePlugin, serviceAccessConfig.HttpAddress, nil
 }
+
+// 通过service_identifier获取插件服务信息
+func GetServicePluginByServiceIdentifier(serviceIdentifier string) (*model.ServicePlugin, error) {
+	// 使用first查询
+	q := query.ServicePlugin
+	queryBuilder := q.WithContext(context.Background())
+	servicePlugin, err := queryBuilder.Where(q.ServiceIdentifier.Eq(serviceIdentifier)).Select().First()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return servicePlugin, nil
+}
