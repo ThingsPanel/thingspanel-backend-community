@@ -1224,7 +1224,7 @@ func (d *Device) GetConditionByDeviceID(deviceID string) (any, error) {
 			if err != nil {
 				return nil, err
 			}
-			attributeOptions := make([]*options, 0)
+			//attributeOptions := make([]*options, 0)
 			for _, model := range attributeModel {
 				// 存在模型对应字段的标志
 				flag := false
