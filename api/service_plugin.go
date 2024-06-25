@@ -1,10 +1,11 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"project/model"
 	"project/service"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ServicePluginApi struct{}
@@ -70,4 +71,18 @@ func (api *ServicePluginApi) Delete(c *gin.Context) {
 		return
 	}
 	SuccessHandler(c, "delete service successfully", map[string]interface{}{})
+}
+
+// /api/v1/plugin/heartbeat
+func (api *ServicePluginApi) Heartbeat(c *gin.Context) {
+	var req model.HeartbeatReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	err := service.GroupApp.ServicePlugin.Heartbeat(&req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "heartbeat service successfully", map[string]interface{}{})
 }

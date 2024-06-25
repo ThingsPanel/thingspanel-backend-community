@@ -426,26 +426,70 @@ func (a *Automate) getTriggerParamsValue(triggerKey string, fc DataIdentifierNam
 // @params cond model.DeviceTriggerCondition
 // @return bool
 func (a *Automate) automateConditionCheckByOperator(operator string, condValue string, actualValue string) bool {
-
+	logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
 	switch operator {
 	case model.CONDITION_TRIGGER_OPERATOR_EQ:
 		return strings.EqualFold(strings.ToUpper(actualValue), strings.ToUpper(condValue))
 	case model.CONDITION_TRIGGER_OPERATOR_NEQ:
-		return actualValue != condValue
+		return strings.Compare(actualValue, condValue) != 0
 	case model.CONDITION_TRIGGER_OPERATOR_GT:
-		return actualValue > condValue
+		actualValueFloat64, err := strconv.ParseFloat(actualValue, 64)
+		if err != nil {
+			return strings.Compare(actualValue, condValue) > 0
+		}
+		condValueFloat64, err := strconv.ParseFloat(condValue, 64)
+		if err != nil {
+			return strings.Compare(actualValue, condValue) > 0
+		}
+		return actualValueFloat64 > condValueFloat64
 	case model.CONDITION_TRIGGER_OPERATOR_LT:
-		return actualValue < condValue
+		actualValueFloat64, err := strconv.ParseFloat(actualValue, 64)
+		if err != nil {
+			return strings.Compare(actualValue, condValue) < 0
+		}
+		condValueFloat64, err := strconv.ParseFloat(condValue, 64)
+		if err != nil {
+			return strings.Compare(actualValue, condValue) < 0
+		}
+		return actualValueFloat64 < condValueFloat64
 	case model.CONDITION_TRIGGER_OPERATOR_GTE:
-		return actualValue >= condValue
+		actualValueFloat64, err := strconv.ParseFloat(actualValue, 64)
+		if err != nil {
+			return strings.Compare(actualValue, condValue) >= 0
+		}
+		condValueFloat64, err := strconv.ParseFloat(condValue, 64)
+		if err != nil {
+			return strings.Compare(actualValue, condValue) >= 0
+		}
+		return actualValueFloat64 >= condValueFloat64
 	case model.CONDITION_TRIGGER_OPERATOR_LTE:
-		return actualValue <= condValue
+		actualValueFloat64, err := strconv.ParseFloat(actualValue, 64)
+		if err != nil {
+			return strings.Compare(actualValue, condValue) <= 0
+		}
+		condValueFloat64, err := strconv.ParseFloat(condValue, 64)
+		if err != nil {
+			return strings.Compare(actualValue, condValue) <= 0
+		}
+		return actualValueFloat64 <= condValueFloat64
 	case model.CONDITION_TRIGGER_OPERATOR_BETWEEN:
 		valParts := strings.Split(condValue, "-")
 		if len(valParts) != 2 {
 			return false
 		}
-		return actualValue >= valParts[0] && actualValue <= valParts[1]
+		actualValueFloat64, err := strconv.ParseFloat(actualValue, 64)
+		if err != nil {
+			return actualValue >= valParts[0] && actualValue <= valParts[1]
+		}
+		valParts0Float64, err := strconv.ParseFloat(valParts[0], 64)
+		if err != nil {
+			return actualValue >= valParts[0] && actualValue <= valParts[1]
+		}
+		valParts1Float64, err := strconv.ParseFloat(valParts[1], 64)
+		if err != nil {
+			return actualValue >= valParts[0] && actualValue <= valParts[1]
+		}
+		return actualValueFloat64 >= valParts0Float64 && actualValueFloat64 <= valParts1Float64
 	case model.CONDITION_TRIGGER_OPERATOR_IN:
 		valParts := strings.Split(condValue, ",")
 		for _, v := range valParts {

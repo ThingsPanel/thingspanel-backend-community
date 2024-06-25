@@ -6,6 +6,7 @@ import (
 	"errors"
 	"project/model"
 	"project/query"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -103,4 +104,33 @@ func GetServicePluginHttpAddressByID(id string) (*model.ServicePlugin, string, e
 		return nil, "", errors.New("service plugin config error: host is empty")
 	}
 	return servicePlugin, serviceAccessConfig.HttpAddress, nil
+}
+
+// 通过service_identifier获取插件服务信息
+func GetServicePluginByServiceIdentifier(serviceIdentifier string) (*model.ServicePlugin, error) {
+	// 使用first查询
+	q := query.ServicePlugin
+	queryBuilder := q.WithContext(context.Background())
+	servicePlugin, err := queryBuilder.Where(q.ServiceIdentifier.Eq(serviceIdentifier)).Select().First()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return servicePlugin, nil
+}
+
+// 更新服务插件的心跳时间
+func UpdateServicePluginHeartbeat(serviceIdentifier string) error {
+	q := query.ServicePlugin
+	queryBuilder := q.WithContext(context.Background())
+	// last_active_time UTC时间
+	t := time.Now().UTC()
+	info, err := queryBuilder.Where(q.ServiceIdentifier.Eq(serviceIdentifier)).Update(q.LastActiveTime, t)
+	if err != nil {
+		logrus.Error(err)
+	}
+	if info.RowsAffected == 0 {
+		return errors.New("service plugin not found")
+	}
+	return err
 }

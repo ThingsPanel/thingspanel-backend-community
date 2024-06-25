@@ -94,3 +94,32 @@ func (api *ServiceAccessApi) GetDeviceList(c *gin.Context) {
 	}
 	SuccessHandler(c, "get device list successfully", resp)
 }
+
+// /api/v1/pugin/service/access/list
+// 服务接入点插件列表查询
+func (api *ServiceAccessApi) GetPluginServiceAccessList(c *gin.Context) {
+	var req model.GetPluginServiceAccessListReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccessList(&req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "get plugin list successfully", resp)
+}
+
+// /api/v1/pugin/service/access
+func (api *ServiceAccessApi) GetPluginServiceAccess(c *gin.Context) {
+	var req model.GetPluginServiceAccessReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccess(&req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "get plugin list successfully", resp)
+}

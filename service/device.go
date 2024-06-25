@@ -95,6 +95,32 @@ func (d *Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaim
 	return device, err
 }
 
+// 服务接入批量创建设备
+func (d *Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.UserClaims) (data any, err error) {
+	t := time.Now().UTC()
+	var deviceList []*model.Device
+	for _, v := range req.DeviceList {
+		device := model.Device{
+			ID:             uuid.New(),
+			Name:           &v.DeviceName,
+			DeviceNumber:   v.DeviceNumber,
+			Voucher:        `{"username":"` + uuid.New()[0:22] + `"}`,
+			TenantID:       claims.TenantID,
+			CreatedAt:      &t,
+			UpdateAt:       &t,
+			AccessWay:      StringPtr("B"),
+			Description:    v.Description,
+			DeviceConfigID: &v.DeviceConfigId,
+			IsOnline:       0,
+			ActivateFlag:   "active",
+		}
+		deviceList = append(deviceList, &device)
+	}
+	err = dal.CreateDeviceBatch(deviceList)
+	return deviceList, err
+
+}
+
 func (d *Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
 
 	// device.ID = req.Id
