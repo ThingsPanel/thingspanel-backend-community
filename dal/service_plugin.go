@@ -6,6 +6,7 @@ import (
 	"errors"
 	"project/model"
 	"project/query"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -116,4 +117,17 @@ func GetServicePluginByServiceIdentifier(serviceIdentifier string) (*model.Servi
 		return nil, err
 	}
 	return servicePlugin, nil
+}
+
+// 更新服务插件的心跳时间
+func UpdateServicePluginHeartbeat(serviceIdentifier string) error {
+	q := query.ServicePlugin
+	queryBuilder := q.WithContext(context.Background())
+	// last_active_time UTC时间
+	t := time.Now().UTC()
+	_, err := queryBuilder.Where(q.ServiceIdentifier.Eq(serviceIdentifier)).Update(q.LastActiveTime, t)
+	if err != nil {
+		logrus.Error(err)
+	}
+	return err
 }

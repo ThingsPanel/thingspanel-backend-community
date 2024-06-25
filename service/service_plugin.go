@@ -1,11 +1,12 @@
 package service
 
 import (
-	"github.com/go-basic/uuid"
 	"project/dal"
 	"project/model"
 	"project/query"
 	"time"
+
+	"github.com/go-basic/uuid"
 
 	"github.com/jinzhu/copier"
 )
@@ -64,5 +65,12 @@ func (s *ServicePlugin) Update(req *model.UpdateServicePluginReq) error {
 
 func (s *ServicePlugin) Delete(req *model.DeleteServicePluginReq) error {
 	err := dal.DeleteServicePlugin(req.ID)
+	return err
+}
+
+// Heartbeat
+func (s *ServicePlugin) Heartbeat(req *model.HeartbeatReq) error {
+	// 更新服务插件的心跳时间
+	err := dal.UpdateServicePluginHeartbeat(req.ServiceIdentifier)
 	return err
 }

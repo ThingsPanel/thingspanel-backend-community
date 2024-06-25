@@ -30,6 +30,7 @@ func RouterInit() *gin.Engine {
 		// 无需权限校验
 		v1 := api.Group("v1")
 		{
+			v1.POST("plugin/heartbeat", controllers.Heartbeat)
 			v1.POST("plugin/device/config", controllers.GetDeviceConfigForProtocolPlugin)
 			v1.POST("plugin/service/access/list", controllers.GetPluginServiceAccessList)
 			v1.POST("plugin/service/access", controllers.GetPluginServiceAccess)

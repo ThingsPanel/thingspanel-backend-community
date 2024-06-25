@@ -49,3 +49,8 @@ type UpdateServicePluginReq struct {
 type DeleteServicePluginReq struct {
 	ID string `json:"id" form:"id" binding:"required"`
 }
+
+//HeartbeatReq
+type HeartbeatReq struct {
+	ServiceIdentifier string `json:"service_identifier" binding:"required"`
+}
