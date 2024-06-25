@@ -48,17 +48,17 @@ type servicePlugin struct {
 	servicePluginDo
 
 	ALL               field.Asterisk
-	ID                field.String
-	Name              field.String
-	ServiceIdentifier field.String
-	ServiceType       field.Int32
-	LastActiveTime    field.Time
-	Version           field.String
-	CreateAt          field.Time
-	UpdateAt          field.Time
-	Description       field.String
-	ServiceConfig     field.String
-	Remark            field.String
+	ID                field.String // 服务ID
+	Name              field.String // 服务名称
+	ServiceIdentifier field.String // 服务标识符
+	ServiceType       field.Int32  // 服务类型: 1-接入协议, 2-接入服务
+	LastActiveTime    field.Time   // 服务最后活跃时间
+	Version           field.String // 版本号
+	CreateAt          field.Time   // 创建时间
+	UpdateAt          field.Time   // 更新时间
+	Description       field.String // 描述
+	ServiceConfig     field.String // 服务配置: 接入协议和接入服务的配置
+	Remark            field.String // 备注
 
 	fieldMap map[string]field.Expr
 }

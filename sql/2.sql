@@ -50,3 +50,32 @@ ALTER TABLE "public"."devices"
     ADD COLUMN "service_access_id" varchar(36) NOT NULL,
     ADD CONSTRAINT fk_service_access_id FOREIGN KEY (service_access_id) REFERENCES public.service_access(id) ON DELETE RESTRICT;
 ALTER TABLE public.devices ALTER COLUMN service_access_id DROP NOT NULL;
+
+COMMENT ON TABLE service_plugins IS '服务管理';
+
+COMMENT ON COLUMN service_plugins.id IS '服务ID';
+COMMENT ON COLUMN service_plugins.name IS '服务名称';
+COMMENT ON COLUMN service_plugins.service_identifier IS '服务标识符';
+COMMENT ON COLUMN service_plugins.service_type IS '服务类型: 1-接入协议, 2-接入服务';
+COMMENT ON COLUMN service_plugins.last_active_time IS '服务最后活跃时间';
+COMMENT ON COLUMN service_plugins.version IS '版本号';
+COMMENT ON COLUMN service_plugins.create_at IS '创建时间';
+COMMENT ON COLUMN service_plugins.update_at IS '更新时间';
+COMMENT ON COLUMN service_plugins.description IS '描述';
+COMMENT ON COLUMN service_plugins.service_config IS '服务配置';
+COMMENT ON COLUMN service_plugins.remark IS '备注';
+
+COMMENT ON TABLE service_access IS '服务接入(租户端)';
+
+COMMENT ON COLUMN service_access.id IS '接入ID';
+COMMENT ON COLUMN service_access.name IS '名称';
+COMMENT ON COLUMN service_access.service_plugin_id IS '服务ID';
+COMMENT ON COLUMN service_access.voucher IS '凭证';
+COMMENT ON COLUMN service_access.description IS '描述';
+COMMENT ON COLUMN service_access.service_access_config IS '服务配置';
+COMMENT ON COLUMN service_access.create_at IS '创建时间';
+COMMENT ON COLUMN service_access.update_at IS '更新时间';
+COMMENT ON COLUMN service_access.tenant_id IS '租户ID';
+COMMENT ON COLUMN service_access.remark IS '备注';
+
+COMMENT ON COLUMN service_plugins.service_config IS '服务配置: 接入协议和接入服务的配置';

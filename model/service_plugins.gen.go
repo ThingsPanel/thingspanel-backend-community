@@ -12,17 +12,17 @@ const TableNameServicePlugin = "service_plugins"
 
 // ServicePlugin mapped from table <service_plugins>
 type ServicePlugin struct {
-	ID                string     `gorm:"column:id;primaryKey" json:"id"`
-	Name              string     `gorm:"column:name;not null" json:"name"`
-	ServiceIdentifier string     `gorm:"column:service_identifier;not null" json:"service_identifier"`
-	ServiceType       int32      `gorm:"column:service_type;not null" json:"service_type"`
-	LastActiveTime    *time.Time `gorm:"column:last_active_time" json:"last_active_time"`
-	Version           *string    `gorm:"column:version" json:"version"`
-	CreateAt          time.Time  `gorm:"column:create_at;not null" json:"create_at"`
-	UpdateAt          time.Time  `gorm:"column:update_at;not null" json:"update_at"`
-	Description       *string    `gorm:"column:description" json:"description"`
-	ServiceConfig     *string    `gorm:"column:service_config" json:"service_config"`
-	Remark            *string    `gorm:"column:remark" json:"remark"`
+	ID                string     `gorm:"column:id;primaryKey;comment:服务ID" json:"id"`                                   // 服务ID
+	Name              string     `gorm:"column:name;not null;comment:服务名称" json:"name"`                                 // 服务名称
+	ServiceIdentifier string     `gorm:"column:service_identifier;not null;comment:服务标识符" json:"service_identifier"`    // 服务标识符
+	ServiceType       int32      `gorm:"column:service_type;not null;comment:服务类型: 1-接入协议, 2-接入服务" json:"service_type"` // 服务类型: 1-接入协议, 2-接入服务
+	LastActiveTime    *time.Time `gorm:"column:last_active_time;comment:服务最后活跃时间" json:"last_active_time"`              // 服务最后活跃时间
+	Version           *string    `gorm:"column:version;comment:版本号" json:"version"`                                     // 版本号
+	CreateAt          time.Time  `gorm:"column:create_at;not null;comment:创建时间" json:"create_at"`                       // 创建时间
+	UpdateAt          time.Time  `gorm:"column:update_at;not null;comment:更新时间" json:"update_at"`                       // 更新时间
+	Description       *string    `gorm:"column:description;comment:描述" json:"description"`                              // 描述
+	ServiceConfig     *string    `gorm:"column:service_config;comment:服务配置: 接入协议和接入服务的配置" json:"service_config"`        // 服务配置: 接入协议和接入服务的配置
+	Remark            *string    `gorm:"column:remark;comment:备注" json:"remark"`                                        // 备注
 }
 
 // TableName ServicePlugin's table name
