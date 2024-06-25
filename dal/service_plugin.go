@@ -125,9 +125,12 @@ func UpdateServicePluginHeartbeat(serviceIdentifier string) error {
 	queryBuilder := q.WithContext(context.Background())
 	// last_active_time UTC时间
 	t := time.Now().UTC()
-	_, err := queryBuilder.Where(q.ServiceIdentifier.Eq(serviceIdentifier)).Update(q.LastActiveTime, t)
+	info, err := queryBuilder.Where(q.ServiceIdentifier.Eq(serviceIdentifier)).Update(q.LastActiveTime, t)
 	if err != nil {
 		logrus.Error(err)
+	}
+	if info.RowsAffected == 0 {
+		return errors.New("service plugin not found")
 	}
 	return err
 }
