@@ -48,7 +48,7 @@ type Device struct {
 	IsOnline        int16      `gorm:"column:is_online;not null;comment:是否在线 1-在线 0-离线" json:"is_online"` // 是否在线 1-在线 0-离线
 	AccessWay       *string    `gorm:"column:access_way;comment:接入方式A-通过协议 B通过服务" json:"access_way"`      // 接入方式A-通过协议 B通过服务
 	Description     *string    `gorm:"column:description;comment:描述" json:"description"`                  // 描述
-	ServiceAccessID string     `gorm:"column:service_access_id;not null" json:"service_access_id"`
+	ServiceAccessID *string    `gorm:"column:service_access_id" json:"service_access_id"`
 }
 
 // TableName Device's table name

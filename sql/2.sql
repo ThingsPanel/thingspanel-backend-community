@@ -49,3 +49,4 @@ ALTER COLUMN "update_at" SET NOT NULL;
 ALTER TABLE "public"."devices"
     ADD COLUMN "service_access_id" varchar(36) NOT NULL,
     ADD CONSTRAINT fk_service_access_id FOREIGN KEY (service_access_id) REFERENCES public.service_access(id) ON DELETE RESTRICT;
+ALTER TABLE public.devices ALTER COLUMN service_access_id DROP NOT NULL;
