@@ -74,12 +74,12 @@ func (p *ProtocolPlugin) GetProtocolPluginFormByProtocolType(protocolType string
 		// 返回空{}，表示不需要配置
 		return nil, nil
 	}
-	return p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM), "")
+	return p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
 }
 
 // 去协议插件获取各种表单
 // 请求参数：protocol_type,device_type,form_type,voucher_type
-func (p *ProtocolPlugin) GetPluginForm(protocolType string, deviceType string, formType string, voucherType string) (interface{}, error) {
+func (p *ProtocolPlugin) GetPluginForm(protocolType string, deviceType string, formType string) (interface{}, error) {
 	// 获取协议插件host:127.0.0.1:503
 	var protocolPluginDeviceType int16
 	switch deviceType {
@@ -100,23 +100,8 @@ func (p *ProtocolPlugin) GetPluginForm(protocolType string, deviceType string, f
 	}
 	host := *protocolPlugin.HTTPAddress
 	// 请求表单
-	b, err := http_client.GetPluginFromConfig(host, protocolType, deviceType, formType, voucherType)
-	if err != nil {
-		logrus.Error(err)
-		return nil, fmt.Errorf("get plugin form failed: %s", err)
-	}
-	// 解析表单
-	var rspdata http_client.RspData
-	err = json.Unmarshal(b, &rspdata)
-	if err != nil {
-		logrus.Error(err)
-		return nil, fmt.Errorf("unmarshal response data failed: %s", err)
-	}
-	if rspdata.Code != 200 {
-		err = fmt.Errorf("protocol plugin response message: %s", rspdata.Message)
-		logrus.Error(err)
-	}
-	return rspdata.Data, nil
+	return http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)
+
 }
 
 // 获取设备配置，接口提供给协议插件

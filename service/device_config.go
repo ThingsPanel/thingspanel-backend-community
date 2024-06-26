@@ -224,7 +224,7 @@ func (p *DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string
 		return
 	}
 	var pd ProtocolPlugin
-	return pd.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_TYPE_FORM), "")
+	return pd.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_TYPE_FORM))
 }
 
 // 获取自动化一类设备Action下拉菜单；

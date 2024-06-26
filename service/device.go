@@ -564,7 +564,7 @@ func (d *Device) GetVoucherTypeForm(voucherType string, deviceType string, proto
 	}
 	// 去协议插件获取凭证表单
 	var pp ProtocolPlugin
-	return pp.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_FORM), voucherType)
+	return pp.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_FORM))
 }
 
 func (d *Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectFormReq) (any, error) {
