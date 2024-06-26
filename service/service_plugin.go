@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"project/dal"
 	"project/model"
+	"project/others/http_client"
 	"project/query"
 	"time"
 
@@ -82,6 +83,10 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 	// 返回数据map
 	resp := make(map[string]interface{})
 	var protocolList []map[string]interface{}
+	protocolList = append(protocolList, map[string]interface{}{
+		"service_identifier": "MQTT",
+		"name":               "MQTT协议",
+	})
 	var serviceList []map[string]interface{}
 	// 获取服务列表
 	services, err := dal.GetServiceSelectList()
@@ -131,4 +136,22 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 	resp["protocol"] = protocolList
 	resp["service"] = serviceList
 	return resp, err
+}
+
+// 去协议插件获取各种表单
+// 请求参数：protocol_type,device_type,form_type,voucher_type
+func (p *ServicePlugin) GetPluginForm(protocolType string, deviceType string, formType string) (interface{}, error) {
+	// 根据协议类型获取协议信息
+	servicePlugin, err := dal.GetServicePluginByServiceIdentifier(protocolType)
+	if err != nil {
+		return nil, err
+	}
+	// 获取协议插件host:
+	_, host, err := dal.GetServicePluginHttpAddressByID(servicePlugin.ID)
+	if err != nil {
+		return nil, err
+	}
+	// 请求表单
+	return http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)
+
 }

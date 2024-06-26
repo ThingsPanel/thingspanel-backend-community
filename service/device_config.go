@@ -223,7 +223,7 @@ func (p *DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string
 		}
 		return
 	}
-	var pd ProtocolPlugin
+	var pd ServicePlugin
 	return pd.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_TYPE_FORM))
 }
 
