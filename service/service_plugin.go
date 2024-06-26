@@ -90,7 +90,7 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 	}
 	for _, service := range services {
 		flag := true
-		if service.ServiceType == int32(2) {
+		if service.ServiceType == int32(1) {
 			if req.DeviceType != nil {
 				flag = false
 				// 解析service.ServiceConfig
