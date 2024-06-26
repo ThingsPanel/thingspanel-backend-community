@@ -152,7 +152,7 @@ func (p *ProtocolPluginApi) GetProtocolPluginFormByProtocolType(c *gin.Context) 
 		return
 	}
 
-	data, err := service.GroupApp.ProtocolPlugin.GetProtocolPluginFormByProtocolType(req.ProtocolType, req.DeviceType)
+	data, err := service.GroupApp.ServicePlugin.GetProtocolPluginFormByProtocolType(req.ProtocolType, req.DeviceType)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return

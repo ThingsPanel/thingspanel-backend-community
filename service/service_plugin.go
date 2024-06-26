@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"project/constant"
 	"project/dal"
 	"project/model"
 	"project/others/http_client"
@@ -154,4 +155,13 @@ func (p *ServicePlugin) GetPluginForm(protocolType string, deviceType string, fo
 	// 请求表单
 	return http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)
 
+}
+
+// 根据协议类型获取设备配置表单
+func (p *ServicePlugin) GetProtocolPluginFormByProtocolType(protocolType string, deviceType string) (interface{}, error) {
+	if protocolType == "MQTT" {
+		// 返回空{}，表示不需要配置
+		return nil, nil
+	}
+	return p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
 }
