@@ -8,7 +8,7 @@ type ServiceAccessConfig struct {
 
 // 协议接入配置
 type ProtocolAccessConfig struct {
-	DeviceType     string `json:"device_type"`
+	DeviceType     int    `json:"device_type"`
 	AccessAddress  string `json:"access_address"`
 	HttpAddress    string `json:"http_address"`
 	SubTopicPrefix string `json:"sub_topic_prefix"`
@@ -53,5 +53,5 @@ type HeartbeatReq struct {
 
 //GetServiceSelectReq
 type GetServiceSelectReq struct {
-	DeviceType *int `json:"device_type" form:"service_type"`
+	DeviceType *int `json:"device_type" form:"device_type"`
 }

@@ -90,6 +90,7 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 	}
 	for _, service := range services {
 		flag := true
+		// 协议类型
 		if service.ServiceType == int32(1) {
 			if req.DeviceType != nil {
 				flag = false
@@ -102,11 +103,11 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 				}
 				switch *req.DeviceType {
 				case 1:
-					if serviceAccessConfig.DeviceType == "1" {
+					if serviceAccessConfig.DeviceType == 1 {
 						flag = true
 					}
-				case 2:
-					if serviceAccessConfig.DeviceType == "2" || serviceAccessConfig.DeviceType == "3" {
+				case 2, 3:
+					if serviceAccessConfig.DeviceType == 2 {
 						flag = true
 					}
 				default:
@@ -114,13 +115,14 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 				}
 			}
 			if flag {
-				serviceList = append(serviceList, map[string]interface{}{
+				protocolList = append(protocolList, map[string]interface{}{
 					"service_identifier": service.ServiceIdentifier,
 					"name":               service.Name,
 				})
 			}
-		} else if service.ServiceType == int32(1) {
-			protocolList = append(protocolList, map[string]interface{}{
+			flag = true
+		} else if service.ServiceType == int32(2) {
+			serviceList = append(serviceList, map[string]interface{}{
 				"service_identifier": service.ServiceIdentifier,
 				"name":               service.Name,
 			})
