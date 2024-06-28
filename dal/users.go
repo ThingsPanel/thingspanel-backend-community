@@ -130,9 +130,9 @@ func GetUserIdBYTenantID(tenantID string) (string, error) {
 		userId     string
 		cacheKeyId = fmt.Sprintf("GetUserIdBYTenantID:%s", tenantID)
 	)
-	userId = global.REDIS.Get(cacheKeyId).String()
-	if userId != "" {
-		return userId, nil
+	stringCmd := global.REDIS.Get(cacheKeyId)
+	if stringCmd.Err() == nil {
+		return stringCmd.String(), nil
 	}
 	err := query.User.Where(query.User.TenantID.Eq(tenantID)).Select(query.User.ID).Scan(&userId)
 	if err != nil {

@@ -43,6 +43,7 @@ func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tena
 
 	var userId string
 	userId, _ = dal.GetUserIdBYTenantID(tenantID)
+	logrus.Debug("AutomateActionDeviceMqttSend:", tenantID, ", userId:", userId)
 	operationType := strconv.Itoa(constant.Auto)
 	var valueMap = make(map[string]string)
 	switch *action.ActionParamType {
