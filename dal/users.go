@@ -126,8 +126,20 @@ func DeleteUsersById(uid string) error {
 }
 
 func GetUserIdBYTenantID(tenantID string) (string, error) {
-	var userId string
-	return userId, query.User.Where(query.User.TenantID.Eq(tenantID)).Select(query.User.ID).Scan(&userId)
+	var (
+		userId     string
+		cacheKeyId = fmt.Sprintf("GetUserIdBYTenantID:%s", tenantID)
+	)
+	userId = global.REDIS.Get(cacheKeyId).String()
+	if userId != "" {
+		return userId, nil
+	}
+	err := query.User.Where(query.User.TenantID.Eq(tenantID)).Select(query.User.ID).Scan(&userId)
+	if err != nil {
+		return userId, err
+	}
+	global.REDIS.Set(cacheKeyId, userId, time.Hour*6)
+	return userId, nil
 }
 
 type UserQuery struct {

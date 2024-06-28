@@ -41,6 +41,8 @@ func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tena
 	}
 	ctx := context.Background()
 
+	var userId string
+	userId, _ = dal.GetUserIdBYTenantID(tenantID)
 	operationType := strconv.Itoa(constant.Auto)
 	var valueMap = make(map[string]string)
 	switch *action.ActionParamType {
@@ -54,7 +56,7 @@ func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tena
 		valueStr, _ := json.Marshal(valueMap)
 		msgReq.Value = string(valueStr)
 		logrus.Warning(msgReq)
-		return executeMsg + fmt.Sprintf(" 遥测指令:%s", msgReq.Value), GroupApp.TelemetryData.TelemetryPutMessage(ctx, tenantID, &msgReq, operationType)
+		return executeMsg + fmt.Sprintf(" 遥测指令:%s", msgReq.Value), GroupApp.TelemetryData.TelemetryPutMessage(ctx, userId, &msgReq, operationType)
 
 	case AUTOMATE_ACTION_PARAM_TYPE_ATTR, AUTOMATE_ACTION_PARAM_TYPE_ATTRIBUTES:
 		msgReq := model.AttributePutMessage{
@@ -66,7 +68,7 @@ func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tena
 		valueStr, _ := json.Marshal(valueMap)
 		msgReq.Value = string(valueStr)
 
-		return executeMsg + fmt.Sprintf(" 属性设置:%s", msgReq.Value), GroupApp.AttributeData.AttributePutMessage(ctx, tenantID, &msgReq, operationType)
+		return executeMsg + fmt.Sprintf(" 属性设置:%s", msgReq.Value), GroupApp.AttributeData.AttributePutMessage(ctx, userId, &msgReq, operationType)
 
 	case AUTOMATE_ACTION_PARAM_TYPE_CMD, AUTOMATE_ACTION_PARAM_TYPE_COMMAND:
 		msgReq := model.PutMessageForCommand{
@@ -75,7 +77,7 @@ func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tena
 			Identify: *action.ActionParam,
 		}
 
-		return executeMsg + fmt.Sprintf(" 命令下发:%s", *msgReq.Value), GroupApp.CommandData.CommandPutMessage(ctx, tenantID, &msgReq, operationType)
+		return executeMsg + fmt.Sprintf(" 命令下发:%s", *msgReq.Value), GroupApp.CommandData.CommandPutMessage(ctx, userId, &msgReq, operationType)
 	default:
 
 		return executeMsg + "不支持的类型", errors.New("不支持的类型")
@@ -129,9 +131,8 @@ func (a *AutomateTelemetryActionScene) AutomateActionRun(action model.ActionInfo
 		return "场景激活", errors.New("场景id不存在")
 	}
 	// return GroupApp.SceneAutomation.SwitchSceneAutomation(*action.ActionTarget, "Y")
-	var userId string
-	userId, _ = dal.GetUserIdBYTenantID(a.TenantID)
-	return "场景激活", GroupApp.ActiveSceneExecute(*action.ActionTarget, a.TenantID, userId)
+
+	return "场景激活", GroupApp.ActiveSceneExecute(*action.ActionTarget, a.TenantID)
 }
 
 // 警告 30

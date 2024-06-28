@@ -53,7 +53,7 @@ func (s *Scene) GetSceneListByPage(req model.GetSceneListByPageReq, claims *util
 // TODO
 func (s *Scene) ActiveScene(scene_id, userId, tenantID string) error {
 
-	return GroupApp.ActiveSceneExecute(scene_id, userId, tenantID)
+	return GroupApp.ActiveSceneExecute(scene_id, tenantID)
 	// actions, err := dal.GetActionInfoListBySceneAutomationId([]string{scene_id})
 	// if err != nil {
 	// 	return nil
