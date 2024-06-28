@@ -403,6 +403,7 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 			trigger = "上线"
 		}
 		result = fmt.Sprintf("设备(%s)已%s", deviceName, trigger)
+		triggerOperator = "="
 	}
 	logrus.Debug("automateConditionCheckByOperator:设备条件验证参数...", triggerOperator, triggerValue, actualValue)
 	ok := a.automateConditionCheckByOperator(triggerOperator, triggerValue, actualValue)
