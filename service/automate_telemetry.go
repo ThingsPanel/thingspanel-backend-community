@@ -175,7 +175,7 @@ func (a *Automate) SceneAutomateExecute(sceneAutomationId string, deviceIds []st
 // @description 场景激活
 // @params info initialize.AutomateExecteParams
 // @return error
-func (a *Automate) ActiveSceneExecute(scene_id, tenantID string) error {
+func (a *Automate) ActiveSceneExecute(scene_id, userId, tenantID string) error {
 
 	actions, err := dal.GetActionInfoListBySceneId([]string{scene_id})
 	if err != nil {
@@ -196,7 +196,7 @@ func (a *Automate) ActiveSceneExecute(scene_id, tenantID string) error {
 			return err
 		}
 	}
-	details, err := a.AutomateActionExecute(scene_id, deviceIds, actions, tenantID)
+	details, err := a.AutomateActionExecute(scene_id, deviceIds, actions, userId)
 	var exeResult string
 	if err == nil {
 		exeResult = "S"

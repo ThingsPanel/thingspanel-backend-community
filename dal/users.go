@@ -125,6 +125,11 @@ func DeleteUsersById(uid string) error {
 	return err
 }
 
+func GetUserIdBYTenantID(tenantID string) (string, error) {
+	var userId string
+	return userId, query.User.Where(query.User.TenantID.Eq(tenantID)).Select(query.User.ID).Scan(&userId)
+}
+
 type UserQuery struct {
 }
 

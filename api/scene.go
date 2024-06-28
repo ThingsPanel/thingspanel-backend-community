@@ -78,7 +78,7 @@ func (api *SceneApi) ActiveScene(c *gin.Context) {
 	id := c.Param("id")
 
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Scene.ActiveScene(id, userClaims.TenantID)
+	err := service.GroupApp.Scene.ActiveScene(id, userClaims.ID, userClaims.TenantID)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return

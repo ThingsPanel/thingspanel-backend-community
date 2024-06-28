@@ -129,8 +129,9 @@ func (a *AutomateTelemetryActionScene) AutomateActionRun(action model.ActionInfo
 		return "场景激活", errors.New("场景id不存在")
 	}
 	// return GroupApp.SceneAutomation.SwitchSceneAutomation(*action.ActionTarget, "Y")
-
-	return "场景激活", GroupApp.ActiveSceneExecute(*action.ActionTarget, a.TenantID)
+	var userId string
+	userId, _ = dal.GetUserIdBYTenantID(a.TenantID)
+	return "场景激活", GroupApp.ActiveSceneExecute(*action.ActionTarget, a.TenantID, userId)
 }
 
 // 警告 30
