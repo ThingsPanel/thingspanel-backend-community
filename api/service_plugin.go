@@ -88,6 +88,7 @@ func (api *ServicePluginApi) Heartbeat(c *gin.Context) {
 }
 
 // GetServiceSelect
+// /api/v1/service/plugin/select
 func (api *ServicePluginApi) GetServiceSelect(c *gin.Context) {
 	var req model.GetServiceSelectReq
 	if !BindAndValidate(c, &req) {

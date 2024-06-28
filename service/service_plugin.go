@@ -2,8 +2,10 @@ package service
 
 import (
 	"encoding/json"
+	"project/constant"
 	"project/dal"
 	"project/model"
+	"project/others/http_client"
 	"project/query"
 	"time"
 
@@ -82,6 +84,10 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 	// 返回数据map
 	resp := make(map[string]interface{})
 	var protocolList []map[string]interface{}
+	protocolList = append(protocolList, map[string]interface{}{
+		"service_identifier": "MQTT",
+		"name":               "MQTT协议",
+	})
 	var serviceList []map[string]interface{}
 	// 获取服务列表
 	services, err := dal.GetServiceSelectList()
@@ -90,7 +96,8 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 	}
 	for _, service := range services {
 		flag := true
-		if service.ServiceType == int32(2) {
+		// 协议类型
+		if service.ServiceType == int32(1) {
 			if req.DeviceType != nil {
 				flag = false
 				// 解析service.ServiceConfig
@@ -102,11 +109,11 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 				}
 				switch *req.DeviceType {
 				case 1:
-					if serviceAccessConfig.DeviceType == "1" {
+					if serviceAccessConfig.DeviceType == 1 {
 						flag = true
 					}
-				case 2:
-					if serviceAccessConfig.DeviceType == "2" || serviceAccessConfig.DeviceType == "3" {
+				case 2, 3:
+					if serviceAccessConfig.DeviceType == 2 {
 						flag = true
 					}
 				default:
@@ -114,13 +121,14 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 				}
 			}
 			if flag {
-				serviceList = append(serviceList, map[string]interface{}{
+				protocolList = append(protocolList, map[string]interface{}{
 					"service_identifier": service.ServiceIdentifier,
 					"name":               service.Name,
 				})
 			}
-		} else if service.ServiceType == int32(1) {
-			protocolList = append(protocolList, map[string]interface{}{
+			flag = true
+		} else if service.ServiceType == int32(2) {
+			serviceList = append(serviceList, map[string]interface{}{
 				"service_identifier": service.ServiceIdentifier,
 				"name":               service.Name,
 			})
@@ -129,4 +137,31 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 	resp["protocol"] = protocolList
 	resp["service"] = serviceList
 	return resp, err
+}
+
+// 去协议插件获取各种表单
+// 请求参数：protocol_type,device_type,form_type,voucher_type
+func (p *ServicePlugin) GetPluginForm(protocolType string, deviceType string, formType string) (interface{}, error) {
+	// 根据协议类型获取协议信息
+	servicePlugin, err := dal.GetServicePluginByServiceIdentifier(protocolType)
+	if err != nil {
+		return nil, err
+	}
+	// 获取协议插件host:
+	_, host, err := dal.GetServicePluginHttpAddressByID(servicePlugin.ID)
+	if err != nil {
+		return nil, err
+	}
+	// 请求表单
+	return http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)
+
+}
+
+// 根据协议类型获取设备配置表单
+func (p *ServicePlugin) GetProtocolPluginFormByProtocolType(protocolType string, deviceType string) (interface{}, error) {
+	if protocolType == "MQTT" {
+		// 返回空{}，表示不需要配置
+		return nil, nil
+	}
+	return p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
 }

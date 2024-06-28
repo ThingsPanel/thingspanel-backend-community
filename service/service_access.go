@@ -63,7 +63,7 @@ func (s *ServiceAccess) GetVoucherForm(req *model.GetServiceAccessVoucherFormReq
 	if err != nil {
 		return nil, err
 	}
-	return http_client.GetPluginFromConfigV2(httpAddress, servicePlugin.ServiceIdentifier, "", "SVCRT")
+	return http_client.GetPluginFromConfigV2(httpAddress, servicePlugin.ServiceIdentifier, "", "SVCR")
 }
 
 // GetServiceAccessDeviceList

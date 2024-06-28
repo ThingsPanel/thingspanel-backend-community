@@ -11,27 +11,16 @@ import (
 
 // 设备配置更新后主动断开设备连接
 func DeviceConfigUpdateAndDisconnect(deviceConfigID string, protocolType string, deviceType string) error {
-	var protocolPluginDeviceType int16
-	switch deviceType {
-	case "1":
-		protocolPluginDeviceType = 1
-	case "2":
-		protocolPluginDeviceType = 2
-	case "3":
-		protocolPluginDeviceType = 2
-	default:
-		logrus.Error("device type not found")
-		return fmt.Errorf("device type not found")
-	}
-	// 获取协议插件信息
-	protocolPlugin, err := dal.GetProtocolPluginByDeviceTypeAndProtocolType(protocolPluginDeviceType, protocolType)
+
+	// 根据协议类型获取协议信息
+	servicePlugin, err := dal.GetServicePluginByServiceIdentifier(protocolType)
 	if err != nil {
-		logrus.Error(err)
-		return fmt.Errorf("get protocol plugin failed: %s", err)
+		return err
 	}
-	if !(protocolPlugin != nil && protocolPlugin.HTTPAddress != nil) {
-		logrus.Error("protocol plugin not found")
-		return fmt.Errorf("protocol plugin not found")
+	// 获取协议插件host:
+	_, host, err := dal.GetServicePluginHttpAddressByID(servicePlugin.ID)
+	if err != nil {
+		return err
 	}
 	// 通知所有相关网关断开连接
 	if deviceType == "3" {
@@ -42,7 +31,7 @@ func DeviceConfigUpdateAndDisconnect(deviceConfigID string, protocolType string,
 		}
 		// 断开设备连接
 		for _, deviceID := range deviceIDs {
-			DisconnectDevice(deviceID, *protocolPlugin.HTTPAddress)
+			DisconnectDevice(deviceID, host)
 		}
 	} else if deviceType == "1" || deviceType == "2" {
 		// 根据设备配置ID获取设备列表
@@ -52,7 +41,7 @@ func DeviceConfigUpdateAndDisconnect(deviceConfigID string, protocolType string,
 		}
 		// 断开设备连接
 		for _, device := range devices {
-			DisconnectDevice(device.ID, *protocolPlugin.HTTPAddress)
+			DisconnectDevice(device.ID, host)
 		}
 		return nil
 	}
@@ -111,41 +100,30 @@ func DisconnectDeviceByDeviceID(deviceID string) error {
 	if deviceConfig == nil {
 		return nil
 	}
-	var protocolPluginDeviceType int16
-	switch deviceConfig.DeviceType {
-	case "1":
-		protocolPluginDeviceType = 1
-	case "2":
-		protocolPluginDeviceType = 2
-	case "3":
-		protocolPluginDeviceType = 2
-	default:
-		logrus.Error("device type not found")
-		return fmt.Errorf("device type not found")
-	}
 	if deviceConfig.ProtocolType == nil {
 		return fmt.Errorf("protocol type not found")
 	}
 	if *deviceConfig.ProtocolType == "MQTT" {
 		return nil
 	}
-	// 获取协议插件信息
-	protocolPlugin, err := dal.GetProtocolPluginByDeviceTypeAndProtocolType(protocolPluginDeviceType, *deviceConfig.ProtocolType)
+	// 根据协议类型获取协议信息
+	servicePlugin, err := dal.GetServicePluginByServiceIdentifier(*deviceConfig.ProtocolType)
 	if err != nil {
 		return err
 	}
-	if !(protocolPlugin != nil && protocolPlugin.HTTPAddress != nil) {
-		logrus.Error("protocol plugin not found")
-		return fmt.Errorf("protocol plugin not found")
+	// 获取协议插件host:
+	_, host, err := dal.GetServicePluginHttpAddressByID(servicePlugin.ID)
+	if err != nil {
+		return err
 	}
 	// 断开设备连接
 	if deviceConfig.DeviceType == "3" {
-		err = DisconnectDevice(*device.ParentID, *protocolPlugin.HTTPAddress)
+		err = DisconnectDevice(*device.ParentID, host)
 		if err != nil {
 			return err
 		}
 	} else {
-		err = DisconnectDevice(deviceID, *protocolPlugin.HTTPAddress)
+		err = DisconnectDevice(deviceID, host)
 		if err != nil {
 			return err
 		}

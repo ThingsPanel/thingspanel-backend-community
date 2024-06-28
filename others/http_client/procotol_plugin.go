@@ -36,14 +36,14 @@ type DeviceData struct {
 
 // 获取插件的表单配置
 // CONFIG-配置表单 VOUCHER-凭证表单 VOUCHER-TYPE-凭证类型表单
-func GetPluginFromConfig(host string, protocol_type string, device_type string, form_type string, voucher_type string) ([]byte, error) {
-	return Get("http://" + host + "/api/v1/form/config?protocol_type=" + protocol_type + "&device_type=" + device_type + "&form_type=" + form_type + "&voucher_type=" + voucher_type)
-}
+// func GetPluginFromConfig(host string, protocol_type string, device_type string, form_type string, voucher_type string) ([]byte, error) {
+// 	return Get("http://" + host + "/api/v1/form/config?protocol_type=" + protocol_type + "&device_type=" + device_type + "&form_type=" + form_type + "&voucher_type=" + voucher_type)
+// }
 
 // /api/v2/form/config
 // CFG-配置表单 VCR-凭证表单 VCRT-凭证类型表单 SVCRT-服务凭证表单
 func GetPluginFromConfigV2(host string, service_identifier string, device_type string, form_type string) (interface{}, error) {
-	b, err := Get("http://" + host + "/api/v2/form/config?service_identifier=" + service_identifier + "&device_type=" + device_type + "&form_type=" + form_type)
+	b, err := Get("http://" + host + "/api/v1/form/config?protocol_type=" + service_identifier + "&device_type=" + device_type + "&form_type=" + form_type)
 	if err != nil {
 		logrus.Error(err)
 		return nil, fmt.Errorf("get plugin form failed: %s", err)
