@@ -24,6 +24,7 @@ func (api *ServicePluginApi) Create(c *gin.Context) {
 	SuccessHandler(c, "create service successfully", resp)
 }
 
+// /api/v1/service/list
 func (api *ServicePluginApi) GetList(c *gin.Context) {
 	var req model.GetServicePluginByPageReq
 	if !BindAndValidate(c, &req) {

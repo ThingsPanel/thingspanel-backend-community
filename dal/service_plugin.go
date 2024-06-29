@@ -27,7 +27,7 @@ func UpdateServicePlugin(id string, updates map[string]interface{}) error {
 
 func GetServicePluginListByPage(req *model.GetServicePluginByPageReq) (int64, interface{}, error) {
 	var count int64
-	var servicePlugins = []model.ServicePlugin{}
+	var servicePlugins []map[string]interface{}
 
 	q := query.ServicePlugin
 	queryBuilder := q.WithContext(context.Background())
@@ -44,11 +44,27 @@ func GetServicePluginListByPage(req *model.GetServicePluginByPageReq) (int64, in
 		queryBuilder = queryBuilder.Limit(req.PageSize)
 		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
 	}
-
+	timeNow := time.Now().UTC()
 	err = queryBuilder.Select().Order(q.CreateAt).Scan(&servicePlugins)
 	if err != nil {
 		logrus.Error(err)
 		return count, servicePlugins, err
+	}
+	// 在 Go 代码中计算 service_heartbeat
+	for i := range servicePlugins {
+		lastActiveTime, ok := servicePlugins[i]["last_active_time"].(time.Time)
+		if !ok {
+			// 处理 LastActiveTime 不是 time.Time 类型的情况
+			logrus.Warn("LastActiveTime is not of type time.Time for plugin ", i)
+			servicePlugins[i]["service_heartbeat"] = 2 // 默认设置为不活跃
+			continue
+		}
+
+		if timeNow.Sub(lastActiveTime) > time.Minute {
+			servicePlugins[i]["service_heartbeat"] = 2 // 不活跃
+		} else {
+			servicePlugins[i]["service_heartbeat"] = 1 // 活跃
+		}
 	}
 	return count, servicePlugins, err
 }
