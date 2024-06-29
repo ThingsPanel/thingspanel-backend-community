@@ -146,7 +146,7 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 			log.CommandResultUpdate(context.Background(), logInfo.ID, response)
 			close(config.MqttDirectResponseFuncMap[messageID])
 			delete(config.MqttDirectResponseFuncMap, messageID)
-		case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
+		case <-time.After(6 * time.Minute): // 设置超时时间为 3 分钟
 			fmt.Println("超时，关闭通道")
 			//log.CommandResultUpdate(context.Background(), logInfo.ID, model.MqttResponse{
 			//	Result:  1,
