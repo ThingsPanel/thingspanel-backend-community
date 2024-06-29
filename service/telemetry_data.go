@@ -763,7 +763,7 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		return err
 	}
 	// 获取设备配置
-	var protocolType, deviceType string
+	var protocolType string
 	if deviceInfo.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
@@ -772,7 +772,6 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		}
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
-			deviceType = deviceConfig.DeviceType
 		} else {
 			return fmt.Errorf("protocolType is nil")
 		}
@@ -785,24 +784,12 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		topic = fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber)
 	} else {
 		// 获取主题前缀
-		var t int16
-		if deviceType == "1" {
-			t = 1
-		} else {
-			t = 2
-		}
-		pp, err := dal.GetProtocolPluginByDeviceTypeAndProtocolType(t, protocolType)
+		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			logrus.Error(ctx, "[TelemetryPutMessage][GetProtocolPluginByDeviceTypeAndProtocolType]failed:", err)
+			logrus.Error(ctx, "failed to get sub topic prefix", err)
 			return err
 		}
-		var topicPrefix string
-		if pp.SubTopicPrefix != nil {
-			topicPrefix = *pp.SubTopicPrefix
-		} else {
-			return fmt.Errorf("subTopicPrefix is nil")
-		}
-		topic = fmt.Sprintf("%s%s%s", topicPrefix, config.MqttConfig.Telemetry.PublishTopic, deviceInfo.ID)
+		topic = fmt.Sprintf("%s%s%s", subTopicPrefix, config.MqttConfig.Telemetry.PublishTopic, deviceInfo.ID)
 
 	}
 	err = publish.PublishTelemetryMessage(topic, deviceInfo, param)

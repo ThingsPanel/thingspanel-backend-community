@@ -146,6 +146,47 @@ func GetServicePluginByDeviceConfigID(deviceConfigID string) (*model.ServicePlug
 	return GetServicePluginByServiceIdentifier(*deviceConfig.ProtocolType)
 }
 
+// 通过device_config_id获取主题前缀
+func GetServicePluginSubTopicPrefixByDeviceConfigID(deviceConfigID string) (string, error) {
+	servicePlugin, err := GetServicePluginByDeviceConfigID(deviceConfigID)
+	if err != nil {
+		logrus.Error("failed to get service plugin by device config id: ", err)
+		return "", err
+	}
+	var subTopicPrefix string
+	if servicePlugin.ServiceType == int32(1) {
+		var protocolAccessConfig model.ProtocolAccessConfig
+		if servicePlugin.ServiceConfig == nil {
+			err = errors.New("service config is empty")
+			return "", err
+		}
+		err = json.Unmarshal([]byte(*servicePlugin.ServiceConfig), &protocolAccessConfig)
+		if err != nil {
+			logrus.Error("failed to unmarshal service config: ", err)
+			return "", err
+		}
+		if protocolAccessConfig.SubTopicPrefix != "" {
+			subTopicPrefix = protocolAccessConfig.SubTopicPrefix
+		}
+	} else if servicePlugin.ServiceType == int32(2) {
+		var serviceAccessConfig model.ServiceAccessConfig
+		if servicePlugin.ServiceConfig == nil {
+			err = errors.New("service config is empty")
+			return "", err
+		}
+		err = json.Unmarshal([]byte(*servicePlugin.ServiceConfig), &serviceAccessConfig)
+		if err != nil {
+			logrus.Error("failed to unmarshal service config: ", err)
+			return "", err
+		}
+		if serviceAccessConfig.SubTopicPrefix != "" {
+			subTopicPrefix = serviceAccessConfig.SubTopicPrefix
+		}
+
+	}
+	return subTopicPrefix, nil
+}
+
 // 更新服务插件的心跳时间
 func UpdateServicePluginHeartbeat(serviceIdentifier string) error {
 	q := query.ServicePlugin

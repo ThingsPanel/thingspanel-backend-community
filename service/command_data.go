@@ -58,41 +58,10 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 		// 	logrus.Error(ctx, "[CommandPutMessage][GetProtocolPluginByDeviceConfigID]failed:", err)
 		// 	return err
 		// }
-		servicePlugin, err := dal.GetServicePluginByDeviceConfigID(*deviceInfo.DeviceConfigID)
+		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			logrus.Error(ctx, "[CommandPutMessage][GetServicePluginByDeviceConfigID]failed:", err)
+			logrus.Error(ctx, "failed to get sub topic prefix", err)
 			return err
-		}
-		var subTopicPrefix string
-		if servicePlugin.ServiceType == int32(1) {
-			var protocolAccessConfig model.ProtocolAccessConfig
-			if servicePlugin.ServiceConfig == nil {
-				err = errors.New("service config is empty")
-				return err
-			}
-			err = json.Unmarshal([]byte(*servicePlugin.ServiceConfig), &protocolAccessConfig)
-			if err != nil {
-				logrus.Error(ctx, "[CommandPutMessage][Unmarshal]failed:", err)
-				return err
-			}
-			if protocolAccessConfig.SubTopicPrefix != "" {
-				subTopicPrefix = protocolAccessConfig.SubTopicPrefix
-			}
-		} else if servicePlugin.ServiceType == int32(2) {
-			var serviceAccessConfig model.ServiceAccessConfig
-			if servicePlugin.ServiceConfig == nil {
-				err = errors.New("service config is empty")
-				return err
-			}
-			err = json.Unmarshal([]byte(*servicePlugin.ServiceConfig), &serviceAccessConfig)
-			if err != nil {
-				logrus.Error(ctx, "[CommandPutMessage][Unmarshal]failed:", err)
-				return err
-			}
-			if serviceAccessConfig.SubTopicPrefix != "" {
-				subTopicPrefix = serviceAccessConfig.SubTopicPrefix
-			}
-
 		}
 		// 修改主题
 		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
