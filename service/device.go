@@ -506,10 +506,9 @@ func (d *Device) DeviceConnectForm(ctx context.Context, param *model.DeviceConne
 			//子设备没有凭证表单
 			return nil, nil
 		}
+		// 可以没有凭证类型
 		if deviceConfig.VoucherType != nil {
 			voucherType = *deviceConfig.VoucherType
-		} else {
-			return nil, nil
 		}
 		deviceType = deviceConfig.DeviceType
 		if deviceConfig.ProtocolType != nil {
@@ -563,7 +562,8 @@ func (d *Device) GetVoucherTypeForm(voucherType string, deviceType string, proto
 		}
 	}
 	// 去协议插件获取凭证表单
-	var pp ProtocolPlugin
+	logrus.Debug("去服务插件获取凭证表单")
+	var pp ServicePlugin
 	return pp.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_FORM))
 }
 
