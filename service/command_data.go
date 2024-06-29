@@ -53,17 +53,51 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 	// 判断是否协议插件，如果是则下发到协议插件
 	if deviceInfo.DeviceConfigID != nil {
 		// 查询协议插件信息
-		protocolPluginInfo, err := dal.GetProtocolPluginByDeviceConfigID(*deviceInfo.DeviceConfigID)
+		// protocolPluginInfo, err := dal.GetProtocolPluginByDeviceConfigID(*deviceInfo.DeviceConfigID)
+		// if err != nil {
+		// 	logrus.Error(ctx, "[CommandPutMessage][GetProtocolPluginByDeviceConfigID]failed:", err)
+		// 	return err
+		// }
+		servicePlugin, err := dal.GetServicePluginByDeviceConfigID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			logrus.Error(ctx, "[CommandPutMessage][GetProtocolPluginByDeviceConfigID]failed:", err)
+			logrus.Error(ctx, "[CommandPutMessage][GetServicePluginByDeviceConfigID]failed:", err)
 			return err
 		}
-		if protocolPluginInfo != nil && protocolPluginInfo.SubTopicPrefix != nil {
-			// 修改主题
-			topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
-			// 增加主题前缀
-			topic = fmt.Sprintf("%s%s", *protocolPluginInfo.SubTopicPrefix, topic)
+		var subTopicPrefix string
+		if servicePlugin.ServiceType == int32(1) {
+			var protocolAccessConfig model.ProtocolAccessConfig
+			if servicePlugin.ServiceConfig == nil {
+				err = errors.New("service config is empty")
+				return err
+			}
+			err = json.Unmarshal([]byte(*servicePlugin.ServiceConfig), &protocolAccessConfig)
+			if err != nil {
+				logrus.Error(ctx, "[CommandPutMessage][Unmarshal]failed:", err)
+				return err
+			}
+			if protocolAccessConfig.SubTopicPrefix != "" {
+				subTopicPrefix = protocolAccessConfig.SubTopicPrefix
+			}
+		} else if servicePlugin.ServiceType == int32(2) {
+			var serviceAccessConfig model.ServiceAccessConfig
+			if servicePlugin.ServiceConfig == nil {
+				err = errors.New("service config is empty")
+				return err
+			}
+			err = json.Unmarshal([]byte(*servicePlugin.ServiceConfig), &serviceAccessConfig)
+			if err != nil {
+				logrus.Error(ctx, "[CommandPutMessage][Unmarshal]failed:", err)
+				return err
+			}
+			if serviceAccessConfig.SubTopicPrefix != "" {
+				subTopicPrefix = serviceAccessConfig.SubTopicPrefix
+			}
+
 		}
+		// 修改主题
+		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
+		// 增加主题前缀
+		topic = fmt.Sprintf("%s%s", subTopicPrefix, topic)
 	}
 
 	var paramsMap map[string]interface{}

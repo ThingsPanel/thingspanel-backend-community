@@ -135,6 +135,17 @@ func GetServicePluginByServiceIdentifier(serviceIdentifier string) (*model.Servi
 	return servicePlugin, nil
 }
 
+// 通过device_config_id获取插件服务信息
+func GetServicePluginByDeviceConfigID(deviceConfigID string) (*model.ServicePlugin, error) {
+	// 获取设备配置信息
+	deviceConfig, err := GetDeviceConfigByID(deviceConfigID)
+	if err != nil {
+		return nil, err
+	}
+	// 插件服务信息
+	return GetServicePluginByServiceIdentifier(*deviceConfig.ProtocolType)
+}
+
 // 更新服务插件的心跳时间
 func UpdateServicePluginHeartbeat(serviceIdentifier string) error {
 	q := query.ServicePlugin
