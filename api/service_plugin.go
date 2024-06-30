@@ -62,11 +62,8 @@ func (api *ServicePluginApi) Update(c *gin.Context) {
 }
 
 func (api *ServicePluginApi) Delete(c *gin.Context) {
-	var req model.DeleteServicePluginReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	err := service.GroupApp.ServicePlugin.Delete(&req)
+	id := c.Param("id")
+	err := service.GroupApp.ServicePlugin.Delete(id)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return

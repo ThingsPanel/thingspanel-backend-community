@@ -20,7 +20,7 @@ func (p *ServicePlugin) Init(Router *gin.RouterGroup) {
 
 		url.PUT("", api.Controllers.ServicePluginApi.Update)
 
-		url.DELETE("", api.Controllers.ServicePluginApi.Delete)
+		url.DELETE(":id", api.Controllers.ServicePluginApi.Delete)
 		// 获取服务选择器
 		url.GET("/plugin/select", api.Controllers.ServicePluginApi.GetServiceSelect)
 		access := url.Group("access")
@@ -30,7 +30,7 @@ func (p *ServicePlugin) Init(Router *gin.RouterGroup) {
 
 		access.PUT("", api.Controllers.ServiceAccessApi.Update)
 
-		access.DELETE("", api.Controllers.ServiceAccessApi.Delete)
+		access.DELETE(":id", api.Controllers.ServiceAccessApi.Delete)
 		// /voucher/form
 		access.GET("/voucher/form", api.Controllers.ServiceAccessApi.GetVoucherForm)
 		//GetDeviceList

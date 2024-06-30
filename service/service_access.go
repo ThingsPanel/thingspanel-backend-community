@@ -51,8 +51,8 @@ func (s *ServiceAccess) Update(req *model.UpdateAccessReq) error {
 	return err
 }
 
-func (s *ServiceAccess) Delete(req *model.DeleteAccessReq) error {
-	err := dal.DeleteServiceAccess(req.ID)
+func (s *ServiceAccess) Delete(id string) error {
+	err := dal.DeleteServiceAccess(id)
 	return err
 }
 

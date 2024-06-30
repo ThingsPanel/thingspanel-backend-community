@@ -12,9 +12,25 @@ import (
 )
 
 func DeleteServicePlugin(id string) error {
-	q := query.ServicePlugin
-	queryBuilder := q.WithContext(context.Background())
-	_, err := queryBuilder.Where(query.ServicePlugin.ID.Eq(id)).Delete()
+
+	tx, err := StartTransaction()
+	serviceAccess := tx.ServiceAccess
+
+	_, err = serviceAccess.Where(serviceAccess.ServicePluginID.Eq(id)).Delete()
+	if err != nil {
+		Rollback(tx)
+		return err
+	}
+
+	servicePlugin := tx.ServicePlugin
+
+	_, err = servicePlugin.Where(query.ServicePlugin.ID.Eq(id)).Delete()
+	if err != nil {
+		Rollback(tx)
+		return err
+	}
+
+	err = Commit(tx)
 	return err
 }
 
