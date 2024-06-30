@@ -65,7 +65,7 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 		}
 		return err
 	}
-	if createUserReq.RoleIDs != nil {
+	if createUserReq.RoleIDs != nil && len(createUserReq.RoleIDs) > 0 {
 		// 绑定角色
 		ok := GroupApp.Casbin.AddRolesToUser(user.ID, createUserReq.RoleIDs)
 		if !ok {
