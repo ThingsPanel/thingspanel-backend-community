@@ -79,3 +79,7 @@ COMMENT ON COLUMN service_access.tenant_id IS '租户ID';
 COMMENT ON COLUMN service_access.remark IS '备注';
 
 COMMENT ON COLUMN service_plugins.service_config IS '服务配置: 接入协议和接入服务的配置';
+
+
+ALTER TABLE "public"."scene_action_info"
+ALTER COLUMN "action_param" TYPE varchar(50) COLLATE "pg_catalog"."default";
