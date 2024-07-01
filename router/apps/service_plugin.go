@@ -12,25 +12,25 @@ type ServicePlugin struct {
 func (p *ServicePlugin) Init(Router *gin.RouterGroup) {
 	url := Router.Group("service")
 	{
-		url.POST("/", api.Controllers.ServicePluginApi.Create)
+		url.POST("", api.Controllers.ServicePluginApi.Create)
 
 		url.GET("list", api.Controllers.ServicePluginApi.GetList)
 
 		url.GET("/detail/:id", api.Controllers.ServicePluginApi.Get)
 
-		url.PUT("/", api.Controllers.ServicePluginApi.Update)
+		url.PUT("", api.Controllers.ServicePluginApi.Update)
 
-		url.DELETE("/", api.Controllers.ServicePluginApi.Delete)
+		url.DELETE(":id", api.Controllers.ServicePluginApi.Delete)
 		// 获取服务选择器
 		url.GET("/plugin/select", api.Controllers.ServicePluginApi.GetServiceSelect)
 		access := url.Group("access")
-		access.POST("/", api.Controllers.ServiceAccessApi.Create)
+		access.POST("", api.Controllers.ServiceAccessApi.Create)
 
 		access.GET("/list", api.Controllers.ServiceAccessApi.GetList)
 
-		access.PUT("/", api.Controllers.ServiceAccessApi.Update)
+		access.PUT("", api.Controllers.ServiceAccessApi.Update)
 
-		access.DELETE("/", api.Controllers.ServiceAccessApi.Delete)
+		access.DELETE(":id", api.Controllers.ServiceAccessApi.Delete)
 		// /voucher/form
 		access.GET("/voucher/form", api.Controllers.ServiceAccessApi.GetVoucherForm)
 		//GetDeviceList

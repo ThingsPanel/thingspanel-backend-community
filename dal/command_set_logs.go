@@ -71,6 +71,7 @@ func (c CommandSetLogsQuery) CommandResultUpdate(ctx context.Context, logId stri
 	if response.Result == 0 {
 		status := strconv.Itoa(constant.ResponseStatusOk)
 		updates.Status = &status
+		updates.ErrorMessage = &response.Message
 		//updates["status"] = constant.CommandStatusOk
 	} else {
 		//updates["status"] = constant.CommandStatusFailed

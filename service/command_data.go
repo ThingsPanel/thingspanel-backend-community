@@ -53,17 +53,20 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 	// 判断是否协议插件，如果是则下发到协议插件
 	if deviceInfo.DeviceConfigID != nil {
 		// 查询协议插件信息
-		protocolPluginInfo, err := dal.GetProtocolPluginByDeviceConfigID(*deviceInfo.DeviceConfigID)
+		// protocolPluginInfo, err := dal.GetProtocolPluginByDeviceConfigID(*deviceInfo.DeviceConfigID)
+		// if err != nil {
+		// 	logrus.Error(ctx, "[CommandPutMessage][GetProtocolPluginByDeviceConfigID]failed:", err)
+		// 	return err
+		// }
+		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			logrus.Error(ctx, "[CommandPutMessage][GetProtocolPluginByDeviceConfigID]failed:", err)
+			logrus.Error(ctx, "failed to get sub topic prefix", err)
 			return err
 		}
-		if protocolPluginInfo != nil && protocolPluginInfo.SubTopicPrefix != nil {
-			// 修改主题
-			topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
-			// 增加主题前缀
-			topic = fmt.Sprintf("%s%s", *protocolPluginInfo.SubTopicPrefix, topic)
-		}
+		// 修改主题
+		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
+		// 增加主题前缀
+		topic = fmt.Sprintf("%s%s", subTopicPrefix, topic)
 	}
 
 	var paramsMap map[string]interface{}
@@ -143,7 +146,7 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 			log.CommandResultUpdate(context.Background(), logInfo.ID, response)
 			close(config.MqttDirectResponseFuncMap[messageID])
 			delete(config.MqttDirectResponseFuncMap, messageID)
-		case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
+		case <-time.After(6 * time.Minute): // 设置超时时间为 3 分钟
 			fmt.Println("超时，关闭通道")
 			//log.CommandResultUpdate(context.Background(), logInfo.ID, model.MqttResponse{
 			//	Result:  1,

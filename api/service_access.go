@@ -52,11 +52,8 @@ func (api *ServiceAccessApi) Update(c *gin.Context) {
 }
 
 func (api *ServiceAccessApi) Delete(c *gin.Context) {
-	var req model.DeleteAccessReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	err := service.GroupApp.ServiceAccess.Delete(&req)
+	id := c.Param("id")
+	err := service.GroupApp.ServiceAccess.Delete(id)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return

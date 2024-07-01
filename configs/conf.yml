@@ -23,7 +23,7 @@ jwt:
 db:
   psql:
     host: 127.0.0.1 # 默认localhost
-#    host: 47.92.253.145 # 默认localhost
+    # host: 47.92.253.145 # 默认localhost
     port: 5432 # 默认5432
     dbname: ThingsPanel
     username: postgres

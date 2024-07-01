@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"project/constant"
 	"project/initialize"
@@ -506,10 +505,9 @@ func (d *Device) DeviceConnectForm(ctx context.Context, param *model.DeviceConne
 			//子设备没有凭证表单
 			return nil, nil
 		}
+		// 可以没有凭证类型
 		if deviceConfig.VoucherType != nil {
 			voucherType = *deviceConfig.VoucherType
-		} else {
-			return nil, nil
 		}
 		deviceType = deviceConfig.DeviceType
 		if deviceConfig.ProtocolType != nil {
@@ -563,7 +561,8 @@ func (d *Device) GetVoucherTypeForm(voucherType string, deviceType string, proto
 		}
 	}
 	// 去协议插件获取凭证表单
-	var pp ProtocolPlugin
+	logrus.Debug("去服务插件获取凭证表单")
+	var pp ServicePlugin
 	return pp.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_FORM))
 }
 
@@ -617,31 +616,22 @@ func (d *Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectFo
 			}
 		}
 	} else {
-		var dt int16
-		if deviceType == "1" {
-			dt = 1
-		} else if deviceType == "2" || deviceType == "3" {
-			dt = 2
-		} else {
-			return nil, fmt.Errorf("device type not found")
-		}
 		// 根据协议类型和设备类型获取协议插件信息
-		pp, err := dal.GetProtocolPluginByDeviceTypeAndProtocolType(dt, protocolType)
+		pp, err := dal.GetServicePluginByServiceIdentifier(protocolType)
 		if err != nil {
 			logrus.Error(ctx, "get protocol plugin failed:", err)
 			return nil, err
 		}
-		if pp.AdditionalInfo == nil {
-			return nil, fmt.Errorf("additional info is nil")
+		var info = make(map[string]interface{})
+		if pp.ServiceType == int32(1) {
+			// pp.ServiceConfig转换为model.ProtocolAccessConfig
+			var protocolAccessConfig model.ProtocolAccessConfig
+			err = json.Unmarshal([]byte(*pp.ServiceConfig), &protocolAccessConfig)
+			if err != nil {
+				logrus.Error(ctx, "Error occurred during unmarshalling. Error: %s", err)
+			}
+			info["接入地址"] = protocolAccessConfig.AccessAddress
 		}
-		info := map[string]interface{}{}
-		//pp.AdditionalInfo转换为map[string]interface{}
-		err = json.Unmarshal([]byte(*pp.AdditionalInfo), &info)
-		if err != nil {
-			log.Fatalf("Error occurred during unmarshalling. Error: %s", err)
-		}
-		// 给info最前面加上数据
-		info["接入地址"] = pp.AccessAddress
 		rsp = info
 	}
 	return rsp, err

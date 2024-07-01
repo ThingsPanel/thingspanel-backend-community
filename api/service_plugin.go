@@ -24,6 +24,7 @@ func (api *ServicePluginApi) Create(c *gin.Context) {
 	SuccessHandler(c, "create service successfully", resp)
 }
 
+// /api/v1/service/list
 func (api *ServicePluginApi) GetList(c *gin.Context) {
 	var req model.GetServicePluginByPageReq
 	if !BindAndValidate(c, &req) {
@@ -61,11 +62,8 @@ func (api *ServicePluginApi) Update(c *gin.Context) {
 }
 
 func (api *ServicePluginApi) Delete(c *gin.Context) {
-	var req model.DeleteServicePluginReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	err := service.GroupApp.ServicePlugin.Delete(&req)
+	id := c.Param("id")
+	err := service.GroupApp.ServicePlugin.Delete(id)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return

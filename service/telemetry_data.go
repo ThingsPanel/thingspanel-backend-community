@@ -23,90 +23,16 @@ import (
 
 	dal "project/dal"
 	model "project/model"
-
-	tptodb "project/grpc/tptodb_client"
-	pb "project/grpc/tptodb_client/grpc_tptodb"
 )
 
 type TelemetryData struct{}
 
 func (t *TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, error) {
 	// d, err := dal.GetCurrentTelemetrData(device_id)
-
-	var err error
-	d := []*model.TelemetryCurrentData{}
-
-	dbType := viper.GetString("grpc.tptodb_type")
-	if dbType == "TSDB" {
-		var fields []map[string]interface{}
-		request := &pb.GetDeviceAttributesCurrentsRequest{
-			DeviceId: device_id,
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		if tptodb.TptodbClient != nil {
-			r, err := tptodb.TptodbClient.GetDeviceAttributesCurrents(ctx, request)
-			if err != nil {
-				logrus.Printf("GetDeviceAttributesCurrents err:%+v\n", err)
-				return fields, err
-			}
-			// logrus.Printf("%+v\n", r.Data)
-			err = json.Unmarshal([]byte(r.Data), &fields)
-			if err != nil {
-				return nil, err
-			}
-
-			// 查询设备信息
-			deviceInfo, err := dal.GetDeviceByID(device_id)
-			if err != nil {
-				return nil, err
-			}
-			var telemetryModelMap = make(map[string]*model.DeviceModelTelemetry)
-			var telemetryModelUintMap = make(map[string]interface{})
-			// 是否有设备配置
-			if deviceInfo.DeviceConfigID != nil {
-				// 查询设备配置
-				deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
-				if err != nil {
-					return nil, err
-				}
-				// 是否有设备模板
-				if deviceConfig.DeviceTemplateID != nil {
-					// 查询遥测模型
-					telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
-					if err != nil {
-						return nil, err
-					}
-					if len(telemetryModel) > 0 {
-						// 遍历并转换为map
-						for _, v := range telemetryModel {
-							telemetryModelMap[v.DataIdentifier] = v
-							telemetryModelUintMap[v.DataIdentifier] = v.Unit
-						}
-					}
-				}
-			}
-
-			err = json.Unmarshal([]byte(r.Data), &d)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, v := range d {
-				logrus.Printf(":%+v\n", *v)
-			}
-		} else {
-			logrus.Println("grpc client is nil")
-			return fields, nil
-		}
-	} else {
-		// 数据源替换
-		d, err = dal.GetCurrentTelemetryDataEvolution(device_id)
-		if err != nil {
-			return nil, err
-		}
+	// 数据源替换
+	d, err := dal.GetCurrentTelemetryDataEvolution(device_id)
+	if err != nil {
+		return nil, err
 	}
 
 	// 查询设备信息
@@ -429,7 +355,6 @@ func (t *TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHist
 			return nil, err
 		}
 		return addr, nil
-
 	}
 
 	//  暂时忽略总数
@@ -672,30 +597,6 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 				return nil, fmt.Errorf("time range is too long, can not use no_aggregate")
 			}
 		}
-
-		dbType := viper.GetString("grpc.tptodb_type")
-		if dbType == "TSDB" {
-			var fields []map[string]interface{}
-			request := &pb.GetDeviceKVDataWithNoAggregateRequest{
-				DeviceId:  req.DeviceId,
-				Key:       req.Key,
-				StartTime: req.StartTime,
-				EndTime:   req.EndTime,
-			}
-			r, err := tptodb.TptodbClient.GetDeviceKVDataWithNoAggregate(context.Background(), request)
-			if err != nil {
-				logrus.Printf("err: %+v\n", err)
-				return fields, err
-			}
-			err = json.Unmarshal([]byte(r.Data), &fields)
-			if err != nil {
-				logrus.Printf("err: %+v\n", err)
-				return nil, err
-			}
-			logrus.Printf("fields: %+v\n", fields)
-			return fields, nil
-		}
-
 		data, err := dal.GetTelemetrStatisticData(req.DeviceId, req.Key, req.StartTime, req.EndTime)
 		if err != nil {
 			return nil, err
@@ -706,33 +607,6 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		if req.AggregateFunction == "" {
 			req.AggregateFunction = "avg"
 		}
-
-		dbType := viper.GetString("grpc.tptodb_type")
-		if dbType == "TSDB" {
-			var fields []map[string]interface{}
-			logrus.Printf("req.StartTime: %+v\n", req.StartTime)
-			request := &pb.GetDeviceKVDataWithAggregateRequest{
-				DeviceId:        req.DeviceId,
-				Key:             req.Key,
-				StartTime:       req.StartTime,
-				EndTime:         req.EndTime,
-				AggregateWindow: dal.StatisticAggregateWindowMillisecond[req.AggregateWindow],
-				AggregateFunc:   dal.StatisticAggregateFunction[req.AggregateFunction],
-			}
-			r, err := tptodb.TptodbClient.GetDeviceKVDataWithAggregate(context.Background(), request)
-			if err != nil {
-				logrus.Printf("err: %+v\n", err)
-				return fields, err
-			}
-			err = json.Unmarshal([]byte(r.Data), &fields)
-			if err != nil {
-				logrus.Printf("err: %+v\n", err)
-				return nil, err
-			}
-			logrus.Printf("fields: %+v\n", fields)
-			return fields, nil
-		}
-
 		// 聚合查询
 		data, err := dal.GetTelemetrStatisticaAgregationData(
 			req.DeviceId,
@@ -763,7 +637,7 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		return err
 	}
 	// 获取设备配置
-	var protocolType, deviceType string
+	var protocolType string
 	if deviceInfo.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
@@ -772,7 +646,6 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		}
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
-			deviceType = deviceConfig.DeviceType
 		} else {
 			return fmt.Errorf("protocolType is nil")
 		}
@@ -785,24 +658,12 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		topic = fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber)
 	} else {
 		// 获取主题前缀
-		var t int16
-		if deviceType == "1" {
-			t = 1
-		} else {
-			t = 2
-		}
-		pp, err := dal.GetProtocolPluginByDeviceTypeAndProtocolType(t, protocolType)
+		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			logrus.Error(ctx, "[TelemetryPutMessage][GetProtocolPluginByDeviceTypeAndProtocolType]failed:", err)
+			logrus.Error(ctx, "failed to get sub topic prefix", err)
 			return err
 		}
-		var topicPrefix string
-		if pp.SubTopicPrefix != nil {
-			topicPrefix = *pp.SubTopicPrefix
-		} else {
-			return fmt.Errorf("subTopicPrefix is nil")
-		}
-		topic = fmt.Sprintf("%s%s%s", topicPrefix, config.MqttConfig.Telemetry.PublishTopic, deviceInfo.ID)
+		topic = fmt.Sprintf("%s%s%s", subTopicPrefix, config.MqttConfig.Telemetry.PublishTopic, deviceInfo.ID)
 
 	}
 	err = publish.PublishTelemetryMessage(topic, deviceInfo, param)

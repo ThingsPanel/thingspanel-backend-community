@@ -51,24 +51,21 @@ func (s *ServicePlugin) Get(id string) (interface{}, error) {
 
 func (s *ServicePlugin) Update(req *model.UpdateServicePluginReq) error {
 	updates := make(map[string]interface{})
-	if req.ServiceConfig != "" {
-		// 要么是更新服务配置，要么是更新服务基本信息
-		updates["service_config"] = req.ServiceConfig
-	} else {
-		updates["name"] = req.Name
-		updates["service_identifier"] = req.ServiceIdentifier
-		updates["service_type"] = req.ServiceType
-		updates["version"] = req.Version
-		updates["description"] = req.Description
-		updates["remark"] = req.Remark
-	}
+	// 要么是更新服务配置，要么是更新服务基本信息
+	updates["service_config"] = req.ServiceConfig
+	updates["name"] = req.Name
+	updates["service_identifier"] = req.ServiceIdentifier
+	updates["service_type"] = req.ServiceType
+	updates["version"] = req.Version
+	updates["description"] = req.Description
+	updates["remark"] = req.Remark
 	updates["update_at"] = time.Now().UTC()
 	err := dal.UpdateServicePlugin(req.ID, updates)
 	return err
 }
 
-func (s *ServicePlugin) Delete(req *model.DeleteServicePluginReq) error {
-	err := dal.DeleteServicePlugin(req.ID)
+func (s *ServicePlugin) Delete(id string) error {
+	err := dal.DeleteServicePlugin(id)
 	return err
 }
 
