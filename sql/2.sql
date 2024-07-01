@@ -46,10 +46,8 @@ ALTER TABLE "public"."service_access"
     ALTER COLUMN "create_at" SET NOT NULL,
 ALTER COLUMN "update_at" SET NOT NULL;
 
-ALTER TABLE "public"."devices"
-    ADD COLUMN "service_access_id" varchar(36) NOT NULL,
-    ADD CONSTRAINT fk_service_access_id FOREIGN KEY (service_access_id) REFERENCES public.service_access(id) ON DELETE RESTRICT;
-ALTER TABLE public.devices ALTER COLUMN service_access_id DROP NOT NULL;
+ALTER TABLE public.devices ADD service_access_id varchar(36) NULL;
+ALTER TABLE public.devices ADD CONSTRAINT devices_service_access_fk FOREIGN KEY (service_access_id) REFERENCES public.service_access(id) ON DELETE RESTRICT;
 
 COMMENT ON TABLE service_plugins IS '服务管理';
 
