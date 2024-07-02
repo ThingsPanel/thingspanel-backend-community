@@ -47,7 +47,7 @@ func GetCurrentTelemetrData(deviceId string) ([]model.TelemetryData, error) {
 // 根据设备ID，按ts倒序查找一条数据
 func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
-	if dbType == "TSDB" {
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		data := []model.TelemetryData{}
 		//获取当前设备的第一条数据
 		request := &pb.GetDeviceAttributesCurrentsRequest{
@@ -84,7 +84,7 @@ func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error)
 
 func GetHistoryTelemetrData(deviceId, key string, startTime, endTime int64) ([]*model.TelemetryData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
-	if dbType == "TSDB" {
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		data := make([]*model.TelemetryData, 0)
 		request := &pb.GetDeviceHistoryRequest{
 			DeviceId:  deviceId,
@@ -119,7 +119,7 @@ func GetHistoryTelemetrData(deviceId, key string, startTime, endTime int64) ([]*
 
 func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (int64, []*model.TelemetryData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
-	if dbType == "TSDB" {
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		data := make([]*model.TelemetryData, 0)
 		request := &pb.GetDeviceHistoryWithPageAndPageRequest{
 			DeviceId:  p.DeviceID,
@@ -245,7 +245,7 @@ func DeleteTelemetrDataByTime(t int64) error {
 // 非聚合查询(req.DeviceID, req.Key, req.StartTime, req.EndTime)
 func GetTelemetrStatisticData(deviceID, key string, startTime, endTime int64) (interface{}, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
-	if dbType == "TSDB" {
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		var fields []map[string]interface{}
 		request := &pb.GetDeviceKVDataWithNoAggregateRequest{
 			DeviceId:  deviceID,
@@ -283,7 +283,7 @@ func GetTelemetrStatisticData(deviceID, key string, startTime, endTime int64) (i
 func GetTelemetrStatisticaAgregationData(deviceId, key string, sTime, eTime, aggregateWindow int64, aggregateFunc string) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
 	dbType := viper.GetString("grpc.tptodb_type")
-	if dbType == "TSDB" {
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		request := &pb.GetDeviceKVDataWithAggregateRequest{
 			DeviceId:        deviceId,
 			Key:             key,

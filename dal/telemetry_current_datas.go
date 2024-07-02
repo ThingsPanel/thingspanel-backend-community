@@ -19,7 +19,7 @@ import (
 // 从 telemetry_current_datas 中获取遥测当前数据，用于替换 telemetry_datas
 func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurrentData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
-	if dbType == "TSDB" {
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		telemetry := []*model.TelemetryCurrentData{}
 		request := &pb.GetDeviceAttributesCurrentsRequest{
 			DeviceId: deviceId,
@@ -49,7 +49,7 @@ func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurren
 // 从 telemetry_current_datas 中获取遥测当前数据，用于替换 telemetry_datas
 func GetCurrentTelemetryDataEvolutionByKeys(deviceId string, keys []string) ([]*model.TelemetryCurrentData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
-	if dbType == "TSDB" {
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		data := make([]*model.TelemetryCurrentData, 0)
 		fields := make([]map[string]interface{}, 0)
 		request := &pb.GetDeviceAttributesCurrentsRequest{
