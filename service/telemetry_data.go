@@ -70,7 +70,6 @@ func (t *TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, e
 	if len(d) > 0 {
 		for _, v := range d {
 			tmp := make(map[string]interface{})
-
 			tmp["device_id"] = v.DeviceID
 			tmp["key"] = v.Key
 			tmp["ts"] = v.T
