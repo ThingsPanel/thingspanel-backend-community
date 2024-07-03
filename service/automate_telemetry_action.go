@@ -14,12 +14,15 @@ import (
 )
 
 const (
-	AUTOMATE_ACTION_PARAM_TYPE_TEL        = "TEL"        //遥测
-	AUTOMATE_ACTION_PARAM_TYPE_TELEMETRY  = "telemetry"  //遥测
-	AUTOMATE_ACTION_PARAM_TYPE_ATTR       = "ATTR"       //属性设置
-	AUTOMATE_ACTION_PARAM_TYPE_ATTRIBUTES = "attributes" //属性设置
-	AUTOMATE_ACTION_PARAM_TYPE_CMD        = "CMD"        //命令下发
-	AUTOMATE_ACTION_PARAM_TYPE_COMMAND    = "command"    //命令下发
+	AUTOMATE_ACTION_PARAM_TYPE_TEL          = "TEL"          //遥测
+	AUTOMATE_ACTION_PARAM_TYPE_TELEMETRY    = "telemetry"    //遥测
+	AUTOMATE_ACTION_PARAM_TYPE_C_TELEMETRY  = "c_telemetry"  //遥测
+	AUTOMATE_ACTION_PARAM_TYPE_ATTR         = "ATTR"         //属性设置
+	AUTOMATE_ACTION_PARAM_TYPE_ATTRIBUTES   = "attributes"   //属性设置
+	AUTOMATE_ACTION_PARAM_TYPE_C_ATTRIBUTES = "c_attributes" //属性设置
+	AUTOMATE_ACTION_PARAM_TYPE_CMD          = "CMD"          //命令下发
+	AUTOMATE_ACTION_PARAM_TYPE_COMMAND      = "command"      //命令下发
+	AUTOMATE_ACTION_PARAM_TYPE_C_COMMAND    = "c_command"    //命令下发
 )
 
 // 自动化场景动作执行接口
@@ -45,39 +48,55 @@ func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tena
 	userId, _ = dal.GetUserIdBYTenantID(tenantID)
 	logrus.Debug("AutomateActionDeviceMqttSend:", tenantID, ", userId:", userId)
 	operationType := strconv.Itoa(constant.Auto)
-	var valueMap = make(map[string]string)
+	//var valueMap = make(map[string]string)
 	switch *action.ActionParamType {
-	case AUTOMATE_ACTION_PARAM_TYPE_TEL, AUTOMATE_ACTION_PARAM_TYPE_TELEMETRY:
+	case AUTOMATE_ACTION_PARAM_TYPE_TEL, AUTOMATE_ACTION_PARAM_TYPE_TELEMETRY, AUTOMATE_ACTION_PARAM_TYPE_C_TELEMETRY:
 		msgReq := model.PutMessage{
 			DeviceID: deviceId,
 		}
-		valueMap = map[string]string{
-			*action.ActionParam: *action.ActionValue,
-		}
-		valueStr, _ := json.Marshal(valueMap)
-		msgReq.Value = string(valueStr)
+		//valueMap = map[string]string{
+		//	*action.ActionParam: *action.ActionValue,
+		//}
+		//valueStr, _ := json.Marshal(valueMap)
+		//msgReq.Value = string(valueStr)
+		msgReq.Value = *action.ActionValue
 		logrus.Warning(msgReq)
 		return executeMsg + fmt.Sprintf(" 遥测指令:%s", msgReq.Value), GroupApp.TelemetryData.TelemetryPutMessage(ctx, userId, &msgReq, operationType)
 
-	case AUTOMATE_ACTION_PARAM_TYPE_ATTR, AUTOMATE_ACTION_PARAM_TYPE_ATTRIBUTES:
+	case AUTOMATE_ACTION_PARAM_TYPE_ATTR, AUTOMATE_ACTION_PARAM_TYPE_ATTRIBUTES, AUTOMATE_ACTION_PARAM_TYPE_C_ATTRIBUTES:
 		msgReq := model.AttributePutMessage{
 			DeviceID: deviceId,
 		}
-		valueMap = map[string]string{
-			*action.ActionParam: *action.ActionValue,
-		}
-		valueStr, _ := json.Marshal(valueMap)
-		msgReq.Value = string(valueStr)
-
+		//valueMap = map[string]string{
+		//	*action.ActionParam: *action.ActionValue,
+		//}
+		//valueStr, _ := json.Marshal(valueMap)
+		//msgReq.Value = string(valueStr)
+		msgReq.Value = *action.ActionValue
 		return executeMsg + fmt.Sprintf(" 属性设置:%s", msgReq.Value), GroupApp.AttributeData.AttributePutMessage(ctx, userId, &msgReq, operationType)
 
-	case AUTOMATE_ACTION_PARAM_TYPE_CMD, AUTOMATE_ACTION_PARAM_TYPE_COMMAND:
+	case AUTOMATE_ACTION_PARAM_TYPE_CMD, AUTOMATE_ACTION_PARAM_TYPE_COMMAND, AUTOMATE_ACTION_PARAM_TYPE_C_COMMAND:
+		type commandInfo struct {
+			Method string      `json:"method"`
+			Params interface{} `json:"params"`
+		}
+		var info commandInfo
+		err := json.Unmarshal([]byte(*action.ActionValue), &info)
+		if err != nil {
+			return executeMsg + "命令下发解析数据失败", err
+		}
+		value, _ := json.Marshal(info.Params)
+		valueStr := string(value)
 		msgReq := model.PutMessageForCommand{
 			DeviceID: deviceId,
-			Value:    action.ActionValue,
-			Identify: *action.ActionParam,
+			Value:    &valueStr,
+			Identify: info.Method,
 		}
-
+		//msgReq := model.PutMessageForCommand{
+		//	DeviceID: deviceId,
+		//	Value:    action.ActionValue,
+		//	Identify: *action.ActionParam,
+		//}
 		return executeMsg + fmt.Sprintf(" 命令下发:%s", *msgReq.Value), GroupApp.CommandData.CommandPutMessage(ctx, userId, &msgReq, operationType)
 	default:
 
