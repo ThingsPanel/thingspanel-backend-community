@@ -200,16 +200,14 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		queryBuilder = queryBuilder.Where(q.ProductID.Eq(*req.ProductID))
 	}
 
-	if req.ProtocolType != nil && *req.ProtocolType != "" {
-		if req.DeviceType == nil {
-			return count, deviceList, fmt.Errorf("device_type param error")
-		}
-		if *req.ProtocolType == "mqtt" && *req.DeviceType == "1" {
-			queryBuilder = queryBuilder.Where(query.Device.Where(c.ProtocolType.Eq(*req.ProtocolType)).Or(q.DeviceConfigID.IsNull()))
+	if req.ServiceIdentifier != nil && *req.ServiceIdentifier != "" {
+		if *req.ServiceIdentifier == "mqtt" {
+			queryBuilder = queryBuilder.Where(query.Device.Where(c.ProtocolType.Eq(*req.ServiceIdentifier)).Or(q.DeviceConfigID.IsNull()))
 		} else {
-			queryBuilder = queryBuilder.Where(c.ProtocolType.Eq(*req.ProtocolType))
+			queryBuilder = queryBuilder.Where(c.ProtocolType.Eq(*req.ServiceIdentifier))
 		}
-	} else if req.DeviceType != nil && *req.DeviceType != "" {
+	}
+	if req.DeviceType != nil && *req.DeviceType != "" {
 		if *req.DeviceType == "1" {
 			queryBuilder = queryBuilder.Where(query.Device.Where(q.DeviceConfigID.IsNull()).Or(c.DeviceType.Eq(*req.DeviceType)))
 		} else {
