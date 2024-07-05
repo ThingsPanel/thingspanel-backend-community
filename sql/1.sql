@@ -1737,3 +1737,6 @@ INSERT INTO public.sys_ui_elements (id, parent_id, element_code, element_type, o
 INSERT INTO public.sys_ui_elements (id, parent_id, element_code, element_type, orders, param1, param2, param3, authority, description, created_at, remark, multilingual, route_path) VALUES('9a11b3e4-9982-a0f0-996c-a9be6e738947', '0', 'data-service', 1, 2, '/data-service', 'mdi:monitor-dashboard', '1', '["SYS_ADMIN"]'::json, '数据服务', '2024-03-07 17:05:04.101', '', 'route.data-service', 'layout.base');
 
 INSERT INTO public.logo (id, system_name, logo_cache, logo_background, logo_loading, home_background, remark) VALUES('a', 'ThingsPanel', '', '', '', '', NULL);
+
+ALTER TABLE "public"."scene_action_info"
+ALTER COLUMN "action_param" TYPE varchar(50) COLLATE "pg_catalog"."default";

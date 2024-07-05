@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -12,6 +13,10 @@ import (
 	query "project/query"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
+	tptodb "project/grpc/tptodb_client"
+	pb "project/grpc/tptodb_client/grpc_tptodb"
 )
 
 func CreateTelemetrData(data *model.TelemetryData) error {
@@ -41,6 +46,31 @@ func GetCurrentTelemetrData(deviceId string) ([]model.TelemetryData, error) {
 
 // 根据设备ID，按ts倒序查找一条数据
 func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error) {
+	dbType := viper.GetString("grpc.tptodb_type")
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
+		data := []model.TelemetryData{}
+		//获取当前设备的第一条数据
+		request := &pb.GetDeviceAttributesCurrentsRequest{
+			DeviceId: deviceId,
+		}
+		request.Attribute = append(request.Attribute, "")
+		r, err := tptodb.TptodbClient.GetDeviceAttributesCurrents(context.Background(), request)
+		if err != nil {
+			logrus.Printf("err: %+v", err)
+			return nil, err
+		}
+		logrus.Printf("data: %+v", r.Data)
+		err = json.Unmarshal([]byte(r.Data), &data)
+		if err != nil {
+			logrus.Printf("err: %+v", err)
+			return nil, err
+		}
+		if len(data) > 0 {
+			return &data[0], err
+		}
+		return &model.TelemetryData{}, err
+	}
+
 	re, err := query.TelemetryData.
 		Where(query.TelemetryData.DeviceID.Eq(deviceId)).
 		Order(query.TelemetryData.T.Desc()).
@@ -53,6 +83,30 @@ func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error)
 }
 
 func GetHistoryTelemetrData(deviceId, key string, startTime, endTime int64) ([]*model.TelemetryData, error) {
+	dbType := viper.GetString("grpc.tptodb_type")
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
+		data := make([]*model.TelemetryData, 0)
+		request := &pb.GetDeviceHistoryRequest{
+			DeviceId:  deviceId,
+			StartTime: startTime,
+			EndTime:   endTime,
+			Key:       key,
+		}
+		r, err := tptodb.TptodbClient.GetDeviceHistory(context.Background(), request)
+		if err != nil {
+			logrus.Printf("err: %+v", err)
+			return nil, err
+		}
+		logrus.Printf("data: %+v", r.Data)
+		err = json.Unmarshal([]byte(r.Data), &data)
+		if err != nil {
+			logrus.Printf("Unmarshal err:%v", err)
+			return nil, err
+		}
+
+		return data, nil
+	}
+
 	data, err := query.TelemetryData.
 		Where(query.TelemetryData.DeviceID.Eq(deviceId)).
 		Where(query.TelemetryData.Key.Eq(key)).
@@ -64,6 +118,31 @@ func GetHistoryTelemetrData(deviceId, key string, startTime, endTime int64) ([]*
 }
 
 func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (int64, []*model.TelemetryData, error) {
+	dbType := viper.GetString("grpc.tptodb_type")
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
+		data := make([]*model.TelemetryData, 0)
+		request := &pb.GetDeviceHistoryWithPageAndPageRequest{
+			DeviceId:  p.DeviceID,
+			StartTime: p.StartTime,
+			EndTime:   p.EndTime,
+		}
+		if len(p.Key) > 0 {
+			request.Key = p.Key
+		}
+		r, err := tptodb.TptodbClient.GetDeviceHistoryWithPageAndPage(context.Background(), request)
+		if err != nil {
+			logrus.Printf("err: %+v", err)
+			return 0, nil, err
+		}
+
+		logrus.Printf("data: %+v", r.Data)
+		err = json.Unmarshal([]byte(r.Data), &data)
+		if err != nil {
+			logrus.Printf("err: %+v", err)
+			return 0, nil, err
+		}
+		return int64(len(data)), data, nil
+	}
 
 	var count int64
 	q := query.TelemetryData
@@ -165,6 +244,29 @@ func DeleteTelemetrDataByTime(t int64) error {
 
 // 非聚合查询(req.DeviceID, req.Key, req.StartTime, req.EndTime)
 func GetTelemetrStatisticData(deviceID, key string, startTime, endTime int64) (interface{}, error) {
+	dbType := viper.GetString("grpc.tptodb_type")
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
+		var fields []map[string]interface{}
+		request := &pb.GetDeviceKVDataWithNoAggregateRequest{
+			DeviceId:  deviceID,
+			Key:       key,
+			StartTime: startTime,
+			EndTime:   endTime,
+		}
+		r, err := tptodb.TptodbClient.GetDeviceKVDataWithNoAggregate(context.Background(), request)
+		if err != nil {
+			logrus.Printf("err: %+v\n", err)
+			return fields, err
+		}
+		logrus.Printf("data: %+v", r.Data)
+		err = json.Unmarshal([]byte(r.Data), &fields)
+		if err != nil {
+			logrus.Printf("err: %+v\n", err)
+			return nil, err
+		}
+		return fields, nil
+	}
+
 	q := query.TelemetryData
 	queryBuilder := q.WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(deviceID))
@@ -180,6 +282,30 @@ func GetTelemetrStatisticData(deviceID, key string, startTime, endTime int64) (i
 
 func GetTelemetrStatisticaAgregationData(deviceId, key string, sTime, eTime, aggregateWindow int64, aggregateFunc string) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
+	dbType := viper.GetString("grpc.tptodb_type")
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
+		request := &pb.GetDeviceKVDataWithAggregateRequest{
+			DeviceId:        deviceId,
+			Key:             key,
+			StartTime:       sTime,
+			EndTime:         eTime,
+			AggregateWindow: aggregateWindow,
+			AggregateFunc:   aggregateFunc,
+		}
+		r, err := tptodb.TptodbClient.GetDeviceKVDataWithAggregate(context.Background(), request)
+		if err != nil {
+			logrus.Printf("err: %+v\n", err)
+			return nil, err
+		}
+		logrus.Printf("data: %+v", r.Data)
+		err = json.Unmarshal([]byte(r.Data), &data)
+		if err != nil {
+			logrus.Printf("err: %+v\n", err)
+			return nil, err
+		}
+		return data, nil
+	}
+
 	queryString := fmt.Sprintf(
 		`WITH TimeIntervals AS (
 				SELECT 

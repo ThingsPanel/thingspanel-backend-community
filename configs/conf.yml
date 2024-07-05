@@ -23,7 +23,7 @@ jwt:
 db:
   psql:
     host: 127.0.0.1 # 默认localhost
-    # host: 47.92.253.145 # 默认localhost
+#    host: 47.92.253.145 # 默认localhost
     port: 5432 # 默认5432
     dbname: ThingsPanel
     username: postgres
@@ -39,13 +39,13 @@ db:
 
   redis:
     addr: 127.0.0.1:6379 # 默认localhost:6379
-#    addr: 47.92.253.145:6379 # 默认localhost:6379
+    # addr: 47.92.253.145:6379 # 默认localhost:6379
     db: 1 # 默认0
     password: "redis"
 
 grpc:
   tptodb_server: 127.0.0.1:50052
-  tptodb_type: TSDB # NONE、TSDB
+  tptodb_type: TSDB # NONE、TSDB、POLARDB、KINGBASE #只能填写一个
 
 # mqtt服务：gmqtt、vernemq
 mqtt_server: gmqtt

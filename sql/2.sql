@@ -46,10 +46,8 @@ ALTER TABLE "public"."service_access"
     ALTER COLUMN "create_at" SET NOT NULL,
 ALTER COLUMN "update_at" SET NOT NULL;
 
-ALTER TABLE "public"."devices"
-    ADD COLUMN "service_access_id" varchar(36) NOT NULL,
-    ADD CONSTRAINT fk_service_access_id FOREIGN KEY (service_access_id) REFERENCES public.service_access(id) ON DELETE RESTRICT;
-ALTER TABLE public.devices ALTER COLUMN service_access_id DROP NOT NULL;
+ALTER TABLE public.devices ADD service_access_id varchar(36) NULL;
+ALTER TABLE public.devices ADD CONSTRAINT devices_service_access_fk FOREIGN KEY (service_access_id) REFERENCES public.service_access(id) ON DELETE RESTRICT;
 
 COMMENT ON TABLE service_plugins IS '服务管理';
 
@@ -79,3 +77,7 @@ COMMENT ON COLUMN service_access.tenant_id IS '租户ID';
 COMMENT ON COLUMN service_access.remark IS '备注';
 
 COMMENT ON COLUMN service_plugins.service_config IS '服务配置: 接入协议和接入服务的配置';
+
+
+ALTER TABLE "public"."scene_action_info"
+ALTER COLUMN "action_param" TYPE varchar(50) COLLATE "pg_catalog"."default";

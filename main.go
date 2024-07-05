@@ -6,15 +6,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"project/croninit"
+	"project/mqtt"
+	"project/mqtt/publish"
+	"project/mqtt/subscribe"
 	"time"
 
 	grpc_tptodb "project/grpc/tptodb_client"
 
-	"project/croninit"
 	initialize "project/initialize"
-	"project/mqtt"
-	"project/mqtt/publish"
-	"project/mqtt/subscribe"
 	query "project/query"
 	router "project/router"
 
