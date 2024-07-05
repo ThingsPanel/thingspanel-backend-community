@@ -965,11 +965,11 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 		o.Key = telemetry.Key
 		switch {
 		case telemetry.BoolV != nil:
-			o.DataType = StringPtr("boolean")
+			o.DataType = StringPtr("Boolean")
 		case telemetry.NumberV != nil:
-			o.DataType = StringPtr("number")
+			o.DataType = StringPtr("Number")
 		case telemetry.StringV != nil:
-			o.DataType = StringPtr("string")
+			o.DataType = StringPtr("String")
 		}
 		telemetryOptions = append(telemetryOptions, &o)
 	}
