@@ -40,7 +40,7 @@ func GetServiceAccessListByPage(req *model.GetServiceAccessByPageReq) (int64, in
 		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
 	}
 
-	err = queryBuilder.Select().Order(q.CreateAt).Scan(&serviceAccess)
+	err = queryBuilder.Select().Order(q.CreateAt.Desc()).Scan(&serviceAccess)
 	if err != nil {
 		logrus.Error(err)
 		return count, serviceAccess, err

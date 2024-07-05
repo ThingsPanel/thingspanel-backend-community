@@ -61,7 +61,7 @@ func GetServicePluginListByPage(req *model.GetServicePluginByPageReq) (int64, in
 		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
 	}
 	timeNow := time.Now().UTC()
-	err = queryBuilder.Select().Order(q.CreateAt).Scan(&servicePlugins)
+	err = queryBuilder.Select().Order(q.CreateAt.Desc()).Scan(&servicePlugins)
 	if err != nil {
 		logrus.Error(err)
 		return count, servicePlugins, err
