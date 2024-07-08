@@ -73,15 +73,13 @@ func MessagesChanHandler(messages <-chan map[string]interface{}) {
 
 // 处理消息
 func TelemetryMessages(payload []byte, topic string) {
-	logrus.Debug("payload:", string(payload))
+	logrus.Debugln(string(payload))
 	// 验证消息有效性
 	telemetryPayload, err := verifyPayload(payload)
 	if err != nil {
-		logrus.Error(err.Error())
+		logrus.Error(err.Error(), topic)
 		return
 	}
-	logrus.Debug("telemetry message:", telemetryPayload)
-
 	device, err := initialize.GetDeviceById(telemetryPayload.DeviceId)
 	if err != nil {
 		logrus.Error(err.Error())

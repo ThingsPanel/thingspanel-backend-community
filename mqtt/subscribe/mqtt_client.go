@@ -2,6 +2,7 @@ package subscribe
 
 import (
 	"os"
+	"path"
 	"time"
 
 	"project/initialize"
@@ -17,6 +18,11 @@ import (
 
 var SubscribeMqttClient mqtt.Client
 var TelemetryMessagesChan chan map[string]interface{}
+
+func GenTopic(topic string) string {
+	topic = path.Join("$share/mygroup", topic)
+	return topic
+}
 
 func SubscribeInit() {
 
@@ -61,7 +67,10 @@ func subscribeMqttClient() {
 	opts.AddBroker(config.MqttConfig.Broker)
 	opts.SetUsername(config.MqttConfig.User)
 	opts.SetPassword(config.MqttConfig.Pass)
-	opts.SetClientID("thingspanel-go-sub-" + uuid.New()[0:8])
+	id := "thingspanel-go-sub-" + uuid.New()[0:8]
+	opts.SetClientID(id)
+	logrus.Info("clientid: ", id)
+
 	// 干净会话
 	opts.SetCleanSession(true)
 	// 恢复客户端订阅，需要broker支持
@@ -130,6 +139,9 @@ func SubscribeTelemetry() error {
 	}
 
 	topic := config.MqttConfig.Telemetry.SubscribeTopic
+	topic = GenTopic(topic)
+	logrus.Info("subscribe topic:", topic)
+
 	qos := byte(config.MqttConfig.Telemetry.QoS)
 
 	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceTelemetryMessageHandler); token.Wait() && token.Error() != nil {
@@ -156,7 +168,8 @@ func SubscribeAttribute() {
 		}
 	}
 	topic := config.MqttConfig.Attributes.SubscribeTopic
-	logrus.Debug("subscribe topic:", topic)
+	topic = GenTopic(topic)
+	logrus.Info("subscribe topic:", topic)
 	qos := byte(config.MqttConfig.Attributes.QoS)
 	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceAttributeHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
@@ -172,7 +185,8 @@ func SubscribeSetAttribute() {
 		DeviceSetAttributeResponse(d.Payload(), d.Topic())
 	}
 	topic := config.MqttConfig.Attributes.SubscribeResponseTopic
-	logrus.Debug("subscribe topic:", topic)
+	topic = GenTopic(topic)
+	logrus.Info("subscribe topic:", topic)
 	qos := byte(config.MqttConfig.Attributes.QoS)
 	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceAttributeHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
@@ -193,6 +207,8 @@ func SubscribeCommand() {
 		}
 	}
 	topic := config.MqttConfig.Commands.SubscribeTopic
+	topic = GenTopic(topic)
+	logrus.Info("subscribe topic:", topic)
 	qos := byte(config.MqttConfig.Commands.QoS)
 	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceCommandHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
@@ -234,6 +250,9 @@ func SubscribeDeviceStatus() {
 
 	}
 	onlineTopic := "devices/status/+"
+	onlineTopic = GenTopic(onlineTopic)
+	logrus.Info("subscribe topic:", onlineTopic)
+
 	onlineQos := byte(1)
 	if token := SubscribeMqttClient.Subscribe(onlineTopic, onlineQos, deviceOnlineHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())

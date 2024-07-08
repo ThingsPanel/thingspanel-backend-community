@@ -41,7 +41,7 @@ func (f *customFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	// 组装格式化字符串
 	msg := fmt.Sprintf("\033[1;%sm%s\033[0m \033[4;1;%sm[%s]\033[0m \033[1;%sm[%s]\033[0m %s\n",
 		levelColor, levelText, // 日志级别，带颜色
-		levelColor, entry.Time.Format("2006-01-02 15:04:05"), // 时间戳，下划线加颜色
+		levelColor, entry.Time.Format("2006-01-02 15:04:05.9999"), // 时间戳，下划线加颜色
 		levelColor, fileAndLine, // 文件名:行号，带颜色
 		entry.Message, // 日志消息
 	)

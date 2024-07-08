@@ -16,7 +16,9 @@ type publicPayload struct {
 
 // verifyPayload 函数验证设备上报属性消息的有效负载。
 func verifyPayload(body []byte) (*publicPayload, error) {
-	payload := &publicPayload{}
+	payload := &publicPayload{
+		Values: make([]byte, 0),
+	}
 	if err := json.Unmarshal(body, payload); err != nil {
 		logrus.Error("解析消息失败:", err)
 		return payload, err

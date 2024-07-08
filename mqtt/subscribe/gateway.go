@@ -97,6 +97,8 @@ func GatewaySubscribeTopic() {
 	}
 	pool = p
 	for _, topic := range getSubscribeTopics() {
+		topic.Topic = GenTopic(topic.Topic)
+		logrus.Info("subscribe topic:", topic.Topic)
 		if token := SubscribeMqttClient.Subscribe(topic.Topic, topic.Qos, topic.Callback); token.Wait() && token.Error() != nil {
 			logrus.Error(token.Error())
 			os.Exit(1)

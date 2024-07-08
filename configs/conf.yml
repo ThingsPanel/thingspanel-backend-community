@@ -48,7 +48,7 @@ grpc:
   tptodb_type: TSDB # NONE、TSDB、POLARDB、KINGBASE #只能填写一个
 
 # mqtt服务：gmqtt、vernemq
-mqtt_server: gmqtt
+mqtt_server: vernemq
 
 mqtt:
   access_address: 47.92.253.145:1883
