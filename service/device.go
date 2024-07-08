@@ -1091,6 +1091,16 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 			Options:           commandOptions,
 		})
 	}
+	res = append(res, actionModelSource{
+		DataSourceTypeRes: "c_telemetry",
+	})
+	res = append(res, actionModelSource{
+		DataSourceTypeRes: "c_attribute",
+	})
+	res = append(res, actionModelSource{
+		DataSourceTypeRes: "c_command",
+	})
+
 	return res, nil
 }
 
