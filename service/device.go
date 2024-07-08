@@ -944,24 +944,24 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	type options struct {
+	type option struct {
 		Key      string  `json:"key"`
 		Label    *string `json:"label"`
 		DataType *string `json:"data_type"`
 		Uint     *string `json:"unit"`
 	}
 	type actionModelSource struct {
-		DataSourceTypeRes string     `json:"data_source_type"`
-		Options           []*options `json:"options"`
+		DataSourceTypeRes string    `json:"data_source_type"`
+		Options           []*option `json:"options"`
 	}
 	// 获取设备遥测当前值
 	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(deviceID)
 	if err != nil {
 		return nil, err
 	}
-	var telemetryOptions []*options
+	var telemetryOptions []*option
 	for _, telemetry := range telemetryDatas {
-		var o options
+		var o option
 		o.Key = telemetry.Key
 		switch {
 		case telemetry.BoolV != nil:
@@ -978,9 +978,9 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var attributeOptions []*options
+	var attributeOptions []*option
 	for _, attribute := range attributeDatas {
-		var o options
+		var o option
 		o.Key = attribute.Key
 		switch {
 		case attribute.BoolV != nil:
@@ -992,7 +992,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 		}
 		attributeOptions = append(attributeOptions, &o)
 	}
-	var commandOptions []*options
+	var commandOptions []*option
 	res := make([]actionModelSource, 0)
 	if device.DeviceConfigID != nil {
 		// 获取设备配置信息
@@ -1020,7 +1020,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 				}
 				if !flag {
 					// 没有对应的字段，直接添加
-					var o options
+					var o option
 					o.Key = model.DataIdentifier
 					o.Label = model.DataName
 					o.DataType = model.DataType
@@ -1033,7 +1033,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 			if err != nil {
 				return nil, err
 			}
-			attributeOptions := make([]*options, 0)
+			attributeOptions := make([]*option, 0)
 			for _, model := range attributeModel {
 				// 存在模型对应字段的标志
 				flag := false
@@ -1047,7 +1047,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 				}
 				if !flag {
 					// 没有对应的字段，直接添加
-					var o options
+					var o option
 					o.Key = model.DataIdentifier
 					o.Label = model.DataName
 					o.DataType = model.DataType
@@ -1062,7 +1062,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 			}
 
 			for _, command := range commandDatas {
-				var o options
+				var o option
 				o.Key = command.DataIdentifier
 				o.Label = command.DataName
 				o.DataType = StringPtr("String")
