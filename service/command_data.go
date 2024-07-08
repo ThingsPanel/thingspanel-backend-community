@@ -52,21 +52,28 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.DeviceNumber, messageID)
 	// 判断是否协议插件，如果是则下发到协议插件
 	if deviceInfo.DeviceConfigID != nil {
-		// 查询协议插件信息
-		// protocolPluginInfo, err := dal.GetProtocolPluginByDeviceConfigID(*deviceInfo.DeviceConfigID)
-		// if err != nil {
-		// 	logrus.Error(ctx, "[CommandPutMessage][GetProtocolPluginByDeviceConfigID]failed:", err)
-		// 	return err
-		// }
-		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
+		// 查询设备配置
+		deviceConfigInfo, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			logrus.Error(ctx, "failed to get sub topic prefix", err)
+			logrus.Error(ctx, "device config not found", err)
 			return err
 		}
-		// 修改主题
-		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
-		// 增加主题前缀
-		topic = fmt.Sprintf("%s%s", subTopicPrefix, topic)
+		if deviceConfigInfo.ProtocolType == nil {
+			logrus.Error(ctx, "device config protocol type is nil")
+			return errors.New("device config protocol type is nil")
+		}
+		if *deviceConfigInfo.ProtocolType != "MQTT" {
+			subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
+			if err != nil {
+				logrus.Error(ctx, "failed to get sub topic prefix", err)
+				return err
+			}
+			// 修改主题
+			topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
+			// 增加主题前缀
+			topic = fmt.Sprintf("%s%s", subTopicPrefix, topic)
+		}
+
 	}
 
 	var paramsMap map[string]interface{}
