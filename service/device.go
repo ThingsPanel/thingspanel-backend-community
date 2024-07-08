@@ -953,6 +953,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 	type actionModelSource struct {
 		DataSourceTypeRes string    `json:"data_source_type"`
 		Options           []*option `json:"options"`
+		Label             string    `json:"label"`
 	}
 	// 获取设备遥测当前值
 	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(deviceID)
@@ -1075,31 +1076,37 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 
 	if len(telemetryOptions) != 0 {
 		res = append(res, actionModelSource{
+			Label:             "遥测",
 			DataSourceTypeRes: string(constant.TelemetrySource),
 			Options:           telemetryOptions,
 		})
 	}
 	if len(attributeOptions) != 0 {
 		res = append(res, actionModelSource{
+			Label:             "属性",
 			DataSourceTypeRes: string(constant.AttributeSource),
 			Options:           attributeOptions,
 		})
 	}
 	if len(commandOptions) != 0 {
 		res = append(res, actionModelSource{
+			Label:             "命令",
 			DataSourceTypeRes: string(constant.CommandSource),
 			Options:           commandOptions,
 		})
 	}
 	res = append(res, actionModelSource{
+		Label:             "自定义遥测",
 		DataSourceTypeRes: "c_telemetry",
 		Options:           []*option{},
 	})
 	res = append(res, actionModelSource{
+		Label:             "自定义属性",
 		DataSourceTypeRes: "c_attribute",
 		Options:           []*option{},
 	})
 	res = append(res, actionModelSource{
+		Label:             "自定义命令",
 		DataSourceTypeRes: "c_command",
 		Options:           []*option{},
 	})
