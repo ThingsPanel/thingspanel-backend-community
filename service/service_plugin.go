@@ -85,6 +85,7 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 		"service_identifier": "MQTT",
 		"name":               "MQTT协议",
 	})
+	// 定义一个空切片
 	var serviceList []map[string]interface{}
 	// 获取服务列表
 	services, err := dal.GetServiceSelectList()
@@ -132,6 +133,9 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 		}
 	}
 	resp["protocol"] = protocolList
+	if serviceList == nil {
+		serviceList = make([]map[string]interface{}, 0)
+	}
 	resp["service"] = serviceList
 	return resp, err
 }
