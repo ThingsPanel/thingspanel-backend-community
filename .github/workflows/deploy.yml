@@ -30,11 +30,11 @@ jobs:
       - name: tar 
         run: tar -zcvf thingspanel-backend-community.tar.gz ./*
       - name: Transfer packets server
-        uses: garygrossgarten/github-action-scp@release
+        uses: appleboy/scp-action@master
         with:
           # Github Action 的服务器文件路径
-          local: thingspanel-backend-community.tar.gz
-          remote: /home/thingspanel/thingspanel-backend-community.tar.gz
+          source: thingspanel-backend-community.tar.gz
+          target: /home/thingspanel/
           host: ${{ secrets.C_HOST }}
           username: ${{ secrets.C_USER }}
           password: ${{ secrets.C_PASS }}
