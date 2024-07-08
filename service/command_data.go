@@ -83,17 +83,6 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 			err = errors.New("value is not json format")
 			return err
 		}
-		// 脚本预处理
-		if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
-			newpayload, err := GroupApp.DataScript.Exec(deviceInfo, "E", []byte(*param.Value), topic)
-			if err != nil {
-				logrus.Error(err.Error())
-				return err
-			}
-			if newpayload != nil {
-				*param.Value = string(newpayload)
-			}
-		}
 		err = json.Unmarshal([]byte(*param.Value), &paramsMap)
 		if err != nil {
 			logrus.Error(ctx, "[CommandPutMessage][Unmarshal]failed:", err)
@@ -110,6 +99,17 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 	if err != nil {
 		logrus.Error(ctx, "[CommandPutMessage][Marshal]failed:", err)
 		return err
+	}
+	// 脚本预处理
+	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+		newpayload, err := GroupApp.DataScript.Exec(deviceInfo, "E", payload, topic)
+		if err != nil {
+			logrus.Error(err.Error())
+			return err
+		}
+		if newpayload != nil {
+			payload = newpayload
+		}
 	}
 
 	err = publish.PublishCommandMessage(topic, payload)
