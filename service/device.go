@@ -984,11 +984,11 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 		o.Key = attribute.Key
 		switch {
 		case attribute.BoolV != nil:
-			o.DataType = StringPtr("boolean")
+			o.DataType = StringPtr("Boolean")
 		case attribute.NumberV != nil:
-			o.DataType = StringPtr("number")
+			o.DataType = StringPtr("Number")
 		case attribute.StringV != nil:
-			o.DataType = StringPtr("string")
+			o.DataType = StringPtr("String")
 		}
 		attributeOptions = append(attributeOptions, &o)
 	}
@@ -1065,7 +1065,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 				var o options
 				o.Key = command.DataIdentifier
 				o.Label = command.DataName
-				o.DataType = StringPtr("string")
+				o.DataType = StringPtr("String")
 				commandOptions = append(commandOptions, &o)
 			}
 		}
