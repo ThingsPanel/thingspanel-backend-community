@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"project/dal"
 	"project/model"
 	"project/others/http_client"
@@ -44,11 +45,34 @@ func (s *ServiceAccess) List(req *model.GetServiceAccessByPageReq) (map[string]i
 }
 
 func (s *ServiceAccess) Update(req *model.UpdateAccessReq) error {
+	// 查询服务接入点信息
+	serviceAccess, err := dal.GetServiceAccessByID(req.ID)
+	if err != nil {
+		return err
+	}
 	updates := make(map[string]interface{})
 	updates["service_access_config"] = req.ServiceAccessConfig
 	updates["update_at"] = time.Now().UTC()
-	err := dal.UpdateServiceAccess(req.ID, updates)
-	return err
+	err = dal.UpdateServiceAccess(req.ID, updates)
+	if err != nil {
+		return err
+	}
+	// 查询服务地址
+	_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
+	if err != nil {
+		return err
+	}
+	dataMap := make(map[string]interface{})
+	dataMap["service_access_id"] = req.ID
+	// 将dataMap转json字符串
+	dataBytes, err := json.Marshal(dataMap)
+	if err != nil {
+		return err
+	}
+	// 通知服务插件
+	go http_client.Notification("1", string(dataBytes), host)
+
+	return nil
 }
 
 func (s *ServiceAccess) Delete(id string) error {

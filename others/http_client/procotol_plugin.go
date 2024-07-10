@@ -82,6 +82,20 @@ func AddDevice(reqdata []byte, host string) (*http.Response, error) {
 	return PostJson("http://"+host+"/api/v1/device/add", reqdata)
 }
 
+// messageType 1-服务配置修改
+func Notification(messageType string, message string, host string) (*http.Response, error) {
+	type ReqData struct {
+		MessageType string `json:"message_type"`
+		Message     string `json:"message"`
+	}
+	reqData := ReqData{MessageType: messageType, Message: message}
+	reqDataBytes, err := json.Marshal(reqData)
+	if err != nil {
+		return nil, err
+	}
+	return PostJson("http://"+host+"/api/v1/plugin/notification", reqDataBytes)
+}
+
 // /api/v1/service/access/device/list
 // 三方服务列表查询
 func GetServiceAccessDeviceList(host string, voucher string, page_size string, page string) (*ListData, error) {

@@ -7,6 +7,7 @@ import (
 	"project/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type ServiceAccessApi struct{}
@@ -38,6 +39,7 @@ func (api *ServiceAccessApi) GetList(c *gin.Context) {
 	SuccessHandler(c, "get service access list successfully", resp)
 }
 
+// /api/v1/service/access
 func (api *ServiceAccessApi) Update(c *gin.Context) {
 	var req model.UpdateAccessReq
 	if !BindAndValidate(c, &req) {
@@ -95,6 +97,7 @@ func (api *ServiceAccessApi) GetDeviceList(c *gin.Context) {
 // /api/v1/pugin/service/access/list
 // 服务接入点插件列表查询
 func (api *ServiceAccessApi) GetPluginServiceAccessList(c *gin.Context) {
+	logrus.Info("get plugin list")
 	var req model.GetPluginServiceAccessListReq
 	if !BindAndValidate(c, &req) {
 		return
