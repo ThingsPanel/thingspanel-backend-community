@@ -3,6 +3,7 @@ package http_client
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
@@ -83,7 +84,7 @@ func AddDevice(reqdata []byte, host string) (*http.Response, error) {
 }
 
 // messageType 1-服务配置修改
-func Notification(messageType string, message string, host string) (*http.Response, error) {
+func Notification(messageType string, message string, host string) ([]byte, error) {
 	type ReqData struct {
 		MessageType string `json:"message_type"`
 		Message     string `json:"message"`
@@ -93,7 +94,26 @@ func Notification(messageType string, message string, host string) (*http.Respon
 	if err != nil {
 		return nil, err
 	}
-	return PostJson("http://"+host+"/api/v1/plugin/notification", reqDataBytes)
+	response, err := PostJson("http://"+host+"/api/v1/notify/event", reqDataBytes)
+	if err != nil {
+		logrus.Error(err)
+		return nil, fmt.Errorf("post plugin notification failed: %s", err)
+	}
+	if response.StatusCode != 200 {
+		err = fmt.Errorf("protocol plugin response message: %s", response.Status)
+		logrus.Error(err)
+		return nil, err
+
+	}
+	// 读取body
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		logrus.Error(err)
+		return nil, fmt.Errorf("read plugin response body failed: %s", err)
+	}
+	logrus.Info(string(body))
+
+	return body, nil
 }
 
 // /api/v1/service/access/device/list

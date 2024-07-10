@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/jinzhu/copier"
+	"github.com/sirupsen/logrus"
 )
 
 type ServiceAccess struct{}
@@ -70,8 +71,14 @@ func (s *ServiceAccess) Update(req *model.UpdateAccessReq) error {
 		return err
 	}
 	// 通知服务插件
-	go http_client.Notification("1", string(dataBytes), host)
+	logrus.Debug("发送通知给服务插件")
 
+	rsp, err := http_client.Notification("1", string(dataBytes), host)
+	if err != nil {
+		return err
+	}
+	logrus.Debug("通知服务插件成功")
+	logrus.Debug(string(rsp))
 	return nil
 }
 
