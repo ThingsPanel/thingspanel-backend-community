@@ -105,7 +105,7 @@ func (s *ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDevic
 		return nil, err
 	}
 	// 根据service_plugin_id获取插件服务信息的http地址
-	_, httpAddress, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ID)
+	_, httpAddress, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
 	if err != nil {
 		return nil, err
 	}

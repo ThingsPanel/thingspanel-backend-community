@@ -119,9 +119,10 @@ func Notification(messageType string, message string, host string) ([]byte, erro
 // /api/v1/service/access/device/list
 // 三方服务列表查询
 func GetServiceAccessDeviceList(host string, voucher string, page_size string, page string) (*ListData, error) {
-	b, err := Get("http://" + host + "/api/v1/service/access/device/list?voucher=" + voucher + "&page_size=" + page_size + "&page=" + page)
+	b, err := Get("http://" + host + "/api/v1/plugin/device/list?voucher=" + voucher + "&page_size=" + page_size + "&page=" + page)
 	if err != nil {
 		logrus.Error(err)
+		logrus.Error("http://" + host + "/api/v1/plugin/device/list?voucher=" + voucher + "&page_size=" + page_size + "&page=" + page)
 		return nil, fmt.Errorf("get plugin form failed: %s", err)
 	}
 	// 解析表单
