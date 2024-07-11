@@ -183,6 +183,15 @@ func (d *Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	if len(data) > 0 {
 		return fmt.Errorf("device has sub device,please remove sub device first")
 	}
+	// 关联了场景联动，不允许删除
+	conditions, err1 := dal.GetDeviceTriggerConditionListByDeviceId(id)
+	if err1 != nil {
+		return err1
+	}
+	if len(conditions) > 0 {
+		return fmt.Errorf("device has scene,please remove scene first")
+	}
+	// 删除设备
 	err = dal.DeleteDevice(id, userClaims.TenantID)
 	if err != nil {
 		return err
