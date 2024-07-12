@@ -79,6 +79,7 @@ type GetDeviceListByPageReq struct {
 	BatchNumber       *string `json:"batch_number" form:"batch_number" validate:"omitempty"`
 	DeviceType        *string `json:"device_type" form:"device_type" validate:"omitempty,oneof=1 2 3"`          // 设备类型
 	ServiceIdentifier *string `json:"service_identifier" form:"service_identifier" validate:"omitempty,max=36"` // 服务标识
+	ServiceAccessID   *string `json:"service_access_id" form:"service_access_id" validate:"omitempty,max=36"`   // 服务接入点ID
 }
 
 type GetDeviceListByPageRsp struct {

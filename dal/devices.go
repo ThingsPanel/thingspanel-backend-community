@@ -207,6 +207,9 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 			queryBuilder = queryBuilder.Where(c.ProtocolType.Eq(*req.ServiceIdentifier))
 		}
 	}
+	if req.ServiceAccessID != nil && *req.ServiceAccessID != "" {
+		queryBuilder = queryBuilder.Where(q.ServiceAccessID.Eq(*req.ServiceAccessID))
+	}
 	if req.DeviceType != nil && *req.DeviceType != "" {
 		if *req.DeviceType == "1" {
 			queryBuilder = queryBuilder.Where(query.Device.Where(q.DeviceConfigID.IsNull()).Or(c.DeviceType.Eq(*req.DeviceType)))
