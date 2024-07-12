@@ -71,6 +71,9 @@ func (a *UpLoadApi) UpFile(c *gin.Context) {
 		".svg":  true,
 		".ico":  true,
 		".gif":  true,
+		".xlsx": true,
+		".xls":  true,
+		".csv":  true,
 	}
 	var allowUpgradePackageMap map[string]bool = map[string]bool{
 		".bin":  true,
@@ -84,6 +87,8 @@ func (a *UpLoadApi) UpFile(c *gin.Context) {
 	}
 	var allowimportBatchMap map[string]bool = map[string]bool{
 		".xlsx": true,
+		".xls":  true,
+		".csv":  true,
 	}
 	switch fileType {
 	case "upgradePackage":
