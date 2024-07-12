@@ -26,10 +26,10 @@ type CreateDeviceReq struct {
 type BatchCreateDeviceReq struct {
 	ServiceAccessId string `json:"service_access_id" validate:"required,max=36"` // 服务接入点ID
 	DeviceList      []struct {
-		DeviceName     string  `json:"device_name" validate:"required,max=255"`      // 设备名称
-		DeviceNumber   string  `json:"device_number" validate:"required,max=36"`     // 设备编号
-		Description    *string `json:"description" validate:"omitempty,max=500"`     // 描述
-		DeviceConfigId string  `json:"device_config_id" validate:"omitempty,max=36"` // 设备配置ID
+		DeviceName     string  `json:"device_name" validate:"required,max=255"`     // 设备名称
+		DeviceNumber   string  `json:"device_number" validate:"required,max=36"`    // 设备编号
+		Description    *string `json:"description" validate:"omitempty,max=500"`    // 描述
+		DeviceConfigId string  `json:"device_config_id" validate:"required,max=36"` // 设备配置ID
 	} `json:"device_list" validate:"required"`
 }
 

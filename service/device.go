@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"project/constant"
 	"project/initialize"
+	"project/others/http_client"
 	protocolplugin "project/service/protocol_plugin"
 	"strconv"
 	"strings"
@@ -117,6 +119,38 @@ func (d *Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils
 		deviceList = append(deviceList, &device)
 	}
 	err = dal.CreateDeviceBatch(deviceList)
+	if err != nil {
+		return nil, err
+	} else {
+		//发送通知给服务插件
+		// 获取服务接入信息
+		serviceAccess, err := dal.GetServiceAccessByID(req.ServiceAccessId)
+		if err != nil {
+			return nil, errors.New("创建设备成功，查询接入点信息失败:" + err.Error())
+		}
+		// 查询服务地址
+		_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
+		if err != nil {
+			return nil, errors.New("创建设备成功，查询三方服务地址失败:" + err.Error())
+		}
+		dataMap := make(map[string]interface{})
+		dataMap["service_access_id"] = req.ServiceAccessId
+		// 将dataMap转json字符串
+		dataBytes, err := json.Marshal(dataMap)
+		if err != nil {
+			return nil, errors.New("创建设备成功，json打包失败:" + err.Error())
+		}
+		// 通知服务插件
+		logrus.Debug("发送通知给服务插件")
+
+		rsp, err := http_client.Notification("1", string(dataBytes), host)
+		if err != nil {
+			return nil, errors.New("创建设备成功，通知三方服务失败:" + err.Error())
+		}
+		logrus.Debug("通知服务插件成功")
+		logrus.Debug(string(rsp))
+	}
+
 	return deviceList, err
 
 }
