@@ -94,7 +94,7 @@ func (api *ServiceAccessApi) GetDeviceList(c *gin.Context) {
 	SuccessHandler(c, "get device list successfully", resp)
 }
 
-// /api/v1/pugin/service/access/list
+// /api/v1/plugin/service/access/list
 // 服务接入点插件列表查询
 func (api *ServiceAccessApi) GetPluginServiceAccessList(c *gin.Context) {
 	logrus.Info("get plugin list")

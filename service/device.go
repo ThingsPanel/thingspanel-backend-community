@@ -100,18 +100,19 @@ func (d *Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils
 	var deviceList []*model.Device
 	for _, v := range req.DeviceList {
 		device := model.Device{
-			ID:             uuid.New(),
-			Name:           &v.DeviceName,
-			DeviceNumber:   v.DeviceNumber,
-			Voucher:        `{"username":"` + uuid.New()[0:22] + `"}`,
-			TenantID:       claims.TenantID,
-			CreatedAt:      &t,
-			UpdateAt:       &t,
-			AccessWay:      StringPtr("B"),
-			Description:    v.Description,
-			DeviceConfigID: &v.DeviceConfigId,
-			IsOnline:       0,
-			ActivateFlag:   "active",
+			ID:              uuid.New(),
+			Name:            &v.DeviceName,
+			DeviceNumber:    v.DeviceNumber,
+			Voucher:         `{"username":"` + uuid.New()[0:22] + `"}`,
+			TenantID:        claims.TenantID,
+			CreatedAt:       &t,
+			UpdateAt:        &t,
+			AccessWay:       StringPtr("B"),
+			Description:     v.Description,
+			DeviceConfigID:  &v.DeviceConfigId,
+			IsOnline:        0,
+			ActivateFlag:    "active",
+			ServiceAccessID: &req.ServiceAccessId,
 		}
 		deviceList = append(deviceList, &device)
 	}
