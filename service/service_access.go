@@ -131,10 +131,10 @@ func (s *ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDevic
 	if err != nil {
 		return nil, err
 	}
-	for _, dataDevice := range data.List {
+	for i, dataDevice := range data.List {
 		for _, device := range devices {
 			if dataDevice.DeviceNumber == device.DeviceNumber {
-				dataDevice.IsBind = true
+				data.List[i].IsBind = true
 			}
 		}
 	}
