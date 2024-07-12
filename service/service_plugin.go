@@ -129,6 +129,7 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 			serviceList = append(serviceList, map[string]interface{}{
 				"service_identifier": service.ServiceIdentifier,
 				"name":               service.Name,
+				"service_plugin_id":  service.ID,
 			})
 		}
 	}
