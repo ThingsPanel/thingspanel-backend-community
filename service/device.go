@@ -829,17 +829,17 @@ func (d *Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, erro
 			for _, v := range attributeList {
 				deviceAttributeModelMap[v.DataIdentifier] = v
 			}
+			eventDatas, err = dal.GetDeviceModelEventDataList(*deviceConfig.DeviceTemplateID)
+			if err != nil && len(eventDatas) == 0 {
+				return nil, err
+			}
+
+			commandDatas, err = dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
+			if err != nil && len(eventDatas) == 0 {
+				return nil, err
+			}
 		}
 
-		eventDatas, err = dal.GetDeviceModelEventDataList(*deviceConfig.DeviceTemplateID)
-		if err != nil && len(eventDatas) == 0 {
-			return nil, err
-		}
-
-		commandDatas, err = dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
-		if err != nil && len(eventDatas) == 0 {
-			return nil, err
-		}
 	}
 	s := "string"
 
