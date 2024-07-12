@@ -52,33 +52,46 @@ func (s *ServiceAccess) Update(req *model.UpdateAccessReq) error {
 		return err
 	}
 	updates := make(map[string]interface{})
-	updates["service_access_config"] = req.ServiceAccessConfig
+	if req.Name != nil {
+		updates["name"] = req.Name
+	}
+	if req.ServiceAccessConfig != nil {
+		if *req.ServiceAccessConfig == "" {
+			*req.ServiceAccessConfig = "{}"
+		}
+		serviceAccess.ServiceAccessConfig = req.ServiceAccessConfig
+	}
+	if req.Voucher != nil {
+		updates["voucher"] = req.Voucher
+	}
 	updates["update_at"] = time.Now().UTC()
 	err = dal.UpdateServiceAccess(req.ID, updates)
 	if err != nil {
 		return err
 	}
-	// 查询服务地址
-	_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
-	if err != nil {
-		return err
-	}
-	dataMap := make(map[string]interface{})
-	dataMap["service_access_id"] = req.ID
-	// 将dataMap转json字符串
-	dataBytes, err := json.Marshal(dataMap)
-	if err != nil {
-		return err
-	}
-	// 通知服务插件
-	logrus.Debug("发送通知给服务插件")
+	if serviceAccess.Voucher != "" {
+		// 查询服务地址
+		_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
+		if err != nil {
+			return err
+		}
+		dataMap := make(map[string]interface{})
+		dataMap["service_access_id"] = req.ID
+		// 将dataMap转json字符串
+		dataBytes, err := json.Marshal(dataMap)
+		if err != nil {
+			return err
+		}
+		// 通知服务插件
+		logrus.Debug("发送通知给服务插件")
 
-	rsp, err := http_client.Notification("1", string(dataBytes), host)
-	if err != nil {
-		return err
+		rsp, err := http_client.Notification("1", string(dataBytes), host)
+		if err != nil {
+			return err
+		}
+		logrus.Debug("通知服务插件成功")
+		logrus.Debug(string(rsp))
 	}
-	logrus.Debug("通知服务插件成功")
-	logrus.Debug(string(rsp))
 	return nil
 }
 
