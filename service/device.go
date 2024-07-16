@@ -101,6 +101,17 @@ func (d *Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils
 	t := time.Now().UTC()
 	var deviceList []*model.Device
 	for _, v := range req.DeviceList {
+		// 校验v.DeviceNumber,v.DeviceConfigId,v.DeviceName不为空
+		if v.DeviceNumber == "" {
+			return nil, errors.New("设备编号不能为空")
+		}
+		if v.DeviceConfigId == "" {
+			return nil, errors.New("设备配置id不能为空")
+		}
+		if v.DeviceName == "" {
+			return nil, errors.New("设备名称不能为空")
+		}
+
 		device := model.Device{
 			ID:              uuid.New(),
 			Name:            &v.DeviceName,
