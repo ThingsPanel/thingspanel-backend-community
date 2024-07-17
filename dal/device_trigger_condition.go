@@ -44,6 +44,13 @@ func GetDeviceTriggerConditionByDeviceId(deviceId string, conditionType string) 
 	return condtionds, err
 }
 
+func GetDeviceTriggerConditionListByDeviceId(deviceId string) ([]model.DeviceTriggerCondition, error) {
+	var condtionds []model.DeviceTriggerCondition
+	qd := query.DeviceTriggerCondition
+	err := qd.Where(qd.TriggerSource.Eq(deviceId)).Scan(&condtionds)
+	return condtionds, err
+}
+
 func GetDeviceTriggerConditionByGroupIds(groupIds []string) ([]model.DeviceTriggerCondition, error) {
 	var condtionds []model.DeviceTriggerCondition
 	qd := query.DeviceTriggerCondition

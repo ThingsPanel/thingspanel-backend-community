@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"project/dal"
 	"project/model"
 	"project/others/http_client"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/jinzhu/copier"
+	"github.com/sirupsen/logrus"
 )
 
 type ServiceAccess struct{}
@@ -44,11 +46,53 @@ func (s *ServiceAccess) List(req *model.GetServiceAccessByPageReq) (map[string]i
 }
 
 func (s *ServiceAccess) Update(req *model.UpdateAccessReq) error {
+	// 查询服务接入点信息
+	serviceAccess, err := dal.GetServiceAccessByID(req.ID)
+	if err != nil {
+		return err
+	}
 	updates := make(map[string]interface{})
-	updates["service_access_config"] = req.ServiceAccessConfig
+	if req.Name != nil {
+		updates["name"] = req.Name
+	}
+	if req.ServiceAccessConfig != nil {
+		if *req.ServiceAccessConfig == "" {
+			*req.ServiceAccessConfig = "{}"
+		}
+		serviceAccess.ServiceAccessConfig = req.ServiceAccessConfig
+	}
+	if req.Voucher != nil {
+		updates["voucher"] = req.Voucher
+	}
 	updates["update_at"] = time.Now().UTC()
-	err := dal.UpdateServiceAccess(req.ID, updates)
-	return err
+	err = dal.UpdateServiceAccess(req.ID, updates)
+	if err != nil {
+		return err
+	}
+	if serviceAccess.Voucher != "" {
+		// 查询服务地址
+		_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
+		if err != nil {
+			return err
+		}
+		dataMap := make(map[string]interface{})
+		dataMap["service_access_id"] = req.ID
+		// 将dataMap转json字符串
+		dataBytes, err := json.Marshal(dataMap)
+		if err != nil {
+			return err
+		}
+		// 通知服务插件
+		logrus.Debug("发送通知给服务插件")
+
+		rsp, err := http_client.Notification("1", string(dataBytes), host)
+		if err != nil {
+			return err
+		}
+		logrus.Debug("通知服务插件成功")
+		logrus.Debug(string(rsp))
+	}
+	return nil
 }
 
 func (s *ServiceAccess) Delete(id string) error {
@@ -74,7 +118,7 @@ func (s *ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDevic
 		return nil, err
 	}
 	// 根据service_plugin_id获取插件服务信息的http地址
-	_, httpAddress, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ID)
+	_, httpAddress, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,10 +131,10 @@ func (s *ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDevic
 	if err != nil {
 		return nil, err
 	}
-	for _, dataDevice := range data.List {
+	for i, dataDevice := range data.List {
 		for _, device := range devices {
 			if dataDevice.DeviceNumber == device.DeviceNumber {
-				dataDevice.IsBind = true
+				data.List[i].IsBind = true
 			}
 		}
 	}

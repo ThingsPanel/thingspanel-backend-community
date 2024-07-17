@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"project/constant"
 	"project/initialize"
+	"project/others/http_client"
 	protocolplugin "project/service/protocol_plugin"
 	"strconv"
 	"strings"
@@ -99,23 +101,67 @@ func (d *Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils
 	t := time.Now().UTC()
 	var deviceList []*model.Device
 	for _, v := range req.DeviceList {
+		// 校验v.DeviceNumber,v.DeviceConfigId,v.DeviceName不为空
+		if v.DeviceNumber == "" {
+			return nil, errors.New("设备编号不能为空")
+		}
+		if v.DeviceConfigId == "" {
+			return nil, errors.New("设备配置id不能为空")
+		}
+		if v.DeviceName == "" {
+			return nil, errors.New("设备名称不能为空")
+		}
+
 		device := model.Device{
-			ID:             uuid.New(),
-			Name:           &v.DeviceName,
-			DeviceNumber:   v.DeviceNumber,
-			Voucher:        `{"username":"` + uuid.New()[0:22] + `"}`,
-			TenantID:       claims.TenantID,
-			CreatedAt:      &t,
-			UpdateAt:       &t,
-			AccessWay:      StringPtr("B"),
-			Description:    v.Description,
-			DeviceConfigID: &v.DeviceConfigId,
-			IsOnline:       0,
-			ActivateFlag:   "active",
+			ID:              uuid.New(),
+			Name:            &v.DeviceName,
+			DeviceNumber:    v.DeviceNumber,
+			Voucher:         `{"username":"` + uuid.New()[0:22] + `"}`,
+			TenantID:        claims.TenantID,
+			CreatedAt:       &t,
+			UpdateAt:        &t,
+			AccessWay:       StringPtr("B"),
+			Description:     v.Description,
+			DeviceConfigID:  &v.DeviceConfigId,
+			IsOnline:        0,
+			ActivateFlag:    "active",
+			ServiceAccessID: &req.ServiceAccessId,
 		}
 		deviceList = append(deviceList, &device)
 	}
 	err = dal.CreateDeviceBatch(deviceList)
+	if err != nil {
+		return nil, err
+	} else {
+		//发送通知给服务插件
+		// 获取服务接入信息
+		serviceAccess, err := dal.GetServiceAccessByID(req.ServiceAccessId)
+		if err != nil {
+			return nil, errors.New("创建设备成功，查询接入点信息失败:" + err.Error())
+		}
+		// 查询服务地址
+		_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
+		if err != nil {
+			return nil, errors.New("创建设备成功，查询三方服务地址失败:" + err.Error())
+		}
+		dataMap := make(map[string]interface{})
+		dataMap["service_access_id"] = req.ServiceAccessId
+		// 将dataMap转json字符串
+		dataBytes, err := json.Marshal(dataMap)
+		if err != nil {
+			return nil, errors.New("创建设备成功，json打包失败:" + err.Error())
+		}
+		// 通知服务插件
+		logrus.Debug("发送通知给服务插件")
+
+		rsp, err := http_client.Notification("1", string(dataBytes), host)
+		if err != nil {
+			return nil, errors.New("创建设备成功，通知三方服务失败:" + err.Error())
+		}
+		logrus.Debug("通知服务插件成功")
+		logrus.Debug(string(rsp))
+	}
+
 	return deviceList, err
 
 }
@@ -183,6 +229,15 @@ func (d *Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	if len(data) > 0 {
 		return fmt.Errorf("device has sub device,please remove sub device first")
 	}
+	// 关联了场景联动，不允许删除
+	conditions, err1 := dal.GetDeviceTriggerConditionListByDeviceId(id)
+	if err1 != nil {
+		return err1
+	}
+	if len(conditions) > 0 {
+		return fmt.Errorf("device has scene,please remove scene first")
+	}
+	// 删除设备
 	err = dal.DeleteDevice(id, userClaims.TenantID)
 	if err != nil {
 		return err
@@ -785,17 +840,17 @@ func (d *Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, erro
 			for _, v := range attributeList {
 				deviceAttributeModelMap[v.DataIdentifier] = v
 			}
+			eventDatas, err = dal.GetDeviceModelEventDataList(*deviceConfig.DeviceTemplateID)
+			if err != nil && len(eventDatas) == 0 {
+				return nil, err
+			}
+
+			commandDatas, err = dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
+			if err != nil && len(eventDatas) == 0 {
+				return nil, err
+			}
 		}
 
-		eventDatas, err = dal.GetDeviceModelEventDataList(*deviceConfig.DeviceTemplateID)
-		if err != nil && len(eventDatas) == 0 {
-			return nil, err
-		}
-
-		commandDatas, err = dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
-		if err != nil && len(eventDatas) == 0 {
-			return nil, err
-		}
 	}
 	s := "string"
 
@@ -944,24 +999,25 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	type options struct {
+	type option struct {
 		Key      string  `json:"key"`
 		Label    *string `json:"label"`
 		DataType *string `json:"data_type"`
 		Uint     *string `json:"unit"`
 	}
 	type actionModelSource struct {
-		DataSourceTypeRes string     `json:"data_source_type"`
-		Options           []*options `json:"options"`
+		DataSourceTypeRes string    `json:"data_source_type"`
+		Options           []*option `json:"options"`
+		Label             string    `json:"label"`
 	}
 	// 获取设备遥测当前值
 	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(deviceID)
 	if err != nil {
 		return nil, err
 	}
-	var telemetryOptions []*options
+	var telemetryOptions []*option
 	for _, telemetry := range telemetryDatas {
-		var o options
+		var o option
 		o.Key = telemetry.Key
 		switch {
 		case telemetry.BoolV != nil:
@@ -978,21 +1034,21 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var attributeOptions []*options
+	var attributeOptions []*option
 	for _, attribute := range attributeDatas {
-		var o options
+		var o option
 		o.Key = attribute.Key
 		switch {
 		case attribute.BoolV != nil:
-			o.DataType = StringPtr("boolean")
+			o.DataType = StringPtr("Boolean")
 		case attribute.NumberV != nil:
-			o.DataType = StringPtr("number")
+			o.DataType = StringPtr("Number")
 		case attribute.StringV != nil:
-			o.DataType = StringPtr("string")
+			o.DataType = StringPtr("String")
 		}
 		attributeOptions = append(attributeOptions, &o)
 	}
-	var commandOptions []*options
+	var commandOptions []*option
 	res := make([]actionModelSource, 0)
 	if device.DeviceConfigID != nil {
 		// 获取设备配置信息
@@ -1020,7 +1076,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 				}
 				if !flag {
 					// 没有对应的字段，直接添加
-					var o options
+					var o option
 					o.Key = model.DataIdentifier
 					o.Label = model.DataName
 					o.DataType = model.DataType
@@ -1033,7 +1089,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 			if err != nil {
 				return nil, err
 			}
-			attributeOptions := make([]*options, 0)
+			attributeOptions := make([]*option, 0)
 			for _, model := range attributeModel {
 				// 存在模型对应字段的标志
 				flag := false
@@ -1047,7 +1103,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 				}
 				if !flag {
 					// 没有对应的字段，直接添加
-					var o options
+					var o option
 					o.Key = model.DataIdentifier
 					o.Label = model.DataName
 					o.DataType = model.DataType
@@ -1062,10 +1118,10 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 			}
 
 			for _, command := range commandDatas {
-				var o options
+				var o option
 				o.Key = command.DataIdentifier
 				o.Label = command.DataName
-				o.DataType = StringPtr("string")
+				o.DataType = StringPtr("String")
 				commandOptions = append(commandOptions, &o)
 			}
 		}
@@ -1075,22 +1131,41 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 
 	if len(telemetryOptions) != 0 {
 		res = append(res, actionModelSource{
+			Label:             "遥测",
 			DataSourceTypeRes: string(constant.TelemetrySource),
 			Options:           telemetryOptions,
 		})
 	}
 	if len(attributeOptions) != 0 {
 		res = append(res, actionModelSource{
+			Label:             "属性",
 			DataSourceTypeRes: string(constant.AttributeSource),
 			Options:           attributeOptions,
 		})
 	}
 	if len(commandOptions) != 0 {
 		res = append(res, actionModelSource{
+			Label:             "命令",
 			DataSourceTypeRes: string(constant.CommandSource),
 			Options:           commandOptions,
 		})
 	}
+	res = append(res, actionModelSource{
+		Label:             "自定义遥测",
+		DataSourceTypeRes: "c_telemetry",
+		Options:           []*option{},
+	})
+	res = append(res, actionModelSource{
+		Label:             "自定义属性",
+		DataSourceTypeRes: "c_attribute",
+		Options:           []*option{},
+	})
+	res = append(res, actionModelSource{
+		Label:             "自定义命令",
+		DataSourceTypeRes: "c_command",
+		Options:           []*option{},
+	})
+
 	return res, nil
 }
 

@@ -10,8 +10,10 @@ type CreateAccessReq struct {
 }
 
 type UpdateAccessReq struct {
-	ID                  string `json:"id" binding:"required"`
-	ServiceAccessConfig string `json:"service_access_config"`
+	ID                  string  `json:"id" binding:"required"`
+	ServiceAccessConfig *string `json:"service_access_config"`
+	Name                *string `json:"name"`
+	Voucher             *string `json:"voucher"`
 }
 
 type DeleteAccessReq struct {

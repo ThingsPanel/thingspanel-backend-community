@@ -26,10 +26,10 @@ type CreateDeviceReq struct {
 type BatchCreateDeviceReq struct {
 	ServiceAccessId string `json:"service_access_id" validate:"required,max=36"` // 服务接入点ID
 	DeviceList      []struct {
-		DeviceName     string  `json:"device_name" validate:"required,max=255"`      // 设备名称
-		DeviceNumber   string  `json:"device_number" validate:"required,max=36"`     // 设备编号
-		Description    *string `json:"description" validate:"omitempty,max=500"`     // 描述
-		DeviceConfigId string  `json:"device_config_id" validate:"omitempty,max=36"` // 设备配置ID
+		DeviceName     string  `json:"device_name" validate:"required,max=255"`     // 设备名称
+		DeviceNumber   string  `json:"device_number" validate:"required,max=36"`    // 设备编号
+		Description    *string `json:"description" validate:"omitempty,max=500"`    // 描述
+		DeviceConfigId string  `json:"device_config_id" validate:"required,max=36"` // 设备配置ID
 	} `json:"device_list" validate:"required"`
 }
 
@@ -79,6 +79,7 @@ type GetDeviceListByPageReq struct {
 	BatchNumber       *string `json:"batch_number" form:"batch_number" validate:"omitempty"`
 	DeviceType        *string `json:"device_type" form:"device_type" validate:"omitempty,oneof=1 2 3"`          // 设备类型
 	ServiceIdentifier *string `json:"service_identifier" form:"service_identifier" validate:"omitempty,max=36"` // 服务标识
+	ServiceAccessID   *string `json:"service_access_id" form:"service_access_id" validate:"omitempty,max=36"`   // 服务接入点ID
 }
 
 type GetDeviceListByPageRsp struct {

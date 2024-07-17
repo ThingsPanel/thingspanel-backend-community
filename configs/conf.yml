@@ -45,10 +45,10 @@ db:
 
 grpc:
   tptodb_server: 127.0.0.1:50052
-  tptodb_type: TSDB # NONE、TSDB、POLARDB、KINGBASE #只能填写一个
+  tptodb_type: NONE # NONE、TSDB、POLARDB、KINGBASE #只能填写一个
 
 # mqtt服务：gmqtt、vernemq
-mqtt_server: gmqtt
+mqtt_server: vernemq
 
 mqtt:
   access_address: 47.92.253.145:1883

@@ -629,6 +629,10 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 
 		errorMessage string
 	)
+	// 校验param.Value必须是json
+	if !json.Valid([]byte(param.Value)) {
+		errorMessage = "value must be json"
+	}
 
 	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
 	if err != nil {

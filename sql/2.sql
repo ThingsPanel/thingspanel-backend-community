@@ -82,3 +82,9 @@ COMMENT ON COLUMN service_plugins.service_config IS '服务配置: 接入协议�
 ALTER TABLE "public"."scene_action_info"
 ALTER COLUMN "action_param" TYPE varchar(50) COLLATE "pg_catalog"."default";
 
+ALTER TABLE public.telemetry_set_logs DROP CONSTRAINT telemetry_set_logs_device_id_fkey;
+ALTER TABLE public.telemetry_set_logs ADD CONSTRAINT telemetry_set_logs_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.devices(id) ON DELETE CASCADE;
+ALTER TABLE public.attribute_set_logs DROP CONSTRAINT attribute_set_logs_device_id_fkey;
+ALTER TABLE public.attribute_set_logs ADD CONSTRAINT attribute_set_logs_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.devices(id) ON DELETE CASCADE;
+ALTER TABLE public.command_set_logs DROP CONSTRAINT command_set_logs_device_id_fkey;
+ALTER TABLE public.command_set_logs ADD CONSTRAINT command_set_logs_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.devices(id) ON DELETE CASCADE;

@@ -157,7 +157,7 @@ func DelDeviceConfigCache(deviceConfigId string) error {
 
 // 清除设备对应的脚本缓存
 func DelDeviceDataScriptCache(deviceID string) error {
-	scriptType := []string{"A", "B", "C", "D", "E"}
+	scriptType := []string{"A", "B", "C", "D", "E", "F"}
 	key := []string{}
 	for _, scriptType := range scriptType {
 		key = append(key, deviceID+"_"+scriptType+"_script")
