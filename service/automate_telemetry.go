@@ -127,23 +127,24 @@ func (a *Automate) AutomateFilter(info initialize.AutomateExecteParams, fromExt 
 			if cond.TriggerParamType == nil || cond.TriggerParam == nil {
 				continue
 			}
+			condTriggerParamType := strings.ToUpper(*cond.TriggerParamType)
 			switch fromExt.TriggerParamType {
 			case model.TRIGGER_PARAM_TYPE_TEL:
-				if *cond.TriggerParamType == model.TRIGGER_PARAM_TYPE_TEL || *cond.TriggerParamType == model.TRIGGER_PARAM_TYPE_TELEMETRY {
+				if condTriggerParamType == model.TRIGGER_PARAM_TYPE_TEL || condTriggerParamType == model.TRIGGER_PARAM_TYPE_TELEMETRY {
 					if a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
 						isExists = true
 					}
 				}
 			case model.TRIGGER_PARAM_TYPE_STATUS:
-				if *cond.TriggerParamType == model.TRIGGER_PARAM_TYPE_STATUS {
+				if condTriggerParamType == model.TRIGGER_PARAM_TYPE_STATUS {
 					isExists = true
 				}
 			case model.TRIGGER_PARAM_TYPE_EVT:
-				if *cond.TriggerParamType == model.TRIGGER_PARAM_TYPE_EVT && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
+				if condTriggerParamType == model.TRIGGER_PARAM_TYPE_EVT && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
 					isExists = true
 				}
 			case model.TRIGGER_PARAM_TYPE_ATTR:
-				if *cond.TriggerParamType == model.TRIGGER_PARAM_TYPE_ATTR && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
+				if condTriggerParamType == model.TRIGGER_PARAM_TYPE_ATTR && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
 					isExists = true
 				}
 			}
