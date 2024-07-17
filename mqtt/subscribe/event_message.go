@@ -83,7 +83,14 @@ func deviceEventHandle(device *model.Device, eventValues *model.EventInfo, topic
 	}
 	// TODO自动化处理
 	go func() {
-		err := service.GroupApp.Execute(device)
+		var triggerParam []string
+		for key := range eventValues.Params {
+			triggerParam = append(triggerParam, key)
+		}
+		err := service.GroupApp.Execute(device, service.AutomateFromExt{
+			TriggerParamType: model.TRIGGER_PARAM_TYPE_EVT,
+			TriggerParam:     triggerParam,
+		})
 		if err != nil {
 			logrus.Errorf("自动化执行失败, err: %w", err)
 		}

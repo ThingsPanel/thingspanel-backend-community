@@ -43,7 +43,10 @@ func DeviceOnline(payload []byte, topic string) {
 	}
 	//自动化
 	go func() {
-		err := service.GroupApp.Execute(device)
+		err := service.GroupApp.Execute(device, service.AutomateFromExt{
+			TriggerParamType: model.TRIGGER_PARAM_TYPE_STATUS,
+			TriggerParam:     []string{},
+		})
 		if err != nil {
 			logrus.Errorf("自动化执行失败, err: %w", err)
 		}

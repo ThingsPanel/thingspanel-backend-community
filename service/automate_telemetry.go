@@ -24,7 +24,7 @@ type Automate struct {
 	mu     sync.Mutex
 }
 
-var conditionAfterDecoration = []ConfitionAfterFunc{
+var conditionAfterDecoration = []ConditionAfterFunc{
 	ConditionAfterAlarm,
 }
 
@@ -32,8 +32,13 @@ var actionAfterDecoration = []ActionAfterFunc{
 	ActionAfterAlarm,
 }
 
-type ConfitionAfterFunc = func(ok bool, conditions initialize.DTConditions, deviceId string, contents []string) error
+type ConditionAfterFunc = func(ok bool, conditions initialize.DTConditions, deviceId string, contents []string) error
 type ActionAfterFunc = func(actions []model.ActionInfo, err error) error
+
+type AutomateFromExt struct {
+	TriggerParamType string
+	TriggerParam     []string
+}
 
 func (a *Automate) conditionAfterDecorationRun(ok bool, conditions initialize.DTConditions, deviceId string, contents []string) {
 	defer a.ErrorRecover()
@@ -66,28 +71,29 @@ func (a *Automate) ErrorRecover() func() {
 	}
 }
 
-// @description Execute 遥测设置上报执行自动化（读取缓存信息 缓存无信息数据库查询保存缓存信息）
-// @params devieInfo *model.Device
+// Execute
+// @description 遥测设置上报执行自动化（读取缓存信息 缓存无信息数据库查询保存缓存信息）
+// @params deviceInfo *model.Device
 // @return error
-func (a *Automate) Execute(devieInfo *model.Device) error {
+func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) error {
 	defer a.ErrorRecover()
-	a.device = devieInfo
+	a.device = deviceInfo
 	//
 
 	//单类设备t
-	if devieInfo.DeviceConfigID != nil {
+	if deviceInfo.DeviceConfigID != nil {
 		var deviceConfigId string
-		deviceConfigId = *devieInfo.DeviceConfigID
-		err := a.execute(devieInfo.ID, deviceConfigId)
+		deviceConfigId = *deviceInfo.DeviceConfigID
+		err := a.execute(deviceInfo.ID, deviceConfigId, fromExt)
 		if err != nil {
 			logrus.Error("自动化执行失败", err)
 		}
 	}
-	return a.execute(devieInfo.ID, "")
+	return a.execute(deviceInfo.ID, "", fromExt)
 
 }
 
-func (a *Automate) execute(deviceId, deviceConfigId string) error {
+func (a *Automate) execute(deviceId, deviceConfigId string, fromExt AutomateFromExt) error {
 	info, resultInt, err := initialize.NewAutomateCache().GetCacheByDeviceId(deviceId, deviceConfigId)
 	logrus.Debugf("info:%#v, resultInt:%d", info, resultInt)
 	if err != nil {
@@ -108,8 +114,55 @@ func (a *Automate) execute(deviceId, deviceConfigId string) error {
 			return nil
 		}
 	}
+	//过滤自动化触发条件
+	info = a.AutomateFilter(info, fromExt)
 	//执行自动化
 	return a.ExecuteRun(info)
+}
+func (a *Automate) AutomateFilter(info initialize.AutomateExecteParams, fromExt AutomateFromExt) initialize.AutomateExecteParams {
+	var sceneInfo []initialize.AutomateExecteSceneInfo
+	for _, scene := range info.AutomateExecteSceeInfos {
+		var isExists bool
+		for _, cond := range scene.GroupsCondition {
+			if cond.TriggerParamType == nil || cond.TriggerParam == nil {
+				continue
+			}
+			switch fromExt.TriggerParamType {
+			case model.TRIGGER_PARAM_TYPE_TEL:
+				if *cond.TriggerParamType == model.TRIGGER_PARAM_TYPE_TEL || *cond.TriggerParamType == model.TRIGGER_PARAM_TYPE_TELEMETRY {
+					if a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
+						isExists = true
+					}
+				}
+			case model.TRIGGER_PARAM_TYPE_STATUS:
+				if *cond.TriggerParamType == model.TRIGGER_PARAM_TYPE_STATUS {
+					isExists = true
+				}
+			case model.TRIGGER_PARAM_TYPE_EVT:
+				if *cond.TriggerParamType == model.TRIGGER_PARAM_TYPE_EVT && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
+					isExists = true
+				}
+			case model.TRIGGER_PARAM_TYPE_ATTR:
+				if *cond.TriggerParamType == model.TRIGGER_PARAM_TYPE_ATTR && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
+					isExists = true
+				}
+			}
+		}
+		if isExists {
+			sceneInfo = append(sceneInfo, scene)
+		}
+	}
+	info.AutomateExecteSceeInfos = sceneInfo
+	return info
+}
+
+func (a *Automate) containString(slice []string, str string) bool {
+	for _, v := range slice {
+		if v == str {
+			return true
+		}
+	}
+	return false
 }
 
 // 限流实现 1秒一次 安场景实现
@@ -117,7 +170,8 @@ func (a *Automate) LimiterAllow(id string) bool {
 	return initialize.NewAutomateLimiter().GetLimiter(fmt.Sprintf("SceneAutomationId:%s", id)).Allow()
 }
 
-// @description ExecuteRun 自动化场景联动执行
+// ExecuteRun
+// @description  自动化场景联动执行
 // @params info initialize.AutomateExecteParams
 // @return error
 func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
@@ -234,7 +288,8 @@ func (a *Automate) sceneExecuteLogSave(scene_id, details string, err error) erro
 	})
 }
 
-// @description AutomateConditionCheck 自动化条件判断 复合其中一组条件就返回true
+// AutomateConditionCheck
+// @description  自动化条件判断 复合其中一组条件就返回true
 // @params conditions []initialize.DTConditions
 // @return bool true 表示可以执行动作
 func (a *Automate) AutomateConditionCheck(conditions initialize.DTConditions, deviceId string) bool {
@@ -256,7 +311,8 @@ func (a *Automate) AutomateConditionCheck(conditions initialize.DTConditions, de
 	return result
 }
 
-// @description AutomateConditionCheckWithGroup 一组条件比较 一个为假结果就为假
+// AutomateConditionCheckWithGroup
+// @description  一组条件比较 一个为假结果就为假
 // @params conditions initialize.DTConditions
 // @return bool
 func (a *Automate) AutomateConditionCheckWithGroup(conditions initialize.DTConditions, deviceId string) (bool, []string) {

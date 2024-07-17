@@ -106,13 +106,7 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 	if err != nil {
 		logrus.Error("telemetry forward error:", err.Error())
 	}
-	// go 自动化处理
-	go func() {
-		err := service.GroupApp.Execute(device)
-		if err != nil {
-			logrus.Error("自动化执行失败, err: %w", err)
-		}
-	}()
+
 	//byte转map
 	var reqMap = make(map[string]interface{})
 	err = json.Unmarshal(telemetryBody, &reqMap)
@@ -162,10 +156,23 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 				TenantID: &device.TenantID,
 			}
 		}
-
 		// ts_kv批量入库
 		TelemetryMessagesChan <- map[string]interface{}{
 			"telemetryData": d,
 		}
 	}
+	// go 自动化处理
+	go func() {
+		var triggerParam []string
+		for key := range reqMap {
+			triggerParam = append(triggerParam, key)
+		}
+		err := service.GroupApp.Execute(device, service.AutomateFromExt{
+			TriggerParamType: model.TRIGGER_PARAM_TYPE_TEL,
+			TriggerParam:     triggerParam,
+		})
+		if err != nil {
+			logrus.Error("自动化执行失败, err: %w", err)
+		}
+	}()
 }

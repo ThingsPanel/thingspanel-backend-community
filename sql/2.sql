@@ -81,3 +81,4 @@ COMMENT ON COLUMN service_plugins.service_config IS '服务配置: 接入协议�
 
 ALTER TABLE "public"."scene_action_info"
 ALTER COLUMN "action_param" TYPE varchar(50) COLLATE "pg_catalog"."default";
+
