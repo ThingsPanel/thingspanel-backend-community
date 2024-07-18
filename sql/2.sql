@@ -88,3 +88,5 @@ ALTER TABLE public.attribute_set_logs DROP CONSTRAINT attribute_set_logs_device_
 ALTER TABLE public.attribute_set_logs ADD CONSTRAINT attribute_set_logs_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.devices(id) ON DELETE CASCADE;
 ALTER TABLE public.command_set_logs DROP CONSTRAINT command_set_logs_device_id_fkey;
 ALTER TABLE public.command_set_logs ADD CONSTRAINT command_set_logs_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.devices(id) ON DELETE CASCADE;
+
+ALTER TABLE public.service_plugins ALTER COLUMN last_active_time TYPE timestamptz USING last_active_time::timestamptz;
