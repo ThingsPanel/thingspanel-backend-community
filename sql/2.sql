@@ -90,3 +90,4 @@ ALTER TABLE public.command_set_logs DROP CONSTRAINT command_set_logs_device_id_f
 ALTER TABLE public.command_set_logs ADD CONSTRAINT command_set_logs_device_id_fkey FOREIGN KEY (device_id) REFERENCES public.devices(id) ON DELETE CASCADE;
 
 ALTER TABLE public.service_plugins ALTER COLUMN last_active_time TYPE timestamptz USING last_active_time::timestamptz;
+DELETE FROM public.sys_ui_elements WHERE id='367dbdb9-f28b-7a49-b8cd-23a915015093';
