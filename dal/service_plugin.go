@@ -133,7 +133,7 @@ func GetServicePluginHttpAddressByID(id string) (*model.ServicePlugin, string, e
 	}
 	// 校验服务配置的HttpAddress是否是ip:port格式
 	if serviceAccessConfig.HttpAddress == "" {
-		return nil, "", errors.New("service plugin config error: host is empty")
+		return nil, "", errors.New("服务插件HTTP服务地址未配置，请联系系统管理员检测配置")
 	}
 	return servicePlugin, serviceAccessConfig.HttpAddress, nil
 }
