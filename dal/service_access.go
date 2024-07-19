@@ -22,13 +22,14 @@ func UpdateServiceAccess(id string, updates map[string]interface{}) error {
 	return err
 }
 
-func GetServiceAccessListByPage(req *model.GetServiceAccessByPageReq) (int64, interface{}, error) {
+func GetServiceAccessListByPage(req *model.GetServiceAccessByPageReq, tenantID string) (int64, interface{}, error) {
 	var count int64
 	var serviceAccess = []model.ServiceAccess{}
 
 	q := query.ServiceAccess
 	queryBuilder := q.WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.ServicePluginID.Eq(req.ServicePluginID))
+	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
 
 	count, err := queryBuilder.Count()
 	if err != nil {

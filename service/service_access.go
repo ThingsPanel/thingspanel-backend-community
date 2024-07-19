@@ -36,8 +36,8 @@ func (s *ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *uti
 	return resp, nil
 }
 
-func (s *ServiceAccess) List(req *model.GetServiceAccessByPageReq) (map[string]interface{}, error) {
-	total, list, err := dal.GetServiceAccessListByPage(req)
+func (s *ServiceAccess) List(req *model.GetServiceAccessByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
+	total, list, err := dal.GetServiceAccessListByPage(req, userClaims.TenantID)
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total
 	listRsp["list"] = list
