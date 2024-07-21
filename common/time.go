@@ -176,7 +176,7 @@ func getNextTime(now time.Time, weekdays []time.Weekday, targetTime time.Time) t
 		nextWeekday := nextDay.Weekday()
 
 		for _, wd := range weekdays {
-			if wd == nextWeekday {
+			if (wd - 1) == nextWeekday {
 				// 构造当前日期的下一个目标时间
 				nextTime := time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, nextDay.Location())
 
@@ -195,7 +195,7 @@ func getNextTime(now time.Time, weekdays []time.Weekday, targetTime time.Time) t
 		nextWeekday := nextDay.Weekday()
 
 		for _, wd := range weekdays {
-			if wd == nextWeekday {
+			if (wd - 1) == nextWeekday {
 				// 构造找到的日期的下一个目标时间
 				nextTime := time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, nextDay.Location())
 				return nextTime
