@@ -101,6 +101,9 @@ func GetSceneExecuteTime(taskType, condition string) (time.Time, error) {
 		for _, char := range weekdaysStr {
 			if char >= '1' && char <= '7' {
 				day, _ := strconv.Atoi(string(char))
+				if day == 7 {
+					day = 0
+				}
 				weekdays = append(weekdays, time.Weekday(day))
 			}
 		}
@@ -110,7 +113,7 @@ func GetSceneExecuteTime(taskType, condition string) (time.Time, error) {
 		if err != nil {
 			return result, errors.New("时间格式错误")
 		}
-		result = getNextTime(now, weekdays, targetTime)
+		result = GetNextTime(now, weekdays, targetTime)
 	case "MONTH":
 		// 解析时间字符串
 		targetTime, err := time.Parse("2T15:04:05-07:00", condition)
@@ -133,7 +136,7 @@ func GetSceneExecuteTime(taskType, condition string) (time.Time, error) {
 
 }
 
-func getNextTime(now time.Time, weekdays []time.Weekday, targetTime time.Time) time.Time {
+func GetNextTime(now time.Time, weekdays []time.Weekday, targetTime time.Time) time.Time {
 	//// 获取当前时间的年、月、日和星期几
 	//year, month, day := now.Date()
 	//
@@ -174,9 +177,8 @@ func getNextTime(now time.Time, weekdays []time.Weekday, targetTime time.Time) t
 		// 计算下一个潜在的日期
 		nextDay := now.AddDate(0, 0, i)
 		nextWeekday := nextDay.Weekday()
-
 		for _, wd := range weekdays {
-			if (wd - 1) == nextWeekday {
+			if wd == nextWeekday {
 				// 构造当前日期的下一个目标时间
 				nextTime := time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, nextDay.Location())
 
@@ -195,7 +197,7 @@ func getNextTime(now time.Time, weekdays []time.Weekday, targetTime time.Time) t
 		nextWeekday := nextDay.Weekday()
 
 		for _, wd := range weekdays {
-			if (wd - 1) == nextWeekday {
+			if wd == nextWeekday {
 				// 构造找到的日期的下一个目标时间
 				nextTime := time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, nextDay.Location())
 				return nextTime

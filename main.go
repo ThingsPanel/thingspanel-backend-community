@@ -7,15 +7,14 @@ import (
 	"os"
 	"os/signal"
 	"project/croninit"
+	grpc_tptodb "project/grpc/tptodb_client"
+	"project/initialize"
 	"project/mqtt"
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
+	"project/query"
 	"time"
 
-	grpc_tptodb "project/grpc/tptodb_client"
-
-	initialize "project/initialize"
-	query "project/query"
 	router "project/router"
 
 	"github.com/sirupsen/logrus"
