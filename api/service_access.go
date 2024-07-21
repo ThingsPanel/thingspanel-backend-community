@@ -26,12 +26,14 @@ func (api *ServiceAccessApi) Create(c *gin.Context) {
 	SuccessHandler(c, "create service successfully", resp)
 }
 
+// /api/v1/service/access/list
 func (api *ServiceAccessApi) GetList(c *gin.Context) {
 	var req model.GetServiceAccessByPageReq
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	resp, err := service.GroupApp.ServiceAccess.List(&req)
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	resp, err := service.GroupApp.ServiceAccess.List(&req, userClaims)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return
