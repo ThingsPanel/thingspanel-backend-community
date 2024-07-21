@@ -134,19 +134,53 @@ func GetSceneExecuteTime(taskType, condition string) (time.Time, error) {
 }
 
 func getNextTime(now time.Time, weekdays []time.Weekday, targetTime time.Time) time.Time {
-	// 获取当前时间的年、月、日和星期几
-	year, month, day := now.Date()
+	//// 获取当前时间的年、月、日和星期几
+	//year, month, day := now.Date()
+	//
+	//// 从当前时间开始往后找
+	//for i := 0; i < 7; i++ {
+	//	// 计算下一个满足条件的日期
+	//	nextDay := now.AddDate(0, 0, i)
+	//	nextWeekday := nextDay.Weekday()
+	//	for _, wd := range weekdays {
+	//		if (wd - 1) == nextWeekday {
+	//			// 设置下一个满足条件的时间
+	//			nextTime := time.Date(year, month, day+1, targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, time.Local)
+	//			// 如果时间在当前时间之后，则返回这个时间
+	//			if nextTime.After(now) {
+	//				return nextTime
+	//			}
+	//		}
+	//	}
+	//}
+	//
+	//// 如果没有找到满足条件的时间，则返回下周的第一个满足条件的时间
+	//nextDay := now.AddDate(0, 0, 7-GetWeekDay(now))
+	//nextWeekday := nextDay.Weekday()
+	//for _, wd := range weekdays {
+	//	if (wd - 1) == nextWeekday {
+	//		// 设置下一个满足条件的时间
+	//		nextTime := time.Date(year, month, day+7-GetWeekDay(now), targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, time.Local)
+	//		return nextTime
+	//	}
+	//}
+	//return time.Time{}
+	// 提取当前时间的详细信息
+	//year, month, day := now.Date()
+	//hour, minute, second := now.Clock()
 
-	// 从当前时间开始往后找
+	// 遍历未来7天，寻找下一个有效的执行时间
 	for i := 0; i < 7; i++ {
-		// 计算下一个满足条件的日期
+		// 计算下一个潜在的日期
 		nextDay := now.AddDate(0, 0, i)
 		nextWeekday := nextDay.Weekday()
+
 		for _, wd := range weekdays {
-			if (wd - 1) == nextWeekday {
-				// 设置下一个满足条件的时间
-				nextTime := time.Date(year, month, day, targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, time.Local)
-				// 如果时间在当前时间之后，则返回这个时间
+			if wd == nextWeekday {
+				// 构造当前日期的下一个目标时间
+				nextTime := time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, nextDay.Location())
+
+				// 如果目标时间在当前时间之后，返回它
 				if nextTime.After(now) {
 					return nextTime
 				}
@@ -154,16 +188,21 @@ func getNextTime(now time.Time, weekdays []time.Weekday, targetTime time.Time) t
 		}
 	}
 
-	// 如果没有找到满足条件的时间，则返回下周的第一个满足条件的时间
-	nextDay := now.AddDate(0, 0, 6-GetWeekDay(now))
-	nextWeekday := nextDay.Weekday()
-	for _, wd := range weekdays {
-		if (wd - 1) == nextWeekday {
-			// 设置下一个满足条件的时间
-			nextTime := time.Date(year, month, day+6-GetWeekDay(now), targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, time.Local)
-			return nextTime
+	// 如果在未来7天内没有找到有效的时间，寻找下周的第一个有效的时间
+	for i := 0; i < 7; i++ {
+		// 计算下一周的潜在日期
+		nextDay := now.AddDate(0, 0, 7+i)
+		nextWeekday := nextDay.Weekday()
+
+		for _, wd := range weekdays {
+			if wd == nextWeekday {
+				// 构造找到的日期的下一个目标时间
+				nextTime := time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, nextDay.Location())
+				return nextTime
+			}
 		}
 	}
+
 	return time.Time{}
 }
 
