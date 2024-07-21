@@ -145,7 +145,7 @@ func getNextTime(now time.Time, weekdays []time.Weekday, targetTime time.Time) t
 		for _, wd := range weekdays {
 			if (wd - 1) == nextWeekday {
 				// 设置下一个满足条件的时间
-				nextTime := time.Date(year, month, day+i, targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, time.Local)
+				nextTime := time.Date(year, month, day, targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, time.Local)
 				// 如果时间在当前时间之后，则返回这个时间
 				if nextTime.After(now) {
 					return nextTime
