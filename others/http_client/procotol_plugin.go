@@ -29,10 +29,11 @@ type ListData struct {
 	List  []DeviceData `json:"list"`
 }
 type DeviceData struct {
-	DeviceName   string `json:"device_name"`
-	DeviceNumber string `json:"device_number"`
-	Description  string `json:"description"`
-	IsBind       bool   `json:"is_bind"`
+	DeviceName     string `json:"device_name"`
+	DeviceNumber   string `json:"device_number"`
+	Description    string `json:"description"`
+	IsBind         bool   `json:"is_bind"`
+	DeviceConfigID string `json:"device_config_id"`
 }
 
 // 获取插件的表单配置

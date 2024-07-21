@@ -135,6 +135,9 @@ func (s *ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDevic
 		for _, device := range devices {
 			if dataDevice.DeviceNumber == device.DeviceNumber {
 				data.List[i].IsBind = true
+				if device.DeviceConfigID != nil {
+					data.List[i].DeviceConfigID = *device.DeviceConfigID
+				}
 			}
 		}
 	}
