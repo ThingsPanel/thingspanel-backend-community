@@ -122,7 +122,8 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 				if v2.ExpirationTime != nil {
 					pt.ExpirationTime = int64(*v2.ExpirationTime)
 				}
-				pt.Enabled = req.Enabled
+				//pt.Enabled = req.Enabled
+				pt.Enabled = "Y"
 				// 创建周期性任务
 				logrus.Info("创建周期性任务信息")
 				err = dal.CreatePeriodicTask(pt, tx)
@@ -533,7 +534,7 @@ func (s *SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomation
 				// TODO 计算执行时间和过期时间
 				// pt.ExecutionTime = *v2.ExecutionTime
 				// pt.ExpirationTime = *v2.ExpirationTime
-				pt.Enabled = req.Enabled
+				pt.Enabled = "Y"
 				// 创建周期性任务
 				logrus.Info("创建周期性任务信息")
 				err = dal.CreatePeriodicTask(pt, tx)

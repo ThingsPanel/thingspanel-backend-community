@@ -184,7 +184,7 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 			continue
 		}
 		//查询自动化是否关闭
-		if a.checkSceneAutomationHasClose(v.SceneAutomationId) {
+		if a.CheckSceneAutomationHasClose(v.SceneAutomationId) {
 			continue
 		}
 		//条件判断
@@ -200,9 +200,9 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 	return nil
 }
 
-// checkSceneAutomationHasClose
+// CheckSceneAutomationHasClose
 // @description 查询是否关闭了自动化
-func (a *Automate) checkSceneAutomationHasClose(sceneAutomationId string) bool {
+func (a *Automate) CheckSceneAutomationHasClose(sceneAutomationId string) bool {
 	ok := dal.CheckSceneAutomationHasClose(sceneAutomationId)
 	//删除缓存
 	if ok {

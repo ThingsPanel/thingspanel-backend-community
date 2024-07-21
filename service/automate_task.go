@@ -41,6 +41,10 @@ func (t *AutomateTask) OnceTaskExecute() error {
 // @params t *AutomateTask
 // @return error
 func (t *AutomateTask) TaskAutomationExecute(sceneAutomationId string) {
+	//查询自动化是否关闭
+	if GroupApp.CheckSceneAutomationHasClose(sceneAutomationId) {
+		return
+	}
 	actions, err := dal.GetActionInfoListBySceneAutomationId([]string{sceneAutomationId})
 	if err != nil {
 		return
