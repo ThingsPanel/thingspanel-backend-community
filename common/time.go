@@ -155,12 +155,12 @@ func getNextTime(now time.Time, weekdays []time.Weekday, targetTime time.Time) t
 	}
 
 	// 如果没有找到满足条件的时间，则返回下周的第一个满足条件的时间
-	nextDay := now.AddDate(0, 0, 7-GetWeekDay(now))
+	nextDay := now.AddDate(0, 0, 6-GetWeekDay(now))
 	nextWeekday := nextDay.Weekday()
 	for _, wd := range weekdays {
 		if (wd - 1) == nextWeekday {
 			// 设置下一个满足条件的时间
-			nextTime := time.Date(year, month, day+7-GetWeekDay(now), targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, time.Local)
+			nextTime := time.Date(year, month, day+6-GetWeekDay(now), targetTime.Hour(), targetTime.Minute(), targetTime.Second(), 0, time.Local)
 			return nextTime
 		}
 	}
