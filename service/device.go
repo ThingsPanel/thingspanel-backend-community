@@ -102,7 +102,7 @@ func (d *Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils
 	var deviceList []*model.Device
 	for _, v := range req.DeviceList {
 		if v.DeviceName == "" && v.DeviceNumber == "" && v.DeviceConfigId == "" {
-			break
+			continue
 		}
 		// 校验v.DeviceNumber,v.DeviceConfigId,v.DeviceName不为空
 		if v.DeviceNumber == "" {
