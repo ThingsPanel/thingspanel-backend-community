@@ -29,11 +29,20 @@ func (a *UserApi) Login(c *gin.Context) {
 		return
 	}
 
-	loginRsp, err := service.GroupApp.User.Login(&loginReq)
-	if err != nil {
+	loginLock := service.NewLoginLock()
+
+	if err := loginLock.GetAllowLogin(c, loginReq.Email); err != nil {
 		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
+
+	loginRsp, err := service.GroupApp.User.Login(&loginReq)
+	if err != nil {
+		_ = loginLock.LoginFail(c, loginReq.Email)
+		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+	_ = loginLock.LoginSuccess(c, loginReq.Email)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": loginRsp})
 }
 

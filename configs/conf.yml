@@ -141,3 +141,9 @@ automation_task_confg:
 ota:
  # 推送设备端的ota升级包下载地址
   download_address: http://demo.thingspanel.cn 
+
+classified-protect:
+  # 连续登录失败次数则锁定，-1表示不受限制，可以一直尝试登录
+  login-max-fail-times: 5
+  # 连续登录失败锁定时间（单位：秒），-1表示不锁定，5分钟之内 连续5次登录失败 锁定5分钟
+  login-fail-locked-seconds: 300
