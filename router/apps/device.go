@@ -188,6 +188,16 @@ func (d *Device) InitDevice(Router *gin.RouterGroup) {
 			deviceModelCustomCommandsApi.GET("", api.Controllers.DeviceModelApi.GetDeviceModelCustomCommandsByPage)
 			deviceModelCustomCommandsApi.GET(":deviceId", api.Controllers.DeviceModelApi.GetDeviceModelCustomCommandsByDeviceId)
 		}
+
+		// 自定义控制
+		deviceModelCustomControlApi := deviceModelApi.Group("custom/control")
+		{
+			deviceModelCustomControlApi.POST("", api.Controllers.DeviceModelApi.CreateDeviceModelCustomControl)
+			deviceModelCustomControlApi.DELETE(":id", api.Controllers.DeviceModelApi.DeleteDeviceModelCustomControl)
+			deviceModelCustomControlApi.PUT("", api.Controllers.DeviceModelApi.UpdateDeviceModelCustomControl)
+			deviceModelCustomControlApi.GET("", api.Controllers.DeviceModelApi.GetDeviceModelCustomControl)
+		}
+
 	}
 
 }
