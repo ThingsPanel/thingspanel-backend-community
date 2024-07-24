@@ -17,7 +17,7 @@ type DeviceModelAttribute struct {
 	DataName         *string   `gorm:"column:data_name;comment:数据名称" json:"data_name"`                              // 数据名称
 	DataIdentifier   string    `gorm:"column:data_identifier;not null;comment:数据标识符" json:"data_identifier"`        // 数据标识符
 	ReadWriteFlag    *string   `gorm:"column:read_write_flag;comment:读写标志R-读 W-写 RW-读写" json:"read_write_flag"`     // 读写标志R-读 W-写 RW-读写
-	DataType         *string   `gorm:"column:data_type;comment:数据类型String Number Boolean" json:"data_type"`         // 数据类型String Number Boolean
+	DataType         *string   `gorm:"column:data_type;comment:数据类型String Number Boolean Enum" json:"data_type"`    // 数据类型String Number Boolean Enum
 	Unit             *string   `gorm:"column:unit;comment:单位" json:"unit"`                                          // 单位
 	Description      *string   `gorm:"column:description;comment:描述" json:"description"`                            // 描述
 	AdditionalInfo   *string   `gorm:"column:additional_info;comment:附加信息" json:"additional_info"`                  // 附加信息

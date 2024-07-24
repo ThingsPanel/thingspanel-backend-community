@@ -265,3 +265,57 @@ func (api *DeviceModelApi) GetDeviceModelCustomCommandsByDeviceId(c *gin.Context
 
 	SuccessHandler(c, common.SUCCESS, data)
 }
+
+func (api *DeviceModelApi) CreateDeviceModelCustomControl(c *gin.Context) {
+	var req model.CreateDeviceModelCustomCommandReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+
+	err := service.GroupApp.DeviceModel.CreateDeviceModelCustomCommands(req, userClaims)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, common.SUCCESS, "")
+}
+
+func (api *DeviceModelApi) DeleteDeviceModelCustomControl(c *gin.Context) {
+	id := c.Param("id")
+	err := service.GroupApp.DeviceModel.DeleteDeviceModelCustomCommands(id)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, common.SUCCESS, "")
+}
+
+func (api *DeviceModelApi) UpdateDeviceModelCustomControl(c *gin.Context) {
+	var req model.UpdateDeviceModelCustomCommandReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	err := service.GroupApp.DeviceModel.UpdateDeviceModelCustomCommands(req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, common.SUCCESS, "")
+}
+
+func (api *DeviceModelApi) GetDeviceModelCustomControl(c *gin.Context) {
+	var req model.GetDeviceModelListByPageReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+
+	data, err := service.GroupApp.DeviceModel.GetDeviceModelCustomCommandsByPage(req, userClaims)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, common.SUCCESS, data)
+}

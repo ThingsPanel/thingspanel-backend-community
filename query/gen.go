@@ -33,6 +33,7 @@ var (
 	DeviceModelAttribute       *deviceModelAttribute
 	DeviceModelCommand         *deviceModelCommand
 	DeviceModelCustomCommand   *deviceModelCustomCommand
+	DeviceModelCustomControl   *deviceModelCustomControl
 	DeviceModelEvent           *deviceModelEvent
 	DeviceModelTelemetry       *deviceModelTelemetry
 	DeviceTemplate             *deviceTemplate
@@ -73,6 +74,7 @@ var (
 	VisDashboard               *visDashboard
 	VisFile                    *visFile
 	VisPlugin                  *visPlugin
+	VisPluginLocal             *visPluginLocal
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -93,6 +95,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	DeviceModelAttribute = &Q.DeviceModelAttribute
 	DeviceModelCommand = &Q.DeviceModelCommand
 	DeviceModelCustomCommand = &Q.DeviceModelCustomCommand
+	DeviceModelCustomControl = &Q.DeviceModelCustomControl
 	DeviceModelEvent = &Q.DeviceModelEvent
 	DeviceModelTelemetry = &Q.DeviceModelTelemetry
 	DeviceTemplate = &Q.DeviceTemplate
@@ -133,6 +136,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	VisDashboard = &Q.VisDashboard
 	VisFile = &Q.VisFile
 	VisPlugin = &Q.VisPlugin
+	VisPluginLocal = &Q.VisPluginLocal
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
@@ -154,6 +158,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		DeviceModelAttribute:       newDeviceModelAttribute(db, opts...),
 		DeviceModelCommand:         newDeviceModelCommand(db, opts...),
 		DeviceModelCustomCommand:   newDeviceModelCustomCommand(db, opts...),
+		DeviceModelCustomControl:   newDeviceModelCustomControl(db, opts...),
 		DeviceModelEvent:           newDeviceModelEvent(db, opts...),
 		DeviceModelTelemetry:       newDeviceModelTelemetry(db, opts...),
 		DeviceTemplate:             newDeviceTemplate(db, opts...),
@@ -194,6 +199,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		VisDashboard:               newVisDashboard(db, opts...),
 		VisFile:                    newVisFile(db, opts...),
 		VisPlugin:                  newVisPlugin(db, opts...),
+		VisPluginLocal:             newVisPluginLocal(db, opts...),
 	}
 }
 
@@ -216,6 +222,7 @@ type Query struct {
 	DeviceModelAttribute       deviceModelAttribute
 	DeviceModelCommand         deviceModelCommand
 	DeviceModelCustomCommand   deviceModelCustomCommand
+	DeviceModelCustomControl   deviceModelCustomControl
 	DeviceModelEvent           deviceModelEvent
 	DeviceModelTelemetry       deviceModelTelemetry
 	DeviceTemplate             deviceTemplate
@@ -256,6 +263,7 @@ type Query struct {
 	VisDashboard               visDashboard
 	VisFile                    visFile
 	VisPlugin                  visPlugin
+	VisPluginLocal             visPluginLocal
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -279,6 +287,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		DeviceModelAttribute:       q.DeviceModelAttribute.clone(db),
 		DeviceModelCommand:         q.DeviceModelCommand.clone(db),
 		DeviceModelCustomCommand:   q.DeviceModelCustomCommand.clone(db),
+		DeviceModelCustomControl:   q.DeviceModelCustomControl.clone(db),
 		DeviceModelEvent:           q.DeviceModelEvent.clone(db),
 		DeviceModelTelemetry:       q.DeviceModelTelemetry.clone(db),
 		DeviceTemplate:             q.DeviceTemplate.clone(db),
@@ -319,6 +328,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		VisDashboard:               q.VisDashboard.clone(db),
 		VisFile:                    q.VisFile.clone(db),
 		VisPlugin:                  q.VisPlugin.clone(db),
+		VisPluginLocal:             q.VisPluginLocal.clone(db),
 	}
 }
 
@@ -349,6 +359,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		DeviceModelAttribute:       q.DeviceModelAttribute.replaceDB(db),
 		DeviceModelCommand:         q.DeviceModelCommand.replaceDB(db),
 		DeviceModelCustomCommand:   q.DeviceModelCustomCommand.replaceDB(db),
+		DeviceModelCustomControl:   q.DeviceModelCustomControl.replaceDB(db),
 		DeviceModelEvent:           q.DeviceModelEvent.replaceDB(db),
 		DeviceModelTelemetry:       q.DeviceModelTelemetry.replaceDB(db),
 		DeviceTemplate:             q.DeviceTemplate.replaceDB(db),
@@ -389,6 +400,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		VisDashboard:               q.VisDashboard.replaceDB(db),
 		VisFile:                    q.VisFile.replaceDB(db),
 		VisPlugin:                  q.VisPlugin.replaceDB(db),
+		VisPluginLocal:             q.VisPluginLocal.replaceDB(db),
 	}
 }
 
@@ -409,6 +421,7 @@ type queryCtx struct {
 	DeviceModelAttribute       IDeviceModelAttributeDo
 	DeviceModelCommand         IDeviceModelCommandDo
 	DeviceModelCustomCommand   IDeviceModelCustomCommandDo
+	DeviceModelCustomControl   IDeviceModelCustomControlDo
 	DeviceModelEvent           IDeviceModelEventDo
 	DeviceModelTelemetry       IDeviceModelTelemetryDo
 	DeviceTemplate             IDeviceTemplateDo
@@ -449,6 +462,7 @@ type queryCtx struct {
 	VisDashboard               IVisDashboardDo
 	VisFile                    IVisFileDo
 	VisPlugin                  IVisPluginDo
+	VisPluginLocal             IVisPluginLocalDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
@@ -469,6 +483,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		DeviceModelAttribute:       q.DeviceModelAttribute.WithContext(ctx),
 		DeviceModelCommand:         q.DeviceModelCommand.WithContext(ctx),
 		DeviceModelCustomCommand:   q.DeviceModelCustomCommand.WithContext(ctx),
+		DeviceModelCustomControl:   q.DeviceModelCustomControl.WithContext(ctx),
 		DeviceModelEvent:           q.DeviceModelEvent.WithContext(ctx),
 		DeviceModelTelemetry:       q.DeviceModelTelemetry.WithContext(ctx),
 		DeviceTemplate:             q.DeviceTemplate.WithContext(ctx),
@@ -509,6 +524,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		VisDashboard:               q.VisDashboard.WithContext(ctx),
 		VisFile:                    q.VisFile.WithContext(ctx),
 		VisPlugin:                  q.VisPlugin.WithContext(ctx),
+		VisPluginLocal:             q.VisPluginLocal.WithContext(ctx),
 	}
 }
 
