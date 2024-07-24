@@ -73,6 +73,7 @@ var (
 	VisDashboard               *visDashboard
 	VisFile                    *visFile
 	VisPlugin                  *visPlugin
+	VisPluginLocal             *visPluginLocal
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -133,6 +134,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	VisDashboard = &Q.VisDashboard
 	VisFile = &Q.VisFile
 	VisPlugin = &Q.VisPlugin
+	VisPluginLocal = &Q.VisPluginLocal
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
@@ -194,6 +196,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		VisDashboard:               newVisDashboard(db, opts...),
 		VisFile:                    newVisFile(db, opts...),
 		VisPlugin:                  newVisPlugin(db, opts...),
+		VisPluginLocal:             newVisPluginLocal(db, opts...),
 	}
 }
 
@@ -256,6 +259,7 @@ type Query struct {
 	VisDashboard               visDashboard
 	VisFile                    visFile
 	VisPlugin                  visPlugin
+	VisPluginLocal             visPluginLocal
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -319,6 +323,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		VisDashboard:               q.VisDashboard.clone(db),
 		VisFile:                    q.VisFile.clone(db),
 		VisPlugin:                  q.VisPlugin.clone(db),
+		VisPluginLocal:             q.VisPluginLocal.clone(db),
 	}
 }
 
@@ -389,6 +394,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		VisDashboard:               q.VisDashboard.replaceDB(db),
 		VisFile:                    q.VisFile.replaceDB(db),
 		VisPlugin:                  q.VisPlugin.replaceDB(db),
+		VisPluginLocal:             q.VisPluginLocal.replaceDB(db),
 	}
 }
 
@@ -449,6 +455,7 @@ type queryCtx struct {
 	VisDashboard               IVisDashboardDo
 	VisFile                    IVisFileDo
 	VisPlugin                  IVisPluginDo
+	VisPluginLocal             IVisPluginLocalDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
@@ -509,6 +516,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		VisDashboard:               q.VisDashboard.WithContext(ctx),
 		VisFile:                    q.VisFile.WithContext(ctx),
 		VisPlugin:                  q.VisPlugin.WithContext(ctx),
+		VisPluginLocal:             q.VisPluginLocal.WithContext(ctx),
 	}
 }
 
