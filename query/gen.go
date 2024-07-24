@@ -33,6 +33,7 @@ var (
 	DeviceModelAttribute       *deviceModelAttribute
 	DeviceModelCommand         *deviceModelCommand
 	DeviceModelCustomCommand   *deviceModelCustomCommand
+	DeviceModelCustomControl   *deviceModelCustomControl
 	DeviceModelEvent           *deviceModelEvent
 	DeviceModelTelemetry       *deviceModelTelemetry
 	DeviceTemplate             *deviceTemplate
@@ -94,6 +95,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	DeviceModelAttribute = &Q.DeviceModelAttribute
 	DeviceModelCommand = &Q.DeviceModelCommand
 	DeviceModelCustomCommand = &Q.DeviceModelCustomCommand
+	DeviceModelCustomControl = &Q.DeviceModelCustomControl
 	DeviceModelEvent = &Q.DeviceModelEvent
 	DeviceModelTelemetry = &Q.DeviceModelTelemetry
 	DeviceTemplate = &Q.DeviceTemplate
@@ -156,6 +158,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		DeviceModelAttribute:       newDeviceModelAttribute(db, opts...),
 		DeviceModelCommand:         newDeviceModelCommand(db, opts...),
 		DeviceModelCustomCommand:   newDeviceModelCustomCommand(db, opts...),
+		DeviceModelCustomControl:   newDeviceModelCustomControl(db, opts...),
 		DeviceModelEvent:           newDeviceModelEvent(db, opts...),
 		DeviceModelTelemetry:       newDeviceModelTelemetry(db, opts...),
 		DeviceTemplate:             newDeviceTemplate(db, opts...),
@@ -219,6 +222,7 @@ type Query struct {
 	DeviceModelAttribute       deviceModelAttribute
 	DeviceModelCommand         deviceModelCommand
 	DeviceModelCustomCommand   deviceModelCustomCommand
+	DeviceModelCustomControl   deviceModelCustomControl
 	DeviceModelEvent           deviceModelEvent
 	DeviceModelTelemetry       deviceModelTelemetry
 	DeviceTemplate             deviceTemplate
@@ -283,6 +287,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		DeviceModelAttribute:       q.DeviceModelAttribute.clone(db),
 		DeviceModelCommand:         q.DeviceModelCommand.clone(db),
 		DeviceModelCustomCommand:   q.DeviceModelCustomCommand.clone(db),
+		DeviceModelCustomControl:   q.DeviceModelCustomControl.clone(db),
 		DeviceModelEvent:           q.DeviceModelEvent.clone(db),
 		DeviceModelTelemetry:       q.DeviceModelTelemetry.clone(db),
 		DeviceTemplate:             q.DeviceTemplate.clone(db),
@@ -354,6 +359,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		DeviceModelAttribute:       q.DeviceModelAttribute.replaceDB(db),
 		DeviceModelCommand:         q.DeviceModelCommand.replaceDB(db),
 		DeviceModelCustomCommand:   q.DeviceModelCustomCommand.replaceDB(db),
+		DeviceModelCustomControl:   q.DeviceModelCustomControl.replaceDB(db),
 		DeviceModelEvent:           q.DeviceModelEvent.replaceDB(db),
 		DeviceModelTelemetry:       q.DeviceModelTelemetry.replaceDB(db),
 		DeviceTemplate:             q.DeviceTemplate.replaceDB(db),
@@ -415,6 +421,7 @@ type queryCtx struct {
 	DeviceModelAttribute       IDeviceModelAttributeDo
 	DeviceModelCommand         IDeviceModelCommandDo
 	DeviceModelCustomCommand   IDeviceModelCustomCommandDo
+	DeviceModelCustomControl   IDeviceModelCustomControlDo
 	DeviceModelEvent           IDeviceModelEventDo
 	DeviceModelTelemetry       IDeviceModelTelemetryDo
 	DeviceTemplate             IDeviceTemplateDo
@@ -476,6 +483,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		DeviceModelAttribute:       q.DeviceModelAttribute.WithContext(ctx),
 		DeviceModelCommand:         q.DeviceModelCommand.WithContext(ctx),
 		DeviceModelCustomCommand:   q.DeviceModelCustomCommand.WithContext(ctx),
+		DeviceModelCustomControl:   q.DeviceModelCustomControl.WithContext(ctx),
 		DeviceModelEvent:           q.DeviceModelEvent.WithContext(ctx),
 		DeviceModelTelemetry:       q.DeviceModelTelemetry.WithContext(ctx),
 		DeviceTemplate:             q.DeviceTemplate.WithContext(ctx),
