@@ -42,7 +42,7 @@ func (l *LoginLock) GetAllowLogin(ctx context.Context, username string) error {
 		if err == nil && time.Now().Before(lockUntilTime) {
 			//return errors.Errorf("Account %s is locked. Try again later.", username)
 			return errors.Errorf("您已连续登录失败%d次，账号锁定%d分钟，解锁时间为：%s,请你耐心等待！",
-				l.MaxFailedAttempts, l.LockDuration, lockUntilTime.Format(time.DateTime))
+				l.MaxFailedAttempts, l.LockDuration/time.Minute, lockUntilTime.Format(time.DateTime))
 		}
 	}
 	return nil
