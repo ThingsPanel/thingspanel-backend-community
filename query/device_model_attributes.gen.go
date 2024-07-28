@@ -55,7 +55,7 @@ type deviceModelAttribute struct {
 	DataName         field.String // 数据名称
 	DataIdentifier   field.String // 数据标识符
 	ReadWriteFlag    field.String // 读写标志R-读 W-写 RW-读写
-	DataType         field.String // 数据类型String Number Boolean
+	DataType         field.String // 数据类型String Number Boolean Enum
 	Unit             field.String // 单位
 	Description      field.String // 描述
 	AdditionalInfo   field.String // 附加信息
