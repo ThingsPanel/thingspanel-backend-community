@@ -1,0 +1,1 @@
+INSERT INTO public.sys_function (id, "name", enable_flag, description, remark) VALUES('function_3', 'frontend_res', 'disable', '前端RSA加密', NULL);
