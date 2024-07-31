@@ -47,6 +47,8 @@ func RouterInit() *gin.Engine {
 			v1.GET("ota/download/files/upgradePackage/:path/:file", controllers.OTAApi.DownloadOTAUpgradePackage)
 			// 获取系统时间
 			v1.GET("systime", controllers.SystemApi.GetSystime)
+			// 查询系统功能设置
+			v1.GET("sys_function", controllers.SysFunctionApi.GetSysFcuntion)
 		}
 		// 需要权限校验
 		v1.Use(middleware.JWTAuth())
