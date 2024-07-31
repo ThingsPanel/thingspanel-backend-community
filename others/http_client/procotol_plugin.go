@@ -136,6 +136,11 @@ func GetServiceAccessDeviceList(host string, voucher string, page_size string, p
 	if rspdata.Code != 200 {
 		err = fmt.Errorf("protocol plugin response message: %s", rspdata.Message)
 		logrus.Error(err)
+		return nil, err
+	}
+	// 如果rspdata.Data 为空，返回空数组
+	if rspdata.Data.List == nil {
+		rspdata.Data.List = []DeviceData{}
 	}
 	return &rspdata.Data, nil
 }
