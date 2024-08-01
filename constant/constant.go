@@ -51,3 +51,9 @@ const (
 	DEVICE_TYPE_2 string = "2" // 网关设备
 	DEVICE_TYPE_3 string = "3" // 网关子设备
 )
+
+// sys_function.enable_flag
+const (
+	EnableFlag  string = "enable"
+	DisableFlag string = "disable"
+)

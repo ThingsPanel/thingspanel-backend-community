@@ -36,7 +36,7 @@ func (a *UserApi) Login(c *gin.Context) {
 		return
 	}
 
-	loginRsp, err := service.GroupApp.User.Login(&loginReq)
+	loginRsp, err := service.GroupApp.User.Login(c, &loginReq)
 	if err != nil {
 		_ = loginLock.LoginFail(c, loginReq.Email)
 		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
@@ -288,7 +288,7 @@ func (a *UserApi) UpdateUsers(c *gin.Context) {
 
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 
-	err := service.GroupApp.User.UpdateUserInfo(&updateUserInfoReq, userClaims)
+	err := service.GroupApp.User.UpdateUserInfo(c, &updateUserInfoReq, userClaims)
 
 	if err != nil {
 		ErrorHandler(c, 400, err)

@@ -9,6 +9,8 @@ import (
 
 	dal "project/dal"
 	global "project/global"
+	"project/initialize"
+	"project/logic"
 	model "project/model"
 	query "project/query"
 	utils "project/utils"
@@ -77,11 +79,19 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 }
 
 // @description  用户登录
-func (u *User) Login(loginReq *model.LoginReq) (*model.LoginRsp, error) {
+func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.LoginRsp, error) {
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(loginReq.Email)
 	if err != nil {
 		return nil, err
+	}
+	// 是否加密配置
+	if logic.UserIsEncrypt(ctx) {
+		password, err := initialize.DecryptPassword(user.Password)
+		if err != nil {
+			return nil, fmt.Errorf("wrong decrypt password")
+		}
+		user.Password = string(password)
 	}
 	// 对比密码
 	if !utils.BcryptCheck(loginReq.Password, user.Password) {
@@ -359,7 +369,7 @@ func (u *User) GetUserDetail(claims *utils.UserClaims) (*model.User, error) {
 }
 
 // @description 修改用户信息（只能修改自己）
-func (u *User) UpdateUserInfo(updateUserReq *model.UpdateUserInfoReq, claims *utils.UserClaims) error {
+func (u *User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUserInfoReq, claims *utils.UserClaims) error {
 	user, err := dal.GetUsersById(claims.ID)
 	if err != nil {
 		return err
@@ -368,6 +378,15 @@ func (u *User) UpdateUserInfo(updateUserReq *model.UpdateUserInfoReq, claims *ut
 	// 限制用户只能修改自己的信息
 	if user.ID != claims.ID {
 		return fmt.Errorf("authority exception")
+	}
+
+	// 是否加密配置
+	if logic.UserIsEncrypt(ctx) {
+		password, err := initialize.DecryptPassword(*updateUserReq.Password)
+		if err != nil {
+			return fmt.Errorf("wrong decrypt password")
+		}
+		*updateUserReq.Password = string(password)
 	}
 
 	// 处理修改密码的情况

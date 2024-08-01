@@ -24,6 +24,7 @@ import (
 func init() {
 	initialize.ViperInit("./configs/conf.yml")
 	//initialize.ViperInit("./configs/conf-localdev.yml")
+	initialize.RsaDecryptInit("./rsa_key/private_key.pem")
 	initialize.LogInIt()
 	db := initialize.PgInit()
 	initialize.RedisInit()
