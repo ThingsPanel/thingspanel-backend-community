@@ -15,7 +15,6 @@ import (
 var RSAPrivateKey *rsa.PrivateKey
 
 func RsaDecryptInit(filePath string) (err error) {
-
 	key, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return errors.New("加载私钥错误1：" + err.Error())
@@ -29,7 +28,6 @@ func RsaDecryptInit(filePath string) (err error) {
 	if err != nil {
 		return errors.New("加载私钥错误3：" + err.Error())
 	}
-
 	RSAPrivateKey = privateKey
 	return err
 }
