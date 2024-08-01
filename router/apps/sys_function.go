@@ -14,7 +14,5 @@ func (s *SysFunction) Init(Router *gin.RouterGroup) {
 		// 改
 		url.PUT(":id", api.Controllers.SysFunctionApi.UpdateSysFcuntion)
 
-		// 查
-		url.GET("", api.Controllers.SysFunctionApi.GetSysFcuntion)
 	}
 }

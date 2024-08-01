@@ -12,12 +12,13 @@ import (
 
 type SysFunctionApi struct{}
 
+// /api/v1/sys_function GET
 func (s *SysFunctionApi) GetSysFcuntion(c *gin.Context) {
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	if userClaims.Authority != dal.SYS_ADMIN {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("权限不足,无法获取"))
-		return
-	}
+	// var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	// if userClaims.Authority != dal.SYS_ADMIN {
+	// 	ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("权限不足,无法获取"))
+	// 	return
+	// }
 	date, err := service.GroupApp.SysFunction.GetSysFuncion()
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
