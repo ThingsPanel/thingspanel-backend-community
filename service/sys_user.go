@@ -91,7 +91,8 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 		if err != nil {
 			return nil, fmt.Errorf("wrong decrypt password")
 		}
-		user.Password = string(password)
+		passwords := strings.TrimRight(string(password), loginReq.Salt)
+		user.Password = passwords
 	}
 	// 对比密码
 	if !utils.BcryptCheck(loginReq.Password, user.Password) {
@@ -386,7 +387,8 @@ func (u *User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUs
 		if err != nil {
 			return fmt.Errorf("wrong decrypt password")
 		}
-		*updateUserReq.Password = string(password)
+		passwords := strings.TrimRight(string(password), updateUserReq.Salt)
+		*updateUserReq.Password = passwords
 	}
 
 	// 处理修改密码的情况
