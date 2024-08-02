@@ -7,6 +7,7 @@ import (
 	"time"
 
 	config "project/mqtt"
+	"project/mqtt/subscribe"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-basic/uuid"
@@ -183,6 +184,7 @@ func (w *WsMqttClient) SubscribeOnlineOffline(deviceId string, conn *websocket.C
 		}
 	}
 	onlineOfflineTopic := "devices/status/" + deviceId
+	onlineOfflineTopic = subscribe.GenTopic(onlineOfflineTopic)
 	onlineOfflineQos := byte(0)
 	if token := w.Client.Subscribe(onlineOfflineTopic, onlineOfflineQos, onlineOfflineHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
