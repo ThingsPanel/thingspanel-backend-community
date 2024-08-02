@@ -2,6 +2,7 @@ package publish
 
 import (
 	"fmt"
+	"path"
 	"time"
 
 	"project/common"
@@ -208,6 +209,7 @@ func ForwardTelemetryMessage(deviceId string, payload []byte) error {
 // 发送在线离线消息
 func PublishOnlineMessage(deviceID string, payload []byte) error {
 	topic := fmt.Sprintf("devices/status/%s", deviceID)
+	topic = path.Join("$share/mygroup", topic)
 	qos := byte(0)
 	// 发布消息
 	token := mqttClient.Publish(topic, qos, false, payload)

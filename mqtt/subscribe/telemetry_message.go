@@ -73,6 +73,13 @@ func MessagesChanHandler(messages <-chan map[string]interface{}) {
 
 // 处理消息
 func TelemetryMessages(payload []byte, topic string) {
+	//如果配置了别的数据库，遥测数据不写入原来的库了
+	dbType := viper.GetString("grpc.tptodb_type")
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
+		logrus.Infof("do not insert db for dbType:%v", dbType)
+		return
+	}
+
 	logrus.Debugln(string(payload))
 	// 验证消息有效性
 	telemetryPayload, err := verifyPayload(payload)

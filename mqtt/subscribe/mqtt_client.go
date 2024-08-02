@@ -14,6 +14,7 @@ import (
 	"github.com/go-basic/uuid"
 	"github.com/panjf2000/ants"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 var SubscribeMqttClient mqtt.Client
@@ -123,6 +124,12 @@ func telemetryMessagesChan() {
 
 // 订阅telemetry消息
 func SubscribeTelemetry() error {
+	//如果配置了别的数据库，遥测数据不写入原来的库了
+	dbType := viper.GetString("grpc.tptodb_type")
+	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
+		logrus.Infof("dbType:%v do not need subcribe topic: %v", dbType, config.MqttConfig.Telemetry.SubscribeTopic)
+		return nil
+	}
 
 	p, err := ants.NewPool(config.MqttConfig.Telemetry.PoolSize)
 	if err != nil {
