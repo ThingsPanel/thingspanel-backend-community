@@ -65,7 +65,7 @@ func DecryptPassword(encryptedPassword string) ([]byte, error) {
 		return nil, fmt.Errorf("解码密文失败: %v", err)
 	}
 
-	decrypted, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, RSAPrivateKey, ciphertext, nil)
+	decrypted, err := rsa.DecryptPKCS1v15(rand.Reader, RSAPrivateKey, ciphertext)
 	if err != nil {
 		return nil, fmt.Errorf("解密失败: %v", err)
 	}
