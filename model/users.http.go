@@ -15,7 +15,7 @@ type CreateUserReq struct {
 type LoginReq struct {
 	Email    string `json:"email" validate:"required,email"`            // 邮箱
 	Password string `json:"password" validate:"required,min=6,max=255"` // 密码
-	Salt     string `json:"salt" validate:"required"`                   // 随机盐
+	Salt     string `json:"salt"`                                       // 随机盐
 }
 
 type LoginRsp struct {
@@ -50,7 +50,7 @@ type UpdateUserInfoReq struct {
 	Remark    *string    `json:"remark" validate:"omitempty,max=255"`         // 备注
 	Password  *string    `json:"password" validate:"omitempty,min=6,max=255"` // 密码
 	UpdatedAt *time.Time `json:"updated_at" validate:"omitempty"`             // 更新时间
-	Salt      string     `json:"salt" validate:"required"`
+	Salt      string     `json:"salt"`
 }
 
 type TransformUserReq struct {
