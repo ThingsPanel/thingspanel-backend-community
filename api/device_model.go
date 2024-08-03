@@ -283,6 +283,12 @@ func (api *DeviceModelApi) CreateDeviceModelCustomControl(c *gin.Context) {
 }
 
 func (api *DeviceModelApi) DeleteDeviceModelCustomControl(c *gin.Context) {
+	id := c.Param("id")
+	err := service.GroupApp.DeviceModel.DeleteDeviceModelCustomControl(id)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
 
 	SuccessHandler(c, common.SUCCESS, "")
 }

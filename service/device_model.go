@@ -476,3 +476,8 @@ func (d *DeviceModel) CreateDeviceModelCustomControl(req model.CreateDeviceModel
 	err := dal.CreateDeviceModelCustomControl(&deviceModelCustomControl)
 	return err
 }
+
+func (d *DeviceModel) DeleteDeviceModelCustomControl(id string) error {
+	err := dal.DeleteDeviceModelCustomControlById(id)
+	return err
+}
