@@ -298,7 +298,13 @@ func (api *DeviceModelApi) UpdateDeviceModelCustomControl(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	// var userClaims = c.MustGet("claims").(*utils.UserClaims)
+
+	err := service.GroupApp.DeviceModel.UpdateDeviceModelCustomControl(req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+
 	SuccessHandler(c, common.SUCCESS, "")
 }
 

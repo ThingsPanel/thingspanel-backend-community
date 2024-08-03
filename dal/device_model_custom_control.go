@@ -25,3 +25,13 @@ func DeleteDeviceModelCustomControlById(id string) error {
 	return err
 
 }
+
+func UpdateDeviceModelCustomControl(data *model.DeviceModelCustomControl) (*model.DeviceModelCustomControl, error) {
+	info, err := query.DeviceModelCustomControl.Where(query.DeviceModelCustomControl.ID.Eq(data.ID)).Updates(data)
+	if err != nil {
+		return nil, err
+	} else if info.RowsAffected == 0 {
+		return nil, fmt.Errorf("update device model custom control failed, no rows affected")
+	}
+	return data, err
+}

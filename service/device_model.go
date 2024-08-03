@@ -481,3 +481,24 @@ func (d *DeviceModel) DeleteDeviceModelCustomControl(id string) error {
 	err := dal.DeleteDeviceModelCustomControlById(id)
 	return err
 }
+
+func (d *DeviceModel) UpdateDeviceModelCustomControl(req model.UpdateDeviceModelCustomControlReq) error {
+
+	if *req.EnableStatus != "enable" && *req.EnableStatus != "disable" {
+		return fmt.Errorf("enable status error")
+	}
+
+	var deviceModelCustomControl model.DeviceModelCustomControl
+
+	deviceModelCustomControl.ID = req.ID
+	deviceModelCustomControl.DeviceTemplateID = *req.DeviceTemplateId
+	deviceModelCustomControl.Name = *req.Name
+	deviceModelCustomControl.ControlType = *req.ControlType
+	deviceModelCustomControl.Description = req.Description
+	deviceModelCustomControl.Content = req.Content
+	deviceModelCustomControl.EnableStatus = *req.EnableStatus
+	deviceModelCustomControl.Remark = req.Remark
+
+	_, err := dal.UpdateDeviceModelCustomControl(&deviceModelCustomControl)
+	return err
+}
