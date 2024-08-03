@@ -267,6 +267,17 @@ func (api *DeviceModelApi) GetDeviceModelCustomCommandsByDeviceId(c *gin.Context
 }
 
 func (api *DeviceModelApi) CreateDeviceModelCustomControl(c *gin.Context) {
+	var req model.CreateDeviceModelCustomControlReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+
+	err := service.GroupApp.DeviceModel.CreateDeviceModelCustomControl(req, userClaims)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
 
 	SuccessHandler(c, common.SUCCESS, "")
 }
@@ -277,7 +288,11 @@ func (api *DeviceModelApi) DeleteDeviceModelCustomControl(c *gin.Context) {
 }
 
 func (api *DeviceModelApi) UpdateDeviceModelCustomControl(c *gin.Context) {
-
+	var req model.UpdateDeviceModelCustomControlReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	// var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	SuccessHandler(c, common.SUCCESS, "")
 }
 

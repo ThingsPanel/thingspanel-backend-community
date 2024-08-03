@@ -454,3 +454,25 @@ func (d *DeviceModel) GetDeviceModelCustomCommandsByDeviceId(deviceId string, cl
 	}
 	return data, nil
 }
+
+func (d *DeviceModel) CreateDeviceModelCustomControl(req model.CreateDeviceModelCustomControlReq, claims *utils.UserClaims) error {
+
+	if req.EnableStatus != "enable" && req.EnableStatus != "disable" {
+		return fmt.Errorf("enable status error")
+	}
+
+	var deviceModelCustomControl model.DeviceModelCustomControl
+
+	deviceModelCustomControl.ID = uuid.New()
+	deviceModelCustomControl.DeviceTemplateID = req.DeviceTemplateId
+	deviceModelCustomControl.Name = req.Name
+	deviceModelCustomControl.ControlType = req.ControlType
+	deviceModelCustomControl.Description = req.Description
+	deviceModelCustomControl.Content = req.Content
+	deviceModelCustomControl.EnableStatus = req.EnableStatus
+	deviceModelCustomControl.Remark = req.Remark
+	deviceModelCustomControl.TenantID = claims.TenantID
+
+	err := dal.CreateDeviceModelCustomControl(&deviceModelCustomControl)
+	return err
+}
