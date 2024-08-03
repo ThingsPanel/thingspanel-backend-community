@@ -309,6 +309,15 @@ func (api *DeviceModelApi) UpdateDeviceModelCustomControl(c *gin.Context) {
 }
 
 func (api *DeviceModelApi) GetDeviceModelCustomControl(c *gin.Context) {
-
-	SuccessHandler(c, common.SUCCESS, nil)
+	var req model.GetDeviceModelListByPageReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.DeviceModel.GetDeviceModelCustomControlByPage(req, userClaims)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, common.SUCCESS, data)
 }

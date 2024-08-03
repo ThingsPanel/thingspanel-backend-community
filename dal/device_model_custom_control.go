@@ -1,6 +1,7 @@
 package dal
 
 import (
+	"context"
 	"fmt"
 	model "project/model"
 	query "project/query"
@@ -34,4 +35,31 @@ func UpdateDeviceModelCustomControl(data *model.DeviceModelCustomControl) (*mode
 		return nil, fmt.Errorf("update device model custom control failed, no rows affected")
 	}
 	return data, err
+}
+
+func GetDeviceModelCustomControlByPage(page model.GetDeviceModelListByPageReq, tenantID string) (int64, []*model.DeviceModelCustomControl, error) {
+	var count int64
+	q := query.DeviceModelCustomControl
+	queryBuilder := q.WithContext(context.Background())
+	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
+	queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(page.DeviceTemplateId))
+	count, err := queryBuilder.Count()
+	if err != nil {
+		logrus.Error(err)
+		return count, nil, err
+	}
+
+	if page.Page != 0 && page.PageSize != 0 {
+		queryBuilder = queryBuilder.Limit(page.PageSize)
+		queryBuilder = queryBuilder.Offset((page.Page - 1) * page.PageSize)
+	}
+
+	data, err := queryBuilder.Select(q.ALL).Order(q.CreatedAt.Desc()).Find()
+	if err != nil {
+		logrus.Error(err)
+		return count, data, err
+	}
+
+	return count, data, nil
+
 }

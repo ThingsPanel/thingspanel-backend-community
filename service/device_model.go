@@ -502,3 +502,17 @@ func (d *DeviceModel) UpdateDeviceModelCustomControl(req model.UpdateDeviceModel
 	_, err := dal.UpdateDeviceModelCustomControl(&deviceModelCustomControl)
 	return err
 }
+
+func (d *DeviceModel) GetDeviceModelCustomControlByPage(req model.GetDeviceModelListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
+
+	total, list, err := dal.GetDeviceModelCustomControlByPage(req, claims.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	listRsp := make(map[string]interface{})
+	listRsp["total"] = total
+	listRsp["list"] = list
+
+	return listRsp, err
+
+}
