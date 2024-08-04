@@ -87,12 +87,12 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 	}
 	// 是否加密配置
 	if logic.UserIsEncrypt(ctx) {
-		password, err := initialize.DecryptPassword(user.Password)
+		password, err := initialize.DecryptPassword(loginReq.Password)
 		if err != nil {
 			return nil, fmt.Errorf("wrong decrypt password")
 		}
-		passwords := strings.TrimRight(string(password), loginReq.Salt)
-		user.Password = passwords
+		passwords := strings.TrimSuffix(string(password), loginReq.Salt)
+		loginReq.Password = passwords
 	}
 	// 对比密码
 	if !utils.BcryptCheck(loginReq.Password, user.Password) {
@@ -387,7 +387,7 @@ func (u *User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUs
 		if err != nil {
 			return fmt.Errorf("wrong decrypt password")
 		}
-		passwords := strings.TrimRight(string(password), updateUserReq.Salt)
+		passwords := strings.TrimSuffix(string(password), updateUserReq.Salt)
 		*updateUserReq.Password = passwords
 	}
 

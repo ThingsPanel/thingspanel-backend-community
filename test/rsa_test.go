@@ -96,6 +96,7 @@ func TestRSA(t *testing.T) {
 	RsaDecryptInit("../rsa_key/private_key.pem")
 	RsaDecryptPublicInit("../rsa_key/public.pem")
 	// 加密测试
+	//
 	password := Encrypt()
 	fmt.Println(password)
 	// 解密

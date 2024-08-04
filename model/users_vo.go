@@ -19,4 +19,5 @@ type UsersUpdateReq struct {
 type UsersUpdatePasswordReq struct {
 	OldPassword string `json:"old_password" gorm:"old_password" validate:"required"`
 	Password    string `json:"password"  gorm:"password" validate:"required"`
+	Salt        string `json:"salt" gorm:"salt"`
 }
