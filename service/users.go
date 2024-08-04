@@ -3,9 +3,13 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	common "project/common"
 	dal "project/dal"
+	"project/initialize"
+	"project/logic"
 	model "project/model"
 	query "project/query"
 	utils "project/utils"
@@ -171,6 +175,17 @@ func (u *UsersService) UpdateTenantInfoPassword(ctx context.Context, userInfo *u
 		logrus.Error(ctx, "[UpdateTenantInfoPassword]Get Users info failed:", err)
 		return err
 	}
+
+	// 是否加密配置
+	if logic.UserIsEncrypt(ctx) {
+		password, err := initialize.DecryptPassword(param.Password)
+		if err != nil {
+			return fmt.Errorf("wrong decrypt password")
+		}
+		passwords := strings.TrimSuffix(string(password), param.Salt)
+		param.Password = passwords
+	}
+
 	// 验证旧密码
 	if !utils.BcryptCheck(param.OldPassword, info.Password) {
 		return errors.New("OldPassword Failed,Please again~")
