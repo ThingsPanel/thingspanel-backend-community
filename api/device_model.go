@@ -308,7 +308,7 @@ func (api *DeviceModelApi) UpdateDeviceModelCustomControl(c *gin.Context) {
 	SuccessHandler(c, common.SUCCESS, "")
 }
 
-// /api/v1/device/model/custom/control
+// /api/v1/device/model/custom/control GET
 func (api *DeviceModelApi) GetDeviceModelCustomControl(c *gin.Context) {
 	var req model.GetDeviceModelListByPageReq
 	if !BindAndValidate(c, &req) {

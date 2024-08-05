@@ -58,7 +58,7 @@ type UpdateDeviceModelV2Req struct {
 type GetDeviceModelListByPageReq struct {
 	PageReq
 	DeviceTemplateId string  `json:"device_template_id" form:"device_template_id"  validate:"required,max=36"` // 设备模版ID
-	EnableStatus     *string `json:"enable_status"  form:"enable_status" validate:"max=10"`                    // 启用状态
+	EnableStatus     *string `json:"enable_status"  form:"enable_status" validate:"omitempty,max=10"`          // 启用状态
 }
 
 type GetModelSourceATRes struct {
