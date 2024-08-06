@@ -3,7 +3,6 @@ package dal
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"regexp"
 	"strconv"
 	"time"
@@ -306,33 +305,19 @@ func GetTelemetrStatisticaAgregationData(deviceId, key string, sTime, eTime, agg
 		return data, nil
 	}
 
-	queryString := fmt.Sprintf(
-		`WITH TimeIntervals AS (
-				SELECT 
-					ts - (ts %% ?) AS x, 
-					%s(number_v) AS y 
-				FROM 
-					telemetry_datas 
-				WHERE 
-					ts BETWEEN ? AND ? AND key = ? AND device_id = ? 
-				GROUP BY 
-					x
-			)
-			SELECT 
-				x, 
-				x + ? AS x2, 
-				y 
-			FROM 
-				TimeIntervals 
-			WHERE 
-				y IS NOT NULL 
-			ORDER BY 
-				x asc;`,
-		aggregateFunc,
-	)
-	resultData := global.DB.Raw(queryString, aggregateWindow, sTime, eTime, key, deviceId, aggregateWindow).Scan(&data)
-	if resultData.Error != nil {
-		return nil, resultData.Error
+	//pg数据库进行聚合查询
+	telemetryDatasAggregate := TelemetryDatasAggregate{
+		DeviceID:          deviceId,
+		Key:               key,
+		STime:             sTime,
+		ETime:             eTime,
+		AggregateWindow:   aggregateWindow,
+		AggregateFunction: aggregateFunc,
+	}
+
+	data, err := GetTelemetryDatasAggregate(context.Background(), telemetryDatasAggregate)
+	if err != nil {
+		return nil, err
 	}
 	return data, nil
 
