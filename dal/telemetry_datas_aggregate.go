@@ -25,6 +25,9 @@ func GetTelemetryDatasAggregate(ctx context.Context, telemetryDatasAggregate Tel
 	switch telemetryDatasAggregate.AggregateFunction {
 	case "avg", "max", "min", "sum":
 		queryString = GetQueryString1(telemetryDatasAggregate.AggregateFunction)
+	case "diff":
+		queryString = GetQueryString2(telemetryDatasAggregate.AggregateFunction)
+
 	default:
 		return nil, fmt.Errorf("不支持的聚合函数")
 	}
