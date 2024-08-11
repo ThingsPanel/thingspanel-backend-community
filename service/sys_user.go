@@ -471,7 +471,7 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	}
 	// 验证邮箱是否注册
 	user, err := dal.GetUsersByEmail(req.Email)
-	if err != nil && !errors.Is(err, common.ErrNoRows) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("busy network")
 	}
 	if user != nil {
