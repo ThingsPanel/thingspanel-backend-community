@@ -71,7 +71,8 @@ func (a *UserApi) RefreshToken(c *gin.Context) {
 // GET /api/v1/verification/code
 func (a *UserApi) GetVerificationCode(c *gin.Context) {
 	email := c.Query("email")
-	err := service.GroupApp.User.GetVerificationCode(email)
+	isRegister := c.Query("is_register")
+	err := service.GroupApp.User.GetVerificationCode(email, isRegister)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return
@@ -314,4 +315,20 @@ func (a *UserApi) TransformUser(c *gin.Context) {
 	}
 
 	SuccessHandler(c, "Transform successfully", loginRsp)
+}
+
+// EmailRegister
+// @description 租户邮箱注册
+func (a *UserApi) EmailRegister(c *gin.Context) {
+	var req model.EmailRegisterReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	loginRsp, err := service.GroupApp.EmailRegister(c, &req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	SuccessHandler(c, "EmailRegister successfully", loginRsp)
 }

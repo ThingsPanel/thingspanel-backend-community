@@ -49,6 +49,8 @@ func RouterInit() *gin.Engine {
 			v1.GET("systime", controllers.SystemApi.GetSystime)
 			// 查询系统功能设置
 			v1.GET("sys_function", controllers.SysFunctionApi.GetSysFcuntion)
+			// 租户邮箱注册
+			v1.POST("/tenant/email/register", controllers.UserApi.EmailRegister)
 		}
 		// 需要权限校验
 		v1.Use(middleware.JWTAuth())

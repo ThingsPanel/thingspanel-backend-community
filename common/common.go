@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/json"
+	"math/rand"
 	constant "project/constant"
 	"strconv"
 	"time"
@@ -76,4 +77,15 @@ func StringSpt(str string) *string {
 
 func IsStringEmpty(str *string) bool {
 	return str == nil || *str == ""
+}
+
+const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+func GenerateRandomString(length int) string {
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
 }

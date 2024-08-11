@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"math/rand"
+	"project/common"
 	"strings"
 	"time"
 
@@ -104,6 +107,12 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 		return nil, fmt.Errorf("user status exception")
 	}
 
+	return u.UserLoginAfter(user)
+}
+
+// UserLoginAfter
+// @description 用户登录后token获取保存
+func (u *User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 	key := viper.GetString("jwt.key")
 	// 生成token
 	jwt := utils.NewJWT([]byte(key))
@@ -173,14 +182,20 @@ func (u *User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, erro
 }
 
 // @description 发送验证码
-func (u *User) GetVerificationCode(email string) error {
+func (u *User) GetVerificationCode(email, isRegister string) error {
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(email)
 	if err != nil {
 		return err
 	}
-	if user == nil {
+	if user == nil && isRegister != "1" {
 		return fmt.Errorf("email does not exist")
+	}
+	switch {
+	case user == nil && isRegister != "1":
+		return fmt.Errorf("email does not exist")
+	case user != nil && isRegister == "1":
+		return fmt.Errorf("email already exists")
 	}
 	verificationCode := fmt.Sprintf("%06d", rand.Intn(10000))
 	err = global.REDIS.Set(email+"_code", verificationCode, 5*time.Minute).Err()
@@ -442,4 +457,54 @@ func (u *User) TransformUser(transformUserReq *model.TransformUserReq, claims *u
 		ExpiresIn: int64(24 * 7 * time.Hour.Seconds()),
 	}
 	return loginRsp, nil
+}
+
+func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (*model.LoginRsp, error) {
+	//验证码验证
+	verificationCode, err := global.REDIS.Get(req.Email + "_code").Result()
+	if err != nil {
+		return nil, fmt.Errorf("verification code expired")
+	}
+	if verificationCode != req.VerifyCode {
+		return nil, fmt.Errorf("verification code error")
+	}
+	if req.Password != req.ConfirmPassword {
+		return nil, fmt.Errorf("your confirmed password and new password do not match")
+	}
+	// 验证邮箱是否注册
+	user, err := dal.GetUsersByEmail(req.Email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("busy network")
+	}
+	if user != nil {
+		return nil, fmt.Errorf("email already exists")
+	}
+	// 是否加密配置
+	if logic.UserIsEncrypt(ctx) {
+		password, err := initialize.DecryptPassword(req.Password)
+		if err != nil {
+			return nil, fmt.Errorf("wrong decrypt password")
+		}
+		passwords := strings.TrimSuffix(string(password), req.Salt)
+		req.Password = passwords
+	}
+	req.Password = utils.BcryptHash(req.Password)
+	now := time.Now().UTC()
+	userInfo := &model.User{
+		ID:          uuid.New(),
+		Name:        &req.Email,
+		PhoneNumber: fmt.Sprintf("%s %s", req.PhonePrefix, req.PhoneNumber),
+		Email:       req.Email,
+		Status:      StringPtr("N"),
+		Authority:   StringPtr("TENANT_USER"),
+		Password:    req.Password,
+		TenantID:    StringPtr(common.GenerateRandomString(8)),
+		CreatedAt:   &now,
+		UpdatedAt:   &now,
+	}
+	err = dal.CreateUsers(userInfo)
+	if user != nil {
+		return nil, fmt.Errorf("busy network")
+	}
+	return u.UserLoginAfter(userInfo)
 }
