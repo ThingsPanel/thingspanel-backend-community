@@ -89,3 +89,5 @@ func GenerateRandomString(length int) string {
 	}
 	return string(b)
 }
+
+var ErrNoRows = errors.New("record not found")

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -185,7 +184,7 @@ func (u *User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, erro
 func (u *User) GetVerificationCode(email, isRegister string) error {
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(email)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, common.ErrNoRows) {
 		return err
 	}
 	switch {
@@ -470,7 +469,7 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	}
 	// 验证邮箱是否注册
 	user, err := dal.GetUsersByEmail(req.Email)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, common.ErrNoRows) {
 		return nil, fmt.Errorf("busy network")
 	}
 	if user != nil {
