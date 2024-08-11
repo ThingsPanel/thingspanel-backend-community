@@ -185,6 +185,7 @@ func (u *User) GetVerificationCode(email, isRegister string) error {
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(email)
 	if err != nil && !errors.Is(err, common.ErrNoRows) {
+		logrus.Error(err)
 		return err
 	}
 	switch {
