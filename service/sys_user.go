@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"math/rand"
 	"project/common"
 	"strings"
@@ -184,7 +185,7 @@ func (u *User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, erro
 func (u *User) GetVerificationCode(email, isRegister string) error {
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(email)
-	if err != nil && !errors.Is(err, common.ErrNoRows) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logrus.Error(err)
 		return err
 	}
