@@ -185,11 +185,8 @@ func (u *User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, erro
 func (u *User) GetVerificationCode(email, isRegister string) error {
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(email)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
-	}
-	if user == nil && isRegister != "1" {
-		return fmt.Errorf("email does not exist")
 	}
 	switch {
 	case user == nil && isRegister != "1":
