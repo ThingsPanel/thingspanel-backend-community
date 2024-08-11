@@ -14,6 +14,8 @@ type UsersRes struct {
 type UsersUpdateReq struct {
 	Name           string  `json:"name"`
 	AdditionalInfo *string `json:"additional_info"`
+	PhoneNumber    *string `json:"phone_number"`
+	PhonePrefix    *string `json:"phone_prefix"`
 }
 
 type UsersUpdatePasswordReq struct {

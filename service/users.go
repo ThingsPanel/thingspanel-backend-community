@@ -154,6 +154,14 @@ func (u *UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.Use
 		info.AdditionalInfo = param.AdditionalInfo
 		columns = append(columns, user.AdditionalInfo)
 	}
+	if param.PhoneNumber != nil {
+		var phonePrefix string
+		if param.PhonePrefix != nil {
+			phonePrefix = *param.PhonePrefix
+		}
+		info.PhoneNumber = fmt.Sprintf("%s %s", phonePrefix, *param.PhoneNumber)
+		columns = append(columns, user.PhoneNumber)
+	}
 	if err = db.UpdateByEmail(ctx, info, columns...); err != nil {
 		logrus.Error(ctx, "[UpdateTenantInfo]Update Users info failed:", err)
 		return err
