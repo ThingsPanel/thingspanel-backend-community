@@ -75,6 +75,7 @@ var (
 	VisFile                    *visFile
 	VisPlugin                  *visPlugin
 	VisPluginLocal             *visPluginLocal
+	ExpectedData 			   *expectedData
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -137,6 +138,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	VisFile = &Q.VisFile
 	VisPlugin = &Q.VisPlugin
 	VisPluginLocal = &Q.VisPluginLocal
+	ExpectedData = &Q.ExpectedData
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
@@ -200,6 +202,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		VisFile:                    newVisFile(db, opts...),
 		VisPlugin:                  newVisPlugin(db, opts...),
 		VisPluginLocal:             newVisPluginLocal(db, opts...),
+		ExpectedData:                newExpectedData(db, opts...),
 	}
 }
 
@@ -264,6 +267,8 @@ type Query struct {
 	VisFile                    visFile
 	VisPlugin                  visPlugin
 	VisPluginLocal             visPluginLocal
+	ExpectedData               expectedData
+
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -329,6 +334,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		VisFile:                    q.VisFile.clone(db),
 		VisPlugin:                  q.VisPlugin.clone(db),
 		VisPluginLocal:             q.VisPluginLocal.clone(db),
+		ExpectedData:               q.ExpectedData.clone(db),
 	}
 }
 
@@ -401,6 +407,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		VisFile:                    q.VisFile.replaceDB(db),
 		VisPlugin:                  q.VisPlugin.replaceDB(db),
 		VisPluginLocal:             q.VisPluginLocal.replaceDB(db),
+		ExpectedData:               q.ExpectedData.replaceDB(db),
 	}
 }
 
@@ -463,6 +470,7 @@ type queryCtx struct {
 	VisFile                    IVisFileDo
 	VisPlugin                  IVisPluginDo
 	VisPluginLocal             IVisPluginLocalDo
+	ExpectedData               IExpectedDataDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
@@ -525,6 +533,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		VisFile:                    q.VisFile.WithContext(ctx),
 		VisPlugin:                  q.VisPlugin.WithContext(ctx),
 		VisPluginLocal:             q.VisPluginLocal.WithContext(ctx),
+		ExpectedData:               q.ExpectedData.WithContext(ctx),
 	}
 }
 

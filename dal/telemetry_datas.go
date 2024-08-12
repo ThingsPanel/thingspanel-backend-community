@@ -376,10 +376,3 @@ var StatisticAggregateWindowMillisecond = map[string]int64{
 	"7d":  int64(time.Hour * 24 * 7 / time.Millisecond),
 	"1mo": int64(time.Hour * 24 * 30 / time.Millisecond),
 }
-
-// 支持的统计方法
-var StatisticAggregateFunction = map[string]string{
-	"max":  "MAX",
-	"avg":  "AVG",
-	"test": "",
-}

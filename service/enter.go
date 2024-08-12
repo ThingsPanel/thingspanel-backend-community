@@ -43,6 +43,7 @@ type ServiceGroup struct {
 	VisPlugin
 	ServicePlugin
 	ServiceAccess
+	ExpectedData
 }
 
 var GroupApp = new(ServiceGroup)

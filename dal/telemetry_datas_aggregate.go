@@ -29,7 +29,7 @@ func GetTelemetryDatasAggregate(ctx context.Context, telemetryDatasAggregate Tel
 		queryString = GetQueryString2(telemetryDatasAggregate.AggregateFunction)
 
 	default:
-		return nil, fmt.Errorf("不支持的聚合函数")
+		return nil, fmt.Errorf("不支持的聚合函数: %s", telemetryDatasAggregate.AggregateFunction)
 	}
 
 	resultData := global.DB.Raw(queryString, telemetryDatasAggregate.AggregateWindow, telemetryDatasAggregate.STime, telemetryDatasAggregate.ETime, telemetryDatasAggregate.Key, telemetryDatasAggregate.DeviceID, telemetryDatasAggregate.AggregateWindow).Scan(&data)

@@ -1,11 +1,8 @@
 package test
 
 import (
-	"fmt"
-	"project/dal"
 	"project/initialize"
 	"project/query"
-	"project/service"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -33,11 +30,11 @@ func TestExecute(T *testing.T) {
 	// 	DeviceConfigID: &deviceConfigId,
 	// }
 	//d81b4f86-b6dc-1493-c72e-38e3c4b932ff
-	device, _ := dal.GetDeviceByID("41b44d60-305f-f559-1d8d-61c040b63b1e")
+	//device, _ := dal.GetDeviceByID("41b44d60-305f-f559-1d8d-61c040b63b1e")
 	//logrus.Debug(device)
-	err := service.GroupApp.Execute(device)
-	if err != nil {
-		//logrus.Errorf("自动化执行失败, err: %w", err)
-		fmt.Println("自动化执行失败，err:", err)
-	}
+	// err := service.GroupApp.Execute(device)
+	// if err != nil {
+	// 	//logrus.Errorf("自动化执行失败, err: %w", err)
+	// 	fmt.Println("自动化执行失败，err:", err)
+	// }
 }

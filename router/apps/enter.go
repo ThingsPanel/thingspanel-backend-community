@@ -30,6 +30,7 @@ type apps struct {
 	SysFunction
 	VisPlugin     // 可视化插件
 	ServicePlugin // 插件管理
+	ExpectedData  // 预期数据
 
 }
 
