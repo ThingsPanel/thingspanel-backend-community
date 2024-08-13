@@ -22,15 +22,19 @@ jobs:
         username: ${{ secrets.IMAGE_USER }}
         password: ${{ secrets.IMAGE_PASS }}
         logout: false
-        
-    - name: Use Skopeo Tools Sync Image to Aliyuncs Docker Hub
-      run: |
-         skopeo copy docker://docker.io/timescale/timescaledb:latest-pg14 docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/timescaledb:latest-pg14
-
-    - name: Use Skopeo Tools Sync Image to Aliyuncs Docker Hub1
-      run: |
-         skopeo copy docker://docker.io/redis:latest docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/redis:latest
 
     - name: Use Skopeo Tools Sync Image to Aliyuncs Docker Hub2
       run: |
+         skopeo copy docker://docker.io/library/ubuntu:20.04 docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/ubuntu:20.04
+  
+    #- name: Use Skopeo Tools Sync Image to Aliyuncs Docker Hub
+     # run: |
+     #    skopeo copy docker://docker.io/timescale/timescaledb:latest-pg14 docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/timescaledb:latest-pg14
+#
+    #- name: Use Skopeo Tools Sync Image to Aliyuncs Docker Hub1
+   #   run: |
+     #    skopeo copy docker://docker.io/redis:latest docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/redis:latest
+#
+      - name: Use Skopeo Tools Sync Image to Aliyuncs Docker Hub2
+        run: |
          skopeo copy docker://docker.io/library/golang:1.22-alpine3.20 docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/golang:1.22-alpine3.20
