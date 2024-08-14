@@ -82,3 +82,33 @@ func (d ExpectedDataDal) PageList(ctx context.Context, req *model.GetExpectedDat
 	}
 	return
 }
+
+// 根据设备ID获取全部预期数据
+func (d ExpectedDataDal) GetAllByDeviceID(ctx context.Context, deviceID string) (list []*model.ExpectedData, err error) {
+	ed := query.ExpectedData
+	queryBuilder := ed.WithContext(ctx)
+	queryBuilder = queryBuilder.Where(ed.DeviceID.Eq(deviceID))
+	queryBuilder = queryBuilder.Select(ed.ALL)
+	list, err = queryBuilder.Find()
+	if err != nil {
+		logrus.Error(ctx, err)
+		return
+	}
+	if len(list) == 0 {
+		list = []*model.ExpectedData{}
+	}
+	return
+}
+
+// 更新状态
+func (d ExpectedDataDal) UpdateStatus(ctx context.Context, id string, status string, message *string) error {
+	info, err := query.ExpectedData.WithContext(ctx).Where(query.ExpectedData.ID.Eq(id)).Updates(model.ExpectedData{Status: status, Message: message})
+	if err != nil {
+		logrus.Error(ctx, err)
+		return err
+	}
+	if info.RowsAffected == 0 {
+		return errors.New("no data")
+	}
+	return nil
+}

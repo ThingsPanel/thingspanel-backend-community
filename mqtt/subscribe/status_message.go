@@ -1,6 +1,7 @@
 package subscribe
 
 import (
+	"context"
 	dal "project/dal"
 	initialize "project/initialize"
 	"project/model"
@@ -31,6 +32,13 @@ func DeviceOnline(payload []byte, topic string) {
 	if err != nil {
 		logrus.Error(err.Error())
 		return
+	}
+	if status == 1 {
+		// 发送预期数据
+		err := service.GroupApp.ExpectedData.Send(context.Background(), deviceId)
+		if err != nil {
+			logrus.Error(err.Error())
+		}
 	}
 	// 清理缓存
 	initialize.DelDeviceCache(deviceId)

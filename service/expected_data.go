@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"project/dal"
 	model "project/model"
 	utils "project/utils"
@@ -59,4 +61,130 @@ func (e *ExpectedData) PageList(ctx context.Context, req *model.GetExpectedDataP
 		"total": total,
 		"list":  list,
 	}, nil
+}
+
+// 发送预期数据
+func (e *ExpectedData) Send(ctx context.Context, deviceID string) error {
+	// 查询预期数据
+	ed, err := dal.ExpectedDataDal{}.GetAllByDeviceID(ctx, deviceID)
+	if err != nil {
+		logrus.WithError(err).Error("查询预期数据失败")
+		return err
+	}
+	logrus.WithField("deviceID", deviceID).Debug("获取到的预期数据", ed)
+
+	// 遍历预期数据并处理
+	for _, v := range ed {
+		if v.ExpiryTime.Before(time.Now()) {
+			logrus.WithField("dataID", v.ID).Debug("预期数据已过期")
+			if err := updateStatus(ctx, v.ID, "expired", nil); err != nil {
+				return err
+			}
+			continue
+		}
+
+		var (
+			status  = "sent"
+			message string
+		)
+
+		// 发送预期数据
+		switch v.SendType {
+		case "telemetry":
+			message, err = sendTelemetry(ctx, deviceID, v.Payload)
+		case "attribute":
+			message, err = sendAttribute(ctx, deviceID, v.Payload)
+		case "command":
+			message, err = sendCommand(ctx, deviceID, v.Payload)
+		default:
+			logrus.WithField("sendType", v.SendType).Error("未知的发送类型")
+			continue
+		}
+
+		if err != nil {
+			status = "failed"
+			logrus.WithError(err).WithField("sendType", v.SendType).Error("发送数据失败")
+		}
+
+		if err := updateStatus(ctx, v.ID, status, &message); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// 发送遥测数据
+func sendTelemetry(ctx context.Context, deviceID, payload string) (string, error) {
+	logrus.Debug("发送预期遥测数据")
+	putMessage := &model.PutMessage{
+		DeviceID: deviceID,
+		Value:    payload,
+	}
+	err := GroupApp.TelemetryData.TelemetryPutMessage(ctx, "", putMessage, "2")
+	if err != nil {
+		return err.Error(), err
+	}
+	return "发送成功", nil
+}
+
+// 发送属性数据
+func sendAttribute(ctx context.Context, deviceID, payload string) (string, error) {
+	logrus.Debug("发送预期属性数据")
+	putMessage := &model.AttributePutMessage{
+		DeviceID: deviceID,
+		Value:    payload,
+	}
+	err := GroupApp.AttributeData.AttributePutMessage(ctx, "", putMessage, "2")
+	if err != nil {
+		return err.Error(), err
+	}
+	return "发送成功", nil
+}
+
+// 发送命令数据
+func sendCommand(ctx context.Context, deviceID, payload string) (string, error) {
+	logrus.Debug("发送预期命令数据")
+
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(payload), &data); err != nil {
+		return fmt.Sprintf("Error parsing JSON payload: %s", err.Error()), err
+	}
+
+	method, ok := data["method"].(string)
+	if !ok {
+		return "method 字段不存在或类型错误", fmt.Errorf("method 字段不存在或类型错误")
+	}
+
+	var paramsStr *string
+	if params, exists := data["params"]; exists {
+		paramsJSON, err := json.Marshal(params)
+		if err != nil {
+			return fmt.Sprintf("Error converting params to string: %s", err.Error()), err
+		}
+		p := string(paramsJSON)
+		paramsStr = &p
+	}
+
+	putMessage := &model.PutMessageForCommand{
+		DeviceID: deviceID,
+		Identify: method,
+		Value:    paramsStr,
+	}
+
+	err := GroupApp.CommandData.CommandPutMessage(ctx, "", putMessage, "2")
+	if err != nil {
+		return err.Error(), err
+	}
+
+	return "发送成功", nil
+}
+
+// 更新预期数据状态
+func updateStatus(ctx context.Context, id string, status string, message *string) error {
+	err := dal.ExpectedDataDal{}.UpdateStatus(ctx, id, status, message)
+	if err != nil {
+		logrus.WithError(err).WithField("dataID", id).Error("更新预期数据状态失败")
+	}
+	return err
 }

@@ -675,6 +675,7 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		errorMessage = err.Error()
 	}
 	//operationType := strconv.Itoa(constant.Manual)
+
 	description := "下发遥测日志记录"
 	logInfo := &model.TelemetrySetLog{
 		ID:            uuid.New(),
@@ -684,8 +685,11 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		Status:        nil,
 		ErrorMessage:  &errorMessage,
 		CreatedAt:     time.Now().UTC(),
-		UserID:        &userID,
 		Description:   &description,
+	}
+	// 系统自动发送
+	if userID == "" {
+		logInfo.UserID = nil
 	}
 	if err != nil {
 		logInfo.ErrorMessage = &errorMessage
