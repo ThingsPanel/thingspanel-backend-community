@@ -151,7 +151,7 @@ func (e *ExpectedData) Send(ctx context.Context, deviceID string) error {
 		}
 
 		if err != nil {
-			status = "failed"
+			status = "expired" //失败的都算作失效
 			logrus.WithError(err).WithField("sendType", v.SendType).Error("发送数据失败")
 		}
 
