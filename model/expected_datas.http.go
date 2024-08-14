@@ -10,6 +10,7 @@ type CreateExpectedDataReq struct {
 	Payload  string     `json:"payload" form:"payload" validate:"required,max=9999"`                                     // 数据内容
 	Expiry   *time.Time `json:"expiry" form:"expiry" validate:"omitempty"`                                               // 过期时间
 	Label    *string    `json:"label" form:"label" validate:"omitempty,max=100"`                                         // 标签
+	Identify *string    `json:"identify" form:"identify" validate:"omitempty,max=100"`                                   // 标识
 }
 
 // 删除预期数据请求

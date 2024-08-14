@@ -15,8 +15,42 @@ import (
 
 type ExpectedData struct{}
 
+func mergeIdentifyAndPayload(identify, payload string) (string, error) {
+	// 解析 payload 为 map
+	var params map[string]interface{}
+	err := json.Unmarshal([]byte(payload), &params)
+	if err != nil {
+		return "", fmt.Errorf("error parsing payload JSON: %v", err)
+	}
+
+	// 创建包含 identify 和 params 的 map
+	mergedData := map[string]interface{}{
+		"method": identify,
+		"params": params,
+	}
+
+	// 将合并后的 map 转换为 JSON 字符串
+	mergedJSON, err := json.Marshal(mergedData)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling merged data to JSON: %v", err)
+	}
+
+	return string(mergedJSON), nil
+}
+
 // 创建预期数据
 func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedDataReq, userClaims *utils.UserClaims) (*model.ExpectedData, error) {
+	if req.SendType == "command" {
+		if req.Identify == nil {
+			return nil, fmt.Errorf("identify 字段不能为空")
+		}
+		// 将identify和payload合并成一个json字符串
+		params, err := mergeIdentifyAndPayload(*req.Identify, req.Payload)
+		if err != nil {
+			return nil, err
+		}
+		req.Payload = params
+	}
 	// 创建预期数据
 	ed := &model.ExpectedData{
 		ID:         uuid.New(),
@@ -36,13 +70,13 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 	}
 
 	// 查询预期数据
-	ed, err = dal.ExpectedDataDal{}.GetByID(ctx, ed.ID)
+	expectedData, err := dal.ExpectedDataDal{}.GetByID(ctx, ed.ID)
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
 	}
 
-	return ed, nil
+	return expectedData, nil
 
 }
 
@@ -75,7 +109,7 @@ func (e *ExpectedData) Send(ctx context.Context, deviceID string) error {
 
 	// 遍历预期数据并处理
 	for _, v := range ed {
-		if v.ExpiryTime.Before(time.Now()) {
+		if v.ExpiryTime != nil && v.ExpiryTime.Before(time.Now()) {
 			logrus.WithField("dataID", v.ID).Debug("预期数据已过期")
 			if err := updateStatus(ctx, v.ID, "expired", nil); err != nil {
 				return err
