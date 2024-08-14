@@ -202,7 +202,7 @@ func sendCommand(ctx context.Context, deviceID, payload string) (string, error) 
 
 	method, ok := data["method"].(string)
 	if !ok {
-		return "method 字段不存在或类型错误", fmt.Errorf("method 字段不存在或类型错误")
+		return "identify 字段不存在或类型错误", fmt.Errorf("identify 字段不存在或类型错误")
 	}
 
 	var paramsStr *string
