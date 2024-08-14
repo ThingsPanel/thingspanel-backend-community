@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gorm.io/gorm"
 	"math/rand"
 	"project/common"
 	"strings"
 	"time"
+
+	"gorm.io/gorm"
 
 	dal "project/dal"
 	global "project/global"
@@ -479,11 +480,14 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	}
 	// 是否加密配置
 	if logic.UserIsEncrypt(ctx) {
+		if req.Salt == nil {
+			return nil, fmt.Errorf("salt is null")
+		}
 		password, err := initialize.DecryptPassword(req.Password)
 		if err != nil {
 			return nil, fmt.Errorf("wrong decrypt password")
 		}
-		passwords := strings.TrimSuffix(string(password), req.Salt)
+		passwords := strings.TrimSuffix(string(password), *req.Salt)
 		req.Password = passwords
 	}
 	req.Password = utils.BcryptHash(req.Password)
@@ -494,14 +498,14 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 		PhoneNumber: fmt.Sprintf("%s %s", req.PhonePrefix, req.PhoneNumber),
 		Email:       req.Email,
 		Status:      StringPtr("N"),
-		Authority:   StringPtr("TENANT_USER"),
+		Authority:   StringPtr("TENANT_ADMIN"),
 		Password:    req.Password,
 		TenantID:    StringPtr(common.GenerateRandomString(8)),
 		CreatedAt:   &now,
 		UpdatedAt:   &now,
 	}
 	err = dal.CreateUsers(userInfo)
-	if user != nil {
+	if err != nil {
 		return nil, fmt.Errorf("busy network")
 	}
 	return u.UserLoginAfter(userInfo)

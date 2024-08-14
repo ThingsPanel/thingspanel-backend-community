@@ -320,7 +320,7 @@ func (a *UserApi) TransformUser(c *gin.Context) {
 	SuccessHandler(c, "Transform successfully", loginRsp)
 }
 
-// EmailRegister
+// EmailRegister /api/v1/tenant/email/register POST
 // @description 租户邮箱注册
 func (a *UserApi) EmailRegister(c *gin.Context) {
 	var req model.EmailRegisterReq
