@@ -72,7 +72,7 @@ func (n *NotificationServicesConfig) SendTestEmail(req *model.SendTestEmailReq) 
 
 	m := gomail.NewMessage()
 	// 设置发件人
-	m.SetHeader("From", emailConf.Email)
+	m.SetHeader("From", emailConf.FromEmail)
 	// 设置收件人，可以有多个
 	m.SetHeader("To", req.Email)
 	// 设置邮件主题
@@ -82,7 +82,7 @@ func (n *NotificationServicesConfig) SendTestEmail(req *model.SendTestEmailReq) 
 
 	// cokyahsoudtdbahe
 	// 设置SMTP服务器（以Gmail为例），并提供认证信息
-	d := gomail.NewDialer(emailConf.Host, emailConf.Port, emailConf.Email, emailConf.FromPassword)
+	d := gomail.NewDialer(emailConf.Host, emailConf.Port, emailConf.FromEmail, emailConf.FromPassword)
 
 	// 发送邮件
 	if err := d.DialAndSend(m); err != nil {

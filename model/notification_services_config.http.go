@@ -15,12 +15,12 @@ const NoticeType_Voice = "VOICE"
 const NoticeType_Webhook = "WEBHOOK"
 
 type EmailConfig struct {
-	Email        string `json:"email" validate:"required"`
+	// Email        string `json:"email" validate:"required"`
 	Host         string `json:"host" form:"host" validate:"required"`
 	Port         int    `json:"port" form:"port" validate:"required"`
 	FromPassword string `json:"from_password" form:"from_password" validate:"required"`
 	FromEmail    string `json:"from_email" form:"from_email" validate:"required"`
-	SSL          *bool  `json:"ssl" form:"ssl" validate:"required"`
+	SSL          *bool  `json:"ssl" form:"ssl" validate:"omitempty"`
 }
 
 type SMEConfig struct {

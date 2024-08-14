@@ -144,6 +144,6 @@ ota:
 
 classified-protect:
   # 连续登录失败次数则锁定，-1表示不受限制，可以一直尝试登录
-  login-max-fail-times: 5
-  # 连续登录失败锁定时间（单位：秒），-1表示不锁定，5分钟之内 连续5次登录失败 锁定5分钟
+  login-max-fail-times: -1
+  # 连续登录失败锁定时间（单位：秒），-1表示不锁定
   login-fail-locked-seconds: 300

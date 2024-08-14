@@ -169,6 +169,10 @@ func (s *ServiceAccess) GetPluginServiceAccessList(req *model.GetPluginServiceAc
 			serviceAccessMap := StructToMap(serviceAccess)
 			serviceAccessMap["devices"] = devices
 			serviceAccessMapList = append(serviceAccessMapList, serviceAccessMap)
+		} else {
+			serviceAccessMap := StructToMap(serviceAccess)
+			serviceAccessMap["devices"] = []interface{}{}
+			serviceAccessMapList = append(serviceAccessMapList, serviceAccessMap)
 		}
 	}
 	return serviceAccessMapList, nil

@@ -613,7 +613,7 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 			req.StartTime,
 			req.EndTime,
 			dal.StatisticAggregateWindowMillisecond[req.AggregateWindow],
-			dal.StatisticAggregateFunction[req.AggregateFunction],
+			req.AggregateFunction,
 		)
 		if err != nil {
 			return nil, err

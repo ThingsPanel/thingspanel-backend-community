@@ -44,6 +44,7 @@ type Controller struct {
 	VisPluginApi                  //可视化插件
 	ServicePluginApi              //插件管理
 	ServiceAccessApi              //服务接入管理
+	ExpectedDataApi               // 预期数据
 }
 
 var Controllers = new(Controller)

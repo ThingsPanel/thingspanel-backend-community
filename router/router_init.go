@@ -118,6 +118,8 @@ func RouterInit() *gin.Engine {
 			apps.Model.VisPlugin.Init(v1) // 可视化插件
 
 			apps.Model.ServicePlugin.Init(v1) // 插件管理
+
+			apps.Model.ExpectedData.InitExpectedData(v1)
 		}
 	}
 

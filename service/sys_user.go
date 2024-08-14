@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gorm.io/gorm"
 	"math/rand"
 	"project/common"
 	"strings"
 	"time"
+
+	"gorm.io/gorm"
 
 	dal "project/dal"
 	global "project/global"
@@ -479,30 +480,39 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	}
 	// 是否加密配置
 	if logic.UserIsEncrypt(ctx) {
+		if req.Salt == nil {
+			return nil, fmt.Errorf("salt is null")
+		}
 		password, err := initialize.DecryptPassword(req.Password)
 		if err != nil {
 			return nil, fmt.Errorf("wrong decrypt password")
 		}
-		passwords := strings.TrimSuffix(string(password), req.Salt)
+		passwords := strings.TrimSuffix(string(password), *req.Salt)
 		req.Password = passwords
 	}
 	req.Password = utils.BcryptHash(req.Password)
 	now := time.Now().UTC()
+	// 有效期+一年
+	periodValidity := now.AddDate(1, 0, 0).UTC()
+	// 有效期转字符串2024-07-29T21:20:17.232478+08:00
+	periodValidityStr := periodValidity.Format(time.RFC3339)
+
 	userInfo := &model.User{
 		ID:          uuid.New(),
 		Name:        &req.Email,
 		PhoneNumber: fmt.Sprintf("%s %s", req.PhonePrefix, req.PhoneNumber),
 		Email:       req.Email,
 		Status:      StringPtr("N"),
-		Authority:   StringPtr("TENANT_USER"),
+		Authority:   StringPtr("TENANT_ADMIN"),
 		Password:    req.Password,
 		TenantID:    StringPtr(common.GenerateRandomString(8)),
 		Remark:      StringPtr(now.Add(365 * 24 * time.Hour).String()),
 		CreatedAt:   &now,
 		UpdatedAt:   &now,
+		Remark:      &periodValidityStr,
 	}
 	err = dal.CreateUsers(userInfo)
-	if user != nil {
+	if err != nil {
 		return nil, fmt.Errorf("busy network")
 	}
 	return u.UserLoginAfter(userInfo)

@@ -31,9 +31,12 @@ func (a *UserApi) Login(c *gin.Context) {
 
 	loginLock := service.NewLoginLock()
 
-	if err := loginLock.GetAllowLogin(c, loginReq.Email); err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
-		return
+	// 检查是否需要锁定账户
+	if loginLock.MaxFailedAttempts > 0 {
+		if err := loginLock.GetAllowLogin(c, loginReq.Email); err != nil {
+			c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+			return
+		}
 	}
 
 	loginRsp, err := service.GroupApp.User.Login(c, &loginReq)
@@ -317,7 +320,7 @@ func (a *UserApi) TransformUser(c *gin.Context) {
 	SuccessHandler(c, "Transform successfully", loginRsp)
 }
 
-// EmailRegister
+// EmailRegister /api/v1/tenant/email/register POST
 // @description 租户邮箱注册
 func (a *UserApi) EmailRegister(c *gin.Context) {
 	var req model.EmailRegisterReq
