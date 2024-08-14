@@ -492,6 +492,11 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	}
 	req.Password = utils.BcryptHash(req.Password)
 	now := time.Now().UTC()
+	// 有效期+一年
+	periodValidity := now.AddDate(1, 0, 0).UTC()
+	// 有效期转字符串2024-07-29T21:20:17.232478+08:00
+	periodValidityStr := periodValidity.Format(time.RFC3339)
+
 	userInfo := &model.User{
 		ID:          uuid.New(),
 		Name:        &req.Email,
@@ -503,6 +508,7 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 		TenantID:    StringPtr(common.GenerateRandomString(8)),
 		CreatedAt:   &now,
 		UpdatedAt:   &now,
+		Remark:      &periodValidityStr,
 	}
 	err = dal.CreateUsers(userInfo)
 	if err != nil {
