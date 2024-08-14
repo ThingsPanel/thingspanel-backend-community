@@ -497,6 +497,7 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 		Authority:   StringPtr("TENANT_USER"),
 		Password:    req.Password,
 		TenantID:    StringPtr(common.GenerateRandomString(8)),
+		Remark:      StringPtr(now.Add(365 * 24 * time.Hour).String()),
 		CreatedAt:   &now,
 		UpdatedAt:   &now,
 	}

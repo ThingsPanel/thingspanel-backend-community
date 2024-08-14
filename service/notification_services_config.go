@@ -76,7 +76,7 @@ func (n *NotificationServicesConfig) SendTestEmail(req *model.SendTestEmailReq) 
 	// 设置收件人，可以有多个
 	m.SetHeader("To", req.Email)
 	// 设置邮件主题
-	m.SetHeader("Subject", "iot email test")
+	m.SetHeader("Subject", "Iot平台-验证码通知")
 	// 设置邮件正文。可以是纯文本或者HTML
 	m.SetBody("text/html", req.Body)
 
