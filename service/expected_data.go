@@ -76,6 +76,21 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 		return nil, err
 	}
 
+	// 查询设备在线状态
+	deviceStatus, err := GroupApp.Device.GetDeviceOnlineStatus(req.DeviceID)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	if deviceStatus["is_online"] == 1 {
+		// 发送预期数据
+		err := e.Send(ctx, req.DeviceID)
+		if err != nil {
+			logrus.Error(err)
+			return nil, err
+		}
+	}
+
 	return expectedData, nil
 
 }
