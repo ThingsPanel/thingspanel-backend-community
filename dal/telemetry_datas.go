@@ -242,7 +242,7 @@ func DeleteTelemetrDataByTime(t int64) error {
 }
 
 // 非聚合查询(req.DeviceID, req.Key, req.StartTime, req.EndTime)
-func GetTelemetrStatisticData(deviceID, key string, startTime, endTime int64) (interface{}, error) {
+func GetTelemetrStatisticData(deviceID, key string, startTime, endTime int64) ([]map[string]interface{}, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		var fields []map[string]interface{}

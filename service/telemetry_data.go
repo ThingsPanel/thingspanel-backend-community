@@ -549,7 +549,7 @@ func (t *TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetry
 
 ```
 */
-func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStatisticReq) (interface{}, error) {
+func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStatisticReq) ([]map[string]interface{}, error) {
 	if req.TimeRange == "custom" {
 		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
 			return nil, fmt.Errorf("time range is invalid")
@@ -600,6 +600,9 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		if err != nil {
 			return nil, err
 		}
+		if len(data) == 0 {
+			data = []map[string]interface{}{}
+		}
 		return data, nil
 	} else {
 
@@ -617,6 +620,9 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		)
 		if err != nil {
 			return nil, err
+		}
+		if len(data) == 0 {
+			data = []map[string]interface{}{}
 		}
 		return data, nil
 	}
