@@ -21,7 +21,27 @@ Using these plugins **repeatedly** can greatly improve R&D efficiency.
 5. [Measuring Atmospheric Pressure with ESP-8266 and BMP280 Sensor - ThingsPanel](http://thingspanel.cn/posts/71)
 
 ## Product Screenshots
-![System Architecture](http://thingspanel.io/assets/images/ThingsPanel-0.6.0-homepage-27308c5423090237c9e13e5560b7162e.png)
+Desktop Interface
+<div align="center">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-1.0.0-homepage.png" width="45%" alt="Homepage">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-1.0.0-devicelist.png" width="45%" alt="Device List">
+</div>
+<div align="center">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-1.0.0-telemetry.png" width="90%" alt="Telemetry Data">
+</div>
+Dynamic Effect Demonstration
+<div align="center">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/weatherstation-800.gif" width="42%" alt="Weather Station">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/electric2-s.gif" width="50%" alt="Power System">
+</div>
+<div align="center">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/huanrezhan.gif" width="92.5%" alt="Heat Exchange Station">
+</div>
+Mobile Application Interface
+<div align="center">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-app-login.webp" width="30%" alt="Mobile App Login">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-app.webp" width="30%" alt="Mobile App">
+</div>
 
 ## Demo
 URL: http://demo.thingspanel.cn
