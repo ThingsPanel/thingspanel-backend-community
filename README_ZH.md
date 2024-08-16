@@ -42,12 +42,14 @@ ThingsPanel的插件主要有如下几类，分别是：
   <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-app.webp" width="30%" alt="移动应用">
   
 </div>
+
 ## 演示
 地址：http://demo.thingspanel.cn
 
 账户：test@test.cn
 
 密码：123456
+
 ## 快速安装使用
 通过容器化部署是搭建ThingsPanel的最快方式。
 
