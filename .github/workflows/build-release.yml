@@ -2,8 +2,13 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*' 
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name'
+        required: false
+        default: 'latest'
 
 jobs:
   build:
@@ -21,7 +26,7 @@ jobs:
     - name: Build and package for Windows x86_64
       run: |
         GOOS=windows GOARCH=amd64 go build -o thingspanel-backend-community-windows-x86_64.exe
-        zip thingspanel-backend-community-windows-x86_64.zip thingspanel-backend-community-windows-x86.exe configs sql files
+        zip thingspanel-backend-community-windows-x86_64.zip thingspanel-backend-community-windows-x86_64.exe configs sql files
 
     - name: Build and package for Linux x86_64
       run: |
@@ -38,27 +43,53 @@ jobs:
         GOOS=darwin GOARCH=amd64 go build -o thingspanel-backend-community-darwin-x64
         zip thingspanel-backend-community-darwin-x64.zip thingspanel-backend-community-darwin-x64 configs sql files
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+    - name: Determine Release Tag
+      id: determine-tag
+      run: echo "RELEASE_TAG=$(if [ '${{ github.event_name }}' == 'push' ]; then echo 'latest'; else echo '${{ github.event.inputs.tag }}'; fi)" >> $GITHUB_ENV
 
+    - name: Create or Update Release
+      id: create_or_update_release
+      uses: actions/github-script@v6
       with:
-        tag_name: ${{ github.ref }} 
-        release_name: Release ${{ github.ref }}  
-        body: Release notes for ${{ github.ref }} 
-        draft: false
-        prerelease: false
+        script: |
+          const tagName = process.env.RELEASE_TAG;
+          const { data: releases } = await github.rest.repos.listReleases({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+          });
+          let release = releases.find(r => r.tag_name === tagName);
+
+          if (release) {
+            // Update release
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              body: `Release updated by GitHub Actions. Tag ${tagName}`,
+            });
+            return { upload_url: release.upload_url.replace(/\/[^\/]+$/, '') };
+          } else {
+            // Create new release
+            const { data: newRelease } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tagName,
+              name: `Release ${tagName}`,
+              body: `Release created by GitHub Actions. Tag ${tagName}`,
+              draft: false,
+              prerelease: false,
+            });
+            return { upload_url: newRelease.upload_url.replace(/\/[^\/]+$/, '') };
+          }
+        result-encoding: json
 
     - name: Upload Release Asset
       id: upload-release-asset
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # 自动使用的 GitHub Token
-
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        upload_url: ${{ steps.create_or_update_release.outputs.upload_url }}
         asset_path: |
           ./thingspanel-backend-community-windows-x86_64.zip
           ./thingspanel-backend-community-linux-x86_64.tar.gz
