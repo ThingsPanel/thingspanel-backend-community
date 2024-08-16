@@ -19,7 +19,29 @@ ThingsPanel的插件主要有如下几类，分别是：
 4. [ThingsPanel通过ESP8266遥控风扇转速](http://thingspanel.cn/posts/72)
 5. [使用ESP-8266和BMP280传感器测量大气压-ThingsPanel](http://thingspanel.cn/posts/71)
 ## 产品截图
-![系统架构](http://thingspanel.io/assets/images/ThingsPanel-0.6.0-homepage-27308c5423090237c9e13e5560b7162e.png)
+桌面端界面
+<div align="center">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-1.0.0-homepage.png" width="45%" alt="首页">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-1.0.0-devicelist.png" width="45%" alt="设备列表">
+</div>
+<div align="center">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-1.0.0-telemetry.png" width="90%" alt="遥测数据">
+</div>
+动态效果展示
+<div align="center">
+    <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/weatherstation-800.gif" width="42%" alt="气象站">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/electric2-s.gif" width="50%" alt="电力系统">
+  
+</div>
+<div align="center">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/huanrezhan.gif" width="92.5%" alt="换热站">
+</div>
+移动应用界面
+<div align="center">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-app-login.webp" width="30%" alt="移动应用">
+  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-app.webp" width="30%" alt="移动应用">
+  
+</div>
 ## 演示
 地址：http://demo.thingspanel.cn
 
