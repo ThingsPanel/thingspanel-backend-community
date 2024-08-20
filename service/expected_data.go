@@ -51,6 +51,11 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 		}
 		req.Payload = params
 	}
+	// 属性类型标签为属性
+	if req.SendType == "attribute" {
+		a := "attribute"
+		req.Identify = &a
+	}
 	// 创建预期数据
 	ed := &model.ExpectedData{
 		ID:         uuid.New(),
@@ -60,7 +65,7 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 		CreatedAt:  time.Now(),
 		Status:     "pending",
 		ExpiryTime: req.Expiry,
-		Label:      req.Label,
+		Label:      req.Identify,
 		TenantID:   userClaims.TenantID,
 	}
 	err := dal.ExpectedDataDal{}.Create(ctx, ed)
