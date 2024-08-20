@@ -103,8 +103,11 @@ func (api *ServicePluginApi) GetServiceSelect(c *gin.Context) {
 // /api/v1/service/plugin/info
 // 根据ServiceIdentifier获取服务插件信息
 func (p *ServicePluginApi) GetServicePluginByServiceIdentifier(c *gin.Context) {
-	serviceIdentifier := c.Param("service_identifier")
-	data, err := service.GroupApp.ServicePlugin.GetServicePluginByServiceIdentifier(serviceIdentifier)
+	var req model.GetServicePluginByServiceIdentifierReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	data, err := service.GroupApp.ServicePlugin.GetServicePluginByServiceIdentifier(req.ServiceIdentifier)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return

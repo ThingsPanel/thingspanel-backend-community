@@ -55,3 +55,7 @@ type HeartbeatReq struct {
 type GetServiceSelectReq struct {
 	DeviceType *int `json:"device_type" form:"device_type"`
 }
+
+type GetServicePluginByServiceIdentifierReq struct {
+	ServiceIdentifier string `json:"service_identifier" form:"service_identifier"  binding:"required"`
+}
