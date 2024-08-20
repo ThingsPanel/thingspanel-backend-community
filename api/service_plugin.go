@@ -99,3 +99,15 @@ func (api *ServicePluginApi) GetServiceSelect(c *gin.Context) {
 	}
 	SuccessHandler(c, "get service select successfully", resp)
 }
+
+// /api/v1/service/plugin/info
+// 根据ServiceIdentifier获取服务插件信息
+func (p *ServicePluginApi) GetServicePluginByServiceIdentifier(c *gin.Context) {
+	serviceIdentifier := c.Param("service_identifier")
+	data, err := service.GroupApp.ServicePlugin.GetServicePluginByServiceIdentifier(serviceIdentifier)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "success", data)
+}

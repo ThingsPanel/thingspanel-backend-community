@@ -167,3 +167,8 @@ func (p *ServicePlugin) GetProtocolPluginFormByProtocolType(protocolType string,
 	}
 	return p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
 }
+
+// 根据服务service_identifier获取服务详情
+func (p *ServicePlugin) GetServicePluginByServiceIdentifier(serviceIdentifier string) (interface{}, error) {
+	return dal.GetServicePluginByServiceIdentifier(serviceIdentifier)
+}
