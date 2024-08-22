@@ -17,7 +17,7 @@ type ExpectedData struct{}
 
 func mergeIdentifyAndPayload(identify, payload string) (string, error) {
 	// 解析 payload 为 map
-	var params map[string]interface{}
+	var params any
 	err := json.Unmarshal([]byte(payload), &params)
 	if err != nil {
 		return "", fmt.Errorf("error parsing payload JSON: %v", err)
