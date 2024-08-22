@@ -2,7 +2,6 @@ package subscribe
 
 import (
 	"context"
-	"fmt"
 	dal "project/dal"
 	"project/global"
 	initialize "project/initialize"
@@ -88,9 +87,17 @@ func toUserClient(device *model.Device, status int16) {
 		deviceName = device.DeviceNumber
 	}
 	if status == int16(1) {
-		sseEvent.Message = fmt.Sprintf("设备%s上线", deviceName)
+		sseEvent.Message = map[string]interface{}{
+			"device_id":   device.DeviceNumber,
+			"device_name": deviceName,
+			"is_online":   true,
+		}
 	} else {
-		sseEvent.Message = fmt.Sprintf("设备%s离线", deviceName)
+		sseEvent.Message = map[string]interface{}{
+			"device_id":   device.DeviceNumber,
+			"device_name": deviceName,
+			"is_online":   false,
+		}
 	}
 	global.TPSSEManager.BroadcastEventToTenant(device.TenantID, sseEvent)
 }
