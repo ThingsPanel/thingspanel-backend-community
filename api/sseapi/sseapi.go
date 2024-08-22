@@ -1,4 +1,4 @@
-package sse
+package sseapi
 
 import (
 	"fmt"

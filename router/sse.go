@@ -1,7 +1,7 @@
 package router
 
 import (
-	sseapi "project/api/sse"
+	sseapi "project/api/sseapi"
 
 	"github.com/gin-gonic/gin"
 )
