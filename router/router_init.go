@@ -57,7 +57,8 @@ func RouterInit() *gin.Engine {
 
 		// 需要权限校验
 		v1.Use(middleware.CasbinRBAC())
-
+		// SSE服务
+		SSERouter(v1)
 		// 记录操作日志
 		v1.Use(middleware.OperationLogs())
 		{

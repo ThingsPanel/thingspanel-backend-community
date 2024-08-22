@@ -34,6 +34,8 @@ func RedisInit() *redis.Client {
 		return nil
 	}
 	global.REDIS = client
+	// 启动SSE
+	go global.InitSSEManager()
 	return client
 }
 
