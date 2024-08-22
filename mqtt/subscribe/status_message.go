@@ -2,6 +2,7 @@ package subscribe
 
 import (
 	"context"
+	"encoding/json"
 	dal "project/dal"
 	"project/global"
 	initialize "project/initialize"
@@ -87,17 +88,19 @@ func toUserClient(device *model.Device, status int16) {
 		deviceName = device.DeviceNumber
 	}
 	if status == int16(1) {
-		sseEvent.Message = map[string]interface{}{
+		jsonBytes, _ := json.Marshal(map[string]interface{}{
 			"device_id":   device.DeviceNumber,
 			"device_name": deviceName,
 			"is_online":   true,
-		}
+		})
+		sseEvent.Message = string(jsonBytes)
 	} else {
-		sseEvent.Message = map[string]interface{}{
+		jsonBytes, _ := json.Marshal(map[string]interface{}{
 			"device_id":   device.DeviceNumber,
 			"device_name": deviceName,
-			"is_online":   false,
-		}
+			"is_online":   true,
+		})
+		sseEvent.Message = string(jsonBytes)
 	}
 	global.TPSSEManager.BroadcastEventToTenant(device.TenantID, sseEvent)
 }
