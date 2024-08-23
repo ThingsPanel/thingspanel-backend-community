@@ -98,7 +98,7 @@ func toUserClient(device *model.Device, status int16) {
 		jsonBytes, _ := json.Marshal(map[string]interface{}{
 			"device_id":   device.DeviceNumber,
 			"device_name": deviceName,
-			"is_online":   true,
+			"is_online":   false,
 		})
 		sseEvent.Message = string(jsonBytes)
 	}
