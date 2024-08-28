@@ -83,11 +83,12 @@ func (d ExpectedDataDal) PageList(ctx context.Context, req *model.GetExpectedDat
 	return
 }
 
-// 根据设备ID获取全部预期数据
+// 根据设备ID获取全部未处理的预期数据
 func (d ExpectedDataDal) GetAllByDeviceID(ctx context.Context, deviceID string) (list []*model.ExpectedData, err error) {
 	ed := query.ExpectedData
 	queryBuilder := ed.WithContext(ctx)
 	queryBuilder = queryBuilder.Where(ed.DeviceID.Eq(deviceID))
+	queryBuilder = queryBuilder.Where(ed.Status.Eq("pending"))
 	queryBuilder = queryBuilder.Select(ed.ALL)
 	list, err = queryBuilder.Find()
 	if err != nil {
