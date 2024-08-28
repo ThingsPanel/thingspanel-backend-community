@@ -7,7 +7,7 @@ import "time"
 type CreateExpectedDataReq struct {
 	DeviceID string     `json:"device_id" form:"device_id" validate:"required,max=36"`                                   // 设备ID
 	SendType string     `json:"send_type" form:"send_type" validate:"required,max=50,oneof=telemetry attribute command"` // 发送类型
-	Payload  string     `json:"payload" form:"payload" validate:"required,max=9999"`                                     // 数据内容
+	Payload  *string    `json:"payload" form:"payload" validate:"required,max=9999"`                                     // 数据内容
 	Expiry   *time.Time `json:"expiry" form:"expiry" validate:"omitempty"`                                               // 过期时间
 	Label    *string    `json:"label" form:"label" validate:"omitempty,max=100"`                                         // 标签
 	Identify *string    `json:"identify" form:"identify" validate:"omitempty,max=100"`                                   // 标识
