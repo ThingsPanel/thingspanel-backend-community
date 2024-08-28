@@ -76,25 +76,25 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 
 	}
 
-	var paramsMap map[string]interface{}
+	payloadMap := map[string]interface{}{
+		"method": param.Identify,
+	}
+
 	if param.Value != nil && *param.Value != "" {
-		// 验证是否为json格式
 		if !IsJSON(*param.Value) {
-			err = errors.New("value is not json format")
+			return errors.New("value is not JSON format")
+		}
+
+		var params interface{}
+		if err := json.Unmarshal([]byte(*param.Value), &params); err != nil {
+			logrus.Error(ctx, "[buildPayload][Unmarshal] failed:", err)
 			return err
 		}
-		err = json.Unmarshal([]byte(*param.Value), &paramsMap)
-		if err != nil {
-			logrus.Error(ctx, "[CommandPutMessage][Unmarshal]failed:", err)
-			return err
-		}
+
+		payloadMap["params"] = params
+
 	}
-	// 拼接payload
-	var payloadMap = make(map[string]interface{})
-	payloadMap["method"] = param.Identify
-	if paramsMap != nil {
-		payloadMap["params"] = paramsMap
-	}
+
 	payload, err := json.Marshal(payloadMap)
 	if err != nil {
 		logrus.Error(ctx, "[CommandPutMessage][Marshal]failed:", err)
