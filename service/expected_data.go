@@ -236,7 +236,12 @@ func sendCommand(ctx context.Context, deviceID, payload string) (string, error) 
 
 // 更新预期数据状态
 func updateStatus(ctx context.Context, id string, status string, message *string) error {
-	err := dal.ExpectedDataDal{}.UpdateStatus(ctx, id, status, message)
+	var sendTime time.Time
+	if status == "sent" {
+		sendTime = time.Now()
+	}
+
+	err := dal.ExpectedDataDal{}.UpdateStatus(ctx, id, status, message, &sendTime)
 	if err != nil {
 		logrus.WithError(err).WithField("dataID", id).Error("更新预期数据状态失败")
 	}

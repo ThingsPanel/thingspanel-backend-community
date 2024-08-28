@@ -5,6 +5,7 @@ import (
 	"errors"
 	model "project/model"
 	query "project/query"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -102,8 +103,9 @@ func (d ExpectedDataDal) GetAllByDeviceID(ctx context.Context, deviceID string) 
 }
 
 // 更新状态
-func (d ExpectedDataDal) UpdateStatus(ctx context.Context, id string, status string, message *string) error {
-	info, err := query.ExpectedData.WithContext(ctx).Where(query.ExpectedData.ID.Eq(id)).Updates(model.ExpectedData{Status: status, Message: message})
+func (d ExpectedDataDal) UpdateStatus(ctx context.Context, id string, status string, message *string, sendTime *time.Time) error {
+	expectedData := model.ExpectedData{Status: status, Message: message, SendTime: sendTime}
+	info, err := query.ExpectedData.WithContext(ctx).Where(query.ExpectedData.ID.Eq(id)).Updates(expectedData)
 	if err != nil {
 		logrus.Error(ctx, err)
 		return err
