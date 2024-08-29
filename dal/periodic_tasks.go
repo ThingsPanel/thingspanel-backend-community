@@ -3,7 +3,7 @@ package dal
 import (
 	"errors"
 	"project/common"
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 	"time"
 )

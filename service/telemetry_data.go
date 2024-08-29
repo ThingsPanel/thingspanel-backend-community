@@ -22,7 +22,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	dal "project/dal"
-	model "project/model"
+	model "project/internal/model"
 )
 
 type TelemetryData struct{}

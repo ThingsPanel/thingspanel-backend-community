@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 	utils "project/utils"
 

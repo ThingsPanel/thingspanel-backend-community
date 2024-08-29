@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"project/constant"
 	"project/dal"
-	"project/model"
+	"project/internal/model"
 	"project/others/http_client"
 	"project/query"
 	"time"

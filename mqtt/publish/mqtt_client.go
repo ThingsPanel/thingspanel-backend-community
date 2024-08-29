@@ -7,7 +7,7 @@ import (
 
 	"project/common"
 	"project/initialize"
-	"project/model"
+	"project/internal/model"
 	config "project/mqtt"
 	"project/utils"
 

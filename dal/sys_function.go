@@ -1,7 +1,7 @@
 package dal
 
 import (
-	"project/model"
+	"project/internal/model"
 	"project/query"
 
 	"github.com/sirupsen/logrus"

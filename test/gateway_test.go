@@ -4,7 +4,7 @@ import (
 	"context"
 	"project/dal"
 	"project/initialize"
-	"project/model"
+	"project/internal/model"
 	"project/mqtt"
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
@@ -66,11 +66,11 @@ func TestCommandSend(T *testing.T) {
 }
 
 /*
-* Result  int    `json:"result"`
-	Errcode string `json:"errcode"`
-	Message string `json:"message"`
-	Ts      int64  `json:"ts"`
-	Method  string `json:"method"`
+  - Result  int    `json:"result"`
+    Errcode string `json:"errcode"`
+    Message string `json:"message"`
+    Ts      int64  `json:"ts"`
+    Method  string `json:"method"`
 */
 func TestEventSend(T *testing.T) {
 	messageID := uuid.New()

@@ -2,7 +2,7 @@ package service
 
 import (
 	"project/dal"
-	model "project/model"
+	model "project/internal/model"
 	"time"
 
 	"github.com/spf13/viper"

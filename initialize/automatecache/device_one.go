@@ -1,6 +1,6 @@
 package automatecache
 
-import "project/model"
+import "project/internal/model"
 
 //单一设备
 type OneDeviceCache struct{}

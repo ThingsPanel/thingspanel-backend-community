@@ -3,7 +3,7 @@ package test
 import (
 	"fmt"
 	"project/initialize"
-	"project/model"
+	"project/internal/model"
 	"testing"
 )
 
@@ -75,7 +75,7 @@ func getActions(sceneAutomateId string) []model.ActionInfo {
 	return actions
 }
 
-//conditions []model.DeviceTriggerCondition, actions []model.ActionInfo
+// conditions []model.DeviceTriggerCondition, actions []model.ActionInfo
 func TestSetCacheBySceneAutomationId(t *testing.T) {
 	fmt.Println("测试创建缓存...")
 	//cache := initialize.NewAutomateCache()

@@ -3,7 +3,7 @@ package subscribe
 import (
 	"encoding/json"
 	"errors"
-	"project/model"
+	"project/internal/model"
 
 	"github.com/sirupsen/logrus"
 )

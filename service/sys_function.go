@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 	"project/dal"
-	model "project/model"
+	model "project/internal/model"
 )
 
 type SysFunction struct{}

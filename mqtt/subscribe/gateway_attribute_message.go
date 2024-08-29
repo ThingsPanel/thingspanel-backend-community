@@ -3,7 +3,7 @@ package subscribe
 import (
 	"encoding/json"
 	"project/dal"
-	"project/model"
+	"project/internal/model"
 	config "project/mqtt"
 	"strings"
 	"time"

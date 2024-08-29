@@ -8,7 +8,7 @@ import (
 	dal "project/dal"
 	global "project/global"
 	initialize "project/initialize"
-	model "project/model"
+	model "project/internal/model"
 	utils "project/utils"
 
 	"github.com/go-basic/uuid"

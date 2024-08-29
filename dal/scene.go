@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	model "project/model"
+	model "project/internal/model"
 	"project/query"
 	utils "project/utils"
 	"time"

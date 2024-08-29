@@ -6,7 +6,7 @@ import (
 	dal "project/dal"
 	"project/global"
 	initialize "project/initialize"
-	"project/model"
+	"project/internal/model"
 	service "project/service"
 	"strconv"
 	"strings"

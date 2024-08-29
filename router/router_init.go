@@ -1,7 +1,7 @@
 package router
 
 import (
-	middleware "project/middleware"
+	middleware "project/internal/middleware"
 	"project/router/apps"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +10,7 @@ import (
 	// gin-swagger middleware
 	swaggerFiles "github.com/swaggo/files"
 
-	api "project/api"
+	api "project/internal/api"
 )
 
 // swagger embed files

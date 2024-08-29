@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"math/rand"
-	"project/model"
+	"project/internal/model"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"

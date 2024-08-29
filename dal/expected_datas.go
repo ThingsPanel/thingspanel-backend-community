@@ -3,7 +3,7 @@ package dal
 import (
 	"context"
 	"errors"
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 	"time"
 

@@ -17,7 +17,7 @@ import (
 
 	"project/initialize"
 
-	"project/model"
+	"project/internal/model"
 	"project/query"
 
 	"github.com/stretchr/testify/require"

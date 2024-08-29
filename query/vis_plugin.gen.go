@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"project/model"
+	"project/internal/model"
 )
 
 func newVisPlugin(db *gorm.DB, opts ...gen.DOOption) visPlugin {

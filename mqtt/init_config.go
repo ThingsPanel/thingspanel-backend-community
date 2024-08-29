@@ -3,7 +3,7 @@ package mqtt
 import (
 	"encoding/json"
 	"log"
-	"project/model"
+	"project/internal/model"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

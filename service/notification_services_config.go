@@ -7,7 +7,7 @@ import (
 	"time"
 
 	dal "project/dal"
-	model "project/model"
+	model "project/internal/model"
 	"project/others/http_client"
 
 	"github.com/go-basic/uuid"

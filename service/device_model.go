@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"project/constant"
 	"project/dal"
-	model "project/model"
+	model "project/internal/model"
 	"project/query"
 	utils "project/utils"
 	"time"

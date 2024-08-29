@@ -3,7 +3,7 @@ package dal
 import (
 	"errors"
 
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 
 	"gorm.io/gorm"

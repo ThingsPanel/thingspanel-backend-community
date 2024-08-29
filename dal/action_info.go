@@ -1,7 +1,7 @@
 package dal
 
 import (
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 )
 
@@ -34,7 +34,7 @@ func GetActionInfoListBySceneAutomationId(sceneAutomationIds []string) ([]model.
 	return actionInfos, qa.Where(qa.SceneAutomationID.In(sceneAutomationIds...)).Scan(&actionInfos)
 }
 
-//获取场景动作
+// 获取场景动作
 func GetActionInfoListBySceneId(sceneIds []string) ([]model.ActionInfo, error) {
 	var (
 		result      []model.ActionInfo

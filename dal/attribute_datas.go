@@ -2,7 +2,7 @@ package dal
 
 import (
 	"fmt"
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 
 	"github.com/go-basic/uuid"

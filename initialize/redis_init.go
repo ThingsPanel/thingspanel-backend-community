@@ -7,7 +7,7 @@ import (
 
 	"project/dal"
 	global "project/global"
-	model "project/model"
+	model "project/internal/model"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

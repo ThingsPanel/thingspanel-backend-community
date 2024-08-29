@@ -14,8 +14,8 @@ import (
 	dal "project/dal"
 	global "project/global"
 	"project/initialize"
+	model "project/internal/model"
 	"project/logic"
-	model "project/model"
 	query "project/query"
 	utils "project/utils"
 
