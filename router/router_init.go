@@ -18,6 +18,7 @@ import (
 func RouterInit() *gin.Engine {
 	//gin.SetMode(gin.ReleaseMode) //开启生产模式
 	router := gin.Default()
+	router.Use(middleware.ErrorHandler())
 	// 静态文件
 	router.Static("/files", "./files")
 

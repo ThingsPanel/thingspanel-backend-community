@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	tpErrors "project/internal/errors"
+
 	"fmt"
 	"math/rand"
 	"project/common"
@@ -87,7 +89,10 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(loginReq.Email)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, tpErrors.NewError(tpErrors.ErrInvalidCredentials)
+		}
+		return nil, tpErrors.Wrap(err, tpErrors.ErrDatabaseError)
 	}
 	// 是否加密配置
 	if logic.UserIsEncrypt(ctx) {
@@ -100,12 +105,13 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 	}
 	// 对比密码
 	if !utils.BcryptCheck(loginReq.Password, user.Password) {
-		return nil, fmt.Errorf("wrong user password")
+		return nil, tpErrors.NewError(tpErrors.ErrInvalidCredentials)
 	}
 
 	// 判断用户状态
 	if *user.Status != "N" {
-		return nil, fmt.Errorf("user status exception")
+		return nil, tpErrors.NewError(tpErrors.ErrUserDisabled)
+
 	}
 
 	return u.UserLoginAfter(user)
@@ -126,7 +132,8 @@ func (u *User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 	}
 	token, err := jwt.GenerateToken(claims)
 	if err != nil {
-		return nil, err
+		return nil, tpErrors.Wrap(err, tpErrors.ErrSystemInternal)
+
 	}
 
 	global.REDIS.Set(token, "1", 24*7*time.Hour)

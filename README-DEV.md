@@ -6,9 +6,8 @@
 
 `APIfox文档规范` https://docs.qq.com/doc/DZVZKc2FCTE1EblBX
 
-
-
 ## Gen（必读）
+
 **model和query生成**：[查看README文档](/cmd/gen/REANME.md)
 
 ## 运行调试
@@ -30,6 +29,7 @@
 - 新增的sql要更新的/sql/1.sql文件中
 - 指针赋值转换service/enter.go里有公共方法
 - 由于数据库在写入时候的报错不友好，所以需要手动校验json字段，如
+
   ```go
     // 校验是否json格式字符串
     if CreateDeviceConfigReq.AdditionalInfo != nil && !IsJSON(*CreateDeviceConfigReq.AdditionalInfo) {
@@ -37,7 +37,9 @@
     }
     deviceconfig.AdditionalInfo = CreateDeviceConfigReq.AdditionalInfo
   ```
+
   或者在转map过程中校验
+
   ```go
     condsMap, err := StructToMapAndVerifyJson(req, "additional_info", "protocol_config")
     if err != nil {
@@ -45,6 +47,8 @@
     }
     deviceconfig.AdditionalInfo = CreateDeviceConfigReq.AdditionalInfo
   ```
+
+- First()方法查不到会报错，可判断errors.Is(err, gorm.ErrRecordNotFound)
 - 缓存相关查看initialize/缓存说明.md
 
 ## 开发中的一些说明和规范
@@ -74,6 +78,7 @@
 - **请求体**：适用于需要传递复杂数据的`POST`和`PUT`请求，请求体可以是JSON、XML等格式。
 
 ### 返回数据
+
 - `POST`请求返回新创建的资源的完整表示。这包括由服务器端生成的任何属性（如ID、创建时间等），以确保客户端具有最新的资源状态。
 - `PUT`返回更新后的资源的完整表示。即使客户端可能已提供完整的资源表示，返回更新后的状态也有助于确认更新的结果，包括任何由服务器自动修改的字段（如修改时间）。
 
@@ -82,7 +87,9 @@
 - 对于复杂的查询逻辑，可以使用原生SQL编写以提高维护效率和代码的清晰度。这种方法特别适合于难以通过ORM工具直接实现的复杂查询需求。在代码库中，可参考具体实现方法，如`dal/ota_upgrade_tasks.go`的`GetOtaUpgradeTaskListByPage`方法，来看如何在实践中应用。
 
 ### 提交代码规范
+
 >`提交信息应使用英语撰写`
+
 - Feat：新功能
 - Fix：修补bug
 - Docs：文档（documentation）
@@ -92,6 +99,7 @@
 - Chore：构建过程或辅助工具的变动
 
 ## 虽然大家都知道
+
 `golang的核心原则和哲学`
 
 - 简洁性（"Less is exponentially more"）: 这是 Rob Pike 在其著名的博客文章中提到的。他强调，通过减少语言中的元素数量，可以实现更大的表达力和灵活性。

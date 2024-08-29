@@ -34,7 +34,8 @@ func (a *UserApi) Login(c *gin.Context) {
 	// 检查是否需要锁定账户
 	if loginLock.MaxFailedAttempts > 0 {
 		if err := loginLock.GetAllowLogin(c, loginReq.Email); err != nil {
-			c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+			//c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+			c.Error(err)
 			return
 		}
 	}
@@ -42,7 +43,8 @@ func (a *UserApi) Login(c *gin.Context) {
 	loginRsp, err := service.GroupApp.User.Login(c, &loginReq)
 	if err != nil {
 		_ = loginLock.LoginFail(c, loginReq.Email)
-		c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+		//c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
+		c.Error(err)
 		return
 	}
 	_ = loginLock.LoginSuccess(c, loginReq.Email)
