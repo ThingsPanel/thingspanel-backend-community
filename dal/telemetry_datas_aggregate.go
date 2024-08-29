@@ -47,7 +47,7 @@ func GetQueryString1(aggregateFunction string) string {
 		`WITH TimeIntervals AS (
 				SELECT 
 					ts - (ts %% ?) AS x, 
-					%s(number_v) AS y 
+					ROUND(%s(number_v), 4) AS y 
 				FROM 
 					telemetry_datas 
 				WHERE 
