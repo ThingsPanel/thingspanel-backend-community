@@ -29,7 +29,7 @@ where devices.id = 'ca33926c-5ee5-3e9f-147e-94e188fde65b'
 func GetAttributeDataListWithDeviceName(deviceId string) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
 	err := query.AttributeData.
-		Select(query.AttributeData.ALL, query.DeviceModelAttribute.DataName, query.DeviceModelAttribute.Unit).
+		Select(query.AttributeData.ALL, query.DeviceModelAttribute.DataName, query.DeviceModelAttribute.Unit, query.DeviceModelAttribute.DataType, query.DeviceModelAttribute.AdditionalInfo.As("enum")).
 		LeftJoin(query.Device, query.AttributeData.DeviceID.EqCol(query.Device.ID)).
 		LeftJoin(query.DeviceConfig, query.Device.DeviceConfigID.EqCol(query.DeviceConfig.ID)).
 		LeftJoin(query.DeviceTemplate, query.DeviceConfig.DeviceTemplateID.EqCol(query.DeviceTemplate.ID)).
