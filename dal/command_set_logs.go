@@ -14,13 +14,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (int64, []*model.CommandSetLog, error) {
+func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (int64, any, error) {
 
 	var count int64
 	q := query.CommandSetLog
+	d := query.Device
+	dc := query.DeviceConfig
+	dmc := query.DeviceModelCommand
+
 	queryBuilder := q.WithContext(context.Background())
+	queryBuilder = queryBuilder.LeftJoin(d, d.ID.EqCol(q.DeviceID))
+	queryBuilder = queryBuilder.LeftJoin(dc, dc.ID.EqCol(d.DeviceConfigID))
+	queryBuilder = queryBuilder.LeftJoin(dmc, dmc.DeviceTemplateID.EqCol(dc.DeviceTemplateID), dmc.DataIdentifier.EqCol(q.Identify))
 
 	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(req.DeviceId))
+
 	if req.Status != nil {
 		queryBuilder = queryBuilder.Where(q.Status.Eq(*req.Status))
 	}
@@ -38,7 +46,9 @@ func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (
 		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
 	}
 	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
-	list, err := queryBuilder.Select().Find()
+	var list []map[string]interface{}
+
+	err = queryBuilder.Select(q.ALL, dmc.DataName.As("identify_name")).Scan(&list)
 	if err != nil {
 		logrus.Error(err)
 		return count, list, err
