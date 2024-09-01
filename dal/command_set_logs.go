@@ -35,6 +35,9 @@ func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (
 	if req.OperationType != nil {
 		queryBuilder = queryBuilder.Where(q.OperationType.Eq(*req.OperationType))
 	}
+	if req.IdentifyName != nil {
+		queryBuilder = queryBuilder.Where(dmc.DataName.Like("%" + *req.IdentifyName + "%"))
+	}
 	count, err := queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)

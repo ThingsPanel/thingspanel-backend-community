@@ -6,4 +6,6 @@ type GetCommandSetLogsListByPageReq struct {
 	Identify      *string `json:"identify" form:"identify" validate:"omitempty,max=36"`                //数据标识符
 	Status        *string `json:"status" form:"status" validate:"omitempty,oneof=1 2"`                 //状态 1-发送成功 2-失败
 	OperationType *string `json:"operation_type" form:"operation_type" validate:"omitempty,oneof=1 2"` //操作类型 1-手动操作 2-自动触发
+	IdentifyName  *string `json:"identify_name" form:"identify_name" validate:"omitempty,max=100"`     //数据标识符名称
+
 }
