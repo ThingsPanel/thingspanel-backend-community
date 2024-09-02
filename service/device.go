@@ -16,7 +16,7 @@ import (
 
 	common "project/common"
 	dal "project/dal"
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 	utils "project/utils"
 
@@ -856,7 +856,7 @@ func (d *Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, erro
 
 	}
 	s := "string"
-
+	var telemetryDatasMap = make(map[string]*model.TelemetryCurrentData)
 	if len(telemetryDatas) != 0 {
 		resInfo := model.GetModelSourceATRes{
 			DataSourceTypeRes: string(constant.TelemetrySource),
@@ -864,7 +864,7 @@ func (d *Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, erro
 		}
 
 		for _, telemetry := range telemetryDatas {
-
+			telemetryDatasMap[telemetry.Key] = telemetry
 			var dt string
 
 			if telemetry.BoolV != nil {
@@ -891,10 +891,26 @@ func (d *Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, erro
 
 			resInfo.Options = append(resInfo.Options, info)
 		}
+		// 遍历telemetryModelMap，如果遥测数据telemetryDatasMap中没有，需要加到resInfo.Options
+		for k, v := range telemetryModelMap {
+			_, ok := telemetryDatasMap[k]
+			if !ok {
+				info := &model.Options{
+					Key:      k,
+					DataType: v.DataType,
+					Label:    v.DataName,
+				}
+				if v.DataType != nil && *v.DataType == "Enum" {
+					json.Unmarshal([]byte(*v.AdditionalInfo), &info.Enum)
+				}
+				resInfo.Options = append(resInfo.Options, info)
+			}
+		}
 		res = append(res, resInfo)
 	}
 
 	// 映射
+	var attributeDatasMap = make(map[string]*model.AttributeData)
 	if len(attributeDatas) != 0 {
 		resInfo := model.GetModelSourceATRes{
 			DataSourceTypeRes: string(constant.AttributeSource),
@@ -926,6 +942,21 @@ func (d *Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, erro
 			}
 
 			resInfo.Options = append(resInfo.Options, info)
+		}
+		// 遍历attributeDatasMap，如果遥测数据attributeDatasMap中没有，需要加到resInfo.Options
+		for k, v := range deviceAttributeModelMap {
+			_, ok := attributeDatasMap[k]
+			if !ok {
+				info := &model.Options{
+					Key:      k,
+					Label:    v.DataName,
+					DataType: v.DataType,
+				}
+				if v.DataType != nil && *v.DataType == "Enum" {
+					json.Unmarshal([]byte(*v.AdditionalInfo), &info.Enum)
+				}
+				resInfo.Options = append(resInfo.Options, info)
+			}
 		}
 		res = append(res, resInfo)
 	}

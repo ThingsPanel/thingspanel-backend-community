@@ -2,10 +2,11 @@ package dal
 
 import (
 	"context"
+	"project/internal/model"
+	"project/query"
+
 	"github.com/sirupsen/logrus"
 	"gorm.io/gen"
-	"project/model"
-	"project/query"
 )
 
 type DeviceModelCommandsQuery struct {

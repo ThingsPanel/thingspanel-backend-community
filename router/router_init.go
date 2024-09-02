@@ -1,7 +1,7 @@
 package router
 
 import (
-	middleware "project/middleware"
+	middleware "project/internal/middleware"
 	"project/router/apps"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +10,7 @@ import (
 	// gin-swagger middleware
 	swaggerFiles "github.com/swaggo/files"
 
-	api "project/api"
+	api "project/internal/api"
 )
 
 // swagger embed files
@@ -18,6 +18,7 @@ import (
 func RouterInit() *gin.Engine {
 	//gin.SetMode(gin.ReleaseMode) //开启生产模式
 	router := gin.Default()
+	router.Use(middleware.ErrorHandler())
 	// 静态文件
 	router.Static("/files", "./files")
 
@@ -61,7 +62,8 @@ func RouterInit() *gin.Engine {
 
 		// 需要权限校验
 		v1.Use(middleware.CasbinRBAC())
-
+		// SSE服务
+		SSERouter(v1)
 		// 记录操作日志
 		v1.Use(middleware.OperationLogs())
 		{

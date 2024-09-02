@@ -12,3 +12,12 @@ var DB *gorm.DB
 var REDIS *redis.Client
 var CasbinEnforcer *casbin.Enforcer
 var OtaAddress string
+var TPSSEManager *SSEManager
+
+type EventData struct {
+	Name    string
+	Message string
+}
+
+// 事件通道
+var EventChan chan EventData

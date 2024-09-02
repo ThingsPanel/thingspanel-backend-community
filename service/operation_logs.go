@@ -2,7 +2,7 @@ package service
 
 import (
 	dal "project/dal"
-	model "project/model"
+	model "project/internal/model"
 
 	"github.com/sirupsen/logrus"
 )

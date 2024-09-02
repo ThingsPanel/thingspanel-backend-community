@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"project/dal"
-	model "project/model"
+	model "project/internal/model"
 	"time"
 
 	"github.com/go-basic/uuid"

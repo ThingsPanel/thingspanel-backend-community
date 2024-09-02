@@ -1,6 +1,6 @@
 package automatecache
 
-import "project/model"
+import "project/internal/model"
 
 //单类设备
 type MultipleDeviceCache struct{}

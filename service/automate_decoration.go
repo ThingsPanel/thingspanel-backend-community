@@ -2,7 +2,7 @@ package service
 
 import (
 	"project/initialize"
-	model "project/model"
+	model "project/internal/model"
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"

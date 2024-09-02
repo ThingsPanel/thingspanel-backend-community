@@ -1,7 +1,7 @@
 package logic
 
 import (
-	model "project/model"
+	model "project/internal/model"
 )
 
 type DeviceLogic struct {

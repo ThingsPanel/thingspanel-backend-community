@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"project/dal"
-	"project/model"
+	"project/internal/model"
 	config "project/mqtt"
 	"time"
 

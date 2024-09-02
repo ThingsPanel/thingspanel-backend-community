@@ -14,7 +14,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"project/api"
+	"project/internal/api"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -33,8 +33,8 @@ func TestHomepageHandler(t *testing.T) {
 	r.GET("/api/v1/user", userApi.GetUserListByPage)
 	req, _ := http.NewRequest("GET", "/api/v1/user?page=1&page_size=10", nil)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("token", 
-	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InI1NjYzMzU5LTU0ZjMtZTIzYi04MDFiLWUzYjgyNDQ2Mzc4ZSIsImVtYWlsIjoic3VwZXJAc3VwZXIuY24iLCJjcmVhdGVfdGltZSI6IjIwMjQtMDMtMDZUMTQ6NDE6MTEuNzE1MDYwNCswODowMCIsImF1dGhvcml0eSI6IlNZU19BRE1JTiIsInRlbmFudF9pZCI6ImFhYWFhYWFhIn0.q2WI_eQ0837jAqCkE-Tj27IZ5C7qpYCaP9lJm1qVF2k",
+	req.Header.Set("token",
+		"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InI1NjYzMzU5LTU0ZjMtZTIzYi04MDFiLWUzYjgyNDQ2Mzc4ZSIsImVtYWlsIjoic3VwZXJAc3VwZXIuY24iLCJjcmVhdGVfdGltZSI6IjIwMjQtMDMtMDZUMTQ6NDE6MTEuNzE1MDYwNCswODowMCIsImF1dGhvcml0eSI6IlNZU19BRE1JTiIsInRlbmFudF9pZCI6ImFhYWFhYWFhIn0.q2WI_eQ0837jAqCkE-Tj27IZ5C7qpYCaP9lJm1qVF2k",
 	)
 
 	w := httptest.NewRecorder()

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"project/constant"
 	dal "project/dal"
-	model "project/model"
+	model "project/internal/model"
 	"project/others/http_client"
 
 	"github.com/sirupsen/logrus"

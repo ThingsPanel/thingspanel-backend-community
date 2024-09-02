@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"project/dal"
-	model "project/model"
+	model "project/internal/model"
 	utils "project/utils"
 	"time"
 
@@ -15,18 +15,19 @@ import (
 
 type ExpectedData struct{}
 
-func mergeIdentifyAndPayload(identify, payload string) (string, error) {
-	// 解析 payload 为 map
-	var params map[string]interface{}
-	err := json.Unmarshal([]byte(payload), &params)
-	if err != nil {
-		return "", fmt.Errorf("error parsing payload JSON: %v", err)
-	}
-
+func mergeIdentifyAndPayload(identify string, paramsStr *string) (string, error) {
 	// 创建包含 identify 和 params 的 map
 	mergedData := map[string]interface{}{
 		"method": identify,
-		"params": params,
+	}
+	// 解析 payload 为 map
+	if paramsStr != nil {
+		var params any
+		err := json.Unmarshal([]byte(*paramsStr), &params)
+		if err != nil {
+			return "", fmt.Errorf("error parsing payload JSON: %v", err)
+		}
+		mergedData["params"] = params
 	}
 
 	// 将合并后的 map 转换为 JSON 字符串
@@ -45,18 +46,22 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 			return nil, fmt.Errorf("identify 字段不能为空")
 		}
 		// 将identify和payload合并成一个json字符串
-		params, err := mergeIdentifyAndPayload(*req.Identify, req.Payload)
+		payload, err := mergeIdentifyAndPayload(*req.Identify, req.Payload)
 		if err != nil {
 			return nil, err
 		}
-		req.Payload = params
+		req.Payload = &payload
+	} else {
+		if req.Payload == nil {
+			return nil, fmt.Errorf("payload 字段不能为空")
+		}
 	}
 	// 创建预期数据
 	ed := &model.ExpectedData{
 		ID:         uuid.New(),
 		DeviceID:   req.DeviceID,
 		SendType:   req.SendType,
-		Payload:    req.Payload,
+		Payload:    *req.Payload,
 		CreatedAt:  time.Now(),
 		Status:     "pending",
 		ExpiryTime: req.Expiry,
@@ -231,7 +236,12 @@ func sendCommand(ctx context.Context, deviceID, payload string) (string, error) 
 
 // 更新预期数据状态
 func updateStatus(ctx context.Context, id string, status string, message *string) error {
-	err := dal.ExpectedDataDal{}.UpdateStatus(ctx, id, status, message)
+	var sendTime time.Time
+	if status == "sent" {
+		sendTime = time.Now()
+	}
+
+	err := dal.ExpectedDataDal{}.UpdateStatus(ctx, id, status, message, &sendTime)
 	if err != nil {
 		logrus.WithError(err).WithField("dataID", id).Error("更新预期数据状态失败")
 	}

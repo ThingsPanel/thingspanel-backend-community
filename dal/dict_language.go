@@ -1,7 +1,7 @@
 package dal
 
 import (
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 )
 

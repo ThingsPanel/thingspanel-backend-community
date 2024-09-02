@@ -9,8 +9,8 @@ import (
 	common "project/common"
 	dal "project/dal"
 	"project/initialize"
+	model "project/internal/model"
 	"project/logic"
-	model "project/model"
 	query "project/query"
 	utils "project/utils"
 

@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"project/model"
+	"project/internal/model"
 )
 
 func newTelemetrySetLog(db *gorm.DB, opts ...gen.DOOption) telemetrySetLog {

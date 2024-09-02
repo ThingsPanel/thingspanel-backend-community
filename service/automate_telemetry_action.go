@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"project/constant"
 	"project/dal"
-	model "project/model"
+	model "project/internal/model"
 	"strconv"
 
 	"github.com/sirupsen/logrus"

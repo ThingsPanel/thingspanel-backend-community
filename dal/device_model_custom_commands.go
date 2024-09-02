@@ -3,7 +3,7 @@ package dal
 import (
 	"context"
 	"fmt"
-	"project/model"
+	"project/internal/model"
 	query "project/query"
 
 	"github.com/sirupsen/logrus"

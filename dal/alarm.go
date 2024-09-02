@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"project/global"
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 	"time"
 

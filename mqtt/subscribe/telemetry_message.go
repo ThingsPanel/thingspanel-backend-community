@@ -7,7 +7,7 @@ import (
 
 	dal "project/dal"
 	initialize "project/initialize"
-	model "project/model"
+	model "project/internal/model"
 	config "project/mqtt"
 	"project/mqtt/publish"
 	service "project/service"

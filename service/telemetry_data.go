@@ -22,7 +22,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	dal "project/dal"
-	model "project/model"
+	model "project/internal/model"
 )
 
 type TelemetryData struct{}
@@ -583,8 +583,14 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 			req.StartTime = time.Now().Add(-30*24*time.Hour).UnixNano() / 1e6
 		case "last_60d":
 			req.StartTime = time.Now().Add(-60*24*time.Hour).UnixNano() / 1e6
+		case "last_90d":
+			req.StartTime = time.Now().Add(-90*24*time.Hour).UnixNano() / 1e6
+		case "last_6m":
+			req.StartTime = time.Now().Add(-180*24*time.Hour).UnixNano() / 1e6
+		case "last_1y":
+			req.StartTime = time.Now().Add(-365*24*time.Hour).UnixNano() / 1e6
 		default:
-			return nil, fmt.Errorf("time range is too long, can not use no_aggregate")
+			return nil, fmt.Errorf("unknown time range")
 		}
 		req.EndTime = time.Now().UnixNano() / 1e6
 	}

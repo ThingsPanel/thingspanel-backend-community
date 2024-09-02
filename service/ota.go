@@ -10,7 +10,7 @@ import (
 
 	dal "project/dal"
 	global "project/global"
-	model "project/model"
+	model "project/internal/model"
 	"project/mqtt/publish"
 	query "project/query"
 	utils "project/utils"

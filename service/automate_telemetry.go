@@ -7,7 +7,7 @@ import (
 	"project/common"
 	"project/dal"
 	"project/initialize"
-	"project/model"
+	"project/internal/model"
 	"runtime/debug"
 	"strconv"
 	"strings"

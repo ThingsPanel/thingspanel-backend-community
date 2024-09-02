@@ -8,7 +8,7 @@ import (
 	"project/constant"
 	dal "project/dal"
 	"project/initialize"
-	model "project/model"
+	model "project/internal/model"
 	config "project/mqtt"
 	"project/mqtt/publish"
 	utils "project/utils"

@@ -9,7 +9,7 @@ import (
 
 	global "project/global"
 	"project/initialize/automatecache"
-	"project/model"
+	"project/internal/model"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/redis.v5"

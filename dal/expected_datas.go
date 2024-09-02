@@ -3,8 +3,9 @@ package dal
 import (
 	"context"
 	"errors"
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -83,11 +84,12 @@ func (d ExpectedDataDal) PageList(ctx context.Context, req *model.GetExpectedDat
 	return
 }
 
-// 根据设备ID获取全部预期数据
+// 根据设备ID获取全部未处理的预期数据
 func (d ExpectedDataDal) GetAllByDeviceID(ctx context.Context, deviceID string) (list []*model.ExpectedData, err error) {
 	ed := query.ExpectedData
 	queryBuilder := ed.WithContext(ctx)
 	queryBuilder = queryBuilder.Where(ed.DeviceID.Eq(deviceID))
+	queryBuilder = queryBuilder.Where(ed.Status.Eq("pending"))
 	queryBuilder = queryBuilder.Select(ed.ALL)
 	list, err = queryBuilder.Find()
 	if err != nil {
@@ -101,8 +103,9 @@ func (d ExpectedDataDal) GetAllByDeviceID(ctx context.Context, deviceID string) 
 }
 
 // 更新状态
-func (d ExpectedDataDal) UpdateStatus(ctx context.Context, id string, status string, message *string) error {
-	info, err := query.ExpectedData.WithContext(ctx).Where(query.ExpectedData.ID.Eq(id)).Updates(model.ExpectedData{Status: status, Message: message})
+func (d ExpectedDataDal) UpdateStatus(ctx context.Context, id string, status string, message *string, sendTime *time.Time) error {
+	expectedData := model.ExpectedData{Status: status, Message: message, SendTime: sendTime}
+	info, err := query.ExpectedData.WithContext(ctx).Where(query.ExpectedData.ID.Eq(id)).Updates(expectedData)
 	if err != nil {
 		logrus.Error(ctx, err)
 		return err

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 
 	"gorm.io/gen"

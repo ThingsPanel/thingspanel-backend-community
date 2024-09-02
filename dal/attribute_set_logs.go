@@ -6,7 +6,7 @@ import (
 	"project/constant"
 	"strconv"
 
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 
 	"github.com/sirupsen/logrus"

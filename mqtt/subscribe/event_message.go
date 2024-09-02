@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	dal "project/dal"
 	initialize "project/initialize"
-	"project/model"
+	"project/internal/model"
 	service "project/service"
 	"strings"
 	"time"

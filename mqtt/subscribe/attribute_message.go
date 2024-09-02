@@ -5,7 +5,7 @@ import (
 	"fmt"
 	dal "project/dal"
 	initialize "project/initialize"
-	"project/model"
+	"project/internal/model"
 	config "project/mqtt"
 	service "project/service"
 	"strings"

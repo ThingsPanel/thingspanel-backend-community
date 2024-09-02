@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"project/common"
-	"project/model"
+	"project/internal/model"
 	query "project/query"
 
 	"github.com/sirupsen/logrus"

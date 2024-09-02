@@ -1,7 +1,7 @@
 package apps
 
 import (
-	"project/api"
+	"project/internal/api"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +23,9 @@ func (p *ServicePlugin) Init(Router *gin.RouterGroup) {
 		url.DELETE(":id", api.Controllers.ServicePluginApi.Delete)
 		// 获取服务选择器
 		url.GET("/plugin/select", api.Controllers.ServicePluginApi.GetServiceSelect)
+		// 通过服务标识符获取服务插件信息
+		url.GET("/plugin/info", api.Controllers.ServicePluginApi.GetServicePluginByServiceIdentifier)
+
 		access := url.Group("access")
 		access.POST("", api.Controllers.ServiceAccessApi.Create)
 

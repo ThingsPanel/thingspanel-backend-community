@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"project/global"
+	tpErrors "project/internal/errors"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
-	"project/global"
-	"time"
 )
 
 type LoginLock struct {
@@ -14,6 +16,7 @@ type LoginLock struct {
 	LockDuration      time.Duration
 }
 
+// 获取登录锁定规则
 func NewLoginLock() *LoginLock {
 	maxFailedAttempts := viper.GetInt64("classified-protect.login-max-fail-times")
 	lockDuration := viper.GetDuration("classified-protect.login-fail-locked-seconds")
@@ -41,8 +44,10 @@ func (l *LoginLock) GetAllowLogin(ctx context.Context, username string) error {
 		lockUntilTime, err := time.Parse(time.RFC3339, lockUntil)
 		if err == nil && time.Now().Before(lockUntilTime) {
 			//return errors.Errorf("Account %s is locked. Try again later.", username)
-			return errors.Errorf("您已连续登录失败%d次，账号锁定%d分钟，解锁时间为：%s,请你耐心等待！",
-				l.MaxFailedAttempts, l.LockDuration/time.Minute, lockUntilTime.Format(time.DateTime))
+			// return errors.Errorf("您已连续登录失败%d次，账号锁定%d分钟，解锁时间为：%s,请你耐心等待！",
+			//	l.MaxFailedAttempts, l.LockDuration/time.Minute, lockUntilTime.Format(time.DateTime))
+			return tpErrors.Wrap(errors.Errorf("您已连续登录失败%d次，账号锁定%d分钟，解锁时间为：%s,请你耐心等待！",
+				l.MaxFailedAttempts, l.LockDuration/time.Minute, lockUntilTime.Format(time.DateTime)), tpErrors.ErrTooManyAttempts)
 		}
 	}
 	return nil

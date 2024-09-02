@@ -1,7 +1,7 @@
 package apps
 
 import (
-	"project/api"
+	"project/internal/api"
 
 	"github.com/gin-gonic/gin"
 )

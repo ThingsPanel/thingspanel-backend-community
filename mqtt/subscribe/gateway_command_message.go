@@ -2,7 +2,7 @@ package subscribe
 
 import (
 	"encoding/json"
-	"project/model"
+	"project/internal/model"
 	config "project/mqtt"
 	"strings"
 

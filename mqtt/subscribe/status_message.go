@@ -2,9 +2,11 @@ package subscribe
 
 import (
 	"context"
+	"encoding/json"
 	dal "project/dal"
+	"project/global"
 	initialize "project/initialize"
-	"project/model"
+	"project/internal/model"
 	service "project/service"
 	"strconv"
 	"strings"
@@ -33,12 +35,13 @@ func DeviceOnline(payload []byte, topic string) {
 		logrus.Error(err.Error())
 		return
 	}
-	if status == 1 {
+	if status == int16(1) {
 		// 发送预期数据
 		err := service.GroupApp.ExpectedData.Send(context.Background(), deviceId)
 		if err != nil {
 			logrus.Error(err.Error())
 		}
+
 	}
 	// 清理缓存
 	initialize.DelDeviceCache(deviceId)
@@ -49,6 +52,8 @@ func DeviceOnline(payload []byte, topic string) {
 		logrus.Error(err.Error())
 		return
 	}
+	// 上下线通知客户端程序
+	go toUserClient(device, status)
 	//自动化
 	go func() {
 		err := service.GroupApp.Execute(device, service.AutomateFromExt{
@@ -56,7 +61,7 @@ func DeviceOnline(payload []byte, topic string) {
 			TriggerParam:     []string{},
 		})
 		if err != nil {
-			logrus.Errorf("自动化执行失败, err: %w", err)
+			logrus.Error("自动化执行失败, err: %w", err)
 		}
 	}()
 
@@ -68,24 +73,34 @@ func DeviceOnline(payload []byte, topic string) {
 
 }
 
-// // 设备在线离线的有效负载。
-// type statusPayload struct {
-// 	DeviceId string `json:"device_id"`
-// 	Status   int16  `json:"status"`
-// }
+// 设备上线通知
+func toUserClient(device *model.Device, status int16) {
+	// 发送事件
+	var deviceName string
+	sseEvent := global.SSEEvent{
+		Type:     "device_online",
+		TenantID: device.TenantID,
+	}
 
-// // verifyPayload 函数验证设备上报属性消息的有效负载。
-// func verifyDeviceStatusPayload(body []byte) (*statusPayload, error) {
-// 	payload := &statusPayload{}
-// 	if err := json.Unmarshal(body, payload); err != nil {
-// 		logrus.Error("解析消息失败:", err)
-// 		return payload, err
-// 	}
-// 	if len(payload.DeviceId) == 0 {
-// 		return payload, errors.New("DeviceId不能为空:" + payload.DeviceId)
-// 	}
-// 	if payload.Status != 0 && payload.Status != 1 {
-// 		return payload, errors.New("Status只能为0或1:" + fmt.Sprint(payload.Status))
-// 	}
-// 	return payload, nil
-// }
+	if device.Name != nil {
+		deviceName = *device.Name
+	} else {
+		deviceName = device.DeviceNumber
+	}
+	if status == int16(1) {
+		jsonBytes, _ := json.Marshal(map[string]interface{}{
+			"device_id":   device.DeviceNumber,
+			"device_name": deviceName,
+			"is_online":   true,
+		})
+		sseEvent.Message = string(jsonBytes)
+	} else {
+		jsonBytes, _ := json.Marshal(map[string]interface{}{
+			"device_id":   device.DeviceNumber,
+			"device_name": deviceName,
+			"is_online":   false,
+		})
+		sseEvent.Message = string(jsonBytes)
+	}
+	global.TPSSEManager.BroadcastEventToTenant(device.TenantID, sseEvent)
+}

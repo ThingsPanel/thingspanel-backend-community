@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"project/model"
+	"project/internal/model"
 	"project/query"
 	"time"
 

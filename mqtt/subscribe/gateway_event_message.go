@@ -3,7 +3,7 @@ package subscribe
 import (
 	"encoding/json"
 	dal "project/dal"
-	"project/model"
+	"project/internal/model"
 	"strings"
 
 	pkgerrors "github.com/pkg/errors"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"project/dal"
 	"project/initialize"
-	model "project/model"
+	model "project/internal/model"
 	utils "project/utils"
 
 	"github.com/go-basic/uuid"

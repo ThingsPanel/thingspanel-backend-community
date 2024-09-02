@@ -16,7 +16,7 @@ import (
 
 	"gorm.io/plugin/dbresolver"
 
-	"project/model"
+	"project/internal/model"
 )
 
 func newServicePlugin(db *gorm.DB, opts ...gen.DOOption) servicePlugin {

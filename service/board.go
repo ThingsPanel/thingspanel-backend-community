@@ -7,7 +7,7 @@ import (
 
 	common "project/common"
 	dal "project/dal"
-	model "project/model"
+	model "project/internal/model"
 	query "project/query"
 	utils "project/utils"
 

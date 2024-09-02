@@ -3,7 +3,7 @@ package service
 import (
 	"encoding/json"
 	"project/dal"
-	"project/model"
+	"project/internal/model"
 	"project/others/http_client"
 	"project/query"
 	utils "project/utils"
