@@ -274,3 +274,46 @@ type ChangeDeviceConfigReq struct {
 	DeviceID       string  `json:"device_id" validate:"required,max=36"` // 设备ID
 	DeviceConfigID *string `json:"device_config_id" validate:"max=36"`
 }
+
+type GatewayRegisterReq struct {
+	GatewayId string `json:"gateway_id"`
+	TenantId  string `json:"tenant_id"`
+	Model     string `json:"model"`
+}
+
+type GatewayRegisterRes struct {
+	MqttUsername string `json:"mqtt_username"`
+	MqttPassword string `json:"mqtt_password"`
+	MqttClientId string `json:"mqtt_client_id"`
+}
+
+type DeviceVoucher struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type DeviceRegisterReq struct {
+	Type      string          `json:"type"`
+	DeviceId  string          `json:"device_id"`
+	Registers []DeviceSubItem `json:"registers"`
+}
+
+type DeviceSubItem struct {
+	SubAddr  string `json:"sub_addr"`
+	Model    string `json:"model"`
+	Protocol string `json:"protocol"`
+}
+
+type DeviceRegisterRes struct {
+	Type         string                          `json:"type"`
+	Status       string                          `json:"status"`
+	Message      string                          `json:"message"`
+	RegistersRes map[string]DeviceSubRegisterRes `json:"registersRes"`
+}
+
+type DeviceSubRegisterRes struct {
+	Result    int    `json:"result"`
+	Errorcode string `json:"errorcode"`
+	Message   string `json:"message"`
+	SubAddr   string `json:"sub_addr"`
+}

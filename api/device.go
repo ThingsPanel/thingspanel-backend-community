@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	common "project/common"
 	model "project/model"
@@ -854,4 +855,34 @@ func (d *DeviceApi) GetDeviceOnlineStatus(c *gin.Context) {
 	}
 	SuccessHandler(c, "success", data)
 
+}
+
+func (d *DeviceApi) GatewayRegister(c *gin.Context) {
+	var req model.GatewayRegisterReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	data, err := service.GroupApp.Device.GatewayRegister(req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	SuccessHandler(c, "Create product successfully", data)
+}
+
+func (d *DeviceApi) GatewaySubRegister(c *gin.Context) {
+	var req model.DeviceRegisterReq
+	if !BindAndValidate(c, &req) {
+		logrus.Warningf("GatewaySubRegister:%#v", req)
+		return
+	}
+	logrus.Warningf("GatewaySubRegister:%#v", req)
+	data, err := service.GroupApp.Device.GatewayDeviceRegister(req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	SuccessHandler(c, "Create product successfully", data)
 }

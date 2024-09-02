@@ -587,3 +587,13 @@ func GetServiceDeviceList(serviceAccessId string) ([]model.Device, error) {
 	}
 	return devices, err
 }
+
+// GetSubDeviceExists
+// @description 查询子设备是否存在
+func GetSubDeviceExists(deviceId, subAddr string) bool {
+	num, err := query.Device.Where(query.Device.ParentID.Eq(deviceId), query.Device.SubDeviceAddr.Eq(subAddr)).Count()
+	if num > 0 || err != nil {
+		return true
+	}
+	return false
+}

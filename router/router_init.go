@@ -51,6 +51,10 @@ func RouterInit() *gin.Engine {
 			v1.GET("sys_function", controllers.SysFunctionApi.GetSysFcuntion)
 			// 租户邮箱注册
 			v1.POST("/tenant/email/register", controllers.UserApi.EmailRegister)
+			// 网关自动注册
+			v1.POST("/device/gateway-register", controllers.DeviceApi.GatewayRegister)
+			// 网关子设备注册
+			v1.POST("/device/gateway-sub-register", controllers.DeviceApi.GatewaySubRegister)
 		}
 		// 需要权限校验
 		v1.Use(middleware.JWTAuth())

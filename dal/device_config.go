@@ -298,3 +298,12 @@ func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {
 	}
 	return err
 }
+
+func GetDeviceConfigIdByName(name string) *string {
+	var configId string
+	err := query.DeviceConfig.Where(query.DeviceConfig.Name.Eq(name)).Select(query.DeviceConfig.ID).Limit(1).Scan(&configId)
+	if err != nil {
+		return nil
+	}
+	return &configId
+}

@@ -1449,3 +1449,113 @@ func (d *Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error)
 	data["is_online"] = data["device_status"]
 	return data, nil
 }
+
+func (d *Device) GatewayRegister(req model.GatewayRegisterReq) (model.GatewayRegisterRes, error) {
+	device, err := dal.GetDeviceByDeviceNumber(req.GatewayId)
+	if err == nil {
+		var voucher model.DeviceVoucher
+		_ = json.Unmarshal([]byte(device.Voucher), &voucher)
+
+		return model.GatewayRegisterRes{
+			MqttUsername: voucher.Username,
+			MqttPassword: voucher.Password,
+			MqttClientId: device.ID,
+		}, nil
+	}
+	var (
+		//device model.Device
+		result = model.GatewayRegisterRes{
+			MqttUsername: uuid.New()[0:22],
+			MqttPassword: uuid.New()[0:7],
+			MqttClientId: uuid.New(),
+		}
+	)
+	t := time.Now().UTC()
+
+	device.ID = result.MqttClientId
+	device.Name = &req.Model
+	deviceConfigId := dal.GetDeviceConfigIdByName(req.Model)
+	if deviceConfigId == nil || *deviceConfigId == "" {
+		deviceConfigId = nil
+	}
+	device.DeviceConfigID = deviceConfigId
+	logrus.Info(device.DeviceConfigID)
+	device.Voucher = `{"username":"` + result.MqttUsername + `","password":"` + result.MqttPassword + `"}`
+	device.TenantID = req.TenantId
+	device.CreatedAt = &t
+	device.UpdateAt = &t
+	device.DeviceNumber = req.GatewayId
+	device.IsOnline = 1
+	device.ActivateFlag = "active"
+	return result, dal.CreateDevice(device)
+}
+
+func (d *Device) GatewayDeviceRegister(req model.DeviceRegisterReq) (model.DeviceRegisterRes, error) {
+	device, err := dal.GetDeviceByID(req.DeviceId)
+	if err != nil {
+		var voucher model.DeviceVoucher
+		_ = json.Unmarshal([]byte(device.Voucher), &voucher)
+
+		return model.DeviceRegisterRes{
+			Type:    "sub-register-response",
+			Status:  "fail",
+			Message: "未查询到网关设备信息",
+		}, nil
+	}
+	res := model.DeviceRegisterRes{
+		Type:         "sub-register-response",
+		Status:       "success",
+		Message:      "success",
+		RegistersRes: make(map[string]model.DeviceSubRegisterRes),
+	}
+	t := time.Now().UTC()
+
+	for _, v := range req.Registers {
+		if dal.GetSubDeviceExists(req.DeviceId, v.SubAddr) {
+			registerRes := res.RegistersRes
+			registerRes[v.SubAddr] = model.DeviceSubRegisterRes{
+				Result:    1,
+				Errorcode: "exists",
+				SubAddr:   v.SubAddr,
+			}
+			res.RegistersRes = registerRes
+			continue
+		}
+		subDeviceItem := model.Device{}
+
+		subDeviceItem.ID = uuid.New()
+		deviceConfigId := dal.GetDeviceConfigIdByName(v.Model)
+		if deviceConfigId == nil || *deviceConfigId == "" {
+			deviceConfigId = nil
+		}
+		subDeviceItem.DeviceConfigID = deviceConfigId
+		subDeviceItem.ParentID = &req.DeviceId
+
+		subDeviceItem.Voucher = `{"username":"` + uuid.New() + `"}`
+		subDeviceItem.TenantID = device.TenantID
+		subDeviceItem.CreatedAt = &t
+		subDeviceItem.UpdateAt = &t
+		subDeviceItem.DeviceNumber = uuid.New()
+		subDeviceItem.IsOnline = 1
+		subDeviceItem.ActivateFlag = "active"
+		subDeviceItem.SubDeviceAddr = &v.SubAddr
+
+		//subDevices = append(subDevices, subDeviceItem)
+		err = dal.CreateDevice(&subDeviceItem)
+		subRegisterRes := model.DeviceSubRegisterRes{
+			Result:    0,
+			Errorcode: "",
+			Message:   "success",
+			SubAddr:   v.SubAddr,
+		}
+		if err != nil {
+			subRegisterRes.Result = 1
+			subRegisterRes.Errorcode = "exists"
+		}
+		registerRes := res.RegistersRes
+		registerRes[v.SubAddr] = subRegisterRes
+		res.RegistersRes = registerRes
+	}
+
+	return res, nil
+}
