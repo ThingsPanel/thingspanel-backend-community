@@ -1482,7 +1482,11 @@ func (d *Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error)
 }
 
 func (d *Device) GatewayRegister(req model.GatewayRegisterReq) (model.GatewayRegisterRes, error) {
-	device, err := dal.GetDeviceByDeviceNumber(req.GatewayId)
+	var (
+		device *model.Device
+		err    error
+	)
+	device, err = dal.GetDeviceByDeviceNumber(req.GatewayId)
 	if err == nil {
 		var voucher model.DeviceVoucher
 		_ = json.Unmarshal([]byte(device.Voucher), &voucher)
@@ -1492,6 +1496,8 @@ func (d *Device) GatewayRegister(req model.GatewayRegisterReq) (model.GatewayReg
 			MqttPassword: voucher.Password,
 			MqttClientId: device.ID,
 		}, nil
+	} else {
+		device = &model.Device{}
 	}
 	var (
 		//device model.Device
