@@ -1,7 +1,6 @@
 package dal
 
 import (
-	"fmt"
 	model "project/internal/model"
 	query "project/query"
 
@@ -70,19 +69,21 @@ func UpdateAttributeData(data *model.AttributeData) (*model.AttributeData, error
 	return data, nil
 }
 
-func GetAttributeOneKeys(deviceId string, keys string) (string, error) {
+func GetAttributeOneKeys(deviceId string, keys string) (interface{}, error) {
 	data, err := query.AttributeData.Where(query.AttributeData.DeviceID.Eq(deviceId), query.AttributeData.Key.Eq(keys)).Order(query.AttributeData.T.Desc()).First()
-	var result string
+	var result interface{}
 	if err != nil {
 		return result, err
 	} else if err == gorm.ErrRecordNotFound {
 		return result, nil
 	}
 	if data.BoolV != nil {
-		result = fmt.Sprintf("%t", *data.BoolV)
+		//result = fmt.Sprintf("%t", *data.BoolV)
+		result = *data.BoolV
 	}
 	if data.NumberV != nil {
-		result = fmt.Sprintf("%d", data.NumberV)
+		//result = fmt.Sprintf("%d", data.NumberV)
+		result = *data.NumberV
 	}
 	if data.StringV != nil {
 		result = *data.StringV

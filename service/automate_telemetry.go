@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"project/common"
 	"project/dal"
 	"project/initialize"
@@ -411,7 +412,7 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 
 	//条件查询
 	var (
-		actualValue     string
+		actualValue     interface{}
 		trigger         string
 		triggerValue    string
 		triggerOperator string
@@ -456,7 +457,7 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 		trigger = "下线"
 		actualValue, _ = dal.GetDeviceCurrentStatus(deviceId)
 		triggerValue = *cond.TriggerParam
-		if strings.ToUpper(actualValue) == "ON-LINE" {
+		if strings.ToUpper(actualValue.(string)) == "ON-LINE" {
 			trigger = "上线"
 		}
 		result = fmt.Sprintf("设备(%s)已%s", deviceName, trigger)
@@ -483,7 +484,83 @@ func (a *Automate) getTriggerParamsValue(triggerKey string, fc DataIdentifierNam
 // @description  运算符处理
 // @params cond model.DeviceTriggerCondition
 // @return bool
-func (a *Automate) automateConditionCheckByOperator(operator string, condValue string, actualValue string) bool {
+func (a *Automate) automateConditionCheckByOperator(operator string, condValue string, actualValue interface{}) bool {
+	//logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
+	switch actualValue.(type) {
+	case string:
+		return a.automateConditionCheckByOperatorWithString(operator, condValue, actualValue.(string))
+	case float64:
+		return a.automateConditionCheckByOperatorWithFloat(operator, condValue, actualValue.(float64))
+	case bool:
+		return a.automateConditionCheckByOperatorWithString(operator, condValue, fmt.Sprintf("%t", actualValue.(bool)))
+	}
+	return false
+}
+
+func float64Equal(a, b float64) bool {
+	const threshold = 1e-9
+	return math.Dim(a, b) < threshold
+}
+
+// automateConditionCheckByOperatorWithString
+// @description  运算符处理
+// @params cond model.DeviceTriggerCondition
+// @return bool
+func (a *Automate) automateConditionCheckByOperatorWithFloat(operator string, condValue string, actualValue float64) bool {
+	//logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
+	condValueFloat, err := strconv.ParseFloat(condValue, 64)
+	if err != nil {
+		logrus.Error(err)
+		return false
+	}
+	switch operator {
+	case model.CONDITION_TRIGGER_OPERATOR_EQ:
+		return float64Equal(condValueFloat, actualValue)
+	case model.CONDITION_TRIGGER_OPERATOR_NEQ:
+		return !float64Equal(condValueFloat, actualValue)
+	case model.CONDITION_TRIGGER_OPERATOR_GT:
+		return actualValue > condValueFloat
+	case model.CONDITION_TRIGGER_OPERATOR_LT:
+		return actualValue < condValueFloat
+	case model.CONDITION_TRIGGER_OPERATOR_GTE:
+		return actualValue >= condValueFloat
+	case model.CONDITION_TRIGGER_OPERATOR_LTE:
+		return actualValue <= condValueFloat
+	case model.CONDITION_TRIGGER_OPERATOR_BETWEEN:
+		valParts := strings.Split(condValue, "-")
+		if len(valParts) != 2 {
+			return false
+		}
+
+		valParts0Float64, err := strconv.ParseFloat(valParts[0], 64)
+		if err != nil {
+			return false
+		}
+		valParts1Float64, err := strconv.ParseFloat(valParts[1], 64)
+		if err != nil {
+			return false
+		}
+		return actualValue >= valParts0Float64 && actualValue <= valParts1Float64
+	case model.CONDITION_TRIGGER_OPERATOR_IN:
+		valParts := strings.Split(condValue, ",")
+		for _, v := range valParts {
+			vFloat, err := strconv.ParseFloat(v, 64)
+			if err != nil {
+				return false
+			}
+			if float64Equal(vFloat, actualValue) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// automateConditionCheckByOperatorWithString
+// @description  运算符处理
+// @params cond model.DeviceTriggerCondition
+// @return bool
+func (a *Automate) automateConditionCheckByOperatorWithString(operator string, condValue string, actualValue string) bool {
 	logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
 	switch operator {
 	case model.CONDITION_TRIGGER_OPERATOR_EQ:

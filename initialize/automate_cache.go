@@ -40,7 +40,7 @@ func NewAutomateCache() *AutomateCache {
 	if instance == nil {
 		instance = &AutomateCache{
 			client:    global.REDIS,
-			expiredIn: time.Hour * 24, //缓存获取时间暂设置为1天
+			expiredIn: time.Minute * 5, //缓存获取时间暂设置为5分钟
 			device:    automatecache.NewOneDeviceCache(),
 		}
 	}
@@ -57,7 +57,7 @@ type AutimateCacheKeyDevice interface {
 // @params id sting
 // @return string
 func (c *AutomateCache) getAutomateCacheKey(cType string, id string) string {
-	return fmt.Sprintf("automate:v1:%s:%s:%s", c.device.GetAutomateCacheKeyPrefix(), cType, id)
+	return fmt.Sprintf("automate:v2:%s:%s:%s", c.device.GetAutomateCacheKeyPrefix(), cType, id)
 }
 
 // 获取单个设置一级缓存key

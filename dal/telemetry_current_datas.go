@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"project/internal/model"
 	query "project/query"
 
@@ -84,9 +83,9 @@ func GetCurrentTelemetryDataEvolutionByKeys(deviceId string, keys []string) ([]*
 	return data, nil
 }
 
-func GetCurrentTelemetryDataOneKeys(deviceId string, keys string) (string, error) {
+func GetCurrentTelemetryDataOneKeys(deviceId string, keys string) (interface{}, error) {
 	data, err := query.TelemetryCurrentData.Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId), query.TelemetryCurrentData.Key.Eq(keys)).Order(query.TelemetryCurrentData.T.Desc()).First()
-	var result string
+	var result interface{}
 	if err != nil {
 		return result, err
 		//} else if err == gorm.ErrRecordNotFound {
@@ -94,10 +93,12 @@ func GetCurrentTelemetryDataOneKeys(deviceId string, keys string) (string, error
 		return result, nil
 	}
 	if data.BoolV != nil {
-		result = fmt.Sprintf("%t", *data.BoolV)
+		//result = fmt.Sprintf("%t", *data.BoolV)
+		result = *data.BoolV
 	}
 	if data.NumberV != nil {
-		result = fmt.Sprintf("%f", *data.NumberV)
+		//result = fmt.Sprintf("%f", *data.NumberV)
+		result = *data.NumberV
 	}
 	if data.StringV != nil {
 		result = *data.StringV
