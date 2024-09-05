@@ -1567,7 +1567,7 @@ func (d *Device) GatewayDeviceRegister(req model.DeviceRegisterReq) (model.Devic
 		}
 		subDeviceItem.DeviceConfigID = deviceConfigId
 		subDeviceItem.ParentID = &req.DeviceId
-
+		subDeviceItem.Name = &v.Model
 		subDeviceItem.Voucher = `{"username":"` + uuid.New() + `"}`
 		subDeviceItem.TenantID = device.TenantID
 		subDeviceItem.CreatedAt = &t
