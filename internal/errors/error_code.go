@@ -71,7 +71,7 @@ var errorCodeMap = map[int]ErrorCode{
 	ErrTooManyAttempts:       {ErrTooManyAttempts, "尝试次数过多", http.StatusTooManyRequests},
 	ErrPasswordExpired:       {ErrPasswordExpired, "密码已过期", http.StatusForbidden},
 	ErrUserNotFound:          {ErrUserNotFound, "用户不存在", http.StatusNotFound},
-	ErrInvalidCredentials:    {ErrInvalidCredentials, "用户名或密码错误", http.StatusUnauthorized},
+	ErrInvalidCredentials:    {ErrInvalidCredentials, "用户名或密码错误", http.StatusNotFound},
 	ErrUserDisabled:          {ErrUserDisabled, "用户状态异常", http.StatusForbidden},
 
 	ErrInvalidInput:       {ErrInvalidInput, "无效的输入", http.StatusBadRequest},
