@@ -508,23 +508,49 @@ func float64Equal(a, b float64) bool {
 // @return bool
 func (a *Automate) automateConditionCheckByOperatorWithFloat(operator string, condValue string, actualValue float64) bool {
 	//logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
-	condValueFloat, err := strconv.ParseFloat(condValue, 64)
-	if err != nil {
-		logrus.Error(err)
-		return false
-	}
+
 	switch operator {
 	case model.CONDITION_TRIGGER_OPERATOR_EQ:
+		condValueFloat, err := strconv.ParseFloat(condValue, 64)
+		if err != nil {
+			logrus.Error(err)
+			return false
+		}
 		return float64Equal(condValueFloat, actualValue)
 	case model.CONDITION_TRIGGER_OPERATOR_NEQ:
+		condValueFloat, err := strconv.ParseFloat(condValue, 64)
+		if err != nil {
+			logrus.Error(err)
+			return false
+		}
 		return !float64Equal(condValueFloat, actualValue)
 	case model.CONDITION_TRIGGER_OPERATOR_GT:
+		condValueFloat, err := strconv.ParseFloat(condValue, 64)
+		if err != nil {
+			logrus.Error(err)
+			return false
+		}
 		return actualValue > condValueFloat
 	case model.CONDITION_TRIGGER_OPERATOR_LT:
+		condValueFloat, err := strconv.ParseFloat(condValue, 64)
+		if err != nil {
+			logrus.Error(err)
+			return false
+		}
 		return actualValue < condValueFloat
 	case model.CONDITION_TRIGGER_OPERATOR_GTE:
+		condValueFloat, err := strconv.ParseFloat(condValue, 64)
+		if err != nil {
+			logrus.Error(err)
+			return false
+		}
 		return actualValue >= condValueFloat
 	case model.CONDITION_TRIGGER_OPERATOR_LTE:
+		condValueFloat, err := strconv.ParseFloat(condValue, 64)
+		if err != nil {
+			logrus.Error(err)
+			return false
+		}
 		return actualValue <= condValueFloat
 	case model.CONDITION_TRIGGER_OPERATOR_BETWEEN:
 		valParts := strings.Split(condValue, "-")
