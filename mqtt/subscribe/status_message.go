@@ -56,9 +56,18 @@ func DeviceOnline(payload []byte, topic string) {
 	go toUserClient(device, status)
 	//自动化
 	go func() {
+		var loginStatus string
+		if status == 1 {
+			loginStatus = "ON-LINE"
+		} else {
+			loginStatus = "OFF-LINE"
+		}
 		err := service.GroupApp.Execute(device, service.AutomateFromExt{
 			TriggerParamType: model.TRIGGER_PARAM_TYPE_STATUS,
 			TriggerParam:     []string{},
+			TriggerValues: map[string]interface{}{
+				"login": loginStatus,
+			},
 		})
 		if err != nil {
 			logrus.Error("自动化执行失败, err: %w", err)

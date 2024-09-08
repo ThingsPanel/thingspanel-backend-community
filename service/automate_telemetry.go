@@ -21,8 +21,9 @@ import (
 )
 
 type Automate struct {
-	device *model.Device
-	mu     sync.Mutex
+	device  *model.Device
+	formExt AutomateFromExt
+	mu      sync.Mutex
 }
 
 var conditionAfterDecoration = []ConditionAfterFunc{
@@ -39,6 +40,7 @@ type ActionAfterFunc = func(actions []model.ActionInfo, err error) error
 type AutomateFromExt struct {
 	TriggerParamType string
 	TriggerParam     []string
+	TriggerValues    map[string]interface{}
 }
 
 func (a *Automate) conditionAfterDecorationRun(ok bool, conditions initialize.DTConditions, deviceId string, contents []string) {
@@ -79,6 +81,7 @@ func (a *Automate) ErrorRecover() func() {
 func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) error {
 	defer a.ErrorRecover()
 	a.device = deviceInfo
+	a.formExt = fromExt
 	//
 
 	//单类设备t
@@ -96,7 +99,7 @@ func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) er
 
 func (a *Automate) execute(deviceId, deviceConfigId string, fromExt AutomateFromExt) error {
 	info, resultInt, err := initialize.NewAutomateCache().GetCacheByDeviceId(deviceId, deviceConfigId)
-	logrus.Debugf("info:%#v, resultInt:%d", info, resultInt)
+	logrus.Debugf("自动化执行开始: info:%#v, resultInt:%d", info, resultInt)
 	if err != nil {
 		return pkgerrors.Wrap(err, "查询缓存信息失败")
 	}
@@ -115,8 +118,10 @@ func (a *Automate) execute(deviceId, deviceConfigId string, fromExt AutomateFrom
 			return nil
 		}
 	}
+	logrus.Debugf("自动化执行开始2: info:%#v, resultInt:%d", info, resultInt)
 	//过滤自动化触发条件
 	info = a.AutomateFilter(info, fromExt)
+	logrus.Debugf("自动化执行开始3: info:%#v, resultInt:%v", info, fromExt)
 	//执行自动化
 	return a.ExecuteRun(info)
 }
@@ -141,7 +146,7 @@ func (a *Automate) AutomateFilter(info initialize.AutomateExecteParams, fromExt 
 					isExists = true
 				}
 			case model.TRIGGER_PARAM_TYPE_EVT:
-				if condTriggerParamType == model.TRIGGER_PARAM_TYPE_EVT && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
+				if (condTriggerParamType == model.TRIGGER_PARAM_TYPE_EVT || condTriggerParamType == model.TRIGGER_PARAM_TYPE_EVENT) && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
 					isExists = true
 				}
 			case model.TRIGGER_PARAM_TYPE_ATTR:
@@ -160,6 +165,7 @@ func (a *Automate) AutomateFilter(info initialize.AutomateExecteParams, fromExt 
 
 func (a *Automate) containString(slice []string, str string) bool {
 	for _, v := range slice {
+		logrus.Info(v, str)
 		if v == str {
 			return true
 		}
@@ -184,10 +190,12 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 		if !a.LimiterAllow(v.SceneAutomationId) {
 			continue
 		}
+		logrus.Debugf("查询自动化是否关闭1: info:%#v,", v.SceneAutomationId)
 		//查询自动化是否关闭
 		if a.CheckSceneAutomationHasClose(v.SceneAutomationId) {
 			continue
 		}
+		logrus.Debugf("查询自动化是否关闭2: info:%#v,", info)
 		//条件判断
 		if !a.AutomateConditionCheck(v.GroupsCondition, info.DeviceId) {
 			continue
@@ -399,6 +407,25 @@ func (a *Automate) automateConditionCheckWithTime(cond model.DeviceTriggerCondit
 	return true
 }
 
+func (a *Automate) getActualValue(deviceId string, key string, triggerParamType string) (interface{}, error) {
+	for k, v := range a.formExt.TriggerValues {
+		if key == k {
+			return v, nil
+		}
+	}
+	switch triggerParamType {
+	case model.TRIGGER_PARAM_TYPE_TEL:
+		return dal.GetCurrentTelemetryDataOneKeys(deviceId, key)
+	case model.TRIGGER_PARAM_TYPE_ATTR:
+		return dal.GetAttributeOneKeys(deviceId, key)
+	case model.TRIGGER_PARAM_TYPE_EVT:
+		return dal.GetDeviceEventOneKeys(deviceId, key)
+	case model.TRIGGER_PARAM_TYPE_STATUS:
+		return dal.GetDeviceCurrentStatus(deviceId)
+	}
+
+	return nil, nil
+}
 func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCondition, deviceId string) (bool, string) {
 	logrus.Debug("设备条件验证开始...")
 	//设备id不存在 返回假
@@ -433,39 +460,44 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 	switch strings.ToUpper(*cond.TriggerParamType) {
 	case model.TRIGGER_PARAM_TYPE_TEL, model.TRIGGER_PARAM_TYPE_TELEMETRY: //遥测
 		trigger = "遥测"
-		actualValue, _ = dal.GetCurrentTelemetryDataOneKeys(deviceId, *cond.TriggerParam)
+		//actualValue, _ = dal.GetCurrentTelemetryDataOneKeys(deviceId, *cond.TriggerParam)
+		actualValue, _ = a.getActualValue(deviceId, *cond.TriggerParam, model.TRIGGER_PARAM_TYPE_TEL)
 		triggerValue = cond.TriggerValue
 		triggerKey = *cond.TriggerParam
-		logrus.Debug("GetCurrentTelemetryDataOneKeys:.", triggerOperator, *cond.TriggerParam, triggerValue, actualValue)
+		logrus.Debugf("GetCurrentTelemetryDataOneKeys:triggerOperator:%s, TriggerParam:%s, triggerValue:%v, actualValue:%v", triggerOperator, *cond.TriggerParam, triggerValue, actualValue)
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameTelemetry())
-		result = fmt.Sprintf("设备(%s)%s [%s]: %s %s %s", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
+		result = fmt.Sprintf("设备(%s)%s [%s]: %v %s %v", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
 	case model.TRIGGER_PARAM_TYPE_ATTR: //属性
 		trigger = "属性"
-		actualValue, _ = dal.GetAttributeOneKeys(deviceId, *cond.TriggerParam)
+		actualValue, _ = a.getActualValue(deviceId, *cond.TriggerParam, model.TRIGGER_PARAM_TYPE_ATTR)
 		triggerValue = cond.TriggerValue
 		triggerKey = *cond.TriggerParam
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameAttribute())
-		result = fmt.Sprintf("设备(%s)%s [%s]: %s %s %s", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
-	case model.TRIGGER_PARAM_TYPE_EVT: //事件
+		result = fmt.Sprintf("设备(%s)%s [%s]: %v %s %v", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
+	case model.TRIGGER_PARAM_TYPE_EVT, model.TRIGGER_PARAM_TYPE_EVENT: //事件
 		trigger = "事件"
-		actualValue, _ = dal.GetDeviceEventOneKeys(deviceId, *cond.TriggerParam)
+		actualValue, _ = a.getActualValue(deviceId, *cond.TriggerParam, model.TRIGGER_PARAM_TYPE_EVT)
 		triggerValue = cond.TriggerValue
 		triggerKey = *cond.TriggerParam
+		logrus.Debugf("事件...actualValue:%#v, triggerValue:%#v", actualValue, triggerValue)
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameEvent())
-		result = fmt.Sprintf("设备(%s)%s [%s]: %s %s %s", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
+		result = fmt.Sprintf("设备(%s)%s [%s]: %v %s %v", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
 	case model.TRIGGER_PARAM_TYPE_STATUS: //状态
 		trigger = "下线"
-		actualValue, _ = dal.GetDeviceCurrentStatus(deviceId)
+		actualValue, _ = a.getActualValue(deviceId, "login", model.TRIGGER_PARAM_TYPE_STATUS)
 		triggerValue = *cond.TriggerParam
 		if strings.ToUpper(actualValue.(string)) == "ON-LINE" {
 			trigger = "上线"
 		}
 		result = fmt.Sprintf("设备(%s)已%s", deviceName, trigger)
 		triggerOperator = "="
+		if strings.ToUpper(triggerValue) == "ALL" {
+			return true, result
+		}
 	}
 	logrus.Debug("automateConditionCheckByOperator:设备条件验证参数...", triggerOperator, triggerValue, actualValue)
 	ok := a.automateConditionCheckByOperator(triggerOperator, triggerValue, actualValue)
-
+	logrus.Debugf("比较结果:%t", ok)
 	return ok, result
 }
 
@@ -486,20 +518,20 @@ func (a *Automate) getTriggerParamsValue(triggerKey string, fc DataIdentifierNam
 // @return bool
 func (a *Automate) automateConditionCheckByOperator(operator string, condValue string, actualValue interface{}) bool {
 	//logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
-	switch actualValue.(type) {
+	switch value := actualValue.(type) {
 	case string:
-		return a.automateConditionCheckByOperatorWithString(operator, condValue, actualValue.(string))
+		return a.automateConditionCheckByOperatorWithString(operator, condValue, value)
 	case float64:
-		return a.automateConditionCheckByOperatorWithFloat(operator, condValue, actualValue.(float64))
+		return a.automateConditionCheckByOperatorWithFloat(operator, condValue, value)
 	case bool:
-		return a.automateConditionCheckByOperatorWithString(operator, condValue, fmt.Sprintf("%t", actualValue.(bool)))
+		return a.automateConditionCheckByOperatorWithString(operator, condValue, fmt.Sprintf("%t", value))
 	}
 	return false
 }
 
 func float64Equal(a, b float64) bool {
 	const threshold = 1e-9
-	return math.Dim(a, b) < threshold
+	return math.Abs(a-b) < threshold
 }
 
 // automateConditionCheckByOperatorWithString
@@ -523,6 +555,7 @@ func (a *Automate) automateConditionCheckByOperatorWithFloat(operator string, co
 			logrus.Error(err)
 			return false
 		}
+		logrus.Debugf("condValueFloat:%f, actualValue:%f, 结果：%t", condValueFloat, actualValue, float64Equal(condValueFloat, actualValue))
 		return !float64Equal(condValueFloat, actualValue)
 	case model.CONDITION_TRIGGER_OPERATOR_GT:
 		condValueFloat, err := strconv.ParseFloat(condValue, 64)
@@ -731,6 +764,7 @@ func (a *Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string)
 	} else {
 		groups, err = dal.GetDeviceTriggerConditionByDeviceId(deviceId, model.DEVICE_TRIGGER_CONDITION_TYPE_ONE)
 	}
+	logrus.Debugf("设备配置id: %s, 查询条件：%v", deviceConfigId, groups)
 	if err != nil {
 		return automateExecuteParams, 0, pkgerrors.Wrap(err, "根据设备id查询自动化条件失败")
 	}
@@ -765,6 +799,7 @@ func (a *Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string)
 	if err != nil {
 		return automateExecuteParams, 0, pkgerrors.Wrap(err, "查询自动化执行失败")
 	}
+	logrus.Debugf("设备配置id2: %s, 查询条件：%v, 动作: %v", deviceConfigId, groups, actionInfos)
 	//设置自动化缓存
 	err = initialize.NewAutomateCache().SetCacheByDeviceId(deviceId, deviceConfigId, groups, actionInfos)
 	if err != nil {

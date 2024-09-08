@@ -84,25 +84,17 @@ func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{},
 			}
 		}
 	}
-	//自动化处理
-	go func() {
-		var triggerParam []string
-		for key := range reqMap {
-			triggerParam = append(triggerParam, key)
-		}
-		err := service.GroupApp.Execute(device, service.AutomateFromExt{
-			TriggerParam:     triggerParam,
-			TriggerParamType: model.TRIGGER_PARAM_TYPE_ATTR,
-		})
-		if err != nil {
-			logrus.Errorf("自动化执行失败, err: %w", err)
-		}
-	}()
+
 	//属性保存
 	ts := time.Now().UTC()
 	logrus.Debug(device, ts)
+	var (
+		triggerParam  []string
+		triggerValues = make(map[string]interface{})
+	)
 	for k, v := range reqMap {
 		logrus.Debug(k, "(", v, ")")
+
 		var d model.AttributeData
 		switch value := v.(type) {
 		case string:
@@ -139,6 +131,8 @@ func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{},
 				TenantID: &device.TenantID,
 			}
 		}
+		triggerParam = append(triggerParam, k)
+		triggerValues[k] = v
 		logrus.Debug("attribute data:", d)
 		_, err := dal.UpdateAttributeData(&d)
 		if err != nil {
@@ -146,6 +140,18 @@ func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{},
 			return err
 		}
 	}
+	//自动化处理
+	go func() {
+
+		err := service.GroupApp.Execute(device, service.AutomateFromExt{
+			TriggerParam:     triggerParam,
+			TriggerValues:    triggerValues,
+			TriggerParamType: model.TRIGGER_PARAM_TYPE_ATTR,
+		})
+		if err != nil {
+			logrus.Errorf("自动化执行失败, err: %w", err)
+		}
+	}()
 	return nil
 }
 

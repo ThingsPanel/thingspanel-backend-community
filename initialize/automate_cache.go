@@ -402,7 +402,7 @@ func (c *AutomateCache) setCacheByDeviceId(deviceId, deviceConfigId string, cond
 		groupInfosMap  = make(map[string][]model.DeviceTriggerCondition)
 		deviceInfosMap = make(map[string]map[string]bool)
 	)
-	logrus.Debug("deviceConfigID", deviceConfigId)
+	logrus.Debug("deviceConfigID:", deviceConfigId)
 	for _, v := range conditions {
 		groupInfosMap[v.GroupID] = append(groupInfosMap[v.GroupID], v)
 		if deviceInfosMap[v.SceneAutomationID] == nil {
@@ -414,6 +414,7 @@ func (c *AutomateCache) setCacheByDeviceId(deviceId, deviceConfigId string, cond
 	//group条件保存
 	for groupId, val := range groupInfosMap {
 		var groupCacheKey = c.getAutomateCacheKeyGroup(groupId)
+		logrus.Info("groupCacheKey:", groupCacheKey)
 		err := c.set(groupCacheKey, val, c.expiredIn)
 		if err != nil {
 			return err
@@ -438,14 +439,24 @@ func (c *AutomateCache) setCacheByDeviceId(deviceId, deviceConfigId string, cond
 				Actions:  actions,
 				GroupIds: groupIds,
 			}
-			c.set(c.getAutomateCacheKeyAction(sceneAutomationID), actionInfos, c.expiredIn)
+			err := c.set(c.getAutomateCacheKeyAction(sceneAutomationID), actionInfos, c.expiredIn)
+			if err != nil {
+				return err
+			}
 			automateDeviceInfos = append(automateDeviceInfos, AutomateDeviceInfo{
 				SceneAutomationId: sceneAutomationID,
 				GroupIds:          groupIds,
 			})
 		}
 	}
-	cacheKey := c.getAutomateCacheKeyBase(deviceId)
+	var cacheKey string
+	if deviceConfigId != "" {
+		cacheKey = c.getAutomateCacheKeyBase(deviceConfigId)
+	} else {
+		cacheKey = c.getAutomateCacheKeyBase(deviceId)
+	}
+
+	logrus.Info("cacheKey:", cacheKey)
 	//保存设备任务缓存
 	return c.set(cacheKey, automateDeviceInfos, c.expiredIn)
 }
