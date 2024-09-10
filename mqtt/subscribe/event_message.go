@@ -81,20 +81,7 @@ func deviceEventHandle(device *model.Device, eventValues *model.EventInfo, topic
 			}
 		}
 	}
-	// TODO自动化处理
-	go func() {
-		var triggerParam []string
-		for key := range eventValues.Params {
-			triggerParam = append(triggerParam, key)
-		}
-		err := service.GroupApp.Execute(device, service.AutomateFromExt{
-			TriggerParamType: model.TRIGGER_PARAM_TYPE_EVT,
-			TriggerParam:     triggerParam,
-		})
-		if err != nil {
-			logrus.Errorf("自动化执行失败, err: %w", err)
-		}
-	}()
+
 	// 写入表event_datas,model/event_datas.gen.go
 	//将eventValues.Params转换为json字符串
 	paramsJsonBytes, err := json.Marshal(eventValues.Params)
@@ -111,7 +98,20 @@ func deviceEventHandle(device *model.Device, eventValues *model.EventInfo, topic
 		Datum:    &paramsJsonString,
 		TenantID: &device.TenantID,
 	}
+	// TODO自动化处理
+	go func() {
 
+		err = service.GroupApp.Execute(device, service.AutomateFromExt{
+			TriggerParamType: model.TRIGGER_PARAM_TYPE_EVT,
+			TriggerParam:     []string{eventValues.Method},
+			TriggerValues: map[string]interface{}{
+				eventValues.Method: paramsJsonString,
+			},
+		})
+		if err != nil {
+			logrus.Errorf("自动化执行失败, err: %w", err)
+		}
+	}()
 	err = dal.CreateEventData(eventDatas)
 	if err != nil {
 		logrus.Error(err.Error())

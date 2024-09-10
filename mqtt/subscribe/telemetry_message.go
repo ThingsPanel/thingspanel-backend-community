@@ -123,6 +123,10 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 	ts := time.Now().UTC()
 	milliseconds := ts.UnixNano() / int64(time.Millisecond)
 	logrus.Debug(device, ts)
+	var (
+		triggerParam  []string
+		triggerValues = make(map[string]interface{})
+	)
 	for k, v := range reqMap {
 		logrus.Debug(k, "(", v, ")")
 		var d model.TelemetryData
@@ -161,6 +165,8 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 				TenantID: &device.TenantID,
 			}
 		}
+		triggerParam = append(triggerParam, k)
+		triggerValues[k] = v
 		// ts_kv批量入库
 		TelemetryMessagesChan <- map[string]interface{}{
 			"telemetryData": d,
@@ -168,13 +174,10 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 	}
 	// go 自动化处理
 	go func() {
-		var triggerParam []string
-		for key := range reqMap {
-			triggerParam = append(triggerParam, key)
-		}
-		err := service.GroupApp.Execute(device, service.AutomateFromExt{
+		err = service.GroupApp.Execute(device, service.AutomateFromExt{
 			TriggerParamType: model.TRIGGER_PARAM_TYPE_TEL,
 			TriggerParam:     triggerParam,
+			TriggerValues:    triggerValues,
 		})
 		if err != nil {
 			logrus.Error("自动化执行失败, err: %w", err)
