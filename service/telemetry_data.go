@@ -730,7 +730,7 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 // 根据设备信息获取要发送的控制主题（内置MQTT协议）
 func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.PutMessage) (string, error) {
 	if deviceType == "1" {
-		return fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
+		return fmt.Sprintf(config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
 	} else if deviceType == "2" || deviceType == "3" {
 		gatewayInfo, err := initialize.GetDeviceById(deviceInfo.ID)
 		if err != nil {
@@ -777,7 +777,7 @@ func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.
 			param.Value = string(output)
 		}
 
-		return fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.GatewayPublishTopic, gatewayInfo.DeviceNumber), nil
+		return fmt.Sprintf(config.MqttConfig.Telemetry.GatewayPublishTopic, gatewayInfo.DeviceNumber), nil
 	} else {
 		return "", fmt.Errorf("unknown device type")
 	}
