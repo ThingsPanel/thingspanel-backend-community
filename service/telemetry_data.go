@@ -732,7 +732,10 @@ func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.
 	if deviceType == "1" {
 		return fmt.Sprintf(config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
 	} else if deviceType == "2" || deviceType == "3" {
-		gatewayInfo, err := initialize.GetDeviceById(deviceInfo.ID)
+		if deviceInfo.ParentID == nil {
+			return "", fmt.Errorf("parentID is nil")
+		}
+		gatewayInfo, err := initialize.GetDeviceById(*deviceInfo.ParentID)
 		if err != nil {
 			logrus.Error(err)
 			return "", err
