@@ -653,12 +653,17 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 	}
 	// 获取设备配置
 	var protocolType string
+	var deviceConfig *model.DeviceConfig
+	var deviceType string
+
 	if deviceInfo.DeviceConfigID != nil {
-		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
+		deviceConfig, err = dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
 			logrus.Error(ctx, "[TelemetryPutMessage][GetDeviceConfigByID]failed:", err)
 			return err
 		}
+		deviceType = deviceConfig.DeviceType
+
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
 		} else {
@@ -666,11 +671,18 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		}
 	} else {
 		protocolType = "MQTT"
+		deviceType = "1"
+
 	}
 	var topic string
 	if protocolType == "MQTT" {
+		// 网关和子设备需要特殊处理
 		//messageID := common.GetMessageID()
-		topic = fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber)
+		topic, err = getTopicByDevice(deviceInfo, deviceType, param)
+		if err != nil {
+			logrus.Error(ctx, "failed to get topic", err)
+			return err
+		}
 	} else {
 		// 获取主题前缀
 		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
@@ -713,6 +725,63 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 	}
 	_, err = log.Create(ctx, logInfo)
 	return err
+}
+
+// 根据设备信息获取要发送的控制主题（内置MQTT协议）
+func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.PutMessage) (string, error) {
+	if deviceType == "1" {
+		return fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
+	} else if deviceType == "2" || deviceType == "3" {
+		gatewayInfo, err := initialize.GetDeviceById(deviceInfo.ID)
+		if err != nil {
+			logrus.Error(err)
+			return "", err
+		}
+		// 修改payload
+		// 解析输入的 JSON 字符串
+		var inputData map[string]interface{}
+		err = json.Unmarshal([]byte(param.Value), &inputData)
+		if err != nil {
+			return "", fmt.Errorf("解析输入 JSON 失败: %v", err)
+		}
+		if deviceType == "3" {
+			// 校验subDeviceAddr是否为空
+			if deviceInfo.SubDeviceAddr == nil {
+				return "", fmt.Errorf("subDeviceAddr is nil")
+			}
+			// 创建新的结构
+			outputData := map[string]interface{}{
+				"sub_device_data": map[string]interface{}{
+					*deviceInfo.SubDeviceAddr: inputData,
+				},
+			}
+
+			// 将新结构转换回 JSON 字符串
+			output, err := json.Marshal(outputData)
+			if err != nil {
+				return "", fmt.Errorf("生成输出 JSON 失败: %v", err)
+			}
+
+			param.Value = string(output)
+		} else if deviceType == "2" {
+			outputData := map[string]interface{}{
+				"gateway_data": inputData,
+			}
+
+			// 将新结构转换回 JSON 字符串
+			output, err := json.Marshal(outputData)
+			if err != nil {
+				return "", fmt.Errorf("生成输出 JSON 失败: %v", err)
+			}
+
+			param.Value = string(output)
+		}
+
+		return fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.GatewayPublishTopic, gatewayInfo.DeviceNumber), nil
+	} else {
+		return "", fmt.Errorf("unknown device type")
+	}
+
 }
 
 func (t *TelemetryData) GetMsgCountByTenantId(tenantId string) (int64, error) {
