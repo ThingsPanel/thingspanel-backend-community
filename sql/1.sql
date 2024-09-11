@@ -93,26 +93,6 @@ COMMENT ON COLUMN public.boards.remark IS '备注';
 COMMENT ON COLUMN public.boards.menu_flag IS '菜单标志默认N，Y';
 
 
--- public.casbin_rule definition
-
--- Drop table
-
--- DROP TABLE public.casbin_rule;
-
-CREATE TABLE public.casbin_rule (
-	id bigserial NOT NULL,
-	ptype varchar(100) NULL,
-	v0 varchar(100) NULL,
-	v1 varchar(100) NULL,
-	v2 varchar(100) NULL,
-	v3 varchar(100) NULL,
-	v4 varchar(100) NULL,
-	v5 varchar(100) NULL,
-	CONSTRAINT casbin_rule_pkey PRIMARY KEY (id)
-);
-CREATE UNIQUE INDEX idx_casbin_rule ON public.casbin_rule USING btree (ptype, v0, v1, v2, v3, v4, v5);
-
-
 -- public.data_policy definition
 
 -- Drop table
