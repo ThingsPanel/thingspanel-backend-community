@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"project/common"
 	"project/constant"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type AttributeData struct{}
@@ -70,6 +72,36 @@ func (t *AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttribute
 	dataMap["list"] = data
 
 	return dataMap, nil
+}
+
+// 根据key查询设备属性
+func (t *AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (interface{}, error) {
+	dataMap := make(map[string]interface{})
+
+	data, err := dal.GetAttributeDataByKey(req)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return dataMap, err
+	}
+
+	dataMap["id"] = data.ID
+	dataMap["key"] = data.Key
+	dataMap["device_id"] = data.DeviceID
+	dataMap["ts"] = data.T
+	if data.BoolV != nil {
+		dataMap["value"] = data.BoolV
+	} else if data.NumberV != nil {
+		dataMap["value"] = data.NumberV
+	} else if data.StringV != nil {
+		dataMap["value"] = *data.StringV
+	} else {
+		dataMap["value"] = nil
+	}
+
+	return dataMap, nil
+
 }
 
 func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, param *model.AttributePutMessage, operationType string, fn ...config.MqttDirectResponseFunc) error {
