@@ -81,7 +81,7 @@ func (t *AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (in
 	data, err := dal.GetAttributeDataByKey(req)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
+			return dataMap, nil
 		}
 		return dataMap, err
 	}
