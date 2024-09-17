@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"project/constant"
 	"project/initialize"
 	config "project/mqtt"
@@ -549,7 +552,7 @@ func (t *TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetry
 
 ```
 */
-func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStatisticReq) ([]map[string]interface{}, error) {
+func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStatisticReq) (any, error) {
 	if req.TimeRange == "custom" {
 		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
 			return nil, fmt.Errorf("time range is invalid")
@@ -595,6 +598,7 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		req.EndTime = time.Now().UnixNano() / 1e6
 	}
 
+	var rspData []map[string]interface{}
 	// 不聚合
 	if req.AggregateWindow == "no_aggregate" {
 		if req.TimeRange == "custom" {
@@ -609,7 +613,7 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		if len(data) == 0 {
 			data = []map[string]interface{}{}
 		}
-		return data, nil
+		rspData = data
 	} else {
 
 		if req.AggregateFunction == "" {
@@ -630,9 +634,76 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		if len(data) == 0 {
 			data = []map[string]interface{}{}
 		}
-		return data, nil
-	}
+		rspData = data
 
+	}
+	// 是否导出
+	if req.IsExport {
+		// 检查是否有数据
+		if len(rspData) == 0 {
+			return nil, errors.New("没有可导出的数据")
+		}
+		// 创建导出目录
+		exportDir := "./files/excel/telemetry/"
+		err := os.MkdirAll(exportDir, os.ModePerm)
+		if err != nil {
+			return nil, fmt.Errorf("创建导出目录失败: %v", err)
+		}
+
+		// 生成csv文件
+		// 文件名：device_id_key_start_time_end_time.csv
+		fileName := fmt.Sprintf("%s_%s_%d_%d.csv", req.DeviceId, req.Key, req.StartTime, req.EndTime)
+		filePath := filepath.Join(exportDir, fileName)
+		file, err := os.Create(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("创建文件失败: %v", err)
+		}
+		defer file.Close()
+
+		writer := csv.NewWriter(file)
+		defer writer.Flush()
+
+		// 写入表头
+		if err := writer.Write([]string{"时间戳", "数值"}); err != nil {
+			return nil, fmt.Errorf("写入CSV表头失败: %v", err)
+		}
+
+		// 写入数据
+		for _, row := range rspData {
+			timestamp, ok := row["x"].(int64)
+			if !ok {
+				return nil, fmt.Errorf("无效的时间戳格式")
+			}
+
+			// 将毫秒时间戳转换为time.Time
+			t := time.Unix(0, timestamp*int64(time.Millisecond))
+
+			// 格式化时间为可读格式
+			formattedTime := t.Format("2006-01-02 15:04:05.000")
+
+			value, ok := row["y"].(float64)
+			if !ok {
+				return nil, fmt.Errorf("无效的数值格式")
+			}
+
+			if err := writer.Write([]string{formattedTime, fmt.Sprintf("%.3f", value)}); err != nil {
+				return nil, fmt.Errorf("写入CSV记录失败: %v", err)
+			}
+		}
+
+		logrus.Info("CSV文件已创建:", filePath)
+
+		// 将文件名添加到rspData中
+		fileInfo := map[string]interface{}{
+			"file_name": fileName,
+			"file_path": filePath,
+		}
+		return fileInfo, nil
+	}
+	if len(rspData) == 0 {
+		return []map[string]interface{}{}, nil
+	}
+	return rspData, nil
 }
 
 func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {

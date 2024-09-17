@@ -49,4 +49,5 @@ type GetTelemetryStatisticReq struct {
 	TimeRange         string `json:"time_range" form:"time_range" validate:"required"`                          // 时间范围
 	AggregateWindow   string `json:"aggregate_window" form:"aggregate_window" validate:"required"`              // 聚合间隔
 	AggregateFunction string `json:"aggregate_function" form:"aggregate_function" validate:"omitempty,max=255"` // 聚合方法
+	IsExport          bool   `json:"is_export" form:"is_export" validate:"omitempty"`                           // 是否导出
 }
