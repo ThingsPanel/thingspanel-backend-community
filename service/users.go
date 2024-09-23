@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	common "project/common"
 	dal "project/dal"
@@ -199,8 +200,12 @@ func (u *UsersService) UpdateTenantInfoPassword(ctx context.Context, userInfo *u
 		return errors.New("OldPassword Failed,Please again~")
 	}
 
+	t := time.Now().UTC()
+	info.UpdatedAt = &t
+	info.PasswordLastUpdated = &t
+
 	info.Password = utils.BcryptHash(param.Password)
-	if err = db.UpdateByEmail(ctx, info, user.Password); err != nil {
+	if err = db.UpdateByEmail(ctx, info, user.Password, user.UpdatedAt, user.PasswordLastUpdated); err != nil {
 		logrus.Error(ctx, "[UpdateTenantInfoPassword]Update Users info failed:", err)
 		return err
 	}

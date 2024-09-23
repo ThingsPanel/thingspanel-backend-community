@@ -39,7 +39,7 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 	_user.AdditionalInfo = field.NewString(tableName, "additional_info")
 	_user.CreatedAt = field.NewTime(tableName, "created_at")
 	_user.UpdatedAt = field.NewTime(tableName, "updated_at")
-
+	_user.PasswordLastUpdated = field.NewTime(tableName, "password_last_updated")
 	_user.fillFieldMap()
 
 	return _user
@@ -61,6 +61,7 @@ type user struct {
 	AdditionalInfo field.String
 	CreatedAt      field.Time
 	UpdatedAt      field.Time
+	PasswordLastUpdated field.Time
 
 	fieldMap map[string]field.Expr
 }
@@ -89,6 +90,7 @@ func (u *user) updateTableName(table string) *user {
 	u.AdditionalInfo = field.NewString(table, "additional_info")
 	u.CreatedAt = field.NewTime(table, "created_at")
 	u.UpdatedAt = field.NewTime(table, "updated_at")
+	u.PasswordLastUpdated = field.NewTime(table, "password_last_updated")
 
 	u.fillFieldMap()
 
@@ -118,6 +120,7 @@ func (u *user) fillFieldMap() {
 	u.fieldMap["additional_info"] = u.AdditionalInfo
 	u.fieldMap["created_at"] = u.CreatedAt
 	u.fieldMap["updated_at"] = u.UpdatedAt
+	u.fieldMap["password_last_updated"] = u.PasswordLastUpdated
 }
 
 func (u user) clone(db *gorm.DB) user {

@@ -62,6 +62,7 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 	t := time.Now().UTC()
 	user.CreatedAt = &t
 	user.UpdatedAt = &t
+	user.PasswordLastUpdated = &t
 
 	// 生成密码
 	user.Password = utils.BcryptHash(createUserReq.Password)
@@ -235,9 +236,10 @@ func (u *User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetP
 		logrus.Error(ctx, "[ResetPasswordByCode]Get Users info failed:", err)
 		return err
 	}
-
+	t := time.Now().UTC()
+	info.PasswordLastUpdated = &t
 	info.Password = utils.BcryptHash(resetPasswordReq.Password)
-	if err = db.UpdateByEmail(ctx, info, user.Password); err != nil {
+	if err = db.UpdateByEmail(ctx, info, user.Password, user.PasswordLastUpdated); err != nil {
 		logrus.Error(ctx, "[ResetPasswordByCode]Update Users info failed:", err)
 		return err
 	}
@@ -297,12 +299,13 @@ func (u *User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.User
 		}
 	}
 
+	t := time.Now().UTC()
 	// 密码修改特殊处理
 	if updateUserReq.Password != nil {
 		user.Password = *StringPtr(utils.BcryptHash(*updateUserReq.Password))
+		user.PasswordLastUpdated = &t
 	}
 
-	t := time.Now().UTC()
 	user.UpdatedAt = &t
 	user.Name = updateUserReq.Name
 	user.PhoneNumber = *updateUserReq.PhoneNumber
@@ -505,17 +508,18 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	//periodValidityStr := periodValidity.Format(time.RFC3339)
 
 	userInfo := &model.User{
-		ID:          uuid.New(),
-		Name:        &req.Email,
-		PhoneNumber: fmt.Sprintf("%s %s", req.PhonePrefix, req.PhoneNumber),
-		Email:       req.Email,
-		Status:      StringPtr("N"),
-		Authority:   StringPtr("TENANT_ADMIN"),
-		Password:    req.Password,
-		TenantID:    StringPtr(common.GenerateRandomString(8)),
-		Remark:      StringPtr(now.Add(365 * 24 * time.Hour).String()),
-		CreatedAt:   &now,
-		UpdatedAt:   &now,
+		ID:                  uuid.New(),
+		Name:                &req.Email,
+		PhoneNumber:         fmt.Sprintf("%s %s", req.PhonePrefix, req.PhoneNumber),
+		Email:               req.Email,
+		Status:              StringPtr("N"),
+		Authority:           StringPtr("TENANT_ADMIN"),
+		Password:            req.Password,
+		TenantID:            StringPtr(common.GenerateRandomString(8)),
+		Remark:              StringPtr(now.Add(365 * 24 * time.Hour).String()),
+		CreatedAt:           &now,
+		UpdatedAt:           &now,
+		PasswordLastUpdated: &now,
 		//Remark:      &periodValidityStr,
 	}
 	err = dal.CreateUsers(userInfo)

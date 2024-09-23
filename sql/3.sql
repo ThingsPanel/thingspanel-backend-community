@@ -86,3 +86,5 @@ COMMENT ON COLUMN public.expected_datas.tenant_id IS '租户ID（用于多租户
 -- public.expected_datas foreign keys
 
 ALTER TABLE public.expected_datas ADD CONSTRAINT expected_datas_devices_fk FOREIGN KEY (device_id) REFERENCES public.devices(id) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE public.users ADD password_last_updated timestamptz(6) NULL;
