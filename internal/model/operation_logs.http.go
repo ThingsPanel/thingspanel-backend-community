@@ -36,4 +36,6 @@ type GetOperationLogListByPageRsp struct {
 	CreatedAt       *time.Time `json:"created_at" `       // 创建时间
 	Remark          *string    `json:"remark" `           // 备注
 	UserName        *string    `json:"username"`          // 用户名
+	Email           *string    `json:"email"`             // 邮箱
+
 }
