@@ -31,6 +31,10 @@ func GetListByPage(operationLog *model.GetOperationLogListByPageReq, userClaims 
 		queryBuilder = queryBuilder.Where(q.IP.Like(fmt.Sprintf("%%%s%%", *operationLog.IP)))
 	}
 
+	if operationLog.Method != nil && *operationLog.Method != "" {
+		queryBuilder = queryBuilder.Where(q.Name.Eq(*operationLog.Method))
+	}
+
 	if operationLog.StartTime != nil && operationLog.EndTime != nil {
 		queryBuilder = queryBuilder.Where(q.CreatedAt.Between(*operationLog.StartTime, *operationLog.EndTime))
 	}
