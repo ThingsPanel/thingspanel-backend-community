@@ -136,12 +136,19 @@ func (u *User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 		return nil, tpErrors.Wrap(err, tpErrors.ErrSystemInternal)
 
 	}
-
-	global.REDIS.Set(token, "1", 24*7*time.Hour)
-
+	timeout := viper.GetInt("session.timeout")
+	reset_on_request := viper.GetBool("session.reset_on_request")
+	if reset_on_request {
+		if timeout == 0 {
+			// 过期时间为1小时
+			timeout = 60
+		}
+	}
+	// 保存token到redis
+	global.REDIS.Set(token, "1", time.Duration(timeout)*time.Minute)
 	loginRsp := &model.LoginRsp{
 		Token:     &token,
-		ExpiresIn: int64(24 * 7 * time.Hour.Seconds()),
+		ExpiresIn: int64(time.Duration(timeout) * time.Minute),
 	}
 	return loginRsp, nil
 }
@@ -219,6 +226,12 @@ func (u *User) GetVerificationCode(email, isRegister string) error {
 
 // @description ResetPassword By VerifyCode and Email
 func (u *User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPasswordReq) error {
+
+	err := utils.ValidatePassword(resetPasswordReq.Password)
+	if err != nil {
+		return err
+	}
+
 	verificationCode, err := global.REDIS.Get(resetPasswordReq.Email + "_code").Result()
 	if err != nil {
 		return fmt.Errorf("verification code expired")
@@ -469,6 +482,10 @@ func (u *User) TransformUser(transformUserReq *model.TransformUserReq, claims *u
 }
 
 func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (*model.LoginRsp, error) {
+	err := utils.ValidatePassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
 	//验证码验证
 	verificationCode, err := global.REDIS.Get(req.Email + "_code").Result()
 	if err != nil {

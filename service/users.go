@@ -175,6 +175,10 @@ func (u *UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.Use
 // @DATE: 2024-03-05 13:04
 // @DESCRIPTIONS: 更新租户个人密码
 func (u *UsersService) UpdateTenantInfoPassword(ctx context.Context, userInfo *utils.UserClaims, param *model.UsersUpdatePasswordReq) error {
+	err := utils.ValidatePassword(param.Password)
+	if err != nil {
+		return err
+	}
 	var (
 		db   = dal.UserQuery{}
 		user = query.User

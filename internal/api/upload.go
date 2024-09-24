@@ -62,52 +62,12 @@ func (a *UpLoadApi) UpFile(c *gin.Context) {
 		ErrorHandler(c, http.StatusBadRequest, err)
 		return
 	}
-	//获取文件类型
-	ext := strings.ToLower(path.Ext(file.Filename))
-	var allowExtMap map[string]bool = map[string]bool{
-		".jpg":  true,
-		".jpeg": true,
-		".png":  true,
-		".svg":  true,
-		".ico":  true,
-		".gif":  true,
-		".xlsx": true,
-		".xls":  true,
-		".csv":  true,
-	}
-	var allowUpgradePackageMap map[string]bool = map[string]bool{
-		".bin":  true,
-		".tar":  true,
-		".gz":   true,
-		".zip":  true,
-		".gzip": true,
-		".apk":  true,
-		".dav":  true,
-		".pack": true,
-	}
-	var allowimportBatchMap map[string]bool = map[string]bool{
-		".xlsx": true,
-		".xls":  true,
-		".csv":  true,
-	}
-	switch fileType {
-	case "upgradePackage":
-		if _, ok := allowUpgradePackageMap[ext]; !ok {
-			ErrorHandler(c, http.StatusUnprocessableEntity, errors.New("文件类型验证失败"))
-			return
-		}
-	case "importBatch":
-		if _, ok := allowimportBatchMap[ext]; !ok {
-			ErrorHandler(c, http.StatusUnprocessableEntity, errors.New("文件类型验证失败"))
-			return
-		}
-	case "d_plugin":
-		// 不做限制
-	default:
-		if _, ok := allowExtMap[ext]; !ok {
-			ErrorHandler(c, http.StatusUnprocessableEntity, errors.New("文件类型验证失败"))
-			return
-		}
+
+	// 文件后缀校验
+
+	if utils.ValidateFileType(file.Filename, fileType) {
+		ErrorHandler(c, http.StatusUnprocessableEntity, errors.New("文件类型验证失败"))
+		return
 	}
 	//创建目录
 	uploadDir := "./files/" + fileType + "/" + time.Now().Format("2006-01-02/")
@@ -117,6 +77,7 @@ func (a *UpLoadApi) UpFile(c *gin.Context) {
 			os.MkdirAll(uploadDir, os.ModePerm)
 		}
 	}
+	ext := strings.ToLower(path.Ext(file.Filename))
 	//构造文件名称
 	rand.Seed(time.Now().UnixNano())
 	randNum := fmt.Sprintf("%d", rand.Intn(9999)+1000)

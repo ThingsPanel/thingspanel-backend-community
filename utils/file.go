@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -60,4 +61,44 @@ func FileSign(filePath string, sign string) (string, error) {
 		return hex.EncodeToString(hash.Sum(nil)), nil
 	}
 
+}
+
+// 允许的文件扩展名映射
+var (
+	// 允许的文件扩展名映射
+	allowExtMap = map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true, ".svg": true,
+		".ico": true, ".gif": true, ".xlsx": true, ".xls": true, ".csv": true,
+	}
+
+	// 允许的升级包文件扩展名映射
+	allowUpgradePackageMap = map[string]bool{
+		".bin": true, ".tar": true, ".gz": true, ".zip": true,
+		".gzip": true, ".apk": true, ".dav": true, ".pack": true,
+	}
+
+	// 允许的导入批量文件扩展名映射
+	allowImportBatchMap = map[string]bool{
+		".xlsx": true, ".xls": true, ".csv": true,
+	}
+)
+
+// ValidateFileType 检查文件类型是否允许上传
+// filename: 文件名
+// fileType: 文件类型（"upgradePackage", "importBatch", "d_plugin" 或其他）
+// 返回值：如果文件类型允许上传则返回 true，否则返回 false
+func ValidateFileType(filename, fileType string) bool {
+	ext := strings.ToLower(path.Ext(filename))
+
+	switch fileType {
+	case "upgradePackage":
+		return allowUpgradePackageMap[ext]
+	case "importBatch":
+		return allowImportBatchMap[ext]
+	case "d_plugin":
+		// 不做限制
+		return true
+	default:
+		return allowExtMap[ext]
+	}
 }
