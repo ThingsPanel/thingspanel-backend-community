@@ -1,0 +1,1 @@
+ALTER TABLE public.users ADD password_last_updated timestamptz(6) NULL;
