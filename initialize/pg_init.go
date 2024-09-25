@@ -49,6 +49,9 @@ func PgInit() *gorm.DB {
 	}
 	global.DB = db
 
+	// casbin 初始化
+	CasbinInit()
+
 	// 检查版本
 	err = CheckVersion(db)
 	if err != nil {

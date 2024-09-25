@@ -29,7 +29,6 @@ func init() {
 	db := initialize.PgInit()
 	initialize.RedisInit()
 	query.SetDefault(db)
-	initialize.CasbinInit()
 
 	grpc_tptodb.GrpcTptodbInit()
 
