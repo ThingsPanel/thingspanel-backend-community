@@ -146,6 +146,17 @@ func (u *User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 	}
 	// 保存token到redis
 	global.REDIS.Set(token, "1", time.Duration(timeout)*time.Minute)
+	// 禁止共享token，这里永久存储账号和token的关系，是可以保证一个账号只能在一个地方登录
+	if !logic.UserIsShare(context.Background()) {
+		oldToken, err := global.REDIS.Get(user.Email + "_token").Result()
+		if err != nil {
+			logrus.Error(err)
+		} else {
+			global.REDIS.Del(oldToken)
+		}
+		global.REDIS.Set(user.Email+"_token", token, 0)
+	}
+
 	loginRsp := &model.LoginRsp{
 		Token:     &token,
 		ExpiresIn: int64(time.Duration(timeout) * time.Minute),
