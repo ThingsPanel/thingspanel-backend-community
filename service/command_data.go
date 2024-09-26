@@ -230,17 +230,8 @@ func transformGatewayCommandData(payload *map[string]interface{}) error {
 		"gateway_data": *payload,
 	}
 
-	// 将新结构转换为 JSON 字符串
-	output, err := json.Marshal(outputData)
-	if err != nil {
-		return fmt.Errorf("生成输出 JSON 失败: %v", err)
-	}
-
-	// 用新的结构更新 payload
-	err = json.Unmarshal(output, payload)
-	if err != nil {
-		return fmt.Errorf("更新 payload 失败: %v", err)
-	}
+	// 用新的结构直接替换 payload
+	*payload = outputData
 
 	return nil
 }
@@ -254,17 +245,8 @@ func transformSubDeviceCommandData(payload *map[string]interface{}, subDeviceAdd
 		},
 	}
 
-	// 将新结构转换为 JSON 字符串
-	output, err := json.Marshal(outputData)
-	if err != nil {
-		return fmt.Errorf("生成输出 JSON 失败: %v", err)
-	}
-
-	// 用新的结构更新 payload
-	err = json.Unmarshal(output, payload)
-	if err != nil {
-		return fmt.Errorf("更新 payload 失败: %v", err)
-	}
+	// 用新的结构直接替换 payload
+	*payload = outputData
 
 	return nil
 }
