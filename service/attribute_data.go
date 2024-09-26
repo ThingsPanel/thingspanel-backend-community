@@ -110,25 +110,86 @@ func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, 
 
 		errorMessage string
 	)
-
+	// 获取设备信息
 	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
 	if err != nil {
 		logrus.Error(ctx, "[AttributePutMessage][GetDeviceById]failed:", err)
 		return err
 	}
-	messageID := common.GetMessageID()
-	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.PublishTopic, deviceInfo.DeviceNumber, messageID)
 
-	// 脚本预处理
-	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
-		newValue, err := GroupApp.DataScript.Exec(deviceInfo, "D", []byte(param.Value), topic)
+	// 获取设备配置
+	var protocolType string
+	var deviceConfig *model.DeviceConfig
+	var deviceType string
+
+	if deviceInfo.DeviceConfigID != nil {
+		deviceConfig, err = dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			logrus.Error(ctx, "[AttributePutMessage][ExecDataScript]failed:", err)
+			logrus.Error(ctx, "get device config failed:", err)
 			return err
 		}
-		if newValue != nil {
-			param.Value = string(newValue)
+		deviceType = deviceConfig.DeviceType
+
+		if deviceConfig.ProtocolType != nil {
+			protocolType = *deviceConfig.ProtocolType
+		} else {
+			return fmt.Errorf("protocolType is nil")
 		}
+	} else {
+		protocolType = "MQTT"
+		deviceType = "1"
+
+	}
+	logrus.Info("protocolType:", protocolType)
+	// 生成messageID
+	messageID := common.GetMessageID()
+	var topic string
+
+	// 判断设备类型
+	if deviceType == "1" {
+		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.PublishTopic, deviceInfo.DeviceNumber, messageID)
+		// 脚本预处理
+		if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+			newValue, err := GroupApp.DataScript.Exec(deviceInfo, "D", []byte(param.Value), topic)
+			if err != nil {
+				logrus.Error(ctx, "[AttributePutMessage][ExecDataScript]failed:", err)
+				return err
+			}
+			if newValue != nil {
+				param.Value = string(newValue)
+			}
+		}
+	} else if deviceType == "2" || deviceType == "3" {
+		// 处理网关设备和子设备
+		gatewayID := deviceInfo.ID
+		if deviceType == "3" {
+			if deviceInfo.ParentID == nil {
+				return fmt.Errorf("子设备网关信息为空")
+			}
+			gatewayID = *deviceInfo.ParentID
+
+			if deviceInfo.SubDeviceAddr == nil {
+				return fmt.Errorf("子设备地址为空")
+			}
+			// 处理param.Value
+			err := transformSubDeviceData(param, *deviceInfo.SubDeviceAddr)
+			if err != nil {
+				return err
+			}
+
+		} else {
+			// 处理param.Value
+			err := transformGatewayData(param)
+			if err != nil {
+				return err
+			}
+		}
+
+		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
+		if err != nil {
+			return fmt.Errorf("获取网关信息失败: %v", err)
+		}
+		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
 	}
 
 	err = publish.PublishAttributeMessage(topic, []byte(param.Value))
@@ -186,6 +247,58 @@ func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, 
 		}
 	}()
 	return err
+}
+
+// 属性对象转网关数据
+func transformGatewayData(param *model.AttributePutMessage) error {
+	// 解析原始JSON
+	var inputData map[string]interface{}
+	if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
+		return fmt.Errorf("解析输入 JSON 失败: %v", err)
+	}
+
+	// 构建新的数据结构
+	outputData := map[string]interface{}{
+		"gateway_data": inputData,
+	}
+
+	// 将新结构转换回 JSON 字符串
+	output, err := json.Marshal(outputData)
+	if err != nil {
+		return fmt.Errorf("生成输出 JSON 失败: %v", err)
+	}
+
+	// 更新 param.Value
+	param.Value = string(output)
+
+	return nil
+}
+
+// 子设备对象转网关数据
+func transformSubDeviceData(param *model.AttributePutMessage, subDeviceAddr string) error {
+	// 解析原始JSON
+	var inputData map[string]interface{}
+	if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
+		return fmt.Errorf("解析输入 JSON 失败: %v", err)
+	}
+
+	// 构建新的数据结构
+	outputData := map[string]interface{}{
+		"sub_device_data": map[string]interface{}{
+			subDeviceAddr: inputData,
+		},
+	}
+
+	// 将新结构转换回 JSON 字符串
+	output, err := json.Marshal(outputData)
+	if err != nil {
+		return fmt.Errorf("生成输出 JSON 失败: %v", err)
+	}
+
+	// 更新 param.Value
+	param.Value = string(output)
+
+	return nil
 }
 
 // 发送获取属性请求
