@@ -798,70 +798,59 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 	return err
 }
 
-// 根据设备信息获取要发送的控制主题（内置MQTT协议）
+// getTopicByDevice 根据设备信息获取要发送的控制主题（内置MQTT协议）
 func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.PutMessage) (string, error) {
-	if deviceType == "1" {
+	switch deviceType {
+	case "1":
+		// 处理独立设备
 		return fmt.Sprintf(config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
-	} else if deviceType == "2" || deviceType == "3" {
-		var gatewayID string
+	case "2", "3":
+		// 处理网关设备和子设备
+		gatewayID := deviceInfo.ID
 		if deviceType == "3" {
 			if deviceInfo.ParentID == nil {
-				return "", fmt.Errorf("parentID is nil")
+				return "", fmt.Errorf("parentID 为空")
 			}
 			gatewayID = *deviceInfo.ParentID
-		} else {
-			gatewayID = deviceInfo.ID
 		}
+
 		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
 		if err != nil {
-			logrus.Error(err)
-			return "", err
+			return "", fmt.Errorf("获取网关信息失败: %v", err)
 		}
+
 		// 修改payload
-		// 解析输入的 JSON 字符串
 		var inputData map[string]interface{}
-		err = json.Unmarshal([]byte(param.Value), &inputData)
-		if err != nil {
+		if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
 			return "", fmt.Errorf("解析输入 JSON 失败: %v", err)
 		}
+
+		var outputData map[string]interface{}
 		if deviceType == "3" {
-			// 校验subDeviceAddr是否为空
 			if deviceInfo.SubDeviceAddr == nil {
-				return "", fmt.Errorf("subDeviceAddr is nil")
+				return "", fmt.Errorf("subDeviceAddr 为空")
 			}
-			// 创建新的结构
-			outputData := map[string]interface{}{
+			outputData = map[string]interface{}{
 				"sub_device_data": map[string]interface{}{
 					*deviceInfo.SubDeviceAddr: inputData,
 				},
 			}
-
-			// 将新结构转换回 JSON 字符串
-			output, err := json.Marshal(outputData)
-			if err != nil {
-				return "", fmt.Errorf("生成输出 JSON 失败: %v", err)
-			}
-
-			param.Value = string(output)
-		} else if deviceType == "2" {
-			outputData := map[string]interface{}{
+		} else {
+			outputData = map[string]interface{}{
 				"gateway_data": inputData,
 			}
-
-			// 将新结构转换回 JSON 字符串
-			output, err := json.Marshal(outputData)
-			if err != nil {
-				return "", fmt.Errorf("生成输出 JSON 失败: %v", err)
-			}
-
-			param.Value = string(output)
 		}
 
-		return fmt.Sprintf(config.MqttConfig.Telemetry.GatewayPublishTopic, gatewayInfo.DeviceNumber), nil
-	} else {
-		return "", fmt.Errorf("unknown device type")
-	}
+		output, err := json.Marshal(outputData)
+		if err != nil {
+			return "", fmt.Errorf("生成输出 JSON 失败: %v", err)
+		}
+		param.Value = string(output)
 
+		return fmt.Sprintf(config.MqttConfig.Telemetry.GatewayPublishTopic, gatewayInfo.DeviceNumber), nil
+	default:
+		return "", fmt.Errorf("未知的设备类型")
+	}
 }
 
 func (t *TelemetryData) GetMsgCountByTenantId(tenantId string) (int64, error) {
