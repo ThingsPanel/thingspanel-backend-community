@@ -802,11 +802,17 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.PutMessage) (string, error) {
 	if deviceType == "1" {
 		return fmt.Sprintf(config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
-	} else if deviceType == "3" {
-		if deviceInfo.ParentID == nil {
-			return "", fmt.Errorf("parentID is nil")
+	} else if deviceType == "2" || deviceType == "3" {
+		var gatewayID string
+		if deviceType == "3" {
+			if deviceInfo.ParentID == nil {
+				return "", fmt.Errorf("parentID is nil")
+			}
+			gatewayID = *deviceInfo.ParentID
+		} else {
+			gatewayID = deviceInfo.ID
 		}
-		gatewayInfo, err := initialize.GetDeviceById(*deviceInfo.ParentID)
+		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
 		if err != nil {
 			logrus.Error(err)
 			return "", err
