@@ -42,11 +42,30 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 		errorMessage string
 	)
 
+	// 查询设备信息
 	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
 	if err != nil {
 		logrus.Error(ctx, "[CommandPutMessage][GetDeviceById]failed:", err)
 		return err
 	}
+
+	// 获取设备类型和协议
+	deviceType, protocolType := "1", "MQTT"
+	if deviceInfo.DeviceConfigID != nil {
+		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
+		if err != nil {
+			return fmt.Errorf("获取设备配置失败: %v", err)
+		}
+		deviceType = deviceConfig.DeviceType
+		if deviceConfig.ProtocolType != nil {
+			protocolType = *deviceConfig.ProtocolType
+		} else {
+			return fmt.Errorf("protocolType 为空")
+		}
+	}
+	logrus.Info("protocolType:", protocolType)
+
+	// 生成
 	messageID := common.GetMessageID()
 
 	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.DeviceNumber, messageID)
@@ -93,6 +112,38 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 
 		payloadMap["params"] = params
 
+	}
+
+	if protocolType == "MQTT" && (deviceType == "2" || deviceType == "3") {
+
+		gatewayID := deviceInfo.ID
+		if deviceType == "3" {
+			if deviceInfo.ParentID == nil {
+				return fmt.Errorf("子设备网关信息为空")
+			}
+			gatewayID = *deviceInfo.ParentID
+			if deviceInfo.SubDeviceAddr == nil {
+				return fmt.Errorf("子设备地址为空")
+			}
+			// 转换子设备命令数据
+			err := transformSubDeviceCommandData(&payloadMap, *deviceInfo.SubDeviceAddr)
+			if err != nil {
+				return err
+			}
+		} else {
+			// 转换网关命令数据
+			err := transformGatewayCommandData(&payloadMap)
+			if err != nil {
+				return err
+			}
+		}
+
+		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
+		if err != nil {
+			return fmt.Errorf("获取网关信息失败: %v", err)
+		}
+		// 下发到网关
+		topic = fmt.Sprintf(config.MqttConfig.Commands.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
 	}
 
 	payload, err := json.Marshal(payloadMap)
@@ -170,6 +221,52 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 	}()
 
 	return err
+}
+
+// 命令对象转网关数据
+func transformGatewayCommandData(payload *map[string]interface{}) error {
+	// 构建新的数据结构
+	outputData := map[string]interface{}{
+		"gateway_data": *payload,
+	}
+
+	// 将新结构转换为 JSON 字符串
+	output, err := json.Marshal(outputData)
+	if err != nil {
+		return fmt.Errorf("生成输出 JSON 失败: %v", err)
+	}
+
+	// 用新的结构更新 payload
+	err = json.Unmarshal(output, payload)
+	if err != nil {
+		return fmt.Errorf("更新 payload 失败: %v", err)
+	}
+
+	return nil
+}
+
+// 子设备对象转网关数据
+func transformSubDeviceCommandData(payload *map[string]interface{}, subDeviceAddr string) error {
+	// 构建新的数据结构
+	outputData := map[string]interface{}{
+		"sub_device_data": map[string]interface{}{
+			subDeviceAddr: *payload,
+		},
+	}
+
+	// 将新结构转换为 JSON 字符串
+	output, err := json.Marshal(outputData)
+	if err != nil {
+		return fmt.Errorf("生成输出 JSON 失败: %v", err)
+	}
+
+	// 用新的结构更新 payload
+	err = json.Unmarshal(output, payload)
+	if err != nil {
+		return fmt.Errorf("更新 payload 失败: %v", err)
+	}
+
+	return nil
 }
 
 func (t *CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCommandListRes, error) {
