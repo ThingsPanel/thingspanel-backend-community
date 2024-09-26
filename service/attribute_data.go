@@ -105,99 +105,80 @@ func (t *AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (in
 }
 
 func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, param *model.AttributePutMessage, operationType string, fn ...config.MqttDirectResponseFunc) error {
-	var (
-		log = dal.AttributeSetLogsQuery{}
-
-		errorMessage string
-	)
 	// 获取设备信息
 	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
 	if err != nil {
-		logrus.Error(ctx, "[AttributePutMessage][GetDeviceById]failed:", err)
-		return err
+		return fmt.Errorf("获取设备信息失败: %v", err)
 	}
 
-	// 获取设备配置
-	var protocolType string
-	var deviceConfig *model.DeviceConfig
-	var deviceType string
-
+	// 获取设备类型和协议
+	deviceType, protocolType := "1", "MQTT"
 	if deviceInfo.DeviceConfigID != nil {
-		deviceConfig, err = dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
+		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			logrus.Error(ctx, "get device config failed:", err)
-			return err
+			return fmt.Errorf("获取设备配置失败: %v", err)
 		}
 		deviceType = deviceConfig.DeviceType
-
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
 		} else {
-			return fmt.Errorf("protocolType is nil")
+			return fmt.Errorf("protocolType 为空")
 		}
-	} else {
-		protocolType = "MQTT"
-		deviceType = "1"
-
 	}
+
 	logrus.Info("protocolType:", protocolType)
-	// 生成messageID
+
+	// 生成消息ID和主题
 	messageID := common.GetMessageID()
 	var topic string
-
-	// 判断设备类型
 	if deviceType == "1" {
 		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.PublishTopic, deviceInfo.DeviceNumber, messageID)
-		// 脚本预处理
-		if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
-			newValue, err := GroupApp.DataScript.Exec(deviceInfo, "D", []byte(param.Value), topic)
-			if err != nil {
-				logrus.Error(ctx, "[AttributePutMessage][ExecDataScript]failed:", err)
-				return err
-			}
-			if newValue != nil {
-				param.Value = string(newValue)
-			}
-		}
-	} else if deviceType == "2" || deviceType == "3" {
-		// 处理网关设备和子设备
+	} else {
 		gatewayID := deviceInfo.ID
 		if deviceType == "3" {
 			if deviceInfo.ParentID == nil {
 				return fmt.Errorf("子设备网关信息为空")
 			}
 			gatewayID = *deviceInfo.ParentID
-
 			if deviceInfo.SubDeviceAddr == nil {
 				return fmt.Errorf("子设备地址为空")
 			}
-			// 处理param.Value
-			err := transformSubDeviceData(param, *deviceInfo.SubDeviceAddr)
-			if err != nil {
+			if err := transformSubDeviceData(param, *deviceInfo.SubDeviceAddr); err != nil {
 				return err
 			}
-
-		} else {
-			// 处理param.Value
-			err := transformGatewayData(param)
-			if err != nil {
-				return err
-			}
+		} else if err := transformGatewayData(param); err != nil {
+			return err
 		}
 
 		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
 		if err != nil {
 			return fmt.Errorf("获取网关信息失败: %v", err)
 		}
-		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
+		topic = fmt.Sprintf(config.MqttConfig.Attributes.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
 	}
 
-	err = publish.PublishAttributeMessage(topic, []byte(param.Value))
-	if err != nil {
-		logrus.Error(ctx, "下发失败", err)
-		errorMessage = err.Error()
+	// 执行数据脚本
+	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+		if newValue, err := GroupApp.DataScript.Exec(deviceInfo, "D", []byte(param.Value), topic); err != nil {
+			return fmt.Errorf("执行数据脚本失败: %v", err)
+		} else if newValue != nil {
+			param.Value = string(newValue)
+		}
 	}
-	//operationType := strconv.Itoa(constant.Manual)
+
+	// 发布消息
+	err = publish.PublishAttributeMessage(topic, []byte(param.Value))
+	errorMessage := ""
+	if err != nil {
+		errorMessage = err.Error()
+		logrus.Error(ctx, "下发失败", err)
+	}
+
+	// 创建日志
+	status := strconv.Itoa(constant.StatusOK)
+	if errorMessage != "" {
+		status = strconv.Itoa(constant.StatusFailed)
+	}
 	description := "下发属性日志记录"
 	logInfo := &model.AttributeSetLog{
 		ID:            uuid.New(),
@@ -205,22 +186,18 @@ func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, 
 		OperationType: &operationType,
 		MessageID:     &messageID,
 		Datum:         &(param.Value),
-		RspDatum:      nil,
-		Status:        nil,
+		Status:        &status,
 		ErrorMessage:  &errorMessage,
 		CreatedAt:     time.Now().UTC(),
 		UserID:        &userID,
 		Description:   &description,
 	}
+	_, err = dal.AttributeSetLogsQuery{}.Create(ctx, logInfo)
 	if err != nil {
-		logInfo.ErrorMessage = &errorMessage
-		status := strconv.Itoa(constant.StatusFailed)
-		logInfo.Status = &status
-	} else {
-		status := strconv.Itoa(constant.StatusOK)
-		logInfo.Status = &status
+		logrus.Error(ctx, "创建日志失败", err)
 	}
-	_, err = log.Create(ctx, logInfo)
+
+	// 处理响应
 	config.MqttDirectResponseFuncMap[messageID] = make(chan model.MqttResponse)
 	go func() {
 		select {
@@ -229,7 +206,7 @@ func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, 
 			if len(fn) > 0 {
 				_ = fn[0](response)
 			}
-			log.SetAttributeResultUpdate(context.Background(), logInfo.ID, response)
+			dal.AttributeSetLogsQuery{}.SetAttributeResultUpdate(context.Background(), logInfo.ID, response)
 			close(config.MqttDirectResponseFuncMap[messageID])
 			delete(config.MqttDirectResponseFuncMap, messageID)
 		case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
