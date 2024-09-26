@@ -36,23 +36,17 @@ func (t *CommandData) GetCommandSetLogsDataListByPage(req model.GetCommandSetLog
 }
 
 func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, param *model.PutMessageForCommand, operationType string, fn ...config.MqttDirectResponseFunc) error {
-	var (
-		log = dal.CommandSetLogsQuery{}
-
-		errorMessage string
-	)
-
-	// 查询设备信息
+	// 获取设备信息
 	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
 	if err != nil {
-		logrus.Error(ctx, "[CommandPutMessage][GetDeviceById]failed:", err)
-		return err
+		return fmt.Errorf("获取设备信息失败: %v", err)
 	}
 
 	// 获取设备类型和协议
 	deviceType, protocolType := "1", "MQTT"
+	var deviceConfig *model.DeviceConfig
 	if deviceInfo.DeviceConfigID != nil {
-		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
+		deviceConfig, err = dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
 			return fmt.Errorf("获取设备配置失败: %v", err)
 		}
@@ -63,59 +57,35 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 			return fmt.Errorf("protocolType 为空")
 		}
 	}
-	logrus.Info("protocolType:", protocolType)
 
-	// 生成
+	// 生成消息ID和主题
 	messageID := common.GetMessageID()
-
 	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.DeviceNumber, messageID)
-	// 判断是否协议插件，如果是则下发到协议插件
-	if deviceInfo.DeviceConfigID != nil {
-		// 查询设备配置
-		deviceConfigInfo, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
+
+	// 处理非MQTT协议
+	if deviceConfig != nil && protocolType != "MQTT" {
+		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			logrus.Error(ctx, "device config not found", err)
-			return err
+			return fmt.Errorf("获取子主题前缀失败: %v", err)
 		}
-		if deviceConfigInfo.ProtocolType == nil {
-			logrus.Error(ctx, "device config protocol type is nil")
-			return errors.New("device config protocol type is nil")
-		}
-		if *deviceConfigInfo.ProtocolType != "MQTT" {
-			subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
-			if err != nil {
-				logrus.Error(ctx, "failed to get sub topic prefix", err)
-				return err
-			}
-			// 修改主题
-			topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
-			// 增加主题前缀
-			topic = fmt.Sprintf("%s%s", subTopicPrefix, topic)
-		}
-
+		topic = fmt.Sprintf("%s%s%s/%s", subTopicPrefix, config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
 	}
 
-	payloadMap := map[string]interface{}{
-		"method": param.Identify,
-	}
-
+	// 构建payload
+	payloadMap := map[string]interface{}{"method": param.Identify}
 	if param.Value != nil && *param.Value != "" {
 		if !IsJSON(*param.Value) {
 			return errors.New("value is not JSON format")
 		}
-
 		var params interface{}
 		if err := json.Unmarshal([]byte(*param.Value), &params); err != nil {
-			logrus.Error(ctx, "[buildPayload][Unmarshal] failed:", err)
-			return err
+			return fmt.Errorf("解析参数失败: %v", err)
 		}
-
 		payloadMap["params"] = params
-
 	}
 
+	// 处理网关和子设备
 	if protocolType == "MQTT" && (deviceType == "2" || deviceType == "3") {
-
 		gatewayID := deviceInfo.ID
 		if deviceType == "3" {
 			if deviceInfo.ParentID == nil {
@@ -125,48 +95,49 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 			if deviceInfo.SubDeviceAddr == nil {
 				return fmt.Errorf("子设备地址为空")
 			}
-			// 转换子设备命令数据
-			err := transformSubDeviceCommandData(&payloadMap, *deviceInfo.SubDeviceAddr)
-			if err != nil {
-				return err
+			payloadMap = map[string]interface{}{
+				"sub_device_data": map[string]interface{}{
+					*deviceInfo.SubDeviceAddr: payloadMap,
+				},
 			}
 		} else {
-			// 转换网关命令数据
-			err := transformGatewayCommandData(&payloadMap)
-			if err != nil {
-				return err
-			}
+			payloadMap = map[string]interface{}{"gateway_data": payloadMap}
 		}
 
 		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
 		if err != nil {
 			return fmt.Errorf("获取网关信息失败: %v", err)
 		}
-		// 下发到网关
 		topic = fmt.Sprintf(config.MqttConfig.Commands.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
 	}
 
+	// 序列化payload
 	payload, err := json.Marshal(payloadMap)
 	if err != nil {
-		logrus.Error(ctx, "[CommandPutMessage][Marshal]failed:", err)
-		return err
+		return fmt.Errorf("生成 payload 失败: %v", err)
 	}
-	// 脚本预处理
+
+	// 执行数据脚本
 	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
-		newpayload, err := GroupApp.DataScript.Exec(deviceInfo, "E", payload, topic)
-		if err != nil {
-			logrus.Error(err.Error())
-			return err
-		}
-		if newpayload != nil {
-			payload = newpayload
+		if newPayload, err := GroupApp.DataScript.Exec(deviceInfo, "E", payload, topic); err != nil {
+			return fmt.Errorf("执行数据脚本失败: %v", err)
+		} else if newPayload != nil {
+			payload = newPayload
 		}
 	}
 
+	// 发布消息
 	err = publish.PublishCommandMessage(topic, payload)
+	errorMessage := ""
 	if err != nil {
-		logrus.Error(ctx, "下发失败", err)
 		errorMessage = err.Error()
+		logrus.Error(ctx, "下发失败", err)
+	}
+
+	// 创建日志
+	status := strconv.Itoa(constant.StatusOK)
+	if errorMessage != "" {
+		status = strconv.Itoa(constant.StatusFailed)
 	}
 	data := string(payload)
 	//operationType := strconv.Itoa(constant.Manual)
@@ -177,22 +148,14 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 		OperationType: &operationType,
 		MessageID:     &messageID,
 		Datum:         &data,
-		RspDatum:      nil,
+		Status:        &status,
 		ErrorMessage:  &errorMessage,
 		CreatedAt:     time.Now().UTC(),
 		UserID:        &userID,
 		Description:   &description,
 		Identify:      &param.Identify,
 	}
-	if err != nil {
-		logInfo.ErrorMessage = &errorMessage
-		status := strconv.Itoa(constant.StatusFailed)
-		logInfo.Status = &status
-	} else {
-		status := strconv.Itoa(constant.StatusOK)
-		logInfo.Status = &status
-	}
-	_, err = log.Create(ctx, logInfo)
+	_, _ = dal.CommandSetLogsQuery{}.Create(ctx, logInfo)
 	config.MqttDirectResponseFuncMap[messageID] = make(chan model.MqttResponse)
 	go func() {
 		select {
@@ -201,7 +164,7 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 			if len(fn) > 0 {
 				_ = fn[0](response)
 			}
-			log.CommandResultUpdate(context.Background(), logInfo.ID, response)
+			dal.CommandSetLogsQuery{}.CommandResultUpdate(context.Background(), logInfo.ID, response)
 			close(config.MqttDirectResponseFuncMap[messageID])
 			delete(config.MqttDirectResponseFuncMap, messageID)
 		case <-time.After(6 * time.Minute): // 设置超时时间为 3 分钟
