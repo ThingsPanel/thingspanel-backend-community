@@ -186,34 +186,6 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 	return err
 }
 
-// 命令对象转网关数据
-func transformGatewayCommandData(payload *map[string]interface{}) error {
-	// 构建新的数据结构
-	outputData := map[string]interface{}{
-		"gateway_data": *payload,
-	}
-
-	// 用新的结构直接替换 payload
-	*payload = outputData
-
-	return nil
-}
-
-// 子设备对象转网关数据
-func transformSubDeviceCommandData(payload *map[string]interface{}, subDeviceAddr string) error {
-	// 构建新的数据结构
-	outputData := map[string]interface{}{
-		"sub_device_data": map[string]interface{}{
-			subDeviceAddr: *payload,
-		},
-	}
-
-	// 用新的结构直接替换 payload
-	*payload = outputData
-
-	return nil
-}
-
 func (t *CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCommandListRes, error) {
 	var (
 		list = make([]model.GetCommandListRes, 0)
