@@ -2,12 +2,13 @@ package api
 
 import (
 	"errors"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	common "project/common"
 	model "project/internal/model"
 	service "project/service"
 	utils "project/utils"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/gin-gonic/gin"
 )
@@ -136,17 +137,6 @@ func (d *DeviceApi) ActiveDevice(c *gin.Context) {
 }
 
 // GetDevice 设备详情
-// @Tags     设备管理
-// @Summary  设备详情
-// @Description 设备详情
-// @accept    application/json
-// @Produce   application/json
-// @Param     id  path      string     true  "设备ID"
-// @Success  200  {object}  ApiResponse  "设备详情获取成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/detail/{id} [get]
 func (d *DeviceApi) GetDeviceByID(c *gin.Context) {
 	id := c.Param("id")
