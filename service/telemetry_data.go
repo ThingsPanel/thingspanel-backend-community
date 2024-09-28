@@ -370,11 +370,16 @@ func (t *TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHist
 		d := make(map[string]interface{})
 		d["ts"] = v.T
 		d["key"] = v.Key
-		if v.StringV == nil {
-			d["value"] = v.NumberV
-		} else {
+		if v.StringV != nil {
 			d["value"] = v.StringV
+		} else if v.NumberV != nil {
+			d["value"] = v.NumberV
+		} else if v.BoolV != nil {
+			d["value"] = v.BoolV
+		} else {
+			d["value"] = ""
 		}
+
 		easyData = append(easyData, d)
 	}
 	return easyData, nil
