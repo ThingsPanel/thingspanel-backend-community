@@ -22,9 +22,14 @@ func RouterInit() *gin.Engine {
 	// 静态文件
 	router.Static("/files", "./files")
 
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	router.Use(middleware.Cors())
 	controllers := new(api.Controller)
+
+	// 健康检查
+	router.GET("/health", controllers.SystemApi.HealthCheck)
+
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	router.Use(middleware.Cors())
 
 	api := router.Group("api")
 	{
