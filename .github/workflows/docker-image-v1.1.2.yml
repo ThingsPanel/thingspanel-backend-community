@@ -9,6 +9,10 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Set lowercase owner name
+      run: |
+        echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >>${GITHUB_ENV}
+
     - name: Login to DockerHub
       uses: docker/login-action@v1 
       with:
@@ -34,4 +38,4 @@ jobs:
         push: true
         tags: |
           thingspanel/thingspanel-go:v1.1.2
-          ghcr.io/${{ format('{0}', github.repository_owner) }}/thingspanel-go:v1.1.2
+          ghcr.io/${{ env.OWNER_LC }}/thingspanel-go:v1.1.2
