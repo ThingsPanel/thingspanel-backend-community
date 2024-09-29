@@ -34,4 +34,4 @@ jobs:
         push: true
         tags: |
           thingspanel/thingspanel-go:v1.1.2
-          ghcr.io/${{ github.repository_owner }}/thingspanel-go:v1.1.2
+          ghcr.io/${{ format('{0}', github.repository_owner) }}/thingspanel-go:v1.1.2
