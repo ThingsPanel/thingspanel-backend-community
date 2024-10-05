@@ -2,13 +2,12 @@ package service
 
 import (
 	"fmt"
+	"github.com/go-basic/uuid"
+	"github.com/sirupsen/logrus"
 	"project/dal"
 	"project/initialize"
 	model "project/internal/model"
 	utils "project/utils"
-
-	"github.com/go-basic/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 type SceneAutomation struct{}
@@ -365,12 +364,12 @@ func (s *SceneAutomation) SwitchSceneAutomation(scene_automation_id, target stri
 	//场景联动关闭 启动自动化缓存设置
 	go func() {
 		//场景联动开启
-		if target == "Y" {
-			err = s.AutomateCacheSet(scene_automation_id)
-			if err != nil {
-				logrus.Error("编辑场景联动保存自动换缓存信息失败，err: ", err)
-			}
-		}
+		//if target == "Y" {
+		//	err = s.AutomateCacheSet(scene_automation_id)
+		//	if err != nil {
+		//		logrus.Error("编辑场景联动保存自动换缓存信息失败，err: ", err)
+		//	}
+		//}
 		//场景联动关闭
 		if target == "N" {
 			err := initialize.NewAutomateCache().DeleteCacheBySceneAutomationId(scene_automation_id)
@@ -572,16 +571,21 @@ func (s *SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomation
 
 	//保存自动化缓存信息(先删除缓存)
 	go func() {
-		err := initialize.NewAutomateCache().DeleteCacheBySceneAutomationId(scene_automation_id)
-		if err != nil {
+		err1 := initialize.NewAutomateCache().DeleteCacheBySceneAutomationId(scene_automation_id)
+		if err1 != nil {
 			logrus.Error("编辑删除自动化缓存失败: ", err)
 		}
-		if req.Enabled == "Y" {
-			err = s.AutomateCacheSet(scene_automation_id)
-			if err != nil {
-				logrus.Error("编辑场景联动保存自动换缓存信息失败，err: ", err)
-			}
-		}
+		//data, index, _ := initialize.NewAutomateCache().GetCacheByDeviceId("2dffdf60-f937-8d60-b141-6faf9935a7ab", "")
+		//logrus.Info("单个设备,data:", data, ";index:", index)
+		//data, index, _ = initialize.NewAutomateCache().GetCacheByDeviceId("2dffdf60-f937-8d60-b141-6faf9935a7ab", "903aa8a2-e03b-9ab1-10b8-87d82e1a6216")
+		//logrus.Info("单个设备,data:", data, ";index:", index)
+		//if req.Enabled == "Y" {
+		//	err1 = s.AutomateCacheSet(scene_automation_id)
+		//	if err1 != nil {
+		//		logrus.Error("编辑场景联动保存自动换缓存信息失败，err: ", err)
+		//	}
+		//}
 	}()
+	//time.Sleep(time.Second * 5)
 	return scene_automation_id, nil
 }
