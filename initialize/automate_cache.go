@@ -225,13 +225,13 @@ func (c *AutomateCache) automateDeviceCacheDeleteHandel(sceneAutomationId string
 // @return error
 func (c *AutomateCache) SetCacheBySceneAutomationId(sceneAutomationId string, conditions []model.DeviceTriggerCondition, actions []model.ActionInfo) error {
 
-	//删除单类设置缓存
+	//单类设备缓存设置
 	c.device = automatecache.NewMultipleDeviceCache()
 	err := c.setCacheBySceneAutomationId(sceneAutomationId, conditions, actions)
 	if err != nil {
 		return err
 	}
-	//删除单一设备缓存
+	//单一设备缓存设置
 	c.device = automatecache.NewOneDeviceCache()
 	err = c.setCacheBySceneAutomationId(sceneAutomationId, conditions, actions)
 	if err != nil {
@@ -266,7 +266,10 @@ func (c *AutomateCache) setCacheBySceneAutomationId(sceneAutomationId string, co
 			}
 		}
 	}
-
+	//设备id为空, 不缓存
+	if len(deviceIdsMap) == 0 {
+		return nil
+	}
 	//group条件保存
 	for groupId, val := range groupInfosMap {
 		//去掉条件中 不存在此类型的条件组 防止重复到定时任务条件组
@@ -289,13 +292,15 @@ func (c *AutomateCache) setCacheBySceneAutomationId(sceneAutomationId string, co
 		}
 	}
 	//动作保存
-	c.set(c.getAutomateCacheKeyAction(sceneAutomationId), actionInfos, c.expiredIn)
-
+	err := c.set(c.getAutomateCacheKeyAction(sceneAutomationId), actionInfos, c.expiredIn)
+	if err != nil {
+		return err
+	}
 	//单个设备缓存保存
 	for deviceId := range deviceIdsMap {
 		var automateDeviceInfos AutomateDeviceInfos
 		var deviceCacheKey = c.getAutomateCacheKeyBase(deviceId)
-		_, err := c.scan(c.client.Get(deviceCacheKey), &automateDeviceInfos)
+		_, err = c.scan(c.client.Get(deviceCacheKey), &automateDeviceInfos)
 		if err != nil {
 			continue
 		}

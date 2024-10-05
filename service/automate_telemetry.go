@@ -125,6 +125,7 @@ func (a *Automate) execute(deviceId, deviceConfigId string, fromExt AutomateFrom
 	//执行自动化
 	return a.ExecuteRun(info)
 }
+
 func (a *Automate) AutomateFilter(info initialize.AutomateExecteParams, fromExt AutomateFromExt) initialize.AutomateExecteParams {
 	var sceneInfo []initialize.AutomateExecteSceneInfo
 	for _, scene := range info.AutomateExecteSceeInfos {
