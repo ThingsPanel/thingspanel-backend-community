@@ -25,5 +25,8 @@ func (t *AttributeData) InitAttributeData(Router *gin.RouterGroup) {
 
 		// 向设备请求属性
 		attributedataapi.GET("get", api.Controllers.AttributeDataApi.AttributeGetMessage)
+
+		// 根据key查询设备属性
+		attributedataapi.GET("key", api.Controllers.AttributeDataApi.GetAttributeDataByKey)
 	}
 }

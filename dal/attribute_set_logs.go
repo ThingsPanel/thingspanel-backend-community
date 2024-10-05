@@ -80,3 +80,13 @@ func (a AttributeSetLogsQuery) SetAttributeResultUpdate(ctx context.Context, log
 	}
 
 }
+
+// 根据key查询设备属性
+func GetAttributeDataByKey(req model.GetDataListByKeyReq) (*model.AttributeData, error) {
+	data, err := query.AttributeData.WithContext(context.Background()).Where(query.AttributeData.DeviceID.Eq(req.DeviceId), query.AttributeData.Key.Eq(req.Key)).First()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return data, nil
+}

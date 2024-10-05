@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"time"
 
 	"project/global"
 	utils "project/utils"
@@ -24,6 +25,10 @@ func JWTAuth() gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录或非法访问"})
 			c.Abort()
 			return
+		} else {
+			timeout := viper.GetInt("session.timeout")
+			// 刷新时间
+			global.REDIS.Set(token, "1", time.Duration(timeout)*time.Minute)
 		}
 
 		// 获取key

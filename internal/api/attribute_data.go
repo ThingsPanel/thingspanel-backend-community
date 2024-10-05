@@ -36,6 +36,20 @@ func (a *AttributeDataApi) GetDataList(c *gin.Context) {
 	SuccessHandler(c, "Get data successfully", data)
 }
 
+// 根据key查询设备属性
+func (a *AttributeDataApi) GetAttributeDataByKey(c *gin.Context) {
+	var req model.GetDataListByKeyReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	data, err := service.GroupApp.AttributeData.GetAttributeDataByKey(req)
+	if err != nil {
+		ErrorHandler(c, http.StatusInternalServerError, err)
+		return
+	}
+	SuccessHandler(c, "Get data successfully", data)
+}
+
 // DeleteData 删除数据
 // @Tags     属性数据
 // @Summary  删除数据

@@ -6,6 +6,7 @@ import (
 	"project/global"
 	"project/internal/api"
 	"project/utils"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -35,15 +36,34 @@ func (s *SSEApi) GetSystemEvents(c *gin.Context) {
 
 	clientID := global.TPSSEManager.AddClient(userClaims.TenantID, userClaims.ID, c.Writer)
 	defer global.TPSSEManager.RemoveClient(userClaims.TenantID, clientID)
+
 	// 发送初始成功消息
 	c.SSEvent("message", "Connected to system events")
 	c.Writer.Flush()
 
-	// 等待客户端断开连接
-	<-c.Request.Context().Done()
+	// 创建一个用于发送心跳的计时器
+	heartbeatTicker := time.NewTicker(30 * time.Second)
+	defer heartbeatTicker.Stop()
 
-	logrus.WithFields(logrus.Fields{
-		"tenantID":  userClaims.TenantID,
-		"userEmail": userClaims.Email,
-	}).Info("User disconnected from SSE")
+	// 创建一个用于检查客户端是否仍然连接的通道
+	done := make(chan bool)
+	go func() {
+		<-c.Request.Context().Done()
+		done <- true
+	}()
+
+	for {
+		select {
+		case <-heartbeatTicker.C:
+			// 发送心跳消息
+			c.SSEvent("heartbeat", time.Now().Unix())
+			c.Writer.Flush()
+		case <-done:
+			logrus.WithFields(logrus.Fields{
+				"tenantID":  userClaims.TenantID,
+				"userEmail": userClaims.Email,
+			}).Info("User disconnected from SSE")
+			return
+		}
+	}
 }

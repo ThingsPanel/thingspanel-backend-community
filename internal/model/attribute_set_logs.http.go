@@ -17,3 +17,9 @@ type AttributeGetMessageReq struct {
 	DeviceID string   `json:"device_id" form:"device_id" validate:"required,max=36"`
 	Keys     []string `json:"keys" form:"keys" validate:"max=9999"`
 }
+
+// 根据key查询设备属性
+type GetDataListByKeyReq struct {
+	DeviceId string `json:"device_id" form:"device_id" validate:"required,max=36"`
+	Key      string `json:"key" form:"key" validate:"required,max=255"`
+}

@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"project/constant"
 	"project/initialize"
 	config "project/mqtt"
@@ -367,11 +370,16 @@ func (t *TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHist
 		d := make(map[string]interface{})
 		d["ts"] = v.T
 		d["key"] = v.Key
-		if v.StringV == nil {
-			d["value"] = v.NumberV
-		} else {
+		if v.StringV != nil {
 			d["value"] = v.StringV
+		} else if v.NumberV != nil {
+			d["value"] = v.NumberV
+		} else if v.BoolV != nil {
+			d["value"] = v.BoolV
+		} else {
+			d["value"] = ""
 		}
+
 		easyData = append(easyData, d)
 	}
 	return easyData, nil
@@ -549,7 +557,7 @@ func (t *TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetry
 
 ```
 */
-func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStatisticReq) ([]map[string]interface{}, error) {
+func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStatisticReq) (any, error) {
 	if req.TimeRange == "custom" {
 		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
 			return nil, fmt.Errorf("time range is invalid")
@@ -595,6 +603,7 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		req.EndTime = time.Now().UnixNano() / 1e6
 	}
 
+	var rspData []map[string]interface{}
 	// 不聚合
 	if req.AggregateWindow == "no_aggregate" {
 		if req.TimeRange == "custom" {
@@ -609,7 +618,7 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		if len(data) == 0 {
 			data = []map[string]interface{}{}
 		}
-		return data, nil
+		rspData = data
 	} else {
 
 		if req.AggregateFunction == "" {
@@ -630,9 +639,76 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		if len(data) == 0 {
 			data = []map[string]interface{}{}
 		}
-		return data, nil
-	}
+		rspData = data
 
+	}
+	// 是否导出
+	if req.IsExport {
+		// 检查是否有数据
+		if len(rspData) == 0 {
+			return nil, errors.New("没有可导出的数据")
+		}
+		// 创建导出目录
+		exportDir := "./files/excel/telemetry/"
+		err := os.MkdirAll(exportDir, os.ModePerm)
+		if err != nil {
+			return nil, fmt.Errorf("创建导出目录失败: %v", err)
+		}
+
+		// 生成csv文件
+		// 文件名：device_id_key_start_time_end_time.csv
+		fileName := fmt.Sprintf("%s_%s_%d_%d.csv", req.DeviceId, req.Key, req.StartTime, req.EndTime)
+		filePath := filepath.Join(exportDir, fileName)
+		file, err := os.Create(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("创建文件失败: %v", err)
+		}
+		defer file.Close()
+
+		writer := csv.NewWriter(file)
+		defer writer.Flush()
+
+		// 写入表头
+		if err := writer.Write([]string{"时间戳", "数值"}); err != nil {
+			return nil, fmt.Errorf("写入CSV表头失败: %v", err)
+		}
+
+		// 写入数据
+		for _, row := range rspData {
+			timestamp, ok := row["x"].(int64)
+			if !ok {
+				return nil, fmt.Errorf("无效的时间戳格式")
+			}
+
+			// 将毫秒时间戳转换为time.Time
+			t := time.Unix(0, timestamp*int64(time.Millisecond))
+
+			// 格式化时间为可读格式
+			formattedTime := t.Format("2006-01-02 15:04:05.000")
+
+			value, ok := row["y"].(float64)
+			if !ok {
+				return nil, fmt.Errorf("无效的数值格式")
+			}
+
+			if err := writer.Write([]string{formattedTime, fmt.Sprintf("%.3f", value)}); err != nil {
+				return nil, fmt.Errorf("写入CSV记录失败: %v", err)
+			}
+		}
+
+		logrus.Info("CSV文件已创建:", filePath)
+
+		// 将文件名添加到rspData中
+		fileInfo := map[string]interface{}{
+			"file_name": fileName,
+			"file_path": filePath,
+		}
+		return fileInfo, nil
+	}
+	if len(rspData) == 0 {
+		return []map[string]interface{}{}, nil
+	}
+	return rspData, nil
 }
 
 func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
@@ -653,12 +729,17 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 	}
 	// 获取设备配置
 	var protocolType string
+	var deviceConfig *model.DeviceConfig
+	var deviceType string
+
 	if deviceInfo.DeviceConfigID != nil {
-		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
+		deviceConfig, err = dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
 			logrus.Error(ctx, "[TelemetryPutMessage][GetDeviceConfigByID]failed:", err)
 			return err
 		}
+		deviceType = deviceConfig.DeviceType
+
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
 		} else {
@@ -666,11 +747,18 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		}
 	} else {
 		protocolType = "MQTT"
+		deviceType = "1"
+
 	}
 	var topic string
 	if protocolType == "MQTT" {
+		// 网关和子设备需要特殊处理
 		//messageID := common.GetMessageID()
-		topic = fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber)
+		topic, err = getTopicByDevice(deviceInfo, deviceType, param)
+		if err != nil {
+			logrus.Error(ctx, "failed to get topic", err)
+			return err
+		}
 	} else {
 		// 获取主题前缀
 		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
@@ -713,6 +801,61 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 	}
 	_, err = log.Create(ctx, logInfo)
 	return err
+}
+
+// getTopicByDevice 根据设备信息获取要发送的控制主题（内置MQTT协议）
+func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.PutMessage) (string, error) {
+	switch deviceType {
+	case "1":
+		// 处理独立设备
+		return fmt.Sprintf(config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
+	case "2", "3":
+		// 处理网关设备和子设备
+		gatewayID := deviceInfo.ID
+		if deviceType == "3" {
+			if deviceInfo.ParentID == nil {
+				return "", fmt.Errorf("parentID 为空")
+			}
+			gatewayID = *deviceInfo.ParentID
+		}
+
+		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
+		if err != nil {
+			return "", fmt.Errorf("获取网关信息失败: %v", err)
+		}
+
+		// 修改payload
+		var inputData map[string]interface{}
+		if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
+			return "", fmt.Errorf("解析输入 JSON 失败: %v", err)
+		}
+
+		var outputData map[string]interface{}
+		if deviceType == "3" {
+			if deviceInfo.SubDeviceAddr == nil {
+				return "", fmt.Errorf("subDeviceAddr 为空")
+			}
+			outputData = map[string]interface{}{
+				"sub_device_data": map[string]interface{}{
+					*deviceInfo.SubDeviceAddr: inputData,
+				},
+			}
+		} else {
+			outputData = map[string]interface{}{
+				"gateway_data": inputData,
+			}
+		}
+
+		output, err := json.Marshal(outputData)
+		if err != nil {
+			return "", fmt.Errorf("生成输出 JSON 失败: %v", err)
+		}
+		param.Value = string(output)
+
+		return fmt.Sprintf(config.MqttConfig.Telemetry.GatewayPublishTopic, gatewayInfo.DeviceNumber), nil
+	default:
+		return "", fmt.Errorf("未知的设备类型")
+	}
 }
 
 func (t *TelemetryData) GetMsgCountByTenantId(tenantId string) (int64, error) {

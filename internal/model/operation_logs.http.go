@@ -21,6 +21,7 @@ type GetOperationLogListByPageReq struct {
 	EndTime   *time.Time `json:"end_time,omitempty" form:"end_time" validate:"omitempty,max=50"`     //结束日期
 	UserName  *string    `json:"username" form:"username" validate:"omitempty,max=255"`
 	TenantID  string     `json:"tenant_id" form:"tenant_id" validate:"omitempty,max=36"` // 租户id
+	Method    *string    `json:"method" form:"method" validate:"omitempty,max=255"`
 }
 
 type GetOperationLogListByPageRsp struct {
@@ -36,4 +37,6 @@ type GetOperationLogListByPageRsp struct {
 	CreatedAt       *time.Time `json:"created_at" `       // 创建时间
 	Remark          *string    `json:"remark" `           // 备注
 	UserName        *string    `json:"username"`          // 用户名
+	Email           *string    `json:"email"`             // 邮箱
+
 }

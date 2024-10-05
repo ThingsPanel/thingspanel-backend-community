@@ -29,7 +29,6 @@ func init() {
 	db := initialize.PgInit()
 	initialize.RedisInit()
 	query.SetDefault(db)
-	initialize.CasbinInit()
 
 	grpc_tptodb.GrpcTptodbInit()
 
@@ -92,6 +91,7 @@ func initServer(host, port string, handler http.Handler) *http.Server {
 
 func startServer(srv *http.Server, host, port string) {
 	logrus.Println("Listening and serving HTTP on", host, ":", port)
+	successInfo()
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logrus.Fatalf("listen: %s\n", err)
 	}
@@ -109,4 +109,20 @@ func gracefulShutdown(srv *http.Server) {
 		logrus.Fatal("Server Shutdown:", err)
 	}
 	logrus.Println("Server exiting")
+}
+
+func successInfo() {
+	// 获取当前时间
+	startTime := time.Now().Format("2006-01-02 15:04:05")
+
+	// 打印启动成功消息
+	fmt.Println("----------------------------------------")
+	fmt.Println("        TingsPanel 启动成功!")
+	fmt.Println("----------------------------------------")
+	fmt.Printf("启动时间: %s\n", startTime)
+	fmt.Println("版本: v1.1.2社区版")
+	fmt.Println("----------------------------------------")
+	fmt.Println("欢迎使用 TingsPanel！")
+	fmt.Println("如需帮助，请访问: http://thingspanel.io")
+	fmt.Println("----------------------------------------")
 }

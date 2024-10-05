@@ -7,6 +7,7 @@ import (
 
 	model "project/internal/model"
 	query "project/query"
+	utils "project/utils"
 
 	"github.com/sirupsen/logrus"
 )
@@ -15,14 +16,23 @@ func CreateOperationLogs(OperationLog *model.OperationLog) error {
 	return query.OperationLog.Create(OperationLog)
 }
 
-func GetListByPage(operationLog *model.GetOperationLogListByPageReq) (int64, interface{}, error) {
+func GetListByPage(operationLog *model.GetOperationLogListByPageReq, userClaims *utils.UserClaims) (int64, interface{}, error) {
 	q := query.OperationLog
 	var count int64
 	var operationLogList []model.GetOperationLogListByPageRsp
-	queryBuilder := q.WithContext(context.Background()).Where(q.TenantID.Eq(operationLog.TenantID))
+	var queryBuilder query.IOperationLogDo
+	// 超级管理员可以查询所有租户的日志
+	if userClaims.Authority != "SYS_ADMIN" {
+		queryBuilder = q.WithContext(context.Background()).Where(q.TenantID.Eq(operationLog.TenantID))
+
+	}
 
 	if operationLog.IP != nil && *operationLog.IP != "" {
 		queryBuilder = queryBuilder.Where(q.IP.Like(fmt.Sprintf("%%%s%%", *operationLog.IP)))
+	}
+
+	if operationLog.Method != nil && *operationLog.Method != "" {
+		queryBuilder = queryBuilder.Where(q.Name.Eq(*operationLog.Method))
 	}
 
 	if operationLog.StartTime != nil && operationLog.EndTime != nil {
@@ -46,7 +56,7 @@ func GetListByPage(operationLog *model.GetOperationLogListByPageReq) (int64, int
 		queryBuilder = queryBuilder.Offset((operationLog.Page - 1) * operationLog.PageSize)
 	}
 
-	err = queryBuilder.Select(q.ALL, u.Name.As("user_name")).
+	err = queryBuilder.Select(q.ALL, u.Name.As("user_name"), u.Email).
 		Order(q.CreatedAt.Desc()).
 		Scan(&operationLogList)
 	if err != nil {

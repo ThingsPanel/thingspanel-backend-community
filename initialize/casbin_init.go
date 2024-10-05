@@ -11,24 +11,26 @@ import (
 	"github.com/spf13/viper"
 )
 
-func CasbinInit() {
+func CasbinInit() error {
 	log.Println("casbin启动...")
-	// Initialize a Gorm adapter and use it in a Casbin enforcer:
-	// The adapter will use the MySQL database named "casbin".
-	// If it doesn't exist, the adapter will create it automatically.
-	// You can also use an already existing gorm instance with gormadapter.NewAdapterByDB(gormInstance)
 
-	a, _ := gormadapter.NewAdapterByDB(global.DB)
-	e, err := casbin.NewEnforcer("./configs/casbin.conf", a)
-	// Or you can use an existing DB "abc" like this:
-	// The adapter will use the table named "casbin_rule".
-	// If it doesn't exist, the adapter will create it automatically.
-	// a := gormadapter.NewAdapter("mysql", "mysql_username:mysql_password@tcp(127.0.0.1:3306)/abc", true)
+	a, err := gormadapter.NewAdapterByDB(global.DB)
 	if err != nil {
-		fmt.Println(err.Error())
+		return fmt.Errorf("failed to initialize GORM adapter: %v", err)
 	}
-	e.LoadPolicy()
+
+	e, err := casbin.NewEnforcer("./configs/casbin.conf", a)
+	if err != nil {
+		return fmt.Errorf("failed to create enforcer: %v", err)
+	}
+
+	if err := e.LoadPolicy(); err != nil {
+		return fmt.Errorf("failed to load policy: %v", err)
+	}
+
 	global.CasbinEnforcer = e
 	log.Println("casbin启动完成")
+
 	global.OtaAddress = viper.GetString("ota.download_address")
+	return nil
 }

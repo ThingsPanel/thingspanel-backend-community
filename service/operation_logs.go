@@ -3,6 +3,7 @@ package service
 import (
 	dal "project/dal"
 	model "project/internal/model"
+	utils "project/utils"
 
 	"github.com/sirupsen/logrus"
 )
@@ -19,9 +20,10 @@ func (p *OperationLogs) CreateOperationLogs(operationLog *model.OperationLog) er
 	return err
 }
 
-func (p *OperationLogs) GetListByPage(Params *model.GetOperationLogListByPageReq) (map[string]interface{}, error) {
+// 分页查询日志
+func (p *OperationLogs) GetListByPage(Params *model.GetOperationLogListByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 
-	total, list, err := dal.GetListByPage(Params)
+	total, list, err := dal.GetListByPage(Params, userClaims)
 	if err != nil {
 		return nil, err
 	}

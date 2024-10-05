@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"project/common"
 	"project/constant"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type AttributeData struct{}
@@ -72,39 +74,111 @@ func (t *AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttribute
 	return dataMap, nil
 }
 
+// 根据key查询设备属性
+func (t *AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (interface{}, error) {
+	dataMap := make(map[string]interface{})
+
+	data, err := dal.GetAttributeDataByKey(req)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return dataMap, nil
+		}
+		return dataMap, err
+	}
+
+	dataMap["id"] = data.ID
+	dataMap["key"] = data.Key
+	dataMap["device_id"] = data.DeviceID
+	dataMap["ts"] = data.T
+	if data.BoolV != nil {
+		dataMap["value"] = data.BoolV
+	} else if data.NumberV != nil {
+		dataMap["value"] = data.NumberV
+	} else if data.StringV != nil {
+		dataMap["value"] = *data.StringV
+	} else {
+		dataMap["value"] = nil
+	}
+
+	return dataMap, nil
+
+}
+
 func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, param *model.AttributePutMessage, operationType string, fn ...config.MqttDirectResponseFunc) error {
-	var (
-		log = dal.AttributeSetLogsQuery{}
-
-		errorMessage string
-	)
-
+	// 获取设备信息
 	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
 	if err != nil {
-		logrus.Error(ctx, "[AttributePutMessage][GetDeviceById]failed:", err)
-		return err
+		return fmt.Errorf("获取设备信息失败: %v", err)
 	}
-	messageID := common.GetMessageID()
-	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.PublishTopic, deviceInfo.DeviceNumber, messageID)
 
-	// 脚本预处理
-	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
-		newValue, err := GroupApp.DataScript.Exec(deviceInfo, "D", []byte(param.Value), topic)
+	// 获取设备类型和协议
+	deviceType, protocolType := "1", "MQTT"
+	if deviceInfo.DeviceConfigID != nil {
+		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			logrus.Error(ctx, "[AttributePutMessage][ExecDataScript]failed:", err)
+			return fmt.Errorf("获取设备配置失败: %v", err)
+		}
+		deviceType = deviceConfig.DeviceType
+		if deviceConfig.ProtocolType != nil {
+			protocolType = *deviceConfig.ProtocolType
+		} else {
+			return fmt.Errorf("protocolType 为空")
+		}
+	}
+
+	logrus.Info("protocolType:", protocolType)
+
+	// 生成消息ID和主题
+	messageID := common.GetMessageID()
+	var topic string
+	if deviceType == "1" {
+		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.PublishTopic, deviceInfo.DeviceNumber, messageID)
+	} else {
+		gatewayID := deviceInfo.ID
+		if deviceType == "3" {
+			if deviceInfo.ParentID == nil {
+				return fmt.Errorf("子设备网关信息为空")
+			}
+			gatewayID = *deviceInfo.ParentID
+			if deviceInfo.SubDeviceAddr == nil {
+				return fmt.Errorf("子设备地址为空")
+			}
+			if err := transformSubDeviceData(param, *deviceInfo.SubDeviceAddr); err != nil {
+				return err
+			}
+		} else if err := transformGatewayData(param); err != nil {
 			return err
 		}
-		if newValue != nil {
+
+		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
+		if err != nil {
+			return fmt.Errorf("获取网关信息失败: %v", err)
+		}
+		topic = fmt.Sprintf(config.MqttConfig.Attributes.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
+	}
+
+	// 执行数据脚本
+	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+		if newValue, err := GroupApp.DataScript.Exec(deviceInfo, "D", []byte(param.Value), topic); err != nil {
+			return fmt.Errorf("执行数据脚本失败: %v", err)
+		} else if newValue != nil {
 			param.Value = string(newValue)
 		}
 	}
 
+	// 发布消息
 	err = publish.PublishAttributeMessage(topic, []byte(param.Value))
+	errorMessage := ""
 	if err != nil {
-		logrus.Error(ctx, "下发失败", err)
 		errorMessage = err.Error()
+		logrus.Error(ctx, "下发失败", err)
 	}
-	//operationType := strconv.Itoa(constant.Manual)
+
+	// 创建日志
+	status := strconv.Itoa(constant.StatusOK)
+	if errorMessage != "" {
+		status = strconv.Itoa(constant.StatusFailed)
+	}
 	description := "下发属性日志记录"
 	logInfo := &model.AttributeSetLog{
 		ID:            uuid.New(),
@@ -112,22 +186,18 @@ func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, 
 		OperationType: &operationType,
 		MessageID:     &messageID,
 		Datum:         &(param.Value),
-		RspDatum:      nil,
-		Status:        nil,
+		Status:        &status,
 		ErrorMessage:  &errorMessage,
 		CreatedAt:     time.Now().UTC(),
 		UserID:        &userID,
 		Description:   &description,
 	}
+	_, err = dal.AttributeSetLogsQuery{}.Create(ctx, logInfo)
 	if err != nil {
-		logInfo.ErrorMessage = &errorMessage
-		status := strconv.Itoa(constant.StatusFailed)
-		logInfo.Status = &status
-	} else {
-		status := strconv.Itoa(constant.StatusOK)
-		logInfo.Status = &status
+		logrus.Error(ctx, "创建日志失败", err)
 	}
-	_, err = log.Create(ctx, logInfo)
+
+	// 处理响应
 	config.MqttDirectResponseFuncMap[messageID] = make(chan model.MqttResponse)
 	go func() {
 		select {
@@ -136,7 +206,7 @@ func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, 
 			if len(fn) > 0 {
 				_ = fn[0](response)
 			}
-			log.SetAttributeResultUpdate(context.Background(), logInfo.ID, response)
+			dal.AttributeSetLogsQuery{}.SetAttributeResultUpdate(context.Background(), logInfo.ID, response)
 			close(config.MqttDirectResponseFuncMap[messageID])
 			delete(config.MqttDirectResponseFuncMap, messageID)
 		case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
@@ -154,6 +224,58 @@ func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, 
 		}
 	}()
 	return err
+}
+
+// 属性对象转网关数据
+func transformGatewayData(param *model.AttributePutMessage) error {
+	// 解析原始JSON
+	var inputData map[string]interface{}
+	if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
+		return fmt.Errorf("解析输入 JSON 失败: %v", err)
+	}
+
+	// 构建新的数据结构
+	outputData := map[string]interface{}{
+		"gateway_data": inputData,
+	}
+
+	// 将新结构转换回 JSON 字符串
+	output, err := json.Marshal(outputData)
+	if err != nil {
+		return fmt.Errorf("生成输出 JSON 失败: %v", err)
+	}
+
+	// 更新 param.Value
+	param.Value = string(output)
+
+	return nil
+}
+
+// 子设备对象转网关数据
+func transformSubDeviceData(param *model.AttributePutMessage, subDeviceAddr string) error {
+	// 解析原始JSON
+	var inputData map[string]interface{}
+	if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
+		return fmt.Errorf("解析输入 JSON 失败: %v", err)
+	}
+
+	// 构建新的数据结构
+	outputData := map[string]interface{}{
+		"sub_device_data": map[string]interface{}{
+			subDeviceAddr: inputData,
+		},
+	}
+
+	// 将新结构转换回 JSON 字符串
+	output, err := json.Marshal(outputData)
+	if err != nil {
+		return fmt.Errorf("生成输出 JSON 失败: %v", err)
+	}
+
+	// 更新 param.Value
+	param.Value = string(output)
+
+	return nil
 }
 
 // 发送获取属性请求

@@ -24,6 +24,7 @@ type User struct {
 	AdditionalInfo *string    `gorm:"column:additional_info;default:{}" json:"additional_info"`
 	CreatedAt      *time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"column:updated_at" json:"updated_at"`
+	PasswordLastUpdated      *time.Time `gorm:"column:password_last_updated" json:"password_last_updated"`
 }
 
 // TableName User's table name

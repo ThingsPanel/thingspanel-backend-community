@@ -138,17 +138,6 @@ func (a *TelemetryDataApi) GetCurrentDetailData(c *gin.Context) {
 }
 
 // GetHistoryData 设备历史数值查询（分页）
-// @Tags     遥测数据
-// @Summary  设备历史数值查询（分页），仅限一个月内的数据
-// @Description 设备历史数值查询（分页）
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetTelemetryHistoryDataByPageReq true "见下方JSON"
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/history/pagination [get]
 func (a *TelemetryDataApi) GetHistoryDataByPage(c *gin.Context) {
 	var req model.GetTelemetryHistoryDataByPageReq
