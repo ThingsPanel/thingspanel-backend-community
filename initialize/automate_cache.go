@@ -57,7 +57,7 @@ type AutimateCacheKeyDevice interface {
 // @params id sting
 // @return string
 func (c *AutomateCache) getAutomateCacheKey(cType string, id string) string {
-	return fmt.Sprintf("automate:v2:%s:%s:%s", c.device.GetAutomateCacheKeyPrefix(), cType, id)
+	return fmt.Sprintf("automate:v3:%s:%s:%s", c.device.GetAutomateCacheKeyPrefix(), cType, id)
 }
 
 // 获取单个设置一级缓存key
