@@ -49,10 +49,19 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 
 	for _, v := range req.TriggerConditionGroups {
 		groupId := uuid.New()
+		var (
+			oneCondition      bool
+			multipleCondition bool
+		)
 		for _, v2 := range v {
-
 			switch v2.TriggerConditionsType {
 			case "10", "11", "22":
+				if v2.TriggerConditionsType == "10" {
+					oneCondition = true
+				}
+				if v2.TriggerConditionsType == "11" {
+					multipleCondition = true
+				}
 				// 写入 device_trigger_condition
 				var dtc = model.DeviceTriggerCondition{}
 				dtc.ID = uuid.New()
@@ -135,6 +144,10 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 				return "", fmt.Errorf("not support")
 			}
 
+		}
+		if oneCondition && multipleCondition {
+			dal.Rollback(tx)
+			return "", fmt.Errorf("一组条件中不允许存在单个设备和单类设备的条件")
 		}
 	}
 
@@ -461,8 +474,17 @@ func (s *SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomation
 
 	for _, v := range req.TriggerConditionGroups {
 		groupId := uuid.New()
+		var (
+			oneCondition      bool
+			multipleCondition bool
+		)
 		for _, v2 := range v {
-
+			if v2.TriggerConditionsType == "10" {
+				oneCondition = true
+			}
+			if v2.TriggerConditionsType == "11" {
+				multipleCondition = true
+			}
 			switch v2.TriggerConditionsType {
 			case "10", "11", "22":
 				// 写入 device_trigger_condition
@@ -545,7 +567,10 @@ func (s *SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomation
 				dal.Rollback(tx)
 				return "", fmt.Errorf("not support")
 			}
-
+		}
+		if oneCondition && multipleCondition {
+			dal.Rollback(tx)
+			return "", fmt.Errorf("一组条件中不允许存在单个设备和单类设备的条件")
 		}
 	}
 
