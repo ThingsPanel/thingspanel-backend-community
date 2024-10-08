@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"project/croninit"
 	grpc_tptodb "project/grpc/tptodb_client"
 	"project/initialize"
 	"project/mqtt"
@@ -36,7 +35,7 @@ func init() {
 	subscribe.SubscribeInit()
 	publish.PublishInit()
 	//定时任务
-	croninit.CronInit()
+	//croninit.CronInit()
 }
 
 // @title           ThingsPanel API
