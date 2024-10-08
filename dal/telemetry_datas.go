@@ -238,7 +238,16 @@ func DeleteTelemetrData(deviceId, key string) error {
 // 根据时间批量删除遥测数据
 func DeleteTelemetrDataByTime(t int64) error {
 	_, err := query.TelemetryData.Where(query.TelemetryData.T.Lte(t)).Delete()
-	return err
+	if err != nil {
+		logrus.Error(err)
+		return err
+	} else {
+		if err := global.DB.Exec("VACUUM FULL telemetry_data").Error; err != nil {
+			logrus.Warnf("Error during VACUUM FULL: %v", err)
+		}
+		return err
+	}
+
 }
 
 // 非聚合查询(req.DeviceID, req.Key, req.StartTime, req.EndTime)
