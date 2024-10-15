@@ -65,7 +65,7 @@ func (a *UpLoadApi) UpFile(c *gin.Context) {
 
 	// 文件后缀校验
 
-	if utils.ValidateFileType(file.Filename, fileType) {
+	if !utils.ValidateFileType(file.Filename, fileType) {
 		ErrorHandler(c, http.StatusUnprocessableEntity, errors.New("文件类型验证失败"))
 		return
 	}
