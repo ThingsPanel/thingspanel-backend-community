@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"project/dal"
+	"project/internal/dal"
 	"project/internal/model"
 	config "project/mqtt"
 	"time"

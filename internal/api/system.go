@@ -1,7 +1,7 @@
 package api
 
 import (
-	"project/utils"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )

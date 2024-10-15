@@ -5,9 +5,9 @@ import (
 	"log"
 	"time"
 
-	"project/dal"
-	global "project/global"
+	"project/internal/dal"
 	model "project/internal/model"
+	global "project/pkg/global"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

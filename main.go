@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	grpc_tptodb "project/grpc/tptodb_client"
 	"project/initialize"
+	"project/internal/query"
 	"project/mqtt"
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
-	"project/query"
+	grpc_tptodb "project/third_party/grpc/tptodb_client"
 	"time"
 
 	router "project/router"
@@ -23,7 +23,7 @@ import (
 func init() {
 	initialize.ViperInit("./configs/conf.yml")
 	//initialize.ViperInit("./configs/conf-localdev.yml")
-	initialize.RsaDecryptInit("./rsa_key/private_key.pem")
+	initialize.RsaDecryptInit("./configs/rsa_key/private_key.pem")
 	initialize.LogInIt()
 	db := initialize.PgInit()
 	initialize.RedisInit()

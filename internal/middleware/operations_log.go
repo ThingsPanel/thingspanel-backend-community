@@ -8,8 +8,8 @@ import (
 	"time"
 
 	model "project/internal/model"
-	query "project/query"
-	utils "project/utils"
+	query "project/internal/query"
+	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-basic/uuid"

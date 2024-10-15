@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
-	dal "project/dal"
+	dal "project/internal/dal"
 	model "project/internal/model"
-	service "project/service"
-	utils "project/utils"
+	service "project/internal/service"
+	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )

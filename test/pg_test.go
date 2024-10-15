@@ -18,7 +18,7 @@ import (
 	"project/initialize"
 
 	"project/internal/model"
-	"project/query"
+	"project/internal/query"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"

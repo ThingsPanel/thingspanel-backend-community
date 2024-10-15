@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	dal "project/dal"
 	initialize "project/initialize"
+	dal "project/internal/dal"
 	model "project/internal/model"
+	service "project/internal/service"
 	config "project/mqtt"
 	"project/mqtt/publish"
-	service "project/service"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

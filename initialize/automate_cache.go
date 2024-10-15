@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	global "project/global"
 	"project/initialize/automatecache"
 	"project/internal/model"
+	global "project/pkg/global"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/redis.v5"

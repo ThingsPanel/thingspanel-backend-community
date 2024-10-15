@@ -2,7 +2,7 @@ package test
 
 import (
 	"project/initialize"
-	"project/query"
+	"project/internal/query"
 	"testing"
 
 	"github.com/sirupsen/logrus"

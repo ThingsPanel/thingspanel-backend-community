@@ -3,10 +3,10 @@ package api
 import (
 	"errors"
 	"net/http"
-	common "project/common"
 	"project/internal/model"
-	"project/service"
-	"project/utils"
+	"project/internal/service"
+	common "project/pkg/common"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"

@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 	"project/internal/model"
-	"project/service"
-	"project/utils"
+	"project/internal/service"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"

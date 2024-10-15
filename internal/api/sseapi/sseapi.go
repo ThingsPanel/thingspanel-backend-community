@@ -3,9 +3,9 @@ package sseapi
 import (
 	"fmt"
 	"net/http"
-	"project/global"
 	"project/internal/api"
-	"project/utils"
+	"project/pkg/global"
+	"project/pkg/utils"
 	"time"
 
 	"github.com/gin-gonic/gin"

@@ -8,8 +8,8 @@ import (
 
 	"io/ioutil"
 
-	global "project/global"
-	utils "project/utils"
+	global "project/pkg/global"
+	utils "project/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"project/global"
-	utils "project/utils"
+	"project/pkg/global"
+	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"

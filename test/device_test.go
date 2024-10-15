@@ -1,7 +1,7 @@
 package test
 
 import (
-	"project/dal"
+	"project/internal/dal"
 	"testing"
 
 	"github.com/sirupsen/logrus"

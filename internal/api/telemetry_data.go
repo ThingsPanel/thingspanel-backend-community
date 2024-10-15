@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"project/constant"
 	ws_subscribe "project/mqtt/ws_subscribe"
-	"project/utils"
+	"project/pkg/constant"
+	"project/pkg/utils"
 	"strconv"
 	"sync"
 
 	model "project/internal/model"
-	service "project/service"
+	service "project/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"

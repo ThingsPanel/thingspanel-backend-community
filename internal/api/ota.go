@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	model "project/internal/model"
-	service "project/service"
-	"project/utils"
+	service "project/internal/service"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/howeyc/crc16"

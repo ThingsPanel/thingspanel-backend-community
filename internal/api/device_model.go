@@ -3,10 +3,10 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"project/common"
 	"project/internal/model"
-	"project/service"
-	"project/utils"
+	"project/internal/service"
+	"project/pkg/common"
+	"project/pkg/utils"
 	"strings"
 
 	"github.com/gin-gonic/gin"

@@ -2,13 +2,13 @@ package test
 
 import (
 	"context"
-	"project/dal"
 	"project/initialize"
+	"project/internal/dal"
 	"project/internal/model"
+	"project/internal/query"
 	"project/mqtt"
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
-	"project/query"
 	"testing"
 	"time"
 

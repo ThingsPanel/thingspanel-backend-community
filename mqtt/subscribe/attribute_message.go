@@ -3,11 +3,11 @@ package subscribe
 import (
 	"encoding/json"
 	"fmt"
-	dal "project/dal"
 	initialize "project/initialize"
+	dal "project/internal/dal"
 	"project/internal/model"
+	service "project/internal/service"
 	config "project/mqtt"
-	service "project/service"
 	"strings"
 	"time"
 

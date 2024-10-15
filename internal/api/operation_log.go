@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	model "project/internal/model"
-	service "project/service"
-	"project/utils"
+	service "project/internal/service"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )

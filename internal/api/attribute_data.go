@@ -2,10 +2,10 @@ package api
 
 import (
 	"net/http"
-	"project/constant"
 	"project/internal/model"
-	"project/service"
-	"project/utils"
+	"project/internal/service"
+	"project/pkg/constant"
+	"project/pkg/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"

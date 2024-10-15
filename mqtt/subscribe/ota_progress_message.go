@@ -3,7 +3,7 @@ package subscribe
 import (
 	"encoding/json"
 	initialize "project/initialize"
-	"project/query"
+	"project/internal/query"
 	"strconv"
 
 	"github.com/sirupsen/logrus"

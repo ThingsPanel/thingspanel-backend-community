@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	global "project/pkg/global"
+	"sync"
+	"time"
+
 	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/redis.v5"
-	global "project/global"
-	"sync"
-	"time"
 )
 
 var (

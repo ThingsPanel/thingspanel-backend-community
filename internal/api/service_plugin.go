@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 	"project/internal/model"
-	"project/service"
+	"project/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

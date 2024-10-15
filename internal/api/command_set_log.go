@@ -2,13 +2,13 @@ package api
 
 import (
 	"net/http"
-	"project/common"
-	"project/constant"
-	"project/utils"
+	"project/pkg/common"
+	"project/pkg/constant"
+	"project/pkg/utils"
 	"strconv"
 
 	model "project/internal/model"
-	service "project/service"
+	service "project/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

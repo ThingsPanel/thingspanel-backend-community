@@ -2,10 +2,10 @@ package subscribe
 
 import (
 	"encoding/json"
-	dal "project/dal"
 	initialize "project/initialize"
+	dal "project/internal/dal"
 	"project/internal/model"
-	service "project/service"
+	service "project/internal/service"
 	"strings"
 	"time"
 

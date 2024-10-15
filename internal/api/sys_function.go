@@ -3,9 +3,9 @@ package api
 import (
 	"fmt"
 	"net/http"
-	dal "project/dal"
-	"project/service"
-	"project/utils"
+	dal "project/internal/dal"
+	"project/internal/service"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )

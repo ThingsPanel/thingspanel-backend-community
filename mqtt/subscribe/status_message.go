@@ -3,11 +3,11 @@ package subscribe
 import (
 	"context"
 	"encoding/json"
-	dal "project/dal"
-	"project/global"
 	initialize "project/initialize"
+	dal "project/internal/dal"
 	"project/internal/model"
-	service "project/service"
+	service "project/internal/service"
+	"project/pkg/global"
 	"strconv"
 	"strings"
 

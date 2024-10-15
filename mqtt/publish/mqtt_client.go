@@ -5,11 +5,11 @@ import (
 	"path"
 	"time"
 
-	"project/common"
 	"project/initialize"
 	"project/internal/model"
 	config "project/mqtt"
-	"project/utils"
+	"project/pkg/common"
+	"project/pkg/utils"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-basic/uuid"

@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	model "project/internal/model"
-	service "project/service"
+	service "project/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

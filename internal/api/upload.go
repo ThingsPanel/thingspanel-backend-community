@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	utils "project/utils"
+	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )
