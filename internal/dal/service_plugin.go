@@ -140,6 +140,14 @@ func GetServicePluginHttpAddressByID(id string) (*model.ServicePlugin, string, e
 
 // 通过service_identifier获取插件服务信息
 func GetServicePluginByServiceIdentifier(serviceIdentifier string) (*model.ServicePlugin, error) {
+	if serviceIdentifier == "MQTT" {
+		return &model.ServicePlugin{
+			Name:              "MQTT",
+			ServiceType:       1,
+			ServiceConfig:     nil,
+			ServiceIdentifier: "MQTT",
+		}, nil
+	}
 	// 使用first查询
 	q := query.ServicePlugin
 	queryBuilder := q.WithContext(context.Background())
