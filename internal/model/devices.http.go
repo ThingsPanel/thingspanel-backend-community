@@ -100,6 +100,7 @@ type GetDeviceListByPageRsp struct {
 	ProtocolType     string     `json:"protocol_type"`      // 协议类型
 	DeviceStatus     int        `json:"device_status"`      // 设备状态
 	WarnStatus       string     `json:"warn_status"`        //设备是否告警 Y告警 N未告警
+	DeviceType       string     `json:"device_type"`        // 设备类型 1-网关 2-网关子设备 3-网关子设备子设备
 }
 
 type CreateDeviceGroupReq struct {
