@@ -808,7 +808,7 @@ func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.
 	switch deviceType {
 	case "1":
 		// 处理独立设备
-		return fmt.Sprintf(config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
+		return fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
 	case "2", "3":
 		// 处理网关设备和子设备
 		gatewayID := deviceInfo.ID

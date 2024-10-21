@@ -94,6 +94,8 @@ func PublishTelemetryMessage(topic string, device *model.Device, param *model.Pu
 		}
 	}
 	qos := byte(config.MqttConfig.Telemetry.QoS)
+
+	logrus.Info("topic:", topic, "value:", param.Value)
 	// 发布消息
 	token := mqttClient.Publish(topic, qos, false, []byte(param.Value))
 	if token.Wait() && token.Error() != nil {

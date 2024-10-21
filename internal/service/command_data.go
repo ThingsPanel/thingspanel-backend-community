@@ -108,7 +108,7 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 		if err != nil {
 			return fmt.Errorf("获取网关信息失败: %v", err)
 		}
-		topic = fmt.Sprintf(config.MqttConfig.Commands.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
+		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
 	}
 
 	// 序列化payload
