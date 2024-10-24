@@ -786,6 +786,7 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		ErrorMessage:  &errorMessage,
 		CreatedAt:     time.Now().UTC(),
 		Description:   &description,
+		UserID:        &userID,
 	}
 	// 系统自动发送
 	if userID == "" {
