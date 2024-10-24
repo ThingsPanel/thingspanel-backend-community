@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -109,14 +108,14 @@ type ApiResponse struct {
 
 // ErrorHandler 统一错误处理
 func ErrorHandler(c *gin.Context, code int, err error) {
-	if strings.Contains(err.Error(), "SQLSTATE 23503") {
-		// 处理外键约束违反
-		err = fmt.Errorf("操作无法完成：请先删除与此项相关联的数据后再进行尝试")
-	}
-	if strings.Contains(err.Error(), "SQLSTATE 23505") {
-		// 处理唯一键约束违反
-		err = fmt.Errorf("操作无法完成：已存在相同的数据")
-	}
+	// if strings.Contains(err.Error(), "SQLSTATE 23503") {
+	// 	// 处理外键约束违反
+	// 	err = fmt.Errorf("操作无法完成：请先删除与此项相关联的数据后再进行尝试")
+	// }
+	// if strings.Contains(err.Error(), "SQLSTATE 23505") {
+	// 	// 处理唯一键约束违反
+	// 	err = fmt.Errorf("操作无法完成：已存在相同的数据")
+	// }
 	// fmt.Printf("%T\n", err)
 	// // 检查这个错误是否是 *pgconn.PgError
 	// var pgErr *pgconn.PgError
