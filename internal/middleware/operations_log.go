@@ -47,6 +47,10 @@ func OperationLogs() gin.HandlerFunc {
 			c.Next()
 			cost := int64(time.Since(start) / time.Millisecond)
 
+			// 分别打印各种可能的IP来源
+			logrus.Debug("RemoteAddr: %s\n", c.Request.RemoteAddr)
+			logrus.Debug("X-Forwarded-For: %s\n", c.Request.Header.Get("X-Forwarded-For"))
+			logrus.Debug("X-Real-IP: %s\n", c.Request.Header.Get("X-Real-IP"))
 			// 获取ip
 			var clientIP string
 
