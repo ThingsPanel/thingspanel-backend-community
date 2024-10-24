@@ -549,6 +549,7 @@ func (a *TelemetryDataApi) TelemetryPutMessage(c *gin.Context) {
 	SuccessOK(c)
 }
 
+// /api/v1/telemetry/datas/msg/count
 func (a *TelemetryDataApi) GetMsgCountByTenant(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	if userClaims.TenantID == "" {
