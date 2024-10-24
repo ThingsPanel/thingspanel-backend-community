@@ -111,3 +111,9 @@ func DeleteCurrentTelemetryData(deviceId string, key string) error {
 	_, err := query.TelemetryCurrentData.Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId), query.TelemetryCurrentData.Key.Eq(key)).Delete()
 	return err
 }
+
+// 根据ID删除当前遥测数据
+func DeleteCurrentTelemetryDataByDeviceId(deviceId string, tx *query.QueryTx) error {
+	_, err := tx.TelemetryCurrentData.Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId)).Delete()
+	return err
+}

@@ -63,3 +63,9 @@ func (t TelemetrySetLogsQuery) Create(ctx context.Context, info *model.Telemetry
 	}
 	return info.ID, err
 }
+
+// 删除下发历史数据，带事务
+func DeleteTelemetrySetLogsByDeviceId(deviceId string, tx *query.QueryTx) error {
+	_, err := tx.TelemetrySetLog.WithContext(context.Background()).Where(query.TelemetrySetLog.DeviceID.Eq(deviceId)).Delete()
+	return err
+}

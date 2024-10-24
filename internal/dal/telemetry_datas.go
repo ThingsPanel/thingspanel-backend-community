@@ -385,3 +385,9 @@ var StatisticAggregateWindowMillisecond = map[string]int64{
 	"7d":  int64(time.Hour * 24 * 7 / time.Millisecond),
 	"1mo": int64(time.Hour * 24 * 30 / time.Millisecond),
 }
+
+// 根据设备id删除所有数据
+func DeleteTelemetrDataByDeviceId(deviceId string, tx *query.QueryTx) error {
+	_, err := tx.TelemetryData.Where(query.TelemetryData.DeviceID.Eq(deviceId)).Delete()
+	return err
+}

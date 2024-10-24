@@ -90,3 +90,9 @@ func GetAttributeOneKeys(deviceId string, keys string) (interface{}, error) {
 	}
 	return result, nil
 }
+
+// 根据设备id删除所有数据
+func DeleteAttributeDataByDeviceId(deviceId string, tx *query.QueryTx) error {
+	_, err := tx.AttributeData.Where(query.AttributeData.DeviceID.Eq(deviceId)).Delete()
+	return err
+}

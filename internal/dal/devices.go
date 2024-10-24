@@ -74,6 +74,15 @@ func DeleteDevice(id string, tenantID string) error {
 	return err
 }
 
+// 删除设备，带事务
+func DeleteDeviceWithTx(id string, tenantID string, tx *query.QueryTx) error {
+	_, err := tx.Device.Where(query.Device.ID.Eq(id), query.Device.TenantID.Eq(tenantID)).Delete()
+	if err != nil {
+		logrus.Error(err)
+	}
+	return err
+}
+
 // 根据子设备id获取父设备信息
 func GetParentDeviceBySubDeviceID(subDeviceID string) (info *model.Device, err error) {
 	var device = query.Device

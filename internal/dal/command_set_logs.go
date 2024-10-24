@@ -128,3 +128,9 @@ func (c CommandSetLogsQuery) FilterOneHourByMessageID(messageId string) (*model.
 	return log, err
 
 }
+
+// 删除命令历史数据，带事务
+func DeleteCommandSetLogsByDeviceId(deviceId string, tx *query.QueryTx) error {
+	_, err := tx.CommandSetLog.Where(query.CommandSetLog.DeviceID.Eq(deviceId)).Delete()
+	return err
+}

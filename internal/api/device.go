@@ -57,17 +57,6 @@ func (d *DeviceApi) CreateDeviceBatch(c *gin.Context) {
 }
 
 // DeleteDevice 删除设备
-// @Tags     设备管理
-// @Summary  删除设备
-// @Description 删除设备
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "设备ID"
-// @Success  200  {object}  ApiResponse  "字典列创建成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/{id} [delete]
 func (d *DeviceApi) DeleteDevice(c *gin.Context) {
 	id := c.Param("id")

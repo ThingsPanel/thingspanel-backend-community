@@ -9,6 +9,7 @@ import (
 	"project/initialize"
 	protocolplugin "project/internal/service/protocol_plugin"
 	"project/pkg/constant"
+	global "project/pkg/global"
 	"project/third_party/others/http_client"
 	"strconv"
 	"strings"
@@ -240,11 +241,66 @@ func (d *Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	if len(conditions) > 0 {
 		return fmt.Errorf("device has scene,please remove scene first")
 	}
-	// 删除设备
-	err = dal.DeleteDevice(id, userClaims.TenantID)
+
+	tx := query.Use(global.DB).Begin()
+	// 删除遥测当前数据
+	err = dal.DeleteCurrentTelemetryDataByDeviceId(id, tx)
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
+
+	// 删除遥测历史数据
+	err = dal.DeleteTelemetrDataByDeviceId(id, tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 删除控制下发历史数据
+	err = dal.DeleteTelemetrySetLogsByDeviceId(id, tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 删除属性数据
+
+	err = dal.DeleteAttributeDataByDeviceId(id, tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 删除属性下发历史数据
+	err = dal.DeleteAttributeDataByDeviceIdTx(id, tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 删除事件历史数据
+	err = dal.DeleteEventDataByDeviceId(id, tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	// 删除事件历史数据
+	err = dal.DeleteCommandSetLogsByDeviceId(id, tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 删除设备
+	err = dal.DeleteDeviceWithTx(id, userClaims.TenantID, tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 提交事务
+	tx.Commit()
 	// 清除设备缓存
 	initialize.DelDeviceCache(id)
 	// 通知协议插件

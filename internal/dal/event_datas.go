@@ -70,3 +70,9 @@ func GetDeviceEventOneKeys(deviceId string, keys string) (string, error) {
 	}
 	return result, nil
 }
+
+// 删除命令历史数据，带事务
+func DeleteEventDataByDeviceId(deviceId string, tx *query.QueryTx) error {
+	_, err := tx.EventData.Where(query.EventData.DeviceID.Eq(deviceId)).Delete()
+	return err
+}
