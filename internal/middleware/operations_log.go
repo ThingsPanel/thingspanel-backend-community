@@ -47,10 +47,33 @@ func OperationLogs() gin.HandlerFunc {
 			c.Next()
 			cost := int64(time.Since(start) / time.Millisecond)
 
+			// 获取ip
+			var clientIP string
+
+			// 从X-Forwarded-For获取
+			forwardedIP := c.Request.Header.Get("X-Forwarded-For")
+			if forwardedIP != "" {
+				ips := strings.Split(forwardedIP, ",")
+				clientIP = strings.TrimSpace(ips[0])
+			}
+
+			// 如果没有，从X-Real-IP获取
+			if clientIP == "" {
+				clientIP = c.Request.Header.Get("X-Real-IP")
+			}
+
+			// 都没有才使用RemoteAddr
+			if clientIP == "" {
+				clientIP = c.Request.RemoteAddr
+				if i := strings.LastIndex(clientIP, ":"); i > -1 {
+					clientIP = clientIP[:i]
+				}
+			}
+
 			responseMessage := writer.body.String()
 			operationlog := &model.OperationLog{
 				ID:              uuid.New(),
-				IP:              c.ClientIP(),
+				IP:              clientIP,
 				Path:            &path,
 				UserID:          userClaims.ID,
 				Name:            &c.Request.Method,
