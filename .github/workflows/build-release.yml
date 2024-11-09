@@ -90,3 +90,4 @@ jobs:
           curl -XPOST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           -F "file=@$asset" \
           "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=$asset_name&content_type=$content_type"
+        done   
