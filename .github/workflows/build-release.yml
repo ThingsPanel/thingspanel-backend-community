@@ -97,5 +97,3 @@ jobs:
           application/gzip
           application/gzip
           application/zip
-        run: |
-          ls -lh 
