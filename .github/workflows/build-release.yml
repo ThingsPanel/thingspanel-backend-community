@@ -42,18 +42,6 @@ jobs:
           echo "No existing release found for tag ${{ github.event.inputs.tag }}"
         fi
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.event.inputs.tag || 'latest' }}
-        release_name: Release ${{ github.event.inputs.tag || 'latest' }}
-        body: Release created by GitHub Actions. Tag ${{ github.event.inputs.tag || 'latest' }}
-        draft: false
-        prerelease: false
-
     - name: Build and package for multiple platforms
       run: |
         # Define the platforms and their configurations
