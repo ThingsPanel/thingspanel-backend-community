@@ -41,6 +41,18 @@ jobs:
         else
           echo "No existing release found for tag ${{ github.event.inputs.tag }}"
         fi
+        
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+          tag_name: ${{ github.event.inputs.tag  || 'latest' }}
+          release_name: Release ${{ github.event.inputs.tag  || 'latest' }}
+          body: Release created by GitHub Actions. Tag ${{ github.event.inputs.tag  || 'latest' }}
+          draft: false
+          prerelease: false
 
     - name: Build and package for multiple platforms
       run: |
@@ -66,14 +78,15 @@ jobs:
           rm $output_file
         done
 
-    - name: Upload Release Asset
-    - run: |
-        set -x
-        assets=()
+    - name: Upload Release Assets
+      id: upload-release-assets
+      run: |
         for asset in ./thingspanel-backend-community-*; do
-          assets+=("-a" "$asset")
-        done
-        tag_name=${{ github.event.inputs.tag || 'latest' }}
-        hub release create "${assets[@]}" -m "$tag_name" "$tag_name"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          asset_name=$(basename "$asset")
+          content_type="application/zip"
+          if [[ "$asset" == *.tar.gz ]]; then
+            content_type="application/gzip"
+          fi
+          curl -XPOST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -F "file=@$asset" \
+          "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=$asset_name&content_type=$content_type"
