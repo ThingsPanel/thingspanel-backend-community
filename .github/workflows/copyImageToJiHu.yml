@@ -1,4 +1,4 @@
-name: copy-image
+name: copyImageToJiHu
 
 on:
   workflow_dispatch:
