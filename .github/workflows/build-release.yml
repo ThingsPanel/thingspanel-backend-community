@@ -27,6 +27,7 @@ jobs:
       run: |
         CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o thingspanel-backend-community-windows-x86_64.exe
         zip thingspanel-backend-community-windows-x86_64.zip thingspanel-backend-community-windows-x86_64.exe configs sql files
+        ls -lh
 
     - name: Build and package for Linux x86_64
       run: |
@@ -96,4 +97,5 @@ jobs:
           application/gzip
           application/gzip
           application/zip
-
+        run: |
+          ls -lh 
