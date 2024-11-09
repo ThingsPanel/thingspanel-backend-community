@@ -22,28 +22,7 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: 1.23
-
-    - name: Build and package for Windows x86_64
-      run: |
-        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o thingspanel-backend-community-windows-x86_64.exe
-        zip thingspanel-backend-community-windows-x86_64.zip thingspanel-backend-community-windows-x86_64.exe configs sql files
-        ls -lh
-
-    - name: Build and package for Linux x86_64
-      run: |
-        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o thingspanel-backend-community-linux-x86_64
-        tar -czvf thingspanel-backend-community-linux-x86_64.tar.gz thingspanel-backend-community-linux-x86_64 configs sql files
-
-    - name: Build and package for Linux ARM64 (AArch64)
-      run: |
-        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o thingspanel-backend-community-linux-arm64
-        tar -czvf thingspanel-backend-community-linux-arm64.tar.gz thingspanel-backend-community-linux-arm64 configs sql files
-
-    - name: Build and package for macOS
-      run: |
-        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o thingspanel-backend-community-darwin-x64
-        zip thingspanel-backend-community-darwin-x64.zip thingspanel-backend-community-darwin-x64 configs sql files
-
+    
     - name: Determine Release Tag
       id: determine-tag
       run: echo "RELEASE_TAG=$(if [ '${{ github.event_name }}' == 'push' ]; then echo 'latest'; else echo '${{ github.event.inputs.tag }}'; fi)" >> $GITHUB_ENV
@@ -69,31 +48,44 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-          tag_name: ${{ github.event.inputs.tag  || 'latest' }}
-          release_name: Release ${{ github.event.inputs.tag  || 'latest' }}
-          body: Release created by GitHub Actions. Tag ${{ github.event.inputs.tag  || 'latest' }}
-          draft: false
-          prerelease: false
+        tag_name: ${{ github.event.inputs.tag || 'latest' }}
+        release_name: Release ${{ github.event.inputs.tag || 'latest' }}
+        body: Release created by GitHub Actions. Tag ${{ github.event.inputs.tag || 'latest' }}
+        draft: false
+        prerelease: false
+
+    - name: Build and package for multiple platforms
+      run: |
+        # Define the platforms and their configurations
+        platforms=("windows/amd64" "linux/amd64" "linux/arm64" "darwin/amd64")
+        for platform in "${platforms[@]}"; do
+          IFS="/" read -r os arch <<< "$platform"
+          output_file="thingspanel-backend-community-$os-$arch"
+          zip_file="$output_file.zip"
+          tar_file="$output_file.tar.gz"
+          
+          # Build for each platform
+          CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -o $output_file
+          
+          # Package the build into an archive
+          if [ "$os" == "windows" ]; then
+            zip $zip_file $output_file configs sql files
+          else
+            tar -czvf $tar_file $output_file configs sql files
+          fi
+
+          # Clean up build artifacts
+          rm $output_file
+        done
 
     - name: Upload Release Asset
-      id: upload-release-asset
-      uses: actions/upload-release-asset@v1
+    - run: |
+        set -x
+        assets=()
+        for asset in ./thingspanel-backend-community-*; do
+          assets+=("-a" "$asset")
+        done
+        tag_name=${{ github.event.inputs.tag || 'latest' }}
+        hub release create "${assets[@]}" -m "$tag_name" "$tag_name"
       env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: |
-          ./thingspanel-backend-community-windows-x86_64.zip
-          ./thingspanel-backend-community-linux-x86_64.tar.gz
-          ./thingspanel-backend-community-linux-arm64.tar.gz
-          ./thingspanel-backend-community-darwin-x64.zip
-        asset_name: |
-          thingspanel-backend-community-windows-x86_64.zip
-          thingspanel-backend-community-linux-x86_64.tar.gz
-          thingspanel-backend-community-linux-arm64.tar.gz
-          thingspanel-backend-community-darwin-x64.zip
-        asset_content_type: |
-          application/zip
-          application/gzip
-          application/gzip
-          application/zip
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
