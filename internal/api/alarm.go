@@ -12,7 +12,7 @@ import (
 
 type AlarmApi struct{}
 
-// api/v1/alarm/config [post]
+// /api/v1/alarm/config [post]
 func (a *AlarmApi) CreateAlarmConfig(c *gin.Context) {
 	var req model.CreateAlarmConfigReq
 	if !BindAndValidate(c, &req) {

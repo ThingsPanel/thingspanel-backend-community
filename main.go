@@ -9,6 +9,7 @@ import (
 	"project/initialize"
 	"project/internal/query"
 	"project/mqtt"
+	"project/mqtt/device"
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
 	grpc_tptodb "project/third_party/grpc/tptodb_client"
@@ -32,6 +33,7 @@ func init() {
 	grpc_tptodb.GrpcTptodbInit()
 
 	mqtt.MqttInit()
+	go device.InitDeviceStatus()
 	subscribe.SubscribeInit()
 	publish.PublishInit()
 	//定时任务

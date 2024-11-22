@@ -53,7 +53,7 @@ func subscribe() {
 	}
 
 	// 订阅在线离线消息
-	SubscribeDeviceStatus()
+	//SubscribeDeviceStatus()
 
 	//网关订阅主题
 	GatewaySubscribeTopic()
@@ -251,7 +251,7 @@ func SubscribeEvent() {
 func SubscribeDeviceStatus() {
 	// 订阅设备上线离线消息
 	deviceOnlineHandler := func(c mqtt.Client, d mqtt.Message) {
-		logrus.Debug("设备已上线")
+		logrus.Debug("接收来自broker的设备在线离线通知")
 		// 处理消息
 		DeviceOnline(d.Payload(), d.Topic())
 

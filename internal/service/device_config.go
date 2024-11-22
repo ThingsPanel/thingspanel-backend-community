@@ -128,15 +128,27 @@ func (p *DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any,
 }
 
 func (p *DeviceConfig) DeleteDeviceConfig(id string) error {
-	err := dal.DeleteDeviceConfig(id)
+	// 检查是否存在关联的 device 记录
+	devices, err := dal.GetDevicesByDeviceConfigID(id)
+	if err != nil {
+		return err
+	}
+	if len(devices) > 0 {
+		return fmt.Errorf("无法删除设备配置，仍有%d个设备与其关联", len(devices))
+	}
+
+	// 删除 device config
+	err = dal.DeleteDeviceConfig(id)
 	if err != nil {
 		logrus.Error(err)
 		return err
 	}
+
 	// 清除设备配置信息缓存
 	initialize.DelDeviceConfigCache(id)
 	initialize.DelDeviceDataScriptCache(id)
-	return err
+
+	return nil
 }
 
 func (p *DeviceConfig) GetDeviceConfigByID(ctx context.Context, id string) (any, error) {
