@@ -2,8 +2,11 @@ package middleware
 
 import (
 	"bytes"
-	"io/ioutil"
+	"fmt"
+	"io"
 	"net/http"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -16,25 +19,47 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func sanitizeFilename(filename string) string {
+	// 只保留文件名,移除路径
+	filename = filepath.Base(filename)
+
+	// 只允许字母数字和基本符号
+	reg := regexp.MustCompile(`[^a-zA-Z0-9.-]`)
+	filename = reg.ReplaceAllString(filename, "_")
+
+	// 防止空文件名
+	if filename == "" {
+		return "unnamed_file"
+	}
+	return filename
+}
+
 func OperationLogs() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut || c.Request.Method == http.MethodDelete {
-			//读取body
-			body, err := ioutil.ReadAll(c.Request.Body)
+			// 读取body
+			body, err := io.ReadAll(c.Request.Body)
 			if err != nil {
 				logrus.Error(err)
 			} else {
-				c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+				c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 			}
 
 			path := c.Request.URL.Path
 			userClaims := c.MustGet("claims").(*utils.UserClaims)
 			requestMessage := string(body)
 
+			// 安全处理文件上传
 			if strings.Contains(path, "file/up") {
-				file, _ := c.FormFile("file")
-				fileType, _ := c.GetPostForm("type")
-				requestMessage = fileType + ":" + file.Filename
+				if file, err := c.FormFile("file"); err == nil {
+					fileType, _ := c.GetPostForm("type")
+					if fileType == "" {
+						fileType = "unknown"
+					}
+					// 安全处理文件名
+					filename := sanitizeFilename(file.Filename)
+					requestMessage = fmt.Sprintf("%s:%s", fileType, filename)
+				}
 			}
 
 			writer := responseBodyWriter{
@@ -42,33 +67,13 @@ func OperationLogs() gin.HandlerFunc {
 				body:           &bytes.Buffer{},
 			}
 			c.Writer = writer
+
 			start := time.Now().UTC()
-
 			c.Next()
-			cost := int64(time.Since(start) / time.Millisecond)
+			cost := time.Since(start).Milliseconds()
 
-			// 获取ip
-			var clientIP string
-
-			// 从X-Forwarded-For获取
-			forwardedIP := c.Request.Header.Get("X-Forwarded-For")
-			if forwardedIP != "" {
-				ips := strings.Split(forwardedIP, ",")
-				clientIP = strings.TrimSpace(ips[0])
-			}
-
-			// 如果没有，从X-Real-IP获取
-			if clientIP == "" {
-				clientIP = c.Request.Header.Get("X-Real-IP")
-			}
-
-			// 都没有才使用RemoteAddr
-			if clientIP == "" {
-				clientIP = c.Request.RemoteAddr
-				if i := strings.LastIndex(clientIP, ":"); i > -1 {
-					clientIP = clientIP[:i]
-				}
-			}
+			// 获取客户端IP
+			clientIP := c.ClientIP()
 
 			responseMessage := writer.body.String()
 			operationlog := &model.OperationLog{

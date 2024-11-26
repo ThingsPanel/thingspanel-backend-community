@@ -3,16 +3,28 @@ package subscribe
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	initialize "project/initialize"
 	dal "project/internal/dal"
 	"project/internal/model"
 	service "project/internal/service"
 	"project/pkg/global"
-	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 )
+
+func validateStatus(payload []byte) (int16, error) {
+	str := string(payload)
+	switch str {
+	case "0":
+		return 0, nil
+	case "1":
+		return 1, nil
+	default:
+		return 0, fmt.Errorf("状态值只能是0或1，当前值: %s", str)
+	}
+}
 
 func DeviceOnline(payload []byte, topic string) {
 	/*
@@ -22,12 +34,12 @@ func DeviceOnline(payload []byte, topic string) {
 				在线离线状态是devices表的is_online字段
 	*/
 	// 验证消息有效性
-	payloadInt, err := strconv.Atoi(string(payload))
+	status, err := validateStatus(payload)
 	if err != nil {
 		logrus.Error(err.Error())
 		return
 	}
-	status := int16(payloadInt)
+
 	deviceId := strings.Split(topic, "/")[2]
 	logrus.Debug(deviceId, " device status message:", status)
 	err = dal.UpdateDeviceStatus(deviceId, status)

@@ -357,10 +357,10 @@ func (d *Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils
 	}
 	if len(list) > 0 {
 		var deviceOnlines []model.DeviceOnline
-		for _, v := range list {
+		for i := range list {
 			deviceOnlines = append(deviceOnlines, model.DeviceOnline{
-				DeviceConfigId: &v.DeviceConfigID,
-				DeviceId:       v.ID,
+				DeviceConfigId: &list[i].DeviceConfigID,
+				DeviceId:       list[i].ID,
 			})
 		}
 		result, err := dal.GetDeviceOnline(context.Background(), deviceOnlines)

@@ -236,6 +236,10 @@ func GetProtocolPluginListByPage(p *model.GetProtocolPluginListByPageReq) (int64
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
 	count, err := queryBuilder.Count()
+	if err != nil {
+		logrus.Error(err)
+		return count, nil, err
+	}
 
 	if p.Page != 0 && p.PageSize != 0 {
 		queryBuilder = queryBuilder.Limit(p.PageSize)

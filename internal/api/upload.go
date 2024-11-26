@@ -5,9 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"mime/multipart"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,87 +19,114 @@ import (
 
 type UpLoadApi struct{}
 
+// 定义文件上传配置
+const (
+	BaseUploadDir = "./files/"
+	OtaPath       = "./api/v1/ota/download/files/"
+	MaxFileSize   = 200 << 20 // 200 MB = 200 * 1024 * 1024 bytes
+)
+
 // UpFile
 // @Tags     文件上传
-// @Summary  上传文件
-// @Description 上传文件
-// @Description type: ota升级包：upgradePackage，批量导入：importBatch，插件：d_plugin，
-// @Description 其他：随便填，会在files目录下创建对应的文件夹，文件夹名为type值
-// @Produce   application/json
-// @Param	type formData  string true "类型(ota升级包：upgradePackage，批量导入：importBatch，插件：d_plugin，其他：随便填))"
-// @Param	file formData file true "file"
-// @Success  200    {object}  ApiResponse  "上传成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求"
-// @Failure  422  {object}  ApiResponse  "文件类型验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/file/up [post]
+// UpFile 处理文件上传
 func (a *UpLoadApi) UpFile(c *gin.Context) {
-	//从请求中获取type
-	//从请求中获取file
-	file, err := c.FormFile("file")
-	fileType, e := c.GetPostForm("type")
-	if !e {
-		ErrorHandler(c, http.StatusBadRequest, errors.New("无效的请求"))
-		return
-	}
-	if fileType == "" {
-		ErrorHandler(c, http.StatusBadRequest, errors.New("无效的请求"))
-		return
-	} else {
-		//检查文件路径是否合法
-		if err := utils.CheckPath(fileType); err != nil {
-			ErrorHandler(c, http.StatusUnprocessableEntity, err)
-			return
-		}
-
-	}
-
+	// 1. 验证请求参数
+	file, fileType, err := validateRequest(c)
 	if err != nil {
 		ErrorHandler(c, http.StatusBadRequest, err)
 		return
 	}
-	if file == nil {
-		ErrorHandler(c, http.StatusBadRequest, err)
-		return
-	}
 
-	// 文件后缀校验
-
-	if !utils.ValidateFileType(file.Filename, fileType) {
-		ErrorHandler(c, http.StatusUnprocessableEntity, errors.New("文件类型验证失败"))
-		return
-	}
-	//创建目录
-	uploadDir := "./files/" + fileType + "/" + time.Now().Format("2006-01-02/")
-	//如果没有filepath文件目录就创建一个
-	if _, err := os.Stat(uploadDir); err != nil {
-		if !os.IsExist(err) {
-			os.MkdirAll(uploadDir, os.ModePerm)
-		}
-	}
-	ext := strings.ToLower(path.Ext(file.Filename))
-	//构造文件名称
-	rand.Seed(time.Now().UnixNano())
-	randNum := fmt.Sprintf("%d", rand.Intn(9999)+1000)
-	hashName := md5.Sum([]byte(time.Now().Format("2006_01_02_15_04_05_") + randNum))
-	fileName := fmt.Sprintf("%x", hashName) + ext
-	//文件名合法检查
-	err = utils.CheckFilename(fileName)
+	// 2. 生成安全的文件名和路径
+	uploadDir, fileName, err := generateFilePath(fileType, file.Filename)
 	if err != nil {
-		ErrorHandler(c, http.StatusBadRequest, err)
-		return
-	}
-	fpath := uploadDir + fileName
-	//上传文件
-	if err := c.SaveUploadedFile(file, uploadDir+fileName); err != nil {
 		ErrorHandler(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	if fileType == "upgradePackage" {
-		fpath = "./api/v1/ota/download/files/" + fileType + "/" + time.Now().Format("2006-01-02/") + fileName
+
+	// 3. 保存文件
+	filePath, err := saveFile(c, file, uploadDir, fileName, fileType)
+	if err != nil {
+		ErrorHandler(c, http.StatusUnprocessableEntity, err)
+		return
 	}
-	fpathmap := make(map[string]interface{})
-	fpathmap["path"] = fpath
-	SuccessHandler(c, "上传成功", fpathmap)
+
+	// 4. 返回结果
+	SuccessHandler(c, "上传成功", map[string]interface{}{
+		"path": filePath,
+	})
+}
+
+// validateRequest 验证上传请求
+func validateRequest(c *gin.Context) (*multipart.FileHeader, string, error) {
+
+	file, err := c.FormFile("file")
+	if err != nil || file == nil {
+		return nil, "", errors.New("文件获取失败")
+	}
+
+	// 检查文件大小
+	if file.Size > MaxFileSize {
+		return nil, "", fmt.Errorf("文件大小不能超过 200MB，当前大小 %.2fMB", float64(file.Size)/(1<<20))
+	}
+
+	fileType, exists := c.GetPostForm("type")
+	if !exists || fileType == "" {
+		return nil, "", errors.New("无效的文件类型")
+	}
+
+	// 检查文件路径和类型
+	if err := utils.CheckPath(fileType); err != nil {
+		return nil, "", err
+	}
+
+	if !utils.ValidateFileType(file.Filename, fileType) {
+		return nil, "", errors.New("文件类型验证失败")
+	}
+
+	return file, fileType, nil
+}
+
+// generateFilePath 生成安全的文件路径
+func generateFilePath(fileType, originalFilename string) (string, string, error) {
+	// 生成上传目录
+	dateDir := time.Now().Format("2006-01-02/")
+	uploadDir := filepath.Join(BaseUploadDir, fileType, dateDir)
+
+	// 确保目录存在
+	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+		return "", "", fmt.Errorf("创建目录失败: %v", err)
+	}
+
+	// 生成安全的文件名
+	ext := strings.ToLower(filepath.Ext(originalFilename))
+	randomStr := fmt.Sprintf("%d", rand.Int31n(9999)+1000)
+	timeStr := time.Now().Format("2006_01_02_15_04_05_")
+	hashName := md5.Sum([]byte(timeStr + randomStr))
+	fileName := fmt.Sprintf("%x%s", hashName, ext)
+
+	// 验证文件名
+	if err := utils.CheckFilename(fileName); err != nil {
+		return "", "", err
+	}
+
+	return uploadDir, fileName, nil
+}
+
+// saveFile 保存文件并返回路径
+func saveFile(c *gin.Context, file *multipart.FileHeader, uploadDir, fileName, fileType string) (string, error) {
+	fullPath := filepath.Join(uploadDir, fileName)
+
+	// 保存文件
+	if err := c.SaveUploadedFile(file, fullPath); err != nil {
+		return "", fmt.Errorf("保存文件失败: %v", err)
+	}
+
+	// 特殊处理升级包路径
+	if fileType == "upgradePackage" {
+		return filepath.Join(OtaPath, fileType, time.Now().Format("2006-01-02/"), fileName), nil
+	}
+
+	return fullPath, nil
 }

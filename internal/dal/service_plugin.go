@@ -11,9 +11,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// 删除服务插件
 func DeleteServicePlugin(id string) error {
 
 	tx, err := StartTransaction()
+	if err != nil {
+		Rollback(tx)
+		return err
+	}
 	serviceAccess := tx.ServiceAccess
 
 	_, err = serviceAccess.Where(serviceAccess.ServicePluginID.Eq(id)).Delete()

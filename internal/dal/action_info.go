@@ -46,15 +46,15 @@ func GetActionInfoListBySceneId(sceneIds []string) ([]model.ActionInfo, error) {
 	if err != nil {
 		return result, err
 	}
-	for _, v := range actionInfos {
+	for i := range actionInfos {
 		result = append(result, model.ActionInfo{
-			SceneAutomationID: v.SceneID,
-			ActionTarget:      &v.ActionTarget,
-			ActionType:        v.ActionType,
-			ActionParamType:   v.ActionParamType,
-			ActionParam:       v.ActionParam,
-			ActionValue:       v.ActionValue,
-			Remark:            v.Remark,
+			SceneAutomationID: actionInfos[i].SceneID,
+			ActionTarget:      &actionInfos[i].ActionTarget,
+			ActionType:        actionInfos[i].ActionType,
+			ActionParamType:   actionInfos[i].ActionParamType,
+			ActionParam:       actionInfos[i].ActionParam,
+			ActionValue:       actionInfos[i].ActionValue,
+			Remark:            actionInfos[i].Remark,
 		})
 	}
 	return result, nil
