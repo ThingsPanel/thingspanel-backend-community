@@ -1,45 +1,9 @@
 version = 1
 
-# 基础排除模式
-exclude_patterns = [
-    "vendor/**",
-    "*_test.go",
-    "test/**",
-    "docs/**",
-    "scripts/**",
-    "mock/**",
-    "tmp/**"
-]
-
-# Go语言分析器配置
 [[analyzers]]
 name = "go"
 enabled = true
 
 [analyzers.meta]
 import_root = "project"
-dependencies_vendored = false
 target_version = "1.22"
-enable = ["all"]
-disable = [
-    "exported",
-    "unnecessarynil"
-]
-
-# 代码复杂度分析器
-[[analyzers]]
-name = "code-complexity"
-enabled = true
-
-[analyzers.meta]
-threshold = "medium"
-
-# 安全漏洞分析器
-[[analyzers]]
-name = "security"
-enabled = true
-
-# gofmt代码格式化器
-[[transformers]]
-name = "gofmt"
-enabled = true
