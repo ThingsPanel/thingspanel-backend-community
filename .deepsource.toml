@@ -6,4 +6,6 @@ enabled = true
 
 [analyzers.meta]
 import_root = "project"
-severity = "very-high"
+
+[analyzers.config]
+cyclomatic_complexity_threshold = 31
