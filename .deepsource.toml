@@ -6,4 +6,3 @@ enabled = true
 
 [analyzers.meta]
 import_root = "project"
-target_version = "1.22"
