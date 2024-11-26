@@ -607,8 +607,8 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 	// 不聚合
 	if req.AggregateWindow == "no_aggregate" {
 		if req.TimeRange == "custom" {
-			if (req.EndTime - req.StartTime) > int64(time.Duration(3)*time.Hour/time.Microsecond) {
-				return nil, fmt.Errorf("time range is too long, can not use no_aggregate")
+			if (req.EndTime-req.StartTime)*1000 > int64(time.Duration(24)*time.Hour/time.Microsecond) {
+				return nil, fmt.Errorf("查询时间范围超过24小时，请缩短查询时间范围或使用聚合查询")
 			}
 		}
 		data, err := dal.GetTelemetrStatisticData(req.DeviceId, req.Key, req.StartTime, req.EndTime)
