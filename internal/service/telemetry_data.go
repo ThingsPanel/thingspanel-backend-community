@@ -620,6 +620,11 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		}
 		rspData = data
 	} else {
+		// 校验聚合参数
+		err := validateAggregateWindow(req.StartTime, req.EndTime, req.AggregateWindow)
+		if err != nil {
+			return nil, err
+		}
 
 		if req.AggregateFunction == "" {
 			req.AggregateFunction = "avg"
@@ -709,6 +714,89 @@ func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStati
 		return []map[string]interface{}{}, nil
 	}
 	return rspData, nil
+}
+
+// AggregateRule 定义聚合规则结构
+type AggregateRule struct {
+	Days         int    // 天数
+	MinInterval  string // 最小允许的聚合间隔
+	FriendlyDesc string // 友好描述
+}
+
+// validateAggregateWindow 校验聚合窗口设置
+func validateAggregateWindow(startTime, endTime int64, aggregateWindow string) error {
+	// 计算天数
+	days := int((endTime - startTime) / (24 * 60 * 60 * 1000))
+
+	// 定义规则（从大到小排序）
+	rules := []AggregateRule{
+		{365, "7d", "一年"},
+		{180, "1d", "6个月"},
+		{90, "6h", "90天"},
+		{60, "3h", "60天"},
+		{30, "1h", "30天"},
+		{15, "30m", "15天"},
+		{7, "10m", "7天"},
+		{3, "5m", "3天"},
+		{1, "2m", "1天"},
+	}
+
+	// 检查规则
+	for _, rule := range rules {
+		if days > rule.Days && !isValidInterval(aggregateWindow, rule.MinInterval) {
+			return fmt.Errorf(
+				"查询时间范围超过%s，聚合间隔不能小于%s\n\n"+
+					"当前配置:\n"+
+					"- 时间范围：%s 至 %s（%d天）\n"+
+					"- 聚合间隔：%s\n\n"+
+					"建议：\n"+
+					"1. 使用更大的聚合间隔（>= %s）\n"+
+					"2. 或缩短查询时间范围（<= %d天）",
+				rule.FriendlyDesc, rule.MinInterval,
+				formatTime(startTime), formatTime(endTime), days,
+				aggregateWindow,
+				rule.MinInterval, rule.Days,
+			)
+		}
+	}
+
+	return nil
+}
+
+// isValidInterval 检查聚合间隔是否符合最小要求
+func isValidInterval(current, minInterval string) bool {
+	// 定义间隔的排序权重
+	weights := map[string]int{
+		"30s": 1,
+		"1m":  2,
+		"2m":  3,
+		"5m":  4,
+		"10m": 5,
+		"30m": 6,
+		"1h":  7,
+		"3h":  8,
+		"6h":  9,
+		"1d":  10,
+		"7d":  11,
+		"1mo": 12,
+	}
+
+	currentWeight, exists := weights[current]
+	if !exists {
+		return false
+	}
+
+	minWeight, exists := weights[minInterval]
+	if !exists {
+		return false
+	}
+
+	return currentWeight >= minWeight
+}
+
+// formatTime 格式化时间戳为可读字符串
+func formatTime(timestamp int64) string {
+	return time.Unix(timestamp/1000, 0).Format("2006-01-02 15:04:05")
 }
 
 func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
