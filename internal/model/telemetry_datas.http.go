@@ -37,7 +37,7 @@ type SimulationTelemetryDataReq struct {
 	Command string `json:"command" form:"command" validate:"required,max=500"` // mosquitto_pub 命令
 }
 
-type GetEchoDataReq struct {
+type ServeEchoDataReq struct {
 	DeviceId string `json:"device_id" form:"device_id" validate:"required,max=36"` // 设备ID
 }
 

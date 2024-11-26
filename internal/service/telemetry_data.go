@@ -386,7 +386,7 @@ func (t *TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHist
 }
 
 // 获取模拟设备发送遥测数据的回显数据
-func (t *TelemetryData) GetEchoData(req *model.GetEchoDataReq) (interface{}, error) {
+func (t *TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{}, error) {
 	// 获取设备信息
 	deviceInfo, err := dal.GetDeviceByID(req.DeviceId)
 	if err != nil {
@@ -557,7 +557,7 @@ func (t *TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetry
 
 ```
 */
-func (t *TelemetryData) GetTelemetrGetStatisticData(req *model.GetTelemetryStatisticReq) (any, error) {
+func (t *TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStatisticReq) (any, error) {
 	if req.TimeRange == "custom" {
 		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
 			return nil, fmt.Errorf("time range is invalid")
@@ -947,7 +947,7 @@ func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.
 	}
 }
 
-func (t *TelemetryData) GetMsgCountByTenantId(tenantId string) (int64, error) {
+func (t *TelemetryData) ServeMsgCountByTenantId(tenantId string) (int64, error) {
 	cnt, err := dal.GetTelemetryDataCountByTenantId(tenantId)
 	return cnt, err
 }

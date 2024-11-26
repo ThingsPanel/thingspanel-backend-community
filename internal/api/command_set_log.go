@@ -15,7 +15,7 @@ import (
 
 type CommandSetLogApi struct{}
 
-// GetSetLogsDataListByPage 命令下发记录查询（分页）
+// ServeSetLogsDataListByPage 命令下发记录查询（分页）
 // @Tags     命令下发
 // @Summary  命令下发记录查询（分页）
 // @Description 命令下发记录查询（分页）
@@ -28,7 +28,7 @@ type CommandSetLogApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/command/datas/set/logs [get]
-func (a *CommandSetLogApi) GetSetLogsDataListByPage(c *gin.Context) {
+func (a *CommandSetLogApi) ServeSetLogsDataListByPage(c *gin.Context) {
 	var req model.GetCommandSetLogsListByPageReq
 	if !BindAndValidate(c, &req) {
 		return

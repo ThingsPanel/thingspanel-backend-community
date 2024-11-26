@@ -34,7 +34,7 @@ func DeleteUiElements(id string) error {
 	return err
 }
 
-func GetUiElementsListByPage(uielements *model.GetUiElementsListByPageReq) (int64, interface{}, error) {
+func ServeUiElementsListByPage(uielements *model.ServeUiElementsListByPageReq) (int64, interface{}, error) {
 	q := query.SysUIElement
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
@@ -63,7 +63,7 @@ func GetUiElementsListByPage(uielements *model.GetUiElementsListByPageReq) (int6
 	return count, uielementsListrsp, err
 }
 
-func GetUiElementsListByAuthority(u *utils.UserClaims) (int64, interface{}, error) {
+func ServeUiElementsListByAuthority(u *utils.UserClaims) (int64, interface{}, error) {
 	// 系统管理员和租户管理员菜单树
 	if u.Authority == "SYS_ADMIN" || u.Authority == "TENANT_ADMIN" {
 		q := query.SysUIElement

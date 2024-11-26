@@ -69,9 +69,9 @@ func (p *UiElements) DeleteUiElements(id string) error {
 	return err
 }
 
-func (p *UiElements) GetUiElementsListByPage(Params *model.GetUiElementsListByPageReq) (map[string]interface{}, error) {
+func (p *UiElements) ServeUiElementsListByPage(Params *model.ServeUiElementsListByPageReq) (map[string]interface{}, error) {
 
-	total, list, err := dal.GetUiElementsListByPage(Params)
+	total, list, err := dal.ServeUiElementsListByPage(Params)
 	if err != nil {
 		return nil, err
 	}
@@ -82,9 +82,9 @@ func (p *UiElements) GetUiElementsListByPage(Params *model.GetUiElementsListByPa
 	return UiElementsListRsp, err
 }
 
-func (p *UiElements) GetUiElementsListByAuthority(u *utils.UserClaims) (map[string]interface{}, error) {
+func (p *UiElements) ServeUiElementsListByAuthority(u *utils.UserClaims) (map[string]interface{}, error) {
 
-	total, list, err := dal.GetUiElementsListByAuthority(u)
+	total, list, err := dal.ServeUiElementsListByAuthority(u)
 	if err != nil {
 		return nil, err
 	}

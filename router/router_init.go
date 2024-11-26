@@ -45,11 +45,11 @@ func RouterInit() *gin.Engine {
 			v1.POST("reset/password", controllers.ResetPassword)
 			v1.GET("logo", controllers.GetLogoList)
 			// 设备遥测（ws）
-			v1.GET("telemetry/datas/current/ws", controllers.TelemetryDataApi.GetCurrentDataByWS)
+			v1.GET("telemetry/datas/current/ws", controllers.TelemetryDataApi.ServeCurrentDataByWS)
 			// 设备在线离线状态（ws）
-			v1.GET("device/online/status/ws", controllers.TelemetryDataApi.GetDeviceStatusByWS)
+			v1.GET("device/online/status/ws", controllers.TelemetryDataApi.ServeDeviceStatusByWS)
 			// 设备遥测keys（ws）
-			v1.GET("telemetry/datas/current/keys/ws", controllers.TelemetryDataApi.GetCurrentDataByKey)
+			v1.GET("telemetry/datas/current/keys/ws", controllers.TelemetryDataApi.ServeCurrentDataByKey)
 			v1.GET("ota/download/files/upgradePackage/:path/:file", controllers.OTAApi.DownloadOTAUpgradePackage)
 			// 获取系统时间
 			v1.GET("systime", controllers.SystemApi.GetSystime)

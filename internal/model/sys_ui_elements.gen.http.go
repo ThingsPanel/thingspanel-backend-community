@@ -71,7 +71,7 @@ type UiElementsListRsp1 struct {
 	Children    []*UiElementsListRsp1 `json:"children" form:"children"`
 }
 
-type GetUiElementsListByPageReq struct {
+type ServeUiElementsListByPageReq struct {
 	PageReq
 }
 
