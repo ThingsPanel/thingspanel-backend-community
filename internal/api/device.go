@@ -16,14 +16,6 @@ import (
 type DeviceApi struct{}
 
 // CreateDevice 创建设备
-// @Tags     设备管理
-// @Summary  创建设备
-// @Description 创建设备
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.CreateDeviceReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "字典列创建成功"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device [post]
 func (d *DeviceApi) CreateDevice(c *gin.Context) {
 	var req model.CreateDeviceReq
@@ -139,14 +131,6 @@ func (d *DeviceApi) GetDeviceByID(c *gin.Context) {
 }
 
 // GetDeviceListByPage 分页查询设备
-// @Tags     设备管理
-// @Summary  分页查询设备
-// @Description 分页查询设备
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  query      model.GetDeviceListByPageReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "字典列创建成功"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device [get]
 func (d *DeviceApi) GetDeviceListByPage(c *gin.Context) {
 	var req model.GetDeviceListByPageReq
@@ -162,18 +146,7 @@ func (d *DeviceApi) GetDeviceListByPage(c *gin.Context) {
 	SuccessHandler(c, "Get devices successfully", list)
 }
 
-// CheckDeviceNumber 编号校验
 // @Tags     设备管理
-// @Summary  编号校验
-// @Description 编号校验
-// @accept    application/json
-// @Produce   application/json
-// @Param    deviceNumber  path      string     true  "设备编号"
-// @Success  200  {object}  ApiResponse  "编号校验成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/check/{deviceNumber} [get]
 func (d *DeviceApi) CheckDeviceNumber(c *gin.Context) {
 	deviceNumber := c.Param("deviceNumber")
@@ -183,14 +156,6 @@ func (d *DeviceApi) CheckDeviceNumber(c *gin.Context) {
 }
 
 // CreateDeviceTemplate 创建设备模版
-// @Tags     设备模版管理
-// @Summary  创建设备模版
-// @Description 创建设备模版
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.CreateDeviceTemplateReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "字典列创建成功"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/template [post]
 func (d *DeviceApi) CreateDeviceTemplate(c *gin.Context) {
 	var req model.CreateDeviceTemplateReq
@@ -208,14 +173,6 @@ func (d *DeviceApi) CreateDeviceTemplate(c *gin.Context) {
 }
 
 // UpdateDeviceTemplate 更新设备模版
-// @Tags     设备模版管理
-// @Summary  更新设备模版
-// @Description 更新设备模版
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.UpdateDeviceTemplateReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "字典列创建成功"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/template [put]
 func (d *DeviceApi) UpdateDeviceTemplate(c *gin.Context) {
 	var req model.UpdateDeviceTemplateReq
@@ -233,14 +190,6 @@ func (d *DeviceApi) UpdateDeviceTemplate(c *gin.Context) {
 }
 
 // GetDeviceTemplateListByPage 分页获取设备模版
-// @Tags     设备模版管理
-// @Summary  分页获取设备模版
-// @Description 分页获取设备模版
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetDeviceTemplateListByPageReq true "见下方JSON"
-// @Success  200  {object}  GetDeviceTemplateListResponse  "获取设备模版成功"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/template [get]
 func (d *DeviceApi) GetDeviceTemplateListByPage(c *gin.Context) {
 	var req model.GetDeviceTemplateListByPageReq
@@ -280,17 +229,6 @@ func (d *DeviceApi) GetDeviceTemplateMenu(c *gin.Context) {
 }
 
 // DeleteDeviceTemplate 删除设备模版
-// @Tags     设备模版管理
-// @Summary  删除设备模版
-// @Description 删除设备模版
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "设备模版ID"
-// @Success  200  {object}  ApiResponse  "字典列创建成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/template/{id} [delete]
 func (d *DeviceApi) DeleteDeviceTemplate(c *gin.Context) {
 	id := c.Param("id")
@@ -304,17 +242,6 @@ func (d *DeviceApi) DeleteDeviceTemplate(c *gin.Context) {
 }
 
 // GetDeviceTemplate 获取设备模版详情
-// @Tags     设备模版管理
-// @Summary  获取设备模版详情
-// @Description 获取设备模版详情
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "设备模版ID"
-// @Success  200  {object}  GetDeviceTemplateResponse  "获取设备模版详情成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/template/detail/{id} [get]
 func (d *DeviceApi) GetDeviceTemplateById(c *gin.Context) {
 	id := c.Param("id")
@@ -348,17 +275,6 @@ func (d *DeviceApi) GetDeviceTemplateByDeviceId(c *gin.Context) {
 }
 
 // CreateDeviceGroup 创建设备分组
-// @Tags     设备分组管理
-// @Summary  创建设备分组
-// @Description 创建设备分组
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.CreateDeviceGroupReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "分组创建成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/group [post]
 func (d *DeviceApi) CreateDeviceGroup(c *gin.Context) {
 	var req model.CreateDeviceGroupReq
@@ -376,17 +292,6 @@ func (d *DeviceApi) CreateDeviceGroup(c *gin.Context) {
 }
 
 // DeleteDeviceGroup 删除设备分组
-// @Tags     设备分组管理
-// @Summary  删除设备分组
-// @Description 删除设备分组
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "设备模版ID"
-// @Success  200  {object}  ApiResponse  "设备分组删除成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/group/{id} [delete]
 func (d *DeviceApi) DeleteDeviceGroup(c *gin.Context) {
 	id := c.Param("id")
@@ -399,17 +304,6 @@ func (d *DeviceApi) DeleteDeviceGroup(c *gin.Context) {
 }
 
 // UpdateDeviceGroup 修改设备分组
-// @Tags     设备分组管理
-// @Summary  修改设备分组
-// @Description 创建设备分组
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.UpdateDeviceGroupReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "分组修改成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/group [put]
 func (d *DeviceApi) UpdateDeviceGroup(c *gin.Context) {
 	var req model.UpdateDeviceGroupReq
@@ -426,14 +320,6 @@ func (d *DeviceApi) UpdateDeviceGroup(c *gin.Context) {
 }
 
 // GetDeviceGroupByPage 分页获取设备分组
-// @Tags     设备分组管理
-// @Summary  分页获取设备分组
-// @Description 分页获取设备分组
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.GetDeviceGroupsListByPageReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "分组获取成功"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/group [get]
 func (d *DeviceApi) GetDeviceGroupByPage(c *gin.Context) {
 	var req model.GetDeviceGroupsListByPageReq
@@ -450,13 +336,6 @@ func (d *DeviceApi) GetDeviceGroupByPage(c *gin.Context) {
 }
 
 // GetDeviceGroupByTree 获取设备分组树
-// @Tags     设备分组管理
-// @Summary  获取设备分组树
-// @Description 获取设备分组树
-// @accept    application/json
-// @Produce   application/json
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/group/tree [get]
 func (d *DeviceApi) GetDeviceGroupByTree(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
@@ -469,17 +348,6 @@ func (d *DeviceApi) GetDeviceGroupByTree(c *gin.Context) {
 }
 
 // GetDeviceGroupByDetail 获取设备分组详情
-// @Tags     设备分组管理
-// @Summary  获取设备分组详情
-// @Description 获取设备分组详情
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "设备分组ID"
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/group/detail/{id} [get]
 func (d *DeviceApi) GetDeviceGroupByDetail(c *gin.Context) {
 	id := c.Param("id")
@@ -492,17 +360,6 @@ func (d *DeviceApi) GetDeviceGroupByDetail(c *gin.Context) {
 }
 
 // CreateDeviceGroupRelation 创建设备分组关系
-// @Tags     设备分组关系管理
-// @Summary  创建设备分组关系
-// @Description 创建设备分组关系
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.CreateDeviceGroupRelationReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "分组创建成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/group/relation [post]
 func (d *DeviceApi) CreateDeviceGroupRelation(c *gin.Context) {
 	var req model.CreateDeviceGroupRelationReq
@@ -520,17 +377,6 @@ func (d *DeviceApi) CreateDeviceGroupRelation(c *gin.Context) {
 }
 
 // DeleteDeviceGroupRelation 删除设备分组关系
-// @Tags     设备分组关系管理
-// @Summary  删除设备分组关系
-// @Description 删除设备分组关系
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.DeleteDeviceGroupRelationReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "删除分组成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/group/relation [delete]
 func (d *DeviceApi) DeleteDeviceGroupRelation(c *gin.Context) {
 	var req model.DeleteDeviceGroupRelationReq
@@ -546,17 +392,6 @@ func (d *DeviceApi) DeleteDeviceGroupRelation(c *gin.Context) {
 }
 
 // GetDeviceGroupRelation 获取设备分组关系
-// @Tags     设备分组管理
-// @Summary  获取设备分组关系
-// @Description 获取设备分组关系
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "设备分组ID"
-// @Success  200  {object}  ApiResponse  "设备分组删除成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/group/relation/list [get]
 func (d *DeviceApi) GetDeviceGroupRelation(c *gin.Context) {
 	var req model.GetDeviceListByGroup
@@ -572,14 +407,6 @@ func (d *DeviceApi) GetDeviceGroupRelation(c *gin.Context) {
 }
 
 // GetDeviceGroupListByDeviceId 获取设备所属分组列表
-// @Tags     设备分组管理
-// @Summary  获取设备所属分组列表
-// @Description 获取设备所属分组列表
-// @accept    application/json
-// @Produce   application/json
-// @Param    device_id  path      string     true  "设备ID"
-// @Success  200  {object}  ApiResponse  "success"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/group/relation [get]
 func (d *DeviceApi) GetDeviceGroupListByDeviceId(c *gin.Context) {
 	var req model.GetDeviceGroupListByDeviceIdReq

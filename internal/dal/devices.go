@@ -178,12 +178,15 @@ func RemoveSubDevice(deviceId string, tenant_id string) error {
 	return err
 }
 
+// 获取设备列表，分页
 func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (int64, []model.GetDeviceListByPageRsp, error) {
 	q := query.Device
 	c := query.DeviceConfig
 	var count int64
 	var deviceList = []model.GetDeviceListByPageRsp{}
 	queryBuilder := q.WithContext(context.Background())
+
+	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
 
 	if req.GroupId != nil && *req.GroupId != "" {
 		// 查询所有的组id
@@ -200,7 +203,6 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		ids = append(ids, *req.GroupId)
 		queryBuilder = queryBuilder.Where(q.ID.In(ids...))
 	}
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
 
 	queryBuilder = queryBuilder.Where(q.ActivateFlag.Eq("active"))
 
@@ -241,8 +243,12 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 
 	if req.Search != nil && *req.Search != "" {
 		queryBuilder = queryBuilder.
-			Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Search))).
-			Or(q.DeviceNumber.Like(fmt.Sprintf("%%%s%%", *req.Search)))
+			Where(query.Device.Where(
+				q.Name.Like(fmt.Sprintf("%%%s%%", *req.Search)),
+			).Or(
+				q.DeviceNumber.Like(fmt.Sprintf("%%%s%%", *req.Search)),
+			),
+			)
 	}
 
 	// 模糊
