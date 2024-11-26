@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -18,21 +17,6 @@ import (
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 )
-
-func sanitizeFilename(filename string) string {
-	// 只保留文件名,移除路径
-	filename = filepath.Base(filename)
-
-	// 只允许字母数字和基本符号
-	reg := regexp.MustCompile(`[^a-zA-Z0-9.-]`)
-	filename = reg.ReplaceAllString(filename, "_")
-
-	// 防止空文件名
-	if filename == "" {
-		return "unnamed_file"
-	}
-	return filename
-}
 
 func OperationLogs() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -56,8 +40,16 @@ func OperationLogs() gin.HandlerFunc {
 					if fileType == "" {
 						fileType = "unknown"
 					}
+
+					// 验证文件扩展名
+					allowedExts := []string{"jpg", "jpeg", "png", "pdf", "doc", "docx"} // 根据需求配置
+					if !utils.ValidateFileExtension(file.Filename, allowedExts) {
+						c.JSON(http.StatusBadRequest, gin.H{"error": "不允许的文件类型"})
+						return
+					}
+
 					// 安全处理文件名
-					filename := sanitizeFilename(file.Filename)
+					filename := utils.SanitizeFilename(filepath.Base(file.Filename))
 					requestMessage = fmt.Sprintf("%s:%s", fileType, filename)
 				}
 			}

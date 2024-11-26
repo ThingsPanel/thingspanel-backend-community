@@ -38,8 +38,10 @@ func (a *UpLoadApi) UpFile(c *gin.Context) {
 		return
 	}
 
+	filename := filepath.Base(file.Filename)
+
 	// 2. 生成安全的文件名和路径
-	uploadDir, fileName, err := generateFilePath(fileType, file.Filename)
+	uploadDir, fileName, err := generateFilePath(fileType, filename)
 	if err != nil {
 		ErrorHandler(c, http.StatusUnprocessableEntity, err)
 		return

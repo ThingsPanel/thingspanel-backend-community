@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -101,4 +103,84 @@ func ValidateFileType(filename, fileType string) bool {
 	default:
 		return allowExtMap[ext]
 	}
+}
+
+// ValidateFileExtension 验证文件扩展名是否在允许列表中
+func ValidateFileExtension(filename string, allowedExts []string) bool {
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext == "" {
+		return false
+	}
+
+	// 移除扩展名开头的点
+	ext = strings.TrimPrefix(ext, ".")
+
+	for _, allowedExt := range allowedExts {
+		if strings.ToLower(allowedExt) == ext {
+			return true
+		}
+	}
+
+	return false
+}
+
+// sanitizeFilename 清理文件名中的不安全字符
+func SanitizeFilename(filename string) string {
+	// 1. 只获取基本文件名，去除任何路径
+	filename = filepath.Base(filename)
+
+	// 2. 分离文件名和扩展名
+	ext := filepath.Ext(filename)
+	nameWithoutExt := strings.TrimSuffix(filename, ext)
+
+	// 3. 移除或替换危险字符
+	// 创建一个只允许字母、数字、下划线、连字符和点的正则表达式
+	reg := regexp.MustCompile(`[^\w\-\.]`)
+	nameWithoutExt = reg.ReplaceAllString(nameWithoutExt, "_")
+
+	// 4. 处理特殊文件名
+	nameWithoutExt = handleSpecialFilenames(nameWithoutExt)
+
+	// 5. 限制文件名长度（不包括扩展名）
+	if len(nameWithoutExt) > 200 {
+		nameWithoutExt = nameWithoutExt[:200]
+	}
+
+	// 6. 确保文件名不以点开头（防止隐藏文件）
+	if strings.HasPrefix(nameWithoutExt, ".") {
+		nameWithoutExt = "_" + nameWithoutExt
+	}
+
+	// 7. 过滤扩展名中的危险字符
+	ext = reg.ReplaceAllString(ext, "_")
+
+	// 8. 重组文件名
+	sanitizedName := nameWithoutExt + strings.ToLower(ext)
+
+	// 9. 确保生成的文件名不为空
+	if sanitizedName == "" {
+		return "unnamed_file"
+	}
+
+	return sanitizedName
+}
+
+// handleSpecialFilenames 处理特殊的文件名
+func handleSpecialFilenames(filename string) string {
+	// 转换为小写进行比较
+	lowerName := strings.ToLower(filename)
+
+	// 特殊文件名列表
+	specialNames := map[string]bool{
+		"con": true, "prn": true, "aux": true, "nul": true,
+		"com1": true, "com2": true, "com3": true, "com4": true,
+		"lpt1": true, "lpt2": true, "lpt3": true, "lpt4": true,
+	}
+
+	// 如果是特殊文件名，添加前缀
+	if specialNames[lowerName] {
+		return "_" + filename
+	}
+
+	return filename
 }
