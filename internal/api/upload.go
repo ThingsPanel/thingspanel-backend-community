@@ -68,6 +68,7 @@ func validateRequest(c *gin.Context) (*multipart.FileHeader, string, error) {
 		return nil, "", errors.New("文件获取失败")
 	}
 
+	filename := filepath.Base(file.Filename)
 	// 检查文件大小
 	if file.Size > MaxFileSize {
 		return nil, "", fmt.Errorf("文件大小不能超过 200MB，当前大小 %.2fMB", float64(file.Size)/(1<<20))
@@ -83,7 +84,7 @@ func validateRequest(c *gin.Context) (*multipart.FileHeader, string, error) {
 		return nil, "", err
 	}
 
-	if !utils.ValidateFileType(file.Filename, fileType) {
+	if !utils.ValidateFileType(filename, fileType) {
 		return nil, "", errors.New("文件类型验证失败")
 	}
 

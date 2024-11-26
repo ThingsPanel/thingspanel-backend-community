@@ -41,15 +41,16 @@ func OperationLogs() gin.HandlerFunc {
 						fileType = "unknown"
 					}
 
+					filename := filepath.Base(file.Filename)
+					// 安全处理文件名
+					filename = utils.SanitizeFilename(filename)
 					// 验证文件扩展名
 					allowedExts := []string{"jpg", "jpeg", "png", "pdf", "doc", "docx"} // 根据需求配置
-					if !utils.ValidateFileExtension(file.Filename, allowedExts) {
+					if !utils.ValidateFileExtension(filename, allowedExts) {
 						c.JSON(http.StatusBadRequest, gin.H{"error": "不允许的文件类型"})
 						return
 					}
 
-					// 安全处理文件名
-					filename := utils.SanitizeFilename(filepath.Base(file.Filename))
 					requestMessage = fmt.Sprintf("%s:%s", fileType, filename)
 				}
 			}
