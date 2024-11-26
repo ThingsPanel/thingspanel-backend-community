@@ -26,7 +26,7 @@ type UsersService struct {
 // @AUTHOR:zxq
 // @DATE: 2024-03-04 11:04
 // @DESCRIPTIONS: 租户数:租户总数&昨日新增&本月新增&月历史数据
-func (u *UsersService) GetTenant(ctx context.Context) (model.GetTenantRes, error) {
+func (*UsersService) GetTenant(ctx context.Context) (model.GetTenantRes, error) {
 	var (
 		list []*model.GetBoardUserListMonth
 		data model.GetTenantRes
@@ -70,7 +70,7 @@ func (u *UsersService) GetTenant(ctx context.Context) (model.GetTenantRes, error
 // @AUTHOR:zxq
 // @DATE: 2024-03-04 11:04
 // @DESCRIPTIONS: 租户用户下数据
-func (u *UsersService) GetTenantUserInfo(ctx context.Context, email string) (model.GetTenantRes, error) {
+func (*UsersService) GetTenantUserInfo(ctx context.Context, email string) (model.GetTenantRes, error) {
 	var (
 		err                     error
 		total, yesterday, month int64
@@ -116,7 +116,7 @@ func (u *UsersService) GetTenantUserInfo(ctx context.Context, email string) (mod
 // @AUTHOR:zxq
 // @DATE: 2024-03-04 11:04
 // @DESCRIPTIONS: 租户个人信息
-func (u *UsersService) GetTenantInfo(ctx context.Context, email string) (*model.UsersRes, error) {
+func (*UsersService) GetTenantInfo(ctx context.Context, email string) (*model.UsersRes, error) {
 	var (
 		info *model.UsersRes
 
@@ -138,7 +138,7 @@ func (u *UsersService) GetTenantInfo(ctx context.Context, email string) (*model.
 // @AUTHOR:zxq
 // @DATE: 2024-03-04 11:04
 // @DESCRIPTIONS: 更新租户个人信息
-func (u *UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.UserClaims, param *model.UsersUpdateReq) error {
+func (*UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.UserClaims, param *model.UsersUpdateReq) error {
 	var (
 		db   = dal.UserQuery{}
 		user = query.User
@@ -174,7 +174,7 @@ func (u *UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.Use
 // @AUTHOR:zxq
 // @DATE: 2024-03-05 13:04
 // @DESCRIPTIONS: 更新租户个人密码
-func (u *UsersService) UpdateTenantInfoPassword(ctx context.Context, userInfo *utils.UserClaims, param *model.UsersUpdatePasswordReq) error {
+func (*UsersService) UpdateTenantInfoPassword(ctx context.Context, userInfo *utils.UserClaims, param *model.UsersUpdatePasswordReq) error {
 	// test@test.cn不允许修改密码
 	if userInfo.Email == "test@test.cn" {
 		return errors.New("该用户不允许修改密码")

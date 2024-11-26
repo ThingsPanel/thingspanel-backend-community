@@ -241,7 +241,7 @@ func (p *DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string
 
 // 获取自动化一类设备Action下拉菜单；
 // 包含遥测、属性、命令
-func (d *DeviceConfig) GetActionByDeviceConfigID(deviceConfigID string) (any, error) {
+func (*DeviceConfig) GetActionByDeviceConfigID(deviceConfigID string) (any, error) {
 	/*返回数据结构
 	{
 		"data_source_type": "telemetry",
@@ -351,7 +351,7 @@ func (d *DeviceConfig) GetActionByDeviceConfigID(deviceConfigID string) (any, er
 
 // 获取自动化一类设备Condition下拉菜单；
 // 包含遥测、属性、事件
-func (d *DeviceConfig) GetConditionByDeviceConfigID(deviceConfigID string) (any, error) {
+func (*DeviceConfig) GetConditionByDeviceConfigID(deviceConfigID string) (any, error) {
 	/*返回数据结构
 	{
 		"data_source_type": "telemetry",

@@ -23,7 +23,7 @@ type UserApi struct{}
 // @Failure  422  {object}  ApiResponse  "数据验证失败"
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Router   /api/v1/login [post]
-func (a *UserApi) Login(c *gin.Context) {
+func (*UserApi) Login(c *gin.Context) {
 	var loginReq model.LoginReq
 	if !BindAndValidate(c, &loginReq) {
 		return
@@ -52,7 +52,7 @@ func (a *UserApi) Login(c *gin.Context) {
 }
 
 // GET /api/v1/user/logout
-func (a *UserApi) Logout(c *gin.Context) {
+func (*UserApi) Logout(c *gin.Context) {
 	token := c.GetHeader("x-token")
 	err := service.GroupApp.User.Logout(token)
 	if err != nil {
@@ -63,7 +63,7 @@ func (a *UserApi) Logout(c *gin.Context) {
 }
 
 // GET /api/v1/user/refresh
-func (a *UserApi) RefreshToken(c *gin.Context) {
+func (*UserApi) RefreshToken(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	loginRsp, err := service.GroupApp.User.RefreshToken(userClaims)
 	if err != nil {
@@ -74,7 +74,7 @@ func (a *UserApi) RefreshToken(c *gin.Context) {
 }
 
 // GET /api/v1/verification/code
-func (a *UserApi) GetVerificationCode(c *gin.Context) {
+func (*UserApi) GetVerificationCode(c *gin.Context) {
 	email := c.Query("email")
 	isRegister := c.Query("is_register")
 	err := service.GroupApp.User.GetVerificationCode(email, isRegister)
@@ -86,7 +86,7 @@ func (a *UserApi) GetVerificationCode(c *gin.Context) {
 }
 
 // POST /api/v1/reset/password
-func (a *UserApi) ResetPassword(c *gin.Context) {
+func (*UserApi) ResetPassword(c *gin.Context) {
 	var resetPasswordReq model.ResetPasswordReq
 	if !BindAndValidate(c, &resetPasswordReq) {
 		return
@@ -113,7 +113,7 @@ func (a *UserApi) ResetPassword(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/user [post]
-func (a *UserApi) CreateUser(c *gin.Context) {
+func (*UserApi) CreateUser(c *gin.Context) {
 	var createUserReq model.CreateUserReq
 
 	if !BindAndValidate(c, &createUserReq) {
@@ -144,7 +144,7 @@ func (a *UserApi) CreateUser(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/user [get]
-func (a *UserApi) GetUserListByPage(c *gin.Context) {
+func (*UserApi) GetUserListByPage(c *gin.Context) {
 	var userListReq model.UserListReq
 
 	if !BindAndValidate(c, &userListReq) {
@@ -175,7 +175,7 @@ func (a *UserApi) GetUserListByPage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/user [put]
-func (a *UserApi) UpdateUser(c *gin.Context) {
+func (*UserApi) UpdateUser(c *gin.Context) {
 	var updateUserReq model.UpdateUserReq
 
 	if !BindAndValidate(c, &updateUserReq) {
@@ -206,7 +206,7 @@ func (a *UserApi) UpdateUser(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/user/{id} [delete]
-func (a *UserApi) DeleteUser(c *gin.Context) {
+func (*UserApi) DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
@@ -233,7 +233,7 @@ func (a *UserApi) DeleteUser(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/user/{id} [get]
-func (a *UserApi) GetUser(c *gin.Context) {
+func (*UserApi) GetUser(c *gin.Context) {
 	id := c.Param("id")
 
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
@@ -259,7 +259,7 @@ func (a *UserApi) GetUser(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/user/detail [get]
-func (a *UserApi) GetUserDetail(c *gin.Context) {
+func (*UserApi) GetUserDetail(c *gin.Context) {
 
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 
@@ -285,7 +285,7 @@ func (a *UserApi) GetUserDetail(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/user/update [put]
-func (a *UserApi) UpdateUsers(c *gin.Context) {
+func (*UserApi) UpdateUsers(c *gin.Context) {
 	var updateUserInfoReq model.UpdateUserInfoReq
 
 	if !BindAndValidate(c, &updateUserInfoReq) {
@@ -304,7 +304,7 @@ func (a *UserApi) UpdateUsers(c *gin.Context) {
 }
 
 // /api/v1/user/transform
-func (a *UserApi) TransformUser(c *gin.Context) {
+func (*UserApi) TransformUser(c *gin.Context) {
 	var transformUserReq model.TransformUserReq
 
 	if !BindAndValidate(c, &transformUserReq) {
@@ -324,7 +324,7 @@ func (a *UserApi) TransformUser(c *gin.Context) {
 
 // EmailRegister /api/v1/tenant/email/register POST
 // @description 租户邮箱注册
-func (a *UserApi) EmailRegister(c *gin.Context) {
+func (*UserApi) EmailRegister(c *gin.Context) {
 	var req model.EmailRegisterReq
 	if !BindAndValidate(c, &req) {
 		return

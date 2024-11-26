@@ -13,7 +13,7 @@ import (
 
 type UiElements struct{}
 
-func (p *UiElements) CreateUiElements(CreateUiElementsReq *model.CreateUiElementsReq) error {
+func (*UiElements) CreateUiElements(CreateUiElementsReq *model.CreateUiElementsReq) error {
 
 	var UiElements = model.SysUIElement{}
 
@@ -41,7 +41,7 @@ func (p *UiElements) CreateUiElements(CreateUiElementsReq *model.CreateUiElement
 	return err
 }
 
-func (p *UiElements) UpdateUiElements(UpdateUiElementsReq *model.UpdateUiElementsReq) error {
+func (*UiElements) UpdateUiElements(UpdateUiElementsReq *model.UpdateUiElementsReq) error {
 	var UiElements = model.SysUIElement{}
 	UiElements.ID = UpdateUiElementsReq.Id
 	UiElements.ParentID = *UpdateUiElementsReq.ParentID
@@ -64,12 +64,12 @@ func (p *UiElements) UpdateUiElements(UpdateUiElementsReq *model.UpdateUiElement
 	return err
 }
 
-func (p *UiElements) DeleteUiElements(id string) error {
+func (*UiElements) DeleteUiElements(id string) error {
 	err := dal.DeleteUiElements(id)
 	return err
 }
 
-func (p *UiElements) ServeUiElementsListByPage(Params *model.ServeUiElementsListByPageReq) (map[string]interface{}, error) {
+func (*UiElements) ServeUiElementsListByPage(Params *model.ServeUiElementsListByPageReq) (map[string]interface{}, error) {
 
 	total, list, err := dal.ServeUiElementsListByPage(Params)
 	if err != nil {
@@ -82,7 +82,7 @@ func (p *UiElements) ServeUiElementsListByPage(Params *model.ServeUiElementsList
 	return UiElementsListRsp, err
 }
 
-func (p *UiElements) ServeUiElementsListByAuthority(u *utils.UserClaims) (map[string]interface{}, error) {
+func (*UiElements) ServeUiElementsListByAuthority(u *utils.UserClaims) (map[string]interface{}, error) {
 
 	total, list, err := dal.ServeUiElementsListByAuthority(u)
 	if err != nil {
@@ -96,7 +96,7 @@ func (p *UiElements) ServeUiElementsListByAuthority(u *utils.UserClaims) (map[st
 }
 
 // 获取租户下权限配置表单树
-func (p *UiElements) GetTenantUiElementsList() (map[string]interface{}, error) {
+func (*UiElements) GetTenantUiElementsList() (map[string]interface{}, error) {
 
 	list, err := dal.GetTenantUiElementsList()
 	if err != nil {

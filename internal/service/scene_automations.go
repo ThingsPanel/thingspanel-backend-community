@@ -186,7 +186,7 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 }
 
 // AutomateCacheSet 保存自动化缓存信息
-func (s *SceneAutomation) AutomateCacheSet(scene_automation_id string) error {
+func (*SceneAutomation) AutomateCacheSet(scene_automation_id string) error {
 	logrus.Info("开始保存自动化缓存信息")
 	groupInfoPtrs, err := dal.GetDeviceTriggerCondition(scene_automation_id)
 	if err != nil {
@@ -211,11 +211,11 @@ func (s *SceneAutomation) AutomateCacheSet(scene_automation_id string) error {
 	return initialize.NewAutomateCache().SetCacheBySceneAutomationId(scene_automation_id, groupInfos, actionInfos)
 }
 
-func (s *SceneAutomation) DeleteSceneAutomation(scene_automation_id string) error {
+func (*SceneAutomation) DeleteSceneAutomation(scene_automation_id string) error {
 	return dal.DeleteSceneAutomation(scene_automation_id, nil)
 }
 
-func (s *SceneAutomation) GetSceneAutomation(scene_automation_id string) (interface{}, error) {
+func (*SceneAutomation) GetSceneAutomation(scene_automation_id string) (interface{}, error) {
 	sceneAutomation, err := dal.GetSceneAutomation(scene_automation_id, nil)
 	if err != nil {
 		return nil, err
@@ -329,7 +329,7 @@ func (s *SceneAutomation) GetSceneAutomation(scene_automation_id string) (interf
 	return res, err
 }
 
-func (s *SceneAutomation) SwitchSceneAutomation(scene_automation_id, target string) error {
+func (*SceneAutomation) SwitchSceneAutomation(scene_automation_id, target string) error {
 
 	// 开启事物
 	tx, err := dal.StartTransaction()
@@ -395,7 +395,7 @@ func (s *SceneAutomation) SwitchSceneAutomation(scene_automation_id, target stri
 	return nil
 }
 
-func (s *SceneAutomation) GetSceneAutomationByPageReq(req *model.GetSceneAutomationByPageReq, u *utils.UserClaims) (interface{}, error) {
+func (*SceneAutomation) GetSceneAutomationByPageReq(req *model.GetSceneAutomationByPageReq, u *utils.UserClaims) (interface{}, error) {
 	total, sceneInfo, err := dal.GetSceneAutomationByPage(req, u.TenantID)
 	if err != nil {
 		return nil, err
@@ -406,7 +406,7 @@ func (s *SceneAutomation) GetSceneAutomationByPageReq(req *model.GetSceneAutomat
 	return sceneListMap, nil
 }
 
-func (s *SceneAutomation) GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlarmByPageReq, u *utils.UserClaims) (interface{}, error) {
+func (*SceneAutomation) GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlarmByPageReq, u *utils.UserClaims) (interface{}, error) {
 	total, sceneInfo, err := dal.GetSceneAutomationWithAlarmByPageReq(req, u.TenantID)
 	if err != nil {
 		return nil, err
@@ -417,7 +417,7 @@ func (s *SceneAutomation) GetSceneAutomationWithAlarmByPageReq(req *model.GetSce
 	return sceneListMap, nil
 }
 
-func (s *SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationReq, u *utils.UserClaims) (string, error) {
+func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationReq, u *utils.UserClaims) (string, error) {
 
 	var scene_automation_id string
 

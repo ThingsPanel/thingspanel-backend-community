@@ -18,7 +18,7 @@ type TreeNode struct {
 	Children []*TreeNode  `json:"children,omitempty"`
 }
 
-func (d *DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *utils.UserClaims) error {
+func (*DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *utils.UserClaims) error {
 
 	var deviceGroup = model.Group{}
 	t := time.Now().UTC()
@@ -64,11 +64,11 @@ func (d *DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *
 	return dal.CreateDeviceGroup(&deviceGroup)
 }
 
-func (d *DeviceGroup) DeleteDeviceGroup(id string) error {
+func (*DeviceGroup) DeleteDeviceGroup(id string) error {
 	return dal.DeleteDeviceGroup(id)
 }
 
-func (d *DeviceGroup) UpdateDeviceGroup(req model.UpdateDeviceGroupReq, claims *utils.UserClaims) error {
+func (*DeviceGroup) UpdateDeviceGroup(req model.UpdateDeviceGroupReq, claims *utils.UserClaims) error {
 	// 验证分组是否冲突
 	if req.Id == req.ParentId {
 		return fmt.Errorf("原分组不得与目标分组相同")
@@ -87,7 +87,7 @@ func (d *DeviceGroup) UpdateDeviceGroup(req model.UpdateDeviceGroupReq, claims *
 	return dal.UpdateDeviceGroup(&deviceGroup)
 }
 
-func (d *DeviceGroup) GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+func (*DeviceGroup) GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
 	total, list, err := dal.GetDeviceGroupListByPage(req, userClaims.TenantID)
 	if err != nil {
 		return nil, err
@@ -100,7 +100,7 @@ func (d *DeviceGroup) GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPa
 
 }
 
-func (d *DeviceGroup) GetDeviceGroupByTree(userClaims *utils.UserClaims) (interface{}, error) {
+func (*DeviceGroup) GetDeviceGroupByTree(userClaims *utils.UserClaims) (interface{}, error) {
 	data, err := dal.GetDeviceGroupAll(userClaims.TenantID)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (d *DeviceGroup) GetDeviceGroupByTree(userClaims *utils.UserClaims) (interf
 	return rootNodes, nil
 }
 
-func (d *DeviceGroup) GetDeviceGroupDetail(id string) (interface{}, error) {
+func (*DeviceGroup) GetDeviceGroupDetail(id string) (interface{}, error) {
 
 	dataMap := make(map[string]interface{})
 
@@ -150,7 +150,7 @@ func (d *DeviceGroup) GetDeviceGroupDetail(id string) (interface{}, error) {
 	return dataMap, nil
 }
 
-func (d *DeviceGroup) CreateDeviceGroupRelation(req model.CreateDeviceGroupRelationReq, claims *utils.UserClaims) error {
+func (*DeviceGroup) CreateDeviceGroupRelation(req model.CreateDeviceGroupRelationReq, claims *utils.UserClaims) error {
 	var dataList = []*model.RGroupDevice{}
 	for _, v := range req.DeviceIDList {
 		var deviceGroupRelation = model.RGroupDevice{}
@@ -163,12 +163,12 @@ func (d *DeviceGroup) CreateDeviceGroupRelation(req model.CreateDeviceGroupRelat
 	return dal.BatchCreateRGroupDevice(dataList)
 }
 
-func (d *DeviceGroup) DeleteDeviceGroupRelation(group_id, device_id string) error {
+func (*DeviceGroup) DeleteDeviceGroupRelation(group_id, device_id string) error {
 	err := dal.DeleteRGroupDevice(group_id, device_id)
 	return err
 }
 
-func (d *DeviceGroup) GetDeviceGroupRelation(req model.GetDeviceListByGroup) (interface{}, error) {
+func (*DeviceGroup) GetDeviceGroupRelation(req model.GetDeviceListByGroup) (interface{}, error) {
 	total, list, err := dal.GetRGroupDeviceByGroupId(req)
 	if err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (d *DeviceGroup) GetDeviceGroupRelation(req model.GetDeviceListByGroup) (in
 	return devicesList, err
 }
 
-func (d *DeviceGroup) GetDeviceGroupByDeviceId(device_id string) (interface{}, error) {
+func (*DeviceGroup) GetDeviceGroupByDeviceId(device_id string) (interface{}, error) {
 	var rspData = []map[string]interface{}{}
 	data, err := dal.GetRGroupDeviceByDeviceId(device_id)
 	//分组名称处理成xxx/xxx/xxx

@@ -9,7 +9,7 @@ import (
 type UiElements struct {
 }
 
-func (p *UiElements) Init(Router *gin.RouterGroup) {
+func (*UiElements) Init(Router *gin.RouterGroup) {
 	url := Router.Group("ui_elements")
 	{
 		// 增

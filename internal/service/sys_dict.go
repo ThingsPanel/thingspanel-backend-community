@@ -14,7 +14,7 @@ import (
 
 type Dict struct{}
 
-func (d *Dict) CreateDictColumn(createDictReq *model.CreateDictReq, claims *utils.UserClaims) error {
+func (*Dict) CreateDictColumn(createDictReq *model.CreateDictReq, claims *utils.UserClaims) error {
 	if claims.Authority != dal.SYS_ADMIN {
 		return fmt.Errorf("wrong user authority")
 	}
@@ -34,7 +34,7 @@ func (d *Dict) CreateDictColumn(createDictReq *model.CreateDictReq, claims *util
 	return err
 }
 
-func (d *Dict) CreateDictLanguage(createDictLanguage *model.CreateDictLanguageReq, claims *utils.UserClaims) error {
+func (*Dict) CreateDictLanguage(createDictLanguage *model.CreateDictLanguageReq, claims *utils.UserClaims) error {
 	if claims.Authority != dal.SYS_ADMIN {
 		return fmt.Errorf("wrong user authority")
 	}
@@ -60,7 +60,7 @@ func (d *Dict) CreateDictLanguage(createDictLanguage *model.CreateDictLanguageRe
 	return err
 }
 
-func (d *Dict) DeleteDict(id string, claims *utils.UserClaims) error {
+func (*Dict) DeleteDict(id string, claims *utils.UserClaims) error {
 	if claims.Authority != dal.SYS_ADMIN {
 		return fmt.Errorf("wrong user authority")
 	}
@@ -71,7 +71,7 @@ func (d *Dict) DeleteDict(id string, claims *utils.UserClaims) error {
 	return err
 }
 
-func (d *Dict) DeleteDictLanguage(id string, claims *utils.UserClaims) error {
+func (*Dict) DeleteDictLanguage(id string, claims *utils.UserClaims) error {
 	if claims.Authority != dal.SYS_ADMIN {
 		return fmt.Errorf("wrong user authority")
 	}
@@ -83,7 +83,7 @@ func (d *Dict) DeleteDictLanguage(id string, claims *utils.UserClaims) error {
 	return nil
 }
 
-func (d *Dict) GetDict(params *model.DictListReq) (list []model.DictListRsp, err error) {
+func (*Dict) GetDict(params *model.DictListReq) (list []model.DictListRsp, err error) {
 	dict, err := dal.GetDictListByCode(params.DictCode)
 	if err != nil {
 		logrus.Error(err)
@@ -132,7 +132,7 @@ func (d *Dict) GetDict(params *model.DictListReq) (list []model.DictListRsp, err
 }
 
 // 获取协议接入下拉菜单
-func (d *Dict) GetProtocolMenu(protocolMenuReq *model.ProtocolMenuReq) (reqData []map[string]interface{}, err error) {
+func (*Dict) GetProtocolMenu(protocolMenuReq *model.ProtocolMenuReq) (reqData []map[string]interface{}, err error) {
 	if protocolMenuReq.LanguageCode == nil {
 		protocolMenuReq.LanguageCode = StringPtr("zh")
 	}
@@ -167,7 +167,7 @@ func (d *Dict) GetProtocolMenu(protocolMenuReq *model.ProtocolMenuReq) (reqData 
 	return reqDataList, err
 }
 
-func (d *Dict) GetDictListByPage(params *model.GetDictLisyByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
+func (*Dict) GetDictListByPage(params *model.GetDictLisyByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetDictListByPage(params, claims)
 	if err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func (d *Dict) GetDictListByPage(params *model.GetDictLisyByPageReq, claims *uti
 
 }
 
-func (d *Dict) GetDictLanguageListById(id string) ([]*model.SysDictLanguage, error) {
+func (*Dict) GetDictLanguageListById(id string) ([]*model.SysDictLanguage, error) {
 	data, err := dal.GetDictLanguageListByDictId(id)
 	return data, err
 }

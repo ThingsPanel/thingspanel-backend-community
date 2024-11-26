@@ -14,7 +14,7 @@ import (
 
 type Role struct{}
 
-func (p *Role) CreateRole(createRoleReq *model.CreateRoleReq, userClaims *utils.UserClaims) error {
+func (*Role) CreateRole(createRoleReq *model.CreateRoleReq, userClaims *utils.UserClaims) error {
 
 	var role = model.Role{}
 
@@ -36,7 +36,7 @@ func (p *Role) CreateRole(createRoleReq *model.CreateRoleReq, userClaims *utils.
 	return err
 }
 
-func (p *Role) UpdateRole(updateRoleReq *model.UpdateRoleReq) (model.Role, error) {
+func (*Role) UpdateRole(updateRoleReq *model.UpdateRoleReq) (model.Role, error) {
 	var role = model.Role{}
 	role.ID = updateRoleReq.Id
 	if updateRoleReq.Description != nil {
@@ -62,12 +62,12 @@ func (p *Role) UpdateRole(updateRoleReq *model.UpdateRoleReq) (model.Role, error
 	return role, err
 }
 
-func (p *Role) DeleteRole(id string) error {
+func (*Role) DeleteRole(id string) error {
 	err := dal.DeleteRole(id)
 	return err
 }
 
-func (p *Role) GetRoleListByPage(params *model.GetRoleListByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
+func (*Role) GetRoleListByPage(params *model.GetRoleListByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 
 	total, list, err := dal.GetRoleListByPage(params, userClaims.TenantID)
 	if err != nil {

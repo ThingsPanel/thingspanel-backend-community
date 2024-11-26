@@ -8,7 +8,7 @@ import (
 
 type SceneAutomations struct{}
 
-func (s *SceneAutomations) Init(Router *gin.RouterGroup) {
+func (*SceneAutomations) Init(Router *gin.RouterGroup) {
 	url := Router.Group("scene_automations")
 	{
 		// 新

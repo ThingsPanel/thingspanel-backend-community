@@ -9,7 +9,7 @@ import (
 type Dict struct {
 }
 
-func (d *Dict) InitDict(Router *gin.RouterGroup) {
+func (*Dict) InitDict(Router *gin.RouterGroup) {
 	dictapi := Router.Group("dict")
 	{
 		// 新增字典列

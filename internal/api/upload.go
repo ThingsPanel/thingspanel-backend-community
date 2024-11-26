@@ -30,7 +30,7 @@ const (
 // @Tags     文件上传
 // @Router   /api/v1/file/up [post]
 // UpFile 处理文件上传
-func (a *UpLoadApi) UpFile(c *gin.Context) {
+func (*UpLoadApi) UpFile(c *gin.Context) {
 	// 1. 验证请求参数
 	file, fileType, err := validateRequest(c)
 	if err != nil {

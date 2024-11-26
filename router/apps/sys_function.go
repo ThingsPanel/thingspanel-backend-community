@@ -8,7 +8,7 @@ import (
 
 type SysFunction struct{}
 
-func (s *SysFunction) Init(Router *gin.RouterGroup) {
+func (*SysFunction) Init(Router *gin.RouterGroup) {
 	url := Router.Group("sys_function")
 	{
 		// 改

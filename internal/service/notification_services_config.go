@@ -17,7 +17,7 @@ import (
 
 type NotificationServicesConfig struct{}
 
-func (n *NotificationServicesConfig) SaveNotificationServicesConfig(req *model.SaveNotificationServicesConfigReq) (*model.NotificationServicesConfig, error) {
+func (*NotificationServicesConfig) SaveNotificationServicesConfig(req *model.SaveNotificationServicesConfigReq) (*model.NotificationServicesConfig, error) {
 	// 查找数据库中是否存在
 	c, err := dal.GetNotificationServicesConfigByType(req.NoticeType)
 	if err != nil {
@@ -54,12 +54,12 @@ func (n *NotificationServicesConfig) SaveNotificationServicesConfig(req *model.S
 	return data, err
 }
 
-func (n *NotificationServicesConfig) GetNotificationServicesConfig(noticeType string) (*model.NotificationServicesConfig, error) {
+func (*NotificationServicesConfig) GetNotificationServicesConfig(noticeType string) (*model.NotificationServicesConfig, error) {
 	c, err := dal.GetNotificationServicesConfigByType(noticeType)
 	return c, err
 }
 
-func (n *NotificationServicesConfig) SendTestEmail(req *model.SendTestEmailReq) error {
+func (*NotificationServicesConfig) SendTestEmail(req *model.SendTestEmailReq) error {
 	c, err := dal.GetNotificationServicesConfigByType(model.NoticeType_Email)
 	if err != nil {
 		return err

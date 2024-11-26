@@ -8,7 +8,7 @@ import (
 
 type NotificationServicesConfig struct{}
 
-func (n *NotificationServicesConfig) Init(Router *gin.RouterGroup) {
+func (*NotificationServicesConfig) Init(Router *gin.RouterGroup) {
 	url := Router.Group("notification/services/config")
 	{
 		// 创建/修改

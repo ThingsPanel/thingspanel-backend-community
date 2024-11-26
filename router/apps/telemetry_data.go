@@ -8,7 +8,7 @@ import (
 
 type TelemetryData struct{}
 
-func (t *TelemetryData) InitTelemetryData(Router *gin.RouterGroup) {
+func (*TelemetryData) InitTelemetryData(Router *gin.RouterGroup) {
 	telemetrydataapi := Router.Group("telemetry/datas")
 	{
 

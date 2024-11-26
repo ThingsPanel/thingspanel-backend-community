@@ -8,7 +8,7 @@ import (
 
 type Scene struct{}
 
-func (s *Scene) Init(Router *gin.RouterGroup) {
+func (*Scene) Init(Router *gin.RouterGroup) {
 	url := Router.Group("scene")
 	{
 		// 新增

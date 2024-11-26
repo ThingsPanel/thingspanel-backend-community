@@ -27,7 +27,7 @@ type NotificationServicesConfigApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/notification/services/config [post]
-func (n *NotificationServicesConfigApi) SaveNotificationServicesConfig(c *gin.Context) {
+func (*NotificationServicesConfigApi) SaveNotificationServicesConfig(c *gin.Context) {
 	var req model.SaveNotificationServicesConfigReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -73,7 +73,7 @@ func (n *NotificationServicesConfigApi) SaveNotificationServicesConfig(c *gin.Co
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/notification/services/config/{type} [get]
-func (n *NotificationServicesConfigApi) GetNotificationServicesConfig(c *gin.Context) {
+func (*NotificationServicesConfigApi) GetNotificationServicesConfig(c *gin.Context) {
 	noticeType := c.Param("type")
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	// 验证SYS_ADMIN
@@ -102,7 +102,7 @@ func (n *NotificationServicesConfigApi) GetNotificationServicesConfig(c *gin.Con
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/notification/services/config/e-mail/test [post]
-func (n *NotificationServicesConfigApi) SendTestEmail(c *gin.Context) {
+func (*NotificationServicesConfigApi) SendTestEmail(c *gin.Context) {
 	var req model.SendTestEmailReq
 	if !BindAndValidate(c, &req) {
 		return

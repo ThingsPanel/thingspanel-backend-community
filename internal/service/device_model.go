@@ -19,7 +19,7 @@ import (
 type DeviceModel struct{}
 
 // 物模型通用-创建
-func (d *DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, what string, claims *utils.UserClaims) (interface{}, error) {
+func (*DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, what string, claims *utils.UserClaims) (interface{}, error) {
 
 	if req.AdditionalInfo != nil && !IsJSON(*req.AdditionalInfo) {
 		return nil, fmt.Errorf("additional_info is not a valid JSON")
@@ -114,7 +114,7 @@ func (d *DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, w
 
 }
 
-func (d *DeviceModel) CreateDeviceModelGeneralV2(req model.CreateDeviceModelV2Req, what string, claims *utils.UserClaims) (interface{}, error) {
+func (*DeviceModel) CreateDeviceModelGeneralV2(req model.CreateDeviceModelV2Req, what string, claims *utils.UserClaims) (interface{}, error) {
 
 	if req.AdditionalInfo != nil && !IsJSON(*req.AdditionalInfo) {
 		return nil, fmt.Errorf("additional_info is not a valid JSON")
@@ -170,7 +170,7 @@ func (d *DeviceModel) CreateDeviceModelGeneralV2(req model.CreateDeviceModelV2Re
 
 }
 
-func (d *DeviceModel) DeleteDeviceModelGeneral(id string, what string, claims *utils.UserClaims) (err error) {
+func (*DeviceModel) DeleteDeviceModelGeneral(id string, what string, claims *utils.UserClaims) (err error) {
 	switch what {
 	case model.DEVICE_MODEL_TELEMETRY:
 		err = dal.DeleteDeviceModelTelemetry(id)
@@ -186,7 +186,7 @@ func (d *DeviceModel) DeleteDeviceModelGeneral(id string, what string, claims *u
 	return err
 }
 
-func (d *DeviceModel) UpdateDeviceModelGeneral(req model.UpdateDeviceModelReq, what string, claims *utils.UserClaims) (interface{}, error) {
+func (*DeviceModel) UpdateDeviceModelGeneral(req model.UpdateDeviceModelReq, what string, claims *utils.UserClaims) (interface{}, error) {
 
 	if req.AdditionalInfo != nil && !IsJSON(*req.AdditionalInfo) {
 		return nil, fmt.Errorf("additional_info is not a valid JSON")
@@ -239,7 +239,7 @@ func (d *DeviceModel) UpdateDeviceModelGeneral(req model.UpdateDeviceModelReq, w
 	}
 }
 
-func (d *DeviceModel) UpdateDeviceModelGeneralV2(req model.UpdateDeviceModelV2Req, what string, claims *utils.UserClaims) (interface{}, error) {
+func (*DeviceModel) UpdateDeviceModelGeneralV2(req model.UpdateDeviceModelV2Req, what string, claims *utils.UserClaims) (interface{}, error) {
 	if req.AdditionalInfo != nil && !IsJSON(*req.AdditionalInfo) {
 		return nil, fmt.Errorf("additional_info is not a valid JSON")
 	}
@@ -290,7 +290,7 @@ func (d *DeviceModel) UpdateDeviceModelGeneralV2(req model.UpdateDeviceModelV2Re
 	}
 }
 
-func (d *DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelListByPageReq, what string, claims *utils.UserClaims) (interface{}, error) {
+func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelListByPageReq, what string, claims *utils.UserClaims) (interface{}, error) {
 
 	listRsp := make(map[string]interface{})
 	switch what {
@@ -331,7 +331,7 @@ func (d *DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelLi
 	}
 }
 
-func (d *DeviceModel) GetModelSourceAT(ctx context.Context, param *model.ParamID) ([]model.GetModelSourceATRes, error) {
+func (*DeviceModel) GetModelSourceAT(ctx context.Context, param *model.ParamID) ([]model.GetModelSourceATRes, error) {
 	var (
 		res = make([]model.GetModelSourceATRes, 0)
 	)
@@ -386,7 +386,7 @@ func (d *DeviceModel) GetModelSourceAT(ctx context.Context, param *model.ParamID
 	return res, err
 }
 
-func (d *DeviceModel) CreateDeviceModelCustomCommands(req model.CreateDeviceModelCustomCommandReq, claims *utils.UserClaims) error {
+func (*DeviceModel) CreateDeviceModelCustomCommands(req model.CreateDeviceModelCustomCommandReq, claims *utils.UserClaims) error {
 
 	if req.EnableStatus != "enable" && req.EnableStatus != "disable" {
 		return fmt.Errorf("enable status error")
@@ -408,12 +408,12 @@ func (d *DeviceModel) CreateDeviceModelCustomCommands(req model.CreateDeviceMode
 	return err
 }
 
-func (d *DeviceModel) DeleteDeviceModelCustomCommands(id string) error {
+func (*DeviceModel) DeleteDeviceModelCustomCommands(id string) error {
 	err := dal.DeleteDeviceModelCustomCommandById(id)
 	return err
 }
 
-func (d *DeviceModel) UpdateDeviceModelCustomCommands(req model.UpdateDeviceModelCustomCommandReq) error {
+func (*DeviceModel) UpdateDeviceModelCustomCommands(req model.UpdateDeviceModelCustomCommandReq) error {
 
 	if req.EnableStatus != "enable" && req.EnableStatus != "disable" {
 		return fmt.Errorf("enable status error")
@@ -433,7 +433,7 @@ func (d *DeviceModel) UpdateDeviceModelCustomCommands(req model.UpdateDeviceMode
 	return err
 }
 
-func (d *DeviceModel) GetDeviceModelCustomCommandsByPage(req model.GetDeviceModelListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
+func (*DeviceModel) GetDeviceModelCustomCommandsByPage(req model.GetDeviceModelListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 
 	total, list, err := dal.GetDeviceModelCustomCommandsByPage(req, claims.TenantID)
 	if err != nil {
@@ -447,7 +447,7 @@ func (d *DeviceModel) GetDeviceModelCustomCommandsByPage(req model.GetDeviceMode
 
 }
 
-func (d *DeviceModel) GetDeviceModelCustomCommandsByDeviceId(deviceId string, claims *utils.UserClaims) ([]*model.DeviceModelCustomCommand, error) {
+func (*DeviceModel) GetDeviceModelCustomCommandsByDeviceId(deviceId string, claims *utils.UserClaims) ([]*model.DeviceModelCustomCommand, error) {
 	data, err := dal.GetDeviceModelCustomCommandsByDeviceId(deviceId, claims.TenantID)
 	if err != nil {
 		return nil, err
@@ -455,7 +455,7 @@ func (d *DeviceModel) GetDeviceModelCustomCommandsByDeviceId(deviceId string, cl
 	return data, nil
 }
 
-func (d *DeviceModel) CreateDeviceModelCustomControl(req model.CreateDeviceModelCustomControlReq, claims *utils.UserClaims) error {
+func (*DeviceModel) CreateDeviceModelCustomControl(req model.CreateDeviceModelCustomControlReq, claims *utils.UserClaims) error {
 
 	if req.EnableStatus != "enable" && req.EnableStatus != "disable" {
 		return fmt.Errorf("enable status error")
@@ -477,12 +477,12 @@ func (d *DeviceModel) CreateDeviceModelCustomControl(req model.CreateDeviceModel
 	return err
 }
 
-func (d *DeviceModel) DeleteDeviceModelCustomControl(id string) error {
+func (*DeviceModel) DeleteDeviceModelCustomControl(id string) error {
 	err := dal.DeleteDeviceModelCustomControlById(id)
 	return err
 }
 
-func (d *DeviceModel) UpdateDeviceModelCustomControl(req model.UpdateDeviceModelCustomControlReq) error {
+func (*DeviceModel) UpdateDeviceModelCustomControl(req model.UpdateDeviceModelCustomControlReq) error {
 
 	if *req.EnableStatus != "enable" && *req.EnableStatus != "disable" {
 		return fmt.Errorf("enable status error")
@@ -503,7 +503,7 @@ func (d *DeviceModel) UpdateDeviceModelCustomControl(req model.UpdateDeviceModel
 	return err
 }
 
-func (d *DeviceModel) GetDeviceModelCustomControlByPage(req model.GetDeviceModelListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
+func (*DeviceModel) GetDeviceModelCustomControlByPage(req model.GetDeviceModelListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 
 	total, list, err := dal.GetDeviceModelCustomControlByPage(req, claims.TenantID)
 	if err != nil {

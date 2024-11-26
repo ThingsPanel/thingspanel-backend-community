@@ -30,7 +30,7 @@ import (
 
 type TelemetryData struct{}
 
-func (t *TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, error) {
+func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, error) {
 	// d, err := dal.GetCurrentTelemetrData(device_id)
 	// 数据源替换
 	d, err := dal.GetCurrentTelemetryDataEvolution(device_id)
@@ -108,7 +108,7 @@ func (t *TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, e
 }
 
 // 根据设备ID和key获取当前遥测数据
-func (t *TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurrentDataKeysReq) (interface{}, error) {
+func (*TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurrentDataKeysReq) (interface{}, error) {
 	// d, err := dal.GetCurrentTelemetrData(device_id)
 	// 数据源替换
 	d, err := dal.GetCurrentTelemetryDataEvolutionByKeys(req.DeviceID, req.Keys)
@@ -186,7 +186,7 @@ func (t *TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurren
 }
 
 // 返回数据格式{"key":value,"key1":value1}
-func (t *TelemetryData) GetCurrentTelemetrDataForWs(device_id string) (interface{}, error) {
+func (*TelemetryData) GetCurrentTelemetrDataForWs(device_id string) (interface{}, error) {
 	// d, err := dal.GetCurrentTelemetrData(device_id)
 
 	// 数据源替换
@@ -214,7 +214,7 @@ func (t *TelemetryData) GetCurrentTelemetrDataForWs(device_id string) (interface
 }
 
 // 返回数据格式{"key":value,"key1":value1}
-func (t *TelemetryData) GetCurrentTelemetrDataKeysForWs(device_id string, keys []string) (interface{}, error) {
+func (*TelemetryData) GetCurrentTelemetrDataKeysForWs(device_id string, keys []string) (interface{}, error) {
 	// d, err := dal.GetCurrentTelemetrData(device_id)
 
 	// 数据源替换
@@ -241,7 +241,7 @@ func (t *TelemetryData) GetCurrentTelemetrDataKeysForWs(device_id string, keys [
 	return data, err
 }
 
-func (t *TelemetryData) GetTelemetrHistoryData(req *model.GetTelemetryHistoryDataReq) (interface{}, error) {
+func (*TelemetryData) GetTelemetrHistoryData(req *model.GetTelemetryHistoryDataReq) (interface{}, error) {
 	// 时间戳转换
 	sT := req.StartTime * 1000
 	eT := req.EndTime * 1000
@@ -277,7 +277,7 @@ func (t *TelemetryData) GetTelemetrHistoryData(req *model.GetTelemetryHistoryDat
 	return data, nil
 }
 
-func (t *TelemetryData) DeleteTelemetrData(req *model.DeleteTelemetryDataReq) error {
+func (*TelemetryData) DeleteTelemetrData(req *model.DeleteTelemetryDataReq) error {
 	err := dal.DeleteTelemetrData(req.DeviceID, req.Key)
 	if err != nil {
 		return err
@@ -287,7 +287,7 @@ func (t *TelemetryData) DeleteTelemetrData(req *model.DeleteTelemetryDataReq) er
 	return err
 }
 
-func (t *TelemetryData) GetCurrentTelemetrDetailData(device_id string) (interface{}, error) {
+func (*TelemetryData) GetCurrentTelemetrDetailData(device_id string) (interface{}, error) {
 	data, err := dal.GetCurrentTelemetrDetailData(device_id)
 
 	if err != nil {
@@ -316,7 +316,7 @@ func (t *TelemetryData) GetCurrentTelemetrDetailData(device_id string) (interfac
 	return dataMap, err
 }
 
-func (t *TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistoryDataByPageReq) (interface{}, error) {
+func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistoryDataByPageReq) (interface{}, error) {
 
 	if *req.ExportExcel {
 		var addr string
@@ -386,7 +386,7 @@ func (t *TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHist
 }
 
 // 获取模拟设备发送遥测数据的回显数据
-func (t *TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{}, error) {
+func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{}, error) {
 	// 获取设备信息
 	deviceInfo, err := dal.GetDeviceByID(req.DeviceId)
 	if err != nil {
@@ -432,7 +432,7 @@ func (t *TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{},
 }
 
 // 模拟设备发送遥测数据
-func (t *TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, error) {
+func (*TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, error) {
 	// 解析mosquitto_pub命令
 	params, err := utils.ParseMosquittoPubCommand(mosquittoCommand)
 	if err != nil {
@@ -478,7 +478,7 @@ func (t *TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, erro
 	return nil, nil
 }
 
-func (t *TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySetLogsListByPageReq) (interface{}, error) {
+func (*TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySetLogsListByPageReq) (interface{}, error) {
 	count, data, err := dal.GetTelemetrySetLogsListByPage(req)
 	if err != nil {
 		return nil, err
@@ -557,7 +557,7 @@ func (t *TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetry
 
 ```
 */
-func (t *TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStatisticReq) (any, error) {
+func (*TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStatisticReq) (any, error) {
 	if req.TimeRange == "custom" {
 		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
 			return nil, fmt.Errorf("time range is invalid")
@@ -799,7 +799,7 @@ func formatTime(timestamp int64) string {
 	return time.Unix(timestamp/1000, 0).Format("2006-01-02 15:04:05")
 }
 
-func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
+func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
 	var (
 		log = dal.TelemetrySetLogsQuery{}
 
@@ -947,7 +947,7 @@ func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.
 	}
 }
 
-func (t *TelemetryData) ServeMsgCountByTenantId(tenantId string) (int64, error) {
+func (*TelemetryData) ServeMsgCountByTenantId(tenantId string) (int64, error) {
 	cnt, err := dal.GetTelemetryDataCountByTenantId(tenantId)
 	return cnt, err
 }

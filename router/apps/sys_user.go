@@ -9,7 +9,7 @@ import (
 type User struct {
 }
 
-func (u *User) InitUser(Router *gin.RouterGroup) {
+func (*User) InitUser(Router *gin.RouterGroup) {
 	userapi := Router.Group("user")
 	{
 		// 个人信息管理

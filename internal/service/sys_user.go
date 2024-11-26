@@ -120,7 +120,7 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 
 // UserLoginAfter
 // @description 用户登录后token获取保存
-func (u *User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
+func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 	key := viper.GetString("jwt.key")
 	// 生成token
 	jwt := utils.NewJWT([]byte(key))
@@ -165,14 +165,14 @@ func (u *User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 }
 
 // @description 退出登录
-func (u *User) Logout(token string) error {
+func (*User) Logout(token string) error {
 	// 删除redis中的token
 	global.REDIS.Del(token)
 	return nil
 }
 
 // @description 刷新token
-func (u *User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, error) {
+func (*User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, error) {
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(userClaims.Email)
 	if err != nil {
@@ -209,7 +209,7 @@ func (u *User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, erro
 }
 
 // @description 发送验证码
-func (u *User) GetVerificationCode(email, isRegister string) error {
+func (*User) GetVerificationCode(email, isRegister string) error {
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -236,7 +236,7 @@ func (u *User) GetVerificationCode(email, isRegister string) error {
 }
 
 // @description ResetPassword By VerifyCode and Email
-func (u *User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPasswordReq) error {
+func (*User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPasswordReq) error {
 
 	err := utils.ValidatePassword(resetPasswordReq.Password)
 	if err != nil {
@@ -271,7 +271,7 @@ func (u *User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetP
 }
 
 // @description  通过id获取用户信息
-func (u *User) GetUserById(id string) (*model.User, error) {
+func (*User) GetUserById(id string) (*model.User, error) {
 	user, err := dal.GetUsersById(id)
 	if err != nil {
 		return nil, err
@@ -280,7 +280,7 @@ func (u *User) GetUserById(id string) (*model.User, error) {
 }
 
 // @description  分页获取用户列表
-func (u *User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
+func (*User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetUserListByPage(userListReq, claims)
 	if err != nil {
 		return nil, err
@@ -292,7 +292,7 @@ func (u *User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.U
 }
 
 // @description  修改用户信息
-func (u *User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserClaims) error {
+func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserClaims) error {
 	//密码不能小于6位，如果等于空则不修改密码
 	if updateUserReq.Password != nil {
 		if len(*updateUserReq.Password) == 0 {
@@ -359,7 +359,7 @@ func (u *User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.User
 }
 
 // @description  删除用户
-func (u *User) DeleteUser(id string, claims *utils.UserClaims) error {
+func (*User) DeleteUser(id string, claims *utils.UserClaims) error {
 	user, err := dal.GetUsersById(id)
 	if err != nil {
 		return err
@@ -394,7 +394,7 @@ func (u *User) DeleteUser(id string, claims *utils.UserClaims) error {
 }
 
 // 获取用户信息
-func (u *User) GetUser(id string, claims *utils.UserClaims) (*model.User, error) {
+func (*User) GetUser(id string, claims *utils.UserClaims) (*model.User, error) {
 	user, err := dal.GetUsersById(id)
 	if err != nil {
 		return nil, err
@@ -409,7 +409,7 @@ func (u *User) GetUser(id string, claims *utils.UserClaims) (*model.User, error)
 }
 
 // 获取用户详细信息
-func (u *User) GetUserDetail(claims *utils.UserClaims) (*model.User, error) {
+func (*User) GetUserDetail(claims *utils.UserClaims) (*model.User, error) {
 	user, err := dal.GetUsersById(claims.ID)
 	if err != nil {
 		return nil, err
@@ -418,7 +418,7 @@ func (u *User) GetUserDetail(claims *utils.UserClaims) (*model.User, error) {
 }
 
 // @description 修改用户信息（只能修改自己）
-func (u *User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUserInfoReq, claims *utils.UserClaims) error {
+func (*User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUserInfoReq, claims *utils.UserClaims) error {
 	user, err := dal.GetUsersById(claims.ID)
 	if err != nil {
 		return err
@@ -452,7 +452,7 @@ func (u *User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUs
 }
 
 // @description SuperAdmin Become Other admin
-func (u *User) TransformUser(transformUserReq *model.TransformUserReq, claims *utils.UserClaims) (*model.LoginRsp, error) {
+func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *utils.UserClaims) (*model.LoginRsp, error) {
 
 	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
 		return nil, fmt.Errorf("authority wrong")

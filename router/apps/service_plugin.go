@@ -9,7 +9,7 @@ import (
 type ServicePlugin struct {
 }
 
-func (p *ServicePlugin) Init(Router *gin.RouterGroup) {
+func (*ServicePlugin) Init(Router *gin.RouterGroup) {
 	url := Router.Group("service")
 	{
 		url.POST("", api.Controllers.ServicePluginApi.Create)

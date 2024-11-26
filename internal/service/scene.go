@@ -8,21 +8,21 @@ import (
 
 type Scene struct{}
 
-func (s *Scene) CreateScene(req model.CreateSceneReq, claims *utils.UserClaims) (string, error) {
+func (*Scene) CreateScene(req model.CreateSceneReq, claims *utils.UserClaims) (string, error) {
 	id, err := dal.CreateSceneInfo(req, claims)
 	return id, err
 }
 
-func (s *Scene) UpdateScene(req model.UpdateSceneReq, claims *utils.UserClaims) (string, error) {
+func (*Scene) UpdateScene(req model.UpdateSceneReq, claims *utils.UserClaims) (string, error) {
 	id, err := dal.UpdateSceneInfo(req, claims)
 	return id, err
 }
 
-func (s *Scene) DeleteScene(scene_id string) error {
+func (*Scene) DeleteScene(scene_id string) error {
 	return dal.DeleteSceneInfo(scene_id)
 }
 
-func (s *Scene) GetScene(scene_id string) (interface{}, error) {
+func (*Scene) GetScene(scene_id string) (interface{}, error) {
 	sceneInfo, err := dal.GetSceneInfo(scene_id)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (s *Scene) GetScene(scene_id string) (interface{}, error) {
 	return res, nil
 }
 
-func (s *Scene) GetSceneListByPage(req model.GetSceneListByPageReq, claims *utils.UserClaims) (interface{}, error) {
+func (*Scene) GetSceneListByPage(req model.GetSceneListByPageReq, claims *utils.UserClaims) (interface{}, error) {
 	total, sceneInfo, err := dal.GetSceneInfoByPage(&req, claims.TenantID)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func (s *Scene) GetSceneListByPage(req model.GetSceneListByPageReq, claims *util
 }
 
 // TODO
-func (s *Scene) ActiveScene(scene_id, userId, tenantID string) error {
+func (*Scene) ActiveScene(scene_id, userId, tenantID string) error {
 
 	return GroupApp.ActiveSceneExecute(scene_id, tenantID)
 	// actions, err := dal.GetActionInfoListBySceneAutomationId([]string{scene_id})
@@ -91,7 +91,7 @@ func (s *Scene) ActiveScene(scene_id, userId, tenantID string) error {
 	// })
 }
 
-func (s *Scene) GetSceneLog(req model.GetSceneLogListByPageReq) (interface{}, error) {
+func (*Scene) GetSceneLog(req model.GetSceneLogListByPageReq) (interface{}, error) {
 	total, data, err := dal.GetSceneLogByPage(req)
 	if err != nil {
 		return nil, err

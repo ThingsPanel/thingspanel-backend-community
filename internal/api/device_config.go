@@ -216,7 +216,7 @@ func (api *DeviceConfigApi) GetVoucherType(c *gin.Context) {
 
 // 根据设备配置id获取自动化动作中下拉列表
 // /api/v1/device_config/metrics/menu
-func (d *DeviceConfigApi) GetActionByDeviceConfigID(c *gin.Context) {
+func (*DeviceConfigApi) GetActionByDeviceConfigID(c *gin.Context) {
 	var param model.GetActionByDeviceConfigIDReq
 	if !BindAndValidate(c, &param) {
 		return
@@ -231,7 +231,7 @@ func (d *DeviceConfigApi) GetActionByDeviceConfigID(c *gin.Context) {
 
 // 根据设备配置id获取自动化动作中下拉列表
 // /api/v1/device_config/metrics/condition/menu
-func (d *DeviceConfigApi) GetConditionByDeviceConfigID(c *gin.Context) {
+func (*DeviceConfigApi) GetConditionByDeviceConfigID(c *gin.Context) {
 	var param model.GetActionByDeviceConfigIDReq
 	if !BindAndValidate(c, &param) {
 		return

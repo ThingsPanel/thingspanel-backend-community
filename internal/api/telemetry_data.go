@@ -229,7 +229,7 @@ func (a *TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
 // @Param   data query model.GetTelemetryHistoryDataByPageReq true "见下方JSON"
 // @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/current/ws [get]
-func (t *TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
+func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "WebSocket升级失败: %v", err)
@@ -317,7 +317,7 @@ func (t *TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 }
 
 // @Router   /api/v1/device/online/status/ws
-func (t *TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
+func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "WebSocket升级失败: %v", err)

@@ -17,7 +17,7 @@ import (
 
 type ServiceAccess struct{}
 
-func (s *ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
+func (*ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 	var serviceAccess model.ServiceAccess
 	copier.Copy(&serviceAccess, req)
 	serviceAccess.ID = uuid.New()
@@ -36,7 +36,7 @@ func (s *ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *uti
 	return resp, nil
 }
 
-func (s *ServiceAccess) List(req *model.GetServiceAccessByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
+func (*ServiceAccess) List(req *model.GetServiceAccessByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetServiceAccessListByPage(req, userClaims.TenantID)
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total
@@ -45,7 +45,7 @@ func (s *ServiceAccess) List(req *model.GetServiceAccessByPageReq, userClaims *u
 	return listRsp, err
 }
 
-func (s *ServiceAccess) Update(req *model.UpdateAccessReq) error {
+func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 	// 查询服务接入点信息
 	serviceAccess, err := dal.GetServiceAccessByID(req.ID)
 	if err != nil {
@@ -95,13 +95,13 @@ func (s *ServiceAccess) Update(req *model.UpdateAccessReq) error {
 	return nil
 }
 
-func (s *ServiceAccess) Delete(id string) error {
+func (*ServiceAccess) Delete(id string) error {
 	err := dal.DeleteServiceAccess(id)
 	return err
 }
 
 // GetVoucherForm
-func (s *ServiceAccess) GetVoucherForm(req *model.GetServiceAccessVoucherFormReq) (interface{}, error) {
+func (*ServiceAccess) GetVoucherForm(req *model.GetServiceAccessVoucherFormReq) (interface{}, error) {
 	// 根据service_plugin_id获取插件服务信息http地址
 	servicePlugin, httpAddress, err := dal.GetServicePluginHttpAddressByID(req.ServicePluginID)
 	if err != nil {
@@ -111,7 +111,7 @@ func (s *ServiceAccess) GetVoucherForm(req *model.GetServiceAccessVoucherFormReq
 }
 
 // GetServiceAccessDeviceList
-func (s *ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDeviceListReq, userClaims *utils.UserClaims) (interface{}, error) {
+func (*ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDeviceListReq, userClaims *utils.UserClaims) (interface{}, error) {
 	// 通过voucher获取service_plugin_id
 	serviceAccess, err := dal.GetServiceAccessByVoucher(req.Voucher, userClaims.TenantID)
 	if err != nil {
@@ -145,7 +145,7 @@ func (s *ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDevic
 }
 
 // 通过service_identifier获取插件服务信息
-func (s *ServiceAccess) GetPluginServiceAccessList(req *model.GetPluginServiceAccessListReq) (interface{}, error) {
+func (*ServiceAccess) GetPluginServiceAccessList(req *model.GetPluginServiceAccessListReq) (interface{}, error) {
 	// 通过service_identifier获取插件服务信息
 	servicePlugin, err := dal.GetServicePluginByServiceIdentifier(req.ServiceIdentifier)
 	if err != nil {
@@ -179,7 +179,7 @@ func (s *ServiceAccess) GetPluginServiceAccessList(req *model.GetPluginServiceAc
 }
 
 // GetPluginServiceAccess
-func (s *ServiceAccess) GetPluginServiceAccess(req *model.GetPluginServiceAccessReq) (interface{}, error) {
+func (*ServiceAccess) GetPluginServiceAccess(req *model.GetPluginServiceAccessReq) (interface{}, error) {
 	// 通过service_access_id获取服务接入点信息
 	serviceAccess, err := dal.GetServiceAccessByID(req.ServiceAccessID)
 	if err != nil {

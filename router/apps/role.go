@@ -9,7 +9,7 @@ import (
 type Role struct {
 }
 
-func (p *Role) Init(Router *gin.RouterGroup) {
+func (*Role) Init(Router *gin.RouterGroup) {
 	url := Router.Group("role")
 	{
 		// 增

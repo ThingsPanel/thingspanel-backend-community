@@ -13,7 +13,7 @@ import (
 
 type DeviceTemplate struct{}
 
-func (d *DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, claims *utils.UserClaims) (*model.DeviceTemplate, error) {
+func (*DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, claims *utils.UserClaims) (*model.DeviceTemplate, error) {
 
 	var deviceTemplate = model.DeviceTemplate{}
 
@@ -36,7 +36,7 @@ func (d *DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq,
 	return data, err
 }
 
-func (d *DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, claims *utils.UserClaims) (*model.DeviceTemplate, error) {
+func (*DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, claims *utils.UserClaims) (*model.DeviceTemplate, error) {
 	// 根据ID 获取模版
 	t, err := dal.GetDeviceTemplateById(req.Id)
 	if err != nil {
@@ -86,7 +86,7 @@ func (d *DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq,
 	return data, err
 }
 
-func (d *DeviceTemplate) GetDeviceTemplate(id string) (*model.DeviceTemplate, error) {
+func (*DeviceTemplate) GetDeviceTemplate(id string) (*model.DeviceTemplate, error) {
 	// 根据ID 获取模版
 	t, err := dal.GetDeviceTemplateById(id)
 	if err != nil {
@@ -96,7 +96,7 @@ func (d *DeviceTemplate) GetDeviceTemplate(id string) (*model.DeviceTemplate, er
 	return t, nil
 }
 
-func (d *DeviceTemplate) GetDeviceTemplateById(id string) (*model.DeviceTemplate, error) {
+func (*DeviceTemplate) GetDeviceTemplateById(id string) (*model.DeviceTemplate, error) {
 	// 根据ID 获取模版
 	t, err := dal.GetDeviceTemplateById(id)
 	if err != nil {
@@ -106,7 +106,7 @@ func (d *DeviceTemplate) GetDeviceTemplateById(id string) (*model.DeviceTemplate
 }
 
 // GetDeviceTemplateByDeviceId 根据设备ID获取模板
-func (d *DeviceTemplate) GetDeviceTemplateByDeviceId(deviceId string) (any, error) {
+func (*DeviceTemplate) GetDeviceTemplateByDeviceId(deviceId string) (any, error) {
 	// 根据ID 获取模版
 	t, err := dal.GetDeviceTemplateByDeviceId(deviceId)
 	if err != nil {
@@ -115,7 +115,7 @@ func (d *DeviceTemplate) GetDeviceTemplateByDeviceId(deviceId string) (any, erro
 	return t, nil
 }
 
-func (d *DeviceTemplate) DeleteDeviceTemplate(id string, claims *utils.UserClaims) error {
+func (*DeviceTemplate) DeleteDeviceTemplate(id string, claims *utils.UserClaims) error {
 	// 根据ID 获取模版
 	t, err := dal.GetDeviceTemplateById(id)
 	if err != nil {
@@ -131,7 +131,7 @@ func (d *DeviceTemplate) DeleteDeviceTemplate(id string, claims *utils.UserClaim
 	return err
 }
 
-func (d *DeviceTemplate) GetDeviceTemplateListByPage(req model.GetDeviceTemplateListByPageReq, claims *utils.UserClaims) (interface{}, error) {
+func (*DeviceTemplate) GetDeviceTemplateListByPage(req model.GetDeviceTemplateListByPageReq, claims *utils.UserClaims) (interface{}, error) {
 
 	total, list, err := dal.GetDeviceTemplateListByPage(&req, claims)
 	if err != nil {
@@ -146,7 +146,7 @@ func (d *DeviceTemplate) GetDeviceTemplateListByPage(req model.GetDeviceTemplate
 }
 
 // 获取模板下拉菜单
-func (d *DeviceTemplate) GetDeviceTemplateMenu(req model.GetDeviceTemplateMenuReq, claims *utils.UserClaims) (interface{}, error) {
+func (*DeviceTemplate) GetDeviceTemplateMenu(req model.GetDeviceTemplateMenuReq, claims *utils.UserClaims) (interface{}, error) {
 
 	data, err := dal.GetDeviceTemplateMenu(&req, claims)
 	if err != nil {

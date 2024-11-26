@@ -8,12 +8,12 @@ import (
 
 type SysFunction struct{}
 
-func (s *SysFunction) GetSysFuncion() ([]*model.SysFunction, error) {
+func (*SysFunction) GetSysFuncion() ([]*model.SysFunction, error) {
 	data, err := dal.GetAllSysFunction()
 	return data, err
 }
 
-func (s *SysFunction) UpdateSysFuncion(function_id string) error {
+func (*SysFunction) UpdateSysFuncion(function_id string) error {
 	old, err := dal.GetSysFunctionById(function_id)
 	if err != nil {
 		return err

@@ -17,7 +17,7 @@ import (
 
 type ServicePlugin struct{}
 
-func (s *ServicePlugin) Create(req *model.CreateServicePluginReq) (map[string]interface{}, error) {
+func (*ServicePlugin) Create(req *model.CreateServicePluginReq) (map[string]interface{}, error) {
 	var servicePlugin model.ServicePlugin
 	copier.Copy(&servicePlugin, req)
 	servicePlugin.ID = uuid.New()
@@ -35,7 +35,7 @@ func (s *ServicePlugin) Create(req *model.CreateServicePluginReq) (map[string]in
 	return resp, err
 }
 
-func (s *ServicePlugin) List(req *model.GetServicePluginByPageReq) (map[string]interface{}, error) {
+func (*ServicePlugin) List(req *model.GetServicePluginByPageReq) (map[string]interface{}, error) {
 	total, list, err := dal.GetServicePluginListByPage(req)
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total
@@ -44,12 +44,12 @@ func (s *ServicePlugin) List(req *model.GetServicePluginByPageReq) (map[string]i
 	return listRsp, err
 }
 
-func (s *ServicePlugin) Get(id string) (interface{}, error) {
+func (*ServicePlugin) Get(id string) (interface{}, error) {
 	resp, err := dal.GetServicePlugin(id)
 	return resp, err
 }
 
-func (s *ServicePlugin) Update(req *model.UpdateServicePluginReq) error {
+func (*ServicePlugin) Update(req *model.UpdateServicePluginReq) error {
 	updates := make(map[string]interface{})
 	// 要么是更新服务配置，要么是更新服务基本信息
 	updates["service_config"] = req.ServiceConfig
@@ -64,20 +64,20 @@ func (s *ServicePlugin) Update(req *model.UpdateServicePluginReq) error {
 	return err
 }
 
-func (s *ServicePlugin) Delete(id string) error {
+func (*ServicePlugin) Delete(id string) error {
 	err := dal.DeleteServicePlugin(id)
 	return err
 }
 
 // Heartbeat
-func (s *ServicePlugin) Heartbeat(req *model.HeartbeatReq) error {
+func (*ServicePlugin) Heartbeat(req *model.HeartbeatReq) error {
 	// 更新服务插件的心跳时间
 	err := dal.UpdateServicePluginHeartbeat(req.ServiceIdentifier)
 	return err
 }
 
 // GetServiceSelect
-func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interface{}, error) {
+func (*ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interface{}, error) {
 	// 返回数据map
 	resp := make(map[string]interface{})
 	var protocolList []map[string]interface{}
@@ -143,7 +143,7 @@ func (s *ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interf
 
 // 去协议插件获取各种表单
 // 请求参数：protocol_type,device_type,form_type,voucher_type
-func (p *ServicePlugin) GetPluginForm(protocolType string, deviceType string, formType string) (interface{}, error) {
+func (*ServicePlugin) GetPluginForm(protocolType string, deviceType string, formType string) (interface{}, error) {
 	// 根据协议类型获取协议信息
 	servicePlugin, err := dal.GetServicePluginByServiceIdentifier(protocolType)
 	if err != nil {
@@ -169,6 +169,6 @@ func (p *ServicePlugin) GetProtocolPluginFormByProtocolType(protocolType string,
 }
 
 // 根据服务service_identifier获取服务详情
-func (p *ServicePlugin) GetServicePluginByServiceIdentifier(serviceIdentifier string) (interface{}, error) {
+func (*ServicePlugin) GetServicePluginByServiceIdentifier(serviceIdentifier string) (interface{}, error) {
 	return dal.GetServicePluginByServiceIdentifier(serviceIdentifier)
 }

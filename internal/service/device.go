@@ -29,7 +29,7 @@ import (
 
 type Device struct{}
 
-func (d *Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims) (device model.Device, err error) {
+func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims) (device model.Device, err error) {
 
 	t := time.Now().UTC()
 
@@ -98,7 +98,7 @@ func (d *Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaim
 }
 
 // 服务接入批量创建设备
-func (d *Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.UserClaims) (data any, err error) {
+func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.UserClaims) (data any, err error) {
 	t := time.Now().UTC()
 	var deviceList []*model.Device
 	for _, v := range req.DeviceList {
@@ -170,7 +170,7 @@ func (d *Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils
 
 }
 
-func (d *Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
+func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
 
 	// device.ID = req.Id
 	// device.Name = req.Name
@@ -198,7 +198,7 @@ func (d *Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaim
 	return device, err
 }
 
-func (d *Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
+func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 	device, err := dal.GetDeviceByDeviceNumber(req.DeviceNumber)
 	if err != nil {
 		return nil, err
@@ -224,7 +224,7 @@ func (d *Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 	return device, nil
 }
 
-func (d *Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
+func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	// 如果有子设备，不允许删除
 	data, err := dal.GetSubDeviceListByParentID(id)
 	if err != nil {
@@ -311,7 +311,7 @@ func (d *Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	return nil
 }
 
-func (d *Device) GetDeviceByID(id string) (map[string]interface{}, error) {
+func (*Device) GetDeviceByID(id string) (map[string]interface{}, error) {
 	data, err := dal.GetDeviceDetail(id)
 	if err != nil {
 		return nil, err
@@ -350,7 +350,7 @@ func (d *Device) GetDeviceByID(id string) (map[string]interface{}, error) {
 	return data, err
 }
 
-func (d *Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
+func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetDeviceListByPage(req, u.TenantID)
 	if err != nil {
 		return nil, err
@@ -388,7 +388,7 @@ func (d *Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils
 	return deviceListRsp, err
 }
 
-func (d *Device) CheckDeviceNumber(deviceNumber string) (bool, string) {
+func (*Device) CheckDeviceNumber(deviceNumber string) (bool, string) {
 	device, err := query.Device.Where(query.Device.DeviceNumber.Eq(deviceNumber)).First()
 	if err != nil {
 		return false, "设备编号不可用"
@@ -399,7 +399,7 @@ func (d *Device) CheckDeviceNumber(deviceNumber string) (bool, string) {
 	return true, "设备编号可用"
 }
 
-func (d *Device) GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
+func (*Device) GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetDevicePreRegisterListByPage(req, u.TenantID)
 	if err != nil {
 		return nil, err
@@ -412,7 +412,7 @@ func (d *Device) GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterL
 }
 
 // 移除子设备
-func (d *Device) RemoveSubDevice(id string, claims *utils.UserClaims) error {
+func (*Device) RemoveSubDevice(id string, claims *utils.UserClaims) error {
 	// 获取设备信息
 	device, err := dal.GetDeviceByID(id)
 	if err != nil {
@@ -434,7 +434,7 @@ func (d *Device) RemoveSubDevice(id string, claims *utils.UserClaims) error {
 	return nil
 }
 
-func (d *Device) ExportDevicePreRegister(req model.ExportPreRegisterReq, claims *utils.UserClaims) (string, error) {
+func (*Device) ExportDevicePreRegister(req model.ExportPreRegisterReq, claims *utils.UserClaims) (string, error) {
 	qd := query.Device
 	queryBuilder := qd.WithContext(context.Background())
 	if req.BatchNumber != nil && *req.BatchNumber != "" {
@@ -477,7 +477,7 @@ func (d *Device) ExportDevicePreRegister(req model.ExportPreRegisterReq, claims 
 	return excelName, nil
 }
 
-func (d *Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string) (any, error) {
+func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string) (any, error) {
 	var data []map[string]interface{}
 	var err error
 
@@ -518,7 +518,7 @@ func (d *Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID strin
 
 }
 
-func (d *Device) GetDeviceList(ctx context.Context, userClaims *utils.UserClaims) ([]map[string]interface{}, error) {
+func (*Device) GetDeviceList(ctx context.Context, userClaims *utils.UserClaims) ([]map[string]interface{}, error) {
 	// var (
 	// 	device       = query.Device
 	// 	deviceConfig = query.DeviceConfig
@@ -557,7 +557,7 @@ func (d *Device) GetDeviceList(ctx context.Context, userClaims *utils.UserClaims
 	return list, err
 }
 
-func (d *Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDeviceRes) error {
+func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDeviceRes) error {
 	var (
 		device = query.Device
 		db     = dal.DeviceQuery{}
@@ -641,7 +641,7 @@ func (d *Device) DeviceConnectForm(ctx context.Context, param *model.DeviceConne
 }
 
 // 获取凭证类型表单
-func (d *Device) GetVoucherTypeForm(voucherType string, deviceType string, protocolType string) (interface{}, error) {
+func (*Device) GetVoucherTypeForm(voucherType string, deviceType string, protocolType string) (interface{}, error) {
 	// 没有设备配置，返回默认表单
 	p1 := &model.DeviceConnectFormRes{
 		DataKey:     "username",
@@ -680,7 +680,7 @@ func (d *Device) GetVoucherTypeForm(voucherType string, deviceType string, proto
 	return pp.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_FORM))
 }
 
-func (d *Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectFormReq) (any, error) {
+func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectFormReq) (any, error) {
 	// 获取设备信息
 	device, err := dal.GetDeviceByID(param.DeviceID)
 	if err != nil {
@@ -752,7 +752,7 @@ func (d *Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectFo
 }
 
 // 更换设备配置
-func (d *Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
+func (*Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
 	// 查找原设备配置
 	device, err := dal.GetDeviceByID(param.DeviceID)
 	if err != nil {
@@ -799,7 +799,7 @@ func (d *Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
 	return err
 }
 
-func (d *Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDeviceVoucherReq) (string, error) {
+func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDeviceVoucherReq) (string, error) {
 	var (
 		db     = dal.DeviceQuery{}
 		device = query.Device
@@ -842,12 +842,12 @@ func (d *Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDev
 
 //GetSubList
 
-func (d *Device) GetSubList(ctx context.Context, parent_id string, page, pageSize int64, userClaims *utils.UserClaims) ([]model.GetSubListResp, int64, error) {
+func (*Device) GetSubList(ctx context.Context, parent_id string, page, pageSize int64, userClaims *utils.UserClaims) ([]model.GetSubListResp, int64, error) {
 	return dal.DeviceQuery{}.GetSubList(ctx, parent_id, pageSize, page, userClaims.TenantID)
 }
 
 // 获取自动化下拉标识，看板下拉标识
-func (d *Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error) {
+func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error) {
 
 	var (
 		res = make([]model.GetModelSourceATRes, 0)
@@ -1058,7 +1058,7 @@ func (d *Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, erro
 
 // 获取自动化一类设备Action下拉菜单；
 // 包含遥测、属性、命令
-func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
+func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 	/*返回数据结构
 	{
 		"data_source_type": "telemetry",
@@ -1261,7 +1261,7 @@ func (d *Device) GetActionByDeviceID(deviceID string) (any, error) {
 
 // 获取自动化一类设备Condition下拉菜单；
 // 包含遥测、属性、事件
-func (d *Device) GetConditionByDeviceID(deviceID string) (any, error) {
+func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
 	/*返回数据结构
 	{
 		"data_source_type": "telemetry",
@@ -1439,7 +1439,7 @@ func (d *Device) GetConditionByDeviceID(deviceID string) (any, error) {
 	return res, nil
 }
 
-func (d *Device) GetMapTelemetry(device_id string) (map[string]interface{}, error) {
+func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error) {
 
 	res := make(map[string]interface{}, 0)
 
@@ -1506,14 +1506,14 @@ func (d *Device) GetMapTelemetry(device_id string) (map[string]interface{}, erro
 }
 
 // 有模板且有图表的设备下拉菜单
-func (d *Device) GetDeviceTemplateChartSelect(userClaims *utils.UserClaims) (any, error) {
+func (*Device) GetDeviceTemplateChartSelect(userClaims *utils.UserClaims) (any, error) {
 	// 获取设备模板
 	tenantId := userClaims.TenantID
 	return dal.GetDeviceTemplateChartSelect(tenantId)
 
 }
 
-func (d *Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error) {
+func (*Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error) {
 	deviceInfo, err := dal.GetDeviceByID(device_id)
 	if err != nil {
 		return nil, err
@@ -1537,7 +1537,7 @@ func (d *Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error)
 	return data, nil
 }
 
-func (d *Device) GatewayRegister(req model.GatewayRegisterReq) (model.GatewayRegisterRes, error) {
+func (*Device) GatewayRegister(req model.GatewayRegisterReq) (model.GatewayRegisterRes, error) {
 	var (
 		device *model.Device
 		err    error
@@ -1583,7 +1583,7 @@ func (d *Device) GatewayRegister(req model.GatewayRegisterReq) (model.GatewayReg
 	return result, dal.CreateDevice(device)
 }
 
-func (d *Device) GatewayDeviceRegister(req model.DeviceRegisterReq) (model.DeviceRegisterRes, error) {
+func (*Device) GatewayDeviceRegister(req model.DeviceRegisterReq) (model.DeviceRegisterRes, error) {
 	device, err := dal.GetDeviceByID(req.DeviceId)
 	if err != nil {
 		var voucher model.DeviceVoucher

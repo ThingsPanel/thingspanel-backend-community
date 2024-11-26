@@ -8,7 +8,7 @@ import (
 
 type Device struct{}
 
-func (d *Device) InitDevice(Router *gin.RouterGroup) {
+func (*Device) InitDevice(Router *gin.RouterGroup) {
 
 	// 设备路由
 	deviceapi := Router.Group("device")
