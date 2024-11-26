@@ -6,3 +6,6 @@ enabled = true
 
 [analyzers.meta]
 import_root = "project"
+
+# 设置圈复杂度阈值，超过此值会报警
+cyclomatic_complexity_threshold = 31  # 你可以设置一个合适的值
