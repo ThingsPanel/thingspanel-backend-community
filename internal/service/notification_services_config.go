@@ -106,7 +106,10 @@ func sendEmailMessage(message string, subject string, tenantId string, to ...str
 
 	d := gomail.NewDialer(emailConf.Host, emailConf.Port, emailConf.FromEmail, emailConf.FromPassword)
 	if *emailConf.SSL {
-		d.TLSConfig = &tls.Config{InsecureSkipVerify: *emailConf.SSL}
+		d.TLSConfig = &tls.Config{
+			MinVersion:         tls.VersionTLS13, // min version set
+			InsecureSkipVerify: *emailConf.SSL,
+		}
 	}
 
 	m := gomail.NewMessage()

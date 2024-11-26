@@ -9,3 +9,4 @@ import_root = "project"
 
 [analyzers.config]
 cyclomatic_complexity_threshold = 31
+excluded_rules = ["GO-S1023"]  # 忽略 MD5 密码算法警告

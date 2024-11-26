@@ -243,7 +243,7 @@ func AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, tenantID strin
 
 func GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 	result, err := query.AlarmHistory.Where(gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(req.DeviceId))...).Order(query.AlarmHistory.CreateAt.Desc()).First()
-	if err != nil && err == gorm.ErrRecordNotFound {
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return false
 	}
 	if result.AlarmStatus == "N" {
