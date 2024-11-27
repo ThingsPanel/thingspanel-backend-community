@@ -701,7 +701,7 @@ func (*Automate) automateConditionCheckByOperatorWithString(operator string, con
 // @params deviceId string
 // @params actions []model.ActionInf
 // @return void
-func (*Automate) AutomateActionExecute(sceneId string, deviceIds []string, actions []model.ActionInfo, tenantID string) (string, error) {
+func (*Automate) AutomateActionExecute(_ string, deviceIds []string, actions []model.ActionInfo, tenantID string) (string, error) {
 	logrus.Debug("动作开始执行:")
 	var (
 		result    string

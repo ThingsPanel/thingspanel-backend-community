@@ -45,7 +45,7 @@ func getSubscribeTopics() []SubscribeTopic {
 	}
 }
 
-func GatewaySubscribeTelemetryCallback(c mqtt.Client, d mqtt.Message) {
+func GatewaySubscribeTelemetryCallback(_ mqtt.Client, d mqtt.Message) {
 	err := pool.Submit(func() {
 		// 处理消息
 		GatewayTelemetryMessages(d.Payload(), d.Topic())
@@ -55,7 +55,7 @@ func GatewaySubscribeTelemetryCallback(c mqtt.Client, d mqtt.Message) {
 	}
 }
 
-func GatewaySubscribeAttributesCallback(c mqtt.Client, d mqtt.Message) {
+func GatewaySubscribeAttributesCallback(_ mqtt.Client, d mqtt.Message) {
 	messageId, deviceInfo, response, err := GatewayAttributeMessages(d.Payload(), d.Topic())
 	logrus.Debug("响应设备属性上报", deviceInfo, err)
 	if err != nil {
@@ -67,11 +67,11 @@ func GatewaySubscribeAttributesCallback(c mqtt.Client, d mqtt.Message) {
 	}
 }
 
-func GatewaySubscribeSetAttributesResponseCallback(c mqtt.Client, d mqtt.Message) {
+func GatewaySubscribeSetAttributesResponseCallback(_ mqtt.Client, d mqtt.Message) {
 	GatewayDeviceSetAttributesResponse(d.Payload(), d.Topic())
 }
 
-func GatewaySubscribeEventCallback(c mqtt.Client, d mqtt.Message) {
+func GatewaySubscribeEventCallback(_ mqtt.Client, d mqtt.Message) {
 	messageId, deviceInfo, response, err := GatewayEventCallback(d.Payload(), d.Topic())
 	logrus.Debug("响应设备事件上报", deviceInfo, err)
 	if err != nil {
@@ -82,7 +82,7 @@ func GatewaySubscribeEventCallback(c mqtt.Client, d mqtt.Message) {
 	}
 }
 
-func GatewaySubscribeCommandResponseCallback(c mqtt.Client, d mqtt.Message) {
+func GatewaySubscribeCommandResponseCallback(_ mqtt.Client, d mqtt.Message) {
 	GatewayDeviceCommandResponse(d.Payload(), d.Topic())
 }
 

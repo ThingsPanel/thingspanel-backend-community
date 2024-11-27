@@ -51,44 +51,9 @@ func (*Scene) GetSceneListByPage(req model.GetSceneListByPageReq, claims *utils.
 }
 
 // TODO
-func (*Scene) ActiveScene(scene_id, userId, tenantID string) error {
+func (*Scene) ActiveScene(scene_id, _, tenantID string) error {
 
 	return GroupApp.ActiveSceneExecute(scene_id, tenantID)
-	// actions, err := dal.GetActionInfoListBySceneAutomationId([]string{scene_id})
-	// if err != nil {
-	// 	return nil
-	// }
-	// var (
-	// 	deviceIds      []string
-	// 	deviceConfigId []string
-	// )
-	// for _, v := range actions {
-	// 	if v.ActionType == model.AUTOMATE_ACTION_TYPE_MULTIPLE && v.ActionTarget != nil {
-	// 		deviceConfigId = append(deviceConfigId, *v.ActionTarget)
-	// 	}
-	// }
-	// if len(deviceConfigId) > 0 {
-	// 	deviceIds, err = dal.GetDeviceIdsByDeviceConfigId(deviceConfigId)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	// details, err := GroupApp.AutomateActionExecute(scene_id, deviceIds, actions)
-	// var exeResult string
-	// if err == nil {
-	// 	exeResult = "S"
-	// } else {
-	// 	exeResult = "F"
-	// }
-	// logrus.Debug(details)
-	// return dal.SceneLogInsert(&model.SceneLog{
-	// 	ID:              uuid.New(),
-	// 	SceneID:         scene_id,
-	// 	ExecutedAt:      time.Now().UTC(),
-	// 	Detail:          details,
-	// 	ExecutionResult: exeResult,
-	// 	TenantID:        tenantID,
-	// })
 }
 
 func (*Scene) GetSceneLog(req model.GetSceneLogListByPageReq) (interface{}, error) {

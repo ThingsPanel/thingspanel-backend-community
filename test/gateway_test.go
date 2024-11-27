@@ -10,7 +10,6 @@ import (
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
 	"testing"
-	"time"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
@@ -104,59 +103,6 @@ func TestTelemetrySend(T *testing.T) {
 	if err != nil {
 		T.Error(err)
 	}
-}
-
-func TestTelemetrySubscribeSend(T *testing.T) {
-	//遥测数据
-	// {
-	// 	"gateway_data": {
-	// 	  "result": 1,
-	// 	  "errcode": "",
-	// 	  "message": "success",
-	// 	  "ts": 0,
-	// 	  "method": "action"
-	// 	},
-	// 	"sub_device_data": {
-	// 	  "3333333333":{
-	// 		"result": 1,
-	// 		"errcode": "",
-	// 		"message": "success",
-	// 		"ts": 0,
-	// 		"method": "action"
-	// 	  }
-	// 	}
-	//   }
-	//事件上报
-	// {
-	// 	"gateway_data": {
-	// 	  "method": "action",
-	// 	  "params": {
-	// 		"123": "2323"
-	// 	  }
-	// 	},
-	// 	"sub_device_data": {
-	// 	  "3333333333": {
-	// 		"method": "action",
-	// 		"params": {
-	// 		  "123": "2323"
-	// 		}
-	// 	  }
-	// 	}
-	//   }
-	//属性上报 gateway/attributes/32323/1234
-	// {
-	// 	"gateway_data":{
-	// 		"ip":"127.0.0.1",
-	// 		"version":"v0.1"
-	// 	},
-	// 	"sub_device_data":{
-	// 		"3333333333":{
-	// 			"ip":"127.0.0.1",
-	// 			"version":"v0.1"
-	// 		}
-	// 	}
-	// }
-	time.Sleep(5 * time.Minute)
 }
 
 func TestAttributeGet(T *testing.T) {

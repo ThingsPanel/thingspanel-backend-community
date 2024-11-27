@@ -114,7 +114,7 @@ func UpdateUserInfoByIdPersonal(uid string, data *model.UpdateUserInfoReq) (int6
 	return r.RowsAffected, err
 }
 
-func UpdateUserInfoById(uid string, data *model.User) (int64, error) {
+func UpdateUserInfoById(_ string, data *model.User) (int64, error) {
 	q := query.User
 	r, err := query.User.Where(q.ID.Eq(data.ID)).Updates(data)
 	return r.RowsAffected, err

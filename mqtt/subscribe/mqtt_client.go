@@ -82,11 +82,11 @@ func subscribeMqttClient() {
 	opts.SetMaxReconnectInterval(200 * time.Second)
 	// 消息顺序
 	opts.SetOrderMatters(false)
-	opts.SetOnConnectHandler(func(c mqtt.Client) {
+	opts.SetOnConnectHandler(func(_ mqtt.Client) {
 		logrus.Println("mqtt connect success")
 	})
 	// 断线重连
-	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
+	opts.SetConnectionLostHandler(func(_ mqtt.Client, err error) {
 		logrus.Println("mqtt connect  lost: ", err)
 		SubscribeMqttClient.Disconnect(250)
 		for {
@@ -135,7 +135,7 @@ func SubscribeTelemetry() error {
 	if err != nil {
 		return err
 	}
-	deviceTelemetryMessageHandler := func(c mqtt.Client, d mqtt.Message) {
+	deviceTelemetryMessageHandler := func(_ mqtt.Client, d mqtt.Message) {
 		err = p.Submit(func() {
 			// 处理消息
 			TelemetryMessages(d.Payload(), d.Topic())
@@ -161,7 +161,7 @@ func SubscribeTelemetry() error {
 // 订阅attribute消息，暂不需要线程池，不需要消息队列
 func SubscribeAttribute() {
 	// 订阅attribute消息
-	deviceAttributeHandler := func(c mqtt.Client, d mqtt.Message) {
+	deviceAttributeHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
 		logrus.Debug("attribute message:", string(d.Payload()))
 		deviceNumber, messageId, err := DeviceAttributeReport(d.Payload(), d.Topic())
@@ -186,7 +186,7 @@ func SubscribeAttribute() {
 
 func SubscribeSetAttribute() {
 	// 订阅attribute消息
-	deviceAttributeHandler := func(c mqtt.Client, d mqtt.Message) {
+	deviceAttributeHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
 		logrus.Debug("attribute message:", string(d.Payload()))
 		DeviceSetAttributeResponse(d.Payload(), d.Topic())
@@ -204,7 +204,7 @@ func SubscribeSetAttribute() {
 // 订阅command消息，暂不需要线程池，不需要消息队列
 func SubscribeCommand() {
 	// 订阅command消息
-	deviceCommandHandler := func(c mqtt.Client, d mqtt.Message) {
+	deviceCommandHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
 		messageID, err := DeviceCommand(d.Payload(), d.Topic())
 		logrus.Debug("设备命令响应上报", messageID, err)
@@ -226,7 +226,7 @@ func SubscribeCommand() {
 // 订阅event消息，暂不需要线程池，不需要消息队列
 func SubscribeEvent() {
 	// 订阅event消息
-	deviceEventHandler := func(c mqtt.Client, d mqtt.Message) {
+	deviceEventHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
 		logrus.Debug("event message:", string(d.Payload()))
 		deviceNumber, messageId, method, err := DeviceEvent(d.Payload(), d.Topic())
@@ -250,7 +250,7 @@ func SubscribeEvent() {
 // 订阅设备上线离线消息
 func SubscribeDeviceStatus() {
 	// 订阅设备上线离线消息
-	deviceOnlineHandler := func(c mqtt.Client, d mqtt.Message) {
+	deviceOnlineHandler := func(_ mqtt.Client, d mqtt.Message) {
 		logrus.Debug("接收来自broker的设备在线离线通知")
 		// 处理消息
 		DeviceOnline(d.Payload(), d.Topic())
@@ -269,7 +269,7 @@ func SubscribeDeviceStatus() {
 
 func SubscribeOtaUpprogress() {
 	// 订阅ota升级消息
-	otaUpgradeHandler := func(c mqtt.Client, d mqtt.Message) {
+	otaUpgradeHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
 		logrus.Debug("ota upgrade message:", string(d.Payload()))
 		OtaUpgrade(d.Payload(), d.Topic())

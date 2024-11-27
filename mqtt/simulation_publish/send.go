@@ -21,7 +21,7 @@ func PublishMessage(host string, port string, topic string, payload string, user
 	opts.SetOrderMatters(false)
 	// 恢复客户端订阅，需要broker支持
 	opts.SetResumeSubs(false)
-	opts.SetOnConnectHandler(func(c mqtt.Client) {
+	opts.SetOnConnectHandler(func(_ mqtt.Client) {
 		logrus.Println("simulation mqtt connect success")
 	})
 	c := mqtt.NewClient(opts)

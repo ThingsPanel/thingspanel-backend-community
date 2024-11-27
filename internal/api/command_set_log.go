@@ -28,7 +28,7 @@ type CommandSetLogApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/command/datas/set/logs [get]
-func (a *CommandSetLogApi) ServeSetLogsDataListByPage(c *gin.Context) {
+func (CommandSetLogApi) ServeSetLogsDataListByPage(c *gin.Context) {
 	var req model.GetCommandSetLogsListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -44,7 +44,7 @@ func (a *CommandSetLogApi) ServeSetLogsDataListByPage(c *gin.Context) {
 }
 
 // /api/v1/command/datas/pub
-func (a *CommandSetLogApi) CommandPutMessage(c *gin.Context) {
+func (CommandSetLogApi) CommandPutMessage(c *gin.Context) {
 	var req model.PutMessageForCommand
 	if !BindAndValidate(c, &req) {
 		return
@@ -60,7 +60,7 @@ func (a *CommandSetLogApi) CommandPutMessage(c *gin.Context) {
 }
 
 // /api/v1/command/datas/:id
-func (a *CommandSetLogApi) GetCommandList(c *gin.Context) {
+func (CommandSetLogApi) GetCommandList(c *gin.Context) {
 	id := c.Param("id")
 
 	data, err := service.GroupApp.CommandData.GetCommonList(c, id)

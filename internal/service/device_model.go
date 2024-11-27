@@ -170,7 +170,7 @@ func (*DeviceModel) CreateDeviceModelGeneralV2(req model.CreateDeviceModelV2Req,
 
 }
 
-func (*DeviceModel) DeleteDeviceModelGeneral(id string, what string, claims *utils.UserClaims) (err error) {
+func (*DeviceModel) DeleteDeviceModelGeneral(id string, what string, _ *utils.UserClaims) (err error) {
 	switch what {
 	case model.DEVICE_MODEL_TELEMETRY:
 		err = dal.DeleteDeviceModelTelemetry(id)

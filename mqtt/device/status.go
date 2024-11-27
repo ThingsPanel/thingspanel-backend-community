@@ -68,7 +68,7 @@ func InitDeviceStatus() error {
 
 // NewStatusManager 创建状态管理器
 func NewStatusManager(config StatusConfig) (*StatusManager, error) {
-	messageHandler := func(c mqtt.Client, msg mqtt.Message) {
+	messageHandler := func(_ mqtt.Client, msg mqtt.Message) {
 		logrus.WithFields(logrus.Fields{
 			"topic":   msg.Topic(),
 			"payload": string(msg.Payload()),
@@ -93,7 +93,7 @@ func NewStatusManager(config StatusConfig) (*StatusManager, error) {
 		SetAutoReconnect(true).
 		SetCleanSession(false)
 
-	opts.SetOnConnectHandler(func(client mqtt.Client) {
+	opts.SetOnConnectHandler(func(_ mqtt.Client) {
 		logrus.Info("Connected to MQTT broker")
 		if err := manager.subscribe(); err != nil {
 			logrus.WithError(err).Error("重新订阅失败")

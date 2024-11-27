@@ -54,7 +54,7 @@ func GetTelemetrySetLogsListByPage(req *model.GetTelemetrySetLogsListByPageReq) 
 type TelemetrySetLogsQuery struct {
 }
 
-func (t TelemetrySetLogsQuery) Create(ctx context.Context, info *model.TelemetrySetLog) (id string, err error) {
+func (TelemetrySetLogsQuery) Create(ctx context.Context, info *model.TelemetrySetLog) (id string, err error) {
 	telemetry := query.TelemetrySetLog
 
 	err = telemetry.WithContext(ctx).Create(info)

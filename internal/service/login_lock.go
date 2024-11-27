@@ -34,7 +34,7 @@ func (*LoginLock) getKey(username string) string {
 	return fmt.Sprintf("user:%s:failed_attempts", username)
 }
 
-func (l *LoginLock) GetAllowLogin(ctx context.Context, username string) error {
+func (l *LoginLock) GetAllowLogin(_ context.Context, username string) error {
 
 	lockKey := l.getLockKey(username)
 
@@ -53,12 +53,12 @@ func (l *LoginLock) GetAllowLogin(ctx context.Context, username string) error {
 	return nil
 }
 
-func (l *LoginLock) LoginSuccess(ctx context.Context, username string) error {
+func (l *LoginLock) LoginSuccess(_ context.Context, username string) error {
 	key := l.getKey(username)
 	return global.REDIS.Del(key).Err()
 }
 
-func (l *LoginLock) LoginFail(ctx context.Context, username string) error {
+func (l *LoginLock) LoginFail(_ context.Context, username string) error {
 	key := l.getKey(username)
 	lockKey := l.getLockKey(username)
 	failedAttempts, err := global.REDIS.Incr(key).Result()

@@ -98,7 +98,7 @@ func (c *AutomateCache) set(key string, value interface{}, expiration time.Durat
 	return c.client.Set(key, valueStr, expiration).Err()
 }
 
-func (c *AutomateCache) scan(stringCmd *redis.StringCmd, val interface{}) (int, error) {
+func (*AutomateCache) scan(stringCmd *redis.StringCmd, val interface{}) (int, error) {
 	str, err := stringCmd.Result()
 	if err == redis.Nil {
 		return AUTOMATE_CACHE_RESULT_NOT_FOUND, nil

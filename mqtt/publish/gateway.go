@@ -143,7 +143,7 @@ func GatewayPublishSetAttributesMessage(ctx context.Context, deviceInfo model.De
 // @params messageId sting
 // @params command model.GatewayPublish
 // @return error
-func GatewayPublishGetAttributesMessage(ctx context.Context, deviceInfo model.Device, messageId string, command model.GatewayAttributeGet) error {
+func GatewayPublishGetAttributesMessage(ctx context.Context, deviceInfo model.Device, _ string, command model.GatewayAttributeGet) error {
 
 	topic := fmt.Sprintf(config.MqttConfig.Attributes.GatewayPublishGetTopic, deviceInfo.DeviceNumber)
 	qos := byte(config.MqttConfig.Attributes.QoS)
@@ -206,7 +206,7 @@ func GatewayPublishResponseEventMessage(ctx context.Context, deviceInfo model.De
 // @params messageId sting
 // @params command model.GatewayPublish
 // @return error
-func getGatewayPublishTopic(ctx context.Context, topic string, deviceInfo model.Device) (string, error) {
+func getGatewayPublishTopic(_ context.Context, topic string, deviceInfo model.Device) (string, error) {
 
 	if deviceInfo.DeviceConfigID == nil {
 		return topic, nil

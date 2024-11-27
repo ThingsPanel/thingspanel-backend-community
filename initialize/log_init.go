@@ -13,7 +13,7 @@ type customFormatter struct {
 	logrus.TextFormatter
 }
 
-func (f *customFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+func (*customFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	var levelColor string
 	var levelText string
 	switch entry.Level {

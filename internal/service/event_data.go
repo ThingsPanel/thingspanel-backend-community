@@ -8,7 +8,7 @@ import (
 
 type EventData struct{}
 
-func (*EventData) GetEventDatasListByPage(req *model.GetEventDatasListByPageReq, claims *utils.UserClaims) (interface{}, error) {
+func (*EventData) GetEventDatasListByPage(req *model.GetEventDatasListByPageReq, _ *utils.UserClaims) (interface{}, error) {
 	count, data, err := dal.GetEventDatasListByPage(req)
 	if err != nil {
 		return nil, err

@@ -36,7 +36,7 @@ func (w *WsMqttClient) CreateMqttClient() error {
 	opts.SetMaxReconnectInterval(20 * time.Second)
 	// 消息顺序
 	opts.SetOrderMatters(false)
-	opts.SetOnConnectHandler(func(c mqtt.Client) {
+	opts.SetOnConnectHandler(func(_ mqtt.Client) {
 		logrus.Println("ws mqtt connect success")
 	})
 
@@ -55,7 +55,7 @@ func (w *WsMqttClient) SubscribeDeviceTelemetry(deviceId string, conn *websocket
 		return err
 	}
 	// 订阅单设备遥测消息
-	deviceTelemetryHandler := func(c mqtt.Client, d mqtt.Message) {
+	deviceTelemetryHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
 		var valuesMap map[string]interface{}
 		if err := json.Unmarshal(d.Payload(), &valuesMap); err != nil {
@@ -101,7 +101,7 @@ func (w *WsMqttClient) SubscribeDeviceTelemetryByKeys(deviceId string, conn *web
 		return err
 	}
 	// 订阅单设备遥测消息
-	deviceTelemetryHandler := func(c mqtt.Client, d mqtt.Message) {
+	deviceTelemetryHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
 		var valuesMap map[string]interface{}
 		var rspMap = make(map[string]interface{})
@@ -154,7 +154,7 @@ func (w *WsMqttClient) SubscribeOnlineOffline(deviceId string, conn *websocket.C
 		return err
 	}
 	// 订阅在线离线消息
-	onlineOfflineHandler := func(c mqtt.Client, d mqtt.Message) {
+	onlineOfflineHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
 
 		payloadInt, err := strconv.Atoi(string(d.Payload()))

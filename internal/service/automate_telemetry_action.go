@@ -178,7 +178,7 @@ func (*AutomateTelemetryActionAlarm) AutomateActionRun(action model.ActionInfo) 
 type AutomateTelemetryActionService struct {
 }
 
-func (*AutomateTelemetryActionService) AutomateActionRun(action model.ActionInfo) (string, error) {
+func (*AutomateTelemetryActionService) AutomateActionRun(_ model.ActionInfo) (string, error) {
 	//todo 待实现
 	fmt.Println("自动化服务动作实现")
 	return "服务", nil

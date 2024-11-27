@@ -34,7 +34,7 @@ func CreateMqttClient(config MqttConfig) *mqtt.Client {
 	opts.SetMaxReconnectInterval(20 * time.Second)
 	// 消息顺序
 	opts.SetOrderMatters(false)
-	opts.SetOnConnectHandler(func(c mqtt.Client) {
+	opts.SetOnConnectHandler(func(_ mqtt.Client) {
 		log.Println("mqtt connect success")
 	})
 	// 断线重连
