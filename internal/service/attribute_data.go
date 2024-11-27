@@ -279,7 +279,7 @@ func transformSubDeviceData(param *model.AttributePutMessage, subDeviceAddr stri
 }
 
 // 发送获取属性请求
-func (*AttributeData) AttributeGetMessage(userClaims *utils.UserClaims, req *model.AttributeGetMessageReq) error {
+func (*AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.AttributeGetMessageReq) error {
 	logrus.Debug("AttributeGetMessage")
 	// 获取设备编码
 	d, err := dal.GetDeviceByID(req.DeviceID)

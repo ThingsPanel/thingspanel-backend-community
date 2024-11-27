@@ -146,7 +146,7 @@ func GetUserIdBYTenantID(tenantID string) (string, error) {
 type UserQuery struct {
 }
 
-func (u UserQuery) Count(ctx context.Context) (count int64, err error) {
+func (UserQuery) Count(ctx context.Context) (count int64, err error) {
 	count, err = query.User.Count()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -154,7 +154,7 @@ func (u UserQuery) Count(ctx context.Context) (count int64, err error) {
 	return
 }
 
-func (u UserQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (count int64, err error) {
+func (UserQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (count int64, err error) {
 	var users = query.User
 	count, err = users.Where(option...).Count()
 	if err != nil {
@@ -163,7 +163,7 @@ func (u UserQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (c
 	return
 }
 
-func (u UserQuery) GroupByMonthCount(ctx context.Context, email *string) (list []*model.GetBoardUserListMonth) {
+func (UserQuery) GroupByMonthCount(ctx context.Context, email *string) (list []*model.GetBoardUserListMonth) {
 	var (
 		db = global.DB.WithContext(ctx)
 	)
@@ -180,7 +180,7 @@ func (u UserQuery) GroupByMonthCount(ctx context.Context, email *string) (list [
 	return
 }
 
-func (u UserQuery) First(ctx context.Context, option ...gen.Condition) (info *model.User, err error) {
+func (UserQuery) First(ctx context.Context, option ...gen.Condition) (info *model.User, err error) {
 	var users = query.User
 
 	info, err = users.Where(option...).First()
@@ -190,7 +190,7 @@ func (u UserQuery) First(ctx context.Context, option ...gen.Condition) (info *mo
 	return
 }
 
-func (u UserQuery) Select(ctx context.Context, option ...gen.Condition) (list []*model.User, err error) {
+func (UserQuery) Select(ctx context.Context, option ...gen.Condition) (list []*model.User, err error) {
 	var users = query.User
 
 	list, err = users.Where(option...).Find()
@@ -200,7 +200,7 @@ func (u UserQuery) Select(ctx context.Context, option ...gen.Condition) (list []
 	return
 }
 
-func (u UserQuery) UpdateByEmail(ctx context.Context, info *model.User, columns ...field.Expr) (err error) {
+func (UserQuery) UpdateByEmail(ctx context.Context, info *model.User, columns ...field.Expr) (err error) {
 	var users = query.User
 	//users.Password, users.Name, users.PhoneNumber, users.Remark
 	_, err = users.Where(users.Email.Eq(info.Email)).
@@ -215,7 +215,7 @@ func (u UserQuery) UpdateByEmail(ctx context.Context, info *model.User, columns 
 type UserVo struct {
 }
 
-func (u UserVo) PoToVo(userInfo *model.User) (info *model.UsersRes) {
+func (UserVo) PoToVo(userInfo *model.User) (info *model.UsersRes) {
 	info = &model.UsersRes{
 		ID:       userInfo.ID,
 		PhoneNum: userInfo.PhoneNumber,

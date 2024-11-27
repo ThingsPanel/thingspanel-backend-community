@@ -27,7 +27,7 @@ var casbinService = service.GroupApp.Casbin
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/casbin/function [post]
-func (api *CasbinApi) AddFunctionToRole(c *gin.Context) {
+func (*CasbinApi) AddFunctionToRole(c *gin.Context) {
 	var req model.FunctionsRoleValidate
 	if !BindAndValidate(c, &req) {
 		return
@@ -55,7 +55,7 @@ func (api *CasbinApi) AddFunctionToRole(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/casbin/function [get]
-func (api *CasbinApi) GetFunctionFromRole(c *gin.Context) {
+func (*CasbinApi) GetFunctionFromRole(c *gin.Context) {
 	var req model.RoleValidate
 	if !BindAndValidate(c, &req) {
 		return
@@ -83,7 +83,7 @@ func (api *CasbinApi) GetFunctionFromRole(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/casbin/function [put]
-func (api *CasbinApi) UpdateFunctionFromRole(c *gin.Context) {
+func (*CasbinApi) UpdateFunctionFromRole(c *gin.Context) {
 	var req model.FunctionsRoleValidate
 	if !BindAndValidate(c, &req) {
 		return
@@ -123,7 +123,7 @@ func (api *CasbinApi) UpdateFunctionFromRole(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/casbin/function/{id} [delete]
-func (api *CasbinApi) DeleteFunctionFromRole(c *gin.Context) {
+func (*CasbinApi) DeleteFunctionFromRole(c *gin.Context) {
 	id := c.Param("id")
 	ok := casbinService.RemoveRoleAndFunction(id)
 	if !ok {
@@ -146,7 +146,7 @@ func (api *CasbinApi) DeleteFunctionFromRole(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/casbin/user [post]
-func (api *CasbinApi) AddRoleToUser(c *gin.Context) {
+func (*CasbinApi) AddRoleToUser(c *gin.Context) {
 	var req model.RolesUserValidate
 	if !BindAndValidate(c, &req) {
 		return
@@ -175,7 +175,7 @@ func (api *CasbinApi) AddRoleToUser(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/casbin/user [get]
-func (api *CasbinApi) GetRolesFromUser(c *gin.Context) {
+func (*CasbinApi) GetRolesFromUser(c *gin.Context) {
 	var req model.UserValidate
 	if !BindAndValidate(c, &req) {
 		return
@@ -204,7 +204,7 @@ func (api *CasbinApi) GetRolesFromUser(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/casbin/user [put]
-func (api *CasbinApi) UpdateRolesFromUser(c *gin.Context) {
+func (*CasbinApi) UpdateRolesFromUser(c *gin.Context) {
 	var req model.RolesUserValidate
 	if !BindAndValidate(c, &req) {
 		return
@@ -236,7 +236,7 @@ func (api *CasbinApi) UpdateRolesFromUser(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/casbin/user/{id} [delete]
-func (api *CasbinApi) DeleteRolesFromUser(c *gin.Context) {
+func (*CasbinApi) DeleteRolesFromUser(c *gin.Context) {
 	id := c.Param("id")
 	ok := casbinService.RemoveUserAndRole(id)
 	if !ok {

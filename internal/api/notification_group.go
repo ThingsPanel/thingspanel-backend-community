@@ -25,7 +25,7 @@ type NotificationGroupApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/notification_group [post]
-func (api *NotificationGroupApi) CreateNotificationGroup(c *gin.Context) {
+func (*NotificationGroupApi) CreateNotificationGroup(c *gin.Context) {
 	var req model.CreateNotificationGroupReq
 
 	if !BindAndValidate(c, &req) {
@@ -60,7 +60,7 @@ func (api *NotificationGroupApi) CreateNotificationGroup(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/notification_group/{id} [get]
-func (api *NotificationGroupApi) GetNotificationGroupById(c *gin.Context) {
+func (*NotificationGroupApi) GetNotificationGroupById(c *gin.Context) {
 	id := c.Param("id")
 	if ntfgroup, err := service.GroupApp.NotificationGroup.GetNotificationGroupById(id); err != nil {
 		ErrorHandler(c, http.StatusBadRequest, err)
@@ -89,7 +89,7 @@ func (api *NotificationGroupApi) GetNotificationGroupById(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/notification_group/{id} [put]
-func (api *NotificationGroupApi) UpdateNotificationGroup(c *gin.Context) {
+func (*NotificationGroupApi) UpdateNotificationGroup(c *gin.Context) {
 	id := c.Param("id")
 	var req model.UpdateNotificationGroupReq
 	if !BindAndValidate(c, &req) {
@@ -122,7 +122,7 @@ func (api *NotificationGroupApi) UpdateNotificationGroup(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/notification_group/{id} [delete]
-func (api *NotificationGroupApi) DeleteNotificationGroup(c *gin.Context) {
+func (*NotificationGroupApi) DeleteNotificationGroup(c *gin.Context) {
 	id := c.Param("id")
 	if err := service.GroupApp.NotificationGroup.DeleteNotificationGroup(id); err != nil {
 		ErrorHandler(c, http.StatusBadRequest, err)
@@ -144,7 +144,7 @@ func (api *NotificationGroupApi) DeleteNotificationGroup(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/notification_group/list [get]
-func (api *NotificationGroupApi) GetNotificationGroupListByPage(c *gin.Context) {
+func (*NotificationGroupApi) GetNotificationGroupListByPage(c *gin.Context) {
 	var req model.GetNotificationGroupListByPageReq
 	if !BindAndValidate(c, &req) {
 		return

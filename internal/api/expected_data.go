@@ -14,7 +14,7 @@ type ExpectedDataApi struct{}
 
 // 预期数据列表查询
 // /api/v1/expected/data/list
-func (api *ExpectedDataApi) GetExpectedDataList(c *gin.Context) {
+func (*ExpectedDataApi) GetExpectedDataList(c *gin.Context) {
 	var req model.GetExpectedDataPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -30,7 +30,7 @@ func (api *ExpectedDataApi) GetExpectedDataList(c *gin.Context) {
 
 // 新增预期数据
 // /api/v1/expected/data
-func (api *ExpectedDataApi) CreateExpectedData(c *gin.Context) {
+func (*ExpectedDataApi) CreateExpectedData(c *gin.Context) {
 	var req model.CreateExpectedDataReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -46,7 +46,7 @@ func (api *ExpectedDataApi) CreateExpectedData(c *gin.Context) {
 
 // 删除预期数据
 // /api/v1/expected/data
-func (api *ExpectedDataApi) DeleteExpectedData(c *gin.Context) {
+func (*ExpectedDataApi) DeleteExpectedData(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.ExpectedData.Delete(c, id)
 	if err != nil {

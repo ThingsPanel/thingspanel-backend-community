@@ -14,7 +14,7 @@ type ExpectedDataDal struct {
 }
 
 // 创建预期数据
-func (d ExpectedDataDal) Create(ctx context.Context, data *model.ExpectedData) (err error) {
+func (ExpectedDataDal) Create(ctx context.Context, data *model.ExpectedData) (err error) {
 	err = query.ExpectedData.WithContext(ctx).Create(data)
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -23,7 +23,7 @@ func (d ExpectedDataDal) Create(ctx context.Context, data *model.ExpectedData) (
 }
 
 // 删除预期数据
-func (d ExpectedDataDal) Delete(ctx context.Context, id string) error {
+func (ExpectedDataDal) Delete(ctx context.Context, id string) error {
 	info, err := query.ExpectedData.WithContext(ctx).Where(query.ExpectedData.ID.Eq(id)).Delete()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -37,7 +37,7 @@ func (d ExpectedDataDal) Delete(ctx context.Context, id string) error {
 }
 
 // 详情查询
-func (d ExpectedDataDal) GetByID(ctx context.Context, id string) (data *model.ExpectedData, err error) {
+func (ExpectedDataDal) GetByID(ctx context.Context, id string) (data *model.ExpectedData, err error) {
 	data, err = query.ExpectedData.WithContext(ctx).Where(query.ExpectedData.ID.Eq(id)).First()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -46,7 +46,7 @@ func (d ExpectedDataDal) GetByID(ctx context.Context, id string) (data *model.Ex
 }
 
 // 分页查询
-func (d ExpectedDataDal) PageList(ctx context.Context, req *model.GetExpectedDataPageReq, tenantID string) (total int64, list []map[string]interface{}, err error) {
+func (ExpectedDataDal) PageList(ctx context.Context, req *model.GetExpectedDataPageReq, tenantID string) (total int64, list []map[string]interface{}, err error) {
 	ed := query.ExpectedData
 	queryBuilder := ed.WithContext(ctx)
 	queryBuilder = queryBuilder.Where(ed.TenantID.Eq(tenantID), ed.DeviceID.Eq(req.DeviceID))
@@ -85,7 +85,7 @@ func (d ExpectedDataDal) PageList(ctx context.Context, req *model.GetExpectedDat
 }
 
 // 根据设备ID获取全部未处理的预期数据
-func (d ExpectedDataDal) GetAllByDeviceID(ctx context.Context, deviceID string) (list []*model.ExpectedData, err error) {
+func (ExpectedDataDal) GetAllByDeviceID(ctx context.Context, deviceID string) (list []*model.ExpectedData, err error) {
 	ed := query.ExpectedData
 	queryBuilder := ed.WithContext(ctx)
 	queryBuilder = queryBuilder.Where(ed.DeviceID.Eq(deviceID))
@@ -103,7 +103,7 @@ func (d ExpectedDataDal) GetAllByDeviceID(ctx context.Context, deviceID string) 
 }
 
 // 更新状态
-func (d ExpectedDataDal) UpdateStatus(ctx context.Context, id string, status string, message *string, sendTime *time.Time) error {
+func (ExpectedDataDal) UpdateStatus(ctx context.Context, id string, status string, message *string, sendTime *time.Time) error {
 	expectedData := model.ExpectedData{Status: status, Message: message, SendTime: sendTime}
 	info, err := query.ExpectedData.WithContext(ctx).Where(query.ExpectedData.ID.Eq(id)).Updates(expectedData)
 	if err != nil {

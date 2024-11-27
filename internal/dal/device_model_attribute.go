@@ -12,7 +12,7 @@ import (
 type DeviceModelAttributeQuery struct {
 }
 
-func (d DeviceModelAttributeQuery) First(ctx context.Context, option ...gen.Condition) (info *model.DeviceModelAttribute, err error) {
+func (DeviceModelAttributeQuery) First(ctx context.Context, option ...gen.Condition) (info *model.DeviceModelAttribute, err error) {
 	info, err = query.DeviceModelAttribute.WithContext(ctx).Where(option...).First()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -20,7 +20,7 @@ func (d DeviceModelAttributeQuery) First(ctx context.Context, option ...gen.Cond
 	return
 }
 
-func (d DeviceModelAttributeQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.DeviceModelAttribute, err error) {
+func (DeviceModelAttributeQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.DeviceModelAttribute, err error) {
 	list, err = query.DeviceModelAttribute.WithContext(ctx).Where(option...).Find()
 	if err != nil {
 		logrus.Error(ctx, err)

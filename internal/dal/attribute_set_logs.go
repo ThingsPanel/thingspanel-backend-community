@@ -48,7 +48,7 @@ func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageRe
 type AttributeSetLogsQuery struct {
 }
 
-func (a AttributeSetLogsQuery) Create(ctx context.Context, info *model.AttributeSetLog) (id string, err error) {
+func (AttributeSetLogsQuery) Create(ctx context.Context, info *model.AttributeSetLog) (id string, err error) {
 	attribute := query.AttributeSetLog
 
 	err = attribute.WithContext(ctx).Create(info)
@@ -58,7 +58,7 @@ func (a AttributeSetLogsQuery) Create(ctx context.Context, info *model.Attribute
 	return info.ID, err
 }
 
-func (a AttributeSetLogsQuery) SetAttributeResultUpdate(ctx context.Context, logId string, response model.MqttResponse) {
+func (AttributeSetLogsQuery) SetAttributeResultUpdate(ctx context.Context, logId string, response model.MqttResponse) {
 	attribute := query.AttributeSetLog
 	valueByte, _ := json.Marshal(response)
 	values := string(valueByte)

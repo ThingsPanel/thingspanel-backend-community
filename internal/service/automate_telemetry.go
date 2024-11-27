@@ -63,7 +63,7 @@ func (a *Automate) actionAfterDecorationRun(actions []model.ActionInfo, err erro
 	}
 }
 
-func (a *Automate) ErrorRecover() func() {
+func (*Automate) ErrorRecover() func() {
 	return func() {
 		if r := recover(); r != nil {
 			// 获取当前的调用堆栈
@@ -164,7 +164,7 @@ func (a *Automate) AutomateFilter(info initialize.AutomateExecteParams, fromExt 
 	return info
 }
 
-func (a *Automate) containString(slice []string, str string) bool {
+func (*Automate) containString(slice []string, str string) bool {
 	for _, v := range slice {
 		logrus.Info(v, str)
 		if v == str {
@@ -175,7 +175,7 @@ func (a *Automate) containString(slice []string, str string) bool {
 }
 
 // 限流实现 1秒一次 安场景实现
-func (a *Automate) LimiterAllow(id string) bool {
+func (*Automate) LimiterAllow(id string) bool {
 	return initialize.NewAutomateLimiter().GetLimiter(fmt.Sprintf("SceneAutomationId:%s", id)).Allow()
 }
 
@@ -212,7 +212,7 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 
 // CheckSceneAutomationHasClose
 // @description 查询是否关闭了自动化
-func (a *Automate) CheckSceneAutomationHasClose(sceneAutomationId string) bool {
+func (*Automate) CheckSceneAutomationHasClose(sceneAutomationId string) bool {
 	ok := dal.CheckSceneAutomationHasClose(sceneAutomationId)
 	//删除缓存
 	if ok {
@@ -282,7 +282,7 @@ func (a *Automate) ActiveSceneExecute(scene_id, tenantID string) error {
 // @description sceneExecuteLogSave 自动化场景联动执行
 // @params info initialize.AutomateExecteParams
 // @return error
-func (a *Automate) sceneExecuteLogSave(scene_id, details string, err error) error {
+func (*Automate) sceneExecuteLogSave(scene_id, details string, err error) error {
 	var exeResult string
 	if err == nil {
 		exeResult = "S"
@@ -361,7 +361,7 @@ func (a *Automate) AutomateConditionCheckWithGroupOne(cond model.DeviceTriggerCo
 // @description automateConditionCheckWithTime 单个条件时间范围验证
 // @params cond model.DeviceTriggerCondition
 // @return bool
-func (a *Automate) automateConditionCheckWithTime(cond model.DeviceTriggerCondition) bool {
+func (*Automate) automateConditionCheckWithTime(cond model.DeviceTriggerCondition) bool {
 	logrus.Debug("时间范围对比开始... 条件:", cond.TriggerValue)
 	nowTime := time.Now().UTC()
 	if cond.TriggerValue == "" {
@@ -504,7 +504,7 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 
 type DataIdentifierName func(device_template_id, identifier string) string
 
-func (a *Automate) getTriggerParamsValue(triggerKey string, fc DataIdentifierName) string {
+func (*Automate) getTriggerParamsValue(triggerKey string, fc DataIdentifierName) string {
 	tempId, _ := dal.GetDeviceTemplateIdByDeviceId(triggerKey)
 	if tempId == "" {
 		return triggerKey
@@ -539,7 +539,7 @@ func float64Equal(a, b float64) bool {
 // @description  运算符处理
 // @params cond model.DeviceTriggerCondition
 // @return bool
-func (a *Automate) automateConditionCheckByOperatorWithFloat(operator string, condValue string, actualValue float64) bool {
+func (*Automate) automateConditionCheckByOperatorWithFloat(operator string, condValue string, actualValue float64) bool {
 	//logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
 
 	switch operator {
@@ -620,7 +620,7 @@ func (a *Automate) automateConditionCheckByOperatorWithFloat(operator string, co
 // @description  运算符处理
 // @params cond model.DeviceTriggerCondition
 // @return bool
-func (a *Automate) automateConditionCheckByOperatorWithString(operator string, condValue string, actualValue string) bool {
+func (*Automate) automateConditionCheckByOperatorWithString(operator string, condValue string, actualValue string) bool {
 	logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
 	switch operator {
 	case model.CONDITION_TRIGGER_OPERATOR_EQ:
@@ -701,7 +701,7 @@ func (a *Automate) automateConditionCheckByOperatorWithString(operator string, c
 // @params deviceId string
 // @params actions []model.ActionInf
 // @return void
-func (a *Automate) AutomateActionExecute(sceneId string, deviceIds []string, actions []model.ActionInfo, tenantID string) (string, error) {
+func (*Automate) AutomateActionExecute(sceneId string, deviceIds []string, actions []model.ActionInfo, tenantID string) (string, error) {
 	logrus.Debug("动作开始执行:")
 	var (
 		result    string
@@ -750,7 +750,7 @@ func (a *Automate) AutomateActionExecute(sceneId string, deviceIds []string, act
 // @description  查询设备自动化信息并缓存
 // @params deviceId string
 // @return initialize.AutomateExecteParams, int, error
-func (a *Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string) (initialize.AutomateExecteParams, int, error) {
+func (*Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string) (initialize.AutomateExecteParams, int, error) {
 	automateExecuteParams := initialize.AutomateExecteParams{
 		DeviceId:       deviceId,
 		DeviceConfigId: deviceConfigId,

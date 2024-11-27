@@ -25,7 +25,7 @@ type UiElementsApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ui_elements [post]
-func (api *UiElementsApi) CreateUiElements(c *gin.Context) {
+func (*UiElementsApi) CreateUiElements(c *gin.Context) {
 	var req model.CreateUiElementsReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -52,7 +52,7 @@ func (api *UiElementsApi) CreateUiElements(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ui_elements [put]
-func (api *UiElementsApi) UpdateUiElements(c *gin.Context) {
+func (*UiElementsApi) UpdateUiElements(c *gin.Context) {
 	var req model.UpdateUiElementsReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -85,7 +85,7 @@ func (api *UiElementsApi) UpdateUiElements(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ui_elements/{id} [delete]
-func (api *UiElementsApi) DeleteUiElements(c *gin.Context) {
+func (*UiElementsApi) DeleteUiElements(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.UiElements.DeleteUiElements(id)
 	if err != nil {
@@ -108,7 +108,7 @@ func (api *UiElementsApi) DeleteUiElements(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ui_elements [get]
-func (api *UiElementsApi) ServeUiElementsListByPage(c *gin.Context) {
+func (*UiElementsApi) ServeUiElementsListByPage(c *gin.Context) {
 	var req model.ServeUiElementsListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -140,7 +140,7 @@ func (api *UiElementsApi) ServeUiElementsListByPage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ui_elements/menu [get]
-func (api *UiElementsApi) ServeUiElementsListByAuthority(c *gin.Context) {
+func (*UiElementsApi) ServeUiElementsListByAuthority(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 
 	uiElementsList, err := service.GroupApp.UiElements.ServeUiElementsListByAuthority(userClaims)
@@ -153,7 +153,7 @@ func (api *UiElementsApi) ServeUiElementsListByAuthority(c *gin.Context) {
 
 // 菜单权限配置表单
 // /api/v1/ui_elements/select/form
-func (api *UiElementsApi) ServeUiElementsListByTenant(c *gin.Context) {
+func (*UiElementsApi) ServeUiElementsListByTenant(c *gin.Context) {
 	uiElementsList, err := service.GroupApp.UiElements.GetTenantUiElementsList()
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)

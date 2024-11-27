@@ -24,7 +24,7 @@ type NotificationHistoryApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/notification_history/list [get]
-func (api *NotificationHistoryApi) GetNotificationHistoryListByPage(c *gin.Context) {
+func (*NotificationHistoryApi) GetNotificationHistoryListByPage(c *gin.Context) {
 	var req model.GetNotificationHistoryListByPageReq
 	if !BindAndValidate(c, &req) {
 		return

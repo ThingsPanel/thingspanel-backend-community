@@ -31,7 +31,7 @@ type OTAApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ota/package [post]
-func (api *OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
+func (*OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
 	var req model.CreateOTAUpgradePackageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -57,7 +57,7 @@ func (api *OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ota/package/{id} [delete]
-func (api *OTAApi) DeleteOTAUpgradePackage(c *gin.Context) {
+func (*OTAApi) DeleteOTAUpgradePackage(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.OTA.DeleteOTAUpgradePackage(id)
 	if err != nil {
@@ -79,7 +79,7 @@ func (api *OTAApi) DeleteOTAUpgradePackage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ota/package/ [put]
-func (api *OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
+func (*OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
 	var req model.UpdateOTAUpgradePackageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -101,7 +101,7 @@ func (api *OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
 // @Success  200    {object}  ApiResponse  "success"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ota/package [get]
-func (api *OTAApi) GetOTAUpgradePackageByPage(c *gin.Context) {
+func (*OTAApi) GetOTAUpgradePackageByPage(c *gin.Context) {
 	var req model.GetOTAUpgradePackageLisyByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -128,7 +128,7 @@ func (api *OTAApi) GetOTAUpgradePackageByPage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ota/task [post]
-func (api *OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
+func (*OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
 	var req model.CreateOTAUpgradeTaskReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -154,7 +154,7 @@ func (api *OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ota/task/{id} [delete]
-func (api *OTAApi) DeleteOTAUpgradeTask(c *gin.Context) {
+func (*OTAApi) DeleteOTAUpgradeTask(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.OTA.DeleteOTAUpgradeTask(id)
 	if err != nil {
@@ -176,7 +176,7 @@ func (api *OTAApi) DeleteOTAUpgradeTask(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ota/task [get]
-func (api *OTAApi) GetOTAUpgradeTaskByPage(c *gin.Context) {
+func (*OTAApi) GetOTAUpgradeTaskByPage(c *gin.Context) {
 	var req model.GetOTAUpgradeTaskListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -201,7 +201,7 @@ func (api *OTAApi) GetOTAUpgradeTaskByPage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ota/task/detail [get]
-func (api *OTAApi) GetOTAUpgradeTaskDetailByPage(c *gin.Context) {
+func (*OTAApi) GetOTAUpgradeTaskDetailByPage(c *gin.Context) {
 	var req model.GetOTAUpgradeTaskDetailReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -231,7 +231,7 @@ func (api *OTAApi) GetOTAUpgradeTaskDetailByPage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/ota/task/detail [put]
-func (api *OTAApi) UpdateOTAUpgradeTaskStatus(c *gin.Context) {
+func (*OTAApi) UpdateOTAUpgradeTaskStatus(c *gin.Context) {
 	var req model.UpdateOTAUpgradeTaskStatusReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -245,7 +245,7 @@ func (api *OTAApi) UpdateOTAUpgradeTaskStatus(c *gin.Context) {
 }
 
 // GET /api/v1/ota/download/{filepath}
-func (api *OTAApi) DownloadOTAUpgradePackage(c *gin.Context) {
+func (*OTAApi) DownloadOTAUpgradePackage(c *gin.Context) {
 	filePath := "./files/upgradePackage/" + c.Param("path") + "/" + c.Param("file")
 
 	if !utils.FileExist(filePath) {

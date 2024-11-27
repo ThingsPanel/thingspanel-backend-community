@@ -26,7 +26,7 @@ type BoardApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board [post]
-func (api *BoardApi) CreateBoard(c *gin.Context) {
+func (*BoardApi) CreateBoard(c *gin.Context) {
 	var req model.CreateBoardReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -57,7 +57,7 @@ func (api *BoardApi) CreateBoard(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board [put]
-func (api *BoardApi) UpdateBoard(c *gin.Context) {
+func (*BoardApi) UpdateBoard(c *gin.Context) {
 	var req model.UpdateBoardReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -93,7 +93,7 @@ func (api *BoardApi) UpdateBoard(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/{id} [delete]
-func (api *BoardApi) DeleteBoard(c *gin.Context) {
+func (*BoardApi) DeleteBoard(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.Board.DeleteBoard(id)
 	if err != nil {
@@ -116,7 +116,7 @@ func (api *BoardApi) DeleteBoard(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board [get]
-func (api *BoardApi) GetBoardListByPage(c *gin.Context) {
+func (*BoardApi) GetBoardListByPage(c *gin.Context) {
 	var req model.GetBoardListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -143,7 +143,7 @@ func (api *BoardApi) GetBoardListByPage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/{id} [get]
-func (api *BoardApi) GetBoard(c *gin.Context) {
+func (*BoardApi) GetBoard(c *gin.Context) {
 	id := c.Param("id")
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	board, err := service.GroupApp.Board.GetBoard(id, userClaims)
@@ -166,7 +166,7 @@ func (api *BoardApi) GetBoard(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/home [get]
-func (api *BoardApi) GetBoardListByTenantId(c *gin.Context) {
+func (*BoardApi) GetBoardListByTenantId(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	boardList, err := service.GroupApp.Board.GetBoardListByTenantId(userClaims.TenantID)
@@ -188,7 +188,7 @@ func (api *BoardApi) GetBoardListByTenantId(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse{data=int}  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/device/total [get]
-func (api *BoardApi) GetDeviceTotal(c *gin.Context) {
+func (*BoardApi) GetDeviceTotal(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	board := service.GroupApp.Board
@@ -211,7 +211,7 @@ func (api *BoardApi) GetDeviceTotal(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse{data=model.GetBoardDeviceRes}   "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/device [get]
-func (api *BoardApi) GetDevice(c *gin.Context) {
+func (*BoardApi) GetDevice(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	if !common.CheckUserIsAdmin(userClaims.Authority) {
@@ -239,7 +239,7 @@ func (api *BoardApi) GetDevice(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse{data=model.GetTenantRes}  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/tenant [get]
-func (api *BoardApi) GetTenant(c *gin.Context) {
+func (*BoardApi) GetTenant(c *gin.Context) {
 	//TODO::不知道需不需要再次验证用户信息
 	users := service.UsersService{}
 	data, err := users.GetTenant(c)
@@ -261,7 +261,7 @@ func (api *BoardApi) GetTenant(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse{data=model.GetTenantRes}  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/tenant/user/info [get]
-func (api *BoardApi) GetTenantUserInfo(c *gin.Context) {
+func (*BoardApi) GetTenantUserInfo(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	users := service.UsersService{}
@@ -284,7 +284,7 @@ func (api *BoardApi) GetTenantUserInfo(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse{data=model.GetBoardDeviceRes}   "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/tenant/device/info [get]
-func (api *BoardApi) GetTenantDeviceInfo(c *gin.Context) {
+func (*BoardApi) GetTenantDeviceInfo(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	board := service.GroupApp.Board
@@ -307,7 +307,7 @@ func (api *BoardApi) GetTenantDeviceInfo(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse{data=model.UsersRes}  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/user/info [get]
-func (api *BoardApi) GetUserInfo(c *gin.Context) {
+func (*BoardApi) GetUserInfo(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	users := service.UsersService{}
@@ -331,7 +331,7 @@ func (api *BoardApi) GetUserInfo(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/user/update [post]
-func (api *BoardApi) UpdateUserInfo(c *gin.Context) {
+func (*BoardApi) UpdateUserInfo(c *gin.Context) {
 	var param model.UsersUpdateReq
 	if !BindAndValidate(c, &param) {
 		return
@@ -360,7 +360,7 @@ func (api *BoardApi) UpdateUserInfo(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/board/user/update/password [post]
-func (api *BoardApi) UpdateUserInfoPassword(c *gin.Context) {
+func (*BoardApi) UpdateUserInfoPassword(c *gin.Context) {
 	var param model.UsersUpdatePasswordReq
 	if !BindAndValidate(c, &param) {
 		return

@@ -379,7 +379,7 @@ func GetDeviceById(deviceId string) (*model.Device, error) {
 type DeviceQuery struct {
 }
 
-func (d DeviceQuery) Count(ctx context.Context) (count int64, err error) {
+func (DeviceQuery) Count(ctx context.Context) (count int64, err error) {
 	count, err = query.Device.Count()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -387,7 +387,7 @@ func (d DeviceQuery) Count(ctx context.Context) (count int64, err error) {
 	return
 }
 
-func (d DeviceQuery) CountByTenantID(ctx context.Context, TenantID string) (count int64, err error) {
+func (DeviceQuery) CountByTenantID(ctx context.Context, TenantID string) (count int64, err error) {
 	var device = query.Device
 	count, err = device.Where(device.TenantID.Eq(TenantID)).Count()
 	if err != nil {
@@ -397,7 +397,7 @@ func (d DeviceQuery) CountByTenantID(ctx context.Context, TenantID string) (coun
 }
 
 // 获取网关未关联网关设备的子设备列表,并做关联查询设备配置表
-func (d DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId string) (list []map[string]interface{}, err error) {
+func (DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId string) (list []map[string]interface{}, err error) {
 	var device = query.Device
 	var deviceConfig = query.DeviceConfig
 	// 条件：device-父设备为空，设备配置不为空
@@ -417,7 +417,7 @@ func (d DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId
 	return
 }
 
-func (d DeviceQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (count int64, err error) {
+func (DeviceQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (count int64, err error) {
 	var device = query.Device
 	count, err = device.Where(option...).Count()
 	if err != nil {
@@ -426,7 +426,7 @@ func (d DeviceQuery) CountByWhere(ctx context.Context, option ...gen.Condition) 
 	return
 }
 
-func (d DeviceQuery) First(ctx context.Context, option ...gen.Condition) (info *model.Device, err error) {
+func (DeviceQuery) First(ctx context.Context, option ...gen.Condition) (info *model.Device, err error) {
 	info, err = query.Device.WithContext(ctx).Where(option...).First()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -434,7 +434,7 @@ func (d DeviceQuery) First(ctx context.Context, option ...gen.Condition) (info *
 	return
 }
 
-func (d DeviceQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.Device, err error) {
+func (DeviceQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.Device, err error) {
 	list, err = query.Device.WithContext(ctx).Where(option...).Find()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -444,7 +444,7 @@ func (d DeviceQuery) Find(ctx context.Context, option ...gen.Condition) (list []
 
 // 获取设备下拉列表
 // 返回设备id、设备名称、设备配置id、设备配置名称
-func (d DeviceQuery) GetDeviceSelect(tenantId string, deviceName string, bindConfig int) (list []map[string]interface{}, err error) {
+func (DeviceQuery) GetDeviceSelect(tenantId string, deviceName string, bindConfig int) (list []map[string]interface{}, err error) {
 
 	var device = query.Device
 	var deviceConfig = query.DeviceConfig
@@ -469,7 +469,7 @@ func (d DeviceQuery) GetDeviceSelect(tenantId string, deviceName string, bindCon
 }
 
 // 更新指定字段
-func (d DeviceQuery) Update(ctx context.Context, info *model.Device, option ...field.Expr) error {
+func (DeviceQuery) Update(ctx context.Context, info *model.Device, option ...field.Expr) error {
 	device := query.Device
 	_, err := query.Device.WithContext(ctx).Where(device.ID.Eq(info.ID)).Select(option...).UpdateColumns(info)
 	if err != nil {
@@ -479,7 +479,7 @@ func (d DeviceQuery) Update(ctx context.Context, info *model.Device, option ...f
 }
 
 // 更新设备配置
-func (d DeviceQuery) ChangeDeviceConfig(deviceID string, deviceConfigID *string) error {
+func (DeviceQuery) ChangeDeviceConfig(deviceID string, deviceConfigID *string) error {
 	device := query.Device
 	info, err := device.Where(device.ID.Eq(deviceID)).Update(device.DeviceConfigID, deviceConfigID)
 	if err != nil {
@@ -492,7 +492,7 @@ func (d DeviceQuery) ChangeDeviceConfig(deviceID string, deviceConfigID *string)
 	return err
 }
 
-func (d DeviceQuery) GetSubList(ctx context.Context, parent_id string, pageSize, page int64, tenantID string) ([]model.GetSubListResp, int64, error) {
+func (DeviceQuery) GetSubList(ctx context.Context, parent_id string, pageSize, page int64, tenantID string) ([]model.GetSubListResp, int64, error) {
 
 	var (
 		q     = query.Device

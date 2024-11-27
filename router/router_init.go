@@ -80,8 +80,6 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.Dict.InitDict(v1) // 字典模块
 
-			apps.Model.Product.InitProduct(v1) // 产品模块
-
 			apps.Model.OTA.InitOTA(v1) // OTA模块
 
 			apps.Model.UpLoad.Init(v1) // 文件上传
@@ -125,8 +123,6 @@ func RouterInit() *gin.Engine {
 			apps.Model.SceneAutomations.Init(v1) // 场景联动
 
 			apps.Model.SysFunction.Init(v1) //功能设置
-
-			apps.Model.VisPlugin.Init(v1) // 可视化插件
 
 			apps.Model.ServicePlugin.Init(v1) // 插件管理
 

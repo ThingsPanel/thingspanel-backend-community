@@ -160,7 +160,7 @@ func BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
 type DeviceConfigQuery struct {
 }
 
-func (d DeviceConfigQuery) First(ctx context.Context, option ...gen.Condition) (info *model.DeviceConfig, err error) {
+func (DeviceConfigQuery) First(ctx context.Context, option ...gen.Condition) (info *model.DeviceConfig, err error) {
 	info, err = query.DeviceConfig.WithContext(ctx).Where(option...).First()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -168,7 +168,7 @@ func (d DeviceConfigQuery) First(ctx context.Context, option ...gen.Condition) (
 	return
 }
 
-func (d DeviceConfigQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.DeviceConfig, err error) {
+func (DeviceConfigQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.DeviceConfig, err error) {
 	list, err = query.DeviceConfig.WithContext(ctx).Where(option...).Find()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -179,7 +179,7 @@ func (d DeviceConfigQuery) Find(ctx context.Context, option ...gen.Condition) (l
 type DeviceConfigVo struct {
 }
 
-func (d DeviceConfigVo) PoToVo(deviceConfigInfo *model.DeviceConfig) (info *model.DeviceConfigsRes) {
+func (DeviceConfigVo) PoToVo(deviceConfigInfo *model.DeviceConfig) (info *model.DeviceConfigsRes) {
 	info = &model.DeviceConfigsRes{
 		ID:         deviceConfigInfo.ID,
 		Name:       deviceConfigInfo.Name,

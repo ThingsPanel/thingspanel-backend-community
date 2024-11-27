@@ -159,7 +159,7 @@ func (a *AutomateTelemetryActionScene) AutomateActionRun(action model.ActionInfo
 type AutomateTelemetryActionAlarm struct {
 }
 
-func (a *AutomateTelemetryActionAlarm) AutomateActionRun(action model.ActionInfo) (string, error) {
+func (*AutomateTelemetryActionAlarm) AutomateActionRun(action model.ActionInfo) (string, error) {
 
 	logrus.Debugf("告警服务: %#v", *action.ActionTarget)
 	// 告警服务 有装饰器实现 这里不做处理
@@ -178,7 +178,7 @@ func (a *AutomateTelemetryActionAlarm) AutomateActionRun(action model.ActionInfo
 type AutomateTelemetryActionService struct {
 }
 
-func (a *AutomateTelemetryActionService) AutomateActionRun(action model.ActionInfo) (string, error) {
+func (*AutomateTelemetryActionService) AutomateActionRun(action model.ActionInfo) (string, error) {
 	//todo 待实现
 	fmt.Println("自动化服务动作实现")
 	return "服务", nil

@@ -8,7 +8,7 @@ import (
 
 type Casbin struct{}
 
-func (p *Casbin) Init(Router *gin.RouterGroup) {
+func (*Casbin) Init(Router *gin.RouterGroup) {
 	url := Router.Group("casbin")
 	{
 		//角色-功能

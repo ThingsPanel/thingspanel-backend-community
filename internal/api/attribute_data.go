@@ -26,7 +26,7 @@ type AttributeDataApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/attribute/datas/{id} [get]
-func (a *AttributeDataApi) GetDataList(c *gin.Context) {
+func (*AttributeDataApi) GetDataList(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.AttributeData.GetAttributeDataList(id)
 	if err != nil {
@@ -37,7 +37,7 @@ func (a *AttributeDataApi) GetDataList(c *gin.Context) {
 }
 
 // 根据key查询设备属性
-func (a *AttributeDataApi) GetAttributeDataByKey(c *gin.Context) {
+func (*AttributeDataApi) GetAttributeDataByKey(c *gin.Context) {
 	var req model.GetDataListByKeyReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -63,7 +63,7 @@ func (a *AttributeDataApi) GetAttributeDataByKey(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/attribute/datas/{id} [delete]
-func (a *AttributeDataApi) DeleteData(c *gin.Context) {
+func (*AttributeDataApi) DeleteData(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.AttributeData.DeleteAttributeData(id)
 	if err != nil {
@@ -86,7 +86,7 @@ func (a *AttributeDataApi) DeleteData(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/attribute/datas/set/logs [get]
-func (a *AttributeDataApi) GetAttributeSetLogsDataListByPage(c *gin.Context) {
+func (*AttributeDataApi) GetAttributeSetLogsDataListByPage(c *gin.Context) {
 	var req model.GetAttributeSetLogsListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -100,7 +100,7 @@ func (a *AttributeDataApi) GetAttributeSetLogsDataListByPage(c *gin.Context) {
 }
 
 // /api/v1/attribute/datas/pub
-func (a *AttributeDataApi) AttributePutMessage(c *gin.Context) {
+func (*AttributeDataApi) AttributePutMessage(c *gin.Context) {
 	var req model.AttributePutMessage
 	if !BindAndValidate(c, &req) {
 		return
@@ -117,7 +117,7 @@ func (a *AttributeDataApi) AttributePutMessage(c *gin.Context) {
 
 // 发送获取属性请求
 // /api/v1/attribute/datas/get
-func (a *AttributeDataApi) AttributeGetMessage(c *gin.Context) {
+func (*AttributeDataApi) AttributeGetMessage(c *gin.Context) {
 	var req model.AttributeGetMessageReq
 	if !BindAndValidate(c, &req) {
 		return

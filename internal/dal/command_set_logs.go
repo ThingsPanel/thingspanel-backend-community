@@ -64,7 +64,7 @@ func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (
 type CommandSetLogsQuery struct {
 }
 
-func (c CommandSetLogsQuery) Create(ctx context.Context, info *model.CommandSetLog) (id string, err error) {
+func (CommandSetLogsQuery) Create(ctx context.Context, info *model.CommandSetLog) (id string, err error) {
 	command := query.CommandSetLog
 
 	err = command.WithContext(ctx).Create(info)
@@ -74,7 +74,7 @@ func (c CommandSetLogsQuery) Create(ctx context.Context, info *model.CommandSetL
 	return info.ID, err
 }
 
-func (c CommandSetLogsQuery) CommandResultUpdate(ctx context.Context, logId string, response model.MqttResponse) {
+func (CommandSetLogsQuery) CommandResultUpdate(ctx context.Context, logId string, response model.MqttResponse) {
 	command := query.CommandSetLog
 	valueByte, _ := json.Marshal(response)
 	values := string(valueByte)
@@ -101,7 +101,7 @@ func (c CommandSetLogsQuery) CommandResultUpdate(ctx context.Context, logId stri
 
 }
 
-func (c CommandSetLogsQuery) Update(ctx context.Context, info *model.CommandSetLog) error {
+func (CommandSetLogsQuery) Update(ctx context.Context, info *model.CommandSetLog) error {
 	command := query.CommandSetLog
 
 	result, err := command.WithContext(ctx).Where(command.MessageID.Eq(*info.MessageID)).Updates(info)
@@ -114,7 +114,7 @@ func (c CommandSetLogsQuery) Update(ctx context.Context, info *model.CommandSetL
 	return err
 }
 
-func (c CommandSetLogsQuery) FilterOneHourByMessageID(messageId string) (*model.CommandSetLog, error) {
+func (CommandSetLogsQuery) FilterOneHourByMessageID(messageId string) (*model.CommandSetLog, error) {
 	command := query.CommandSetLog
 	nowTime := time.Now().UTC()
 

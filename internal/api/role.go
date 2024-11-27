@@ -26,7 +26,7 @@ type RoleApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/role [post]
-func (api *RoleApi) CreateRole(c *gin.Context) {
+func (*RoleApi) CreateRole(c *gin.Context) {
 	var req model.CreateRoleReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -56,7 +56,7 @@ func (api *RoleApi) CreateRole(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/role [put]
-func (api *RoleApi) UpdateRole(c *gin.Context) {
+func (*RoleApi) UpdateRole(c *gin.Context) {
 	var req model.UpdateRoleReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -89,7 +89,7 @@ func (api *RoleApi) UpdateRole(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/role/{id} [delete]
-func (api *RoleApi) DeleteRole(c *gin.Context) {
+func (*RoleApi) DeleteRole(c *gin.Context) {
 	id := c.Param("id")
 
 	// 需要角色没有被用户使用
@@ -119,7 +119,7 @@ func (api *RoleApi) DeleteRole(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/role [get]
-func (api *RoleApi) GetRoleListByPage(c *gin.Context) {
+func (*RoleApi) GetRoleListByPage(c *gin.Context) {
 	var req model.GetRoleListByPageReq
 	if !BindAndValidate(c, &req) {
 		return

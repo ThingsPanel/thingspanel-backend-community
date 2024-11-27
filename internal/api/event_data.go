@@ -25,7 +25,7 @@ type EventDataApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/event/datas [get]
-func (api *EventDataApi) GetEventDatasListByPage(c *gin.Context) {
+func (*EventDataApi) GetEventDatasListByPage(c *gin.Context) {
 	var req model.GetEventDatasListByPageReq
 	if !BindAndValidate(c, &req) {
 		return

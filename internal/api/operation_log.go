@@ -14,7 +14,7 @@ type OperationLogsApi struct{}
 
 // GetListByPage 操作日志分页查询
 // @Router   /api/v1/operation_logs [get]
-func (api *OperationLogsApi) GetListByPage(c *gin.Context) {
+func (*OperationLogsApi) GetListByPage(c *gin.Context) {
 	var req model.GetOperationLogListByPageReq
 	if !BindAndValidate(c, &req) {
 		return

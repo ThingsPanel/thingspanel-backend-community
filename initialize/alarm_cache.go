@@ -62,19 +62,19 @@ func (a *SliceString) UnmarshalBinary(data []byte) error {
 	return json.Unmarshal(data, a)
 }
 
-func (a *AlarmCache) getCacheKeyByGroupId(group_id string) string {
+func (*AlarmCache) getCacheKeyByGroupId(group_id string) string {
 	return fmt.Sprintf("alarm_cache_group_v5_%s", group_id)
 }
 
-func (a *AlarmCache) getCacheKeyByDevice(device_id string) string {
+func (*AlarmCache) getCacheKeyByDevice(device_id string) string {
 	return fmt.Sprintf("alarm_cach_device_v5_%s", device_id)
 }
 
-func (a *AlarmCache) getCacheKeyByAlarm(alarm_config_id string) string {
+func (*AlarmCache) getCacheKeyByAlarm(alarm_config_id string) string {
 	return fmt.Sprintf("alarm_cach_alarm_v5_%s", alarm_config_id)
 }
 
-func (a *AlarmCache) getCacheKeyByScene(scene_automation_id string) string {
+func (*AlarmCache) getCacheKeyByScene(scene_automation_id string) string {
 	return fmt.Sprintf("alarm_cach_scene_v5_%s", scene_automation_id)
 }
 

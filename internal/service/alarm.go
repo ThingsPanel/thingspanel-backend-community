@@ -15,7 +15,7 @@ type Alarm struct {
 }
 
 // CreateAlarmConfig 创建告警配置
-func (a *Alarm) CreateAlarmConfig(req *model.CreateAlarmConfigReq) (data *model.AlarmConfig, err error) {
+func (*Alarm) CreateAlarmConfig(req *model.CreateAlarmConfigReq) (data *model.AlarmConfig, err error) {
 	data = &model.AlarmConfig{}
 	t := time.Now().UTC()
 	data.ID = uuid.New()
@@ -34,13 +34,13 @@ func (a *Alarm) CreateAlarmConfig(req *model.CreateAlarmConfigReq) (data *model.
 }
 
 // DeleteAlarmConfig 删除告警配置
-func (a *Alarm) DeleteAlarmConfig(id string) (err error) {
+func (*Alarm) DeleteAlarmConfig(id string) (err error) {
 	err = dal.DeleteAlarmConfig(id)
 	return
 }
 
 // UpdateAlarmConfig 更新告警配置
-func (a *Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq) (data *model.AlarmConfig, err error) {
+func (*Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq) (data *model.AlarmConfig, err error) {
 	data = &model.AlarmConfig{}
 	data.ID = req.ID
 	if req.Name != nil {
@@ -71,7 +71,7 @@ func (a *Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq) (data *model.
 }
 
 // GetAlarmConfigListByPage 分页查询告警配置
-func (a *Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq) (data map[string]interface{}, err error) {
+func (*Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq) (data map[string]interface{}, err error) {
 
 	total, list, err := dal.GetAlarmConfigListByPage(req)
 	if err != nil {
@@ -84,7 +84,7 @@ func (a *Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq)
 }
 
 // UpdateAlarmInfo 更新告警信息
-func (a *Alarm) UpdateAlarmInfo(req *model.UpdateAlarmInfoReq, userid string) (alarmInfo *model.AlarmInfo, err error) {
+func (*Alarm) UpdateAlarmInfo(req *model.UpdateAlarmInfoReq, userid string) (alarmInfo *model.AlarmInfo, err error) {
 
 	alarmInfo, err = dal.GetAlarmInfoByID(req.Id)
 	if err != nil {
@@ -99,7 +99,7 @@ func (a *Alarm) UpdateAlarmInfo(req *model.UpdateAlarmInfoReq, userid string) (a
 }
 
 // UpdateAlarmInfoBatch 批量更新告警信息
-func (a *Alarm) UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid string) error {
+func (*Alarm) UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid string) error {
 	if len(req.Id) == 0 {
 		return errors.New("no data update")
 	}
@@ -107,7 +107,7 @@ func (a *Alarm) UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid 
 }
 
 // GetAlarmInfoListByPage 分页查询告警信息
-func (a *Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq) (data map[string]interface{}, err error) {
+func (*Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq) (data map[string]interface{}, err error) {
 
 	total, list, err := dal.GetAlarmInfoListByPage(req)
 	if err != nil {
@@ -120,7 +120,7 @@ func (a *Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq) (da
 }
 
 // GetAlarmHisttoryListByPage 分页查询告警信息
-func (a *Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, tenantID string) (data map[string]interface{}, err error) {
+func (*Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, tenantID string) (data map[string]interface{}, err error) {
 
 	total, list, err := dal.GetAlarmHistoryListByPage(req, tenantID)
 	if err != nil {
@@ -131,22 +131,22 @@ func (a *Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage
 	data["list"] = list
 	return
 }
-func (a *Alarm) AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, tenantID string) (err error) {
+func (*Alarm) AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, tenantID string) (err error) {
 
 	return dal.AlarmHistoryDescUpdate(req, tenantID)
 }
-func (a *Alarm) GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
+func (*Alarm) GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 
 	return dal.GetDeviceAlarmStatus(req)
 }
 
-func (a *Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.AlarmConfig, error) {
+func (*Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.AlarmConfig, error) {
 
 	return dal.GetConfigByDevice(req)
 }
 
 // AddAlarmInfo 触发告警信息，增加告警信息及发送通知
-func (a *Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
+func (*Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
 
 	alarmConfig, err := dal.GetAlarmByID(alarmConfigID)
 	if err != nil {
@@ -183,7 +183,7 @@ func (a *Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
 	return true, id
 }
 
-func (a *Alarm) AlarmRecovery(alarmConfigID, content, scene_automation_id, group_id string, device_ids []string) (bool, string) {
+func (*Alarm) AlarmRecovery(alarmConfigID, content, scene_automation_id, group_id string, device_ids []string) (bool, string) {
 	alarmConfig, err := dal.GetAlarmByID(alarmConfigID)
 	if err != nil {
 		logrus.Error(err)
@@ -213,7 +213,7 @@ func (a *Alarm) AlarmRecovery(alarmConfigID, content, scene_automation_id, group
 	return true, id
 }
 
-func (a *Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id string, device_ids []string) (bool, string) {
+func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id string, device_ids []string) (bool, string) {
 	var alarmName string
 	alarmConfig, err := dal.GetAlarmByID(alarmConfigID)
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 
 type Alarm struct{}
 
-func (p *Alarm) Init(Router *gin.RouterGroup) {
+func (*Alarm) Init(Router *gin.RouterGroup) {
 	url := Router.Group("alarm")
 	alarmconfig(url)
 	alarminfo(url)
