@@ -104,19 +104,8 @@ func (*BoardApi) DeleteBoard(c *gin.Context) {
 }
 
 // GetBoardListByPage 看板分页查询
-// @Tags     看板
-// @Summary  看板分页查询
-// @Description 看板分页查询
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetBoardListByPageReq true "见下方JSON"
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board [get]
-func (*BoardApi) GetBoardListByPage(c *gin.Context) {
+func (*BoardApi) HandleBoardListByPage(c *gin.Context) {
 	var req model.GetBoardListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -131,19 +120,8 @@ func (*BoardApi) GetBoardListByPage(c *gin.Context) {
 }
 
 // GetBoard 看板详情查询
-// @Tags     看板
-// @Summary  看板详情查询
-// @Description 看板详情查询
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "ID"
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/{id} [get]
-func (*BoardApi) GetBoard(c *gin.Context) {
+func (*BoardApi) HandleBoard(c *gin.Context) {
 	id := c.Param("id")
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	board, err := service.GroupApp.Board.GetBoard(id, userClaims)
@@ -155,18 +133,8 @@ func (*BoardApi) GetBoard(c *gin.Context) {
 }
 
 // GetBoardListByTenantId 首页看板查询
-// @Tags     看板
-// @Summary  首页看板查询
-// @Description 首页看板查询
-// @accept    application/json
-// @Produce   application/json
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/home [get]
-func (*BoardApi) GetBoardListByTenantId(c *gin.Context) {
+func (*BoardApi) HandleBoardListByTenantId(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	boardList, err := service.GroupApp.Board.GetBoardListByTenantId(userClaims.TenantID)
@@ -178,17 +146,8 @@ func (*BoardApi) GetBoardListByTenantId(c *gin.Context) {
 }
 
 // GetDeviceTotal 设备总数
-// @Tags     看板
-// @Summary  设备总数
-// @Description 设备总数查询
-// @accept    application/json
-// @Produce   application/json
-// @Success  200  {object}  ApiResponse{data=int}  "获取信息成功"
-// @Failure  400  {object}  ApiResponse{data=int}  "无效的请求数据"
-// @Failure  500  {object}  ApiResponse{data=int}  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/device/total [get]
-func (*BoardApi) GetDeviceTotal(c *gin.Context) {
+func (*BoardApi) HandleDeviceTotal(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	board := service.GroupApp.Board
@@ -201,17 +160,8 @@ func (*BoardApi) GetDeviceTotal(c *gin.Context) {
 }
 
 // GetDevice 设备信息
-// @Tags     看板
-// @Summary  设备总数/激活数
-// @Description 设备总数/激活数
-// @accept    application/json
-// @Produce   application/json
-// @Success  200  {object}  ApiResponse{data=model.GetBoardDeviceRes}  "请求成功"
-// @Failure  400  {object}  ApiResponse{data=model.GetBoardDeviceRes}   "无效的请求数据"
-// @Failure  500  {object}  ApiResponse{data=model.GetBoardDeviceRes}   "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/device [get]
-func (*BoardApi) GetDevice(c *gin.Context) {
+func (*BoardApi) HandleDevice(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	if !common.CheckUserIsAdmin(userClaims.Authority) {
@@ -229,17 +179,8 @@ func (*BoardApi) GetDevice(c *gin.Context) {
 }
 
 // GetTenant 租户信息
-// @Tags     看板
-// @Summary  租户信息
-// @Description 租户总数&昨日新增&本月新增&月历史数据
-// @accept    application/json
-// @Produce   application/json
-// @Success  200  {object}  ApiResponse{data=model.GetTenantRes}  "获取信息成功"
-// @Failure  400  {object}  ApiResponse{data=model.GetTenantRes}  "无效的请求数据"
-// @Failure  500  {object}  ApiResponse{data=model.GetTenantRes}  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/tenant [get]
-func (*BoardApi) GetTenant(c *gin.Context) {
+func (*BoardApi) HandleTenant(c *gin.Context) {
 	//TODO::不知道需不需要再次验证用户信息
 	users := service.UsersService{}
 	data, err := users.GetTenant(c)
@@ -251,17 +192,8 @@ func (*BoardApi) GetTenant(c *gin.Context) {
 }
 
 // GetTenantUserInfo 租户下用户信息
-// @Tags     看板
-// @Summary  租户下用户信息
-// @Description 租户下用户总数&昨日新增&本月新增&月历史数据
-// @accept    application/json
-// @Produce   application/json
-// @Success  200  {object}  ApiResponse{data=model.GetTenantRes}  "获取信息成功"
-// @Failure  400  {object}  ApiResponse{data=model.GetTenantRes}  "无效的请求数据"
-// @Failure  500  {object}  ApiResponse{data=model.GetTenantRes}  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/tenant/user/info [get]
-func (*BoardApi) GetTenantUserInfo(c *gin.Context) {
+func (*BoardApi) HandleTenantUserInfo(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	users := service.UsersService{}
@@ -274,17 +206,8 @@ func (*BoardApi) GetTenantUserInfo(c *gin.Context) {
 }
 
 // GetTenantDeviceInfo 租户下设备信息
-// @Tags     看板
-// @Summary  租户下设备信息
-// @Description 租户下设备总数&on
-// @accept    application/json
-// @Produce   application/json
-// @Success  200  {object}  ApiResponse{data=model.GetBoardDeviceRes}  "请求成功"
-// @Failure  400  {object}  ApiResponse{data=model.GetBoardDeviceRes}   "无效的请求数据"
-// @Failure  500  {object}  ApiResponse{data=model.GetBoardDeviceRes}   "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/tenant/device/info [get]
-func (*BoardApi) GetTenantDeviceInfo(c *gin.Context) {
+func (*BoardApi) HandleTenantDeviceInfo(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	board := service.GroupApp.Board
@@ -297,17 +220,8 @@ func (*BoardApi) GetTenantDeviceInfo(c *gin.Context) {
 }
 
 // GetUserInfo 个人信息查询
-// @Tags     看板
-// @Summary  个人信息查询
-// @Description 个人信息查询
-// @accept    application/json
-// @Produce   application/json
-// @Success  200  {object}  ApiResponse{data=model.UsersRes}  "获取信息成功"
-// @Failure  400  {object}  ApiResponse{data=model.UsersRes}  "无效的请求数据"
-// @Failure  500  {object}  ApiResponse{data=model.UsersRes}  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/user/info [get]
-func (*BoardApi) GetUserInfo(c *gin.Context) {
+func (*BoardApi) HandleUserInfo(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	users := service.UsersService{}
@@ -320,16 +234,6 @@ func (*BoardApi) GetUserInfo(c *gin.Context) {
 }
 
 // UpdateUserInfo 更新个人信息
-// @Tags     看板
-// @Summary  更新个人信息
-// @Description 更新个人信息
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.UsersUpdateReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "获取卡片信息成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/user/update [post]
 func (*BoardApi) UpdateUserInfo(c *gin.Context) {
 	var param model.UsersUpdateReq
@@ -349,16 +253,6 @@ func (*BoardApi) UpdateUserInfo(c *gin.Context) {
 }
 
 // UpdateUserInfoPassword 更新个人密码
-// @Tags     看板
-// @Summary  更新个人密码
-// @Description 更新个人密码
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.UsersUpdatePasswordReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "获取卡片信息成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/user/update/password [post]
 func (*BoardApi) UpdateUserInfoPassword(c *gin.Context) {
 	var param model.UsersUpdatePasswordReq

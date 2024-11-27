@@ -15,7 +15,7 @@ func (*NotificationServicesConfig) Init(Router *gin.RouterGroup) {
 		url.POST("", api.Controllers.NotificationServicesConfigApi.SaveNotificationServicesConfig)
 
 		// 查询
-		url.GET(":type", api.Controllers.NotificationServicesConfigApi.GetNotificationServicesConfig)
+		url.GET(":type", api.Controllers.NotificationServicesConfigApi.HandleNotificationServicesConfig)
 
 		// 调试
 		url.POST("e-mail/test", api.Controllers.NotificationServicesConfigApi.SendTestEmail)

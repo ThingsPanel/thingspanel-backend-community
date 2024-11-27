@@ -27,7 +27,7 @@ func (*ServiceAccessApi) Create(c *gin.Context) {
 }
 
 // /api/v1/service/access/list
-func (*ServiceAccessApi) GetList(c *gin.Context) {
+func (*ServiceAccessApi) HandleList(c *gin.Context) {
 	var req model.GetServiceAccessByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -67,7 +67,7 @@ func (*ServiceAccessApi) Delete(c *gin.Context) {
 
 // /api/v1/service/access/voucher/form
 // 服务接入点凭证表单查询
-func (*ServiceAccessApi) GetVoucherForm(c *gin.Context) {
+func (*ServiceAccessApi) HandleVoucherForm(c *gin.Context) {
 	var req model.GetServiceAccessVoucherFormReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -82,7 +82,7 @@ func (*ServiceAccessApi) GetVoucherForm(c *gin.Context) {
 
 // /api/v1/service/access/device/list
 // 三方服务设备列表查询
-func (*ServiceAccessApi) GetDeviceList(c *gin.Context) {
+func (*ServiceAccessApi) HandleDeviceList(c *gin.Context) {
 	var req model.ServiceAccessDeviceListReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -98,7 +98,7 @@ func (*ServiceAccessApi) GetDeviceList(c *gin.Context) {
 
 // /api/v1/plugin/service/access/list
 // 服务接入点插件列表查询
-func (*ServiceAccessApi) GetPluginServiceAccessList(c *gin.Context) {
+func (*ServiceAccessApi) HandlePluginServiceAccessList(c *gin.Context) {
 	logrus.Info("get plugin list")
 	var req model.GetPluginServiceAccessListReq
 	if !BindAndValidate(c, &req) {
@@ -113,7 +113,7 @@ func (*ServiceAccessApi) GetPluginServiceAccessList(c *gin.Context) {
 }
 
 // /api/v1/pugin/service/access
-func (*ServiceAccessApi) GetPluginServiceAccess(c *gin.Context) {
+func (*ServiceAccessApi) HandlePluginServiceAccess(c *gin.Context) {
 	var req model.GetPluginServiceAccessReq
 	if !BindAndValidate(c, &req) {
 		return

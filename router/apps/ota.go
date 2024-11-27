@@ -16,7 +16,7 @@ func (*OTA) InitOTA(Router *gin.RouterGroup) {
 			upgradePackage.POST("", api.Controllers.OTAApi.CreateOTAUpgradePackage)
 			upgradePackage.DELETE(":id", api.Controllers.OTAApi.DeleteOTAUpgradePackage)
 			upgradePackage.PUT("", api.Controllers.OTAApi.UpdateOTAUpgradePackage)
-			upgradePackage.GET("", api.Controllers.OTAApi.GetOTAUpgradePackageByPage)
+			upgradePackage.GET("", api.Controllers.OTAApi.HandleOTAUpgradePackageByPage)
 		}
 
 		task := otaapi.Group("task")
@@ -25,9 +25,9 @@ func (*OTA) InitOTA(Router *gin.RouterGroup) {
 
 			task.DELETE(":id", api.Controllers.OTAApi.DeleteOTAUpgradeTask)
 
-			task.GET("", api.Controllers.OTAApi.GetOTAUpgradeTaskByPage)
+			task.GET("", api.Controllers.OTAApi.HandleOTAUpgradeTaskByPage)
 
-			task.GET("detail", api.Controllers.OTAApi.GetOTAUpgradeTaskDetailByPage)
+			task.GET("detail", api.Controllers.OTAApi.HandleOTAUpgradeTaskDetailByPage)
 
 			task.PUT("detail", api.Controllers.OTAApi.UpdateOTAUpgradeTaskStatus)
 		}

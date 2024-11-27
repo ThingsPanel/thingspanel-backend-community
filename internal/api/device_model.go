@@ -155,7 +155,7 @@ func (*DeviceModelApi) UpdateDeviceModelGeneralV2(c *gin.Context) {
 	SuccessHandler(c, "Update Device Model Telemetry successfully", data)
 }
 
-func (*DeviceModelApi) GetDeviceModelGeneral(c *gin.Context) {
+func (*DeviceModelApi) HandleDeviceModelGeneral(c *gin.Context) {
 	var req model.GetDeviceModelListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -186,7 +186,7 @@ func (*DeviceModelApi) GetDeviceModelGeneral(c *gin.Context) {
 	SuccessHandler(c, "Get Device Model Telemetry By Page successfully", data)
 }
 
-func (*DeviceModelApi) GetModelSourceAT(c *gin.Context) {
+func (*DeviceModelApi) HandleModelSourceAT(c *gin.Context) {
 	var param model.ParamID
 	if !BindAndValidate(c, &param) {
 		return
@@ -239,7 +239,7 @@ func (*DeviceModelApi) UpdateDeviceModelCustomCommands(c *gin.Context) {
 	SuccessHandler(c, common.SUCCESS, "")
 }
 
-func (*DeviceModelApi) GetDeviceModelCustomCommandsByPage(c *gin.Context) {
+func (*DeviceModelApi) HandleDeviceModelCustomCommandsByPage(c *gin.Context) {
 	var req model.GetDeviceModelListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -254,7 +254,7 @@ func (*DeviceModelApi) GetDeviceModelCustomCommandsByPage(c *gin.Context) {
 	SuccessHandler(c, common.SUCCESS, data)
 }
 
-func (*DeviceModelApi) GetDeviceModelCustomCommandsByDeviceId(c *gin.Context) {
+func (*DeviceModelApi) HandleDeviceModelCustomCommandsByDeviceId(c *gin.Context) {
 	deviceId := c.Param("deviceId")
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceModel.GetDeviceModelCustomCommandsByDeviceId(deviceId, userClaims)
@@ -309,7 +309,7 @@ func (*DeviceModelApi) UpdateDeviceModelCustomControl(c *gin.Context) {
 }
 
 // /api/v1/device/model/custom/control GET
-func (*DeviceModelApi) GetDeviceModelCustomControl(c *gin.Context) {
+func (*DeviceModelApi) HandleDeviceModelCustomControl(c *gin.Context) {
 	var req model.GetDeviceModelListByPageReq
 	if !BindAndValidate(c, &req) {
 		return

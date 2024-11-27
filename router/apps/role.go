@@ -22,6 +22,6 @@ func (*Role) Init(Router *gin.RouterGroup) {
 		url.PUT("", api.Controllers.RoleApi.UpdateRole)
 
 		// 查
-		url.GET("", api.Controllers.RoleApi.GetRoleListByPage)
+		url.GET("", api.Controllers.RoleApi.HandleRoleListByPage)
 	}
 }

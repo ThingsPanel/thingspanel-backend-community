@@ -121,7 +121,7 @@ func StructToMapAndVerifyJson(obj interface{}, jsonTagsToCheck ...string) (map[s
 }
 
 // 结构体转map;对于nil值的字段不会被转换
-func StructToMap(obj interface{}, jsonStr ...string) map[string]interface{} {
+func StructToMap(obj interface{}, _ ...string) map[string]interface{} {
 	result := make(map[string]interface{})
 	val := reflect.ValueOf(obj)
 	if val.Kind() == reflect.Ptr {

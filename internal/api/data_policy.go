@@ -39,19 +39,8 @@ func (*DataPolicyApi) UpdateDataPolicy(c *gin.Context) {
 }
 
 // GetDataPolicyListByPage 数据清理分页查询
-// @Tags     数据清理
-// @Summary  数据清理分页查询
-// @Description 数据清理分页查询
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetDataPolicyListByPageReq true "见下方JSON"
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/datapolicy [get]
-func (*DataPolicyApi) GetDataPolicyListByPage(c *gin.Context) {
+func (*DataPolicyApi) HandleDataPolicyListByPage(c *gin.Context) {
 	var req model.GetDataPolicyListByPageReq
 	if !BindAndValidate(c, &req) {
 		return

@@ -25,7 +25,7 @@ func (*ServicePluginApi) Create(c *gin.Context) {
 }
 
 // /api/v1/service/list
-func (*ServicePluginApi) GetList(c *gin.Context) {
+func (*ServicePluginApi) HandleList(c *gin.Context) {
 	var req model.GetServicePluginByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -38,7 +38,7 @@ func (*ServicePluginApi) GetList(c *gin.Context) {
 	SuccessHandler(c, "get service list successfully", resp)
 }
 
-func (*ServicePluginApi) Get(c *gin.Context) {
+func (*ServicePluginApi) Handle(c *gin.Context) {
 	id := c.Param("id")
 	resp, err := service.GroupApp.ServicePlugin.Get(id)
 	if err != nil {
@@ -87,7 +87,7 @@ func (*ServicePluginApi) Heartbeat(c *gin.Context) {
 
 // GetServiceSelect
 // /api/v1/service/plugin/select
-func (*ServicePluginApi) GetServiceSelect(c *gin.Context) {
+func (*ServicePluginApi) HandleServiceSelect(c *gin.Context) {
 	var req model.GetServiceSelectReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -102,7 +102,7 @@ func (*ServicePluginApi) GetServiceSelect(c *gin.Context) {
 
 // /api/v1/service/plugin/info
 // 根据ServiceIdentifier获取服务插件信息
-func (*ServicePluginApi) GetServicePluginByServiceIdentifier(c *gin.Context) {
+func (*ServicePluginApi) HandleServicePluginByServiceIdentifier(c *gin.Context) {
 	var req model.GetServicePluginByServiceIdentifierReq
 	if !BindAndValidate(c, &req) {
 		return

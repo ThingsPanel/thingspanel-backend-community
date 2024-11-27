@@ -311,7 +311,7 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	return nil
 }
 
-func (*Device) GetDeviceByID(id string) (map[string]interface{}, error) {
+func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
 	data, err := dal.GetDeviceDetail(id)
 	if err != nil {
 		return nil, err

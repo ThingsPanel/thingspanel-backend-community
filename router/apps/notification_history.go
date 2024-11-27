@@ -14,7 +14,7 @@ func (*NotificationHistoryGroup) InitNotificationHistory(Router *gin.RouterGroup
 	{
 
 		// 查
-		url.GET("/list", api.Controllers.NotificationHistoryApi.GetNotificationHistoryListByPage)
+		url.GET("/list", api.Controllers.NotificationHistoryApi.HandleNotificationHistoryListByPage)
 
 	}
 }

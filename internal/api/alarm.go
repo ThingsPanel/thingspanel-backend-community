@@ -62,7 +62,7 @@ func (*AlarmApi) UpdateAlarmConfig(c *gin.Context) {
 }
 
 // api/v1/alarm/config [GET]
-func (*AlarmApi) GetAlarmConfigListByPage(c *gin.Context) {
+func (*AlarmApi) ServeAlarmConfigListByPage(c *gin.Context) {
 	var req model.GetAlarmConfigListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -111,7 +111,7 @@ func (*AlarmApi) BatchUpdateAlarmInfo(c *gin.Context) {
 	SuccessHandler(c, "Update successfully", nil)
 }
 
-func (*AlarmApi) GetAlarmInfoListByPage(c *gin.Context) {
+func (*AlarmApi) HandleAlarmInfoListByPage(c *gin.Context) {
 	var req model.GetAlarmInfoListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -127,7 +127,7 @@ func (*AlarmApi) GetAlarmInfoListByPage(c *gin.Context) {
 	SuccessHandler(c, "Get successfully", data)
 }
 
-func (*AlarmApi) GetAlarmHisttoryListByPage(c *gin.Context) {
+func (*AlarmApi) HandleAlarmHisttoryListByPage(c *gin.Context) {
 	//
 	var req model.GetAlarmHisttoryListByPage
 	if !BindAndValidate(c, &req) {
@@ -159,7 +159,7 @@ func (*AlarmApi) AlarmHistoryDescUpdate(c *gin.Context) {
 	SuccessHandler(c, "Get successfully", nil)
 }
 
-func (*AlarmApi) GetDeviceAlarmStatus(c *gin.Context) {
+func (*AlarmApi) HandleDeviceAlarmStatus(c *gin.Context) {
 	//
 	var req model.GetDeviceAlarmStatusReq
 	if !BindAndValidate(c, &req) {
@@ -174,7 +174,7 @@ func (*AlarmApi) GetDeviceAlarmStatus(c *gin.Context) {
 	})
 }
 
-func (*AlarmApi) GetConfigByDevice(c *gin.Context) {
+func (*AlarmApi) HandleConfigByDevice(c *gin.Context) {
 	//
 	var req model.GetDeviceAlarmStatusReq
 	if !BindAndValidate(c, &req) {

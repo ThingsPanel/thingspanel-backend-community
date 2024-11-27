@@ -13,7 +13,7 @@ import (
 type SysFunctionApi struct{}
 
 // /api/v1/sys_function GET
-func (*SysFunctionApi) GetSysFcuntion(c *gin.Context) {
+func (*SysFunctionApi) HandleSysFcuntion(c *gin.Context) {
 	// var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	// if userClaims.Authority != dal.SYS_ADMIN {
 	// 	ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("权限不足,无法获取"))

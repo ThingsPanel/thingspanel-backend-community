@@ -19,13 +19,13 @@ func (*Dict) InitDict(Router *gin.RouterGroup) {
 		dictapi.POST("language", api.Controllers.CreateDictLanguage)
 
 		// 枚举查询接口
-		dictapi.GET("enum", api.Controllers.DictApi.GetDict)
+		dictapi.GET("enum", api.Controllers.DictApi.HandleDict)
 
 		// 字典列表分页查询
-		dictapi.GET("", api.Controllers.DictApi.GetDictLisyByPage)
+		dictapi.GET("", api.Controllers.DictApi.HandleDictLisyByPage)
 
 		// 字典多语言列表查询
-		dictapi.GET("language/:id", api.Controllers.GetDictLanguage)
+		dictapi.GET("language/:id", api.Controllers.HandleDictLanguage)
 
 		// 删除字典
 		dictapi.DELETE("column/:id", api.Controllers.DictApi.DeleteDictColumn)
@@ -34,6 +34,6 @@ func (*Dict) InitDict(Router *gin.RouterGroup) {
 		dictapi.DELETE("language/:id", api.Controllers.DictApi.DeleteDictLanguage)
 
 		// 获取协议服务下拉菜单
-		dictapi.GET("protocol/service", api.Controllers.DictApi.GetProtocolAndService)
+		dictapi.GET("protocol/service", api.Controllers.DictApi.HandleProtocolAndService)
 	}
 }

@@ -14,19 +14,8 @@ import (
 type AttributeDataApi struct{}
 
 // GetDataList 设备属性列表查询
-// @Tags     属性数据
-// @Summary  设备属性列表查询
-// @Description 设备属性列表查询
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "ID"
-// @Success  200  {object}  ApiResponse  "成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/attribute/datas/{id} [get]
-func (*AttributeDataApi) GetDataList(c *gin.Context) {
+func (*AttributeDataApi) HandleDataList(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.AttributeData.GetAttributeDataList(id)
 	if err != nil {
@@ -37,7 +26,7 @@ func (*AttributeDataApi) GetDataList(c *gin.Context) {
 }
 
 // 根据key查询设备属性
-func (*AttributeDataApi) GetAttributeDataByKey(c *gin.Context) {
+func (*AttributeDataApi) HandleAttributeDataByKey(c *gin.Context) {
 	var req model.GetDataListByKeyReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -51,17 +40,6 @@ func (*AttributeDataApi) GetAttributeDataByKey(c *gin.Context) {
 }
 
 // DeleteData 删除数据
-// @Tags     属性数据
-// @Summary  删除数据
-// @Description 删除数据
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "ID"
-// @Success  200  {object}  ApiResponse  "删除成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/attribute/datas/{id} [delete]
 func (*AttributeDataApi) DeleteData(c *gin.Context) {
 	id := c.Param("id")
@@ -74,19 +52,8 @@ func (*AttributeDataApi) DeleteData(c *gin.Context) {
 }
 
 // GetAttributeSetLogsDataListByPage 属性下发记录查询（分页）
-// @Tags     属性数据
-// @Summary  属性下发记录查询（分页）
-// @Description 属性下发记录查询（分页）
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.GetAttributeSetLogsListByPageReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/attribute/datas/set/logs [get]
-func (*AttributeDataApi) GetAttributeSetLogsDataListByPage(c *gin.Context) {
+func (*AttributeDataApi) HandleAttributeSetLogsDataListByPage(c *gin.Context) {
 	var req model.GetAttributeSetLogsListByPageReq
 	if !BindAndValidate(c, &req) {
 		return

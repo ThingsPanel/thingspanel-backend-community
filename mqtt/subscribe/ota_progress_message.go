@@ -18,7 +18,7 @@ type DeviceProgressMsg struct {
 }
 
 // 接收OTA升级进度消息
-func OtaUpgrade(payload []byte, topic string) {
+func OtaUpgrade(payload []byte, _ string) {
 	/*
 		消息规范：topic:ota/devices/progress
 				 payload是json格式的消息

@@ -100,7 +100,7 @@ func NewStatusManager(config StatusConfig) (*StatusManager, error) {
 		}
 	})
 
-	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
+	opts.SetConnectionLostHandler(func(_ mqtt.Client, err error) {
 		logrus.WithError(err).Warn("Lost connection to MQTT broker")
 	})
 

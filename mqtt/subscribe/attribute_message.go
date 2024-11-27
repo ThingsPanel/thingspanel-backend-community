@@ -149,7 +149,7 @@ func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{},
 			TriggerParamType: model.TRIGGER_PARAM_TYPE_ATTR,
 		})
 		if err != nil {
-			logrus.Errorf("自动化执行失败, err: %w", err)
+			logrus.Error("自动化执行失败, err: ", err)
 		}
 	}()
 	return nil

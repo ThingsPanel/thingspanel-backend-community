@@ -18,6 +18,6 @@ func (*CommandData) InitCommandData(Router *gin.RouterGroup) {
 		commandDataApi.POST("pub", api.Controllers.CommandSetLogApi.CommandPutMessage)
 
 		// 命令标识符下拉菜单
-		commandDataApi.GET(":id", api.Controllers.CommandSetLogApi.GetCommandList)
+		commandDataApi.GET(":id", api.Controllers.CommandSetLogApi.HandleCommandList)
 	}
 }

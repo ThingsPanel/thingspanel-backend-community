@@ -37,9 +37,9 @@ func RouterInit() *gin.Engine {
 		v1 := api.Group("v1")
 		{
 			v1.POST("plugin/heartbeat", controllers.Heartbeat)
-			v1.POST("plugin/device/config", controllers.GetDeviceConfigForProtocolPlugin)
-			v1.POST("plugin/service/access/list", controllers.GetPluginServiceAccessList)
-			v1.POST("plugin/service/access", controllers.GetPluginServiceAccess)
+			v1.POST("plugin/device/config", controllers.HandleDeviceConfigForProtocolPlugin)
+			v1.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)
+			v1.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
 			v1.POST("login", controllers.Login)
 			v1.GET("verification/code", controllers.GetVerificationCode)
 			v1.POST("reset/password", controllers.ResetPassword)
@@ -52,9 +52,9 @@ func RouterInit() *gin.Engine {
 			v1.GET("telemetry/datas/current/keys/ws", controllers.TelemetryDataApi.ServeCurrentDataByKey)
 			v1.GET("ota/download/files/upgradePackage/:path/:file", controllers.OTAApi.DownloadOTAUpgradePackage)
 			// 获取系统时间
-			v1.GET("systime", controllers.SystemApi.GetSystime)
+			v1.GET("systime", controllers.SystemApi.HandleSystime)
 			// 查询系统功能设置
-			v1.GET("sys_function", controllers.SysFunctionApi.GetSysFcuntion)
+			v1.GET("sys_function", controllers.SysFunctionApi.HandleSysFcuntion)
 			// 租户邮箱注册
 			v1.POST("/tenant/email/register", controllers.UserApi.EmailRegister)
 			// 网关自动注册

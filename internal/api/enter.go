@@ -63,20 +63,20 @@ func ValidateStruct(i interface{}) error {
 
 		var errors []string
 		for _, err := range err.(validator.ValidationErrors) {
-			var error string
+			var tError string
 			switch err.Tag() {
 			case "required":
-				error = fmt.Sprintf("Field '%s' is required", err.Field())
+				tError = fmt.Sprintf("Field '%s' is required", err.Field())
 			case "email":
-				error = fmt.Sprintf("Field '%s' must be a valid email address", err.Field())
+				tError = fmt.Sprintf("Field '%s' must be a valid email address", err.Field())
 			case "gte":
-				error = fmt.Sprintf("The value of field '%s' must be at least %s", err.Field(), err.Param())
+				tError = fmt.Sprintf("The value of field '%s' must be at least %s", err.Field(), err.Param())
 			case "lte":
-				error = fmt.Sprintf("The value of field '%s' must be at most %s", err.Field(), err.Param())
+				tError = fmt.Sprintf("The value of field '%s' must be at most %s", err.Field(), err.Param())
 			default:
-				error = fmt.Sprintf("Field '%s' failed validation (%s)", err.Field(), validationErrorToText(err))
+				tError = fmt.Sprintf("Field '%s' failed validation (%s)", err.Field(), validationErrorToText(err))
 			}
-			errors = append(errors, error)
+			errors = append(errors, tError)
 		}
 
 		return fmt.Errorf("%s", errors[0])
@@ -177,7 +177,7 @@ func BindAndValidate(c *gin.Context, obj interface{}) bool {
 var Wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
+	CheckOrigin: func(_ *http.Request) bool {
 		// 不做跨域检查
 		return true
 	},

@@ -95,19 +95,8 @@ func (*DataScriptApi) DeleteDataScript(c *gin.Context) {
 }
 
 // GetDataScriptListByPage 数据处理脚本分页查询
-// @Tags     数据处理脚本
-// @Summary  数据处理脚本分页查询
-// @Description 数据处理脚本分页查询
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetDataScriptListByPageReq true "见下方JSON"
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/data_script [get]
-func (*DataScriptApi) GetDataScriptListByPage(c *gin.Context) {
+func (*DataScriptApi) HandleDataScriptListByPage(c *gin.Context) {
 	var req model.GetDataScriptListByPageReq
 	if !BindAndValidate(c, &req) {
 		return

@@ -63,7 +63,7 @@ func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Devi
 	return messageId, deviceInfo, response, nil
 }
 
-func getWagewayResponse(err error, extends ...string) *model.MqttResponse {
+func getWagewayResponse(err error, _ ...string) *model.MqttResponse {
 	var mqttResponse *model.MqttResponse
 	now := time.Now().Unix()
 	if err == nil {
@@ -73,7 +73,7 @@ func getWagewayResponse(err error, extends ...string) *model.MqttResponse {
 			Ts:      now,
 		}
 	} else {
-		logrus.Errorf("属性或事件处理失败:%w", err)
+		logrus.Error("属性或事件处理失败:", err)
 		var errmsg = err.Error()
 		mqttResponse = &model.MqttResponse{
 			Result:  model.MQTT_RESPONSE_RESULT_FAIL,

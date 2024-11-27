@@ -37,7 +37,7 @@ func (j *JWT) GenerateToken(claims UserClaims) (string, error) {
 
 // 解析token
 func (j *JWT) ParseToken(token string) (*UserClaims, error) {
-	tokenClaims, err := jwt.ParseWithClaims(token, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
+	tokenClaims, err := jwt.ParseWithClaims(token, &UserClaims{}, func(_ *jwt.Token) (interface{}, error) {
 		return j.Key, nil
 	})
 	if err != nil {

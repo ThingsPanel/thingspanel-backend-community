@@ -13,10 +13,10 @@ func (*TelemetryData) InitTelemetryData(Router *gin.RouterGroup) {
 	{
 
 		// 当前所有key最新数据
-		telemetrydataapi.GET("current/:id", api.Controllers.TelemetryDataApi.GetCurrentData)
+		telemetrydataapi.GET("current/:id", api.Controllers.TelemetryDataApi.HandleCurrentData)
 
 		// 根据key获取当前数据，包含标签
-		telemetrydataapi.GET("/current/keys", api.Controllers.TelemetryDataApi.GetCurrentDataKeys)
+		telemetrydataapi.GET("/current/keys", api.Controllers.TelemetryDataApi.HandleCurrentDataKeys)
 
 		// 对应/kv/current/detail
 		telemetrydataapi.GET("current/detail/:id", api.Controllers.TelemetryDataApi.ServeCurrentDetailData)

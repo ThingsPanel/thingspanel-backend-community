@@ -118,13 +118,13 @@ func (*AutomateCache) scan(stringCmd *redis.StringCmd, val interface{}) (int, er
 func (c *AutomateCache) DeleteCacheBySceneAutomationId(sceneAutomationId string) error {
 	//删除单类设置缓存
 	c.device = automatecache.NewMultipleDeviceCache()
-	err := c.deleteCacheBySceneAutomationId(sceneAutomationId)
+	err := c.deleteCacheBySceneAutId(sceneAutomationId)
 	if err != nil {
 		return err
 	}
 	//删除单一设备缓存
 	c.device = automatecache.NewOneDeviceCache()
-	err = c.deleteCacheBySceneAutomationId(sceneAutomationId)
+	err = c.deleteCacheBySceneAutId(sceneAutomationId)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (c *AutomateCache) DeleteCacheBySceneAutomationId(sceneAutomationId string)
 // @description  根据联动场景id删除缓存
 // @params sceneAutomationId string
 // @return error
-func (c *AutomateCache) deleteCacheBySceneAutomationId(sceneAutomationId string) error {
+func (c *AutomateCache) deleteCacheBySceneAutId(sceneAutomationId string) error {
 	//1 先查询出动作缓存
 	var (
 		action         AutomateActionInfo
@@ -227,13 +227,13 @@ func (c *AutomateCache) SetCacheBySceneAutomationId(sceneAutomationId string, co
 
 	//单类设备缓存设置
 	c.device = automatecache.NewMultipleDeviceCache()
-	err := c.setCacheBySceneAutomationId(sceneAutomationId, conditions, actions)
+	err := c.setCacheBySceneAutId(sceneAutomationId, conditions, actions)
 	if err != nil {
 		return err
 	}
 	//单一设备缓存设置
 	c.device = automatecache.NewOneDeviceCache()
-	err = c.setCacheBySceneAutomationId(sceneAutomationId, conditions, actions)
+	err = c.setCacheBySceneAutId(sceneAutomationId, conditions, actions)
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func (c *AutomateCache) SetCacheBySceneAutomationId(sceneAutomationId string, co
 // @params contions []model.DeviceTriggerCondition
 // @params actions []model.ActionInfo
 // @return error
-func (c *AutomateCache) setCacheBySceneAutomationId(sceneAutomationId string, conditions []model.DeviceTriggerCondition, actions []model.ActionInfo) error {
+func (c *AutomateCache) setCacheBySceneAutId(sceneAutomationId string, conditions []model.DeviceTriggerCondition, actions []model.ActionInfo) error {
 	automateDeviceInfo := AutomateDeviceInfo{
 		SceneAutomationId: sceneAutomationId,
 	}
@@ -326,14 +326,14 @@ func (c *AutomateCache) GetCacheByDeviceId(deviceId, deviceConfigId string) (Aut
 		c.SetDeviceType(automatecache.NewMultipleDeviceCache())
 		deviceCacheKey = c.getAutomateCacheKeyBase(deviceConfigId)
 	}
-	return c.getCacheByDeviceId(deviceId, deviceConfigId, deviceCacheKey)
+	return c.getCacheByDId(deviceId, deviceConfigId, deviceCacheKey)
 }
 
 // getCacheByDeviceId
 // @description  设备遥测获取缓存联动信息
 // @params deviceId string 1无数据 2无自动化任务 3有任务
 // @return AutomateExecteParams error
-func (c *AutomateCache) getCacheByDeviceId(deviceId, deviceConfigId, deviceCacheKey string) (AutomateExecteParams, int, error) {
+func (c *AutomateCache) getCacheByDId(deviceId, deviceConfigId, deviceCacheKey string) (AutomateExecteParams, int, error) {
 	var (
 		automateDeviceInfos   = make(AutomateDeviceInfos, 0)
 		automateExecuteParams = AutomateExecteParams{
@@ -393,7 +393,7 @@ func (c *AutomateCache) SetCacheByDeviceId(deviceId, deviceConfigId string, cond
 		c.device = automatecache.NewMultipleDeviceCache()
 	}
 
-	return c.setCacheByDeviceId(deviceId, deviceConfigId, conditions, actions)
+	return c.setCache(deviceId, deviceConfigId, conditions, actions)
 }
 
 // @description setCacheByDeviceId 保存设备务缓存
@@ -402,7 +402,7 @@ func (c *AutomateCache) SetCacheByDeviceId(deviceId, deviceConfigId string, cond
 // @params conditions []model.DeviceTriggerCondition
 // @params actions []model.ActionInfo
 // @return AutomateExecteParams error
-func (c *AutomateCache) setCacheByDeviceId(deviceId, deviceConfigId string, conditions []model.DeviceTriggerCondition, actions []model.ActionInfo) error {
+func (c *AutomateCache) setCache(deviceId, deviceConfigId string, conditions []model.DeviceTriggerCondition, actions []model.ActionInfo) error {
 	var (
 		groupInfosMap  = make(map[string][]model.DeviceTriggerCondition)
 		deviceInfosMap = make(map[string]map[string]bool)

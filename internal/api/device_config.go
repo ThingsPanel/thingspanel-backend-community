@@ -90,19 +90,8 @@ func (*DeviceConfigApi) DeleteDeviceConfig(c *gin.Context) {
 }
 
 // GetDeviceConfigById 根据ID获取设备配置
-// @Tags     设备配置
-// @Summary  根据ID获取设备配置
-// @Description 根据ID获取设备配置
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "ID"
-// @Success  200  {object}  GetDeviceConfigResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device_config/{id} [get]
-func (*DeviceConfigApi) GetDeviceConfigById(c *gin.Context) {
+func (*DeviceConfigApi) HandleDeviceConfigById(c *gin.Context) {
 	id := c.Param("id")
 	info, err := service.GroupApp.DeviceConfig.GetDeviceConfigByID(c, id)
 	if err != nil {
@@ -113,19 +102,8 @@ func (*DeviceConfigApi) GetDeviceConfigById(c *gin.Context) {
 }
 
 // GetDeviceConfigListByPage 设备配置分页查询
-// @Tags     设备配置
-// @Summary  设备配置分页查询
-// @Description 设备配置分页查询
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetDeviceConfigListByPageReq true "见下方JSON"
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device_config [get]
-func (*DeviceConfigApi) GetDeviceConfigListByPage(c *gin.Context) {
+func (*DeviceConfigApi) HandleDeviceConfigListByPage(c *gin.Context) {
 	var req model.GetDeviceConfigListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -142,7 +120,7 @@ func (*DeviceConfigApi) GetDeviceConfigListByPage(c *gin.Context) {
 }
 
 // @Router   /api/v1/device_config/menu [get]
-func (*DeviceConfigApi) GetDeviceConfigListMenu(c *gin.Context) {
+func (*DeviceConfigApi) HandleDeviceConfigListMenu(c *gin.Context) {
 	var req model.GetDeviceConfigListMenuReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -159,17 +137,6 @@ func (*DeviceConfigApi) GetDeviceConfigListMenu(c *gin.Context) {
 }
 
 // BatchUpdateDeviceConfig 批量修改设备配置
-// @Tags     设备配置
-// @Summary  批量修改设备配置
-// @Description 批量修改设备配置
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.BatchUpdateDeviceConfigReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "批量修改设备配置成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device_config/batch [put]
 func (*DeviceConfigApi) BatchUpdateDeviceConfig(c *gin.Context) {
 	var req model.BatchUpdateDeviceConfigReq
@@ -187,7 +154,7 @@ func (*DeviceConfigApi) BatchUpdateDeviceConfig(c *gin.Context) {
 }
 
 // /api/v1/device_config/connect
-func (*DeviceConfigApi) GetDeviceConfigConnect(c *gin.Context) {
+func (*DeviceConfigApi) HandleDeviceConfigConnect(c *gin.Context) {
 	var param model.DeviceIDReq
 	if !BindAndValidate(c, &param) {
 		return
@@ -201,7 +168,7 @@ func (*DeviceConfigApi) GetDeviceConfigConnect(c *gin.Context) {
 }
 
 // /api/v1/device_config/voucher_type
-func (*DeviceConfigApi) GetVoucherType(c *gin.Context) {
+func (*DeviceConfigApi) HandleVoucherType(c *gin.Context) {
 	var param model.GetVoucherTypeReq
 	if !BindAndValidate(c, &param) {
 		return
@@ -216,7 +183,7 @@ func (*DeviceConfigApi) GetVoucherType(c *gin.Context) {
 
 // 根据设备配置id获取自动化动作中下拉列表
 // /api/v1/device_config/metrics/menu
-func (*DeviceConfigApi) GetActionByDeviceConfigID(c *gin.Context) {
+func (*DeviceConfigApi) HandleActionByDeviceConfigID(c *gin.Context) {
 	var param model.GetActionByDeviceConfigIDReq
 	if !BindAndValidate(c, &param) {
 		return
@@ -231,7 +198,7 @@ func (*DeviceConfigApi) GetActionByDeviceConfigID(c *gin.Context) {
 
 // 根据设备配置id获取自动化动作中下拉列表
 // /api/v1/device_config/metrics/condition/menu
-func (*DeviceConfigApi) GetConditionByDeviceConfigID(c *gin.Context) {
+func (*DeviceConfigApi) HandleConditionByDeviceConfigID(c *gin.Context) {
 	var param model.GetActionByDeviceConfigIDReq
 	if !BindAndValidate(c, &param) {
 		return

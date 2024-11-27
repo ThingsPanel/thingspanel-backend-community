@@ -86,18 +86,17 @@ func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) er
 
 	//单类设备t
 	if deviceInfo.DeviceConfigID != nil {
-		var deviceConfigId string
-		deviceConfigId = *deviceInfo.DeviceConfigID
-		err := a.execute(deviceInfo.ID, deviceConfigId, fromExt)
+		deviceConfigId := *deviceInfo.DeviceConfigID
+		err := a.telExecute(deviceInfo.ID, deviceConfigId, fromExt)
 		if err != nil {
 			logrus.Error("自动化执行失败", err)
 		}
 	}
-	return a.execute(deviceInfo.ID, "", fromExt)
+	return a.telExecute(deviceInfo.ID, "", fromExt)
 
 }
 
-func (a *Automate) execute(deviceId, deviceConfigId string, fromExt AutomateFromExt) error {
+func (a *Automate) telExecute(deviceId, deviceConfigId string, fromExt AutomateFromExt) error {
 	info, resultInt, err := initialize.NewAutomateCache().GetCacheByDeviceId(deviceId, deviceConfigId)
 	logrus.Debugf("自动化执行开始: info:%#v, resultInt:%d", info, resultInt)
 	if err != nil {

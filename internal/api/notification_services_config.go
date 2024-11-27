@@ -15,17 +15,6 @@ import (
 type NotificationServicesConfigApi struct{}
 
 // SaveNotificationServicesConfig 创建/修改通知服务配置（2合1接口）
-// @Tags     通知服务配置
-// @Summary  通知服务配置
-// @Description 当notice_type=EMAIL时，参数中email_config不得为空，当notice_type=SME时，参数中sme_config不得为空。
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.SaveNotificationServicesConfigReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/notification/services/config [post]
 func (*NotificationServicesConfigApi) SaveNotificationServicesConfig(c *gin.Context) {
 	var req model.SaveNotificationServicesConfigReq
@@ -61,19 +50,8 @@ func (*NotificationServicesConfigApi) SaveNotificationServicesConfig(c *gin.Cont
 }
 
 // GetNotificationServicesConfig 根据通知类型获取配置
-// @Tags     通知服务配置
-// @Summary  通知服务配置
-// @Description 根据通知类型获取配置，但是支持的类型仅有 EMAIL 注意一定是大写
-// @accept    application/json
-// @Produce   application/json
-// @Param    type  path      string     true  "type"
-// @Success  200  {object}  ApiResponse  "更新设备配置成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/notification/services/config/{type} [get]
-func (*NotificationServicesConfigApi) GetNotificationServicesConfig(c *gin.Context) {
+func (*NotificationServicesConfigApi) HandleNotificationServicesConfig(c *gin.Context) {
 	noticeType := c.Param("type")
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	// 验证SYS_ADMIN
@@ -90,17 +68,6 @@ func (*NotificationServicesConfigApi) GetNotificationServicesConfig(c *gin.Conte
 }
 
 // SendTestEmail 发送测试邮件
-// @Tags     通知服务配置
-// @Summary  发送测试邮件
-// @Description 查找已配置的的邮箱参数，发送测试邮件
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.SendTestEmailReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/notification/services/config/e-mail/test [post]
 func (*NotificationServicesConfigApi) SendTestEmail(c *gin.Context) {
 	var req model.SendTestEmailReq

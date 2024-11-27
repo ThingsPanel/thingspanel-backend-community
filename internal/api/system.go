@@ -8,7 +8,7 @@ import (
 
 type SystemApi struct{}
 
-func (*SystemApi) GetSystime(c *gin.Context) {
+func (*SystemApi) HandleSystime(c *gin.Context) {
 	SuccessHandler(c, "success", map[string]interface{}{"systime": utils.GetSecondTimestamp()})
 }
 

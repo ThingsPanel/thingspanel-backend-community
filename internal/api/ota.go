@@ -20,16 +20,6 @@ import (
 type OTAApi struct{}
 
 // CreateOTAUpgradePackage
-// @Tags     ota
-// @Summary  创建升级包
-// @Description 创建升级包
-// @Produce   application/json
-// @Param	data body model.CreateOTAUpgradePackageReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/package [post]
 func (*OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
 	var req model.CreateOTAUpgradePackageReq
@@ -46,16 +36,6 @@ func (*OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
 }
 
 // DeleteOTAUpgradePackage
-// @Tags     ota
-// @Summary  删除升级包
-// @Description 删除升级包
-// @Produce   application/json
-// @Param     id  path      string     true  "升级包ID"
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/package/{id} [delete]
 func (*OTAApi) DeleteOTAUpgradePackage(c *gin.Context) {
 	id := c.Param("id")
@@ -68,16 +48,6 @@ func (*OTAApi) DeleteOTAUpgradePackage(c *gin.Context) {
 }
 
 // UpdateOTAUpgradePackage
-// @Tags     ota
-// @Summary  更新升级包
-// @Description 更新升级包
-// @Produce   application/json
-// @Param	data body model.UpdateOTAUpgradePackageReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/package/ [put]
 func (*OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
 	var req model.UpdateOTAUpgradePackageReq
@@ -93,15 +63,8 @@ func (*OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
 }
 
 // GetOTAUpgradePackageByPage
-// @Tags     ota
-// @Summary  分页查询
-// @Description 分页查询
-// @Produce   application/json
-// @Param	data query model.GetOTAUpgradePackageLisyByPageReq true " "
-// @Success  200    {object}  ApiResponse  "success"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/package [get]
-func (*OTAApi) GetOTAUpgradePackageByPage(c *gin.Context) {
+func (*OTAApi) HandleOTAUpgradePackageByPage(c *gin.Context) {
 	var req model.GetOTAUpgradePackageLisyByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -117,16 +80,6 @@ func (*OTAApi) GetOTAUpgradePackageByPage(c *gin.Context) {
 }
 
 // CreateOTAUpgradeTask
-// @Tags     ota
-// @Summary  创建升级任务
-// @Description 创建升级任务
-// @Produce   application/json
-// @Param	data body model.CreateOTAUpgradeTaskReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/task [post]
 func (*OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
 	var req model.CreateOTAUpgradeTaskReq
@@ -143,16 +96,6 @@ func (*OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
 }
 
 // DeleteOTAUpgradeTask
-// @Tags     ota
-// @Summary  删除升级任务
-// @Description 删除升级任务
-// @Produce   application/json
-// @Param     id  path      string     true  "升级任务ID"
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/task/{id} [delete]
 func (*OTAApi) DeleteOTAUpgradeTask(c *gin.Context) {
 	id := c.Param("id")
@@ -165,18 +108,8 @@ func (*OTAApi) DeleteOTAUpgradeTask(c *gin.Context) {
 }
 
 // GetOTAUpgradeTaskByPage
-// @Tags     ota
-// @Summary  分页获取升级任务
-// @Description 分页获取升级任务
-// @Produce   application/json
-// @Param	data body model.GetOTAUpgradeTaskListByPageReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/task [get]
-func (*OTAApi) GetOTAUpgradeTaskByPage(c *gin.Context) {
+func (*OTAApi) HandleOTAUpgradeTaskByPage(c *gin.Context) {
 	var req model.GetOTAUpgradeTaskListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -190,18 +123,8 @@ func (*OTAApi) GetOTAUpgradeTaskByPage(c *gin.Context) {
 }
 
 // GetOTAUpgradeTaskDetailByPage
-// @Tags     ota
-// @Summary  分页获取升级任务详情
-// @Description 分页获取升级任务详情
-// @Produce   application/json
-// @Param	data query model.GetOTAUpgradeTaskDetailReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/task/detail [get]
-func (*OTAApi) GetOTAUpgradeTaskDetailByPage(c *gin.Context) {
+func (*OTAApi) HandleOTAUpgradeTaskDetailByPage(c *gin.Context) {
 	var req model.GetOTAUpgradeTaskDetailReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -216,20 +139,6 @@ func (*OTAApi) GetOTAUpgradeTaskDetailByPage(c *gin.Context) {
 }
 
 // UpdateOTAUpgradeTaskStatus 更新升级任务状态
-// @Tags     ota
-// @Summary  更新升级任务状态
-// @Description 更新升级任务状态
-// @Description 设备状态修改
-// @Description 1-待推送 2-已推送 3-升级中 修改为已取消，前端传6
-// @Description 5-升级失败 修改为待推送，前端传1
-// @Description 4-升级成功 6-已取消 不修改
-// @Produce   application/json
-// @Param	data body model.UpdateOTAUpgradeTaskStatusReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/task/detail [put]
 func (*OTAApi) UpdateOTAUpgradeTaskStatus(c *gin.Context) {
 	var req model.UpdateOTAUpgradeTaskStatusReq

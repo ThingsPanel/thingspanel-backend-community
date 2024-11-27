@@ -20,19 +20,8 @@ import (
 type TelemetryDataApi struct{}
 
 // GetCurrentData 设备当前值查询
-// @Tags     遥测数据
-// @Summary  设备当前值查询
-// @Description 设备当前值查询，获取设备每个key的最新一条数据
-// @accept    application/json
-// @Produce   application/json
-// @Param     id  path      string     true  "设备ID"
-// @Success  200  {object}  ApiResponse  "删除用户成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/current/{id} [get]
-func (*TelemetryDataApi) GetCurrentData(c *gin.Context) {
+func (*TelemetryDataApi) HandleCurrentData(c *gin.Context) {
 	deviceId := c.Param("id")
 	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrData(deviceId)
 	if err != nil {
@@ -45,7 +34,7 @@ func (*TelemetryDataApi) GetCurrentData(c *gin.Context) {
 
 // 根据设备ID和key查询遥测当前值
 // @Router /api/v1/telemetry/datas/current/keys [get]
-func (*TelemetryDataApi) GetCurrentDataKeys(c *gin.Context) {
+func (*TelemetryDataApi) HandleCurrentDataKeys(c *gin.Context) {
 	var req model.GetTelemetryCurrentDataKeysReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -61,17 +50,6 @@ func (*TelemetryDataApi) GetCurrentDataKeys(c *gin.Context) {
 }
 
 // ServeHistoryData 设备历史数值查询
-// @Tags     遥测数据
-// @Summary  设备历史数值查询
-// @Description 设备历史数值查询
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetTelemetryHistoryDataReq true "见下方JSON"
-// @Success  200  {object}  ApiResponse  "删除用户成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/history [get]
 func (*TelemetryDataApi) ServeHistoryData(c *gin.Context) {
 	var req model.GetTelemetryHistoryDataReq
@@ -88,17 +66,6 @@ func (*TelemetryDataApi) ServeHistoryData(c *gin.Context) {
 }
 
 // DeleteData 删除数据
-// @Tags     遥测数据
-// @Summary  删除数据
-// @Description 删除数据
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.DeleteTelemetryDataReq true "见下方JSON"
-// @Success  200  {object}  ApiResponse  "删除成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/ [delete]
 func (*TelemetryDataApi) DeleteData(c *gin.Context) {
 	var req model.DeleteTelemetryDataReq
@@ -115,17 +82,6 @@ func (*TelemetryDataApi) DeleteData(c *gin.Context) {
 }
 
 // GetCurrentData 根据设备ID获取最新的一条遥测数据
-// @Tags     遥测数据
-// @Summary  根据设备ID获取最新的一条遥测数据
-// @Description 根据设备ID获取最新的一条遥测数据
-// @accept    application/json
-// @Produce   application/json
-// @Param     id  path      string     true  "设备ID"
-// @Success  200  {object}  ApiResponse  "删除用户成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/current/detail/{id} [get]
 func (*TelemetryDataApi) ServeCurrentDetailData(c *gin.Context) {
 	deviceId := c.Param("id")
@@ -161,17 +117,6 @@ func (*TelemetryDataApi) ServeHistoryDataByPage(c *gin.Context) {
 }
 
 // ServeSetLogsDataListByPage 遥测数据下发记录查询（分页）
-// @Tags     遥测数据
-// @Summary  遥测数据下发记录查询（分页）
-// @Description 遥测数据下发记录查询（分页）
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetTelemetrySetLogsListByPageReq true "见下方JSON"
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/set/logs [get]
 func (*TelemetryDataApi) ServeSetLogsDataListByPage(c *gin.Context) {
 	var req model.GetTelemetrySetLogsListByPageReq
@@ -221,13 +166,6 @@ func (*TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
 }
 
 // ServeHistoryData 设备遥测数据（WS）
-// @Tags     遥测数据
-// @Summary  设备遥测数据（WS）
-// @Description 设备遥测数据（WS）
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetTelemetryHistoryDataByPageReq true "见下方JSON"
-// @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/current/ws [get]
 func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)

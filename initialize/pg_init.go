@@ -131,7 +131,8 @@ func PgConnect(config *DbConfig) (*gorm.DB, error) {
 
 	var err error
 	db, err := gorm.Open(postgres.Open(dataSource), &gorm.Config{
-		Logger: newLogger,
+		Logger:                 newLogger,
+		SkipDefaultTransaction: true,
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: false, // use singular table name, table for `User` would be `user` with this option enabled
 		},

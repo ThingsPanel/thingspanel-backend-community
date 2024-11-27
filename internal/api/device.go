@@ -119,9 +119,9 @@ func (*DeviceApi) ActiveDevice(c *gin.Context) {
 
 // GetDevice 设备详情
 // @Router   /api/v1/device/detail/{id} [get]
-func (*DeviceApi) GetDeviceByID(c *gin.Context) {
+func (*DeviceApi) HandleDeviceByID(c *gin.Context) {
 	id := c.Param("id")
-	device, err := service.GroupApp.Device.GetDeviceByID(id)
+	device, err := service.GroupApp.Device.GetDeviceByIDV1(id)
 	if err != nil {
 		ErrorHandler(c, http.StatusInternalServerError, err)
 		return
@@ -132,7 +132,7 @@ func (*DeviceApi) GetDeviceByID(c *gin.Context) {
 
 // GetDeviceListByPage 分页查询设备
 // @Router   /api/v1/device [get]
-func (*DeviceApi) GetDeviceListByPage(c *gin.Context) {
+func (*DeviceApi) HandleDeviceListByPage(c *gin.Context) {
 	var req model.GetDeviceListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -191,7 +191,7 @@ func (*DeviceApi) UpdateDeviceTemplate(c *gin.Context) {
 
 // GetDeviceTemplateListByPage 分页获取设备模版
 // @Router   /api/v1/device/template [get]
-func (*DeviceApi) GetDeviceTemplateListByPage(c *gin.Context) {
+func (*DeviceApi) HandleDeviceTemplateListByPage(c *gin.Context) {
 	var req model.GetDeviceTemplateListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -213,7 +213,7 @@ func (*DeviceApi) GetDeviceTemplateListByPage(c *gin.Context) {
 }
 
 // @Router   /api/v1/device/template/menu [get]
-func (*DeviceApi) GetDeviceTemplateMenu(c *gin.Context) {
+func (*DeviceApi) HandleDeviceTemplateMenu(c *gin.Context) {
 	var req model.GetDeviceTemplateMenuReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -243,7 +243,7 @@ func (*DeviceApi) DeleteDeviceTemplate(c *gin.Context) {
 
 // GetDeviceTemplate 获取设备模版详情
 // @Router   /api/v1/device/template/detail/{id} [get]
-func (*DeviceApi) GetDeviceTemplateById(c *gin.Context) {
+func (*DeviceApi) HandleDeviceTemplateById(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateById(id)
 	if err != nil {
@@ -260,7 +260,7 @@ func (*DeviceApi) GetDeviceTemplateById(c *gin.Context) {
 
 // 根据设备id获取设备模板详情
 // @Router   /api/v1/device/template/chart [get]
-func (*DeviceApi) GetDeviceTemplateByDeviceId(c *gin.Context) {
+func (*DeviceApi) HandleDeviceTemplateByDeviceId(c *gin.Context) {
 	deviceId := c.Query("device_id")
 	if deviceId == "" {
 		ErrorHandler(c, http.StatusBadRequest, errors.New("device_id is required"))
@@ -321,7 +321,7 @@ func (*DeviceApi) UpdateDeviceGroup(c *gin.Context) {
 
 // GetDeviceGroupByPage 分页获取设备分组
 // @Router   /api/v1/device/group [get]
-func (*DeviceApi) GetDeviceGroupByPage(c *gin.Context) {
+func (*DeviceApi) HandleDeviceGroupByPage(c *gin.Context) {
 	var req model.GetDeviceGroupsListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -337,7 +337,7 @@ func (*DeviceApi) GetDeviceGroupByPage(c *gin.Context) {
 
 // GetDeviceGroupByTree 获取设备分组树
 // @Router   /api/v1/device/group/tree [get]
-func (*DeviceApi) GetDeviceGroupByTree(c *gin.Context) {
+func (*DeviceApi) HandleDeviceGroupByTree(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupByTree(userClaims)
 	if err != nil {
@@ -349,7 +349,7 @@ func (*DeviceApi) GetDeviceGroupByTree(c *gin.Context) {
 
 // GetDeviceGroupByDetail 获取设备分组详情
 // @Router   /api/v1/device/group/detail/{id} [get]
-func (*DeviceApi) GetDeviceGroupByDetail(c *gin.Context) {
+func (*DeviceApi) HandleDeviceGroupByDetail(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupDetail(id)
 	if err != nil {
@@ -393,7 +393,7 @@ func (*DeviceApi) DeleteDeviceGroupRelation(c *gin.Context) {
 
 // GetDeviceGroupRelation 获取设备分组关系
 // @Router   /api/v1/device/group/relation/list [get]
-func (*DeviceApi) GetDeviceGroupRelation(c *gin.Context) {
+func (*DeviceApi) HandleDeviceGroupRelation(c *gin.Context) {
 	var req model.GetDeviceListByGroup
 	if !BindAndValidate(c, &req) {
 		return
@@ -408,7 +408,7 @@ func (*DeviceApi) GetDeviceGroupRelation(c *gin.Context) {
 
 // GetDeviceGroupListByDeviceId 获取设备所属分组列表
 // @Router   /api/v1/device/group/relation [get]
-func (*DeviceApi) GetDeviceGroupListByDeviceId(c *gin.Context) {
+func (*DeviceApi) HandleDeviceGroupListByDeviceId(c *gin.Context) {
 	var req model.GetDeviceGroupListByDeviceIdReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -442,7 +442,7 @@ func (*DeviceApi) RemoveSubDevice(c *gin.Context) {
 // @DATE: 2024-04-06 18:04
 // @DESCRIPTIONS: 获得租户下设备列表
 // /api/v1/device/tenant/list
-func (*DeviceApi) GetTenantDeviceList(c *gin.Context) {
+func (*DeviceApi) HandleTenantDeviceList(c *gin.Context) {
 	var req model.GetDeviceMenuReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -461,7 +461,7 @@ func (*DeviceApi) GetTenantDeviceList(c *gin.Context) {
 // @DATE: 2024-04-07 17:04
 // @DESCRIPTIONS: 获得设备列表（默认：设置类型-子设备&无 parent_id 关联 可扩展，查询可添加条件）
 // /api/v1/device/list
-func (*DeviceApi) GetDeviceList(c *gin.Context) {
+func (*DeviceApi) HandleDeviceList(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.GetDeviceList(c, userClaims)
 	if err != nil {
@@ -549,7 +549,7 @@ func (*DeviceApi) UpdateDeviceVoucher(c *gin.Context) {
 // @DATE: 2024-03-15 16:04
 // @DESCRIPTIONS: 更新
 // /api/v1/device/sub-list/{id}
-func (*DeviceApi) GetSubList(c *gin.Context) {
+func (*DeviceApi) HandleSubList(c *gin.Context) {
 	var req model.PageReq
 	parant_id := c.Param("id")
 	if parant_id == "" {
@@ -572,7 +572,7 @@ func (*DeviceApi) GetSubList(c *gin.Context) {
 }
 
 // /api/v1/device/metrics/{id}
-func (*DeviceApi) GetMetrics(c *gin.Context) {
+func (*DeviceApi) HandleMetrics(c *gin.Context) {
 	id := c.Param("id")
 	list, err := service.GroupApp.Device.GetMetrics(id)
 	if err != nil {
@@ -585,7 +585,7 @@ func (*DeviceApi) GetMetrics(c *gin.Context) {
 // GetActionByDeviceID
 // 单设备动作选择下拉菜单
 // /api/v1/device/metrics/menu
-func (*DeviceApi) GetActionByDeviceID(c *gin.Context) {
+func (*DeviceApi) HandleActionByDeviceID(c *gin.Context) {
 	var param model.GetActionByDeviceIDReq
 	if !BindAndValidate(c, &param) {
 		return
@@ -601,7 +601,7 @@ func (*DeviceApi) GetActionByDeviceID(c *gin.Context) {
 // GetConditionByDeviceID
 // 单设备动作选择下拉菜单
 // /api/v1/device/metrics/condition/menu
-func (*DeviceApi) GetConditionByDeviceID(c *gin.Context) {
+func (*DeviceApi) HandleConditionByDeviceID(c *gin.Context) {
 	var param model.GetActionByDeviceIDReq
 	if !BindAndValidate(c, &param) {
 		return
@@ -615,7 +615,7 @@ func (*DeviceApi) GetConditionByDeviceID(c *gin.Context) {
 }
 
 // /api/v1/device/map/telemetry/{id}
-func (*DeviceApi) GetMapTelemetry(c *gin.Context) {
+func (*DeviceApi) HandleMapTelemetry(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.Device.GetMapTelemetry(id)
 	if err != nil {
@@ -627,7 +627,7 @@ func (*DeviceApi) GetMapTelemetry(c *gin.Context) {
 
 // 有模板且有图表配置的设备下拉列表
 // /api/v1/device/template/chart/select
-func (*DeviceApi) GetDeviceTemplateChartSelect(c *gin.Context) {
+func (*DeviceApi) HandleDeviceTemplateChartSelect(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	list, err := service.GroupApp.Device.GetDeviceTemplateChartSelect(userClaims)
 	if err != nil {
@@ -652,7 +652,7 @@ func (*DeviceApi) UpdateDeviceConfig(c *gin.Context) {
 	SuccessOK(c)
 }
 
-func (*DeviceApi) GetDeviceOnlineStatus(c *gin.Context) {
+func (*DeviceApi) HandleDeviceOnlineStatus(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.Device.GetDeviceOnlineStatus(id)
 	if err != nil {

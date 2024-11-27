@@ -109,7 +109,7 @@ func deviceEventHandle(device *model.Device, eventValues *model.EventInfo, topic
 			},
 		})
 		if err != nil {
-			logrus.Errorf("自动化执行失败, err: %w", err)
+			logrus.Error("自动化执行失败, err:", err)
 		}
 	}()
 	err = dal.CreateEventData(eventDatas)

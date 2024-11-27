@@ -14,7 +14,7 @@ type ExpectedDataApi struct{}
 
 // 预期数据列表查询
 // /api/v1/expected/data/list
-func (*ExpectedDataApi) GetExpectedDataList(c *gin.Context) {
+func (*ExpectedDataApi) HandleExpectedDataList(c *gin.Context) {
 	var req model.GetExpectedDataPageReq
 	if !BindAndValidate(c, &req) {
 		return

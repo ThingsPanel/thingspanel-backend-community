@@ -16,6 +16,6 @@ func (*DataPolicy) Init(Router *gin.RouterGroup) {
 		url.PUT("", api.Controllers.DataPolicyApi.UpdateDataPolicy)
 
 		// 查
-		url.GET("", api.Controllers.DataPolicyApi.GetDataPolicyListByPage)
+		url.GET("", api.Controllers.DataPolicyApi.HandleDataPolicyListByPage)
 	}
 }

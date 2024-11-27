@@ -18,7 +18,7 @@ func (*Scene) Init(Router *gin.RouterGroup) {
 		url.DELETE(":id", api.Controllers.SceneApi.DeleteScene)
 
 		// list
-		url.GET("", api.Controllers.SceneApi.GetSceneByPage)
+		url.GET("", api.Controllers.SceneApi.HandleSceneByPage)
 
 		// detail
 		url.GET("/detail/:id", api.Controllers.SceneApi.GetScene)
@@ -30,7 +30,7 @@ func (*Scene) Init(Router *gin.RouterGroup) {
 		url.POST("active/:id", api.Controllers.SceneApi.ActiveScene)
 
 		// 场景日志查询
-		url.GET("log", api.Controllers.SceneApi.GetSceneLog)
+		url.GET("log", api.Controllers.SceneApi.HandleSceneLog)
 
 	}
 }

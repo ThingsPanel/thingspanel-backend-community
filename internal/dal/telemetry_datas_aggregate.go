@@ -17,7 +17,7 @@ type TelemetryDatasAggregate struct {
 }
 
 // 聚合查询
-func GetTelemetryDatasAggregate(ctx context.Context, telemetryDatasAggregate TelemetryDatasAggregate) ([]map[string]interface{}, error) {
+func GetTelemetryDatasAggregate(_ context.Context, telemetryDatasAggregate TelemetryDatasAggregate) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
 	var queryString string
 
@@ -71,7 +71,7 @@ func GetQueryString1(aggregateFunction string) string {
 }
 
 // 获取queryString，支持差值计算
-func GetQueryString2(aggregateFunction string) string {
+func GetQueryString2(_ string) string {
 
 	queryString := fmt.Sprintf(
 		`WITH TimeIntervals AS (

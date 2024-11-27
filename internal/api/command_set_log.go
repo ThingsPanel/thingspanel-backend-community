@@ -60,7 +60,7 @@ func (CommandSetLogApi) CommandPutMessage(c *gin.Context) {
 }
 
 // /api/v1/command/datas/:id
-func (CommandSetLogApi) GetCommandList(c *gin.Context) {
+func (CommandSetLogApi) HandleCommandList(c *gin.Context) {
 	id := c.Param("id")
 
 	data, err := service.GroupApp.CommandData.GetCommonList(c, id)

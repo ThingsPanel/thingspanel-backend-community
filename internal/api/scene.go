@@ -59,7 +59,7 @@ func (*SceneApi) GetScene(c *gin.Context) {
 	SuccessHandler(c, "get scene successfully", data)
 }
 
-func (*SceneApi) GetSceneByPage(c *gin.Context) {
+func (*SceneApi) HandleSceneByPage(c *gin.Context) {
 	var req model.GetSceneListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -86,7 +86,7 @@ func (*SceneApi) ActiveScene(c *gin.Context) {
 	SuccessHandler(c, "active scene successfully", nil)
 }
 
-func (*SceneApi) GetSceneLog(c *gin.Context) {
+func (*SceneApi) HandleSceneLog(c *gin.Context) {
 	var req model.GetSceneLogListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
