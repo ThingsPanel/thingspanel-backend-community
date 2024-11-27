@@ -9,7 +9,7 @@ import (
 type Board struct {
 }
 
-func (p *Board) InitBoard(Router *gin.RouterGroup) {
+func (*Board) InitBoard(Router *gin.RouterGroup) {
 	url := Router.Group("board")
 	{
 		// 增

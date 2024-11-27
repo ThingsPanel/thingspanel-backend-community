@@ -9,7 +9,7 @@ import (
 
 type Logo struct{}
 
-func (p *Logo) UpdateLogo(UpdateLogoReq *model.UpdateLogoReq) error {
+func (*Logo) UpdateLogo(UpdateLogoReq *model.UpdateLogoReq) error {
 	condsMap, err := StructToMapAndVerifyJson(UpdateLogoReq)
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func (p *Logo) UpdateLogo(UpdateLogoReq *model.UpdateLogoReq) error {
 	return err
 }
 
-func (p *Logo) GetLogoList() (map[string]interface{}, error) {
+func (*Logo) GetLogoList() (map[string]interface{}, error) {
 
 	total, list, err := dal.GetLogoList()
 	if err != nil {

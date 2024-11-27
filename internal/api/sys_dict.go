@@ -25,7 +25,7 @@ type DictApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/dict/column [post]
-func (api *DictApi) CreateDictColumn(c *gin.Context) {
+func (*DictApi) CreateDictColumn(c *gin.Context) {
 
 	var createDictReq model.CreateDictReq
 	if !BindAndValidate(c, &createDictReq) {
@@ -55,7 +55,7 @@ func (api *DictApi) CreateDictColumn(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/dict/language [post]
-func (api *DictApi) CreateDictLanguage(c *gin.Context) {
+func (*DictApi) CreateDictLanguage(c *gin.Context) {
 
 	var createDictLanguageReq model.CreateDictLanguageReq
 	if !BindAndValidate(c, &createDictLanguageReq) {
@@ -84,7 +84,7 @@ func (api *DictApi) CreateDictLanguage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/dict/column/{id} [delete]
-func (api *DictApi) DeleteDictColumn(c *gin.Context) {
+func (*DictApi) DeleteDictColumn(c *gin.Context) {
 	id := c.Param("id")
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.Dict.DeleteDict(id, userClaims)
@@ -108,7 +108,7 @@ func (api *DictApi) DeleteDictColumn(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/dict/language/{id} [delete]
-func (api *DictApi) DeleteDictLanguage(c *gin.Context) {
+func (*DictApi) DeleteDictLanguage(c *gin.Context) {
 	id := c.Param("id")
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.Dict.DeleteDictLanguage(id, userClaims)
@@ -132,7 +132,7 @@ func (api *DictApi) DeleteDictLanguage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/dict/enum [get]
-func (api *DictApi) GetDict(c *gin.Context) {
+func (*DictApi) GetDict(c *gin.Context) {
 	var dictEnum model.DictListReq
 	if !BindAndValidate(c, &dictEnum) {
 		return
@@ -163,7 +163,7 @@ func (api *DictApi) GetDict(c *gin.Context) {
 
 // 协议服务下拉菜单查询接口
 // /api/v1/dict/protocol/service
-func (api *DictApi) GetProtocolAndService(c *gin.Context) {
+func (*DictApi) GetProtocolAndService(c *gin.Context) {
 	var protocolMenuReq model.ProtocolMenuReq
 	if !BindAndValidate(c, &protocolMenuReq) {
 		return
@@ -189,7 +189,7 @@ func (api *DictApi) GetProtocolAndService(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/dict/language/{id} [get]
-func (api *DictApi) GetDictLanguage(c *gin.Context) {
+func (*DictApi) GetDictLanguage(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.Dict.GetDictLanguageListById(id)
 	if err != nil {
@@ -226,7 +226,7 @@ func (api *DictApi) GetDictLanguage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/dict [get]
-func (api *DictApi) GetDictLisyByPage(c *gin.Context) {
+func (*DictApi) GetDictLisyByPage(c *gin.Context) {
 	var byList model.GetDictLisyByPageReq
 	if !BindAndValidate(c, &byList) {
 		return

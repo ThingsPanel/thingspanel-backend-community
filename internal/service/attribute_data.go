@@ -23,7 +23,7 @@ import (
 
 type AttributeData struct{}
 
-func (t *AttributeData) GetAttributeDataList(device_id string) (interface{}, error) {
+func (*AttributeData) GetAttributeDataList(device_id string) (interface{}, error) {
 	data, err := dal.GetAttributeDataListWithDeviceName(device_id)
 	if err != nil {
 		return nil, err
@@ -56,12 +56,12 @@ func (t *AttributeData) GetAttributeDataList(device_id string) (interface{}, err
 	return easyData, nil
 }
 
-func (t *AttributeData) DeleteAttributeData(id string) error {
+func (*AttributeData) DeleteAttributeData(id string) error {
 	err := dal.DeleteAttributeData(id)
 	return err
 }
 
-func (t *AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq) (interface{}, error) {
+func (*AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq) (interface{}, error) {
 	count, data, err := dal.GetAttributeSetLogsDataListByPage(req)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func (t *AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttribute
 }
 
 // 根据key查询设备属性
-func (t *AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (interface{}, error) {
+func (*AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (interface{}, error) {
 	dataMap := make(map[string]interface{})
 
 	data, err := dal.GetAttributeDataByKey(req)
@@ -104,7 +104,7 @@ func (t *AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (in
 
 }
 
-func (t *AttributeData) AttributePutMessage(ctx context.Context, userID string, param *model.AttributePutMessage, operationType string, fn ...config.MqttDirectResponseFunc) error {
+func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, param *model.AttributePutMessage, operationType string, fn ...config.MqttDirectResponseFunc) error {
 	// 获取设备信息
 	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
 	if err != nil {
@@ -279,7 +279,7 @@ func transformSubDeviceData(param *model.AttributePutMessage, subDeviceAddr stri
 }
 
 // 发送获取属性请求
-func (t *AttributeData) AttributeGetMessage(userClaims *utils.UserClaims, req *model.AttributeGetMessageReq) error {
+func (*AttributeData) AttributeGetMessage(userClaims *utils.UserClaims, req *model.AttributeGetMessageReq) error {
 	logrus.Debug("AttributeGetMessage")
 	// 获取设备编码
 	d, err := dal.GetDeviceByID(req.DeviceID)

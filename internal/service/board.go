@@ -17,7 +17,7 @@ import (
 
 type Board struct{}
 
-func (p *Board) CreateBoard(ctx context.Context, CreateBoardReq *model.CreateBoardReq) (*model.Board, error) {
+func (*Board) CreateBoard(ctx context.Context, CreateBoardReq *model.CreateBoardReq) (*model.Board, error) {
 	var (
 		board = model.Board{}
 		db    = dal.BoardQuery{}
@@ -52,7 +52,7 @@ func (p *Board) CreateBoard(ctx context.Context, CreateBoardReq *model.CreateBoa
 	return boardInfo, err
 }
 
-func (p *Board) UpdateBoard(ctx context.Context, UpdateBoardReq *model.UpdateBoardReq) (*model.Board, error) {
+func (*Board) UpdateBoard(ctx context.Context, UpdateBoardReq *model.UpdateBoardReq) (*model.Board, error) {
 	var db = dal.BoardQuery{}
 	var board = model.Board{}
 	board.ID = UpdateBoardReq.Id
@@ -115,12 +115,12 @@ func (p *Board) UpdateBoard(ctx context.Context, UpdateBoardReq *model.UpdateBoa
 	return &board, nil
 }
 
-func (p *Board) DeleteBoard(id string) error {
+func (*Board) DeleteBoard(id string) error {
 	err := dal.DeleteBoard(id)
 	return err
 }
 
-func (p *Board) GetBoardListByPage(Params *model.GetBoardListByPageReq, U *utils.UserClaims) (map[string]interface{}, error) {
+func (*Board) GetBoardListByPage(Params *model.GetBoardListByPageReq, U *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetBoardListByPage(Params, U.TenantID)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (p *Board) GetBoardListByPage(Params *model.GetBoardListByPageReq, U *utils
 	return boardListRsp, err
 }
 
-func (p *Board) GetBoard(id string, U *utils.UserClaims) (interface{}, error) {
+func (*Board) GetBoard(id string, U *utils.UserClaims) (interface{}, error) {
 	board, err := dal.GetBoard(id, U.TenantID)
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func (p *Board) GetBoard(id string, U *utils.UserClaims) (interface{}, error) {
 	return board, err
 }
 
-func (p *Board) GetBoardListByTenantId(tenantid string) (interface{}, error) {
+func (*Board) GetBoardListByTenantId(tenantid string) (interface{}, error) {
 	_, data, err := dal.GetBoardListByTenantId(tenantid)
 	if err != nil {
 		return nil, err
@@ -153,7 +153,7 @@ func (p *Board) GetBoardListByTenantId(tenantid string) (interface{}, error) {
 // @AUTHOR:zxq
 // @DATE: 2024-03-01 19:04
 // @DESCRIPTIONS: 获得设备总数
-func (p *Board) GetDeviceTotal(ctx context.Context, authority string, tenantID string) (int64, error) {
+func (*Board) GetDeviceTotal(ctx context.Context, authority string, tenantID string) (int64, error) {
 	var (
 		total int64
 		err   error
@@ -172,7 +172,7 @@ func (p *Board) GetDeviceTotal(ctx context.Context, authority string, tenantID s
 // @AUTHOR:zxq
 // @DATE: 2024-03-04 09:04
 // @DESCRIPTIONS: 获得设备总数/激活数
-func (p *Board) GetDevice(ctx context.Context) (data *model.GetBoardDeviceRes, err error) {
+func (*Board) GetDevice(ctx context.Context) (data *model.GetBoardDeviceRes, err error) {
 	var (
 		total, on int64
 		device    = query.Device
@@ -200,7 +200,7 @@ func (p *Board) GetDevice(ctx context.Context) (data *model.GetBoardDeviceRes, e
 // @AUTHOR:zxq
 // @DATE: 2024-03-04 09:04
 // @DESCRIPTIONS: 获得设备总数/激活数
-func (p *Board) GetDeviceByTenantID(ctx context.Context, tenantID string) (data *model.GetBoardDeviceRes, err error) {
+func (*Board) GetDeviceByTenantID(ctx context.Context, tenantID string) (data *model.GetBoardDeviceRes, err error) {
 	var (
 		total, on int64
 		device    = query.Device

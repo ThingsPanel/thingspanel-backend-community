@@ -9,7 +9,7 @@ import (
 type DeviceConfig struct {
 }
 
-func (p *DeviceConfig) Init(Router *gin.RouterGroup) {
+func (*DeviceConfig) Init(Router *gin.RouterGroup) {
 	url := Router.Group("device_config")
 	{
 		// 增

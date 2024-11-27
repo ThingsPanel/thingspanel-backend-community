@@ -8,7 +8,7 @@ import (
 
 type OTA struct{}
 
-func (o *OTA) InitOTA(Router *gin.RouterGroup) {
+func (*OTA) InitOTA(Router *gin.RouterGroup) {
 	otaapi := Router.Group("ota")
 	{
 		upgradePackage := otaapi.Group("package")

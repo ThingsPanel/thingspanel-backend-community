@@ -9,7 +9,7 @@ import (
 type DataPolicy struct {
 }
 
-func (p *DataPolicy) Init(Router *gin.RouterGroup) {
+func (*DataPolicy) Init(Router *gin.RouterGroup) {
 	url := Router.Group("datapolicy")
 	{
 		// 改

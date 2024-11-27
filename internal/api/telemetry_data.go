@@ -32,7 +32,7 @@ type TelemetryDataApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/current/{id} [get]
-func (a *TelemetryDataApi) GetCurrentData(c *gin.Context) {
+func (*TelemetryDataApi) GetCurrentData(c *gin.Context) {
 	deviceId := c.Param("id")
 	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrData(deviceId)
 	if err != nil {
@@ -45,7 +45,7 @@ func (a *TelemetryDataApi) GetCurrentData(c *gin.Context) {
 
 // 根据设备ID和key查询遥测当前值
 // @Router /api/v1/telemetry/datas/current/keys [get]
-func (a *TelemetryDataApi) GetCurrentDataKeys(c *gin.Context) {
+func (*TelemetryDataApi) GetCurrentDataKeys(c *gin.Context) {
 	var req model.GetTelemetryCurrentDataKeysReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -73,7 +73,7 @@ func (a *TelemetryDataApi) GetCurrentDataKeys(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/history [get]
-func (a *TelemetryDataApi) ServeHistoryData(c *gin.Context) {
+func (*TelemetryDataApi) ServeHistoryData(c *gin.Context) {
 	var req model.GetTelemetryHistoryDataReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -100,7 +100,7 @@ func (a *TelemetryDataApi) ServeHistoryData(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/ [delete]
-func (a *TelemetryDataApi) DeleteData(c *gin.Context) {
+func (*TelemetryDataApi) DeleteData(c *gin.Context) {
 	var req model.DeleteTelemetryDataReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -127,7 +127,7 @@ func (a *TelemetryDataApi) DeleteData(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/current/detail/{id} [get]
-func (a *TelemetryDataApi) ServeCurrentDetailData(c *gin.Context) {
+func (*TelemetryDataApi) ServeCurrentDetailData(c *gin.Context) {
 	deviceId := c.Param("id")
 	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDetailData(deviceId)
 	if err != nil {
@@ -139,7 +139,7 @@ func (a *TelemetryDataApi) ServeCurrentDetailData(c *gin.Context) {
 
 // ServeHistoryData 设备历史数值查询（分页）
 // @Router   /api/v1/telemetry/datas/history/pagination [get]
-func (a *TelemetryDataApi) ServeHistoryDataByPage(c *gin.Context) {
+func (*TelemetryDataApi) ServeHistoryDataByPage(c *gin.Context) {
 	var req model.GetTelemetryHistoryDataByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -173,7 +173,7 @@ func (a *TelemetryDataApi) ServeHistoryDataByPage(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/set/logs [get]
-func (a *TelemetryDataApi) ServeSetLogsDataListByPage(c *gin.Context) {
+func (*TelemetryDataApi) ServeSetLogsDataListByPage(c *gin.Context) {
 	var req model.GetTelemetrySetLogsListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -190,7 +190,7 @@ func (a *TelemetryDataApi) ServeSetLogsDataListByPage(c *gin.Context) {
 
 // 获取模拟设备发送遥测数据的回显数据
 // /api/v1/telemetry/datas/simulation
-func (a *TelemetryDataApi) ServeEchoData(c *gin.Context) {
+func (*TelemetryDataApi) ServeEchoData(c *gin.Context) {
 	var req model.ServeEchoDataReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -207,7 +207,7 @@ func (a *TelemetryDataApi) ServeEchoData(c *gin.Context) {
 
 // 模拟设备发送遥测数据
 // /api/v1/telemetry/datas/simulation
-func (a *TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
+func (*TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
 	var req model.SimulationTelemetryDataReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -387,7 +387,7 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 
 // 根据key查询遥测当前值
 // @Router /api/v1/telemetry/datas/current/keys/ws [get]
-func (a *TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
+func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "WebSocket升级失败: %v", err)
@@ -518,7 +518,7 @@ func (a *TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/statistic [get]
-func (a *TelemetryDataApi) ServeStatisticData(c *gin.Context) {
+func (*TelemetryDataApi) ServeStatisticData(c *gin.Context) {
 	var req model.GetTelemetryStatisticReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -534,7 +534,7 @@ func (a *TelemetryDataApi) ServeStatisticData(c *gin.Context) {
 }
 
 // /api/v1/telemetry/datas/pub
-func (a *TelemetryDataApi) TelemetryPutMessage(c *gin.Context) {
+func (*TelemetryDataApi) TelemetryPutMessage(c *gin.Context) {
 	var req model.PutMessage
 	if !BindAndValidate(c, &req) {
 		return
@@ -550,7 +550,7 @@ func (a *TelemetryDataApi) TelemetryPutMessage(c *gin.Context) {
 }
 
 // /api/v1/telemetry/datas/msg/count
-func (a *TelemetryDataApi) ServeMsgCountByTenant(c *gin.Context) {
+func (*TelemetryDataApi) ServeMsgCountByTenant(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	if userClaims.TenantID == "" {
 		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("no tenantid"))

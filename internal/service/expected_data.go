@@ -101,12 +101,12 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 }
 
 // 删除预期数据
-func (e *ExpectedData) Delete(ctx context.Context, id string) error {
+func (*ExpectedData) Delete(ctx context.Context, id string) error {
 	return dal.ExpectedDataDal{}.Delete(ctx, id)
 }
 
 // 分页查询
-func (e *ExpectedData) PageList(ctx context.Context, req *model.GetExpectedDataPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
+func (*ExpectedData) PageList(ctx context.Context, req *model.GetExpectedDataPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.ExpectedDataDal{}.PageList(ctx, req, userClaims.TenantID)
 	if err != nil {
 		return nil, err
@@ -118,7 +118,7 @@ func (e *ExpectedData) PageList(ctx context.Context, req *model.GetExpectedDataP
 }
 
 // 发送预期数据
-func (e *ExpectedData) Send(ctx context.Context, deviceID string) error {
+func (*ExpectedData) Send(ctx context.Context, deviceID string) error {
 	// 查询预期数据
 	ed, err := dal.ExpectedDataDal{}.GetAllByDeviceID(ctx, deviceID)
 	if err != nil {

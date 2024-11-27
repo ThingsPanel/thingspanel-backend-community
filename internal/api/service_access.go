@@ -12,7 +12,7 @@ import (
 
 type ServiceAccessApi struct{}
 
-func (api *ServiceAccessApi) Create(c *gin.Context) {
+func (*ServiceAccessApi) Create(c *gin.Context) {
 	var req model.CreateAccessReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -27,7 +27,7 @@ func (api *ServiceAccessApi) Create(c *gin.Context) {
 }
 
 // /api/v1/service/access/list
-func (api *ServiceAccessApi) GetList(c *gin.Context) {
+func (*ServiceAccessApi) GetList(c *gin.Context) {
 	var req model.GetServiceAccessByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -42,7 +42,7 @@ func (api *ServiceAccessApi) GetList(c *gin.Context) {
 }
 
 // /api/v1/service/access
-func (api *ServiceAccessApi) Update(c *gin.Context) {
+func (*ServiceAccessApi) Update(c *gin.Context) {
 	var req model.UpdateAccessReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -55,7 +55,7 @@ func (api *ServiceAccessApi) Update(c *gin.Context) {
 	SuccessHandler(c, "update service access successfully", map[string]interface{}{})
 }
 
-func (api *ServiceAccessApi) Delete(c *gin.Context) {
+func (*ServiceAccessApi) Delete(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.ServiceAccess.Delete(id)
 	if err != nil {
@@ -67,7 +67,7 @@ func (api *ServiceAccessApi) Delete(c *gin.Context) {
 
 // /api/v1/service/access/voucher/form
 // 服务接入点凭证表单查询
-func (api *ServiceAccessApi) GetVoucherForm(c *gin.Context) {
+func (*ServiceAccessApi) GetVoucherForm(c *gin.Context) {
 	var req model.GetServiceAccessVoucherFormReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -82,7 +82,7 @@ func (api *ServiceAccessApi) GetVoucherForm(c *gin.Context) {
 
 // /api/v1/service/access/device/list
 // 三方服务设备列表查询
-func (api *ServiceAccessApi) GetDeviceList(c *gin.Context) {
+func (*ServiceAccessApi) GetDeviceList(c *gin.Context) {
 	var req model.ServiceAccessDeviceListReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -98,7 +98,7 @@ func (api *ServiceAccessApi) GetDeviceList(c *gin.Context) {
 
 // /api/v1/plugin/service/access/list
 // 服务接入点插件列表查询
-func (api *ServiceAccessApi) GetPluginServiceAccessList(c *gin.Context) {
+func (*ServiceAccessApi) GetPluginServiceAccessList(c *gin.Context) {
 	logrus.Info("get plugin list")
 	var req model.GetPluginServiceAccessListReq
 	if !BindAndValidate(c, &req) {
@@ -113,7 +113,7 @@ func (api *ServiceAccessApi) GetPluginServiceAccessList(c *gin.Context) {
 }
 
 // /api/v1/pugin/service/access
-func (api *ServiceAccessApi) GetPluginServiceAccess(c *gin.Context) {
+func (*ServiceAccessApi) GetPluginServiceAccess(c *gin.Context) {
 	var req model.GetPluginServiceAccessReq
 	if !BindAndValidate(c, &req) {
 		return

@@ -31,7 +31,7 @@ func DelDataScriptCache(data_script *model.DataScript) error {
 	return nil
 }
 
-func (p *DataScript) CreateDataScript(req *model.CreateDataScriptReq) (data_script model.DataScript, err error) {
+func (*DataScript) CreateDataScript(req *model.CreateDataScriptReq) (data_script model.DataScript, err error) {
 
 	data_script.ID = uuid.New()
 	data_script.Name = req.Name
@@ -56,7 +56,7 @@ func (p *DataScript) CreateDataScript(req *model.CreateDataScriptReq) (data_scri
 	return data_script, err
 }
 
-func (p *DataScript) UpdateDataScript(UpdateDataScriptReq *model.UpdateDataScriptReq) error {
+func (*DataScript) UpdateDataScript(UpdateDataScriptReq *model.UpdateDataScriptReq) error {
 
 	err := dal.UpdateDataScript(UpdateDataScriptReq)
 	if err != nil {
@@ -74,7 +74,7 @@ func (p *DataScript) UpdateDataScript(UpdateDataScriptReq *model.UpdateDataScrip
 	return err
 }
 
-func (p *DataScript) DeleteDataScript(id string) error {
+func (*DataScript) DeleteDataScript(id string) error {
 	new_script, err := dal.GetDataScriptById(id)
 	if err != nil {
 		logrus.Error(err)
@@ -92,7 +92,7 @@ func (p *DataScript) DeleteDataScript(id string) error {
 	return err
 }
 
-func (p *DataScript) GetDataScriptListByPage(Params *model.GetDataScriptListByPageReq) (map[string]interface{}, error) {
+func (*DataScript) GetDataScriptListByPage(Params *model.GetDataScriptListByPageReq) (map[string]interface{}, error) {
 
 	total, list, err := dal.GetDataScriptListByPage(Params)
 	if err != nil {
@@ -105,7 +105,7 @@ func (p *DataScript) GetDataScriptListByPage(Params *model.GetDataScriptListByPa
 	return data_scriptListRsp, err
 }
 
-func (p *DataScript) QuizDataScript(req *model.QuizDataScriptReq) (string, error) {
+func (*DataScript) QuizDataScript(req *model.QuizDataScriptReq) (string, error) {
 	if strings.HasPrefix(req.AnalogInput, "0x") {
 		msg, err := hex.DecodeString(strings.ReplaceAll(req.AnalogInput, "0x", ""))
 		if err != nil {
@@ -118,7 +118,7 @@ func (p *DataScript) QuizDataScript(req *model.QuizDataScriptReq) (string, error
 
 }
 
-func (p *DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
+func (*DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
 
 	if req.EnableFlag == "Y" {
 		if ok, err := dal.OnlyOneScriptTypeEnabled(req.Id); !ok {
@@ -148,7 +148,7 @@ func (p *DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
 	return err
 }
 
-func (p *DataScript) Exec(device *model.Device, scriptType string, msg []byte, topic string) ([]byte, error) {
+func (*DataScript) Exec(device *model.Device, scriptType string, msg []byte, topic string) ([]byte, error) {
 	var err error
 
 	script, err := initialize.GetScriptByDeviceAndScriptType(device, scriptType)

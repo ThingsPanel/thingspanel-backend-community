@@ -22,7 +22,7 @@ import (
 
 type CommandData struct{}
 
-func (t *CommandData) GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (interface{}, error) {
+func (*CommandData) GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (interface{}, error) {
 	count, data, err := dal.GetCommandSetLogsDataListByPage(req)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func (t *CommandData) GetCommandSetLogsDataListByPage(req model.GetCommandSetLog
 	return dataMap, nil
 }
 
-func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, param *model.PutMessageForCommand, operationType string, fn ...config.MqttDirectResponseFunc) error {
+func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param *model.PutMessageForCommand, operationType string, fn ...config.MqttDirectResponseFunc) error {
 	// 获取设备信息
 	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
 	if err != nil {
@@ -186,7 +186,7 @@ func (t *CommandData) CommandPutMessage(ctx context.Context, userID string, para
 	return err
 }
 
-func (t *CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCommandListRes, error) {
+func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCommandListRes, error) {
 	var (
 		list = make([]model.GetCommandListRes, 0)
 	)

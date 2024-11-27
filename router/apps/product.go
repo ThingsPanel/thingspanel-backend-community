@@ -7,6 +7,6 @@ import (
 type Product struct {
 }
 
-func (p *Product) InitProduct(Router *gin.RouterGroup) {
+func (*Product) InitProduct(Router *gin.RouterGroup) {
 
 }

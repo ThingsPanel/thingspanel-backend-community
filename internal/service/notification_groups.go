@@ -24,7 +24,7 @@ type NotificationGroup struct{}
 //		UpdateTime         time.Time `json:"update_time" validate:"required"`         // 更新时间
 //		Remark             string    `json:"remark" validate:"required"`              // 备注
 //	}
-func (p *NotificationGroup) CreateNotificationGroup(createNotificationgroupReq *model.CreateNotificationGroupReq, u *utils.UserClaims) (*model.NotificationGroup, error) {
+func (*NotificationGroup) CreateNotificationGroup(createNotificationgroupReq *model.CreateNotificationGroupReq, u *utils.UserClaims) (*model.NotificationGroup, error) {
 	var notificationGroup model.NotificationGroup
 	notificationGroup.ID = uuid.New()
 	notificationGroup.Name = createNotificationgroupReq.Name
@@ -46,11 +46,11 @@ func (p *NotificationGroup) CreateNotificationGroup(createNotificationgroupReq *
 	return &notificationGroup, nil
 }
 
-func (p *NotificationGroup) GetNotificationGroupById(id string) (notificationGroup *model.NotificationGroup, err error) {
+func (*NotificationGroup) GetNotificationGroupById(id string) (notificationGroup *model.NotificationGroup, err error) {
 	return dal.GetNotificationGroupById(id)
 }
 
-func (p *NotificationGroup) UpdateNotificationGroup(id string, updateNotificationgroupReq *model.UpdateNotificationGroupReq) (*model.NotificationGroup, error) {
+func (*NotificationGroup) UpdateNotificationGroup(id string, updateNotificationgroupReq *model.UpdateNotificationGroupReq) (*model.NotificationGroup, error) {
 	notificationGroup, err := dal.GetNotificationGroupById(id)
 	if err != nil {
 		return nil, err
@@ -65,11 +65,11 @@ func (p *NotificationGroup) UpdateNotificationGroup(id string, updateNotificatio
 	return notificationGroup, nil
 }
 
-func (p *NotificationGroup) DeleteNotificationGroup(id string) error {
+func (*NotificationGroup) DeleteNotificationGroup(id string) error {
 	return dal.DeleteNotificationGroup(id)
 }
 
-func (p *NotificationGroup) GetNotificationGroupListByPage(pageParam *model.GetNotificationGroupListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
+func (*NotificationGroup) GetNotificationGroupListByPage(pageParam *model.GetNotificationGroupListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetNotificationGroupListByPage(pageParam, u)
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func (p *NotificationGroup) GetNotificationGroupListByPage(pageParam *model.GetN
 	return notificationListRsp, err
 }
 
-func (p *NotificationGroup) GetNotificationGroupListByTenantId(tenantid string) (map[string]interface{}, error) {
+func (*NotificationGroup) GetNotificationGroupListByTenantId(tenantid string) (map[string]interface{}, error) {
 	total, list, err := dal.GetNotificationGroupByTenantId(tenantid)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (p *NotificationGroup) GetNotificationGroupListByTenantId(tenantid string) 
 	return notificationGroupListRsp, err
 }
 
-func (p *NotificationGroup) GetNotificationByTenantId(tenantid string) (map[string]interface{}, error) {
+func (*NotificationGroup) GetNotificationByTenantId(tenantid string) (map[string]interface{}, error) {
 	total, list, err := dal.GetBoardListByTenantId(tenantid)
 	if err != nil {
 		return nil, err

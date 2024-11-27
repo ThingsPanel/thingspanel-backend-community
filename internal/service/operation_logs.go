@@ -10,7 +10,7 @@ import (
 
 type OperationLogs struct{}
 
-func (p *OperationLogs) CreateOperationLogs(operationLog *model.OperationLog) error {
+func (*OperationLogs) CreateOperationLogs(operationLog *model.OperationLog) error {
 	err := dal.CreateOperationLogs(operationLog)
 
 	if err != nil {
@@ -21,7 +21,7 @@ func (p *OperationLogs) CreateOperationLogs(operationLog *model.OperationLog) er
 }
 
 // 分页查询日志
-func (p *OperationLogs) GetListByPage(Params *model.GetOperationLogListByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
+func (*OperationLogs) GetListByPage(Params *model.GetOperationLogListByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 
 	total, list, err := dal.GetListByPage(Params, userClaims)
 	if err != nil {

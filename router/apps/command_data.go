@@ -8,7 +8,7 @@ import (
 
 type CommandData struct{}
 
-func (t *CommandData) InitCommandData(Router *gin.RouterGroup) {
+func (*CommandData) InitCommandData(Router *gin.RouterGroup) {
 	commandDataApi := Router.Group("command/datas")
 	{
 		// 获取命令下发记录（分页）

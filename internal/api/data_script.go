@@ -24,7 +24,7 @@ type DataScriptApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/data_script [post]
-func (api *DataScriptApi) CreateDataScript(c *gin.Context) {
+func (*DataScriptApi) CreateDataScript(c *gin.Context) {
 	var req model.CreateDataScriptReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -51,7 +51,7 @@ func (api *DataScriptApi) CreateDataScript(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/data_script [put]
-func (api *DataScriptApi) UpdateDataScript(c *gin.Context) {
+func (*DataScriptApi) UpdateDataScript(c *gin.Context) {
 	var req model.UpdateDataScriptReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -84,7 +84,7 @@ func (api *DataScriptApi) UpdateDataScript(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/data_script/{id} [delete]
-func (api *DataScriptApi) DeleteDataScript(c *gin.Context) {
+func (*DataScriptApi) DeleteDataScript(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.DataScript.DeleteDataScript(id)
 	if err != nil {
@@ -107,7 +107,7 @@ func (api *DataScriptApi) DeleteDataScript(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/data_script [get]
-func (api *DataScriptApi) GetDataScriptListByPage(c *gin.Context) {
+func (*DataScriptApi) GetDataScriptListByPage(c *gin.Context) {
 	var req model.GetDataScriptListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -122,7 +122,7 @@ func (api *DataScriptApi) GetDataScriptListByPage(c *gin.Context) {
 }
 
 // api/v1/data_script/quiz
-func (api *DataScriptApi) QuizDataScript(c *gin.Context) {
+func (*DataScriptApi) QuizDataScript(c *gin.Context) {
 	var req model.QuizDataScriptReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -137,7 +137,7 @@ func (api *DataScriptApi) QuizDataScript(c *gin.Context) {
 }
 
 // api/v1/data_script/enable [put]
-func (api *DataScriptApi) EnableDataScript(c *gin.Context) {
+func (*DataScriptApi) EnableDataScript(c *gin.Context) {
 	var req model.EnableDataScriptReq
 	if !BindAndValidate(c, &req) {
 		return

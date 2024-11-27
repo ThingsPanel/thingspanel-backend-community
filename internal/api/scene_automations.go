@@ -16,7 +16,7 @@ type SceneAutomationsApi struct{}
 
 // 创建场景联动
 // /api/v1/scene_automations
-func (api *SceneAutomationsApi) CreateSceneAutomations(c *gin.Context) {
+func (*SceneAutomationsApi) CreateSceneAutomations(c *gin.Context) {
 	logrus.Info("创建场景联动请求")
 	var req model.CreateSceneAutomationReq
 	if !BindAndValidate(c, &req) {
@@ -33,7 +33,7 @@ func (api *SceneAutomationsApi) CreateSceneAutomations(c *gin.Context) {
 }
 
 // 删除场景联动
-func (api *SceneAutomationsApi) DeleteSceneAutomations(c *gin.Context) {
+func (*SceneAutomationsApi) DeleteSceneAutomations(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.SceneAutomation.DeleteSceneAutomation(id)
 	if err != nil {
@@ -44,7 +44,7 @@ func (api *SceneAutomationsApi) DeleteSceneAutomations(c *gin.Context) {
 }
 
 // 更新场景联动
-func (api *SceneAutomationsApi) SwitchSceneAutomations(c *gin.Context) {
+func (*SceneAutomationsApi) SwitchSceneAutomations(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.SceneAutomation.SwitchSceneAutomation(id, "")
 	if err != nil {
@@ -55,7 +55,7 @@ func (api *SceneAutomationsApi) SwitchSceneAutomations(c *gin.Context) {
 }
 
 // 更新场景联动
-func (api *SceneAutomationsApi) UpdateSceneAutomations(c *gin.Context) {
+func (*SceneAutomationsApi) UpdateSceneAutomations(c *gin.Context) {
 	var req model.UpdateSceneAutomationReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -71,7 +71,7 @@ func (api *SceneAutomationsApi) UpdateSceneAutomations(c *gin.Context) {
 }
 
 // 场景联动详情查询
-func (api *SceneAutomationsApi) GetSceneAutomations(c *gin.Context) {
+func (*SceneAutomationsApi) GetSceneAutomations(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.SceneAutomation.GetSceneAutomation(id)
 	if err != nil {
@@ -82,7 +82,7 @@ func (api *SceneAutomationsApi) GetSceneAutomations(c *gin.Context) {
 }
 
 // 场景联动列表查询
-func (api *SceneAutomationsApi) GetSceneAutomationsByPage(c *gin.Context) {
+func (*SceneAutomationsApi) GetSceneAutomationsByPage(c *gin.Context) {
 	var req model.GetSceneAutomationByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -97,7 +97,7 @@ func (api *SceneAutomationsApi) GetSceneAutomationsByPage(c *gin.Context) {
 }
 
 // 场景联动列表查询
-func (api *SceneAutomationsApi) GetSceneAutomationsWithAlarmByPage(c *gin.Context) {
+func (*SceneAutomationsApi) GetSceneAutomationsWithAlarmByPage(c *gin.Context) {
 	var req model.GetSceneAutomationsWithAlarmByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -117,7 +117,7 @@ func (api *SceneAutomationsApi) GetSceneAutomationsWithAlarmByPage(c *gin.Contex
 }
 
 // 场景联动日志查询
-func (api *SceneAutomationsApi) GetSceneAutomationsLog(c *gin.Context) {
+func (*SceneAutomationsApi) GetSceneAutomationsLog(c *gin.Context) {
 	var req model.GetSceneAutomationLogReq
 	if !BindAndValidate(c, &req) {
 		return

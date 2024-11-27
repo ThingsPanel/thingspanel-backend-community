@@ -7,6 +7,6 @@ import (
 type VisPlugin struct {
 }
 
-func (p *VisPlugin) Init(Router *gin.RouterGroup) {
+func (*VisPlugin) Init(Router *gin.RouterGroup) {
 
 }

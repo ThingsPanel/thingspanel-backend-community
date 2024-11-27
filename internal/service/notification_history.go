@@ -19,7 +19,7 @@ type NotificationHisory struct{}
 // 	Remark           *string   `gorm:"column:remark" json:"remark"`
 // }
 
-func (p *NotificationHisory) GetNotificationHistoryListByPage(pageParam *model.GetNotificationHistoryListByPageReq) (map[string]interface{}, error) {
+func (*NotificationHisory) GetNotificationHistoryListByPage(pageParam *model.GetNotificationHistoryListByPageReq) (map[string]interface{}, error) {
 	total, list, err := dal.GetNotificationHisoryListByPage(pageParam)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func (p *NotificationHisory) GetNotificationHistoryListByPage(pageParam *model.G
 	return notificationListRsp, err
 }
 
-func (p *NotificationHisory) SaveNotificationHistory(req *model.NotificationHistory) error {
+func (*NotificationHisory) SaveNotificationHistory(req *model.NotificationHistory) error {
 	err := dal.CreateNotificationHistory(req)
 	if err != nil {
 		return err

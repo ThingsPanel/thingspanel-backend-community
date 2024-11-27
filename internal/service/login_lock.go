@@ -26,11 +26,11 @@ func NewLoginLock() *LoginLock {
 	}
 }
 
-func (l *LoginLock) getLockKey(username string) string {
+func (*LoginLock) getLockKey(username string) string {
 	return fmt.Sprintf("user:%s:lock_until", username)
 }
 
-func (l *LoginLock) getKey(username string) string {
+func (*LoginLock) getKey(username string) string {
 	return fmt.Sprintf("user:%s:failed_attempts", username)
 }
 

@@ -13,7 +13,7 @@ import (
 
 type ProtocolPlugin struct{}
 
-func (p *ProtocolPlugin) CreateProtocolPlugin(req *model.CreateProtocolPluginReq) (*model.ProtocolPlugin, error) {
+func (*ProtocolPlugin) CreateProtocolPlugin(req *model.CreateProtocolPluginReq) (*model.ProtocolPlugin, error) {
 	// 校验是否json格式字符串
 	if req.AdditionalInfo != nil && !IsJSON(*req.AdditionalInfo) {
 		return nil, fmt.Errorf("additional_info is not a valid JSON")
@@ -22,17 +22,17 @@ func (p *ProtocolPlugin) CreateProtocolPlugin(req *model.CreateProtocolPluginReq
 	return data, err
 }
 
-func (p *ProtocolPlugin) DeleteProtocolPlugin(id string) error {
+func (*ProtocolPlugin) DeleteProtocolPlugin(id string) error {
 	err := dal.DeleteProtocolPluginWithDict(id)
 	return err
 }
 
-func (p *ProtocolPlugin) UpdateProtocolPlugin(req *model.UpdateProtocolPluginReq) error {
+func (*ProtocolPlugin) UpdateProtocolPlugin(req *model.UpdateProtocolPluginReq) error {
 	err := dal.UpdateProtocolPluginWithDict(req)
 	return err
 }
 
-func (p *ProtocolPlugin) GetProtocolPluginListByPage(req *model.GetProtocolPluginListByPageReq) (interface{}, error) {
+func (*ProtocolPlugin) GetProtocolPluginListByPage(req *model.GetProtocolPluginListByPageReq) (interface{}, error) {
 	total, list, err := dal.GetProtocolPluginListByPage(req)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func (p *ProtocolPlugin) GetProtocolPluginFormByProtocolType(protocolType string
 
 // 去协议插件获取各种表单
 // 请求参数：protocol_type,device_type,form_type,voucher_type
-func (p *ProtocolPlugin) GetPluginForm(protocolType string, deviceType string, formType string) (interface{}, error) {
+func (*ProtocolPlugin) GetPluginForm(protocolType string, deviceType string, formType string) (interface{}, error) {
 	// 获取协议插件host:127.0.0.1:503
 	var protocolPluginDeviceType int16
 	switch deviceType {
@@ -106,7 +106,7 @@ func (p *ProtocolPlugin) GetPluginForm(protocolType string, deviceType string, f
 
 // 获取设备配置，接口提供给协议插件
 // 请求参数：device_id,voucher
-func (p *ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{}, error) {
+func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{}, error) {
 	// 校验device_id和voucher必须有一个
 	if req.DeviceId == "" && req.Voucher == "" && req.DeviceNumber == "" {
 		return nil, fmt.Errorf("device_id and voucher and device_number must have one")

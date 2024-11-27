@@ -21,7 +21,7 @@ import (
 
 type DeviceConfig struct{}
 
-func (p *DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims *utils.UserClaims) (deviceconfig model.DeviceConfig, err error) {
+func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims *utils.UserClaims) (deviceconfig model.DeviceConfig, err error) {
 
 	deviceconfig.ID = uuid.New()
 	deviceconfig.Name = req.Name
@@ -67,7 +67,7 @@ func (p *DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, clai
 	return deviceconfig, err
 }
 
-func (p *DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, error) {
+func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, error) {
 	// 对修改设备模板id进行特殊处理
 	if req.DeviceTemplateId != nil && *req.DeviceTemplateId == "" {
 		err := dal.UpdateDeviceConfigTemplateID(req.Id, nil)
@@ -127,7 +127,7 @@ func (p *DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any,
 	return data, nil
 }
 
-func (p *DeviceConfig) DeleteDeviceConfig(id string) error {
+func (*DeviceConfig) DeleteDeviceConfig(id string) error {
 	// 检查是否存在关联的 device 记录
 	devices, err := dal.GetDevicesByDeviceConfigID(id)
 	if err != nil {
@@ -151,7 +151,7 @@ func (p *DeviceConfig) DeleteDeviceConfig(id string) error {
 	return nil
 }
 
-func (p *DeviceConfig) GetDeviceConfigByID(ctx context.Context, id string) (any, error) {
+func (*DeviceConfig) GetDeviceConfigByID(ctx context.Context, id string) (any, error) {
 	var (
 		db = dal.DeviceConfigQuery{}
 	)
@@ -163,7 +163,7 @@ func (p *DeviceConfig) GetDeviceConfigByID(ctx context.Context, id string) (any,
 	return info, nil
 }
 
-func (p *DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
+func (*DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 
 	total, list, err := dal.GetDeviceConfigListByPage(req, claims)
 	if err != nil {
@@ -176,12 +176,12 @@ func (p *DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListB
 	return deviceconfigListRsp, err
 }
 
-func (p *DeviceConfig) GetDeviceConfigListMenu(req *model.GetDeviceConfigListMenuReq, claims *utils.UserClaims) (any, error) {
+func (*DeviceConfig) GetDeviceConfigListMenu(req *model.GetDeviceConfigListMenuReq, claims *utils.UserClaims) (any, error) {
 
 	return dal.GetDeviceConfigSelectList(req.DeviceConfigName, claims.TenantID, req.DeviceType, req.ProtocolType)
 }
 
-func (p *DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
+func (*DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
 	err := dal.BatchUpdateDeviceConfig(req)
 	if err != nil {
 		logrus.Error(err)
@@ -195,7 +195,7 @@ func (p *DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfi
 	return err
 }
 
-func (p *DeviceConfig) GetDeviceConfigConnect(ctx context.Context, deviceID string) (res *model.DeviceConfigConnectRes, err error) {
+func (*DeviceConfig) GetDeviceConfigConnect(ctx context.Context, deviceID string) (res *model.DeviceConfigConnectRes, err error) {
 	var (
 		db     = dal.DeviceQuery{}
 		device = query.Device
@@ -226,7 +226,7 @@ func (p *DeviceConfig) GetDeviceConfigConnect(ctx context.Context, deviceID stri
 }
 
 // 获取凭证类型表单
-func (p *DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string) (data interface{}, err error) {
+func (*DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string) (data interface{}, err error) {
 	// 判断协议类型是否来自协议插件
 	if protocolType == "MQTT" {
 		data = map[string]interface{}{

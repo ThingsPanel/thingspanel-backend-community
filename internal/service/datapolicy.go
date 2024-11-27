@@ -11,7 +11,7 @@ import (
 
 type DataPolicy struct{}
 
-func (p *DataPolicy) UpdateDataPolicy(UpdateDataPolicyReq *model.UpdateDataPolicyReq) error {
+func (*DataPolicy) UpdateDataPolicy(UpdateDataPolicyReq *model.UpdateDataPolicyReq) error {
 	var datapolicy = model.DataPolicy{}
 	datapolicy.ID = UpdateDataPolicyReq.Id
 	datapolicy.RetentionDay = UpdateDataPolicyReq.RetentionDays
@@ -24,7 +24,7 @@ func (p *DataPolicy) UpdateDataPolicy(UpdateDataPolicyReq *model.UpdateDataPolic
 	return err
 }
 
-func (p *DataPolicy) GetDataPolicyListByPage(Params *model.GetDataPolicyListByPageReq) (map[string]interface{}, error) {
+func (*DataPolicy) GetDataPolicyListByPage(Params *model.GetDataPolicyListByPageReq) (map[string]interface{}, error) {
 
 	total, list, err := dal.GetDataPolicyListByPage(Params)
 	if err != nil {
@@ -37,7 +37,7 @@ func (p *DataPolicy) GetDataPolicyListByPage(Params *model.GetDataPolicyListByPa
 	return datapolicyListRsp, err
 }
 
-func (p *DataPolicy) CleanSystemDataByCron() error {
+func (*DataPolicy) CleanSystemDataByCron() error {
 	data, err := dal.GetDataPolicy()
 	if err != nil {
 		return err

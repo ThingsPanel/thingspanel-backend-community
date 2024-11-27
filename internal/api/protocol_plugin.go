@@ -24,7 +24,7 @@ type ProtocolPluginApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/protocol_plugin [post]
-func (p *ProtocolPluginApi) CreateProtocolPlugin(c *gin.Context) {
+func (*ProtocolPluginApi) CreateProtocolPlugin(c *gin.Context) {
 	var req model.CreateProtocolPluginReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -50,7 +50,7 @@ func (p *ProtocolPluginApi) CreateProtocolPlugin(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/protocol_plugin/{id} [delete]
-func (p *ProtocolPluginApi) DeleteProtocolPlugin(c *gin.Context) {
+func (*ProtocolPluginApi) DeleteProtocolPlugin(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.ProtocolPlugin.DeleteProtocolPlugin(id)
 
@@ -74,7 +74,7 @@ func (p *ProtocolPluginApi) DeleteProtocolPlugin(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/protocol_plugin [put]
-func (p *ProtocolPluginApi) UpdateProtocolPlugin(c *gin.Context) {
+func (*ProtocolPluginApi) UpdateProtocolPlugin(c *gin.Context) {
 	var req model.UpdateProtocolPluginReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -98,7 +98,7 @@ func (p *ProtocolPluginApi) UpdateProtocolPlugin(c *gin.Context) {
 // @Success  200  {object}  ApiResponse  "字典列创建成功"
 // @Security ApiKeyAuth
 // @Router   /api/v1/protocol_plugin [get]
-func (p *ProtocolPluginApi) GetProtocolPluginListByPage(c *gin.Context) {
+func (*ProtocolPluginApi) GetProtocolPluginListByPage(c *gin.Context) {
 	var req model.GetProtocolPluginListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -122,7 +122,7 @@ func (p *ProtocolPluginApi) GetProtocolPluginListByPage(c *gin.Context) {
 // @Success  200  {object}  ApiResponse  "成功"
 // @Security ApiKeyAuth
 // @Router   /api/v1/protocol_plugin/device_config_form [get]
-func (p *ProtocolPluginApi) GetProtocolPluginForm(c *gin.Context) {
+func (*ProtocolPluginApi) GetProtocolPluginForm(c *gin.Context) {
 	var req model.GetProtocolPluginFormReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -146,7 +146,7 @@ func (p *ProtocolPluginApi) GetProtocolPluginForm(c *gin.Context) {
 // @Success  200  {object}  ApiResponse  "成功"
 // @Security ApiKeyAuth
 // @Router   /api/v1/protocol_plugin/config_form [get]
-func (p *ProtocolPluginApi) GetProtocolPluginFormByProtocolType(c *gin.Context) {
+func (*ProtocolPluginApi) GetProtocolPluginFormByProtocolType(c *gin.Context) {
 	var req model.GetProtocolPluginFormByProtocolType
 	if !BindAndValidate(c, &req) {
 		return
@@ -162,7 +162,7 @@ func (p *ProtocolPluginApi) GetProtocolPluginFormByProtocolType(c *gin.Context) 
 
 // /api/v1/plugin/device/config
 // 协议插件获取设备配置
-func (p *ProtocolPluginApi) GetDeviceConfigForProtocolPlugin(c *gin.Context) {
+func (*ProtocolPluginApi) GetDeviceConfigForProtocolPlugin(c *gin.Context) {
 	var req model.GetDeviceConfigReq
 	if !BindAndValidate(c, &req) {
 		return

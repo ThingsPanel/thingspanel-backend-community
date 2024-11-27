@@ -40,7 +40,7 @@ func (t *AutomateTask) OnceTaskExecute() error {
 // @description 单次任务执行
 // @params t *AutomateTask
 // @return error
-func (t *AutomateTask) TaskAutomationExecute(sceneAutomationId string) {
+func (*AutomateTask) TaskAutomationExecute(sceneAutomationId string) {
 	//查询自动化是否关闭
 	if GroupApp.CheckSceneAutomationHasClose(sceneAutomationId) {
 		return

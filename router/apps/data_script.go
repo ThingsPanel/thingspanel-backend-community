@@ -9,7 +9,7 @@ import (
 type DataScript struct {
 }
 
-func (p *DataScript) Init(Router *gin.RouterGroup) {
+func (*DataScript) Init(Router *gin.RouterGroup) {
 	url := Router.Group("data_script")
 	{
 		// 增

@@ -8,7 +8,7 @@ import (
 
 type AttributeData struct{}
 
-func (t *AttributeData) InitAttributeData(Router *gin.RouterGroup) {
+func (*AttributeData) InitAttributeData(Router *gin.RouterGroup) {
 	attributedataapi := Router.Group("attribute/datas")
 	{
 		// 设备属性列表查询

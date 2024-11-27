@@ -21,7 +21,7 @@ import (
 
 type OTA struct{}
 
-func (o *OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenantID string) error {
+func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenantID string) error {
 	var ota = model.OtaUpgradePackage{}
 	ota.ID = uuid.New()
 	ota.Name = req.Name
@@ -59,7 +59,7 @@ func (o *OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, ten
 	return err
 }
 
-func (o *OTA) UpdateOTAUpgradePackage(req *model.UpdateOTAUpgradePackageReq) error {
+func (*OTA) UpdateOTAUpgradePackage(req *model.UpdateOTAUpgradePackageReq) error {
 
 	oldota, err := dal.GetOtaUpgradePackageByID(req.Id)
 	if err != nil {
@@ -104,12 +104,12 @@ func (o *OTA) UpdateOTAUpgradePackage(req *model.UpdateOTAUpgradePackageReq) err
 	return nil
 }
 
-func (o *OTA) DeleteOTAUpgradePackage(packageId string) error {
+func (*OTA) DeleteOTAUpgradePackage(packageId string) error {
 	err := dal.DeleteOtaUpgradePackage(packageId)
 	return err
 }
 
-func (o *OTA) GetOTAUpgradePackageListByPage(req *model.GetOTAUpgradePackageLisyByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
+func (*OTA) GetOTAUpgradePackageListByPage(req *model.GetOTAUpgradePackageLisyByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetOtaUpgradePackageListByPage(req, userClaims.TenantID)
 	if err != nil {
 		return nil, err
@@ -133,12 +133,12 @@ func (o *OTA) CreateOTAUpgradeTask(req *model.CreateOTAUpgradeTaskReq) error {
 	return err
 }
 
-func (o *OTA) DeleteOTAUpgradeTask(id string) error {
+func (*OTA) DeleteOTAUpgradeTask(id string) error {
 	err := dal.DeleteOTAUpgradeTask(id)
 	return err
 }
 
-func (o *OTA) GetOTAUpgradeTaskListByPage(req *model.GetOTAUpgradeTaskListByPageReq) (map[string]interface{}, error) {
+func (*OTA) GetOTAUpgradeTaskListByPage(req *model.GetOTAUpgradeTaskListByPageReq) (map[string]interface{}, error) {
 	total, list, err := dal.GetOtaUpgradeTaskListByPage(req)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (o *OTA) GetOTAUpgradeTaskListByPage(req *model.GetOTAUpgradeTaskListByPage
 	return dataMap, nil
 }
 
-func (o *OTA) GetOTAUpgradeTaskDetailListByPage(req *model.GetOTAUpgradeTaskDetailReq) (map[string]interface{}, error) {
+func (*OTA) GetOTAUpgradeTaskDetailListByPage(req *model.GetOTAUpgradeTaskDetailReq) (map[string]interface{}, error) {
 	total, list, statistics, err := dal.GetOtaUpgradeTaskDetailListByPage(req)
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func (o *OTA) UpdateOTAUpgradeTaskStatus(req *model.UpdateOTAUpgradeTaskStatusRe
 
 	return err
 }
-func (o *OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) error {
+func (*OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) error {
 	// 查看设备是否在线
 	device := &model.Device{}
 	device, err := query.Device.Where(query.Device.ID.Eq(taskDetail.DeviceID)).First()

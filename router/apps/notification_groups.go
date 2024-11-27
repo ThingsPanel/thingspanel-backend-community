@@ -9,7 +9,7 @@ import (
 type NotificationGroup struct {
 }
 
-func (p *NotificationGroup) InitNotificationGroup(Router *gin.RouterGroup) {
+func (*NotificationGroup) InitNotificationGroup(Router *gin.RouterGroup) {
 	url := Router.Group("notification_group")
 	{
 		// 增

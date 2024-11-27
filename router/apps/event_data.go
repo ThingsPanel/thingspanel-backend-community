@@ -8,7 +8,7 @@ import (
 
 type EventData struct{}
 
-func (e *EventData) InitEventData(Router *gin.RouterGroup) {
+func (*EventData) InitEventData(Router *gin.RouterGroup) {
 	evnetDataApi := Router.Group("event/datas")
 	{
 		evnetDataApi.GET("", api.Controllers.EventDataApi.GetEventDatasListByPage)

@@ -9,7 +9,7 @@ import (
 type NotificationHistoryGroup struct {
 }
 
-func (p *NotificationHistoryGroup) InitNotificationHistory(Router *gin.RouterGroup) {
+func (*NotificationHistoryGroup) InitNotificationHistory(Router *gin.RouterGroup) {
 	url := Router.Group("notification_history")
 	{
 

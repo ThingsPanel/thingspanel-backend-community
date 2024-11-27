@@ -10,7 +10,7 @@ import (
 
 type ServicePluginApi struct{}
 
-func (api *ServicePluginApi) Create(c *gin.Context) {
+func (*ServicePluginApi) Create(c *gin.Context) {
 	var req model.CreateServicePluginReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -25,7 +25,7 @@ func (api *ServicePluginApi) Create(c *gin.Context) {
 }
 
 // /api/v1/service/list
-func (api *ServicePluginApi) GetList(c *gin.Context) {
+func (*ServicePluginApi) GetList(c *gin.Context) {
 	var req model.GetServicePluginByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -38,7 +38,7 @@ func (api *ServicePluginApi) GetList(c *gin.Context) {
 	SuccessHandler(c, "get service list successfully", resp)
 }
 
-func (api *ServicePluginApi) Get(c *gin.Context) {
+func (*ServicePluginApi) Get(c *gin.Context) {
 	id := c.Param("id")
 	resp, err := service.GroupApp.ServicePlugin.Get(id)
 	if err != nil {
@@ -48,7 +48,7 @@ func (api *ServicePluginApi) Get(c *gin.Context) {
 	SuccessHandler(c, "get service list successfully", resp)
 }
 
-func (api *ServicePluginApi) Update(c *gin.Context) {
+func (*ServicePluginApi) Update(c *gin.Context) {
 	var req model.UpdateServicePluginReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -61,7 +61,7 @@ func (api *ServicePluginApi) Update(c *gin.Context) {
 	SuccessHandler(c, "update service successfully", map[string]interface{}{})
 }
 
-func (api *ServicePluginApi) Delete(c *gin.Context) {
+func (*ServicePluginApi) Delete(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.ServicePlugin.Delete(id)
 	if err != nil {
@@ -72,7 +72,7 @@ func (api *ServicePluginApi) Delete(c *gin.Context) {
 }
 
 // /api/v1/plugin/heartbeat
-func (api *ServicePluginApi) Heartbeat(c *gin.Context) {
+func (*ServicePluginApi) Heartbeat(c *gin.Context) {
 	var req model.HeartbeatReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -87,7 +87,7 @@ func (api *ServicePluginApi) Heartbeat(c *gin.Context) {
 
 // GetServiceSelect
 // /api/v1/service/plugin/select
-func (api *ServicePluginApi) GetServiceSelect(c *gin.Context) {
+func (*ServicePluginApi) GetServiceSelect(c *gin.Context) {
 	var req model.GetServiceSelectReq
 	if !BindAndValidate(c, &req) {
 		return

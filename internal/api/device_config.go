@@ -26,7 +26,7 @@ type DeviceConfigApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/device_config [post]
-func (api *DeviceConfigApi) CreateDeviceConfig(c *gin.Context) {
+func (*DeviceConfigApi) CreateDeviceConfig(c *gin.Context) {
 	var req model.CreateDeviceConfigReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -51,7 +51,7 @@ func (api *DeviceConfigApi) CreateDeviceConfig(c *gin.Context) {
 // @Success  200  {object}  ApiResponse  "更新设备配置成功"
 // @Security ApiKeyAuth
 // @Router   /api/v1/device_config [put]
-func (api *DeviceConfigApi) UpdateDeviceConfig(c *gin.Context) {
+func (*DeviceConfigApi) UpdateDeviceConfig(c *gin.Context) {
 	var req model.UpdateDeviceConfigReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -79,7 +79,7 @@ func (api *DeviceConfigApi) UpdateDeviceConfig(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/device_config/{id} [delete]
-func (api *DeviceConfigApi) DeleteDeviceConfig(c *gin.Context) {
+func (*DeviceConfigApi) DeleteDeviceConfig(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.DeviceConfig.DeleteDeviceConfig(id)
 	if err != nil {
@@ -102,7 +102,7 @@ func (api *DeviceConfigApi) DeleteDeviceConfig(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/device_config/{id} [get]
-func (api *DeviceConfigApi) GetDeviceConfigById(c *gin.Context) {
+func (*DeviceConfigApi) GetDeviceConfigById(c *gin.Context) {
 	id := c.Param("id")
 	info, err := service.GroupApp.DeviceConfig.GetDeviceConfigByID(c, id)
 	if err != nil {
@@ -125,7 +125,7 @@ func (api *DeviceConfigApi) GetDeviceConfigById(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/device_config [get]
-func (api *DeviceConfigApi) GetDeviceConfigListByPage(c *gin.Context) {
+func (*DeviceConfigApi) GetDeviceConfigListByPage(c *gin.Context) {
 	var req model.GetDeviceConfigListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -142,7 +142,7 @@ func (api *DeviceConfigApi) GetDeviceConfigListByPage(c *gin.Context) {
 }
 
 // @Router   /api/v1/device_config/menu [get]
-func (api *DeviceConfigApi) GetDeviceConfigListMenu(c *gin.Context) {
+func (*DeviceConfigApi) GetDeviceConfigListMenu(c *gin.Context) {
 	var req model.GetDeviceConfigListMenuReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -171,7 +171,7 @@ func (api *DeviceConfigApi) GetDeviceConfigListMenu(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/device_config/batch [put]
-func (api *DeviceConfigApi) BatchUpdateDeviceConfig(c *gin.Context) {
+func (*DeviceConfigApi) BatchUpdateDeviceConfig(c *gin.Context) {
 	var req model.BatchUpdateDeviceConfigReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -187,7 +187,7 @@ func (api *DeviceConfigApi) BatchUpdateDeviceConfig(c *gin.Context) {
 }
 
 // /api/v1/device_config/connect
-func (api *DeviceConfigApi) GetDeviceConfigConnect(c *gin.Context) {
+func (*DeviceConfigApi) GetDeviceConfigConnect(c *gin.Context) {
 	var param model.DeviceIDReq
 	if !BindAndValidate(c, &param) {
 		return
@@ -201,7 +201,7 @@ func (api *DeviceConfigApi) GetDeviceConfigConnect(c *gin.Context) {
 }
 
 // /api/v1/device_config/voucher_type
-func (api *DeviceConfigApi) GetVoucherType(c *gin.Context) {
+func (*DeviceConfigApi) GetVoucherType(c *gin.Context) {
 	var param model.GetVoucherTypeReq
 	if !BindAndValidate(c, &param) {
 		return

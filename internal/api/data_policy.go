@@ -24,7 +24,7 @@ type DataPolicyApi struct{}
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/datapolicy [put]
-func (api *DataPolicyApi) UpdateDataPolicy(c *gin.Context) {
+func (*DataPolicyApi) UpdateDataPolicy(c *gin.Context) {
 	var req model.UpdateDataPolicyReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -51,7 +51,7 @@ func (api *DataPolicyApi) UpdateDataPolicy(c *gin.Context) {
 // @Failure  500  {object}  ApiResponse  "服务器内部错误"
 // @Security ApiKeyAuth
 // @Router   /api/v1/datapolicy [get]
-func (api *DataPolicyApi) GetDataPolicyListByPage(c *gin.Context) {
+func (*DataPolicyApi) GetDataPolicyListByPage(c *gin.Context) {
 	var req model.GetDataPolicyListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
