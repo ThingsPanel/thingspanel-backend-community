@@ -65,7 +65,7 @@ func (*UserApi) RefreshToken(c *gin.Context) {
 }
 
 // GET /api/v1/verification/code
-func (*UserApi) GetVerificationCode(c *gin.Context) {
+func (*UserApi) HandleVerificationCode(c *gin.Context) {
 	email := c.Query("email")
 	isRegister := c.Query("is_register")
 	err := service.GroupApp.User.GetVerificationCode(email, isRegister)

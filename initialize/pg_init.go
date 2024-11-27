@@ -6,8 +6,6 @@ import (
 	"os"
 	"time"
 
-	"io/ioutil"
-
 	global "project/pkg/global"
 	utils "project/pkg/utils"
 
@@ -218,7 +216,7 @@ func CheckVersion(db *gorm.DB) error {
 			}
 			log.Println("执行sql文件：", fileName)
 			// 读取 SQL 脚本文件
-			sqlFile, err := ioutil.ReadFile(fileName)
+			sqlFile, err := os.ReadFile(fileName)
 			if err != nil {
 				panic(err)
 			}
@@ -245,7 +243,7 @@ func CheckVersion(db *gorm.DB) error {
 
 func ExecuteSQLFile(db *gorm.DB, fileName string) error {
 	// 读取 SQL 脚本文件
-	sqlFile, err := ioutil.ReadFile(fileName)
+	sqlFile, err := os.ReadFile(fileName)
 	if err != nil {
 		return err
 	}

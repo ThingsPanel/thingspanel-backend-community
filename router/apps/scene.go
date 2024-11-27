@@ -21,7 +21,7 @@ func (*Scene) Init(Router *gin.RouterGroup) {
 		url.GET("", api.Controllers.SceneApi.HandleSceneByPage)
 
 		// detail
-		url.GET("/detail/:id", api.Controllers.SceneApi.GetScene)
+		url.GET("/detail/:id", api.Controllers.SceneApi.HandleScene)
 
 		// 更新
 		url.PUT("", api.Controllers.SceneApi.UpdateScene)

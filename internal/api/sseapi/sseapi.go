@@ -16,7 +16,7 @@ type SSEApi struct{}
 
 // api/v1/events
 
-func (*SSEApi) GetSystemEvents(c *gin.Context) {
+func (*SSEApi) HandleSystemEvents(c *gin.Context) {
 	userClaims, ok := c.MustGet("claims").(*utils.UserClaims)
 	if !ok {
 		api.ErrorHandler(c, http.StatusUnauthorized, fmt.Errorf("unauthorized"))

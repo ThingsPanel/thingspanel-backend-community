@@ -41,9 +41,9 @@ func RouterInit() *gin.Engine {
 			v1.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)
 			v1.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
 			v1.POST("login", controllers.Login)
-			v1.GET("verification/code", controllers.GetVerificationCode)
+			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password", controllers.ResetPassword)
-			v1.GET("logo", controllers.GetLogoList)
+			v1.GET("logo", controllers.HandleLogoList)
 			// 设备遥测（ws）
 			v1.GET("telemetry/datas/current/ws", controllers.TelemetryDataApi.ServeCurrentDataByWS)
 			// 设备在线离线状态（ws）

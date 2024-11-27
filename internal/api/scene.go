@@ -49,7 +49,7 @@ func (*SceneApi) UpdateScene(c *gin.Context) {
 	SuccessHandler(c, "update scene successfully", map[string]interface{}{"scene_id": id})
 }
 
-func (*SceneApi) GetScene(c *gin.Context) {
+func (*SceneApi) HandleScene(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.Scene.GetScene(id)
 	if err != nil {

@@ -8,13 +8,13 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 )
 
 var RSAPrivateKey *rsa.PrivateKey
 
 func RsaDecryptInit(filePath string) (err error) {
-	key, err := ioutil.ReadFile(filePath)
+	key, err := os.ReadFile(filePath)
 	if err != nil {
 		return errors.New("加载私钥错误1：" + err.Error())
 	}
