@@ -18,12 +18,18 @@ import (
 func init() {
 	initialize.ViperInit("../configs/conf.yml")
 	initialize.LogInIt()
-	db := initialize.PgInit()
+	db, err := initialize.PgInit()
+	if err != nil {
+		logrus.Error(err)
+	}
 	initialize.RedisInit()
 	query.SetDefault(db)
 
 	mqtt.MqttInit()
-	subscribe.SubscribeInit()
+	err = subscribe.SubscribeInit()
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	publish.PublishInit()
 }
 

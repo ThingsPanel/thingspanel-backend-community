@@ -16,7 +16,10 @@ func main() {
 	// gormdb, _ := gorm.Open(mysql.Open("root:@(127.0.0.1:3306)/demo?charset=utf8mb4&parseTime=True&loc=Local"))
 	initialize.ViperInit("../../configs/conf.yml")
 	initialize.LogInIt()
-	gormdb := initialize.PgInit()
+	gormdb, err := initialize.PgInit()
+	if err != nil {
+		panic(err)
+	}
 	if gormdb == nil {
 		panic("gormdb is nil")
 	}

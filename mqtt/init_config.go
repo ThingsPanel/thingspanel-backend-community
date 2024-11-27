@@ -2,7 +2,7 @@ package mqtt
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"project/internal/model"
 
 	"github.com/sirupsen/logrus"
@@ -22,31 +22,35 @@ var GatewayResponseFuncMap map[string]chan model.GatewayResponse
 // MqttDirectResponseFuncMap mqtt直连设置回复
 var MqttDirectResponseFuncMap map[string]chan model.MqttResponse
 
-func MqttInit() {
+func MqttInit() error {
 	// 初始化配置
-	loadConfig()
+	err := loadConfig()
+	if err != nil {
+		return err
+	}
 	// 初始化回复map
 	GatewayResponseFuncMap = make(map[string]chan model.GatewayResponse)
 	MqttDirectResponseFuncMap = make(map[string]chan model.MqttResponse)
+	return nil
 }
 
-func loadConfig() {
+func loadConfig() error {
 	var configMap map[string]interface{}
 	// 将 map 映射到 MQTTConfig 结构体
 	// 注意！！！yml文件中带_的key，是无法通过UnmarshalKey解析的
 	err := viper.Unmarshal(&configMap)
 	if err != nil {
-		log.Fatalf("Unable to decode into struct, %s", err)
+		return fmt.Errorf("unable to decode into struct, %s", err)
 	}
 	// 将 map 转换为 json
 	jsonStr, err := json.Marshal(configMap["mqtt"])
 	if err != nil {
-		log.Fatalf("Unable to marshal config, %s", err)
+		return fmt.Errorf("unable to marshal config, %s", err)
 	}
 	// 将 json 转换为结构体
 	err = json.Unmarshal(jsonStr, &MqttConfig)
 	if err != nil {
-		log.Fatalf("Unable to unmarshal config, %s", err)
+		return fmt.Errorf("unable to unmarshal config, %s", err)
 	}
 
 	// 打印配置
@@ -106,4 +110,5 @@ func loadConfig() {
 		batchSize = 100
 		logrus.Println("Using default batch_size:", batchSize)
 	}
+	return nil
 }

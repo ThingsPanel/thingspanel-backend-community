@@ -26,15 +26,24 @@ func init() {
 	//initialize.ViperInit("./configs/conf-localdev.yml")
 	initialize.RsaDecryptInit("./configs/rsa_key/private_key.pem")
 	initialize.LogInIt()
-	db := initialize.PgInit()
+	db, err := initialize.PgInit()
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	initialize.RedisInit()
 	query.SetDefault(db)
 
 	grpc_tptodb.GrpcTptodbInit()
 
-	mqtt.MqttInit()
+	err = mqtt.MqttInit()
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	go device.InitDeviceStatus()
-	subscribe.SubscribeInit()
+	err = subscribe.SubscribeInit()
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	publish.PublishInit()
 	//定时任务
 	//croninit.CronInit()

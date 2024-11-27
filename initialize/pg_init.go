@@ -31,19 +31,19 @@ type DbConfig struct {
 	OpenConns     int
 }
 
-func PgInit() *gorm.DB {
+func PgInit() (*gorm.DB, error) {
 	// 初始化配置
 	config, err := LoadDbConfig()
 	if err != nil {
-		log.Fatalf("加载数据库配置失败: %v", err)
-		return nil
+		logrus.Errorf("加载数据库配置失败: %v", err)
+		return nil, err
 	}
 
 	// 初始化数据库
 	db, err := PgConnect(config)
 	if err != nil {
-		log.Fatalf("初始化数据库失败: %v", err)
-		return nil
+		logrus.Error("连接数据库失败:", err)
+		return nil, err
 	}
 	global.DB = db
 
@@ -56,7 +56,7 @@ func PgInit() *gorm.DB {
 		fmt.Println(err)
 	}
 
-	return db
+	return db, nil
 }
 
 // LoadDbConfig 从配置文件加载数据库配置

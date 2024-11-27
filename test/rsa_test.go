@@ -85,7 +85,7 @@ func Encrypt() string {
 	message := []byte("123456salt")
 	encryptedMessage, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, RSAPublicKey, message, nil)
 	if err != nil {
-		log.Fatalf("加密失败: %v", err)
+		log.Printf("加密失败: %v", err)
 	}
 	encryptPassword := base64.StdEncoding.EncodeToString(encryptedMessage)
 	return encryptPassword

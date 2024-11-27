@@ -1,7 +1,6 @@
 package subscribe
 
 import (
-	"os"
 	"path"
 	"time"
 
@@ -25,7 +24,7 @@ func GenTopic(topic string) string {
 	return topic
 }
 
-func SubscribeInit() {
+func SubscribeInit() error {
 
 	//实例限流客户端
 	initialize.NewAutomateLimiter()
@@ -35,31 +34,60 @@ func SubscribeInit() {
 	telemetryMessagesChan()
 
 	//消息订阅
-	subscribe()
+	err := subscribe()
+	return err
 }
 
-func subscribe() {
+func subscribe() error {
 	// 订阅attribute消息
-	SubscribeAttribute()
-	// 订阅设置设备属性回应
-	SubscribeSetAttribute()
-	// 订阅event消息
-	SubscribeEvent()
-	//订阅telemetry消息
-	err := SubscribeTelemetry()
+	err := SubscribeAttribute()
 	if err != nil {
 		logrus.Error(err)
-		os.Exit(1)
+		return err
+	}
+	// 订阅设置设备属性回应
+	err = SubscribeSetAttribute()
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	// 订阅event消息
+	err = SubscribeEvent()
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	//订阅telemetry消息
+	err = SubscribeTelemetry()
+	if err != nil {
+		logrus.Error(err)
+		return err
 	}
 
 	// 订阅在线离线消息
 	//SubscribeDeviceStatus()
 
 	//网关订阅主题
-	GatewaySubscribeTopic()
+	err = GatewaySubscribeTopic()
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
 
 	// 订阅设备命令消息
-	SubscribeCommand()
+	err = SubscribeCommand()
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+
+	// 订阅OTA命令消息
+	err = SubscribeOtaUpprogress()
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	return nil
 }
 
 func subscribeMqttClient() {
@@ -153,13 +181,13 @@ func SubscribeTelemetry() error {
 
 	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceTelemetryMessageHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
-		os.Exit(1)
+		return err
 	}
 	return nil
 }
 
 // 订阅attribute消息，暂不需要线程池，不需要消息队列
-func SubscribeAttribute() {
+func SubscribeAttribute() error {
 	// 订阅attribute消息
 	deviceAttributeHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
@@ -180,11 +208,12 @@ func SubscribeAttribute() {
 	qos := byte(config.MqttConfig.Attributes.QoS)
 	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceAttributeHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
-		os.Exit(1)
+		return token.Error()
 	}
+	return nil
 }
 
-func SubscribeSetAttribute() {
+func SubscribeSetAttribute() error {
 	// 订阅attribute消息
 	deviceAttributeHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
@@ -197,12 +226,13 @@ func SubscribeSetAttribute() {
 	qos := byte(config.MqttConfig.Attributes.QoS)
 	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceAttributeHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
-		os.Exit(1)
+		return token.Error()
 	}
+	return nil
 }
 
 // 订阅command消息，暂不需要线程池，不需要消息队列
-func SubscribeCommand() {
+func SubscribeCommand() error {
 	// 订阅command消息
 	deviceCommandHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
@@ -219,12 +249,13 @@ func SubscribeCommand() {
 	qos := byte(config.MqttConfig.Commands.QoS)
 	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceCommandHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
-		os.Exit(1)
+		return token.Error()
 	}
+	return nil
 }
 
 // 订阅event消息，暂不需要线程池，不需要消息队列
-func SubscribeEvent() {
+func SubscribeEvent() error {
 	// 订阅event消息
 	deviceEventHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
@@ -243,31 +274,12 @@ func SubscribeEvent() {
 	qos := byte(config.MqttConfig.Events.QoS)
 	if token := SubscribeMqttClient.Subscribe(topic, qos, deviceEventHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
-		os.Exit(1)
+		return token.Error()
 	}
+	return nil
 }
 
-// 订阅设备上线离线消息
-func SubscribeDeviceStatus() {
-	// 订阅设备上线离线消息
-	deviceOnlineHandler := func(_ mqtt.Client, d mqtt.Message) {
-		logrus.Debug("接收来自broker的设备在线离线通知")
-		// 处理消息
-		DeviceOnline(d.Payload(), d.Topic())
-
-	}
-	onlineTopic := "devices/status/+"
-	onlineTopic = GenTopic(onlineTopic)
-	logrus.Info("subscribe topic:", onlineTopic)
-
-	onlineQos := byte(1)
-	if token := SubscribeMqttClient.Subscribe(onlineTopic, onlineQos, deviceOnlineHandler); token.Wait() && token.Error() != nil {
-		logrus.Error(token.Error())
-		os.Exit(1)
-	}
-}
-
-func SubscribeOtaUpprogress() {
+func SubscribeOtaUpprogress() error {
 	// 订阅ota升级消息
 	otaUpgradeHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
@@ -278,6 +290,7 @@ func SubscribeOtaUpprogress() {
 	qos := byte(config.MqttConfig.OTA.QoS)
 	if token := SubscribeMqttClient.Subscribe(topic, qos, otaUpgradeHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
-		os.Exit(1)
+		return token.Error()
 	}
+	return nil
 }
