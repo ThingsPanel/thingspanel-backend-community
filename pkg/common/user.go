@@ -5,8 +5,5 @@ import (
 )
 
 func CheckUserIsAdmin(authority string) bool {
-	if authority == constant.SYS_ADMIN {
-		return true
-	}
-	return false
+	return authority == constant.SYS_ADMIN
 }

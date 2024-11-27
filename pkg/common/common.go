@@ -11,10 +11,7 @@ import (
 )
 
 func CheckEmpty(str string) bool {
-	if str == constant.EMPTY {
-		return true
-	}
-	return false
+	return str == constant.EMPTY
 }
 
 func GetMessageID() string {

@@ -54,13 +54,12 @@ func CreateMqttClient() {
 		mqttClient.Disconnect(250)
 		// 等待连接成功，失败重新连接
 		for {
-			if token := mqttClient.Connect(); token.Wait() && token.Error() == nil {
+			token := mqttClient.Connect()
+			if token.Wait() && token.Error() == nil {
 				fmt.Println("Reconnected to MQTT broker")
 				break
-			} else {
-				fmt.Printf("Reconnect failed: %v\n", token.Error())
 			}
-			time.Sleep(5 * time.Second)
+			fmt.Printf("Reconnect failed: %v\n", token.Error())
 		}
 	})
 

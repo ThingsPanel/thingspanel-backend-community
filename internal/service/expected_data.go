@@ -51,10 +51,8 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 			return nil, err
 		}
 		req.Payload = &payload
-	} else {
-		if req.Payload == nil {
-			return nil, fmt.Errorf("payload 字段不能为空")
-		}
+	} else if req.Payload == nil {
+		return nil, fmt.Errorf("payload 字段不能为空")
 	}
 	// 创建预期数据
 	ed := &model.ExpectedData{

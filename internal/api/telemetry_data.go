@@ -216,18 +216,17 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 	if err != nil {
 		c.String(http.StatusInternalServerError, "get telemetry current data: %v", err)
 		return
-	} else {
+	} else if data != nil {
 		// 判断是否有数据
-		if data != nil {
-			// data转[]byte
-			dataByte, err = json.Marshal(data)
-			if err != nil {
-				logrus.Error(err)
-				conn.WriteMessage(msgType, []byte(err.Error()))
-			} else {
-				conn.WriteMessage(msgType, dataByte)
-			}
+		// data转[]byte
+		dataByte, err = json.Marshal(data)
+		if err != nil {
+			logrus.Error(err)
+			conn.WriteMessage(msgType, []byte(err.Error()))
+		} else {
+			conn.WriteMessage(msgType, dataByte)
 		}
+
 	}
 	var mu sync.Mutex
 	logrus.Info("User SubscribeDeviceTelemetry")
@@ -404,18 +403,17 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 	if err != nil {
 		c.String(http.StatusInternalServerError, "get telemetry current data: %v", err)
 		return
-	} else {
+	} else if data != nil {
 		// 判断是否有数据
-		if data != nil {
-			// data转[]byte
-			dataByte, err = json.Marshal(data)
-			if err != nil {
-				logrus.Error(err)
-				conn.WriteMessage(msgType, []byte(err.Error()))
-			} else {
-				conn.WriteMessage(msgType, dataByte)
-			}
+		// data转[]byte
+		dataByte, err = json.Marshal(data)
+		if err != nil {
+			logrus.Error(err)
+			conn.WriteMessage(msgType, []byte(err.Error()))
+		} else {
+			conn.WriteMessage(msgType, dataByte)
 		}
+
 	}
 	var mu sync.Mutex
 	logrus.Info("User SubscribeDeviceTelemetry")

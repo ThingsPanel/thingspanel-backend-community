@@ -46,9 +46,8 @@ func MessagesChanHandler(messages <-chan map[string]interface{}) {
 			// 如果管道没有消息，则检查入库
 			if len(messages) > 0 {
 				continue
-			} else {
-				break
 			}
+			break
 		}
 
 		// 如果tskvList有数据，则写入数据库
