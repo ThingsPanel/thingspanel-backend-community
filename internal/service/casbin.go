@@ -7,7 +7,7 @@ type Casbin struct {
 
 // 角色添加多个功能
 func (*Casbin) AddFunctionToRole(role string, functions []string) bool {
-	rules := [][]string{}
+	var rules [][]string
 	for _, function := range functions {
 		rule := []string{role, function, "allow"}
 		rules = append(rules, rule)
@@ -35,7 +35,7 @@ func (*Casbin) RemoveRoleAndFunction(role string) bool {
 
 // 用户添加多个角色
 func (*Casbin) AddRolesToUser(user string, roles []string) bool {
-	rules := [][]string{}
+	var rules [][]string
 	for _, role := range roles {
 		rule := []string{user, role}
 		rules = append(rules, rule)

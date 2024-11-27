@@ -47,7 +47,7 @@ func GetCurrentTelemetrData(deviceId string) ([]model.TelemetryData, error) {
 func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
-		data := []model.TelemetryData{}
+		var data []model.TelemetryData
 		//获取当前设备的第一条数据
 		request := &pb.GetDeviceAttributesCurrentsRequest{
 			DeviceId: deviceId,

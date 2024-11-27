@@ -19,7 +19,7 @@ import (
 func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurrentData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
-		telemetry := []*model.TelemetryCurrentData{}
+		var telemetry []*model.TelemetryCurrentData
 		request := &pb.GetDeviceAttributesCurrentsRequest{
 			DeviceId: deviceId,
 		}

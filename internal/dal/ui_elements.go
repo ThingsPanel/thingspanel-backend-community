@@ -55,7 +55,7 @@ func ServeUiElementsListByPage(uielements *model.ServeUiElementsListByPageReq) (
 		return count, uielementsList, err
 	}
 
-	uielementsListrsp := []*model.UiElementsListRsp{}
+	var uielementsListrsp []*model.UiElementsListRsp
 	for i := range uielementsList {
 		uielementsListrsp = append(uielementsListrsp, uielementsList[i].ToRsp())
 		queryChildren(uielementsListrsp[i])
@@ -77,7 +77,7 @@ func ServeUiElementsListByAuthority(u *utils.UserClaims) (int64, interface{}, er
 		}
 		count, err = queryBuilder.Count()
 
-		uielementsListrsp := []*model.UiElementsListRsp{}
+		var uielementsListrsp []*model.UiElementsListRsp
 		for i := range uielementsList {
 			uielementsListrsp = append(uielementsListrsp, uielementsList[i].ToRsp())
 			queryChildrenByAuthority(uielementsListrsp[i], u.Authority)
@@ -102,7 +102,7 @@ func ServeUiElementsListByAuthority(u *utils.UserClaims) (int64, interface{}, er
 		if err.Error != nil {
 			return 0, nil, err.Error
 		}
-		data := []*model.UiElementsListRsp{}
+		var data []*model.UiElementsListRsp
 		for i := range uielementsList {
 			data = append(data, uielementsList[i].ToRsp())
 			queryChildrenByUserID(data[i], u.ID)
@@ -122,7 +122,7 @@ func GetTenantUiElementsList() (interface{}, error) {
 		return uielementsList, err
 	}
 
-	uielementsListrsp := []*model.UiElementsListRsp1{}
+	var uielementsListrsp []*model.UiElementsListRsp1
 	for i := range uielementsList {
 		uielementsListrsp = append(uielementsListrsp, uielementsList[i].ToRsp1())
 		queryChildrenByAuthority1(uielementsListrsp[i], "TENANT_ADMIN")

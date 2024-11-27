@@ -68,8 +68,8 @@ func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
 func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (int64, interface{}, error) {
 	q := query.DeviceConfig
 	var count int64
-	data := []model.DeviceConfigRsp{}
-	deviceconfigList := []*model.DeviceConfig{}
+	var data []model.DeviceConfigRsp
+	var deviceconfigList []*model.DeviceConfig
 	queryBuilder := q.WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
 
