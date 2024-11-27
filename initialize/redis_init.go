@@ -2,6 +2,7 @@ package initialize
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -20,23 +21,21 @@ type RedisConfig struct {
 	DB       int
 }
 
-func RedisInit() *redis.Client {
+func RedisInit() (*redis.Client, error) {
 	conf, err := loadConfig()
 	if err != nil {
-		log.Panic("加载redis配置失败:", err)
-		return nil
+		return nil, fmt.Errorf("加载redis配置失败:%v", err)
 	}
 
 	client := connectRedis(conf)
 
 	if checkRedisClient(client) != nil {
-		log.Panic("连接redis失败:", err)
-		return nil
+		return nil, fmt.Errorf("连接redis失败:%v", err)
 	}
 	global.REDIS = client
 	// 启动SSE
 	go global.InitSSEManager()
-	return client
+	return client, nil
 }
 
 func connectRedis(conf *RedisConfig) *redis.Client {

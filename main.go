@@ -30,7 +30,11 @@ func init() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	initialize.RedisInit()
+	_, err = initialize.RedisInit()
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
 	query.SetDefault(db)
 
 	grpc_tptodb.GrpcTptodbInit()
