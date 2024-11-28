@@ -558,163 +558,166 @@ func (*TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySe
 ```
 */
 func (*TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStatisticReq) (any, error) {
-	if req.TimeRange == "custom" {
-		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
-			return nil, fmt.Errorf("time range is invalid")
-		}
-	} else {
-		switch req.TimeRange {
-		//last_5m，last_15m，last_30m，last_1h，last_3h，last_6h，last_12h，last_24h，last_3d，last_7d，last_15d，last_30d，last_60d
-		case "last_5m":
-			req.StartTime = time.Now().Add(-5*time.Minute).UnixNano() / 1e6
-		case "last_15m":
-			req.StartTime = time.Now().Add(-15*time.Minute).UnixNano() / 1e6
-		case "last_30m":
-			req.StartTime = time.Now().Add(-30*time.Minute).UnixNano() / 1e6
-		case "last_1h":
-			req.StartTime = time.Now().Add(-1*time.Hour).UnixNano() / 1e6
-		case "last_3h":
-			req.StartTime = time.Now().Add(-3*time.Hour).UnixNano() / 1e6
-		case "last_6h":
-			req.StartTime = time.Now().Add(-6*time.Hour).UnixNano() / 1e6
-		case "last_12h":
-			req.StartTime = time.Now().Add(-12*time.Hour).UnixNano() / 1e6
-		case "last_24h":
-			req.StartTime = time.Now().Add(-24*time.Hour).UnixNano() / 1e6
-		case "last_3d":
-			req.StartTime = time.Now().Add(-72*time.Hour).UnixNano() / 1e6
-		case "last_7d":
-			req.StartTime = time.Now().Add(-7*24*time.Hour).UnixNano() / 1e6
-		case "last_15d":
-			req.StartTime = time.Now().Add(-15*24*time.Hour).UnixNano() / 1e6
-		case "last_30d":
-			req.StartTime = time.Now().Add(-30*24*time.Hour).UnixNano() / 1e6
-		case "last_60d":
-			req.StartTime = time.Now().Add(-60*24*time.Hour).UnixNano() / 1e6
-		case "last_90d":
-			req.StartTime = time.Now().Add(-90*24*time.Hour).UnixNano() / 1e6
-		case "last_6m":
-			req.StartTime = time.Now().Add(-180*24*time.Hour).UnixNano() / 1e6
-		case "last_1y":
-			req.StartTime = time.Now().Add(-365*24*time.Hour).UnixNano() / 1e6
-		default:
-			return nil, fmt.Errorf("unknown time range")
-		}
-		req.EndTime = time.Now().UnixNano() / 1e6
+	// 处理时间范围
+	if err := processTimeRange(req); err != nil {
+		return nil, err
 	}
 
-	var rspData []map[string]interface{}
-	// 不聚合
+	// 获取数据
+	rspData, err := fetchTelemetryData(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// 如果不需要导出且无数据，返回空切片
+	if !req.IsExport {
+		if len(rspData) == 0 {
+			return []map[string]interface{}{}, nil
+		}
+		return rspData, nil
+	}
+
+	// 处理导出逻辑
+	return exportToCSV(req, rspData)
+}
+
+// 处理时间范围
+func processTimeRange(req *model.GetTelemetryStatisticReq) error {
+	if req.TimeRange == "custom" {
+		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
+			return fmt.Errorf("time range is invalid")
+		}
+		return nil
+	}
+
+	timeRanges := map[string]time.Duration{
+		"last_5m":  5 * time.Minute,
+		"last_15m": 15 * time.Minute,
+		"last_30m": 30 * time.Minute,
+		"last_1h":  time.Hour,
+		"last_3h":  3 * time.Hour,
+		"last_6h":  6 * time.Hour,
+		"last_12h": 12 * time.Hour,
+		"last_24h": 24 * time.Hour,
+		"last_3d":  72 * time.Hour,
+		"last_7d":  7 * 24 * time.Hour,
+		"last_15d": 15 * 24 * time.Hour,
+		"last_30d": 30 * 24 * time.Hour,
+		"last_60d": 60 * 24 * time.Hour,
+		"last_90d": 90 * 24 * time.Hour,
+		"last_6m":  180 * 24 * time.Hour,
+		"last_1y":  365 * 24 * time.Hour,
+	}
+
+	duration, ok := timeRanges[req.TimeRange]
+	if !ok {
+		return fmt.Errorf("unknown time range: %s", req.TimeRange)
+	}
+
+	now := time.Now()
+	req.EndTime = now.UnixNano() / 1e6
+	req.StartTime = now.Add(-duration).UnixNano() / 1e6
+	return nil
+}
+
+// 获取遥测数据
+func fetchTelemetryData(req *model.GetTelemetryStatisticReq) ([]map[string]interface{}, error) {
 	if req.AggregateWindow == "no_aggregate" {
 		if req.TimeRange == "custom" {
-			if (req.EndTime-req.StartTime)*1000 > int64(time.Duration(24)*time.Hour/time.Microsecond) {
+			if (req.EndTime-req.StartTime)*1000 > int64(24*time.Hour/time.Microsecond) {
 				return nil, fmt.Errorf("查询时间范围超过24小时，请缩短查询时间范围或使用聚合查询")
 			}
 		}
-		data, err := dal.GetTelemetrStatisticData(req.DeviceId, req.Key, req.StartTime, req.EndTime)
-		if err != nil {
-			return nil, err
-		}
-		if len(data) == 0 {
-			data = []map[string]interface{}{}
-		}
-		rspData = data
-	} else {
-		// 校验聚合参数
-		err := validateAggregateWindow(req.StartTime, req.EndTime, req.AggregateWindow)
-		if err != nil {
-			return nil, err
-		}
-
-		if req.AggregateFunction == "" {
-			req.AggregateFunction = "avg"
-		}
-		// 聚合查询
-		data, err := dal.GetTelemetrStatisticaAgregationData(
-			req.DeviceId,
-			req.Key,
-			req.StartTime,
-			req.EndTime,
-			dal.StatisticAggregateWindowMillisecond[req.AggregateWindow],
-			req.AggregateFunction,
-		)
-		if err != nil {
-			return nil, err
-		}
-		if len(data) == 0 {
-			data = []map[string]interface{}{}
-		}
-		rspData = data
-
+		return dal.GetTelemetrStatisticData(req.DeviceId, req.Key, req.StartTime, req.EndTime)
 	}
-	// 是否导出
-	if req.IsExport {
-		// 检查是否有数据
-		if len(rspData) == 0 {
-			return nil, errors.New("没有可导出的数据")
-		}
-		// 创建导出目录
-		exportDir := "./files/excel/telemetry/"
-		err := os.MkdirAll(exportDir, os.ModePerm)
-		if err != nil {
-			return nil, fmt.Errorf("创建导出目录失败: %v", err)
-		}
 
-		// 生成csv文件
-		// 文件名：device_id_key_start_time_end_time.csv
-		fileName := fmt.Sprintf("%s_%s_%d_%d.csv", req.DeviceId, req.Key, req.StartTime, req.EndTime)
-		filePath := filepath.Join(exportDir, fileName)
-		file, err := os.Create(filePath)
-		if err != nil {
-			return nil, fmt.Errorf("创建文件失败: %v", err)
-		}
-		defer file.Close()
-
-		writer := csv.NewWriter(file)
-		defer writer.Flush()
-
-		// 写入表头
-		if err := writer.Write([]string{"时间戳", "数值"}); err != nil {
-			return nil, fmt.Errorf("写入CSV表头失败: %v", err)
-		}
-
-		// 写入数据
-		for _, row := range rspData {
-			timestamp, ok := row["x"].(int64)
-			if !ok {
-				return nil, fmt.Errorf("无效的时间戳格式")
-			}
-
-			// 将毫秒时间戳转换为time.Time
-			t := time.Unix(0, timestamp*int64(time.Millisecond))
-
-			// 格式化时间为可读格式
-			formattedTime := t.Format("2006-01-02 15:04:05.000")
-
-			value, ok := row["y"].(float64)
-			if !ok {
-				return nil, fmt.Errorf("无效的数值格式")
-			}
-
-			if err := writer.Write([]string{formattedTime, fmt.Sprintf("%.3f", value)}); err != nil {
-				return nil, fmt.Errorf("写入CSV记录失败: %v", err)
-			}
-		}
-
-		logrus.Info("CSV文件已创建:", filePath)
-
-		// 将文件名添加到rspData中
-		fileInfo := map[string]interface{}{
-			"file_name": fileName,
-			"file_path": filePath,
-		}
-
-		return fileInfo, file.Sync()
+	if err := validateAggregateWindow(req.StartTime, req.EndTime, req.AggregateWindow); err != nil {
+		return nil, err
 	}
-	if len(rspData) == 0 {
-		return []map[string]interface{}{}, nil
+
+	if req.AggregateFunction == "" {
+		req.AggregateFunction = "avg"
 	}
-	return rspData, nil
+
+	return dal.GetTelemetrStatisticaAgregationData(
+		req.DeviceId,
+		req.Key,
+		req.StartTime,
+		req.EndTime,
+		dal.StatisticAggregateWindowMillisecond[req.AggregateWindow],
+		req.AggregateFunction,
+	)
+}
+
+// 导出到CSV
+func exportToCSV(req *model.GetTelemetryStatisticReq, data []map[string]interface{}) (map[string]interface{}, error) {
+	if len(data) == 0 {
+		return nil, errors.New("没有可导出的数据")
+	}
+
+	// 创建导出目录
+	exportDir := "./files/excel/telemetry/"
+	if err := os.MkdirAll(exportDir, os.ModePerm); err != nil {
+		return nil, fmt.Errorf("创建导出目录失败: %v", err)
+	}
+
+	// 生成文件名和路径
+	fileName := fmt.Sprintf("%s_%s_%d_%d.csv", req.DeviceId, req.Key, req.StartTime, req.EndTime)
+	filePath := filepath.Join(exportDir, fileName)
+
+	// 创建并写入文件
+	file, err := os.Create(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("创建文件失败: %v", err)
+	}
+
+	// 确保文件最终会被关闭和同步
+	defer func() {
+		syncErr := file.Sync()
+		closeErr := file.Close()
+		if err == nil {
+			err = syncErr
+		}
+		if err == nil {
+			err = closeErr
+		}
+	}()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	// 写入表头
+	if err := writer.Write([]string{"时间戳", "数值"}); err != nil {
+		return nil, fmt.Errorf("写入CSV表头失败: %v", err)
+	}
+
+	// 写入数据
+	for _, row := range data {
+		timestamp, ok := row["x"].(int64)
+		if !ok {
+			return nil, fmt.Errorf("无效的时间戳格式")
+		}
+
+		value, ok := row["y"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("无效的数值格式")
+		}
+
+		// 格式化时间
+		t := time.Unix(0, timestamp*int64(time.Millisecond))
+		formattedTime := t.Format("2006-01-02 15:04:05.000")
+
+		if err := writer.Write([]string{formattedTime, fmt.Sprintf("%.3f", value)}); err != nil {
+			return nil, fmt.Errorf("写入CSV记录失败: %v", err)
+		}
+	}
+
+	logrus.Info("CSV文件已创建:", filePath)
+
+	return map[string]interface{}{
+		"file_name": fileName,
+		"file_path": filePath,
+	}, nil
 }
 
 // AggregateRule 定义聚合规则结构

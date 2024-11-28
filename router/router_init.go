@@ -1,7 +1,6 @@
 package router
 
 import (
-	"net/http"
 	middleware "project/internal/middleware"
 	"project/router/apps"
 
@@ -21,7 +20,11 @@ func RouterInit() *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.ErrorHandler())
 	// 静态文件
-	router.StaticFS("/files", http.Dir("./files"))
+	// 处理文件访问请求
+	router.GET("/files/*filepath", func(c *gin.Context) {
+		filepath := c.Param("filepath")
+		c.File("./files" + filepath)
+	})
 
 	controllers := new(api.Controller)
 

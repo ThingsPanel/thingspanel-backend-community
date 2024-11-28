@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/howeyc/crc16"
+	"github.com/sirupsen/logrus"
 )
 
 type OTAApi struct{}
@@ -179,22 +181,37 @@ func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
 	rangeParts := strings.Split(rangeStr, "-")
 	if len(rangeParts) != 2 {
 		c.AbortWithError(http.StatusRequestedRangeNotSatisfiable, errors.New("invalid range"))
+		return
 	}
 
 	start, err := strconv.ParseInt(rangeParts[0], 10, 64)
 	if err != nil {
 		c.AbortWithError(http.StatusRequestedRangeNotSatisfiable, errors.New("invalid range"))
+		return
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
-	defer file.Close()
+	// 使用具名返回值以确保在函数返回时处理关闭错误
+	defer func() {
+		closeErr := file.Close()
+		if closeErr != nil {
+			// 记录关闭错误
+			log.Printf("Error closing file: %v", closeErr)
+			// 如果还没有其他错误发生，则返回关闭错误
+			if err == nil {
+				c.AbortWithStatus(http.StatusInternalServerError)
+			}
+		}
+	}()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
 
 	fileSize := fileInfo.Size()
@@ -205,10 +222,12 @@ func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
 	end, err := strconv.ParseInt(rangeParts[1], 10, 64)
 	if err != nil {
 		c.AbortWithStatus(http.StatusRequestedRangeNotSatisfiable)
+		return
 	}
 
 	if start >= fileSize || end >= fileSize {
 		c.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
 
 	contentLength := end - start + 1
@@ -217,12 +236,13 @@ func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
 	c.Writer.Header().Set("Accept-Ranges", "bytes")
 	c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", contentLength))
 	c.Writer.Header().Set("Content-Type", filePath[len(filePath)-3:])
-	c.Writer.Flush()
 
 	_, err = file.Seek(start, io.SeekStart)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
+
 	// 创建一个缓冲区
 	buffer := make([]byte, contentLength)
 
@@ -230,35 +250,33 @@ func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
 	_, err = file.Read(buffer)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
+
+	var crcValue uint16
 	switch crc16Method {
 	case "CCITT":
-		// 计算CRC16校验码
-		crcValue := crc16.ChecksumCCITT(buffer)
-		// 将校验码添加到HTTP响应的头部中
-		c.Writer.Header().Set("X-CRC16", fmt.Sprintf("%04x", crcValue))
-		// 将缓冲区数据写入响应
-		c.Writer.Write(buffer)
-		c.Writer.Flush()
+		crcValue = crc16.ChecksumCCITT(buffer)
 	case "MODBUS":
-		// 计算CRC16校验码
-		crcValue := crc16.ChecksumMBus(buffer)
-		// 将校验码添加到HTTP响应的头部中
-		c.Writer.Header().Set("X-CRC16", fmt.Sprintf("%04x", crcValue))
-
-		// 将缓冲区数据写入响应
-		c.Writer.Write(buffer)
-		c.Writer.Flush()
+		crcValue = crc16.ChecksumMBus(buffer)
 	default:
-		// 计算CRC16-IBM校验码
-		crcValue := crc16.ChecksumIBM(buffer)
-
-		// 将校验码添加到HTTP响应的头部中
-		c.Writer.Header().Set("X-CRC16", fmt.Sprintf("%04x", crcValue))
-
-		// 将缓冲区数据写入响应
-		c.Writer.Write(buffer)
-		c.Writer.Flush()
+		crcValue = crc16.ChecksumIBM(buffer)
 	}
-	file.Sync()
+
+	// 将校验码添加到HTTP响应的头部中
+	c.Writer.Header().Set("X-CRC16", fmt.Sprintf("%04x", crcValue))
+
+	// 将缓冲区数据写入响应
+	_, err = c.Writer.Write(buffer)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	// 确保数据写入磁盘
+	if err = file.Sync(); err != nil {
+		logrus.Errorf("Error syncing file: %v", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
 }
