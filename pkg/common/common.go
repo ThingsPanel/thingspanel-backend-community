@@ -1,8 +1,10 @@
 package common
 
 import (
+	"crypto/rand"
 	"encoding/json"
-	"math/rand"
+	"fmt"
+	"math/big"
 	constant "project/pkg/constant"
 	"strconv"
 	"time"
@@ -78,13 +80,60 @@ func IsStringEmpty(str *string) bool {
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-func GenerateRandomString(length int) string {
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+func GenerateRandomString(length int) (string, error) {
 	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+	if _, err := rand.Read(b); err != nil {
+		return "", err
 	}
-	return string(b)
+
+	for i := range b {
+		b[i] = charset[b[i]%byte(len(charset))]
+	}
+	return string(b), nil
 }
 
 var ErrNoRows = errors.New("record not found")
+
+func GetRandomNineDigits() (string, error) {
+	// 生成 [100000000, 999999999] 范围内的随机数
+	min := big.NewInt(100000000)
+	max := big.NewInt(999999999)
+
+	// 计算范围大小
+	diff := new(big.Int).Sub(max, min)
+	diff = diff.Add(diff, big.NewInt(1))
+
+	// 生成随机数
+	n, err := rand.Int(rand.Reader, diff)
+	if err != nil {
+		return "", fmt.Errorf("生成随机数失败: %v", err)
+	}
+
+	// 加上最小值以确保在正确范围内
+	n = n.Add(n, min)
+
+	// 转换为字符串
+	return n.String(), nil
+}
+
+func GenerateNumericCode(length int) (string, error) {
+	if length <= 0 {
+		return "", fmt.Errorf("长度必须大于0")
+	}
+
+	// 构建验证码
+	code := make([]byte, length)
+
+	for i := 0; i < length; i++ {
+		// 生成 0-9 的随机数
+		num, err := rand.Int(rand.Reader, big.NewInt(10))
+		if err != nil {
+			return "", fmt.Errorf("生成随机数字失败: %v", err)
+		}
+
+		// 转换为字符并添加到验证码中
+		code[i] = byte(num.Int64() + '0')
+	}
+
+	return string(code), nil
+}

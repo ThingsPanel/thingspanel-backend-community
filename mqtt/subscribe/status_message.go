@@ -59,7 +59,7 @@ func DeviceOnline(payload []byte, topic string) {
 	initialize.DelDeviceCache(deviceId)
 
 	var device *model.Device
-	device, err = dal.GetDeviceById(deviceId)
+	device, err = dal.GetDeviceCacheById(deviceId)
 	if err != nil {
 		logrus.Error(err.Error())
 		return

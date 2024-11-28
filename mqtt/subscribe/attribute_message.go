@@ -41,7 +41,7 @@ func DeviceAttributeReport(payload []byte, topic string) (string, string, error)
 	logrus.Debug("attribute message:", attributePayload)
 
 	// 处理消息
-	device, err := initialize.GetDeviceById(attributePayload.DeviceId)
+	device, err := initialize.GetDeviceCacheById(attributePayload.DeviceId)
 	if err != nil {
 		logrus.Error(err.Error())
 		return "", messageId, err

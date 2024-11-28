@@ -36,7 +36,7 @@ func OtaUpgrade(payload []byte, _ string) {
 	}
 
 	// 处理消息
-	device, err := initialize.GetDeviceById(progressMsgPayload.DeviceId)
+	device, err := initialize.GetDeviceCacheById(progressMsgPayload.DeviceId)
 	if err != nil {
 		logrus.Error(err.Error())
 		return

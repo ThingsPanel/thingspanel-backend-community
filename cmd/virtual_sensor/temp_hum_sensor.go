@@ -1,9 +1,11 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"log"
-	"math/rand"
+	"math/big"
 	"project/internal/model"
 	"time"
 
@@ -65,14 +67,22 @@ func publishTelemetryMessage(topic string) {
 	for {
 		message := make(map[string]interface{})
 		// -20到40度之间的随机数且保留两位小数
-		message["temperature"] = rand.Float64()*60 - 20
+		t, err := generateRandomFloat()
+		if err != nil {
+			log.Println("generateRandomFloat failed:", err)
+		}
+		message["temperature"] = t
 		// 保留两位小数
 		message["temperature"] = float64(int(message["temperature"].(float64)*100)) / 100
 		// 0到100%之间的随机整数
-		message["humidity"] = rand.Intn(101)
+		h, err := generateRandomFloat()
+		if err != nil {
+			log.Println("generateRandomFloat failed:", err)
+		}
+		message["humidity"] = h
 		// 转换为json格式
 		var payload []byte
-		payload, err := json.Marshal(message)
+		payload, err = json.Marshal(message)
 		if err != nil {
 			log.Println("json.Marshal failed:", err)
 			return
@@ -149,14 +159,44 @@ func publishEventMessage(topic string) {
 
 func getTelemetryMessageParams() *map[string]interface{} {
 	message := make(map[string]interface{})
+	t, err := generateRandomFloat()
+	if err != nil {
+		log.Println("generateRandomFloat failed:", err)
+		return nil
+	}
 	// -20到40度之间的随机数且保留两位小数
-	message["temperature"] = rand.Float64()*60 - 20
+	message["temperature"] = t
 	// 保留两位小数
 	message["temperature"] = float64(int(message["temperature"].(float64)*100)) / 100
 	// 0到100%之间的随机整数
-	message["humidity"] = rand.Intn(101)
+	h, err := generateRandomFloat()
+	if err != nil {
+		log.Println("generateRandomFloat failed:", err)
+		return nil
+	}
+	message["humidity"] = h
 
 	return &message
+}
+
+func generateRandomFloat() (float64, error) {
+	// 生成整数部分 [10.00, 99.99]
+	integer, err := rand.Int(rand.Reader, big.NewInt(90))
+	if err != nil {
+		return 0, fmt.Errorf("生成整数部分失败: %v", err)
+	}
+	integer = integer.Add(integer, big.NewInt(10))
+
+	// 生成小数部分 [0, 99]
+	decimal, err := rand.Int(rand.Reader, big.NewInt(100))
+	if err != nil {
+		return 0, fmt.Errorf("生成小数部分失败: %v", err)
+	}
+
+	// 组合整数和小数部分
+	result := float64(integer.Int64()) + float64(decimal.Int64())/100.0
+
+	return result, nil
 }
 
 func getAttributeMessageParams() *map[string]interface{} {

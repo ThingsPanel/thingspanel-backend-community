@@ -106,7 +106,7 @@ func (*AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (inte
 
 func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, param *model.AttributePutMessage, operationType string, fn ...config.MqttDirectResponseFunc) error {
 	// 获取设备信息
-	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
+	deviceInfo, err := initialize.GetDeviceCacheById(param.DeviceID)
 	if err != nil {
 		return fmt.Errorf("获取设备信息失败: %v", err)
 	}
@@ -150,7 +150,7 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 			return err
 		}
 
-		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
+		gatewayInfo, err := initialize.GetDeviceCacheById(gatewayID)
 		if err != nil {
 			return fmt.Errorf("获取网关信息失败: %v", err)
 		}

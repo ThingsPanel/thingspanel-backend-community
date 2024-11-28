@@ -34,7 +34,7 @@ func init() {
 }
 
 func getDeviceInfo() *model.Device {
-	result, _ := dal.GetDeviceById("6c21e49c-d0dc-7315-bd5c-5702ad789936")
+	result, _ := dal.GetDeviceCacheById("6c21e49c-d0dc-7315-bd5c-5702ad789936")
 	return result
 }
 func TestCommandSend(T *testing.T) {

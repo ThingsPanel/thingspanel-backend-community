@@ -3,8 +3,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +10,7 @@ import (
 	model "project/internal/model"
 	query "project/internal/query"
 	"project/mqtt/publish"
+	"project/pkg/common"
 	global "project/pkg/global"
 	utils "project/pkg/utils"
 
@@ -262,9 +261,11 @@ func (*OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) error 
 	}
 	var otamsg = make(map[string]interface{})
 	// 获取随机九位数字并转换为字符串
-	rand.Seed(time.Now().UnixNano())
-	randNum := rand.Intn(999999999)
-	otamsg["id"] = strconv.Itoa(randNum)
+	randNum, err := common.GetRandomNineDigits()
+	if err != nil {
+		return err
+	}
+	otamsg["id"] = randNum
 	otamsg["code"] = "200"
 	var otamsgparams = make(map[string]interface{})
 	otamsgparams["version"] = otapackage.Version

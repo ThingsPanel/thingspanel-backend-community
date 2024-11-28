@@ -86,7 +86,7 @@ func TelemetryMessages(payload []byte, topic string) {
 		logrus.Error(err.Error(), topic)
 		return
 	}
-	device, err := initialize.GetDeviceById(telemetryPayload.DeviceId)
+	device, err := initialize.GetDeviceCacheById(telemetryPayload.DeviceId)
 	if err != nil {
 		logrus.Error(err.Error())
 		return

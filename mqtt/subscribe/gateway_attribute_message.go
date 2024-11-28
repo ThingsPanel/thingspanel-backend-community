@@ -37,9 +37,9 @@ func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Devi
 	if err := json.Unmarshal(attributePayload.Values, payloads); err != nil {
 		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayAttributeMessages][verifyPayload2]fail")
 	}
-	deviceInfo, err := dal.GetDeviceById(attributePayload.DeviceId)
+	deviceInfo, err := dal.GetDeviceCacheById(attributePayload.DeviceId)
 	if err != nil {
-		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayAttributeMessages][GetDeviceById]fail")
+		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayAttributeMessages][GetDeviceCacheById]fail")
 	}
 	if payloads.GatewayData != nil {
 		err = deviceAttributesHandle(deviceInfo, *payloads.GatewayData, topic)

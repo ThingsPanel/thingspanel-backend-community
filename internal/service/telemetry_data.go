@@ -810,9 +810,9 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		errorMessage = "value must be json"
 	}
 
-	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
+	deviceInfo, err := initialize.GetDeviceCacheById(param.DeviceID)
 	if err != nil {
-		logrus.Error(ctx, "[TelemetryPutMessage][GetDeviceById]failed:", err)
+		logrus.Error(ctx, "[TelemetryPutMessage][GetDeviceCacheById]failed:", err)
 		return err
 	}
 	// 获取设备配置
@@ -908,7 +908,7 @@ func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.
 			gatewayID = *deviceInfo.ParentID
 		}
 
-		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
+		gatewayInfo, err := initialize.GetDeviceCacheById(gatewayID)
 		if err != nil {
 			return "", fmt.Errorf("获取网关信息失败: %v", err)
 		}

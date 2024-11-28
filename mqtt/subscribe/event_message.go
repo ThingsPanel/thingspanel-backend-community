@@ -37,7 +37,7 @@ func DeviceEvent(payload []byte, topic string) (string, string, string, error) {
 		return "", "", "", err
 	}
 
-	device, err := initialize.GetDeviceById(eventPayload.DeviceId)
+	device, err := initialize.GetDeviceCacheById(eventPayload.DeviceId)
 	if err != nil {
 		logrus.Error(err.Error())
 		return "", "", "", err

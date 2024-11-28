@@ -367,7 +367,7 @@ func GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq
 }
 
 // 通过设备id获取设备信息
-func GetDeviceById(deviceId string) (*model.Device, error) {
+func GetDeviceCacheById(deviceId string) (*model.Device, error) {
 	device, err := query.Device.Where(query.Device.ID.Eq(deviceId)).First()
 	if err != nil {
 		logrus.Error(err)

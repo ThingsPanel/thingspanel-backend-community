@@ -6,7 +6,6 @@ import (
 	tpErrors "project/internal/errors"
 
 	"fmt"
-	"math/rand"
 	"project/pkg/common"
 	"strings"
 	"time"
@@ -222,7 +221,10 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 	case user != nil && isRegister == "1":
 		return fmt.Errorf("email already exists")
 	}
-	verificationCode := fmt.Sprintf("%06d", rand.Intn(10000))
+	verificationCode, err := common.GenerateNumericCode(6)
+	if err != nil {
+		return err
+	}
 	err = global.REDIS.Set(email+"_code", verificationCode, 5*time.Minute).Err()
 	if err != nil {
 		return err
@@ -534,7 +536,10 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	//periodValidity := now.AddDate(1, 0, 0).UTC()
 	// 有效期转字符串2024-07-29T21:20:17.232478+08:00
 	//periodValidityStr := periodValidity.Format(time.RFC3339)
-
+	tenantID, err := common.GenerateRandomString(8)
+	if err != nil {
+		return nil, err
+	}
 	userInfo := &model.User{
 		ID:                  uuid.New(),
 		Name:                &req.Email,
@@ -543,7 +548,7 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 		Status:              StringPtr("N"),
 		Authority:           StringPtr("TENANT_ADMIN"),
 		Password:            req.Password,
-		TenantID:            StringPtr(common.GenerateRandomString(8)),
+		TenantID:            StringPtr(tenantID),
 		Remark:              StringPtr(now.Add(365 * 24 * time.Hour).String()),
 		CreatedAt:           &now,
 		UpdatedAt:           &now,

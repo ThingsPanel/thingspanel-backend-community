@@ -34,9 +34,9 @@ func GatewayEventCallback(payload []byte, topic string) (string, *model.Device, 
 	if err := json.Unmarshal(attributePayload.Values, payloads); err != nil {
 		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayEventCallback][verifyPayload2]fail")
 	}
-	deviceInfo, err := dal.GetDeviceById(attributePayload.DeviceId)
+	deviceInfo, err := dal.GetDeviceCacheById(attributePayload.DeviceId)
 	if err != nil {
-		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayEventCallback][GetDeviceById]fail")
+		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayEventCallback][GetDeviceCacheById]fail")
 	}
 
 	if payloads.GatewayData != nil {

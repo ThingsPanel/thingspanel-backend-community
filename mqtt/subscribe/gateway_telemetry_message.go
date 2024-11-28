@@ -23,15 +23,15 @@ func GatewayTelemetryMessages(payload []byte, topic string) {
 		logrus.Error(pkgerrors.Wrap(err, "[GatewayTelemetryMessages][Telemetry]fail"))
 		return
 	}
-	deviceInfo, err := dal.GetDeviceById(attributePayload.DeviceId)
+	deviceInfo, err := dal.GetDeviceCacheById(attributePayload.DeviceId)
 	if err != nil {
-		logrus.Error(pkgerrors.Wrap(err, "[GatewayTelemetryMessages][GetDeviceById]fail"))
+		logrus.Error(pkgerrors.Wrap(err, "[GatewayTelemetryMessages][GetDeviceCacheById]fail"))
 		return
 	}
 	if payloads.GatewayData != nil {
 		gatewayBoy, err := json.Marshal(payloads.GatewayData)
 		if err != nil {
-			logrus.Error(pkgerrors.Wrap(err, "[GatewayTelemetryMessages][GetDeviceById]fail"))
+			logrus.Error(pkgerrors.Wrap(err, "[GatewayTelemetryMessages][GetDeviceCacheById]fail"))
 		} else {
 			TelemetryMessagesHandle(deviceInfo, gatewayBoy, topic)
 		}
@@ -48,7 +48,7 @@ func GatewayTelemetryMessages(payload []byte, topic string) {
 		if subInfo, ok := subDeviceInfos[subDeviceAddr]; ok {
 			subDeviceBoy, err := json.Marshal(data)
 			if err != nil {
-				logrus.Error(pkgerrors.Wrap(err, "[GatewayTelemetryMessages][GetDeviceById]fail"))
+				logrus.Error(pkgerrors.Wrap(err, "[GatewayTelemetryMessages][GetDeviceCacheById]fail"))
 			}
 			TelemetryMessagesHandle(subInfo, subDeviceBoy, topic)
 		}

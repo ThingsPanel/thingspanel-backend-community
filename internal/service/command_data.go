@@ -37,7 +37,7 @@ func (*CommandData) GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsL
 
 func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param *model.PutMessageForCommand, operationType string, fn ...config.MqttDirectResponseFunc) error {
 	// 获取设备信息
-	deviceInfo, err := initialize.GetDeviceById(param.DeviceID)
+	deviceInfo, err := initialize.GetDeviceCacheById(param.DeviceID)
 	if err != nil {
 		return fmt.Errorf("获取设备信息失败: %v", err)
 	}
@@ -104,7 +104,7 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 			payloadMap = map[string]interface{}{"gateway_data": payloadMap}
 		}
 
-		gatewayInfo, err := initialize.GetDeviceById(gatewayID)
+		gatewayInfo, err := initialize.GetDeviceCacheById(gatewayID)
 		if err != nil {
 			return fmt.Errorf("获取网关信息失败: %v", err)
 		}

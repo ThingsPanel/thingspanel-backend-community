@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"project/pkg/common"
 	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -104,7 +104,10 @@ func generateFilePath(fileType, originalFilename string) (string, string, error)
 
 	// 生成安全的文件名
 	ext := strings.ToLower(filepath.Ext(originalFilename))
-	randomStr := fmt.Sprintf("%d", rand.Int31n(9999)+1000)
+	randomStr, err := common.GenerateRandomString(16)
+	if err != nil {
+		return "", "", err
+	}
 	timeStr := time.Now().Format("2006_01_02_15_04_05_")
 	hashName := md5.Sum([]byte(timeStr + randomStr))
 	fileName := fmt.Sprintf("%x%s", hashName, ext)
