@@ -708,7 +708,8 @@ func (*TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStati
 			"file_name": fileName,
 			"file_path": filePath,
 		}
-		return fileInfo, nil
+
+		return fileInfo, file.Sync()
 	}
 	if len(rspData) == 0 {
 		return []map[string]interface{}{}, nil

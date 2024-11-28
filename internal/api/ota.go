@@ -260,4 +260,5 @@ func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
 		c.Writer.Write(buffer)
 		c.Writer.Flush()
 	}
+	file.Sync()
 }

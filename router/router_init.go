@@ -1,6 +1,7 @@
 package router
 
 import (
+	"net/http"
 	middleware "project/internal/middleware"
 	"project/router/apps"
 
@@ -20,7 +21,7 @@ func RouterInit() *gin.Engine {
 	router := gin.Default()
 	router.Use(middleware.ErrorHandler())
 	// 静态文件
-	router.Static("/files", "./files")
+	router.StaticFS("/files", http.Dir("./files"))
 
 	controllers := new(api.Controller)
 

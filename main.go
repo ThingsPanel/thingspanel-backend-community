@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -96,7 +97,7 @@ func loadConfig() (host, port string) {
 
 func initServer(host, port string, handler http.Handler) *http.Server {
 	return &http.Server{
-		Addr:         fmt.Sprintf("%s:%s", host, port),
+		Addr:         net.JoinHostPort(host, port),
 		Handler:      handler,
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
