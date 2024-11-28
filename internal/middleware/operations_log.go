@@ -74,7 +74,19 @@ func handleFileUpload(c *gin.Context) string {
 		fileType = "unknown"
 	}
 
-	filename := utils.SanitizeFilename(filepath.Base(file.Filename))
+	// 1. 获取安全的基本文件名,去除路径
+	baseFileName := filepath.Base(file.Filename)
+
+	// 2. 净化文件名
+	filename := utils.SanitizeFilename(baseFileName)
+
+	// 3. 二次验证文件名的安全性
+	if !filepath.IsLocal(filename) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "非法的文件名"})
+		return ""
+	}
+
+	// 4. 验证文件类型
 	if !utils.ValidateFileExtension(filename, allowedFileExts) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "不允许的文件类型"})
 		return ""
