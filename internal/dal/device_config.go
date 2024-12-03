@@ -307,3 +307,12 @@ func GetDeviceConfigIdByName(name string) *string {
 	}
 	return &configId
 }
+
+// 根据功能模板ID查询想关联的配置模板数量
+func GetDeviceConfigCountByFuncTemplateId(id string) (int64, error) {
+	count, err := query.DeviceConfig.Where(query.DeviceConfig.DeviceTemplateID.Eq(id)).Count()
+	if err != nil {
+		logrus.Error(err)
+	}
+	return count, err
+}

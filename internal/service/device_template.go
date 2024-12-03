@@ -126,6 +126,14 @@ func (*DeviceTemplate) DeleteDeviceTemplate(id string, claims *utils.UserClaims)
 	if *t.Flag == dal.DEVICE_TEMPLATE_PUBLIC && claims.Authority == dal.TENANT_USER {
 		return fmt.Errorf("租户禁止删除公有模版")
 	}
+	// 根据功能模板ID查询想关联的配置模板数量
+	count, err := dal.GetDeviceConfigCountByFuncTemplateId(t.ID)
+	if err != nil {
+		return fmt.Errorf("get device config count error,%v", err)
+	}
+	if count > 0 {
+		return fmt.Errorf("该功能模板已被%d个配置模板引用，无法删除。请先解除相关配置模板的关联后再试", count)
+	}
 
 	err = dal.DeleteDeviceTemplate(id)
 	return err
