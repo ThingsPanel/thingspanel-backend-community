@@ -114,7 +114,18 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 
 	}
 
-	return u.UserLoginAfter(user)
+	logrsp, err := u.UserLoginAfter(user)
+	if err != nil {
+		return nil, err
+	}
+
+	// 更新登录时间
+	err = dal.UserQuery{}.UpdateLastVisitTime(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return logrsp, nil
 }
 
 // UserLoginAfter

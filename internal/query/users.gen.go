@@ -40,6 +40,8 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 	_user.CreatedAt = field.NewTime(tableName, "created_at")
 	_user.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_user.PasswordLastUpdated = field.NewTime(tableName, "password_last_updated")
+	_user.LastVisitTime = field.NewTime(tableName, "last_visit_time")
+
 	_user.fillFieldMap()
 
 	return _user
@@ -48,20 +50,21 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 type user struct {
 	userDo
 
-	ALL            field.Asterisk
-	ID             field.String
-	Name           field.String
-	PhoneNumber    field.String
-	Email          field.String
-	Status         field.String // 用户状态 F-冻结 N-正常
-	Authority      field.String // 权限类型 TENANT_ADMIN-租户管理员 TENANT_USER-租户用户 SYS_ADMIN-系统管理员
-	Password       field.String
-	TenantID       field.String
-	Remark         field.String
-	AdditionalInfo field.String
-	CreatedAt      field.Time
-	UpdatedAt      field.Time
+	ALL                 field.Asterisk
+	ID                  field.String
+	Name                field.String
+	PhoneNumber         field.String
+	Email               field.String
+	Status              field.String // 用户状态 F-冻结 N-正常
+	Authority           field.String // 权限类型 TENANT_ADMIN-租户管理员 TENANT_USER-租户用户 SYS_ADMIN-系统管理员
+	Password            field.String
+	TenantID            field.String
+	Remark              field.String
+	AdditionalInfo      field.String
+	CreatedAt           field.Time
+	UpdatedAt           field.Time
 	PasswordLastUpdated field.Time
+	LastVisitTime       field.Time // 上次访问时间
 
 	fieldMap map[string]field.Expr
 }
@@ -91,6 +94,7 @@ func (u *user) updateTableName(table string) *user {
 	u.CreatedAt = field.NewTime(table, "created_at")
 	u.UpdatedAt = field.NewTime(table, "updated_at")
 	u.PasswordLastUpdated = field.NewTime(table, "password_last_updated")
+	u.LastVisitTime = field.NewTime(table, "last_visit_time")
 
 	u.fillFieldMap()
 
@@ -107,7 +111,7 @@ func (u *user) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *user) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 12)
+	u.fieldMap = make(map[string]field.Expr, 14)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["name"] = u.Name
 	u.fieldMap["phone_number"] = u.PhoneNumber
@@ -121,6 +125,7 @@ func (u *user) fillFieldMap() {
 	u.fieldMap["created_at"] = u.CreatedAt
 	u.fieldMap["updated_at"] = u.UpdatedAt
 	u.fieldMap["password_last_updated"] = u.PasswordLastUpdated
+	u.fieldMap["last_visit_time"] = u.LastVisitTime
 }
 
 func (u user) clone(db *gorm.DB) user {

@@ -79,7 +79,7 @@ func GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims)
 		queryBuilder = queryBuilder.Offset((userListReq.Page - 1) * userListReq.PageSize)
 	}
 
-	users, err := queryBuilder.Select(q.ID, q.Name, q.PhoneNumber, q.Email, q.Status, q.Authority, q.TenantID, q.Remark, q.AdditionalInfo, q.CreatedAt, q.UpdatedAt).Order(q.CreatedAt.Desc()).Find()
+	users, err := queryBuilder.Select(q.ID, q.Name, q.PhoneNumber, q.Email, q.Status, q.Authority, q.TenantID, q.Remark, q.AdditionalInfo, q.CreatedAt, q.UpdatedAt, q.LastVisitTime).Order(q.CreatedAt.Desc()).Find()
 	if err != nil {
 		return count, users, err
 	}
@@ -98,6 +98,7 @@ func GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims)
 			"created_at":     user.CreatedAt,
 			"updated_at":     user.UpdatedAt,
 			"userRoles":      roles,
+			"lastVisitTime":  user.LastVisitTime,
 		}
 		userList = append(userList, userMap)
 	}
@@ -206,6 +207,15 @@ func (UserQuery) UpdateByEmail(ctx context.Context, info *model.User, columns ..
 	_, err = users.Where(users.Email.Eq(info.Email)).
 		Select(columns...).
 		UpdateColumns(info)
+	if err != nil {
+		logrus.Error(ctx, err)
+	}
+	return
+}
+
+// 更新上次登录时间
+func (UserQuery) UpdateLastVisitTime(ctx context.Context, uid string) (err error) {
+	_, err = query.User.Where(query.User.ID.Eq(uid)).Update(query.User.LastVisitTime, time.Now())
 	if err != nil {
 		logrus.Error(ctx, err)
 	}
