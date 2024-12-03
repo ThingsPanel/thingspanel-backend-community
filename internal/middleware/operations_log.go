@@ -19,7 +19,7 @@ import (
 )
 
 var allowedFileExts = []string{
-	"jpg", "jpeg", "png", "pdf", "doc", "docx",
+	"jpg", "jpeg", "png", "pdf", "doc", "docx", "xlsx", "xls", "zip", "rar", "tar", "gz", "7z",
 }
 
 func OperationLogs() gin.HandlerFunc {
