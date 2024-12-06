@@ -118,10 +118,10 @@ func saveFile(c *gin.Context, file *multipart.FileHeader, uploadDir, fileName, f
 
 	// 特殊处理升级包路径
 	if fileType == "upgradePackage" {
-		return filepath.Join(OtaPath, fileType, time.Now().Format("2006-01-02"), fileName), nil
+		return "./" + filepath.Join(OtaPath, fileType, time.Now().Format("2006-01-02"), fileName), nil
 	}
 
-	return fullPath, nil
+	return "./" + fullPath, nil
 }
 
 // sanitizeFilename 净化文件名

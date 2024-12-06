@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	model "project/internal/model"
@@ -131,7 +132,10 @@ func GetDeviceDetail(id string) (map[string]interface{}, error) {
 func GetDeviceByVoucher(voucher string) (*model.Device, error) {
 	device, err := query.Device.Where(query.Device.Voucher.Eq(voucher)).First()
 	if err != nil {
-		logrus.Error(err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("get device by voucher: %s failed: %v", voucher, err)
+		}
+		return nil, err
 	}
 	return device, err
 }

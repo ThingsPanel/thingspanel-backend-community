@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 type Controller struct {
@@ -127,7 +126,6 @@ func ErrorHandler(c *gin.Context, code int, err error) {
 	// 		err = fmt.Errorf("外键约束违反: %w", err)
 	// 	}
 	// }
-	logrus.Error(err)
 	c.JSON(http.StatusOK, ApiResponse{
 		Code:    code,
 		Message: err.Error(),
