@@ -171,6 +171,9 @@ func (*DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByP
 	}
 	deviceconfigListRsp := make(map[string]interface{})
 	deviceconfigListRsp["total"] = total
+	if total == int64(0) {
+		list = make([]*map[string]interface{}, 0)
+	}
 	deviceconfigListRsp["list"] = list
 
 	return deviceconfigListRsp, err
