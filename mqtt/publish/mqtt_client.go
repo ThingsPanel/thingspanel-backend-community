@@ -60,6 +60,7 @@ func CreateMqttClient() {
 				break
 			}
 			fmt.Printf("Reconnect failed: %v\n", token.Error())
+			time.Sleep(5 * time.Second)
 		}
 	})
 
