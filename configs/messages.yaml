@@ -1,0 +1,62 @@
+# 错误码消息配置
+messages:
+  # 成功码
+  "200":
+    zh_CN: "操作成功"
+    en_US: "Success"
+
+  # 系统级错误 (1xxxxx)
+  # 通用系统错误 (100xxx)
+  "100000":
+    zh_CN: "系统内部错误"
+    en_US: "Internal Server Error"
+  "100001":
+    zh_CN: "服务暂时不可用"
+    en_US: "Service Temporarily Unavailable"
+  "100002":
+    zh_CN: "请求参数验证失败"
+    en_US: "Parameter Validation Failed"
+  
+  # 数据库相关错误 (101xxx)
+  "101001":
+    zh_CN: "数据库连接失败"
+    en_US: "Database Connection Failed"
+  "101002":
+    zh_CN: "数据库操作超时"
+    en_US: "Database Operation Timeout"
+  
+  # 缓存相关错误 (102xxx)
+  "102001":
+    zh_CN: "缓存服务不可用"
+    en_US: "Cache Service Unavailable"
+  "102002":
+    zh_CN: "缓存数据已过期"
+    en_US: "Cache Data Expired"
+
+  # 业务级错误 (2xxxxx)
+  # 用户模块错误 (200xxx)
+  "200001":
+    zh_CN: "用户未登录"
+    en_US: "User Not Logged In"
+  "200002":
+    zh_CN: "用户名或密码错误"
+    en_US: "Invalid Username or Password"
+  "200003":
+    zh_CN: "用户账号已被锁定"
+    en_US: "User Account Locked"
+  
+  # 权限模块错误 (201xxx)
+  "201001":
+    zh_CN: "无访问权限"
+    en_US: "Access Denied"
+  "201002":
+    zh_CN: "操作权限不足"
+    en_US: "Insufficient Permissions"
+
+# 配置元信息
+metadata:
+  version: "1.0"
+  last_updated: "2024-12-11"
+  supported_languages:
+    - zh_CN
+    - en_US

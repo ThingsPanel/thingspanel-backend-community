@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>ThingsPanel 监控指标查看器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            margin-top: 0;
+            color: #1a1a1a;
+            font-size: 18px;
+            font-weight: 500;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .metrics-table th, .metrics-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        .metrics-table th {
+            background-color: #fafafa;
+            font-weight: 500;
+            color: #1a1a1a;
+        }
+        .chart-container {
+            height: 400px;
+            margin-top: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            background-color: #1890ff;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #40a9ff;
+        }
+        .btn.active {
+            background-color: #096dd9;
+        }
+        .metric-value {
+            font-family: Monaco, Consolas, monospace;
+        }
+        .status-bar {
+            background: #f6f6f6;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: #666;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            margin-left: 4px;
+            cursor: help;
+        }
+        .tooltip:before {
+            content: "?";
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            line-height: 16px;
+            text-align: center;
+            background: #e6e6e6;
+            border-radius: 50%;
+            font-size: 12px;
+            color: #666;
+        }
+        .tooltip:hover:after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ThingsPanel 监控指标</h1>
+            <div class="controls">
+                <button class="btn" onclick="refreshData()">刷新数据</button>
+                <button class="btn" id="autoRefreshBtn" onclick="toggleAutoRefresh()">自动刷新</button>
+            </div>
+        </div>
+        
+        <div class="status-bar">
+            最后更新时间：<span id="lastUpdateTime">-</span>
+            &nbsp;|&nbsp;
+            刷新间隔：30秒
+        </div>
+
+        <div class="grid">
+            <!-- API请求统计 -->
+            <div class="card">
+                <h2>
+                    API请求统计
+                    <span class="tooltip" data-tip="显示各API接口的调用次数"></span>
+                </h2>
+                <div id="requestsChart" class="chart-container"></div>
+            </div>
+            
+            <!-- API响应时间 -->
+            <div class="card">
+                <h2>
+                    API响应时间
+                    <span class="tooltip" data-tip="显示各API接口的响应时间（秒）"></span>
+                </h2>
+                <div id="latencyChart" class="chart-container"></div>
+            </div>
+            
+            <!-- 错误统计 -->
+            <div class="card">
+                <h2>
+                    错误统计
+                    <span class="tooltip" data-tip="显示不同类型错误的分布情况"></span>
+                </h2>
+                <div id="errorsChart" class="chart-container"></div>
+            </div>
+            
+            <!-- 原始指标数据 -->
+            <div class="card">
+                <h2>
+                    详细指标数据
+                    <span class="tooltip" data-tip="显示所有原始监控指标数据"></span>
+                </h2>
+                <div id="rawMetrics" style="max-height: 400px; overflow-y: auto;">
+                    <table class="metrics-table" id="metricsTable">
+                        <thead>
+                            <tr>
+                                <th>指标名称</th>
+                                <th>数值</th>
+                                <th>标签</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+        let autoRefreshInterval = null;
+
+        // 初始化图表
+        function initCharts() {
+            const chartOptions = {
+                requests: {
+                    title: { text: 'API请求数量' },
+                    tooltip: { 
+                        trigger: 'axis',
+                        formatter: function(params) {
+                            return `${params[0].name}<br/>请求数：${params[0].value}`
+                        }
+                    },
+                    xAxis: { 
+                        type: 'category',
+                        axisLabel: { interval: 0, rotate: 30 }
+                    },
+                    yAxis: { type: 'value' },
+                    series: [{
+                        type: 'bar',
+                        name: '请求数'
+                    }]
+                },
+                latency: {
+                    title: { text: 'API响应时间 (秒)' },
+                    tooltip: {
+                        trigger: 'axis',
+                        formatter: function(params) {
+                            return `${params[0].name}<br/>响应时间：${params[0].value.toFixed(3)}秒`
+                        }
+                    },
+                    xAxis: { 
+                        type: 'category',
+                        axisLabel: { interval: 0, rotate: 30 }
+                    },
+                    yAxis: { type: 'value' },
+                    series: [{
+                        type: 'bar',
+                        name: '响应时间'
+                    }]
+                },
+                errors: {
+                    title: { text: '错误类型分布' },
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: function(params) {
+                            return `${params.name}<br/>数量：${params.value}<br/>占比：${params.percent}%`
+                        }
+                    },
+                    series: [{
+                        type: 'pie',
+                        radius: '50%'
+                    }]
+                }
+            };
+
+            Object.entries(chartOptions).forEach(([name, options]) => {
+                charts[name] = echarts.init(document.getElementById(`${name}Chart`));
+                charts[name].setOption(options);
+            });
+        }
+
+        // 解析指标数据
+        function parseMetrics(metricsText) {
+            const lines = metricsText.split('\n');
+            const metrics = [];
+            let currentMetric = null;
+
+            lines.forEach(line => {
+                if (line.startsWith('# HELP') || line.startsWith('# TYPE') || line.trim() === '') {
+                    return;
+                }
+
+                const match = line.match(/([a-zA-Z_:][a-zA-Z0-9_:]*){([^}]*)}?\s+([0-9.e+-]+)/);
+                if (match) {
+                    const [_, name, labelStr, value] = match;
+                    const labels = {};
+                    if (labelStr) {
+                        labelStr.split(',').forEach(label => {
+                            const [k, v] = label.split('=');
+                            if (k && v) {
+                                labels[k.trim()] = v.trim().replace(/"/g, '');
+                            }
+                        });
+                    }
+                    metrics.push({ name, labels, value: parseFloat(value) });
+                }
+            });
+
+            return metrics;
+        }
+
+        // 更新图表数据
+        function updateCharts(metrics) {
+            // API请求统计
+            const requestsData = metrics.filter(m => m.name === 'ThingsPanel_api_requests_total')
+                .map(m => ({
+                    name: m.labels.path || '未知',
+                    value: m.value
+                }));
+
+            charts.requests.setOption({
+                series: [{
+                    data: requestsData
+                }]
+            });
+
+            // API响应时间
+            const latencyData = metrics.filter(m => 
+                m.name === 'ThingsPanel_api_latency_seconds_sum' && m.labels.path
+            ).map(m => ({
+                name: m.labels.path,
+                value: m.value
+            }));
+
+            charts.latency.setOption({
+                series: [{
+                    data: latencyData
+                }]
+            });
+
+            // 错误统计
+            const errorsData = metrics.filter(m => m.name === 'ThingsPanel_api_errors_total')
+                .map(m => ({
+                    name: translateErrorType(m.labels.type),
+                    value: m.value
+                }));
+
+            charts.errors.setOption({
+                series: [{
+                    data: errorsData
+                }]
+            });
+        }
+
+        // 翻译错误类型
+        function translateErrorType(type) {
+            const typeMap = {
+                'system': '系统错误',
+                'business': '业务错误',
+                'panic': '严重错误'
+            };
+            return typeMap[type] || type;
+        }
+
+        // 更新指标表格
+        function updateTable(metrics) {
+            const tbody = document.querySelector('#metricsTable tbody');
+            tbody.innerHTML = '';
+            
+            metrics.forEach(metric => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${metric.name}</td>
+                    <td class="metric-value">${metric.value.toFixed(metric.value % 1 === 0 ? 0 : 3)}</td>
+                    <td>${Object.entries(metric.labels)
+                        .map(([k, v]) => `${k}="${v}"`)
+                        .join(', ')}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 更新最后更新时间
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('lastUpdateTime').textContent = 
+                now.toLocaleTimeString('zh-CN', { hour12: false });
+        }
+
+        // 切换自动刷新
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoRefreshBtn');
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                btn.classList.remove('active');
+                btn.textContent = '自动刷新';
+            } else {
+                autoRefreshInterval = setInterval(refreshData, 30000);
+                btn.classList.add('active');
+                btn.textContent = '停止自动刷新';
+            }
+        }
+
+        // 刷新数据
+        async function refreshData() {
+            try {
+                const response = await fetch('/metrics');
+                const text = await response.text();
+                const metrics = parseMetrics(text);
+                
+                updateCharts(metrics);
+                updateTable(metrics);
+                updateLastUpdateTime();
+            } catch (error) {
+                console.error('获取指标数据失败:', error);
+            }
+        }
+
+        // 页面加载初始化
+        window.onload = function() {
+            initCharts();
+            refreshData();
+        };
+
+        // 处理窗口大小变化
+        window.onresize = function() {
+            Object.values(charts).forEach(chart => chart.resize());
+        };
+    </script>
+</body>
+</html>

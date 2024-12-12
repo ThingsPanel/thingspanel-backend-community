@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ThingsPanel Metrics Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .metrics-table th, .metrics-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .metrics-table th {
+            background-color: #f8f9fa;
+        }
+        .chart-container {
+            height: 400px;
+            margin-top: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .refresh-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .refresh-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ThingsPanel Metrics Viewer</h1>
+        <button class="refresh-btn" onclick="refreshData()">Refresh Data</button>
+        
+        <div class="grid">
+            <!-- API Requests -->
+            <div class="card">
+                <h2>API Requests</h2>
+                <div id="requestsChart" class="chart-container"></div>
+            </div>
+            
+            <!-- API Latency -->
+            <div class="card">
+                <h2>API Latency</h2>
+                <div id="latencyChart" class="chart-container"></div>
+            </div>
+            
+            <!-- Errors -->
+            <div class="card">
+                <h2>Error Statistics</h2>
+                <div id="errorsChart" class="chart-container"></div>
+            </div>
+            
+            <!-- Raw Metrics -->
+            <div class="card">
+                <h2>Raw Metrics</h2>
+                <div id="rawMetrics" style="max-height: 400px; overflow-y: auto;">
+                    <table class="metrics-table" id="metricsTable">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Value</th>
+                                <th>Labels</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+
+        // Initialize charts
+        function initCharts() {
+            charts.requests = echarts.init(document.getElementById('requestsChart'));
+            charts.latency = echarts.init(document.getElementById('latencyChart'));
+            charts.errors = echarts.init(document.getElementById('errorsChart'));
+        }
+
+        // Parse metrics text into structured data
+        function parseMetrics(metricsText) {
+            const lines = metricsText.split('\n');
+            const metrics = [];
+            let currentMetric = null;
+
+            lines.forEach(line => {
+                if (line.startsWith('# HELP')) {
+                    return;
+                }
+                if (line.startsWith('# TYPE')) {
+                    return;
+                }
+                if (line.trim() === '') {
+                    return;
+                }
+
+                const match = line.match(/([a-zA-Z_:][a-zA-Z0-9_:]*){([^}]*)}?\s+([0-9.e+-]+)/);
+                if (match) {
+                    const [_, name, labelStr, value] = match;
+                    const labels = {};
+                    if (labelStr) {
+                        labelStr.split(',').forEach(label => {
+                            const [k, v] = label.split('=');
+                            if (k && v) {
+                                labels[k.trim()] = v.trim().replace(/"/g, '');
+                            }
+                        });
+                    }
+                    metrics.push({
+                        name,
+                        labels,
+                        value: parseFloat(value)
+                    });
+                }
+            });
+
+            return metrics;
+        }
+
+        // Update the charts with new data
+        function updateCharts(metrics) {
+            // API Requests Chart
+            const requestsData = metrics.filter(m => m.name === 'ThingsPanel_api_requests_total')
+                .map(m => ({
+                    name: m.labels.path || 'unknown',
+                    value: m.value
+                }));
+
+            charts.requests.setOption({
+                title: { text: 'API Requests by Path' },
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: requestsData.map(d => d.name) },
+                yAxis: { type: 'value' },
+                series: [{
+                    data: requestsData.map(d => d.value),
+                    type: 'bar',
+                    name: 'Requests'
+                }]
+            });
+
+            // API Latency Chart
+            const latencyData = metrics.filter(m => 
+                m.name === 'ThingsPanel_api_latency_seconds_sum' && m.labels.path
+            ).map(m => ({
+                name: m.labels.path,
+                value: m.value
+            }));
+
+            charts.latency.setOption({
+                title: { text: 'API Latency by Path (seconds)' },
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: latencyData.map(d => d.name) },
+                yAxis: { type: 'value' },
+                series: [{
+                    data: latencyData.map(d => d.value),
+                    type: 'bar',
+                    name: 'Latency'
+                }]
+            });
+
+            // Errors Chart
+            const errorsData = metrics.filter(m => m.name === 'ThingsPanel_api_errors_total')
+                .map(m => ({
+                    name: m.labels.type || 'unknown',
+                    value: m.value
+                }));
+
+            charts.errors.setOption({
+                title: { text: 'Errors by Type' },
+                tooltip: { trigger: 'item' },
+                series: [{
+                    type: 'pie',
+                    radius: '50%',
+                    data: errorsData.map(d => ({
+                        name: d.name,
+                        value: d.value
+                    }))
+                }]
+            });
+        }
+
+        // Update the raw metrics table
+        function updateTable(metrics) {
+            const tbody = document.querySelector('#metricsTable tbody');
+            tbody.innerHTML = '';
+            
+            metrics.forEach(metric => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${metric.name}</td>
+                    <td>${metric.value}</td>
+                    <td>${Object.entries(metric.labels)
+                        .map(([k, v]) => `${k}="${v}"`)
+                        .join(', ')}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Fetch and process metrics data
+        async function refreshData() {
+            try {
+                const response = await fetch('/metrics');
+                const text = await response.text();
+                const metrics = parseMetrics(text);
+                
+                updateCharts(metrics);
+                updateTable(metrics);
+            } catch (error) {
+                console.error('Error fetching metrics:', error);
+            }
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            initCharts();
+            refreshData();
+        };
+
+        // Handle window resize
+        window.onresize = function() {
+            Object.values(charts).forEach(chart => chart.resize());
+        };
+    </script>
+</body>
+</html>

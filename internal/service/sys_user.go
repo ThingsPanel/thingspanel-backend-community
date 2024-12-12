@@ -7,6 +7,7 @@ import (
 
 	"fmt"
 	"project/pkg/common"
+	"project/pkg/errcode"
 	"strings"
 	"time"
 
@@ -105,7 +106,7 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 	}
 	// 对比密码
 	if !utils.BcryptCheck(loginReq.Password, user.Password) {
-		return nil, tpErrors.NewError(tpErrors.ErrInvalidCredentials)
+		return nil, errcode.New(errcode.CodeInvalidAuth)
 	}
 
 	// 判断用户状态

@@ -2,9 +2,13 @@ package router
 
 import (
 	middleware "project/internal/middleware"
+	"project/internal/middleware/response"
+	"project/pkg/metrics"
 	"project/router/apps"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	// gin-swagger middleware
@@ -18,8 +22,17 @@ import (
 func RouterInit() *gin.Engine {
 	//gin.SetMode(gin.ReleaseMode) //开启生产模式
 	router := gin.Default()
-	router.Use(middleware.ErrorHandler())
+
+	// 创建 metrics 收集器
+	m := metrics.NewMetrics("ThingsPanel")
+	// 注册 metrics 中间件
+	router.Use(middleware.MetricsMiddleware(m))
+	// 注册 prometheus metrics 接口
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	//router.Use(middleware.ErrorHandler())
 	// 静态文件
+	// 添加静态文件路由
+	router.StaticFile("/metrics-viewer", "./static/metrics-viewer.html")
 	// 处理文件访问请求
 	router.GET("/files/*filepath", func(c *gin.Context) {
 		filepath := c.Param("filepath")
@@ -34,6 +47,13 @@ func RouterInit() *gin.Engine {
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	router.Use(middleware.Cors())
+	// 初始化响应处理器
+	handler, err := response.NewHandler("configs/messages.yaml")
+	if err != nil {
+		logrus.Fatalf("初始化响应处理器失败: %v", err)
+	}
+	// 使用中间件
+	router.Use(handler.Middleware())
 
 	api := router.Group("api")
 	{
