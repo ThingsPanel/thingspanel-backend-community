@@ -14,7 +14,7 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("Error Code: %s", e.Code)
+	return fmt.Sprintf("Error Code: %d", e.Code)
 }
 
 // 创建错误
@@ -34,6 +34,7 @@ func NewWithMessage(code int, message string) *Error {
 }
 
 // 携带数据创建错误
+//nolint:unused
 func WithData(code int, message string, data interface{}) *Error {
 	return &Error{
 		Code: code,
@@ -42,6 +43,7 @@ func WithData(code int, message string, data interface{}) *Error {
 }
 
 // Newf 创建带格式化参数的错误
+//nolint:unused
 func Newf(code int, format string, args ...interface{}) *Error {
 	return &Error{
 		Code: code,
