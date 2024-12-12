@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <title>ThingsPanel 监控指标查看器</title>
@@ -11,17 +12,20 @@
             background-color: #f5f5f5;
             color: #333;
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
         }
+
         .card {
             background: white;
             border-radius: 8px;
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
         .card h2 {
             margin-top: 0;
             color: #1a1a1a;
@@ -30,40 +34,49 @@
             border-bottom: 1px solid #eee;
             padding-bottom: 10px;
         }
+
         .metrics-table {
             width: 100%;
             border-collapse: collapse;
         }
-        .metrics-table th, .metrics-table td {
+
+        .metrics-table th,
+        .metrics-table td {
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #eee;
             font-size: 14px;
         }
+
         .metrics-table th {
             background-color: #fafafa;
             font-weight: 500;
             color: #1a1a1a;
         }
+
         .chart-container {
             height: 400px;
             margin-top: 20px;
         }
+
         .grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 20px;
         }
+
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
         }
+
         .controls {
             display: flex;
             gap: 10px;
         }
+
         .btn {
             background-color: #1890ff;
             color: white;
@@ -74,15 +87,19 @@
             font-size: 14px;
             transition: background-color 0.3s;
         }
+
         .btn:hover {
             background-color: #40a9ff;
         }
+
         .btn.active {
             background-color: #096dd9;
         }
+
         .metric-value {
             font-family: Monaco, Consolas, monospace;
         }
+
         .status-bar {
             background: #f6f6f6;
             padding: 8px 16px;
@@ -91,12 +108,14 @@
             border-radius: 4px;
             margin-bottom: 20px;
         }
+
         .tooltip {
             position: relative;
             display: inline-block;
             margin-left: 4px;
             cursor: help;
         }
+
         .tooltip:before {
             content: "?";
             display: inline-block;
@@ -109,13 +128,14 @@
             font-size: 12px;
             color: #666;
         }
+
         .tooltip:hover:after {
             content: attr(data-tip);
             position: absolute;
             bottom: 100%;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.8);
             color: white;
             padding: 6px 12px;
             border-radius: 4px;
@@ -125,6 +145,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -134,7 +155,7 @@
                 <button class="btn" id="autoRefreshBtn" onclick="toggleAutoRefresh()">自动刷新</button>
             </div>
         </div>
-        
+
         <div class="status-bar">
             最后更新时间：<span id="lastUpdateTime">-</span>
             &nbsp;|&nbsp;
@@ -142,6 +163,23 @@
         </div>
 
         <div class="grid">
+            <!-- 内存使用监控 -->
+            <div class="card">
+                <h2>
+                    内存使用情况
+                    <span class="tooltip" data-tip="显示当前内存使用量和分配情况"></span>
+                </h2>
+                <div id="memoryChart" class="chart-container"></div>
+            </div>
+
+            <!-- CPU使用监控 -->
+            <div class="card">
+                <h2>
+                    CPU使用情况
+                    <span class="tooltip" data-tip="显示CPU使用率和Goroutine数量"></span>
+                </h2>
+                <div id="cpuChart" class="chart-container"></div>
+            </div>
             <!-- API请求统计 -->
             <div class="card">
                 <h2>
@@ -150,7 +188,7 @@
                 </h2>
                 <div id="requestsChart" class="chart-container"></div>
             </div>
-            
+
             <!-- API响应时间 -->
             <div class="card">
                 <h2>
@@ -159,7 +197,7 @@
                 </h2>
                 <div id="latencyChart" class="chart-container"></div>
             </div>
-            
+
             <!-- 错误统计 -->
             <div class="card">
                 <h2>
@@ -168,7 +206,7 @@
                 </h2>
                 <div id="errorsChart" class="chart-container"></div>
             </div>
-            
+
             <!-- 原始指标数据 -->
             <div class="card">
                 <h2>
@@ -200,13 +238,13 @@
             const chartOptions = {
                 requests: {
                     title: { text: 'API请求数量' },
-                    tooltip: { 
+                    tooltip: {
                         trigger: 'axis',
-                        formatter: function(params) {
+                        formatter: function (params) {
                             return `${params[0].name}<br/>请求数：${params[0].value}`
                         }
                     },
-                    xAxis: { 
+                    xAxis: {
                         type: 'category',
                         axisLabel: { interval: 0, rotate: 30 }
                     },
@@ -220,11 +258,11 @@
                     title: { text: 'API响应时间 (秒)' },
                     tooltip: {
                         trigger: 'axis',
-                        formatter: function(params) {
+                        formatter: function (params) {
                             return `${params[0].name}<br/>响应时间：${params[0].value.toFixed(3)}秒`
                         }
                     },
-                    xAxis: { 
+                    xAxis: {
                         type: 'category',
                         axisLabel: { interval: 0, rotate: 30 }
                     },
@@ -238,7 +276,7 @@
                     title: { text: '错误类型分布' },
                     tooltip: {
                         trigger: 'item',
-                        formatter: function(params) {
+                        formatter: function (params) {
                             return `${params.name}<br/>数量：${params.value}<br/>占比：${params.percent}%`
                         }
                     },
@@ -247,6 +285,87 @@
                         radius: '50%'
                     }]
                 }
+            };
+            // 添加内存监控图表
+            chartOptions.memory = {
+                title: { text: '内存使用情况' },
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function (params) {
+                        return params.map(param => {
+                            const value = (param.value / (1024 * 1024)).toFixed(2);
+                            return `${param.seriesName}: ${value} MB`;
+                        }).join('<br/>');
+                    }
+                },
+                legend: {
+                    data: ['当前使用', '已分配']
+                },
+                xAxis: {
+                    type: 'category',
+                    data: []
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: {
+                        formatter: value => `${(value / (1024 * 1024)).toFixed(0)} MB`
+                    }
+                },
+                series: [{
+                    name: '当前使用',
+                    type: 'line',
+                    data: []
+                }, {
+                    name: '已分配',
+                    type: 'line',
+                    data: []
+                }]
+            };
+
+            // 添加CPU监控图表
+            chartOptions.cpu = {
+                title: { text: 'CPU使用情况' },
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function (params) {
+                        return params.map(param => {
+                            if (param.seriesName === 'CPU使用率') {
+                                return `${param.seriesName}: ${param.value.toFixed(1)}%`;
+                            }
+                            return `${param.seriesName}: ${param.value}`;
+                        }).join('<br/>');
+                    }
+                },
+                legend: {
+                    data: ['CPU使用率', 'Goroutine数量']
+                },
+                xAxis: {
+                    type: 'category',
+                    data: []
+                },
+                yAxis: [{
+                    type: 'value',
+                    name: 'CPU使用率',
+                    axisLabel: {
+                        formatter: '{value}%'
+                    }
+                }, {
+                    type: 'value',
+                    name: 'Goroutine数量',
+                    splitLine: {
+                        show: false
+                    }
+                }],
+                series: [{
+                    name: 'CPU使用率',
+                    type: 'line',
+                    data: []
+                }, {
+                    name: 'Goroutine数量',
+                    type: 'line',
+                    yAxisIndex: 1,
+                    data: []
+                }]
             };
 
             Object.entries(chartOptions).forEach(([name, options]) => {
@@ -301,7 +420,7 @@
             });
 
             // API响应时间
-            const latencyData = metrics.filter(m => 
+            const latencyData = metrics.filter(m =>
                 m.name === 'ThingsPanel_api_latency_seconds_sum' && m.labels.path
             ).map(m => ({
                 name: m.labels.path,
@@ -326,6 +445,38 @@
                     data: errorsData
                 }]
             });
+            // 更新内存图表数据
+            const memoryUsage = metrics.find(m => m.name === 'ThingsPanel_memory_usage_bytes')?.value || 0;
+            const memoryAllocated = metrics.find(m => m.name === 'ThingsPanel_memory_allocated_bytes')?.value || 0;
+
+            const now = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+
+            // 更新内存图表
+            charts.memory.setOption({
+                xAxis: {
+                    data: [...charts.memory.getOption().xAxis[0].data, now].slice(-10)
+                },
+                series: [{
+                    data: [...charts.memory.getOption().series[0].data, memoryUsage].slice(-10)
+                }, {
+                    data: [...charts.memory.getOption().series[1].data, memoryAllocated].slice(-10)
+                }]
+            });
+
+            // 更新CPU图表数据
+            const cpuUsage = metrics.find(m => m.name === 'ThingsPanel_cpu_usage_percent')?.value || 0;
+            const goroutines = metrics.find(m => m.name === 'ThingsPanel_goroutines_total')?.value || 0;
+
+            charts.cpu.setOption({
+                xAxis: {
+                    data: [...charts.cpu.getOption().xAxis[0].data, now].slice(-10)
+                },
+                series: [{
+                    data: [...charts.cpu.getOption().series[0].data, cpuUsage].slice(-10)
+                }, {
+                    data: [...charts.cpu.getOption().series[1].data, goroutines].slice(-10)
+                }]
+            });
         }
 
         // 翻译错误类型
@@ -342,7 +493,7 @@
         function updateTable(metrics) {
             const tbody = document.querySelector('#metricsTable tbody');
             tbody.innerHTML = '';
-            
+
             metrics.forEach(metric => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -360,7 +511,7 @@
         // 更新最后更新时间
         function updateLastUpdateTime() {
             const now = new Date();
-            document.getElementById('lastUpdateTime').textContent = 
+            document.getElementById('lastUpdateTime').textContent =
                 now.toLocaleTimeString('zh-CN', { hour12: false });
         }
 
@@ -385,7 +536,7 @@
                 const response = await fetch('/metrics');
                 const text = await response.text();
                 const metrics = parseMetrics(text);
-                
+
                 updateCharts(metrics);
                 updateTable(metrics);
                 updateLastUpdateTime();
@@ -395,15 +546,16 @@
         }
 
         // 页面加载初始化
-        window.onload = function() {
+        window.onload = function () {
             initCharts();
             refreshData();
         };
 
         // 处理窗口大小变化
-        window.onresize = function() {
+        window.onresize = function () {
             Object.values(charts).forEach(chart => chart.resize());
         };
     </script>
 </body>
+
 </html>

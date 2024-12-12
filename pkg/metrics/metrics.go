@@ -2,8 +2,13 @@
 package metrics
 
 import (
+	"log"
+	"runtime"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/shirou/gopsutil/cpu"
 )
 
 // Metrics 封装核心监控指标
@@ -20,11 +25,18 @@ type Metrics struct {
 	// 性能相关
 	SlowRequestTotal   *prometheus.CounterVec // 慢请求统计(>1s)
 	LargeResponseTotal *prometheus.CounterVec // 大响应统计(>1MB)
+
+	// 新增系统资源指标
+	MemoryUsage     prometheus.Gauge   // 当前内存使用量
+	MemoryAllocated prometheus.Gauge   // 已分配内存
+	GCPauseLatency  prometheus.Summary // GC暂停时间
+	NumGoroutines   prometheus.Gauge   // goroutine数量
+	CPUUsage        prometheus.Gauge   // CPU使用率
 }
 
 // NewMetrics 创建核心指标收集器
 func NewMetrics(namespace string) *Metrics {
-	return &Metrics{
+	m := &Metrics{
 		// API 调用监控
 		APIRequestTotal: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -90,6 +102,83 @@ func NewMetrics(namespace string) *Metrics {
 			},
 			[]string{"path"},
 		),
+		// 新增系统资源指标
+		MemoryUsage: promauto.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "memory_usage_bytes",
+				Help:      "Current memory usage in bytes",
+			},
+		),
+
+		MemoryAllocated: promauto.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "memory_allocated_bytes",
+				Help:      "Total allocated memory in bytes",
+			},
+		),
+
+		GCPauseLatency: promauto.NewSummary(
+			prometheus.SummaryOpts{
+				Namespace: namespace,
+				Name:      "gc_pause_latency_seconds",
+				Help:      "GC pause latency distribution",
+				Objectives: map[float64]float64{
+					0.5:  0.05,  // 50th percentile with 5% error
+					0.9:  0.01,  // 90th percentile with 1% error
+					0.99: 0.001, // 99th percentile with 0.1% error
+				},
+			},
+		),
+
+		NumGoroutines: promauto.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "goroutines_total",
+				Help:      "Current number of goroutines",
+			},
+		),
+
+		CPUUsage: promauto.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "cpu_usage_percent",
+				Help:      "Current CPU usage percentage",
+			},
+		),
+	}
+
+	// 启动资源监控协程
+	// 启动资源监控协程
+	go m.collectSystemMetrics()
+	return m
+}
+
+// collectSystemMetrics 持续收集系统指标
+func (m *Metrics) collectSystemMetrics() {
+	// 创建定时器，每5秒收集一次
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		// 收集内存统计
+		var memStats runtime.MemStats
+		runtime.ReadMemStats(&memStats)
+
+		m.MemoryUsage.Set(float64(memStats.Alloc))
+		m.MemoryAllocated.Set(float64(memStats.TotalAlloc))
+		m.GCPauseLatency.Observe(float64(memStats.PauseNs[(memStats.NumGC+255)%256]) / 1e9)
+		m.NumGoroutines.Set(float64(runtime.NumGoroutine()))
+
+		// 收集CPU使用率
+		percentage, err := cpu.Percent(time.Second, false)
+		if err == nil && len(percentage) > 0 {
+			m.CPUUsage.Set(percentage[0]) // percentage[0] 是总体CPU使用率
+		} else {
+			// 记录错误，但不影响其他指标的收集
+			log.Printf("Failed to collect CPU usage: %v", err)
+		}
 	}
 }
 
