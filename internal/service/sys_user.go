@@ -226,7 +226,7 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 	user, err := dal.GetUsersByEmail(email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logrus.Error(err)
-		return errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"operation": "query_user",
 			"email":     email,
 			"error":     err.Error(),
@@ -243,14 +243,14 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 
 	verificationCode, err := common.GenerateNumericCode(6)
 	if err != nil {
-		return errcode.WithData(200009, err.Error(), map[string]interface{}{ // 新增: 验证码生成失败
+		return errcode.WithData(200009, map[string]interface{}{ // 新增: 验证码生成失败
 			"email": email,
 		})
 	}
 
 	err = global.REDIS.Set(email+"_code", verificationCode, 5*time.Minute).Err()
 	if err != nil {
-		return errcode.WithData(errcode.CodeCacheError, err.Error(), map[string]interface{}{
+		return errcode.WithData(errcode.CodeCacheError, map[string]interface{}{
 			"operation": "save_verification_code",
 			"email":     email,
 			"error":     err.Error(),
@@ -263,7 +263,7 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 		Body:  fmt.Sprintf("Your verification code is %s", verificationCode),
 	})
 	if err != nil {
-		return errcode.WithData(200010, err.Error(), map[string]interface{}{ // 新增: 验证码邮件发送失败
+		return errcode.WithData(200010, map[string]interface{}{ // 新增: 验证码邮件发送失败
 			"email": email,
 			"error": err.Error(),
 		})
@@ -292,7 +292,7 @@ func (*User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPas
 	)
 	info, err := db.First(ctx, user.Email.Eq(resetPasswordReq.Email))
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"operation": "query_user",
 			"email":     resetPasswordReq.Email,
 			"error":     err.Error(),
@@ -303,7 +303,7 @@ func (*User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPas
 	info.Password = utils.BcryptHash(resetPasswordReq.Password)
 	if err = db.UpdateByEmail(ctx, info, user.Password, user.PasswordLastUpdated); err != nil {
 		logrus.Error(ctx, "[ResetPasswordByCode]Update Users info failed:", err)
-		return errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"operation": "update_password",
 			"email":     resetPasswordReq.Email,
 			"error":     err.Error(),
@@ -558,7 +558,7 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	// 验证邮箱是否已注册
 	user, err := dal.GetUsersByEmail(req.Email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"operation": "query_user",
 			"email":     req.Email,
 			"error":     err.Error(),
@@ -609,7 +609,7 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 
 	// 创建用户
 	if err = dal.CreateUsers(userInfo); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"operation": "create_user",
 			"email":     req.Email,
 			"error":     err.Error(),

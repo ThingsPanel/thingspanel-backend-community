@@ -87,7 +87,7 @@ func (*UiElements) ServeUiElementsListByAuthority(u *utils.UserClaims) (map[stri
 	total, list, err := dal.ServeUiElementsListByAuthority(u)
 	if err != nil {
 		logrus.Error("[ServeUiElementsListByAuthority] query failed:", err)
-		return nil, errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"operation": "query_ui_elements",
 			"user_id":   u.ID,
 			"error":     err.Error(),

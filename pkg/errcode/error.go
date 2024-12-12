@@ -34,8 +34,7 @@ func NewWithMessage(code int, message string) *Error {
 }
 
 // 携带数据创建错误
-//nolint:unused
-func WithData(code int, message string, data interface{}) *Error {
+func WithData(code int, data interface{}) *Error {
 	return &Error{
 		Code: code,
 		Data: data,
@@ -43,8 +42,7 @@ func WithData(code int, message string, data interface{}) *Error {
 }
 
 // Newf 创建带格式化参数的错误
-//nolint:unused
-func Newf(code int, format string, args ...interface{}) *Error {
+func Newf(code int, args ...interface{}) *Error {
 	return &Error{
 		Code: code,
 		Args: args,
