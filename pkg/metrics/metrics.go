@@ -2,12 +2,13 @@
 package metrics
 
 import (
+	"os"
 	"runtime"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/process"
 	"github.com/sirupsen/logrus"
 )
 
@@ -172,47 +173,32 @@ func (m *Metrics) StartMetricsCollection(interval time.Duration) {
 		var lastPauseNs uint64
 		var lastNumGC uint32
 
-		cpuStats, err := cpu.Times(false)
+		// 获取进程 ID
+		pid := os.Getpid()
+		process, err := process.NewProcess(int32(pid))
 		if err != nil {
-			logrus.Warnf("Failed to get initial CPU stats: %v", err)
+			logrus.Warnf("Failed to get process: %v", err)
 			return
 		}
-		lastCPUStat := cpuStats[0]
 
 		for range ticker.C {
+			// 内存统计
 			var memStats runtime.MemStats
 			runtime.ReadMemStats(&memStats)
-
 			m.MemoryUsage.Set(float64(memStats.Alloc))
 			m.MemoryAllocated.Set(float64(memStats.Sys))
 			m.MemoryObjects.Set(float64(memStats.HeapObjects))
 
-			// CPU统计
-			cpuStats, err := cpu.Times(false)
+			// 进程 CPU 使用率
+			cpuPercent, err := process.Percent(0)
 			if err == nil {
-				currentStat := cpuStats[0]
-
-				totalPrev := lastCPUStat.User + lastCPUStat.System + lastCPUStat.Idle +
-					lastCPUStat.Nice + lastCPUStat.Iowait + lastCPUStat.Irq +
-					lastCPUStat.Softirq + lastCPUStat.Steal
-
-				totalCur := currentStat.User + currentStat.System + currentStat.Idle +
-					currentStat.Nice + currentStat.Iowait + currentStat.Irq +
-					currentStat.Softirq + currentStat.Steal
-
-				idleDelta := currentStat.Idle - lastCPUStat.Idle
-				totalDelta := totalCur - totalPrev
-
-				if totalDelta > 0 {
-					cpuUsage := 100 * (1.0 - idleDelta/totalDelta)
-					m.CPUUsage.Set(cpuUsage)
-				}
-
-				lastCPUStat = currentStat
+				m.CPUUsage.Set(cpuPercent)
 			}
 
+			// Goroutine 统计
 			m.GoroutinesTotal.Set(float64(runtime.NumGoroutine()))
 
+			// GC 统计
 			if memStats.NumGC > lastNumGC {
 				diff := memStats.NumGC - lastNumGC
 				m.GCRuns.Add(float64(diff))
