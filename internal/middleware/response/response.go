@@ -12,7 +12,7 @@ import (
 
 // Response 统一的API响应结构
 type Response struct {
-	Code    string      `json:"code"`
+	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }

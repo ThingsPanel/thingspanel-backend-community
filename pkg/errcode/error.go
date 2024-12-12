@@ -5,7 +5,7 @@ import "fmt"
 
 // Error 统一的错误类型
 type Error struct {
-	Code         string                 `json:"code"`
+	Code         int                    `json:"code"`
 	Data         interface{}            `json:"data,omitempty"`
 	Variables    map[string]interface{} `json:"-"`                 // 存储错误信息中的变量
 	Args         []interface{}          `json:"-"`                 // fmt格式化参数
@@ -18,14 +18,14 @@ func (e *Error) Error() string {
 }
 
 // 创建错误
-func New(code string) *Error {
+func New(code int) *Error {
 	return &Error{
 		Code: code,
 	}
 }
 
 // NewWithMessage 创建带自定义消息的错误
-func NewWithMessage(code string, message string) *Error {
+func NewWithMessage(code int, message string) *Error {
 	return &Error{
 		Code:         code,
 		CustomMsg:    message,
@@ -34,7 +34,7 @@ func NewWithMessage(code string, message string) *Error {
 }
 
 // 携带数据创建错误
-func WithData(code string, message string, data interface{}) *Error {
+func WithData(code int, message string, data interface{}) *Error {
 	return &Error{
 		Code: code,
 		Data: data,
@@ -42,7 +42,7 @@ func WithData(code string, message string, data interface{}) *Error {
 }
 
 // Newf 创建带格式化参数的错误
-func Newf(code string, format string, args ...interface{}) *Error {
+func Newf(code int, format string, args ...interface{}) *Error {
 	return &Error{
 		Code: code,
 		Args: args,
@@ -50,7 +50,7 @@ func Newf(code string, format string, args ...interface{}) *Error {
 }
 
 // WithVars 创建带变量的错误
-func WithVars(code string, vars map[string]interface{}) *Error {
+func WithVars(code int, vars map[string]interface{}) *Error {
 	return &Error{
 		Code:      code,
 		Variables: vars,

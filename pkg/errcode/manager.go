@@ -14,7 +14,7 @@ import (
 
 // Config 定义配置文件结构
 type Config struct {
-	Messages map[string]map[string]string `yaml:"messages"` // code -> language -> message
+	Messages map[int]map[string]string `yaml:"messages"` // code -> language -> message
 	Metadata struct {
 		Version            string   `yaml:"version"`
 		LastUpdated        string   `yaml:"last_updated"`
@@ -24,7 +24,7 @@ type Config struct {
 
 // ErrorManager 错误码管理器
 type ErrorManager struct {
-	messages        map[string]map[string]string // code -> language -> message
+	messages        map[int]map[string]string // code -> language -> message
 	cache           *cache.Cache
 	defaultLanguage string
 	configPath      string
@@ -33,7 +33,7 @@ type ErrorManager struct {
 // NewErrorManager 创建错误码管理器实例
 func NewErrorManager(configPath string) *ErrorManager {
 	manager := &ErrorManager{
-		messages:        make(map[string]map[string]string),
+		messages:        make(map[int]map[string]string),
 		cache:           cache.New(10*time.Minute, 20*time.Minute), // 缓存10分钟，每20分钟清理
 		defaultLanguage: "zh_CN",                                   // 默认使用中文
 		configPath:      configPath,
@@ -58,7 +58,7 @@ func (m *ErrorManager) LoadMessages() error {
 	// 验证错误码格式
 	for code := range config.Messages {
 		if !m.validateCode(code) {
-			return fmt.Errorf("无效的错误码格式: %s", code)
+			return fmt.Errorf("无效的错误码格式: %d", code)
 		}
 	}
 
@@ -75,13 +75,13 @@ func (m *ErrorManager) LoadMessages() error {
 // 参数：
 //   - code: 错误码
 //   - lang: 语言代码，如果为空则使用默认语言
-func (m *ErrorManager) GetMessage(code, lang string) string {
+func (m *ErrorManager) GetMessage(code int, lang string) string {
 	if lang == "" {
 		lang = m.defaultLanguage
 	}
 
 	// 尝试从缓存获取
-	cacheKey := fmt.Sprintf("%s:%s", code, lang)
+	cacheKey := fmt.Sprintf("%d:%s", code, lang)
 	if msg, found := m.cache.Get(cacheKey); found {
 		return msg.(string)
 	}
@@ -108,28 +108,21 @@ func (m *ErrorManager) GetMessage(code, lang string) string {
 	return defaultMsg
 }
 
-// validateCode 验证错误码格式
-func (m *ErrorManager) validateCode(code string) bool {
+func (m *ErrorManager) validateCode(code int) bool {
 	// 特殊处理成功码
-	if code == "200" {
+	if code == 200 {
 		return true
 	}
 
-	// 检查长度
-	if len(code) != 6 {
+	// 检查长度和第一位数字
+	if code < 100000 || code > 299999 {
 		return false
 	}
 
 	// 检查错误类型（1或2）
-	if code[0] != '1' && code[0] != '2' {
+	firstDigit := code / 100000
+	if firstDigit != 1 && firstDigit != 2 {
 		return false
-	}
-
-	// 检查是否都是数字
-	for _, c := range code {
-		if c < '0' || c > '9' {
-			return false
-		}
 	}
 
 	return true

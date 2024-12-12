@@ -236,14 +236,14 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 	// 邮箱验证相关错误应归类到用户模块
 	switch {
 	case user == nil && isRegister != "1":
-		return errcode.New("200007") // 新增: 用户邮箱不存在
+		return errcode.New(200007) // 新增: 用户邮箱不存在
 	case user != nil && isRegister == "1":
-		return errcode.New("200008") // 新增: 用户邮箱已注册
+		return errcode.New(200008) // 新增: 用户邮箱已注册
 	}
 
 	verificationCode, err := common.GenerateNumericCode(6)
 	if err != nil {
-		return errcode.WithData("200009", err.Error(), map[string]interface{}{ // 新增: 验证码生成失败
+		return errcode.WithData(200009, err.Error(), map[string]interface{}{ // 新增: 验证码生成失败
 			"email": email,
 		})
 	}
@@ -263,7 +263,7 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 		Body:  fmt.Sprintf("Your verification code is %s", verificationCode),
 	})
 	if err != nil {
-		return errcode.WithData("200010", err.Error(), map[string]interface{}{ // 新增: 验证码邮件发送失败
+		return errcode.WithData(200010, err.Error(), map[string]interface{}{ // 新增: 验证码邮件发送失败
 			"email": email,
 			"error": err.Error(),
 		})
@@ -275,15 +275,15 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 func (*User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPasswordReq) error {
 
 	if err := utils.ValidatePassword(resetPasswordReq.Password); err != nil {
-		return errcode.New("200040") // 密码格式错误
+		return errcode.New(200040) // 密码格式错误
 	}
 
 	verificationCode, err := global.REDIS.Get(resetPasswordReq.Email + "_code").Result()
 	if err != nil {
-		return errcode.New("200011") // 验证码已过期
+		return errcode.New(200011) // 验证码已过期
 	}
 	if verificationCode != resetPasswordReq.VerifyCode {
-		return errcode.New("200012") // 验证码错误
+		return errcode.New(200012) // 验证码错误
 	}
 
 	var (
@@ -538,21 +538,21 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (*model.LoginRsp, error) {
 	// 密码格式校验
 	if err := utils.ValidatePassword(req.Password); err != nil {
-		return nil, errcode.New("200040") // 密码格式不符合要求
+		return nil, errcode.New(200040) // 密码格式不符合要求
 	}
 
 	// 验证码校验
 	verificationCode, err := global.REDIS.Get(req.Email + "_code").Result()
 	if err != nil {
-		return nil, errcode.New("200011") // 验证码已过期
+		return nil, errcode.New(200011) // 验证码已过期
 	}
 	if verificationCode != req.VerifyCode {
-		return nil, errcode.New("200012") // 验证码错误
+		return nil, errcode.New(200012) // 验证码错误
 	}
 
 	// 密码一致性校验
 	if req.Password != req.ConfirmPassword {
-		return nil, errcode.New("200041") // 两次输入的密码不一致
+		return nil, errcode.New(200041) // 两次输入的密码不一致
 	}
 
 	// 验证邮箱是否已注册
@@ -565,17 +565,17 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 		})
 	}
 	if user != nil {
-		return nil, errcode.New("200008") // 邮箱已注册
+		return nil, errcode.New(200008) // 邮箱已注册
 	}
 
 	// 密码加密处理
 	if logic.UserIsEncrypt(ctx) {
 		if req.Salt == nil {
-			return nil, errcode.New("200042") // 加密盐值为空
+			return nil, errcode.New(200042) // 加密盐值为空
 		}
 		password, err := initialize.DecryptPassword(req.Password)
 		if err != nil {
-			return nil, errcode.New("200043") // 密码解密失败
+			return nil, errcode.New(200043) // 密码解密失败
 		}
 		passwords := strings.TrimSuffix(string(password), *req.Salt)
 		req.Password = passwords
