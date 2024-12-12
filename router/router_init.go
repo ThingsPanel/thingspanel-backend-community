@@ -5,6 +5,7 @@ import (
 	"project/internal/middleware/response"
 	"project/pkg/metrics"
 	"project/router/apps"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -25,6 +26,8 @@ func RouterInit() *gin.Engine {
 
 	// 创建 metrics 收集器
 	m := metrics.NewMetrics("ThingsPanel")
+	// 开始定期收集系统指标(每15秒)
+	m.StartMetricsCollection(15 * time.Second)
 	// 注册 metrics 中间件
 	router.Use(middleware.MetricsMiddleware(m))
 	// 注册 prometheus metrics 接口
