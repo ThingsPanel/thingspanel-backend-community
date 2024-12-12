@@ -7,6 +7,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/sirupsen/logrus"
 )
 
 // Metrics 封装所有监控指标
@@ -162,7 +164,6 @@ func NewMetrics(namespace string) *Metrics {
 	}
 }
 
-// StartMetricsCollection 开始定期收集系统指标
 func (m *Metrics) StartMetricsCollection(interval time.Duration) {
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -171,8 +172,14 @@ func (m *Metrics) StartMetricsCollection(interval time.Duration) {
 		var lastPauseNs uint64
 		var lastNumGC uint32
 
+		cpuStats, err := cpu.Times(false)
+		if err != nil {
+			logrus.Warnf("Failed to get initial CPU stats: %v", err)
+			return
+		}
+		lastCPUStat := cpuStats[0]
+
 		for range ticker.C {
-			// 更新内存统计
 			var memStats runtime.MemStats
 			runtime.ReadMemStats(&memStats)
 
@@ -180,13 +187,32 @@ func (m *Metrics) StartMetricsCollection(interval time.Duration) {
 			m.MemoryAllocated.Set(float64(memStats.Sys))
 			m.MemoryObjects.Set(float64(memStats.HeapObjects))
 
-			// 更新CPU统计 (示例实现,实际可能需要更复杂的计算)
-			m.CPUUsage.Set(float64(runtime.NumCPU()))
+			// CPU统计
+			cpuStats, err := cpu.Times(false)
+			if err == nil {
+				currentStat := cpuStats[0]
 
-			// 更新Goroutine数量
+				totalPrev := lastCPUStat.User + lastCPUStat.System + lastCPUStat.Idle +
+					lastCPUStat.Nice + lastCPUStat.Iowait + lastCPUStat.Irq +
+					lastCPUStat.Softirq + lastCPUStat.Steal
+
+				totalCur := currentStat.User + currentStat.System + currentStat.Idle +
+					currentStat.Nice + currentStat.Iowait + currentStat.Irq +
+					currentStat.Softirq + currentStat.Steal
+
+				idleDelta := currentStat.Idle - lastCPUStat.Idle
+				totalDelta := totalCur - totalPrev
+
+				if totalDelta > 0 {
+					cpuUsage := 100 * (1.0 - idleDelta/totalDelta)
+					m.CPUUsage.Set(cpuUsage)
+				}
+
+				lastCPUStat = currentStat
+			}
+
 			m.GoroutinesTotal.Set(float64(runtime.NumGoroutine()))
 
-			// 更新GC统计
 			if memStats.NumGC > lastNumGC {
 				diff := memStats.NumGC - lastNumGC
 				m.GCRuns.Add(float64(diff))
@@ -195,7 +221,7 @@ func (m *Metrics) StartMetricsCollection(interval time.Duration) {
 
 			if pauseNs := memStats.PauseTotalNs; pauseNs > lastPauseNs {
 				pauseDiff := float64(pauseNs - lastPauseNs)
-				m.GCPauseTotal.Add(pauseDiff / 1e9) // 转换为秒
+				m.GCPauseTotal.Add(pauseDiff / 1e9)
 				lastPauseNs = pauseNs
 			}
 		}
