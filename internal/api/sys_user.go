@@ -25,7 +25,6 @@ func (*UserApi) Login(c *gin.Context) {
 	// 检查是否需要锁定账户
 	if loginLock.MaxFailedAttempts > 0 {
 		if err := loginLock.GetAllowLogin(c, loginReq.Email); err != nil {
-			//c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
 			c.Error(err)
 			return
 		}
@@ -34,12 +33,11 @@ func (*UserApi) Login(c *gin.Context) {
 	loginRsp, err := service.GroupApp.User.Login(c, &loginReq)
 	if err != nil {
 		_ = loginLock.LoginFail(c, loginReq.Email)
-		//c.JSON(http.StatusOK, gin.H{"code": 400, "message": err.Error()})
 		c.Error(err)
 		return
 	}
 	_ = loginLock.LoginSuccess(c, loginReq.Email)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": loginRsp})
+	c.Set("data", loginRsp)
 }
 
 // GET /api/v1/user/logout
@@ -47,10 +45,10 @@ func (*UserApi) Logout(c *gin.Context) {
 	token := c.GetHeader("x-token")
 	err := service.GroupApp.User.Logout(token)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Logout successfully", nil)
+	c.Set("data", nil)
 }
 
 // GET /api/v1/user/refresh
@@ -70,10 +68,10 @@ func (*UserApi) HandleVerificationCode(c *gin.Context) {
 	isRegister := c.Query("is_register")
 	err := service.GroupApp.User.GetVerificationCode(email, isRegister)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get verification code successfully", nil)
+	c.Set("data", nil)
 }
 
 // POST /api/v1/reset/password
@@ -85,10 +83,10 @@ func (*UserApi) ResetPassword(c *gin.Context) {
 
 	err := service.GroupApp.User.ResetPassword(c, &resetPasswordReq)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Reset password successfully", nil)
+	c.Set("data", nil)
 }
 
 // CreateUser 创建用户
@@ -246,9 +244,9 @@ func (*UserApi) EmailRegister(c *gin.Context) {
 	}
 	loginRsp, err := service.GroupApp.EmailRegister(c, &req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "EmailRegister successfully", loginRsp)
+	c.Set("data", loginRsp)
 }

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	tpErrors "project/internal/errors"
 
 	"fmt"
 	"project/pkg/common"
@@ -91,15 +90,17 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 	user, err := dal.GetUsersByEmail(loginReq.Email)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, tpErrors.NewError(tpErrors.ErrInvalidCredentials)
+			// 用户不存在,返回用户模块的业务错误
+			return nil, errcode.New(errcode.CodeInvalidAuth)
 		}
-		return nil, tpErrors.Wrap(err, tpErrors.ErrDatabaseError)
+		// 数据库操作失败,返回系统级数据库错误
+		return nil, errcode.New(errcode.CodeDBError)
 	}
 	// 是否加密配置
 	if logic.UserIsEncrypt(ctx) {
 		password, err := initialize.DecryptPassword(loginReq.Password)
 		if err != nil {
-			return nil, fmt.Errorf("wrong decrypt password")
+			return nil, errcode.New(errcode.CodeDecryptError)
 		}
 		passwords := strings.TrimSuffix(string(password), loginReq.Salt)
 		loginReq.Password = passwords
@@ -111,7 +112,7 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 
 	// 判断用户状态
 	if *user.Status != "N" {
-		return nil, tpErrors.NewError(tpErrors.ErrUserDisabled)
+		return nil, errcode.New(errcode.CodeUserDisabled)
 
 	}
 
@@ -144,7 +145,7 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 	}
 	token, err := jwt.GenerateToken(claims)
 	if err != nil {
-		return nil, tpErrors.Wrap(err, tpErrors.ErrSystemInternal)
+		return nil, errcode.New(errcode.CodeTokenGenerateError)
 
 	}
 	timeout := viper.GetInt("session.timeout")
@@ -177,8 +178,9 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 
 // @description 退出登录
 func (*User) Logout(token string) error {
-	// 删除redis中的token
-	global.REDIS.Del(token)
+	if err := global.REDIS.Del(token).Err(); err != nil {
+		return errcode.New(errcode.CodeTokenDeleteError)
+	}
 	return nil
 }
 
@@ -221,48 +223,67 @@ func (*User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, error)
 
 // @description 发送验证码
 func (*User) GetVerificationCode(email, isRegister string) error {
-	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logrus.Error(err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+			"operation": "query_user",
+			"email":     email,
+			"error":     err.Error(),
+		})
 	}
+
+	// 邮箱验证相关错误应归类到用户模块
 	switch {
 	case user == nil && isRegister != "1":
-		return fmt.Errorf("email does not exist")
+		return errcode.New("200007") // 新增: 用户邮箱不存在
 	case user != nil && isRegister == "1":
-		return fmt.Errorf("email already exists")
+		return errcode.New("200008") // 新增: 用户邮箱已注册
 	}
+
 	verificationCode, err := common.GenerateNumericCode(6)
 	if err != nil {
-		return err
+		return errcode.WithData("200009", err.Error(), map[string]interface{}{ // 新增: 验证码生成失败
+			"email": email,
+		})
 	}
+
 	err = global.REDIS.Set(email+"_code", verificationCode, 5*time.Minute).Err()
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeCacheError, err.Error(), map[string]interface{}{
+			"operation": "save_verification_code",
+			"email":     email,
+			"error":     err.Error(),
+		})
 	}
+
 	logrus.Warningf("验证码:%s", verificationCode)
 	err = GroupApp.NotificationServicesConfig.SendTestEmail(&model.SendTestEmailReq{
 		Email: email,
 		Body:  fmt.Sprintf("Your verification code is %s", verificationCode),
 	})
-	return err
+	if err != nil {
+		return errcode.WithData("200010", err.Error(), map[string]interface{}{ // 新增: 验证码邮件发送失败
+			"email": email,
+			"error": err.Error(),
+		})
+	}
+	return nil
 }
 
 // @description ResetPassword By VerifyCode and Email
 func (*User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPasswordReq) error {
 
-	err := utils.ValidatePassword(resetPasswordReq.Password)
-	if err != nil {
-		return err
+	if err := utils.ValidatePassword(resetPasswordReq.Password); err != nil {
+		return errcode.New("200040") // 密码格式错误
 	}
 
 	verificationCode, err := global.REDIS.Get(resetPasswordReq.Email + "_code").Result()
 	if err != nil {
-		return fmt.Errorf("verification code expired")
+		return errcode.New("200011") // 验证码已过期
 	}
 	if verificationCode != resetPasswordReq.VerifyCode {
-		return fmt.Errorf("verification code error")
+		return errcode.New("200012") // 验证码错误
 	}
 
 	var (
@@ -271,15 +292,22 @@ func (*User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPas
 	)
 	info, err := db.First(ctx, user.Email.Eq(resetPasswordReq.Email))
 	if err != nil {
-		logrus.Error(ctx, "[ResetPasswordByCode]Get Users info failed:", err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+			"operation": "query_user",
+			"email":     resetPasswordReq.Email,
+			"error":     err.Error(),
+		})
 	}
 	t := time.Now().UTC()
 	info.PasswordLastUpdated = &t
 	info.Password = utils.BcryptHash(resetPasswordReq.Password)
 	if err = db.UpdateByEmail(ctx, info, user.Password, user.PasswordLastUpdated); err != nil {
 		logrus.Error(ctx, "[ResetPasswordByCode]Update Users info failed:", err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+			"operation": "update_password",
+			"email":     resetPasswordReq.Email,
+			"error":     err.Error(),
+		})
 	}
 	return nil
 }
@@ -506,52 +534,64 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 	return loginRsp, nil
 }
 
+// EmailRegister 邮箱注册
 func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (*model.LoginRsp, error) {
-	err := utils.ValidatePassword(req.Password)
-	if err != nil {
-		return nil, err
+	// 密码格式校验
+	if err := utils.ValidatePassword(req.Password); err != nil {
+		return nil, errcode.New("200040") // 密码格式不符合要求
 	}
-	//验证码验证
+
+	// 验证码校验
 	verificationCode, err := global.REDIS.Get(req.Email + "_code").Result()
 	if err != nil {
-		return nil, fmt.Errorf("verification code expired")
+		return nil, errcode.New("200011") // 验证码已过期
 	}
 	if verificationCode != req.VerifyCode {
-		return nil, fmt.Errorf("verification code error")
+		return nil, errcode.New("200012") // 验证码错误
 	}
+
+	// 密码一致性校验
 	if req.Password != req.ConfirmPassword {
-		return nil, fmt.Errorf("your confirmed password and new password do not match")
+		return nil, errcode.New("200041") // 两次输入的密码不一致
 	}
-	// 验证邮箱是否注册
+
+	// 验证邮箱是否已注册
 	user, err := dal.GetUsersByEmail(req.Email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("busy network")
+		return nil, errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+			"operation": "query_user",
+			"email":     req.Email,
+			"error":     err.Error(),
+		})
 	}
 	if user != nil {
-		return nil, fmt.Errorf("email already exists")
+		return nil, errcode.New("200008") // 邮箱已注册
 	}
-	// 是否加密配置
+
+	// 密码加密处理
 	if logic.UserIsEncrypt(ctx) {
 		if req.Salt == nil {
-			return nil, fmt.Errorf("salt is null")
+			return nil, errcode.New("200042") // 加密盐值为空
 		}
 		password, err := initialize.DecryptPassword(req.Password)
 		if err != nil {
-			return nil, fmt.Errorf("wrong decrypt password")
+			return nil, errcode.New("200043") // 密码解密失败
 		}
 		passwords := strings.TrimSuffix(string(password), *req.Salt)
 		req.Password = passwords
 	}
+
+	// bcrypt加密密码
 	req.Password = utils.BcryptHash(req.Password)
+
 	now := time.Now().UTC()
-	// 有效期+一年
-	//periodValidity := now.AddDate(1, 0, 0).UTC()
-	// 有效期转字符串2024-07-29T21:20:17.232478+08:00
-	//periodValidityStr := periodValidity.Format(time.RFC3339)
 	tenantID, err := common.GenerateRandomString(8)
 	if err != nil {
-		return nil, err
+		logrus.Error("生成租户ID失败", err)
+		return nil, errcode.New(errcode.CodeSystemError)
 	}
+
+	// 构建用户信息
 	userInfo := &model.User{
 		ID:                  uuid.New(),
 		Name:                &req.Email,
@@ -565,11 +605,16 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 		CreatedAt:           &now,
 		UpdatedAt:           &now,
 		PasswordLastUpdated: &now,
-		//Remark:      &periodValidityStr,
 	}
-	err = dal.CreateUsers(userInfo)
-	if err != nil {
-		return nil, fmt.Errorf("busy network")
+
+	// 创建用户
+	if err = dal.CreateUsers(userInfo); err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+			"operation": "create_user",
+			"email":     req.Email,
+			"error":     err.Error(),
+		})
 	}
+
 	return u.UserLoginAfter(userInfo)
 }

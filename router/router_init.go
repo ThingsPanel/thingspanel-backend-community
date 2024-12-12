@@ -10,10 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
-	ginSwagger "github.com/swaggo/gin-swagger"
 
 	// gin-swagger middleware
-	swaggerFiles "github.com/swaggo/files"
 
 	api "project/internal/api"
 )
@@ -32,22 +30,17 @@ func RouterInit() *gin.Engine {
 	router.Use(middleware.MetricsMiddleware(m))
 	// 注册 prometheus metrics 接口
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	//router.Use(middleware.ErrorHandler())
-	// 静态文件
+
 	// 添加静态文件路由
 	router.StaticFile("/metrics-viewer", "./static/metrics-viewer.html")
+
 	// 处理文件访问请求
 	router.GET("/files/*filepath", func(c *gin.Context) {
 		filepath := c.Param("filepath")
 		c.File("./files" + filepath)
 	})
 
-	controllers := new(api.Controller)
-
-	// 健康检查
-	router.GET("/health", controllers.SystemApi.HealthCheck)
-
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	//router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	router.Use(middleware.Cors())
 	// 初始化响应处理器
@@ -57,6 +50,10 @@ func RouterInit() *gin.Engine {
 	}
 	// 使用中间件
 	router.Use(handler.Middleware())
+
+	controllers := new(api.Controller)
+	// 健康检查
+	router.GET("/health", controllers.SystemApi.HealthCheck)
 
 	api := router.Group("api")
 	{

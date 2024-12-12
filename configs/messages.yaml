@@ -1,4 +1,5 @@
 # 错误码消息配置
+# configs/messages.yaml
 messages:
   # 成功码
   "200":
@@ -16,7 +17,10 @@ messages:
   "100002":
     zh_CN: "请求参数验证失败"
     en_US: "Parameter Validation Failed"
-  
+  "100003":
+    zh_CN: "密码解密失败"
+    en_US: "Password Decryption Failed"
+
   # 数据库相关错误 (101xxx)
   "101001":
     zh_CN: "数据库连接失败"
@@ -24,7 +28,7 @@ messages:
   "101002":
     zh_CN: "数据库操作超时"
     en_US: "Database Operation Timeout"
-  
+
   # 缓存相关错误 (102xxx)
   "102001":
     zh_CN: "缓存服务不可用"
@@ -32,6 +36,17 @@ messages:
   "102002":
     zh_CN: "缓存数据已过期"
     en_US: "Cache Data Expired"
+
+  # 认证相关错误 (103xxx)
+  "103001":
+    zh_CN: "token生成失败"
+    en_US: "Failed to Generate Token"
+  "103002": 
+    zh_CN: "token保存失败"
+    en_US: "Failed to Save Token"
+  "103003":
+   zh_CN: "登出失败,token删除出错"
+   en_US: "Logout Failed: Error Deleting Token"
 
   # 业务级错误 (2xxxxx)
   # 用户模块错误 (200xxx)
@@ -44,6 +59,43 @@ messages:
   "200003":
     zh_CN: "用户账号已被锁定"
     en_US: "User Account Locked"
+  "200005":
+   zh_CN: "用户账号已被禁用"
+   en_US: "User Account Disabled"
+  "200006":
+   zh_CN: "您已连续登录失败${attempts}次，账号锁定${duration}分钟，解锁时间为：${unlock_time}"
+   en_US: "Account locked after ${attempts} failed login attempts. Locked for ${duration} minutes. Unlock time: ${unlock_time}"
+  "200007":
+    zh_CN: "用户邮箱不存在"
+    en_US: "User email does not exist"
+  "200008":
+    zh_CN: "用户邮箱已注册"
+    en_US: "User email already registered"
+  "200009":
+    zh_CN: "验证码生成失败"
+    en_US: "Failed to generate verification code"
+  "200010":
+    zh_CN: "验证码邮件发送失败"
+    en_US: "Failed to send verification code email"
+  "200011":
+    zh_CN: "验证码已过期"
+    en_US: "Verification code expired"
+  "200012":
+    zh_CN: "验证码错误"
+    en_US: "Invalid verification code"
+  # 密码相关错误 (200040-200049)
+  "200040":
+    zh_CN: "密码必须包含至少6个字符，包含大小写字母、数字和特殊字符"
+    en_US: "Password must be at least 6 characters and contain uppercase, lowercase, number and special character"
+  "200041":
+    zh_CN: "两次输入的密码不一致"
+    en_US: "Passwords do not match"
+  "200042":
+    zh_CN: "加密盐值不能为空"
+    en_US: "Encryption salt cannot be empty"
+  "200043":
+    zh_CN: "密码解密失败"
+    en_US: "Password decryption failed"
   
   # 权限模块错误 (201xxx)
   "201001":

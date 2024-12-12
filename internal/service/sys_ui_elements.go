@@ -5,6 +5,7 @@ import (
 
 	dal "project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
@@ -83,16 +84,20 @@ func (*UiElements) ServeUiElementsListByPage(Params *model.ServeUiElementsListBy
 }
 
 func (*UiElements) ServeUiElementsListByAuthority(u *utils.UserClaims) (map[string]interface{}, error) {
-
 	total, list, err := dal.ServeUiElementsListByAuthority(u)
 	if err != nil {
-		return nil, err
+		logrus.Error("[ServeUiElementsListByAuthority] query failed:", err)
+		return nil, errcode.WithData(errcode.CodeDBError, err.Error(), map[string]interface{}{
+			"operation": "query_ui_elements",
+			"user_id":   u.ID,
+			"error":     err.Error(),
+		})
 	}
-	UiElementsListRsp := make(map[string]interface{})
-	UiElementsListRsp["total"] = total
-	UiElementsListRsp["list"] = list
 
-	return UiElementsListRsp, err
+	return map[string]interface{}{
+		"total": total,
+		"list":  list,
+	}, nil
 }
 
 // 获取租户下权限配置表单树

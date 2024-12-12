@@ -123,32 +123,16 @@ func (*UiElementsApi) ServeUiElementsListByPage(c *gin.Context) {
 }
 
 // ServeUiElementsListByPage 根据用户权限查询ui元素
-// @Tags     ui元素控制
-// @Summary  根据用户权限查询ui元素
-// @Description 根据用户权限查询ui元素
-// @Description  返回数据格式举例：
-// @Description    "parent_id": "0", //根，string 父元素id
-// @Description    "authority": "[\"SYS_ADMIN\",\"TENANT_ADMIN\"]", //json 权限为users表中的枚举值:TENANT_ADMIN-租户管理员 TENANT_USER-租户用户 SYS_ADMIN-系统管理员
-// @Description    "element_type": 1,//int 元素类型1-菜单 2-目录 3-按钮 4-路由
-// @Description  	"orders": 1,//int
-// @Description  	其他值
-// @accept    application/json
-// @Produce   application/json
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ui_elements/menu [get]
 func (*UiElementsApi) ServeUiElementsListByAuthority(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 
 	uiElementsList, err := service.GroupApp.UiElements.ServeUiElementsListByAuthority(userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get UiElements list successfully", uiElementsList)
+	c.Set("data", uiElementsList)
 }
 
 // 菜单权限配置表单

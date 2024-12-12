@@ -8,11 +8,12 @@ import (
 
 type SystemApi struct{}
 
+// /api/v1/systime
 func (*SystemApi) HandleSystime(c *gin.Context) {
-	SuccessHandler(c, "success", map[string]interface{}{"systime": utils.GetSecondTimestamp()})
+	c.Set("data", map[string]interface{}{"systime": utils.GetSecondTimestamp()})
 }
 
-// 健康检查
+// 健康检查 /health
 func (*SystemApi) HealthCheck(c *gin.Context) {
-	SuccessOK(c)
+	c.Set("data", nil)
 }

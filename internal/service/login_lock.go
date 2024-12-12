@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
-	tpErrors "project/internal/errors"
+	"project/pkg/errcode"
 	"project/pkg/global"
 	"time"
 
@@ -42,12 +42,13 @@ func (l *LoginLock) GetAllowLogin(_ context.Context, username string) error {
 	lockUntil, err := global.REDIS.Get(lockKey).Result()
 	if err == nil {
 		lockUntilTime, err := time.Parse(time.RFC3339, lockUntil)
+		// 业务代码
 		if err == nil && time.Now().Before(lockUntilTime) {
-			//return errors.Errorf("Account %s is locked. Try again later.", username)
-			// return errors.Errorf("您已连续登录失败%d次，账号锁定%d分钟，解锁时间为：%s,请你耐心等待！",
-			//	l.MaxFailedAttempts, l.LockDuration/time.Minute, lockUntilTime.Format(time.DateTime))
-			return tpErrors.Wrap(errors.Errorf("您已连续登录失败%d次，账号锁定%d分钟，解锁时间为：%s,请你耐心等待！",
-				l.MaxFailedAttempts, l.LockDuration/time.Minute, lockUntilTime.Format(time.DateTime)), tpErrors.ErrTooManyAttempts)
+			return errcode.WithVars(errcode.CodeTooManyAttempts, map[string]interface{}{
+				"attempts":    l.MaxFailedAttempts,
+				"duration":    l.LockDuration / time.Minute,
+				"unlock_time": lockUntilTime.Format(time.DateTime),
+			})
 		}
 	}
 	return nil
