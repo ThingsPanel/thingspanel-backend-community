@@ -189,12 +189,16 @@ func (*User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, error)
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(userClaims.Email)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "query_user",
+			"email":     userClaims.Email,
+			"error":     err.Error(),
+		})
 	}
 
 	// 判断用户状态
 	if *user.Status != "N" {
-		return nil, fmt.Errorf("user status exception")
+		return nil, errcode.New(errcode.CodeUserDisabled)
 	}
 
 	key := viper.GetString("jwt.key")
@@ -209,7 +213,7 @@ func (*User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, error)
 	}
 	token, err := jwt.GenerateToken(claims)
 	if err != nil {
-		return nil, err
+		return nil, errcode.New(errcode.CodeTokenGenerateError)
 	}
 
 	global.REDIS.Set(token, "1", 24*7*time.Hour)
@@ -325,7 +329,10 @@ func (*User) GetUserById(id string) (*model.User, error) {
 func (*User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetUserListByPage(userListReq, claims)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "query_user",
+			"error":     err.Error(),
+		})
 	}
 	userListRspMap := make(map[string]interface{})
 	userListRspMap["total"] = total

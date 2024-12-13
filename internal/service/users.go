@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 	model "project/internal/model"
 	query "project/internal/query"
 	common "project/pkg/common"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/sirupsen/logrus"
@@ -127,7 +127,9 @@ func (*UsersService) GetTenantInfo(ctx context.Context, email string) (*model.Us
 	UserInfo, err := db.First(ctx, user.Email.Eq(email))
 	if err != nil {
 		logrus.Error(ctx, "[GetTenantInfo]Users info failed:", err)
-		return info, err
+		return info, errcode.WithData(101001, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 	info = dal.UserVo{}.PoToVo(UserInfo)
 
@@ -146,7 +148,9 @@ func (*UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.UserC
 	info, err := db.First(ctx, user.Email.Eq(userInfo.Email))
 	if err != nil {
 		logrus.Error(ctx, "[UpdateTenantInfo]Get Users info failed:", err)
-		return err
+		return errcode.WithData(101001, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 	var columns []field.Expr
 	columns = append(columns, user.Name)
@@ -165,7 +169,9 @@ func (*UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.UserC
 	}
 	if err = db.UpdateByEmail(ctx, info, columns...); err != nil {
 		logrus.Error(ctx, "[UpdateTenantInfo]Update Users info failed:", err)
-		return err
+		return errcode.WithData(101001, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 	return err
 }
@@ -173,31 +179,36 @@ func (*UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.UserC
 // UpdateTenantInfoPassword
 // @AUTHOR:zxq
 // @DATE: 2024-03-05 13:04
-// @DESCRIPTIONS: 更新租户个人密码
 func (*UsersService) UpdateTenantInfoPassword(ctx context.Context, userInfo *utils.UserClaims, param *model.UsersUpdatePasswordReq) error {
 	// test@test.cn不允许修改密码
 	if userInfo.Email == "test@test.cn" {
-		return errors.New("该用户不允许修改密码")
+		return errcode.New(200044) // 使用新增的"不允许修改密码"错误码
 	}
+
+	// 密码格式校验
 	err := utils.ValidatePassword(param.Password)
 	if err != nil {
-		return err
+		return errcode.New(200040) // 使用已有的密码格式错误码
 	}
+
 	var (
 		db   = dal.UserQuery{}
 		user = query.User
 	)
+
 	info, err := db.First(ctx, user.Email.Eq(userInfo.Email))
 	if err != nil {
 		logrus.Error(ctx, "[UpdateTenantInfoPassword]Get Users info failed:", err)
-		return err
+		return errcode.WithData(101001, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
 	// 是否加密配置
 	if logic.UserIsEncrypt(ctx) {
 		password, err := initialize.DecryptPassword(param.Password)
 		if err != nil {
-			return fmt.Errorf("wrong decrypt password")
+			return errcode.New(200043) // 使用已有的密码解密失败错误码
 		}
 		passwords := strings.TrimSuffix(string(password), param.Salt)
 		param.Password = passwords
@@ -205,7 +216,7 @@ func (*UsersService) UpdateTenantInfoPassword(ctx context.Context, userInfo *uti
 
 	// 验证旧密码
 	if !utils.BcryptCheck(param.OldPassword, info.Password) {
-		return errors.New("OldPassword Failed,Please again~")
+		return errcode.New(200045) // 使用新增的"旧密码验证失败"错误码
 	}
 
 	t := time.Now().UTC()
@@ -215,7 +226,11 @@ func (*UsersService) UpdateTenantInfoPassword(ctx context.Context, userInfo *uti
 	info.Password = utils.BcryptHash(param.Password)
 	if err = db.UpdateByEmail(ctx, info, user.Password, user.UpdatedAt, user.PasswordLastUpdated); err != nil {
 		logrus.Error(ctx, "[UpdateTenantInfoPassword]Update Users info failed:", err)
-		return err
+		return errcode.WithData(101001, map[string]interface{}{
+			"error": err.Error(),
+			"email": userInfo.Email,
+		})
 	}
-	return err
+
+	return nil
 }

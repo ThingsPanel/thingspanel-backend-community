@@ -96,6 +96,12 @@ messages:
   200043:
     zh_CN: "密码解密失败"
     en_US: "Password decryption failed"
+  200044:
+    zh_CN: "不允许修改密码"
+    en_US: "Password modification not allowed"
+  200045:
+    zh_CN: "旧密码验证失败"
+    en_US: "Old password verification failed"
   
   # 权限模块错误 (201xxx)
   201001:

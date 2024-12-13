@@ -227,10 +227,10 @@ func (*BoardApi) HandleUserInfo(c *gin.Context) {
 	users := service.UsersService{}
 	data, err := users.GetTenantInfo(c, userClaims.Email)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get message successfully!", *data)
+	c.Set("data", data)
 }
 
 // UpdateUserInfo 更新个人信息
@@ -246,10 +246,10 @@ func (*BoardApi) UpdateUserInfo(c *gin.Context) {
 	users := service.UsersService{}
 	err := users.UpdateTenantInfo(c, userClaims, &param)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessOK(c)
+	c.Set("data", nil)
 }
 
 // UpdateUserInfoPassword 更新个人密码
@@ -265,8 +265,8 @@ func (*BoardApi) UpdateUserInfoPassword(c *gin.Context) {
 	users := service.UsersService{}
 	err := users.UpdateTenantInfoPassword(c, userClaims, &param)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessOK(c)
+	c.Set("data", nil)
 }

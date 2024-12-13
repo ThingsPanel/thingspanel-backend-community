@@ -56,10 +56,10 @@ func (*UserApi) RefreshToken(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	loginRsp, err := service.GroupApp.User.RefreshToken(userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Refresh token successfully", loginRsp)
+	c.Set("data", loginRsp)
 }
 
 // GET /api/v1/verification/code
@@ -122,11 +122,11 @@ func (*UserApi) HandleUserListByPage(c *gin.Context) {
 
 	userList, err := service.GroupApp.User.GetUserListByPage(&userListReq, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get user list successfully", userList)
+	c.Set("data", userList)
 }
 
 // UpdateUser 修改用户信息
