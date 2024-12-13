@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"project/initialize"
+	"project/internal/app"
 	"project/internal/query"
 	"project/mqtt"
 	"project/mqtt/device"
@@ -64,6 +65,12 @@ func init() {
 // @in                          header
 // @name                        x-token
 func main() {
+	// 初始化服务管理器
+	manager := app.NewManager()
+	if err := manager.Start(); err != nil {
+		logrus.Fatalf("Failed to start services: %v", err)
+	}
+	defer manager.Stop()
 	// gin.SetMode(gin.ReleaseMode)
 
 	// TODO: 替换gin默认日志，默认日志不支持日志级别设置
@@ -135,7 +142,7 @@ func successInfo() {
 	fmt.Println("        TingsPanel 启动成功!")
 	fmt.Println("----------------------------------------")
 	fmt.Printf("启动时间: %s\n", startTime)
-	fmt.Println("版本: v1.1.3社区版")
+	fmt.Println("版本: v1.1.4社区版")
 	fmt.Println("----------------------------------------")
 	fmt.Println("欢迎使用 TingsPanel！")
 	fmt.Println("如需帮助，请访问: http://thingspanel.io")

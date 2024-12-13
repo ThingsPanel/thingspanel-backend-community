@@ -213,10 +213,10 @@ func (*BoardApi) HandleTenantDeviceInfo(c *gin.Context) {
 	board := service.GroupApp.Board
 	total, err := board.GetDeviceByTenantID(c, userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get board list successfully", total)
+	c.Set("data", total)
 }
 
 // GetUserInfo 个人信息查询

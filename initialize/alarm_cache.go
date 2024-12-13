@@ -1,6 +1,7 @@
 package initialize
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,8 +10,8 @@ import (
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/redis.v5"
 )
 
 var (
@@ -90,7 +91,7 @@ func (a *AlarmCache) set(key string, value interface{}) error {
 		valueStr = string(valBytes)
 	}
 	logrus.Debug(valueStr)
-	return a.client.Set(key, valueStr, a.expireIn).Err()
+	return a.client.Set(context.Background(), key, valueStr, a.expireIn).Err()
 }
 
 // SetDevice
@@ -104,8 +105,10 @@ func (a *AlarmCache) SetDevice(group_id, scene_automation_id string, device_ids,
 	defer alarmMu.Unlock()
 	var info AlarmCacheGroup
 	cacheKey := a.getCacheKeyByGroupId(group_id)
-	if ok, _ := a.client.Exists(cacheKey).Result(); ok {
-		err := a.client.Get(cacheKey).Scan(&info)
+	if count, err := a.client.Exists(context.Background(), cacheKey).Result(); err != nil {
+		return pkgerrors.Wrap(err, "检查缓存是否存在失败")
+	} else if count > 0 {
+		err := a.client.Get(context.Background(), cacheKey).Scan(&info)
 		if err != nil {
 			return pkgerrors.Wrap(err, "获取缓存失败")
 		}
@@ -141,7 +144,7 @@ func (a *AlarmCache) SetDevice(group_id, scene_automation_id string, device_ids,
 // @return error
 func (a *AlarmCache) groupCacheAdd(cacheKey, groupId string) error {
 	var groupIds SliceString
-	err := a.client.Get(cacheKey).Scan(&groupIds)
+	err := a.client.Get(context.Background(), cacheKey).Scan(&groupIds)
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return err
 	}
@@ -171,7 +174,7 @@ func (a *AlarmCache) groupCacheAdd(cacheKey, groupId string) error {
 // @return error
 func (a *AlarmCache) groupCacheDel(cachekey, group_id string) error {
 	var groupIds SliceString
-	err := a.client.Get(cachekey).Scan(&groupIds)
+	err := a.client.Get(context.Background(), cachekey).Scan(&groupIds)
 	if err != nil && err != redis.Nil {
 		return err
 	}
@@ -183,7 +186,7 @@ func (a *AlarmCache) groupCacheDel(cachekey, group_id string) error {
 	if len(groupIds) > 0 {
 		err = a.set(cachekey, groupIds)
 	} else {
-		err = a.client.Del(cachekey).Err()
+		err = a.client.Del(context.Background(), cachekey).Err()
 	}
 
 	if err != nil {
@@ -202,7 +205,7 @@ func (a *AlarmCache) SetAlarm(group_id string, alarm_config_ids []string) error 
 	defer alarmMu.Unlock()
 	var info AlarmCacheGroup
 	cachekey := a.getCacheKeyByGroupId(group_id)
-	err := a.client.Get(cachekey).Scan(&info)
+	err := a.client.Get(context.Background(), cachekey).Scan(&info)
 	if err != nil && err != redis.Nil {
 		return err
 	}
@@ -228,7 +231,7 @@ func (a *AlarmCache) SetAlarm(group_id string, alarm_config_ids []string) error 
 func (a *AlarmCache) GetByGroupId(group_id string) (AlarmCacheGroup, error) {
 	var info AlarmCacheGroup
 	cachekey := a.getCacheKeyByGroupId(group_id)
-	err := a.client.Get(cachekey).Scan(&info)
+	err := a.client.Get(context.Background(), cachekey).Scan(&info)
 	if err != nil && err != redis.Nil {
 		return info, err
 	}
@@ -242,7 +245,7 @@ func (a *AlarmCache) GetByGroupId(group_id string) (AlarmCacheGroup, error) {
 func (a *AlarmCache) GetBySceneAutomationId(scene_automation_id string) ([]string, error) {
 	var groupIds SliceString
 	cachekey := a.getCacheKeyByScene(scene_automation_id)
-	err := a.client.Get(cachekey).Scan(&groupIds)
+	err := a.client.Get(context.Background(), cachekey).Scan(&groupIds)
 	if err != nil && err != redis.Nil {
 		return groupIds, err
 	}
@@ -281,5 +284,5 @@ func (a *AlarmCache) DeleteBygroupId(group_Id string) error {
 
 	cacheKey := a.getCacheKeyByGroupId(group_Id)
 
-	return a.client.Del(cacheKey).Err()
+	return a.client.Del(context.Background(), cacheKey).Err()
 }

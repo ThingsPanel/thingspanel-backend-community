@@ -157,16 +157,16 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 		}
 	}
 	// 保存token到redis
-	global.REDIS.Set(token, "1", time.Duration(timeout)*time.Minute)
+	global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute)
 	// 禁止共享token，这里永久存储账号和token的关系，是可以保证一个账号只能在一个地方登录
 	if !logic.UserIsShare(context.Background()) {
-		oldToken, err := global.REDIS.Get(user.Email + "_token").Result()
+		oldToken, err := global.REDIS.Get(context.Background(), user.Email+"_token").Result()
 		if err != nil {
 			logrus.Error(err)
 		} else {
-			global.REDIS.Del(oldToken)
+			global.REDIS.Del(context.Background(), oldToken)
 		}
-		global.REDIS.Set(user.Email+"_token", token, 0)
+		global.REDIS.Set(context.Background(), user.Email+"_token", token, 0)
 	}
 
 	loginRsp := &model.LoginRsp{
@@ -178,7 +178,7 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 
 // @description 退出登录
 func (*User) Logout(token string) error {
-	if err := global.REDIS.Del(token).Err(); err != nil {
+	if err := global.REDIS.Del(context.Background(), token).Err(); err != nil {
 		return errcode.New(errcode.CodeTokenDeleteError)
 	}
 	return nil
@@ -216,7 +216,7 @@ func (*User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, error)
 		return nil, errcode.New(errcode.CodeTokenGenerateError)
 	}
 
-	global.REDIS.Set(token, "1", 24*7*time.Hour)
+	global.REDIS.Set(context.Background(), token, "1", 24*7*time.Hour)
 
 	loginRsp := &model.LoginRsp{
 		Token:     &token,
@@ -252,7 +252,7 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 		})
 	}
 
-	err = global.REDIS.Set(email+"_code", verificationCode, 5*time.Minute).Err()
+	err = global.REDIS.Set(context.Background(), email+"_code", verificationCode, 5*time.Minute).Err()
 	if err != nil {
 		return errcode.WithData(errcode.CodeCacheError, map[string]interface{}{
 			"operation": "save_verification_code",
@@ -282,7 +282,7 @@ func (*User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPas
 		return errcode.New(200040) // 密码格式错误
 	}
 
-	verificationCode, err := global.REDIS.Get(resetPasswordReq.Email + "_code").Result()
+	verificationCode, err := global.REDIS.Get(context.Background(), resetPasswordReq.Email+"_code").Result()
 	if err != nil {
 		return errcode.New(200011) // 验证码已过期
 	}
@@ -532,7 +532,7 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 		return nil, err
 	}
 
-	global.REDIS.Set(token, "1", 24*7*time.Hour)
+	global.REDIS.Set(context.Background(), token, "1", 24*7*time.Hour)
 
 	loginRsp := &model.LoginRsp{
 		Token:     &token,
@@ -549,7 +549,7 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	}
 
 	// 验证码校验
-	verificationCode, err := global.REDIS.Get(req.Email + "_code").Result()
+	verificationCode, err := global.REDIS.Get(context.Background(), req.Email+"_code").Result()
 	if err != nil {
 		return nil, errcode.New(200011) // 验证码已过期
 	}

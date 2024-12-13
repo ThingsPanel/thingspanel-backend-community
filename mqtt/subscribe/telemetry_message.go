@@ -111,6 +111,9 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 		logrus.Error("telemetry forward error:", err.Error())
 	}
 
+	// 心跳处理
+	go HeartbeatDeal(device)
+
 	//byte转map
 	var reqMap = make(map[string]interface{})
 	err = json.Unmarshal(telemetryBody, &reqMap)

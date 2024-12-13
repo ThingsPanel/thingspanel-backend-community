@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/hex"
 	"strings"
 	"time"
@@ -26,7 +27,7 @@ func DelDataScriptCache(data_script *model.DataScript) error {
 	}
 
 	for _, deviceID := range deviceIDs {
-		_ = global.REDIS.Del(deviceID + "_" + data_script.ScriptType + "_script").Err()
+		_ = global.REDIS.Del(context.Background(), deviceID+"_"+data_script.ScriptType+"_script").Err()
 	}
 	return nil
 }

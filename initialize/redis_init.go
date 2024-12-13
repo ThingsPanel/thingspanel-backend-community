@@ -1,6 +1,7 @@
 package initialize
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,9 +11,9 @@ import (
 	model "project/internal/model"
 	global "project/pkg/global"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"gopkg.in/redis.v5"
 )
 
 type RedisConfig struct {
@@ -27,12 +28,22 @@ func RedisInit() (*redis.Client, error) {
 		return nil, fmt.Errorf("加载redis配置失败:%v", err)
 	}
 
+	statusConf, err := loadStatusConfig()
+	if err != nil {
+		return nil, fmt.Errorf("加载redis配置失败:%v", err)
+	}
+
 	client := connectRedis(conf)
+	statusClient := connectRedis(statusConf)
 
 	if checkRedisClient(client) != nil {
 		return nil, fmt.Errorf("连接redis失败:%v", err)
 	}
+	if checkRedisClient(statusClient) != nil {
+		return nil, fmt.Errorf("连接redis失败:%v", err)
+	}
 	global.REDIS = client
+	global.STATUS_REDIS = statusClient
 	// 启动SSE
 	go global.InitSSEManager()
 	return client, nil
@@ -52,7 +63,7 @@ func connectRedis(conf *RedisConfig) *redis.Client {
 
 func checkRedisClient(redisClient *redis.Client) error {
 	// 通过 cient.Ping() 来检查是否成功连接到了 redis 服务器
-	_, err := redisClient.Ping().Result()
+	_, err := redisClient.Ping(context.Background()).Result()
 	if err != nil {
 		return err
 	} else {
@@ -74,18 +85,35 @@ func loadConfig() (*RedisConfig, error) {
 	return redisConfig, nil
 }
 
+func loadStatusConfig() (*RedisConfig, error) {
+	db := viper.GetInt("db.redis.db1")
+	if db == 0 {
+		db = 10 // 默认使用第11个DB
+	}
+	redisConfig := &RedisConfig{
+		Addr:     viper.GetString("db.redis.addr"),
+		Password: viper.GetString("db.redis.password"),
+		DB:       db,
+	}
+
+	if redisConfig.Addr == "" {
+		redisConfig.Addr = "localhost:6379"
+	}
+	return redisConfig, nil
+}
+
 // setRedis 将map或者结构体对象序列化为 JSON字符串 并存储在 Redis 中
 func SetRedisForJsondata(key string, value interface{}, expiration time.Duration) error {
 	jsonData, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
-	return global.REDIS.Set(key, jsonData, expiration).Err()
+	return global.REDIS.Set(context.Background(), key, jsonData, expiration).Err()
 }
 
 // getRedis 从 Redis 中获取 JSON 并反序列化到指定对象
 func GetRedisForJsondata(key string, dest interface{}) error {
-	val, err := global.REDIS.Get(key).Result()
+	val, err := global.REDIS.Get(context.Background(), key).Result()
 	if err != nil {
 		return err
 	}
@@ -140,7 +168,7 @@ func GetScriptByDeviceAndScriptType(device *model.Device, script_type string) (*
 
 // 清除设备信息缓存
 func DelDeviceCache(deviceId string) error {
-	err := global.REDIS.Del(deviceId).Err()
+	err := global.REDIS.Del(context.Background(), deviceId).Err()
 	if err != nil {
 		logrus.Warn("del redis_cache key(deviceId):", deviceId, " failed with err:", err.Error())
 	}
@@ -149,7 +177,7 @@ func DelDeviceCache(deviceId string) error {
 
 // 清除设备配置信息缓存
 func DelDeviceConfigCache(deviceConfigId string) error {
-	err := global.REDIS.Del(deviceConfigId + "_config").Err()
+	err := global.REDIS.Del(context.Background(), deviceConfigId+"_config").Err()
 	if err != nil {
 		logrus.Warn("del redis_cache key(deviceConfigId):", deviceConfigId+"_config", " failed with err:", err.Error())
 	}
@@ -164,7 +192,7 @@ func DelDeviceDataScriptCache(deviceID string) error {
 		key = append(key, deviceID+"_"+scriptType+"_script")
 	}
 
-	err := global.REDIS.Del(key...).Err()
+	err := global.REDIS.Del(context.Background(), key...).Err()
 	if err != nil {
 		logrus.Warn("del redis_cache key:", key, " failed with err:", err.Error())
 	}

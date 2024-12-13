@@ -277,7 +277,7 @@ func GetAlarmNameWithCache(alarmId string) string {
 	redis := global.REDIS
 	cacheKey := fmt.Sprintf("GetAlarmNameWithCache:alarmId:%s", alarmId)
 	var result string
-	err := redis.Get(cacheKey).Scan(&result)
+	err := redis.Get(context.Background(), cacheKey).Scan(&result)
 	if err == nil && result != "" {
 		return result
 	}
@@ -285,6 +285,6 @@ func GetAlarmNameWithCache(alarmId string) string {
 	if err != nil {
 		return ""
 	}
-	redis.Set(cacheKey, alarmConfig.Name, time.Hour)
+	redis.Set(context.Background(), cacheKey, alarmConfig.Name, time.Hour)
 	return alarmConfig.Name
 }

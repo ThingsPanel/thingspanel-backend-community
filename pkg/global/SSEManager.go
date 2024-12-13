@@ -1,6 +1,7 @@
 package global
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-basic/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/redis.v5"
 )
 
 func InitSSEManager() {
@@ -81,19 +82,16 @@ func (m *SSEManager) BroadcastEventToTenant(tenantID string, event SSEEvent) err
 		return err
 	}
 
-	return m.redisClient.Publish("sse:tenant:"+tenantID, string(eventJSON)).Err()
+	return m.redisClient.Publish(context.Background(), "sse:tenant:"+tenantID, string(eventJSON)).Err()
 }
 
 func (m *SSEManager) ListenForEvents() {
-	pubsub, err := m.redisClient.PSubscribe("sse:tenant:*")
-	if err != nil {
-		logrus.Errorf("Failed to subscribe to Redis channel: %v", err)
-		return
-	}
+	pubsub := m.redisClient.PSubscribe(context.Background(), "sse:tenant:*")
+
 	defer pubsub.Close()
 
 	for {
-		msg, err := pubsub.ReceiveMessage()
+		msg, err := pubsub.ReceiveMessage(context.Background())
 		if err != nil {
 			logrus.Errorf("Error receiving message: %v", err)
 			continue

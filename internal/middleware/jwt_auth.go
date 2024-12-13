@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -21,14 +22,14 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 
-		if global.REDIS.Get(token).Val() != "1" {
+		if global.REDIS.Get(context.Background(), token).Val() != "1" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录或非法访问"})
 			c.Abort()
 			return
 		} else {
 			timeout := viper.GetInt("session.timeout")
 			// 刷新时间
-			global.REDIS.Set(token, "1", time.Duration(timeout)*time.Minute)
+			global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute)
 		}
 
 		// 获取key

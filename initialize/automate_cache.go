@@ -1,6 +1,7 @@
 package initialize
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,8 +12,8 @@ import (
 	"project/internal/model"
 	global "project/pkg/global"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/redis.v5"
 )
 
 const (
@@ -95,7 +96,7 @@ func (c *AutomateCache) set(key string, value interface{}, expiration time.Durat
 		}
 		valueStr = string(valBytes)
 	}
-	return c.client.Set(key, valueStr, expiration).Err()
+	return c.client.Set(context.Background(), key, valueStr, expiration).Err()
 }
 
 func (*AutomateCache) scan(stringCmd *redis.StringCmd, val interface{}) (int, error) {
@@ -143,7 +144,7 @@ func (c *AutomateCache) deleteCacheBySceneAutId(sceneAutomationId string) error 
 		deviceIds      []string
 	)
 	actionCacheKey := c.getAutomateCacheKeyAction(sceneAutomationId)
-	resultInt, err := c.scan(c.client.Get(actionCacheKey), &action)
+	resultInt, err := c.scan(c.client.Get(context.Background(), actionCacheKey), &action)
 	if err != nil {
 		return err
 	}
@@ -162,7 +163,7 @@ func (c *AutomateCache) deleteCacheBySceneAutId(sceneAutomationId string) error 
 			groupInfos    DTConditions
 		)
 		deleteCacheKes = append(deleteCacheKes, groupCacheKey)
-		err := c.client.Get(groupCacheKey).Scan(&groupInfos)
+		err := c.client.Get(context.Background(), groupCacheKey).Scan(&groupInfos)
 		if err != nil {
 			continue
 		}
@@ -178,7 +179,7 @@ func (c *AutomateCache) deleteCacheBySceneAutId(sceneAutomationId string) error 
 		return err
 	}
 	//4 删除缓存
-	return c.client.Del(deleteCacheKes...).Err()
+	return c.client.Del(context.Background(), deleteCacheKes...).Err()
 }
 
 // automateDeviceCacheDeleteHandel
@@ -194,7 +195,7 @@ func (c *AutomateCache) automateDeviceCacheDeleteHandel(sceneAutomationId string
 			//baseCacheKey        = getCachekey(deviceId)
 			automateDeviceInfos AutomateDeviceInfos
 		)
-		err := c.client.Get(baseCacheKey).Scan(&automateDeviceInfos)
+		err := c.client.Get(context.Background(), baseCacheKey).Scan(&automateDeviceInfos)
 		if err != nil {
 			continue
 		}
@@ -300,7 +301,7 @@ func (c *AutomateCache) setCacheBySceneAutId(sceneAutomationId string, condition
 	for deviceId := range deviceIdsMap {
 		var automateDeviceInfos AutomateDeviceInfos
 		var deviceCacheKey = c.getAutomateCacheKeyBase(deviceId)
-		_, err = c.scan(c.client.Get(deviceCacheKey), &automateDeviceInfos)
+		_, err = c.scan(c.client.Get(context.Background(), deviceCacheKey), &automateDeviceInfos)
 		if err != nil {
 			continue
 		}
@@ -342,7 +343,7 @@ func (c *AutomateCache) getCacheByDId(deviceId, deviceConfigId, deviceCacheKey s
 		}
 		resultInt int
 	)
-	stringCmd := c.client.Get(deviceCacheKey)
+	stringCmd := c.client.Get(context.Background(), deviceCacheKey)
 	resultInt, err := c.scan(stringCmd, &automateDeviceInfos)
 	if err != nil || resultInt != AUTOMATE_CACHE_RESULT_OK {
 		return automateExecuteParams, resultInt, err
@@ -357,7 +358,7 @@ func (c *AutomateCache) getCacheByDId(deviceId, deviceConfigId, deviceCacheKey s
 				groupCacheKey = c.getAutomateCacheKeyGroup(groupId)
 				condition     DTConditions
 			)
-			err := c.client.Get(groupCacheKey).Scan(&condition)
+			err := c.client.Get(context.Background(), groupCacheKey).Scan(&condition)
 			if err != nil {
 				logrus.Warning("redis未查询到数据1", err)
 				continue
@@ -368,7 +369,7 @@ func (c *AutomateCache) getCacheByDId(deviceId, deviceConfigId, deviceCacheKey s
 			actionInfo     AutomateActionInfo
 			actionCacheKey = c.getAutomateCacheKeyAction(info.SceneAutomationId)
 		)
-		err := c.client.Get(actionCacheKey).Scan(&actionInfo)
+		err := c.client.Get(context.Background(), actionCacheKey).Scan(&actionInfo)
 		if err != nil {
 			logrus.Warning("redis未查询到数据", err)
 			continue

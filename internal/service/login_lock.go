@@ -39,7 +39,7 @@ func (l *LoginLock) GetAllowLogin(_ context.Context, username string) error {
 	lockKey := l.getLockKey(username)
 
 	// Check if the account is locked
-	lockUntil, err := global.REDIS.Get(lockKey).Result()
+	lockUntil, err := global.REDIS.Get(context.Background(), lockKey).Result()
 	if err == nil {
 		lockUntilTime, err := time.Parse(time.RFC3339, lockUntil)
 		// 业务代码
@@ -56,20 +56,20 @@ func (l *LoginLock) GetAllowLogin(_ context.Context, username string) error {
 
 func (l *LoginLock) LoginSuccess(_ context.Context, username string) error {
 	key := l.getKey(username)
-	return global.REDIS.Del(key).Err()
+	return global.REDIS.Del(context.Background(), key).Err()
 }
 
 func (l *LoginLock) LoginFail(_ context.Context, username string) error {
 	key := l.getKey(username)
 	lockKey := l.getLockKey(username)
-	failedAttempts, err := global.REDIS.Incr(key).Result()
+	failedAttempts, err := global.REDIS.Incr(context.Background(), key).Result()
 	if err != nil {
 		return errors.Errorf("Error incrementing failed attempts for %s: %v", username, err)
 	}
 
 	if failedAttempts >= l.MaxFailedAttempts {
 		lockUntilTime := time.Now().Add(l.LockDuration)
-		global.REDIS.Set(lockKey, lockUntilTime.Format(time.RFC3339), l.LockDuration)
+		global.REDIS.Set(context.Background(), lockKey, lockUntilTime.Format(time.RFC3339), l.LockDuration)
 	}
 
 	return nil

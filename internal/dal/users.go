@@ -132,7 +132,7 @@ func GetUserIdBYTenantID(tenantID string) (string, error) {
 		cacheKeyId = fmt.Sprintf("GetUserIdBYTenantID:%s", tenantID)
 		err        error
 	)
-	userId, err = global.REDIS.Get(cacheKeyId).Result()
+	userId, err = global.REDIS.Get(context.Background(), cacheKeyId).Result()
 	if err == nil {
 		return userId, nil
 	}
@@ -140,7 +140,7 @@ func GetUserIdBYTenantID(tenantID string) (string, error) {
 	if err != nil {
 		return userId, err
 	}
-	global.REDIS.Set(cacheKeyId, userId, time.Hour*6)
+	global.REDIS.Set(context.Background(), cacheKeyId, userId, time.Hour*6)
 	return userId, nil
 }
 
