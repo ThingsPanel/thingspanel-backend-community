@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"mime/multipart"
-	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"project/pkg/common"
+	"project/pkg/errcode"
 	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -24,86 +24,126 @@ type UpLoadApi struct{}
 const (
 	BaseUploadDir = "./files/"
 	OtaPath       = "./api/v1/ota/download/files/"
-	MaxFileSize   = 200 << 20 // 200MB
+	MaxFileSize   = 500 << 20 // 200MB
 )
 
 // UpFile 处理文件上传
 // @Tags     文件上传
 // @Router   /api/v1/file/up [post]
 func (*UpLoadApi) UpFile(c *gin.Context) {
-	// 验证请求参数
-	file, fileType, err := validateRequest(c)
-	if err != nil {
-		ErrorHandler(c, http.StatusBadRequest, err)
+	// 检查文件是否为空
+	file, err := c.FormFile("file")
+	if err != nil || file == nil {
+		c.Error(errcode.New(errcode.CodeFileEmpty))
+		return
+	}
+
+	// 验证文件类型
+	fileType := c.PostForm("type")
+	if fileType == "" {
+		c.Error(errcode.New(errcode.CodeFileEmpty))
+		return
+	}
+
+	// 验证文件大小
+	if file.Size > MaxFileSize {
+		c.Error(errcode.WithVars(errcode.CodeFileTooLarge, map[string]interface{}{
+			"max_size":     "500MB",
+			"current_size": fmt.Sprintf("%.2fMB", float64(file.Size)/(1<<20)),
+		}))
+		return
+	}
+
+	// 文件名净化
+	filename := sanitizeFilename(file.Filename)
+
+	// 文件类型检查
+	if err := validateFileType(filename, fileType); err != nil {
+		c.Error(errcode.WithVars(errcode.CodeFileTypeMismatch, map[string]interface{}{
+			"expected_type": fileType,
+			"actual_type":   filepath.Ext(filename),
+		}))
 		return
 	}
 
 	// 生成文件路径
 	uploadDir, fileName, err := generateFilePath(fileType, file.Filename)
 	if err != nil {
-		ErrorHandler(c, http.StatusUnprocessableEntity, err)
+		c.Error(errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
+			"error":     err.Error(),
+			"file_type": fileType,
+			"filename":  file.Filename,
+		}))
 		return
 	}
 
 	// 保存文件
 	filePath, err := saveFile(c, file, uploadDir, fileName, fileType)
 	if err != nil {
-		ErrorHandler(c, http.StatusUnprocessableEntity, err)
+		c.Error(errcode.WithVars(errcode.CodeFileSaveError, map[string]interface{}{
+			"error":      err.Error(),
+			"upload_dir": uploadDir,
+			"filename":   fileName,
+		}))
 		return
 	}
 
-	SuccessHandler(c, "上传成功", map[string]interface{}{
+	c.Set("data", map[string]interface{}{
 		"path": filePath,
 	})
 }
 
-// validateRequest 验证上传请求
-func validateRequest(c *gin.Context) (*multipart.FileHeader, string, error) {
-	file, err := c.FormFile("file")
-	if err != nil || file == nil {
-		return nil, "", errors.New("文件获取失败")
-	}
-
-	// 验证文件大小
-	if file.Size > MaxFileSize {
-		return nil, "", fmt.Errorf("文件大小不能超过 200MB，当前大小 %.2fMB", float64(file.Size)/(1<<20))
-	}
-
-	// 验证文件类型
-	fileType := c.PostForm("type")
-	if fileType == "" {
-		return nil, "", errors.New("无效的文件类型")
-	}
-
-	// 文件安全检查
-	filename := sanitizeFilename(file.Filename)
-	if err := validateFileType(filename, fileType); err != nil {
-		return nil, "", err
-	}
-
-	file.Filename = filename
-	return file, fileType, nil
-}
-
-// generateFilePath 生成安全的文件路径
+// generateFilePath 生成安全的文件路径,路径：./files/{type}/{2023-08-10}/
 func generateFilePath(fileType, filename string) (string, string, error) {
-	dateDir := time.Now().Format("2006-01-02")
-	uploadDir := filepath.Join(BaseUploadDir, fileType, dateDir)
-
-	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
-		return "", "", fmt.Errorf("创建目录失败: %v", err)
+	// 1. 验证 fileType 是否包含非法字符
+	if strings.ContainsAny(fileType, "./\\") {
+		return "", "", errcode.New(errcode.CodeFilePathGenError)
 	}
 
-	// 生成唯一文件名
-	ext := strings.ToLower(filepath.Ext(filename))
+	// 2. 生成日期目录
+	dateDir := time.Now().Format("2006-01-02")
+
+	// 3. 使用 filepath.Clean 清理并验证路径
+	uploadDir := filepath.Clean(filepath.Join(BaseUploadDir, fileType, dateDir))
+	absUploadDir, err := filepath.Abs(uploadDir)
+	if err != nil {
+		return "", "", errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
+			"error": "invalid path",
+		})
+	}
+
+	absBaseDir, err := filepath.Abs(BaseUploadDir)
+	if err != nil {
+		return "", "", errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
+			"error": "invalid base path",
+		})
+	}
+
+	// 确保生成的路径在基础目录下
+	if !strings.HasPrefix(absUploadDir, absBaseDir) {
+		return "", "", errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
+			"error": "path traversal detected",
+		})
+	}
+
+	// 4. 创建目录
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return "", "", errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
+	// 5. 生成唯一文件名
 	randomStr, err := common.GenerateRandomString(16)
 	if err != nil {
-		return "", "", err
+		return "", "", errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
 	timeStr := time.Now().Format("20060102150405")
 	hashStr := fmt.Sprintf("%x", md5.Sum([]byte(timeStr+randomStr)))
-	fileName := hashStr + ext
+	fileName := hashStr + strings.ToLower(filepath.Ext(filename))
 
 	return uploadDir, fileName, nil
 }

@@ -15,6 +15,10 @@ const (
 	CodeTokenSaveError     = 103002 // token保存失败
 	CodeTokenDeleteError   = 103003 // token删除失败
 
+	// 文件系统错误码 (104xxx)
+	CodeFilePathGenError = 104001 // 生成文件路径失败
+	CodeFileSaveError    = 104002 // 保存文件失败
+
 )
 
 // 业务级错误码
@@ -29,4 +33,11 @@ const (
 	// 权限模块 (201xxx)
 	CodeNoPermission = 201001 // 无权限
 	CodeOpDenied     = 201002 // 操作被拒绝
+)
+
+const (
+	// 文件上传模块错误码 (202xxx)
+	CodeFileEmpty        = 202001 // 文件不能为空
+	CodeFileTypeMismatch = 202002 // 文件类型不匹配
+	CodeFileTooLarge     = 202003 // 文件大小超限
 )

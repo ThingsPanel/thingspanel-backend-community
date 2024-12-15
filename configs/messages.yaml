@@ -48,6 +48,14 @@ messages:
    zh_CN: "登出失败,token删除出错"
    en_US: "Logout Failed: Error Deleting Token"
 
+  # 文件系统错误 (104xxx)
+  104001:
+    zh_CN: "生成文件路径失败: ${error}"
+    en_US: "Failed to generate file path: ${error}"
+  104002:
+    zh_CN: "保存文件失败: ${error}"
+    en_US: "Failed to save file: ${error}"
+
   # 业务级错误 (2xxxxx)
   # 用户模块错误 (200xxx)
   200001:
@@ -110,6 +118,17 @@ messages:
   201002:
     zh_CN: "操作权限不足"
     en_US: "Insufficient Permissions"
+
+  # 文件上传模块错误 (202xxx)
+  202001:
+    zh_CN: "请选择需要上传的文件"
+    en_US: "Please select a file to upload"
+  202002:
+    zh_CN: "文件类型必须为${expected_type}，当前文件类型为${actual_type}"
+    en_US: "File type must be ${expected_type}, current file type is ${actual_type}"
+  202003:
+    zh_CN: "文件大小不能超过${max_size}，当前大小${current_size}"
+    en_US: "File size cannot exceed ${max_size}, current size is ${current_size}"
 
 # 配置元信息
 metadata:
