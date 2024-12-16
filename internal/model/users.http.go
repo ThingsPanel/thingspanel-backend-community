@@ -1,15 +1,18 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type CreateUserReq struct {
-	AdditionalInfo *string  `json:"additional_info" validate:"omitempty,max=10000"` // 附加信息
-	Email          string   `json:"email"  validate:"required,email"`               // 邮箱
-	Password       string   `json:"password" validate:"required,min=6,max=255"`     // 密码
-	Name           *string  `json:"name" validate:"omitempty,min=2,max=50"`         // 姓名
-	PhoneNumber    string   `json:"phone_number" validate:"required,max=50"`        // 手机号
-	RoleIDs        []string `json:"userRoles" validate:"omitempty"`                 // 角色ID
-	Remark         *string  `json:"remark" validate:"omitempty,max=255"`            // 备注
+	AdditionalInfo *json.RawMessage `json:"additional_info" validate:"omitempty,max=10000"` // 附加信息
+	Email          string           `json:"email"  validate:"required,email"`               // 邮箱
+	Password       string           `json:"password" validate:"required,min=6,max=255"`     // 密码
+	Name           *string          `json:"name" validate:"omitempty,min=2,max=50"`         // 姓名
+	PhoneNumber    string           `json:"phone_number" validate:"required,max=50"`        // 手机号
+	RoleIDs        []string         `json:"userRoles" validate:"omitempty"`                 // 角色ID
+	Remark         *string          `json:"remark" validate:"omitempty,max=255"`            // 备注
 }
 
 type LoginReq struct {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"fmt"
@@ -43,7 +44,13 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 	if createUserReq.AdditionalInfo == nil {
 		user.AdditionalInfo = StringPtr("{}")
 	} else {
-		user.AdditionalInfo = createUserReq.AdditionalInfo
+		var js map[string]interface{}
+		if err := json.Unmarshal(*createUserReq.AdditionalInfo, &js); err != nil {
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": fmt.Sprintf("Failed to unmarshal AdditionalInfo: %v", err),
+			})
+		}
+		user.AdditionalInfo = StringPtr(string(*createUserReq.AdditionalInfo))
 	}
 	// 判断用户权限
 	if claims.Authority == "SYS_ADMIN" { // 系统管理员创建租户管理员
@@ -54,31 +61,61 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 		a, err := u.GetUserById(claims.ID)
 		if err != nil {
 			logrus.Error(err)
-			return err
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error":    err.Error(),
+				"admin_id": claims.ID,
+			})
 		}
 		user.TenantID = a.TenantID
+	} else {
+		// 权限不足
+		return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
+			"required_role": "SYS_ADMIN or TENANT_ADMIN",
+			"current_role":  claims.Authority,
+		})
 	}
 	t := time.Now().UTC()
 	user.CreatedAt = &t
 	user.UpdatedAt = &t
 	user.PasswordLastUpdated = &t
 
+	// 验证密码格式
+	if len(createUserReq.Password) < 6 {
+		return errcode.New(200040) // 密码格式错误
+	}
+
 	// 生成密码
-	user.Password = utils.BcryptHash(createUserReq.Password)
+	hashedPassword := utils.BcryptHash(createUserReq.Password)
+	if hashedPassword == "" {
+		return errcode.WithData(errcode.CodeDecryptError, map[string]interface{}{
+			"error": "Failed to hash password",
+		})
+	}
+	user.Password = hashedPassword
+
+	// 创建用户
 	err := dal.CreateUsers(&user)
 	if err != nil {
 		logrus.Error(err)
 		if strings.Contains(err.Error(), "users_un") {
-			return fmt.Errorf("email already exists")
+			return errcode.New(200008) // 用户邮箱已注册
 		}
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":      err.Error(),
+			"user_email": user.Email,
+		})
 	}
-	if createUserReq.RoleIDs != nil && len(createUserReq.RoleIDs) > 0 {
-		// 绑定角色
+
+	// 绑定角色
+	if len(createUserReq.RoleIDs) > 0 {
 		ok := GroupApp.Casbin.AddRolesToUser(user.ID, createUserReq.RoleIDs)
 		if !ok {
-			logrus.Error(err)
-			return fmt.Errorf("add role to user failed")
+			logrus.Error("Failed to add roles to user")
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error":    "Failed to add roles to user",
+				"user_id":  user.ID,
+				"role_ids": createUserReq.RoleIDs,
+			})
 		}
 	}
 	return err
@@ -347,35 +384,42 @@ func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserCl
 		if len(*updateUserReq.Password) == 0 {
 			updateUserReq.Password = nil
 		} else if len(*updateUserReq.Password) < 6 {
-			return fmt.Errorf("password length must be greater than 6")
+			return errcode.New(200040) // 密码格式错误
 		}
 	}
 
 	user, err := dal.GetUsersById(updateUserReq.ID)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": updateUserReq.ID,
+		})
 	}
 
 	// 判断用户权限，租户管理员和租户用户不能修改其他租户的信息
 	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
 		if *user.TenantID != claims.TenantID {
-			return fmt.Errorf("you cannot modify information about other tenants")
+			return errcode.New(errcode.CodeNoPermission) // 无访问权限
 		}
 
 		// 租户管理员不能修改自己的状态
 		if claims.Authority == "TENANT_ADMIN" && *user.Authority == "TENANT_ADMIN" && *user.Status != *updateUserReq.Status {
 			if updateUserReq.Status != nil {
 				if updateUserReq.Status != nil {
-					return fmt.Errorf("tenant administrators cannot change their own status")
+					return errcode.New(errcode.CodeOpDenied) // 操作被拒绝
 				}
 			}
 		}
 	}
 
 	t := time.Now().UTC()
-	// 密码修改特殊处理
+	// 密码更新处理
 	if updateUserReq.Password != nil {
-		user.Password = *StringPtr(utils.BcryptHash(*updateUserReq.Password))
+		hashedPassword := utils.BcryptHash(*updateUserReq.Password)
+		if hashedPassword == "" {
+			return errcode.New(errcode.CodeDecryptError) // 密码加密失败
+		}
+		user.Password = hashedPassword
 		user.PasswordLastUpdated = &t
 	}
 
@@ -388,7 +432,10 @@ func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserCl
 
 	_, err = dal.UpdateUserInfoById(claims.ID, user)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": claims.ID,
+		})
 	}
 
 	// 修改角色
@@ -399,7 +446,11 @@ func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserCl
 		if len(updateUserReq.RoleIDs) > 0 {
 			ok := GroupApp.Casbin.AddRolesToUser(updateUserReq.ID, updateUserReq.RoleIDs)
 			if !ok {
-				return fmt.Errorf("update user failed")
+				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"error":    "Failed to update user roles",
+					"user_id":  updateUserReq.ID,
+					"role_ids": updateUserReq.RoleIDs,
+				})
 			}
 		}
 	}
@@ -409,51 +460,87 @@ func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserCl
 
 // @description  删除用户
 func (*User) DeleteUser(id string, claims *utils.UserClaims) error {
+	// 获取用户信息
 	user, err := dal.GetUsersById(id)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": id,
+		})
 	}
 
 	// 判断用户权限，租户管理员和租户用户不能修改其他租户的信息
 	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
+		// 检查租户权限
 		if *user.TenantID != claims.TenantID {
-			return fmt.Errorf("authority exception")
+			return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
+				"required_tenant": *user.TenantID,
+				"current_tenant":  claims.TenantID,
+				"operation":       "delete_user",
+			})
 		}
+
 		// 租户管理员不能删除自己
-		if claims.Authority == "TENANT_ADMIN" {
-			if *user.Authority == "TENANT_ADMIN" {
-				return fmt.Errorf("authority exception")
-			}
+		if claims.Authority == "TENANT_ADMIN" && *user.Authority == "TENANT_ADMIN" {
+			return errcode.WithVars(errcode.CodeOpDenied, map[string]interface{}{
+				"reason":  "tenant_admin_cannot_delete_self",
+				"user_id": id,
+			})
 		}
 	}
 
 	// 不能删除系统管理员
 	if *user.Authority == "SYS_ADMIN" {
-		return fmt.Errorf("authority exception")
+		return errcode.WithVars(errcode.CodeOpDenied, map[string]interface{}{
+			"reason":  "cannot_delete_sys_admin",
+			"user_id": id,
+		})
 	}
 
+	// 删除用户
 	err = dal.DeleteUsersById(id)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":     err.Error(),
+			"user_id":   id,
+			"operation": "delete_user",
+		})
 	}
-	// 先删除原有角色
-	GroupApp.Casbin.RemoveUserAndRole(id)
+
+	// 删除用户角色
+	if !GroupApp.Casbin.RemoveUserAndRole(id) {
+		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error":   "failed to remove user roles",
+			"user_id": id,
+		})
+	}
 
 	return nil
 }
 
 // 获取用户信息
 func (*User) GetUser(id string, claims *utils.UserClaims) (*model.User, error) {
+	// 获取用户信息
 	user, err := dal.GetUsersById(id)
 	if err != nil {
-		return nil, err
+		// 数据库错误处理
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": id,
+		})
 	}
+
 	// 判断用户权限，租户管理员和租户用户不能查看其他租户的信息
 	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
 		if *user.TenantID != claims.TenantID {
-			return nil, fmt.Errorf("authority exception")
+			return nil, errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
+				"required_tenant": *user.TenantID,
+				"current_tenant":  claims.TenantID,
+				"user_authority":  claims.Authority,
+			})
 		}
 	}
+
 	return user, nil
 }
 
@@ -502,24 +589,39 @@ func (*User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUser
 
 // @description SuperAdmin Become Other admin
 func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *utils.UserClaims) (*model.LoginRsp, error) {
-
+	// 权限检查
 	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
-		return nil, fmt.Errorf("authority wrong")
+		return nil, errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
+			"required_authority": "SYS_ADMIN or TENANT_ADMIN",
+			"current_authority":  claims.Authority,
+		})
 	}
 
+	// 获取目标用户信息
 	becomeUser, err := dal.GetUsersById(transformUserReq.BecomeUserID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": transformUserReq.BecomeUserID,
+		})
 	}
 
-	// 判断用户状态
+	// 检查用户状态
 	if *becomeUser.Status != "N" {
-		return nil, fmt.Errorf("user status unexception  ")
+		return nil, errcode.WithVars(errcode.CodeUserDisabled, map[string]interface{}{
+			"user_id":         becomeUser.ID,
+			"current_status":  *becomeUser.Status,
+			"required_status": "N",
+		})
 	}
 
+	// 获取JWT密钥
 	key := viper.GetString("jwt.key")
-	// 生成token
-	jwt := utils.NewJWT([]byte(key))
+	if key == "" {
+		return nil, errcode.New(errcode.CodeSystemError)
+	}
+
+	// 生成用户Claims
 	becomeUserClaims := utils.UserClaims{
 		ID:         becomeUser.ID,
 		Email:      becomeUser.Email,
@@ -527,17 +629,32 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 		CreateTime: time.Now().UTC(),
 		TenantID:   *becomeUser.TenantID,
 	}
+
+	// 生成token
+	jwt := utils.NewJWT([]byte(key))
 	token, err := jwt.GenerateToken(becomeUserClaims)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeTokenGenerateError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": becomeUser.ID,
+		})
 	}
 
-	global.REDIS.Set(context.Background(), token, "1", 24*7*time.Hour)
+	// 保存token到Redis
+	err = global.REDIS.Set(context.Background(), token, "1", 24*7*time.Hour).Err()
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": becomeUser.ID,
+		})
+	}
 
+	// 返回登录响应
 	loginRsp := &model.LoginRsp{
 		Token:     &token,
 		ExpiresIn: int64(24 * 7 * time.Hour.Seconds()),
 	}
+
 	return loginRsp, nil
 }
 

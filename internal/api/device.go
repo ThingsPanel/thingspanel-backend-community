@@ -284,10 +284,10 @@ func (*DeviceApi) CreateDeviceGroup(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.DeviceGroup.CreateDeviceGroup(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create device group successfully", nil)
+	c.Set("data", nil)
 
 }
 
@@ -313,10 +313,10 @@ func (*DeviceApi) UpdateDeviceGroup(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.DeviceGroup.UpdateDeviceGroup(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update device group successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetDeviceGroupByPage 分页获取设备分组
@@ -329,10 +329,10 @@ func (*DeviceApi) HandleDeviceGroupByPage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupListByPage(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get device group successfully", data)
+	c.Set("data", data)
 }
 
 // GetDeviceGroupByTree 获取设备分组树
@@ -341,10 +341,10 @@ func (*DeviceApi) HandleDeviceGroupByTree(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupByTree(userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get device group successfully", data)
+	c.Set("data", data)
 }
 
 // GetDeviceGroupByDetail 获取设备分组详情
@@ -353,10 +353,10 @@ func (*DeviceApi) HandleDeviceGroupByDetail(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupDetail(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get device group successfully", data)
+	c.Set("data", data)
 }
 
 // CreateDeviceGroupRelation 创建设备分组关系

@@ -130,6 +130,17 @@ messages:
     zh_CN: "文件大小不能超过${max_size}，当前大小${current_size}"
     en_US: "File size cannot exceed ${max_size}, current size is ${current_size}"
 
+  # 设备分组错误码 (203xxx)
+  203001:
+    zh_CN: "分组名称已存在"
+    en_US: "Group name already exists"
+  203002:
+    zh_CN: "子分组名称 '${group_name}' 在父分组下已存在"
+    en_US: "Sub-group name '${group_name}' already exists under parent group"
+  203003:
+    zh_CN: "顶级分组名称 '${group_name}' 已存在"
+    en_US: "Top-level group name '${group_name}' already exists"
+
 # 配置元信息
 metadata:
   version: "1.0"

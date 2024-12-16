@@ -102,11 +102,11 @@ func (*UserApi) CreateUser(c *gin.Context) {
 
 	err := service.GroupApp.User.CreateUser(&createUserReq, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "User created successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetUserListByPage 分页获取用户列表
@@ -142,11 +142,11 @@ func (*UserApi) UpdateUser(c *gin.Context) {
 
 	err := service.GroupApp.User.UpdateUser(&updateUserReq, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Update user successfully", nil)
+	c.Set("data", nil)
 }
 
 // DeleteUser 删除用户
@@ -158,11 +158,11 @@ func (*UserApi) DeleteUser(c *gin.Context) {
 
 	err := service.GroupApp.User.DeleteUser(id, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Delete user successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetUser 获取用户信息
@@ -174,11 +174,13 @@ func (*UserApi) HandleUser(c *gin.Context) {
 
 	user, err := service.GroupApp.User.GetUser(id, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get user successfully", user)
+	user.Password = ""
+
+	c.Set("data", user)
 }
 
 // GetUserDetail 个人信息查看接口
@@ -228,11 +230,11 @@ func (*UserApi) TransformUser(c *gin.Context) {
 
 	loginRsp, err := service.GroupApp.User.TransformUser(&transformUserReq, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Transform successfully", loginRsp)
+	c.Set("data", loginRsp)
 }
 
 // EmailRegister /api/v1/tenant/email/register POST
