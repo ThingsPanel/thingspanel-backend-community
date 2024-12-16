@@ -24,7 +24,7 @@ func (*DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *ut
 	deviceGroup.ID = uuid.New()
 
 	// 处理子分组创建
-	if req.ParentId != nil {
+	if req.ParentId != nil && *req.ParentId != "0" {
 		deviceGroup.ParentID = req.ParentId
 
 		// 验证子分组重名
@@ -44,7 +44,7 @@ func (*DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *ut
 			})
 		}
 
-		// TODO: 建议添加父分组存在性验证
+		// 父分组存在性验证
 		parentGroup, err := dal.GetDeviceGroupDetail(*req.ParentId)
 		if err != nil {
 			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
