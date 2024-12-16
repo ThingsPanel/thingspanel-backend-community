@@ -149,11 +149,11 @@ messages:
     zh_CN: "MQTT ClientID(自定义标识，需确保唯一性)"
     en_US: "MQTT ClientID(custom identifier, must be unique)"
   500003:
-    zh_CN: "设备上报遥测主题"
-    en_US: "Device Telemetry Topic"
+    zh_CN: "设备遥测上报主题 (更多上行主题请参考MQTT文档)"
+    en_US: "Device Telemetry Reporting Topic (see MQTT docs for more upstream topics)"
   500004:
-    zh_CN: "设备订阅遥测主题"
-    en_US: "Device Subscribe Topic" 
+    zh_CN: "设备控制订阅主题 (更多下行主题请参考MQTT文档)"
+    en_US: "Device Control Subscription Topic (see MQTT docs for more downstream topics)"
   500005:
     zh_CN: "设备上报数据示例"
     en_US: "Device Data Example"
