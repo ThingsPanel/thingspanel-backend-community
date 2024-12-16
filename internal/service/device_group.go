@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"time"
 
 	dal "project/internal/dal"
@@ -9,6 +10,7 @@ import (
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
+	"gorm.io/gorm"
 )
 
 type DeviceGroup struct{}
@@ -62,11 +64,13 @@ func (*DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *ut
 		// 验证顶级分组重名
 		g, err := dal.GetTopGroupNameExist(req.Name, claims.TenantID)
 		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error":      err.Error(),
-				"group_name": req.Name,
-				"tenant_id":  claims.TenantID,
-			})
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error":      err.Error(),
+					"group_name": req.Name,
+					"tenant_id":  claims.TenantID,
+				})
+			}
 		}
 		if g.ID != "" {
 			return errcode.WithVars(203003, map[string]interface{}{

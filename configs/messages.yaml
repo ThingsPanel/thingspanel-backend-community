@@ -23,7 +23,7 @@ messages:
 
   # 数据库相关错误 (101xxx)
   101001:
-    zh_CN: "数据库连接失败"
+    zh_CN: "数据库错误"
     en_US: "Database Connection Failed"
   101002:
     zh_CN: "数据库操作超时"
