@@ -518,12 +518,18 @@ func (*DeviceApi) DeviceConnect(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	list, err := service.GroupApp.Device.DeviceConnect(c, &param)
+	// 获取语言设置
+	lang := c.Request.Header.Get("Accept-Language")
+	if lang == "" {
+		lang = "zh_CN"
+	}
+
+	list, err := service.GroupApp.Device.DeviceConnect(c, &param, lang)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, list)
+	c.Set("data", list)
 }
 
 // UpdateDeviceVoucher

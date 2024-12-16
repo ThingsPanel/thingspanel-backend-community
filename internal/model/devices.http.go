@@ -230,14 +230,6 @@ type DeviceConnectFormValidateRes struct {
 	Type     string `json:"type"`
 }
 
-type DeviceConnectReq struct {
-	Port            string `json:"接入地址"`
-	Info            string `json:"MQTT ClientlD(需要唯一不重复)"`
-	DevicePubTopic  string `json:"设备上报遥测主题"`
-	DeviceSubTopic  string `json:"设备订阅遥测主题"`
-	DevicePubRemark string `json:"设备上报数据示例"`
-}
-
 type DeviceIDReq struct {
 	DeviceID string `query:"device_id" form:"device_id" json:"device_id" validate:"required,max=36"`
 }

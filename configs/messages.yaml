@@ -141,6 +141,23 @@ messages:
     zh_CN: "顶级分组名称 '${group_name}' 已存在"
     en_US: "Top-level group name '${group_name}' already exists"
 
+  # Device Connect Field Keys (500xxx)
+  500001:
+    zh_CN: "接入地址"
+    en_US: "Access Address"
+  500002:
+    zh_CN: "MQTT ClientID(自定义标识，需确保唯一性)"
+    en_US: "MQTT ClientID(custom identifier, must be unique)"
+  500003:
+    zh_CN: "设备上报遥测主题"
+    en_US: "Device Telemetry Topic"
+  500004:
+    zh_CN: "设备订阅遥测主题"
+    en_US: "Device Subscribe Topic" 
+  500005:
+    zh_CN: "设备上报数据示例"
+    en_US: "Device Data Example"
+
 # 配置元信息
 metadata:
   version: "1.0"

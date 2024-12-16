@@ -19,7 +19,7 @@ type Response struct {
 
 // Handler 响应处理器
 type Handler struct {
-	errManager *errcode.ErrorManager
+	ErrManager *errcode.ErrorManager
 }
 
 // NewHandler 创建响应处理器
@@ -28,7 +28,7 @@ func NewHandler(configPath string) (*Handler, error) {
 	if err := errManager.LoadMessages(); err != nil {
 		return nil, err
 	}
-	return &Handler{errManager: errManager}, nil
+	return &Handler{ErrManager: errManager}, nil
 }
 
 // Middleware 创建响应处理中间件
@@ -77,7 +77,7 @@ func (h *Handler) responseSuccess(c *gin.Context, data interface{}) {
 	lang := c.GetHeader("Accept-Language")
 	c.JSON(http.StatusOK, &Response{
 		Code:    errcode.CodeSuccess,
-		Message: h.errManager.GetMessage(errcode.CodeSuccess, lang),
+		Message: h.ErrManager.GetMessage(errcode.CodeSuccess, lang),
 		Data:    data,
 	})
 }
@@ -89,7 +89,7 @@ func (h *Handler) handleError(c *gin.Context, err *errcode.Error) {
 		msg = err.CustomMsg // 使用自定义消息
 	} else {
 		lang := c.GetHeader("Accept-Language")
-		msg = h.errManager.GetMessage(err.Code, lang) // 使用配置的国际化消息
+		msg = h.ErrManager.GetMessage(err.Code, lang) // 使用配置的国际化消息
 
 		// 处理格式化参数
 		if err.Args != nil {

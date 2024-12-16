@@ -3,6 +3,7 @@ package router
 import (
 	middleware "project/internal/middleware"
 	"project/internal/middleware/response"
+	"project/pkg/global"
 	"project/pkg/metrics"
 	"project/router/apps"
 	"time"
@@ -48,6 +49,8 @@ func RouterInit() *gin.Engine {
 	if err != nil {
 		logrus.Fatalf("初始化响应处理器失败: %v", err)
 	}
+	// 全局使用
+	global.ResponseHandler = handler
 	// 使用中间件
 	router.Use(handler.Middleware())
 

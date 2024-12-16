@@ -9,6 +9,7 @@ import (
 	"project/initialize"
 	protocolplugin "project/internal/service/protocol_plugin"
 	"project/pkg/constant"
+	"project/pkg/errcode"
 	global "project/pkg/global"
 	"project/third_party/others/http_client"
 	"strconv"
@@ -680,12 +681,16 @@ func (*Device) GetVoucherTypeForm(voucherType string, deviceType string, protoco
 	return pp.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_FORM))
 }
 
-func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectFormReq) (any, error) {
+func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectFormReq, lang string) (any, error) {
 	// 获取设备信息
 	device, err := dal.GetDeviceByID(param.DeviceID)
 	if err != nil {
 		logrus.Error(ctx, "[Device][DeviceConnect]GetDeviceByID failed:", err)
-		return nil, err
+		// 返回错误
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device info failed:" + err.Error(),
+			"id":    param.DeviceID,
+		})
 	}
 	var protocolType string
 	var deviceType string
@@ -694,7 +699,11 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
 			logrus.Error(ctx, "[Device][DeviceConnect]GetDeviceConfigByID failed:", err)
-			return nil, err
+			// 返回错误
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "get device config info failed:" + err.Error(),
+				"id":    param.DeviceID,
+			})
 		}
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
@@ -704,6 +713,7 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 		protocolType = "MQTT"
 		deviceType = "1"
 	}
+
 	var rsp any
 	if protocolType == "MQTT" {
 		// 取配置的MQTT接入地址
@@ -711,22 +721,23 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 		if accessAddress == "" {
 			accessAddress = ":1883"
 		}
+
 		if deviceType == "1" {
-			rsp = &model.DeviceConnectReq{
-				Port:            accessAddress,
-				DevicePubTopic:  "devices/telemetry",
-				DeviceSubTopic:  fmt.Sprintf("devices/telemetry/control/%s", device.DeviceNumber),
-				DevicePubRemark: "{\"switch\":1}",
-				Info:            "mqtt_" + param.DeviceID[0:12],
+			rsp = map[string]string{
+				global.ResponseHandler.ErrManager.GetMessage(500001, lang): accessAddress,
+				global.ResponseHandler.ErrManager.GetMessage(500002, lang): "mqtt_" + param.DeviceID[0:12],
+				global.ResponseHandler.ErrManager.GetMessage(500003, lang): "devices/telemetry",
+				global.ResponseHandler.ErrManager.GetMessage(500004, lang): fmt.Sprintf("devices/telemetry/control/%s", device.DeviceNumber),
+				global.ResponseHandler.ErrManager.GetMessage(500005, lang): "{\"switch\":1}",
 			}
 		} else if deviceType == "2" {
 			remark := `{"gateway_data":{"switch":1},"sub_device_data":{"sub_device_address":{"switch":1}}`
-			rsp = &model.DeviceConnectReq{
-				Port:            accessAddress,
-				DevicePubTopic:  "gateway/telemetry",
-				DeviceSubTopic:  fmt.Sprintf("gateway/telemetry/control/%s", device.DeviceNumber),
-				DevicePubRemark: remark,
-				Info:            "mqtt_" + param.DeviceID[0:12],
+			rsp = map[string]string{
+				global.ResponseHandler.ErrManager.GetMessage(500001, lang): accessAddress,
+				global.ResponseHandler.ErrManager.GetMessage(500002, lang): "mqtt_" + param.DeviceID[0:12],
+				global.ResponseHandler.ErrManager.GetMessage(500003, lang): "gateway/telemetry",
+				global.ResponseHandler.ErrManager.GetMessage(500004, lang): fmt.Sprintf("gateway/telemetry/control/%s", device.DeviceNumber),
+				global.ResponseHandler.ErrManager.GetMessage(500005, lang): remark,
 			}
 		}
 	} else {
@@ -744,7 +755,7 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 			if err != nil {
 				logrus.Error(ctx, "Error occurred during unmarshalling. Error: %s", err)
 			}
-			info["接入地址"] = protocolAccessConfig.AccessAddress
+			info[global.ResponseHandler.ErrManager.GetMessage(500001, lang)] = protocolAccessConfig.AccessAddress
 		}
 		rsp = info
 	}
