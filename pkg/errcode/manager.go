@@ -75,11 +75,29 @@ func (m *ErrorManager) LoadMessages() error {
 // 参数：
 //   - code: 错误码
 //   - lang: 语言代码，如果为空则使用默认语言
-func (m *ErrorManager) GetMessage(code int, lang string) string {
-	if lang == "" {
-		lang = m.defaultLanguage
+func (m *ErrorManager) GetMessage(code int, acceptLanguage string) string {
+	// 如果没有指定语言，使用默认语言
+	if acceptLanguage == "" {
+		return m.getMessageForLanguage(code, m.defaultLanguage)
 	}
 
+	// 解析 Accept-Language 头
+	languages := ParseAcceptLanguage(acceptLanguage)
+
+	// 按优先级尝试每个语言
+	for _, lang := range languages {
+		normalizedLang := NormalizeLanguage(lang.Tag)
+		if msg := m.getMessageForLanguage(code, normalizedLang); msg != "" {
+			return msg
+		}
+	}
+
+	// 如果都没找到，使用默认语言
+	return m.getMessageForLanguage(code, m.defaultLanguage)
+}
+
+// getMessageForLanguage 获取指定语言的消息
+func (m *ErrorManager) getMessageForLanguage(code int, lang string) string {
 	// 尝试从缓存获取
 	cacheKey := fmt.Sprintf("%d:%s", code, lang)
 	if msg, found := m.cache.Get(cacheKey); found {
@@ -88,19 +106,19 @@ func (m *ErrorManager) GetMessage(code int, lang string) string {
 
 	// 从内存中获取消息
 	if messages, ok := m.messages[code]; ok {
-		// 优先使用请求的语言
 		if msg, ok := messages[lang]; ok {
-			m.cache.Set(cacheKey, msg, cache.DefaultExpiration)
-			return msg
-		}
-		// 回退到默认语言
-		if msg, ok := messages[m.defaultLanguage]; ok {
 			m.cache.Set(cacheKey, msg, cache.DefaultExpiration)
 			return msg
 		}
 	}
 
-	// 找不到消息时返回默认错误信息
+	// 如果是非默认语言且找不到消息，返回空字符串
+	// 这样可以继续尝试其他语言选项
+	if lang != m.defaultLanguage {
+		return ""
+	}
+
+	// 使用默认语言的默认错误消息
 	defaultMsg := "未知错误"
 	if lang != "zh_CN" {
 		defaultMsg = "Unknown Error"
