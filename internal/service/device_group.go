@@ -72,7 +72,7 @@ func (*DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *ut
 				})
 			}
 		}
-		if g.ID != "" {
+		if g != nil {
 			return errcode.WithVars(203003, map[string]interface{}{
 				"group_name": req.Name,
 			})
