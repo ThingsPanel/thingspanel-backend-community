@@ -114,18 +114,19 @@ func (m *ErrorManager) validateCode(code int) bool {
 		return true
 	}
 
-	// 检查长度和第一位数字
-	if code < 100000 || code > 299999 {
+	// 检查长度和范围
+	if code < 100000 || code > 599999 {
 		return false
 	}
 
-	// 检查错误类型（1或2）
+	// 检查第一位数字允许的值（1, 2, 3, 4, 5）
 	firstDigit := code / 100000
-	if firstDigit != 1 && firstDigit != 2 {
+	switch firstDigit {
+	case 1, 2, 3, 4, 5:
+		return true
+	default:
 		return false
 	}
-
-	return true
 }
 
 // SetDefaultLanguage 设置默认语言
