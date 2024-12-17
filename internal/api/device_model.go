@@ -1,11 +1,11 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"project/internal/model"
 	"project/internal/service"
 	"project/pkg/common"
+	"project/pkg/errcode"
 	"project/pkg/utils"
 	"strings"
 
@@ -14,6 +14,7 @@ import (
 
 type DeviceModelApi struct{}
 
+// /api/v1/device/model/telemetry
 func (*DeviceModelApi) CreateDeviceModelTelemetry(c *gin.Context) {
 	var req model.CreateDeviceModelReq
 	if !BindAndValidate(c, &req) {
@@ -22,12 +23,13 @@ func (*DeviceModelApi) CreateDeviceModelTelemetry(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceModel.CreateDeviceModelGeneral(req, model.DEVICE_MODEL_TELEMETRY, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create Device Model Telemetry successfully", data)
+	c.Set("data", data)
 }
 
+// /api/v1/device/model/attributes
 func (*DeviceModelApi) CreateDeviceModelAttributes(c *gin.Context) {
 	var req model.CreateDeviceModelReq
 	if !BindAndValidate(c, &req) {
@@ -36,10 +38,10 @@ func (*DeviceModelApi) CreateDeviceModelAttributes(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceModel.CreateDeviceModelGeneral(req, model.DEVICE_MODEL_ATTRIBUTES, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create Device Model Attributes successfully", data)
+	c.Set("data", data)
 }
 
 func (*DeviceModelApi) CreateDeviceModelEvents(c *gin.Context) {
@@ -50,10 +52,10 @@ func (*DeviceModelApi) CreateDeviceModelEvents(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceModel.CreateDeviceModelGeneralV2(req, model.DEVICE_MODEL_EVENTS, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create Device Model Events successfully", data)
+	c.Set("data", data)
 }
 
 func (*DeviceModelApi) CreateDeviceModelCommands(c *gin.Context) {
@@ -64,10 +66,10 @@ func (*DeviceModelApi) CreateDeviceModelCommands(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceModel.CreateDeviceModelGeneralV2(req, model.DEVICE_MODEL_COMMANDS, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create Device Model Commands successfully", data)
+	c.Set("data", data)
 }
 
 // 物模型删除-通用
@@ -87,17 +89,20 @@ func (*DeviceModelApi) DeleteDeviceModelGeneral(c *gin.Context) {
 	} else if strings.Contains(uri, "commands") {
 		what = model.DEVICE_MODEL_COMMANDS
 	} else {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("error"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "url param is not a valid JSON",
+		}))
 		return
 	}
 	err := service.GroupApp.DeviceModel.DeleteDeviceModelGeneral(id, what, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete Device Model successfully", nil)
+	c.Set("data", nil)
 }
 
+// /api/v1/device/model/telemetry  [put]
 func (*DeviceModelApi) UpdateDeviceModelGeneral(c *gin.Context) {
 	var req model.UpdateDeviceModelReq
 	if !BindAndValidate(c, &req) {
@@ -113,17 +118,19 @@ func (*DeviceModelApi) UpdateDeviceModelGeneral(c *gin.Context) {
 	} else if strings.Contains(uri, "attributes") {
 		what = model.DEVICE_MODEL_ATTRIBUTES
 	} else {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("error"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "url param is not a valid JSON",
+		}))
 		return
 	}
 
 	data, err := service.GroupApp.DeviceModel.UpdateDeviceModelGeneral(req, what, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Update Device Model Telemetry successfully", data)
+	c.Set("data", data)
 }
 
 func (*DeviceModelApi) UpdateDeviceModelGeneralV2(c *gin.Context) {
@@ -142,17 +149,19 @@ func (*DeviceModelApi) UpdateDeviceModelGeneralV2(c *gin.Context) {
 	} else if strings.Contains(uri, "commands") {
 		what = model.DEVICE_MODEL_COMMANDS
 	} else {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("error"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "url param is not a valid JSON",
+		}))
 		return
 	}
 
 	data, err := service.GroupApp.DeviceModel.UpdateDeviceModelGeneralV2(req, what, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Update Device Model Telemetry successfully", data)
+	c.Set("data", data)
 }
 
 func (*DeviceModelApi) HandleDeviceModelGeneral(c *gin.Context) {
@@ -174,18 +183,21 @@ func (*DeviceModelApi) HandleDeviceModelGeneral(c *gin.Context) {
 	} else if strings.Contains(uri, "commands") {
 		what = model.DEVICE_MODEL_COMMANDS
 	} else {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("error"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "url param is not a valid JSON",
+		}))
 		return
 	}
 
 	data, err := service.GroupApp.DeviceModel.GetDeviceModelListByPageGeneral(req, what, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get Device Model Telemetry By Page successfully", data)
+	c.Set("data", data)
 }
 
+// /api/v1/device/model/source/at/list
 func (*DeviceModelApi) HandleModelSourceAT(c *gin.Context) {
 	var param model.ParamID
 	if !BindAndValidate(c, &param) {
@@ -194,12 +206,13 @@ func (*DeviceModelApi) HandleModelSourceAT(c *gin.Context) {
 
 	data, err := service.GroupApp.DeviceModel.GetModelSourceAT(c, &param)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, data)
+	c.Set("data", data)
 }
 
+// /api/v1/device/model/custom/commands/
 func (*DeviceModelApi) CreateDeviceModelCustomCommands(c *gin.Context) {
 	var req model.CreateDeviceModelCustomCommandReq
 	if !BindAndValidate(c, &req) {
@@ -209,20 +222,20 @@ func (*DeviceModelApi) CreateDeviceModelCustomCommands(c *gin.Context) {
 
 	err := service.GroupApp.DeviceModel.CreateDeviceModelCustomCommands(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, "")
+	c.Set("data", nil)
 }
 
 func (*DeviceModelApi) DeleteDeviceModelCustomCommands(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.DeviceModel.DeleteDeviceModelCustomCommands(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, "")
+	c.Set("data", nil)
 }
 
 func (*DeviceModelApi) UpdateDeviceModelCustomCommands(c *gin.Context) {
@@ -233,10 +246,10 @@ func (*DeviceModelApi) UpdateDeviceModelCustomCommands(c *gin.Context) {
 
 	err := service.GroupApp.DeviceModel.UpdateDeviceModelCustomCommands(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, "")
+	c.Set("data", nil)
 }
 
 func (*DeviceModelApi) HandleDeviceModelCustomCommandsByPage(c *gin.Context) {
@@ -248,10 +261,10 @@ func (*DeviceModelApi) HandleDeviceModelCustomCommandsByPage(c *gin.Context) {
 
 	data, err := service.GroupApp.DeviceModel.GetDeviceModelCustomCommandsByPage(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, data)
+	c.Set("data", data)
 }
 
 func (*DeviceModelApi) HandleDeviceModelCustomCommandsByDeviceId(c *gin.Context) {
@@ -259,11 +272,11 @@ func (*DeviceModelApi) HandleDeviceModelCustomCommandsByDeviceId(c *gin.Context)
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceModel.GetDeviceModelCustomCommandsByDeviceId(deviceId, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, common.SUCCESS, data)
+	c.Set("data", data)
 }
 
 func (*DeviceModelApi) CreateDeviceModelCustomControl(c *gin.Context) {

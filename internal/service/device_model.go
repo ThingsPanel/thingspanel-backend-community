@@ -8,6 +8,7 @@ import (
 	model "project/internal/model"
 	"project/internal/query"
 	"project/pkg/constant"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 	"time"
 
@@ -22,7 +23,9 @@ type DeviceModel struct{}
 func (*DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, what string, claims *utils.UserClaims) (interface{}, error) {
 
 	if req.AdditionalInfo != nil && !IsJSON(*req.AdditionalInfo) {
-		return nil, fmt.Errorf("additional_info is not a valid JSON")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "additional_info is not a valid JSON",
+		})
 	}
 
 	t := time.Now().UTC()
@@ -44,7 +47,9 @@ func (*DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, wha
 		deviceModel.TenantID = claims.TenantID
 		err := dal.CreateDeviceModelTelemetry(&deviceModel)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		} else {
 			return deviceModel, nil
 		}
@@ -66,7 +71,9 @@ func (*DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, wha
 		deviceModel.TenantID = claims.TenantID
 		err := dal.CreateDeviceModelAttribute(&deviceModel)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		} else {
 			return deviceModel, nil
 		}
@@ -85,7 +92,9 @@ func (*DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, wha
 		deviceModel.TenantID = claims.TenantID
 		err := dal.CreateDeviceModelEvent(&deviceModel)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		} else {
 			return deviceModel, nil
 		}
@@ -104,12 +113,16 @@ func (*DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, wha
 		deviceModel.TenantID = claims.TenantID
 		err := dal.CreateDeviceModelCommand(&deviceModel)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		} else {
 			return deviceModel, nil
 		}
 	default:
-		return nil, fmt.Errorf("不支持的创建类型")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "DEVICE_MODEL is not a valid type",
+		})
 	}
 
 }
@@ -181,7 +194,9 @@ func (*DeviceModel) DeleteDeviceModelGeneral(id string, what string, _ *utils.Us
 	case model.DEVICE_MODEL_COMMANDS:
 		err = dal.DeleteDeviceModelCommand(id)
 	default:
-		return fmt.Errorf("不支持的删除类型")
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "DEVICE_MODEL is not a valid type",
+		})
 	}
 	return err
 }
@@ -189,7 +204,9 @@ func (*DeviceModel) DeleteDeviceModelGeneral(id string, what string, _ *utils.Us
 func (*DeviceModel) UpdateDeviceModelGeneral(req model.UpdateDeviceModelReq, what string, claims *utils.UserClaims) (interface{}, error) {
 
 	if req.AdditionalInfo != nil && !IsJSON(*req.AdditionalInfo) {
-		return nil, fmt.Errorf("additional_info is not a valid JSON")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "additional_info is not a valid JSON",
+		})
 	}
 
 	t := time.Now().UTC()
@@ -210,7 +227,9 @@ func (*DeviceModel) UpdateDeviceModelGeneral(req model.UpdateDeviceModelReq, wha
 		deviceModel.TenantID = claims.TenantID
 		err := dal.UpdateDeviceModelTelemetry(&deviceModel)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		} else {
 			return deviceModel, nil
 		}
@@ -230,22 +249,30 @@ func (*DeviceModel) UpdateDeviceModelGeneral(req model.UpdateDeviceModelReq, wha
 		deviceModel.TenantID = claims.TenantID
 		err := dal.UpdateDeviceModelAttribute(&deviceModel)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		} else {
 			return deviceModel, nil
 		}
 	default:
-		return nil, fmt.Errorf("不支持的删除类型")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "DEVICE_MODEL is not a valid type",
+		})
 	}
 }
 
 func (*DeviceModel) UpdateDeviceModelGeneralV2(req model.UpdateDeviceModelV2Req, what string, claims *utils.UserClaims) (interface{}, error) {
 	if req.AdditionalInfo != nil && !IsJSON(*req.AdditionalInfo) {
-		return nil, fmt.Errorf("additional_info is not a valid JSON")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "additional_info is not a valid JSON",
+		})
 	}
 
 	if req.Params != nil && !IsJSON(*req.Params) {
-		return nil, fmt.Errorf("params is not a valid JSON")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "params is not a valid JSON",
+		})
 	}
 
 	t := time.Now().UTC()
@@ -264,7 +291,9 @@ func (*DeviceModel) UpdateDeviceModelGeneralV2(req model.UpdateDeviceModelV2Req,
 		deviceModel.TenantID = claims.TenantID
 		err := dal.UpdateDeviceModelEvent(&deviceModel)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		} else {
 			return deviceModel, nil
 		}
@@ -281,12 +310,16 @@ func (*DeviceModel) UpdateDeviceModelGeneralV2(req model.UpdateDeviceModelV2Req,
 		deviceModel.TenantID = claims.TenantID
 		err := dal.UpdateDeviceModelCommand(&deviceModel)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		} else {
 			return deviceModel, nil
 		}
 	default:
-		return nil, fmt.Errorf("不支持的删除类型")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "DEVICE_MODEL is not a valid type",
+		})
 	}
 }
 
@@ -297,7 +330,9 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 	case model.DEVICE_MODEL_TELEMETRY:
 		count, data, err := dal.GetDeviceModelTelemetryListByPage(req, claims.TenantID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		listRsp["total"] = count
 		listRsp["list"] = data
@@ -305,7 +340,9 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 	case model.DEVICE_MODEL_ATTRIBUTES:
 		count, data, err := dal.GetDeviceModelAttributesListByPage(req, claims.TenantID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		listRsp["total"] = count
 		listRsp["list"] = data
@@ -313,7 +350,9 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 	case model.DEVICE_MODEL_EVENTS:
 		count, data, err := dal.GetDeviceModelEventsListByPage(req, claims.TenantID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		listRsp["total"] = count
 		listRsp["list"] = data
@@ -321,13 +360,17 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 	case model.DEVICE_MODEL_COMMANDS:
 		count, data, err := dal.GetDeviceModelCommandsListByPage(req, claims.TenantID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		listRsp["total"] = count
 		listRsp["list"] = data
 		return listRsp, nil
 	default:
-		return nil, fmt.Errorf("不支持的删除类型")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "DEVICE_MODEL is not a valid type",
+		})
 	}
 }
 
@@ -389,7 +432,14 @@ func (*DeviceModel) GetModelSourceAT(ctx context.Context, param *model.ParamID) 
 func (*DeviceModel) CreateDeviceModelCustomCommands(req model.CreateDeviceModelCustomCommandReq, claims *utils.UserClaims) error {
 
 	if req.EnableStatus != "enable" && req.EnableStatus != "disable" {
-		return fmt.Errorf("enable status error")
+		if req.EnableStatus != "enable" && req.EnableStatus != "disable" {
+			// 使用已定义的参数验证错误码和消息
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"param": "enable_status",
+				"value": req.EnableStatus,
+				"valid": []string{"enable", "disable"},
+			})
+		}
 	}
 
 	var deviceModelCustomCommand model.DeviceModelCustomCommand
@@ -405,18 +455,33 @@ func (*DeviceModel) CreateDeviceModelCustomCommands(req model.CreateDeviceModelC
 	deviceModelCustomCommand.TenantID = claims.TenantID
 
 	err := dal.CreateDeviceModelCustomCommand(&deviceModelCustomCommand)
-	return err
+	// 使用数据库错误码
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return nil
 }
 
 func (*DeviceModel) DeleteDeviceModelCustomCommands(id string) error {
 	err := dal.DeleteDeviceModelCustomCommandById(id)
-	return err
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return nil
 }
 
 func (*DeviceModel) UpdateDeviceModelCustomCommands(req model.UpdateDeviceModelCustomCommandReq) error {
 
 	if req.EnableStatus != "enable" && req.EnableStatus != "disable" {
-		return fmt.Errorf("enable status error")
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param": "enable_status",
+			"value": req.EnableStatus,
+			"valid": []string{"enable", "disable"},
+		})
 	}
 
 	var deviceModelCustomCommand model.DeviceModelCustomCommand
@@ -430,27 +495,36 @@ func (*DeviceModel) UpdateDeviceModelCustomCommands(req model.UpdateDeviceModelC
 	deviceModelCustomCommand.Remark = req.Remark
 
 	_, err := dal.UpdateDeviceModelCustomCommand(&deviceModelCustomCommand)
-	return err
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return nil
 }
 
 func (*DeviceModel) GetDeviceModelCustomCommandsByPage(req model.GetDeviceModelListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 
 	total, list, err := dal.GetDeviceModelCustomCommandsByPage(req, claims.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total
 	listRsp["list"] = list
 
-	return listRsp, err
+	return listRsp, nil
 
 }
 
 func (*DeviceModel) GetDeviceModelCustomCommandsByDeviceId(deviceId string, claims *utils.UserClaims) ([]*model.DeviceModelCustomCommand, error) {
 	data, err := dal.GetDeviceModelCustomCommandsByDeviceId(deviceId, claims.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	return data, nil
 }
