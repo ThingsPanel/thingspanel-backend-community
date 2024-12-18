@@ -55,6 +55,10 @@ messages:
   104002:
     zh_CN: "保存文件失败: ${error}"
     en_US: "Failed to save file: ${error}"
+    # 三方服务错误 (105xxx)
+  105001:
+    zh_CN: "第三方服务调用失败: ${error}"
+    en_US: "Third-party service call failed: ${error}"
 
   # 业务级错误 (2xxxxx)
   # 用户模块错误 (200xxx)
@@ -110,6 +114,15 @@ messages:
   200045:
     zh_CN: "旧密码验证失败"
     en_US: "Old password verification failed"
+  200050:
+    zh_CN: "该功能模板已被${count}个配置模板引用，无法删除。请先解除相关配置模板的关联后再试" 
+    en_US: "This feature template is referenced by ${count} configuration templates and cannot be deleted. Please remove the associations first"
+  200051:
+    zh_CN: "无法删除设备配置，仍有${count}个设备与其关联"
+    en_US: "Cannot delete device configuration, ${count} devices still associated"
+  200052:
+    zh_CN: "脚本处理失败: ${error}"
+    en_US: "Script processing failed: ${error}"
   
   # 权限模块错误 (201xxx)
   201001:

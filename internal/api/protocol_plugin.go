@@ -97,10 +97,10 @@ func (*ProtocolPluginApi) HandleProtocolPluginFormByProtocolType(c *gin.Context)
 
 	data, err := service.GroupApp.ServicePlugin.GetProtocolPluginFormByProtocolType(req.ProtocolType, req.DeviceType)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", data)
+	c.Set("data", data)
 }
 
 // /api/v1/plugin/device/config

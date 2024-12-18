@@ -6,6 +6,7 @@ import (
 	model "project/internal/model"
 	service "project/internal/service"
 	common "project/pkg/common"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/sirupsen/logrus"
@@ -165,11 +166,11 @@ func (*DeviceApi) CreateDeviceTemplate(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceTemplate.CreateDeviceTemplate(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Create device template successfully", data)
+	c.Set("data", data)
 }
 
 // UpdateDeviceTemplate 更新设备模版
@@ -182,11 +183,11 @@ func (*DeviceApi) UpdateDeviceTemplate(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceTemplate.UpdateDeviceTemplate(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Update device template successfully", data)
+	c.Set("data", data)
 }
 
 // GetDeviceTemplateListByPage 分页获取设备模版
@@ -199,17 +200,19 @@ func (*DeviceApi) HandleDeviceTemplateListByPage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateListByPage(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
 	serilizedData, err := utils.SerializeData(data, GetDeviceTemplateListData{})
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": err.Error(),
+		}))
 		return
 	}
 
-	SuccessHandler(c, "Get device template successfully", serilizedData)
+	c.Set("data", serilizedData)
 }
 
 // @Router   /api/v1/device/template/menu [get]
@@ -221,11 +224,11 @@ func (*DeviceApi) HandleDeviceTemplateMenu(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateMenu(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get device template successfully", data)
+	c.Set("data", data)
 }
 
 // DeleteDeviceTemplate 删除设备模版
@@ -235,10 +238,10 @@ func (*DeviceApi) DeleteDeviceTemplate(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.DeviceTemplate.DeleteDeviceTemplate(id, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete device template successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetDeviceTemplate 获取设备模版详情
@@ -247,15 +250,17 @@ func (*DeviceApi) HandleDeviceTemplateById(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateById(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 	serilizedData, err := utils.SerializeData(data, DeviceTemplateReadSchema{})
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": err.Error(),
+		}))
 		return
 	}
-	SuccessHandler(c, "Get device template successfully", serilizedData)
+	c.Set("data", serilizedData)
 }
 
 // 根据设备id获取设备模板详情
@@ -263,15 +268,18 @@ func (*DeviceApi) HandleDeviceTemplateById(c *gin.Context) {
 func (*DeviceApi) HandleDeviceTemplateByDeviceId(c *gin.Context) {
 	deviceId := c.Query("device_id")
 	if deviceId == "" {
-		ErrorHandler(c, http.StatusBadRequest, errors.New("device_id is required"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"device_id": deviceId,
+			"msg":       "device_id is required",
+		}))
 		return
 	}
 	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateByDeviceId(deviceId)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get device template successfully", data)
+	c.Set("data", data)
 }
 
 // CreateDeviceGroup 创建设备分组

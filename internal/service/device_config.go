@@ -3,12 +3,12 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"project/initialize"
 	"project/internal/query"
 	protocolplugin "project/internal/service/protocol_plugin"
 	"project/pkg/common"
 	"project/pkg/constant"
+	"project/pkg/errcode"
 	"time"
 
 	dal "project/internal/dal"
@@ -34,11 +34,11 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 	deviceconfig.DeviceTemplateID = req.DeviceTemplateId
 	deviceconfig.DeviceType = req.DeviceType
 	if req.AdditionalInfo != nil && !IsJSON(*req.AdditionalInfo) {
-		return deviceconfig, fmt.Errorf("additional_info is not a valid JSON")
+		return deviceconfig, errcode.NewWithMessage(errcode.CodeParamError, "additional_info is not a valid JSON")
 	}
 	deviceconfig.AdditionalInfo = req.AdditionalInfo
 	if req.ProtocolConfig != nil && !IsJSON(*req.ProtocolConfig) {
-		return deviceconfig, fmt.Errorf("protocol_config is not a valid JSON")
+		return deviceconfig, errcode.NewWithMessage(errcode.CodeParamError, "protocol_config is not a valid JSON")
 	}
 	deviceconfig.ProtocolConfig = req.ProtocolConfig
 	// 如果协议类型没有传，则默认为MQTT
@@ -62,6 +62,9 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 
 	if err != nil {
 		logrus.Error(err)
+		return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	return deviceconfig, err
@@ -134,14 +137,18 @@ func (*DeviceConfig) DeleteDeviceConfig(id string) error {
 		return err
 	}
 	if len(devices) > 0 {
-		return fmt.Errorf("无法删除设备配置，仍有%d个设备与其关联", len(devices))
+		return errcode.WithVars(200051, map[string]interface{}{
+			"count": len(devices),
+		})
 	}
 
 	// 删除 device config
 	err = dal.DeleteDeviceConfig(id)
 	if err != nil {
 		logrus.Error(err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 清除设备配置信息缓存
@@ -157,7 +164,9 @@ func (*DeviceConfig) GetDeviceConfigByID(ctx context.Context, id string) (any, e
 	)
 	info, err := db.First(ctx, query.DeviceConfig.ID.Eq(id))
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	//res := dal.DeviceConfigVo{}.PoToVo(info)
 	return info, nil
@@ -167,7 +176,9 @@ func (*DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByP
 
 	total, list, err := dal.GetDeviceConfigListByPage(req, claims)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	deviceconfigListRsp := make(map[string]interface{})
 	deviceconfigListRsp["total"] = total
@@ -180,15 +191,22 @@ func (*DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByP
 }
 
 func (*DeviceConfig) GetDeviceConfigListMenu(req *model.GetDeviceConfigListMenuReq, claims *utils.UserClaims) (any, error) {
-
-	return dal.GetDeviceConfigSelectList(req.DeviceConfigName, claims.TenantID, req.DeviceType, req.ProtocolType)
+	data, err := dal.GetDeviceConfigSelectList(req.DeviceConfigName, claims.TenantID, req.DeviceType, req.ProtocolType)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return data, nil
 }
 
 func (*DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
 	err := dal.BatchUpdateDeviceConfig(req)
 	if err != nil {
 		logrus.Error(err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 清除设备信息缓存
 	for _, id := range req.DeviceIds {
@@ -239,7 +257,14 @@ func (*DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string) 
 		return
 	}
 	var pd ServicePlugin
-	return pd.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_TYPE_FORM))
+	data, err = pd.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_TYPE_FORM))
+	if err != nil {
+		logrus.Error(err)
+		return data, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return
 }
 
 // 获取自动化一类设备Action下拉菜单；

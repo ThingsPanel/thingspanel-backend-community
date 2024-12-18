@@ -6,6 +6,7 @@ import (
 	"project/internal/model"
 	"project/internal/query"
 	"project/pkg/constant"
+	"project/pkg/errcode"
 	"project/third_party/others/http_client"
 	"time"
 
@@ -165,7 +166,11 @@ func (p *ServicePlugin) GetProtocolPluginFormByProtocolType(protocolType string,
 		// 返回空{}，表示不需要配置
 		return nil, nil
 	}
-	return p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
+	data, err := p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
+	if err != nil {
+		return nil, errcode.NewWithMessage(105001, err.Error())
+	}
+	return data, err
 }
 
 // 根据服务service_identifier获取服务详情

@@ -24,7 +24,7 @@ func New(code int) *Error {
 	}
 }
 
-// NewWithMessage 创建带自定义消息的错误
+// NewWithMessage 创建带自定义消息的错误, 用于覆盖默认的错误消息
 func NewWithMessage(code int, message string) *Error {
 	return &Error{
 		Code:         code,

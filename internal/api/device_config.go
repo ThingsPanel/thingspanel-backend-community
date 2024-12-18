@@ -14,17 +14,6 @@ import (
 type DeviceConfigApi struct{}
 
 // CreateDeviceConfig 创建设备配置
-// @Tags     设备配置
-// @Summary  创建设备配置
-// @Description 创建设备配置
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.CreateDeviceConfigReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "创建设备配置成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device_config [post]
 func (*DeviceConfigApi) CreateDeviceConfig(c *gin.Context) {
 	var req model.CreateDeviceConfigReq
@@ -34,11 +23,11 @@ func (*DeviceConfigApi) CreateDeviceConfig(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceConfig.CreateDeviceConfig(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Create deviceconfig successfully", data)
+	c.Set("data", data)
 }
 
 // UpdateDeviceConfig 更新设备配置
@@ -67,26 +56,15 @@ func (*DeviceConfigApi) UpdateDeviceConfig(c *gin.Context) {
 }
 
 // DeleteDeviceConfig 删除设备配置
-// @Tags     设备配置
-// @Summary  删除设备配置
-// @Description 删除设备配置
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "ID"
-// @Success  200  {object}  ApiResponse  "更新设备配置成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device_config/{id} [delete]
 func (*DeviceConfigApi) DeleteDeviceConfig(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.DeviceConfig.DeleteDeviceConfig(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete deviceconfig successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetDeviceConfigById 根据ID获取设备配置
@@ -95,10 +73,10 @@ func (*DeviceConfigApi) HandleDeviceConfigById(c *gin.Context) {
 	id := c.Param("id")
 	info, err := service.GroupApp.DeviceConfig.GetDeviceConfigByID(c, id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, info)
+	c.Set("data", info)
 }
 
 // GetDeviceConfigListByPage 设备配置分页查询
@@ -113,10 +91,10 @@ func (*DeviceConfigApi) HandleDeviceConfigListByPage(c *gin.Context) {
 
 	deviceconfigList, err := service.GroupApp.DeviceConfig.GetDeviceConfigListByPage(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get deviceconfig list successfully", deviceconfigList)
+	c.Set("data", deviceconfigList)
 }
 
 // @Router   /api/v1/device_config/menu [get]
@@ -130,10 +108,10 @@ func (*DeviceConfigApi) HandleDeviceConfigListMenu(c *gin.Context) {
 
 	deviceconfigList, err := service.GroupApp.DeviceConfig.GetDeviceConfigListMenu(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get deviceconfig list successfully", deviceconfigList)
+	c.Set("data", deviceconfigList)
 }
 
 // BatchUpdateDeviceConfig 批量修改设备配置
@@ -146,11 +124,11 @@ func (*DeviceConfigApi) BatchUpdateDeviceConfig(c *gin.Context) {
 
 	err := service.GroupApp.DeviceConfig.BatchUpdateDeviceConfig(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Batch update deviceconfig successfully", nil)
+	c.Set("data", nil)
 }
 
 // /api/v1/device_config/connect
@@ -175,10 +153,10 @@ func (*DeviceConfigApi) HandleVoucherType(c *gin.Context) {
 	}
 	data, err := service.GroupApp.DeviceConfig.GetVoucherTypeForm(param.DeviceType, param.ProtocolType)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, data)
+	c.Set("data", data)
 }
 
 // 根据设备配置id获取自动化动作中下拉列表

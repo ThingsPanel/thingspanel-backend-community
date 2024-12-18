@@ -9,6 +9,7 @@ import (
 	initialize "project/initialize"
 	dal "project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 	global "project/pkg/global"
 	utils "project/pkg/utils"
 
@@ -23,7 +24,9 @@ func DelDataScriptCache(data_script *model.DataScript) error {
 	deviceIDs, err := dal.GetDeviceIDsByDataScriptID(data_script.ID)
 	if err != nil {
 		logrus.Error(err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	for _, deviceID := range deviceIDs {
@@ -52,6 +55,9 @@ func (*DataScript) CreateDataScript(req *model.CreateDataScriptReq) (data_script
 
 	if err != nil {
 		logrus.Error(err)
+		return data_script, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	return data_script, err
@@ -62,14 +68,18 @@ func (*DataScript) UpdateDataScript(UpdateDataScriptReq *model.UpdateDataScriptR
 	err := dal.UpdateDataScript(UpdateDataScriptReq)
 	if err != nil {
 		logrus.Error(err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	new_script, _ := dal.GetDataScriptById(UpdateDataScriptReq.Id)
 	err = DelDataScriptCache(new_script)
 	if err != nil {
 		logrus.Error(err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	return err
@@ -79,13 +89,17 @@ func (*DataScript) DeleteDataScript(id string) error {
 	new_script, err := dal.GetDataScriptById(id)
 	if err != nil {
 		logrus.Error(err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	err = dal.DeleteDataScript(id)
 	if err != nil {
 		logrus.Error(err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if new_script.EnableFlag == "Y" {
 		_ = DelDataScriptCache(new_script)
@@ -97,25 +111,42 @@ func (*DataScript) GetDataScriptListByPage(Params *model.GetDataScriptListByPage
 
 	total, list, err := dal.GetDataScriptListByPage(Params)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	data_scriptListRsp := make(map[string]interface{})
 	data_scriptListRsp["total"] = total
 	data_scriptListRsp["list"] = list
 
-	return data_scriptListRsp, err
+	return data_scriptListRsp, nil
 }
 
 func (*DataScript) QuizDataScript(req *model.QuizDataScriptReq) (string, error) {
 	if strings.HasPrefix(req.AnalogInput, "0x") {
 		msg, err := hex.DecodeString(strings.ReplaceAll(req.AnalogInput, "0x", ""))
 		if err != nil {
-			return "", err
+			return "", errcode.WithVars(100002, map[string]interface{}{
+				"error": "hex decode error",
+				"input": req.AnalogInput,
+			})
 		}
-		return utils.ScriptDeal(req.Content, msg, req.Topic)
+		data, error := utils.ScriptDeal(req.Content, msg, req.Topic)
+		if error != nil {
+			return data, errcode.WithVars(200052, map[string]interface{}{
+				"error": error.Error(),
+			})
+		}
+		return data, nil
 	}
 
-	return utils.ScriptDeal(req.Content, []byte(req.AnalogInput), req.Topic)
+	data, err := utils.ScriptDeal(req.Content, []byte(req.AnalogInput), req.Topic)
+	if err != nil {
+		return data, errcode.WithVars(200052, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+	return data, nil
 
 }
 
@@ -123,7 +154,9 @@ func (*DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
 
 	if req.EnableFlag == "Y" {
 		if ok, err := dal.OnlyOneScriptTypeEnabled(req.Id); !ok {
-			return err
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 	}
 
@@ -134,7 +167,9 @@ func (*DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
 	err := dal.EnableDataScript(&data_script)
 	if err != nil {
 		logrus.Error(err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	if req.EnableFlag == "N" {
@@ -142,7 +177,9 @@ func (*DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
 		err = DelDataScriptCache(new_script)
 		if err != nil {
 			logrus.Error(err)
-			return err
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 	}
 

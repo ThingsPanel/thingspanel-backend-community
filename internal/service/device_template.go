@@ -1,11 +1,11 @@
 package service
 
 import (
-	"fmt"
 	"time"
 
 	dal "project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
@@ -33,6 +33,11 @@ func (*DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, c
 	deviceTemplate.UpdatedAt = t
 
 	data, err := dal.CreateDeviceTemplate(&deviceTemplate)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return data, err
 }
 
@@ -40,11 +45,13 @@ func (*DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, c
 	// 根据ID 获取模版
 	t, err := dal.GetDeviceTemplateById(req.Id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 权限校验
 	if *t.Flag == dal.DEVICE_TEMPLATE_PUBLIC && claims.Authority == dal.TENANT_USER {
-		return nil, fmt.Errorf("租户禁止修改公有模版")
+		return nil, errcode.New(errcode.CodeOpDenied)
 	}
 	t.ID = req.Id
 	if req.Name != nil {
@@ -70,19 +77,24 @@ func (*DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, c
 	}
 	if req.WebChartConfig != nil {
 		if !IsJSON(*req.WebChartConfig) {
-			return nil, fmt.Errorf("web_chart_config is not a valid JSON")
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "web_chart_config is not a valid JSON")
 		}
 		t.WebChartConfig = req.WebChartConfig
 	}
 
 	if req.AppChartConfig != nil {
 		if !IsJSON(*req.AppChartConfig) {
-			return nil, fmt.Errorf("app_chart_config is not a valid JSON")
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "app_chart_config is not a valid JSON")
 		}
 		t.AppChartConfig = req.AppChartConfig
 	}
 	t.UpdatedAt = time.Now().UTC()
 	data, err := dal.UpdateDeviceTemplate(t)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return data, err
 }
 
@@ -100,7 +112,9 @@ func (*DeviceTemplate) GetDeviceTemplateById(id string) (*model.DeviceTemplate, 
 	// 根据ID 获取模版
 	t, err := dal.GetDeviceTemplateById(id)
 	if err != nil {
-		return t, err
+		return t, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	return t, nil
 }
@@ -110,7 +124,9 @@ func (*DeviceTemplate) GetDeviceTemplateByDeviceId(deviceId string) (any, error)
 	// 根据ID 获取模版
 	t, err := dal.GetDeviceTemplateByDeviceId(deviceId)
 	if err != nil {
-		return t, err
+		return t, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	return t, nil
 }
@@ -119,23 +135,35 @@ func (*DeviceTemplate) DeleteDeviceTemplate(id string, claims *utils.UserClaims)
 	// 根据ID 获取模版
 	t, err := dal.GetDeviceTemplateById(id)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 权限校验
 	if *t.Flag == dal.DEVICE_TEMPLATE_PUBLIC && claims.Authority == dal.TENANT_USER {
-		return fmt.Errorf("租户禁止删除公有模版")
+		return errcode.New(errcode.CodeOpDenied)
 	}
 	// 根据功能模板ID查询想关联的配置模板数量
 	count, err := dal.GetDeviceConfigCountByFuncTemplateId(t.ID)
 	if err != nil {
-		return fmt.Errorf("get device config count error,%v", err)
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+			"msg":       "get device config count by func template id error",
+		})
 	}
 	if count > 0 {
-		return fmt.Errorf("该功能模板已被%d个配置模板引用，无法删除。请先解除相关配置模板的关联后再试", count)
+		return errcode.WithVars(200050, map[string]interface{}{
+			"count": count,
+		})
 	}
 
 	err = dal.DeleteDeviceTemplate(id)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return err
 }
 
@@ -143,7 +171,9 @@ func (*DeviceTemplate) GetDeviceTemplateListByPage(req model.GetDeviceTemplateLi
 
 	total, list, err := dal.GetDeviceTemplateListByPage(&req, claims)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	deviceTemplateMap := make(map[string]interface{})
@@ -158,7 +188,9 @@ func (*DeviceTemplate) GetDeviceTemplateMenu(req model.GetDeviceTemplateMenuReq,
 
 	data, err := dal.GetDeviceTemplateMenu(&req, claims)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	return data, nil
 }
