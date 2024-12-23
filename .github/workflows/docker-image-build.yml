@@ -88,3 +88,5 @@ jobs:
             thingspanel/thingspanel-go:${{ env.VERSION }}
             ghcr.io/${{ env.OWNER_LC }}/thingspanel-go:${{ env.VERSION }}
             registry.jihulab.com/thingspanel/docker-images/thingspanel-go:${{ env.VERSION }}
+          build-args: |
+            DESCRIPTION=ThingsPanel Backend Service
