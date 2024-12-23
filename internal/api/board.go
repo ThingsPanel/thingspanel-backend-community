@@ -1,11 +1,10 @@
 package api
 
 import (
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
 	common "project/pkg/common"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -14,17 +13,6 @@ import (
 type BoardApi struct{}
 
 // CreateBoard 创建看板
-// @Tags     看板
-// @Summary  创建看板
-// @Description 创建看板
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.CreateBoardReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "创建看板成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board [post]
 func (*BoardApi) CreateBoard(c *gin.Context) {
 	var req model.CreateBoardReq
@@ -37,25 +25,14 @@ func (*BoardApi) CreateBoard(c *gin.Context) {
 
 	boardInfo, err := service.GroupApp.Board.CreateBoard(c, &req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Create board successfully", boardInfo)
+	c.Set("data", boardInfo)
 }
 
 // UpdateBoard 更新看板
-// @Tags     看板
-// @Summary  更新看板
-// @Description 更新看板
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.UpdateBoardReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "更新看板成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board [put]
 func (*BoardApi) UpdateBoard(c *gin.Context) {
 	var req model.UpdateBoardReq
@@ -73,34 +50,23 @@ func (*BoardApi) UpdateBoard(c *gin.Context) {
 
 	d, err := service.GroupApp.Board.UpdateBoard(c, &req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Update board successfully", d)
+	c.Set("data", d)
 }
 
 // DeleteBoard 删除看板
-// @Tags     看板
-// @Summary  删除看板
-// @Description 删除看板
-// @accept    application/json
-// @Produce   application/json
-// @Param    id  path      string     true  "ID"
-// @Success  200  {object}  ApiResponse  "更新看板成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/board/{id} [delete]
 func (*BoardApi) DeleteBoard(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.Board.DeleteBoard(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete board successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetBoardListByPage 看板分页查询
@@ -113,10 +79,10 @@ func (*BoardApi) HandleBoardListByPage(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	boardList, err := service.GroupApp.Board.GetBoardListByPage(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get board list successfully", boardList)
+	c.Set("data", boardList)
 }
 
 // GetBoard 看板详情查询
@@ -126,10 +92,10 @@ func (*BoardApi) HandleBoard(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	board, err := service.GroupApp.Board.GetBoard(id, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get board successfully", board)
+	c.Set("data", board)
 }
 
 // GetBoardListByTenantId 首页看板查询
@@ -139,10 +105,10 @@ func (*BoardApi) HandleBoardListByTenantId(c *gin.Context) {
 
 	boardList, err := service.GroupApp.Board.GetBoardListByTenantId(userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get board list successfully", boardList)
+	c.Set("data", boardList)
 }
 
 // GetDeviceTotal 设备总数
@@ -153,10 +119,10 @@ func (*BoardApi) HandleDeviceTotal(c *gin.Context) {
 	board := service.GroupApp.Board
 	total, err := board.GetDeviceTotal(c, userClaims.Authority, userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get board list successfully", total)
+	c.Set("data", total)
 }
 
 // GetDevice 设备信息
@@ -165,17 +131,17 @@ func (*BoardApi) HandleDevice(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	if !common.CheckUserIsAdmin(userClaims.Authority) {
-		SuccessHandler(c, "Restricted permissions！", "权限受限！")
+		c.Error(errcode.New(201001)) // "无访问权限" / "Access Denied"
 		return
 	}
 
 	board := service.GroupApp.Board
 	data, err := board.GetDevice(c)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get board list successfully", data)
+	c.Set("data", data)
 }
 
 // GetTenant 租户信息
@@ -185,10 +151,10 @@ func (*BoardApi) HandleTenant(c *gin.Context) {
 	users := service.UsersService{}
 	data, err := users.GetTenant(c)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get message successfully!", data)
+	c.Set("data", data)
 }
 
 // GetTenantUserInfo 租户下用户信息
@@ -199,10 +165,10 @@ func (*BoardApi) HandleTenantUserInfo(c *gin.Context) {
 	users := service.UsersService{}
 	data, err := users.GetTenantUserInfo(c, userClaims.Email)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get message successfully!", data)
+	c.Set("data", data)
 }
 
 // GetTenantDeviceInfo 租户下设备信息

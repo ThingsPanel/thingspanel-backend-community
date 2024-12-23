@@ -25,7 +25,7 @@ jobs:
 
     - name: Use Skopeo Tools Sync Image to Jihulab Docker Hub2
       run: |
-         skopeo copy docker://ghcr.io/thingspanel/thingspanel-go:v1.1.3 docker://registry.jihulab.com/thingspanel/docker-images/thingspanel-go:v1.1.3
+         skopeo copy docker://ghcr.io/thingspanel/thingspanel-go:v1.1.3 docker://registry.jihulab.com/thingspanel/docker-images/thingspanel-go:v1.1.4
     #- name: Use Skopeo Tools Sync Image to Aliyuncs Docker Hub
      # run: |
      #    skopeo copy docker://docker.io/timescale/timescaledb:latest-pg14 docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/timescaledb:latest-pg14

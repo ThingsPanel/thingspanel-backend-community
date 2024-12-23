@@ -38,23 +38,34 @@ func (*UsersService) GetTenant(ctx context.Context) (model.GetTenantRes, error) 
 	total, err := db.Count(ctx)
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 昨日数据
 	yesterday, err := db.CountByWhere(ctx, user.CreatedAt.Gte(common.GetYesterdayBegin()))
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 月数据
 	month, err := db.CountByWhere(ctx, user.CreatedAt.Gte(common.GetMonthStart()))
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 历史数据
 	list = db.GroupByMonthCount(ctx, nil)
 
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
-		return data, err
+		return data, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	data = model.GetTenantRes{
@@ -84,23 +95,34 @@ func (*UsersService) GetTenantUserInfo(ctx context.Context, email string) (model
 	total, err = db.CountByWhere(ctx, user.Email.Eq(email))
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 昨日数据
 	yesterday, err = db.CountByWhere(ctx, user.CreatedAt.Gte(common.GetYesterdayBegin()), user.Email.Eq(email))
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 月数据
 	month, err = db.CountByWhere(ctx, user.CreatedAt.Gte(common.GetMonthStart()), user.Email.Eq(email))
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 历史数据
 	list = db.GroupByMonthCount(ctx, &email)
 
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
-		return data, err
+		return data, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	data = model.GetTenantRes{

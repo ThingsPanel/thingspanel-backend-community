@@ -13,6 +13,7 @@ import (
 	"project/mqtt/publish"
 	simulationpublish "project/mqtt/simulation_publish"
 	"project/pkg/constant"
+	"project/pkg/errcode"
 	"project/pkg/utils"
 	"strconv"
 	"strings"
@@ -953,5 +954,10 @@ func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.
 
 func (*TelemetryData) ServeMsgCountByTenantId(tenantId string) (int64, error) {
 	cnt, err := dal.GetTelemetryDataCountByTenantId(tenantId)
+	if err != nil {
+		return 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return cnt, err
 }

@@ -2,9 +2,11 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"project/internal/dal"
 	"project/internal/model"
 	"project/internal/query"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 	"project/third_party/others/http_client"
 	"strconv"
@@ -29,7 +31,9 @@ func (*ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *utils
 	serviceAccess.UpdateAt = time.Now().UTC()
 	err := query.ServiceAccess.Create(&serviceAccess)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	resp := make(map[string]interface{})
 	resp["id"] = serviceAccess.ID
@@ -41,6 +45,11 @@ func (*ServiceAccess) List(req *model.GetServiceAccessByPageReq, userClaims *uti
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total
 	listRsp["list"] = list
+	if err != nil {
+		return listRsp, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 
 	return listRsp, err
 }
@@ -49,7 +58,9 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 	// 查询服务接入点信息
 	serviceAccess, err := dal.GetServiceAccessByID(req.ID)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	updates := make(map[string]interface{})
 	if req.Name != nil {
@@ -67,27 +78,36 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 	updates["update_at"] = time.Now().UTC()
 	err = dal.UpdateServiceAccess(req.ID, updates)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if serviceAccess.Voucher != "" {
 		// 查询服务地址
 		_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
 		if err != nil {
-			return err
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		dataMap := make(map[string]interface{})
 		dataMap["service_access_id"] = req.ID
 		// 将dataMap转json字符串
 		dataBytes, err := json.Marshal(dataMap)
 		if err != nil {
-			return err
+			return errcode.WithData(100004, map[string]interface{}{
+				"error":     err.Error(),
+				"data_type": fmt.Sprintf("%T", dataMap),
+			})
 		}
 		// 通知服务插件
 		logrus.Debug("发送通知给服务插件")
 
 		rsp, err := http_client.Notification("1", string(dataBytes), host)
 		if err != nil {
-			return err
+			return errcode.WithVars(105001, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 		logrus.Debug("通知服务插件成功")
 		logrus.Debug(string(rsp))
@@ -97,6 +117,11 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 
 func (*ServiceAccess) Delete(id string) error {
 	err := dal.DeleteServiceAccess(id)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return err
 }
 
@@ -105,9 +130,15 @@ func (*ServiceAccess) GetVoucherForm(req *model.GetServiceAccessVoucherFormReq) 
 	// 根据service_plugin_id获取插件服务信息http地址
 	servicePlugin, httpAddress, err := dal.GetServicePluginHttpAddressByID(req.ServicePluginID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
-	return http_client.GetPluginFromConfigV2(httpAddress, servicePlugin.ServiceIdentifier, "", "SVCR")
+	data, err := http_client.GetPluginFromConfigV2(httpAddress, servicePlugin.ServiceIdentifier, "", "SVCR")
+	if err != nil {
+		return nil, errcode.NewWithMessage(105001, err.Error())
+	}
+	return data, nil
 }
 
 // GetServiceAccessDeviceList
@@ -115,16 +146,20 @@ func (*ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDeviceL
 	// 通过voucher获取service_plugin_id
 	serviceAccess, err := dal.GetServiceAccessByVoucher(req.Voucher, userClaims.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 根据service_plugin_id获取插件服务信息的http地址
 	_, httpAddress, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	data, err := http_client.GetServiceAccessDeviceList(httpAddress, req.Voucher, strconv.Itoa(req.PageSize), strconv.Itoa(req.Page))
 	if err != nil {
-		return nil, err
+		return nil, errcode.NewWithMessage(105001, err.Error())
 	}
 	// 查询已绑定设备列表
 	devices, err := dal.GetServiceDeviceList(serviceAccess.ID)

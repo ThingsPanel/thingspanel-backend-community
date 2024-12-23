@@ -43,10 +43,10 @@ func (*DeviceApi) CreateDeviceBatch(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.CreateDeviceBatch(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create product successfully", data)
+	c.Set("data", data)
 }
 
 // DeleteDevice 删除设备
@@ -590,10 +590,10 @@ func (*DeviceApi) HandleMetrics(c *gin.Context) {
 	id := c.Param("id")
 	list, err := service.GroupApp.Device.GetMetrics(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", list)
+	c.Set("data", list)
 }
 
 // GetActionByDeviceID
@@ -645,10 +645,10 @@ func (*DeviceApi) HandleDeviceTemplateChartSelect(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	list, err := service.GroupApp.Device.GetDeviceTemplateChartSelect(userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", list)
+	c.Set("data", list)
 }
 
 // 更换设备配置UpdateDeviceConfig

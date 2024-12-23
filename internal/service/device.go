@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"project/initialize"
@@ -106,15 +105,23 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 		if v.DeviceName == "" && v.DeviceNumber == "" && v.DeviceConfigId == "" {
 			continue
 		}
-		// 校验v.DeviceNumber,v.DeviceConfigId,v.DeviceName不为空
+		// 校验必填字段
 		if v.DeviceNumber == "" {
-			return nil, errors.New("设备编号不能为空")
+			return nil, errcode.WithVars(100005, map[string]interface{}{
+				"field": "设备编号",
+			})
 		}
+
 		if v.DeviceConfigId == "" {
-			return nil, errors.New("设备配置id不能为空")
+			return nil, errcode.WithVars(100005, map[string]interface{}{
+				"field": "设备配置ID",
+			})
 		}
+
 		if v.DeviceName == "" {
-			return nil, errors.New("设备名称不能为空")
+			return nil, errcode.WithVars(100005, map[string]interface{}{
+				"field": "设备名称",
+			})
 		}
 
 		device := model.Device{
@@ -136,32 +143,44 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 	}
 	err = dal.CreateDeviceBatch(deviceList)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	} else {
 		//发送通知给服务插件
 		// 获取服务接入信息
 		serviceAccess, err := dal.GetServiceAccessByID(req.ServiceAccessId)
 		if err != nil {
-			return nil, errors.New("创建设备成功，查询接入点信息失败:" + err.Error())
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+				"message":   "create device success, query service access failed",
+			})
 		}
 		// 查询服务地址
 		_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
 		if err != nil {
-			return nil, errors.New("创建设备成功，查询三方服务地址失败:" + err.Error())
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+				"message":   "create device success, query service plugin failed",
+			})
 		}
 		dataMap := make(map[string]interface{})
 		dataMap["service_access_id"] = req.ServiceAccessId
 		// 将dataMap转json字符串
 		dataBytes, err := json.Marshal(dataMap)
 		if err != nil {
-			return nil, errors.New("创建设备成功，json打包失败:" + err.Error())
+			return nil, errcode.WithData(100004, map[string]interface{}{
+				"message": "create device success, marshal data failed",
+			})
 		}
 		// 通知服务插件
 		logrus.Debug("发送通知给服务插件")
 
 		rsp, err := http_client.Notification("1", string(dataBytes), host)
 		if err != nil {
-			return nil, errors.New("创建设备成功，通知三方服务失败:" + err.Error())
+			return nil, errcode.WithVars(105001, map[string]interface{}{
+				"error": "create device success, notification failed" + err.Error(),
+			})
 		}
 		logrus.Debug("通知服务插件成功")
 		logrus.Debug(string(rsp))
@@ -866,17 +885,26 @@ func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error)
 
 	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(device_id)
 	if err != nil && len(telemetryDatas) == 0 {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get telemetry data failed:" + err.Error(),
+			"id":    device_id,
+		})
 	}
 
 	attributeDatas, err := dal.GetAttributeDataList(device_id)
 	if err != nil && len(attributeDatas) == 0 {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get attribute data failed:" + err.Error(),
+			"id":    device_id,
+		})
 	}
 
 	device, err := dal.GetDeviceByID(device_id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device failed:" + err.Error(),
+			"id":    device_id,
+		})
 	}
 
 	var deviceConfig *model.DeviceConfig
@@ -888,14 +916,20 @@ func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error)
 		// 获取设备配置
 		deviceConfig, err = dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "get device config failed:" + err.Error(),
+				"id":    device_id,
+			})
 		}
 		// 是否有设备模板
 		if deviceConfig.DeviceTemplateID != nil {
 			// 查询遥测模型
 			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": "get device model telemetry failed:" + err.Error(),
+					"id":    device_id,
+				})
 			}
 			// 遍历并转换为map,供下面填入遥测模板数据使用
 			for _, v := range telemetryModel {
@@ -904,7 +938,10 @@ func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error)
 
 			attributeList, err := dal.GetDeviceModelAttributeDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": "get device model attribute failed:" + err.Error(),
+					"id":    device_id,
+				})
 			}
 			// 遍历并转换为map
 			for _, v := range attributeList {
@@ -1520,8 +1557,13 @@ func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error)
 func (*Device) GetDeviceTemplateChartSelect(userClaims *utils.UserClaims) (any, error) {
 	// 获取设备模板
 	tenantId := userClaims.TenantID
-	return dal.GetDeviceTemplateChartSelect(tenantId)
-
+	data, err := dal.GetDeviceTemplateChartSelect(tenantId)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return data, nil
 }
 
 func (*Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error) {

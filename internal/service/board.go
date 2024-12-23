@@ -9,6 +9,7 @@ import (
 	model "project/internal/model"
 	query "project/internal/query"
 	common "project/pkg/common"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
@@ -26,7 +27,7 @@ func (*Board) CreateBoard(ctx context.Context, CreateBoardReq *model.CreateBoard
 	board.ID = uuid.New()
 	board.Name = CreateBoardReq.Name
 	if CreateBoardReq.Config != nil && !IsJSON(*CreateBoardReq.Config) {
-		return nil, fmt.Errorf("config is not a valid JSON")
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "config is not a valid JSON")
 	}
 	board.Config = CreateBoardReq.Config
 	board.MenuFlag = &CreateBoardReq.MenuFlag
@@ -41,12 +42,17 @@ func (*Board) CreateBoard(ctx context.Context, CreateBoardReq *model.CreateBoard
 		err := db.UpdateHomeFlagN(ctx, CreateBoardReq.TenantID)
 		if err != nil {
 			logrus.Error(err)
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 	}
 	boardInfo, err := db.Create(ctx, &board)
 	if err != nil {
 		logrus.Error(err)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	return boardInfo, err
@@ -59,7 +65,10 @@ func (*Board) UpdateBoard(ctx context.Context, UpdateBoardReq *model.UpdateBoard
 	board.Name = UpdateBoardReq.Name
 	// 校验是否json格式字符串
 	if UpdateBoardReq.Config != nil && !IsJSON(*UpdateBoardReq.Config) {
-		return nil, fmt.Errorf("config is not a valid JSON")
+		return nil, errcode.WithVars(100002, map[string]interface{}{
+			"field": "config",
+			"error": "config is not a valid JSON",
+		})
 	}
 	board.Config = UpdateBoardReq.Config
 	board.HomeFlag = UpdateBoardReq.HomeFlag
@@ -77,14 +86,18 @@ func (*Board) UpdateBoard(ctx context.Context, UpdateBoardReq *model.UpdateBoard
 				err := db.UpdateHomeFlagN(ctx, UpdateBoardReq.TenantID)
 				if err != nil {
 					logrus.Error(err)
-					return nil, err
+					return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
 				}
 			}
 		}
 		err := dal.UpdateBoard(&board)
 		if err != nil {
 			logrus.Error(err)
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 
 	} else {
@@ -103,12 +116,15 @@ func (*Board) UpdateBoard(ctx context.Context, UpdateBoardReq *model.UpdateBoard
 			if err != nil {
 				logrus.Error(err)
 			} else {
-				return nil, fmt.Errorf("home board already exists")
+				return nil, errcode.New(203004)
 			}
 		}
 		boardInfo, err := db.Create(ctx, &board)
 		if err != nil {
 			logrus.Error(err)
+			err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		return boardInfo, err
 	}
@@ -117,13 +133,20 @@ func (*Board) UpdateBoard(ctx context.Context, UpdateBoardReq *model.UpdateBoard
 
 func (*Board) DeleteBoard(id string) error {
 	err := dal.DeleteBoard(id)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return err
 }
 
 func (*Board) GetBoardListByPage(Params *model.GetBoardListByPageReq, U *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetBoardListByPage(Params, U.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	boardListRsp := make(map[string]interface{})
 	boardListRsp["total"] = total
@@ -135,7 +158,9 @@ func (*Board) GetBoardListByPage(Params *model.GetBoardListByPageReq, U *utils.U
 func (*Board) GetBoard(id string, U *utils.UserClaims) (interface{}, error) {
 	board, err := dal.GetBoard(id, U.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	return board, err
@@ -144,7 +169,9 @@ func (*Board) GetBoard(id string, U *utils.UserClaims) (interface{}, error) {
 func (*Board) GetBoardListByTenantId(tenantid string) (interface{}, error) {
 	_, data, err := dal.GetBoardListByTenantId(tenantid)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	return data, err
 }
@@ -164,6 +191,11 @@ func (*Board) GetDeviceTotal(ctx context.Context, authority string, tenantID str
 	} else {
 		total, err = db.CountByTenantID(ctx, tenantID)
 	}
+	if err != nil {
+		return 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 
 	return total, err
 }
@@ -182,11 +214,17 @@ func (*Board) GetDevice(ctx context.Context) (data *model.GetBoardDeviceRes, err
 	total, err = db.Count(ctx)
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count failed:", err)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 		return
 	}
 	on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"))
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count/on failed:", err)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 		return
 	}
 	data = &model.GetBoardDeviceRes{

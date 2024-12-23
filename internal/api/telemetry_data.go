@@ -6,6 +6,7 @@ import (
 	"net/http"
 	ws_subscribe "project/mqtt/ws_subscribe"
 	"project/pkg/constant"
+	"project/pkg/errcode"
 	"project/pkg/utils"
 	"strconv"
 	"sync"
@@ -489,14 +490,14 @@ func (*TelemetryDataApi) TelemetryPutMessage(c *gin.Context) {
 func (*TelemetryDataApi) ServeMsgCountByTenant(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	if userClaims.TenantID == "" {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("no tenantid"))
+		c.Error(errcode.New(201001))
 		return
 	}
 	cnt, err := service.GroupApp.TelemetryData.ServeMsgCountByTenantId(userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get msg count successfully", map[string]interface{}{"msg": cnt})
+	c.Set("data", map[string]interface{}{"msg": cnt})
 }

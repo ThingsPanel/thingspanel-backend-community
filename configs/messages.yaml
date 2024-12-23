@@ -20,6 +20,12 @@ messages:
   100003:
     zh_CN: "密码解密失败"
     en_US: "Password Decryption Failed"
+  100004:
+    zh_CN: "数据序列化失败"
+    en_US: "Data serialization failed"
+  100005:
+    zh_CN: "${field}不能为空"
+    en_US: "${field} cannot be empty"
 
   # 数据库相关错误 (101xxx)
   101001:
@@ -153,6 +159,9 @@ messages:
   203003:
     zh_CN: "顶级分组名称 '${group_name}' 已存在"
     en_US: "Top-level group name '${group_name}' already exists"
+  203004:
+    zh_CN: "首页看板已存在"
+    en_US: "Home board already exists"
 
   # Device Connect Field Keys (500xxx)
   500001:

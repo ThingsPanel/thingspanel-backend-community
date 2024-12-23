@@ -12,6 +12,7 @@ import (
 
 type ServiceAccessApi struct{}
 
+// /api/v1/service/access [post]
 func (*ServiceAccessApi) Create(c *gin.Context) {
 	var req model.CreateAccessReq
 	if !BindAndValidate(c, &req) {
@@ -20,10 +21,10 @@ func (*ServiceAccessApi) Create(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	resp, err := service.GroupApp.ServiceAccess.CreateAccess(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "create service successfully", resp)
+	c.Set("data", resp)
 }
 
 // /api/v1/service/access/list
@@ -35,13 +36,13 @@ func (*ServiceAccessApi) HandleList(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	resp, err := service.GroupApp.ServiceAccess.List(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get service access list successfully", resp)
+	c.Set("data", resp)
 }
 
-// /api/v1/service/access
+// /api/v1/service/access [put]
 func (*ServiceAccessApi) Update(c *gin.Context) {
 	var req model.UpdateAccessReq
 	if !BindAndValidate(c, &req) {
@@ -49,20 +50,21 @@ func (*ServiceAccessApi) Update(c *gin.Context) {
 	}
 	err := service.GroupApp.ServiceAccess.Update(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "update service access successfully", map[string]interface{}{})
+	c.Set("data", nil)
 }
 
+// /api/v1/service/access/:id [delete]
 func (*ServiceAccessApi) Delete(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.ServiceAccess.Delete(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "delete service access successfully", map[string]interface{}{})
+	c.Set("data", nil)
 }
 
 // /api/v1/service/access/voucher/form
@@ -74,10 +76,10 @@ func (*ServiceAccessApi) HandleVoucherForm(c *gin.Context) {
 	}
 	resp, err := service.GroupApp.ServiceAccess.GetVoucherForm(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get service access config form successfully", resp)
+	c.Set("resp", resp)
 }
 
 // /api/v1/service/access/device/list
@@ -90,10 +92,10 @@ func (*ServiceAccessApi) HandleDeviceList(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	resp, err := service.GroupApp.ServiceAccess.GetServiceAccessDeviceList(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get device list successfully", resp)
+	c.Set("resp", resp)
 }
 
 // /api/v1/plugin/service/access/list
