@@ -1,10 +1,36 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
+# ThingsPanel 后端社区版自动部署工作流
+#
+# 功能说明:
+# 1. 自动编译并部署 ThingsPanel 后端社区版到指定服务器
+# 2. 保留上传的文件目录，其他目录重新部署
+#
+# 触发方式:
+# - 代码推送: 当 main 分支有代码推送时自动触发部署
+# - 手动触发: 可以通过 GitHub Actions 页面手动触发
+#
+# 部署步骤:
+# 1. 检出代码
+# 2. 设置 Go 环境 (v1.22)
+# 3. 打包源码
+# 4. 上传到部署服务器
+# 5. 部署和重启服务
+#
+# 服务器部署过程:
+# 1. 清理旧文件(保留 files 目录)
+# 2. 解压新代码
+# 3. 编译项目
+# 4. 使用 PM2 重启服务
+#
+# 必需的 Secrets:
+# - C_HOST: 部署服务器地址
+# - C_USER: 服务器用户名
+# - C_PASS: 服务器密码
+#
+# 注意事项:
+# 1. 部署时会保留 files 目录，不会被清理
+# 2. 需要服务器已安装 Go 环境
+# 3. 需要服务器已安装 PM2
+# 4. 请确保服务器路径 /home/thingspanel/thingspanel-backend-community 存在
 
 name: deploy
 
