@@ -46,9 +46,9 @@ func UpdateServicePlugin(id string, updates map[string]interface{}) error {
 	return err
 }
 
-func GetServicePluginListByPage(req *model.GetServicePluginByPageReq) (int64, interface{}, error) {
+func GetServicePluginListByPage(req *model.GetServicePluginByPageReq) (int64, []map[string]interface{}, error) {
 	var count int64
-	var servicePlugins []map[string]interface{}
+	servicePlugins := make([]map[string]interface{}, 0)
 
 	q := query.ServicePlugin
 	queryBuilder := q.WithContext(context.Background())

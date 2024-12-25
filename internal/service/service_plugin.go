@@ -40,6 +40,9 @@ func (*ServicePlugin) List(req *model.GetServicePluginByPageReq) (map[string]int
 	total, list, err := dal.GetServicePluginListByPage(req)
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total
+	if list == nil {
+		list = make([]map[string]interface{}, 0)
+	}
 	listRsp["list"] = list
 
 	return listRsp, err
