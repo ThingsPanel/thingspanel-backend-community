@@ -31,14 +31,6 @@ func (*DeviceConfigApi) CreateDeviceConfig(c *gin.Context) {
 }
 
 // UpdateDeviceConfig 更新设备配置
-// @Tags     设备配置
-// @Summary  更新设备配置
-// @Description 更新设备配置
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.UpdateDeviceConfigReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "更新设备配置成功"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device_config [put]
 func (*DeviceConfigApi) UpdateDeviceConfig(c *gin.Context) {
 	var req model.UpdateDeviceConfigReq

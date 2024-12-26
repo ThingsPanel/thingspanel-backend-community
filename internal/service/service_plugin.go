@@ -87,7 +87,7 @@ func (*ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interfac
 	var protocolList []map[string]interface{}
 	protocolList = append(protocolList, map[string]interface{}{
 		"service_identifier": "MQTT",
-		"name":               "MQTT协议",
+		"name":               "MQTT",
 	})
 	// 定义一个空切片
 	var serviceList []map[string]interface{}
