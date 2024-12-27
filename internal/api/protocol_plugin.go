@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
 
@@ -20,10 +18,10 @@ func (*ProtocolPluginApi) CreateProtocolPlugin(c *gin.Context) {
 	}
 	data, err := service.GroupApp.ProtocolPlugin.CreateProtocolPlugin(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create protocol plugin successfully", data)
+	c.Set("data", data)
 }
 
 // DeleteProtocolPlugin 删除协议插件
@@ -33,10 +31,10 @@ func (*ProtocolPluginApi) DeleteProtocolPlugin(c *gin.Context) {
 	err := service.GroupApp.ProtocolPlugin.DeleteProtocolPlugin(id)
 
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete protocol plugin successfully", id)
+	c.Set("data", id)
 }
 
 // UpdateProtocolPlugin 更新协议插件
@@ -49,10 +47,10 @@ func (*ProtocolPluginApi) UpdateProtocolPlugin(c *gin.Context) {
 	err := service.GroupApp.ProtocolPlugin.UpdateProtocolPlugin(&req)
 
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update protocol plugin successfully", nil)
+	c.Set("data", nil)
 }
 
 // UpdateProtocolPlugin 分页查询协议插件
@@ -65,10 +63,10 @@ func (*ProtocolPluginApi) HandleProtocolPluginListByPage(c *gin.Context) {
 
 	list, err := service.GroupApp.ProtocolPlugin.GetProtocolPluginListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get protocol plugin successfully", list)
+	c.Set("data", list)
 }
 
 // GetProtocolPluginForm 获取设备配置表单
@@ -81,10 +79,10 @@ func (*ProtocolPluginApi) HandleProtocolPluginForm(c *gin.Context) {
 
 	data, err := service.GroupApp.ProtocolPlugin.GetProtocolPluginForm(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", data)
+	c.Set("data", data)
 }
 
 // GetProtocolPluginForm 根据协议类型获取设备配置表单
@@ -113,8 +111,8 @@ func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPlugin(c *gin.Context) {
 
 	data, err := service.GroupApp.ProtocolPlugin.GetDeviceConfig(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", data)
+	c.Set("data", data)
 }

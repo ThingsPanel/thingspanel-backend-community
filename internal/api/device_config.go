@@ -152,7 +152,7 @@ func (*DeviceConfigApi) HandleVoucherType(c *gin.Context) {
 }
 
 // 根据设备配置id获取自动化动作中下拉列表
-// /api/v1/device_config/metrics/menu
+// /api/v1/device_config/metrics/menu [get]
 func (*DeviceConfigApi) HandleActionByDeviceConfigID(c *gin.Context) {
 	var param model.GetActionByDeviceConfigIDReq
 	if !BindAndValidate(c, &param) {
@@ -160,10 +160,10 @@ func (*DeviceConfigApi) HandleActionByDeviceConfigID(c *gin.Context) {
 	}
 	list, err := service.GroupApp.DeviceConfig.GetActionByDeviceConfigID(param.DeviceConfigID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", list)
+	c.Set("data", list)
 }
 
 // 根据设备配置id获取自动化动作中下拉列表
@@ -175,8 +175,8 @@ func (*DeviceConfigApi) HandleConditionByDeviceConfigID(c *gin.Context) {
 	}
 	list, err := service.GroupApp.DeviceConfig.GetConditionByDeviceConfigID(param.DeviceConfigID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", list)
+	c.Set("data", list)
 }

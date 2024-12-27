@@ -129,6 +129,11 @@ messages:
   200052:
     zh_CN: "脚本处理失败: ${error}"
     en_US: "Script processing failed: ${error}"
+
+  # 设备条件错误码 (200060-200069)
+  200060:
+    zh_CN: "设备条件冲突：一组条件中不允许同时存在单个设备和设备类型条件"
+    en_US: "Device condition conflict: Individual device and device type conditions cannot coexist in the same group"
   
   # 权限模块错误 (201xxx)
   201001:

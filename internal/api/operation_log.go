@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
 	"project/pkg/utils"
@@ -23,8 +21,8 @@ func (*OperationLogsApi) HandleListByPage(c *gin.Context) {
 	req.TenantID = userClaims.TenantID
 	list, err := service.GroupApp.OperationLogs.GetListByPage(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get list successfully", list)
+	c.Set("data", list)
 }

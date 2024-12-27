@@ -1,10 +1,10 @@
 package service
 
 import (
-	"fmt"
 	"project/initialize"
 	"project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
@@ -21,7 +21,9 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 	logrus.Info("开启事物")
 	tx, err := dal.StartTransaction()
 	if err != nil {
-		return scene_automation_id, err
+		return scene_automation_id, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 写入 scene_automations
@@ -45,7 +47,9 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 	err = dal.CreateSceneAutomation(&sceneAutomation, tx)
 	if err != nil {
 		dal.Rollback(tx)
-		return "", err
+		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	for _, v := range req.TriggerConditionGroups {
@@ -84,7 +88,9 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 				err = dal.CreateDeviceTriggerCondition(dtc, tx)
 				if err != nil {
 					dal.Rollback(tx)
-					return "", err
+					return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
 				}
 
 			case "20":
@@ -111,7 +117,9 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 				err = dal.CreateOneTimeTask(ott, tx)
 				if err != nil {
 					dal.Rollback(tx)
-					return "", err
+					return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
 				}
 			case "21":
 				// 写入periodic_tasks
@@ -138,17 +146,21 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 				err = dal.CreatePeriodicTask(pt, tx)
 				if err != nil {
 					dal.Rollback(tx)
-					return "", err
+					return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
 				}
 			default:
 				dal.Rollback(tx)
-				return "", fmt.Errorf("not support")
+				return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+				})
 			}
 
 		}
 		if oneCondition && multipleCondition {
 			dal.Rollback(tx)
-			return "", fmt.Errorf("一组条件中不允许存在单个设备和单类设备的条件")
+			return "", errcode.New(200060) // 使用标准错误码
 		}
 	}
 
@@ -167,7 +179,9 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 		err = dal.CreateActionInfo(actionInfo, tx)
 		if err != nil {
 			dal.Rollback(tx)
-			return "", err
+			return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 
 	}
@@ -190,11 +204,15 @@ func (*SceneAutomation) AutomateCacheSet(scene_automation_id string) error {
 	logrus.Info("开始保存自动化缓存信息")
 	groupInfoPtrs, err := dal.GetDeviceTriggerCondition(scene_automation_id)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	actionInfoPtrs, err := dal.GetActionInfo(scene_automation_id)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	var groupInfos []model.DeviceTriggerCondition
 	for _, groupInfo := range groupInfoPtrs {
@@ -208,37 +226,59 @@ func (*SceneAutomation) AutomateCacheSet(scene_automation_id string) error {
 			actionInfos = append(actionInfos, *actionInfo)
 		}
 	}
-	return initialize.NewAutomateCache().SetCacheBySceneAutomationId(scene_automation_id, groupInfos, actionInfos)
+	err = initialize.NewAutomateCache().SetCacheBySceneAutomationId(scene_automation_id, groupInfos, actionInfos)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return nil
 }
 
 func (*SceneAutomation) DeleteSceneAutomation(scene_automation_id string) error {
-	return dal.DeleteSceneAutomation(scene_automation_id, nil)
+	err := dal.DeleteSceneAutomation(scene_automation_id, nil)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return nil
 }
 
 func (*SceneAutomation) GetSceneAutomation(scene_automation_id string) (interface{}, error) {
 	sceneAutomation, err := dal.GetSceneAutomation(scene_automation_id, nil)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	deviceTriggerCondition, err := dal.GetDeviceTriggerCondition(scene_automation_id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	oneTimeTask, err := dal.GetOneTimeTask(scene_automation_id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	periodicTask, err := dal.GetPeriodicTask(scene_automation_id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	actionInfo, err := dal.GetActionInfo(scene_automation_id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	res := make(map[string]interface{})
@@ -334,7 +374,9 @@ func (*SceneAutomation) SwitchSceneAutomation(scene_automation_id, target string
 	// 开启事物
 	tx, err := dal.StartTransaction()
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	if target == "" {
@@ -353,25 +395,33 @@ func (*SceneAutomation) SwitchSceneAutomation(scene_automation_id, target string
 	err = dal.SwitchSceneAutomation(scene_automation_id, target, tx)
 	if err != nil {
 		dal.Rollback(tx)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	err = dal.SwitchDeviceTriggerCondition(scene_automation_id, target, tx)
 	if err != nil {
 		dal.Rollback(tx)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	err = dal.SwitchOneTimeTask(scene_automation_id, target, tx)
 	if err != nil {
 		dal.Rollback(tx)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	err = dal.SwitchPeriodicTask(scene_automation_id, target, tx)
 	if err != nil {
 		dal.Rollback(tx)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	dal.Commit(tx)
@@ -398,7 +448,9 @@ func (*SceneAutomation) SwitchSceneAutomation(scene_automation_id, target string
 func (*SceneAutomation) GetSceneAutomationByPageReq(req *model.GetSceneAutomationByPageReq, u *utils.UserClaims) (interface{}, error) {
 	total, sceneInfo, err := dal.GetSceneAutomationByPage(req, u.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	sceneListMap := make(map[string]interface{})
 	sceneListMap["total"] = total
@@ -409,7 +461,9 @@ func (*SceneAutomation) GetSceneAutomationByPageReq(req *model.GetSceneAutomatio
 func (*SceneAutomation) GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlarmByPageReq, u *utils.UserClaims) (interface{}, error) {
 	total, sceneInfo, err := dal.GetSceneAutomationWithAlarmByPageReq(req, u.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	sceneListMap := make(map[string]interface{})
 	sceneListMap["total"] = total
@@ -424,7 +478,9 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 	// 开启事物
 	tx, err := dal.StartTransaction()
 	if err != nil {
-		return scene_automation_id, err
+		return scene_automation_id, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	scene_automation_id = req.ID
@@ -442,35 +498,45 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 
 	err = dal.SaveSceneAutomation(&sceneAutomation, tx)
 	if err != nil {
-		return "", err
+		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 删除
 	err = dal.DeleteDeviceTriggerCondition(scene_automation_id, tx)
 	if err != nil {
 		dal.Rollback(tx)
-		return "", err
+		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 删除
 	err = dal.DeleteOneTimeTask(scene_automation_id, tx)
 	if err != nil {
 		dal.Rollback(tx)
-		return "", err
+		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 删除
 	err = dal.DeletePeriodicTask(scene_automation_id, tx)
 	if err != nil {
 		dal.Rollback(tx)
-		return "", err
+		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 删除
 	err = dal.DeleteActionInfo(scene_automation_id, tx)
 	if err != nil {
 		dal.Rollback(tx)
-		return "", err
+		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	for _, v := range req.TriggerConditionGroups {
@@ -509,7 +575,9 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 				err = dal.CreateDeviceTriggerCondition(dtc, tx)
 				if err != nil {
 					dal.Rollback(tx)
-					return "", err
+					return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
 				}
 
 			case "20":
@@ -537,7 +605,9 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 				err = dal.CreateOneTimeTask(ott, tx)
 				if err != nil {
 					dal.Rollback(tx)
-					return "", err
+					return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
 				}
 			case "21":
 				// 写入periodic_tasks
@@ -562,16 +632,20 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 				err = dal.CreatePeriodicTask(pt, tx)
 				if err != nil {
 					dal.Rollback(tx)
-					return "", err
+					return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
 				}
 			default:
 				dal.Rollback(tx)
-				return "", fmt.Errorf("not support")
+				return "", errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+					"err": "not support trigger type",
+				})
 			}
 		}
 		if oneCondition && multipleCondition {
 			dal.Rollback(tx)
-			return "", fmt.Errorf("一组条件中不允许存在单个设备和单类设备的条件")
+			return "", errcode.New(200060)
 		}
 	}
 
@@ -588,7 +662,9 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 		err = dal.CreateActionInfo(actionInfo, tx)
 		if err != nil {
 			dal.Rollback(tx)
-			return "", err
+			return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 
 	}

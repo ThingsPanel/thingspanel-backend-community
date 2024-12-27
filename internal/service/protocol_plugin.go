@@ -2,10 +2,10 @@ package service
 
 import (
 	"encoding/json"
-	"fmt"
 	dal "project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/constant"
+	"project/pkg/errcode"
 	"project/third_party/others/http_client"
 
 	"github.com/sirupsen/logrus"
@@ -16,26 +16,45 @@ type ProtocolPlugin struct{}
 func (*ProtocolPlugin) CreateProtocolPlugin(req *model.CreateProtocolPluginReq) (*model.ProtocolPlugin, error) {
 	// 校验是否json格式字符串
 	if req.AdditionalInfo != nil && !IsJSON(*req.AdditionalInfo) {
-		return nil, fmt.Errorf("additional_info is not a valid JSON")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "additional_info must be a json string",
+		})
 	}
 	data, err := dal.CreateProtocolPluginWithDict(req)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return data, err
 }
 
 func (*ProtocolPlugin) DeleteProtocolPlugin(id string) error {
 	err := dal.DeleteProtocolPluginWithDict(id)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return err
 }
 
 func (*ProtocolPlugin) UpdateProtocolPlugin(req *model.UpdateProtocolPluginReq) error {
 	err := dal.UpdateProtocolPluginWithDict(req)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return err
 }
 
 func (*ProtocolPlugin) GetProtocolPluginListByPage(req *model.GetProtocolPluginListByPageReq) (interface{}, error) {
 	total, list, err := dal.GetProtocolPluginListByPage(req)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	protocolPluginList := make(map[string]interface{})
 	protocolPluginList["total"] = total
@@ -50,7 +69,9 @@ func (p *ProtocolPlugin) GetProtocolPluginForm(req *model.GetProtocolPluginFormR
 	// 获取设备信息
 	d, err := dal.GetDeviceByID(req.DeviceId)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if d.DeviceConfigID == nil || *d.DeviceConfigID == "" {
 		protocolType = "MQTT"
@@ -59,13 +80,21 @@ func (p *ProtocolPlugin) GetProtocolPluginForm(req *model.GetProtocolPluginFormR
 		//获取设备配置信息
 		dc, err := dal.GetDeviceConfigByID(req.DeviceId)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		protocolType = *dc.ProtocolType
 		deviceType = dc.DeviceType
 	}
 	// 获取协议插件表单
-	return p.GetProtocolPluginFormByProtocolType(protocolType, deviceType)
+	data, err := p.GetProtocolPluginFormByProtocolType(protocolType, deviceType)
+	if err != nil {
+		return nil, errcode.WithVars(105001, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+	return data, err
 }
 
 // 根据协议类型获取设备配置表单
@@ -74,7 +103,13 @@ func (p *ProtocolPlugin) GetProtocolPluginFormByProtocolType(protocolType string
 		// 返回空{}，表示不需要配置
 		return nil, nil
 	}
-	return p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
+	data, err := p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
+	if err != nil {
+		return nil, errcode.WithVars(105001, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+	return data, err
 }
 
 // 去协议插件获取各种表单
@@ -91,16 +126,28 @@ func (*ProtocolPlugin) GetPluginForm(protocolType string, deviceType string, for
 		// 网关子设备对应的协议插件设备类型为2
 		protocolPluginDeviceType = 2
 	default:
-		return nil, fmt.Errorf("device type not found")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "device type not found",
+		})
 	}
 	protocolPlugin, err := dal.GetProtocolPluginByDeviceTypeAndProtocolType(protocolPluginDeviceType, protocolType)
 	if err != nil {
 		logrus.Error(err)
-		return nil, fmt.Errorf("get protocol plugin failed: %s", err)
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	host := *protocolPlugin.HTTPAddress
 	// 请求表单
-	return http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)
+	data, err := http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)
+	if err != nil {
+		logrus.Error(err)
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+
+	return data, err
 
 }
 
@@ -109,7 +156,9 @@ func (*ProtocolPlugin) GetPluginForm(protocolType string, deviceType string, for
 func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{}, error) {
 	// 校验device_id和voucher必须有一个
 	if req.DeviceId == "" && req.Voucher == "" && req.DeviceNumber == "" {
-		return nil, fmt.Errorf("device_id and voucher and device_number must have one")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "device id and voucher and device_number must have one",
+		})
 	}
 	var device *model.Device
 	var deviceConfig *model.DeviceConfig
@@ -119,19 +168,25 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 	if req.DeviceId != "" {
 		d, err := dal.GetDeviceByID(req.DeviceId)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		device = d
 	} else if req.Voucher != "" {
 		d, err := dal.GetDeviceByVoucher(req.Voucher)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		device = d
 	} else if req.DeviceNumber != "" {
 		d, err := dal.GetDeviceByDeviceNumber(req.DeviceNumber)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		device = d
 	}
@@ -139,12 +194,16 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 	if device.DeviceConfigID != nil {
 		dc, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		deviceConfig = dc
 	} else {
 		logrus.Warn("deviceConfigID is nil")
-		return nil, fmt.Errorf("device config id is nil")
+		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": "device config not found",
+		})
 	}
 
 	// 给deviceConfigForProtocolPlugin赋值
@@ -158,7 +217,9 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 			var config map[string]interface{}
 			err := json.Unmarshal([]byte(*deviceConfig.ProtocolConfig), &config)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"error": err.Error(),
+				})
 			}
 			deviceConfigForProtocolPlugin.ProtocolConfigTemplate = config
 		} else {
@@ -170,7 +231,9 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 			var config map[string]interface{}
 			err := json.Unmarshal([]byte(*device.ProtocolConfig), &config)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"error": err.Error(),
+				})
 			}
 			deviceConfigForProtocolPlugin.Config = config
 		} else {
@@ -178,7 +241,9 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 		}
 	} else {
 		logrus.Warn("deviceConfig is nil")
-		return nil, fmt.Errorf("device config not found")
+		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": "device config not found",
+		})
 	}
 	// 如果是协议插件相关设备，必定有deviceConfig
 	deviceConfigForProtocolPlugin.DeviceType = deviceConfig.DeviceType
@@ -189,7 +254,9 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 		// 获取子设备列表
 		subDeviceList, err := dal.GetSubDeviceListByParentID(device.ID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		for _, subDevice := range subDeviceList {
 			var subDeviceConfigForProtocolPlugin model.SubDeviceConfigForProtocolPlugin
@@ -197,7 +264,9 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 			subDeviceConfigForProtocolPlugin.Voucher = subDevice.Voucher
 			if subDevice.SubDeviceAddr == nil {
 				logrus.Warn("subDeviceAddr is nil")
-				return nil, fmt.Errorf("subDeviceAddr is nil")
+				return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"error": "subDeviceAddr not found",
+				})
 			}
 			subDeviceConfigForProtocolPlugin.SubDeviceAddr = *subDevice.SubDeviceAddr
 			// 判断device.ProtocolConfig是否为json格式字符串
@@ -206,7 +275,9 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 				var config map[string]interface{}
 				err := json.Unmarshal([]byte(*subDevice.ProtocolConfig), &config)
 				if err != nil {
-					return nil, err
+					return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+						"error": err.Error(),
+					})
 				}
 				subDeviceConfigForProtocolPlugin.Config = config
 			} else {
@@ -214,11 +285,15 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 			}
 			// 获取子设备配置信息
 			if subDevice.DeviceConfigID == nil {
-				return nil, fmt.Errorf("subDevice.DeviceConfigID is nil")
+				return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"error": "sub device config not found",
+				})
 			}
 			deviceConfig, err := dal.GetDeviceConfigByID(*subDevice.DeviceConfigID)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+				})
 			}
 			// 判断deviceConfig.ProtocolConfig是否为json格式字符串
 			if deviceConfig.ProtocolConfig != nil && IsJSON(*deviceConfig.ProtocolConfig) {
@@ -226,7 +301,9 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 				var config map[string]interface{}
 				err := json.Unmarshal([]byte(*deviceConfig.ProtocolConfig), &config)
 				if err != nil {
-					return nil, err
+					return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+						"error": err.Error(),
+					})
 				}
 				subDeviceConfigForProtocolPlugin.ProtocolConfigTemplate = config
 			} else {

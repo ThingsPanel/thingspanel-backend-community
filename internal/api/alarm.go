@@ -88,14 +88,14 @@ func (*AlarmApi) UpdateAlarmInfo(c *gin.Context) {
 
 	data, err := service.GroupApp.Alarm.UpdateAlarmInfo(&req, userClaims.ID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update successfully", data)
+	c.Set("data", data)
 
 }
 
-// api/v1/alarm/info/batch [put]
+// /api/v1/alarm/info/batch [put]
 func (*AlarmApi) BatchUpdateAlarmInfo(c *gin.Context) {
 	var req model.UpdateAlarmInfoBatchReq
 	if !BindAndValidate(c, &req) {
@@ -105,12 +105,13 @@ func (*AlarmApi) BatchUpdateAlarmInfo(c *gin.Context) {
 
 	err := service.GroupApp.Alarm.UpdateAlarmInfoBatch(&req, userClaims.ID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update successfully", nil)
+	c.Set("data", nil)
 }
 
+// /api/v1/alarm/info [get]
 func (*AlarmApi) HandleAlarmInfoListByPage(c *gin.Context) {
 	var req model.GetAlarmInfoListByPageReq
 	if !BindAndValidate(c, &req) {
@@ -121,12 +122,13 @@ func (*AlarmApi) HandleAlarmInfoListByPage(c *gin.Context) {
 
 	data, err := service.GroupApp.Alarm.GetAlarmInfoListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", data)
+	c.Set("data", data)
 }
 
+// /api/v1/alarm/info/history [get]
 func (*AlarmApi) HandleAlarmHisttoryListByPage(c *gin.Context) {
 	//
 	var req model.GetAlarmHisttoryListByPage
@@ -137,12 +139,13 @@ func (*AlarmApi) HandleAlarmHisttoryListByPage(c *gin.Context) {
 
 	data, err := service.GroupApp.Alarm.GetAlarmHisttoryListByPage(&req, userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", data)
+	c.Set("data", data)
 }
 
+// /api/v1/alarm/info/history [put]
 func (*AlarmApi) AlarmHistoryDescUpdate(c *gin.Context) {
 	//
 	var req model.AlarmHistoryDescUpdateReq
@@ -153,10 +156,10 @@ func (*AlarmApi) AlarmHistoryDescUpdate(c *gin.Context) {
 
 	err := service.GroupApp.Alarm.AlarmHistoryDescUpdate(&req, userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", nil)
+	c.Set("data", nil)
 }
 
 func (*AlarmApi) HandleDeviceAlarmStatus(c *gin.Context) {
@@ -174,6 +177,7 @@ func (*AlarmApi) HandleDeviceAlarmStatus(c *gin.Context) {
 	})
 }
 
+// /api/v1/alarm/info/config/device [get]
 func (*AlarmApi) HandleConfigByDevice(c *gin.Context) {
 	//
 	var req model.GetDeviceAlarmStatusReq
@@ -184,8 +188,8 @@ func (*AlarmApi) HandleConfigByDevice(c *gin.Context) {
 
 	list, err := service.GroupApp.Alarm.GetConfigByDevice(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", list)
+	c.Set("data", list)
 }

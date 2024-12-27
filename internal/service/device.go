@@ -1135,7 +1135,10 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 	// 获取设备配置信息
 	device, err := dal.GetDeviceByID(deviceID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device failed:" + err.Error(),
+			"id":    deviceID,
+		})
 	}
 	type option struct {
 		Key      string  `json:"key"`
@@ -1151,7 +1154,10 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 	// 获取设备遥测当前值
 	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(deviceID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device current telemetry failed:" + err.Error(),
+			"id":    deviceID,
+		})
 	}
 	var telemetryOptions []*option
 	for _, telemetry := range telemetryDatas {
@@ -1170,7 +1176,10 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 	// 获取设备属性当前值
 	attributeDatas, err := dal.GetAttributeDataList(deviceID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device current attribute failed:" + err.Error(),
+			"id":    deviceID,
+		})
 	}
 	var attributeOptions []*option
 	for _, attribute := range attributeDatas {
@@ -1192,13 +1201,19 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 		// 获取设备配置信息
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "get device config failed:" + err.Error(),
+				"id":    deviceID,
+			})
 		}
 		if deviceConfig.DeviceTemplateID != nil {
 			// 获取设备模板遥测
 			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": "get device template telemetry failed:" + err.Error(),
+					"id":    deviceID,
+				})
 			}
 			// 有映射的做映射
 			for _, model := range telemetryModel {
@@ -1225,7 +1240,10 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 			// 获取设备模板属性
 			attributeModel, err := dal.GetDeviceModelAttributeDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": "get device template attribute failed:" + err.Error(),
+					"id":    deviceID,
+				})
 			}
 			attributeOptions := make([]*option, 0)
 			for _, model := range attributeModel {
@@ -1252,7 +1270,10 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 			// 获取设备模板命令
 			commandDatas, err := dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": "get device template command failed:" + err.Error(),
+					"id":    deviceID,
+				})
 			}
 
 			for _, command := range commandDatas {
@@ -1351,7 +1372,10 @@ func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
 	// 获取设备遥测当前值
 	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(deviceID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device current telemetry failed:" + err.Error(),
+			"id":    deviceID,
+		})
 	}
 	var telemetryOptions []*options
 	for _, telemetry := range telemetryDatas {
@@ -1370,7 +1394,10 @@ func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
 	// 获取设备属性当前值
 	attributeDatas, err := dal.GetAttributeDataList(deviceID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device current attribute failed:" + err.Error(),
+			"id":    deviceID,
+		})
 	}
 	var attributeOptions []*options
 	for _, attribute := range attributeDatas {
@@ -1392,13 +1419,19 @@ func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
 		// 获取设备配置信息
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "get device config failed:" + err.Error(),
+				"id":    deviceID,
+			})
 		}
 		if deviceConfig.DeviceTemplateID != nil {
 			// 获取设备模板遥测
 			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": "get device template telemetry failed:" + err.Error(),
+					"id":    deviceID,
+				})
 			}
 			// 有映射的做映射
 			for _, model := range telemetryModel {
@@ -1425,7 +1458,10 @@ func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
 			// 获取设备模板属性
 			attributeModel, err := dal.GetDeviceModelAttributeDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": "get device template attribute failed:" + err.Error(),
+					"id":    deviceID,
+				})
 			}
 			//attributeOptions := make([]*options, 0)
 			for _, model := range attributeModel {
@@ -1452,7 +1488,10 @@ func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
 			// 获取设备模板命令
 			eventDatas, err := dal.GetDeviceModelEventDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": "get device template command failed:" + err.Error(),
+					"id":    deviceID,
+				})
 			}
 
 			for _, event := range eventDatas {

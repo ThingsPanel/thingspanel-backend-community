@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
 	utils "project/pkg/utils"
@@ -24,13 +22,13 @@ func (*NotificationHistoryApi) HandleNotificationHistoryListByPage(c *gin.Contex
 	req.TenantID = userClaims.TenantID
 	notificationList, err := service.GroupApp.NotificationHisory.GetNotificationHistoryListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 	ntfoutput, err := utils.SerializeData(notificationList, GetNotificationHistoryListByPageOutSchema{})
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get notification list successfully", ntfoutput)
+	c.Set("data", ntfoutput)
 }

@@ -5,6 +5,7 @@ import (
 
 	dal "project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
@@ -40,39 +41,59 @@ func (*NotificationGroup) CreateNotificationGroup(createNotificationgroupReq *mo
 
 	if err != nil {
 		logrus.Error(err)
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	return &notificationGroup, nil
 }
 
 func (*NotificationGroup) GetNotificationGroupById(id string) (notificationGroup *model.NotificationGroup, err error) {
-	return dal.GetNotificationGroupById(id)
+	notificationGroup, err = dal.GetNotificationGroupById(id)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return
 }
 
 func (*NotificationGroup) UpdateNotificationGroup(id string, updateNotificationgroupReq *model.UpdateNotificationGroupReq) (*model.NotificationGroup, error) {
 	notificationGroup, err := dal.GetNotificationGroupById(id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	utils.SerializeData(updateNotificationgroupReq, notificationGroup)
 
 	notificationGroup.UpdatedAt = time.Now().UTC()
 	err = dal.UpdateNotificationGroup(notificationGroup)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	return notificationGroup, nil
 }
 
 func (*NotificationGroup) DeleteNotificationGroup(id string) error {
-	return dal.DeleteNotificationGroup(id)
+	err := dal.DeleteNotificationGroup(id)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return nil
 }
 
 func (*NotificationGroup) GetNotificationGroupListByPage(pageParam *model.GetNotificationGroupListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetNotificationGroupListByPage(pageParam, u)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	notificationListRsp := make(map[string]interface{})
 	notificationListRsp["total"] = total
@@ -84,7 +105,9 @@ func (*NotificationGroup) GetNotificationGroupListByPage(pageParam *model.GetNot
 func (*NotificationGroup) GetNotificationGroupListByTenantId(tenantid string) (map[string]interface{}, error) {
 	total, list, err := dal.GetNotificationGroupByTenantId(tenantid)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	notificationGroupListRsp := make(map[string]interface{})
 	notificationGroupListRsp["total"] = total
@@ -96,7 +119,9 @@ func (*NotificationGroup) GetNotificationGroupListByTenantId(tenantid string) (m
 func (*NotificationGroup) GetNotificationByTenantId(tenantid string) (map[string]interface{}, error) {
 	total, list, err := dal.GetBoardListByTenantId(tenantid)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	boardListRsp := make(map[string]interface{})
 	boardListRsp["total"] = total

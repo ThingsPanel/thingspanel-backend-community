@@ -2,9 +2,9 @@ package service
 
 import (
 	"encoding/json"
-	"errors"
 	"project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 	"time"
 
 	"github.com/go-basic/uuid"
@@ -88,22 +88,37 @@ func (*Alarm) UpdateAlarmInfo(req *model.UpdateAlarmInfoReq, userid string) (ala
 
 	alarmInfo, err = dal.GetAlarmInfoByID(req.Id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	alarmInfo.Processor = &userid
 	if req.ProcessingResult != nil && *req.ProcessingResult != "" {
 		alarmInfo.ProcessingResult = *req.ProcessingResult
 	}
 	err = dal.UpdateAlarmInfo(alarmInfo)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return
 }
 
 // UpdateAlarmInfoBatch 批量更新告警信息
 func (*Alarm) UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid string) error {
 	if len(req.Id) == 0 {
-		return errors.New("no data update")
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"id": "id is empty",
+		})
 	}
-	return dal.UpdateAlarmInfoBatch(req, userid)
+	err := dal.UpdateAlarmInfoBatch(req, userid)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return err
 }
 
 // GetAlarmInfoListByPage 分页查询告警信息
@@ -111,7 +126,9 @@ func (*Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq) (data
 
 	total, list, err := dal.GetAlarmInfoListByPage(req)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	data = make(map[string]interface{})
 	data["total"] = total
@@ -124,7 +141,9 @@ func (*Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, 
 
 	total, list, err := dal.GetAlarmHistoryListByPage(req, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	data = make(map[string]interface{})
 	data["total"] = total
@@ -132,8 +151,13 @@ func (*Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, 
 	return
 }
 func (*Alarm) AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, tenantID string) (err error) {
-
-	return dal.AlarmHistoryDescUpdate(req, tenantID)
+	err = dal.AlarmHistoryDescUpdate(req, tenantID)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return
 }
 func (*Alarm) GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 
@@ -141,8 +165,13 @@ func (*Alarm) GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 }
 
 func (*Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.AlarmConfig, error) {
-
-	return dal.GetConfigByDevice(req)
+	data, err := dal.GetConfigByDevice(req)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return data, nil
 }
 
 // AddAlarmInfo 触发告警信息，增加告警信息及发送通知

@@ -296,7 +296,9 @@ func (*DeviceConfig) GetActionByDeviceConfigID(deviceConfigID string) (any, erro
 	// 获取设备配置信息
 	deviceConfig, err := dal.GetDeviceConfigByID(deviceConfigID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if deviceConfig.DeviceTemplateID == nil {
 		return nil, nil
@@ -304,7 +306,9 @@ func (*DeviceConfig) GetActionByDeviceConfigID(deviceConfigID string) (any, erro
 	// 获取设备模板遥测
 	telemetryDatas, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	type options struct {
@@ -330,7 +334,9 @@ func (*DeviceConfig) GetActionByDeviceConfigID(deviceConfigID string) (any, erro
 	// 获取设备模板属性
 	attributeDatas, err := dal.GetDeviceModelAttributeDataList(*deviceConfig.DeviceTemplateID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	attributeOptions := make([]*options, 0)
 	for _, attribute := range attributeDatas {
@@ -344,7 +350,9 @@ func (*DeviceConfig) GetActionByDeviceConfigID(deviceConfigID string) (any, erro
 	// 获取设备模板命令
 	commandDatas, err := dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	commandOptions := make([]*options, 0)
 	for _, command := range commandDatas {
@@ -406,7 +414,9 @@ func (*DeviceConfig) GetConditionByDeviceConfigID(deviceConfigID string) (any, e
 	// 获取设备配置信息
 	deviceConfig, err := dal.GetDeviceConfigByID(deviceConfigID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if deviceConfig.DeviceTemplateID == nil {
 		return nil, nil
@@ -414,7 +424,9 @@ func (*DeviceConfig) GetConditionByDeviceConfigID(deviceConfigID string) (any, e
 	// 获取设备模板遥测
 	telemetryDatas, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	type options struct {
@@ -440,7 +452,9 @@ func (*DeviceConfig) GetConditionByDeviceConfigID(deviceConfigID string) (any, e
 	// 获取设备模板属性
 	attributeDatas, err := dal.GetDeviceModelAttributeDataList(*deviceConfig.DeviceTemplateID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	attributeOptions := make([]*options, 0)
 	for _, attribute := range attributeDatas {

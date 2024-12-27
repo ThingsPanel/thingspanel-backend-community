@@ -34,7 +34,7 @@ func (*DeviceApi) CreateDevice(c *gin.Context) {
 }
 
 // 服务接入点批量创建设备
-// /api/v1/device/service/access/batch
+// /api/v1/device/service/access/batch [post]
 func (*DeviceApi) CreateDeviceBatch(c *gin.Context) {
 	var req model.BatchCreateDeviceReq
 	if !BindAndValidate(c, &req) {
@@ -598,7 +598,7 @@ func (*DeviceApi) HandleMetrics(c *gin.Context) {
 
 // GetActionByDeviceID
 // 单设备动作选择下拉菜单
-// /api/v1/device/metrics/menu
+// /api/v1/device/metrics/menu [get]
 func (*DeviceApi) HandleActionByDeviceID(c *gin.Context) {
 	var param model.GetActionByDeviceIDReq
 	if !BindAndValidate(c, &param) {
@@ -606,15 +606,15 @@ func (*DeviceApi) HandleActionByDeviceID(c *gin.Context) {
 	}
 	list, err := service.GroupApp.Device.GetActionByDeviceID(param.DeviceID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", list)
+	c.Set("data", list)
 }
 
 // GetConditionByDeviceID
 // 单设备动作选择下拉菜单
-// /api/v1/device/metrics/condition/menu
+// /api/v1/device/metrics/condition/menu [get]
 func (*DeviceApi) HandleConditionByDeviceID(c *gin.Context) {
 	var param model.GetActionByDeviceIDReq
 	if !BindAndValidate(c, &param) {
@@ -622,10 +622,10 @@ func (*DeviceApi) HandleConditionByDeviceID(c *gin.Context) {
 	}
 	list, err := service.GroupApp.Device.GetConditionByDeviceID(param.DeviceID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", list)
+	c.Set("data", list)
 }
 
 // /api/v1/device/map/telemetry/{id}

@@ -67,7 +67,7 @@ func (*ServiceAccessApi) Delete(c *gin.Context) {
 	c.Set("data", nil)
 }
 
-// /api/v1/service/access/voucher/form
+// /api/v1/service/access/voucher/form [get]
 // 服务接入点凭证表单查询
 func (*ServiceAccessApi) HandleVoucherForm(c *gin.Context) {
 	var req model.GetServiceAccessVoucherFormReq

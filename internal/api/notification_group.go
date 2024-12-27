@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
 	utils "project/pkg/utils"
@@ -24,16 +22,16 @@ func (*NotificationGroupApi) CreateNotificationGroup(c *gin.Context) {
 
 	notificationGroup, err := service.GroupApp.NotificationGroup.CreateNotificationGroup(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
 	notificationGroupOs, err := utils.SerializeData(*notificationGroup, ReadNotificationGroupOutSchema{})
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create notification group successfully", notificationGroupOs)
+	c.Set("data", notificationGroupOs)
 }
 
 // GetNotificationGroup 获取通知组详情
@@ -41,15 +39,15 @@ func (*NotificationGroupApi) CreateNotificationGroup(c *gin.Context) {
 func (*NotificationGroupApi) HandleNotificationGroupById(c *gin.Context) {
 	id := c.Param("id")
 	if ntfgroup, err := service.GroupApp.NotificationGroup.GetNotificationGroupById(id); err != nil {
-		ErrorHandler(c, http.StatusBadRequest, err)
+		c.Error(err)
 		return
 	} else {
 		notificationGroupOs, err := utils.SerializeData(*ntfgroup, ReadNotificationGroupOutSchema{})
 		if err != nil {
-			ErrorHandler(c, http.StatusInternalServerError, err)
+			c.Error(err)
 			return
 		}
-		SuccessHandler(c, "Get notification group successfully", notificationGroupOs)
+		c.Set("data", notificationGroupOs)
 	}
 }
 
@@ -63,15 +61,15 @@ func (*NotificationGroupApi) UpdateNotificationGroup(c *gin.Context) {
 	}
 
 	if updated, err := service.GroupApp.NotificationGroup.UpdateNotificationGroup(id, &req); err != nil {
-		ErrorHandler(c, http.StatusNotFound, err)
+		c.Error(err)
 		return
 	} else {
 		updateoutput, err := utils.SerializeData(updated, UpdateNotificationGroupOutSchema{})
 		if err != nil {
-			ErrorHandler(c, http.StatusInternalServerError, err)
+			c.Error(err)
 			return
 		}
-		SuccessHandler(c, "Update notification group successfully", updateoutput)
+		c.Set("data", updateoutput)
 	}
 }
 
@@ -80,10 +78,10 @@ func (*NotificationGroupApi) UpdateNotificationGroup(c *gin.Context) {
 func (*NotificationGroupApi) DeleteNotificationGroup(c *gin.Context) {
 	id := c.Param("id")
 	if err := service.GroupApp.NotificationGroup.DeleteNotificationGroup(id); err != nil {
-		ErrorHandler(c, http.StatusBadRequest, err)
+		c.Error(err)
 		return
 	} else {
-		SuccessHandler(c, "Delete notification group successfully", nil)
+		c.Set("data", nil)
 	}
 }
 
@@ -98,13 +96,13 @@ func (*NotificationGroupApi) HandleNotificationGroupListByPage(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	notificationList, err := service.GroupApp.NotificationGroup.GetNotificationGroupListByPage(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 	ntfoutput, err := utils.SerializeData(notificationList, GetNotificationGroupListByPageOutSchema{})
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get notification list successfully", ntfoutput)
+	c.Set("data", ntfoutput)
 }

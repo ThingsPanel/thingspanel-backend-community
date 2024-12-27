@@ -3,6 +3,7 @@ package service
 import (
 	dal "project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 )
 
 type NotificationHisory struct{}
@@ -22,7 +23,9 @@ type NotificationHisory struct{}
 func (*NotificationHisory) GetNotificationHistoryListByPage(pageParam *model.GetNotificationHistoryListByPageReq) (map[string]interface{}, error) {
 	total, list, err := dal.GetNotificationHisoryListByPage(pageParam)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	notificationListRsp := make(map[string]interface{})
 	notificationListRsp["total"] = total
