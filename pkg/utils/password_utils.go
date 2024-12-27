@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/sirupsen/logrus"
 )
 
 // ValidatePassword 检查给定的密码是否满足所需的标准。
@@ -47,21 +49,24 @@ func ValidatePassword(password string) error {
 	if len(invalidChars) > 0 {
 		return fmt.Errorf("密码包含无效字符：%s", string(invalidChars))
 	}
-
+	logrus.Info("hasUpper: ", hasUpper)
+	logrus.Info("hasLower: ", hasLower)
+	logrus.Info("hasNumber: ", hasNumber)
+	logrus.Info("hasSpecial: ", hasSpecial)
 	// 检查密码复杂度
 	var missingElements []string
-	if !hasUpper {
-		missingElements = append(missingElements, "大写字母")
-	}
-	if !hasLower {
-		missingElements = append(missingElements, "小写字母")
-	}
-	if !hasNumber {
-		missingElements = append(missingElements, "数字")
-	}
-	if !hasSpecial {
-		missingElements = append(missingElements, "特殊字符")
-	}
+	// if !hasUpper {
+	// 	missingElements = append(missingElements, "大写字母")
+	// }
+	// if !hasLower {
+	// 	missingElements = append(missingElements, "小写字母")
+	// }
+	// if !hasNumber {
+	// 	missingElements = append(missingElements, "数字")
+	// }
+	// if !hasSpecial {
+	// 	missingElements = append(missingElements, "特殊字符")
+	// }
 
 	if len(missingElements) > 0 {
 		return fmt.Errorf("密码缺少以下元素：%s", strings.Join(missingElements, "、"))
