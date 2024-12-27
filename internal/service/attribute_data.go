@@ -50,6 +50,10 @@ func (*AttributeData) GetAttributeDataList(device_id string) (interface{}, error
 			d["value"] = v["number_v"]
 		}
 
+		if v["read_write_flag"] != nil {
+			d["read_write_flag"] = v["read_write_flag"]
+		}
+
 		easyData = append(easyData, d)
 	}
 

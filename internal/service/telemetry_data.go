@@ -46,6 +46,7 @@ func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, err
 	}
 	var telemetryModelMap = make(map[string]*model.DeviceModelTelemetry)
 	var telemetryModelUintMap = make(map[string]interface{})
+	var telemetryModelRWMap = make(map[string]interface{})
 	// 是否有设备配置
 	if deviceInfo.DeviceConfigID != nil {
 		// 查询设备配置
@@ -65,6 +66,7 @@ func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, err
 				for _, v := range telemetryModel {
 					telemetryModelMap[v.DataIdentifier] = v
 					telemetryModelUintMap[v.DataIdentifier] = v.Unit
+					telemetryModelRWMap[v.DataIdentifier] = v.ReadWriteFlag
 				}
 			}
 		}
@@ -93,6 +95,7 @@ func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, err
 				if ok {
 					tmp["label"] = telemetryModel.DataName
 					tmp["unit"] = telemetryModelUintMap[v.Key]
+					tmp["read_write_flag"] = telemetryModelRWMap[v.Key]
 					tmp["data_type"] = telemetryModel.DataType
 					if telemetryModel.DataType != nil && *telemetryModel.DataType == "Enum" {
 						var enumItems []model.EnumItem

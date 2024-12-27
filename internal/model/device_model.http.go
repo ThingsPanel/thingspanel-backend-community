@@ -9,15 +9,15 @@ const (
 
 // 物模型创建 （telemetry和attributes）
 type CreateDeviceModelReq struct {
-	DeviceTemplateId string  `json:"device_template_id" validate:"required,max=36"` // 设备模版ID
-	DataName         *string `json:"data_name" validate:"omitempty,max=255"`        // 数据名称
-	DataIdentifier   string  `json:"data_identifier" validate:"required,max=255"`   // 数据标识符
-	ReadWriteFlag    *string `json:"read_write_flag" validate:"omitempty,max=10"`   // 读写标志R-读 W-写 RW-读写
-	DataType         *string `json:"data_type" validate:"omitempty,max=50"`         // 数据类型String Number Boolean
-	Unit             *string `json:"unit" validate:"omitempty,max=50"`              // 单位
-	Description      *string `json:"description" validate:"omitempty,max=500"`      // 描述
-	AdditionalInfo   *string `json:"additional_info" validate:"omitempty"`          // 附加信息
-	Remark           *string `json:"remark" validate:"omitempty,max=255"`           // 备注
+	DeviceTemplateId string  `json:"device_template_id" validate:"required,max=36"`          // 设备模版ID
+	DataName         *string `json:"data_name" validate:"omitempty,max=255"`                 // 数据名称
+	DataIdentifier   string  `json:"data_identifier" validate:"required,max=255"`            // 数据标识符
+	ReadWriteFlag    *string `json:"read_write_flag" validate:"omitempty,max=10,oneof=R RW"` // 读写标志R-读 W-写 RW-读写
+	DataType         *string `json:"data_type" validate:"omitempty,max=50"`                  // 数据类型String Number Boolean
+	Unit             *string `json:"unit" validate:"omitempty,max=50"`                       // 单位
+	Description      *string `json:"description" validate:"omitempty,max=500"`               // 描述
+	AdditionalInfo   *string `json:"additional_info" validate:"omitempty"`                   // 附加信息
+	Remark           *string `json:"remark" validate:"omitempty,max=255"`                    // 备注
 }
 
 // 物模型创建 （events和commands）
@@ -33,15 +33,15 @@ type CreateDeviceModelV2Req struct {
 
 // 物模型更新 （telemetry和attributes）
 type UpdateDeviceModelReq struct {
-	ID             string  `json:"id" validate:"required,max=36"`               // ID
-	DataName       *string `json:"data_name" validate:"omitempty,max=255"`      // 数据名称
-	DataIdentifier string  `json:"data_identifier" validate:"required,max=255"` // 数据标识符
-	ReadWriteFlag  *string `json:"read_write_flag" validate:"omitempty,max=10"` // 读写标志R-读 W-写 RW-读写
-	DataType       *string `json:"data_type" validate:"omitempty,max=50"`       // 数据类型String Number Boolean
-	Unit           *string `json:"unit" validate:"omitempty,max=50"`            // 单位
-	Description    *string `json:"description" validate:"omitempty,max=500"`    // 描述
-	AdditionalInfo *string `json:"additional_info" validate:"omitempty"`        // 附加信息
-	Remark         *string `json:"remark" validate:"omitempty,max=255"`         // 备注
+	ID             string  `json:"id" validate:"required,max=36"`                          // ID
+	DataName       *string `json:"data_name" validate:"omitempty,max=255"`                 // 数据名称
+	DataIdentifier string  `json:"data_identifier" validate:"required,max=255"`            // 数据标识符
+	ReadWriteFlag  *string `json:"read_write_flag" validate:"omitempty,max=10,oneof=R RW"` // 读写标志R-读 RW-读写
+	DataType       *string `json:"data_type" validate:"omitempty,max=50"`                  // 数据类型String Number Boolean
+	Unit           *string `json:"unit" validate:"omitempty,max=50"`                       // 单位
+	Description    *string `json:"description" validate:"omitempty,max=500"`               // 描述
+	AdditionalInfo *string `json:"additional_info" validate:"omitempty"`                   // 附加信息
+	Remark         *string `json:"remark" validate:"omitempty,max=255"`                    // 备注
 }
 
 // 物模型更新 （events和commands）

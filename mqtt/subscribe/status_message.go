@@ -42,6 +42,7 @@ func DeviceOnline(payload []byte, topic string) {
 
 	deviceId := strings.Split(topic, "/")[2]
 	logrus.Debug(deviceId, " device status message:", status)
+	// TODO:如果设置了心跳模式，不更新状态
 	err = dal.UpdateDeviceStatus(deviceId, status)
 	if err != nil {
 		logrus.Error(err.Error())

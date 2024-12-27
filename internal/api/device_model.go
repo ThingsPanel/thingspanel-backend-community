@@ -29,7 +29,7 @@ func (*DeviceModelApi) CreateDeviceModelTelemetry(c *gin.Context) {
 	c.Set("data", data)
 }
 
-// /api/v1/device/model/attributes
+// /api/v1/device/model/attributes [post]
 func (*DeviceModelApi) CreateDeviceModelAttributes(c *gin.Context) {
 	var req model.CreateDeviceModelReq
 	if !BindAndValidate(c, &req) {
