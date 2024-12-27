@@ -49,21 +49,19 @@ func ValidatePassword(password string) error {
 	if len(invalidChars) > 0 {
 		return fmt.Errorf("密码包含无效字符：%s", string(invalidChars))
 	}
-	logrus.Info("hasUpper: ", hasUpper)
-	logrus.Info("hasLower: ", hasLower)
-	logrus.Info("hasNumber: ", hasNumber)
-	logrus.Info("hasSpecial: ", hasSpecial)
+	logrus.Debug("hasUpper", hasUpper)
+	logrus.Debug("hasSpecial", hasSpecial)
 	// 检查密码复杂度
 	var missingElements []string
 	// if !hasUpper {
 	// 	missingElements = append(missingElements, "大写字母")
 	// }
-	// if !hasLower {
-	// 	missingElements = append(missingElements, "小写字母")
-	// }
-	// if !hasNumber {
-	// 	missingElements = append(missingElements, "数字")
-	// }
+	if !hasLower {
+		missingElements = append(missingElements, "小写字母")
+	}
+	if !hasNumber {
+		missingElements = append(missingElements, "数字")
+	}
 	// if !hasSpecial {
 	// 	missingElements = append(missingElements, "特殊字符")
 	// }
