@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"project/initialize"
 	dal "project/internal/dal"
@@ -13,6 +12,7 @@ import (
 	"project/mqtt/publish"
 	"project/pkg/common"
 	"project/pkg/constant"
+	"project/pkg/errcode"
 	"strconv"
 	"time"
 
@@ -25,7 +25,9 @@ type CommandData struct{}
 func (*CommandData) GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (interface{}, error) {
 	count, data, err := dal.GetCommandSetLogsDataListByPage(req)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	dataMap := make(map[string]interface{})
@@ -39,7 +41,9 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 	// 获取设备信息
 	deviceInfo, err := initialize.GetDeviceCacheById(param.DeviceID)
 	if err != nil {
-		return fmt.Errorf("获取设备信息失败: %v", err)
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 获取设备类型和协议
@@ -48,13 +52,17 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 	if deviceInfo.DeviceConfigID != nil {
 		deviceConfig, err = dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			return fmt.Errorf("获取设备配置失败: %v", err)
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		deviceType = deviceConfig.DeviceType
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
 		} else {
-			return fmt.Errorf("protocolType 为空")
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": "protocol_type is empty",
+			})
 		}
 	}
 
@@ -66,7 +74,9 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 	if deviceConfig != nil && protocolType != "MQTT" {
 		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			return fmt.Errorf("获取子主题前缀失败: %v", err)
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		topic = fmt.Sprintf("%s%s%s/%s", subTopicPrefix, config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
 	}
@@ -75,11 +85,15 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 	payloadMap := map[string]interface{}{"method": param.Identify}
 	if param.Value != nil && *param.Value != "" {
 		if !IsJSON(*param.Value) {
-			return errors.New("value is not JSON format")
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": "value is not json",
+			})
 		}
 		var params interface{}
 		if err := json.Unmarshal([]byte(*param.Value), &params); err != nil {
-			return fmt.Errorf("解析参数失败: %v", err)
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 		payloadMap["params"] = params
 	}
@@ -89,11 +103,15 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 		gatewayID := deviceInfo.ID
 		if deviceType == "3" {
 			if deviceInfo.ParentID == nil {
-				return fmt.Errorf("子设备网关信息为空")
+				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"error": "sub_device_type is 3, but parent_id is empty",
+				})
 			}
 			gatewayID = *deviceInfo.ParentID
 			if deviceInfo.SubDeviceAddr == nil {
-				return fmt.Errorf("子设备地址为空")
+				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"error": "sub_device_addr is empty",
+				})
 			}
 			payloadMap = map[string]interface{}{
 				"sub_device_data": map[string]interface{}{
@@ -106,7 +124,9 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 
 		gatewayInfo, err := initialize.GetDeviceCacheById(gatewayID)
 		if err != nil {
-			return fmt.Errorf("获取网关信息失败: %v", err)
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
 	}
@@ -114,13 +134,17 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 	// 序列化payload
 	payload, err := json.Marshal(payloadMap)
 	if err != nil {
-		return fmt.Errorf("生成 payload 失败: %v", err)
+		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
 	// 执行数据脚本
 	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
 		if newPayload, err := GroupApp.DataScript.Exec(deviceInfo, "E", payload, topic); err != nil {
-			return fmt.Errorf("执行数据脚本失败: %v", err)
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		} else if newPayload != nil {
 			payload = newPayload
 		}
@@ -194,7 +218,9 @@ func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCo
 	deviceInfo, err := dal.DeviceQuery{}.First(ctx, query.Device.ID.Eq(id))
 	if err != nil {
 		logrus.Error(ctx, "[GetCommonList]device failed:", err)
-		return list, err
+		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	if deviceInfo.DeviceConfigID == nil || common.CheckEmpty(*deviceInfo.DeviceConfigID) {
@@ -205,18 +231,24 @@ func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCo
 	deviceConfigsInfo, err := dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*deviceInfo.DeviceConfigID))
 	if err != nil {
 		logrus.Debug(ctx, "[GetCommonList]device_configs failed:", err)
-		return list, err
+		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	if deviceConfigsInfo.DeviceTemplateID == nil || common.CheckEmpty(*deviceConfigsInfo.DeviceTemplateID) {
 		logrus.Debug("device_configs.device_template_id is empty")
-		return list, err
+		return list, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": "device_configs.device_template_id is empty",
+		})
 	}
 
 	commandList, err := dal.DeviceModelCommandsQuery{}.Find(ctx, query.DeviceModelCommand.DeviceTemplateID.Eq(*deviceConfigsInfo.DeviceTemplateID))
 	if err != nil {
 		logrus.Error(ctx, "[GetCommonList]device_model_command failed:", err)
-		return list, err
+		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	for _, info := range commandList {

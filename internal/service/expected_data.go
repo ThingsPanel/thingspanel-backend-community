@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 	"time"
 
@@ -43,16 +44,22 @@ func mergeIdentifyAndPayload(identify string, paramsStr *string) (string, error)
 func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedDataReq, userClaims *utils.UserClaims) (*model.ExpectedData, error) {
 	if req.SendType == "command" {
 		if req.Identify == nil {
-			return nil, fmt.Errorf("identify 字段不能为空")
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"identify": "identify is required",
+			})
 		}
 		// 将identify和payload合并成一个json字符串
 		payload, err := mergeIdentifyAndPayload(*req.Identify, req.Payload)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"payload": err.Error(),
+			})
 		}
 		req.Payload = &payload
 	} else if req.Payload == nil {
-		return nil, fmt.Errorf("payload 字段不能为空")
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"payload": "payload is required",
+		})
 	}
 	// 创建预期数据
 	ed := &model.ExpectedData{
@@ -69,28 +76,36 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 	err := dal.ExpectedDataDal{}.Create(ctx, ed)
 	if err != nil {
 		logrus.Error(err)
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 查询预期数据
 	expectedData, err := dal.ExpectedDataDal{}.GetByID(ctx, ed.ID)
 	if err != nil {
 		logrus.Error(err)
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 查询设备在线状态
 	deviceStatus, err := GroupApp.Device.GetDeviceOnlineStatus(req.DeviceID)
 	if err != nil {
 		logrus.Error(err)
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if deviceStatus["is_online"] == 1 {
 		// 发送预期数据
 		err := e.Send(ctx, req.DeviceID)
 		if err != nil {
 			logrus.Error(err)
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 	}
 
@@ -107,7 +122,9 @@ func (*ExpectedData) Delete(ctx context.Context, id string) error {
 func (*ExpectedData) PageList(ctx context.Context, req *model.GetExpectedDataPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.ExpectedDataDal{}.PageList(ctx, req, userClaims.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	return map[string]interface{}{
 		"total": total,

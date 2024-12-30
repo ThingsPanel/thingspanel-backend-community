@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -117,12 +116,16 @@ func (*TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurrentD
 	// 数据源替换
 	d, err := dal.GetCurrentTelemetryDataEvolutionByKeys(req.DeviceID, req.Keys)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 查询设备信息
 	deviceInfo, err := dal.GetDeviceByID(req.DeviceID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	var telemetryModelMap = make(map[string]*model.DeviceModelTelemetry)
 	var telemetryModelUintMap = make(map[string]interface{})
@@ -131,14 +134,18 @@ func (*TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurrentD
 		// 查询设备配置
 		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		// 是否有设备模板
 		if deviceConfig.DeviceTemplateID != nil {
 			// 查询遥测模型
 			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+				})
 			}
 			if len(telemetryModel) > 0 {
 				// 遍历并转换为map
@@ -252,7 +259,9 @@ func (*TelemetryData) GetTelemetrHistoryData(req *model.GetTelemetryHistoryDataR
 
 	d, err := dal.GetHistoryTelemetrData(req.DeviceID, req.Key, sT, eT)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 格式化返回值
@@ -335,7 +344,9 @@ func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistor
 		for {
 			datas, err := dal.GetHistoryTelemetrDataByExport(req, offset, batchSize)
 			if err != nil {
-				return addr, err
+				return addr, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+				})
 			}
 			if len(datas) == 0 {
 				break
@@ -349,24 +360,37 @@ func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistor
 			offset += batchSize
 		}
 
+		// 创建保存目录
 		uploadDir := "./files/excel/"
-		errs := os.MkdirAll(uploadDir, os.ModePerm)
-		if errs != nil {
-			return addr, errs
+		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+			return "", errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
-		// 根据指定路径保存文件
-		uniqidStr := uniqid.New(uniqid.Params{Prefix: "excel", MoreEntropy: true})
+
+		// 生成文件名
+		uniqidStr := uniqid.New(uniqid.Params{
+			Prefix:      "excel",
+			MoreEntropy: true,
+		})
 		addr = "files/excel/数据列表" + uniqidStr + ".xlsx"
+
+		// 保存文件
 		if err := f.SaveAs(addr); err != nil {
-			return nil, err
+			return "", errcode.WithVars(errcode.CodeFileSaveError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
+
 		return addr, nil
 	}
 
 	//  暂时忽略总数
 	_, data, err := dal.GetHistoryTelemetrDataByPage(req)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 格式化
 	var easyData []map[string]interface{}
@@ -394,12 +418,14 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{}, e
 	// 获取设备信息
 	deviceInfo, err := dal.GetDeviceByID(req.DeviceId)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	voucher := deviceInfo.Voucher
 	// 校验voucher是否json
 	if !IsJSON(voucher) {
-		return nil, fmt.Errorf("voucher is not json")
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "voucher is not json")
 	}
 	var voucherMap map[string]interface{}
 	err = json.Unmarshal([]byte(voucher), &voucherMap)
@@ -409,7 +435,7 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{}, e
 	// 判断是否有username字段
 	var username, password, host, post, payload, clientID string
 	if _, ok := voucherMap["username"]; !ok {
-		return nil, fmt.Errorf("voucher has no MQTT username")
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "username is not exist")
 	}
 	username = voucherMap["username"].(string)
 	// 判断是否有password字段
@@ -421,7 +447,7 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{}, e
 
 	accessAddress := viper.GetString("mqtt.access_address")
 	if accessAddress == "" {
-		return nil, fmt.Errorf("mqtt access address is empty")
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "mqtt access address is not exist")
 	}
 	accessAddressList := strings.Split(accessAddress, ":")
 	host = accessAddressList[0]
@@ -440,7 +466,9 @@ func (*TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, error)
 	// 解析mosquitto_pub命令
 	params, err := utils.ParseMosquittoPubCommand(mosquittoCommand)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 	// 根据凭证信息查询设备信息
 	// 组装凭证信息
@@ -453,7 +481,9 @@ func (*TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, error)
 	// 查询设备信息
 	deviceInfo, err := dal.GetDeviceByVoucher(voucher)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	var isOnline int
 	if deviceInfo.IsOnline == int16(1) {
@@ -464,7 +494,9 @@ func (*TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, error)
 	logrus.Debug("params:", params)
 	err = simulationpublish.PublishMessage(params.Host, params.Port, params.Topic, params.Payload, params.Username, params.Password, params.ClientId)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 	go func() {
 		time.Sleep(3 * time.Second)
@@ -485,7 +517,9 @@ func (*TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, error)
 func (*TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySetLogsListByPageReq) (interface{}, error) {
 	count, data, err := dal.GetTelemetrySetLogsListByPage(req)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	dataMap := make(map[string]interface{})
@@ -564,13 +598,17 @@ func (*TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySe
 func (*TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStatisticReq) (any, error) {
 	// 处理时间范围
 	if err := processTimeRange(req); err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
 	// 获取数据
 	rspData, err := fetchTelemetryData(req)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 如果不需要导出且无数据，返回空切片
@@ -582,7 +620,13 @@ func (*TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStati
 	}
 
 	// 处理导出逻辑
-	return exportToCSV(req, rspData)
+	data, err := exportToCSV(req, rspData)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return data, nil
 }
 
 // 处理时间范围
@@ -653,26 +697,30 @@ func fetchTelemetryData(req *model.GetTelemetryStatisticReq) ([]map[string]inter
 	)
 }
 
-// 导出到CSV
 func exportToCSV(req *model.GetTelemetryStatisticReq, data []map[string]interface{}) (map[string]interface{}, error) {
+	// 检查数据是否为空
 	if len(data) == 0 {
-		return nil, errors.New("没有可导出的数据")
+		return nil, errcode.New(202100) // 导出数据不能为空
 	}
 
 	// 创建导出目录
 	exportDir := "./files/excel/telemetry/"
 	if err := os.MkdirAll(exportDir, os.ModePerm); err != nil {
-		return nil, fmt.Errorf("创建导出目录失败: %v", err)
+		return nil, errcode.WithVars(202101, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
 	// 生成文件名和路径
 	fileName := fmt.Sprintf("%s_%s_%d_%d.csv", req.DeviceId, req.Key, req.StartTime, req.EndTime)
 	filePath := filepath.Join(exportDir, fileName)
 
-	// 创建并写入文件
+	// 创建文件
 	file, err := os.Create(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("创建文件失败: %v", err)
+		return nil, errcode.WithVars(202102, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
 	// 确保文件最终会被关闭和同步
@@ -692,19 +740,21 @@ func exportToCSV(req *model.GetTelemetryStatisticReq, data []map[string]interfac
 
 	// 写入表头
 	if err := writer.Write([]string{"时间戳", "数值"}); err != nil {
-		return nil, fmt.Errorf("写入CSV表头失败: %v", err)
+		return nil, errcode.WithVars(202103, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
 	// 写入数据
 	for _, row := range data {
 		timestamp, ok := row["x"].(int64)
 		if !ok {
-			return nil, fmt.Errorf("无效的时间戳格式")
+			return nil, errcode.New(202105) // 无效的时间戳格式
 		}
 
 		value, ok := row["y"].(float64)
 		if !ok {
-			return nil, fmt.Errorf("无效的数值格式")
+			return nil, errcode.New(202106) // 无效的数值格式
 		}
 
 		// 格式化时间
@@ -712,7 +762,9 @@ func exportToCSV(req *model.GetTelemetryStatisticReq, data []map[string]interfac
 		formattedTime := t.Format("2006-01-02 15:04:05.000")
 
 		if err := writer.Write([]string{formattedTime, fmt.Sprintf("%.3f", value)}); err != nil {
-			return nil, fmt.Errorf("写入CSV记录失败: %v", err)
+			return nil, errcode.WithVars(202104, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 	}
 
@@ -821,7 +873,9 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 	deviceInfo, err := initialize.GetDeviceCacheById(param.DeviceID)
 	if err != nil {
 		logrus.Error(ctx, "[TelemetryPutMessage][GetDeviceCacheById]failed:", err)
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 	// 获取设备配置
 	var protocolType string
@@ -832,14 +886,18 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		deviceConfig, err = dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
 			logrus.Error(ctx, "[TelemetryPutMessage][GetDeviceConfigByID]failed:", err)
-			return err
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 		deviceType = deviceConfig.DeviceType
 
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
 		} else {
-			return fmt.Errorf("protocolType is nil")
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error": "protocolType is nil",
+			})
 		}
 	} else {
 		protocolType = "MQTT"
@@ -853,14 +911,18 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		topic, err = getTopicByDevice(deviceInfo, deviceType, param)
 		if err != nil {
 			logrus.Error(ctx, "failed to get topic", err)
-			return err
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 	} else {
 		// 获取主题前缀
 		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
 		if err != nil {
 			logrus.Error(ctx, "failed to get sub topic prefix", err)
-			return err
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 		topic = fmt.Sprintf("%s%s%s", subTopicPrefix, config.MqttConfig.Telemetry.PublishTopic, deviceInfo.ID)
 
@@ -897,6 +959,12 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		logInfo.Status = &status
 	}
 	_, err = log.Create(ctx, logInfo)
+	if err != nil {
+		logrus.Error(ctx, "failed to create telemetry set log", err)
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
 	return err
 }
 

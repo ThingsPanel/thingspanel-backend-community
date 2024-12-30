@@ -1,7 +1,6 @@
 package api
 
 import (
-	"net/http"
 	"project/internal/model"
 	"project/internal/service"
 	"project/pkg/utils"
@@ -108,10 +107,10 @@ func (*ServiceAccessApi) HandlePluginServiceAccessList(c *gin.Context) {
 	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccessList(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get plugin list successfully", resp)
+	c.Set("resp", resp)
 }
 
 // /api/v1/pugin/service/access
@@ -122,8 +121,8 @@ func (*ServiceAccessApi) HandlePluginServiceAccess(c *gin.Context) {
 	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccess(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get plugin list successfully", resp)
+	c.Set("resp", resp)
 }

@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-	"project/pkg/common"
 	"project/pkg/constant"
 	"project/pkg/utils"
 	"strconv"
@@ -16,17 +14,6 @@ import (
 type CommandSetLogApi struct{}
 
 // ServeSetLogsDataListByPage 命令下发记录查询（分页）
-// @Tags     命令下发
-// @Summary  命令下发记录查询（分页）
-// @Description 命令下发记录查询（分页）
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetCommandSetLogsListByPageReq true "见下方JSON"
-// @Success  200  {object}  ApiResponse  "查询成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/command/datas/set/logs [get]
 func (CommandSetLogApi) ServeSetLogsDataListByPage(c *gin.Context) {
 	var req model.GetCommandSetLogsListByPageReq
@@ -36,14 +23,14 @@ func (CommandSetLogApi) ServeSetLogsDataListByPage(c *gin.Context) {
 
 	date, err := service.GroupApp.CommandData.GetCommandSetLogsDataListByPage(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get data successfully", date)
+	c.Set("data", date)
 }
 
-// /api/v1/command/datas/pub
+// /api/v1/command/datas/pub [post]
 func (CommandSetLogApi) CommandPutMessage(c *gin.Context) {
 	var req model.PutMessageForCommand
 	if !BindAndValidate(c, &req) {
@@ -53,21 +40,21 @@ func (CommandSetLogApi) CommandPutMessage(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.CommandData.CommandPutMessage(c, userClaims.ID, &req, strconv.Itoa(constant.Manual))
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessOK(c)
+	c.Set("data", nil)
 }
 
-// /api/v1/command/datas/:id
+// /api/v1/command/datas/{id}
 func (CommandSetLogApi) HandleCommandList(c *gin.Context) {
 	id := c.Param("id")
 
 	data, err := service.GroupApp.CommandData.GetCommonList(c, id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, common.SUCCESS, data)
+	c.Set("data", data)
 }

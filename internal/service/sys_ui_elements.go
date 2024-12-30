@@ -37,6 +37,10 @@ func (*UiElements) CreateUiElements(CreateUiElementsReq *model.CreateUiElementsR
 
 	if err != nil {
 		logrus.Error(err)
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "create_ui_elements",
+			"error":     err.Error(),
+		})
 	}
 
 	return err
@@ -61,12 +65,23 @@ func (*UiElements) UpdateUiElements(UpdateUiElementsReq *model.UpdateUiElementsR
 	err := dal.UpdateUiElements(&UiElements)
 	if err != nil {
 		logrus.Error(err)
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "update_ui_elements",
+			"error":     err.Error(),
+		})
 	}
 	return err
 }
 
 func (*UiElements) DeleteUiElements(id string) error {
 	err := dal.DeleteUiElements(id)
+	if err != nil {
+		logrus.Error(err)
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "delete_ui_elements",
+			"error":     err.Error(),
+		})
+	}
 	return err
 }
 
@@ -74,7 +89,10 @@ func (*UiElements) ServeUiElementsListByPage(Params *model.ServeUiElementsListBy
 
 	total, list, err := dal.ServeUiElementsListByPage(Params)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "query_ui_elements",
+			"error":     err.Error(),
+		})
 	}
 	UiElementsListRsp := make(map[string]interface{})
 	UiElementsListRsp["total"] = total
@@ -105,7 +123,10 @@ func (*UiElements) GetTenantUiElementsList() (map[string]interface{}, error) {
 
 	list, err := dal.GetTenantUiElementsList()
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "query_ui_elements",
+			"error":     err.Error(),
+		})
 	}
 	UiElementsListRsp := make(map[string]interface{})
 	UiElementsListRsp["list"] = list

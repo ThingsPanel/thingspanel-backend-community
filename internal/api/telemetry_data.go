@@ -2,19 +2,19 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
-	"net/http"
 	ws_subscribe "project/mqtt/ws_subscribe"
 	"project/pkg/constant"
 	"project/pkg/errcode"
 	"project/pkg/utils"
 	"strconv"
 	"sync"
+	"time"
 
 	model "project/internal/model"
 	service "project/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 )
 
@@ -26,11 +26,11 @@ func (*TelemetryDataApi) HandleCurrentData(c *gin.Context) {
 	deviceId := c.Param("id")
 	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrData(deviceId)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get current data successfully", date)
+	c.Set("data", date)
 }
 
 // 根据设备ID和key查询遥测当前值
@@ -43,11 +43,11 @@ func (*TelemetryDataApi) HandleCurrentDataKeys(c *gin.Context) {
 
 	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataKeys(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get current data successfully", date)
+	c.Set("data", date)
 }
 
 // ServeHistoryData 设备历史数值查询
@@ -59,15 +59,15 @@ func (*TelemetryDataApi) ServeHistoryData(c *gin.Context) {
 	}
 	date, err := service.GroupApp.TelemetryData.GetTelemetrHistoryData(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get history data successfully", date)
+	c.Set("data", date)
 }
 
 // DeleteData 删除数据
-// @Router   /api/v1/telemetry/datas/ [delete]
+// @Router   /api/v1/telemetry/datas [delete]
 func (*TelemetryDataApi) DeleteData(c *gin.Context) {
 	var req model.DeleteTelemetryDataReq
 	if !BindAndValidate(c, &req) {
@@ -75,11 +75,11 @@ func (*TelemetryDataApi) DeleteData(c *gin.Context) {
 	}
 	err := service.GroupApp.TelemetryData.DeleteTelemetrData(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Delete data successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetCurrentData 根据设备ID获取最新的一条遥测数据
@@ -88,10 +88,10 @@ func (*TelemetryDataApi) ServeCurrentDetailData(c *gin.Context) {
 	deviceId := c.Param("id")
 	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDetailData(deviceId)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get current detail data successfully", date)
+	c.Set("data", date)
 }
 
 // ServeHistoryData 设备历史数值查询（分页）
@@ -110,11 +110,11 @@ func (*TelemetryDataApi) ServeHistoryDataByPage(c *gin.Context) {
 
 	date, err := service.GroupApp.TelemetryData.GetTelemetrHistoryDataByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get history data successfully", date)
+	c.Set("data", date)
 }
 
 // ServeSetLogsDataListByPage 遥测数据下发记录查询（分页）
@@ -127,15 +127,15 @@ func (*TelemetryDataApi) ServeSetLogsDataListByPage(c *gin.Context) {
 
 	date, err := service.GroupApp.TelemetryData.GetTelemetrSetLogsDataListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get history data successfully", date)
+	c.Set("data", date)
 }
 
 // 获取模拟设备发送遥测数据的回显数据
-// /api/v1/telemetry/datas/simulation
+// /api/v1/telemetry/datas/simulation [get]
 func (*TelemetryDataApi) ServeEchoData(c *gin.Context) {
 	var req model.ServeEchoDataReq
 	if !BindAndValidate(c, &req) {
@@ -144,15 +144,15 @@ func (*TelemetryDataApi) ServeEchoData(c *gin.Context) {
 
 	date, err := service.GroupApp.TelemetryData.ServeEchoData(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get echo data successfully", date)
+	c.Set("data", date)
 }
 
 // 模拟设备发送遥测数据
-// /api/v1/telemetry/datas/simulation
+// /api/v1/telemetry/datas/simulation [post]
 func (*TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
 	var req model.SimulationTelemetryDataReq
 	if !BindAndValidate(c, &req) {
@@ -160,300 +160,366 @@ func (*TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
 	}
 	_, err := service.GroupApp.TelemetryData.TelemetryPub(req.Command)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Simulation telemetry data successfully", nil)
+	c.Set("data", nil)
 }
 
-// ServeHistoryData 设备遥测数据（WS）
+// ServeCurrentDataByWS 通过WebSocket处理设备实时遥测数据
 // @Router   /api/v1/telemetry/datas/current/ws [get]
 func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
+	// 升级HTTP连接为WebSocket连接
 	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "WebSocket升级失败: %v", err)
+		c.Error(errcode.WithData(errcode.CodeSystemError, "WebSocket upgrade failed"))
 		return
 	}
 	defer conn.Close()
-	clientIp := conn.RemoteAddr().String()
-	logrus.Info("Received:", clientIp)
 
-	// 读取首次请求
+	clientIP := conn.RemoteAddr().String()
+	logrus.Info("收到新的WebSocket连接:", clientIP)
+
+	// 读取客户端发送的第一条消息
 	msgType, msg, err := conn.ReadMessage()
 	if err != nil {
-		logrus.Error(err)
+		logrus.Error("读取初始消息失败:", err)
+		conn.WriteMessage(websocket.TextMessage, []byte("Failed to read message"))
 		return
 	}
 
-	// 校验msg是否为json格式
+	// 解析JSON格式消息
 	var msgMap map[string]string
 	if err := json.Unmarshal(msg, &msgMap); err != nil {
-		logrus.Error("断开连接", err)
+		logrus.Error("JSON格式无效:", err)
+		conn.WriteMessage(msgType, []byte("Invalid message format"))
 		return
 	}
 
-	// 获取device_id
+	// 验证必要的字段
 	deviceID, ok := msgMap["device_id"]
-	if !ok {
-		errMsg := "device_id is missing"
-		conn.WriteMessage(msgType, []byte(errMsg))
+	if !ok || deviceID == "" {
+		conn.WriteMessage(msgType, []byte("device_id is required"))
 		return
 	}
 
-	// 获取token
 	token, ok := msgMap["token"]
-	if !ok {
-		errMsg := "token or device_id is missing"
-		conn.WriteMessage(msgType, []byte(errMsg))
+	if !ok || token == "" {
+		conn.WriteMessage(msgType, []byte("token is required"))
 		return
 	}
 
-	logrus.Info(fmt.Printf("device_id: %s, token: %s", deviceID, token))
-	// TODO：验证token
+	logrus.Infof("WebSocket连接已建立 - 设备ID: %s", deviceID)
 
-	// 查询设备遥测当前数据并返回给客户端
-	var dataByte []byte
+	// 获取当前遥测数据
 	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataForWs(deviceID)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "get telemetry current data: %v", err)
+		logrus.Error("获取遥测数据失败:", err)
+		conn.WriteMessage(msgType, []byte("Failed to get telemetry data"))
 		return
-	} else if data != nil {
-		// 判断是否有数据
-		// data转[]byte
-		dataByte, err = json.Marshal(data)
-		if err != nil {
-			logrus.Error(err)
-			conn.WriteMessage(msgType, []byte(err.Error()))
-		} else {
-			conn.WriteMessage(msgType, dataByte)
-		}
-
 	}
+
+	// 如果有数据，发送给客户端
+	if data != nil {
+		dataByte, err := json.Marshal(data)
+		if err != nil {
+			logrus.Error("序列化数据失败:", err)
+			conn.WriteMessage(msgType, []byte("Failed to process telemetry data"))
+			return
+		}
+		if err := conn.WriteMessage(msgType, dataByte); err != nil {
+			logrus.Error("发送数据失败:", err)
+			return
+		}
+	}
+
+	// 订阅实时更新
 	var mu sync.Mutex
-	logrus.Info("User SubscribeDeviceTelemetry")
 	var mqttClient ws_subscribe.WsMqttClient
-	err = mqttClient.SubscribeDeviceTelemetry(deviceID, conn, msgType, &mu)
-	if err != nil {
-		logrus.Error(err)
-		conn.WriteMessage(msgType, []byte(err.Error()))
+	if err := mqttClient.SubscribeDeviceTelemetry(deviceID, conn, msgType, &mu); err != nil {
+		logrus.Error("订阅遥测数据失败:", err)
+		conn.WriteMessage(msgType, []byte("Failed to subscribe to telemetry updates"))
+		return
 	}
 	defer mqttClient.Close()
-	// 循环读取消息
+
+	// 处理心跳消息
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			logrus.Error(err)
+			// 记录错误日志
+			logrus.Error("WebSocket读取错误:", err)
+
+			// 尝试发送错误消息给客户端
+			closeMsg := []byte("connection closed due to error")
+			// 使用 WriteControl 发送关闭消息，设置1秒超时
+			deadline := time.Now().Add(time.Second)
+			conn.WriteControl(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, string(closeMsg)),
+				deadline)
+
+			// 现在可以安全退出了
 			return
 		}
-		logrus.Info(fmt.Printf("Received: %s", msg))
+
+		// 处理心跳消息
 		if string(msg) == "ping" {
 			mu.Lock()
-			conn.WriteMessage(msgType, []byte("pong"))
+			if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
+				logrus.Error("发送pong消息失败:", err)
+
+				// 尝试发送错误消息
+				deadline := time.Now().Add(time.Second)
+				conn.WriteControl(websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to send pong"),
+					deadline)
+
+				mu.Unlock()
+				return
+			}
 			mu.Unlock()
 		}
 	}
 }
 
+// ServeDeviceStatusByWS 通过WebSocket获取设备在线状态
 // @Router   /api/v1/device/online/status/ws
 func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
+	// 升级WebSocket连接
 	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "WebSocket升级失败: %v", err)
+		c.Error(errcode.WithData(errcode.CodeSystemError, "WebSocket upgrade failed"))
 		return
 	}
 	defer conn.Close()
-	clientIp := conn.RemoteAddr().String()
-	logrus.Info("Received:", clientIp)
 
-	// 读取首次请求
+	clientIP := conn.RemoteAddr().String()
+	logrus.Info("收到新的WebSocket连接:", clientIP)
+
+	// 读取初始消息
 	msgType, msg, err := conn.ReadMessage()
 	if err != nil {
-		logrus.Error(err)
+		logrus.Error("读取初始消息失败:", err)
+		conn.WriteMessage(websocket.TextMessage, []byte("Failed to read message"))
 		return
 	}
 
-	// 校验msg是否为json格式
+	// 解析JSON消息
 	var msgMap map[string]string
 	if err := json.Unmarshal(msg, &msgMap); err != nil {
-		logrus.Error("断开连接", err)
+		logrus.Error("JSON格式无效:", err)
+		conn.WriteMessage(msgType, []byte("Invalid message format"))
 		return
 	}
 
-	// 获取device_id
+	// 验证必要字段
 	deviceID, ok := msgMap["device_id"]
-	if !ok {
-		errMsg := "device_id is missing"
-		conn.WriteMessage(msgType, []byte(errMsg))
+	if !ok || deviceID == "" {
+		conn.WriteMessage(msgType, []byte("device_id is required"))
 		return
 	}
 
-	// 获取token
 	token, ok := msgMap["token"]
-	if !ok {
-		errMsg := "token or device_id is missing"
-		conn.WriteMessage(msgType, []byte(errMsg))
+	if !ok || token == "" {
+		conn.WriteMessage(msgType, []byte("token is required"))
 		return
 	}
 
-	logrus.Info(fmt.Printf("device_id: %s, token: %s", deviceID, token))
-	// TODO：验证token
+	logrus.Infof("WebSocket连接已建立 - 设备ID: %s", deviceID)
+	// TODO: 验证token
 
+	// 订阅设备在线状态
 	var mu sync.Mutex
 	logrus.Info("User SubscribeOnlineOffline")
 	var mqttClient ws_subscribe.WsMqttClient
-	err = mqttClient.SubscribeOnlineOffline(deviceID, conn, msgType, &mu)
-	if err != nil {
-		logrus.Error(err)
-		conn.WriteMessage(msgType, []byte(err.Error()))
+	if err := mqttClient.SubscribeOnlineOffline(deviceID, conn, msgType, &mu); err != nil {
+		logrus.Error("订阅设备状态失败:", err)
+		conn.WriteMessage(msgType, []byte("Failed to subscribe to device status"))
+		return
 	}
 	defer mqttClient.Close()
-	// 循环读取消息
+
+	// 处理心跳
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			logrus.Error(err)
+			// 记录错误日志
+			logrus.Error("WebSocket读取错误:", err)
+
+			// 尝试发送错误消息给客户端
+			closeMsg := []byte("connection closed due to error")
+			// 使用 WriteControl 发送关闭消息，设置1秒超时
+			deadline := time.Now().Add(time.Second)
+			conn.WriteControl(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, string(closeMsg)),
+				deadline)
+
+			// 现在可以安全退出了
 			return
 		}
-		logrus.Info(fmt.Printf("Received: %s", msg))
+
+		// 处理心跳消息
 		if string(msg) == "ping" {
 			mu.Lock()
-			conn.WriteMessage(msgType, []byte("pong"))
+			if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
+				logrus.Error("发送pong消息失败:", err)
+
+				// 尝试发送错误消息
+				deadline := time.Now().Add(time.Second)
+				conn.WriteControl(websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to send pong"),
+					deadline)
+
+				mu.Unlock()
+				return
+			}
 			mu.Unlock()
 		}
 	}
 }
 
-// 根据key查询遥测当前值
+// ServeCurrentDataByKey 根据key查询遥测当前值
 // @Router /api/v1/telemetry/datas/current/keys/ws [get]
 func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
+	// 升级WebSocket连接
 	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "WebSocket升级失败: %v", err)
+		c.Error(errcode.WithData(errcode.CodeSystemError, "WebSocket upgrade failed"))
 		return
 	}
 	defer conn.Close()
-	clientIp := conn.RemoteAddr().String()
-	logrus.Info(fmt.Printf("Received: %s", clientIp))
 
-	// 读取首次请求
+	clientIP := conn.RemoteAddr().String()
+	logrus.Infof("收到新的WebSocket连接: %s", clientIP)
+
+	// 读取初始消息
 	msgType, msg, err := conn.ReadMessage()
 	if err != nil {
-		logrus.Error(err)
+		logrus.Error("读取初始消息失败:", err)
+		conn.WriteMessage(websocket.TextMessage, []byte("Failed to read message"))
 		return
 	}
 
-	// 校验msg是否为json格式
+	// 解析JSON消息
 	var msgMap map[string]interface{}
 	if err := json.Unmarshal(msg, &msgMap); err != nil {
-		logrus.Error("断开连接", err)
+		logrus.Error("JSON格式无效:", err)
+		conn.WriteMessage(msgType, []byte("Invalid message format"))
 		return
 	}
 
-	// 获取device_id
-	deviceID, ok := msgMap["device_id"]
+	// 验证并提取设备ID
+	deviceID, ok := msgMap["device_id"].(string)
+	if !ok || deviceID == "" {
+		conn.WriteMessage(msgType, []byte("device_id is required and must be string"))
+		return
+	}
+
+	// 验证并提取keys
+	keysInterface, ok := msgMap["keys"].([]interface{})
 	if !ok {
-		errMsg := "device_id is missing"
-		conn.WriteMessage(msgType, []byte(errMsg))
+		conn.WriteMessage(msgType, []byte("keys must be array"))
 		return
 	}
 
-	// 获取keys
-	keys, ok := msgMap["keys"]
-	if !ok {
-		errMsg := "keys is missing"
-		conn.WriteMessage(msgType, []byte(errMsg))
-		return
-	}
-
-	// 获取token
-	token, ok := msgMap["token"]
-	if !ok {
-		errMsg := "token or device_id is missing"
-		conn.WriteMessage(msgType, []byte(errMsg))
-		return
-	}
-
-	logrus.Info(fmt.Printf("device_id: %s, token: %s", deviceID, token))
-	// TODO：验证token
-
-	// 查询设备遥测当前数据并返回给客户端
-	var dataByte []byte
-	// deviceID,keys转string和[]string
-	d, ok := deviceID.(string)
-	if !ok {
-		errMsg := "data type error"
-		conn.WriteMessage(msgType, []byte(errMsg))
-		return
-	}
+	// 转换keys为字符串数组
 	var stringKeys []string
-	for _, key := range keys.([]interface{}) { // 这里假设我们知道 keys 是 []interface{}
+	for _, key := range keysInterface {
 		strKey, ok := key.(string)
-		if !ok {
-			errMsg := "data type error"
-			conn.WriteMessage(msgType, []byte(errMsg))
+		if !ok || strKey == "" {
+			conn.WriteMessage(msgType, []byte("keys must be non-empty strings"))
 			return
 		}
 		stringKeys = append(stringKeys, strKey)
 	}
-	if len(stringKeys) == 0 {
-		errMsg := "keys is empty"
-		conn.WriteMessage(msgType, []byte(errMsg))
-		return
-	}
-	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataKeysForWs(d, stringKeys)
-	if err != nil {
-		c.String(http.StatusInternalServerError, "get telemetry current data: %v", err)
-		return
-	} else if data != nil {
-		// 判断是否有数据
-		// data转[]byte
-		dataByte, err = json.Marshal(data)
-		if err != nil {
-			logrus.Error(err)
-			conn.WriteMessage(msgType, []byte(err.Error()))
-		} else {
-			conn.WriteMessage(msgType, dataByte)
-		}
 
+	if len(stringKeys) == 0 {
+		conn.WriteMessage(msgType, []byte("keys array cannot be empty"))
+		return
 	}
-	var mu sync.Mutex
-	logrus.Info("User SubscribeDeviceTelemetry")
-	var mqttClient ws_subscribe.WsMqttClient
-	err = mqttClient.SubscribeDeviceTelemetryByKeys(deviceID.(string), conn, msgType, &mu, stringKeys)
+
+	// 验证token
+	token, ok := msgMap["token"].(string)
+	if !ok || token == "" {
+		conn.WriteMessage(msgType, []byte("token is required"))
+		return
+	}
+	// TODO: 验证token
+
+	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, Keys: %v", deviceID, stringKeys)
+
+	// 获取遥测数据
+	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataKeysForWs(deviceID, stringKeys)
 	if err != nil {
-		logrus.Error(err)
-		conn.WriteMessage(msgType, []byte(err.Error()))
+		logrus.Error("获取遥测数据失败:", err)
+		conn.WriteMessage(msgType, []byte("Failed to get telemetry data"))
+		return
+	}
+
+	// 发送数据给客户端
+	if data != nil {
+		dataByte, err := json.Marshal(data)
+		if err != nil {
+			logrus.Error("序列化数据失败:", err)
+			conn.WriteMessage(msgType, []byte("Failed to process telemetry data"))
+			return
+		}
+		if err := conn.WriteMessage(msgType, dataByte); err != nil {
+			logrus.Error("发送数据失败:", err)
+			return
+		}
+	}
+
+	// 订阅遥测更新
+	var mu sync.Mutex
+	var mqttClient ws_subscribe.WsMqttClient
+	if err := mqttClient.SubscribeDeviceTelemetryByKeys(deviceID, conn, msgType, &mu, stringKeys); err != nil {
+		logrus.Error("订阅遥测数据失败:", err)
+		conn.WriteMessage(msgType, []byte("Failed to subscribe to telemetry updates"))
+		return
 	}
 	defer mqttClient.Close()
-	// 循环读取消息
+
+	// 处理心跳
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			logrus.Error(err)
+			// 记录错误日志
+			logrus.Error("WebSocket读取错误:", err)
+
+			// 尝试发送错误消息给客户端
+			closeMsg := []byte("connection closed due to error")
+			// 使用 WriteControl 发送关闭消息，设置1秒超时
+			deadline := time.Now().Add(time.Second)
+			conn.WriteControl(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, string(closeMsg)),
+				deadline)
+
+			// 现在可以安全退出了
 			return
 		}
-		logrus.Debug(fmt.Printf("Received: %s", msg))
+
+		// 处理心跳消息
 		if string(msg) == "ping" {
 			mu.Lock()
-			conn.WriteMessage(msgType, []byte("pong"))
+			if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
+				logrus.Error("发送pong消息失败:", err)
+
+				// 尝试发送错误消息
+				deadline := time.Now().Add(time.Second)
+				conn.WriteControl(websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to send pong"),
+					deadline)
+
+				mu.Unlock()
+				return
+			}
 			mu.Unlock()
 		}
-
 	}
 }
 
 // ServeStatisticData 遥测统计数据查询
-// @Tags     遥测数据
-// @Summary  遥测统计数据查询
-// @Description 遥测统计数据查询
-// @accept    application/json
-// @Produce   application/json
-// @Param   data query model.GetTelemetryStatisticReq true "见下方JSON"
-// @Success  200  {object}  ApiResponse  "成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/telemetry/datas/statistic [get]
 func (*TelemetryDataApi) ServeStatisticData(c *gin.Context) {
 	var req model.GetTelemetryStatisticReq
@@ -463,11 +529,11 @@ func (*TelemetryDataApi) ServeStatisticData(c *gin.Context) {
 
 	date, err := service.GroupApp.TelemetryData.GetTelemetrServeStatisticData(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get data successfully", date)
+	c.Set("data", date)
 }
 
 // /api/v1/telemetry/datas/pub
@@ -480,10 +546,10 @@ func (*TelemetryDataApi) TelemetryPutMessage(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.TelemetryData.TelemetryPutMessage(c, userClaims.ID, &req, strconv.Itoa(constant.Manual))
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessOK(c)
+	c.Set("data", nil)
 }
 
 // /api/v1/telemetry/datas/msg/count

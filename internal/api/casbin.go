@@ -1,11 +1,9 @@
 package api
 
 import (
-	"fmt"
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
+	"project/pkg/errcode"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,11 +22,15 @@ func (*CasbinApi) AddFunctionToRole(c *gin.Context) {
 
 	ok := casbinService.AddFunctionToRole(req.RoleID, req.FunctionsIDs)
 	if !ok {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("failed"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"role_id":      req.RoleID,
+			"function_ids": req.FunctionsIDs,
+			"error":        "AddFunctionToRole failed",
+		}))
 		return
 	}
 
-	SuccessHandler(c, "AddFunctionToRole successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetFunctionFromRole 查询角色的权限
@@ -41,11 +43,14 @@ func (*CasbinApi) HandleFunctionFromRole(c *gin.Context) {
 
 	roles, ok := casbinService.GetFunctionFromRole(req.RoleID)
 	if !ok {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("failed"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"role_id": req.RoleID,
+			"error":   "GetFunctionFromRole failed",
+		}))
 		return
 	}
 
-	SuccessHandler(c, "GetFunctionFromRole successfully", roles)
+	c.Set("data", roles)
 }
 
 // UpdateFunctionFromRole 修改角色的权限
@@ -57,7 +62,11 @@ func (*CasbinApi) UpdateFunctionFromRole(c *gin.Context) {
 	}
 
 	if req.RoleID == "" && req.FunctionsIDs == nil {
-		c.JSON(http.StatusOK, gin.H{"code": 400, "message": "修改内容不能为空"})
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"role_id":      req.RoleID,
+			"function_ids": req.FunctionsIDs,
+			"error":        "UpdateFunctionFromRole failed",
+		}))
 		return
 	}
 
@@ -66,15 +75,22 @@ func (*CasbinApi) UpdateFunctionFromRole(c *gin.Context) {
 		//没有记录删除会返回false
 		ok := casbinService.RemoveRoleAndFunction(req.RoleID)
 		if !ok {
-			ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("failed"))
+			c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"role_id": req.RoleID,
+				"error":   "RemoveRoleAndFunction failed",
+			}))
 			return
 		}
 	}
 	ok := casbinService.AddFunctionToRole(req.RoleID, req.FunctionsIDs)
 	if !ok {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("failed"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"role_id":      req.RoleID,
+			"function_ids": req.FunctionsIDs,
+			"error":        "AddFunctionToRole failed",
+		}))
 	}
-	SuccessHandler(c, "Update role successfully", nil)
+	c.Set("data", nil)
 }
 
 // DeleteFunctionFromRole 删除角色的权限
@@ -83,10 +99,13 @@ func (*CasbinApi) DeleteFunctionFromRole(c *gin.Context) {
 	id := c.Param("id")
 	ok := casbinService.RemoveRoleAndFunction(id)
 	if !ok {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("failed"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"role_id": id,
+			"error":   "RemoveRoleAndFunction failed",
+		}))
 		return
 	}
-	SuccessHandler(c, "Delete role successfully", nil)
+	c.Set("data", nil)
 }
 
 // AddRoleToUser 用户添加多个角色
@@ -99,11 +118,15 @@ func (*CasbinApi) AddRoleToUser(c *gin.Context) {
 
 	ok := casbinService.AddRolesToUser(req.UserID, req.RolesIDs)
 	if !ok {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("failed"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"user_id": req.UserID,
+			"role_id": req.RolesIDs,
+			"error":   "AddRolesToUser failed",
+		}))
 		return
 	}
 
-	SuccessHandler(c, "AddRoleToUser successfully", nil)
+	c.Set("data", nil)
 
 }
 
@@ -117,11 +140,14 @@ func (*CasbinApi) HandleRolesFromUser(c *gin.Context) {
 
 	roles, ok := casbinService.GetRoleFromUser(req.UserID)
 	if !ok {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("failed"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"user_id": req.UserID,
+			"error":   "GetRoleFromUser failed",
+		}))
 		return
 	}
 
-	SuccessHandler(c, "GetRolesFromUser successfully", roles)
+	c.Set("data", roles)
 
 }
 
@@ -134,16 +160,24 @@ func (*CasbinApi) UpdateRolesFromUser(c *gin.Context) {
 	}
 
 	if req.UserID == "" && req.RolesIDs == nil {
-		c.JSON(http.StatusOK, gin.H{"code": 400, "message": "修改内容不能为空"})
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"user_id": req.UserID,
+			"role_id": req.RolesIDs,
+			"error":   "UpdateRolesFromUser failed",
+		}))
 		return
 	}
 
 	casbinService.RemoveUserAndRole(req.UserID)
 	ok := casbinService.AddRolesToUser(req.UserID, req.RolesIDs)
 	if !ok {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("failed"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"user_id": req.UserID,
+			"role_id": req.RolesIDs,
+			"error":   "AddRolesToUser failed",
+		}))
 	}
-	SuccessHandler(c, "UpdateRolesFromUser successfully", nil)
+	c.Set("data", nil)
 }
 
 // DeleteRolesFromUser 删除用户的角色
@@ -152,8 +186,11 @@ func (*CasbinApi) DeleteRolesFromUser(c *gin.Context) {
 	id := c.Param("id")
 	ok := casbinService.RemoveUserAndRole(id)
 	if !ok {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("failed"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"user_id": id,
+			"error":   "RemoveUserAndRole failed",
+		}))
 		return
 	}
-	SuccessHandler(c, "DeleteRolesFromUser successfully", nil)
+	c.Set("data", nil)
 }

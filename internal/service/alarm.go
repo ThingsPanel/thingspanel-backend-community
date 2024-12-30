@@ -30,12 +30,22 @@ func (*Alarm) CreateAlarmConfig(req *model.CreateAlarmConfigReq) (data *model.Al
 	data.Enabled = req.Enabled
 
 	err = dal.CreateAlarmConfig(data)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return
 }
 
 // DeleteAlarmConfig 删除告警配置
 func (*Alarm) DeleteAlarmConfig(id string) (err error) {
 	err = dal.DeleteAlarmConfig(id)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return
 }
 
@@ -64,10 +74,17 @@ func (*Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq) (data *model.Al
 
 	err = dal.UpdateAlarmConfig(data)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	data, err = dal.GetAlarmByID(req.ID)
-	return
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return data, nil
 }
 
 // GetAlarmConfigListByPage 分页查询告警配置
@@ -75,7 +92,9 @@ func (*Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq) (
 
 	total, list, err := dal.GetAlarmConfigListByPage(req)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	data = make(map[string]interface{})
 	data["total"] = total

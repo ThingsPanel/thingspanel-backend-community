@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
 	utils "project/pkg/utils"
@@ -24,11 +22,11 @@ func (*DictApi) CreateDictColumn(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.Dict.CreateDictColumn(&createDictReq, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Dict created successfully", nil)
+	c.Set("data", nil)
 }
 
 // CreateDictColumn 创建字典多语言
@@ -43,10 +41,10 @@ func (*DictApi) CreateDictLanguage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.Dict.CreateDictLanguage(&createDictLanguageReq, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Dict language created successfully", nil)
+	c.Set("data", nil)
 }
 
 // DeleteDictColumn 删除字典列
@@ -56,10 +54,10 @@ func (*DictApi) DeleteDictColumn(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.Dict.DeleteDict(id, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete dict successfully", nil)
+	c.Set("data", nil)
 }
 
 // DeleteDictLanguage 删除字典多语言Handle
@@ -69,10 +67,10 @@ func (*DictApi) DeleteDictLanguage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.Dict.DeleteDictLanguage(id, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete dict language successfully", nil)
+	c.Set("data", nil)
 }
 
 // CreateDictColumn 枚举查询接口
@@ -84,15 +82,15 @@ func (*DictApi) HandleDict(c *gin.Context) {
 	}
 	list, err := service.GroupApp.Dict.GetDict(&dictEnum)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Dict get successfully", list)
+	c.Set("data", list)
 }
 
 // 协议服务下拉菜单查询接口
-// /api/v1/dict/protocol/service
+// /api/v1/dict/protocol/service [get]
 func (*DictApi) HandleProtocolAndService(c *gin.Context) {
 	var protocolMenuReq model.ProtocolMenuReq
 	if !BindAndValidate(c, &protocolMenuReq) {
@@ -100,10 +98,10 @@ func (*DictApi) HandleProtocolAndService(c *gin.Context) {
 	}
 	list, err := service.GroupApp.Dict.GetProtocolMenu(&protocolMenuReq)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Dict get successfully", list)
+	c.Set("data", list)
 }
 
 // GetDictLanguage 字典多语言查询
@@ -112,24 +110,11 @@ func (*DictApi) HandleDictLanguage(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.Dict.GetDictLanguageListById(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	// {
-	// 	"code": 200,
-	// 	"message": "Get dict language successfully",
-	// 	"data": [
-	// 		{
-	// 			"id": "1a773a0d-c06b-1f48-c236-4e2863c831d6",
-	// 			"dict_id": "9bed09fa-b821-343d-2f41-6a91947d7132",
-	// 			"language_code": "zh",
-	// 			"translation": "男"
-	// 		}
-	// 	]
-	// }
-
-	SuccessHandler(c, "Get dict language successfully", data)
+	c.Set("data", data)
 }
 
 // GetDictLisyByPage 字典列表分页查询
@@ -143,9 +128,9 @@ func (*DictApi) HandleDictLisyByPage(c *gin.Context) {
 
 	list, err := service.GroupApp.Dict.GetDictListByPage(&byList, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get dict list successfully", list)
+	c.Set("data", list)
 }

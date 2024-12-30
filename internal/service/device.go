@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 type Device struct{}
@@ -93,6 +94,11 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 	device.IsOnline = IsOnline
 	device.ActivateFlag = "active"
 	err = dal.CreateDevice(&device)
+	if err != nil {
+		return device, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 
 	return device, err
 }
@@ -108,19 +114,19 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 		// 校验必填字段
 		if v.DeviceNumber == "" {
 			return nil, errcode.WithVars(100005, map[string]interface{}{
-				"field": "设备编号",
+				"field": "device_number",
 			})
 		}
 
 		if v.DeviceConfigId == "" {
 			return nil, errcode.WithVars(100005, map[string]interface{}{
-				"field": "设备配置ID",
+				"field": "device_config_id",
 			})
 		}
 
 		if v.DeviceName == "" {
 			return nil, errcode.WithVars(100005, map[string]interface{}{
-				"field": "设备名称",
+				"field": "device_name",
 			})
 		}
 
@@ -205,13 +211,17 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 	//device.UpdateAt = &t
 	condsMap, err := StructToMapAndVerifyJson(req, "additional_info", "protocol_config")
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"message": err.Error(),
+		})
 	}
 	condsMap["update_at"] = t
 
 	device, err := dal.UpdateDeviceByMap(req.Id, condsMap)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 清除设备缓存
 	initialize.DelDeviceCache(req.Id)
@@ -221,10 +231,12 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 	device, err := dal.GetDeviceByDeviceNumber(req.DeviceNumber)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if device.ActivateFlag == "active" {
-		return nil, fmt.Errorf("device already active")
+		return nil, errcode.New(204002)
 	}
 	device.DeviceNumber = req.DeviceNumber
 	if req.Name != "" {
@@ -237,7 +249,9 @@ func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 	device.ActivateAt = &t
 	device, e := dal.UpdateDevice(device)
 	if e != nil {
-		return nil, e
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": e.Error(),
+		})
 	}
 	// 清除设备缓存
 	initialize.DelDeviceCache(device.ID)
@@ -248,10 +262,14 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	// 如果有子设备，不允许删除
 	data, err := dal.GetSubDeviceListByParentID(id)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if len(data) > 0 {
-		return fmt.Errorf("device has sub device,please remove sub device first")
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"message": "device has sub device,please remove sub device first",
+		})
 	}
 	// 关联了场景联动，不允许删除
 	conditions, err1 := dal.GetDeviceTriggerConditionListByDeviceId(id)
@@ -259,7 +277,9 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 		return err1
 	}
 	if len(conditions) > 0 {
-		return fmt.Errorf("device has scene,please remove scene first")
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"message": "device has scene,please remove scene first",
+		})
 	}
 
 	tx := query.Use(global.DB).Begin()
@@ -267,21 +287,27 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	err = dal.DeleteCurrentTelemetryDataByDeviceId(id, tx)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 删除遥测历史数据
 	err = dal.DeleteTelemetrDataByDeviceId(id, tx)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 删除控制下发历史数据
 	err = dal.DeleteTelemetrySetLogsByDeviceId(id, tx)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 删除属性数据
@@ -289,34 +315,44 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	err = dal.DeleteAttributeDataByDeviceId(id, tx)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 删除属性下发历史数据
 	err = dal.DeleteAttributeDataByDeviceIdTx(id, tx)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 删除事件历史数据
 	err = dal.DeleteEventDataByDeviceId(id, tx)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 删除事件历史数据
 	err = dal.DeleteCommandSetLogsByDeviceId(id, tx)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 删除设备
 	err = dal.DeleteDeviceWithTx(id, userClaims.TenantID, tx)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 提交事务
@@ -334,7 +370,9 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
 	data, err := dal.GetDeviceDetail(id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 判断data是否有key为device_config_id
 	if v, ok := data["device_config_id"]; ok {
@@ -347,7 +385,9 @@ func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
 		// 获取设备配置
 		deviceConfig, err := dal.GetDeviceConfigByID(deviceConfigID)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		data["device_config"] = deviceConfig
 		result, err := dal.GetDeviceOnline(context.Background(), []model.DeviceOnline{
@@ -357,7 +397,9 @@ func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
 			},
 		})
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		if isOnline, ok := result[id]; ok {
 			data["device_status"] = isOnline
@@ -373,7 +415,9 @@ func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
 func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetDeviceListByPage(req, u.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if len(list) > 0 {
 		var deviceOnlines []model.DeviceOnline
@@ -385,7 +429,9 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 		}
 		result, err := dal.GetDeviceOnline(context.Background(), deviceOnlines)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		for i, val := range list {
 			if isOnline, ok := result[val.ID]; ok {
@@ -408,21 +454,33 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 	return deviceListRsp, err
 }
 
-func (*Device) CheckDeviceNumber(deviceNumber string) (bool, string) {
+func (d *Device) CheckDeviceNumber(deviceNumber string) (*errcode.Error, bool) {
 	device, err := query.Device.Where(query.Device.DeviceNumber.Eq(deviceNumber)).First()
+
 	if err != nil {
-		return false, "设备编号不可用"
+		if err == gorm.ErrRecordNotFound {
+			// 如果设备不存在，说明设备号不可用
+			return errcode.WithVars(204001, nil), true
+		}
+		// 数据库错误
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		}), false
 	}
+
 	if device.ActivateFlag == "active" {
-		return false, "该设备已激活,请更换设备编号"
+		return errcode.WithVars(204002, nil), false
 	}
-	return true, "设备编号可用"
+
+	return errcode.WithVars(204003, nil), true
 }
 
 func (*Device) GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetDevicePreRegisterListByPage(req, u.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	deviceListRsp := make(map[string]interface{})
 	deviceListRsp["total"] = total
@@ -436,12 +494,16 @@ func (*Device) RemoveSubDevice(id string, claims *utils.UserClaims) error {
 	// 获取设备信息
 	device, err := dal.GetDeviceByID(id)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	err = dal.RemoveSubDevice(id, claims.TenantID)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	//通知协议插件
 	if device.ParentID != nil {
@@ -505,12 +567,16 @@ func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string)
 		// 获取设备组下的设备
 		data, err = dal.GetDeviceSelectByGroupId(tenantID, req.GroupId, req.DeviceName, req.BindConfig)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 	} else {
 		data, err = dal.DeviceQuery{}.GetDeviceSelect(tenantID, req.DeviceName, req.BindConfig)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 	}
 
@@ -539,40 +605,12 @@ func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string)
 }
 
 func (*Device) GetDeviceList(ctx context.Context, userClaims *utils.UserClaims) ([]map[string]interface{}, error) {
-	// var (
-	// 	device       = query.Device
-	// 	deviceConfig = query.DeviceConfig
-
-	// 	res []*model.GetTenantDeviceListReq
-	// )
-
-	// list, err := dal.DeviceQuery{}.Find(ctx, device.ParentID.Eq(constant.EMPTY))
-	// if err != nil {
-	// 	logrus.Error(ctx, "[GetDeviceList]failed:", err)
-	// 	return res, err
-	// }
-
-	// // 获取设备配置
-	// deviceConfigIDS := make([]string, 0, len(list))
-	// for _, info := range list {
-	// 	if info.DeviceConfigID != nil && !common.CheckEmpty(*info.DeviceConfigID) {
-	// 		deviceConfigIDS = append(deviceConfigIDS, *info.DeviceConfigID)
-	// 	}
-	// }
-
-	// configList, err := dal.DeviceConfigQuery{}.Find(ctx, deviceConfig.DeviceType.Eq(strconv.Itoa(constant.GATEWAY_SON_DEVICE)), deviceConfig.ID.In(deviceConfigIDS...))
-	// if err != nil {
-	// 	logrus.Error(ctx, "[GetDeviceList]Get device_config failed:", err)
-	// 	return res, err
-	// }
-
-	// res = logic.DeviceLogic{}.GetTenantDeviceList(list, configList)
-
-	// return res, err
 	list, err := dal.DeviceQuery{}.GetGatewayUnrelatedDeviceList(ctx, userClaims.TenantID)
 	if err != nil {
 		logrus.Error(ctx, "[GetDeviceList]failed:", err)
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	return list, err
 }
@@ -589,14 +627,18 @@ func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDevice
 		deviceInfo, err := db.First(ctx, device.ID.Eq(sonID), device.ParentID.IsNull(), device.DeviceConfigID.IsNotNull())
 		if err != nil {
 			logrus.Error(ctx, "[CreateSonDevice]First failed:", err)
-			return common.GetErrors(err, "device.parent_id is not null or device_config_id is null")
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 
 		// 验证子设备关联配置 设备类型 = 网关类型
 		_, err = dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*deviceInfo.DeviceConfigID), query.DeviceConfig.DeviceType.Eq(strconv.Itoa(constant.GATEWAY_SON_DEVICE)))
 		if err != nil {
 			logrus.Error(ctx, "[CreateSonDevice]First device_configs failed:", err)
-			return common.GetErrors(err, "device_configs.device_type not is GATEWAY_DEVICE")
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 
 		deviceInfo.ParentID = &param.ID
@@ -625,7 +667,9 @@ func (d *Device) DeviceConnectForm(ctx context.Context, param *model.DeviceConne
 	device, err := dal.GetDeviceByID(param.DeviceID)
 	if err != nil {
 		logrus.Error(ctx, "get device failed:", err)
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 判断设备配置id不为空
 	if device.DeviceConfigID != nil {
@@ -633,7 +677,9 @@ func (d *Device) DeviceConnectForm(ctx context.Context, param *model.DeviceConne
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
 			logrus.Error(ctx, "get device_config failed:", err)
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		if deviceConfig.DeviceType == strconv.Itoa(constant.GATEWAY_SON_DEVICE) {
 			//子设备没有凭证表单
@@ -647,7 +693,9 @@ func (d *Device) DeviceConnectForm(ctx context.Context, param *model.DeviceConne
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
 		} else {
-			return nil, fmt.Errorf("protocol type is null")
+			return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"msg": "device_config protocol_type is null",
+			})
 		}
 
 	} else {
@@ -656,8 +704,15 @@ func (d *Device) DeviceConnectForm(ctx context.Context, param *model.DeviceConne
 		deviceType = "1"
 		protocolType = "MQTT"
 	}
+	data, err := d.GetVoucherTypeForm(voucherType, deviceType, protocolType)
+	if err != nil {
+		logrus.Error(ctx, "get voucher type form failed:", err)
+		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"msg": "get voucher type form failed",
+		})
+	}
 
-	return d.GetVoucherTypeForm(voucherType, deviceType, protocolType)
+	return data, nil
 }
 
 // 获取凭证类型表单
@@ -786,33 +841,48 @@ func (*Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
 	// 查找原设备配置
 	device, err := dal.GetDeviceByID(param.DeviceID)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device info failed:" + err.Error(),
+			"id":    param.DeviceID,
+		})
 	}
 	if device.DeviceConfigID != nil {
 		// 获取设备配置
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
-			return err
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "get device config info failed:" + err.Error(),
+				"id":    param.DeviceID,
+			})
 		}
 		if deviceConfig.DeviceType == strconv.Itoa(constant.GATEWAY_DEVICE) {
 			// 检查有没有子设备
 			data, err := dal.GetSubDeviceListByParentID(param.DeviceID)
 			if err != nil {
-				return err
+				return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": "get sub device list failed:" + err.Error(),
+					"id":    param.DeviceID,
+				})
 			}
 			if len(data) > 0 {
-				return fmt.Errorf("gateway device has sub device,plesae remove sub device first")
+				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"error": "gateway device has sub device,plesae remove sub device first",
+				})
 			}
 		} else if deviceConfig.DeviceType == strconv.Itoa(constant.GATEWAY_SON_DEVICE) {
 			// 检查有没有关联的网关
 			if device.ParentID != nil {
-				return fmt.Errorf("sub device has parent device,please remove parent device first")
+				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"error": "son device has parent device,plesae remove parent device first",
+				})
 			}
 		}
 	}
 
 	if param.DeviceConfigID == nil {
-		return fmt.Errorf("device_config_id is null")
+		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": "device config id is null",
+		})
 	}
 	if param.DeviceConfigID != nil && *param.DeviceConfigID == "" {
 		param.DeviceConfigID = nil
@@ -820,7 +890,10 @@ func (*Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
 	// 更新设备配置id
 	err = dal.DeviceQuery{}.ChangeDeviceConfig(param.DeviceID, param.DeviceConfigID)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "update device config failed:" + err.Error(),
+			"id":    param.DeviceID,
+		})
 	}
 	// 清除设备缓存
 	initialize.DelDeviceCache(param.DeviceID)
@@ -873,7 +946,15 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 //GetSubList
 
 func (*Device) GetSubList(ctx context.Context, parent_id string, page, pageSize int64, userClaims *utils.UserClaims) ([]model.GetSubListResp, int64, error) {
-	return dal.DeviceQuery{}.GetSubList(ctx, parent_id, pageSize, page, userClaims.TenantID)
+	data, count, err := dal.DeviceQuery{}.GetSubList(ctx, parent_id, pageSize, page, userClaims.TenantID)
+	if err != nil {
+		return nil, 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get sub device list failed:" + err.Error(),
+			"id":    parent_id,
+		})
+	}
+
+	return data, count, nil
 }
 
 // 获取自动化下拉标识，看板下拉标识
@@ -1532,12 +1613,18 @@ func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error)
 
 	device, err := dal.GetDeviceByID(device_id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device failed:" + err.Error(),
+			"id":    device_id,
+		})
 	}
 
 	telemetry, err := dal.GetCurrentTelemetryDataEvolution(device_id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device current telemetry failed:" + err.Error(),
+			"id":    device_id,
+		})
 	}
 
 	str := make([]string, 0)
@@ -1548,13 +1635,19 @@ func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error)
 
 	deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device config failed:" + err.Error(),
+			"id":    device_id,
+		})
 	}
 
 	labelMap, err := dal.GetDataNameByIdentifierAndTemplateId(*deviceConfig.DeviceTemplateID, str...)
 
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device template failed:" + err.Error(),
+			"id":    device_id,
+		})
 	}
 
 	telemetryData := make([]map[string]interface{}, 0)
@@ -1608,7 +1701,10 @@ func (*Device) GetDeviceTemplateChartSelect(userClaims *utils.UserClaims) (any, 
 func (*Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error) {
 	deviceInfo, err := dal.GetDeviceByID(device_id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device info failed:" + err.Error(),
+			"id":    device_id,
+		})
 	}
 	result, err := dal.GetDeviceOnline(context.Background(), []model.DeviceOnline{
 		{
@@ -1617,7 +1713,10 @@ func (*Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error) {
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device online status failed:" + err.Error(),
+			"id":    device_id,
+		})
 	}
 	data := make(map[string]int)
 	if isOnline, ok := result[device_id]; ok {

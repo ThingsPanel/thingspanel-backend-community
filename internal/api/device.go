@@ -1,11 +1,8 @@
 package api
 
 import (
-	"errors"
-	"net/http"
 	model "project/internal/model"
 	service "project/internal/service"
-	common "project/pkg/common"
 	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
@@ -26,11 +23,11 @@ func (*DeviceApi) CreateDevice(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.CreateDevice(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Create product successfully", data)
+	c.Set("data", data)
 }
 
 // 服务接入点批量创建设备
@@ -56,24 +53,13 @@ func (*DeviceApi) DeleteDevice(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.Device.DeleteDevice(id, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete product successfully", nil)
+	c.Set("data", nil)
 }
 
 // UpdateDevice 更新设备
-// @Tags     设备管理
-// @Summary  更新设备
-// @Description 更新设备
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.UpdateDeviceReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "字典列创建成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device [put]
 func (*DeviceApi) UpdateDevice(c *gin.Context) {
 	var req model.UpdateDeviceReq
@@ -83,25 +69,14 @@ func (*DeviceApi) UpdateDevice(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.UpdateDevice(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Update product successfully", data)
+	c.Set("data", data)
 }
 
 // ActiveDevice 激活设备
-// @Tags     设备管理
-// @Summary  激活设备
-// @Description 激活设备
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.ActiveDeviceReq  true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "激活设备成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/device/active [put]
 func (*DeviceApi) ActiveDevice(c *gin.Context) {
 	var req model.ActiveDeviceReq
@@ -111,11 +86,11 @@ func (*DeviceApi) ActiveDevice(c *gin.Context) {
 
 	device, err := service.GroupApp.Device.ActiveDevice(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Active product successfully", device)
+	c.Set("data", device)
 }
 
 // GetDevice 设备详情
@@ -124,11 +99,11 @@ func (*DeviceApi) HandleDeviceByID(c *gin.Context) {
 	id := c.Param("id")
 	device, err := service.GroupApp.Device.GetDeviceByIDV1(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "GetDevice successfully", device)
+	c.Set("data", device)
 }
 
 // GetDeviceListByPage 分页查询设备
@@ -141,19 +116,19 @@ func (*DeviceApi) HandleDeviceListByPage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	list, err := service.GroupApp.Device.GetDeviceListByPage(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get devices successfully", list)
+	c.Set("data", list)
 }
 
 // @Tags     设备管理
 // @Router   /api/v1/device/check/{deviceNumber} [get]
 func (*DeviceApi) CheckDeviceNumber(c *gin.Context) {
 	deviceNumber := c.Param("deviceNumber")
-	ok, msg := service.GroupApp.Device.CheckDeviceNumber(deviceNumber)
+	ok, _ := service.GroupApp.Device.CheckDeviceNumber(deviceNumber)
 	data := map[string]interface{}{"is_available": ok}
-	SuccessHandler(c, msg, data)
+	c.Set("data", data)
 }
 
 // CreateDeviceTemplate 创建设备模版
@@ -305,10 +280,10 @@ func (*DeviceApi) DeleteDeviceGroup(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.DeviceGroup.DeleteDeviceGroup(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete device group successfully", nil)
+	c.Set("data", nil)
 }
 
 // UpdateDeviceGroup 修改设备分组
@@ -377,10 +352,10 @@ func (*DeviceApi) CreateDeviceGroupRelation(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.DeviceGroup.CreateDeviceGroupRelation(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create device group relation successfully", nil)
+	c.Set("data", nil)
 
 }
 
@@ -393,10 +368,10 @@ func (*DeviceApi) DeleteDeviceGroupRelation(c *gin.Context) {
 	}
 	err := service.GroupApp.DeviceGroup.DeleteDeviceGroupRelation(req.GroupId, req.DeviceId)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete device group relation successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetDeviceGroupRelation 获取设备分组关系
@@ -408,10 +383,10 @@ func (*DeviceApi) HandleDeviceGroupRelation(c *gin.Context) {
 	}
 	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupRelation(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get device group relation successfully", data)
+	c.Set("data", data)
 }
 
 // GetDeviceGroupListByDeviceId 获取设备所属分组列表
@@ -423,10 +398,10 @@ func (*DeviceApi) HandleDeviceGroupListByDeviceId(c *gin.Context) {
 	}
 	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupByDeviceId(req.DeviceId)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", data)
+	c.Set("data", data)
 }
 
 // 移除子设备
@@ -439,17 +414,17 @@ func (*DeviceApi) RemoveSubDevice(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.Device.RemoveSubDevice(req.SubDeviceId, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Remove sub device successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetTenantDeviceList
 // @AUTHOR:zxq
 // @DATE: 2024-04-06 18:04
 // @DESCRIPTIONS: 获得租户下设备列表
-// /api/v1/device/tenant/list
+// /api/v1/device/tenant/list [get]
 func (*DeviceApi) HandleTenantDeviceList(c *gin.Context) {
 	var req model.GetDeviceMenuReq
 	if !BindAndValidate(c, &req) {
@@ -458,25 +433,25 @@ func (*DeviceApi) HandleTenantDeviceList(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.GetTenantDeviceList(&req, userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, data)
+	c.Set("data", data)
 }
 
 // GetDeviceList
 // @AUTHOR:zxq
 // @DATE: 2024-04-07 17:04
 // @DESCRIPTIONS: 获得设备列表（默认：设置类型-子设备&无 parent_id 关联 可扩展，查询可添加条件）
-// /api/v1/device/list
+// /api/v1/device/list [get]
 func (*DeviceApi) HandleDeviceList(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.GetDeviceList(c, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, data)
+	c.Set("data", data)
 }
 
 // CreateSonDevice
@@ -492,10 +467,10 @@ func (*DeviceApi) CreateSonDevice(c *gin.Context) {
 
 	err := service.GroupApp.Device.CreateSonDevice(c, &param)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessOK(c)
+	c.Set("data", nil)
 }
 
 // DeviceConnectForm
@@ -510,10 +485,10 @@ func (*DeviceApi) DeviceConnectForm(c *gin.Context) {
 	}
 	list, err := service.GroupApp.Device.DeviceConnectForm(c, &param)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, list)
+	c.Set("data", list)
 }
 
 // DeviceConnect
@@ -544,7 +519,7 @@ func (*DeviceApi) DeviceConnect(c *gin.Context) {
 // @AUTHOR:zxq
 // @DATE: 2024-04-15 16:04
 // @DESCRIPTIONS: 更新
-// /api/v1/device/update/voucher
+// /api/v1/device/update/voucher [post]
 func (*DeviceApi) UpdateDeviceVoucher(c *gin.Context) {
 	var param model.UpdateDeviceVoucherReq
 	if !BindAndValidate(c, &param) {
@@ -552,10 +527,10 @@ func (*DeviceApi) UpdateDeviceVoucher(c *gin.Context) {
 	}
 	voucher, err := service.GroupApp.Device.UpdateDeviceVoucher(c, &param)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, voucher)
+	c.Set("data", voucher)
 }
 
 // GetSubList
@@ -567,7 +542,9 @@ func (*DeviceApi) HandleSubList(c *gin.Context) {
 	var req model.PageReq
 	parant_id := c.Param("id")
 	if parant_id == "" {
-		ErrorHandler(c, http.StatusInternalServerError, errors.New("缺少参数"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"msg": "no parant_id",
+		}))
 		return
 	}
 	if !BindAndValidate(c, &req) {
@@ -576,10 +553,10 @@ func (*DeviceApi) HandleSubList(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	list, total, err := service.GroupApp.Device.GetSubList(c, parant_id, int64(req.Page), int64(req.PageSize), userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, map[string]interface{}{
+	c.Set("data", map[string]interface{}{
 		"total": total,
 		"list":  list,
 	})
@@ -633,10 +610,10 @@ func (*DeviceApi) HandleMapTelemetry(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.Device.GetMapTelemetry(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", data)
+	c.Set("data", data)
 }
 
 // 有模板且有图表配置的设备下拉列表
@@ -652,7 +629,7 @@ func (*DeviceApi) HandleDeviceTemplateChartSelect(c *gin.Context) {
 }
 
 // 更换设备配置UpdateDeviceConfig
-// /api/v1/device/update/config
+// /api/v1/device/update/config [put]
 func (*DeviceApi) UpdateDeviceConfig(c *gin.Context) {
 	var param model.ChangeDeviceConfigReq
 	if !BindAndValidate(c, &param) {
@@ -660,20 +637,21 @@ func (*DeviceApi) UpdateDeviceConfig(c *gin.Context) {
 	}
 	err := service.GroupApp.Device.UpdateDeviceConfig(&param)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessOK(c)
+	c.Set("data", nil)
 }
 
+// /api/v1/device/online/status/{id} [get]
 func (*DeviceApi) HandleDeviceOnlineStatus(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.Device.GetDeviceOnlineStatus(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", data)
+	c.Set("data", data)
 
 }
 
@@ -684,11 +662,11 @@ func (*DeviceApi) GatewayRegister(c *gin.Context) {
 	}
 	data, err := service.GroupApp.Device.GatewayRegister(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Create product successfully", data)
+	c.Set("data", data)
 }
 
 func (*DeviceApi) GatewaySubRegister(c *gin.Context) {
@@ -700,9 +678,9 @@ func (*DeviceApi) GatewaySubRegister(c *gin.Context) {
 	logrus.Warningf("GatewaySubRegister:%#v", req)
 	data, err := service.GroupApp.Device.GatewayDeviceRegister(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Create product successfully", data)
+	c.Set("data", data)
 }

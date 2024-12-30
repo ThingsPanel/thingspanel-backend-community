@@ -75,32 +75,42 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, e
 	if req.DeviceTemplateId != nil && *req.DeviceTemplateId == "" {
 		err := dal.UpdateDeviceConfigTemplateID(req.Id, nil)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		req.DeviceTemplateId = nil
 	}
 	condsMap, err := StructToMapAndVerifyJson(req, "additional_info", "protocol_config", "other_config")
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"err": err.Error(),
+		})
 	}
 	// 获取原配置信息
 	oldConfig, err := dal.GetDeviceConfigByID(req.Id)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	logrus.Debug("condsMap:", condsMap)
 	err = dal.UpdateDeviceConfig(req.Id, condsMap)
 	if err != nil {
 		logrus.Error(err)
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 清除设备配置信息缓存
 	initialize.DelDeviceConfigCache(req.Id)
 	// 获取设备配置信息
 	data, err := dal.GetDeviceConfigByID(req.Id)
 	if err != nil {
-		return data, err
+		return data, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if data.ProtocolType != nil && *data.ProtocolType != "MQTT" {
 		// 判断协议配置是否有变化
@@ -108,7 +118,9 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, e
 			// 协议配置有变化，断开设备连接
 			err = protocolplugin.DeviceConfigUpdateAndDisconnect(req.Id, *data.ProtocolType, data.DeviceType)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+				})
 			}
 		}
 	}
@@ -118,12 +130,16 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, e
 		if *data.ProtocolType == "MQTT" {
 			err = dal.UpdateDeviceConfigVoucherType(req.Id, StringPtr("ACCESSTOKEN"))
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+				})
 			}
 		} else {
 			err = dal.UpdateDeviceConfigVoucherType(req.Id, nil)
 			if err != nil {
-				return nil, err
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+				})
 			}
 		}
 	}
@@ -227,17 +243,23 @@ func (*DeviceConfig) GetDeviceConfigConnect(ctx context.Context, deviceID string
 	deviceInfo, err := db.First(ctx, device.ID.Eq(deviceID))
 	if err != nil {
 		logrus.Error(ctx, "[DeviceConfig][GetDeviceConfigConnect] device failed:", err)
-		return
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	if deviceInfo.DeviceConfigID == nil || common.CheckEmpty(*deviceInfo.DeviceConfigID) {
 		err = errors.New("return not found")
-		return
+		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"msg": "return not found",
+		})
 	}
 
 	_, err = db1.First(ctx, deviceConfig.ID.Eq(*deviceInfo.DeviceConfigID), deviceConfig.ProtocolType.Eq("MQTT"))
 	if err != nil {
 		logrus.Error(ctx, "[DeviceConfig][GetDeviceConfigConnect]deviceConfig failed:", err)
-		return
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	res = &model.DeviceConfigConnectRes{
 		AccessToken: "ACCESSTOKEN",

@@ -548,11 +548,21 @@ func (*DeviceModel) CreateDeviceModelCustomControl(req model.CreateDeviceModelCu
 	deviceModelCustomControl.TenantID = claims.TenantID
 
 	err := dal.CreateDeviceModelCustomControl(&deviceModelCustomControl)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return err
 }
 
 func (*DeviceModel) DeleteDeviceModelCustomControl(id string) error {
 	err := dal.DeleteDeviceModelCustomControlById(id)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return err
 }
 
@@ -574,6 +584,11 @@ func (*DeviceModel) UpdateDeviceModelCustomControl(req model.UpdateDeviceModelCu
 	deviceModelCustomControl.Remark = req.Remark
 
 	_, err := dal.UpdateDeviceModelCustomControl(&deviceModelCustomControl)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return err
 }
 
@@ -581,7 +596,9 @@ func (*DeviceModel) GetDeviceModelCustomControlByPage(req model.GetDeviceModelLi
 
 	total, list, err := dal.GetDeviceModelCustomControlByPage(req, claims.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total

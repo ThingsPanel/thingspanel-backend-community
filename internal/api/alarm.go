@@ -2,9 +2,9 @@ package api
 
 import (
 	"fmt"
-	"net/http"
 	"project/internal/model"
 	"project/internal/service"
+	"project/pkg/errcode"
 	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -22,30 +22,32 @@ func (*AlarmApi) CreateAlarmConfig(c *gin.Context) {
 	req.TenantID = userClaims.TenantID
 	data, err := service.GroupApp.Alarm.CreateAlarmConfig(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Create successfully", data)
+	c.Set("data", data)
 }
 
-// api/v1/alarm/config/{id} [Delete]
+// /api/v1/alarm/config/{id} [Delete]
 func (*AlarmApi) DeleteAlarmConfig(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		ErrorHandler(c, http.StatusBadRequest, fmt.Errorf("id is required"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"err": fmt.Sprintf("id is %s", id),
+		}))
 		return
 	}
 
 	err := service.GroupApp.Alarm.DeleteAlarmConfig(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete successfully", nil)
+	c.Set("data", nil)
 }
 
-// api/v1/alarm/config [PUT]
+// /api/v1/alarm/config [PUT]
 func (*AlarmApi) UpdateAlarmConfig(c *gin.Context) {
 	var req model.UpdateAlarmConfigReq
 	if !BindAndValidate(c, &req) {
@@ -55,13 +57,13 @@ func (*AlarmApi) UpdateAlarmConfig(c *gin.Context) {
 	req.TenantID = &userClaims.TenantID
 	data, err := service.GroupApp.Alarm.UpdateAlarmConfig(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update successfully", data)
+	c.Set("data", data)
 }
 
-// api/v1/alarm/config [GET]
+// /api/v1/alarm/config [GET]
 func (*AlarmApi) ServeAlarmConfigListByPage(c *gin.Context) {
 	var req model.GetAlarmConfigListByPageReq
 	if !BindAndValidate(c, &req) {
@@ -72,10 +74,10 @@ func (*AlarmApi) ServeAlarmConfigListByPage(c *gin.Context) {
 
 	data, err := service.GroupApp.Alarm.GetAlarmConfigListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", data)
+	c.Set("data", data)
 }
 
 // /api/v1/alarm/info [put]
@@ -171,8 +173,7 @@ func (*AlarmApi) HandleDeviceAlarmStatus(c *gin.Context) {
 	//var userClaims = c.MustGet("claims").(*utils.UserClaims)
 
 	ok := service.GroupApp.Alarm.GetDeviceAlarmStatus(&req)
-
-	SuccessHandler(c, "Get successfully", map[string]bool{
+	c.Set("data", map[string]bool{
 		"alarm": ok,
 	})
 }

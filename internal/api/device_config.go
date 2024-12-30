@@ -1,9 +1,6 @@
 package api
 
 import (
-	"net/http"
-	"project/pkg/common"
-
 	model "project/internal/model"
 	service "project/internal/service"
 	utils "project/pkg/utils"
@@ -40,11 +37,11 @@ func (*DeviceConfigApi) UpdateDeviceConfig(c *gin.Context) {
 
 	data, err := service.GroupApp.DeviceConfig.UpdateDeviceConfig(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Update deviceconfig successfully", data)
+	c.Set("data", data)
 }
 
 // DeleteDeviceConfig 删除设备配置
@@ -131,10 +128,10 @@ func (*DeviceConfigApi) HandleDeviceConfigConnect(c *gin.Context) {
 	}
 	data, err := service.GroupApp.DeviceConfig.GetDeviceConfigConnect(c, param.DeviceID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, data)
+	c.Set("data", data)
 }
 
 // /api/v1/device_config/voucher_type

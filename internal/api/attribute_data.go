@@ -1,7 +1,6 @@
 package api
 
 import (
-	"net/http"
 	"project/internal/model"
 	"project/internal/service"
 	"project/pkg/constant"
@@ -19,13 +18,14 @@ func (*AttributeDataApi) HandleDataList(c *gin.Context) {
 	id := c.Param("id")
 	data, err := service.GroupApp.AttributeData.GetAttributeDataList(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get data successfully", data)
+	c.Set("data", data)
 }
 
 // 根据key查询设备属性
+// /api/v1/attribute/datas/key [get]
 func (*AttributeDataApi) HandleAttributeDataByKey(c *gin.Context) {
 	var req model.GetDataListByKeyReq
 	if !BindAndValidate(c, &req) {
@@ -33,10 +33,10 @@ func (*AttributeDataApi) HandleAttributeDataByKey(c *gin.Context) {
 	}
 	data, err := service.GroupApp.AttributeData.GetAttributeDataByKey(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get data successfully", data)
+	c.Set("data", data)
 }
 
 // DeleteData 删除数据
@@ -45,10 +45,10 @@ func (*AttributeDataApi) DeleteData(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.AttributeData.DeleteAttributeData(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete data successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetAttributeSetLogsDataListByPage 属性下发记录查询（分页）
@@ -60,13 +60,13 @@ func (*AttributeDataApi) HandleAttributeSetLogsDataListByPage(c *gin.Context) {
 	}
 	data, err := service.GroupApp.AttributeData.GetAttributeSetLogsDataListByPage(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get data successfully", data)
+	c.Set("data", data)
 }
 
-// /api/v1/attribute/datas/pub
+// /api/v1/attribute/datas/pub [post]
 func (*AttributeDataApi) AttributePutMessage(c *gin.Context) {
 	var req model.AttributePutMessage
 	if !BindAndValidate(c, &req) {
@@ -76,10 +76,10 @@ func (*AttributeDataApi) AttributePutMessage(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.AttributeData.AttributePutMessage(c, userClaims.ID, &req, strconv.Itoa(constant.Manual))
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessOK(c)
+	c.Set("data", nil)
 }
 
 // 发送获取属性请求
@@ -92,8 +92,8 @@ func (*AttributeDataApi) AttributeGetMessage(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.AttributeData.AttributeGetMessage(userClaims, &req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessOK(c)
+	c.Set("data", nil)
 }

@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
 	utils "project/pkg/utils"
@@ -22,8 +20,8 @@ func (*EventDataApi) HandleEventDatasListByPage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.EventData.GetEventDatasListByPage(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get list successfully", data)
+	c.Set("data", data)
 }

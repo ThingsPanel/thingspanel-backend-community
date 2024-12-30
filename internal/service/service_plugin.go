@@ -29,7 +29,9 @@ func (*ServicePlugin) Create(req *model.CreateServicePluginReq) (map[string]inte
 	}
 	err := query.ServicePlugin.Create(&servicePlugin)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	resp := make(map[string]interface{})
 	resp["id"] = servicePlugin.ID
@@ -44,12 +46,21 @@ func (*ServicePlugin) List(req *model.GetServicePluginByPageReq) (map[string]int
 		list = make([]map[string]interface{}, 0)
 	}
 	listRsp["list"] = list
-
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return listRsp, err
 }
 
 func (*ServicePlugin) Get(id string) (interface{}, error) {
 	resp, err := dal.GetServicePlugin(id)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	return resp, err
 }
 
@@ -65,19 +76,25 @@ func (*ServicePlugin) Update(req *model.UpdateServicePluginReq) error {
 	updates["remark"] = req.Remark
 	updates["update_at"] = time.Now().UTC()
 	err := dal.UpdateServicePlugin(req.ID, updates)
-	return err
+	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		"sql_error": err.Error(),
+	})
 }
 
 func (*ServicePlugin) Delete(id string) error {
 	err := dal.DeleteServicePlugin(id)
-	return err
+	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		"sql_error": err.Error(),
+	})
 }
 
 // Heartbeat
 func (*ServicePlugin) Heartbeat(req *model.HeartbeatReq) error {
 	// 更新服务插件的心跳时间
 	err := dal.UpdateServicePluginHeartbeat(req.ServiceIdentifier)
-	return err
+	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		"sql_error": err.Error(),
+	})
 }
 
 // GetServiceSelect
@@ -94,7 +111,9 @@ func (*ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq) (interfac
 	// 获取服务列表
 	services, err := dal.GetServiceSelectList()
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	for _, service := range services {
 		flag := true
@@ -178,5 +197,11 @@ func (p *ServicePlugin) GetProtocolPluginFormByProtocolType(protocolType string,
 
 // 根据服务service_identifier获取服务详情
 func (*ServicePlugin) GetServicePluginByServiceIdentifier(serviceIdentifier string) (interface{}, error) {
-	return dal.GetServicePluginByServiceIdentifier(serviceIdentifier)
+	data, err := dal.GetServicePluginByServiceIdentifier(serviceIdentifier)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return data, err
 }

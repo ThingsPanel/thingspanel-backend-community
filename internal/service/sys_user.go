@@ -548,7 +548,10 @@ func (*User) GetUser(id string, claims *utils.UserClaims) (*model.User, error) {
 func (*User) GetUserDetail(claims *utils.UserClaims) (*model.User, error) {
 	user, err := dal.GetUsersById(claims.ID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": claims.ID,
+		})
 	}
 	return user, nil
 }
@@ -557,19 +560,27 @@ func (*User) GetUserDetail(claims *utils.UserClaims) (*model.User, error) {
 func (*User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUserInfoReq, claims *utils.UserClaims) error {
 	user, err := dal.GetUsersById(claims.ID)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": claims.ID,
+		})
 	}
 
 	// 限制用户只能修改自己的信息
 	if user.ID != claims.ID {
-		return fmt.Errorf("authority exception")
+		return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
+			"reason":  "cannot_update_other_user_info",
+			"user_id": claims.ID,
+		})
 	}
 
 	// 是否加密配置
 	if logic.UserIsEncrypt(ctx) {
 		password, err := initialize.DecryptPassword(*updateUserReq.Password)
 		if err != nil {
-			return fmt.Errorf("wrong decrypt password")
+			return errcode.WithData(errcode.CodeDecryptError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 		passwords := strings.TrimSuffix(string(password), updateUserReq.Salt)
 		*updateUserReq.Password = passwords
@@ -582,7 +593,10 @@ func (*User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUser
 
 	r, err := dal.UpdateUserInfoByIdPersonal(user.ID, updateUserReq)
 	if r == 0 {
-		return fmt.Errorf("0 rows affected")
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": claims.ID,
+		})
 	}
 	return err
 }

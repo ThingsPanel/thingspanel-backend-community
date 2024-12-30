@@ -153,6 +153,29 @@ messages:
   202003:
     zh_CN: "文件大小不能超过${max_size}，当前大小${current_size}"
     en_US: "File size cannot exceed ${max_size}, current size is ${current_size}"
+    
+  # 数据导出相关错误 (202100-202199)
+  202100:
+    zh_CN: "导出数据不能为空"
+    en_US: "No data available for export"
+  202101:
+    zh_CN: "创建导出目录失败: ${error}"
+    en_US: "Failed to create export directory: ${error}"
+  202102:
+    zh_CN: "创建导出文件失败: ${error}"
+    en_US: "Failed to create export file: ${error}"
+  202103:
+    zh_CN: "写入CSV表头失败: ${error}"
+    en_US: "Failed to write CSV header: ${error}"
+  202104:
+    zh_CN: "写入CSV数据失败: ${error}"
+    en_US: "Failed to write CSV data: ${error}"
+  202105:
+    zh_CN: "无效的数据格式 - 时间戳格式错误"
+    en_US: "Invalid data format - timestamp format error"
+  202106:
+    zh_CN: "无效的数据格式 - 数值格式错误"
+    en_US: "Invalid data format - value format error"
 
   # 设备分组错误码 (203xxx)
   203001:
@@ -167,6 +190,21 @@ messages:
   203004:
     zh_CN: "首页看板已存在"
     en_US: "Home board already exists"
+
+  204001:
+    zh_CN: "设备编号不可用：${error}"
+    en_US: "Device number unavailable: ${error}"
+  204002:
+    zh_CN: "该设备已激活，请更换设备编号"
+    en_US: "Device is already activated, please use a different device number"
+  204003:
+    zh_CN: "设备编号可用"
+    en_US: "Device number is available"
+
+  # WebSocket相关错误码 (205xxx)
+  205001:
+    zh_CN: "WebSocket连接升级失败：${error}"
+    en_US: "WebSocket upgrade failed: ${error}"
 
   # Device Connect Field Keys (500xxx)
   500001:

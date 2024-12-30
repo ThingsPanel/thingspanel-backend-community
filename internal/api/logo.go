@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
 
@@ -21,11 +19,11 @@ func (LogoApi) UpdateLogo(c *gin.Context) {
 
 	err := service.GroupApp.Logo.UpdateLogo(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Update logo successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetLogoListByPage 常规设置设置查询
@@ -33,8 +31,8 @@ func (LogoApi) UpdateLogo(c *gin.Context) {
 func (LogoApi) HandleLogoList(c *gin.Context) {
 	logoList, err := service.GroupApp.Logo.GetLogoList()
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get logo list successfully", logoList)
+	c.Set("data", logoList)
 }

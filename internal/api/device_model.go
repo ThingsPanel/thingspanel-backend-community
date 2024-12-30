@@ -1,10 +1,8 @@
 package api
 
 import (
-	"net/http"
 	"project/internal/model"
 	"project/internal/service"
-	"project/pkg/common"
 	"project/pkg/errcode"
 	"project/pkg/utils"
 	"strings"
@@ -288,22 +286,22 @@ func (*DeviceModelApi) CreateDeviceModelCustomControl(c *gin.Context) {
 
 	err := service.GroupApp.DeviceModel.CreateDeviceModelCustomControl(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, common.SUCCESS, "")
+	c.Set("data", nil)
 }
 
 func (*DeviceModelApi) DeleteDeviceModelCustomControl(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.DeviceModel.DeleteDeviceModelCustomControl(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, common.SUCCESS, "")
+	c.Set("data", nil)
 }
 
 func (*DeviceModelApi) UpdateDeviceModelCustomControl(c *gin.Context) {
@@ -314,11 +312,11 @@ func (*DeviceModelApi) UpdateDeviceModelCustomControl(c *gin.Context) {
 
 	err := service.GroupApp.DeviceModel.UpdateDeviceModelCustomControl(req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, common.SUCCESS, "")
+	c.Set("data", nil)
 }
 
 // /api/v1/device/model/custom/control GET
@@ -330,8 +328,8 @@ func (*DeviceModelApi) HandleDeviceModelCustomControl(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceModel.GetDeviceModelCustomControlByPage(req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, common.SUCCESS, data)
+	c.Set("data", data)
 }

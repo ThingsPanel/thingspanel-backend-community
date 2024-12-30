@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"net/http"
 	"project/internal/model"
 	service "project/internal/service"
 	"project/pkg/utils"
@@ -22,14 +21,14 @@ func (*ExpectedDataApi) HandleExpectedDataList(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	resp, err := service.GroupApp.ExpectedData.PageList(context.Background(), &req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get expected data list successfully", resp)
+	c.Set("data", resp)
 }
 
 // 新增预期数据
-// /api/v1/expected/data
+// /api/v1/expected/data POST
 func (*ExpectedDataApi) CreateExpectedData(c *gin.Context) {
 	var req model.CreateExpectedDataReq
 	if !BindAndValidate(c, &req) {
@@ -38,20 +37,20 @@ func (*ExpectedDataApi) CreateExpectedData(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	resp, err := service.GroupApp.ExpectedData.Create(c, &req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "create expected data successfully", resp)
+	c.Set("data", resp)
 }
 
 // 删除预期数据
-// /api/v1/expected/data
+// /api/v1/expected/data/{id} DELETE
 func (*ExpectedDataApi) DeleteExpectedData(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.ExpectedData.Delete(c, id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "delete expected data successfully", map[string]interface{}{})
+	c.Set("code", map[string]interface{}{})
 }

@@ -12,6 +12,7 @@ import (
 	"project/mqtt/publish"
 	"project/pkg/common"
 	"project/pkg/constant"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 	"strconv"
 	"time"
@@ -68,7 +69,9 @@ func (*AttributeData) DeleteAttributeData(id string) error {
 func (*AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq) (interface{}, error) {
 	count, data, err := dal.GetAttributeSetLogsDataListByPage(req)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	dataMap := make(map[string]interface{})
@@ -87,7 +90,9 @@ func (*AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (inte
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return dataMap, nil
 		}
-		return dataMap, err
+		return dataMap, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	dataMap["id"] = data.ID
@@ -112,7 +117,9 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 	// 获取设备信息
 	deviceInfo, err := initialize.GetDeviceCacheById(param.DeviceID)
 	if err != nil {
-		return fmt.Errorf("获取设备信息失败: %v", err)
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	// 获取设备类型和协议
@@ -120,13 +127,17 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 	if deviceInfo.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
-			return fmt.Errorf("获取设备配置失败: %v", err)
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		deviceType = deviceConfig.DeviceType
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
 		} else {
-			return fmt.Errorf("protocolType 为空")
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"system_error": "protocol_type is nil",
+			})
 		}
 	}
 
@@ -141,22 +152,32 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 		gatewayID := deviceInfo.ID
 		if deviceType == "3" {
 			if deviceInfo.ParentID == nil {
-				return fmt.Errorf("子设备网关信息为空")
+				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"system_error": "parent_id is nil",
+				})
 			}
 			gatewayID = *deviceInfo.ParentID
 			if deviceInfo.SubDeviceAddr == nil {
-				return fmt.Errorf("子设备地址为空")
+				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"system_error": "sub_device_addr is nil",
+				})
 			}
 			if err := transformSubDeviceData(param, *deviceInfo.SubDeviceAddr); err != nil {
-				return err
+				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"system_error": "sub_device_addr is nil",
+				})
 			}
 		} else if err := transformGatewayData(param); err != nil {
-			return err
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"system_error": "sub_device_addr is nil",
+			})
 		}
 
 		gatewayInfo, err := initialize.GetDeviceCacheById(gatewayID)
 		if err != nil {
-			return fmt.Errorf("获取网关信息失败: %v", err)
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
 		}
 		topic = fmt.Sprintf(config.MqttConfig.Attributes.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
 	}
@@ -164,7 +185,9 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 	// 执行数据脚本
 	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
 		if newValue, err := GroupApp.DataScript.Exec(deviceInfo, "D", []byte(param.Value), topic); err != nil {
-			return fmt.Errorf("执行数据脚本失败: %v", err)
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"system_error": err.Error(),
+			})
 		} else if newValue != nil {
 			param.Value = string(newValue)
 		}
@@ -288,7 +311,9 @@ func (*AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.Attrib
 	// 获取设备编码
 	d, err := dal.GetDeviceByID(req.DeviceID)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	if d.DeviceNumber == "" {
@@ -310,9 +335,16 @@ func (*AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.Attrib
 	}
 	payload, err = json.Marshal(data)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"system_error": err.Error(),
+		})
 	}
 	// 发送获取属性请求
 	err = publish.PublishGetAttributeMessage(d.DeviceNumber, payload)
+	if err != nil {
+		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"system_error": err.Error(),
+		})
+	}
 	return err
 }

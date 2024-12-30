@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
 
@@ -12,17 +10,6 @@ import (
 type DataPolicyApi struct{}
 
 // UpdateDataPolicy 更新数据清理
-// @Tags     数据清理
-// @Summary  更新数据清理
-// @Description 更新数据清理
-// @accept    application/json
-// @Produce   application/json
-// @Param     data  body      model.UpdateDataPolicyReq   true  "见下方JSON"
-// @Success  200  {object}  ApiResponse  "更新数据清理成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/datapolicy [put]
 func (*DataPolicyApi) UpdateDataPolicy(c *gin.Context) {
 	var req model.UpdateDataPolicyReq
@@ -31,11 +18,11 @@ func (*DataPolicyApi) UpdateDataPolicy(c *gin.Context) {
 	}
 	err := service.GroupApp.DataPolicy.UpdateDataPolicy(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Update datapolicy successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetDataPolicyListByPage 数据清理分页查询
@@ -48,8 +35,8 @@ func (*DataPolicyApi) HandleDataPolicyListByPage(c *gin.Context) {
 
 	datapolicyList, err := service.GroupApp.DataPolicy.GetDataPolicyListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get datapolicy list successfully", datapolicyList)
+	c.Set("data", datapolicyList)
 }

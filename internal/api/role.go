@@ -1,11 +1,10 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -25,11 +24,11 @@ func (*RoleApi) CreateRole(c *gin.Context) {
 
 	err := service.GroupApp.Role.CreateRole(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Create role successfully", nil)
+	c.Set("data", nil)
 }
 
 // UpdateRole 更新角色管理
@@ -47,11 +46,11 @@ func (*RoleApi) UpdateRole(c *gin.Context) {
 
 	data, err := service.GroupApp.Role.UpdateRole(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Update role successfully", data)
+	c.Set("data", data)
 }
 
 // DeleteRole 删除角色管理
@@ -61,16 +60,19 @@ func (*RoleApi) DeleteRole(c *gin.Context) {
 
 	// 需要角色没有被用户使用
 	if service.GroupApp.Casbin.HasRole(id) {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("role has user delete failed,The role is bound by the user"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"role_id": id,
+			"error":   "Role in use",
+		}))
 		return
 	}
 
 	err := service.GroupApp.Role.DeleteRole(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete role successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetRoleListByPage 角色管理分页查询
@@ -84,8 +86,8 @@ func (*RoleApi) HandleRoleListByPage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	roleList, err := service.GroupApp.Role.GetRoleListByPage(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get role list successfully", roleList)
+	c.Set("data", roleList)
 }

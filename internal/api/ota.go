@@ -12,6 +12,7 @@ import (
 
 	model "project/internal/model"
 	service "project/internal/service"
+	"project/pkg/errcode"
 	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -31,10 +32,10 @@ func (*OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.OTA.CreateOTAUpgradePackage(&req, userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create successfully", nil)
+	c.Set("data", nil)
 }
 
 // DeleteOTAUpgradePackage
@@ -43,10 +44,10 @@ func (*OTAApi) DeleteOTAUpgradePackage(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.OTA.DeleteOTAUpgradePackage(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete successfully", nil)
+	c.Set("data", nil)
 }
 
 // UpdateOTAUpgradePackage
@@ -58,10 +59,10 @@ func (*OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
 	}
 	err := service.GroupApp.OTA.UpdateOTAUpgradePackage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetOTAUpgradePackageByPage
@@ -74,11 +75,11 @@ func (*OTAApi) HandleOTAUpgradePackageByPage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	list, err := service.GroupApp.OTA.GetOTAUpgradePackageListByPage(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get list successfully", list)
+	c.Set("data", list)
 }
 
 // CreateOTAUpgradeTask
@@ -91,10 +92,10 @@ func (*OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
 
 	err := service.GroupApp.OTA.CreateOTAUpgradeTask(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create successfully", nil)
+	c.Set("data", nil)
 }
 
 // DeleteOTAUpgradeTask
@@ -103,10 +104,10 @@ func (*OTAApi) DeleteOTAUpgradeTask(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.OTA.DeleteOTAUpgradeTask(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetOTAUpgradeTaskByPage
@@ -118,10 +119,10 @@ func (*OTAApi) HandleOTAUpgradeTaskByPage(c *gin.Context) {
 	}
 	list, err := service.GroupApp.OTA.GetOTAUpgradeTaskListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get successfully", list)
+	c.Set("data", list)
 }
 
 // GetOTAUpgradeTaskDetailByPage
@@ -133,10 +134,10 @@ func (*OTAApi) HandleOTAUpgradeTaskDetailByPage(c *gin.Context) {
 	}
 	list, err := service.GroupApp.OTA.GetOTAUpgradeTaskDetailListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", list)
+	c.Set("data", list)
 
 }
 
@@ -149,10 +150,10 @@ func (*OTAApi) UpdateOTAUpgradeTaskStatus(c *gin.Context) {
 	}
 	err := service.GroupApp.OTA.UpdateOTAUpgradeTaskStatus(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update successfully", nil)
+	c.Set("data", nil)
 }
 
 // GET /api/v1/ota/download/{filepath}
@@ -160,7 +161,9 @@ func (*OTAApi) DownloadOTAUpgradePackage(c *gin.Context) {
 	filePath := "./files/upgradePackage/" + c.Param("path") + "/" + c.Param("file")
 
 	if !utils.FileExist(filePath) {
-		ErrorHandler(c, http.StatusNotFound, errors.New("file not found"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "file not exist",
+		}))
 		return
 	}
 

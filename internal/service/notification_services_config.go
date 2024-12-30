@@ -8,6 +8,7 @@ import (
 
 	dal "project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 	"project/third_party/others/http_client"
 
 	"github.com/go-basic/uuid"
@@ -62,12 +63,16 @@ func (*NotificationServicesConfig) GetNotificationServicesConfig(noticeType stri
 func (*NotificationServicesConfig) SendTestEmail(req *model.SendTestEmailReq) error {
 	c, err := dal.GetNotificationServicesConfigByType(model.NoticeType_Email)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"notice_type": err.Error(),
+		})
 	}
 	var emailConf model.EmailConfig
 	err = json.Unmarshal([]byte(*c.Config), &emailConf)
 	if err != nil {
-		return err
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
 	m := gomail.NewMessage()
@@ -86,7 +91,9 @@ func (*NotificationServicesConfig) SendTestEmail(req *model.SendTestEmailReq) er
 
 	// 发送邮件
 	if err := d.DialAndSend(m); err != nil {
-		return err
+		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
 	return nil

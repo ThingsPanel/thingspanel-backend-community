@@ -3,6 +3,7 @@ package service
 import (
 	dal "project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 	"project/pkg/utils"
 	"time"
 
@@ -20,6 +21,9 @@ func (*DataPolicy) UpdateDataPolicy(UpdateDataPolicyReq *model.UpdateDataPolicyR
 	err := dal.UpdateDataPolicy(&datapolicy)
 	if err != nil {
 		logrus.Error(err)
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	return err
 }
@@ -28,7 +32,9 @@ func (*DataPolicy) GetDataPolicyListByPage(Params *model.GetDataPolicyListByPage
 
 	total, list, err := dal.GetDataPolicyListByPage(Params)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	datapolicyListRsp := make(map[string]interface{})
 	datapolicyListRsp["total"] = total

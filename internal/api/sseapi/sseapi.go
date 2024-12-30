@@ -1,9 +1,7 @@
 package sseapi
 
 import (
-	"fmt"
-	"net/http"
-	"project/internal/api"
+	"project/pkg/errcode"
 	"project/pkg/global"
 	"project/pkg/utils"
 	"time"
@@ -19,7 +17,9 @@ type SSEApi struct{}
 func (*SSEApi) HandleSystemEvents(c *gin.Context) {
 	userClaims, ok := c.MustGet("claims").(*utils.UserClaims)
 	if !ok {
-		api.ErrorHandler(c, http.StatusUnauthorized, fmt.Errorf("unauthorized"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "UserClaims not found",
+		}))
 		return
 	}
 

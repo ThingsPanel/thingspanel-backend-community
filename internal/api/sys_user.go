@@ -1,8 +1,6 @@
 package api
 
 import (
-	"net/http"
-
 	model "project/internal/model"
 	service "project/internal/service"
 	utils "project/pkg/utils"
@@ -191,11 +189,11 @@ func (*UserApi) HandleUserDetail(c *gin.Context) {
 
 	user, err := service.GroupApp.User.GetUserDetail(userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get user successfully", user)
+	c.Set("data", user)
 }
 
 // UpdateUsers 修改用户信息
@@ -212,10 +210,10 @@ func (*UserApi) UpdateUsers(c *gin.Context) {
 	err := service.GroupApp.User.UpdateUserInfo(c, &updateUserInfoReq, userClaims)
 
 	if err != nil {
-		ErrorHandler(c, 400, err)
+		c.Error(err)
 	}
 
-	SuccessHandler(c, "Update user successfully", nil)
+	c.Set("data", nil)
 }
 
 // /api/v1/user/transform

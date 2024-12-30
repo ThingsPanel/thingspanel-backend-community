@@ -1,7 +1,6 @@
 package api
 
 import (
-	"net/http"
 	"project/internal/model"
 	"project/internal/service"
 
@@ -10,6 +9,7 @@ import (
 
 type ServicePluginApi struct{}
 
+// /api/v1/service POST
 func (*ServicePluginApi) Create(c *gin.Context) {
 	var req model.CreateServicePluginReq
 	if !BindAndValidate(c, &req) {
@@ -18,13 +18,13 @@ func (*ServicePluginApi) Create(c *gin.Context) {
 	//var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	resp, err := service.GroupApp.ServicePlugin.Create(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "create service successfully", resp)
+	c.Set("data", resp)
 }
 
-// /api/v1/service/list
+// /api/v1/service/list GET
 func (*ServicePluginApi) HandleList(c *gin.Context) {
 	var req model.GetServicePluginByPageReq
 	if !BindAndValidate(c, &req) {
@@ -32,22 +32,24 @@ func (*ServicePluginApi) HandleList(c *gin.Context) {
 	}
 	resp, err := service.GroupApp.ServicePlugin.List(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get service list successfully", resp)
+	c.Set("data", resp)
 }
 
+// /api/v1/service/detail/{id} GET
 func (*ServicePluginApi) Handle(c *gin.Context) {
 	id := c.Param("id")
 	resp, err := service.GroupApp.ServicePlugin.Get(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get service list successfully", resp)
+	c.Set("data", resp)
 }
 
+// /api/v1/service PUT
 func (*ServicePluginApi) Update(c *gin.Context) {
 	var req model.UpdateServicePluginReq
 	if !BindAndValidate(c, &req) {
@@ -55,20 +57,21 @@ func (*ServicePluginApi) Update(c *gin.Context) {
 	}
 	err := service.GroupApp.ServicePlugin.Update(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "update service successfully", map[string]interface{}{})
+	c.Set("data", map[string]interface{}{})
 }
 
+// /api/v1/service/{id} DELETE
 func (*ServicePluginApi) Delete(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.ServicePlugin.Delete(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "delete service successfully", map[string]interface{}{})
+	c.Set("data", map[string]interface{}{})
 }
 
 // /api/v1/plugin/heartbeat
@@ -79,14 +82,14 @@ func (*ServicePluginApi) Heartbeat(c *gin.Context) {
 	}
 	err := service.GroupApp.ServicePlugin.Heartbeat(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "heartbeat service successfully", map[string]interface{}{})
+	c.Set("data", map[string]interface{}{})
 }
 
 // GetServiceSelect
-// /api/v1/service/plugin/select
+// /api/v1/service/plugin/select GET
 func (*ServicePluginApi) HandleServiceSelect(c *gin.Context) {
 	var req model.GetServiceSelectReq
 	if !BindAndValidate(c, &req) {
@@ -94,13 +97,13 @@ func (*ServicePluginApi) HandleServiceSelect(c *gin.Context) {
 	}
 	resp, err := service.GroupApp.ServicePlugin.GetServiceSelect(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get service select successfully", resp)
+	c.Set("data", resp)
 }
 
-// /api/v1/service/plugin/info
+// /api/v1/service/plugin/info GET
 // 根据ServiceIdentifier获取服务插件信息
 func (*ServicePluginApi) HandleServicePluginByServiceIdentifier(c *gin.Context) {
 	var req model.GetServicePluginByServiceIdentifierReq
@@ -109,8 +112,8 @@ func (*ServicePluginApi) HandleServicePluginByServiceIdentifier(c *gin.Context) 
 	}
 	data, err := service.GroupApp.ServicePlugin.GetServicePluginByServiceIdentifier(req.ServiceIdentifier)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", data)
+	c.Set("data", data)
 }

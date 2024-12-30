@@ -1,12 +1,10 @@
 package api
 
 import (
-	"fmt"
-	"net/http"
-
 	dal "project/internal/dal"
 	model "project/internal/model"
 	service "project/internal/service"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -25,28 +23,34 @@ func (*NotificationServicesConfigApi) SaveNotificationServicesConfig(c *gin.Cont
 
 	// 验证SYS_ADMIN
 	if userClaims.Authority != dal.SYS_ADMIN {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("权限不足"))
+		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"authority": "authority is not sys admin",
+		}))
 		return
 	}
 
 	// 验证通知类型，暂支持邮件和短信
 	if req.NoticeType != model.NoticeType_Email && req.NoticeType != model.NoticeType_SME {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("notice type 不正确"))
+		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"noticeType": "noticeType is not email or sme",
+		}))
 		return
 	}
 
 	// 开关枚举验证
 	if req.Status != model.OPEN && req.Status != model.CLOSE {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("status 不正确"))
+		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"status": "status is not open or close",
+		}))
 		return
 	}
 
 	data, err := service.GroupApp.NotificationServicesConfig.SaveNotificationServicesConfig(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", data)
+	c.Set("data", data)
 }
 
 // GetNotificationServicesConfig 根据通知类型获取配置
@@ -56,15 +60,17 @@ func (*NotificationServicesConfigApi) HandleNotificationServicesConfig(c *gin.Co
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	// 验证SYS_ADMIN
 	if userClaims.Authority != dal.SYS_ADMIN {
-		ErrorHandler(c, http.StatusInternalServerError, fmt.Errorf("权限不足,无法获取"))
+		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"authority": "authority is not sys admin",
+		}))
 		return
 	}
 	data, err := service.GroupApp.NotificationServicesConfig.GetNotificationServicesConfig(noticeType)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", data)
+	c.Set("data", data)
 }
 
 // SendTestEmail 发送测试邮件
@@ -76,8 +82,8 @@ func (*NotificationServicesConfigApi) SendTestEmail(c *gin.Context) {
 	}
 	err := service.GroupApp.NotificationServicesConfig.SendTestEmail(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "success", nil)
+	c.Set("data", nil)
 }
