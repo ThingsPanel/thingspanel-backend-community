@@ -413,6 +413,93 @@ func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistor
 	return easyData, nil
 }
 
+func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHistoryDataByPageReq) (interface{}, error) {
+
+	if *req.ExportExcel {
+		var addr string
+		f := excelize.NewFile()
+		f.SetCellValue("Sheet1", "A1", "时间")
+		f.SetCellValue("Sheet1", "B1", "数值")
+
+		batchSize := 100000
+		offset := 0
+		rowNumber := 2
+
+		for {
+			datas, err := dal.GetHistoryTelemetrDataByExport(req, offset, batchSize)
+			if err != nil {
+				return addr, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+				})
+			}
+			if len(datas) == 0 {
+				break
+			}
+			for _, data := range datas {
+				t := time.Unix(0, data.T*int64(time.Millisecond))
+				f.SetCellValue("Sheet1", fmt.Sprintf("A%d", rowNumber), t.Format("2006-01-02 15:04:05"))
+				f.SetCellValue("Sheet1", fmt.Sprintf("B%d", rowNumber), *data.NumberV)
+				rowNumber++
+			}
+			offset += batchSize
+		}
+
+		// 创建保存目录
+		uploadDir := "./files/excel/"
+		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+			return "", errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+
+		// 生成文件名
+		uniqidStr := uniqid.New(uniqid.Params{
+			Prefix:      "excel",
+			MoreEntropy: true,
+		})
+		addr = "files/excel/数据列表" + uniqidStr + ".xlsx"
+
+		// 保存文件
+		if err := f.SaveAs(addr); err != nil {
+			return "", errcode.WithVars(errcode.CodeFileSaveError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+
+		return addr, nil
+	}
+
+	//  暂时忽略总数
+	total, data, err := dal.GetHistoryTelemetrDataByPage(req)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	// 格式化
+	var easyData []map[string]interface{}
+	for _, v := range data {
+		d := make(map[string]interface{})
+		d["ts"] = v.T
+		d["key"] = v.Key
+		if v.StringV != nil {
+			d["value"] = v.StringV
+		} else if v.NumberV != nil {
+			d["value"] = v.NumberV
+		} else if v.BoolV != nil {
+			d["value"] = v.BoolV
+		} else {
+			d["value"] = ""
+		}
+
+		easyData = append(easyData, d)
+	}
+	dataRsp := make(map[string]interface{})
+	dataRsp["total"] = total
+	dataRsp["list"] = easyData
+	return dataRsp, nil
+}
+
 // 获取模拟设备发送遥测数据的回显数据
 func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{}, error) {
 	// 获取设备信息

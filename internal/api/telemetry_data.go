@@ -108,7 +108,30 @@ func (*TelemetryDataApi) ServeHistoryDataByPage(c *gin.Context) {
 	// 	return
 	// }
 
-	date, err := service.GroupApp.TelemetryData.GetTelemetrHistoryDataByPage(&req)
+	date, err := service.GroupApp.TelemetryData.GetTelemetrHistoryDataByPageV2(&req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", date)
+}
+
+// ServeHistoryData 设备历史数值查询（分页）
+// @Router   /api/v1/telemetry/datas/history/page [get]
+func (*TelemetryDataApi) ServeHistoryDataByPageV2(c *gin.Context) {
+	var req model.GetTelemetryHistoryDataByPageReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	// 时间区间限制一个月内
+	// if req.EndTime.Sub(req.StartTime) > time.Hour*24*30 {
+	// 	ErrorHandler(c, http.StatusBadRequest, fmt.Errorf("time range should be within 30 days"))
+	// 	return
+	// }
+
+	date, err := service.GroupApp.TelemetryData.GetTelemetrHistoryDataByPageV2(&req)
 	if err != nil {
 		c.Error(err)
 		return

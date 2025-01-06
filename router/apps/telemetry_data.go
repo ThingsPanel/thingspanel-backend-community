@@ -24,8 +24,10 @@ func (*TelemetryData) InitTelemetryData(Router *gin.RouterGroup) {
 		// 历史记录，不分页
 		telemetrydataapi.GET("history", api.Controllers.TelemetryDataApi.ServeHistoryData)
 
-		// 历史记录，分页
+		// 历史记录，不分页
 		telemetrydataapi.GET("history/pagination", api.Controllers.TelemetryDataApi.ServeHistoryDataByPage)
+		// 历史记录，分页
+		telemetrydataapi.GET("history/page", api.Controllers.TelemetryDataApi.ServeHistoryDataByPage)
 
 		// 删除
 		telemetrydataapi.DELETE("", api.Controllers.TelemetryDataApi.DeleteData)

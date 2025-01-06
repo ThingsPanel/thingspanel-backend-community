@@ -161,10 +161,10 @@ func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (in
 		return count, nil, err
 	}
 
-	// if p.Page != 0 && p.PageSize != 0 {
-	// 	queryBuilder = queryBuilder.Limit(p.PageSize)
-	// 	queryBuilder = queryBuilder.Offset((p.Page - 1) * p.PageSize)
-	// }
+	if p.Page != nil && p.PageSize != nil {
+		queryBuilder = queryBuilder.Limit(*p.PageSize)
+		queryBuilder = queryBuilder.Offset((*p.Page - 1) * *p.PageSize)
+	}
 
 	list, err := queryBuilder.Select().Order(q.T.Desc()).Find()
 	if err != nil {
