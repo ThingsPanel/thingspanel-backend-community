@@ -3,6 +3,7 @@ package api
 import (
 	model "project/internal/model"
 	service "project/internal/service"
+	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,24 @@ func (*UserApi) Login(c *gin.Context) {
 	var loginReq model.LoginReq
 	if !BindAndValidate(c, &loginReq) {
 		return
+	}
+
+	result := utils.ValidateInput(loginReq.Email)
+	if !result.IsValid {
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": result.Message,
+		}))
+		return
+	}
+
+	if result.Type == utils.Phone {
+		// 通过手机号获取用户邮箱
+		email, err := service.GroupApp.User.GetUserEmailByPhoneNumber(loginReq.Email)
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		loginReq.Email = email
 	}
 
 	loginLock := service.NewLoginLock()

@@ -111,17 +111,20 @@ func GetDeviceDetail(id string) (map[string]interface{}, error) {
 	t := query.TelemetryCurrentData
 	t2 := query.TelemetryCurrentData.As("t2")
 	var data = make(map[string]interface{})
+	// 关联查询设备配置表
 	err := device.LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
 		LeftJoin(t.Select(t.T.Max().As("ts"), t.DeviceID).Group(t.DeviceID).As("t2"), t2.DeviceID.EqCol(device.ID)).
 		Where(device.ID.Eq(id)).
 		Select(device.ALL, deviceConfig.Name.As("device_config_name"), t2.T).Scan(&data)
 	if err != nil {
 		logrus.Error(err)
+		return nil, err
 	}
 	if data["parent_id"] != nil {
 		parentDevice, err := GetDeviceByID(data["parent_id"].(string))
 		if err != nil {
 			logrus.Error(err)
+			return nil, err
 		}
 		data["gateway_device_name"] = parentDevice.Name
 	}

@@ -372,6 +372,7 @@ func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
+			"message":   "get device failed",
 		})
 	}
 	// 判断data是否有key为device_config_id
@@ -387,6 +388,7 @@ func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),
+				"message":   "get device config failed",
 			})
 		}
 		data["device_config"] = deviceConfig
@@ -397,8 +399,9 @@ func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
 			},
 		})
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
+			return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error":   err.Error(),
+				"message": "get device online failed",
 			})
 		}
 		if isOnline, ok := result[id]; ok {

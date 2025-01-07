@@ -16,7 +16,7 @@ type CreateUserReq struct {
 }
 
 type LoginReq struct {
-	Email    string `json:"email" validate:"required,email"`            // 邮箱
+	Email    string `json:"email" validate:"required"`                  // 邮箱或手机号
 	Password string `json:"password" validate:"required,min=6,max=512"` // 密码
 	Salt     string `json:"salt"`                                       // 随机盐
 }

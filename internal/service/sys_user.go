@@ -756,3 +756,16 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 
 	return u.UserLoginAfter(userInfo)
 }
+
+// 通过用户手机号获取用户邮箱
+func (u *User) GetUserEmailByPhoneNumber(phoneNumber string) (string, error) {
+	// 查询用户信息
+	user, err := dal.GetUsersByPhoneNumber(phoneNumber)
+	if err != nil {
+		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"message": "get_user_by_phone_number",
+			"error":   err.Error(),
+		})
+	}
+	return user.Email, nil
+}

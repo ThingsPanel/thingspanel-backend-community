@@ -43,6 +43,16 @@ func GetUsersByEmail(email string) (*model.User, error) {
 	return user, err
 }
 
+// 通过手机号获取用户
+func GetUsersByPhoneNumber(phoneNumber string) (*model.User, error) {
+	q := query.User
+	user, err := q.Where(q.PhoneNumber.Eq(phoneNumber)).First()
+	if err != nil {
+		return nil, err
+	}
+	return user, err
+}
+
 func GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (int64, interface{}, error) {
 	q := query.User
 	var count int64
