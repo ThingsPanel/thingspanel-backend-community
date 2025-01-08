@@ -105,7 +105,7 @@ func (*Dict) DeleteDictLanguage(id string, claims *utils.UserClaims) error {
 	return nil
 }
 
-func (*Dict) GetDict(params *model.DictListReq) (list []model.DictListRsp, err error) {
+func (*Dict) GetDict(params *model.DictListReq, lang string) (list []model.DictListRsp, err error) {
 	dict, err := dal.GetDictListByCode(params.DictCode)
 	if err != nil {
 		logrus.Error(err)
@@ -118,12 +118,8 @@ func (*Dict) GetDict(params *model.DictListReq) (list []model.DictListRsp, err e
 		dictIDList = append(dictIDList, v.ID)
 	}
 
-	var lanCode string
-	if params.LanguageCode == nil {
-		lanCode = ""
-	} else {
-		lanCode = *params.LanguageCode
-	}
+	// 解析lang，提取出第一个语言并转为类似zh_CN这种格式
+	lanCode := utils.FormatLangCode(lang)
 
 	langList, err := dal.GetDictLanguageByDictIdListAndLanguageCode(dictIDList, lanCode)
 	if err != nil {

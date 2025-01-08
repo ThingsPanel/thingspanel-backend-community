@@ -80,7 +80,8 @@ func (*DictApi) HandleDict(c *gin.Context) {
 	if !BindAndValidate(c, &dictEnum) {
 		return
 	}
-	list, err := service.GroupApp.Dict.GetDict(&dictEnum)
+	lang := c.GetHeader("Accept-Language")
+	list, err := service.GroupApp.Dict.GetDict(&dictEnum, lang)
 	if err != nil {
 		c.Error(err)
 		return

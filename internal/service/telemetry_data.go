@@ -415,7 +415,7 @@ func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistor
 
 func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHistoryDataByPageReq) (interface{}, error) {
 
-	if *req.ExportExcel {
+	if req.ExportExcel != nil && *req.ExportExcel {
 		var addr string
 		f := excelize.NewFile()
 		f.SetCellValue("Sheet1", "A1", "时间")
