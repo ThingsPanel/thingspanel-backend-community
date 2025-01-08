@@ -197,6 +197,13 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 }
 
 func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*model.Device, error) {
+	// 获取设备原信息
+	oldDevice, err := dal.GetDeviceByID(req.Id)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 
 	// device.ID = req.Id
 	// device.Name = req.Name
@@ -225,6 +232,19 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 	}
 	// 清除设备缓存
 	initialize.DelDeviceCache(req.Id)
+
+	// 如果是子设备地址被修改，需要通知插件断开网关让其重连
+	if req.SubDeviceAddr != nil && *req.SubDeviceAddr != "" {
+		if oldDevice.SubDeviceAddr != nil && *oldDevice.SubDeviceAddr != "" {
+			if *oldDevice.SubDeviceAddr != *req.SubDeviceAddr {
+				// 通知协议插件，该方法会校验协议
+				if protocolplugin.DisconnectDeviceByDeviceID(req.Id) != nil {
+					logrus.Error("DisconnectDeviceByDeviceID failed:", err)
+				}
+			}
+		}
+	}
+
 	return device, err
 }
 
