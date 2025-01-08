@@ -12,3 +12,6 @@ UPDATE public.sys_dict_language SET dict_id='0013fb9e-e3be-95d4-9c96-f18d1f9ddfc
 
 INSERT INTO public.sys_dict_language (id, dict_id, language_code, "translation") VALUES('7162fb9e-e3be-95d4-9c96-f18d1f9ddfss', '7162fb9e-e3be-95d4-9c96-f18d1f9ddfcd', 'en_US', 'MQTT Protocol');
 INSERT INTO public.sys_dict_language (id, dict_id, language_code, "translation") VALUES('7162fb9e-e3be-95d4-9c96-f18d1f9ddfff', '0013fb9e-e3be-95d4-9c96-f18d1f9ddfcd', 'en_US', 'MQTT Protocol(Gateway)');
+
+ALTER TABLE public.scene_automation_log DROP CONSTRAINT scene_automation_log_scene_automation_id_fkey;
+ALTER TABLE public.scene_automation_log ADD CONSTRAINT scene_automation_log_scene_automation_id_fkey FOREIGN KEY (scene_automation_id) REFERENCES public.scene_automations(id) ON DELETE CASCADE;
