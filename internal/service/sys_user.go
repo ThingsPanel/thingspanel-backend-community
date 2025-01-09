@@ -507,14 +507,6 @@ func (*User) DeleteUser(id string, claims *utils.UserClaims) error {
 		})
 	}
 
-	// 删除用户角色
-	if !GroupApp.Casbin.RemoveUserAndRole(id) {
-		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error":   "failed to remove user roles",
-			"user_id": id,
-		})
-	}
-
 	return nil
 }
 
