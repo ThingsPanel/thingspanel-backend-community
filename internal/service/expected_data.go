@@ -194,7 +194,7 @@ func sendTelemetry(ctx context.Context, deviceID, payload string) (string, error
 	if err != nil {
 		return err.Error(), err
 	}
-	return "发送成功", nil
+	return "send success", nil
 }
 
 // 发送属性数据
@@ -208,7 +208,7 @@ func sendAttribute(ctx context.Context, deviceID, payload string) (string, error
 	if err != nil {
 		return err.Error(), err
 	}
-	return "发送成功", nil
+	return "send success", nil
 }
 
 // 发送命令数据
@@ -222,7 +222,7 @@ func sendCommand(ctx context.Context, deviceID, payload string) (string, error) 
 
 	method, ok := data["method"].(string)
 	if !ok {
-		return "identify 字段不存在或类型错误", fmt.Errorf("identify 字段不存在或类型错误")
+		return "identify is required", fmt.Errorf("identify is required")
 	}
 
 	var paramsStr *string
@@ -246,7 +246,7 @@ func sendCommand(ctx context.Context, deviceID, payload string) (string, error) 
 		return err.Error(), err
 	}
 
-	return "发送成功", nil
+	return "send success", nil
 }
 
 // 更新预期数据状态

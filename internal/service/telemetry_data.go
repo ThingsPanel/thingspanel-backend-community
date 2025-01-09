@@ -758,11 +758,6 @@ func processTimeRange(req *model.GetTelemetryStatisticReq) error {
 // 获取遥测数据
 func fetchTelemetryData(req *model.GetTelemetryStatisticReq) ([]map[string]interface{}, error) {
 	if req.AggregateWindow == "no_aggregate" {
-		if req.TimeRange == "custom" {
-			if (req.EndTime-req.StartTime)*1000 > int64(24*time.Hour/time.Microsecond) {
-				return nil, fmt.Errorf("查询时间范围超过24小时，请缩短查询时间范围或使用聚合查询")
-			}
-		}
 		return dal.GetTelemetrStatisticData(req.DeviceId, req.Key, req.StartTime, req.EndTime)
 	}
 

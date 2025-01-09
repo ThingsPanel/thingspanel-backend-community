@@ -481,12 +481,12 @@ func (*User) DeleteUser(id string, claims *utils.UserClaims) error {
 		}
 
 		// 租户管理员不能删除自己
-		if claims.Authority == "TENANT_ADMIN" && *user.Authority == "TENANT_ADMIN" {
-			return errcode.WithVars(errcode.CodeOpDenied, map[string]interface{}{
-				"reason":  "tenant_admin_cannot_delete_self",
-				"user_id": id,
-			})
-		}
+		// if claims.Authority == "TENANT_ADMIN" && *user.Authority == "TENANT_ADMIN" {
+		// 	return errcode.WithVars(errcode.CodeOpDenied, map[string]interface{}{
+		// 		"reason":  "cannot_delete_self",
+		// 		"user_id": id,
+		// 	})
+		// }
 	}
 
 	// 不能删除系统管理员
@@ -504,14 +504,6 @@ func (*User) DeleteUser(id string, claims *utils.UserClaims) error {
 			"error":     err.Error(),
 			"user_id":   id,
 			"operation": "delete_user",
-		})
-	}
-
-	// 删除用户角色
-	if !GroupApp.Casbin.RemoveUserAndRole(id) {
-		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error":   "failed to remove user roles",
-			"user_id": id,
 		})
 	}
 
