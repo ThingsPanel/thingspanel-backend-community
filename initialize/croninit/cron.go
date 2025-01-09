@@ -30,5 +30,10 @@ func CronInit() {
 		logrus.Debug("系统数据清理任务开始：")
 		service.GroupApp.CleanSystemDataByCron()
 	})
+
+	c.AddFunc("*/5 * * * * *", func() {
+		service.GroupApp.RunScript()
+	})
+
 	c.Start()
 }
