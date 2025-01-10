@@ -76,25 +76,34 @@ func (*ServicePlugin) Update(req *model.UpdateServicePluginReq) error {
 	updates["remark"] = req.Remark
 	updates["update_at"] = time.Now().UTC()
 	err := dal.UpdateServicePlugin(req.ID, updates)
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return nil
 }
 
 func (*ServicePlugin) Delete(id string) error {
 	err := dal.DeleteServicePlugin(id)
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return nil
 }
 
 // Heartbeat
 func (*ServicePlugin) Heartbeat(req *model.HeartbeatReq) error {
 	// 更新服务插件的心跳时间
 	err := dal.UpdateServicePluginHeartbeat(req.ServiceIdentifier)
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return nil
 }
 
 // GetServiceSelect
