@@ -754,6 +754,9 @@ func (u *User) GetUserEmailByPhoneNumber(phoneNumber string) (string, error) {
 	// 查询用户信息
 	user, err := dal.GetUsersByPhoneNumber(phoneNumber)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", errcode.New(200007)
+		}
 		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"message": "get_user_by_phone_number",
 			"error":   err.Error(),
