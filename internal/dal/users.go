@@ -3,6 +3,7 @@ package dal
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	model "project/internal/model"
@@ -45,11 +46,34 @@ func GetUsersByEmail(email string) (*model.User, error) {
 
 // 通过手机号获取用户
 func GetUsersByPhoneNumber(phoneNumber string) (*model.User, error) {
-	q := query.User
-	user, err := q.Where(q.PhoneNumber.Eq(phoneNumber)).First()
-	if err != nil {
-		return nil, err
+	// 初始化两个查询格式
+	format1 := phoneNumber
+	format2 := phoneNumber
+
+	if strings.HasPrefix(phoneNumber, "+") {
+		// 如果以+开头，提取实际手机号
+		phone := phoneNumber[1:] // 去掉+号
+		parts := strings.Split(phone, " ")
+		if len(parts) > 1 {
+			// 有空格的情况：+86 18211111111
+			format2 = parts[1]
+		} else {
+			// 无空格的情况：+8618211111111
+			// 假设区号不超过4位
+			if len(phone) > 4 {
+				format2 = phone[2:] // 跳过86这样的区号
+			}
+		}
+	} else {
+		// 如果不以+开头，添加+86前缀作为第二种格式
+		format2 = "+86 " + phoneNumber
 	}
+
+	q := query.User
+	user, err := q.Where(q.PhoneNumber.Eq(format1)).
+		Or(q.PhoneNumber.Eq(format2)).
+		First()
+
 	return user, err
 }
 
