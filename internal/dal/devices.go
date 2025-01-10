@@ -373,6 +373,11 @@ func GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq
 	return count, deviceList, err
 }
 
+func GetDevicesCount() int64 {
+	count, _ := query.Device.Count()
+	return count
+}
+
 // 通过设备id获取设备信息
 func GetDeviceCacheById(deviceId string) (*model.Device, error) {
 	device, err := query.Device.Where(query.Device.ID.Eq(deviceId)).First()

@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+
 	"project/initialize"
+	"project/initialize/croninit"
 	"project/internal/app"
 	"project/internal/query"
 	"project/mqtt"
@@ -52,7 +54,7 @@ func init() {
 	}
 	publish.PublishInit()
 	//定时任务
-	//croninit.CronInit()
+	croninit.CronInit()
 }
 
 // @title           ThingsPanel API

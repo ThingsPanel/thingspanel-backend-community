@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	model "project/internal/model"
 	"project/pkg/errcode"
 	global "project/pkg/global"
+	"project/pkg/metrics"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
@@ -201,4 +203,12 @@ func (*DataScript) Exec(device *model.Device, scriptType string, msg []byte, top
 		return msg, err
 	}
 	return []byte(newMsg), nil
+}
+
+func (*DataScript) RunScript() {
+	ins := metrics.NewInstance()
+	ins.Instan()
+	ins.Count = dal.GetDevicesCount()
+	fmt.Println("设备数量:", ins.Count, "个", ins)
+	ins.SendSignedRequest()
 }
