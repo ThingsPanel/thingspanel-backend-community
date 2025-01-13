@@ -31,7 +31,7 @@ func CronInit() {
 		service.GroupApp.CleanSystemDataByCron()
 	})
 
-	c.AddFunc("0 1 * * * *", func() {
+	c.AddFunc("0 1 * * *", func() {
 		service.GroupApp.RunScript()
 	})
 

@@ -209,6 +209,5 @@ func (*DataScript) RunScript() {
 	ins := metrics.NewInstance()
 	ins.Instan()
 	ins.Count = dal.GetDevicesCount()
-	fmt.Println("设备数量:", ins.Count, "个", ins)
 	ins.SendSignedRequest()
 }
