@@ -52,5 +52,5 @@ func (*ExpectedDataApi) DeleteExpectedData(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	c.Set("code", map[string]interface{}{})
+	c.Set("data", map[string]interface{}{})
 }
