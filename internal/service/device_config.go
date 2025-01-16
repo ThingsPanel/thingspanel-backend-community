@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"project/initialize"
 	"project/internal/query"
 	protocolplugin "project/internal/service/protocol_plugin"
@@ -248,7 +247,6 @@ func (*DeviceConfig) GetDeviceConfigConnect(ctx context.Context, deviceID string
 		})
 	}
 	if deviceInfo.DeviceConfigID == nil || common.CheckEmpty(*deviceInfo.DeviceConfigID) {
-		err = errors.New("return not found")
 		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
 			"msg": "return not found",
 		})

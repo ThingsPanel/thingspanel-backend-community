@@ -132,10 +132,10 @@ func (*DataScript) QuizDataScript(req *model.QuizDataScriptReq) (string, error) 
 				"input": req.AnalogInput,
 			})
 		}
-		data, error := utils.ScriptDeal(req.Content, msg, req.Topic)
-		if error != nil {
+		data, err := utils.ScriptDeal(req.Content, msg, req.Topic)
+		if err != nil {
 			return data, errcode.WithVars(200052, map[string]interface{}{
-				"error": error.Error(),
+				"error": err.Error(),
 			})
 		}
 		return data, nil

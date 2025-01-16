@@ -57,12 +57,10 @@ func GetUsersByPhoneNumber(phoneNumber string) (*model.User, error) {
 		if len(parts) > 1 {
 			// 有空格的情况：+86 18211111111
 			format2 = parts[1]
-		} else {
+		} else if len(phone) > 4 {
 			// 无空格的情况：+8618211111111
 			// 假设区号不超过4位
-			if len(phone) > 4 {
-				format2 = phone[2:] // 跳过86这样的区号
-			}
+			format2 = phone[2:] // 跳过86这样的区号
 		}
 	} else {
 		// 如果不以+开头，添加+86前缀作为第二种格式

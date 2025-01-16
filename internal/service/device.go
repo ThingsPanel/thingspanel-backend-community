@@ -582,7 +582,7 @@ func (*Device) ExportDevicePreRegister(req model.ExportPreRegisterReq, claims *u
 	return excelName, nil
 }
 
-func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string) (any, error) {
+func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
 	var err error
 
@@ -603,6 +603,9 @@ func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string)
 		}
 	}
 
+	if data == nil {
+		data = []map[string]interface{}{}
+	}
 	return data, nil
 	// list, err := dal.DeviceQuery{}.Find(ctx, device.TenantID.Eq(tenantID))
 	// if err != nil {
