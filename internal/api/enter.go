@@ -44,6 +44,7 @@ type Controller struct {
 	ServicePluginApi              //插件管理
 	ServiceAccessApi              //服务接入管理
 	ExpectedDataApi               // 预期数据
+	OpenAPIKeyApi                 // OpenAPI密钥
 }
 
 var Controllers = new(Controller)

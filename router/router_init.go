@@ -154,6 +154,8 @@ func RouterInit() *gin.Engine {
 			apps.Model.ServicePlugin.Init(v1) // 插件管理
 
 			apps.Model.ExpectedData.InitExpectedData(v1)
+
+			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 		}
 	}
 

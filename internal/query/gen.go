@@ -76,6 +76,7 @@ var (
 	VisPlugin                  *visPlugin
 	VisPluginLocal             *visPluginLocal
 	ExpectedData 			   *expectedData
+	OpenAPIKey                 *openAPIKey
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -139,6 +140,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	VisPlugin = &Q.VisPlugin
 	VisPluginLocal = &Q.VisPluginLocal
 	ExpectedData = &Q.ExpectedData
+	OpenAPIKey = &Q.OpenAPIKey
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
@@ -203,6 +205,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		VisPlugin:                  newVisPlugin(db, opts...),
 		VisPluginLocal:             newVisPluginLocal(db, opts...),
 		ExpectedData:                newExpectedData(db, opts...),
+		OpenAPIKey:                 newOpenAPIKey(db, opts...),
 	}
 }
 
@@ -268,6 +271,7 @@ type Query struct {
 	VisPlugin                  visPlugin
 	VisPluginLocal             visPluginLocal
 	ExpectedData               expectedData
+	OpenAPIKey                 openAPIKey
 
 }
 
@@ -335,6 +339,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		VisPlugin:                  q.VisPlugin.clone(db),
 		VisPluginLocal:             q.VisPluginLocal.clone(db),
 		ExpectedData:               q.ExpectedData.clone(db),
+		OpenAPIKey:                 q.OpenAPIKey.clone(db),
 	}
 }
 
@@ -408,6 +413,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		VisPlugin:                  q.VisPlugin.replaceDB(db),
 		VisPluginLocal:             q.VisPluginLocal.replaceDB(db),
 		ExpectedData:               q.ExpectedData.replaceDB(db),
+		OpenAPIKey:                 q.OpenAPIKey.replaceDB(db),
 	}
 }
 
@@ -471,6 +477,7 @@ type queryCtx struct {
 	VisPlugin                  IVisPluginDo
 	VisPluginLocal             IVisPluginLocalDo
 	ExpectedData               IExpectedDataDo
+	OpenAPIKey                 IOpenAPIKeyDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
@@ -534,6 +541,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		VisPlugin:                  q.VisPlugin.WithContext(ctx),
 		VisPluginLocal:             q.VisPluginLocal.WithContext(ctx),
 		ExpectedData:               q.ExpectedData.WithContext(ctx),
+		OpenAPIKey:                 q.OpenAPIKey.WithContext(ctx),
 	}
 }
 

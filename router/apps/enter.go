@@ -29,6 +29,7 @@ type apps struct {
 	SysFunction
 	ServicePlugin // 插件管理
 	ExpectedData  // 预期数据
+	OpenAPIKey    // openAPI
 
 }
 

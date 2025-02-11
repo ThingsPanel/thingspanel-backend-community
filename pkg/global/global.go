@@ -8,8 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
-var VERSION = "0.0.4"
-var VERSION_NUMBER = 4
+var VERSION = "0.0.5"
+var VERSION_NUMBER = 5
 var DB *gorm.DB
 var REDIS *redis.Client
 var STATUS_REDIS *redis.Client
