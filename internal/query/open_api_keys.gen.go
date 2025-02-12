@@ -29,10 +29,9 @@ func newOpenAPIKey(db *gorm.DB, opts ...gen.DOOption) openAPIKey {
 	_openAPIKey.ALL = field.NewAsterisk(tableName)
 	_openAPIKey.ID = field.NewString(tableName, "id")
 	_openAPIKey.TenantID = field.NewString(tableName, "tenant_id")
-	_openAPIKey.AppKey = field.NewString(tableName, "app_key")
-	_openAPIKey.AppSecret = field.NewString(tableName, "app_secret")
+	_openAPIKey.APIKey = field.NewString(tableName, "api_key")
 	_openAPIKey.Status = field.NewInt16(tableName, "status")
-	_openAPIKey.Remark = field.NewString(tableName, "remark")
+	_openAPIKey.Name = field.NewString(tableName, "name")
 	_openAPIKey.CreatedAt = field.NewTime(tableName, "created_at")
 	_openAPIKey.UpdatedAt = field.NewTime(tableName, "updated_at")
 
@@ -47,10 +46,9 @@ type openAPIKey struct {
 	ALL       field.Asterisk
 	ID        field.String
 	TenantID  field.String
-	AppKey    field.String
-	AppSecret field.String
+	APIKey    field.String
 	Status    field.Int16
-	Remark    field.String
+	Name      field.String
 	CreatedAt field.Time
 	UpdatedAt field.Time
 
@@ -71,10 +69,9 @@ func (o *openAPIKey) updateTableName(table string) *openAPIKey {
 	o.ALL = field.NewAsterisk(table)
 	o.ID = field.NewString(table, "id")
 	o.TenantID = field.NewString(table, "tenant_id")
-	o.AppKey = field.NewString(table, "app_key")
-	o.AppSecret = field.NewString(table, "app_secret")
+	o.APIKey = field.NewString(table, "api_key")
 	o.Status = field.NewInt16(table, "status")
-	o.Remark = field.NewString(table, "remark")
+	o.Name = field.NewString(table, "name")
 	o.CreatedAt = field.NewTime(table, "created_at")
 	o.UpdatedAt = field.NewTime(table, "updated_at")
 
@@ -93,13 +90,12 @@ func (o *openAPIKey) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (o *openAPIKey) fillFieldMap() {
-	o.fieldMap = make(map[string]field.Expr, 8)
+	o.fieldMap = make(map[string]field.Expr, 7)
 	o.fieldMap["id"] = o.ID
 	o.fieldMap["tenant_id"] = o.TenantID
-	o.fieldMap["app_key"] = o.AppKey
-	o.fieldMap["app_secret"] = o.AppSecret
+	o.fieldMap["api_key"] = o.APIKey
 	o.fieldMap["status"] = o.Status
-	o.fieldMap["remark"] = o.Remark
+	o.fieldMap["name"] = o.Name
 	o.fieldMap["created_at"] = o.CreatedAt
 	o.fieldMap["updated_at"] = o.UpdatedAt
 }

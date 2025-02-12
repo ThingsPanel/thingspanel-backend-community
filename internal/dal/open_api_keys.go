@@ -25,7 +25,7 @@ func GetOpenAPIKeyByID(id string) (*model.OpenAPIKey, error) {
 
 // GetOpenAPIKeyByAppKey 根据AppKey获取OpenAPI密钥信息
 func GetOpenAPIKeyByAppKey(appKey string) (*model.OpenAPIKey, error) {
-	return query.OpenAPIKey.Where(query.OpenAPIKey.AppKey.Eq(appKey)).First()
+	return query.OpenAPIKey.Where(query.OpenAPIKey.APIKey.Eq(appKey)).First()
 }
 
 // GetOpenAPIKeyListByPage 分页获取OpenAPI密钥列表
@@ -42,9 +42,6 @@ func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) 
 	}
 
 	// 添加查询条件
-	if listReq.AppKey != nil && *listReq.AppKey != "" {
-		queryBuilder = queryBuilder.Where(q.AppKey.Like("%" + *listReq.AppKey + "%"))
-	}
 	if listReq.Status != nil {
 		queryBuilder = queryBuilder.Where(q.Status.Eq(*listReq.Status))
 	}

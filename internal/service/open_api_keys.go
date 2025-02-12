@@ -2,8 +2,6 @@
 package service
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"time"
 
 	"github.com/go-basic/uuid"
@@ -35,30 +33,21 @@ func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *ut
 		})
 	}
 
-	// 生成AppKey (16字节随机数)
-	appKeyBytes := make([]byte, 16)
-	if _, err := rand.Read(appKeyBytes); err != nil {
-		logrus.Errorf("生成AppKey失败: %v", err)
-		return errcode.New(errcode.CodeSystemError)
-	}
-	appKey := hex.EncodeToString(appKeyBytes)
-
-	// 生成AppSecret (32字节随机数)
-	appSecretBytes := make([]byte, 32)
-	if _, err := rand.Read(appSecretBytes); err != nil {
+	// 生成APIKey
+	apikey, err := utils.GenerateAPIKey()
+	if err != nil {
 		logrus.Errorf("生成AppSecret失败: %v", err)
 		return errcode.New(errcode.CodeSystemError)
 	}
-	appSecret := hex.EncodeToString(appSecretBytes)
+
 	status := int16(1) // 默认启用
 	// 创建OpenAPI密钥记录
 	key := &model.OpenAPIKey{
-		ID:        uuid.New(),
-		TenantID:  StringPtr(req.TenantID),
-		AppKey:    StringPtr(appKey),
-		AppSecret: StringPtr(appSecret),
-		Status:    &status,
-		Remark:    req.Remark,
+		ID:       uuid.New(),
+		TenantID: req.TenantID,
+		APIKey:   apikey,
+		Status:   &status,
+		Name:     req.Name,
 	}
 
 	t := time.Now().UTC()
@@ -111,7 +100,7 @@ func (o *OpenAPIKey) UpdateOpenAPIKey(req *model.UpdateOpenAPIKeyReq, claims *ut
 
 	// 校验权限
 	if claims.Authority != "SYS_ADMIN" {
-		if claims.Authority != "TENANT_ADMIN" || *key.TenantID != claims.TenantID {
+		if claims.Authority != "TENANT_ADMIN" || key.TenantID != claims.TenantID {
 			return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
 				"required_role": "SYS_ADMIN or TENANT_ADMIN",
 				"current_role":  claims.Authority,
@@ -124,8 +113,8 @@ func (o *OpenAPIKey) UpdateOpenAPIKey(req *model.UpdateOpenAPIKeyReq, claims *ut
 	if req.Status != nil {
 		updates["status"] = *req.Status
 	}
-	if req.Remark != nil {
-		updates["remark"] = *req.Remark
+	if req.Name != nil {
+		updates["name"] = *req.Name
 	}
 
 	// 执行更新
@@ -154,7 +143,7 @@ func (o *OpenAPIKey) DeleteOpenAPIKey(id string, claims *utils.UserClaims) error
 
 	// 校验权限
 	if claims.Authority != "SYS_ADMIN" {
-		if claims.Authority != "TENANT_ADMIN" || *key.TenantID != claims.TenantID {
+		if claims.Authority != "TENANT_ADMIN" || key.TenantID != claims.TenantID {
 			return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
 				"required_role": "SYS_ADMIN or TENANT_ADMIN",
 				"current_role":  claims.Authority,
