@@ -127,6 +127,6 @@ func OpenAPIKeyAuth(c *gin.Context) bool {
 		TenantID:  tenantID,
 		Authority: "TENANT_ADMIN",
 	}
-	c.Set("claims", claims)
+	c.Set("claims", &claims)
 	return true
 }
