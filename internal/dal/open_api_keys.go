@@ -117,3 +117,26 @@ func (OpenAPIKeyQuery) Select(ctx context.Context, option ...gen.Condition) (lis
 	}
 	return
 }
+
+// 验证OpenAPI密钥是否有效并返回租户ID
+// Redis缓存结构 key: "apikey:{api_key}" value: tenantID
+// 有效期为1小时
+func VerifyOpenAPIKey(ctx context.Context, appKey string) (string, error) {
+	// 从Redis缓存中获取租户ID
+	cacheKey := "apikey:" + appKey
+	tenantID, err := global.REDIS.Get(ctx, cacheKey).Result()
+	if err != nil {
+		// 如果缓存中不存在，则从数据库中查询
+		apiKey, err := query.OpenAPIKey.WithContext(ctx).Where(query.OpenAPIKey.APIKey.Eq(appKey), query.OpenAPIKey.Status.Eq(1)).First()
+		if err != nil {
+			return "", err
+		}
+		// 将查询结果存入Redis缓存，有效期为1小时
+		tenantID = apiKey.TenantID
+		err = global.REDIS.Set(ctx, cacheKey, tenantID, time.Hour).Err()
+		if err != nil {
+			logrus.Warnf("设置OpenAPI密钥缓存失败: %v", err)
+		}
+	}
+	return tenantID, nil
+}
