@@ -134,7 +134,12 @@ messages:
   200060:
     zh_CN: "设备条件冲突：一组条件中不允许同时存在单个设备和设备类型条件"
     en_US: "Device condition conflict: Individual device and device type conditions cannot coexist in the same group"
-  
+  200061:
+    zh_CN: "该设备存在子设备，请先解除子设备关联"
+    en_US: "device has sub device,please remove sub device first"
+  200062:
+    zh_CN: "该设备存在场景，请先解除场景关联"
+    en_US: "device has scene,please remove scene first"
   # 权限模块错误 (201xxx)
   201001:
     zh_CN: "无访问权限"
