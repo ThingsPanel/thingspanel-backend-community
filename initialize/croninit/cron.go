@@ -1,3 +1,4 @@
+// /initialize/croninit/cron.go
 package croninit
 
 import (
@@ -13,6 +14,10 @@ var (
 
 // 定义任务初始化
 func CronInit() {
+
+	// 初始化设备统计定时任务
+	InitDeviceStatsCron(c)
+
 	//单次定义成任务 - 每5秒执行一次
 	c.AddFunc("*/5 * * * * *", func() {
 		logrus.Debug("自动化单次任务开始：")

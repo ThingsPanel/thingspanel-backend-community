@@ -280,3 +280,14 @@ func (UserVo) PoToVo(userInfo *model.User) (info *model.UsersRes) {
 	}
 	return
 }
+
+// 查询租户管理员列表
+func (UserVo) GetTenantAdminList() (list []*model.User, err error) {
+	var users = query.User
+	userInfoList, err := users.Where(users.Authority.Eq(TENANT_ADMIN)).Find()
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	return userInfoList, nil
+}

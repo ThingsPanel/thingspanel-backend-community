@@ -236,3 +236,35 @@ func (*BoardApi) UpdateUserInfoPassword(c *gin.Context) {
 	}
 	c.Set("data", nil)
 }
+
+// GetDeviceTrend 获取设备在线趋势
+// @Router   /api/v1/board/trend [get]
+func (*BoardApi) GetDeviceTrend(c *gin.Context) {
+	var deviceTrendReq model.DeviceTrendReq
+	if !BindAndValidate(c, &deviceTrendReq) {
+		return
+	}
+
+	// 获取用户claims
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+
+	// 如果请求中没有指定tenantID,则使用当前用户的tenantID
+	if deviceTrendReq.TenantID == nil || *deviceTrendReq.TenantID == "" {
+		deviceTrendReq.TenantID = &userClaims.TenantID
+	}
+
+	// 权限检查 - 只有系统管理员可以查看其他租户的数据
+	if *deviceTrendReq.TenantID != userClaims.TenantID && userClaims.Authority != "SYS_ADMIN" {
+		c.Error(errcode.New(errcode.CodeNoPermission))
+		return
+	}
+
+	// 调用service层获取趋势数据
+	trend, err := service.GroupApp.Device.GetDeviceTrend(c, *deviceTrendReq.TenantID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", trend)
+}
