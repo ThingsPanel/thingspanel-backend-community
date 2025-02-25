@@ -332,10 +332,11 @@ func (*DeviceConfig) GetActionByDeviceConfigID(deviceConfigID string) (any, erro
 	}
 
 	type options struct {
-		Key      string  `json:"key"`
-		Label    *string `json:"label"`
-		DataType *string `json:"data_type"`
-		Uint     *string `json:"unit"`
+		Key           string  `json:"key"`
+		Label         *string `json:"label"`
+		DataType      *string `json:"data_type"`
+		Uint          *string `json:"unit"`
+		ReadWriteFlag *string `json:"read_write_flag"`
 	}
 	type actionModelSource struct {
 		DataSourceTypeRes string     `json:"data_source_type"`
@@ -349,6 +350,7 @@ func (*DeviceConfig) GetActionByDeviceConfigID(deviceConfigID string) (any, erro
 		o.Label = telemetry.DataName
 		o.DataType = telemetry.DataType
 		o.Uint = telemetry.Unit
+		o.ReadWriteFlag = telemetry.ReadWriteFlag
 		telemetryOptions = append(telemetryOptions, &o)
 	}
 	// 获取设备模板属性
@@ -365,6 +367,7 @@ func (*DeviceConfig) GetActionByDeviceConfigID(deviceConfigID string) (any, erro
 		o.Label = attribute.DataName
 		o.DataType = attribute.DataType
 		o.Uint = attribute.Unit
+		o.ReadWriteFlag = attribute.ReadWriteFlag
 		attributeOptions = append(attributeOptions, &o)
 	}
 	// 获取设备模板命令
