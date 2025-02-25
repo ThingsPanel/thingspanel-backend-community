@@ -30,6 +30,9 @@ func (*Board) InitBoard(Router *gin.RouterGroup) {
 		// 首页看板
 		url.GET("home", api.Controllers.BoardApi.HandleBoardListByTenantId)
 
+		// 租户设备在线离线趋势图
+		url.GET("trend", api.Controllers.BoardApi.GetDeviceTrend)
+
 	}
 	// 设备数据
 	devices(url)

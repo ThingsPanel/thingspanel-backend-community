@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	dal "project/internal/dal"
@@ -10,6 +12,7 @@ import (
 	query "project/internal/query"
 	common "project/pkg/common"
 	"project/pkg/errcode"
+	global "project/pkg/global"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
@@ -237,7 +240,7 @@ func (*Board) GetDevice(ctx context.Context) (data *model.GetBoardDeviceRes, err
 // GetDeviceByTenantID
 // @AUTHOR:zxq
 // @DATE: 2024-03-04 09:04
-// @DESCRIPTIONS: 获得设备总数/激活数
+// @DESCRIPTIONS: 获得已激活的设备总数/在线数
 func (*Board) GetDeviceByTenantID(ctx context.Context, tenantID string) (data *model.GetBoardDeviceRes, err error) {
 	var (
 		total, on int64
@@ -261,4 +264,89 @@ func (*Board) GetDeviceByTenantID(ctx context.Context, tenantID string) (data *m
 		DeviceOn:    on,
 	}
 	return
+}
+
+// GetDeviceTrend 获取设备在线趋势
+func (*Device) GetDeviceTrend(ctx context.Context, tenantID string) (*model.DeviceTrendRes, error) {
+	// 获取当前时间和24小时前的时间
+	now := time.Now()
+	yesterday := now.Add(-24 * time.Hour)
+
+	// 需要查询的日期列表
+	dates := []string{
+		yesterday.Format("2006-01-02"),
+		now.Format("2006-01-02"),
+	}
+
+	var allPoints []model.DeviceTrendPoint
+
+	// 遍历每个日期
+	for _, date := range dates {
+		// 构建Redis key
+		key := fmt.Sprintf("device_stats:%s:%s", tenantID, date)
+
+		// 从Redis获取该日期的所有统计数据
+		statsJsonList, err := global.REDIS.LRange(ctx, key, 0, -1).Result()
+		if err != nil {
+			logrus.Errorf("从Redis获取设备统计数据失败: %v", err)
+			return nil, errcode.WithData(errcode.CodeCacheError, map[string]interface{}{
+				"error": err.Error(),
+				"key":   key,
+			})
+		}
+
+		// 解析每条统计数据
+		for _, statsJson := range statsJsonList {
+			var statsData struct {
+				DeviceTotal int64     `json:"device_total"`
+				DeviceOn    int64     `json:"device_on"`
+				Timestamp   time.Time `json:"timestamp"`
+			}
+
+			if err := json.Unmarshal([]byte(statsJson), &statsData); err != nil {
+				logrus.Errorf("解析设备统计数据失败: %v", err)
+				continue
+			}
+
+			// 只取24小时内的数据
+			if statsData.Timestamp.Before(yesterday) {
+				continue
+			}
+
+			point := model.DeviceTrendPoint{
+				Timestamp:     statsData.Timestamp,
+				DeviceTotal:   statsData.DeviceTotal,
+				DeviceOnline:  statsData.DeviceOn,
+				DeviceOffline: statsData.DeviceTotal - statsData.DeviceOn,
+			}
+
+			allPoints = append(allPoints, point)
+		}
+	}
+
+	// 按时间排序
+	sort.Slice(allPoints, func(i, j int) bool {
+		return allPoints[i].Timestamp.Before(allPoints[j].Timestamp)
+	})
+
+	// 如果没有数据，尝试获取当前状态作为最新点
+	if len(allPoints) == 0 {
+		currentStats, err := GroupApp.Board.GetDeviceByTenantID(ctx, tenantID)
+		if err != nil {
+			return nil, err
+		}
+
+		point := model.DeviceTrendPoint{
+			Timestamp:     now,
+			DeviceTotal:   currentStats.DeviceTotal,
+			DeviceOnline:  currentStats.DeviceOn,
+			DeviceOffline: currentStats.DeviceTotal - currentStats.DeviceOn,
+		}
+
+		allPoints = append(allPoints, point)
+	}
+
+	return &model.DeviceTrendRes{
+		Points: allPoints,
+	}, nil
 }

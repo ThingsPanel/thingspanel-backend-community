@@ -287,7 +287,7 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 		})
 	}
 	if len(data) > 0 {
-		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+		return errcode.WithData(200063, map[string]interface{}{
 			"message": "device has sub device,please remove sub device first",
 		})
 	}
@@ -297,7 +297,7 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 		return err1
 	}
 	if len(conditions) > 0 {
-		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+		return errcode.WithData(200062, map[string]interface{}{
 			"message": "device has scene,please remove scene first",
 		})
 	}
@@ -1248,10 +1248,11 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 		})
 	}
 	type option struct {
-		Key      string  `json:"key"`
-		Label    *string `json:"label"`
-		DataType *string `json:"data_type"`
-		Uint     *string `json:"unit"`
+		Key           string  `json:"key"`
+		Label         *string `json:"label"`
+		DataType      *string `json:"data_type"`
+		Uint          *string `json:"unit"`
+		ReadWriteFlag *string `json:"read_write_flag"`
 	}
 	type actionModelSource struct {
 		DataSourceTypeRes string    `json:"data_source_type"`
@@ -1331,6 +1332,7 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 						v.Label = model.DataName
 						v.DataType = model.DataType
 						v.Uint = model.Unit
+						v.ReadWriteFlag = model.ReadWriteFlag
 						flag = true
 					}
 				}
@@ -1341,6 +1343,7 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 					o.Label = model.DataName
 					o.DataType = model.DataType
 					o.Uint = model.Unit
+					o.ReadWriteFlag = model.ReadWriteFlag
 					telemetryOptions = append(telemetryOptions, &o)
 				}
 			}
@@ -1361,6 +1364,7 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 						v.Label = model.DataName
 						v.DataType = model.DataType
 						v.Uint = model.Unit
+						v.ReadWriteFlag = model.ReadWriteFlag
 						flag = true
 					}
 				}
@@ -1371,6 +1375,7 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 					o.Label = model.DataName
 					o.DataType = model.DataType
 					o.Uint = model.Unit
+					o.ReadWriteFlag = model.ReadWriteFlag
 					attributeOptions = append(attributeOptions, &o)
 				}
 			}

@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type CreateBoardReq struct {
 	Name        string  `json:"name" validate:"required,max=255"`         // 看板名称
 	Config      *string `json:"config" validate:"omitempty"`              // 看板配置
@@ -25,4 +27,22 @@ type GetBoardListByPageReq struct {
 	PageReq
 	Name     *string `json:"name" form:"name" validate:"omitempty,max=255"`
 	HomeFlag *string `json:"home_flag" form:"home_flag"  validate:"omitempty,max=2"`
+}
+
+// DeviceTrendReq 设备趋势请求
+type DeviceTrendReq struct {
+	TenantID *string `form:"tenant_id" json:"tenant_id" validate:"omitempty,max=36"` // 租户ID
+}
+
+// DeviceTrendPoint 趋势数据点
+type DeviceTrendPoint struct {
+	Timestamp     time.Time `json:"timestamp"`      // 时间点
+	DeviceTotal   int64     `json:"device_total"`   // 设备总数
+	DeviceOnline  int64     `json:"device_online"`  // 在线设备数
+	DeviceOffline int64     `json:"device_offline"` // 离线设备数
+}
+
+// DeviceTrendRes 设备趋势响应
+type DeviceTrendRes struct {
+	Points []DeviceTrendPoint `json:"points"` // 趋势数据点列表
 }
