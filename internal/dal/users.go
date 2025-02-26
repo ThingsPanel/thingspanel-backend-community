@@ -278,6 +278,9 @@ func (UserVo) PoToVo(userInfo *model.User) (info *model.UsersRes) {
 	if userInfo.CreatedAt != nil {
 		info.CreateTime = common.DateTimeToString(*userInfo.CreatedAt, "")
 	}
+	if userInfo.AdditionalInfo != nil {
+		info.AdditionalInfo = *userInfo.AdditionalInfo
+	}
 	return
 }
 
