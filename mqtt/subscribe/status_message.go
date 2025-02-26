@@ -10,6 +10,7 @@ import (
 	service "project/internal/service"
 	"project/pkg/global"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -50,6 +51,7 @@ func DeviceOnline(payload []byte, topic string) {
 	}
 	if status == int16(1) {
 		// 发送预期数据
+		time.Sleep(3 * time.Second)
 		err := service.GroupApp.ExpectedData.Send(context.Background(), deviceId)
 		if err != nil {
 			logrus.Error(err.Error())
