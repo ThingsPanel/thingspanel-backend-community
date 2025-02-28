@@ -176,7 +176,9 @@ func (*UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.UserC
 	}
 	var columns []field.Expr
 	columns = append(columns, user.Name)
-	info.Name = &param.Name
+	if param.Name != "" {
+		info.Name = &param.Name
+	}
 	if param.AdditionalInfo != nil {
 		info.AdditionalInfo = param.AdditionalInfo
 		columns = append(columns, user.AdditionalInfo)

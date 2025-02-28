@@ -59,6 +59,10 @@ func (*ProtocolPlugin) GetProtocolPluginListByPage(req *model.GetProtocolPluginL
 	protocolPluginList := make(map[string]interface{})
 	protocolPluginList["total"] = total
 	protocolPluginList["list"] = list
+	// 如果没有数据，返回空数组
+	if total == 0 {
+		protocolPluginList["list"] = make([]interface{}, 0)
+	}
 	return protocolPluginList, err
 }
 
