@@ -22,11 +22,11 @@ func GetListByPage(operationLog *model.GetOperationLogListByPageReq, userClaims 
 	var operationLogList []model.GetOperationLogListByPageRsp
 	var queryBuilder query.IOperationLogDo
 	// 超级管理员可以查询所有租户的日志
-	if userClaims.Authority != "SYS_ADMIN" {
-		queryBuilder = q.WithContext(context.Background()).Where(q.TenantID.Eq(operationLog.TenantID))
+	// if userClaims.Authority != "SYS_ADMIN" {
+	// 	queryBuilder = q.WithContext(context.Background()).Where(q.TenantID.Eq(operationLog.TenantID))
 
-	}
-
+	// }
+	queryBuilder = q.WithContext(context.Background()).Where(q.TenantID.Eq(userClaims.TenantID))
 	if operationLog.IP != nil && *operationLog.IP != "" {
 		queryBuilder = queryBuilder.Where(q.IP.Like(fmt.Sprintf("%%%s%%", *operationLog.IP)))
 	}

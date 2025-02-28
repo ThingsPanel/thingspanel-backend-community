@@ -20,7 +20,6 @@ type GetOperationLogListByPageReq struct {
 	StartTime *time.Time `json:"start_time,omitempty" form:"start_time" validate:"omitempty,max=50"` //开始日期
 	EndTime   *time.Time `json:"end_time,omitempty" form:"end_time" validate:"omitempty,max=50"`     //结束日期
 	UserName  *string    `json:"username" form:"username" validate:"omitempty,max=255"`
-	TenantID  string     `json:"tenant_id" form:"tenant_id" validate:"omitempty,max=36"` // 租户id
 	Method    *string    `json:"method" form:"method" validate:"omitempty,max=255"`
 }
 

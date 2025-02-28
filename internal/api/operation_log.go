@@ -18,7 +18,6 @@ func (*OperationLogsApi) HandleListByPage(c *gin.Context) {
 		return
 	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	req.TenantID = userClaims.TenantID
 	list, err := service.GroupApp.OperationLogs.GetListByPage(&req, userClaims)
 	if err != nil {
 		c.Error(err)
