@@ -78,7 +78,7 @@ func (*ServiceAccessApi) HandleVoucherForm(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	c.Set("resp", resp)
+	c.Set("data", resp)
 }
 
 // /api/v1/service/access/device/list
@@ -94,7 +94,7 @@ func (*ServiceAccessApi) HandleDeviceList(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	c.Set("resp", resp)
+	c.Set("data", resp)
 }
 
 // /api/v1/plugin/service/access/list
@@ -110,7 +110,7 @@ func (*ServiceAccessApi) HandlePluginServiceAccessList(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	c.Set("resp", resp)
+	c.Set("data", resp)
 }
 
 // /api/v1/pugin/service/access
@@ -124,5 +124,5 @@ func (*ServiceAccessApi) HandlePluginServiceAccess(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	c.Set("resp", resp)
+	c.Set("data", resp)
 }
