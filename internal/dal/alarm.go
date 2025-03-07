@@ -54,7 +54,7 @@ func GetAlarmByID(id string) (*model.AlarmConfig, error) {
 // 根据告警信息ID获取告警信息
 func GetAlarmInfoHistoryByID(id string) (map[string]interface{}, error) {
 	var result map[string]interface{}
-	err := query.AlarmInfo.Where(query.AlarmInfo.ID.Eq(id)).Select(query.AlarmInfo.ALL).Scan(&result)
+	err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id)).Select(query.AlarmHistory.ALL).Scan(&result)
 	if err != nil {
 		return nil, err
 	}
