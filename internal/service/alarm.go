@@ -301,7 +301,7 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 }
 
 // 通过id获取告警信息
-func (*Alarm) GetAlarmInfoHistoryByID(id string) (*model.AlarmHistory, error) {
+func (*Alarm) GetAlarmInfoHistoryByID(id string) (map[string]interface{}, error) {
 	alarmInfo, err := dal.GetAlarmInfoHistoryByID(id)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{

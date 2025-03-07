@@ -210,5 +210,6 @@ func (*AlarmApi) HandleAlarmInfoHistory(c *gin.Context) {
 		c.Error(err)
 		return
 	}
+
 	c.Set("data", data)
 }

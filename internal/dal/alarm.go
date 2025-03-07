@@ -52,12 +52,26 @@ func GetAlarmByID(id string) (*model.AlarmConfig, error) {
 }
 
 // 根据告警信息ID获取告警信息
-func GetAlarmInfoHistoryByID(id string) (*model.AlarmHistory, error) {
-	data, err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id)).First()
+func GetAlarmInfoHistoryByID(id string) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	err := query.AlarmInfo.Where(query.AlarmInfo.ID.Eq(id)).Select(query.AlarmInfo.ALL).Scan(&result)
 	if err != nil {
 		return nil, err
 	}
-	return data, nil
+	// 判断alarm_device_list是否为空
+	if result["alarm_device_list"] == nil {
+		return result, nil
+	} else {
+		var (
+			deviceIds  []string
+			deviceList = make([]map[string]interface{}, 0)
+		)
+		_ = json.Unmarshal([]byte(result["alarm_device_list"].(string)), &deviceIds)
+		_ = query.Device.Where(query.Device.ID.In(deviceIds...)).Select(query.Device.ID, query.Device.Name).Scan(&deviceList)
+		result["alarm_device_list"] = deviceList
+	}
+
+	return result, nil
 }
 
 func GetAlarmConfigListByPage(d *model.GetAlarmConfigListByPageReq) (int64, interface{}, error) {
