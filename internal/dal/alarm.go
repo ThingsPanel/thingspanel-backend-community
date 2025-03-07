@@ -51,6 +51,15 @@ func GetAlarmByID(id string) (*model.AlarmConfig, error) {
 	return data, nil
 }
 
+// 根据告警信息ID获取告警信息
+func GetAlarmInfoHistoryByID(id string) (*model.AlarmHistory, error) {
+	data, err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id)).First()
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 func GetAlarmConfigListByPage(d *model.GetAlarmConfigListByPageReq) (int64, interface{}, error) {
 	q := query.AlarmConfig
 	var count int64
