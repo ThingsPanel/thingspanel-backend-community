@@ -194,3 +194,21 @@ func (*AlarmApi) HandleConfigByDevice(c *gin.Context) {
 	}
 	c.Set("data", list)
 }
+
+// /api/v1/alarm/info/{id} [GET]
+func (*AlarmApi) HandleAlarmInfo(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"err": fmt.Sprintf("id is %s", id),
+		}))
+		return
+	}
+
+	data, err := service.GroupApp.Alarm.GetAlarmInfoByID(id)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}

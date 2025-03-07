@@ -299,3 +299,14 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 	}
 	return true, alarmName
 }
+
+// 通过id获取告警信息
+func (*Alarm) GetAlarmInfoByID(id string) (*model.AlarmInfo, error) {
+	alarmInfo, err := dal.GetAlarmInfoByID(id)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return alarmInfo, nil
+}
