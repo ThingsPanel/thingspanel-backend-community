@@ -60,20 +60,20 @@ jobs:
         platforms=("windows/amd64" "linux/amd64" "linux/arm64" "darwin/amd64")
         for platform in "${platforms[@]}"; do
           IFS="/" read -r os arch <<< "$platform"
-          output_file="thingspanel-backend-community-$os-$arch"
-          zip_file="$output_file.zip"
+          # Adjust output file name for Windows
+          if [ "$os" == "windows" ]; then
+             output_file="thingspanel-backend-community-$os-$arch.exe"
+          else
+             output_file="thingspanel-backend-community-$os-$arch"
+          fi
           tar_file="$output_file.tar.gz"
           
           # Build for each platform
           CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -o $output_file
           
           # Package the build into an archive
-          if [ "$os" == "windows" ]; then
-            zip $zip_file $output_file configs sql files
-          else
-            tar -czvf $tar_file $output_file configs sql files
-          fi
-
+          tar -czvf $tar_file $output_file configs sql files
+          
           # Clean up build artifacts
           rm $output_file
         done
