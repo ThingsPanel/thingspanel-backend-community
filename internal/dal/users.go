@@ -294,3 +294,14 @@ func (UserVo) GetTenantAdminList() (list []*model.User, err error) {
 	}
 	return userInfoList, nil
 }
+
+// 根据租户ID查询租户信息
+func GetTenantsById(tenantID string) (info *model.User, err error) {
+	var tenants = query.User
+	info, err = tenants.Where(tenants.TenantID.Eq(tenantID), tenants.Authority.Eq(TENANT_ADMIN)).First()
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	return info, nil
+}

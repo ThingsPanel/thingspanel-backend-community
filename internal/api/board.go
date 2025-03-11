@@ -161,9 +161,15 @@ func (*BoardApi) HandleTenant(c *gin.Context) {
 // @Router   /api/v1/board/tenant/user/info [get]
 func (*BoardApi) HandleTenantUserInfo(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
+	tenantID := userClaims.TenantID
+	// 根据租户ID查询租户信息
+	tenantInfo, err := service.GroupApp.User.GetTenantInfo(tenantID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	users := service.UsersService{}
-	data, err := users.GetTenantUserInfo(c, userClaims.Email)
+	data, err := users.GetTenantUserInfo(c, tenantInfo.Email)
 	if err != nil {
 		c.Error(err)
 		return
@@ -189,9 +195,16 @@ func (*BoardApi) HandleTenantDeviceInfo(c *gin.Context) {
 // @Router   /api/v1/board/user/info [get]
 func (*BoardApi) HandleUserInfo(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	tenantID := userClaims.TenantID
+	// 根据租户ID查询租户信息
+	tenantInfo, err := service.GroupApp.User.GetTenantInfo(tenantID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	users := service.UsersService{}
-	data, err := users.GetTenantInfo(c, userClaims.Email)
+	data, err := users.GetTenantInfo(c, tenantInfo.Email)
 	if err != nil {
 		c.Error(err)
 		return

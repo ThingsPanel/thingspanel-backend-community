@@ -764,3 +764,15 @@ func (u *User) GetUserEmailByPhoneNumber(phoneNumber string) (string, error) {
 	}
 	return user.Email, nil
 }
+
+// 根据租户ID查询租户信息
+func (u *User) GetTenantInfo(tenantID string) (*model.User, error) {
+	tenant, err := dal.GetTenantsById(tenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":     err.Error(),
+			"tenant_id": tenantID,
+		})
+	}
+	return tenant, nil
+}

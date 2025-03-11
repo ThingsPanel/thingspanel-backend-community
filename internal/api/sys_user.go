@@ -269,3 +269,12 @@ func (*UserApi) EmailRegister(c *gin.Context) {
 
 	c.Set("data", loginRsp)
 }
+
+// 获取租户ID
+// @Router   /api/v1/user/tenant/id [get]
+func (*UserApi) GetTenantID(c *gin.Context) {
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	tenantID := userClaims.TenantID
+
+	c.Set("data", tenantID)
+}

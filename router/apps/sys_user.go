@@ -26,5 +26,8 @@ func (*User) InitUser(Router *gin.RouterGroup) {
 		userapi.GET(":id", api.Controllers.UserApi.HandleUser)
 		userapi.POST("transform", api.Controllers.UserApi.TransformUser)
 
+		// 获取租户ID
+		userapi.GET("/tenant/id", api.Controllers.UserApi.GetTenantID)
+
 	}
 }
