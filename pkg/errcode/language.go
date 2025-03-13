@@ -68,5 +68,5 @@ func NormalizeLanguage(lang string) string {
 	}
 
 	// 将 "-" 替换为 "_"
-	return strings.ReplaceAll(lang, "-", "")
+	return strings.ReplaceAll(lang, "-", "_")
 }
