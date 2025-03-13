@@ -29,13 +29,20 @@ func OperationLogs() gin.HandlerFunc {
 			return
 		}
 
+		logrus.Info("开始处理请求:", c.Request.URL.Path, "方法:", c.Request.Method)
 		requestMessage, _ := processRequestBody(c)
+		logrus.Info("请求体:", requestMessage)
+
 		writer := newResponseBodyWriter(c)
 		c.Writer = writer
 
 		start := time.Now().UTC()
 		c.Next()
 		cost := time.Since(start).Milliseconds()
+
+		logrus.Info("请求处理完成，状态码:", c.Writer.Status(), "耗时(ms):", cost)
+		logrus.Info("响应体大小:", writer.body.Len())
+		logrus.Info("响应的信息:", writer.body.String())
 
 		saveOperationLog(c, start, cost, requestMessage, writer.body.String())
 	}
@@ -96,7 +103,26 @@ func handleFileUpload(c *gin.Context) string {
 }
 
 func saveOperationLog(c *gin.Context, start time.Time, cost int64, requestMsg, responseMsg string) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	// 检查 claims 是否存在
+	claims, exists := c.Get("claims")
+	if !exists {
+		logrus.Info("未找到用户信息，跳过操作日志记录")
+		return
+	}
+
+	// 类型断言
+	userClaims, ok := claims.(*utils.UserClaims)
+	if !ok {
+		logrus.Info("用户信息类型不正确，跳过操作日志记录")
+		return
+	}
+
+	// 检查 tenantID 是否为空
+	if userClaims.TenantID == "" {
+		logrus.Info("租户ID为空，跳过操作日志记录")
+		return
+	}
+
 	path := c.Request.URL.Path
 
 	log := &model.OperationLog{

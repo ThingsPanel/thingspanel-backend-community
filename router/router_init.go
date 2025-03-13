@@ -49,6 +49,9 @@ func RouterInit() *gin.Engine {
 	if err != nil {
 		logrus.Fatalf("初始化响应处理器失败: %v", err)
 	}
+
+	// 记录操作日志
+	router.Use(middleware.OperationLogs())
 	// 全局使用
 	global.ResponseHandler = handler
 	// 使用中间件
@@ -89,6 +92,7 @@ func RouterInit() *gin.Engine {
 			// 网关子设备注册
 			v1.POST("/device/gateway-sub-register", controllers.DeviceApi.GatewaySubRegister)
 		}
+
 		// 需要权限校验
 		v1.Use(middleware.JWTAuth())
 
@@ -96,8 +100,7 @@ func RouterInit() *gin.Engine {
 		v1.Use(middleware.CasbinRBAC())
 		// SSE服务
 		SSERouter(v1)
-		// 记录操作日志
-		v1.Use(middleware.OperationLogs())
+
 		{
 			apps.Model.User.InitUser(v1) // 用户模块
 

@@ -1,7 +1,6 @@
 package service
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"strings"
 	"time"
@@ -113,22 +112,22 @@ func sendEmailMessage(message string, subject string, tenantId string, to ...str
 
 	d := gomail.NewDialer(emailConf.Host, emailConf.Port, emailConf.FromEmail, emailConf.FromPassword)
 
-	if emailConf.SSL != nil {
-		// 检查是否启用了 SSL
-		if *emailConf.SSL {
-			d.TLSConfig = &tls.Config{
-				MinVersion:         tls.VersionTLS12, // 设置最低支持 TLS 1.2
-				MaxVersion:         tls.VersionTLS13, // 设置最高支持 TLS 1.3
-				InsecureSkipVerify: false,            // 显式禁用不安全的证书验证跳过
-				CipherSuites: []uint16{ // 设置安全的密码套件
-					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				},
-			}
-		}
-	}
+	// if emailConf.SSL != nil {
+	// 	// 检查是否启用了 SSL
+	// 	if *emailConf.SSL {
+	// 		d.TLSConfig = &tls.Config{
+	// 			MinVersion:         tls.VersionTLS12, // 设置最低支持 TLS 1.2
+	// 			MaxVersion:         tls.VersionTLS13, // 设置最高支持 TLS 1.3
+	// 			InsecureSkipVerify: false,            // 显式禁用不安全的证书验证跳过
+	// 			CipherSuites: []uint16{ // 设置安全的密码套件
+	// 				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+	// 				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+	// 				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+	// 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	// 			},
+	// 		}
+	// 	}
+	// }
 
 	m := gomail.NewMessage()
 	m.SetHeader("From", emailConf.FromEmail)
