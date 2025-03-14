@@ -22,7 +22,7 @@ jwt:
 
 db:
   psql:
-    host: 47.92.253.145 # 默认localhost
+    host: 127.0.0.1 # 默认localhost
 #    host: 47.92.253.145 # 默认localhost
     port: 5432 # 默认5432
     dbname: ThingsPanel
@@ -38,7 +38,7 @@ db:
     slow_threshold: 200 # 默认200毫秒
 
   redis:
-    addr: 47.92.253.145:6379 # 默认localhost:6379
+    addr: 127.0.0.1:6379 # 默认localhost:6379
     # addr: 47.92.253.145:6379 # 默认localhost:6379
     db: 1 # 默认0
     db1: 10 # 默认10，不能是0，用户设备状态管理
