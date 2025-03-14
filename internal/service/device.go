@@ -483,7 +483,9 @@ func (d *Device) CheckDeviceNumber(deviceNumber string) (*errcode.Error, bool) {
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 如果设备不存在，说明设备号不可用
-			return errcode.WithVars(204001, nil), true
+			return errcode.WithVars(204001, map[string]interface{}{
+				"error": deviceNumber,
+			}), false
 		}
 		// 数据库错误
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -492,7 +494,7 @@ func (d *Device) CheckDeviceNumber(deviceNumber string) (*errcode.Error, bool) {
 	}
 
 	if device.ActivateFlag == "active" {
-		return errcode.WithVars(204002, nil), false
+		return errcode.New(204002), false
 	}
 
 	return errcode.WithVars(204003, nil), true
