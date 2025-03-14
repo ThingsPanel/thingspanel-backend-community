@@ -1,4 +1,4 @@
--- ✅2025/2/11
+-- ✅2025/2/11 v1.1.5
 
 CREATE TABLE public.open_api_keys (
 	id varchar(36) NOT NULL,
