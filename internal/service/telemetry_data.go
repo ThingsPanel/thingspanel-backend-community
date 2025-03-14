@@ -718,6 +718,12 @@ func (*TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStati
 
 // 处理时间范围
 func processTimeRange(req *model.GetTelemetryStatisticReq) error {
+	if req.AggregateWindow == "no_aggregate" {
+		// 起始时间和结束时间的差值不能大于一天，时间示例1741679355121
+		if req.EndTime-req.StartTime > 24*time.Hour.Milliseconds() {
+			return fmt.Errorf("start time and end time difference cannot be greater than one day")
+		}
+	}
 	if req.TimeRange == "custom" {
 		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
 			return fmt.Errorf("time range is invalid")
