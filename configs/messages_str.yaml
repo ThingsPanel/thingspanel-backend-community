@@ -1,0 +1,14 @@
+messages:
+  # 成功码
+  验证码登陆:
+    zh_CN: 验证码登陆
+    en_US: Verification code login
+  前端RSA加密:
+    zh_CN: 前端RSA加密
+    en_US: Front-end RSA encryption
+  共享账号:
+    zh_CN: 共享账号
+    en_US: Shared account
+  租户注册:
+    zh_CN: 租户注册
+    en_US: Tenant registration

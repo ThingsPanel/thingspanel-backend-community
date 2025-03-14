@@ -45,7 +45,7 @@ func RouterInit() *gin.Engine {
 
 	router.Use(middleware.Cors())
 	// 初始化响应处理器
-	handler, err := response.NewHandler("configs/messages.yaml")
+	handler, err := response.NewHandler("configs/messages.yaml", "configs/messages_str.yaml")
 	if err != nil {
 		logrus.Fatalf("初始化响应处理器失败: %v", err)
 	}

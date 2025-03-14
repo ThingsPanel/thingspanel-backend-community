@@ -4,12 +4,18 @@ import (
 	"project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/errcode"
+	"project/pkg/global"
 )
 
 type SysFunction struct{}
 
-func (*SysFunction) GetSysFuncion() ([]*model.SysFunction, error) {
+func (*SysFunction) GetSysFuncion(lang string) ([]*model.SysFunction, error) {
 	data, err := dal.GetAllSysFunction()
+	// 多语言处理
+	for _, v := range data {
+		description := global.ResponseHandler.ErrManager.GetMessageStr(*v.Description, lang)
+		v.Description = &description
+	}
 	return data, err
 }
 

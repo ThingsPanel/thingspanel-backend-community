@@ -23,8 +23,8 @@ type Handler struct {
 }
 
 // NewHandler 创建响应处理器
-func NewHandler(configPath string) (*Handler, error) {
-	errManager := errcode.NewErrorManager(configPath)
+func NewHandler(configPath string, strConfigPath string) (*Handler, error) {
+	errManager := errcode.NewErrorManager(configPath, strConfigPath)
 	if err := errManager.LoadMessages(); err != nil {
 		return nil, err
 	}

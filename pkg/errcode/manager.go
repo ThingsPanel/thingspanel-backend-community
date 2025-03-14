@@ -22,52 +22,89 @@ type Config struct {
 	} `yaml:"metadata"`
 }
 
+// StringConfig 定义字符串配置文件结构
+type StringConfig struct {
+	Messages map[string]map[string]string `yaml:"messages"` // key -> language -> message
+	Metadata struct {
+		Version            string   `yaml:"version"`
+		LastUpdated        string   `yaml:"last_updated"`
+		SupportedLanguages []string `yaml:"supported_languages"`
+	} `yaml:"metadata"`
+}
+
 // ErrorManager 错误码管理器
 type ErrorManager struct {
-	messages        map[int]map[string]string // code -> language -> message
+	messages        map[int]map[string]string    // code -> language -> message
+	messageStr      map[string]map[string]string // key -> language -> message
 	cache           *cache.Cache
 	defaultLanguage string
 	configPath      string
+	strConfigPath   string
 }
 
 // NewErrorManager 创建错误码管理器实例
-func NewErrorManager(configPath string) *ErrorManager {
+func NewErrorManager(configPath string, strConfigPath string) *ErrorManager {
 	manager := &ErrorManager{
 		messages:        make(map[int]map[string]string),
+		messageStr:      make(map[string]map[string]string),
 		cache:           cache.New(10*time.Minute, 20*time.Minute), // 缓存10分钟，每20分钟清理
 		defaultLanguage: "zh_CN",                                   // 默认使用中文
 		configPath:      configPath,
+		strConfigPath:   strConfigPath,
 	}
 	return manager
 }
 
-// LoadMessages 加载错误码配置
+// LoadMessages 加载错误码和字符串配置
 func (m *ErrorManager) LoadMessages() error {
-	// 读取配置文件
+	// 加载错误码配置
+	if err := m.loadErrorMessages(); err != nil {
+		return fmt.Errorf("加载错误码配置失败: %w", err)
+	}
+
+	// 加载字符串配置
+	if err := m.loadStringMessages(); err != nil {
+		return fmt.Errorf("加载字符串配置失败: %w", err)
+	}
+
+	return nil
+}
+
+// loadErrorMessages 加载错误码配置
+func (m *ErrorManager) loadErrorMessages() error {
 	data, err := os.ReadFile(filepath.Clean(m.configPath))
 	if err != nil {
-		return fmt.Errorf("读取配置文件失败: %w", err)
+		return fmt.Errorf("读取错误码配置文件失败: %w", err)
 	}
 
-	// 解析配置
 	var config Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
-		return fmt.Errorf("解析配置文件失败: %w", err)
+		return fmt.Errorf("解析错误码配置文件失败: %w", err)
 	}
 
-	// 验证错误码格式
 	for code := range config.Messages {
 		if !m.validateCode(code) {
 			return fmt.Errorf("无效的错误码格式: %d", code)
 		}
 	}
 
-	// 更新内存中的消息
 	m.messages = config.Messages
+	return nil
+}
 
-	// 清空缓存
-	m.cache.Flush()
+// loadStringMessages 加载字符串配置
+func (m *ErrorManager) loadStringMessages() error {
+	data, err := os.ReadFile(filepath.Clean(m.strConfigPath))
+	if err != nil {
+		return fmt.Errorf("读取字符串配置文件失败: %w", err)
+	}
 
+	var config StringConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("解析字符串配置文件失败: %w", err)
+	}
+
+	m.messageStr = config.Messages
 	return nil
 }
 
@@ -94,6 +131,23 @@ func (m *ErrorManager) GetMessage(code int, acceptLanguage string) string {
 
 	// 如果都没找到，使用默认语言
 	return m.getMessageForLanguage(code, m.defaultLanguage)
+}
+
+// GetMessageStr 获取指定key的字符串消息
+func (m *ErrorManager) GetMessageStr(key string, acceptLanguage string) string {
+	if acceptLanguage == "" {
+		return m.getStrMessageForLanguage(key, m.defaultLanguage)
+	}
+
+	languages := ParseAcceptLanguage(acceptLanguage)
+	for _, lang := range languages {
+		normalizedLang := NormalizeLanguage(lang.Tag)
+		if msg := m.getStrMessageForLanguage(key, normalizedLang); msg != "" {
+			return msg
+		}
+	}
+
+	return m.getStrMessageForLanguage(key, m.defaultLanguage)
 }
 
 // getMessageForLanguage 获取指定语言的消息
@@ -124,6 +178,28 @@ func (m *ErrorManager) getMessageForLanguage(code int, lang string) string {
 		defaultMsg = "Unknown Error"
 	}
 	return defaultMsg
+}
+
+// getStrMessageForLanguage 获取指定语言的字符串消息
+func (m *ErrorManager) getStrMessageForLanguage(key string, lang string) string {
+	cacheKey := fmt.Sprintf("str:%s:%s", key, lang)
+	if msg, found := m.cache.Get(cacheKey); found {
+		return msg.(string)
+	}
+
+	if messages, ok := m.messageStr[key]; ok {
+		if msg, ok := messages[lang]; ok {
+			m.cache.Set(cacheKey, msg, cache.DefaultExpiration)
+			return msg
+		}
+	}
+
+	if lang != m.defaultLanguage {
+		return ""
+	}
+
+	// 如果找不到对应的字符串,返回key本身
+	return key
 }
 
 func (m *ErrorManager) validateCode(code int) bool {

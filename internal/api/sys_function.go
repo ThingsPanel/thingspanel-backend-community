@@ -13,7 +13,8 @@ type SysFunctionApi struct{}
 
 // /api/v1/sys_function GET
 func (*SysFunctionApi) HandleSysFcuntion(c *gin.Context) {
-	date, err := service.GroupApp.SysFunction.GetSysFuncion()
+	lang := c.GetHeader("Accept-Language")
+	date, err := service.GroupApp.SysFunction.GetSysFuncion(lang)
 	if err != nil {
 		c.Error(err)
 		return
