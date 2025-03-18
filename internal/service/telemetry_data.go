@@ -354,7 +354,22 @@ func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistor
 			for _, data := range datas {
 				t := time.Unix(0, data.T*int64(time.Millisecond))
 				f.SetCellValue("Sheet1", fmt.Sprintf("A%d", rowNumber), t.Format("2006-01-02 15:04:05"))
-				f.SetCellValue("Sheet1", fmt.Sprintf("B%d", rowNumber), *data.NumberV)
+				// 根据字段值类型判断并写入B列
+				cellRef := fmt.Sprintf("B%d", rowNumber)
+
+				if data.StringV != nil && *data.StringV != "" {
+					// 如果字符串值不为空，写入字符串值
+					f.SetCellValue("Sheet1", cellRef, *data.StringV)
+				} else if data.NumberV != nil {
+					// 如果数值不为空，写入数值
+					f.SetCellValue("Sheet1", cellRef, *data.NumberV)
+				} else if data.BoolV != nil {
+					// 如果布尔值不为空，写入布尔值
+					f.SetCellValue("Sheet1", cellRef, *data.BoolV)
+				} else {
+					// 如果所有值都为空，写入空字符串或其他默认值
+					f.SetCellValue("Sheet1", cellRef, "")
+				}
 				rowNumber++
 			}
 			offset += batchSize
