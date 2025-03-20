@@ -684,3 +684,21 @@ func (*DeviceApi) GatewaySubRegister(c *gin.Context) {
 
 	c.Set("data", data)
 }
+
+// 设备单指标图表数据查询
+// /api/v1/device/metrics/chart [get]
+func (*DeviceApi) HandleDeviceMetricsChart(c *gin.Context) {
+	var param model.GetDeviceMetricsChartReq
+	if !BindAndValidate(c, &param) {
+		return
+	}
+
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+
+	data, err := service.GroupApp.Device.GetDeviceMetricsChart(&param, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}

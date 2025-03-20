@@ -1876,3 +1876,110 @@ func (*Device) GatewayDeviceRegister(req model.DeviceRegisterReq) (model.DeviceR
 
 	return res, nil
 }
+
+// 设备单指标图表数据查询
+func (*Device) GetDeviceMetricsChart(param *model.GetDeviceMetricsChartReq, userClaims *utils.UserClaims) (any, error) {
+	var data model.DeviceMetricsChartData
+
+	data.DeviceID = param.DeviceID
+	data.DataType = param.DataType
+	data.Key = param.Key
+	data.AggregateWindow = param.AggregateWindow
+	data.AggregateFunction = param.AggregateFunction
+	data.TimeRange = param.TimeRange
+
+	switch param.DataType {
+	case "telemetry":
+		// 获取设备单指标最新值
+		telemetryCurrentDataList, err := dal.GetCurrentTelemetryDataEvolutionByKeys(param.DeviceID, []string{param.Key})
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "get device metrics latest value failed:" + err.Error(),
+				"id":    param.DeviceID,
+			})
+		}
+
+		if len(telemetryCurrentDataList) > 0 {
+			if telemetryCurrentDataList[0].BoolV != nil {
+				var v interface{} = *telemetryCurrentDataList[0].BoolV
+				data.Value = &v
+			} else if telemetryCurrentDataList[0].NumberV != nil {
+				var v interface{} = *telemetryCurrentDataList[0].NumberV
+				data.Value = &v
+			} else if telemetryCurrentDataList[0].StringV != nil {
+				var v interface{} = *telemetryCurrentDataList[0].StringV
+				data.Value = &v
+			}
+			// 毫秒
+			timestamp := telemetryCurrentDataList[0].T.Unix() * 1000
+			data.Timestamp = &timestamp
+		}
+
+		if param.DataMode == "history" {
+			// 获取设备单指标历史数据
+			var req model.GetTelemetryStatisticReq
+			req.DeviceId = param.DeviceID
+			req.Key = param.Key
+
+			if param.AggregateWindow != nil {
+				req.AggregateWindow = *param.AggregateWindow
+				if req.AggregateWindow != "no_aggregate" {
+					if param.AggregateFunction != nil {
+						req.AggregateFunction = *param.AggregateFunction
+					} else {
+						req.AggregateFunction = "avg"
+						data.AggregateFunction = &req.AggregateFunction
+					}
+				}
+			} else {
+				req.AggregateWindow = "no_aggregate"
+				data.AggregateWindow = &req.AggregateWindow
+			}
+			if param.TimeRange != nil {
+				req.TimeRange = *param.TimeRange
+			} else {
+				req.TimeRange = "last_1h"
+				data.TimeRange = &req.TimeRange
+			}
+			historyData, err := GroupApp.TelemetryData.GetTelemetrServeStatisticData(&req)
+			if err != nil {
+				return nil, err
+			}
+			// 如果historyData不是[]map[string]interface{}类型，则返回空points
+			if _, ok := historyData.([]map[string]interface{}); !ok {
+				// 空数组
+				data.Points = &[]model.DataPoint{}
+			} else {
+				// 将historyData赋值给data.Points
+				hData := historyData.([]map[string]interface{})
+				points := make([]model.DataPoint, 0)
+				for _, v := range hData {
+					point := model.DataPoint{
+						T: v["x"].(int64),
+					}
+					// 根据类型断言处理 y 值
+					if yVal, ok := v["y"]; ok {
+						switch val := yVal.(type) {
+						case float64:
+							point.V = val
+						case int64:
+							point.V = float64(val)
+						case int:
+							point.V = float64(val)
+						case string:
+							if f, err := strconv.ParseFloat(val, 64); err == nil {
+								point.V = f
+							}
+						}
+					}
+					points = append(points, point)
+				}
+				data.Points = &points
+			}
+		}
+	case "attribute":
+		// TODO: 获取设备单指标最新值
+	}
+
+	return data, nil
+}

@@ -77,6 +77,9 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 
 		// 服务接入点批量创建设备
 		deviceapi.POST("service/access/batch", api.Controllers.DeviceApi.CreateDeviceBatch)
+
+		// 设备单指标图表数据查询
+		deviceapi.GET("/metrics/chart", api.Controllers.DeviceApi.HandleDeviceMetricsChart)
 	}
 
 	// 设备模版路由

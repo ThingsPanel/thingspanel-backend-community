@@ -98,3 +98,30 @@ type UpdateDeviceModelCustomCommandReq struct {
 	EnableStatus   string  `json:"enable_status" validate:"required,max=10"`    // 启用状态
 	Remark         *string `json:"remark" validate:"omitempty,max=255"`         // 备注
 }
+
+type GetDeviceMetricsChartReq struct {
+	DeviceID          string  `json:"device_id" form:"device_id" validate:"required"`                                                                                                                                                  // 设备ID
+	DataType          string  `json:"data_type" form:"data_type" validate:"required,oneof=telemetry attribute command event"`                                                                                                          // 设备数据类型
+	DataMode          string  `json:"data_mode" form:"data_mode" validate:"required,oneof=latest history"`                                                                                                                             // 数据模式
+	Key               string  `json:"key" form:"key" validate:"required"`                                                                                                                                                              // 数据标识符
+	TimeRange         *string `json:"time_range" form:"time_range" validate:"omitempty,oneof=last_5m last_15m last_30m last_1h last_3h last_6h last_12h last_24h last_3d last_7d last_15d last_30d last_60d last_90d last_6m last_1y"` // 时间范围
+	AggregateWindow   *string `json:"aggregate_window" form:"aggregate_window" validate:"omitempty,oneof=no_aggregate 30s 1m 2m 5m 10m 30m 1h 3h 6h 1d 7d 1mo"`                                                                        // 聚合间隔
+	AggregateFunction *string `json:"aggregate_function" form:"aggregate_function" validate:"omitempty,oneof=avg max min sum diff"`                                                                                                    // 聚合方法
+}
+
+type DeviceMetricsChartData struct {
+	DeviceID          string       `json:"device_id"`          // 设备ID
+	DataType          string       `json:"data_type"`          // 设备数据类型
+	Key               string       `json:"key"`                // 数据标识符
+	AggregateWindow   *string      `json:"aggregate_window"`   // 聚合间隔
+	AggregateFunction *string      `json:"aggregate_function"` // 聚合方法
+	TimeRange         *string      `json:"time_range"`         // 时间范围
+	Value             *interface{} `json:"value"`              // 最新值
+	Timestamp         *int64       `json:"timestamp"`          // 最新值时间戳
+	Points            *[]DataPoint `json:"points"`             // 数据点列表
+}
+
+type DataPoint struct {
+	T int64   `json:"t"` // 时间戳
+	V float64 `json:"v"` // 值
+}
