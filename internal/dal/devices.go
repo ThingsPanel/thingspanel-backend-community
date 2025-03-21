@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	model "project/internal/model"
 	query "project/internal/query"
@@ -251,9 +252,11 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 	if req.Search != nil && *req.Search != "" {
 		queryBuilder = queryBuilder.
 			Where(query.Device.Where(
-				q.Name.Like(fmt.Sprintf("%%%s%%", *req.Search)),
+				//q.Name.Like(fmt.Sprintf("%%%s%%", *req.Search)),
+				q.Name.Lower().Like(fmt.Sprintf("%%%s%%", strings.ToLower(*req.Search))),
 			).Or(
-				q.DeviceNumber.Like(fmt.Sprintf("%%%s%%", *req.Search)),
+				//q.DeviceNumber.Like(fmt.Sprintf("%%%s%%", *req.Search)),
+				q.DeviceNumber.Lower().Like(fmt.Sprintf("%%%s%%", strings.ToLower(*req.Search))),
 			),
 			)
 	}
