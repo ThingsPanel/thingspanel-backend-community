@@ -69,6 +69,7 @@ func UpdateAttributeData(data *model.AttributeData) (*model.AttributeData, error
 	return data, nil
 }
 
+// 获取设备单指标最新值，如果数据不存在，返回nil
 func GetAttributeOneKeys(deviceId string, keys string) (interface{}, error) {
 	data, err := query.AttributeData.Where(query.AttributeData.DeviceID.Eq(deviceId), query.AttributeData.Key.Eq(keys)).Order(query.AttributeData.T.Desc()).First()
 	var result interface{}
@@ -89,6 +90,15 @@ func GetAttributeOneKeys(deviceId string, keys string) (interface{}, error) {
 		result = *data.StringV
 	}
 	return result, nil
+}
+
+// 获取设备单指标最新值,如果数据不存在，返回nil
+func GetAttributeOneKeysByDeviceId(deviceId string, keys string) (*model.AttributeData, error) {
+	data, err := query.AttributeData.Where(query.AttributeData.DeviceID.Eq(deviceId), query.AttributeData.Key.Eq(keys)).Order(query.AttributeData.T.Desc()).First()
+	if err != nil {
+		return &model.AttributeData{}, err
+	}
+	return data, nil
 }
 
 // 根据设备id删除所有数据

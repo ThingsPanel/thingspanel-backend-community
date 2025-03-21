@@ -1978,7 +1978,43 @@ func (*Device) GetDeviceMetricsChart(param *model.GetDeviceMetricsChartReq, user
 			}
 		}
 	case "attribute":
-		// TODO: 获取设备单指标最新值
+		attributeData, err := dal.GetAttributeOneKeysByDeviceId(param.DeviceID, param.Key)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "get device metrics latest value failed:" + err.Error(),
+				"id":    param.DeviceID,
+			})
+		}
+		if attributeData != nil {
+			if attributeData.BoolV != nil {
+				var v interface{} = *attributeData.BoolV
+				data.Value = &v
+			} else if attributeData.NumberV != nil {
+				var v interface{} = *attributeData.NumberV
+				data.Value = &v
+			} else if attributeData.StringV != nil {
+				var v interface{} = *attributeData.StringV
+				data.Value = &v
+			}
+			// 毫秒
+			timestamp := attributeData.T.Unix() * 1000
+			data.Timestamp = &timestamp
+		}
+	case "event":
+		eventData, err := dal.GetEventDataOneKeysByDeviceId(param.DeviceID, param.Key)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "get device metrics latest value failed:" + err.Error(),
+				"id":    param.DeviceID,
+			})
+		}
+		if eventData != nil {
+			var v interface{} = *eventData.Datum
+			data.Value = &v
+		}
+
+	case "command":
+		data.Value = nil
 	}
 
 	return data, nil

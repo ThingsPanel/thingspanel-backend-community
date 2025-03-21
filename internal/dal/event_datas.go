@@ -76,3 +76,12 @@ func DeleteEventDataByDeviceId(deviceId string, tx *query.QueryTx) error {
 	_, err := tx.EventData.Where(query.EventData.DeviceID.Eq(deviceId)).Delete()
 	return err
 }
+
+// 获取设备单指标最新值,如果数据不存在，返回nil
+func GetEventDataOneKeysByDeviceId(deviceId string, keys string) (*model.EventData, error) {
+	data, err := query.EventData.Where(query.EventData.DeviceID.Eq(deviceId), query.EventData.Identify.Eq(keys)).Order(query.EventData.T.Desc()).First()
+	if err != nil {
+		return &model.EventData{}, err
+	}
+	return data, nil
+}
