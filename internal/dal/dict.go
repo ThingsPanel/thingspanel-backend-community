@@ -46,7 +46,7 @@ func GetDictListByPage(dictListReq *model.GetDictLisyByPageReq, claims *utils.Us
 		return count, nil, fmt.Errorf("authority exception")
 	}
 
-	if len(*dictListReq.DictCode) != 0 {
+	if dictListReq.DictCode != nil {
 		dictList, err = q.Select(q.ALL).
 			Where(field.Attrs(map[string]interface{}{"dict_code": dictListReq.DictCode})).
 			Order(q.CreatedAt.Desc()).
@@ -65,7 +65,7 @@ func GetDictListByPage(dictListReq *model.GetDictLisyByPageReq, claims *utils.Us
 		return count, dictList, err
 	}
 
-	if len(*dictListReq.DictCode) != 0 {
+	if dictListReq.DictCode != nil {
 		count, err = q.Where(field.Attrs(map[string]interface{}{"dict_code": dictListReq.DictCode})).Count()
 
 	} else {

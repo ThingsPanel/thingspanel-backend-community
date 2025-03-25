@@ -6,6 +6,7 @@ import (
 	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type DictApi struct{}
@@ -126,7 +127,7 @@ func (*DictApi) HandleDictLisyByPage(c *gin.Context) {
 		return
 	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-
+	logrus.Info("byList", byList)
 	list, err := service.GroupApp.Dict.GetDictListByPage(&byList, userClaims)
 	if err != nil {
 		c.Error(err)
