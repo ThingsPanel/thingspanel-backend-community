@@ -13,6 +13,10 @@ import (
 	"github.com/sirupsen/logrus"
 
 	// gin-swagger middleware
+	_ "project/docs"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
 	api "project/internal/api"
 )
@@ -22,6 +26,8 @@ import (
 func RouterInit() *gin.Engine {
 	//gin.SetMode(gin.ReleaseMode) //开启生产模式
 	router := gin.Default()
+	// Swagger文档路由
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// 创建 metrics 收集器
 	m := metrics.NewMetrics("ThingsPanel")

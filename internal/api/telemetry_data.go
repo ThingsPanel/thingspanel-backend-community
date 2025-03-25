@@ -306,7 +306,12 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 }
 
 // ServeDeviceStatusByWS 通过WebSocket获取设备在线状态
-// @Router   /api/v1/device/online/status/ws
+// @Summary      获取设备在线状态
+// @Description  通过WebSocket连接获取实时设备在线状态
+// @Tags         设备
+// @Accept       json
+// @Produce      json
+// @Router       /api/v1/device/online/status/ws [get]
 func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 	// 升级WebSocket连接
 	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)

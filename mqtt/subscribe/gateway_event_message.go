@@ -12,8 +12,8 @@ import (
 
 // 平台订阅网关事件处理
 // @description GatewayEventCallback
-// @param payload []byte
-// @param topic string
+// param payload []byte
+// param topic string
 // @return messageId string, gatewayDeive *model.Device, respon model.GatewayResponse, err error
 // 订阅topic gateway/event/{message_id}
 func GatewayEventCallback(payload []byte, topic string) (string, *model.Device, model.GatewayResponse, error) {

@@ -16,14 +16,14 @@ type CreateUserReq struct {
 }
 
 type LoginReq struct {
-	Email    string `json:"email" validate:"required"`                  // 邮箱或手机号
-	Password string `json:"password" validate:"required,min=6,max=512"` // 密码
-	Salt     string `json:"salt"`                                       // 随机盐
+	Email    string `json:"email" validate:"required,min=5,max=255" example:"test@test.cn"` // 登录账号(输入邮箱或者手机号)
+	Password string `json:"password" validate:"required,min=6,max=512" example:"123456"`    // 密码
+	Salt     string `json:"salt" validate:"omitempty,max=512"`                              // 随机盐(如果在超管设置了前端RSA加密则需要上送)
 }
 
 type LoginRsp struct {
-	Token     *string `gorm:"column:token" json:"token"`
-	ExpiresIn int64   `json:"expires_in"`
+	Token     *string `gorm:"column:token" json:"token"` // 登录凭证
+	ExpiresIn int64   `json:"expires_in"`                // 过期时间(单位:秒)
 }
 
 type UserListReq struct {

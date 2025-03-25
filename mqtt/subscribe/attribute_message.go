@@ -65,8 +65,8 @@ func DeviceAttributeReport(payload []byte, topic string) (string, string, error)
 
 // 设备属性处理 和网关公用
 // @description deviceAttributesHandle
-// @param device *model.Device
-// @param reqMap map[string]interface{
+// param device *model.Device
+// param reqMap map[string]interface{
 // @return err error
 func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{}, topic string) error {
 	// TODO脚本处理

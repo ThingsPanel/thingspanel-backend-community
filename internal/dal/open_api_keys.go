@@ -29,9 +29,9 @@ func GetOpenAPIKeyByAppKey(appKey string) (*model.OpenAPIKey, error) {
 }
 
 // GetOpenAPIKeyListByPage 分页获取OpenAPI密钥列表
-// @param listReq 查询参数
-// @param tenantID 租户ID,用于权限过滤
-// @return 总数,数据列表,错误信息
+// param listReq 查询参数
+// param tenantID 租户ID,用于权限过滤
+// return 总数,数据列表,错误信息
 func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) (int64, interface{}, error) {
 	q := query.OpenAPIKey
 	queryBuilder := q.WithContext(context.Background())
@@ -68,8 +68,8 @@ func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) 
 }
 
 // UpdateOpenAPIKey 更新OpenAPI密钥信息
-// @param id 密钥ID
-// @param updates 需要更新的字段
+// param id 密钥ID
+// param updates 需要更新的字段
 func UpdateOpenAPIKey(id string, updates map[string]interface{}) error {
 	q := query.OpenAPIKey
 	updates["updated_at"] = time.Now()
@@ -78,7 +78,7 @@ func UpdateOpenAPIKey(id string, updates map[string]interface{}) error {
 }
 
 // DeleteOpenAPIKey 删除OpenAPI密钥
-// @param id 密钥ID
+// param id 密钥ID
 // @note 删除时会同时清理Redis缓存
 func DeleteOpenAPIKey(id string) error {
 	// 删除数据库记录

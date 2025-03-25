@@ -10,7 +10,7 @@ import (
 
 // ActionAfterAlarm
 // @description 联动场景执行完成 告警缓存处理
-// @param actions []model.ActionInfo
+// param actions []model.ActionInfo
 // @return error
 func ActionAfterAlarm(actions []model.ActionInfo, actionResultErr error) error {
 	//查询该场景是否有缓存 无缓存直接跳过
@@ -48,9 +48,9 @@ func ActionAfterAlarm(actions []model.ActionInfo, actionResultErr error) error {
 
 // ConditionAfterAlarm
 // @description 条件判断后告警业务处理
-// @param ok bool
-// @param conditions initialize.DTConditions
-// @param deviceId string
+// param ok bool
+// param conditions initialize.DTConditions
+// param deviceId string
 // @return error
 func ConditionAfterAlarm(ok bool, conditions initialize.DTConditions, deviceId string, contents []string) error {
 	var (
@@ -103,8 +103,8 @@ func ConditionAfterAlarm(ok bool, conditions initialize.DTConditions, deviceId s
 
 // AlarmExecute
 // @description 告警执行执行
-// @param alarm_config_id string
-// @param scene_automation_id
+// param alarm_config_id string
+// param scene_automation_id
 // @return bool
 func AlarmExecute(alarm_config_id, scene_automation_id string) (bool, string) {
 	var (
@@ -146,7 +146,7 @@ func AlarmExecute(alarm_config_id, scene_automation_id string) (bool, string) {
 
 // AlarmRecovery
 // @description
-// @param group_id
+// param group_id
 func AlarmRecovery(group_id string, contents []string) error {
 	alarmCache := initialize.NewAlarmCache()
 	cache, err := alarmCache.GetByGroupId(group_id)

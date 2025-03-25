@@ -113,3 +113,15 @@
 - 避免隐藏的复杂性（"Do less. Enable more."）: Go 设计的另一个核心理念是**避免过度抽象和隐藏的复杂性**。Go 语言鼓励直接的解决方案，而不是那些表面上看起来很聪明，但实际上可能隐藏了复杂性和潜在问题的方法。
 
 - 工具和社区（"The bigger the interface, the weaker the abstraction"）: 这个原则是关于接口设计的，它鼓励**创建小而专注的接口，而不是大而全能的接口**。这与 Go 社区和工具链的设计理念是一致的，即提供简单、有效的工具，以及鼓励社区贡献和合作。
+
+## Swagger说明
+
+```bash
+# 在项目根目录执行
+swag init
+```
+
+- 访问 Swagger UI
+启动服务后，访问：<http://localhost:9999/swagger/index.html>
+- 编写规范
+参考接口/api/v1/login [post]

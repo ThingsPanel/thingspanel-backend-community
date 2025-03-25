@@ -14,8 +14,8 @@ import (
 
 // 平台订阅网关属性上报处理
 // @description GatewayAttributeMessages
-// @param payload []byte
-// @param topic string
+// param payload []byte
+// param topic string
 // @return messageId string, gatewayDeive *model.Device, respon model.GatewayResponse, err error
 // 订阅topic gateway/attributes/{message_id}
 func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Device, model.GatewayResponse, error) {
@@ -87,8 +87,8 @@ func getWagewayResponse(err error, _ ...string) *model.MqttResponse {
 // GatewayDeviceSetAttributesResponse
 //
 // @description 平台设置属性
-// @param payload []byte
-// @param topic string
+// param payload []byte
+// param topic string
 // @return messageId string, gatewayDeive *model.Device, respon model.GatewayResponse, err error
 // 订阅topic gateway/attributes/{message_id}
 func GatewayDeviceSetAttributesResponse(payload []byte, topic string) {

@@ -208,7 +208,7 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 
 	loginRsp := &model.LoginRsp{
 		Token:     &token,
-		ExpiresIn: int64(time.Duration(timeout) * time.Minute),
+		ExpiresIn: int64(timeout * 60), // 转换为秒数
 	}
 	return loginRsp, nil
 }

@@ -10,7 +10,7 @@ type Error struct {
 	Variables    map[string]interface{} `json:"-"`                 // 存储错误信息中的变量
 	Args         []interface{}          `json:"-"`                 // fmt格式化参数
 	CustomMsg    string                 `json:"message,omitempty"` // 用于存储自定义消息
-	UseCustomMsg bool                   // 内部标记，是否使用自定义消息
+	UseCustomMsg bool                   `json:"-"`                 // 内部标记，是否使用自定义消息
 }
 
 func (e *Error) Error() string {

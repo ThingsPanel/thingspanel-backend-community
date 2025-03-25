@@ -12,7 +12,16 @@ import (
 type UserApi struct{}
 
 // Login
-// @Router   /api/v1/login [post]
+// @Summary      用户登录
+// @Description  认证令牌(Token)将在用户成功登录后生成并返回。客户端需要在后续所有需要认证的API请求中，将此令牌添加到HTTP请求头(Header)的'x-token'字段中。服务器将通过验证此令牌来确认用户身份并授权访问受保护资源。
+// @Tags         用户认证
+// @Accept       json
+// @Produce      json
+// @Param        request body model.LoginReq true "登录凭证" example({"email":"user@example.com","password":"yourpassword"})
+// @Success      200 {object} model.LoginRsp "成功"
+// @Failure      400 {object} errcode.Error "错误响应"
+// @Router       /api/v1/login [post]
+// @example request - "请求示例" {"email":"test@test.cn","password":"123456"}
 func (*UserApi) Login(c *gin.Context) {
 	var loginReq model.LoginReq
 	if !BindAndValidate(c, &loginReq) {

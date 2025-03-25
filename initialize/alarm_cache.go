@@ -95,11 +95,8 @@ func (a *AlarmCache) set(key string, value interface{}) error {
 }
 
 // SetDevice
-// @description 缓存条件中设备信息
-// @param group_id string
-// @param scene_automation_id string
-// @param device_ids []string
-// @return error
+// description 缓存条件中设备信息
+
 func (a *AlarmCache) SetDevice(group_id, scene_automation_id string, device_ids, contents []string) error {
 	alarmMu.Lock()
 	defer alarmMu.Unlock()
@@ -138,10 +135,7 @@ func (a *AlarmCache) SetDevice(group_id, scene_automation_id string, device_ids,
 }
 
 // groupCacheAdd
-// @description 组缓存添加
-// @param cacheKey string
-// @param group_id string
-// @return error
+// description 组缓存添加
 func (a *AlarmCache) groupCacheAdd(cacheKey, groupId string) error {
 	var groupIds SliceString
 	err := a.client.Get(context.Background(), cacheKey).Scan(&groupIds)
@@ -168,10 +162,8 @@ func (a *AlarmCache) groupCacheAdd(cacheKey, groupId string) error {
 }
 
 // groupCacheDel
-// @description 组缓存深处
-// @param cachakey string
-// @param group_id string
-// @return error
+// description 组缓存深处
+
 func (a *AlarmCache) groupCacheDel(cachekey, group_id string) error {
 	var groupIds SliceString
 	err := a.client.Get(context.Background(), cachekey).Scan(&groupIds)
@@ -196,10 +188,7 @@ func (a *AlarmCache) groupCacheDel(cachekey, group_id string) error {
 }
 
 // SetAlarm
-// @description 缓存设备告警
-// @params group_id string
-// @params alarm_config_ids []string
-// @return []tring
+// description 缓存设备告警
 func (a *AlarmCache) SetAlarm(group_id string, alarm_config_ids []string) error {
 	alarmMu.Lock()
 	defer alarmMu.Unlock()
@@ -225,9 +214,7 @@ func (a *AlarmCache) SetAlarm(group_id string, alarm_config_ids []string) error 
 }
 
 // GetByGroupId
-// @description 根据groupId获取缓存
-// @param group_id string
-// @return AlarmCacheGroup, error
+// description 根据groupId获取缓存
 func (a *AlarmCache) GetByGroupId(group_id string) (AlarmCacheGroup, error) {
 	var info AlarmCacheGroup
 	cachekey := a.getCacheKeyByGroupId(group_id)
@@ -239,9 +226,7 @@ func (a *AlarmCache) GetByGroupId(group_id string) (AlarmCacheGroup, error) {
 }
 
 // GetByGroupId
-// @description 根据场景id获取groupId
-// @param group_id string
-// @return AlarmCacheGroup, error
+// description 根据场景id获取groupId
 func (a *AlarmCache) GetBySceneAutomationId(scene_automation_id string) ([]string, error) {
 	var groupIds SliceString
 	cachekey := a.getCacheKeyByScene(scene_automation_id)
@@ -253,8 +238,7 @@ func (a *AlarmCache) GetBySceneAutomationId(scene_automation_id string) ([]strin
 }
 
 // DeleteBygroupId
-// @description 根据groupid删除缓存
-// @return error
+// description 根据groupid删除缓存
 func (a *AlarmCache) DeleteBygroupId(group_Id string) error {
 	alarmMu.Lock()
 	defer alarmMu.Unlock()
