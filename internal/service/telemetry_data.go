@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
 	"project/initialize"
 	config "project/mqtt"
 	"project/mqtt/publish"
@@ -14,9 +18,6 @@ import (
 	"project/pkg/constant"
 	"project/pkg/errcode"
 	"project/pkg/utils"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/go-basic/uuid"
 	"github.com/mintance/go-uniqid"
@@ -43,9 +44,9 @@ func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, err
 	if err != nil {
 		return nil, err
 	}
-	var telemetryModelMap = make(map[string]*model.DeviceModelTelemetry)
-	var telemetryModelUintMap = make(map[string]interface{})
-	var telemetryModelRWMap = make(map[string]interface{})
+	telemetryModelMap := make(map[string]*model.DeviceModelTelemetry)
+	telemetryModelUintMap := make(map[string]interface{})
+	telemetryModelRWMap := make(map[string]interface{})
 	// 是否有设备配置
 	if deviceInfo.DeviceConfigID != nil {
 		// 查询设备配置
@@ -127,8 +128,8 @@ func (*TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurrentD
 			"sql_error": err.Error(),
 		})
 	}
-	var telemetryModelMap = make(map[string]*model.DeviceModelTelemetry)
-	var telemetryModelUintMap = make(map[string]interface{})
+	telemetryModelMap := make(map[string]*model.DeviceModelTelemetry)
+	telemetryModelUintMap := make(map[string]interface{})
 	// 是否有设备配置
 	if deviceInfo.DeviceConfigID != nil {
 		// 查询设备配置
@@ -302,7 +303,6 @@ func (*TelemetryData) DeleteTelemetrData(req *model.DeleteTelemetryDataReq) erro
 
 func (*TelemetryData) GetCurrentTelemetrDetailData(device_id string) (interface{}, error) {
 	data, err := dal.GetCurrentTelemetrDetailData(device_id)
-
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +330,6 @@ func (*TelemetryData) GetCurrentTelemetrDetailData(device_id string) (interface{
 }
 
 func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistoryDataByPageReq) (interface{}, error) {
-
 	if *req.ExportExcel {
 		var addr string
 		f := excelize.NewFile()
@@ -429,7 +428,6 @@ func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistor
 }
 
 func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHistoryDataByPageReq) (interface{}, error) {
-
 	if req.ExportExcel != nil && *req.ExportExcel {
 		var addr string
 		f := excelize.NewFile()
@@ -462,7 +460,7 @@ func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHist
 		// 创建保存目录
 		uploadDir := "./files/excel/"
 		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
-			return "", errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
+			return nil, errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
 				"error": err.Error(),
 			})
 		}
@@ -472,16 +470,24 @@ func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHist
 			Prefix:      "excel",
 			MoreEntropy: true,
 		})
-		addr = "files/excel/数据列表" + uniqidStr + ".xlsx"
+		fileName := "数据列表" + uniqidStr + ".xlsx"
+		filePath := "files/excel/" + fileName
 
 		// 保存文件
-		if err := f.SaveAs(addr); err != nil {
-			return "", errcode.WithVars(errcode.CodeFileSaveError, map[string]interface{}{
+		if err := f.SaveAs(filePath); err != nil {
+			return nil, errcode.WithVars(errcode.CodeFileSaveError, map[string]interface{}{
 				"error": err.Error(),
 			})
 		}
 
-		return addr, nil
+		result := map[string]interface{}{
+			"filePath":   filePath,
+			"fileName":   fileName,
+			"fileType":   "excel",
+			"createTime": time.Now().Format("2006-01-02T15:04:05-0700"),
+		}
+
+		return result, nil
 	}
 
 	//  暂时忽略总数
@@ -555,12 +561,11 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{}, e
 	host = accessAddressList[0]
 	post = accessAddressList[1]
 	topic := config.MqttConfig.Telemetry.SubscribeTopic
-	clientID = "mqtt_" + uuid.New()[0:12] //代表随机生成
+	clientID = "mqtt_" + uuid.New()[0:12] // 代表随机生成
 	payload = `{\"test_data1\":25.5,\"test_data2\":60}`
 	// 拼接命令
 	command := utils.BuildMosquittoPubCommand(host, post, username, password, topic, payload, clientID)
 	return command, nil
-
 }
 
 // 模拟设备发送遥测数据
@@ -628,7 +633,6 @@ func (*TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySe
 	dataMap["count"] = count
 	dataMap["list"] = data
 	return dataMap, nil
-
 }
 
 /*
@@ -637,7 +641,7 @@ func (*TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySe
     - no_aggregate 不聚合
     - "30s","1m","2m","5m","10m","30m","1h","3h","6h","1d","7d","1mo"
     time_range
-    - 时间范围，后端支持的参数有：custom，last_5m，last_15m，last_30m，last_1h，last_3h 当选择自定义时，后端会根据开始和结束时间来判断是否超过3小时，如过超过3小时，则不能选择“不聚合”
+    - 时间范围，后端支持的参数有：custom，last_5m，last_15m，last_30m，last_1h，last_3h 当选择自定义时，后端会根据开始和结束时间来判断是否超过3小时，如过超过3小时，则不能选择"不聚合"
     aggregate_function [聚合方法]
     - avg 平均数
     - max 最大值
@@ -647,28 +651,28 @@ func (*TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySe
     - 最近15分钟 - 展示全部聚合间隔
     - 最近30分钟 - 展示全部聚合间隔
     - 最近1小时 - 展示全部聚合间隔
-    - 最近3小时 - 间隔默认选择“30秒”（不聚合不可选） - 计算方式默认为 “平均值”
-    - 最近6小时 - 间隔默认选择“1分钟”（不聚合，小于等于30秒的不可选） - 计算方式默认为 “平均值”
-    - 最近12小时 - 间隔默认选择“2分钟”（不聚合，小于等于1分钟的不可选） - 计算方式默认为 “平均值”
-    - 最近24小时 - 间隔默认选择“5分钟”（不聚合，小于等于2分钟的不可选） - 计算方式默认为 “平均值”
-    - 最近3天 - 间隔默认选择“10分钟”（不聚合，小于等于5分钟的不可选） - 计算方式默认为 “平均值”
-    - 最近7天 - 间隔默认选择“30分钟”（不聚合，小于等于10分钟的不可选） - 计算方式默认为 “平均值”
-    - 最近15天 - 间隔默认选择“1小时”（不聚合，小于等于30分钟的不可选） - 计算方式默认为 “平均值”
-    - 最近30天 - 间隔默认选择“1小时”（不聚合，小于等于30分钟的不可选） - 计算方式默认为 “平均值”
-    - 最近60天 - 间隔默认选择“3小时”（不聚合，小于等于1小时的不可选） - 计算方式默认为 “平均值”
-    - 最近90天 - 间隔默认选择“6小时”（不聚合，小于等于3小时的不可选） - 计算方式默认为 “平均值”
-    - 最近6个月 - 间隔默认选择“6小时”（不聚合，小于等于3小时的不可选） - 计算方式默认为 “平均值”
-    - 最近1年 - 间隔默认选择“1个月”（不聚合，小于等于7天的不可选） - 计算方式默认为 “平均值”
-    - 今天 - 间隔默认选择“5分钟”（不聚合，小于等于2分钟的不可选） - 计算方式默认为 “平均值”
-    - 昨天 - 间隔默认选择“5分钟”（不聚合，小于等于2分钟的不可选） - 计算方式默认为 “平均值”
-    - 前天 - 间隔默认选择“5分钟”（不聚合，小于等于2分钟的不可选） - 计算方式默认为 “平均值”
-    - 上周今日 - 间隔默认选择“5分钟”（不聚合，小于等于2分钟的不可选） - 计算方式默认为 “平均值”
-    - 本周 - 间隔默认选择“30分钟”（不聚合，小于等于10分钟的不可选） - 计算方式默认为 “平均值”
-    - 上周 - 间隔默认选择“30分钟”（不聚合，小于等于10分钟的不可选） - 计算方式默认为 “平均值”
-    - 本月 - 间隔默认选择“1小时”（不聚合，小于等于30分钟的不可选） - 计算方式默认为 “平均值”
-    - 上个月 - 间隔默认选择“1小时”（不聚合，小于等于30分钟的不可选） - 计算方式默认为 “平均值”
-    - 今年 - 间隔默认选择“1个月”（不聚合，小于等于7天的不可选） - 计算方式默认为 “平均值”
-    - 去年 - 间隔默认选择“1个月”（不聚合，小于等于7天的不可选） - 计算方式默认为 “平均值”
+    - 最近3小时 - 间隔默认选择"30秒"（不聚合不可选） - 计算方式默认为 "平均值"
+    - 最近6小时 - 间隔默认选择"1分钟"（不聚合，小于等于30秒的不可选） - 计算方式默认为 "平均值"
+    - 最近12小时 - 间隔默认选择"2分钟"（不聚合，小于等于1分钟的不可选） - 计算方式默认为 "平均值"
+    - 最近24小时 - 间隔默认选择"5分钟"（不聚合，小于等于2分钟的不可选） - 计算方式默认为 "平均值"
+    - 最近3天 - 间隔默认选择"10分钟"（不聚合，小于等于5分钟的不可选） - 计算方式默认为 "平均值"
+    - 最近7天 - 间隔默认选择"30分钟"（不聚合，小于等于10分钟的不可选） - 计算方式默认为 "平均值"
+    - 最近15天 - 间隔默认选择"1小时"（不聚合，小于等于30分钟的不可选） - 计算方式默认为 "平均值"
+    - 最近30天 - 间隔默认选择"1小时"（不聚合，小于等于30分钟的不可选） - 计算方式默认为 "平均值"
+    - 最近60天 - 间隔默认选择"3小时"（不聚合，小于等于1小时的不可选） - 计算方式默认为 "平均值"
+    - 最近90天 - 间隔默认选择"6小时"（不聚合，小于等于3小时的不可选） - 计算方式默认为 "平均值"
+    - 最近6个月 - 间隔默认选择"6小时"（不聚合，小于等于3小时的不可选） - 计算方式默认为 "平均值"
+    - 最近1年 - 间隔默认选择"1个月"（不聚合，小于等于7天的不可选） - 计算方式默认为 "平均值"
+    - 今天 - 间隔默认选择"5分钟"（不聚合，小于等于2分钟的不可选） - 计算方式默认为 "平均值"
+    - 昨天 - 间隔默认选择"5分钟"（不聚合，小于等于2分钟的不可选） - 计算方式默认为 "平均值"
+    - 前天 - 间隔默认选择"5分钟"（不聚合，小于等于2分钟的不可选） - 计算方式默认为 "平均值"
+    - 上周今日 - 间隔默认选择"5分钟"（不聚合，小于等于2分钟的不可选） - 计算方式默认为 "平均值"
+    - 本周 - 间隔默认选择"30分钟"（不聚合，小于等于10分钟的不可选） - 计算方式默认为 "平均值"
+    - 上周 - 间隔默认选择"30分钟"（不聚合，小于等于10分钟的不可选） - 计算方式默认为 "平均值"
+    - 本月 - 间隔默认选择"1小时"（不聚合，小于等于30分钟的不可选） - 计算方式默认为 "平均值"
+    - 上个月 - 间隔默认选择"1小时"（不聚合，小于等于30分钟的不可选） - 计算方式默认为 "平均值"
+    - 今年 - 间隔默认选择"1个月"（不聚合，小于等于7天的不可选） - 计算方式默认为 "平均值"
+    - 去年 - 间隔默认选择"1个月"（不聚合，小于等于7天的不可选） - 计算方式默认为 "平均值"
 
 请求参数示例，前端可以直接用这个开发：
 ```
@@ -1010,7 +1014,7 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 	var topic string
 	if protocolType == "MQTT" {
 		// 网关和子设备需要特殊处理
-		//messageID := common.GetMessageID()
+		// messageID := common.GetMessageID()
 		topic, err = getTopicByDevice(deviceInfo, deviceType, param)
 		if err != nil {
 			logrus.Error(ctx, "failed to get topic", err)
@@ -1035,7 +1039,7 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		logrus.Error(ctx, "下发失败", err)
 		errorMessage = err.Error()
 	}
-	//operationType := strconv.Itoa(constant.Manual)
+	// operationType := strconv.Itoa(constant.Manual)
 
 	description := "下发遥测日志记录"
 	logInfo := &model.TelemetrySetLog{
