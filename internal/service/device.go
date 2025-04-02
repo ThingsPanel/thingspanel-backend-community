@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
+	"time"
+
 	"project/initialize"
 	protocolplugin "project/internal/service/protocol_plugin"
 	"project/pkg/constant"
 	"project/pkg/errcode"
 	global "project/pkg/global"
 	"project/third_party/others/http_client"
-	"strconv"
-	"strings"
-	"time"
 
 	dal "project/internal/dal"
 	model "project/internal/model"
@@ -31,7 +32,6 @@ import (
 type Device struct{}
 
 func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims) (device model.Device, err error) {
-
 	t := time.Now().UTC()
 
 	device.ID = uuid.New()
@@ -153,7 +153,7 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 			"sql_error": err.Error(),
 		})
 	} else {
-		//发送通知给服务插件
+		// 发送通知给服务插件
 		// 获取服务接入信息
 		serviceAccess, err := dal.GetServiceAccessByID(req.ServiceAccessId)
 		if err != nil {
@@ -193,7 +193,6 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 	}
 
 	return deviceList, err
-
 }
 
 func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*model.Device, error) {
@@ -214,8 +213,8 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 	// 	device.Voucher = *req.Voucher
 	// }
 	// 不能更新租户id
-	//device.TenantID = claims.TenantID
-	//device.UpdateAt = &t
+	// device.TenantID = claims.TenantID
+	// device.UpdateAt = &t
 	condsMap, err := StructToMapAndVerifyJson(req, "additional_info", "protocol_config")
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -412,24 +411,24 @@ func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
 			})
 		}
 		data["device_config"] = deviceConfig
-		result, err := dal.GetDeviceOnline(context.Background(), []model.DeviceOnline{
-			{
-				DeviceConfigId: &deviceConfigID,
-				DeviceId:       id,
-			},
-		})
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-				"error":   err.Error(),
-				"message": "get device online failed",
-			})
-		}
-		if isOnline, ok := result[id]; ok {
-			data["device_status"] = isOnline
-		} else {
-			data["device_status"] = data["is_online"]
-		}
-		data["is_online"] = data["device_status"]
+		// result, err := dal.GetDeviceOnline(context.Background(), []model.DeviceOnline{
+		// 	{
+		// 		DeviceConfigId: &deviceConfigID,
+		// 		DeviceId:       id,
+		// 	},
+		// })
+		// if err != nil {
+		// 	return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+		// 		"error":   err.Error(),
+		// 		"message": "get device online failed",
+		// 	})
+		// }
+		// if isOnline, ok := result[id]; ok {
+		// 	data["device_status"] = isOnline
+		// } else {
+		// 	data["device_status"] = data["is_online"]
+		// }
+		data["device_status"] = data["is_online"]
 	}
 
 	return data, err
@@ -450,19 +449,19 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 				DeviceId:       list[i].ID,
 			})
 		}
-		result, err := dal.GetDeviceOnline(context.Background(), deviceOnlines)
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
-		}
+		// result, err := dal.GetDeviceOnline(context.Background(), deviceOnlines)
+		// if err != nil {
+		// 	return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		// 		"sql_error": err.Error(),
+		// 	})
+		// }
 		for i, val := range list {
-			if isOnline, ok := result[val.ID]; ok {
-				list[i].DeviceStatus = isOnline
-			} else {
-				list[i].DeviceStatus = val.IsOnline
-			}
-			list[i].IsOnline = list[i].DeviceStatus
+			// if isOnline, ok := result[val.ID]; ok {
+			// 	list[i].DeviceStatus = isOnline
+			// } else {
+			// 	list[i].DeviceStatus = val.IsOnline
+			// }
+			list[i].DeviceStatus = list[i].IsOnline
 			if dal.GetDeviceAlarmStatus(&model.GetDeviceAlarmStatusReq{DeviceId: val.ID}) {
 				list[i].WarnStatus = "Y"
 			} else {
@@ -479,7 +478,6 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 
 func (d *Device) CheckDeviceNumber(deviceNumber string) (*errcode.Error, bool) {
 	device, err := query.Device.Where(query.Device.DeviceNumber.Eq(deviceNumber)).First()
-
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// 如果设备不存在，说明设备号不可用
@@ -530,7 +528,7 @@ func (*Device) RemoveSubDevice(id string, claims *utils.UserClaims) error {
 			"sql_error": err.Error(),
 		})
 	}
-	//通知协议插件
+	// 通知协议插件
 	if device.ParentID != nil {
 		if protocolplugin.DisconnectDeviceByDeviceID(*device.ParentID) != nil {
 			logrus.Error(err)
@@ -559,14 +557,14 @@ func (*Device) ExportDevicePreRegister(req model.ExportPreRegisterReq, claims *u
 	if err != nil {
 		return "", err
 	}
-	//导出到文件
+	// 导出到文件
 	excel_file := excelize.NewFile()
 	index, _ := excel_file.NewSheet("Sheet1")
 	excel_file.SetActiveSheet(index)
 	excel_file.SetCellValue("Sheet1", "A1", "batchNumber")
 	excel_file.SetCellValue("Sheet1", "B1", "voucher")
 	excel_file.SetCellValue("Sheet1", "C1", "deviceNumber")
-	//写入数据
+	// 写入数据
 	for i, v := range data {
 		excel_file.SetCellValue("Sheet1", fmt.Sprintf("A%d", i+2), v.BatchNumber)
 		excel_file.SetCellValue("Sheet1", fmt.Sprintf("B%d", i+2), v.Voucher)
@@ -629,7 +627,6 @@ func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string)
 	// }
 
 	// res = logic.DeviceLogic{}.GetTenantDeviceList(list, configList)
-
 }
 
 func (*Device) GetDeviceList(ctx context.Context, userClaims *utils.UserClaims) ([]map[string]interface{}, error) {
@@ -710,7 +707,7 @@ func (d *Device) DeviceConnectForm(ctx context.Context, param *model.DeviceConne
 			})
 		}
 		if deviceConfig.DeviceType == strconv.Itoa(constant.GATEWAY_SON_DEVICE) {
-			//子设备没有凭证表单
+			// 子设备没有凭证表单
 			return nil, nil
 		}
 		// 可以没有凭证类型
@@ -849,7 +846,7 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 			logrus.Error(ctx, "get protocol plugin failed:", err)
 			return nil, err
 		}
-		var info = make(map[string]interface{})
+		info := make(map[string]interface{})
 		if pp.ServiceType == int32(1) {
 			// pp.ServiceConfig转换为model.ProtocolAccessConfig
 			var protocolAccessConfig model.ProtocolAccessConfig
@@ -971,8 +968,7 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 	return info.Voucher, err
 }
 
-//GetSubList
-
+// GetSubList
 func (*Device) GetSubList(ctx context.Context, parent_id string, page, pageSize int64, userClaims *utils.UserClaims) ([]model.GetSubListResp, int64, error) {
 	data, count, err := dal.DeviceQuery{}.GetSubList(ctx, parent_id, pageSize, page, userClaims.TenantID)
 	if err != nil {
@@ -987,10 +983,7 @@ func (*Device) GetSubList(ctx context.Context, parent_id string, page, pageSize 
 
 // 获取自动化下拉标识，看板下拉标识
 func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error) {
-
-	var (
-		res = make([]model.GetModelSourceATRes, 0)
-	)
+	res := make([]model.GetModelSourceATRes, 0)
 
 	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(device_id)
 	if err != nil && len(telemetryDatas) == 0 {
@@ -1019,8 +1012,8 @@ func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error)
 	var deviceConfig *model.DeviceConfig
 	var eventDatas []*model.DeviceModelEvent
 	var commandDatas []*model.DeviceModelCommand
-	var telemetryModelMap = make(map[string]*model.DeviceModelTelemetry)
-	var deviceAttributeModelMap = make(map[string]*model.DeviceModelAttribute)
+	telemetryModelMap := make(map[string]*model.DeviceModelTelemetry)
+	deviceAttributeModelMap := make(map[string]*model.DeviceModelAttribute)
 	if device.DeviceConfigID != nil {
 		// 获取设备配置
 		deviceConfig, err = dal.GetDeviceConfigByID(*device.DeviceConfigID)
@@ -1069,7 +1062,7 @@ func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error)
 
 	}
 	s := "string"
-	var telemetryDatasMap = make(map[string]*model.TelemetryCurrentData)
+	telemetryDatasMap := make(map[string]*model.TelemetryCurrentData)
 	if len(telemetryDatas) != 0 {
 		resInfo := model.GetModelSourceATRes{
 			DataSourceTypeRes: string(constant.TelemetrySource),
@@ -1123,7 +1116,7 @@ func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error)
 	}
 
 	// 映射
-	var attributeDatasMap = make(map[string]*model.AttributeData)
+	attributeDatasMap := make(map[string]*model.AttributeData)
 	if len(attributeDatas) != 0 {
 		resInfo := model.GetModelSourceATRes{
 			DataSourceTypeRes: string(constant.AttributeSource),
@@ -1577,7 +1570,7 @@ func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
 					"id":    deviceID,
 				})
 			}
-			//attributeOptions := make([]*options, 0)
+			// attributeOptions := make([]*options, 0)
 			for _, model := range attributeModel {
 				// 存在模型对应字段的标志
 				flag := false
@@ -1641,7 +1634,6 @@ func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
 }
 
 func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error) {
-
 	res := make(map[string]interface{}, 0)
 
 	device, err := dal.GetDeviceByID(device_id)
@@ -1675,7 +1667,6 @@ func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error)
 	}
 
 	labelMap, err := dal.GetDataNameByIdentifierAndTemplateId(*deviceConfig.DeviceTemplateID, str...)
-
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": "get device template failed:" + err.Error(),
@@ -1739,24 +1730,25 @@ func (*Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error) {
 			"id":    device_id,
 		})
 	}
-	result, err := dal.GetDeviceOnline(context.Background(), []model.DeviceOnline{
-		{
-			DeviceConfigId: deviceInfo.DeviceConfigID,
-			DeviceId:       device_id,
-		},
-	})
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get device online status failed:" + err.Error(),
-			"id":    device_id,
-		})
-	}
+	// result, err := dal.GetDeviceOnline(context.Background(), []model.DeviceOnline{
+	// 	{
+	// 		DeviceConfigId: deviceInfo.DeviceConfigID,
+	// 		DeviceId:       device_id,
+	// 	},
+	// })
+	// if err != nil {
+	// 	return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+	// 		"error": "get device online status failed:" + err.Error(),
+	// 		"id":    device_id,
+	// 	})
+	// }
 	data := make(map[string]int)
-	if isOnline, ok := result[device_id]; ok {
-		data["device_status"] = isOnline
-	} else {
-		data["device_status"] = int(deviceInfo.IsOnline)
-	}
+	// if isOnline, ok := result[device_id]; ok {
+	// 	data["device_status"] = isOnline
+	// } else {
+	// 	data["device_status"] = int(deviceInfo.IsOnline)
+	// }
+	data["device_status"] = int(deviceInfo.IsOnline)
 	data["is_online"] = data["device_status"]
 	return data, nil
 }
@@ -1779,14 +1771,13 @@ func (*Device) GatewayRegister(req model.GatewayRegisterReq) (model.GatewayRegis
 	} else {
 		device = &model.Device{}
 	}
-	var (
-		//device model.Device
-		result = model.GatewayRegisterRes{
-			MqttUsername: uuid.New()[0:22],
-			MqttPassword: uuid.New()[0:7],
-			MqttClientId: uuid.New(),
-		}
-	)
+
+	// device model.Device
+	result := model.GatewayRegisterRes{
+		MqttUsername: uuid.New()[0:22],
+		MqttPassword: uuid.New()[0:7],
+		MqttClientId: uuid.New(),
+	}
 	t := time.Now().UTC()
 
 	device.ID = result.MqttClientId
@@ -1857,7 +1848,7 @@ func (*Device) GatewayDeviceRegister(req model.DeviceRegisterReq) (model.DeviceR
 		subDeviceItem.ActivateFlag = "active"
 		subDeviceItem.SubDeviceAddr = &v.SubAddr
 
-		//subDevices = append(subDevices, subDeviceItem)
+		// subDevices = append(subDevices, subDeviceItem)
 		err = dal.CreateDevice(&subDeviceItem)
 		subRegisterRes := model.DeviceSubRegisterRes{
 			Result:    0,

@@ -2,7 +2,6 @@ package dal
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -157,8 +156,7 @@ func BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
 	return err
 }
 
-type DeviceConfigQuery struct {
-}
+type DeviceConfigQuery struct{}
 
 func (DeviceConfigQuery) First(ctx context.Context, option ...gen.Condition) (info *model.DeviceConfig, err error) {
 	info, err = query.DeviceConfig.WithContext(ctx).Where(option...).First()
@@ -176,8 +174,7 @@ func (DeviceConfigQuery) Find(ctx context.Context, option ...gen.Condition) (lis
 	return
 }
 
-type DeviceConfigVo struct {
-}
+type DeviceConfigVo struct{}
 
 func (DeviceConfigVo) PoToVo(deviceConfigInfo *model.DeviceConfig) (info *model.DeviceConfigsRes) {
 	info = &model.DeviceConfigsRes{
@@ -214,80 +211,80 @@ func (DeviceConfigVo) PoToVo(deviceConfigInfo *model.DeviceConfig) (info *model.
 	return
 }
 
-func GetDeviceOnline(ctx context.Context, deviceOnlines []model.DeviceOnline) (map[string]int, error) {
-	var (
-		result               = make(map[string]int, 0)
-		deviceConfigIds      []string
-		deviveConfigOtherMap = make(map[string]model.DeviceConfigOtherConfig, 0)
-		deviceIds            []string
-		deviceMap            = make(map[string]string, 0)
-	)
+// func GetDeviceOnline(ctx context.Context, deviceOnlines []model.DeviceOnline) (map[string]int, error) {
+// 	var (
+// 		result               = make(map[string]int, 0)
+// 		deviceConfigIds      []string
+// 		deviveConfigOtherMap = make(map[string]model.DeviceConfigOtherConfig, 0)
+// 		deviceIds            []string
+// 		deviceMap            = make(map[string]string, 0)
+// 	)
 
-	if len(deviceOnlines) == 0 {
-		return result, nil
-	}
-	for _, v := range deviceOnlines {
-		if v.DeviceConfigId == nil || *v.DeviceConfigId == "" {
-			continue
-		}
-		deviceIds = append(deviceIds, v.DeviceId)
-		deviceConfigIds = append(deviceConfigIds, *v.DeviceConfigId)
-		deviceMap[v.DeviceId] = *v.DeviceConfigId
-	}
-	list, err := query.DeviceConfig.WithContext(ctx).Where(query.DeviceConfig.ID.In(deviceConfigIds...)).Find()
-	if err != nil {
-		return result, nil
-	}
-	for _, v := range list {
-		if v.OtherConfig == nil || *v.OtherConfig == "" {
-			continue
-		}
-		var config model.DeviceConfigOtherConfig
-		err = json.Unmarshal([]byte(*v.OtherConfig), &config)
-		if err != nil {
-			continue
-		}
-		deviveConfigOtherMap[v.ID] = config
-	}
-	t := query.TelemetryCurrentData
-	rows, err := t.WithContext(ctx).Where(t.DeviceID.In(deviceIds...)).Group(t.DeviceID).Select(t.DeviceID, t.T.Max().As("ts")).Find()
-	if err != nil {
-		return result, nil
-	}
-	now := time.Now().UTC()
-	for _, v := range rows {
-		logrus.Warning(v.DeviceID)
-		var (
-			deviceConfigId string
-			ok             bool
-		)
-		if deviceConfigId, ok = deviceMap[v.DeviceID]; !ok {
-			continue
-		}
-		if config, ok := deviveConfigOtherMap[deviceConfigId]; ok {
+// 	if len(deviceOnlines) == 0 {
+// 		return result, nil
+// 	}
+// 	for _, v := range deviceOnlines {
+// 		if v.DeviceConfigId == nil || *v.DeviceConfigId == "" {
+// 			continue
+// 		}
+// 		deviceIds = append(deviceIds, v.DeviceId)
+// 		deviceConfigIds = append(deviceConfigIds, *v.DeviceConfigId)
+// 		deviceMap[v.DeviceId] = *v.DeviceConfigId
+// 	}
+// 	list, err := query.DeviceConfig.WithContext(ctx).Where(query.DeviceConfig.ID.In(deviceConfigIds...)).Find()
+// 	if err != nil {
+// 		return result, nil
+// 	}
+// 	for _, v := range list {
+// 		if v.OtherConfig == nil || *v.OtherConfig == "" {
+// 			continue
+// 		}
+// 		var config model.DeviceConfigOtherConfig
+// 		err = json.Unmarshal([]byte(*v.OtherConfig), &config)
+// 		if err != nil {
+// 			continue
+// 		}
+// 		deviveConfigOtherMap[v.ID] = config
+// 	}
+// 	t := query.TelemetryCurrentData
+// 	rows, err := t.WithContext(ctx).Where(t.DeviceID.In(deviceIds...)).Group(t.DeviceID).Select(t.DeviceID, t.T.Max().As("ts")).Find()
+// 	if err != nil {
+// 		return result, nil
+// 	}
+// 	now := time.Now().UTC()
+// 	for _, v := range rows {
+// 		logrus.Warning(v.DeviceID)
+// 		var (
+// 			deviceConfigId string
+// 			ok             bool
+// 		)
+// 		if deviceConfigId, ok = deviceMap[v.DeviceID]; !ok {
+// 			continue
+// 		}
+// 		if config, ok := deviveConfigOtherMap[deviceConfigId]; ok {
 
-			if config.Heartbeat > 0 {
-				//当前时间-最近一次遥测时间 大于心跳秒数  表示离线
-				if now.Sub(v.T).Seconds() > float64(config.Heartbeat) {
-					result[v.DeviceID] = 0
-				} else {
-					result[v.DeviceID] = 1
-				}
-				continue
-			}
-			//设置了超时时间 当前时间-最近一次遥测时间 大于超时时间（分）  表示离线
-			if config.OnlineTimeout > 0 {
-				if now.Sub(v.T).Minutes() > float64(config.OnlineTimeout) {
-					result[v.DeviceID] = 0
-				} else {
-					result[v.DeviceID] = 1
-				}
+// 			if config.Heartbeat > 0 {
+// 				//当前时间-最近一次遥测时间 大于心跳秒数  表示离线
+// 				if now.Sub(v.T).Seconds() > float64(config.Heartbeat) {
+// 					result[v.DeviceID] = 0
+// 				} else {
+// 					result[v.DeviceID] = 1
+// 				}
+// 				continue
+// 			}
+// 			//设置了超时时间 当前时间-最近一次遥测时间 大于超时时间（分）  表示离线
+// 			if config.OnlineTimeout > 0 {
+// 				if now.Sub(v.T).Minutes() > float64(config.OnlineTimeout) {
+// 					result[v.DeviceID] = 0
+// 				} else {
+// 					result[v.DeviceID] = 1
+// 				}
 
-			}
-		}
-	}
-	return result, nil
-}
+// 			}
+// 		}
+// 	}
+// 	return result, nil
+// }
 
 // 修改凭证类型
 func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {
