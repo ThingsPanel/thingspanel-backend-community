@@ -9,12 +9,12 @@ import (
 type NotificationHistoryGroup struct {
 }
 
-func (p *NotificationHistoryGroup) InitNotificationHistory(Router *gin.RouterGroup) {
+func (*NotificationHistoryGroup) InitNotificationHistory(Router *gin.RouterGroup) {
 	url := Router.Group("notification_history")
 	{
 
 		// 查
-		url.GET("/list", api.Controllers.NotificationHistoryApi.GetNotificationHistoryListByPage)
+		url.GET("/list", api.Controllers.NotificationHistoryApi.HandleNotificationHistoryListByPage)
 
 	}
 }

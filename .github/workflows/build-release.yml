@@ -1,8 +1,8 @@
 name: Build and Release
 
 on:
-  #push:
-  #  branches: [ "main" ]
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
     inputs:
       tag:
@@ -21,83 +21,73 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.22
-
-    - name: Build and package for Windows x86_64
-      run: |
-        GOOS=windows GOARCH=amd64 go build -o thingspanel-backend-community-windows-x86_64.exe
-        zip thingspanel-backend-community-windows-x86_64.zip thingspanel-backend-community-windows-x86_64.exe configs sql files
-
-    - name: Build and package for Linux x86_64
-      run: |
-        GOOS=linux GOARCH=amd64 go build -o thingspanel-backend-community-linux-x86_64
-        tar -czvf thingspanel-backend-community-linux-x86_64.tar.gz thingspanel-backend-community-linux-x86_64 configs sql files
-
-    - name: Build and package for Linux ARM64 (AArch64)
-      run: |
-        GOOS=linux GOARCH=arm64 go build -o thingspanel-backend-community-linux-arm64
-        tar -czvf thingspanel-backend-community-linux-arm64.tar.gz thingspanel-backend-community-linux-arm64 configs sql files
-
-    - name: Build and package for macOS
-      run: |
-        GOOS=darwin GOARCH=amd64 go build -o thingspanel-backend-community-darwin-x64
-        zip thingspanel-backend-community-darwin-x64.zip thingspanel-backend-community-darwin-x64 configs sql files
-
+        go-version: 1.23
+    
     - name: Determine Release Tag
       id: determine-tag
       run: echo "RELEASE_TAG=$(if [ '${{ github.event_name }}' == 'push' ]; then echo 'latest'; else echo '${{ github.event.inputs.tag }}'; fi)" >> $GITHUB_ENV
 
-    - name: Create or Update Release
-      id: create_or_update_release
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const tagName = process.env.RELEASE_TAG;
-          const { data: releases } = await github.rest.repos.listReleases({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-          });
-          let release = releases.find(r => r.tag_name === tagName);
-
-          if (release) {
-            // Update release
-            await github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: release.id,
-              body: `Release updated by GitHub Actions. Tag ${tagName}`,
-            });
-            return { upload_url: release.upload_url.replace(/\/[^\/]+$/, '') };
-          } else {
-            // Create new release
-            const { data: newRelease } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: tagName,
-              name: `Release ${tagName}`,
-              body: `Release created by GitHub Actions. Tag ${tagName}`,
-              draft: false,
-              prerelease: false,
-            });
-            return { upload_url: newRelease.upload_url.replace(/\/[^\/]+$/, '') };
-          }
-        result-encoding: json
-
-    - name: Upload Release Asset
-      id: upload-release-asset
-      uses: actions/upload-release-asset@v1
+    - name: Delete existing release if it exists
+      id: delete_release
+      run: |
+        tag=${{ github.event.inputs.tag || 'latest' }}
+        release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" | \
+          jq -r '.id')
+        if [ "$release_id" != "null" ]; then
+          echo "Deleting existing release with ID $release_id"
+          curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+        else
+          echo "No existing release found for tag ${{ github.event.inputs.tag }}"
+        fi
+        
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_or_update_release.outputs.upload_url }}
-        asset_path: |
-          ./thingspanel-backend-community-windows-x86_64.zip
-          ./thingspanel-backend-community-linux-x86_64.tar.gz
-          ./thingspanel-backend-community-linux-arm64.tar.gz
-          ./thingspanel-backend-community-darwin-x64.zip
-        asset_name: |
-          thingspanel-backend-community-windows-x86_64.zip
-          thingspanel-backend-community-linux-x86_64.tar.gz
-          thingspanel-backend-community-linux-arm64.tar.gz
-          thingspanel-backend-community-darwin-x64.zip
-        asset_content_type: application/zip
+          tag_name: ${{ github.event.inputs.tag  || 'latest' }}
+          release_name: Release ${{ github.event.inputs.tag  || 'latest' }}
+          body: Release created by GitHub Actions. Tag ${{ github.event.inputs.tag  || 'latest' }}
+          draft: false
+          prerelease: false
+
+    - name: Build and package for multiple platforms
+      run: |
+        # Define the platforms and their configurations
+        platforms=("windows/amd64" "linux/amd64" "linux/arm64" "darwin/amd64")
+        for platform in "${platforms[@]}"; do
+          IFS="/" read -r os arch <<< "$platform"
+          # Adjust output file name for Windows
+          if [ "$os" == "windows" ]; then
+             output_file="thingspanel-backend-community-$os-$arch.exe"
+          else
+             output_file="thingspanel-backend-community-$os-$arch"
+          fi
+          tar_file="$output_file.tar.gz"
+          
+          # Build for each platform
+          CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -o $output_file
+          
+          # Package the build into an archive
+          tar -czvf $tar_file $output_file configs sql files
+          
+          # Clean up build artifacts
+          rm $output_file
+        done
+
+    - name: Upload Release Assets
+      id: upload-release-assets
+      run: |
+        for asset in ./thingspanel-backend-community-*; do
+          asset_name=$(basename "$asset")
+          content_type="application/zip"
+          if [[ "$asset" == *.tar.gz ]]; then
+            content_type="application/gzip"
+          fi
+          curl -XPOST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -F "file=@$asset" \
+          "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=$asset_name&content_type=$content_type"
+        done   

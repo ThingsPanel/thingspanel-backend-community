@@ -9,7 +9,7 @@ import (
 type UiElements struct {
 }
 
-func (p *UiElements) Init(Router *gin.RouterGroup) {
+func (*UiElements) Init(Router *gin.RouterGroup) {
 	url := Router.Group("ui_elements")
 	{
 		// 增
@@ -22,12 +22,12 @@ func (p *UiElements) Init(Router *gin.RouterGroup) {
 		url.PUT("", api.Controllers.UiElementsApi.UpdateUiElements)
 
 		// 分页查询,按照树状结构返回，父节点包含一个"children"，其中是子节点，按照order排序
-		url.GET("", api.Controllers.UiElementsApi.GetUiElementsListByPage)
+		url.GET("", api.Controllers.UiElementsApi.ServeUiElementsListByPage)
 
 		// 根据用户权限查询
-		url.GET("menu", api.Controllers.UiElementsApi.GetUiElementsListByAuthority)
+		url.GET("menu", api.Controllers.UiElementsApi.ServeUiElementsListByAuthority)
 
 		// 菜单配置表单
-		url.GET("select/form", api.Controllers.UiElementsApi.GetUiElementsListByTenant)
+		url.GET("select/form", api.Controllers.UiElementsApi.ServeUiElementsListByTenant)
 	}
 }

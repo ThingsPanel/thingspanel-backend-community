@@ -3,16 +3,29 @@ package subscribe
 import (
 	"context"
 	"encoding/json"
-	dal "project/dal"
-	"project/global"
+	"fmt"
 	initialize "project/initialize"
+	dal "project/internal/dal"
 	"project/internal/model"
-	service "project/service"
-	"strconv"
+	service "project/internal/service"
+	"project/pkg/global"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
+
+func validateStatus(payload []byte) (int16, error) {
+	str := string(payload)
+	switch str {
+	case "0":
+		return 0, nil
+	case "1":
+		return 1, nil
+	default:
+		return 0, fmt.Errorf("状态值只能是0或1，当前值: %s", str)
+	}
+}
 
 func DeviceOnline(payload []byte, topic string) {
 	/*
@@ -22,14 +35,15 @@ func DeviceOnline(payload []byte, topic string) {
 				在线离线状态是devices表的is_online字段
 	*/
 	// 验证消息有效性
-	payloadInt, err := strconv.Atoi(string(payload))
+	status, err := validateStatus(payload)
 	if err != nil {
 		logrus.Error(err.Error())
 		return
 	}
-	status := int16(payloadInt)
+
 	deviceId := strings.Split(topic, "/")[2]
 	logrus.Debug(deviceId, " device status message:", status)
+	// TODO:如果设置了心跳模式，不更新状态
 	err = dal.UpdateDeviceStatus(deviceId, status)
 	if err != nil {
 		logrus.Error(err.Error())
@@ -37,6 +51,7 @@ func DeviceOnline(payload []byte, topic string) {
 	}
 	if status == int16(1) {
 		// 发送预期数据
+		time.Sleep(3 * time.Second)
 		err := service.GroupApp.ExpectedData.Send(context.Background(), deviceId)
 		if err != nil {
 			logrus.Error(err.Error())
@@ -47,7 +62,7 @@ func DeviceOnline(payload []byte, topic string) {
 	initialize.DelDeviceCache(deviceId)
 
 	var device *model.Device
-	device, err = dal.GetDeviceById(deviceId)
+	device, err = dal.GetDeviceCacheById(deviceId)
 	if err != nil {
 		logrus.Error(err.Error())
 		return

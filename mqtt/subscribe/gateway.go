@@ -2,7 +2,6 @@ package subscribe
 
 import (
 	"context"
-	"os"
 	config "project/mqtt"
 	"project/mqtt/publish"
 
@@ -45,7 +44,7 @@ func getSubscribeTopics() []SubscribeTopic {
 	}
 }
 
-func GatewaySubscribeTelemetryCallback(c mqtt.Client, d mqtt.Message) {
+func GatewaySubscribeTelemetryCallback(_ mqtt.Client, d mqtt.Message) {
 	err := pool.Submit(func() {
 		// 处理消息
 		GatewayTelemetryMessages(d.Payload(), d.Topic())
@@ -55,7 +54,7 @@ func GatewaySubscribeTelemetryCallback(c mqtt.Client, d mqtt.Message) {
 	}
 }
 
-func GatewaySubscribeAttributesCallback(c mqtt.Client, d mqtt.Message) {
+func GatewaySubscribeAttributesCallback(_ mqtt.Client, d mqtt.Message) {
 	messageId, deviceInfo, response, err := GatewayAttributeMessages(d.Payload(), d.Topic())
 	logrus.Debug("响应设备属性上报", deviceInfo, err)
 	if err != nil {
@@ -67,11 +66,11 @@ func GatewaySubscribeAttributesCallback(c mqtt.Client, d mqtt.Message) {
 	}
 }
 
-func GatewaySubscribeSetAttributesResponseCallback(c mqtt.Client, d mqtt.Message) {
+func GatewaySubscribeSetAttributesResponseCallback(_ mqtt.Client, d mqtt.Message) {
 	GatewayDeviceSetAttributesResponse(d.Payload(), d.Topic())
 }
 
-func GatewaySubscribeEventCallback(c mqtt.Client, d mqtt.Message) {
+func GatewaySubscribeEventCallback(_ mqtt.Client, d mqtt.Message) {
 	messageId, deviceInfo, response, err := GatewayEventCallback(d.Payload(), d.Topic())
 	logrus.Debug("响应设备事件上报", deviceInfo, err)
 	if err != nil {
@@ -82,18 +81,18 @@ func GatewaySubscribeEventCallback(c mqtt.Client, d mqtt.Message) {
 	}
 }
 
-func GatewaySubscribeCommandResponseCallback(c mqtt.Client, d mqtt.Message) {
+func GatewaySubscribeCommandResponseCallback(_ mqtt.Client, d mqtt.Message) {
 	GatewayDeviceCommandResponse(d.Payload(), d.Topic())
 }
 
 // GatewaySubscribeTopic
 // @description 网关批量订阅消息
 // @return void
-func GatewaySubscribeTopic() {
+func GatewaySubscribeTopic() error {
 	p, err := ants.NewPool(config.MqttConfig.Telemetry.PoolSize)
 	if err != nil {
 		logrus.Error("协程池创建失败")
-		return
+		return err
 	}
 	pool = p
 	for _, topic := range getSubscribeTopics() {
@@ -101,7 +100,8 @@ func GatewaySubscribeTopic() {
 		logrus.Info("subscribe topic:", topic.Topic)
 		if token := SubscribeMqttClient.Subscribe(topic.Topic, topic.Qos, topic.Callback); token.Wait() && token.Error() != nil {
 			logrus.Error(token.Error())
-			os.Exit(1)
+			return token.Error()
 		}
 	}
+	return nil
 }

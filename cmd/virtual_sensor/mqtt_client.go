@@ -34,7 +34,7 @@ func CreateMqttClient(config MqttConfig) *mqtt.Client {
 	opts.SetMaxReconnectInterval(20 * time.Second)
 	// 消息顺序
 	opts.SetOrderMatters(false)
-	opts.SetOnConnectHandler(func(c mqtt.Client) {
+	opts.SetOnConnectHandler(func(_ mqtt.Client) {
 		log.Println("mqtt connect success")
 	})
 	// 断线重连
@@ -42,12 +42,12 @@ func CreateMqttClient(config MqttConfig) *mqtt.Client {
 		log.Println("mqtt connect  lost: ", err)
 		// 等待连接成功，失败重新连接
 		for {
-			if token := client.Connect(); token.Wait() && token.Error() == nil {
+			token := client.Connect()
+			if token.Wait() && token.Error() == nil {
 				log.Println("Reconnected to MQTT broker")
 				break
-			} else {
-				log.Printf("Reconnect failed: %v\n", token.Error())
 			}
+			log.Printf("Reconnect failed: %v\n", token.Error())
 			time.Sleep(5 * time.Second)
 		}
 	})

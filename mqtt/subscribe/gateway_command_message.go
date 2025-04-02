@@ -11,8 +11,8 @@ import (
 
 // 平台订阅网关属性上报处理
 // @description GatewayAttributeMessages
-// @param payload []byte
-// @param topic string
+// param payload []byte
+// param topic string
 // @return error
 // 订阅topic gateway/command/response/{message_id}
 func GatewayDeviceCommandResponse(payload []byte, topic string) {

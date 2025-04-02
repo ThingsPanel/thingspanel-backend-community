@@ -1,0 +1,246 @@
+# 错误码消息配置
+# configs/messages.yaml
+messages:
+  # 成功码
+  200:
+    zh_CN: "操作成功"
+    en_US: "Success"
+
+  # 系统级错误 (1xxxxx)
+  # 通用系统错误 (100xxx)
+  100000:
+    zh_CN: "系统内部错误"
+    en_US: "Internal Server Error"
+  100001:
+    zh_CN: "服务暂时不可用"
+    en_US: "Service Temporarily Unavailable"
+  100002:
+    zh_CN: "请求参数验证失败"
+    en_US: "Parameter Validation Failed"
+  100003:
+    zh_CN: "密码解密失败"
+    en_US: "Password Decryption Failed"
+  100004:
+    zh_CN: "数据序列化失败"
+    en_US: "Data serialization failed"
+  100005:
+    zh_CN: "${field}不能为空"
+    en_US: "${field} cannot be empty"
+
+  # 数据库相关错误 (101xxx)
+  101001:
+    zh_CN: "数据库错误"
+    en_US: "Database Connection Failed"
+  101002:
+    zh_CN: "数据库操作超时"
+    en_US: "Database Operation Timeout"
+
+  # 缓存相关错误 (102xxx)
+  102001:
+    zh_CN: "缓存服务不可用"
+    en_US: "Cache Service Unavailable"
+  102002:
+    zh_CN: "缓存数据已过期"
+    en_US: "Cache Data Expired"
+
+  # 认证相关错误 (103xxx)
+  103001:
+    zh_CN: "token生成失败"
+    en_US: "Failed to Generate Token"
+  103002: 
+    zh_CN: "token保存失败"
+    en_US: "Failed to Save Token"
+  103003:
+   zh_CN: "登出失败,token删除出错"
+   en_US: "Logout Failed: Error Deleting Token"
+
+  # 文件系统错误 (104xxx)
+  104001:
+    zh_CN: "生成文件路径失败: ${error}"
+    en_US: "Failed to generate file path: ${error}"
+  104002:
+    zh_CN: "保存文件失败: ${error}"
+    en_US: "Failed to save file: ${error}"
+    # 三方服务错误 (105xxx)
+  105001:
+    zh_CN: "第三方服务调用失败: ${error}"
+    en_US: "Third-party service call failed: ${error}"
+
+  # 业务级错误 (2xxxxx)
+  # 用户模块错误 (200xxx)
+  200001:
+    zh_CN: "用户未登录"
+    en_US: "User Not Logged In"
+  200002:
+    zh_CN: "用户名或密码错误"
+    en_US: "Invalid Username or Password"
+  200003:
+    zh_CN: "用户账号已被锁定"
+    en_US: "User Account Locked"
+  200005:
+   zh_CN: "用户账号已被禁用"
+   en_US: "User Account Disabled"
+  200006:
+   zh_CN: "您已连续登录失败${attempts}次，账号锁定${duration}分钟，解锁时间为：${unlock_time}"
+   en_US: "Account locked after ${attempts} failed login attempts. Locked for ${duration} minutes. Unlock time: ${unlock_time}"
+  200007:
+    zh_CN: "用户邮箱或手机号不存在"
+    en_US: "User email or phone number does not exist"
+  200008:
+    zh_CN: "用户邮箱已注册"
+    en_US: "User email already registered"
+  200009:
+    zh_CN: "验证码生成失败"
+    en_US: "Failed to generate verification code"
+  200010:
+    zh_CN: "验证码邮件发送失败"
+    en_US: "Failed to send verification code email"
+  200011:
+    zh_CN: "验证码已过期"
+    en_US: "Verification code expired"
+  200012:
+    zh_CN: "验证码错误"
+    en_US: "Invalid verification code"
+  200013:
+    zh_CN: "请输入正确的邮箱或手机号"
+    en_US: "Please enter a valid email or phone number"
+  # 密码相关错误 (200040-200049)
+  200040:
+    zh_CN: "密码必须包含至少6个字符，包含小写字母和数字"
+    en_US: "Password must be at least 6 characters and contain lowercase letters and numbers"
+  200041:
+    zh_CN: "两次输入的密码不一致"
+    en_US: "Passwords do not match"
+  200042:
+    zh_CN: "加密盐值不能为空"
+    en_US: "Encryption salt cannot be empty"
+  200043:
+    zh_CN: "密码解密失败"
+    en_US: "Password decryption failed"
+  200044:
+    zh_CN: "不允许修改密码"
+    en_US: "Password modification not allowed"
+  200045:
+    zh_CN: "旧密码验证失败"
+    en_US: "Old password verification failed"
+  200050:
+    zh_CN: "该功能模板已被${count}个配置模板引用，无法删除。请先解除相关配置模板的关联后再试" 
+    en_US: "This feature template is referenced by ${count} configuration templates and cannot be deleted. Please remove the associations first"
+  200051:
+    zh_CN: "无法删除设备配置，仍有${count}个设备与其关联"
+    en_US: "Cannot delete device configuration, ${count} devices still associated"
+  200052:
+    zh_CN: "脚本处理失败: ${error}"
+    en_US: "Script processing failed: ${error}"
+  200053:
+    zh_CN: "密码包含无效字符：${invalid_chars}"
+    en_US: "Password contains invalid characters: ${invalid_chars}"
+  200054:
+    zh_CN: "密码缺少以下元素：${missing_elements}"
+    en_US: "Password is missing the following elements: ${missing_elements}"
+
+  # 设备条件错误码 (200060-200069)
+  200060:
+    zh_CN: "设备条件冲突：一组条件中不允许同时存在单个设备和设备类型条件"
+    en_US: "Device condition conflict: Individual device and device type conditions cannot coexist in the same group"
+  200061:
+    zh_CN: "该设备存在子设备，请先解除子设备关联"
+    en_US: "device has sub device,please remove sub device first"
+  200062:
+    zh_CN: "该设备存在场景，请先解除场景关联"
+    en_US: "device has scene,please remove scene first"
+  # 权限模块错误 (201xxx)
+  201001:
+    zh_CN: "无访问权限"
+    en_US: "Access Denied"
+  201002:
+    zh_CN: "操作权限不足"
+    en_US: "Insufficient Permissions"
+
+  # 文件上传模块错误 (202xxx)
+  202001:
+    zh_CN: "请选择需要上传的文件"
+    en_US: "Please select a file to upload"
+  202002:
+    zh_CN: "文件类型必须为${expected_type}，当前文件类型为${actual_type}"
+    en_US: "File type must be ${expected_type}, current file type is ${actual_type}"
+  202003:
+    zh_CN: "文件大小不能超过${max_size}，当前大小${current_size}"
+    en_US: "File size cannot exceed ${max_size}, current size is ${current_size}"
+    
+  # 数据导出相关错误 (202100-202199)
+  202100:
+    zh_CN: "导出数据不能为空"
+    en_US: "No data available for export"
+  202101:
+    zh_CN: "创建导出目录失败: ${error}"
+    en_US: "Failed to create export directory: ${error}"
+  202102:
+    zh_CN: "创建导出文件失败: ${error}"
+    en_US: "Failed to create export file: ${error}"
+  202103:
+    zh_CN: "写入CSV表头失败: ${error}"
+    en_US: "Failed to write CSV header: ${error}"
+  202104:
+    zh_CN: "写入CSV数据失败: ${error}"
+    en_US: "Failed to write CSV data: ${error}"
+  202105:
+    zh_CN: "无效的数据格式 - 时间戳格式错误"
+    en_US: "Invalid data format - timestamp format error"
+  202106:
+    zh_CN: "无效的数据格式 - 数值格式错误"
+    en_US: "Invalid data format - value format error"
+
+  # 设备分组错误码 (203xxx)
+  203001:
+    zh_CN: "分组名称已存在"
+    en_US: "Group name already exists"
+  203002:
+    zh_CN: "子分组名称 '${group_name}' 在父分组下已存在"
+    en_US: "Sub-group name '${group_name}' already exists under parent group"
+  203003:
+    zh_CN: "顶级分组名称 '${group_name}' 已存在"
+    en_US: "Top-level group name '${group_name}' already exists"
+  203004:
+    zh_CN: "首页看板已存在"
+    en_US: "Home board already exists"
+
+  204001:
+    zh_CN: "设备编号不可用：${error}"
+    en_US: "Device number unavailable: ${error}"
+  204002:
+    zh_CN: "该设备已激活，请更换设备编号"
+    en_US: "Device is already activated, please use a different device number"
+  204003:
+    zh_CN: "设备编号可用"
+    en_US: "Device number is available"
+
+  # WebSocket相关错误码 (205xxx)
+  205001:
+    zh_CN: "WebSocket连接升级失败：${error}"
+    en_US: "WebSocket upgrade failed: ${error}"
+
+  # Device Connect Field Keys (500xxx)
+  500001:
+    zh_CN: "接入地址"
+    en_US: "Access Address"
+  500002:
+    zh_CN: "MQTT ClientID(自定义标识，需确保唯一性)"
+    en_US: "MQTT ClientID(custom identifier, must be unique)"
+  500003:
+    zh_CN: "设备遥测上报主题 (更多上行主题请参考MQTT文档)"
+    en_US: "Device Telemetry Reporting Topic (see MQTT docs for more upstream topics)"
+  500004:
+    zh_CN: "设备控制订阅主题 (更多下行主题请参考MQTT文档)"
+    en_US: "Device Control Subscription Topic (see MQTT docs for more downstream topics)"
+  500005:
+    zh_CN: "设备上报数据示例"
+    en_US: "Device Data Example"
+
+# 配置元信息
+metadata:
+  version: "1.0"
+  last_updated: "2024-12-11"
+  supported_languages:
+    - zh_CN
+    - en_US

@@ -1,18 +1,19 @@
 package api
 
 import (
-	"project/utils"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 type SystemApi struct{}
 
-func (s *SystemApi) GetSystime(c *gin.Context) {
-	SuccessHandler(c, "success", map[string]interface{}{"systime": utils.GetSecondTimestamp()})
+// /api/v1/systime
+func (*SystemApi) HandleSystime(c *gin.Context) {
+	c.Set("data", map[string]interface{}{"systime": utils.GetSecondTimestamp()})
 }
 
-// 健康检查
-func (s *SystemApi) HealthCheck(c *gin.Context) {
-	SuccessOK(c)
+// 健康检查 /health
+func (*SystemApi) HealthCheck(c *gin.Context) {
+	c.Set("data", nil)
 }

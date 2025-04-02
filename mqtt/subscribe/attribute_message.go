@@ -3,11 +3,11 @@ package subscribe
 import (
 	"encoding/json"
 	"fmt"
-	dal "project/dal"
 	initialize "project/initialize"
+	dal "project/internal/dal"
 	"project/internal/model"
+	service "project/internal/service"
 	config "project/mqtt"
-	service "project/service"
 	"strings"
 	"time"
 
@@ -41,7 +41,7 @@ func DeviceAttributeReport(payload []byte, topic string) (string, string, error)
 	logrus.Debug("attribute message:", attributePayload)
 
 	// 处理消息
-	device, err := initialize.GetDeviceById(attributePayload.DeviceId)
+	device, err := initialize.GetDeviceCacheById(attributePayload.DeviceId)
 	if err != nil {
 		logrus.Error(err.Error())
 		return "", messageId, err
@@ -65,8 +65,8 @@ func DeviceAttributeReport(payload []byte, topic string) (string, string, error)
 
 // 设备属性处理 和网关公用
 // @description deviceAttributesHandle
-// @param device *model.Device
-// @param reqMap map[string]interface{
+// param device *model.Device
+// param reqMap map[string]interface{
 // @return err error
 func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{}, topic string) error {
 	// TODO脚本处理
@@ -149,7 +149,7 @@ func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{},
 			TriggerParamType: model.TRIGGER_PARAM_TYPE_ATTR,
 		})
 		if err != nil {
-			logrus.Errorf("自动化执行失败, err: %w", err)
+			logrus.Error("自动化执行失败, err: ", err)
 		}
 	}()
 	return nil

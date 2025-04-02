@@ -7,6 +7,7 @@ ENV GOPROXY="https://goproxy.io"
 RUN go build -o ThingsPanel-Go .
 
 FROM alpine:latest
+LABEL description="ThingsPanel Go Backend"
 WORKDIR /go/src/app
 RUN apk update && apk add --no-cache tzdata
 COPY --from=builder /go/src/app .

@@ -1,3 +1,38 @@
+# ThingsPanel 基础镜像同步工作流
+#
+# 功能说明:
+# 将 TimescaleDB 和 Redis 的公共镜像同步到 GitHub Container Registry (GHCR)
+# 便于用户从 GHCR 统一拉取所需的基础镜像
+#
+# 触发方式:
+# - 手动触发: 通过 GitHub Actions 页面手动触发同步
+#
+# 镜像同步列表:
+# 1. TimescaleDB: 
+#    - 源镜像: timescale/timescaledb:2.8.1-pg14
+#    - 目标: ghcr.io/<owner>/timescaledb:2.8.1-pg14
+#
+# 2. Redis:
+#    - 源镜像: redis:6.2.7
+#    - 目标: ghcr.io/<owner>/redis:6.2.7
+#
+# 执行步骤:
+# 1. 检出代码
+# 2. 设置 Docker Buildx
+# 3. 登录 GitHub Container Registry
+# 4. 转换仓库所有者为小写（GHCR要求）
+# 5. 拉取并推送 TimescaleDB 镜像
+# 6. 拉取并推送 Redis 镜像
+#
+# 必需的 Secrets:
+# - GITHUB_TOKEN: GitHub 自动提供的访问令牌
+#
+# 注意事项:
+# 1. 确保 GITHUB_TOKEN 有写入包的权限
+# 2. 确保 GHCR 仓库已正确配置访问权限
+# 3. 镜像版本更新时需要同步修改工作流文件
+# 4. 建议定期执行以确保镜像可用性
+
 name: Publish Docker Images to GitHub
 
 on:

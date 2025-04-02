@@ -9,13 +9,13 @@ import (
 type DataPolicy struct {
 }
 
-func (p *DataPolicy) Init(Router *gin.RouterGroup) {
+func (*DataPolicy) Init(Router *gin.RouterGroup) {
 	url := Router.Group("datapolicy")
 	{
 		// 改
 		url.PUT("", api.Controllers.DataPolicyApi.UpdateDataPolicy)
 
 		// 查
-		url.GET("", api.Controllers.DataPolicyApi.GetDataPolicyListByPage)
+		url.GET("", api.Controllers.DataPolicyApi.HandleDataPolicyListByPage)
 	}
 }

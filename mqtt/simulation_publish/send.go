@@ -1,7 +1,7 @@
 package simulationpublish
 
 import (
-	"fmt"
+	"net"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
@@ -11,7 +11,7 @@ import (
 func PublishMessage(host string, port string, topic string, payload string, username string, password string, clientId string) error {
 	// 初始化配置
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("%s:%s", host, port))
+	opts.AddBroker(net.JoinHostPort(host, port))
 	opts.SetUsername(username)
 	opts.SetPassword(password)
 	opts.SetClientID(clientId)
@@ -21,7 +21,7 @@ func PublishMessage(host string, port string, topic string, payload string, user
 	opts.SetOrderMatters(false)
 	// 恢复客户端订阅，需要broker支持
 	opts.SetResumeSubs(false)
-	opts.SetOnConnectHandler(func(c mqtt.Client) {
+	opts.SetOnConnectHandler(func(_ mqtt.Client) {
 		logrus.Println("simulation mqtt connect success")
 	})
 	c := mqtt.NewClient(opts)

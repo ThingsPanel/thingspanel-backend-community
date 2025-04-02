@@ -4,34 +4,27 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	model "project/internal/model"
-	service "project/service"
-	"project/utils"
+	service "project/internal/service"
+	"project/pkg/errcode"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/howeyc/crc16"
+	"github.com/sirupsen/logrus"
 )
 
 type OTAApi struct{}
 
 // CreateOTAUpgradePackage
-// @Tags     ota
-// @Summary  创建升级包
-// @Description 创建升级包
-// @Produce   application/json
-// @Param	data body model.CreateOTAUpgradePackageReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/package [post]
-func (api *OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
+func (*OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
 	var req model.CreateOTAUpgradePackageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -39,69 +32,42 @@ func (api *OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.OTA.CreateOTAUpgradePackage(&req, userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create successfully", nil)
+	c.Set("data", nil)
 }
 
 // DeleteOTAUpgradePackage
-// @Tags     ota
-// @Summary  删除升级包
-// @Description 删除升级包
-// @Produce   application/json
-// @Param     id  path      string     true  "升级包ID"
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/package/{id} [delete]
-func (api *OTAApi) DeleteOTAUpgradePackage(c *gin.Context) {
+func (*OTAApi) DeleteOTAUpgradePackage(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.OTA.DeleteOTAUpgradePackage(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete successfully", nil)
+	c.Set("data", nil)
 }
 
 // UpdateOTAUpgradePackage
-// @Tags     ota
-// @Summary  更新升级包
-// @Description 更新升级包
-// @Produce   application/json
-// @Param	data body model.UpdateOTAUpgradePackageReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/package/ [put]
-func (api *OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
+func (*OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
 	var req model.UpdateOTAUpgradePackageReq
 	if !BindAndValidate(c, &req) {
 		return
 	}
 	err := service.GroupApp.OTA.UpdateOTAUpgradePackage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetOTAUpgradePackageByPage
-// @Tags     ota
-// @Summary  分页查询
-// @Description 分页查询
-// @Produce   application/json
-// @Param	data query model.GetOTAUpgradePackageLisyByPageReq true " "
-// @Success  200    {object}  ApiResponse  "success"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/package [get]
-func (api *OTAApi) GetOTAUpgradePackageByPage(c *gin.Context) {
+func (*OTAApi) HandleOTAUpgradePackageByPage(c *gin.Context) {
 	var req model.GetOTAUpgradePackageLisyByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -109,26 +75,16 @@ func (api *OTAApi) GetOTAUpgradePackageByPage(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	list, err := service.GroupApp.OTA.GetOTAUpgradePackageListByPage(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Get list successfully", list)
+	c.Set("data", list)
 }
 
 // CreateOTAUpgradeTask
-// @Tags     ota
-// @Summary  创建升级任务
-// @Description 创建升级任务
-// @Produce   application/json
-// @Param	data body model.CreateOTAUpgradeTaskReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/task [post]
-func (api *OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
+func (*OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
 	var req model.CreateOTAUpgradeTaskReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -136,120 +92,78 @@ func (api *OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
 
 	err := service.GroupApp.OTA.CreateOTAUpgradeTask(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Create successfully", nil)
+	c.Set("data", nil)
 }
 
 // DeleteOTAUpgradeTask
-// @Tags     ota
-// @Summary  删除升级任务
-// @Description 删除升级任务
-// @Produce   application/json
-// @Param     id  path      string     true  "升级任务ID"
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/task/{id} [delete]
-func (api *OTAApi) DeleteOTAUpgradeTask(c *gin.Context) {
+func (*OTAApi) DeleteOTAUpgradeTask(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.OTA.DeleteOTAUpgradeTask(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete successfully", nil)
+	c.Set("data", nil)
 }
 
 // GetOTAUpgradeTaskByPage
-// @Tags     ota
-// @Summary  分页获取升级任务
-// @Description 分页获取升级任务
-// @Produce   application/json
-// @Param	data body model.GetOTAUpgradeTaskListByPageReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/task [get]
-func (api *OTAApi) GetOTAUpgradeTaskByPage(c *gin.Context) {
+func (*OTAApi) HandleOTAUpgradeTaskByPage(c *gin.Context) {
 	var req model.GetOTAUpgradeTaskListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
 	}
 	list, err := service.GroupApp.OTA.GetOTAUpgradeTaskListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get successfully", list)
+	c.Set("data", list)
 }
 
 // GetOTAUpgradeTaskDetailByPage
-// @Tags     ota
-// @Summary  分页获取升级任务详情
-// @Description 分页获取升级任务详情
-// @Produce   application/json
-// @Param	data query model.GetOTAUpgradeTaskDetailReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/task/detail [get]
-func (api *OTAApi) GetOTAUpgradeTaskDetailByPage(c *gin.Context) {
+func (*OTAApi) HandleOTAUpgradeTaskDetailByPage(c *gin.Context) {
 	var req model.GetOTAUpgradeTaskDetailReq
 	if !BindAndValidate(c, &req) {
 		return
 	}
 	list, err := service.GroupApp.OTA.GetOTAUpgradeTaskDetailListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", list)
+	c.Set("data", list)
 
 }
 
 // UpdateOTAUpgradeTaskStatus 更新升级任务状态
-// @Tags     ota
-// @Summary  更新升级任务状态
-// @Description 更新升级任务状态
-// @Description 设备状态修改
-// @Description 1-待推送 2-已推送 3-升级中 修改为已取消，前端传6
-// @Description 5-升级失败 修改为待推送，前端传1
-// @Description 4-升级成功 6-已取消 不修改
-// @Produce   application/json
-// @Param	data body model.UpdateOTAUpgradeTaskStatusReq true " "
-// @Success  200    {object}  ApiResponse  "登录成功"
-// @Failure  400  {object}  ApiResponse  "无效的请求数据"
-// @Failure  422  {object}  ApiResponse  "数据验证失败"
-// @Failure  500  {object}  ApiResponse  "服务器内部错误"
-// @Security ApiKeyAuth
 // @Router   /api/v1/ota/task/detail [put]
-func (api *OTAApi) UpdateOTAUpgradeTaskStatus(c *gin.Context) {
+func (*OTAApi) UpdateOTAUpgradeTaskStatus(c *gin.Context) {
 	var req model.UpdateOTAUpgradeTaskStatusReq
 	if !BindAndValidate(c, &req) {
 		return
 	}
 	err := service.GroupApp.OTA.UpdateOTAUpgradeTaskStatus(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update successfully", nil)
+	c.Set("data", nil)
 }
 
 // GET /api/v1/ota/download/{filepath}
-func (api *OTAApi) DownloadOTAUpgradePackage(c *gin.Context) {
+func (*OTAApi) DownloadOTAUpgradePackage(c *gin.Context) {
 	filePath := "./files/upgradePackage/" + c.Param("path") + "/" + c.Param("file")
 
 	if !utils.FileExist(filePath) {
-		ErrorHandler(c, http.StatusNotFound, errors.New("file not found"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"param_err": "file not exist",
+		}))
 		return
 	}
 
@@ -270,22 +184,37 @@ func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
 	rangeParts := strings.Split(rangeStr, "-")
 	if len(rangeParts) != 2 {
 		c.AbortWithError(http.StatusRequestedRangeNotSatisfiable, errors.New("invalid range"))
+		return
 	}
 
 	start, err := strconv.ParseInt(rangeParts[0], 10, 64)
 	if err != nil {
 		c.AbortWithError(http.StatusRequestedRangeNotSatisfiable, errors.New("invalid range"))
+		return
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
-	defer file.Close()
+	// 使用具名返回值以确保在函数返回时处理关闭错误
+	defer func() {
+		closeErr := file.Close()
+		if closeErr != nil {
+			// 记录关闭错误
+			log.Printf("Error closing file: %v", closeErr)
+			// 如果还没有其他错误发生，则返回关闭错误
+			if err == nil {
+				c.AbortWithStatus(http.StatusInternalServerError)
+			}
+		}
+	}()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
 
 	fileSize := fileInfo.Size()
@@ -296,10 +225,12 @@ func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
 	end, err := strconv.ParseInt(rangeParts[1], 10, 64)
 	if err != nil {
 		c.AbortWithStatus(http.StatusRequestedRangeNotSatisfiable)
+		return
 	}
 
 	if start >= fileSize || end >= fileSize {
 		c.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
 
 	contentLength := end - start + 1
@@ -308,12 +239,13 @@ func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
 	c.Writer.Header().Set("Accept-Ranges", "bytes")
 	c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", contentLength))
 	c.Writer.Header().Set("Content-Type", filePath[len(filePath)-3:])
-	c.Writer.Flush()
 
 	_, err = file.Seek(start, io.SeekStart)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
+
 	// 创建一个缓冲区
 	buffer := make([]byte, contentLength)
 
@@ -321,34 +253,33 @@ func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
 	_, err = file.Read(buffer)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
+
+	var crcValue uint16
 	switch crc16Method {
 	case "CCITT":
-		// 计算CRC16校验码
-		crcValue := crc16.ChecksumCCITT(buffer)
-		// 将校验码添加到HTTP响应的头部中
-		c.Writer.Header().Set("X-CRC16", fmt.Sprintf("%04x", crcValue))
-		// 将缓冲区数据写入响应
-		c.Writer.Write(buffer)
-		c.Writer.Flush()
+		crcValue = crc16.ChecksumCCITT(buffer)
 	case "MODBUS":
-		// 计算CRC16校验码
-		crcValue := crc16.ChecksumMBus(buffer)
-		// 将校验码添加到HTTP响应的头部中
-		c.Writer.Header().Set("X-CRC16", fmt.Sprintf("%04x", crcValue))
-
-		// 将缓冲区数据写入响应
-		c.Writer.Write(buffer)
-		c.Writer.Flush()
+		crcValue = crc16.ChecksumMBus(buffer)
 	default:
-		// 计算CRC16-IBM校验码
-		crcValue := crc16.ChecksumIBM(buffer)
+		crcValue = crc16.ChecksumIBM(buffer)
+	}
 
-		// 将校验码添加到HTTP响应的头部中
-		c.Writer.Header().Set("X-CRC16", fmt.Sprintf("%04x", crcValue))
+	// 将校验码添加到HTTP响应的头部中
+	c.Writer.Header().Set("X-CRC16", fmt.Sprintf("%04x", crcValue))
 
-		// 将缓冲区数据写入响应
-		c.Writer.Write(buffer)
-		c.Writer.Flush()
+	// 将缓冲区数据写入响应
+	_, err = c.Writer.Write(buffer)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	// 确保数据写入磁盘
+	if err = file.Sync(); err != nil {
+		logrus.Errorf("Error syncing file: %v", err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
 }

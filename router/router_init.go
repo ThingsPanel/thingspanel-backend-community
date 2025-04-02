@@ -2,13 +2,21 @@ package router
 
 import (
 	middleware "project/internal/middleware"
+	"project/internal/middleware/response"
+	"project/pkg/global"
+	"project/pkg/metrics"
 	"project/router/apps"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 
 	// gin-swagger middleware
+	_ "project/docs"
+
 	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
 	api "project/internal/api"
 )
@@ -18,18 +26,46 @@ import (
 func RouterInit() *gin.Engine {
 	//gin.SetMode(gin.ReleaseMode) //开启生产模式
 	router := gin.Default()
-	router.Use(middleware.ErrorHandler())
-	// 静态文件
-	router.Static("/files", "./files")
-
-	controllers := new(api.Controller)
-
-	// 健康检查
-	router.GET("/health", controllers.SystemApi.HealthCheck)
-
+	// Swagger文档路由
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// 创建 metrics 收集器
+	m := metrics.NewMetrics("ThingsPanel")
+	// 开始定期收集系统指标(每15秒)
+	m.StartMetricsCollection(15 * time.Second)
+	// 注册 metrics 中间件
+	router.Use(middleware.MetricsMiddleware(m))
+	// 注册 prometheus metrics 接口
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// 添加静态文件路由
+	router.StaticFile("/metrics-viewer", "./static/metrics-viewer.html")
+
+	// 处理文件访问请求
+	router.GET("/files/*filepath", func(c *gin.Context) {
+		filepath := c.Param("filepath")
+		c.File("./files" + filepath)
+	})
+
+	//router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	router.Use(middleware.Cors())
+	// 初始化响应处理器
+	handler, err := response.NewHandler("configs/messages.yaml", "configs/messages_str.yaml")
+	if err != nil {
+		logrus.Fatalf("初始化响应处理器失败: %v", err)
+	}
+
+	// 记录操作日志
+	router.Use(middleware.OperationLogs())
+	// 全局使用
+	global.ResponseHandler = handler
+	// 使用中间件
+	router.Use(handler.Middleware())
+
+	controllers := new(api.Controller)
+	// 健康检查
+	router.GET("/health", controllers.SystemApi.HealthCheck)
 
 	api := router.Group("api")
 	{
@@ -37,24 +73,24 @@ func RouterInit() *gin.Engine {
 		v1 := api.Group("v1")
 		{
 			v1.POST("plugin/heartbeat", controllers.Heartbeat)
-			v1.POST("plugin/device/config", controllers.GetDeviceConfigForProtocolPlugin)
-			v1.POST("plugin/service/access/list", controllers.GetPluginServiceAccessList)
-			v1.POST("plugin/service/access", controllers.GetPluginServiceAccess)
+			v1.POST("plugin/device/config", controllers.HandleDeviceConfigForProtocolPlugin)
+			v1.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)
+			v1.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
 			v1.POST("login", controllers.Login)
-			v1.GET("verification/code", controllers.GetVerificationCode)
+			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password", controllers.ResetPassword)
-			v1.GET("logo", controllers.GetLogoList)
+			v1.GET("logo", controllers.HandleLogoList)
 			// 设备遥测（ws）
-			v1.GET("telemetry/datas/current/ws", controllers.TelemetryDataApi.GetCurrentDataByWS)
+			v1.GET("telemetry/datas/current/ws", controllers.TelemetryDataApi.ServeCurrentDataByWS)
 			// 设备在线离线状态（ws）
-			v1.GET("device/online/status/ws", controllers.TelemetryDataApi.GetDeviceStatusByWS)
+			v1.GET("device/online/status/ws", controllers.TelemetryDataApi.ServeDeviceStatusByWS)
 			// 设备遥测keys（ws）
-			v1.GET("telemetry/datas/current/keys/ws", controllers.TelemetryDataApi.GetCurrentDataByKey)
+			v1.GET("telemetry/datas/current/keys/ws", controllers.TelemetryDataApi.ServeCurrentDataByKey)
 			v1.GET("ota/download/files/upgradePackage/:path/:file", controllers.OTAApi.DownloadOTAUpgradePackage)
 			// 获取系统时间
-			v1.GET("systime", controllers.SystemApi.GetSystime)
+			v1.GET("systime", controllers.SystemApi.HandleSystime)
 			// 查询系统功能设置
-			v1.GET("sys_function", controllers.SysFunctionApi.GetSysFcuntion)
+			v1.GET("sys_function", controllers.SysFunctionApi.HandleSysFcuntion)
 			// 租户邮箱注册
 			v1.POST("/tenant/email/register", controllers.UserApi.EmailRegister)
 			// 网关自动注册
@@ -62,6 +98,7 @@ func RouterInit() *gin.Engine {
 			// 网关子设备注册
 			v1.POST("/device/gateway-sub-register", controllers.DeviceApi.GatewaySubRegister)
 		}
+
 		// 需要权限校验
 		v1.Use(middleware.JWTAuth())
 
@@ -69,8 +106,7 @@ func RouterInit() *gin.Engine {
 		v1.Use(middleware.CasbinRBAC())
 		// SSE服务
 		SSERouter(v1)
-		// 记录操作日志
-		v1.Use(middleware.OperationLogs())
+
 		{
 			apps.Model.User.InitUser(v1) // 用户模块
 
@@ -79,8 +115,6 @@ func RouterInit() *gin.Engine {
 			apps.Model.Casbin.Init(v1) // 权限管理
 
 			apps.Model.Dict.InitDict(v1) // 字典模块
-
-			apps.Model.Product.InitProduct(v1) // 产品模块
 
 			apps.Model.OTA.InitOTA(v1) // OTA模块
 
@@ -126,11 +160,11 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.SysFunction.Init(v1) //功能设置
 
-			apps.Model.VisPlugin.Init(v1) // 可视化插件
-
 			apps.Model.ServicePlugin.Init(v1) // 插件管理
 
 			apps.Model.ExpectedData.InitExpectedData(v1)
+
+			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 		}
 	}
 

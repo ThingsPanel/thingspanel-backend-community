@@ -9,7 +9,7 @@ import (
 type Logo struct {
 }
 
-func (p *Logo) Init(Router *gin.RouterGroup) {
+func (*Logo) Init(Router *gin.RouterGroup) {
 	url := Router.Group("logo")
 	{
 		// 改

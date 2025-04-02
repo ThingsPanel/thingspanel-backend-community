@@ -2,18 +2,18 @@ package api
 
 import (
 	"fmt"
-	"net/http"
 	"project/internal/model"
-	"project/service"
-	"project/utils"
+	"project/internal/service"
+	"project/pkg/errcode"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AlarmApi struct{}
 
-// api/v1/alarm/config [post]
-func (a *AlarmApi) CreateAlarmConfig(c *gin.Context) {
+// /api/v1/alarm/config [post]
+func (*AlarmApi) CreateAlarmConfig(c *gin.Context) {
 	var req model.CreateAlarmConfigReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -22,31 +22,33 @@ func (a *AlarmApi) CreateAlarmConfig(c *gin.Context) {
 	req.TenantID = userClaims.TenantID
 	data, err := service.GroupApp.Alarm.CreateAlarmConfig(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
 
-	SuccessHandler(c, "Create successfully", data)
+	c.Set("data", data)
 }
 
-// api/v1/alarm/config/{id} [Delete]
-func (a *AlarmApi) DeleteAlarmConfig(c *gin.Context) {
+// /api/v1/alarm/config/{id} [Delete]
+func (*AlarmApi) DeleteAlarmConfig(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		ErrorHandler(c, http.StatusBadRequest, fmt.Errorf("id is required"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"err": fmt.Sprintf("id is %s", id),
+		}))
 		return
 	}
 
 	err := service.GroupApp.Alarm.DeleteAlarmConfig(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Delete successfully", nil)
+	c.Set("data", nil)
 }
 
-// api/v1/alarm/config [PUT]
-func (a *AlarmApi) UpdateAlarmConfig(c *gin.Context) {
+// /api/v1/alarm/config [PUT]
+func (*AlarmApi) UpdateAlarmConfig(c *gin.Context) {
 	var req model.UpdateAlarmConfigReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -55,14 +57,14 @@ func (a *AlarmApi) UpdateAlarmConfig(c *gin.Context) {
 	req.TenantID = &userClaims.TenantID
 	data, err := service.GroupApp.Alarm.UpdateAlarmConfig(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update successfully", data)
+	c.Set("data", data)
 }
 
-// api/v1/alarm/config [GET]
-func (a *AlarmApi) GetAlarmConfigListByPage(c *gin.Context) {
+// /api/v1/alarm/config [GET]
+func (*AlarmApi) ServeAlarmConfigListByPage(c *gin.Context) {
 	var req model.GetAlarmConfigListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -72,14 +74,14 @@ func (a *AlarmApi) GetAlarmConfigListByPage(c *gin.Context) {
 
 	data, err := service.GroupApp.Alarm.GetAlarmConfigListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", data)
+	c.Set("data", data)
 }
 
 // /api/v1/alarm/info [put]
-func (a *AlarmApi) UpdateAlarmInfo(c *gin.Context) {
+func (*AlarmApi) UpdateAlarmInfo(c *gin.Context) {
 	var req model.UpdateAlarmInfoReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -88,15 +90,15 @@ func (a *AlarmApi) UpdateAlarmInfo(c *gin.Context) {
 
 	data, err := service.GroupApp.Alarm.UpdateAlarmInfo(&req, userClaims.ID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update successfully", data)
+	c.Set("data", data)
 
 }
 
-// api/v1/alarm/info/batch [put]
-func (a *AlarmApi) BatchUpdateAlarmInfo(c *gin.Context) {
+// /api/v1/alarm/info/batch [put]
+func (*AlarmApi) BatchUpdateAlarmInfo(c *gin.Context) {
 	var req model.UpdateAlarmInfoBatchReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -105,13 +107,14 @@ func (a *AlarmApi) BatchUpdateAlarmInfo(c *gin.Context) {
 
 	err := service.GroupApp.Alarm.UpdateAlarmInfoBatch(&req, userClaims.ID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Update successfully", nil)
+	c.Set("data", nil)
 }
 
-func (a *AlarmApi) GetAlarmInfoListByPage(c *gin.Context) {
+// /api/v1/alarm/info [get]
+func (*AlarmApi) HandleAlarmInfoListByPage(c *gin.Context) {
 	var req model.GetAlarmInfoListByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -121,13 +124,14 @@ func (a *AlarmApi) GetAlarmInfoListByPage(c *gin.Context) {
 
 	data, err := service.GroupApp.Alarm.GetAlarmInfoListByPage(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", data)
+	c.Set("data", data)
 }
 
-func (a *AlarmApi) GetAlarmHisttoryListByPage(c *gin.Context) {
+// /api/v1/alarm/info/history [get]
+func (*AlarmApi) HandleAlarmHisttoryListByPage(c *gin.Context) {
 	//
 	var req model.GetAlarmHisttoryListByPage
 	if !BindAndValidate(c, &req) {
@@ -137,13 +141,14 @@ func (a *AlarmApi) GetAlarmHisttoryListByPage(c *gin.Context) {
 
 	data, err := service.GroupApp.Alarm.GetAlarmHisttoryListByPage(&req, userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", data)
+	c.Set("data", data)
 }
 
-func (a *AlarmApi) AlarmHistoryDescUpdate(c *gin.Context) {
+// /api/v1/alarm/info/history [put]
+func (*AlarmApi) AlarmHistoryDescUpdate(c *gin.Context) {
 	//
 	var req model.AlarmHistoryDescUpdateReq
 	if !BindAndValidate(c, &req) {
@@ -153,13 +158,13 @@ func (a *AlarmApi) AlarmHistoryDescUpdate(c *gin.Context) {
 
 	err := service.GroupApp.Alarm.AlarmHistoryDescUpdate(&req, userClaims.TenantID)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", nil)
+	c.Set("data", nil)
 }
 
-func (a *AlarmApi) GetDeviceAlarmStatus(c *gin.Context) {
+func (*AlarmApi) HandleDeviceAlarmStatus(c *gin.Context) {
 	//
 	var req model.GetDeviceAlarmStatusReq
 	if !BindAndValidate(c, &req) {
@@ -168,13 +173,13 @@ func (a *AlarmApi) GetDeviceAlarmStatus(c *gin.Context) {
 	//var userClaims = c.MustGet("claims").(*utils.UserClaims)
 
 	ok := service.GroupApp.Alarm.GetDeviceAlarmStatus(&req)
-
-	SuccessHandler(c, "Get successfully", map[string]bool{
+	c.Set("data", map[string]bool{
 		"alarm": ok,
 	})
 }
 
-func (a *AlarmApi) GetConfigByDevice(c *gin.Context) {
+// /api/v1/alarm/info/config/device [get]
+func (*AlarmApi) HandleConfigByDevice(c *gin.Context) {
 	//
 	var req model.GetDeviceAlarmStatusReq
 	if !BindAndValidate(c, &req) {
@@ -184,8 +189,27 @@ func (a *AlarmApi) GetConfigByDevice(c *gin.Context) {
 
 	list, err := service.GroupApp.Alarm.GetConfigByDevice(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "Get successfully", list)
+	c.Set("data", list)
+}
+
+// /api/v1/alarm/info/history/{id} [GET]
+func (*AlarmApi) HandleAlarmInfoHistory(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"err": fmt.Sprintf("id is %s", id),
+		}))
+		return
+	}
+
+	data, err := service.GroupApp.Alarm.GetAlarmInfoHistoryByID(id)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", data)
 }

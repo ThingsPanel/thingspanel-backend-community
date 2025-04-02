@@ -3,15 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	grpc_tptodb "project/grpc/tptodb_client"
+
 	"project/initialize"
+	"project/initialize/croninit"
+	"project/internal/app"
+	"project/internal/query"
 	"project/mqtt"
+	"project/mqtt/device"
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
-	"project/query"
+	grpc_tptodb "project/third_party/grpc/tptodb_client"
 	"time"
 
 	router "project/router"
@@ -23,19 +28,33 @@ import (
 func init() {
 	initialize.ViperInit("./configs/conf.yml")
 	//initialize.ViperInit("./configs/conf-localdev.yml")
-	initialize.RsaDecryptInit("./rsa_key/private_key.pem")
+	initialize.RsaDecryptInit("./configs/rsa_key/private_key.pem")
 	initialize.LogInIt()
-	db := initialize.PgInit()
-	initialize.RedisInit()
+	db, err := initialize.PgInit()
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	_, err = initialize.RedisInit()
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
 	query.SetDefault(db)
 
 	grpc_tptodb.GrpcTptodbInit()
 
-	mqtt.MqttInit()
-	subscribe.SubscribeInit()
+	err = mqtt.MqttInit()
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	go device.InitDeviceStatus()
+	err = subscribe.SubscribeInit()
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	publish.PublishInit()
 	//定时任务
-	//croninit.CronInit()
+	croninit.CronInit()
 }
 
 // @title           ThingsPanel API
@@ -48,6 +67,12 @@ func init() {
 // @in                          header
 // @name                        x-token
 func main() {
+	// 初始化服务管理器
+	manager := app.NewManager()
+	if err := manager.Start(); err != nil {
+		logrus.Fatalf("Failed to start services: %v", err)
+	}
+	defer manager.Stop()
 	// gin.SetMode(gin.ReleaseMode)
 
 	// TODO: 替换gin默认日志，默认日志不支持日志级别设置
@@ -81,7 +106,7 @@ func loadConfig() (host, port string) {
 
 func initServer(host, port string, handler http.Handler) *http.Server {
 	return &http.Server{
-		Addr:         fmt.Sprintf("%s:%s", host, port),
+		Addr:         net.JoinHostPort(host, port),
 		Handler:      handler,
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
@@ -119,7 +144,7 @@ func successInfo() {
 	fmt.Println("        TingsPanel 启动成功!")
 	fmt.Println("----------------------------------------")
 	fmt.Printf("启动时间: %s\n", startTime)
-	fmt.Println("版本: v1.1.2社区版")
+	fmt.Println("版本: v1.1.5社区版")
 	fmt.Println("----------------------------------------")
 	fmt.Println("欢迎使用 TingsPanel！")
 	fmt.Println("如需帮助，请访问: http://thingspanel.io")

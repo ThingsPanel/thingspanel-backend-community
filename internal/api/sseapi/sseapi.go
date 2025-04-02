@@ -1,11 +1,9 @@
 package sseapi
 
 import (
-	"fmt"
-	"net/http"
-	"project/global"
-	"project/internal/api"
-	"project/utils"
+	"project/pkg/errcode"
+	"project/pkg/global"
+	"project/pkg/utils"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,10 +14,12 @@ type SSEApi struct{}
 
 // api/v1/events
 
-func (s *SSEApi) GetSystemEvents(c *gin.Context) {
+func (*SSEApi) HandleSystemEvents(c *gin.Context) {
 	userClaims, ok := c.MustGet("claims").(*utils.UserClaims)
 	if !ok {
-		api.ErrorHandler(c, http.StatusUnauthorized, fmt.Errorf("unauthorized"))
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "UserClaims not found",
+		}))
 		return
 	}
 

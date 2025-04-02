@@ -2,15 +2,14 @@ package test
 
 import (
 	"context"
-	"project/dal"
 	"project/initialize"
+	"project/internal/dal"
 	"project/internal/model"
+	"project/internal/query"
 	"project/mqtt"
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
-	"project/query"
 	"testing"
-	"time"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
@@ -19,17 +18,23 @@ import (
 func init() {
 	initialize.ViperInit("../configs/conf.yml")
 	initialize.LogInIt()
-	db := initialize.PgInit()
+	db, err := initialize.PgInit()
+	if err != nil {
+		logrus.Error(err)
+	}
 	initialize.RedisInit()
 	query.SetDefault(db)
 
 	mqtt.MqttInit()
-	subscribe.SubscribeInit()
+	err = subscribe.SubscribeInit()
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	publish.PublishInit()
 }
 
 func getDeviceInfo() *model.Device {
-	result, _ := dal.GetDeviceById("6c21e49c-d0dc-7315-bd5c-5702ad789936")
+	result, _ := dal.GetDeviceCacheById("6c21e49c-d0dc-7315-bd5c-5702ad789936")
 	return result
 }
 func TestCommandSend(T *testing.T) {
@@ -104,59 +109,6 @@ func TestTelemetrySend(T *testing.T) {
 	if err != nil {
 		T.Error(err)
 	}
-}
-
-func TestTelemetrySubscribeSend(T *testing.T) {
-	//遥测数据
-	// {
-	// 	"gateway_data": {
-	// 	  "result": 1,
-	// 	  "errcode": "",
-	// 	  "message": "success",
-	// 	  "ts": 0,
-	// 	  "method": "action"
-	// 	},
-	// 	"sub_device_data": {
-	// 	  "3333333333":{
-	// 		"result": 1,
-	// 		"errcode": "",
-	// 		"message": "success",
-	// 		"ts": 0,
-	// 		"method": "action"
-	// 	  }
-	// 	}
-	//   }
-	//事件上报
-	// {
-	// 	"gateway_data": {
-	// 	  "method": "action",
-	// 	  "params": {
-	// 		"123": "2323"
-	// 	  }
-	// 	},
-	// 	"sub_device_data": {
-	// 	  "3333333333": {
-	// 		"method": "action",
-	// 		"params": {
-	// 		  "123": "2323"
-	// 		}
-	// 	  }
-	// 	}
-	//   }
-	//属性上报 gateway/attributes/32323/1234
-	// {
-	// 	"gateway_data":{
-	// 		"ip":"127.0.0.1",
-	// 		"version":"v0.1"
-	// 	},
-	// 	"sub_device_data":{
-	// 		"3333333333":{
-	// 			"ip":"127.0.0.1",
-	// 			"version":"v0.1"
-	// 		}
-	// 	}
-	// }
-	time.Sleep(5 * time.Minute)
 }
 
 func TestAttributeGet(T *testing.T) {

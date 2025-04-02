@@ -1,3 +1,5 @@
+[![DeepSource](https://deepsource.io/gh/ThingsPanel/thingspanel-backend-community.svg/?label=active+issues)](https://deepsource.io/gh/ThingsPanel/thingspanel-backend-community/)
+
 English | [中文](./README_ZH.md)
 # ThingsPanel
 ThingsPanel is a **lightweight, componentized** open-source IoT application support platform, designed to reduce development efforts and accelerate IoT project construction through reusable plugins.

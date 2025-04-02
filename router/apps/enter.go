@@ -5,7 +5,6 @@ type apps struct {
 	Role                       // 角色管理
 	Casbin                     // 权限
 	Dict                       // 字典模块
-	Product                    // 产品
 	OTA                        // OTA
 	UpLoad                     // 文件上传
 	ProtocolPlugin             // 协议插件
@@ -28,9 +27,9 @@ type apps struct {
 	SceneAutomations
 	Scene
 	SysFunction
-	VisPlugin     // 可视化插件
 	ServicePlugin // 插件管理
 	ExpectedData  // 预期数据
+	OpenAPIKey    // openAPI
 
 }
 

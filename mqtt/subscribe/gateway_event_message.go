@@ -2,7 +2,7 @@ package subscribe
 
 import (
 	"encoding/json"
-	dal "project/dal"
+	dal "project/internal/dal"
 	"project/internal/model"
 	"strings"
 
@@ -12,8 +12,8 @@ import (
 
 // 平台订阅网关事件处理
 // @description GatewayEventCallback
-// @param payload []byte
-// @param topic string
+// param payload []byte
+// param topic string
 // @return messageId string, gatewayDeive *model.Device, respon model.GatewayResponse, err error
 // 订阅topic gateway/event/{message_id}
 func GatewayEventCallback(payload []byte, topic string) (string, *model.Device, model.GatewayResponse, error) {
@@ -34,9 +34,9 @@ func GatewayEventCallback(payload []byte, topic string) (string, *model.Device, 
 	if err := json.Unmarshal(attributePayload.Values, payloads); err != nil {
 		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayEventCallback][verifyPayload2]fail")
 	}
-	deviceInfo, err := dal.GetDeviceById(attributePayload.DeviceId)
+	deviceInfo, err := dal.GetDeviceCacheById(attributePayload.DeviceId)
 	if err != nil {
-		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayEventCallback][GetDeviceById]fail")
+		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayEventCallback][GetDeviceCacheById]fail")
 	}
 
 	if payloads.GatewayData != nil {

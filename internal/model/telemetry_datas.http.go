@@ -23,6 +23,8 @@ type GetTelemetryHistoryDataByPageReq struct {
 	StartTime   int64  `json:"start_time" form:"start_time" validate:"required"`
 	EndTime     int64  `json:"end_time" form:"end_time"  validate:"required"`
 	ExportExcel *bool  `json:"export_excel" form:"export_excel" validate:"omitempty"`
+	Page        *int   `json:"page" form:"page" validate:"omitempty"`
+	PageSize    *int   `json:"page_size" form:"page_size" validate:"omitempty"`
 }
 
 type GetTelemetrySetLogsListByPageReq struct {
@@ -37,7 +39,7 @@ type SimulationTelemetryDataReq struct {
 	Command string `json:"command" form:"command" validate:"required,max=500"` // mosquitto_pub 命令
 }
 
-type GetEchoDataReq struct {
+type ServeEchoDataReq struct {
 	DeviceId string `json:"device_id" form:"device_id" validate:"required,max=36"` // 设备ID
 }
 

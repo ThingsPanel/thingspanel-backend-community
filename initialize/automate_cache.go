@@ -1,18 +1,19 @@
 package initialize
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	global "project/global"
 	"project/initialize/automatecache"
 	"project/internal/model"
+	global "project/pkg/global"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/redis.v5"
 )
 
 const (
@@ -95,10 +96,10 @@ func (c *AutomateCache) set(key string, value interface{}, expiration time.Durat
 		}
 		valueStr = string(valBytes)
 	}
-	return c.client.Set(key, valueStr, expiration).Err()
+	return c.client.Set(context.Background(), key, valueStr, expiration).Err()
 }
 
-func (c *AutomateCache) scan(stringCmd *redis.StringCmd, val interface{}) (int, error) {
+func (*AutomateCache) scan(stringCmd *redis.StringCmd, val interface{}) (int, error) {
 	str, err := stringCmd.Result()
 	if err == redis.Nil {
 		return AUTOMATE_CACHE_RESULT_NOT_FOUND, nil
@@ -118,13 +119,13 @@ func (c *AutomateCache) scan(stringCmd *redis.StringCmd, val interface{}) (int, 
 func (c *AutomateCache) DeleteCacheBySceneAutomationId(sceneAutomationId string) error {
 	//删除单类设置缓存
 	c.device = automatecache.NewMultipleDeviceCache()
-	err := c.deleteCacheBySceneAutomationId(sceneAutomationId)
+	err := c.deleteCacheBySceneAutId(sceneAutomationId)
 	if err != nil {
 		return err
 	}
 	//删除单一设备缓存
 	c.device = automatecache.NewOneDeviceCache()
-	err = c.deleteCacheBySceneAutomationId(sceneAutomationId)
+	err = c.deleteCacheBySceneAutId(sceneAutomationId)
 	if err != nil {
 		return err
 	}
@@ -135,7 +136,7 @@ func (c *AutomateCache) DeleteCacheBySceneAutomationId(sceneAutomationId string)
 // @description  根据联动场景id删除缓存
 // @params sceneAutomationId string
 // @return error
-func (c *AutomateCache) deleteCacheBySceneAutomationId(sceneAutomationId string) error {
+func (c *AutomateCache) deleteCacheBySceneAutId(sceneAutomationId string) error {
 	//1 先查询出动作缓存
 	var (
 		action         AutomateActionInfo
@@ -143,7 +144,7 @@ func (c *AutomateCache) deleteCacheBySceneAutomationId(sceneAutomationId string)
 		deviceIds      []string
 	)
 	actionCacheKey := c.getAutomateCacheKeyAction(sceneAutomationId)
-	resultInt, err := c.scan(c.client.Get(actionCacheKey), &action)
+	resultInt, err := c.scan(c.client.Get(context.Background(), actionCacheKey), &action)
 	if err != nil {
 		return err
 	}
@@ -162,7 +163,7 @@ func (c *AutomateCache) deleteCacheBySceneAutomationId(sceneAutomationId string)
 			groupInfos    DTConditions
 		)
 		deleteCacheKes = append(deleteCacheKes, groupCacheKey)
-		err := c.client.Get(groupCacheKey).Scan(&groupInfos)
+		err := c.client.Get(context.Background(), groupCacheKey).Scan(&groupInfos)
 		if err != nil {
 			continue
 		}
@@ -178,7 +179,7 @@ func (c *AutomateCache) deleteCacheBySceneAutomationId(sceneAutomationId string)
 		return err
 	}
 	//4 删除缓存
-	return c.client.Del(deleteCacheKes...).Err()
+	return c.client.Del(context.Background(), deleteCacheKes...).Err()
 }
 
 // automateDeviceCacheDeleteHandel
@@ -194,7 +195,7 @@ func (c *AutomateCache) automateDeviceCacheDeleteHandel(sceneAutomationId string
 			//baseCacheKey        = getCachekey(deviceId)
 			automateDeviceInfos AutomateDeviceInfos
 		)
-		err := c.client.Get(baseCacheKey).Scan(&automateDeviceInfos)
+		err := c.client.Get(context.Background(), baseCacheKey).Scan(&automateDeviceInfos)
 		if err != nil {
 			continue
 		}
@@ -227,13 +228,13 @@ func (c *AutomateCache) SetCacheBySceneAutomationId(sceneAutomationId string, co
 
 	//单类设备缓存设置
 	c.device = automatecache.NewMultipleDeviceCache()
-	err := c.setCacheBySceneAutomationId(sceneAutomationId, conditions, actions)
+	err := c.setCacheBySceneAutId(sceneAutomationId, conditions, actions)
 	if err != nil {
 		return err
 	}
 	//单一设备缓存设置
 	c.device = automatecache.NewOneDeviceCache()
-	err = c.setCacheBySceneAutomationId(sceneAutomationId, conditions, actions)
+	err = c.setCacheBySceneAutId(sceneAutomationId, conditions, actions)
 	if err != nil {
 		return err
 	}
@@ -246,7 +247,7 @@ func (c *AutomateCache) SetCacheBySceneAutomationId(sceneAutomationId string, co
 // @params contions []model.DeviceTriggerCondition
 // @params actions []model.ActionInfo
 // @return error
-func (c *AutomateCache) setCacheBySceneAutomationId(sceneAutomationId string, conditions []model.DeviceTriggerCondition, actions []model.ActionInfo) error {
+func (c *AutomateCache) setCacheBySceneAutId(sceneAutomationId string, conditions []model.DeviceTriggerCondition, actions []model.ActionInfo) error {
 	automateDeviceInfo := AutomateDeviceInfo{
 		SceneAutomationId: sceneAutomationId,
 	}
@@ -300,7 +301,7 @@ func (c *AutomateCache) setCacheBySceneAutomationId(sceneAutomationId string, co
 	for deviceId := range deviceIdsMap {
 		var automateDeviceInfos AutomateDeviceInfos
 		var deviceCacheKey = c.getAutomateCacheKeyBase(deviceId)
-		_, err = c.scan(c.client.Get(deviceCacheKey), &automateDeviceInfos)
+		_, err = c.scan(c.client.Get(context.Background(), deviceCacheKey), &automateDeviceInfos)
 		if err != nil {
 			continue
 		}
@@ -326,14 +327,14 @@ func (c *AutomateCache) GetCacheByDeviceId(deviceId, deviceConfigId string) (Aut
 		c.SetDeviceType(automatecache.NewMultipleDeviceCache())
 		deviceCacheKey = c.getAutomateCacheKeyBase(deviceConfigId)
 	}
-	return c.getCacheByDeviceId(deviceId, deviceConfigId, deviceCacheKey)
+	return c.getCacheByDId(deviceId, deviceConfigId, deviceCacheKey)
 }
 
 // getCacheByDeviceId
 // @description  设备遥测获取缓存联动信息
 // @params deviceId string 1无数据 2无自动化任务 3有任务
 // @return AutomateExecteParams error
-func (c *AutomateCache) getCacheByDeviceId(deviceId, deviceConfigId, deviceCacheKey string) (AutomateExecteParams, int, error) {
+func (c *AutomateCache) getCacheByDId(deviceId, deviceConfigId, deviceCacheKey string) (AutomateExecteParams, int, error) {
 	var (
 		automateDeviceInfos   = make(AutomateDeviceInfos, 0)
 		automateExecuteParams = AutomateExecteParams{
@@ -342,7 +343,7 @@ func (c *AutomateCache) getCacheByDeviceId(deviceId, deviceConfigId, deviceCache
 		}
 		resultInt int
 	)
-	stringCmd := c.client.Get(deviceCacheKey)
+	stringCmd := c.client.Get(context.Background(), deviceCacheKey)
 	resultInt, err := c.scan(stringCmd, &automateDeviceInfos)
 	if err != nil || resultInt != AUTOMATE_CACHE_RESULT_OK {
 		return automateExecuteParams, resultInt, err
@@ -357,7 +358,7 @@ func (c *AutomateCache) getCacheByDeviceId(deviceId, deviceConfigId, deviceCache
 				groupCacheKey = c.getAutomateCacheKeyGroup(groupId)
 				condition     DTConditions
 			)
-			err := c.client.Get(groupCacheKey).Scan(&condition)
+			err := c.client.Get(context.Background(), groupCacheKey).Scan(&condition)
 			if err != nil {
 				logrus.Warning("redis未查询到数据1", err)
 				continue
@@ -368,7 +369,7 @@ func (c *AutomateCache) getCacheByDeviceId(deviceId, deviceConfigId, deviceCache
 			actionInfo     AutomateActionInfo
 			actionCacheKey = c.getAutomateCacheKeyAction(info.SceneAutomationId)
 		)
-		err := c.client.Get(actionCacheKey).Scan(&actionInfo)
+		err := c.client.Get(context.Background(), actionCacheKey).Scan(&actionInfo)
 		if err != nil {
 			logrus.Warning("redis未查询到数据", err)
 			continue
@@ -393,7 +394,7 @@ func (c *AutomateCache) SetCacheByDeviceId(deviceId, deviceConfigId string, cond
 		c.device = automatecache.NewMultipleDeviceCache()
 	}
 
-	return c.setCacheByDeviceId(deviceId, deviceConfigId, conditions, actions)
+	return c.setCache(deviceId, deviceConfigId, conditions, actions)
 }
 
 // @description setCacheByDeviceId 保存设备务缓存
@@ -402,7 +403,7 @@ func (c *AutomateCache) SetCacheByDeviceId(deviceId, deviceConfigId string, cond
 // @params conditions []model.DeviceTriggerCondition
 // @params actions []model.ActionInfo
 // @return AutomateExecteParams error
-func (c *AutomateCache) setCacheByDeviceId(deviceId, deviceConfigId string, conditions []model.DeviceTriggerCondition, actions []model.ActionInfo) error {
+func (c *AutomateCache) setCache(deviceId, deviceConfigId string, conditions []model.DeviceTriggerCondition, actions []model.ActionInfo) error {
 	var (
 		groupInfosMap  = make(map[string][]model.DeviceTriggerCondition)
 		deviceInfosMap = make(map[string]map[string]bool)

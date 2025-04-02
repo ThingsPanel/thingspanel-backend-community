@@ -1,3 +1,38 @@
+# ThingsPanel 社区版代码同步到企业版工作流
+#
+# 功能说明:
+# 将社区版代码同步到企业版仓库的 thingspanel-backend-community 分支
+#
+# 触发方式:
+# - 手动触发: 通过 GitHub Actions 页面手动触发同步
+#
+# 同步流程:
+# 1. 检出企业版仓库
+#   - 切换到 thingspanel-backend-community 分支
+#   - 如果分支不存在则创建
+#   - 清理分支上的所有文件
+#
+# 2. 检出社区版仓库
+#   - 获取最新的社区版代码
+#
+# 3. 代码同步
+#   - 使用 rsync 将社区版代码复制到企业版仓库
+#   - 排除 .git 和 .github 目录
+#
+# 4. 提交更新
+#   - 配置 Git 用户信息为 github-actions[bot]
+#   - 提交并推送更改到企业版仓库
+#
+# 必需的 Secrets:
+# - ACCESS_TOKEN: GitHub 访问令牌，需要有两个仓库的访问权限
+#
+# 注意事项:
+# 1. 确保 ACCESS_TOKEN 有足够的权限访问两个仓库
+# 2. 同步会覆盖目标分支上的所有文件
+# 3. 不会同步 .git 和 .github 目录的内容
+# 4. 建议在社区版代码稳定后再进行同步
+# 5. 同步后请检查企业版的 thingspanel-backend-community 分支确保同步成功
+
 name: push-to-enterprise
 
 on:

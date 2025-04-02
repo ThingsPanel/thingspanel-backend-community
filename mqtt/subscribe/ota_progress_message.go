@@ -3,7 +3,7 @@ package subscribe
 import (
 	"encoding/json"
 	initialize "project/initialize"
-	"project/query"
+	"project/internal/query"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
@@ -18,7 +18,7 @@ type DeviceProgressMsg struct {
 }
 
 // 接收OTA升级进度消息
-func OtaUpgrade(payload []byte, topic string) {
+func OtaUpgrade(payload []byte, _ string) {
 	/*
 		消息规范：topic:ota/devices/progress
 				 payload是json格式的消息
@@ -36,7 +36,7 @@ func OtaUpgrade(payload []byte, topic string) {
 	}
 
 	// 处理消息
-	device, err := initialize.GetDeviceById(progressMsgPayload.DeviceId)
+	device, err := initialize.GetDeviceCacheById(progressMsgPayload.DeviceId)
 	if err != nil {
 		logrus.Error(err.Error())
 		return

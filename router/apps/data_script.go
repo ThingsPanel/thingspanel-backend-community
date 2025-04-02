@@ -9,7 +9,7 @@ import (
 type DataScript struct {
 }
 
-func (p *DataScript) Init(Router *gin.RouterGroup) {
+func (*DataScript) Init(Router *gin.RouterGroup) {
 	url := Router.Group("data_script")
 	{
 		// 增
@@ -22,7 +22,7 @@ func (p *DataScript) Init(Router *gin.RouterGroup) {
 		url.PUT("", api.Controllers.DataScriptApi.UpdateDataScript)
 
 		// 查
-		url.GET("", api.Controllers.DataScriptApi.GetDataScriptListByPage)
+		url.GET("", api.Controllers.DataScriptApi.HandleDataScriptListByPage)
 
 		// 调试
 		url.POST("quiz", api.Controllers.DataScriptApi.QuizDataScript)

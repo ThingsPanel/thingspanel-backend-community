@@ -1,10 +1,9 @@
 package api
 
 import (
-	"net/http"
 	"project/internal/model"
-	"project/service"
-	"project/utils"
+	"project/internal/service"
+	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -12,7 +11,8 @@ import (
 
 type ServiceAccessApi struct{}
 
-func (api *ServiceAccessApi) Create(c *gin.Context) {
+// /api/v1/service/access [post]
+func (*ServiceAccessApi) Create(c *gin.Context) {
 	var req model.CreateAccessReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -20,14 +20,14 @@ func (api *ServiceAccessApi) Create(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	resp, err := service.GroupApp.ServiceAccess.CreateAccess(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "create service successfully", resp)
+	c.Set("data", resp)
 }
 
 // /api/v1/service/access/list
-func (api *ServiceAccessApi) GetList(c *gin.Context) {
+func (*ServiceAccessApi) HandleList(c *gin.Context) {
 	var req model.GetServiceAccessByPageReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -35,54 +35,55 @@ func (api *ServiceAccessApi) GetList(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	resp, err := service.GroupApp.ServiceAccess.List(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get service access list successfully", resp)
+	c.Set("data", resp)
 }
 
-// /api/v1/service/access
-func (api *ServiceAccessApi) Update(c *gin.Context) {
+// /api/v1/service/access [put]
+func (*ServiceAccessApi) Update(c *gin.Context) {
 	var req model.UpdateAccessReq
 	if !BindAndValidate(c, &req) {
 		return
 	}
 	err := service.GroupApp.ServiceAccess.Update(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "update service access successfully", map[string]interface{}{})
+	c.Set("data", nil)
 }
 
-func (api *ServiceAccessApi) Delete(c *gin.Context) {
+// /api/v1/service/access/:id [delete]
+func (*ServiceAccessApi) Delete(c *gin.Context) {
 	id := c.Param("id")
 	err := service.GroupApp.ServiceAccess.Delete(id)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "delete service access successfully", map[string]interface{}{})
+	c.Set("data", nil)
 }
 
-// /api/v1/service/access/voucher/form
+// /api/v1/service/access/voucher/form [get]
 // 服务接入点凭证表单查询
-func (api *ServiceAccessApi) GetVoucherForm(c *gin.Context) {
+func (*ServiceAccessApi) HandleVoucherForm(c *gin.Context) {
 	var req model.GetServiceAccessVoucherFormReq
 	if !BindAndValidate(c, &req) {
 		return
 	}
 	resp, err := service.GroupApp.ServiceAccess.GetVoucherForm(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get service access config form successfully", resp)
+	c.Set("data", resp)
 }
 
 // /api/v1/service/access/device/list
 // 三方服务设备列表查询
-func (api *ServiceAccessApi) GetDeviceList(c *gin.Context) {
+func (*ServiceAccessApi) HandleDeviceList(c *gin.Context) {
 	var req model.ServiceAccessDeviceListReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -90,15 +91,15 @@ func (api *ServiceAccessApi) GetDeviceList(c *gin.Context) {
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	resp, err := service.GroupApp.ServiceAccess.GetServiceAccessDeviceList(&req, userClaims)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get device list successfully", resp)
+	c.Set("data", resp)
 }
 
 // /api/v1/plugin/service/access/list
 // 服务接入点插件列表查询
-func (api *ServiceAccessApi) GetPluginServiceAccessList(c *gin.Context) {
+func (*ServiceAccessApi) HandlePluginServiceAccessList(c *gin.Context) {
 	logrus.Info("get plugin list")
 	var req model.GetPluginServiceAccessListReq
 	if !BindAndValidate(c, &req) {
@@ -106,22 +107,22 @@ func (api *ServiceAccessApi) GetPluginServiceAccessList(c *gin.Context) {
 	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccessList(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get plugin list successfully", resp)
+	c.Set("data", resp)
 }
 
 // /api/v1/pugin/service/access
-func (api *ServiceAccessApi) GetPluginServiceAccess(c *gin.Context) {
+func (*ServiceAccessApi) HandlePluginServiceAccess(c *gin.Context) {
 	var req model.GetPluginServiceAccessReq
 	if !BindAndValidate(c, &req) {
 		return
 	}
 	resp, err := service.GroupApp.ServiceAccess.GetPluginServiceAccess(&req)
 	if err != nil {
-		ErrorHandler(c, http.StatusInternalServerError, err)
+		c.Error(err)
 		return
 	}
-	SuccessHandler(c, "get plugin list successfully", resp)
+	c.Set("data", resp)
 }

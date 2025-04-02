@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>System Metrics Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .title {
+            margin: 0;
+            color: #333;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: #1677ff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn:hover {
+            background: #4096ff;
+        }
+
+        .btn.active {
+            background: #0958d9;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #666;
+            margin-left: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart {
+            height: 300px;
+            margin-top: 10px;
+        }
+
+        .card-title {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">系统监控面板</h1>
+            <div class="controls">
+                <button class="btn" onclick="refreshData()">刷新</button>
+                <button class="btn" id="autoRefreshBtn" onclick="toggleAutoRefresh()">自动刷新</button>
+                <span class="status">最后更新: <span id="lastUpdate">-</span></span>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- 系统资源监控 -->
+            <div class="card">
+                <h2 class="card-title">内存使用</h2>
+                <div id="memoryChart" class="chart"></div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">CPU 使用率 & Goroutines</h2>
+                <div id="cpuChart" class="chart"></div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">API 请求统计</h2>
+                <div id="apiRequestChart" class="chart"></div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">API 延迟分布</h2>
+                <div id="apiLatencyChart" class="chart"></div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">错误统计 (总览)</h2>
+                <div id="errorOverviewChart" class="chart"></div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">GC 信息</h2>
+                <div id="gcChart" class="chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const charts = {};
+        let autoRefreshInterval = null;
+
+        // 初始化所有图表
+        function initCharts() {
+            // 初始化内存图表
+            charts.memory = echarts.init(document.getElementById('memoryChart'));
+            const memoryOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function (params) {
+                        return params.map(param =>
+                            `${param.seriesName}: ${(param.value / (1024 * 1024)).toFixed(2)} MB`
+                        ).join('<br>');
+                    }
+                },
+                legend: {
+                    data: ['使用中', '已分配']
+                },
+                xAxis: {
+                    type: 'category',
+                    data: []
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '内存 (MB)',
+                    axisLabel: {
+                        formatter: (value) => (value / (1024 * 1024)).toFixed(0)
+                    }
+                },
+                series: [
+                    {
+                        name: '使用中',
+                        type: 'line',
+                        data: [],
+                        smooth: true,
+                        areaStyle: { opacity: 0.1 }
+                    },
+                    {
+                        name: '已分配',
+                        type: 'line',
+                        data: [],
+                        smooth: true,
+                        areaStyle: { opacity: 0.1 }
+                    }
+                ]
+            };
+            charts.memory.setOption(memoryOption);
+
+            // 初始化CPU图表
+            charts.cpu = echarts.init(document.getElementById('cpuChart'));
+            const cpuOption = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['CPU使用率', 'Goroutines']
+                },
+                xAxis: {
+                    type: 'category',
+                    data: []
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: 'CPU %',
+                        max: 100
+                    },
+                    {
+                        type: 'value',
+                        name: 'Goroutines'
+                    }
+                ],
+                series: [
+                    {
+                        name: 'CPU使用率',
+                        type: 'line',
+                        data: [],
+                        smooth: true
+                    },
+                    {
+                        name: 'Goroutines',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: [],
+                        smooth: true
+                    }
+                ]
+            };
+            charts.cpu.setOption(cpuOption);
+
+            // 初始化API请求图表
+            charts.apiRequest = echarts.init(document.getElementById('apiRequestChart'));
+            const apiRequestOption = {
+                tooltip: {
+                    trigger: 'axis'
+                },
+                legend: {
+                    data: ['总请求数', '错误数']
+                },
+                xAxis: {
+                    type: 'category',
+                    data: []
+                },
+                yAxis: {
+                    type: 'value'
+                },
+                series: [
+                    {
+                        name: '总请求数',
+                        type: 'bar',
+                        data: []
+                    },
+                    {
+                        name: '错误数',
+                        type: 'bar',
+                        data: []
+                    }
+                ]
+            };
+            charts.apiRequest.setOption(apiRequestOption);
+
+            // 初始化API延迟图表
+            charts.apiLatency = echarts.init(document.getElementById('apiLatencyChart'));
+            const apiLatencyOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: '{b}: {c}s' // 显示路径和延迟时间
+                },
+                xAxis: {
+                    type: 'category',
+                    data: [] // API 路径
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '延迟 (秒)'
+                },
+                series: [
+                    {
+                        type: 'bar',
+                        data: [] // 延迟时间数据
+                    }
+                ]
+            };
+            charts.apiLatency.setOption(apiLatencyOption);
+
+            // 初始化 GC 图表
+            charts.gc = echarts.init(document.getElementById('gcChart'));
+            const gcOption = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'cross'
+                    },
+                    formatter: function (params) {
+                        const pauseTime = params[0] ? `暂停时间: ${params[0].value.toFixed(3)}s` : '';
+                        const runs = params[1] ? `运行次数: ${params[1].value}` : '';
+                        return params[0].axisValue + '<br/>' + pauseTime + '<br/>' + runs;
+                    }
+                },
+                legend: {
+                    data: ['GC暂停时间', 'GC运行次数']
+                },
+                xAxis: {
+                    type: 'category',
+                    data: []
+                },
+                yAxis: [
+                    {
+                        type: 'value',
+                        name: '暂停时间(秒)',
+                        position: 'left',
+                        axisLabel: {
+                            formatter: '{value}s'
+                        }
+                    },
+                    {
+                        type: 'value',
+                        name: 'GC次数',
+                        position: 'right'
+                    }
+                ],
+                series: [
+                    {
+                        name: 'GC暂停时间',
+                        type: 'line',
+                        smooth: true,
+                        data: [],
+                        yAxisIndex: 0
+                    },
+                    {
+                        name: 'GC运行次数',
+                        type: 'line',
+                        smooth: true,
+                        data: [],
+                        yAxisIndex: 1
+                    }
+                ]
+            };
+            charts.gc.setOption(gcOption);
+
+            // 监听窗口大小变化
+            window.addEventListener('resize', function () {
+                Object.values(charts).forEach(chart => chart.resize());
+            });
+        }
+
+        // 在 initCharts 函数中添加
+        charts.errorOverview = echarts.init(document.getElementById('errorOverviewChart'));
+        const errorOverviewOption = {
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'shadow'
+                }
+            },
+            legend: {
+                data: ['API错误', '业务错误', '严重错误'],
+                top: 25
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '3%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'value',
+                name: '错误数'
+            },
+            yAxis: {
+                type: 'category',
+                data: []  // 将在更新时填充模块名称
+            },
+            series: [
+                {
+                    name: 'API错误',
+                    type: 'bar',
+                    stack: 'total',
+                    label: {
+                        show: true
+                    },
+                    emphasis: {
+                        focus: 'series'
+                    },
+                    data: []
+                },
+                {
+                    name: '业务错误',
+                    type: 'bar',
+                    stack: 'total',
+                    label: {
+                        show: true
+                    },
+                    emphasis: {
+                        focus: 'series'
+                    },
+                    data: []
+                },
+                {
+                    name: '严重错误',
+                    type: 'bar',
+                    stack: 'total',
+                    label: {
+                        show: true
+                    },
+                    emphasis: {
+                        focus: 'series'
+                    },
+                    data: []
+                }
+            ]
+        };
+        charts.errorOverview.setOption(errorOverviewOption);
+
+        // 更新图表数据
+        function updateCharts(metrics) {
+            const timestamp = new Date().toLocaleTimeString();
+
+            // 1. 更新内存图表
+            const memoryOpt = charts.memory.getOption();
+            const memoryUsage = metrics.find(m => m.name === 'ThingsPanel_memory_usage_bytes')?.value || 0;
+            const memoryAllocated = metrics.find(m => m.name === 'ThingsPanel_memory_allocated_bytes')?.value || 0;
+
+            memoryOpt.xAxis[0].data.push(timestamp);
+            memoryOpt.series[0].data.push(memoryUsage);
+            memoryOpt.series[1].data.push(memoryAllocated);
+
+            if (memoryOpt.xAxis[0].data.length > 30) {
+                memoryOpt.xAxis[0].data.shift();
+                memoryOpt.series[0].data.shift();
+                memoryOpt.series[1].data.shift();
+            }
+
+            charts.memory.setOption(memoryOpt);
+
+            // 2. 更新CPU和Goroutines图表
+            const cpuOpt = charts.cpu.getOption();
+            const cpuUsage = metrics.find(m => m.name === 'ThingsPanel_cpu_usage_percent')?.value || 0;
+            const goroutines = metrics.find(m => m.name === 'ThingsPanel_goroutines_total')?.value || 0;
+
+            cpuOpt.xAxis[0].data.push(timestamp);
+            cpuOpt.series[0].data.push(cpuUsage);
+            cpuOpt.series[1].data.push(goroutines);
+
+            if (cpuOpt.xAxis[0].data.length > 30) {
+                cpuOpt.xAxis[0].data.shift();
+                cpuOpt.series[0].data.shift();
+                cpuOpt.series[1].data.shift();
+            }
+
+            charts.cpu.setOption(cpuOpt);
+
+            // 3. 更新API请求图表
+            const apiRequestsData = metrics
+                .filter(m => m.name === 'ThingsPanel_api_requests_total')
+                .map(m => ({
+                    name: `${m.labels.path} (${m.labels.method})`,
+                    value: m.value
+                }));
+
+            charts.apiRequest.setOption({
+                xAxis: {
+                    data: apiRequestsData.map(d => d.name)
+                },
+                series: [{
+                    name: '总请求数',
+                    data: apiRequestsData.map(d => d.value)
+                }]
+            });
+
+            // 4. 更新API延迟图表
+            const apiLatencyData = metrics
+                .filter(m => m.name === 'ThingsPanel_api_latency_seconds_sum')
+                .map(m => ({
+                    name: m.labels.path,
+                    value: m.value
+                }));
+
+            if (apiLatencyData.length > 0) {
+                charts.apiLatency.setOption({
+                    xAxis: {
+                        data: apiLatencyData.map(d => d.name)
+                    },
+                    series: [{
+                        data: apiLatencyData.map(d => Number(d.value.toFixed(3)))
+                    }]
+                });
+            }
+
+            // 更新 GC 图表
+            const gcOpt = charts.gc.getOption();
+            const gcPause = metrics.find(m => m.name === 'ThingsPanel_gc_pause_total_seconds')?.value || 0;
+            const gcRuns = metrics.find(m => m.name === 'ThingsPanel_gc_runs_total')?.value || 0;
+
+            gcOpt.xAxis[0].data.push(timestamp);
+            gcOpt.series[0].data.push(parseFloat(gcPause.toFixed(3)));
+            gcOpt.series[1].data.push(gcRuns);
+
+            // 限制数据点数量
+            const maxPoints = 30;
+            if (gcOpt.xAxis[0].data.length > maxPoints) {
+                gcOpt.xAxis[0].data.shift();
+                gcOpt.series[0].data.shift();
+                gcOpt.series[1].data.shift();
+            }
+
+            charts.gc.setOption(gcOpt);
+
+            updateErrorOverviewChart(metrics);
+
+            // 更新最后更新时间
+            document.getElementById('lastUpdate').textContent = timestamp;
+        }
+
+        // 解析 Prometheus 格式的指标数据
+        function parseMetrics(metricsText) {
+            const metrics = [];
+            const lines = metricsText.split('\n');
+
+            lines.forEach(line => {
+                // 跳过注释和空行
+                if (line.startsWith('#') || line.trim() === '') {
+                    return;
+                }
+
+                // 解析指标行
+                // 格式示例: metric_name{label="value"} value
+                const match = line.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)\{?([^}]*)\}?\s+([0-9.eE+-]+)/);
+                if (match) {
+                    const [_, name, labelStr, value] = match;
+                    const labels = {};
+
+                    // 解析标签
+                    if (labelStr) {
+                        labelStr.split(',').forEach(label => {
+                            const [k, v] = label.split('=');
+                            if (k && v) {
+                                labels[k.trim()] = v.trim().replace(/"/g, '');
+                            }
+                        });
+                    }
+
+                    // 添加到指标列表
+                    metrics.push({
+                        name,
+                        labels,
+                        value: Number(value)
+                    });
+                }
+            });
+
+            return metrics;
+        }
+        // 刷新数据
+        async function refreshData() {
+            try {
+                console.log('Fetching metrics data...');
+                const response = await fetch('/metrics');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const text = await response.text();
+                console.log('Raw metrics data:', text);
+
+                const metrics = parseMetrics(text);
+                console.log('Parsed metrics:', metrics);
+
+                if (metrics.length > 0) {
+                    updateCharts(metrics);
+                } else {
+                    console.warn('No valid metrics data found');
+                }
+            } catch (error) {
+                console.error('Error fetching or processing metrics:', error);
+            }
+        }
+
+        // 更新错误统计总览图表
+        function updateErrorOverviewChart(metrics) {
+            // 获取所有错误相关的指标
+            const apiErrors = metrics.filter(m => m.name === 'ThingsPanel_api_errors_total');
+            const businessErrors = metrics.filter(m => m.name === 'ThingsPanel_business_errors_total');
+            const criticalError = metrics.find(m => m.name === 'ThingsPanel_critical_errors_total');
+
+            // 处理业务错误数据（按模块分组）
+            const moduleErrors = {};
+            businessErrors.forEach(error => {
+                const module = error.labels.module || '未知模块';
+                if (!moduleErrors[module]) {
+                    moduleErrors[module] = {
+                        module: module,
+                        business: 0,
+                        api: 0,
+                        critical: 0
+                    };
+                }
+                moduleErrors[module].business += error.value;
+            });
+
+            // 处理API错误数据
+            apiErrors.forEach(error => {
+                const type = error.labels.type;
+                // API错误可能不区分模块，将其归入"API"模块
+                if (!moduleErrors['API']) {
+                    moduleErrors['API'] = {
+                        module: 'API',
+                        business: 0,
+                        api: 0,
+                        critical: 0
+                    };
+                }
+                moduleErrors['API'].api += error.value;
+            });
+
+            // 处理严重错误数据
+            if (criticalError) {
+                const value = criticalError.value;
+                // 严重错误归入"系统"模块
+                if (!moduleErrors['系统']) {
+                    moduleErrors['系统'] = {
+                        module: '系统',
+                        business: 0,
+                        api: 0,
+                        critical: 0
+                    };
+                }
+                moduleErrors['系统'].critical = value;
+            }
+
+            // 转换数据为图表格式
+            const modules = Object.keys(moduleErrors);
+            const apiData = modules.map(m => moduleErrors[m].api);
+            const businessData = modules.map(m => moduleErrors[m].business);
+            const criticalData = modules.map(m => moduleErrors[m].critical);
+
+            // 更新图表
+            charts.errorOverview.setOption({
+                yAxis: {
+                    data: modules
+                },
+                series: [
+                    {
+                        name: 'API错误',
+                        data: apiData
+                    },
+                    {
+                        name: '业务错误',
+                        data: businessData
+                    },
+                    {
+                        name: '严重错误',
+                        data: criticalData
+                    }
+                ]
+            });
+        }
+
+        // 切换自动刷新
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoRefreshBtn');
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                btn.classList.remove('active');
+                btn.textContent = '自动刷新';
+            } else {
+                refreshData();
+                autoRefreshInterval = setInterval(refreshData, 30000);
+                btn.classList.add('active');
+                btn.textContent = '停止自动刷新';
+            }
+        }
+
+        // 页面加载完成后初始化
+        window.onload = function () {
+            initCharts();
+            refreshData();
+        };
+    </script>
+</body>
+
+</html>

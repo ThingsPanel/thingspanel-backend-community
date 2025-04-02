@@ -3,12 +3,11 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"strings"
+	"project/pkg/errcode"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/websocket"
-	"github.com/sirupsen/logrus"
 )
 
 type Controller struct {
@@ -45,6 +44,7 @@ type Controller struct {
 	ServicePluginApi              //插件管理
 	ServiceAccessApi              //服务接入管理
 	ExpectedDataApi               // 预期数据
+	OpenAPIKeyApi                 // OpenAPI密钥
 }
 
 var Controllers = new(Controller)
@@ -64,20 +64,20 @@ func ValidateStruct(i interface{}) error {
 
 		var errors []string
 		for _, err := range err.(validator.ValidationErrors) {
-			var error string
+			var tError string
 			switch err.Tag() {
 			case "required":
-				error = fmt.Sprintf("Field '%s' is required", err.Field())
+				tError = fmt.Sprintf("Field '%s' is required", err.Field())
 			case "email":
-				error = fmt.Sprintf("Field '%s' must be a valid email address", err.Field())
+				tError = fmt.Sprintf("Field '%s' must be a valid email address", err.Field())
 			case "gte":
-				error = fmt.Sprintf("The value of field '%s' must be at least %s", err.Field(), err.Param())
+				tError = fmt.Sprintf("The value of field '%s' must be at least %s", err.Field(), err.Param())
 			case "lte":
-				error = fmt.Sprintf("The value of field '%s' must be at most %s", err.Field(), err.Param())
+				tError = fmt.Sprintf("The value of field '%s' must be at most %s", err.Field(), err.Param())
 			default:
-				error = fmt.Sprintf("Field '%s' failed validation (%s)", err.Field(), validationErrorToText(err))
+				tError = fmt.Sprintf("Field '%s' failed validation (%s)", err.Field(), validationErrorToText(err))
 			}
-			errors = append(errors, error)
+			errors = append(errors, tError)
 		}
 
 		return fmt.Errorf("%s", errors[0])
@@ -108,67 +108,65 @@ type ApiResponse struct {
 }
 
 // ErrorHandler 统一错误处理
-func ErrorHandler(c *gin.Context, code int, err error) {
-	if strings.Contains(err.Error(), "SQLSTATE 23503") {
-		// 处理外键约束违反
-		err = fmt.Errorf("操作无法完成：请先删除与此项相关联的数据后再进行尝试")
-	}
-	if strings.Contains(err.Error(), "SQLSTATE 23505") {
-		// 处理唯一键约束违反
-		err = fmt.Errorf("操作无法完成：已存在相同的数据")
-	}
-	// fmt.Printf("%T\n", err)
-	// // 检查这个错误是否是 *pgconn.PgError
-	// var pgErr *pgconn.PgError
-	// if errors.As(err, &pgErr) {
-	// 	logrus.Error("-----------------")
-	// 	// 现在 pgErr 是 err 中的 *pgconn.PgError 部分（如果存在）
-	// 	if pgErr.SQLState() == "23503" {
-	// 		// 这就是一个外键约束违反错误
-	// 		err = fmt.Errorf("外键约束违反: %w", err)
-	// 	}
-	// }
-	logrus.Error(err)
-	c.JSON(http.StatusOK, ApiResponse{
-		Code:    code,
-		Message: err.Error(),
-	})
-}
+// func ErrorHandler(c *gin.Context, code int, err error) {
+// 	// if strings.Contains(err.Error(), "SQLSTATE 23503") {
+// 	// 	// 处理外键约束违反
+// 	// 	err = fmt.Errorf("操作无法完成：请先删除与此项相关联的数据后再进行尝试")
+// 	// }
+// 	// if strings.Contains(err.Error(), "SQLSTATE 23505") {
+// 	// 	// 处理唯一键约束违反
+// 	// 	err = fmt.Errorf("操作无法完成：已存在相同的数据")
+// 	// }
+// 	// fmt.Printf("%T\n", err)
+// 	// // 检查这个错误是否是 *pgconn.PgError
+// 	// var pgErr *pgconn.PgError
+// 	// if errors.As(err, &pgErr) {
+// 	// 	logrus.Error("-----------------")
+// 	// 	// 现在 pgErr 是 err 中的 *pgconn.PgError 部分（如果存在）
+// 	// 	if pgErr.SQLState() == "23503" {
+// 	// 		// 这就是一个外键约束违反错误
+// 	// 		err = fmt.Errorf("外键约束违反: %w", err)
+// 	// 	}
+// 	// }
+// 	c.JSON(http.StatusOK, ApiResponse{
+// 		Code:    code,
+// 		Message: err.Error(),
+// 	})
+// }
 
-// SuccessHandler 统一成功响应
-func SuccessHandler(c *gin.Context, message string, data interface{}) {
-	c.JSON(http.StatusOK, ApiResponse{
-		Code:    http.StatusOK,
-		Message: message,
-		Data:    data,
-	})
-}
+// // SuccessHandler 统一成功响应
+// func SuccessHandler(c *gin.Context, message string, data interface{}) {
+// 	c.JSON(http.StatusOK, ApiResponse{
+// 		Code:    http.StatusOK,
+// 		Message: message,
+// 		Data:    data,
+// 	})
+// }
 
-// SuccessOK 统一成功响应
-func SuccessOK(c *gin.Context) {
-	c.JSON(http.StatusOK, ApiResponse{
-		Code:    http.StatusOK,
-		Message: "Success",
-	})
-}
+// // SuccessOK 统一成功响应
+// func SuccessOK(c *gin.Context) {
+// 	c.JSON(http.StatusOK, ApiResponse{
+// 		Code:    http.StatusOK,
+// 		Message: "Success",
+// 	})
+// }
 
 func BindAndValidate(c *gin.Context, obj interface{}) bool {
 	// 判断请求方法
 	if c.Request.Method == http.MethodGet {
 		if err := c.ShouldBindQuery(obj); err != nil {
-			ErrorHandler(c, http.StatusBadRequest, err)
+			c.Error(errcode.NewWithMessage(errcode.CodeParamError, err.Error()))
 			return false
 		}
 	} else if c.Request.Method == http.MethodPost || c.Request.Method == http.MethodPut || c.Request.Method == http.MethodDelete {
 		if err := c.ShouldBindJSON(obj); err != nil {
-			ErrorHandler(c, http.StatusBadRequest, err)
+			c.Error(errcode.NewWithMessage(errcode.CodeParamError, err.Error()))
 			return false
 		}
 	}
 
 	if err := ValidateStruct(obj); err != nil {
-		// 如果是验证错误，返回422 Unprocessable Entity
-		ErrorHandler(c, http.StatusUnprocessableEntity, err)
+		c.Error(errcode.NewWithMessage(errcode.CodeParamError, err.Error()))
 		return false
 	}
 
@@ -178,7 +176,7 @@ func BindAndValidate(c *gin.Context, obj interface{}) bool {
 var Wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
+	CheckOrigin: func(_ *http.Request) bool {
 		// 不做跨域检查
 		return true
 	},

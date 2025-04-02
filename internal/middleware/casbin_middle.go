@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	service "project/service"
-	utils "project/utils"
+	service "project/internal/service"
+	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )

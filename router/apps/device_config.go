@@ -9,7 +9,7 @@ import (
 type DeviceConfig struct {
 }
 
-func (p *DeviceConfig) Init(Router *gin.RouterGroup) {
+func (*DeviceConfig) Init(Router *gin.RouterGroup) {
 	url := Router.Group("device_config")
 	{
 		// 增
@@ -22,28 +22,28 @@ func (p *DeviceConfig) Init(Router *gin.RouterGroup) {
 		url.PUT("", api.Controllers.DeviceConfigApi.UpdateDeviceConfig)
 
 		// 查
-		url.GET("", api.Controllers.DeviceConfigApi.GetDeviceConfigListByPage)
+		url.GET("", api.Controllers.DeviceConfigApi.HandleDeviceConfigListByPage)
 
 		// 查设备配置下拉菜单
-		url.GET("menu", api.Controllers.DeviceConfigApi.GetDeviceConfigListMenu)
+		url.GET("menu", api.Controllers.DeviceConfigApi.HandleDeviceConfigListMenu)
 
 		// 查
-		url.GET("/:id", api.Controllers.DeviceConfigApi.GetDeviceConfigById)
+		url.GET("/:id", api.Controllers.DeviceConfigApi.HandleDeviceConfigById)
 
 		// 批量修改设备配置
 		url.PUT("batch", api.Controllers.DeviceConfigApi.BatchUpdateDeviceConfig)
 
 		// 连接与认证下拉
-		url.GET("connect", api.Controllers.DeviceConfigApi.GetDeviceConfigConnect)
+		url.GET("connect", api.Controllers.DeviceConfigApi.HandleDeviceConfigConnect)
 
 		// 设备配置-连接与认证下拉
-		url.GET("voucher_type", api.Controllers.DeviceConfigApi.GetVoucherType)
+		url.GET("voucher_type", api.Controllers.DeviceConfigApi.HandleVoucherType)
 
 		// 单类设备自动化动作下拉菜单
-		url.GET("metrics/menu", api.Controllers.DeviceConfigApi.GetActionByDeviceConfigID)
+		url.GET("metrics/menu", api.Controllers.DeviceConfigApi.HandleActionByDeviceConfigID)
 
 		// 单类设备自动化条件下拉菜单
-		url.GET("metrics/condition/menu", api.Controllers.DeviceConfigApi.GetConditionByDeviceConfigID)
+		url.GET("metrics/condition/menu", api.Controllers.DeviceConfigApi.HandleConditionByDeviceConfigID)
 
 	}
 }

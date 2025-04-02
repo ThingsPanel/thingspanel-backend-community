@@ -2,10 +2,10 @@ package subscribe
 
 import (
 	"encoding/json"
-	dal "project/dal"
 	initialize "project/initialize"
+	dal "project/internal/dal"
 	"project/internal/model"
-	service "project/service"
+	service "project/internal/service"
 	"strings"
 	"time"
 
@@ -37,7 +37,7 @@ func DeviceEvent(payload []byte, topic string) (string, string, string, error) {
 		return "", "", "", err
 	}
 
-	device, err := initialize.GetDeviceById(eventPayload.DeviceId)
+	device, err := initialize.GetDeviceCacheById(eventPayload.DeviceId)
 	if err != nil {
 		logrus.Error(err.Error())
 		return "", "", "", err
@@ -109,7 +109,7 @@ func deviceEventHandle(device *model.Device, eventValues *model.EventInfo, topic
 			},
 		})
 		if err != nil {
-			logrus.Errorf("自动化执行失败, err: %w", err)
+			logrus.Error("自动化执行失败, err:", err)
 		}
 	}()
 	err = dal.CreateEventData(eventDatas)

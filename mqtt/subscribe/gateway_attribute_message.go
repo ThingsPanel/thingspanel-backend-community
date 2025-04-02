@@ -2,7 +2,7 @@ package subscribe
 
 import (
 	"encoding/json"
-	"project/dal"
+	"project/internal/dal"
 	"project/internal/model"
 	config "project/mqtt"
 	"strings"
@@ -14,8 +14,8 @@ import (
 
 // 平台订阅网关属性上报处理
 // @description GatewayAttributeMessages
-// @param payload []byte
-// @param topic string
+// param payload []byte
+// param topic string
 // @return messageId string, gatewayDeive *model.Device, respon model.GatewayResponse, err error
 // 订阅topic gateway/attributes/{message_id}
 func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Device, model.GatewayResponse, error) {
@@ -37,9 +37,9 @@ func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Devi
 	if err := json.Unmarshal(attributePayload.Values, payloads); err != nil {
 		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayAttributeMessages][verifyPayload2]fail")
 	}
-	deviceInfo, err := dal.GetDeviceById(attributePayload.DeviceId)
+	deviceInfo, err := dal.GetDeviceCacheById(attributePayload.DeviceId)
 	if err != nil {
-		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayAttributeMessages][GetDeviceById]fail")
+		return messageId, nil, response, pkgerrors.Wrap(err, "[GatewayAttributeMessages][GetDeviceCacheById]fail")
 	}
 	if payloads.GatewayData != nil {
 		err = deviceAttributesHandle(deviceInfo, *payloads.GatewayData, topic)
@@ -63,7 +63,7 @@ func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Devi
 	return messageId, deviceInfo, response, nil
 }
 
-func getWagewayResponse(err error, extends ...string) *model.MqttResponse {
+func getWagewayResponse(err error, _ ...string) *model.MqttResponse {
 	var mqttResponse *model.MqttResponse
 	now := time.Now().Unix()
 	if err == nil {
@@ -73,7 +73,7 @@ func getWagewayResponse(err error, extends ...string) *model.MqttResponse {
 			Ts:      now,
 		}
 	} else {
-		logrus.Errorf("属性或事件处理失败:%w", err)
+		logrus.Error("属性或事件处理失败:", err)
 		var errmsg = err.Error()
 		mqttResponse = &model.MqttResponse{
 			Result:  model.MQTT_RESPONSE_RESULT_FAIL,
@@ -87,8 +87,8 @@ func getWagewayResponse(err error, extends ...string) *model.MqttResponse {
 // GatewayDeviceSetAttributesResponse
 //
 // @description 平台设置属性
-// @param payload []byte
-// @param topic string
+// param payload []byte
+// param topic string
 // @return messageId string, gatewayDeive *model.Device, respon model.GatewayResponse, err error
 // 订阅topic gateway/attributes/{message_id}
 func GatewayDeviceSetAttributesResponse(payload []byte, topic string) {

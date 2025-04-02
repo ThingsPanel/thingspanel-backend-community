@@ -1,0 +1,63 @@
+# ThingsPanel Docker 镜像自动构建工作流
+#
+# 功能说明:
+# 1. 自动构建 Docker 镜像并推送到三个镜像仓库:
+#    - DockerHub (thingspanel/thingspanel-go)
+#    - GitHub Container Registry (ghcr.io)
+#    - 阿里云容器镜像服务 (registry.cn-hangzhou.aliyuncs.com)
+#
+# 触发方式:
+# - Release触发: 当创建或更新 Release 时自动触发
+# - 手动触发: 可以通过 GitHub Actions 页面手动触发
+#
+# 版本号处理:
+# - Release 触发: 使用 Release 的 tag 作为版本号
+# - 手动触发: 使用最新的 tag 作为版本号
+# - 无 tag 时: 使用 'latest' 作为版本号
+#
+# 必需的 Secrets:
+# - DOCKERHUB_USERNAME: DockerHub 用户名
+# - DOCKERHUB_TOKEN: DockerHub 访问令牌
+# - GITHUB_TOKEN: GitHub 访问令牌 (自动提供)
+# - IMAGE_USER: 阿里云容器镜像服务用户名
+# - IMAGE_PASS: 阿里云容器镜像服务密码
+name: Docker Image Build
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: 获取版本号
+        id: get_version
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo 'latest')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          # 添加仓库名小写转换
+          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+      - name: 登录镜像仓库
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+          echo "${{ secrets.IMAGE_PASS }}" | docker login registry.cn-hangzhou.aliyuncs.com -u ${{ secrets.IMAGE_USER }} --password-stdin
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: 构建并推送到 GitHub/DockerHub
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            thingspanel/thingspanel-go:${{ env.VERSION }}
+            ghcr.io/${{ env.OWNER_LC }}/thingspanel-go:${{ env.VERSION }}
+      - name: 推送到阿里云
+        run: |
+          docker pull ghcr.io/${{ env.OWNER_LC }}/thingspanel-go:${{ env.VERSION }}
+          docker tag ghcr.io/${{ env.OWNER_LC }}/thingspanel-go:${{ env.VERSION }} registry.cn-hangzhou.aliyuncs.com/thingspanel/thingspanel-go:${{ env.VERSION }}
+          docker push registry.cn-hangzhou.aliyuncs.com/thingspanel/thingspanel-go:${{ env.VERSION }}

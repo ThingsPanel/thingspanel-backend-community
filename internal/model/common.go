@@ -8,8 +8,8 @@ import (
 
 // 分页请求参数
 type PageReq struct {
-	Page     int `json:"page" form:"page" validate:"required,gte=1"`                   // 页码
-	PageSize int `json:"page_size" form:"page_size" validate:"required,gte=1,lte=100"` // 每页数量
+	Page     int `json:"page" form:"page" validate:"required,gte=1"`                    // 页码
+	PageSize int `json:"page_size" form:"page_size" validate:"required,gte=1,lte=1000"` // 每页数量
 }
 
 // PutMessage

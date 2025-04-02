@@ -9,8 +9,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 	"testing"
 
@@ -23,7 +23,7 @@ var RSAPrivateKey *rsa.PrivateKey
 var RSAPublicKey *rsa.PublicKey
 
 func RsaDecryptInit(filePath string) (err error) {
-	key, err := ioutil.ReadFile(filePath)
+	key, err := os.ReadFile(filePath)
 	if err != nil {
 		return errors.New("加载私钥错误1：" + err.Error())
 	}
@@ -42,7 +42,7 @@ func RsaDecryptInit(filePath string) (err error) {
 }
 
 func RsaDecryptPublicInit(filePath string) (err error) {
-	key, err := ioutil.ReadFile(filePath)
+	key, err := os.ReadFile(filePath)
 	if err != nil {
 		return errors.New("加载公钥错误1：" + err.Error())
 	}
@@ -73,7 +73,7 @@ func DecryptPassword(encryptedPassword string) ([]byte, error) {
 	return decrypted, nil
 }
 
-func HashPassword(decryptedPassword []byte, salt []byte) (password []byte, err error) {
+func HashPassword(decryptedPassword []byte, _ []byte) (password []byte, err error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword(decryptedPassword, bcrypt.DefaultCost)
 	if err != nil {
 		return password, fmt.Errorf("密码哈希失败: %v", err)
@@ -85,7 +85,7 @@ func Encrypt() string {
 	message := []byte("123456salt")
 	encryptedMessage, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, RSAPublicKey, message, nil)
 	if err != nil {
-		log.Fatalf("加密失败: %v", err)
+		log.Printf("加密失败: %v", err)
 	}
 	encryptPassword := base64.StdEncoding.EncodeToString(encryptedMessage)
 	return encryptPassword

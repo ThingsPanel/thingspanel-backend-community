@@ -6,10 +6,8 @@ import (
 	"os"
 	"time"
 
-	"io/ioutil"
-
-	global "project/global"
-	utils "project/utils"
+	global "project/pkg/global"
+	utils "project/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -33,19 +31,19 @@ type DbConfig struct {
 	OpenConns     int
 }
 
-func PgInit() *gorm.DB {
+func PgInit() (*gorm.DB, error) {
 	// 初始化配置
 	config, err := LoadDbConfig()
 	if err != nil {
-		log.Fatalf("加载数据库配置失败: %v", err)
-		return nil
+		logrus.Errorf("加载数据库配置失败: %v", err)
+		return nil, err
 	}
 
 	// 初始化数据库
 	db, err := PgConnect(config)
 	if err != nil {
-		log.Fatalf("初始化数据库失败: %v", err)
-		return nil
+		logrus.Error("连接数据库失败:", err)
+		return nil, err
 	}
 	global.DB = db
 
@@ -58,7 +56,7 @@ func PgInit() *gorm.DB {
 		fmt.Println(err)
 	}
 
-	return db
+	return db, nil
 }
 
 // LoadDbConfig 从配置文件加载数据库配置
@@ -131,7 +129,8 @@ func PgConnect(config *DbConfig) (*gorm.DB, error) {
 
 	var err error
 	db, err := gorm.Open(postgres.Open(dataSource), &gorm.Config{
-		Logger: newLogger,
+		Logger:                 newLogger,
+		SkipDefaultTransaction: true,
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: false, // use singular table name, table for `User` would be `user` with this option enabled
 		},
@@ -217,7 +216,7 @@ func CheckVersion(db *gorm.DB) error {
 			}
 			log.Println("执行sql文件：", fileName)
 			// 读取 SQL 脚本文件
-			sqlFile, err := ioutil.ReadFile(fileName)
+			sqlFile, err := os.ReadFile(fileName)
 			if err != nil {
 				panic(err)
 			}
@@ -244,7 +243,7 @@ func CheckVersion(db *gorm.DB) error {
 
 func ExecuteSQLFile(db *gorm.DB, fileName string) error {
 	// 读取 SQL 脚本文件
-	sqlFile, err := ioutil.ReadFile(fileName)
+	sqlFile, err := os.ReadFile(fileName)
 	if err != nil {
 		return err
 	}

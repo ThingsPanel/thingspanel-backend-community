@@ -9,10 +9,10 @@ func NewMultipleDeviceCache() *MultipleDeviceCache {
 	return &MultipleDeviceCache{}
 }
 
-func (c *MultipleDeviceCache) GetAutomateCacheKeyPrefix() string {
+func (*MultipleDeviceCache) GetAutomateCacheKeyPrefix() string {
 	return "multiple"
 }
 
-func (c *MultipleDeviceCache) GetDeviceTriggerConditionType() string {
+func (*MultipleDeviceCache) GetDeviceTriggerConditionType() string {
 	return model.DEVICE_TRIGGER_CONDITION_TYPE_MULTIPLE
 }

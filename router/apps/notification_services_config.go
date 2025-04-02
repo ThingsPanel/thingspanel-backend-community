@@ -8,14 +8,14 @@ import (
 
 type NotificationServicesConfig struct{}
 
-func (n *NotificationServicesConfig) Init(Router *gin.RouterGroup) {
+func (*NotificationServicesConfig) Init(Router *gin.RouterGroup) {
 	url := Router.Group("notification/services/config")
 	{
 		// 创建/修改
 		url.POST("", api.Controllers.NotificationServicesConfigApi.SaveNotificationServicesConfig)
 
 		// 查询
-		url.GET(":type", api.Controllers.NotificationServicesConfigApi.GetNotificationServicesConfig)
+		url.GET(":type", api.Controllers.NotificationServicesConfigApi.HandleNotificationServicesConfig)
 
 		// 调试
 		url.POST("e-mail/test", api.Controllers.NotificationServicesConfigApi.SendTestEmail)

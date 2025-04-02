@@ -41,6 +41,7 @@ db:
     addr: 127.0.0.1:6379 # 默认localhost:6379
     # addr: 47.92.253.145:6379 # 默认localhost:6379
     db: 1 # 默认0
+    db1: 10 # 默认10，不能是0，用户设备状态管理
     password: "redis"
 
 grpc:

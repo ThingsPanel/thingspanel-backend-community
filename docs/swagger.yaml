@@ -1,0 +1,453 @@
+definitions:
+  errcode.Error:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        description: 用于存储自定义消息
+        type: string
+    type: object
+  model.LoginReq:
+    properties:
+      email:
+        description: 登录账号(输入邮箱或者手机号)
+        example: test@test.cn
+        maxLength: 255
+        minLength: 5
+        type: string
+      password:
+        description: 密码
+        example: "123456"
+        maxLength: 512
+        minLength: 6
+        type: string
+      salt:
+        description: 随机盐(如果在超管设置了前端RSA加密则需要上送)
+        maxLength: 512
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  model.LoginRsp:
+    properties:
+      expires_in:
+        description: 过期时间(单位:秒)
+        type: integer
+      token:
+        description: 登录凭证
+        type: string
+    type: object
+host: localhost:9999
+info:
+  contact: {}
+  description: ThingsPanel API.
+  title: ThingsPanel API
+  version: v1.1.6
+paths:
+  /api/v1/attribute/datas/{id}:
+    delete:
+      responses: {}
+    get:
+      responses: {}
+  /api/v1/attribute/datas/set/logs:
+    get:
+      responses: {}
+  /api/v1/board:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/board/{id}:
+    delete:
+      responses: {}
+    get:
+      responses: {}
+  /api/v1/board/device:
+    get:
+      responses: {}
+  /api/v1/board/device/total:
+    get:
+      responses: {}
+  /api/v1/board/home:
+    get:
+      responses: {}
+  /api/v1/board/tenant:
+    get:
+      responses: {}
+  /api/v1/board/tenant/device/info:
+    get:
+      responses: {}
+  /api/v1/board/tenant/user/info:
+    get:
+      responses: {}
+  /api/v1/board/trend:
+    get:
+      responses: {}
+  /api/v1/board/user/info:
+    get:
+      responses: {}
+  /api/v1/board/user/update:
+    post:
+      responses: {}
+  /api/v1/board/user/update/password:
+    post:
+      responses: {}
+  /api/v1/casbin/function:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/casbin/function/{id}:
+    delete:
+      responses: {}
+  /api/v1/casbin/user:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/casbin/user/{id}:
+    delete:
+      responses: {}
+  /api/v1/command/datas/set/logs:
+    get:
+      responses: {}
+  /api/v1/data_script:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/data_script/{id}:
+    delete:
+      responses: {}
+  /api/v1/datapolicy:
+    get:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/device:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/device/{id}:
+    delete:
+      responses: {}
+  /api/v1/device/active:
+    put:
+      responses: {}
+  /api/v1/device/check/{deviceNumber}:
+    get:
+      responses: {}
+      tags:
+      - 设备管理
+  /api/v1/device/detail/{id}:
+    get:
+      responses: {}
+  /api/v1/device/group:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/device/group/{id}:
+    delete:
+      responses: {}
+  /api/v1/device/group/detail/{id}:
+    get:
+      responses: {}
+  /api/v1/device/group/relation:
+    delete:
+      responses: {}
+    get:
+      responses: {}
+    post:
+      responses: {}
+  /api/v1/device/group/relation/list:
+    get:
+      responses: {}
+  /api/v1/device/group/tree:
+    get:
+      responses: {}
+  /api/v1/device/online/status/ws:
+    get:
+      consumes:
+      - application/json
+      description: 通过WebSocket连接获取实时设备在线状态
+      produces:
+      - application/json
+      responses: {}
+      summary: 获取设备在线状态
+      tags:
+      - 设备
+  /api/v1/device/template:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/device/template/{id}:
+    delete:
+      responses: {}
+  /api/v1/device/template/chart:
+    get:
+      responses: {}
+  /api/v1/device/template/detail/{id}:
+    get:
+      responses: {}
+  /api/v1/device/template/menu:
+    get:
+      responses: {}
+  /api/v1/device_config:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/device_config/{id}:
+    delete:
+      responses: {}
+    get:
+      responses: {}
+  /api/v1/device_config/batch:
+    put:
+      responses: {}
+  /api/v1/device_config/menu:
+    get:
+      responses: {}
+  /api/v1/dict:
+    get:
+      responses: {}
+  /api/v1/dict/column:
+    post:
+      responses: {}
+  /api/v1/dict/column/{id}:
+    delete:
+      responses: {}
+  /api/v1/dict/enum:
+    get:
+      responses: {}
+  /api/v1/dict/language:
+    post:
+      responses: {}
+  /api/v1/dict/language/{id}:
+    delete:
+      responses: {}
+    get:
+      responses: {}
+  /api/v1/event/datas:
+    get:
+      responses: {}
+  /api/v1/file/up:
+    post:
+      responses: {}
+      tags:
+      - 文件上传
+  /api/v1/login:
+    post:
+      consumes:
+      - application/json
+      description: 使用邮箱或手机号和密码登录
+      parameters:
+      - description: 登录凭证
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.LoginReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/model.LoginRsp'
+        "400":
+          description: 错误响应
+          schema:
+            $ref: '#/definitions/errcode.Error'
+      summary: 用户登录
+      tags:
+      - 用户认证
+  /api/v1/logo:
+    get:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/notification/services/config:
+    post:
+      responses: {}
+  /api/v1/notification/services/config/{type}:
+    get:
+      responses: {}
+  /api/v1/notification/services/config/e-mail/test:
+    post:
+      responses: {}
+  /api/v1/notification_group:
+    post:
+      responses: {}
+  /api/v1/notification_group/{id}:
+    delete:
+      responses: {}
+    get:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/notification_group/list:
+    get:
+      responses: {}
+  /api/v1/notification_history/list:
+    get:
+      responses: {}
+  /api/v1/open/keys:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/open/keys/{id}:
+    delete:
+      responses: {}
+  /api/v1/operation_logs:
+    get:
+      responses: {}
+  /api/v1/ota/package:
+    get:
+      responses: {}
+    post:
+      responses: {}
+  /api/v1/ota/package/:
+    put:
+      responses: {}
+  /api/v1/ota/package/{id}:
+    delete:
+      responses: {}
+  /api/v1/ota/task:
+    get:
+      responses: {}
+    post:
+      responses: {}
+  /api/v1/ota/task/{id}:
+    delete:
+      responses: {}
+  /api/v1/ota/task/detail:
+    get:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/protocol_plugin:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/protocol_plugin/{id}:
+    delete:
+      responses: {}
+  /api/v1/protocol_plugin/config_form:
+    get:
+      responses: {}
+  /api/v1/protocol_plugin/device_config_form:
+    get:
+      responses: {}
+  /api/v1/role:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/role/{id}:
+    delete:
+      responses: {}
+  /api/v1/telemetry/datas:
+    delete:
+      responses: {}
+  /api/v1/telemetry/datas/current/{id}:
+    get:
+      responses: {}
+  /api/v1/telemetry/datas/current/detail/{id}:
+    get:
+      responses: {}
+  /api/v1/telemetry/datas/current/keys:
+    get:
+      responses: {}
+  /api/v1/telemetry/datas/current/keys/ws:
+    get:
+      responses: {}
+  /api/v1/telemetry/datas/current/ws:
+    get:
+      responses: {}
+  /api/v1/telemetry/datas/history:
+    get:
+      responses: {}
+  /api/v1/telemetry/datas/history/page:
+    get:
+      responses: {}
+  /api/v1/telemetry/datas/history/pagination:
+    get:
+      responses: {}
+  /api/v1/telemetry/datas/set/logs:
+    get:
+      responses: {}
+  /api/v1/telemetry/datas/statistic:
+    get:
+      responses: {}
+  /api/v1/ui_elements:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/ui_elements/{id}:
+    delete:
+      responses: {}
+  /api/v1/ui_elements/menu:
+    get:
+      responses: {}
+  /api/v1/user:
+    get:
+      responses: {}
+    post:
+      responses: {}
+    put:
+      responses: {}
+  /api/v1/user/{id}:
+    delete:
+      responses: {}
+    get:
+      responses: {}
+  /api/v1/user/detail:
+    get:
+      responses: {}
+  /api/v1/user/tenant/id:
+    get:
+      responses: {}
+  /api/v1/user/update:
+    put:
+      responses: {}
+schemes:
+- http
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: x-token
+    type: apiKey
+swagger: "2.0"

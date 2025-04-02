@@ -8,7 +8,7 @@ import (
 
 type UpLoad struct{}
 
-func (o *UpLoad) Init(Router *gin.RouterGroup) {
+func (*UpLoad) Init(Router *gin.RouterGroup) {
 	uploadapi := Router.Group("file")
 	{
 		// 文件上传

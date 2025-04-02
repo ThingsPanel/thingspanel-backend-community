@@ -1,14 +1,15 @@
 package model
 
 type UsersRes struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	PhoneNum   string `json:"phone_num"`
-	Email      string `json:"email"`
-	Authority  string `json:"authority"`
-	TenantID   string `json:"tenant_id"`
-	Remark     string `json:"remark"`
-	CreateTime string `json:"create_time"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	PhoneNum       string `json:"phone_num"`
+	Email          string `json:"email"`
+	Authority      string `json:"authority"`
+	TenantID       string `json:"tenant_id"`
+	Remark         string `json:"remark"`
+	CreateTime     string `json:"create_time"`
+	AdditionalInfo string `json:"additional_info"`
 }
 
 type UsersUpdateReq struct {

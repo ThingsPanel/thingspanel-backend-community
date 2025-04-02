@@ -9,7 +9,7 @@ import (
 type NotificationGroup struct {
 }
 
-func (p *NotificationGroup) InitNotificationGroup(Router *gin.RouterGroup) {
+func (*NotificationGroup) InitNotificationGroup(Router *gin.RouterGroup) {
 	url := Router.Group("notification_group")
 	{
 		// 增
@@ -22,10 +22,10 @@ func (p *NotificationGroup) InitNotificationGroup(Router *gin.RouterGroup) {
 		url.PUT("/:id", api.Controllers.NotificationGroupApi.UpdateNotificationGroup)
 
 		// 查
-		url.GET("/list", api.Controllers.NotificationGroupApi.GetNotificationGroupListByPage)
+		url.GET("/list", api.Controllers.NotificationGroupApi.HandleNotificationGroupListByPage)
 
 		// 单条详情
-		url.GET("/:id", api.Controllers.NotificationGroupApi.GetNotificationGroupById)
+		url.GET("/:id", api.Controllers.NotificationGroupApi.HandleNotificationGroupById)
 
 	}
 }

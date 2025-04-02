@@ -9,7 +9,7 @@ import (
 type Role struct {
 }
 
-func (p *Role) Init(Router *gin.RouterGroup) {
+func (*Role) Init(Router *gin.RouterGroup) {
 	url := Router.Group("role")
 	{
 		// 增
@@ -22,6 +22,6 @@ func (p *Role) Init(Router *gin.RouterGroup) {
 		url.PUT("", api.Controllers.RoleApi.UpdateRole)
 
 		// 查
-		url.GET("", api.Controllers.RoleApi.GetRoleListByPage)
+		url.GET("", api.Controllers.RoleApi.HandleRoleListByPage)
 	}
 }

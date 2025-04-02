@@ -5,11 +5,11 @@ import (
 	"path"
 	"time"
 
-	"project/common"
 	"project/initialize"
 	"project/internal/model"
 	config "project/mqtt"
-	"project/utils"
+	"project/pkg/common"
+	"project/pkg/utils"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-basic/uuid"
@@ -45,21 +45,21 @@ func CreateMqttClient() {
 	opts.SetMaxReconnectInterval(20 * time.Second)
 	// 消息顺序
 	opts.SetOrderMatters(false)
-	opts.SetOnConnectHandler(func(c mqtt.Client) {
+	opts.SetOnConnectHandler(func(_ mqtt.Client) {
 		logrus.Println("mqtt connect success")
 	})
 	// 断线重连
-	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
+	opts.SetConnectionLostHandler(func(_ mqtt.Client, err error) {
 		logrus.Println("mqtt connect  lost: ", err)
 		mqttClient.Disconnect(250)
 		// 等待连接成功，失败重新连接
 		for {
-			if token := mqttClient.Connect(); token.Wait() && token.Error() == nil {
+			token := mqttClient.Connect()
+			if token.Wait() && token.Error() == nil {
 				fmt.Println("Reconnected to MQTT broker")
 				break
-			} else {
-				fmt.Printf("Reconnect failed: %v\n", token.Error())
 			}
+			fmt.Printf("Reconnect failed: %v\n", token.Error())
 			time.Sleep(5 * time.Second)
 		}
 	})
@@ -94,6 +94,8 @@ func PublishTelemetryMessage(topic string, device *model.Device, param *model.Pu
 		}
 	}
 	qos := byte(config.MqttConfig.Telemetry.QoS)
+
+	logrus.Info("topic:", topic, "value:", param.Value)
 	// 发布消息
 	token := mqttClient.Publish(topic, qos, false, []byte(param.Value))
 	if token.Wait() && token.Error() != nil {

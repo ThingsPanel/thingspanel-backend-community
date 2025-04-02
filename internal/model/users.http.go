@@ -1,26 +1,29 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type CreateUserReq struct {
-	AdditionalInfo *string  `json:"additional_info" validate:"omitempty,max=10000"` // 附加信息
-	Email          string   `json:"email"  validate:"required,email"`               // 邮箱
-	Password       string   `json:"password" validate:"required,min=6,max=255"`     // 密码
-	Name           *string  `json:"name" validate:"omitempty,min=2,max=50"`         // 姓名
-	PhoneNumber    string   `json:"phone_number" validate:"required,max=50"`        // 手机号
-	RoleIDs        []string `json:"userRoles" validate:"omitempty"`                 // 角色ID
-	Remark         *string  `json:"remark" validate:"omitempty,max=255"`            // 备注
+	AdditionalInfo *json.RawMessage `json:"additional_info" validate:"omitempty,max=10000"` // 附加信息
+	Email          string           `json:"email"  validate:"required,email"`               // 邮箱
+	Password       string           `json:"password" validate:"required,min=6,max=255"`     // 密码
+	Name           *string          `json:"name" validate:"omitempty,min=2,max=50"`         // 姓名
+	PhoneNumber    string           `json:"phone_number" validate:"required,max=50"`        // 手机号
+	RoleIDs        []string         `json:"userRoles" validate:"omitempty"`                 // 角色ID
+	Remark         *string          `json:"remark" validate:"omitempty,max=255"`            // 备注
 }
 
 type LoginReq struct {
-	Email    string `json:"email" validate:"required,email"`            // 邮箱
-	Password string `json:"password" validate:"required,min=6,max=512"` // 密码
-	Salt     string `json:"salt"`                                       // 随机盐
+	Email    string `json:"email" validate:"required" example:"test@test.cn"`            // 登录账号(输入邮箱或者手机号)
+	Password string `json:"password" validate:"required,min=6,max=512" example:"123456"` // 密码
+	Salt     string `json:"salt" validate:"omitempty,max=512"`                           // 随机盐(如果在超管设置了前端RSA加密则需要上送)
 }
 
 type LoginRsp struct {
-	Token     *string `gorm:"column:token" json:"token"`
-	ExpiresIn int64   `json:"expires_in"`
+	Token     *string `gorm:"column:token" json:"token"` // 登录凭证
+	ExpiresIn int64   `json:"expires_in"`                // 过期时间(单位:秒)
 }
 
 type UserListReq struct {
@@ -64,11 +67,11 @@ type ResetPasswordReq struct {
 }
 
 type EmailRegisterReq struct {
-	Email           string  `json:"email" validate:"required,email"`            // 邮箱
-	VerifyCode      string  `json:"verify_code" validate:"required"`            // 验证码
-	Password        string  `json:"password" validate:"required,min=6,max=255"` // 新密码
-	ConfirmPassword string  `json:"confirm_password" validate:"required,min=6,max=255"`
-	PhoneNumber     string  `json:"phone_number" validate:"required"` //手机号码
-	PhonePrefix     string  `json:"phone_prefix" validate:"required"` //手机前缀
+	Email           string  `json:"email" validate:"required,email"` // 邮箱
+	VerifyCode      string  `json:"verify_code" validate:"required"` // 验证码
+	Password        string  `json:"password" validate:"required"`    // 新密码
+	ConfirmPassword string  `json:"confirm_password" validate:"required"`
+	PhoneNumber     string  `json:"phone_number" validate:"required"` // 手机号码
+	PhonePrefix     string  `json:"phone_prefix" validate:"required"` // 手机前缀
 	Salt            *string `json:"salt" validate:"omitempty"`        // 随机盐
 }

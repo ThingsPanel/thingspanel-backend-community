@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	dal "project/dal"
 	initialize "project/initialize"
+	dal "project/internal/dal"
 	model "project/internal/model"
+	service "project/internal/service"
 	config "project/mqtt"
 	"project/mqtt/publish"
-	service "project/service"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -46,9 +46,8 @@ func MessagesChanHandler(messages <-chan map[string]interface{}) {
 			// 如果管道没有消息，则检查入库
 			if len(messages) > 0 {
 				continue
-			} else {
-				break
 			}
+			break
 		}
 
 		// 如果tskvList有数据，则写入数据库
@@ -87,7 +86,7 @@ func TelemetryMessages(payload []byte, topic string) {
 		logrus.Error(err.Error(), topic)
 		return
 	}
-	device, err := initialize.GetDeviceById(telemetryPayload.DeviceId)
+	device, err := initialize.GetDeviceCacheById(telemetryPayload.DeviceId)
 	if err != nil {
 		logrus.Error(err.Error())
 		return
@@ -111,6 +110,9 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 	if err != nil {
 		logrus.Error("telemetry forward error:", err.Error())
 	}
+
+	// 心跳处理
+	go HeartbeatDeal(device)
 
 	//byte转map
 	var reqMap = make(map[string]interface{})

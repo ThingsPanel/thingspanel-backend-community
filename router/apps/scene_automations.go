@@ -8,7 +8,7 @@ import (
 
 type SceneAutomations struct{}
 
-func (s *SceneAutomations) Init(Router *gin.RouterGroup) {
+func (*SceneAutomations) Init(Router *gin.RouterGroup) {
 	url := Router.Group("scene_automations")
 	{
 		// 新
@@ -24,16 +24,16 @@ func (s *SceneAutomations) Init(Router *gin.RouterGroup) {
 		url.POST("switch/:id", api.Controllers.SceneAutomationsApi.SwitchSceneAutomations)
 
 		// 查列表
-		url.GET("list", api.Controllers.SceneAutomationsApi.GetSceneAutomationsByPage)
+		url.GET("list", api.Controllers.SceneAutomationsApi.HandleSceneAutomationsByPage)
 
 		// 查详情
-		url.GET("detail/:id", api.Controllers.SceneAutomationsApi.GetSceneAutomations)
+		url.GET("detail/:id", api.Controllers.SceneAutomationsApi.HandleSceneAutomations)
 
 		// 查日志
-		url.GET("log", api.Controllers.SceneAutomationsApi.GetSceneAutomationsLog)
+		url.GET("log", api.Controllers.SceneAutomationsApi.HandleSceneAutomationsLog)
 
 		// 查列表 根据设备id 查询包含告警的场景联动
-		url.GET("alarm", api.Controllers.SceneAutomationsApi.GetSceneAutomationsWithAlarmByPage)
+		url.GET("alarm", api.Controllers.SceneAutomationsApi.HandleSceneAutomationsWithAlarmByPage)
 
 	}
 }
