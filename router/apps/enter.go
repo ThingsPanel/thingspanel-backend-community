@@ -30,7 +30,7 @@ type apps struct {
 	ServicePlugin // 插件管理
 	ExpectedData  // 预期数据
 	OpenAPIKey    // openAPI
-
+	MessagePush
 }
 
 var Model = new(apps)

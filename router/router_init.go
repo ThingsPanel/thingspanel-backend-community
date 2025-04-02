@@ -165,6 +165,8 @@ func RouterInit() *gin.Engine {
 			apps.Model.ExpectedData.InitExpectedData(v1)
 
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
+
+			apps.Model.MessagePush.Init(v1)
 		}
 	}
 

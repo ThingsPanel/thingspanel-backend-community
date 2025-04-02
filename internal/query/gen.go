@@ -77,6 +77,11 @@ var (
 	VisPluginLocal             *visPluginLocal
 	ExpectedData 			   *expectedData
 	OpenAPIKey                 *openAPIKey
+	MessagePushConfig  *messagePushConfig
+	MessagePushLog *messagePushLog
+	MessagePushManage  *messagePushManage
+	MessagePushRuleLog  *messagePushRuleLog
+
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -141,6 +146,10 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	VisPluginLocal = &Q.VisPluginLocal
 	ExpectedData = &Q.ExpectedData
 	OpenAPIKey = &Q.OpenAPIKey
+	MessagePushConfig = &Q.MessagePushConfig
+	MessagePushLog = &Q.MessagePushLog
+	MessagePushManage = &Q.MessagePushManage
+	MessagePushRuleLog = &Q.MessagePushRuleLog
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
@@ -206,6 +215,10 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		VisPluginLocal:             newVisPluginLocal(db, opts...),
 		ExpectedData:                newExpectedData(db, opts...),
 		OpenAPIKey:                 newOpenAPIKey(db, opts...),
+		MessagePushConfig:  newMessagePushConfig(db, opts...),
+		MessagePushLog:     newMessagePushLog(db, opts...),
+		MessagePushManage:  newMessagePushManage(db, opts...),
+		MessagePushRuleLog: newMessagePushRuleLog(db, opts...),
 	}
 }
 
@@ -272,7 +285,10 @@ type Query struct {
 	VisPluginLocal             visPluginLocal
 	ExpectedData               expectedData
 	OpenAPIKey                 openAPIKey
-
+	MessagePushConfig  messagePushConfig
+	MessagePushLog     messagePushLog
+	MessagePushManage  messagePushManage
+	MessagePushRuleLog messagePushRuleLog
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -340,6 +356,10 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		VisPluginLocal:             q.VisPluginLocal.clone(db),
 		ExpectedData:               q.ExpectedData.clone(db),
 		OpenAPIKey:                 q.OpenAPIKey.clone(db),
+		MessagePushConfig:  q.MessagePushConfig.clone(db),
+		MessagePushLog:     q.MessagePushLog.clone(db),
+		MessagePushManage:  q.MessagePushManage.clone(db),
+		MessagePushRuleLog: q.MessagePushRuleLog.clone(db),
 	}
 }
 
@@ -414,6 +434,10 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		VisPluginLocal:             q.VisPluginLocal.replaceDB(db),
 		ExpectedData:               q.ExpectedData.replaceDB(db),
 		OpenAPIKey:                 q.OpenAPIKey.replaceDB(db),
+		MessagePushConfig:  q.MessagePushConfig.replaceDB(db),
+		MessagePushLog:     q.MessagePushLog.replaceDB(db),
+		MessagePushManage:  q.MessagePushManage.replaceDB(db),
+		MessagePushRuleLog: q.MessagePushRuleLog.replaceDB(db),
 	}
 }
 
@@ -478,6 +502,10 @@ type queryCtx struct {
 	VisPluginLocal             IVisPluginLocalDo
 	ExpectedData               IExpectedDataDo
 	OpenAPIKey                 IOpenAPIKeyDo
+	MessagePushConfig  IMessagePushConfigDo
+	MessagePushLog     IMessagePushLogDo
+	MessagePushManage  IMessagePushManageDo
+	MessagePushRuleLog IMessagePushRuleLogDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
@@ -542,6 +570,10 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		VisPluginLocal:             q.VisPluginLocal.WithContext(ctx),
 		ExpectedData:               q.ExpectedData.WithContext(ctx),
 		OpenAPIKey:                 q.OpenAPIKey.WithContext(ctx),
+		MessagePushConfig:  q.MessagePushConfig.WithContext(ctx),
+		MessagePushLog:     q.MessagePushLog.WithContext(ctx),
+		MessagePushManage:  q.MessagePushManage.WithContext(ctx),
+		MessagePushRuleLog: q.MessagePushRuleLog.WithContext(ctx),
 	}
 }
 
