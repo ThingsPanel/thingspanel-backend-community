@@ -3,6 +3,7 @@ package croninit
 
 import (
 	"project/internal/service"
+	"time"
 
 	"github.com/robfig/cron"
 	"github.com/sirupsen/logrus"
@@ -39,6 +40,13 @@ func CronInit() {
 	c.AddFunc("0 1 * * *", func() {
 		service.GroupApp.RunScript()
 	})
-
+	//每天凌晨
+	err := c.AddFunc("2 0 * * * *", func() {
+		logrus.Debug("任务开始:", time.Now())
+		service.GroupApp.MessagePush.MessagePushMangeClear()
+	})
+	if err != nil {
+		logrus.Error("消息清理计划定时任务启动失败")
+	}
 	c.Start()
 }
