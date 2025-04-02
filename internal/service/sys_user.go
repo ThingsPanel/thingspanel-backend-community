@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
 	"fmt"
-	"project/pkg/common"
-	"project/pkg/errcode"
 	"strings"
 	"time"
+
+	"project/pkg/common"
+	"project/pkg/errcode"
 
 	"gorm.io/gorm"
 
@@ -30,8 +30,7 @@ type User struct{}
 
 // @description  创建用户
 func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.UserClaims) error {
-
-	var user = model.User{}
+	user := model.User{}
 	// uuid生成用户id
 	user.ID = uuid.New()
 	user.Name = createUserReq.Name
@@ -150,7 +149,6 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 	// 判断用户状态
 	if *user.Status != "N" {
 		return nil, errcode.New(errcode.CodeUserDisabled)
-
 	}
 
 	logrsp, err := u.UserLoginAfter(user)
@@ -183,7 +181,6 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 	token, err := jwt.GenerateToken(claims)
 	if err != nil {
 		return nil, errcode.New(errcode.CodeTokenGenerateError)
-
 	}
 	timeout := viper.GetInt("session.timeout")
 	reset_on_request := viper.GetBool("session.reset_on_request")
@@ -314,9 +311,8 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 
 // @description ResetPassword By VerifyCode and Email
 func (*User) ResetPassword(ctx context.Context, resetPasswordReq *model.ResetPasswordReq) error {
-
 	if err := utils.ValidatePassword(resetPasswordReq.Password); err != nil {
-		return errcode.New(200040) // 密码格式错误
+		return err
 	}
 
 	verificationCode, err := global.REDIS.Get(context.Background(), resetPasswordReq.Email+"_code").Result()
@@ -379,7 +375,7 @@ func (*User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.Use
 
 // @description  修改用户信息
 func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserClaims) error {
-	//密码不能小于6位，如果等于空则不修改密码
+	// 密码不能小于6位，如果等于空则不修改密码
 	if updateUserReq.Password != nil {
 		if len(*updateUserReq.Password) == 0 {
 			updateUserReq.Password = nil
@@ -668,7 +664,7 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (*model.LoginRsp, error) {
 	// 密码格式校验
 	if err := utils.ValidatePassword(req.Password); err != nil {
-		return nil, errcode.New(200040) // 密码格式不符合要求
+		return nil, err
 	}
 
 	// 验证码校验

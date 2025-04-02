@@ -1,9 +1,10 @@
 package utils
 
 import (
-	"fmt"
 	"strings"
 	"unicode"
+
+	"project/pkg/errcode"
 
 	"github.com/sirupsen/logrus"
 )
@@ -17,7 +18,7 @@ import (
 func ValidatePassword(password string) error {
 	// 检查密码长度
 	if len(password) < 6 {
-		return fmt.Errorf("密码长度必须至少为6个字符")
+		return errcode.New(200040)
 	}
 
 	validSpecialChars := "!@#$%^&*()_+-=[]{};\\':\"|,./<>?"
@@ -47,7 +48,9 @@ func ValidatePassword(password string) error {
 
 	// 检查无效字符
 	if len(invalidChars) > 0 {
-		return fmt.Errorf("密码包含无效字符：%s", string(invalidChars))
+		return errcode.WithVars(200053, map[string]interface{}{
+			"invalid_chars": string(invalidChars),
+		})
 	}
 	logrus.Debug("hasUpper", hasUpper)
 	logrus.Debug("hasSpecial", hasSpecial)
@@ -67,7 +70,9 @@ func ValidatePassword(password string) error {
 	// }
 
 	if len(missingElements) > 0 {
-		return fmt.Errorf("密码缺少以下元素：%s", strings.Join(missingElements, "、"))
+		return errcode.WithVars(200054, map[string]interface{}{
+			"missing_elements": strings.Join(missingElements, "、"),
+		})
 	}
 
 	return nil

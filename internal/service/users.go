@@ -19,8 +19,7 @@ import (
 	"gorm.io/gen/field"
 )
 
-type UsersService struct {
-}
+type UsersService struct{}
 
 // GetTenant
 // @AUTHOR:zxq
@@ -212,7 +211,7 @@ func (*UsersService) UpdateTenantInfoPassword(ctx context.Context, userInfo *uti
 	// 密码格式校验
 	err := utils.ValidatePassword(param.Password)
 	if err != nil {
-		return errcode.New(200040) // 使用已有的密码格式错误码
+		return err
 	}
 
 	var (

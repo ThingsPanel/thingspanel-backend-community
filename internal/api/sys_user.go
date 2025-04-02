@@ -30,7 +30,7 @@ func (*UserApi) Login(c *gin.Context) {
 
 	result := utils.ValidateInput(loginReq.Email)
 	if !result.IsValid {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+		c.Error(errcode.WithData(200013, map[string]interface{}{
 			"error": result.Message,
 		}))
 		return
@@ -124,7 +124,7 @@ func (*UserApi) CreateUser(c *gin.Context) {
 		return
 	}
 
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	err := service.GroupApp.User.CreateUser(&createUserReq, userClaims)
 	if err != nil {
@@ -144,7 +144,7 @@ func (*UserApi) HandleUserListByPage(c *gin.Context) {
 		return
 	}
 
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	userList, err := service.GroupApp.User.GetUserListByPage(&userListReq, userClaims)
 	if err != nil {
@@ -164,7 +164,7 @@ func (*UserApi) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	err := service.GroupApp.User.UpdateUser(&updateUserReq, userClaims)
 	if err != nil {
@@ -180,7 +180,7 @@ func (*UserApi) UpdateUser(c *gin.Context) {
 func (*UserApi) DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	err := service.GroupApp.User.DeleteUser(id, userClaims)
 	if err != nil {
@@ -196,7 +196,7 @@ func (*UserApi) DeleteUser(c *gin.Context) {
 func (*UserApi) HandleUser(c *gin.Context) {
 	id := c.Param("id")
 
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	user, err := service.GroupApp.User.GetUser(id, userClaims)
 	if err != nil {
@@ -212,8 +212,7 @@ func (*UserApi) HandleUser(c *gin.Context) {
 // GetUserDetail 个人信息查看接口
 // @Router   /api/v1/user/detail [get]
 func (*UserApi) HandleUserDetail(c *gin.Context) {
-
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	user, err := service.GroupApp.User.GetUserDetail(userClaims)
 	if err != nil {
@@ -233,10 +232,9 @@ func (*UserApi) UpdateUsers(c *gin.Context) {
 		return
 	}
 
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	err := service.GroupApp.User.UpdateUserInfo(c, &updateUserInfoReq, userClaims)
-
 	if err != nil {
 		c.Error(err)
 	}
@@ -252,7 +250,7 @@ func (*UserApi) TransformUser(c *gin.Context) {
 		return
 	}
 
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	loginRsp, err := service.GroupApp.User.TransformUser(&transformUserReq, userClaims)
 	if err != nil {

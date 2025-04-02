@@ -101,10 +101,13 @@ messages:
   200012:
     zh_CN: "验证码错误"
     en_US: "Invalid verification code"
+  200013:
+    zh_CN: "请输入正确的邮箱或手机号"
+    en_US: "Please enter a valid email or phone number"
   # 密码相关错误 (200040-200049)
   200040:
-    zh_CN: "密码必须包含至少6个字符，包含大小写字母、数字和特殊字符"
-    en_US: "Password must be at least 6 characters and contain uppercase, lowercase, number and special character"
+    zh_CN: "密码必须包含至少6个字符，包含小写字母和数字"
+    en_US: "Password must be at least 6 characters and contain lowercase letters and numbers"
   200041:
     zh_CN: "两次输入的密码不一致"
     en_US: "Passwords do not match"
@@ -129,6 +132,12 @@ messages:
   200052:
     zh_CN: "脚本处理失败: ${error}"
     en_US: "Script processing failed: ${error}"
+  200053:
+    zh_CN: "密码包含无效字符：${invalid_chars}"
+    en_US: "Password contains invalid characters: ${invalid_chars}"
+  200054:
+    zh_CN: "密码缺少以下元素：${missing_elements}"
+    en_US: "Password is missing the following elements: ${missing_elements}"
 
   # 设备条件错误码 (200060-200069)
   200060:

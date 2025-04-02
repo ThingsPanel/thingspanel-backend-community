@@ -16,9 +16,9 @@ type CreateUserReq struct {
 }
 
 type LoginReq struct {
-	Email    string `json:"email" validate:"required,min=5,max=255" example:"test@test.cn"` // 登录账号(输入邮箱或者手机号)
-	Password string `json:"password" validate:"required,min=6,max=512" example:"123456"`    // 密码
-	Salt     string `json:"salt" validate:"omitempty,max=512"`                              // 随机盐(如果在超管设置了前端RSA加密则需要上送)
+	Email    string `json:"email" validate:"required" example:"test@test.cn"`            // 登录账号(输入邮箱或者手机号)
+	Password string `json:"password" validate:"required,min=6,max=512" example:"123456"` // 密码
+	Salt     string `json:"salt" validate:"omitempty,max=512"`                           // 随机盐(如果在超管设置了前端RSA加密则需要上送)
 }
 
 type LoginRsp struct {
@@ -67,11 +67,11 @@ type ResetPasswordReq struct {
 }
 
 type EmailRegisterReq struct {
-	Email           string  `json:"email" validate:"required,email"`            // 邮箱
-	VerifyCode      string  `json:"verify_code" validate:"required"`            // 验证码
-	Password        string  `json:"password" validate:"required,min=6,max=255"` // 新密码
-	ConfirmPassword string  `json:"confirm_password" validate:"required,min=6,max=255"`
-	PhoneNumber     string  `json:"phone_number" validate:"required"` //手机号码
-	PhonePrefix     string  `json:"phone_prefix" validate:"required"` //手机前缀
+	Email           string  `json:"email" validate:"required,email"` // 邮箱
+	VerifyCode      string  `json:"verify_code" validate:"required"` // 验证码
+	Password        string  `json:"password" validate:"required"`    // 新密码
+	ConfirmPassword string  `json:"confirm_password" validate:"required"`
+	PhoneNumber     string  `json:"phone_number" validate:"required"` // 手机号码
+	PhonePrefix     string  `json:"phone_prefix" validate:"required"` // 手机前缀
 	Salt            *string `json:"salt" validate:"omitempty"`        // 随机盐
 }
