@@ -1,5 +1,4 @@
 name: Build and Release
-
 on:
   push:
     branches: [ "main" ]
@@ -9,24 +8,22 @@ on:
         description: 'Tag name'
         required: false
         default: 'latest'
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
-
+      uses: actions/checkout@v3
+    
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
-        go-version: 1.23
+        go-version: '1.23'
     
     - name: Determine Release Tag
       id: determine-tag
       run: echo "RELEASE_TAG=$(if [ '${{ github.event_name }}' == 'push' ]; then echo 'latest'; else echo '${{ github.event.inputs.tag }}'; fi)" >> $GITHUB_ENV
-
+    
     - name: Delete existing release if it exists
       id: delete_release
       run: |
@@ -39,7 +36,7 @@ jobs:
           curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
         else
-          echo "No existing release found for tag ${{ github.event.inputs.tag }}"
+          echo "No existing release found for tag $tag"
         fi
         
     - name: Create Release
@@ -48,46 +45,88 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-          tag_name: ${{ github.event.inputs.tag  || 'latest' }}
-          release_name: Release ${{ github.event.inputs.tag  || 'latest' }}
-          body: Release created by GitHub Actions. Tag ${{ github.event.inputs.tag  || 'latest' }}
+          tag_name: ${{ github.event.inputs.tag || 'latest' }}
+          release_name: Release ${{ github.event.inputs.tag || 'latest' }}
+          body: Release created by GitHub Actions. Tag ${{ github.event.inputs.tag || 'latest' }}
           draft: false
           prerelease: false
-
+    
     - name: Build and package for multiple platforms
       run: |
         # Define the platforms and their configurations
-        platforms=("windows/amd64" "linux/amd64" "linux/arm64" "darwin/amd64")
+        platforms=(
+          "windows/amd64" 
+          "linux/amd64" 
+          "linux/arm64" 
+          "linux/arm/v7" 
+          "linux/386" 
+          "darwin/amd64"
+          "darwin/arm64"
+        )
+        
         for platform in "${platforms[@]}"; do
           IFS="/" read -r os arch <<< "$platform"
+          echo "Building for $os/$arch..."
+          
+          # Create output directory
+          mkdir -p "dist/$os-$arch"
+          
+          # Copy necessary files
+          cp -r configs "dist/$os-$arch/"
+          cp -r sql "dist/$os-$arch/"
+          cp -r files "dist/$os-$arch/"
+          
           # Adjust output file name for Windows
           if [ "$os" == "windows" ]; then
-             output_file="thingspanel-backend-community-$os-$arch.exe"
+             output_file="dist/$os-$arch/thingspanel-backend-community.exe"
           else
-             output_file="thingspanel-backend-community-$os-$arch"
+             output_file="dist/$os-$arch/thingspanel-backend-community"
           fi
-          tar_file="$output_file.tar.gz"
           
           # Build for each platform
-          CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -o $output_file
+          CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -o "$output_file"
           
-          # Package the build into an archive
-          tar -czvf $tar_file $output_file configs sql files
+          # Check if build was successful
+          if [ $? -ne 0 ]; then
+            echo "Failed to build for $os/$arch, skipping..."
+            rm -rf "dist/$os-$arch"
+            continue
+          fi
           
-          # Clean up build artifacts
-          rm $output_file
+          # Create archive name
+          if [ "$os" == "windows" ]; then
+            archive_name="thingspanel-backend-community-$os-$arch.zip"
+            # Package into zip for Windows
+            (cd dist && zip -r "../$archive_name" "$os-$arch")
+          else
+            archive_name="thingspanel-backend-community-$os-$arch.tar.gz"
+            # Package into tar.gz for other platforms
+            tar -czf "$archive_name" -C dist "$os-$arch"
+          fi
+          
+          echo "Created archive: $archive_name"
         done
-
+        
+        # List all created archives
+        ls -la *.tar.gz *.zip 2>/dev/null || echo "No archives created"
+    
     - name: Upload Release Assets
       id: upload-release-assets
       run: |
-        for asset in ./thingspanel-backend-community-*; do
-          asset_name=$(basename "$asset")
-          content_type="application/zip"
-          if [[ "$asset" == *.tar.gz ]]; then
+        for asset in ./thingspanel-backend-community-*.tar.gz ./thingspanel-backend-community-*.zip; do
+          if [ -f "$asset" ]; then
+            asset_name=$(basename "$asset")
+            echo "Uploading $asset_name..."
+            
             content_type="application/gzip"
+            if [[ "$asset" == *.zip ]]; then
+              content_type="application/zip"
+            fi
+            
+            curl -XPOST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Content-Type: $content_type" \
+              --data-binary "@$asset" \
+              "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=$asset_name"
           fi
-          curl -XPOST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -F "file=@$asset" \
-          "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=$asset_name&content_type=$content_type"
-        done   
+        done
