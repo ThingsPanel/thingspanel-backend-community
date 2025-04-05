@@ -54,54 +54,71 @@ jobs:
     - name: Build and package for multiple platforms
       run: |
         # Define the platforms and their configurations
+        # Format: "GOOS/GOARCH/GOARM" (GOARM is optional)
         platforms=(
           "windows/amd64" 
           "linux/amd64" 
           "linux/arm64" 
-          "linux/arm/v7" 
+          "linux/arm/7"  # ARMv7 with GOARM=7
           "linux/386" 
           "darwin/amd64"
           "darwin/arm64"
         )
         
         for platform in "${platforms[@]}"; do
-          IFS="/" read -r os arch <<< "$platform"
-          echo "Building for $os/$arch..."
+          # Split the platform string
+          IFS="/" read -r os arch arm_version <<< "$platform"
+          
+          # Set build environment variables
+          export GOOS=$os
+          export GOARCH=$arch
+          export CGO_ENABLED=0
+          
+          # Set GOARM if specified
+          if [ ! -z "$arm_version" ]; then
+            export GOARM=$arm_version
+            platform_suffix="$os-$arch-v$arm_version"
+          else
+            unset GOARM
+            platform_suffix="$os-$arch"
+          fi
+          
+          echo "Building for $GOOS/$GOARCH${GOARM:+/v$GOARM}..."
           
           # Create output directory
-          mkdir -p "dist/$os-$arch"
+          mkdir -p "dist/$platform_suffix"
           
           # Copy necessary files
-          cp -r configs "dist/$os-$arch/"
-          cp -r sql "dist/$os-$arch/"
-          cp -r files "dist/$os-$arch/"
+          cp -r configs "dist/$platform_suffix/" 2>/dev/null || echo "No configs directory found"
+          cp -r sql "dist/$platform_suffix/" 2>/dev/null || echo "No sql directory found"
+          cp -r files "dist/$platform_suffix/" 2>/dev/null || echo "No files directory found"
           
           # Adjust output file name for Windows
           if [ "$os" == "windows" ]; then
-             output_file="dist/$os-$arch/thingspanel-backend-community.exe"
+             output_file="dist/$platform_suffix/thingspanel-backend-community.exe"
           else
-             output_file="dist/$os-$arch/thingspanel-backend-community"
+             output_file="dist/$platform_suffix/thingspanel-backend-community"
           fi
           
           # Build for each platform
-          CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -o "$output_file"
+          go build -o "$output_file"
           
           # Check if build was successful
           if [ $? -ne 0 ]; then
-            echo "Failed to build for $os/$arch, skipping..."
-            rm -rf "dist/$os-$arch"
+            echo "Failed to build for $GOOS/$GOARCH${GOARM:+/v$GOARM}, skipping..."
+            rm -rf "dist/$platform_suffix"
             continue
           fi
           
           # Create archive name
           if [ "$os" == "windows" ]; then
-            archive_name="thingspanel-backend-community-$os-$arch.zip"
+            archive_name="thingspanel-backend-community-$platform_suffix.zip"
             # Package into zip for Windows
-            (cd dist && zip -r "../$archive_name" "$os-$arch")
+            (cd dist && zip -r "../$archive_name" "$platform_suffix")
           else
-            archive_name="thingspanel-backend-community-$os-$arch.tar.gz"
+            archive_name="thingspanel-backend-community-$platform_suffix.tar.gz"
             # Package into tar.gz for other platforms
-            tar -czf "$archive_name" -C dist "$os-$arch"
+            tar -czf "$archive_name" -C dist "$platform_suffix"
           fi
           
           echo "Created archive: $archive_name"
