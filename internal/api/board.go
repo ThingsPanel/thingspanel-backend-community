@@ -3,7 +3,6 @@ package api
 import (
 	model "project/internal/model"
 	service "project/internal/service"
-	common "project/pkg/common"
 	"project/pkg/errcode"
 	utils "project/pkg/utils"
 
@@ -130,13 +129,8 @@ func (*BoardApi) HandleDeviceTotal(c *gin.Context) {
 func (*BoardApi) HandleDevice(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	if !common.CheckUserIsAdmin(userClaims.Authority) {
-		c.Error(errcode.New(201001)) // "无访问权限" / "Access Denied"
-		return
-	}
-
 	board := service.GroupApp.Board
-	data, err := board.GetDevice(c)
+	data, err := board.GetDevice(c, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -147,7 +141,7 @@ func (*BoardApi) HandleDevice(c *gin.Context) {
 // GetTenant 租户信息
 // @Router   /api/v1/board/tenant [get]
 func (*BoardApi) HandleTenant(c *gin.Context) {
-	//TODO::不知道需不需要再次验证用户信息
+	// TODO::不知道需不需要再次验证用户信息
 	users := service.UsersService{}
 	data, err := users.GetTenant(c)
 	if err != nil {
@@ -253,7 +247,7 @@ func (*BoardApi) GetDeviceTrend(c *gin.Context) {
 	}
 
 	// 获取用户claims
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	// 如果请求中没有指定tenantID,则使用当前用户的tenantID
 	if deviceTrendReq.TenantID == nil || *deviceTrendReq.TenantID == "" {

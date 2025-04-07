@@ -62,8 +62,8 @@ func (*Board) CreateBoard(ctx context.Context, CreateBoardReq *model.CreateBoard
 }
 
 func (*Board) UpdateBoard(ctx context.Context, UpdateBoardReq *model.UpdateBoardReq) (*model.Board, error) {
-	var db = dal.BoardQuery{}
-	var board = model.Board{}
+	db := dal.BoardQuery{}
+	board := model.Board{}
 	board.ID = UpdateBoardReq.Id
 	board.Name = UpdateBoardReq.Name
 	// 校验是否json格式字符串
@@ -207,14 +207,18 @@ func (*Board) GetDeviceTotal(ctx context.Context, authority string, tenantID str
 // @AUTHOR:zxq
 // @DATE: 2024-03-04 09:04
 // @DESCRIPTIONS: 获得设备总数/激活数
-func (*Board) GetDevice(ctx context.Context) (data *model.GetBoardDeviceRes, err error) {
+func (*Board) GetDevice(ctx context.Context, U *utils.UserClaims) (data *model.GetBoardDeviceRes, err error) {
 	var (
 		total, on int64
 		device    = query.Device
 		db        = dal.DeviceQuery{}
 	)
 
-	total, err = db.Count(ctx)
+	if !common.CheckUserIsAdmin(U.Authority) {
+		total, err = db.CountByTenantID(ctx, U.TenantID)
+	} else {
+		total, err = db.Count(ctx)
+	}
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count failed:", err)
 		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -222,7 +226,11 @@ func (*Board) GetDevice(ctx context.Context) (data *model.GetBoardDeviceRes, err
 		})
 		return
 	}
-	on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"))
+	if !common.CheckUserIsAdmin(U.Authority) {
+		on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.TenantID.Eq(U.TenantID))
+	} else {
+		on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"))
+	}
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count/on failed:", err)
 		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
