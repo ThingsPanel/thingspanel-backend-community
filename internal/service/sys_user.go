@@ -742,6 +742,16 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 		})
 	}
 
+	// 给租户新增一个默认的首页看板
+	err = dal.BoardQuery{}.CreateDefaultBoard(ctx, tenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "create_default_board",
+			"tenant_id": tenantID,
+			"error":     err.Error(),
+		})
+	}
+
 	return u.UserLoginAfter(userInfo)
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	model "project/internal/model"
 	query "project/internal/query"
@@ -11,6 +12,7 @@ import (
 	"gorm.io/gen"
 	"gorm.io/gorm"
 
+	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -104,8 +106,7 @@ func GetBoardListByTenantId(tenantid string) (int64, interface{}, error) {
 	return count, boardsList, err
 }
 
-type BoardQuery struct {
-}
+type BoardQuery struct{}
 
 func (BoardQuery) Create(ctx context.Context, info *model.Board) (*model.Board, error) {
 	var (
@@ -119,7 +120,7 @@ func (BoardQuery) Create(ctx context.Context, info *model.Board) (*model.Board, 
 }
 
 func (BoardQuery) First(ctx context.Context, option ...gen.Condition) (info *model.Board, err error) {
-	var board = query.Board
+	board := query.Board
 	info, err = board.WithContext(ctx).Where(option...).First()
 	if err != nil {
 		logrus.Error(ctx, "[BoardQuery]First failed:", err)
@@ -135,6 +136,30 @@ func (BoardQuery) UpdateHomeFlagN(ctx context.Context, tenantid string) error {
 	)
 	if _, err := board.WithContext(ctx).Where(query.Board.TenantID.Eq(tenantid), query.Board.HomeFlag.Eq("Y")).Updates(map[string]interface{}{"home_flag": "N"}); err != nil {
 		logrus.Error(ctx, "update failed:", err)
+	}
+	return err
+}
+
+// 给新增的租户新增一个默认的首页看板
+
+func (BoardQuery) CreateDefaultBoard(ctx context.Context, tenantid string) error {
+	var (
+		board  = query.Board
+		config = `[{"x":9,"y":0,"w":3,"h":2,"minW":2,"minH":2,"i":1743208919659553,"data":{"cardId":"on-num","type":"builtin","title":"在线设备数","config":{},"layout":{"w":3,"h":2,"minH":2,"minW":2},"basicSettings":{},"dataSource":{"origin":"system","systemSource":[{}],"deviceSource":[{"metricsOptions":[],"metricsOptionsFetched":false}],"deviceCount":1}},"moved":false},{"x":3,"y":0,"w":3,"h":2,"minW":2,"minH":2,"i":1743208917510422,"data":{"cardId":"news-num","type":"builtin","title":"消息总数","config":{},"layout":{"w":3,"h":2,"minH":2,"minW":2},"basicSettings":{"showTitle":false,"title":"消息总数"},"dataSource":{"origin":"system","systemSource":[{}],"deviceSource":[{"metricsOptions":[],"metricsOptionsFetched":false}],"deviceCount":1}},"moved":false},{"x":0,"y":0,"w":3,"h":2,"minW":2,"minH":2,"i":1743208916745868,"data":{"cardId":"access-num","type":"builtin","title":"访问量","config":{},"layout":{"w":3,"h":2,"minH":2,"minW":2},"basicSettings":{},"dataSource":{"origin":"system","systemSource":[{}],"deviceSource":[{}]}},"moved":false},{"x":6,"y":0,"w":3,"h":2,"minW":2,"minH":2,"i":1743208918343576,"data":{"cardId":"off-num","type":"builtin","title":"离线设备数","config":{},"layout":{"w":3,"h":2,"minH":2,"minW":2},"basicSettings":{},"dataSource":{"origin":"system","systemSource":[{}],"deviceSource":[{"metricsOptions":[],"metricsOptionsFetched":false}],"deviceCount":1}},"moved":false},{"x":0,"y":2,"w":9,"h":6,"minW":2,"minH":2,"i":1743208921010016,"data":{"cardId":"trend-online","type":"builtin","title":"设备在线趋势","config":{},"layout":{"w":4,"h":3,"minH":2,"minW":2},"basicSettings":{},"dataSource":{"origin":"system","systemSource":[{}],"deviceSource":[{}]}},"moved":false}]`
+	)
+	// 根据上面sql语句，创建默认首页看板
+	err := board.WithContext(ctx).Create(&model.Board{
+		ID:        uuid.New(),
+		Name:      "Home",
+		Config:    &config,
+		TenantID:  tenantid,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		HomeFlag:  "Y",
+		Remark:    nil,
+	})
+	if err != nil {
+		logrus.Error(ctx, "[BoardQuery]CreateDefaultBoard failed:", err)
 	}
 	return err
 }
