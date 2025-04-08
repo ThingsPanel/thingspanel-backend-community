@@ -704,9 +704,7 @@ func (*TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySe
 func (*TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStatisticReq) (any, error) {
 	// 处理时间范围
 	if err := processTimeRange(req); err != nil {
-		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return nil, err
 	}
 
 	// 获取数据
@@ -740,12 +738,12 @@ func processTimeRange(req *model.GetTelemetryStatisticReq) error {
 	if req.AggregateWindow == "no_aggregate" {
 		// 起始时间和结束时间的差值不能大于一天，时间示例1741679355121
 		if req.EndTime-req.StartTime > 24*time.Hour.Milliseconds() {
-			return fmt.Errorf("start time and end time difference cannot be greater than one day")
+			return errcode.New(206001)
 		}
 	}
 	if req.TimeRange == "custom" {
 		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
-			return fmt.Errorf("time range is invalid")
+			return errcode.New(206002) // 时间范围无效
 		}
 		return nil
 	}
@@ -771,7 +769,9 @@ func processTimeRange(req *model.GetTelemetryStatisticReq) error {
 
 	duration, ok := timeRanges[req.TimeRange]
 	if !ok {
-		return fmt.Errorf("unknown time range: %s", req.TimeRange)
+		return errcode.WithVars(206003, map[string]interface{}{
+			"time_range": req.TimeRange,
+		})
 	}
 
 	now := time.Now()

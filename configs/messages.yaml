@@ -223,6 +223,17 @@ messages:
     zh_CN: "WebSocket连接升级失败：${error}"
     en_US: "WebSocket upgrade failed: ${error}"
 
+  # 设备数据相关错误码 (206xxx)
+  206001:
+    zh_CN: "非聚合查询起始时间和结束时间的差值不能大于一天"
+    en_US: "For non-aggregate queries, the difference between start time and end time cannot be greater than one day"
+  206002:
+    zh_CN: "时间范围无效"
+    en_US: "Invalid time range"
+  206003:
+    zh_CN: "未知时间范围: ${time_range}"
+    en_US: "Unknown time range: ${time_range}"
+
   # Device Connect Field Keys (500xxx)
   500001:
     zh_CN: "接入地址"
