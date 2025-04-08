@@ -70,7 +70,7 @@ type EmailRegisterReq struct {
 	Email           string  `json:"email" validate:"required,email"` // 邮箱
 	VerifyCode      string  `json:"verify_code" validate:"required"` // 验证码
 	Password        string  `json:"password" validate:"required"`    // 新密码
-	ConfirmPassword string  `json:"confirm_password" validate:"required"`
+	ConfirmPassword *string `json:"confirm_password" validate:"omitempty"`
 	PhoneNumber     string  `json:"phone_number" validate:"required"` // 手机号码
 	PhonePrefix     string  `json:"phone_prefix" validate:"required"` // 手机前缀
 	Salt            *string `json:"salt" validate:"omitempty"`        // 随机盐

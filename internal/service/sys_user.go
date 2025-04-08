@@ -677,7 +677,7 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	}
 
 	// 密码一致性校验
-	if req.Password != req.ConfirmPassword {
+	if req.ConfirmPassword != nil && *req.ConfirmPassword != req.Password {
 		return nil, errcode.New(200041) // 两次输入的密码不一致
 	}
 
