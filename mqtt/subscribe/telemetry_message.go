@@ -155,8 +155,6 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 	)
 	for k, v := range reqMap {
 		logrus.Debug(k, "(", v, ")")
-
-		// 基础字段（所有类型都共享的字段）
 		d := model.TelemetryData{
 			DeviceID: device.ID,
 			Key:      k,
