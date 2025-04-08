@@ -907,16 +907,12 @@ func (*Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
 				})
 			}
 			if len(data) > 0 {
-				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-					"error": "gateway device has sub device,plesae remove sub device first",
-				})
+				return errcode.New(200061)
 			}
 		} else if deviceConfig.DeviceType == strconv.Itoa(constant.GATEWAY_SON_DEVICE) {
 			// 检查有没有关联的网关
 			if device.ParentID != nil {
-				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-					"error": "son device has parent device,plesae remove parent device first",
-				})
+				return errcode.New(200063)
 			}
 		}
 	}

@@ -149,6 +149,9 @@ messages:
   200062:
     zh_CN: "该设备存在场景，请先解除场景关联"
     en_US: "device has scene,please remove scene first"
+  200063:
+    zh_CN: "子设备存在父设备，请先解除父设备关联"
+    en_US: "son device has parent device,plesae remove parent device first"
   # 权限模块错误 (201xxx)
   201001:
     zh_CN: "无访问权限"
