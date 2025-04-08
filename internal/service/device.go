@@ -952,7 +952,14 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 		voucher string
 		err     error
 	)
-
+	// 查询旧凭证
+	deviceInfo, err := dal.GetDeviceByID(param.DeviceID)
+	if err != nil {
+		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get device info failed:" + err.Error(),
+			"id":    param.DeviceID,
+		})
+	}
 	if v, ok := param.Voucher.(string); ok {
 		voucher = v
 	} else {
@@ -975,6 +982,10 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 	}
 	// 清除设备缓存
 	initialize.DelDeviceCache(param.DeviceID)
+	if deviceInfo.Voucher != voucher {
+		// 清除broker的缓存
+		global.REDIS.Del(ctx, deviceInfo.Voucher)
+	}
 
 	info, err = db.First(ctx, device.ID.Eq(param.DeviceID))
 	if err != nil {
