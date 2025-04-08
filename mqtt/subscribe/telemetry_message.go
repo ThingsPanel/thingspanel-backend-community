@@ -3,6 +3,7 @@ package subscribe
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	initialize "project/initialize"
@@ -26,13 +27,13 @@ func MessagesChanHandler(messages <-chan map[string]interface{}) {
 	for {
 		for i := 0; i < batchSize; i++ {
 			// 获取消息
-			//logrus.Debug("管道消息数量:", len(messages))
+			// logrus.Debug("管道消息数量:", len(messages))
 			message, ok := <-messages
 			if !ok {
 				break
 			}
 
-			//如果配置了别的数据库，遥测数据不写入原来的库了
+			// 如果配置了别的数据库，遥测数据不写入原来的库了
 			dbType := viper.GetString("grpc.tptodb_type")
 			if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 				continue
@@ -72,7 +73,7 @@ func MessagesChanHandler(messages <-chan map[string]interface{}) {
 
 // 处理消息
 func TelemetryMessages(payload []byte, topic string) {
-	//如果配置了别的数据库，遥测数据不写入原来的库了
+	// 如果配置了别的数据库，遥测数据不写入原来的库了
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		logrus.Infof("do not insert db for dbType:%v", dbType)
@@ -92,6 +93,29 @@ func TelemetryMessages(payload []byte, topic string) {
 		return
 	}
 	TelemetryMessagesHandle(device, telemetryPayload.Values, topic)
+}
+
+// 尝试将值解析为 JSON 字符串
+func tryParseAsJSON(value interface{}) (string, bool) {
+	// 先尝试将值转为字符串
+	str := fmt.Sprint(value)
+
+	// 检查是否看起来像 JSON（简单检查）
+	trimmed := strings.TrimSpace(str)
+	if (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
+		(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) {
+
+		// 尝试解析为 JSON
+		var js interface{}
+		if err := json.Unmarshal([]byte(str), &js); err == nil {
+			// 是有效的 JSON，重新格式化为标准 JSON
+			if jsonBytes, err := json.Marshal(js); err == nil {
+				return string(jsonBytes), true
+			}
+		}
+	}
+
+	return str, false
 }
 
 func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic string) {
@@ -114,8 +138,8 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 	// 心跳处理
 	go HeartbeatDeal(device)
 
-	//byte转map
-	var reqMap = make(map[string]interface{})
+	// byte转map
+	reqMap := make(map[string]interface{})
 	err = json.Unmarshal(telemetryBody, &reqMap)
 	if err != nil {
 		logrus.Error(err.Error())
@@ -131,40 +155,47 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 	)
 	for k, v := range reqMap {
 		logrus.Debug(k, "(", v, ")")
-		var d model.TelemetryData
+
+		// 基础字段（所有类型都共享的字段）
+		d := model.TelemetryData{
+			DeviceID: device.ID,
+			Key:      k,
+			T:        milliseconds,
+			TenantID: &device.TenantID,
+		}
+
+		// 根据类型设置值字段
 		switch value := v.(type) {
 		case string:
-			d = model.TelemetryData{
-				DeviceID: device.ID,
-				Key:      k,
-				T:        milliseconds,
-				StringV:  &value,
-				TenantID: &device.TenantID,
-			}
+			d.StringV = &value
 		case bool:
-			d = model.TelemetryData{
-				DeviceID: device.ID,
-				Key:      k,
-				T:        milliseconds,
-				BoolV:    &value,
-				TenantID: &device.TenantID,
-			}
+			d.BoolV = &value
 		case float64:
-			d = model.TelemetryData{
-				DeviceID: device.ID,
-				Key:      k,
-				T:        milliseconds,
-				NumberV:  &value,
-				TenantID: &device.TenantID,
+			d.NumberV = &value
+		case int:
+			// 处理整数类型
+			f := float64(value)
+			d.NumberV = &f
+		case int64:
+			// 处理长整数类型
+			f := float64(value)
+			d.NumberV = &f
+		case []interface{}, map[string]interface{}:
+			// 处理 JSON 对象或数组
+			if jsonBytes, err := json.Marshal(value); err == nil {
+				s := string(jsonBytes)
+				d.StringV = &s
+			} else {
+				s := fmt.Sprint(value)
+				d.StringV = &s
 			}
 		default:
-			s := fmt.Sprint(value)
-			d = model.TelemetryData{
-				DeviceID: device.ID,
-				Key:      k,
-				T:        milliseconds,
-				StringV:  &s,
-				TenantID: &device.TenantID,
+			// 尝试检测是否为 JSON 字符串
+			if jsonStr, ok := tryParseAsJSON(value); ok {
+				d.StringV = &jsonStr
+			} else {
+				s := fmt.Sprint(value)
+				d.StringV = &s
 			}
 		}
 		triggerParam = append(triggerParam, k)
