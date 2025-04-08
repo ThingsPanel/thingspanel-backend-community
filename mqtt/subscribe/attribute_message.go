@@ -3,13 +3,14 @@ package subscribe
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	initialize "project/initialize"
 	dal "project/internal/dal"
 	"project/internal/model"
 	service "project/internal/service"
 	config "project/mqtt"
-	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -47,8 +48,8 @@ func DeviceAttributeReport(payload []byte, topic string) (string, string, error)
 		return "", messageId, err
 	}
 
-	//byte转map
-	var reqMap = make(map[string]interface{})
+	// byte转map
+	reqMap := make(map[string]interface{})
 	err = json.Unmarshal(attributePayload.Values, &reqMap)
 	if err != nil {
 		logrus.Error(err.Error())
@@ -85,7 +86,7 @@ func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{},
 		}
 	}
 
-	//属性保存
+	// 属性保存
 	ts := time.Now().UTC()
 	logrus.Debug(device, ts)
 	var (
@@ -95,40 +96,45 @@ func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{},
 	for k, v := range reqMap {
 		logrus.Debug(k, "(", v, ")")
 
-		var d model.AttributeData
+		d := model.AttributeData{
+			DeviceID: device.ID,
+			Key:      k,
+			T:        ts,
+			TenantID: &device.TenantID,
+		}
+
+		// 根据类型设置值字段
 		switch value := v.(type) {
 		case string:
-			d = model.AttributeData{
-				DeviceID: device.ID,
-				Key:      k,
-				T:        ts,
-				StringV:  &value,
-				TenantID: &device.TenantID,
-			}
+			d.StringV = &value
 		case bool:
-			d = model.AttributeData{
-				DeviceID: device.ID,
-				Key:      k,
-				T:        ts,
-				BoolV:    &value,
-				TenantID: &device.TenantID,
-			}
+			d.BoolV = &value
 		case float64:
-			d = model.AttributeData{
-				DeviceID: device.ID,
-				Key:      k,
-				T:        ts,
-				NumberV:  &value,
-				TenantID: &device.TenantID,
+			d.NumberV = &value
+		case int:
+			// 处理整数类型
+			f := float64(value)
+			d.NumberV = &f
+		case int64:
+			// 处理长整数类型
+			f := float64(value)
+			d.NumberV = &f
+		case []interface{}, map[string]interface{}:
+			// 处理 JSON 对象或数组
+			if jsonBytes, err := json.Marshal(value); err == nil {
+				s := string(jsonBytes)
+				d.StringV = &s
+			} else {
+				s := fmt.Sprint(value)
+				d.StringV = &s
 			}
 		default:
-			s := fmt.Sprint(value)
-			d = model.AttributeData{
-				DeviceID: device.ID,
-				Key:      k,
-				T:        ts,
-				StringV:  &s,
-				TenantID: &device.TenantID,
+			// 尝试检测是否为 JSON 字符串
+			if jsonStr, ok := tryParseAsJSON(value); ok {
+				d.StringV = &jsonStr
+			} else {
+				s := fmt.Sprint(value)
+				d.StringV = &s
 			}
 		}
 		triggerParam = append(triggerParam, k)
@@ -140,9 +146,8 @@ func deviceAttributesHandle(device *model.Device, reqMap map[string]interface{},
 			return err
 		}
 	}
-	//自动化处理
+	// 自动化处理
 	go func() {
-
 		err := service.GroupApp.Execute(device, service.AutomateFromExt{
 			TriggerParam:     triggerParam,
 			TriggerValues:    triggerValues,
@@ -181,5 +186,4 @@ func DeviceSetAttributeResponse(payload []byte, topic string) {
 	if ch, ok := config.MqttDirectResponseFuncMap[messageId]; ok {
 		ch <- *commandResponsePayload
 	}
-
 }
