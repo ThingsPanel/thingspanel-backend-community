@@ -40,6 +40,7 @@ func UpdateDevice(device *model.Device) (*model.Device, error) {
 	}
 	return device, err
 }
+
 func UpdateDeviceByMap(deviceID string, deviceMap map[string]interface{}) (*model.Device, error) {
 	info, err := query.Device.Where(query.Device.ID.Eq(deviceID)).Updates(deviceMap)
 	if err != nil {
@@ -87,7 +88,7 @@ func DeleteDeviceWithTx(id string, tenantID string, tx *query.QueryTx) error {
 
 // 根据子设备id获取父设备信息
 func GetParentDeviceBySubDeviceID(subDeviceID string) (info *model.Device, err error) {
-	var device = query.Device
+	device := query.Device
 	info, err = device.Where(device.ID.Eq(subDeviceID)).First()
 	if err != nil {
 		logrus.Error(err)
@@ -107,11 +108,11 @@ func GetDeviceByID(id string) (*model.Device, error) {
 
 // 获取设备详情，关联设备配置
 func GetDeviceDetail(id string) (map[string]interface{}, error) {
-	var device = query.Device
-	var deviceConfig = query.DeviceConfig
+	device := query.Device
+	deviceConfig := query.DeviceConfig
 	t := query.TelemetryCurrentData
 	t2 := query.TelemetryCurrentData.As("t2")
-	var data = make(map[string]interface{})
+	data := make(map[string]interface{})
 	// 关联查询设备配置表
 	err := device.LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
 		LeftJoin(t.Select(t.T.Max().As("ts"), t.DeviceID).Group(t.DeviceID).As("t2"), t2.DeviceID.EqCol(device.ID)).
@@ -168,7 +169,7 @@ func GetDeviceBySubDeviceAddress(deviceAddress []string, parentId string) (map[s
 	if err != nil {
 		return nil, err
 	}
-	var result = make(map[string]*model.Device)
+	result := make(map[string]*model.Device)
 	for _, d := range devices {
 		result[*d.SubDeviceAddr] = d
 	}
@@ -191,7 +192,7 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 	q := query.Device
 	c := query.DeviceConfig
 	var count int64
-	var deviceList = []model.GetDeviceListByPageRsp{}
+	deviceList := []model.GetDeviceListByPageRsp{}
 	queryBuilder := q.WithContext(context.Background())
 
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
@@ -252,10 +253,10 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 	if req.Search != nil && *req.Search != "" {
 		queryBuilder = queryBuilder.
 			Where(query.Device.Where(
-				//q.Name.Like(fmt.Sprintf("%%%s%%", *req.Search)),
+				// q.Name.Like(fmt.Sprintf("%%%s%%", *req.Search)),
 				q.Name.Lower().Like(fmt.Sprintf("%%%s%%", strings.ToLower(*req.Search))),
 			).Or(
-				//q.DeviceNumber.Like(fmt.Sprintf("%%%s%%", *req.Search)),
+				// q.DeviceNumber.Like(fmt.Sprintf("%%%s%%", *req.Search)),
 				q.DeviceNumber.Lower().Like(fmt.Sprintf("%%%s%%", strings.ToLower(*req.Search))),
 			),
 			)
@@ -291,7 +292,7 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		}
 	}
 	queryBuilder = queryBuilder.LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
-	//count查询
+	// count查询
 	count, err := queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)
@@ -305,7 +306,7 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 
 	t := query.TelemetryCurrentData
 	t2 := query.TelemetryCurrentData.As("t2")
-	//q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber
+	// q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber
 	err = queryBuilder.Select(q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber, q.Location, q.CurrentVersion, q.CreatedAt, q.IsOnline, q.AccessWay, c.ProtocolType, c.DeviceType, c.Name.As("DeviceConfigName"), t2.T).
 		LeftJoin(t.Select(t.T.Max().As("ts"), t.DeviceID).Group(t.DeviceID).As("t2"), t2.DeviceID.EqCol(q.ID)).
 		Order(q.CreatedAt.Desc()).
@@ -320,7 +321,7 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 func GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq, tenant_id string) (int64, []model.GetDevicePreRegisterListByPageRsp, error) {
 	q := query.Device
 	var count int64
-	var deviceList = []model.GetDevicePreRegisterListByPageRsp{}
+	deviceList := []model.GetDevicePreRegisterListByPageRsp{}
 	queryBuilder := q.WithContext(context.Background())
 
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
@@ -353,7 +354,7 @@ func GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq
 		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
 	}
 
-	//count查询
+	// count查询
 	count, err := queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)
@@ -391,8 +392,7 @@ func GetDeviceCacheById(deviceId string) (*model.Device, error) {
 	return device, nil
 }
 
-type DeviceQuery struct {
-}
+type DeviceQuery struct{}
 
 func (DeviceQuery) Count(ctx context.Context) (count int64, err error) {
 	count, err = query.Device.Count()
@@ -403,7 +403,7 @@ func (DeviceQuery) Count(ctx context.Context) (count int64, err error) {
 }
 
 func (DeviceQuery) CountByTenantID(ctx context.Context, TenantID string) (count int64, err error) {
-	var device = query.Device
+	device := query.Device
 	count, err = device.Where(device.TenantID.Eq(TenantID)).Count()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -413,8 +413,8 @@ func (DeviceQuery) CountByTenantID(ctx context.Context, TenantID string) (count 
 
 // 获取网关未关联网关设备的子设备列表,并做关联查询设备配置表
 func (DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId string) (list []map[string]interface{}, err error) {
-	var device = query.Device
-	var deviceConfig = query.DeviceConfig
+	device := query.Device
+	deviceConfig := query.DeviceConfig
 	// 条件：device-父设备为空，设备配置不为空
 	// 条件：device_config_id-设备类型为3-子设备
 	err = device.
@@ -433,7 +433,7 @@ func (DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId s
 }
 
 func (DeviceQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (count int64, err error) {
-	var device = query.Device
+	device := query.Device
 	count, err = device.Where(option...).Count()
 	if err != nil {
 		logrus.Error(ctx, err)
@@ -460,9 +460,8 @@ func (DeviceQuery) Find(ctx context.Context, option ...gen.Condition) (list []*m
 // 获取设备下拉列表
 // 返回设备id、设备名称、设备配置id、设备配置名称
 func (DeviceQuery) GetDeviceSelect(tenantId string, deviceName string, bindConfig int) (list []map[string]interface{}, err error) {
-
-	var device = query.Device
-	var deviceConfig = query.DeviceConfig
+	device := query.Device
+	deviceConfig := query.DeviceConfig
 	query := device.
 		WithContext(context.Background()).
 		Select(device.ID, device.Name, device.DeviceConfigID.As("device_config_id"), deviceConfig.Name.As("device_config_name")).
@@ -508,7 +507,6 @@ func (DeviceQuery) ChangeDeviceConfig(deviceID string, deviceConfigID *string) e
 }
 
 func (DeviceQuery) GetSubList(ctx context.Context, parent_id string, pageSize, page int64, tenantID string) ([]model.GetSubListResp, int64, error) {
-
 	var (
 		q     = query.Device
 		count int64
@@ -528,7 +526,7 @@ func (DeviceQuery) GetSubList(ctx context.Context, parent_id string, pageSize, p
 
 // 获取子设备列表
 func GetSubDeviceListByParentID(parentId string) ([]*model.Device, error) {
-	var device = query.Device
+	device := query.Device
 	list, err := device.Where(device.ParentID.Eq(parentId)).Find()
 	if err != nil {
 		logrus.Error(err)
@@ -537,10 +535,10 @@ func GetSubDeviceListByParentID(parentId string) ([]*model.Device, error) {
 }
 
 func GetDeviceTemplateChartSelect(tenantId string) (any, error) {
-	var data = []map[string]interface{}{}
-	var d = query.Device
-	var dc = query.DeviceConfig
-	var dm = query.DeviceTemplate
+	data := []map[string]interface{}{}
+	d := query.Device
+	dc := query.DeviceConfig
+	dm := query.DeviceTemplate
 	err := d.LeftJoin(dc, dc.ID.EqCol(d.DeviceConfigID)).
 		LeftJoin(dm, dm.ID.EqCol(dc.DeviceTemplateID)).
 		Where(d.TenantID.Eq(tenantId)).
@@ -581,7 +579,7 @@ func GetDeviceTemplateIdByDeviceId(deviceId string) (string, error) {
 
 // 通过设备配置id获取设备列表
 func GetDevicesByDeviceConfigID(deviceConfigID string) ([]*model.Device, error) {
-	var device = query.Device
+	device := query.Device
 	list, err := device.Where(device.DeviceConfigID.Eq(deviceConfigID)).Find()
 	if err != nil {
 		logrus.Error(err)
@@ -601,7 +599,7 @@ func GetDevicesByDeviceConfigID(deviceConfigID string) ([]*model.Device, error) 
 
 // 通过子设配置ID查询所有关联这个配置的子设备的网关设备列表
 func GetGatewayDevicesBySubDeviceConfigID(deviceConfigID string) ([]string, error) {
-	var device = query.Device
+	device := query.Device
 	var deviceIDList []string
 	err := device.Where(device.DeviceConfigID.Eq(deviceConfigID), device.ParentID.IsNotNull()).Select(device.ParentID.Distinct()).Scan(&deviceIDList)
 	if err != nil {
@@ -629,4 +627,15 @@ func GetSubDeviceExists(deviceId, subAddr string) bool {
 		return true
 	}
 	return false
+}
+
+// CheckDeviceNumberExists
+// CheckDeviceNumberExists checks if a device number already exists in the database
+func CheckDeviceNumberExists(deviceNumber string) (bool, error) {
+	count, err := query.Device.Where(query.Device.DeviceNumber.Eq(deviceNumber)).Count()
+	if err != nil {
+		logrus.Error(err)
+		return false, err
+	}
+	return count > 0, nil
 }

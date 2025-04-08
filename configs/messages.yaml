@@ -214,6 +214,9 @@ messages:
   204003:
     zh_CN: "设备编号可用"
     en_US: "Device number is available"
+  204004:
+    zh_CN: "设备编号已存在"
+    en_US: "Device number already exists"
 
   # WebSocket相关错误码 (205xxx)
   205001:

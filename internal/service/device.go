@@ -204,6 +204,23 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 		})
 	}
 
+	// 如果req.DeviceNumber被修改，需要校验req.DeviceNumber是否系统唯一
+	if req.DeviceNumber != nil && *req.DeviceNumber != "" {
+		if oldDevice.DeviceNumber != *req.DeviceNumber {
+			// Check if device number already exists
+			exists, err := dal.CheckDeviceNumberExists(*req.DeviceNumber)
+			if err != nil {
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+					"message":   "check device number exists failed",
+				})
+			}
+			if exists {
+				return nil, errcode.New(204004)
+			}
+		}
+	}
+
 	// device.ID = req.Id
 	// device.Name = req.Name
 
