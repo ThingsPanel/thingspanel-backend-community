@@ -9,7 +9,6 @@ import (
 type Device struct{}
 
 func (*Device) InitDevice(Router *gin.RouterGroup) {
-
 	// 设备路由
 	deviceapi := Router.Group("device")
 	{
@@ -69,7 +68,7 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// 设备地图-遥测信息
 		deviceapi.GET("map/telemetry/:id", api.Controllers.DeviceApi.HandleMapTelemetry)
 
-		//更换设备配置
+		// 更换设备配置
 		deviceapi.PUT("update/config", api.Controllers.DeviceApi.UpdateDeviceConfig)
 
 		// 设备在线状态查询
@@ -80,6 +79,9 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 
 		// 设备单指标图表数据查询
 		deviceapi.GET("/metrics/chart", api.Controllers.DeviceApi.HandleDeviceMetricsChart)
+
+		// 设备选择器
+		deviceapi.GET("/selector", api.Controllers.DeviceApi.HandleDeviceSelector)
 	}
 
 	// 设备模版路由
@@ -202,5 +204,4 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		}
 
 	}
-
 }

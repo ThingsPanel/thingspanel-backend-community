@@ -2034,3 +2034,13 @@ func (*Device) GetDeviceMetricsChart(param *model.GetDeviceMetricsChartReq, user
 
 	return data, nil
 }
+
+// 设备选择器
+func (*Device) GetDeviceSelector(req model.DeviceSelectorReq, userClaims *utils.UserClaims) ([]model.DeviceSelectorRes, error) {
+	tenantId := userClaims.TenantID
+	list, err := dal.GetDeviceSelector(req, tenantId)
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}

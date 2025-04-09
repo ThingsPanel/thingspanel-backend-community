@@ -20,7 +20,7 @@ func (*DeviceApi) CreateDevice(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.CreateDevice(req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -37,7 +37,7 @@ func (*DeviceApi) CreateDeviceBatch(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.CreateDeviceBatch(req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -50,7 +50,7 @@ func (*DeviceApi) CreateDeviceBatch(c *gin.Context) {
 // @Router   /api/v1/device/{id} [delete]
 func (*DeviceApi) DeleteDevice(c *gin.Context) {
 	id := c.Param("id")
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.Device.DeleteDevice(id, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -66,7 +66,7 @@ func (*DeviceApi) UpdateDevice(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.UpdateDevice(req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -113,7 +113,7 @@ func (*DeviceApi) HandleDeviceListByPage(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	list, err := service.GroupApp.Device.GetDeviceListByPage(&req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -138,7 +138,7 @@ func (*DeviceApi) CreateDeviceTemplate(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceTemplate.CreateDeviceTemplate(req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -155,7 +155,7 @@ func (*DeviceApi) UpdateDeviceTemplate(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceTemplate.UpdateDeviceTemplate(req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -172,7 +172,7 @@ func (*DeviceApi) HandleDeviceTemplateListByPage(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateListByPage(req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -196,7 +196,7 @@ func (*DeviceApi) HandleDeviceTemplateMenu(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateMenu(req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -210,7 +210,7 @@ func (*DeviceApi) HandleDeviceTemplateMenu(c *gin.Context) {
 // @Router   /api/v1/device/template/{id} [delete]
 func (*DeviceApi) DeleteDeviceTemplate(c *gin.Context) {
 	id := c.Param("id")
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.DeviceTemplate.DeleteDeviceTemplate(id, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -264,14 +264,13 @@ func (*DeviceApi) CreateDeviceGroup(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.DeviceGroup.CreateDeviceGroup(req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 	c.Set("data", nil)
-
 }
 
 // DeleteDeviceGroup 删除设备分组
@@ -293,7 +292,7 @@ func (*DeviceApi) UpdateDeviceGroup(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.DeviceGroup.UpdateDeviceGroup(req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -309,7 +308,7 @@ func (*DeviceApi) HandleDeviceGroupByPage(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupListByPage(req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -321,7 +320,7 @@ func (*DeviceApi) HandleDeviceGroupByPage(c *gin.Context) {
 // GetDeviceGroupByTree 获取设备分组树
 // @Router   /api/v1/device/group/tree [get]
 func (*DeviceApi) HandleDeviceGroupByTree(c *gin.Context) {
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupByTree(userClaims)
 	if err != nil {
 		c.Error(err)
@@ -349,14 +348,13 @@ func (*DeviceApi) CreateDeviceGroupRelation(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.DeviceGroup.CreateDeviceGroupRelation(req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 	c.Set("data", nil)
-
 }
 
 // DeleteDeviceGroupRelation 删除设备分组关系
@@ -411,7 +409,7 @@ func (*DeviceApi) RemoveSubDevice(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	err := service.GroupApp.Device.RemoveSubDevice(req.SubDeviceId, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -430,7 +428,7 @@ func (*DeviceApi) HandleTenantDeviceList(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.GetTenantDeviceList(&req, userClaims.TenantID)
 	if err != nil {
 		c.Error(err)
@@ -445,7 +443,7 @@ func (*DeviceApi) HandleTenantDeviceList(c *gin.Context) {
 // @DESCRIPTIONS: 获得设备列表（默认：设置类型-子设备&无 parent_id 关联 可扩展，查询可添加条件）
 // /api/v1/device/list [get]
 func (*DeviceApi) HandleDeviceList(c *gin.Context) {
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.GetDeviceList(c, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -550,7 +548,7 @@ func (*DeviceApi) HandleSubList(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	list, total, err := service.GroupApp.Device.GetSubList(c, parant_id, int64(req.Page), int64(req.PageSize), userClaims)
 	if err != nil {
 		c.Error(err)
@@ -619,7 +617,7 @@ func (*DeviceApi) HandleMapTelemetry(c *gin.Context) {
 // 有模板且有图表配置的设备下拉列表
 // /api/v1/device/template/chart/select
 func (*DeviceApi) HandleDeviceTemplateChartSelect(c *gin.Context) {
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	list, err := service.GroupApp.Device.GetDeviceTemplateChartSelect(userClaims)
 	if err != nil {
 		c.Error(err)
@@ -652,7 +650,6 @@ func (*DeviceApi) HandleDeviceOnlineStatus(c *gin.Context) {
 		return
 	}
 	c.Set("data", data)
-
 }
 
 func (*DeviceApi) GatewayRegister(c *gin.Context) {
@@ -693,7 +690,7 @@ func (*DeviceApi) HandleDeviceMetricsChart(c *gin.Context) {
 		return
 	}
 
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	data, err := service.GroupApp.Device.GetDeviceMetricsChart(&param, userClaims)
 	if err != nil {
@@ -701,4 +698,21 @@ func (*DeviceApi) HandleDeviceMetricsChart(c *gin.Context) {
 		return
 	}
 	c.Set("data", data)
+}
+
+// 设备选择器
+// /api/v1/device/selector [get]
+func (*DeviceApi) HandleDeviceSelector(c *gin.Context) {
+	var req model.DeviceSelectorReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	list, err := service.GroupApp.Device.GetDeviceSelector(req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", list)
 }

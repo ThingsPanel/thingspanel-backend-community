@@ -639,3 +639,32 @@ func CheckDeviceNumberExists(deviceNumber string) (bool, error) {
 	}
 	return count > 0, nil
 }
+
+// 获取设备选择器
+func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) ([]model.DeviceSelectorRes, error) {
+	device := query.Device
+
+	query := device.WithContext(context.Background())
+
+	if req.HasDeviceConfig != nil && *req.HasDeviceConfig {
+		query = query.Where(device.DeviceConfigID.IsNotNull())
+	}
+
+	query = query.Where(device.TenantID.Eq(tenantId))
+
+	query = query.Select(device.ID.As("device_id"), device.Name.As("device_name"))
+
+	query = query.Order(device.CreatedAt.Desc())
+
+	query = query.Limit(req.PageSize)
+	query = query.Offset(req.Page)
+
+	var list []model.DeviceSelectorRes
+	err := query.Scan(&list)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+
+	return list, nil
+}

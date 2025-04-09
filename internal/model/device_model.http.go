@@ -125,3 +125,16 @@ type DataPoint struct {
 	T int64   `json:"t"` // 时间戳
 	V float64 `json:"v"` // 值
 }
+
+// 设备选择器请求
+type DeviceSelectorReq struct {
+	PageReq
+	// 是否有设备模板
+	HasDeviceConfig *bool `json:"has_device_config" form:"has_device_config" validate:"omitempty"`
+}
+
+// 设备选择器响应
+type DeviceSelectorRes struct {
+	DeviceID   string `json:"device_id"`   // 设备ID
+	DeviceName string `json:"device_name"` // 设备名称
+}
