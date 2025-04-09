@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
+
 	"project/initialize"
 	dal "project/internal/dal"
 	model "project/internal/model"
@@ -13,8 +16,6 @@ import (
 	"project/pkg/common"
 	"project/pkg/constant"
 	"project/pkg/errcode"
-	"strconv"
-	"time"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
@@ -98,6 +99,28 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 		payloadMap["params"] = params
 	}
 
+	// 执行数据脚本
+	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+		payloadBytes, err := json.Marshal(payloadMap)
+		if err != nil {
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		if newPayload, err := GroupApp.DataScript.Exec(deviceInfo, "E", payloadBytes, topic); err != nil {
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		} else if newPayload != nil {
+			var err error
+			if err = json.Unmarshal(newPayload, &payloadMap); err != nil {
+				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+	}
+
 	// 处理网关和子设备
 	if protocolType == "MQTT" && (deviceType == "2" || deviceType == "3") {
 		gatewayID := deviceInfo.ID
@@ -139,17 +162,6 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 		})
 	}
 
-	// 执行数据脚本
-	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
-		if newPayload, err := GroupApp.DataScript.Exec(deviceInfo, "E", payload, topic); err != nil {
-			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-				"error": err.Error(),
-			})
-		} else if newPayload != nil {
-			payload = newPayload
-		}
-	}
-
 	// 发布消息
 	err = publish.PublishCommandMessage(topic, payload)
 	errorMessage := ""
@@ -164,7 +176,7 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 		status = strconv.Itoa(constant.StatusFailed)
 	}
 	data := string(payload)
-	//operationType := strconv.Itoa(constant.Manual)
+	// operationType := strconv.Itoa(constant.Manual)
 	description := "下发命令日志记录"
 	logInfo := &model.CommandSetLog{
 		ID:            uuid.New(),
@@ -211,9 +223,7 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 }
 
 func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCommandListRes, error) {
-	var (
-		list = make([]model.GetCommandListRes, 0)
-	)
+	list := make([]model.GetCommandListRes, 0)
 
 	deviceInfo, err := dal.DeviceQuery{}.First(ctx, query.Device.ID.Eq(id))
 	if err != nil {

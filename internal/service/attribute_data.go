@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
+
 	"project/initialize"
 	dal "project/internal/dal"
 	model "project/internal/model"
@@ -14,8 +17,6 @@ import (
 	"project/pkg/constant"
 	"project/pkg/errcode"
 	utils "project/pkg/utils"
-	"strconv"
-	"time"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
@@ -110,7 +111,6 @@ func (*AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (inte
 	}
 
 	return dataMap, nil
-
 }
 
 func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, param *model.AttributePutMessage, operationType string, fn ...config.MqttDirectResponseFunc) error {
@@ -150,13 +150,38 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.PublishTopic, deviceInfo.DeviceNumber, messageID)
 	} else {
 		gatewayID := deviceInfo.ID
+
 		if deviceType == "3" {
+			gatewayID = *deviceInfo.ParentID
+		}
+		gatewayInfo, err := initialize.GetDeviceCacheById(gatewayID)
+		if err != nil {
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
+		topic = fmt.Sprintf(config.MqttConfig.Attributes.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
+	}
+	// 执行数据脚本
+	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+		if newValue, err := GroupApp.DataScript.Exec(deviceInfo, "D", []byte(param.Value), topic); err != nil {
+			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"system_error": err.Error(),
+			})
+		} else if newValue != nil {
+			param.Value = string(newValue)
+		}
+	}
+
+	if deviceType == "3" || deviceType == "2" {
+		if deviceType == "3" {
+
 			if deviceInfo.ParentID == nil {
 				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
 					"system_error": "parent_id is nil",
 				})
 			}
-			gatewayID = *deviceInfo.ParentID
+
 			if deviceInfo.SubDeviceAddr == nil {
 				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
 					"system_error": "sub_device_addr is nil",
@@ -172,27 +197,7 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 				"system_error": "sub_device_addr is nil",
 			})
 		}
-
-		gatewayInfo, err := initialize.GetDeviceCacheById(gatewayID)
-		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
-		}
-		topic = fmt.Sprintf(config.MqttConfig.Attributes.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
 	}
-
-	// 执行数据脚本
-	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
-		if newValue, err := GroupApp.DataScript.Exec(deviceInfo, "D", []byte(param.Value), topic); err != nil {
-			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-				"system_error": err.Error(),
-			})
-		} else if newValue != nil {
-			param.Value = string(newValue)
-		}
-	}
-
 	// 发布消息
 	err = publish.PublishAttributeMessage(topic, []byte(param.Value))
 	errorMessage := ""
@@ -320,7 +325,7 @@ func (*AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.Attrib
 		// 没有设备编号，不支持获取属性
 		return nil
 	}
-	//组装payload{"keys":["temp","hum"]}||{}
+	// 组装payload{"keys":["temp","hum"]}||{}
 	var payload []byte
 	var data map[string]interface{}
 	if len(req.Keys) == 0 {
@@ -328,7 +333,6 @@ func (*AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.Attrib
 			"keys": []string{},
 		}
 	} else {
-
 		data = map[string]interface{}{
 			"keys": req.Keys,
 		}
