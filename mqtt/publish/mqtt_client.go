@@ -5,11 +5,9 @@ import (
 	"path"
 	"time"
 
-	"project/initialize"
 	"project/internal/model"
 	config "project/mqtt"
 	"project/pkg/common"
-	"project/pkg/utils"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-basic/uuid"
@@ -21,11 +19,9 @@ var mqttClient mqtt.Client
 func PublishInit() {
 	// 创建mqtt客户端
 	CreateMqttClient()
-
 }
 
-type MqttPublish interface {
-}
+type MqttPublish interface{}
 
 // 创建mqtt客户端
 func CreateMqttClient() {
@@ -77,22 +73,6 @@ func CreateMqttClient() {
 
 // 下发telemetry消息
 func PublishTelemetryMessage(topic string, device *model.Device, param *model.PutMessage) error {
-	// TODO脚本处理
-	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
-		script, err := initialize.GetScriptByDeviceAndScriptType(device, "B")
-		if err != nil {
-			logrus.Error(err.Error())
-			return err
-		}
-		if script != nil && script.Content != nil && *script.Content != "" {
-			msg, err := utils.ScriptDeal(*script.Content, []byte(param.Value), topic)
-			if err != nil {
-				logrus.Error(err.Error())
-				return err
-			}
-			param.Value = msg
-		}
-	}
 	qos := byte(config.MqttConfig.Telemetry.QoS)
 
 	logrus.Info("topic:", topic, "value:", param.Value)

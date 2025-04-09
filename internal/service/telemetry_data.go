@@ -1011,6 +1011,7 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		deviceType = "1"
 
 	}
+
 	var topic string
 	if protocolType == "MQTT" {
 		// 网关和子设备需要特殊处理
@@ -1021,6 +1022,43 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
 				"error": err.Error(),
 			})
+		}
+
+		if deviceType == "3" || deviceType == "2" {
+
+			// 修改payload
+			var inputData map[string]interface{}
+			if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
+				return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+
+			var outputData map[string]interface{}
+			if deviceType == "3" {
+				if deviceInfo.SubDeviceAddr == nil {
+					return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+						"error": "subDeviceAddr is nil",
+					})
+				}
+				outputData = map[string]interface{}{
+					"sub_device_data": map[string]interface{}{
+						*deviceInfo.SubDeviceAddr: inputData,
+					},
+				}
+			} else {
+				outputData = map[string]interface{}{
+					"gateway_data": inputData,
+				}
+			}
+
+			output, err := json.Marshal(outputData)
+			if err != nil {
+				return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+			param.Value = string(output)
 		}
 	} else {
 		// 获取主题前缀
@@ -1033,6 +1071,22 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		}
 		topic = fmt.Sprintf("%s%s%s", subTopicPrefix, config.MqttConfig.Telemetry.PublishTopic, deviceInfo.ID)
 
+	}
+	// 脚本处理
+	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+		script, err := initialize.GetScriptByDeviceAndScriptType(deviceInfo, "B")
+		if err != nil {
+			logrus.Error(err.Error())
+			return err
+		}
+		if script != nil && script.Content != nil && *script.Content != "" {
+			msg, err := utils.ScriptDeal(*script.Content, []byte(param.Value), topic)
+			if err != nil {
+				logrus.Error(err.Error())
+				return err
+			}
+			param.Value = msg
+		}
 	}
 	err = publish.PublishTelemetryMessage(topic, deviceInfo, param)
 	if err != nil {
@@ -1095,34 +1149,6 @@ func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.
 		if err != nil {
 			return "", fmt.Errorf("获取网关信息失败: %v", err)
 		}
-
-		// 修改payload
-		var inputData map[string]interface{}
-		if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
-			return "", fmt.Errorf("解析输入 JSON 失败: %v", err)
-		}
-
-		var outputData map[string]interface{}
-		if deviceType == "3" {
-			if deviceInfo.SubDeviceAddr == nil {
-				return "", fmt.Errorf("subDeviceAddr 为空")
-			}
-			outputData = map[string]interface{}{
-				"sub_device_data": map[string]interface{}{
-					*deviceInfo.SubDeviceAddr: inputData,
-				},
-			}
-		} else {
-			outputData = map[string]interface{}{
-				"gateway_data": inputData,
-			}
-		}
-
-		output, err := json.Marshal(outputData)
-		if err != nil {
-			return "", fmt.Errorf("生成输出 JSON 失败: %v", err)
-		}
-		param.Value = string(output)
 
 		return fmt.Sprintf(config.MqttConfig.Telemetry.GatewayPublishTopic, gatewayInfo.DeviceNumber), nil
 	default:
