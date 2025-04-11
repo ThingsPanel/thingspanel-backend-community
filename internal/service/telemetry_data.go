@@ -710,9 +710,7 @@ func (*TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStati
 	// 获取数据
 	rspData, err := fetchTelemetryData(req)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, err
 	}
 
 	// 如果不需要导出且无数据，返回空切片
@@ -783,7 +781,13 @@ func processTimeRange(req *model.GetTelemetryStatisticReq) error {
 // 获取遥测数据
 func fetchTelemetryData(req *model.GetTelemetryStatisticReq) ([]map[string]interface{}, error) {
 	if req.AggregateWindow == "no_aggregate" {
-		return dal.GetTelemetrStatisticData(req.DeviceId, req.Key, req.StartTime, req.EndTime)
+		data, err := dal.GetTelemetrStatisticData(req.DeviceId, req.Key, req.StartTime, req.EndTime)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
+		return data, nil
 	}
 
 	if err := validateAggregateWindow(req.StartTime, req.EndTime, req.AggregateWindow); err != nil {
@@ -911,19 +915,12 @@ func validateAggregateWindow(startTime, endTime int64, aggregateWindow string) e
 	// 检查规则
 	for _, rule := range rules {
 		if days > rule.Days && !isValidInterval(aggregateWindow, rule.MinInterval) {
-			return fmt.Errorf(
-				"查询时间范围超过%s，聚合间隔不能小于%s\n\n"+
-					"当前配置:\n"+
-					"- 时间范围：%s 至 %s（%d天）\n"+
-					"- 聚合间隔：%s\n\n"+
-					"建议：\n"+
-					"1. 使用更大的聚合间隔（>= %s）\n"+
-					"2. 或缩短查询时间范围（<= %d天）",
-				rule.FriendlyDesc, rule.MinInterval,
-				formatTime(startTime), formatTime(endTime), days,
-				aggregateWindow,
-				rule.MinInterval, rule.Days,
-			)
+			return errcode.WithVars(206004, map[string]interface{}{
+				"time_range":         rule.FriendlyDesc,
+				"min_interval":       rule.MinInterval,
+				"current_time_range": fmt.Sprintf("%s 至 %s（%d天）", formatTime(startTime), formatTime(endTime), days),
+				"aggregate_window":   aggregateWindow,
+			})
 		}
 	}
 
