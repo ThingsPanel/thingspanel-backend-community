@@ -736,12 +736,12 @@ func processTimeRange(req *model.GetTelemetryStatisticReq) error {
 	if req.AggregateWindow == "no_aggregate" {
 		// 起始时间和结束时间的差值不能大于一天，时间示例1741679355121
 		if req.EndTime-req.StartTime > 24*time.Hour.Milliseconds() {
-			return errcode.New(206001)
+			return errcode.New(207001)
 		}
 	}
 	if req.TimeRange == "custom" {
 		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
-			return errcode.New(206002) // 时间范围无效
+			return errcode.New(207002) // 时间范围无效
 		}
 		return nil
 	}
@@ -767,7 +767,7 @@ func processTimeRange(req *model.GetTelemetryStatisticReq) error {
 
 	duration, ok := timeRanges[req.TimeRange]
 	if !ok {
-		return errcode.WithVars(206003, map[string]interface{}{
+		return errcode.WithVars(207003, map[string]interface{}{
 			"time_range": req.TimeRange,
 		})
 	}
@@ -915,7 +915,7 @@ func validateAggregateWindow(startTime, endTime int64, aggregateWindow string) e
 	// 检查规则
 	for _, rule := range rules {
 		if days > rule.Days && !isValidInterval(aggregateWindow, rule.MinInterval) {
-			return errcode.WithVars(206004, map[string]interface{}{
+			return errcode.WithVars(207004, map[string]interface{}{
 				"time_range":         rule.FriendlyDesc,
 				"min_interval":       rule.MinInterval,
 				"current_time_range": fmt.Sprintf("%s 至 %s（%d天）", formatTime(startTime), formatTime(endTime), days),
