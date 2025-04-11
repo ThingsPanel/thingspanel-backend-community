@@ -658,7 +658,7 @@ func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) (*model.Dev
 
 	query := device.WithContext(context.Background())
 
-	if req.HasDeviceConfig != nil && *req.HasDeviceConfig {
+	if req.HasDeviceConfig != nil {
 		if *req.HasDeviceConfig {
 			query = query.Where(device.DeviceConfigID.IsNotNull())
 		} else {
