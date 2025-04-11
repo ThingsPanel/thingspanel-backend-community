@@ -2018,7 +2018,7 @@ func (*Device) GetDeviceMetricsChart(param *model.GetDeviceMetricsChartReq, user
 }
 
 // 设备选择器
-func (*Device) GetDeviceSelector(req model.DeviceSelectorReq, userClaims *utils.UserClaims) ([]model.DeviceSelectorRes, error) {
+func (*Device) GetDeviceSelector(req model.DeviceSelectorReq, userClaims *utils.UserClaims) (*model.DeviceSelectorRes, error) {
 	tenantId := userClaims.TenantID
 	list, err := dal.GetDeviceSelector(req, tenantId)
 	if err != nil {

@@ -135,6 +135,11 @@ type DeviceSelectorReq struct {
 
 // 设备选择器响应
 type DeviceSelectorRes struct {
+	Total int64                 `json:"total"`
+	List  []*DeviceSelectorData `json:"list"`
+}
+
+type DeviceSelectorData struct {
 	DeviceID   string `json:"device_id"`   // 设备ID
 	DeviceName string `json:"device_name"` // 设备名称
 }

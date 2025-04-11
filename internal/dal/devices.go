@@ -653,7 +653,7 @@ func CheckDeviceNumberExists(deviceNumber string) (bool, error) {
 }
 
 // 获取设备选择器
-func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) ([]model.DeviceSelectorRes, error) {
+func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) (*model.DeviceSelectorRes, error) {
 	device := query.Device
 
 	query := device.WithContext(context.Background())
@@ -668,15 +668,24 @@ func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) ([]model.De
 
 	query = query.Order(device.CreatedAt.Desc())
 
-	query = query.Limit(req.PageSize)
-	query = query.Offset(req.Page)
-
-	var list []model.DeviceSelectorRes
-	err := query.Scan(&list)
+	count, err := query.Count()
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
 	}
 
-	return list, nil
+	query = query.Limit(req.PageSize)
+	query = query.Offset(req.Page)
+
+	var list []*model.DeviceSelectorData
+	err = query.Scan(&list)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+
+	return &model.DeviceSelectorRes{
+		Total: count,
+		List:  list,
+	}, nil
 }
