@@ -461,8 +461,10 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 	if len(list) > 0 {
 		for i := range list {
 			list[i].DeviceStatus = list[i].IsOnline
-			if list[i].WarnStatus != "N" {
+			if list[i].WarnStatus != "N" && list[i].WarnStatus != "" {
 				list[i].WarnStatus = "Y"
+			} else {
+				list[i].WarnStatus = "N"
 			}
 		}
 	}
