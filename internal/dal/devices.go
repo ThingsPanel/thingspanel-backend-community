@@ -293,15 +293,15 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		}
 	}
 	queryBuilder = queryBuilder.LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
-
+	queryBuilder = queryBuilder.LeftJoin(lda, lda.DeviceID.EqCol(q.ID))
 	// 告警
 	if req.WarnStatus != nil && *req.WarnStatus != "" {
-		queryBuilder = queryBuilder.LeftJoin(lda, lda.DeviceID.EqCol(q.ID))
 		// WarnStatus等于N时候值为N，其他值为Y
 		if *req.WarnStatus == "N" {
 			queryBuilder = queryBuilder.Where(lda.AlarmStatus.Eq(*req.WarnStatus))
 		} else {
-			queryBuilder = queryBuilder.Where(lda.AlarmStatus.Neq("N"))
+			// 不等于N或空
+			queryBuilder = queryBuilder.Where(lda.Where(lda.AlarmStatus.Neq("N")).Or(lda.AlarmStatus.IsNull()))
 		}
 	}
 	// count查询
