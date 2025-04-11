@@ -81,6 +81,7 @@ var (
 	MessagePushLog *messagePushLog
 	MessagePushManage  *messagePushManage
 	MessagePushRuleLog  *messagePushRuleLog
+	LatestDeviceAlarm *latestDeviceAlarm
 
 )
 
@@ -150,6 +151,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	MessagePushLog = &Q.MessagePushLog
 	MessagePushManage = &Q.MessagePushManage
 	MessagePushRuleLog = &Q.MessagePushRuleLog
+	LatestDeviceAlarm = &Q.LatestDeviceAlarm
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
@@ -219,6 +221,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		MessagePushLog:     newMessagePushLog(db, opts...),
 		MessagePushManage:  newMessagePushManage(db, opts...),
 		MessagePushRuleLog: newMessagePushRuleLog(db, opts...),
+		LatestDeviceAlarm: newLatestDeviceAlarm(db, opts...),
 	}
 }
 
@@ -289,6 +292,7 @@ type Query struct {
 	MessagePushLog     messagePushLog
 	MessagePushManage  messagePushManage
 	MessagePushRuleLog messagePushRuleLog
+	LatestDeviceAlarm latestDeviceAlarm
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -360,6 +364,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		MessagePushLog:     q.MessagePushLog.clone(db),
 		MessagePushManage:  q.MessagePushManage.clone(db),
 		MessagePushRuleLog: q.MessagePushRuleLog.clone(db),
+		LatestDeviceAlarm: q.LatestDeviceAlarm.clone(db),
 	}
 }
 
@@ -438,6 +443,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		MessagePushLog:     q.MessagePushLog.replaceDB(db),
 		MessagePushManage:  q.MessagePushManage.replaceDB(db),
 		MessagePushRuleLog: q.MessagePushRuleLog.replaceDB(db),
+		LatestDeviceAlarm: q.LatestDeviceAlarm.replaceDB(db),
 	}
 }
 
@@ -506,6 +512,7 @@ type queryCtx struct {
 	MessagePushLog     IMessagePushLogDo
 	MessagePushManage  IMessagePushManageDo
 	MessagePushRuleLog IMessagePushRuleLogDo
+	LatestDeviceAlarm ILatestDeviceAlarmDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
@@ -574,6 +581,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		MessagePushLog:     q.MessagePushLog.WithContext(ctx),
 		MessagePushManage:  q.MessagePushManage.WithContext(ctx),
 		MessagePushRuleLog: q.MessagePushRuleLog.WithContext(ctx),
+		LatestDeviceAlarm: q.LatestDeviceAlarm.WithContext(ctx),
 	}
 }
 

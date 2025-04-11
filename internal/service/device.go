@@ -459,30 +459,10 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 		})
 	}
 	if len(list) > 0 {
-		var deviceOnlines []model.DeviceOnline
 		for i := range list {
-			deviceOnlines = append(deviceOnlines, model.DeviceOnline{
-				DeviceConfigId: &list[i].DeviceConfigID,
-				DeviceId:       list[i].ID,
-			})
-		}
-		// result, err := dal.GetDeviceOnline(context.Background(), deviceOnlines)
-		// if err != nil {
-		// 	return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		// 		"sql_error": err.Error(),
-		// 	})
-		// }
-		for i, val := range list {
-			// if isOnline, ok := result[val.ID]; ok {
-			// 	list[i].DeviceStatus = isOnline
-			// } else {
-			// 	list[i].DeviceStatus = val.IsOnline
-			// }
 			list[i].DeviceStatus = list[i].IsOnline
-			if dal.GetDeviceAlarmStatus(&model.GetDeviceAlarmStatusReq{DeviceId: val.ID}) {
+			if list[i].WarnStatus != "N" {
 				list[i].WarnStatus = "Y"
-			} else {
-				list[i].WarnStatus = "N"
 			}
 		}
 	}

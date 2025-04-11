@@ -191,6 +191,7 @@ func RemoveSubDevice(deviceId string, tenant_id string) error {
 func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (int64, []model.GetDeviceListByPageRsp, error) {
 	q := query.Device
 	c := query.DeviceConfig
+	lda := query.LatestDeviceAlarm
 	var count int64
 	deviceList := []model.GetDeviceListByPageRsp{}
 	queryBuilder := q.WithContext(context.Background())
@@ -292,6 +293,17 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		}
 	}
 	queryBuilder = queryBuilder.LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
+
+	// 告警
+	if req.WarnStatus != nil && *req.WarnStatus != "" {
+		queryBuilder = queryBuilder.LeftJoin(lda, lda.DeviceID.EqCol(q.ID))
+		// WarnStatus等于N时候值为N，其他值为Y
+		if *req.WarnStatus == "N" {
+			queryBuilder = queryBuilder.Where(lda.AlarmStatus.Eq(*req.WarnStatus))
+		} else {
+			queryBuilder = queryBuilder.Where(lda.AlarmStatus.Neq("N"))
+		}
+	}
 	// count查询
 	count, err := queryBuilder.Count()
 	if err != nil {
@@ -307,7 +319,7 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 	t := query.TelemetryCurrentData
 	t2 := query.TelemetryCurrentData.As("t2")
 	// q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber
-	err = queryBuilder.Select(q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber, q.Location, q.CurrentVersion, q.CreatedAt, q.IsOnline, q.AccessWay, c.ProtocolType, c.DeviceType, c.Name.As("DeviceConfigName"), t2.T).
+	err = queryBuilder.Select(lda.AlarmStatus, q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber, q.Location, q.CurrentVersion, q.CreatedAt, q.IsOnline, q.AccessWay, c.ProtocolType, c.DeviceType, c.Name.As("DeviceConfigName"), t2.T).
 		LeftJoin(t.Select(t.T.Max().As("ts"), t.DeviceID).Group(t.DeviceID).As("t2"), t2.DeviceID.EqCol(q.ID)).
 		Order(q.CreatedAt.Desc()).
 		Scan(&deviceList)
