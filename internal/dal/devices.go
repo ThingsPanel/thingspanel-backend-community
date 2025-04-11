@@ -675,7 +675,7 @@ func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) (*model.Dev
 	}
 
 	query = query.Limit(req.PageSize)
-	query = query.Offset(req.Page)
+	query = query.Offset((req.Page - 1) * req.PageSize)
 
 	var list []*model.DeviceSelectorData
 	err = query.Scan(&list)
