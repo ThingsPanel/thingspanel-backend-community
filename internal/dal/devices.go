@@ -298,10 +298,10 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 	if req.WarnStatus != nil && *req.WarnStatus != "" {
 		// WarnStatus等于N时候值为N，其他值为Y
 		if *req.WarnStatus == "N" {
-			queryBuilder = queryBuilder.Where(lda.AlarmStatus.Eq(*req.WarnStatus))
+			queryBuilder = queryBuilder.Where(lda.AlarmStatus.Eq("N")).Or(lda.AlarmStatus.IsNull())
 		} else {
 			// 不等于N或空
-			queryBuilder = queryBuilder.Where(lda.Where(lda.AlarmStatus.Neq("N")).Or(lda.AlarmStatus.IsNull()))
+			queryBuilder = queryBuilder.Where(lda.AlarmStatus.Neq("N"))
 		}
 	}
 	// count查询
@@ -319,7 +319,7 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 	t := query.TelemetryCurrentData
 	t2 := query.TelemetryCurrentData.As("t2")
 	// q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber
-	err = queryBuilder.Select(lda.AlarmStatus, q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber, q.Location, q.CurrentVersion, q.CreatedAt, q.IsOnline, q.AccessWay, c.ProtocolType, c.DeviceType, c.Name.As("DeviceConfigName"), t2.T).
+	err = queryBuilder.Select(lda.AlarmStatus.As("warn_status"), q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber, q.Location, q.CurrentVersion, q.CreatedAt, q.IsOnline, q.AccessWay, c.ProtocolType, c.DeviceType, c.Name.As("DeviceConfigName"), t2.T).
 		LeftJoin(t.Select(t.T.Max().As("ts"), t.DeviceID).Group(t.DeviceID).As("t2"), t2.DeviceID.EqCol(q.ID)).
 		Order(q.CreatedAt.Desc()).
 		Scan(&deviceList)
