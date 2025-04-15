@@ -488,7 +488,7 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 		logrus.Debugf("GetCurrentTelemetryDataOneKeys:triggerOperator:%s, TriggerParam:%s, triggerValue:%v, actualValue:%v", triggerOperator, *cond.TriggerParam, triggerValue, actualValue)
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameTelemetry())
 		result = fmt.Sprintf("设备(%s)%s [%s]: %v %s %v", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
-	case model.TRIGGER_PARAM_TYPE_ATTR: // 属性
+	case model.TRIGGER_PARAM_TYPE_ATTR, model.TRIGGER_PARAM_TYPE_ATTRIBUTES: // 属性
 		trigger = "属性"
 		actualValue, _ = a.getActualValue(deviceId, *cond.TriggerParam, model.TRIGGER_PARAM_TYPE_ATTR)
 		triggerValue = cond.TriggerValue
