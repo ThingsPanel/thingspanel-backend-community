@@ -5,15 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"project/initialize"
-	"project/internal/dal"
-	"project/internal/model"
-	"project/pkg/common"
 	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"project/initialize"
+	"project/internal/dal"
+	"project/internal/model"
+	"project/pkg/common"
 
 	"github.com/go-basic/uuid"
 	pkgerrors "github.com/pkg/errors"
@@ -34,8 +35,10 @@ var actionAfterDecoration = []ActionAfterFunc{
 	ActionAfterAlarm,
 }
 
-type ConditionAfterFunc = func(ok bool, conditions initialize.DTConditions, deviceId string, contents []string) error
-type ActionAfterFunc = func(actions []model.ActionInfo, err error) error
+type (
+	ConditionAfterFunc = func(ok bool, conditions initialize.DTConditions, deviceId string, contents []string) error
+	ActionAfterFunc    = func(actions []model.ActionInfo, err error) error
+)
 
 type AutomateFromExt struct {
 	TriggerParamType string
@@ -75,16 +78,15 @@ func (*Automate) ErrorRecover() func() {
 }
 
 // Execute
-// @description 遥测设置上报执行自动化（读取缓存信息 缓存无信息数据库查询保存缓存信息）
+// @description 设备上报执行自动化（读取缓存信息 缓存无信息数据库查询保存缓存信息）
 // @params deviceInfo *model.Device
 // @return error
 func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) error {
 	defer a.ErrorRecover()
 	a.device = deviceInfo
 	a.formExt = fromExt
-	//
 
-	//单类设备t
+	// 单类设备
 	if deviceInfo.DeviceConfigID != nil {
 		deviceConfigId := *deviceInfo.DeviceConfigID
 		err := a.telExecute(deviceInfo.ID, deviceConfigId, fromExt)
@@ -93,35 +95,49 @@ func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) er
 		}
 	}
 	return a.telExecute(deviceInfo.ID, "", fromExt)
-
 }
 
+// telExecute 执行自动化任务的主要函数
+// @description: 根据设备ID和设备配置ID执行自动化任务,包含以下步骤:
+//  1. 从缓存中获取自动化任务信息
+//  2. 如果缓存中没有数据,则从数据库查询并写入缓存
+//  3. 过滤符合条件的自动化任务
+//  4. 执行自动化任务
+//
+// @param deviceId string 设备ID
+// @param deviceConfigId string 设备配置ID
+// @param fromExt AutomateFromExt 自动化触发的额外信息,包含触发参数类型和值
+// @return error 执行过程中的错误信息
 func (a *Automate) telExecute(deviceId, deviceConfigId string, fromExt AutomateFromExt) error {
 	info, resultInt, err := initialize.NewAutomateCache().GetCacheByDeviceId(deviceId, deviceConfigId)
-	logrus.Debugf("自动化执行开始: info:%#v, resultInt:%d", info, resultInt)
+	logrus.Debugf("自动化执行开始 - 缓存结果标志: %d", resultInt)
 	if err != nil {
 		return pkgerrors.Wrap(err, "查询缓存信息失败")
 	}
-	//当前设备没自动化任务
+	// 当前设备没自动化任务
 	if resultInt == initialize.AUTOMATE_CACHE_RESULT_NOT_TASK {
+		logrus.Debugf("无自动化任务")
 		return nil
 	}
-	//缓存未查询到数据 数据查询存入缓存
+	// 缓存未查询到数据 数据查询存入缓存
 	if resultInt == initialize.AUTOMATE_CACHE_RESULT_NOT_FOUND {
+		logrus.Debugf("缓存中无数据")
 		info, resultInt, err = a.QueryAutomateInfoAndSetCache(deviceId, deviceConfigId)
 		if err != nil {
 			return pkgerrors.Wrap(err, "查询设置 设置缓存失败")
 		}
-		//当前设备没自动化任务
+		// 当前设备没自动化任务
 		if resultInt == initialize.AUTOMATE_CACHE_RESULT_NOT_TASK {
 			return nil
 		}
 	}
-	logrus.Debugf("自动化执行开始2: info:%#v, resultInt:%d", info, resultInt)
-	//过滤自动化触发条件
+	logrus.Debugf("缓存中查询到数据")
+	logrus.Debugf("相关场景联动数量: %d", len(info.AutomateExecteSceeInfos))
+	// 过滤自动化触发条件
 	info = a.AutomateFilter(info, fromExt)
-	logrus.Debugf("自动化执行开始3: info:%#v, resultInt:%v", info, fromExt)
-	//执行自动化
+	logrus.Debugf("条件过滤后场景联动数量: %d", len(info.AutomateExecteSceeInfos))
+	logrus.Debugf("数据：%#v", info)
+	// 执行自动化
 	return a.ExecuteRun(info)
 }
 
@@ -183,20 +199,21 @@ func (*Automate) LimiterAllow(id string) bool {
 // @params info initialize.AutomateExecteParams
 // @return error
 func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
+	logrus.Debugf("执行动作开始，获取锁--------------------------------")
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, v := range info.AutomateExecteSceeInfos {
-		//场景频率限制(根据场景id)
+		// 场景频率限制(根据场景id)
 		if !a.LimiterAllow(v.SceneAutomationId) {
 			continue
 		}
 		logrus.Debugf("查询自动化是否关闭1: info:%#v,", v.SceneAutomationId)
-		//查询自动化是否关闭
+		// 查询自动化是否关闭
 		if a.CheckSceneAutomationHasClose(v.SceneAutomationId) {
 			continue
 		}
 		logrus.Debugf("查询自动化是否关闭2: info:%#v,", info)
-		//条件判断
+		// 条件判断
 		if !a.AutomateConditionCheck(v.GroupsCondition, info.DeviceId) {
 			continue
 		}
@@ -205,7 +222,7 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 		// 场景动作之后装饰
 		a.actionAfterDecorationRun(v.Actions, err)
 	}
-
+	logrus.Debugf("执行动作结束，释放锁--------------------------------")
 	return nil
 }
 
@@ -213,7 +230,7 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 // @description 查询是否关闭了自动化
 func (*Automate) CheckSceneAutomationHasClose(sceneAutomationId string) bool {
 	ok := dal.CheckSceneAutomationHasClose(sceneAutomationId)
-	//删除缓存
+	// 删除缓存
 	if ok {
 		_ = initialize.NewAutomateCache().DeleteCacheBySceneAutomationId(sceneAutomationId)
 	}
@@ -227,7 +244,7 @@ func (*Automate) CheckSceneAutomationHasClose(sceneAutomationId string) bool {
 func (a *Automate) SceneAutomateExecute(sceneAutomationId string, deviceIds []string, actions []model.ActionInfo) error {
 	tenantID := dal.GetSceneAutomationTenantID(context.Background(), sceneAutomationId)
 
-	//执行动作
+	// 执行动作
 	details, err := a.AutomateActionExecute(sceneAutomationId, deviceIds, actions, tenantID)
 
 	_ = a.sceneExecuteLogSave(sceneAutomationId, details, err)
@@ -240,7 +257,6 @@ func (a *Automate) SceneAutomateExecute(sceneAutomationId string, deviceIds []st
 // @params info initialize.AutomateExecteParams
 // @return error
 func (a *Automate) ActiveSceneExecute(scene_id, tenantID string) error {
-
 	actions, err := dal.GetActionInfoListBySceneId([]string{scene_id})
 	if err != nil {
 		return nil
@@ -304,7 +320,7 @@ func (*Automate) sceneExecuteLogSave(scene_id, details string, err error) error 
 // @return bool true 表示可以执行动作
 func (a *Automate) AutomateConditionCheck(conditions initialize.DTConditions, deviceId string) bool {
 	logrus.Debug("条件判断开始...")
-	//key是groupId val是条件列表
+	// key是groupId val是条件列表
 	conditionsByGroupId := make(map[string]initialize.DTConditions)
 	for _, v := range conditions {
 		conditionsByGroupId[v.GroupID] = append(conditionsByGroupId[v.GroupID], v)
@@ -315,7 +331,7 @@ func (a *Automate) AutomateConditionCheck(conditions initialize.DTConditions, de
 		if ok {
 			result = true
 		}
-		//组条件执行完成装饰
+		// 组条件执行完成装饰
 		a.conditionAfterDecorationRun(ok, val, deviceId, contents)
 	}
 	return result
@@ -371,9 +387,9 @@ func (*Automate) automateConditionCheckWithTime(cond model.DeviceTriggerConditio
 		return false
 	}
 	var ok bool
-	//获取当前星期
+	// 获取当前星期
 	weekDay := common.GetWeekDay(nowTime)
-	//判断当前时间和条件星期
+	// 判断当前时间和条件星期
 	for _, char := range valParts[0] {
 		num, _ := strconv.Atoi(string(char))
 		if weekDay == num {
@@ -381,7 +397,7 @@ func (*Automate) automateConditionCheckWithTime(cond model.DeviceTriggerConditio
 			continue
 		}
 	}
-	//没有在当前指定的星期中
+	// 没有在当前指定的星期中
 	if !ok {
 		return false
 	}
@@ -426,18 +442,19 @@ func (a *Automate) getActualValue(deviceId string, key string, triggerParamType 
 
 	return nil, nil
 }
+
 func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCondition, deviceId string) (bool, string) {
 	logrus.Debug("设备条件验证开始...")
-	//设备id不存在 返回假
+	// 设备id不存在 返回假
 	if cond.TriggerSource == nil {
 		return false, ""
 	}
-	//单类设置 获取上报的设置 单个设置 使用设置的设备id
+	// 单类设置 获取上报的设置 单个设置 使用设置的设备id
 	if cond.TriggerConditionType == model.DEVICE_TRIGGER_CONDITION_TYPE_ONE {
 		deviceId = *cond.TriggerSource
 	}
 
-	//条件查询
+	// 条件查询
 	var (
 		actualValue     interface{}
 		trigger         string
@@ -458,23 +475,23 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 
 	logrus.Debug("设备条件验证开始...", strings.ToUpper(*cond.TriggerParamType))
 	switch strings.ToUpper(*cond.TriggerParamType) {
-	case model.TRIGGER_PARAM_TYPE_TEL, model.TRIGGER_PARAM_TYPE_TELEMETRY: //遥测
+	case model.TRIGGER_PARAM_TYPE_TEL, model.TRIGGER_PARAM_TYPE_TELEMETRY: // 遥测
 		trigger = "遥测"
-		//actualValue, _ = dal.GetCurrentTelemetryDataOneKeys(deviceId, *cond.TriggerParam)
+		// actualValue, _ = dal.GetCurrentTelemetryDataOneKeys(deviceId, *cond.TriggerParam)
 		actualValue, _ = a.getActualValue(deviceId, *cond.TriggerParam, model.TRIGGER_PARAM_TYPE_TEL)
 		triggerValue = cond.TriggerValue
 		triggerKey = *cond.TriggerParam
 		logrus.Debugf("GetCurrentTelemetryDataOneKeys:triggerOperator:%s, TriggerParam:%s, triggerValue:%v, actualValue:%v", triggerOperator, *cond.TriggerParam, triggerValue, actualValue)
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameTelemetry())
 		result = fmt.Sprintf("设备(%s)%s [%s]: %v %s %v", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
-	case model.TRIGGER_PARAM_TYPE_ATTR: //属性
+	case model.TRIGGER_PARAM_TYPE_ATTR: // 属性
 		trigger = "属性"
 		actualValue, _ = a.getActualValue(deviceId, *cond.TriggerParam, model.TRIGGER_PARAM_TYPE_ATTR)
 		triggerValue = cond.TriggerValue
 		triggerKey = *cond.TriggerParam
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameAttribute())
 		result = fmt.Sprintf("设备(%s)%s [%s]: %v %s %v", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
-	case model.TRIGGER_PARAM_TYPE_EVT, model.TRIGGER_PARAM_TYPE_EVENT: //事件
+	case model.TRIGGER_PARAM_TYPE_EVT, model.TRIGGER_PARAM_TYPE_EVENT: // 事件
 		trigger = "事件"
 		actualValue, _ = a.getActualValue(deviceId, *cond.TriggerParam, model.TRIGGER_PARAM_TYPE_EVT)
 		triggerValue = cond.TriggerValue
@@ -482,7 +499,7 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 		logrus.Debugf("事件...actualValue:%#v, triggerValue:%#v", actualValue, triggerValue)
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameEvent())
 		result = fmt.Sprintf("设备(%s)%s [%s]: %v %s %v", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
-	case model.TRIGGER_PARAM_TYPE_STATUS: //状态
+	case model.TRIGGER_PARAM_TYPE_STATUS: // 状态
 		trigger = "下线"
 		actualValue, _ = a.getActualValue(deviceId, "login", model.TRIGGER_PARAM_TYPE_STATUS)
 		triggerValue = *cond.TriggerParam
@@ -517,7 +534,7 @@ func (*Automate) getTriggerParamsValue(triggerKey string, fc DataIdentifierName)
 // @params cond model.DeviceTriggerCondition
 // @return bool
 func (a *Automate) automateConditionCheckByOperator(operator string, condValue string, actualValue interface{}) bool {
-	//logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
+	// logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
 	switch value := actualValue.(type) {
 	case string:
 		return a.automateConditionCheckByOperatorWithString(operator, condValue, value)
@@ -539,7 +556,7 @@ func float64Equal(a, b float64) bool {
 // @params cond model.DeviceTriggerCondition
 // @return bool
 func (*Automate) automateConditionCheckByOperatorWithFloat(operator string, condValue string, actualValue float64) bool {
-	//logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
+	// logrus.Warningf("比较:operator:%s, condValue:%s, actualValue: %s, result:%d", operator, condValue, actualValue, strings.Compare(actualValue, condValue))
 
 	switch operator {
 	case model.CONDITION_TRIGGER_OPERATOR_EQ:
@@ -713,15 +730,15 @@ func (*Automate) AutomateActionExecute(_ string, deviceIds []string, actions []m
 		var actionService AutomateTelemetryAction
 		logrus.Debug("actionType:", action.ActionType)
 		switch action.ActionType {
-		case model.AUTOMATE_ACTION_TYPE_ONE: //单个设置
+		case model.AUTOMATE_ACTION_TYPE_ONE: // 单个设置
 			actionService = &AutomateTelemetryActionOne{TenantID: tenantID}
-		case model.AUTOMATE_ACTION_TYPE_ALARM: //告警触发
+		case model.AUTOMATE_ACTION_TYPE_ALARM: // 告警触发
 			actionService = &AutomateTelemetryActionAlarm{}
-		case model.AUTOMATE_ACTION_TYPE_MULTIPLE: //单类设置
+		case model.AUTOMATE_ACTION_TYPE_MULTIPLE: // 单类设置
 			actionService = &AutomateTelemetryActionMultiple{DeviceIds: deviceIds, TenantID: tenantID}
-		case model.AUTOMATE_ACTION_TYPE_SCENE: //激活场景
+		case model.AUTOMATE_ACTION_TYPE_SCENE: // 激活场景
 			actionService = &AutomateTelemetryActionScene{TenantID: tenantID}
-		case model.AUTOMATE_ACTION_TYPE_SERVICE: //服务
+		case model.AUTOMATE_ACTION_TYPE_SERVICE: // 服务
 			actionService = &AutomateTelemetryActionService{}
 		}
 		if actionService == nil {
@@ -758,7 +775,7 @@ func (*Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string) (
 		groups []model.DeviceTriggerCondition
 		err    error
 	)
-	//deviceConfigId 存在 表示单类设置
+	// deviceConfigId 存在 表示单类设置
 	if deviceConfigId != "" {
 		groups, err = dal.GetDeviceTriggerConditionByDeviceId(deviceConfigId, model.DEVICE_TRIGGER_CONDITION_TYPE_MULTIPLE)
 	} else {
@@ -768,7 +785,7 @@ func (*Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string) (
 	if err != nil {
 		return automateExecuteParams, 0, pkgerrors.Wrap(err, "根据设备id查询自动化条件失败")
 	}
-	//没有查询到该设备自动化信息
+	// 没有查询到该设备自动化信息
 	if len(groups) == 0 {
 		err := initialize.NewAutomateCache().SetCacheByDeviceIdWithNoTask(deviceId, deviceConfigId)
 		if err != nil {
@@ -789,18 +806,18 @@ func (*Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string) (
 		}
 		groupIds = append(groupIds, groupInfo.GroupID)
 	}
-	//查询场景所有的group条件
+	// 查询场景所有的group条件
 	groups, err = dal.GetDeviceTriggerConditionByGroupIds(groupIds)
 	if err != nil {
 		return automateExecuteParams, 0, pkgerrors.Wrap(err, "查询自动化条件失败")
 	}
-	//查询场景执行动作
+	// 查询场景执行动作
 	actionInfos, err := dal.GetActionInfoListBySceneAutomationId(sceneAutomateIds)
 	if err != nil {
 		return automateExecuteParams, 0, pkgerrors.Wrap(err, "查询自动化执行失败")
 	}
 	logrus.Debugf("设备配置id2: %s, 查询条件：%v, 动作: %v", deviceConfigId, groups, actionInfos)
-	//设置自动化缓存
+	// 设置自动化缓存
 	err = initialize.NewAutomateCache().SetCacheByDeviceId(deviceId, deviceConfigId, groups, actionInfos)
 	if err != nil {
 		return automateExecuteParams, 0, pkgerrors.Wrap(err, "设置自动化缓存失败")

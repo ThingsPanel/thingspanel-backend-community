@@ -17,12 +17,12 @@ import (
 )
 
 const (
-	AUTOMATE_CACHE_RESULT_NOT_FOUND = iota + 1 //缓存中无数据
-	AUTOMATE_CACHE_RESULT_NOT_TASK             //缓存有数据 无任务
-	AUTOMATE_CACHE_RESULT_OK                   //缓存有数据 有任务
+	AUTOMATE_CACHE_RESULT_NOT_FOUND = iota + 1 // 缓存中无数据
+	AUTOMATE_CACHE_RESULT_NOT_TASK             // 缓存有数据 无任务
+	AUTOMATE_CACHE_RESULT_OK                   // 缓存有数据 有任务
 )
 
-const AUTOMATE_CACHE_CONTENT_NOT_TASK = "NOTASK" //设备无任务 存字符串NOTASK
+const AUTOMATE_CACHE_CONTENT_NOT_TASK = "NOTASK" // 设备无任务 存字符串NOTASK
 
 type AutomateCache struct {
 	client    *redis.Client
@@ -41,7 +41,7 @@ func NewAutomateCache() *AutomateCache {
 	if instance == nil {
 		instance = &AutomateCache{
 			client:    global.REDIS,
-			expiredIn: time.Minute * 5, //缓存获取时间暂设置为5分钟
+			expiredIn: time.Minute * 5, // 缓存获取时间暂设置为5分钟
 			device:    automatecache.NewOneDeviceCache(),
 		}
 	}
@@ -49,7 +49,7 @@ func NewAutomateCache() *AutomateCache {
 }
 
 type AutimateCacheKeyDevice interface {
-	GetAutomateCacheKeyPrefix() string //设备id或者设备配置
+	GetAutomateCacheKeyPrefix() string // 设备id或者设备配置
 	GetDeviceTriggerConditionType() string
 }
 
@@ -63,6 +63,7 @@ func (c *AutomateCache) getAutomateCacheKey(cType string, id string) string {
 
 // 获取单个设置一级缓存key
 func (c *AutomateCache) getAutomateCacheKeyBase(deviceId string) string {
+	// automate:v3:one:_:deviceId
 	return c.getAutomateCacheKey("_", deviceId)
 }
 
@@ -117,13 +118,13 @@ func (*AutomateCache) scan(stringCmd *redis.StringCmd, val interface{}) (int, er
 // @params sceneAutomationId string
 // @return error
 func (c *AutomateCache) DeleteCacheBySceneAutomationId(sceneAutomationId string) error {
-	//删除单类设置缓存
+	// 删除单类设置缓存
 	c.device = automatecache.NewMultipleDeviceCache()
 	err := c.deleteCacheBySceneAutId(sceneAutomationId)
 	if err != nil {
 		return err
 	}
-	//删除单一设备缓存
+	// 删除单一设备缓存
 	c.device = automatecache.NewOneDeviceCache()
 	err = c.deleteCacheBySceneAutId(sceneAutomationId)
 	if err != nil {
@@ -137,7 +138,7 @@ func (c *AutomateCache) DeleteCacheBySceneAutomationId(sceneAutomationId string)
 // @params sceneAutomationId string
 // @return error
 func (c *AutomateCache) deleteCacheBySceneAutId(sceneAutomationId string) error {
-	//1 先查询出动作缓存
+	// 1 先查询出动作缓存
 	var (
 		action         AutomateActionInfo
 		deleteCacheKes []string
@@ -156,7 +157,7 @@ func (c *AutomateCache) deleteCacheBySceneAutId(sceneAutomationId string) error 
 		return nil
 	}
 	deleteCacheKes = append(deleteCacheKes, actionCacheKey)
-	//2 group缓存key 并查询此场景关联的所有设备
+	// 2 group缓存key 并查询此场景关联的所有设备
 	for _, groupId := range action.GroupIds {
 		var (
 			groupCacheKey = c.getAutomateCacheKeyGroup(groupId)
@@ -173,12 +174,12 @@ func (c *AutomateCache) deleteCacheBySceneAutId(sceneAutomationId string) error 
 			}
 		}
 	}
-	//3 查询设备缓存 知道当前场景并删除（删除单个设备1级缓存）
+	// 3 查询设备缓存 知道当前场景并删除（删除单个设备1级缓存）
 	err = c.automateDeviceCacheDeleteHandel(sceneAutomationId, deviceIds, &deleteCacheKes)
 	if err != nil {
 		return err
 	}
-	//4 删除缓存
+	// 4 删除缓存
 	return c.client.Del(context.Background(), deleteCacheKes...).Err()
 }
 
@@ -192,7 +193,7 @@ func (c *AutomateCache) automateDeviceCacheDeleteHandel(sceneAutomationId string
 	for _, deviceId := range ids {
 		var (
 			baseCacheKey = c.getAutomateCacheKeyBase(deviceId)
-			//baseCacheKey        = getCachekey(deviceId)
+			// baseCacheKey        = getCachekey(deviceId)
 			automateDeviceInfos AutomateDeviceInfos
 		)
 		err := c.client.Get(context.Background(), baseCacheKey).Scan(&automateDeviceInfos)
@@ -225,14 +226,13 @@ func (c *AutomateCache) automateDeviceCacheDeleteHandel(sceneAutomationId string
 // @params actions []model.ActionInfo
 // @return error
 func (c *AutomateCache) SetCacheBySceneAutomationId(sceneAutomationId string, conditions []model.DeviceTriggerCondition, actions []model.ActionInfo) error {
-
-	//单类设备缓存设置
+	// 单类设备缓存设置
 	c.device = automatecache.NewMultipleDeviceCache()
 	err := c.setCacheBySceneAutId(sceneAutomationId, conditions, actions)
 	if err != nil {
 		return err
 	}
-	//单一设备缓存设置
+	// 单一设备缓存设置
 	c.device = automatecache.NewOneDeviceCache()
 	err = c.setCacheBySceneAutId(sceneAutomationId, conditions, actions)
 	if err != nil {
@@ -267,13 +267,13 @@ func (c *AutomateCache) setCacheBySceneAutId(sceneAutomationId string, condition
 			}
 		}
 	}
-	//设备id为空, 不缓存
+	// 设备id为空, 不缓存
 	if len(deviceIdsMap) == 0 {
 		return nil
 	}
-	//group条件保存
+	// group条件保存
 	for groupId, val := range groupInfosMap {
-		//去掉条件中 不存在此类型的条件组 防止重复到定时任务条件组
+		// 去掉条件中 不存在此类型的条件组 防止重复到定时任务条件组
 		var ok bool
 		for _, v := range val {
 			if v.TriggerConditionType == c.device.GetDeviceTriggerConditionType() {
@@ -286,21 +286,21 @@ func (c *AutomateCache) setCacheBySceneAutId(sceneAutomationId string, condition
 		}
 		automateDeviceInfo.GroupIds = append(automateDeviceInfo.GroupIds, groupId)
 		actionInfos.GroupIds = append(actionInfos.GroupIds, groupId)
-		var groupCacheKey = c.getAutomateCacheKeyGroup(groupId)
+		groupCacheKey := c.getAutomateCacheKeyGroup(groupId)
 		err := c.set(groupCacheKey, val, c.expiredIn)
 		if err != nil {
 			return err
 		}
 	}
-	//动作保存
+	// 动作保存
 	err := c.set(c.getAutomateCacheKeyAction(sceneAutomationId), actionInfos, c.expiredIn)
 	if err != nil {
 		return err
 	}
-	//单个设备缓存保存
+	// 单个设备缓存保存
 	for deviceId := range deviceIdsMap {
 		var automateDeviceInfos AutomateDeviceInfos
-		var deviceCacheKey = c.getAutomateCacheKeyBase(deviceId)
+		deviceCacheKey := c.getAutomateCacheKeyBase(deviceId)
 		_, err = c.scan(c.client.Get(context.Background(), deviceCacheKey), &automateDeviceInfos)
 		if err != nil {
 			continue
@@ -315,16 +315,18 @@ func (c *AutomateCache) setCacheBySceneAutId(sceneAutomationId string, condition
 }
 
 // GetCacheByDeviceId
-// @description  设备遥测获取缓存联动信息
+// @description  获取场景联动缓存
 // @params deviceId string 1无数据 2无自动化任务 3有任务
 // @return AutomateExecteParams error
 func (c *AutomateCache) GetCacheByDeviceId(deviceId, deviceConfigId string) (AutomateExecteParams, int, error) {
 	var deviceCacheKey string
 	if deviceConfigId == "" {
 		c.SetDeviceType(automatecache.NewOneDeviceCache())
+		// 示例：automate:v3:one:_:deviceId
 		deviceCacheKey = c.getAutomateCacheKeyBase(deviceId)
 	} else {
 		c.SetDeviceType(automatecache.NewMultipleDeviceCache())
+		// 示例：automate:v3:multiple:_:deviceConfigId
 		deviceCacheKey = c.getAutomateCacheKeyBase(deviceConfigId)
 	}
 	return c.getCacheByDId(deviceId, deviceConfigId, deviceCacheKey)
@@ -344,6 +346,7 @@ func (c *AutomateCache) getCacheByDId(deviceId, deviceConfigId, deviceCacheKey s
 		resultInt int
 	)
 	stringCmd := c.client.Get(context.Background(), deviceCacheKey)
+	logrus.Debugf("deviceCacheKey: %s", deviceCacheKey)
 	resultInt, err := c.scan(stringCmd, &automateDeviceInfos)
 	if err != nil || resultInt != AUTOMATE_CACHE_RESULT_OK {
 		return automateExecuteParams, resultInt, err
@@ -417,23 +420,23 @@ func (c *AutomateCache) setCache(deviceId, deviceConfigId string, conditions []m
 		deviceInfosMap[v.SceneAutomationID][v.GroupID] = true
 	}
 
-	//group条件保存
+	// group条件保存
 	for groupId, val := range groupInfosMap {
-		var groupCacheKey = c.getAutomateCacheKeyGroup(groupId)
+		groupCacheKey := c.getAutomateCacheKeyGroup(groupId)
 		logrus.Info("groupCacheKey:", groupCacheKey)
 		err := c.set(groupCacheKey, val, c.expiredIn)
 		if err != nil {
 			return err
 		}
 	}
-	//动作保存
-	var (
-		actionsMap = make(map[string][]model.ActionInfo)
-	)
+	// 动作保存
+
+	actionsMap := make(map[string][]model.ActionInfo)
+
 	for _, val := range actions {
 		actionsMap[val.SceneAutomationID] = append(actionsMap[val.SceneAutomationID], val)
 	}
-	//设备缓存
+	// 设备缓存
 	var automateDeviceInfos []AutomateDeviceInfo
 	for sceneAutomationID, actions := range actionsMap {
 		var groupIds []string
@@ -463,7 +466,7 @@ func (c *AutomateCache) setCache(deviceId, deviceConfigId string, conditions []m
 	}
 
 	logrus.Info("cacheKey:", cacheKey)
-	//保存设备任务缓存
+	// 保存设备任务缓存
 	return c.set(cacheKey, automateDeviceInfos, c.expiredIn)
 }
 
@@ -515,8 +518,7 @@ func (a *DTConditions) UnmarshalBinary(data []byte) error {
 	return json.Unmarshal(data, a)
 }
 
-//AutomateActionInfo
-
+// AutomateActionInfo
 func (a *AutomateActionInfo) UnmarshalBinary(data []byte) error {
 	return json.Unmarshal(data, a)
 }
