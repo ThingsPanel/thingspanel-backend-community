@@ -963,17 +963,29 @@ func formatTime(timestamp int64) string {
 	return time.Unix(timestamp/1000, 0).Format("2006-01-02 15:04:05")
 }
 
+// TelemetryPutMessage 处理遥测数据下发
+// 参数:
+//
+//	ctx: 上下文
+//	userID: 用户ID，用于记录操作日志
+//	param: 下发的消息内容
+//	operationType: 操作类型
+//
+// 返回:
+//
+//	error: 处理过程中的错误
 func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
-	var (
-		log = dal.TelemetrySetLogsQuery{}
+	var errorMessage string
 
-		errorMessage string
-	)
-	// 校验param.Value必须是json
+	// 步骤1: 校验入参
+	// ---------------------------------------------
+	// 校验参数值必须是有效的JSON
 	if !json.Valid([]byte(param.Value)) {
 		errorMessage = "value must be json"
 	}
 
+	// 步骤2: 获取设备信息
+	// ---------------------------------------------
 	deviceInfo, err := initialize.GetDeviceCacheById(param.DeviceID)
 	if err != nil {
 		logrus.Error(ctx, "[TelemetryPutMessage][GetDeviceCacheById]failed:", err)
@@ -981,12 +993,17 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 			"error": err.Error(),
 		})
 	}
-	// 获取设备配置
-	var protocolType string
-	var deviceConfig *model.DeviceConfig
-	var deviceType string
+
+	// 步骤3: 获取设备配置和协议类型
+	// ---------------------------------------------
+	var (
+		protocolType string
+		deviceConfig *model.DeviceConfig
+		deviceType   string
+	)
 
 	if deviceInfo.DeviceConfigID != nil {
+		// 读取设备配置信息
 		deviceConfig, err = dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
 			logrus.Error(ctx, "[TelemetryPutMessage][GetDeviceConfigByID]failed:", err)
@@ -996,6 +1013,7 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		}
 		deviceType = deviceConfig.DeviceType
 
+		// 获取协议类型
 		if deviceConfig.ProtocolType != nil {
 			protocolType = *deviceConfig.ProtocolType
 		} else {
@@ -1004,15 +1022,16 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 			})
 		}
 	} else {
+		// 默认协议和设备类型
 		protocolType = "MQTT"
 		deviceType = "1"
-
 	}
 
+	// 步骤4: 根据协议类型获取发布主题
+	// ---------------------------------------------
 	var topic string
 	if protocolType == "MQTT" {
-		// 网关和子设备需要特殊处理
-		// messageID := common.GetMessageID()
+		// MQTT协议：根据设备类型获取主题
 		topic, err = getTopicByDevice(deviceInfo, deviceType, param)
 		if err != nil {
 			logrus.Error(ctx, "failed to get topic", err)
@@ -1020,45 +1039,8 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 				"error": err.Error(),
 			})
 		}
-
-		if deviceType == "3" || deviceType == "2" {
-
-			// 修改payload
-			var inputData map[string]interface{}
-			if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
-				return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-					"error": err.Error(),
-				})
-			}
-
-			var outputData map[string]interface{}
-			if deviceType == "3" {
-				if deviceInfo.SubDeviceAddr == nil {
-					return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-						"error": "subDeviceAddr is nil",
-					})
-				}
-				outputData = map[string]interface{}{
-					"sub_device_data": map[string]interface{}{
-						*deviceInfo.SubDeviceAddr: inputData,
-					},
-				}
-			} else {
-				outputData = map[string]interface{}{
-					"gateway_data": inputData,
-				}
-			}
-
-			output, err := json.Marshal(outputData)
-			if err != nil {
-				return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-					"error": err.Error(),
-				})
-			}
-			param.Value = string(output)
-		}
 	} else {
-		// 获取主题前缀
+		// 其他协议：从服务插件获取主题前缀
 		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
 		if err != nil {
 			logrus.Error(ctx, "failed to get sub topic prefix", err)
@@ -1067,31 +1049,83 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 			})
 		}
 		topic = fmt.Sprintf("%s%s%s", subTopicPrefix, config.MqttConfig.Telemetry.PublishTopic, deviceInfo.ID)
-
 	}
-	// 脚本处理
+
+	logrus.Info("topic:", topic)
+	logrus.Info("deviceInfo:", deviceInfo.DeviceConfigID)
+
+	// 步骤5: 脚本处理 - 对所有协议类型，在获取topic之后，修改payload之前执行
+	// ---------------------------------------------
 	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
+		logrus.Debug("开始查询脚本")
 		script, err := initialize.GetScriptByDeviceAndScriptType(deviceInfo, "B")
 		if err != nil {
 			logrus.Error(err.Error())
 			return err
 		}
+
+		// 如果存在脚本，使用脚本处理payload
 		if script != nil && script.Content != nil && *script.Content != "" {
 			msg, err := utils.ScriptDeal(*script.Content, []byte(param.Value), topic)
 			if err != nil {
 				logrus.Error(err.Error())
 				return err
 			}
+			logrus.Debug("脚本处理结果:", msg)
 			param.Value = msg
 		}
 	}
+
+	// 步骤6: 修改payload (仅对MQTT协议的特定设备类型)
+	// ---------------------------------------------
+	if protocolType == "MQTT" && (deviceType == "3" || deviceType == "2") {
+		// 解析JSON
+		var inputData map[string]interface{}
+		if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+
+		// 根据设备类型构建不同的输出数据结构
+		var outputData map[string]interface{}
+		if deviceType == "3" { // 子设备
+			if deviceInfo.SubDeviceAddr == nil {
+				return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+					"error": "subDeviceAddr is nil",
+				})
+			}
+			outputData = map[string]interface{}{
+				"sub_device_data": map[string]interface{}{
+					*deviceInfo.SubDeviceAddr: inputData,
+				},
+			}
+		} else { // 网关设备
+			outputData = map[string]interface{}{
+				"gateway_data": inputData,
+			}
+		}
+
+		// 重新构建payload
+		output, err := json.Marshal(outputData)
+		if err != nil {
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		param.Value = string(output)
+	}
+
+	// 步骤7: 发布消息
+	// ---------------------------------------------
 	err = publish.PublishTelemetryMessage(topic, deviceInfo, param)
 	if err != nil {
 		logrus.Error(ctx, "下发失败", err)
 		errorMessage = err.Error()
 	}
-	// operationType := strconv.Itoa(constant.Manual)
 
+	// 步骤8: 记录操作日志
+	// ---------------------------------------------
 	description := "下发遥测日志记录"
 	logInfo := &model.TelemetrySetLog{
 		ID:            uuid.New(),
@@ -1104,10 +1138,13 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		Description:   &description,
 		UserID:        &userID,
 	}
-	// 系统自动发送
+
+	// 系统自动发送时不记录用户ID
 	if userID == "" {
 		logInfo.UserID = nil
 	}
+
+	// 设置操作状态
 	if err != nil {
 		logInfo.ErrorMessage = &errorMessage
 		status := strconv.Itoa(constant.StatusFailed)
@@ -1116,13 +1153,16 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		status := strconv.Itoa(constant.StatusOK)
 		logInfo.Status = &status
 	}
-	_, err = log.Create(ctx, logInfo)
+
+	// 写入日志记录
+	_, err = dal.TelemetrySetLogsQuery{}.Create(ctx, logInfo)
 	if err != nil {
 		logrus.Error(ctx, "failed to create telemetry set log", err)
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": err.Error(),
 		})
 	}
+
 	return err
 }
 
