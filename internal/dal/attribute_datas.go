@@ -53,19 +53,44 @@ func CreateAttributeData(data *model.AttributeData) error {
 
 // 更新设备属性数据，如果数据不存在，UUID生成一个ID，创建一条新的数据
 func UpdateAttributeData(data *model.AttributeData) (*model.AttributeData, error) {
-	info, err := query.AttributeData.Where(query.AttributeData.DeviceID.Eq(data.DeviceID)).
-		Where(query.AttributeData.TenantID.Eq(*data.TenantID)).
-		Where(query.AttributeData.Key.Eq(data.Key)).Updates(data)
+	// 根据新数据的数据类型，直接设置其他类型字段为null
+	if data.StringV != nil {
+		data.NumberV = nil
+		data.BoolV = nil
+	} else if data.NumberV != nil {
+		data.StringV = nil
+		data.BoolV = nil
+	} else if data.BoolV != nil {
+		data.StringV = nil
+		data.NumberV = nil
+	}
+
+	// 创建包含null值的更新map，确保null字段也会被更新到数据库
+	updateMap := map[string]interface{}{
+		"bool_v":   data.BoolV,
+		"number_v": data.NumberV,
+		"string_v": data.StringV,
+		"ts":       data.T,
+	}
+
+	// 尝试更新现有记录
+	result, err := query.AttributeData.Where(
+		query.AttributeData.DeviceID.Eq(data.DeviceID),
+		query.AttributeData.TenantID.Eq(*data.TenantID),
+		query.AttributeData.Key.Eq(data.Key),
+	).Updates(updateMap)
+
 	if err != nil {
 		return nil, err
-	} else if info.RowsAffected == 0 {
+	} else if result.RowsAffected == 0 {
+		// 数据不存在，创建新记录
 		data.ID = uuid.New()
 		err = query.AttributeData.Create(data)
 		if err != nil {
 			return nil, err
 		}
-		return nil, nil
 	}
+
 	return data, nil
 }
 
@@ -79,11 +104,11 @@ func GetAttributeOneKeys(deviceId string, keys string) (interface{}, error) {
 		return result, nil
 	}
 	if data.BoolV != nil {
-		//result = fmt.Sprintf("%t", *data.BoolV)
+		// result = fmt.Sprintf("%t", *data.BoolV)
 		result = *data.BoolV
 	}
 	if data.NumberV != nil {
-		//result = fmt.Sprintf("%d", data.NumberV)
+		// result = fmt.Sprintf("%d", data.NumberV)
 		result = *data.NumberV
 	}
 	if data.StringV != nil {
