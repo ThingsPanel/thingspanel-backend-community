@@ -86,15 +86,41 @@ func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) er
 	a.device = deviceInfo
 	a.formExt = fromExt
 
-	// 单类设备
+	// 标记是否已尝试执行基于 DeviceConfigID 的自动化
+	// Mark if automations based on DeviceConfigID have been attempted
+	attemptedDeviceConfigAutomations := false
+
+	// 1. 尝试执行基于设备配置ID（DeviceConfigID）的自动化 (如果存在)
+	// 1. Try executing automations based on DeviceConfigID (if it exists)
 	if deviceInfo.DeviceConfigID != nil {
 		deviceConfigId := *deviceInfo.DeviceConfigID
+		logrus.Debugf("检测到 DeviceConfigID (%s)，尝试执行关联的自动化...", deviceConfigId)
 		err := a.telExecute(deviceInfo.ID, deviceConfigId, fromExt)
 		if err != nil {
-			logrus.Error("自动化执行失败", err)
+			// 记录错误但继续，以保持与原始代码相似的行为
+			// Log the error but continue, maintaining behavior similar to the original code
+			logrus.Errorf("执行基于 DeviceConfigID (%s) 的自动化时出错: %v", deviceConfigId, err)
 		}
+		attemptedDeviceConfigAutomations = true // 标记已尝试
 	}
-	return a.telExecute(deviceInfo.ID, "", fromExt)
+
+	// 2. 如果没有尝试基于 DeviceConfigID 的自动化 (因为它不存在),
+	//    那么执行仅基于设备ID (DeviceID) 的自动化。
+	//    这可以防止在 DeviceConfigID 存在时重复执行可能重叠的自动化规则。
+	// 2. If automations based on DeviceConfigID were NOT attempted (because it didn't exist),
+	//    then execute automations based solely on the DeviceID.
+	//    This prevents potentially overlapping automation rules from running twice when a DeviceConfigID is present.
+	if !attemptedDeviceConfigAutomations {
+		logrus.Debugf("未找到 DeviceConfigID 或未尝试基于 ConfigID 的自动化，尝试执行仅基于 DeviceID (%s) 的自动化...", deviceInfo.ID)
+		err := a.telExecute(deviceInfo.ID, "", fromExt)
+		if err != nil {
+			logrus.Errorf("执行仅基于 DeviceID (%s) 的自动化时出错: %v", deviceInfo.ID, err)
+		}
+	} else {
+		logrus.Debugf("已尝试基于 DeviceConfigID 的自动化，将跳过执行仅基于 DeviceID 的自动化以避免重复。")
+	}
+
+	return nil // 保持原有的返回逻辑
 }
 
 // telExecute 执行自动化任务的主要函数
