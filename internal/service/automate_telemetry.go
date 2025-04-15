@@ -500,6 +500,7 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 		actualValue, _ = a.getActualValue(deviceId, *cond.TriggerParam, model.TRIGGER_PARAM_TYPE_EVT)
 		triggerValue = cond.TriggerValue
 		triggerKey = *cond.TriggerParam
+		triggerOperator = "=" // 事件默认等于
 		logrus.Debugf("事件...actualValue:%#v, triggerValue:%#v", actualValue, triggerValue)
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameEvent())
 		result = fmt.Sprintf("设备(%s)%s [%s]: %v %s %v", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
