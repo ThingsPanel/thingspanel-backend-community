@@ -13,8 +13,8 @@ import (
 // param actions []model.ActionInfo
 // @return error
 func ActionAfterAlarm(actions []model.ActionInfo, actionResultErr error) error {
-	//查询该场景是否有缓存 无缓存直接跳过
-	var scene_automation_id = actions[0].SceneAutomationID
+	// 查询该场景是否有缓存 无缓存直接跳过
+	scene_automation_id := actions[0].SceneAutomationID
 	alarmCache := initialize.NewAlarmCache()
 	groupIds, err := alarmCache.GetBySceneAutomationId(scene_automation_id)
 	if err != nil {
@@ -25,17 +25,17 @@ func ActionAfterAlarm(actions []model.ActionInfo, actionResultErr error) error {
 	}
 	logrus.Debug("ActionAfterAlarm:", groupIds)
 	var alarm_config_ids []string
-	//查看动作用是否有警告
+	// 查看动作用是否有警告
 	for _, act := range actions {
 		if act.ActionType == model.AUTOMATE_ACTION_TYPE_ALARM && act.ActionTarget != nil && *act.ActionTarget != "" {
 			alarm_config_ids = append(alarm_config_ids, *act.ActionTarget)
 		}
 	}
 	for _, group_id := range groupIds {
-		//没有发现告警服务 删除缓存
+		// 没有发现告警服务 删除缓存
 		if len(alarm_config_ids) == 0 {
 			err = alarmCache.DeleteBygroupId(group_id)
-		} else if actionResultErr == nil { //保存缓存 且执行成功 添加执行成功标识
+		} else if actionResultErr == nil { // 保存缓存 且执行成功 添加执行成功标识
 			err = alarmCache.SetAlarm(group_id, alarm_config_ids)
 		}
 		if err != nil {
@@ -73,10 +73,10 @@ func ConditionAfterAlarm(ok bool, conditions initialize.DTConditions, deviceId s
 	if len(device_ids) == 0 {
 		return nil
 	}
-	//删除缓存 测试删除缓存
-	//alarmCache.DeleteBygroupId(group_id)
+	// 删除缓存 测试删除缓存
+	// alarmCache.DeleteBygroupId(group_id)
 
-	//条件通过 添加告警缓存
+	// 条件通过 添加告警缓存
 	if ok {
 		err := alarmCache.SetDevice(group_id, scene_automation_id, device_ids, contents)
 		if err != nil {
@@ -85,12 +85,12 @@ func ConditionAfterAlarm(ok bool, conditions initialize.DTConditions, deviceId s
 		groupIds, _ := alarmCache.GetBySceneAutomationId(scene_automation_id)
 		logrus.Debug("getGroupId:", groupIds)
 	} else {
-		//恢复告警
+		// 恢复告警
 		err := AlarmRecovery(group_id, contents)
 		if err != nil {
 			return pkgerrors.WithMessage(err, "恢复告警失败")
 		}
-		//删除缓存
+		// 删除缓存
 		err = alarmCache.DeleteBygroupId(group_id)
 		if err != nil {
 			return pkgerrors.Wrap(err, "缓存设置失败")
@@ -106,22 +106,26 @@ func ConditionAfterAlarm(ok bool, conditions initialize.DTConditions, deviceId s
 // param alarm_config_id string
 // param scene_automation_id
 // @return bool
-func AlarmExecute(alarm_config_id, scene_automation_id string) (bool, string) {
+func AlarmExecute(alarm_config_id, scene_automation_id string) (bool, string, string) {
 	var (
 		alarmName string
 		resultOk  bool
+		// 失败原因
+		reason string
 	)
-	//查询缓存判断 判断告警是否触发
+	// 查询缓存判断 判断告警是否触发
 	alarmCache := initialize.NewAlarmCache()
 	groupIds, err := alarmCache.GetBySceneAutomationId(scene_automation_id)
 	logrus.Debugf("缓存11:%#v,场景id:%#v", groupIds, scene_automation_id)
 	if err != nil || len(groupIds) == 0 {
-		return resultOk, alarmName
+		reason = "告警缓存不存在"
+		return resultOk, alarmName, reason
 	}
 	for _, group_id := range groupIds {
 		cache, err := alarmCache.GetByGroupId(group_id)
 		if err != nil {
-			return resultOk, alarmName
+			reason = "告警缓存不存在"
+			return resultOk, alarmName, reason
 		}
 		logrus.Debugf("告警执行前查询: %#v", cache)
 		var isOk bool
@@ -132,7 +136,9 @@ func AlarmExecute(alarm_config_id, scene_automation_id string) (bool, string) {
 			}
 		}
 		if isOk {
+			reason = "已存在告警，不再继续触发"
 			continue
+
 		}
 		var content string
 		content = "场景自动化触发告警"
@@ -141,7 +147,7 @@ func AlarmExecute(alarm_config_id, scene_automation_id string) (bool, string) {
 		}
 		resultOk, alarmName = GroupApp.AlarmExecute(alarm_config_id, content, scene_automation_id, group_id, cache.AlaramDeviceIdList)
 	}
-	return resultOk, alarmName
+	return resultOk, alarmName, reason
 }
 
 // AlarmRecovery

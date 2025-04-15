@@ -5,24 +5,25 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+
 	"project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/constant"
-	"strconv"
 
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	AUTOMATE_ACTION_PARAM_TYPE_TEL          = "TEL"          //遥测
-	AUTOMATE_ACTION_PARAM_TYPE_TELEMETRY    = "telemetry"    //遥测
-	AUTOMATE_ACTION_PARAM_TYPE_C_TELEMETRY  = "c_telemetry"  //遥测
-	AUTOMATE_ACTION_PARAM_TYPE_ATTR         = "ATTR"         //属性设置
-	AUTOMATE_ACTION_PARAM_TYPE_ATTRIBUTES   = "attributes"   //属性设置
-	AUTOMATE_ACTION_PARAM_TYPE_C_ATTRIBUTES = "c_attributes" //属性设置
-	AUTOMATE_ACTION_PARAM_TYPE_CMD          = "CMD"          //命令下发
-	AUTOMATE_ACTION_PARAM_TYPE_COMMAND      = "command"      //命令下发
-	AUTOMATE_ACTION_PARAM_TYPE_C_COMMAND    = "c_command"    //命令下发
+	AUTOMATE_ACTION_PARAM_TYPE_TEL          = "TEL"          // 遥测
+	AUTOMATE_ACTION_PARAM_TYPE_TELEMETRY    = "telemetry"    // 遥测
+	AUTOMATE_ACTION_PARAM_TYPE_C_TELEMETRY  = "c_telemetry"  // 遥测
+	AUTOMATE_ACTION_PARAM_TYPE_ATTR         = "ATTR"         // 属性设置
+	AUTOMATE_ACTION_PARAM_TYPE_ATTRIBUTES   = "attributes"   // 属性设置
+	AUTOMATE_ACTION_PARAM_TYPE_C_ATTRIBUTES = "c_attributes" // 属性设置
+	AUTOMATE_ACTION_PARAM_TYPE_CMD          = "CMD"          // 命令下发
+	AUTOMATE_ACTION_PARAM_TYPE_COMMAND      = "command"      // 命令下发
+	AUTOMATE_ACTION_PARAM_TYPE_C_COMMAND    = "c_command"    // 命令下发
 )
 
 // 自动化场景动作执行接口
@@ -31,7 +32,6 @@ type AutomateTelemetryAction interface {
 }
 
 func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tenantID string) (string, error) {
-
 	executeMsg := fmt.Sprintf("设备id:%s", deviceId)
 	if action.ActionParamType == nil {
 		return executeMsg + " ActionParamType不存在", errors.New("ActionParamType不存在")
@@ -48,7 +48,7 @@ func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tena
 	userId, _ = dal.GetUserIdBYTenantID(tenantID)
 	logrus.Debug("AutomateActionDeviceMqttSend:", tenantID, ", userId:", userId)
 	operationType := strconv.Itoa(constant.Auto)
-	//var valueMap = make(map[string]string)
+	// var valueMap = make(map[string]string)
 	switch *action.ActionParamType {
 	case AUTOMATE_ACTION_PARAM_TYPE_TEL, AUTOMATE_ACTION_PARAM_TYPE_TELEMETRY, AUTOMATE_ACTION_PARAM_TYPE_C_TELEMETRY:
 		msgReq := model.PutMessage{
@@ -110,7 +110,6 @@ type AutomateTelemetryActionOne struct {
 }
 
 func (a *AutomateTelemetryActionOne) AutomateActionRun(action model.ActionInfo) (string, error) {
-
 	if action.ActionTarget == nil {
 		return "单设备执行，设备id不存在", errors.New("设备id不存在")
 	}
@@ -124,7 +123,6 @@ type AutomateTelemetryActionMultiple struct {
 }
 
 func (a *AutomateTelemetryActionMultiple) AutomateActionRun(action model.ActionInfo) (string, error) {
-
 	var (
 		messages []string
 		errs     error
@@ -146,7 +144,6 @@ type AutomateTelemetryActionScene struct {
 }
 
 func (a *AutomateTelemetryActionScene) AutomateActionRun(action model.ActionInfo) (string, error) {
-
 	if action.ActionTarget == nil {
 		return "场景激活", errors.New("场景id不存在")
 	}
@@ -156,30 +153,29 @@ func (a *AutomateTelemetryActionScene) AutomateActionRun(action model.ActionInfo
 }
 
 // 警告 30
-type AutomateTelemetryActionAlarm struct {
-}
+type AutomateTelemetryActionAlarm struct{}
 
 func (*AutomateTelemetryActionAlarm) AutomateActionRun(action model.ActionInfo) (string, error) {
-
 	logrus.Debugf("告警服务: %#v", *action.ActionTarget)
 	// 告警服务 有装饰器实现 这里不做处理
 	if action.ActionTarget == nil || *action.ActionTarget == "" {
 		return "告警服务", errors.New("告警id不存在")
 	}
 
-	if ok, alarmName := AlarmExecute(*action.ActionTarget, action.SceneAutomationID); ok {
+	ok, alarmName, reason := AlarmExecute(*action.ActionTarget, action.SceneAutomationID)
+	if ok {
 		return fmt.Sprintf("告警服务(%s)", alarmName), nil
 	}
-	alarmName := dal.GetAlarmNameWithCache(*action.ActionTarget)
-	return fmt.Sprintf("告警服务(%s)", alarmName), errors.New("执行失败")
+	alarmName = dal.GetAlarmNameWithCache(*action.ActionTarget)
+	errRsp := errors.New("执行失败," + reason)
+	return fmt.Sprintf("告警服务(%s)", alarmName), errRsp
 }
 
 // 服务 40
-type AutomateTelemetryActionService struct {
-}
+type AutomateTelemetryActionService struct{}
 
 func (*AutomateTelemetryActionService) AutomateActionRun(_ model.ActionInfo) (string, error) {
-	//todo 待实现
+	// todo 待实现
 	fmt.Println("自动化服务动作实现")
 	return "服务", nil
 }
