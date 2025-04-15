@@ -151,6 +151,9 @@ func (a *Automate) AutomateFilter(info initialize.AutomateExecteParams, fromExt 
 				continue
 			}
 			condTriggerParamType := strings.ToUpper(*cond.TriggerParamType)
+			logrus.Debugf("TriggerParamType: %s", *cond.TriggerParamType)
+			logrus.Debugf("TriggerParam: %s", *cond.TriggerParam)
+			logrus.Debugf("fromExt.TriggerParamType: %s", fromExt.TriggerParamType)
 			switch fromExt.TriggerParamType {
 			case model.TRIGGER_PARAM_TYPE_TEL:
 				if condTriggerParamType == model.TRIGGER_PARAM_TYPE_TEL || condTriggerParamType == model.TRIGGER_PARAM_TYPE_TELEMETRY {
