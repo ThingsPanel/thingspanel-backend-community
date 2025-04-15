@@ -151,11 +151,11 @@ func (a *Automate) AutomateFilter(info initialize.AutomateExecteParams, fromExt 
 				continue
 			}
 			condTriggerParamType := strings.ToUpper(*cond.TriggerParamType)
-			logrus.Debugf("TriggerParamType: %s", *cond.TriggerParamType)
+			logrus.Debugf("TriggerParamType: %s", condTriggerParamType)
 			logrus.Debugf("TriggerParam: %s", *cond.TriggerParam)
 			logrus.Debugf("fromExt.TriggerParamType: %s", fromExt.TriggerParamType)
 			switch fromExt.TriggerParamType {
-			case model.TRIGGER_PARAM_TYPE_TEL:
+			case model.TRIGGER_PARAM_TYPE_TEL: // 遥测TEL或者TELEMETRY
 				if condTriggerParamType == model.TRIGGER_PARAM_TYPE_TEL || condTriggerParamType == model.TRIGGER_PARAM_TYPE_TELEMETRY {
 					if a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
 						isExists = true
@@ -165,12 +165,12 @@ func (a *Automate) AutomateFilter(info initialize.AutomateExecteParams, fromExt 
 				if condTriggerParamType == model.TRIGGER_PARAM_TYPE_STATUS {
 					isExists = true
 				}
-			case model.TRIGGER_PARAM_TYPE_EVT:
+			case model.TRIGGER_PARAM_TYPE_EVT: // 事件EVT或者EVENT
 				if (condTriggerParamType == model.TRIGGER_PARAM_TYPE_EVT || condTriggerParamType == model.TRIGGER_PARAM_TYPE_EVENT) && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
 					isExists = true
 				}
-			case model.TRIGGER_PARAM_TYPE_ATTR:
-				if condTriggerParamType == model.TRIGGER_PARAM_TYPE_ATTR && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
+			case model.TRIGGER_PARAM_TYPE_ATTR: // 属性ATTR或者ATTRIBUTES
+				if (condTriggerParamType == model.TRIGGER_PARAM_TYPE_ATTR || condTriggerParamType == model.TRIGGER_PARAM_TYPE_ATTRIBUTES) && a.containString(fromExt.TriggerParam, *cond.TriggerParam) {
 					isExists = true
 				}
 			}
