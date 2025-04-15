@@ -25,6 +25,8 @@ type Automate struct {
 	device  *model.Device
 	formExt AutomateFromExt
 	mu      sync.Mutex
+	// 用于跟踪在单次设备上报过程中已经执行过的场景ID
+	executedSceneIDs map[string]bool
 }
 
 var conditionAfterDecoration = []ConditionAfterFunc{
@@ -85,6 +87,8 @@ func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) er
 	defer a.ErrorRecover()
 	a.device = deviceInfo
 	a.formExt = fromExt
+	// 初始化已执行场景ID的跟踪器
+	a.executedSceneIDs = make(map[string]bool)
 
 	// 单类设备
 	if deviceInfo.DeviceConfigID != nil {
@@ -207,6 +211,12 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, v := range info.AutomateExecteSceeInfos {
+		// 检查该场景是否已经执行过，如果执行过则跳过
+		if a.executedSceneIDs[v.SceneAutomationId] {
+			logrus.Debugf("场景 %s 已在本次设备上报中执行过，跳过执行", v.SceneAutomationId)
+			continue
+		}
+
 		// 场景频率限制(根据场景id)
 		if !a.LimiterAllow(v.SceneAutomationId) {
 			continue
@@ -225,6 +235,9 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 		err := a.SceneAutomateExecute(v.SceneAutomationId, []string{info.DeviceId}, v.Actions)
 		// 场景动作之后装饰
 		a.actionAfterDecorationRun(v.Actions, err)
+
+		// 将已执行的场景ID标记为已执行
+		a.executedSceneIDs[v.SceneAutomationId] = true
 	}
 	logrus.Debugf("执行动作结束，释放锁--------------------------------")
 	return nil
