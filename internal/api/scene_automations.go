@@ -56,7 +56,7 @@ func (*SceneAutomationsApi) SwitchSceneAutomations(c *gin.Context) {
 }
 
 // 更新场景联动
-// /api/v1/scene_automation [put]
+// /api/v1/scene_automations [put]
 func (*SceneAutomationsApi) UpdateSceneAutomations(c *gin.Context) {
 	var req model.UpdateSceneAutomationReq
 	if !BindAndValidate(c, &req) {

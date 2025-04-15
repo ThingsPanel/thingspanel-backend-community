@@ -14,7 +14,6 @@ import (
 type SceneAutomation struct{}
 
 func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomationReq, u *utils.UserClaims) (string, error) {
-
 	var scene_automation_id string
 
 	// 开启事物
@@ -27,14 +26,14 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 	}
 
 	// 写入 scene_automations
-	var sceneAutomation = model.SceneAutomation{}
+	sceneAutomation := model.SceneAutomation{}
 	sceneAutomation.ID = uuid.New()
 
 	scene_automation_id = sceneAutomation.ID
 
 	sceneAutomation.Name = req.Name
 	sceneAutomation.Description = &req.Description
-	//sceneAutomation.Enabled = req.Enabled
+	// sceneAutomation.Enabled = req.Enabled
 	sceneAutomation.Enabled = "N"
 	sceneAutomation.TenantID = u.TenantID
 	sceneAutomation.Creator = u.ID
@@ -68,7 +67,7 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 					multipleCondition = true
 				}
 				// 写入 device_trigger_condition
-				var dtc = model.DeviceTriggerCondition{}
+				dtc := model.DeviceTriggerCondition{}
 				dtc.ID = uuid.New()
 				dtc.SceneAutomationID = scene_automation_id
 				dtc.Enabled = req.Enabled
@@ -95,7 +94,7 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 
 			case "20":
 				// 写入 one_time_tasks
-				var ott = model.OneTimeTask{}
+				ott := model.OneTimeTask{}
 				ott.ID = uuid.New()
 				ott.SceneAutomationID = scene_automation_id
 				if v2.ExecutionTime != nil {
@@ -123,7 +122,7 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 				}
 			case "21":
 				// 写入periodic_tasks
-				var pt = model.PeriodicTask{}
+				pt := model.PeriodicTask{}
 				pt.ID = uuid.New()
 				pt.SceneAutomationID = scene_automation_id
 				if v2.TaskType != nil {
@@ -139,7 +138,7 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 				if v2.ExpirationTime != nil {
 					pt.ExpirationTime = int64(*v2.ExpirationTime)
 				}
-				//pt.Enabled = req.Enabled
+				// pt.Enabled = req.Enabled
 				pt.Enabled = "Y"
 				// 创建周期性任务
 				logrus.Info("创建周期性任务信息")
@@ -156,7 +155,6 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 					"sql_error": err.Error(),
 				})
 			}
-
 		}
 		if oneCondition && multipleCondition {
 			dal.Rollback(tx)
@@ -166,7 +164,7 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 
 	for _, v := range req.Actions {
 		// 写入 action_info
-		var actionInfo = model.ActionInfo{}
+		actionInfo := model.ActionInfo{}
 		actionInfo.ID = uuid.New()
 		actionInfo.SceneAutomationID = scene_automation_id
 		actionInfo.ActionTarget = &v.ActionTarget
@@ -187,7 +185,7 @@ func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomation
 	}
 
 	dal.Commit(tx)
-	//保存自动化缓存信息
+	// 保存自动化缓存信息
 	go func() {
 		if req.Enabled == "Y" {
 			err := s.AutomateCacheSet(scene_automation_id)
@@ -370,7 +368,6 @@ func (*SceneAutomation) GetSceneAutomation(scene_automation_id string) (interfac
 }
 
 func (*SceneAutomation) SwitchSceneAutomation(scene_automation_id, target string) error {
-
 	// 开启事物
 	tx, err := dal.StartTransaction()
 	if err != nil {
@@ -425,16 +422,17 @@ func (*SceneAutomation) SwitchSceneAutomation(scene_automation_id, target string
 	}
 
 	dal.Commit(tx)
-	//场景联动关闭 启动自动化缓存设置
+	// 场景联动关闭 启动自动化缓存设置
 	go func() {
-		//场景联动开启
-		//if target == "Y" {
-		//	err = s.AutomateCacheSet(scene_automation_id)
-		//	if err != nil {
-		//		logrus.Error("编辑场景联动保存自动换缓存信息失败，err: ", err)
-		//	}
-		//}
-		//场景联动关闭
+		// 场景联动开启
+		if target == "Y" {
+			sa := SceneAutomation{}
+			err := sa.AutomateCacheSet(scene_automation_id)
+			if err != nil {
+				logrus.Error("编辑场景联动保存自动换缓存信息失败，err: ", err)
+			}
+		}
+		// 场景联动关闭
 		if target == "N" {
 			err := initialize.NewAutomateCache().DeleteCacheBySceneAutomationId(scene_automation_id)
 			if err != nil {
@@ -472,7 +470,6 @@ func (*SceneAutomation) GetSceneAutomationWithAlarmByPageReq(req *model.GetScene
 }
 
 func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationReq, u *utils.UserClaims) (string, error) {
-
 	var scene_automation_id string
 
 	// 开启事物
@@ -486,7 +483,7 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 	scene_automation_id = req.ID
 	t := utils.GetUTCTime()
 	// 更新 scene_automations
-	var sceneAutomation = model.SceneAutomation{}
+	sceneAutomation := model.SceneAutomation{}
 	sceneAutomation.ID = scene_automation_id
 	sceneAutomation.Name = req.Name
 	sceneAutomation.Description = &req.Description
@@ -555,7 +552,7 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 			switch v2.TriggerConditionsType {
 			case "10", "11", "22":
 				// 写入 device_trigger_condition
-				var dtc = model.DeviceTriggerCondition{}
+				dtc := model.DeviceTriggerCondition{}
 				dtc.ID = uuid.New()
 				dtc.SceneAutomationID = scene_automation_id
 				dtc.Enabled = req.Enabled
@@ -582,7 +579,7 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 
 			case "20":
 				// 写入 one_time_tasks
-				var ott = model.OneTimeTask{}
+				ott := model.OneTimeTask{}
 				ott.ID = uuid.New()
 				ott.SceneAutomationID = scene_automation_id
 				if v2.ExecutionTime != nil {
@@ -611,7 +608,7 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 				}
 			case "21":
 				// 写入periodic_tasks
-				var pt = model.PeriodicTask{}
+				pt := model.PeriodicTask{}
 				pt.ID = uuid.New()
 				pt.SceneAutomationID = scene_automation_id
 				if v2.TaskType != nil {
@@ -651,7 +648,7 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 
 	for _, v := range req.Actions {
 		// 写入 action_info
-		var actionInfo = model.ActionInfo{}
+		actionInfo := model.ActionInfo{}
 		actionInfo.ID = uuid.New()
 		actionInfo.SceneAutomationID = scene_automation_id
 		actionInfo.ActionTarget = &v.ActionTarget
@@ -671,23 +668,35 @@ func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationRe
 
 	dal.Commit(tx)
 
-	//保存自动化缓存信息(先删除缓存)
+	// 更新后清除缓存并重建（如果启用）
 	go func() {
-		err1 := initialize.NewAutomateCache().DeleteCacheBySceneAutomationId(scene_automation_id)
-		if err1 != nil {
-			logrus.Error("编辑删除自动化缓存失败: ", err)
+		// 清除自动化缓存
+		err := initialize.NewAutomateCache().DeleteCacheBySceneAutomationId(scene_automation_id)
+		if err != nil {
+			logrus.Error("删除自动化缓存失败: ", err)
 		}
-		//data, index, _ := initialize.NewAutomateCache().GetCacheByDeviceId("2dffdf60-f937-8d60-b141-6faf9935a7ab", "")
-		//logrus.Info("单个设备,data:", data, ";index:", index)
-		//data, index, _ = initialize.NewAutomateCache().GetCacheByDeviceId("2dffdf60-f937-8d60-b141-6faf9935a7ab", "903aa8a2-e03b-9ab1-10b8-87d82e1a6216")
-		//logrus.Info("单个设备,data:", data, ";index:", index)
-		//if req.Enabled == "Y" {
-		//	err1 = s.AutomateCacheSet(scene_automation_id)
-		//	if err1 != nil {
-		//		logrus.Error("编辑场景联动保存自动换缓存信息失败，err: ", err)
-		//	}
-		//}
+
+		// 清除告警缓存
+		alarmCache := initialize.NewAlarmCache()
+		groupIds, err := alarmCache.GetBySceneAutomationId(scene_automation_id)
+		if err == nil && len(groupIds) > 0 {
+			for _, group_id := range groupIds {
+				err = alarmCache.DeleteBygroupId(group_id)
+				if err != nil {
+					logrus.Error("删除告警缓存失败: ", err)
+				}
+			}
+		}
+
+		// 如果场景联动是启用状态，重建缓存
+		if req.Enabled == "Y" {
+			sa := SceneAutomation{}
+			err = sa.AutomateCacheSet(scene_automation_id)
+			if err != nil {
+				logrus.Error("更新场景联动重建缓存失败，err: ", err)
+			}
+		}
 	}()
-	//time.Sleep(time.Second * 5)
+
 	return scene_automation_id, nil
 }
