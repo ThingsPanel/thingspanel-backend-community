@@ -2,12 +2,13 @@ package subscribe
 
 import (
 	"encoding/json"
+	"strings"
+	"time"
+
 	initialize "project/initialize"
 	dal "project/internal/dal"
 	"project/internal/model"
 	service "project/internal/service"
-	"strings"
-	"time"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
@@ -59,31 +60,35 @@ func DeviceEvent(payload []byte, topic string) (string, string, string, error) {
 	}
 	return device.DeviceNumber, messageId, eventValues.Method, nil
 	// TODO响应消息
-
 }
 
 func deviceEventHandle(device *model.Device, eventValues *model.EventInfo, topic string) error {
-	// TODO脚本处理
+	// 脚本处理 - 仅当设备配置有效且该配置启用了数据处理脚本时才执行
 	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
-		eventValuesByte, err := json.Marshal(eventValues)
-		if err != nil {
-			logrus.Error("JSON marshaling failed:", err)
-			return err
-		}
-		neweventValues, err := service.GroupApp.DataScript.Exec(device, "F", eventValuesByte, topic)
-		if err != nil {
-			logrus.Error("Error in event script processing: ", err.Error())
-		}
-		if neweventValues != nil {
-			err = json.Unmarshal(neweventValues, &eventValues)
+		// 从缓存或数据库获取脚本
+		script, err := initialize.GetScriptByDeviceAndScriptType(device, "F")
+		// 只有当脚本存在且内容不为空时才执行处理
+		if err == nil && script != nil && script.Content != nil && *script.Content != "" {
+			eventValuesByte, err := json.Marshal(eventValues)
 			if err != nil {
-				logrus.Error("Error in attribute script processing: ", err.Error())
+				logrus.Error("JSON marshaling failed:", err)
+				return err
+			}
+			neweventValues, err := service.GroupApp.DataScript.Exec(device, "F", eventValuesByte, topic)
+			if err != nil {
+				logrus.Error("Error in event script processing: ", err.Error())
+			}
+			if neweventValues != nil {
+				err = json.Unmarshal(neweventValues, &eventValues)
+				if err != nil {
+					logrus.Error("Error in attribute script processing: ", err.Error())
+				}
 			}
 		}
 	}
 
 	// 写入表event_datas,model/event_datas.gen.go
-	//将eventValues.Params转换为json字符串
+	// 将eventValues.Params转换为json字符串
 	paramsJsonBytes, err := json.Marshal(eventValues.Params)
 	if err != nil {
 		logrus.Fatalf("JSON marshaling failed: %s", err)
@@ -100,7 +105,6 @@ func deviceEventHandle(device *model.Device, eventValues *model.EventInfo, topic
 	}
 	// TODO自动化处理
 	go func() {
-
 		err = service.GroupApp.Execute(device, service.AutomateFromExt{
 			TriggerParamType: model.TRIGGER_PARAM_TYPE_EVT,
 			TriggerParam:     []string{eventValues.Method},
