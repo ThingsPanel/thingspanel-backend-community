@@ -133,6 +133,7 @@ func (a *Automate) telExecute(deviceId, deviceConfigId string, fromExt AutomateF
 	}
 	logrus.Debugf("缓存中查询到数据")
 	logrus.Debugf("相关场景联动数量: %d", len(info.AutomateExecteSceeInfos))
+	logrus.Debugf("数据：%#v", info)
 	// 过滤自动化触发条件
 	info = a.AutomateFilter(info, fromExt)
 	logrus.Debugf("条件过滤后场景联动数量: %d", len(info.AutomateExecteSceeInfos))
