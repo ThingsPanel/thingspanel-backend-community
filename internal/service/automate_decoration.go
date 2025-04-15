@@ -2,6 +2,7 @@ package service
 
 import (
 	"project/initialize"
+	"project/internal/dal"
 	model "project/internal/model"
 
 	pkgerrors "github.com/pkg/errors"
@@ -136,9 +137,11 @@ func AlarmExecute(alarm_config_id, scene_automation_id string) (bool, string, st
 			}
 		}
 		if isOk {
-			reason = "已存在告警，不再继续触发"
+			// 告警ID已在缓存中存在，表示该告警已被触发过
+			alarmName = dal.GetAlarmNameWithCache(alarm_config_id)
+			reason = "告警已存在"
+			logrus.Debugf("告警(%s)已在缓存中存在，跳过执行", alarmName)
 			continue
-
 		}
 		var content string
 		content = "场景自动化触发告警"

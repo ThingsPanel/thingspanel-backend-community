@@ -166,7 +166,17 @@ func (*AutomateTelemetryActionAlarm) AutomateActionRun(action model.ActionInfo) 
 	if ok {
 		return fmt.Sprintf("告警服务(%s)", alarmName), nil
 	}
+
+	// 获取告警名称，无论是否执行成功都可以显示
 	alarmName = dal.GetAlarmNameWithCache(*action.ActionTarget)
+
+	// 处理告警已存在的情况 - 不将其标记为错误
+	if reason == "告警已存在" {
+		logrus.Debugf("告警(%s)已存在，不再重复触发", alarmName)
+		return fmt.Sprintf("告警服务(%s) - 告警已存在，不再重复触发", alarmName), nil
+	}
+
+	// 其他失败情况
 	errRsp := errors.New("执行失败," + reason)
 	return fmt.Sprintf("告警服务(%s)", alarmName), errRsp
 }
