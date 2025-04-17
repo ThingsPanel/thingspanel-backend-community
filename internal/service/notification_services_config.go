@@ -24,7 +24,7 @@ func (*NotificationServicesConfig) SaveNotificationServicesConfig(req *model.Sav
 		return nil, err
 	}
 
-	var config = model.NotificationServicesConfig{}
+	config := model.NotificationServicesConfig{}
 
 	var strconf []byte
 	if req.NoticeType == model.NoticeType_Email {
@@ -168,7 +168,6 @@ func sendEmailMessage(message string, subject string, tenantId string, to ...str
 
 // Send notification
 func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, title, content string) {
-
 	notificationGroup, err := dal.GetNotificationGroupById(notificationGroupId)
 	if err != nil {
 		return
@@ -189,7 +188,7 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, titl
 			logrus.Error(err)
 			return
 		}
-		emailList := strings.Split(nConfig["email"], ",")
+		emailList := strings.Split(nConfig["EMAIL"], ",")
 		for _, ev := range emailList {
 			sendEmailMessage(title, content, notificationGroup.TenantID, ev)
 		}
