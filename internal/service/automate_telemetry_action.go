@@ -162,9 +162,7 @@ func (a *AutomateTelemetryActionScene) AutomateActionRun(action model.ActionInfo
 	if err != nil {
 		return "场景激活", err
 	}
-
-	// return GroupApp.SceneAutomation.SwitchSceneAutomation(*action.ActionTarget, "Y")
-	return "场景激活:" + sceneInfo.Name, GroupApp.ActiveSceneExecute(*action.ActionTarget, a.TenantID)
+	return fmt.Sprintf("场景激活:%s", sceneInfo.Name), GroupApp.ActiveSceneExecute(*action.ActionTarget, a.TenantID)
 }
 
 // 警告 30

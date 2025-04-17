@@ -466,10 +466,6 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 	if cond.TriggerSource == nil {
 		return false, ""
 	}
-	// 单类设置 获取上报的设置 单个设置 使用设置的设备id
-	if cond.TriggerConditionType == model.DEVICE_TRIGGER_CONDITION_TYPE_ONE {
-		deviceId = *cond.TriggerSource
-	}
 
 	// 条件查询
 	var (
@@ -481,9 +477,20 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 		result          string
 		deviceName      string
 	)
-	if a.device.Name != nil {
+	// 单类设置 获取上报的设置 单个设置 使用设置的设备id
+	if cond.TriggerConditionType == model.DEVICE_TRIGGER_CONDITION_TYPE_ONE {
+		deviceId = *cond.TriggerSource
+		// 从缓存中获取设备信息
+		device, err := initialize.GetDeviceCacheById(deviceId)
+		if err != nil {
+			logrus.Error("获取设备信息失败", err)
+			return false, ""
+		}
+		deviceName = *device.Name
+	} else {
 		deviceName = *a.device.Name
 	}
+
 	if cond.TriggerOperator == nil {
 		triggerOperator = "="
 	} else {
