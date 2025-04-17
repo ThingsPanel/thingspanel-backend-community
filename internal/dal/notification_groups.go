@@ -3,7 +3,6 @@ package dal
 import (
 	"context"
 	"fmt"
-	"math"
 
 	model "project/internal/model"
 	query "project/internal/query"
@@ -71,10 +70,6 @@ func GetNotificationGroupByTenantId(tenantid string) (notificationGroups []*mode
 }
 
 func GetNotificationGroupListByPage(notifications *model.GetNotificationGroupListByPageReq, u *utils.UserClaims) (int64, []*model.NotificationGroup, error) {
-	if notifications.Page <= 0 || notifications.PageSize <= 0 {
-		return 0, nil, fmt.Errorf("page and pageSize must be greater than 0")
-	}
-
 	q := query.NotificationGroup
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
@@ -98,9 +93,6 @@ func GetNotificationGroupListByPage(notifications *model.GetNotificationGroupLis
 		return count, nil, err
 	}
 
-	// toal_pages向上取整
-	total_pages := int64(math.Ceil(float64(count) / float64(notifications.PageSize)))
-
 	queryBuilder = queryBuilder.Limit(notifications.PageSize)
 	queryBuilder = queryBuilder.Offset((notifications.Page - 1) * notifications.PageSize)
 
@@ -108,5 +100,5 @@ func GetNotificationGroupListByPage(notifications *model.GetNotificationGroupLis
 	if err != nil {
 		logrus.Error("queryBuilder.Find error: ", err)
 	}
-	return total_pages, notificationList, err
+	return count, notificationList, err
 }
