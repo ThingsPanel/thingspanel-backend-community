@@ -22,22 +22,21 @@ type DataScript struct{}
 
 // DelDataScriptCache 根据脚本删除数据脚本缓存
 func DelDataScriptCache(data_script *model.DataScript) error {
-	deviceIDs, err := dal.GetDeviceIDsByDataScriptID(data_script.ID)
-	if err != nil {
-		logrus.Error(err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
+	// deviceIDs, err := dal.GetDeviceIDsByDataScriptID(data_script.ID)
+	// if err != nil {
+	// 	logrus.Error(err)
+	// 	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+	// 		"sql_error": err.Error(),
+	// 	})
+	// }
 
-	for _, deviceID := range deviceIDs {
-		_ = global.REDIS.Del(context.Background(), deviceID+"_"+data_script.ScriptType+"_script").Err()
-	}
-	return nil
+	// for _, deviceID := range deviceIDs {
+	// 	_ = global.REDIS.Del(context.Background(), deviceID+"_"+data_script.ScriptType+"_script").Err()
+	// }
+	return global.REDIS.Del(context.Background(), data_script.DeviceConfigID+"_"+data_script.ScriptType+"_script").Err()
 }
 
 func (*DataScript) CreateDataScript(req *model.CreateDataScriptReq) (data_script model.DataScript, err error) {
-
 	data_script.ID = uuid.New()
 	data_script.Name = req.Name
 	data_script.Description = req.Description
@@ -53,7 +52,6 @@ func (*DataScript) CreateDataScript(req *model.CreateDataScriptReq) (data_script
 
 	data_script.Remark = req.Remark
 	err = dal.CreateDataScript(&data_script)
-
 	if err != nil {
 		logrus.Error(err)
 		return data_script, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -65,7 +63,6 @@ func (*DataScript) CreateDataScript(req *model.CreateDataScriptReq) (data_script
 }
 
 func (*DataScript) UpdateDataScript(UpdateDataScriptReq *model.UpdateDataScriptReq) error {
-
 	err := dal.UpdateDataScript(UpdateDataScriptReq)
 	if err != nil {
 		logrus.Error(err)
@@ -109,7 +106,6 @@ func (*DataScript) DeleteDataScript(id string) error {
 }
 
 func (*DataScript) GetDataScriptListByPage(Params *model.GetDataScriptListByPageReq) (map[string]interface{}, error) {
-
 	total, list, err := dal.GetDataScriptListByPage(Params)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -148,11 +144,9 @@ func (*DataScript) QuizDataScript(req *model.QuizDataScriptReq) (string, error) 
 		})
 	}
 	return data, nil
-
 }
 
 func (*DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
-
 	if req.EnableFlag == "Y" {
 		if ok, err := dal.OnlyOneScriptTypeEnabled(req.Id); !ok {
 			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{

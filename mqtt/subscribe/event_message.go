@@ -69,6 +69,7 @@ func deviceEventHandle(device *model.Device, eventValues *model.EventInfo, topic
 		script, err := initialize.GetScriptByDeviceAndScriptType(device, "F")
 		// 只有当脚本存在且内容不为空时才执行处理
 		if err == nil && script != nil && script.Content != nil && *script.Content != "" {
+			logrus.Debug("执行数据处理脚本")
 			eventValuesByte, err := json.Marshal(eventValues)
 			if err != nil {
 				logrus.Error("JSON marshaling failed:", err)

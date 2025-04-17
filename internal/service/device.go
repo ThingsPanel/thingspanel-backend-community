@@ -917,8 +917,8 @@ func (*Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
 	}
 	// 清除设备缓存
 	initialize.DelDeviceCache(param.DeviceID)
-	// 清除设备数据脚本缓存
-	initialize.DelDeviceDataScriptCache(param.DeviceID)
+	// 清除设备数据脚本缓存  不需要删除，脚本跟随设备配置
+	// initialize.DelDeviceDataScriptCache(param.DeviceID)
 	return err
 }
 

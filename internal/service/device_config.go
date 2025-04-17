@@ -2,13 +2,14 @@ package service
 
 import (
 	"context"
+	"time"
+
 	"project/initialize"
 	"project/internal/query"
 	protocolplugin "project/internal/service/protocol_plugin"
 	"project/pkg/common"
 	"project/pkg/constant"
 	"project/pkg/errcode"
-	"time"
 
 	dal "project/internal/dal"
 	model "project/internal/model"
@@ -21,7 +22,6 @@ import (
 type DeviceConfig struct{}
 
 func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims *utils.UserClaims) (deviceconfig model.DeviceConfig, err error) {
-
 	deviceconfig.ID = uuid.New()
 	deviceconfig.Name = req.Name
 	deviceconfig.Description = req.Description
@@ -58,7 +58,6 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 	deviceconfig.TenantID = claims.TenantID
 
 	err = dal.CreateDeviceConfig(&deviceconfig)
-
 	if err != nil {
 		logrus.Error(err)
 		return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -174,21 +173,18 @@ func (*DeviceConfig) DeleteDeviceConfig(id string) error {
 }
 
 func (*DeviceConfig) GetDeviceConfigByID(ctx context.Context, id string) (any, error) {
-	var (
-		db = dal.DeviceConfigQuery{}
-	)
+	db := dal.DeviceConfigQuery{}
 	info, err := db.First(ctx, query.DeviceConfig.ID.Eq(id))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
-	//res := dal.DeviceConfigVo{}.PoToVo(info)
+	// res := dal.DeviceConfigVo{}.PoToVo(info)
 	return info, nil
 }
 
 func (*DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
-
 	total, list, err := dal.GetDeviceConfigListByPage(req, claims)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -226,7 +222,7 @@ func (*DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigR
 	// 清除设备信息缓存
 	for _, id := range req.DeviceIds {
 		initialize.DelDeviceCache(id)
-		initialize.DelDeviceDataScriptCache(id)
+		// initialize.DelDeviceDataScriptCache(id)
 	}
 	return err
 }
@@ -489,7 +485,7 @@ func (*DeviceConfig) GetConditionByDeviceConfigID(deviceConfigID string) (any, e
 		attributeOptions = append(attributeOptions, &o)
 	}
 	// 获取设备模板命令
-	//eventDatas, err := dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
+	// eventDatas, err := dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
 	eventDatas, err := dal.GetDeviceModelEventDataList(*deviceConfig.DeviceTemplateID)
 	if err != nil {
 		return nil, err

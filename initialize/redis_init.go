@@ -50,7 +50,6 @@ func RedisInit() (*redis.Client, error) {
 }
 
 func connectRedis(conf *RedisConfig) *redis.Client {
-
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     conf.Addr,
 		Password: conf.Password,
@@ -145,7 +144,10 @@ func GetDeviceCacheById(deviceId string) (*model.Device, error) {
 func GetScriptByDeviceAndScriptType(device *model.Device, script_type string) (*model.DataScript, error) {
 	var script *model.DataScript
 	script = &model.DataScript{}
-	key := device.ID + "_" + script_type + "_script"
+	if device.DeviceConfigID == nil {
+		return nil, fmt.Errorf("设备配置id为空")
+	}
+	key := *device.DeviceConfigID + "_" + script_type + "_script"
 	err := GetRedisForJsondata(key, script)
 	if err != nil {
 		logrus.Debug("Get redis_cache key:"+key+" failed with err:", err.Error())
@@ -185,11 +187,24 @@ func DelDeviceConfigCache(deviceConfigId string) error {
 }
 
 // 清除设备对应的脚本缓存
-func DelDeviceDataScriptCache(deviceID string) error {
+// func DelDeviceDataScriptCache(deviceID string) error {
+// 	scriptType := []string{"A", "B", "C", "D", "E", "F"}
+// 	var key []string
+// 	for _, scriptType := range scriptType {
+// 		key = append(key, deviceID+"_"+scriptType+"_script")
+// 	}
+
+//		err := global.REDIS.Del(context.Background(), key...).Err()
+//		if err != nil {
+//			logrus.Warn("del redis_cache key:", key, " failed with err:", err.Error())
+//		}
+//		return err
+//	}
+func DelDeviceDataScriptCache(deviceConfigID string) error {
 	scriptType := []string{"A", "B", "C", "D", "E", "F"}
 	var key []string
 	for _, scriptType := range scriptType {
-		key = append(key, deviceID+"_"+scriptType+"_script")
+		key = append(key, deviceConfigID+"_"+scriptType+"_script")
 	}
 
 	err := global.REDIS.Del(context.Background(), key...).Err()
