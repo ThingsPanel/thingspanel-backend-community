@@ -8,15 +8,17 @@ import (
 	"gorm.io/gorm"
 )
 
-var VERSION = "0.0.6"
-var VERSION_NUMBER = 6
-var DB *gorm.DB
-var REDIS *redis.Client
-var STATUS_REDIS *redis.Client
-var CasbinEnforcer *casbin.Enforcer
-var OtaAddress string
-var TPSSEManager *SSEManager
-var ResponseHandler *response.Handler
+var (
+	VERSION         = "0.0.7"
+	VERSION_NUMBER  = 7
+	DB              *gorm.DB
+	REDIS           *redis.Client
+	STATUS_REDIS    *redis.Client
+	CasbinEnforcer  *casbin.Enforcer
+	OtaAddress      string
+	TPSSEManager    *SSEManager
+	ResponseHandler *response.Handler
+)
 
 type EventData struct {
 	Name    string
