@@ -3,8 +3,6 @@ package dal
 import (
 	"context"
 	"fmt"
-	"math"
-	"time"
 
 	model "project/internal/model"
 	query "project/internal/query"
@@ -13,10 +11,6 @@ import (
 )
 
 func GetNotificationHisoryListByPage(notifications *model.GetNotificationHistoryListByPageReq) (int64, []*model.NotificationHistory, error) {
-	if notifications.Page <= 0 || notifications.PageSize <= 0 {
-		return 0, nil, fmt.Errorf("page and pageSize must be greater than 0")
-	}
-
 	q := query.NotificationHistory
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
@@ -29,24 +23,8 @@ func GetNotificationHisoryListByPage(notifications *model.GetNotificationHistory
 		queryBuilder = queryBuilder.Where(q.SendTarget.Eq(*notifications.SendTarget))
 	}
 
-	if notifications.SendTimeStart != nil && *notifications.SendTimeStart != "" {
-		// string to time
-		// startTime, err := time.Parse("2006-01-02 15:04:05", *notifications.SendTimestart)
-		startTime, err := time.Parse("2006-01-02 15:04:05", *notifications.SendTimeStart)
-		if err != nil {
-			return 0, nil, err
-		}
-
-		var stopTime time.Time
-		if notifications.SendTimeStop != nil && *notifications.SendTimeStop != "" {
-			stopTime, err = time.Parse("2006-01-02 15:04:05", *notifications.SendTimeStop)
-			if err != nil {
-				return 0, nil, err
-			}
-		} else {
-			stopTime = time.Now()
-		}
-		queryBuilder = queryBuilder.Where(q.SendTime.Between(startTime, stopTime))
+	if notifications.SendTimeStart != nil && notifications.SendTimeStop != nil {
+		queryBuilder = queryBuilder.Where(q.SendTime.Between(*notifications.SendTimeStart, *notifications.SendTimeStop))
 	}
 
 	count, err := queryBuilder.Count()
@@ -55,17 +33,14 @@ func GetNotificationHisoryListByPage(notifications *model.GetNotificationHistory
 		return count, nil, err
 	}
 
-	// toal_pages向上取整
-	total_pages := int64(math.Ceil(float64(count) / float64(notifications.PageSize)))
-
 	queryBuilder = queryBuilder.Limit(notifications.PageSize)
-	queryBuilder = queryBuilder.Offset((notifications.Page - 1) * notifications.PageSize)
+	queryBuilder = queryBuilder.Offset((notifications.Page - 1) * notifications.PageSize).Order(q.SendTime.Desc())
 
 	notificationList, err := queryBuilder.Find()
 	if err != nil {
 		logrus.Error("queryBuilder.Find error: ", err)
 	}
-	return total_pages, notificationList, err
+	return count, notificationList, err
 }
 
 func CreateNotificationHistory(notificationHistory *model.NotificationHistory) error {

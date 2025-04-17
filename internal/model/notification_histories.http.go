@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // NotificationHistory table definition:
 // type NotificationHistory struct {
 // 	ID               string    `gorm:"column:id;primaryKey" json:"id"`
@@ -14,9 +16,9 @@ package model
 
 type GetNotificationHistoryListByPageReq struct {
 	PageReq
-	SendTarget       *string `json:"send_target" form:"send_target" validate:"omitempty"`                                       // 发送目标
-	NotificationType *string `json:"notification_type" form:"notification_type" validate:"omitempty" example:"MEMBER"`          // 通知类型
-	SendTimeStart    *string `json:"send_time_start" form:"send_time_start" validate:"omitempty" example:"2006-01-02 15:04:05"` // 发送时间起始
-	SendTimeStop     *string `json:"send_time_stop" form:"send_time_stop" validate:"omitempty" example:"2006-01-02 15:04:05"`   // 发送时间终止
-	TenantID         string  `json:"tenant_id"  validate:"omitempty"`                                                           // 租户ID
+	SendTarget       *string    `json:"send_target" form:"send_target" validate:"omitempty"`                                            // 发送目标
+	NotificationType *string    `json:"notification_type" form:"notification_type" validate:"omitempty" example:"MEMBER"`               // 通知类型
+	SendTimeStart    *time.Time `json:"send_time_start" form:"send_time_start" validate:"omitempty" example:"2024-04-12T00:00:00.000Z"` // 发送时间起始
+	SendTimeStop     *time.Time `json:"send_time_stop" form:"send_time_stop" validate:"omitempty" example:"2024-04-12T00:00:00.000Z"`   // 发送时间终止
+	TenantID         string     `json:"tenant_id"  validate:"omitempty"`                                                                // 租户ID
 }

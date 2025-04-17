@@ -139,6 +139,7 @@ func sendEmailMessage(message string, subject string, tenantId string, to ...str
 	if err := d.DialAndSend(m); err != nil {
 		logrus.Error(err)
 		result := "FAILURE"
+		remark := err.Error()
 		GroupApp.NotificationHisory.SaveNotificationHistory(&model.NotificationHistory{
 			ID:               uuid.New(),
 			SendTime:         time.Now().UTC(),
@@ -147,7 +148,7 @@ func sendEmailMessage(message string, subject string, tenantId string, to ...str
 			SendResult:       &result,
 			NotificationType: model.NoticeType_Email,
 			TenantID:         tenantId,
-			Remark:           nil,
+			Remark:           &remark,
 		})
 		return err
 	} else {
@@ -188,8 +189,10 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, titl
 			logrus.Error(err)
 			return
 		}
+		logrus.Debug("通知配置:", nConfig)
 		emailList := strings.Split(nConfig["EMAIL"], ",")
 		for _, ev := range emailList {
+			logrus.Debug("发送邮件地址：", ev)
 			sendEmailMessage(title, content, notificationGroup.TenantID, ev)
 		}
 	case model.NoticeType_Webhook:
