@@ -157,9 +157,14 @@ func (a *AutomateTelemetryActionScene) AutomateActionRun(action model.ActionInfo
 	if action.ActionTarget == nil {
 		return "场景激活", errors.New("场景id不存在")
 	}
-	// return GroupApp.SceneAutomation.SwitchSceneAutomation(*action.ActionTarget, "Y")
+	// 获取场景信息
+	sceneInfo, err := dal.GetSceneInfo(*action.ActionTarget)
+	if err != nil {
+		return "场景激活", err
+	}
 
-	return "场景激活", GroupApp.ActiveSceneExecute(*action.ActionTarget, a.TenantID)
+	// return GroupApp.SceneAutomation.SwitchSceneAutomation(*action.ActionTarget, "Y")
+	return "场景激活:" + sceneInfo.Name, GroupApp.ActiveSceneExecute(*action.ActionTarget, a.TenantID)
 }
 
 // 警告 30
