@@ -16,15 +16,15 @@ import (
 )
 
 const (
-	AUTOMATE_ACTION_PARAM_TYPE_TEL          = "TEL"          // 遥测
-	AUTOMATE_ACTION_PARAM_TYPE_TELEMETRY    = "telemetry"    // 遥测
-	AUTOMATE_ACTION_PARAM_TYPE_C_TELEMETRY  = "c_telemetry"  // 遥测
-	AUTOMATE_ACTION_PARAM_TYPE_ATTR         = "ATTR"         // 属性设置
-	AUTOMATE_ACTION_PARAM_TYPE_ATTRIBUTES   = "attributes"   // 属性设置
-	AUTOMATE_ACTION_PARAM_TYPE_C_ATTRIBUTES = "c_attributes" // 属性设置
-	AUTOMATE_ACTION_PARAM_TYPE_CMD          = "CMD"          // 命令下发
-	AUTOMATE_ACTION_PARAM_TYPE_COMMAND      = "command"      // 命令下发
-	AUTOMATE_ACTION_PARAM_TYPE_C_COMMAND    = "c_command"    // 命令下发
+	AUTOMATE_ACTION_PARAM_TYPE_TEL          = "TEL"         // 遥测
+	AUTOMATE_ACTION_PARAM_TYPE_TELEMETRY    = "telemetry"   // 遥测
+	AUTOMATE_ACTION_PARAM_TYPE_C_TELEMETRY  = "c_telemetry" // 遥测
+	AUTOMATE_ACTION_PARAM_TYPE_ATTR         = "ATTR"        // 属性设置
+	AUTOMATE_ACTION_PARAM_TYPE_ATTRIBUTES   = "attributes"  // 属性设置
+	AUTOMATE_ACTION_PARAM_TYPE_C_ATTRIBUTES = "c_attribute" // 属性设置
+	AUTOMATE_ACTION_PARAM_TYPE_CMD          = "CMD"         // 命令下发
+	AUTOMATE_ACTION_PARAM_TYPE_COMMAND      = "command"     // 命令下发
+	AUTOMATE_ACTION_PARAM_TYPE_C_COMMAND    = "c_command"   // 命令下发
 )
 
 // 自动化场景动作执行接口
