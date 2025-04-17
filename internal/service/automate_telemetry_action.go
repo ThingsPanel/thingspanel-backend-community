@@ -48,9 +48,10 @@ func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tena
 	if action.ActionValue == nil {
 		return executeMsg + " 动作目标值不存在", errors.New("动作目标值不存在")
 	}
-	if action.ActionParam == nil {
-		return executeMsg + " 标识符不存在", errors.New("标识符不存在")
-	}
+	// 如果是自定义没有标识符
+	// if action.ActionParam == nil {
+	// 	return executeMsg + " 标识符不存在", errors.New("标识符不存在")
+	// }
 	ctx := context.Background()
 
 	var userId string
