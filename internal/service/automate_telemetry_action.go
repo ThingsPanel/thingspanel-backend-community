@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"project/initialize"
 	"project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/constant"
@@ -32,7 +33,15 @@ type AutomateTelemetryAction interface {
 }
 
 func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tenantID string) (string, error) {
-	executeMsg := fmt.Sprintf("设备id:%s", deviceId)
+	var executeMsg string
+	// 获取设备缓存信息
+	deviceInfo, err := initialize.GetDeviceCacheById(deviceId)
+	if err != nil {
+		executeMsg = fmt.Sprintf("设备id:%s", deviceId)
+	} else {
+		executeMsg = fmt.Sprintf("设备名称:%s", *deviceInfo.Name)
+	}
+
 	if action.ActionParamType == nil {
 		return executeMsg + " ActionParamType不存在", errors.New("ActionParamType不存在")
 	}
