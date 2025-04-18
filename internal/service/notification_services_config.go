@@ -27,8 +27,14 @@ func (*NotificationServicesConfig) SaveNotificationServicesConfig(req *model.Sav
 	config := model.NotificationServicesConfig{}
 
 	var strconf []byte
-	if req.NoticeType == model.NoticeType_Email {
+	switch req.NoticeType {
+	case model.NoticeType_Email:
 		strconf, err = json.Marshal(req.EMailConfig)
+		if err != nil {
+			return nil, err
+		}
+	case model.NoticeType_SME_CODE:
+		strconf, err = json.Marshal(req.SMEConfig)
 		if err != nil {
 			return nil, err
 		}

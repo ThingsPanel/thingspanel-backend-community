@@ -30,7 +30,7 @@ func (*NotificationServicesConfigApi) SaveNotificationServicesConfig(c *gin.Cont
 	}
 
 	// 验证通知类型，暂支持邮件和短信
-	if req.NoticeType != model.NoticeType_Email && req.NoticeType != model.NoticeType_SME {
+	if req.NoticeType != model.NoticeType_Email && req.NoticeType != model.NoticeType_SME_CODE {
 		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
 			"noticeType": "noticeType is not email or sme",
 		}))
