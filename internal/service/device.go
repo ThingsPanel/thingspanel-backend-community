@@ -197,11 +197,33 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 
 func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*model.Device, error) {
 	// 获取设备原信息
-	oldDevice, err := dal.GetDeviceByID(req.Id)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+	var oldDevice *model.Device
+	var err error
+
+	// 如果ID存在，优先通过ID查询
+	if req.Id != "EMPTY" {
+		oldDevice, err = dal.GetDeviceByID(req.Id)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
+	} else if req.DeviceNumber != nil && *req.DeviceNumber != "" {
+		// 如果ID不存在但DeviceNumber存在，尝试通过DeviceNumber查询
+		oldDevice, err = dal.GetDeviceByDeviceNumber(*req.DeviceNumber)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
+		// 如果找到设备，更新req.Id
+		if oldDevice != nil {
+			req.Id = oldDevice.ID
+		} else {
+			return nil, errcode.New(204003) // 设备不存在
+		}
+	} else {
+		return nil, errcode.New(204003) // 设备不存在
 	}
 
 	// 如果req.DeviceNumber被修改，需要校验req.DeviceNumber是否系统唯一
