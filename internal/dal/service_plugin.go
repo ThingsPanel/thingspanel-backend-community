@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
+
 	"project/internal/model"
 	"project/internal/query"
-	"time"
+	"project/pkg/errcode"
 
 	"github.com/sirupsen/logrus"
 )
 
 // 删除服务插件
 func DeleteServicePlugin(id string) error {
-
 	tx, err := StartTransaction()
 	if err != nil {
 		Rollback(tx)
@@ -123,22 +124,25 @@ func GetServicePluginByID(id string) (*model.ServicePlugin, error) {
 func GetServicePluginHttpAddressByID(id string) (*model.ServicePlugin, string, error) {
 	servicePlugin, err := GetServicePluginByID(id)
 	if err != nil {
-		return nil, "", err
+		return nil, "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 
 	if servicePlugin.ServiceConfig == nil || *servicePlugin.ServiceConfig == "" {
 		// 服务配置错误，无法获取表单
-		return nil, "", errors.New("service plugin config error, can not get form")
+		return nil, "", errcode.New(200065)
 	}
 	// 解析服务配置model.ServicePluginConfig
 	var serviceAccessConfig model.ServiceAccessConfig
 	err = json.Unmarshal([]byte(*servicePlugin.ServiceConfig), &serviceAccessConfig)
 	if err != nil {
-		return nil, "", errors.New("service plugin config error: " + err.Error())
+		return nil, "", errcode.New(200066)
 	}
 	// 校验服务配置的HttpAddress是否是ip:port格式
 	if serviceAccessConfig.HttpAddress == "" {
-		return nil, "", errors.New("服务插件HTTP服务地址未配置，请联系系统管理员检测配置")
+		// 服务插件HTTP服务地址未配置，请联系系统管理员检测配置
+		return nil, "", errcode.New(200067)
 	}
 	return servicePlugin, serviceAccessConfig.HttpAddress, nil
 }

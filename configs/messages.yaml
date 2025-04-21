@@ -155,6 +155,16 @@ messages:
   200064:
     zh_CN: "服务接入点下还有未删除的设备"
     en_US: "Service access point has devices that have not been deleted"
+  200065:
+    zh_CN: "服务插件错误，无法获取表单"
+    en_US: "Service plugin error, can not get form"
+  200066:
+    zh_CN: "解析服务配置错误"
+    en_US: "Parse service config error"
+  200067:
+    zh_CN: "服务插件HTTP服务地址未配置，请联系系统管理员检测配置"
+    en_US: "Service plugin HTTP service address not configured, please contact the system administrator to check the configuration"
+
   # 权限模块错误 (201xxx)
   201001:
     zh_CN: "无访问权限"

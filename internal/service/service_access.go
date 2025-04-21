@@ -141,9 +141,7 @@ func (*ServiceAccess) GetVoucherForm(req *model.GetServiceAccessVoucherFormReq) 
 	// 根据service_plugin_id获取插件服务信息http地址
 	servicePlugin, httpAddress, err := dal.GetServicePluginHttpAddressByID(req.ServicePluginID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, err
 	}
 	data, err := http_client.GetPluginFromConfigV2(httpAddress, servicePlugin.ServiceIdentifier, "", "SVCR")
 	if err != nil {
