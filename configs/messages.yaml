@@ -152,6 +152,9 @@ messages:
   200063:
     zh_CN: "子设备存在父设备，请先解除父设备关联"
     en_US: "son device has parent device,plesae remove parent device first"
+  200064:
+    zh_CN: "服务接入点下还有未删除的设备"
+    en_US: "Service access point has devices that have not been deleted"
   # 权限模块错误 (201xxx)
   201001:
     zh_CN: "无访问权限"

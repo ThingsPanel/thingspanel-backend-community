@@ -3,14 +3,15 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"time"
+
 	"project/internal/dal"
 	"project/internal/model"
 	"project/internal/query"
 	"project/pkg/errcode"
 	utils "project/pkg/utils"
 	"project/third_party/others/http_client"
-	"strconv"
-	"time"
 
 	"github.com/go-basic/uuid"
 	"github.com/jinzhu/copier"
@@ -116,7 +117,17 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 }
 
 func (*ServiceAccess) Delete(id string) error {
-	err := dal.DeleteServiceAccess(id)
+	// 查询是否还有未删除的设备
+	devices, err := dal.GetServiceDeviceList(id)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	if len(devices) > 0 {
+		return errcode.New(200064)
+	}
+	err = dal.DeleteServiceAccess(id)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
