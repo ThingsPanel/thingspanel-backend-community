@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	"project/initialize"
 	"project/initialize/croninit"
@@ -17,7 +18,6 @@ import (
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
 	grpc_tptodb "project/third_party/grpc/tptodb_client"
-	"time"
 
 	router "project/router"
 
@@ -27,7 +27,7 @@ import (
 
 func init() {
 	initialize.ViperInit("./configs/conf.yml")
-	//initialize.ViperInit("./configs/conf-localdev.yml")
+	// initialize.ViperInit("./configs/conf-localdev.yml")
 	initialize.RsaDecryptInit("./configs/rsa_key/private_key.pem")
 	initialize.LogInIt()
 	db, err := initialize.PgInit()
@@ -53,7 +53,7 @@ func init() {
 		logrus.Fatal(err)
 	}
 	publish.PublishInit()
-	//定时任务
+	// 定时任务
 	croninit.CronInit()
 }
 
@@ -85,7 +85,6 @@ func main() {
 
 	// 优雅关闭
 	gracefulShutdown(srv)
-
 }
 
 func loadConfig() (host, port string) {
@@ -144,7 +143,7 @@ func successInfo() {
 	fmt.Println("        TingsPanel 启动成功!")
 	fmt.Println("----------------------------------------")
 	fmt.Printf("启动时间: %s\n", startTime)
-	fmt.Println("版本: v1.1.5社区版")
+	fmt.Println("版本: v1.1.7社区版")
 	fmt.Println("----------------------------------------")
 	fmt.Println("欢迎使用 TingsPanel！")
 	fmt.Println("如需帮助，请访问: http://thingspanel.io")

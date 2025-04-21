@@ -3,7 +3,7 @@ package initialize
 import (
 	"fmt"
 	"log"
-	"path/filepath"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -34,22 +34,33 @@ func (*customFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	// 获取调用者信息
 	var fileAndLine string
 	if entry.HasCaller() {
-		dir := filepath.Dir(entry.Caller.File)
-		fileAndLine = fmt.Sprintf("%s/%s:%d", filepath.Base(dir), filepath.Base(entry.Caller.File), entry.Caller.Line)
+		// 只保留从项目根目录开始的相对路径
+		filePath := entry.Caller.File
+		// 从完整路径中提取thingspanel-backend-community之后的部分
+		if idx := strings.Index(filePath, "thingspanel-backend-community"); idx != -1 {
+			filePath = filePath[idx+len("thingspanel-backend-community"):]
+			// 确保路径以./开头
+			if strings.HasPrefix(filePath, "/") || strings.HasPrefix(filePath, "\\") {
+				filePath = "." + filePath
+			} else {
+				filePath = "./" + filePath
+			}
+		}
+		fileAndLine = fmt.Sprintf("%s:%d", filePath, entry.Caller.Line)
 	}
 
-	// 组装格式化字符串
-	msg := fmt.Sprintf("\033[1;%sm%s\033[0m \033[4;1;%sm[%s]\033[0m \033[1;%sm[%s]\033[0m %s\n",
+	// 组装格式化字符串，将路径移到最后
+	msg := fmt.Sprintf("\033[1;%sm%s\033[0m \033[4;1;%sm[%s]\033[0m %s \033[1;%sm[%s]\033[0m\n",
 		levelColor, levelText, // 日志级别，带颜色
 		levelColor, entry.Time.Format("2006-01-02 15:04:05.9999"), // 时间戳，下划线加颜色
-		levelColor, fileAndLine, // 文件名:行号，带颜色
-		entry.Message, // 日志消息
+		entry.Message,           // 日志消息
+		levelColor, fileAndLine, // 文件名:行号，带颜色，移到最后面
 	)
 
 	return []byte(msg), nil
 }
-func LogInIt() {
 
+func LogInIt() {
 	// 初始化 Logrus,不创建logrus实例，直接使用包级别的函数，这样可以在项目的任何地方使用logrus，目前不考虑多日志模块的情况
 	logrus.SetReportCaller(true)
 	logrus.SetFormatter(&customFormatter{logrus.TextFormatter{
@@ -57,7 +68,7 @@ func LogInIt() {
 		FullTimestamp: true,
 	}})
 
-	var logLevels = map[string]logrus.Level{
+	logLevels := map[string]logrus.Level{
 		"panic": logrus.PanicLevel,
 		"fatal": logrus.FatalLevel,
 		"error": logrus.ErrorLevel,
