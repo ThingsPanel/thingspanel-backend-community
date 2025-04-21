@@ -4,23 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	model "project/internal/model"
 	"project/internal/query"
 	utils "project/pkg/utils"
-	"time"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 )
 
 func CreateSceneInfo(req model.CreateSceneReq, claims *utils.UserClaims) (string, error) {
-
 	tx, err := StartTransaction()
 	if err != nil {
 		return "", err
 	}
 
-	var sceneInfo = model.SceneInfo{}
+	sceneInfo := model.SceneInfo{}
 
 	t := time.Now().UTC()
 	sceneInfo.ID = uuid.New()
@@ -39,7 +39,7 @@ func CreateSceneInfo(req model.CreateSceneReq, claims *utils.UserClaims) (string
 	}
 
 	for _, v := range req.Actions {
-		var sceneAction = model.SceneActionInfo{}
+		sceneAction := model.SceneActionInfo{}
 		sceneAction.ID = uuid.New()
 		sceneAction.SceneID = sceneInfo.ID
 		sceneAction.ActionTarget = v.ActionTarget
@@ -64,25 +64,23 @@ func CreateSceneInfo(req model.CreateSceneReq, claims *utils.UserClaims) (string
 	}
 
 	return sceneInfo.ID, nil
-
 }
 
 func UpdateSceneInfo(req model.UpdateSceneReq, claims *utils.UserClaims) (string, error) {
-
 	tx, err := StartTransaction()
 	if err != nil {
 		return "", err
 	}
 
-	var sceneInfo = model.SceneInfo{}
+	sceneInfo := model.SceneInfo{}
 
 	t := time.Now().UTC()
-	//sceneInfo.ID = req.ID
+	// sceneInfo.ID = req.ID
 	sceneInfo.Name = req.Name
 	sceneInfo.Description = &req.Description
 	sceneInfo.Updator = &claims.ID
 	sceneInfo.UpdatedAt = &t
-	//err = tx.SceneInfo.Save(&sceneInfo)
+	// err = tx.SceneInfo.Save(&sceneInfo)
 	result, err := tx.SceneInfo.Where(tx.SceneInfo.ID.Eq(req.ID)).Updates(sceneInfo)
 	if err != nil {
 		Rollback(tx)
@@ -100,7 +98,7 @@ func UpdateSceneInfo(req model.UpdateSceneReq, claims *utils.UserClaims) (string
 	}
 
 	for _, v := range req.Actions {
-		var sceneAction = model.SceneActionInfo{}
+		sceneAction := model.SceneActionInfo{}
 		sceneAction.ID = uuid.New()
 		sceneAction.SceneID = req.ID
 		sceneAction.ActionTarget = v.ActionTarget
@@ -125,7 +123,6 @@ func UpdateSceneInfo(req model.UpdateSceneReq, claims *utils.UserClaims) (string
 	}
 
 	return sceneInfo.ID, nil
-
 }
 
 func DeleteSceneInfo(scene_id string) error {
@@ -165,7 +162,7 @@ func GetSceneInfoByPage(req *model.GetSceneListByPageReq, tenant_id string) (int
 		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
 	}
 
-	queryBuilder = queryBuilder.Where(q.Order(q.CreatedAt.Desc()))
+	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
 
 	sceneList, err := queryBuilder.Find()
 	if err != nil {
