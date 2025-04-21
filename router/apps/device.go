@@ -82,6 +82,9 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 
 		// 设备选择器
 		deviceapi.GET("/selector", api.Controllers.DeviceApi.HandleDeviceSelector)
+
+		// 租户下最近上报数据的三个设备的遥测数据
+		deviceapi.GET("/telemetry/latest", api.Controllers.DeviceApi.HandleTenantTelemetryData)
 	}
 
 	// 设备模版路由

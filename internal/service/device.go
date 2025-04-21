@@ -2048,3 +2048,21 @@ func (*Device) GetDeviceSelector(req model.DeviceSelectorReq, userClaims *utils.
 	}
 	return list, nil
 }
+
+// 获取租户下最近上报数据的三个设备的遥测数据
+func (d *Device) GetTenantTelemetryData(tenantId string) ([]map[string]interface{}, error) {
+	devices, err := dal.GetTenantTelemetryData(tenantId)
+	if err != nil {
+		return nil, err
+	}
+	telemetryDataList := make([]map[string]interface{}, 0)
+	for _, device := range devices {
+		telemetryData, err := d.GetMapTelemetry(device.DeviceID)
+		if err != nil {
+			return nil, err
+		}
+		telemetryDataList = append(telemetryDataList, telemetryData)
+	}
+
+	return telemetryDataList, nil
+}

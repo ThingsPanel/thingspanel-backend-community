@@ -48,7 +48,7 @@ func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error)
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		var data []model.TelemetryData
-		//获取当前设备的第一条数据
+		// 获取当前设备的第一条数据
 		request := &pb.GetDeviceAttributesCurrentsRequest{
 			DeviceId: deviceId,
 		}
@@ -176,7 +176,6 @@ func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (in
 }
 
 func GetHistoryTelemetrDataByExport(p *model.GetTelemetryHistoryDataByPageReq, offset, batchSize int) ([]*model.TelemetryData, error) {
-
 	q := query.TelemetryData
 	queryBuilder := q.WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(p.DeviceID))
@@ -206,7 +205,7 @@ func UpdateTelemetrDataBatch(data []*model.TelemetryData) error {
 		dc.NumberV = d.NumberV
 		dc.StringV = d.StringV
 		dc.BoolV = d.BoolV
-		//时间戳转time.Time
+		// 时间戳转time.Time
 		dc.T = time.Unix(0, d.T*int64(time.Millisecond)).UTC()
 		dc.TenantID = d.TenantID
 		info, err := query.TelemetryCurrentData.
@@ -247,7 +246,6 @@ func DeleteTelemetrDataByTime(t int64) error {
 		}
 		return err
 	}
-
 }
 
 // 非聚合查询(req.DeviceID, req.Key, req.StartTime, req.EndTime)
@@ -314,7 +312,7 @@ func GetTelemetrStatisticaAgregationData(deviceId, key string, sTime, eTime, agg
 		return data, nil
 	}
 
-	//pg数据库进行聚合查询
+	// pg数据库进行聚合查询
 	telemetryDatasAggregate := TelemetryDatasAggregate{
 		DeviceID:          deviceId,
 		Key:               key,
@@ -329,11 +327,9 @@ func GetTelemetrStatisticaAgregationData(deviceId, key string, sTime, eTime, agg
 		return nil, err
 	}
 	return data, nil
-
 }
 
 func GetTelemetryDataCountByTenantId(tenantId string) (int64, error) {
-
 	var count int64
 	var explainOutput string
 
