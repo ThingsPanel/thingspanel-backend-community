@@ -315,19 +315,26 @@ func (a *Automate) ActiveSceneExecute(scene_id, tenantID string) error {
 // @params info initialize.AutomateExecteParams
 // @return error
 func (*Automate) sceneExecuteLogSave(scene_id, details string, err error) error {
-	var exeResult string
-	if err == nil {
-		exeResult = "S"
-	} else {
+	exeResult := "S"
+	logDetail := details
+
+	if err != nil {
 		exeResult = "F"
+		errorMsg := err.Error()
+		logDetail = fmt.Sprintf("%s[%s]", details, errorMsg)
 	}
-	logrus.Debug(details)
+
+	logrus.Debug(logDetail)
+
+	ctx := context.Background()
+	tenantID := dal.GetSceneAutomationTenantID(ctx, scene_id)
+
 	return dal.SceneAutomationLogInsert(&model.SceneAutomationLog{
 		SceneAutomationID: scene_id,
 		ExecutedAt:        time.Now().UTC(),
-		Detail:            details,
+		Detail:            logDetail,
 		ExecutionResult:   exeResult,
-		TenantID:          dal.GetSceneAutomationTenantID(context.Background(), scene_id),
+		TenantID:          tenantID,
 	})
 }
 
