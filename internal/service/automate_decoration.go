@@ -146,7 +146,7 @@ func AlarmExecute(alarm_config_id, scene_automation_id string) (bool, string, st
 		for _, strval := range cache.Contents {
 			content += ";" + strval
 		}
-		resultOk, alarmName = GroupApp.AlarmExecute(alarm_config_id, content, scene_automation_id, group_id, cache.AlaramDeviceIdList)
+		resultOk, alarmName, reason = GroupApp.AlarmExecute(alarm_config_id, content, scene_automation_id, group_id, cache.AlaramDeviceIdList)
 	}
 	return resultOk, alarmName, reason
 }

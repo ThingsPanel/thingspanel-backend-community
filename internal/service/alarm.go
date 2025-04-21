@@ -2,17 +2,17 @@ package service
 
 import (
 	"encoding/json"
+	"time"
+
 	"project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/errcode"
-	"time"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 )
 
-type Alarm struct {
-}
+type Alarm struct{}
 
 // CreateAlarmConfig 创建告警配置
 func (*Alarm) CreateAlarmConfig(req *model.CreateAlarmConfigReq) (data *model.AlarmConfig, err error) {
@@ -89,7 +89,6 @@ func (*Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq) (data *model.Al
 
 // GetAlarmConfigListByPage 分页查询告警配置
 func (*Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq) (data map[string]interface{}, err error) {
-
 	total, list, err := dal.GetAlarmConfigListByPage(req)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -104,7 +103,6 @@ func (*Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq) (
 
 // UpdateAlarmInfo 更新告警信息
 func (*Alarm) UpdateAlarmInfo(req *model.UpdateAlarmInfoReq, userid string) (alarmInfo *model.AlarmInfo, err error) {
-
 	alarmInfo, err = dal.GetAlarmInfoByID(req.Id)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -142,7 +140,6 @@ func (*Alarm) UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid st
 
 // GetAlarmInfoListByPage 分页查询告警信息
 func (*Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq) (data map[string]interface{}, err error) {
-
 	total, list, err := dal.GetAlarmInfoListByPage(req)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -157,7 +154,6 @@ func (*Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq) (data
 
 // GetAlarmHisttoryListByPage 分页查询告警信息
 func (*Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, tenantID string) (data map[string]interface{}, err error) {
-
 	total, list, err := dal.GetAlarmHistoryListByPage(req, tenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -169,6 +165,7 @@ func (*Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, 
 	data["list"] = list
 	return
 }
+
 func (*Alarm) AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, tenantID string) (err error) {
 	err = dal.AlarmHistoryDescUpdate(req, tenantID)
 	if err != nil {
@@ -178,8 +175,8 @@ func (*Alarm) AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, tenan
 	}
 	return
 }
-func (*Alarm) GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 
+func (*Alarm) GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
 	return dal.GetDeviceAlarmStatus(req)
 }
 
@@ -195,7 +192,6 @@ func (*Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.Ala
 
 // AddAlarmInfo 触发告警信息，增加告警信息及发送通知
 func (*Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
-
 	alarmConfig, err := dal.GetAlarmByID(alarmConfigID)
 	if err != nil {
 		logrus.Error(err)
@@ -261,16 +257,16 @@ func (*Alarm) AlarmRecovery(alarmConfigID, content, scene_automation_id, group_i
 	return true, id
 }
 
-func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id string, device_ids []string) (bool, string) {
+func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id string, device_ids []string) (bool, string, string) {
 	var alarmName string
 	alarmConfig, err := dal.GetAlarmByID(alarmConfigID)
 	if err != nil {
 		logrus.Error(err)
-		return false, alarmName
+		return false, alarmName, err.Error()
 	}
 
 	if alarmConfig.Enabled != "Y" {
-		return false, alarmName
+		return false, alarmName, "告警配置未启用"
 	}
 	alarmName = alarmConfig.Name
 	if alarmConfig.NotificationGroupID != "" {
@@ -295,13 +291,13 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 	})
 	if err != nil {
 		logrus.Error(err)
-		return false, alarmName
+		return false, alarmName, err.Error()
 	}
 	for _, deviceId := range device_ids {
 		deviceInfo, _ := dal.GetDeviceByID(deviceId)
 		go GroupApp.AlarmMessagePushSend(alarmConfig.Name, id, deviceInfo)
 	}
-	return true, alarmName
+	return true, alarmName, err.Error()
 }
 
 // 通过id获取告警信息
