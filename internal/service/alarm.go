@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -309,4 +310,23 @@ func (*Alarm) GetAlarmInfoHistoryByID(id string) (map[string]interface{}, error)
 		})
 	}
 	return alarmInfo, nil
+}
+
+// GetAlarmDeviceCountsByTenant 获取租户下告警设备数量
+func (a *Alarm) GetAlarmDeviceCountsByTenant(tenantID string) (*model.AlarmDeviceCountsResponse, error) {
+	ctx := context.Background()
+	db := &dal.LatestDeviceAlarmQuery{}
+
+	// 查询所有告警设备总数
+	totalCount, err := db.CountDevicesByTenantAndStatus(ctx, tenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "count_alarm_devices",
+			"error":     err.Error(),
+		})
+	}
+
+	return &model.AlarmDeviceCountsResponse{
+		AlarmDeviceTotal: int64(totalCount),
+	}, nil
 }

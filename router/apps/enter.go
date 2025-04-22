@@ -31,6 +31,7 @@ type apps struct {
 	ExpectedData  // 预期数据
 	OpenAPIKey    // openAPI
 	MessagePush
+	SystemMonitor // 系统监控
 }
 
 var Model = new(apps)

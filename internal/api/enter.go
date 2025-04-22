@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+
 	"project/pkg/errcode"
 
 	"github.com/gin-gonic/gin"
@@ -36,20 +37,23 @@ type Controller struct {
 	NotificationHistoryApi        // 通知历史
 	NotificationServicesConfigApi // 通知服务配置
 	AlarmApi                      // 告警
-	SceneAutomationsApi           //场景联动
-	SceneApi                      //场景
-	SystemApi                     //系统相关
-	SysFunctionApi                //功能设置
-	VisPluginApi                  //可视化插件
-	ServicePluginApi              //插件管理
-	ServiceAccessApi              //服务接入管理
+	SceneAutomationsApi           // 场景联动
+	SceneApi                      // 场景
+	SystemApi                     // 系统相关
+	SysFunctionApi                // 功能设置
+	VisPluginApi                  // 可视化插件
+	ServicePluginApi              // 插件管理
+	ServiceAccessApi              // 服务接入管理
 	ExpectedDataApi               // 预期数据
 	OpenAPIKeyApi                 // OpenAPI密钥
 	MessagePushApi
+	SystemMonitorApi
 }
 
-var Controllers = new(Controller)
-var Validate *validator.Validate
+var (
+	Controllers = new(Controller)
+	Validate    *validator.Validate
+)
 
 func init() {
 	Validate = validator.New()

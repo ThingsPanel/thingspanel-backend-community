@@ -46,6 +46,7 @@ type ServiceGroup struct {
 	ExpectedData
 	OpenAPIKey
 	MessagePush
+	SystemMonitor
 }
 
 var GroupApp = new(ServiceGroup)

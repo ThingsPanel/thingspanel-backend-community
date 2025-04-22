@@ -1,12 +1,13 @@
 package router
 
 import (
+	"time"
+
 	middleware "project/internal/middleware"
 	"project/internal/middleware/response"
 	"project/pkg/global"
 	"project/pkg/metrics"
 	"project/router/apps"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -19,24 +20,32 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	api "project/internal/api"
+	service "project/internal/service"
 )
 
 // swagger embed files
 
 func RouterInit() *gin.Engine {
-	//gin.SetMode(gin.ReleaseMode) //开启生产模式
+	// gin.SetMode(gin.ReleaseMode) //开启生产模式
 	router := gin.Default()
 	// Swagger文档路由
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// 创建 metrics 收集器
 	m := metrics.NewMetrics("ThingsPanel")
+	// 创建内存存储实现
+	memStorage := metrics.NewMemoryStorage()
+	// 设置存储实现
+	m.SetHistoryStorage(memStorage)
 	// 开始定期收集系统指标(每15秒)
 	m.StartMetricsCollection(15 * time.Second)
 	// 注册 metrics 中间件
 	router.Use(middleware.MetricsMiddleware(m))
 	// 注册 prometheus metrics 接口
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// 设置metrics管理器到系统监控服务
+	service.SetMetricsManager(m)
 
 	// 添加静态文件路由
 	router.StaticFile("/metrics-viewer", "./static/metrics-viewer.html")
@@ -47,7 +56,7 @@ func RouterInit() *gin.Engine {
 		c.File("./files" + filepath)
 	})
 
-	//router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	router.Use(middleware.Cors())
 	// 初始化响应处理器
@@ -134,7 +143,7 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 
-			apps.Model.CommandData.InitCommandData(v1) //命令数据
+			apps.Model.CommandData.InitCommandData(v1) // 命令数据
 
 			apps.Model.OperationLog.Init(v1) // 操作日志
 
@@ -158,7 +167,7 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.SceneAutomations.Init(v1) // 场景联动
 
-			apps.Model.SysFunction.Init(v1) //功能设置
+			apps.Model.SysFunction.Init(v1) // 功能设置
 
 			apps.Model.ServicePlugin.Init(v1) // 插件管理
 
@@ -167,6 +176,9 @@ func RouterInit() *gin.Engine {
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 
 			apps.Model.MessagePush.Init(v1)
+
+			// 初始化系统监控路由
+			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)
 		}
 	}
 
