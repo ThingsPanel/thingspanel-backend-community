@@ -60,7 +60,7 @@ func (*customFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return []byte(msg), nil
 }
 
-func LogInIt() {
+func LogInIt() error {
 	// 初始化 Logrus,不创建logrus实例，直接使用包级别的函数，这样可以在项目的任何地方使用logrus，目前不考虑多日志模块的情况
 	logrus.SetReportCaller(true)
 	logrus.SetFormatter(&customFormatter{logrus.TextFormatter{
@@ -87,4 +87,5 @@ func LogInIt() {
 	}
 
 	log.Println("Logrus设置完成...")
+	return nil
 }
