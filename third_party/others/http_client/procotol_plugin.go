@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+
+	"project/pkg/errcode"
 
 	"github.com/sirupsen/logrus"
 )
@@ -48,17 +51,21 @@ func GetPluginFromConfigV2(host string, service_identifier string, device_type s
 	b, err := Get("http://" + host + "/api/v1/form/config?protocol_type=" + service_identifier + "&device_type=" + device_type + "&form_type=" + form_type)
 	if err != nil {
 		logrus.Error(err)
-		return nil, fmt.Errorf("get plugin form failed: %s", err)
+		// 判断是否为连接被拒绝的错误
+		if err.Error() != "" && (strings.Contains(err.Error(), "connection refused")) {
+			return nil, errcode.WithData(200068, err.Error())
+		}
+		return nil, errcode.WithData(200069, err.Error())
 	}
 	// 解析表单
 	var rspdata RspData
 	err = json.Unmarshal(b, &rspdata)
 	if err != nil {
 		logrus.Error(err)
-		return nil, fmt.Errorf("unmarshal response data failed: %s", err)
+		return nil, errcode.WithData(200070, err.Error())
 	}
 	if rspdata.Code != 200 {
-		err = fmt.Errorf("protocol plugin response message: %s", rspdata.Message)
+		err = errcode.NewWithMessage(200070, rspdata.Message)
 		logrus.Error(err)
 	}
 	return rspdata.Data, nil

@@ -2,13 +2,14 @@ package api
 
 import (
 	"encoding/json"
+	"strconv"
+	"sync"
+	"time"
+
 	ws_subscribe "project/mqtt/ws_subscribe"
 	"project/pkg/constant"
 	"project/pkg/errcode"
 	"project/pkg/utils"
-	"strconv"
-	"sync"
-	"time"
 
 	model "project/internal/model"
 	service "project/internal/service"
@@ -165,7 +166,10 @@ func (*TelemetryDataApi) ServeEchoData(c *gin.Context) {
 		return
 	}
 
-	date, err := service.GroupApp.TelemetryData.ServeEchoData(&req)
+	// 获取X-real-ip (直接客户端IP)
+	clientIP := c.Request.Header.Get("X-real-ip")
+
+	date, err := service.GroupApp.TelemetryData.ServeEchoData(&req, clientIP)
 	if err != nil {
 		c.Error(err)
 		return

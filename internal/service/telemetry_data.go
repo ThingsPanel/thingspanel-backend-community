@@ -522,7 +522,7 @@ func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHist
 }
 
 // 获取模拟设备发送遥测数据的回显数据
-func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{}, error) {
+func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq, clientIP string) (interface{}, error) {
 	// 获取设备信息
 	deviceInfo, err := dal.GetDeviceByID(req.DeviceId)
 	if err != nil {
@@ -558,7 +558,11 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq) (interface{}, e
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "mqtt access address is not exist")
 	}
 	accessAddressList := strings.Split(accessAddress, ":")
-	host = accessAddressList[0]
+	if clientIP != "" {
+		host = clientIP
+	} else {
+		host = accessAddressList[0]
+	}
 	post = accessAddressList[1]
 	topic := config.MqttConfig.Telemetry.SubscribeTopic
 	clientID = "mqtt_" + uuid.New()[0:12] // 代表随机生成

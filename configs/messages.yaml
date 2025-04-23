@@ -164,6 +164,15 @@ messages:
   200067:
     zh_CN: "服务插件HTTP服务地址未配置，请联系系统管理员检测配置"
     en_US: "Service plugin HTTP service address not configured, please contact the system administrator to check the configuration"
+  200068:
+    zh_CN: "该协议插件未启动或未安装，请联系管理员处理。"
+    en_US: "The protocol plugin is not started or not installed, please contact the administrator to handle."
+  200069:
+    zh_CN: "插件请求失败，请检查插件是否正常运行。"
+    en_US: "Plugin request failed, please check if the plugin is running normally."
+  200070:
+    zh_CN: "解析插件响应数据失败"
+    en_US: "Failed to parse plugin response data"
 
   # 权限模块错误 (201xxx)
   201001:
