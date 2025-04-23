@@ -7,7 +7,6 @@ import (
 	"project/mqtt/subscribe"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 // MQTTService 实现MQTT相关服务
@@ -30,10 +29,10 @@ func (s *MQTTService) Name() string {
 // Start 启动MQTT服务
 func (s *MQTTService) Start() error {
 	// 检查是否启用MQTT
-	if !viper.GetBool("mqtt.enabled") {
-		logrus.Info("MQTT服务已被禁用，跳过初始化")
-		return nil
-	}
+	// if !viper.GetBool("mqtt.enabled") {
+	// 	logrus.Info("MQTT服务已被禁用，跳过初始化")
+	// 	return nil
+	// }
 
 	logrus.Info("正在启动MQTT服务...")
 
