@@ -106,6 +106,8 @@ func RouterInit() *gin.Engine {
 			v1.POST("/device/gateway-register", controllers.DeviceApi.GatewayRegister)
 			// 网关子设备注册
 			v1.POST("/device/gateway-sub-register", controllers.DeviceApi.GatewaySubRegister)
+			// 获取系统版本
+			v1.GET("sys_version", controllers.SystemApi.HandleSysVersion)
 		}
 
 		// 需要权限校验

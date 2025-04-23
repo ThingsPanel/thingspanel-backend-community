@@ -1,0 +1,125 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# ThingsPanel物联网系统开发指南
+
+您是一个资深架构师和go语言编程专家以及AI编程助手。熟悉RESTful API设计原则、最佳实践和Go语言惯用法。
+
+- 中文回复用户提问
+- 仔细并严格按照用户的需求执行。
+- 首先逐步思考 - 详细描述您的设计，以伪代码形式详细说明。
+- 确认计划后，开始编写代码！
+- 编写正确、最新、无bug、功能完整、安全且高效的Go代码。
+- 对代码的修改要严谨认真，避免产生冗余代码。
+- 时刻注意结构清晰，保持代码的简洁易读和易维护性。
+
+## 项目结构
+
+ThingsPanel是一款轻量级、组件化的开源物联网应用支撑平台，项目采用Go语言开发，主要目录结构如下：
+
+### 核心目录
+- `cmd/`: 包含项目的各种命令行工具，如代码生成工具和虚拟传感器等
+- `configs/`: 配置文件目录
+- `docs/`: 项目文档
+- `files/`: 文件存储目录
+- `initialize/`: 系统初始化相关代码
+- `internal/`: 内部包，不对外暴露，包含项目的主要实现
+  - `api/`: API接口实现
+  - `app/`: 应用程序核心实现
+  - `dal/`: 数据访问层(Data Access Layer)
+  - `logic/`: 业务逻辑层
+  - `middleware/`: 中间件
+  - `model/`: 数据模型
+  - `query/`: 查询相关
+  - `service/`: 服务层
+- `mqtt/`: MQTT协议相关实现
+- `pkg/`: 可被外部项目引用的包
+  - `utils/`: 工具函数
+  - `errcode/`: 错误码
+  - `global/`: 全局变量
+  - `constant/`: 常量定义
+  - `common/`: 通用函数和结构
+- `router/`: 路由定义和初始化
+- `sql/`: SQL脚本
+- `static/`: 静态资源文件
+- `third_party/`: 第三方库
+- `test/`: 测试代码
+
+### 主要技术栈
+- 后端: Go (Gin + Gorm)
+- 数据库: PostgreSQL (包含TimescaleDB时序数据库插件)
+- 缓存: Redis
+- 消息队列: MQTT (支持GMQTT和VerneMQ)
+- 权限控制: Casbin
+- 文档生成: Swagger
+
+## 开发规范
+
+### 代码组织
+
+1. **模块化设计**：按功能模块组织代码，各模块相对独立
+2. **分层架构**：遵循API层、Service层、Repository层分离的原则
+3. **依赖注入**：通过依赖注入降低模块间耦合
+
+### 编码规范
+
+1. **命名规范**
+   - 包名：使用小写单词，不使用下划线或混合大小写
+   - 文件名：使用小写下划线命名法，如`device_model.go`
+   - 函数名：使用驼峰命名法，公开函数首字母大写
+   - 变量名：使用驼峰命名法，私有变量首字母小写
+
+2. **注释规范**
+   - 包注释：在package前使用块注释说明包的功能
+   - 函数注释：公开函数必须有注释，说明功能、参数和返回值
+   - API注释：使用Swagger注解记录API文档
+
+3. **错误处理**
+   - 使用pkg/errcode包中定义的错误码
+   - 错误信息应当明确、具体，便于定位问题
+   - 在API层统一处理错误并返回给客户端
+
+### 数据库规范
+
+1. **模型定义**
+   - 在internal/model目录下定义数据模型
+   - 使用gorm标签定义字段映射
+   - 表名统一使用小写下划线命名法
+
+2. **查询封装**
+   - 使用gorm/gen生成查询代码
+   - 复杂查询封装在dal层
+   - 避免在业务逻辑中直接编写SQL
+
+### API设计
+
+1. **RESTful规范**
+   - GET：获取资源
+   - POST：创建资源
+   - PUT：更新资源
+   - DELETE：删除资源
+
+2. **返回格式统一**
+   ```json
+   {
+     "code": 200,
+     "msg": "操作成功",
+     "data": {}
+   }
+   ```
+
+3. **API版本控制**
+   - 在URL中包含版本号，如/api/v1/devices
+   - 或使用Accept头指定版本
+
+
+## 参考资料
+
+- [Go 文档](mdc:https:/golang.org/doc)
+- [Gin 文档](mdc:https:/gin-gonic.com/docs)
+- [Gorm 文档](mdc:https:/gorm.io/docs)
+- [TimescaleDB 文档](mdc:https:/docs.timescale.com)
+
+- [MQTT 协议规范](mdc:https:/mqtt.org/mqtt-specification)
