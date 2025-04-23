@@ -1683,23 +1683,30 @@ func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error)
 	str := make([]string, 0)
 
 	for _, v := range telemetry {
-		str = append(str, v.Key)
+		if v != nil {
+			str = append(str, v.Key)
+		}
 	}
 
-	deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get device config failed:" + err.Error(),
-			"id":    device_id,
-		})
-	}
+	var labelMap []*model.DeviceModelTelemetry
+	if device.DeviceConfigID != nil {
 
-	labelMap, err := dal.GetDataNameByIdentifierAndTemplateId(*deviceConfig.DeviceTemplateID, str...)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get device template failed:" + err.Error(),
-			"id":    device_id,
-		})
+		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "get device config failed:" + err.Error(),
+				"id":    device_id,
+			})
+		}
+
+		lm, err := dal.GetDataNameByIdentifierAndTemplateId(*deviceConfig.DeviceTemplateID, str...)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "get device template failed:" + err.Error(),
+				"id":    device_id,
+			})
+		}
+		labelMap = lm
 	}
 
 	telemetryData := make([]map[string]interface{}, 0)
@@ -1730,7 +1737,11 @@ func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error)
 
 	res["device_id"] = device.ID
 	res["is_online"] = device.IsOnline
-	res["last_push_time"] = telemetry[0].T
+	if len(telemetry) > 0 {
+		res["last_push_time"] = telemetry[0].T
+	} else {
+		res["last_push_time"] = nil
+	}
 	res["telemetry_data"] = telemetryData
 	res["device_name"] = device.Name
 
