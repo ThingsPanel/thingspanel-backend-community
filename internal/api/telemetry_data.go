@@ -167,7 +167,7 @@ func (*TelemetryDataApi) ServeEchoData(c *gin.Context) {
 	}
 
 	// 获取Host (直接客户端IP)
-	clientIP := c.Request.Header.Get("Host")
+	clientIP := c.Request.Host
 
 	date, err := service.GroupApp.TelemetryData.ServeEchoData(&req, clientIP)
 	if err != nil {
