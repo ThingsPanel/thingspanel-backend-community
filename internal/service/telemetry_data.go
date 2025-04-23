@@ -558,7 +558,8 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq, clientIP string
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "mqtt access address is not exist")
 	}
 	accessAddressList := strings.Split(accessAddress, ":")
-	if clientIP != "" {
+
+	if clientIP == "{MQTT_HOST}" {
 		host = clientIP
 	} else {
 		host = accessAddressList[0]
