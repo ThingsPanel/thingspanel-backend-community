@@ -130,6 +130,17 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 			})
 		}
 
+		// 校验设备号是否存在
+		exists, err := dal.CheckDeviceNumberExists(v.DeviceNumber)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
+		if exists {
+			continue
+		}
+
 		device := model.Device{
 			ID:              uuid.New(),
 			Name:            &v.DeviceName,
