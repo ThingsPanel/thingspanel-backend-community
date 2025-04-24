@@ -10,6 +10,7 @@ import (
 	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -32,16 +33,15 @@ type ErrorResponse struct {
 // JWTAuth 中间件，检查token和APIKey
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-
 		// 1. 优先检查 JWT token
 		token := c.Request.Header.Get("x-token")
 		if token != "" {
-			// JWT Token 存在，验证 JWT
 			if isValidJWT(c, token) {
 				c.Next()
 				return
 			}
-			// JWT 验证失败，继续尝试 APIKey
+			// JWT验证失败，已经发送了错误响应，直接返回
+			return
 		}
 
 		// 2. 尝试 APIKey 验证
@@ -72,6 +72,8 @@ func isValidJWT(c *gin.Context, token string) bool {
 
 	// 刷新 token 过期时间
 	timeout := viper.GetInt("session.timeout")
+	logrus.Infof("刷新 token 过期时间: %d 分钟", timeout)
+	logrus.Infof("token: %s", token)
 	global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute)
 
 	// 验证 JWT
