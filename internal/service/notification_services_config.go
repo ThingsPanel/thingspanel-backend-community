@@ -8,6 +8,7 @@ import (
 	dal "project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/errcode"
+	utils "project/pkg/utils"
 	"project/third_party/others/http_client"
 
 	"github.com/go-basic/uuid"
@@ -66,6 +67,10 @@ func (*NotificationServicesConfig) GetNotificationServicesConfig(noticeType stri
 }
 
 func (*NotificationServicesConfig) SendTestEmail(req *model.SendTestEmailReq) error {
+	// 校验邮箱
+	if !utils.ValidateEmail(req.Email) {
+		return errcode.New(200014)
+	}
 	c, err := dal.GetNotificationServicesConfigByType(model.NoticeType_Email)
 	if err != nil {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{

@@ -104,6 +104,10 @@ messages:
   200013:
     zh_CN: "请输入正确的邮箱或手机号"
     en_US: "Please enter a valid email or phone number"
+  200014:
+    zh_CN: "邮箱格式不正确"
+    en_US: "Email format is incorrect"
+  
   # 密码相关错误 (200040-200049)
   200040:
     zh_CN: "密码必须包含至少6个字符，包含小写字母和数字"
