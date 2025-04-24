@@ -8,7 +8,7 @@ import (
 )
 
 func GetAllSysFunction() ([]*model.SysFunction, error) {
-	data, err := query.SysFunction.Order(query.SysFunction.ID.Asc()).Find()
+	data, err := query.SysFunction.Order(query.SysFunction.ID.Desc()).Find()
 	return data, err
 }
 

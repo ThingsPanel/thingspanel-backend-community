@@ -276,9 +276,7 @@ func (*DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string) 
 	data, err = pd.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_TYPE_FORM))
 	if err != nil {
 		logrus.Error(err)
-		return data, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return data, err
 	}
 	return
 }

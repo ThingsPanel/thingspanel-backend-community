@@ -2,13 +2,14 @@ package service
 
 import (
 	"encoding/json"
+	"time"
+
 	"project/internal/dal"
 	"project/internal/model"
 	"project/internal/query"
 	"project/pkg/constant"
 	"project/pkg/errcode"
 	"project/third_party/others/http_client"
-	"time"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
@@ -179,16 +180,19 @@ func (*ServicePlugin) GetPluginForm(protocolType string, deviceType string, form
 	// 根据协议类型获取协议信息
 	servicePlugin, err := dal.GetServicePluginByServiceIdentifier(protocolType)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 获取协议插件host:
 	_, host, err := dal.GetServicePluginHttpAddressByID(servicePlugin.ID)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
 	}
 	// 请求表单
 	return http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)
-
 }
 
 // 根据协议类型获取设备配置表单
@@ -199,7 +203,7 @@ func (p *ServicePlugin) GetProtocolPluginFormByProtocolType(protocolType string,
 	}
 	data, err := p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
 	if err != nil {
-		return nil, errcode.NewWithMessage(105001, err.Error())
+		return nil, err
 	}
 	return data, err
 }
