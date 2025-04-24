@@ -16,9 +16,9 @@ type CreateOperationLogReq struct {
 
 type GetOperationLogListByPageReq struct {
 	PageReq
-	IP        *string    `json:"ip" form:"ip" validate:"omitempty,max=36"`                           // 请求IP
-	StartTime *time.Time `json:"start_time,omitempty" form:"start_time" validate:"omitempty,max=50"` //开始日期
-	EndTime   *time.Time `json:"end_time,omitempty" form:"end_time" validate:"omitempty,max=50"`     //结束日期
+	IP        *string    `json:"ip" form:"ip" validate:"omitempty,max=36"`                    // 请求IP
+	StartTime *time.Time `json:"start_time,omitempty" form:"start_time" validate:"omitempty"` // 开始日期
+	EndTime   *time.Time `json:"end_time,omitempty" form:"end_time" validate:"omitempty"`     // 结束日期
 	UserName  *string    `json:"username" form:"username" validate:"omitempty,max=255"`
 	Method    *string    `json:"method" form:"method" validate:"omitempty,max=255"`
 }
@@ -37,5 +37,4 @@ type GetOperationLogListByPageRsp struct {
 	Remark          *string    `json:"remark" `           // 备注
 	UserName        *string    `json:"username"`          // 用户名
 	Email           *string    `json:"email"`             // 邮箱
-
 }
