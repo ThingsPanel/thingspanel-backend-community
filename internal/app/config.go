@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -77,6 +78,11 @@ func LoadEnvironmentConfig(env string) (*viper.Viper, error) {
 	if err := v.ReadInConfig(); err != nil {
 		return nil, err
 	}
+
+	// 设置环境变量前缀并启用自动读取环境变量
+	v.SetEnvPrefix("GOTP")
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	return v, nil
 }
