@@ -52,10 +52,11 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 		user.AdditionalInfo = StringPtr(string(*createUserReq.AdditionalInfo))
 	}
 	// 判断用户权限
-	if claims.Authority == "SYS_ADMIN" { // 系统管理员创建租户管理员
+	switch claims.Authority {
+	case "SYS_ADMIN": // 系统管理员创建租户管理员
 		user.Authority = StringPtr("TENANT_ADMIN")
 		user.TenantID = StringPtr(strings.Split(uuid.New(), "-")[0])
-	} else if claims.Authority == "TENANT_ADMIN" { // 租户管理员创建租户用户
+	case "TENANT_ADMIN": // 租户管理员创建租户用户
 		user.Authority = StringPtr("TENANT_USER")
 		a, err := u.GetUserById(claims.ID)
 		if err != nil {
@@ -66,7 +67,7 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 			})
 		}
 		user.TenantID = a.TenantID
-	} else {
+	default:
 		// 权限不足
 		return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
 			"required_role": "SYS_ADMIN or TENANT_ADMIN",
@@ -103,6 +104,14 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 			"error":      err.Error(),
 			"user_email": user.Email,
 		})
+	}
+
+	// 如果是创建租户管理员，则给租户新增一个默认的首页看板
+	if claims.Authority == "SYS_ADMIN" {
+		err = dal.BoardQuery{}.CreateDefaultBoard(context.Background(), *user.TenantID)
+		if err != nil {
+			logrus.Error(err)
+		}
 	}
 
 	// 绑定角色

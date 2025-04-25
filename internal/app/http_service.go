@@ -136,6 +136,6 @@ func successInfo() {
 	fmt.Println("版本: v1.1.7社区版")
 	fmt.Println("----------------------------------------")
 	fmt.Println("欢迎使用 TingsPanel！")
-	fmt.Println("如需帮助，请访问: http://thingspanel.io")
+	fmt.Println("如需帮助，请访问: http://docs.thingspanel.cn")
 	fmt.Println("----------------------------------------")
 }
