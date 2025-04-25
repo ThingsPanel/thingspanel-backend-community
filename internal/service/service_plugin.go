@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"project/internal/dal"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"github.com/jinzhu/copier"
 )
@@ -180,6 +182,9 @@ func (*ServicePlugin) GetPluginForm(protocolType string, deviceType string, form
 	// 根据协议类型获取协议信息
 	servicePlugin, err := dal.GetServicePluginByServiceIdentifier(protocolType)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.New(200070)
+		}
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
@@ -187,9 +192,7 @@ func (*ServicePlugin) GetPluginForm(protocolType string, deviceType string, form
 	// 获取协议插件host:
 	_, host, err := dal.GetServicePluginHttpAddressByID(servicePlugin.ID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, err
 	}
 	// 请求表单
 	return http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)

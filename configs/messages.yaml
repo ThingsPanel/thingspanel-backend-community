@@ -175,8 +175,8 @@ messages:
     zh_CN: "插件请求失败，请检查插件是否正常运行。"
     en_US: "Plugin request failed, please check if the plugin is running normally."
   200070:
-    zh_CN: "解析插件响应数据失败"
-    en_US: "Failed to parse plugin response data"
+    zh_CN: "该协议/服务类型不存在"
+    en_US: "The protocol/service type does not exist"
 
   # 权限模块错误 (201xxx)
   201001:
