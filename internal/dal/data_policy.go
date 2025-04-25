@@ -47,7 +47,7 @@ func GetDataPolicyListByPage(datapolicy *model.GetDataPolicyListByPageReq) (int6
 		queryBuilder = queryBuilder.Offset((datapolicy.Page - 1) * datapolicy.PageSize)
 	}
 
-	datapolicyList, err = queryBuilder.Select().Find()
+	datapolicyList, err = queryBuilder.Select().Order(q.ID.Asc()).Find()
 	if err != nil {
 		logrus.Error(err)
 		return count, datapolicyList, err
