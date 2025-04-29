@@ -104,7 +104,7 @@ func (w *WsMqttClient) SubscribeDeviceTelemetryByKeys(deviceId string, conn *web
 	deviceTelemetryHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
 		var valuesMap map[string]interface{}
-		var rspMap = make(map[string]interface{})
+		rspMap := make(map[string]interface{})
 		if err := json.Unmarshal(d.Payload(), &valuesMap); err != nil {
 			logrus.Error(err)
 			mu.Lock()

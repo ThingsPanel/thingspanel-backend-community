@@ -15,20 +15,21 @@ import (
 )
 
 type InstanceInfo struct {
-	InstanceID string
-	Address    string
-	Count      int64
-	Timestamp  string
+	InstanceID string // 实例ID
+	Address    string // 地址
+	Count      int64  // 数量
+	Timestamp  string // 时间戳
 }
 
 func NewInstance() *InstanceInfo {
 	return &InstanceInfo{}
 }
 
+// Instan 获取实例信息
 func (ins *InstanceInfo) Instan() {
-
 	ins.Timestamp = strconv.FormatInt(time.Now().Unix(), 10)
 
+	//
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		ins.Address = ""
@@ -71,7 +72,6 @@ func generateHMAC(message, secret string) string {
 
 // SendSignedRequest 发送带签名的请求
 func (ins *InstanceInfo) SendSignedRequest() {
-
 	signature := generateHMAC(ins.Timestamp, "1hj5b0sp9")
 
 	jsonMessage, _ := json.Marshal(ins)

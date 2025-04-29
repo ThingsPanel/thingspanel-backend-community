@@ -42,7 +42,7 @@ func (*UsersService) GetTenant(ctx context.Context) (model.GetTenantRes, error) 
 		})
 	}
 	// 昨日数据
-	yesterday, err := db.CountByWhere(ctx, user.CreatedAt.Gte(common.GetYesterdayBegin()))
+	yesterday, err := db.CountByWhere(ctx, user.CreatedAt.Gte(common.GetYesterdayBegin().UTC()))
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
 		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -50,7 +50,7 @@ func (*UsersService) GetTenant(ctx context.Context) (model.GetTenantRes, error) 
 		})
 	}
 	// 月数据
-	month, err := db.CountByWhere(ctx, user.CreatedAt.Gte(common.GetMonthStart()))
+	month, err := db.CountByWhere(ctx, user.CreatedAt.Gte(common.GetMonthStart().UTC()))
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
 		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
