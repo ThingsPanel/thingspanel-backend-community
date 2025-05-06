@@ -56,6 +56,7 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 	deviceconfig.CreatedAt = t
 	deviceconfig.UpdatedAt = t
 	deviceconfig.TenantID = claims.TenantID
+	deviceconfig.TemplateSecret = StringPtr(uuid.New())
 
 	err = dal.CreateDeviceConfig(&deviceconfig)
 	if err != nil {
