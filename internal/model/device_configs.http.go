@@ -28,6 +28,8 @@ type UpdateDeviceConfigReq struct {
 	Remark           *string    `json:"remark" validate:"omitempty,max=255"`             // 备注
 	UpdatedAt        *time.Time `json:"updated_at" validate:"omitempty"`                 // 更新时间
 	OtherConfig      *string    `json:"other_config" validate:"omitempty"`               //其他配置
+	AutoRegister     *int16     `json:"auto_register" validate:"omitempty,oneof=0 1"`    // 是否自动注册
+	TemplateSecret   *string    `json:"template_secret" validate:"omitempty,max=255"`    // 模板密钥
 }
 
 type GetDeviceConfigListByPageReq struct {
