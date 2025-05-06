@@ -178,6 +178,19 @@ messages:
     zh_CN: "该协议/服务类型不存在"
     en_US: "The protocol/service type does not exist"
 
+  # 设备认证错误码 (200080-200089)
+  200080:
+    zh_CN: "模板密钥不存在"
+    en_US: "Template secret does not exist"
+  200081:
+    zh_CN: "自动注册已关闭"
+    en_US: "Auto-registration is disabled"
+  200082:
+    zh_CN: "设备已存在"
+    en_US: "Device already exists"
+  200083:
+    zh_CN: "产品密钥不存在"
+    en_US: "Product key does not exist"
   # 权限模块错误 (201xxx)
   201001:
     zh_CN: "无访问权限"

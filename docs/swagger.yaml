@@ -8,13 +8,48 @@ definitions:
         description: 用于存储自定义消息
         type: string
     type: object
+  model.AlarmDeviceCountsResponse:
+    properties:
+      alarm_device_total:
+        description: 告警设备数量
+        type: integer
+    type: object
+  model.DeviceAuthReq:
+    properties:
+      device_name:
+        description: 设备名称(可选)
+        maxLength: 255
+        type: string
+      device_number:
+        description: 设备唯一标识
+        maxLength: 255
+        type: string
+      product_key:
+        description: 产品密钥(可选，用于产品关联)
+        maxLength: 255
+        type: string
+      template_secret:
+        description: 模板密钥
+        maxLength: 255
+        type: string
+    required:
+    - device_number
+    - template_secret
+    type: object
+  model.DeviceAuthRes:
+    properties:
+      device_id:
+        description: 设备ID
+        type: string
+      voucher:
+        description: 设备凭证
+        type: string
+    type: object
   model.LoginReq:
     properties:
       email:
         description: 登录账号(输入邮箱或者手机号)
         example: test@test.cn
-        maxLength: 255
-        minLength: 5
         type: string
       password:
         description: 密码
@@ -39,13 +74,36 @@ definitions:
         description: 登录凭证
         type: string
     type: object
+  response.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
 host: localhost:9999
 info:
   contact: {}
   description: ThingsPanel API.
   title: ThingsPanel API
-  version: v1.1.6
+  version: "1.0"
 paths:
+  /api/v1/alarm/device/counts:
+    get:
+      consumes:
+      - application/json
+      description: 获取租户下不同告警状态的设备数量统计
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.AlarmDeviceCountsResponse'
+      summary: 获取租户下告警状态的设备数量
+      tags:
+      - 告警管理
   /api/v1/attribute/datas/{id}:
     delete:
       responses: {}
@@ -147,6 +205,32 @@ paths:
   /api/v1/device/active:
     put:
       responses: {}
+  /api/v1/device/auth:
+    post:
+      consumes:
+      - application/json
+      description: 实现一型一密认证机制，设备通过此接口获取凭证
+      parameters:
+      - description: 认证请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.DeviceAuthReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/model.DeviceAuthRes'
+        "400":
+          description: 错误响应
+          schema:
+            $ref: '#/definitions/errcode.Error'
+      summary: 设备动态认证
+      tags:
+      - 设备认证
   /api/v1/device/check/{deviceNumber}:
     get:
       responses: {}
@@ -261,7 +345,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 使用邮箱或手机号和密码登录
+      description: 认证令牌(Token)将在用户成功登录后生成并返回。客户端需要在后续所有需要认证的API请求中，将此令牌添加到HTTP请求头(Header)的'x-token'字段中。服务器将通过验证此令牌来确认用户身份并授权访问受保护资源。
       parameters:
       - description: 登录凭证
         in: body
@@ -376,6 +460,42 @@ paths:
   /api/v1/role/{id}:
     delete:
       responses: {}
+  /api/v1/system/metrics/current:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统CPU、内存、磁盘使用率的当前值
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取当前系统指标
+      tags:
+      - 系统监控
+  /api/v1/system/metrics/history:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统CPU、内存、磁盘使用率的历史数据
+      parameters:
+      - default: 24
+        description: 查询小时数，默认24小时
+        in: query
+        name: hours
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取系统指标历史数据
+      tags:
+      - 系统监控
   /api/v1/telemetry/datas:
     delete:
       responses: {}

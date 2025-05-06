@@ -47,6 +47,7 @@ type ServiceGroup struct {
 	OpenAPIKey
 	MessagePush
 	SystemMonitor
+	DeviceAuth
 }
 
 var GroupApp = new(ServiceGroup)

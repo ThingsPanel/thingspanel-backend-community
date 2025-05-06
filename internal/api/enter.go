@@ -48,6 +48,7 @@ type Controller struct {
 	OpenAPIKeyApi                 // OpenAPI密钥
 	MessagePushApi
 	SystemMonitorApi
+	DeviceAuthApi // 设备动态认证
 }
 
 var (

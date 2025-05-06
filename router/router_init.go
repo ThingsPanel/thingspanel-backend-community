@@ -108,6 +108,8 @@ func RouterInit() *gin.Engine {
 			v1.POST("/device/gateway-sub-register", controllers.DeviceApi.GatewaySubRegister)
 			// 获取系统版本
 			v1.GET("sys_version", controllers.SystemApi.HandleSysVersion)
+			// 设备动态认证（一型一密）
+			v1.POST("/device/auth", controllers.DeviceAuthApi.DeviceAuth)
 		}
 
 		// 需要权限校验

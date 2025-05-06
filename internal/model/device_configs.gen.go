@@ -27,6 +27,8 @@ type DeviceConfig struct {
 	UpdatedAt        time.Time `gorm:"column:updated_at;not null;comment:更新时间" json:"updated_at"`                           // 更新时间
 	Remark           *string   `gorm:"column:remark;comment:备注" json:"remark"`                                              // 备注
 	OtherConfig      *string   `gorm:"column:other_config;comment:其他配置" json:"other_config"`                                // 其他配置
+	TemplateSecret   *string   `gorm:"column:template_secret" json:"template_secret"`
+	AutoRegister     int16     `gorm:"column:auto_register;not null" json:"auto_register"`
 }
 
 // TableName DeviceConfig's table name

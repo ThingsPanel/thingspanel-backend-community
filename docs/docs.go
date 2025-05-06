@@ -15,6 +15,29 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/alarm/device/counts": {
+            "get": {
+                "description": "获取租户下不同告警状态的设备数量统计",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "告警管理"
+                ],
+                "summary": "获取租户下告警状态的设备数量",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.AlarmDeviceCountsResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/attribute/datas/set/logs": {
             "get": {
                 "responses": {}
@@ -172,6 +195,46 @@ const docTemplate = `{
         "/api/v1/device/active": {
             "put": {
                 "responses": {}
+            }
+        },
+        "/api/v1/device/auth": {
+            "post": {
+                "description": "实现一型一密认证机制，设备通过此接口获取凭证",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "设备认证"
+                ],
+                "summary": "设备动态认证",
+                "parameters": [
+                    {
+                        "description": "认证请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.DeviceAuthReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "schema": {
+                            "$ref": "#/definitions/model.DeviceAuthRes"
+                        }
+                    },
+                    "400": {
+                        "description": "错误响应",
+                        "schema": {
+                            "$ref": "#/definitions/errcode.Error"
+                        }
+                    }
+                }
             }
         },
         "/api/v1/device/check/{deviceNumber}": {
@@ -358,7 +421,7 @@ const docTemplate = `{
         },
         "/api/v1/login": {
             "post": {
-                "description": "使用邮箱或手机号和密码登录",
+                "description": "认证令牌(Token)将在用户成功登录后生成并返回。客户端需要在后续所有需要认证的API请求中，将此令牌添加到HTTP请求头(Header)的'x-token'字段中。服务器将通过验证此令牌来确认用户身份并授权访问受保护资源。",
                 "consumes": [
                     "application/json"
                 ],
@@ -547,6 +610,61 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/api/v1/system/metrics/current": {
+            "get": {
+                "description": "获取系统CPU、内存、磁盘使用率的当前值",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统监控"
+                ],
+                "summary": "获取当前系统指标",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/system/metrics/history": {
+            "get": {
+                "description": "获取系统CPU、内存、磁盘使用率的历史数据",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "系统监控"
+                ],
+                "summary": "获取系统指标历史数据",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 24,
+                        "description": "查询小时数，默认24小时",
+                        "name": "hours",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/telemetry/datas": {
             "delete": {
                 "responses": {}
@@ -672,6 +790,57 @@ const docTemplate = `{
                 }
             }
         },
+        "model.AlarmDeviceCountsResponse": {
+            "type": "object",
+            "properties": {
+                "alarm_device_total": {
+                    "description": "告警设备数量",
+                    "type": "integer"
+                }
+            }
+        },
+        "model.DeviceAuthReq": {
+            "type": "object",
+            "required": [
+                "device_number",
+                "template_secret"
+            ],
+            "properties": {
+                "device_name": {
+                    "description": "设备名称(可选)",
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "device_number": {
+                    "description": "设备唯一标识",
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "product_key": {
+                    "description": "产品密钥(可选，用于产品关联)",
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "template_secret": {
+                    "description": "模板密钥",
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
+        "model.DeviceAuthRes": {
+            "type": "object",
+            "properties": {
+                "device_id": {
+                    "description": "设备ID",
+                    "type": "string"
+                },
+                "voucher": {
+                    "description": "设备凭证",
+                    "type": "string"
+                }
+            }
+        },
         "model.LoginReq": {
             "type": "object",
             "required": [
@@ -682,8 +851,6 @@ const docTemplate = `{
                 "email": {
                     "description": "登录账号(输入邮箱或者手机号)",
                     "type": "string",
-                    "maxLength": 255,
-                    "minLength": 5,
                     "example": "test@test.cn"
                 },
                 "password": {
@@ -712,6 +879,18 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "response.Response": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {},
+                "message": {
+                    "type": "string"
+                }
+            }
         }
     },
     "securityDefinitions": {
@@ -725,7 +904,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "v1.1.6",
+	Version:          "1.0",
 	Host:             "localhost:9999",
 	BasePath:         "",
 	Schemes:          []string{"http"},

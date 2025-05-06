@@ -108,10 +108,10 @@ func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) er
 //  3. 过滤符合条件的自动化任务
 //  4. 执行自动化任务
 //
-// @param deviceId string 设备ID
-// @param deviceConfigId string 设备配置ID
-// @param fromExt AutomateFromExt 自动化触发的额外信息,包含触发参数类型和值
-// @return error 执行过程中的错误信息
+// param deviceId string 设备ID
+// param deviceConfigId string 设备配置ID
+// param fromExt AutomateFromExt 自动化触发的额外信息,包含触发参数类型和值
+// return error 执行过程中的错误信息
 func (a *Automate) telExecute(deviceId, deviceConfigId string, fromExt AutomateFromExt) error {
 	info, resultInt, err := initialize.NewAutomateCache().GetCacheByDeviceId(deviceId, deviceConfigId)
 	logrus.Debugf("自动化执行开始 - 缓存结果标志: %d", resultInt)

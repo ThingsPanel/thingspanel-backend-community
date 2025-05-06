@@ -42,6 +42,8 @@ func newDeviceConfig(db *gorm.DB, opts ...gen.DOOption) deviceConfig {
 	_deviceConfig.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_deviceConfig.Remark = field.NewString(tableName, "remark")
 	_deviceConfig.OtherConfig = field.NewString(tableName, "other_config")
+	_deviceConfig.TemplateSecret = field.NewString(tableName, "template_secret")
+	_deviceConfig.AutoRegister = field.NewInt16(tableName, "auto_register")
 
 	_deviceConfig.fillFieldMap()
 
@@ -67,6 +69,8 @@ type deviceConfig struct {
 	UpdatedAt        field.Time   // 更新时间
 	Remark           field.String // 备注
 	OtherConfig      field.String // 其他配置
+	TemplateSecret   field.String
+	AutoRegister     field.Int16
 
 	fieldMap map[string]field.Expr
 }
@@ -98,6 +102,8 @@ func (d *deviceConfig) updateTableName(table string) *deviceConfig {
 	d.UpdatedAt = field.NewTime(table, "updated_at")
 	d.Remark = field.NewString(table, "remark")
 	d.OtherConfig = field.NewString(table, "other_config")
+	d.TemplateSecret = field.NewString(table, "template_secret")
+	d.AutoRegister = field.NewInt16(table, "auto_register")
 
 	d.fillFieldMap()
 
@@ -114,7 +120,7 @@ func (d *deviceConfig) GetFieldByName(fieldName string) (field.OrderExpr, bool) 
 }
 
 func (d *deviceConfig) fillFieldMap() {
-	d.fieldMap = make(map[string]field.Expr, 15)
+	d.fieldMap = make(map[string]field.Expr, 17)
 	d.fieldMap["id"] = d.ID
 	d.fieldMap["name"] = d.Name
 	d.fieldMap["device_template_id"] = d.DeviceTemplateID
@@ -130,6 +136,8 @@ func (d *deviceConfig) fillFieldMap() {
 	d.fieldMap["updated_at"] = d.UpdatedAt
 	d.fieldMap["remark"] = d.Remark
 	d.fieldMap["other_config"] = d.OtherConfig
+	d.fieldMap["template_secret"] = d.TemplateSecret
+	d.fieldMap["auto_register"] = d.AutoRegister
 }
 
 func (d deviceConfig) clone(db *gorm.DB) deviceConfig {
