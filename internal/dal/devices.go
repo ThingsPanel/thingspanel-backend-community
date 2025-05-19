@@ -524,7 +524,7 @@ func (DeviceQuery) GetSubList(ctx context.Context, parent_id string, pageSize, p
 		count int64
 		resp  []model.GetSubListResp
 	)
-	query := q.WithContext(ctx).Where(q.ParentID.Eq(parent_id), q.TenantID.Eq(tenantID))
+	query := q.WithContext(ctx).Where(q.ParentID.Eq(parent_id), q.TenantID.Eq(tenantID), q.ActivateFlag.Eq("active"))
 	count, err := query.Count()
 	if err != nil {
 		return resp, count, err
