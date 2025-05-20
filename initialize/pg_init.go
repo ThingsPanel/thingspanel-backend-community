@@ -39,12 +39,30 @@ func PgInit() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	// 初始化数据库
-	db, err := PgConnect(config)
+	// 初始化数据库（添加重试逻辑）
+	var db *gorm.DB
+	maxRetries := 10
+	retryInterval := 6 * time.Second
+
+	for retryCount := 0; retryCount < maxRetries; retryCount++ {
+		db, err = PgConnect(config)
+		if err == nil {
+			break
+		}
+
+		logrus.Warnf("连接数据库失败 (尝试 %d/%d): %v", retryCount+1, maxRetries, err)
+
+		if retryCount < maxRetries-1 {
+			logrus.Infof("将在 %v 后重试连接...", retryInterval)
+			time.Sleep(retryInterval)
+		}
+	}
+
 	if err != nil {
-		logrus.Error("连接数据库失败:", err)
+		logrus.Error("连接数据库失败，已达到最大重试次数:", err)
 		return nil, err
 	}
+
 	global.DB = db
 
 	// casbin 初始化
