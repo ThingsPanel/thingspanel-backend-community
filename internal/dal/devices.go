@@ -436,7 +436,7 @@ func (DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId s
 		Where(device.DeviceConfigID.IsNotNull()).
 		Where(device.ParentID.IsNull()). // 父设备为空
 		LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
-		Where(deviceConfig.DeviceType.Eq("3")). // 设备类型为网关
+		Where(deviceConfig.DeviceType.Eq("3"), device.ActivateFlag.Eq("active")). // 设备类型为网关
 		Scan(&list)
 	if err != nil {
 		logrus.Error(ctx, err)
