@@ -443,8 +443,12 @@ func (*DeviceApi) HandleTenantDeviceList(c *gin.Context) {
 // @DESCRIPTIONS: 获得设备列表（默认：设置类型-子设备&无 parent_id 关联 可扩展，查询可添加条件）
 // /api/v1/device/list [get]
 func (*DeviceApi) HandleDeviceList(c *gin.Context) {
+	var req model.GetUnboundGatewaySubDeviceReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetDeviceList(c, userClaims)
+	data, err := service.GroupApp.Device.GetDeviceList(c, userClaims, &req)
 	if err != nil {
 		c.Error(err)
 		return

@@ -661,8 +661,8 @@ func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string)
 	// res = logic.DeviceLogic{}.GetTenantDeviceList(list, configList)
 }
 
-func (*Device) GetDeviceList(ctx context.Context, userClaims *utils.UserClaims) ([]map[string]interface{}, error) {
-	list, err := dal.DeviceQuery{}.GetGatewayUnrelatedDeviceList(ctx, userClaims.TenantID)
+func (*Device) GetDeviceList(ctx context.Context, userClaims *utils.UserClaims, req *model.GetUnboundGatewaySubDeviceReq) ([]map[string]interface{}, error) {
+	list, err := dal.DeviceQuery{}.GetGatewayUnrelatedDeviceList(ctx, userClaims.TenantID, req.DeviceName)
 	if err != nil {
 		logrus.Error(ctx, "[GetDeviceList]failed:", err)
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{

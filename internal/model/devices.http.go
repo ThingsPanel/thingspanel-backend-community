@@ -200,6 +200,11 @@ type GetDeviceMenuReq struct {
 	BindConfig int    `json:"bind_config" form:"bind_config" validate:"omitempty"`         //绑定设置 0全部 1绑定 2未绑定
 }
 
+// 获取未绑定网关的子设备选择器
+type GetUnboundGatewaySubDeviceReq struct {
+	DeviceName *string `json:"device_name" form:"device_name" validate:"omitempty,max=255"` // 设备名称
+}
+
 type GetTenantDeviceListReq struct {
 	ID               string `json:"id"`                 // 设备 ID
 	Name             string `json:"name"`               // 设备 名称
