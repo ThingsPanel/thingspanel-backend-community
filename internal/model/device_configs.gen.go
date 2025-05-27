@@ -29,6 +29,7 @@ type DeviceConfig struct {
 	OtherConfig      *string   `gorm:"column:other_config;comment:其他配置" json:"other_config"`                                // 其他配置
 	TemplateSecret   *string   `gorm:"column:template_secret" json:"template_secret"`
 	AutoRegister     int16     `gorm:"column:auto_register;not null" json:"auto_register"`
+	ImageURL         *string   `gorm:"column:image_url" json:"image_url"`
 }
 
 // TableName DeviceConfig's table name

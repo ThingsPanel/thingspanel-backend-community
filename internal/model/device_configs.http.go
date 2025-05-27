@@ -30,6 +30,7 @@ type UpdateDeviceConfigReq struct {
 	OtherConfig      *string    `json:"other_config" validate:"omitempty"`               //其他配置
 	AutoRegister     *int16     `json:"auto_register" validate:"omitempty,oneof=0 1"`    // 是否自动注册
 	TemplateSecret   *string    `json:"template_secret" validate:"omitempty,max=255"`    // 模板密钥
+	ImageURL         *string    `json:"image_url" validate:"omitempty,max=255"`          // 图片地址
 }
 
 type GetDeviceConfigListByPageReq struct {
