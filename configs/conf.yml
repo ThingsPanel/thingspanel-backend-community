@@ -3,7 +3,7 @@
 service:
   http: 
     host: 0.0.0.0 # 默认localhost
-    port: # 默认9999
+    port: 19999 # 默认9999
 
 log:
   # 0-控制台输出 1-文件输出 2-文件和控制台输出
@@ -18,16 +18,13 @@ log:
 jwt:
   key: 1hj5b0sp9
 
-
-
 db:
   psql:
     host: 127.0.0.1 # 默认localhost
-#    host: 47.92.253.145 # 默认localhost
     port: 5432 # 默认5432
-    dbname: ThingsPanel
+    dbname: sihang
     username: postgres
-    password: postgresThingsPanel
+    password: ThingsPanel2023
     time_zone: Asia/Shanghai # 默认Asia/Shanghai
 
     idle_conns: 5 # 空闲连接池中的最大连接数，建议为open_conns的百分之5-20之间
@@ -39,22 +36,20 @@ db:
 
   redis:
     addr: 127.0.0.1:6379 # 默认localhost:6379
-    # addr: 47.92.253.145:6379 # 默认localhost:6379
-    db: 1 # 默认0
-    db1: 10 # 默认10，不能是0，用户设备状态管理
-    password: "redis"
+    db: 11 # 默认0
+    db1: 100 # 默认10，不能是0，用户设备状态管理
+    password: "redis2022"
 
 grpc:
   tptodb_server: 127.0.0.1:50052
   tptodb_type: NONE # NONE、TSDB
 
 # mqtt服务：gmqtt、vernemq
-mqtt_server: vernemq
+mqtt_server: gmqtt
 
 mqtt:
-  access_address: 47.92.253.145:1883
-  broker: 127.0.0.1:1883 # 默认localhost:1883
-#  broker: 47.92.253.145:1883
+  access_address: 47.104.235.67:11883
+  broker: 127.0.0.1:11883 # 默认localhost:1883
   user: root # 默认root
   pass: root # 默认root
   channel_buffer_size: 10000 # 默认10000
