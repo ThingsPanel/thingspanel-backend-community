@@ -1710,14 +1710,17 @@ func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error)
 			})
 		}
 
-		lm, err := dal.GetDataNameByIdentifierAndTemplateId(*deviceConfig.DeviceTemplateID, str...)
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error": "get device template failed:" + err.Error(),
-				"id":    device_id,
-			})
+		// 检查 DeviceTemplateID 是否为 nil，避免空指针异常
+		if deviceConfig.DeviceTemplateID != nil {
+			lm, err := dal.GetDataNameByIdentifierAndTemplateId(*deviceConfig.DeviceTemplateID, str...)
+			if err != nil {
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": "get device template failed:" + err.Error(),
+					"id":    device_id,
+				})
+			}
+			labelMap = lm
 		}
-		labelMap = lm
 	}
 
 	telemetryData := make([]map[string]interface{}, 0)
@@ -2075,7 +2078,10 @@ func (*Device) GetDeviceSelector(req model.DeviceSelectorReq, userClaims *utils.
 func (d *Device) GetTenantTelemetryData(tenantId string) ([]map[string]interface{}, error) {
 	devices, err := dal.GetTenantTelemetryData(tenantId)
 	if err != nil {
-		return nil, err
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "get tenant telemetry data failed:" + err.Error(),
+			"id":    tenantId,
+		})
 	}
 	telemetryDataList := make([]map[string]interface{}, 0)
 	for _, device := range devices {
