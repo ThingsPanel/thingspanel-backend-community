@@ -142,11 +142,21 @@ Directly clone the project, modify and submit a PR.
 
 ## Licensing and Commercial Licensing
 
-ThingsPanel is released under the [GNU Affero General Public License version 3 (AGPLv3)](https://www.gnu.org/licenses/agpl-3.0.html), which allows you to download, use, and modify the code, provided that any modified versions are also released under the same license, and if you run the modified program over a network, you must provide the source code to the network users.
+ThingsPanel is now released under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0). This is a permissive open-source license that allows users:
 
-For users who wish to use ThingsPanel in a commercial setting, we offer commercial licensing options. Commercial licensing allows you to use ThingsPanel without fully adhering to the open-source license requirements of AGPLv3, for example, using ThingsPanel without disclosing the source code to end-users. This provides greater flexibility and confidentiality for businesses.
+* **Permissive Use**: Can be used in private or commercial environments without requiring derivative works to be open-sourced
+* **Freedom to Modify**: Allows modification and redistribution of source code
+* **Patent Grant**: Contributors automatically grant users necessary patent rights
+* **Copyright Notice Required**: Must retain copyright notices and license terms
 
-If you are interested in commercial licensing, or need more information, please contact us at [Commercial Licensing Inquiry](mailto:zjh@jiyikeji.cn), or join our WeChat or QQ group to speak with our business team. We will provide detailed licensing options to meet your business needs.
+While Apache 2.0 already allows commercial use, we also provide **Enterprise Edition**, **Customized Support Services**, and **Enhanced Feature Licensing** for enterprise customers to meet higher production-grade requirements, including but not limited to:
+
+* Enterprise-level technical support and deployment consulting
+* Custom development and integration services
+* Security hardening, private deployment, and SLA support
+* Brand customization and OEM licensing
+
+If you wish to obtain more commercial support or customized services, please contact us.
 
 ## Community and Support
 
