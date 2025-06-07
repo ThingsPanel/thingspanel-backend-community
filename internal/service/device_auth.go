@@ -83,6 +83,31 @@ func (*DeviceAuth) Auth(req *model.DeviceAuthReq) (*model.DeviceAuthRes, error) 
 			IsEnabled:      "enable",
 		}
 
+		if deviceConfig.DeviceType == "3" {
+			if req.SubDeviceAddr != nil && *req.SubDeviceAddr != "" && req.ParentDeviceNumber != nil && *req.ParentDeviceNumber != "" {
+				// 校验父设备是否存在
+				parentDevice, err := dal.GetDeviceByDeviceNumber(*req.ParentDeviceNumber)
+				if err != nil {
+					return nil, errcode.WithData(200085, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
+				}
+				if parentDevice == nil {
+					return nil, errcode.New(200085)
+				}
+				// 校验子设备地址是否存在
+				isExists := dal.GetSubDeviceExists(parentDevice.ID, *req.SubDeviceAddr)
+				if isExists {
+					return nil, errcode.New(200086)
+				}
+
+				device.SubDeviceAddr = req.SubDeviceAddr
+				device.ParentID = &parentDevice.ID
+			} else {
+				return nil, errcode.New(200084)
+			}
+		}
+
 		// 设置设备名称（如果提供）
 		if req.DeviceName != nil && *req.DeviceName != "" {
 			device.Name = req.DeviceName
