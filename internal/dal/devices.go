@@ -424,7 +424,7 @@ func (DeviceQuery) CountByTenantID(ctx context.Context, TenantID string) (count 
 }
 
 // 获取网关未关联网关设备的子设备列表,并做关联查询设备配置表
-func (DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId string, deviceName *string) (list []map[string]interface{}, err error) {
+func (DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId string, search *string) (list []map[string]interface{}, err error) {
 	device := query.Device
 	deviceConfig := query.DeviceConfig
 	// 条件：device-父设备为空，设备配置不为空
@@ -439,8 +439,8 @@ func (DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId s
 		Where(deviceConfig.DeviceType.Eq("3"), device.ActivateFlag.Eq("active")) // 设备类型为网关
 
 	// 增加设备名称模糊匹配
-	if deviceName != nil && *deviceName != "" {
-		queryBuilder = queryBuilder.Where(device.Name.Like(fmt.Sprintf("%%%s%%", *deviceName)))
+	if search != nil && *search != "" {
+		queryBuilder = queryBuilder.Where(device.Name.Like(fmt.Sprintf("%%%s%%", *search)))
 	}
 
 	err = queryBuilder.Scan(&list)

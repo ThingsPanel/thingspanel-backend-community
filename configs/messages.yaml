@@ -191,6 +191,16 @@ messages:
   200083:
     zh_CN: "产品密钥不存在"
     en_US: "Product key does not exist"
+  200084:
+    zh_CN: "子设备地址以及父设备编号不能为空"
+    en_US: "Sub-device address and parent device number cannot be empty"
+  200085:
+    zh_CN: "父设备编号不存在"
+    en_US: "Parent device number does not exist"
+  200086:
+    zh_CN: "子设备地址已存在"
+    en_US: "Sub-device address already exists"
+
   # 权限模块错误 (201xxx)
   201001:
     zh_CN: "无访问权限"
