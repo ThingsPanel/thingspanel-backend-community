@@ -32,7 +32,7 @@ func (*DeviceAuth) Auth(req *model.DeviceAuthReq) (*model.DeviceAuthRes, error) 
 	}
 
 	// 3. 检查自动注册开关是否开启
-	if deviceConfig.AutoRegister == 0 {
+	if deviceConfig.AutoRegister != 1 {
 		return nil, errcode.New(200081)
 	}
 
