@@ -35,7 +35,7 @@ func publishMessage(topic string, qos byte, retained bool, payload interface{}) 
 // @params command model.GatewayCommandPulish
 // @params fn config.GatewayResponseFunc
 // @return error
-func GatewayPublishCommandMessage(ctx context.Context, deviceInfo model.Device, messageId string, command model.GatewayCommandPulish, fn ...config.GatewayResponseFunc) error {
+func GatewayPublishCommandMessage(ctx context.Context, deviceInfo model.Device, messageId string, command model.GatewayCommandPulish, fn ...config.MqttDirectResponseFunc) error {
 
 	topic := fmt.Sprintf(config.MqttConfig.Commands.GatewayPublishTopic, deviceInfo.DeviceNumber, messageId)
 	//topic := fmt.Sprintf("string3333", deviceInfo.DeviceNumber, messageId)
@@ -54,18 +54,18 @@ func GatewayPublishCommandMessage(ctx context.Context, deviceInfo model.Device, 
 		return pkgerrors.WithMessage(err, "[GatewayPublishResponseEventMessage][publishMessage]failed")
 	}
 	if len(fn) > 0 {
-		config.GatewayResponseFuncMap[messageId] = make(chan model.GatewayResponse)
+		config.MqttResponseFuncMap[messageId] = make(chan model.MqttResponse)
 		go func() {
 			select {
-			case data := <-config.GatewayResponseFuncMap[messageId]:
+			case data := <-config.MqttResponseFuncMap[messageId]:
 				fmt.Println("接收到数据:", data)
 				fn[0](data)
-				close(config.GatewayResponseFuncMap[messageId])
-				delete(config.GatewayResponseFuncMap, messageId)
+				close(config.MqttResponseFuncMap[messageId])
+				delete(config.MqttResponseFuncMap, messageId)
 			case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
 				fmt.Println("超时，关闭通道")
-				close(config.GatewayResponseFuncMap[messageId])
-				delete(config.GatewayResponseFuncMap, messageId)
+				close(config.MqttResponseFuncMap[messageId])
+				delete(config.MqttResponseFuncMap, messageId)
 				return
 			}
 		}()
@@ -100,7 +100,7 @@ func GatewayPublishTelemetryMessage(ctx context.Context, deviceInfo model.Device
 // @params messageId sting
 // @params command model.GatewayPublish
 // @return error
-func GatewayPublishSetAttributesMessage(ctx context.Context, deviceInfo model.Device, messageId string, command model.GatewayPublish, fn ...config.GatewayResponseFunc) error {
+func GatewayPublishSetAttributesMessage(ctx context.Context, deviceInfo model.Device, messageId string, command model.GatewayPublish, fn ...config.MqttDirectResponseFunc) error {
 
 	topic := fmt.Sprintf(config.MqttConfig.Attributes.GatewayPublishTopic, deviceInfo.DeviceNumber, messageId)
 	qos := byte(config.MqttConfig.Attributes.QoS)
@@ -117,18 +117,18 @@ func GatewayPublishSetAttributesMessage(ctx context.Context, deviceInfo model.De
 		return pkgerrors.WithMessage(err, "[GatewayPublishSetAttributesMessage][publishMessage]failed")
 	}
 	if len(fn) > 0 {
-		config.GatewayResponseFuncMap[messageId] = make(chan model.GatewayResponse)
+		config.MqttResponseFuncMap[messageId] = make(chan model.MqttResponse)
 		go func() {
 			select {
-			case data := <-config.GatewayResponseFuncMap[messageId]:
+			case data := <-config.MqttResponseFuncMap[messageId]:
 				fmt.Println("接收到数据:", data)
 				fn[0](data)
-				close(config.GatewayResponseFuncMap[messageId])
-				delete(config.GatewayResponseFuncMap, messageId)
+				close(config.MqttResponseFuncMap[messageId])
+				delete(config.MqttResponseFuncMap, messageId)
 			case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
 				fmt.Println("超时，关闭通道")
-				close(config.GatewayResponseFuncMap[messageId])
-				delete(config.GatewayResponseFuncMap, messageId)
+				close(config.MqttResponseFuncMap[messageId])
+				delete(config.MqttResponseFuncMap, messageId)
 				return
 			}
 
@@ -164,7 +164,7 @@ func GatewayPublishGetAttributesMessage(ctx context.Context, deviceInfo model.De
 // @params messageId sting
 // @params command model.GatewayPublish
 // @return error
-func GatewayPublishResponseAttributesMessage(ctx context.Context, deviceInfo model.Device, messageId string, command model.GatewayResponse) error {
+func GatewayPublishResponseAttributesMessage(ctx context.Context, deviceInfo model.Device, messageId string, command model.MqttResponse) error {
 
 	topic := fmt.Sprintf(config.MqttConfig.Attributes.GatewayPublishResponseTopic, deviceInfo.DeviceNumber, messageId)
 	qos := byte(config.MqttConfig.Attributes.QoS)
@@ -185,7 +185,7 @@ func GatewayPublishResponseAttributesMessage(ctx context.Context, deviceInfo mod
 // @params messageId sting
 // @params command model.GatewayPublish
 // @return error
-func GatewayPublishResponseEventMessage(ctx context.Context, deviceInfo model.Device, messageId string, command model.GatewayResponse) error {
+func GatewayPublishResponseEventMessage(ctx context.Context, deviceInfo model.Device, messageId string, command model.MqttResponse) error {
 
 	topic := fmt.Sprintf(config.MqttConfig.Events.GatewayPublishTopic, deviceInfo.DeviceNumber, messageId)
 	qos := byte(config.MqttConfig.Events.QoS)

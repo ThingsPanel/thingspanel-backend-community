@@ -192,17 +192,18 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 		Identify:      &param.Identify,
 	}
 	_, _ = dal.CommandSetLogsQuery{}.Create(ctx, logInfo)
-	config.MqttDirectResponseFuncMap[messageID] = make(chan model.MqttResponse)
+	// 如果不是直连设备，则使用网关通道
+	config.MqttResponseFuncMap[messageID] = make(chan model.MqttResponse)
 	go func() {
 		select {
-		case response := <-config.MqttDirectResponseFuncMap[messageID]:
+		case response := <-config.MqttResponseFuncMap[messageID]:
 			fmt.Println("接收到数据:", response)
 			if len(fn) > 0 {
 				_ = fn[0](response)
 			}
 			dal.CommandSetLogsQuery{}.CommandResultUpdate(context.Background(), logInfo.ID, response)
-			close(config.MqttDirectResponseFuncMap[messageID])
-			delete(config.MqttDirectResponseFuncMap, messageID)
+			close(config.MqttResponseFuncMap[messageID])
+			delete(config.MqttResponseFuncMap, messageID)
 		case <-time.After(6 * time.Minute): // 设置超时时间为 3 分钟
 			fmt.Println("超时，关闭通道")
 			//log.CommandResultUpdate(context.Background(), logInfo.ID, model.MqttResponse{
@@ -212,8 +213,8 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 			//	Ts:      time.Now().Unix(),
 			//	Method:  param.Identify,
 			//})
-			close(config.MqttDirectResponseFuncMap[messageID])
-			delete(config.MqttDirectResponseFuncMap, messageID)
+			close(config.MqttResponseFuncMap[messageID])
+			delete(config.MqttResponseFuncMap, messageID)
 
 			return
 		}

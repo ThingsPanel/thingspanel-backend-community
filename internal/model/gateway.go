@@ -6,7 +6,7 @@ const (
 
 )
 
-//事件/命令
+// 事件/命令
 type EventInfo struct {
 	Method string                 `json:"method"`
 	Params map[string]interface{} `json:"params"`
@@ -33,9 +33,4 @@ type GatewayPublish struct {
 type GatewayAttributeGet struct {
 	GatewayData   *[]string            `json:"gateway_data"`
 	SubDeviceData *map[string][]string `json:"sub_device_data"`
-}
-
-type GatewayResponse struct {
-	GatewayData   *MqttResponse           `json:"gateway_data"`
-	SubDeviceData map[string]MqttResponse `json:"sub_device_data"`
 }
