@@ -103,7 +103,7 @@ mqtt:
     # 设备接受命令回应 gateway/command/response/{message_id}
     gateway_subscribe_topic: gateway/command/response/+
     # 下发命令 gateway/command/{device_number}/+
-    gateway_publish_topic: gateway/command/+
+    gateway_publish_topic: gateway/command/
     # 测试
     # gateway_publish_topic: devices/command/%s/%s
     qos: 1
