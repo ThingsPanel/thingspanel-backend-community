@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"sync"
 	"time"
@@ -9,6 +11,7 @@ import (
 	ws_subscribe "project/mqtt/ws_subscribe"
 	"project/pkg/constant"
 	"project/pkg/errcode"
+	"project/pkg/global"
 	"project/pkg/utils"
 
 	model "project/internal/model"
@@ -17,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 type TelemetryDataApi struct{}
@@ -193,6 +197,31 @@ func (*TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
 	c.Set("data", nil)
 }
 
+// validateToken 验证WebSocket中的token
+func validateToken(token string) (*utils.UserClaims, error) {
+	// 验证 Redis 中的 token
+	if global.REDIS.Get(context.Background(), token).Val() != "1" {
+		return nil, errors.New("token is expired")
+	}
+
+	// 刷新 token 过期时间
+	timeout := viper.GetInt("session.timeout")
+	if timeout == 0 {
+		timeout = 60 // 默认60分钟
+	}
+	global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute)
+
+	// 验证 JWT
+	key := viper.GetString("jwt.key")
+	j := utils.NewJWT([]byte(key))
+	claims, err := j.ParseToken(token)
+	if err != nil {
+		return nil, errors.New("invalid token")
+	}
+
+	return claims, nil
+}
+
 // ServeCurrentDataByWS 通过WebSocket处理设备实时遥测数据
 // @Router   /api/v1/telemetry/datas/current/ws [get]
 func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
@@ -236,7 +265,15 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 		return
 	}
 
-	logrus.Infof("WebSocket连接已建立 - 设备ID: %s", deviceID)
+	// 验证token
+	claims, err := validateToken(token)
+	if err != nil {
+		logrus.Error("Token验证失败:", err)
+		conn.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+
+	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, 用户ID: %s, 租户ID: %s", deviceID, claims.ID, claims.TenantID)
 
 	// 获取当前遥测数据
 	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataForWs(deviceID)
@@ -357,8 +394,15 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 		return
 	}
 
-	logrus.Infof("WebSocket连接已建立 - 设备ID: %s", deviceID)
-	// TODO: 验证token
+	// 验证token
+	claims, err := validateToken(token)
+	if err != nil {
+		logrus.Error("Token验证失败:", err)
+		conn.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+
+	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, 用户ID: %s, 租户ID: %s", deviceID, claims.ID, claims.TenantID)
 
 	// 订阅设备在线状态
 	var mu sync.Mutex
@@ -476,9 +520,16 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 		conn.WriteMessage(msgType, []byte("token is required"))
 		return
 	}
-	// TODO: 验证token
 
-	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, Keys: %v", deviceID, stringKeys)
+	// 验证token有效性
+	claims, err := validateToken(token)
+	if err != nil {
+		logrus.Error("Token验证失败:", err)
+		conn.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+
+	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, Keys: %v, 用户ID: %s, 租户ID: %s", deviceID, stringKeys, claims.ID, claims.TenantID)
 
 	// 获取遥测数据
 	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataKeysForWs(deviceID, stringKeys)
