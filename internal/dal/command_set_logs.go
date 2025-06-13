@@ -21,11 +21,13 @@ func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (
 	d := query.Device
 	dc := query.DeviceConfig
 	dmc := query.DeviceModelCommand
+	u := query.User
 
 	queryBuilder := q.WithContext(context.Background())
 	queryBuilder = queryBuilder.LeftJoin(d, d.ID.EqCol(q.DeviceID))
 	queryBuilder = queryBuilder.LeftJoin(dc, dc.ID.EqCol(d.DeviceConfigID))
 	queryBuilder = queryBuilder.LeftJoin(dmc, dmc.DeviceTemplateID.EqCol(dc.DeviceTemplateID), dmc.DataIdentifier.EqCol(q.Identify))
+	queryBuilder = queryBuilder.LeftJoin(u, u.ID.EqCol(q.UserID))
 
 	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(req.DeviceId))
 
@@ -51,7 +53,7 @@ func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (
 	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
 	var list []map[string]interface{}
 
-	err = queryBuilder.Select(q.ALL, dmc.DataName.As("identify_name")).Scan(&list)
+	err = queryBuilder.Select(q.ALL, dmc.DataName.As("identify_name"), u.Name.As("user_name")).Scan(&list)
 	if err != nil {
 		logrus.Error(err)
 		return count, list, err
