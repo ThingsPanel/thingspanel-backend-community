@@ -53,7 +53,7 @@ func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (
 	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
 	var list []map[string]interface{}
 
-	err = queryBuilder.Select(q.ALL, dmc.DataName.As("identify_name"), u.Name.As("user_name")).Scan(&list)
+	err = queryBuilder.Select(q.ALL, dmc.DataName.As("identify_name"), u.Name.As("username")).Scan(&list)
 	if err != nil {
 		logrus.Error(err)
 		return count, list, err

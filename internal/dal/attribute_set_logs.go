@@ -16,6 +16,7 @@ func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageRe
 
 	var count int64
 	q := query.AttributeSetLog
+	u := query.User
 	queryBuilder := q.WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(req.DeviceId))
 	if req.Status != nil {
@@ -35,7 +36,8 @@ func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageRe
 		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
 	}
 	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
-	list, err := queryBuilder.Select().Find()
+	queryBuilder = queryBuilder.LeftJoin(u, u.ID.EqCol(q.UserID))
+	list, err := queryBuilder.Select(q.ALL, u.Name.As("username")).Find()
 	if err != nil {
 		logrus.Error(err)
 		return count, list, err
