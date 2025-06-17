@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	model "project/internal/model"
 	query "project/internal/query"
@@ -59,14 +60,32 @@ func UpdateDeviceByMap(deviceID string, deviceMap map[string]interface{}) (*mode
 
 // 更新设备状态
 func UpdateDeviceStatus(deviceId string, status int16) error {
-	info, err := query.Device.Where(query.Device.ID.Eq(deviceId)).Update(query.Device.IsOnline, status)
-	if err != nil {
-		logrus.Error(err)
+	if status == 0 {
+		// 设备离线时，同时更新is_online和last_offline_time
+		now := time.Now().UTC()
+		info, err := query.Device.Where(query.Device.ID.Eq(deviceId)).
+			UpdateColumns(map[string]interface{}{
+				"is_online":         status,
+				"last_offline_time": now,
+			})
+		if err != nil {
+			logrus.Error(err)
+		}
+		if info.RowsAffected == 0 {
+			return fmt.Errorf("update device status failed, no rows affected")
+		}
+		return err
+	} else {
+		// 设备上线时，只更新is_online字段
+		info, err := query.Device.Where(query.Device.ID.Eq(deviceId)).Update(query.Device.IsOnline, status)
+		if err != nil {
+			logrus.Error(err)
+		}
+		if info.RowsAffected == 0 {
+			return fmt.Errorf("update device status failed, no rows affected")
+		}
+		return err
 	}
-	if info.RowsAffected == 0 {
-		return fmt.Errorf("update device status failed, no rows affected")
-	}
-	return err
 }
 
 func DeleteDevice(id string, tenantID string) error {
@@ -147,11 +166,26 @@ func GetDeviceByVoucher(voucher string) (*model.Device, error) {
 
 // 更新设备在线状态
 func UpdateDeviceOnlineStatus(deviceId string, status int16) error {
-	_, err := query.Device.Where(query.Device.ID.Eq(deviceId)).Update(query.Device.IsOnline, status)
-	if err != nil {
-		logrus.Error(err)
+	if status == 0 {
+		// 设备离线时，同时更新is_online和last_offline_time
+		now := time.Now().UTC()
+		_, err := query.Device.Where(query.Device.ID.Eq(deviceId)).
+			UpdateColumns(map[string]interface{}{
+				"is_online":         status,
+				"last_offline_time": now,
+			})
+		if err != nil {
+			logrus.Error(err)
+		}
+		return err
+	} else {
+		// 设备上线时，只更新is_online字段
+		_, err := query.Device.Where(query.Device.ID.Eq(deviceId)).Update(query.Device.IsOnline, status)
+		if err != nil {
+			logrus.Error(err)
+		}
+		return err
 	}
-	return err
 }
 
 // 通过设备编号获取设备信息

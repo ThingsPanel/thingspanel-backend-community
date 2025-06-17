@@ -55,6 +55,7 @@ func newDevice(db *gorm.DB, opts ...gen.DOOption) device {
 	_device.AccessWay = field.NewString(tableName, "access_way")
 	_device.Description = field.NewString(tableName, "description")
 	_device.ServiceAccessID = field.NewString(tableName, "service_access_id")
+	_device.LastOfflineTime = field.NewTime(tableName, "last_offline_time")
 
 	_device.fillFieldMap()
 
@@ -102,6 +103,7 @@ type device struct {
 	AccessWay       field.String // 接入方式A-通过协议 B通过服务
 	Description     field.String // 描述
 	ServiceAccessID field.String
+	LastOfflineTime field.Time // 上次离线时间
 
 	fieldMap map[string]field.Expr
 }
@@ -146,6 +148,7 @@ func (d *device) updateTableName(table string) *device {
 	d.AccessWay = field.NewString(table, "access_way")
 	d.Description = field.NewString(table, "description")
 	d.ServiceAccessID = field.NewString(table, "service_access_id")
+	d.LastOfflineTime = field.NewTime(table, "last_offline_time")
 
 	d.fillFieldMap()
 
@@ -162,7 +165,7 @@ func (d *device) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (d *device) fillFieldMap() {
-	d.fieldMap = make(map[string]field.Expr, 28)
+	d.fieldMap = make(map[string]field.Expr, 29)
 	d.fieldMap["id"] = d.ID
 	d.fieldMap["name"] = d.Name
 	d.fieldMap["voucher"] = d.Voucher
@@ -191,6 +194,7 @@ func (d *device) fillFieldMap() {
 	d.fieldMap["access_way"] = d.AccessWay
 	d.fieldMap["description"] = d.Description
 	d.fieldMap["service_access_id"] = d.ServiceAccessID
+	d.fieldMap["last_offline_time"] = d.LastOfflineTime
 }
 
 func (d device) clone(db *gorm.DB) device {

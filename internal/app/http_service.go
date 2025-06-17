@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"project/pkg/global"
 	router "project/router"
 
 	"github.com/sirupsen/logrus"
@@ -123,7 +124,7 @@ func WithHTTPService() Option {
 	}
 }
 
-// 打印启动成功信息
+// 打印启动成功信息,版本号使用变量
 func successInfo() {
 	// 获取当前时间
 	startTime := time.Now().Format("2006-01-02 15:04:05")
@@ -133,7 +134,7 @@ func successInfo() {
 	fmt.Println("        TingsPanel 启动成功!")
 	fmt.Println("----------------------------------------")
 	fmt.Printf("启动时间: %s\n", startTime)
-	fmt.Println("版本: v1.1.8社区版")
+	fmt.Printf("版本: %s\n", global.SYSTEM_VERSION)
 	fmt.Println("----------------------------------------")
 	fmt.Println("欢迎使用 TingsPanel！")
 	fmt.Println("如需帮助，请访问: http://docs.thingspanel.cn")
