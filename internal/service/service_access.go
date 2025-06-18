@@ -145,7 +145,7 @@ func (*ServiceAccess) GetVoucherForm(req *model.GetServiceAccessVoucherFormReq) 
 	}
 	data, err := http_client.GetPluginFromConfigV2(httpAddress, servicePlugin.ServiceIdentifier, "", "SVCR")
 	if err != nil {
-		return nil, errcode.NewWithMessage(105001, err.Error())
+		return nil, err
 	}
 	return data, nil
 }

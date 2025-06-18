@@ -146,9 +146,7 @@ func (*ProtocolPlugin) GetPluginForm(protocolType string, deviceType string, for
 	data, err := http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)
 	if err != nil {
 		logrus.Error(err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, err
 	}
 
 	return data, err
