@@ -650,3 +650,26 @@ func (*TelemetryDataApi) ServeMsgCountByTenant(c *gin.Context) {
 
 	c.Set("data", map[string]interface{}{"msg": cnt})
 }
+
+// 请求参数
+// 设备ID: device_ids
+// 遥测key: keys
+// 时间类型: 时间单位 hour、day、week、month、year
+// 数据数量: limit
+// 聚合方式: 聚合方式: avg、sum、max、min、count、diff
+// 批量查询多个设备的遥测统计数据
+// @Router   /api/v1/telemetry/datas/statistic/batch [get]
+func (*TelemetryDataApi) ServeStatisticDataByDeviceId(c *gin.Context) {
+	var req model.GetTelemetryStatisticByDeviceIdReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	data, err := service.GroupApp.TelemetryData.GetTelemetryStatisticDataByDeviceIds(&req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", data)
+}

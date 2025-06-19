@@ -1207,3 +1207,108 @@ func (*TelemetryData) ServeMsgCountByTenantId(tenantId string) (int64, error) {
 	}
 	return cnt, err
 }
+
+// GetTelemetryStatisticDataByDeviceIds 根据设备ID和key查询遥测统计数据
+func (*TelemetryData) GetTelemetryStatisticDataByDeviceIds(req *model.GetTelemetryStatisticByDeviceIdReq) (interface{}, error) {
+	// 参数验证
+	if len(req.DeviceIds) != len(req.Keys) {
+		return nil, errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+			"error":            "设备ID数量与key数量必须一致",
+			"device_ids_count": len(req.DeviceIds),
+			"keys_count":       len(req.Keys),
+		})
+	}
+
+	if len(req.DeviceIds) == 0 {
+		return nil, errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+			"error": "设备ID和key不能为空",
+		})
+	}
+
+	// 调用DAL层查询数据
+	results, err := dal.GetTelemetryStatisticDataByDeviceIds(
+		req.DeviceIds,
+		req.Keys,
+		req.TimeType,
+		req.Limit,
+		req.AggregateMethod,
+	)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+
+	// 直接返回ChartValue数组
+	var chartData []model.ChartValue
+	for _, result := range results {
+		key, _ := result["key"].(string)
+
+		if req.AggregateMethod == "count" {
+			// 计数查询结果
+			if count, exists := result["count"]; exists {
+				if countVal, ok := count.(int64); ok {
+					chartData = append(chartData, model.ChartValue{
+						Key:   key,
+						Time:  time.Now().Format("2006-01-02 15:04:05"),
+						Value: float64(countVal),
+					})
+				}
+			}
+		} else if req.AggregateMethod == "diff" {
+			// 差值查询结果 - 时间窗口分组数据
+			if data, exists := result["data"]; exists {
+				if dataSlice, ok := data.([]map[string]interface{}); ok {
+					for _, item := range dataSlice {
+						var timeStr string
+						var value float64
+
+						// 处理时间
+						if time_val, ok := item["time"].(string); ok {
+							timeStr = time_val
+						}
+
+						// 处理数值
+						if val, ok := item["value"].(float64); ok {
+							value = val
+						}
+
+						chartData = append(chartData, model.ChartValue{
+							Key:   key,
+							Time:  timeStr,
+							Value: value,
+						})
+					}
+				}
+			}
+		} else if data, exists := result["data"]; exists {
+			// 时间序列数据
+			if dataSlice, ok := data.([]map[string]interface{}); ok {
+				for _, item := range dataSlice {
+					var timeStr string
+					var value float64
+
+					// 处理时间戳
+					if timestamp, ok := item["timestamp"].(int64); ok {
+						timeStr = time.Unix(0, timestamp*int64(time.Millisecond)).Format("2006-01-02 15:04:05")
+					}
+
+					// 处理数值
+					if val, ok := item["value"].(float64); ok {
+						value = val
+					} else if val, ok := item["value"].(int64); ok {
+						value = float64(val)
+					}
+
+					chartData = append(chartData, model.ChartValue{
+						Key:   key,
+						Time:  timeStr,
+						Value: value,
+					})
+				}
+			}
+		}
+	}
+
+	return chartData, nil
+}

@@ -35,6 +35,9 @@ func (*TelemetryData) InitTelemetryData(Router *gin.RouterGroup) {
 		// 统计数据
 		telemetrydataapi.GET("statistic", api.Controllers.TelemetryDataApi.ServeStatisticData)
 
+		// 批量查询多个设备的遥测统计数据
+		telemetrydataapi.GET("statistic/batch", api.Controllers.TelemetryDataApi.ServeStatisticDataByDeviceId)
+
 		// 遥测数据下发记录
 		telemetrydataapi.GET("set/logs", api.Controllers.TelemetryDataApi.ServeSetLogsDataListByPage)
 

@@ -9,6 +9,7 @@ import (
 
 	"project/internal/dal"
 	model "project/internal/model"
+	"project/pkg/errcode"
 	global "project/pkg/global"
 
 	"github.com/redis/go-redis/v9"
@@ -153,7 +154,9 @@ func GetScriptByDeviceAndScriptType(device *model.Device, script_type string) (*
 		logrus.Debug("Get redis_cache key:"+key+" failed with err:", err.Error())
 		script, err = dal.GetDataScriptByDeviceConfigIdAndScriptType(device.DeviceConfigID, script_type)
 		if err != nil {
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 		if script == nil {
 			return nil, nil
@@ -161,7 +164,9 @@ func GetScriptByDeviceAndScriptType(device *model.Device, script_type string) (*
 		err = SetRedisForJsondata(key, script, 0)
 		if err != nil {
 			logrus.Debug("Set redis_cache key:"+key+" failed with err:", err.Error())
-			return nil, err
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 		logrus.Debug("Set redis_cache key:"+key+" successed with ", script)
 	}

@@ -53,3 +53,19 @@ type GetTelemetryStatisticReq struct {
 	AggregateFunction string `json:"aggregate_function" form:"aggregate_function" validate:"omitempty,max=255"` // 聚合方法
 	IsExport          bool   `json:"is_export" form:"is_export" validate:"omitempty"`                           // 是否导出
 }
+
+// GetTelemetryStatisticByDeviceIdReq 根据设备ID和key查询遥测统计数据请求
+type GetTelemetryStatisticByDeviceIdReq struct {
+	DeviceIds       []string `json:"device_ids" form:"device_ids" validate:"required,min=1"`                                        // 设备ID数组
+	Keys            []string `json:"keys" form:"keys" validate:"required,min=1"`                                                    // 遥测key数组
+	TimeType        string   `json:"time_type" form:"time_type" validate:"required,oneof=hour day week month year"`                 // 时间类型
+	Limit           *int     `json:"limit" form:"limit" validate:"omitempty,min=1,max=1000"`                                        // 数据数量限制
+	AggregateMethod string   `json:"aggregate_method" form:"aggregate_method" validate:"required,oneof=avg sum max min count diff"` // 聚合方式
+}
+
+// ChartValue 图表数据值结构
+type ChartValue struct {
+	Key   string  `json:"key"`   // key
+	Time  string  `json:"time"`  // 时间点
+	Value float64 `json:"value"` // 数值
+}

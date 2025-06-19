@@ -3,6 +3,7 @@ package dal
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strconv"
 	"time"
@@ -386,4 +387,313 @@ var StatisticAggregateWindowMillisecond = map[string]int64{
 func DeleteTelemetrDataByDeviceId(deviceId string, tx *query.QueryTx) error {
 	_, err := tx.TelemetryData.Where(query.TelemetryData.DeviceID.Eq(deviceId)).Delete()
 	return err
+}
+
+// GetTelemetryStatisticDataByDeviceIds 根据多个设备ID和key查询遥测统计数据
+func GetTelemetryStatisticDataByDeviceIds(deviceIds []string, keys []string, timeType string, limit *int, aggregateMethod string) ([]map[string]interface{}, error) {
+	// 验证设备ID和key数量一致
+	if len(deviceIds) != len(keys) {
+		return nil, fmt.Errorf("设备ID数量与key数量不匹配")
+	}
+
+	var results []map[string]interface{}
+
+	// 计算时间范围
+	endTime := time.Now().UnixNano() / 1e6
+	var startTime int64
+
+	switch timeType {
+	case "hour":
+		startTime = endTime - int64(time.Hour.Milliseconds())
+	case "day":
+		startTime = endTime - int64(24*time.Hour.Milliseconds())
+	case "week":
+		startTime = endTime - int64(7*24*time.Hour.Milliseconds())
+	case "month":
+		startTime = endTime - int64(30*24*time.Hour.Milliseconds())
+	case "year":
+		startTime = endTime - int64(365*24*time.Hour.Milliseconds())
+	default:
+		return nil, fmt.Errorf("不支持的时间类型: %s", timeType)
+	}
+
+	// 遍历设备ID和key的配对
+	for i, deviceId := range deviceIds {
+		key := keys[i]
+
+		// 根据聚合方式选择查询
+		if aggregateMethod == "count" {
+			// 计数查询
+			count, err := getDataCount(deviceId, key, startTime, endTime)
+			if err != nil {
+				logrus.Error("查询数据计数失败:", err)
+				continue
+			}
+			results = append(results, map[string]interface{}{
+				"device_id": deviceId,
+				"key":       key,
+				"count":     count,
+			})
+		} else if aggregateMethod == "diff" {
+			// 差值查询 - 最新值减去最旧值
+			diffData, err := getDiffData(deviceId, key, startTime, endTime, timeType)
+			if err != nil {
+				logrus.Error("查询差值数据失败:", err)
+				continue
+			}
+			results = append(results, map[string]interface{}{
+				"device_id": deviceId,
+				"key":       key,
+				"data":      diffData,
+			})
+		} else {
+			// 聚合查询 (avg, sum, max, min) - 返回时间序列数据
+			aggregatedData, err := getAggregatedDataWithTime(deviceId, key, startTime, endTime, aggregateMethod, limit)
+			if err != nil {
+				logrus.Error("查询聚合数据失败:", err)
+				continue
+			}
+			results = append(results, map[string]interface{}{
+				"device_id": deviceId,
+				"key":       key,
+				"data":      aggregatedData,
+			})
+		}
+	}
+
+	return results, nil
+}
+
+// getDataCount 获取数据计数
+func getDataCount(deviceId, key string, startTime, endTime int64) (int64, error) {
+	q := query.TelemetryData
+	queryBuilder := q.WithContext(context.Background())
+	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(deviceId))
+	queryBuilder = queryBuilder.Where(q.Key.Eq(key))
+	queryBuilder = queryBuilder.Where(q.T.Between(startTime, endTime))
+
+	count, err := queryBuilder.Count()
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// getDataRange 获取数据范围
+func getDataRange(deviceId, key string, startTime, endTime int64, limit *int) ([]map[string]interface{}, error) {
+	q := query.TelemetryData
+	queryBuilder := q.WithContext(context.Background())
+	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(deviceId))
+	queryBuilder = queryBuilder.Where(q.Key.Eq(key))
+	queryBuilder = queryBuilder.Where(q.T.Between(startTime, endTime))
+	queryBuilder = queryBuilder.Order(q.T.Desc())
+
+	if limit != nil {
+		queryBuilder = queryBuilder.Limit(*limit)
+	}
+
+	var data []map[string]interface{}
+	err := queryBuilder.Select(q.T.As("timestamp"), q.NumberV.As("value")).Scan(&data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+// getAggregatedData 获取聚合数据
+func getAggregatedData(deviceId, key string, startTime, endTime int64, aggregateMethod string, limit *int) (interface{}, error) {
+	q := query.TelemetryData
+	queryBuilder := q.WithContext(context.Background())
+	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(deviceId))
+	queryBuilder = queryBuilder.Where(q.Key.Eq(key))
+	queryBuilder = queryBuilder.Where(q.T.Between(startTime, endTime))
+
+	var result []map[string]interface{}
+	var err error
+
+	switch aggregateMethod {
+	case "avg":
+		err = queryBuilder.Select(q.NumberV.Avg().As("value")).Scan(&result)
+	case "sum":
+		err = queryBuilder.Select(q.NumberV.Sum().As("value")).Scan(&result)
+	case "max":
+		err = queryBuilder.Select(q.NumberV.Max().As("value")).Scan(&result)
+	case "min":
+		err = queryBuilder.Select(q.NumberV.Min().As("value")).Scan(&result)
+	default:
+		return nil, fmt.Errorf("不支持的聚合方式: %s", aggregateMethod)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// 返回聚合结果的第一条记录的value值
+	if len(result) > 0 && result[0]["value"] != nil {
+		return result[0]["value"], nil
+	}
+
+	return 0, nil
+}
+
+// getAggregatedDataWithTime 获取聚合数据
+func getAggregatedDataWithTime(deviceId, key string, startTime, endTime int64, aggregateMethod string, limit *int) ([]map[string]interface{}, error) {
+	q := query.TelemetryData
+	queryBuilder := q.WithContext(context.Background())
+	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(deviceId))
+	queryBuilder = queryBuilder.Where(q.Key.Eq(key))
+	queryBuilder = queryBuilder.Where(q.T.Between(startTime, endTime))
+
+	var result []map[string]interface{}
+	var err error
+
+	switch aggregateMethod {
+	case "avg":
+		err = queryBuilder.Select(q.NumberV.Avg().As("value")).Scan(&result)
+	case "sum":
+		err = queryBuilder.Select(q.NumberV.Sum().As("value")).Scan(&result)
+	case "max":
+		err = queryBuilder.Select(q.NumberV.Max().As("value")).Scan(&result)
+	case "min":
+		err = queryBuilder.Select(q.NumberV.Min().As("value")).Scan(&result)
+	default:
+		return nil, fmt.Errorf("不支持的聚合方式: %s", aggregateMethod)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// getDiffData 获取差值数据 - 按时间窗口分组计算每个窗口内最新值减去最旧值
+func getDiffData(deviceId, key string, startTime, endTime int64, timeType string) ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
+
+	// 根据时间类型确定分组间隔
+	var groupInterval int64
+	var dateFormat string
+
+	switch timeType {
+	case "hour":
+		groupInterval = int64(time.Hour.Milliseconds())
+		dateFormat = "2006-01-02 15:00:00"
+	case "day":
+		groupInterval = int64(24 * time.Hour.Milliseconds())
+		dateFormat = "2006-01-02"
+	case "week":
+		groupInterval = int64(7 * 24 * time.Hour.Milliseconds())
+		dateFormat = "2006-01-02" // 显示周的开始日期
+	case "month":
+		groupInterval = int64(30 * 24 * time.Hour.Milliseconds())
+		dateFormat = "2006-01"
+	case "year":
+		groupInterval = int64(365 * 24 * time.Hour.Milliseconds())
+		dateFormat = "2006"
+	default:
+		return nil, fmt.Errorf("不支持的时间类型: %s", timeType)
+	}
+
+	// 按时间窗口遍历
+	currentTime := startTime
+	for currentTime < endTime {
+		windowEndTime := currentTime + groupInterval
+		if windowEndTime > endTime {
+			windowEndTime = endTime
+		}
+
+		// 查询当前时间窗口内的最新和最旧值
+		diffValue, err := getDiffValueInTimeWindow(deviceId, key, currentTime, windowEndTime)
+		if err != nil {
+			logrus.Error("查询时间窗口差值失败:", err)
+			currentTime = windowEndTime
+			continue
+		}
+
+		// 如果有数据，添加到结果中
+		if diffValue != nil {
+			// 格式化时间
+			timeStr := time.Unix(0, currentTime*int64(time.Millisecond)).Format(dateFormat)
+
+			results = append(results, map[string]interface{}{
+				"timestamp": currentTime,
+				"time":      timeStr,
+				"value":     *diffValue,
+			})
+		}
+
+		currentTime = windowEndTime
+	}
+
+	return results, nil
+}
+
+// getDiffValueInTimeWindow 获取指定时间窗口内的差值
+func getDiffValueInTimeWindow(deviceId, key string, startTime, endTime int64) (*float64, error) {
+	q := query.TelemetryData
+	queryBuilder := q.WithContext(context.Background())
+	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(deviceId))
+	queryBuilder = queryBuilder.Where(q.Key.Eq(key))
+	queryBuilder = queryBuilder.Where(q.T.Between(startTime, endTime))
+
+	// 查询最新的值 - 同时获取number_v和string_v字段
+	var latestData []map[string]interface{}
+	err := queryBuilder.Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(q.T.Desc()).Limit(1).Scan(&latestData)
+	if err != nil {
+		return nil, err
+	}
+
+	// 查询最旧的值 - 同时获取number_v和string_v字段
+	var oldestData []map[string]interface{}
+	err = queryBuilder.Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(q.T.Asc()).Limit(1).Scan(&oldestData)
+	if err != nil {
+		return nil, err
+	}
+
+	// 如果没有数据
+	if len(latestData) == 0 || len(oldestData) == 0 {
+		return nil, nil
+	}
+
+	// 获取最新值
+	latestValue, err := extractNumericValue(latestData[0])
+	if err != nil {
+		logrus.Error("提取最新数值失败:", err)
+		return nil, nil
+	}
+
+	// 获取最旧值
+	oldestValue, err := extractNumericValue(oldestData[0])
+	if err != nil {
+		logrus.Error("提取最旧数值失败:", err)
+		return nil, nil
+	}
+
+	diff := latestValue - oldestValue
+	return &diff, nil
+}
+
+// extractNumericValue 从数据记录中提取数值
+func extractNumericValue(data map[string]interface{}) (float64, error) {
+	// 优先使用number_v字段
+	if numberV, exists := data["number_v"]; exists && numberV != nil {
+		if val, ok := numberV.(float64); ok {
+			return val, nil
+		}
+	}
+
+	// 如果number_v不存在或为空，尝试从string_v转换
+	if stringV, exists := data["string_v"]; exists && stringV != nil {
+		if strVal, ok := stringV.(string); ok && strVal != "" {
+			// 尝试转换字符串为数字
+			if floatVal, err := strconv.ParseFloat(strVal, 64); err == nil {
+				return floatVal, nil
+			} else {
+				return 0, fmt.Errorf("无法将字符串 '%s' 转换为数字: %v", strVal, err)
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("未找到有效的数值数据")
 }
