@@ -793,16 +793,16 @@ func getDiffValueInTimeWindow(deviceId, key string, startTime, endTime int64) (*
 	queryBuilder = queryBuilder.Where(q.Key.Eq(key))
 	queryBuilder = queryBuilder.Where(q.T.Between(startTime, endTime))
 
-	// 查询最新的值 - 只获取number_v字段
+	// 查询最新的值 - 获取number_v和string_v字段
 	var latestData []map[string]interface{}
-	err := queryBuilder.Select(q.NumberV.As("number_v")).Order(q.T.Desc()).Limit(1).Scan(&latestData)
+	err := queryBuilder.Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(q.T.Desc()).Limit(1).Scan(&latestData)
 	if err != nil {
 		return nil, err
 	}
 
-	// 查询最旧的值 - 只获取number_v字段
+	// 查询最旧的值 - 获取number_v和string_v字段
 	var oldestData []map[string]interface{}
-	err = queryBuilder.Select(q.NumberV.As("number_v")).Order(q.T.Asc()).Limit(1).Scan(&oldestData)
+	err = queryBuilder.Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(q.T.Asc()).Limit(1).Scan(&oldestData)
 	if err != nil {
 		return nil, err
 	}
