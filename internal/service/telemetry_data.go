@@ -1248,9 +1248,27 @@ func (*TelemetryData) GetTelemetryStatisticDataByDeviceIds(req *model.GetTelemet
 			// 计数查询结果
 			if count, exists := result["count"]; exists {
 				if countVal, ok := count.(int64); ok {
+					// 根据time_type生成相应的时间格式
+					now := time.Now()
+					var timeStr string
+					switch req.TimeType {
+					case "hour":
+						timeStr = now.Format("2006-01-02 15:00:00") // 整点小时
+					case "day":
+						timeStr = now.Format("2006-01-02") // 只显示日期
+					case "week":
+						timeStr = now.Format("2006-01-02") // 周的开始日期
+					case "month":
+						timeStr = now.Format("2006-01") // 年-月
+					case "year":
+						timeStr = now.Format("2006") // 只显示年
+					default:
+						timeStr = now.Format("2006-01-02 15:04:05") // 默认格式
+					}
+
 					chartData = append(chartData, model.ChartValue{
 						Key:   key,
-						Time:  time.Now().Format("2006-01-02 15:04:05"),
+						Time:  timeStr,
 						Value: float64(countVal),
 					})
 				}
@@ -1288,9 +1306,33 @@ func (*TelemetryData) GetTelemetryStatisticDataByDeviceIds(req *model.GetTelemet
 					var timeStr string
 					var value float64
 
-					// 处理时间戳
+					// 处理时间戳 - 根据time_type使用不同的格式
 					if timestamp, ok := item["timestamp"].(int64); ok {
-						timeStr = time.Unix(0, timestamp*int64(time.Millisecond)).Format("2006-01-02 15:04:05")
+						t := time.Unix(0, timestamp*int64(time.Millisecond))
+						switch req.TimeType {
+						case "hour":
+							// 小时级：保持整点小时，带时区
+							hourTime := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+							timeStr = hourTime.Format("2006-01-02T15:04:05.000-07:00")
+						case "day":
+							// 天级：保持整天，带时区
+							dayTime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+							timeStr = dayTime.Format("2006-01-02T15:04:05.000-07:00")
+						case "week":
+							// 周级：保持周的开始日期，带时区
+							weekTime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+							timeStr = weekTime.Format("2006-01-02T15:04:05.000-07:00")
+						case "month":
+							// 月级：保持月的第一天，带时区
+							monthTime := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+							timeStr = monthTime.Format("2006-01-02T15:04:05.000-07:00")
+						case "year":
+							// 年级：保持年的第一天，带时区
+							yearTime := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
+							timeStr = yearTime.Format("2006-01-02T15:04:05.000-07:00")
+						default:
+							timeStr = t.Format("2006-01-02T15:04:05.000-07:00") // 默认格式，带时区
+						}
 					}
 
 					// 处理数值

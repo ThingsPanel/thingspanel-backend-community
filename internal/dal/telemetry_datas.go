@@ -402,17 +402,23 @@ func GetTelemetryStatisticDataByDeviceIds(deviceIds []string, keys []string, tim
 	endTime := time.Now().UnixNano() / 1e6
 	var startTime int64
 
+	// 默认limit为1
+	actualLimit := 1
+	if limit != nil && *limit > 0 {
+		actualLimit = *limit
+	}
+
 	switch timeType {
 	case "hour":
-		startTime = endTime - int64(time.Hour.Milliseconds())
+		startTime = endTime - int64(actualLimit*int(time.Hour.Milliseconds()))
 	case "day":
-		startTime = endTime - int64(24*time.Hour.Milliseconds())
+		startTime = endTime - int64(actualLimit*int(24*time.Hour.Milliseconds()))
 	case "week":
-		startTime = endTime - int64(7*24*time.Hour.Milliseconds())
+		startTime = endTime - int64(actualLimit*int(7*24*time.Hour.Milliseconds()))
 	case "month":
-		startTime = endTime - int64(30*24*time.Hour.Milliseconds())
+		startTime = endTime - int64(actualLimit*int(30*24*time.Hour.Milliseconds()))
 	case "year":
-		startTime = endTime - int64(365*24*time.Hour.Milliseconds())
+		startTime = endTime - int64(actualLimit*int(365*24*time.Hour.Milliseconds()))
 	default:
 		return nil, fmt.Errorf("不支持的时间类型: %s", timeType)
 	}
@@ -448,7 +454,7 @@ func GetTelemetryStatisticDataByDeviceIds(deviceIds []string, keys []string, tim
 			})
 		} else {
 			// 聚合查询 (avg, sum, max, min) - 返回时间序列数据
-			aggregatedData, err := getAggregatedDataWithTime(deviceId, key, startTime, endTime, aggregateMethod, limit)
+			aggregatedData, err := getAggregatedDataWithTime(deviceId, key, startTime, endTime, aggregateMethod, limit, timeType)
 			if err != nil {
 				logrus.Error("查询聚合数据失败:", err)
 				continue
@@ -536,35 +542,165 @@ func getAggregatedData(deviceId, key string, startTime, endTime int64, aggregate
 	return 0, nil
 }
 
-// getAggregatedDataWithTime 获取聚合数据
-func getAggregatedDataWithTime(deviceId, key string, startTime, endTime int64, aggregateMethod string, limit *int) ([]map[string]interface{}, error) {
-	q := query.TelemetryData
-	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(deviceId))
-	queryBuilder = queryBuilder.Where(q.Key.Eq(key))
-	queryBuilder = queryBuilder.Where(q.T.Between(startTime, endTime))
+// getAggregatedDataWithTime 获取按时间窗口分组的聚合数据
+func getAggregatedDataWithTime(deviceId, key string, startTime, endTime int64, aggregateMethod string, limit *int, timeType string) ([]map[string]interface{}, error) {
+	// 计算实际的limit值
+	actualLimit := 1
+	if limit != nil && *limit > 0 {
+		actualLimit = *limit
+	}
 
-	var result []map[string]interface{}
-	var err error
+	var results []map[string]interface{}
 
-	switch aggregateMethod {
-	case "avg":
-		err = queryBuilder.Select(q.NumberV.Avg().As("value")).Scan(&result)
-	case "sum":
-		err = queryBuilder.Select(q.NumberV.Sum().As("value")).Scan(&result)
-	case "max":
-		err = queryBuilder.Select(q.NumberV.Max().As("value")).Scan(&result)
-	case "min":
-		err = queryBuilder.Select(q.NumberV.Min().As("value")).Scan(&result)
+	// 从endTime开始向后回溯，生成时间窗口
+	var timeWindows []struct {
+		start int64
+		end   int64
+	}
+
+	endTimeUnix := time.Unix(0, endTime*int64(time.Millisecond))
+
+	switch timeType {
+	case "hour":
+		// 小时级别 - 对齐到整点小时
+		nextHour := time.Date(endTimeUnix.Year(), endTimeUnix.Month(), endTimeUnix.Day(), endTimeUnix.Hour()+1, 0, 0, 0, endTimeUnix.Location())
+
+		for i := 0; i < actualLimit; i++ {
+			windowEnd := nextHour.Add(time.Duration(-i) * time.Hour)
+			windowStart := windowEnd.Add(-time.Hour)
+
+			timeWindows = append(timeWindows, struct {
+				start int64
+				end   int64
+			}{
+				start: windowStart.UnixNano() / 1e6,
+				end:   windowEnd.UnixNano() / 1e6,
+			})
+		}
+	case "day":
+		// 天级别 - 对齐到天边界
+		nextDay := time.Date(endTimeUnix.Year(), endTimeUnix.Month(), endTimeUnix.Day()+1, 0, 0, 0, 0, endTimeUnix.Location())
+
+		for i := 0; i < actualLimit; i++ {
+			windowEnd := nextDay.Add(time.Duration(-i) * 24 * time.Hour)
+			windowStart := windowEnd.Add(-24 * time.Hour)
+
+			timeWindows = append(timeWindows, struct {
+				start int64
+				end   int64
+			}{
+				start: windowStart.UnixNano() / 1e6,
+				end:   windowEnd.UnixNano() / 1e6,
+			})
+		}
+	case "week":
+		// 周级别 - 对齐到周边界（周日为一周开始）
+		nextWeek := endTimeUnix.AddDate(0, 0, 7-int(endTimeUnix.Weekday()))
+		nextWeek = time.Date(nextWeek.Year(), nextWeek.Month(), nextWeek.Day(), 0, 0, 0, 0, nextWeek.Location())
+
+		for i := 0; i < actualLimit; i++ {
+			windowEnd := nextWeek.Add(time.Duration(-i) * 7 * 24 * time.Hour)
+			windowStart := windowEnd.Add(-7 * 24 * time.Hour)
+
+			timeWindows = append(timeWindows, struct {
+				start int64
+				end   int64
+			}{
+				start: windowStart.UnixNano() / 1e6,
+				end:   windowEnd.UnixNano() / 1e6,
+			})
+		}
+	case "month":
+		// 月级别 - 对齐到月边界
+		year, month, _ := endTimeUnix.Date()
+		nextMonth := time.Date(year, month+1, 1, 0, 0, 0, 0, endTimeUnix.Location())
+
+		for i := 0; i < actualLimit; i++ {
+			windowEnd := nextMonth.AddDate(0, -i, 0)
+			windowStart := windowEnd.AddDate(0, -1, 0)
+
+			timeWindows = append(timeWindows, struct {
+				start int64
+				end   int64
+			}{
+				start: windowStart.UnixNano() / 1e6,
+				end:   windowEnd.UnixNano() / 1e6,
+			})
+		}
+	case "year":
+		// 年级别 - 对齐到年边界
+		nextYear := time.Date(endTimeUnix.Year()+1, 1, 1, 0, 0, 0, 0, endTimeUnix.Location())
+
+		for i := 0; i < actualLimit; i++ {
+			windowEnd := nextYear.AddDate(-i, 0, 0)
+			windowStart := windowEnd.AddDate(-1, 0, 0)
+
+			timeWindows = append(timeWindows, struct {
+				start int64
+				end   int64
+			}{
+				start: windowStart.UnixNano() / 1e6,
+				end:   windowEnd.UnixNano() / 1e6,
+			})
+		}
 	default:
-		return nil, fmt.Errorf("不支持的聚合方式: %s", aggregateMethod)
+		// 其他情况 - 简单平均分割
+		totalDuration := endTime - startTime
+		windowSizeMs := totalDuration / int64(actualLimit)
+
+		for i := 0; i < actualLimit; i++ {
+			windowStart := startTime + int64(i)*windowSizeMs
+			windowEnd := windowStart + windowSizeMs
+
+			timeWindows = append(timeWindows, struct {
+				start int64
+				end   int64
+			}{
+				start: windowStart,
+				end:   windowEnd,
+			})
+		}
 	}
 
-	if err != nil {
-		return nil, err
+	// 为每个时间窗口执行查询
+	for _, window := range timeWindows {
+		// 构建聚合函数
+		var aggregateFunc string
+		switch aggregateMethod {
+		case "avg":
+			aggregateFunc = "AVG(number_v)"
+		case "sum":
+			aggregateFunc = "SUM(number_v)"
+		case "max":
+			aggregateFunc = "MAX(number_v)"
+		case "min":
+			aggregateFunc = "MIN(number_v)"
+		default:
+			return nil, fmt.Errorf("不支持的聚合方式: %s", aggregateMethod)
+		}
+
+		// 执行单个窗口的查询
+		sql := fmt.Sprintf(`
+			SELECT 
+				%s as value,
+				%d as timestamp
+			FROM telemetry_datas 
+			WHERE device_id = ? AND key = ? AND ts BETWEEN ? AND ?
+		`, aggregateFunc, window.start)
+
+		var result []map[string]interface{}
+		err := global.DB.Raw(sql, deviceId, key, window.start, window.end).Scan(&result)
+		if err.Error != nil {
+			return nil, err.Error
+		}
+
+		// 添加结果 - 只有真正有数据时才添加
+		if len(result) > 0 && result[0]["value"] != nil {
+			results = append(results, result[0])
+		}
 	}
 
-	return result, nil
+	return results, nil
 }
 
 // getDiffData 获取差值数据 - 按时间窗口分组计算每个窗口内最新值减去最旧值
@@ -573,24 +709,18 @@ func getDiffData(deviceId, key string, startTime, endTime int64, timeType string
 
 	// 根据时间类型确定分组间隔
 	var groupInterval int64
-	var dateFormat string
 
 	switch timeType {
 	case "hour":
 		groupInterval = int64(time.Hour.Milliseconds())
-		dateFormat = "2006-01-02 15:00:00"
 	case "day":
 		groupInterval = int64(24 * time.Hour.Milliseconds())
-		dateFormat = "2006-01-02"
 	case "week":
 		groupInterval = int64(7 * 24 * time.Hour.Milliseconds())
-		dateFormat = "2006-01-02" // 显示周的开始日期
 	case "month":
 		groupInterval = int64(30 * 24 * time.Hour.Milliseconds())
-		dateFormat = "2006-01"
 	case "year":
 		groupInterval = int64(365 * 24 * time.Hour.Milliseconds())
-		dateFormat = "2006"
 	default:
 		return nil, fmt.Errorf("不支持的时间类型: %s", timeType)
 	}
@@ -613,8 +743,34 @@ func getDiffData(deviceId, key string, startTime, endTime int64, timeType string
 
 		// 如果有数据，添加到结果中
 		if diffValue != nil {
-			// 格式化时间
-			timeStr := time.Unix(0, currentTime*int64(time.Millisecond)).Format(dateFormat)
+			// 格式化时间 - 统一使用ISO 8601格式带时区
+			t := time.Unix(0, currentTime*int64(time.Millisecond))
+			var timeStr string
+
+			switch timeType {
+			case "hour":
+				// 小时级：保持整点小时，带时区
+				hourTime := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+				timeStr = hourTime.Format("2006-01-02T15:04:05.000-07:00")
+			case "day":
+				// 天级：保持整天，带时区
+				dayTime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+				timeStr = dayTime.Format("2006-01-02T15:04:05.000-07:00")
+			case "week":
+				// 周级：保持周的开始日期，带时区
+				weekTime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+				timeStr = weekTime.Format("2006-01-02T15:04:05.000-07:00")
+			case "month":
+				// 月级：保持月的第一天，带时区
+				monthTime := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+				timeStr = monthTime.Format("2006-01-02T15:04:05.000-07:00")
+			case "year":
+				// 年级：保持年的第一天，带时区
+				yearTime := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
+				timeStr = yearTime.Format("2006-01-02T15:04:05.000-07:00")
+			default:
+				timeStr = t.Format("2006-01-02T15:04:05.000-07:00")
+			}
 
 			results = append(results, map[string]interface{}{
 				"timestamp": currentTime,
@@ -637,16 +793,16 @@ func getDiffValueInTimeWindow(deviceId, key string, startTime, endTime int64) (*
 	queryBuilder = queryBuilder.Where(q.Key.Eq(key))
 	queryBuilder = queryBuilder.Where(q.T.Between(startTime, endTime))
 
-	// 查询最新的值 - 同时获取number_v和string_v字段
+	// 查询最新的值 - 只获取number_v字段
 	var latestData []map[string]interface{}
-	err := queryBuilder.Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(q.T.Desc()).Limit(1).Scan(&latestData)
+	err := queryBuilder.Select(q.NumberV.As("number_v")).Order(q.T.Desc()).Limit(1).Scan(&latestData)
 	if err != nil {
 		return nil, err
 	}
 
-	// 查询最旧的值 - 同时获取number_v和string_v字段
+	// 查询最旧的值 - 只获取number_v字段
 	var oldestData []map[string]interface{}
-	err = queryBuilder.Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(q.T.Asc()).Limit(1).Scan(&oldestData)
+	err = queryBuilder.Select(q.NumberV.As("number_v")).Order(q.T.Asc()).Limit(1).Scan(&oldestData)
 	if err != nil {
 		return nil, err
 	}
