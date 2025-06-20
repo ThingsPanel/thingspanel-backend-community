@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"time"
 
@@ -707,80 +708,145 @@ func getAggregatedDataWithTime(deviceId, key string, startTime, endTime int64, a
 func getDiffData(deviceId, key string, startTime, endTime int64, timeType string) ([]map[string]interface{}, error) {
 	var results []map[string]interface{}
 
-	// 根据时间类型确定分组间隔
-	var groupInterval int64
+	// 从endTime开始向前对齐到时间边界，然后向前生成时间窗口
+	// 使用当地时区而不是UTC，以确保时间边界对齐正确
+	loc := time.Local
+	endTimeUnix := time.Unix(0, endTime*int64(time.Millisecond)).In(loc)
 
+	// 对齐到时间边界
+	var alignedEndTime time.Time
 	switch timeType {
 	case "hour":
-		groupInterval = int64(time.Hour.Milliseconds())
+		// 对齐到当前小时的结束时间（下一个整点）
+		alignedEndTime = time.Date(endTimeUnix.Year(), endTimeUnix.Month(), endTimeUnix.Day(), endTimeUnix.Hour()+1, 0, 0, 0, loc)
 	case "day":
-		groupInterval = int64(24 * time.Hour.Milliseconds())
+		// 对齐到当前天的结束时间（下一天的00:00:00）
+		alignedEndTime = time.Date(endTimeUnix.Year(), endTimeUnix.Month(), endTimeUnix.Day()+1, 0, 0, 0, 0, loc)
 	case "week":
-		groupInterval = int64(7 * 24 * time.Hour.Milliseconds())
+		// 对齐到下周的开始日期
+		alignedEndTime = time.Date(endTimeUnix.Year(), endTimeUnix.Month(), endTimeUnix.Day()+1, 0, 0, 0, 0, loc)
 	case "month":
-		groupInterval = int64(30 * 24 * time.Hour.Milliseconds())
+		// 对齐到下个月的第一天
+		alignedEndTime = time.Date(endTimeUnix.Year(), endTimeUnix.Month()+1, 1, 0, 0, 0, 0, loc)
 	case "year":
-		groupInterval = int64(365 * 24 * time.Hour.Milliseconds())
+		// 对齐到下一年的第一天
+		alignedEndTime = time.Date(endTimeUnix.Year()+1, 1, 1, 0, 0, 0, 0, loc)
+	default:
+		alignedEndTime = endTimeUnix
+	}
+
+	// 计算需要的窗口数量，从数据范围推算
+	startTimeUnix := time.Unix(0, startTime*int64(time.Millisecond)).In(loc)
+	duration := alignedEndTime.Sub(startTimeUnix)
+
+	var windowCount int
+	switch timeType {
+	case "hour":
+		windowCount = int(duration.Hours()) + 1
+	case "day":
+		windowCount = int(duration.Hours()/24) + 1
+	case "week":
+		windowCount = int(duration.Hours()/(7*24)) + 1
+	case "month":
+		windowCount = int(duration.Hours()/(30*24)) + 1
+	case "year":
+		windowCount = int(duration.Hours()/(365*24)) + 1
 	default:
 		return nil, fmt.Errorf("不支持的时间类型: %s", timeType)
 	}
 
-	// 按时间窗口遍历
-	currentTime := startTime
-	for currentTime < endTime {
-		windowEndTime := currentTime + groupInterval
-		if windowEndTime > endTime {
-			windowEndTime = endTime
+	// 限制窗口数量，避免过多的计算
+	if windowCount > 100 {
+		windowCount = 100
+	}
+
+	// 生成时间窗口（从最新开始向前推）
+	for i := 0; i < windowCount; i++ {
+		var windowStart, windowEnd time.Time
+
+		switch timeType {
+		case "hour":
+			windowEnd = alignedEndTime.Add(time.Duration(-i) * time.Hour)
+			windowStart = windowEnd.Add(-time.Hour)
+		case "day":
+			windowEnd = alignedEndTime.Add(time.Duration(-i) * 24 * time.Hour)
+			windowStart = windowEnd.Add(-24 * time.Hour)
+		case "week":
+			windowEnd = alignedEndTime.Add(time.Duration(-i) * 7 * 24 * time.Hour)
+			windowStart = windowEnd.Add(-7 * 24 * time.Hour)
+		case "month":
+			windowEnd = alignedEndTime.AddDate(0, -i, 0)
+			windowStart = windowEnd.AddDate(0, -1, 0)
+		case "year":
+			windowEnd = alignedEndTime.AddDate(-i, 0, 0)
+			windowStart = windowEnd.AddDate(-1, 0, 0)
 		}
 
-		// 查询当前时间窗口内的最新和最旧值
-		diffValue, err := getDiffValueInTimeWindow(deviceId, key, currentTime, windowEndTime)
+		windowStartMs := windowStart.UnixNano() / 1e6
+		windowEndMs := windowEnd.UnixNano() / 1e6
+
+		// 只处理与实际数据范围有交集的窗口
+		if windowEndMs <= startTime || windowStartMs >= endTime {
+			continue
+		}
+
+		// 调整窗口边界以确保在数据范围内
+		actualStart := windowStartMs
+		actualEnd := windowEndMs
+		if actualStart < startTime {
+			actualStart = startTime
+		}
+		if actualEnd > endTime {
+			actualEnd = endTime
+		}
+
+		// 查询当前时间窗口内的差值
+		diffValue, err := getDiffValueInTimeWindow(deviceId, key, actualStart, actualEnd)
 		if err != nil {
 			logrus.Error("查询时间窗口差值失败:", err)
-			currentTime = windowEndTime
 			continue
 		}
 
 		// 如果有数据，添加到结果中
 		if diffValue != nil {
-			// 格式化时间 - 统一使用ISO 8601格式带时区
-			t := time.Unix(0, currentTime*int64(time.Millisecond))
+			// 格式化时间 - 使用窗口开始时间作为该时间段的代表时间
+			// 使用+08:00时区格式以符合用户期望
 			var timeStr string
 
 			switch timeType {
 			case "hour":
-				// 小时级：保持整点小时，带时区
-				hourTime := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
-				timeStr = hourTime.Format("2006-01-02T15:04:05.000-07:00")
+				// 小时级：使用窗口开始时间的整点小时
+				timeStr = windowStart.Format("2006-01-02T15:04:05.000+08:00")
 			case "day":
-				// 天级：保持整天，带时区
-				dayTime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-				timeStr = dayTime.Format("2006-01-02T15:04:05.000-07:00")
+				// 天级：使用窗口开始时间的日期
+				timeStr = windowStart.Format("2006-01-02T15:04:05.000+08:00")
 			case "week":
-				// 周级：保持周的开始日期，带时区
-				weekTime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-				timeStr = weekTime.Format("2006-01-02T15:04:05.000-07:00")
+				// 周级：使用窗口开始时间
+				timeStr = windowStart.Format("2006-01-02T15:04:05.000+08:00")
 			case "month":
-				// 月级：保持月的第一天，带时区
-				monthTime := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
-				timeStr = monthTime.Format("2006-01-02T15:04:05.000-07:00")
+				// 月级：使用窗口开始时间
+				timeStr = windowStart.Format("2006-01-02T15:04:05.000+08:00")
 			case "year":
-				// 年级：保持年的第一天，带时区
-				yearTime := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
-				timeStr = yearTime.Format("2006-01-02T15:04:05.000-07:00")
+				// 年级：使用窗口开始时间
+				timeStr = windowStart.Format("2006-01-02T15:04:05.000+08:00")
 			default:
-				timeStr = t.Format("2006-01-02T15:04:05.000-07:00")
+				timeStr = windowStart.Format("2006-01-02T15:04:05.000+08:00")
 			}
 
 			results = append(results, map[string]interface{}{
-				"timestamp": currentTime,
+				"timestamp": windowStartMs,
 				"time":      timeStr,
 				"value":     *diffValue,
 			})
 		}
-
-		currentTime = windowEndTime
 	}
+
+	// 按时间顺序排序（最早的在前）
+	sort.Slice(results, func(i, j int) bool {
+		ti, _ := results[i]["timestamp"].(int64)
+		tj, _ := results[j]["timestamp"].(int64)
+		return ti < tj
+	})
 
 	return results, nil
 }
