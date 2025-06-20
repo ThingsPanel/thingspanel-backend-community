@@ -130,7 +130,8 @@ type DataPoint struct {
 type DeviceSelectorReq struct {
 	PageReq
 	// 是否有设备模板
-	HasDeviceConfig *bool `json:"has_device_config" form:"has_device_config" validate:"omitempty"`
+	HasDeviceConfig *bool   `json:"has_device_config" form:"has_device_config" validate:"omitempty"`
+	Search          *string `json:"search" form:"search" validate:"omitempty"`
 }
 
 // 设备选择器响应

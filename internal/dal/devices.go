@@ -705,6 +705,9 @@ func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) (*model.Dev
 			query = query.Where(device.DeviceConfigID.IsNull())
 		}
 	}
+	if req.Search != nil && *req.Search != "" {
+		query = query.Where(device.Name.Like(fmt.Sprintf("%%%s%%", *req.Search)))
+	}
 
 	query = query.Where(device.TenantID.Eq(tenantId))
 
