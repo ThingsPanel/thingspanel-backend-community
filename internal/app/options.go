@@ -86,3 +86,14 @@ func WithRedis() Option {
 		return nil
 	}
 }
+
+// WithConfigFile 从指定路径加载配置文件
+func WithConfigFile(configPath string) Option {
+	return func(app *Application) error {
+		config, err := LoadConfigFile(configPath)
+		if err != nil {
+			return err
+		}
+		return WithConfig(config)(app)
+	}
+}
