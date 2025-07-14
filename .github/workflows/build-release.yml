@@ -85,10 +85,13 @@ jobs:
           echo "No existing release found for tag $tag"
         fi
         
-        # 删除已存在的 Git 标签（本地和远程）
+        # 删除已存在的 Git 标签（通过 GitHub API）
         echo "Deleting existing git tag $tag if it exists"
-        git tag -d $tag 2>/dev/null || echo "Local tag $tag does not exist"
-        git push --delete origin $tag 2>/dev/null || echo "Remote tag $tag does not exist"
+        curl -X DELETE \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$tag" \
+          2>/dev/null || echo "Remote tag $tag does not exist"
         
     # 步骤5: 创建新的 Git 标签
     # 确保标签指向最新的提交，并且时间戳是最新的
@@ -97,13 +100,14 @@ jobs:
         tag=${{ github.event.inputs.tag || 'latest' }}
         echo "Creating new git tag: $tag"
         
-        # 创建新的 Git 标签，指向当前提交
-        git tag -a $tag -m "Release $tag created by GitHub Actions at $(date)"
+        # 通过 GitHub API 创建 Git 标签，避免需要配置 Git 身份
+        curl -X POST \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/git/refs" \
+          -d "{\"ref\":\"refs/tags/$tag\",\"sha\":\"${{ github.sha }}\"}"
         
-        # 推送标签到远程仓库
-        git push origin $tag
-        
-        echo "Git tag $tag created and pushed successfully"
+        echo "Git tag $tag created successfully"
         
     # 步骤6: 创建新的 GitHub Release
     - name: Create Release
