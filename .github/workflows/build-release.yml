@@ -66,26 +66,46 @@ jobs:
       id: determine-tag
       run: echo "RELEASE_TAG=$(if [ '${{ github.event_name }}' == 'push' ]; then echo 'latest'; else echo '${{ github.event.inputs.tag }}'; fi)" >> $GITHUB_ENV
     
-    # 步骤4: 删除已存在的同名发布版本
-    # 避免标签冲突，如果已存在相同标签的 Release 则先删除
-    - name: Delete existing release if it exists
+    # 步骤4: 删除已存在的同名发布版本和 Git 标签
+    # 避免标签冲突，如果已存在相同标签的 Release 和 Git 标签则先删除
+    - name: Delete existing release and git tag if they exist
       id: delete_release
       run: |
         tag=${{ github.event.inputs.tag || 'latest' }}
-        # 通过 GitHub API 查询是否存在相同标签的 Release
+        
+        # 删除已存在的 GitHub Release
         release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" | \
           jq -r '.id')
         if [ "$release_id" != "null" ]; then
           echo "Deleting existing release with ID $release_id"
-          # 删除已存在的 Release
           curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
         else
           echo "No existing release found for tag $tag"
         fi
         
-    # 步骤5: 创建新的 GitHub Release
+        # 删除已存在的 Git 标签（本地和远程）
+        echo "Deleting existing git tag $tag if it exists"
+        git tag -d $tag 2>/dev/null || echo "Local tag $tag does not exist"
+        git push --delete origin $tag 2>/dev/null || echo "Remote tag $tag does not exist"
+        
+    # 步骤5: 创建新的 Git 标签
+    # 确保标签指向最新的提交，并且时间戳是最新的
+    - name: Create new git tag
+      run: |
+        tag=${{ github.event.inputs.tag || 'latest' }}
+        echo "Creating new git tag: $tag"
+        
+        # 创建新的 Git 标签，指向当前提交
+        git tag -a $tag -m "Release $tag created by GitHub Actions at $(date)"
+        
+        # 推送标签到远程仓库
+        git push origin $tag
+        
+        echo "Git tag $tag created and pushed successfully"
+        
+    # 步骤6: 创建新的 GitHub Release
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -98,7 +118,7 @@ jobs:
           draft: false      # 不是草稿，直接发布
           prerelease: false # 不是预发布版本
     
-    # 步骤6: 多平台交叉编译和打包
+    # 步骤7: 多平台交叉编译和打包
     # 这是整个工作流的核心步骤，为多个目标平台构建二进制文件
     - name: Build and package for multiple platforms
       run: |
@@ -177,7 +197,7 @@ jobs:
         # 列出所有创建的压缩包文件
         ls -la *.tar.gz *.zip 2>/dev/null || echo "No archives created"
     
-    # 步骤7: 上传构建产物到 GitHub Release
+    # 步骤8: 上传构建产物到 GitHub Release
     # 将所有平台的压缩包上传为 Release 的附件
     - name: Upload Release Assets
       id: upload-release-assets
@@ -202,3 +222,19 @@ jobs:
               "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=$asset_name"
           fi
         done
+    
+    # 步骤9: 触发 Docker 镜像构建工作流
+    # 在完成 Release 创建后，自动触发 Docker 镜像构建
+    - name: Trigger Docker Image Build
+      run: |
+        tag=${{ github.event.inputs.tag || 'latest' }}
+        echo "Triggering docker-image-build.yml workflow for tag: $tag"
+        
+        # 通过 GitHub API 触发 docker-image-build.yml 工作流
+        curl -X POST \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/actions/workflows/docker-image-build.yml/dispatches" \
+          -d '{"ref":"main"}'
+        
+        echo "Docker image build workflow triggered successfully"
