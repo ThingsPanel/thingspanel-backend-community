@@ -1,145 +1,200 @@
+# ================================================================================================
+# ThingsPanel 后端社区版 - 自动构建与发布工作流
+# ================================================================================================
+# 
+# 【工作流功能说明】
+# 本工作流用于自动化构建和发布 ThingsPanel 后端社区版，主要功能包括：
+# 
+# 1. 🔧 多平台交叉编译：
+#    - Windows (amd64)
+#    - Linux (amd64, arm64, arm v7, 386)  
+#    - macOS (amd64, arm64)
+# 
+# 2. 📦 自动打包：
+#    - Windows 平台打包为 .zip 格式
+#    - 其他平台打包为 .tar.gz 格式
+#    - 包含必要的配置文件和资源文件
+# 
+# 3. 🚀 GitHub Release 管理：
+#    - 自动创建/更新 Release
+#    - 上传所有平台的构建产物
+#    - 支持手动指定版本标签
+# 
+# 【触发条件】
+# - 推送到 main 分支：自动创建 'latest' 标签的发布版本
+# - 手动触发：可以指定自定义标签名称
+# 
+# 【构建产物】
+# 每个平台会生成一个包含以下内容的压缩包：
+# - thingspanel-backend-community 可执行文件
+# - configs/ 配置文件目录
+# - sql/ 数据库脚本目录  
+# - files/ 资源文件目录
+# ================================================================================================
+
 name: Build and Release
+
+# 工作流触发条件
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [ "main" ]  # 当推送到 main 分支时触发
+  workflow_dispatch:      # 支持手动触发
     inputs:
       tag:
-        description: 'Tag name'
+        description: 'Tag name'    # 手动触发时可以指定标签名
         required: false
         default: 'latest'
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # 使用 Ubuntu 最新版本作为构建环境
     steps:
+    
+    # 步骤1: 检出代码仓库
     - name: Checkout repository
       uses: actions/checkout@v3
     
+    # 步骤2: 设置 Go 开发环境
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.23'
+        go-version: '1.23'  # 使用 Go 1.23 版本
     
+    # 步骤3: 确定发布标签
+    # 如果是推送触发则使用 'latest'，手动触发则使用用户输入的标签
     - name: Determine Release Tag
       id: determine-tag
       run: echo "RELEASE_TAG=$(if [ '${{ github.event_name }}' == 'push' ]; then echo 'latest'; else echo '${{ github.event.inputs.tag }}'; fi)" >> $GITHUB_ENV
     
+    # 步骤4: 删除已存在的同名发布版本
+    # 避免标签冲突，如果已存在相同标签的 Release 则先删除
     - name: Delete existing release if it exists
       id: delete_release
       run: |
         tag=${{ github.event.inputs.tag || 'latest' }}
+        # 通过 GitHub API 查询是否存在相同标签的 Release
         release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" | \
           jq -r '.id')
         if [ "$release_id" != "null" ]; then
           echo "Deleting existing release with ID $release_id"
+          # 删除已存在的 Release
           curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
         else
           echo "No existing release found for tag $tag"
         fi
         
+    # 步骤5: 创建新的 GitHub Release
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-          tag_name: ${{ github.event.inputs.tag || 'latest' }}
-          release_name: Release ${{ github.event.inputs.tag || 'latest' }}
-          body: Release created by GitHub Actions. Tag ${{ github.event.inputs.tag || 'latest' }}
-          draft: false
-          prerelease: false
+          tag_name: ${{ github.event.inputs.tag || 'latest' }}           # 使用指定的标签名
+          release_name: Release ${{ github.event.inputs.tag || 'latest' }} # Release 标题
+          body: Release created by GitHub Actions. Tag ${{ github.event.inputs.tag || 'latest' }}  # Release 描述
+          draft: false      # 不是草稿，直接发布
+          prerelease: false # 不是预发布版本
     
+    # 步骤6: 多平台交叉编译和打包
+    # 这是整个工作流的核心步骤，为多个目标平台构建二进制文件
     - name: Build and package for multiple platforms
       run: |
-        # Define the platforms and their configurations
-        # Format: "GOOS/GOARCH/GOARM" (GOARM is optional)
+        # 定义要构建的目标平台列表
+        # 格式: "操作系统/架构/ARM版本" (ARM版本是可选的)
         platforms=(
-          "windows/amd64" 
-          "linux/amd64" 
-          "linux/arm64" 
-          "linux/arm/7"  # ARMv7 with GOARM=7
-          "linux/386" 
-          "darwin/amd64"
-          "darwin/arm64"
+          "windows/amd64"   # Windows 64位
+          "linux/amd64"     # Linux 64位
+          "linux/arm64"     # Linux ARM64 (Apple M系列芯片等)
+          "linux/arm/7"     # Linux ARMv7 (树莓派等嵌入式设备)
+          "linux/386"       # Linux 32位
+          "darwin/amd64"    # macOS Intel 芯片
+          "darwin/arm64"    # macOS Apple 芯片 (M1/M2等)
         )
         
+        # 遍历每个目标平台进行构建
         for platform in "${platforms[@]}"; do
-          # Split the platform string
+          # 解析平台字符串，分别提取操作系统、架构和ARM版本
           IFS="/" read -r os arch arm_version <<< "$platform"
           
-          # Set build environment variables
-          export GOOS=$os
-          export GOARCH=$arch
-          export CGO_ENABLED=0
+          # 设置 Go 交叉编译的环境变量
+          export GOOS=$os        # 目标操作系统
+          export GOARCH=$arch    # 目标架构
+          export CGO_ENABLED=0   # 禁用 CGO，确保静态链接
           
-          # Set GOARM if specified
+          # 如果是 ARM 平台，设置 GOARM 版本
           if [ ! -z "$arm_version" ]; then
             export GOARM=$arm_version
-            platform_suffix="$os-$arch-v$arm_version"
+            platform_suffix="$os-$arch-v$arm_version"  # 平台后缀包含ARM版本
           else
             unset GOARM
-            platform_suffix="$os-$arch"
+            platform_suffix="$os-$arch"                # 普通平台后缀
           fi
           
           echo "Building for $GOOS/$GOARCH${GOARM:+/v$GOARM}..."
           
-          # Create output directory
+          # 为当前平台创建输出目录
           mkdir -p "dist/$platform_suffix"
           
-          # Copy necessary files
+          # 复制必要的配置文件和资源文件到输出目录
           cp -r configs "dist/$platform_suffix/" 2>/dev/null || echo "No configs directory found"
           cp -r sql "dist/$platform_suffix/" 2>/dev/null || echo "No sql directory found"
           cp -r files "dist/$platform_suffix/" 2>/dev/null || echo "No files directory found"
           
-          # Adjust output file name for Windows
+          # 根据目标操作系统确定可执行文件名（Windows需要.exe后缀）
           if [ "$os" == "windows" ]; then
              output_file="dist/$platform_suffix/thingspanel-backend-community.exe"
           else
              output_file="dist/$platform_suffix/thingspanel-backend-community"
           fi
           
-          # Build for each platform
+          # 执行 Go 构建命令
           go build -o "$output_file"
           
-          # Check if build was successful
+          # 检查构建是否成功
           if [ $? -ne 0 ]; then
             echo "Failed to build for $GOOS/$GOARCH${GOARM:+/v$GOARM}, skipping..."
-            rm -rf "dist/$platform_suffix"
+            rm -rf "dist/$platform_suffix"  # 构建失败则删除目录
             continue
           fi
           
-          # Create archive name
+          # 根据平台类型创建不同格式的压缩包
           if [ "$os" == "windows" ]; then
             archive_name="thingspanel-backend-community-$platform_suffix.zip"
-            # Package into zip for Windows
+            # Windows 平台打包为 ZIP 格式
             (cd dist && zip -r "../$archive_name" "$platform_suffix")
           else
             archive_name="thingspanel-backend-community-$platform_suffix.tar.gz"
-            # Package into tar.gz for other platforms
+            # 其他平台打包为 tar.gz 格式
             tar -czf "$archive_name" -C dist "$platform_suffix"
           fi
           
           echo "Created archive: $archive_name"
         done
         
-        # List all created archives
+        # 列出所有创建的压缩包文件
         ls -la *.tar.gz *.zip 2>/dev/null || echo "No archives created"
     
+    # 步骤7: 上传构建产物到 GitHub Release
+    # 将所有平台的压缩包上传为 Release 的附件
     - name: Upload Release Assets
       id: upload-release-assets
       run: |
+        # 遍历所有生成的压缩包文件
         for asset in ./thingspanel-backend-community-*.tar.gz ./thingspanel-backend-community-*.zip; do
           if [ -f "$asset" ]; then
             asset_name=$(basename "$asset")
             echo "Uploading $asset_name..."
             
+            # 根据文件类型设置正确的 Content-Type
             content_type="application/gzip"
             if [[ "$asset" == *.zip ]]; then
               content_type="application/zip"
             fi
             
+            # 通过 GitHub API 上传文件到 Release
             curl -XPOST \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Content-Type: $content_type" \

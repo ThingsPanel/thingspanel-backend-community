@@ -296,7 +296,9 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 	}
 	for _, deviceId := range device_ids {
 		deviceInfo, _ := dal.GetDeviceByID(deviceId)
-		go GroupApp.AlarmMessagePushSend(alarmConfig.Name, id, deviceInfo)
+		if deviceInfo != nil {
+			go GroupApp.AlarmMessagePushSend(alarmConfig.Name, id, deviceInfo)
+		}
 	}
 	return true, alarmName, err.Error()
 }

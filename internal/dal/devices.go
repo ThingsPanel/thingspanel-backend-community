@@ -118,11 +118,12 @@ func GetParentDeviceBySubDeviceID(subDeviceID string) (info *model.Device, err e
 func GetDeviceByID(id string) (*model.Device, error) {
 	device, err := query.Device.Where(query.Device.ID.Eq(id)).First()
 	if err != nil {
-		logrus.Error(err)
-	} else if device == nil {
-		return nil, fmt.Errorf("device not found")
+		return nil, err
 	}
-	return device, err
+	if device == nil {
+		return nil, fmt.Errorf("device is nil for id: %s", id)
+	}
+	return device, nil
 }
 
 // 获取设备详情，关联设备配置
