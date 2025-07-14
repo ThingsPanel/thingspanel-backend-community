@@ -14,7 +14,7 @@ func GetNotificationServicesConfigByType(noticeType string) (*model.Notification
 	data, err := query.NotificationServicesConfig.Where(query.NotificationServicesConfig.NoticeType.Eq(noticeType)).Take()
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return data, nil
+			return nil, gorm.ErrRecordNotFound
 		}
 		return nil, err
 	}
