@@ -18,9 +18,9 @@ import (
 // param topic string
 // @return messageId string, gatewayDeive *model.Device, respon model.GatewayResponse, err error
 // 订阅topic gateway/attributes/{message_id}
-func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Device, model.GatewayResponse, error) {
+func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Device, model.MqttResponse, error) {
 	var messageId string
-	var response model.GatewayResponse
+	var response model.MqttResponse
 	topicList := strings.Split(topic, "/")
 	if len(topicList) >= 3 {
 		messageId = topicList[2]
@@ -43,10 +43,9 @@ func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Devi
 	}
 	if payloads.GatewayData != nil {
 		err = deviceAttributesHandle(deviceInfo, *payloads.GatewayData, topic)
-		response.GatewayData = getWagewayResponse(err)
+		response = *getWagewayResponse(err)
 	}
 	if payloads.SubDeviceData != nil {
-		subDeviceData := make(map[string]model.MqttResponse)
 		var subDeviceAddrs []string
 		for deviceAddr := range *payloads.SubDeviceData {
 			subDeviceAddrs = append(subDeviceAddrs, deviceAddr)
@@ -56,9 +55,8 @@ func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Devi
 			if subInfo, ok := subDeviceInfos[subDeviceAddr]; ok {
 				err = deviceAttributesHandle(subInfo, data, topic)
 			}
-			subDeviceData[subDeviceAddr] = *getWagewayResponse(err)
 		}
-		response.SubDeviceData = subDeviceData
+		response = *getWagewayResponse(err)
 	}
 	return messageId, deviceInfo, response, nil
 }
@@ -107,12 +105,12 @@ func GatewayDeviceSetAttributesResponse(payload []byte, topic string) {
 	if err != nil {
 		return
 	}
-	result := model.GatewayResponse{}
+	result := model.MqttResponse{}
 	if err := json.Unmarshal(attributePayload.Values, &result); err != nil {
 		return
 	}
 
-	if ch, ok := config.GatewayResponseFuncMap[messageId]; ok {
+	if ch, ok := config.MqttResponseFuncMap[messageId]; ok {
 		logrus.Debug("payload: ok:", result)
 		ch <- result
 	}

@@ -49,6 +49,7 @@ type Device struct {
 	AccessWay       *string    `gorm:"column:access_way;comment:接入方式A-通过协议 B通过服务" json:"access_way"`      // 接入方式A-通过协议 B通过服务
 	Description     *string    `gorm:"column:description;comment:描述" json:"description"`                  // 描述
 	ServiceAccessID *string    `gorm:"column:service_access_id" json:"service_access_id"`
+	LastOfflineTime *time.Time `gorm:"column:last_offline_time;comment:上次离线时间" json:"last_offline_time"` // 上次离线时间
 }
 
 // TableName Device's table name

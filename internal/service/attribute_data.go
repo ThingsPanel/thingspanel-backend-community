@@ -230,17 +230,17 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 	}
 
 	// 处理响应
-	config.MqttDirectResponseFuncMap[messageID] = make(chan model.MqttResponse)
+	config.MqttResponseFuncMap[messageID] = make(chan model.MqttResponse)
 	go func() {
 		select {
-		case response := <-config.MqttDirectResponseFuncMap[messageID]:
+		case response := <-config.MqttResponseFuncMap[messageID]:
 			fmt.Println("接收到数据:", response)
 			if len(fn) > 0 {
 				_ = fn[0](response)
 			}
 			dal.AttributeSetLogsQuery{}.SetAttributeResultUpdate(context.Background(), logInfo.ID, response)
-			close(config.MqttDirectResponseFuncMap[messageID])
-			delete(config.MqttDirectResponseFuncMap, messageID)
+			close(config.MqttResponseFuncMap[messageID])
+			delete(config.MqttResponseFuncMap, messageID)
 		case <-time.After(3 * time.Minute): // 设置超时时间为 3 分钟
 			fmt.Println("超时，关闭通道")
 			//log.SetAttributeResultUpdate(context.Background(), logInfo.ID, model.MqttResponse{
@@ -249,8 +249,8 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 			//	Message: "设备响应超时",
 			//	Ts:      time.Now().Unix(),
 			//})
-			close(config.MqttDirectResponseFuncMap[messageID])
-			delete(config.MqttDirectResponseFuncMap, messageID)
+			close(config.MqttResponseFuncMap[messageID])
+			delete(config.MqttResponseFuncMap, messageID)
 
 			return
 		}

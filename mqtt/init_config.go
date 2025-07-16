@@ -9,18 +9,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-type GatewayResponseFunc = func(model.GatewayResponse) error
-
 // MqttDirectResponseFunc mqtt直连设置回复
 type MqttDirectResponseFunc = func(response model.MqttResponse) error
 
 var MqttConfig Config
 
-// 网关发送消息 需要收到回复的map
-var GatewayResponseFuncMap map[string]chan model.GatewayResponse
-
-// MqttDirectResponseFuncMap mqtt直连设置回复
-var MqttDirectResponseFuncMap map[string]chan model.MqttResponse
+// MqttResponseFuncMap mqtt直连设置回复
+var MqttResponseFuncMap map[string]chan model.MqttResponse
 
 func MqttInit() error {
 	// 初始化配置
@@ -29,8 +24,7 @@ func MqttInit() error {
 		return err
 	}
 	// 初始化回复map
-	GatewayResponseFuncMap = make(map[string]chan model.GatewayResponse)
-	MqttDirectResponseFuncMap = make(map[string]chan model.MqttResponse)
+	MqttResponseFuncMap = make(map[string]chan model.MqttResponse)
 	return nil
 }
 

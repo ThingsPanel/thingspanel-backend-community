@@ -58,7 +58,7 @@ func DeviceCommand(payload []byte, topic string) (string, error) {
 	//	logInfo.ErrorMessage = &commandResponsePayload.Message
 	//}
 	//err = log.Update(nil, logInfo)
-	if ch, ok := config.MqttDirectResponseFuncMap[messageId]; ok {
+	if ch, ok := config.MqttResponseFuncMap[messageId]; ok {
 		ch <- *commandResponsePayload
 	}
 	return messageId, err

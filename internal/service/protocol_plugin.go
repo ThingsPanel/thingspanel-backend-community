@@ -146,9 +146,7 @@ func (*ProtocolPlugin) GetPluginForm(protocolType string, deviceType string, for
 	data, err := http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)
 	if err != nil {
 		logrus.Error(err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, err
 	}
 
 	return data, err
@@ -213,6 +211,7 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 	// 给deviceConfigForProtocolPlugin赋值
 	deviceConfigForProtocolPlugin.ID = device.ID
 	deviceConfigForProtocolPlugin.Voucher = device.Voucher
+	deviceConfigForProtocolPlugin.DeviceNumber = device.DeviceNumber
 	if deviceConfig != nil {
 		deviceConfigForProtocolPlugin.DeviceType = deviceConfig.DeviceType
 		deviceConfigForProtocolPlugin.ProtocolType = *deviceConfig.ProtocolType

@@ -26,16 +26,16 @@ func GatewayDeviceCommandResponse(payload []byte, topic string) {
 	}
 	logrus.Debug("payload:", string(payload))
 	// 验证消息有效性
-	attributePayload, err := verifyPayload(payload)
+	commandResponsePayload, err := verifyPayload(payload)
 	if err != nil {
 		return
 	}
-	logrus.Debug("payload:", string(attributePayload.Values))
-	result := model.GatewayResponse{}
-	if err := json.Unmarshal(attributePayload.Values, &result); err != nil {
+	logrus.Debug("payload:", string(commandResponsePayload.Values))
+	result := model.MqttResponse{}
+	if err := json.Unmarshal(commandResponsePayload.Values, &result); err != nil {
 		return
 	}
-	if ch, ok := config.GatewayResponseFuncMap[messageId]; ok {
+	if ch, ok := config.MqttResponseFuncMap[messageId]; ok {
 		ch <- result
 	}
 }

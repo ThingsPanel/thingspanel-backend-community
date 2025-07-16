@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"sync"
 	"time"
@@ -9,6 +11,7 @@ import (
 	ws_subscribe "project/mqtt/ws_subscribe"
 	"project/pkg/constant"
 	"project/pkg/errcode"
+	"project/pkg/global"
 	"project/pkg/utils"
 
 	model "project/internal/model"
@@ -17,6 +20,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+
+	"project/internal/middleware"
 )
 
 type TelemetryDataApi struct{}
@@ -193,6 +199,81 @@ func (*TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
 	c.Set("data", nil)
 }
 
+// validateToken 验证WebSocket中的token
+func validateToken(token string) (*utils.UserClaims, error) {
+	// 验证 Redis 中的 token
+	if global.REDIS.Get(context.Background(), token).Val() != "1" {
+		return nil, errors.New("token is expired")
+	}
+
+	// 刷新 token 过期时间
+	timeout := viper.GetInt("session.timeout")
+	if timeout == 0 {
+		timeout = 60 // 默认60分钟
+	}
+	global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute)
+
+	// 验证 JWT
+	key := viper.GetString("jwt.key")
+	j := utils.NewJWT([]byte(key))
+	claims, err := j.ParseToken(token)
+	if err != nil {
+		return nil, errors.New("invalid token")
+	}
+
+	return claims, nil
+}
+
+// validateAPIKey 验证WebSocket中的API Key
+func validateAPIKey(apiKey string) (*utils.UserClaims, error) {
+	// 创建API Key验证器
+	validator := middleware.NewAPIKeyValidator(global.DB, global.REDIS)
+
+	// 验证API Key
+	info, err := validator.ValidateAPIKey(apiKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// 构造UserClaims
+	claims := &utils.UserClaims{
+		TenantID:  info.TenantID,
+		Authority: "TENANT_ADMIN",
+	}
+
+	return claims, nil
+}
+
+// validateAuth 验证WebSocket中的认证信息（支持token和API Key双重认证）
+func validateAuth(msgMap map[string]interface{}) (*utils.UserClaims, error) {
+	// 优先验证token
+	if tokenInterface, ok := msgMap["token"]; ok {
+		if token, isString := tokenInterface.(string); isString && token != "" {
+			claims, err := validateToken(token)
+			if err == nil {
+				return claims, nil
+			}
+			// token验证失败，记录日志但继续尝试API Key
+			logrus.Warnf("Token validation failed: %v", err)
+		}
+	}
+
+	// 尝试API Key验证
+	if apiKeyInterface, ok := msgMap["x-api-key"]; ok {
+		if apiKey, isString := apiKeyInterface.(string); isString && apiKey != "" {
+			claims, err := validateAPIKey(apiKey)
+			if err == nil {
+				return claims, nil
+			}
+			// API Key验证失败，记录日志
+			logrus.Warnf("API Key validation failed: %v", err)
+		}
+	}
+
+	// 两种认证方式都失败
+	return nil, errors.New("authentication failed: token or x-api-key is required")
+}
+
 // ServeCurrentDataByWS 通过WebSocket处理设备实时遥测数据
 // @Router   /api/v1/telemetry/datas/current/ws [get]
 func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
@@ -216,7 +297,7 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 	}
 
 	// 解析JSON格式消息
-	var msgMap map[string]string
+	var msgMap map[string]interface{}
 	if err := json.Unmarshal(msg, &msgMap); err != nil {
 		logrus.Error("JSON格式无效:", err)
 		conn.WriteMessage(msgType, []byte("Invalid message format"))
@@ -224,19 +305,27 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 	}
 
 	// 验证必要的字段
-	deviceID, ok := msgMap["device_id"]
-	if !ok || deviceID == "" {
+	deviceIDInterface, ok := msgMap["device_id"]
+	if !ok {
 		conn.WriteMessage(msgType, []byte("device_id is required"))
 		return
 	}
 
-	token, ok := msgMap["token"]
-	if !ok || token == "" {
-		conn.WriteMessage(msgType, []byte("token is required"))
+	deviceID, ok := deviceIDInterface.(string)
+	if !ok || deviceID == "" {
+		conn.WriteMessage(msgType, []byte("device_id must be a non-empty string"))
 		return
 	}
 
-	logrus.Infof("WebSocket连接已建立 - 设备ID: %s", deviceID)
+	// 验证认证信息（token或API Key）
+	claims, err := validateAuth(msgMap)
+	if err != nil {
+		logrus.Error("认证失败:", err)
+		conn.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+
+	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, 用户ID: %s, 租户ID: %s", deviceID, claims.ID, claims.TenantID)
 
 	// 获取当前遥测数据
 	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataForWs(deviceID)
@@ -337,7 +426,7 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 	}
 
 	// 解析JSON消息
-	var msgMap map[string]string
+	var msgMap map[string]interface{}
 	if err := json.Unmarshal(msg, &msgMap); err != nil {
 		logrus.Error("JSON格式无效:", err)
 		conn.WriteMessage(msgType, []byte("Invalid message format"))
@@ -345,20 +434,27 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 	}
 
 	// 验证必要字段
-	deviceID, ok := msgMap["device_id"]
-	if !ok || deviceID == "" {
+	deviceIDInterface, ok := msgMap["device_id"]
+	if !ok {
 		conn.WriteMessage(msgType, []byte("device_id is required"))
 		return
 	}
 
-	token, ok := msgMap["token"]
-	if !ok || token == "" {
-		conn.WriteMessage(msgType, []byte("token is required"))
+	deviceID, ok := deviceIDInterface.(string)
+	if !ok || deviceID == "" {
+		conn.WriteMessage(msgType, []byte("device_id must be a non-empty string"))
 		return
 	}
 
-	logrus.Infof("WebSocket连接已建立 - 设备ID: %s", deviceID)
-	// TODO: 验证token
+	// 验证认证信息（token或API Key）
+	claims, err := validateAuth(msgMap)
+	if err != nil {
+		logrus.Error("认证失败:", err)
+		conn.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+
+	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, 用户ID: %s, 租户ID: %s", deviceID, claims.ID, claims.TenantID)
 
 	// 订阅设备在线状态
 	var mu sync.Mutex
@@ -441,7 +537,13 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 	}
 
 	// 验证并提取设备ID
-	deviceID, ok := msgMap["device_id"].(string)
+	deviceIDInterface, ok := msgMap["device_id"]
+	if !ok {
+		conn.WriteMessage(msgType, []byte("device_id is required"))
+		return
+	}
+
+	deviceID, ok := deviceIDInterface.(string)
 	if !ok || deviceID == "" {
 		conn.WriteMessage(msgType, []byte("device_id is required and must be string"))
 		return
@@ -470,15 +572,15 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 		return
 	}
 
-	// 验证token
-	token, ok := msgMap["token"].(string)
-	if !ok || token == "" {
-		conn.WriteMessage(msgType, []byte("token is required"))
+	// 验证认证信息（token或API Key）
+	claims, err := validateAuth(msgMap)
+	if err != nil {
+		logrus.Error("认证失败:", err)
+		conn.WriteMessage(msgType, []byte(err.Error()))
 		return
 	}
-	// TODO: 验证token
 
-	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, Keys: %v", deviceID, stringKeys)
+	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, Keys: %v, 用户ID: %s, 租户ID: %s", deviceID, stringKeys, claims.ID, claims.TenantID)
 
 	// 获取遥测数据
 	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataKeysForWs(deviceID, stringKeys)
@@ -598,4 +700,27 @@ func (*TelemetryDataApi) ServeMsgCountByTenant(c *gin.Context) {
 	}
 
 	c.Set("data", map[string]interface{}{"msg": cnt})
+}
+
+// 请求参数
+// 设备ID: device_ids
+// 遥测key: keys
+// 时间类型: 时间单位 hour、day、week、month、year
+// 数据数量: limit
+// 聚合方式: 聚合方式: avg、sum、max、min、count、diff
+// 批量查询多个设备的遥测统计数据
+// @Router   /api/v1/telemetry/datas/statistic/batch [get]
+func (*TelemetryDataApi) ServeStatisticDataByDeviceId(c *gin.Context) {
+	var req model.GetTelemetryStatisticByDeviceIdReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	data, err := service.GroupApp.TelemetryData.GetTelemetryStatisticDataByDeviceIds(&req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", data)
 }

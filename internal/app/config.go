@@ -86,3 +86,21 @@ func LoadEnvironmentConfig(env string) (*viper.Viper, error) {
 
 	return v, nil
 }
+
+// LoadConfigFile 加载指定路径的配置文件
+func LoadConfigFile(configPath string) (*viper.Viper, error) {
+	v := viper.New()
+	v.SetConfigFile(configPath)
+	v.SetConfigType("yml") // 明确指定配置文件类型为YAML
+
+	if err := v.ReadInConfig(); err != nil {
+		return nil, err
+	}
+
+	// 设置环境变量前缀并启用自动读取环境变量
+	v.SetEnvPrefix("GOTP")
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	return v, nil
+}

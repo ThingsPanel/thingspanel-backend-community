@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -77,6 +78,16 @@ func (*NotificationServicesConfig) SendTestEmail(req *model.SendTestEmailReq) er
 			"notice_type": err.Error(),
 		})
 	}
+	if c == nil {
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "邮件服务配置不存在",
+		})
+	}
+	if c.Config == nil {
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "邮件服务配置内容为空",
+		})
+	}
 	var emailConf model.EmailConfig
 	err = json.Unmarshal([]byte(*c.Config), &emailConf)
 	if err != nil {
@@ -114,6 +125,12 @@ func sendEmailMessage(message string, subject string, tenantId string, to ...str
 	c, err := dal.GetNotificationServicesConfigByType(model.NoticeType_Email)
 	if err != nil {
 		return err
+	}
+	if c == nil {
+		return fmt.Errorf("邮件服务配置不存在")
+	}
+	if c.Config == nil {
+		return fmt.Errorf("邮件服务配置内容为空")
 	}
 	var emailConf model.EmailConfig
 	err = json.Unmarshal([]byte(*c.Config), &emailConf)
@@ -204,7 +221,10 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, titl
 		emailList := strings.Split(nConfig["EMAIL"], ",")
 		for _, ev := range emailList {
 			logrus.Debug("发送邮件地址：", ev)
-			sendEmailMessage(title, content, notificationGroup.TenantID, ev)
+			err := sendEmailMessage(title, content, notificationGroup.TenantID, ev)
+			if err != nil {
+				logrus.Error("发送邮件失败:", err)
+			}
 		}
 	case model.NoticeType_Webhook:
 		type WebhookConfig struct {

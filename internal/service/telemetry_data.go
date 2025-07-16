@@ -1207,3 +1207,150 @@ func (*TelemetryData) ServeMsgCountByTenantId(tenantId string) (int64, error) {
 	}
 	return cnt, err
 }
+
+// GetTelemetryStatisticDataByDeviceIds 根据设备ID和key查询遥测统计数据
+func (*TelemetryData) GetTelemetryStatisticDataByDeviceIds(req *model.GetTelemetryStatisticByDeviceIdReq) (interface{}, error) {
+	// 参数验证
+	if len(req.DeviceIds) != len(req.Keys) {
+		return nil, errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+			"error":            "设备ID数量与key数量必须一致",
+			"device_ids_count": len(req.DeviceIds),
+			"keys_count":       len(req.Keys),
+		})
+	}
+
+	if len(req.DeviceIds) == 0 {
+		return nil, errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+			"error": "设备ID和key不能为空",
+		})
+	}
+
+	// 调用DAL层查询数据
+	results, err := dal.GetTelemetryStatisticDataByDeviceIds(
+		req.DeviceIds,
+		req.Keys,
+		req.TimeType,
+		req.Limit,
+		req.AggregateMethod,
+	)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+
+	// 直接返回ChartValue数组
+	var chartData []model.ChartValue
+	for _, result := range results {
+		key, _ := result["key"].(string)
+
+		if req.AggregateMethod == "count" {
+			// 计数查询结果
+			if count, exists := result["count"]; exists {
+				if countVal, ok := count.(int64); ok {
+					// 根据time_type生成相应的时间格式
+					now := time.Now()
+					var timeStr string
+					switch req.TimeType {
+					case "hour":
+						timeStr = now.Format("2006-01-02 15:00:00") // 整点小时
+					case "day":
+						timeStr = now.Format("2006-01-02") // 只显示日期
+					case "week":
+						timeStr = now.Format("2006-01-02") // 周的开始日期
+					case "month":
+						timeStr = now.Format("2006-01") // 年-月
+					case "year":
+						timeStr = now.Format("2006") // 只显示年
+					default:
+						timeStr = now.Format("2006-01-02 15:04:05") // 默认格式
+					}
+
+					chartData = append(chartData, model.ChartValue{
+						Key:   key,
+						Time:  timeStr,
+						Value: float64(countVal),
+					})
+				}
+			}
+		} else if req.AggregateMethod == "diff" {
+			// 差值查询结果 - 时间窗口分组数据
+			if data, exists := result["data"]; exists {
+				if dataSlice, ok := data.([]map[string]interface{}); ok {
+					for _, item := range dataSlice {
+						var timeStr string
+						var value float64
+
+						// 处理时间
+						if time_val, ok := item["time"].(string); ok {
+							timeStr = time_val
+						}
+
+						// 处理数值
+						if val, ok := item["value"].(float64); ok {
+							value = val
+						}
+
+						chartData = append(chartData, model.ChartValue{
+							Key:   key,
+							Time:  timeStr,
+							Value: value,
+						})
+					}
+				}
+			}
+		} else if data, exists := result["data"]; exists {
+			// 时间序列数据
+			if dataSlice, ok := data.([]map[string]interface{}); ok {
+				for _, item := range dataSlice {
+					var timeStr string
+					var value float64
+
+					// 处理时间戳 - 根据time_type使用不同的格式
+					if timestamp, ok := item["timestamp"].(int64); ok {
+						t := time.Unix(0, timestamp*int64(time.Millisecond))
+						switch req.TimeType {
+						case "hour":
+							// 小时级：保持整点小时，带时区
+							hourTime := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+							timeStr = hourTime.Format("2006-01-02T15:04:05.000-07:00")
+						case "day":
+							// 天级：保持整天，带时区
+							dayTime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+							timeStr = dayTime.Format("2006-01-02T15:04:05.000-07:00")
+						case "week":
+							// 周级：保持周的开始日期，带时区
+							weekTime := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+							timeStr = weekTime.Format("2006-01-02T15:04:05.000-07:00")
+						case "month":
+							// 月级：保持月的第一天，带时区
+							monthTime := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+							timeStr = monthTime.Format("2006-01-02T15:04:05.000-07:00")
+						case "year":
+							// 年级：保持年的第一天，带时区
+							yearTime := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
+							timeStr = yearTime.Format("2006-01-02T15:04:05.000-07:00")
+						default:
+							timeStr = t.Format("2006-01-02T15:04:05.000-07:00") // 默认格式，带时区
+						}
+					}
+
+					// 处理数值
+					if val, ok := item["value"].(float64); ok {
+						value = val
+					} else if val, ok := item["value"].(int64); ok {
+						value = float64(val)
+					}
+
+					chartData = append(chartData, model.ChartValue{
+						Key:   key,
+						Time:  timeStr,
+						Value: value,
+					})
+				}
+			}
+		}
+	}
+
+	return chartData, nil
+}

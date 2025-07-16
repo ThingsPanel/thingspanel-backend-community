@@ -130,6 +130,10 @@ func TelemetryMessagesHandle(device *model.Device, telemetryBody []byte, topic s
 			telemetryBody = newtelemetryBody
 		}
 	}
+	telemetryMessagesHandleCore(device, telemetryBody, topic)
+}
+
+func telemetryMessagesHandleCore(device *model.Device, telemetryBody []byte, topic string) {
 	err := publish.ForwardTelemetryMessage(device.ID, telemetryBody)
 	if err != nil {
 		logrus.Error("telemetry forward error:", err.Error())

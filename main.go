@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -19,10 +20,22 @@ import (
 // @in                          header
 // @name                        x-token
 func main() {
+	// 解析命令行参数
+	configPath := flag.String("config", "", "配置文件路径")
+	flag.Parse()
+
+	// 根据是否指定配置文件选择配置加载方式
+	var configOption app.Option
+	if *configPath != "" {
+		configOption = app.WithConfigFile(*configPath)
+	} else {
+		configOption = app.WithProductionConfig()
+	}
+
 	// 使用Application结构体初始化
 	application, err := app.NewApplication(
 		// 基础配置
-		app.WithProductionConfig(),
+		configOption,
 		app.WithRsaDecrypt("./configs/rsa_key/private_key.pem"),
 		app.WithLogger(),
 		app.WithDatabase(),

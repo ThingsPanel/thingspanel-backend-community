@@ -183,7 +183,7 @@ func DeviceSetAttributeResponse(payload []byte, topic string) {
 	}
 	logrus.Debug("command response message:", commandResponsePayload)
 
-	if ch, ok := config.MqttDirectResponseFuncMap[messageId]; ok {
+	if ch, ok := config.MqttResponseFuncMap[messageId]; ok {
 		ch <- *commandResponsePayload
 	}
 }
