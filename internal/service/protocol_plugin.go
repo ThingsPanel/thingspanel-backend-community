@@ -211,6 +211,7 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 	// 给deviceConfigForProtocolPlugin赋值
 	deviceConfigForProtocolPlugin.ID = device.ID
 	deviceConfigForProtocolPlugin.Voucher = device.Voucher
+	deviceConfigForProtocolPlugin.DeviceNumber = device.DeviceNumber
 	if deviceConfig != nil {
 		deviceConfigForProtocolPlugin.DeviceType = deviceConfig.DeviceType
 		deviceConfigForProtocolPlugin.ProtocolType = *deviceConfig.ProtocolType
