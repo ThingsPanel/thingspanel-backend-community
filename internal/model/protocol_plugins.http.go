@@ -76,7 +76,7 @@ type GetDevicesByProtocolPluginRsp struct {
 }
 
 type GetDevicesByProtocolPluginReq struct {
-	ProtocolType string `json:"protocol_type"  form:"protocol_type" validate:"required,max=255"`
-	DeviceType   string `json:"device_type"  form:"device_type" validate:"required,max=10"`
+	ServiceIdentifier string `json:"service_identifier"  form:"service_identifier" validate:"required,max=255"`
+	DeviceType        string `json:"device_type"  form:"device_type" validate:"required,max=10"`
 	PageReq
 }

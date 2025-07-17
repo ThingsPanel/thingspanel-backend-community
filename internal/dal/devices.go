@@ -744,10 +744,10 @@ func GetDeviceListByProtocolType(req model.GetDevicesByProtocolPluginReq, device
 	deviceConfig := query.DeviceConfig
 	query := device.WithContext(context.Background()).LeftJoin(deviceConfig, device.DeviceConfigID.EqCol(deviceConfig.ID))
 	if req.DeviceType == "1" {
-		query = query.Where(deviceConfig.ProtocolType.Eq(req.ProtocolType)).
+		query = query.Where(deviceConfig.ProtocolType.Eq(req.ServiceIdentifier)).
 			Where(deviceConfig.DeviceType.Eq("1")).
 			Where(device.ActivateFlag.Eq("active")).
-			Where(deviceConfig.ProtocolType.Eq(req.ProtocolType))
+			Where(deviceConfig.ProtocolType.Eq(req.ServiceIdentifier))
 
 		count, err := query.Count()
 		if err != nil {
