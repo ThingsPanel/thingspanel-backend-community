@@ -83,6 +83,7 @@ func RouterInit() *gin.Engine {
 		{
 			v1.POST("plugin/heartbeat", controllers.Heartbeat)
 			v1.POST("plugin/device/config", controllers.HandleDeviceConfigForProtocolPlugin)
+			v1.POST("plugin/devices", controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
 			v1.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)
 			v1.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
 			v1.POST("login", controllers.Login)

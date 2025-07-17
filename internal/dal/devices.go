@@ -737,3 +737,36 @@ func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) (*model.Dev
 		List:  list,
 	}, nil
 }
+
+// 通过协议标识符获取设备列表
+func GetDeviceListByProtocolType(req model.GetDevicesByProtocolPluginReq, devicesRsp *model.GetDevicesByProtocolPluginRsp) error {
+	device := query.Device
+	deviceConfig := query.DeviceConfig
+	query := device.WithContext(context.Background()).LeftJoin(deviceConfig, device.DeviceConfigID.EqCol(deviceConfig.ID))
+	if req.DeviceType == "1" {
+		query = query.Where(deviceConfig.ProtocolType.Eq(req.ProtocolType)).
+			Where(deviceConfig.DeviceType.Eq("1")).
+			Where(device.ActivateFlag.Eq("active")).
+			Where(deviceConfig.ProtocolType.Eq(req.ProtocolType))
+
+		count, err := query.Count()
+		if err != nil {
+			logrus.Error(err)
+			return err
+		}
+		devicesRsp.Total = count
+
+		query = query.Limit(req.PageSize).Offset((req.Page-1)*req.PageSize).
+			Select(device.ID, device.Voucher, device.DeviceNumber, deviceConfig.DeviceType, deviceConfig.ProtocolType, device.ProtocolConfig.As("config"), deviceConfig.ProtocolConfig.As("protocol_config_template"))
+
+		err = query.Scan(&devicesRsp.List)
+		if err != nil {
+			logrus.Error(err)
+			return err
+		}
+
+		return nil
+	}
+	// 暂不支持非直连设备
+	return errors.New("暂不支持非直连设备")
+}

@@ -69,3 +69,14 @@ type SubDeviceConfigForProtocolPlugin struct {
 	Config                 map[string]interface{} `json:"config"`
 	ProtocolConfigTemplate map[string]interface{} `json:"protocol_config_template"` // 子设备配置的protocol_config
 }
+
+type GetDevicesByProtocolPluginRsp struct {
+	List  []DeviceConfigForProtocolPlugin `json:"list"`
+	Total int64                           `json:"total"`
+}
+
+type GetDevicesByProtocolPluginReq struct {
+	ProtocolType string `json:"protocol_type"  form:"protocol_type" validate:"required,max=255"`
+	DeviceType   string `json:"device_type"  form:"device_type" validate:"required,max=10"`
+	PageReq
+}

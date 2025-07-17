@@ -116,3 +116,19 @@ func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPlugin(c *gin.Context) {
 	}
 	c.Set("data", data)
 }
+
+// 通过协议标识符获取设备配置（包含设备信息）
+// @Router   /api/v1/plugin/devices [get]
+func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPluginByProtocolType(c *gin.Context) {
+	var req model.GetDevicesByProtocolPluginReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	data, err := service.GroupApp.ProtocolPlugin.GetDevicesByProtocolPlugin(req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
