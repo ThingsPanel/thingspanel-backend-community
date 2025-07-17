@@ -57,7 +57,7 @@ type DeviceConfigForProtocolPlugin struct {
 	ProtocolType           string                             `json:"protocol_type"`
 	DeviceNumber           string                             `json:"device_number"`
 	Config                 map[string]interface{}             `json:"config"`
-	ProtocolConfigTemplate map[string]interface{}             `json:"protocol_config_template"` // 子设备配置的protocol_config
+	ProtocolConfigTemplate map[string]interface{}             `json:"protocol_config_template"` // 设备模板的protocol_config
 	SubDivices             []SubDeviceConfigForProtocolPlugin `json:"sub_devices"`
 }
 
@@ -67,7 +67,7 @@ type SubDeviceConfigForProtocolPlugin struct {
 	Voucher                string                 `json:"voucher"`
 	SubDeviceAddr          string                 `json:"sub_device_addr"`
 	Config                 map[string]interface{} `json:"config"`
-	ProtocolConfigTemplate map[string]interface{} `json:"protocol_config_template"` // 子设备配置的protocol_config
+	ProtocolConfigTemplate map[string]interface{} `json:"protocol_config_template"` // 子设备模板的protocol_config
 }
 
 type GetDevicesByProtocolPluginRsp struct {

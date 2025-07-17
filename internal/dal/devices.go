@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -756,13 +757,63 @@ func GetDeviceListByProtocolType(req model.GetDevicesByProtocolPluginReq, device
 		}
 		devicesRsp.Total = count
 
-		query = query.Limit(req.PageSize).Offset((req.Page-1)*req.PageSize).
-			Select(device.ID, device.Voucher, device.DeviceNumber, deviceConfig.DeviceType, deviceConfig.ProtocolType, device.ProtocolConfig.As("config"), deviceConfig.ProtocolConfig.As("protocol_config_template"))
+		// 临时结构体，用于接收JSON字符串
+		type tempDevice struct {
+			ID                     string  `json:"id"`
+			Voucher                string  `json:"voucher"`
+			DeviceNumber           string  `json:"device_number"`
+			DeviceType             string  `json:"device_type"`
+			ProtocolType           string  `json:"protocol_type"`
+			Config                 *string `json:"config"`
+			ProtocolConfigTemplate *string `json:"protocol_config_template"`
+		}
 
-		err = query.Scan(&devicesRsp.List)
+		var tempList []tempDevice
+		err = query.Limit(req.PageSize).Offset((req.Page-1)*req.PageSize).
+			Select(device.ID, device.Voucher, device.DeviceNumber, deviceConfig.DeviceType, deviceConfig.ProtocolType, device.ProtocolConfig.As("config"), deviceConfig.ProtocolConfig.As("protocol_config_template")).
+			Scan(&tempList)
 		if err != nil {
 			logrus.Error(err)
 			return err
+		}
+
+		// 转换为最终结构
+		devicesRsp.List = make([]model.DeviceConfigForProtocolPlugin, len(tempList))
+		for i, temp := range tempList {
+			devicesRsp.List[i] = model.DeviceConfigForProtocolPlugin{
+				ID:           temp.ID,
+				Voucher:      temp.Voucher,
+				DeviceNumber: temp.DeviceNumber,
+				DeviceType:   temp.DeviceType,
+				ProtocolType: temp.ProtocolType,
+				SubDivices:   []model.SubDeviceConfigForProtocolPlugin{},
+			}
+
+			// 处理config字段
+			if temp.Config != nil && *temp.Config != "" {
+				var config map[string]interface{}
+				if err := json.Unmarshal([]byte(*temp.Config), &config); err != nil {
+					logrus.Error("解析config JSON失败:", err)
+					devicesRsp.List[i].Config = make(map[string]interface{})
+				} else {
+					devicesRsp.List[i].Config = config
+				}
+			} else {
+				devicesRsp.List[i].Config = make(map[string]interface{})
+			}
+
+			// 处理protocol_config_template字段
+			if temp.ProtocolConfigTemplate != nil && *temp.ProtocolConfigTemplate != "" {
+				var protocolConfigTemplate map[string]interface{}
+				if err := json.Unmarshal([]byte(*temp.ProtocolConfigTemplate), &protocolConfigTemplate); err != nil {
+					logrus.Error("解析protocol_config_template JSON失败:", err)
+					devicesRsp.List[i].ProtocolConfigTemplate = make(map[string]interface{})
+				} else {
+					devicesRsp.List[i].ProtocolConfigTemplate = protocolConfigTemplate
+				}
+			} else {
+				devicesRsp.List[i].ProtocolConfigTemplate = make(map[string]interface{})
+			}
 		}
 
 		return nil
