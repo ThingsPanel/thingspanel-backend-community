@@ -295,10 +295,12 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 		return false, alarmName, err.Error()
 	}
 	for _, deviceId := range device_ids {
-		deviceInfo, _ := dal.GetDeviceByID(deviceId)
-		if deviceInfo != nil {
-			go GroupApp.AlarmMessagePushSend(alarmConfig.Name, id, deviceInfo)
+		deviceInfo, err := dal.GetDeviceByID(deviceId)
+		if err != nil {
+			logrus.Error(err)
+			return false, alarmName, err.Error()
 		}
+		go GroupApp.AlarmMessagePushSend(alarmConfig.Name, id, deviceInfo)
 	}
 	return true, alarmName, err.Error()
 }
