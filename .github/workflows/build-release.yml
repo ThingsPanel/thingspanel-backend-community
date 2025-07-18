@@ -21,7 +21,7 @@
 #    - 支持手动指定版本标签
 # 
 # 【触发条件】
-# - 推送到 main 分支：自动创建 'latest' 标签的发布版本
+# - 发布 release：自动为该 release 构建并上传资源包
 # - 手动触发：可以指定自定义标签名称
 # 
 # 【构建产物】
@@ -36,8 +36,8 @@ name: Build and Release
 
 # 工作流触发条件
 on:
-  push:
-    branches: [ "main" ]  # 当推送到 main 分支时触发
+  release:
+    types: [published]  # 当发布 release 时触发
   workflow_dispatch:      # 支持手动触发
     inputs:
       tag:
@@ -61,68 +61,55 @@ jobs:
         go-version: '1.23'  # 使用 Go 1.23 版本
     
     # 步骤3: 确定发布标签
-    # 如果是推送触发则使用 'latest'，手动触发则使用用户输入的标签
+    # 如果是 release 触发则使用 release 标签，手动触发则使用用户输入的标签
     - name: Determine Release Tag
       id: determine-tag
-      run: echo "RELEASE_TAG=$(if [ '${{ github.event_name }}' == 'push' ]; then echo 'latest'; else echo '${{ github.event.inputs.tag }}'; fi)" >> $GITHUB_ENV
+      run: echo "RELEASE_TAG=$(if [ '${{ github.event_name }}' == 'release' ]; then echo '${{ github.event.release.tag_name }}'; else echo '${{ github.event.inputs.tag }}'; fi)" >> $GITHUB_ENV
     
-    # 步骤4: 删除已存在的同名发布版本和 Git 标签
-    # 避免标签冲突，如果已存在相同标签的 Release 和 Git 标签则先删除
-    - name: Delete existing release and git tag if they exist
-      id: delete_release
+    # 步骤4: 获取现有 Release 信息
+    # 获取当前 Release 的信息用于后续上传资源
+    - name: Get Release Info
+      id: get_release
       run: |
-        tag=${{ github.event.inputs.tag || 'latest' }}
-        
-        # 删除已存在的 GitHub Release
-        release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" | \
-          jq -r '.id')
-        if [ "$release_id" != "null" ]; then
-          echo "Deleting existing release with ID $release_id"
-          curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/$release_id"
+        if [ '${{ github.event_name }}' == 'release' ]; then
+          echo "RELEASE_ID=${{ github.event.release.id }}" >> $GITHUB_ENV
+          echo "RELEASE_TAG=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+          echo "Using existing release: ${{ github.event.release.tag_name }}"
         else
-          echo "No existing release found for tag $tag"
+          # 手动触发时，获取或创建 Release
+          tag=${{ github.event.inputs.tag || 'latest' }}
+          echo "RELEASE_TAG=$tag" >> $GITHUB_ENV
+          
+          # 检查是否存在该标签的 Release
+          release_response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag")
+          
+          release_id=$(echo "$release_response" | jq -r '.id')
+          
+          if [ "$release_id" != "null" ] && [ "$release_id" != "" ]; then
+            echo "RELEASE_ID=$release_id" >> $GITHUB_ENV
+            echo "Using existing release with ID: $release_id"
+          else
+            # 创建新的 Release
+            create_response=$(curl -s -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${{ github.repository }}/releases" \
+              -d "{
+                \"tag_name\": \"$tag\",
+                \"name\": \"Release $tag\",
+                \"body\": \"Release created by GitHub Actions. Tag $tag\",
+                \"draft\": false,
+                \"prerelease\": false
+              }")
+            
+            new_release_id=$(echo "$create_response" | jq -r '.id')
+            echo "RELEASE_ID=$new_release_id" >> $GITHUB_ENV
+            echo "Created new release with ID: $new_release_id"
+          fi
         fi
-        
-        # 删除已存在的 Git 标签（通过 GitHub API）
-        echo "Deleting existing git tag $tag if it exists"
-        curl -X DELETE \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$tag" \
-          2>/dev/null || echo "Remote tag $tag does not exist"
-        
-    # 步骤5: 创建新的 Git 标签
-    # 确保标签指向最新的提交，并且时间戳是最新的
-    - name: Create new git tag
-      run: |
-        tag=${{ github.event.inputs.tag || 'latest' }}
-        echo "Creating new git tag: $tag"
-        
-        # 通过 GitHub API 创建 Git 标签，避免需要配置 Git 身份
-        curl -X POST \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/${{ github.repository }}/git/refs" \
-          -d "{\"ref\":\"refs/tags/$tag\",\"sha\":\"${{ github.sha }}\"}"
-        
-        echo "Git tag $tag created successfully"
-        
-    # 步骤6: 创建新的 GitHub Release
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-          tag_name: ${{ github.event.inputs.tag || 'latest' }}           # 使用指定的标签名
-          release_name: Release ${{ github.event.inputs.tag || 'latest' }} # Release 标题
-          body: Release created by GitHub Actions. Tag ${{ github.event.inputs.tag || 'latest' }}  # Release 描述
-          draft: false      # 不是草稿，直接发布
-          prerelease: false # 不是预发布版本
     
-    # 步骤7: 多平台交叉编译和打包
+    # 步骤5: 多平台交叉编译和打包
     # 这是整个工作流的核心步骤，为多个目标平台构建二进制文件
     - name: Build and package for multiple platforms
       run: |
@@ -201,7 +188,7 @@ jobs:
         # 列出所有创建的压缩包文件
         ls -la *.tar.gz *.zip 2>/dev/null || echo "No archives created"
     
-    # 步骤8: 上传构建产物到 GitHub Release
+    # 步骤6: 上传构建产物到 GitHub Release
     # 将所有平台的压缩包上传为 Release 的附件
     - name: Upload Release Assets
       id: upload-release-assets
@@ -211,6 +198,20 @@ jobs:
           if [ -f "$asset" ]; then
             asset_name=$(basename "$asset")
             echo "Uploading $asset_name..."
+            
+            # 检查资源是否已存在，如果存在则先删除
+            existing_assets=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets" | \
+              jq -r '.[] | select(.name == "'$asset_name'") | .id')
+            
+            if [ ! -z "$existing_assets" ]; then
+              echo "Deleting existing asset: $asset_name"
+              echo "$existing_assets" | while read asset_id; do
+                curl -X DELETE \
+                  -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id"
+              done
+            fi
             
             # 根据文件类型设置正确的 Content-Type
             content_type="application/gzip"
@@ -223,22 +224,22 @@ jobs:
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Content-Type: $content_type" \
               --data-binary "@$asset" \
-              "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=$asset_name"
+              "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$asset_name"
           fi
         done
     
-    # 步骤9: 触发 Docker 镜像构建工作流
+    # 步骤7: 触发 Docker 镜像构建工作流
     # 在完成 Release 创建后，自动触发 Docker 镜像构建
-    - name: Trigger Docker Image Build
-      run: |
-        tag=${{ github.event.inputs.tag || 'latest' }}
-        echo "Triggering docker-image-build.yml workflow for tag: $tag"
+    # - name: Trigger Docker Image Build
+    #   run: |
+    #     tag=$RELEASE_TAG
+    #     echo "Triggering docker-image-build.yml workflow for tag: $tag"
         
-        # 通过 GitHub API 触发 docker-image-build.yml 工作流
-        curl -X POST \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/${{ github.repository }}/actions/workflows/docker-image-build.yml/dispatches" \
-          -d '{"ref":"main"}'
+    #     # 通过 GitHub API 触发 docker-image-build.yml 工作流
+    #     curl -X POST \
+    #       -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+    #       -H "Accept: application/vnd.github.v3+json" \
+    #       "https://api.github.com/repos/${{ github.repository }}/actions/workflows/docker-image-build.yml/dispatches" \
+    #       -d '{"ref":"main"}'
         
-        echo "Docker image build workflow triggered successfully"
+    #     echo "Docker image build workflow triggered successfully"
