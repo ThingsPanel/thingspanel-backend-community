@@ -200,22 +200,33 @@ jobs:
             echo "Uploading $asset_name..."
             
             # 检查资源是否已存在，如果存在则先删除
-            existing_asset_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets" | \
-              jq -r '.[] | select(.name == "'$asset_name'") | .id')
+            echo "Checking for existing asset: $asset_name"
+            assets_response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets")
             
-            if [ "$existing_asset_id" != "null" ] && [ ! -z "$existing_asset_id" ]; then
-              echo "Deleting existing asset: $asset_name (ID: $existing_asset_id)"
+            echo "Assets response: $assets_response"
+            
+            existing_asset_id=$(echo "$assets_response" | jq -r ".[] | select(.name == \"$asset_name\") | .id")
+            
+            if [ "$existing_asset_id" != "null" ] && [ ! -z "$existing_asset_id" ] && [ "$existing_asset_id" != "" ]; then
+              echo "Found existing asset: $asset_name (ID: $existing_asset_id)"
+              echo "Deleting existing asset..."
+              
               delete_response=$(curl -s -w "%{http_code}" -X DELETE \
                 -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                 "https://api.github.com/repos/${{ github.repository }}/releases/assets/$existing_asset_id")
               
-              if [ "${delete_response: -3}" == "204" ]; then
+              http_code="${delete_response: -3}"
+              if [ "$http_code" == "204" ]; then
                 echo "Successfully deleted existing asset"
-                sleep 2  # 等待删除完成
+                sleep 3  # 增加等待时间
               else
-                echo "Failed to delete existing asset, response: $delete_response"
+                echo "Failed to delete existing asset (HTTP $http_code)"
+                echo "Delete response: ${delete_response%???}"
+                # 继续尝试上传，让 GitHub API 返回更详细的错误
               fi
+            else
+              echo "No existing asset found with name: $asset_name"
             fi
             
             # 根据文件类型设置正确的 Content-Type
