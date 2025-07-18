@@ -200,17 +200,22 @@ jobs:
             echo "Uploading $asset_name..."
             
             # 检查资源是否已存在，如果存在则先删除
-            existing_assets=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            existing_asset_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets" | \
               jq -r '.[] | select(.name == "'$asset_name'") | .id')
             
-            if [ ! -z "$existing_assets" ]; then
-              echo "Deleting existing asset: $asset_name"
-              echo "$existing_assets" | while read asset_id; do
-                curl -X DELETE \
-                  -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                  "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id"
-              done
+            if [ "$existing_asset_id" != "null" ] && [ ! -z "$existing_asset_id" ]; then
+              echo "Deleting existing asset: $asset_name (ID: $existing_asset_id)"
+              delete_response=$(curl -s -w "%{http_code}" -X DELETE \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/releases/assets/$existing_asset_id")
+              
+              if [ "${delete_response: -3}" == "204" ]; then
+                echo "Successfully deleted existing asset"
+                sleep 2  # 等待删除完成
+              else
+                echo "Failed to delete existing asset, response: $delete_response"
+              fi
             fi
             
             # 根据文件类型设置正确的 Content-Type
@@ -220,11 +225,21 @@ jobs:
             fi
             
             # 通过 GitHub API 上传文件到 Release
-            curl -XPOST \
+            echo "Uploading $asset_name to release ID: $RELEASE_ID"
+            upload_response=$(curl -s -w "%{http_code}" -XPOST \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Content-Type: $content_type" \
               --data-binary "@$asset" \
-              "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$asset_name"
+              "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$asset_name")
+            
+            http_code="${upload_response: -3}"
+            if [ "$http_code" == "201" ]; then
+              echo "✅ Successfully uploaded $asset_name"
+            else
+              echo "❌ Failed to upload $asset_name (HTTP $http_code)"
+              echo "Response: ${upload_response%???}"
+              exit 1
+            fi
           fi
         done
     
