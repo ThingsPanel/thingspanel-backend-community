@@ -91,7 +91,6 @@ func SendSignedRequest(url, message, secret string) error {
 	// Adding the signature to the request header
 	req.Header.Set("X-Signature-256", "sha256="+signature)
 	req.Header.Set("Content-Type", "application/json")
-
 	// Sending the request
 	client := &http.Client{}
 	resp, err := client.Do(req)

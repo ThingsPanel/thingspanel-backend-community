@@ -228,8 +228,8 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, titl
 		}
 	case model.NoticeType_Webhook:
 		type WebhookConfig struct {
-			PayloadURL string `json:"payload_url"`
-			Secret     string `json:"secret"`
+			PayloadURL string
+			Secret     string
 		}
 		//nConfig := make(map[string]WebhookConfig)
 		var nConfig WebhookConfig
