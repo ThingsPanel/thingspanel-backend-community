@@ -231,8 +231,9 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, titl
 			PayloadURL string `json:"payload_url"`
 			Secret     string `json:"secret"`
 		}
-		nConfig := make(map[string]WebhookConfig)
-		err := json.Unmarshal([]byte(*notificationGroup.NotificationConfig), &nConfig)
+		//nConfig := make(map[string]WebhookConfig)
+		var nConfig WebhookConfig
+		err = json.Unmarshal([]byte(*notificationGroup.NotificationConfig), &nConfig)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -240,7 +241,8 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, titl
 		info["alert_title"] = title
 		info["alert_details"] = content
 		infoByte, _ := json.Marshal(info)
-		err = http_client.SendSignedRequest(nConfig["webhook"].PayloadURL, string(infoByte), nConfig["webhook"].Secret)
+		//err = http_client.SendSignedRequest(nConfig["webhook"].PayloadURL, string(infoByte), nConfig["webhook"].Secret)
+		err = http_client.SendSignedRequest(nConfig.PayloadURL, string(infoByte), nConfig.Secret)
 		if err != nil {
 			logrus.Error(err)
 		}
