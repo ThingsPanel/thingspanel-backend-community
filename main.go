@@ -21,7 +21,7 @@ import (
 // @name                        x-token
 func main() {
 	// 解析命令行参数
-	configPath := flag.String("config", "", "配置文件路径")
+	configPath := flag.String("config", "", "配置文件路径...")
 	flag.Parse()
 
 	// 根据是否指定配置文件选择配置加载方式
