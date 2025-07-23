@@ -86,6 +86,6 @@ func LogInIt() error {
 		logrus.SetLevel(logrus.InfoLevel) // 设置默认级别
 	}
 
-	log.Println("Logrus设置完成...")
+	log.Println("Logrus设置完成......")
 	return nil
 }
