@@ -302,7 +302,8 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 		}
 		go GroupApp.AlarmMessagePushSend(alarmConfig.Name, id, deviceInfo)
 	}
-	return true, alarmName, err.Error()
+	//return true, alarmName, err.Error()
+	return true, alarmName, ""
 }
 
 // 通过id获取告警信息
