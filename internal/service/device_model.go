@@ -43,14 +43,14 @@ func (*DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, wha
 	}
 
 	if err != nil {
-		return nil, errcode.WithData(208001, map[string]interface{}{
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
 
 	if exists {
-		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"param_err": fmt.Sprintf("数据标识符 '%s' 已存在，请使用其他标识符", req.DataIdentifier),
+		return nil, errcode.WithData(208001, map[string]interface{}{
+			"param_err": fmt.Sprintf("data identifier '%s' already exists", req.DataIdentifier),
 		})
 	}
 
