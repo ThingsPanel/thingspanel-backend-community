@@ -43,7 +43,7 @@ func (*DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, wha
 	}
 
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		return nil, errcode.WithData(208001, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
