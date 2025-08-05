@@ -34,6 +34,9 @@ func GetOpenAPIKeyByAppKey(appKey string) (*model.OpenAPIKey, error) {
 // return 总数,数据列表,错误信息
 func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) (int64, interface{}, error) {
 	q := query.OpenAPIKey
+	u := query.User
+	var keysList []model.OpenAPIKeyListRsp
+
 	queryBuilder := q.WithContext(context.Background())
 
 	// 添加租户过滤
@@ -45,6 +48,9 @@ func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) 
 	if listReq.Status != nil {
 		queryBuilder = queryBuilder.Where(q.Status.Eq(*listReq.Status))
 	}
+
+	// 左关联用户表
+	queryBuilder = queryBuilder.LeftJoin(u, u.ID.EqCol(q.CreatedID))
 
 	// 获取总数
 	count, err := queryBuilder.Count()
@@ -58,13 +64,19 @@ func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) 
 		queryBuilder = queryBuilder.Offset((listReq.Page - 1) * listReq.PageSize)
 	}
 
-	// 执行查询
-	keys, err := queryBuilder.Order(q.CreatedAt.Desc()).Find()
+	// 执行查询，选择所需字段
+	err = queryBuilder.Select(
+		q.ALL,
+		u.ID.As("user_id"),
+		u.Email.As("email"),
+		u.Name.As("user_name"),
+	).Order(q.CreatedAt.Desc()).Scan(&keysList)
+
 	if err != nil {
 		return 0, nil, err
 	}
 
-	return count, keys, nil
+	return count, keysList, nil
 }
 
 // UpdateOpenAPIKey 更新OpenAPI密钥信息
