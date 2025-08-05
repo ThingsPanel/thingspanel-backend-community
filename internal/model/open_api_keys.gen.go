@@ -19,6 +19,7 @@ type OpenAPIKey struct {
 	Name      string     `gorm:"column:name;not null" json:"name"`
 	CreatedAt *time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"column:updated_at" json:"updated_at"`
+	CreatedID *string    `gorm:"column:created_id" json:"created_id"`
 }
 
 // TableName OpenAPIKey's table name

@@ -26,6 +26,7 @@ type OpenAPIKey struct {
 	APIKey    string    `gorm:"column:api_key"`
 	Status    int       `gorm:"column:status"`
 	Name      string    `gorm:"column:name"`
+	CreatedID string    `gorm:"column:created_id"`
 	CreatedAt time.Time `gorm:"column:created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at"`
 }
@@ -36,10 +37,11 @@ func (OpenAPIKey) TableName() string {
 
 // Redis缓存的APIKey信息
 type APIKeyInfo struct {
-	ID       string `json:"id"`
-	TenantID string `json:"tenant_id"`
-	Status   int    `json:"status"`
-	Name     string `json:"name"`
+	ID        string `json:"id"`
+	TenantID  string `json:"tenant_id"`
+	Status    int    `json:"status"`
+	Name      string `json:"name"`
+	CreatedID string `json:"created_id"`
 }
 
 // APIKey验证器
@@ -87,10 +89,11 @@ func (v *APIKeyValidator) ValidateAPIKey(apiKey string) (*APIKeyInfo, error) {
 
 	// 4. 构造缓存信息
 	info = &APIKeyInfo{
-		ID:       key.ID,
-		TenantID: key.TenantID,
-		Status:   key.Status,
-		Name:     key.Name,
+		ID:        key.ID,
+		TenantID:  key.TenantID,
+		Status:    key.Status,
+		Name:      key.Name,
+		CreatedID: key.CreatedID,
 	}
 
 	// 5. 更新缓存
