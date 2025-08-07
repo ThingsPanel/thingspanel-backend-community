@@ -88,6 +88,12 @@ func (*ServicePluginApi) Heartbeat(c *gin.Context) {
 	c.Set("data", map[string]interface{}{})
 }
 
+//func (*ServicePluginApi) NoticeTest(c *gin.Context) {
+//	service.GroupApp.NotificationServicesConfig.ExecuteNotification("3eb7b6aa-d1ca-8c7d-9b62-3ab54bf4b9ab", "测试发送消息", "消息体: 2025-08-01")
+//
+//	c.Set("data", map[string]interface{}{})
+//}
+
 // GetServiceSelect
 // /api/v1/service/plugin/select GET
 func (*ServicePluginApi) HandleServiceSelect(c *gin.Context) {
