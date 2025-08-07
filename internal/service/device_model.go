@@ -28,6 +28,32 @@ func (*DeviceModel) CreateDeviceModelGeneral(req model.CreateDeviceModelReq, wha
 		})
 	}
 
+	// Check for duplicate DataIdentifier
+	var exists bool
+	var err error
+	switch what {
+	case model.DEVICE_MODEL_TELEMETRY:
+		exists, err = dal.CheckTelemetryDataIdentifierExists(req.DeviceTemplateId, claims.TenantID, req.DataIdentifier)
+	case model.DEVICE_MODEL_ATTRIBUTES:
+		exists, err = dal.CheckAttributeDataIdentifierExists(req.DeviceTemplateId, claims.TenantID, req.DataIdentifier)
+	case model.DEVICE_MODEL_EVENTS:
+		exists, err = dal.CheckEventDataIdentifierExists(req.DeviceTemplateId, claims.TenantID, req.DataIdentifier)
+	case model.DEVICE_MODEL_COMMANDS:
+		exists, err = dal.CheckCommandDataIdentifierExists(req.DeviceTemplateId, claims.TenantID, req.DataIdentifier)
+	}
+
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+
+	if exists {
+		return nil, errcode.WithData(208001, map[string]interface{}{
+			"param_err": fmt.Sprintf("data identifier '%s' already exists", req.DataIdentifier),
+		})
+	}
+
 	t := time.Now().UTC()
 	switch what {
 	case model.DEVICE_MODEL_TELEMETRY:

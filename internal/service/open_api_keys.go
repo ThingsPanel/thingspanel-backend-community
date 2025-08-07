@@ -43,11 +43,12 @@ func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *ut
 	status := int16(1) // 默认启用
 	// 创建OpenAPI密钥记录
 	key := &model.OpenAPIKey{
-		ID:       uuid.New(),
-		TenantID: req.TenantID,
-		APIKey:   apikey,
-		Status:   &status,
-		Name:     req.Name,
+		ID:        uuid.New(),
+		TenantID:  req.TenantID,
+		APIKey:    apikey,
+		Status:    &status,
+		Name:      req.Name,
+		CreatedID: &claims.ID,
 	}
 
 	t := time.Now().UTC()

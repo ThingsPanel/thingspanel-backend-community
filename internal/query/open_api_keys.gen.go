@@ -34,6 +34,7 @@ func newOpenAPIKey(db *gorm.DB, opts ...gen.DOOption) openAPIKey {
 	_openAPIKey.Name = field.NewString(tableName, "name")
 	_openAPIKey.CreatedAt = field.NewTime(tableName, "created_at")
 	_openAPIKey.UpdatedAt = field.NewTime(tableName, "updated_at")
+	_openAPIKey.CreatedID = field.NewString(tableName, "created_id")
 
 	_openAPIKey.fillFieldMap()
 
@@ -51,6 +52,7 @@ type openAPIKey struct {
 	Name      field.String
 	CreatedAt field.Time
 	UpdatedAt field.Time
+	CreatedID field.String
 
 	fieldMap map[string]field.Expr
 }
@@ -74,6 +76,7 @@ func (o *openAPIKey) updateTableName(table string) *openAPIKey {
 	o.Name = field.NewString(table, "name")
 	o.CreatedAt = field.NewTime(table, "created_at")
 	o.UpdatedAt = field.NewTime(table, "updated_at")
+	o.CreatedID = field.NewString(table, "created_id")
 
 	o.fillFieldMap()
 
@@ -90,7 +93,7 @@ func (o *openAPIKey) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (o *openAPIKey) fillFieldMap() {
-	o.fieldMap = make(map[string]field.Expr, 7)
+	o.fieldMap = make(map[string]field.Expr, 8)
 	o.fieldMap["id"] = o.ID
 	o.fieldMap["tenant_id"] = o.TenantID
 	o.fieldMap["api_key"] = o.APIKey
@@ -98,6 +101,7 @@ func (o *openAPIKey) fillFieldMap() {
 	o.fieldMap["name"] = o.Name
 	o.fieldMap["created_at"] = o.CreatedAt
 	o.fieldMap["updated_at"] = o.UpdatedAt
+	o.fieldMap["created_id"] = o.CreatedID
 }
 
 func (o openAPIKey) clone(db *gorm.DB) openAPIKey {

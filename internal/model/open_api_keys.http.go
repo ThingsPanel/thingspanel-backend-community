@@ -19,3 +19,11 @@ type UpdateOpenAPIKeyReq struct {
 	Status *int16  `json:"status" validate:"omitempty,oneof=0 1"` // 状态: 0-禁用 1-启用
 	Name   *string `json:"name" validate:"omitempty,max=200"`     // 名称
 }
+
+// OpenAPIKeyListRsp API密钥列表响应
+type OpenAPIKeyListRsp struct {
+	OpenAPIKey               // 嵌入OpenAPIKey结构体
+	UserID     *string `json:"user_id"`   // 创建者用户ID
+	Email      *string `json:"email"`     // 创建者邮箱
+	UserName   *string `json:"user_name"` // 创建者用户名
+}

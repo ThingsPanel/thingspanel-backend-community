@@ -4,7 +4,6 @@ import (
 	"project/initialize/croninit"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 // CronService 实现定时任务服务
@@ -27,10 +26,10 @@ func (s *CronService) Name() string {
 // Start 启动定时任务服务
 func (s *CronService) Start() error {
 	// 检查是否启用定时任务
-	if !viper.GetBool("cron.enabled") {
-		logrus.Info("定时任务服务已被禁用，跳过初始化")
-		return nil
-	}
+	// if !viper.GetBool("cron.enabled") {
+	// 	logrus.Info("定时任务服务已被禁用，跳过初始化")
+	// 	return nil
+	// }
 
 	logrus.Info("正在启动定时任务服务...")
 

@@ -257,3 +257,52 @@ func GetIdentifierNameEvent() func(device_template_id, identifier string) string
 		return *result.DataName
 	}
 }
+
+// Check for duplicate DataIdentifier functions
+func CheckTelemetryDataIdentifierExists(deviceTemplateID, tenantID, dataIdentifier string) (bool, error) {
+	count, err := query.DeviceModelTelemetry.Where(
+		query.DeviceModelTelemetry.DeviceTemplateID.Eq(deviceTemplateID),
+		query.DeviceModelTelemetry.TenantID.Eq(tenantID),
+		query.DeviceModelTelemetry.DataIdentifier.Eq(dataIdentifier),
+	).Count()
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func CheckAttributeDataIdentifierExists(deviceTemplateID, tenantID, dataIdentifier string) (bool, error) {
+	count, err := query.DeviceModelAttribute.Where(
+		query.DeviceModelAttribute.DeviceTemplateID.Eq(deviceTemplateID),
+		query.DeviceModelAttribute.TenantID.Eq(tenantID),
+		query.DeviceModelAttribute.DataIdentifier.Eq(dataIdentifier),
+	).Count()
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func CheckEventDataIdentifierExists(deviceTemplateID, tenantID, dataIdentifier string) (bool, error) {
+	count, err := query.DeviceModelEvent.Where(
+		query.DeviceModelEvent.DeviceTemplateID.Eq(deviceTemplateID),
+		query.DeviceModelEvent.TenantID.Eq(tenantID),
+		query.DeviceModelEvent.DataIdentifier.Eq(dataIdentifier),
+	).Count()
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func CheckCommandDataIdentifierExists(deviceTemplateID, tenantID, dataIdentifier string) (bool, error) {
+	count, err := query.DeviceModelCommand.Where(
+		query.DeviceModelCommand.DeviceTemplateID.Eq(deviceTemplateID),
+		query.DeviceModelCommand.TenantID.Eq(tenantID),
+		query.DeviceModelCommand.DataIdentifier.Eq(dataIdentifier),
+	).Count()
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

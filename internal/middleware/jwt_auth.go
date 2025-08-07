@@ -110,7 +110,7 @@ func OpenAPIKeyAuth(c *gin.Context) bool {
 		return false
 	}
 
-	tenantID, err := dal.VerifyOpenAPIKey(context.Background(), appKey)
+	tenantID, createdID, err := dal.VerifyOpenAPIKey(context.Background(), appKey)
 	if err != nil {
 		errCode := ErrCodeInvalidAPIKey
 		errMsg := "api key verification failed"
@@ -128,6 +128,7 @@ func OpenAPIKeyAuth(c *gin.Context) bool {
 	claims := utils.UserClaims{
 		TenantID:  tenantID,
 		Authority: "TENANT_ADMIN",
+		ID:        createdID,
 	}
 	c.Set("claims", &claims)
 	return true

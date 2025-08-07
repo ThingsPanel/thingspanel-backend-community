@@ -251,6 +251,23 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 			if exists {
 				return nil, errcode.New(204004)
 			}
+			// 如果协议类型不是MQTT则需要通知设备断开连接
+			if req.DeviceConfigId != nil || oldDevice.DeviceConfigID != nil {
+				deviceConfig, err := dal.GetDeviceConfigByID(*req.DeviceConfigId)
+				if err != nil {
+					return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
+				}
+				if deviceConfig.ProtocolType != nil && *deviceConfig.ProtocolType != "MQTT" {
+					// 直连设备和网关设备需要通知设备断开连接
+					if deviceConfig.DeviceType == "1" || deviceConfig.DeviceType == "2" {
+						if protocolplugin.DisconnectDeviceByDeviceID(req.Id) != nil {
+							logrus.Error("DisconnectDeviceByDeviceID failed:", err)
+						}
+					}
+				}
+			}
 		}
 	}
 

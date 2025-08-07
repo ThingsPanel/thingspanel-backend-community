@@ -34,6 +34,9 @@ func GetOpenAPIKeyByAppKey(appKey string) (*model.OpenAPIKey, error) {
 // return 总数,数据列表,错误信息
 func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) (int64, interface{}, error) {
 	q := query.OpenAPIKey
+	u := query.User
+	var keysList []model.OpenAPIKeyListRsp
+
 	queryBuilder := q.WithContext(context.Background())
 
 	// 添加租户过滤
@@ -45,6 +48,9 @@ func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) 
 	if listReq.Status != nil {
 		queryBuilder = queryBuilder.Where(q.Status.Eq(*listReq.Status))
 	}
+
+	// 左关联用户表
+	queryBuilder = queryBuilder.LeftJoin(u, u.ID.EqCol(q.CreatedID))
 
 	// 获取总数
 	count, err := queryBuilder.Count()
@@ -58,13 +64,19 @@ func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) 
 		queryBuilder = queryBuilder.Offset((listReq.Page - 1) * listReq.PageSize)
 	}
 
-	// 执行查询
-	keys, err := queryBuilder.Order(q.CreatedAt.Desc()).Find()
+	// 执行查询，选择所需字段
+	err = queryBuilder.Select(
+		q.ALL,
+		u.ID.As("user_id"),
+		u.Email.As("email"),
+		u.Name.As("user_name"),
+	).Order(q.CreatedAt.Desc()).Scan(&keysList)
+
 	if err != nil {
 		return 0, nil, err
 	}
 
-	return count, keys, nil
+	return count, keysList, nil
 }
 
 // UpdateOpenAPIKey 更新OpenAPI密钥信息
@@ -121,22 +133,29 @@ func (OpenAPIKeyQuery) Select(ctx context.Context, option ...gen.Condition) (lis
 // 验证OpenAPI密钥是否有效并返回租户ID
 // Redis缓存结构 key: "apikey:{api_key}" value: tenantID
 // 有效期为1小时
-func VerifyOpenAPIKey(ctx context.Context, appKey string) (string, error) {
+func VerifyOpenAPIKey(ctx context.Context, appKey string) (string, string, error) {
 	// 从Redis缓存中获取租户ID
 	cacheKey := "apikey:" + appKey
+	cacheKeyCreatedID := "apikey:createdid:" + appKey
 	tenantID, err := global.REDIS.Get(ctx, cacheKey).Result()
-	if err != nil {
+	createdID, err1 := global.REDIS.Get(ctx, cacheKeyCreatedID).Result()
+	if err != nil || err1 != nil {
 		// 如果缓存中不存在，则从数据库中查询
 		apiKey, err := query.OpenAPIKey.WithContext(ctx).Where(query.OpenAPIKey.APIKey.Eq(appKey), query.OpenAPIKey.Status.Eq(1)).First()
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		// 将查询结果存入Redis缓存，有效期为1小时
 		tenantID = apiKey.TenantID
+		createdID = *apiKey.CreatedID
 		err = global.REDIS.Set(ctx, cacheKey, tenantID, time.Hour).Err()
 		if err != nil {
 			logrus.Warnf("设置OpenAPI密钥缓存失败: %v", err)
 		}
+		err = global.REDIS.Set(ctx, cacheKeyCreatedID, createdID, time.Hour).Err()
+		if err != nil {
+			logrus.Warnf("设置OpenAPI密钥创建者ID缓存失败: %v", err)
+		}
 	}
-	return tenantID, nil
+	return tenantID, createdID, nil
 }

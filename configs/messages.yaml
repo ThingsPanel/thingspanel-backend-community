@@ -291,6 +291,11 @@ messages:
     zh_CN: "查询时间范围超过${time_range}，聚合间隔不能小于${min_interval}，当前配置为${current_time_range}，聚合间隔为${aggregate_window}"
     en_US: "Query time range exceeds ${time_range}, aggregation interval cannot be less than ${min_interval}, current configuration is ${current_time_range}, aggregation interval is ${aggregate_window}"
 
+  # 物模型相关错误码 (208xxx)
+  208001:
+    zh_CN: "数据标识符已存在"
+    en_US: "Data identifier already exists"
+
   # Device Connect Field Keys (500xxx)
   500001:
     zh_CN: "接入地址"

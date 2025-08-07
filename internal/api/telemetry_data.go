@@ -239,6 +239,7 @@ func validateAPIKey(apiKey string) (*utils.UserClaims, error) {
 	claims := &utils.UserClaims{
 		TenantID:  info.TenantID,
 		Authority: "TENANT_ADMIN",
+		ID:        info.CreatedID,
 	}
 
 	return claims, nil
