@@ -180,20 +180,20 @@ func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 		LastVisitDevice     *string    `gorm:"column:last_visit_device"`
 		PasswordFailCount   *int32     `gorm:"column:password_fail_count"`
 		// 地址字段
-		AddressID           *int32     `gorm:"column:user_address.id"`
-		Country             *string    `gorm:"column:user_address.country"`
-		Province            *string    `gorm:"column:user_address.province"`
-		City                *string    `gorm:"column:user_address.city"`
-		District            *string    `gorm:"column:user_address.district"`
-		Street              *string    `gorm:"column:user_address.street"`
-		DetailedAddress     *string    `gorm:"column:user_address.detailed_address"`
-		PostalCode          *string    `gorm:"column:user_address.postal_code"`
-		AddressLabel        *string    `gorm:"column:user_address.address_label"`
-		Longitude           *string    `gorm:"column:user_address.longitude"`
-		Latitude            *string    `gorm:"column:user_address.latitude"`
-		AddressAdditionalInfo *string  `gorm:"column:user_address.additional_info"`
-		AddressCreatedTime  *time.Time `gorm:"column:user_address.created_time"`
-		AddressUpdatedTime  *time.Time `gorm:"column:user_address.updated_time"`
+		AddressID           *int32     `gorm:"column:address_id"`
+		Country             *string    `gorm:"column:address_country"`
+		Province            *string    `gorm:"column:address_province"`
+		City                *string    `gorm:"column:address_city"`
+		District            *string    `gorm:"column:address_district"`
+		Street              *string    `gorm:"column:address_street"`
+		DetailedAddress     *string    `gorm:"column:address_detailed_address"`
+		PostalCode          *string    `gorm:"column:address_postal_code"`
+		AddressLabel        *string    `gorm:"column:address_label"`
+		Longitude           *string    `gorm:"column:address_longitude"`
+		Latitude            *string    `gorm:"column:address_latitude"`
+		AddressAdditionalInfo *string  `gorm:"column:address_additional_info"`
+		AddressCreatedTime  *time.Time `gorm:"column:address_created_time"`
+		AddressUpdatedTime  *time.Time `gorm:"column:address_updated_time"`
 	}
 	
 	var result UserWithAddress
@@ -204,13 +204,13 @@ func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 			q.ID, q.Name, q.PhoneNumber, q.Email, q.Status, q.Authority, q.TenantID, q.Remark,
 			q.AdditionalInfo, q.Organization, q.Timezone, q.DefaultLanguage,
 			q.CreatedAt, q.UpdatedAt, q.PasswordLastUpdated, q.LastVisitTime, q.LastVisitIP, q.LastVisitDevice, q.PasswordFailCount,
-			qa.ID.As("user_address.id"),
-			qa.Country.As("user_address.country"), qa.Province.As("user_address.province"), qa.City.As("user_address.city"),
-			qa.District.As("user_address.district"), qa.Street.As("user_address.street"),
-			qa.DetailedAddress.As("user_address.detailed_address"), qa.PostalCode.As("user_address.postal_code"),
-			qa.AddressLabel.As("user_address.address_label"), qa.Longitude.As("user_address.longitude"),
-			qa.Latitude.As("user_address.latitude"), qa.AdditionalInfo.As("user_address.additional_info"),
-			qa.CreatedTime.As("user_address.created_time"), qa.UpdatedTime.As("user_address.updated_time"),
+			qa.ID.As("address_id"),
+			qa.Country.As("address_country"), qa.Province.As("address_province"), qa.City.As("address_city"),
+			qa.District.As("address_district"), qa.Street.As("address_street"),
+			qa.DetailedAddress.As("address_detailed_address"), qa.PostalCode.As("address_postal_code"),
+			qa.AddressLabel.As("address_label"), qa.Longitude.As("address_longitude"),
+			qa.Latitude.As("address_latitude"), qa.AdditionalInfo.As("address_additional_info"),
+			qa.CreatedTime.As("address_created_time"), qa.UpdatedTime.As("address_updated_time"),
 		).
 		Scan(&result)
 		
@@ -367,8 +367,8 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 		queryBuilder = queryBuilder.Where(qa.City.Like(fmt.Sprintf("%%%s%%", *userListReq.City)))
 	}
 	
-	// 获取总数（需要去重）
-	count, err := queryBuilder.Distinct(q.ID).Count()
+	// 获取总数（1:1关系不需要去重）
+	count, err := queryBuilder.Count()
 	if err != nil {
 		return count, nil, err
 	}
@@ -379,99 +379,25 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 		queryBuilder = queryBuilder.Offset((userListReq.Page - 1) * userListReq.PageSize)
 	}
 
-	// 查询用户信息和地址信息
-	type UserWithAddress struct {
-		// 用户字段
-		ID                  string     `gorm:"column:id"`
-		Name                *string    `gorm:"column:name"`
-		PhoneNumber         string     `gorm:"column:phone_number"`
-		Email               string     `gorm:"column:email"`
-		Status              *string    `gorm:"column:status"`
-		Authority           *string    `gorm:"column:authority"`
-		TenantID            *string    `gorm:"column:tenant_id"`
-		Remark              *string    `gorm:"column:remark"`
-		AdditionalInfo      *string    `gorm:"column:additional_info"`
-		Organization        *string    `gorm:"column:organization"`
-		Timezone            *string    `gorm:"column:timezone"`
-		DefaultLanguage     *string    `gorm:"column:default_language"`
-		CreatedAt           *time.Time `gorm:"column:created_at"`
-		UpdatedAt           *time.Time `gorm:"column:updated_at"`
-		LastVisitTime       *time.Time `gorm:"column:last_visit_time"`
-		// 地址字段
-		AddressID           *int32     `gorm:"column:user_address.id"`
-		Country             *string    `gorm:"column:user_address.country"`
-		Province            *string    `gorm:"column:user_address.province"`
-		City                *string    `gorm:"column:user_address.city"`
-		District            *string    `gorm:"column:user_address.district"`
-		Street              *string    `gorm:"column:user_address.street"`
-		DetailedAddress     *string    `gorm:"column:user_address.detailed_address"`
-		PostalCode          *string    `gorm:"column:user_address.postal_code"`
-		AddressLabel        *string    `gorm:"column:user_address.address_label"`
-		Longitude           *string    `gorm:"column:user_address.longitude"`
-		Latitude            *string    `gorm:"column:user_address.latitude"`
-		AddressAdditionalInfo *string  `gorm:"column:user_address.additional_info"`
+	// 由于1:1关系不需要去重，直接查询用户ID列表，然后逐个查询详细信息
+	type UserIDWithTime struct {
+		ID        string     `gorm:"column:id"`
+		CreatedAt *time.Time `gorm:"column:created_at"`
 	}
-	
-	var results []UserWithAddress
-	err = queryBuilder.Select(
-		q.ID, q.Name, q.PhoneNumber, q.Email, q.Status, q.Authority, q.TenantID, q.Remark, 
-		q.AdditionalInfo, q.Organization, q.Timezone, q.DefaultLanguage, 
-		q.CreatedAt, q.UpdatedAt, q.LastVisitTime,
-		qa.ID.As("user_address.id"),
-		qa.Country.As("user_address.country"), qa.Province.As("user_address.province"), qa.City.As("user_address.city"),
-		qa.District.As("user_address.district"), qa.Street.As("user_address.street"), 
-		qa.DetailedAddress.As("user_address.detailed_address"), qa.PostalCode.As("user_address.postal_code"),
-		qa.AddressLabel.As("user_address.address_label"), qa.Longitude.As("user_address.longitude"),
-		qa.Latitude.As("user_address.latitude"), qa.AdditionalInfo.As("user_address.additional_info"),
-	).Order(q.CreatedAt.Desc()).Scan(&results)
-	
+	var userIDResults []UserIDWithTime
+	err = queryBuilder.Select(q.ID, q.CreatedAt).Order(q.CreatedAt.Desc()).Scan(&userIDResults)
 	if err != nil {
 		return count, nil, err
 	}
 	
-	// 构建返回数据
-	for _, result := range results {
-		roles, _ := GetRolesByUserId(result.ID)
-		userMap := map[string]interface{}{
-			"id":               result.ID,
-			"name":             result.Name,
-			"phone_number":     result.PhoneNumber,
-			"email":            result.Email,
-			"status":           result.Status,
-			"authority":        result.Authority,
-			"tenant_id":        result.TenantID,
-			"remark":           result.Remark,
-			"additionalInfo":   result.AdditionalInfo,
-			"organization":     result.Organization,
-			"timezone":         result.Timezone,
-			"default_language": result.DefaultLanguage,
-			"created_at":       result.CreatedAt,
-			"updated_at":       result.UpdatedAt,
-			"userRoles":        roles,
-			"lastVisitTime":    result.LastVisitTime,
+	// 为每个用户获取详细信息和地址
+	for _, userIDResult := range userIDResults {
+		userWithAddress, err := GetUserByIdWithAddress(userIDResult.ID)
+		if err != nil {
+			logrus.Error("Failed to get user with address for ID:", userIDResult.ID, err)
+			continue
 		}
-		
-		// 添加地址信息（如果存在）
-		if result.AddressID != nil {
-			userMap["address"] = map[string]interface{}{
-				"id":               result.AddressID,
-				"country":          result.Country,
-				"province":         result.Province,
-				"city":             result.City,
-				"district":         result.District,
-				"street":           result.Street,
-				"detailed_address": result.DetailedAddress,
-				"postal_code":      result.PostalCode,
-				"address_label":    result.AddressLabel,
-				"longitude":        result.Longitude,
-				"latitude":         result.Latitude,
-				"additional_info":  result.AddressAdditionalInfo,
-			}
-		} else {
-			userMap["address"] = nil
-		}
-		
-		userList = append(userList, userMap)
+		userList = append(userList, userWithAddress)
 	}
 
 	return count, userList, nil
