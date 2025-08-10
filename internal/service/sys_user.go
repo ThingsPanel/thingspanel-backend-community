@@ -39,6 +39,11 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 	user.Status = StringPtr("N")
 	user.Remark = createUserReq.Remark
 
+	// 新增扩展字段
+	user.Organization = createUserReq.Organization
+	user.Timezone = createUserReq.Timezone
+	user.DefaultLanguage = createUserReq.DefaultLanguage
+
 	// 其他信息
 	if createUserReq.AdditionalInfo == nil {
 		user.AdditionalInfo = StringPtr("{}")
@@ -93,8 +98,8 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 	}
 	user.Password = hashedPassword
 
-	// 创建用户
-	err := dal.CreateUsers(&user)
+	// 创建用户和地址（使用事务）
+	err := dal.CreateUserWithAddress(&user, createUserReq.Address)
 	if err != nil {
 		logrus.Error(err)
 		if strings.Contains(err.Error(), "users_un") {
@@ -430,12 +435,20 @@ func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserCl
 
 	user.UpdatedAt = &t
 	user.Name = updateUserReq.Name
-	user.PhoneNumber = *updateUserReq.PhoneNumber
+	if updateUserReq.PhoneNumber != nil {
+		user.PhoneNumber = *updateUserReq.PhoneNumber
+	}
 	user.AdditionalInfo = updateUserReq.AdditionalInfo
 	user.Status = updateUserReq.Status
 	user.Remark = updateUserReq.Remark
 
-	_, err = dal.UpdateUserInfoById(claims.ID, user)
+	// 更新新增的扩展字段
+	user.Organization = updateUserReq.Organization
+	user.Timezone = updateUserReq.Timezone
+	user.DefaultLanguage = updateUserReq.DefaultLanguage
+
+	// 更新用户和地址信息（使用事务）
+	err = dal.UpdateUserWithAddress(user, updateUserReq.Address)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error":   err.Error(),
@@ -516,9 +529,9 @@ func (*User) DeleteUser(id string, claims *utils.UserClaims) error {
 }
 
 // 获取用户信息
-func (*User) GetUser(id string, claims *utils.UserClaims) (*model.User, error) {
-	// 获取用户信息
-	user, err := dal.GetUsersById(id)
+func (*User) GetUser(id string, claims *utils.UserClaims) (interface{}, error) {
+	// 获取用户和地址信息
+	userWithAddress, err := dal.GetUserByIdWithAddress(id)
 	if err != nil {
 		// 数据库错误处理
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -527,18 +540,20 @@ func (*User) GetUser(id string, claims *utils.UserClaims) (*model.User, error) {
 		})
 	}
 
-	// 判断用户权限，租户管理员和租户用户不能查看其他租户的信息
+	// 权限检查
 	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
-		if *user.TenantID != claims.TenantID {
-			return nil, errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
-				"required_tenant": *user.TenantID,
-				"current_tenant":  claims.TenantID,
-				"user_authority":  claims.Authority,
-			})
+		if tenantID, ok := userWithAddress["tenant_id"]; ok && tenantID != nil {
+			if tenantIDStr, ok := tenantID.(*string); ok && tenantIDStr != nil && *tenantIDStr != claims.TenantID {
+				return nil, errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
+					"required_tenant": *tenantIDStr,
+					"current_tenant":  claims.TenantID,
+					"user_authority":  claims.Authority,
+				})
+			}
 		}
 	}
 
-	return user, nil
+	return userWithAddress, nil
 }
 
 // 获取用户详细信息
@@ -790,4 +805,39 @@ func (u *User) GetTenantInfo(tenantID string) (*model.User, error) {
 		})
 	}
 	return tenant, nil
+}
+
+// @description 更新用户地址信息
+func (u *User) UpdateUserAddress(userID string, updateAddressReq *model.UpdateUserAddressReq, claims *utils.UserClaims) error {
+	// 首先验证用户是否存在
+	user, err := dal.GetUsersById(userID)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":   err.Error(),
+			"user_id": userID,
+		})
+	}
+
+	// 权限检查：租户管理员和租户用户不能修改其他租户的用户地址
+	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
+		if *user.TenantID != claims.TenantID {
+			return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
+				"required_tenant": *user.TenantID,
+				"current_tenant":  claims.TenantID,
+				"operation":       "update_user_address",
+			})
+		}
+	}
+
+	// 更新地址信息
+	err = dal.UpdateUserAddressOnly(userID, updateAddressReq)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":     err.Error(),
+			"user_id":   userID,
+			"operation": "update_user_address",
+		})
+	}
+
+	return nil
 }

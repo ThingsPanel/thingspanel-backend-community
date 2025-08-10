@@ -75,14 +75,14 @@ var (
 	VisFile                    *visFile
 	VisPlugin                  *visPlugin
 	VisPluginLocal             *visPluginLocal
-	ExpectedData 			   *expectedData
+	ExpectedData               *expectedData
 	OpenAPIKey                 *openAPIKey
-	MessagePushConfig  *messagePushConfig
-	MessagePushLog *messagePushLog
-	MessagePushManage  *messagePushManage
-	MessagePushRuleLog  *messagePushRuleLog
-	LatestDeviceAlarm *latestDeviceAlarm
-
+	MessagePushConfig          *messagePushConfig
+	MessagePushLog             *messagePushLog
+	MessagePushManage          *messagePushManage
+	MessagePushRuleLog         *messagePushRuleLog
+	LatestDeviceAlarm          *latestDeviceAlarm
+	UserAddress                *userAddress
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -152,6 +152,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	MessagePushManage = &Q.MessagePushManage
 	MessagePushRuleLog = &Q.MessagePushRuleLog
 	LatestDeviceAlarm = &Q.LatestDeviceAlarm
+	UserAddress = &Q.UserAddress
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
@@ -215,13 +216,14 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		VisFile:                    newVisFile(db, opts...),
 		VisPlugin:                  newVisPlugin(db, opts...),
 		VisPluginLocal:             newVisPluginLocal(db, opts...),
-		ExpectedData:                newExpectedData(db, opts...),
+		ExpectedData:               newExpectedData(db, opts...),
 		OpenAPIKey:                 newOpenAPIKey(db, opts...),
-		MessagePushConfig:  newMessagePushConfig(db, opts...),
-		MessagePushLog:     newMessagePushLog(db, opts...),
-		MessagePushManage:  newMessagePushManage(db, opts...),
-		MessagePushRuleLog: newMessagePushRuleLog(db, opts...),
-		LatestDeviceAlarm: newLatestDeviceAlarm(db, opts...),
+		MessagePushConfig:          newMessagePushConfig(db, opts...),
+		MessagePushLog:             newMessagePushLog(db, opts...),
+		MessagePushManage:          newMessagePushManage(db, opts...),
+		MessagePushRuleLog:         newMessagePushRuleLog(db, opts...),
+		LatestDeviceAlarm:          newLatestDeviceAlarm(db, opts...),
+		UserAddress:                newUserAddress(db, opts...),
 	}
 }
 
@@ -288,11 +290,12 @@ type Query struct {
 	VisPluginLocal             visPluginLocal
 	ExpectedData               expectedData
 	OpenAPIKey                 openAPIKey
-	MessagePushConfig  messagePushConfig
-	MessagePushLog     messagePushLog
-	MessagePushManage  messagePushManage
-	MessagePushRuleLog messagePushRuleLog
-	LatestDeviceAlarm latestDeviceAlarm
+	MessagePushConfig          messagePushConfig
+	MessagePushLog             messagePushLog
+	MessagePushManage          messagePushManage
+	MessagePushRuleLog         messagePushRuleLog
+	LatestDeviceAlarm          latestDeviceAlarm
+	UserAddress                userAddress
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -360,11 +363,12 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		VisPluginLocal:             q.VisPluginLocal.clone(db),
 		ExpectedData:               q.ExpectedData.clone(db),
 		OpenAPIKey:                 q.OpenAPIKey.clone(db),
-		MessagePushConfig:  q.MessagePushConfig.clone(db),
-		MessagePushLog:     q.MessagePushLog.clone(db),
-		MessagePushManage:  q.MessagePushManage.clone(db),
-		MessagePushRuleLog: q.MessagePushRuleLog.clone(db),
-		LatestDeviceAlarm: q.LatestDeviceAlarm.clone(db),
+		MessagePushConfig:          q.MessagePushConfig.clone(db),
+		MessagePushLog:             q.MessagePushLog.clone(db),
+		MessagePushManage:          q.MessagePushManage.clone(db),
+		MessagePushRuleLog:         q.MessagePushRuleLog.clone(db),
+		LatestDeviceAlarm:          q.LatestDeviceAlarm.clone(db),
+		UserAddress:                q.UserAddress.clone(db),
 	}
 }
 
@@ -439,11 +443,12 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		VisPluginLocal:             q.VisPluginLocal.replaceDB(db),
 		ExpectedData:               q.ExpectedData.replaceDB(db),
 		OpenAPIKey:                 q.OpenAPIKey.replaceDB(db),
-		MessagePushConfig:  q.MessagePushConfig.replaceDB(db),
-		MessagePushLog:     q.MessagePushLog.replaceDB(db),
-		MessagePushManage:  q.MessagePushManage.replaceDB(db),
-		MessagePushRuleLog: q.MessagePushRuleLog.replaceDB(db),
-		LatestDeviceAlarm: q.LatestDeviceAlarm.replaceDB(db),
+		MessagePushConfig:          q.MessagePushConfig.replaceDB(db),
+		MessagePushLog:             q.MessagePushLog.replaceDB(db),
+		MessagePushManage:          q.MessagePushManage.replaceDB(db),
+		MessagePushRuleLog:         q.MessagePushRuleLog.replaceDB(db),
+		LatestDeviceAlarm:          q.LatestDeviceAlarm.replaceDB(db),
+		UserAddress:                q.UserAddress.replaceDB(db),
 	}
 }
 
@@ -508,11 +513,12 @@ type queryCtx struct {
 	VisPluginLocal             IVisPluginLocalDo
 	ExpectedData               IExpectedDataDo
 	OpenAPIKey                 IOpenAPIKeyDo
-	MessagePushConfig  IMessagePushConfigDo
-	MessagePushLog     IMessagePushLogDo
-	MessagePushManage  IMessagePushManageDo
-	MessagePushRuleLog IMessagePushRuleLogDo
-	LatestDeviceAlarm ILatestDeviceAlarmDo
+	MessagePushConfig          IMessagePushConfigDo
+	MessagePushLog             IMessagePushLogDo
+	MessagePushManage          IMessagePushManageDo
+	MessagePushRuleLog         IMessagePushRuleLogDo
+	LatestDeviceAlarm          ILatestDeviceAlarmDo
+	UserAddress                IUserAddressDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
@@ -577,11 +583,12 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		VisPluginLocal:             q.VisPluginLocal.WithContext(ctx),
 		ExpectedData:               q.ExpectedData.WithContext(ctx),
 		OpenAPIKey:                 q.OpenAPIKey.WithContext(ctx),
-		MessagePushConfig:  q.MessagePushConfig.WithContext(ctx),
-		MessagePushLog:     q.MessagePushLog.WithContext(ctx),
-		MessagePushManage:  q.MessagePushManage.WithContext(ctx),
-		MessagePushRuleLog: q.MessagePushRuleLog.WithContext(ctx),
-		LatestDeviceAlarm: q.LatestDeviceAlarm.WithContext(ctx),
+		MessagePushConfig:          q.MessagePushConfig.WithContext(ctx),
+		MessagePushLog:             q.MessagePushLog.WithContext(ctx),
+		MessagePushManage:          q.MessagePushManage.WithContext(ctx),
+		MessagePushRuleLog:         q.MessagePushRuleLog.WithContext(ctx),
+		LatestDeviceAlarm:          q.LatestDeviceAlarm.WithContext(ctx),
+		UserAddress:                q.UserAddress.WithContext(ctx),
 	}
 }
 

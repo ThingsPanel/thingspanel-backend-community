@@ -25,7 +25,13 @@ type User struct {
 	CreatedAt           *time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt           *time.Time `gorm:"column:updated_at" json:"updated_at"`
 	PasswordLastUpdated *time.Time `gorm:"column:password_last_updated" json:"password_last_updated"`
-	LastVisitTime       *time.Time `gorm:"column:last_visit_time;comment:上次访问时间" json:"last_visit_time"` // 上次访问时间
+	LastVisitTime       *time.Time `gorm:"column:last_visit_time;comment:上次访问时间" json:"last_visit_time"`         // 上次访问时间
+	LastVisitIP         *string    `gorm:"column:last_visit_ip;comment:上次访问IP" json:"last_visit_ip"`             // 上次访问IP
+	LastVisitDevice     *string    `gorm:"column:last_visit_device;comment:上次访问设备信息摘要" json:"last_visit_device"` // 上次访问设备信息摘要
+	Organization        *string    `gorm:"column:organization;comment:用户所属组织机构名称" json:"organization"`           // 用户所属组织机构名称
+	Timezone            *string    `gorm:"column:timezone;comment:所在时区" json:"timezone"`                         // 所在时区
+	DefaultLanguage     *string    `gorm:"column:default_language;comment:默认语言" json:"default_language"`         // 默认语言
+	PasswordFailCount   *int32     `gorm:"column:password_fail_count;comment:密码错误次数" json:"password_fail_count"` // 密码错误次数
 }
 
 // TableName User's table name

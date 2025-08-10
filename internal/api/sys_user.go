@@ -204,7 +204,10 @@ func (*UserApi) HandleUser(c *gin.Context) {
 		return
 	}
 
-	user.Password = ""
+	// 清除敏感信息
+	if userMap, ok := user.(map[string]interface{}); ok {
+		delete(userMap, "password")
+	}
 
 	c.Set("data", user)
 }
@@ -284,4 +287,34 @@ func (*UserApi) GetTenantID(c *gin.Context) {
 	tenantID := userClaims.TenantID
 
 	c.Set("data", tenantID)
+}
+
+// UpdateUserAddress 更新用户地址信息
+// @Summary      更新用户地址信息
+// @Description  更新指定用户的地址信息，支持创建新地址或更新现有地址
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Param        id path string true "用户ID"
+// @Param        request body model.UpdateUserAddressReq true "地址信息"
+// @Success      200 {object} interface{} "成功"
+// @Failure      400 {object} errcode.Error "错误响应"
+// @Router       /api/v1/user/address/{id} [put]
+func (*UserApi) UpdateUserAddress(c *gin.Context) {
+	id := c.Param("id")
+	var updateAddressReq model.UpdateUserAddressReq
+
+	if !BindAndValidate(c, &updateAddressReq) {
+		return
+	}
+
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	err := service.GroupApp.User.UpdateUserAddress(id, &updateAddressReq, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", nil)
 }

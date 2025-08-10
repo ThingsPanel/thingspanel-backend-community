@@ -41,6 +41,12 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 	_user.UpdatedAt = field.NewTime(tableName, "updated_at")
 	_user.PasswordLastUpdated = field.NewTime(tableName, "password_last_updated")
 	_user.LastVisitTime = field.NewTime(tableName, "last_visit_time")
+	_user.LastVisitIP = field.NewString(tableName, "last_visit_ip")
+	_user.LastVisitDevice = field.NewString(tableName, "last_visit_device")
+	_user.Organization = field.NewString(tableName, "organization")
+	_user.Timezone = field.NewString(tableName, "timezone")
+	_user.DefaultLanguage = field.NewString(tableName, "default_language")
+	_user.PasswordFailCount = field.NewInt32(tableName, "password_fail_count")
 
 	_user.fillFieldMap()
 
@@ -64,7 +70,13 @@ type user struct {
 	CreatedAt           field.Time
 	UpdatedAt           field.Time
 	PasswordLastUpdated field.Time
-	LastVisitTime       field.Time // 上次访问时间
+	LastVisitTime       field.Time   // 上次访问时间
+	LastVisitIP         field.String // 上次访问IP
+	LastVisitDevice     field.String // 上次访问设备信息摘要
+	Organization        field.String // 用户所属组织机构名称
+	Timezone            field.String // 所在时区
+	DefaultLanguage     field.String // 默认语言
+	PasswordFailCount   field.Int32  // 密码错误次数
 
 	fieldMap map[string]field.Expr
 }
@@ -95,6 +107,12 @@ func (u *user) updateTableName(table string) *user {
 	u.UpdatedAt = field.NewTime(table, "updated_at")
 	u.PasswordLastUpdated = field.NewTime(table, "password_last_updated")
 	u.LastVisitTime = field.NewTime(table, "last_visit_time")
+	u.LastVisitIP = field.NewString(table, "last_visit_ip")
+	u.LastVisitDevice = field.NewString(table, "last_visit_device")
+	u.Organization = field.NewString(table, "organization")
+	u.Timezone = field.NewString(table, "timezone")
+	u.DefaultLanguage = field.NewString(table, "default_language")
+	u.PasswordFailCount = field.NewInt32(table, "password_fail_count")
 
 	u.fillFieldMap()
 
@@ -111,7 +129,7 @@ func (u *user) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *user) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 14)
+	u.fieldMap = make(map[string]field.Expr, 20)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["name"] = u.Name
 	u.fieldMap["phone_number"] = u.PhoneNumber
@@ -126,6 +144,12 @@ func (u *user) fillFieldMap() {
 	u.fieldMap["updated_at"] = u.UpdatedAt
 	u.fieldMap["password_last_updated"] = u.PasswordLastUpdated
 	u.fieldMap["last_visit_time"] = u.LastVisitTime
+	u.fieldMap["last_visit_ip"] = u.LastVisitIP
+	u.fieldMap["last_visit_device"] = u.LastVisitDevice
+	u.fieldMap["organization"] = u.Organization
+	u.fieldMap["timezone"] = u.Timezone
+	u.fieldMap["default_language"] = u.DefaultLanguage
+	u.fieldMap["password_fail_count"] = u.PasswordFailCount
 }
 
 func (u user) clone(db *gorm.DB) user {
