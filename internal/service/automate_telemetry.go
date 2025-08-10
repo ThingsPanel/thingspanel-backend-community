@@ -218,7 +218,7 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 		}
 
 		// 场景频率限制(根据场景id)
-		if !a.LimiterAllow(v.SceneAutomationId) {
+		if !a.LimiterAllow(fmt.Sprintf("%s:%s", v.SceneAutomationId, info.DeviceId)) {
 			continue
 		}
 		logrus.Debugf("查询自动化是否关闭1: info:%#v,", v.SceneAutomationId)

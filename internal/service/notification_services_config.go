@@ -235,9 +235,9 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, titl
 		var nConfig WebhookConfig
 		err = json.Unmarshal([]byte(*notificationGroup.NotificationConfig), &nConfig)
 		if err != nil {
-			logrus.Error(err)
+			logrus.Error("json:", err)
 		}
-		info := make(map[string]string)
+		info := make(map[string]interface{})
 		info["alert_title"] = title
 		info["alert_details"] = content
 		infoByte, _ := json.Marshal(info)
