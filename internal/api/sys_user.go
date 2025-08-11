@@ -223,6 +223,11 @@ func (*UserApi) HandleUserDetail(c *gin.Context) {
 		return
 	}
 
+	// 清除敏感信息
+	if userMap, ok := user.(map[string]interface{}); ok {
+		delete(userMap, "password")
+	}
+
 	c.Set("data", user)
 }
 

@@ -413,12 +413,8 @@ func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserCl
 		}
 
 		// 租户管理员不能修改自己的状态
-		if claims.Authority == "TENANT_ADMIN" && *user.Authority == "TENANT_ADMIN" && *user.Status != *updateUserReq.Status {
-			if updateUserReq.Status != nil {
-				if updateUserReq.Status != nil {
-					return errcode.New(errcode.CodeOpDenied) // 操作被拒绝
-				}
-			}
+		if claims.Authority == "TENANT_ADMIN" && *user.Authority == "TENANT_ADMIN" && updateUserReq.Status != nil && *user.Status != *updateUserReq.Status {
+			return errcode.New(errcode.CodeOpDenied) // 操作被拒绝
 		}
 	}
 
@@ -557,15 +553,15 @@ func (*User) GetUser(id string, claims *utils.UserClaims) (interface{}, error) {
 }
 
 // 获取用户详细信息
-func (*User) GetUserDetail(claims *utils.UserClaims) (*model.User, error) {
-	user, err := dal.GetUsersById(claims.ID)
+func (*User) GetUserDetail(claims *utils.UserClaims) (interface{}, error) {
+	userWithAddress, err := dal.GetUserByIdWithAddress(claims.ID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error":   err.Error(),
 			"user_id": claims.ID,
 		})
 	}
-	return user, nil
+	return userWithAddress, nil
 }
 
 // @description 修改用户信息（只能修改自己）

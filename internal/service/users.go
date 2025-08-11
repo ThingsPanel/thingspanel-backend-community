@@ -137,24 +137,22 @@ func (*UsersService) GetTenantUserInfo(ctx context.Context, email string) (model
 // @AUTHOR:zxq
 // @DATE: 2024-03-04 11:04
 // @DESCRIPTIONS: 租户个人信息
-func (*UsersService) GetTenantInfo(ctx context.Context, email string) (*model.UsersRes, error) {
-	var (
-		info *model.UsersRes
-
-		db   = dal.UserQuery{}
-		user = query.User
-	)
-	// 总数据
-	UserInfo, err := db.First(ctx, user.Email.Eq(email))
+func (*UsersService) GetTenantInfo(ctx context.Context, email string) (interface{}, error) {
+	user, err := dal.GetUsersByEmail(email)
 	if err != nil {
 		logrus.Error(ctx, "[GetTenantInfo]Users info failed:", err)
-		return info, errcode.WithData(101001, map[string]interface{}{
+		return nil, errcode.WithData(101001, map[string]interface{}{
 			"error": err.Error(),
 		})
 	}
-	info = dal.UserVo{}.PoToVo(UserInfo)
-
-	return info, err
+	userWithAddress, err := dal.GetUserByIdWithAddress(user.ID)
+	if err != nil {
+		logrus.Error(ctx, "[GetTenantInfo]GetUserByIdWithAddress failed:", err)
+		return nil, errcode.WithData(101001, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+	return userWithAddress, nil
 }
 
 // UpdateTenantInfo

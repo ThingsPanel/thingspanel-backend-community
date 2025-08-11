@@ -197,6 +197,10 @@ func (*BoardApi) HandleUserInfo(c *gin.Context) {
 		c.Error(err)
 		return
 	}
+	// 清除敏感信息
+	if dataMap, ok := data.(map[string]interface{}); ok {
+		delete(dataMap, "password")
+	}
 	c.Set("data", data)
 }
 
