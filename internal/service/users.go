@@ -16,7 +16,6 @@ import (
 	utils "project/pkg/utils"
 
 	"github.com/sirupsen/logrus"
-	"gorm.io/gen/field"
 )
 
 type UsersService struct{}
@@ -160,25 +159,24 @@ func (*UsersService) GetTenantInfo(ctx context.Context, email string) (interface
 // @DATE: 2024-03-04 11:04
 // @DESCRIPTIONS: 更新租户个人信息
 func (*UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.UserClaims, param *model.UsersUpdateReq) error {
-	var (
-		db   = dal.UserQuery{}
-		user = query.User
-	)
-	info, err := db.First(ctx, user.Email.Eq(userInfo.Email))
+	db := dal.UserQuery{}
+	userQ := query.User
+	info, err := db.First(ctx, userQ.Email.Eq(userInfo.Email))
 	if err != nil {
 		logrus.Error(ctx, "[UpdateTenantInfo]Get Users info failed:", err)
 		return errcode.WithData(101001, map[string]interface{}{
 			"error": err.Error(),
 		})
 	}
-	var columns []field.Expr
-	columns = append(columns, user.Name)
+
+	t := time.Now().UTC()
+	info.UpdatedAt = &t
+
 	if param.Name != "" {
 		info.Name = &param.Name
 	}
 	if param.AdditionalInfo != nil {
 		info.AdditionalInfo = param.AdditionalInfo
-		columns = append(columns, user.AdditionalInfo)
 	}
 	if param.PhoneNumber != nil {
 		var phonePrefix string
@@ -186,15 +184,26 @@ func (*UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.UserC
 			phonePrefix = *param.PhonePrefix
 		}
 		info.PhoneNumber = fmt.Sprintf("%s %s", phonePrefix, *param.PhoneNumber)
-		columns = append(columns, user.PhoneNumber)
 	}
-	if err = db.UpdateByEmail(ctx, info, columns...); err != nil {
+	if param.Organization != nil {
+		info.Organization = param.Organization
+	}
+	if param.Timezone != nil {
+		info.Timezone = param.Timezone
+	}
+	if param.DefaultLanguage != nil {
+		info.DefaultLanguage = param.DefaultLanguage
+	}
+
+	// Use dal.UpdateUserWithAddress to update user and address
+	err = dal.UpdateUserWithAddress(info, param.Address)
+	if err != nil {
 		logrus.Error(ctx, "[UpdateTenantInfo]Update Users info failed:", err)
 		return errcode.WithData(101001, map[string]interface{}{
 			"error": err.Error(),
 		})
 	}
-	return err
+	return nil
 }
 
 // UpdateTenantInfoPassword

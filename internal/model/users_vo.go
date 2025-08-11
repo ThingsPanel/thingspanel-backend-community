@@ -13,10 +13,14 @@ type UsersRes struct {
 }
 
 type UsersUpdateReq struct {
-	Name           string  `json:"name"`
-	AdditionalInfo *string `json:"additional_info"`
-	PhoneNumber    *string `json:"phone_number"`
-	PhonePrefix    *string `json:"phone_prefix"`
+	Name            string                `json:"name"`
+	AdditionalInfo  *string               `json:"additional_info"`
+	PhoneNumber     *string               `json:"phone_number"`
+	PhonePrefix     *string               `json:"phone_prefix"`
+	Organization    *string               `json:"organization" validate:"omitempty,max=200"`
+	Timezone        *string               `json:"timezone" validate:"omitempty,max=50"`
+	DefaultLanguage *string               `json:"default_language" validate:"omitempty,max=10"`
+	Address         *UpdateUserAddressReq `json:"address" validate:"omitempty"`
 }
 
 type UsersUpdatePasswordReq struct {

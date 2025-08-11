@@ -154,3 +154,4 @@ COMMENT ON COLUMN user_address.updated_time IS '更新时间';
 - 新增/api/v1/user/address/{id} PUT
 - /api/v1/user/detail GET
 - /api/v1/board/user/info GET
+- /api/v1/board/user/update POST
