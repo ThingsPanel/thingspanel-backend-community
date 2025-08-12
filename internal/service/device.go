@@ -253,7 +253,13 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 			}
 			// 如果协议类型不是MQTT则需要通知设备断开连接
 			if req.DeviceConfigId != nil || oldDevice.DeviceConfigID != nil {
-				deviceConfig, err := dal.GetDeviceConfigByID(*req.DeviceConfigId)
+				var deviceConfigId string
+				if req.DeviceConfigId != nil {
+					deviceConfigId = *req.DeviceConfigId
+				} else {
+					deviceConfigId = *oldDevice.DeviceConfigID
+				}
+				deviceConfig, err := dal.GetDeviceConfigByID(deviceConfigId)
 				if err != nil {
 					return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 						"sql_error": err.Error(),
