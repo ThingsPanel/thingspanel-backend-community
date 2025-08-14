@@ -83,6 +83,11 @@ func (o *OpenAPIKey) GetOpenAPIKeyList(req *model.OpenAPIKeyListReq, claims *uti
 
 	result := make(map[string]interface{})
 	result["total"] = total
+	if list == nil {
+		result["list"] = []interface{}{}
+	} else {
+		result["list"] = list
+	}
 	result["list"] = list
 	return result, nil
 }
