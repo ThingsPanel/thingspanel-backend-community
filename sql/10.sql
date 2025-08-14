@@ -68,3 +68,9 @@ COMMENT ON COLUMN user_address.latitude IS '纬度';
 COMMENT ON COLUMN user_address.additional_info IS '附加信息';
 COMMENT ON COLUMN user_address.created_time IS '创建时间';
 COMMENT ON COLUMN user_address.updated_time IS '更新时间';
+
+-- ✅2025/8/13 添加用户头像URL/路径
+ALTER TABLE public.users 
+ADD COLUMN avatar_url varchar(500) NULL;
+
+COMMENT ON COLUMN public.users.avatar_url IS '用户头像URL或文件路径';

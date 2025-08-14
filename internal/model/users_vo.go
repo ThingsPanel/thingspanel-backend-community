@@ -10,6 +10,7 @@ type UsersRes struct {
 	Remark         string `json:"remark"`
 	CreateTime     string `json:"create_time"`
 	AdditionalInfo string `json:"additional_info"`
+	AvatarURL      string `json:"avatar_url"`
 }
 
 type UsersUpdateReq struct {
@@ -21,6 +22,7 @@ type UsersUpdateReq struct {
 	Timezone        *string               `json:"timezone" validate:"omitempty,max=50"`
 	DefaultLanguage *string               `json:"default_language" validate:"omitempty,max=10"`
 	Address         *UpdateUserAddressReq `json:"address" validate:"omitempty"`
+	AvatarURL       *string               `json:"avatar_url" validate:"omitempty,max=500"`
 }
 
 type UsersUpdatePasswordReq struct {

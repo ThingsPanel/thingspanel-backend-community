@@ -194,6 +194,9 @@ func (*UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.UserC
 	if param.DefaultLanguage != nil {
 		info.DefaultLanguage = param.DefaultLanguage
 	}
+	if param.AvatarURL != nil {
+		info.AvatarURL = param.AvatarURL
+	}
 
 	// Use dal.UpdateUserWithAddress to update user and address
 	err = dal.UpdateUserWithAddress(info, param.Address)

@@ -179,6 +179,7 @@ func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 		LastVisitIP         *string    `gorm:"column:last_visit_ip"`
 		LastVisitDevice     *string    `gorm:"column:last_visit_device"`
 		PasswordFailCount   *int32     `gorm:"column:password_fail_count"`
+		AvatarURL           *string    `gorm:"column:avatar_url"`
 		// 地址字段
 		AddressID           *int32     `gorm:"column:address_id"`
 		Country             *string    `gorm:"column:address_country"`
@@ -203,7 +204,7 @@ func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 		Select(
 			q.ID, q.Name, q.PhoneNumber, q.Email, q.Status, q.Authority, q.TenantID, q.Remark,
 			q.AdditionalInfo, q.Organization, q.Timezone, q.DefaultLanguage,
-			q.CreatedAt, q.UpdatedAt, q.PasswordLastUpdated, q.LastVisitTime, q.LastVisitIP, q.LastVisitDevice, q.PasswordFailCount,
+			q.CreatedAt, q.UpdatedAt, q.PasswordLastUpdated, q.LastVisitTime, q.LastVisitIP, q.LastVisitDevice, q.PasswordFailCount, q.AvatarURL,
 			qa.ID.As("address_id"),
 			qa.Country.As("address_country"), qa.Province.As("address_province"), qa.City.As("address_city"),
 			qa.District.As("address_district"), qa.Street.As("address_street"),
@@ -247,6 +248,7 @@ func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 		"last_visit_ip":          result.LastVisitIP,
 		"last_visit_device":      result.LastVisitDevice,
 		"password_fail_count":    result.PasswordFailCount,
+		"avatar_url":             result.AvatarURL,
 		"userRoles":              roles,
 	}
 	
@@ -617,6 +619,9 @@ func (UserVo) PoToVo(userInfo *model.User) (info *model.UsersRes) {
 	}
 	if userInfo.AdditionalInfo != nil {
 		info.AdditionalInfo = *userInfo.AdditionalInfo
+	}
+	if userInfo.AvatarURL != nil {
+		info.AvatarURL = *userInfo.AvatarURL
 	}
 	return
 }

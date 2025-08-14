@@ -47,6 +47,7 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 	_user.Timezone = field.NewString(tableName, "timezone")
 	_user.DefaultLanguage = field.NewString(tableName, "default_language")
 	_user.PasswordFailCount = field.NewInt32(tableName, "password_fail_count")
+	_user.AvatarURL = field.NewString(tableName, "avatar_url")
 
 	_user.fillFieldMap()
 
@@ -77,6 +78,7 @@ type user struct {
 	Timezone            field.String // 所在时区
 	DefaultLanguage     field.String // 默认语言
 	PasswordFailCount   field.Int32  // 密码错误次数
+	AvatarURL           field.String // 用户头像URL或文件路径
 
 	fieldMap map[string]field.Expr
 }
@@ -113,6 +115,7 @@ func (u *user) updateTableName(table string) *user {
 	u.Timezone = field.NewString(table, "timezone")
 	u.DefaultLanguage = field.NewString(table, "default_language")
 	u.PasswordFailCount = field.NewInt32(table, "password_fail_count")
+	u.AvatarURL = field.NewString(table, "avatar_url")
 
 	u.fillFieldMap()
 
@@ -129,7 +132,7 @@ func (u *user) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *user) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 20)
+	u.fieldMap = make(map[string]field.Expr, 21)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["name"] = u.Name
 	u.fieldMap["phone_number"] = u.PhoneNumber
@@ -150,6 +153,7 @@ func (u *user) fillFieldMap() {
 	u.fieldMap["timezone"] = u.Timezone
 	u.fieldMap["default_language"] = u.DefaultLanguage
 	u.fieldMap["password_fail_count"] = u.PasswordFailCount
+	u.fieldMap["avatar_url"] = u.AvatarURL
 }
 
 func (u user) clone(db *gorm.DB) user {

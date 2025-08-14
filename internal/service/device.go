@@ -1019,6 +1019,21 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 	if deviceInfo.Voucher != voucher {
 		// 清除broker的缓存
 		global.REDIS.Del(ctx, deviceInfo.Voucher)
+		
+		// 当设备配置的协议类型不是MQTT的时候要通知到插件
+		if deviceInfo.DeviceConfigID != nil {
+			deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
+			if err != nil {
+				logrus.Error(ctx, "[Device][UpdateDeviceVoucher]GetDeviceConfigByID failed:", err)
+			} else if deviceConfig.ProtocolType != nil && *deviceConfig.ProtocolType != "MQTT" {
+				// 直连设备和网关设备需要通知设备断开连接
+				if deviceConfig.DeviceType == "1" || deviceConfig.DeviceType == "2" {
+					if protocolplugin.DisconnectDeviceByDeviceID(param.DeviceID) != nil {
+						logrus.Error(ctx, "[Device][UpdateDeviceVoucher]DisconnectDeviceByDeviceID failed:", err)
+					}
+				}
+			}
+		}
 	}
 
 	info, err = db.First(ctx, device.ID.Eq(param.DeviceID))

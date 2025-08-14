@@ -32,6 +32,7 @@ type User struct {
 	Timezone            *string    `gorm:"column:timezone;comment:所在时区" json:"timezone"`                         // 所在时区
 	DefaultLanguage     *string    `gorm:"column:default_language;comment:默认语言" json:"default_language"`         // 默认语言
 	PasswordFailCount   *int32     `gorm:"column:password_fail_count;comment:密码错误次数" json:"password_fail_count"` // 密码错误次数
+	AvatarURL           *string    `gorm:"column:avatar_url;comment:用户头像URL或文件路径" json:"avatar_url"`             // 用户头像URL或文件路径
 }
 
 // TableName User's table name
