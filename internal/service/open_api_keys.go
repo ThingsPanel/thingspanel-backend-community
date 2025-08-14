@@ -26,7 +26,7 @@ func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *ut
 	}
 
 	// 租户管理员只能创建自己租户的密钥
-	if claims.Authority == "TENANT_ADMIN" && claims.TenantID != req.TenantID {
+	if claims.Authority != "SYS_ADMIN" && claims.TenantID != req.TenantID {
 		return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
 			"required_tenant": req.TenantID,
 			"current_tenant":  claims.TenantID,
