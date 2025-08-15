@@ -85,6 +85,8 @@ func (*Automate) ErrorRecover() func() {
 // @return error
 func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) error {
 	defer a.ErrorRecover()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	a.device = deviceInfo
 	a.formExt = fromExt
 	// 初始化已执行场景ID的跟踪器
@@ -208,8 +210,6 @@ func (*Automate) LimiterAllow(id string) bool {
 // @return error
 func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 	logrus.Debugf("执行动作开始，获取锁--------------------------------")
-	a.mu.Lock()
-	defer a.mu.Unlock()
 	for _, v := range info.AutomateExecteSceeInfos {
 		// 检查该场景是否已经执行过，如果执行过则跳过
 		if a.executedSceneIDs[v.SceneAutomationId] {
