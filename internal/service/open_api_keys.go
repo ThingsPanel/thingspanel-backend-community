@@ -88,7 +88,6 @@ func (o *OpenAPIKey) GetOpenAPIKeyList(req *model.OpenAPIKeyListReq, claims *uti
 	} else {
 		result["list"] = list
 	}
-	result["list"] = list
 	return result, nil
 }
 

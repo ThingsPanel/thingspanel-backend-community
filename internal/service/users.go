@@ -183,7 +183,12 @@ func (*UsersService) UpdateTenantInfo(ctx context.Context, userInfo *utils.UserC
 		if param.PhonePrefix != nil {
 			phonePrefix = *param.PhonePrefix
 		}
-		info.PhoneNumber = fmt.Sprintf("%s %s", phonePrefix, *param.PhoneNumber)
+		if phonePrefix != "" {
+			info.PhoneNumber = fmt.Sprintf("%s %s", phonePrefix, *param.PhoneNumber)
+		} else {
+			// 去掉两头的空格
+			info.PhoneNumber = strings.TrimSpace(*param.PhoneNumber)
+		}
 	}
 	if param.Organization != nil {
 		info.Organization = param.Organization
