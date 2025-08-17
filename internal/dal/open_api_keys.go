@@ -35,7 +35,7 @@ func GetOpenAPIKeyByAppKey(appKey string) (*model.OpenAPIKey, error) {
 func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) (int64, interface{}, error) {
 	q := query.OpenAPIKey
 	u := query.User
-	var keysList []model.OpenAPIKeyListRsp
+	keysList := make([]model.OpenAPIKeyListRsp, 0)
 
 	queryBuilder := q.WithContext(context.Background())
 
