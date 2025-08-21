@@ -885,7 +885,7 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 				global.ResponseHandler.ErrManager.GetMessage(500005, lang): "{\"switch\":1}",
 			}
 		} else if deviceType == "2" {
-			remark := `{"gateway_data":{"switch":1},"sub_device_data":{"sub_device_address":{"switch":1}}`
+			remark := `{"gateway_data":{"switch":1},"sub_device_data":{"sub_device_address":{"switch":1}}}`
 			rsp = map[string]string{
 				global.ResponseHandler.ErrManager.GetMessage(500001, lang): accessAddress,
 				global.ResponseHandler.ErrManager.GetMessage(500002, lang): "mqtt_" + param.DeviceID[0:12],
@@ -1019,7 +1019,7 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 	if deviceInfo.Voucher != voucher {
 		// 清除broker的缓存
 		global.REDIS.Del(ctx, deviceInfo.Voucher)
-		
+
 		// 当设备配置的协议类型不是MQTT的时候要通知到插件
 		if deviceInfo.DeviceConfigID != nil {
 			deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
