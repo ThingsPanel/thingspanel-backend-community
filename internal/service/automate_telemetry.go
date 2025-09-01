@@ -116,7 +116,7 @@ func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) er
 // return error 执行过程中的错误信息
 func (a *Automate) telExecute(deviceId, deviceConfigId string, fromExt AutomateFromExt) error {
 	info, resultInt, err := initialize.NewAutomateCache().GetCacheByDeviceId(deviceId, deviceConfigId)
-	logrus.Debugf("自动化执行开始 - 缓存结果标志: %d", resultInt)
+	logrus.Debugf("自动化执行开始 - 缓存结果标志: %d -设备id: %s, 设备配置id: %s", resultInt, deviceId, deviceConfigId)
 	if err != nil {
 		return pkgerrors.Wrap(err, "查询缓存信息失败")
 	}
