@@ -81,7 +81,7 @@ func RouterInit() *gin.Engine {
 		// 无需权限校验
 		v1 := api.Group("v1")
 		{
-			//v1.GET("notice/test", controllers.NoticeTest)
+			// v1.GET("notice/test", controllers.NoticeTest)
 			v1.POST("plugin/heartbeat", controllers.Heartbeat)
 			v1.POST("plugin/device/config", controllers.HandleDeviceConfigForProtocolPlugin)
 			v1.POST("plugin/devices", controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
