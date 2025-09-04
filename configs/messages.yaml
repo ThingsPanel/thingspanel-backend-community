@@ -312,6 +312,9 @@ messages:
   500005:
     zh_CN: "设备上报数据示例"
     en_US: "Device Data Example"
+  500006:
+    zh_CN: "说明"
+    en_US: "Description"
 
 # 配置元信息
 metadata:

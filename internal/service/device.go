@@ -909,7 +909,7 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 			if err != nil {
 				logrus.Error(ctx, "Error occurred during unmarshalling. Error: %s", err)
 			}
-			info[global.ResponseHandler.ErrManager.GetMessage(500001, lang)] = protocolAccessConfig.AccessAddress
+			info[global.ResponseHandler.ErrManager.GetMessage(500006, lang)] = protocolAccessConfig.AccessAddress
 		}
 		rsp = info
 	}
