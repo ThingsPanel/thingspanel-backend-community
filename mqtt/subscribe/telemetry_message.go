@@ -21,6 +21,8 @@ import (
 func MessagesChanHandler(messages <-chan map[string]interface{}) {
 	logrus.Println("批量写入协程启动")
 	var telemetryList []*model.TelemetryData
+	// 用于去重的 map，键为 device_id + key + timestamp，值为在 telemetryList 中的索引
+	dedupeMap := make(map[string]int)
 
 	batchSize := config.MqttConfig.Telemetry.BatchSize
 	logrus.Println("每次最大写入条数：", batchSize)
@@ -40,7 +42,20 @@ func MessagesChanHandler(messages <-chan map[string]interface{}) {
 			}
 
 			if tskv, ok := message["telemetryData"].(model.TelemetryData); ok {
-				telemetryList = append(telemetryList, &tskv)
+				// 创建唯一键：device_id + key + timestamp
+				uniqueKey := fmt.Sprintf("%s_%s_%d", tskv.DeviceID, tskv.Key, tskv.T)
+				// 检查是否已存在相同的键
+				if existingIndex, exists := dedupeMap[uniqueKey]; exists {
+					logrus.Debugf("存在相同唯一键值：key:%+v, olddata:%+v, newdata:%+v", uniqueKey, telemetryList[existingIndex], tskv)
+					existingData := telemetryList[existingIndex]
+					if tskv.T >= existingData.T {
+						telemetryList[existingIndex] = &tskv
+					}
+				} else {
+					// 如果不存在，添加到列表并记录索引
+					dedupeMap[uniqueKey] = len(telemetryList)
+					telemetryList = append(telemetryList, &tskv)
+				}
 			} else {
 				logrus.Error("管道消息格式错误")
 			}
@@ -65,8 +80,9 @@ func MessagesChanHandler(messages <-chan map[string]interface{}) {
 				logrus.Error(err)
 			}
 
-			// 清空telemetryList
+			// 清空telemetryList和dedupeMap
 			telemetryList = []*model.TelemetryData{}
+			dedupeMap = make(map[string]int)
 		}
 	}
 }
