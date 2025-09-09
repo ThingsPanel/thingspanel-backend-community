@@ -39,9 +39,9 @@ func main() {
 	// )
 	g.ApplyBasic(
 		// Generate structs from all tables of current database
-		g.GenerateAllTable()...,
-	// 生成sys_ui_elements表的model和query
-	//g.GenerateModel("devices"),
+		//	g.GenerateAllTable()...,
+		// 生成sys_ui_elements表的model和query
+		g.GenerateModel("boards"),
 	)
 	// Generate the code
 	g.Execute()
