@@ -315,6 +315,9 @@ messages:
   500006:
     zh_CN: "说明"
     en_US: "Description"
+  500007:
+    zh_CN: "消息发送失败：${error_message}"
+    en_US: "Message sending failed: ${error_message}"
 
 # 配置元信息
 metadata:

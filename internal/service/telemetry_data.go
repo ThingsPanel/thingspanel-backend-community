@@ -606,8 +606,8 @@ func (*TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, error)
 	logrus.Debug("params:", params)
 	err = simulationpublish.PublishMessage(params.Host, params.Port, params.Topic, params.Payload, params.Username, params.Password, params.ClientId)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": err.Error(),
+		return nil, errcode.WithVars(500007, map[string]interface{}{
+			"error_message": err.Error(),
 		})
 	}
 	go func() {
