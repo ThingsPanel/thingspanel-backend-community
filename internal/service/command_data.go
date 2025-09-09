@@ -151,7 +151,7 @@ func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param 
 				"sql_error": err.Error(),
 			})
 		}
-		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
+		topic = fmt.Sprintf(config.MqttConfig.Commands.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
 	}
 
 	// 序列化payload
