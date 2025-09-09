@@ -355,7 +355,7 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 	t := query.TelemetryCurrentData
 	t2 := query.TelemetryCurrentData.As("t2")
 	// q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber
-	err = queryBuilder.Select(lda.AlarmStatus.As("warn_status"), q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber, q.Location, q.CurrentVersion, q.CreatedAt, q.IsOnline, q.AccessWay, c.ProtocolType, c.DeviceType, c.Name.As("DeviceConfigName"), t2.T, c.ImageURL).
+	err = queryBuilder.Select(lda.AlarmStatus.As("warn_status"), q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber, q.Location, q.CurrentVersion, q.CreatedAt, q.IsOnline, q.AccessWay, c.ProtocolType, c.DeviceType, c.Name.As("DeviceConfigName"), t2.T, c.ImageURL, q.AdditionalInfo).
 		LeftJoin(t.Select(t.T.Max().As("ts"), t.DeviceID).Group(t.DeviceID).As("t2"), t2.DeviceID.EqCol(q.ID)).
 		Order(q.CreatedAt.Desc()).
 		Scan(&deviceList)
