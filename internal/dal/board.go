@@ -61,6 +61,10 @@ func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (i
 	if boards.HomeFlag != nil && *boards.HomeFlag != "" {
 		queryBuilder = queryBuilder.Where(q.HomeFlag.Eq(*boards.HomeFlag))
 	}
+
+	if boards.VisType != nil && *boards.VisType != "" {
+		queryBuilder = queryBuilder.Where(q.VisType.Eq(*boards.VisType))
+	}
 	count, err := queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)
@@ -71,7 +75,7 @@ func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (i
 		queryBuilder = queryBuilder.Offset((boards.Page - 1) * boards.PageSize)
 	}
 	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
-	boardsList, err := queryBuilder.Select(q.ID, q.Name, q.HomeFlag, q.MenuFlag, q.UpdatedAt, q.CreatedAt, q.Description, q.Remark, q.TenantID).Find()
+	boardsList, err := queryBuilder.Select(q.ID, q.Name, q.HomeFlag, q.MenuFlag, q.UpdatedAt, q.CreatedAt, q.Description, q.Remark, q.TenantID, q.VisType).Find()
 	if err != nil {
 		logrus.Error(err)
 		return count, boardsList, err

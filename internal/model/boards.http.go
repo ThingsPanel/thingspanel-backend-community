@@ -10,6 +10,7 @@ type CreateBoardReq struct {
 	Description *string `json:"description" validate:"omitempty,max=500"` // 描述
 	Remark      *string `json:"remark" validate:"omitempty,max=255"`
 	TenantID    string  `json:"tenant_id" validate:"omitempty,max=36"` //租户id
+	VisType     *string `json:"vis_type" validate:"omitempty,max=50"`
 }
 
 type UpdateBoardReq struct {
@@ -21,12 +22,14 @@ type UpdateBoardReq struct {
 	Description *string `json:"description" validate:"omitempty,max=500"` // 描述
 	Remark      *string `json:"remark" validate:"omitempty,max=255"`
 	TenantID    string  `json:"tenant_id" validate:"omitempty,max=36"` //租户id
+	VisType     *string `json:"vis_type" validate:"omitempty,max=50"`
 }
 
 type GetBoardListByPageReq struct {
 	PageReq
 	Name     *string `json:"name" form:"name" validate:"omitempty,max=255"`
 	HomeFlag *string `json:"home_flag" form:"home_flag"  validate:"omitempty,max=2"`
+	VisType  *string `json:"vis_type" validate:"omitempty,max=50"`
 }
 
 // DeviceTrendReq 设备趋势请求
