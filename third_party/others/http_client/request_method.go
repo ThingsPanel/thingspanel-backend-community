@@ -2,6 +2,7 @@ package http_client
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -100,5 +101,36 @@ func SendSignedRequest(url, message, secret string) error {
 	defer resp.Body.Close()
 
 	fmt.Printf("请求已发送。状态码: %d\n", resp.StatusCode)
+	return nil
+}
+
+// SendSignedRequestWithTimeout 发送带签名和超时的请求
+func SendSignedRequestWithTimeout(ctx context.Context, url, message, secret string) error {
+	signature := generateHMAC(message, secret)
+
+	// Creating the request
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBufferString(message))
+	if err != nil {
+		return fmt.Errorf("创建请求失败: %v", err)
+	}
+
+	// Adding the signature to the request header
+	req.Header.Set("X-Signature-256", "sha256="+signature)
+	req.Header.Set("Content-Type", "application/json")
+	
+	// Sending the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 检查HTTP状态码
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("HTTP请求失败，状态码: %d", resp.StatusCode)
+	}
+
+	logrus.Info("Webhook请求已发送，状态码:", resp.StatusCode)
 	return nil
 }
