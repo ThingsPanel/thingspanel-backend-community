@@ -1178,24 +1178,63 @@ func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.
 		// 处理独立设备
 		return fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
 	case "2", "3":
-		// 处理网关设备和子设备
-		gatewayID := deviceInfo.ID
-		if deviceType == "3" {
-			if deviceInfo.ParentID == nil {
-				return "", fmt.Errorf("parentID 为空")
-			}
-			gatewayID = *deviceInfo.ParentID
-		}
-
-		gatewayInfo, err := initialize.GetDeviceCacheById(gatewayID)
+		// 处理网关设备和子设备 - 需要递归查找顶层网关
+		topGatewayInfo, err := findTopLevelGateway(deviceInfo, deviceType)
 		if err != nil {
-			return "", fmt.Errorf("获取网关信息失败: %v", err)
+			return "", fmt.Errorf("查找顶层网关失败: %v", err)
 		}
 
-		return fmt.Sprintf(config.MqttConfig.Telemetry.GatewayPublishTopic, gatewayInfo.DeviceNumber), nil
+		return fmt.Sprintf(config.MqttConfig.Telemetry.GatewayPublishTopic, topGatewayInfo.DeviceNumber), nil
 	default:
 		return "", fmt.Errorf("未知的设备类型")
 	}
+}
+
+// findTopLevelGateway 递归查找顶层网关（parent_id为空的网关）
+func findTopLevelGateway(deviceInfo *model.Device, deviceType string) (*model.Device, error) {
+	currentDevice := deviceInfo
+	
+	// 如果是子设备(3)，先找到它的父设备
+	if deviceType == "3" {
+		if deviceInfo.ParentID == nil {
+			return nil, fmt.Errorf("子设备的parentID为空")
+		}
+		parentDevice, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
+		if err != nil {
+			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+		}
+		currentDevice = parentDevice
+	}
+	
+	// 递归查找顶层网关（parent_id为空的设备）
+	maxDepth := 10 // 防止无限循环
+	depth := 0
+	
+	for currentDevice.ParentID != nil && depth < maxDepth {
+		parentDevice, err := initialize.GetDeviceCacheById(*currentDevice.ParentID)
+		if err != nil {
+			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+		}
+		currentDevice = parentDevice
+		depth++
+	}
+	
+	if depth >= maxDepth {
+		return nil, fmt.Errorf("网关层级过深，超过最大深度限制")
+	}
+	
+	// 确保找到的是网关设备（device_type=2）
+	if currentDevice.DeviceConfigID != nil {
+		deviceConfig, err := dal.GetDeviceConfigByID(*currentDevice.DeviceConfigID)
+		if err != nil {
+			return nil, fmt.Errorf("获取设备配置失败: %v", err)
+		}
+		if deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) {
+			return nil, fmt.Errorf("顶层设备不是网关类型")
+		}
+	}
+	
+	return currentDevice, nil
 }
 
 func (*TelemetryData) ServeMsgCountByTenantId(tenantId string) (int64, error) {
