@@ -712,12 +712,21 @@ func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDevice
 			})
 		}
 
-		// 验证子设备关联配置 设备类型 = 网关类型
-		_, err = dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*deviceInfo.DeviceConfigID), query.DeviceConfig.DeviceType.Eq(strconv.Itoa(constant.GATEWAY_SON_DEVICE)))
+		// 验证设备关联配置：设备类型为网关设备或子设备（支持多级网关）
+		deviceConfig, err := dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*deviceInfo.DeviceConfigID))
 		if err != nil {
 			logrus.Error(ctx, "[CreateSonDevice]First device_configs failed:", err)
 			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),
+			})
+		}
+		
+		// 检查设备类型：必须是网关设备(2)或子设备(3)
+		if deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) && deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_SON_DEVICE) {
+			logrus.Error(ctx, "[CreateSonDevice]Invalid device type:", deviceConfig.DeviceType)
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error": "设备类型不支持绑定，只能绑定网关设备或子设备",
+				"device_type": deviceConfig.DeviceType,
 			})
 		}
 
