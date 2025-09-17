@@ -103,7 +103,7 @@ func (*DeviceConfigApi) HandleDeviceConfigListMenu(c *gin.Context) {
 	c.Set("data", deviceconfigList)
 }
 
-// BatchUpdateDeviceConfig 批量修改设备配置
+// BatchUpdateDeviceConfig 批量绑定设备到网关（支持多级网关）
 // @Router   /api/v1/device_config/batch [put]
 func (*DeviceConfigApi) BatchUpdateDeviceConfig(c *gin.Context) {
 	var req model.BatchUpdateDeviceConfigReq
