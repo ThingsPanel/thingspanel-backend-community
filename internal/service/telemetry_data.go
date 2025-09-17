@@ -1092,7 +1092,7 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 			})
 		}
 
-		// 根据设备类型构建不同的输出数据结构
+		// 根据设备类型和是否有父网关构建不同的输出数据结构
 		var outputData map[string]interface{}
 		if deviceType == "3" { // 子设备
 			if deviceInfo.SubDeviceAddr == nil {
@@ -1100,14 +1100,52 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 					"error": "subDeviceAddr is nil",
 				})
 			}
-			outputData = map[string]interface{}{
-				"sub_device_data": map[string]interface{}{
-					*deviceInfo.SubDeviceAddr: inputData,
-				},
+			
+			// 查找子设备的直接父网关（可能是子网关）
+			parentGateway, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
+			if err != nil {
+				return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"error": err.Error(),
+				})
 			}
-		} else { // 网关设备
-			outputData = map[string]interface{}{
-				"gateway_data": inputData,
+			
+			// 如果父网关是子网关（有parent_id），需要嵌套结构
+			if parentGateway.ParentID != nil {
+				// 父网关是子网关，需要构建嵌套的sub_gateway_data结构
+				if parentGateway.SubDeviceAddr == nil {
+					return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+						"error": "parent gateway subDeviceAddr is nil",
+					})
+				}
+				outputData = buildNestedSubGatewayData(parentGateway, *deviceInfo.SubDeviceAddr, inputData)
+			} else {
+				// 父网关是顶层网关，直接构建sub_device_data
+				outputData = map[string]interface{}{
+					"sub_device_data": map[string]interface{}{
+						*deviceInfo.SubDeviceAddr: inputData,
+					},
+				}
+			}
+		} else if deviceType == "2" { // 网关设备
+			if deviceInfo.ParentID != nil {
+				// 子网关：构建为sub_gateway_data格式
+				if deviceInfo.SubDeviceAddr == nil {
+					return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+						"error": "sub gateway subDeviceAddr is nil",
+					})
+				}
+				outputData = map[string]interface{}{
+					"sub_gateway_data": map[string]interface{}{
+						*deviceInfo.SubDeviceAddr: map[string]interface{}{
+							"gateway_data": inputData,
+						},
+					},
+				}
+			} else {
+				// 顶层网关：构建为gateway_data格式
+				outputData = map[string]interface{}{
+					"gateway_data": inputData,
+				}
 			}
 		}
 
@@ -1235,6 +1273,56 @@ func findTopLevelGateway(deviceInfo *model.Device, deviceType string) (*model.De
 	}
 	
 	return currentDevice, nil
+}
+
+// buildNestedSubGatewayData 递归构建多层子网关的嵌套数据结构
+func buildNestedSubGatewayData(gateway *model.Device, subDeviceAddr string, inputData map[string]interface{}) map[string]interface{} {
+	if gateway.ParentID == nil {
+		// 到达顶层网关，构建最内层结构
+		return map[string]interface{}{
+			"sub_device_data": map[string]interface{}{
+				subDeviceAddr: inputData,
+			},
+		}
+	}
+	
+	// 递归查找父网关并构建嵌套结构
+	parentGateway, err := initialize.GetDeviceCacheById(*gateway.ParentID)
+	if err != nil {
+		// 如果出错，返回当前层级的结构
+		return map[string]interface{}{
+			"sub_gateway_data": map[string]interface{}{
+				*gateway.SubDeviceAddr: map[string]interface{}{
+					"sub_device_data": map[string]interface{}{
+						subDeviceAddr: inputData,
+					},
+				},
+			},
+		}
+	}
+	
+	// 构建当前层级的嵌套结构
+	innerData := buildNestedSubGatewayData(parentGateway, subDeviceAddr, inputData)
+	
+	// 如果父网关也是子网关，继续嵌套
+	if parentGateway.ParentID != nil {
+		return map[string]interface{}{
+			"sub_gateway_data": map[string]interface{}{
+				*gateway.SubDeviceAddr: innerData,
+			},
+		}
+	} else {
+		// 父网关是顶层网关
+		return map[string]interface{}{
+			"sub_gateway_data": map[string]interface{}{
+				*gateway.SubDeviceAddr: map[string]interface{}{
+					"sub_device_data": map[string]interface{}{
+						subDeviceAddr: inputData,
+					},
+				},
+			},
+		}
+	}
 }
 
 func (*TelemetryData) ServeMsgCountByTenantId(tenantId string) (int64, error) {
