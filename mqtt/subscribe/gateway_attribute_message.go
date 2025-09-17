@@ -58,6 +58,13 @@ func GatewayAttributeMessages(payload []byte, topic string) (string, *model.Devi
 		}
 		response = *getWagewayResponse(err)
 	}
+
+	// 处理子网关数据（递归处理多级网关）
+	if payloads.SubGatewayData != nil {
+		err = processSubGatewayAttributeData(*payloads.SubGatewayData, deviceInfo.ID, topic, 1)
+		response = *getWagewayResponse(err)
+	}
+
 	return messageId, deviceInfo, response, nil
 }
 
@@ -114,4 +121,69 @@ func GatewayDeviceSetAttributesResponse(payload []byte, topic string) {
 		logrus.Debug("payload: ok:", result)
 		ch <- result
 	}
+}
+
+// processSubGatewayAttributeData 递归处理子网关属性数据
+func processSubGatewayAttributeData(subGatewayData map[string]*model.GatewayPublish, parentGatewayID string, topic string, depth int) error {
+	// 限制最大递归深度为5层
+	if depth > 5 {
+		logrus.Warn("[processSubGatewayAttributeData] Maximum depth (5) exceeded, skipping deeper levels")
+		return nil
+	}
+
+	// 获取当前层级的子网关设备地址
+	var subGatewayAddrs []string
+	for gatewayAddr := range subGatewayData {
+		subGatewayAddrs = append(subGatewayAddrs, gatewayAddr)
+	}
+
+	// 查找子网关设备信息
+	subGatewayInfos, err := dal.GetDeviceBySubDeviceAddress(subGatewayAddrs, parentGatewayID)
+	if err != nil {
+		return pkgerrors.Wrap(err, "[processSubGatewayAttributeData][GetDeviceBySubDeviceAddress]fail")
+	}
+
+	// 处理每个子网关的数据
+	for gatewayAddr, gatewayData := range subGatewayData {
+		subGatewayInfo, ok := subGatewayInfos[gatewayAddr]
+		if !ok {
+			logrus.Warnf("[processSubGatewayAttributeData] Sub gateway not found: %s", gatewayAddr)
+			continue
+		}
+
+		// 处理子网关自身属性数据
+		if gatewayData.GatewayData != nil {
+			err = deviceAttributesHandle(subGatewayInfo, *gatewayData.GatewayData, topic)
+			if err != nil {
+				logrus.Error(pkgerrors.Wrap(err, "[processSubGatewayAttributeData][deviceAttributesHandle]fail"))
+			}
+		}
+
+		// 处理子网关下的子设备属性数据
+		if gatewayData.SubDeviceData != nil {
+			var subDeviceAddrs []string
+			for deviceAddr := range *gatewayData.SubDeviceData {
+				subDeviceAddrs = append(subDeviceAddrs, deviceAddr)
+			}
+			subDeviceInfos, _ := dal.GetDeviceBySubDeviceAddress(subDeviceAddrs, subGatewayInfo.ID)
+			for subDeviceAddr, data := range *gatewayData.SubDeviceData {
+				if subInfo, ok := subDeviceInfos[subDeviceAddr]; ok {
+					err = deviceAttributesHandle(subInfo, data, topic)
+					if err != nil {
+						logrus.Error(pkgerrors.Wrap(err, "[processSubGatewayAttributeData][deviceAttributesHandle SubDevice]fail"))
+					}
+				}
+			}
+		}
+
+		// 递归处理更深层的子网关数据
+		if gatewayData.SubGatewayData != nil {
+			err = processSubGatewayAttributeData(*gatewayData.SubGatewayData, subGatewayInfo.ID, topic, depth+1)
+			if err != nil {
+				logrus.Error(pkgerrors.Wrap(err, "[processSubGatewayAttributeData][recursive]fail"))
+			}
+		}
+	}
+
+	return nil
 }

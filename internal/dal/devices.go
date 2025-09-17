@@ -460,19 +460,27 @@ func (DeviceQuery) CountByTenantID(ctx context.Context, TenantID string) (count 
 }
 
 // 获取网关未关联网关设备的子设备列表,并做关联查询设备配置表
-func (DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId string, search *string) (list []map[string]interface{}, err error) {
+func (DeviceQuery) GetGatewayUnrelatedDeviceList(ctx context.Context, tenantId string, search *string, deviceType *string) (list []map[string]interface{}, err error) {
 	device := query.Device
 	deviceConfig := query.DeviceConfig
 	// 条件：device-父设备为空，设备配置不为空
-	// 条件：device_config_id-设备类型为3-子设备
+	// 条件：device_config_id-设备类型为2（网关）或3（子设备）
 	queryBuilder := device.
 		WithContext(ctx).
-		Select(device.ID, device.Name, device.DeviceConfigID.As("device_config_id"), deviceConfig.Name.As("device_config_name")).
+		Select(device.ID, device.Name, device.DeviceConfigID.As("device_config_id"), deviceConfig.Name.As("device_config_name"), deviceConfig.DeviceType.As("device_type")).
 		Where(device.TenantID.Eq(tenantId)).
 		Where(device.DeviceConfigID.IsNotNull()).
 		Where(device.ParentID.IsNull()). // 父设备为空
 		LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
-		Where(deviceConfig.DeviceType.Eq("3"), device.ActivateFlag.Eq("active")) // 设备类型为网关
+		Where(device.ActivateFlag.Eq("active")) // 已激活设备
+
+	// 设备类型过滤：如果指定了device_type则过滤，否则返回网关设备和子设备
+	if deviceType != nil && *deviceType != "" {
+		queryBuilder = queryBuilder.Where(deviceConfig.DeviceType.Eq(*deviceType))
+	} else {
+		// 默认返回网关设备(2)和子设备(3)
+		queryBuilder = queryBuilder.Where(deviceConfig.DeviceType.In("2", "3"))
+	}
 
 	// 增加设备名称模糊匹配
 	if search != nil && *search != "" {

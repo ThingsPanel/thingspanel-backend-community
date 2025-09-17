@@ -203,7 +203,8 @@ type GetDeviceMenuReq struct {
 
 // 获取未绑定网关的子设备选择器
 type GetUnboundGatewaySubDeviceReq struct {
-	Search *string `json:"search" form:"search" validate:"omitempty,max=255"` // 设备名称
+	Search     *string `json:"search" form:"search" validate:"omitempty,max=255"`                                    // 设备名称
+	DeviceType *string `json:"device_type" form:"device_type" validate:"omitempty,oneof=2 3"` // 设备类型过滤：2-网关设备 3-子设备，不传则返回两种类型
 }
 
 type GetTenantDeviceListReq struct {
