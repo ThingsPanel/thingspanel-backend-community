@@ -149,18 +149,14 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 	if deviceType == "1" {
 		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.PublishTopic, deviceInfo.DeviceNumber, messageID)
 	} else {
-		gatewayID := deviceInfo.ID
-
-		if deviceType == "3" {
-			gatewayID = *deviceInfo.ParentID
-		}
-		gatewayInfo, err := initialize.GetDeviceCacheById(gatewayID)
+		// 处理网关设备和子设备 - 需要递归查找顶层网关
+		topGatewayInfo, err := findTopLevelGatewayForAttribute(deviceInfo, deviceType)
 		if err != nil {
 			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
+				"error": err.Error(),
 			})
 		}
-		topic = fmt.Sprintf(config.MqttConfig.Attributes.GatewayPublishTopic, gatewayInfo.DeviceNumber, messageID)
+		topic = fmt.Sprintf(config.MqttConfig.Attributes.GatewayPublishTopic, topGatewayInfo.DeviceNumber, messageID)
 	}
 	// 执行数据脚本
 	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
@@ -173,28 +169,11 @@ func (*AttributeData) AttributePutMessage(ctx context.Context, userID string, pa
 		}
 	}
 
+	// 构建多层网关格式的payload
 	if deviceType == "3" || deviceType == "2" {
-		if deviceType == "3" {
-
-			if deviceInfo.ParentID == nil {
-				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-					"system_error": "parent_id is nil",
-				})
-			}
-
-			if deviceInfo.SubDeviceAddr == nil {
-				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-					"system_error": "sub_device_addr is nil",
-				})
-			}
-			if err := transformSubDeviceData(param, *deviceInfo.SubDeviceAddr); err != nil {
-				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-					"system_error": "sub_device_addr is nil",
-				})
-			}
-		} else if err := transformGatewayData(param); err != nil {
+		if err := transformAttributeDataForMultiLevelGateway(param, deviceInfo, deviceType); err != nil {
 			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-				"system_error": "sub_device_addr is nil",
+				"system_error": err.Error(),
 			})
 		}
 	}
@@ -351,4 +330,168 @@ func (*AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.Attrib
 		})
 	}
 	return err
+}
+
+// findTopLevelGatewayForAttribute 递归查找顶层网关（用于属性设置）
+func findTopLevelGatewayForAttribute(deviceInfo *model.Device, deviceType string) (*model.Device, error) {
+	currentDevice := deviceInfo
+	
+	// 如果是子设备(3)，先找到它的父设备
+	if deviceType == "3" {
+		if deviceInfo.ParentID == nil {
+			return nil, fmt.Errorf("子设备的parentID为空")
+		}
+		parentDevice, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
+		if err != nil {
+			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+		}
+		currentDevice = parentDevice
+	}
+	
+	// 递归查找顶层网关（parent_id为空的设备）
+	maxDepth := 10 // 防止无限循环
+	depth := 0
+	
+	for currentDevice.ParentID != nil && depth < maxDepth {
+		parentDevice, err := initialize.GetDeviceCacheById(*currentDevice.ParentID)
+		if err != nil {
+			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+		}
+		currentDevice = parentDevice
+		depth++
+	}
+	
+	if depth >= maxDepth {
+		return nil, fmt.Errorf("网关层级过深，超过最大深度限制")
+	}
+	
+	// 确保找到的是网关设备（device_type=2）
+	if currentDevice.DeviceConfigID != nil {
+		deviceConfig, err := dal.GetDeviceConfigByID(*currentDevice.DeviceConfigID)
+		if err != nil {
+			return nil, fmt.Errorf("获取设备配置失败: %v", err)
+		}
+		if deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) {
+			return nil, fmt.Errorf("顶层设备不是网关类型")
+		}
+	}
+	
+	return currentDevice, nil
+}
+
+// transformAttributeDataForMultiLevelGateway 为多层网关构建属性数据格式
+func transformAttributeDataForMultiLevelGateway(param *model.AttributePutMessage, deviceInfo *model.Device, deviceType string) error {
+	// 解析JSON
+	var inputData map[string]interface{}
+	if err := json.Unmarshal([]byte(param.Value), &inputData); err != nil {
+		return fmt.Errorf("解析输入JSON失败: %v", err)
+	}
+
+	// 根据设备类型和是否有父网关构建不同的输出数据结构
+	var outputData map[string]interface{}
+	if deviceType == "3" { // 子设备
+		if deviceInfo.SubDeviceAddr == nil {
+			return fmt.Errorf("子设备的SubDeviceAddr为空")
+		}
+		
+		// 查找子设备的直接父网关（可能是子网关）
+		parentGateway, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
+		if err != nil {
+			return fmt.Errorf("获取父设备信息失败: %v", err)
+		}
+		
+		// 如果父网关是子网关（有parent_id），需要嵌套结构
+		if parentGateway.ParentID != nil {
+			// 父网关是子网关，需要构建嵌套的sub_gateway_data结构
+			if parentGateway.SubDeviceAddr == nil {
+				return fmt.Errorf("父网关的SubDeviceAddr为空")
+			}
+			outputData = buildNestedSubGatewayDataForAttribute(parentGateway, *deviceInfo.SubDeviceAddr, inputData)
+		} else {
+			// 父网关是顶层网关，直接构建sub_device_data
+			outputData = map[string]interface{}{
+				"sub_device_data": map[string]interface{}{
+					*deviceInfo.SubDeviceAddr: inputData,
+				},
+			}
+		}
+	} else if deviceType == "2" { // 网关设备
+		if deviceInfo.ParentID != nil {
+			// 子网关：构建为sub_gateway_data格式
+			if deviceInfo.SubDeviceAddr == nil {
+				return fmt.Errorf("子网关的SubDeviceAddr为空")
+			}
+			outputData = map[string]interface{}{
+				"sub_gateway_data": map[string]interface{}{
+					*deviceInfo.SubDeviceAddr: map[string]interface{}{
+						"gateway_data": inputData,
+					},
+				},
+			}
+		} else {
+			// 顶层网关：构建为gateway_data格式
+			outputData = map[string]interface{}{
+				"gateway_data": inputData,
+			}
+		}
+	}
+
+	// 重新构建payload
+	output, err := json.Marshal(outputData)
+	if err != nil {
+		return fmt.Errorf("生成输出JSON失败: %v", err)
+	}
+	param.Value = string(output)
+
+	return nil
+}
+
+// buildNestedSubGatewayDataForAttribute 递归构建多层子网关的嵌套属性数据结构
+func buildNestedSubGatewayDataForAttribute(gateway *model.Device, subDeviceAddr string, inputData map[string]interface{}) map[string]interface{} {
+	if gateway.ParentID == nil {
+		// 到达顶层网关，构建最内层结构
+		return map[string]interface{}{
+			"sub_device_data": map[string]interface{}{
+				subDeviceAddr: inputData,
+			},
+		}
+	}
+	
+	// 递归查找父网关并构建嵌套结构
+	parentGateway, err := initialize.GetDeviceCacheById(*gateway.ParentID)
+	if err != nil {
+		// 如果出错，返回当前层级的结构
+		return map[string]interface{}{
+			"sub_gateway_data": map[string]interface{}{
+				*gateway.SubDeviceAddr: map[string]interface{}{
+					"sub_device_data": map[string]interface{}{
+						subDeviceAddr: inputData,
+					},
+				},
+			},
+		}
+	}
+	
+	// 构建当前层级的嵌套结构
+	innerData := buildNestedSubGatewayDataForAttribute(parentGateway, subDeviceAddr, inputData)
+	
+	// 如果父网关也是子网关，继续嵌套
+	if parentGateway.ParentID != nil {
+		return map[string]interface{}{
+			"sub_gateway_data": map[string]interface{}{
+				*gateway.SubDeviceAddr: innerData,
+			},
+		}
+	} else {
+		// 父网关是顶层网关
+		return map[string]interface{}{
+			"sub_gateway_data": map[string]interface{}{
+				*gateway.SubDeviceAddr: map[string]interface{}{
+					"sub_device_data": map[string]interface{}{
+						subDeviceAddr: inputData,
+					},
+				},
+			},
+		}
+	}
 }
