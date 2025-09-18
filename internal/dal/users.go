@@ -652,27 +652,20 @@ func CheckPhoneNumberExists(phoneNumber string, excludeUserID ...string) (bool, 
 	if phoneNumber == "" {
 		return false, nil
 	}
-	
-	q := query.User
-	queryBuilder := q.Where(q.PhoneNumber.Like(fmt.Sprintf("%%%s%%", phoneNumber)))
-	
-	if strings.HasPrefix(phoneNumber, "+") {
-		phone := phoneNumber[1:]
-		parts := strings.Split(phone, " ")
-		if len(parts) > 1 {
-			queryBuilder = queryBuilder.Or(q.PhoneNumber.Like(fmt.Sprintf("%%%s%%", parts[1])))
-		} else if len(phone) > 4 {
-			queryBuilder = queryBuilder.Or(q.PhoneNumber.Like(fmt.Sprintf("%%%s%%", phone[2:])))
+
+	// 直接查找这个手机号的用户
+	user, err := GetUsersByPhoneNumber(phoneNumber)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil // 没找到，说明不重复
 		}
-	} else {
-		queryBuilder = queryBuilder.Or(q.PhoneNumber.Like(fmt.Sprintf("%%+86 %s%%", phoneNumber)))
-		queryBuilder = queryBuilder.Or(q.PhoneNumber.Like(fmt.Sprintf("%%+86%s%%", phoneNumber)))
+		return false, err
 	}
-	
-	if len(excludeUserID) > 0 && excludeUserID[0] != "" {
-		queryBuilder = queryBuilder.Where(q.ID.Neq(excludeUserID[0]))
+
+	// 如果找到了，检查是不是要排除的用户（通常是当前用户）
+	if len(excludeUserID) > 0 && excludeUserID[0] != "" && user.ID == excludeUserID[0] {
+		return false, nil // 是自己的手机号，不算重复
 	}
-	
-	count, err := queryBuilder.Count()
-	return count > 0, err
+
+	return true, nil // 是别人的手机号，算重复
 }
