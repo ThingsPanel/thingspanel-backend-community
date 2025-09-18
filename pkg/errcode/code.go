@@ -29,6 +29,7 @@ const (
 	CodeUserLocked      = 200003 // 用户被锁定
 	CodeUserDisabled    = 200005 // 用户已禁用
 	CodeTooManyAttempts = 200006 // 登录尝试次数过多
+	CodePhoneDuplicated = 200007 // 手机号已被使用
 
 	// 权限模块 (201xxx)
 	CodeNoPermission = 201001 // 无权限

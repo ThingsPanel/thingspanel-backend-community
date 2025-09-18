@@ -30,6 +30,13 @@ type User struct{}
 
 // @description  创建用户
 func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.UserClaims) error {
+	// 检查手机号是否重复
+	if exists, err := dal.CheckPhoneNumberExists(createUserReq.PhoneNumber); err != nil {
+		return err
+	} else if exists {
+		return errcode.New(errcode.CodePhoneDuplicated)
+	}
+	
 	user := model.User{}
 	// uuid生成用户id
 	user.ID = uuid.New()
@@ -389,6 +396,15 @@ func (*User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.Use
 
 // @description  修改用户信息
 func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserClaims) error {
+	// 检查手机号是否重复
+	if updateUserReq.PhoneNumber != nil && *updateUserReq.PhoneNumber != "" {
+		if exists, err := dal.CheckPhoneNumberExists(*updateUserReq.PhoneNumber, updateUserReq.ID); err != nil {
+			return err
+		} else if exists {
+			return errcode.New(errcode.CodePhoneDuplicated)
+		}
+	}
+	
 	// 密码不能小于6位，如果等于空则不修改密码
 	if updateUserReq.Password != nil {
 		if len(*updateUserReq.Password) == 0 {
@@ -682,6 +698,14 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 
 // EmailRegister 邮箱注册
 func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (*model.LoginRsp, error) {
+	// 检查手机号是否重复
+	phoneNumber := fmt.Sprintf("%s %s", req.PhonePrefix, req.PhoneNumber)
+	if exists, err := dal.CheckPhoneNumberExists(phoneNumber); err != nil {
+		return nil, err
+	} else if exists {
+		return nil, errcode.New(errcode.CodePhoneDuplicated)
+	}
+	
 	// 密码格式校验
 	if err := utils.ValidatePassword(req.Password); err != nil {
 		return nil, err

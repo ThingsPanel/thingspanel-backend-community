@@ -647,3 +647,32 @@ func GetTenantsById(tenantID string) (info *model.User, err error) {
 	}
 	return info, nil
 }
+
+func CheckPhoneNumberExists(phoneNumber string, excludeUserID ...string) (bool, error) {
+	if phoneNumber == "" {
+		return false, nil
+	}
+	
+	q := query.User
+	queryBuilder := q.Where(q.PhoneNumber.Like(fmt.Sprintf("%%%s%%", phoneNumber)))
+	
+	if strings.HasPrefix(phoneNumber, "+") {
+		phone := phoneNumber[1:]
+		parts := strings.Split(phone, " ")
+		if len(parts) > 1 {
+			queryBuilder = queryBuilder.Or(q.PhoneNumber.Like(fmt.Sprintf("%%%s%%", parts[1])))
+		} else if len(phone) > 4 {
+			queryBuilder = queryBuilder.Or(q.PhoneNumber.Like(fmt.Sprintf("%%%s%%", phone[2:])))
+		}
+	} else {
+		queryBuilder = queryBuilder.Or(q.PhoneNumber.Like(fmt.Sprintf("%%+86 %s%%", phoneNumber)))
+		queryBuilder = queryBuilder.Or(q.PhoneNumber.Like(fmt.Sprintf("%%+86%s%%", phoneNumber)))
+	}
+	
+	if len(excludeUserID) > 0 && excludeUserID[0] != "" {
+		queryBuilder = queryBuilder.Where(q.ID.Neq(excludeUserID[0]))
+	}
+	
+	count, err := queryBuilder.Count()
+	return count > 0, err
+}

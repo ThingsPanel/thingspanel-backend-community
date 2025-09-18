@@ -84,8 +84,8 @@ messages:
    zh_CN: "您已连续登录失败${attempts}次，账号锁定${duration}分钟，解锁时间为：${unlock_time}"
    en_US: "Account locked after ${attempts} failed login attempts. Locked for ${duration} minutes. Unlock time: ${unlock_time}"
   200007:
-    zh_CN: "用户邮箱或手机号不存在"
-    en_US: "User email or phone number does not exist"
+    zh_CN: "手机号已被使用"
+    en_US: "Phone number already in use"
   200008:
     zh_CN: "用户邮箱已注册"
     en_US: "User email already registered"
