@@ -166,7 +166,9 @@ func (a *AutomateTelemetryActionScene) AutomateActionRun(action model.ActionInfo
 }
 
 // 警告 30
-type AutomateTelemetryActionAlarm struct{}
+type AutomateTelemetryActionAlarm struct {
+	DeviceIds []string
+}
 
 func (*AutomateTelemetryActionAlarm) AutomateActionRun(action model.ActionInfo) (string, error) {
 	logrus.Debugf("告警服务: %#v", *action.ActionTarget)
@@ -174,7 +176,6 @@ func (*AutomateTelemetryActionAlarm) AutomateActionRun(action model.ActionInfo) 
 	if action.ActionTarget == nil || *action.ActionTarget == "" {
 		return "告警服务", errors.New("告警id不存在")
 	}
-
 	ok, alarmName, reason := AlarmExecute(*action.ActionTarget, action.SceneAutomationID)
 	if ok {
 		return fmt.Sprintf("告警服务(%s)", alarmName), nil

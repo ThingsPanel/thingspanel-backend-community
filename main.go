@@ -45,7 +45,7 @@ func main() {
 		app.WithHTTPService(),
 		app.WithGRPCService(),
 		app.WithMQTTService(),
-		app.WithCronService(),
+		//app.WithCronService(),
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "应用初始化失败: %v\n", err)
