@@ -21,16 +21,19 @@ type MqttResponse struct {
 }
 
 type GatewayCommandPulish struct {
-	GatewayData   *EventInfo            `json:"gateway_data"`
-	SubDeviceData *map[string]EventInfo `json:"sub_device_data"`
+	GatewayData    *EventInfo                       `json:"gateway_data"`
+	SubDeviceData  *map[string]EventInfo            `json:"sub_device_data"`
+	SubGatewayData *map[string]*GatewayCommandPulish `json:"sub_gateway_data"`
 }
 
 type GatewayPublish struct {
-	GatewayData   *map[string]interface{}            `json:"gateway_data"`
-	SubDeviceData *map[string]map[string]interface{} `json:"sub_device_data"`
+	GatewayData    *map[string]interface{}            `json:"gateway_data"`
+	SubDeviceData  *map[string]map[string]interface{} `json:"sub_device_data"`
+	SubGatewayData *map[string]*GatewayPublish        `json:"sub_gateway_data"`
 }
 
 type GatewayAttributeGet struct {
-	GatewayData   *[]string            `json:"gateway_data"`
-	SubDeviceData *map[string][]string `json:"sub_device_data"`
+	GatewayData    *[]string                        `json:"gateway_data"`
+	SubDeviceData  *map[string][]string             `json:"sub_device_data"`
+	SubGatewayData *map[string]*GatewayAttributeGet `json:"sub_gateway_data"`
 }

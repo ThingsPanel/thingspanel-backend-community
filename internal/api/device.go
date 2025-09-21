@@ -440,7 +440,7 @@ func (*DeviceApi) HandleTenantDeviceList(c *gin.Context) {
 // GetDeviceList
 // @AUTHOR:zxq
 // @DATE: 2024-04-07 17:04
-// @DESCRIPTIONS: 获得设备列表（默认：设置类型-子设备&无 parent_id 关联 可扩展，查询可添加条件）
+// @DESCRIPTIONS: 获得未绑定的设备列表（支持网关设备和子设备，可通过device_type参数过滤）
 // /api/v1/device/list [get]
 func (*DeviceApi) HandleDeviceList(c *gin.Context) {
 	var req model.GetUnboundGatewaySubDeviceReq

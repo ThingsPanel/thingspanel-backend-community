@@ -35,7 +35,7 @@ func CreateUserWithAddress(user *model.User, addressReq *model.CreateUserAddress
 		if err := tx.User.Create(user); err != nil {
 			return err
 		}
-		
+
 		// 如果提供了地址信息，则创建地址
 		if addressReq != nil {
 			userAddress := &model.UserAddress{
@@ -52,12 +52,12 @@ func CreateUserWithAddress(user *model.User, addressReq *model.CreateUserAddress
 				Latitude:        addressReq.Latitude,
 				AdditionalInfo:  addressReq.AdditionalInfo,
 			}
-			
+
 			if err := tx.UserAddress.Create(userAddress); err != nil {
 				return err
 			}
 		}
-		
+
 		return nil
 	})
 }
@@ -68,7 +68,7 @@ func UpdateUserWithAddress(user *model.User, addressReq *model.UpdateUserAddress
 		if _, err := tx.User.Where(tx.User.ID.Eq(user.ID)).Updates(user); err != nil {
 			return err
 		}
-		
+
 		// 处理地址信息
 		if addressReq != nil {
 			// 查找现有地址
@@ -132,7 +132,7 @@ func UpdateUserWithAddress(user *model.User, addressReq *model.UpdateUserAddress
 				if addressReq.AdditionalInfo != nil {
 					updates["additional_info"] = *addressReq.AdditionalInfo
 				}
-				
+
 				if len(updates) > 0 {
 					if _, err := tx.UserAddress.Where(tx.UserAddress.ID.Eq(existingAddress.ID)).Updates(updates); err != nil {
 						return err
@@ -140,7 +140,7 @@ func UpdateUserWithAddress(user *model.User, addressReq *model.UpdateUserAddress
 				}
 			}
 		}
-		
+
 		return nil
 	})
 }
@@ -156,7 +156,7 @@ func GetUsersById(uid string) (*model.User, error) {
 func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 	q := query.User
 	qa := query.UserAddress
-	
+
 	// 联表查询用户和地址信息
 	type UserWithAddress struct {
 		// 用户字段
@@ -181,22 +181,22 @@ func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 		PasswordFailCount   *int32     `gorm:"column:password_fail_count"`
 		AvatarURL           *string    `gorm:"column:avatar_url"`
 		// 地址字段
-		AddressID           *int32     `gorm:"column:address_id"`
-		Country             *string    `gorm:"column:address_country"`
-		Province            *string    `gorm:"column:address_province"`
-		City                *string    `gorm:"column:address_city"`
-		District            *string    `gorm:"column:address_district"`
-		Street              *string    `gorm:"column:address_street"`
-		DetailedAddress     *string    `gorm:"column:address_detailed_address"`
-		PostalCode          *string    `gorm:"column:address_postal_code"`
-		AddressLabel        *string    `gorm:"column:address_label"`
-		Longitude           *string    `gorm:"column:address_longitude"`
-		Latitude            *string    `gorm:"column:address_latitude"`
-		AddressAdditionalInfo *string  `gorm:"column:address_additional_info"`
-		AddressCreatedTime  *time.Time `gorm:"column:address_created_time"`
-		AddressUpdatedTime  *time.Time `gorm:"column:address_updated_time"`
+		AddressID             *int32     `gorm:"column:address_id"`
+		Country               *string    `gorm:"column:address_country"`
+		Province              *string    `gorm:"column:address_province"`
+		City                  *string    `gorm:"column:address_city"`
+		District              *string    `gorm:"column:address_district"`
+		Street                *string    `gorm:"column:address_street"`
+		DetailedAddress       *string    `gorm:"column:address_detailed_address"`
+		PostalCode            *string    `gorm:"column:address_postal_code"`
+		AddressLabel          *string    `gorm:"column:address_label"`
+		Longitude             *string    `gorm:"column:address_longitude"`
+		Latitude              *string    `gorm:"column:address_latitude"`
+		AddressAdditionalInfo *string    `gorm:"column:address_additional_info"`
+		AddressCreatedTime    *time.Time `gorm:"column:address_created_time"`
+		AddressUpdatedTime    *time.Time `gorm:"column:address_updated_time"`
 	}
-	
+
 	var result UserWithAddress
 	err := q.WithContext(context.Background()).
 		LeftJoin(qa, q.ID.EqCol(qa.UserID)).
@@ -214,44 +214,44 @@ func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 			qa.CreatedTime.As("address_created_time"), qa.UpdatedTime.As("address_updated_time"),
 		).
 		Scan(&result)
-		
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// 如果没有找到用户记录（ID为空），返回记录不存在错误
 	if result.ID == "" {
 		return nil, gorm.ErrRecordNotFound
 	}
-	
+
 	// 获取用户角色
 	roles, _ := GetRolesByUserId(result.ID)
-	
+
 	// 构建返回数据
 	userMap := map[string]interface{}{
-		"id":                     result.ID,
-		"name":                   result.Name,
-		"phone_number":           result.PhoneNumber,
-		"email":                  result.Email,
-		"status":                 result.Status,
-		"authority":              result.Authority,
-		"tenant_id":              result.TenantID,
-		"remark":                 result.Remark,
-		"additionalInfo":         result.AdditionalInfo,
-		"organization":           result.Organization,
-		"timezone":               result.Timezone,
-		"default_language":       result.DefaultLanguage,
-		"created_at":             result.CreatedAt,
-		"updated_at":             result.UpdatedAt,
-		"password_last_updated":  result.PasswordLastUpdated,
-		"last_visit_time":        result.LastVisitTime,
-		"last_visit_ip":          result.LastVisitIP,
-		"last_visit_device":      result.LastVisitDevice,
-		"password_fail_count":    result.PasswordFailCount,
-		"avatar_url":             result.AvatarURL,
-		"userRoles":              roles,
+		"id":                    result.ID,
+		"name":                  result.Name,
+		"phone_number":          result.PhoneNumber,
+		"email":                 result.Email,
+		"status":                result.Status,
+		"authority":             result.Authority,
+		"tenant_id":             result.TenantID,
+		"remark":                result.Remark,
+		"additional_info":       result.AdditionalInfo,
+		"organization":          result.Organization,
+		"timezone":              result.Timezone,
+		"default_language":      result.DefaultLanguage,
+		"created_at":            result.CreatedAt,
+		"updated_at":            result.UpdatedAt,
+		"password_last_updated": result.PasswordLastUpdated,
+		"last_visit_time":       result.LastVisitTime,
+		"last_visit_ip":         result.LastVisitIP,
+		"last_visit_device":     result.LastVisitDevice,
+		"password_fail_count":   result.PasswordFailCount,
+		"avatar_url":            result.AvatarURL,
+		"user_roles":            roles,
 	}
-	
+
 	// 添加地址信息（如果存在）
 	if result.AddressID != nil {
 		userMap["address"] = map[string]interface{}{
@@ -273,7 +273,7 @@ func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 	} else {
 		userMap["address"] = nil
 	}
-	
+
 	return userMap, nil
 }
 
@@ -326,7 +326,7 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 	qa := query.UserAddress
 	var count int64
 	var userList []map[string]interface{}
-	
+
 	queryBuilder := q.WithContext(context.Background()).LeftJoin(qa, q.ID.EqCol(qa.UserID))
 
 	// 权限过滤
@@ -352,12 +352,12 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 	if userListReq.Status != nil && *userListReq.Status != "" {
 		queryBuilder = queryBuilder.Where(q.Status.Eq(*userListReq.Status))
 	}
-	
+
 	// 新增扩展字段过滤
 	if userListReq.Organization != nil && *userListReq.Organization != "" {
 		queryBuilder = queryBuilder.Where(q.Organization.Like(fmt.Sprintf("%%%s%%", *userListReq.Organization)))
 	}
-	
+
 	// 地址相关过滤
 	if userListReq.Country != nil && *userListReq.Country != "" {
 		queryBuilder = queryBuilder.Where(qa.Country.Like(fmt.Sprintf("%%%s%%", *userListReq.Country)))
@@ -368,13 +368,13 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 	if userListReq.City != nil && *userListReq.City != "" {
 		queryBuilder = queryBuilder.Where(qa.City.Like(fmt.Sprintf("%%%s%%", *userListReq.City)))
 	}
-	
+
 	// 获取总数（1:1关系不需要去重）
 	count, err := queryBuilder.Count()
 	if err != nil {
 		return count, nil, err
 	}
-	
+
 	// 分页
 	if userListReq.Page != 0 && userListReq.PageSize != 0 {
 		queryBuilder = queryBuilder.Limit(userListReq.PageSize)
@@ -391,7 +391,7 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 	if err != nil {
 		return count, nil, err
 	}
-	
+
 	// 为每个用户获取详细信息和地址
 	for _, userIDResult := range userIDResults {
 		userWithAddress, err := GetUserByIdWithAddress(userIDResult.ID)
@@ -466,13 +466,13 @@ func UpdateUserAddressOnly(userID string, addressReq *model.UpdateUserAddressReq
 			if addressReq.AdditionalInfo != nil {
 				updates["additional_info"] = *addressReq.AdditionalInfo
 			}
-			
+
 			if len(updates) > 0 {
 				_, err := tx.UserAddress.Where(tx.UserAddress.ID.Eq(existingAddress.ID)).Updates(updates)
 				return err
 			}
 		}
-		
+
 		return nil
 	})
 }
@@ -646,4 +646,26 @@ func GetTenantsById(tenantID string) (info *model.User, err error) {
 		return
 	}
 	return info, nil
+}
+
+func CheckPhoneNumberExists(phoneNumber string, excludeUserID ...string) (bool, error) {
+	if phoneNumber == "" {
+		return false, nil
+	}
+
+	// 直接查找这个手机号的用户
+	user, err := GetUsersByPhoneNumber(phoneNumber)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil // 没找到，说明不重复
+		}
+		return false, err
+	}
+
+	// 如果找到了，检查是不是要排除的用户（通常是当前用户）
+	if len(excludeUserID) > 0 && excludeUserID[0] != "" && user.ID == excludeUserID[0] {
+		return false, nil // 是自己的手机号，不算重复
+	}
+
+	return true, nil // 是别人的手机号，算重复
 }

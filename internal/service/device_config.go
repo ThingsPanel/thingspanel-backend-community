@@ -225,6 +225,8 @@ func (*DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigR
 		initialize.DelDeviceCache(id)
 		// initialize.DelDeviceDataScriptCache(id)
 	}
+	// 清除父设备缓存
+	initialize.DelDeviceCache(req.ParentDeviceID)
 	return err
 }
 

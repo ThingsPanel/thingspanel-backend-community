@@ -64,6 +64,7 @@ type DeviceConfigForProtocolPlugin struct {
 // 协议插件获取设备配置的子设备配置
 type SubDeviceConfigForProtocolPlugin struct {
 	DeviceID               string                 `json:"device_id"`
+	DeviceNumber           string                 `json:"device_number"`
 	Voucher                string                 `json:"voucher"`
 	SubDeviceAddr          string                 `json:"sub_device_addr"`
 	Config                 map[string]interface{} `json:"config"`

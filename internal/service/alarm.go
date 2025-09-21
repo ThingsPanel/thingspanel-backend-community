@@ -1,8 +1,11 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"project/internal/dal"
@@ -204,8 +207,44 @@ func (*Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
 	}
 
 	if alarmConfig.NotificationGroupID != "" {
-		title := alarmConfig.Name + "[" + alarmConfig.AlarmLevel + "]" + time.Now().Format("2006-01-02 15:04:05")
-		GroupApp.NotificationServicesConfig.ExecuteNotification(alarmConfig.NotificationGroupID, title, content)
+		// 组装标准的通知内容
+		subject := fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
+		
+		// 处理描述字段的指针类型
+		description := ""
+		if alarmConfig.Description != nil {
+			description = *alarmConfig.Description
+		}
+		
+		notificationContent := fmt.Sprintf(`Alert: %s
+Level: %s
+Time: %s
+Description: %s
+Details: %s`,
+			alarmConfig.Name,
+			alarmConfig.AlarmLevel,
+			time.Now().Format("2006-01-02 15:04:05"),
+			description,
+			content)
+
+		// 构建标准通知JSON
+		alertData := map[string]interface{}{
+			"subject":   subject,
+			"content":   notificationContent,
+			"timestamp": time.Now().Format(time.RFC3339),
+		}
+
+		// 序列化JSON，不转义HTML字符
+		buffer := &bytes.Buffer{}
+		encoder := json.NewEncoder(buffer)
+		encoder.SetEscapeHTML(false)
+		err = encoder.Encode(alertData)
+		if err != nil {
+			logrus.Error("构建告警JSON失败:", err)
+		} else {
+			alertJson := strings.TrimSpace(buffer.String())
+			GroupApp.NotificationServicesConfig.ExecuteNotification(alarmConfig.NotificationGroupID, alertJson)
+		}
 	}
 
 	id := uuid.New()
@@ -271,8 +310,44 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 	}
 	alarmName = alarmConfig.Name
 	if alarmConfig.NotificationGroupID != "" {
-		title := alarmConfig.Name + "[" + alarmConfig.AlarmLevel + "]" + time.Now().Format("2006-01-02 15:04:05")
-		GroupApp.NotificationServicesConfig.ExecuteNotification(alarmConfig.NotificationGroupID, title, content)
+		// 组装标准的通知内容
+		subject := fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
+		
+		// 处理描述字段的指针类型
+		description := ""
+		if alarmConfig.Description != nil {
+			description = *alarmConfig.Description
+		}
+		
+		notificationContent := fmt.Sprintf(`Alert: %s
+Level: %s
+Time: %s
+Description: %s
+Details: %s`,
+			alarmConfig.Name,
+			alarmConfig.AlarmLevel,
+			time.Now().Format("2006-01-02 15:04:05"),
+			description,
+			content)
+
+		// 构建标准通知JSON
+		alertData := map[string]interface{}{
+			"subject":   subject,
+			"content":   notificationContent,
+			"timestamp": time.Now().Format(time.RFC3339),
+		}
+
+		// 序列化JSON，不转义HTML字符
+		buffer := &bytes.Buffer{}
+		encoder := json.NewEncoder(buffer)
+		encoder.SetEscapeHTML(false)
+		err = encoder.Encode(alertData)
+		if err != nil {
+			logrus.Error("构建告警JSON失败:", err)
+		} else {
+			alertJson := strings.TrimSpace(buffer.String())
+			GroupApp.NotificationServicesConfig.ExecuteNotification(alarmConfig.NotificationGroupID, alertJson)
+		}
 	}
 	device_ids_str, _ := json.Marshal(device_ids)
 	id := uuid.New()

@@ -22,6 +22,7 @@ type Board struct {
 	Description *string   `gorm:"column:description;comment:描述" json:"description"`             // 描述
 	Remark      *string   `gorm:"column:remark;comment:备注" json:"remark"`                       // 备注
 	MenuFlag    *string   `gorm:"column:menu_flag;comment:菜单标志默认N，Y" json:"menu_flag"`          // 菜单标志默认N，Y
+	VisType     *string   `gorm:"column:vis_type;comment:可视化类型" json:"vis_type"`                // 可视化类型
 }
 
 // TableName Board's table name

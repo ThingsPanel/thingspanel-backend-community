@@ -143,4 +143,5 @@ type DeviceSelectorRes struct {
 type DeviceSelectorData struct {
 	DeviceID   string `json:"device_id"`   // 设备ID
 	DeviceName string `json:"device_name"` // 设备名称
+	DeviceType string `json:"device_type"` // 设备类型: 2-网关设备, 3-网关子设备
 }

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	model "project/internal/model"
@@ -194,7 +195,48 @@ func GetHistoryTelemetrDataByExport(p *model.GetTelemetryHistoryDataByPageReq, o
 
 // 批量插入
 func CreateTelemetrDataBatch(data []*model.TelemetryData) error {
-	return query.TelemetryData.CreateInBatches(data, len(data))
+	// 先尝试直接批量插入
+	err := query.TelemetryData.CreateInBatches(data, len(data))
+	if err == nil {
+		return nil // 成功插入，直接返回
+	}
+	// 检查是否为唯一约束冲突
+	if !isUniqueConstraintError(err) {
+		return err // 其他错误直接返回
+	}
+	// 发生冲突时，使用带冲突处理的SQL
+	logrus.Debugf("发生(device_id,key,timestamp)唯一约束冲突，使用冲突处理SQL: data: %+v, err: %+v", data, err)
+	sql := `INSERT INTO telemetry_datas (device_id, key, ts, number_v, string_v, bool_v, tenant_id) VALUES `
+
+	values := make([]interface{}, 0, len(data)*7)
+	placeholders := make([]string, 0, len(data))
+
+	for i, d := range data {
+		placeholders = append(placeholders, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			i*7+1, i*7+2, i*7+3, i*7+4, i*7+5, i*7+6, i*7+7))
+
+		values = append(values, d.DeviceID, d.Key, d.T, d.NumberV, d.StringV, d.BoolV, d.TenantID)
+	}
+
+	sql += strings.Join(placeholders, ", ")
+	// 由于约束是(device_id, key, ts)，冲突时ts必然相等，直接更新
+	sql += ` ON CONFLICT (device_id, key, ts) DO UPDATE SET
+		number_v = EXCLUDED.number_v,
+		string_v = EXCLUDED.string_v,
+		bool_v = EXCLUDED.bool_v`
+
+	return global.DB.Exec(sql, values...).Error
+}
+
+// 检查是否为唯一约束冲突错误
+func isUniqueConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	// PostgreSQL唯一约束错误标识
+	return strings.Contains(errStr, "SQLSTATE 23505") ||
+		strings.Contains(errStr, "duplicate key value violates unique constraint")
 }
 
 // 批量更新，如果没有则新增

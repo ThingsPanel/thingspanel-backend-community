@@ -37,6 +37,7 @@ func newBoard(db *gorm.DB, opts ...gen.DOOption) board {
 	_board.Description = field.NewString(tableName, "description")
 	_board.Remark = field.NewString(tableName, "remark")
 	_board.MenuFlag = field.NewString(tableName, "menu_flag")
+	_board.VisType = field.NewString(tableName, "vis_type")
 
 	_board.fillFieldMap()
 
@@ -57,6 +58,7 @@ type board struct {
 	Description field.String // 描述
 	Remark      field.String // 备注
 	MenuFlag    field.String // 菜单标志默认N，Y
+	VisType     field.String // 可视化类型
 
 	fieldMap map[string]field.Expr
 }
@@ -83,6 +85,7 @@ func (b *board) updateTableName(table string) *board {
 	b.Description = field.NewString(table, "description")
 	b.Remark = field.NewString(table, "remark")
 	b.MenuFlag = field.NewString(table, "menu_flag")
+	b.VisType = field.NewString(table, "vis_type")
 
 	b.fillFieldMap()
 
@@ -99,7 +102,7 @@ func (b *board) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (b *board) fillFieldMap() {
-	b.fieldMap = make(map[string]field.Expr, 10)
+	b.fieldMap = make(map[string]field.Expr, 11)
 	b.fieldMap["id"] = b.ID
 	b.fieldMap["name"] = b.Name
 	b.fieldMap["config"] = b.Config
@@ -110,6 +113,7 @@ func (b *board) fillFieldMap() {
 	b.fieldMap["description"] = b.Description
 	b.fieldMap["remark"] = b.Remark
 	b.fieldMap["menu_flag"] = b.MenuFlag
+	b.fieldMap["vis_type"] = b.VisType
 }
 
 func (b board) clone(db *gorm.DB) board {

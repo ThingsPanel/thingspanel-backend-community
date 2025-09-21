@@ -265,6 +265,7 @@ func (*ProtocolPlugin) GetDeviceConfig(req model.GetDeviceConfigReq) (interface{
 			var subDeviceConfigForProtocolPlugin model.SubDeviceConfigForProtocolPlugin
 			subDeviceConfigForProtocolPlugin.DeviceID = subDevice.ID
 			subDeviceConfigForProtocolPlugin.Voucher = subDevice.Voucher
+			subDeviceConfigForProtocolPlugin.DeviceNumber = subDevice.DeviceNumber
 			if subDevice.SubDeviceAddr == nil {
 				logrus.Warn("subDeviceAddr is nil")
 				return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{

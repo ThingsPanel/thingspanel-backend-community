@@ -40,6 +40,7 @@ func (*Board) CreateBoard(ctx context.Context, CreateBoardReq *model.CreateBoard
 	board.CreatedAt = time.Now().UTC()
 	board.TenantID = CreateBoardReq.TenantID
 	board.HomeFlag = CreateBoardReq.HomeFlag
+	board.VisType = CreateBoardReq.VisType
 	// 一个租户的首页看板只能存在一个
 	if CreateBoardReq.HomeFlag == "Y" {
 		err := db.UpdateHomeFlagN(ctx, CreateBoardReq.TenantID)
@@ -78,6 +79,7 @@ func (*Board) UpdateBoard(ctx context.Context, UpdateBoardReq *model.UpdateBoard
 	board.MenuFlag = &UpdateBoardReq.MenuFlag
 	board.Description = UpdateBoardReq.Description
 	board.Remark = UpdateBoardReq.Remark
+	board.VisType = UpdateBoardReq.VisType
 	board.UpdatedAt = time.Now().UTC()
 	if UpdateBoardReq.Id != "" {
 		if board.HomeFlag == "Y" {
@@ -113,6 +115,7 @@ func (*Board) UpdateBoard(ctx context.Context, UpdateBoardReq *model.UpdateBoard
 		}
 		board.ID = uuid.New()
 		board.TenantID = UpdateBoardReq.TenantID
+		board.VisType = UpdateBoardReq.VisType
 		// 没有id则新增，但是需要判断是否有首页看板，如果有则不允许新增
 		if board.HomeFlag == "Y" {
 			_, err := db.First(ctx, query.Board.TenantID.Eq(UpdateBoardReq.TenantID), query.Board.HomeFlag.Eq("Y"))
