@@ -57,7 +57,7 @@ func (w *WsMqttClient) SubscribeDeviceTelemetry(deviceId string, conn *websocket
 	// 订阅单设备遥测消息
 	deviceTelemetryHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
-		var valuesMap map[string]interface{}
+		valuesMap := make(map[string]interface{})
 		if err := json.Unmarshal(d.Payload(), &valuesMap); err != nil {
 			logrus.Error(err)
 			mu.Lock()
@@ -103,7 +103,7 @@ func (w *WsMqttClient) SubscribeDeviceTelemetryByKeys(deviceId string, conn *web
 	// 订阅单设备遥测消息
 	deviceTelemetryHandler := func(_ mqtt.Client, d mqtt.Message) {
 		// 处理消息
-		var valuesMap map[string]interface{}
+		valuesMap := make(map[string]interface{})
 		rspMap := make(map[string]interface{})
 		if err := json.Unmarshal(d.Payload(), &valuesMap); err != nil {
 			logrus.Error(err)
