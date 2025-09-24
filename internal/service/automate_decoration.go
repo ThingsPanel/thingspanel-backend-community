@@ -12,7 +12,7 @@ import (
 // @description 联动场景执行完成 告警缓存处理
 // param actions []model.ActionInfo
 // @return error
-func ActionAfterAlarm(actions []model.ActionInfo, actionResultErr error) error {
+func ActionAfterAlarm(actions []model.ActionInfo, deviceId string, actionResultErr error) error {
 	// 查询该场景是否有缓存 无缓存直接跳过
 	scene_automation_id := actions[0].SceneAutomationID
 	alarmCache := initialize.NewAlarmCache()
@@ -36,7 +36,7 @@ func ActionAfterAlarm(actions []model.ActionInfo, actionResultErr error) error {
 		if len(alarm_config_ids) == 0 {
 			err = alarmCache.DeleteBygroupId(group_id)
 		} else if actionResultErr == nil { // 保存缓存 且执行成功 添加执行成功标识
-			err = alarmCache.SetAlarm(group_id, alarm_config_ids)
+			err = alarmCache.SetAlarm(group_id, alarm_config_ids, deviceId)
 		}
 		if err != nil {
 			return pkgerrors.Wrap(err, "缓存删除或设置失败")
@@ -122,19 +122,26 @@ func AlarmExecute(alarm_config_id, scene_automation_id string) (bool, string, st
 		return resultOk, alarmName, reason
 	}
 	for _, group_id := range groupIds {
-		cache, err := alarmCache.GetByGroupId(group_id)
+		var cache initialize.AlarmCacheGroup
+		cache, err = alarmCache.GetByGroupId(group_id)
 		if err != nil {
 			reason = "告警缓存不存在"
 			return resultOk, alarmName, reason
 		}
 		logrus.Debugf("告警执行前查询: %#v", cache)
 		var isOk bool
-		for _, acid := range cache.AlarmConfigIdList {
-			if acid == alarm_config_id {
-				isOk = true
-				break
-			}
+		isOk, err = alarmCache.GetAlarmDeviceExists(cache.AlaramDeviceIdList, group_id)
+		if err != nil {
+			return resultOk, alarmName, "查询告警缓存失败"
 		}
+		//cacheKey = a.getCacheKeyByDevice(device_id)
+		//err = a.groupCacheAdd(cacheKey, group_id)
+		//for _, acid := range cache.AlarmConfigIdList {
+		//	if acid == alarm_config_id {
+		//		isOk = true
+		//		break
+		//	}
+		//}
 		if isOk {
 			// 告警ID已在缓存中存在，表示该告警已被触发过
 			reason = "告警已存在"

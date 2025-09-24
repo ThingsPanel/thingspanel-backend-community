@@ -64,19 +64,19 @@ func (a *SliceString) UnmarshalBinary(data []byte) error {
 }
 
 func (*AlarmCache) getCacheKeyByGroupId(group_id string) string {
-	return fmt.Sprintf("alarm_cache_group_v5_%s", group_id)
+	return fmt.Sprintf("alarm_cache_group_v6_%s", group_id)
 }
 
 func (*AlarmCache) getCacheKeyByDevice(device_id string) string {
-	return fmt.Sprintf("alarm_cach_device_v5_%s", device_id)
+	return fmt.Sprintf("alarm_cach_device_v6_%s", device_id)
 }
 
-func (*AlarmCache) getCacheKeyByAlarm(alarm_config_id string) string {
-	return fmt.Sprintf("alarm_cach_alarm_v5_%s", alarm_config_id)
+func (*AlarmCache) getCacheKeyByAlarm(alarm_config_id string, device_id string) string {
+	return fmt.Sprintf("alarm_cach_alarm_v6_%s_%s", alarm_config_id, device_id)
 }
 
 func (*AlarmCache) getCacheKeyByScene(scene_automation_id string) string {
-	return fmt.Sprintf("alarm_cach_scene_v5_%s", scene_automation_id)
+	return fmt.Sprintf("alarm_cach_scene_v6_%s", scene_automation_id)
 }
 
 func (a *AlarmCache) set(key string, value interface{}) error {
@@ -105,7 +105,7 @@ func (a *AlarmCache) SetDevice(group_id, scene_automation_id string, device_ids,
 	if count, err := a.client.Exists(context.Background(), cacheKey).Result(); err != nil {
 		return pkgerrors.Wrap(err, "检查缓存是否存在失败")
 	} else if count > 0 {
-		err := a.client.Get(context.Background(), cacheKey).Scan(&info)
+		err = a.client.Get(context.Background(), cacheKey).Scan(&info)
 		if err != nil {
 			return pkgerrors.Wrap(err, "获取缓存失败")
 		}
@@ -134,6 +134,24 @@ func (a *AlarmCache) SetDevice(group_id, scene_automation_id string, device_ids,
 	return a.groupCacheAdd(cacheKey, group_id)
 }
 
+func (a *AlarmCache) GetAlarmDeviceExists(deviceIds []string, groupId string) (bool, error) {
+	for _, deviceId := range deviceIds {
+		cacheKey := a.getCacheKeyByAlarm(deviceId, groupId)
+		var groupIds SliceString
+		err := a.client.Get(context.Background(), cacheKey).Scan(&groupIds)
+		logrus.Debug("GetAlarmDeviceExists:", cacheKey, "==>", groupIds)
+		if err != nil && !errors.Is(err, redis.Nil) {
+			return false, err
+		}
+		for _, g := range groupIds {
+			if g == groupId {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 // groupCacheAdd
 // description 组缓存添加
 func (a *AlarmCache) groupCacheAdd(cacheKey, groupId string) error {
@@ -159,6 +177,9 @@ func (a *AlarmCache) groupCacheAdd(cacheKey, groupId string) error {
 		return err
 	}
 	return nil
+}
+func (a *AlarmCache) name() {
+
 }
 
 // groupCacheDel
@@ -189,7 +210,7 @@ func (a *AlarmCache) groupCacheDel(cachekey, group_id string) error {
 
 // SetAlarm
 // description 缓存设备告警
-func (a *AlarmCache) SetAlarm(group_id string, alarm_config_ids []string) error {
+func (a *AlarmCache) SetAlarm(group_id string, alarm_config_ids []string, deviceId string) error {
 	alarmMu.Lock()
 	defer alarmMu.Unlock()
 	var info AlarmCacheGroup
@@ -204,7 +225,7 @@ func (a *AlarmCache) SetAlarm(group_id string, alarm_config_ids []string) error 
 		return err
 	}
 	for _, alarm_id := range alarm_config_ids {
-		cachekey = a.getCacheKeyByAlarm(alarm_id)
+		cachekey = a.getCacheKeyByAlarm(alarm_id, deviceId)
 		err = a.groupCacheAdd(cachekey, group_id)
 		if err != nil {
 			return err
@@ -247,10 +268,12 @@ func (a *AlarmCache) DeleteBygroupId(group_Id string) error {
 		return err
 	}
 	for _, alarmId := range info.AlarmConfigIdList {
-		cachekey := a.getCacheKeyByAlarm(alarmId)
-		err = a.groupCacheDel(cachekey, group_Id)
-		if err != nil {
-			return err
+		for _, deviceId := range info.AlaramDeviceIdList {
+			cachekey := a.getCacheKeyByAlarm(alarmId, deviceId)
+			err = a.groupCacheDel(cachekey, group_Id)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	for _, deviceId := range info.AlaramDeviceIdList {
@@ -259,6 +282,11 @@ func (a *AlarmCache) DeleteBygroupId(group_Id string) error {
 		if err != nil {
 			return err
 		}
+		//cachekey = a.getCacheKeyByExecuted(deviceId)
+		//err = a.groupCacheDel(cachekey, group_Id)
+		//if err != nil {
+		//	return err
+		//}
 	}
 	cachekey := a.getCacheKeyByScene(info.SceneAutomationId)
 	err = a.groupCacheDel(cachekey, group_Id)

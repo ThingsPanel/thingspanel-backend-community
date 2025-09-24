@@ -39,7 +39,7 @@ var actionAfterDecoration = []ActionAfterFunc{
 
 type (
 	ConditionAfterFunc = func(ok bool, conditions initialize.DTConditions, deviceId string, contents []string) error
-	ActionAfterFunc    = func(actions []model.ActionInfo, err error) error
+	ActionAfterFunc    = func(actions []model.ActionInfo, deviceId string, err error) error
 )
 
 type AutomateFromExt struct {
@@ -58,10 +58,10 @@ func (a *Automate) conditionAfterDecorationRun(ok bool, conditions initialize.DT
 	}
 }
 
-func (a *Automate) actionAfterDecorationRun(actions []model.ActionInfo, err error) {
+func (a *Automate) actionAfterDecorationRun(actions []model.ActionInfo, deviceId string, err error) {
 	defer a.ErrorRecover()
 	for _, fc := range actionAfterDecoration {
-		err := fc(actions, err)
+		err := fc(actions, deviceId, err)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -234,7 +234,7 @@ func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 		// 场景联动 动作执行
 		err := a.SceneAutomateExecute(v.SceneAutomationId, []string{info.DeviceId}, v.Actions)
 		// 场景动作之后装饰
-		a.actionAfterDecorationRun(v.Actions, err)
+		a.actionAfterDecorationRun(v.Actions, info.DeviceId, err)
 
 		// 将已执行的场景ID标记为已执行
 		a.executedSceneIDs[v.SceneAutomationId] = true
@@ -765,7 +765,7 @@ func (*Automate) AutomateActionExecute(_ string, deviceIds []string, actions []m
 		case model.AUTOMATE_ACTION_TYPE_ONE: // 单个设置
 			actionService = &AutomateTelemetryActionOne{TenantID: tenantID}
 		case model.AUTOMATE_ACTION_TYPE_ALARM: // 告警触发
-			actionService = &AutomateTelemetryActionAlarm{}
+			actionService = &AutomateTelemetryActionAlarm{DeviceIds: deviceIds}
 		case model.AUTOMATE_ACTION_TYPE_MULTIPLE: // 单类设置
 			actionService = &AutomateTelemetryActionMultiple{DeviceIds: deviceIds, TenantID: tenantID}
 		case model.AUTOMATE_ACTION_TYPE_SCENE: // 激活场景
