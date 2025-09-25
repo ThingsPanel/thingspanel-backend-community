@@ -183,7 +183,7 @@
 - `internal/dal/notification_history.go` 新增 `UpdateNotificationHistory` 和 `UpdateNotificationHistoryWithContent`
 - `internal/service/notification_services_config.go` 新增统一接口和webhook方法
 
-## 最新重构方案（2025-09-11）
+## 当前实现状态（2024年最新）
 
 ### 接口变更
 **原来的调用方式：**
@@ -197,12 +197,12 @@ ExecuteNotification(groupID, alertJson)
 ```
 
 ### 告警JSON格式
-告警模块现在需要组装完整的JSON数据：
+告警模块实际组装的JSON数据结构：
 ```json
 {
-  "alert_title": "webhook测试[H]2025-09-11 21:37:42",
-  "alert_details": "场景自动化触发告警;设备(webhook测试)遥测 [test_data1]: 2 > 1", 
-  "alert_description": "这是告警配置中的描述信息"
+  "subject": "告警标题",
+  "content": "告警内容详情", 
+  "description": "告警配置中的描述信息"
 }
 ```
 
@@ -210,48 +210,109 @@ ExecuteNotification(groupID, alertJson)
 - 使用 `encoder.SetEscapeHTML(false)` 避免 `>` 变成 `\u003e`
 - 确保JSON数据在通知历史中正确显示
 
-### 错误信息增强
+### 当前实现特性
+
+#### 1. 完整的通知历史记录
+- 所有通知类型（EMAIL、WEBHOOK）都有完整的历史记录
+- 统一的 `saveNotificationHistory` 方法
+- 状态标准化：PENDING、SUCCESS、FAILURE
+
+#### 2. Webhook通知重试机制
+- 创建PENDING记录，然后更新为最终状态
+- 支持重试机制（最多重试1次）
+- HTTP请求超时设置为10秒
+- 使用 `SendSignedRequestWithTimeout` 方法
+
+#### 3. 错误信息增强
 失败时在原JSON后追加错误信息：
 ```json
-{"alert_title":"...","alert_details":"...","alert_description":"..."}; Webhook发送失败: connection refused
+{"subject":"...","content":"...","description":"..."}; Webhook发送失败: connection refused
 ```
 
-### 需要手动完成的修改
-由于文件被频繁修改，需要手动完成以下修改：
+#### 4. 已实现的代码结构
+- `internal/service/alarm.go` 中已包含完整的JSON构建逻辑
+- `internal/service/notification_services_config.go` 中实现了完整的通知分发
+- `internal/dal/notification_history.go` 中包含历史记录更新方法
+- `third_party/others/http_client/request_method.go` 中包含带超时的HTTP请求方法
 
-1. **添加imports到 `internal/service/alarm.go`：**
-```go
-import (
-    "bytes"
-    "strings" 
-    // ... 其他imports
-)
-```
+## 实际运行流程
 
-2. **更新 `AlarmExecute` 方法中的通知调用：**
-将第294行的：
-```go
-GroupApp.NotificationServicesConfig.ExecuteNotification(alarmConfig.NotificationGroupID, title, content)
-```
+### 告警触发完整流程
 
-改为：
+#### 1. 告警创建（AddAlarmInfo/AlarmExecute）
 ```go
-// 构建告警JSON
+// 1. 构建告警JSON数据
 alertData := map[string]interface{}{
-    "alert_title":       title,
-    "alert_details":     content,
-    "alert_description": alarmConfig.Description,
+    "subject":     title,
+    "content":     content, 
+    "description": alarmConfig.Description,
 }
 
-// 序列化JSON，不转义HTML字符
+// 2. 序列化JSON，禁用HTML转义
 buffer := &bytes.Buffer{}
 encoder := json.NewEncoder(buffer)
 encoder.SetEscapeHTML(false)
-err = encoder.Encode(alertData)
+encoder.Encode(alertData)
+alertJson := strings.TrimSpace(buffer.String())
+
+// 3. 执行通知
+ExecuteNotification(alarmConfig.NotificationGroupID, alertJson)
+```
+
+#### 2. 通知分发（ExecuteNotification）
+```go
+switch notificationGroup.NotificationType {
+case model.NoticeType_Email:
+    // 解析JSON，提取subject和content
+    var alertData map[string]interface{}
+    json.Unmarshal([]byte(alertJson), &alertData)
+    subject := alertData["subject"].(string)
+    content := alertData["content"].(string)
+    
+    // 发送邮件，自动记录历史
+    sendEmailMessage(emailBody, subject, tenantID, emailAddr)
+
+case model.NoticeType_Webhook:
+    // 直接发送原始JSON到webhook
+    sendWebhookMessage(webhookURL, secret, alertJson, tenantID)
+}
+```
+
+#### 3. Webhook发送流程（sendWebhookMessage）
+```go
+// 1. 创建PENDING历史记录
+history := &model.NotificationHistory{
+    SendContent: &cleanJson,
+    SendResult:  "PENDING",
+    // ...
+}
+SaveNotificationHistory(history)
+
+// 2. 发送HTTP请求（带重试）
+for i := 0; i < maxRetries; i++ {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    err = SendSignedRequestWithTimeout(ctx, url, cleanJson, secret)
+    if err == nil {
+        // 成功：更新状态为SUCCESS
+        UpdateNotificationHistory(historyID, "SUCCESS", nil)
+        return nil
+    }
+}
+
+// 3. 失败：更新状态和错误信息
+errorContent := cleanJson + "; Webhook发送失败: " + lastErr.Error()
+UpdateNotificationHistoryWithContent(historyID, "FAILURE", lastErr.Error(), errorContent)
+```
+
+### 邮件发送流程（sendEmailMessage）
+```go
+// 1. 发送邮件
+err := d.DialAndSend(m)
+
+// 2. 记录历史
 if err != nil {
-    logrus.Error("构建告警JSON失败:", err)
+    saveNotificationHistory("EMAIL", tenantID, email, message, "FAILURE", err.Error())
 } else {
-    alertJson := strings.TrimSpace(buffer.String())
-    GroupApp.NotificationServicesConfig.ExecuteNotification(alarmConfig.NotificationGroupID, alertJson)
+    saveNotificationHistory("EMAIL", tenantID, email, message, "SUCCESS", nil)
 }
 ```

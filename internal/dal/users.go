@@ -669,3 +669,11 @@ func CheckPhoneNumberExists(phoneNumber string, excludeUserID ...string) (bool, 
 
 	return true, nil // 是别人的手机号，算重复
 }
+
+// GetTenantAdmin 获取租户管理员
+func GetTenantAdmin(tenantID string) (*model.User, error) {
+	q := query.User
+	return q.Where(q.TenantID.Eq(tenantID)).
+		Where(q.Authority.Eq(TENANT_ADMIN)).
+		First()
+}

@@ -209,13 +209,13 @@ func (*Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
 	if alarmConfig.NotificationGroupID != "" {
 		// 组装标准的通知内容
 		subject := fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
-		
+
 		// 处理描述字段的指针类型
 		description := ""
 		if alarmConfig.Description != nil {
 			description = *alarmConfig.Description
 		}
-		
+
 		notificationContent := fmt.Sprintf(`Alert: %s
 Level: %s
 Time: %s
@@ -227,11 +227,21 @@ Details: %s`,
 			description,
 			content)
 
-		// 构建标准通知JSON
+		// 获取租户管理员ID
+		var tenantAdminID string
+		if tenantAdmin, err := dal.GetTenantAdmin(alarmConfig.TenantID); err == nil && tenantAdmin != nil {
+			tenantAdminID = tenantAdmin.ID
+		}
+
+		// 构建增强的告警JSON (AddAlarmInfo方法没有device_ids参数，设为空数组)
 		alertData := map[string]interface{}{
-			"subject":   subject,
-			"content":   notificationContent,
-			"timestamp": time.Now().Format(time.RFC3339),
+			"subject":         subject,
+			"content":         notificationContent,
+			"timestamp":       time.Now().Format(time.RFC3339),
+			"alarm_level":     alarmConfig.AlarmLevel,
+			"tenant_id":       alarmConfig.TenantID,
+			"tenant_admin_id": tenantAdminID,
+			"device_ids":      []string{},
 		}
 
 		// 序列化JSON，不转义HTML字符
@@ -312,13 +322,13 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 	if alarmConfig.NotificationGroupID != "" {
 		// 组装标准的通知内容
 		subject := fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
-		
+
 		// 处理描述字段的指针类型
 		description := ""
 		if alarmConfig.Description != nil {
 			description = *alarmConfig.Description
 		}
-		
+
 		notificationContent := fmt.Sprintf(`Alert: %s
 Level: %s
 Time: %s
@@ -330,11 +340,21 @@ Details: %s`,
 			description,
 			content)
 
-		// 构建标准通知JSON
+		// 获取租户管理员ID
+		var tenantAdminID string
+		if tenantAdmin, err := dal.GetTenantAdmin(alarmConfig.TenantID); err == nil && tenantAdmin != nil {
+			tenantAdminID = tenantAdmin.ID
+		}
+
+		// 构建增强的告警JSON
 		alertData := map[string]interface{}{
-			"subject":   subject,
-			"content":   notificationContent,
-			"timestamp": time.Now().Format(time.RFC3339),
+			"subject":         subject,
+			"content":         notificationContent,
+			"timestamp":       time.Now().Format(time.RFC3339),
+			"alarm_level":     alarmConfig.AlarmLevel,
+			"tenant_id":       alarmConfig.TenantID,
+			"tenant_admin_id": tenantAdminID,
+			"device_ids":      device_ids,
 		}
 
 		// 序列化JSON，不转义HTML字符
