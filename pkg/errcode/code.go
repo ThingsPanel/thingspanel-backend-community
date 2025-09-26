@@ -34,6 +34,7 @@ const (
 	// 权限模块 (201xxx)
 	CodeNoPermission = 201001 // 无权限
 	CodeOpDenied     = 201002 // 操作被拒绝
+	CodeRateLimit    = 201003 // 请求频率限制
 )
 
 const (

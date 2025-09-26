@@ -1,8 +1,10 @@
 package api
 
 import (
+	"project/initialize"
 	model "project/internal/model"
 	service "project/internal/service"
+	"project/pkg/errcode"
 
 	"github.com/gin-gonic/gin"
 )
@@ -107,6 +109,25 @@ func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPlugin(c *gin.Context) {
 	var req model.GetDeviceConfigReq
 	if !BindAndValidate(c, &req) {
 		return
+	}
+
+	// 限流检查：只对voucher和device_number进行限流
+	var limitKey string
+	if req.Voucher != "" {
+		limitKey = "device_auth_voucher:" + req.Voucher
+	} else if req.DeviceNumber != "" {
+		limitKey = "device_auth_device_number:" + req.DeviceNumber
+	}
+
+	// 如果有限流键，执行限流检查
+	if limitKey != "" {
+		limiter := initialize.NewDeviceAuthLimiter()
+		if !limiter.Allow(limitKey) {
+			c.Error(errcode.WithData(errcode.CodeRateLimit, map[string]interface{}{
+				"error": "Request rate limit exceeded, please try again later",
+			}))
+			return
+		}
 	}
 
 	data, err := service.GroupApp.ProtocolPlugin.GetDeviceConfig(req)
