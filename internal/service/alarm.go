@@ -242,6 +242,7 @@ Details: %s`,
 			"tenant_id":       alarmConfig.TenantID,
 			"tenant_admin_id": tenantAdminID,
 			"device_ids":      []string{},
+			"devices":         []map[string]interface{}{},
 		}
 
 		// 序列化JSON，不转义HTML字符
@@ -346,6 +347,28 @@ Details: %s`,
 			tenantAdminID = tenantAdmin.ID
 		}
 
+		// 获取设备详细信息
+		var devices []map[string]interface{}
+		for _, deviceID := range device_ids {
+			if deviceInfo, err := dal.GetDeviceByID(deviceID); err == nil && deviceInfo != nil {
+				device := map[string]interface{}{
+					"id":              deviceInfo.ID,
+					"device_number":   deviceInfo.DeviceNumber,
+					"name":            deviceInfo.Name,
+					"current_version": deviceInfo.CurrentVersion,
+					"created_at":      deviceInfo.CreatedAt,
+					"device_type":     deviceInfo.DeviceType,
+					"label":           deviceInfo.Label,
+					"product_id":      deviceInfo.ProductID,
+					"is_online":       deviceInfo.IsOnline,
+					"access_way":      deviceInfo.AccessWay,
+					"description":     deviceInfo.Description,
+					"tenant_id":       deviceInfo.TenantID,
+				}
+				devices = append(devices, device)
+			}
+		}
+
 		// 构建增强的告警JSON
 		alertData := map[string]interface{}{
 			"subject":         subject,
@@ -355,6 +378,7 @@ Details: %s`,
 			"tenant_id":       alarmConfig.TenantID,
 			"tenant_admin_id": tenantAdminID,
 			"device_ids":      device_ids,
+			"devices":         devices,
 		}
 
 		// 序列化JSON，不转义HTML字符
