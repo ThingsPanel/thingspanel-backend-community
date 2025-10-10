@@ -357,7 +357,6 @@ Details: %s`,
 					"name":            deviceInfo.Name,
 					"current_version": deviceInfo.CurrentVersion,
 					"created_at":      deviceInfo.CreatedAt,
-					"device_type":     deviceInfo.DeviceType,
 					"label":           deviceInfo.Label,
 					"product_id":      deviceInfo.ProductID,
 					"is_online":       deviceInfo.IsOnline,
@@ -371,14 +370,17 @@ Details: %s`,
 
 		// 构建增强的告警JSON
 		alertData := map[string]interface{}{
-			"subject":         subject,
-			"content":         notificationContent,
-			"timestamp":       time.Now().Format(time.RFC3339),
-			"alarm_level":     alarmConfig.AlarmLevel,
-			"tenant_id":       alarmConfig.TenantID,
-			"tenant_admin_id": tenantAdminID,
-			"device_ids":      device_ids,
-			"devices":         devices,
+			"message_id":        uuid.New(),
+			"alarm_config_id":   alarmConfigID,
+			"alarm_config_name": alarmConfig.Name,
+			"subject":           subject,
+			"content":           notificationContent,
+			"timestamp":         time.Now().Format(time.RFC3339),
+			"alarm_level":       alarmConfig.AlarmLevel,
+			"tenant_id":         alarmConfig.TenantID,
+			"tenant_admin_id":   tenantAdminID,
+			"device_ids":        device_ids,
+			"devices":           devices,
 		}
 
 		// 序列化JSON，不转义HTML字符
