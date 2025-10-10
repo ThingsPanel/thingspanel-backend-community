@@ -320,6 +320,7 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 		return false, alarmName, "告警配置未启用"
 	}
 	alarmName = alarmConfig.Name
+	id := uuid.New()
 	if alarmConfig.NotificationGroupID != "" {
 		// 组装标准的通知内容
 		subject := fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
@@ -370,7 +371,7 @@ Details: %s`,
 
 		// 构建增强的告警JSON
 		alertData := map[string]interface{}{
-			"message_id":        uuid.New(),
+			"id":                id,
 			"alarm_config_id":   alarmConfigID,
 			"alarm_config_name": alarmConfig.Name,
 			"subject":           subject,
@@ -396,7 +397,7 @@ Details: %s`,
 		}
 	}
 	device_ids_str, _ := json.Marshal(device_ids)
-	id := uuid.New()
+
 	t := time.Now().UTC()
 	err = dal.AlarmHistorySave(&model.AlarmHistory{
 		ID:                id,
