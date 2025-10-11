@@ -237,9 +237,7 @@ func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCo
 
 	if deviceConfigsInfo.DeviceTemplateID == nil || common.CheckEmpty(*deviceConfigsInfo.DeviceTemplateID) {
 		logrus.Debug("device_configs.device_template_id is empty")
-		return list, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": "device_configs.device_template_id is empty",
-		})
+		return list, nil
 	}
 
 	commandList, err := dal.DeviceModelCommandsQuery{}.Find(ctx, query.DeviceModelCommand.DeviceTemplateID.Eq(*deviceConfigsInfo.DeviceTemplateID))
