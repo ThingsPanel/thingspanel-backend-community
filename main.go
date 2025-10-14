@@ -42,10 +42,11 @@ func main() {
 		app.WithRedis(),
 
 		// 服务
-		app.WithHTTPService(),
+		app.WithStorageService(), // 添加 Storage 服务
 		app.WithGRPCService(),
+		app.WithHTTPService(),
 		app.WithMQTTService(),
-		//app.WithCronService(),
+		app.WithCronService(),
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "应用初始化失败: %v\n", err)

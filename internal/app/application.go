@@ -2,6 +2,7 @@ package app
 
 import (
 	"project/internal/query"
+	"project/internal/storage"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -16,6 +17,10 @@ type Application struct {
 	DB             *gorm.DB
 	RedisClient    *redis.Client
 	ServiceManager *ServiceManager
+
+	// Storage 相关
+	storageService   storage.Storage
+	storageInputChan chan *storage.Message
 }
 
 // NewApplication 创建并初始化应用
@@ -52,7 +57,9 @@ func (app *Application) Start() error {
 
 // Shutdown 优雅关闭所有资源
 func (app *Application) Shutdown() {
-	// 停止所有服务
+	logrus.Info("开始关闭应用...")
+
+	// 停止所有服务（包括 Storage）
 	app.ServiceManager.StopAll()
 
 	// 关闭数据库连接
@@ -63,7 +70,8 @@ func (app *Application) Shutdown() {
 
 	// DB不需要显式关闭，gorm.DB没有Close方法
 
-	app.Logger.Info("All resources have been successfully cleaned up")
+	app.Logger.Info("所有资源已成功清理")
+	logrus.Info("应用关闭完成")
 }
 
 // Wait 等待所有服务完成

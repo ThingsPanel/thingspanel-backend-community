@@ -155,3 +155,10 @@ session:
   timeout: 6000
   # 可选：是否在每次请求时重置超时时间
   reset_on_request: false
+
+# Storage 存储层配置
+storage:
+  channel_buffer_size: 10000       # 输入channel缓冲区大小
+  telemetry_batch_size: 500        # 遥测数据批量大小
+  telemetry_flush_interval: 1000   # flush间隔（毫秒，0表示关闭定时flush）
+  enable_metrics: true             # 是否启用Prometheus监控
