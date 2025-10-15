@@ -1,5 +1,17 @@
 package app
 
+// DEPRECATED: 此文件已废弃
+//
+// 原因:
+// - DeviceListener 已被 HeartbeatMonitor 替代
+// - 新架构通过 Application 的 Option 模式集成服务
+//
+// 替代方案:
+// 在 main.go 中使用:
+//   app.WithHeartbeatMonitor()  // 替代 DeviceListener
+//
+// 如需完全移除此文件,请确保没有其他代码引用 NewManager()
+
 import (
 	"project/mqtt/device"
 	"project/pkg/global"
@@ -8,6 +20,7 @@ import (
 )
 
 // Manager 服务管理器
+// DEPRECATED: 不再使用,服务通过 Application.Option 集成
 type Manager struct {
 	deviceListener *device.DeviceListener
 }

@@ -11,7 +11,7 @@ import (
 	"project/internal/processor"
 	"project/internal/service"
 	"project/internal/storage"
-	"project/mqtt/subscribe"
+	"project/pkg/global"
 
 	"github.com/sirupsen/logrus"
 )
@@ -19,9 +19,10 @@ import (
 // EventFlow 事件数据流处理器
 type EventFlow struct {
 	// 依赖注入
-	processor    processor.DataProcessor
-	storageInput chan<- *storage.Message
-	logger       *logrus.Logger
+	processor        processor.DataProcessor
+	storageInput     chan<- *storage.Message
+	heartbeatService *service.HeartbeatService
+	logger           *logrus.Logger
 
 	// 运行状态
 	ctx    context.Context
@@ -30,9 +31,10 @@ type EventFlow struct {
 
 // EventFlowConfig 事件流程配置
 type EventFlowConfig struct {
-	Processor    processor.DataProcessor
-	StorageInput chan<- *storage.Message
-	Logger       *logrus.Logger
+	Processor        processor.DataProcessor
+	StorageInput     chan<- *storage.Message
+	HeartbeatService *service.HeartbeatService
+	Logger           *logrus.Logger
 }
 
 // NewEventFlow 创建事件数据流处理器
@@ -44,11 +46,12 @@ func NewEventFlow(config EventFlowConfig) *EventFlow {
 	}
 
 	return &EventFlow{
-		processor:    config.Processor,
-		storageInput: config.StorageInput,
-		logger:       config.Logger,
-		ctx:          ctx,
-		cancel:       cancel,
+		processor:        config.Processor,
+		storageInput:     config.StorageInput,
+		heartbeatService: config.HeartbeatService,
+		logger:           config.Logger,
+		ctx:              ctx,
+		cancel:           cancel,
 	}
 }
 
@@ -272,8 +275,8 @@ func (f *EventFlow) processSubGateways(parentID string, subGatewayData map[strin
 
 // processDirectDeviceEvent 处理单个设备的事件数据
 func (f *EventFlow) processDirectDeviceEvent(device *model.Device, eventInfo *model.EventInfo, originalMsg *DeviceMessage) {
-	// 1. 心跳处理（异步）
-	go subscribe.HeartbeatDeal(device)
+	// 1. 心跳刷新(最优先,确保设备活跃性)
+	f.refreshHeartbeat(device)
 
 	// 2. 转换事件数据为 JSON
 	paramsJSON, err := json.Marshal(eventInfo.Params)
@@ -313,4 +316,97 @@ func (f *EventFlow) processDirectDeviceEvent(device *model.Device, eventInfo *mo
 			}).Error("Automation execute failed")
 		}
 	}()
+}
+
+// refreshHeartbeat 刷新设备心跳
+func (f *EventFlow) refreshHeartbeat(device *model.Device) {
+	// 如果没有 HeartbeatService,跳过
+	if f.heartbeatService == nil {
+		return
+	}
+
+	// 获取心跳配置
+	config, err := f.heartbeatService.GetConfig(device)
+	if err != nil {
+		f.logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to get heartbeat config")
+		return
+	}
+
+	// 无心跳配置,不处理
+	if config == nil {
+		return
+	}
+
+	// 检查是否需要自动上线
+	if device.IsOnline != 1 {
+		// 设备当前离线,收到消息后自动上线
+		if err := dal.UpdateDeviceStatus(device.ID, 1); err != nil {
+			f.logger.WithError(err).WithField("device_id", device.ID).Error("Failed to auto online device")
+			return
+		}
+
+		f.logger.WithField("device_id", device.ID).Info("Device auto online by business message")
+
+		// 清理缓存
+		initialize.DelDeviceCache(device.ID)
+
+		// 获取最新设备信息
+		updatedDevice, err := initialize.GetDeviceCacheById(device.ID)
+		if err != nil {
+			f.logger.WithError(err).Error("Failed to get updated device")
+			return
+		}
+
+		// SSE通知、自动化、预期数据(异步)
+		go f.notifyDeviceOnline(updatedDevice)
+	}
+
+	// 刷新心跳 key (优先级: heartbeat > online_timeout)
+	if err := f.heartbeatService.RefreshHeartbeat(device, config); err != nil {
+		f.logger.WithError(err).WithField("device_id", device.ID).Error("Failed to refresh heartbeat")
+	}
+}
+
+// notifyDeviceOnline 通知设备上线(SSE + 自动化 + 预期数据)
+func (f *EventFlow) notifyDeviceOnline(device *model.Device) {
+	// SSE通知
+	var deviceName string
+	if device.Name != nil {
+		deviceName = *device.Name
+	} else {
+		deviceName = device.DeviceNumber
+	}
+
+	messageData := map[string]interface{}{
+		"device_id":   device.DeviceNumber,
+		"device_name": deviceName,
+		"is_online":   true,
+	}
+
+	jsonBytes, _ := json.Marshal(messageData)
+	sseEvent := global.SSEEvent{
+		Type:     "device_online",
+		TenantID: device.TenantID,
+		Message:  string(jsonBytes),
+	}
+	global.TPSSEManager.BroadcastEventToTenant(device.TenantID, sseEvent)
+
+	// 触发自动化
+	err := service.GroupApp.Execute(device, service.AutomateFromExt{
+		TriggerParamType: model.TRIGGER_PARAM_TYPE_STATUS,
+		TriggerParam:     []string{},
+		TriggerValues: map[string]interface{}{
+			"login": "ON-LINE",
+		},
+	})
+	if err != nil {
+		f.logger.WithError(err).WithField("device_id", device.ID).Warn("Automation execution failed")
+	}
+
+	// 发送预期数据(延迟3秒)
+	time.Sleep(3 * time.Second)
+	err = service.GroupApp.ExpectedData.Send(context.Background(), device.ID)
+	if err != nil {
+		f.logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to send expected data")
+	}
 }

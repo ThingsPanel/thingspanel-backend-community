@@ -42,8 +42,9 @@ func main() {
 		app.WithRedis(),
 
 		// 服务
-		app.WithStorageService(), // 添加 Storage 服务
-		app.WithFlowService(),    // 添加 Flow 服务
+		app.WithStorageService(),   // 添加 Storage 服务
+		app.WithFlowService(),      // 添加 Flow 服务
+		app.WithHeartbeatMonitor(), // 添加心跳监控服务
 		app.WithGRPCService(),
 		app.WithHTTPService(),
 		app.WithMQTTService(),

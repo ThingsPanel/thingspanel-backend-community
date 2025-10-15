@@ -4,29 +4,64 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	initialize "project/initialize"
-	dal "project/internal/dal"
-	"project/internal/model"
-	service "project/internal/service"
-	"project/pkg/global"
 	"strings"
 	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
+
+	"project/initialize"
+	"project/internal/dal"
+	"project/internal/model"
+	"project/internal/service"
+	"project/pkg/global"
 )
 
-func validateStatus(payload []byte) (int16, error) {
-	str := string(payload)
-	switch str {
-	case "0":
-		return 0, nil
-	case "1":
-		return 1, nil
-	default:
-		return 0, fmt.Errorf("状态值只能是0或1，当前值: %s", str)
+// SubscribeDeviceStatus 订阅设备状态消息
+func SubscribeDeviceStatus() error {
+	topic := GenTopic("devices/status/+")
+	logrus.Info("订阅设备状态主题: ", topic)
+
+	if token := SubscribeMqttClient.Subscribe(topic, 0, DeviceStatusCallback); token.Wait() && token.Error() != nil {
+		logrus.Error("订阅设备状态主题失败: ", token.Error())
+		return token.Error()
 	}
+
+	logrus.Info("✅ 设备状态主题订阅成功")
+	return nil
 }
 
+// DeviceStatusCallback 设备状态消息回调
+// topic: devices/status/+
+// payload: 1-在线 0-离线
+func DeviceStatusCallback(_ mqtt.Client, d mqtt.Message) {
+	logrus.WithFields(logrus.Fields{
+		"topic":   d.Topic(),
+		"payload": string(d.Payload()),
+	}).Info("📩 Received device status message")
+
+	// 使用 Flow 层处理
+	if mqttAdapter != nil {
+		logrus.Info("✅ Using Flow layer to process status message")
+		// source = "status_message" 表示来自设备主动上报
+		if err := mqttAdapter.HandleStatusMessage(d.Payload(), d.Topic(), "status_message"); err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"topic":   d.Topic(),
+				"payload": string(d.Payload()),
+			}).Error("❌ Flow layer status processing failed")
+		} else {
+			logrus.Info("✅ Flow layer status processing succeeded")
+		}
+		return
+	}
+
+	// 如果 Adapter 未初始化,记录错误并使用旧逻辑降级
+	logrus.Warn("⚠️ MQTT Adapter not initialized, using legacy status processing")
+	DeviceOnline(d.Payload(), d.Topic())
+}
+
+// DeviceOnline 旧的状态处理逻辑(保留作为降级备用)
+// DEPRECATED: 使用 Flow 层的 StatusFlow 替代
 func DeviceOnline(payload []byte, topic string) {
 	/*
 		消息规范：topic:devices/status/+
@@ -43,12 +78,13 @@ func DeviceOnline(payload []byte, topic string) {
 
 	deviceId := strings.Split(topic, "/")[2]
 	logrus.Debug(deviceId, " device status message:", status)
-	// TODO:如果设置了心跳模式，不更新状态
+
 	err = dal.UpdateDeviceStatus(deviceId, status)
 	if err != nil {
 		logrus.Error(err.Error())
 		return
 	}
+
 	if status == int16(1) {
 		// 发送预期数据
 		time.Sleep(3 * time.Second)
@@ -56,8 +92,8 @@ func DeviceOnline(payload []byte, topic string) {
 		if err != nil {
 			logrus.Error(err.Error())
 		}
-
 	}
+
 	// 清理缓存
 	initialize.DelDeviceCache(deviceId)
 
@@ -67,8 +103,10 @@ func DeviceOnline(payload []byte, topic string) {
 		logrus.Error(err.Error())
 		return
 	}
+
 	// 上下线通知客户端程序
 	go toUserClient(device, status)
+
 	//自动化
 	go func() {
 		var loginStatus string
@@ -94,10 +132,21 @@ func DeviceOnline(payload []byte, topic string) {
 		logrus.Error(err.Error())
 		return
 	}
-
 }
 
-// 设备上线通知
+func validateStatus(payload []byte) (int16, error) {
+	str := string(payload)
+	switch str {
+	case "0":
+		return 0, nil
+	case "1":
+		return 1, nil
+	default:
+		return 0, fmt.Errorf("状态值只能是0或1，当前值: %s", str)
+	}
+}
+
+// toUserClient 设备上线通知
 func toUserClient(device *model.Device, status int16) {
 	// 发送事件
 	var deviceName string
@@ -111,6 +160,7 @@ func toUserClient(device *model.Device, status int16) {
 	} else {
 		deviceName = device.DeviceNumber
 	}
+
 	if status == int16(1) {
 		jsonBytes, _ := json.Marshal(map[string]interface{}{
 			"device_id":   device.DeviceNumber,

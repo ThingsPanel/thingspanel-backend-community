@@ -164,8 +164,8 @@ func telemetryMessagesHandleCore(device *model.Device, telemetryBody []byte, top
 		logrus.Error("telemetry forward error:", err.Error())
 	}
 
-	// 心跳处理
-	go HeartbeatDeal(device)
+	// 注意: 心跳处理已由 Flow 层的 TelemetryFlow.refreshHeartbeat() 接管
+	// 不再使用 HeartbeatDeal(device)
 
 	// byte转map
 	reqMap := make(map[string]interface{})

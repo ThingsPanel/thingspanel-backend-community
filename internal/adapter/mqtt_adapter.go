@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"project/initialize"
@@ -254,6 +255,78 @@ func (a *MQTTAdapter) HandleAttributeMessage(payload []byte, topic string) error
 		"msg_type":   msgType,
 		"is_gateway": msgType == "gateway_attribute",
 	}).Debug("Attribute message published to bus")
+
+	return nil
+}
+
+// HandleStatusMessage 处理状态消息
+// topic: devices/status/{device_id}
+// payload: "0" (离线) 或 "1" (在线)
+// source: "status_message" (设备主动上报) / "heartbeat_expired" / "timeout_expired"
+func (a *MQTTAdapter) HandleStatusMessage(payload []byte, topic string, source string) error {
+	a.logger.WithFields(logrus.Fields{
+		"topic":   topic,
+		"payload": string(payload),
+		"source":  source,
+	}).Info("🔵 MQTTAdapter: HandleStatusMessage called")
+
+	// 1. 从 topic 解析 device_id: devices/status/{device_id}
+	parts := strings.Split(topic, "/")
+	if len(parts) != 3 {
+		return fmt.Errorf("invalid status topic format: %s (expected: devices/status/{device_id})", topic)
+	}
+	deviceID := parts[2]
+
+	a.logger.WithField("device_id", deviceID).Info("🔍 Parsed device_id from topic")
+
+	// 2. 获取设备信息
+	device, err := initialize.GetDeviceCacheById(deviceID)
+	if err != nil {
+		a.logger.WithFields(logrus.Fields{
+			"device_id": deviceID,
+			"error":     err,
+		}).Error("❌ Device not found in cache")
+		return err
+	}
+
+	a.logger.WithFields(logrus.Fields{
+		"device_id": device.ID,
+		"tenant_id": device.TenantID,
+	}).Info("✅ Device found in cache")
+
+	// 3. 构造 FlowMessage
+	msg := &FlowMessage{
+		Type:      "status",
+		DeviceID:  device.ID,
+		TenantID:  device.TenantID,
+		Timestamp: time.Now().UnixMilli(),
+		Payload:   payload,
+		Metadata: map[string]interface{}{
+			"device_id":       device.ID,
+			"topic":           topic,
+			"source_protocol": "mqtt",
+			"source":          source, // 来源标识
+		},
+	}
+
+	a.logger.Info("📦 FlowMessage constructed, publishing to Bus")
+
+	// 4. 发送到 Bus
+	if err := a.bus.Publish(msg); err != nil {
+		a.logger.WithFields(logrus.Fields{
+			"device_id": device.ID,
+			"source":    source,
+			"error":     err,
+		}).Error("❌ Failed to publish status message to bus")
+		return err
+	}
+
+	a.logger.WithFields(logrus.Fields{
+		"device_id": device.ID,
+		"topic":     topic,
+		"source":    source,
+		"status":    string(payload),
+	}).Info("✅ Status message published to bus successfully")
 
 	return nil
 }

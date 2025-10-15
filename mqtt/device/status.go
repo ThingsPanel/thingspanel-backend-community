@@ -1,5 +1,21 @@
 package device
 
+// DEPRECATED: 此文件已废弃,状态订阅已迁移到统一的订阅层
+//
+// 新的架构:
+// - mqtt/subscribe/status_message.go: 统一订阅 devices/status/+
+// - DeviceStatusCallback: 路由消息到 Flow 层
+// - StatusFlow: 处理状态更新逻辑
+//
+// 迁移说明:
+// 1. 移除 InitDeviceStatus() 调用 (已从 mqtt_service.go 移除)
+// 2. 启用 Flow 层: flow.enable = true
+// 3. SubscribeDeviceStatus() 会自动订阅状态主题
+//
+// 功能对比:
+// 旧: 独立的 MQTT 客户端订阅状态
+// 新: 统一的订阅层 + Flow 层处理
+
 import (
 	config "project/mqtt"
 	"project/mqtt/subscribe"
@@ -11,6 +27,7 @@ import (
 )
 
 // StatusManager 设备状态管理器
+// DEPRECATED: 使用 mqtt/subscribe 的统一订阅机制替代
 type StatusManager struct {
 	mqttClient     mqtt.Client
 	subscribeTopic string

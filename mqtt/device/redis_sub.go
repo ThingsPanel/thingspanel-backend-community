@@ -1,5 +1,17 @@
 package device
 
+// DEPRECATED: 此文件已废弃,请使用 internal/service/heartbeat_monitor.go
+//
+// 新的架构:
+// - HeartbeatMonitor: 监听 Redis 过期事件
+// - 通过 MQTTAdapter 发送离线消息到 Flow 层
+// - StatusFlow 处理状态更新
+//
+// 迁移说明:
+// 1. 启用 Flow 层: flow.enable = true
+// 2. 添加 WithHeartbeatMonitor() 到 main.go
+// 3. 删除对 DeviceListener 的调用
+
 import (
 	"context"
 	"errors"
@@ -15,6 +27,7 @@ import (
 )
 
 // DeviceListener Redis过期事件监听器
+// DEPRECATED: 使用 service.HeartbeatMonitor 替代
 type DeviceListener struct {
 	redis     *redis.Client
 	ctx       context.Context

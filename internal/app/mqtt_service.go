@@ -2,7 +2,6 @@ package app
 
 import (
 	"project/mqtt"
-	"project/mqtt/device"
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
 
@@ -30,7 +29,7 @@ func (s *MQTTService) Name() string {
 func (s *MQTTService) Start() error {
 	// 检查是否启用MQTT
 	// if !viper.GetBool("mqtt.enabled") {
-	// 	logrus.Info("MQTT服务已被禁用，跳过初始化")
+	// 	logrus.Info("MQTT服务已被禁用,跳过初始化")
 	// 	return nil
 	// }
 
@@ -41,8 +40,8 @@ func (s *MQTTService) Start() error {
 		return err
 	}
 
-	// 初始化设备状态
-	go device.InitDeviceStatus()
+	// 注意: 设备状态监控已由 Flow 层的 HeartbeatMonitor 和 StatusFlow 接管
+	// 不再使用 device.InitDeviceStatus()
 
 	// 初始化订阅
 	if err := subscribe.SubscribeInit(); err != nil {

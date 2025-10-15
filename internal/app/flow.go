@@ -7,7 +7,9 @@ import (
 	"project/internal/adapter"
 	"project/internal/flow"
 	"project/internal/processor"
+	"project/internal/service"
 	"project/mqtt/subscribe"
+	"project/pkg/global"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -97,46 +99,59 @@ func WithFlowService() Option {
 		// 2. 创建 Processor
 		dataProcessor := processor.NewScriptProcessor()
 
-		// 3. 确保 Storage 服务已启动，获取 inputChan
+		// 3. 创建 HeartbeatService
+		heartbeatService := service.NewHeartbeatService(global.STATUS_REDIS, a.Logger)
+
+		// 4. 确保 Storage 服务已启动，获取 inputChan
 		storageInputChan := a.GetStorageInputChan()
 		if storageInputChan == nil {
 			return fmt.Errorf("storage service not initialized, please add WithStorageService() before WithFlowService()")
 		}
 
-		// 4. 创建 TelemetryFlow
+		// 5. 创建 TelemetryFlow
 		telemetryFlow := flow.NewTelemetryFlow(flow.TelemetryFlowConfig{
-			Processor:    dataProcessor,
-			StorageInput: storageInputChan,
-			Logger:       a.Logger,
+			Processor:        dataProcessor,
+			StorageInput:     storageInputChan,
+			HeartbeatService: heartbeatService,
+			Logger:           a.Logger,
 		})
 
-		// 5. 创建 AttributeFlow
+		// 6. 创建 AttributeFlow
 		attributeFlow := flow.NewAttributeFlow(flow.AttributeFlowConfig{
-			Processor:    dataProcessor,
-			StorageInput: storageInputChan,
-			Logger:       a.Logger,
+			Processor:        dataProcessor,
+			StorageInput:     storageInputChan,
+			HeartbeatService: heartbeatService,
+			Logger:           a.Logger,
 		})
 
-		// 6. 创建 EventFlow
+		// 7. 创建 EventFlow
 		eventFlow := flow.NewEventFlow(flow.EventFlowConfig{
-			Processor:    dataProcessor,
-			StorageInput: storageInputChan,
-			Logger:       a.Logger,
+			Processor:        dataProcessor,
+			StorageInput:     storageInputChan,
+			HeartbeatService: heartbeatService,
+			Logger:           a.Logger,
 		})
 
-		// 7. 创建 FlowManager
+		// 8. 创建 StatusFlow
+		statusFlow := flow.NewStatusFlow(flow.StatusFlowConfig{
+			HeartbeatService: heartbeatService,
+			Logger:           a.Logger,
+		})
+
+		// 9. 创建 FlowManager
 		flowManager := flow.NewFlowManager(flow.FlowManagerConfig{
 			Bus:           bus,
 			TelemetryFlow: telemetryFlow,
 			AttributeFlow: attributeFlow,
 			EventFlow:     eventFlow,
+			StatusFlow:    statusFlow,
 			Logger:        a.Logger,
 		})
 
-		// 8. 创建 MQTT Adapter
+		// 10. 创建 MQTT Adapter
 		mqttAdapter := adapter.NewMQTTAdapter(bus, a.Logger)
 
-		// 9. 创建服务包装器
+		// 11. 创建服务包装器
 		wrapper := &FlowServiceWrapper{
 			flowManager: flowManager,
 			mqttAdapter: mqttAdapter,
@@ -145,10 +160,10 @@ func WithFlowService() Option {
 			logger:      a.Logger,
 		}
 
-		// 10. 注册到服务管理器
+		// 12. 注册到服务管理器
 		a.RegisterService(wrapper)
 
-		// 11. 保存到 Application（供外部使用）
+		// 13. 保存到 Application（供外部使用）
 		a.flowService = wrapper
 
 		logrus.Info("Flow service registered")

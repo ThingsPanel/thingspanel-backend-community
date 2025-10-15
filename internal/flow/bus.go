@@ -15,6 +15,7 @@ type Bus struct {
 	attributeChan chan *DeviceMessage
 	eventChan     chan *DeviceMessage
 	commandChan   chan *DeviceMessage
+	statusChan    chan *DeviceMessage // 状态消息 channel
 
 	// 缓冲区大小
 	bufferSize int
@@ -47,6 +48,7 @@ func NewBus(config BusConfig, logger *logrus.Logger) *Bus {
 		attributeChan: make(chan *DeviceMessage, config.BufferSize),
 		eventChan:     make(chan *DeviceMessage, config.BufferSize),
 		commandChan:   make(chan *DeviceMessage, config.BufferSize),
+		statusChan:    make(chan *DeviceMessage, config.BufferSize),
 		bufferSize:    config.BufferSize,
 		logger:        logger,
 	}
@@ -126,6 +128,21 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 			b.commandChan <- msg
 		}
 
+	case "status":
+		b.logger.WithFields(logrus.Fields{
+			"device_id": msg.DeviceID,
+			"type":      msg.Type,
+		}).Info("📮 Bus: Routing status message to statusChan")
+
+		select {
+		case b.statusChan <- msg:
+			b.logger.Info("✅ Status message sent to statusChan")
+		default:
+			b.logger.Warnf("Status channel full, blocking publish")
+			b.statusChan <- msg
+			b.logger.Info("✅ Status message sent (after blocking)")
+		}
+
 	default:
 		b.logger.Errorf("Unknown message type: %s", msg.Type)
 		return ErrUnknownMessageType
@@ -154,6 +171,11 @@ func (b *Bus) SubscribeCommand() <-chan *DeviceMessage {
 	return b.commandChan
 }
 
+// SubscribeStatus 订阅状态消息
+func (b *Bus) SubscribeStatus() <-chan *DeviceMessage {
+	return b.statusChan
+}
+
 // Close 关闭总线
 func (b *Bus) Close() {
 	b.mu.Lock()
@@ -170,6 +192,7 @@ func (b *Bus) Close() {
 	close(b.attributeChan)
 	close(b.eventChan)
 	close(b.commandChan)
+	close(b.statusChan)
 
 	b.logger.Info("Bus closed")
 }
@@ -185,5 +208,9 @@ func (b *Bus) GetChannelStats() map[string]interface{} {
 		"event_cap":     cap(b.eventChan),
 		"command_len":   len(b.commandChan),
 		"command_cap":   cap(b.commandChan),
+		"status_len":    len(b.statusChan),
+		"status_cap":    cap(b.statusChan),
 	}
 }
+
+// 错误定义

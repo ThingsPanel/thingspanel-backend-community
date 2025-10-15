@@ -1,5 +1,21 @@
 package subscribe
 
+// DEPRECATED: 此文件已废弃,请使用 Flow 层的心跳刷新机制
+//
+// 新的架构:
+// - HeartbeatService: 统一管理心跳配置和 Redis key
+// - TelemetryFlow/AttributeFlow/EventFlow: 自动调用 refreshHeartbeat()
+// - StatusFlow: 处理三种模式的状态更新
+//
+// 迁移说明:
+// 1. 移除所有 HeartbeatDeal() 调用
+// 2. 启用 Flow 层: flow.enable = true
+// 3. Flow 层会自动处理心跳刷新和自动上线
+//
+// 功能对比:
+// 旧: HeartbeatDeal() 手动设置 Redis key
+// 新: refreshHeartbeat() 自动检测配置并设置 + 自动上线
+
 import (
 	"context"
 	"encoding/json"
@@ -12,6 +28,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// HeartbeatDeal 旧的心跳处理逻辑
+// DEPRECATED: 使用 Flow 层的 refreshHeartbeat() 替代
 func HeartbeatDeal(device *model.Device) {
 	// 获取设备配置信息
 	if device.DeviceConfigID == nil {

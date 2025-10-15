@@ -14,6 +14,7 @@ type FlowManager struct {
 	telemetryFlow *TelemetryFlow
 	attributeFlow *AttributeFlow
 	eventFlow     *EventFlow
+	statusFlow    *StatusFlow
 	// TODO: 后续添加其他 Flow
 	// commandFlow *CommandFlow
 
@@ -28,6 +29,7 @@ type FlowManagerConfig struct {
 	TelemetryFlow *TelemetryFlow
 	AttributeFlow *AttributeFlow
 	EventFlow     *EventFlow
+	StatusFlow    *StatusFlow
 	Logger        *logrus.Logger
 }
 
@@ -44,6 +46,7 @@ func NewFlowManager(config FlowManagerConfig) *FlowManager {
 		telemetryFlow: config.TelemetryFlow,
 		attributeFlow: config.AttributeFlow,
 		eventFlow:     config.EventFlow,
+		statusFlow:    config.StatusFlow,
 		logger:        config.Logger,
 		ctx:           ctx,
 		cancel:        cancel,
@@ -73,6 +76,16 @@ func (m *FlowManager) Start() error {
 		eventChan := m.bus.SubscribeEvent()
 		m.eventFlow.Start(eventChan)
 		m.logger.Info("EventFlow started")
+	}
+
+	// 启动 StatusFlow
+	if m.statusFlow != nil {
+		statusChan := m.bus.SubscribeStatus()
+		if err := m.statusFlow.Start(statusChan); err != nil {
+			m.logger.WithError(err).Error("Failed to start StatusFlow")
+			return err
+		}
+		m.logger.Info("StatusFlow started")
 	}
 
 	// TODO: 启动其他 Flow

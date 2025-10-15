@@ -24,6 +24,7 @@ var mqttAdapter interface {
 	HandleTelemetryMessage(payload []byte, topic string) error
 	HandleAttributeMessage(payload []byte, topic string) error
 	HandleEventMessage(payload []byte, topic string) error
+	HandleStatusMessage(payload []byte, topic string, source string) error
 }
 
 // SetMQTTAdapter 设置MQTT适配器（由Flow服务调用）
@@ -31,6 +32,7 @@ func SetMQTTAdapter(adapter interface {
 	HandleTelemetryMessage(payload []byte, topic string) error
 	HandleAttributeMessage(payload []byte, topic string) error
 	HandleEventMessage(payload []byte, topic string) error
+	HandleStatusMessage(payload []byte, topic string, source string) error
 }) {
 	mqttAdapter = adapter
 	logrus.Info("MQTT Adapter registered for Flow layer")
@@ -82,7 +84,11 @@ func subscribe() error {
 	}
 
 	// 订阅在线离线消息
-	//SubscribeDeviceStatus()
+	err = SubscribeDeviceStatus()
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
 
 	//网关订阅主题
 	err = GatewaySubscribeTopic()
