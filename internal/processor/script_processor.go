@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -10,8 +11,8 @@ import (
 
 // ScriptProcessor 基于 Lua 脚本的数据处理器实现
 type ScriptProcessor struct {
-	cache    *ScriptCache  // 脚本缓存管理器
-	executor *LuaExecutor  // Lua 执行引擎
+	cache    *ScriptCache // 脚本缓存管理器
+	executor *LuaExecutor // Lua 执行引擎
 }
 
 // NewScriptProcessor 创建脚本处理器实例
@@ -60,6 +61,23 @@ func (p *ScriptProcessor) Decode(ctx context.Context, input *DecodeInput) (*Deco
 	// 3. 从缓存加载脚本
 	script, err := p.cache.GetScript(ctx, input.DeviceConfigID, scriptType)
 	if err != nil {
+		// 如果脚本不存在,返回成功并使用原始数据(脚本是可选的)
+		if errors.Is(err, ErrScriptNotFound) {
+			logrus.WithFields(logrus.Fields{
+				"module":           "processor",
+				"method":           "Decode",
+				"device_config_id": input.DeviceConfigID,
+				"data_type":        input.Type,
+				"script_type":      scriptType,
+			}).Debug("no script configured, using raw data")
+			return &DecodeOutput{
+				Success:   true,
+				Data:      input.RawData, // 使用原始数据
+				Timestamp: time.Now().UnixMilli(),
+			}, nil
+		}
+
+		// 其他错误(缓存/数据库错误等)则返回失败
 		logrus.WithFields(logrus.Fields{
 			"module":           "processor",
 			"method":           "Decode",
@@ -67,7 +85,7 @@ func (p *ScriptProcessor) Decode(ctx context.Context, input *DecodeInput) (*Deco
 			"data_type":        input.Type,
 			"script_type":      scriptType,
 			"error":            err.Error(),
-		}).Warn("failed to get script")
+		}).Error("failed to get script")
 		return &DecodeOutput{
 			Success:   false,
 			Error:     err,
@@ -173,6 +191,24 @@ func (p *ScriptProcessor) Encode(ctx context.Context, input *EncodeInput) (*Enco
 	// 3. 从缓存加载脚本
 	script, err := p.cache.GetScript(ctx, input.DeviceConfigID, scriptType)
 	if err != nil {
+		// 如果脚本不存在,返回成功并使用原始数据(脚本是可选的)
+		if errors.Is(err, ErrScriptNotFound) {
+			logrus.WithFields(logrus.Fields{
+				"module":           "processor",
+				"method":           "Encode",
+				"device_config_id": input.DeviceConfigID,
+				"data_type":        input.Type,
+				"script_type":      scriptType,
+			}).Debug("no script configured, using raw data")
+
+			// Encode时如果没有脚本,直接使用输入数据
+			return &EncodeOutput{
+				Success:     true,
+				EncodedData: input.Data,
+			}, nil
+		}
+
+		// 其他错误(缓存/数据库错误等)则返回失败
 		logrus.WithFields(logrus.Fields{
 			"module":           "processor",
 			"method":           "Encode",
@@ -180,7 +216,7 @@ func (p *ScriptProcessor) Encode(ctx context.Context, input *EncodeInput) (*Enco
 			"data_type":        input.Type,
 			"script_type":      scriptType,
 			"error":            err.Error(),
-		}).Warn("failed to get script")
+		}).Error("failed to get script")
 		return &EncodeOutput{
 			Success: false,
 			Error:   err,

@@ -89,6 +89,15 @@ func MessagesChanHandler(messages <-chan map[string]interface{}) {
 
 // 处理消息
 func TelemetryMessages(payload []byte, topic string) {
+	// 如果启用了Flow层且Adapter已注册，使用新的Flow处理流程
+	if mqttAdapter != nil {
+		if err := mqttAdapter.HandleTelemetryMessage(payload, topic); err != nil {
+			logrus.WithError(err).Error("Flow layer telemetry processing failed")
+		}
+		return
+	}
+
+	// 否则使用原有的处理流程（兼容性保留）
 	// 如果配置了别的数据库，遥测数据不写入原来的库了
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {

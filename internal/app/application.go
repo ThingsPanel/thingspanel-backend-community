@@ -21,6 +21,9 @@ type Application struct {
 	// Storage 相关
 	storageService   storage.Storage
 	storageInputChan chan *storage.Message
+
+	// Flow 相关
+	flowService *FlowServiceWrapper
 }
 
 // NewApplication 创建并初始化应用

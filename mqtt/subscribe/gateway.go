@@ -45,6 +45,20 @@ func getSubscribeTopics() []SubscribeTopic {
 }
 
 func GatewaySubscribeTelemetryCallback(_ mqtt.Client, d mqtt.Message) {
+	// 如果启用了Flow层且Adapter已注册，使用新的Flow处理流程
+	if mqttAdapter != nil {
+		logrus.WithFields(logrus.Fields{
+			"topic": d.Topic(),
+		}).Debug("Gateway telemetry routing to Flow layer")
+
+		if err := mqttAdapter.HandleTelemetryMessage(d.Payload(), d.Topic()); err != nil {
+			logrus.WithError(err).Error("Flow layer gateway telemetry processing failed")
+		}
+		return
+	}
+
+	// 否则使用原有的处理流程（兼容性保留）
+	logrus.Debug("Gateway telemetry using legacy processing")
 	err := pool.Submit(func() {
 		// 处理消息
 		GatewayTelemetryMessages(d.Payload(), d.Topic())
@@ -55,6 +69,15 @@ func GatewaySubscribeTelemetryCallback(_ mqtt.Client, d mqtt.Message) {
 }
 
 func GatewaySubscribeAttributesCallback(_ mqtt.Client, d mqtt.Message) {
+	// 如果启用了Flow层且Adapter已注册，使用新的Flow处理流程
+	if mqttAdapter != nil {
+		if err := mqttAdapter.HandleAttributeMessage(d.Payload(), d.Topic()); err != nil {
+			logrus.WithError(err).Error("Flow layer gateway attribute processing failed")
+		}
+		return
+	}
+
+	// 否则使用原有的处理流程（兼容性保留）
 	messageId, deviceInfo, response, err := GatewayAttributeMessages(d.Payload(), d.Topic())
 	logrus.Debug("响应设备属性上报", deviceInfo, err)
 	if err != nil {
@@ -71,6 +94,15 @@ func GatewaySubscribeSetAttributesResponseCallback(_ mqtt.Client, d mqtt.Message
 }
 
 func GatewaySubscribeEventCallback(_ mqtt.Client, d mqtt.Message) {
+	// 如果启用了Flow层且Adapter已注册，使用新的Flow处理流程
+	if mqttAdapter != nil {
+		if err := mqttAdapter.HandleEventMessage(d.Payload(), d.Topic()); err != nil {
+			logrus.WithError(err).Error("Flow layer gateway event processing failed")
+		}
+		return
+	}
+
+	// 否则使用原有的处理流程（兼容性保留）
 	messageId, deviceInfo, response, err := GatewayEventCallback(d.Payload(), d.Topic())
 	logrus.Debug("响应设备事件上报", deviceInfo, err)
 	if err != nil {

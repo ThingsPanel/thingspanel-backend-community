@@ -45,7 +45,7 @@ type Action struct {
 type GetSceneAutomationByPageReq struct {
 	Name           *string `json:"name" form:"name" validate:"omitempty"`
 	DeviceId       *string `json:"device_id"  form:"device_id"  validate:"omitempty"`
-	DeviceConfigId *string `json:"device_config_id"  form:"device_config_id"  validate:"omitempty`
+	DeviceConfigId *string `json:"device_config_id"  form:"device_config_id"  validate:"omitempty"`
 	PageReq
 }
 

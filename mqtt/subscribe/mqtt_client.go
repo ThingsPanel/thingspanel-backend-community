@@ -19,6 +19,23 @@ import (
 var SubscribeMqttClient mqtt.Client
 var TelemetryMessagesChan chan map[string]interface{}
 
+// mqttAdapter Flow层的MQTT适配器（如果Flow启用）
+var mqttAdapter interface {
+	HandleTelemetryMessage(payload []byte, topic string) error
+	HandleAttributeMessage(payload []byte, topic string) error
+	HandleEventMessage(payload []byte, topic string) error
+}
+
+// SetMQTTAdapter 设置MQTT适配器（由Flow服务调用）
+func SetMQTTAdapter(adapter interface {
+	HandleTelemetryMessage(payload []byte, topic string) error
+	HandleAttributeMessage(payload []byte, topic string) error
+	HandleEventMessage(payload []byte, topic string) error
+}) {
+	mqttAdapter = adapter
+	logrus.Info("MQTT Adapter registered for Flow layer")
+}
+
 func GenTopic(topic string) string {
 	topic = path.Join("$share/mygroup", topic)
 	return topic
@@ -190,7 +207,15 @@ func SubscribeTelemetry() error {
 func SubscribeAttribute() error {
 	// 订阅attribute消息
 	deviceAttributeHandler := func(_ mqtt.Client, d mqtt.Message) {
-		// 处理消息
+		// 如果启用了Flow层且Adapter已注册，使用新的Flow处理流程
+		if mqttAdapter != nil {
+			if err := mqttAdapter.HandleAttributeMessage(d.Payload(), d.Topic()); err != nil {
+				logrus.WithError(err).Error("Flow layer attribute processing failed")
+			}
+			return
+		}
+
+		// 否则使用原有的处理流程（兼容性保留）
 		logrus.Debug("attribute message:", string(d.Payload()))
 		deviceNumber, messageId, err := DeviceAttributeReport(d.Payload(), d.Topic())
 		logrus.Debug("响应设备属性上报", deviceNumber, err)
@@ -258,7 +283,15 @@ func SubscribeCommand() error {
 func SubscribeEvent() error {
 	// 订阅event消息
 	deviceEventHandler := func(_ mqtt.Client, d mqtt.Message) {
-		// 处理消息
+		// 如果启用了Flow层且Adapter已注册，使用新的Flow处理流程
+		if mqttAdapter != nil {
+			if err := mqttAdapter.HandleEventMessage(d.Payload(), d.Topic()); err != nil {
+				logrus.WithError(err).Error("Flow layer event processing failed")
+			}
+			return
+		}
+
+		// 否则使用原有的处理流程（兼容性保留）
 		logrus.Debug("event message:", string(d.Payload()))
 		deviceNumber, messageId, method, err := DeviceEvent(d.Payload(), d.Topic())
 		logrus.Debug("响应设备属性上报", deviceNumber, err)

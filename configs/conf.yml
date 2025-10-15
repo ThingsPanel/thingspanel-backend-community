@@ -162,3 +162,8 @@ storage:
   telemetry_batch_size: 500        # 遥测数据批量大小
   telemetry_flush_interval: 1000   # flush间隔（毫秒，0表示关闭定时flush）
   enable_metrics: true             # 是否启用Prometheus监控
+
+# Flow 数据流处理层配置
+flow:
+  enable: true                     # 是否启用Flow层（默认true）
+  bus_buffer_size: 1000           # Bus消息总线缓冲区大小

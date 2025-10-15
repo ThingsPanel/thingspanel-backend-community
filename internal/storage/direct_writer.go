@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -9,7 +10,60 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// directWriter 属性和事件直接写入器
+// DirectWriter 属性和事件直接写入器（导出接口）
+type DirectWriter struct {
+	db      *gorm.DB
+	logger  Logger
+	metrics *metricsCollector
+}
+
+// NewDirectWriter 创建直接写入器
+func NewDirectWriter(db *gorm.DB, logger Logger) *DirectWriter {
+	return &DirectWriter{
+		db:      db,
+		logger:  logger,
+		metrics: newMetricsCollector(),
+	}
+}
+
+// WriteAttributeData 直接写入属性数据
+func (w *DirectWriter) WriteAttributeData(ctx context.Context, data *AttributeData) error {
+	if err := w.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"ts", "bool_v", "number_v", "string_v", "tenant_id",
+		}),
+	}).Create(data).Error; err != nil {
+		w.logger.Errorf("insert attribute failed: %v", err)
+		if w.metrics != nil {
+			w.metrics.incAttributeFailed()
+		}
+		return err
+	}
+
+	if w.metrics != nil {
+		w.metrics.incAttributeWritten()
+	}
+	return nil
+}
+
+// WriteEventData 直接写入事件数据
+func (w *DirectWriter) WriteEventData(ctx context.Context, data *EventDataModel) error {
+	if err := w.db.WithContext(ctx).Create(data).Error; err != nil {
+		w.logger.Errorf("insert event failed: %v", err)
+		if w.metrics != nil {
+			w.metrics.incEventFailed()
+		}
+		return err
+	}
+
+	if w.metrics != nil {
+		w.metrics.incEventWritten()
+	}
+	return nil
+}
+
+// directWriter 属性和事件直接写入器（内部使用）
 type directWriter struct {
 	db      *gorm.DB
 	logger  Logger
