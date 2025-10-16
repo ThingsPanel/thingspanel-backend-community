@@ -162,13 +162,16 @@ func (f *StatusFlow) processMessage(msg *DeviceMessage) {
 	// 5. 清理设备缓存
 	initialize.DelDeviceCache(device.ID)
 
-	// 6. SSE 通知客户端
+	// 6. 发布到 Redis Pub/Sub (供 WebSocket 订阅)
+	go f.publishToRedis(device, status, msg.Metadata)
+
+	// 7. SSE 通知客户端
 	go f.notifyClients(device, status)
 
-	// 7. 触发自动化
+	// 8. 触发自动化
 	go f.triggerAutomation(device, status)
 
-	// 8. 预期数据发送(上线时)
+	// 9. 预期数据发送(上线时)
 	if status == 1 {
 		go f.sendExpectedData(device)
 	}
@@ -274,4 +277,52 @@ func (f *StatusFlow) sendExpectedData(device *model.Device) {
 	} else {
 		f.logger.WithField("device_id", device.ID).Debug("Expected data sent")
 	}
+}
+
+// publishToRedis 发布设备状态到 Redis Pub/Sub (供 WebSocket 订阅)
+func (f *StatusFlow) publishToRedis(device *model.Device, status int16, metadata map[string]interface{}) {
+	// 构造设备名称
+	var deviceName string
+	if device.Name != nil {
+		deviceName = *device.Name
+	} else {
+		deviceName = device.DeviceNumber
+	}
+
+	// 获取来源信息
+	source, _ := metadata["source"].(string)
+	if source == "" {
+		source = "unknown"
+	}
+
+	// 构造消息 (保持原有 WebSocket 接口格式: is_online 为整数 0/1)
+	messageData := map[string]interface{}{
+		"is_online": int(status), // 0 或 1
+	}
+
+	jsonBytes, err := json.Marshal(messageData)
+	if err != nil {
+		f.logger.WithError(err).Error("Failed to marshal Redis message")
+		return
+	}
+
+	// 发布到设备专属通道: device:{device_id}:status
+	channel := fmt.Sprintf("device:%s:status", device.ID)
+	if err := global.REDIS.Publish(f.ctx, channel, string(jsonBytes)).Err(); err != nil {
+		// 记录错误但不阻塞主流程
+		f.logger.WithError(err).WithFields(logrus.Fields{
+			"device_id": device.ID,
+			"channel":   channel,
+			"status":    status,
+		}).Error("Failed to publish to Redis")
+		return
+	}
+
+	f.logger.WithFields(logrus.Fields{
+		"device_id":   device.ID,
+		"device_name": deviceName,
+		"channel":     channel,
+		"status":      status,
+		"source":      source,
+	}).Debug("Status published to Redis")
 }

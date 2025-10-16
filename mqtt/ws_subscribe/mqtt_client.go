@@ -2,12 +2,10 @@ package ws_publish
 
 import (
 	"encoding/json"
-	"strconv"
 	"sync"
 	"time"
 
 	config "project/mqtt"
-	"project/mqtt/subscribe"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-basic/uuid"
@@ -141,52 +139,6 @@ func (w *WsMqttClient) SubscribeDeviceTelemetryByKeys(deviceId string, conn *web
 	telemetryTopic := config.MqttConfig.Telemetry.SubscribeTopic + "/" + deviceId
 	telemetryQos := byte(0)
 	if token := w.Client.Subscribe(telemetryTopic, telemetryQos, deviceTelemetryHandler); token.Wait() && token.Error() != nil {
-		logrus.Error(token.Error())
-		return token.Error()
-	}
-	return nil
-}
-
-// 订阅在线离线消息
-func (w *WsMqttClient) SubscribeOnlineOffline(deviceId string, conn *websocket.Conn, msgType int, mu *sync.Mutex) error {
-	err := w.CreateMqttClient()
-	if err != nil {
-		return err
-	}
-	// 订阅在线离线消息
-	onlineOfflineHandler := func(_ mqtt.Client, d mqtt.Message) {
-		// 处理消息
-
-		payloadInt, err := strconv.Atoi(string(d.Payload()))
-		if err != nil {
-			logrus.Error(err.Error())
-			return
-		}
-		// 放到map里
-		payloadMap := make(map[string]interface{})
-		payloadMap["is_online"] = payloadInt
-		// 转json
-		data, err := json.Marshal(payloadMap)
-		if err != nil {
-			logrus.Error(err)
-			mu.Lock()
-			conn.WriteMessage(msgType, []byte(err.Error()))
-			mu.Unlock()
-			return
-		}
-		mu.Lock()
-		err = conn.WriteMessage(msgType, data)
-		mu.Unlock()
-		if err != nil {
-			logrus.Error(err)
-			conn.WriteMessage(msgType, []byte(err.Error()))
-			return
-		}
-	}
-	onlineOfflineTopic := "devices/status/" + deviceId
-	onlineOfflineTopic = subscribe.GenTopic(onlineOfflineTopic)
-	onlineOfflineQos := byte(0)
-	if token := w.Client.Subscribe(onlineOfflineTopic, onlineOfflineQos, onlineOfflineHandler); token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
 		return token.Error()
 	}

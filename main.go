@@ -21,6 +21,7 @@ import (
 // @name                        x-token
 func main() {
 	// 解析命令行参数
+	// go run . -config ./configs/config.yaml
 	configPath := flag.String("config", "", "配置文件路径...")
 	flag.Parse()
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -457,52 +458,99 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 
 	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, 用户ID: %s, 租户ID: %s", deviceID, claims.ID, claims.TenantID)
 
-	// 订阅设备在线状态
-	var mu sync.Mutex
-	logrus.Info("User SubscribeOnlineOffline")
-	var mqttClient ws_subscribe.WsMqttClient
-	if err := mqttClient.SubscribeOnlineOffline(deviceID, conn, msgType, &mu); err != nil {
-		logrus.Error("订阅设备状态失败:", err)
-		conn.WriteMessage(msgType, []byte("Failed to subscribe to device status"))
+	// 查询设备当前状态并立即推送 (保持原有格式: is_online 为整数 0/1)
+	currentStatusMap, err := service.GroupApp.Device.GetDeviceOnlineStatus(deviceID)
+	if err != nil {
+		logrus.WithError(err).Error("查询设备当前状态失败")
+		conn.WriteMessage(msgType, []byte("Failed to query device status"))
 		return
 	}
-	defer mqttClient.Close()
 
-	// 处理心跳
+	// 提取在线状态 (整数格式)
+	isOnline := 0
+	if status, ok := currentStatusMap["is_online"]; ok {
+		isOnline = status
+	}
+
+	// 发送当前状态 (简化格式,与原有接口保持一致)
+	initialMsg := map[string]interface{}{
+		"is_online": isOnline,
+	}
+	if data, err := json.Marshal(initialMsg); err == nil {
+		conn.WriteMessage(msgType, data)
+	}
+
+	// 订阅 Redis Pub/Sub 通道
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	channel := fmt.Sprintf("device:%s:status", deviceID)
+	pubsub := global.REDIS.Subscribe(ctx, channel)
+	defer pubsub.Close()
+
+	logrus.Infof("WebSocket已订阅Redis通道: %s", channel)
+
+	// 使用 sync.Mutex 保护 WebSocket 写操作
+	var mu sync.Mutex
+
+	// Goroutine 1: Redis消息转发到WebSocket
+	go func() {
+		ch := pubsub.Channel()
+		for {
+			select {
+			case <-ctx.Done():
+				logrus.Debug("Redis订阅上下文取消")
+				return
+			case redisMsg, ok := <-ch:
+				if !ok {
+					logrus.Warn("Redis通道已关闭")
+					return
+				}
+
+				// 转发到WebSocket
+				mu.Lock()
+				err := conn.WriteMessage(msgType, []byte(redisMsg.Payload))
+				mu.Unlock()
+
+				if err != nil {
+					logrus.WithError(err).Error("WebSocket写入失败")
+					cancel() // 通知主goroutine退出
+					return
+				}
+
+				logrus.WithField("device_id", deviceID).Debug("状态更新已推送到WebSocket")
+			}
+		}
+	}()
+
+	// Goroutine 2 (主): WebSocket心跳处理
 	for {
-		_, msg, err := conn.ReadMessage()
+		_, wsMsg, err := conn.ReadMessage()
 		if err != nil {
-			// 记录错误日志
-			logrus.Error("WebSocket读取错误:", err)
+			logrus.WithError(err).Info("WebSocket连接关闭")
 
-			// 尝试发送错误消息给客户端
-			closeMsg := []byte("connection closed due to error")
-			// 使用 WriteControl 发送关闭消息，设置1秒超时
+			// 发送关闭消息
+			closeMsg := []byte("connection closed")
 			deadline := time.Now().Add(time.Second)
 			conn.WriteControl(websocket.CloseMessage,
-				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, string(closeMsg)),
+				websocket.FormatCloseMessage(websocket.CloseNormalClosure, string(closeMsg)),
 				deadline)
 
-			// 现在可以安全退出了
+			cancel() // 通知Redis订阅goroutine退出
 			return
 		}
 
 		// 处理心跳消息
-		if string(msg) == "ping" {
+		if string(wsMsg) == "ping" {
 			mu.Lock()
-			if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
-				logrus.Error("发送pong消息失败:", err)
+			err := conn.WriteMessage(msgType, []byte("pong"))
+			mu.Unlock()
 
-				// 尝试发送错误消息
-				deadline := time.Now().Add(time.Second)
-				conn.WriteControl(websocket.CloseMessage,
-					websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to send pong"),
-					deadline)
-
-				mu.Unlock()
+			if err != nil {
+				logrus.WithError(err).Error("发送pong失败")
+				cancel()
 				return
 			}
-			mu.Unlock()
 		}
 	}
 }
