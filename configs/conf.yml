@@ -158,7 +158,7 @@ session:
 
 # Storage 存储层配置
 storage:
-  channel_buffer_size: 10000       # 输入channel缓冲区大小
+  channel_buffer_size: 1000       # 输入channel缓冲区大小
   telemetry_batch_size: 500        # 遥测数据批量大小
   telemetry_flush_interval: 1000   # flush间隔（毫秒，0表示关闭定时flush）
   enable_metrics: true             # 是否启用Prometheus监控
