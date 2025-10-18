@@ -8,6 +8,7 @@ import (
 	"project/internal/flow"
 	"project/internal/processor"
 	"project/internal/service"
+	"project/mqtt/publish"
 	"project/mqtt/subscribe"
 	"project/pkg/global"
 
@@ -138,20 +139,36 @@ func WithFlowService() Option {
 			Logger:           a.Logger,
 		})
 
-		// 9. 创建 FlowManager
+		// ✨ 9. 创建 ResponseFlow
+		responseFlow := flow.NewResponseFlow(flow.ResponseFlowConfig{
+			Logger: a.Logger,
+		})
+
+		// 10. 创建 FlowManager
 		flowManager := flow.NewFlowManager(flow.FlowManagerConfig{
 			Bus:           bus,
 			TelemetryFlow: telemetryFlow,
 			AttributeFlow: attributeFlow,
 			EventFlow:     eventFlow,
 			StatusFlow:    statusFlow,
+			ResponseFlow:  responseFlow, // ✨ 新增
 			Logger:        a.Logger,
 		})
 
 		// 10. 创建 MQTT Adapter
 		mqttAdapter := adapter.NewMQTTAdapter(bus, a.Logger)
 
-		// 11. 创建服务包装器
+		// ✨ 11. 订阅响应 Topic（如果 MQTT 客户端已连接）
+		mqttClient := publish.GetMQTTClient()
+		if mqttClient != nil && mqttClient.IsConnected() {
+			if err := mqttAdapter.SubscribeResponseTopics(mqttClient); err != nil {
+				a.Logger.WithError(err).Warn("Failed to subscribe response topics, will retry later")
+			}
+		} else {
+			a.Logger.Warn("MQTT client not connected yet, response topics will be subscribed on connection")
+		}
+
+		// 12. 创建服务包装器
 		wrapper := &FlowServiceWrapper{
 			flowManager: flowManager,
 			mqttAdapter: mqttAdapter,
@@ -160,10 +177,10 @@ func WithFlowService() Option {
 			logger:      a.Logger,
 		}
 
-		// 12. 注册到服务管理器
+		// 13. 注册到服务管理器
 		a.RegisterService(wrapper)
 
-		// 13. 保存到 Application（供外部使用）
+		// 14. 保存到 Application（供外部使用）
 		a.flowService = wrapper
 
 		logrus.Info("Flow service registered")

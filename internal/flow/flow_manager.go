@@ -15,8 +15,7 @@ type FlowManager struct {
 	attributeFlow *AttributeFlow
 	eventFlow     *EventFlow
 	statusFlow    *StatusFlow
-	// TODO: 后续添加其他 Flow
-	// commandFlow *CommandFlow
+	responseFlow  *ResponseFlow // ✨ 新增
 
 	logger *logrus.Logger
 	ctx    context.Context
@@ -30,6 +29,7 @@ type FlowManagerConfig struct {
 	AttributeFlow *AttributeFlow
 	EventFlow     *EventFlow
 	StatusFlow    *StatusFlow
+	ResponseFlow  *ResponseFlow // ✨ 新增
 	Logger        *logrus.Logger
 }
 
@@ -47,6 +47,7 @@ func NewFlowManager(config FlowManagerConfig) *FlowManager {
 		attributeFlow: config.AttributeFlow,
 		eventFlow:     config.EventFlow,
 		statusFlow:    config.StatusFlow,
+		responseFlow:  config.ResponseFlow, // ✨ 新增
 		logger:        config.Logger,
 		ctx:           ctx,
 		cancel:        cancel,
@@ -88,11 +89,15 @@ func (m *FlowManager) Start() error {
 		m.logger.Info("StatusFlow started")
 	}
 
-	// TODO: 启动其他 Flow
-	// if m.commandFlow != nil {
-	//     commandChan := m.bus.SubscribeCommand()
-	//     m.commandFlow.Start(commandChan)
-	// }
+	// ✨ 启动 ResponseFlow
+	if m.responseFlow != nil {
+		responseChan := m.bus.SubscribeResponse()
+		if err := m.responseFlow.Start(responseChan); err != nil {
+			m.logger.WithError(err).Error("Failed to start ResponseFlow")
+			return err
+		}
+		m.logger.Info("ResponseFlow started")
+	}
 
 	m.logger.Info("FlowManager started successfully")
 	return nil
@@ -115,6 +120,9 @@ func (m *FlowManager) Stop(timeout time.Duration) error {
 	}
 	if m.eventFlow != nil {
 		m.eventFlow.Stop()
+	}
+	if m.responseFlow != nil {
+		m.responseFlow.Stop()
 	}
 
 	// TODO: 停止其他 Flow

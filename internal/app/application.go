@@ -1,6 +1,7 @@
 package app
 
 import (
+	"project/internal/downlink"
 	"project/internal/query"
 	"project/internal/storage"
 
@@ -24,6 +25,9 @@ type Application struct {
 
 	// Flow 相关
 	flowService *FlowServiceWrapper
+
+	// Downlink 相关
+	downlinkService *DownlinkServiceWrapper
 }
 
 // NewApplication 创建并初始化应用
@@ -84,3 +88,11 @@ func (app *Application) Wait() {
 
 // Option 定义应用程序初始化选项
 type Option func(*Application) error
+
+// GetDownlinkBus 获取下行消息总线（供 Service 层调用）
+func (a *Application) GetDownlinkBus() *downlink.Bus {
+	if a.downlinkService == nil {
+		return nil
+	}
+	return a.downlinkService.GetBus()
+}

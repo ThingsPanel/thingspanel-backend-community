@@ -21,7 +21,7 @@ import (
 // @name                        x-token
 func main() {
 	// 解析命令行参数
-	// go run . -config ./configs/config.yaml
+	// go run . -config ./configs/conf-dev.yml
 	configPath := flag.String("config", "", "配置文件路径...")
 	flag.Parse()
 
@@ -43,13 +43,14 @@ func main() {
 		app.WithRedis(),
 
 		// 服务
-		app.WithStorageService(),   // 添加 Storage 服务
-		app.WithFlowService(),      // 添加 Flow 服务
-		app.WithHeartbeatMonitor(), // 添加心跳监控服务
-		app.WithGRPCService(),
-		app.WithHTTPService(),
-		app.WithMQTTService(),
-		app.WithCronService(),
+		app.WithStorageService(),   // 1. Storage
+		app.WithFlowService(),      // 2. Flow
+		app.WithHeartbeatMonitor(), // 3. Heartbeat
+		app.WithMQTTService(),      // ✨ 4. MQTT（先启动）
+		app.WithDownlinkService(),  // ✨ 5. Downlink（后启动）
+		app.WithGRPCService(),      // 6. gRPC
+		app.WithHTTPService(),      // 7. HTTP
+		// app.WithCronService(),
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "应用初始化失败: %v\n", err)

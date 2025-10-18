@@ -136,3 +136,42 @@ func DeleteCommandSetLogsByDeviceId(deviceId string, tx *query.QueryTx) error {
 	_, err := tx.CommandSetLog.Where(query.CommandSetLog.DeviceID.Eq(deviceId)).Delete()
 	return err
 }
+
+// CreateCommandSetLog 创建命令日志
+func CreateCommandSetLog(log *model.CommandSetLog) error {
+	return query.CommandSetLog.Create(log)
+}
+
+// GetCommandSetLogByMessageID 根据 message_id 和 device_id 查询日志（提升性能）
+func GetCommandSetLogByMessageID(messageID string, deviceID string) (*model.CommandSetLog, error) {
+	return query.CommandSetLog.
+		Where(query.CommandSetLog.MessageID.Eq(messageID)).
+		Where(query.CommandSetLog.DeviceID.Eq(deviceID)). // ✨ 添加 device_id
+		First()
+}
+
+// GetCommandSetLogsByPage 分页查询命令下发日志
+func GetCommandSetLogsByPage(req *model.GetCommandSetLogsListByPageReq) ([]*model.CommandSetLog, int64, error) {
+	q := query.CommandSetLog.Order(query.CommandSetLog.CreatedAt.Desc())
+
+	// 设备ID过滤（字段名是 DeviceId，不是 DeviceID）
+	if req.DeviceId != "" {
+		q = q.Where(query.CommandSetLog.DeviceID.Eq(req.DeviceId))
+	}
+
+	// 状态过滤
+	if req.Status != nil && *req.Status != "" {
+		q = q.Where(query.CommandSetLog.Status.Eq(*req.Status))
+	}
+
+	// 分页
+	offset := (req.Page - 1) * req.PageSize
+	logs, total, err := q.FindByPage(offset, req.PageSize)
+
+	return logs, total, err
+}
+
+// UpdateCommandSetLog 更新命令日志
+func UpdateCommandSetLog(log *model.CommandSetLog) error {
+	return query.CommandSetLog.Save(log)
+}

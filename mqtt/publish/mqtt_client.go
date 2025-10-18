@@ -200,3 +200,8 @@ func PublishOnlineMessage(deviceID string, payload []byte) error {
 	}
 	return token.Error()
 }
+
+// GetMQTTClient 获取全局 MQTT 客户端（供 downlink 使用）
+func GetMQTTClient() mqtt.Client {
+	return mqttClient
+}

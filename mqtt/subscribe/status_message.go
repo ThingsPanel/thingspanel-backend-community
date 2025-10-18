@@ -38,11 +38,10 @@ func DeviceStatusCallback(_ mqtt.Client, d mqtt.Message) {
 	logrus.WithFields(logrus.Fields{
 		"topic":   d.Topic(),
 		"payload": string(d.Payload()),
-	}).Info("📩 Received device status message")
+	}).Debug("📩 Received device status message")
 
 	// 使用 Flow 层处理
 	if mqttAdapter != nil {
-		logrus.Info("✅ Using Flow layer to process status message")
 		// source = "status_message" 表示来自设备主动上报
 		if err := mqttAdapter.HandleStatusMessage(d.Payload(), d.Topic(), "status_message"); err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{

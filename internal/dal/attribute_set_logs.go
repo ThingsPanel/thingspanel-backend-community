@@ -98,3 +98,21 @@ func DeleteAttributeDataByDeviceIdTx(deviceId string, tx *query.QueryTx) error {
 	_, err := tx.AttributeData.WithContext(context.Background()).Where(query.AttributeData.DeviceID.Eq(deviceId)).Delete()
 	return err
 }
+
+// CreateAttributeSetLog 创建属性设置日志
+func CreateAttributeSetLog(log *model.AttributeSetLog) error {
+	return query.AttributeSetLog.Create(log)
+}
+
+// GetAttributeSetLogByMessageID 根据 message_id 和 device_id 查询日志（提升性能）
+func GetAttributeSetLogByMessageID(messageID string, deviceID string) (*model.AttributeSetLog, error) {
+	return query.AttributeSetLog.
+		Where(query.AttributeSetLog.MessageID.Eq(messageID)).
+		Where(query.AttributeSetLog.DeviceID.Eq(deviceID)). // ✨ 添加 device_id
+		First()
+}
+
+// UpdateAttributeSetLog 更新属性设置日志
+func UpdateAttributeSetLog(log *model.AttributeSetLog) error {
+	return query.AttributeSetLog.Save(log)
+}

@@ -7,6 +7,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// MessageType 定义消息类型
+const (
+	MessageTypeTelemetry = "telemetry"
+	MessageTypeAttribute = "attribute"
+	MessageTypeEvent     = "event"
+	MessageTypeStatus    = "status"
+
+	// ✨ 新增：响应类型（用于下行指令的响应）
+	MessageTypeCommandResponse             = "command_response"
+	MessageTypeAttributeSetResponse        = "attribute_set_response"
+	MessageTypeGatewayCommandResponse      = "gateway_command_response"
+	MessageTypeGatewayAttributeSetResponse = "gateway_attribute_set_response"
+)
+
 // Bus 消息总线
 // 负责在 Adapter 和 Flow 之间分发消息
 type Bus struct {
@@ -14,8 +28,10 @@ type Bus struct {
 	telemetryChan chan *DeviceMessage
 	attributeChan chan *DeviceMessage
 	eventChan     chan *DeviceMessage
-	commandChan   chan *DeviceMessage
-	statusChan    chan *DeviceMessage // 状态消息 channel
+	statusChan    chan *DeviceMessage
+
+	// ✨ 新增：响应 channel
+	responseChan chan *DeviceMessage
 
 	// 缓冲区大小
 	bufferSize int
@@ -47,10 +63,13 @@ func NewBus(config BusConfig, logger *logrus.Logger) *Bus {
 		telemetryChan: make(chan *DeviceMessage, config.BufferSize),
 		attributeChan: make(chan *DeviceMessage, config.BufferSize),
 		eventChan:     make(chan *DeviceMessage, config.BufferSize),
-		commandChan:   make(chan *DeviceMessage, config.BufferSize),
 		statusChan:    make(chan *DeviceMessage, config.BufferSize),
-		bufferSize:    config.BufferSize,
-		logger:        logger,
+
+		// ✨ 新增：响应 channel
+		responseChan: make(chan *DeviceMessage, config.BufferSize),
+
+		bufferSize: config.BufferSize,
+		logger:     logger,
 	}
 }
 
@@ -94,7 +113,7 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 	// 根据消息类型路由到不同的 channel
 	// 支持网关消息类型(gateway_telemetry/gateway_attribute/gateway_event)
 	switch msg.Type {
-	case "telemetry", "gateway_telemetry":
+	case MessageTypeTelemetry:
 		select {
 		case b.telemetryChan <- msg:
 			// 发送成功
@@ -104,7 +123,7 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 			b.telemetryChan <- msg
 		}
 
-	case "attribute", "gateway_attribute":
+	case MessageTypeAttribute:
 		select {
 		case b.attributeChan <- msg:
 		default:
@@ -112,7 +131,7 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 			b.attributeChan <- msg
 		}
 
-	case "event", "gateway_event":
+	case MessageTypeEvent:
 		select {
 		case b.eventChan <- msg:
 		default:
@@ -120,15 +139,7 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 			b.eventChan <- msg
 		}
 
-	case "command":
-		select {
-		case b.commandChan <- msg:
-		default:
-			b.logger.Warnf("Command channel full, blocking publish")
-			b.commandChan <- msg
-		}
-
-	case "status":
+	case MessageTypeStatus:
 		b.logger.WithFields(logrus.Fields{
 			"device_id": msg.DeviceID,
 			"type":      msg.Type,
@@ -143,12 +154,33 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 			b.logger.Info("✅ Status message sent (after blocking)")
 		}
 
+	// ✨ 新增：响应消息路由
+	case MessageTypeCommandResponse,
+		MessageTypeAttributeSetResponse,
+		MessageTypeGatewayCommandResponse,
+		MessageTypeGatewayAttributeSetResponse:
+		return b.PublishResponse(msg)
+
 	default:
 		b.logger.Errorf("Unknown message type: %s", msg.Type)
 		return ErrUnknownMessageType
 	}
 
 	return nil
+}
+
+// PublishResponse 发布响应消息
+func (b *Bus) PublishResponse(msg *DeviceMessage) error {
+	select {
+	case b.responseChan <- msg:
+		return nil
+	default:
+		b.logger.WithFields(logrus.Fields{
+			"device_id": msg.DeviceID,
+			"type":      msg.Type,
+		}).Warn("Response channel is full, message dropped")
+		return ErrChannelFull
+	}
 }
 
 // SubscribeTelemetry 订阅遥测消息
@@ -166,14 +198,14 @@ func (b *Bus) SubscribeEvent() <-chan *DeviceMessage {
 	return b.eventChan
 }
 
-// SubscribeCommand 订阅命令消息
-func (b *Bus) SubscribeCommand() <-chan *DeviceMessage {
-	return b.commandChan
-}
-
 // SubscribeStatus 订阅状态消息
 func (b *Bus) SubscribeStatus() <-chan *DeviceMessage {
 	return b.statusChan
+}
+
+// ✨ 新增：订阅响应消息
+func (b *Bus) SubscribeResponse() <-chan *DeviceMessage {
+	return b.responseChan
 }
 
 // Close 关闭总线
@@ -191,8 +223,10 @@ func (b *Bus) Close() {
 	close(b.telemetryChan)
 	close(b.attributeChan)
 	close(b.eventChan)
-	close(b.commandChan)
 	close(b.statusChan)
+
+	// ✨ 新增：关闭响应 channel
+	close(b.responseChan)
 
 	b.logger.Info("Bus closed")
 }
@@ -206,10 +240,13 @@ func (b *Bus) GetChannelStats() map[string]interface{} {
 		"attribute_cap": cap(b.attributeChan),
 		"event_len":     len(b.eventChan),
 		"event_cap":     cap(b.eventChan),
-		"command_len":   len(b.commandChan),
-		"command_cap":   cap(b.commandChan),
 		"status_len":    len(b.statusChan),
 		"status_cap":    cap(b.statusChan),
+
+		// ✨ 新增：响应队列统计
+		"response_queue": len(b.responseChan),
+
+		"buffer_size": b.bufferSize,
 	}
 }
 

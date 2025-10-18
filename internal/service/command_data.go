@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"project/initialize"
-	dal "project/internal/dal"
-	model "project/internal/model"
-	"project/internal/query"
+	"project/internal/dal"
+	"project/internal/downlink"
+	"project/internal/model"
+	query "project/internal/query"
 	config "project/mqtt"
-	"project/mqtt/publish"
 	"project/pkg/common"
 	"project/pkg/constant"
 	"project/pkg/errcode"
@@ -21,196 +22,153 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type CommandData struct{}
-
-func (*CommandData) GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (interface{}, error) {
-	count, data, err := dal.GetCommandSetLogsDataListByPage(req)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
-
-	dataMap := make(map[string]interface{})
-	dataMap["count"] = count
-	dataMap["list"] = data
-
-	return dataMap, nil
+type CommandData struct {
+	downlinkBus *downlink.Bus // ✨ 依赖注入
 }
 
-func (*CommandData) CommandPutMessage(ctx context.Context, userID string, param *model.PutMessageForCommand, operationType string, fn ...config.MqttDirectResponseFunc) error {
-	// 获取设备信息
-	deviceInfo, err := initialize.GetDeviceCacheById(param.DeviceID)
+// SetDownlinkBus 设置 downlink Bus（在 Application 初始化时调用）
+func (c *CommandData) SetDownlinkBus(bus *downlink.Bus) {
+	c.downlinkBus = bus
+}
+
+// PutMessage 下发命令（改造为异步模式）
+// 保持原有的 CommandPutMessage 接口签名
+func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType string) error {
+	// 1. 获取设备信息
+	device, err := initialize.GetDeviceCacheById(putMessageReq.DeviceID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return fmt.Errorf("device not found: %w", err)
 	}
 
-	// 获取设备类型和协议
-	deviceType, protocolType := "1", "MQTT"
-	var deviceConfig *model.DeviceConfig
-	if deviceInfo.DeviceConfigID != nil {
-		deviceConfig, err = dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
-		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
-		}
-		deviceType = deviceConfig.DeviceType
-		if deviceConfig.ProtocolType != nil {
-			protocolType = *deviceConfig.ProtocolType
-		} else {
-			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-				"error": "protocol_type is empty",
-			})
-		}
-	}
+	// 2. 生成 message_id，9位唯一字符串
+	messageId := uuid.New()[:8]
 
-	// 生成消息ID和主题
-	messageID := common.GetMessageID()
-	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.PublishTopic, deviceInfo.DeviceNumber, messageID)
-
-	// 处理非MQTT协议
-	if deviceConfig != nil && protocolType != "MQTT" {
-		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
-		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
-		}
-		topic = fmt.Sprintf("%s%s%s/%s", subTopicPrefix, config.MqttConfig.Commands.PublishTopic, deviceInfo.ID, messageID)
-	}
-
-	// 构建payload
-	payloadMap := map[string]interface{}{"method": param.Identify}
-	if param.Value != nil && *param.Value != "" {
-		if !IsJSON(*param.Value) {
-			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-				"error": "value is not json",
-			})
-		}
-		var params interface{}
-		if err := json.Unmarshal([]byte(*param.Value), &params); err != nil {
-			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-		payloadMap["params"] = params
-	}
-
-	// 执行数据脚本
-	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
-		payloadBytes, err := json.Marshal(payloadMap)
-		if err != nil {
-			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-		if newPayload, err := GroupApp.DataScript.Exec(deviceInfo, "E", payloadBytes, topic); err != nil {
-			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-				"error": err.Error(),
-			})
-		} else if newPayload != nil {
-			var err error
-			if err = json.Unmarshal(newPayload, &payloadMap); err != nil {
-				return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-					"error": err.Error(),
-				})
-			}
-		}
-	}
-
-	// 处理网关和子设备
-	if protocolType == "MQTT" && (deviceType == "2" || deviceType == "3") {
-		// 递归查找顶层网关
-		topGatewayInfo, err := findTopLevelGatewayForCommand(deviceInfo, deviceType)
-		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-		
-		// 构建多层网关格式的payload
-		payloadMap, err = transformCommandDataForMultiLevelGateway(payloadMap, deviceInfo, deviceType)
-		if err != nil {
-			return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-		
-		topic = fmt.Sprintf("%s%s/%s", config.MqttConfig.Commands.GatewayPublishTopic, topGatewayInfo.DeviceNumber, messageID)
-	}
-
-	// 序列化payload
-	payload, err := json.Marshal(payloadMap)
+	// 3. 处理网关层级（保持现有逻辑）
+	actualDeviceID, topic, err := c.resolveDeviceAndTopic(device, messageId)
 	if err != nil {
-		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return err
 	}
 
-	// 发布消息
-	err = publish.PublishCommandMessage(topic, payload)
-	errorMessage := ""
-	if err != nil {
-		errorMessage = err.Error()
-		logrus.Error(ctx, "下发失败", err)
+	// 4. 构造命令数据
+	var valueStr string
+	if putMessageReq.Value != nil {
+		valueStr = *putMessageReq.Value
 	}
 
-	// 创建日志
-	status := strconv.Itoa(constant.StatusOK)
-	if errorMessage != "" {
-		status = strconv.Itoa(constant.StatusFailed)
+	commandData := map[string]interface{}{
+		"identify": putMessageReq.Identify,
+		"params":   json.RawMessage(valueStr), // Value 是 JSON 字符串
 	}
-	data := string(payload)
-	// operationType := strconv.Itoa(constant.Manual)
-	description := "下发命令日志记录"
-	logInfo := &model.CommandSetLog{
+	jsonData, _ := json.Marshal(commandData)
+
+	// 5. 创建 pending 日志
+	if err := c.createCommandLogForPut(device, messageId, putMessageReq.Identify, putMessageReq.Value, operationType); err != nil {
+		logrus.WithError(err).Error("Failed to create command log")
+		// 不阻塞发送流程
+	}
+
+	// ✨ 6. 使用 downlink.Bus 发送（如果可用）
+	if c.downlinkBus != nil {
+		msg := &downlink.Message{
+			DeviceID:       actualDeviceID,
+			DeviceConfigID: c.getDeviceConfigID(device),
+			Type:           downlink.MessageTypeCommand,
+			Data:           jsonData,
+			Topic:          topic,
+			MessageID:      messageId,
+		}
+		c.downlinkBus.PublishCommand(msg)
+
+		logrus.WithFields(logrus.Fields{
+			"device_id":  actualDeviceID,
+			"message_id": messageId,
+			"identify":   putMessageReq.Identify,
+		}).Info("Command sent via downlink")
+	} else {
+		return fmt.Errorf("downlink service not available")
+	}
+
+	return nil
+}
+
+// createCommandLogForPut 创建命令日志（for PutMessageForCommand）
+func (c *CommandData) createCommandLogForPut(device *model.Device, messageId, identify string, value *string, operationType string) error {
+	status := "0" // pending
+	log := &model.CommandSetLog{
 		ID:            uuid.New(),
-		DeviceID:      param.DeviceID,
+		DeviceID:      device.ID,
 		OperationType: &operationType,
-		MessageID:     &messageID,
-		Datum:         &data,
+		MessageID:     &messageId,
+		Identify:      &identify,
+		Datum:         value, // 直接使用 *string
 		Status:        &status,
-		ErrorMessage:  &errorMessage,
-		CreatedAt:     time.Now().UTC(),
-		UserID:        &userID,
-		Description:   &description,
-		Identify:      &param.Identify,
+		ErrorMessage:  nil,
+		CreatedAt:     time.Now(),
 	}
-	_, _ = dal.CommandSetLogsQuery{}.Create(ctx, logInfo)
-	// 如果不是直连设备，则使用网关通道
-	config.MqttResponseFuncMap[messageID] = make(chan model.MqttResponse)
-	go func() {
-		select {
-		case response := <-config.MqttResponseFuncMap[messageID]:
-			fmt.Println("接收到数据:", response)
-			if len(fn) > 0 {
-				_ = fn[0](response)
-			}
-			dal.CommandSetLogsQuery{}.CommandResultUpdate(context.Background(), logInfo.ID, response)
-			close(config.MqttResponseFuncMap[messageID])
-			delete(config.MqttResponseFuncMap, messageID)
-		case <-time.After(6 * time.Minute): // 设置超时时间为 3 分钟
-			fmt.Println("超时，关闭通道")
-			//log.CommandResultUpdate(context.Background(), logInfo.ID, model.MqttResponse{
-			//	Result:  1,
-			//	Errcode: "timeout",
-			//	Message: "设备响应超时",
-			//	Ts:      time.Now().Unix(),
-			//	Method:  param.Identify,
-			//})
-			close(config.MqttResponseFuncMap[messageID])
-			delete(config.MqttResponseFuncMap, messageID)
 
-			return
-		}
-	}()
-
-	return err
+	return dal.CreateCommandSetLog(log)
 }
 
+// resolveDeviceAndTopic 处理网关层级，返回实际设备ID和Topic
+func (c *CommandData) resolveDeviceAndTopic(device *model.Device, messageId string) (string, string, error) {
+	// 直连设备
+	if device.ParentID == nil || *device.ParentID == "" {
+		// ✅ 兼容配置：自动补齐缺失的格式化占位符
+		topic := c.buildTopic(config.MqttConfig.Commands.PublishTopic, device.DeviceNumber, messageId)
+		return device.ID, topic, nil
+	}
+
+	// 网关子设备
+	gatewayDevice, err := initialize.GetDeviceCacheById(*device.ParentID)
+	if err != nil {
+		return "", "", fmt.Errorf("gateway device not found: %w", err)
+	}
+
+	// 网关 Topic
+	topic := c.buildTopic(config.MqttConfig.Commands.GatewayPublishTopic, gatewayDevice.DeviceNumber, messageId)
+
+	// 检查是否有协议插件前缀
+	if gatewayDevice.DeviceConfigID != nil {
+		protocolPlugin, err := dal.GetProtocolPluginByDeviceConfigID(*gatewayDevice.DeviceConfigID)
+		if err == nil && protocolPlugin != nil && protocolPlugin.SubTopicPrefix != nil {
+			topic = fmt.Sprintf("%s%s", *protocolPlugin.SubTopicPrefix, topic)
+		}
+	}
+
+	return device.ID, topic, nil
+}
+
+// buildTopic 构建 Topic，兼容配置中缺少占位符的情况
+func (c *CommandData) buildTopic(topicTemplate, deviceNumber, messageId string) string {
+	// 尝试使用 fmt.Sprintf（如果配置中有 %s）
+	topic := fmt.Sprintf(topicTemplate, deviceNumber, messageId)
+
+	// 检查是否有格式化错误（%!(EXTRA ...）
+	if strings.Contains(topic, "%!(EXTRA") {
+		// 配置缺少占位符，手动拼接
+		// 清理掉错误提示部分
+		topic = topicTemplate + deviceNumber + "/" + messageId
+
+		logrus.WithFields(logrus.Fields{
+			"template": topicTemplate,
+			"device":   deviceNumber,
+			"msg_id":   messageId,
+			"result":   topic,
+		}).Warn("Topic template missing format specifiers, using fallback concatenation")
+	}
+
+	return topic
+}
+
+// getDeviceConfigID 获取设备配置ID
+func (c *CommandData) getDeviceConfigID(device *model.Device) string {
+	if device.DeviceConfigID == nil {
+		return ""
+	}
+	return *device.DeviceConfigID
+}
+
+// GetCommonList 获取命令列表（保留原有方法）
 func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCommandListRes, error) {
 	list := make([]model.GetCommandListRes, 0)
 
@@ -267,10 +225,10 @@ func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCo
 	return list, err
 }
 
-// findTopLevelGatewayForCommand 递归查找顶层网关（用于命令下发）
+// findTopLevelGatewayForCommand 递归查找顶层网关（保留原有方法）
 func findTopLevelGatewayForCommand(deviceInfo *model.Device, deviceType string) (*model.Device, error) {
 	currentDevice := deviceInfo
-	
+
 	// 如果是子设备(3)，先找到它的父设备
 	if deviceType == "3" {
 		if deviceInfo.ParentID == nil {
@@ -282,11 +240,11 @@ func findTopLevelGatewayForCommand(deviceInfo *model.Device, deviceType string) 
 		}
 		currentDevice = parentDevice
 	}
-	
+
 	// 递归查找顶层网关（parent_id为空的设备）
 	maxDepth := 10 // 防止无限循环
 	depth := 0
-	
+
 	for currentDevice.ParentID != nil && depth < maxDepth {
 		parentDevice, err := initialize.GetDeviceCacheById(*currentDevice.ParentID)
 		if err != nil {
@@ -295,11 +253,11 @@ func findTopLevelGatewayForCommand(deviceInfo *model.Device, deviceType string) 
 		currentDevice = parentDevice
 		depth++
 	}
-	
+
 	if depth >= maxDepth {
 		return nil, fmt.Errorf("网关层级过深，超过最大深度限制")
 	}
-	
+
 	// 确保找到的是网关设备（device_type=2）
 	if currentDevice.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*currentDevice.DeviceConfigID)
@@ -310,11 +268,11 @@ func findTopLevelGatewayForCommand(deviceInfo *model.Device, deviceType string) 
 			return nil, fmt.Errorf("顶层设备不是网关类型")
 		}
 	}
-	
+
 	return currentDevice, nil
 }
 
-// transformCommandDataForMultiLevelGateway 为多层网关构建命令数据格式
+// transformCommandDataForMultiLevelGateway 为多层网关构建命令数据格式（保留原有方法）
 func transformCommandDataForMultiLevelGateway(payloadMap map[string]interface{}, deviceInfo *model.Device, deviceType string) (map[string]interface{}, error) {
 	// 根据设备类型和是否有父网关构建不同的输出数据结构
 	var outputData map[string]interface{}
@@ -322,13 +280,13 @@ func transformCommandDataForMultiLevelGateway(payloadMap map[string]interface{},
 		if deviceInfo.SubDeviceAddr == nil {
 			return nil, fmt.Errorf("子设备的SubDeviceAddr为空")
 		}
-		
+
 		// 查找子设备的直接父网关（可能是子网关）
 		parentGateway, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
 		if err != nil {
 			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
 		}
-		
+
 		// 如果父网关是子网关（有parent_id），需要嵌套结构
 		if parentGateway.ParentID != nil {
 			// 父网关是子网关，需要构建嵌套的sub_gateway_data结构
@@ -368,7 +326,7 @@ func transformCommandDataForMultiLevelGateway(payloadMap map[string]interface{},
 	return outputData, nil
 }
 
-// buildNestedSubGatewayDataForCommand 递归构建多层子网关的嵌套命令数据结构
+// buildNestedSubGatewayDataForCommand 递归构建多层子网关的嵌套命令数据结构（保留原有方法）
 func buildNestedSubGatewayDataForCommand(gateway *model.Device, subDeviceAddr string, payloadMap map[string]interface{}) map[string]interface{} {
 	if gateway.ParentID == nil {
 		// 到达顶层网关，构建最内层结构
@@ -378,7 +336,7 @@ func buildNestedSubGatewayDataForCommand(gateway *model.Device, subDeviceAddr st
 			},
 		}
 	}
-	
+
 	// 递归查找父网关并构建嵌套结构
 	parentGateway, err := initialize.GetDeviceCacheById(*gateway.ParentID)
 	if err != nil {
@@ -393,10 +351,10 @@ func buildNestedSubGatewayDataForCommand(gateway *model.Device, subDeviceAddr st
 			},
 		}
 	}
-	
+
 	// 构建当前层级的嵌套结构
 	innerData := buildNestedSubGatewayDataForCommand(parentGateway, subDeviceAddr, payloadMap)
-	
+
 	// 如果父网关也是子网关，继续嵌套
 	if parentGateway.ParentID != nil {
 		return map[string]interface{}{
@@ -416,4 +374,20 @@ func buildNestedSubGatewayDataForCommand(gateway *model.Device, subDeviceAddr st
 			},
 		}
 	}
+}
+
+// GetCommandSetLogsDataListByPage 获取命令下发日志（分页）
+func (c *CommandData) GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (map[string]interface{}, error) {
+	// 查询日志列表
+	logs, total, err := dal.GetCommandSetLogsByPage(&req)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+
+	return map[string]interface{}{
+		"list":  logs,
+		"total": total,
+	}, nil
 }

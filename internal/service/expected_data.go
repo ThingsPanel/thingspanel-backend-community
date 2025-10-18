@@ -241,6 +241,7 @@ func sendCommand(ctx context.Context, deviceID, payload string) (string, error) 
 		Value:    paramsStr,
 	}
 
+	// ✅ 使用原有的方法名
 	err := GroupApp.CommandData.CommandPutMessage(ctx, "", putMessage, "2")
 	if err != nil {
 		return err.Error(), err

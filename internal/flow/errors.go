@@ -9,6 +9,8 @@ var (
 	// ErrUnknownMessageType 未知的消息类型
 	ErrUnknownMessageType = errors.New("unknown message type")
 
+	ErrChannelFull = errors.New("channel is full") // ✨ 新增
+
 	// ErrFlowStopped Flow 已停止
 	ErrFlowStopped = errors.New("flow is stopped")
 
