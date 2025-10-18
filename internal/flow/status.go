@@ -64,7 +64,7 @@ func (f *StatusFlow) Start(input <-chan *DeviceMessage) error {
 					f.logger.Warn("Received nil message, skipping")
 					continue
 				}
-				f.logger.WithField("device_id", msg.DeviceID).Info("📨 StatusFlow received message from channel")
+				f.logger.WithField("device_id", msg.DeviceID).Debug("📨 StatusFlow received message from channel")
 				f.processMessage(msg)
 			}
 		}
@@ -82,12 +82,6 @@ func (f *StatusFlow) Stop() error {
 
 // processMessage 处理状态消息
 func (f *StatusFlow) processMessage(msg *DeviceMessage) {
-	f.logger.WithFields(logrus.Fields{
-		"device_id": msg.DeviceID,
-		"payload":   string(msg.Payload),
-		"metadata":  msg.Metadata,
-	}).Info("🟢 StatusFlow: processMessage called")
-
 	// 1. 解析状态 (0=离线, 1=在线)
 	status, err := f.parseStatus(msg.Payload)
 	if err != nil {
@@ -101,7 +95,7 @@ func (f *StatusFlow) processMessage(msg *DeviceMessage) {
 	f.logger.WithFields(logrus.Fields{
 		"device_id": msg.DeviceID,
 		"status":    status,
-	}).Info("📊 Parsed status")
+	}).Debug("📊 Parsed status")
 
 	// 2. 获取设备信息
 	device, err := initialize.GetDeviceCacheById(msg.DeviceID)
@@ -109,8 +103,6 @@ func (f *StatusFlow) processMessage(msg *DeviceMessage) {
 		f.logger.WithError(err).WithField("device_id", msg.DeviceID).Error("Device not found")
 		return
 	}
-
-	f.logger.WithField("device_id", device.ID).Info("✅ Device found")
 
 	// 3. 检查心跳配置
 	config, err := f.heartbeatService.GetConfig(device)

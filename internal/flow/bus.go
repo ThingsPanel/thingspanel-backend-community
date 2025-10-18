@@ -140,18 +140,13 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 		}
 
 	case MessageTypeStatus:
-		b.logger.WithFields(logrus.Fields{
-			"device_id": msg.DeviceID,
-			"type":      msg.Type,
-		}).Info("📮 Bus: Routing status message to statusChan")
-
 		select {
 		case b.statusChan <- msg:
-			b.logger.Info("✅ Status message sent to statusChan")
+			b.logger.Debug("✅ Status message sent to statusChan")
 		default:
 			b.logger.Warnf("Status channel full, blocking publish")
 			b.statusChan <- msg
-			b.logger.Info("✅ Status message sent (after blocking)")
+			b.logger.Debug("✅ Status message sent (after blocking)")
 		}
 
 	// ✨ 新增：响应消息路由

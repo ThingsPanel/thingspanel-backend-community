@@ -49,11 +49,21 @@ func (*customFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		fileAndLine = fmt.Sprintf("%s:%d", filePath, entry.Caller.Line)
 	}
 
+	// 处理 fields
+	var fieldsStr string
+	if len(entry.Data) > 0 {
+		fieldsStr = " "
+		for k, v := range entry.Data {
+			fieldsStr += fmt.Sprintf("%s=%v ", k, v)
+		}
+	}
+
 	// 组装格式化字符串，将路径移到最后
-	msg := fmt.Sprintf("\033[1;%sm%s\033[0m \033[4;1;%sm[%s]\033[0m %s \033[1;%sm[%s]\033[0m\n",
+	msg := fmt.Sprintf("\033[1;%sm%s\033[0m \033[4;1;%sm[%s]\033[0m %s%s \033[1;%sm[%s]\033[0m\n",
 		levelColor, levelText, // 日志级别，带颜色
 		levelColor, entry.Time.Format("2006-01-02 15:04:05.9999"), // 时间戳，下划线加颜色
 		entry.Message,           // 日志消息
+		fieldsStr,               // fields 信息
 		levelColor, fileAndLine, // 文件名:行号，带颜色，移到最后面
 	)
 

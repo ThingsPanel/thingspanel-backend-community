@@ -48,8 +48,6 @@ func DeviceStatusCallback(_ mqtt.Client, d mqtt.Message) {
 				"topic":   d.Topic(),
 				"payload": string(d.Payload()),
 			}).Error("❌ Flow layer status processing failed")
-		} else {
-			logrus.Info("✅ Flow layer status processing succeeded")
 		}
 		return
 	}

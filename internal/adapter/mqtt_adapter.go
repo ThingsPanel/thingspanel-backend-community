@@ -278,8 +278,6 @@ func (a *MQTTAdapter) HandleStatusMessage(payload []byte, topic string, source s
 	}
 	deviceID := parts[2]
 
-	a.logger.WithField("device_id", deviceID).Info("🔍 Parsed device_id from topic")
-
 	// 2. 获取设备信息
 	device, err := initialize.GetDeviceCacheById(deviceID)
 	if err != nil {
@@ -289,11 +287,6 @@ func (a *MQTTAdapter) HandleStatusMessage(payload []byte, topic string, source s
 		}).Error("❌ Device not found in cache")
 		return err
 	}
-
-	a.logger.WithFields(logrus.Fields{
-		"device_id": device.ID,
-		"tenant_id": device.TenantID,
-	}).Info("✅ Device found in cache")
 
 	// 3. 构造 FlowMessage
 	msg := &FlowMessage{
@@ -310,8 +303,6 @@ func (a *MQTTAdapter) HandleStatusMessage(payload []byte, topic string, source s
 		},
 	}
 
-	a.logger.Info("📦 FlowMessage constructed, publishing to Bus")
-
 	// 4. 发送到 Bus
 	if err := a.bus.Publish(msg); err != nil {
 		a.logger.WithFields(logrus.Fields{
@@ -327,7 +318,7 @@ func (a *MQTTAdapter) HandleStatusMessage(payload []byte, topic string, source s
 		"topic":     topic,
 		"source":    source,
 		"status":    string(payload),
-	}).Info("✅ Status message published to bus successfully")
+	}).Debug("✅ Status message published to bus successfully")
 
 	return nil
 }
