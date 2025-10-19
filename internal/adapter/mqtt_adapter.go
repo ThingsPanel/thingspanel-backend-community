@@ -9,6 +9,7 @@ import (
 
 	"project/initialize"
 	"project/internal/flow"
+	"project/mqtt/publish"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
@@ -145,30 +146,48 @@ func (a *MQTTAdapter) detectMessageType(topic string, baseType string) string {
 // HandleEventMessage 处理事件消息
 // 这个函数替换原来的 mqtt/subscribe/event_message.go:DeviceEvent()
 func (a *MQTTAdapter) HandleEventMessage(payload []byte, topic string) error {
-	// 1. 验证 payload 格式
+	// 1. 解析 topic 获取 messageID
+	messageID, err := a.parseAttributeOrEventTopic(topic)
+	if err != nil {
+		a.logger.WithFields(logrus.Fields{
+			"topic": topic,
+			"error": err,
+		}).Debug("Failed to parse message_id from topic, skipping response")
+		// 继续处理，只是不发送响应
+		messageID = ""
+	}
+
+	// 2. 验证 payload 格式
 	eventPayload, err := a.verifyPayload(payload)
 	if err != nil {
 		a.logger.WithFields(logrus.Fields{
 			"topic": topic,
 			"error": err,
 		}).Error("Invalid event payload")
+		// 发送错误响应
+		a.publishEventResponse("", messageID, "", err)
 		return err
 	}
 
-	// 2. 获取设备信息（从缓存）
+	// 3. 解析 method 字段（用于响应）
+	method := a.parseEventMethod(eventPayload.Values)
+
+	// 4. 获取设备信息（从缓存）
 	device, err := initialize.GetDeviceCacheById(eventPayload.DeviceId)
 	if err != nil {
 		a.logger.WithFields(logrus.Fields{
 			"device_id": eventPayload.DeviceId,
 			"error":     err,
 		}).Error("Device not found in cache")
+		// 发送错误响应
+		a.publishEventResponse("", messageID, method, err)
 		return err
 	}
 
-	// 3. 根据 Topic 判断消息类型
+	// 5. 根据 Topic 判断消息类型
 	msgType := a.detectMessageType(topic, "event")
 
-	// 4. 构造 FlowMessage
+	// 6. 构造 FlowMessage
 	msg := &FlowMessage{
 		Type:      msgType,
 		DeviceID:  device.ID,
@@ -182,52 +201,72 @@ func (a *MQTTAdapter) HandleEventMessage(payload []byte, topic string) error {
 		},
 	}
 
-	// 5. 发送到 Bus
-	if err := a.bus.Publish(msg); err != nil {
+	// 7. 发送到 Bus（异步处理）
+	busErr := a.bus.Publish(msg)
+	if busErr != nil {
 		a.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
-			"error":     err,
+			"error":     busErr,
 		}).Error("Failed to publish event message to bus")
-		return err
 	}
+
+	// 8. 立即发送 ACK 响应（协议层行为，不等待业务处理完成）
+	a.publishEventResponse(device.DeviceNumber, messageID, method, busErr)
 
 	a.logger.WithFields(logrus.Fields{
 		"device_id":  device.ID,
 		"topic":      topic,
 		"msg_type":   msgType,
 		"is_gateway": msgType == "gateway_event",
-	}).Debug("Event message published to bus")
+		"message_id": messageID,
+		"method":     method,
+	}).Debug("Event message published to bus and ACK sent")
 
-	return nil
+	return busErr
 }
 
 // HandleAttributeMessage 处理属性消息
 // 这个函数替换原来的 mqtt/subscribe/attribute_message.go:DeviceAttributeReport()
 func (a *MQTTAdapter) HandleAttributeMessage(payload []byte, topic string) error {
-	// 1. 验证 payload 格式
+	// 1. 解析 topic 获取 messageID
+	messageID, err := a.parseAttributeOrEventTopic(topic)
+	if err != nil {
+		a.logger.WithFields(logrus.Fields{
+			"topic": topic,
+			"error": err,
+		}).Debug("Failed to parse message_id from topic, skipping response")
+		// 继续处理，只是不发送响应
+		messageID = ""
+	}
+
+	// 2. 验证 payload 格式
 	attributePayload, err := a.verifyPayload(payload)
 	if err != nil {
 		a.logger.WithFields(logrus.Fields{
 			"topic": topic,
 			"error": err,
 		}).Error("Invalid attribute payload")
+		// 发送错误响应
+		a.publishAttributeResponse("", messageID, err)
 		return err
 	}
 
-	// 2. 获取设备信息（从缓存）
+	// 3. 获取设备信息（从缓存）
 	device, err := initialize.GetDeviceCacheById(attributePayload.DeviceId)
 	if err != nil {
 		a.logger.WithFields(logrus.Fields{
 			"device_id": attributePayload.DeviceId,
 			"error":     err,
 		}).Error("Device not found in cache")
+		// 发送错误响应
+		a.publishAttributeResponse("", messageID, err)
 		return err
 	}
 
-	// 3. 根据 Topic 判断消息类型
+	// 4. 根据 Topic 判断消息类型
 	msgType := a.detectMessageType(topic, "attribute")
 
-	// 4. 构造 FlowMessage
+	// 5. 构造 FlowMessage
 	msg := &FlowMessage{
 		Type:      msgType,
 		DeviceID:  device.ID,
@@ -241,23 +280,27 @@ func (a *MQTTAdapter) HandleAttributeMessage(payload []byte, topic string) error
 		},
 	}
 
-	// 5. 发送到 Bus
-	if err := a.bus.Publish(msg); err != nil {
+	// 6. 发送到 Bus（异步处理）
+	busErr := a.bus.Publish(msg)
+	if busErr != nil {
 		a.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
-			"error":     err,
+			"error":     busErr,
 		}).Error("Failed to publish attribute message to bus")
-		return err
 	}
+
+	// 7. 立即发送 ACK 响应（协议层行为，不等待业务处理完成）
+	a.publishAttributeResponse(device.DeviceNumber, messageID, busErr)
 
 	a.logger.WithFields(logrus.Fields{
 		"device_id":  device.ID,
 		"topic":      topic,
 		"msg_type":   msgType,
 		"is_gateway": msgType == "gateway_attribute",
-	}).Debug("Attribute message published to bus")
+		"message_id": messageID,
+	}).Debug("Attribute message published to bus and ACK sent")
 
-	return nil
+	return busErr
 }
 
 // HandleStatusMessage 处理状态消息
@@ -450,3 +493,78 @@ func (a *MQTTAdapter) detectResponseType(topic string) string {
 
 // TODO: 后续实现其他消息类型的处理
 // - HandleCommandMessage()
+
+// parseAttributeOrEventTopic 解析属性/事件 Topic 获取 messageID
+// Topic 格式: devices/attributes/{messageID} 或 devices/event/{messageID}
+// 返回: (messageID, error)
+func (a *MQTTAdapter) parseAttributeOrEventTopic(topic string) (string, error) {
+	parts := strings.Split(topic, "/")
+	if len(parts) < 3 {
+		return "", fmt.Errorf("invalid topic format: %s (expected at least 3 parts)", topic)
+	}
+	messageID := parts[2]
+	if messageID == "" {
+		return "", fmt.Errorf("message_id is empty in topic: %s", topic)
+	}
+	return messageID, nil
+}
+
+// publishAttributeResponse 发送属性上报 ACK 响应
+// 使用原有的 publish.PublishAttributeResponseMessage 方法
+func (a *MQTTAdapter) publishAttributeResponse(deviceNumber, messageID string, err error) {
+	if deviceNumber == "" || messageID == "" {
+		a.logger.Debug("Skip attribute response: empty deviceNumber or messageID")
+		return
+	}
+
+	// 调用原有的发布方法
+	if publishErr := publish.PublishAttributeResponseMessage(deviceNumber, messageID, err); publishErr != nil {
+		a.logger.WithFields(logrus.Fields{
+			"device_number": deviceNumber,
+			"message_id":    messageID,
+			"error":         publishErr,
+		}).Error("Failed to publish attribute response")
+	} else {
+		a.logger.WithFields(logrus.Fields{
+			"device_number": deviceNumber,
+			"message_id":    messageID,
+		}).Debug("Attribute response sent successfully")
+	}
+}
+
+// publishEventResponse 发送事件上报 ACK 响应
+// 使用原有的 publish.PublishEventResponseMessage 方法
+func (a *MQTTAdapter) publishEventResponse(deviceNumber, messageID, method string, err error) {
+	if deviceNumber == "" || messageID == "" {
+		a.logger.Debug("Skip event response: empty deviceNumber or messageID")
+		return
+	}
+
+	// 调用原有的发布方法
+	if publishErr := publish.PublishEventResponseMessage(deviceNumber, messageID, method, err); publishErr != nil {
+		a.logger.WithFields(logrus.Fields{
+			"device_number": deviceNumber,
+			"message_id":    messageID,
+			"method":        method,
+			"error":         publishErr,
+		}).Error("Failed to publish event response")
+	} else {
+		a.logger.WithFields(logrus.Fields{
+			"device_number": deviceNumber,
+			"message_id":    messageID,
+			"method":        method,
+		}).Debug("Event response sent successfully")
+	}
+}
+
+// parseEventMethod 从 event payload 中解析 method 字段
+func (a *MQTTAdapter) parseEventMethod(payload []byte) string {
+	var eventData struct {
+		Method string `json:"method"`
+	}
+	if err := json.Unmarshal(payload, &eventData); err != nil {
+		a.logger.WithError(err).Debug("Failed to parse event method, using empty string")
+		return ""
+	}
+	return eventData.Method
+}
