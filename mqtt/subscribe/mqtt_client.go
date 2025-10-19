@@ -65,11 +65,12 @@ func subscribe() error {
 		return err
 	}
 	// 订阅设置设备属性回应
-	err = SubscribeSetAttribute()
-	if err != nil {
-		logrus.Error(err)
-		return err
-	}
+	// 已迁移到 MQTTAdapter.SubscribeResponseTopics，这里注释掉避免重复订阅
+	// err = SubscribeSetAttribute()
+	// if err != nil {
+	// 	logrus.Error(err)
+	// 	return err
+	// }
 	// 订阅event消息
 	err = SubscribeEvent()
 	if err != nil {
@@ -98,11 +99,12 @@ func subscribe() error {
 	}
 
 	// 订阅设备命令消息
-	err = SubscribeCommand()
-	if err != nil {
-		logrus.Error(err)
-		return err
-	}
+	// 已迁移到 MQTTAdapter.SubscribeResponseTopics，这里注释掉避免重复订阅
+	// err = SubscribeCommand()
+	// if err != nil {
+	// 	logrus.Error(err)
+	// 	return err
+	// }
 
 	// 订阅OTA命令消息
 	err = SubscribeOtaUpprogress()

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"project/initialize"
@@ -120,7 +121,7 @@ func (a *AttributeData) SetDownlinkBus(bus *downlink.Bus) {
 	a.downlinkBus = bus
 }
 
-// AttributePutMessage 属性设置下发（改造为异步模式）
+// AttributePutMessage 属性设置下发（改造为异步模式，支持多层网关）
 func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID string, putMessageReq *model.AttributePutMessage, operationType string) error {
 	// 1. 获取设备信息
 	device, err := initialize.GetDeviceCacheById(putMessageReq.DeviceID)
@@ -131,37 +132,52 @@ func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID stri
 	// 2. 生成 message_id（8位唯一字符串）
 	messageId := uuid.New()[:8]
 
-	// 3. 处理网关层级
-	actualDeviceID, topic, err := a.resolveDeviceAndTopic(device, messageId)
+	// 3. 获取设备类型
+	var deviceType string
+	if device.DeviceConfigID != nil {
+		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
+		if err != nil {
+			return fmt.Errorf("failed to get device config: %w", err)
+		}
+		deviceType = deviceConfig.DeviceType
+	}
+
+	// 4. 处理多层网关数据嵌套
+	if err := transformAttributeDataForMultiLevelGateway(putMessageReq, device, deviceType); err != nil {
+		return fmt.Errorf("failed to transform attribute data: %w", err)
+	}
+
+	// 5. 处理网关层级，获取顶层网关
+	targetDevice, topic, err := a.resolveTopLevelGatewayAndTopic(device, deviceType, messageId)
 	if err != nil {
 		return err
 	}
 
-	// 4. 构造属性数据（保持原有格式）
-	// Value 已经是 JSON 字符串格式
+	// 6. 构造属性数据（已经过多层网关嵌套处理）
 	jsonData := []byte(putMessageReq.Value)
 
-	// 5. 创建 pending 日志
+	// 7. 创建 pending 日志（记录原始设备ID）
 	if err := a.createAttributeLog(device, messageId, putMessageReq.Value, operationType); err != nil {
 		logrus.WithError(err).Error("Failed to create attribute log")
 		// 不阻塞发送流程
 	}
 
-	// ✨ 6. 使用 downlink.Bus 发送
+	// 8. 使用 downlink.Bus 发送
 	if a.downlinkBus != nil {
 		msg := &downlink.Message{
-			DeviceID:       actualDeviceID,
-			DeviceConfigID: a.getDeviceConfigID(device),
+			DeviceID:       device.ID,                         // 原始设备ID（用于日志关联）
+			DeviceConfigID: a.getDeviceConfigID(targetDevice), // 使用顶层网关的配置ID（用于脚本编码）
 			Type:           downlink.MessageTypeAttributeSet,
 			Data:           jsonData,
-			Topic:          topic,
+			Topic:          topic, // 顶层网关的Topic
 			MessageID:      messageId,
 		}
 		a.downlinkBus.PublishAttributeSet(msg)
 
 		logrus.WithFields(logrus.Fields{
-			"device_id":  actualDeviceID,
-			"message_id": messageId,
+			"device_id":        device.ID,
+			"target_device_id": targetDevice.ID,
+			"message_id":       messageId,
 		}).Info("Attribute set sent via downlink")
 	} else {
 		return fmt.Errorf("downlink service not available")
@@ -170,32 +186,32 @@ func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID stri
 	return nil
 }
 
-// resolveDeviceAndTopic 处理网关层级，返回实际设备ID和Topic
-func (a *AttributeData) resolveDeviceAndTopic(device *model.Device, messageId string) (string, string, error) {
-	// 直连设备
+// resolveTopLevelGatewayAndTopic 处理多层网关，返回顶层网关设备和Topic
+func (a *AttributeData) resolveTopLevelGatewayAndTopic(device *model.Device, deviceType, messageId string) (*model.Device, string, error) {
+	// 直连设备（无父网关）
 	if device.ParentID == nil || *device.ParentID == "" {
 		topic := a.buildTopic(config.MqttConfig.Attributes.PublishTopic, device.DeviceNumber, messageId)
-		return device.ID, topic, nil
+		return device, topic, nil
 	}
 
-	// 网关子设备
-	gatewayDevice, err := initialize.GetDeviceCacheById(*device.ParentID)
+	// 网关子设备或子网关，查找顶层网关
+	topGateway, err := findTopLevelGatewayForAttribute(device, deviceType)
 	if err != nil {
-		return "", "", fmt.Errorf("gateway device not found: %w", err)
+		return nil, "", fmt.Errorf("failed to find top level gateway: %w", err)
 	}
 
-	// 网关 Topic
-	topic := a.buildTopic(config.MqttConfig.Attributes.GatewayPublishTopic, gatewayDevice.DeviceNumber, messageId)
+	// 使用顶层网关构建 Topic
+	topic := a.buildTopic(config.MqttConfig.Attributes.GatewayPublishTopic, topGateway.DeviceNumber, messageId)
 
 	// 检查是否有协议插件前缀
-	if gatewayDevice.DeviceConfigID != nil {
-		protocolPlugin, err := dal.GetProtocolPluginByDeviceConfigID(*gatewayDevice.DeviceConfigID)
+	if topGateway.DeviceConfigID != nil {
+		protocolPlugin, err := dal.GetProtocolPluginByDeviceConfigID(*topGateway.DeviceConfigID)
 		if err == nil && protocolPlugin != nil && protocolPlugin.SubTopicPrefix != nil {
 			topic = fmt.Sprintf("%s%s", *protocolPlugin.SubTopicPrefix, topic)
 		}
 	}
 
-	return device.ID, topic, nil
+	return topGateway, topic, nil
 }
 
 // buildTopic 构建 Topic，兼容配置中缺少占位符的情况
@@ -203,7 +219,18 @@ func (a *AttributeData) buildTopic(topicTemplate, deviceNumber, messageId string
 	// 尝试使用 fmt.Sprintf（如果配置中有 %s）
 	topic := fmt.Sprintf(topicTemplate, deviceNumber, messageId)
 
-	topic = topicTemplate + deviceNumber + "/" + messageId
+	// 检查是否有格式化错误（%!(EXTRA ...）
+	if strings.Contains(topic, "%!(EXTRA") {
+		// 配置缺少占位符，手动拼接
+		topic = topicTemplate + deviceNumber + "/" + messageId
+
+		logrus.WithFields(logrus.Fields{
+			"template": topicTemplate,
+			"device":   deviceNumber,
+			"msg_id":   messageId,
+			"result":   topic,
+		}).Warn("Topic template missing format specifiers, using fallback concatenation")
+	}
 
 	return topic
 }
@@ -332,6 +359,7 @@ func transformAttributeDataForMultiLevelGateway(param *model.AttributePutMessage
 
 	// 根据设备类型和是否有父网关构建不同的输出数据结构
 	var outputData map[string]interface{}
+
 	if deviceType == "3" { // 子设备
 		if deviceInfo.SubDeviceAddr == nil {
 			return fmt.Errorf("子设备的SubDeviceAddr为空")
@@ -377,6 +405,9 @@ func transformAttributeDataForMultiLevelGateway(param *model.AttributePutMessage
 				"gateway_data": inputData,
 			}
 		}
+	} else {
+		// 直连设备（deviceType == "1" 或其他）：不需要嵌套，直接返回原始数据
+		outputData = inputData
 	}
 
 	// 重新构建payload

@@ -28,19 +28,24 @@ func getSubscribeTopics() []SubscribeTopic {
 			Topic:    config.MqttConfig.Attributes.GatewaySubscribeTopic,
 			Qos:      byte(config.MqttConfig.Attributes.QoS),
 			Callback: GatewaySubscribeAttributesCallback,
-		}, {
-			Topic:    config.MqttConfig.Attributes.GatewaySubscribeResponseTopic,
-			Qos:      byte(config.MqttConfig.Attributes.QoS),
-			Callback: GatewaySubscribeSetAttributesResponseCallback,
-		}, {
+		},
+		// 网关属性设置响应已迁移到 MQTTAdapter.SubscribeResponseTopics
+		// {
+		// 	Topic:    config.MqttConfig.Attributes.GatewaySubscribeResponseTopic,
+		// 	Qos:      byte(config.MqttConfig.Attributes.QoS),
+		// 	Callback: GatewaySubscribeSetAttributesResponseCallback,
+		// },
+		{
 			Topic:    config.MqttConfig.Events.GatewaySubscribeTopic,
 			Qos:      byte(config.MqttConfig.Events.QoS),
 			Callback: GatewaySubscribeEventCallback,
-		}, {
-			Topic:    config.MqttConfig.Commands.GatewaySubscribeTopic,
-			Qos:      byte(config.MqttConfig.Commands.QoS),
-			Callback: GatewaySubscribeCommandResponseCallback,
 		},
+		// 网关命令响应已迁移到 MQTTAdapter.SubscribeResponseTopics
+		// {
+		// 	Topic:    config.MqttConfig.Commands.GatewaySubscribeTopic,
+		// 	Qos:      byte(config.MqttConfig.Commands.QoS),
+		// 	Callback: GatewaySubscribeCommandResponseCallback,
+		// },
 	}
 }
 

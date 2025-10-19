@@ -3,7 +3,6 @@ package flow
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"project/internal/query"
 
@@ -101,27 +100,35 @@ func (f *ResponseFlow) processMessage(msg *DeviceMessage) {
 
 // parseResponse 解析响应数据
 // 返回: (错误信息, 是否成功)
+// 响应格式: {"result":0,"message":"success","ts":1609143039,"errcode":"","method":""}
+// result: 0-成功 1-失败
 func (f *ResponseFlow) parseResponse(payload []byte) (string, bool) {
 	// 尝试解析响应格式
 	var response struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
-		Success bool   `json:"success"`
+		Result  int    `json:"result"`  // 0-成功 1-失败
+		Message string `json:"message"` // 消息内容
+		Errcode string `json:"errcode"` // 错误码（可选）
+		Ts      int64  `json:"ts"`      // 时间戳（可选）
+		Method  string `json:"method"`  // 事件和命令的方法（可选）
 	}
 
 	if err := json.Unmarshal(payload, &response); err != nil {
-		// 解析失败，认为是原始响应数据
-		f.logger.WithError(err).Debug("Failed to parse response as JSON, treating as raw data")
-		return string(payload), true // 假设成功
+		// 解析失败，认为是原始响应数据，记录错误
+		f.logger.WithError(err).WithField("payload", string(payload)).Warn("Failed to parse response as JSON")
+		return string(payload), false // 解析失败视为失败
 	}
 
-	// 判断成功/失败
-	success := response.Code == 200 || response.Success
+	// 判断成功/失败: result 为 0 表示成功
+	success := response.Result == 0
 
 	errorMsg := ""
 	if !success {
-		errorMsg = response.Message
-		if errorMsg == "" {
+		// 失败时，优先使用 errcode，其次 message
+		if response.Errcode != "" {
+			errorMsg = response.Errcode
+		} else if response.Message != "" {
+			errorMsg = response.Message
+		} else {
 			errorMsg = string(payload)
 		}
 	}
@@ -131,12 +138,12 @@ func (f *ResponseFlow) parseResponse(payload []byte) (string, bool) {
 
 // updateCommandLog 更新命令日志
 func (f *ResponseFlow) updateCommandLog(messageID string, success bool, errorMsg string) {
-	// 状态: 0=pending, 1=success, 2=failed
-	status := "1" // 成功
+	// 状态: 3=成功, 4=失败
+	status := "3" // 成功
 	var errorMsgPtr *string
 
 	if !success {
-		status = "2" // 失败
+		status = "4" // 失败
 		errorMsgPtr = &errorMsg
 	}
 
@@ -146,7 +153,6 @@ func (f *ResponseFlow) updateCommandLog(messageID string, success bool, errorMsg
 		Updates(map[string]interface{}{
 			"status":        &status,
 			"error_message": errorMsgPtr,
-			"updated_at":    time.Now(),
 		})
 
 	if err != nil {
@@ -168,12 +174,12 @@ func (f *ResponseFlow) updateCommandLog(messageID string, success bool, errorMsg
 
 // updateAttributeLog 更新属性设置日志
 func (f *ResponseFlow) updateAttributeLog(messageID string, success bool, errorMsg string) {
-	// 状态: 0=pending, 1=success, 2=failed
-	status := "1" // 成功
+	// 状态: 3=成功, 4=失败
+	status := "3" // 成功
 	var errorMsgPtr *string
 
 	if !success {
-		status = "2" // 失败
+		status = "4" // 失败
 		errorMsgPtr = &errorMsg
 	}
 
@@ -183,7 +189,6 @@ func (f *ResponseFlow) updateAttributeLog(messageID string, success bool, errorM
 		Updates(map[string]interface{}{
 			"status":        &status,
 			"error_message": errorMsgPtr,
-			"updated_at":    time.Now(),
 		})
 
 	if err != nil {

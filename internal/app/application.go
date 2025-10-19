@@ -2,6 +2,7 @@ package app
 
 import (
 	"project/internal/downlink"
+	"project/internal/flow"
 	"project/internal/query"
 	"project/internal/storage"
 
@@ -25,6 +26,9 @@ type Application struct {
 
 	// Flow 相关
 	flowService *FlowServiceWrapper
+
+	// MQTT 相关
+	mqttService *MQTTService
 
 	// Downlink 相关
 	downlinkService *DownlinkServiceWrapper
@@ -95,4 +99,12 @@ func (a *Application) GetDownlinkBus() *downlink.Bus {
 		return nil
 	}
 	return a.downlinkService.GetBus()
+}
+
+// GetFlowBus 获取上行消息总线（供 Adapter 层调用）
+func (a *Application) GetFlowBus() *flow.Bus {
+	if a.flowService == nil {
+		return nil
+	}
+	return a.flowService.GetBus()
 }

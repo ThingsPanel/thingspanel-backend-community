@@ -8,8 +8,6 @@ import (
 	"project/internal/flow"
 	"project/internal/processor"
 	"project/internal/service"
-	"project/mqtt/publish"
-	"project/mqtt/subscribe"
 	"project/pkg/global"
 
 	"github.com/sirupsen/logrus"
@@ -19,7 +17,6 @@ import (
 // FlowServiceWrapper 包装 FlowManager 为 Service
 type FlowServiceWrapper struct {
 	flowManager *flow.FlowManager
-	mqttAdapter *adapter.MQTTAdapter
 	bus         *flow.Bus
 	isEnabled   bool
 	logger      *logrus.Logger
@@ -35,11 +32,6 @@ func (f *FlowServiceWrapper) Start() error {
 	if !f.isEnabled {
 		f.logger.Info("Flow service is disabled, skipping...")
 		return nil
-	}
-
-	// 注册MQTT适配器到订阅层
-	if f.mqttAdapter != nil {
-		subscribe.SetMQTTAdapter(f.mqttAdapter)
 	}
 
 	if err := f.flowManager.Start(); err != nil {
@@ -65,6 +57,11 @@ func (f *FlowServiceWrapper) Stop() error {
 
 	f.logger.Info("Flow service stopped")
 	return nil
+}
+
+// GetBus 获取 Flow Bus（供 Application 调用）
+func (f *FlowServiceWrapper) GetBus() *flow.Bus {
+	return f.bus
 }
 
 // WithFlowService 添加 Flow 服务
@@ -155,23 +152,9 @@ func WithFlowService() Option {
 			Logger:        a.Logger,
 		})
 
-		// 10. 创建 MQTT Adapter
-		mqttAdapter := adapter.NewMQTTAdapter(bus, a.Logger)
-
-		// ✨ 11. 订阅响应 Topic（如果 MQTT 客户端已连接）
-		mqttClient := publish.GetMQTTClient()
-		if mqttClient != nil && mqttClient.IsConnected() {
-			if err := mqttAdapter.SubscribeResponseTopics(mqttClient); err != nil {
-				a.Logger.WithError(err).Warn("Failed to subscribe response topics, will retry later")
-			}
-		} else {
-			a.Logger.Warn("MQTT client not connected yet, response topics will be subscribed on connection")
-		}
-
-		// 12. 创建服务包装器
+		// 10. 创建服务包装器（不再创建 Adapter，由 MQTT 服务负责）
 		wrapper := &FlowServiceWrapper{
 			flowManager: flowManager,
-			mqttAdapter: mqttAdapter,
 			bus:         bus,
 			isEnabled:   true,
 			logger:      a.Logger,
@@ -190,10 +173,10 @@ func WithFlowService() Option {
 
 // GetMQTTAdapter 获取 MQTT Adapter（供 MQTT 订阅层使用）
 func (a *Application) GetMQTTAdapter() *adapter.MQTTAdapter {
-	if a.flowService == nil {
+	if a.mqttService == nil {
 		return nil
 	}
-	return a.flowService.mqttAdapter
+	return a.mqttService.mqttAdapter
 }
 
 // GetFlowManager 获取 FlowManager（用于监控）

@@ -10,29 +10,24 @@ import (
 	"github.com/spf13/viper"
 )
 
-// MQTTAdapterInterface 定义 MQTT Adapter 接口(避免循环依赖)
-type MQTTAdapterInterface interface {
-	HandleStatusMessage(payload []byte, topic string, source string) error
-}
-
 // HeartbeatMonitor 心跳监控服务
 type HeartbeatMonitor struct {
-	redis       *redis.Client
-	mqttAdapter MQTTAdapterInterface
-	logger      *logrus.Logger
-	ctx         context.Context
-	cancel      context.CancelFunc
+	redis           *redis.Client
+	statusPublisher StatusPublisher // ✨ 依赖本地定义的接口（避免循环依赖）
+	logger          *logrus.Logger
+	ctx             context.Context
+	cancel          context.CancelFunc
 }
 
 // NewHeartbeatMonitor 创建心跳监控服务实例
-func NewHeartbeatMonitor(redis *redis.Client, adapter MQTTAdapterInterface, logger *logrus.Logger) *HeartbeatMonitor {
+func NewHeartbeatMonitor(redis *redis.Client, publisher StatusPublisher, logger *logrus.Logger) *HeartbeatMonitor {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &HeartbeatMonitor{
-		redis:       redis,
-		mqttAdapter: adapter,
-		logger:      logger,
-		ctx:         ctx,
-		cancel:      cancel,
+		redis:           redis,
+		statusPublisher: publisher,
+		logger:          logger,
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 }
 
@@ -124,17 +119,16 @@ func (m *HeartbeatMonitor) handleExpiredKey(msg *redis.Message) {
 		source = "timeout_expired"
 	}
 
-	// 通过 Adapter 发送离线状态消息到 Bus → StatusFlow
-	// 这样保持架构统一,所有状态变更都通过 Flow 层处理
-	if m.mqttAdapter != nil {
-		topic := "devices/status/" + deviceID
-		if err := m.mqttAdapter.HandleStatusMessage([]byte("0"), topic, source); err != nil {
+	// ✨ 通过 StatusPublisher 接口发送离线状态到 Flow Bus → StatusFlow
+	// 协议无关设计：无论 MQTT/Kafka 都通过统一的接口处理
+	if m.statusPublisher != nil {
+		if err := m.statusPublisher.PublishStatusOffline(deviceID, source); err != nil {
 			m.logger.WithError(err).WithFields(logrus.Fields{
 				"device_id": deviceID,
 				"source":    source,
-			}).Error("Failed to handle device offline event")
+			}).Error("Failed to publish device offline event")
 		}
 	} else {
-		m.logger.Warn("MQTT Adapter not available, cannot send offline event")
+		m.logger.Warn("StatusPublisher not available, cannot send offline event")
 	}
 }

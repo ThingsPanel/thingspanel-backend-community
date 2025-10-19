@@ -54,7 +54,7 @@ func (h *HeartbeatMonitorWrapper) Stop() error {
 }
 
 // WithHeartbeatMonitor 添加心跳监控服务
-// 依赖: Flow 服务(需要 MQTTAdapter)
+// 依赖: Flow 服务(需要 Flow Bus 作为 StatusPublisher)
 func WithHeartbeatMonitor() Option {
 	return func(a *Application) error {
 		// 检查是否启用 Flow 和心跳监控
@@ -69,21 +69,16 @@ func WithHeartbeatMonitor() Option {
 			return nil
 		}
 
-		// 确保 Flow 服务已初始化
-		if a.flowService == nil {
-			return fmt.Errorf("flow service not initialized, please add WithFlowService() before WithHeartbeatMonitor()")
+		// ✨ 获取 Flow Bus（实现了 StatusPublisher 接口）
+		flowBus := a.GetFlowBus()
+		if flowBus == nil {
+			return fmt.Errorf("Flow Bus not initialized, please add WithFlowService() before WithHeartbeatMonitor()")
 		}
 
-		// 获取 MQTT Adapter
-		mqttAdapter := a.GetMQTTAdapter()
-		if mqttAdapter == nil {
-			return fmt.Errorf("MQTT adapter not available from flow service")
-		}
-
-		// 创建 HeartbeatMonitor
+		// 创建 HeartbeatMonitor（注入 Flow Bus 作为 StatusPublisher）
 		monitor := service.NewHeartbeatMonitor(
 			global.STATUS_REDIS,
-			mqttAdapter,
+			flowBus, // ✨ Bus 实现了 StatusPublisher 接口
 			a.Logger,
 		)
 

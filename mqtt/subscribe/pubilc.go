@@ -53,18 +53,16 @@ func verifyEventPayload(values interface{}) (*model.EventInfo, error) {
 // "values":{"result":0,"message":"命令执行结果","method":"事件标识符"}
 //
 //	"values":{"result":1,"errcode":"xxx","message":"xxxxxx","ts":1609143039,"method":"xxxxx"}
+//
+// 注意：method 字段不是必须的，设备响应时可能不包含
 func verifyCommandResponsePayload(values interface{}) (*model.MqttResponse, error) {
 	payload := &model.MqttResponse{}
 	if err := json.Unmarshal(values.([]byte), payload); err != nil {
 		logrus.Error("解析消息失败:", err)
 		return payload, err
 	}
-	if len(payload.Method) == 0 {
-		return payload, errors.New("method不能为空:" + payload.Method)
-	}
-	if len(payload.Message) == 0 {
-		return payload, errors.New("params消息内容不能为空")
-	}
+	// method 字段不是必须的，不进行校验
+	// message 字段也不强制校验，因为有些设备可能只返回 result
 	return payload, nil
 }
 

@@ -1,6 +1,9 @@
 package app
 
 import (
+	"fmt"
+
+	"project/internal/adapter"
 	"project/mqtt"
 	"project/mqtt/publish"
 	"project/mqtt/subscribe"
@@ -10,7 +13,9 @@ import (
 
 // MQTTService 实现MQTT相关服务
 type MQTTService struct {
+	app         *Application
 	initialized bool
+	mqttAdapter *adapter.MQTTAdapter
 }
 
 // NewMQTTService 创建MQTT服务实例
@@ -51,8 +56,43 @@ func (s *MQTTService) Start() error {
 	// 初始化发布
 	publish.PublishInit()
 
+	// ✨ 创建 MQTT Adapter 并订阅响应 Topic
+	if err := s.initMQTTAdapter(); err != nil {
+		logrus.WithError(err).Warn("Failed to initialize MQTT Adapter, response topics may not work")
+		// 不阻塞启动，继续运行
+	}
+
 	s.initialized = true
 	logrus.Info("MQTT服务启动完成")
+	return nil
+}
+
+// initMQTTAdapter 初始化 MQTT Adapter（在 MQTT 连接成功后调用）
+func (s *MQTTService) initMQTTAdapter() error {
+	// 1. 获取 Flow Bus
+	bus := s.app.GetFlowBus()
+	if bus == nil {
+		return fmt.Errorf("Flow Bus not initialized, cannot create MQTT Adapter")
+	}
+
+	// 2. 创建 MQTT Adapter
+	s.mqttAdapter = adapter.NewMQTTAdapter(bus, s.app.Logger)
+	logrus.Info("MQTT Adapter created")
+
+	// 3. 订阅响应 Topic
+	mqttClient := publish.GetMQTTClient()
+	if mqttClient == nil || !mqttClient.IsConnected() {
+		return fmt.Errorf("MQTT client not connected")
+	}
+
+	if err := s.mqttAdapter.SubscribeResponseTopics(mqttClient); err != nil {
+		return fmt.Errorf("failed to subscribe response topics: %w", err)
+	}
+
+	// 4. 注册 Adapter 到订阅层（用于上行数据）
+	subscribe.SetMQTTAdapter(s.mqttAdapter)
+
+	logrus.Info("MQTT Adapter initialized and response topics subscribed successfully")
 	return nil
 }
 
@@ -74,7 +114,9 @@ func (s *MQTTService) Stop() error {
 func WithMQTTService() Option {
 	return func(app *Application) error {
 		service := NewMQTTService()
+		service.app = app // ✨ 设置 Application 引用
 		app.RegisterService(service)
+		app.mqttService = service // ✨ 保存服务引用
 		return nil
 	}
 }

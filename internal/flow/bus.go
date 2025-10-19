@@ -178,6 +178,21 @@ func (b *Bus) PublishResponse(msg *DeviceMessage) error {
 	}
 }
 
+// PublishStatusOffline 实现 StatusPublisher 接口
+// 发布设备离线状态消息到 Bus
+func (b *Bus) PublishStatusOffline(deviceID, source string) error {
+	msg := &DeviceMessage{
+		Type:     MessageTypeStatus,
+		DeviceID: deviceID,
+		Payload:  []byte("0"), // 0 表示离线
+		Metadata: map[string]interface{}{
+			"source": source, // 离线来源存储在 Metadata 中
+		},
+	}
+
+	return b.Publish(msg)
+}
+
 // SubscribeTelemetry 订阅遥测消息
 func (b *Bus) SubscribeTelemetry() <-chan *DeviceMessage {
 	return b.telemetryChan
