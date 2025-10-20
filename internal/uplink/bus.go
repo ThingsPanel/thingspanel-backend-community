@@ -113,7 +113,7 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 	// 根据消息类型路由到不同的 channel
 	// 支持网关消息类型(gateway_telemetry/gateway_attribute/gateway_event)
 	switch msg.Type {
-	case MessageTypeTelemetry:
+	case MessageTypeTelemetry, "gateway_telemetry":
 		select {
 		case b.telemetryChan <- msg:
 			// 发送成功
@@ -123,7 +123,7 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 			b.telemetryChan <- msg
 		}
 
-	case MessageTypeAttribute:
+	case MessageTypeAttribute, "gateway_attribute":
 		select {
 		case b.attributeChan <- msg:
 		default:
@@ -131,7 +131,7 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 			b.attributeChan <- msg
 		}
 
-	case MessageTypeEvent:
+	case MessageTypeEvent, "gateway_event":
 		select {
 		case b.eventChan <- msg:
 		default:

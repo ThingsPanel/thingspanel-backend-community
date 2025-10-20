@@ -11,8 +11,8 @@ var (
 
 	ErrChannelFull = errors.New("channel is full") // ✨ 新增
 
-	// ErrUplinkStopped Flow 已停止
-	ErrUplinkStopped = errors.New("flow is stopped")
+	// ErrUplinkStopped uplink 已停止
+	ErrUplinkStopped = errors.New("uplink is stopped")
 
 	// ErrProcessorFailed 数据处理失败
 	ErrProcessorFailed = errors.New("processor failed")
