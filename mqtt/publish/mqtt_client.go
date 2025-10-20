@@ -5,9 +5,7 @@ import (
 	"path"
 	"time"
 
-	"project/internal/model"
 	config "project/mqtt"
-	"project/pkg/common"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-basic/uuid"
@@ -71,20 +69,8 @@ func CreateMqttClient() {
 	}
 }
 
-// 下发telemetry消息
-func PublishTelemetryMessage(topic string, device *model.Device, param *model.PutMessage) error {
-	qos := byte(config.MqttConfig.Telemetry.QoS)
-
-	logrus.Info("topic:", topic, "value:", param.Value)
-	// 发布消息
-	token := mqttClient.Publish(topic, qos, false, []byte(param.Value))
-	if token.Wait() && token.Error() != nil {
-		logrus.Error(token.Error())
-	}
-	return token.Error()
-}
-
-// 发送ota版本包消息给直连设备
+// PublishOtaAdress 发送ota版本包消息给直连设备
+// 保留此函数用于 OTA 功能（企业版兼容性）
 func PublishOtaAdress(deviceNumber string, payload []byte) error {
 	topic := config.MqttConfig.OTA.PublishTopic + deviceNumber
 	qos := byte(config.MqttConfig.OTA.QoS)
@@ -96,99 +82,8 @@ func PublishOtaAdress(deviceNumber string, payload []byte) error {
 	return token.Error()
 }
 
-// Send
-// @AUTH：zxq
-// @DATE：2024-03-08 14:30
-// @DESCRIPTION：下发属性
-func PublishAttributeMessage(topic string, payload []byte) error {
-	qos := byte(config.MqttConfig.Attributes.QoS)
-	// 发布消息
-	token := mqttClient.Publish(topic, qos, false, payload)
-	if token.Wait() && token.Error() != nil {
-		logrus.Error(token.Error())
-		return token.Error()
-	}
-	return nil
-}
-
-// 接收设备属性响应
-func PublishAttributeResponseMessage(deviceNumber string, messageId string, err error) error {
-	qos := byte(config.MqttConfig.Attributes.QoS)
-	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Attributes.PublishResponseTopic, deviceNumber, messageId)
-
-	payload := common.GetResponsePayload("", err)
-	// 发布消息
-	token := mqttClient.Publish(topic, qos, false, payload)
-	if token.Wait() && token.Error() != nil {
-		logrus.Error(token.Error())
-	}
-	return token.Error()
-}
-
-// 接收设备事件响应
-func PublishEventResponseMessage(deviceNumber string, messageId string, method string, err error) error {
-	qos := byte(config.MqttConfig.Events.QoS)
-	topic := fmt.Sprintf("%s%s/%s", config.MqttConfig.Events.PublishTopic, deviceNumber, messageId)
-
-	payload := common.GetResponsePayload(method, err)
-	// 发布消息
-	token := mqttClient.Publish(topic, qos, false, payload)
-	if token.Wait() && token.Error() != nil {
-		logrus.Error(token.Error())
-	}
-	return token.Error()
-}
-
-// 发布获取属性请求
-func PublishGetAttributeMessage(deviceNumber string, payload []byte) error {
-	topic := fmt.Sprintf("%s%s", config.MqttConfig.Attributes.PublishGetTopic, deviceNumber)
-	qos := byte(config.MqttConfig.Attributes.QoS)
-	// 发布消息
-	token := mqttClient.Publish(topic, qos, false, payload)
-	if token.Wait() && token.Error() != nil {
-		logrus.Error(token.Error())
-	}
-	return token.Error()
-}
-
-// 发送事件响应
-func PublishEventMessage(payload []byte) error {
-	topic := config.MqttConfig.Events.PublishTopic
-	qos := byte(config.MqttConfig.Events.QoS)
-	// 发布消息
-	token := mqttClient.Publish(topic, qos, false, payload)
-	if token.Wait() && token.Error() != nil {
-		logrus.Error(token.Error())
-	}
-	return token.Error()
-}
-
-// 下发command消息
-func PublishCommandMessage(topic string, payload []byte) error {
-	qos := byte(config.MqttConfig.Commands.QoS)
-	// 发布消息
-	token := mqttClient.Publish(topic, qos, false, payload)
-	if token.Wait() && token.Error() != nil {
-		logrus.Error(token.Error())
-	}
-	logrus.Debug("下发主题:", topic)
-	logrus.Debug("下发命令:", string(payload))
-	return token.Error()
-}
-
-// 转发telemetry消息
-func ForwardTelemetryMessage(deviceId string, payload []byte) error {
-	telemetryTopic := config.MqttConfig.Telemetry.SubscribeTopic + "/" + deviceId
-	qos := byte(config.MqttConfig.Telemetry.QoS)
-	// 发布消息
-	token := mqttClient.Publish(telemetryTopic, qos, false, payload)
-	if token.Wait() && token.Error() != nil {
-		logrus.Error(token.Error())
-	}
-	return token.Error()
-}
-
-// 发送在线离线消息
+// PublishOnlineMessage 发送在线离线消息
+// 保留此函数用于模拟设备功能
 func PublishOnlineMessage(deviceID string, payload []byte) error {
 	topic := fmt.Sprintf("devices/status/%s", deviceID)
 	topic = path.Join("$share/mygroup", topic)
@@ -201,7 +96,8 @@ func PublishOnlineMessage(deviceID string, payload []byte) error {
 	return token.Error()
 }
 
-// GetMQTTClient 获取全局 MQTT 客户端（供 downlink 使用）
+// GetMQTTClient 获取全局 MQTT 客户端（供其他模块使用）
+// 保留此函数以防有其他地方使用
 func GetMQTTClient() mqtt.Client {
 	return mqttClient
 }

@@ -1,4 +1,4 @@
-package flow
+package uplink
 
 import "errors"
 
@@ -11,8 +11,8 @@ var (
 
 	ErrChannelFull = errors.New("channel is full") // ✨ 新增
 
-	// ErrFlowStopped Flow 已停止
-	ErrFlowStopped = errors.New("flow is stopped")
+	// ErrUplinkStopped Flow 已停止
+	ErrUplinkStopped = errors.New("flow is stopped")
 
 	// ErrProcessorFailed 数据处理失败
 	ErrProcessorFailed = errors.New("processor failed")

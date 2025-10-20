@@ -1,8 +1,9 @@
-package flow
+package uplink
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"project/initialize"
@@ -16,11 +17,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// EventFlow 事件数据流处理器
-type EventFlow struct {
+// TelemetryUplink 遥测数据流处理器
+type TelemetryUplink struct {
 	// 依赖注入
 	processor        processor.DataProcessor
-	storageInput     chan<- *storage.Message
+	storageInput     chan<- *storage.Message // 只写 channel
 	heartbeatService *service.HeartbeatService
 	logger           *logrus.Logger
 
@@ -29,23 +30,23 @@ type EventFlow struct {
 	cancel context.CancelFunc
 }
 
-// EventFlowConfig 事件流程配置
-type EventFlowConfig struct {
+// TelemetryUplinkConfig 遥测流程配置
+type TelemetryUplinkConfig struct {
 	Processor        processor.DataProcessor
-	StorageInput     chan<- *storage.Message
+	StorageInput     chan<- *storage.Message // 只写 channel
 	HeartbeatService *service.HeartbeatService
 	Logger           *logrus.Logger
 }
 
-// NewEventFlow 创建事件数据流处理器
-func NewEventFlow(config EventFlowConfig) *EventFlow {
+// NewTelemetryUplink 创建遥测数据流处理器
+func NewTelemetryUplink(config TelemetryUplinkConfig) *TelemetryUplink {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	if config.Logger == nil {
 		config.Logger = logrus.StandardLogger()
 	}
 
-	return &EventFlow{
+	return &TelemetryUplink{
 		processor:        config.Processor,
 		storageInput:     config.StorageInput,
 		heartbeatService: config.HeartbeatService,
@@ -55,35 +56,54 @@ func NewEventFlow(config EventFlowConfig) *EventFlow {
 	}
 }
 
-// Start 启动事件数据流处理
-func (f *EventFlow) Start(messageChan <-chan *DeviceMessage) {
-	f.logger.Info("EventFlow started")
+// DeviceMessage 设备消息（避免循环导入，在 flow 包内定义）
+type DeviceMessage struct {
+	Type      string
+	DeviceID  string
+	TenantID  string
+	Timestamp int64
+	Payload   []byte
+	Metadata  map[string]interface{}
+}
+
+// GetMetadata 获取元数据
+func (m *DeviceMessage) GetMetadata(key string) (interface{}, bool) {
+	if m.Metadata == nil {
+		return nil, false
+	}
+	val, ok := m.Metadata[key]
+	return val, ok
+}
+
+// Start 启动遥测数据流处理
+func (f *TelemetryUplink) Start(messageChan <-chan *DeviceMessage) {
+	f.logger.Info("TelemetryUplink started")
 
 	go func() {
 		for {
 			select {
 			case msg, ok := <-messageChan:
 				if !ok {
-					f.logger.Info("EventFlow message channel closed")
+					f.logger.Info("TelemetryUplink message channel closed")
 					return
 				}
 				f.processMessage(msg)
 
 			case <-f.ctx.Done():
-				f.logger.Info("EventFlow stopped")
+				f.logger.Info("TelemetryUplink stopped")
 				return
 			}
 		}
 	}()
 }
 
-// Stop 停止事件数据流处理
-func (f *EventFlow) Stop() {
+// Stop 停止遥测数据流处理
+func (f *TelemetryUplink) Stop() {
 	f.cancel()
 }
 
-// processMessage 处理单条事件消息
-func (f *EventFlow) processMessage(msg *DeviceMessage) {
+// processMessage 处理单条遥测消息
+func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
 	// 从 metadata 获取设备ID
 	deviceIDObj, ok := msg.GetMetadata("device_id")
 	if !ok {
@@ -112,7 +132,7 @@ func (f *EventFlow) processMessage(msg *DeviceMessage) {
 	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
 		output, err := f.processor.Decode(f.ctx, &processor.DecodeInput{
 			DeviceConfigID: *device.DeviceConfigID,
-			Type:           processor.DataTypeEvent,
+			Type:           processor.DataTypeTelemetry,
 			RawData:        msg.Payload,
 			Timestamp:      msg.Timestamp,
 		})
@@ -138,36 +158,29 @@ func (f *EventFlow) processMessage(msg *DeviceMessage) {
 
 	// 2. 根据消息类型判断是否为网关消息
 	// 使用 Type 字段而不是解析 Payload,支持协议无关的判断
-	if msg.Type == "gateway_event" {
+	if msg.Type == "gateway_telemetry" {
 		f.processGatewayMessage(device, processedPayload, msg)
 	} else {
-		// 直连设备消息 - 需要先解析为 EventInfo
-		var eventInfo model.EventInfo
-		if err := json.Unmarshal(processedPayload, &eventInfo); err != nil {
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"error":     err,
-			}).Error("Failed to unmarshal event info")
-			return
-		}
-		f.processDirectDeviceEvent(device, &eventInfo, msg)
+		// 直连设备消息
+		f.processDirectDeviceMessage(device, processedPayload, msg)
 	}
 }
 
 // processGatewayMessage 处理网关消息（拆分后递归处理）
-func (f *EventFlow) processGatewayMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
-	var gatewayMsg model.GatewayCommandPulish
+func (f *TelemetryUplink) processGatewayMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
+	var gatewayMsg model.GatewayPublish
 	if err := json.Unmarshal(payload, &gatewayMsg); err != nil {
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"error":     err,
-		}).Error("Failed to unmarshal gateway event message")
+		}).Error("Failed to unmarshal gateway message")
 		return
 	}
 
 	// 处理网关自身数据
 	if gatewayMsg.GatewayData != nil {
-		f.processDirectDeviceEvent(device, gatewayMsg.GatewayData, originalMsg)
+		gatewayData, _ := json.Marshal(gatewayMsg.GatewayData)
+		f.processDirectDeviceMessage(device, gatewayData, originalMsg)
 	}
 
 	// 处理子设备数据
@@ -182,7 +195,8 @@ func (f *EventFlow) processGatewayMessage(device *model.Device, payload []byte, 
 }
 
 // processSubDevices 处理子设备数据
-func (f *EventFlow) processSubDevices(parentID string, subDeviceData map[string]model.EventInfo, originalMsg *DeviceMessage) {
+// subDeviceData: map[设备地址]设备数据
+func (f *TelemetryUplink) processSubDevices(parentID string, subDeviceData map[string]map[string]interface{}, originalMsg *DeviceMessage) {
 	if len(subDeviceData) == 0 {
 		return
 	}
@@ -204,7 +218,7 @@ func (f *EventFlow) processSubDevices(parentID string, subDeviceData map[string]
 	}
 
 	// 处理每个子设备
-	for addr, eventData := range subDeviceData {
+	for addr, data := range subDeviceData {
 		subDevice, ok := subDevices[addr]
 		if !ok {
 			f.logger.WithFields(logrus.Fields{
@@ -214,12 +228,13 @@ func (f *EventFlow) processSubDevices(parentID string, subDeviceData map[string]
 			continue
 		}
 
-		f.processDirectDeviceEvent(subDevice, &eventData, originalMsg)
+		subDeviceData, _ := json.Marshal(data)
+		f.processDirectDeviceMessage(subDevice, subDeviceData, originalMsg)
 	}
 }
 
 // processSubGateways 处理子网关数据（递归，最多5层）
-func (f *EventFlow) processSubGateways(parentID string, subGatewayData map[string]*model.GatewayCommandPulish, originalMsg *DeviceMessage, depth int) {
+func (f *TelemetryUplink) processSubGateways(parentID string, subGatewayData map[string]*model.GatewayPublish, originalMsg *DeviceMessage, depth int) {
 	if depth > 5 {
 		f.logger.Warn("Maximum gateway depth (5) exceeded")
 		return
@@ -258,7 +273,8 @@ func (f *EventFlow) processSubGateways(parentID string, subGatewayData map[strin
 
 		// 处理子网关自身数据
 		if gatewayMsg.GatewayData != nil {
-			f.processDirectDeviceEvent(subGateway, gatewayMsg.GatewayData, originalMsg)
+			gatewayData, _ := json.Marshal(gatewayMsg.GatewayData)
+			f.processDirectDeviceMessage(subGateway, gatewayData, originalMsg)
 		}
 
 		// 处理子网关的子设备
@@ -273,41 +289,45 @@ func (f *EventFlow) processSubGateways(parentID string, subGatewayData map[strin
 	}
 }
 
-// processDirectDeviceEvent 处理单个设备的事件数据
-func (f *EventFlow) processDirectDeviceEvent(device *model.Device, eventInfo *model.EventInfo, originalMsg *DeviceMessage) {
+// processDirectDeviceMessage 处理单个设备的遥测数据
+func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
 	// 1. 心跳刷新(最优先,确保设备活跃性)
 	f.refreshHeartbeat(device)
 
-	// 2. 转换事件数据为 JSON
-	paramsJSON, err := json.Marshal(eventInfo.Params)
+	// 2. 数据转发（同步执行）
+	// if err := publish.ForwardTelemetryMessage(device.ID, payload); err != nil {
+	// 	f.logger.WithFields(logrus.Fields{
+	// 		"device_id": device.ID,
+	// 		"error":     err,
+	// 	}).Error("Telemetry forward failed")
+	// 	// 转发失败不影响后续流程
+	// }
+
+	// 3. 数据转换（map → []TelemetryDataPoint）
+	telemetryPoints, triggerParam, triggerValues, err := f.convertToTelemetryPoints(payload, device)
 	if err != nil {
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"error":     err,
-		}).Error("Failed to marshal event params")
+		}).Error("Failed to convert telemetry data")
 		return
 	}
 
-	// 3. 发送到 Storage（通过channel）
+	// 4. 发送到 Storage（同步发送到 channel）
 	f.storageInput <- &storage.Message{
 		DeviceID:  device.ID,
 		TenantID:  device.TenantID,
-		DataType:  storage.DataTypeEvent,
+		DataType:  storage.DataTypeTelemetry,
 		Timestamp: time.Now().UnixMilli(),
-		Data: storage.EventData{
-			Identify: eventInfo.Method,
-			Data:     paramsJSON,
-		},
+		Data:      telemetryPoints,
 	}
 
-	// 4. 场景联动（异步）
+	// 5. 场景联动（异步）
 	go func() {
 		err := service.GroupApp.Execute(device, service.AutomateFromExt{
-			TriggerParamType: model.TRIGGER_PARAM_TYPE_EVT,
-			TriggerParam:     []string{eventInfo.Method},
-			TriggerValues: map[string]interface{}{
-				eventInfo.Method: string(paramsJSON),
-			},
+			TriggerParamType: model.TRIGGER_PARAM_TYPE_TEL,
+			TriggerParam:     triggerParam,
+			TriggerValues:    triggerValues,
 		})
 		if err != nil {
 			f.logger.WithFields(logrus.Fields{
@@ -318,8 +338,35 @@ func (f *EventFlow) processDirectDeviceEvent(device *model.Device, eventInfo *mo
 	}()
 }
 
+// convertToTelemetryPoints 将 JSON 数据转换为 TelemetryDataPoint 列表
+// 返回: (telemetryPoints, triggerParam, triggerValues, error)
+func (f *TelemetryUplink) convertToTelemetryPoints(payload []byte, device *model.Device) ([]storage.TelemetryDataPoint, []string, map[string]interface{}, error) {
+	// 解析 JSON
+	var dataMap map[string]interface{}
+	if err := json.Unmarshal(payload, &dataMap); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	// 转换为 TelemetryDataPoint
+	var points []storage.TelemetryDataPoint
+	var triggerParam []string
+	triggerValues := make(map[string]interface{})
+
+	for key, value := range dataMap {
+		points = append(points, storage.TelemetryDataPoint{
+			Key:   key,
+			Value: value,
+		})
+
+		triggerParam = append(triggerParam, key)
+		triggerValues[key] = value
+	}
+
+	return points, triggerParam, triggerValues, nil
+}
+
 // refreshHeartbeat 刷新设备心跳
-func (f *EventFlow) refreshHeartbeat(device *model.Device) {
+func (f *TelemetryUplink) refreshHeartbeat(device *model.Device) {
 	// 如果没有 HeartbeatService,跳过
 	if f.heartbeatService == nil {
 		return
@@ -368,7 +415,7 @@ func (f *EventFlow) refreshHeartbeat(device *model.Device) {
 }
 
 // notifyDeviceOnline 通知设备上线(SSE + 自动化 + 预期数据)
-func (f *EventFlow) notifyDeviceOnline(device *model.Device) {
+func (f *TelemetryUplink) notifyDeviceOnline(device *model.Device) {
 	// SSE通知
 	var deviceName string
 	if device.Name != nil {

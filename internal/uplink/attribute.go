@@ -1,4 +1,4 @@
-package flow
+package uplink
 
 import (
 	"context"
@@ -16,8 +16,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// AttributeFlow 属性数据流处理器
-type AttributeFlow struct {
+// AttributeUplink 属性数据流处理器
+type AttributeUplink struct {
 	// 依赖注入
 	processor        processor.DataProcessor
 	storageInput     chan<- *storage.Message // Storage输入channel
@@ -29,23 +29,23 @@ type AttributeFlow struct {
 	cancel context.CancelFunc
 }
 
-// AttributeFlowConfig 属性流程配置
-type AttributeFlowConfig struct {
+// AttributeUplinkConfig 属性流程配置
+type AttributeUplinkConfig struct {
 	Processor        processor.DataProcessor
 	StorageInput     chan<- *storage.Message
 	HeartbeatService *service.HeartbeatService
 	Logger           *logrus.Logger
 }
 
-// NewAttributeFlow 创建属性数据流处理器
-func NewAttributeFlow(config AttributeFlowConfig) *AttributeFlow {
+// NewAttributeUplink 创建属性数据流处理器
+func NewAttributeUplink(config AttributeUplinkConfig) *AttributeUplink {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	if config.Logger == nil {
 		config.Logger = logrus.StandardLogger()
 	}
 
-	return &AttributeFlow{
+	return &AttributeUplink{
 		processor:        config.Processor,
 		storageInput:     config.StorageInput,
 		heartbeatService: config.HeartbeatService,
@@ -56,21 +56,21 @@ func NewAttributeFlow(config AttributeFlowConfig) *AttributeFlow {
 }
 
 // Start 启动属性数据流处理
-func (f *AttributeFlow) Start(messageChan <-chan *DeviceMessage) {
-	f.logger.Info("AttributeFlow started")
+func (f *AttributeUplink) Start(messageChan <-chan *DeviceMessage) {
+	f.logger.Info("AttributeUplink started")
 
 	go func() {
 		for {
 			select {
 			case msg, ok := <-messageChan:
 				if !ok {
-					f.logger.Info("AttributeFlow message channel closed")
+					f.logger.Info("AttributeUplink message channel closed")
 					return
 				}
 				f.processMessage(msg)
 
 			case <-f.ctx.Done():
-				f.logger.Info("AttributeFlow stopped")
+				f.logger.Info("AttributeUplink stopped")
 				return
 			}
 		}
@@ -78,12 +78,12 @@ func (f *AttributeFlow) Start(messageChan <-chan *DeviceMessage) {
 }
 
 // Stop 停止属性数据流处理
-func (f *AttributeFlow) Stop() {
+func (f *AttributeUplink) Stop() {
 	f.cancel()
 }
 
 // processMessage 处理单条属性消息
-func (f *AttributeFlow) processMessage(msg *DeviceMessage) {
+func (f *AttributeUplink) processMessage(msg *DeviceMessage) {
 	// 从 metadata 获取设备ID
 	deviceIDObj, ok := msg.GetMetadata("device_id")
 	if !ok {
@@ -147,7 +147,7 @@ func (f *AttributeFlow) processMessage(msg *DeviceMessage) {
 }
 
 // processGatewayMessage 处理网关消息（拆分后递归处理）
-func (f *AttributeFlow) processGatewayMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
+func (f *AttributeUplink) processGatewayMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
 	var gatewayMsg model.GatewayPublish
 	if err := json.Unmarshal(payload, &gatewayMsg); err != nil {
 		f.logger.WithFields(logrus.Fields{
@@ -176,7 +176,7 @@ func (f *AttributeFlow) processGatewayMessage(device *model.Device, payload []by
 
 // processSubDevices 处理子设备数据
 // subDeviceData: map[设备地址]设备数据
-func (f *AttributeFlow) processSubDevices(parentID string, subDeviceData map[string]map[string]interface{}, originalMsg *DeviceMessage) {
+func (f *AttributeUplink) processSubDevices(parentID string, subDeviceData map[string]map[string]interface{}, originalMsg *DeviceMessage) {
 	if len(subDeviceData) == 0 {
 		return
 	}
@@ -214,7 +214,7 @@ func (f *AttributeFlow) processSubDevices(parentID string, subDeviceData map[str
 }
 
 // processSubGateways 处理子网关数据（递归，最多5层）
-func (f *AttributeFlow) processSubGateways(parentID string, subGatewayData map[string]*model.GatewayPublish, originalMsg *DeviceMessage, depth int) {
+func (f *AttributeUplink) processSubGateways(parentID string, subGatewayData map[string]*model.GatewayPublish, originalMsg *DeviceMessage, depth int) {
 	if depth > 5 {
 		f.logger.Warn("Maximum gateway depth (5) exceeded")
 		return
@@ -270,7 +270,7 @@ func (f *AttributeFlow) processSubGateways(parentID string, subGatewayData map[s
 }
 
 // processDirectDeviceMessage 处理单个设备的属性数据
-func (f *AttributeFlow) processDirectDeviceMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
+func (f *AttributeUplink) processDirectDeviceMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
 	// 1. 心跳刷新(最优先,确保设备活跃性)
 	f.refreshHeartbeat(device)
 
@@ -325,7 +325,7 @@ func (f *AttributeFlow) processDirectDeviceMessage(device *model.Device, payload
 }
 
 // refreshHeartbeat 刷新设备心跳
-func (f *AttributeFlow) refreshHeartbeat(device *model.Device) {
+func (f *AttributeUplink) refreshHeartbeat(device *model.Device) {
 	// 如果没有 HeartbeatService,跳过
 	if f.heartbeatService == nil {
 		return
@@ -374,7 +374,7 @@ func (f *AttributeFlow) refreshHeartbeat(device *model.Device) {
 }
 
 // notifyDeviceOnline 通知设备上线(SSE + 自动化 + 预期数据)
-func (f *AttributeFlow) notifyDeviceOnline(device *model.Device) {
+func (f *AttributeUplink) notifyDeviceOnline(device *model.Device) {
 	// SSE通知
 	var deviceName string
 	if device.Name != nil {

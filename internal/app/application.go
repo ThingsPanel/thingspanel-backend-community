@@ -2,9 +2,9 @@ package app
 
 import (
 	"project/internal/downlink"
-	"project/internal/flow"
 	"project/internal/query"
 	"project/internal/storage"
+	"project/internal/uplink"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -25,7 +25,7 @@ type Application struct {
 	storageInputChan chan *storage.Message
 
 	// Flow 相关
-	flowService *FlowServiceWrapper
+	uplinkService *UplinkServiceWrapper
 
 	// MQTT 相关
 	mqttService *MQTTService
@@ -101,10 +101,10 @@ func (a *Application) GetDownlinkBus() *downlink.Bus {
 	return a.downlinkService.GetBus()
 }
 
-// GetFlowBus 获取上行消息总线（供 Adapter 层调用）
-func (a *Application) GetFlowBus() *flow.Bus {
-	if a.flowService == nil {
+// GetUpFlowBus 获取上行消息总线（供 Adapter 层调用）
+func (a *Application) GetUplinkBus() *uplink.Bus {
+	if a.uplinkService == nil {
 		return nil
 	}
-	return a.flowService.GetBus()
+	return a.uplinkService.GetBus()
 }

@@ -37,6 +37,17 @@ func (h *Handler) HandleAttributeSet(ctx context.Context, msg *Message) {
 	h.handle(ctx, msg, processor.DataTypeAttributeSet)
 }
 
+// HandleAttributeGet 处理属性获取
+func (h *Handler) HandleAttributeGet(ctx context.Context, msg *Message) {
+	// 属性获取也使用属性下发的脚本处理（ScriptTypeAttributeDownlink）
+	h.handle(ctx, msg, processor.DataTypeAttributeSet)
+}
+
+// HandleTelemetry 处理遥测数据下发
+func (h *Handler) HandleTelemetry(ctx context.Context, msg *Message) {
+	h.handle(ctx, msg, processor.DataTypeTelemetryControl)
+}
+
 // handle 通用处理逻辑
 func (h *Handler) handle(ctx context.Context, msg *Message, dataType processor.DataType) {
 	start := time.Now()

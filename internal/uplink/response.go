@@ -1,4 +1,4 @@
-package flow
+package uplink
 
 import (
 	"context"
@@ -9,28 +9,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// ResponseFlow 响应流处理器
+// ResponseUplink 响应流处理器
 // 负责处理命令和属性设置的响应消息，更新日志表
-type ResponseFlow struct {
+type ResponseUplink struct {
 	logger *logrus.Logger
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-// ResponseFlowConfig ResponseFlow 配置
-type ResponseFlowConfig struct {
+// ResponseUplinkConfig ResponseUplink 配置
+type ResponseUplinkConfig struct {
 	Logger *logrus.Logger
 }
 
-// NewResponseFlow 创建响应流处理器
-func NewResponseFlow(config ResponseFlowConfig) *ResponseFlow {
+// NewResponseUplink 创建响应流处理器
+func NewResponseUplink(config ResponseUplinkConfig) *ResponseUplink {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	if config.Logger == nil {
 		config.Logger = logrus.StandardLogger()
 	}
 
-	return &ResponseFlow{
+	return &ResponseUplink{
 		logger: config.Logger,
 		ctx:    ctx,
 		cancel: cancel,
@@ -38,15 +38,15 @@ func NewResponseFlow(config ResponseFlowConfig) *ResponseFlow {
 }
 
 // Start 启动响应流处理
-func (f *ResponseFlow) Start(input <-chan *DeviceMessage) error {
-	f.logger.Info("ResponseFlow starting...")
+func (f *ResponseUplink) Start(input <-chan *DeviceMessage) error {
+	f.logger.Info("ResponseUplink starting...")
 
 	go func() {
-		f.logger.Info("ResponseFlow message loop started")
+		f.logger.Info("ResponseUplink message loop started")
 		for {
 			select {
 			case <-f.ctx.Done():
-				f.logger.Info("ResponseFlow stopped")
+				f.logger.Info("ResponseUplink stopped")
 				return
 			case msg := <-input:
 				if msg == nil {
@@ -57,24 +57,24 @@ func (f *ResponseFlow) Start(input <-chan *DeviceMessage) error {
 					"device_id":  msg.DeviceID,
 					"type":       msg.Type,
 					"message_id": msg.Metadata["message_id"],
-				}).Info("ResponseFlow received message")
+				}).Info("ResponseUplink received message")
 				f.processMessage(msg)
 			}
 		}
 	}()
 
-	f.logger.Info("ResponseFlow started successfully")
+	f.logger.Info("ResponseUplink started successfully")
 	return nil
 }
 
 // Stop 停止响应流处理
-func (f *ResponseFlow) Stop() error {
+func (f *ResponseUplink) Stop() error {
 	f.cancel()
 	return nil
 }
 
 // processMessage 处理响应消息
-func (f *ResponseFlow) processMessage(msg *DeviceMessage) {
+func (f *ResponseUplink) processMessage(msg *DeviceMessage) {
 	// 1. 提取 message_id
 	messageID, ok := msg.Metadata["message_id"].(string)
 	if !ok || messageID == "" {
@@ -102,7 +102,7 @@ func (f *ResponseFlow) processMessage(msg *DeviceMessage) {
 // 返回: (错误信息, 是否成功)
 // 响应格式: {"result":0,"message":"success","ts":1609143039,"errcode":"","method":""}
 // result: 0-成功 1-失败
-func (f *ResponseFlow) parseResponse(payload []byte) (string, bool) {
+func (f *ResponseUplink) parseResponse(payload []byte) (string, bool) {
 	// 尝试解析响应格式
 	var response struct {
 		Result  int    `json:"result"`  // 0-成功 1-失败
@@ -137,7 +137,7 @@ func (f *ResponseFlow) parseResponse(payload []byte) (string, bool) {
 }
 
 // updateCommandLog 更新命令日志
-func (f *ResponseFlow) updateCommandLog(messageID string, success bool, errorMsg string) {
+func (f *ResponseUplink) updateCommandLog(messageID string, success bool, errorMsg string) {
 	// 状态: 3=成功, 4=失败
 	status := "3" // 成功
 	var errorMsgPtr *string
@@ -173,7 +173,7 @@ func (f *ResponseFlow) updateCommandLog(messageID string, success bool, errorMsg
 }
 
 // updateAttributeLog 更新属性设置日志
-func (f *ResponseFlow) updateAttributeLog(messageID string, success bool, errorMsg string) {
+func (f *ResponseUplink) updateAttributeLog(messageID string, success bool, errorMsg string) {
 	// 状态: 3=成功, 4=失败
 	status := "3" // 成功
 	var errorMsgPtr *string

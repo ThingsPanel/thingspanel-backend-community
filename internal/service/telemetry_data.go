@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"project/initialize"
+	dal "project/internal/dal"
+	"project/internal/downlink"
+	model "project/internal/model"
 	config "project/mqtt"
 	"project/mqtt/publish"
 	simulationpublish "project/mqtt/simulation_publish"
@@ -24,12 +27,16 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/xuri/excelize/v2"
-
-	dal "project/internal/dal"
-	model "project/internal/model"
 )
 
-type TelemetryData struct{}
+type TelemetryData struct {
+	downlinkBus *downlink.Bus // ✨ 依赖注入
+}
+
+// SetDownlinkBus 设置 downlink Bus（在 Application 初始化时调用）
+func (t *TelemetryData) SetDownlinkBus(bus *downlink.Bus) {
+	t.downlinkBus = bus
+}
 
 func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, error) {
 	// d, err := dal.GetCurrentTelemetrData(device_id)
@@ -979,7 +986,7 @@ func formatTime(timestamp int64) string {
 // 返回:
 //
 //	error: 处理过程中的错误
-func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
+func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
 	var errorMessage string
 
 	// 步骤1: 校验入参
@@ -1100,7 +1107,7 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 					"error": "subDeviceAddr is nil",
 				})
 			}
-			
+
 			// 查找子设备的直接父网关（可能是子网关）
 			parentGateway, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
 			if err != nil {
@@ -1108,7 +1115,7 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 					"error": err.Error(),
 				})
 			}
-			
+
 			// 如果父网关是子网关（有parent_id），需要嵌套结构
 			if parentGateway.ParentID != nil {
 				// 父网关是子网关，需要构建嵌套的sub_gateway_data结构
@@ -1159,12 +1166,27 @@ func (*TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, pa
 		param.Value = string(output)
 	}
 
-	// 步骤7: 发布消息
+	// 步骤7: 通过 Downlink Bus 发布遥测消息
 	// ---------------------------------------------
-	err = publish.PublishTelemetryMessage(topic, deviceInfo, param)
-	if err != nil {
-		logrus.Error(ctx, "下发失败", err)
-		errorMessage = err.Error()
+	if t.downlinkBus == nil {
+		errorMessage = "downlink bus not initialized"
+		logrus.Error(ctx, "下发失败: ", errorMessage)
+		err = fmt.Errorf(errorMessage)
+	} else {
+		// 构造下行消息
+		msg := &downlink.Message{
+			DeviceID:       deviceInfo.ID,
+			DeviceConfigID: getDeviceConfigID(deviceInfo),
+			Type:           downlink.MessageTypeTelemetry,
+			Data:           []byte(param.Value),
+			Topic:          topic,
+			MessageID:      "", // 遥测下发暂不记录 message_id（使用下面的日志记录）
+		}
+
+		// 发送到 Bus（异步处理）
+		t.downlinkBus.PublishTelemetry(msg)
+		// Bus 是异步的，这里认为发送成功
+		err = nil
 	}
 
 	// 步骤8: 记录操作日志
@@ -1231,7 +1253,7 @@ func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.
 // findTopLevelGateway 递归查找顶层网关（parent_id为空的网关）
 func findTopLevelGateway(deviceInfo *model.Device, deviceType string) (*model.Device, error) {
 	currentDevice := deviceInfo
-	
+
 	// 如果是子设备(3)，先找到它的父设备
 	if deviceType == "3" {
 		if deviceInfo.ParentID == nil {
@@ -1243,11 +1265,11 @@ func findTopLevelGateway(deviceInfo *model.Device, deviceType string) (*model.De
 		}
 		currentDevice = parentDevice
 	}
-	
+
 	// 递归查找顶层网关（parent_id为空的设备）
 	maxDepth := 10 // 防止无限循环
 	depth := 0
-	
+
 	for currentDevice.ParentID != nil && depth < maxDepth {
 		parentDevice, err := initialize.GetDeviceCacheById(*currentDevice.ParentID)
 		if err != nil {
@@ -1256,11 +1278,11 @@ func findTopLevelGateway(deviceInfo *model.Device, deviceType string) (*model.De
 		currentDevice = parentDevice
 		depth++
 	}
-	
+
 	if depth >= maxDepth {
 		return nil, fmt.Errorf("网关层级过深，超过最大深度限制")
 	}
-	
+
 	// 确保找到的是网关设备（device_type=2）
 	if currentDevice.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*currentDevice.DeviceConfigID)
@@ -1271,7 +1293,7 @@ func findTopLevelGateway(deviceInfo *model.Device, deviceType string) (*model.De
 			return nil, fmt.Errorf("顶层设备不是网关类型")
 		}
 	}
-	
+
 	return currentDevice, nil
 }
 
@@ -1285,7 +1307,7 @@ func buildNestedSubGatewayData(gateway *model.Device, subDeviceAddr string, inpu
 			},
 		}
 	}
-	
+
 	// 递归查找父网关并构建嵌套结构
 	parentGateway, err := initialize.GetDeviceCacheById(*gateway.ParentID)
 	if err != nil {
@@ -1300,10 +1322,10 @@ func buildNestedSubGatewayData(gateway *model.Device, subDeviceAddr string, inpu
 			},
 		}
 	}
-	
+
 	// 构建当前层级的嵌套结构
 	innerData := buildNestedSubGatewayData(parentGateway, subDeviceAddr, inputData)
-	
+
 	// 如果父网关也是子网关，继续嵌套
 	if parentGateway.ParentID != nil {
 		return map[string]interface{}{
@@ -1480,4 +1502,12 @@ func (*TelemetryData) GetTelemetryStatisticDataByDeviceIds(req *model.GetTelemet
 	}
 
 	return chartData, nil
+}
+
+// getDeviceConfigID 获取设备配置ID（辅助函数）
+func getDeviceConfigID(device *model.Device) string {
+	if device.DeviceConfigID == nil {
+		return ""
+	}
+	return *device.DeviceConfigID
 }

@@ -37,7 +37,7 @@ internal/
 ## 核心组件概览
 
 - **Adapter**  
-  - `mqtt_adapter.go` 负责订阅、验设备、封装 `FlowMessage`。Topic 自动识别直连/网关类型，metadata 标记来源。
+  - `mqtt_adapter.go` 负责订阅、验设备、封装 `UplinkMessage`。Topic 自动识别直连/网关类型，metadata 标记来源。
 
 - **Flow.Bus**  
   - 带缓冲的 channel 总线，按消息类型拆分 `telemetry|attribute|event|status|response`，publish/subscribe 皆非阻塞。
@@ -50,25 +50,25 @@ internal/
   4. 若设备原本离线，自动更新状态并通过 SSE、自动化、预期数据补发。  
   5. 透传所需元数据供转发或监控。
 
-- **StatusFlow**  
+- **StatusUplink**  
   - 按配置决定是否接受设备上报或仅处理 `heartbeat_expired`/`timeout_expired`。  
   - 统一执行状态入库 → 缓存清理 → Redis Pub/Sub → SSE → 自动化。  
   - 超时模式上线时写入 TTL，离线保留 key 等待 HeartbeatMonitor 过期。
 
-- **ResponseFlow**  
+- **ResponseUplink**  
   - 汇聚 `command` / `attribute_set` 等响应消息，便于后续拓展到通知或审计。
 
-- **FlowManager**  
+- **UplinkManager**  
   - 负责启动 goroutine、连接 bus channel、处理优雅关闭（30s 等待）。
 
 - **HeartbeatMonitor**（service 层）  
-  - 订阅 Redis 过期事件，调用 `bus.PublishStatusOffline`，让离线处理复用 StatusFlow。
+  - 订阅 Redis 过期事件，调用 `bus.PublishStatusOffline`，让离线处理复用 StatusUplink。
 
 ## 应用集成
 
-- `internal/app/flow.go` 提供 `WithFlowService()` 选项：
-  1. 通过 viper 读取 `flow.enable`、`flow.bus_buffer_size`。  
-  2. 构造 Bus、各 Flow、FlowManager，并注册为 `Service`。  
+- `internal/app/uplink.go` 提供 `WithFlowService()` 选项：
+  1. 通过 viper 读取 `uplink.enable`、`uplink.bus_buffer_size`。  
+  2. 构造 Bus、各 Flow、UplinkManager，并注册为 `Service`。  
   3. 与存储服务、HeartbeatService、ScriptProcessor 解耦，通过依赖注入串联。
 - `app.WithHeartbeatMonitor()` 在 FlowBus 启动后挂载 Redis 过期监控，保证离线事件闭环。
 - `main.go` 中按顺序注入服务即可完成初始化。
@@ -83,10 +83,10 @@ flow:
 ## 监控与扩展
 
 - 指标建议：Bus 缓冲占用、Flow 处理耗时/失败、脚本执行次数、自动化触发计数。可复用 `pkg/metrics`。  
-- 扩展协议：新增 `adapter/<proto>_adapter.go`，输出 `FlowMessage` 即可。  
-- 扩展流程：在 `FlowManagerConfig` 中注入新的 Flow，并在 Bus 中增加对应 typed channel。
+- 扩展协议：新增 `adapter/<proto>_adapter.go`，输出 `UplinkMessage` 即可。  
+- 扩展流程：在 `UplinkManagerConfig` 中注入新的 Flow，并在 Bus 中增加对应 typed channel。
 
 ## 后续计划
 1. 增加 HTTP/WebSocket 适配器，实现多协议入口共用 Flow。  
-2. 将 ResponseFlow 输出到审计/通知中心，实现链路闭环。  
+2. 将 ResponseUplink 输出到审计/通知中心，实现链路闭环。  
 3. 引入限流与熔断策略，保护 storage/automation 在极端场景下的稳定性。

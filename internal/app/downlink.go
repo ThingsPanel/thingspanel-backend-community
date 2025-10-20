@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 
 	"project/internal/adapter/mqttadapter"
 	"project/internal/downlink"
@@ -14,11 +15,12 @@ import (
 
 // DownlinkServiceWrapper 下行服务包装器
 type DownlinkServiceWrapper struct {
-	bus     *downlink.Bus
-	handler *downlink.Handler
-	ctx     context.Context
-	cancel  context.CancelFunc
-	logger  *logrus.Logger
+	bus       *downlink.Bus
+	handler   *downlink.Handler
+	ctx       context.Context
+	cancel    context.CancelFunc
+	logger    *logrus.Logger
+	processor *processor.ScriptProcessor
 }
 
 // Name 服务名称
@@ -28,6 +30,19 @@ func (s *DownlinkServiceWrapper) Name() string {
 
 // Start 启动服务
 func (s *DownlinkServiceWrapper) Start() error {
+	// ✨ 在 Start 时才创建 Handler（此时 MQTT Adapter 已经初始化）
+	mqttAdapter := GetGlobalMQTTAdapter()
+	if mqttAdapter == nil {
+		return fmt.Errorf("global MQTT Adapter not initialized")
+	}
+
+	// 创建 MQTT Publisher
+	mqttPublisher := mqttadapter.NewMQTTPublisher(mqttAdapter.GetMQTTClient(), s.logger)
+
+	// 创建 Handler
+	s.handler = downlink.NewHandler(mqttPublisher, s.processor, s.logger)
+
+	// 启动 Bus
 	s.bus.Start(s.ctx, s.handler)
 	s.logger.Info("Downlink service started successfully")
 	return nil
@@ -59,38 +74,32 @@ func WithDownlinkService() Option {
 		// 2. 创建消息总线
 		bus := downlink.NewBus(bufferSize)
 
-		// 3. ✨ 不再获取 MQTT 客户端（延迟到发布时）
-
-		// 4. 创建 MQTT Publisher 适配器（不再注入 client）
-		mqttPublisher := mqttadapter.NewMQTTPublisher(a.Logger)
-
-		// 5. 创建 Processor
+		// 3. 创建 Processor（提前创建，Handler 在 Start 时创建）
 		dataProcessor := processor.NewScriptProcessor()
 
-		// 6. 创建处理器
-		handler := downlink.NewHandler(mqttPublisher, dataProcessor, a.Logger)
-
-		// 7. 创建 context
+		// 4. 创建 context
 		ctx, cancel := context.WithCancel(context.Background())
 
-		// 8. 创建服务包装器
+		// 5. 创建服务包装器（handler 在 Start 时初始化）
 		wrapper := &DownlinkServiceWrapper{
-			bus:     bus,
-			handler: handler,
-			ctx:     ctx,
-			cancel:  cancel,
-			logger:  a.Logger,
+			bus:       bus,
+			handler:   nil, // ⚠️ Start 时才创建
+			ctx:       ctx,
+			cancel:    cancel,
+			logger:    a.Logger,
+			processor: dataProcessor,
 		}
 
-		// 9. 注册到 ServiceManager
+		// 6. 注册到 ServiceManager
 		a.RegisterService(wrapper)
 
-		// 10. 保存到 Application
+		// 7. 保存到 Application
 		a.downlinkService = wrapper
 
-		// ✨ 11. 注入到 Service 层
+		// ✨ 8. 注入到 Service 层
 		service.GroupApp.CommandData.SetDownlinkBus(bus)
-		service.GroupApp.AttributeData.SetDownlinkBus(bus) // ✨ 新增
+		service.GroupApp.AttributeData.SetDownlinkBus(bus)
+		service.GroupApp.TelemetryData.SetDownlinkBus(bus)
 
 		a.Logger.WithFields(logrus.Fields{
 			"module":      "downlink",

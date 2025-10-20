@@ -1,4 +1,4 @@
-package flow
+package uplink
 
 import (
 	"context"
@@ -15,8 +15,8 @@ import (
 	"project/pkg/global"
 )
 
-// StatusFlow 设备状态流处理器
-type StatusFlow struct {
+// StatusUplink 设备状态流处理器
+type StatusUplink struct {
 	// 依赖注入
 	heartbeatService *service.HeartbeatService
 	logger           *logrus.Logger
@@ -26,21 +26,21 @@ type StatusFlow struct {
 	cancel context.CancelFunc
 }
 
-// StatusFlowConfig 状态流程配置
-type StatusFlowConfig struct {
+// StatusUplinkConfig 状态流程配置
+type StatusUplinkConfig struct {
 	HeartbeatService *service.HeartbeatService
 	Logger           *logrus.Logger
 }
 
-// NewStatusFlow 创建状态流处理器
-func NewStatusFlow(config StatusFlowConfig) *StatusFlow {
+// NewStatusUplink 创建状态流处理器
+func NewStatusUplink(config StatusUplinkConfig) *StatusUplink {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	if config.Logger == nil {
 		config.Logger = logrus.StandardLogger()
 	}
 
-	return &StatusFlow{
+	return &StatusUplink{
 		heartbeatService: config.HeartbeatService,
 		logger:           config.Logger,
 		ctx:              ctx,
@@ -49,39 +49,39 @@ func NewStatusFlow(config StatusFlowConfig) *StatusFlow {
 }
 
 // Start 启动状态流处理
-func (f *StatusFlow) Start(input <-chan *DeviceMessage) error {
-	f.logger.Info("🚀 StatusFlow starting...")
+func (f *StatusUplink) Start(input <-chan *DeviceMessage) error {
+	f.logger.Info("🚀 StatusUplink starting...")
 
 	go func() {
-		f.logger.Info("✅ StatusFlow message loop started")
+		f.logger.Info("✅ StatusUplink message loop started")
 		for {
 			select {
 			case <-f.ctx.Done():
-				f.logger.Info("StatusFlow stopped")
+				f.logger.Info("StatusUplink stopped")
 				return
 			case msg := <-input:
 				if msg == nil {
 					f.logger.Warn("Received nil message, skipping")
 					continue
 				}
-				f.logger.WithField("device_id", msg.DeviceID).Debug("📨 StatusFlow received message from channel")
+				f.logger.WithField("device_id", msg.DeviceID).Debug("📨 StatusUplink received message from channel")
 				f.processMessage(msg)
 			}
 		}
 	}()
 
-	f.logger.Info("✅ StatusFlow started successfully")
+	f.logger.Info("✅ StatusUplink started successfully")
 	return nil
 }
 
 // Stop 停止状态流处理
-func (f *StatusFlow) Stop() error {
+func (f *StatusUplink) Stop() error {
 	f.cancel()
 	return nil
 }
 
 // processMessage 处理状态消息
-func (f *StatusFlow) processMessage(msg *DeviceMessage) {
+func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 	// 1. 解析状态 (0=离线, 1=在线)
 	status, err := f.parseStatus(msg.Payload)
 	if err != nil {
@@ -170,7 +170,7 @@ func (f *StatusFlow) processMessage(msg *DeviceMessage) {
 }
 
 // parseStatus 解析状态值
-func (f *StatusFlow) parseStatus(payload []byte) (int16, error) {
+func (f *StatusUplink) parseStatus(payload []byte) (int16, error) {
 	str := string(payload)
 	switch str {
 	case "0":
@@ -183,7 +183,7 @@ func (f *StatusFlow) parseStatus(payload []byte) (int16, error) {
 }
 
 // notifyClients SSE通知客户端设备状态变更
-func (f *StatusFlow) notifyClients(device *model.Device, status int16) {
+func (f *StatusUplink) notifyClients(device *model.Device, status int16) {
 	// 构造设备名称
 	var deviceName string
 	if device.Name != nil {
@@ -231,7 +231,7 @@ func (f *StatusFlow) notifyClients(device *model.Device, status int16) {
 }
 
 // triggerAutomation 触发自动化场景
-func (f *StatusFlow) triggerAutomation(device *model.Device, status int16) {
+func (f *StatusUplink) triggerAutomation(device *model.Device, status int16) {
 	// 设备状态变更触发自动化
 	var loginStatus string
 	if status == 1 {
@@ -259,7 +259,7 @@ func (f *StatusFlow) triggerAutomation(device *model.Device, status int16) {
 }
 
 // sendExpectedData 发送预期数据
-func (f *StatusFlow) sendExpectedData(device *model.Device) {
+func (f *StatusUplink) sendExpectedData(device *model.Device) {
 	// 延迟3秒发送预期数据(与原有逻辑保持一致)
 	time.Sleep(3 * time.Second)
 
@@ -272,7 +272,7 @@ func (f *StatusFlow) sendExpectedData(device *model.Device) {
 }
 
 // publishToRedis 发布设备状态到 Redis Pub/Sub (供 WebSocket 订阅)
-func (f *StatusFlow) publishToRedis(device *model.Device, status int16, metadata map[string]interface{}) {
+func (f *StatusUplink) publishToRedis(device *model.Device, status int16, metadata map[string]interface{}) {
 	// 构造设备名称
 	var deviceName string
 	if device.Name != nil {

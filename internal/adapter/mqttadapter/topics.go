@@ -7,26 +7,26 @@ import "fmt"
 
 // 上行 Topic 模板（设备 → 平台）
 const (
-	// TopicPatternAttributeReport 属性上报 Topic 模式
+	// TopicPatternTelemetry 遥测数据上报 Topic 模式
+	// 格式: devices/telemetry (不使用通配符，订阅所有遥测数据)
+	TopicPatternTelemetry = "devices/telemetry"
+
+	// TopicPatternAttribute 属性上报 Topic 模式
 	// 格式: devices/attributes/{message_id}
-	TopicPatternAttributeReport = "devices/attributes/+"
+	TopicPatternAttribute = "devices/attributes/+"
 
-	// TopicPatternEventReport 事件上报 Topic 模式
+	// TopicPatternEvent 事件上报 Topic 模式
 	// 格式: devices/event/{message_id}
-	TopicPatternEventReport = "devices/event/+"
+	TopicPatternEvent = "devices/event/+"
 
-	// TopicPatternTelemetryReport 遥测数据上报 Topic 模式
-	// 格式: devices/telemetry/{message_id}
-	TopicPatternTelemetryReport = "devices/telemetry/+"
-
-	// TopicPatternStatusReport 状态上报 Topic 模式
+	// TopicPatternStatus 状态上报 Topic 模式
 	// 格式: devices/status/{device_id}
-	TopicPatternStatusReport = "devices/status/+"
+	TopicPatternStatus = "devices/status/+"
 
 	// 网关 Topic 模式（前缀为 gateway/）
+	TopicPatternGatewayTelemetry = "gateway/telemetry"
 	TopicPatternGatewayAttribute = "gateway/attributes/+"
 	TopicPatternGatewayEvent     = "gateway/event/+"
-	TopicPatternGatewayTelemetry = "gateway/telemetry/+"
 )
 
 // 下行 Topic 模板（平台 → 设备）

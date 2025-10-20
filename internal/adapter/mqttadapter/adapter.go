@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"project/initialize"
-	"project/internal/flow"
+	"project/internal/uplink"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
 )
 
-// FlowMessage Flow 层需要的消息格式（避免导入 flow 包）
-type FlowMessage struct {
+// UplinkMessage Flow 层需要的消息格式（避免导入 flow 包）
+type UplinkMessage struct {
 	Type      string
 	DeviceID  string
 	TenantID  string
@@ -27,7 +27,7 @@ type FlowMessage struct {
 // Adapter MQTT 适配器
 // 负责将 MQTT 消息转换为统一的 DeviceMessage 格式
 type Adapter struct {
-	bus        *flow.Bus
+	bus        *uplink.Bus
 	mqttClient mqtt.Client
 	logger     *logrus.Logger
 }
@@ -39,7 +39,7 @@ type publicPayload struct {
 }
 
 // NewAdapter 创建 MQTT 适配器
-func NewAdapter(bus *flow.Bus, mqttClient mqtt.Client, logger *logrus.Logger) *Adapter {
+func NewAdapter(bus *uplink.Bus, mqttClient mqtt.Client, logger *logrus.Logger) *Adapter {
 	if logger == nil {
 		logger = logrus.StandardLogger()
 	}
@@ -49,6 +49,11 @@ func NewAdapter(bus *flow.Bus, mqttClient mqtt.Client, logger *logrus.Logger) *A
 		mqttClient: mqttClient,
 		logger:     logger,
 	}
+}
+
+// GetMQTTClient 获取 MQTT 客户端（供其他模块使用）
+func (a *Adapter) GetMQTTClient() mqtt.Client {
+	return a.mqttClient
 }
 
 // HandleTelemetryMessage 处理遥测消息
@@ -77,8 +82,8 @@ func (a *Adapter) HandleTelemetryMessage(payload []byte, topic string) error {
 	// 3. 根据 Topic 判断是网关消息还是直连设备消息
 	msgType := a.detectMessageType(topic, "telemetry")
 
-	// 4. 构造 FlowMessage
-	msg := &FlowMessage{
+	// 4. 构造 UplinkMessage
+	msg := &UplinkMessage{
 		Type:      msgType,
 		DeviceID:  device.ID,
 		TenantID:  device.TenantID,
@@ -154,8 +159,8 @@ func (a *Adapter) HandleEventMessage(payload []byte, topic string) error {
 	// 5. 根据 Topic 判断消息类型
 	msgType := a.detectMessageType(topic, "event")
 
-	// 6. 构造 FlowMessage
-	msg := &FlowMessage{
+	// 6. 构造 UplinkMessage
+	msg := &UplinkMessage{
 		Type:      msgType,
 		DeviceID:  device.ID,
 		TenantID:  device.TenantID,
@@ -233,8 +238,8 @@ func (a *Adapter) HandleAttributeMessage(payload []byte, topic string) error {
 	// 4. 根据 Topic 判断消息类型
 	msgType := a.detectMessageType(topic, "attribute")
 
-	// 5. 构造 FlowMessage
-	msg := &FlowMessage{
+	// 5. 构造 UplinkMessage
+	msg := &UplinkMessage{
 		Type:      msgType,
 		DeviceID:  device.ID,
 		TenantID:  device.TenantID,
@@ -298,8 +303,8 @@ func (a *Adapter) HandleStatusMessage(payload []byte, topic string, source strin
 		return err
 	}
 
-	// 3. 构造 FlowMessage
-	msg := &FlowMessage{
+	// 3. 构造 UplinkMessage
+	msg := &UplinkMessage{
 		Type:      "status",
 		DeviceID:  device.ID,
 		TenantID:  device.TenantID,

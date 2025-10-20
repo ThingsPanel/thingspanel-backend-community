@@ -8,6 +8,8 @@ type MessageType string
 const (
 	MessageTypeCommand      MessageType = "command"       // 命令下发
 	MessageTypeAttributeSet MessageType = "attribute_set" // 属性设置
+	MessageTypeAttributeGet MessageType = "attribute_get" // 属性获取
+	MessageTypeTelemetry    MessageType = "telemetry"     // 遥测数据下发
 )
 
 // Message 下行消息（Service 传递给 downlink 的数据）

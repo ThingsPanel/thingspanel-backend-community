@@ -58,9 +58,9 @@ func (h *HeartbeatMonitorWrapper) Stop() error {
 func WithHeartbeatMonitor() Option {
 	return func(a *Application) error {
 		// 检查是否启用 Flow 和心跳监控
-		flowEnabled := viper.GetBool("flow.enable")
+		flowEnabled := viper.GetBool("uplink.enable")
 		if !flowEnabled {
-			logrus.Info("Flow service is disabled, heartbeat monitor will not start")
+			logrus.Info("Uplink service is disabled, heartbeat monitor will not start")
 			wrapper := &HeartbeatMonitorWrapper{
 				isEnabled: false,
 				logger:    a.Logger,
@@ -70,9 +70,9 @@ func WithHeartbeatMonitor() Option {
 		}
 
 		// ✨ 获取 Flow Bus（实现了 StatusPublisher 接口）
-		flowBus := a.GetFlowBus()
+		flowBus := a.GetUplinkBus()
 		if flowBus == nil {
-			return fmt.Errorf("Flow Bus not initialized, please add WithFlowService() before WithHeartbeatMonitor()")
+			return fmt.Errorf("uplink bus not initialized, please add WithFlowService() before WithHeartbeatMonitor()")
 		}
 
 		// 创建 HeartbeatMonitor（注入 Flow Bus 作为 StatusPublisher）

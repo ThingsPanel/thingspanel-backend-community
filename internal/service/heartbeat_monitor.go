@@ -119,7 +119,7 @@ func (m *HeartbeatMonitor) handleExpiredKey(msg *redis.Message) {
 		source = "timeout_expired"
 	}
 
-	// ✨ 通过 StatusPublisher 接口发送离线状态到 Flow Bus → StatusFlow
+	// ✨ 通过 StatusPublisher 接口发送离线状态到 Flow Bus → StatusUplink
 	// 协议无关设计：无论 MQTT/Kafka 都通过统一的接口处理
 	if m.statusPublisher != nil {
 		if err := m.statusPublisher.PublishStatusOffline(deviceID, source); err != nil {

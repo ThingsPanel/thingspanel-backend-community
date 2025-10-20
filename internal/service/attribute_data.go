@@ -14,7 +14,6 @@ import (
 	"project/internal/downlink"
 	model "project/internal/model"
 	config "project/mqtt"
-	"project/mqtt/publish"
 	"project/pkg/constant"
 	"project/pkg/errcode"
 	utils "project/pkg/utils"
@@ -260,7 +259,7 @@ func (a *AttributeData) getDeviceConfigID(device *model.Device) string {
 	return *device.DeviceConfigID
 }
 
-func (*AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.AttributeGetMessageReq) error {
+func (a *AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.AttributeGetMessageReq) error {
 	logrus.Debug("AttributeGetMessage")
 	// 获取设备编码
 	d, err := dal.GetDeviceByID(req.DeviceID)
@@ -292,14 +291,31 @@ func (*AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.Attrib
 			"system_error": err.Error(),
 		})
 	}
-	// 发送获取属性请求
-	err = publish.PublishGetAttributeMessage(d.DeviceNumber, payload)
-	if err != nil {
+
+	// ✨ 通过 Downlink Bus 发送属性获取请求
+	if a.downlinkBus == nil {
 		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"system_error": err.Error(),
+			"system_error": "downlink bus not initialized",
 		})
 	}
-	return err
+
+	// 构造 Topic
+	topic := fmt.Sprintf("%s%s", config.MqttConfig.Attributes.PublishGetTopic, d.DeviceNumber)
+
+	// 构造下行消息
+	msg := &downlink.Message{
+		DeviceID:       d.ID,
+		DeviceConfigID: a.getDeviceConfigID(d),
+		Type:           downlink.MessageTypeAttributeGet,
+		Data:           payload,
+		Topic:          topic,
+		MessageID:      "",  // 属性获取不需要记录日志
+	}
+
+	// 发送到 Bus
+	a.downlinkBus.PublishAttributeGet(msg)
+
+	return nil
 }
 
 // findTopLevelGatewayForAttribute 递归查找顶层网关（用于属性设置）

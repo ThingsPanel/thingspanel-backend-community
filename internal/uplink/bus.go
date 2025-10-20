@@ -1,4 +1,4 @@
-package flow
+package uplink
 
 import (
 	"encoding/json"
@@ -83,12 +83,12 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 	var msg *DeviceMessage
 
 	// 通过 JSON 序列化/反序列化实现类型转换
-	// adapter.FlowMessage 和 flow.DeviceMessage 结构完全一致
+	// adapter.UplinkMessage 和 uplink.DeviceMessage 结构完全一致
 	switch v := msgInterface.(type) {
 	case *DeviceMessage:
 		msg = v
 	default:
-		// 使用 JSON 转换（adapter.FlowMessage -> flow.DeviceMessage）
+		// 使用 JSON 转换（adapter.UplinkMessage -> uplink.DeviceMessage）
 		jsonData, err := json.Marshal(msgInterface)
 		if err != nil {
 			b.logger.WithError(err).Error("Failed to marshal message")

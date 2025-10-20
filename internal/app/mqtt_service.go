@@ -3,12 +3,12 @@ package app
 import (
 	"fmt"
 
+	"project/initialize"
 	"project/internal/adapter/mqttadapter"
 	"project/mqtt"
-	"project/mqtt/publish"
-	"project/mqtt/subscribe"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 // MQTTService 实现MQTT相关服务
@@ -16,6 +16,14 @@ type MQTTService struct {
 	app         *Application
 	initialized bool
 	mqttAdapter *mqttadapter.Adapter
+}
+
+// 全局 Adapter 实例（供其他模块调用）
+var globalMQTTAdapter *mqttadapter.Adapter
+
+// GetGlobalMQTTAdapter 获取全局 MQTT Adapter 实例
+func GetGlobalMQTTAdapter() *mqttadapter.Adapter {
+	return globalMQTTAdapter
 }
 
 // NewMQTTService 创建MQTT服务实例
@@ -32,34 +40,27 @@ func (s *MQTTService) Name() string {
 
 // Start 启动MQTT服务
 func (s *MQTTService) Start() error {
-	// 检查是否启用MQTT
-	// if !viper.GetBool("mqtt.enabled") {
-	// 	logrus.Info("MQTT服务已被禁用,跳过初始化")
-	// 	return nil
-	// }
-
 	logrus.Info("正在启动MQTT服务...")
 
-	// 初始化MQTT客户端
+	// 初始化MQTT配置（只加载配置，不创建客户端）
 	if err := mqtt.MqttInit(); err != nil {
 		return err
 	}
 
-	// 注意: 设备状态监控已由 Flow 层的 HeartbeatMonitor 和 StatusFlow 接管
+	// 初始化限流器
+	initialize.NewAutomateLimiter()
+
+	// 注意: 设备状态监控已由 Flow 层的 HeartbeatMonitor 和 StatusUplink 接管
 	// 不再使用 device.InitDeviceStatus()
 
-	// 初始化订阅
-	if err := subscribe.SubscribeInit(); err != nil {
-		return err
-	}
+	// ⚠️ 旧的订阅流程已废弃，不再调用 subscribe.SubscribeInit()
+	// ⚠️ 旧的发布流程已废弃，不再调用 publish.PublishInit()
+	// 所有 MQTT 操作（订阅+发布）现在由 MQTTAdapter 统一管理
 
-	// 初始化发布
-	publish.PublishInit()
-
-	// ✨ 创建 MQTT Adapter 并订阅响应 Topic
+	// ✨ 创建 MQTT Adapter 并订阅所有 Topic
 	if err := s.initMQTTAdapter(); err != nil {
-		logrus.WithError(err).Warn("Failed to initialize MQTT Adapter, response topics may not work")
-		// 不阻塞启动，继续运行
+		logrus.WithError(err).Error("Failed to initialize MQTT Adapter")
+		return err
 	}
 
 	s.initialized = true
@@ -67,33 +68,53 @@ func (s *MQTTService) Start() error {
 	return nil
 }
 
-// initMQTTAdapter 初始化 MQTT Adapter（在 MQTT 连接成功后调用）
+// initMQTTAdapter 初始化 MQTT Adapter（创建独立的 MQTT 客户端）
 func (s *MQTTService) initMQTTAdapter() error {
 	// 1. 获取 Flow Bus
-	bus := s.app.GetFlowBus()
+	bus := s.app.GetUplinkBus()
 	if bus == nil {
-		return fmt.Errorf("Flow Bus not initialized, cannot create MQTT Adapter")
+		return fmt.Errorf("uplink bus not initialized, cannot create MQTT Adapter")
 	}
 
-	// 2. 获取 MQTT 客户端
-	mqttClient := publish.GetMQTTClient()
-	if mqttClient == nil || !mqttClient.IsConnected() {
-		return fmt.Errorf("MQTT client not connected")
+	// 2. 创建 Adapter 专用的 MQTT 客户端（不依赖 mqtt/publish/）
+	broker := viper.GetString("mqtt.broker")
+	username := viper.GetString("mqtt.user")
+	password := viper.GetString("mqtt.pass")
+
+	mqttConfig := mqttadapter.MQTTConfig{
+		Broker:   broker,
+		Username: username,
+		Password: password,
+		// ClientID 会自动生成
 	}
 
-	// 3. 创建 MQTT Adapter（注入 MQTT 客户端）
+	mqttClient, err := mqttadapter.CreateMQTTClient(mqttConfig, s.app.Logger)
+	if err != nil {
+		return fmt.Errorf("failed to create MQTT client for Adapter: %w", err)
+	}
+
+	// 3. 创建 MQTT Adapter
 	s.mqttAdapter = mqttadapter.NewAdapter(bus, mqttClient, s.app.Logger)
-	logrus.Info("MQTT Adapter created")
+	globalMQTTAdapter = s.mqttAdapter // 设置全局实例
+	logrus.Info("MQTT Adapter created with independent client")
 
-	// 4. 订阅响应 Topic
+	// 4. 订阅响应 Topic（命令响应、属性设置响应）
 	if err := s.mqttAdapter.SubscribeResponseTopics(mqttClient); err != nil {
 		return fmt.Errorf("failed to subscribe response topics: %w", err)
 	}
 
-	// 5. 注册 Adapter 到订阅层（用于上行数据）
-	subscribe.SetMQTTAdapter(s.mqttAdapter)
+	// 5. 订阅设备上行 Topic（遥测、属性、事件、状态）
+	if err := s.mqttAdapter.SubscribeDeviceTopics(mqttClient); err != nil {
+		return fmt.Errorf("failed to subscribe device topics: %w", err)
+	}
 
-	logrus.Info("MQTT Adapter initialized and response topics subscribed successfully")
+	// 6. 订阅网关上行 Topic（网关遥测、属性、事件）
+	if err := s.mqttAdapter.SubscribeGatewayTopics(mqttClient); err != nil {
+		return fmt.Errorf("failed to subscribe gateway topics: %w", err)
+	}
+
+	logrus.Info("MQTT Adapter initialized successfully - all subscriptions active")
+	logrus.Info("📌 Old mqtt/subscribe/ flow is now completely bypassed")
 	return nil
 }
 
