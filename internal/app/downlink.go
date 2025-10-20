@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"project/internal/adapter"
+	"project/internal/adapter/mqttadapter"
 	"project/internal/downlink"
 	"project/internal/processor"
 	"project/internal/service"
@@ -62,7 +62,7 @@ func WithDownlinkService() Option {
 		// 3. ✨ 不再获取 MQTT 客户端（延迟到发布时）
 
 		// 4. 创建 MQTT Publisher 适配器（不再注入 client）
-		mqttPublisher := adapter.NewMQTTPublisher(a.Logger)
+		mqttPublisher := mqttadapter.NewMQTTPublisher(a.Logger)
 
 		// 5. 创建 Processor
 		dataProcessor := processor.NewScriptProcessor()

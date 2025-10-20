@@ -1,4 +1,4 @@
-package adapter
+package mqttadapter
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 )
 
 // MQTTPublisher MQTT 发布适配器（实现 downlink.MessagePublisher 接口）
+// 负责下行消息发送：command、attribute set
 type MQTTPublisher struct {
 	logger *logrus.Logger
 }

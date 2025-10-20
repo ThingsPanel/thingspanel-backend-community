@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"project/internal/adapter"
 	"project/internal/flow"
 	"project/internal/processor"
 	"project/internal/service"
@@ -169,14 +168,6 @@ func WithFlowService() Option {
 		logrus.Info("Flow service registered")
 		return nil
 	}
-}
-
-// GetMQTTAdapter 获取 MQTT Adapter（供 MQTT 订阅层使用）
-func (a *Application) GetMQTTAdapter() *adapter.MQTTAdapter {
-	if a.mqttService == nil {
-		return nil
-	}
-	return a.mqttService.mqttAdapter
 }
 
 // GetFlowManager 获取 FlowManager（用于监控）
