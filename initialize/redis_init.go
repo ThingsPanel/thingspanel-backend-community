@@ -47,6 +47,8 @@ func RedisInit() (*redis.Client, error) {
 	global.STATUS_REDIS = statusClient
 	// 启动SSE
 	go global.InitSSEManager()
+	// 启动WebSocket管理器
+	go global.InitWSManager()
 	return client, nil
 }
 

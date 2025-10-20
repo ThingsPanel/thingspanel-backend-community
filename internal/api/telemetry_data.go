@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	ws_subscribe "project/mqtt/ws_subscribe"
 	"project/pkg/constant"
 	"project/pkg/errcode"
 	"project/pkg/global"
@@ -351,51 +350,81 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 		}
 	}
 
-	// 订阅实时更新
+	// 生成唯一连接ID
+	connID := fmt.Sprintf("%s-%d", conn.RemoteAddr().String(), time.Now().UnixNano())
+
+	// 注册到 WebSocket 管理器
 	var mu sync.Mutex
-	var mqttClient ws_subscribe.WsMqttClient
-	if err := mqttClient.SubscribeDeviceTelemetry(deviceID, conn, msgType, &mu); err != nil {
-		logrus.Error("订阅遥测数据失败:", err)
-		conn.WriteMessage(msgType, []byte("Failed to subscribe to telemetry updates"))
+	wsClient := &global.WSClient{
+		DeviceID: deviceID,
+		TenantID: claims.TenantID,
+		UserID:   claims.ID,
+		Conn:     conn,
+		ConnID:   connID,
+		MsgType:  msgType,
+		Mu:       &mu,
+		Keys:     nil, // 订阅所有字段
+	}
+
+	if err := global.TPWSManager.SubscribeDevice(deviceID, connID, wsClient); err != nil {
+		logrus.Error("订阅设备失败:", err)
+		conn.WriteMessage(msgType, []byte("Failed to subscribe to device"))
 		return
 	}
-	defer mqttClient.Close()
+	defer global.TPWSManager.UnsubscribeDevice(deviceID, connID)
 
-	// 处理心跳消息
+	// 处理心跳消息和续期订阅
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
 	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			// 记录错误日志
-			logrus.Error("WebSocket读取错误:", err)
+		select {
+		case <-ticker.C:
+			// 定期续期订阅
+			if err := global.TPWSManager.RefreshSubscription(deviceID); err != nil {
+				logrus.WithError(err).Error("续期订阅失败")
+			}
 
-			// 尝试发送错误消息给客户端
-			closeMsg := []byte("connection closed due to error")
-			// 使用 WriteControl 发送关闭消息，设置1秒超时
-			deadline := time.Now().Add(time.Second)
-			conn.WriteControl(websocket.CloseMessage,
-				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, string(closeMsg)),
-				deadline)
+		default:
+			// 设置读取超时，避免阻塞续期
+			conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+			_, msg, err := conn.ReadMessage()
+			if err != nil {
+				// 判断是否是超时错误
+				if netErr, ok := err.(interface{ Timeout() bool }); ok && netErr.Timeout() {
+					continue // 超时不是真正的错误，继续处理续期
+				}
 
-			// 现在可以安全退出了
-			return
-		}
+				// 记录真正的错误日志
+				logrus.Error("WebSocket读取错误:", err)
 
-		// 处理心跳消息
-		if string(msg) == "ping" {
-			mu.Lock()
-			if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
-				logrus.Error("发送pong消息失败:", err)
-
-				// 尝试发送错误消息
+				// 尝试发送错误消息给客户端
+				closeMsg := []byte("connection closed due to error")
 				deadline := time.Now().Add(time.Second)
 				conn.WriteControl(websocket.CloseMessage,
-					websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to send pong"),
+					websocket.FormatCloseMessage(websocket.CloseInternalServerErr, string(closeMsg)),
 					deadline)
 
-				mu.Unlock()
 				return
 			}
-			mu.Unlock()
+
+			// 处理心跳消息
+			if string(msg) == "ping" {
+				mu.Lock()
+				if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
+					logrus.Error("发送pong消息失败:", err)
+
+					// 尝试发送错误消息
+					deadline := time.Now().Add(time.Second)
+					conn.WriteControl(websocket.CloseMessage,
+						websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to send pong"),
+						deadline)
+
+					mu.Unlock()
+					return
+				}
+				mu.Unlock()
+			}
 		}
 	}
 }
@@ -653,51 +682,81 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 		}
 	}
 
-	// 订阅遥测更新
+	// 生成唯一连接ID
+	connID := fmt.Sprintf("%s-%d", conn.RemoteAddr().String(), time.Now().UnixNano())
+
+	// 注册到 WebSocket 管理器
 	var mu sync.Mutex
-	var mqttClient ws_subscribe.WsMqttClient
-	if err := mqttClient.SubscribeDeviceTelemetryByKeys(deviceID, conn, msgType, &mu, stringKeys); err != nil {
-		logrus.Error("订阅遥测数据失败:", err)
-		conn.WriteMessage(msgType, []byte("Failed to subscribe to telemetry updates"))
+	wsClient := &global.WSClient{
+		DeviceID: deviceID,
+		TenantID: claims.TenantID,
+		UserID:   claims.ID,
+		Conn:     conn,
+		ConnID:   connID,
+		MsgType:  msgType,
+		Mu:       &mu,
+		Keys:     stringKeys, // 订阅指定字段
+	}
+
+	if err := global.TPWSManager.SubscribeDevice(deviceID, connID, wsClient); err != nil {
+		logrus.Error("订阅设备失败:", err)
+		conn.WriteMessage(msgType, []byte("Failed to subscribe to device"))
 		return
 	}
-	defer mqttClient.Close()
+	defer global.TPWSManager.UnsubscribeDevice(deviceID, connID)
 
-	// 处理心跳
+	// 处理心跳消息和续期订阅
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
 	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			// 记录错误日志
-			logrus.Error("WebSocket读取错误:", err)
+		select {
+		case <-ticker.C:
+			// 定期续期订阅
+			if err := global.TPWSManager.RefreshSubscription(deviceID); err != nil {
+				logrus.WithError(err).Error("续期订阅失败")
+			}
 
-			// 尝试发送错误消息给客户端
-			closeMsg := []byte("connection closed due to error")
-			// 使用 WriteControl 发送关闭消息，设置1秒超时
-			deadline := time.Now().Add(time.Second)
-			conn.WriteControl(websocket.CloseMessage,
-				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, string(closeMsg)),
-				deadline)
+		default:
+			// 设置读取超时，避免阻塞续期
+			conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+			_, msg, err := conn.ReadMessage()
+			if err != nil {
+				// 判断是否是超时错误
+				if netErr, ok := err.(interface{ Timeout() bool }); ok && netErr.Timeout() {
+					continue // 超时不是真正的错误，继续处理续期
+				}
 
-			// 现在可以安全退出了
-			return
-		}
+				// 记录真正的错误日志
+				logrus.Error("WebSocket读取错误:", err)
 
-		// 处理心跳消息
-		if string(msg) == "ping" {
-			mu.Lock()
-			if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
-				logrus.Error("发送pong消息失败:", err)
-
-				// 尝试发送错误消息
+				// 尝试发送错误消息给客户端
+				closeMsg := []byte("connection closed due to error")
 				deadline := time.Now().Add(time.Second)
 				conn.WriteControl(websocket.CloseMessage,
-					websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to send pong"),
+					websocket.FormatCloseMessage(websocket.CloseInternalServerErr, string(closeMsg)),
 					deadline)
 
-				mu.Unlock()
 				return
 			}
-			mu.Unlock()
+
+			// 处理心跳消息
+			if string(msg) == "ping" {
+				mu.Lock()
+				if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
+					logrus.Error("发送pong消息失败:", err)
+
+					// 尝试发送错误消息
+					deadline := time.Now().Add(time.Second)
+					conn.WriteControl(websocket.CloseMessage,
+						websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to send pong"),
+						deadline)
+
+					mu.Unlock()
+					return
+				}
+				mu.Unlock()
+			}
 		}
 	}
 }

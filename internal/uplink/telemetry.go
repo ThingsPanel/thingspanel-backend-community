@@ -322,7 +322,10 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 		Data:      telemetryPoints,
 	}
 
-	// 5. 场景联动（异步）
+	// 5. WebSocket 实时推送（异步）
+	go f.checkAndPublishToWS(device.ID, device.TenantID, triggerValues)
+
+	// 6. 场景联动（异步）
 	go func() {
 		err := service.GroupApp.Execute(device, service.AutomateFromExt{
 			TriggerParamType: model.TRIGGER_PARAM_TYPE_TEL,
@@ -412,6 +415,48 @@ func (f *TelemetryUplink) refreshHeartbeat(device *model.Device) {
 	if err := f.heartbeatService.RefreshHeartbeat(device, config); err != nil {
 		f.logger.WithError(err).WithField("device_id", device.ID).Error("Failed to refresh heartbeat")
 	}
+}
+
+// checkAndPublishToWS 检查订阅并推送数据到 WebSocket
+func (f *TelemetryUplink) checkAndPublishToWS(deviceID, tenantID string, data map[string]interface{}) {
+	// 检查是否有订阅者
+	ctx := context.Background()
+	exists, err := global.REDIS.Exists(ctx, "ws:sub:"+deviceID).Result()
+	if err != nil {
+		f.logger.WithError(err).WithField("device_id", deviceID).Debug("Failed to check WebSocket subscription")
+		return
+	}
+
+	if exists == 0 {
+		// 无订阅者,跳过推送
+		return
+	}
+
+	// 构造 WebSocket 事件
+	event := global.WSEvent{
+		DeviceID:  deviceID,
+		TenantID:  tenantID,
+		Timestamp: time.Now().UnixMilli(),
+		Data:      data,
+	}
+
+	// 序列化为 JSON
+	jsonData, err := json.Marshal(event)
+	if err != nil {
+		f.logger.WithError(err).WithField("device_id", deviceID).Error("Failed to marshal WebSocket event")
+		return
+	}
+
+	// 发布到 Redis Pub/Sub
+	if err := global.REDIS.Publish(ctx, "ws:device:"+deviceID, jsonData).Err(); err != nil {
+		f.logger.WithError(err).WithField("device_id", deviceID).Error("Failed to publish WebSocket event")
+		return
+	}
+
+	f.logger.WithFields(logrus.Fields{
+		"device_id": deviceID,
+		"data_keys": len(data),
+	}).Debug("WebSocket event published to Redis")
 }
 
 // notifyDeviceOnline 通知设备上线(SSE + 自动化 + 预期数据)
