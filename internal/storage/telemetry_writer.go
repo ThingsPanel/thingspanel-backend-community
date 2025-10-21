@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -333,8 +334,14 @@ func convertValue(value interface{}) (*bool, *float64, *string) {
 	case string:
 		return nil, nil, &v
 	default:
-		// 其他类型转为字符串
-		s := fmt.Sprintf("%v", v)
+		// 对于 map、slice 等复杂类型，序列化为 JSON 字符串
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			// 序列化失败时降级为 fmt.Sprintf
+			s := fmt.Sprintf("%v", v)
+			return nil, nil, &s
+		}
+		s := string(jsonBytes)
 		return nil, nil, &s
 	}
 }
