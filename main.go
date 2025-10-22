@@ -50,7 +50,7 @@ func main() {
 		app.WithDownlinkService(),  // ✨ 5. Downlink（后启动）
 		app.WithGRPCService(),      // 6. gRPC
 		app.WithHTTPService(),      // 7. HTTP
-		// app.WithCronService(),
+		app.WithCronService(),
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "应用初始化失败: %v\n", err)

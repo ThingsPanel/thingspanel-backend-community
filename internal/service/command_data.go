@@ -41,14 +41,23 @@ func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, 
 	// 2. 生成 message_id，8位唯一字符串
 	messageId := uuid.New()[:8]
 
-	// 3. 获取设备类型
+	// 3. 获取设备类型和协议类型
 	var deviceType string
+	var protocolType string
 	if device.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
 			return fmt.Errorf("failed to get device config: %w", err)
 		}
 		deviceType = deviceConfig.DeviceType
+		if deviceConfig.ProtocolType != nil {
+			protocolType = *deviceConfig.ProtocolType
+		} else {
+			protocolType = "MQTT" // 默认为MQTT
+		}
+	} else {
+		protocolType = "MQTT" // 无配置时默认为MQTT
+		deviceType = "1"      // 默认为直连设备
 	}
 
 	// 4. 构造命令数据
@@ -71,7 +80,7 @@ func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, 
 	jsonData, _ := json.Marshal(transformedData)
 
 	// 6. 处理网关层级，获取目标设备信息
-	targetDevice, targetDeviceNumber, topicPrefix, err := c.resolveDeviceInfo(device, deviceType)
+	targetDevice, targetDeviceNumber, topicPrefix, err := c.resolveDeviceInfo(device, deviceType, protocolType)
 	if err != nil {
 		return err
 	}
@@ -132,27 +141,30 @@ func (c *CommandData) createCommandLogForPut(device *model.Device, messageId, id
 }
 
 // resolveDeviceInfo 处理多层网关，返回目标设备、目标设备编号和Topic前缀
-func (c *CommandData) resolveDeviceInfo(device *model.Device, deviceType string) (*model.Device, string, string, error) {
+func (c *CommandData) resolveDeviceInfo(device *model.Device, deviceType, protocolType string) (*model.Device, string, string, error) {
 	var targetDevice *model.Device
 	var targetDeviceNumber string
 	var topicPrefix string
 
-	// 直连设备（无父网关）
-	if device.ParentID == nil || *device.ParentID == "" {
-		targetDevice = device
-		targetDeviceNumber = device.DeviceNumber
-	} else {
-		// 网关子设备或子网关，查找顶层网关
+	// 根据协议类型和设备类型确定目标设备
+	// MQTT协议：网关/子设备需要查找顶层网关
+	// 非MQTT协议（协议插件）：直接使用设备自己，插件会处理层级关系
+	if protocolType == "MQTT" && (device.ParentID != nil && *device.ParentID != "") {
+		// MQTT 网关/子设备：查找顶层网关
 		topGateway, err := findTopLevelGatewayForCommand(device, deviceType)
 		if err != nil {
 			return nil, "", "", fmt.Errorf("failed to find top level gateway: %w", err)
 		}
 		targetDevice = topGateway
 		targetDeviceNumber = topGateway.DeviceNumber
+	} else {
+		// 直连设备 或 非MQTT协议：使用设备自己
+		targetDevice = device
+		targetDeviceNumber = device.DeviceNumber
 	}
 
-	// 检查是否有协议插件前缀
-	if targetDevice.DeviceConfigID != nil {
+	// 检查是否有协议插件前缀（仅非MQTT协议需要）
+	if protocolType != "MQTT" && targetDevice.DeviceConfigID != nil {
 		protocolPlugin, err := dal.GetProtocolPluginByDeviceConfigID(*targetDevice.DeviceConfigID)
 		if err == nil && protocolPlugin != nil && protocolPlugin.SubTopicPrefix != nil {
 			topicPrefix = *protocolPlugin.SubTopicPrefix

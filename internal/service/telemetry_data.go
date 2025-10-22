@@ -1056,13 +1056,11 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		topicPrefix = subTopicPrefix
 	}
 
-	// 根据设备类型确定目标设备编号
-	switch deviceType {
-	case "1":
-		// 直连设备：使用自己的编号
-		targetDeviceNumber = deviceInfo.DeviceNumber
-	case "2", "3":
-		// 网关/子设备：递归查找顶层网关
+	// 根据设备类型和协议类型确定目标设备编号
+	// MQTT协议：网关/子设备需要查找顶层网关
+	// 非MQTT协议（协议插件）：直接使用设备自己的编号，插件会处理层级关系
+	if protocolType == "MQTT" && (deviceType == "2" || deviceType == "3") {
+		// MQTT 网关/子设备：递归查找顶层网关
 		topGateway, err := findTopLevelGateway(deviceInfo, deviceType)
 		if err != nil {
 			logrus.Error(ctx, "failed to find top level gateway", err)
@@ -1071,10 +1069,9 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 			})
 		}
 		targetDeviceNumber = topGateway.DeviceNumber
-	default:
-		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"error": fmt.Sprintf("unknown device type: %s", deviceType),
-		})
+	} else {
+		// 直连设备 或 非MQTT协议：使用设备自己的编号
+		targetDeviceNumber = deviceInfo.DeviceNumber
 	}
 
 	logrus.Info("target device number:", targetDeviceNumber)

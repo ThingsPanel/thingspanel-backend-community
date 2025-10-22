@@ -403,9 +403,12 @@ func (a *Adapter) parseEventMethod(payload []byte) string {
 // PublishMessage 实现 MessagePublisher 接口
 // 根据设备信息构造Topic并发送MQTT消息
 func (a *Adapter) PublishMessage(deviceNumber string, msgType downlink.MessageType, deviceType string, topicPrefix string, qos byte, payload []byte) error {
-	// 1. 根据设备类型选择Topic基础路径
+	// 1. 根据设备类型和协议选择Topic基础路径
+	// 协议插件：始终使用 devices 路径（插件自己处理层级关系）
+	// MQTT协议：根据设备类型选择 devices 或 gateway
 	basePattern := "devices"
-	if deviceType != "1" {
+	if topicPrefix == "" && deviceType != "1" {
+		// MQTT 协议的网关/子设备：使用 gateway 路径
 		basePattern = "gateway"
 	}
 

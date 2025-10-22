@@ -52,8 +52,8 @@ func (h *Handler) HandleTelemetry(ctx context.Context, msg *Message) {
 func (h *Handler) handle(ctx context.Context, msg *Message, dataType processor.DataType) {
 	start := time.Now()
 
-	// 1. 参数验证
-	if msg == nil || msg.Topic == "" || len(msg.Data) == 0 {
+	// 1. 参数验证（Topic 由 Adapter 构造，不在此验证）
+	if msg == nil || msg.DeviceNumber == "" || len(msg.Data) == 0 {
 		h.logger.WithFields(logrus.Fields{
 			"module": "downlink",
 			"error":  ErrInvalidMessage,
