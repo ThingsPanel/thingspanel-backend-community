@@ -987,13 +987,13 @@ func formatTime(timestamp int64) string {
 //
 //	error: 处理过程中的错误
 func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
-	var errorMessage string
-
 	// 步骤1: 校验入参
 	// ---------------------------------------------
 	// 校验参数值必须是有效的JSON
 	if !json.Valid([]byte(param.Value)) {
-		errorMessage = "value must be json"
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "value must be json",
+		})
 	}
 
 	// 步骤2: 获取设备信息
@@ -1039,20 +1039,13 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		deviceType = "1"
 	}
 
-	// 步骤4: 根据协议类型获取发布主题
+	// 步骤4: 获取协议插件前缀和目标设备编号
 	// ---------------------------------------------
-	var topic string
-	if protocolType == "MQTT" {
-		// MQTT协议：根据设备类型获取主题
-		topic, err = getTopicByDevice(deviceInfo, deviceType, param)
-		if err != nil {
-			logrus.Error(ctx, "failed to get topic", err)
-			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-	} else {
-		// 其他协议：从服务插件获取主题前缀
+	var topicPrefix string
+	var targetDeviceNumber string
+
+	// 获取Topic前缀（仅协议插件需要）
+	if protocolType != "MQTT" {
 		subTopicPrefix, err := dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*deviceInfo.DeviceConfigID)
 		if err != nil {
 			logrus.Error(ctx, "failed to get sub topic prefix", err)
@@ -1060,35 +1053,35 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 				"error": err.Error(),
 			})
 		}
-		topic = fmt.Sprintf("%s%s%s", subTopicPrefix, config.MqttConfig.Telemetry.PublishTopic, deviceInfo.ID)
+		topicPrefix = subTopicPrefix
 	}
 
-	logrus.Info("topic:", topic)
-	logrus.Info("deviceInfo:", deviceInfo.DeviceConfigID)
-
-	// 步骤5: 脚本处理 - 对所有协议类型，在获取topic之后，修改payload之前执行
-	// ---------------------------------------------
-	if deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
-		logrus.Debug("开始查询脚本")
-		script, err := initialize.GetScriptByDeviceAndScriptType(deviceInfo, "B")
+	// 根据设备类型确定目标设备编号
+	switch deviceType {
+	case "1":
+		// 直连设备：使用自己的编号
+		targetDeviceNumber = deviceInfo.DeviceNumber
+	case "2", "3":
+		// 网关/子设备：递归查找顶层网关
+		topGateway, err := findTopLevelGateway(deviceInfo, deviceType)
 		if err != nil {
-			logrus.Error(err.Error())
-			return err
+			logrus.Error(ctx, "failed to find top level gateway", err)
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
-
-		// 如果存在脚本，使用脚本处理payload
-		if script != nil && script.Content != nil && *script.Content != "" {
-			msg, err := utils.ScriptDeal(*script.Content, []byte(param.Value), topic)
-			if err != nil {
-				logrus.Error(err.Error())
-				return err
-			}
-			logrus.Debug("脚本处理结果:", msg)
-			param.Value = msg
-		}
+		targetDeviceNumber = topGateway.DeviceNumber
+	default:
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": fmt.Sprintf("unknown device type: %s", deviceType),
+		})
 	}
 
-	// 步骤6: 修改payload (仅对MQTT协议的特定设备类型)
+	logrus.Info("target device number:", targetDeviceNumber)
+	logrus.Info("device type:", deviceType)
+	logrus.Info("topic prefix:", topicPrefix)
+
+	// 步骤5: 修改payload (仅对MQTT协议的特定设备类型)
 	// ---------------------------------------------
 	if protocolType == "MQTT" && (deviceType == "3" || deviceType == "2") {
 		// 解析JSON
@@ -1166,39 +1159,17 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		param.Value = string(output)
 	}
 
-	// 步骤7: 通过 Downlink Bus 发布遥测消息
-	// ---------------------------------------------
-	if t.downlinkBus == nil {
-		errorMessage = "downlink bus not initialized"
-		logrus.Error(ctx, "下发失败: ", errorMessage)
-		err = fmt.Errorf(errorMessage)
-	} else {
-		// 构造下行消息
-		msg := &downlink.Message{
-			DeviceID:       deviceInfo.ID,
-			DeviceConfigID: getDeviceConfigID(deviceInfo),
-			Type:           downlink.MessageTypeTelemetry,
-			Data:           []byte(param.Value),
-			Topic:          topic,
-			MessageID:      "", // 遥测下发暂不记录 message_id（使用下面的日志记录）
-		}
-
-		// 发送到 Bus（异步处理）
-		t.downlinkBus.PublishTelemetry(msg)
-		// Bus 是异步的，这里认为发送成功
-		err = nil
-	}
-
-	// 步骤8: 记录操作日志
+	// 步骤6: 先创建日志记录（状态为初始）
 	// ---------------------------------------------
 	description := "下发遥测日志记录"
+	logID := uuid.New()
 	logInfo := &model.TelemetrySetLog{
-		ID:            uuid.New(),
+		ID:            logID,
 		DeviceID:      param.DeviceID,
 		OperationType: &operationType,
 		Datum:         &(param.Value),
-		Status:        nil,
-		ErrorMessage:  &errorMessage,
+		Status:        nil, // 初始状态为空，等待 Handler 更新
+		ErrorMessage:  nil,
 		CreatedAt:     time.Now().UTC(),
 		Description:   &description,
 		UserID:        &userID,
@@ -1207,16 +1178,6 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 	// 系统自动发送时不记录用户ID
 	if userID == "" {
 		logInfo.UserID = nil
-	}
-
-	// 设置操作状态
-	if err != nil {
-		logInfo.ErrorMessage = &errorMessage
-		status := strconv.Itoa(constant.StatusFailed)
-		logInfo.Status = &status
-	} else {
-		status := strconv.Itoa(constant.StatusOK)
-		logInfo.Status = &status
 	}
 
 	// 写入日志记录
@@ -1228,27 +1189,43 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		})
 	}
 
-	return err
-}
+	// 步骤7: 通过 Downlink Bus 发布遥测消息
+	// ---------------------------------------------
+	if t.downlinkBus == nil {
+		errorMessage := "downlink bus not initialized"
+		logrus.Error(ctx, "下发失败: ", errorMessage)
 
-// getTopicByDevice 根据设备信息获取要发送的控制主题（内置MQTT协议）
-func getTopicByDevice(deviceInfo *model.Device, deviceType string, param *model.PutMessage) (string, error) {
-	switch deviceType {
-	case "1":
-		// 处理独立设备
-		return fmt.Sprintf("%s%s", config.MqttConfig.Telemetry.PublishTopic, deviceInfo.DeviceNumber), nil
-	case "2", "3":
-		// 处理网关设备和子设备 - 需要递归查找顶层网关
-		topGatewayInfo, err := findTopLevelGateway(deviceInfo, deviceType)
-		if err != nil {
-			return "", fmt.Errorf("查找顶层网关失败: %v", err)
+		// 更新日志为失败
+		status := strconv.Itoa(constant.StatusFailed)
+		logInfo.Status = &status
+		logInfo.ErrorMessage = &errorMessage
+		if updateErr := dal.UpdateTelemetrySetLog(logInfo); updateErr != nil {
+			logrus.Error(ctx, "failed to update telemetry set log", updateErr)
 		}
 
-		return fmt.Sprintf(config.MqttConfig.Telemetry.GatewayPublishTopic, topGatewayInfo.DeviceNumber), nil
-	default:
-		return "", fmt.Errorf("未知的设备类型")
+		return fmt.Errorf(errorMessage)
 	}
+
+	// 构造下行消息（使用日志ID作为MessageID）
+	msg := &downlink.Message{
+		DeviceID:       deviceInfo.ID,
+		DeviceNumber:   targetDeviceNumber, // ✅ 目标设备编号（网关/子设备时为顶层网关）
+		DeviceType:     deviceType,          // ✅ 设备类型
+		DeviceConfigID: getDeviceConfigID(deviceInfo),
+		Type:           downlink.MessageTypeTelemetry,
+		Data:           []byte(param.Value),
+		Topic:          "",           // ✅ 不再传Topic，由Adapter构造
+		TopicPrefix:    topicPrefix,  // ✅ 协议插件前缀
+		MessageID:      logID,        // ✅ 使用日志ID作为MessageID
+	}
+
+	// 发送到 Bus（异步处理，Handler 会更新日志状态）
+	t.downlinkBus.PublishTelemetry(msg)
+
+	return nil
 }
+
+// getTopicByDevice 函数已废弃，Topic构造逻辑已移至Adapter层
 
 // findTopLevelGateway 递归查找顶层网关（parent_id为空的网关）
 func findTopLevelGateway(deviceInfo *model.Device, deviceType string) (*model.Device, error) {

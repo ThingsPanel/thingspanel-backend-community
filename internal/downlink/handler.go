@@ -117,14 +117,15 @@ func (h *Handler) handle(ctx context.Context, msg *Message, dataType processor.D
 	}
 
 	// 3. 发布消息
-	err := h.publishMessage(msg.Topic, encodedData)
+	err := h.publishMessage(msg, encodedData)
 	if err != nil {
 		h.logger.WithFields(logrus.Fields{
-			"module":      "downlink",
-			"device_id":   msg.DeviceID,
-			"topic":       msg.Topic,
-			"error":       err,
-			"duration_ms": time.Since(start).Milliseconds(),
+			"module":        "downlink",
+			"device_id":     msg.DeviceID,
+			"device_number": msg.DeviceNumber,
+			"device_type":   msg.DeviceType,
+			"error":         err,
+			"duration_ms":   time.Since(start).Milliseconds(),
 		}).Error("message publish failed")
 
 		// ✨ 更新日志为失败
@@ -146,17 +147,21 @@ func (h *Handler) handle(ctx context.Context, msg *Message, dataType processor.D
 }
 
 // publishMessage 发布消息（协议无关命名）
-func (h *Handler) publishMessage(topic string, payload []byte) error {
+func (h *Handler) publishMessage(msg *Message, payload []byte) error {
 	if h.publisher == nil {
 		return fmt.Errorf("message publisher not initialized")
 	}
 
-	if err := h.publisher.Publish(topic, 1, payload); err != nil {
+	// 调用新的PublishMessage接口（直接传递MessageType）
+	if err := h.publisher.PublishMessage(msg.DeviceNumber, msg.Type, msg.DeviceType, msg.TopicPrefix, 1, payload); err != nil {
 		h.logger.WithFields(logrus.Fields{
-			"topic":   topic,
-			"payload": string(payload),
-			"error":   err.Error(),
-		}).Error("message publish failed, command may not be delivered to device")
+			"device_number": msg.DeviceNumber,
+			"device_type":   msg.DeviceType,
+			"msg_type":      msg.Type,
+			"topic_prefix":  msg.TopicPrefix,
+			"payload":       string(payload),
+			"error":         err.Error(),
+		}).Error("message publish failed, may not be delivered to device")
 		return err
 	}
 
@@ -229,6 +234,31 @@ func (h *Handler) updateLogStatus(messageID, deviceID, status, errorMsg string, 
 				"status":     status,
 				"type":       "attribute_set",
 			}).Debug("Attribute log status updated")
+		}
+
+	case MessageTypeTelemetry:
+		// 查询遥测下发日志表（使用日志ID作为MessageID）
+		log, err := dal.GetTelemetrySetLogByID(messageID)
+		if err != nil {
+			h.logger.WithError(err).WithField("log_id", messageID).Warn("Failed to find telemetry log")
+			return
+		}
+
+		// 更新状态
+		log.Status = &status
+		if errorMsg != "" {
+			log.ErrorMessage = &errorMsg
+		}
+
+		// 保存更新
+		if err := dal.UpdateTelemetrySetLog(log); err != nil {
+			h.logger.WithError(err).WithField("log_id", messageID).Error("Failed to update telemetry log status")
+		} else {
+			h.logger.WithFields(logrus.Fields{
+				"log_id": messageID,
+				"status": status,
+				"type":   "telemetry",
+			}).Debug("Telemetry log status updated")
 		}
 
 	default:

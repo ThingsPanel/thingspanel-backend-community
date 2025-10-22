@@ -69,3 +69,28 @@ func DeleteTelemetrySetLogsByDeviceId(deviceId string, tx *query.QueryTx) error 
 	_, err := tx.TelemetrySetLog.WithContext(context.Background()).Where(query.TelemetrySetLog.DeviceID.Eq(deviceId)).Delete()
 	return err
 }
+
+// GetTelemetrySetLogByID 根据日志ID查询遥测下发日志
+func GetTelemetrySetLogByID(logID string) (*model.TelemetrySetLog, error) {
+	q := query.TelemetrySetLog
+	log, err := q.WithContext(context.Background()).
+		Where(q.ID.Eq(logID)).
+		First()
+	if err != nil {
+		logrus.Error("[GetTelemetrySetLogByID] query failed:", err)
+		return nil, err
+	}
+	return log, nil
+}
+
+// UpdateTelemetrySetLog 更新遥测下发日志
+func UpdateTelemetrySetLog(log *model.TelemetrySetLog) error {
+	q := query.TelemetrySetLog
+	_, err := q.WithContext(context.Background()).
+		Where(q.ID.Eq(log.ID)).
+		Updates(log)
+	if err != nil {
+		logrus.Error("[UpdateTelemetrySetLog] update failed:", err)
+	}
+	return err
+}

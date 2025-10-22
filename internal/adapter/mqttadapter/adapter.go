@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"project/initialize"
+	"project/internal/downlink"
 	"project/internal/uplink"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -397,4 +398,55 @@ func (a *Adapter) parseEventMethod(payload []byte) string {
 		return ""
 	}
 	return eventData.Method
+}
+
+// PublishMessage 实现 MessagePublisher 接口
+// 根据设备信息构造Topic并发送MQTT消息
+func (a *Adapter) PublishMessage(deviceNumber string, msgType downlink.MessageType, deviceType string, topicPrefix string, qos byte, payload []byte) error {
+	// 1. 根据设备类型选择Topic基础路径
+	basePattern := "devices"
+	if deviceType != "1" {
+		basePattern = "gateway"
+	}
+
+	// 2. 根据消息类型选择Topic路径
+	var topicPath string
+	switch msgType {
+	case downlink.MessageTypeTelemetry:
+		topicPath = "telemetry/control"
+	case downlink.MessageTypeCommand:
+		topicPath = "command"
+	case downlink.MessageTypeAttributeSet:
+		topicPath = "attributes/set"
+	case downlink.MessageTypeAttributeGet:
+		topicPath = "attributes/get"
+	default:
+		return fmt.Errorf("unknown message type: %s", msgType)
+	}
+
+	// 3. 拼接完整Topic
+	topic := fmt.Sprintf("%s%s/%s/%s",
+		topicPrefix,   // 协议插件前缀（MQTT为空）
+		basePattern,   // devices 或 gateway
+		topicPath,     // telemetry/control 等
+		deviceNumber)  // 设备编号
+
+	// 4. 发送MQTT消息
+	token := a.mqttClient.Publish(topic, qos, false, payload)
+	if !token.WaitTimeout(5 * time.Second) {
+		return fmt.Errorf("mqtt publish timeout: topic=%s", topic)
+	}
+	if err := token.Error(); err != nil {
+		return fmt.Errorf("mqtt publish failed: topic=%s, error=%w", topic, err)
+	}
+
+	a.logger.WithFields(logrus.Fields{
+		"topic":        topic,
+		"device_type":  deviceType,
+		"msg_type":     msgType,
+		"topic_prefix": topicPrefix,
+		"qos":          qos,
+	}).Debug("Message published successfully")
+
+	return nil
 }

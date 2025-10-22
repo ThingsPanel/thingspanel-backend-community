@@ -3,9 +3,12 @@ package downlink
 // MessagePublisher 消息发布接口（协议无关）
 // 实现可以是：MQTT、Kafka、AMQP 等
 type MessagePublisher interface {
-	// Publish 发布消息到消息队列/代理
-	// topic: 主题/队列名称
-	// qos: 质量等级（MQTT QoS，Kafka 可忽略）
+	// PublishMessage 发布消息到设备
+	// deviceNumber: 目标设备编号
+	// msgType: 消息类型（用于选择Topic路径）
+	// deviceType: 设备类型（用于区分devices/*还是gateway/*）
+	// topicPrefix: Topic前缀（协议插件使用，MQTT为空）
+	// qos: 消息质量等级
 	// payload: 消息内容（字节流）
-	Publish(topic string, qos byte, payload []byte) error
+	PublishMessage(deviceNumber string, msgType MessageType, deviceType string, topicPrefix string, qos byte, payload []byte) error
 }
