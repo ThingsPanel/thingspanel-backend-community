@@ -1,7 +1,6 @@
 package device
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -10,40 +9,36 @@ import (
 	"go.uber.org/zap"
 
 	"iot-platform-autotest/internal/config"
+	"iot-platform-autotest/internal/protocol"
 	"iot-platform-autotest/internal/utils"
 )
 
-// ReceivedMessage 接收到的消息
-type ReceivedMessage struct {
-	Topic     string
-	Payload   []byte
-	Timestamp time.Time
-}
-
-// MQTTDevice MQTT设备模拟器
-type MQTTDevice struct {
-	config *config.Config
-	client mqtt.Client
-	topics *utils.MQTTTopics
-	logger *zap.Logger
+// DirectDevice 直连设备实现
+type DirectDevice struct {
+	config  *config.Config
+	client  mqtt.Client
+	topics  *utils.MQTTTopics
+	builder protocol.MessageBuilder
+	logger  *zap.Logger
 
 	// 消息存储
 	receivedMessages map[string][]ReceivedMessage
 	mu               sync.RWMutex
 }
 
-// NewMQTTDevice 创建MQTT设备
-func NewMQTTDevice(cfg *config.Config, logger *zap.Logger) *MQTTDevice {
-	return &MQTTDevice{
+// NewDirectDevice 创建直连设备
+func NewDirectDevice(cfg *config.Config, logger *zap.Logger) *DirectDevice {
+	return &DirectDevice{
 		config:           cfg,
 		topics:           utils.NewMQTTTopics(cfg.Device.DeviceNumber),
+		builder:          protocol.NewDirectMessageBuilder(),
 		logger:           logger,
 		receivedMessages: make(map[string][]ReceivedMessage),
 	}
 }
 
 // Connect 连接到MQTT Broker
-func (d *MQTTDevice) Connect() error {
+func (d *DirectDevice) Connect() error {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tcp://%s", d.config.MQTT.Broker))
 	opts.SetClientID(d.config.MQTT.ClientID)
@@ -75,31 +70,32 @@ func (d *MQTTDevice) Connect() error {
 		return fmt.Errorf("connection failed: %w", token.Error())
 	}
 
-	d.logger.Info("MQTT device connected",
+	d.logger.Info("Direct device connected",
 		zap.String("broker", d.config.MQTT.Broker),
-		zap.String("client_id", d.config.MQTT.ClientID))
+		zap.String("client_id", d.config.MQTT.ClientID),
+		zap.String("device_number", d.config.Device.DeviceNumber))
 
 	return nil
 }
 
 // Disconnect 断开连接
-func (d *MQTTDevice) Disconnect() {
+func (d *DirectDevice) Disconnect() {
 	if d.client != nil && d.client.IsConnected() {
 		d.client.Disconnect(250)
-		d.logger.Info("MQTT device disconnected")
+		d.logger.Info("Direct device disconnected")
 	}
 }
 
 // IsConnected 检查连接状态
-func (d *MQTTDevice) IsConnected() bool {
+func (d *DirectDevice) IsConnected() bool {
 	return d.client != nil && d.client.IsConnected()
 }
 
 // PublishTelemetry 上报遥测数据
-func (d *MQTTDevice) PublishTelemetry(data map[string]interface{}) error {
-	payload, err := json.Marshal(data)
+func (d *DirectDevice) PublishTelemetry(data interface{}) error {
+	payload, err := d.builder.BuildTelemetry(data)
 	if err != nil {
-		return fmt.Errorf("failed to marshal telemetry data: %w", err)
+		return err
 	}
 
 	topic := d.topics.Telemetry()
@@ -119,10 +115,10 @@ func (d *MQTTDevice) PublishTelemetry(data map[string]interface{}) error {
 }
 
 // PublishAttribute 上报属性数据
-func (d *MQTTDevice) PublishAttribute(data map[string]interface{}, messageID string) error {
-	payload, err := json.Marshal(data)
+func (d *DirectDevice) PublishAttribute(data interface{}, messageID string) error {
+	payload, err := d.builder.BuildAttribute(data)
 	if err != nil {
-		return fmt.Errorf("failed to marshal attribute data: %w", err)
+		return err
 	}
 
 	topic := d.topics.Attributes(messageID)
@@ -143,15 +139,10 @@ func (d *MQTTDevice) PublishAttribute(data map[string]interface{}, messageID str
 }
 
 // PublishEvent 上报事件数据
-func (d *MQTTDevice) PublishEvent(method string, params map[string]interface{}, messageID string) error {
-	data := map[string]interface{}{
-		"method": method,
-		"params": params,
-	}
-
-	payload, err := json.Marshal(data)
+func (d *DirectDevice) PublishEvent(method string, params interface{}, messageID string) error {
+	payload, err := d.builder.BuildEvent(method, params)
 	if err != nil {
-		return fmt.Errorf("failed to marshal event data: %w", err)
+		return err
 	}
 
 	topic := d.topics.Event(messageID)
@@ -173,12 +164,10 @@ func (d *MQTTDevice) PublishEvent(method string, params map[string]interface{}, 
 }
 
 // PublishCommandResponse 发送命令响应
-func (d *MQTTDevice) PublishCommandResponse(messageID string, success bool, method string) error {
-	response := utils.BuildResponseData(success, method)
-
-	payload, err := json.Marshal(response)
+func (d *DirectDevice) PublishCommandResponse(messageID string, success bool, method string) error {
+	payload, err := d.builder.BuildResponse(success, method)
 	if err != nil {
-		return fmt.Errorf("failed to marshal response: %w", err)
+		return err
 	}
 
 	topic := d.topics.CommandResponse(messageID)
@@ -199,12 +188,10 @@ func (d *MQTTDevice) PublishCommandResponse(messageID string, success bool, meth
 }
 
 // PublishAttributeSetResponse 发送属性设置响应
-func (d *MQTTDevice) PublishAttributeSetResponse(messageID string, success bool) error {
-	response := utils.BuildResponseData(success, "")
-
-	payload, err := json.Marshal(response)
+func (d *DirectDevice) PublishAttributeSetResponse(messageID string, success bool) error {
+	payload, err := d.builder.BuildResponse(success, "")
 	if err != nil {
-		return fmt.Errorf("failed to marshal response: %w", err)
+		return err
 	}
 
 	topic := d.topics.AttributeSetResponse(messageID)
@@ -225,7 +212,7 @@ func (d *MQTTDevice) PublishAttributeSetResponse(messageID string, success bool)
 }
 
 // messageHandler 通用消息处理器
-func (d *MQTTDevice) messageHandler(client mqtt.Client, msg mqtt.Message) {
+func (d *DirectDevice) messageHandler(client mqtt.Client, msg mqtt.Message) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -244,8 +231,8 @@ func (d *MQTTDevice) messageHandler(client mqtt.Client, msg mqtt.Message) {
 		zap.String("payload", string(payload)))
 }
 
-// Subscribe 订阅主题
-func (d *MQTTDevice) subscribe(topic string) error {
+// subscribe 订阅主题
+func (d *DirectDevice) subscribe(topic string) error {
 	token := d.client.Subscribe(topic, d.config.MQTT.QoS, d.messageHandler)
 	if !token.WaitTimeout(5 * time.Second) {
 		return fmt.Errorf("subscribe timeout")
@@ -259,7 +246,7 @@ func (d *MQTTDevice) subscribe(topic string) error {
 }
 
 // SubscribeAll 订阅所有需要的主题
-func (d *MQTTDevice) SubscribeAll() error {
+func (d *DirectDevice) SubscribeAll() error {
 	topics := []string{
 		d.topics.TelemetryControl(),
 		d.topics.AttributeSet(),
@@ -279,7 +266,7 @@ func (d *MQTTDevice) SubscribeAll() error {
 }
 
 // GetReceivedMessages 获取接收到的消息
-func (d *MQTTDevice) GetReceivedMessages(topicPattern string, timeout time.Duration) []ReceivedMessage {
+func (d *DirectDevice) GetReceivedMessages(topicPattern string, timeout time.Duration) []ReceivedMessage {
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
@@ -318,7 +305,7 @@ func (d *MQTTDevice) GetReceivedMessages(topicPattern string, timeout time.Durat
 }
 
 // ClearReceivedMessages 清空接收到的消息
-func (d *MQTTDevice) ClearReceivedMessages(topicPattern string) {
+func (d *DirectDevice) ClearReceivedMessages(topicPattern string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 

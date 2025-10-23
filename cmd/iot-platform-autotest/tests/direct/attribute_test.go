@@ -21,12 +21,13 @@ func TestAttributePublish(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	cfg, err := config.Load("../config.yaml")
+	cfg, err := config.Load("../../config-community.yaml")
 	require.NoError(t, err)
 
-	mqttDevice := device.NewMQTTDevice(cfg, logger)
-	require.NoError(t, mqttDevice.Connect())
-	defer mqttDevice.Disconnect()
+	dev, err := device.NewDevice(cfg, logger)
+	require.NoError(t, err)
+	require.NoError(t, dev.Connect())
+	defer dev.Disconnect()
 
 	dbClient, err := platform.NewDBClient(&cfg.Database, logger)
 	require.NoError(t, err)
@@ -37,7 +38,7 @@ func TestAttributePublish(t *testing.T) {
 	testData := utils.BuildAttributeData()
 
 	// 发送属性数据
-	err = mqttDevice.PublishAttribute(testData, messageID)
+	err = dev.PublishAttribute(testData, messageID)
 	require.NoError(t, err)
 
 	// 等待数据同步
@@ -89,15 +90,16 @@ func TestAttributeSet(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	cfg, err := config.Load("../config.yaml")
+	cfg, err := config.Load("../../config-community.yaml")
 	require.NoError(t, err)
 
-	mqttDevice := device.NewMQTTDevice(cfg, logger)
-	require.NoError(t, mqttDevice.Connect())
-	defer mqttDevice.Disconnect()
+	dev, err := device.NewDevice(cfg, logger)
+	require.NoError(t, err)
+	require.NoError(t, dev.Connect())
+	defer dev.Disconnect()
 
 	// 订阅所有主题
-	require.NoError(t, mqttDevice.SubscribeAll())
+	require.NoError(t, dev.SubscribeAll())
 
 	apiClient := platform.NewAPIClient(&cfg.API, logger)
 	dbClient, err := platform.NewDBClient(&cfg.Database, logger)
@@ -105,7 +107,7 @@ func TestAttributeSet(t *testing.T) {
 	defer dbClient.Close()
 
 	topics := utils.NewMQTTTopics(cfg.Device.DeviceNumber)
-	mqttDevice.ClearReceivedMessages("")
+	dev.ClearReceivedMessages("")
 
 	// 构建属性设置数据 - 使用 float64 类型以匹配 JSON 解析
 	attributeData := map[string]interface{}{
@@ -119,7 +121,7 @@ func TestAttributeSet(t *testing.T) {
 
 	// 等待设备接收
 	timeout := time.Duration(cfg.Test.WaitMQTTResponseSeconds) * time.Second
-	messages := mqttDevice.GetReceivedMessages(topics.AttributeSet(), timeout)
+	messages := dev.GetReceivedMessages(topics.AttributeSet(), timeout)
 	assert.NotEmpty(t, messages, "Device did not receive attribute set message")
 
 	if len(messages) > 0 {
@@ -145,7 +147,7 @@ func TestAttributeSet(t *testing.T) {
 			zap.String("message_id", messageID))
 
 		// 使用提取的 message_id 发送响应
-		err = mqttDevice.PublishAttributeSetResponse(messageID, true)
+		err = dev.PublishAttributeSetResponse(messageID, true)
 		require.NoError(t, err)
 
 		logger.Info("Attribute set response sent",

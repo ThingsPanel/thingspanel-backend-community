@@ -9,11 +9,12 @@ import (
 
 // Config 总配置结构
 type Config struct {
-	MQTT     MQTTConfig     `yaml:"mqtt"`
-	Device   DeviceConfig   `yaml:"device"`
-	Database DatabaseConfig `yaml:"database"`
-	API      APIConfig      `yaml:"api"`
-	Test     TestConfig     `yaml:"test"`
+	DeviceType string         `yaml:"device_type"` // "direct" 或 "gateway"
+	MQTT       MQTTConfig     `yaml:"mqtt"`
+	Device     DeviceConfig   `yaml:"device"`
+	Database   DatabaseConfig `yaml:"database"`
+	API        APIConfig      `yaml:"api"`
+	Test       TestConfig     `yaml:"test"`
 }
 
 // MQTTConfig MQTT配置
@@ -81,6 +82,14 @@ func Load(configPath string) (*Config, error) {
 
 // Validate 验证配置
 func (c *Config) Validate() error {
+	// 验证设备类型
+	if c.DeviceType == "" {
+		c.DeviceType = "direct" // 默认为直连设备
+	}
+	if c.DeviceType != "direct" && c.DeviceType != "gateway" {
+		return fmt.Errorf("device_type must be 'direct' or 'gateway', got: %s", c.DeviceType)
+	}
+
 	if c.MQTT.Broker == "" {
 		return fmt.Errorf("mqtt broker is required")
 	}

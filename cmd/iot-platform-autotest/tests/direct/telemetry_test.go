@@ -22,13 +22,14 @@ func TestTelemetryPublish(t *testing.T) {
 	defer logger.Sync()
 
 	// 加载配置
-	cfg, err := config.Load("../config.yaml")
+	cfg, err := config.Load("../../config-community.yaml")
 	require.NoError(t, err)
 
-	// 创建MQTT设备
-	mqttDevice := device.NewMQTTDevice(cfg, logger)
-	require.NoError(t, mqttDevice.Connect())
-	defer mqttDevice.Disconnect()
+	// 创建设备
+	dev, err := device.NewDevice(cfg, logger)
+	require.NoError(t, err)
+	require.NoError(t, dev.Connect())
+	defer dev.Disconnect()
 
 	// 创建数据库客户端
 	dbClient, err := platform.NewDBClient(&cfg.Database, logger)
@@ -44,7 +45,7 @@ func TestTelemetryPublish(t *testing.T) {
 		zap.Any("test_data", testData))
 
 	// 发送遥测数据
-	err = mqttDevice.PublishTelemetry(testData)
+	err = dev.PublishTelemetry(testData)
 	require.NoError(t, err)
 
 	// 等待数据同步
@@ -99,16 +100,17 @@ func TestTelemetryControl(t *testing.T) {
 	defer logger.Sync()
 
 	// 加载配置
-	cfg, err := config.Load("../config.yaml")
+	cfg, err := config.Load("../../config-community.yaml")
 	require.NoError(t, err)
 
-	// 创建MQTT设备
-	mqttDevice := device.NewMQTTDevice(cfg, logger)
-	require.NoError(t, mqttDevice.Connect())
-	defer mqttDevice.Disconnect()
+	// 创建设备
+	dev, err := device.NewDevice(cfg, logger)
+	require.NoError(t, err)
+	require.NoError(t, dev.Connect())
+	defer dev.Disconnect()
 
 	// 订阅控制主题
-	require.NoError(t, mqttDevice.SubscribeAll())
+	require.NoError(t, dev.SubscribeAll())
 
 	// 创建API客户端
 	apiClient := platform.NewAPIClient(&cfg.API, logger)
@@ -120,7 +122,7 @@ func TestTelemetryControl(t *testing.T) {
 
 	// 清空接收消息
 	topics := utils.NewMQTTTopics(cfg.Device.DeviceNumber)
-	mqttDevice.ClearReceivedMessages(topics.TelemetryControl())
+	dev.ClearReceivedMessages(topics.TelemetryControl())
 
 	// 构建控制数据
 	controlData := map[string]interface{}{
@@ -136,7 +138,7 @@ func TestTelemetryControl(t *testing.T) {
 
 	// 等待设备接收
 	timeout := time.Duration(cfg.Test.WaitMQTTResponseSeconds) * time.Second
-	messages := mqttDevice.GetReceivedMessages(topics.TelemetryControl(), timeout)
+	messages := dev.GetReceivedMessages(topics.TelemetryControl(), timeout)
 	assert.NotEmpty(t, messages, "Device did not receive control message")
 
 	if len(messages) > 0 {

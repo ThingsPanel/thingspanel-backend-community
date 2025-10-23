@@ -20,15 +20,16 @@ func TestCommandPublish(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	cfg, err := config.Load("../config.yaml")
+	cfg, err := config.Load("../../config-community.yaml")
 	require.NoError(t, err)
 
-	mqttDevice := device.NewMQTTDevice(cfg, logger)
-	require.NoError(t, mqttDevice.Connect())
-	defer mqttDevice.Disconnect()
+	dev, err := device.NewDevice(cfg, logger)
+	require.NoError(t, err)
+	require.NoError(t, dev.Connect())
+	defer dev.Disconnect()
 
 	// 订阅所有主题
-	require.NoError(t, mqttDevice.SubscribeAll())
+	require.NoError(t, dev.SubscribeAll())
 
 	apiClient := platform.NewAPIClient(&cfg.API, logger)
 	dbClient, err := platform.NewDBClient(&cfg.Database, logger)
@@ -36,7 +37,7 @@ func TestCommandPublish(t *testing.T) {
 	defer dbClient.Close()
 
 	topics := utils.NewMQTTTopics(cfg.Device.DeviceNumber)
-	mqttDevice.ClearReceivedMessages("")
+	dev.ClearReceivedMessages("")
 
 	// 构建命令数据
 	identify := "RestartDevice"
@@ -51,7 +52,7 @@ func TestCommandPublish(t *testing.T) {
 
 	// 等待设备接收
 	timeout := time.Duration(cfg.Test.WaitMQTTResponseSeconds) * time.Second
-	messages := mqttDevice.GetReceivedMessages(topics.Command(), timeout)
+	messages := dev.GetReceivedMessages(topics.Command(), timeout)
 	assert.NotEmpty(t, messages, "Device did not receive command")
 
 	if len(messages) > 0 {
@@ -81,7 +82,7 @@ func TestCommandPublish(t *testing.T) {
 			zap.String("message_id", messageID))
 
 		// 使用提取的 message_id 发送命令响应
-		err = mqttDevice.PublishCommandResponse(messageID, true, identify)
+		err = dev.PublishCommandResponse(messageID, true, identify)
 		require.NoError(t, err)
 
 		logger.Info("Command response sent",

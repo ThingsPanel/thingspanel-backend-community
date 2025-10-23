@@ -1,3 +1,6 @@
+# 设备类型: direct(直连设备) 或 gateway(网关设备)
+device_type: "direct"
+
 mqtt:
   broker: "47.92.253.145:1883"
   client_id: "mqtt_client_666666"

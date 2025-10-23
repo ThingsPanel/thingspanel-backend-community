@@ -19,22 +19,23 @@ func TestEventPublish(t *testing.T) {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync()
 
-	cfg, err := config.Load("../config.yaml")
+	cfg, err := config.Load("../../config-community.yaml")
 	require.NoError(t, err)
 
-	mqttDevice := device.NewMQTTDevice(cfg, logger)
-	require.NoError(t, mqttDevice.Connect())
-	defer mqttDevice.Disconnect()
+	dev, err := device.NewDevice(cfg, logger)
+	require.NoError(t, err)
+	require.NoError(t, dev.Connect())
+	defer dev.Disconnect()
 
 	// 订阅事件响应主题
-	require.NoError(t, mqttDevice.SubscribeAll())
+	require.NoError(t, dev.SubscribeAll())
 
 	dbClient, err := platform.NewDBClient(&cfg.Database, logger)
 	require.NoError(t, err)
 	defer dbClient.Close()
 
 	topics := utils.NewMQTTTopics(cfg.Device.DeviceNumber)
-	mqttDevice.ClearReceivedMessages("")
+	dev.ClearReceivedMessages("")
 
 	// 构建事件数据
 	messageID := utils.GenerateMessageID()
@@ -53,7 +54,7 @@ func TestEventPublish(t *testing.T) {
 		zap.Any("params", params))
 
 	// 发送事件
-	err = mqttDevice.PublishEvent(method, params, messageID)
+	err = dev.PublishEvent(method, params, messageID)
 	require.NoError(t, err)
 
 	// 等待数据同步
@@ -82,7 +83,7 @@ func TestEventPublish(t *testing.T) {
 
 	// 等待并验证平台响应
 	timeout := time.Duration(cfg.Test.WaitMQTTResponseSeconds) * time.Second
-	responseMessages := mqttDevice.GetReceivedMessages(topics.EventResponse(), timeout)
+	responseMessages := dev.GetReceivedMessages(topics.EventResponse(), timeout)
 
 	if len(responseMessages) > 0 {
 		logger.Info("Received event response from platform",
