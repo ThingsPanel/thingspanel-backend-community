@@ -1,0 +1,19 @@
+{
+  "samples": [
+    {
+      "method": "AlarmTriggered",
+      "params": {
+        "alarm_type": "temperature_high",
+        "level": "critical",
+        "value": 85.5
+      }
+    },
+    {
+      "method": "DeviceStarted",
+      "params": {
+        "boot_time": "2024-01-01T00:00:00Z",
+        "mode": "normal"
+      }
+    }
+  ]
+}

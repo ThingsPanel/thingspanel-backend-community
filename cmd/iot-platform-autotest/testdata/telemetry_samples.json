@@ -1,0 +1,19 @@
+{
+  "samples": [
+    {
+      "temperature": 25.5,
+      "humidity": 60.0,
+      "switch": true
+    },
+    {
+      "temperature": 30.2,
+      "humidity": 55.5,
+      "switch": false
+    },
+    {
+      "voltage": 220.5,
+      "current": 2.5,
+      "power": 551.25
+    }
+  ]
+}

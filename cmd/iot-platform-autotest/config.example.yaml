@@ -1,0 +1,33 @@
+mqtt:
+  broker: "47.92.253.145:1883"
+  client_id: "mqtt_client_666666"
+  username: "0b141dc4-b595-06c0-7aa"
+  password: ""
+  qos: 1
+  clean_session: true
+  keep_alive: 60
+
+device:
+  device_id: "0301b7ce-f0dc-c305-9e85-a0a63284c207"
+  device_number: "666666666"
+
+database:
+  host: "47.92.253.145"
+  port: 5432
+  dbname: "ThingsPanel"
+  username: "postgres"
+  password: "postgresThingsPanel"
+  sslmode: "disable"
+  max_open_conns: 10
+  max_idle_conns: 5
+
+api:
+  base_url: "http://47.92.253.145:8080"
+  api_key: "sk_6991d099ba736d989263e294b639b9c795b04284a19d89f7ae75d0fcf87c3770"
+  timeout: 30
+
+test:
+  wait_db_sync_seconds: 3
+  wait_mqtt_response_seconds: 5
+  retry_times: 3
+  log_level: "info"

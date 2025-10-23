@@ -1,0 +1,14 @@
+{
+  "samples": [
+    {
+      "ip": "192.168.1.100",
+      "mac": "00:11:22:33:44:55",
+      "port": 1883
+    },
+    {
+      "firmware_version": "1.0.0",
+      "hardware_version": "2.0",
+      "model": "TEST-001"
+    }
+  ]
+}
