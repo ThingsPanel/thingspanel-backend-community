@@ -24,8 +24,7 @@ func NewDevice(cfg *config.Config, logger *zap.Logger) (Device, error) {
 	case DeviceTypeDirect:
 		return NewDirectDevice(cfg, logger), nil
 	case DeviceTypeGateway:
-		// TODO: 网关设备将在后续实现
-		return nil, fmt.Errorf("gateway device not implemented yet")
+		return NewGatewayDevice(cfg, logger), nil
 	default:
 		return nil, fmt.Errorf("unknown device type: %s", cfg.DeviceType)
 	}

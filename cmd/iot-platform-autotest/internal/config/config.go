@@ -12,6 +12,7 @@ type Config struct {
 	DeviceType string         `yaml:"device_type"` // "direct" 或 "gateway"
 	MQTT       MQTTConfig     `yaml:"mqtt"`
 	Device     DeviceConfig   `yaml:"device"`
+	Gateway    GatewayConfig  `yaml:"gateway"`  // 网关配置(当 device_type="gateway" 时使用)
 	Database   DatabaseConfig `yaml:"database"`
 	API        APIConfig      `yaml:"api"`
 	Test       TestConfig     `yaml:"test"`
@@ -32,6 +33,27 @@ type MQTTConfig struct {
 type DeviceConfig struct {
 	DeviceID     string `yaml:"device_id"`
 	DeviceNumber string `yaml:"device_number"`
+}
+
+// SubDeviceConfig 子设备配置
+type SubDeviceConfig struct {
+	SubDeviceNumber string `yaml:"sub_device_number"`
+	DeviceID        string `yaml:"device_id"`
+	Description     string `yaml:"description"`
+}
+
+// SubGatewayConfig 子网关配置
+type SubGatewayConfig struct {
+	SubGatewayNumber string            `yaml:"sub_gateway_number"`
+	DeviceID         string            `yaml:"device_id"`
+	Description      string            `yaml:"description"`
+	SubDevices       []SubDeviceConfig `yaml:"sub_devices"`
+}
+
+// GatewayConfig 网关配置
+type GatewayConfig struct {
+	SubDevices  []SubDeviceConfig  `yaml:"sub_devices"`
+	SubGateways []SubGatewayConfig `yaml:"sub_gateways"`
 }
 
 // DatabaseConfig 数据库配置
