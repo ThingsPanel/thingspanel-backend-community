@@ -32,16 +32,26 @@ const (
 // 下行 Topic 模板（平台 → 设备）
 const (
 	// TopicTemplateAttributeSet 属性设置 Topic 模板
-	// %s = device_number
-	TopicTemplateAttributeSet = "devices/attributes/set/%s"
+	// 第一个 %s = device_number，第二个 %s = message_id
+	TopicTemplateAttributeSet = "devices/attributes/set/%s/%s"
+
+	// TopicTemplateAttributeGet 属性查询 Topic 模板
+	// %s = device_number（无 message_id）
+	TopicTemplateAttributeGet = "devices/attributes/get/%s"
 
 	// TopicTemplateCommand 命令下发 Topic 模板
-	// %s = device_number
-	TopicTemplateCommand = "devices/command/%s"
+	// 第一个 %s = device_number，第二个 %s = message_id
+	TopicTemplateCommand = "devices/command/%s/%s"
+
+	// TopicTemplateTelemetryControl 遥测控制 Topic 模板
+	// %s = device_number（无 message_id）
+	TopicTemplateTelemetryControl = "devices/telemetry/control/%s"
 
 	// 网关下行 Topic 模板
-	TopicTemplateGatewayAttributeSet = "gateway/attributes/set/%s"
-	TopicTemplateGatewayCommand      = "gateway/command/%s"
+	TopicTemplateGatewayAttributeSet      = "gateway/attributes/set/%s/%s"      // gateway_number + message_id
+	TopicTemplateGatewayAttributeGet      = "gateway/attributes/get/%s"         // gateway_number
+	TopicTemplateGatewayCommand           = "gateway/command/%s/%s"             // gateway_number + message_id
+	TopicTemplateGatewayTelemetryControl  = "gateway/telemetry/control/%s"      // gateway_number
 )
 
 // 响应 Topic 模板（设备 → 平台的 ACK）
@@ -72,11 +82,41 @@ func BuildEventResponseTopic(deviceNumber, messageID string) string {
 }
 
 // BuildAttributeSetTopic 构造属性设置 Topic
-func BuildAttributeSetTopic(deviceNumber string) string {
-	return fmt.Sprintf(TopicTemplateAttributeSet, deviceNumber)
+func BuildAttributeSetTopic(deviceNumber, messageID string) string {
+	return fmt.Sprintf(TopicTemplateAttributeSet, deviceNumber, messageID)
+}
+
+// BuildAttributeGetTopic 构造属性查询 Topic
+func BuildAttributeGetTopic(deviceNumber string) string {
+	return fmt.Sprintf(TopicTemplateAttributeGet, deviceNumber)
 }
 
 // BuildCommandTopic 构造命令下发 Topic
-func BuildCommandTopic(deviceNumber string) string {
-	return fmt.Sprintf(TopicTemplateCommand, deviceNumber)
+func BuildCommandTopic(deviceNumber, messageID string) string {
+	return fmt.Sprintf(TopicTemplateCommand, deviceNumber, messageID)
+}
+
+// BuildTelemetryControlTopic 构造遥测控制 Topic
+func BuildTelemetryControlTopic(deviceNumber string) string {
+	return fmt.Sprintf(TopicTemplateTelemetryControl, deviceNumber)
+}
+
+// BuildGatewayAttributeSetTopic 构造网关属性设置 Topic
+func BuildGatewayAttributeSetTopic(gatewayNumber, messageID string) string {
+	return fmt.Sprintf(TopicTemplateGatewayAttributeSet, gatewayNumber, messageID)
+}
+
+// BuildGatewayAttributeGetTopic 构造网关属性查询 Topic
+func BuildGatewayAttributeGetTopic(gatewayNumber string) string {
+	return fmt.Sprintf(TopicTemplateGatewayAttributeGet, gatewayNumber)
+}
+
+// BuildGatewayCommandTopic 构造网关命令下发 Topic
+func BuildGatewayCommandTopic(gatewayNumber, messageID string) string {
+	return fmt.Sprintf(TopicTemplateGatewayCommand, gatewayNumber, messageID)
+}
+
+// BuildGatewayTelemetryControlTopic 构造网关遥测控制 Topic
+func BuildGatewayTelemetryControlTopic(gatewayNumber string) string {
+	return fmt.Sprintf(TopicTemplateGatewayTelemetryControl, gatewayNumber)
 }

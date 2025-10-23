@@ -152,12 +152,13 @@ func (h *Handler) publishMessage(msg *Message, payload []byte) error {
 		return fmt.Errorf("message publisher not initialized")
 	}
 
-	// 调用新的PublishMessage接口（直接传递MessageType）
-	if err := h.publisher.PublishMessage(msg.DeviceNumber, msg.Type, msg.DeviceType, msg.TopicPrefix, 1, payload); err != nil {
+	// 调用PublishMessage接口，传递 messageID 参数
+	if err := h.publisher.PublishMessage(msg.DeviceNumber, msg.Type, msg.DeviceType, msg.TopicPrefix, msg.MessageID, 1, payload); err != nil {
 		h.logger.WithFields(logrus.Fields{
 			"device_number": msg.DeviceNumber,
 			"device_type":   msg.DeviceType,
 			"msg_type":      msg.Type,
+			"message_id":    msg.MessageID,
 			"topic_prefix":  msg.TopicPrefix,
 			"payload":       string(payload),
 			"error":         err.Error(),

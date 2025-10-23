@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"project/internal/adapter/mqttadapter"
 	"project/internal/downlink"
 	"project/internal/processor"
 	"project/internal/service"
@@ -30,17 +29,14 @@ func (s *DownlinkServiceWrapper) Name() string {
 
 // Start 启动服务
 func (s *DownlinkServiceWrapper) Start() error {
-	// ✨ 在 Start 时才创建 Handler（此时 MQTT Adapter 已经初始化）
-	mqttAdapter := GetGlobalMQTTAdapter()
-	if mqttAdapter == nil {
-		return fmt.Errorf("global MQTT Adapter not initialized")
+	// ✨ 在 Start 时才创建 Handler（此时 Adapter 已经初始化）
+	adapter := GetGlobalMQTTAdapter()
+	if adapter == nil {
+		return fmt.Errorf("global message adapter not initialized")
 	}
 
-	// 创建 MQTT Publisher
-	mqttPublisher := mqttadapter.NewMQTTPublisher(mqttAdapter.GetMQTTClient(), s.logger)
-
-	// 创建 Handler
-	s.handler = downlink.NewHandler(mqttPublisher, s.processor, s.logger)
+	// 创建 Handler（直接使用 Adapter 作为 MessagePublisher）
+	s.handler = downlink.NewHandler(adapter, s.processor, s.logger)
 
 	// 启动 Bus
 	s.bus.Start(s.ctx, s.handler)

@@ -402,39 +402,44 @@ func (a *Adapter) parseEventMethod(payload []byte) string {
 
 // PublishMessage 实现 MessagePublisher 接口
 // 根据设备信息构造Topic并发送MQTT消息
-func (a *Adapter) PublishMessage(deviceNumber string, msgType downlink.MessageType, deviceType string, topicPrefix string, qos byte, payload []byte) error {
+func (a *Adapter) PublishMessage(deviceNumber string, msgType downlink.MessageType, deviceType string, topicPrefix string, messageID string, qos byte, payload []byte) error {
 	// 1. 根据设备类型和协议选择Topic基础路径
 	// 协议插件：始终使用 devices 路径（插件自己处理层级关系）
 	// MQTT协议：根据设备类型选择 devices 或 gateway
-	basePattern := "devices"
-	if topicPrefix == "" && deviceType != "1" {
-		// MQTT 协议的网关/子设备：使用 gateway 路径
-		basePattern = "gateway"
-	}
+	isGateway := topicPrefix == "" && deviceType != "1"
 
-	// 2. 根据消息类型选择Topic路径
-	var topicPath string
+	// 2. 构造完整Topic（使用 topics.go 中的构造函数）
+	var topic string
 	switch msgType {
 	case downlink.MessageTypeTelemetry:
-		topicPath = "telemetry/control"
+		if isGateway {
+			topic = topicPrefix + BuildGatewayTelemetryControlTopic(deviceNumber)
+		} else {
+			topic = topicPrefix + BuildTelemetryControlTopic(deviceNumber)
+		}
 	case downlink.MessageTypeCommand:
-		topicPath = "command"
+		if isGateway {
+			topic = topicPrefix + BuildGatewayCommandTopic(deviceNumber, messageID)
+		} else {
+			topic = topicPrefix + BuildCommandTopic(deviceNumber, messageID)
+		}
 	case downlink.MessageTypeAttributeSet:
-		topicPath = "attributes/set"
+		if isGateway {
+			topic = topicPrefix + BuildGatewayAttributeSetTopic(deviceNumber, messageID)
+		} else {
+			topic = topicPrefix + BuildAttributeSetTopic(deviceNumber, messageID)
+		}
 	case downlink.MessageTypeAttributeGet:
-		topicPath = "attributes/get"
+		if isGateway {
+			topic = topicPrefix + BuildGatewayAttributeGetTopic(deviceNumber)
+		} else {
+			topic = topicPrefix + BuildAttributeGetTopic(deviceNumber)
+		}
 	default:
 		return fmt.Errorf("unknown message type: %s", msgType)
 	}
 
-	// 3. 拼接完整Topic
-	topic := fmt.Sprintf("%s%s/%s/%s",
-		topicPrefix,   // 协议插件前缀（MQTT为空）
-		basePattern,   // devices 或 gateway
-		topicPath,     // telemetry/control 等
-		deviceNumber)  // 设备编号
-
-	// 4. 发送MQTT消息
+	// 3. 发送MQTT消息
 	token := a.mqttClient.Publish(topic, qos, false, payload)
 	if !token.WaitTimeout(5 * time.Second) {
 		return fmt.Errorf("mqtt publish timeout: topic=%s", topic)
@@ -447,6 +452,7 @@ func (a *Adapter) PublishMessage(deviceNumber string, msgType downlink.MessageTy
 		"topic":        topic,
 		"device_type":  deviceType,
 		"msg_type":     msgType,
+		"message_id":   messageID,
 		"topic_prefix": topicPrefix,
 		"qos":          qos,
 	}).Debug("Message published successfully")

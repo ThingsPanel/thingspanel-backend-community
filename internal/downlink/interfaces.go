@@ -8,7 +8,8 @@ type MessagePublisher interface {
 	// msgType: 消息类型（用于选择Topic路径）
 	// deviceType: 设备类型（用于区分devices/*还是gateway/*）
 	// topicPrefix: Topic前缀（协议插件使用，MQTT为空）
+	// messageID: 消息唯一标识（命令/属性设置需要拼接到Topic）
 	// qos: 消息质量等级
 	// payload: 消息内容（字节流）
-	PublishMessage(deviceNumber string, msgType MessageType, deviceType string, topicPrefix string, qos byte, payload []byte) error
+	PublishMessage(deviceNumber string, msgType MessageType, deviceType string, topicPrefix string, messageID string, qos byte, payload []byte) error
 }
