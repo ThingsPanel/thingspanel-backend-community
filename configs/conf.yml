@@ -23,7 +23,6 @@ jwt:
 db:
   psql:
     host: 127.0.0.1 # 默认localhost
-#    host: 47.92.253.145 # 默认localhost
     port: 5432 # 默认5432
     dbname: ThingsPanel
     username: postgres
@@ -39,7 +38,6 @@ db:
 
   redis:
     addr: 127.0.0.1:6379 # 默认localhost:6379
-    # addr: 47.92.253.145:6379 # 默认localhost:6379
     db: 1 # 默认0
     db1: 10 # 默认10，不能是0，用户设备状态管理
     password: "redis"
@@ -52,12 +50,12 @@ grpc:
 mqtt_server: vernemq
 
 mqtt:
-  access_address: 47.92.253.145:1883
+  access_address: 127.0.0.1:1883
   broker: 127.0.0.1:1883 # 默认localhost:1883
 #  broker: 47.92.253.145:1883
   user: root # 默认root
   pass: root # 默认root
-  channel_buffer_size: 10000 # 默认10000
+  channel_buffer_size: 1000 # 默认10000
   write_workers: 1 # 消息队列入库线程数，默认10
   #消息服务质量 0：消息最多传递一次，如果当时客户端不可用，则会丢失该消息。1：消息传递至少 1 次。2：消息仅传送一次。
   # 以下主题都为默认主题
