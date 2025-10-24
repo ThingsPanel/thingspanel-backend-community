@@ -36,7 +36,7 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 	} else if exists {
 		return errcode.New(errcode.CodePhoneDuplicated)
 	}
-	
+
 	user := model.User{}
 	// uuid生成用户id
 	user.ID = uuid.New()
@@ -404,7 +404,7 @@ func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserCl
 			return errcode.New(errcode.CodePhoneDuplicated)
 		}
 	}
-	
+
 	// 密码不能小于6位，如果等于空则不修改密码
 	if updateUserReq.Password != nil {
 		if len(*updateUserReq.Password) == 0 {
@@ -705,7 +705,7 @@ func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (
 	} else if exists {
 		return nil, errcode.New(errcode.CodePhoneDuplicated)
 	}
-	
+
 	// 密码格式校验
 	if err := utils.ValidatePassword(req.Password); err != nil {
 		return nil, err
@@ -805,7 +805,7 @@ func (u *User) GetUserEmailByPhoneNumber(phoneNumber string) (string, error) {
 	user, err := dal.GetUsersByPhoneNumber(phoneNumber)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", errcode.New(200007)
+			return "", errcode.New(200013)
 		}
 		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"message": "get_user_by_phone_number",

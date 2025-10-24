@@ -287,34 +287,29 @@ func GetUsersByEmail(email string) (*model.User, error) {
 }
 
 // 通过手机号获取用户
+// 支持国际手机号匹配：
+// - 如果输入带区号(+XX NNNN)：精确匹配
+// - 如果输入不带区号(纯数字)：模糊匹配数字后缀(LIKE '%digits')
 func GetUsersByPhoneNumber(phoneNumber string) (*model.User, error) {
-	// 初始化两个查询格式
-	format1 := phoneNumber
-	format2 := phoneNumber
-
-	if strings.HasPrefix(phoneNumber, "+") {
-		// 如果以+开头，提取实际手机号
-		phone := phoneNumber[1:] // 去掉+号
-		parts := strings.Split(phone, " ")
-		if len(parts) > 1 {
-			// 有空格的情况：+86 18211111111
-			format2 = parts[1]
-		} else if len(phone) > 4 {
-			// 无空格的情况：+8618211111111
-			// 假设区号不超过4位
-			format2 = phone[2:] // 跳过86这样的区号
-		}
-	} else {
-		// 如果不以+开头，添加+86前缀作为第二种格式
-		format2 = "+86 " + phoneNumber
+	if phoneNumber == "" {
+		return nil, errors.New("phone number is empty")
 	}
 
 	q := query.User
-	user, err := q.Where(q.PhoneNumber.Eq(format1)).
-		Or(q.PhoneNumber.Eq(format2)).
-		First()
 
-	return user, err
+	// 判断输入是否带区号
+	hasCountryCode := strings.HasPrefix(phoneNumber, "+")
+
+	if hasCountryCode {
+		// 输入带区号：直接精确匹配（输入格式规范：+86 13100000000）
+		user, err := q.Where(q.PhoneNumber.Eq(phoneNumber)).First()
+		return user, err
+	} else {
+		// 输入不带区号：使用 LIKE 匹配数字后缀
+		// 例如：输入 13100000000，可匹配 +86 13100000000 或 13100000000
+		user, err := q.Where(q.PhoneNumber.Like("%" + phoneNumber)).First()
+		return user, err
+	}
 }
 
 func GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (int64, interface{}, error) {
