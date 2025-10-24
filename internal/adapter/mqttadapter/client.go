@@ -10,10 +10,11 @@ import (
 
 // MQTTConfig MQTT 客户端配置
 type MQTTConfig struct {
-	Broker   string
-	Username string
-	Password string
-	ClientID string // 可选，不提供则自动生成
+	Broker              string
+	Username            string
+	Password            string
+	ClientID            string                    // 可选，不提供则自动生成
+	OnConnectCallback   func(client mqtt.Client)  // 连接成功回调（用于重新订阅）
 }
 
 // CreateMQTTClient 创建 MQTT 客户端（Adapter 专用）
@@ -46,26 +47,25 @@ func CreateMQTTClient(config MQTTConfig, logger *logrus.Logger) (mqtt.Client, er
 	// 消息顺序
 	opts.SetOrderMatters(false)
 
-	// 连接成功回调
-	opts.SetOnConnectHandler(func(_ mqtt.Client) {
+	// 连接成功回调（首次连接 + 重连成功都会触发）
+	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		logger.WithField("client_id", clientID).Info("MQTT Adapter client connected")
+
+		// ✨ 重连后自动执行订阅回调（确保订阅不丢失）
+		if config.OnConnectCallback != nil {
+			logger.Info("Executing OnConnectCallback to re-subscribe topics...")
+			config.OnConnectCallback(client)
+		}
 	})
 
-	// 断线重连回调
-	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
-		logger.WithError(err).Warn("MQTT Adapter connection lost, reconnecting...")
-		client.Disconnect(250)
+	// 断线回调（仅记录日志，自动重连由 SetAutoReconnect 处理）
+	opts.SetConnectionLostHandler(func(_ mqtt.Client, err error) {
+		logger.WithError(err).Warn("MQTT Adapter connection lost, auto-reconnect will handle it...")
+	})
 
-		// 等待连接成功，失败重新连接
-		for {
-			token := client.Connect()
-			if token.Wait() && token.Error() == nil {
-				logger.Info("MQTT Adapter reconnected successfully")
-				break
-			}
-			logger.WithError(token.Error()).Error("MQTT Adapter reconnect failed, retrying...")
-			time.Sleep(5 * time.Second)
-		}
+	// 重连中回调（可选，帮助追踪重连状态）
+	opts.SetReconnectingHandler(func(_ mqtt.Client, _ *mqtt.ClientOptions) {
+		logger.Info("MQTT Adapter reconnecting...")
 	})
 
 	// 创建客户端

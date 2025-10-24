@@ -7,6 +7,7 @@ import (
 	"project/internal/adapter/mqttadapter"
 	"project/mqtt"
 
+	mqtt_client "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -81,11 +82,40 @@ func (s *MQTTService) initMQTTAdapter() error {
 	username := viper.GetString("mqtt.user")
 	password := viper.GetString("mqtt.pass")
 
+	// 3. 先创建临时 Adapter（用于订阅回调）
+	var tempAdapter *mqttadapter.Adapter
+
 	mqttConfig := mqttadapter.MQTTConfig{
 		Broker:   broker,
 		Username: username,
 		Password: password,
 		// ClientID 会自动生成
+
+		// ✨ 设置连接成功回调：重连后自动重新订阅所有 Topic
+		OnConnectCallback: func(client mqtt_client.Client) {
+			if tempAdapter == nil {
+				return // 首次连接时 adapter 还未创建，跳过
+			}
+
+			logrus.Info("Re-subscribing all topics after reconnection...")
+
+			// 重新订阅响应 Topic
+			if err := tempAdapter.SubscribeResponseTopics(client); err != nil {
+				logrus.WithError(err).Error("Failed to re-subscribe response topics")
+			}
+
+			// 重新订阅设备上行 Topic
+			if err := tempAdapter.SubscribeDeviceTopics(client); err != nil {
+				logrus.WithError(err).Error("Failed to re-subscribe device topics")
+			}
+
+			// 重新订阅网关上行 Topic
+			if err := tempAdapter.SubscribeGatewayTopics(client); err != nil {
+				logrus.WithError(err).Error("Failed to re-subscribe gateway topics")
+			}
+
+			logrus.Info("All topics re-subscribed successfully after reconnection")
+		},
 	}
 
 	mqttClient, err := mqttadapter.CreateMQTTClient(mqttConfig, s.app.Logger)
@@ -93,27 +123,27 @@ func (s *MQTTService) initMQTTAdapter() error {
 		return fmt.Errorf("failed to create MQTT client for Adapter: %w", err)
 	}
 
-	// 3. 创建 MQTT Adapter
+	// 4. 创建 MQTT Adapter
 	s.mqttAdapter = mqttadapter.NewAdapter(bus, mqttClient, s.app.Logger)
+	tempAdapter = s.mqttAdapter       // 赋值给临时变量，供回调使用
 	globalMQTTAdapter = s.mqttAdapter // 设置全局实例
 	logrus.Info("MQTT Adapter created with independent client")
 
-	// 4. 订阅响应 Topic（命令响应、属性设置响应）
+	// 5. 首次订阅所有 Topic（重连后会通过 OnConnectCallback 自动重新订阅）
 	if err := s.mqttAdapter.SubscribeResponseTopics(mqttClient); err != nil {
 		return fmt.Errorf("failed to subscribe response topics: %w", err)
 	}
 
-	// 5. 订阅设备上行 Topic（遥测、属性、事件、状态）
 	if err := s.mqttAdapter.SubscribeDeviceTopics(mqttClient); err != nil {
 		return fmt.Errorf("failed to subscribe device topics: %w", err)
 	}
 
-	// 6. 订阅网关上行 Topic（网关遥测、属性、事件）
 	if err := s.mqttAdapter.SubscribeGatewayTopics(mqttClient); err != nil {
 		return fmt.Errorf("failed to subscribe gateway topics: %w", err)
 	}
 
 	logrus.Info("MQTT Adapter initialized successfully - all subscriptions active")
+	logrus.Info("📌 Automatic re-subscription on reconnect is enabled")
 	logrus.Info("📌 Old mqtt/subscribe/ flow is now completely bypassed")
 	return nil
 }
