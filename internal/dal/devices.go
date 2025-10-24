@@ -722,15 +722,9 @@ func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) (*model.Dev
 
 	query = query.Where(device.TenantID.Eq(tenantId))
 
-	// 添加多级网关支持：返回未绑定的子设备和未绑定的网关设备
-	// 子设备：device_type=3且parent_id为null
-	// 网关设备：device_type=2且parent_id为null
-	query = query.Where(device.ParentID.IsNull())
-	query = query.Where(deviceConfig.DeviceType.In("2", "3"))
-
 	query = query.Select(device.ID.As("device_id"), device.Name.As("device_name"), deviceConfig.DeviceType.As("device_type"))
 
-	query = query.Order(device.CreatedAt.Desc())
+	query = query.Order(device.UpdateAt.Desc())
 
 	count, err := query.Count()
 	if err != nil {
