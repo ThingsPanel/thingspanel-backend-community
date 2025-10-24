@@ -213,21 +213,38 @@ func (*DeviceConfig) GetDeviceConfigListMenu(req *model.GetDeviceConfigListMenuR
 }
 
 func (*DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
-	err := dal.BatchUpdateDeviceConfig(req)
-	if err != nil {
-		logrus.Error(err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+	// 检查设备是否绑定了模板
+	for _, deviceID := range req.DeviceIds {
+		deviceInfo, err := dal.GetDeviceByID(deviceID)
+		if err != nil {
+			logrus.Error(err)
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
+		if deviceInfo.DeviceConfigID != nil && !common.CheckEmpty(*deviceInfo.DeviceConfigID) {
+			deviceName := ""
+			if deviceInfo.Name != nil {
+				deviceName = *deviceInfo.Name
+			}
+			return errcode.WithVars(200071, map[string]interface{}{
+				"device_name": deviceName,
+			})
+		}
+
+		// 绑定设备模板
+		err = dal.UpdateDeviceDeviceConfigID(deviceID, &req.DeviceConfigID)
+		if err != nil {
+			logrus.Error(err)
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
+		// 清除设备信息缓存
+		initialize.DelDeviceCache(deviceID)
+
 	}
-	// 清除设备信息缓存
-	for _, id := range req.DeviceIds {
-		initialize.DelDeviceCache(id)
-		// initialize.DelDeviceDataScriptCache(id)
-	}
-	// 清除父设备缓存
-	initialize.DelDeviceCache(req.ParentDeviceID)
-	return err
+	return nil
 }
 
 func (*DeviceConfig) GetDeviceConfigConnect(ctx context.Context, deviceID string) (res *model.DeviceConfigConnectRes, err error) {

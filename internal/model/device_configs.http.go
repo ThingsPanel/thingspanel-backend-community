@@ -48,7 +48,7 @@ type GetDeviceConfigListMenuReq struct {
 }
 
 type BatchUpdateDeviceConfigReq struct {
-	ParentDeviceID string   `json:"parent_device_id" validate:"required,uuid"` // 父设备（网关）ID
+	DeviceConfigID string   `json:"device_config_id" validate:"required,uuid"` // 设备配置ID
 	DeviceIds      []string `json:"device_ids" validate:"required,min=1"`      // 要绑定的设备ID数组（子设备或子网关）
 }
 

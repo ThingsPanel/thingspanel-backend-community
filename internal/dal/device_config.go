@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-
 	model "project/internal/model"
 	query "project/internal/query"
 	utils "project/pkg/utils"
@@ -135,86 +133,6 @@ func GetDeviceConfigSelectList(deviceConfigName *string, tenantID string, device
 		return nil, err
 	}
 	return data, err
-}
-
-func BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
-	device := query.Device
-	deviceConfig := query.DeviceConfig
-	ctx := context.Background()
-
-	// 1. 验证父设备是否存在且是网关设备
-	parentDevice, err := device.WithContext(ctx).
-		LeftJoin(deviceConfig, device.DeviceConfigID.EqCol(deviceConfig.ID)).
-		Where(device.ID.Eq(req.ParentDeviceID)).
-		Select(device.ID, device.Name, deviceConfig.DeviceType).
-		First()
-	if err != nil {
-		return errors.Errorf("父设备不存在或查询失败: %v", err)
-	}
-
-	// 验证父设备是网关设备
-	parentDeviceType := ""
-	if parentDevice.DeviceConfigID != nil {
-		parentConfig, err := GetDeviceConfigByID(*parentDevice.DeviceConfigID)
-		if err != nil {
-			return errors.Errorf("获取父设备配置失败: %v", err)
-		}
-		parentDeviceType = parentConfig.DeviceType
-	}
-
-	if parentDeviceType != "2" {
-		return errors.Errorf("父设备必须是网关设备 (device_type=2)")
-	}
-
-	// 2. 验证要绑定的设备
-	for _, deviceID := range req.DeviceIds {
-		// 检查设备是否存在且未绑定
-		targetDevice, err := device.WithContext(ctx).
-			LeftJoin(deviceConfig, device.DeviceConfigID.EqCol(deviceConfig.ID)).
-			Where(device.ID.Eq(deviceID)).
-			Select(device.ID, device.ParentID, deviceConfig.DeviceType).
-			First()
-		if err != nil {
-			return errors.Errorf("设备 %s 不存在: %v", deviceID, err)
-		}
-
-		// 检查是否已经绑定到其他网关
-		if targetDevice.ParentID != nil {
-			return errors.Errorf("设备 %s 已绑定到其他网关", deviceID)
-		}
-
-		// 验证设备类型：必须是子设备(3)或网关设备(2)
-		if targetDevice.DeviceConfigID != nil {
-			targetConfig, err := GetDeviceConfigByID(*targetDevice.DeviceConfigID)
-			if err != nil {
-				return errors.Errorf("获取设备 %s 配置失败: %v", deviceID, err)
-			}
-			if targetConfig.DeviceType != "2" && targetConfig.DeviceType != "3" {
-				return errors.Errorf("设备 %s 类型不支持绑定 (必须是网关设备或子设备)", deviceID)
-			}
-		}
-	}
-
-	// 3. 执行批量绑定
-	t := time.Now().UTC()
-	for _, deviceID := range req.DeviceIds {
-		// 生成子设备地址
-		subDeviceAddr := fmt.Sprintf("%s", deviceID[0:8]) // 使用设备ID前8位作为子设备地址
-
-		_, err = device.WithContext(ctx).
-			Where(device.ID.Eq(deviceID)).
-			Updates(&model.Device{
-				ParentID:      &req.ParentDeviceID,
-				SubDeviceAddr: &subDeviceAddr,
-				UpdateAt:      &t,
-			})
-		if err != nil {
-			logrus.Error(err)
-			return errors.Errorf("绑定设备 %s 失败: %v", deviceID, err)
-		}
-	}
-
-	return nil
 }
 
 type DeviceConfigQuery struct{}
@@ -373,4 +291,13 @@ func GetDeviceConfigCountByFuncTemplateId(id string) (int64, error) {
 		logrus.Error(err)
 	}
 	return count, err
+}
+
+// 给设备增加设备模板
+func UpdateDeviceDeviceConfigID(deviceID string, deviceConfigID *string) error {
+	_, err := query.Device.Where(query.Device.ID.Eq(deviceID)).Update(query.Device.DeviceConfigID, deviceConfigID)
+	if err != nil {
+		logrus.Error(err)
+	}
+	return err
 }

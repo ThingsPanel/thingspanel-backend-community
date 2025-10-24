@@ -177,6 +177,9 @@ messages:
   200070:
     zh_CN: "该协议/服务类型不存在"
     en_US: "The protocol/service type does not exist"
+  200071:
+    zh_CN: "设备${device_name}已绑定模板，请先解除模板绑定"
+    en_US: "Device ${device_name} is already bound to a template, please unbind the template first"
 
   # 设备认证错误码 (200080-200089)
   200080:
