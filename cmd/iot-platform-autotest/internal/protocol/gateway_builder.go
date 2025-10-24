@@ -38,17 +38,12 @@ func (b *GatewayMessageBuilder) BuildAttribute(data interface{}) ([]byte, error)
 }
 
 // BuildEvent 构建事件数据报文(嵌套JSON格式)
+// params 参数应该是完整的嵌套数据结构（包含 gateway_data, sub_device_data, sub_gateway_data）
+// 与 BuildTelemetry 和 BuildAttribute 保持一致
 func (b *GatewayMessageBuilder) BuildEvent(method string, params interface{}) ([]byte, error) {
-	// 网关事件也需要嵌套结构，这里简化处理
-	// 实际使用时应该传入完整的嵌套数据
-	eventData := map[string]interface{}{
-		"gateway_data": map[string]interface{}{
-			"method": method,
-			"params": params,
-		},
-	}
-
-	payload, err := json.Marshal(eventData)
+	// 直接序列化传入的嵌套数据
+	// params 已经是完整的网关事件结构，不需要再包装
+	payload, err := json.Marshal(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal gateway event data: %w", err)
 	}
@@ -93,6 +88,44 @@ func BuildNestedTelemetry(gatewayData, subDeviceData, subGatewayData map[string]
 
 	if subGatewayData != nil {
 		result["sub_gateway_data"] = subGatewayData
+	}
+
+	return result
+}
+
+// BuildNestedAttributes 构建嵌套的属性数据（辅助方法）
+func BuildNestedAttributes(gatewayData, subDeviceData, subGatewayData map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	if gatewayData != nil {
+		result["gateway_data"] = gatewayData
+	}
+
+	if subDeviceData != nil {
+		result["sub_device_data"] = subDeviceData
+	}
+
+	if subGatewayData != nil {
+		result["sub_gateway_data"] = subGatewayData
+	}
+
+	return result
+}
+
+// BuildNestedEvents 构建嵌套的事件数据（辅助方法）
+func BuildNestedEvents(gatewayEvent, subDeviceEvents, subGatewayEvents map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	if gatewayEvent != nil {
+		result["gateway_data"] = gatewayEvent
+	}
+
+	if subDeviceEvents != nil {
+		result["sub_device_data"] = subDeviceEvents
+	}
+
+	if subGatewayEvents != nil {
+		result["sub_gateway_data"] = subGatewayEvents
 	}
 
 	return result
