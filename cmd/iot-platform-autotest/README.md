@@ -30,53 +30,6 @@ ThingsPanel IoT 平台的自动化测试框架,用于验证 MQTT 设备接入、
 go mod download
 ```
 
-### 3. 配置文件
-
-复制配置模板并修改:
-
-```bash
-cp config-community.yaml config-my-test.yaml
-```
-
-配置项说明:
-
-```yaml
-# 设备类型: direct(直连设备) 或 gateway(网关设备)
-device_type: "direct"
-
-mqtt:
-  broker: "127.0.0.1:1883"
-  client_id: "test_device_001"
-  username: "username"
-  password: "password"
-  qos: 1
-  clean_session: true
-  keep_alive: 60
-
-device:
-  device_id: "your-device-uuid"
-  device_number: "your-device-number"
-
-database:
-  host: "127.0.0.1"
-  port: 5432
-  dbname: "ThingsPanel"
-  username: "postgres"
-  password: "password"
-  sslmode: "disable"
-
-api:
-  base_url: "http://127.0.0.1:8080"
-  api_key: "your-api-key"
-  timeout: 30
-
-test:
-  wait_db_sync_seconds: 3        # 等待数据入库时间
-  wait_mqtt_response_seconds: 5  # 等待 MQTT 响应时间
-  retry_times: 3                 # 重试次数
-  log_level: "debug"
-```
-
 ## 项目架构
 
 ### 目录结构
@@ -116,10 +69,9 @@ iot-platform-autotest/
 
 ### 4. 运行测试
 
-**运行直连设备所有测试**:
-
 ```bash
 go test ./tests/direct/... -v
+go test ./tests/gateway/... -v
 ```
 
 **运行指定测试**:
@@ -127,33 +79,17 @@ go test ./tests/direct/... -v
 ```bash
 # 遥测数据测试
 go test ./tests/direct/telemetry_test.go -v
+go test ./tests/gateway/telemetry_test.go -v
 
 # 属性数据测试
 go test ./tests/direct/attribute_test.go -v
+go test ./tests/gateway/attribute_test.go -v
 
 # 事件数据测试
 go test ./tests/direct/event_test.go -v
+go test ./tests/gateway/event_test.go -v
 
 # 命令测试
 go test ./tests/direct/command_test.go -v
+go test ./tests/gateway/command_test.go -v
 ```
-
-**使用命令行工具**:
-
-```bash
-# 编译
-go build -o autotest ./cmd/autotest
-
-# 运行遥测测试
-./autotest -config config-my-test.yaml -mode telemetry
-
-# 运行属性测试
-./autotest -config config-my-test.yaml -mode attribute
-
-# 运行事件测试
-./autotest -config config-my-test.yaml -mode event
-
-# 运行所有测试
-./autotest -config config-my-test.yaml -mode all
-```
-

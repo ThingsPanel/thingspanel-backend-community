@@ -23,7 +23,7 @@ func TestGatewayAttributeSet(t *testing.T) {
 	defer logger.Sync()
 
 	// 加载配置
-	cfg, err := config.Load("../../config-gateway.yaml")
+	cfg, err := config.Load("../../config-gateway-community.yaml")
 	require.NoError(t, err)
 
 	// 验证是网关设备

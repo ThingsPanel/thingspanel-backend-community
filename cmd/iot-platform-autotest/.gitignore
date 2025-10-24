@@ -13,9 +13,6 @@ bin/
 coverage.out
 coverage.html
 
-# Config
-config.yaml
-
 # IDE
 .vscode/
 .idea/
