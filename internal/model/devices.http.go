@@ -72,6 +72,7 @@ type GetDeviceListByPageReq struct {
 	CurrentVersion    *string `json:"current_version" form:"current_version" validate:"omitempty,max=36"`   // 当前版本
 	GroupId           *string `json:"group_id" form:"group_id" validate:"omitempty,max=36"`                 //组id
 	DeviceConfigId    *string `json:"device_config_id" form:"device_config_id" validate:"omitempty,max=36"` // 设备配置ID
+	DeviceTemplateID  *string `json:"device_template_id" form:"device_template_id" validate:"omitempty,max=36"` // 设备物模型ID
 	IsOnline          *int    `json:"is_online" form:"is_online" validate:"omitempty,max=36"`               // 组id
 	WarnStatus        *string `json:"warn_status" form:"warn_status" validate:"omitempty,max=36"`           // 预留 TODO
 	Search            *string `json:"search" form:"search" validate:"omitempty,max=36"`                     // 设备名称或编号的模糊匹配

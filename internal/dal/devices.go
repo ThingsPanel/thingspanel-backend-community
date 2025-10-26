@@ -329,6 +329,11 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		}
 	}
 	queryBuilder = queryBuilder.LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
+
+	// 物模型ID过滤
+	if req.DeviceTemplateID != nil && *req.DeviceTemplateID != "" {
+		queryBuilder = queryBuilder.Where(c.DeviceTemplateID.Eq(*req.DeviceTemplateID))
+	}
 	queryBuilder = queryBuilder.LeftJoin(lda, lda.DeviceID.EqCol(q.ID))
 	// 告警
 	if req.WarnStatus != nil && *req.WarnStatus != "" {
