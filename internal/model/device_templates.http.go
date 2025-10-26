@@ -50,3 +50,17 @@ type GetDeviceTemplateRsp struct {
 	CreatedAt    time.Time              `json:"created_at"`
 	UpdatedAt    time.Time              `json:"updated_at"`
 }
+
+// GetDeviceTemplateStatsReq 获取设备物模型统计请求
+type GetDeviceTemplateStatsReq struct {
+	DeviceTemplateID string `json:"device_template_id" form:"device_template_id" validate:"required,max=36"` // 物模型ID
+}
+
+// GetDeviceTemplateStatsRsp 获取设备物模型统计响应
+type GetDeviceTemplateStatsRsp struct {
+	DeviceTemplateID string `json:"device_template_id"` // 物模型ID
+	Name             string `json:"name"`               // 物模型名称
+	Label            string `json:"label"`              // 标签
+	TotalDevices     int64  `json:"total_devices"`      // 关联设备总数
+	OnlineDevices    int64  `json:"online_devices"`     // 在线设备数
+}

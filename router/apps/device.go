@@ -108,6 +108,9 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// 模板下拉菜单
 		deviceTemplateapi.GET("/menu", api.Controllers.DeviceApi.HandleDeviceTemplateMenu)
 
+		// 物模型统计信息
+		deviceTemplateapi.GET("/stats", api.Controllers.DeviceApi.HandleDeviceTemplateStats)
+
 		// 根据设备ID获取模板
 		deviceTemplateapi.GET("/chart", api.Controllers.DeviceApi.HandleDeviceTemplateByDeviceId)
 

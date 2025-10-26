@@ -118,3 +118,59 @@ func GetDeviceTemplateMenu(req *model.GetDeviceTemplateMenuReq, claims *utils.Us
 	return data, err
 
 }
+
+// GetDeviceTemplateStats 获取设备物模型统计信息
+func GetDeviceTemplateStats(deviceTemplateID string, tenantID string) (*model.GetDeviceTemplateStatsRsp, error) {
+	ctx := context.Background()
+
+	// 查询物模型基本信息
+	dt := query.DeviceTemplate
+	template, err := dt.WithContext(ctx).
+		Where(dt.ID.Eq(deviceTemplateID), dt.TenantID.Eq(tenantID)).
+		First()
+	if err != nil {
+		logrus.Error("query device template error: ", err)
+		return nil, err
+	}
+
+	// 统计关联设备总数和在线设备数
+	// 通过 device_configs 表关联 devices 表
+	dc := query.DeviceConfig
+	d := query.Device
+
+	// 统计总设备数
+	totalDevices, err := d.WithContext(ctx).
+		Join(dc, dc.ID.EqCol(d.DeviceConfigID)).
+		Where(dc.DeviceTemplateID.Eq(deviceTemplateID), d.TenantID.Eq(tenantID)).
+		Count()
+	if err != nil {
+		logrus.Error("query total devices error: ", err)
+		return nil, err
+	}
+
+	// 统计在线设备数
+	onlineDevices, err := d.WithContext(ctx).
+		Join(dc, dc.ID.EqCol(d.DeviceConfigID)).
+		Where(dc.DeviceTemplateID.Eq(deviceTemplateID), d.TenantID.Eq(tenantID), d.IsOnline.Eq(1)).
+		Count()
+	if err != nil {
+		logrus.Error("query online devices error: ", err)
+		return nil, err
+	}
+
+	// 构造返回结果
+	label := ""
+	if template.Label != nil {
+		label = *template.Label
+	}
+
+	result := &model.GetDeviceTemplateStatsRsp{
+		DeviceTemplateID: template.ID,
+		Name:             template.Name,
+		Label:            label,
+		TotalDevices:     totalDevices,
+		OnlineDevices:    onlineDevices,
+	}
+
+	return result, nil
+}

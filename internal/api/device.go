@@ -206,6 +206,23 @@ func (*DeviceApi) HandleDeviceTemplateMenu(c *gin.Context) {
 	c.Set("data", data)
 }
 
+// HandleDeviceTemplateStats 获取设备物模型统计信息
+// @Router   /api/v1/device/template/stats [get]
+func (*DeviceApi) HandleDeviceTemplateStats(c *gin.Context) {
+	var req model.GetDeviceTemplateStatsReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateStats(req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", data)
+}
+
 // DeleteDeviceTemplate 删除设备模版
 // @Router   /api/v1/device/template/{id} [delete]
 func (*DeviceApi) DeleteDeviceTemplate(c *gin.Context) {

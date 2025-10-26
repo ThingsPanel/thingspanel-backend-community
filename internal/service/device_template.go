@@ -194,3 +194,14 @@ func (*DeviceTemplate) GetDeviceTemplateMenu(req model.GetDeviceTemplateMenuReq,
 	}
 	return data, nil
 }
+
+// GetDeviceTemplateStats 获取设备物模型统计信息
+func (*DeviceTemplate) GetDeviceTemplateStats(req model.GetDeviceTemplateStatsReq, claims *utils.UserClaims) (*model.GetDeviceTemplateStatsRsp, error) {
+	data, err := dal.GetDeviceTemplateStats(req.DeviceTemplateID, claims.TenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return data, nil
+}
