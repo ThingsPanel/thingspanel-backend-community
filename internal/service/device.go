@@ -720,18 +720,18 @@ func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDevice
 				"sql_error": err.Error(),
 			})
 		}
-		
+
 		// 检查设备类型：必须是网关设备(2)或子设备(3)
 		if deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) && deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_SON_DEVICE) {
 			logrus.Error(ctx, "[CreateSonDevice]Invalid device type:", deviceConfig.DeviceType)
 			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-				"error": "设备类型不支持绑定，只能绑定网关设备或子设备",
+				"error":       "设备类型不支持绑定，只能绑定网关设备或子设备",
 				"device_type": deviceConfig.DeviceType,
 			})
 		}
 
 		deviceInfo.ParentID = &param.ID
-		deviceInfo.SubDeviceAddr = StringPtr(uuid.New()[0:8])
+		deviceInfo.SubDeviceAddr = &param.SonID
 		// 更新子设备 parentID
 		if err = db.Update(ctx, deviceInfo, device.ParentID, device.SubDeviceAddr); err != nil {
 			logrus.Error(ctx, "[CreateSonDevice]update failed:", err)
