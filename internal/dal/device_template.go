@@ -174,3 +174,36 @@ func GetDeviceTemplateStats(deviceTemplateID string, tenantID string) (*model.Ge
 
 	return result, nil
 }
+
+// GetDeviceTemplateSelector 获取设备物模型选择器列表（不分页）
+func GetDeviceTemplateSelector(req *model.GetDeviceTemplateSelectorReq, tenantID string) ([]*model.GetDeviceTemplateSelectorRsp, error) {
+	ctx := context.Background()
+	q := query.DeviceTemplate
+
+	queryBuilder := q.WithContext(ctx).Where(q.TenantID.Eq(tenantID))
+
+	// 物模型ID精确查询
+	if req.DeviceTemplateID != nil && *req.DeviceTemplateID != "" {
+		queryBuilder = queryBuilder.Where(q.ID.Eq(*req.DeviceTemplateID))
+	}
+
+	// 物模型名称模糊匹配
+	if req.Name != nil && *req.Name != "" {
+		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+	}
+
+	// 标签模糊匹配
+	if req.Label != nil && *req.Label != "" {
+		queryBuilder = queryBuilder.Where(q.Label.Like(fmt.Sprintf("%%%s%%", *req.Label)))
+	}
+
+	// 查询ID、Name和Label字段
+	var results []*model.GetDeviceTemplateSelectorRsp
+	err := queryBuilder.Select(q.ID, q.Name, q.Label).Order(q.UpdatedAt.Desc()).Scan(&results)
+	if err != nil {
+		logrus.Error("query device template selector error: ", err)
+		return nil, err
+	}
+
+	return results, nil
+}

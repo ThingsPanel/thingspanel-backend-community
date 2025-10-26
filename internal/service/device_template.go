@@ -205,3 +205,14 @@ func (*DeviceTemplate) GetDeviceTemplateStats(req model.GetDeviceTemplateStatsRe
 	}
 	return data, nil
 }
+
+// GetDeviceTemplateSelector 获取设备物模型选择器列表
+func (*DeviceTemplate) GetDeviceTemplateSelector(req model.GetDeviceTemplateSelectorReq, claims *utils.UserClaims) ([]*model.GetDeviceTemplateSelectorRsp, error) {
+	data, err := dal.GetDeviceTemplateSelector(&req, claims.TenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return data, nil
+}

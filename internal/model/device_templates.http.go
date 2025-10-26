@@ -64,3 +64,17 @@ type GetDeviceTemplateStatsRsp struct {
 	TotalDevices     int64  `json:"total_devices"`      // 关联设备总数
 	OnlineDevices    int64  `json:"online_devices"`     // 在线设备数
 }
+
+// GetDeviceTemplateSelectorReq 获取设备物模型选择器请求
+type GetDeviceTemplateSelectorReq struct {
+	Name             *string `json:"name" form:"name" validate:"omitempty,max=255"`                               // 物模型名称（模糊匹配）
+	Label            *string `json:"label" form:"label" validate:"omitempty,max=255"`                             // 标签（模糊匹配）
+	DeviceTemplateID *string `json:"device_template_id" form:"device_template_id" validate:"omitempty,max=36"`   // 物模型ID（精确匹配）
+}
+
+// GetDeviceTemplateSelectorRsp 获取设备物模型选择器响应
+type GetDeviceTemplateSelectorRsp struct {
+	ID    string  `json:"id"`    // 物模型ID
+	Name  string  `json:"name"`  // 物模型名称
+	Label *string `json:"label"` // 标签
+}

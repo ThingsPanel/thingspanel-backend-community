@@ -111,6 +111,9 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// 物模型统计信息
 		deviceTemplateapi.GET("/stats", api.Controllers.DeviceApi.HandleDeviceTemplateStats)
 
+		// 物模型选择器
+		deviceTemplateapi.GET("/selector", api.Controllers.DeviceApi.HandleDeviceTemplateSelector)
+
 		// 根据设备ID获取模板
 		deviceTemplateapi.GET("/chart", api.Controllers.DeviceApi.HandleDeviceTemplateByDeviceId)
 
