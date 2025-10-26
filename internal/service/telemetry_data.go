@@ -457,7 +457,7 @@ func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHist
 			}
 			for _, data := range datas {
 				t := time.Unix(0, data.T*int64(time.Millisecond))
-				f.SetCellValue("Sheet1", fmt.Sprintf("A%d", rowNumber), t.Format("2006-01-02 15:04:05"))
+				f.SetCellValue("Sheet1", fmt.Sprintf("A%d", rowNumber), t.Format("2006-01-02 15:04:05.000"))
 				f.SetCellValue("Sheet1", fmt.Sprintf("B%d", rowNumber), *data.NumberV)
 				rowNumber++
 			}
