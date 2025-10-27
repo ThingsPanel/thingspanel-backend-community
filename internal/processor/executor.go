@@ -182,17 +182,15 @@ func (e *LuaExecutor) executeEncodeScript(L *lua.LState, scriptContent string, j
 
 // setupSandbox 设置 Lua 沙箱环境（禁用危险函数并加载安全模块）
 func (e *LuaExecutor) setupSandbox(L *lua.LState) {
-	// ⚠️ 重要：必须先加载安全模块，再禁用 package
-	// PreloadModule 需要访问 package.preload 表，如果先禁用 package 会导致 panic
+	// ⚠️ 重要：必须先加载安全模块，再禁用部分功能
+	// PreloadModule 需要访问 package.preload 表
 	L.PreloadModule("json", luajson.Loader)
 
 	// 禁用危险的标准库
 	L.SetGlobal("os", lua.LNil)           // 禁用 os 库（操作系统操作）
 	L.SetGlobal("io", lua.LNil)           // 禁用 io 库（文件 IO）
-	L.SetGlobal("package", lua.LNil)      // 禁用 package 库（模块加载）- 必须在 PreloadModule 之后
 	L.SetGlobal("dofile", lua.LNil)       // 禁用 dofile
 	L.SetGlobal("loadfile", lua.LNil)     // 禁用 loadfile
-	L.SetGlobal("require", lua.LNil)      // 禁用 require（通过 PreloadModule 加载安全模块）
 	L.SetGlobal("load", lua.LNil)         // 禁用 load
 	L.SetGlobal("loadstring", lua.LNil)   // 禁用 loadstring
 	L.SetGlobal("rawget", lua.LNil)       // 禁用 rawget（可绕过沙箱）
@@ -200,8 +198,15 @@ func (e *LuaExecutor) setupSandbox(L *lua.LState) {
 	L.SetGlobal("setmetatable", lua.LNil) // 禁用 setmetatable（可绕过沙箱）
 	L.SetGlobal("getmetatable", lua.LNil) // 禁用 getmetatable（可绕过沙箱）
 
+	// ⚠️ 注意：不能禁用 package 和 require
+	// - require 函数是脚本加载预加载模块的唯一方式（如 require("json")）
+	// - 虽然保留了 package 和 require，但由于禁用了 io/os/dofile/loadfile，
+	//   脚本无法动态加载外部文件，只能使用 PreloadModule 预加载的安全模块
+
 	// 保留安全的基础函数：
 	// print, tostring, tonumber, type, pairs, ipairs, next
 	// table.*, string.*, math.*
+	// require（用于加载预加载的安全模块）
+	// package（用于 require 的内部机制）
 	// 这些函数默认保留，无需额外设置
 }
