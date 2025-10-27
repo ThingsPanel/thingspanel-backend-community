@@ -16,7 +16,6 @@ import (
 	"project/internal/downlink"
 	model "project/internal/model"
 	config "project/mqtt"
-	"project/mqtt/publish"
 	simulationpublish "project/mqtt/simulation_publish"
 	"project/pkg/constant"
 	"project/pkg/errcode"
@@ -589,25 +588,6 @@ func (*TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, error)
 			"error": err.Error(),
 		})
 	}
-	// 根据凭证信息查询设备信息
-	// 组装凭证信息
-	var voucher string
-	if params.Password == "" {
-		voucher = fmt.Sprintf("{\"username\":\"%s\"}", params.Username)
-	} else {
-		voucher = fmt.Sprintf("{\"username\":\"%s\",\"password\":\"%s\"}", params.Username, params.Password)
-	}
-	// 查询设备信息
-	deviceInfo, err := dal.GetDeviceByVoucher(voucher)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
-	var isOnline int
-	if deviceInfo.IsOnline == int16(1) {
-		isOnline = 1
-	}
 
 	// 发送mqtt消息
 	logrus.Debug("params:", params)
@@ -617,19 +597,6 @@ func (*TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, error)
 			"error_message": err.Error(),
 		})
 	}
-	go func() {
-		time.Sleep(3 * time.Second)
-		// 更新设备状态
-		if isOnline == 1 {
-			dal.UpdateDeviceOnlineStatus(deviceInfo.ID, int16(isOnline))
-			// 发送上线消息
-			// 发送mqtt消息
-			err = publish.PublishOnlineMessage(deviceInfo.ID, []byte("1"))
-			if err != nil {
-				logrus.Error("publish online message failed:", err)
-			}
-		}
-	}()
 	return nil, nil
 }
 
