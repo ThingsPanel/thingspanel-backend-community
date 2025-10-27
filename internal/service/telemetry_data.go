@@ -1174,13 +1174,13 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 	msg := &downlink.Message{
 		DeviceID:       deviceInfo.ID,
 		DeviceNumber:   targetDeviceNumber, // ✅ 目标设备编号（网关/子设备时为顶层网关）
-		DeviceType:     deviceType,          // ✅ 设备类型
+		DeviceType:     deviceType,         // ✅ 设备类型
 		DeviceConfigID: getDeviceConfigID(deviceInfo),
 		Type:           downlink.MessageTypeTelemetry,
 		Data:           []byte(param.Value),
-		Topic:          "",           // ✅ 不再传Topic，由Adapter构造
-		TopicPrefix:    topicPrefix,  // ✅ 协议插件前缀
-		MessageID:      logID,        // ✅ 使用日志ID作为MessageID
+		Topic:          "",          // ✅ 不再传Topic，由Adapter构造
+		TopicPrefix:    topicPrefix, // ✅ 协议插件前缀
+		MessageID:      logID,       // ✅ 使用日志ID作为MessageID
 	}
 
 	// 发送到 Bus（异步处理，Handler 会更新日志状态）
