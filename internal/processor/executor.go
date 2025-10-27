@@ -182,10 +182,14 @@ func (e *LuaExecutor) executeEncodeScript(L *lua.LState, scriptContent string, j
 
 // setupSandbox 设置 Lua 沙箱环境（禁用危险函数并加载安全模块）
 func (e *LuaExecutor) setupSandbox(L *lua.LState) {
+	// ⚠️ 重要：必须先加载安全模块，再禁用 package
+	// PreloadModule 需要访问 package.preload 表，如果先禁用 package 会导致 panic
+	L.PreloadModule("json", luajson.Loader)
+
 	// 禁用危险的标准库
 	L.SetGlobal("os", lua.LNil)           // 禁用 os 库（操作系统操作）
 	L.SetGlobal("io", lua.LNil)           // 禁用 io 库（文件 IO）
-	L.SetGlobal("package", lua.LNil)      // 禁用 package 库（模块加载）
+	L.SetGlobal("package", lua.LNil)      // 禁用 package 库（模块加载）- 必须在 PreloadModule 之后
 	L.SetGlobal("dofile", lua.LNil)       // 禁用 dofile
 	L.SetGlobal("loadfile", lua.LNil)     // 禁用 loadfile
 	L.SetGlobal("require", lua.LNil)      // 禁用 require（通过 PreloadModule 加载安全模块）
@@ -195,10 +199,6 @@ func (e *LuaExecutor) setupSandbox(L *lua.LState) {
 	L.SetGlobal("rawset", lua.LNil)       // 禁用 rawset（可绕过沙箱）
 	L.SetGlobal("setmetatable", lua.LNil) // 禁用 setmetatable（可绕过沙箱）
 	L.SetGlobal("getmetatable", lua.LNil) // 禁用 getmetatable（可绕过沙箱）
-
-	// 加载安全的 JSON 库
-	// 注意：PreloadModule 必须在创建 goroutine 之前调用，否则会出现 "attempt to index a non-table object(nil)" 错误
-	L.PreloadModule("json", luajson.Loader)
 
 	// 保留安全的基础函数：
 	// print, tostring, tonumber, type, pairs, ipairs, next
