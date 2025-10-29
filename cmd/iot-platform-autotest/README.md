@@ -92,4 +92,7 @@ go test ./tests/gateway/event_test.go -v
 # 命令测试
 go test ./tests/direct/command_test.go -v
 go test ./tests/gateway/command_test.go -v
+
+# 多层网关各设备遥测、属性、事件独立数据上报
+go test ./tests/gateway/multilayer_independent_test.go -v
 ```
