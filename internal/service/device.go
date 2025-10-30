@@ -731,7 +731,7 @@ func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDevice
 		}
 
 		deviceInfo.ParentID = &param.ID
-		deviceInfo.SubDeviceAddr = &param.SonID
+		deviceInfo.SubDeviceAddr = &sonID
 		// 更新子设备 parentID
 		if err = db.Update(ctx, deviceInfo, device.ParentID, device.SubDeviceAddr); err != nil {
 			logrus.Error(ctx, "[CreateSonDevice]update failed:", err)
