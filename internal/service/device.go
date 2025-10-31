@@ -1015,6 +1015,19 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 	if param.Voucher == "{}" {
 		return "", nil
 	}
+	// 如果新凭证与旧凭证不同，需要校验新凭证是否已被其他设备使用
+	if deviceInfo.Voucher != voucher {
+		exists, err := dal.CheckVoucherExists(voucher, param.DeviceID)
+		if err != nil {
+			return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+				"message":   "check voucher exists failed",
+			})
+		}
+		if exists {
+			return "", errcode.New(204005)
+		}
+	}
 	info := &model.Device{
 		ID:      param.DeviceID,
 		Voucher: voucher,

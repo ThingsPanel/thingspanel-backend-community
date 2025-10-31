@@ -707,6 +707,18 @@ func CheckDeviceNumberExists(deviceNumber string) (bool, error) {
 	return count > 0, nil
 }
 
+// CheckVoucherExists
+// CheckVoucherExists checks if a voucher already exists for another device (excluding the specified deviceID)
+func CheckVoucherExists(voucher string, excludeDeviceID string) (bool, error) {
+	count, err := query.Device.Where(query.Device.Voucher.Eq(voucher)).
+		Where(query.Device.ID.Neq(excludeDeviceID)).Count()
+	if err != nil {
+		logrus.Error(err)
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // 获取设备选择器
 func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) (*model.DeviceSelectorRes, error) {
 	device := query.Device

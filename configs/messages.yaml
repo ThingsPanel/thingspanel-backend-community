@@ -272,6 +272,9 @@ messages:
   204004:
     zh_CN: "设备编号已存在"
     en_US: "Device number already exists"
+  204005:
+    zh_CN: "凭证已存在"
+    en_US: "Voucher already exists"
 
   # WebSocket相关错误码 (205xxx)
   205001:
