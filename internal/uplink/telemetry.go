@@ -8,6 +8,7 @@ import (
 
 	"project/initialize"
 	"project/internal/dal"
+	"project/internal/diagnostics"
 	"project/internal/model"
 	"project/internal/processor"
 	"project/internal/service"
@@ -138,6 +139,8 @@ func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
 		})
 
 		if err != nil {
+			// 记录诊断：processor 解码失败
+			diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("解码失败：%v", err))
 			f.logger.WithFields(logrus.Fields{
 				"device_id": device.ID,
 				"error":     err,
@@ -146,6 +149,12 @@ func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
 		}
 
 		if !output.Success {
+			// 记录诊断：processor 执行失败
+			errMsg := "执行失败"
+			if output.Error != nil {
+				errMsg = fmt.Sprintf("执行失败：%v", output.Error)
+			}
+			diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, errMsg)
 			f.logger.WithFields(logrus.Fields{
 				"device_id": device.ID,
 				"error":     output.Error,
@@ -314,6 +323,8 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 	}
 
 	// 4. 发送到 Storage（同步发送到 channel）
+	// 记录诊断：上行消息总数
+	diagnostics.GetInstance().RecordUplinkTotal(device.ID)
 	f.storageInput <- &storage.Message{
 		DeviceID:  device.ID,
 		TenantID:  device.TenantID,

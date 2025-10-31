@@ -112,6 +112,8 @@ func RouterInit() *gin.Engine {
 			v1.GET("sys_version", controllers.SystemApi.HandleSysVersion)
 			// 设备动态认证（一型一密）
 			v1.POST("/device/auth", controllers.DeviceAuthApi.DeviceAuth)
+			// 设备诊断（不校验权限）
+			v1.GET("/devices/:device_id/diagnostics", controllers.DeviceApi.GetDeviceDiagnostics)
 		}
 
 		// 需要权限校验

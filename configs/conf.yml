@@ -165,3 +165,11 @@ storage:
 uplink:
   enable: true                     # 是否启用Uplink层（默认true）
   bus_buffer_size: 1000           # Bus消息总线缓冲区大小
+
+# Diagnostics 设备诊断配置
+diagnostics:
+  enabled: true                    # 是否启用设备诊断（关闭时不启动监控）
+  max_failures: 5                  # 保留失败记录数
+  batch_flush_size: 100             # 批量刷新大小（异步缓冲）
+  batch_flush_interval: 1s         # 批量刷新间隔
+  persist_to_db: false             # 是否持久化到数据库（服务重启后保留）

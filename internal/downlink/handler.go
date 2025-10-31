@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"project/internal/dal"
+	"project/internal/diagnostics"
 	"project/internal/processor"
 
 	"github.com/sirupsen/logrus"
@@ -52,6 +53,11 @@ func (h *Handler) HandleTelemetry(ctx context.Context, msg *Message) {
 func (h *Handler) handle(ctx context.Context, msg *Message, dataType processor.DataType) {
 	start := time.Now()
 
+	// 记录诊断：下行指令总数（处理开始时）
+	if msg != nil && msg.DeviceID != "" {
+		diagnostics.GetInstance().RecordDownlinkTotal(msg.DeviceID)
+	}
+
 	// 1. 参数验证（Topic 由 Adapter 构造，不在此验证）
 	if msg == nil || msg.DeviceNumber == "" || len(msg.Data) == 0 {
 		h.logger.WithFields(logrus.Fields{
@@ -79,6 +85,10 @@ func (h *Handler) handle(ctx context.Context, msg *Message, dataType processor.D
 
 		encodeOutput, err := h.processor.Encode(ctx, encodeInput)
 		if err != nil {
+			// 记录诊断：编码失败
+			if msg.DeviceID != "" {
+				diagnostics.GetInstance().RecordDownlinkFailed(msg.DeviceID, diagnostics.StageEncode, fmt.Sprintf("编码失败：%v", err))
+			}
 			h.logger.WithFields(logrus.Fields{
 				"module":           "downlink",
 				"device_config_id": msg.DeviceConfigID,
@@ -92,6 +102,14 @@ func (h *Handler) handle(ctx context.Context, msg *Message, dataType processor.D
 		}
 
 		if !encodeOutput.Success {
+			// 记录诊断：编码执行失败
+			errMsg := "脚本执行失败"
+			if encodeOutput.Error != nil {
+				errMsg = fmt.Sprintf("脚本执行失败：%v", encodeOutput.Error)
+			}
+			if msg.DeviceID != "" {
+				diagnostics.GetInstance().RecordDownlinkFailed(msg.DeviceID, diagnostics.StageEncode, errMsg)
+			}
 			h.logger.WithFields(logrus.Fields{
 				"module":           "downlink",
 				"device_config_id": msg.DeviceConfigID,
@@ -119,6 +137,10 @@ func (h *Handler) handle(ctx context.Context, msg *Message, dataType processor.D
 	// 3. 发布消息
 	err := h.publishMessage(msg, encodedData)
 	if err != nil {
+		// 记录诊断：发布失败
+		if msg.DeviceID != "" {
+			diagnostics.GetInstance().RecordDownlinkFailed(msg.DeviceID, diagnostics.StagePublish, fmt.Sprintf("MQTT发布失败：%v", err))
+		}
 		h.logger.WithFields(logrus.Fields{
 			"module":        "downlink",
 			"device_id":     msg.DeviceID,

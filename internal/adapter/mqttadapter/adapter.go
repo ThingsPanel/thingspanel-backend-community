@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"project/initialize"
+	"project/internal/diagnostics"
 	"project/internal/downlink"
 	"project/internal/uplink"
 
@@ -63,6 +64,11 @@ func (a *Adapter) HandleTelemetryMessage(payload []byte, topic string) error {
 	// 1. 验证 payload 格式
 	telemetryPayload, err := a.verifyPayload(payload)
 	if err != nil {
+		// 记录诊断：适配器验证失败
+		deviceID := a.extractDeviceIDFromPayload(payload)
+		if deviceID != "" {
+			diagnostics.GetInstance().RecordUplinkFailed(deviceID, diagnostics.StageAdapter, fmt.Sprintf("消息格式错误：%v", err))
+		}
 		a.logger.WithFields(logrus.Fields{
 			"topic": topic,
 			"error": err,
@@ -133,6 +139,11 @@ func (a *Adapter) HandleEventMessage(payload []byte, topic string) error {
 	// 2. 验证 payload 格式
 	eventPayload, err := a.verifyPayload(payload)
 	if err != nil {
+		// 记录诊断：适配器验证失败
+		deviceID := a.extractDeviceIDFromPayload(payload)
+		if deviceID != "" {
+			diagnostics.GetInstance().RecordUplinkFailed(deviceID, diagnostics.StageAdapter, fmt.Sprintf("消息格式错误：%v", err))
+		}
 		a.logger.WithFields(logrus.Fields{
 			"topic": topic,
 			"error": err,
@@ -215,6 +226,11 @@ func (a *Adapter) HandleAttributeMessage(payload []byte, topic string) error {
 	// 2. 验证 payload 格式
 	attributePayload, err := a.verifyPayload(payload)
 	if err != nil {
+		// 记录诊断：适配器验证失败
+		deviceID := a.extractDeviceIDFromPayload(payload)
+		if deviceID != "" {
+			diagnostics.GetInstance().RecordUplinkFailed(deviceID, diagnostics.StageAdapter, fmt.Sprintf("消息格式错误：%v", err))
+		}
 		a.logger.WithFields(logrus.Fields{
 			"topic": topic,
 			"error": err,
@@ -398,6 +414,17 @@ func (a *Adapter) parseEventMethod(payload []byte) string {
 		return ""
 	}
 	return eventData.Method
+}
+
+// extractDeviceIDFromPayload 从 payload 中提取 device_id（用于诊断记录）
+func (a *Adapter) extractDeviceIDFromPayload(payload []byte) string {
+	var tempPayload struct {
+		DeviceId string `json:"device_id"`
+	}
+	if err := json.Unmarshal(payload, &tempPayload); err != nil {
+		return ""
+	}
+	return tempPayload.DeviceId
 }
 
 // PublishMessage 实现 MessagePublisher 接口

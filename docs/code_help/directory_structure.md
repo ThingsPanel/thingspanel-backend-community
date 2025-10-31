@@ -32,6 +32,7 @@ thingspanel-backend-community/
 
 ### cmd/
 - `gen/`：GORM 代码生成工具（含 `_REANME.md` 说明）
+- `iot-platform-autotest/`：平台自动化测试工具
 - `virtual_sensor/`：虚拟传感器示例，包含 MQTT 客户端与脚本
 
 ### configs/
@@ -60,7 +61,6 @@ thingspanel-backend-community/
 - `command/`：命令处理预留模块
 - `dal/`：数据访问层
 - `downlink/`：下行消息分发总线
-- `flow/`：设备流程与事件处理
 - `logic/`：轻量逻辑封装
 - `middleware/`：HTTP 中间件
 - `model/`：数据模型（含 `.gen.go` 自动生成文件）
@@ -68,9 +68,10 @@ thingspanel-backend-community/
 - `query/`：GORM Gen 查询代码
 - `service/`：业务服务层
 - `storage/`：遥测与状态存储抽象
+- `uplink/`：上行消息处理总线
 
 ### mqtt/
-- `device/`、`publish/`、`subscribe/` 等：MQTT 上行、下行与 WebSocket 管理
+- `publish/`、`subscribe/`：MQTT 发布与订阅
 - `simulation_publish/`：模拟数据发送
 - `init_config.go`、`mqtt_config_struct.go`：MQTT 配置
 

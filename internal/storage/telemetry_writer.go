@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"project/internal/diagnostics"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -302,6 +304,8 @@ func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentDat
 
 		if err != nil {
 			w.logger.Errorf("single insert failed: %v", err)
+			// 记录诊断：存储失败（每条失败记录到对应设备）
+			diagnostics.GetInstance().RecordStorageFailed(historyData[i].DeviceID, fmt.Sprintf("存储失败：%v", err))
 			failed++
 		} else {
 			written++

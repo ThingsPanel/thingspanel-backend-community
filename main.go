@@ -46,6 +46,7 @@ func main() {
 		app.WithStorageService(),   // 1. Storage
 		app.WithFlowService(),      // 2. Flow
 		app.WithHeartbeatMonitor(), // 3. Heartbeat
+		app.WithDiagnostics(),      // 3.5. Diagnostics（在 Redis 之后初始化）
 		app.WithMQTTService(),      // ✨ 4. MQTT（先启动）
 		app.WithDownlinkService(),  // ✨ 5. Downlink（后启动）
 		app.WithGRPCService(),      // 6. gRPC

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"project/internal/diagnostics"
 	model "project/internal/model"
 	service "project/internal/service"
 	"project/pkg/errcode"
@@ -765,5 +766,33 @@ func (*DeviceApi) HandleTenantTelemetryData(c *gin.Context) {
 		c.Error(err)
 		return
 	}
+	c.Set("data", data)
+}
+
+// GetDeviceDiagnostics 获取设备诊断数据
+// @Router   /api/v1/devices/{device_id}/diagnostics [get]
+func (*DeviceApi) GetDeviceDiagnostics(c *gin.Context) {
+	deviceID := c.Param("device_id")
+	if deviceID == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "device_id is required"))
+		return
+	}
+
+	collector := diagnostics.GetInstance()
+	data, err := collector.GetDiagnostics(deviceID)
+	if err != nil {
+		// 如果未初始化或数据不存在，返回空数据
+		if err == diagnostics.ErrNotInitialized {
+			c.Set("data", &diagnostics.DiagnosticsResponse{
+				DeviceID:       deviceID,
+				Stats:          nil,
+				RecentFailures: []diagnostics.FailureRecord{},
+			})
+			return
+		}
+		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
+		return
+	}
+
 	c.Set("data", data)
 }
