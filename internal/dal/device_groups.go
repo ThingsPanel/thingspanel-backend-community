@@ -151,3 +151,19 @@ func GetChildrenGroupNameExist(parentId string, name string, tenantId string) (*
 	}
 	return g, nil
 }
+
+// GetGroupNameExistByTenant 检查租户下是否存在指定名称的分组（无论层级）
+func GetGroupNameExistByTenant(name string, tenantId string) (*model.Group, error) {
+	g, err := query.Group.
+		Where(query.Group.TenantID.Eq(tenantId)).
+		Where(query.Group.Name.Eq(name)).
+		First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		logrus.Error(err)
+		return nil, err
+	}
+	return g, nil
+}

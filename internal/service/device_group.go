@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"time"
 
 	dal "project/internal/dal"
@@ -10,7 +9,6 @@ import (
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
-	"gorm.io/gorm"
 )
 
 type DeviceGroup struct{}
@@ -29,23 +27,6 @@ func (*DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *ut
 	if req.ParentId != nil && *req.ParentId != "0" {
 		deviceGroup.ParentID = req.ParentId
 
-		// 验证子分组重名
-		g, err := dal.GetChildrenGroupNameExist(*req.ParentId, req.Name, claims.TenantID)
-		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error":      err.Error(),
-				"parent_id":  *req.ParentId,
-				"group_name": req.Name,
-				"tenant_id":  claims.TenantID,
-			})
-		}
-		if g != nil {
-			return errcode.WithVars(203002, map[string]interface{}{
-				"group_name": req.Name,
-				"parent_id":  *req.ParentId,
-			})
-		}
-
 		// 父分组存在性验证
 		parentGroup, err := dal.GetDeviceGroupDetail(*req.ParentId)
 		if err != nil {
@@ -60,23 +41,21 @@ func (*DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *ut
 				"parent_id": *req.ParentId,
 			})
 		}
-	} else {
-		// 验证顶级分组重名
-		g, err := dal.GetTopGroupNameExist(req.Name, claims.TenantID)
-		if err != nil {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"error":      err.Error(),
-					"group_name": req.Name,
-					"tenant_id":  claims.TenantID,
-				})
-			}
-		}
-		if g != nil {
-			return errcode.WithVars(203003, map[string]interface{}{
-				"group_name": req.Name,
-			})
-		}
+	}
+
+	// 验证租户下分组名称不能重复（无论层级）
+	g, err := dal.GetGroupNameExistByTenant(req.Name, claims.TenantID)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":      err.Error(),
+			"group_name": req.Name,
+			"tenant_id":  claims.TenantID,
+		})
+	}
+	if g != nil {
+		return errcode.WithVars(203003, map[string]interface{}{
+			"group_name": req.Name,
+		})
 	}
 
 	// 设置分组基本信息
