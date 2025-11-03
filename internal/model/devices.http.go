@@ -132,11 +132,12 @@ type GetDeviceListByGroup struct {
 }
 
 type GetDeviceListByGroupRsp struct {
-	GroupId            string `json:"group_id"`
-	Id                 string `json:"id"`
-	DeviceNumber       string `json:"device_number"`
-	Name               string `json:"name"`
-	Device_config_name string `json:"device_config_name"`
+	GroupId            string  `json:"group_id"`
+	Id                 string  `json:"id"`
+	DeviceNumber       string  `json:"device_number"`
+	Name               string  `json:"name"`
+	Device_config_id   *string `json:"device_config_id"`
+	Device_config_name *string `json:"device_config_name"`
 }
 
 type GetDeviceGroupListByDeviceIdReq struct {

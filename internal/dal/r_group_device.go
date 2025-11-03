@@ -39,7 +39,7 @@ func GetRGroupDeviceByGroupId(req model.GetDeviceListByGroup) (int64, interface{
 	}
 	d := query.Device
 	c := query.DeviceConfig
-	err = queryBuilder.Select(q.GroupID, d.ID, d.DeviceNumber, d.Name, c.Name.As("device_configs_name")).
+	err = queryBuilder.Select(q.GroupID, d.ID, d.DeviceNumber, d.Name, d.DeviceConfigID.As("device_config_id"), c.Name.As("device_config_name")).
 		LeftJoin(d, d.ID.EqCol(q.DeviceID)).
 		LeftJoin(c, c.ID.EqCol(d.DeviceConfigID)).
 		Where(d.ActivateFlag.Eq("active")).
