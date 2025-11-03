@@ -83,6 +83,7 @@ var (
 	MessagePushRuleLog         *messagePushRuleLog
 	LatestDeviceAlarm          *latestDeviceAlarm
 	UserAddress                *userAddress
+	DeviceStatusHistory        *deviceStatusHistory
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -153,6 +154,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	MessagePushRuleLog = &Q.MessagePushRuleLog
 	LatestDeviceAlarm = &Q.LatestDeviceAlarm
 	UserAddress = &Q.UserAddress
+	DeviceStatusHistory = &Q.DeviceStatusHistory
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
@@ -224,6 +226,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		MessagePushRuleLog:         newMessagePushRuleLog(db, opts...),
 		LatestDeviceAlarm:          newLatestDeviceAlarm(db, opts...),
 		UserAddress:                newUserAddress(db, opts...),
+		DeviceStatusHistory:        newDeviceStatusHistory(db, opts...),
 	}
 }
 
@@ -296,6 +299,7 @@ type Query struct {
 	MessagePushRuleLog         messagePushRuleLog
 	LatestDeviceAlarm          latestDeviceAlarm
 	UserAddress                userAddress
+	DeviceStatusHistory        deviceStatusHistory
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -369,6 +373,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		MessagePushRuleLog:         q.MessagePushRuleLog.clone(db),
 		LatestDeviceAlarm:          q.LatestDeviceAlarm.clone(db),
 		UserAddress:                q.UserAddress.clone(db),
+		DeviceStatusHistory:        q.DeviceStatusHistory.clone(db),
 	}
 }
 
@@ -449,6 +454,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		MessagePushRuleLog:         q.MessagePushRuleLog.replaceDB(db),
 		LatestDeviceAlarm:          q.LatestDeviceAlarm.replaceDB(db),
 		UserAddress:                q.UserAddress.replaceDB(db),
+		DeviceStatusHistory:        q.DeviceStatusHistory.replaceDB(db),
 	}
 }
 
@@ -519,6 +525,7 @@ type queryCtx struct {
 	MessagePushRuleLog         IMessagePushRuleLogDo
 	LatestDeviceAlarm          ILatestDeviceAlarmDo
 	UserAddress                IUserAddressDo
+	DeviceStatusHistory        IDeviceStatusHistoryDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
@@ -589,6 +596,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		MessagePushRuleLog:         q.MessagePushRuleLog.WithContext(ctx),
 		LatestDeviceAlarm:          q.LatestDeviceAlarm.WithContext(ctx),
 		UserAddress:                q.UserAddress.WithContext(ctx),
+		DeviceStatusHistory:        q.DeviceStatusHistory.WithContext(ctx),
 	}
 }
 

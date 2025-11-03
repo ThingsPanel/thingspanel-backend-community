@@ -2154,3 +2154,17 @@ func (d *Device) GetTenantTelemetryData(tenantId string) ([]map[string]interface
 
 	return telemetryDataList, nil
 }
+
+// GetDeviceStatusHistory 获取设备状态历史记录
+func (*Device) GetDeviceStatusHistory(req *model.GetDeviceStatusHistoryReq, u *utils.UserClaims) (map[string]interface{}, error) {
+	total, list, err := dal.GetDeviceStatusHistoryByPage(req, u.TenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	result := make(map[string]interface{})
+	result["total"] = total
+	result["list"] = list
+	return result, nil
+}

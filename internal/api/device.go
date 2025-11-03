@@ -796,3 +796,19 @@ func (*DeviceApi) GetDeviceDiagnostics(c *gin.Context) {
 
 	c.Set("data", data)
 }
+
+// GetDeviceStatusHistory 获取设备状态历史记录
+// @Router   /api/v1/device/status/history [get]
+func (*DeviceApi) GetDeviceStatusHistory(c *gin.Context) {
+	var req model.GetDeviceStatusHistoryReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.Device.GetDeviceStatusHistory(&req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}

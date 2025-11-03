@@ -61,6 +61,21 @@ func UpdateDeviceByMap(deviceID string, deviceMap map[string]interface{}) (*mode
 
 // 更新设备状态
 func UpdateDeviceStatus(deviceId string, status int16) error {
+	// 1. 先获取设备的当前状态和租户ID
+	device, err := query.Device.Where(query.Device.ID.Eq(deviceId)).First()
+	if err != nil {
+		logrus.WithError(err).WithField("device_id", deviceId).Error("Failed to get device info")
+		return err
+	}
+
+	// 2. 检查状态是否发生变化，如果没变化则不更新
+	currentStatus := device.IsOnline
+	if currentStatus == status {
+		// 状态未变化，不需要更新
+		return nil
+	}
+
+	// 3. 更新设备状态
 	if status == 0 {
 		// 设备离线时，同时更新is_online和last_offline_time
 		now := time.Now().UTC()
@@ -71,22 +86,34 @@ func UpdateDeviceStatus(deviceId string, status int16) error {
 			})
 		if err != nil {
 			logrus.Error(err)
+			return err
 		}
 		if info.RowsAffected == 0 {
 			return fmt.Errorf("update device status failed, no rows affected")
 		}
-		return err
 	} else {
 		// 设备上线时，只更新is_online字段
 		info, err := query.Device.Where(query.Device.ID.Eq(deviceId)).Update(query.Device.IsOnline, status)
 		if err != nil {
 			logrus.Error(err)
+			return err
 		}
 		if info.RowsAffected == 0 {
 			return fmt.Errorf("update device status failed, no rows affected")
 		}
-		return err
 	}
+
+	// 4. 异步保存状态历史记录（不阻塞主流程）
+	go func() {
+		if err := SaveDeviceStatusHistory(device.TenantID, deviceId, status); err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"device_id": deviceId,
+				"status":    status,
+			}).Warn("Failed to save device status history, but status update succeeded")
+		}
+	}()
+
+	return nil
 }
 
 func DeleteDevice(id string, tenantID string) error {

@@ -14,7 +14,7 @@ func main() {
 	})
 
 	// gormdb, _ := gorm.Open(mysql.Open("root:@(127.0.0.1:3306)/demo?charset=utf8mb4&parseTime=True&loc=Local"))
-	initialize.ViperInit("../../configs/conf.yml")
+	initialize.ViperInit("../../configs/conf-dev.yml")
 	initialize.LogInIt()
 	gormdb, err := initialize.PgInit()
 	if err != nil {
@@ -41,7 +41,7 @@ func main() {
 		// Generate structs from all tables of current database
 		//	g.GenerateAllTable()...,
 		// 生成sys_ui_elements表的model和query
-		g.GenerateModel("boards"),
+		g.GenerateModel("device_status_history"),
 	)
 	// Generate the code
 	g.Execute()
