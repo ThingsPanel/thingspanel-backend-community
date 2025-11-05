@@ -3,10 +3,12 @@ package uplink
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"project/initialize"
 	"project/internal/dal"
+	"project/internal/diagnostics"
 	"project/internal/model"
 	"project/internal/processor"
 	"project/internal/service"
@@ -144,6 +146,8 @@ func (f *EventUplink) processMessage(msg *DeviceMessage) {
 		// 直连设备消息 - 需要先解析为 EventInfo
 		var eventInfo model.EventInfo
 		if err := json.Unmarshal(processedPayload, &eventInfo); err != nil {
+			// 记录诊断：脚本输出数据格式错误
+			diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("数据格式错误：%v", err))
 			f.logger.WithFields(logrus.Fields{
 				"device_id": device.ID,
 				"error":     err,
@@ -158,6 +162,8 @@ func (f *EventUplink) processMessage(msg *DeviceMessage) {
 func (f *EventUplink) processGatewayMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
 	var gatewayMsg model.GatewayCommandPulish
 	if err := json.Unmarshal(payload, &gatewayMsg); err != nil {
+		// 记录诊断：网关消息格式错误
+		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("网关消息格式错误：%v", err))
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"error":     err,
@@ -281,6 +287,8 @@ func (f *EventUplink) processDirectDeviceEvent(device *model.Device, eventInfo *
 	// 2. 转换事件数据为 JSON
 	paramsJSON, err := json.Marshal(eventInfo.Params)
 	if err != nil {
+		// 记录诊断：事件参数序列化失败
+		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("事件参数序列化失败：%v", err))
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"error":     err,

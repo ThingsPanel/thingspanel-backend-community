@@ -179,6 +179,8 @@ func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
 func (f *TelemetryUplink) processGatewayMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
 	var gatewayMsg model.GatewayPublish
 	if err := json.Unmarshal(payload, &gatewayMsg); err != nil {
+		// 记录诊断：网关消息格式错误
+		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("网关消息格式错误：%v", err))
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"error":     err,
@@ -315,6 +317,8 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 	// 3. 数据转换（map → []TelemetryDataPoint）
 	telemetryPoints, triggerParam, triggerValues, err := f.convertToTelemetryPoints(payload, device)
 	if err != nil {
+		// 记录诊断：脚本输出数据格式错误
+		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("数据格式错误：%v", err))
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"error":     err,

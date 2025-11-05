@@ -3,10 +3,12 @@ package uplink
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"project/initialize"
 	"project/internal/dal"
+	"project/internal/diagnostics"
 	"project/internal/model"
 	"project/internal/processor"
 	"project/internal/service"
@@ -150,6 +152,8 @@ func (f *AttributeUplink) processMessage(msg *DeviceMessage) {
 func (f *AttributeUplink) processGatewayMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
 	var gatewayMsg model.GatewayPublish
 	if err := json.Unmarshal(payload, &gatewayMsg); err != nil {
+		// 记录诊断：网关消息格式错误
+		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("网关消息格式错误：%v", err))
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"error":     err,
@@ -277,6 +281,8 @@ func (f *AttributeUplink) processDirectDeviceMessage(device *model.Device, paylo
 	// 2. 解析数据
 	var dataMap map[string]interface{}
 	if err := json.Unmarshal(payload, &dataMap); err != nil {
+		// 记录诊断：脚本输出数据格式错误
+		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("数据格式错误：%v", err))
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"error":     err,
