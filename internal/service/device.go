@@ -351,6 +351,13 @@ func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 }
 
 func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
+	// 获取设备信息
+	deviceInfo, err := dal.GetDeviceByID(id)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
 	// 如果有子设备，不允许删除
 	data, err := dal.GetSubDeviceListByParentID(id)
 	if err != nil {
@@ -451,6 +458,8 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	tx.Commit()
 	// 清除设备缓存
 	initialize.DelDeviceCache(id)
+	// 清除鉴权缓存
+	global.REDIS.Del(context.Background(), deviceInfo.Voucher)
 	// 通知协议插件
 	if protocolplugin.DisconnectDeviceByDeviceID(id) != nil {
 		logrus.Error("DisconnectDeviceByDeviceID failed:", err)
