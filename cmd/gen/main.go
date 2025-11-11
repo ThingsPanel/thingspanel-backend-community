@@ -41,7 +41,7 @@ func main() {
 		// Generate structs from all tables of current database
 		//	g.GenerateAllTable()...,
 		// 生成sys_ui_elements表的model和query
-		g.GenerateModel("device_status_history"),
+		g.GenerateModel("device_topic_mappings"),
 	)
 	// Generate the code
 	g.Execute()

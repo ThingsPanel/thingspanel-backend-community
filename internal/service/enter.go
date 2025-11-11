@@ -48,6 +48,7 @@ type ServiceGroup struct {
 	MessagePush
 	SystemMonitor
 	DeviceAuth
+	DeviceTopicMapping
 }
 
 var GroupApp = new(ServiceGroup)

@@ -88,6 +88,15 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 
 		// 设备状态历史记录
 		deviceapi.GET("/status/history", api.Controllers.DeviceApi.GetDeviceStatusHistory)
+
+		// 主题转换规则
+		topicMappingApi := deviceapi.Group("topic-mappings")
+		{
+			topicMappingApi.POST("", api.Controllers.DeviceTopicMappingApi.CreateDeviceTopicMapping)
+			topicMappingApi.GET("", api.Controllers.DeviceTopicMappingApi.GetDeviceTopicMappings)
+			topicMappingApi.PUT(":id", api.Controllers.DeviceTopicMappingApi.UpdateDeviceTopicMapping)
+			topicMappingApi.DELETE(":id", api.Controllers.DeviceTopicMappingApi.DeleteDeviceTopicMapping)
+		}
 	}
 
 	// 设备模版路由

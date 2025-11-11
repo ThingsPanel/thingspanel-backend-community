@@ -16,3 +16,28 @@ COMMENT ON COLUMN device_status_history.tenant_id IS '租户ID';
 COMMENT ON COLUMN device_status_history.device_id IS '设备ID';
 COMMENT ON COLUMN device_status_history.status IS '状态: 0-离线 1-在线';
 COMMENT ON COLUMN device_status_history.change_time IS '状态变更时间';
+
+-- ✅2025/11/11 设备主题转换
+
+-- public.device_topic_mappings definition
+
+-- Drop table
+
+-- DROP TABLE public.device_topic_mappings;
+
+CREATE TABLE public.device_topic_mappings (
+	id bigserial NOT NULL,
+	device_config_id uuid NOT NULL,
+	"name" varchar(500) NOT NULL,
+	direction varchar(50) NOT NULL,
+	source_topic varchar(500) NOT NULL,
+	target_topic varchar(500) NOT NULL,
+	priority int4 DEFAULT 100 NOT NULL,
+	enabled bool DEFAULT true NOT NULL,
+	description text NULL,
+	created_at timestamptz(6) DEFAULT now() NOT NULL,
+	updated_at timestamptz(6) DEFAULT now() NOT NULL,
+	CONSTRAINT device_topic_mappings_pkey PRIMARY KEY (id)
+);
+CREATE INDEX idx_device_topic_mapping_lookup ON public.device_topic_mappings USING btree (device_config_id, direction, enabled, priority);
+CREATE UNIQUE INDEX ux_device_topic_mapping_unique ON public.device_topic_mappings USING btree (device_config_id, direction, source_topic, target_topic);

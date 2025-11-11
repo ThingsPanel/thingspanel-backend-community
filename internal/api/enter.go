@@ -49,6 +49,7 @@ type Controller struct {
 	MessagePushApi
 	SystemMonitorApi
 	DeviceAuthApi // 设备动态认证
+	DeviceTopicMappingApi
 }
 
 var (

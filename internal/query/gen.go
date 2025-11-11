@@ -84,6 +84,7 @@ var (
 	LatestDeviceAlarm          *latestDeviceAlarm
 	UserAddress                *userAddress
 	DeviceStatusHistory        *deviceStatusHistory
+	DeviceTopicMapping         *deviceTopicMapping
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -155,6 +156,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	LatestDeviceAlarm = &Q.LatestDeviceAlarm
 	UserAddress = &Q.UserAddress
 	DeviceStatusHistory = &Q.DeviceStatusHistory
+	DeviceTopicMapping = &Q.DeviceTopicMapping
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
@@ -227,6 +229,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		LatestDeviceAlarm:          newLatestDeviceAlarm(db, opts...),
 		UserAddress:                newUserAddress(db, opts...),
 		DeviceStatusHistory:        newDeviceStatusHistory(db, opts...),
+		DeviceTopicMapping:         newDeviceTopicMapping(db, opts...),
 	}
 }
 
@@ -300,6 +303,7 @@ type Query struct {
 	LatestDeviceAlarm          latestDeviceAlarm
 	UserAddress                userAddress
 	DeviceStatusHistory        deviceStatusHistory
+	DeviceTopicMapping         deviceTopicMapping
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -374,6 +378,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		LatestDeviceAlarm:          q.LatestDeviceAlarm.clone(db),
 		UserAddress:                q.UserAddress.clone(db),
 		DeviceStatusHistory:        q.DeviceStatusHistory.clone(db),
+		DeviceTopicMapping:         q.DeviceTopicMapping.clone(db),
 	}
 }
 
@@ -455,6 +460,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		LatestDeviceAlarm:          q.LatestDeviceAlarm.replaceDB(db),
 		UserAddress:                q.UserAddress.replaceDB(db),
 		DeviceStatusHistory:        q.DeviceStatusHistory.replaceDB(db),
+		DeviceTopicMapping:         q.DeviceTopicMapping.replaceDB(db),
 	}
 }
 
@@ -526,6 +532,7 @@ type queryCtx struct {
 	LatestDeviceAlarm          ILatestDeviceAlarmDo
 	UserAddress                IUserAddressDo
 	DeviceStatusHistory        IDeviceStatusHistoryDo
+	DeviceTopicMapping         IDeviceTopicMappingDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
@@ -597,6 +604,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		LatestDeviceAlarm:          q.LatestDeviceAlarm.WithContext(ctx),
 		UserAddress:                q.UserAddress.WithContext(ctx),
 		DeviceStatusHistory:        q.DeviceStatusHistory.WithContext(ctx),
+		DeviceTopicMapping:         q.DeviceTopicMapping.WithContext(ctx),
 	}
 }
 
