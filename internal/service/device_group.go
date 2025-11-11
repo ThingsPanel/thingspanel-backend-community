@@ -154,14 +154,13 @@ func (*DeviceGroup) GetDeviceGroupByTree(userClaims *utils.UserClaims) (interfac
 		}
 	}
 
-	// Build tree
-	for _, node := range nodeMap {
+	// Build tree in the same order as 'data' (already ordered by CreatedAt)
+	for _, group := range data {
+		node := nodeMap[group.ID]
 		if node.Group.ParentID == nil || *node.Group.ParentID == "0" {
 			rootNodes = append(rootNodes, node)
-		} else {
-			if parentNode, ok := nodeMap[*node.Group.ParentID]; ok {
-				parentNode.Children = append(parentNode.Children, node)
-			}
+		} else if parentNode, ok := nodeMap[*node.Group.ParentID]; ok {
+			parentNode.Children = append(parentNode.Children, node)
 		}
 	}
 

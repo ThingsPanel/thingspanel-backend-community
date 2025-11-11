@@ -62,7 +62,7 @@ func GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPageReq, tenantId s
 }
 
 func GetDeviceGroupAll(tenantId string) ([]*model.Group, error) {
-	g, err := query.Group.Where(query.Group.TenantID.Eq(tenantId)).Find()
+	g, err := query.Group.Where(query.Group.TenantID.Eq(tenantId)).Order(query.Group.CreatedAt.Desc()).Find()
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
