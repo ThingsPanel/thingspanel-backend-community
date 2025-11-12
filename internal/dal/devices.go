@@ -10,6 +10,7 @@ import (
 
 	model "project/internal/model"
 	query "project/internal/query"
+	global "project/pkg/global"
 
 	"gorm.io/gen/field"
 	"gorm.io/gorm"
@@ -61,11 +62,24 @@ func UpdateDeviceByMap(deviceID string, deviceMap map[string]interface{}) (*mode
 
 // 更新设备状态
 func UpdateDeviceStatus(deviceId string, status int16) error {
-	// 1. 先获取设备的当前状态和租户ID
-	device, err := query.Device.Where(query.Device.ID.Eq(deviceId)).First()
-	if err != nil {
-		logrus.WithError(err).WithField("device_id", deviceId).Error("Failed to get device info")
-		return err
+	// 1. 先从 Redis 缓存读取设备信息，缓存未命中则从数据库加载
+	var device *model.Device
+	result, err := global.REDIS.Get(context.Background(), deviceId).Result()
+	if err == nil {
+		// 缓存命中
+		var cachedDevice model.Device
+		if err := json.Unmarshal([]byte(result), &cachedDevice); err == nil {
+			device = &cachedDevice
+		}
+	}
+
+	// 如果缓存未命中或反序列化失败，从数据库加载
+	if device == nil {
+		device, err = query.Device.Where(query.Device.ID.Eq(deviceId)).First()
+		if err != nil {
+			logrus.WithError(err).WithField("device_id", deviceId).Error("Failed to get device info")
+			return err
+		}
 	}
 
 	// 2. 检查状态是否发生变化，如果没变化则不更新
@@ -103,7 +117,13 @@ func UpdateDeviceStatus(deviceId string, status int16) error {
 		}
 	}
 
-	// 4. 异步保存状态历史记录（不阻塞主流程）
+	// 4. 删除设备缓存，确保下次获取时获取最新数据
+	if err := global.REDIS.Del(context.Background(), deviceId).Err(); err != nil {
+		// 缓存删除失败不影响主流程，只记录警告日志
+		logrus.WithError(err).WithField("device_id", deviceId).Warn("Failed to delete device cache after status update")
+	}
+
+	// 5. 异步保存状态历史记录（不阻塞主流程）
 	go func() {
 		if err := SaveDeviceStatusHistory(device.TenantID, deviceId, status); err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{

@@ -30,14 +30,26 @@ func (c *ScriptCache) GetScript(ctx context.Context, deviceConfigID, scriptType 
 
 	// 2. 尝试从 Redis 缓存读取
 	cached, err := c.getFromCache(ctx, cacheKey)
-	if err == nil && cached != nil {
-		logrus.WithFields(logrus.Fields{
-			"module":           "processor.cache",
-			"device_config_id": deviceConfigID,
-			"script_type":      scriptType,
-			"cache_key":        cacheKey,
-		}).Debug("script cache hit")
-		return cached, nil
+	if err == nil {
+		if cached != nil {
+			// 缓存命中，脚本存在
+			logrus.WithFields(logrus.Fields{
+				"module":           "processor.cache",
+				"device_config_id": deviceConfigID,
+				"script_type":      scriptType,
+				"cache_key":        cacheKey,
+			}).Debug("【脚本缓存】script cache hit")
+			return cached, nil
+		} else {
+			// 缓存命中，但脚本不存在（缓存了"不存在"的标记）
+			logrus.WithFields(logrus.Fields{
+				"module":           "processor.cache",
+				"device_config_id": deviceConfigID,
+				"script_type":      scriptType,
+				"cache_key":        cacheKey,
+			}).Debug("【脚本缓存】script not found (cached)")
+			return nil, NewScriptNotFoundError(deviceConfigID, scriptType)
+		}
 	}
 
 	// 3. 缓存未命中，从数据库加载
@@ -46,19 +58,14 @@ func (c *ScriptCache) GetScript(ctx context.Context, deviceConfigID, scriptType 
 		"device_config_id": deviceConfigID,
 		"script_type":      scriptType,
 		"cache_key":        cacheKey,
-	}).Debug("script cache miss, loading from database")
+	}).Debug("【脚本缓存（未命中）】script cache miss, loading from database")
 
 	script, err := c.loadFromDatabase(deviceConfigID, scriptType)
 	if err != nil {
 		return nil, err
 	}
 
-	// 4. 脚本不存在
-	if script == nil {
-		return nil, NewScriptNotFoundError(deviceConfigID, scriptType)
-	}
-
-	// 5. 将脚本写入缓存（永久有效）
+	// 4. 将结果写入缓存（无论脚本是否存在，永久有效）
 	if err := c.setToCache(ctx, cacheKey, script); err != nil {
 		// 缓存写入失败不影响主流程，只记录日志
 		logrus.WithFields(logrus.Fields{
@@ -66,6 +73,11 @@ func (c *ScriptCache) GetScript(ctx context.Context, deviceConfigID, scriptType 
 			"cache_key": cacheKey,
 			"error":     err.Error(),
 		}).Warn("failed to cache script")
+	}
+
+	// 5. 脚本不存在
+	if script == nil {
+		return nil, NewScriptNotFoundError(deviceConfigID, scriptType)
 	}
 
 	return script, nil
@@ -115,12 +127,34 @@ func (c *ScriptCache) getFromCache(ctx context.Context, cacheKey string) (*Cache
 		return nil, err
 	}
 
+	// 检查是否是"不存在"的标记
+	if script.ID == ScriptNotFoundMarker {
+		return nil, nil
+	}
+
 	return &script, nil
 }
 
 // setToCache 将脚本写入 Redis 缓存（永久有效）
+// script 为 nil 时表示脚本不存在，会缓存"不存在"的标记
 func (c *ScriptCache) setToCache(ctx context.Context, cacheKey string, script *CachedScript) error {
-	data, err := json.Marshal(script)
+	var data []byte
+	var err error
+
+	if script == nil {
+		// 脚本不存在，缓存"不存在"的标记
+		notFoundScript := &CachedScript{
+			ID:         ScriptNotFoundMarker,
+			Content:    "",
+			EnableFlag: "",
+			ScriptType: "",
+		}
+		data, err = json.Marshal(notFoundScript)
+	} else {
+		// 脚本存在
+		data, err = json.Marshal(script)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -131,12 +165,19 @@ func (c *ScriptCache) setToCache(ctx context.Context, cacheKey string, script *C
 		return err
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"module":      "processor.cache",
-		"cache_key":   cacheKey,
-		"script_id":   script.ID,
-		"script_type": script.ScriptType,
-	}).Info("script cached successfully")
+	if script == nil {
+		logrus.WithFields(logrus.Fields{
+			"module":    "processor.cache",
+			"cache_key": cacheKey,
+		}).Info("script not found cached successfully")
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"module":      "processor.cache",
+			"cache_key":   cacheKey,
+			"script_id":   script.ID,
+			"script_type": script.ScriptType,
+		}).Info("script cached successfully")
+	}
 
 	return nil
 }

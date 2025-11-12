@@ -244,7 +244,7 @@ func (a *Adapter) handleTelemetryMessage(client mqtt.Client, msg mqtt.Message) {
 	a.logger.WithFields(logrus.Fields{
 		"topic":        topic,
 		"payload_size": len(payload),
-	}).Debug("Received telemetry message")
+	}).Debug("【设备遥测】Received telemetry message")
 
 	// 直接调用 Adapter 的处理方法（会发送到 Bus）
 	if err := a.HandleTelemetryMessage(payload, topic); err != nil {
@@ -301,7 +301,7 @@ func (a *Adapter) handleStatusMessage(client mqtt.Client, msg mqtt.Message) {
 	a.logger.WithFields(logrus.Fields{
 		"topic":   topic,
 		"payload": string(payload),
-	}).Debug("Received status message")
+	}).Debug("【设备上下线】Received status message")
 
 	// source = "status_message" 表示来自设备主动上报
 	if err := a.HandleStatusMessage(payload, topic, "status_message"); err != nil {

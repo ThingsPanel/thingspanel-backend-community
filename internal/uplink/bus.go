@@ -119,7 +119,7 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 			// 发送成功
 		default:
 			// channel 满了，阻塞发送（背压机制）
-			b.logger.Warnf("Telemetry channel full, blocking publish")
+			b.logger.Warnf("【设备遥测】Telemetry channel full, blocking publish")
 			b.telemetryChan <- msg
 		}
 
@@ -127,7 +127,7 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 		select {
 		case b.attributeChan <- msg:
 		default:
-			b.logger.Warnf("Attribute channel full, blocking publish")
+			b.logger.Warnf("【设备属性】Attribute channel full, blocking publish")
 			b.attributeChan <- msg
 		}
 
@@ -135,18 +135,18 @@ func (b *Bus) Publish(msgInterface MessageLike) error {
 		select {
 		case b.eventChan <- msg:
 		default:
-			b.logger.Warnf("Event channel full, blocking publish")
+			b.logger.Warnf("【设备事件】Event channel full, blocking publish")
 			b.eventChan <- msg
 		}
 
 	case MessageTypeStatus:
 		select {
 		case b.statusChan <- msg:
-			b.logger.Debug("✅ Status message sent to statusChan")
+			b.logger.Debug("【设备上下线】Status message sent to statusChan")
 		default:
-			b.logger.Warnf("Status channel full, blocking publish")
+			b.logger.Warnf("【设备上下线】Status channel full, blocking publish")
 			b.statusChan <- msg
-			b.logger.Debug("✅ Status message sent (after blocking)")
+			b.logger.Debug("【设备上下线】Status message sent (after blocking)")
 		}
 
 	// ✨ 新增：响应消息路由

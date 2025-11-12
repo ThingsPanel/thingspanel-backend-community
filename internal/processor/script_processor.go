@@ -69,7 +69,7 @@ func (p *ScriptProcessor) Decode(ctx context.Context, input *DecodeInput) (*Deco
 				"device_config_id": input.DeviceConfigID,
 				"data_type":        input.Type,
 				"script_type":      scriptType,
-			}).Debug("no script configured, using raw data")
+			}).Debug("【脚本缓存】no script configured, using raw data")
 			return &DecodeOutput{
 				Success:   true,
 				Data:      input.RawData, // 使用原始数据
@@ -145,7 +145,7 @@ func (p *ScriptProcessor) Decode(ctx context.Context, input *DecodeInput) (*Deco
 		"script_id":        script.ID,
 		"duration_ms":      duration.Milliseconds(),
 		"success":          true,
-	}).Info("decode completed")
+	}).Debug("【脚本处理器】decode completed")
 
 	return &DecodeOutput{
 		Success:   true,

@@ -45,11 +45,12 @@ func GetScriptType(dataType DataType) (string, bool) {
 
 // 执行引擎配置常量
 const (
-	ScriptTimeout     = 3 * time.Second     // 脚本执行超时时间：3秒
-	ScriptMaxMemory   = 50 * 1024 * 1024    // 脚本最大内存：50MB
-	ScriptMaxOpsCount = 100000              // 脚本最大操作数：10万次
-	CacheKeyPrefix    = ""                  // 缓存 key 前缀（可根据需要添加）
-	EnableFlagEnabled = "Y"                 // 脚本启用标识
+	ScriptTimeout        = 3 * time.Second  // 脚本执行超时时间：3秒
+	ScriptMaxMemory      = 50 * 1024 * 1024 // 脚本最大内存：50MB
+	ScriptMaxOpsCount    = 100000           // 脚本最大操作数：10万次
+	CacheKeyPrefix       = ""               // 缓存 key 前缀（可根据需要添加）
+	EnableFlagEnabled    = "Y"              // 脚本启用标识
+	ScriptNotFoundMarker = "__NOT_FOUND__"  // 脚本不存在的标记（用于缓存）
 )
 
 // GetCacheKey 生成脚本缓存 key

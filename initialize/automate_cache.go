@@ -346,7 +346,7 @@ func (c *AutomateCache) getCacheByDId(deviceId, deviceConfigId, deviceCacheKey s
 		resultInt int
 	)
 	stringCmd := c.client.Get(context.Background(), deviceCacheKey)
-	logrus.Debugf("deviceCacheKey: %s", deviceCacheKey)
+	logrus.Debugf("【自动化】deviceCacheKey: %s", deviceCacheKey)
 	resultInt, err := c.scan(stringCmd, &automateDeviceInfos)
 	if err != nil || resultInt != AUTOMATE_CACHE_RESULT_OK {
 		return automateExecuteParams, resultInt, err
@@ -474,12 +474,14 @@ func (c *AutomateCache) setCache(deviceId, deviceConfigId string, conditions []m
 // @params deviceId string
 // @return error
 func (c *AutomateCache) SetCacheByDeviceIdWithNoTask(deviceId, deviceConfigId string) error {
+	var cacheKey string
 	if deviceConfigId == "" {
 		c.device = automatecache.NewOneDeviceCache()
+		cacheKey = c.getAutomateCacheKeyBase(deviceId)
 	} else {
 		c.device = automatecache.NewMultipleDeviceCache()
+		cacheKey = c.getAutomateCacheKeyBase(deviceConfigId)
 	}
-	cacheKey := c.getAutomateCacheKeyBase(deviceId)
 	return c.set(cacheKey, AUTOMATE_CACHE_CONTENT_NOT_TASK, c.expiredIn)
 }
 

@@ -64,7 +64,7 @@ func (f *StatusUplink) Start(input <-chan *DeviceMessage) error {
 					f.logger.Warn("Received nil message, skipping")
 					continue
 				}
-				f.logger.WithField("device_id", msg.DeviceID).Debug("📨 StatusUplink received message from channel")
+				f.logger.WithField("device_id", msg.DeviceID).Debug("【设备上下线】StatusUplink received message from channel")
 				f.processMessage(msg)
 			}
 		}
@@ -95,7 +95,7 @@ func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 	f.logger.WithFields(logrus.Fields{
 		"device_id": msg.DeviceID,
 		"status":    status,
-	}).Debug("📊 Parsed status")
+	}).Debug("【设备上下线】Parsed status")
 
 	// 2. 获取设备信息
 	device, err := initialize.GetDeviceCacheById(msg.DeviceID)
@@ -149,7 +149,7 @@ func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 		"device_id": device.ID,
 		"status":    status,
 		"source":    msg.Metadata["source"],
-	}).Info("Device status updated")
+	}).Debug("【设备上下线】Device status updated")
 
 	// 5. 清理设备缓存
 	initialize.DelDeviceCache(device.ID)
@@ -227,7 +227,7 @@ func (f *StatusUplink) notifyClients(device *model.Device, status int16) {
 		"device_id": device.ID,
 		"tenant_id": device.TenantID,
 		"status":    status,
-	}).Debug("SSE notification sent")
+	}).Debug("【设备上下线SSE】SSE notification sent")
 }
 
 // triggerAutomation 触发自动化场景
@@ -254,7 +254,7 @@ func (f *StatusUplink) triggerAutomation(device *model.Device, status int16) {
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"status":    loginStatus,
-		}).Debug("Automation triggered")
+		}).Debug("【自动化】Automation triggered")
 	}
 }
 
@@ -267,7 +267,7 @@ func (f *StatusUplink) sendExpectedData(device *model.Device) {
 	if err != nil {
 		f.logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to send expected data")
 	} else {
-		f.logger.WithField("device_id", device.ID).Debug("Expected data sent")
+		f.logger.WithField("device_id", device.ID).Debug("【期望消息】Expected data sent")
 	}
 }
 
@@ -316,5 +316,5 @@ func (f *StatusUplink) publishToRedis(device *model.Device, status int16, metada
 		"channel":     channel,
 		"status":      status,
 		"source":      source,
-	}).Debug("Status published to Redis")
+	}).Debug("【设备上下线】Status published to Redis")
 }

@@ -187,7 +187,7 @@ func (w *telemetryWriter) doFlush(batch []*telemetryBatchItem) {
 	w.metrics.addTelemetryFailed(int64(failed))
 	w.metrics.recordTelemetryBatch(len(historyData))
 
-	w.logger.Infof("flushed batch: total=%d, written=%d, failed=%d, duplicates=%d",
+	w.logger.Debugf("【设备诊断】flushed batch: total=%d, written=%d, failed=%d, duplicates=%d",
 		len(historyData), written, failed, duplicates)
 }
 

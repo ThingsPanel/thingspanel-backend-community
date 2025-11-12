@@ -2,11 +2,13 @@ package dal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	model "project/internal/model"
 	query "project/internal/query"
+	global "project/pkg/global"
 	utils "project/pkg/utils"
 
 	"gorm.io/gen"
@@ -52,14 +54,43 @@ func DeleteDeviceConfig(id string) error {
 }
 
 func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
+	// 1. 先从 Redis 缓存读取
+	cacheKey := id + "_config"
+	result, err := global.REDIS.Get(context.Background(), cacheKey).Result()
+	if err == nil {
+		// 缓存命中
+		var deviceconfig model.DeviceConfig
+		if err := json.Unmarshal([]byte(result), &deviceconfig); err == nil {
+			return &deviceconfig, nil
+		}
+		// JSON 反序列化失败，继续从数据库加载
+	}
+
+	// 2. 缓存未命中，从数据库加载
 	deviceconfig, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(id)).First()
 	if err != nil {
 		logrus.Error(err)
+		return nil, err
 	}
 	if deviceconfig == nil {
 		return nil, fmt.Errorf("deviceconfig not found: %s", id)
 	}
-	return deviceconfig, err
+
+	// 3. 将结果写入缓存（永久有效）
+	jsonData, err := json.Marshal(deviceconfig)
+	if err == nil {
+		err = global.REDIS.Set(context.Background(), cacheKey, jsonData, 0).Err()
+		if err != nil {
+			// 缓存写入失败不影响主流程，只记录日志
+			logrus.WithFields(logrus.Fields{
+				"module":    "dal.device_config",
+				"cache_key": cacheKey,
+				"error":     err.Error(),
+			}).Warn("failed to cache device config")
+		}
+	}
+
+	return deviceconfig, nil
 }
 
 func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (int64, interface{}, error) {

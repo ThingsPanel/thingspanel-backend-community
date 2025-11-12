@@ -117,7 +117,7 @@ func (a *Adapter) HandleTelemetryMessage(payload []byte, topic string) error {
 		"topic":      topic,
 		"msg_type":   msgType,
 		"is_gateway": msgType == "gateway_telemetry",
-	}).Debug("Telemetry message published to bus via Flow layer")
+	}).Debug("【设备遥测】Telemetry message published to bus via Flow layer")
 
 	return nil
 }
@@ -297,11 +297,6 @@ func (a *Adapter) HandleAttributeMessage(payload []byte, topic string) error {
 // payload: "0" (离线) 或 "1" (在线)
 // source: "status_message" (设备主动上报) / "heartbeat_expired" / "timeout_expired"
 func (a *Adapter) HandleStatusMessage(payload []byte, topic string, source string) error {
-	a.logger.WithFields(logrus.Fields{
-		"topic":   topic,
-		"payload": string(payload),
-		"source":  source,
-	}).Debug("🔵 MQTTAdapter: HandleStatusMessage called")
 
 	// 1. 从 topic 解析 device_id: devices/status/{device_id}
 	parts := strings.Split(topic, "/")
@@ -350,7 +345,7 @@ func (a *Adapter) HandleStatusMessage(payload []byte, topic string, source strin
 		"topic":     topic,
 		"source":    source,
 		"status":    string(payload),
-	}).Debug("✅ Status message published to bus successfully")
+	}).Debug("【设备上下线】Status message published to bus successfully")
 
 	return nil
 }

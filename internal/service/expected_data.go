@@ -140,7 +140,7 @@ func (*ExpectedData) Send(ctx context.Context, deviceID string) error {
 		logrus.WithError(err).Error("查询预期数据失败")
 		return err
 	}
-	logrus.WithField("deviceID", deviceID).Debug("获取到的预期数据", ed)
+	logrus.WithField("deviceID", deviceID).Debug("【期望消息】获取到的预期数据", ed)
 
 	// 遍历预期数据并处理
 	for _, v := range ed {

@@ -116,18 +116,18 @@ func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) er
 // return error 执行过程中的错误信息
 func (a *Automate) telExecute(deviceId, deviceConfigId string, fromExt AutomateFromExt) error {
 	info, resultInt, err := initialize.NewAutomateCache().GetCacheByDeviceId(deviceId, deviceConfigId)
-	logrus.Debugf("自动化执行开始 - 缓存结果标志: %d -设备id: %s, 设备配置id: %s", resultInt, deviceId, deviceConfigId)
+	logrus.Debugf("【自动化】执行开始 - 缓存结果标志: %d -设备id: %s, 设备配置id: %s", resultInt, deviceId, deviceConfigId)
 	if err != nil {
 		return pkgerrors.Wrap(err, "查询缓存信息失败")
 	}
 	// 当前设备没自动化任务
 	if resultInt == initialize.AUTOMATE_CACHE_RESULT_NOT_TASK {
-		logrus.Debugf("无自动化任务")
+		logrus.Debugf("【自动化】无自动化任务")
 		return nil
 	}
 	// 缓存未查询到数据 数据查询存入缓存
 	if resultInt == initialize.AUTOMATE_CACHE_RESULT_NOT_FOUND {
-		logrus.Debugf("缓存中无数据")
+		logrus.Debugf("【自动化】缓存中无数据（未命中）")
 		info, resultInt, err = a.QueryAutomateInfoAndSetCache(deviceId, deviceConfigId)
 		if err != nil {
 			return pkgerrors.Wrap(err, "查询设置 设置缓存失败")
@@ -137,13 +137,13 @@ func (a *Automate) telExecute(deviceId, deviceConfigId string, fromExt AutomateF
 			return nil
 		}
 	}
-	logrus.Debugf("缓存中查询到数据")
-	logrus.Debugf("相关场景联动数量: %d", len(info.AutomateExecteSceeInfos))
-	logrus.Debugf("数据：%#v", info)
+	logrus.Debugf("【自动化】缓存中查询到配置信息")
+	logrus.Debugf("【自动化】相关场景联动数量: %d", len(info.AutomateExecteSceeInfos))
+	logrus.Debugf("【自动化】数据：%#v", info)
 	// 过滤自动化触发条件
 	info = a.AutomateFilter(info, fromExt)
-	logrus.Debugf("条件过滤后场景联动数量: %d", len(info.AutomateExecteSceeInfos))
-	logrus.Debugf("数据：%#v", info)
+	logrus.Debugf("【自动化】条件过滤后场景联动数量: %d", len(info.AutomateExecteSceeInfos))
+	logrus.Debugf("【自动化】数据：%#v", info)
 	// 执行自动化
 	return a.ExecuteRun(info)
 }
@@ -813,7 +813,7 @@ func (*Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string) (
 	} else {
 		groups, err = dal.GetDeviceTriggerConditionByDeviceId(deviceId, model.DEVICE_TRIGGER_CONDITION_TYPE_ONE)
 	}
-	logrus.Debugf("设备配置id: %s, 查询条件：%v", deviceConfigId, groups)
+	logrus.Debugf("【自动化】设备配置id: %s, 查询条件：%v", deviceConfigId, groups)
 	if err != nil {
 		return automateExecuteParams, 0, pkgerrors.Wrap(err, "根据设备id查询自动化条件失败")
 	}
