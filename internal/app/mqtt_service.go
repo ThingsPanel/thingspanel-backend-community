@@ -81,15 +81,17 @@ func (s *MQTTService) initMQTTAdapter() error {
 	broker := viper.GetString("mqtt.broker")
 	username := viper.GetString("mqtt.user")
 	password := viper.GetString("mqtt.pass")
+	clientID := viper.GetString("mqtt.client_id")
 
 	// 3. 先创建临时 Adapter（用于订阅回调）
 	var tempAdapter *mqttadapter.Adapter
 
 	mqttConfig := mqttadapter.MQTTConfig{
+
 		Broker:   broker,
 		Username: username,
 		Password: password,
-		// ClientID 会自动生成
+		ClientID: clientID,
 
 		// ✨ 设置连接成功回调：重连后自动重新订阅所有 Topic
 		OnConnectCallback: func(client mqtt_client.Client) {

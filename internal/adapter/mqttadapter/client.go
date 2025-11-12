@@ -4,17 +4,16 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 )
 
 // MQTTConfig MQTT 客户端配置
 type MQTTConfig struct {
-	Broker              string
-	Username            string
-	Password            string
-	ClientID            string                    // 可选，不提供则自动生成
-	OnConnectCallback   func(client mqtt.Client)  // 连接成功回调（用于重新订阅）
+	Broker            string
+	Username          string
+	Password          string
+	ClientID          string                   // 可选，不提供则自动生成
+	OnConnectCallback func(client mqtt.Client) // 连接成功回调（用于重新订阅）
 }
 
 // CreateMQTTClient 创建 MQTT 客户端（Adapter 专用）
@@ -32,12 +31,12 @@ func CreateMQTTClient(config MQTTConfig, logger *logrus.Logger) (mqtt.Client, er
 	// 客户端 ID
 	clientID := config.ClientID
 	if clientID == "" {
-		clientID = "thingspanel-adapter-" + uuid.New()[0:8]
+		clientID = "thingspanel-adapter-default"
 	}
 	opts.SetClientID(clientID)
 
 	// 干净会话
-	opts.SetCleanSession(true)
+	opts.SetCleanSession(false)
 	// 恢复客户端订阅，需要 broker 支持
 	opts.SetResumeSubs(true)
 	// 自动重连

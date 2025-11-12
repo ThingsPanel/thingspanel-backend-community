@@ -54,7 +54,7 @@ mqtt_server: vernemq
 mqtt:
   access_address: 47.92.253.145:1883
   broker: 47.92.253.145:1883 # 默认localhost:1883
-#  broker: 47.92.253.145:1883
+  client_id: thingspanel-adapter-dev
   user: root # 默认root
   pass: root # 默认root
   channel_buffer_size: 1000 # 默认10000
