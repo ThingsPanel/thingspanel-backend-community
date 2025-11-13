@@ -41,3 +41,7 @@ CREATE TABLE public.device_topic_mappings (
 );
 CREATE INDEX idx_device_topic_mapping_lookup ON public.device_topic_mappings USING btree (device_config_id, direction, enabled, priority);
 CREATE UNIQUE INDEX ux_device_topic_mapping_unique ON public.device_topic_mappings USING btree (device_config_id, direction, source_topic, target_topic);
+
+-- ✅2025/11/13 设备列表查询索引
+CREATE INDEX idx_devices_tenant_active_created
+    ON devices (tenant_id, activate_flag, created_at DESC);

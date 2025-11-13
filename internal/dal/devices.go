@@ -275,139 +275,152 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 	q := query.Device
 	c := query.DeviceConfig
 	lda := query.LatestDeviceAlarm
-	var count int64
-	deviceList := []model.GetDeviceListByPageRsp{}
-	queryBuilder := q.WithContext(context.Background())
-
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
-
-	if req.GroupId != nil && *req.GroupId != "" {
-		// 查询所有的组id
-		groupIds, err := GetGroupChildrenIds(*req.GroupId)
+	ctx := context.Background()
+	hasValue := func(s *string) bool {
+		return s != nil && strings.TrimSpace(*s) != ""
+	}
+	like := func(f field.String, v string) gen.Condition {
+		return f.Like(fmt.Sprintf("%%%s%%", v))
+	}
+	var (
+		count      int64
+		deviceList = []model.GetDeviceListByPageRsp{}
+		builder    = q.WithContext(ctx).
+				Where(q.TenantID.Eq(tenant_id)).
+				Where(q.ActivateFlag.Eq("active")).
+				LeftJoin(c, c.ID.EqCol(q.DeviceConfigID)).
+				LeftJoin(lda, lda.DeviceID.EqCol(q.ID))
+	)
+	if hasValue(req.GroupId) {
+		groupIds, err := GetGroupChildrenIds(strings.TrimSpace(*req.GroupId))
 		if err != nil {
 			logrus.Error(err)
 			return count, deviceList, err
 		}
-		ids, err2 := GetDeviceIdsByGroupIds(groupIds)
-		if err2 != nil {
-			logrus.Error(err2)
-			return count, deviceList, err2
+		ids, err := GetDeviceIdsByGroupIds(groupIds)
+		if err != nil {
+			logrus.Error(err)
+			return count, deviceList, err
 		}
-		ids = append(ids, *req.GroupId)
-		queryBuilder = queryBuilder.Where(q.ID.In(ids...))
-	}
-
-	queryBuilder = queryBuilder.Where(q.ActivateFlag.Eq("active"))
-
-	if req.IsEnabled != nil && *req.IsEnabled != "" {
-		queryBuilder = queryBuilder.Where(q.IsEnabled.Eq(*req.IsEnabled))
-	}
-
-	if req.ProductID != nil && *req.ProductID != "" {
-		queryBuilder = queryBuilder.Where(q.ProductID.Eq(*req.ProductID))
-	}
-
-	if req.ServiceIdentifier != nil && *req.ServiceIdentifier != "" {
-		if *req.ServiceIdentifier == "mqtt" {
-			queryBuilder = queryBuilder.Where(query.Device.Where(c.ProtocolType.Eq(*req.ServiceIdentifier)).Or(q.DeviceConfigID.IsNull()))
-		} else {
-			queryBuilder = queryBuilder.Where(c.ProtocolType.Eq(*req.ServiceIdentifier))
+		ids = append(ids, strings.TrimSpace(*req.GroupId))
+		if len(ids) == 0 {
+			return 0, []model.GetDeviceListByPageRsp{}, nil
 		}
+		builder = builder.Where(q.ID.In(ids...))
 	}
-	if req.ServiceAccessID != nil && *req.ServiceAccessID != "" {
-		queryBuilder = queryBuilder.Where(q.ServiceAccessID.Eq(*req.ServiceAccessID))
+	if hasValue(req.IsEnabled) {
+		builder = builder.Where(q.IsEnabled.Eq(strings.TrimSpace(*req.IsEnabled)))
 	}
-	if req.DeviceType != nil && *req.DeviceType != "" {
-		if *req.DeviceType == "1" {
-			queryBuilder = queryBuilder.Where(query.Device.Where(q.DeviceConfigID.IsNull()).Or(c.DeviceType.Eq(*req.DeviceType)))
-		} else {
-			queryBuilder = queryBuilder.Where(c.DeviceType.Eq(*req.DeviceType))
-		}
+	if hasValue(req.ProductID) {
+		builder = builder.Where(q.ProductID.Eq(strings.TrimSpace(*req.ProductID)))
 	}
-
-	if req.AccessWay != nil && *req.AccessWay != "" {
-		queryBuilder = queryBuilder.Where(q.AccessWay.Eq(*req.AccessWay))
-	}
-
-	// 模糊
-	if req.Label != nil && *req.Label != "" {
-		queryBuilder = queryBuilder.Where(q.Label.Like(fmt.Sprintf("%%%s%%", *req.Label)))
-	}
-
-	if req.Search != nil && *req.Search != "" {
-		queryBuilder = queryBuilder.
-			Where(query.Device.Where(
-				// q.Name.Like(fmt.Sprintf("%%%s%%", *req.Search)),
-				q.Name.Lower().Like(fmt.Sprintf("%%%s%%", strings.ToLower(*req.Search))),
-			).Or(
-				// q.DeviceNumber.Like(fmt.Sprintf("%%%s%%", *req.Search)),
-				q.DeviceNumber.Lower().Like(fmt.Sprintf("%%%s%%", strings.ToLower(*req.Search))),
-			),
+	if hasValue(req.ServiceIdentifier) {
+		value := strings.TrimSpace(*req.ServiceIdentifier)
+		if value == "mqtt" {
+			builder = builder.Where(
+				query.Device.Where(c.ProtocolType.Eq(value)).Or(q.DeviceConfigID.IsNull()),
 			)
-	}
-
-	// 模糊
-	if req.Name != nil && *req.Name != "" {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
-	}
-
-	if req.CurrentVersion != nil && *req.CurrentVersion != "" {
-		queryBuilder = queryBuilder.Where(q.CurrentVersion.Eq(*req.CurrentVersion))
-	}
-
-	if req.BatchNumber != nil && *req.BatchNumber != "" {
-		queryBuilder = queryBuilder.Where(q.BatchNumber.Like(fmt.Sprintf("%%%s%%", *req.BatchNumber)))
-	}
-
-	if req.DeviceNumber != nil && *req.DeviceNumber != "" {
-		queryBuilder = queryBuilder.Where(q.DeviceNumber.Like(fmt.Sprintf("%%%s%%", *req.DeviceNumber)))
-	}
-	if req.DeviceConfigId != nil && *req.DeviceConfigId != "" {
-		queryBuilder = queryBuilder.Where(q.DeviceConfigID.Eq(*req.DeviceConfigId))
-	}
-
-	if req.IsOnline != nil {
-		if *req.IsOnline == int(1) {
-			queryBuilder = queryBuilder.Where(q.IsOnline.Eq(1))
-		} else if *req.IsOnline == int(0) {
-			queryBuilder = queryBuilder.Where(q.IsOnline.Neq(1))
 		} else {
+			builder = builder.Where(c.ProtocolType.Eq(value))
+		}
+	}
+	if hasValue(req.ServiceAccessID) {
+		builder = builder.Where(q.ServiceAccessID.Eq(strings.TrimSpace(*req.ServiceAccessID)))
+	}
+	if hasValue(req.DeviceType) {
+		value := strings.TrimSpace(*req.DeviceType)
+		if value == "1" {
+			builder = builder.Where(
+				query.Device.Where(q.DeviceConfigID.IsNull()).Or(c.DeviceType.Eq(value)),
+			)
+		} else {
+			builder = builder.Where(c.DeviceType.Eq(value))
+		}
+	}
+	if hasValue(req.AccessWay) {
+		builder = builder.Where(q.AccessWay.Eq(strings.TrimSpace(*req.AccessWay)))
+	}
+	if hasValue(req.Label) {
+		builder = builder.Where(like(q.Label, strings.TrimSpace(*req.Label)))
+	}
+	if hasValue(req.Search) {
+		search := strings.ToLower(strings.TrimSpace(*req.Search))
+		builder = builder.Where(
+			query.Device.Where(q.Name.Lower().Like(fmt.Sprintf("%%%s%%", search))).
+				Or(q.DeviceNumber.Lower().Like(fmt.Sprintf("%%%s%%", search))),
+		)
+	}
+	if hasValue(req.Name) {
+		builder = builder.Where(like(q.Name, strings.TrimSpace(*req.Name)))
+	}
+	if hasValue(req.CurrentVersion) {
+		builder = builder.Where(q.CurrentVersion.Eq(strings.TrimSpace(*req.CurrentVersion)))
+	}
+	if hasValue(req.BatchNumber) {
+		builder = builder.Where(like(q.BatchNumber, strings.TrimSpace(*req.BatchNumber)))
+	}
+	if hasValue(req.DeviceNumber) {
+		builder = builder.Where(like(q.DeviceNumber, strings.TrimSpace(*req.DeviceNumber)))
+	}
+	if hasValue(req.DeviceConfigId) {
+		builder = builder.Where(q.DeviceConfigID.Eq(strings.TrimSpace(*req.DeviceConfigId)))
+	}
+	if req.IsOnline != nil {
+		switch *req.IsOnline {
+		case 1:
+			builder = builder.Where(q.IsOnline.Eq(1))
+		case 0:
+			builder = builder.Where(q.IsOnline.Neq(1))
+		default:
 			return count, deviceList, fmt.Errorf("is_online param error")
 		}
 	}
-	queryBuilder = queryBuilder.LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
-
-	// 物模型ID过滤
-	if req.DeviceTemplateID != nil && *req.DeviceTemplateID != "" {
-		queryBuilder = queryBuilder.Where(c.DeviceTemplateID.Eq(*req.DeviceTemplateID))
+	if hasValue(req.DeviceTemplateID) {
+		builder = builder.Where(c.DeviceTemplateID.Eq(strings.TrimSpace(*req.DeviceTemplateID)))
 	}
-	queryBuilder = queryBuilder.LeftJoin(lda, lda.DeviceID.EqCol(q.ID))
-	// 告警
-	if req.WarnStatus != nil && *req.WarnStatus != "" {
-		// WarnStatus等于N时候值为N，其他值为Y
-		if *req.WarnStatus == "N" {
-			queryBuilder = queryBuilder.Where(lda.AlarmStatus.Eq("N")).Or(lda.AlarmStatus.IsNull())
+	if hasValue(req.WarnStatus) {
+		value := strings.TrimSpace(*req.WarnStatus)
+		if value == "N" {
+			builder = builder.Where(
+				lda.AlarmStatus.Eq("N"),
+			).Or(lda.AlarmStatus.IsNull())
 		} else {
-			// 不等于N或空
-			queryBuilder = queryBuilder.Where(lda.AlarmStatus.Neq("N"))
+			builder = builder.Where(lda.AlarmStatus.Neq("N"))
 		}
 	}
-	// count查询
-	count, err := queryBuilder.Count()
+	count, err := builder.Count()
 	if err != nil {
 		logrus.Error(err)
 		return count, deviceList, err
 	}
-
 	if req.Page != 0 && req.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
+		builder = builder.Limit(req.PageSize).
+			Offset((req.Page - 1) * req.PageSize)
 	}
-
 	t := query.TelemetryCurrentData
 	t2 := query.TelemetryCurrentData.As("t2")
-	// q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber
-	err = queryBuilder.Select(lda.AlarmStatus.As("warn_status"), q.ID, q.DeviceNumber, q.Name, q.DeviceConfigID, q.ActivateFlag, q.ActivateAt, q.BatchNumber, q.Location, q.CurrentVersion, q.CreatedAt, q.IsOnline, q.AccessWay, c.ProtocolType, c.DeviceType, c.Name.As("DeviceConfigName"), t2.T, c.ImageURL, q.LastOfflineTime, q.AdditionalInfo).
+	err = builder.Select(
+		lda.AlarmStatus.As("warn_status"),
+		q.ID,
+		q.DeviceNumber,
+		q.Name,
+		q.DeviceConfigID,
+		q.ActivateFlag,
+		q.ActivateAt,
+		q.BatchNumber,
+		q.Location,
+		q.CurrentVersion,
+		q.CreatedAt,
+		q.IsOnline,
+		q.AccessWay,
+		c.ProtocolType,
+		c.DeviceType,
+		c.Name.As("DeviceConfigName"),
+		t2.T,
+		c.ImageURL,
+		q.LastOfflineTime,
+		q.AdditionalInfo,
+	).
 		LeftJoin(t.Select(t.T.Max().As("ts"), t.DeviceID).Group(t.DeviceID).As("t2"), t2.DeviceID.EqCol(q.ID)).
 		Order(q.CreatedAt.Desc()).
 		Scan(&deviceList)
@@ -415,7 +428,7 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		logrus.Error(err)
 		return count, deviceList, err
 	}
-	return count, deviceList, err
+	return count, deviceList, nil
 }
 
 func GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq, tenant_id string) (int64, []model.GetDevicePreRegisterListByPageRsp, error) {
