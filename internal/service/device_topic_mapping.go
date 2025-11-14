@@ -98,8 +98,8 @@ func (*DeviceTopicMapping) CreateDeviceTopicMapping(req *model.CreateDeviceTopic
 }
 
 type listResp struct {
-	Total int64                          `json:"total"`
-	List  []model.DeviceTopicMapping     `json:"list"`
+	Total int64                      `json:"total"`
+	List  []model.DeviceTopicMapping `json:"list"`
 }
 
 func (*DeviceTopicMapping) ListDeviceTopicMappings(req *model.ListDeviceTopicMappingReq, claims *utils.UserClaims) (listResp, error) {
@@ -219,15 +219,20 @@ func (*DeviceTopicMapping) UpdateDeviceTopicMapping(idStr string, req *model.Upd
 	}
 
 	// figure device_config_id for invalidation
-	invalidateID := exist.DeviceConfigID
+	targetIDs := map[string]struct{}{
+		exist.DeviceConfigID: {},
+	}
 	if v, ok := updateMap["device_config_id"]; ok {
-		if s, ok2 := v.(string); ok2 && s != "" && s != exist.DeviceConfigID {
-			// invalidate both old and new
-			_ = invalidateTopicMappingCache(ctx, exist.DeviceConfigID)
-			_ = invalidateTopicMappingCache(ctx, s)
+		if s, ok2 := v.(string); ok2 && s != "" {
+			if _, already := targetIDs[s]; !already {
+				targetIDs[s] = struct{}{}
+			}
 		}
-	} else {
-		_ = invalidateTopicMappingCache(ctx, invalidateID)
+	}
+	for id := range targetIDs {
+		if err := invalidateTopicMappingCache(ctx, id); err != nil {
+			logrus.Errorf("invalidate topic mapping cache (%s) failed: %v", id, err)
+		}
 	}
 
 	updated, err := dal.GetDeviceTopicMappingByID(ctx, id)
@@ -282,6 +287,7 @@ func (*DeviceTopicMapping) DeleteDeviceTopicMapping(idStr string, claims *utils.
 	return nil
 }
 
+// 说明：删除设备主题转换缓存
 func invalidateTopicMappingCache(ctx context.Context, deviceConfigID string) error {
 	if global.REDIS == nil {
 		return fmt.Errorf("redis client not initialized")
