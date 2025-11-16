@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,10 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var allowedFileExts = []string{
-	"jpg", "jpeg", "png", "pdf", "doc", "docx", "xlsx", "xls", "zip", "rar", "tar", "gz", "7z",
-}
-
 func OperationLogs() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !isModifyMethod(c.Request.Method) {
@@ -31,7 +26,12 @@ func OperationLogs() gin.HandlerFunc {
 
 		logrus.Info("开始处理请求:", c.Request.URL.Path, "方法:", c.Request.Method)
 		requestMessage, _ := processRequestBody(c)
-		logrus.Info("请求体:", requestMessage)
+		// 对于文件上传请求，不打印完整请求体（包含二进制内容）
+		if !isMultipartRequest(c) {
+			logrus.Info("请求体:", requestMessage)
+		} else {
+			logrus.Info("请求体: [文件上传请求，已过滤二进制内容]", requestMessage)
+		}
 
 		writer := newResponseBodyWriter(c)
 		c.Writer = writer
@@ -55,6 +55,14 @@ func isModifyMethod(method string) bool {
 }
 
 func processRequestBody(c *gin.Context) (string, string) {
+	// 检查是否是 multipart/form-data 请求（文件上传）
+	if isMultipartRequest(c) {
+		// 对于 multipart 请求，不读取请求体（包含二进制文件内容）
+		// 只记录路径信息，避免消耗请求体导致后续无法读取文件
+		return fmt.Sprintf("[文件上传请求: %s]", c.Request.URL.Path), ""
+	}
+
+	// 对于普通请求，读取请求体
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		logrus.Error("读取请求体失败:", err)
@@ -63,43 +71,18 @@ func processRequestBody(c *gin.Context) (string, string) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 
 	requestMessage := string(body)
-	if strings.Contains(c.Request.URL.Path, "file/up") {
-		requestMessage = handleFileUpload(c)
+	// 限制请求体大小，避免记录过大的内容
+	if len(requestMessage) > 10000 {
+		requestMessage = requestMessage[:10000] + "...[内容过长已截断]"
 	}
 
 	return requestMessage, requestMessage
 }
 
-func handleFileUpload(c *gin.Context) string {
-	file, err := c.FormFile("file")
-	if err != nil {
-		return ""
-	}
-
-	fileType := c.PostForm("type")
-	if fileType == "" {
-		fileType = "unknown"
-	}
-
-	// 1. 获取安全的基本文件名,去除路径
-	baseFileName := filepath.Base(file.Filename)
-
-	// 2. 净化文件名
-	filename := utils.SanitizeFilename(baseFileName)
-
-	// 3. 二次验证文件名的安全性
-	if !filepath.IsLocal(filename) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "非法的文件名"})
-		return ""
-	}
-
-	// 4. 验证文件类型
-	if !utils.ValidateFileExtension(filename, allowedFileExts) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "不允许的文件类型"})
-		return ""
-	}
-
-	return fmt.Sprintf("%s:%s", fileType, filename)
+// isMultipartRequest 检查是否是 multipart/form-data 请求
+func isMultipartRequest(c *gin.Context) bool {
+	contentType := c.Request.Header.Get("Content-Type")
+	return strings.HasPrefix(contentType, "multipart/form-data")
 }
 
 func saveOperationLog(c *gin.Context, start time.Time, cost int64, requestMsg, responseMsg string) {
