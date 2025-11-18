@@ -8,12 +8,14 @@ service:
 log:
   # 0-控制台输出 1-文件输出 2-文件和控制台输出
   adapter_type: 0
+  # 日志文件保存路径，如果不配置则默认使用 ./files/logs
+  # path: ./files/logs
   # 文件最多保存多少天
   maxdays: 7
   # 日志级别 (panic fatal error warn info debug trace)
   level: debug # 默认info
-  # 每个文件保存的最大行数
-  maxlines: 10000
+  # 每个日志文件的最大大小（单位：MB），达到此大小后会自动轮转
+  maxsize: 100
 
 jwt:
   key: 1hj5b0sp9

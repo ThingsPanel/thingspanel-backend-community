@@ -135,14 +135,17 @@ func PgConnect(config *DbConfig) (*gorm.DB, error) {
 	dataSource := fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable TimeZone=%s",
 		config.Host, config.Port, config.DbName, config.Username, config.Password, config.TimeZone)
 
+	// 根据配置获取 SQL 日志 Writer（支持文件和控制台输出）
+	sqlLogWriter := GetSQLLogWriter()
+
 	newLogger := logger.New(
 		//Writer{},
-		log.New(os.Stdout, "\r\n", log.LstdFlags), // 使用标准日志库的New方法创建日志输出
+		log.New(sqlLogWriter, "\r\n", log.LstdFlags), // 使用配置的日志输出（文件或控制台）
 		logger.Config{
 			SlowThreshold:             time.Duration(config.SlowThreshold) * time.Millisecond,
 			LogLevel:                  logger.LogLevel(config.LogLevel),
 			IgnoreRecordNotFoundError: true,
-			Colorful:                  true,
+			Colorful:                  true, // 控制台输出时显示颜色，文件输出时会被忽略
 		})
 
 	var err error
