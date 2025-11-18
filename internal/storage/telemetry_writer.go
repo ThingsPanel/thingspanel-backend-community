@@ -197,7 +197,7 @@ func (w *telemetryWriter) deduplicateAndConvert(batch []*telemetryBatchItem) (
 
 	seen := make(map[string]struct{})
 	historyData := make([]TelemetryData, 0, len(batch)*2)
-	currentData := make([]TelemetryCurrentData, 0, len(batch)*2)
+	currentMap := make(map[string]*TelemetryCurrentData)
 	duplicates := 0
 
 	for _, item := range batch {
@@ -227,16 +227,26 @@ func (w *telemetryWriter) deduplicateAndConvert(batch []*telemetryBatchItem) (
 			})
 
 			// 构建最新值数据（时间戳为time.Time）
-			currentData = append(currentData, TelemetryCurrentData{
-				DeviceID: item.deviceID,
-				Key:      point.Key,
-				TS:       time.UnixMilli(item.timestamp),
-				BoolV:    boolV,
-				NumberV:  numberV,
-				StringV:  stringV,
-				TenantID: item.tenantID,
-			})
+			currentKey := fmt.Sprintf("%s|%s", item.deviceID, point.Key)
+			ts := time.UnixMilli(item.timestamp)
+
+			if existing, ok := currentMap[currentKey]; !ok || ts.After(existing.TS) {
+				currentMap[currentKey] = &TelemetryCurrentData{
+					DeviceID: item.deviceID,
+					Key:      point.Key,
+					TS:       ts,
+					BoolV:    boolV,
+					NumberV:  numberV,
+					StringV:  stringV,
+					TenantID: item.tenantID,
+				}
+			}
 		}
+	}
+
+	currentData := make([]TelemetryCurrentData, 0, len(currentMap))
+	for _, data := range currentMap {
+		currentData = append(currentData, *data)
 	}
 
 	return historyData, currentData, duplicates

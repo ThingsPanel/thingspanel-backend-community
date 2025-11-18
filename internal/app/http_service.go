@@ -91,6 +91,7 @@ func (s *HTTPService) Start() error {
 
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logrus.Errorf("HTTP服务器错误: %v", err)
+			panic(err)
 		}
 	}()
 
