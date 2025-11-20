@@ -321,11 +321,18 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 }
 
 func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
+	// 去空格
+	req.DeviceNumber = strings.TrimSpace(req.DeviceNumber)
+	req.Name = strings.TrimSpace(req.Name)
 	device, err := dal.GetDeviceByDeviceNumber(req.DeviceNumber)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		if err == gorm.ErrRecordNotFound {
+			return nil, errcode.New(204001)
+		} else {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
 	}
 	if device.ActivateFlag == "active" {
 		return nil, errcode.New(204002)
