@@ -302,6 +302,11 @@ messages:
     zh_CN: "数据标识符已存在"
     en_US: "Data identifier already exists"
 
+  # 设备脚本相关错误码 (209xxx)
+  209001:
+    zh_CN: "同一类型脚本只能有一个启用"
+    en_US: "Only one enabled script of the same type is allowed"
+
   # Device Connect Field Keys (500xxx)
   500001:
     zh_CN: "接入地址"

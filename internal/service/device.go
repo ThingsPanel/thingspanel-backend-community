@@ -327,7 +327,9 @@ func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 	device, err := dal.GetDeviceByDeviceNumber(req.DeviceNumber)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, errcode.New(204001)
+			return nil, errcode.WithVars(204001, map[string]interface{}{
+				"error": req.DeviceNumber,
+			})
 		} else {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),

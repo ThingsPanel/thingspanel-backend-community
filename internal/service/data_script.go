@@ -149,7 +149,7 @@ func (*DataScript) QuizDataScript(req *model.QuizDataScriptReq) (string, error) 
 func (*DataScript) EnableDataScript(req *model.EnableDataScriptReq) error {
 	if req.EnableFlag == "Y" {
 		if ok, err := dal.OnlyOneScriptTypeEnabled(req.Id); !ok {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			return errcode.WithData(209001, map[string]interface{}{
 				"sql_error": err.Error(),
 			})
 		}
