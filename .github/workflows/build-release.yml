@@ -269,3 +269,17 @@ jobs:
     #       -d '{"ref":"main"}'
         
     #     echo "Docker image build workflow triggered successfully"
+
+    - name: Trigger installer build
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          await github.rest.repos.createDispatchEvent({
+            owner: 'ThingsPanel',
+            repo: 'thingspanel-installation',
+            event_type: 'backend-release',
+            client_payload: {
+              version: '${{ env.RELEASE_TAG }}'
+            }
+          });
