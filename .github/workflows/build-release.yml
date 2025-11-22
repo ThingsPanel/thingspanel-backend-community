@@ -273,7 +273,7 @@ jobs:
     - name: Trigger installer build
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ secrets.INSTALLER_TRIGGER_TOKEN }}
         script: |
           await github.rest.repos.createDispatchEvent({
             owner: 'ThingsPanel',
