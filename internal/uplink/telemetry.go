@@ -327,8 +327,7 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 	}
 
 	// 4. 发送到 Storage（同步发送到 channel）
-	// 记录诊断：上行消息总数
-	diagnostics.GetInstance().RecordUplinkTotal(device.ID)
+	// 注意：uplink_total 已在 adapter 层记录，此处不再重复记录
 	f.storageInput <- &storage.Message{
 		DeviceID:  device.ID,
 		TenantID:  device.TenantID,
