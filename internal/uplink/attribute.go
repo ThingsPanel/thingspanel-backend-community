@@ -352,25 +352,29 @@ func (f *AttributeUplink) refreshHeartbeat(device *model.Device) {
 	// 检查是否需要自动上线
 	if device.IsOnline != 1 {
 		// 设备当前离线,收到消息后自动上线
-		if err := dal.UpdateDeviceStatus(device.ID, 1); err != nil {
+		statusChanged, err := dal.UpdateDeviceStatus(device.ID, 1)
+		if err != nil {
 			f.logger.WithError(err).WithField("device_id", device.ID).Error("Failed to auto online device")
 			return
 		}
 
-		f.logger.WithField("device_id", device.ID).Info("Device auto online by business message")
+		// 只有当状态真的从离线变为在线时，才执行上线通知流程
+		if statusChanged {
+			f.logger.WithField("device_id", device.ID).Info("Device auto online by business message")
 
-		// 清理缓存
-		initialize.DelDeviceCache(device.ID)
+			// 清理缓存
+			initialize.DelDeviceCache(device.ID)
 
-		// 获取最新设备信息
-		updatedDevice, err := initialize.GetDeviceCacheById(device.ID)
-		if err != nil {
-			f.logger.WithError(err).Error("Failed to get updated device")
-			return
+			// 获取最新设备信息
+			updatedDevice, err := initialize.GetDeviceCacheById(device.ID)
+			if err != nil {
+				f.logger.WithError(err).Error("Failed to get updated device")
+				return
+			}
+
+			// SSE通知、自动化、预期数据(异步)
+			go f.notifyDeviceOnline(updatedDevice)
 		}
-
-		// SSE通知、自动化、预期数据(异步)
-		go f.notifyDeviceOnline(updatedDevice)
 	}
 
 	// 刷新心跳 key (优先级: heartbeat > online_timeout)

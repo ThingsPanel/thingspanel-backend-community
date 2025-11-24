@@ -137,13 +137,15 @@ func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 	}
 
 	// 4. 更新数据库状态
-	if err := dal.UpdateDeviceStatus(device.ID, status); err != nil {
+	statusChanged, err := dal.UpdateDeviceStatus(device.ID, status)
+	if err != nil {
 		f.logger.WithError(err).WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"status":    status,
 		}).Error("Failed to update device status")
 		return
 	}
+	_ = statusChanged // 状态上报入口，不需要检查是否变化
 
 	f.logger.WithFields(logrus.Fields{
 		"device_id": device.ID,

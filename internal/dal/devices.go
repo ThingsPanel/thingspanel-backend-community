@@ -61,7 +61,11 @@ func UpdateDeviceByMap(deviceID string, deviceMap map[string]interface{}) (*mode
 }
 
 // 更新设备状态
-func UpdateDeviceStatus(deviceId string, status int16) error {
+// 返回值: (是否真的更新了状态, error)
+// 如果状态没有变化，返回 (false, nil)
+// 如果状态真的更新了，返回 (true, nil)
+// 如果发生错误，返回 (false, error)
+func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
 	// 1. 先从 Redis 缓存读取设备信息，缓存未命中则从数据库加载
 	var device *model.Device
 	result, err := global.REDIS.Get(context.Background(), deviceId).Result()
@@ -78,7 +82,7 @@ func UpdateDeviceStatus(deviceId string, status int16) error {
 		device, err = query.Device.Where(query.Device.ID.Eq(deviceId)).First()
 		if err != nil {
 			logrus.WithError(err).WithField("device_id", deviceId).Error("Failed to get device info")
-			return err
+			return false, err
 		}
 	}
 
@@ -86,7 +90,7 @@ func UpdateDeviceStatus(deviceId string, status int16) error {
 	currentStatus := device.IsOnline
 	if currentStatus == status {
 		// 状态未变化，不需要更新
-		return nil
+		return false, nil
 	}
 
 	// 3. 更新设备状态
@@ -100,20 +104,20 @@ func UpdateDeviceStatus(deviceId string, status int16) error {
 			})
 		if err != nil {
 			logrus.Error(err)
-			return err
+			return false, err
 		}
 		if info.RowsAffected == 0 {
-			return fmt.Errorf("update device status failed, no rows affected")
+			return false, fmt.Errorf("update device status failed, no rows affected")
 		}
 	} else {
 		// 设备上线时，只更新is_online字段
 		info, err := query.Device.Where(query.Device.ID.Eq(deviceId)).Update(query.Device.IsOnline, status)
 		if err != nil {
 			logrus.Error(err)
-			return err
+			return false, err
 		}
 		if info.RowsAffected == 0 {
-			return fmt.Errorf("update device status failed, no rows affected")
+			return false, fmt.Errorf("update device status failed, no rows affected")
 		}
 	}
 
@@ -133,7 +137,7 @@ func UpdateDeviceStatus(deviceId string, status int16) error {
 		}
 	}()
 
-	return nil
+	return true, nil
 }
 
 func DeleteDevice(id string, tenantID string) error {
