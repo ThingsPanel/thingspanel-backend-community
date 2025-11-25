@@ -9,6 +9,7 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 // SubscribeResponseTopics 订阅响应 Topic（供 MQTT 服务初始化时调用）
@@ -22,6 +23,8 @@ func (a *Adapter) SubscribeResponseTopics(client mqtt.Client) error {
 	}
 
 	for topic, qos := range topics {
+		// 使用共享订阅（VerneMQ 支持）
+		topic := genSharedTopic(topic)
 		token := client.Subscribe(topic, qos, a.handleResponseMessage)
 		token.Wait()
 		if err := token.Error(); err != nil {
@@ -138,7 +141,19 @@ func (a *Adapter) detectResponseType(topic string) string {
 
 // genSharedTopic 生成共享订阅 Topic（用于负载均衡）
 func genSharedTopic(topic string) string {
-	return "$share/mygroup/" + topic
+	// 如果mqtt_server为vernemq，则使用$share/mygroup/topic
+	group := ""
+	isTrue := viper.GetBool("mqtt.enable_shared_subscription")
+	if isTrue {
+		groupName := viper.GetString("mqtt.shared_subscription_group")
+		if groupName == "" {
+			group = "$share/mygroup/"
+			logrus.Debugf("使用默认共享组: %s", groupName)
+		} else {
+			group = "$share/" + groupName + "/"
+		}
+	}
+	return group + topic
 }
 
 // SubscribeDeviceTopics 订阅设备上行 Topic（供 MQTT 服务初始化时调用）
