@@ -12,7 +12,7 @@ import (
 
 type SSEApi struct{}
 
-// api/v1/events
+// /api/v1/events
 
 func (*SSEApi) HandleSystemEvents(c *gin.Context) {
 	userClaims, ok := c.MustGet("claims").(*utils.UserClaims)

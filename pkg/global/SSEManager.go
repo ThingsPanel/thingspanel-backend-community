@@ -81,7 +81,7 @@ func (m *SSEManager) BroadcastEventToTenant(tenantID string, event SSEEvent) err
 	if err != nil {
 		return err
 	}
-
+	logrus.Infof("发送SSE事件: %v", event)
 	return m.redisClient.Publish(context.Background(), "sse:tenant:"+tenantID, string(eventJSON)).Err()
 }
 

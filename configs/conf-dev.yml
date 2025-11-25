@@ -177,3 +177,9 @@ diagnostics:
   batch_flush_size: 100             # 批量刷新大小（异步缓冲）
   batch_flush_interval: 1s         # 批量刷新间隔
   persist_to_db: false             # 是否持久化到数据库（服务重启后保留）
+
+# Heartbeat 心跳监控配置
+heartbeat:
+  subscribe:
+    enabled: false                  # 是否订阅 Redis 过期事件（默认 true，未配置时启用）
+#                                    # 多实例部署时，只有一个实例设为 true，其他实例设为 false

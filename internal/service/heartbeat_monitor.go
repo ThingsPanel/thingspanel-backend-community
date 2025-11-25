@@ -33,6 +33,17 @@ func NewHeartbeatMonitor(redis *redis.Client, publisher StatusPublisher, logger 
 
 // Start 启动心跳监控服务
 func (m *HeartbeatMonitor) Start() error {
+	// 检查是否启用订阅（单实例模式：只有一个实例订阅过期事件）
+	// 如果未配置，默认为 true（启用订阅）
+	subscribeEnabled := true
+	if viper.IsSet("heartbeat.subscribe.enabled") {
+		subscribeEnabled = viper.GetBool("heartbeat.subscribe.enabled")
+	}
+	if !subscribeEnabled {
+		m.logger.Info("HeartbeatMonitor: Redis expiry event subscription is disabled, skipping subscription")
+		return nil
+	}
+
 	// 配置 Redis 过期通知
 	if err := m.configureRedis(); err != nil {
 		return fmt.Errorf("failed to configure redis: %w", err)

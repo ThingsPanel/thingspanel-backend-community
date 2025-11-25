@@ -145,7 +145,16 @@ func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 		}).Error("Failed to update device status")
 		return
 	}
-	_ = statusChanged // 状态上报入口，不需要检查是否变化
+
+	// 如果状态没有变化，直接返回（避免重复通知）
+	if !statusChanged {
+		f.logger.WithFields(logrus.Fields{
+			"device_id": device.ID,
+			"status":    status,
+			"source":    msg.Metadata["source"],
+		}).Debug("【设备上下线】Device status unchanged, skipping notification")
+		return
+	}
 
 	f.logger.WithFields(logrus.Fields{
 		"device_id": device.ID,
@@ -223,13 +232,8 @@ func (f *StatusUplink) notifyClients(device *model.Device, status int16) {
 	}
 
 	// 发送到SSE
+	logrus.Infof("准备发送SSE事件: %v", sseEvent)
 	global.TPSSEManager.BroadcastEventToTenant(device.TenantID, sseEvent)
-
-	f.logger.WithFields(logrus.Fields{
-		"device_id": device.ID,
-		"tenant_id": device.TenantID,
-		"status":    status,
-	}).Debug("【设备上下线SSE】SSE notification sent")
 }
 
 // triggerAutomation 触发自动化场景
