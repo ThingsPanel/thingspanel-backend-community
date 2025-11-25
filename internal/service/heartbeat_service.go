@@ -140,3 +140,13 @@ func (s *HeartbeatService) DeleteHeartbeatKey(deviceID string) error {
 	s.logger.WithField("device_id", deviceID).Debug("Heartbeat keys deleted")
 	return nil
 }
+
+// DeleteTimeoutKey 删除超时key
+func (s *HeartbeatService) DeleteTimeoutKey(deviceID string) error {
+	ctx := context.Background()
+	timeoutKey := fmt.Sprintf("device:%s:timeout", deviceID)
+	if err := s.redis.Del(ctx, timeoutKey).Err(); err != nil {
+		return fmt.Errorf("failed to delete timeout key: %w", err)
+	}
+	return nil
+}

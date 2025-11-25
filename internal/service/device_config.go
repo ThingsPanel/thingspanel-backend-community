@@ -11,6 +11,7 @@ import (
 	"project/pkg/common"
 	"project/pkg/constant"
 	"project/pkg/errcode"
+	global "project/pkg/global"
 
 	dal "project/internal/dal"
 	model "project/internal/model"
@@ -71,19 +72,6 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 }
 
 func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, error) {
-	// 判断other_config是否变更，如果变更要对online_timeout和heartbeat进行校验，如果online_timeout和heartbeat都不为0,则组织修改，提示只允许设置其中一个
-	if req.OtherConfig != nil {
-		var otherConfig model.DeviceConfigOtherConfig
-		err := json.Unmarshal([]byte(*req.OtherConfig), &otherConfig)
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-				"err": err.Error(),
-			})
-		}
-		if otherConfig.OnlineTimeout != 0 && otherConfig.Heartbeat != 0 {
-			return nil, errcode.New(210001)
-		}
-	}
 	// 对修改设备模板id进行特殊处理
 	if req.DeviceTemplateId != nil && *req.DeviceTemplateId == "" {
 		err := dal.UpdateDeviceConfigTemplateID(req.Id, nil)
@@ -107,6 +95,19 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, e
 			"sql_error": err.Error(),
 		})
 	}
+	// 判断other_config是否变更，如果变更要对online_timeout和heartbeat进行校验，如果online_timeout和heartbeat都不为0,则组织修改，提示只允许设置其中一个
+	if req.OtherConfig != nil && req.OtherConfig != oldConfig.OtherConfig {
+		var otherConfig model.DeviceConfigOtherConfig
+		err := json.Unmarshal([]byte(*req.OtherConfig), &otherConfig)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"err": err.Error(),
+			})
+		}
+		if otherConfig.OnlineTimeout != 0 && otherConfig.Heartbeat != 0 {
+			return nil, errcode.New(210001)
+		}
+	}
 
 	logrus.Debug("condsMap:", condsMap)
 	err = dal.UpdateDeviceConfig(req.Id, condsMap)
@@ -115,6 +116,60 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, e
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
+	}
+	// 判断other_config是否变更，如果变更要对online_timeout和heartbeat进行校验，如果online_timeout和heartbeat都不为0,则组织修改，提示只允许设置其中一个
+	if req.OtherConfig != nil && req.OtherConfig != oldConfig.OtherConfig {
+		var otherConfig model.DeviceConfigOtherConfig
+		err := json.Unmarshal([]byte(*req.OtherConfig), &otherConfig)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"err": err.Error(),
+			})
+		}
+		var oldOtherConfig model.DeviceConfigOtherConfig
+		err = json.Unmarshal([]byte(*oldConfig.OtherConfig), &oldOtherConfig)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"err": err.Error(),
+			})
+		}
+
+		heartbeatService := NewHeartbeatService(global.STATUS_REDIS, logrus.StandardLogger())
+		if otherConfig.OnlineTimeout != 0 {
+			if oldOtherConfig.Heartbeat != 0 {
+				// 删除心跳时间到redis
+				err = heartbeatService.DeleteHeartbeatKey(req.Id)
+				if err != nil {
+					return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
+				}
+			}
+			// 刷新超时时间到redis
+			err = heartbeatService.SetTimeout(req.Id, otherConfig.OnlineTimeout)
+			if err != nil {
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+				})
+			}
+		} else if otherConfig.Heartbeat != 0 {
+			if oldOtherConfig.OnlineTimeout != 0 {
+				// 删除超时时间到redis
+				err = heartbeatService.DeleteTimeoutKey(req.Id)
+				if err != nil {
+					return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+						"sql_error": err.Error(),
+					})
+				}
+			}
+			// 刷新心跳时间到redis
+			err = heartbeatService.SetHeartbeat(req.Id, otherConfig.Heartbeat)
+			if err != nil {
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+					"sql_error": err.Error(),
+				})
+			}
+		}
 	}
 	// 清除设备配置信息缓存
 	initialize.DelDeviceConfigCache(req.Id)
