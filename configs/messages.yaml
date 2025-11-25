@@ -307,6 +307,11 @@ messages:
     zh_CN: "同一类型脚本只能有一个启用"
     en_US: "Only one enabled script of the same type is allowed"
 
+  # 设备配置相关错误码 (210xxx)
+  210001:
+    zh_CN: "超时时间和心跳时间不能同时设置"
+    en_US: "Online timeout and heartbeat time cannot be set at the same time"
+
   # Device Connect Field Keys (500xxx)
   500001:
     zh_CN: "接入地址"

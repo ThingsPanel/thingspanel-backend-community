@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"project/initialize"
@@ -70,6 +71,19 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 }
 
 func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, error) {
+	// 判断other_config是否变更，如果变更要对online_timeout和heartbeat进行校验，如果online_timeout和heartbeat都不为0,则组织修改，提示只允许设置其中一个
+	if req.OtherConfig != nil {
+		var otherConfig model.DeviceConfigOtherConfig
+		err := json.Unmarshal([]byte(*req.OtherConfig), &otherConfig)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"err": err.Error(),
+			})
+		}
+		if otherConfig.OnlineTimeout != 0 && otherConfig.Heartbeat != 0 {
+			return nil, errcode.New(210001)
+		}
+	}
 	// 对修改设备模板id进行特殊处理
 	if req.DeviceTemplateId != nil && *req.DeviceTemplateId == "" {
 		err := dal.UpdateDeviceConfigTemplateID(req.Id, nil)
@@ -142,6 +156,7 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, e
 			}
 		}
 	}
+
 	return data, nil
 }
 
