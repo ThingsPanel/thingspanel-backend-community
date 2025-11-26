@@ -235,3 +235,23 @@ func (api *AlarmApi) GetAlarmDeviceCountsByTenant(c *gin.Context) {
 
 	c.Set("data", counts)
 }
+
+// /api/v1/alarm/info/history/{id} [DELETE]
+func (*AlarmApi) DeleteAlarmHistory(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"err": fmt.Sprintf("id is %s", id),
+		}))
+		return
+	}
+
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	err := service.GroupApp.Alarm.DeleteAlarmHistory(id, userClaims.TenantID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", nil)
+}

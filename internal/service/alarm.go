@@ -457,3 +457,14 @@ func (a *Alarm) GetAlarmDeviceCountsByTenant(tenantID string) (*model.AlarmDevic
 		AlarmDeviceTotal: int64(totalCount),
 	}, nil
 }
+
+// DeleteAlarmHistory 删除告警历史
+func (*Alarm) DeleteAlarmHistory(id string, tenantID string) (err error) {
+	err = dal.DeleteAlarmHistory(id, tenantID)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return
+}

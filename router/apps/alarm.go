@@ -55,5 +55,8 @@ func alarminfo(Router *gin.RouterGroup) {
 		url.GET("config/device", api.Controllers.AlarmApi.HandleConfigByDevice)
 
 		url.GET("history/:id", api.Controllers.AlarmApi.HandleAlarmInfoHistory)
+
+		// 删
+		url.DELETE("history/:id", api.Controllers.AlarmApi.DeleteAlarmHistory)
 	}
 }

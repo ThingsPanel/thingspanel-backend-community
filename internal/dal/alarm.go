@@ -311,3 +311,14 @@ func GetAlarmNameWithCache(alarmId string) string {
 	redis.Set(context.Background(), cacheKey, alarmConfig.Name, time.Hour)
 	return alarmConfig.Name
 }
+
+func DeleteAlarmHistory(id string, tenantID string) error {
+	info, err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id), query.AlarmHistory.TenantID.Eq(tenantID)).Delete()
+	if err != nil {
+		return err
+	}
+	if info.RowsAffected == 0 {
+		return fmt.Errorf("no data deleted")
+	}
+	return nil
+}
