@@ -41,8 +41,8 @@ Dynamic Effect Demonstration
 </div>
 Mobile Application Interface
 <div align="center">
-  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-app-login.webp" width="30%" alt="Mobile App Login">
-  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-app.webp" width="30%" alt="Mobile App">
+  <img src="https://github.com/ThingsPanel/app/blob/main/github/iphone-1.png" width="30%">
+  <img src="https://github.com/ThingsPanel/app/blob/main/github/iphone-2.png" width="30%">
 </div>
 
 ## Demo
