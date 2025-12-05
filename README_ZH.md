@@ -40,8 +40,8 @@ ThingsPanel的插件主要有如下几类，分别是：
 </div>
 移动应用界面
 <div align="center">
-  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-app-login.webp" width="30%" alt="移动应用">
-  <img src="https://pub-dd72232484fd4c78b094868481918d04.r2.dev/tp-app.webp" width="30%" alt="移动应用">
+  <img src="https://github.com/ThingsPanel/app/blob/main/github/iphone-1.png" width="30%">
+  <img src="https://github.com/ThingsPanel/app/blob/main/github/iphone-2.png" width="30%">
   
 </div>
 
