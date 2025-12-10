@@ -23,6 +23,7 @@ type DeviceTopicMapping struct {
 	Description    *string   `gorm:"column:description" json:"description"`
 	CreatedAt      time.Time `gorm:"column:created_at;not null;default:now()" json:"created_at"`
 	UpdatedAt      time.Time `gorm:"column:updated_at;not null;default:now()" json:"updated_at"`
+	DataIdentifier *string   `gorm:"column:data_identifier" json:"data_identifier"`
 }
 
 // TableName DeviceTopicMapping's table name

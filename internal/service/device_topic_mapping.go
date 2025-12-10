@@ -76,6 +76,12 @@ func (*DeviceTopicMapping) CreateDeviceTopicMapping(req *model.CreateDeviceTopic
 		mapping.Enabled = true
 	}
 	mapping.Description = req.Description
+	if req.DataIdentifier != nil {
+		dataIdentifier := strings.TrimSpace(*req.DataIdentifier)
+		if dataIdentifier != "" {
+			mapping.DataIdentifier = &dataIdentifier
+		}
+	}
 	now := time.Now().UTC()
 	mapping.CreatedAt = now
 	mapping.UpdatedAt = now
@@ -205,6 +211,15 @@ func (*DeviceTopicMapping) UpdateDeviceTopicMapping(idStr string, req *model.Upd
 	}
 	if req.Description != nil {
 		updateMap["description"] = req.Description
+	}
+	if req.DataIdentifier != nil {
+		dataIdentifier := strings.TrimSpace(*req.DataIdentifier)
+		if dataIdentifier != "" {
+			updateMap["data_identifier"] = dataIdentifier
+		} else {
+			// 如果传入空字符串，则设置为 null
+			updateMap["data_identifier"] = nil
+		}
 	}
 	updateMap["updated_at"] = time.Now().UTC()
 

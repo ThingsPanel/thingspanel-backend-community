@@ -57,6 +57,9 @@ func ListDeviceTopicMappings(ctx context.Context, req *model.ListDeviceTopicMapp
 	if req.Description != nil && *req.Description != "" {
 		dao = dao.Where(q.Description.Like("%" + *req.Description + "%"))
 	}
+	if req.DataIdentifier != nil && *req.DataIdentifier != "" {
+		dao = dao.Where(q.DataIdentifier.Eq(*req.DataIdentifier))
+	}
 	// order by priority asc, id asc
 	dao = dao.Order(q.Priority, q.ID)
 	offset := 0
@@ -89,6 +92,9 @@ func ListDeviceTopicMappings(ctx context.Context, req *model.ListDeviceTopicMapp
 	}
 	if req.Description != nil && *req.Description != "" {
 		daoCount = daoCount.Where(q.Description.Like("%" + *req.Description + "%"))
+	}
+	if req.DataIdentifier != nil && *req.DataIdentifier != "" {
+		daoCount = daoCount.Where(q.DataIdentifier.Eq(*req.DataIdentifier))
 	}
 	total, err := daoCount.Count()
 	if err != nil {

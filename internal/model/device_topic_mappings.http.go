@@ -9,6 +9,7 @@ type CreateDeviceTopicMappingReq struct {
 	Priority       *int32  `json:"priority" validate:"omitempty,gte=0,lte=100000"`       // 优先级，数值越小优先级越高
 	Enabled        *bool   `json:"enabled" validate:"omitempty"`                         // 是否启用
 	Description    *string `json:"description" validate:"omitempty,max=2000"`            // 描述信息
+	DataIdentifier *string `json:"data_identifier" validate:"omitempty,max=500"`         // 数据标识符
 }
 
 type ListDeviceTopicMappingReq struct {
@@ -20,6 +21,7 @@ type ListDeviceTopicMappingReq struct {
 	TargetTopic    *string `form:"target_topic" validate:"omitempty,max=500"`   // 精确匹配
 	Enabled        *bool   `form:"enabled" validate:"omitempty"`
 	Description    *string `form:"description" validate:"omitempty,max=2000"`   // 模糊匹配
+	DataIdentifier *string `form:"data_identifier" validate:"omitempty,max=500"` // 精确匹配
 }
 
 type UpdateDeviceTopicMappingReq struct {
@@ -31,6 +33,7 @@ type UpdateDeviceTopicMappingReq struct {
 	Priority       *int32  `json:"priority" validate:"omitempty,gte=0,lte=100000"`
 	Enabled        *bool   `json:"enabled" validate:"omitempty"`
 	Description    *string `json:"description" validate:"omitempty,max=2000"`
+	DataIdentifier *string `json:"data_identifier" validate:"omitempty,max=500"`
 }
 
 

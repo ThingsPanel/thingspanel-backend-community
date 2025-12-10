@@ -38,6 +38,7 @@ func newDeviceTopicMapping(db *gorm.DB, opts ...gen.DOOption) deviceTopicMapping
 	_deviceTopicMapping.Description = field.NewString(tableName, "description")
 	_deviceTopicMapping.CreatedAt = field.NewTime(tableName, "created_at")
 	_deviceTopicMapping.UpdatedAt = field.NewTime(tableName, "updated_at")
+	_deviceTopicMapping.DataIdentifier = field.NewString(tableName, "data_identifier")
 
 	_deviceTopicMapping.fillFieldMap()
 
@@ -59,6 +60,7 @@ type deviceTopicMapping struct {
 	Description    field.String
 	CreatedAt      field.Time
 	UpdatedAt      field.Time
+	DataIdentifier field.String
 
 	fieldMap map[string]field.Expr
 }
@@ -86,6 +88,7 @@ func (d *deviceTopicMapping) updateTableName(table string) *deviceTopicMapping {
 	d.Description = field.NewString(table, "description")
 	d.CreatedAt = field.NewTime(table, "created_at")
 	d.UpdatedAt = field.NewTime(table, "updated_at")
+	d.DataIdentifier = field.NewString(table, "data_identifier")
 
 	d.fillFieldMap()
 
@@ -102,7 +105,7 @@ func (d *deviceTopicMapping) GetFieldByName(fieldName string) (field.OrderExpr, 
 }
 
 func (d *deviceTopicMapping) fillFieldMap() {
-	d.fieldMap = make(map[string]field.Expr, 11)
+	d.fieldMap = make(map[string]field.Expr, 12)
 	d.fieldMap["id"] = d.ID
 	d.fieldMap["device_config_id"] = d.DeviceConfigID
 	d.fieldMap["name"] = d.Name
@@ -114,6 +117,7 @@ func (d *deviceTopicMapping) fillFieldMap() {
 	d.fieldMap["description"] = d.Description
 	d.fieldMap["created_at"] = d.CreatedAt
 	d.fieldMap["updated_at"] = d.UpdatedAt
+	d.fieldMap["data_identifier"] = d.DataIdentifier
 }
 
 func (d deviceTopicMapping) clone(db *gorm.DB) deviceTopicMapping {
