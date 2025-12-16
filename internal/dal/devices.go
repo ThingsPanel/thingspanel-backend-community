@@ -292,8 +292,7 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		builder    = q.WithContext(ctx).
 				Where(q.TenantID.Eq(tenant_id)).
 				Where(q.ActivateFlag.Eq("active")).
-				LeftJoin(c, c.ID.EqCol(q.DeviceConfigID)).
-				LeftJoin(lda, lda.DeviceID.EqCol(q.ID))
+				LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
 	)
 	if hasValue(req.GroupId) {
 		groupIds, err := GetGroupChildrenIds(strings.TrimSpace(*req.GroupId))
@@ -383,6 +382,8 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		builder = builder.Where(c.DeviceTemplateID.Eq(strings.TrimSpace(*req.DeviceTemplateID)))
 	}
 	if hasValue(req.WarnStatus) {
+		// 仅在需要告警状态过滤时关联告警表，避免无谓的慢查询
+		builder = builder.LeftJoin(lda, lda.DeviceID.EqCol(q.ID))
 		value := strings.TrimSpace(*req.WarnStatus)
 		if value == "N" {
 			builder = builder.Where(
@@ -404,7 +405,6 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 	t := query.TelemetryCurrentData
 	t2 := query.TelemetryCurrentData.As("t2")
 	err = builder.Select(
-		lda.AlarmStatus.As("warn_status"),
 		q.ID,
 		q.DeviceNumber,
 		q.Name,
