@@ -26,7 +26,7 @@ type AlarmCache struct {
 
 // 缓存1 aralm_groupid 以场景组id 保存出发告警config_id, 设备id
 // 缓存2 aralm_device_id 以设备id  组id'
-// 缓存3 alarm_config_id  以告警id 保存组id
+// 缓存3 alarm_config_id+device_id  以告警id+设备id 保存组id（一个告警在该设备上被哪些分组触发过）
 // 缓存4 scene_automation_id 以场景id 保存组id
 
 func NewAlarmCache() *AlarmCache {
@@ -134,9 +134,15 @@ func (a *AlarmCache) SetDevice(group_id, scene_automation_id string, device_ids,
 	return a.groupCacheAdd(cacheKey, group_id)
 }
 
-func (a *AlarmCache) GetAlarmDeviceExists(deviceIds []string, groupId string) (bool, error) {
+// GetAlarmDeviceExists
+// description 判断某个告警配置在指定设备及分组下是否已经存在
+// deviceIds:  触发该告警的设备列表
+// alarmId:    告警配置ID
+// groupId:    条件分组ID
+func (a *AlarmCache) GetAlarmDeviceExists(deviceIds []string, alarmId, groupId string) (bool, error) {
 	for _, deviceId := range deviceIds {
-		cacheKey := a.getCacheKeyByAlarm(deviceId, groupId)
+		// key 结构: alarm_cach_alarm_v6_<alarmId>_<deviceId>
+		cacheKey := a.getCacheKeyByAlarm(alarmId, deviceId)
 		var groupIds SliceString
 		err := a.client.Get(context.Background(), cacheKey).Scan(&groupIds)
 		logrus.Debug("GetAlarmDeviceExists:", cacheKey, "==>", groupIds)

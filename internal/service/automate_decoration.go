@@ -130,7 +130,8 @@ func AlarmExecute(alarm_config_id, scene_automation_id string) (bool, string, st
 		}
 		logrus.Debugf("告警执行前查询: %#v", cache)
 		var isOk bool
-		isOk, err = alarmCache.GetAlarmDeviceExists(cache.AlaramDeviceIdList, group_id)
+		// 判断当前告警配置在该分组下是否已经对这些设备触发过
+		isOk, err = alarmCache.GetAlarmDeviceExists(cache.AlaramDeviceIdList, alarm_config_id, group_id)
 		if err != nil {
 			return resultOk, alarmName, "查询告警缓存失败"
 		}
