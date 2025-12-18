@@ -281,13 +281,24 @@ func (f *AttributeUplink) processDirectDeviceMessage(device *model.Device, paylo
 	// 2. 解析数据
 	var dataMap map[string]interface{}
 	if err := json.Unmarshal(payload, &dataMap); err != nil {
-		// 记录诊断：脚本输出数据格式错误
-		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("数据格式错误：%v", err))
+		// JSON 解析失败，包装成 {"_raw": 原始值}
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
+			"payload":   string(payload),
 			"error":     err,
-		}).Error("Failed to unmarshal attribute data")
-		return
+		}).Warn("【属性上行】payload is not valid JSON object, wrapping as {\"_raw\": ...}")
+
+		// 尝试将 payload 作为 JSON 值解析（可能是字符串、数字、布尔等）
+		var rawValue interface{}
+		if jsonErr := json.Unmarshal(payload, &rawValue); jsonErr != nil {
+			// 如果连 JSON 值都不是，直接作为字符串包装
+			rawValue = string(payload)
+		}
+
+		// 构造包装后的数据
+		dataMap = map[string]interface{}{
+			"_raw": rawValue,
+		}
 	}
 
 	// 3. 转换为 AttributeDataPoint 列表

@@ -132,7 +132,7 @@ func (p *ScriptProcessor) Decode(ctx context.Context, input *DecodeInput) (*Deco
 	}
 
 	// 6. 验证脚本返回的数据是否为有效的 JSON 对象
-	// 如果不是 JSON 对象，包装成 {"_raw": 原始值}
+	// 根据数据类型做不同的包装处理
 	var data json.RawMessage
 	var testMap map[string]interface{}
 	if err := json.Unmarshal([]byte(resultStr), &testMap); err != nil {
@@ -145,7 +145,7 @@ func (p *ScriptProcessor) Decode(ctx context.Context, input *DecodeInput) (*Deco
 			"script_type":      scriptType,
 			"script_id":        script.ID,
 			"raw_result":       resultStr,
-		}).Warn("【脚本处理器】script returned non-JSON-object data, wrapping as {\"_raw\": ...}")
+		}).Warn("【脚本处理器】script returned non-JSON-object data, wrapping based on data type")
 
 		// 尝试将 resultStr 作为 JSON 值解析（可能是字符串、数字、布尔等）
 		var rawValue interface{}
@@ -154,10 +154,23 @@ func (p *ScriptProcessor) Decode(ctx context.Context, input *DecodeInput) (*Deco
 			rawValue = resultStr
 		}
 
-		// 构造包装后的 JSON 对象
-		wrapper := map[string]interface{}{
-			"_raw": rawValue,
+		// 根据数据类型构造不同的包装格式
+		var wrapper map[string]interface{}
+		if input.Type == DataTypeEvent {
+			// 事件类型：包装为 {"method": "_raw", "params": {"value": ...}}
+			wrapper = map[string]interface{}{
+				"method": "_raw",
+				"params": map[string]interface{}{
+					"value": rawValue,
+				},
+			}
+		} else {
+			// 遥测/属性类型：包装为 {"_raw": ...}
+			wrapper = map[string]interface{}{
+				"_raw": rawValue,
+			}
 		}
+
 		wrappedData, _ := json.Marshal(wrapper)
 		data = json.RawMessage(wrappedData)
 	} else {

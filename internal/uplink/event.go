@@ -146,13 +146,27 @@ func (f *EventUplink) processMessage(msg *DeviceMessage) {
 		// 直连设备消息 - 需要先解析为 EventInfo
 		var eventInfo model.EventInfo
 		if err := json.Unmarshal(processedPayload, &eventInfo); err != nil {
-			// 记录诊断：脚本输出数据格式错误
-			diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("数据格式错误：%v", err))
+			// JSON 解析失败，包装成 {"method": "_raw", "params": {"value": 原始值}}
 			f.logger.WithFields(logrus.Fields{
 				"device_id": device.ID,
+				"payload":   string(processedPayload),
 				"error":     err,
-			}).Error("Failed to unmarshal event info")
-			return
+			}).Warn("【事件上行】payload is not valid EventInfo, wrapping as {\"method\": \"_raw\", \"params\": {\"value\": ...}}")
+
+			// 尝试将 payload 作为 JSON 值解析（可能是字符串、数字、布尔等）
+			var rawValue interface{}
+			if jsonErr := json.Unmarshal(processedPayload, &rawValue); jsonErr != nil {
+				// 如果连 JSON 值都不是，直接作为字符串包装
+				rawValue = string(processedPayload)
+			}
+
+			// 构造包装后的事件数据
+			eventInfo = model.EventInfo{
+				Method: "_raw",
+				Params: map[string]interface{}{
+					"value": rawValue,
+				},
+			}
 		}
 		f.processDirectDeviceEvent(device, &eventInfo, msg)
 	}

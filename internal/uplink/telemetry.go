@@ -315,16 +315,8 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 	// }
 
 	// 3. 数据转换（map → []TelemetryDataPoint）
-	telemetryPoints, triggerParam, triggerValues, err := f.convertToTelemetryPoints(payload, device)
-	if err != nil {
-		// 记录诊断：脚本输出数据格式错误
-		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("数据格式错误：%v", err))
-		f.logger.WithFields(logrus.Fields{
-			"device_id": device.ID,
-			"error":     err,
-		}).Error("Failed to convert telemetry data")
-		return
-	}
+	// 注意：convertToTelemetryPoints 现在会自动包装非 JSON 数据，不会返回错误
+	telemetryPoints, triggerParam, triggerValues, _ := f.convertToTelemetryPoints(payload, device)
 
 	// 4. 发送到 Storage（同步发送到 channel）
 	// 注意：uplink_total 已在 adapter 层记录，此处不再重复记录
@@ -361,7 +353,24 @@ func (f *TelemetryUplink) convertToTelemetryPoints(payload []byte, device *model
 	// 解析 JSON
 	var dataMap map[string]interface{}
 	if err := json.Unmarshal(payload, &dataMap); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to unmarshal payload: %w", err)
+		// JSON 解析失败，包装成 {"_raw": 原始值}
+		f.logger.WithFields(logrus.Fields{
+			"device_id": device.ID,
+			"payload":   string(payload),
+			"error":     err,
+		}).Warn("【遥测上行】payload is not valid JSON object, wrapping as {\"_raw\": ...}")
+
+		// 尝试将 payload 作为 JSON 值解析（可能是字符串、数字、布尔等）
+		var rawValue interface{}
+		if jsonErr := json.Unmarshal(payload, &rawValue); jsonErr != nil {
+			// 如果连 JSON 值都不是，直接作为字符串包装
+			rawValue = string(payload)
+		}
+
+		// 构造包装后的数据
+		dataMap = map[string]interface{}{
+			"_raw": rawValue,
+		}
 	}
 
 	// 转换为 TelemetryDataPoint
