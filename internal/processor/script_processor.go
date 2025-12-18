@@ -131,8 +131,39 @@ func (p *ScriptProcessor) Decode(ctx context.Context, input *DecodeInput) (*Deco
 		}, err
 	}
 
-	// 6. 将结果转换为 json.RawMessage
-	data := json.RawMessage(resultStr)
+	// 6. 验证脚本返回的数据是否为有效的 JSON 对象
+	// 如果不是 JSON 对象，包装成 {"_raw": 原始值}
+	var data json.RawMessage
+	var testMap map[string]interface{}
+	if err := json.Unmarshal([]byte(resultStr), &testMap); err != nil {
+		// 脚本返回的不是有效的 JSON 对象，需要包装
+		logrus.WithFields(logrus.Fields{
+			"module":           "processor",
+			"method":           "Decode",
+			"device_config_id": input.DeviceConfigID,
+			"data_type":        input.Type,
+			"script_type":      scriptType,
+			"script_id":        script.ID,
+			"raw_result":       resultStr,
+		}).Warn("【脚本处理器】script returned non-JSON-object data, wrapping as {\"_raw\": ...}")
+
+		// 尝试将 resultStr 作为 JSON 值解析（可能是字符串、数字、布尔等）
+		var rawValue interface{}
+		if jsonErr := json.Unmarshal([]byte(resultStr), &rawValue); jsonErr != nil {
+			// 如果连 JSON 值都不是，直接作为字符串包装
+			rawValue = resultStr
+		}
+
+		// 构造包装后的 JSON 对象
+		wrapper := map[string]interface{}{
+			"_raw": rawValue,
+		}
+		wrappedData, _ := json.Marshal(wrapper)
+		data = json.RawMessage(wrappedData)
+	} else {
+		// 是有效的 JSON 对象，直接使用
+		data = json.RawMessage(resultStr)
+	}
 
 	// 7. 记录成功日志
 	duration := time.Since(startTime)
