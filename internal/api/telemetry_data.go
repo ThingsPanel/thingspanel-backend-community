@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -247,32 +248,82 @@ func validateAPIKey(apiKey string) (*utils.UserClaims, error) {
 
 // validateAuth 验证WebSocket中的认证信息（支持token和API Key双重认证）
 func validateAuth(msgMap map[string]interface{}) (*utils.UserClaims, error) {
-	// 优先验证token
-	if tokenInterface, ok := msgMap["token"]; ok {
-		if token, isString := tokenInterface.(string); isString && token != "" {
-			claims, err := validateToken(token)
-			if err == nil {
-				return claims, nil
+	// 规范化 key 为小写便于兼容不同客户端字段命名
+	norm := make(map[string]interface{}, len(msgMap))
+	for k, v := range msgMap {
+		norm[strings.ToLower(k)] = v
+	}
+
+	// helpers
+	getStr := func(keys ...string) string {
+		for _, k := range keys {
+			if v, ok := norm[k]; ok {
+				if s, isStr := v.(string); isStr && s != "" {
+					return s
+				}
+				return fmt.Sprintf("%v", v)
 			}
-			// token验证失败，记录日志但继续尝试API Key
-			logrus.Warnf("Token validation failed: %v", err)
+		}
+		return ""
+	}
+
+	var tokenErr, apiKeyErr error
+	tokenProvided := getStr("token", "authorization") != ""
+	if tokenProvided {
+		token := getStr("token")
+		if token == "" {
+			// try authorization header style
+			token = getStr("authorization")
+			token = strings.TrimPrefix(token, "Bearer ")
+		}
+		if token != "" {
+			if claims, err := validateToken(token); err == nil {
+				return claims, nil
+			} else {
+				tokenErr = err
+				logrus.Warnf("Token validation failed: %v", err)
+			}
 		}
 	}
 
-	// 尝试API Key验证
-	if apiKeyInterface, ok := msgMap["x-api-key"]; ok {
-		if apiKey, isString := apiKeyInterface.(string); isString && apiKey != "" {
-			claims, err := validateAPIKey(apiKey)
-			if err == nil {
+	// 尝试 API Key（兼容多种命名）
+	apiKeyCandidates := []string{"x-api-key", "x_api_key", "xapikey", "apikey"}
+	apiKeyProvided := false
+	for _, k := range apiKeyCandidates {
+		if v := getStr(k); v != "" {
+			apiKeyProvided = true
+			if claims, err := validateAPIKey(v); err == nil {
 				return claims, nil
+			} else {
+				apiKeyErr = err
+				logrus.Warnf("API Key validation failed for key %s: %v", k, err)
 			}
-			// API Key验证失败，记录日志
-			logrus.Warnf("API Key validation failed: %v", err)
 		}
 	}
 
-	// 两种认证方式都失败
-	return nil, errors.New("authentication failed: token or x-api-key is required")
+	// 决策：优先返回有意义的错误信息，而不是模糊的“未提供”
+	switch {
+	case tokenErr != nil && !apiKeyProvided:
+		return nil, tokenErr
+	case apiKeyErr != nil && !tokenProvided:
+		return nil, apiKeyErr
+	case tokenErr != nil && apiKeyErr != nil:
+		return nil, fmt.Errorf("token validation failed: %v; api key validation failed: %v", tokenErr, apiKeyErr)
+	case !tokenProvided && !apiKeyProvided:
+		return nil, errors.New("authentication failed: token or x-api-key is required")
+	default:
+		// fallback generic
+		return nil, errors.New("authentication failed")
+	}
+}
+
+// keysOfMap returns slice of keys in the map (for debug logging)
+func keysOfMap(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // ServeCurrentDataByWS 通过WebSocket处理设备实时遥测数据

@@ -93,8 +93,10 @@ func RouterInit() *gin.Engine {
 			v1.GET("logo", controllers.HandleLogoList)
 			// 设备遥测（ws）
 			v1.GET("telemetry/datas/current/ws", controllers.TelemetryDataApi.ServeCurrentDataByWS)
-			// 设备在线离线状态（ws）
+			// 设备在线离线状态（ws） - 兼容旧实现
 			v1.GET("device/online/status/ws", controllers.TelemetryDataApi.ServeDeviceStatusByWS)
+			// 设备在线离线状态（ws） - 新批量订阅实现（首次消息鉴权，支持 device_ids）
+			v1.GET("device/online/status/ws/batch", controllers.TelemetryDataApi.ServeDeviceOnlineStatusWS)
 			// 设备遥测keys（ws）
 			v1.GET("telemetry/datas/current/keys/ws", controllers.TelemetryDataApi.ServeCurrentDataByKey)
 			v1.GET("ota/download/files/upgradePackage/:path/:file", controllers.OTAApi.DownloadOTAUpgradePackage)

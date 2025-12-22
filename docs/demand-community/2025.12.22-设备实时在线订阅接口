@@ -1,0 +1,61 @@
+# 设备实时在线订阅接口
+
+## 概述
+该接口通过 WebSocket 为前端提供设备实时在线状态推送。后端通过 Redis Pub/Sub 解耦状态来源（MQTT/Kafka/Flow 层），WebSocket 只订阅并转发 Redis 上的状态消息。支持批量订阅多设备，连接建立后会立即返回当前状态并开始接收后续变更。
+
+## 接口信息
+- 路由（参考）：`/api/v1/device/online/status/ws`  (GET, WebSocket 升级)
+- 认证：首次握手或初始 JSON 消息中必须包含 `token` 或 `x-api-key` 进行鉴权；服务端也可兼容 Header 中的 `Authorization: Bearer <token>`。鉴权逻辑参考 `internal/api/telemetry_data.go` 中 `validateAuth`（见 L480-L486）。
+
+## 请求参数（通过 URL 查询或首次握手消息传递）
+- `device_ids` (必填)：要订阅的设备ID列表，逗号分隔，例如 `device_ids=dev1,dev2,dev3`。也可支持多个同名参数形式 `device_ids=dev1&device_ids=dev2`。
+- `token` 或 `x-api-key`（必填之一）：用于鉴权，推荐在首次握手发送的初始 JSON 消息中携带，格式示例见下方说明
+
+## 消息格式（后端推送到前端）
+服务器向客户端发送的每条消息为 JSON：
+
+```json
+{
+  "device_id": "xxx",
+  "is_online": 1,
+  "timestamp": 1697452800000,
+}
+```
+
+说明：
+- `device_id`：设备标识
+- `is_online`：在线状态（1 在线，0 离线）
+- `timestamp`：状态生成时间，Unix 时间戳（毫秒）
+
+初始握手示例（客户端在完成 WebSocket 握手后可发送第一条 JSON 消息用于鉴权和订阅）：
+
+```json
+{
+  "device_ids": ["dev1","dev2"],
+  "token": "eyJhbGciOiJI..."
+}
+```
+
+## 连接与订阅流程
+1. 客户端发起 HTTP 升级请求，携带鉴权信息与 `device_ids` 参数。
+2. 服务端校验权限，建立 WebSocket 连接。
+3. 服务端立即查询并返回每个设备的当前状态（数据库或缓存），保证首次连接能获取最新状态。
+4. 服务端在 Redis 中订阅对应频道（每设备频道）：`device:{device_id}:status`，并将收到的消息原封转发给对应 WebSocket 客户端。
+5. 支持多设备订阅：单个连接可同时订阅多个 `device:{id}:status` 频道，并在收到消息时携带 `device_id` 转发给客户端。
+6. 连接断开时，服务端取消 Redis 订阅并清理资源。
+
+## 并发与容错要点
+- Redis 订阅应使用连接池 / 长连接，发布由 StatusUplink 异步执行（避免阻塞主流程）。
+- 因 Redis Pub/Sub 不保证严格顺序，客户端可结合 `timestamp` 做幂等/顺序判断或后端增加序号字段。
+
+## 示例（流程梳理）
+- 客户端：GET `/api/v1/device/online/status/ws?device_ids=dev1,dev2`，并完成 WebSocket 握手。
+- 服务端：返回当前状态列表（JSON）后开始推送后续状态变更消息。
+
+## 注意事项
+- 支持批量订阅，但应限制单连接订阅数量（避免单连接订阅过多设备导致资源压力）。
+- 前端应实现心跳/重连逻辑：重连后重新订阅并获取当前状态。
+
+参考：`internal/api/telemetry_data.go` 中 WebSocket Handler 实现思路及 `docs/demand-community/2025.10.16-WebSocket设备状态订阅优化方案.md`。
+
+
