@@ -125,6 +125,103 @@ func (n *NotificationServicesConfig) sendWebhookMessage(payloadURL, secret, aler
 	return lastErr
 }
 
+// handleMemberNotification 处理成员通知，支持嵌套的通知类型
+func (n *NotificationServicesConfig) handleMemberNotification(notificationGroup *model.NotificationGroup, alertJson, subject, content, tenantID string) error {
+	if notificationGroup.NotificationConfig == nil {
+		return fmt.Errorf("notification config is nil")
+	}
+
+	// 解析告警JSON获取基本信息
+	var alertData map[string]interface{}
+	err := json.Unmarshal([]byte(alertJson), &alertData)
+	if err != nil {
+		return fmt.Errorf("parse alert json failed: %v", err)
+	}
+
+	var config map[string]interface{}
+	err = json.Unmarshal([]byte(*notificationGroup.NotificationConfig), &config)
+	if err != nil {
+		return fmt.Errorf("parse notification config failed: %v", err)
+	}
+
+	// 获取MEMBER配置
+	memberConfig, ok := config["MEMBER"]
+	if !ok {
+		return fmt.Errorf("MEMBER config not found")
+	}
+
+	// 解析MEMBER配置，支持数组和对象格式
+	var members []map[string]interface{}
+	switch memberData := memberConfig.(type) {
+	case []interface{}:
+		// 数组格式
+		for _, item := range memberData {
+			if memberMap, ok := item.(map[string]interface{}); ok {
+				members = append(members, memberMap)
+			}
+		}
+	case map[string]interface{}:
+		// 单个对象格式
+		members = append(members, memberData)
+	default:
+		return fmt.Errorf("invalid MEMBER config format")
+	}
+
+	// 处理每个成员的通知类型
+	for _, member := range members {
+		name, _ := member["name"].(string)
+		notificationTypes, ok := member["notificationType"]
+		if !ok {
+			continue
+		}
+
+		// 处理通知类型数组
+		var notifyTypes []string
+		switch nt := notificationTypes.(type) {
+		case []interface{}:
+			for _, item := range nt {
+				if typeStr, ok := item.(string); ok {
+					notifyTypes = append(notifyTypes, typeStr)
+				}
+			}
+		case string:
+			notifyTypes = append(notifyTypes, nt)
+		}
+
+		// 为每个通知类型创建通知上下文
+		for _, notifyType := range notifyTypes {
+			switch notifyType {
+			case "APP":
+				logrus.Info("执行成员APP推送通知:", notificationGroup.ID, "成员:", name)
+
+				// 构建推送内容
+				pushTitle := subject
+				pushContent := content
+
+				// 构建payload，包含成员信息和告警数据
+				pushPayload := map[string]interface{}{
+					"notification_group_id": notificationGroup.ID,
+					"tenant_id":             tenantID,
+					"member_name":           name,
+					"alert_data":            alertData,
+				}
+
+				// 调用消息推送服务
+				GroupApp.MessagePush.NotificationMessagePushSend(
+					tenantID,
+					pushTitle,
+					pushContent,
+					pushPayload,
+				)
+			default:
+				logrus.Warn("不支持的成员通知类型:", notifyType)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (*NotificationServicesConfig) SaveNotificationServicesConfig(req *model.SaveNotificationServicesConfigReq) (*model.NotificationServicesConfig, error) {
 	// 查找数据库中是否存在
 	c, err := dal.GetNotificationServicesConfigByType(req.NoticeType)
@@ -298,8 +395,12 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, aler
 		notifyType = strings.TrimSpace(notifyType)
 		switch notifyType {
 		case model.NoticeType_Member:
-			// TODO: SEND TO MEMBER - 成员通知功能待实现
-			logrus.Info("成员通知功能尚未实现:", notificationGroupId)
+			// 处理成员通知，支持嵌套的通知类型（如APP）
+			nsc := &NotificationServicesConfig{}
+			err := nsc.handleMemberNotification(notificationGroup, alertJson, subject, content, notificationGroup.TenantID)
+			if err != nil {
+				logrus.Error("成员通知处理失败:", err)
+			}
 
 		case model.NoticeType_Email:
 			nConfig := make(map[string]string)
@@ -357,8 +458,8 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, aler
 			// 构建payload，包含业务相关信息
 			pushPayload := map[string]interface{}{
 				"notification_group_id": notificationGroupId,
-				"tenant_id":            notificationGroup.TenantID,
-				"alert_data":           alertData,
+				"tenant_id":             notificationGroup.TenantID,
+				"alert_data":            alertData,
 			}
 
 			// 调用消息推送服务
