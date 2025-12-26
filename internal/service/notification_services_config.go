@@ -127,6 +127,8 @@ func (n *NotificationServicesConfig) sendWebhookMessage(payloadURL, secret, aler
 
 // handleMemberNotification 处理成员通知，支持嵌套的通知类型
 func (n *NotificationServicesConfig) handleMemberNotification(notificationGroup *model.NotificationGroup, alertJson, subject, content, tenantID string) error {
+	logrus.Info("开始处理成员通知，通知组:", notificationGroup.ID)
+
 	if notificationGroup.NotificationConfig == nil {
 		return fmt.Errorf("notification config is nil")
 	}
@@ -170,8 +172,11 @@ func (n *NotificationServicesConfig) handleMemberNotification(notificationGroup 
 	// 处理每个成员的通知类型
 	for _, member := range members {
 		name, _ := member["name"].(string)
+		logrus.Info("处理成员:", name)
+
 		notificationTypes, ok := member["notificationType"]
 		if !ok {
+			logrus.Info("成员", name, "没有notificationType配置")
 			continue
 		}
 
@@ -390,11 +395,15 @@ func sendEmailMessage(message string, subject string, tenantId string, to ...str
 
 // Send notification
 func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, alertJson string) {
+	logrus.Info("开始执行通知，通知组ID:", notificationGroupId)
+
 	notificationGroup, err := dal.GetNotificationGroupById(notificationGroupId)
 	if err != nil {
 		logrus.Error("获取通知组失败:", err)
 		return
 	}
+
+	logrus.Info("通知组类型:", notificationGroup.NotificationType, "状态:", notificationGroup.Status)
 
 	if notificationGroup.Status != "OPEN" {
 		logrus.Info("通知组未开启:", notificationGroupId)
