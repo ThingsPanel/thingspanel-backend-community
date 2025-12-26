@@ -14,6 +14,7 @@ const (
 	NoticeType_Member   = "MEMBER"
 	NoticeType_Voice    = "VOICE"
 	NoticeType_Webhook  = "WEBHOOK"
+	NoticeType_APP      = "APP"
 )
 
 type EmailConfig struct {

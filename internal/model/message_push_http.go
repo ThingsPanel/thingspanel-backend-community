@@ -21,7 +21,7 @@ type MessagePushSend struct {
 	CIds     string                            `json:"cids"`
 	Title    string                            `json:"title"`
 	Content  string                            `json:"content"`
-	Payload  MessagePushSendPayload            `json:"payload"`
+	Payload  interface{}                       `json:"payload"`
 	Category map[string]string                 `json:"category,omitempty"`
 	Options  map[string]map[string]interface{} `json:"options,omitempty"`
 }

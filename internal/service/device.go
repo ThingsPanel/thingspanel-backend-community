@@ -34,7 +34,35 @@ type Device struct{}
 func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims) (device model.Device, err error) {
 	t := time.Now().UTC()
 
-	device.ID = uuid.New()
+	// 如果提供了ID，使用提供的ID，否则自动生成
+	if req.ID != nil && *req.ID != "" {
+		// 校验ID格式和长度
+		deviceID := *req.ID
+		if len(deviceID) < 8 {
+			return device, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error": "device ID must be at least 8 characters long",
+			})
+		}
+
+		// 校验ID格式（长度和字符限制）
+		if !isValidDeviceID(deviceID) {
+			return device, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error": "device ID format is invalid, must be 8-36 characters, containing only letters, numbers, hyphens, and underscores",
+			})
+		}
+
+		// 校验ID唯一性
+		existingDevice, err := dal.GetDeviceByID(deviceID)
+		if err == nil && existingDevice != nil {
+			return device, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error": "device ID already exists",
+			})
+		}
+
+		device.ID = deviceID
+	} else {
+		device.ID = uuid.New()
+	}
 	device.Name = req.Name
 	if req.Voucher == nil {
 		if req.DeviceConfigId != nil && *req.DeviceConfigId != "" {
@@ -2185,4 +2213,22 @@ func (*Device) GetDeviceStatusHistory(req *model.GetDeviceStatusHistoryReq, u *u
 	result["total"] = total
 	result["list"] = list
 	return result, nil
+}
+
+// isValidDeviceID 校验设备ID格式（只校验长度和基本字符）
+func isValidDeviceID(id string) bool {
+	// 只校验长度
+	if len(id) < 8 || len(id) > 36 {
+		return false
+	}
+
+	// 允许字母、数字、连字符、下划线等常见字符
+	for _, r := range id {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '-' || r == '_') {
+			return false
+		}
+	}
+
+	return true
 }

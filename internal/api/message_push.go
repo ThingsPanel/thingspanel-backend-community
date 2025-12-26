@@ -1,16 +1,17 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
 	"project/internal/model"
 	"project/internal/service"
 	"project/pkg/utils"
+
+	"github.com/gin-gonic/gin"
 )
 
 type MessagePushApi struct {
 }
 
-// /api/v1/alarm/config [post]
+// /api/v1/message_push [post]
 func (*MessagePushApi) CreateMessagePush(c *gin.Context) {
 	var req model.CreateMessagePushReq
 	if !BindAndValidate(c, &req) {
@@ -26,6 +27,7 @@ func (*MessagePushApi) CreateMessagePush(c *gin.Context) {
 	c.Set("data", nil)
 }
 
+// /api/v1/message_push/logout [post]
 func (*MessagePushApi) MessagePushMangeLogout(c *gin.Context) {
 	var req model.MessagePushMangeLogoutReq
 	if !BindAndValidate(c, &req) {
@@ -41,6 +43,7 @@ func (*MessagePushApi) MessagePushMangeLogout(c *gin.Context) {
 	c.Set("data", nil)
 }
 
+// /api/v1/message_push/config [get]
 func (*MessagePushApi) GetMessagePushConfig(c *gin.Context) {
 	res, err := service.GroupApp.MessagePush.GetMessagePushConfig()
 	if err != nil {
@@ -51,6 +54,7 @@ func (*MessagePushApi) GetMessagePushConfig(c *gin.Context) {
 	c.Set("data", res)
 }
 
+// /api/v1/message_push/config [post]
 func (*MessagePushApi) SetMessagePushConfig(c *gin.Context) {
 	var req model.MessagePushConfigReq
 	if !BindAndValidate(c, &req) {

@@ -281,69 +281,96 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, aler
 		return
 	}
 
-	switch notificationGroup.NotificationType {
-	case model.NoticeType_Member:
-		// TODO: SEND TO MEMBER - 成员通知功能待实现
-		logrus.Info("成员通知功能尚未实现:", notificationGroupId)
+	// 解析通知JSON获取基本信息
+	var alertData map[string]interface{}
+	err = json.Unmarshal([]byte(alertJson), &alertData)
+	if err != nil {
+		logrus.Error("解析告警JSON失败:", err)
+		return
+	}
 
-	case model.NoticeType_Email:
-		nConfig := make(map[string]string)
-		err := json.Unmarshal([]byte(*notificationGroup.NotificationConfig), &nConfig)
-		if err != nil {
-			logrus.Error("解析邮件配置失败:", err)
-			return
-		}
+	subject, _ := alertData["subject"].(string)
+	content, _ := alertData["content"].(string)
 
-		// 解析标准通知JSON
-		var alertData map[string]interface{}
-		err = json.Unmarshal([]byte(alertJson), &alertData)
-		if err != nil {
-			logrus.Error("解析告警JSON失败:", err)
-			return
-		}
+	// 处理通知类型，支持组合类型（如"EMAIL,APP"）
+	notificationTypes := strings.Split(notificationGroup.NotificationType, ",")
+	for _, notifyType := range notificationTypes {
+		notifyType = strings.TrimSpace(notifyType)
+		switch notifyType {
+		case model.NoticeType_Member:
+			// TODO: SEND TO MEMBER - 成员通知功能待实现
+			logrus.Info("成员通知功能尚未实现:", notificationGroupId)
 
-		subject, _ := alertData["subject"].(string)
-		content, _ := alertData["content"].(string)
+		case model.NoticeType_Email:
+			nConfig := make(map[string]string)
+			err := json.Unmarshal([]byte(*notificationGroup.NotificationConfig), &nConfig)
+			if err != nil {
+				logrus.Error("解析邮件配置失败:", err)
+				continue
+			}
 
-		// 邮件特定格式：添加邮件签名
-		emailBody := content + "\n\n---\nThis email was sent by ThingsPanel"
+			// 邮件特定格式：添加邮件签名
+			emailBody := content + "\n\n---\nThis email was sent by ThingsPanel"
 
-		emailList := strings.Split(nConfig["EMAIL"], ",")
-		for _, emailAddr := range emailList {
-			emailAddr = strings.TrimSpace(emailAddr)
-			if emailAddr != "" {
-				err := sendEmailMessage(emailBody, subject, notificationGroup.TenantID, emailAddr)
-				if err != nil {
-					// 在JSON后追加错误信息
-					errorContent := alertJson + "; 邮件发送失败: " + err.Error()
-					nsc := &NotificationServicesConfig{}
-					nsc.saveNotificationHistory(model.NoticeType_Email, notificationGroup.TenantID, emailAddr, errorContent, "FAILURE", nil)
-					logrus.Error("发送邮件失败:", err)
+			emailList := strings.Split(nConfig["EMAIL"], ",")
+			for _, emailAddr := range emailList {
+				emailAddr = strings.TrimSpace(emailAddr)
+				if emailAddr != "" {
+					err := sendEmailMessage(emailBody, subject, notificationGroup.TenantID, emailAddr)
+					if err != nil {
+						// 在JSON后追加错误信息
+						errorContent := alertJson + "; 邮件发送失败: " + err.Error()
+						nsc := &NotificationServicesConfig{}
+						nsc.saveNotificationHistory(model.NoticeType_Email, notificationGroup.TenantID, emailAddr, errorContent, "FAILURE", nil)
+						logrus.Error("发送邮件失败:", err)
+					}
 				}
 			}
-		}
 
-	case model.NoticeType_Webhook:
-		type WebhookConfig struct {
-			PayloadURL string
-			Secret     string
-		}
-		var nConfig WebhookConfig
-		err = json.Unmarshal([]byte(*notificationGroup.NotificationConfig), &nConfig)
-		if err != nil {
-			logrus.Error("解析Webhook配置失败:", err)
-			return
-		}
+		case model.NoticeType_Webhook:
+			type WebhookConfig struct {
+				PayloadURL string
+				Secret     string
+			}
+			var nConfig WebhookConfig
+			err = json.Unmarshal([]byte(*notificationGroup.NotificationConfig), &nConfig)
+			if err != nil {
+				logrus.Error("解析Webhook配置失败:", err)
+				continue
+			}
 
-		// 使用新的webhook发送方法，传递原始JSON
-		nsc := &NotificationServicesConfig{}
-		err = nsc.sendWebhookMessage(nConfig.PayloadURL, nConfig.Secret, alertJson, notificationGroup.TenantID)
-		if err != nil {
-			logrus.Error("Webhook通知发送失败:", err)
-		}
+			// 使用新的webhook发送方法，传递原始JSON
+			nsc := &NotificationServicesConfig{}
+			err = nsc.sendWebhookMessage(nConfig.PayloadURL, nConfig.Secret, alertJson, notificationGroup.TenantID)
+			if err != nil {
+				logrus.Error("Webhook通知发送失败:", err)
+			}
 
-	default:
-		logrus.Warn("未支持的通知类型:", notificationGroup.NotificationType)
-		return
+		case "APP":
+			// 处理手机端推送
+			logrus.Info("执行手机端推送通知:", notificationGroupId)
+
+			// 构建推送内容
+			pushTitle := subject
+			pushContent := content
+
+			// 构建payload，包含业务相关信息
+			pushPayload := map[string]interface{}{
+				"notification_group_id": notificationGroupId,
+				"tenant_id":            notificationGroup.TenantID,
+				"alert_data":           alertData,
+			}
+
+			// 调用消息推送服务
+			GroupApp.MessagePush.NotificationMessagePushSend(
+				notificationGroup.TenantID,
+				pushTitle,
+				pushContent,
+				pushPayload,
+			)
+
+		default:
+			logrus.Warn("未支持的通知类型:", notifyType)
+		}
 	}
 }

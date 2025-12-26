@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/go-basic/uuid"
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"io"
 	"net/http"
 	"project/internal/dal"
 	"project/internal/model"
 	"time"
+
+	"github.com/go-basic/uuid"
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type MessagePush struct {
@@ -173,6 +174,34 @@ func (receiver *MessagePush) MessagePushSendAndLog(message model.MessagePushSend
 	err = dal.MessagePushMangeSendUpdate(mange.ID, updates)
 	if err != nil {
 		logrus.Error("消息推送更新最近发送时间失败:", err)
+	}
+}
+
+// NotificationMessagePushSend 处理通知触发的手机端推送
+func (receiver *MessagePush) NotificationMessagePushSend(tenantId string, title string, content string, payload map[string]interface{}) {
+	pushManges, err := dal.GetUserMessagePushId(tenantId)
+	if err != nil {
+		logrus.Error("查询用户pushId失败:", err)
+		return
+	}
+	if len(pushManges) == 0 {
+		logrus.Debug("租户", tenantId, "没有绑定推送的用户")
+		return
+	}
+	logrus.Debug(fmt.Sprintf("推送用户数量: %d", len(pushManges)))
+
+	message := model.MessagePushSend{
+		Title:   title,
+		Content: content,
+		Payload: payload,
+	}
+
+	for _, mange := range pushManges {
+		if mange.PushID == "" {
+			continue
+		}
+		message.CIds = mange.PushID
+		receiver.MessagePushSendAndLog(message, mange, 2) // 2表示通知推送
 	}
 }
 

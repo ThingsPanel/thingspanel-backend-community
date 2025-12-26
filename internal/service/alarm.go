@@ -417,12 +417,9 @@ Details: %s`,
 		return false, alarmName, err.Error()
 	}
 	for _, deviceId := range device_ids {
-		deviceInfo, err := dal.GetDeviceByID(deviceId)
-		if err != nil {
-			logrus.Error(err)
-			return false, alarmName, err.Error()
-		}
-		go GroupApp.AlarmMessagePushSend(alarmConfig.Name, id, deviceInfo)
+		// 已废弃：手机端推送现在通过通知系统统一处理
+		// 不再需要获取 deviceInfo，因为推送已通过通知系统处理
+		_ = deviceId // 避免未使用变量警告
 	}
 	//return true, alarmName, err.Error()
 	return true, alarmName, ""

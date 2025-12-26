@@ -3,6 +3,7 @@ package model
 import "time"
 
 type CreateDeviceReq struct {
+	ID             *string `json:"id" validate:"omitempty,min=8,max=36"`         // 设备ID（可选，如提供则使用，否则自动生成）
 	Name           *string `json:"name" validate:"omitempty,max=255"`            // 设备名称
 	Voucher        *string `json:"voucher" validate:"omitempty,max=500"`         // 凭证
 	DeviceNumber   *string `json:"device_number" validate:"omitempty,max=36"`    // 设备编号
@@ -62,21 +63,21 @@ type ActiveDeviceReq struct {
 
 type GetDeviceListByPageReq struct {
 	PageReq
-	ActivateFlag      *string `json:"activate_flag" form:"activate_flag" validate:"omitempty,max=36"`       // 激活状态
-	DeviceNumber      *string `json:"device_number" form:"device_number" validate:"omitempty,max=36"`       // 设备编号
-	IsEnabled         *string `json:"is_enabled" form:"is_enabled" validate:"omitempty,max=36"`             // 是否启用
-	ProductID         *string `json:"product_id" form:"product_id" validate:"omitempty,max=36"`             // 产品ID
-	ProtocolType      *string `json:"protocol_type" form:"protocol_type" validate:"omitempty,max=36"`       // 协议
-	Label             *string `json:"label" form:"label" validate:"omitempty,max=255"`                      // 标签
-	Name              *string `json:"name" form:"name" validate:"omitempty,max=255"`                        // 设备名称
-	CurrentVersion    *string `json:"current_version" form:"current_version" validate:"omitempty,max=36"`   // 当前版本
-	GroupId           *string `json:"group_id" form:"group_id" validate:"omitempty,max=36"`                 //组id
-	DeviceConfigId    *string `json:"device_config_id" form:"device_config_id" validate:"omitempty,max=36"` // 设备配置ID
+	ActivateFlag      *string `json:"activate_flag" form:"activate_flag" validate:"omitempty,max=36"`           // 激活状态
+	DeviceNumber      *string `json:"device_number" form:"device_number" validate:"omitempty,max=36"`           // 设备编号
+	IsEnabled         *string `json:"is_enabled" form:"is_enabled" validate:"omitempty,max=36"`                 // 是否启用
+	ProductID         *string `json:"product_id" form:"product_id" validate:"omitempty,max=36"`                 // 产品ID
+	ProtocolType      *string `json:"protocol_type" form:"protocol_type" validate:"omitempty,max=36"`           // 协议
+	Label             *string `json:"label" form:"label" validate:"omitempty,max=255"`                          // 标签
+	Name              *string `json:"name" form:"name" validate:"omitempty,max=255"`                            // 设备名称
+	CurrentVersion    *string `json:"current_version" form:"current_version" validate:"omitempty,max=36"`       // 当前版本
+	GroupId           *string `json:"group_id" form:"group_id" validate:"omitempty,max=36"`                     //组id
+	DeviceConfigId    *string `json:"device_config_id" form:"device_config_id" validate:"omitempty,max=36"`     // 设备配置ID
 	DeviceTemplateID  *string `json:"device_template_id" form:"device_template_id" validate:"omitempty,max=36"` // 设备物模型ID
-	IsOnline          *int    `json:"is_online" form:"is_online" validate:"omitempty,max=36"`               // 组id
-	WarnStatus        *string `json:"warn_status" form:"warn_status" validate:"omitempty,max=36"`           // 预留 TODO
-	Search            *string `json:"search" form:"search" validate:"omitempty,max=36"`                     // 设备名称或编号的模糊匹配
-	AccessWay         *string `json:"access_way" form:"access_way" validate:"omitempty,max=36"`             // 接入方式
+	IsOnline          *int    `json:"is_online" form:"is_online" validate:"omitempty,max=36"`                   // 组id
+	WarnStatus        *string `json:"warn_status" form:"warn_status" validate:"omitempty,max=36"`               // 预留 TODO
+	Search            *string `json:"search" form:"search" validate:"omitempty,max=36"`                         // 设备名称或编号的模糊匹配
+	AccessWay         *string `json:"access_way" form:"access_way" validate:"omitempty,max=36"`                 // 接入方式
 	BatchNumber       *string `json:"batch_number" form:"batch_number" validate:"omitempty"`
 	DeviceType        *string `json:"device_type" form:"device_type" validate:"omitempty,oneof=1 2 3"`          // 设备类型
 	ServiceIdentifier *string `json:"service_identifier" form:"service_identifier" validate:"omitempty,max=36"` // 服务标识
@@ -205,7 +206,7 @@ type GetDeviceMenuReq struct {
 
 // 获取未绑定网关的子设备选择器
 type GetUnboundGatewaySubDeviceReq struct {
-	Search     *string `json:"search" form:"search" validate:"omitempty,max=255"`                                    // 设备名称
+	Search     *string `json:"search" form:"search" validate:"omitempty,max=255"`             // 设备名称
 	DeviceType *string `json:"device_type" form:"device_type" validate:"omitempty,oneof=2 3"` // 设备类型过滤：2-网关设备 3-子设备，不传则返回两种类型
 }
 
