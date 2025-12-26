@@ -323,3 +323,32 @@ func (*UserApi) UpdateUserAddress(c *gin.Context) {
 
 	c.Set("data", nil)
 }
+
+// GetUserSelector 用户选择器接口
+// @Summary      用户选择器
+// @Description  获取租户管理员和租户用户的选择器列表，支持名称模糊匹配
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Param        name query string false "用户名称（模糊匹配）"
+// @Param        page query int false "页码，默认1"
+// @Param        page_size query int false "每页数量，默认20"
+// @Success      200 {object} interface{} "成功"
+// @Failure      400 {object} errcode.Error "错误响应"
+// @Router       /api/v1/user/selector [get]
+func (*UserApi) GetUserSelector(c *gin.Context) {
+	var req model.UserSelectorReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	result, err := service.GroupApp.User.GetUserSelector(&req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", result)
+}

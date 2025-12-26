@@ -672,3 +672,42 @@ func GetTenantAdmin(tenantID string) (*model.User, error) {
 		Where(q.Authority.Eq(TENANT_ADMIN)).
 		First()
 }
+
+// GetUserSelector 获取用户选择器列表（租户管理员 + 租户用户）
+func GetUserSelector(req *model.UserSelectorReq, tenantID string) (int64, []model.UserSelectorItem, error) {
+	q := query.User
+	var count int64
+	var userList []model.UserSelectorItem
+
+	// 查询租户管理员和普通用户
+	queryBuilder := q.WithContext(context.Background()).
+		Where(q.TenantID.Eq(tenantID)).
+		Where(q.Authority.In(TENANT_ADMIN, TENANT_USER)).
+		Where(q.Status.Eq("N")) // 只查询正常状态的用户
+
+	// 名称模糊匹配
+	if req.Name != nil && *req.Name != "" {
+		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+	}
+
+	// 计算总数
+	count, err := queryBuilder.Count()
+	if err != nil {
+		return 0, nil, err
+	}
+
+	// 分页查询，按名称正序排列
+	offset := (req.Page - 1) * req.PageSize
+	err = queryBuilder.Select(
+		q.ID.As("user_id"),
+		q.Name,
+		q.Email,
+		q.Authority.As("user_type"),
+	).Order(q.Name).Limit(req.PageSize).Offset(offset).Scan(&userList)
+
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return count, userList, nil
+}

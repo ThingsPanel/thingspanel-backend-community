@@ -32,5 +32,8 @@ func (*User) InitUser(Router *gin.RouterGroup) {
 		// 获取租户ID
 		userapi.GET("/tenant/id", api.Controllers.UserApi.GetTenantID)
 
+		// 用户选择器
+		userapi.GET("/selector", api.Controllers.UserApi.GetUserSelector)
+
 	}
 }

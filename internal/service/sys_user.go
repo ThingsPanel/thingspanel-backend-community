@@ -861,3 +861,19 @@ func (u *User) UpdateUserAddress(userID string, updateAddressReq *model.UpdateUs
 
 	return nil
 }
+
+// GetUserSelector 获取用户选择器列表（租户管理员 + 租户用户）
+func (*User) GetUserSelector(req *model.UserSelectorReq, claims *utils.UserClaims) (map[string]interface{}, error) {
+	total, list, err := dal.GetUserSelector(req, claims.TenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "get_user_selector",
+			"error":     err.Error(),
+		})
+	}
+
+	result := make(map[string]interface{})
+	result["total"] = total
+	result["list"] = list
+	return result, nil
+}
