@@ -194,29 +194,47 @@ func (n *NotificationServicesConfig) handleMemberNotification(notificationGroup 
 			case "APP":
 				logrus.Info("执行成员APP推送通知:", notificationGroup.ID, "成员:", name)
 
-				// 构建推送内容
-				pushTitle := subject
-				pushContent := content
-
-				// 构建payload，包含成员信息和告警数据
-				pushPayload := map[string]interface{}{
-					"notification_group_id": notificationGroup.ID,
-					"tenant_id":             tenantID,
-					"member_name":           name,
-					"alert_data":            alertData,
+				// 获取成员的推送管理信息
+				pushManage, err := dal.GetUserMessagePushManage(name)
+				if err != nil {
+					logrus.Warn("用户未绑定推送ID:", name, "跳过APP推送")
+					// 记录失败的通知历史
+					pushTarget := fmt.Sprintf("用户:%s", name)
+					pushContentWithPayload := fmt.Sprintf("%s|%s", content, alertJson)
+					remark := "用户未绑定推送ID"
+					n.saveNotificationHistory("APP", tenantID, pushTarget, pushContentWithPayload, "FAILURE", &remark)
+					continue
 				}
 
-				// 调用消息推送服务
-				GroupApp.MessagePush.NotificationMessagePushSend(
-					tenantID,
-					pushTitle,
-					pushContent,
-					pushPayload,
-				)
+				if pushManage.PushID == "" {
+					logrus.Warn("用户推送ID为空:", name, "跳过APP推送")
+					// 记录失败的通知历史
+					pushTarget := fmt.Sprintf("用户:%s", name)
+					pushContentWithPayload := fmt.Sprintf("%s|%s", content, alertJson)
+					remark := "推送ID为空"
+					n.saveNotificationHistory("APP", tenantID, pushTarget, pushContentWithPayload, "FAILURE", &remark)
+					continue
+				}
+
+				// 构建推送消息
+				message := model.MessagePushSend{
+					Title:   subject,
+					Content: content,
+					Payload: map[string]interface{}{
+						"notification_group_id": notificationGroup.ID,
+						"tenant_id":             tenantID,
+						"member_name":           name,
+						"alert_data":            alertData,
+					},
+					CIds: pushManage.PushID,
+				}
+
+				// 调用消息推送服务并记录日志
+				GroupApp.MessagePush.MessagePushSendAndLog(message, *pushManage, 2) // 2表示通知推送
 
 				// 记录APP推送通知历史
 				pushTarget := fmt.Sprintf("用户:%s", name)
-				pushContentWithPayload := fmt.Sprintf("%s|%s", pushContent, alertJson)
+				pushContentWithPayload := fmt.Sprintf("%s|%s", content, alertJson)
 				n.saveNotificationHistory("APP", tenantID, pushTarget, pushContentWithPayload, "SUCCESS", nil)
 			default:
 				logrus.Warn("不支持的成员通知类型:", notifyType)

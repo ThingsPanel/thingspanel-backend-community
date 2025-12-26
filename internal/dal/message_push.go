@@ -2,12 +2,13 @@ package dal
 
 import (
 	"errors"
-	"github.com/go-basic/uuid"
-	"gorm.io/gorm"
 	"log"
 	"project/internal/model"
 	"project/internal/query"
 	"time"
+
+	"github.com/go-basic/uuid"
+	"gorm.io/gorm"
 )
 
 func CreateMessagePushMange(data *model.MessagePushManage) error {
@@ -81,6 +82,14 @@ func GetUserMessagePushId(tenantId string) ([]model.MessagePushManage, error) {
 
 func MessagePushSendLogSave(log *model.MessagePushLog) error {
 	return query.MessagePushLog.Save(log)
+}
+
+func GetUserMessagePushManage(userId string) (*model.MessagePushManage, error) {
+	return query.MessagePushManage.Where(
+		query.MessagePushManage.UserID.Eq(userId),
+		query.MessagePushManage.DeleteTime.IsNull(),
+		query.MessagePushManage.Status.Eq(1),
+	).First()
 }
 
 func GetMessagePushMangeInactiveWithSeven() error {
