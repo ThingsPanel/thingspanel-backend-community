@@ -213,6 +213,11 @@ func (n *NotificationServicesConfig) handleMemberNotification(notificationGroup 
 					pushContent,
 					pushPayload,
 				)
+
+				// 记录APP推送通知历史
+				pushTarget := fmt.Sprintf("用户:%s", name)
+				pushContentWithPayload := fmt.Sprintf("%s|%s", pushContent, alertJson)
+				n.saveNotificationHistory("APP", tenantID, pushTarget, pushContentWithPayload, "SUCCESS", nil)
 			default:
 				logrus.Warn("不支持的成员通知类型:", notifyType)
 			}
@@ -448,8 +453,9 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, aler
 			}
 
 		case "APP":
-			// 处理手机端推送
-			logrus.Info("执行手机端推送通知:", notificationGroupId)
+			// 直接APP类型：给租户下所有绑定推送ID的用户推送
+			// 注意：当前业务中主要使用MEMBER类型配合成员配置来实现精确推送
+			logrus.Info("执行直接APP类型推送通知:", notificationGroupId)
 
 			// 构建推送内容
 			pushTitle := subject
@@ -469,6 +475,12 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, aler
 				pushContent,
 				pushPayload,
 			)
+
+			// 记录APP推送通知历史
+			nsc := &NotificationServicesConfig{}
+			pushTarget := "租户全员用户"
+			pushContentWithPayload := fmt.Sprintf("%s|%s", pushContent, alertJson)
+			nsc.saveNotificationHistory("APP", notificationGroup.TenantID, pushTarget, pushContentWithPayload, "SUCCESS", nil)
 
 		default:
 			logrus.Warn("未支持的通知类型:", notifyType)
