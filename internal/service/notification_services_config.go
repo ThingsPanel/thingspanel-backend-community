@@ -487,34 +487,8 @@ func (*NotificationServicesConfig) ExecuteNotification(notificationGroupId, aler
 			}
 
 		case "APP":
-			// 直接APP类型：给租户下所有绑定推送ID的用户推送
-			// 注意：当前业务中主要使用MEMBER类型配合成员配置来实现精确推送
-			logrus.Info("执行直接APP类型推送通知:", notificationGroupId)
-
-			// 构建推送内容
-			pushTitle := subject
-			var pushContent string = content
-
-			// 构建payload，包含业务相关信息
-			pushPayload := map[string]interface{}{
-				"notification_group_id": notificationGroupId,
-				"tenant_id":             notificationGroup.TenantID,
-				"alert_data":            alertData,
-			}
-
-			// 调用消息推送服务
-			GroupApp.MessagePush.NotificationMessagePushSend(
-				notificationGroup.TenantID,
-				pushTitle,
-				pushContent,
-				pushPayload,
-			)
-
-			// 记录APP推送通知历史
-			nsc := &NotificationServicesConfig{}
-			pushTarget := "租户全员用户"
-			pushContent = pushTitle // 只保存标题，保持简洁
-			nsc.saveNotificationHistory("APP", notificationGroup.TenantID, pushTarget, pushContent, "SUCCESS", nil)
+			// 移除直接APP类型通知：根据需求文档，只有MEMBER类型支持APP通知
+			logrus.Warn("直接APP类型通知已被移除，请使用MEMBER类型并在成员配置中选择APP通知")
 
 		default:
 			logrus.Warn("未支持的通知类型:", notifyType)
