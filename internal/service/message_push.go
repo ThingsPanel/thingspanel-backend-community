@@ -138,23 +138,52 @@ func (receiver *MessagePush) MessagePushSendAndLog(message model.MessagePushSend
 			logrus.Error("发送结果传map失败:", err, "返回结果:", res)
 			log.Status = 2
 			log.ErrMessage = fmt.Sprintf("发送结果传map失败:%v,返回结果:%v", err, res)
-		} else if errCode, ok := result["errCode"]; ok {
-			switch value := errCode.(type) {
-			case float64:
-				if value == 0 {
-					log.Status = 1
-					log.ErrMessage = res
-				} else {
+		} else {
+			logrus.Debug("推送服务响应解析成功:", result)
+
+			// 优先检查根级的errCode
+			if errCode, ok := result["errCode"]; ok {
+				logrus.Debug("找到errCode:", errCode)
+				switch value := errCode.(type) {
+				case float64:
+					if value == 0 {
+						log.Status = 1
+						log.ErrMessage = res
+						logrus.Debug("推送成功: errCode =", value)
+					} else {
+						log.Status = 2
+						log.ErrMessage = res
+						logrus.Debug("推送失败: errCode =", value)
+					}
+				default:
 					log.Status = 2
 					log.ErrMessage = res
+					logrus.Debug("推送失败: errCode类型错误", value)
 				}
-			default:
+			} else if code, ok := result["code"]; ok {
+				// 如果没有errCode，检查code字段
+				logrus.Debug("未找到errCode，检查code:", code)
+				switch value := code.(type) {
+				case float64:
+					if value == 200 {
+						log.Status = 1
+						log.ErrMessage = res
+						logrus.Debug("推送成功: code =", value)
+					} else {
+						log.Status = 2
+						log.ErrMessage = res
+						logrus.Debug("推送失败: code =", value)
+					}
+				default:
+					log.Status = 2
+					log.ErrMessage = res
+					logrus.Debug("推送失败: code类型错误", value)
+				}
+			} else {
 				log.Status = 2
 				log.ErrMessage = res
+				logrus.Debug("推送失败: 未找到errCode或code字段")
 			}
-		} else {
-			log.Status = 2
-			log.ErrMessage = res
 		}
 	}
 	err = dal.MessagePushSendLogSave(&log)

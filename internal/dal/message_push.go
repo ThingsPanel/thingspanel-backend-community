@@ -92,6 +92,15 @@ func GetUserMessagePushManage(userId string) (*model.MessagePushManage, error) {
 	).First()
 }
 
+// GetUserMessagePushManages 查询用户的所有有效推送记录（支持多设备）
+func GetUserMessagePushManages(userId string) ([]*model.MessagePushManage, error) {
+	return query.MessagePushManage.Where(
+		query.MessagePushManage.UserID.Eq(userId),
+		query.MessagePushManage.DeleteTime.IsNull(),
+		query.MessagePushManage.Status.Eq(1),
+	).Find()
+}
+
 func GetMessagePushMangeInactiveWithSeven() error {
 	var result []model.MessagePushManage
 	err := query.MessagePushManage.Where(query.MessagePushManage.InactiveTime.Lt(time.Now().Add(-7 * time.Hour * 24))).Scan(&result)
