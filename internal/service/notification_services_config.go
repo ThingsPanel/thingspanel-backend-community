@@ -231,15 +231,14 @@ func (n *NotificationServicesConfig) handleMemberNotification(notificationGroup 
 
 				// 构建推送消息
 				message := model.MessagePushSend{
-					Title:   subject,
-					Content: content,
-					Payload: map[string]interface{}{
-						"notification_group_id": notificationGroup.ID,
-						"tenant_id":             tenantID,
-						"member_name":           userName,
-						"alert_data":            alertData,
-					},
-					CIds: pushManage.PushID,
+					Title:        subject,
+					Content:      content,
+					PushClientId: pushManage.PushID,
+				}
+
+				// 如果告警数据中有alarm_config_id，作为alarm_id字段添加
+				if alarmConfigId, ok := alertData["alarm_config_id"].(string); ok && alarmConfigId != "" {
+					message.AlarmId = &alarmConfigId
 				}
 
 				// 调用消息推送服务并记录日志

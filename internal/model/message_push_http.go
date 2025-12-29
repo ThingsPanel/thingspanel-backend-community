@@ -18,12 +18,12 @@ type MessagePushConfigReq struct {
 }
 
 type MessagePushSend struct {
-	CIds     string                            `json:"cids"`
-	Title    string                            `json:"title"`
-	Content  string                            `json:"content"`
-	Payload  interface{}                       `json:"payload"`
-	Category map[string]string                 `json:"category,omitempty"`
-	Options  map[string]map[string]interface{} `json:"options,omitempty"`
+	PushClientId string                            `json:"push_clientid"`
+	Title        string                            `json:"title"`
+	Content      string                            `json:"content"`
+	AlarmId      *string                           `json:"alarm_id,omitempty"`
+	Category     map[string]string                 `json:"category,omitempty"`
+	Options      map[string]map[string]interface{} `json:"options,omitempty"`
 }
 type MessagePushSendPayload struct {
 	AlarmConfigId string `json:"alarm_config_id"`

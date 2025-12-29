@@ -104,18 +104,16 @@ func (receiver *MessagePush) AlarmMessagePushSend(triggered, alarmConfigId strin
 	}
 	logrus.Debug(fmt.Sprintf("pushManges:%#v", len(pushManges)))
 	message := model.MessagePushSend{
-		Title:   fmt.Sprintf("告警:%v", triggered),
-		Content: deviceInfo.DeviceNumber,
-		Payload: model.MessagePushSendPayload{
-			AlarmConfigId: alarmConfigId,
-			TenantId:      deviceInfo.TenantID,
-		},
+		Title:        fmt.Sprintf("告警:%v", triggered),
+		Content:      deviceInfo.DeviceNumber,
+		AlarmId:      &alarmConfigId,
+		PushClientId: "", // 会在循环中设置
 	}
 	for _, v := range pushManges {
 		if v.PushID == "" {
 			continue
 		}
-		message.CIds = v.PushID
+		message.PushClientId = v.PushID
 		receiver.MessagePushSendAndLog(message, v, 1)
 	}
 }
@@ -191,16 +189,21 @@ func (receiver *MessagePush) NotificationMessagePushSend(tenantId string, title 
 	logrus.Debug(fmt.Sprintf("推送用户数量: %d", len(pushManges)))
 
 	message := model.MessagePushSend{
-		Title:   title,
-		Content: content,
-		Payload: payload,
+		Title:        title,
+		Content:      content,
+		PushClientId: "", // 会在循环中设置
+	}
+
+	// 如果payload中有alarm_config_id，设置为alarm_id
+	if alarmConfigId, ok := payload["alarm_config_id"].(string); ok && alarmConfigId != "" {
+		message.AlarmId = &alarmConfigId
 	}
 
 	for _, mange := range pushManges {
 		if mange.PushID == "" {
 			continue
 		}
-		message.CIds = mange.PushID
+		message.PushClientId = mange.PushID
 		receiver.MessagePushSendAndLog(message, mange, 2) // 2表示通知推送
 	}
 }
