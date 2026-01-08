@@ -130,7 +130,7 @@ ThingsPanel的插件主要有如下几类，分别是：
 ## 贡献指南
 可直接克隆项目修改后提交PR。
 ## API文档链接
-[https://docs.qq.com/doc/DZVZKc2FCTE1EblBX](https://apifox.com/apidoc/shared-754c3f13-b1c0-44fe-905d-c75e3210d509)
+[https://docs.qq.com/doc/DZVZKc2FCTE1EblBX](https://s.apifox.cn/d295178d-9c20-48df-8423-302ccf72c8ef)
 
 ## 许可和商用授权
 

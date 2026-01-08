@@ -138,7 +138,7 @@ Containerized deployment is the fastest way to set up ThingsPanel.
 Directly clone the project, modify and submit a PR.
 
 ## API Documentation Link
-[API Documentation](https://docs.qq.com/doc/DZVZKc2FCTE1EblBX)
+[API Documentation](https://s.apifox.cn/d295178d-9c20-48df-8423-302ccf72c8ef)
 
 ## Licensing and Commercial Licensing
 
