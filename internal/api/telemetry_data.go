@@ -424,26 +424,41 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 	}
 	defer global.TPWSManager.UnsubscribeDevice(deviceID, connID)
 
-	// 处理心跳消息和续期订阅
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
+	// 处理心跳消息和超时检测
+	lastPingTime := time.Now()
+	heartbeatTimeout := 15 * time.Second // 前端15秒不发ping就断开
+
+	// 心跳检测定时器
+	heartbeatTicker := time.NewTicker(5 * time.Second)
+	defer heartbeatTicker.Stop()
 
 	for {
 		select {
-		case <-ticker.C:
-			// 定期续期订阅
-			if err := global.TPWSManager.RefreshSubscription(deviceID); err != nil {
-				logrus.WithError(err).Error("续期订阅失败")
+		case <-heartbeatTicker.C:
+			// 检查心跳超时
+			if time.Since(lastPingTime) > heartbeatTimeout {
+				logrus.Warnf("WebSocket心跳超时，断开连接 - 设备ID: %s, 最后ping时间: %v",
+					deviceID, lastPingTime.Format("2006-01-02 15:04:05"))
+
+				// 发送关闭消息
+				closeMsg := []byte("connection closed due to heartbeat timeout")
+				deadline := time.Now().Add(time.Second)
+				conn.WriteControl(websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseGoingAway, string(closeMsg)),
+					deadline)
+
+				return
 			}
 
 		default:
-			// 设置读取超时，避免阻塞续期
-			conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+			// 设置读取超时（稍大于心跳超时，避免频繁超时）
+			conn.SetReadDeadline(time.Now().Add(heartbeatTimeout + 5*time.Second))
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
 				// 判断是否是超时错误
 				if netErr, ok := err.(interface{ Timeout() bool }); ok && netErr.Timeout() {
-					continue // 超时不是真正的错误，继续处理续期
+					// 这是正常的超时，继续心跳检测循环
+					continue
 				}
 
 				// 记录真正的错误日志
@@ -461,6 +476,16 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 
 			// 处理心跳消息
 			if string(msg) == "ping" {
+				// 更新最后ping时间
+				lastPingTime = time.Now()
+
+				// 续期Redis订阅
+				if err := global.TPWSManager.RefreshSubscription(deviceID); err != nil {
+					logrus.WithError(err).WithField("device_id", deviceID).Error("续期订阅失败")
+					// 续期失败不中断连接，继续运行
+				}
+
+				// 回复pong
 				mu.Lock()
 				if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
 					logrus.Error("发送pong消息失败:", err)
@@ -475,6 +500,12 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 					return
 				}
 				mu.Unlock()
+
+				logrus.Debugf("WebSocket心跳响应 - 设备ID: %s, ping时间: %v",
+					deviceID, lastPingTime.Format("2006-01-02 15:04:05.000"))
+			} else {
+				// 收到非ping消息，记录但不处理（保持向后兼容）
+				logrus.Debugf("收到非ping消息 - 设备ID: %s, 消息: %s", deviceID, string(msg))
 			}
 		}
 	}
@@ -756,26 +787,41 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 	}
 	defer global.TPWSManager.UnsubscribeDevice(deviceID, connID)
 
-	// 处理心跳消息和续期订阅
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
+	// 处理心跳消息和超时检测
+	lastPingTime := time.Now()
+	heartbeatTimeout := 15 * time.Second // 前端15秒不发ping就断开
+
+	// 心跳检测定时器
+	heartbeatTicker := time.NewTicker(5 * time.Second)
+	defer heartbeatTicker.Stop()
 
 	for {
 		select {
-		case <-ticker.C:
-			// 定期续期订阅
-			if err := global.TPWSManager.RefreshSubscription(deviceID); err != nil {
-				logrus.WithError(err).Error("续期订阅失败")
+		case <-heartbeatTicker.C:
+			// 检查心跳超时
+			if time.Since(lastPingTime) > heartbeatTimeout {
+				logrus.Warnf("WebSocket心跳超时，断开连接 - 设备ID: %s, 最后ping时间: %v",
+					deviceID, lastPingTime.Format("2006-01-02 15:04:05"))
+
+				// 发送关闭消息
+				closeMsg := []byte("connection closed due to heartbeat timeout")
+				deadline := time.Now().Add(time.Second)
+				conn.WriteControl(websocket.CloseMessage,
+					websocket.FormatCloseMessage(websocket.CloseGoingAway, string(closeMsg)),
+					deadline)
+
+				return
 			}
 
 		default:
-			// 设置读取超时，避免阻塞续期
-			conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+			// 设置读取超时（稍大于心跳超时，避免频繁超时）
+			conn.SetReadDeadline(time.Now().Add(heartbeatTimeout + 5*time.Second))
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
 				// 判断是否是超时错误
 				if netErr, ok := err.(interface{ Timeout() bool }); ok && netErr.Timeout() {
-					continue // 超时不是真正的错误，继续处理续期
+					// 这是正常的超时，继续心跳检测循环
+					continue
 				}
 
 				// 记录真正的错误日志
@@ -793,6 +839,16 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 
 			// 处理心跳消息
 			if string(msg) == "ping" {
+				// 更新最后ping时间
+				lastPingTime = time.Now()
+
+				// 续期Redis订阅
+				if err := global.TPWSManager.RefreshSubscription(deviceID); err != nil {
+					logrus.WithError(err).WithField("device_id", deviceID).Error("续期订阅失败")
+					// 续期失败不中断连接，继续运行
+				}
+
+				// 回复pong
 				mu.Lock()
 				if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
 					logrus.Error("发送pong消息失败:", err)
@@ -807,6 +863,12 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 					return
 				}
 				mu.Unlock()
+
+				logrus.Debugf("WebSocket心跳响应 - 设备ID: %s, ping时间: %v",
+					deviceID, lastPingTime.Format("2006-01-02 15:04:05.000"))
+			} else {
+				// 收到非ping消息，记录但不处理（保持向后兼容）
+				logrus.Debugf("收到非ping消息 - 设备ID: %s, 消息: %s", deviceID, string(msg))
 			}
 		}
 	}
