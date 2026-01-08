@@ -37,6 +37,8 @@ type WSClient struct {
 	MsgType  int // websocket.TextMessage or websocket.BinaryMessage
 	Mu       *sync.Mutex
 	Keys     []string // 订阅的字段（为空表示订阅全部）
+	// Send 用于写入数据的缓冲管道，避免在多个goroutine中直接写Conn导致阻塞
+	Send chan []byte
 }
 
 // WSEvent WebSocket 事件
@@ -93,7 +95,11 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 	defer m.mutex.Unlock()
 
 	// 从内存 map 移除
+	var removedClient *WSClient
 	if clients, ok := m.deviceClients[deviceID]; ok {
+		if c, ok2 := clients[connID]; ok2 {
+			removedClient = c
+		}
 		delete(clients, connID)
 		if len(clients) == 0 {
 			delete(m.deviceClients, deviceID)
@@ -117,6 +123,11 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 		"device_id": deviceID,
 		"conn_id":   connID,
 	}).Info("WebSocket client unsubscribed from device")
+
+	// 关闭写队列（如果存在），以结束对应的写入 goroutine
+	if removedClient != nil && removedClient.Send != nil {
+		close(removedClient.Send)
+	}
 
 	return nil
 }
@@ -158,16 +169,17 @@ func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
 			continue
 		}
 
-		// 推送到 WebSocket
-		client.Mu.Lock()
-		err = client.Conn.WriteMessage(client.MsgType, jsonData)
-		client.Mu.Unlock()
-
-		if err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{
+		// 推送到 WebSocket：优先通过 client.Send 非阻塞发送到写入 goroutine，
+		// 避免在此处直接写 Conn 导致阻塞整个管理器或读处理循环。
+		select {
+		case client.Send <- jsonData:
+			// queued successfully
+		default:
+			// send queue is full，记录并丢弃消息，避免阻塞
+			logrus.WithFields(logrus.Fields{
 				"device_id": deviceID,
 				"conn_id":   connID,
-			}).Error("Failed to write WebSocket message")
+			}).Warn("WebSocket send buffer full, dropping message")
 		}
 	}
 }

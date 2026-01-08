@@ -378,33 +378,8 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 	}
 
 	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, 用户ID: %s, 租户ID: %s", deviceID, claims.ID, claims.TenantID)
-
-	// 获取当前遥测数据
-	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataForWs(deviceID)
-	if err != nil {
-		logrus.Error("获取遥测数据失败:", err)
-		conn.WriteMessage(msgType, []byte("Failed to get telemetry data"))
-		return
-	}
-
-	// 如果有数据，发送给客户端
-	if data != nil {
-		dataByte, err := json.Marshal(data)
-		if err != nil {
-			logrus.Error("序列化数据失败:", err)
-			conn.WriteMessage(msgType, []byte("Failed to process telemetry data"))
-			return
-		}
-		if err := conn.WriteMessage(msgType, dataByte); err != nil {
-			logrus.Error("发送数据失败:", err)
-			return
-		}
-	}
-
-	// 生成唯一连接ID
+	// 生成唯一连接ID并注册到 WebSocket 管理器（先创建客户端写队列，避免后续写阻塞）
 	connID := fmt.Sprintf("%s-%d", conn.RemoteAddr().String(), time.Now().UnixNano())
-
-	// 注册到 WebSocket 管理器
 	var mu sync.Mutex
 	wsClient := &global.WSClient{
 		DeviceID: deviceID,
@@ -415,6 +390,7 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 		MsgType:  msgType,
 		Mu:       &mu,
 		Keys:     nil, // 订阅所有字段
+		Send:     make(chan []byte, 64),
 	}
 
 	if err := global.TPWSManager.SubscribeDevice(deviceID, connID, wsClient); err != nil {
@@ -422,7 +398,60 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 		conn.WriteMessage(msgType, []byte("Failed to subscribe to device"))
 		return
 	}
-	defer global.TPWSManager.UnsubscribeDevice(deviceID, connID)
+	defer func() {
+		// 取消订阅并关闭写通道
+		global.TPWSManager.UnsubscribeDevice(deviceID, connID)
+		close(wsClient.Send)
+	}()
+
+	// 启动写入 goroutine（负责将缓冲消息写入 WebSocket，避免在主读循环或推送路径中直接写 Conn 导致阻塞）
+	go func(c *global.WSClient) {
+		defer func() {
+			if r := recover(); r != nil {
+				logrus.WithField("conn_id", c.ConnID).Warnf("writer goroutine recovered: %v", r)
+			}
+		}()
+		for b := range c.Send {
+			c.Mu.Lock()
+			c.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			err := c.Conn.WriteMessage(c.MsgType, b)
+			c.Mu.Unlock()
+			if err != nil {
+				logrus.WithError(err).WithField("conn_id", c.ConnID).Error("writer goroutine write failed")
+				_ = global.TPWSManager.UnsubscribeDevice(c.DeviceID, c.ConnID)
+				return
+			}
+		}
+	}(wsClient)
+
+	// 获取当前遥测数据
+	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataForWs(deviceID)
+	if err != nil {
+		logrus.Error("获取遥测数据失败:", err)
+		select {
+		case wsClient.Send <- []byte("Failed to get telemetry data"):
+		default:
+		}
+		return
+	}
+
+	// 如果有数据，通过写队列发送给客户端（避免阻塞）
+	if data != nil {
+		dataByte, err := json.Marshal(data)
+		if err != nil {
+			logrus.Error("序列化数据失败:", err)
+			select {
+			case wsClient.Send <- []byte("Failed to process telemetry data"):
+			default:
+			}
+			return
+		}
+		select {
+		case wsClient.Send <- dataByte:
+		default:
+			logrus.WithField("conn_id", connID).Warn("initial telemetry send buffer full, dropping initial data")
+		}
+	}
 
 	// 处理心跳消息和超时检测
 	lastPingTime := time.Now()
@@ -485,21 +514,14 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 					// 续期失败不中断连接，继续运行
 				}
 
-				// 回复pong
-				mu.Lock()
-				if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
-					logrus.Error("发送pong消息失败:", err)
-
-					// 尝试发送错误消息
-					deadline := time.Now().Add(time.Second)
-					conn.WriteControl(websocket.CloseMessage,
-						websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to send pong"),
-						deadline)
-
-					mu.Unlock()
-					return
+				// 回复pong（通过写队列）
+				select {
+				case wsClient.Send <- []byte("pong"):
+				default:
+					// 如果发送队列已满，尝试发送控制帧作为降级方式
+					deadline := time.Now().Add(2 * time.Second)
+					_ = conn.WriteControl(websocket.PongMessage, []byte{}, deadline)
 				}
-				mu.Unlock()
 
 				logrus.Debugf("WebSocket心跳响应 - 设备ID: %s, ping时间: %v",
 					deviceID, lastPingTime.Format("2006-01-02 15:04:05.000"))
@@ -587,8 +609,44 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 	initialMsg := map[string]interface{}{
 		"is_online": isOnline,
 	}
+	// 创建本地 WSClient 写队列并启动写goroutine，避免直接写 conn 导致阻塞
+	var mu sync.Mutex
+	localClient := &global.WSClient{
+		DeviceID: deviceID,
+		TenantID: claims.TenantID,
+		UserID:   claims.ID,
+		Conn:     conn,
+		ConnID:   fmt.Sprintf("%s-%d", conn.RemoteAddr().String(), time.Now().UnixNano()),
+		MsgType:  msgType,
+		Mu:       &mu,
+		Keys:     nil,
+		Send:     make(chan []byte, 64),
+	}
+	// 启动写入 goroutine
+	go func(c *global.WSClient) {
+		defer func() {
+			if r := recover(); r != nil {
+				logrus.WithField("conn_id", c.ConnID).Warnf("writer goroutine recovered: %v", r)
+			}
+		}()
+		for b := range c.Send {
+			c.Mu.Lock()
+			c.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			err := c.Conn.WriteMessage(c.MsgType, b)
+			c.Mu.Unlock()
+			if err != nil {
+				logrus.WithError(err).WithField("conn_id", c.ConnID).Error("writer goroutine write failed")
+				return
+			}
+		}
+	}(localClient)
+
 	if data, err := json.Marshal(initialMsg); err == nil {
-		conn.WriteMessage(msgType, data)
+		select {
+		case localClient.Send <- data:
+		default:
+			logrus.WithField("conn_id", localClient.ConnID).Warn("status initial send buffer full, dropping initial data")
+		}
 	}
 
 	// 订阅 Redis Pub/Sub 通道
@@ -601,8 +659,7 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 
 	logrus.Infof("WebSocket已订阅Redis通道: %s", channel)
 
-	// 使用 sync.Mutex 保护 WebSocket 写操作
-	var mu sync.Mutex
+	// 使用 sync.Mutex 保护 WebSocket 写操作（使用 localClient.Mu）
 
 	// Goroutine 1: Redis消息转发到WebSocket
 	go func() {
@@ -618,18 +675,15 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 					return
 				}
 
-				// 转发到WebSocket
-				mu.Lock()
-				err := conn.WriteMessage(msgType, []byte(redisMsg.Payload))
-				mu.Unlock()
-
-				if err != nil {
-					logrus.WithError(err).Error("WebSocket写入失败")
-					cancel() // 通知主goroutine退出
-					return
+				// 转发到WebSocket（通过本地写队列，避免阻塞Redis转发goroutine）
+				payload := []byte(redisMsg.Payload)
+				select {
+				case localClient.Send <- payload:
+				default:
+					// 如果写队列已满，记录并丢弃，避免阻塞Redis消息处理
+					logrus.WithField("device_id", deviceID).Warn("status send buffer full, dropping update")
 				}
-
-				logrus.WithField("device_id", deviceID).Debug("状态更新已推送到WebSocket")
+				logrus.WithField("device_id", deviceID).Debug("状态更新已排入发送队列")
 			}
 		}
 	}()
@@ -653,14 +707,12 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 
 		// 处理心跳消息
 		if string(wsMsg) == "ping" {
-			mu.Lock()
-			err := conn.WriteMessage(msgType, []byte("pong"))
-			mu.Unlock()
-
-			if err != nil {
-				logrus.WithError(err).Error("发送pong失败")
-				cancel()
-				return
+			// 回复pong（通过本地写队列）
+			select {
+			case localClient.Send <- []byte("pong"):
+			default:
+				deadline := time.Now().Add(2 * time.Second)
+				_ = conn.WriteControl(websocket.PongMessage, []byte{}, deadline)
 			}
 		}
 	}
@@ -750,24 +802,8 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 		return
 	}
 
-	// 发送数据给客户端
-	if data != nil {
-		dataByte, err := json.Marshal(data)
-		if err != nil {
-			logrus.Error("序列化数据失败:", err)
-			conn.WriteMessage(msgType, []byte("Failed to process telemetry data"))
-			return
-		}
-		if err := conn.WriteMessage(msgType, dataByte); err != nil {
-			logrus.Error("发送数据失败:", err)
-			return
-		}
-	}
-
-	// 生成唯一连接ID
+	// 生成唯一连接ID并注册到 WebSocket 管理器（先创建写队列）
 	connID := fmt.Sprintf("%s-%d", conn.RemoteAddr().String(), time.Now().UnixNano())
-
-	// 注册到 WebSocket 管理器
 	var mu sync.Mutex
 	wsClient := &global.WSClient{
 		DeviceID: deviceID,
@@ -778,6 +814,7 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 		MsgType:  msgType,
 		Mu:       &mu,
 		Keys:     stringKeys, // 订阅指定字段
+		Send:     make(chan []byte, 64),
 	}
 
 	if err := global.TPWSManager.SubscribeDevice(deviceID, connID, wsClient); err != nil {
@@ -785,7 +822,48 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 		conn.WriteMessage(msgType, []byte("Failed to subscribe to device"))
 		return
 	}
-	defer global.TPWSManager.UnsubscribeDevice(deviceID, connID)
+	defer func() {
+		global.TPWSManager.UnsubscribeDevice(deviceID, connID)
+		close(wsClient.Send)
+	}()
+
+	// 启动写入 goroutine
+	go func(c *global.WSClient) {
+		defer func() {
+			if r := recover(); r != nil {
+				logrus.WithField("conn_id", c.ConnID).Warnf("writer goroutine recovered: %v", r)
+			}
+		}()
+		for b := range c.Send {
+			c.Mu.Lock()
+			c.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			err := c.Conn.WriteMessage(c.MsgType, b)
+			c.Mu.Unlock()
+			if err != nil {
+				logrus.WithError(err).WithField("conn_id", c.ConnID).Error("writer goroutine write failed")
+				_ = global.TPWSManager.UnsubscribeDevice(c.DeviceID, c.ConnID)
+				return
+			}
+		}
+	}(wsClient)
+
+	// 发送数据给客户端（通过写队列）
+	if data != nil {
+		dataByte, err := json.Marshal(data)
+		if err != nil {
+			logrus.Error("序列化数据失败:", err)
+			select {
+			case wsClient.Send <- []byte("Failed to process telemetry data"):
+			default:
+			}
+			return
+		}
+		select {
+		case wsClient.Send <- dataByte:
+		default:
+			logrus.WithField("conn_id", connID).Warn("initial telemetry send buffer full, dropping initial data")
+		}
+	}
 
 	// 处理心跳消息和超时检测
 	lastPingTime := time.Now()
@@ -848,21 +926,13 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 					// 续期失败不中断连接，继续运行
 				}
 
-				// 回复pong
-				mu.Lock()
-				if err := conn.WriteMessage(msgType, []byte("pong")); err != nil {
-					logrus.Error("发送pong消息失败:", err)
-
-					// 尝试发送错误消息
-					deadline := time.Now().Add(time.Second)
-					conn.WriteControl(websocket.CloseMessage,
-						websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to send pong"),
-						deadline)
-
-					mu.Unlock()
-					return
+				// 回复pong（通过写队列）
+				select {
+				case wsClient.Send <- []byte("pong"):
+				default:
+					deadline := time.Now().Add(2 * time.Second)
+					_ = conn.WriteControl(websocket.PongMessage, []byte{}, deadline)
 				}
-				mu.Unlock()
 
 				logrus.Debugf("WebSocket心跳响应 - 设备ID: %s, ping时间: %v",
 					deviceID, lastPingTime.Format("2006-01-02 15:04:05.000"))
