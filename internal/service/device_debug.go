@@ -220,15 +220,41 @@ func (s *DeviceDebug) GetDeviceDebugLogs(ctx context.Context, deviceID string, r
 		var item model.DeviceDebugLogEntry
 		if err := json.Unmarshal([]byte(raw), &item); err != nil {
 			resp.List = append(resp.List, model.DeviceDebugLogEntry{
-				Event:  "error",
-				Result: "error",
-				Error:  "invalid log json",
-				Extra: map[string]interface{}{
+				Action:  "error",
+				Outcome: "error",
+				Error:   "invalid log json",
+				Meta: map[string]interface{}{
 					"raw": raw,
 				},
 			})
 			continue
 		}
+
+		// Normalize legacy fields to the current schema.
+		if item.Action == "" {
+			item.Action = item.Event
+		}
+		if item.Outcome == "" {
+			switch strings.ToLower(strings.TrimSpace(item.Result)) {
+			case "ok":
+				item.Outcome = "ok"
+			case "denied", "deny":
+				item.Outcome = "deny"
+			case "error":
+				item.Outcome = "error"
+			case "discarded", "drop":
+				item.Outcome = "drop"
+			default:
+				item.Outcome = item.Result
+			}
+		}
+		if item.Meta == nil && item.Extra != nil {
+			item.Meta = item.Extra
+		}
+		item.Event = ""
+		item.Result = ""
+		item.Extra = nil
+
 		resp.List = append(resp.List, item)
 	}
 	return resp, nil

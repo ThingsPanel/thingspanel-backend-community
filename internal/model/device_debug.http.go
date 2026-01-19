@@ -26,15 +26,22 @@ type GetDeviceDebugLogsReq struct {
 
 // DeviceDebugLogEntry is stored as JSON strings in Redis list.
 type DeviceDebugLogEntry struct {
-	Ts        string                 `json:"ts"`
-	Event     string                 `json:"event"`
-	Direction string                 `json:"direction"`
-	DeviceID  string                 `json:"device_id"`
-	ClientID  string                 `json:"client_id,omitempty"`
-	Username  string                 `json:"username,omitempty"`
-	Topic     string                 `json:"topic,omitempty"`
-	Payload   string                 `json:"payload,omitempty"`
-	Result    string                 `json:"result"`
-	Error     string                 `json:"error,omitempty"`
-	Extra     map[string]interface{} `json:"extra,omitempty"`
+	Ts       string `json:"ts"`
+	DeviceID string `json:"device_id"`
+
+	Protocol  string `json:"protocol,omitempty"`
+	Direction string `json:"direction"`
+
+	// Current fields (protocol-agnostic)
+	Action  string                 `json:"action,omitempty"`
+	Outcome string                 `json:"outcome,omitempty"`
+	Meta    map[string]interface{} `json:"meta,omitempty"`
+
+	Error   string `json:"error,omitempty"`
+	Payload string `json:"payload,omitempty"`
+
+	// Legacy fields (backward compatibility for previously written logs)
+	Event  string                 `json:"event,omitempty"`
+	Result string                 `json:"result,omitempty"`
+	Extra  map[string]interface{} `json:"extra,omitempty"`
 }
