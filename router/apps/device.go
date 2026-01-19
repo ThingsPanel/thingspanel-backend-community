@@ -74,6 +74,11 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// 设备在线状态查询
 		deviceapi.GET("online/status/:id", api.Controllers.DeviceApi.HandleDeviceOnlineStatus)
 
+		// 设备调试日志（gmqtt 采集，平台提供读取/开关）
+		deviceapi.POST(":device_id/debug", api.Controllers.DeviceDebugApi.SetDeviceDebug)
+		deviceapi.GET(":device_id/debug/status", api.Controllers.DeviceDebugApi.GetDeviceDebugStatus)
+		deviceapi.GET(":device_id/debug/logs", api.Controllers.DeviceDebugApi.GetDeviceDebugLogs)
+
 		// 服务接入点批量创建设备
 		deviceapi.POST("service/access/batch", api.Controllers.DeviceApi.CreateDeviceBatch)
 

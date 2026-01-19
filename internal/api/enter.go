@@ -19,6 +19,7 @@ type Controller struct {
 	UpLoadApi                     // 上传
 	ProtocolPluginApi             // 协议插件
 	DeviceApi                     // 设备
+	DeviceDebugApi                // 设备调试日志
 	DeviceModelApi                // 设备物模型
 	UiElementsApi                 // UI元素控制
 	BoardApi                      // 首页

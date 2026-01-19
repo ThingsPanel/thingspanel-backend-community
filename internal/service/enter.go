@@ -15,6 +15,7 @@ type ServiceGroup struct {
 	OTA
 	ProtocolPlugin
 	Device
+	DeviceDebug
 	DeviceModel
 	DeviceTemplate
 	DeviceGroup
