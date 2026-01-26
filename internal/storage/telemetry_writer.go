@@ -279,7 +279,27 @@ func (w *telemetryWriter) batchInsert(historyData []TelemetryData, currentData [
 
 	if err != nil {
 		// 批量插入失败，降级为逐条插入
-		w.logger.Errorf("batch insert failed: %v, fallback to single insert", err)
+		// 只记录一次 batch 失败日志并降级，**不**将 batch 大小直接计入 storage_failed。
+		// 同时采样少量记录用于排查（不包含完整 payload）
+		sampleCount := 5
+		if sampleCount > len(historyData) {
+			sampleCount = len(historyData)
+		}
+		samples := make([]map[string]interface{}, 0, sampleCount)
+		for i := 0; i < sampleCount; i++ {
+			samples = append(samples, map[string]interface{}{
+				"device_id": historyData[i].DeviceID,
+				"key":       historyData[i].Key,
+				"ts":        historyData[i].TS,
+				"tenant_id": historyData[i].TenantID,
+			})
+		}
+		if j, jerr := json.Marshal(samples); jerr == nil {
+			w.logger.Errorf("batch insert failed: total=%d, err=%v, sample=%s, fallback to single insert", len(historyData), err, string(j))
+		} else {
+			w.logger.Errorf("batch insert failed: total=%d, err=%v, fallback to single insert", len(historyData), err)
+		}
+
 		return w.fallbackInsert(historyData, currentData)
 	}
 
@@ -313,8 +333,20 @@ func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentDat
 		})
 
 		if err != nil {
-			w.logger.Errorf("single insert failed: %v", err)
-			// 记录诊断：存储失败（每条失败记录到对应设备）
+			// 采样记录单条失败的关键信息，便于排查 Timescale 等错误
+			sample := map[string]interface{}{
+				"device_id": historyData[i].DeviceID,
+				"key":       historyData[i].Key,
+				"ts":        historyData[i].TS,
+				"tenant_id": historyData[i].TenantID,
+			}
+			if j, jerr := json.Marshal(sample); jerr == nil {
+				w.logger.Errorf("single insert failed: sample=%s, err=%v", string(j), err)
+			} else {
+				w.logger.Errorf("single insert failed: device_id=%s, key=%s, err=%v", historyData[i].DeviceID, historyData[i].Key, err)
+			}
+
+			// 记录诊断：仅在单条插入真实失败时，增加 storage_failed 并记录失败详情到失败列表。
 			diagnostics.GetInstance().RecordStorageFailed(historyData[i].DeviceID, fmt.Sprintf("存储失败：%v", err))
 			failed++
 		} else {

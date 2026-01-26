@@ -172,6 +172,15 @@ func (c *Collector) Stop(timeout time.Duration) {
 	}
 }
 
+// IsEnabled returns true when the diagnostics collector is initialized and enabled.
+// This provides a cheap fast-path check for callers to avoid repeated short-circuit calls.
+func (c *Collector) IsEnabled() bool {
+	if c == nil {
+		return false
+	}
+	return c.initialized && c.config.Enabled
+}
+
 // RecordFailure 记录失败（异步缓冲）
 func (c *Collector) RecordFailure(deviceID string, direction Direction, stage Stage, errMsg string) {
 	if !c.initialized || !c.config.Enabled {

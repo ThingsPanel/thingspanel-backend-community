@@ -67,7 +67,7 @@ func (a *Adapter) HandleTelemetryMessage(payload []byte, topic string) error {
 		// 记录诊断：适配器验证失败（同时记录总数和失败数）
 		deviceID := a.extractDeviceIDFromPayload(payload)
 		if deviceID != "" {
-			diagnostics.GetInstance().RecordUplinkTotal(deviceID) // 消息进入处理流程
+			// 不增加 uplink_total（点位计数在 uplink 层），仅记录处理失败
 			diagnostics.GetInstance().RecordUplinkFailed(deviceID, diagnostics.StageAdapter, fmt.Sprintf("消息格式错误：%v", err))
 		}
 		a.logger.WithFields(logrus.Fields{
@@ -88,7 +88,7 @@ func (a *Adapter) HandleTelemetryMessage(payload []byte, topic string) error {
 	}
 
 	// 记录诊断：消息进入处理流程（验证通过后）
-	diagnostics.GetInstance().RecordUplinkTotal(device.ID)
+	// uplink 总数改为按点位计数；成功消息的 uplink 计数将在 uplink 模块按点位累加，因此此处仅保留错误分支计数。
 
 	// 3. 根据 Topic 判断是网关消息还是直连设备消息
 	msgType := a.detectMessageType(topic, "telemetry")
@@ -146,7 +146,7 @@ func (a *Adapter) HandleEventMessage(payload []byte, topic string) error {
 		// 记录诊断：适配器验证失败（同时记录总数和失败数）
 		deviceID := a.extractDeviceIDFromPayload(payload)
 		if deviceID != "" {
-			diagnostics.GetInstance().RecordUplinkTotal(deviceID) // 消息进入处理流程
+			// 不增加 uplink_total（点位计数在 uplink 层），仅记录处理失败
 			diagnostics.GetInstance().RecordUplinkFailed(deviceID, diagnostics.StageAdapter, fmt.Sprintf("消息格式错误：%v", err))
 		}
 		a.logger.WithFields(logrus.Fields{
@@ -174,7 +174,7 @@ func (a *Adapter) HandleEventMessage(payload []byte, topic string) error {
 	}
 
 	// 记录诊断：消息进入处理流程（验证通过后）
-	diagnostics.GetInstance().RecordUplinkTotal(device.ID)
+	// uplink 总数改为按点位计数；成功消息的 uplink 计数将在 uplink 模块按点位累加，因此此处仅保留错误分支计数。
 
 	// 5. 根据 Topic 判断消息类型
 	msgType := a.detectMessageType(topic, "event")
@@ -237,7 +237,7 @@ func (a *Adapter) HandleAttributeMessage(payload []byte, topic string) error {
 		// 记录诊断：适配器验证失败（同时记录总数和失败数）
 		deviceID := a.extractDeviceIDFromPayload(payload)
 		if deviceID != "" {
-			diagnostics.GetInstance().RecordUplinkTotal(deviceID) // 消息进入处理流程
+			// 不增加 uplink_total（点位计数在 uplink 层），仅记录处理失败
 			diagnostics.GetInstance().RecordUplinkFailed(deviceID, diagnostics.StageAdapter, fmt.Sprintf("消息格式错误：%v", err))
 		}
 		a.logger.WithFields(logrus.Fields{
@@ -262,7 +262,7 @@ func (a *Adapter) HandleAttributeMessage(payload []byte, topic string) error {
 	}
 
 	// 记录诊断：消息进入处理流程（验证通过后）
-	diagnostics.GetInstance().RecordUplinkTotal(device.ID)
+	// uplink 点位计数将在 uplink 模块按点位累加，此处不再直接增加 uplink_total。
 
 	// 4. 根据 Topic 判断消息类型
 	msgType := a.detectMessageType(topic, "attribute")
