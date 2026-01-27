@@ -580,10 +580,10 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq, clientIP string
 	}
 	accessAddressList := strings.Split(accessAddress, ":")
 
-	if clientIP == "{MQTT_HOST}" {
+	// 如果配置的 host 为占位符 "{MQTT_HOST}"，则使用传入的 clientIP（如果有），否则使用配置的 host
+	host = accessAddressList[0]
+	if accessAddressList[0] == "{MQTT_HOST}" && clientIP != "" {
 		host = clientIP
-	} else {
-		host = accessAddressList[0]
 	}
 	post = accessAddressList[1]
 	topic := config.MqttConfig.Telemetry.SubscribeTopic
