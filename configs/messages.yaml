@@ -160,17 +160,17 @@ messages:
     zh_CN: "服务接入点下还有未删除的设备"
     en_US: "Service access point has devices that have not been deleted"
   200065:
-    zh_CN: "服务插件错误，无法获取表单"
-    en_US: "Service plugin error, can not get form"
+    zh_CN: "设备接入服务错误，无法获取表单"
+    en_US: "Device access service error, can not get form"
   200066:
-    zh_CN: "解析服务配置错误"
-    en_US: "Parse service config error"
+    zh_CN: "解析设备接入服务配置错误"
+    en_US: "Parse device access service config error"
   200067:
-    zh_CN: "服务插件HTTP服务地址未配置，请联系系统管理员检测配置"
-    en_US: "Service plugin HTTP service address not configured, please contact the system administrator to check the configuration"
+    zh_CN: "设备接入服务HTTP服务地址未配置，请联系系统管理员检测配置"
+    en_US: "Device access service HTTP service address not configured, please contact the system administrator to check the configuration"
   200068:
-    zh_CN: "该协议插件未启动或未安装，请联系管理员处理。"
-    en_US: "The protocol plugin is not started or not installed, please contact the administrator to handle."
+    zh_CN: "该设备接入服务未启动或未安装，请联系管理员处理。"
+    en_US: "The device access service is not started or not installed, please contact the administrator to handle."
   200069:
     zh_CN: "插件请求失败，请检查插件是否正常运行。"
     en_US: "Plugin request failed, please check if the plugin is running normally."

@@ -4,7 +4,7 @@ import "time"
 
 type CreateDeviceReq struct {
 	ID             *string `json:"id" validate:"omitempty,min=8,max=36"`         // 设备ID（可选，如提供则使用，否则自动生成）
-	Name           *string `json:"name" validate:"omitempty,max=255"`            // 设备名称
+	Name           *string `json:"name" validate:"required,max=255"`             // 设备名称
 	Voucher        *string `json:"voucher" validate:"omitempty,max=500"`         // 凭证
 	DeviceNumber   *string `json:"device_number" validate:"omitempty,max=36"`    // 设备编号
 	ProductID      *string `json:"product_id" validate:"omitempty,max=36"`       // 产品ID
