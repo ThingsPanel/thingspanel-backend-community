@@ -188,6 +188,6 @@ heartbeat:
 # Telemetry 安装量监测配置
 telemetry:
   enabled: true
-  posthog_key: ""                  # PostHog API Key (phc_xxxx)
-  posthog_host: "https://us.i.posthog.com"
+  posthog_key: "phc_Q3bkPulhlPGg8yoR4xel4PJuqE1UJCC4dRRKUmjnD91"   # TODO: Replace with your actual PostHog API Key
+  posthog_host: "https://stats.thingspanel.cn"
 #                                    # 多实例部署时，只有一个实例设为 true，其他实例设为 false
