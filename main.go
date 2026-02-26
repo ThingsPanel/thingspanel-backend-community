@@ -52,6 +52,7 @@ func main() {
 		app.WithGRPCService(),      // 6. gRPC
 		app.WithHTTPService(),      // 7. HTTP
 		app.WithCronService(),
+		app.WithTelemetry(), // 8. Telemetry
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "应用初始化失败: %v\n", err)

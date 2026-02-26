@@ -400,6 +400,14 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 	return count, userList, nil
 }
 
+func GetUsersCount() int64 {
+	count, err := query.User.Count()
+	if err != nil {
+		logrus.Error(err)
+	}
+	return count
+}
+
 func UpdateUserAddressOnly(userID string, addressReq *model.UpdateUserAddressReq) error {
 	return query.Q.Transaction(func(tx *query.Query) error {
 		// 查找现有地址

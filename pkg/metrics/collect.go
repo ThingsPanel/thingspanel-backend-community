@@ -1,93 +1,138 @@
-// pkg/metrics/metrics.go
 package metrics
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
-	"strconv"
+	"runtime"
 	"time"
+
+	"project/pkg/global"
+
+	"github.com/go-basic/uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 type InstanceInfo struct {
-	InstanceID string // 实例ID
-	Address    string // 地址
-	Count      int64  // 数量
-	Timestamp  string // 时间戳
+	InstanceID  string `json:"instance_id"`
+	Address     string `json:"address"`
+	DeviceCount int64  `json:"device_count"`
+	UserCount   int64  `json:"user_count"`
+	Version     string `json:"version"`
+	OS          string `json:"os"`
+	Arch        string `json:"arch"`
+	Timestamp   int64  `json:"timestamp"`
 }
 
 func NewInstance() *InstanceInfo {
-	return &InstanceInfo{}
+	return &InstanceInfo{
+		Version: global.VERSION,
+		OS:      runtime.GOOS,
+		Arch:    runtime.GOARCH,
+	}
 }
 
-// Instan 获取实例信息
-func (ins *InstanceInfo) Instan() {
-	ins.Timestamp = strconv.FormatInt(time.Now().Unix(), 10)
-
-	//
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		ins.Address = ""
-		return
+// GetPersistentInstanceID 获取或生成持久化的实例ID
+func GetPersistentInstanceID() string {
+	if global.DB == nil {
+		return "unknown"
 	}
 
-	for _, addr := range addrs {
-		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				ins.Address = ipnet.IP.String()
-				break
+	var instanceID string
+	err := global.DB.Table("sys_config").Where("config_key = ?", "instance_id").Select("config_value").Scan(&instanceID).Error
+	if err == nil && instanceID != "" {
+		return instanceID
+	}
+
+	// 如果没有，生成一个
+	instanceID = uuid.New()
+	err = global.DB.Exec("INSERT INTO sys_config (config_key, config_value, remark) VALUES (?, ?, ?)", "instance_id", instanceID, "Telemetry Instance ID").Error
+	if err != nil {
+		logrus.Errorf("Failed to save instance_id to DB: %v", err)
+	}
+	return instanceID
+}
+
+// Instan 获取实例运行时信息
+func (ins *InstanceInfo) Instan() {
+	ins.Timestamp = time.Now().Unix()
+	ins.InstanceID = GetPersistentInstanceID()
+
+	// 获取内网IP
+	addrs, err := net.InterfaceAddrs()
+	if err == nil {
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					ins.Address = ipnet.IP.String()
+					break
+				}
 			}
 		}
 	}
+}
 
-	interfaces, err := net.Interfaces()
-	timestamp := time.Now().UnixNano()
-
-	if err != nil {
-		ins.InstanceID = fmt.Sprintf("%s-%d", "null", timestamp)
+// SendToPostHog 发送数据到 PostHog
+func (ins *InstanceInfo) SendToPostHog() {
+	enabled := viper.GetBool("telemetry.enabled")
+	if !enabled {
 		return
 	}
 
-	for _, i := range interfaces {
-		if i.Flags&net.FlagLoopback == 0 && i.HardwareAddr != nil {
-			ins.InstanceID = fmt.Sprintf("%s-%d", i.HardwareAddr.String(), timestamp)
-			return
-		}
+	apiKey := viper.GetString("telemetry.posthog_key")
+	if apiKey == "" {
+		logrus.Warn("PostHog API Key is not configured, skipping telemetry")
+		return
 	}
-	ins.InstanceID = fmt.Sprintf("%s-%d", "null", timestamp)
-}
 
-func generateHMAC(message, secret string) string {
-	key := []byte(secret)
-	h := hmac.New(sha256.New, key)
-	h.Write([]byte(message))
-	signature := h.Sum(nil)
-	return hex.EncodeToString(signature)
-}
+	host := viper.GetString("telemetry.posthog_host")
+	if host == "" {
+		host = "https://us.i.posthog.com"
+	}
 
-// SendSignedRequest 发送带签名的请求
-func (ins *InstanceInfo) SendSignedRequest() {
-	signature := generateHMAC(ins.Timestamp, "1hj5b0sp9")
+	// PostHog Capture API format
+	payload := map[string]interface{}{
+		"api_key": apiKey,
+		"event":   "installation_heartbeat",
+		"properties": map[string]interface{}{
+			"distinct_id":  ins.InstanceID,
+			"ip":           ins.Address,
+			"version":      ins.Version,
+			"device_count": ins.DeviceCount,
+			"user_count":   ins.UserCount,
+			"os":           ins.OS,
+			"arch":         ins.Arch,
+			"timestamp":    ins.Timestamp,
+			"$lib":         "thingspanel-go-client",
+		},
+	}
 
-	jsonMessage, _ := json.Marshal(ins)
-	req, err := http.NewRequest("POST", "http://stats.thingspanel.cn/api/v1/c", bytes.NewBuffer(jsonMessage))
+	jsonData, _ := json.Marshal(payload)
+	url := fmt.Sprintf("%s/capture/", host)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return
 	}
-	req.Header.Set("X-Signature", "sha256="+signature)
-	req.Header.Set("X-Timestamp", ins.Timestamp)
 	req.Header.Set("Content-Type", "application/json")
 
-	// Sending the request
-	client := &http.Client{}
+	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		logrus.Debugf("Failed to send telemetry to PostHog: %v", err)
 		return
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		logrus.Debugf("PostHog returned non-OK status: %d", resp.StatusCode)
+	}
+}
+
+// Deprecated: 使用 SendToPostHog 代替
+func (ins *InstanceInfo) SendSignedRequest() {
+	ins.SendToPostHog()
 }

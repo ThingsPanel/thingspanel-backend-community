@@ -201,6 +201,7 @@ func (*DataScript) Exec(device *model.Device, scriptType string, msg []byte, top
 func (*DataScript) RunScript() {
 	ins := metrics.NewInstance()
 	ins.Instan()
-	ins.Count = dal.GetDevicesCount()
-	ins.SendSignedRequest()
+	ins.DeviceCount = dal.GetDevicesCount()
+	ins.UserCount = dal.GetUsersCount()
+	ins.SendToPostHog()
 }
