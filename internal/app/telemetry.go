@@ -20,6 +20,10 @@ func NewTelemetryService() *TelemetryService {
 	}
 }
 
+func (s *TelemetryService) Name() string {
+	return "Telemetry 服务"
+}
+
 func (s *TelemetryService) Start() error {
 	if !viper.GetBool("telemetry.enabled") {
 		return nil
@@ -49,7 +53,7 @@ func (s *TelemetryService) Stop() error {
 // WithTelemetry 注册安装量监测服务
 func WithTelemetry() Option {
 	return func(a *Application) error {
-		a.RegisterService("Telemetry", NewTelemetryService())
+		a.RegisterService(NewTelemetryService())
 		return nil
 	}
 }
