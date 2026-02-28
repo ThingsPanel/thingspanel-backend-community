@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"project/pkg/global"
@@ -35,22 +38,27 @@ func NewInstance() *InstanceInfo {
 
 // GetPersistentInstanceID 获取或生成持久化的实例ID
 func GetPersistentInstanceID() string {
-	if global.DB == nil {
-		return "unknown"
+	const configDir = "configs"
+	const idFile = ".instance_id"
+	idPath := filepath.Join(configDir, idFile)
+
+	// 1. 尝试从文件读取
+	if data, err := os.ReadFile(idPath); err == nil {
+		instanceID := strings.TrimSpace(string(data))
+		if instanceID != "" {
+			return instanceID
+		}
 	}
 
-	var instanceID string
-	err := global.DB.Table("sys_config").Where("config_key = ?", "instance_id").Select("config_value").Scan(&instanceID).Error
-	if err == nil && instanceID != "" {
-		return instanceID
+	// 2. 如果没有，生成一个
+	instanceID := uuid.New()
+
+	// 保存到文件
+	_ = os.MkdirAll(configDir, 0755)
+	if err := os.WriteFile(idPath, []byte(instanceID), 0644); err != nil {
+		logrus.Errorf("Failed to save instance_id to file: %v", err)
 	}
 
-	// 如果没有，生成一个
-	instanceID = uuid.New()
-	err = global.DB.Exec("INSERT INTO sys_config (config_key, config_value, remark) VALUES (?, ?, ?)", "instance_id", instanceID, "Telemetry Instance ID").Error
-	if err != nil {
-		logrus.Errorf("Failed to save instance_id to DB: %v", err)
-	}
 	return instanceID
 }
 
