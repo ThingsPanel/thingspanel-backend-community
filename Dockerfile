@@ -3,7 +3,7 @@ FROM golang:alpine AS builder
 WORKDIR $GOPATH/src/app
 ADD . ./
 ENV GO111MODULE=on
-ENV GOPROXY="https://goproxy.io"
+ENV GOPROXY="https://goproxy.cn,direct"
 RUN go build -o ThingsPanel-Go .
 
 FROM alpine:latest
