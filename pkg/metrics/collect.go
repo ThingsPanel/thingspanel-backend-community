@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"runtime"
 	"time"
@@ -18,7 +17,6 @@ import (
 
 type InstanceInfo struct {
 	InstanceID  string `json:"instance_id"`
-	Address     string `json:"address"`
 	DeviceCount int64  `json:"device_count"`
 	UserCount   int64  `json:"user_count"`
 	Version     string `json:"version"`
@@ -60,19 +58,6 @@ func GetPersistentInstanceID() string {
 func (ins *InstanceInfo) Instan() {
 	ins.Timestamp = time.Now().Unix()
 	ins.InstanceID = GetPersistentInstanceID()
-
-	// 获取内网IP
-	addrs, err := net.InterfaceAddrs()
-	if err == nil {
-		for _, addr := range addrs {
-			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-				if ipnet.IP.To4() != nil {
-					ins.Address = ipnet.IP.String()
-					break
-				}
-			}
-		}
-	}
 }
 
 // SendToPostHog 发送数据到 PostHog
@@ -99,7 +84,6 @@ func (ins *InstanceInfo) SendToPostHog() {
 		"event":   "installation_heartbeat",
 		"properties": map[string]interface{}{
 			"distinct_id":  ins.InstanceID,
-			"ip":           ins.Address,
 			"version":      ins.Version,
 			"device_count": ins.DeviceCount,
 			"user_count":   ins.UserCount,
