@@ -26,6 +26,9 @@ type DeviceTemplate struct {
 	AppChartConfig *string   `gorm:"column:app_chart_config;comment:app图表配置" json:"app_chart_config"` // app图表配置
 	Remark         *string   `gorm:"column:remark;comment:备注" json:"remark"`                          // 备注
 	Path           *string   `gorm:"column:path;comment:图片路径" json:"path"`                            // 图片路径
+	TypeKey        *string   `gorm:"column:type_key;comment:类型" json:"type_key"`                      // 类型
+	Brand          *string   `gorm:"column:brand;comment:品牌" json:"brand"`                            // 品牌
+	ModelNumber    *string   `gorm:"column:model_number;comment:型号" json:"model_number"`              // 型号
 }
 
 // TableName DeviceTemplate's table name

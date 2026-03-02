@@ -41,6 +41,9 @@ func newDeviceTemplate(db *gorm.DB, opts ...gen.DOOption) deviceTemplate {
 	_deviceTemplate.AppChartConfig = field.NewString(tableName, "app_chart_config")
 	_deviceTemplate.Remark = field.NewString(tableName, "remark")
 	_deviceTemplate.Path = field.NewString(tableName, "path")
+	_deviceTemplate.TypeKey = field.NewString(tableName, "type_key")
+	_deviceTemplate.Brand = field.NewString(tableName, "brand")
+	_deviceTemplate.ModelNumber = field.NewString(tableName, "model_number")
 
 	_deviceTemplate.fillFieldMap()
 
@@ -65,6 +68,9 @@ type deviceTemplate struct {
 	AppChartConfig field.String // app图表配置
 	Remark         field.String // 备注
 	Path           field.String // 图片路径
+	TypeKey        field.String // 类型
+	Brand          field.String // 品牌
+	ModelNumber    field.String // 型号
 
 	fieldMap map[string]field.Expr
 }
@@ -95,6 +101,9 @@ func (d *deviceTemplate) updateTableName(table string) *deviceTemplate {
 	d.AppChartConfig = field.NewString(table, "app_chart_config")
 	d.Remark = field.NewString(table, "remark")
 	d.Path = field.NewString(table, "path")
+	d.TypeKey = field.NewString(table, "type_key")
+	d.Brand = field.NewString(table, "brand")
+	d.ModelNumber = field.NewString(table, "model_number")
 
 	d.fillFieldMap()
 
@@ -111,7 +120,7 @@ func (d *deviceTemplate) GetFieldByName(fieldName string) (field.OrderExpr, bool
 }
 
 func (d *deviceTemplate) fillFieldMap() {
-	d.fieldMap = make(map[string]field.Expr, 14)
+	d.fieldMap = make(map[string]field.Expr, 17)
 	d.fieldMap["id"] = d.ID
 	d.fieldMap["name"] = d.Name
 	d.fieldMap["author"] = d.Author
@@ -126,6 +135,9 @@ func (d *deviceTemplate) fillFieldMap() {
 	d.fieldMap["app_chart_config"] = d.AppChartConfig
 	d.fieldMap["remark"] = d.Remark
 	d.fieldMap["path"] = d.Path
+	d.fieldMap["type_key"] = d.TypeKey
+	d.fieldMap["brand"] = d.Brand
+	d.fieldMap["model_number"] = d.ModelNumber
 }
 
 func (d deviceTemplate) clone(db *gorm.DB) deviceTemplate {

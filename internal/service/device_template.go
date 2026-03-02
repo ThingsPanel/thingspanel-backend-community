@@ -26,6 +26,8 @@ func (*DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, c
 
 	deviceTemplate.Path = req.Path
 	deviceTemplate.Label = req.Label
+	deviceTemplate.Brand = req.Brand
+	deviceTemplate.ModelNumber = req.ModelNumber
 
 	t := time.Now().UTC()
 
@@ -74,6 +76,12 @@ func (*DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, c
 	}
 	if req.Remark != nil {
 		t.Remark = req.Remark
+	}
+	if req.Brand != nil {
+		t.Brand = req.Brand
+	}
+	if req.ModelNumber != nil {
+		t.ModelNumber = req.ModelNumber
 	}
 	if req.WebChartConfig != nil {
 		if !IsJSON(*req.WebChartConfig) {

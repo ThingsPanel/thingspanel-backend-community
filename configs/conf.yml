@@ -20,7 +20,9 @@ log:
 jwt:
   key: 1hj5b0sp9
 
-
+market:
+  enabled: true
+  base_url: "http://127.0.0.1:8081" # Market service address
 
 db:
   psql:

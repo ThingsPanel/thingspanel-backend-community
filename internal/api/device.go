@@ -292,6 +292,120 @@ func (*DeviceApi) HandleDeviceTemplateByDeviceId(c *gin.Context) {
 	c.Set("data", data)
 }
 
+// MarketLogin 登录市场获取 Token
+// @Router   /api/v1/device/template/market/login [post]
+func (*DeviceApi) MarketLogin(c *gin.Context) {
+	var req model.MarketLoginReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	client := service.NewMarketClient()
+	token, err := client.Login(c, req.Username, req.Password)
+	if err != nil {
+		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": "Market login failed: " + err.Error(),
+		}))
+		return
+	}
+
+	c.Set("data", map[string]string{
+		"token": token,
+	})
+}
+
+// PublishToMarket 发布模板到市场
+// @Router   /api/v1/device/template/market/publish [post]
+func (*DeviceApi) PublishToMarket(c *gin.Context) {
+	var req model.PublishToMarketReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	// 调用服务层
+	apiResp, err := service.GroupApp.DeviceTemplate.PublishToMarket(req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", apiResp)
+}
+
+// ListMarketTemplates 获取市场模板列表
+// @Router   /api/v1/device/template/market/list [get]
+func (*DeviceApi) ListMarketTemplates(c *gin.Context) {
+	var req model.MarketTemplateListReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	var keyword, category, sortBy string
+	if req.Keyword != nil {
+		keyword = *req.Keyword
+	}
+	if req.Category != nil {
+		category = *req.Category
+	}
+	if req.SortBy != nil {
+		sortBy = *req.SortBy
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 20
+	}
+
+	client := service.NewMarketClient()
+	data, err := client.ListMarketTemplates(c, keyword, category, sortBy, req.Page, req.PageSize)
+	if err != nil {
+		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": "Failed to list market templates: " + err.Error(),
+		}))
+		return
+	}
+	c.Set("data", data)
+}
+
+// GetMarketTemplateDetail 获取市场模板详情
+// @Router   /api/v1/device/template/market/detail/:market_id [get]
+func (*DeviceApi) GetMarketTemplateDetail(c *gin.Context) {
+	marketID := c.Param("market_id")
+	if marketID == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "market_id is required"))
+		return
+	}
+
+	client := service.NewMarketClient()
+	data, err := client.GetMarketTemplateDetail(c, marketID)
+	if err != nil {
+		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": "Failed to get market template detail: " + err.Error(),
+		}))
+		return
+	}
+	c.Set("data", data)
+}
+
+// InstallFromMarket 从市场安装模板
+// @Router   /api/v1/device/template/market/install [post]
+func (*DeviceApi) InstallFromMarket(c *gin.Context) {
+	var req model.InstallFromMarketReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	data, err := service.GroupApp.DeviceTemplate.InstallFromMarket(req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
 // CreateDeviceGroup 创建设备分组
 // @Router   /api/v1/device/group [post]
 func (*DeviceApi) CreateDeviceGroup(c *gin.Context) {

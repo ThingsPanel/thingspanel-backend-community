@@ -136,6 +136,21 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 
 		// 根据分组ID获取设备下拉（带模板信息）
 		deviceTemplateapi.GET("/chart/select", api.Controllers.DeviceApi.HandleDeviceTemplateChartSelect)
+
+		// 市场集成组
+		deviceTemplateMarketApi := deviceTemplateapi.Group("market")
+		{
+			// 市场登录
+			deviceTemplateMarketApi.POST("/login", api.Controllers.DeviceApi.MarketLogin)
+			// 发布模板到市场
+			deviceTemplateMarketApi.POST("/publish", api.Controllers.DeviceApi.PublishToMarket)
+			// 市场模板列表
+			deviceTemplateMarketApi.GET("/list", api.Controllers.DeviceApi.ListMarketTemplates)
+			// 市场模板详情
+			deviceTemplateMarketApi.GET("/detail/:market_id", api.Controllers.DeviceApi.GetMarketTemplateDetail)
+			// 从市场安装模板
+			deviceTemplateMarketApi.POST("/install", api.Controllers.DeviceApi.InstallFromMarket)
+		}
 	}
 
 	// 设备分组
