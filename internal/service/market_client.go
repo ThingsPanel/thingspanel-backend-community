@@ -47,7 +47,7 @@ func (c *MarketClient) Login(ctx context.Context, username, password string) (st
 		return "", fmt.Errorf("failed to marshal login body: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/api/market/auth/login", c.baseURL)
+	url := fmt.Sprintf("%s/api/account/auth/login", c.baseURL)
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBytes))
 	if err != nil {
 		return "", fmt.Errorf("failed to create login request: %w", err)
