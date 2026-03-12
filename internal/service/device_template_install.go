@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"project/internal/dal"
@@ -28,26 +27,30 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 	}
 
 	// 2. Check if a template with the same name already exists locally
-	existingCount, err := query.DeviceTemplate.
+	existing, err := query.DeviceTemplate.WithContext(context.Background()).
 		Where(query.DeviceTemplate.Name.Eq(fullData.Name), query.DeviceTemplate.TenantID.Eq(claims.TenantID)).
-		Count()
-	if err != nil {
+		First()
+	if err != nil && err.Error() != "record not found" {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": "Failed to check existing template: " + err.Error(),
 		})
 	}
-	if existingCount > 0 {
-		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": fmt.Sprintf("Template '%s' already exists locally", fullData.Name),
-		})
+
+	var templateID string
+	var isUpdate bool
+	if existing != nil {
+		templateID = existing.ID
+		isUpdate = true
+	} else {
+		templateID = uuid.New()
+		isUpdate = false
 	}
 
 	// 3. Check plugin dependencies
 	missingPlugins := checkMissingPlugins(fullData.PluginDependencies)
 
-	// 4. Use transaction to create template + device models
+	// 4. Use transaction to create/update template + device models
 	now := time.Now().UTC()
-	templateID := uuid.New()
 	flag := int16(1) // private
 
 	brand := fullData.Brand
@@ -84,12 +87,28 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		}
 	}()
 
-	// Create device template
-	if err := tx.Create(newTemplate).Error; err != nil {
-		tx.Rollback()
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "Failed to create template: " + err.Error(),
-		})
+	if isUpdate {
+		// Clean up existing models for update
+		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelTelemetry{})
+		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelAttribute{})
+		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelEvent{})
+		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelCommand{})
+
+		// Update device template
+		if err := tx.Save(newTemplate).Error; err != nil {
+			tx.Rollback()
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "Failed to update template: " + err.Error(),
+			})
+		}
+	} else {
+		// Create device template
+		if err := tx.Create(newTemplate).Error; err != nil {
+			tx.Rollback()
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "Failed to create template: " + err.Error(),
+			})
+		}
 	}
 
 	// Create telemetry models
@@ -159,6 +178,15 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		})
 	}
 
+	// 5. Notify market service of installation (increment install_count)
+	// Do this after commit to ensure local installation is successful first
+	go func() {
+		err := client.InstallTemplate(context.Background(), req.MarketToken, req.MarketTemplateID, fullData.VersionID)
+		if err != nil {
+			logrus.Warnf("Failed to notify market service of installation: %v", err)
+		}
+	}()
+
 	// Fetch the created template from DB
 	createdTpl, _ := dal.GetDeviceTemplateById(templateID)
 
@@ -176,16 +204,9 @@ func checkMissingPlugins(deps []model.PluginDependency) []model.PluginDependency
 
 	var missing []model.PluginDependency
 	for _, dep := range deps {
-		// Check if plugin exists in service_plugins table
-		count, err := query.ServicePlugin.
-			Where(query.ServicePlugin.ServiceIdentifier.Eq(dep.PluginName)).
-			Count()
-		if err != nil {
-			logrus.Warnf("checkMissingPlugins: failed to query plugin '%s': %v", dep.PluginName, err)
-			missing = append(missing, dep)
-			continue
-		}
-		if count == 0 {
+		// Check if plugin exists (including hardcoded ones like MQTT)
+		p, err := dal.GetServicePluginByServiceIdentifier(dep.PluginName)
+		if err != nil || p == nil {
 			missing = append(missing, dep)
 		}
 	}

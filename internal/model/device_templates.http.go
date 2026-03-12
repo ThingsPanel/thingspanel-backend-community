@@ -99,6 +99,13 @@ type MarketLoginRsp struct {
 type PublishToMarketReq struct {
 	DeviceTemplateID string `json:"device_template_id" validate:"required,max=36"`
 	MarketToken      string `json:"market_token" validate:"required"` // 用户在市场的登录 token
+	MarketName       string `json:"market_name"`
+	Brand            string `json:"brand"`
+	Model            string `json:"model"`
+	Category         string `json:"category"`
+	Version          string `json:"version"`
+	Author           string `json:"author"`
+	Description      string `json:"description"`
 }
 
 // PublishTemplateReq 发布模板到市场的业务契约对象 (对应 Task-01 契约)
@@ -153,6 +160,7 @@ type MarketTemplateFullData struct {
 	ModelNumber        string                 `json:"model_number"`
 	Category           string                 `json:"category"`
 	Author             string                 `json:"author"`
+	VersionID          string                 `json:"version_id"`
 	Version            string                 `json:"version"`
 	Description        string                 `json:"description"`
 	Telemetry          []DeviceModelTelemetry `json:"telemetry"`

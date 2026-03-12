@@ -11,6 +11,7 @@ import (
 	"project/pkg/errcode"
 	"project/pkg/utils"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,9 +42,20 @@ func getPluginDependencies(templateID string) []model.PluginDependency {
 			continue
 		}
 		seen[pt] = true
+
+		// 查询插件真实版本
+		version := ""
+		pluginMsg, _ := query.ServicePlugin.WithContext(context.Background()).
+			Where(query.ServicePlugin.ServiceIdentifier.Eq(pt)).
+			First()
+		if pluginMsg != nil && pluginMsg.Version != nil {
+			version = *pluginMsg.Version
+		}
+
 		deps = append(deps, model.PluginDependency{
 			PluginName: pt,
 			PluginType: "protocol",
+			MinVersion: version,
 			Required:   true,
 		})
 	}
@@ -91,14 +103,40 @@ func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, claims *uti
 		deviceModel["commands"] = cmds
 	}
 
-	// 4. Extract brand/model_number
-	brand := ptrStr(tpl.Brand)
-	devModel := ptrStr(tpl.ModelNumber)
+	// 4. Extract metadata (priority: Request > Template > Default)
+	name := req.MarketName
+	if name == "" {
+		name = tpl.Name
+	}
+	brand := req.Brand
+	if brand == "" {
+		brand = ptrStr(tpl.Brand)
+	}
 	if brand == "" {
 		brand = "DefaultBrand"
 	}
+	devModel := req.Model
+	if devModel == "" {
+		devModel = ptrStr(tpl.ModelNumber)
+	}
 	if devModel == "" {
 		devModel = "DefaultModel"
+	}
+	category := req.Category
+	if category == "" {
+		category = "default"
+	}
+	version := req.Version
+	if version == "" {
+		version = ptrStr(tpl.Version)
+	}
+	author := req.Author
+	if author == "" {
+		author = ptrStr(tpl.Author)
+	}
+	description := req.Description
+	if description == "" {
+		description = ptrStr(tpl.Description)
 	}
 
 	// 5. Extract plugin dependencies from device_configs
@@ -106,28 +144,39 @@ func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, claims *uti
 
 	// 6. Build publish request
 	marketReq := &model.PublishTemplateReq{
-		Name:               tpl.Name,
+		Name:               name,
 		Brand:              brand,
 		Model:              devModel,
-		Category:           "default",
-		Author:             ptrStr(tpl.Author),
-		Version:            ptrStr(tpl.Version),
-		Description:        ptrStr(tpl.Description),
+		Category:           category,
+		Author:             author,
+		Version:            version,
+		Description:        description,
 		TemplateDefinition: tplDef,
 		DeviceModel:        deviceModel,
 		PluginDependencies: pluginDeps,
 	}
 
-	// 7. Send to Market
+	// 7. Parse MarketToken to get UserID (sub claim)
+	marketUserID := ""
+	token, _, _ := new(jwt.Parser).ParseUnverified(req.MarketToken, jwt.MapClaims{})
+	if token != nil {
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			if sub, ok := claims["sub"].(string); ok {
+				marketUserID = sub
+			}
+		}
+	}
+
+	// 8. Send to Market
 	client := NewMarketClient()
-	apiResp, err := client.PublishTemplate(context.Background(), req.MarketToken, marketReq)
+	apiResp, err := client.PublishTemplate(context.Background(), req.MarketToken, marketUserID, marketReq)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
 			"error": "Market service unreachable or request failed: " + err.Error(),
 		})
 	}
 
-	// 8. Handle version conflict (code 4009)
+	// 9. Handle version conflict (code 4009)
 	if apiResp.Code == 4009 {
 		return apiResp, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
 			"error":   "Version conflict: this template version already exists in the market",

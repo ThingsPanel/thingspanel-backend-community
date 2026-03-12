@@ -78,12 +78,12 @@ func (c *MarketClient) Login(ctx context.Context, username, password string) (st
 }
 
 // PublishTemplate publishes a template to the market.
-func (c *MarketClient) PublishTemplate(ctx context.Context, token string, req *model.PublishTemplateReq) (*model.MarketPublishApiResponse, error) {
+func (c *MarketClient) PublishTemplate(ctx context.Context, token string, userID string, req *model.PublishTemplateReq) (*model.MarketPublishApiResponse, error) {
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-
+	// ...
 	url := fmt.Sprintf("%s/api/market/templates/publish", c.baseURL)
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBytes))
 	if err != nil {
@@ -92,13 +92,16 @@ func (c *MarketClient) PublishTemplate(ctx context.Context, token string, req *m
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+token)
+	if userID != "" {
+		httpReq.Header.Set("X-User-Id", userID)
+	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}
 	defer resp.Body.Close()
-
+	// ...
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
@@ -177,7 +180,27 @@ func (c *MarketClient) ListMarketTemplates(ctx context.Context, keyword, categor
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse list response: %w", err)
 	}
-	return result, nil
+
+	// 转换结构以匹配前端习惯：将 market-service 的 data 字段映射为 list，并提取 total
+	// market-service 格式: {code:0, data:[], total:N, page:1, page_size:12}
+	// 期望输出格式: {list:[], total:N, page:1, page_size:12}
+	flattened := make(map[string]interface{})
+	if data, ok := result["data"]; ok {
+		flattened["list"] = data
+	} else {
+		flattened["list"] = []interface{}{}
+	}
+	if total, ok := result["total"]; ok {
+		flattened["total"] = total
+	}
+	if page, ok := result["page"]; ok {
+		flattened["page"] = page
+	}
+	if pageSize, ok := result["page_size"]; ok {
+		flattened["page_size"] = pageSize
+	}
+
+	return flattened, nil
 }
 
 // GetMarketTemplateDetail fetches a single template's detail from the market.
@@ -203,6 +226,19 @@ func (c *MarketClient) GetMarketTemplateDetail(ctx context.Context, marketTempla
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse detail response: %w", err)
 	}
+
+	// 提取内层数据，去掉 code 包装
+	if data, ok := result["data"].(map[string]interface{}); ok {
+		// 如果包含 template 和 versions，则进行合并以适配前端
+		if tpl, ok := data["template"].(map[string]interface{}); ok {
+			if vers, ok := data["versions"]; ok {
+				tpl["versions"] = vers
+			}
+			return tpl, nil
+		}
+		return data, nil
+	}
+
 	return result, nil
 }
 
@@ -234,10 +270,42 @@ func (c *MarketClient) DownloadTemplate(ctx context.Context, token string, marke
 		return nil, fmt.Errorf("download failed with status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	var fullData model.MarketTemplateFullData
-	if err := json.Unmarshal(bodyBytes, &fullData); err != nil {
+	var result struct {
+		Code int                          `json:"code"`
+		Data model.MarketTemplateFullData `json:"data"`
+	}
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse download response: %w", err)
 	}
 
-	return &fullData, nil
+	return &result.Data, nil
+}
+
+// InstallTemplate notifies the market service that a template has been installed.
+func (c *MarketClient) InstallTemplate(ctx context.Context, token string, marketTemplateID string, versionID string) error {
+	url := fmt.Sprintf("%s/api/market/templates/%s/install", c.baseURL, marketTemplateID)
+	reqBody := map[string]string{
+		"version_id": versionID,
+	}
+	reqBytes, _ := json.Marshal(reqBody)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBytes))
+	if err != nil {
+		return err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("install notification failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
 }
