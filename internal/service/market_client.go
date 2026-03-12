@@ -185,7 +185,7 @@ func (c *MarketClient) ListMarketTemplates(ctx context.Context, keyword, categor
 	// market-service 格式: {code:0, data:[], total:N, page:1, page_size:12}
 	// 期望输出格式: {list:[], total:N, page:1, page_size:12}
 	flattened := make(map[string]interface{})
-	if data, ok := result["data"]; ok {
+	if data, ok := result["data"]; ok && data != nil {
 		flattened["list"] = data
 	} else {
 		flattened["list"] = []interface{}{}
