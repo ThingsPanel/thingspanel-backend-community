@@ -22,7 +22,7 @@ jwt:
 
 market:
   enabled: true
-  base_url: "http://127.0.0.1:8081" # Market service address
+  base_url: "http://47.115.213.71:7060" # Market service address (via Kong gateway)
 
 db:
   psql:
