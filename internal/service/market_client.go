@@ -282,7 +282,8 @@ func (c *MarketClient) DownloadTemplate(ctx context.Context, token string, marke
 }
 
 // InstallTemplate notifies the market service that a template has been installed.
-func (c *MarketClient) InstallTemplate(ctx context.Context, token string, marketTemplateID string, versionID string) error {
+// InstallTemplate notifies the market service that a template has been installed.
+func (c *MarketClient) InstallTemplate(ctx context.Context, token string, marketTemplateID string, versionID string, userID string, orgID string) error {
 	url := fmt.Sprintf("%s/api/market/templates/%s/install", c.baseURL, marketTemplateID)
 	reqBody := map[string]string{
 		"version_id": versionID,
@@ -295,6 +296,12 @@ func (c *MarketClient) InstallTemplate(ctx context.Context, token string, market
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+token)
+	if userID != "" {
+		httpReq.Header.Set("X-User-Id", userID)
+		httpReq.Header.Set("X-Org-Id", orgID)
+		// For market installations, we permit the installer to act as an org_admin locally
+		httpReq.Header.Set("X-Roles", "org_admin,super_admin")
+	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {

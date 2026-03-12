@@ -181,9 +181,12 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 	// 5. Notify market service of installation (increment install_count)
 	// Do this after commit to ensure local installation is successful first
 	go func() {
-		err := client.InstallTemplate(context.Background(), req.MarketToken, req.MarketTemplateID, fullData.VersionID)
+		logrus.Infof("Notifying market of installation: TemplateID=%s, VersionID=%s, UserID=%s, OrgID=%s", req.MarketTemplateID, fullData.VersionID, claims.ID, claims.TenantID)
+		err := client.InstallTemplate(context.Background(), req.MarketToken, req.MarketTemplateID, fullData.VersionID, claims.ID, claims.TenantID)
 		if err != nil {
-			logrus.Warnf("Failed to notify market service of installation: %v", err)
+			logrus.Errorf("Failed to notify market service of installation: %v", err)
+		} else {
+			logrus.Infof("Successfully notified market service of installation for template %s", req.MarketTemplateID)
 		}
 	}()
 
