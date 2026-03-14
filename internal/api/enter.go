@@ -51,6 +51,7 @@ type Controller struct {
 	SystemMonitorApi
 	DeviceAuthApi // 设备动态认证
 	DeviceTopicMappingApi
+	DashboardMenuApi
 }
 
 var (

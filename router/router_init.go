@@ -151,6 +151,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.Board.InitBoard(v1) // 首页
 
+			apps.Model.DashboardMenu.Init(v1) // 仪表盘菜单绑定
+
 			apps.Model.EventData.InitEventData(v1) // 事件数据
 
 			apps.Model.TelemetryData.InitTelemetryData(v1) // 遥测数据

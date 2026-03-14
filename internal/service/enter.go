@@ -50,6 +50,7 @@ type ServiceGroup struct {
 	SystemMonitor
 	DeviceAuth
 	DeviceTopicMapping
+	DashboardMenu
 }
 
 var GroupApp = new(ServiceGroup)

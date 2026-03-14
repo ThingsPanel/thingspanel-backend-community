@@ -33,6 +33,7 @@ type apps struct {
 	MessagePush
 	SystemMonitor // 系统监控
 	DeviceAuth    // 设备动态认证
+	DashboardMenu
 }
 
 var Model = new(apps)
