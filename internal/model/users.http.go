@@ -101,6 +101,12 @@ type EmailRegisterReq struct {
 	Salt            *string `json:"salt" validate:"omitempty"`        // 随机盐
 }
 
+// MarketRegisterReq 超管注册请求（联动市场）
+type MarketRegisterReq struct {
+	Email    string `json:"email" validate:"required,email"` // 邮箱
+	Password string `json:"password" validate:"required,min=6"` // 密码
+}
+
 type CreateUserAddressReq struct {
 	Country         *string `json:"country" validate:"omitempty,max=50"`           // 国家
 	Province        *string `json:"province" validate:"omitempty,max=50"`          // 省份

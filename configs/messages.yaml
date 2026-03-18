@@ -142,6 +142,9 @@ messages:
   200054:
     zh_CN: "密码缺少以下元素：${missing_elements}"
     en_US: "Password is missing the following elements: ${missing_elements}"
+  200055:
+    zh_CN: "该邮箱尚未在市场注册，请先到市场完成注册后再回到此处创建超管账号"
+    en_US: "This email is not registered in the marketplace. Please register there first, then return here to create the super admin account"
 
   # 设备条件错误码 (200060-200069)
   200060:

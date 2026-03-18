@@ -106,6 +106,10 @@ func RouterInit() *gin.Engine {
 			v1.GET("sys_function", controllers.SysFunctionApi.HandleSysFcuntion)
 			// 租户邮箱注册
 			v1.POST("/tenant/email/register", controllers.UserApi.EmailRegister)
+			// 检查是否存在超管
+			v1.GET("/tenant/has-admin", controllers.UserApi.HasAdmin)
+			// 超管注册（联动市场）
+			v1.POST("/tenant/market-register", controllers.UserApi.MarketRegister)
 			// 网关自动注册
 			v1.POST("/device/gateway-register", controllers.DeviceApi.GatewayRegister)
 			// 网关子设备注册

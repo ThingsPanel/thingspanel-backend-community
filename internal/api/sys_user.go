@@ -285,6 +285,35 @@ func (*UserApi) EmailRegister(c *gin.Context) {
 	c.Set("data", loginRsp)
 }
 
+// HasAdmin GET /api/v1/tenant/has-admin
+// @description 检查是否存在超管账号
+func (*UserApi) HasAdmin(c *gin.Context) {
+	exists, err := service.GroupApp.User.CheckSysAdminExists()
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", gin.H{"has_admin": exists})
+}
+
+// MarketRegister POST /api/v1/tenant/market-register
+// @description 超管注册（联动市场）
+func (*UserApi) MarketRegister(c *gin.Context) {
+	var req model.MarketRegisterReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	loginRsp, err := service.GroupApp.User.MarketRegister(c, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", loginRsp)
+}
+
 // 获取租户ID
 // @Router   /api/v1/user/tenant/id [get]
 func (*UserApi) GetTenantID(c *gin.Context) {

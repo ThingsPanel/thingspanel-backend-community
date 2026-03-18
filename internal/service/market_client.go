@@ -36,6 +36,41 @@ func NewMarketClient() *MarketClient {
 	}
 }
 
+// CheckUserExists checks if a user with the given email exists in the market.
+func (c *MarketClient) CheckUserExists(ctx context.Context, email string) (bool, error) {
+	url := fmt.Sprintf("%s/api/account/auth/user/exists?email=%s", c.baseURL, email)
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to create check user request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return false, fmt.Errorf("check user request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("failed to read check user response: %w", err)
+	}
+
+	// 如果返回 404 或其他错误，认为用户不存在
+	if resp.StatusCode != http.StatusOK {
+		return false, nil
+	}
+
+	var result struct {
+		Exists bool   `json:"exists"`
+		Email  string `json:"email"`
+	}
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
+		return false, fmt.Errorf("failed to parse check user response: %w", err)
+	}
+
+	return result.Exists, nil
+}
+
 // Login authenticates with the market service to get an access token.
 func (c *MarketClient) Login(ctx context.Context, username, password string) (string, error) {
 	reqBody := map[string]string{

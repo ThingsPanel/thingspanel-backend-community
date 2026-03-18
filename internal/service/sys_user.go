@@ -815,6 +815,82 @@ func (u *User) GetUserEmailByPhoneNumber(phoneNumber string) (string, error) {
 	return user.Email, nil
 }
 
+// CheckSysAdminExists 检查是否存在超管账号
+func (u *User) CheckSysAdminExists() (bool, error) {
+	users := query.User
+	userList, err := users.Where(users.Authority.Eq("SYS_ADMIN")).Find()
+	if err != nil {
+		return false, err
+	}
+	return len(userList) > 0, nil
+}
+
+// MarketRegister 超管注册（联动市场）
+func (u *User) MarketRegister(ctx context.Context, req *model.MarketRegisterReq) (*model.LoginRsp, error) {
+	// 1. 调用市场 API 检查邮箱是否已注册
+	marketClient := NewMarketClient()
+	exists, err := marketClient.CheckUserExists(ctx, req.Email)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": "failed to check market user: " + err.Error(),
+		})
+	}
+
+	if !exists {
+		// 邮箱未在市场注册（勿复用 200050，该码已用于功能模板删除等业务文案）
+		return nil, errcode.New(200055)
+	}
+
+	// 2. 邮箱已在市场注册，创建本地超管账号（跳过验证码）
+	// 验证邮箱是否已注册（本地）
+	user, err := dal.GetUsersByEmail(req.Email)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "query_user",
+			"email":     req.Email,
+			"error":     err.Error(),
+		})
+	}
+	if user != nil {
+		return nil, errcode.New(200008) // 邮箱已注册
+	}
+
+	// 密码格式校验
+	if err := utils.ValidatePassword(req.Password); err != nil {
+		return nil, err
+	}
+
+	// bcrypt 加密密码
+	hashedPassword := utils.BcryptHash(req.Password)
+
+	now := time.Now().UTC()
+
+	// 构建超管用户信息
+	userInfo := &model.User{
+		ID:                  uuid.New(),
+		Name:                &req.Email,
+		Email:               req.Email,
+		Status:              StringPtr("N"),
+		Authority:           StringPtr("SYS_ADMIN"), // 超管权限
+		Password:            hashedPassword,
+		TenantID:            StringPtr(""),
+		CreatedAt:           &now,
+		UpdatedAt:           &now,
+		PasswordLastUpdated: &now,
+	}
+
+	// 创建用户
+	if err = dal.CreateUsers(userInfo); err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "create_user",
+			"email":     req.Email,
+			"error":     err.Error(),
+		})
+	}
+
+	return u.UserLoginAfter(userInfo)
+}
+
 // 根据租户ID查询租户信息
 func (u *User) GetTenantInfo(tenantID string) (*model.User, error) {
 	tenant, err := dal.GetTenantsById(tenantID)
