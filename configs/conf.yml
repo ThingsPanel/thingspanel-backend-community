@@ -147,7 +147,7 @@ automation_task_confg:
 
 ota:
  # 推送设备端的ota升级包下载地址
-  download_address: http://demo.thingspanel.cn 
+  download_address: http://127.0.0.1:8080 
 
 classified-protect:
   # 连续登录失败次数则锁定，-1表示不受限制，可以一直尝试登录
