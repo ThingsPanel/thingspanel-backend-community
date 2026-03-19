@@ -22,7 +22,7 @@ jwt:
 
 market:
   enabled: true
-  base_url: "http://47.115.213.71:7060" # Market service address (via Kong gateway)
+  base_url: "http://r.thingspanel.cn:7060" # Market service address (via Kong gateway)
 
 db:
   psql:
