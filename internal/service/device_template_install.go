@@ -178,11 +178,19 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		})
 	}
 
-	// 5. Notify market service of installation (increment install_count)
-	// Do this after commit to ensure local installation is successful first
+	// 5. Notify market service of installation (increment install_count + deduct credits)
+	// Use the market token's subject (Keycloak user_id) for credit deduction, not the IoT platform user ID.
+	marketUserID, err := client.ExtractUserIDFromMarketToken(req.MarketToken)
+	if err != nil {
+		logrus.Warnf("Could not extract market user_id from token, install notification may fail: %v", err)
+		marketUserID = ""
+	}
+	if marketUserID == "" {
+		marketUserID = claims.ID
+	}
+	logrus.Infof("Notifying market of installation: TemplateID=%s, VersionID=%s, MarketUserID=%s, OrgID=%s", req.MarketTemplateID, fullData.VersionID, marketUserID, claims.TenantID)
 	go func() {
-		logrus.Infof("Notifying market of installation: TemplateID=%s, VersionID=%s, UserID=%s, OrgID=%s", req.MarketTemplateID, fullData.VersionID, claims.ID, claims.TenantID)
-		err := client.InstallTemplate(context.Background(), req.MarketToken, req.MarketTemplateID, fullData.VersionID, claims.ID, claims.TenantID)
+		err := client.InstallTemplate(context.Background(), req.MarketToken, req.MarketTemplateID, fullData.VersionID, marketUserID, claims.TenantID)
 		if err != nil {
 			logrus.Errorf("Failed to notify market service of installation: %v", err)
 		} else {

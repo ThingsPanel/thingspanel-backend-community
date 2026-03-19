@@ -11,6 +11,7 @@ import (
 
 	"project/internal/model"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/spf13/viper"
 )
 
@@ -306,17 +307,40 @@ func (c *MarketClient) DownloadTemplate(ctx context.Context, token string, marke
 	}
 
 	var result struct {
-		Code int                          `json:"code"`
+		Code int                           `json:"code"`
 		Data model.MarketTemplateFullData `json:"data"`
 	}
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse download response: %w", err)
 	}
 
+	fmt.Printf("[MarketClient] DownloadTemplate: MarketTemplateID=%s, VersionID=%s, Version=%s, Name=%s\n",
+		marketTemplateID, result.Data.VersionID, result.Data.Version, result.Data.Name)
+
 	return &result.Data, nil
 }
 
-// InstallTemplate notifies the market service that a template has been installed.
+// ExtractUserIDFromMarketToken parses the market (Keycloak) JWT and returns the subject (user_id).
+// The market credit account is keyed by this ID, not by the IoT platform's user ID.
+func (c *MarketClient) ExtractUserIDFromMarketToken(tokenString string) (string, error) {
+	if tokenString == "" {
+		return "", fmt.Errorf("empty token")
+	}
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+	if err != nil || token == nil {
+		return "", fmt.Errorf("parse market token: %w", err)
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", fmt.Errorf("invalid token claims")
+	}
+	sub, _ := claims["sub"].(string)
+	if sub == "" {
+		return "", fmt.Errorf("token missing sub claim")
+	}
+	return sub, nil
+}
+
 // InstallTemplate notifies the market service that a template has been installed.
 func (c *MarketClient) InstallTemplate(ctx context.Context, token string, marketTemplateID string, versionID string, userID string, orgID string) error {
 	url := fmt.Sprintf("%s/api/market/templates/%s/install", c.baseURL, marketTemplateID)
@@ -324,6 +348,8 @@ func (c *MarketClient) InstallTemplate(ctx context.Context, token string, market
 		"version_id": versionID,
 	}
 	reqBytes, _ := json.Marshal(reqBody)
+
+	fmt.Printf("[MarketClient] InstallTemplate: URL=%s, MarketTemplateID=%s, VersionID=%s, UserID=%s, OrgID=%s\n", url, marketTemplateID, versionID, userID, orgID)
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBytes))
 	if err != nil {
