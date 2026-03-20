@@ -7,3 +7,10 @@
 .idea/
 
 files/logs/
+
+# Process markdown artifacts
+.ai/*.md
+docs/architecture/*.md
+docs/architecture/**/*.md
+iteration-log.md
+project-context.md

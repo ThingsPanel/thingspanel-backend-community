@@ -15,7 +15,7 @@ import (
 
 type DashboardMenu struct{}
 
-func validateDashboardTenantAccess(tenantID string, dashboardID string) error {
+func validateDashboardMenuAccess(tenantID string, dashboardID string) error {
 	normalizedTenantID := strings.TrimSpace(tenantID)
 	normalizedDashboardID := strings.TrimSpace(dashboardID)
 
@@ -25,23 +25,6 @@ func validateDashboardTenantAccess(tenantID string, dashboardID string) error {
 
 	if normalizedDashboardID == "" {
 		return errcode.NewWithMessage(errcode.CodeParamError, "dashboard_id is required")
-	}
-
-	dashboard, err := dal.GetVisDashboardByID(normalizedDashboardID)
-	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"operation":    "get_vis_dashboard",
-			"dashboard_id": normalizedDashboardID,
-			"error":        err.Error(),
-		})
-	}
-
-	if dashboard == nil {
-		return errcode.NewWithMessage(errcode.CodeNotFound, "dashboard not found")
-	}
-
-	if dashboard.TenantID == nil || strings.TrimSpace(*dashboard.TenantID) != normalizedTenantID {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "dashboard not owned by current tenant")
 	}
 
 	return nil
@@ -64,7 +47,7 @@ func (*DashboardMenu) GetTenantDashboardMenu(tenantID string, dashboardID string
 }
 
 func (*DashboardMenu) UpsertTenantDashboardMenu(claims *utils.UserClaims, dashboardID string, req *model.UpsertTenantDashboardMenuReq) (*model.TenantDashboardMenuRsp, error) {
-	if err := validateDashboardTenantAccess(claims.TenantID, dashboardID); err != nil {
+	if err := validateDashboardMenuAccess(claims.TenantID, dashboardID); err != nil {
 		return nil, err
 	}
 
