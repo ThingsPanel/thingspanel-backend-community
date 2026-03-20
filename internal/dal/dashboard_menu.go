@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	model "project/internal/model"
+	query "project/internal/query"
 	global "project/pkg/global"
 
 	"github.com/sirupsen/logrus"
@@ -64,4 +65,16 @@ func ListTenantDashboardMenus(tenantID string, parentCode string) ([]model.Tenan
 		logrus.Error(err)
 	}
 	return menus, err
+}
+
+func GetVisDashboardByID(dashboardID string) (*model.VisDashboard, error) {
+	dashboard, err := query.VisDashboard.Where(query.VisDashboard.ID.Eq(dashboardID)).First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		logrus.Error(err)
+		return nil, err
+	}
+	return dashboard, nil
 }
