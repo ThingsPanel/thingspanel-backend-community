@@ -9,9 +9,9 @@ import (
 )
 
 var (
-	VERSION         = "0.0.15"
-	VERSION_NUMBER  = 15
-	SYSTEM_VERSION  = "v1.1.15"
+	VERSION         = "0.0.16"
+	VERSION_NUMBER  = 16
+	SYSTEM_VERSION  = "v1.1.13.5"
 	DB              *gorm.DB
 	REDIS           *redis.Client
 	STATUS_REDIS    *redis.Client
