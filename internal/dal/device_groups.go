@@ -70,6 +70,24 @@ func GetDeviceGroupAll(tenantId string) ([]*model.Group, error) {
 	return g, nil
 }
 
+func GetAutoBindRootDeviceGroupID(tx *query.Query, tenantId string) (string, error) {
+	rootGroups, err := tx.Group.
+		Where(tx.Group.TenantID.Eq(tenantId)).
+		Where(tx.Group.ParentID.Eq("0")).
+		Order(tx.Group.CreatedAt.Asc()).
+		Find()
+	if err != nil {
+		logrus.Error(err)
+		return "", err
+	}
+
+	if len(rootGroups) != 1 {
+		return "", nil
+	}
+
+	return rootGroups[0].ID, nil
+}
+
 func GetDeviceGroupDetail(id string) (*model.Group, error) {
 	d, err := query.Group.Where(query.Group.ID.Eq(id)).First()
 	if err != nil {

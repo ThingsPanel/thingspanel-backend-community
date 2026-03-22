@@ -21,16 +21,56 @@ import (
 )
 
 func CreateDevice(device *model.Device) error {
-	return query.Device.Create(device)
+	return createDevicesWithDefaultRootGroup([]*model.Device{device})
 }
 
 // 批量创建设备
 func CreateDeviceBatch(devices []*model.Device) error {
-	return query.Device.Create(devices...)
+	return createDevicesWithDefaultRootGroup(devices)
 }
 
 func CreateDeviceBath(devices []*model.Device) error {
-	return query.Device.Create(devices...)
+	return createDevicesWithDefaultRootGroup(devices)
+}
+
+func createDevicesWithDefaultRootGroup(devices []*model.Device) error {
+	if len(devices) == 0 {
+		return nil
+	}
+
+	tenantID := devices[0].TenantID
+	return query.Q.Transaction(func(tx *query.Query) error {
+		if err := tx.Device.Create(devices...); err != nil {
+			return err
+		}
+
+		if tenantID == "" {
+			return nil
+		}
+
+		groupID, err := GetAutoBindRootDeviceGroupID(tx, tenantID)
+		if err != nil || groupID == "" {
+			return err
+		}
+
+		relations := make([]*model.RGroupDevice, 0, len(devices))
+		for _, device := range devices {
+			if device == nil || device.ID == "" || device.TenantID != tenantID {
+				continue
+			}
+			relations = append(relations, &model.RGroupDevice{
+				GroupID:  groupID,
+				DeviceID: device.ID,
+				TenantID: tenantID,
+			})
+		}
+
+		if len(relations) == 0 {
+			return nil
+		}
+
+		return tx.RGroupDevice.Create(relations...)
+	})
 }
 
 func UpdateDevice(device *model.Device) (*model.Device, error) {
