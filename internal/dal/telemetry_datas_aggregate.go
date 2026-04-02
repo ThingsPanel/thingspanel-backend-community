@@ -41,30 +41,39 @@ func GetTelemetryDatasAggregate(_ context.Context, telemetryDatasAggregate Telem
 
 }
 
-// 获取queryString，支持平均值，最大值，最小值，合
+// 获取queryString，支持平均值，最大值，最小值，合计
 func GetQueryString1(aggregateFunction string) string {
 	queryString := fmt.Sprintf(
-		`WITH TimeIntervals AS (
-				SELECT 
-					ts - (ts %% ?) AS x, 
-					CAST(%s(number_v) AS NUMERIC(16,4)) AS y 
-				FROM 
-					telemetry_datas 
-				WHERE 
-					ts BETWEEN ? AND ? AND key = ? AND device_id = ? 
-				GROUP BY 
+		`WITH FilteredData AS (
+				SELECT
+					ts / 1000 AS ts_sec,
+					number_v
+				FROM
+					telemetry_datas
+				WHERE
+					ts BETWEEN ? AND ? AND key = ? AND device_id = ?
+					AND number_v IS NOT NULL
+					AND abs(number_v) < 1e15
+			),
+			TimeIntervals AS (
+				SELECT
+					ts_sec - (ts_sec %% ?) AS x,
+					%s(number_v) AS y
+				FROM
+					FilteredData
+				GROUP BY
 					x
 			)
-			SELECT 
-				x, 
-				x + ? AS x2, 
-				y 
-			FROM 
-				TimeIntervals 
-			WHERE 
-				y IS NOT NULL 
-			ORDER BY 
-				x asc;`,
+			SELECT
+				x * 1000 AS x,
+				(x + ?) * 1000 AS x2,
+				y
+			FROM
+				TimeIntervals
+			WHERE
+				y IS NOT NULL
+			ORDER BY
+				x ASC;`,
 		aggregateFunction,
 	)
 	return queryString
@@ -72,28 +81,36 @@ func GetQueryString1(aggregateFunction string) string {
 
 // 获取queryString，支持差值计算
 func GetQueryString2(_ string) string {
-
 	queryString := fmt.Sprintf(
-		`WITH TimeIntervals AS (
-				SELECT 
-					ts - (ts %% ?) AS x, 
-					MAX(number_v) - MIN(number_v) AS y 
-				FROM 
-					telemetry_datas 
-				WHERE 
-					ts BETWEEN ? AND ? AND key = ? AND device_id = ? 
-				GROUP BY 
+		`WITH FilteredData AS (
+				SELECT
+					ts / 1000 AS ts_sec,
+					number_v
+				FROM
+					telemetry_datas
+				WHERE
+					ts BETWEEN ? AND ? AND key = ? AND device_id = ?
+					AND number_v IS NOT NULL
+					AND abs(number_v) < 1e15
+			),
+			TimeIntervals AS (
+				SELECT
+					ts_sec - (ts_sec %% ?) AS x,
+					MAX(number_v) - MIN(number_v) AS y
+				FROM
+					FilteredData
+				GROUP BY
 					x
 			)
-			SELECT 
-				x, 
-				x + ? AS x2, 
-				y 
-			FROM 
-				TimeIntervals 
-			WHERE 
-				y IS NOT NULL 
-			ORDER BY 
+			SELECT
+				x * 1000 AS x,
+				(x + ?) * 1000 AS x2,
+				y
+			FROM
+				TimeIntervals
+			WHERE
+				y IS NOT NULL
+			ORDER BY
 				x ASC;`,
 	)
 
