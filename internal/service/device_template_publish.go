@@ -12,7 +12,6 @@ import (
 	"project/pkg/utils"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/sirupsen/logrus"
 )
 
 // ptrStr safely dereferences a *string, returning "" if nil.
@@ -23,66 +22,68 @@ func ptrStr(s *string) string {
 	return *s
 }
 
-// getPluginDependencies 从 device_configs 中提取模板关联的协议插件依赖
-func getPluginDependencies(templateID string) []model.PluginDependency {
-	configs, err := query.DeviceConfig.
-		Where(query.DeviceConfig.DeviceTemplateID.Eq(templateID)).
-		Find()
-	if err != nil {
-		logrus.Warnf("getPluginDependencies query error: %v", err)
-		return []model.PluginDependency{}
+// ptrInt16 safely dereferences a *int16, returning 0 if nil.
+func ptrInt16(i *int16) int16 {
+	if i == nil {
+		return 0
 	}
-
-	// 用 map 去重 (按 protocol_type)
-	seen := make(map[string]bool)
-	var deps []model.PluginDependency
-	for _, cfg := range configs {
-		pt := ptrStr(cfg.ProtocolType)
-		if pt == "" || seen[pt] {
-			continue
-		}
-		seen[pt] = true
-
-		// 查询插件真实版本
-		version := ""
-		pluginMsg, _ := query.ServicePlugin.WithContext(context.Background()).
-			Where(query.ServicePlugin.ServiceIdentifier.Eq(pt)).
-			First()
-		if pluginMsg != nil && pluginMsg.Version != nil {
-			version = *pluginMsg.Version
-		}
-
-		deps = append(deps, model.PluginDependency{
-			PluginName: pt,
-			PluginType: "protocol",
-			MinVersion: version,
-			Required:   true,
-		})
-	}
-
-	if deps == nil {
-		return []model.PluginDependency{}
-	}
-	return deps
+	return *i
 }
 
-// PublishToMarket packages a device template and publishes it to the market
+// parseJSON parses a JSON string into a map, returning nil on error.
+func parseJSON(data string) map[string]interface{} {
+	if data == "" {
+		return nil
+	}
+	var result map[string]interface{}
+	_ = json.Unmarshal([]byte(data), &result)
+	return result
+}
+
+// PublishToMarket 以 device_config_id 为入口，发布 DeviceConfig（凭证协议）和 DeviceTemplate（物模型+面板）到市场
 func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, claims *utils.UserClaims) (*model.MarketPublishApiResponse, error) {
-	// 1. Get the template
-	tpl, err := dal.GetDeviceTemplateById(req.DeviceTemplateID)
+	// 1. Get the DeviceConfig
+	dc, err := dal.GetDeviceConfigByID(req.DeviceConfigID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": fmt.Sprintf("failed to find template: %s", err.Error()),
+			"error": fmt.Sprintf("failed to find device config: %s", err.Error()),
 		})
 	}
 
-	// 2. Build template definition from WebChartConfig
-	tplDef := make(map[string]interface{})
-	if tpl.WebChartConfig != nil && *tpl.WebChartConfig != "" {
-		_ = json.Unmarshal([]byte(*tpl.WebChartConfig), &tplDef)
+	// 2. Get the DeviceTemplate (via device_template_id)
+	if dc.DeviceTemplateID == nil || *dc.DeviceTemplateID == "" {
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "device config has no associated device template",
+		})
+	}
+	tplID := *dc.DeviceTemplateID
+	tpl, err := dal.GetDeviceTemplateById(tplID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": fmt.Sprintf("failed to find device template: %s", err.Error()),
+		})
 	}
 
-	// 3. Build device model (telemetry, attributes, commands, events)
+	// 3. Build DeviceConfig payload (凭证协议配置)
+	deviceConfig := &model.DeviceConfigPayload{
+		Name:           dc.Name,
+		DeviceType:     dc.DeviceType,
+		ProtocolType:   ptrStr(dc.ProtocolType),
+		VoucherType:    ptrStr(dc.VoucherType),
+		ProtocolConfig: parseJSON(ptrStr(dc.ProtocolConfig)),
+		DeviceConnType: ptrStr(dc.DeviceConnType),
+		OtherConfig:    parseJSON(ptrStr(dc.OtherConfig)),
+		AdditionalInfo: parseJSON(ptrStr(dc.AdditionalInfo)),
+		AutoRegister:   dc.AutoRegister,
+	}
+
+	// 4. Build TemplateDefinition payload (面板配置)
+	tplDef := map[string]interface{}{
+		"web_chart_config": parseJSON(ptrStr(tpl.WebChartConfig)),
+		"app_chart_config": parseJSON(ptrStr(tpl.AppChartConfig)),
+	}
+
+	// 5. Build device model (telemetry, attributes, commands, events)
 	deviceModel := map[string]interface{}{
 		"telemetry":  []interface{}{},
 		"attributes": []interface{}{},
@@ -90,20 +91,20 @@ func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, claims *uti
 		"events":     []interface{}{},
 	}
 
-	if ts, err := dal.GetDeviceModelTelemetryDataList(tpl.ID); err == nil && ts != nil {
+	if ts, err := dal.GetDeviceModelTelemetryDataList(tplID); err == nil && ts != nil {
 		deviceModel["telemetry"] = ts
 	}
-	if attrs, err := dal.GetDeviceModelAttributeDataList(tpl.ID); err == nil && attrs != nil {
+	if attrs, err := dal.GetDeviceModelAttributeDataList(tplID); err == nil && attrs != nil {
 		deviceModel["attributes"] = attrs
 	}
-	if evts, err := dal.GetDeviceModelEventDataList(tpl.ID); err == nil && evts != nil {
+	if evts, err := dal.GetDeviceModelEventDataList(tplID); err == nil && evts != nil {
 		deviceModel["events"] = evts
 	}
-	if cmds, err := dal.GetDeviceModelCommandDataList(tpl.ID); err == nil && cmds != nil {
+	if cmds, err := dal.GetDeviceModelCommandDataList(tplID); err == nil && cmds != nil {
 		deviceModel["commands"] = cmds
 	}
 
-	// 4. Extract metadata (priority: Request > Template > Default)
+	// 6. Extract metadata (priority: Request > Template/Config > Default)
 	name := req.MarketName
 	if name == "" {
 		name = tpl.Name
@@ -139,10 +140,10 @@ func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, claims *uti
 		description = ptrStr(tpl.Description)
 	}
 
-	// 5. Extract plugin dependencies from device_configs
-	pluginDeps := getPluginDependencies(tpl.ID)
+	// 7. Extract plugin dependencies from DeviceConfig.protocol_type
+	pluginDeps := getPluginDependenciesFromProtocol(dc)
 
-	// 6. Build publish request
+	// 8. Build publish request to market
 	marketReq := &model.PublishTemplateReq{
 		Name:               name,
 		Brand:              brand,
@@ -151,12 +152,19 @@ func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, claims *uti
 		Author:             author,
 		Version:            version,
 		Description:        description,
-		TemplateDefinition: tplDef,
-		DeviceModel:        deviceModel,
+		DeviceConfig:       deviceConfig,
+		TemplateDefinition: map[string]interface{}{
+			"web_chart_config": tplDef["web_chart_config"],
+			"app_chart_config": tplDef["app_chart_config"],
+			"telemetry":        deviceModel["telemetry"],
+			"attributes":       deviceModel["attributes"],
+			"commands":         deviceModel["commands"],
+			"events":           deviceModel["events"],
+		},
 		PluginDependencies: pluginDeps,
 	}
 
-	// 7. Parse MarketToken to get UserID (sub claim)
+	// 9. Parse MarketToken to get UserID (sub claim)
 	marketUserID := ""
 	token, _, _ := new(jwt.Parser).ParseUnverified(req.MarketToken, jwt.MapClaims{})
 	if token != nil {
@@ -167,7 +175,7 @@ func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, claims *uti
 		}
 	}
 
-	// 8. Send to Market
+	// 10. Send to Market
 	client := NewMarketClient()
 	apiResp, err := client.PublishTemplate(context.Background(), req.MarketToken, marketUserID, marketReq)
 	if err != nil {
@@ -176,7 +184,7 @@ func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, claims *uti
 		})
 	}
 
-	// 9. Handle version conflict (code 4009)
+	// 11. Handle version conflict (code 4009)
 	if apiResp.Code == 4009 {
 		return apiResp, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
 			"error":   "Version conflict: this template version already exists in the market",
@@ -191,4 +199,30 @@ func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, claims *uti
 	}
 
 	return apiResp, nil
+}
+
+// getPluginDependenciesFromProtocol 从 DeviceConfig 的 protocol_type 提取插件依赖
+func getPluginDependenciesFromProtocol(dc *model.DeviceConfig) []model.PluginDependency {
+	pt := ptrStr(dc.ProtocolType)
+	if pt == "" {
+		return []model.PluginDependency{}
+	}
+
+	// 查询插件真实版本
+	version := ""
+	pluginMsg, _ := query.ServicePlugin.WithContext(context.Background()).
+		Where(query.ServicePlugin.ServiceIdentifier.Eq(pt)).
+		First()
+	if pluginMsg != nil && pluginMsg.Version != nil {
+		version = *pluginMsg.Version
+	}
+
+	return []model.PluginDependency{
+		{
+			PluginName: pt,
+			PluginType: "protocol",
+			MinVersion: version,
+			Required:   true,
+		},
+	}
 }

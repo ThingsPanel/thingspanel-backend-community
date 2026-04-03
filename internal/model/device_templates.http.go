@@ -96,19 +96,33 @@ type MarketLoginRsp struct {
 }
 
 // PublishToMarketReq 发布到市场请求 (本地接口接收)
+// 发布单位是 device_config，包含凭证协议配置和它引用的 device_template（物模型+面板）
 type PublishToMarketReq struct {
-	DeviceTemplateID string `json:"device_template_id" validate:"required,max=36"`
-	MarketToken      string `json:"market_token" validate:"required"` // 用户在市场的登录 token
-	MarketName       string `json:"market_name"`
-	Brand            string `json:"brand"`
-	Model            string `json:"model"`
-	Category         string `json:"category"`
-	Version          string `json:"version"`
-	Author           string `json:"author"`
-	Description      string `json:"description"`
+	DeviceConfigID string `json:"device_config_id" validate:"required,max=36"` // 设备配置ID（主键）
+	MarketToken    string `json:"market_token" validate:"required"`            // 用户在市场的登录 token
+	MarketName     string `json:"market_name"`                                 // 市场展示名称
+	Brand          string `json:"brand"`                                       // 品牌
+	Model          string `json:"model"`                                       // 型号
+	Category       string `json:"category"`                                     // 分类
+	Version        string `json:"version"`                                      // 版本号
+	Author         string `json:"author"`                                      // 作者
+	Description    string `json:"description"`                                 // 描述
 }
 
-// PublishTemplateReq 发布模板到市场的业务契约对象 (对应 Task-01 契约)
+// DeviceConfigPayload 设备配置（凭证+协议）
+type DeviceConfigPayload struct {
+	Name           string                 `json:"name"`
+	DeviceType     string                 `json:"device_type"`
+	ProtocolType   string                 `json:"protocol_type"`
+	VoucherType    string                 `json:"voucher_type"`
+	ProtocolConfig map[string]interface{} `json:"protocol_config"`
+	DeviceConnType string                 `json:"device_conn_type"`
+	OtherConfig    map[string]interface{} `json:"other_config"`
+	AdditionalInfo map[string]interface{} `json:"additional_info"`
+	AutoRegister   int16                  `json:"auto_register"`
+}
+
+// PublishTemplateReq 发布模板到市场的业务契约对象（发送给 market-service）
 type PublishTemplateReq struct {
 	Name               string                 `json:"name"`
 	Brand              string                 `json:"brand"`
@@ -117,8 +131,10 @@ type PublishTemplateReq struct {
 	Author             string                 `json:"author"`
 	Version            string                 `json:"version"`
 	Description        string                 `json:"description"`
+	// DeviceConfig 凭证协议配置
+	DeviceConfig       *DeviceConfigPayload   `json:"device_config"`
+	// TemplateDefinition 模板定义（面板+物模型）
 	TemplateDefinition map[string]interface{} `json:"template_definition"`
-	DeviceModel        map[string]interface{} `json:"device_model"`
 	PluginDependencies []PluginDependency     `json:"plugin_dependencies"`
 }
 
@@ -163,15 +179,20 @@ type MarketTemplateFullData struct {
 	VersionID          string                 `json:"version_id"`
 	Version            string                 `json:"version"`
 	Description        string                 `json:"description"`
-	Telemetry          []DeviceModelTelemetry `json:"telemetry"`
-	Attributes         []DeviceModelAttribute `json:"attributes"`
-	Events             []DeviceModelEvent     `json:"events"`
-	Commands           []DeviceModelCommand   `json:"commands"`
-	PluginDependencies []PluginDependency     `json:"plugin_dependencies"`
+	// 设备配置（凭证协议配置）
+	DeviceConfig *DeviceConfigPayload `json:"device_config"`
+	// 模板定义（物模型 + 面板配置）
+	TemplateDefinition *TemplateDefinitionPayload `json:"template_definition"`
+	PluginDependencies []PluginDependency `json:"plugin_dependencies"`
 }
+
+// TemplateDefinitionPayload 模板定义（面板配置）
+// 使用 map[string]interface{} 以兼容 JSON 序列化/反序列化
+type TemplateDefinitionPayload map[string]interface{}
 
 // InstallFromMarketRsp 安装响应（含插件缺失警告）
 type InstallFromMarketRsp struct {
 	DeviceTemplate *DeviceTemplate    `json:"device_template"`
+	DeviceConfig   *DeviceConfig      `json:"device_config"` // 安装后创建的设备配置
 	MissingPlugins []PluginDependency `json:"missing_plugins,omitempty"`
 }
