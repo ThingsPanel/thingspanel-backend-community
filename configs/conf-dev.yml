@@ -191,7 +191,9 @@ heartbeat:
 
 # Telemetry 安装量监测配置
 telemetry:
-  enabled: true
+  enabled: true                  # 仅发送匿名实例级遥测，可随时关闭
   posthog_key: ""                  # PostHog API Key (phc_xxxx)
   posthog_host: "https://us.i.posthog.com"
+  heartbeat_interval: "1h"
+  state_file: "./configs/.telemetry_state.json"
 #                                    # 多实例部署时，只有一个实例设为 true，其他实例设为 false

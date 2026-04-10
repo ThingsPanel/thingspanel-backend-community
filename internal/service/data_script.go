@@ -11,7 +11,6 @@ import (
 	model "project/internal/model"
 	"project/pkg/errcode"
 	global "project/pkg/global"
-	"project/pkg/metrics"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
@@ -199,9 +198,5 @@ func (*DataScript) Exec(device *model.Device, scriptType string, msg []byte, top
 }
 
 func (*DataScript) RunScript() {
-	ins := metrics.NewInstance()
-	ins.Instan()
-	ins.DeviceCount = dal.GetDevicesCount()
-	ins.UserCount = dal.GetUsersCount()
-	ins.SendToPostHog()
+	logrus.Debug("RunScript cron executed; telemetry reporting is handled by TelemetryService")
 }
