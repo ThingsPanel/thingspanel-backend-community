@@ -303,9 +303,7 @@ func (*DeviceApi) MarketLogin(c *gin.Context) {
 	client := service.NewMarketClient()
 	token, err := client.Login(c, req.Username, req.Password)
 	if err != nil {
-		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": "Market login failed: " + err.Error(),
-		}))
+		c.Error(errcode.NewWithMessage(errcode.CodeSystemError, err.Error()))
 		return
 	}
 

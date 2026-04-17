@@ -96,13 +96,24 @@ func (c *MarketClient) Login(ctx context.Context, username, password string) (st
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("login failed with status: %d", resp.StatusCode)
-	}
-
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read login response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Message string `json:"message"`
+			Error   string `json:"error"`
+		}
+		json.Unmarshal(bodyBytes, &errResp)
+		if errResp.Message != "" {
+			return "", fmt.Errorf("%s", errResp.Message)
+		}
+		if errResp.Error != "" {
+			return "", fmt.Errorf("%s", errResp.Error)
+		}
+		return "", fmt.Errorf("login failed with status: %d", resp.StatusCode)
 	}
 
 	var loginResp model.MarketLoginRsp
