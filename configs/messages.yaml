@@ -107,7 +107,10 @@ messages:
   200014:
     zh_CN: "邮箱格式不正确"
     en_US: "Email format is incorrect"
-  
+  200015:
+    zh_CN: "用户邮箱不存在"
+    en_US: "User email not found"
+
   # 密码相关错误 (200040-200049)
   200040:
     zh_CN: "密码必须包含至少6个字符，包含小写字母和数字"

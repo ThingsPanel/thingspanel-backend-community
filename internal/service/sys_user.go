@@ -295,7 +295,7 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 	// 邮箱验证相关错误应归类到用户模块
 	switch {
 	case user == nil && isRegister != "1":
-		return errcode.New(200007) // 新增: 用户邮箱不存在
+		return errcode.New(errcode.CodeEmailNotFound) // 用户邮箱不存在
 	case user != nil && isRegister == "1":
 		return errcode.New(200008) // 新增: 用户邮箱已注册
 	}

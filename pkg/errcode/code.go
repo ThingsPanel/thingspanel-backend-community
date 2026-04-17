@@ -30,6 +30,7 @@ const (
 	CodeUserDisabled    = 200005 // 用户已禁用
 	CodeTooManyAttempts = 200006 // 登录尝试次数过多
 	CodePhoneDuplicated = 200007 // 手机号已被使用
+	CodeEmailNotFound   = 200015 // 用户邮箱不存在
 
 	// 权限模块 (201xxx)
 	CodeNoPermission = 201001 // 无权限
