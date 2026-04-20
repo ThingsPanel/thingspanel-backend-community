@@ -11,6 +11,7 @@ import (
 	"project/pkg/common"
 	"project/pkg/errcode"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"project/initialize"
@@ -189,7 +190,13 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 // UserLoginAfter
 // @description 用户登录后token获取保存
 func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
-	key := viper.GetString("jwt.key")
+	key := strings.TrimSpace(viper.GetString("jwt.key"))
+	if key == "" {
+		return nil, errcode.WithData(errcode.CodeTokenGenerateError, map[string]interface{}{
+			"error": "jwt.key is empty",
+			"email": user.Email,
+		})
+	}
 	// 生成token
 	jwt := utils.NewJWT([]byte(key))
 	claims := utils.UserClaims{
@@ -201,7 +208,10 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 	}
 	token, err := jwt.GenerateToken(claims)
 	if err != nil {
-		return nil, errcode.New(errcode.CodeTokenGenerateError)
+		return nil, errcode.WithData(errcode.CodeTokenGenerateError, map[string]interface{}{
+			"error": err.Error(),
+			"email": user.Email,
+		})
 	}
 	timeout := viper.GetInt("session.timeout")
 	reset_on_request := viper.GetBool("session.reset_on_request")
@@ -211,17 +221,42 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 			timeout = 60
 		}
 	}
+	if global.REDIS == nil {
+		return nil, errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
+			"error": "redis client is not initialized",
+			"email": user.Email,
+		})
+	}
 	// 保存token到redis
-	global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute)
+	if err := global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute).Err(); err != nil {
+		return nil, errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
+			"error": err.Error(),
+			"email": user.Email,
+		})
+	}
 	// 禁止共享token，这里永久存储账号和token的关系，是可以保证一个账号只能在一个地方登录
 	if !logic.UserIsShare(context.Background()) {
 		oldToken, err := global.REDIS.Get(context.Background(), user.Email+"_token").Result()
-		if err != nil {
-			logrus.Error(err)
-		} else {
-			global.REDIS.Del(context.Background(), oldToken)
+		if err != nil && !errors.Is(err, redis.Nil) {
+			return nil, errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
+				"error": err.Error(),
+				"email": user.Email,
+			})
 		}
-		global.REDIS.Set(context.Background(), user.Email+"_token", token, 0)
+		if oldToken != "" {
+			if err := global.REDIS.Del(context.Background(), oldToken).Err(); err != nil && !errors.Is(err, redis.Nil) {
+				return nil, errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
+					"error": err.Error(),
+					"email": user.Email,
+				})
+			}
+		}
+		if err := global.REDIS.Set(context.Background(), user.Email+"_token", token, 0).Err(); err != nil {
+			return nil, errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
+				"error": err.Error(),
+				"email": user.Email,
+			})
+		}
 	}
 
 	loginRsp := &model.LoginRsp{
@@ -825,29 +860,95 @@ func (u *User) CheckSysAdminExists() (bool, error) {
 	return len(userList) > 0, nil
 }
 
-// MarketRegister 超管注册（联动市场）
-func (u *User) MarketRegister(ctx context.Context, req *model.MarketRegisterReq) (*model.LoginRsp, error) {
-	// 1. 调用市场 API 检查邮箱是否已注册
-	marketClient := NewMarketClient()
-	exists, err := marketClient.CheckUserExists(ctx, req.Email)
+// GetTenantSetupState 获取首次安装/注册态
+func (u *User) GetTenantSetupState() (*model.TenantSetupStateRsp, error) {
+	hasAdmin, err := u.CheckSysAdminExists()
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": "failed to check market user: " + err.Error(),
+		return nil, err
+	}
+
+	baseURL := strings.TrimRight(viper.GetString("market.base_url"), "/")
+	marketRegisterURL := ""
+	if baseURL != "" {
+		marketRegisterURL = baseURL + "/register"
+	}
+
+	entry := "login"
+	if !hasAdmin {
+		entry = "register"
+	}
+
+	return &model.TenantSetupStateRsp{
+		HasAdmin:          hasAdmin,
+		Entry:             entry,
+		MarketBaseURL:     baseURL,
+		MarketRegisterURL: marketRegisterURL,
+	}, nil
+}
+
+func shouldSkipMarketCheck(req *model.SuperAdminInitReq) bool {
+	if req == nil || !req.MarketRegistered {
+		return false
+	}
+
+	requestEmail := strings.TrimSpace(req.Email)
+	marketEmail := strings.TrimSpace(req.MarketEmail)
+	if requestEmail == "" || marketEmail == "" {
+		return false
+	}
+
+	return strings.EqualFold(requestEmail, marketEmail)
+}
+
+// InitSuperAdmin 首次安装超管初始化（支持市场回流参数）
+func (u *User) InitSuperAdmin(ctx context.Context, req *model.SuperAdminInitReq) (*model.LoginRsp, error) {
+	requestEmail := strings.TrimSpace(req.Email)
+	marketEmail := strings.TrimSpace(req.MarketEmail)
+	if req.MarketRegistered && marketEmail != "" && !strings.EqualFold(requestEmail, marketEmail) {
+		return nil, errcode.WithData(errcode.CodeMarketCheckFailed, map[string]interface{}{
+			"error":        "market email does not match request email",
+			"email":        requestEmail,
+			"market_email": marketEmail,
 		})
 	}
 
-	if !exists {
-		// 邮箱未在市场注册（勿复用 200050，该码已用于功能模板删除等业务文案）
-		return nil, errcode.New(200055)
+	// 市场回流确认成功后，直接进入本地初始化链路，不再依赖市场可达性。
+	if !shouldSkipMarketCheck(req) {
+		if viper.IsSet("market.enabled") && !viper.GetBool("market.enabled") {
+			return nil, errcode.WithData(errcode.CodeMarketServiceUnavailable, map[string]interface{}{
+				"error":           "market integration is disabled by config",
+				"market_base_url": strings.TrimRight(viper.GetString("market.base_url"), "/"),
+			})
+		}
+
+		// 1. 调用市场 API 检查邮箱是否已注册
+		marketClient := NewMarketClient()
+		exists, err := marketClient.CheckUserExists(ctx, requestEmail)
+		if err != nil {
+			code := errcode.CodeMarketCheckFailed
+			if errors.Is(err, ErrMarketServiceUnavailable) {
+				code = errcode.CodeMarketServiceUnavailable
+			}
+			return nil, errcode.WithData(code, map[string]interface{}{
+				"error":           err.Error(),
+				"market_base_url": strings.TrimRight(viper.GetString("market.base_url"), "/"),
+				"email":           requestEmail,
+			})
+		}
+
+		if !exists {
+			// 邮箱未在市场注册（勿复用 200050，该码已用于功能模板删除等业务文案）
+			return nil, errcode.New(200055)
+		}
 	}
 
 	// 2. 邮箱已在市场注册，创建本地超管账号（跳过验证码）
 	// 验证邮箱是否已注册（本地）
-	user, err := dal.GetUsersByEmail(req.Email)
+	user, err := dal.GetUsersByEmail(requestEmail)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		return nil, errcode.WithData(errcode.CodeLocalInitCreateUserFail, map[string]interface{}{
 			"operation": "query_user",
-			"email":     req.Email,
+			"email":     requestEmail,
 			"error":     err.Error(),
 		})
 	}
@@ -868,8 +969,8 @@ func (u *User) MarketRegister(ctx context.Context, req *model.MarketRegisterReq)
 	// 构建超管用户信息
 	userInfo := &model.User{
 		ID:                  uuid.New(),
-		Name:                &req.Email,
-		Email:               req.Email,
+		Name:                &requestEmail,
+		Email:               requestEmail,
 		Status:              StringPtr("N"),
 		Authority:           StringPtr("SYS_ADMIN"), // 超管权限
 		Password:            hashedPassword,
@@ -881,14 +982,34 @@ func (u *User) MarketRegister(ctx context.Context, req *model.MarketRegisterReq)
 
 	// 创建用户
 	if err = dal.CreateUsers(userInfo); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		return nil, errcode.WithData(errcode.CodeLocalInitCreateUserFail, map[string]interface{}{
 			"operation": "create_user",
-			"email":     req.Email,
+			"email":     requestEmail,
 			"error":     err.Error(),
 		})
 	}
+	loginRsp, err := u.UserLoginAfter(userInfo)
+	if err != nil {
+		errorData := map[string]interface{}{
+			"email": requestEmail,
+		}
+		if codeErr, ok := err.(*errcode.Error); ok {
+			errorData["cause_code"] = codeErr.Code
+			if codeErr.Data != nil {
+				errorData["cause_data"] = codeErr.Data
+			}
+		} else {
+			errorData["error"] = err.Error()
+		}
+		return nil, errcode.WithData(errcode.CodeLocalInitLoginFail, errorData)
+	}
 
-	return u.UserLoginAfter(userInfo)
+	return loginRsp, nil
+}
+
+// MarketRegister 兼容旧接口命名
+func (u *User) MarketRegister(ctx context.Context, req *model.MarketRegisterReq) (*model.LoginRsp, error) {
+	return u.InitSuperAdmin(ctx, req)
 }
 
 // 根据租户ID查询租户信息

@@ -101,10 +101,24 @@ type EmailRegisterReq struct {
 	Salt            *string `json:"salt" validate:"omitempty"`        // 随机盐
 }
 
-// MarketRegisterReq 超管注册请求（联动市场）
-type MarketRegisterReq struct {
-	Email    string `json:"email" validate:"required,email"` // 邮箱
-	Password string `json:"password" validate:"required,min=6"` // 密码
+// SuperAdminInitReq 首次安装超管初始化请求
+type SuperAdminInitReq struct {
+	Email            string `json:"email" validate:"required,email"`                   // 超管邮箱
+	Password         string `json:"password" validate:"required,min=6"`                // 超管密码
+	MarketRegistered bool   `json:"market_registered,omitempty"`                       // 是否由市场回流确认已注册
+	MarketEmail      string `json:"market_email,omitempty" validate:"omitempty,email"` // 市场回流邮箱（需与 email 一致）
+	MarketSource     string `json:"market_source,omitempty"`                           // 市场来源标识（可选）
+}
+
+// MarketRegisterReq 兼容旧接口命名（/tenant/market-register）
+type MarketRegisterReq = SuperAdminInitReq
+
+// TenantSetupStateRsp 首次安装/注册态
+type TenantSetupStateRsp struct {
+	HasAdmin          bool   `json:"has_admin"`                     // 是否已有超管
+	Entry             string `json:"entry"`                         // login | register
+	MarketBaseURL     string `json:"market_base_url,omitempty"`     // 市场基础地址
+	MarketRegisterURL string `json:"market_register_url,omitempty"` // 市场注册页地址
 }
 
 type CreateUserAddressReq struct {

@@ -297,15 +297,44 @@ func (*UserApi) HasAdmin(c *gin.Context) {
 	c.Set("data", gin.H{"has_admin": exists})
 }
 
-// MarketRegister POST /api/v1/tenant/market-register
-// @description 超管注册（联动市场）
-func (*UserApi) MarketRegister(c *gin.Context) {
-	var req model.MarketRegisterReq
+// SetupState GET /api/v1/tenant/setup-state
+// @description 获取首次安装状态，供登录页决定展示登录还是注册
+func (*UserApi) SetupState(c *gin.Context) {
+	state, err := service.GroupApp.User.GetTenantSetupState()
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", state)
+}
+
+// InitSuperAdmin POST /api/v1/tenant/super-admin/init
+// @description 首次安装超管初始化（支持市场回流参数）
+func (*UserApi) InitSuperAdmin(c *gin.Context) {
+	var req model.SuperAdminInitReq
 	if !BindAndValidate(c, &req) {
 		return
 	}
 
-	loginRsp, err := service.GroupApp.User.MarketRegister(c, &req)
+	loginRsp, err := service.GroupApp.User.InitSuperAdmin(c, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", loginRsp)
+}
+
+// MarketRegister POST /api/v1/tenant/market-register
+// @description 兼容旧接口：超管注册（联动市场）
+func (*UserApi) MarketRegister(c *gin.Context) {
+	var req model.SuperAdminInitReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+
+	loginRsp, err := service.GroupApp.User.InitSuperAdmin(c, &req)
 	if err != nil {
 		c.Error(err)
 		return

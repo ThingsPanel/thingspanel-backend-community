@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"project/internal/model"
@@ -20,6 +23,15 @@ type MarketClient struct {
 	baseURL    string
 	httpClient *http.Client
 }
+
+var (
+	// ErrMarketServiceUnavailable indicates network/connectivity/base URL issues.
+	ErrMarketServiceUnavailable = errors.New("market service unavailable")
+	// ErrMarketRequestRejected indicates non-200 HTTP responses (except explicit not-found).
+	ErrMarketRequestRejected = errors.New("market request rejected")
+	// ErrMarketInvalidResponse indicates unexpected or malformed market response payloads.
+	ErrMarketInvalidResponse = errors.New("market response invalid")
+)
 
 // NewMarketClient creates a new client using configs from viper.
 func NewMarketClient() *MarketClient {
@@ -39,37 +51,149 @@ func NewMarketClient() *MarketClient {
 
 // CheckUserExists checks if a user with the given email exists in the market.
 func (c *MarketClient) CheckUserExists(ctx context.Context, email string) (bool, error) {
-	url := fmt.Sprintf("%s/api/account/auth/user/exists?email=%s", c.baseURL, email)
-	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	baseURL := strings.TrimRight(strings.TrimSpace(c.baseURL), "/")
+	if baseURL == "" {
+		return false, fmt.Errorf("%w: empty market base_url", ErrMarketServiceUnavailable)
+	}
+
+	endpoint, err := url.Parse(baseURL + "/api/account/auth/user/exists")
+	if err != nil {
+		return false, fmt.Errorf("%w: invalid market base_url: %v", ErrMarketServiceUnavailable, err)
+	}
+	query := endpoint.Query()
+	query.Set("email", email)
+	endpoint.RawQuery = query.Encode()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
 		return false, fmt.Errorf("failed to create check user request: %w", err)
 	}
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return false, fmt.Errorf("check user request failed: %w", err)
+		return false, fmt.Errorf("%w: %v", ErrMarketServiceUnavailable, err)
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return false, fmt.Errorf("failed to read check user response: %w", err)
+		return false, fmt.Errorf("%w: failed to read check user response: %v", ErrMarketInvalidResponse, err)
 	}
 
-	// 如果返回 404 或其他错误，认为用户不存在
-	if resp.StatusCode != http.StatusOK {
+	// 404 明确视为邮箱不存在
+	if resp.StatusCode == http.StatusNotFound {
 		return false, nil
 	}
 
-	var result struct {
-		Exists bool   `json:"exists"`
-		Email  string `json:"email"`
-	}
-	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		return false, fmt.Errorf("failed to parse check user response: %w", err)
+	// 其他非200响应视为请求失败（区分于“邮箱不存在”）
+	if resp.StatusCode != http.StatusOK {
+		if isUserNotFoundResponse(resp.StatusCode, bodyBytes) {
+			return false, nil
+		}
+		return false, fmt.Errorf("%w: status=%d body=%s", ErrMarketRequestRejected, resp.StatusCode, compactMarketBody(bodyBytes))
 	}
 
-	return result.Exists, nil
+	exists, err := parseExistsFromBody(bodyBytes)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
+
+func parseExistsFromBody(bodyBytes []byte) (bool, error) {
+	bodyBytes = bytes.TrimSpace(bodyBytes)
+	if len(bodyBytes) == 0 {
+		return false, fmt.Errorf("%w: empty response body", ErrMarketInvalidResponse)
+	}
+
+	var result struct {
+		Exists *bool           `json:"exists"`
+		Data   json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
+		return false, fmt.Errorf("%w: failed to parse check user response: %v", ErrMarketInvalidResponse, err)
+	}
+
+	if result.Exists != nil {
+		return *result.Exists, nil
+	}
+
+	if len(result.Data) > 0 && string(result.Data) != "null" {
+		var existsBool bool
+		if err := json.Unmarshal(result.Data, &existsBool); err == nil {
+			return existsBool, nil
+		}
+
+		var nested struct {
+			Exists *bool `json:"exists"`
+		}
+		if err := json.Unmarshal(result.Data, &nested); err == nil && nested.Exists != nil {
+			return *nested.Exists, nil
+		}
+	}
+
+	return false, fmt.Errorf("%w: missing exists field, body=%s", ErrMarketInvalidResponse, compactMarketBody(bodyBytes))
+}
+
+func compactMarketBody(bodyBytes []byte) string {
+	body := strings.TrimSpace(string(bodyBytes))
+	if body == "" {
+		return "<empty>"
+	}
+
+	const maxBodyLen = 256
+	if len(body) > maxBodyLen {
+		return body[:maxBodyLen] + "..."
+	}
+	return body
+}
+
+func isUserNotFoundResponse(statusCode int, bodyBytes []byte) bool {
+	if statusCode == http.StatusNotFound {
+		return true
+	}
+
+	// 仅对常见客户端错误做“邮箱不存在”识别，避免把服务端故障误判为不存在
+	if statusCode != http.StatusBadRequest && statusCode != http.StatusUnprocessableEntity {
+		return false
+	}
+
+	lowerBody := strings.ToLower(strings.TrimSpace(string(bodyBytes)))
+	if lowerBody != "" {
+		if strings.Contains(lowerBody, "not found") ||
+			strings.Contains(lowerBody, "not exists") ||
+			strings.Contains(lowerBody, "email not found") ||
+			strings.Contains(lowerBody, "不存在") ||
+			strings.Contains(lowerBody, "未注册") {
+			return true
+		}
+	}
+
+	var errResp struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Error   string `json:"error"`
+		Msg     string `json:"msg"`
+	}
+	if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
+		return false
+	}
+
+	if errResp.Code == 200015 {
+		return true
+	}
+
+	msg := strings.ToLower(strings.TrimSpace(errResp.Message + " " + errResp.Error + " " + errResp.Msg))
+	if msg == "" {
+		return false
+	}
+
+	return strings.Contains(msg, "not found") ||
+		strings.Contains(msg, "not exists") ||
+		strings.Contains(msg, "email not found") ||
+		strings.Contains(msg, "不存在") ||
+		strings.Contains(msg, "未注册")
 }
 
 // Login authenticates with the market service to get an access token.
@@ -318,7 +442,7 @@ func (c *MarketClient) DownloadTemplate(ctx context.Context, token string, marke
 	}
 
 	var result struct {
-		Code int                           `json:"code"`
+		Code int                          `json:"code"`
 		Data model.MarketTemplateFullData `json:"data"`
 	}
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {

@@ -148,6 +148,18 @@ messages:
   200055:
     zh_CN: "该邮箱尚未在市场注册，请先到市场完成注册后再回到此处创建超管账号"
     en_US: "This email is not registered in the marketplace. Please register there first, then return here to create the super admin account"
+  200056:
+    zh_CN: "市场服务不可达，请检查 market.base_url 配置或市场服务状态"
+    en_US: "Marketplace service is unreachable. Please check market.base_url configuration or market service status"
+  200057:
+    zh_CN: "市场邮箱校验失败，请稍后重试"
+    en_US: "Marketplace email verification failed. Please try again later"
+  200058:
+    zh_CN: "本地创建超管失败，请检查本地服务和数据库状态"
+    en_US: "Failed to create local super admin. Please check local service and database status"
+  200059:
+    zh_CN: "本地登录态创建失败，请检查缓存服务状态"
+    en_US: "Failed to create local login session. Please check cache service status"
 
   # 设备条件错误码 (200060-200069)
   200060:

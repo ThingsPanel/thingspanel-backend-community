@@ -108,6 +108,10 @@ func RouterInit() *gin.Engine {
 			v1.POST("/tenant/email/register", controllers.UserApi.EmailRegister)
 			// 检查是否存在超管
 			v1.GET("/tenant/has-admin", controllers.UserApi.HasAdmin)
+			// 首次安装状态
+			v1.GET("/tenant/setup-state", controllers.UserApi.SetupState)
+			// 首次安装超管初始化（语义化新接口）
+			v1.POST("/tenant/super-admin/init", controllers.UserApi.InitSuperAdmin)
 			// 超管注册（联动市场）
 			v1.POST("/tenant/market-register", controllers.UserApi.MarketRegister)
 			// 网关自动注册
