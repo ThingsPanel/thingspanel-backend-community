@@ -2,6 +2,7 @@
 #
 # 功能说明:
 # 将 TimescaleDB 和 Redis 的公共镜像同步到 GitHub Container Registry (GHCR)
+# 和阿里云容器镜像服务，并保留 multi-arch manifest。
 # 便于用户从 GHCR 统一拉取所需的基础镜像
 #
 # 触发方式:
@@ -26,6 +27,8 @@
 #
 # 必需的 Secrets:
 # - GITHUB_TOKEN: GitHub 自动提供的访问令牌
+# - IMAGE_USER: 阿里云容器镜像服务用户名
+# - IMAGE_PASS: 阿里云容器镜像服务密码
 #
 # 注意事项:
 # 1. 确保 GITHUB_TOKEN 有写入包的权限
@@ -48,7 +51,7 @@ jobs:
         uses: actions/checkout@v3
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
@@ -60,15 +63,28 @@ jobs:
       - name: Set lowercase owner name
         run: |
           echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >>${GITHUB_ENV}
-      
-      - name: Pull and push TimescaleDB image
+
+      - name: Install skopeo
         run: |
-          docker pull timescale/timescaledb:2.8.1-pg14
-          docker tag timescale/timescaledb:2.8.1-pg14 ghcr.io/${{ env.OWNER_LC }}/timescaledb:2.8.1-pg14
-          docker push ghcr.io/${{ env.OWNER_LC }}/timescaledb:2.8.1-pg14
+          sudo apt-get update
+          sudo apt-get install -y skopeo
       
-      - name: Pull and push Redis image
+      - name: Copy TimescaleDB multi-arch image
         run: |
-          docker pull redis:6.2.7
-          docker tag redis:6.2.7 ghcr.io/${{ env.OWNER_LC }}/redis:6.2.7
-          docker push ghcr.io/${{ env.OWNER_LC }}/redis:6.2.7
+          skopeo copy --all \
+            docker://docker.io/timescale/timescaledb:2.8.1-pg14 \
+            docker://ghcr.io/${{ env.OWNER_LC }}/timescaledb:2.8.1-pg14
+          skopeo copy --all \
+            --dest-creds "${{ secrets.IMAGE_USER }}:${{ secrets.IMAGE_PASS }}" \
+            docker://docker.io/timescale/timescaledb:2.8.1-pg14 \
+            docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/timescaledb:14
+      
+      - name: Copy Redis multi-arch image
+        run: |
+          skopeo copy --all \
+            docker://docker.io/library/redis:6.2.7 \
+            docker://ghcr.io/${{ env.OWNER_LC }}/redis:6.2.7
+          skopeo copy --all \
+            --dest-creds "${{ secrets.IMAGE_USER }}:${{ secrets.IMAGE_PASS }}" \
+            docker://docker.io/library/redis:6.2.7 \
+            docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/redis:6.2.7

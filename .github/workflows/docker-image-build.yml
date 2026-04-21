@@ -26,6 +26,10 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Image tag to build, for example v1.1.14.1"
+        required: false
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,7 +41,15 @@ jobs:
       - name: 获取版本号
         id: get_version
         run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo 'latest')
+          RELEASE_TAG="${{ github.event.release.tag_name }}"
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          if [ -n "$RELEASE_TAG" ]; then
+            VERSION="$RELEASE_TAG"
+          elif [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo 'latest')
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           # 添加仓库名小写转换
           echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
@@ -47,17 +59,14 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
           echo "${{ secrets.IMAGE_PASS }}" | docker login registry.cn-hangzhou.aliyuncs.com -u ${{ secrets.IMAGE_USER }} --password-stdin
       - name: 设置 Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
       - name: 构建并推送到 GitHub/DockerHub
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             thingspanel/thingspanel-go:${{ env.VERSION }}
             ghcr.io/${{ env.OWNER_LC }}/thingspanel-go:${{ env.VERSION }}
-      - name: 推送到阿里云
-        run: |
-          docker pull ghcr.io/${{ env.OWNER_LC }}/thingspanel-go:${{ env.VERSION }}
-          docker tag ghcr.io/${{ env.OWNER_LC }}/thingspanel-go:${{ env.VERSION }} registry.cn-hangzhou.aliyuncs.com/thingspanel/thingspanel-go:${{ env.VERSION }}
-          docker push registry.cn-hangzhou.aliyuncs.com/thingspanel/thingspanel-go:${{ env.VERSION }}
+            registry.cn-hangzhou.aliyuncs.com/thingspanel/thingspanel-go:${{ env.VERSION }}
