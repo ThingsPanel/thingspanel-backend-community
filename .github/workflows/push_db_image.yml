@@ -59,6 +59,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Aliyun Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.cn-hangzhou.aliyuncs.com
+          username: ${{ secrets.IMAGE_USER }}
+          password: ${{ secrets.IMAGE_PASS }}
       
       - name: Set lowercase owner name
         run: |
@@ -71,20 +78,48 @@ jobs:
       
       - name: Copy TimescaleDB multi-arch image
         run: |
-          skopeo copy --all \
+          skopeo copy --override-os linux --override-arch amd64 \
             docker://docker.io/timescale/timescaledb:2.8.1-pg14 \
-            docker://ghcr.io/${{ env.OWNER_LC }}/timescaledb:2.8.1-pg14
-          skopeo copy --all \
-            --dest-creds "${{ secrets.IMAGE_USER }}:${{ secrets.IMAGE_PASS }}" \
+            docker://ghcr.io/${{ env.OWNER_LC }}/timescaledb:2.8.1-pg14-amd64
+          skopeo copy --override-os linux --override-arch arm64 \
             docker://docker.io/timescale/timescaledb:2.8.1-pg14 \
-            docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/timescaledb:14
+            docker://ghcr.io/${{ env.OWNER_LC }}/timescaledb:2.8.1-pg14-arm64
+          docker buildx imagetools create \
+            -t ghcr.io/${{ env.OWNER_LC }}/timescaledb:2.8.1-pg14 \
+            ghcr.io/${{ env.OWNER_LC }}/timescaledb:2.8.1-pg14-amd64 \
+            ghcr.io/${{ env.OWNER_LC }}/timescaledb:2.8.1-pg14-arm64
+
+          skopeo copy --override-os linux --override-arch amd64 \
+            docker://docker.io/timescale/timescaledb:2.8.1-pg14 \
+            docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/timescaledb:14-amd64
+          skopeo copy --override-os linux --override-arch arm64 \
+            docker://docker.io/timescale/timescaledb:2.8.1-pg14 \
+            docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/timescaledb:14-arm64
+          docker buildx imagetools create \
+            -t registry.cn-hangzhou.aliyuncs.com/thingspanel/timescaledb:14 \
+            registry.cn-hangzhou.aliyuncs.com/thingspanel/timescaledb:14-amd64 \
+            registry.cn-hangzhou.aliyuncs.com/thingspanel/timescaledb:14-arm64
       
       - name: Copy Redis multi-arch image
         run: |
-          skopeo copy --all \
+          skopeo copy --override-os linux --override-arch amd64 \
             docker://docker.io/library/redis:6.2.7 \
-            docker://ghcr.io/${{ env.OWNER_LC }}/redis:6.2.7
-          skopeo copy --all \
-            --dest-creds "${{ secrets.IMAGE_USER }}:${{ secrets.IMAGE_PASS }}" \
+            docker://ghcr.io/${{ env.OWNER_LC }}/redis:6.2.7-amd64
+          skopeo copy --override-os linux --override-arch arm64 \
             docker://docker.io/library/redis:6.2.7 \
-            docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/redis:6.2.7
+            docker://ghcr.io/${{ env.OWNER_LC }}/redis:6.2.7-arm64
+          docker buildx imagetools create \
+            -t ghcr.io/${{ env.OWNER_LC }}/redis:6.2.7 \
+            ghcr.io/${{ env.OWNER_LC }}/redis:6.2.7-amd64 \
+            ghcr.io/${{ env.OWNER_LC }}/redis:6.2.7-arm64
+
+          skopeo copy --override-os linux --override-arch amd64 \
+            docker://docker.io/library/redis:6.2.7 \
+            docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/redis:6.2.7-amd64
+          skopeo copy --override-os linux --override-arch arm64 \
+            docker://docker.io/library/redis:6.2.7 \
+            docker://registry.cn-hangzhou.aliyuncs.com/thingspanel/redis:6.2.7-arm64
+          docker buildx imagetools create \
+            -t registry.cn-hangzhou.aliyuncs.com/thingspanel/redis:6.2.7 \
+            registry.cn-hangzhou.aliyuncs.com/thingspanel/redis:6.2.7-amd64 \
+            registry.cn-hangzhou.aliyuncs.com/thingspanel/redis:6.2.7-arm64
