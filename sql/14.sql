@@ -15,7 +15,7 @@ COMMENT ON COLUMN public.sys_config.config_value IS '配置值';
 -- Initial instance_id will be inserted by the application logic if not exists
 
 -- ✅2026/2/29 增加HTTP插件
-INSERT INTO public.service_plugins (id, "name", service_identifier, service_type, last_active_time, "version", create_at, update_at, description, service_config, remark) VALUES ('a1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c45l5', 'HTTP', 'HTTP', 1, NOW(), 'v1.0.0', NOW(), NOW(), '官方标准 HTTP 协议接入组件', '{"http_address":"172.20.0.11:19090","device_type":1,"sub_topic_prefix":"plugin/http/","access_address":":19091"}'::json, '');
+INSERT INTO public.service_plugins (id, "name", service_identifier, service_type, last_active_time, "version", create_at, update_at, description, service_config, remark) VALUES ('a1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c45l5', 'HTTP', 'HTTP', 1, NOW(), 'v1.0.0', NOW(), NOW(), '官方标准 HTTP 协议接入组件', '{"http_address":"http_adapter:19090","device_type":1,"sub_topic_prefix":"plugin/http/","access_address":":19091"}'::json, '');
 
 INSERT INTO public.sys_ui_elements
 (id, parent_id, element_code, element_type, orders, param1, param2, param3, authority, description, created_at, remark, multilingual, route_path)
