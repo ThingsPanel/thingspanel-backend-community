@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"time"
 
 	dal "project/internal/dal"
@@ -15,10 +16,15 @@ type DeviceTemplate struct{}
 
 func (*DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, claims *utils.UserClaims) (*model.DeviceTemplate, error) {
 
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "name cannot be blank")
+	}
+
 	var deviceTemplate = model.DeviceTemplate{}
 
 	deviceTemplate.ID = uuid.New()
-	deviceTemplate.Name = req.Name
+	deviceTemplate.Name = name
 	deviceTemplate.Author = req.Author
 	deviceTemplate.Version = req.Version
 	deviceTemplate.Description = req.Description
@@ -57,7 +63,11 @@ func (*DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, c
 	}
 	t.ID = req.Id
 	if req.Name != nil {
-		t.Name = *req.Name
+		name := strings.TrimSpace(*req.Name)
+		if name == "" {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "name cannot be blank")
+		}
+		t.Name = name
 	}
 	if req.Author != nil {
 		t.Author = req.Author

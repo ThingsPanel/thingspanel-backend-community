@@ -538,16 +538,20 @@ func (UserQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (cou
 	return
 }
 
-func (UserQuery) GroupByMonthCount(ctx context.Context, email *string) (list []*model.GetBoardUserListMonth) {
+func (UserQuery) GroupByMonthCount(ctx context.Context, email *string, authorityFilter bool) (list []*model.GetBoardUserListMonth) {
 	var (
 		db = global.DB.WithContext(ctx)
 	)
 	conn := db.Model(&model.User{}).Select("(EXTRACT(MONTH FROM created_at) ) AS mon,COUNT(1) as num").
-		Where("created_at > ? and created_at  IS NOT NULL", common.GetYearStart()).
+		Where("created_at > ? and created_at IS NOT NULL", common.GetYearStart()).
 		Group("EXTRACT(MONTH FROM created_at)").Order("mon")
 
 	if email != nil {
 		conn = conn.Where("email = ?", *email)
+	}
+
+	if authorityFilter {
+		conn = conn.Where("authority = ?", "TENANT_ADMIN")
 	}
 
 	conn.Scan(&list)
