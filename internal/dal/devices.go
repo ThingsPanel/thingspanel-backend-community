@@ -101,41 +101,21 @@ func UpdateDeviceByMap(deviceID string, deviceMap map[string]interface{}) (*mode
 }
 
 // 更新设备状态
-// 返回值: (是否真的更新了状态, error)
-// 如果状态没有变化，返回 (false, nil)
-// 如果状态真的更新了，返回 (true, nil)
-// 如果发生错误，返回 (false, error)
+// 设备发的每条状态消息都如实记录到历史，不依赖缓存中的状态做预判
 func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
-	// 1. 先从 Redis 缓存读取设备信息，缓存未命中则从数据库加载
-	var device *model.Device
-	result, err := global.REDIS.Get(context.Background(), deviceId).Result()
-	if err == nil {
-		// 缓存命中
-		var cachedDevice model.Device
-		if err := json.Unmarshal([]byte(result), &cachedDevice); err == nil {
-			device = &cachedDevice
-		}
+	// 1. 获取设备信息（仅用于取 TenantID，后续写历史用）
+	// 不再从 Redis 读取 is_online 做预判，避免竞态条件
+	var tenantID string
+	device, err := query.Device.Where(query.Device.ID.Eq(deviceId)).First()
+	if err != nil {
+		logrus.WithError(err).WithField("device_id", deviceId).Error("Failed to get device info")
+		return false, err
 	}
+	tenantID = device.TenantID
 
-	// 如果缓存未命中或反序列化失败，从数据库加载
-	if device == nil {
-		device, err = query.Device.Where(query.Device.ID.Eq(deviceId)).First()
-		if err != nil {
-			logrus.WithError(err).WithField("device_id", deviceId).Error("Failed to get device info")
-			return false, err
-		}
-	}
-
-	// 2. 检查状态是否发生变化，如果没变化则不更新
-	currentStatus := device.IsOnline
-	if currentStatus == status {
-		// 状态未变化，不需要更新
-		return false, nil
-	}
-
-	// 3. 更新设备状态
+	// 2. 直接更新设备状态，不检查当前值
 	if status == 0 {
-		// 设备离线时，同时更新is_online和last_offline_time
+		// 设备离线时，同时更新 is_online 和 last_offline_time
 		now := time.Now().UTC()
 		info, err := query.Device.Where(query.Device.ID.Eq(deviceId)).
 			UpdateColumns(map[string]interface{}{
@@ -150,30 +130,27 @@ func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
 			return false, fmt.Errorf("update device status failed, no rows affected")
 		}
 	} else {
-		// 设备上线时，只更新is_online字段
-		info, err := query.Device.Where(query.Device.ID.Eq(deviceId)).Update(query.Device.IsOnline, status)
+		// 设备上线时，只更新 is_online
+		_, err := query.Device.Where(query.Device.ID.Eq(deviceId)).Update(query.Device.IsOnline, status)
 		if err != nil {
 			logrus.Error(err)
 			return false, err
 		}
-		if info.RowsAffected == 0 {
-			return false, fmt.Errorf("update device status failed, no rows affected")
-		}
 	}
 
-	// 4. 删除设备缓存，确保下次获取时获取最新数据
+	// 3. 删除设备缓存，确保下次获取时获取最新数据
 	if err := global.REDIS.Del(context.Background(), deviceId).Err(); err != nil {
-		// 缓存删除失败不影响主流程，只记录警告日志
 		logrus.WithError(err).WithField("device_id", deviceId).Warn("Failed to delete device cache after status update")
 	}
 
-	// 5. 异步保存状态历史记录（不阻塞主流程）
+	// 4. 异步保存状态历史记录（不阻塞主流程）
+	// 每条状态消息都记录，不跳过
 	go func() {
-		if err := SaveDeviceStatusHistory(device.TenantID, deviceId, status); err != nil {
+		if err := SaveDeviceStatusHistory(tenantID, deviceId, status); err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{
 				"device_id": deviceId,
 				"status":    status,
-			}).Warn("Failed to save device status history, but status update succeeded")
+			}).Warn("Failed to save device status history")
 		}
 	}()
 
