@@ -18,7 +18,9 @@ func (*DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, c
 
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "name cannot be blank")
+		return nil, errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+			"field": "name",
+		})
 	}
 
 	var deviceTemplate = model.DeviceTemplate{}
@@ -65,7 +67,9 @@ func (*DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, c
 	if req.Name != nil {
 		name := strings.TrimSpace(*req.Name)
 		if name == "" {
-			return nil, errcode.NewWithMessage(errcode.CodeParamError, "name cannot be blank")
+			return nil, errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+				"field": "name",
+			})
 		}
 		t.Name = name
 	}
