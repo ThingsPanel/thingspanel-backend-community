@@ -18,7 +18,7 @@ func (*DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, c
 
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return nil, errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+		return nil, errcode.WithVars(100005, map[string]interface{}{
 			"field": "name",
 		})
 	}
@@ -67,7 +67,7 @@ func (*DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, c
 	if req.Name != nil {
 		name := strings.TrimSpace(*req.Name)
 		if name == "" {
-			return nil, errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+			return nil, errcode.WithVars(100005, map[string]interface{}{
 				"field": "name",
 			})
 		}
