@@ -184,31 +184,38 @@ func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
 	}
 }
 
-// ListenForEvents 监听 Redis Pub/Sub
+// ListenForEvents 监听 Redis Pub/Sub，使用指数退避重连
 func (m *WSManager) ListenForEvents() {
+	const (
+		initialBackoff = 1 * time.Second
+		maxBackoff     = 30 * time.Second
+	)
+	backoff := initialBackoff
 	ctx := context.Background()
-	pubsub := m.redisClient.PSubscribe(ctx, "ws:device:*")
-	defer pubsub.Close()
 
 	logrus.Info("WebSocketManager started listening for Redis Pub/Sub events")
 
 	for {
-		msg, err := pubsub.ReceiveMessage(ctx)
-		if err != nil {
-			logrus.WithError(err).Error("Error receiving Redis Pub/Sub message")
-			time.Sleep(time.Second) // 避免快速循环
-			continue
-		}
+		pubsub := m.redisClient.PSubscribe(ctx, "ws:device:*")
+		for {
+			msg, err := pubsub.ReceiveMessage(ctx)
+			if err != nil {
+				logrus.WithError(err).Warnf("WS: Redis pubsub error, reconnecting in %v", backoff)
+				time.Sleep(backoff)
+				backoff = min(backoff*2, maxBackoff)
+				break
+			}
+			backoff = initialBackoff
 
-		// 解析消息
-		var event WSEvent
-		if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
-			logrus.WithError(err).Error("Failed to unmarshal WebSocket event")
-			continue
-		}
+			var event WSEvent
+			if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
+				logrus.WithError(err).Error("Failed to unmarshal WebSocket event")
+				continue
+			}
 
-		// 推送到本实例的订阅者
-		m.PushToDevice(event.DeviceID, event.Data)
+			m.PushToDevice(event.DeviceID, event.Data)
+		}
+		pubsub.Close()
 	}
 }
 
