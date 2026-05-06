@@ -17,6 +17,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+// redisNilLogger 实现 go-redis v9 的 internal.Logging 接口，空实现。
+// 用于禁用 go-redis 内部日志输出，防止 Redis 不可用时错误日志风暴撑爆磁盘。
+type redisNilLogger struct{}
+
+func (n *redisNilLogger) Printf(ctx context.Context, format string, v ...interface{}) {}
+
+// init 在包加载时全局禁用 go-redis 内部日志。
+func init() {
+	redis.SetLogger(&redisNilLogger{})
+}
+
 type RedisConfig struct {
 	Addr     string
 	Password string
@@ -54,12 +65,11 @@ func RedisInit() (*redis.Client, error) {
 
 func connectRedis(conf *RedisConfig) *redis.Client {
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     conf.Addr,
-		Password: conf.Password,
-		DB:       conf.DB,
+		Addr:       conf.Addr,
+		Password:   conf.Password,
+		DB:         conf.DB,
+		MaxRetries: 1, // 限制重试次数，避免放大错误量
 	})
-	// 如果返回nil，就创建这个DB
-
 	return redisClient
 }
 

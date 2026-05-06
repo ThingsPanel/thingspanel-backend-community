@@ -483,7 +483,7 @@ func (f *TelemetryUplink) checkAndPublishToWS(deviceID, tenantID string, data ma
 
 	// 发布到 Redis Pub/Sub
 	if err := global.REDIS.Publish(ctx, "ws:device:"+deviceID, jsonData).Err(); err != nil {
-		f.logger.WithError(err).WithField("device_id", deviceID).Error("Failed to publish WebSocket event")
+		f.logger.WithError(err).WithField("device_id", deviceID).Debug("WS event publish failed")
 		return
 	}
 

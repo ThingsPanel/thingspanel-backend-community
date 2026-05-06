@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-basic/uuid"
@@ -86,31 +87,40 @@ func (m *SSEManager) BroadcastEventToTenant(tenantID string, event SSEEvent) err
 }
 
 func (m *SSEManager) ListenForEvents() {
-	pubsub := m.redisClient.PSubscribe(context.Background(), "sse:tenant:*")
-
-	defer pubsub.Close()
+	const (
+		initialBackoff = 1 * time.Second
+		maxBackoff     = 30 * time.Second
+	)
+	backoff := initialBackoff
 
 	for {
-		msg, err := pubsub.ReceiveMessage(context.Background())
-		if err != nil {
-			logrus.Errorf("Error receiving message: %v", err)
-			continue
-		}
-
-		var event SSEEvent
-		if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
-			logrus.Errorf("Failed to unmarshal event: %v", err)
-			continue
-		}
-
-		m.mutex.RLock()
-		tenantClients, ok := m.clients[event.TenantID]
-		if ok {
-			for _, client := range tenantClients {
-				fmt.Fprintf(client.Writer, "event: %s\ndata: %s\n\n", event.Type, event.Message)
-				client.Writer.(http.Flusher).Flush()
+		pubsub := m.redisClient.PSubscribe(context.Background(), "sse:tenant:*")
+		for {
+			msg, err := pubsub.ReceiveMessage(context.Background())
+			if err != nil {
+				logrus.WithError(err).Warnf("SSE: Redis pubsub error, reconnecting in %v", backoff)
+				time.Sleep(backoff)
+				backoff = min(backoff*2, maxBackoff)
+				break
 			}
+			backoff = initialBackoff
+
+			var event SSEEvent
+			if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
+				logrus.Errorf("Failed to unmarshal event: %v", err)
+				continue
+			}
+
+			m.mutex.RLock()
+			tenantClients, ok := m.clients[event.TenantID]
+			if ok {
+				for _, client := range tenantClients {
+					fmt.Fprintf(client.Writer, "event: %s\ndata: %s\n\n", event.Type, event.Message)
+					client.Writer.(http.Flusher).Flush()
+				}
+			}
+			m.mutex.RUnlock()
 		}
-		m.mutex.RUnlock()
+		pubsub.Close()
 	}
 }

@@ -307,12 +307,9 @@ func (f *StatusUplink) publishToRedis(device *model.Device, status int16, metada
 	// 发布到设备专属通道: device:{device_id}:status
 	channel := fmt.Sprintf("device:%s:status", device.ID)
 	if err := global.REDIS.Publish(f.ctx, channel, string(jsonBytes)).Err(); err != nil {
-		// 记录错误但不阻塞主流程
 		f.logger.WithError(err).WithFields(logrus.Fields{
 			"device_id": device.ID,
-			"channel":   channel,
-			"status":    status,
-		}).Error("Failed to publish to Redis")
+		}).Debug("Status publish failed")
 		return
 	}
 
