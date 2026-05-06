@@ -30,7 +30,7 @@ db:
     port: 5432 # 默认5432
     dbname: ThingsPanel
     username: postgres
-    password: postgresThingsPanel
+    password: thingspanel2026
     time_zone: Asia/Shanghai # 默认Asia/Shanghai
 
     idle_conns: 5 # 空闲连接池中的最大连接数，建议为open_conns的百分之5-20之间
