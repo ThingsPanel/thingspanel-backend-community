@@ -167,72 +167,111 @@ func GetDeviceTrend(tenantID string, startTime, endTime *int64) ([]model.DeviceT
 
 	sql := `
 WITH
--- 1. 取每台设备每小时最后一次状态变更（基于change_time的自然小时）
-latest_hourly AS (
+-- 1. 生成查询范围内所有整点小时序列
+hour_series AS (
+    SELECT generate_series AS hour_ts
+    FROM generate_series($2::timestamptz, $3::timestamptz, '1 hour') AS generate_series
+),
+-- 2. 设备总数
+device_total AS (
+    SELECT COUNT(*)::bigint AS total_cnt
+    FROM devices
+    WHERE tenant_id = $1
+      AND created_at <= $3
+),
+-- 3. 查询前初始在线设备数（范围开始前最后一次状态=1的设备数）
+before_online AS (
+    SELECT COUNT(DISTINCT dsh.device_id)::bigint AS cnt
+    FROM device_status_history dsh
+    INNER JOIN (
+        SELECT device_id, MAX(id) AS max_id
+        FROM device_status_history
+        WHERE tenant_id = $1 AND change_time < $2
+        GROUP BY device_id
+    ) latest ON dsh.id = latest.max_id
+    WHERE dsh.status = 1
+),
+-- 4. 从未有过任何状态变更的设备数（用于最终离线计数）
+never_changed AS (
+    SELECT GREATEST(0,
+        (SELECT total_cnt FROM device_total) -
+        (SELECT COUNT(DISTINCT device_id) FROM device_status_history WHERE tenant_id = $1)
+    )::bigint AS cnt
+),
+-- 5. 查询范围内，每台设备每小时最后一次变更
+all_changes AS (
     SELECT
-        dsh.tenant_id,
         dsh.device_id,
         dsh.status,
         date_trunc('hour', dsh.change_time) AS hour_ts
     FROM device_status_history dsh
     INNER JOIN (
-        SELECT
-            tenant_id,
-            device_id,
-            hour_ts,
-            MAX(id) AS max_id
-        FROM (
-            SELECT
-                tenant_id,
-                device_id,
-                id,
-                date_trunc('hour', change_time) AS hour_ts
-            FROM device_status_history
-            WHERE tenant_id = $1
-              AND change_time >= $2
-              AND change_time <= $3
-        ) per_hour
-        GROUP BY tenant_id, device_id, hour_ts
+        SELECT device_id,
+               date_trunc('hour', change_time) AS hour_ts,
+               MAX(id) AS max_id
+        FROM device_status_history
+        WHERE tenant_id = $1
+          AND change_time >= $2
+          AND change_time <= $3
+        GROUP BY device_id, date_trunc('hour', change_time)
     ) latest ON dsh.id = latest.max_id
 ),
--- 2. 有变更记录的设备按时长聚合在线/离线数
-with_history AS (
+-- 6. 用窗口函数为每个设备按时间排序，标注前一个状态
+device_prev AS (
     SELECT
-        tenant_id,
+        device_id,
         hour_ts,
-        COUNT(*) FILTER (WHERE status = 1) AS with_online,
-        COUNT(*) FILTER (WHERE status = 0) AS with_offline
-    FROM latest_hourly
-    GROUP BY tenant_id, hour_ts
+        status,
+        LAG(status) OVER (
+            PARTITION BY device_id ORDER BY hour_ts
+        ) AS prev_status
+    FROM all_changes
 ),
--- 3. 该租户在查询结束时间前已创建的设备总数
-device_total_cnt AS (
-    SELECT COUNT(*) AS total_cnt
-    FROM devices
-    WHERE tenant_id = $1
-      AND created_at <= $3
+-- 7. 每小时实际上线/离线变更数（排除重复状态，如连续两条1只算第一次上线）
+hourly_delta AS (
+    SELECT hour_ts,
+        COUNT(*) FILTER (
+            WHERE status = 1 AND (prev_status IS NULL OR prev_status != 1)
+        )::bigint AS online_delta,
+        COUNT(*) FILTER (
+            WHERE status = 0 AND (prev_status IS NULL OR prev_status != 0)
+        )::bigint AS offline_delta
+    FROM device_prev
+    GROUP BY hour_ts
 ),
--- 4. 有变更记录的设备去重总数
-with_history_device_cnt AS (
-    SELECT COUNT(DISTINCT device_id) AS cnt
-    FROM latest_hourly
+-- 8. 合并：小时序列 + 每小时变更数（含0值）+ 初始在线数
+merged AS (
+    SELECT
+        s.hour_ts,
+        (SELECT cnt FROM before_online) AS init_online,
+        COALESCE(h.online_delta,  0)::bigint AS od,
+        COALESCE(h.offline_delta, 0)::bigint AS fd
+    FROM hour_series s
+    LEFT JOIN hourly_delta h ON h.hour_ts = s.hour_ts
 ),
--- 5. 从未有过变更记录的设备数 = 设备总数 - 有记录的设备数
-never_changed_cnt AS (
-    SELECT GREATEST(0,
-        (SELECT total_cnt FROM device_total_cnt) -
-        (SELECT cnt FROM with_history_device_cnt)
-    ) AS cnt
+-- 9. 递推在线数：
+--    cur_online = GREATEST(0, prev_online + od - fd)
+--    首行 LAG 返回 NULL，用 init_online 兜底
+with_online AS (
+    SELECT
+        hour_ts,
+        GREATEST(
+            COALESCE(
+                LAG(init_online + od - fd) OVER (ORDER BY hour_ts),
+                (SELECT cnt FROM before_online)
+            ), 0
+        )::bigint AS cur_online
+    FROM merged
 )
--- 6. 合并
+-- 10. 最终输出：在线 = 递推在线数；离线 = 总数 - 在线数（含从未变更设备）
 SELECT
-    h.hour_ts                                            AS timestamp,
-    t.total_cnt                                           AS device_total,
-    COALESCE(h.with_online, 0)::bigint                   AS device_online,
-    (COALESCE(h.with_offline, 0) + n.cnt)::bigint        AS device_offline
-FROM with_history h
-CROSS JOIN device_total_cnt t
-CROSS JOIN never_changed_cnt n
+    h.hour_ts                                        AS timestamp,
+    t.total_cnt                                      AS device_total,
+    w.cur_online                                     AS device_online,
+    (t.total_cnt - w.cur_online)::bigint           AS device_offline
+FROM with_online w
+JOIN merged h ON h.hour_ts = w.hour_ts
+CROSS JOIN device_total t
 ORDER BY h.hour_ts ASC;
 `
 	err := global.DB.Raw(sql, tenantID, startTimeUTC, endTimeUTC).Scan(&results).Error
