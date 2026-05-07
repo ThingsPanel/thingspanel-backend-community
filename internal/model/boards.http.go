@@ -34,7 +34,9 @@ type GetBoardListByPageReq struct {
 
 // DeviceTrendReq 设备趋势请求
 type DeviceTrendReq struct {
-	TenantID *string `form:"tenant_id" json:"tenant_id" validate:"omitempty,max=36"` // 租户ID
+	TenantID  *string `form:"tenant_id" json:"tenant_id" validate:"omitempty,max=36"` // 租户ID
+	StartTime *int64  `form:"start_time" json:"start_time" validate:"omitempty"`       // 查询起始时间（Unix时间戳）
+	EndTime   *int64  `form:"end_time" json:"end_time" validate:"omitempty"`           // 查询结束时间（Unix时间戳）
 }
 
 // DeviceTrendPoint 趋势数据点

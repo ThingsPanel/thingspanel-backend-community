@@ -8,6 +8,7 @@ import (
 
 	model "project/internal/model"
 	query "project/internal/query"
+	global "project/pkg/global"
 
 	"gorm.io/gen"
 	"gorm.io/gorm"
@@ -142,6 +143,109 @@ func (BoardQuery) UpdateHomeFlagN(ctx context.Context, tenantid string) error {
 		logrus.Error(ctx, "update failed:", err)
 	}
 	return err
+}
+
+// GetDeviceTrend 获取设备在线趋势（按小时聚合）
+// tenantID: 租户ID
+// startTime: 查询起始时间（Unix时间戳，秒），nil则默认当前时间-48h
+// endTime: 查询结束时间（Unix时间戳，秒），nil则默认当前时间
+func GetDeviceTrend(tenantID string, startTime, endTime *int64) ([]model.DeviceTrendPoint, error) {
+	now := time.Now()
+	if endTime == nil {
+		t := now.Unix()
+		endTime = &t
+	}
+	if startTime == nil {
+		t := now.Add(-48 * time.Hour).Unix()
+		startTime = &t
+	}
+
+	startTimeUTC := time.Unix(*startTime, 0).UTC()
+	endTimeUTC := time.Unix(*endTime, 0).UTC()
+
+	var results []model.DeviceTrendPoint
+
+	sql := `
+WITH
+-- 1. 取每台设备每小时最后一次状态变更（基于change_time的自然小时）
+latest_hourly AS (
+    SELECT
+        dsh.tenant_id,
+        dsh.device_id,
+        dsh.status,
+        date_trunc('hour', dsh.change_time) AS hour_ts
+    FROM device_status_history dsh
+    INNER JOIN (
+        SELECT
+            tenant_id,
+            device_id,
+            hour_ts,
+            MAX(id) AS max_id
+        FROM (
+            SELECT
+                tenant_id,
+                device_id,
+                id,
+                date_trunc('hour', change_time) AS hour_ts
+            FROM device_status_history
+            WHERE tenant_id = $1
+              AND change_time >= $2
+              AND change_time <= $3
+        ) per_hour
+        GROUP BY tenant_id, device_id, hour_ts
+    ) latest ON dsh.id = latest.max_id
+),
+-- 2. 有变更记录的设备按时长聚合在线/离线数
+with_history AS (
+    SELECT
+        tenant_id,
+        hour_ts,
+        COUNT(*) FILTER (WHERE status = 1) AS with_online,
+        COUNT(*) FILTER (WHERE status = 0) AS with_offline
+    FROM latest_hourly
+    GROUP BY tenant_id, hour_ts
+),
+-- 3. 该租户在查询结束时间前已创建的设备总数
+device_total_cnt AS (
+    SELECT COUNT(*) AS total_cnt
+    FROM devices
+    WHERE tenant_id = $1
+      AND created_at <= $3
+),
+-- 4. 有变更记录的设备去重总数
+with_history_device_cnt AS (
+    SELECT COUNT(DISTINCT device_id) AS cnt
+    FROM latest_hourly
+),
+-- 5. 从未有过变更记录的设备数 = 设备总数 - 有记录的设备数
+never_changed_cnt AS (
+    SELECT GREATEST(0,
+        (SELECT total_cnt FROM device_total_cnt) -
+        (SELECT cnt FROM with_history_device_cnt)
+    ) AS cnt
+)
+-- 6. 合并
+SELECT
+    h.hour_ts                                            AS timestamp,
+    t.total_cnt                                           AS device_total,
+    COALESCE(h.with_online, 0)::bigint                   AS device_online,
+    (COALESCE(h.with_offline, 0) + n.cnt)::bigint        AS device_offline
+FROM with_history h
+CROSS JOIN device_total_cnt t
+CROSS JOIN never_changed_cnt n
+ORDER BY h.hour_ts ASC;
+`
+	err := global.DB.Raw(sql, tenantID, startTimeUTC, endTimeUTC).Scan(&results).Error
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"tenant_id":  tenantID,
+			"startTime":  startTimeUTC,
+			"endTime":    endTimeUTC,
+		}).Error("GetDeviceTrend query failed")
+		return nil, err
+	}
+
+	return results, nil
 }
 
 // 给新增的租户新增一个默认的首页看板

@@ -264,8 +264,25 @@ func (*BoardApi) GetDeviceTrend(c *gin.Context) {
 		return
 	}
 
+	// 校验时间范围
+	if deviceTrendReq.StartTime != nil && deviceTrendReq.EndTime != nil {
+		if *deviceTrendReq.StartTime > *deviceTrendReq.EndTime {
+			c.Error(errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+				"message": "start_time must be less than or equal to end_time",
+			}))
+			return
+		}
+		const maxRangeSeconds = int64(30 * 24 * 3600) // 30天
+		if *deviceTrendReq.EndTime-*deviceTrendReq.StartTime > maxRangeSeconds {
+			c.Error(errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+				"message": "time range must not exceed 30 days",
+			}))
+			return
+		}
+	}
+
 	// 调用service层获取趋势数据
-	trend, err := service.GroupApp.Device.GetDeviceTrend(c, *deviceTrendReq.TenantID)
+	trend, err := service.GroupApp.Device.GetDeviceTrend(c, *deviceTrendReq.TenantID, deviceTrendReq.StartTime, deviceTrendReq.EndTime)
 	if err != nil {
 		c.Error(err)
 		return
