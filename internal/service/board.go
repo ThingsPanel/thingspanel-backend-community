@@ -239,8 +239,9 @@ func (*Board) GetDevice(ctx context.Context, U *utils.UserClaims) (data *model.G
 		return
 	}
 	data = &model.GetBoardDeviceRes{
-		DeviceTotal: total,
-		DeviceOn:    on,
+		DeviceTotal:   total,
+		DeviceOn:      on,
+		DeviceOffline: total - on,
 	}
 	return
 }
@@ -268,8 +269,9 @@ func (*Board) GetDeviceByTenantID(ctx context.Context, tenantID string) (data *m
 		return
 	}
 	data = &model.GetBoardDeviceRes{
-		DeviceTotal: total,
-		DeviceOn:    on,
+		DeviceTotal:   total,
+		DeviceOn:      on,
+		DeviceOffline: total - on,
 	}
 	return
 }
