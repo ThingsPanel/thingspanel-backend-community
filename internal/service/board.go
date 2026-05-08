@@ -217,7 +217,7 @@ func (*Board) GetDevice(ctx context.Context, U *utils.UserClaims) (data *model.G
 	if !common.CheckUserIsAdmin(U.Authority) {
 		total, err = db.CountByTenantID(ctx, U.TenantID)
 	} else {
-		total, err = db.Count(ctx)
+		total, err = db.CountByWhere(ctx, device.ActivateFlag.Neq("inactive"))
 	}
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count failed:", err)
@@ -227,9 +227,9 @@ func (*Board) GetDevice(ctx context.Context, U *utils.UserClaims) (data *model.G
 		return
 	}
 	if !common.CheckUserIsAdmin(U.Authority) {
-		on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.TenantID.Eq(U.TenantID))
+		on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.TenantID.Eq(U.TenantID), device.IsOnline.Eq(1))
 	} else {
-		on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"))
+		on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.IsOnline.Eq(1))
 	}
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count/on failed:", err)
