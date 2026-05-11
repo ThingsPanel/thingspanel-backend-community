@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"project/initialize"
@@ -61,14 +62,17 @@ func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, 
 	}
 
 	// 4. 构造命令数据
-	var valueStr string
-	if putMessageReq.Value != nil {
-		valueStr = *putMessageReq.Value
-	}
-
 	commandData := map[string]interface{}{
 		"method": putMessageReq.Identify, // identify 映射为 method
-		"params": json.RawMessage(valueStr), // Value 是 JSON 字符串
+	}
+	if putMessageReq.Value != nil {
+		valueStr := strings.TrimSpace(*putMessageReq.Value)
+		if valueStr != "" {
+			if !json.Valid([]byte(valueStr)) {
+				return errcode.NewWithMessage(errcode.CodeParamError, "value is not a valid JSON")
+			}
+			commandData["params"] = json.RawMessage(valueStr)
+		}
 	}
 
 	// 5. 处理多层网关数据嵌套
@@ -77,7 +81,10 @@ func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, 
 		return fmt.Errorf("failed to transform command data: %w", err)
 	}
 
-	jsonData, _ := json.Marshal(transformedData)
+	jsonData, err := json.Marshal(transformedData)
+	if err != nil {
+		return errcode.NewWithMessage(errcode.CodeParamError, "command data is not a valid JSON")
+	}
 
 	// 6. 处理网关层级，获取目标设备信息
 	targetDevice, targetDeviceNumber, topicPrefix, err := c.resolveDeviceInfo(device, deviceType, protocolType)
@@ -95,25 +102,25 @@ func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, 
 	// 8. 使用 downlink.Bus 发送
 	if c.downlinkBus != nil {
 		msg := &downlink.Message{
-			DeviceID:       device.ID,                          // 原始设备ID（用于日志关联）
-			DeviceNumber:   targetDeviceNumber,                 // 目标设备编号
-			DeviceType:     deviceType,                         // 设备类型
-			DeviceConfigID: c.getDeviceConfigID(targetDevice),  // 使用顶层网关的配置ID（用于脚本编码）
+			DeviceID:       device.ID,                         // 原始设备ID（用于日志关联）
+			DeviceNumber:   targetDeviceNumber,                // 目标设备编号
+			DeviceType:     deviceType,                        // 设备类型
+			DeviceConfigID: c.getDeviceConfigID(targetDevice), // 使用顶层网关的配置ID（用于脚本编码）
 			Type:           downlink.MessageTypeCommand,
 			Data:           jsonData,
-			Topic:          "",                                 // 不再传Topic，由Adapter构造
-			TopicPrefix:    topicPrefix,                        // 协议插件前缀
+			Topic:          "",          // 不再传Topic，由Adapter构造
+			TopicPrefix:    topicPrefix, // 协议插件前缀
 			MessageID:      messageId,
 		}
 		c.downlinkBus.PublishCommand(msg)
 
 		logrus.WithFields(logrus.Fields{
-			"device_id":           device.ID,
-			"target_device_id":    targetDevice.ID,
+			"device_id":            device.ID,
+			"target_device_id":     targetDevice.ID,
 			"target_device_number": targetDeviceNumber,
-			"device_type":         deviceType,
-			"message_id":          messageId,
-			"identify":            putMessageReq.Identify,
+			"device_type":          deviceType,
+			"message_id":           messageId,
+			"identify":             putMessageReq.Identify,
 		}).Info("Command sent via downlink")
 	} else {
 		return fmt.Errorf("downlink service not available")
