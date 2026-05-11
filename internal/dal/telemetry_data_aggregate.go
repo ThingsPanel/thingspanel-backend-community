@@ -32,13 +32,29 @@ func GetTelemetryDatasAggregate(_ context.Context, telemetryDatasAggregate Telem
 		return nil, fmt.Errorf("不支持的聚合函数: %s", telemetryDatasAggregate.AggregateFunction)
 	}
 
-	resultData := global.DB.Raw(queryString, telemetryDatasAggregate.AggregateWindow, telemetryDatasAggregate.STime, telemetryDatasAggregate.ETime, telemetryDatasAggregate.Key, telemetryDatasAggregate.DeviceID, telemetryDatasAggregate.AggregateWindow).Scan(&data)
+	resultData := global.DB.Raw(queryString, aggregateQueryArgs(telemetryDatasAggregate)...).Scan(&data)
 	if resultData.Error != nil {
 		return nil, resultData.Error
 	}
 
 	return data, nil
 
+}
+
+func aggregateQueryArgs(telemetryDatasAggregate TelemetryDatasAggregate) []interface{} {
+	aggregateWindowSeconds := telemetryDatasAggregate.AggregateWindow / 1000
+	if aggregateWindowSeconds < 1 {
+		aggregateWindowSeconds = 1
+	}
+
+	return []interface{}{
+		telemetryDatasAggregate.STime,
+		telemetryDatasAggregate.ETime,
+		telemetryDatasAggregate.Key,
+		telemetryDatasAggregate.DeviceID,
+		aggregateWindowSeconds,
+		aggregateWindowSeconds,
+	}
 }
 
 // 获取queryString，支持平均值，最大值，最小值，合计
