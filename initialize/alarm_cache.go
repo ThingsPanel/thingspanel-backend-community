@@ -86,7 +86,7 @@ func (a *AlarmCache) set(key string, value interface{}) error {
 	} else {
 		valBytes, err := json.Marshal(value)
 		if err != nil {
-			return nil
+			return fmt.Errorf("json marshal failed for key %s: %w", key, err)
 		}
 		valueStr = string(valBytes)
 	}

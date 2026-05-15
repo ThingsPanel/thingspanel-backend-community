@@ -199,7 +199,7 @@ func getSceneAutomationIdByDeviceConfigId(ctx context.Context, deviceConfigId st
 	if err != nil {
 		return sceneIds, err
 	}
-	for _, v := range result {
+	for _, v := range result2 {
 		sceneIds = append(sceneIds, v.SceneAutomationID)
 	}
 	return sceneIds, nil

@@ -18,7 +18,7 @@ func CreatePeriodicTask(d model.PeriodicTask, tx *query.QueryTx) error {
 
 func SwitchPeriodicTask(sceneAutomationId, enabled string, tx *query.QueryTx) error {
 	_, err := tx.PeriodicTask.
-		Where(tx.PeriodicTask.ID.Eq(sceneAutomationId)).
+		Where(tx.PeriodicTask.SceneAutomationID.Eq(sceneAutomationId)).
 		Update(tx.PeriodicTask.Enabled, enabled)
 	return err
 }
