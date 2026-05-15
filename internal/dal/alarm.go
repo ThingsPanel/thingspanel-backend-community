@@ -322,3 +322,39 @@ func DeleteAlarmHistory(id string, tenantID string) error {
 	}
 	return nil
 }
+
+// DeleteAlarmHistoryByConfigId 根据告警配置ID删除所有告警历史记录
+func DeleteAlarmHistoryByConfigId(alarmConfigId string) error {
+	_, err := query.AlarmHistory.Where(query.AlarmHistory.AlarmConfigID.Eq(alarmConfigId)).Delete()
+	return err
+}
+
+// GetDeviceIdsByAlarmConfigId 根据告警配置ID从历史记录中反查所有触发过的设备ID
+func GetDeviceIdsByAlarmConfigId(alarmConfigId string) ([]string, error) {
+	histories, err := query.AlarmHistory.Where(query.AlarmHistory.AlarmConfigID.Eq(alarmConfigId)).Find()
+	if err != nil {
+		return nil, err
+	}
+	deviceSet := make(map[string]struct{})
+	for _, h := range histories {
+		var deviceIds []string
+		if h.AlarmDeviceList != "" {
+			_ = json.Unmarshal([]byte(h.AlarmDeviceList), &deviceIds)
+		}
+		for _, did := range deviceIds {
+			deviceSet[did] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(deviceSet))
+	for did := range deviceSet {
+		result = append(result, did)
+	}
+	return result, nil
+}
+
+// DeleteAlarmNameCache 删除告警名称缓存
+func DeleteAlarmNameCache(alarmId string) error {
+	redis := global.REDIS
+	cacheKey := fmt.Sprintf("GetAlarmNameWithCache:alarmId:%s", alarmId)
+	return redis.Del(context.Background(), cacheKey).Err()
+}

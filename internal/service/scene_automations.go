@@ -240,6 +240,23 @@ func (*SceneAutomation) DeleteSceneAutomation(scene_automation_id string) error 
 			"sql_error": err.Error(),
 		})
 	}
+	// 清除自动化缓存和告警缓存
+	go func() {
+		// 清除自动化缓存
+		if err := initialize.NewAutomateCache().DeleteCacheBySceneAutomationId(scene_automation_id); err != nil {
+			logrus.Error("DeleteSceneAutomation 删除自动化缓存失败: ", err)
+		}
+		// 清除告警缓存
+		alarmCache := initialize.NewAlarmCache()
+		groupIds, err := alarmCache.GetBySceneAutomationId(scene_automation_id)
+		if err == nil && len(groupIds) > 0 {
+			for _, group_id := range groupIds {
+				if err := alarmCache.DeleteBygroupId(group_id); err != nil {
+					logrus.Error("DeleteSceneAutomation 删除告警缓存失败: ", err)
+				}
+			}
+		}
+	}()
 	return nil
 }
 

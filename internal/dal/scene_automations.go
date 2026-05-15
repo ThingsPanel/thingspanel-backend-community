@@ -172,7 +172,7 @@ func getSceneAutomationIdByDeviceId(ctx context.Context, deviceId string) ([]str
 	}
 	var result2 []model.ActionInfo
 	qa := query.ActionInfo
-	err = qa.WithContext(ctx).Where(qa.ActionParamType.Eq(model.AUTOMATE_ACTION_TYPE_ONE), qa.ActionTarget.Eq(deviceId)).Scan(&result2)
+	err = qa.WithContext(ctx).Where(qa.ActionType.Eq(model.AUTOMATE_ACTION_TYPE_ONE), qa.ActionTarget.Eq(deviceId)).Scan(&result2)
 	if err != nil {
 		return sceneIds, err
 	}
@@ -195,7 +195,7 @@ func getSceneAutomationIdByDeviceConfigId(ctx context.Context, deviceConfigId st
 	}
 	var result2 []model.ActionInfo
 	qa := query.ActionInfo
-	err = qa.WithContext(ctx).Where(qa.ActionParamType.Eq(model.AUTOMATE_ACTION_TYPE_MULTIPLE), qa.ActionTarget.Eq(deviceConfigId)).Scan(&result2)
+	err = qa.WithContext(ctx).Where(qa.ActionType.Eq(model.AUTOMATE_ACTION_TYPE_MULTIPLE), qa.ActionTarget.Eq(deviceConfigId)).Scan(&result2)
 	if err != nil {
 		return sceneIds, err
 	}

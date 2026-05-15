@@ -304,3 +304,27 @@ func (a *AlarmCache) DeleteBygroupId(group_Id string) error {
 
 	return a.client.Del(context.Background(), cacheKey).Err()
 }
+
+// DeleteByAlarmId 根据告警配置ID删除所有相关缓存（alarm_cach_alarm_v6_{alarmId}_{deviceId}）
+func (a *AlarmCache) DeleteByAlarmId(alarmId string) error {
+	alarmMu.Lock()
+	defer alarmMu.Unlock()
+	pattern := fmt.Sprintf("alarm_cach_alarm_v6_%s_*", alarmId)
+	var cursor uint64
+	for {
+		keys, nextCursor, err := a.client.Scan(context.Background(), cursor, pattern, 100).Result()
+		if err != nil {
+			return pkgerrors.Wrap(err, "扫描告警缓存key失败")
+		}
+		if len(keys) > 0 {
+			if err := a.client.Del(context.Background(), keys...).Err(); err != nil {
+				return pkgerrors.Wrap(err, "删除告警缓存失败")
+			}
+		}
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+	return nil
+}

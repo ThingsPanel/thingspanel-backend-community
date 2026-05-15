@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"project/internal/dal"
+	"project/initialize"
 	model "project/internal/model"
 	"project/pkg/errcode"
 
@@ -50,6 +51,20 @@ func (*Alarm) DeleteAlarmConfig(id string) (err error) {
 			"sql_error": err.Error(),
 		})
 	}
+	// 清理告警名称缓存
+	_ = dal.DeleteAlarmNameCache(id)
+	// 清理 alarm_cach_alarm_v6_{alarmId}_{deviceId} 相关缓存
+	go func() {
+		if err := initialize.NewAlarmCache().DeleteByAlarmId(id); err != nil {
+			logrus.Error("DeleteAlarmConfig 清理告警设备缓存失败: ", err)
+		}
+	}()
+	// 清理 alarm_history 中该告警配置的历史记录
+	go func() {
+		if err := dal.DeleteAlarmHistoryByConfigId(id); err != nil {
+			logrus.Error("DeleteAlarmConfig 清理告警历史记录失败: ", err)
+		}
+	}()
 	return
 }
 
@@ -82,6 +97,12 @@ func (*Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq) (data *model.Al
 			"sql_error": err.Error(),
 		})
 	}
+	// 清理告警名称缓存，确保后续 GetAlarmNameWithCache 获取最新名称
+	go func() {
+		if err := dal.DeleteAlarmNameCache(req.ID); err != nil {
+			logrus.Error("UpdateAlarmConfig 清理告警名称缓存失败: ", err)
+		}
+	}()
 	data, err = dal.GetAlarmByID(req.ID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
