@@ -928,3 +928,19 @@ func GetDeviceListByProtocolType(req model.GetDevicesByProtocolPluginReq, device
 	// 暂不支持非直连设备
 	return errors.New("暂不支持非直连设备")
 }
+
+// GetDeviceLatestAlarmStatus 获取设备的最新告警状态
+func GetDeviceLatestAlarmStatus(deviceID string) (string, error) {
+	lda := query.LatestDeviceAlarm
+	alarm, err := lda.Where(lda.DeviceID.Eq(deviceID)).First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "N", nil
+		}
+		return "", err
+	}
+	if alarm.AlarmStatus == nil || *alarm.AlarmStatus == "N" || *alarm.AlarmStatus == "" {
+		return "N", nil
+	}
+	return "Y", nil
+}

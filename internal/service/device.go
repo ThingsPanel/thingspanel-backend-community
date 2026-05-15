@@ -513,6 +513,14 @@ func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
 			"message":   "get device failed",
 		})
 	}
+	// 查询设备告警状态
+	alarmStatus, err := dal.GetDeviceLatestAlarmStatus(id)
+	if err != nil {
+		logrus.Warnf("[GetDeviceByIDV1] get device alarm status failed, deviceID=%s, err=%v", id, err)
+		alarmStatus = "N"
+	}
+	data["warn_status"] = alarmStatus
+
 	// 判断data是否有key为device_config_id
 	if v, ok := data["device_config_id"]; ok {
 		// 判断是否为nil或者为空字符串
