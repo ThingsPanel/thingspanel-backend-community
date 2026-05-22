@@ -41,8 +41,8 @@ Dynamic Effect Demonstration
 </div>
 Mobile Application Interface
 <div align="center">
-  <img src="https://github.com/ThingsPanel/app/blob/main/github/iphone-1.png" width="30%">
-  <img src="https://github.com/ThingsPanel/app/blob/main/github/iphone-2.png" width="30%">
+  <img src="./files/iphone-1.png" width="30%">
+  <img src="./files/iphone-2.png" width="30%">
 </div>
 
 ## Demo
