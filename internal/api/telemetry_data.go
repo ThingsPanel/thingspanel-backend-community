@@ -200,6 +200,36 @@ func (*TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
 	c.Set("data", nil)
 }
 
+// GetSimulationInit 获取模拟表单初始值
+// @Router /api/v1/telemetry/datas/simulation/init [get]
+func (*TelemetryDataApi) GetSimulationInit(c *gin.Context) {
+	var req model.SimulationInitReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	data, err := service.GroupApp.TelemetryData.GetSimulationInit(req.DeviceId)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
+// SimulationSend 发送模拟数据
+// @Router /api/v1/telemetry/datas/simulation/send [post]
+func (*TelemetryDataApi) SimulationSend(c *gin.Context) {
+	var req model.SimulationSendReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	err := service.GroupApp.TelemetryData.SimulationSend(&req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", nil)
+}
+
 // validateToken 验证WebSocket中的token
 func validateToken(token string) (*utils.UserClaims, error) {
 	// 验证 Redis 中的 token

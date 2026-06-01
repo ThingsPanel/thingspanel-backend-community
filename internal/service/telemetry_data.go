@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -613,6 +614,170 @@ func (*TelemetryData) TelemetryPub(mosquittoCommand string) (interface{}, error)
 		})
 	}
 	return nil, nil
+}
+
+// GetSimulationInit 获取模拟表单初始值
+func (*TelemetryData) GetSimulationInit(deviceId string) (*model.SimulationInitResp, error) {
+	// 获取设备信息
+	deviceInfo, err := dal.GetDeviceByID(deviceId)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	if deviceInfo == nil {
+		return nil, errcode.New(204003) // 设备不存在
+	}
+
+	// 解析 voucher（设备凭证，JSON 格式）
+	voucher := deviceInfo.Voucher
+	if voucher == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "voucher is empty")
+	}
+	if !IsJSON(voucher) {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "voucher is not valid JSON")
+	}
+	var voucherMap map[string]interface{}
+	if err := json.Unmarshal([]byte(voucher), &voucherMap); err != nil {
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
+	// 提取用户名
+	username, ok := voucherMap["username"].(string)
+	if !ok || username == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "username not found in voucher")
+	}
+
+	// 提取密码（可选）
+	password := ""
+	if p, ok := voucherMap["password"].(string); ok {
+		password = p
+	}
+
+	// 获取 MQTT 服务器配置
+	accessAddress := viper.GetString("mqtt.access_address")
+	if accessAddress == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "mqtt access_address not configured")
+	}
+	addressParts := strings.Split(accessAddress, ":")
+	host := addressParts[0]
+	port := 1883
+	if len(addressParts) >= 2 {
+		if p, err := strconv.Atoi(addressParts[1]); err == nil {
+			port = p
+		}
+	}
+
+	// 生成随机客户端ID
+	clientID := "mqtt_" + uuid.New()[0:12]
+
+	// 生成6位随机数字
+	randNum := fmt.Sprintf("%06d", rand.Intn(1000000))
+
+	// 将 Topic 中的通配符 + 替换为随机数字
+	attrTopic := strings.ReplaceAll(config.MqttConfig.Attributes.SubscribeTopic, "+", randNum)
+	eventTopic := strings.ReplaceAll(config.MqttConfig.Events.SubscribeTopic, "+", randNum)
+
+	// 默认数据
+	defaultData := `{"_data1": 25.5, "_data2": 60}`
+
+	resp := &model.SimulationInitResp{
+		Username:         username,
+		Password:         password,
+		ClientID:        clientID,
+		Server:          host,
+		Port:            port,
+		Topic:           config.MqttConfig.Telemetry.SubscribeTopic,
+		TopicOptions: []model.SimulationTopicOption{
+			{Label: "遥测", Value: config.MqttConfig.Telemetry.SubscribeTopic},
+			{Label: "属性", Value: attrTopic},
+			{Label: "事件", Value: eventTopic},
+		},
+		DefaultData:      defaultData,
+		EventDefaultData: `{"method":"FindAnimal","params":{"count":2,"animalType":"cat"}}`,
+	}
+	return resp, nil
+}
+
+// SimulationSend 发送模拟数据
+func (*TelemetryData) SimulationSend(req *model.SimulationSendReq) error {
+	// 参数校验
+	if req.DeviceID == "" {
+		return errcode.NewWithMessage(errcode.CodeParamError, "device_id is required")
+	}
+	if req.Data == "" {
+		return errcode.NewWithMessage(errcode.CodeParamError, "data is required")
+	}
+
+	// 校验 data 是否为有效 JSON
+	if !IsJSON(req.Data) {
+		return errcode.NewWithMessage(errcode.CodeParamError, "data must be valid JSON")
+	}
+
+	// 获取设备信息
+	deviceInfo, err := dal.GetDeviceByID(req.DeviceID)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	if deviceInfo == nil {
+		return errcode.New(204003)
+	}
+
+	// 解析 voucher
+	voucher := deviceInfo.Voucher
+	if voucher == "" || !IsJSON(voucher) {
+		return errcode.NewWithMessage(errcode.CodeParamError, "invalid voucher")
+	}
+	var voucherMap map[string]interface{}
+	if err := json.Unmarshal([]byte(voucher), &voucherMap); err != nil {
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
+	username, _ := voucherMap["username"].(string)
+	password, _ := voucherMap["password"].(string)
+
+	// 确定 MQTT 参数
+	accessAddress := viper.GetString("mqtt.access_address")
+	if accessAddress == "" {
+		return errcode.NewWithMessage(errcode.CodeParamError, "mqtt access_address not configured")
+	}
+	addressParts := strings.Split(accessAddress, ":")
+	host := addressParts[0]
+	port := "1883"
+	if len(addressParts) >= 2 {
+		port = addressParts[1]
+	}
+
+	// 使用请求参数覆盖默认值
+	if req.Server != "" {
+		host = req.Server
+	}
+	if req.Port != nil && *req.Port > 0 {
+		port = strconv.Itoa(*req.Port)
+	}
+	topic := config.MqttConfig.Telemetry.SubscribeTopic
+	if req.Topic != "" {
+		topic = req.Topic
+	}
+
+	// 生成客户端ID
+	clientID := "mqtt_" + uuid.New()[0:12]
+
+	// 发送 MQTT 消息
+	logrus.Debugf("SimulationSend: host=%s, port=%s, topic=%s, data=%s", host, port, topic, req.Data)
+	err = simulationpublish.PublishMessage(host, port, topic, req.Data, username, password, clientID)
+	if err != nil {
+		return errcode.WithVars(500007, map[string]interface{}{
+			"error_message": err.Error(),
+		})
+	}
+	return nil
 }
 
 func (*TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySetLogsListByPageReq) (interface{}, error) {

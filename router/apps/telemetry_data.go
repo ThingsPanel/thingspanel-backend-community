@@ -50,6 +50,12 @@ func (*TelemetryData) InitTelemetryData(Router *gin.RouterGroup) {
 		//模拟设备发送遥测数据SimulationTelemetryData
 		telemetrydataapi.POST("simulation", api.Controllers.TelemetryDataApi.SimulationTelemetryData)
 
+		// 获取模拟表单初始值（重构版本）
+		telemetrydataapi.GET("simulation/init", api.Controllers.TelemetryDataApi.GetSimulationInit)
+
+		// 发送模拟数据（重构版本）
+		telemetrydataapi.POST("simulation/send", api.Controllers.TelemetryDataApi.SimulationSend)
+
 		// 返回用户消息大致数量
 		telemetrydataapi.GET("msg/count", api.Controllers.TelemetryDataApi.ServeMsgCountByTenant)
 
