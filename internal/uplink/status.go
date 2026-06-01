@@ -92,6 +92,8 @@ func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 		return
 	}
 
+	source, _ := msg.Metadata["source"].(string)
+
 	f.logger.WithFields(logrus.Fields{
 		"device_id": msg.DeviceID,
 		"status":    status,
@@ -101,6 +103,33 @@ func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 	device, err := initialize.GetDeviceCacheById(msg.DeviceID)
 	if err != nil {
 		f.logger.WithError(err).WithField("device_id", msg.DeviceID).Error("Device not found")
+		return
+	}
+
+	// 老的 Redis 设备缓存里可能缺少 access_way / service_access_id 等字段，
+	// 会让服务接入设备在这里被误判成普通设备，从而把 broker 补发的离线消息当真。
+	// 遇到这类可疑缓存时，回源数据库并刷新缓存，避免持续抖动。
+	if status == 0 && source == "status_message" && device.AccessWay == nil && device.ServiceAccessID == nil {
+		freshDevice, dbErr := dal.GetDeviceCacheById(msg.DeviceID)
+		if dbErr == nil {
+			device = freshDevice
+			if cacheErr := initialize.SetRedisForJsondata(msg.DeviceID, freshDevice, 0); cacheErr != nil {
+				f.logger.WithError(cacheErr).WithField("device_id", msg.DeviceID).Warn("Failed to refresh stale device cache")
+			}
+		} else {
+			f.logger.WithError(dbErr).WithField("device_id", msg.DeviceID).Warn("Failed to reload stale device cache from database")
+		}
+	}
+
+	// 服务接入设备（如 HomeAssistant）经常使用短生命周期的设备级 MQTT 会话发业务数据。
+	// 会话断开时 broker 可能补发 status=0，导致出现“全员离线 -> 立刻上线”的假抖动。
+	// 这类设备更适合依赖持续业务消息来判定在线，因此忽略普通 status_message 离线事件。
+	if status == 0 && source == "status_message" && device.AccessWay != nil && *device.AccessWay == "B" && device.ServiceAccessID != nil {
+		f.logger.WithFields(logrus.Fields{
+			"device_id":         device.ID,
+			"service_access_id": *device.ServiceAccessID,
+			"source":            source,
+		}).Info("Ignoring offline status message for service-access device")
 		return
 	}
 
@@ -151,7 +180,7 @@ func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"status":    status,
-			"source":    msg.Metadata["source"],
+			"source":    source,
 		}).Debug("【设备上下线】Device status unchanged, skipping notification")
 		return
 	}
@@ -159,7 +188,7 @@ func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 	f.logger.WithFields(logrus.Fields{
 		"device_id": device.ID,
 		"status":    status,
-		"source":    msg.Metadata["source"],
+		"source":    source,
 	}).Debug("【设备上下线】Device status updated")
 
 	// 5. 清理设备缓存

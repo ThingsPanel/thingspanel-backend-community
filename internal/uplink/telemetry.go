@@ -400,23 +400,6 @@ func (f *TelemetryUplink) convertToTelemetryPoints(payload []byte, device *model
 
 // refreshHeartbeat 刷新设备心跳
 func (f *TelemetryUplink) refreshHeartbeat(device *model.Device) {
-	// 如果没有 HeartbeatService,跳过
-	if f.heartbeatService == nil {
-		return
-	}
-
-	// 获取心跳配置
-	config, err := f.heartbeatService.GetConfig(device)
-	if err != nil {
-		f.logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to get heartbeat config")
-		return
-	}
-
-	// 无心跳配置,不处理
-	if config == nil {
-		return
-	}
-
 	// 检查是否需要自动上线
 	if device.IsOnline != 1 {
 		// 设备当前离线,收到消息后自动上线
@@ -443,6 +426,23 @@ func (f *TelemetryUplink) refreshHeartbeat(device *model.Device) {
 			// SSE通知、自动化、预期数据(异步)
 			go f.notifyDeviceOnline(updatedDevice)
 		}
+	}
+
+	// 如果没有 HeartbeatService,跳过心跳刷新，但保留自动上线能力
+	if f.heartbeatService == nil {
+		return
+	}
+
+	// 获取心跳配置
+	config, err := f.heartbeatService.GetConfig(device)
+	if err != nil {
+		f.logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to get heartbeat config")
+		return
+	}
+
+	// 无心跳配置,不处理
+	if config == nil {
+		return
 	}
 
 	// 刷新心跳 key (优先级: heartbeat > online_timeout)
