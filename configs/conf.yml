@@ -209,7 +209,7 @@ device_metadata:
 # blacklisted_tenants 中的租户始终走旧路径（超敏感客户）
 feature_flags:
   use_thingmodel:
-    enabled: true                      # 总开关，false = 全量走旧路径
+    enabled: false                     # 总开关，false = 全量走旧路径（encore API 就绪后再开）
     rollout_percentage: 0              # 0=关闭, 5/25/50/100 渐进开启
-    whitelisted_tenants: ["d616bcbb"] # 本地 HJ212 E2E 租户开启新物模型路径
+    whitelisted_tenants: []            # encore API 就绪后再加: ["d616bcbb"]
     blacklisted_tenants: []            # 例: ["tenant-uuid-zzz"]
