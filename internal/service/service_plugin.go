@@ -8,6 +8,7 @@ import (
 	"project/internal/dal"
 	"project/internal/model"
 	"project/internal/query"
+	protocolplugin "project/internal/service/protocol_plugin"
 	"project/pkg/constant"
 	"project/pkg/errcode"
 	"project/third_party/others/http_client"
@@ -99,12 +100,28 @@ func (*ServicePlugin) Delete(id string) error {
 
 // Heartbeat
 func (*ServicePlugin) Heartbeat(req *model.HeartbeatReq) error {
-	// 更新服务插件的心跳时间
-	err := dal.UpdateServicePluginHeartbeat(req.ServiceIdentifier)
+	plugin, err := dal.GetServicePluginByServiceIdentifier(req.ServiceIdentifier)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
+	}
+
+	needsBootstrapSync := plugin.LastActiveTime == nil || time.Since(plugin.LastActiveTime.UTC()) > time.Minute
+
+	// 更新服务插件的心跳时间
+	err = dal.UpdateServicePluginHeartbeat(req.ServiceIdentifier)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	if needsBootstrapSync && plugin.ServiceType == 1 {
+		if syncErr := protocolplugin.SyncAllDevicesByProtocolType(req.ServiceIdentifier); syncErr != nil {
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "plugin bootstrap sync failed: " + syncErr.Error(),
+			})
+		}
 	}
 	return nil
 }

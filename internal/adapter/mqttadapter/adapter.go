@@ -36,8 +36,8 @@ type Adapter struct {
 
 // publicPayload MQTT 消息格式
 type publicPayload struct {
-	DeviceId string `json:"device_id"`
-	Values   []byte `json:"values"`
+	DeviceId string          `json:"device_id"`
+	Values   json.RawMessage `json:"values"`
 }
 
 // NewAdapter 创建 MQTT 适配器
@@ -365,7 +365,7 @@ func (a *Adapter) HandleStatusMessage(payload []byte, topic string, source strin
 // verifyPayload 验证 MQTT 消息格式
 func (a *Adapter) verifyPayload(body []byte) (*publicPayload, error) {
 	payload := &publicPayload{
-		Values: make([]byte, 0),
+		Values: json.RawMessage{},
 	}
 
 	if err := json.Unmarshal(body, payload); err != nil {

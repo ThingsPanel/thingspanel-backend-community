@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"project/pkg/errcode"
@@ -37,6 +38,8 @@ type DeviceData struct {
 	Description    string `json:"description"`
 	IsBind         bool   `json:"is_bind"`
 	DeviceConfigID string `json:"device_config_id"`
+	ProtocolConfig string `json:"protocol_config"`
+	AdditionalInfo string `json:"additional_info"`
 }
 
 // 获取插件的表单配置
@@ -127,10 +130,14 @@ func Notification(messageType string, message string, host string) ([]byte, erro
 // /api/v1/service/access/device/list
 // 三方服务列表查询
 func GetServiceAccessDeviceList(host string, voucher string, page_size string, page string) (*ListData, error) {
-	b, err := Get("http://" + host + "/api/v1/plugin/device/list?voucher=" + voucher + "&page_size=" + page_size + "&page=" + page)
+	query := url.Values{}
+	query.Set("voucher", voucher)
+	query.Set("page_size", page_size)
+	query.Set("page", page)
+	b, err := Get("http://" + host + "/api/v1/plugin/device/list?" + query.Encode())
 	if err != nil {
 		logrus.Error(err)
-		logrus.Error("http://" + host + "/api/v1/plugin/device/list?voucher=" + voucher + "&page_size=" + page_size + "&page=" + page)
+		logrus.Error("http://" + host + "/api/v1/plugin/device/list?" + query.Encode())
 		return nil, fmt.Errorf("get plugin form failed: %s", err)
 	}
 	// 解析表单

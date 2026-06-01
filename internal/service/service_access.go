@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"project/internal/dal"
@@ -20,6 +21,81 @@ import (
 
 type ServiceAccess struct{}
 
+func buildServiceAccessDeviceConfig(serviceVoucher string, device model.Device) map[string]any {
+	merged := map[string]any{}
+
+	if serviceVoucher != "" {
+		var serviceConfig map[string]any
+		if err := json.Unmarshal([]byte(serviceVoucher), &serviceConfig); err == nil {
+			for key, value := range serviceConfig {
+				merged[key] = value
+			}
+		}
+	}
+
+	if device.ProtocolConfig != nil && *device.ProtocolConfig != "" {
+		var protocolConfig map[string]any
+		if err := json.Unmarshal([]byte(*device.ProtocolConfig), &protocolConfig); err == nil {
+			for key, value := range protocolConfig {
+				merged[key] = value
+			}
+		}
+	}
+
+	return merged
+}
+
+func deviceAccessToken(device model.Device) string {
+	if device.Voucher == "" {
+		return ""
+	}
+
+	var voucher map[string]any
+	if err := json.Unmarshal([]byte(device.Voucher), &voucher); err != nil {
+		return ""
+	}
+
+	username, _ := voucher["username"].(string)
+	return username
+}
+
+func syncServiceAccessDevicesToConnector(serviceAccessID string, serviceVoucher string, host string) error {
+	devices, err := dal.GetServiceDeviceList(serviceAccessID)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+
+	for _, device := range devices {
+		reqDataBytes, marshalErr := json.Marshal(map[string]interface{}{
+			"device_id":     device.ID,
+			"device_number": device.DeviceNumber,
+			"device_config": buildServiceAccessDeviceConfig(serviceVoucher, device),
+			"access_token":  deviceAccessToken(device),
+		})
+		if marshalErr != nil {
+			return errcode.WithData(100004, map[string]interface{}{
+				"message": fmt.Sprintf("marshal connector sync payload failed for device %s", device.ID),
+			})
+		}
+
+		response, syncErr := http_client.AddDevice(reqDataBytes, host)
+		if syncErr != nil {
+			return errcode.WithVars(105001, map[string]interface{}{
+				"error": "sync service access devices failed: " + syncErr.Error(),
+			})
+		}
+		if response.StatusCode != 200 {
+			return errcode.WithVars(105001, map[string]interface{}{
+				"error": fmt.Sprintf("sync service access devices failed: status=%s", response.Status),
+			})
+		}
+	}
+
+	return nil
+}
+
 func (*ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 	var serviceAccess model.ServiceAccess
 	copier.Copy(&serviceAccess, req)
@@ -35,6 +111,38 @@ func (*ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *utils
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
+	}
+	if serviceAccess.Voucher != "" {
+		_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
+		notifyPayload := map[string]interface{}{
+			"service_access_id": serviceAccess.ID,
+		}
+		if serviceAccess.ServiceAccessConfig != nil {
+			cfg := strings.TrimSpace(*serviceAccess.ServiceAccessConfig)
+			if cfg != "" {
+				var configMap map[string]interface{}
+				if err := json.Unmarshal([]byte(cfg), &configMap); err == nil {
+					notifyPayload["service_access_config"] = configMap
+				}
+			}
+		}
+		dataBytes, err := json.Marshal(notifyPayload)
+		if err != nil {
+			return nil, errcode.WithData(100004, map[string]interface{}{
+				"error":     err.Error(),
+				"data_type": "service_access_notification",
+			})
+		}
+		if _, err := http_client.Notification("1", string(dataBytes), host); err != nil {
+			return nil, errcode.WithVars(105001, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
 	}
 	resp := make(map[string]interface{})
 	resp["id"] = serviceAccess.ID
@@ -72,6 +180,7 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 			*req.ServiceAccessConfig = "{}"
 		}
 		serviceAccess.ServiceAccessConfig = req.ServiceAccessConfig
+		updates["service_access_config"] = req.ServiceAccessConfig
 	}
 	if req.Voucher != nil {
 		updates["voucher"] = req.Voucher
@@ -83,7 +192,11 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 			"sql_error": err.Error(),
 		})
 	}
-	if serviceAccess.Voucher != "" {
+	updatedVoucher := serviceAccess.Voucher
+	if req.Voucher != nil {
+		updatedVoucher = *req.Voucher
+	}
+	if updatedVoucher != "" {
 		// 查询服务地址
 		_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
 		if err != nil {
@@ -93,6 +206,12 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 		}
 		dataMap := make(map[string]interface{})
 		dataMap["service_access_id"] = req.ID
+		if serviceAccess.ServiceAccessConfig != nil && strings.TrimSpace(*serviceAccess.ServiceAccessConfig) != "" {
+			var configMap map[string]interface{}
+			if err := json.Unmarshal([]byte(*serviceAccess.ServiceAccessConfig), &configMap); err == nil {
+				dataMap["service_access_config"] = configMap
+			}
+		}
 		// 将dataMap转json字符串
 		dataBytes, err := json.Marshal(dataMap)
 		if err != nil {
@@ -112,6 +231,12 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 		}
 		logrus.Debug("通知服务插件成功")
 		logrus.Debug(string(rsp))
+
+		if req.Voucher != nil {
+			if err := syncServiceAccessDevicesToConnector(req.ID, updatedVoucher, host); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
