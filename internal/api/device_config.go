@@ -126,7 +126,8 @@ func (*DeviceConfigApi) HandleDeviceConfigConnect(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	data, err := service.GroupApp.DeviceConfig.GetDeviceConfigConnect(c, param.DeviceID)
+	lang := c.GetHeader("Accept-Language")
+	data, err := service.GroupApp.DeviceConfig.GetDeviceConfigConnect(c, param.DeviceID, lang)
 	if err != nil {
 		c.Error(err)
 		return
@@ -140,7 +141,8 @@ func (*DeviceConfigApi) HandleVoucherType(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	data, err := service.GroupApp.DeviceConfig.GetVoucherTypeForm(param.DeviceType, param.ProtocolType)
+	lang := c.GetHeader("Accept-Language")
+	data, err := service.GroupApp.DeviceConfig.GetVoucherTypeForm(param.DeviceType, param.ProtocolType, lang)
 	if err != nil {
 		c.Error(err)
 		return

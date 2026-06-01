@@ -58,8 +58,8 @@ type DeviceConfigRsp struct {
 }
 
 type DeviceConfigConnectRes struct {
-	AccessToken string `json:"AccessToken接入"`
-	Basic       string `json:"Basic"`
+	Basic       string `json:"basic_label"`
+	AccessToken string `json:"access_token_label"`
 }
 
 // DeviceConfigsRes

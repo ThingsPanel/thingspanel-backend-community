@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"project/initialize"
@@ -262,7 +263,7 @@ func (*DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigR
 	return nil
 }
 
-func (*DeviceConfig) GetDeviceConfigConnect(ctx context.Context, deviceID string) (res *model.DeviceConfigConnectRes, err error) {
+func (*DeviceConfig) GetDeviceConfigConnect(ctx context.Context, deviceID string, lang string) (res *model.DeviceConfigConnectRes, err error) {
 	var (
 		db     = dal.DeviceQuery{}
 		device = query.Device
@@ -290,20 +291,34 @@ func (*DeviceConfig) GetDeviceConfigConnect(ctx context.Context, deviceID string
 			"sql_error": err.Error(),
 		})
 	}
+
+	basicLabel := "账号密码认证"
+	tokenLabel := "账号认证（无密码）"
+	if lang != "" && (strings.Contains(lang, "en") || strings.Contains(lang, "En")) {
+		basicLabel = "Username & Password"
+		tokenLabel = "Username (No Password)"
+	}
+
 	res = &model.DeviceConfigConnectRes{
-		AccessToken: "ACCESSTOKEN",
-		Basic:       "BASIC",
+		Basic:       basicLabel,
+		AccessToken: tokenLabel,
 	}
 	return
 }
 
 // 获取凭证类型表单
-func (*DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string) (data interface{}, err error) {
+func (*DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string, lang string) (data interface{}, err error) {
 	// 判断协议类型是否来自协议插件
 	if protocolType == "MQTT" {
+		basicAuth := "账号密码认证"
+		tokenAuth := "账号认证（无密码）"
+		if lang != "" && (strings.Contains(lang, "en") || strings.Contains(lang, "En")) {
+			basicAuth = "Username & Password"
+			tokenAuth = "Username (No Password)"
+		}
 		data = map[string]interface{}{
-			"AccessToken": "ACCESSTOKEN",
-			"Basic":       "BASIC",
+			basicAuth:  "BASIC",
+			tokenAuth: "ACCESSTOKEN",
 		}
 		return
 	}
