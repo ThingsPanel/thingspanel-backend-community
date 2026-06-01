@@ -50,8 +50,8 @@ grpc:
   tptodb_server: 127.0.0.1:50052
   tptodb_type: NONE # NONE、TSDB
 
-# mqtt服务：gmqtt、vernemq
-mqtt_server: gmqtt
+# mqtt服务：mosquitto、vernemq
+mqtt_server: mosquitto
 
 mqtt:
   access_address: 127.0.0.1:1883
@@ -195,3 +195,21 @@ telemetry:
   heartbeat_interval: "1h"
   state_file: "./configs/.telemetry_state.json"
 #                                    # 多实例部署时，只有一个实例设为 true，其他实例设为 false
+
+# ─── 新物模型服务适配层 (T23/T24) ────────────────────────────────────────────
+
+# device_metadata: 新 device-metadata 微服务的连接配置
+device_metadata:
+  base_url: "http://127.0.0.1:4000"   # encore dev 默认端口
+  service_token: ""                    # 服务间 JWT，生产环境必须填写
+
+# feature_flags: 灰度开关，支持 viper 热更新（WatchConfig）
+# rollout_percentage 有效值：0 / 5 / 25 / 50 / 100
+# whitelisted_tenants 中的租户始终走新物模型（灰度试点）
+# blacklisted_tenants 中的租户始终走旧路径（超敏感客户）
+feature_flags:
+  use_thingmodel:
+    enabled: true                      # 总开关，false = 全量走旧路径
+    rollout_percentage: 0              # 0=关闭, 5/25/50/100 渐进开启
+    whitelisted_tenants: ["d616bcbb"] # 本地 HJ212 E2E 租户开启新物模型路径
+    blacklisted_tenants: []            # 例: ["tenant-uuid-zzz"]

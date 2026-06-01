@@ -53,8 +53,8 @@ grpc:
   tptodb_server: 127.0.0.1:50052
   tptodb_type: NONE # NONE、TSDB
 
-# mqtt服务：gmqtt、vernemq
-mqtt_server: gmqtt
+# mqtt服务：mosquitto、vernemq
+mqtt_server: mosquitto
 
 mqtt:
   access_address: 47.92.253.145:1883
