@@ -27,10 +27,12 @@ type CreateDeviceReq struct {
 type BatchCreateDeviceReq struct {
 	ServiceAccessId string `json:"service_access_id" validate:"required,max=36"` // 服务接入点ID
 	DeviceList      []struct {
-		DeviceName     string  `json:"device_name" validate:"required,max=255"`     // 设备名称
-		DeviceNumber   string  `json:"device_number" validate:"required,max=36"`    // 设备编号
-		Description    *string `json:"description" validate:"omitempty,max=500"`    // 描述
-		DeviceConfigId string  `json:"device_config_id" validate:"required,max=36"` // 设备配置ID
+		DeviceName     string         `json:"device_name" validate:"required,max=255"`      // 设备名称
+		DeviceNumber   string         `json:"device_number" validate:"required,max=36"`     // 设备编号
+		Description    *string        `json:"description" validate:"omitempty,max=500"`     // 描述
+		DeviceConfigId string         `json:"device_config_id" validate:"omitempty,max=36"` // 设备配置ID，可为空
+		ProtocolConfig map[string]any `json:"protocol_config" validate:"omitempty"`         // 协议配置
+		AdditionalInfo map[string]any `json:"additional_info" validate:"omitempty"`         // 附加信息
 	} `json:"device_list" validate:"required"`
 }
 
@@ -90,6 +92,9 @@ type GetDeviceListByPageRsp struct {
 	Name             string     `json:"name"`               // 设备名称
 	DeviceConfigID   string     `json:"device_config_id"`   // 设备配置ID
 	DeviceConfigName string     `json:"device_config_name"` // 设备配置名称
+	ServiceAccessID   string     `json:"service_access_id"`   // 服务接入点ID
+	ServiceAccessName string     `json:"service_access_name"` // 服务接入点名称
+	ServiceIdentifier string     `json:"service_identifier"`  // 服务标识
 	Ts               *time.Time `json:"ts"`                 // 上次推送时间
 	ActivateFlag     string     `json:"activate_flag"`      // 激活状态
 	ActivateAt       *time.Time `json:"activate_at"`        // 激活时间

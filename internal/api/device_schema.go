@@ -13,6 +13,10 @@ type DeviceTemplateReadSchema struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 	Flag              *int16    `json:"flag" example:"1"`    // 标志 默认1
 	Label             *string   `json:"label"`               // 标签
+	Remark            *string   `json:"remark"`              // 备注/绑定元数据
+	Path              *string   `json:"path"`                // 图片路径
+	Brand             *string   `json:"brand"`               // 品牌
+	ModelNumber       *string   `json:"model_number"`        // 型号
 	DeviceModelConfig *string   `json:"device_model_config"` // 物模型配置
 	WebChartConfig    *string   `json:"web_chart_config"`    // web图表配置
 	AppChartConfig    *string   `json:"app_chart_config"`    // app图表配置

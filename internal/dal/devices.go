@@ -104,7 +104,7 @@ func UpdateDeviceByMap(deviceID string, deviceMap map[string]interface{}) (*mode
 // 设备发的每条状态消息都如实记录到历史，不依赖缓存中的状态做预判
 func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
 	// 1. 获取设备信息（仅用于取 TenantID，后续写历史用）
-	// 不再从 Redis 读取 is_online 做预判，避免竞态条件
+	// 直接从数据库读取当前状态，避免依赖缓存造成竞态。
 	var tenantID string
 	device, err := query.Device.Where(query.Device.ID.Eq(deviceId)).First()
 	if err != nil {
@@ -112,6 +112,20 @@ func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
 		return false, err
 	}
 	tenantID = device.TenantID
+	statusChanged := device.IsOnline != status
+
+	// 每条状态消息都记录到历史，但只有状态真的变化时才更新设备状态并触发后续通知。
+	if !statusChanged {
+		go func() {
+			if err := SaveDeviceStatusHistory(tenantID, deviceId, status); err != nil {
+				logrus.WithError(err).WithFields(logrus.Fields{
+					"device_id": deviceId,
+					"status":    status,
+				}).Warn("Failed to save device status history")
+			}
+		}()
+		return false, nil
+	}
 
 	// 2. 直接更新设备状态，不检查当前值
 	if status == 0 {
@@ -144,7 +158,6 @@ func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
 	}
 
 	// 4. 异步保存状态历史记录（不阻塞主流程）
-	// 每条状态消息都记录，不跳过
 	go func() {
 		if err := SaveDeviceStatusHistory(tenantID, deviceId, status); err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{
@@ -199,14 +212,27 @@ func GetDeviceByID(id string) (*model.Device, error) {
 func GetDeviceDetail(id string) (map[string]interface{}, error) {
 	device := query.Device
 	deviceConfig := query.DeviceConfig
+	serviceAccess := query.ServiceAccess
+	servicePlugin := query.ServicePlugin
 	t := query.TelemetryCurrentData
 	t2 := query.TelemetryCurrentData.As("t2")
 	data := make(map[string]interface{})
 	// 关联查询设备配置表
 	err := device.LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
+		LeftJoin(serviceAccess, serviceAccess.ID.EqCol(device.ServiceAccessID)).
+		LeftJoin(servicePlugin, servicePlugin.ID.EqCol(serviceAccess.ServicePluginID)).
 		LeftJoin(t.Select(t.T.Max().As("ts"), t.DeviceID).Group(t.DeviceID).As("t2"), t2.DeviceID.EqCol(device.ID)).
 		Where(device.ID.Eq(id)).
-		Select(device.ALL, deviceConfig.Name.As("device_config_name"), t2.T).Scan(&data)
+		Select(
+			device.ALL,
+			deviceConfig.Name.As("device_config_name"),
+			serviceAccess.Name.As("service_access_name"),
+			serviceAccess.ServicePluginID.As("service_plugin_id"),
+			servicePlugin.Name.As("service_name"),
+			servicePlugin.ServiceIdentifier.As("service_identifier"),
+			servicePlugin.ServiceType.As("service_type"),
+			t2.T,
+		).Scan(&data)
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
@@ -295,6 +321,8 @@ func RemoveSubDevice(deviceId string, tenant_id string) error {
 func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (int64, []model.GetDeviceListByPageRsp, error) {
 	q := query.Device
 	c := query.DeviceConfig
+	sa := query.ServiceAccess
+	sp := query.ServicePlugin
 	lda := query.LatestDeviceAlarm
 	ctx := context.Background()
 	hasValue := func(s *string) bool {
@@ -309,7 +337,9 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		builder    = q.WithContext(ctx).
 				Where(q.TenantID.Eq(tenant_id)).
 				Where(q.ActivateFlag.Eq("active")).
-				LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
+				LeftJoin(c, c.ID.EqCol(q.DeviceConfigID)).
+				LeftJoin(sa, sa.ID.EqCol(q.ServiceAccessID)).
+				LeftJoin(sp, sp.ID.EqCol(sa.ServicePluginID))
 	)
 	if hasValue(req.GroupId) {
 		groupIds, err := GetGroupChildrenIds(strings.TrimSpace(*req.GroupId))
@@ -341,7 +371,9 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 				query.Device.Where(c.ProtocolType.Eq(value)).Or(q.DeviceConfigID.IsNull()),
 			)
 		} else {
-			builder = builder.Where(c.ProtocolType.Eq(value))
+			builder = builder.Where(
+				query.Device.Where(c.ProtocolType.Eq(value)).Or(sp.ServiceIdentifier.Eq(value)),
+			)
 		}
 	}
 	if hasValue(req.ServiceAccessID) {
@@ -426,6 +458,7 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		q.DeviceNumber,
 		q.Name,
 		q.DeviceConfigID,
+		q.ServiceAccessID,
 		q.ActivateFlag,
 		q.ActivateAt,
 		q.BatchNumber,
@@ -435,6 +468,8 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		q.IsOnline,
 		q.AccessWay,
 		c.ProtocolType,
+		sa.Name.As("ServiceAccessName"),
+		sp.ServiceIdentifier.As("ServiceIdentifier"),
 		c.DeviceType,
 		c.Name.As("DeviceConfigName"),
 		t2.T,
@@ -733,6 +768,34 @@ func GetDevicesByDeviceConfigID(deviceConfigID string) ([]*model.Device, error) 
 		logrus.Error(err)
 	}
 	return list, err
+}
+
+func ListActiveDevicesByProtocolType(protocolType string) ([]*model.Device, error) {
+	device := query.Device
+	deviceConfig := query.DeviceConfig
+
+	var ids []string
+	err := device.WithContext(context.Background()).
+		LeftJoin(deviceConfig, device.DeviceConfigID.EqCol(deviceConfig.ID)).
+		Where(deviceConfig.ProtocolType.Eq(protocolType)).
+		Where(device.ActivateFlag.Eq("active")).
+		Select(device.ID).
+		Scan(&ids)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+
+	list := make([]*model.Device, 0, len(ids))
+	for _, id := range ids {
+		info, getErr := GetDeviceByID(id)
+		if getErr != nil {
+			logrus.Error(getErr)
+			return nil, getErr
+		}
+		list = append(list, info)
+	}
+	return list, nil
 }
 
 // 通过子设备配置id获取已绑定网关的子设备列表

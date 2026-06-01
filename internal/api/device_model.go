@@ -1,6 +1,8 @@
 package api
 
 import (
+	"net/http"
+	"project/internal/adapter"
 	"project/internal/model"
 	"project/internal/service"
 	"project/pkg/errcode"
@@ -12,154 +14,45 @@ import (
 
 type DeviceModelApi struct{}
 
+// deprecated410 writes a 410 Gone response directing clients to the new API.
+func deprecated410(c *gin.Context) {
+	c.JSON(http.StatusGone, gin.H{
+		"code":    "API_DEPRECATED",
+		"message": "This v1 device-model write API is deprecated. Use the new ThingModel API.",
+		"see":     "/api/thing-models",
+	})
+}
+
 // /api/v1/device/model/telemetry
 func (*DeviceModelApi) CreateDeviceModelTelemetry(c *gin.Context) {
-	var req model.CreateDeviceModelReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceModel.CreateDeviceModelGeneral(req, model.DEVICE_MODEL_TELEMETRY, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	deprecated410(c)
 }
 
 // /api/v1/device/model/attributes [post]
 func (*DeviceModelApi) CreateDeviceModelAttributes(c *gin.Context) {
-	var req model.CreateDeviceModelReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceModel.CreateDeviceModelGeneral(req, model.DEVICE_MODEL_ATTRIBUTES, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	deprecated410(c)
 }
 
 func (*DeviceModelApi) CreateDeviceModelEvents(c *gin.Context) {
-	var req model.CreateDeviceModelV2Req
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceModel.CreateDeviceModelGeneralV2(req, model.DEVICE_MODEL_EVENTS, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	deprecated410(c)
 }
 
 func (*DeviceModelApi) CreateDeviceModelCommands(c *gin.Context) {
-	var req model.CreateDeviceModelV2Req
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceModel.CreateDeviceModelGeneralV2(req, model.DEVICE_MODEL_COMMANDS, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	deprecated410(c)
 }
 
 // 物模型删除-通用
 func (*DeviceModelApi) DeleteDeviceModelGeneral(c *gin.Context) {
-	id := c.Param("id")
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	var what string
-
-	// 通过URI判断来自哪个接口
-	uri := c.Request.RequestURI
-	if strings.Contains(uri, "telemetry") {
-		what = model.DEVICE_MODEL_TELEMETRY
-	} else if strings.Contains(uri, "attributes") {
-		what = model.DEVICE_MODEL_ATTRIBUTES
-	} else if strings.Contains(uri, "events") {
-		what = model.DEVICE_MODEL_EVENTS
-	} else if strings.Contains(uri, "commands") {
-		what = model.DEVICE_MODEL_COMMANDS
-	} else {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"param_err": "url param is not a valid JSON",
-		}))
-		return
-	}
-	err := service.GroupApp.DeviceModel.DeleteDeviceModelGeneral(id, what, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	deprecated410(c)
 }
 
 // /api/v1/device/model/telemetry  [put]
 func (*DeviceModelApi) UpdateDeviceModelGeneral(c *gin.Context) {
-	var req model.UpdateDeviceModelReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	var what string
-
-	// 通过URI判断来自哪个接口
-	uri := c.Request.RequestURI
-	if strings.Contains(uri, "telemetry") {
-		what = model.DEVICE_MODEL_TELEMETRY
-	} else if strings.Contains(uri, "attributes") {
-		what = model.DEVICE_MODEL_ATTRIBUTES
-	} else {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"param_err": "url param is not a valid JSON",
-		}))
-		return
-	}
-
-	data, err := service.GroupApp.DeviceModel.UpdateDeviceModelGeneral(req, what, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	deprecated410(c)
 }
 
 func (*DeviceModelApi) UpdateDeviceModelGeneralV2(c *gin.Context) {
-	var req model.UpdateDeviceModelV2Req
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	var what string
-
-	// 通过URI判断来自哪个接口
-	uri := c.Request.RequestURI
-
-	if strings.Contains(uri, "events") {
-		what = model.DEVICE_MODEL_EVENTS
-	} else if strings.Contains(uri, "commands") {
-		what = model.DEVICE_MODEL_COMMANDS
-	} else {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"param_err": "url param is not a valid JSON",
-		}))
-		return
-	}
-
-	data, err := service.GroupApp.DeviceModel.UpdateDeviceModelGeneralV2(req, what, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	deprecated410(c)
 }
 
 func (*DeviceModelApi) HandleDeviceModelGeneral(c *gin.Context) {
@@ -168,10 +61,10 @@ func (*DeviceModelApi) HandleDeviceModelGeneral(c *gin.Context) {
 		return
 	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	var what string
 
 	// 通过URI判断来自哪个接口
 	uri := c.Request.RequestURI
+	var what string
 	if strings.Contains(uri, "telemetry") {
 		what = model.DEVICE_MODEL_TELEMETRY
 	} else if strings.Contains(uri, "attributes") {
@@ -187,6 +80,33 @@ func (*DeviceModelApi) HandleDeviceModelGeneral(c *gin.Context) {
 		return
 	}
 
+	// T24 grayscale router: use new device-metadata service when tenant is enabled.
+	if adapter.DefaultRouter.ShouldUseThingModel(c.Request.Context(), userClaims.TenantID) {
+		items, err := adapter.DeviceMetadata().GetItemsByTemplate(c.Request.Context(), userClaims.TenantID, req.DeviceTemplateId)
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		var data interface{}
+		switch what {
+		case model.DEVICE_MODEL_TELEMETRY:
+			list := adapter.TranslateToV1Telemetry(items)
+			data = map[string]interface{}{"total": len(list), "list": list}
+		case model.DEVICE_MODEL_ATTRIBUTES:
+			list := adapter.TranslateToV1Attribute(items)
+			data = map[string]interface{}{"total": len(list), "list": list}
+		case model.DEVICE_MODEL_EVENTS:
+			list := adapter.TranslateToV1Event(items)
+			data = map[string]interface{}{"total": len(list), "list": list}
+		case model.DEVICE_MODEL_COMMANDS:
+			list := adapter.TranslateToV1Command(items)
+			data = map[string]interface{}{"total": len(list), "list": list}
+		}
+		c.Set("data", data)
+		return
+	}
+
+	// Legacy path
 	data, err := service.GroupApp.DeviceModel.GetDeviceModelListByPageGeneral(req, what, userClaims)
 	if err != nil {
 		c.Error(err)

@@ -31,6 +31,11 @@ import (
 
 type Device struct{}
 
+type serviceAccessBinding struct {
+	deviceID       string
+	protocolConfig map[string]any
+}
+
 func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims) (device model.Device, err error) {
 	t := time.Now().UTC()
 
@@ -135,6 +140,7 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.UserClaims) (data any, err error) {
 	t := time.Now().UTC()
 	var deviceList []*model.Device
+	var createdBindings []serviceAccessBinding
 	for _, v := range req.DeviceList {
 		if v.DeviceName == "" && v.DeviceNumber == "" && v.DeviceConfigId == "" {
 			continue
@@ -143,12 +149,6 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 		if v.DeviceNumber == "" {
 			return nil, errcode.WithVars(100005, map[string]interface{}{
 				"field": "device_number",
-			})
-		}
-
-		if v.DeviceConfigId == "" {
-			return nil, errcode.WithVars(100005, map[string]interface{}{
-				"field": "device_config_id",
 			})
 		}
 
@@ -169,6 +169,35 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 			continue
 		}
 
+		var protocolConfig *string
+		if len(v.ProtocolConfig) > 0 {
+			protocolConfigBytes, marshalErr := json.Marshal(v.ProtocolConfig)
+			if marshalErr != nil {
+				return nil, errcode.WithData(100004, map[string]interface{}{
+					"message": fmt.Sprintf("protocol_config marshal failed for device %s", v.DeviceNumber),
+				})
+			}
+			protocolConfigStr := string(protocolConfigBytes)
+			protocolConfig = &protocolConfigStr
+		}
+
+		var additionalInfo *string
+		if len(v.AdditionalInfo) > 0 {
+			additionalInfoBytes, marshalErr := json.Marshal(v.AdditionalInfo)
+			if marshalErr != nil {
+				return nil, errcode.WithData(100004, map[string]interface{}{
+					"message": fmt.Sprintf("additional_info marshal failed for device %s", v.DeviceNumber),
+				})
+			}
+			additionalInfoStr := string(additionalInfoBytes)
+			additionalInfo = &additionalInfoStr
+		}
+
+		var deviceConfigID *string
+		if v.DeviceConfigId != "" {
+			deviceConfigID = &v.DeviceConfigId
+		}
+
 		device := model.Device{
 			ID:              uuid.New(),
 			Name:            &v.DeviceName,
@@ -179,12 +208,18 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 			UpdateAt:        &t,
 			AccessWay:       StringPtr("B"),
 			Description:     v.Description,
-			DeviceConfigID:  &v.DeviceConfigId,
+			DeviceConfigID:  deviceConfigID,
+			ProtocolConfig:  protocolConfig,
+			AdditionalInfo:  additionalInfo,
 			IsOnline:        0,
 			ActivateFlag:    "active",
 			ServiceAccessID: &req.ServiceAccessId,
 		}
 		deviceList = append(deviceList, &device)
+		createdBindings = append(createdBindings, serviceAccessBinding{
+			deviceID:       device.ID,
+			protocolConfig: v.ProtocolConfig,
+		})
 	}
 	err = dal.CreateDeviceBatch(deviceList)
 	if err != nil {
@@ -229,6 +264,59 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 		}
 		logrus.Debug("通知服务插件成功")
 		logrus.Debug(string(rsp))
+
+		serviceAccessConfig := map[string]any{}
+		if strings.TrimSpace(serviceAccess.Voucher) != "" {
+			_ = json.Unmarshal([]byte(serviceAccess.Voucher), &serviceAccessConfig)
+		}
+
+		for _, binding := range createdBindings {
+			accessToken := ""
+			if bindingDevice, lookupErr := dal.GetDeviceByID(binding.deviceID); lookupErr == nil && bindingDevice != nil {
+				var voucher map[string]any
+				if err := json.Unmarshal([]byte(bindingDevice.Voucher), &voucher); err == nil {
+					if username, ok := voucher["username"].(string); ok {
+						accessToken = username
+					}
+				}
+			}
+			deviceConfig := map[string]any{}
+			for key, value := range serviceAccessConfig {
+				deviceConfig[key] = value
+			}
+			for key, value := range binding.protocolConfig {
+				deviceConfig[key] = value
+			}
+			reqDataBytes, marshalErr := json.Marshal(map[string]interface{}{
+				"device_id":     binding.deviceID,
+				"device_number": func() string {
+					for _, device := range deviceList {
+						if device.ID == binding.deviceID {
+							return device.DeviceNumber
+						}
+					}
+					return ""
+				}(),
+				"device_config": deviceConfig,
+				"access_token":  accessToken,
+			})
+			if marshalErr != nil {
+				return nil, errcode.WithData(100004, map[string]interface{}{
+					"message": fmt.Sprintf("create device success, marshal bind payload failed for device %s", binding.deviceID),
+				})
+			}
+			response, addErr := http_client.AddDevice(reqDataBytes, host)
+			if addErr != nil {
+				return nil, errcode.WithVars(105001, map[string]interface{}{
+					"error": "create device success, bind connector device failed: " + addErr.Error(),
+				})
+			}
+			if response.StatusCode != 200 {
+				return nil, errcode.WithVars(105001, map[string]interface{}{
+					"error": fmt.Sprintf("create device success, bind connector device failed: status=%s", response.Status),
+				})
+			}
+		}
 	}
 
 	return deviceList, err
@@ -305,6 +393,23 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 		}
 	}
 
+	parseProtocolConfig := func(raw *string) map[string]any {
+		if raw == nil || strings.TrimSpace(*raw) == "" || !IsJSON(*raw) {
+			return map[string]any{}
+		}
+		var cfg map[string]any
+		if err := json.Unmarshal([]byte(*raw), &cfg); err != nil {
+			logrus.Warn("[UpdateDevice] parse protocol_config failed:", err)
+			return map[string]any{}
+		}
+		if cfg == nil {
+			return map[string]any{}
+		}
+		return cfg
+	}
+
+	oldProtocolConfig := parseProtocolConfig(oldDevice.ProtocolConfig)
+
 	// device.ID = req.Id
 	// device.Name = req.Name
 
@@ -332,6 +437,13 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 	}
 	// 清除设备缓存
 	initialize.DelDeviceCache(req.Id)
+
+	if req.ProtocolConfig != nil {
+		newProtocolConfig := parseProtocolConfig(req.ProtocolConfig)
+		if notifyErr := protocolplugin.UpdateDeviceConfigByDeviceID(req.Id, oldProtocolConfig, newProtocolConfig); notifyErr != nil {
+			logrus.Error("UpdateDeviceConfigByDeviceID failed:", notifyErr)
+		}
+	}
 
 	// 如果是子设备地址被修改，需要通知插件断开网关让其重连
 	if req.SubDeviceAddr != nil && *req.SubDeviceAddr != "" {

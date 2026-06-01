@@ -30,6 +30,7 @@ func (*DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, c
 	deviceTemplate.Author = req.Author
 	deviceTemplate.Version = req.Version
 	deviceTemplate.Description = req.Description
+	deviceTemplate.Remark = req.Remark
 	deviceTemplate.TenantID = claims.TenantID
 
 	deviceTemplate.Path = req.Path
