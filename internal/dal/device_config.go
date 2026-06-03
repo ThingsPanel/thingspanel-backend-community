@@ -158,7 +158,7 @@ func GetDeviceConfigSelectList(deviceConfigName *string, tenantID string, device
 		queryBuilder = queryBuilder.Where(q.ProtocolType.Eq(*protocolType))
 	}
 	var data []map[string]interface{}
-	err := queryBuilder.Select(q.ID, q.Name).Scan(&data)
+	err := queryBuilder.Select(q.ID, q.Name).Order(q.CreatedAt.Desc()).Scan(&data)
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
