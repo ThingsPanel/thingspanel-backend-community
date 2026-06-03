@@ -27,7 +27,7 @@ type Condition struct {
 	TriggerParamType      *string    `json:"trigger_param_type" validate:"omitempty"`
 	TriggerParam          *string    `json:"trigger_param" validate:"omitempty"`
 	TriggerOperator       *string    `json:"trigger_operator" validate:"omitempty"`
-	TriggerValue          *string    `json:"trigger_value" validate:"omitempty"`
+	TriggerValue          *string    `json:"trigger_value" validate:"omitempty,max=1024"`
 	ExecutionTime         *time.Time `json:"execution_time" validate:"omitempty"`
 	ExpirationTime        *int       `json:"expiration_time" validate:"omitempty"`
 	TaskType              *string    `json:"task_type" validate:"omitempty"`
