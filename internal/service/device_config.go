@@ -317,7 +317,7 @@ func (*DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string, 
 			tokenAuth = "Username (No Password)"
 		}
 		data = map[string]interface{}{
-			basicAuth:  "BASIC",
+			basicAuth: "BASIC",
 			tokenAuth: "ACCESSTOKEN",
 		}
 		return
@@ -501,6 +501,7 @@ func (*DeviceConfig) GetConditionByDeviceConfigID(deviceConfigID string) (any, e
 		Label    *string `json:"label"`
 		DataType *string `json:"data_type"`
 		Uint     *string `json:"unit"`
+		Params   *string `json:"params,omitempty"`
 	}
 	type actionModelSource struct {
 		DataSourceTypeRes string     `json:"data_source_type"`
@@ -544,6 +545,7 @@ func (*DeviceConfig) GetConditionByDeviceConfigID(deviceConfigID string) (any, e
 		o.Key = event.DataIdentifier
 		o.Label = event.DataName
 		o.DataType = StringPtr("string")
+		o.Params = event.Param
 		eventOptions = append(eventOptions, &o)
 	}
 	// 返回

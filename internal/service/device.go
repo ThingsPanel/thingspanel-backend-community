@@ -1331,6 +1331,7 @@ func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error)
 				Key:      event.DataIdentifier,
 				Label:    event.DataName,
 				DataType: &s,
+				Params:   event.Param,
 			}
 			info.Label = event.DataName
 			resInfo.Options = append(resInfo.Options, info)

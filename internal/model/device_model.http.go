@@ -70,6 +70,7 @@ type Options struct {
 	Key      string     `json:"key"`
 	Label    *string    `json:"label"`
 	DataType *string    `json:"data_type"`
+	Params   *string    `json:"params,omitempty"`
 	Enum     []EnumItem `json:"enum"`
 }
 

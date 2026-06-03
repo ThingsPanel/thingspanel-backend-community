@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -20,6 +21,22 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
+
+const (
+	eventParamMatchModeField = "field"
+	eventOperatorExists      = "exists"
+)
+
+type eventParamMatchConfig struct {
+	MatchMode  string                `json:"match_mode"`
+	Conditions []eventParamCondition `json:"conditions"`
+}
+
+type eventParamCondition struct {
+	Field    string      `json:"field"`
+	Operator string      `json:"operator"`
+	Value    interface{} `json:"value"`
+}
 
 type Automate struct {
 	device  *model.Device
@@ -531,6 +548,13 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 		logrus.Debugf("事件...actualValue:%#v, triggerValue:%#v", actualValue, triggerValue)
 		dataValue := a.getTriggerParamsValue(triggerKey, dal.GetIdentifierNameEvent())
 		result = fmt.Sprintf("设备(%s)%s [%s]: %v %s %v", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
+		if ok, detail, handled := a.automateEventParamConditionCheck(triggerValue, actualValue); handled {
+			if detail != "" {
+				result = fmt.Sprintf("设备(%s)%s [%s]: %s", deviceName, trigger, dataValue, detail)
+			}
+			logrus.Debugf("事件字段级匹配结果:%t, detail:%s", ok, detail)
+			return ok, result
+		}
 	case model.TRIGGER_PARAM_TYPE_STATUS: // 状态
 		trigger = "下线"
 		actualValue, _ = a.getActualValue(deviceId, "login", model.TRIGGER_PARAM_TYPE_STATUS)
@@ -548,6 +572,266 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 	ok := a.automateConditionCheckByOperator(triggerOperator, triggerValue, actualValue)
 	logrus.Debugf("比较结果:%t", ok)
 	return ok, result
+}
+
+func (a *Automate) automateEventParamConditionCheck(triggerValue string, actualValue interface{}) (bool, string, bool) {
+	var config eventParamMatchConfig
+	if err := json.Unmarshal([]byte(triggerValue), &config); err != nil {
+		return false, "", false
+	}
+	if config.MatchMode != eventParamMatchModeField {
+		return false, "", false
+	}
+
+	if len(config.Conditions) == 0 {
+		return true, "事件参数未配置字段条件，仅按事件标识符触发", true
+	}
+
+	actualMap, err := parseEventActualValue(actualValue)
+	if err != nil {
+		logrus.WithError(err).Debug("事件参数解析失败")
+		return false, "事件参数不是合法JSON", true
+	}
+
+	for _, condition := range config.Conditions {
+		ok, detail := a.matchEventParamCondition(actualMap, condition)
+		if !ok {
+			return false, detail, true
+		}
+	}
+
+	return true, "事件参数字段条件全部命中", true
+}
+
+func parseEventActualValue(actualValue interface{}) (map[string]interface{}, error) {
+	switch value := actualValue.(type) {
+	case string:
+		var data map[string]interface{}
+		err := json.Unmarshal([]byte(value), &data)
+		return data, err
+	case []byte:
+		var data map[string]interface{}
+		err := json.Unmarshal(value, &data)
+		return data, err
+	case map[string]interface{}:
+		return value, nil
+	default:
+		bytes, err := json.Marshal(value)
+		if err != nil {
+			return nil, err
+		}
+		var data map[string]interface{}
+		err = json.Unmarshal(bytes, &data)
+		return data, err
+	}
+}
+
+func (a *Automate) matchEventParamCondition(data map[string]interface{}, condition eventParamCondition) (bool, string) {
+	field := strings.TrimSpace(condition.Field)
+	if field == "" {
+		return false, "事件参数字段为空"
+	}
+	operator := strings.TrimSpace(condition.Operator)
+	if operator == "" {
+		operator = model.CONDITION_TRIGGER_OPERATOR_EQ
+	}
+
+	actualValue, exists := getValueByDotPath(data, field)
+	if operator == eventOperatorExists {
+		expected := true
+		if condition.Value != nil {
+			expected = toBool(condition.Value)
+		}
+		if exists == expected {
+			return true, fmt.Sprintf("字段[%s] exists = %t 命中", field, expected)
+		}
+		return false, fmt.Sprintf("字段[%s] exists = %t 未命中，实际存在=%t", field, expected, exists)
+	}
+	if !exists {
+		return false, fmt.Sprintf("字段[%s]不存在", field)
+	}
+
+	ok := a.matchEventParamValue(operator, condition.Value, actualValue)
+	if ok {
+		return true, fmt.Sprintf("字段[%s]: %v %s %v 命中", field, actualValue, operator, condition.Value)
+	}
+	return false, fmt.Sprintf("字段[%s]: %v %s %v 未命中", field, actualValue, operator, condition.Value)
+}
+
+func getValueByDotPath(data map[string]interface{}, path string) (interface{}, bool) {
+	var current interface{} = data
+	for _, part := range strings.Split(path, ".") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			return nil, false
+		}
+		currentMap, ok := current.(map[string]interface{})
+		if !ok {
+			return nil, false
+		}
+		value, exists := currentMap[part]
+		if !exists {
+			return nil, false
+		}
+		current = value
+	}
+	return current, true
+}
+
+func (a *Automate) matchEventParamValue(operator string, expected interface{}, actual interface{}) bool {
+	if actualValues, ok := actual.([]interface{}); ok && operator != model.CONDITION_TRIGGER_OPERATOR_BETWEEN {
+		for _, actualItem := range actualValues {
+			if a.matchEventParamValue(operator, expected, actualItem) {
+				return true
+			}
+		}
+		return false
+	}
+
+	switch operator {
+	case model.CONDITION_TRIGGER_OPERATOR_EQ:
+		return eventValuesEqual(actual, expected)
+	case model.CONDITION_TRIGGER_OPERATOR_NEQ:
+		return !eventValuesEqual(actual, expected)
+	case model.CONDITION_TRIGGER_OPERATOR_GT, model.CONDITION_TRIGGER_OPERATOR_LT,
+		model.CONDITION_TRIGGER_OPERATOR_GTE, model.CONDITION_TRIGGER_OPERATOR_LTE:
+		return compareEventNumber(operator, actual, expected)
+	case model.CONDITION_TRIGGER_OPERATOR_BETWEEN:
+		return compareEventBetween(actual, expected)
+	case model.CONDITION_TRIGGER_OPERATOR_IN:
+		return compareEventIn(actual, expected)
+	default:
+		return false
+	}
+}
+
+func eventValuesEqual(actual interface{}, expected interface{}) bool {
+	if actualNumber, ok := toFloat64(actual); ok {
+		if expectedNumber, ok := toFloat64(expected); ok {
+			return float64Equal(actualNumber, expectedNumber)
+		}
+	}
+	if actualBool, ok := actual.(bool); ok {
+		return actualBool == toBool(expected)
+	}
+	if expectedBool, ok := expected.(bool); ok {
+		return toBool(actual) == expectedBool
+	}
+	if actual == nil || expected == nil {
+		return actual == nil && expected == nil
+	}
+	return fmt.Sprintf("%v", actual) == fmt.Sprintf("%v", expected)
+}
+
+func compareEventNumber(operator string, actual interface{}, expected interface{}) bool {
+	actualNumber, ok := toFloat64(actual)
+	if !ok {
+		return false
+	}
+	expectedNumber, ok := toFloat64(expected)
+	if !ok {
+		return false
+	}
+	switch operator {
+	case model.CONDITION_TRIGGER_OPERATOR_GT:
+		return actualNumber > expectedNumber
+	case model.CONDITION_TRIGGER_OPERATOR_LT:
+		return actualNumber < expectedNumber
+	case model.CONDITION_TRIGGER_OPERATOR_GTE:
+		return actualNumber >= expectedNumber
+	case model.CONDITION_TRIGGER_OPERATOR_LTE:
+		return actualNumber <= expectedNumber
+	}
+	return false
+}
+
+func compareEventBetween(actual interface{}, expected interface{}) bool {
+	actualNumber, ok := toFloat64(actual)
+	if !ok {
+		return false
+	}
+
+	var minValue, maxValue float64
+	switch value := expected.(type) {
+	case []interface{}:
+		if len(value) != 2 {
+			return false
+		}
+		var minOK, maxOK bool
+		minValue, minOK = toFloat64(value[0])
+		maxValue, maxOK = toFloat64(value[1])
+		if !minOK || !maxOK {
+			return false
+		}
+	case string:
+		parts := strings.Split(value, "-")
+		if len(parts) != 2 {
+			return false
+		}
+		var minOK, maxOK bool
+		minValue, minOK = toFloat64(strings.TrimSpace(parts[0]))
+		maxValue, maxOK = toFloat64(strings.TrimSpace(parts[1]))
+		if !minOK || !maxOK {
+			return false
+		}
+	default:
+		return false
+	}
+
+	return actualNumber >= minValue && actualNumber <= maxValue
+}
+
+func compareEventIn(actual interface{}, expected interface{}) bool {
+	switch values := expected.(type) {
+	case []interface{}:
+		for _, value := range values {
+			if eventValuesEqual(actual, value) {
+				return true
+			}
+		}
+	case string:
+		for _, value := range strings.Split(values, ",") {
+			if eventValuesEqual(actual, strings.TrimSpace(value)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func toFloat64(value interface{}) (float64, bool) {
+	switch v := value.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case json.Number:
+		n, err := v.Float64()
+		return n, err == nil
+	case string:
+		n, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return n, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func toBool(value interface{}) bool {
+	switch v := value.(type) {
+	case bool:
+		return v
+	case string:
+		b, err := strconv.ParseBool(strings.TrimSpace(v))
+		return err == nil && b
+	default:
+		return false
+	}
 }
 
 type DataIdentifierName func(device_template_id, identifier string) string
