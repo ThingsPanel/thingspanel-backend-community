@@ -111,7 +111,7 @@ func GetDeviceTemplateMenu(req *model.GetDeviceTemplateMenuReq, claims *utils.Us
 	}
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
 	var data []map[string]interface{}
-	err := queryBuilder.Select(q.ID, q.Name).Scan(&data)
+	err := queryBuilder.Select(q.ID, q.Name).Order(q.CreatedAt.Desc()).Scan(&data)
 	if err != nil {
 		logrus.Error("queryBuilder.Find error: ", err)
 	}
