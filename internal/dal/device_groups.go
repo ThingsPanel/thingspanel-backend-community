@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	model "project/internal/model"
 	query "project/internal/query"
@@ -94,6 +95,64 @@ func GetDeviceGroupDetail(id string) (*model.Group, error) {
 		logrus.Error(err)
 	}
 	return d, err
+}
+
+type deviceGroupStatisticsRow struct {
+	DeviceTotal  int64 `json:"device_total"`
+	OnlineTotal  int64 `json:"online_total"`
+	OfflineTotal int64 `json:"offline_total"`
+	AlarmTotal   int64 `json:"alarm_total"`
+}
+
+func GetDeviceGroupStatistics(groupID string, tenantID string) (*model.DeviceGroupStatistics, error) {
+	groupIDs, err := GetGroupChildrenIds(groupID)
+	if err != nil {
+		return nil, err
+	}
+	if len(groupIDs) == 0 {
+		return &model.DeviceGroupStatistics{}, nil
+	}
+
+	deviceIDs, err := GetDeviceIdsByGroupIds(groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	if len(deviceIDs) == 0 {
+		return &model.DeviceGroupStatistics{}, nil
+	}
+
+	var row deviceGroupStatisticsRow
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(deviceIDs)), ",")
+	sql := fmt.Sprintf(`
+		SELECT
+			COUNT(DISTINCT d.id) AS device_total,
+			COALESCE(SUM(CASE WHEN d.is_online = 1 THEN 1 ELSE 0 END), 0) AS online_total,
+			COALESCE(SUM(CASE WHEN d.is_online = 1 THEN 0 ELSE 1 END), 0) AS offline_total,
+			COALESCE(SUM(CASE WHEN lda.alarm_status IS NOT NULL AND lda.alarm_status <> 'N' THEN 1 ELSE 0 END), 0) AS alarm_total
+		FROM devices d
+		LEFT JOIN latest_device_alarms lda ON lda.device_id = d.id
+		WHERE d.tenant_id = ?
+		  AND d.activate_flag = 'active'
+		  AND d.id IN (`+placeholders+`)
+	`)
+	args := make([]interface{}, 0, len(deviceIDs)+1)
+	args = append(args, tenantID)
+	for _, deviceID := range deviceIDs {
+		args = append(args, deviceID)
+	}
+
+	err = global.DB.Raw(sql, args...).Scan(&row).Error
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+
+	return &model.DeviceGroupStatistics{
+		DeviceTotal:  row.DeviceTotal,
+		OnlineTotal:  row.OnlineTotal,
+		OfflineTotal: row.OfflineTotal,
+		AlarmTotal:   row.AlarmTotal,
+	}, nil
 }
 
 func GetDeviceGroupTierById(id string) (map[string]interface{}, error) {

@@ -187,8 +187,17 @@ func (*DeviceGroup) GetDeviceGroupDetail(id string) (interface{}, error) {
 		}), nil
 	}
 
+	statistics, err := dal.GetDeviceGroupStatistics(id, data.TenantID)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":    err.Error(),
+			"group_id": id,
+		}), nil
+	}
+
 	dataMap["detail"] = data
 	dataMap["tier"] = tier
+	dataMap["statistics"] = statistics
 
 	return dataMap, nil
 }

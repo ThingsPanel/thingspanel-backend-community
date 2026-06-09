@@ -145,6 +145,13 @@ type GetDeviceGroupListByDeviceIdReq struct {
 	DeviceId string `json:"device_id" form:"device_id" validate:"required,max=36"` // 父设备组ID
 }
 
+type DeviceGroupStatistics struct {
+	DeviceTotal  int64 `json:"device_total"`
+	OnlineTotal  int64 `json:"online_total"`
+	OfflineTotal int64 `json:"offline_total"`
+	AlarmTotal   int64 `json:"alarm_total"`
+}
+
 type CreateDeviceGroupRelationReq struct {
 	GroupId      string   `json:"group_id" validate:"required,max=36"` // 设备组ID
 	DeviceIDList []string `json:"device_id_list" validate:"required"`  // 设备ID列表
