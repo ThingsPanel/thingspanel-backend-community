@@ -52,7 +52,6 @@ var (
 	OtaUpgradeTaskDetail       *otaUpgradeTaskDetail
 	PeriodicTask               *periodicTask
 	Product                    *product
-	ProtocolPlugin             *protocolPlugin
 	RGroupDevice               *rGroupDevice
 	Role                       *role
 	SceneActionInfo            *sceneActionInfo
@@ -124,7 +123,6 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	OtaUpgradeTaskDetail = &Q.OtaUpgradeTaskDetail
 	PeriodicTask = &Q.PeriodicTask
 	Product = &Q.Product
-	ProtocolPlugin = &Q.ProtocolPlugin
 	RGroupDevice = &Q.RGroupDevice
 	Role = &Q.Role
 	SceneActionInfo = &Q.SceneActionInfo
@@ -197,7 +195,6 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		OtaUpgradeTaskDetail:       newOtaUpgradeTaskDetail(db, opts...),
 		PeriodicTask:               newPeriodicTask(db, opts...),
 		Product:                    newProduct(db, opts...),
-		ProtocolPlugin:             newProtocolPlugin(db, opts...),
 		RGroupDevice:               newRGroupDevice(db, opts...),
 		Role:                       newRole(db, opts...),
 		SceneActionInfo:            newSceneActionInfo(db, opts...),
@@ -271,7 +268,6 @@ type Query struct {
 	OtaUpgradeTaskDetail       otaUpgradeTaskDetail
 	PeriodicTask               periodicTask
 	Product                    product
-	ProtocolPlugin             protocolPlugin
 	RGroupDevice               rGroupDevice
 	Role                       role
 	SceneActionInfo            sceneActionInfo
@@ -346,7 +342,6 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		OtaUpgradeTaskDetail:       q.OtaUpgradeTaskDetail.clone(db),
 		PeriodicTask:               q.PeriodicTask.clone(db),
 		Product:                    q.Product.clone(db),
-		ProtocolPlugin:             q.ProtocolPlugin.clone(db),
 		RGroupDevice:               q.RGroupDevice.clone(db),
 		Role:                       q.Role.clone(db),
 		SceneActionInfo:            q.SceneActionInfo.clone(db),
@@ -428,7 +423,6 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		OtaUpgradeTaskDetail:       q.OtaUpgradeTaskDetail.replaceDB(db),
 		PeriodicTask:               q.PeriodicTask.replaceDB(db),
 		Product:                    q.Product.replaceDB(db),
-		ProtocolPlugin:             q.ProtocolPlugin.replaceDB(db),
 		RGroupDevice:               q.RGroupDevice.replaceDB(db),
 		Role:                       q.Role.replaceDB(db),
 		SceneActionInfo:            q.SceneActionInfo.replaceDB(db),
@@ -500,7 +494,6 @@ type queryCtx struct {
 	OtaUpgradeTaskDetail       IOtaUpgradeTaskDetailDo
 	PeriodicTask               IPeriodicTaskDo
 	Product                    IProductDo
-	ProtocolPlugin             IProtocolPluginDo
 	RGroupDevice               IRGroupDeviceDo
 	Role                       IRoleDo
 	SceneActionInfo            ISceneActionInfoDo
@@ -572,7 +565,6 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		OtaUpgradeTaskDetail:       q.OtaUpgradeTaskDetail.WithContext(ctx),
 		PeriodicTask:               q.PeriodicTask.WithContext(ctx),
 		Product:                    q.Product.WithContext(ctx),
-		ProtocolPlugin:             q.ProtocolPlugin.WithContext(ctx),
 		RGroupDevice:               q.RGroupDevice.WithContext(ctx),
 		Role:                       q.Role.WithContext(ctx),
 		SceneActionInfo:            q.SceneActionInfo.WithContext(ctx),

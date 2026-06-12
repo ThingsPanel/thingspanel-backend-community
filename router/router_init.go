@@ -83,8 +83,6 @@ func RouterInit() *gin.Engine {
 		{
 			// v1.GET("notice/test", controllers.NoticeTest)
 			v1.POST("plugin/heartbeat", controllers.Heartbeat)
-			v1.POST("plugin/device/config", controllers.HandleDeviceConfigForProtocolPlugin)
-			v1.POST("plugin/devices", controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
 			v1.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)
 			v1.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
 			v1.POST("login", controllers.Login)
@@ -146,8 +144,6 @@ func RouterInit() *gin.Engine {
 			apps.Model.OTA.InitOTA(v1) // OTA模块
 
 			apps.Model.UpLoad.Init(v1) // 文件上传
-
-			apps.Model.ProtocolPlugin.InitProtocolPlugin(v1) // 协议插件模块
 
 			apps.Model.Device.InitDevice(v1) // 设备
 

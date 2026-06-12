@@ -172,9 +172,11 @@ func (c *CommandData) resolveDeviceInfo(device *model.Device, deviceType, protoc
 
 	// 检查是否有协议插件前缀（仅非MQTT协议需要）
 	if protocolType != "MQTT" && targetDevice.DeviceConfigID != nil {
-		protocolPlugin, err := dal.GetProtocolPluginByDeviceConfigID(*targetDevice.DeviceConfigID)
-		if err == nil && protocolPlugin != nil && protocolPlugin.SubTopicPrefix != nil {
-			topicPrefix = *protocolPlugin.SubTopicPrefix
+		// 使用 service_plugins 表获取主题前缀
+		var err error
+		topicPrefix, err = dal.GetServicePluginSubTopicPrefixByDeviceConfigID(*targetDevice.DeviceConfigID)
+		if err != nil {
+			logrus.WithError(err).Warn("failed to get sub topic prefix from service_plugins")
 		}
 	}
 
