@@ -17,6 +17,7 @@ type Controller struct {
 	ProductApi                    // 产品管理
 	OTAApi                        // ota管理
 	UpLoadApi                     // 上传
+	ProtocolPluginApi             // 协议插件
 	DeviceApi                     // 设备
 	DeviceDebugApi                // 设备调试日志
 	DeviceModelApi                // 设备物模型

@@ -13,6 +13,7 @@ type ServiceGroup struct {
 	Dict
 	Product
 	OTA
+	ProtocolPlugin
 	Device
 	DeviceDebug
 	DeviceModel
