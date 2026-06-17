@@ -7,6 +7,11 @@ type GetDeviceConfigReq struct {
 	DeviceNumber string `json:"device_number"  form:"device_number" validate:"omitempty,max=255"`
 }
 
+type GetProtocolPluginFormByProtocolType struct {
+	ProtocolType string `json:"protocol_type"  form:"protocol_type" validate:"required,max=255"`
+	DeviceType   string `json:"device_type"  form:"device_type" validate:"required,max=10"`
+}
+
 // 协议插件获取设备配置
 type DeviceConfigForProtocolPlugin struct {
 	ID                     string                             `json:"id"`

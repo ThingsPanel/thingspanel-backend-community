@@ -8,6 +8,7 @@ import (
 	"project/internal/dal"
 	"project/internal/model"
 	"project/internal/query"
+	"project/pkg/constant"
 	"project/pkg/errcode"
 	"project/third_party/others/http_client"
 
@@ -197,6 +198,17 @@ func (*ServicePlugin) GetPluginForm(protocolType string, deviceType string, form
 	return http_client.GetPluginFromConfigV2(host, protocolType, deviceType, formType)
 }
 
+// 根据协议类型获取设备配置表单
+func (p *ServicePlugin) GetProtocolPluginFormByProtocolType(protocolType string, deviceType string) (interface{}, error) {
+	if protocolType == "MQTT" {
+		return nil, nil
+	}
+	data, err := p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
 
 // 根据服务service_identifier获取服务详情
 func (*ServicePlugin) GetServicePluginByServiceIdentifier(serviceIdentifier string) (interface{}, error) {

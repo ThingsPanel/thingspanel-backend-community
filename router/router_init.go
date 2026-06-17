@@ -147,6 +147,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.UpLoad.Init(v1) // 文件上传
 
+			apps.Model.ProtocolPlugin.InitProtocolPlugin(v1) // 协议插件模块
+
 			apps.Model.Device.InitDevice(v1) // 设备
 
 			apps.Model.UiElements.Init(v1) // UI元素控制
