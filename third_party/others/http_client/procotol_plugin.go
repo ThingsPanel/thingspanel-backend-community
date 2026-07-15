@@ -76,21 +76,6 @@ func DisconnectDevice(reqdata []byte, host string) (*http.Response, error) {
 	return PostJson("http://"+host+"/api/v1/device/disconnect", reqdata)
 }
 
-// 删除设备或子设备通知（设备协议变更也被认为是删除）
-func DeleteDevice(reqdata []byte, host string) (*http.Response, error) {
-	return PostJson("http://"+host+"/api/v1/device/delete", reqdata)
-}
-
-// 设备或子设备配置变更通知
-func UpdateDeviceConfig(reqdata []byte, host string) (*http.Response, error) {
-	return PostJson("http://"+host+"/api/v1/device/config/update", reqdata)
-}
-
-// 新增设备或子设备通知（设备协议变更也被认为是新增）
-func AddDevice(reqdata []byte, host string) (*http.Response, error) {
-	return PostJson("http://"+host+"/api/v1/device/add", reqdata)
-}
-
 // messageType 1-服务配置修改
 func Notification(messageType string, message string, host string) ([]byte, error) {
 	type ReqData struct {
@@ -102,11 +87,12 @@ func Notification(messageType string, message string, host string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	response, err := PostJson("http://"+host+"/api/v1/notify/event", reqDataBytes)
+	response, err := PostJson("http://"+host+"/api/v1/plugin/notification", reqDataBytes)
 	if err != nil {
 		logrus.Error(err)
 		return nil, fmt.Errorf("post plugin notification failed: %s", err)
 	}
+	defer response.Body.Close()
 	if response.StatusCode != 200 {
 		err = fmt.Errorf("protocol plugin response message: %s", response.Status)
 		logrus.Error(err)
