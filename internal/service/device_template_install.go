@@ -341,6 +341,7 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 	createdDC, _ := dal.GetDeviceConfigByID(dcID)
 
 	return &model.InstallFromMarketRsp{
+		DeviceConfigID: dcID,
 		DeviceTemplate: createdTpl,
 		DeviceConfig:   createdDC,
 		MissingPlugins: missingPlugins,

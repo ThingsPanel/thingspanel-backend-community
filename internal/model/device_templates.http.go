@@ -192,6 +192,7 @@ type TemplateDefinitionPayload map[string]interface{}
 
 // InstallFromMarketRsp 安装响应（含插件缺失警告）
 type InstallFromMarketRsp struct {
+	DeviceConfigID string             `json:"device_config_id"`
 	DeviceTemplate *DeviceTemplate    `json:"device_template"`
 	DeviceConfig   *DeviceConfig      `json:"device_config"` // 安装后创建的设备配置
 	MissingPlugins []PluginDependency `json:"missing_plugins,omitempty"`
