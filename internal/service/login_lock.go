@@ -69,7 +69,12 @@ func (l *LoginLock) LoginFail(_ context.Context, username string) error {
 
 	if failedAttempts >= l.MaxFailedAttempts {
 		lockUntilTime := time.Now().Add(l.LockDuration)
-		global.REDIS.Set(context.Background(), lockKey, lockUntilTime.Format(time.RFC3339), l.LockDuration)
+		if err := global.REDIS.Set(context.Background(), lockKey, lockUntilTime.Format(time.RFC3339), l.LockDuration).Err(); err != nil {
+			return errors.Errorf("Error setting login lock for %s: %v", username, err)
+		}
+		if err := global.REDIS.Del(context.Background(), key).Err(); err != nil {
+			return errors.Errorf("Error resetting failed attempts for %s: %v", username, err)
+		}
 	}
 
 	return nil

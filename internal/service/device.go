@@ -368,7 +368,7 @@ func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 		return nil, errcode.New(204002)
 	}
 	device.DeviceNumber = req.DeviceNumber
-	if req.Name != "" {
+	if req.Name == "" {
 		req.Name = uuid.New()[0:8]
 	}
 	device.Name = &req.Name

@@ -351,7 +351,6 @@ func (*User) GetVerificationCode(email, isRegister string) error {
 		})
 	}
 
-	logrus.Warningf("验证码:%s", verificationCode)
 	err = GroupApp.NotificationServicesConfig.SendTestEmail(&model.SendTestEmailReq{
 		Email: email,
 		Body:  fmt.Sprintf("Your verification code is %s", verificationCode),
