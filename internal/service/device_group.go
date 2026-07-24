@@ -28,7 +28,7 @@ func (*DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *ut
 		deviceGroup.ParentID = req.ParentId
 
 		// 父分组存在性验证
-		parentGroup, err := dal.GetDeviceGroupDetail(*req.ParentId)
+		parentGroup, err := dal.GetDeviceGroupDetail(*req.ParentId, claims.TenantID)
 		if err != nil {
 			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"error":     err.Error(),
@@ -79,8 +79,8 @@ func (*DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *ut
 	return nil
 }
 
-func (*DeviceGroup) DeleteDeviceGroup(id string) error {
-	return dal.DeleteDeviceGroup(id)
+func (*DeviceGroup) DeleteDeviceGroup(id string, claims *utils.UserClaims) error {
+	return dal.DeleteDeviceGroup(id, claims.TenantID)
 }
 
 func (*DeviceGroup) UpdateDeviceGroup(req model.UpdateDeviceGroupReq, claims *utils.UserClaims) error {
@@ -92,6 +92,15 @@ func (*DeviceGroup) UpdateDeviceGroup(req model.UpdateDeviceGroupReq, claims *ut
 			"group_id":  req.Id,
 			"parent_id": req.ParentId,
 		})
+	}
+
+	if _, err := dal.GetDeviceGroupDetail(req.Id, claims.TenantID); err != nil {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	if req.ParentId != "0" {
+		if _, err := dal.GetDeviceGroupDetail(req.ParentId, claims.TenantID); err != nil {
+			return errcode.New(errcode.CodeNoPermission)
+		}
 	}
 
 	// 构建更新对象
@@ -167,11 +176,11 @@ func (*DeviceGroup) GetDeviceGroupByTree(userClaims *utils.UserClaims) (interfac
 	return rootNodes, nil
 }
 
-func (*DeviceGroup) GetDeviceGroupDetail(id string) (interface{}, error) {
+func (*DeviceGroup) GetDeviceGroupDetail(id string, claims *utils.UserClaims) (interface{}, error) {
 
 	dataMap := make(map[string]interface{})
 
-	data, err := dal.GetDeviceGroupDetail(id)
+	data, err := dal.GetDeviceGroupDetail(id, claims.TenantID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error":    err.Error(),
@@ -179,7 +188,7 @@ func (*DeviceGroup) GetDeviceGroupDetail(id string) (interface{}, error) {
 		}), nil
 	}
 
-	tier, err := dal.GetDeviceGroupTierById(id)
+	tier, err := dal.GetDeviceGroupTierById(id, claims.TenantID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error":    err.Error(),
@@ -203,8 +212,17 @@ func (*DeviceGroup) GetDeviceGroupDetail(id string) (interface{}, error) {
 }
 
 func (*DeviceGroup) CreateDeviceGroupRelation(req model.CreateDeviceGroupRelationReq, claims *utils.UserClaims) error {
+	if _, err := dal.GetDeviceGroupDetail(req.GroupId, claims.TenantID); err != nil {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+
 	var dataList = []*model.RGroupDevice{}
 	for _, v := range req.DeviceIDList {
+		device, err := dal.GetDeviceByID(v)
+		if err != nil || device.TenantID != claims.TenantID {
+			return errcode.New(errcode.CodeNoPermission)
+		}
+
 		var deviceGroupRelation = model.RGroupDevice{}
 		deviceGroupRelation.DeviceID = v
 		deviceGroupRelation.GroupID = req.GroupId
@@ -215,13 +233,25 @@ func (*DeviceGroup) CreateDeviceGroupRelation(req model.CreateDeviceGroupRelatio
 	return dal.BatchCreateRGroupDevice(dataList)
 }
 
-func (*DeviceGroup) DeleteDeviceGroupRelation(group_id, device_id string) error {
-	err := dal.DeleteRGroupDevice(group_id, device_id)
+func (*DeviceGroup) DeleteDeviceGroupRelation(group_id, device_id string, claims *utils.UserClaims) error {
+	if _, err := dal.GetDeviceGroupDetail(group_id, claims.TenantID); err != nil {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	device, err := dal.GetDeviceByID(device_id)
+	if err != nil || device.TenantID != claims.TenantID {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+
+	err = dal.DeleteRGroupDevice(group_id, device_id, claims.TenantID)
 	return err
 }
 
-func (*DeviceGroup) GetDeviceGroupRelation(req model.GetDeviceListByGroup) (interface{}, error) {
-	total, list, err := dal.GetRGroupDeviceByGroupId(req)
+func (*DeviceGroup) GetDeviceGroupRelation(req model.GetDeviceListByGroup, claims *utils.UserClaims) (interface{}, error) {
+	if _, err := dal.GetDeviceGroupDetail(req.GroupId, claims.TenantID); err != nil {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
+
+	total, list, err := dal.GetRGroupDeviceByGroupId(req, claims.TenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -232,12 +262,17 @@ func (*DeviceGroup) GetDeviceGroupRelation(req model.GetDeviceListByGroup) (inte
 	return devicesList, err
 }
 
-func (*DeviceGroup) GetDeviceGroupByDeviceId(device_id string) (interface{}, error) {
+func (*DeviceGroup) GetDeviceGroupByDeviceId(device_id string, claims *utils.UserClaims) (interface{}, error) {
+	device, err := dal.GetDeviceByID(device_id)
+	if err != nil || device.TenantID != claims.TenantID {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
+
 	var rspData = []map[string]interface{}{}
-	data, err := dal.GetRGroupDeviceByDeviceId(device_id)
+	data, err := dal.GetRGroupDeviceByDeviceId(device_id, claims.TenantID)
 	//分组名称处理成xxx/xxx/xxx
 	for i := range data {
-		tier, err := dal.GetDeviceGroupTierById(data[i].GroupID)
+		tier, err := dal.GetDeviceGroupTierById(data[i].GroupID, claims.TenantID)
 		if err != nil {
 			return nil, err
 		}

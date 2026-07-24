@@ -425,7 +425,8 @@ func (*DeviceApi) CreateDeviceGroup(c *gin.Context) {
 // @Router   /api/v1/device/group/{id} [delete]
 func (*DeviceApi) DeleteDeviceGroup(c *gin.Context) {
 	id := c.Param("id")
-	err := service.GroupApp.DeviceGroup.DeleteDeviceGroup(id)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.DeviceGroup.DeleteDeviceGroup(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -481,7 +482,8 @@ func (*DeviceApi) HandleDeviceGroupByTree(c *gin.Context) {
 // @Router   /api/v1/device/group/detail/{id} [get]
 func (*DeviceApi) HandleDeviceGroupByDetail(c *gin.Context) {
 	id := c.Param("id")
-	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupDetail(id)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupDetail(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -512,7 +514,8 @@ func (*DeviceApi) DeleteDeviceGroupRelation(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	err := service.GroupApp.DeviceGroup.DeleteDeviceGroupRelation(req.GroupId, req.DeviceId)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.DeviceGroup.DeleteDeviceGroupRelation(req.GroupId, req.DeviceId, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -527,7 +530,8 @@ func (*DeviceApi) HandleDeviceGroupRelation(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupRelation(req)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupRelation(req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -542,7 +546,8 @@ func (*DeviceApi) HandleDeviceGroupListByDeviceId(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupByDeviceId(req.DeviceId)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupByDeviceId(req.DeviceId, userClaims)
 	if err != nil {
 		c.Error(err)
 		return

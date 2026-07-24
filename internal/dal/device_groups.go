@@ -18,13 +18,22 @@ func CreateDeviceGroup(r *model.Group) error {
 	return query.Group.Create(r)
 }
 
-func DeleteDeviceGroup(id string) error {
-	_, err := query.Group.Where(query.Group.ID.Eq(id)).Delete()
+func DeleteDeviceGroup(id, tenantID string) error {
+	_, err := query.Group.Where(
+		query.Group.ID.Eq(id),
+		query.Group.TenantID.Eq(tenantID),
+	).Delete()
 	return err
 }
 
 func UpdateDeviceGroup(r *model.Group) error {
-	_, err := query.Group.Where(query.Group.ID.Eq(r.ID)).Updates(r)
+	result, err := query.Group.Where(
+		query.Group.ID.Eq(r.ID),
+		query.Group.TenantID.Eq(r.TenantID),
+	).Updates(r)
+	if err == nil && result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
 	return err
 }
 
@@ -89,8 +98,11 @@ func GetAutoBindRootDeviceGroupID(tx *query.Query, tenantId string) (string, err
 	return rootGroups[0].ID, nil
 }
 
-func GetDeviceGroupDetail(id string) (*model.Group, error) {
-	d, err := query.Group.Where(query.Group.ID.Eq(id)).First()
+func GetDeviceGroupDetail(id, tenantID string) (*model.Group, error) {
+	d, err := query.Group.Where(
+		query.Group.ID.Eq(id),
+		query.Group.TenantID.Eq(tenantID),
+	).First()
 	if err != nil {
 		logrus.Error(err)
 	}
@@ -133,7 +145,7 @@ func GetDeviceGroupStatistics(groupID string, tenantID string) (*model.DeviceGro
 		LEFT JOIN latest_device_alarms lda ON lda.device_id = d.id
 		WHERE d.tenant_id = ?
 		  AND d.activate_flag = 'active'
-		  AND d.id IN (`+placeholders+`)
+		  AND d.id IN (` + placeholders + `)
 	`)
 	args := make([]interface{}, 0, len(deviceIDs)+1)
 	args = append(args, tenantID)
@@ -155,22 +167,23 @@ func GetDeviceGroupStatistics(groupID string, tenantID string) (*model.DeviceGro
 	}, nil
 }
 
-func GetDeviceGroupTierById(id string) (map[string]interface{}, error) {
+func GetDeviceGroupTierById(id, tenantID string) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
 	sql := `
 	WITH RECURSIVE group_chain AS (
 		SELECT id, parent_id, name, 1 as level
 		FROM groups
-		WHERE id = ?
+		WHERE id = ? AND tenant_id = ?
 		UNION ALL
 		SELECT g.id, g.parent_id, g.name, gc.level + 1
 		FROM groups g
 		INNER JOIN group_chain gc ON gc.parent_id = g.id
+		WHERE g.tenant_id = ?
 	  )
 	  SELECT string_agg(name, '/' ORDER BY level DESC) AS group_path
 	  FROM group_chain;
 	`
-	err := global.DB.Raw(sql, id).Scan(&r)
+	err := global.DB.Raw(sql, id, tenantID, tenantID).Scan(&r)
 	if err.Error != nil {
 		return nil, err.Error
 	}

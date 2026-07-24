@@ -12,20 +12,21 @@ func BatchCreateRGroupDevice(r []*model.RGroupDevice) error {
 	return query.RGroupDevice.CreateInBatches(r, len(r))
 }
 
-func DeleteRGroupDevice(group_id, device_id string) error {
+func DeleteRGroupDevice(group_id, device_id, tenantID string) error {
 	_, err := query.RGroupDevice.
 		Where(query.RGroupDevice.GroupID.Eq(group_id)).
 		Where(query.RGroupDevice.DeviceID.Eq(device_id)).
+		Where(query.RGroupDevice.TenantID.Eq(tenantID)).
 		Delete()
 	return err
 }
 
-func GetRGroupDeviceByGroupId(req model.GetDeviceListByGroup) (int64, interface{}, error) {
+func GetRGroupDeviceByGroupId(req model.GetDeviceListByGroup, tenantID string) (int64, interface{}, error) {
 	// 获取分组下设备,分页返回
 	q := query.RGroupDevice
 	var devicesList []model.GetDeviceListByGroupRsp
 	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.GroupID.Eq(req.GroupId))
+	queryBuilder = queryBuilder.Where(q.GroupID.Eq(req.GroupId), q.TenantID.Eq(tenantID))
 	var count int64
 	count, err := queryBuilder.Count()
 	if err != nil {
@@ -42,6 +43,7 @@ func GetRGroupDeviceByGroupId(req model.GetDeviceListByGroup) (int64, interface{
 	err = queryBuilder.Select(q.GroupID, d.ID, d.DeviceNumber, d.Name, d.DeviceConfigID.As("device_config_id"), c.Name.As("device_config_name")).
 		LeftJoin(d, d.ID.EqCol(q.DeviceID)).
 		LeftJoin(c, c.ID.EqCol(d.DeviceConfigID)).
+		Where(d.TenantID.Eq(tenantID)).
 		Where(d.ActivateFlag.Eq("active")).
 		Order(d.CreatedAt.Desc()).
 		Scan(&devicesList)
@@ -77,8 +79,11 @@ func GetDeviceSelectByGroupId(tenantId string, group_id string, deviceName strin
 	return data, query.Scan(&data)
 }
 
-func GetRGroupDeviceByDeviceId(device_id string) ([]*model.RGroupDevice, error) {
-	data, err := query.RGroupDevice.Where(query.RGroupDevice.DeviceID.Eq(device_id)).Find()
+func GetRGroupDeviceByDeviceId(device_id, tenantID string) ([]*model.RGroupDevice, error) {
+	data, err := query.RGroupDevice.Where(
+		query.RGroupDevice.DeviceID.Eq(device_id),
+		query.RGroupDevice.TenantID.Eq(tenantID),
+	).Find()
 	return data, err
 }
 
