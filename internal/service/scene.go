@@ -29,8 +29,8 @@ func (*Scene) UpdateScene(req model.UpdateSceneReq, claims *utils.UserClaims) (s
 	return id, err
 }
 
-func (*Scene) DeleteScene(scene_id string) error {
-	err := dal.DeleteSceneInfo(scene_id)
+func (*Scene) DeleteScene(scene_id string, claims *utils.UserClaims) error {
+	err := dal.DeleteSceneInfo(scene_id, claims.TenantID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -39,8 +39,8 @@ func (*Scene) DeleteScene(scene_id string) error {
 	return nil
 }
 
-func (*Scene) GetScene(scene_id string) (interface{}, error) {
-	sceneInfo, err := dal.GetSceneInfo(scene_id)
+func (*Scene) GetScene(scene_id string, claims *utils.UserClaims) (interface{}, error) {
+	sceneInfo, err := dal.GetSceneInfoByTenant(scene_id, claims.TenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),

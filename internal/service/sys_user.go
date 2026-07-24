@@ -678,6 +678,15 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 		})
 	}
 
+	if claims.Authority == "TENANT_ADMIN" {
+		if becomeUser.TenantID == nil ||
+			*becomeUser.TenantID != claims.TenantID ||
+			becomeUser.Authority == nil ||
+			*becomeUser.Authority == "SYS_ADMIN" {
+			return nil, errcode.New(errcode.CodeNoPermission)
+		}
+	}
+
 	// 检查用户状态
 	if *becomeUser.Status != "N" {
 		return nil, errcode.WithVars(errcode.CodeUserDisabled, map[string]interface{}{

@@ -81,7 +81,10 @@ func UpdateSceneInfo(req model.UpdateSceneReq, claims *utils.UserClaims) (string
 	sceneInfo.Updator = &claims.ID
 	sceneInfo.UpdatedAt = &t
 	// err = tx.SceneInfo.Save(&sceneInfo)
-	result, err := tx.SceneInfo.Where(tx.SceneInfo.ID.Eq(req.ID)).Updates(sceneInfo)
+	result, err := tx.SceneInfo.Where(
+		tx.SceneInfo.ID.Eq(req.ID),
+		tx.SceneInfo.TenantID.Eq(claims.TenantID),
+	).Updates(sceneInfo)
 	if err != nil {
 		Rollback(tx)
 		return "", err
@@ -125,8 +128,11 @@ func UpdateSceneInfo(req model.UpdateSceneReq, claims *utils.UserClaims) (string
 	return sceneInfo.ID, nil
 }
 
-func DeleteSceneInfo(scene_id string) error {
-	_, err := query.SceneInfo.Where(query.SceneInfo.ID.Eq(scene_id)).Delete()
+func DeleteSceneInfo(scene_id, tenant_id string) error {
+	_, err := query.SceneInfo.Where(
+		query.SceneInfo.ID.Eq(scene_id),
+		query.SceneInfo.TenantID.Eq(tenant_id),
+	).Delete()
 	if err != nil {
 		logrus.Error(err)
 	}
@@ -135,6 +141,17 @@ func DeleteSceneInfo(scene_id string) error {
 
 func GetSceneInfo(scene_id string) (*model.SceneInfo, error) {
 	sceneInfo, err := query.SceneInfo.Where(query.SceneInfo.ID.Eq(scene_id)).First()
+	if err != nil {
+		logrus.Error(err)
+	}
+	return sceneInfo, err
+}
+
+func GetSceneInfoByTenant(scene_id, tenant_id string) (*model.SceneInfo, error) {
+	sceneInfo, err := query.SceneInfo.Where(
+		query.SceneInfo.ID.Eq(scene_id),
+		query.SceneInfo.TenantID.Eq(tenant_id),
+	).First()
 	if err != nil {
 		logrus.Error(err)
 	}

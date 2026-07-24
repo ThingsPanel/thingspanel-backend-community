@@ -98,7 +98,8 @@ func (*DeviceApi) ActiveDevice(c *gin.Context) {
 // @Router   /api/v1/device/detail/{id} [get]
 func (*DeviceApi) HandleDeviceByID(c *gin.Context) {
 	id := c.Param("id")
-	device, err := service.GroupApp.Device.GetDeviceByIDV1(id)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	device, err := service.GroupApp.Device.GetDeviceByIDV1(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return

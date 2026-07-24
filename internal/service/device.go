@@ -234,7 +234,7 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 	return deviceList, err
 }
 
-func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*model.Device, error) {
+func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
 	// 获取设备原信息
 	var oldDevice *model.Device
 	var err error
@@ -263,6 +263,10 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, _ *utils.UserClaims) (*mo
 		}
 	} else {
 		return nil, errcode.New(204003) // 设备不存在
+	}
+
+	if oldDevice.TenantID != claims.TenantID {
+		return nil, errcode.New(errcode.CodeNoPermission)
 	}
 
 	// 如果req.DeviceNumber被修改，需要校验req.DeviceNumber是否系统唯一
@@ -505,7 +509,18 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	return nil
 }
 
-func (*Device) GetDeviceByIDV1(id string) (map[string]interface{}, error) {
+func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]interface{}, error) {
+	device, err := dal.GetDeviceByID(id)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+			"message":   "get device failed",
+		})
+	}
+	if device.TenantID != claims.TenantID {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
+
 	data, err := dal.GetDeviceDetail(id)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{

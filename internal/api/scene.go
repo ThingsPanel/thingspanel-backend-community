@@ -28,7 +28,8 @@ func (*SceneApi) CreateScene(c *gin.Context) {
 // /api/v1/scene [delete]
 func (*SceneApi) DeleteScene(c *gin.Context) {
 	id := c.Param("id")
-	err := service.GroupApp.Scene.DeleteScene(id)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.Scene.DeleteScene(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -54,7 +55,8 @@ func (*SceneApi) UpdateScene(c *gin.Context) {
 // /api/v1/scene/detail/{id} [get]
 func (*SceneApi) HandleScene(c *gin.Context) {
 	id := c.Param("id")
-	data, err := service.GroupApp.Scene.GetScene(id)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.Scene.GetScene(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
