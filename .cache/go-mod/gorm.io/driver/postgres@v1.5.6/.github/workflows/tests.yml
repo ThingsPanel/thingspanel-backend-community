@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  run-tests:
+    strategy:
+      matrix:
+        go: ['1.19']
+        platform: [ubuntu-latest]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up Go 1.x
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go }}
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v4
+
+      # Run build of the application
+    - name: Run build
+      run: go build .
+
+    - name: Run tests
+      run: go test -race -count=1 -v ./...

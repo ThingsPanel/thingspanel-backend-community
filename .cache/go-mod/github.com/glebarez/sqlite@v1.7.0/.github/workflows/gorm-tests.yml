@@ -1,0 +1,72 @@
+name: GORM-tests
+
+on:
+  push:
+    branches-ignore:
+      - 'orig'
+  pull_request:
+    branches-ignore:
+      - 'orig'
+
+jobs:
+  # Label of the container job
+  gorm-test:
+    strategy:
+      matrix:
+        go: ['1.19','1.18']
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go }}
+        check-latest: true
+    - run: go version
+
+    - name: Check out this repo
+      uses: actions/checkout@v3
+      with:
+        path: sqlite
+        
+    - name: Check out GORM repo
+      uses: actions/checkout@v3
+      with:
+        repository: go-gorm/gorm
+        path: gorm
+
+    - name: go mod package cache
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.go }}-${{ hashFiles('**/go.mod') }}
+
+    - name: patch gorm test to use this repo as SQLite driver
+      working-directory: ./gorm/tests
+      shell: bash
+      # note portable syntax of sed (both GNU and BSD version work with -i.bak cheat, see https://stackoverflow.com/a/44864004
+      run: |
+        sed -i.bak '/gorm.io\/driver\/sqlite/d' go.mod
+        echo "replace github.com/glebarez/sqlite => ../../sqlite/" >> go.mod
+        sed -i.bak 's:gorm.io/driver/sqlite:github.com/glebarez/sqlite:g' tests_test.go
+        go mod tidy
+        cat go.mod
+
+    - name: run gorm tests
+      working-directory: ./gorm/tests
+      shell: bash
+      run: go test -race -v -count=1 ./... 2>&1 > ${{ runner.os }}-${{ matrix.go }}-tests.out
+
+    - name: view failed tests result
+      if: ${{ failure() }}
+      working-directory: ./gorm/tests
+      shell: bash
+      run: grep FAIL -A10 -B3 ${{ runner.os }}-${{ matrix.go }}-tests.out || true
+
+    - name: save tests results
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v3 
+      with:
+        name: ${{ runner.os }}-${{ matrix.go }}-tests.out
+        path: ./gorm/tests/${{ runner.os }}-${{ matrix.go }}-tests.out

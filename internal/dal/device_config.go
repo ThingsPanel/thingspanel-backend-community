@@ -306,6 +306,16 @@ func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {
 	return err
 }
 
+// GetDeviceConfigByTemplateID retrieves a device config by device template ID.
+func GetDeviceConfigByTemplateID(templateID string) (*model.DeviceConfig, error) {
+	dc, err := query.DeviceConfig.Where(query.DeviceConfig.DeviceTemplateID.Eq(templateID)).First()
+	if err != nil {
+		return nil, err
+	}
+	return dc, nil
+}
+
+// GetDeviceConfigIdByName retrieves a device config ID by name.
 func GetDeviceConfigIdByName(name string) *string {
 	var configId string
 	err := query.DeviceConfig.Where(query.DeviceConfig.Name.Eq(name)).Select(query.DeviceConfig.ID).Limit(1).Scan(&configId)

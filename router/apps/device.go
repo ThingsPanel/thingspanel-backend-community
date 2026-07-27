@@ -153,6 +153,25 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		}
 	}
 
+	// Bundle 市场路由组
+	deviceMarketBundleApi := deviceapi.Group("market")
+	{
+		// 发布 Bundle 草稿到市场（新版）
+		deviceMarketBundleApi.POST("bundles/publish-draft", api.Controllers.DeviceApi.PublishBundleDraft)
+		// 从市场安装 Bundle
+		deviceMarketBundleApi.POST("bundles/install", api.Controllers.DeviceApi.InstallBundleFromMarket)
+		// 获取安装状态
+		deviceMarketBundleApi.GET("bundles/install/:id", api.Controllers.DeviceApi.GetBundleInstallStatus)
+		// 更新设备绑定
+		deviceMarketBundleApi.PUT("bundles/install/:id/bindings", api.Controllers.DeviceApi.UpdateBundleBinding)
+		// 重试失败的安装
+		deviceMarketBundleApi.POST("bundles/install/:id/retry", api.Controllers.DeviceApi.RetryBundleInstall)
+		// 补偿（清理）失败的安装
+		deviceMarketBundleApi.POST("bundles/install/:id/compensate", api.Controllers.DeviceApi.CompensateBundleInstall)
+		// 列出租户的安装记录
+		deviceMarketBundleApi.GET("bundles/installations", api.Controllers.DeviceApi.ListBundleInstallations)
+	}
+
 	// 设备分组
 	deviceGroupapi := deviceapi.Group("group")
 	{

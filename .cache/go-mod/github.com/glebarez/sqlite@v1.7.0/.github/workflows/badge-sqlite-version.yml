@@ -1,0 +1,41 @@
+name: Badge Sqlite version
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["GORM-tests"]
+    branches: [master]
+    types: [completed]
+    
+jobs:
+  create-sqlite-version-badge:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.18
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v3
+
+    - name: go mod package cache
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-${{ hashFiles('go.mod') }}
+
+    - name: request sqlite_version()
+      run: echo "sqlite_version=$(go test . -run '^TestSQLiteVersion$' -v | grep sqlite_version | tr -s ' ' | cut -d' ' -f3)" >> $GITHUB_ENV
+      
+    - name: Make version badge 
+      uses: schneegans/dynamic-badges-action@v1.6.0
+      with:
+        auth: ${{ secrets.GIST_SECRET }}
+        gistID: fb4d23f63d866b3e1e58b26d2f5ed01f
+        filename: badge-sqlite-version.json
+        label: SQLite
+        message: "${{ env.sqlite_version }}"
+        color: 2269d3
+        style: for-the-badge
+        labelColor: 25292d

@@ -930,3 +930,165 @@ func (*DeviceApi) GetDeviceStatusHistory(c *gin.Context) {
 	}
 	c.Set("data", data)
 }
+
+// PublishBundleDraft 发布 Bundle 草稿到市场
+// @Router   /api/v1/device/market/bundles/publish-draft [post]
+func (*DeviceApi) PublishBundleDraft(c *gin.Context) {
+	var req model.PublishDraftRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	// 调用服务层
+	publishService := service.NewMarketBundlePublish()
+	response, precheckReport, err := publishService.PublishDraft(c.Request.Context(), req, userClaims)
+	if err != nil {
+		// 如果有预检报告，返回预检报告而不是直接报错
+		if precheckReport != nil && !precheckReport.Passed {
+			c.Set("data", gin.H{
+				"precheckReport": precheckReport,
+			})
+			c.Set("code", errcode.CodeParamError)
+			return
+		}
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", gin.H{
+		"bundleKey":       response.BundleKey,
+		"version":         response.Version,
+		"contentHash":     response.ContentHash,
+		"status":          response.Status,
+		"precheckReport":  precheckReport,
+	})
+}
+
+// InstallBundleFromMarket 从市场安装 Bundle
+// @Router   /api/v1/device/market/bundles/install [post]
+func (*DeviceApi) InstallBundleFromMarket(c *gin.Context) {
+	var req model.InstallBundleRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	installService := service.NewMarketBundleInstallService()
+	response, err := installService.InstallBundle(c.Request.Context(), &req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", response)
+}
+
+// GetBundleInstallStatus 获取 Bundle 安装状态
+// @Router   /api/v1/device/market/bundles/install/:id [get]
+func (*DeviceApi) GetBundleInstallStatus(c *gin.Context) {
+	installID := c.Param("id")
+	if installID == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "installation ID is required"))
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	installService := service.NewMarketBundleInstallService()
+	response, err := installService.GetInstallationStatus(c.Request.Context(), installID, userClaims.TenantID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", response)
+}
+
+// UpdateBundleBinding 更新 Bundle 设备绑定
+// @Router   /api/v1/device/market/bundles/install/:id/bindings [put]
+func (*DeviceApi) UpdateBundleBinding(c *gin.Context) {
+	installID := c.Param("id")
+	if installID == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "installation ID is required"))
+		return
+	}
+
+	var req model.UpdateBindingRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	installService := service.NewMarketBundleInstallService()
+	err := installService.UpdateDeviceBinding(c.Request.Context(), installID, userClaims.TenantID, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", gin.H{"message": "binding updated"})
+}
+
+// RetryBundleInstall 重试失败的 Bundle 安装
+// @Router   /api/v1/device/market/bundles/install/:id/retry [post]
+func (*DeviceApi) RetryBundleInstall(c *gin.Context) {
+	installID := c.Param("id")
+	if installID == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "installation ID is required"))
+		return
+	}
+
+	var req model.RetryInstallationRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	installService := service.NewMarketBundleInstallService()
+	response, err := installService.RetryInstallation(c.Request.Context(), installID, userClaims.TenantID, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", response)
+}
+
+// CompensateBundleInstall 补偿（清理）失败的 Bundle 安装
+// @Router   /api/v1/device/market/bundles/install/:id/compensate [post]
+func (*DeviceApi) CompensateBundleInstall(c *gin.Context) {
+	installID := c.Param("id")
+	if installID == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "installation ID is required"))
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	installService := service.NewMarketBundleInstallService()
+	err := installService.CompensateInstallation(c.Request.Context(), installID, userClaims.TenantID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", gin.H{"message": "compensation completed"})
+}
+
+// ListBundleInstallations 列出租户的 Bundle 安装记录
+// @Router   /api/v1/device/market/bundles/installations [get]
+func (*DeviceApi) ListBundleInstallations(c *gin.Context) {
+	var req model.ListInstallationsRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	installService := service.NewMarketBundleInstallService()
+	response, err := installService.ListInstallations(c.Request.Context(), userClaims.TenantID, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", response)
+}

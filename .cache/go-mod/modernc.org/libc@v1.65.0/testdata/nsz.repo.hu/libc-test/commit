@@ -1,0 +1,8 @@
+fix sscanf test: src must be a string master
+author	Szabolcs Nagy <nsz@port70.net>	
+Wed, 3 Aug 2022 17:12:45 +0000 (17:12 +0000)
+committer	Szabolcs Nagy <nsz@port70.net>	
+Wed, 3 Aug 2022 17:12:45 +0000 (17:12 +0000)
+commit	18e28496adee3d84fefdda6efcb9c5b8996a2398
+tree	4a632c2e38f4d3d2e50910db7a62d5a30d25c695
+parent	b7ec467969a53756258778fa7d9b045f912d1c93

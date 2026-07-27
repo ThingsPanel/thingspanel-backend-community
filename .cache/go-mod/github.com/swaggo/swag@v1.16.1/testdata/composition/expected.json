@@ -1,0 +1,202 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "This is a sample server",
+        "title": "Swagger Example API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "petstore.swagger.io",
+    "basePath": "/v2",
+    "paths": {
+        "/testapi/get-bar": {
+            "get": {
+                "description": "get Bar",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "operationId": "get-bar",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.Bar"
+                        }
+                    }
+                }
+            }
+        },
+        "/testapi/get-barmap": {
+            "get": {
+                "description": "get BarMap",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "operationId": "get-bar-map",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.BarMap"
+                        }
+                    }
+                }
+            }
+        },
+        "/testapi/get-foo": {
+            "get": {
+                "description": "get Foo",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "operationId": "get-foo",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.Foo"
+                        }
+                    }
+                }
+            }
+        },
+        "/testapi/get-foobar": {
+            "get": {
+                "description": "get FooBar",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "operationId": "get-foobar",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.FooBar"
+                        }
+                    }
+                }
+            }
+        },
+        "/testapi/get-foobar-pointer": {
+            "get": {
+                "description": "get FooBarPointer",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "operationId": "get-foobar-pointer",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.FooBarPointer"
+                        }
+                    }
+                }
+            }
+        },
+        "/testapi/get-foobarmap": {
+            "get": {
+                "description": "get FoorBarMap",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "operationId": "get-foo-bar-map",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.FooBarMap"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "api.Bar": {
+            "type": "object",
+            "properties": {
+                "field2": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.BarMap": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/definitions/api.Bar"
+            }
+        },
+        "api.Foo": {
+            "type": "object",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.FooBar": {
+            "type": "object",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.FooBarMap": {
+            "type": "object",
+            "properties": {
+                "field3": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/api.MapValue"
+                    }
+                }
+            }
+        },
+        "api.FooBarPointer": {
+            "type": "object",
+            "properties": {
+                "field1": {
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.MapValue": {
+            "type": "object",
+            "properties": {
+                "field4": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

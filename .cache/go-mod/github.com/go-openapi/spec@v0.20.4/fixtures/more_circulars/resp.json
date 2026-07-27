@@ -1,0 +1,51 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "TestSwagger",
+    "version": "1.0",
+    "title": "Test"
+  },
+  "host": "127.0.0.1:8443",
+  "basePath": "/",
+  "schemes": [
+    "https"
+  ],
+  "paths": {
+    "/api/v1/getx": {
+      "post": {
+        "operationId": "getx",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation successful",
+            "schema": {
+              "$ref": "#/definitions/MyObj"
+            }
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "definitions": {
+    "MyObj": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "child-objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MyObj"
+          }
+        }
+      }
+    }
+  }
+}

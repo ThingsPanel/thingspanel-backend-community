@@ -1,0 +1,22 @@
+{
+  "paths": {
+    "/pets": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "./all-the-things.json#/parameters/idParam"
+          }
+        ]
+      }
+    },
+    "/": {
+      "get": {
+        "responses": {
+          "200": {
+            "$ref": "./all-the-things.json#/responses/anotherPet"
+          }
+        }
+      }
+    }
+  }
+}

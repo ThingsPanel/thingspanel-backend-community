@@ -1,0 +1,58 @@
+name: Run Tests
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v4.1.0
+      with:
+        go-version: "1.18.x"
+    - name: Checkout code
+      uses: actions/checkout@v4.1.0
+    - name: Run linters
+      uses: golangci/golangci-lint-action@v3.7.0
+      with:
+        version: "v1.45.2"
+
+  test:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+    - name: Install Go
+      if: success()
+      uses: actions/setup-go@v4.1.0
+      with:
+        go-version: "1.18.x"
+    - name: Checkout code
+      uses: actions/checkout@v4.1.0
+    - run: go test -race ./...
+    - run: go test -fuzz=. -fuzztime=30s
+    - run: go test -fuzz=Plain -fuzztime=30s ./internal/charset
+    - run: go test -fuzz=XML -fuzztime=30s ./internal/charset
+    - run: go test -fuzz=HTML -fuzztime=30s ./internal/charset
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4.1.0
+    - name: Install Go
+      if: success()
+      uses: actions/setup-go@v4.1.0
+      with:
+        go-version: "1.18.x"
+    - name: Generate coverage
+      run: go test -race -covermode=atomic -coverprofile=coverage.out
+    - uses: codecov/codecov-action@v3.1.4
+      with:
+        files: ./coverage.out

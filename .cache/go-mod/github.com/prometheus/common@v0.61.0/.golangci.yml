@@ -1,0 +1,46 @@
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+linters:
+  enable:
+    - errcheck
+    - errorlint
+    - gofumpt
+    - goimports
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - perfsprint
+    - revive
+    - staticcheck
+    - testifylint
+    - unused
+linters-settings:
+  goimports:
+    local-prefixes: github.com/prometheus/common
+  perfsprint:
+    # Optimizes even if it requires an int or uint type cast.
+    int-conversion: true
+    # Optimizes into `err.Error()` even if it is only equivalent for non-nil errors.
+    err-error: true
+    # Optimizes `fmt.Errorf`.
+    errorf: true
+    # Optimizes `fmt.Sprintf` with only one argument.
+    sprintf1: true
+    # Optimizes into strings concatenation.
+    strconcat: false
+  revive:
+    rules:
+      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#unused-parameter
+      - name: unused-parameter
+        severity: warning
+        disabled: true
+  testifylint:
+    disable:
+      - go-require
+    enable-all: true
+    formatter:
+      require-f-funcs: true
+run:
+  timeout: 5m

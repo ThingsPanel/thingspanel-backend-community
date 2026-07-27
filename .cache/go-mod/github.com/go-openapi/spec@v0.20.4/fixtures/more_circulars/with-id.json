@@ -1,0 +1,32 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "circular schema with ID",
+    "description": "reproduces #92",
+    "version": "1.0.0"
+  },
+  "host": "id.api.local",
+  "basePath": "/v1",
+  "consumes": [ "application/json" ],
+  "produces": [ "application/json" ],
+  "schemes": [ "http" ],
+  "paths": {
+    "/id": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "item detail response",
+            "schema": {
+              "$ref": "#/definitions/remote"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "remote": {
+      "$ref": "http://localhost:1234/tree"
+    }
+  }
+}

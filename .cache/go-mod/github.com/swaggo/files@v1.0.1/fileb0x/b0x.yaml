@@ -1,0 +1,14 @@
+pkg: swaggerFiles
+
+dest: "./"
+
+fmt: true
+
+spread: true
+
+custom:
+  - files:
+      - "./swagger-ui/dist/"
+
+    base: "swagger-ui/dist"
+

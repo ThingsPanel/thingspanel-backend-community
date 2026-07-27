@@ -1,0 +1,11 @@
+get:
+  operationId: modelOp
+  summary: many model variations
+  description: Used to see if a codegen can render all the possible parameter variations for a header param
+  tags:
+    - testcgen
+  parameters:
+    - $ref: 'parameters.yml#/parameters2/bodyExt2'
+  responses:
+    default:
+      description: Generic Out

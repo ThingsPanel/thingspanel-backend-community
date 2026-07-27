@@ -1,0 +1,71 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "My API",
+    "version": "1.0.0",
+    "title": "my api",
+    "contact": {
+      "email": "me@myorg.com"
+    },
+    "license": {
+      "name": "my org"
+    }
+  },
+  "host": "127.0.0.1",
+  "basePath": "/",
+  "tags": [],
+  "schemes": [
+    "https"
+  ],
+  "paths": {
+    "/api/v1/endpoint": {
+      "post": {
+        "summary": "my endpoint",
+        "description": "Accessible to . ",
+        "operationId": "ep1",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation successful",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "definitions": {
+    "Error": {
+      "type": "object",
+      "properties": {
+        "errorCode": {
+          "type": "string",
+          "format": "string"
+        },
+        "errorMessage": {
+          "type": "string",
+          "format": "string"
+        },
+        "warning": {
+          "type": "string"
+        },
+        "child-errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Error"
+          }
+        }
+      }
+    }
+  }
+}

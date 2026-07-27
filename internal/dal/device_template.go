@@ -207,3 +207,20 @@ func GetDeviceTemplateSelector(req *model.GetDeviceTemplateSelectorReq, tenantID
 
 	return results, nil
 }
+
+// GetDeviceTemplateByNameAndTenant retrieves a device template by name and tenant
+func GetDeviceTemplateByNameAndTenant(name, tenantID string) (*model.DeviceTemplate, error) {
+	template, err := query.DeviceTemplate.
+		Where(query.DeviceTemplate.Name.Eq(name), query.DeviceTemplate.TenantID.Eq(tenantID)).
+		First()
+	if err != nil {
+		return nil, err
+	}
+	return template, nil
+}
+
+// DeleteDeviceTemplateByID deletes a device template by ID
+func DeleteDeviceTemplateByID(id string) error {
+	_, err := query.DeviceTemplate.Where(query.DeviceTemplate.ID.Eq(id)).Delete()
+	return err
+}
