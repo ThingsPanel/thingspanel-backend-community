@@ -972,8 +972,13 @@ func (*DeviceApi) AnalyzeDashboardBundle(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	publicOrigin, err := requestPublicOrigin(c)
+	if err != nil {
+		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
+		return
+	}
 	claims := c.MustGet("claims").(*utils.UserClaims)
-	result, err := service.NewMarketDashboardBundleService().Analyze(
+	result, err := service.NewMarketDashboardBundleService(publicOrigin+"/thingsvis-api").Analyze(
 		c.Request.Context(),
 		req.DashboardID,
 		c.GetHeader("Authorization"),
@@ -993,8 +998,13 @@ func (*DeviceApi) PublishDashboardBundle(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	publicOrigin, err := requestPublicOrigin(c)
+	if err != nil {
+		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
+		return
+	}
 	claims := c.MustGet("claims").(*utils.UserClaims)
-	result, err := service.NewMarketDashboardBundleService().Publish(
+	result, err := service.NewMarketDashboardBundleService(publicOrigin+"/thingsvis-api").Publish(
 		c.Request.Context(),
 		&req,
 		c.GetHeader("Authorization"),

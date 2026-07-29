@@ -152,7 +152,7 @@ func TestNewThingsVisClient_DefaultBaseURL(t *testing.T) {
 
 func TestThingsVisClient_AnalyzeMarketDashboard(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/internal/market-dashboards/dashboard-1/analyze" {
+		if r.URL.Path != "/market-dashboards/dashboard-1/analyze" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
 		if r.Header.Get("Authorization") != "Bearer thingsvis-user-token" {

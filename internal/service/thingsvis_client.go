@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -39,6 +40,16 @@ func NewThingsVisClient() *ThingsVisClient {
 	return &ThingsVisClient{
 		baseURL:       baseURL,
 		internalToken: viper.GetString("thingsvis.internal_token"),
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+	}
+}
+
+// NewThingsVisClientWithBaseURL creates a client for the current public ThingsVis proxy.
+func NewThingsVisClientWithBaseURL(baseURL string) *ThingsVisClient {
+	return &ThingsVisClient{
+		baseURL: strings.TrimRight(baseURL, "/"),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -88,7 +99,7 @@ type ThingsVisMarketExportResponse struct {
 // AnalyzeMarketDashboard discovers all real device references in a tenant-owned dashboard.
 func (c *ThingsVisClient) AnalyzeMarketDashboard(ctx context.Context, dashboardID, tenantID, userID, authorization string) (*ThingsVisAnalyzeResponse, error) {
 	var result ThingsVisAnalyzeResponse
-	path := fmt.Sprintf("/api/internal/market-dashboards/%s/analyze", dashboardID)
+	path := fmt.Sprintf("/market-dashboards/%s/analyze", dashboardID)
 	if err := c.doMarketInternalJSON(ctx, http.MethodPost, path, tenantID, userID, authorization, nil, &result); err != nil {
 		return nil, err
 	}
@@ -101,7 +112,7 @@ func (c *ThingsVisClient) ExportMarketDashboard(ctx context.Context, dashboardID
 	body := struct {
 		DeviceRoles []ThingsVisDeviceRole `json:"deviceRoles"`
 	}{DeviceRoles: roles}
-	path := fmt.Sprintf("/api/internal/market-dashboards/%s/export", dashboardID)
+	path := fmt.Sprintf("/market-dashboards/%s/export", dashboardID)
 	if err := c.doMarketInternalJSON(ctx, http.MethodPost, path, tenantID, userID, authorization, body, &result); err != nil {
 		return nil, err
 	}

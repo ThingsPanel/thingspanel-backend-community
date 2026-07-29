@@ -22,9 +22,9 @@ type MarketDashboardBundleService struct {
 }
 
 // NewMarketDashboardBundleService creates the dashboard Bundle coordinator.
-func NewMarketDashboardBundleService() *MarketDashboardBundleService {
+func NewMarketDashboardBundleService(thingsVisBaseURL string) *MarketDashboardBundleService {
 	return &MarketDashboardBundleService{
-		thingsvis: NewThingsVisClient(),
+		thingsvis: NewThingsVisClientWithBaseURL(thingsVisBaseURL),
 		market:    NewMarketClient(),
 	}
 }
