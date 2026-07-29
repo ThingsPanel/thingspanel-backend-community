@@ -976,6 +976,7 @@ func (*DeviceApi) AnalyzeDashboardBundle(c *gin.Context) {
 	result, err := service.NewMarketDashboardBundleService().Analyze(
 		c.Request.Context(),
 		req.DashboardID,
+		c.GetHeader("Authorization"),
 		claims,
 	)
 	if err != nil {
@@ -996,6 +997,7 @@ func (*DeviceApi) PublishDashboardBundle(c *gin.Context) {
 	result, err := service.NewMarketDashboardBundleService().Publish(
 		c.Request.Context(),
 		&req,
+		c.GetHeader("Authorization"),
 		claims,
 	)
 	if err != nil {

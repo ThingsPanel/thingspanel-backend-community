@@ -33,7 +33,7 @@ var (
 func NewThingsVisClient() *ThingsVisClient {
 	baseURL := viper.GetString("thingsvis.base_url")
 	if baseURL == "" {
-		baseURL = "http://thingsvis:3000"
+		baseURL = "http://thingsvis-server:8000"
 	}
 
 	return &ThingsVisClient{
@@ -86,31 +86,31 @@ type ThingsVisMarketExportResponse struct {
 }
 
 // AnalyzeMarketDashboard discovers all real device references in a tenant-owned dashboard.
-func (c *ThingsVisClient) AnalyzeMarketDashboard(ctx context.Context, dashboardID, tenantID, userID string) (*ThingsVisAnalyzeResponse, error) {
+func (c *ThingsVisClient) AnalyzeMarketDashboard(ctx context.Context, dashboardID, tenantID, userID, authorization string) (*ThingsVisAnalyzeResponse, error) {
 	var result ThingsVisAnalyzeResponse
 	path := fmt.Sprintf("/api/internal/market-dashboards/%s/analyze", dashboardID)
-	if err := c.doMarketInternalJSON(ctx, http.MethodPost, path, tenantID, userID, nil, &result); err != nil {
+	if err := c.doMarketInternalJSON(ctx, http.MethodPost, path, tenantID, userID, authorization, nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
 }
 
 // ExportMarketDashboard converts all publisher device references to bindingKey placeholders.
-func (c *ThingsVisClient) ExportMarketDashboard(ctx context.Context, dashboardID, tenantID, userID string, roles []ThingsVisDeviceRole) (*ThingsVisMarketExportResponse, error) {
+func (c *ThingsVisClient) ExportMarketDashboard(ctx context.Context, dashboardID, tenantID, userID, authorization string, roles []ThingsVisDeviceRole) (*ThingsVisMarketExportResponse, error) {
 	var result ThingsVisMarketExportResponse
 	body := struct {
 		DeviceRoles []ThingsVisDeviceRole `json:"deviceRoles"`
 	}{DeviceRoles: roles}
 	path := fmt.Sprintf("/api/internal/market-dashboards/%s/export", dashboardID)
-	if err := c.doMarketInternalJSON(ctx, http.MethodPost, path, tenantID, userID, body, &result); err != nil {
+	if err := c.doMarketInternalJSON(ctx, http.MethodPost, path, tenantID, userID, authorization, body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
 }
 
-func (c *ThingsVisClient) doMarketInternalJSON(ctx context.Context, method, path, tenantID, userID string, input, output interface{}) error {
-	if c.internalToken == "" {
-		return fmt.Errorf("%w: thingsvis.internal_token is not configured", ErrThingsVisServiceUnavailable)
+func (c *ThingsVisClient) doMarketInternalJSON(ctx context.Context, method, path, tenantID, userID, authorization string, input, output interface{}) error {
+	if authorization == "" && c.internalToken == "" {
+		return fmt.Errorf("%w: ThingsVis authorization is not provided", ErrThingsVisServiceUnavailable)
 	}
 	var body io.Reader
 	if input != nil {
@@ -126,9 +126,13 @@ func (c *ThingsVisClient) doMarketInternalJSON(ctx context.Context, method, path
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Internal-Token", c.internalToken)
-	req.Header.Set("X-Tenant-ID", tenantID)
-	req.Header.Set("X-User-ID", userID)
+	if authorization != "" {
+		req.Header.Set("Authorization", authorization)
+	} else {
+		req.Header.Set("X-Internal-Token", c.internalToken)
+		req.Header.Set("X-Tenant-ID", tenantID)
+		req.Header.Set("X-User-ID", userID)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

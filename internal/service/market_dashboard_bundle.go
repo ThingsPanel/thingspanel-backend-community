@@ -30,8 +30,8 @@ func NewMarketDashboardBundleService() *MarketDashboardBundleService {
 }
 
 // Analyze discovers dashboard device references and enriches them from local device models.
-func (s *MarketDashboardBundleService) Analyze(ctx context.Context, dashboardID string, claims *utils.UserClaims) (*model.AnalyzeDashboardBundleResponse, error) {
-	analyzed, err := s.thingsvis.AnalyzeMarketDashboard(ctx, dashboardID, claims.TenantID, claims.ID)
+func (s *MarketDashboardBundleService) Analyze(ctx context.Context, dashboardID, thingsVisAuthorization string, claims *utils.UserClaims) (*model.AnalyzeDashboardBundleResponse, error) {
+	analyzed, err := s.thingsvis.AnalyzeMarketDashboard(ctx, dashboardID, claims.TenantID, claims.ID, thingsVisAuthorization)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
 			"error":  "failed to analyze ThingsVis dashboard",
@@ -89,7 +89,7 @@ func (s *MarketDashboardBundleService) Analyze(ctx context.Context, dashboardID 
 }
 
 // Publish exports one dashboard, attaches its exact dependencies, and submits it for review.
-func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.PublishDashboardBundleRequest, claims *utils.UserClaims) (*model.PublishDraftResponse, error) {
+func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.PublishDashboardBundleRequest, thingsVisAuthorization string, claims *utils.UserClaims) (*model.PublishDraftResponse, error) {
 	if !regexp.MustCompile(`^[a-z][a-z0-9-]{2,63}$`).MatchString(req.BundleKey) {
 		return nil, errcode.WithData(errcode.CodeParamError, "invalid bundleKey")
 	}
@@ -101,7 +101,7 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 		return nil, errcode.WithData(errcode.CodeParamError, err.Error())
 	}
 
-	analyzed, err := s.Analyze(ctx, req.DashboardID, claims)
+	analyzed, err := s.Analyze(ctx, req.DashboardID, thingsVisAuthorization, claims)
 	if err != nil {
 		return nil, err
 	}
@@ -157,6 +157,7 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 		req.DashboardID,
 		claims.TenantID,
 		claims.ID,
+		thingsVisAuthorization,
 		thingsvisRoles,
 	)
 	if err != nil {

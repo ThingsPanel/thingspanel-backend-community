@@ -155,11 +155,8 @@ func TestThingsVisClient_AnalyzeMarketDashboard(t *testing.T) {
 		if r.URL.Path != "/api/internal/market-dashboards/dashboard-1/analyze" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		if r.Header.Get("X-Internal-Token") != "shared-secret" {
-			t.Fatal("missing internal token")
-		}
-		if r.Header.Get("X-Tenant-ID") != "tenant-1" || r.Header.Get("X-User-ID") != "user-1" {
-			t.Fatal("missing tenant or user identity")
+		if r.Header.Get("Authorization") != "Bearer thingsvis-user-token" {
+			t.Fatal("missing ThingsVis bearer token")
 		}
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"dashboard": map[string]string{"id": "dashboard-1", "name": "Temperature"},
@@ -175,15 +172,15 @@ func TestThingsVisClient_AnalyzeMarketDashboard(t *testing.T) {
 	defer server.Close()
 
 	client := &ThingsVisClient{
-		baseURL:       server.URL,
-		internalToken: "shared-secret",
-		httpClient:    server.Client(),
+		baseURL:    server.URL,
+		httpClient: server.Client(),
 	}
 	result, err := client.AnalyzeMarketDashboard(
 		context.Background(),
 		"dashboard-1",
 		"tenant-1",
 		"user-1",
+		"Bearer thingsvis-user-token",
 	)
 	if err != nil {
 		t.Fatalf("AnalyzeMarketDashboard returned error: %v", err)
@@ -193,7 +190,39 @@ func TestThingsVisClient_AnalyzeMarketDashboard(t *testing.T) {
 	}
 }
 
-func TestThingsVisClient_AnalyzeMarketDashboardRequiresInternalToken(t *testing.T) {
+func TestThingsVisClient_AnalyzeMarketDashboardSupportsInternalTokenFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Internal-Token") != "shared-secret" {
+			t.Fatal("missing internal token")
+		}
+		if r.Header.Get("X-Tenant-ID") != "tenant-1" || r.Header.Get("X-User-ID") != "user-1" {
+			t.Fatal("missing tenant or user identity")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"dashboard":        map[string]string{"id": "dashboard-1", "name": "Temperature"},
+			"deviceReferences": []map[string]interface{}{},
+		})
+	}))
+	defer server.Close()
+
+	client := &ThingsVisClient{
+		baseURL:       server.URL,
+		internalToken: "shared-secret",
+		httpClient:    server.Client(),
+	}
+	_, err := client.AnalyzeMarketDashboard(
+		context.Background(),
+		"dashboard-1",
+		"tenant-1",
+		"user-1",
+		"",
+	)
+	if err != nil {
+		t.Fatalf("AnalyzeMarketDashboard returned error: %v", err)
+	}
+}
+
+func TestThingsVisClient_AnalyzeMarketDashboardRequiresAuthorization(t *testing.T) {
 	client := &ThingsVisClient{
 		baseURL:    "http://localhost",
 		httpClient: &http.Client{},
@@ -203,9 +232,10 @@ func TestThingsVisClient_AnalyzeMarketDashboardRequiresInternalToken(t *testing.
 		"dashboard-1",
 		"tenant-1",
 		"user-1",
+		"",
 	)
-	if err == nil || !strings.Contains(err.Error(), "internal_token is not configured") {
-		t.Fatalf("expected missing internal token error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "authorization is not provided") {
+		t.Fatalf("expected missing authorization error, got %v", err)
 	}
 }
 
