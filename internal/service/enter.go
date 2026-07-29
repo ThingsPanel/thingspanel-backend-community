@@ -51,6 +51,7 @@ type ServiceGroup struct {
 	DeviceAuth
 	DeviceTopicMapping
 	DashboardMenu
+	MarketBundlePublish
 }
 
 var GroupApp = new(ServiceGroup)

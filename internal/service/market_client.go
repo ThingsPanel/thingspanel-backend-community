@@ -3,6 +3,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -476,6 +478,44 @@ func (c *MarketClient) ExtractUserIDFromMarketToken(tokenString string) (string,
 	return sub, nil
 }
 
+// PublishBundle publishes a bundle to the Horizon market.
+func (c *MarketClient) PublishBundle(ctx context.Context, token string, idempotencyKey string, req *model.HorizonPublishRequest) (*model.HorizonPublishResponse, error) {
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/api/market/bundles/publish", c.baseURL)
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+token)
+	if idempotencyKey != "" {
+		httpReq.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("http request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var apiResp model.HorizonPublishResponse
+	if err := json.Unmarshal(bodyBytes, &apiResp); err != nil {
+		return nil, fmt.Errorf("failed to parse market response: %w (%s)", err, string(bodyBytes))
+	}
+
+	return &apiResp, nil
+}
+
 // InstallTemplate notifies the market service that a template has been installed.
 func (c *MarketClient) InstallTemplate(ctx context.Context, token string, marketTemplateID string, versionID string, userID string, orgID string) error {
 	url := fmt.Sprintf("%s/api/market/templates/%s/install", c.baseURL, marketTemplateID)
@@ -511,4 +551,87 @@ func (c *MarketClient) InstallTemplate(ctx context.Context, token string, market
 	}
 
 	return nil
+}
+
+// DownloadBundle downloads a bundle from Horizon market
+func (c *MarketClient) DownloadBundle(ctx context.Context, token, bundleKey, version string) ([]byte, string, error) {
+	url := fmt.Sprintf("%s/api/market/bundles/%s/versions/%s/download", c.baseURL, bundleKey, version)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create download request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+token)
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, "", fmt.Errorf("download request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read download response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("download failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Get content hash from header if present
+	contentHash := resp.Header.Get("X-Content-Hash")
+	if contentHash == "" {
+		// Compute hash from body
+		hash := sha256.Sum256(bodyBytes)
+		contentHash = "sha256:" + hex.EncodeToString(hash[:])
+	}
+
+	return bodyBytes, contentHash, nil
+}
+
+// DownloadBundleWithMeta downloads a bundle and returns metadata headers
+func (c *MarketClient) DownloadBundleWithMeta(ctx context.Context, token, bundleKey, version string) (*BundleDownloadResult, error) {
+	url := fmt.Sprintf("%s/api/market/bundles/%s/versions/%s/download", c.baseURL, bundleKey, version)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create download request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+token)
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("download request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read download response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Compute hash from body
+	hash := sha256.Sum256(bodyBytes)
+	contentHash := "sha256:" + hex.EncodeToString(hash[:])
+
+	return &BundleDownloadResult{
+		Body:            bodyBytes,
+		ContentHash:     contentHash,
+		ContractVersion: resp.Header.Get("X-Contract-Version"),
+		BundleKind:      resp.Header.Get("X-Bundle-Kind"),
+	}, nil
+}
+
+// BundleDownloadResult contains bundle download response with metadata
+type BundleDownloadResult struct {
+	Body            []byte
+	ContentHash     string
+	ContractVersion string
+	BundleKind      string
 }

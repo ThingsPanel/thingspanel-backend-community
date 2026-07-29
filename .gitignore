@@ -17,3 +17,6 @@ iteration-log.md
 project-context.md
 configs/.instance_id
 configs/conf-localdev.yml
+
+# Go module cache accidentally committed on feature/market-solution-bundle-v1
+.cache/
