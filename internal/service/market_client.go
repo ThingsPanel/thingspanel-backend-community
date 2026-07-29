@@ -507,6 +507,9 @@ func (c *MarketClient) PublishBundle(ctx context.Context, token string, idempote
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("%w: status=%d body=%s", ErrMarketRequestRejected, resp.StatusCode, compactMarketBody(bodyBytes))
+	}
 
 	var apiResp model.HorizonPublishResponse
 	if err := json.Unmarshal(bodyBytes, &apiResp); err != nil {

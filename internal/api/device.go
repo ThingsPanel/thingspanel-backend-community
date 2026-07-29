@@ -957,12 +957,52 @@ func (*DeviceApi) PublishBundleDraft(c *gin.Context) {
 	}
 
 	c.Set("data", gin.H{
-		"bundleKey":       response.BundleKey,
-		"version":         response.Version,
-		"contentHash":     response.ContentHash,
-		"status":          response.Status,
-		"precheckReport":  precheckReport,
+		"bundleKey":      response.BundleKey,
+		"version":        response.Version,
+		"contentHash":    response.ContentHash,
+		"status":         response.Status,
+		"precheckReport": precheckReport,
 	})
+}
+
+// AnalyzeDashboardBundle 分析一个看板引用的真实设备及字段
+// @Router /api/v1/device/market/dashboard-bundles/analyze [post]
+func (*DeviceApi) AnalyzeDashboardBundle(c *gin.Context) {
+	var req model.AnalyzeDashboardBundleRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	result, err := service.NewMarketDashboardBundleService().Analyze(
+		c.Request.Context(),
+		req.DashboardID,
+		claims,
+	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", result)
+}
+
+// PublishDashboardBundle 发布一个看板商品并进入人工审核
+// @Router /api/v1/device/market/dashboard-bundles [post]
+func (*DeviceApi) PublishDashboardBundle(c *gin.Context) {
+	var req model.PublishDashboardBundleRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	result, err := service.NewMarketDashboardBundleService().Publish(
+		c.Request.Context(),
+		&req,
+		claims,
+	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", result)
 }
 
 // InstallBundleFromMarket 从市场安装 Bundle

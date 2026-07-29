@@ -1,0 +1,326 @@
+package service
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"regexp"
+	"strings"
+
+	"project/internal/model"
+	"project/internal/query"
+	"project/pkg/errcode"
+	"project/pkg/utils"
+)
+
+// MarketDashboardBundleService coordinates the one-dashboard Bundle workflow.
+type MarketDashboardBundleService struct {
+	thingsvis *ThingsVisClient
+	market    *MarketClient
+}
+
+// NewMarketDashboardBundleService creates the dashboard Bundle coordinator.
+func NewMarketDashboardBundleService() *MarketDashboardBundleService {
+	return &MarketDashboardBundleService{
+		thingsvis: NewThingsVisClient(),
+		market:    NewMarketClient(),
+	}
+}
+
+// Analyze discovers dashboard device references and enriches them from local device models.
+func (s *MarketDashboardBundleService) Analyze(ctx context.Context, dashboardID string, claims *utils.UserClaims) (*model.AnalyzeDashboardBundleResponse, error) {
+	analyzed, err := s.thingsvis.AnalyzeMarketDashboard(ctx, dashboardID, claims.TenantID, claims.ID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error":  "failed to analyze ThingsVis dashboard",
+			"detail": err.Error(),
+		})
+	}
+	if len(analyzed.DeviceReferences) == 0 {
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "dashboard does not reference any concrete ThingsPanel device",
+		})
+	}
+
+	result := &model.AnalyzeDashboardBundleResponse{
+		DashboardID:      analyzed.Dashboard.ID,
+		DashboardName:    analyzed.Dashboard.Name,
+		DeviceReferences: make([]model.DashboardBundleDeviceReference, 0, len(analyzed.DeviceReferences)),
+	}
+	for _, reference := range analyzed.DeviceReferences {
+		device, err := query.Device.WithContext(ctx).Where(
+			query.Device.ID.Eq(reference.SourceDeviceID),
+			query.Device.TenantID.Eq(claims.TenantID),
+		).First()
+		if err != nil || device.DeviceConfigID == nil || *device.DeviceConfigID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error":    "dashboard references an unavailable or unconfigured device",
+				"deviceId": reference.SourceDeviceID,
+			})
+		}
+		config, err := query.DeviceConfig.WithContext(ctx).Where(
+			query.DeviceConfig.ID.Eq(*device.DeviceConfigID),
+			query.DeviceConfig.TenantID.Eq(claims.TenantID),
+		).First()
+		if err != nil || config.DeviceTemplateID == nil || *config.DeviceTemplateID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error":    "dashboard device has no device template",
+				"deviceId": reference.SourceDeviceID,
+			})
+		}
+		fields, err := readRequiredThingModelFields(*config.DeviceTemplateID, reference.FieldIdentifiers)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"error":    err.Error(),
+				"deviceId": reference.SourceDeviceID,
+			})
+		}
+		result.DeviceReferences = append(result.DeviceReferences, model.DashboardBundleDeviceReference{
+			SourceDeviceID:      reference.SourceDeviceID,
+			SourceDeviceName:    reference.SourceDeviceName,
+			DeviceTemplateID:    *config.DeviceTemplateID,
+			SuggestedBindingKey: suggestBindingKey(reference.SourceDeviceName, reference.SourceDeviceID),
+			RequiredFields:      fields,
+		})
+	}
+	return result, nil
+}
+
+// Publish exports one dashboard, attaches its exact dependencies, and submits it for review.
+func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.PublishDashboardBundleRequest, claims *utils.UserClaims) (*model.PublishDraftResponse, error) {
+	if !regexp.MustCompile(`^[a-z][a-z0-9-]{2,63}$`).MatchString(req.BundleKey) {
+		return nil, errcode.WithData(errcode.CodeParamError, "invalid bundleKey")
+	}
+	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$`).MatchString(req.Version) {
+		return nil, errcode.WithData(errcode.CodeParamError, "invalid semantic version")
+	}
+	roles, err := validateDashboardBundleRoles(req.DeviceRoles)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeParamError, err.Error())
+	}
+
+	analyzed, err := s.Analyze(ctx, req.DashboardID, claims)
+	if err != nil {
+		return nil, err
+	}
+	referenceByDevice := make(map[string]model.DashboardBundleDeviceReference)
+	templateIDs := make([]string, 0)
+	templateSeen := make(map[string]bool)
+	for _, reference := range analyzed.DeviceReferences {
+		referenceByDevice[reference.SourceDeviceID] = reference
+		if !templateSeen[reference.DeviceTemplateID] {
+			templateSeen[reference.DeviceTemplateID] = true
+			templateIDs = append(templateIDs, reference.DeviceTemplateID)
+		}
+	}
+	if len(roles) != len(referenceByDevice) {
+		return nil, errcode.WithData(errcode.CodeParamError, "deviceRoles must cover every dashboard device exactly once")
+	}
+	for sourceDeviceID := range roles {
+		if _, exists := referenceByDevice[sourceDeviceID]; !exists {
+			return nil, errcode.WithData(errcode.CodeParamError, "deviceRoles contains a device not referenced by the dashboard")
+		}
+	}
+
+	publisher := NewMarketBundlePublish()
+	templates, err := publisher.validateDeviceTemplatesOwnership(ctx, templateIDs, claims.TenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeParamError, err.Error())
+	}
+	thingModels, failures := publisher.readThingModels(ctx, templates)
+	if len(failures) > 0 {
+		return nil, errcode.WithData(errcode.CodeParamError, failures)
+	}
+	templateKeyByID := make(map[string]string)
+	keyOwner := make(map[string]string)
+	for _, template := range templates {
+		key := sanitizeResourceKey(template.Name)
+		if owner, exists := keyOwner[key]; exists && owner != template.ID {
+			return nil, errcode.WithData(errcode.CodeParamError, "device template names produce duplicate resource keys")
+		}
+		keyOwner[key] = template.ID
+		templateKeyByID[template.ID] = key
+	}
+
+	thingsvisRoles := make([]ThingsVisDeviceRole, 0, len(req.DeviceRoles))
+	for _, role := range req.DeviceRoles {
+		thingsvisRoles = append(thingsvisRoles, ThingsVisDeviceRole{
+			SourceDeviceID: role.SourceDeviceID,
+			BindingKey:     role.BindingKey,
+			DisplayName:    role.DisplayName,
+		})
+	}
+	exported, err := s.thingsvis.ExportMarketDashboard(
+		ctx,
+		req.DashboardID,
+		claims.TenantID,
+		claims.ID,
+		thingsvisRoles,
+	)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, err.Error())
+	}
+
+	deviceBindings := make([]model.DeviceBinding, 0, len(req.DeviceRoles))
+	fieldBindings := make([]model.FieldBinding, 0)
+	for _, role := range req.DeviceRoles {
+		reference := referenceByDevice[role.SourceDeviceID]
+		deviceBindings = append(deviceBindings, model.DeviceBinding{
+			BindingKey:        role.BindingKey,
+			DeviceTemplateKey: templateKeyByID[reference.DeviceTemplateID],
+			Required:          true,
+			DisplayName:       role.DisplayName,
+		})
+		for _, field := range reference.RequiredFields {
+			fieldBindings = append(fieldBindings, model.FieldBinding{
+				BindingKey: role.BindingKey,
+				Kind:       field.Kind,
+				Identifier: field.Identifier,
+				Required:   true,
+			})
+		}
+	}
+
+	dashboard := model.DashboardTemplate{
+		ResourceKey:    sanitizeResourceKey(req.Name),
+		Version:        req.Version,
+		Name:           req.Name,
+		SchemaVersion:  exported.Snapshot.SchemaVersion,
+		CanvasConfig:   exported.Snapshot.CanvasConfig,
+		Nodes:          exported.Snapshot.Nodes,
+		DataSources:    exported.Snapshot.DataSources,
+		Variables:      exported.Snapshot.Variables,
+		DeviceBindings: deviceBindings,
+		FieldBindings:  fieldBindings,
+	}
+	resources := publisher.buildBundleResources(templates, thingModels, []model.DashboardTemplate{dashboard})
+	if failures := publisher.checkForRealIDs(resources); len(failures) > 0 {
+		return nil, errcode.WithData(errcode.CodeParamError, failures)
+	}
+	metadata := &model.BundleMetadata{
+		Name:          req.Name,
+		Category:      req.Category,
+		Description:   req.Description,
+		CoverAssetKey: req.CoverAssetKey,
+	}
+	compatibility := &model.CompatibilityInfo{}
+	security := &model.BundleSecurity{
+		ContainsSecrets:     false,
+		ContainsRuntimeData: false,
+	}
+	hash, err := publisher.calculateContentHash(
+		ContractVersion,
+		req.BundleKey,
+		req.Version,
+		metadata,
+		compatibility,
+		resources,
+		security,
+	)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, err.Error())
+	}
+	security.ContentHash = "sha256:" + hash
+	horizonRequest := &model.HorizonPublishRequest{
+		ContractVersion: ContractVersion,
+		BundleKind:      BundleKindDashboardTemplate,
+		BundleKey:       req.BundleKey,
+		Version:         req.Version,
+		Metadata:        mustMarshalJSON(metadata),
+		Compatibility:   mustMarshalJSON(compatibility),
+		Resources:       mustMarshalJSON(resources),
+		Security:        mustMarshalJSON(security),
+	}
+	idempotency := dashboardPublishIdempotencyKey(claims.TenantID, req.BundleKey, req.Version)
+	horizonResponse, err := s.market.PublishBundle(ctx, req.MarketToken, idempotency, horizonRequest)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, err.Error())
+	}
+	if horizonResponse.Code != 0 {
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error":  "market rejected dashboard Bundle",
+			"detail": horizonResponse.Message,
+		})
+	}
+	return &model.PublishDraftResponse{
+		BundleKey:   req.BundleKey,
+		Version:     req.Version,
+		ContentHash: security.ContentHash,
+		Status:      "pending_review",
+	}, nil
+}
+
+func validateDashboardBundleRoles(input []model.DashboardBundleRole) (map[string]model.DashboardBundleRole, error) {
+	if len(input) == 0 {
+		return nil, fmt.Errorf("at least one device role is required")
+	}
+	bindingPattern := regexp.MustCompile(`^[a-z][a-z0-9_]{2,63}$`)
+	byDevice := make(map[string]model.DashboardBundleRole)
+	bindingKeys := make(map[string]bool)
+	for _, role := range input {
+		if role.SourceDeviceID == "" || strings.TrimSpace(role.DisplayName) == "" {
+			return nil, fmt.Errorf("sourceDeviceId and displayName are required")
+		}
+		if !bindingPattern.MatchString(role.BindingKey) {
+			return nil, fmt.Errorf("invalid bindingKey %s", role.BindingKey)
+		}
+		if _, exists := byDevice[role.SourceDeviceID]; exists {
+			return nil, fmt.Errorf("duplicate sourceDeviceId %s", role.SourceDeviceID)
+		}
+		if bindingKeys[role.BindingKey] {
+			return nil, fmt.Errorf("duplicate bindingKey %s", role.BindingKey)
+		}
+		byDevice[role.SourceDeviceID] = role
+		bindingKeys[role.BindingKey] = true
+	}
+	return byDevice, nil
+}
+
+func dashboardPublishIdempotencyKey(tenantID, bundleKey, version string) string {
+	payload, _ := json.Marshal([]string{tenantID, bundleKey, version})
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
+}
+
+func readRequiredThingModelFields(templateID string, identifiers []string) ([]model.ThingModelField, error) {
+	publisher := &MarketBundlePublish{}
+	all, failures := publisher.readThingModels(context.Background(), []model.LocalDeviceTemplate{{ID: templateID}})
+	if len(failures) > 0 {
+		return nil, fmt.Errorf("failed to read thing model for template %s", templateID)
+	}
+	byIdentifier := make(map[string]model.ThingModelField)
+	for _, field := range all[templateID] {
+		if _, exists := byIdentifier[field.Identifier]; !exists {
+			byIdentifier[field.Identifier] = field
+		}
+	}
+	required := make([]model.ThingModelField, 0, len(identifiers))
+	for _, identifier := range identifiers {
+		field, exists := byIdentifier[identifier]
+		if !exists {
+			return nil, fmt.Errorf("dashboard field %s does not exist in device template", identifier)
+		}
+		required = append(required, field)
+	}
+	return required, nil
+}
+
+var invalidBindingKeyChars = regexp.MustCompile(`[^a-z0-9_]+`)
+
+func suggestBindingKey(name, deviceID string) string {
+	value := strings.ToLower(strings.TrimSpace(name))
+	value = invalidBindingKeyChars.ReplaceAllString(value, "_")
+	value = strings.Trim(value, "_")
+	if value == "" || value[0] < 'a' || value[0] > 'z' {
+		value = "device_" + strings.ToLower(strings.ReplaceAll(deviceID, "-", "_"))
+	}
+	if len(value) < 3 {
+		value += "_device"
+	}
+	if len(value) > 64 {
+		value = value[:64]
+	}
+	return value
+}

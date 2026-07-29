@@ -25,11 +25,11 @@ func TestThingsVisClient_ExportDashboardForMarket_Success(t *testing.T) {
 			Code:    0,
 			Message: "success",
 			Data: &DashboardExportData{
-				SchemaVersion: "thingsvis-1",
-				CanvasConfig:  json.RawMessage(`{"layout":"grid"}`),
-				Nodes:        json.RawMessage(`[]`),
-				DataSources:  json.RawMessage(`[]`),
-				Variables:    json.RawMessage(`[]`),
+				SchemaVersion:  "thingsvis-1",
+				CanvasConfig:   json.RawMessage(`{"layout":"grid"}`),
+				Nodes:          json.RawMessage(`[]`),
+				DataSources:    json.RawMessage(`[]`),
+				Variables:      json.RawMessage(`[]`),
 				DeviceBindings: json.RawMessage(`[]`),
 			},
 		}
@@ -40,7 +40,7 @@ func TestThingsVisClient_ExportDashboardForMarket_Success(t *testing.T) {
 
 	// Create client with mock URL
 	client := &ThingsVisClient{
-		baseURL: server.URL,
+		baseURL:    server.URL,
 		httpClient: &http.Client{},
 	}
 
@@ -58,7 +58,7 @@ func TestThingsVisClient_ExportDashboardForMarket_Success(t *testing.T) {
 
 func TestThingsVisClient_ExportDashboardForMarket_EmptyID(t *testing.T) {
 	client := &ThingsVisClient{
-		baseURL: "http://localhost:3000",
+		baseURL:    "http://localhost:3000",
 		httpClient: &http.Client{},
 	}
 
@@ -78,7 +78,7 @@ func TestThingsVisClient_ExportDashboardForMarket_ServerError(t *testing.T) {
 	defer server.Close()
 
 	client := &ThingsVisClient{
-		baseURL: server.URL,
+		baseURL:    server.URL,
 		httpClient: &http.Client{},
 	}
 
@@ -102,7 +102,7 @@ func TestThingsVisClient_ExportDashboardForMarket_NonZeroCode(t *testing.T) {
 	defer server.Close()
 
 	client := &ThingsVisClient{
-		baseURL: server.URL,
+		baseURL:    server.URL,
 		httpClient: &http.Client{},
 	}
 
@@ -127,7 +127,7 @@ func TestThingsVisClient_ExportDashboardForMarket_NilData(t *testing.T) {
 	defer server.Close()
 
 	client := &ThingsVisClient{
-		baseURL: server.URL,
+		baseURL:    server.URL,
 		httpClient: &http.Client{},
 	}
 
@@ -147,6 +147,65 @@ func TestNewThingsVisClient_DefaultBaseURL(t *testing.T) {
 	}
 	if client.httpClient == nil {
 		t.Error("httpClient should not be nil")
+	}
+}
+
+func TestThingsVisClient_AnalyzeMarketDashboard(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/internal/market-dashboards/dashboard-1/analyze" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Header.Get("X-Internal-Token") != "shared-secret" {
+			t.Fatal("missing internal token")
+		}
+		if r.Header.Get("X-Tenant-ID") != "tenant-1" || r.Header.Get("X-User-ID") != "user-1" {
+			t.Fatal("missing tenant or user identity")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"dashboard": map[string]string{"id": "dashboard-1", "name": "Temperature"},
+			"deviceReferences": []map[string]interface{}{
+				{
+					"sourceDeviceId":   "device-1",
+					"fieldIdentifiers": []string{"temperature"},
+					"dataSourceIds":    []string{"__platform_device-1__"},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := &ThingsVisClient{
+		baseURL:       server.URL,
+		internalToken: "shared-secret",
+		httpClient:    server.Client(),
+	}
+	result, err := client.AnalyzeMarketDashboard(
+		context.Background(),
+		"dashboard-1",
+		"tenant-1",
+		"user-1",
+	)
+	if err != nil {
+		t.Fatalf("AnalyzeMarketDashboard returned error: %v", err)
+	}
+	if result.Dashboard.Name != "Temperature" || len(result.DeviceReferences) != 1 {
+		t.Fatalf("unexpected analysis response: %+v", result)
+	}
+}
+
+func TestThingsVisClient_AnalyzeMarketDashboardRequiresInternalToken(t *testing.T) {
+	client := &ThingsVisClient{
+		baseURL:    "http://localhost",
+		httpClient: &http.Client{},
+	}
+	_, err := client.AnalyzeMarketDashboard(
+		context.Background(),
+		"dashboard-1",
+		"tenant-1",
+		"user-1",
+	)
+	if err == nil || !strings.Contains(err.Error(), "internal_token is not configured") {
+		t.Fatalf("expected missing internal token error, got %v", err)
 	}
 }
 

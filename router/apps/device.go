@@ -156,6 +156,10 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 	// Bundle 市场路由组
 	deviceMarketBundleApi := deviceapi.Group("market")
 	{
+		// 分析一个看板引用的设备，供发布者确认设备角色
+		deviceMarketBundleApi.POST("dashboard-bundles/analyze", api.Controllers.DeviceApi.AnalyzeDashboardBundle)
+		// 发布一个看板商品并提交人工审核
+		deviceMarketBundleApi.POST("dashboard-bundles", api.Controllers.DeviceApi.PublishDashboardBundle)
 		// 发布 Bundle 草稿到市场（新版）
 		deviceMarketBundleApi.POST("bundles/publish-draft", api.Controllers.DeviceApi.PublishBundleDraft)
 		// 从市场安装 Bundle

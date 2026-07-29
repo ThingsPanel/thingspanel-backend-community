@@ -21,7 +21,7 @@ import (
 
 // MarketBundlePublish handles the bundle publish flow from local resources.
 type MarketBundlePublish struct {
-	marketClient   *MarketClient
+	marketClient    *MarketClient
 	thingsvisClient *ThingsVisClient
 }
 
@@ -35,8 +35,8 @@ func NewMarketBundlePublish() *MarketBundlePublish {
 
 // BundleKind constants for the publish flow.
 const (
-	BundleKindSolutionBundle = "solution-bundle"
-	BundleKindDeviceTemplate = "device-template"
+	BundleKindSolutionBundle    = "solution-bundle"
+	BundleKindDeviceTemplate    = "device-template"
 	BundleKindDashboardTemplate = "dashboard-template"
 )
 
@@ -189,13 +189,13 @@ func (s *MarketBundlePublish) PublishDraft(ctx context.Context, req model.Publis
 	// Include precheck report with warnings if any
 	if len(warnings) > 0 {
 		response.PrecheckReport = &model.PublishDraftPrecheckReport{
-			Passed:     true,
-			Warnings:   warnings,
+			Passed:   true,
+			Warnings: warnings,
 		}
 	}
 
 	// Log success
-	logrus.Infof("[MarketBundlePublish] Published bundle: key=%s version=%s tenant=%s", 
+	logrus.Infof("[MarketBundlePublish] Published bundle: key=%s version=%s tenant=%s",
 		req.BundleKey, req.Version, claims.TenantID)
 
 	return response, response.PrecheckReport, nil
@@ -271,10 +271,10 @@ func (s *MarketBundlePublish) validateDashboardsOwnership(ctx context.Context, d
 			return nil, fmt.Errorf("access denied: dashboard %s belongs to another tenant", id)
 		}
 		dashboards = append(dashboards, model.LocalDashboard{
-			ID:          board.ID,
-			TenantID:    safePtrStr(board.TenantID),
-			Name:        safePtrStr(board.DashboardName),
-			JsonData:    safePtrStr(board.JSONDatum),
+			ID:       board.ID,
+			TenantID: safePtrStr(board.TenantID),
+			Name:     safePtrStr(board.DashboardName),
+			JsonData: safePtrStr(board.JSONDatum),
 		})
 	}
 	return dashboards, nil
@@ -351,6 +351,7 @@ func (s *MarketBundlePublish) readThingModels(ctx context.Context, templates []m
 				Identifier:  c.DataIdentifier,
 				Name:        safePtrStr(c.DataName),
 				Description: safePtrStr(c.Description),
+				DataType:    "object",
 				AccessMode:  "write", // Commands are typically write-only
 			})
 		}
@@ -371,6 +372,7 @@ func (s *MarketBundlePublish) readThingModels(ctx context.Context, templates []m
 				Identifier:  e.DataIdentifier,
 				Name:        safePtrStr(e.DataName),
 				Description: safePtrStr(e.Description),
+				DataType:    "object",
 				AccessMode:  "read", // Events are typically read-only
 			})
 		}
@@ -419,9 +421,9 @@ func (s *MarketBundlePublish) exportDashboards(ctx context.Context, dashboards [
 			Name:           db.Name,
 			SchemaVersion:  exportData.SchemaVersion,
 			CanvasConfig:   exportData.CanvasConfig,
-			Nodes:         exportData.Nodes,
-			DataSources:   exportData.DataSources,
-			Variables:     exportData.Variables,
+			Nodes:          exportData.Nodes,
+			DataSources:    exportData.DataSources,
+			Variables:      exportData.Variables,
 			DeviceBindings: deviceBindings,
 			FieldBindings:  fieldBindings,
 		})
@@ -509,7 +511,7 @@ func getValidFields(fields map[string]model.ThingModelField) []string {
 // buildBundleResources builds the bundle resources from templates and dashboards.
 func (s *MarketBundlePublish) buildBundleResources(templates []model.LocalDeviceTemplate, thingModelMap ThingModelMap, dashboards []model.DashboardTemplate) *model.BundleResources {
 	deviceTemplates := make([]model.BundleDeviceTemplate, 0, len(templates))
-	
+
 	for _, tpl := range templates {
 		dt := model.BundleDeviceTemplate{
 			ResourceKey: sanitizeResourceKey(tpl.Name),
@@ -596,10 +598,10 @@ func (s *MarketBundlePublish) checkForRealIDs(resources *model.BundleResources) 
 // buildMetadata builds the bundle metadata.
 func (s *MarketBundlePublish) buildMetadata(req model.PublishDraftRequest, templates []model.LocalDeviceTemplate, dashboards []model.LocalDashboard) *model.BundleMetadata {
 	metadata := &model.BundleMetadata{
-		Name:         templates[0].Name,
-		Category:     req.Category,
-		Description:  req.Description,
-		Brand:        req.Brand,
+		Name:        templates[0].Name,
+		Category:    req.Category,
+		Description: req.Description,
+		Brand:       req.Brand,
 	}
 
 	// Use first template name as bundle name if not explicitly set
