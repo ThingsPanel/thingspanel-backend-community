@@ -310,7 +310,7 @@ func (*UserApi) SetupState(c *gin.Context) {
 }
 
 // InitSuperAdmin POST /api/v1/tenant/super-admin/init
-// @description 首次安装超管初始化（支持市场回流参数）
+// @description 首次安装本地超管初始化
 func (*UserApi) InitSuperAdmin(c *gin.Context) {
 	var req model.SuperAdminInitReq
 	if !BindAndValidate(c, &req) {
@@ -327,7 +327,7 @@ func (*UserApi) InitSuperAdmin(c *gin.Context) {
 }
 
 // MarketRegister POST /api/v1/tenant/market-register
-// @description 兼容旧接口：超管注册（联动市场）
+// @description 兼容旧接口：本地超管初始化
 func (*UserApi) MarketRegister(c *gin.Context) {
 	var req model.SuperAdminInitReq
 	if !BindAndValidate(c, &req) {

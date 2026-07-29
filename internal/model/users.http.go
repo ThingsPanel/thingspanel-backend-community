@@ -105,9 +105,9 @@ type EmailRegisterReq struct {
 type SuperAdminInitReq struct {
 	Email            string `json:"email" validate:"required,email"`                   // 超管邮箱
 	Password         string `json:"password" validate:"required,min=6"`                // 超管密码
-	MarketRegistered bool   `json:"market_registered,omitempty"`                       // 是否由市场回流确认已注册
-	MarketEmail      string `json:"market_email,omitempty" validate:"omitempty,email"` // 市场回流邮箱（需与 email 一致）
-	MarketSource     string `json:"market_source,omitempty"`                           // 市场来源标识（可选）
+	MarketRegistered bool   `json:"market_registered,omitempty"`                       // 旧版市场回流字段，仅保留请求兼容
+	MarketEmail      string `json:"market_email,omitempty" validate:"omitempty,email"` // 旧版市场回流字段，仅保留请求兼容
+	MarketSource     string `json:"market_source,omitempty"`                           // 旧版市场回流字段，仅保留请求兼容
 }
 
 // MarketRegisterReq 兼容旧接口命名（/tenant/market-register）

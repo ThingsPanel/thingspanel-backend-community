@@ -112,7 +112,7 @@ func RouterInit() *gin.Engine {
 			v1.GET("/tenant/setup-state", controllers.UserApi.SetupState)
 			// 首次安装超管初始化（语义化新接口）
 			v1.POST("/tenant/super-admin/init", controllers.UserApi.InitSuperAdmin)
-			// 超管注册（联动市场）
+			// 兼容旧版超管初始化接口
 			v1.POST("/tenant/market-register", controllers.UserApi.MarketRegister)
 			// 网关自动注册
 			v1.POST("/device/gateway-register", controllers.DeviceApi.GatewayRegister)

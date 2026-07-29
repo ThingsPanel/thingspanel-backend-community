@@ -894,74 +894,22 @@ func (u *User) GetTenantSetupState() (*model.TenantSetupStateRsp, error) {
 	}, nil
 }
 
-func shouldSkipMarketCheck(req *model.SuperAdminInitReq) bool {
-	if req == nil || !req.MarketRegistered {
-		return false
-	}
-
-	requestEmail := strings.TrimSpace(req.Email)
-	marketEmail := strings.TrimSpace(req.MarketEmail)
-	if requestEmail == "" || marketEmail == "" {
-		return false
-	}
-
-	return strings.EqualFold(requestEmail, marketEmail)
-}
-
-// InitSuperAdmin 首次安装超管初始化（支持市场回流参数）
+// InitSuperAdmin 首次安装本地超管初始化。
+// 旧版市场回流字段仅保留请求兼容，不再作为初始化前置条件。
 func (u *User) InitSuperAdmin(ctx context.Context, req *model.SuperAdminInitReq) (*model.LoginRsp, error) {
 	requestEmail := strings.TrimSpace(req.Email)
-	marketEmail := strings.TrimSpace(req.MarketEmail)
-	if req.MarketRegistered && marketEmail != "" && !strings.EqualFold(requestEmail, marketEmail) {
-		return nil, errcode.WithData(errcode.CodeMarketCheckFailed, map[string]interface{}{
-			"error":        "market email does not match request email",
-			"email":        requestEmail,
-			"market_email": marketEmail,
-		})
-	}
 
-	// 市场回流确认成功后，直接进入本地初始化链路，不再依赖市场可达性。
-	if !shouldSkipMarketCheck(req) {
-		if viper.IsSet("market.enabled") && !viper.GetBool("market.enabled") {
-			return nil, errcode.WithData(errcode.CodeMarketServiceUnavailable, map[string]interface{}{
-				"error":           "market integration is disabled by config",
-				"market_base_url": strings.TrimRight(viper.GetString("market.base_url"), "/"),
-			})
-		}
-
-		// 1. 调用市场 API 检查邮箱是否已注册
-		marketClient := NewMarketClient()
-		exists, err := marketClient.CheckUserExists(ctx, requestEmail)
-		if err != nil {
-			code := errcode.CodeMarketCheckFailed
-			if errors.Is(err, ErrMarketServiceUnavailable) {
-				code = errcode.CodeMarketServiceUnavailable
-			}
-			return nil, errcode.WithData(code, map[string]interface{}{
-				"error":           err.Error(),
-				"market_base_url": strings.TrimRight(viper.GetString("market.base_url"), "/"),
-				"email":           requestEmail,
-			})
-		}
-
-		if !exists {
-			// 邮箱未在市场注册（勿复用 200050，该码已用于功能模板删除等业务文案）
-			return nil, errcode.New(200055)
-		}
-	}
-
-	// 2. 邮箱已在市场注册，创建本地超管账号（跳过验证码）
-	// 验证邮箱是否已注册（本地）
-	user, err := dal.GetUsersByEmail(requestEmail)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	// 初始化完成后快速拒绝，避免未鉴权接口重复执行密码哈希等昂贵操作。
+	hasAdmin, err := u.CheckSysAdminExists()
+	if err != nil {
 		return nil, errcode.WithData(errcode.CodeLocalInitCreateUserFail, map[string]interface{}{
-			"operation": "query_user",
+			"operation": "query_sys_admin",
 			"email":     requestEmail,
 			"error":     err.Error(),
 		})
 	}
-	if user != nil {
-		return nil, errcode.New(200008) // 邮箱已注册
+	if hasAdmin {
+		return nil, errcode.New(errcode.CodeSuperAdminAlreadyInitialized)
 	}
 
 	// 密码格式校验
@@ -988,14 +936,67 @@ func (u *User) InitSuperAdmin(ctx context.Context, req *model.SuperAdminInitReq)
 		PasswordLastUpdated: &now,
 	}
 
-	// 创建用户
-	if err = dal.CreateUsers(userInfo); err != nil {
+	var (
+		alreadyInitialized bool
+		emailAlreadyExists bool
+		operation          = "initialize"
+	)
+
+	// 该接口未鉴权，只允许首次安装调用。事务级锁避免并发请求创建多个 SYS_ADMIN。
+	err = global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		operation = "lock_initialization"
+		if err := tx.Exec(
+			"SELECT pg_advisory_xact_lock(hashtext(?))",
+			"thingspanel_super_admin_init",
+		).Error; err != nil {
+			return err
+		}
+
+		operation = "query_sys_admin"
+		var existingAdmin model.User
+		err := tx.Where("authority = ?", dal.SYS_ADMIN).
+			Order("created_at ASC").
+			First(&existingAdmin).Error
+		if err == nil {
+			alreadyInitialized = true
+			return nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		operation = "query_user"
+		var existingUser model.User
+		err = tx.Where("email = ?", requestEmail).First(&existingUser).Error
+		if err == nil {
+			emailAlreadyExists = true
+			return nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		operation = "create_user"
+		if err = tx.Create(userInfo).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
 		return nil, errcode.WithData(errcode.CodeLocalInitCreateUserFail, map[string]interface{}{
-			"operation": "create_user",
+			"operation": operation,
 			"email":     requestEmail,
 			"error":     err.Error(),
 		})
 	}
+	if alreadyInitialized {
+		return nil, errcode.New(errcode.CodeSuperAdminAlreadyInitialized)
+	}
+	if emailAlreadyExists {
+		return nil, errcode.New(200008)
+	}
+
 	loginRsp, err := u.UserLoginAfter(userInfo)
 	if err != nil {
 		errorData := map[string]interface{}{
@@ -1015,7 +1016,7 @@ func (u *User) InitSuperAdmin(ctx context.Context, req *model.SuperAdminInitReq)
 	return loginRsp, nil
 }
 
-// MarketRegister 兼容旧接口命名
+// MarketRegister 兼容旧接口命名，语义等同于本地超管初始化。
 func (u *User) MarketRegister(ctx context.Context, req *model.MarketRegisterReq) (*model.LoginRsp, error) {
 	return u.InitSuperAdmin(ctx, req)
 }

@@ -198,6 +198,9 @@ messages:
   200071:
     zh_CN: "设备${device_name}已绑定模板，请先解除模板绑定"
     en_US: "Device ${device_name} is already bound to a template, please unbind the template first"
+  200072:
+    zh_CN: "系统超管已经完成初始化，请直接登录"
+    en_US: "The system super admin has already been initialized. Please sign in directly"
 
   # 设备认证错误码 (200080-200089)
   200080:
