@@ -899,6 +899,10 @@ func (u *User) GetTenantSetupState() (*model.TenantSetupStateRsp, error) {
 func (u *User) InitSuperAdmin(ctx context.Context, req *model.SuperAdminInitReq) (*model.LoginRsp, error) {
 	requestEmail := strings.TrimSpace(req.Email)
 
+	if req.ConfirmPassword != "" && req.Password != req.ConfirmPassword {
+		return nil, errcode.New(200041)
+	}
+
 	// 初始化完成后快速拒绝，避免未鉴权接口重复执行密码哈希等昂贵操作。
 	hasAdmin, err := u.CheckSysAdminExists()
 	if err != nil {

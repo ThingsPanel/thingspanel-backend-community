@@ -103,11 +103,12 @@ type EmailRegisterReq struct {
 
 // SuperAdminInitReq 首次安装超管初始化请求
 type SuperAdminInitReq struct {
-	Email            string `json:"email" validate:"required,email"`                   // 超管邮箱
-	Password         string `json:"password" validate:"required,min=6"`                // 超管密码
-	MarketRegistered bool   `json:"market_registered,omitempty"`                       // 旧版市场回流字段，仅保留请求兼容
-	MarketEmail      string `json:"market_email,omitempty" validate:"omitempty,email"` // 旧版市场回流字段，仅保留请求兼容
-	MarketSource     string `json:"market_source,omitempty"`                           // 旧版市场回流字段，仅保留请求兼容
+	Email            string `json:"email" validate:"required,email"`                       // 超管登录用户名（邮箱）
+	Password         string `json:"password" validate:"required,min=6"`                    // 超管密码
+	ConfirmPassword  string `json:"confirm_password,omitempty" validate:"omitempty,min=6"` // 确认密码；旧客户端可不传
+	MarketRegistered bool   `json:"market_registered,omitempty"`                           // 旧版市场回流字段，仅保留请求兼容
+	MarketEmail      string `json:"market_email,omitempty" validate:"omitempty,email"`     // 旧版市场回流字段，仅保留请求兼容
+	MarketSource     string `json:"market_source,omitempty"`                               // 旧版市场回流字段，仅保留请求兼容
 }
 
 // MarketRegisterReq 兼容旧接口命名（/tenant/market-register）
