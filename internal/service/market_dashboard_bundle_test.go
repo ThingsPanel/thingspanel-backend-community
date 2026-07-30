@@ -11,12 +11,12 @@ func TestValidateDashboardBundleRoles(t *testing.T) {
 	roles, err := validateDashboardBundleRoles([]model.DashboardBundleRole{
 		{
 			SourceDeviceID: "sensor-1",
-			BindingKey:     "temperature_sensor",
+			BindingKey:     "temperature-sensor",
 			DisplayName:    "Temperature Sensor",
 		},
 		{
 			SourceDeviceID: "switch-1",
-			BindingKey:     "power_switch",
+			BindingKey:     "power-switch",
 			DisplayName:    "Power Switch",
 		},
 	})
@@ -30,8 +30,8 @@ func TestValidateDashboardBundleRoles(t *testing.T) {
 
 func TestValidateDashboardBundleRolesRejectsDuplicateBindingKey(t *testing.T) {
 	_, err := validateDashboardBundleRoles([]model.DashboardBundleRole{
-		{SourceDeviceID: "sensor-1", BindingKey: "shared_role", DisplayName: "Sensor"},
-		{SourceDeviceID: "switch-1", BindingKey: "shared_role", DisplayName: "Switch"},
+		{SourceDeviceID: "sensor-1", BindingKey: "shared-role", DisplayName: "Sensor"},
+		{SourceDeviceID: "switch-1", BindingKey: "shared-role", DisplayName: "Switch"},
 	})
 	if err == nil {
 		t.Fatal("expected duplicate bindingKey to be rejected")
@@ -77,5 +77,16 @@ func TestSuggestBindingKeyUsesOpaqueFallback(t *testing.T) {
 	}
 	if strings.Contains(bindingKey, strings.ReplaceAll(sourceDeviceID, "-", "_")) {
 		t.Fatalf("fallback binding key exposes source device ID: %s", bindingKey)
+	}
+}
+
+func TestNormalizeDashboardBundleRolesConvertsLegacyUnderscores(t *testing.T) {
+	roles := normalizeDashboardBundleRoles([]model.DashboardBundleRole{{
+		SourceDeviceID: "sensor-1",
+		BindingKey:     "temperature_sensor",
+		DisplayName:    "Temperature Sensor",
+	}})
+	if roles[0].BindingKey != "temperature-sensor" {
+		t.Fatalf("unexpected canonical binding key: %s", roles[0].BindingKey)
 	}
 }

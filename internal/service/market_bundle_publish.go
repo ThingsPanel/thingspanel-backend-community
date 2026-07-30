@@ -309,7 +309,7 @@ func (s *MarketBundlePublish) readThingModels(ctx context.Context, templates []m
 				DataType:    safePtrStr(t.DataType),
 				Unit:        safePtrStr(t.Unit),
 				Description: safePtrStr(t.Description),
-				AccessMode:  safePtrStr(t.ReadWriteFlag),
+				AccessMode:  marketAccessMode(safePtrStr(t.ReadWriteFlag)),
 			})
 		}
 
@@ -331,7 +331,7 @@ func (s *MarketBundlePublish) readThingModels(ctx context.Context, templates []m
 				DataType:    safePtrStr(a.DataType),
 				Unit:        safePtrStr(a.Unit),
 				Description: safePtrStr(a.Description),
-				AccessMode:  safePtrStr(a.ReadWriteFlag),
+				AccessMode:  marketAccessMode(safePtrStr(a.ReadWriteFlag)),
 			})
 		}
 
@@ -381,6 +381,32 @@ func (s *MarketBundlePublish) readThingModels(ctx context.Context, templates []m
 	}
 
 	return result, errors
+}
+
+func marketAccessMode(value string) string {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case "R", "READ":
+		return "read"
+	case "W", "WRITE":
+		return "write"
+	case "RW", "WR", "READ-WRITE":
+		return "read-write"
+	default:
+		return ""
+	}
+}
+
+func platformAccessMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "read":
+		return "R"
+	case "write":
+		return "W"
+	case "read-write":
+		return "RW"
+	default:
+		return ""
+	}
 }
 
 // exportDashboards exports dashboards from ThingsVis.

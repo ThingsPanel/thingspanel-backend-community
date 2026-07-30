@@ -261,7 +261,7 @@ func validateDashboardBundleRoles(input []model.DashboardBundleRole) (map[string
 	if len(input) == 0 {
 		return nil, fmt.Errorf("at least one device role is required")
 	}
-	bindingPattern := regexp.MustCompile(`^[a-z][a-z0-9_]{2,63}$`)
+	bindingPattern := regexp.MustCompile(`^[a-z][a-z0-9-]{2,63}$`)
 	byDevice := make(map[string]model.DashboardBundleRole)
 	bindingKeys := make(map[string]bool)
 	for _, role := range input {
@@ -312,7 +312,7 @@ func readRequiredThingModelFields(templateID string, identifiers []string) ([]mo
 	return required, nil
 }
 
-var invalidBindingKeyChars = regexp.MustCompile(`[^a-z0-9_]+`)
+var invalidBindingKeyChars = regexp.MustCompile(`[^a-z0-9-]+`)
 
 func normalizeDashboardBundleRoles(input []model.DashboardBundleRole) []model.DashboardBundleRole {
 	normalized := make([]model.DashboardBundleRole, len(input))
@@ -321,6 +321,8 @@ func normalizeDashboardBundleRoles(input []model.DashboardBundleRole) []model.Da
 		encodedDeviceID := strings.ReplaceAll(strings.ToLower(role.SourceDeviceID), "-", "_")
 		if encodedDeviceID != "" && strings.Contains(strings.ToLower(role.BindingKey), encodedDeviceID) {
 			role.BindingKey = deviceRoleBindingKey(role.SourceDeviceID)
+		} else {
+			role.BindingKey = strings.ReplaceAll(role.BindingKey, "_", "-")
 		}
 		normalized[index] = role
 	}
@@ -338,18 +340,18 @@ func portableDeviceDisplayName(name, deviceID string) string {
 
 func deviceRoleBindingKey(deviceID string) string {
 	sum := sha256.Sum256([]byte(deviceID))
-	return "device_" + hex.EncodeToString(sum[:])[:12]
+	return "device-" + hex.EncodeToString(sum[:])[:12]
 }
 
 func suggestBindingKey(name, deviceID string) string {
 	value := strings.ToLower(strings.TrimSpace(name))
-	value = invalidBindingKeyChars.ReplaceAllString(value, "_")
-	value = strings.Trim(value, "_")
+	value = invalidBindingKeyChars.ReplaceAllString(value, "-")
+	value = strings.Trim(value, "-")
 	if value == "" || value[0] < 'a' || value[0] > 'z' {
 		value = deviceRoleBindingKey(deviceID)
 	}
 	if len(value) < 3 {
-		value += "_device"
+		value += "-device"
 	}
 	if len(value) > 64 {
 		value = value[:64]

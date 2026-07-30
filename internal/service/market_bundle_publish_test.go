@@ -306,6 +306,31 @@ func TestCheckForRealIDsDetectsDeviceFieldAndKnownSourceID(t *testing.T) {
 	}
 }
 
+func TestMarketAccessModeConversion(t *testing.T) {
+	tests := map[string]struct {
+		market   string
+		platform string
+	}{
+		"R":          {market: "read", platform: "R"},
+		"W":          {market: "write", platform: "W"},
+		"RW":         {market: "read-write", platform: "RW"},
+		"read":       {market: "read", platform: "R"},
+		"write":      {market: "write", platform: "W"},
+		"read-write": {market: "read-write", platform: "RW"},
+	}
+	for input, expected := range tests {
+		if actual := marketAccessMode(input); actual != expected.market {
+			t.Fatalf("marketAccessMode(%q) = %q, want %q", input, actual, expected.market)
+		}
+		if actual := platformAccessMode(expected.market); actual != expected.platform {
+			t.Fatalf("platformAccessMode(%q) = %q, want %q", expected.market, actual, expected.platform)
+		}
+	}
+	if actual := marketAccessMode("unknown"); actual != "" {
+		t.Fatalf("unknown access mode must not be exported, got %q", actual)
+	}
+}
+
 func TestProtocolConfigAllowlist(t *testing.T) {
 	// Verify that only safe fields are in the allowlist
 	allowedFields := []string{
