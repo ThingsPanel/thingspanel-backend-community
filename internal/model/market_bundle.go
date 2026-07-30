@@ -222,9 +222,17 @@ type HorizonPublishRequest struct {
 
 // HorizonPublishResponse is the response from Horizon's market API
 type HorizonPublishResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
+	Code    int                 `json:"code"`
+	Message string              `json:"message"`
+	Data    *HorizonPublishData `json:"data,omitempty"`
+}
+
+// HorizonPublishData is the market-authoritative result of publishing a bundle.
+type HorizonPublishData struct {
+	BundleKey   string `json:"bundleKey"`
+	Version     string `json:"version"`
+	ContentHash string `json:"contentHash"`
+	Status      string `json:"status"`
 }
 
 // LocalDeviceTemplate represents a local device template with tenant ownership

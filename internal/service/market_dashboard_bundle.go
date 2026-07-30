@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -33,7 +34,11 @@ func NewMarketDashboardBundleService(thingsVisBaseURL string) *MarketDashboardBu
 func (s *MarketDashboardBundleService) Analyze(ctx context.Context, dashboardID, thingsVisAuthorization string, claims *utils.UserClaims) (*model.AnalyzeDashboardBundleResponse, error) {
 	analyzed, err := s.thingsvis.AnalyzeMarketDashboard(ctx, dashboardID, claims.TenantID, claims.ID, thingsVisAuthorization)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+		code := errcode.CodeSystemError
+		if errors.Is(err, ErrThingsVisRequestRejected) {
+			code = errcode.CodeParamError
+		}
+		return nil, errcode.WithData(code, map[string]interface{}{
 			"error":  "failed to analyze ThingsVis dashboard",
 			"detail": err.Error(),
 		})
@@ -152,7 +157,14 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 		thingsvisRoles,
 	)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeSystemError, err.Error())
+		code := errcode.CodeSystemError
+		if errors.Is(err, ErrThingsVisRequestRejected) {
+			code = errcode.CodeParamError
+		}
+		return nil, errcode.WithData(code, map[string]interface{}{
+			"error":  "failed to export ThingsVis dashboard",
+			"detail": err.Error(),
+		})
 	}
 
 	deviceBindings := make([]model.DeviceBinding, 0, len(req.DeviceRoles))
@@ -202,19 +214,6 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 		ContainsSecrets:     false,
 		ContainsRuntimeData: false,
 	}
-	hash, err := publisher.calculateContentHash(
-		ContractVersion,
-		req.BundleKey,
-		req.Version,
-		metadata,
-		compatibility,
-		resources,
-		security,
-	)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeSystemError, err.Error())
-	}
-	security.ContentHash = "sha256:" + hash
 	horizonRequest := &model.HorizonPublishRequest{
 		ContractVersion: ContractVersion,
 		BundleKind:      BundleKindDashboardTemplate,
@@ -236,11 +235,15 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 			"detail": horizonResponse.Message,
 		})
 	}
+	publishData, err := requireSuccessfulHorizonPublish(horizonResponse)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, err.Error())
+	}
 	return &model.PublishDraftResponse{
-		BundleKey:   req.BundleKey,
-		Version:     req.Version,
-		ContentHash: security.ContentHash,
-		Status:      "pending_review",
+		BundleKey:   publishData.BundleKey,
+		Version:     publishData.Version,
+		ContentHash: publishData.ContentHash,
+		Status:      publishData.Status,
 	}, nil
 }
 

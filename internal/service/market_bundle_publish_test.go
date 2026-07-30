@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"regexp"
 	"strings"
 	"testing"
@@ -103,6 +104,41 @@ func TestGenerateIdempotencyKey(t *testing.T) {
 
 	if len(key1) != 32 {
 		t.Errorf("Idempotency key should be 32 characters, got %d", len(key1))
+	}
+}
+
+func TestRequireSuccessfulHorizonPublish(t *testing.T) {
+	result, err := requireSuccessfulHorizonPublish(&model.HorizonPublishResponse{
+		Code: 0,
+		Data: &model.HorizonPublishData{
+			BundleKey:   "dashboard-market",
+			Version:     "1.0.0",
+			ContentHash: "sha256:market-authoritative",
+			Status:      "pending_review",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected publish response error: %v", err)
+	}
+	if result.ContentHash != "sha256:market-authoritative" || result.Status != "pending_review" {
+		t.Fatalf("unexpected authoritative publish data: %+v", result)
+	}
+}
+
+func TestRequireSuccessfulHorizonPublishRejectsBusinessError(t *testing.T) {
+	_, err := requireSuccessfulHorizonPublish(&model.HorizonPublishResponse{
+		Code:    4001,
+		Message: "bundle schema invalid",
+	})
+	if !errors.Is(err, ErrMarketRequestRejected) {
+		t.Fatalf("expected market rejection, got %v", err)
+	}
+}
+
+func TestRequireSuccessfulHorizonPublishRejectsIncompleteData(t *testing.T) {
+	_, err := requireSuccessfulHorizonPublish(&model.HorizonPublishResponse{Code: 0})
+	if !errors.Is(err, ErrMarketInvalidResponse) {
+		t.Fatalf("expected invalid response, got %v", err)
 	}
 }
 

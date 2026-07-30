@@ -144,20 +144,8 @@ func (s *MarketBundlePublish) PublishDraft(ctx context.Context, req model.Publis
 		ContainsRuntimeData: false,
 	}
 
-	// Step 13: Calculate content hash
-	contentHash, hashErr := s.calculateContentHash(ContractVersion, req.BundleKey, req.Version, metadata, compatibility, bundleResources, security)
-	if hashErr != nil {
-		precheckReport := &model.PublishDraftPrecheckReport{
-			Passed: false,
-			Errors: []model.PrecheckError{
-				{Code: "HASH_FAILED", Message: hashErr.Error()},
-			},
-		}
-		return nil, precheckReport, hashErr
-	}
-	security.ContentHash = "sha256:" + contentHash
-
-	// Step 14: Call Horizon API to publish
+	// Step 13: Call Horizon API to publish. Horizon computes the authoritative
+	// content hash from the exact request representation it persists.
 	horizonReq := &model.HorizonPublishRequest{
 		ContractVersion: ContractVersion,
 		BundleKind:      BundleKindSolutionBundle,
@@ -169,7 +157,17 @@ func (s *MarketBundlePublish) PublishDraft(ctx context.Context, req model.Publis
 		Security:        mustMarshalJSON(security),
 	}
 
-	_, publishErr := s.marketClient.PublishBundle(ctx, req.MarketToken, idempotencyKey, horizonReq)
+	horizonResp, publishErr := s.marketClient.PublishBundle(ctx, req.MarketToken, idempotencyKey, horizonReq)
+	if publishErr != nil {
+		precheckReport := &model.PublishDraftPrecheckReport{
+			Passed: false,
+			Errors: []model.PrecheckError{
+				{Code: model.ErrCodeHorizonPublishFailed, Message: publishErr.Error()},
+			},
+		}
+		return nil, precheckReport, publishErr
+	}
+	publishData, publishErr := requireSuccessfulHorizonPublish(horizonResp)
 	if publishErr != nil {
 		precheckReport := &model.PublishDraftPrecheckReport{
 			Passed: false,
@@ -182,10 +180,10 @@ func (s *MarketBundlePublish) PublishDraft(ctx context.Context, req model.Publis
 
 	// Build final response
 	response := &model.PublishDraftResponse{
-		BundleKey:   req.BundleKey,
-		Version:     req.Version,
-		ContentHash: security.ContentHash,
-		Status:      "published",
+		BundleKey:   publishData.BundleKey,
+		Version:     publishData.Version,
+		ContentHash: publishData.ContentHash,
+		Status:      publishData.Status,
 	}
 
 	// Include precheck report with warnings if any
@@ -644,37 +642,6 @@ func (s *MarketBundlePublish) buildCompatibility(req model.PublishDraftRequest, 
 	return compatibility
 }
 
-// calculateContentHash calculates SHA-256 hash of bundle content.
-func (s *MarketBundlePublish) calculateContentHash(contractVersion, bundleKey, version string, metadata *model.BundleMetadata, compatibility *model.CompatibilityInfo, resources *model.BundleResources, security *model.BundleSecurity) (string, error) {
-	// Build canonical JSON for hashing
-	canonical := map[string]interface{}{
-		"contractVersion": contractVersion,
-		"bundleKind":      BundleKindSolutionBundle,
-		"bundleKey":       bundleKey,
-		"version":         version,
-		"metadata":        metadata,
-		"compatibility":   compatibility,
-		"resources":       resources,
-		"security": &model.BundleSecurity{
-			ContainsSecrets:     security.ContainsSecrets,
-			ContainsRuntimeData: security.ContainsRuntimeData,
-		},
-	}
-
-	// Marshal with canonical ordering
-	jsonBytes, err := json.Marshal(canonical)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal canonical JSON: %w", err)
-	}
-
-	// Normalize JSON (remove whitespace)
-	normalized := normalizeJSON(string(jsonBytes))
-
-	// Calculate SHA-256
-	hash := sha256.Sum256([]byte(normalized))
-	return hex.EncodeToString(hash[:]), nil
-}
-
 // normalizeJSON normalizes JSON string by removing whitespace.
 func normalizeJSON(jsonStr string) string {
 	var buf bytes.Buffer
@@ -684,6 +651,23 @@ func normalizeJSON(jsonStr string) string {
 		}
 	}
 	return buf.String()
+}
+
+func requireSuccessfulHorizonPublish(response *model.HorizonPublishResponse) (*model.HorizonPublishData, error) {
+	if response == nil {
+		return nil, fmt.Errorf("%w: empty publish response", ErrMarketInvalidResponse)
+	}
+	if response.Code != 0 {
+		return nil, fmt.Errorf("%w: code=%d message=%s", ErrMarketRequestRejected, response.Code, response.Message)
+	}
+	if response.Data == nil ||
+		response.Data.BundleKey == "" ||
+		response.Data.Version == "" ||
+		response.Data.ContentHash == "" ||
+		response.Data.Status == "" {
+		return nil, fmt.Errorf("%w: publish response data is incomplete", ErrMarketInvalidResponse)
+	}
+	return response.Data, nil
 }
 
 // generateIdempotencyKey generates an idempotency key for the request.

@@ -31,11 +31,11 @@ func TestMarketClient_PublishBundle_Success(t *testing.T) {
 		response := model.HorizonPublishResponse{
 			Code:    0,
 			Message: "success",
-			Data: map[string]interface{}{
-				"bundleKey":   "test-bundle",
-				"version":     "1.0.0",
-				"contentHash": "sha256:abc123",
-				"status":     "published",
+			Data: &model.HorizonPublishData{
+				BundleKey:   "test-bundle",
+				Version:     "1.0.0",
+				ContentHash: "sha256:abc123",
+				Status:      "published",
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -45,7 +45,7 @@ func TestMarketClient_PublishBundle_Success(t *testing.T) {
 
 	// Create client with mock URL
 	client := &MarketClient{
-		baseURL: server.URL,
+		baseURL:    server.URL,
 		httpClient: &http.Client{},
 	}
 
@@ -80,7 +80,7 @@ func TestMarketClient_PublishBundle_ServerError(t *testing.T) {
 	defer server.Close()
 
 	client := &MarketClient{
-		baseURL: server.URL,
+		baseURL:    server.URL,
 		httpClient: &http.Client{},
 	}
 
@@ -107,7 +107,7 @@ func TestMarketClient_PublishBundle_InvalidResponse(t *testing.T) {
 	defer server.Close()
 
 	client := &MarketClient{
-		baseURL: server.URL,
+		baseURL:    server.URL,
 		httpClient: &http.Client{},
 	}
 
@@ -138,7 +138,7 @@ func TestMarketClient_PublishBundle_NonZeroCode(t *testing.T) {
 	defer server.Close()
 
 	client := &MarketClient{
-		baseURL: server.URL,
+		baseURL:    server.URL,
 		httpClient: &http.Client{},
 	}
 
@@ -165,7 +165,7 @@ func TestMarketClient_PublishBundle_EmptyIdempotencyKey(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Idempotency-Key header should still be present but can be empty
 		// The header is only added if idempotencyKey != ""
-		
+
 		response := model.HorizonPublishResponse{
 			Code:    0,
 			Message: "success",
@@ -176,7 +176,7 @@ func TestMarketClient_PublishBundle_EmptyIdempotencyKey(t *testing.T) {
 	defer server.Close()
 
 	client := &MarketClient{
-		baseURL: server.URL,
+		baseURL:    server.URL,
 		httpClient: &http.Client{},
 	}
 
@@ -196,7 +196,7 @@ func TestMarketClient_PublishBundle_EmptyIdempotencyKey(t *testing.T) {
 
 func TestMarketClient_PublishBundle_RequestMarshalError(t *testing.T) {
 	client := &MarketClient{
-		baseURL: "http://localhost:8081",
+		baseURL:    "http://localhost:8081",
 		httpClient: &http.Client{},
 	}
 
