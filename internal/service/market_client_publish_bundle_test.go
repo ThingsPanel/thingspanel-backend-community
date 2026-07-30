@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"project/internal/model"
+
+	"github.com/golang-jwt/jwt"
 )
 
 func TestMarketClient_PublishBundle_Success(t *testing.T) {
@@ -20,8 +22,11 @@ func TestMarketClient_PublishBundle_Success(t *testing.T) {
 		if r.Header.Get("Content-Type") != "application/json" {
 			t.Errorf("Unexpected Content-Type header: %s", r.Header.Get("Content-Type"))
 		}
-		if r.Header.Get("Authorization") == "" {
-			t.Error("Expected Authorization header")
+		if r.Header.Get("Authorization") != "Bearer "+marketToken {
+			t.Errorf("Unexpected Authorization header: %s", r.Header.Get("Authorization"))
+		}
+		if r.Header.Get("X-User-Id") != "market-user-123" {
+			t.Errorf("Unexpected X-User-Id header: %s", r.Header.Get("X-User-Id"))
 		}
 		if r.Header.Get("Idempotency-Key") == "" {
 			t.Error("Expected Idempotency-Key header")
@@ -61,7 +66,7 @@ func TestMarketClient_PublishBundle_Success(t *testing.T) {
 		Security:        json.RawMessage(`{"containsSecrets":false,"containsRuntimeData":false}`),
 	}
 
-	result, err := client.PublishBundle(ctx, "test-token", "test-idempotency-key", req)
+	result, err := client.PublishBundle(ctx, marketToken, "test-idempotency-key", req)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -70,6 +75,17 @@ func TestMarketClient_PublishBundle_Success(t *testing.T) {
 		t.Errorf("Expected code 0, got %d", result.Code)
 	}
 }
+
+var marketToken = func() string {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": "market-user-123",
+	})
+	signed, err := token.SignedString([]byte("test-secret"))
+	if err != nil {
+		panic(err)
+	}
+	return signed
+}()
 
 func TestMarketClient_PublishBundle_ServerError(t *testing.T) {
 	// Create mock server that returns error
