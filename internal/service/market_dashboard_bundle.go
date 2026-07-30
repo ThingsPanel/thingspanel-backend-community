@@ -200,7 +200,11 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 		FieldBindings:  fieldBindings,
 	}
 	resources := publisher.buildBundleResources(templates, templateKeyByID, thingModels, []model.DashboardTemplate{dashboard})
-	if failures := publisher.checkForRealIDs(resources); len(failures) > 0 {
+	sourceDeviceIDs := make([]string, 0, len(req.DeviceRoles))
+	for _, role := range req.DeviceRoles {
+		sourceDeviceIDs = append(sourceDeviceIDs, role.SourceDeviceID)
+	}
+	if failures := publisher.checkForRealIDs(resources, sourceDeviceIDs...); len(failures) > 0 {
 		return nil, errcode.WithData(errcode.CodeParamError, failures)
 	}
 	metadata := &model.BundleMetadata{

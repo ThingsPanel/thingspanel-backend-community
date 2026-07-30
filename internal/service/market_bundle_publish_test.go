@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -255,27 +256,54 @@ func TestCheckForRealIDs(t *testing.T) {
 func TestCheckForRealIDsWithUUID(t *testing.T) {
 	service := NewMarketBundlePublish()
 
-	// Create resources with a field that contains a UUID pattern
-	deviceTemplateJSON := `{
-		"deviceTemplates": [{
-			"resourceKey": "test-sensor",
-			"thingModel": [{
-				"identifier": "config",
-				"config": {"deviceId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}
+	resourcesJSON := `{
+		"dashboards": [{
+			"resourceKey": "test-dashboard",
+			"nodes": [{
+				"id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 			}]
 		}]
 	}`
 
 	var resources model.BundleResources
-	if err := json.Unmarshal([]byte(deviceTemplateJSON), &resources); err != nil {
+	if err := json.Unmarshal([]byte(resourcesJSON), &resources); err != nil {
 		t.Fatalf("Failed to unmarshal test resources: %v", err)
 	}
 
-	// Since we're checking the serialized JSON, real UUIDs would be detected
 	errors := service.checkForRealIDs(&resources)
+	if len(errors) != 0 {
+		t.Fatalf("dashboard resource UUID must not be treated as a device ID: %v", errors)
+	}
+}
 
-	// This test validates that UUID patterns in serialized JSON would be caught
-	t.Logf("UUID detection test completed, errors found: %d", len(errors))
+func TestCheckForRealIDsDetectsDeviceFieldAndKnownSourceID(t *testing.T) {
+	service := NewMarketBundlePublish()
+	sourceDeviceID := "6f48f02b-2f06-0bb8-da6a-722b0565dc00"
+	resourcesJSON := fmt.Sprintf(`{
+		"dashboards": [{
+			"resourceKey": "test-dashboard",
+			"nodes": [
+				{"config": {"device_id": "unexpected-device"}},
+				{"config": {"endpoint": "/api/v1/devices/%s/history"}}
+			]
+		}]
+	}`, sourceDeviceID)
+
+	var resources model.BundleResources
+	if err := json.Unmarshal([]byte(resourcesJSON), &resources); err != nil {
+		t.Fatalf("Failed to unmarshal test resources: %v", err)
+	}
+
+	errors := service.checkForRealIDs(&resources, sourceDeviceID)
+	if len(errors) != 1 {
+		t.Fatalf("expected one device identity error, got: %v", errors)
+	}
+	if errors[0].Code != model.ErrCodeRealDeviceIDDetected {
+		t.Fatalf("expected %s, got: %s", model.ErrCodeRealDeviceIDDetected, errors[0].Code)
+	}
+	if errors[0].Details != "found 2 forbidden device reference(s)" {
+		t.Fatalf("unexpected details: %s", errors[0].Details)
+	}
 }
 
 func TestProtocolConfigAllowlist(t *testing.T) {

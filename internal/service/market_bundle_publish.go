@@ -549,41 +549,48 @@ func (s *MarketBundlePublish) sanitizeProtocolConfigs(resources *model.BundleRes
 	return resources, warnings
 }
 
-// checkForRealIDs checks for real device IDs, tenant IDs, or user IDs in resources.
-func (s *MarketBundlePublish) checkForRealIDs(resources *model.BundleResources) []model.PrecheckError {
+// checkForRealIDs checks for forbidden identity fields and known source device IDs.
+// UUIDs alone are not sufficient evidence: dashboard nodes and data sources may
+// legitimately use UUIDs as their own resource identifiers.
+func (s *MarketBundlePublish) checkForRealIDs(resources *model.BundleResources, sourceDeviceIDs ...string) []model.PrecheckError {
 	var errors []model.PrecheckError
 
-	// Serialize resources to check for patterns
 	resourcesJSON, err := json.Marshal(resources)
 	if err != nil {
 		return errors
 	}
 
-	resourcesStr := string(resourcesJSON)
+	var decoded interface{}
+	if err := json.Unmarshal(resourcesJSON, &decoded); err != nil {
+		return errors
+	}
 
-	// Check for real device ID patterns (UUID format)
-	deviceIDRegex := regexp.MustCompile(`[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
-	deviceIDs := deviceIDRegex.FindAllString(resourcesStr, -1)
-	if len(deviceIDs) > 0 {
+	deviceFields := countJSONKeys(decoded, map[string]struct{}{
+		"deviceid": {},
+	})
+	knownDeviceReferences := 0
+	resourcesStr := string(resourcesJSON)
+	for _, sourceDeviceID := range sourceDeviceIDs {
+		if sourceDeviceID != "" && strings.Contains(resourcesStr, sourceDeviceID) {
+			knownDeviceReferences++
+		}
+	}
+	if deviceFields+knownDeviceReferences > 0 {
 		errors = append(errors, model.PrecheckError{
 			Code:    model.ErrCodeRealDeviceIDDetected,
 			Message: "real device IDs detected in resources",
-			Details: fmt.Sprintf("found %d device ID(s)", len(deviceIDs)),
+			Details: fmt.Sprintf("found %d forbidden device reference(s)", deviceFields+knownDeviceReferences),
 		})
 	}
 
-	// Check for tenant ID patterns
-	tenantIDRegex := regexp.MustCompile(`"tenant_?[Ii][Dd"\s:]+[a-z0-9]{8,}`)
-	if tenantIDRegex.MatchString(resourcesStr) {
+	if countJSONKeys(decoded, map[string]struct{}{"tenantid": {}}) > 0 {
 		errors = append(errors, model.PrecheckError{
 			Code:    model.ErrCodeRealTenantIDDetected,
 			Message: "real tenant IDs detected in resources",
 		})
 	}
 
-	// Check for user ID patterns
-	userIDRegex := regexp.MustCompile(`"user_?[Ii][Dd"\s:]+[a-z0-9]{8,}`)
-	if userIDRegex.MatchString(resourcesStr) {
+	if countJSONKeys(decoded, map[string]struct{}{"userid": {}}) > 0 {
 		errors = append(errors, model.PrecheckError{
 			Code:    model.ErrCodeRealUserIDDetected,
 			Message: "real user IDs detected in resources",
@@ -591,6 +598,25 @@ func (s *MarketBundlePublish) checkForRealIDs(resources *model.BundleResources) 
 	}
 
 	return errors
+}
+
+func countJSONKeys(value interface{}, forbidden map[string]struct{}) int {
+	count := 0
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		for key, child := range typed {
+			normalizedKey := strings.ToLower(strings.ReplaceAll(key, "_", ""))
+			if _, exists := forbidden[normalizedKey]; exists {
+				count++
+			}
+			count += countJSONKeys(child, forbidden)
+		}
+	case []interface{}:
+		for _, child := range typed {
+			count += countJSONKeys(child, forbidden)
+		}
+	}
+	return count
 }
 
 // buildMetadata builds the bundle metadata.
