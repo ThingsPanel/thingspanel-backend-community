@@ -82,11 +82,16 @@ func (s *MarketDashboardBundleService) Analyze(ctx context.Context, dashboardID,
 				"deviceId": reference.SourceDeviceID,
 			})
 		}
+		deviceName := reference.SourceDeviceName
+		if device.Name != nil && strings.TrimSpace(*device.Name) != "" {
+			deviceName = *device.Name
+		}
+		deviceName = portableDeviceDisplayName(deviceName, reference.SourceDeviceID)
 		result.DeviceReferences = append(result.DeviceReferences, model.DashboardBundleDeviceReference{
 			SourceDeviceID:      reference.SourceDeviceID,
-			SourceDeviceName:    reference.SourceDeviceName,
+			SourceDeviceName:    deviceName,
 			DeviceTemplateID:    *config.DeviceTemplateID,
-			SuggestedBindingKey: suggestBindingKey(reference.SourceDeviceName, reference.SourceDeviceID),
+			SuggestedBindingKey: suggestBindingKey(deviceName, reference.SourceDeviceID),
 			RequiredFields:      fields,
 		})
 	}
@@ -101,6 +106,7 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$`).MatchString(req.Version) {
 		return nil, errcode.WithData(errcode.CodeParamError, "invalid semantic version")
 	}
+	req.DeviceRoles = normalizeDashboardBundleRoles(req.DeviceRoles)
 	roles, err := validateDashboardBundleRoles(req.DeviceRoles)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeParamError, err.Error())
@@ -308,12 +314,39 @@ func readRequiredThingModelFields(templateID string, identifiers []string) ([]mo
 
 var invalidBindingKeyChars = regexp.MustCompile(`[^a-z0-9_]+`)
 
+func normalizeDashboardBundleRoles(input []model.DashboardBundleRole) []model.DashboardBundleRole {
+	normalized := make([]model.DashboardBundleRole, len(input))
+	for index, role := range input {
+		role.DisplayName = portableDeviceDisplayName(role.DisplayName, role.SourceDeviceID)
+		encodedDeviceID := strings.ReplaceAll(strings.ToLower(role.SourceDeviceID), "-", "_")
+		if encodedDeviceID != "" && strings.Contains(strings.ToLower(role.BindingKey), encodedDeviceID) {
+			role.BindingKey = deviceRoleBindingKey(role.SourceDeviceID)
+		}
+		normalized[index] = role
+	}
+	return normalized
+}
+
+func portableDeviceDisplayName(name, deviceID string) string {
+	value := strings.TrimSpace(strings.ReplaceAll(name, deviceID, ""))
+	value = strings.Trim(value, " -_")
+	if value == "" {
+		return "Device"
+	}
+	return value
+}
+
+func deviceRoleBindingKey(deviceID string) string {
+	sum := sha256.Sum256([]byte(deviceID))
+	return "device_" + hex.EncodeToString(sum[:])[:12]
+}
+
 func suggestBindingKey(name, deviceID string) string {
 	value := strings.ToLower(strings.TrimSpace(name))
 	value = invalidBindingKeyChars.ReplaceAllString(value, "_")
 	value = strings.Trim(value, "_")
 	if value == "" || value[0] < 'a' || value[0] > 'z' {
-		value = "device_" + strings.ToLower(strings.ReplaceAll(deviceID, "-", "_"))
+		value = deviceRoleBindingKey(deviceID)
 	}
 	if len(value) < 3 {
 		value += "_device"

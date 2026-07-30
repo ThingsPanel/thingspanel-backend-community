@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"testing"
 
 	"project/internal/model"
@@ -46,5 +47,35 @@ func TestDashboardPublishIdempotencyKeySeparatesVersions(t *testing.T) {
 	}
 	if first == next {
 		t.Fatal("different versions must produce different idempotency keys")
+	}
+}
+
+func TestNormalizeDashboardBundleRolesRemovesSourceDeviceIdentity(t *testing.T) {
+	sourceDeviceID := "192f3fa4-1a93-bd91-e10f-36d621601e63"
+	roles := normalizeDashboardBundleRoles([]model.DashboardBundleRole{{
+		SourceDeviceID: sourceDeviceID,
+		BindingKey:     "device_192f3fa4_1a93_bd91_e10f_36d621601e63",
+		DisplayName:    "Device " + sourceDeviceID,
+	}})
+
+	if roles[0].DisplayName != "Device" {
+		t.Fatalf("unexpected portable display name: %s", roles[0].DisplayName)
+	}
+	if roles[0].BindingKey != deviceRoleBindingKey(sourceDeviceID) {
+		t.Fatalf("unexpected portable binding key: %s", roles[0].BindingKey)
+	}
+	if strings.Contains(roles[0].BindingKey, strings.ReplaceAll(sourceDeviceID, "-", "_")) {
+		t.Fatalf("binding key still contains encoded source device ID: %s", roles[0].BindingKey)
+	}
+}
+
+func TestSuggestBindingKeyUsesOpaqueFallback(t *testing.T) {
+	sourceDeviceID := "6f48f02b-2f06-0bb8-da6a-722b0565dc00"
+	bindingKey := suggestBindingKey("温湿度传感器", sourceDeviceID)
+	if bindingKey != deviceRoleBindingKey(sourceDeviceID) {
+		t.Fatalf("unexpected fallback binding key: %s", bindingKey)
+	}
+	if strings.Contains(bindingKey, strings.ReplaceAll(sourceDeviceID, "-", "_")) {
+		t.Fatalf("fallback binding key exposes source device ID: %s", bindingKey)
 	}
 }
