@@ -162,6 +162,10 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		deviceMarketBundleApi.POST("dashboard-bundles", api.Controllers.DeviceApi.PublishDashboardBundle)
 		// 发布 Bundle 草稿到市场（新版）
 		deviceMarketBundleApi.POST("bundles/publish-draft", api.Controllers.DeviceApi.PublishBundleDraft)
+		// 浏览已发布看板模板
+		deviceMarketBundleApi.GET("bundles", api.Controllers.DeviceApi.ListMarketBundles)
+		deviceMarketBundleApi.GET("bundles/:bundleKey", api.Controllers.DeviceApi.GetMarketBundleDetail)
+		deviceMarketBundleApi.GET("bundles/:bundleKey/precheck", api.Controllers.DeviceApi.GetMarketBundlePrecheck)
 		// 从市场安装 Bundle
 		deviceMarketBundleApi.POST("bundles/install", api.Controllers.DeviceApi.InstallBundleFromMarket)
 		// 获取安装状态

@@ -235,6 +235,156 @@ type HorizonPublishData struct {
 	Status      string `json:"status"`
 }
 
+// MarketBundleListQuery contains safe public catalog filters.
+type MarketBundleListQuery struct {
+	Keyword  string `form:"keyword"`
+	Category string `form:"category"`
+	SortBy   string `form:"sort_by"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"page_size"`
+}
+
+type MarketBundleListItem struct {
+	BundleKey     string `json:"bundleKey"`
+	Name          string `json:"name"`
+	Description   string `json:"description,omitempty"`
+	Category      string `json:"category"`
+	Author        string `json:"author,omitempty"`
+	LatestVersion string `json:"latestVersion"`
+	InstallCount  int    `json:"installCount"`
+	Thumbnail     string `json:"thumbnail,omitempty"`
+	PublishedAt   string `json:"publishedAt,omitempty"`
+}
+
+type MarketBundleListResult struct {
+	List     []MarketBundleListItem `json:"list"`
+	Total    int                    `json:"total"`
+	Page     int                    `json:"page"`
+	PageSize int                    `json:"pageSize"`
+}
+
+// HorizonBundleCatalog is Horizon's safe public bundle projection.
+type HorizonBundleCatalog struct {
+	Bundle   HorizonBundleCatalogItem      `json:"bundle"`
+	Versions []HorizonBundleCatalogVersion `json:"versions"`
+}
+
+type HorizonBundleCatalogItem struct {
+	BundleKey     string `json:"bundleKey"`
+	LatestVersion string `json:"latestVersion"`
+	Name          string `json:"name"`
+	Category      string `json:"category"`
+	Description   string `json:"description"`
+	Author        string `json:"author,omitempty"`
+	CoverAssetKey string `json:"coverAssetKey,omitempty"`
+	InstallCount  int    `json:"installCount"`
+}
+
+type HorizonBundleCatalogVersion struct {
+	Version         string                       `json:"version"`
+	ContractVersion string                       `json:"contractVersion"`
+	BundleKind      string                       `json:"bundleKind"`
+	PublishedAt     string                       `json:"publishedAt,omitempty"`
+	FileSizeBytes   int64                        `json:"fileSizeBytes,omitempty"`
+	ContentHash     string                       `json:"contentHash"`
+	Compatibility   HorizonBundleCompatibility   `json:"compatibility"`
+	ResourceSummary HorizonBundleResourceSummary `json:"resourceSummary"`
+}
+
+type HorizonBundleCompatibility struct {
+	MinThingsPanel string                          `json:"minThingsPanel,omitempty"`
+	MinThingsVis   string                          `json:"minThingsVis,omitempty"`
+	Plugins        []HorizonBundlePluginDependency `json:"plugins"`
+}
+
+type HorizonBundlePluginDependency struct {
+	Identifier string `json:"identifier"`
+	MinVersion string `json:"minVersion,omitempty"`
+}
+
+type HorizonBundleResourceSummary struct {
+	Dashboards      []HorizonBundleDashboardSummary      `json:"dashboards"`
+	DeviceTemplates []HorizonBundleDeviceTemplateSummary `json:"deviceTemplates"`
+}
+
+type HorizonBundleDashboardSummary struct {
+	ResourceKey    string                              `json:"resourceKey"`
+	Name           string                              `json:"name"`
+	DeviceBindings []HorizonBundleDeviceBindingSummary `json:"deviceBindings"`
+}
+
+type HorizonBundleDeviceBindingSummary struct {
+	BindingKey        string `json:"bindingKey"`
+	DisplayName       string `json:"displayName"`
+	DeviceTemplateKey string `json:"deviceTemplateKey"`
+	Required          bool   `json:"required"`
+	AllowMany         bool   `json:"allowMany,omitempty"`
+}
+
+type HorizonBundleDeviceTemplateSummary struct {
+	ResourceKey string `json:"resourceKey"`
+	Name        string `json:"name"`
+}
+
+// MarketBundleDetail is shaped for the existing ThingsPanel install wizard.
+type MarketBundleDetail struct {
+	BundleKey     string                      `json:"bundleKey"`
+	Name          string                      `json:"name"`
+	Description   string                      `json:"description,omitempty"`
+	Category      string                      `json:"category"`
+	Author        string                      `json:"author,omitempty"`
+	Thumbnail     string                      `json:"thumbnail,omitempty"`
+	Versions      []MarketBundleDetailVersion `json:"versions"`
+	TotalInstalls int                         `json:"totalInstalls"`
+	Rating        float64                     `json:"rating"`
+	ReviewCount   int                         `json:"reviewCount"`
+}
+
+type MarketBundleDetailVersion struct {
+	Version             string                    `json:"version"`
+	PublishedAt         string                    `json:"publishedAt,omitempty"`
+	ContentHash         string                    `json:"contentHash"`
+	DeviceTemplateCount int                       `json:"deviceTemplateCount"`
+	DashboardCount      int                       `json:"dashboardCount"`
+	ContentSize         int64                     `json:"contentSize"`
+	Compatibility       MarketBundleCompatibility `json:"compatibility"`
+	DeviceBindings      []MarketDeviceBindingSpec `json:"deviceBindings"`
+}
+
+type MarketBundleCompatibility struct {
+	MinPlatformVersion string                 `json:"minPlatformVersion,omitempty"`
+	MinThingsVis       string                 `json:"minThingsVis,omitempty"`
+	RequiredPlugins    []MarketRequiredPlugin `json:"requiredPlugins"`
+}
+
+type MarketRequiredPlugin struct {
+	Key       string `json:"key"`
+	Name      string `json:"name"`
+	Version   string `json:"version,omitempty"`
+	Installed bool   `json:"installed"`
+}
+
+type MarketDeviceBindingSpec struct {
+	BindingKey         string `json:"bindingKey"`
+	DisplayName        string `json:"displayName"`
+	Required           bool   `json:"required"`
+	AllowMany          bool   `json:"allowMany,omitempty"`
+	DeviceTemplateKey  string `json:"deviceTemplateKey,omitempty"`
+	DeviceTemplateName string `json:"deviceTemplateName,omitempty"`
+}
+
+type MarketDashboardBindingSpec struct {
+	DashboardKey  string                    `json:"dashboardKey"`
+	DashboardName string                    `json:"dashboardName"`
+	Bindings      []MarketDeviceBindingSpec `json:"bindings"`
+}
+
+type MarketBundlePrecheck struct {
+	Warnings        []string                     `json:"warnings"`
+	RequiredPlugins []MarketRequiredPlugin       `json:"requiredPlugins"`
+	BindingPreview  []MarketDashboardBindingSpec `json:"bindingPreview"`
+}
+
 // LocalDeviceTemplate represents a local device template with tenant ownership
 type LocalDeviceTemplate struct {
 	ID          string `json:"id"`

@@ -64,8 +64,8 @@ func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *mod
 		IdempotencyKey: idempotencyKey,
 		BundleKey:      req.BundleKey,
 		BundleVersion:  req.Version,
-		TenantID:      tenantID,
-		Status:        model.InstallStateDownloading,
+		TenantID:       tenantID,
+		Status:         model.InstallStateDownloading,
 	}
 	inst, err = s.installRepo.CreateInstallation(ctx, inst)
 	if err != nil {
@@ -117,8 +117,15 @@ func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *mod
 	}
 	s.recordAudit(ctx, inst.ID, tenantID, "state_change", model.InstallStateVerified, model.InstallStateModelsInstalled, nil)
 
-	// 6. Create dashboards via ThingsVis
-	dashboardMappings, err := s.createDashboards(ctx, inst.ID, tenantID, bundle, deviceTemplateMappings)
+	// 6. Validate all runtime device bindings before creating any dashboard.
+	resolvedBindings, err := s.resolveDeviceBindings(ctx, tenantID, bundle, req.DeviceBindings, deviceTemplateMappings)
+	if err != nil {
+		s.failInstallation(ctx, inst.ID, tenantID, "BINDING_FAILED", err.Error())
+		return nil, err
+	}
+
+	// 7. Create dashboards via ThingsVis with real tenant device IDs.
+	dashboardMappings, err := s.createDashboards(ctx, inst.ID, tenantID, claims.ID, bundle, resolvedBindings)
 	if err != nil {
 		s.failInstallation(ctx, inst.ID, tenantID, "DASHBOARD_CREATE_FAILED", err.Error())
 		return nil, err
@@ -130,7 +137,7 @@ func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *mod
 	}
 	s.recordAudit(ctx, inst.ID, tenantID, "state_change", model.InstallStateModelsInstalled, model.InstallStateDashboardsCreated, nil)
 
-	// 7. Process device bindings
+	// 8. Record device bindings
 	bindingStatuses, finalWarnings, err := s.processDeviceBindings(ctx, inst.ID, tenantID, bundle, req.DeviceBindings, deviceTemplateMappings)
 	if err != nil {
 		s.failInstallation(ctx, inst.ID, tenantID, "BINDING_FAILED", err.Error())
@@ -143,7 +150,7 @@ func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *mod
 		s.installRepo.UpdateWarnings(ctx, inst.ID, warnings)
 	}
 
-	// 8. Determine final state
+	// 9. Determine final state
 	finalState := model.InstallStateCompleted
 	hasUnboundRequired := false
 	for _, bs := range bindingStatuses {
@@ -164,7 +171,7 @@ func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *mod
 	s.recordAudit(ctx, inst.ID, tenantID, "state_change", model.InstallStateDashboardsCreated, finalState, nil)
 	s.recordAudit(ctx, inst.ID, tenantID, "install_completed", "", finalState, nil)
 
-	// 9. Notify Horizon of installation (async)
+	// 10. Notify Horizon of installation (async)
 	go s.notifyHorizonInstallComplete(context.Background(), req.MarketToken, req.BundleKey, req.Version, tenantID, inst.ID)
 
 	// Build response
@@ -208,9 +215,9 @@ func (s *MarketBundleInstallService) downloadBundleFromHorizon(ctx context.Conte
 	// Parse bundle JSON
 	var bundle struct {
 		ContractVersion string          `json:"contractVersion"`
-		BundleKind     string          `json:"bundleKind"`
+		BundleKind      string          `json:"bundleKind"`
 		Metadata        json.RawMessage `json:"metadata"`
-		Compatibility  json.RawMessage `json:"compatibility"`
+		Compatibility   json.RawMessage `json:"compatibility"`
 		Resources       json.RawMessage `json:"resources"`
 		Security        json.RawMessage `json:"security"`
 	}
@@ -240,10 +247,10 @@ func (s *MarketBundleInstallService) downloadBundleFromHorizon(ctx context.Conte
 func (s *MarketBundleInstallService) verifyBundle(ctx context.Context, installID, tenantID string, bundle *model.HorizonBundleDownload, token string) error {
 	// 1. Parse security section
 	var security struct {
-		ContainsSecrets    bool   `json:"containsSecrets"`
-		ContainsRuntimeData bool  `json:"containsRuntimeData"`
-		ContentHash        string `json:"contentHash"`
-		Signature          string `json:"signature"`
+		ContainsSecrets     bool   `json:"containsSecrets"`
+		ContainsRuntimeData bool   `json:"containsRuntimeData"`
+		ContentHash         string `json:"contentHash"`
+		Signature           string `json:"signature"`
 	}
 	if err := json.Unmarshal(bundle.Security, &security); err != nil {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -316,17 +323,17 @@ func (s *MarketBundleInstallService) installDeviceTemplates(ctx context.Context,
 			Version     string `json:"version"`
 			Name        string `json:"name"`
 			Protocol    struct {
-				ProtocolType   string `json:"protocolType"`
+				ProtocolType   string                 `json:"protocolType"`
 				PublicDefaults map[string]interface{} `json:"publicDefaults"`
 			} `json:"protocol"`
 			ThingModel []struct {
-				Kind          string `json:"kind"`
-				Identifier    string `json:"identifier"`
-				Name          string `json:"name"`
-				DataType      string `json:"dataType"`
-				Unit          string `json:"unit"`
-				Description   string `json:"description"`
-				AccessMode    string `json:"accessMode"`
+				Kind        string `json:"kind"`
+				Identifier  string `json:"identifier"`
+				Name        string `json:"name"`
+				DataType    string `json:"dataType"`
+				Unit        string `json:"unit"`
+				Description string `json:"description"`
+				AccessMode  string `json:"accessMode"`
 			} `json:"thingModel"`
 		} `json:"deviceTemplates"`
 	}
@@ -349,9 +356,9 @@ func (s *MarketBundleInstallService) installDeviceTemplates(ctx context.Context,
 				mappings = append(mappings, &model.ResourceMappingResponse{
 					ResourceType:      model.ResourceTypeDeviceTemplate,
 					MarketResourceKey: dt.ResourceKey,
-					LocalID:          existingTpl.ID,
-					LocalName:        dt.Name,
-					Status:           "skipped_existing",
+					LocalID:           existingTpl.ID,
+					LocalName:         dt.Name,
+					Status:            "skipped_existing",
 				})
 				continue
 			}
@@ -367,29 +374,29 @@ func (s *MarketBundleInstallService) installDeviceTemplates(ctx context.Context,
 
 		// Record mapping
 		mapping := &model.MarketResourceMapping{
-			InstallationID:   installID,
-			TenantID:         tenantID,
-			ResourceType:     model.ResourceTypeDeviceTemplate,
+			InstallationID:    installID,
+			TenantID:          tenantID,
+			ResourceType:      model.ResourceTypeDeviceTemplate,
 			MarketResourceKey: dt.ResourceKey,
-			MarketVersion:    dt.Version,
-			LocalID:          templateID,
-			LocalName:        dt.Name,
-			Status:           "active",
+			MarketVersion:     dt.Version,
+			LocalID:           templateID,
+			LocalName:         dt.Name,
+			Status:            "active",
 		}
 		s.installRepo.CreateResourceMapping(ctx, mapping)
 
 		mappings = append(mappings, &model.ResourceMappingResponse{
 			ResourceType:      model.ResourceTypeDeviceTemplate,
 			MarketResourceKey: dt.ResourceKey,
-			LocalID:          templateID,
-			LocalName:        dt.Name,
-			Status:           "created",
+			LocalID:           templateID,
+			LocalName:         dt.Name,
+			Status:            "created",
 		})
 
 		s.recordAudit(ctx, installID, tenantID, "resource_created", "", "", &model.MarketResourceMapping{
-			ResourceType:     model.ResourceTypeDeviceTemplate,
+			ResourceType:      model.ResourceTypeDeviceTemplate,
 			MarketResourceKey: dt.ResourceKey,
-			LocalID:          templateID,
+			LocalID:           templateID,
 		})
 	}
 
@@ -402,17 +409,17 @@ func (s *MarketBundleInstallService) createDeviceTemplate(ctx context.Context, t
 	Version     string `json:"version"`
 	Name        string `json:"name"`
 	Protocol    struct {
-		ProtocolType   string `json:"protocolType"`
+		ProtocolType   string                 `json:"protocolType"`
 		PublicDefaults map[string]interface{} `json:"publicDefaults"`
 	} `json:"protocol"`
 	ThingModel []struct {
-		Kind          string `json:"kind"`
-		Identifier    string `json:"identifier"`
-		Name          string `json:"name"`
-		DataType      string `json:"dataType"`
-		Unit          string `json:"unit"`
-		Description   string `json:"description"`
-		AccessMode    string `json:"accessMode"`
+		Kind        string `json:"kind"`
+		Identifier  string `json:"identifier"`
+		Name        string `json:"name"`
+		DataType    string `json:"dataType"`
+		Unit        string `json:"unit"`
+		Description string `json:"description"`
+		AccessMode  string `json:"accessMode"`
 	} `json:"thingModel"`
 }) (string, error) {
 	now := time.Now().UTC()
@@ -462,8 +469,8 @@ func (s *MarketBundleInstallService) createDeviceTemplate(ctx context.Context, t
 				DataType:         &field.DataType,
 				Unit:             &field.Unit,
 				Description:      &field.Description,
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				CreatedAt:        now,
+				UpdatedAt:        now,
 			}
 			if err := tx.Create(&tm).Error; err != nil {
 				tx.Rollback()
@@ -480,8 +487,8 @@ func (s *MarketBundleInstallService) createDeviceTemplate(ctx context.Context, t
 				DataType:         &field.DataType,
 				Unit:             &field.Unit,
 				Description:      &field.Description,
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				CreatedAt:        now,
+				UpdatedAt:        now,
 			}
 			if err := tx.Create(&attr).Error; err != nil {
 				tx.Rollback()
@@ -495,8 +502,8 @@ func (s *MarketBundleInstallService) createDeviceTemplate(ctx context.Context, t
 				DataName:         &field.Name,
 				DataIdentifier:   field.Identifier,
 				Description:      &field.Description,
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				CreatedAt:        now,
+				UpdatedAt:        now,
 			}
 			if err := tx.Create(&evt).Error; err != nil {
 				tx.Rollback()
@@ -510,8 +517,8 @@ func (s *MarketBundleInstallService) createDeviceTemplate(ctx context.Context, t
 				DataName:         &field.Name,
 				DataIdentifier:   field.Identifier,
 				Description:      &field.Description,
-				CreatedAt:       now,
-				UpdatedAt:       now,
+				CreatedAt:        now,
+				UpdatedAt:        now,
 			}
 			if err := tx.Create(&cmd).Error; err != nil {
 				tx.Rollback()
@@ -527,14 +534,87 @@ func (s *MarketBundleInstallService) createDeviceTemplate(ctx context.Context, t
 	return templateID, nil
 }
 
-// createDashboards creates dashboards via ThingsVis import API
-func (s *MarketBundleInstallService) createDashboards(ctx context.Context, installID, tenantID string, bundle *model.HorizonBundleDownload, templateMappings []*model.ResourceMappingResponse) ([]*model.ResourceMappingResponse, error) {
+// resolveDeviceBindings validates tenant ownership and exact installed template compatibility.
+func (s *MarketBundleInstallService) resolveDeviceBindings(
+	ctx context.Context,
+	tenantID string,
+	bundle *model.HorizonBundleDownload,
+	input []model.DeviceBindingInput,
+	templateMappings []*model.ResourceMappingResponse,
+) (map[string]string, error) {
 	var resources struct {
 		Dashboards []struct {
-			ResourceKey    string `json:"resourceKey"`
-			Version        string `json:"version"`
-			Name           string `json:"name"`
-			SchemaVersion  string `json:"schemaVersion"`
+			DeviceBindings []struct {
+				BindingKey        string `json:"bindingKey"`
+				DeviceTemplateKey string `json:"deviceTemplateKey"`
+			} `json:"deviceBindings"`
+		} `json:"dashboards"`
+	}
+	if err := json.Unmarshal(bundle.Resources, &resources); err != nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, "failed to parse dashboard bindings")
+	}
+
+	expectedTemplateIDs := make(map[string]string, len(templateMappings))
+	for _, mapping := range templateMappings {
+		if mapping.ResourceType == model.ResourceTypeDeviceTemplate {
+			expectedTemplateIDs[mapping.MarketResourceKey] = mapping.LocalID
+		}
+	}
+	provided := make(map[string]string, len(input))
+	for _, binding := range input {
+		if _, exists := provided[binding.BindingKey]; exists {
+			return nil, errcode.WithData(errcode.CodeParamError, "duplicate device binding: "+binding.BindingKey)
+		}
+		provided[binding.BindingKey] = binding.LocalDeviceID
+	}
+
+	resolved := make(map[string]string)
+	expectedKeys := make(map[string]bool)
+	for _, dashboard := range resources.Dashboards {
+		for _, binding := range dashboard.DeviceBindings {
+			expectedKeys[binding.BindingKey] = true
+			localDeviceID := provided[binding.BindingKey]
+			if localDeviceID == "" {
+				return nil, errcode.WithData(errcode.CodeParamError, "device binding is required: "+binding.BindingKey)
+			}
+
+			device, err := dal.GetDeviceByID(localDeviceID)
+			if err != nil || device == nil || device.TenantID != tenantID {
+				return nil, errcode.WithData(errcode.CodeParamError, "bound device is unavailable")
+			}
+			if device.DeviceConfigID == nil || *device.DeviceConfigID == "" {
+				return nil, errcode.WithData(errcode.CodeParamError, "bound device has no device configuration")
+			}
+			config, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
+			if err != nil || config == nil || config.DeviceTemplateID == nil {
+				return nil, errcode.WithData(errcode.CodeParamError, "bound device has no device template")
+			}
+			expectedTemplateID := expectedTemplateIDs[binding.DeviceTemplateKey]
+			if expectedTemplateID == "" || *config.DeviceTemplateID != expectedTemplateID {
+				return nil, errcode.WithData(
+					errcode.CodeParamError,
+					fmt.Sprintf("device binding %s is not compatible with template %s", binding.BindingKey, binding.DeviceTemplateKey),
+				)
+			}
+			resolved[binding.BindingKey] = localDeviceID
+		}
+	}
+	for bindingKey := range provided {
+		if !expectedKeys[bindingKey] {
+			return nil, errcode.WithData(errcode.CodeParamError, "unknown device binding: "+bindingKey)
+		}
+	}
+	return resolved, nil
+}
+
+// createDashboards creates dashboards via ThingsVis import API
+func (s *MarketBundleInstallService) createDashboards(ctx context.Context, installID, tenantID, userID string, bundle *model.HorizonBundleDownload, resolvedBindings map[string]string) ([]*model.ResourceMappingResponse, error) {
+	var resources struct {
+		Dashboards []struct {
+			ResourceKey    string          `json:"resourceKey"`
+			Version        string          `json:"version"`
+			Name           string          `json:"name"`
+			SchemaVersion  string          `json:"schemaVersion"`
 			CanvasConfig   json.RawMessage `json:"canvasConfig"`
 			Nodes          json.RawMessage `json:"nodes"`
 			DataSources    json.RawMessage `json:"dataSources"`
@@ -542,15 +622,15 @@ func (s *MarketBundleInstallService) createDashboards(ctx context.Context, insta
 			DeviceBindings []struct {
 				BindingKey        string `json:"bindingKey"`
 				DeviceTemplateKey string `json:"deviceTemplateKey"`
-				Required         bool   `json:"required"`
-				AllowMany       bool   `json:"allowMany"`
-				DisplayName     string `json:"displayName"`
+				Required          bool   `json:"required"`
+				AllowMany         bool   `json:"allowMany"`
+				DisplayName       string `json:"displayName"`
 			} `json:"deviceBindings"`
 			FieldBindings []struct {
-				BindingKey  string `json:"bindingKey"`
-				Kind        string `json:"kind"`
-				Identifier  string `json:"identifier"`
-				Required    bool   `json:"required"`
+				BindingKey string `json:"bindingKey"`
+				Kind       string `json:"kind"`
+				Identifier string `json:"identifier"`
+				Required   bool   `json:"required"`
 			} `json:"fieldBindings"`
 		} `json:"dashboards"`
 	}
@@ -565,47 +645,47 @@ func (s *MarketBundleInstallService) createDashboards(ctx context.Context, insta
 
 	for _, dash := range resources.Dashboards {
 		// Create dashboard via ThingsVis import
-		dashboardID, err := s.importDashboard(ctx, tenantID, &dash, templateMappings)
+		dashboardID, err := s.importDashboard(ctx, tenantID, userID, &dash, resolvedBindings)
 		if err != nil {
-			logrus.Warnf("Failed to create dashboard %s: %v", dash.Name, err)
-			continue
+			return nil, fmt.Errorf("failed to create dashboard %s: %w", dash.Name, err)
 		}
 
 		// Record mapping
 		mapping := &model.MarketResourceMapping{
-			InstallationID:   installID,
-			TenantID:         tenantID,
-			ResourceType:     model.ResourceTypeDashboard,
+			InstallationID:    installID,
+			TenantID:          tenantID,
+			ResourceType:      model.ResourceTypeDashboard,
 			MarketResourceKey: dash.ResourceKey,
-			MarketVersion:    dash.Version,
-			LocalID:          dashboardID,
-			LocalName:        dash.Name,
-			Status:           "active",
+			MarketVersion:     dash.Version,
+			LocalID:           dashboardID,
+			LocalName:         dash.Name,
+			Status:            "active",
 		}
 		s.installRepo.CreateResourceMapping(ctx, mapping)
 
 		mappings = append(mappings, &model.ResourceMappingResponse{
 			ResourceType:      model.ResourceTypeDashboard,
 			MarketResourceKey: dash.ResourceKey,
-			LocalID:          dashboardID,
-			LocalName:        dash.Name,
-			Status:           "created",
+			LocalID:           dashboardID,
+			LocalName:         dash.Name,
+			Status:            "created",
 		})
 
 		s.recordAudit(ctx, installID, tenantID, "resource_created", "", "", &model.MarketResourceMapping{
-			ResourceType:     model.ResourceTypeDashboard,
+			ResourceType:      model.ResourceTypeDashboard,
 			MarketResourceKey: dash.ResourceKey,
-			LocalID:        dashboardID,
+			LocalID:           dashboardID,
 		})
 
 		// Create binding status records for each device binding
 		for _, db := range dash.DeviceBindings {
 			binding := &model.MarketBundleBindingStatus{
 				InstallationID:    installID,
-				BindingKey:       db.BindingKey,
+				BindingKey:        db.BindingKey,
 				DeviceTemplateKey: db.DeviceTemplateKey,
-				Required:         db.Required,
-				Status:           model.BindingStatusPending,
+				Required:          db.Required,
+				LocalDeviceID:     resolvedBindings[db.BindingKey],
+				Status:            model.BindingStatusBound,
 			}
 			s.installRepo.CreateBindingStatus(ctx, binding)
 		}
@@ -615,11 +695,11 @@ func (s *MarketBundleInstallService) createDashboards(ctx context.Context, insta
 }
 
 // importDashboard imports a dashboard template into ThingsVis
-func (s *MarketBundleInstallService) importDashboard(ctx context.Context, tenantID string, dash *struct {
-	ResourceKey    string `json:"resourceKey"`
-	Version        string `json:"version"`
-	Name           string `json:"name"`
-	SchemaVersion  string `json:"schemaVersion"`
+func (s *MarketBundleInstallService) importDashboard(ctx context.Context, tenantID, userID string, dash *struct {
+	ResourceKey    string          `json:"resourceKey"`
+	Version        string          `json:"version"`
+	Name           string          `json:"name"`
+	SchemaVersion  string          `json:"schemaVersion"`
 	CanvasConfig   json.RawMessage `json:"canvasConfig"`
 	Nodes          json.RawMessage `json:"nodes"`
 	DataSources    json.RawMessage `json:"dataSources"`
@@ -627,61 +707,40 @@ func (s *MarketBundleInstallService) importDashboard(ctx context.Context, tenant
 	DeviceBindings []struct {
 		BindingKey        string `json:"bindingKey"`
 		DeviceTemplateKey string `json:"deviceTemplateKey"`
-		Required         bool   `json:"required"`
-		AllowMany       bool   `json:"allowMany"`
-		DisplayName     string `json:"displayName"`
+		Required          bool   `json:"required"`
+		AllowMany         bool   `json:"allowMany"`
+		DisplayName       string `json:"displayName"`
 	} `json:"deviceBindings"`
 	FieldBindings []struct {
-		BindingKey  string `json:"bindingKey"`
-		Kind        string `json:"kind"`
-		Identifier  string `json:"identifier"`
-		Required    bool   `json:"required"`
+		BindingKey string `json:"bindingKey"`
+		Kind       string `json:"kind"`
+		Identifier string `json:"identifier"`
+		Required   bool   `json:"required"`
 	} `json:"fieldBindings"`
-}, templateMappings []*model.ResourceMappingResponse) (string, error) {
-	// Build import request for ThingsVis
+}, resolvedBindings map[string]string) (string, error) {
 	importReq := ThingsVisImportRequest{
-		Name:          dash.Name,
-		SchemaVersion: dash.SchemaVersion,
-		CanvasConfig:  dash.CanvasConfig,
-		Nodes:         dash.Nodes,
-		DataSources:   dash.DataSources,
-		Variables:     dash.Variables,
+		Name: dash.Name,
+		DashboardSnapshot: ThingsVisMarketSnapshot{
+			Name:          dash.Name,
+			SchemaVersion: dash.SchemaVersion,
+			CanvasConfig:  dash.CanvasConfig,
+			Nodes:         dash.Nodes,
+			DataSources:   dash.DataSources,
+			Variables:     dash.Variables,
+		},
 		DeviceBindings: func() []DeviceBindingImport {
 			result := make([]DeviceBindingImport, 0, len(dash.DeviceBindings))
 			for _, db := range dash.DeviceBindings {
-				// Find the local template ID for this binding
-				var localTemplateID string
-				for _, m := range templateMappings {
-					if m.MarketResourceKey == db.DeviceTemplateKey {
-						localTemplateID = m.LocalID
-						break
-					}
-				}
 				result = append(result, DeviceBindingImport{
-					BindingKey:      db.BindingKey,
-					TemplateID:     localTemplateID,
-					Required:       db.Required,
-					AllowMany:     db.AllowMany,
-					DisplayName:   db.DisplayName,
-				})
-			}
-			return result
-		}(),
-		FieldBindings: func() []FieldBindingImport {
-			result := make([]FieldBindingImport, 0, len(dash.FieldBindings))
-			for _, fb := range dash.FieldBindings {
-				result = append(result, FieldBindingImport{
-					BindingKey: fb.BindingKey,
-					Kind:      fb.Kind,
-					Identifier: fb.Identifier,
-					Required:   fb.Required,
+					BindingKey:    db.BindingKey,
+					LocalDeviceID: resolvedBindings[db.BindingKey],
 				})
 			}
 			return result
 		}(),
 	}
 
-	return s.thingsVis.ImportDashboard(ctx, tenantID, &importReq)
+	return s.thingsVis.ImportDashboard(ctx, tenantID, userID, &importReq)
 }
 
 // processDeviceBindings validates and records device bindings
@@ -691,9 +750,9 @@ func (s *MarketBundleInstallService) processDeviceBindings(ctx context.Context, 
 			DeviceBindings []struct {
 				BindingKey        string `json:"bindingKey"`
 				DeviceTemplateKey string `json:"deviceTemplateKey"`
-				Required         bool   `json:"required"`
-				AllowMany       bool   `json:"allowMany"`
-				DisplayName     string `json:"displayName"`
+				Required          bool   `json:"required"`
+				AllowMany         bool   `json:"allowMany"`
+				DisplayName       string `json:"displayName"`
 			} `json:"deviceBindings"`
 		} `json:"dashboards"`
 	}
@@ -705,24 +764,24 @@ func (s *MarketBundleInstallService) processDeviceBindings(ctx context.Context, 
 	var allBindings []struct {
 		BindingKey        string
 		DeviceTemplateKey string
-		Required         bool
-		AllowMany       bool
-		DisplayName     string
+		Required          bool
+		AllowMany         bool
+		DisplayName       string
 	}
 	for _, dash := range resources.Dashboards {
 		for _, db := range dash.DeviceBindings {
 			allBindings = append(allBindings, struct {
 				BindingKey        string
 				DeviceTemplateKey string
-				Required         bool
-				AllowMany       bool
-				DisplayName     string
+				Required          bool
+				AllowMany         bool
+				DisplayName       string
 			}{
 				BindingKey:        db.BindingKey,
 				DeviceTemplateKey: db.DeviceTemplateKey,
-				Required:         db.Required,
-				AllowMany:       db.AllowMany,
-				DisplayName:     db.DisplayName,
+				Required:          db.Required,
+				AllowMany:         db.AllowMany,
+				DisplayName:       db.DisplayName,
 			})
 		}
 	}
@@ -742,8 +801,8 @@ func (s *MarketBundleInstallService) processDeviceBindings(ctx context.Context, 
 		response := &model.BindingStatusResponse{
 			BindingKey:        expectedBinding.BindingKey,
 			DeviceTemplateKey: expectedBinding.DeviceTemplateKey,
-			Required:         expectedBinding.Required,
-			Status:           model.BindingStatusPending,
+			Required:          expectedBinding.Required,
+			Status:            model.BindingStatusPending,
 		}
 
 		// Find user-provided binding
@@ -924,9 +983,9 @@ func (s *MarketBundleInstallService) GetInstallationStatus(ctx context.Context, 
 		resourceMappings = append(resourceMappings, &model.ResourceMappingResponse{
 			ResourceType:      m.ResourceType,
 			MarketResourceKey: m.MarketResourceKey,
-			LocalID:          m.LocalID,
-			LocalName:        m.LocalName,
-			Status:           m.Status,
+			LocalID:           m.LocalID,
+			LocalName:         m.LocalName,
+			Status:            m.Status,
 		})
 	}
 
@@ -935,10 +994,10 @@ func (s *MarketBundleInstallService) GetInstallationStatus(ctx context.Context, 
 		bindingStatuses = append(bindingStatuses, &model.BindingStatusResponse{
 			BindingKey:        b.BindingKey,
 			DeviceTemplateKey: b.DeviceTemplateKey,
-			Required:         b.Required,
-			LocalDeviceID:   b.LocalDeviceID,
-			Status:          b.Status,
-			ErrorMessage:    b.ErrorMessage,
+			Required:          b.Required,
+			LocalDeviceID:     b.LocalDeviceID,
+			Status:            b.Status,
+			ErrorMessage:      b.ErrorMessage,
 		})
 	}
 
@@ -1058,8 +1117,8 @@ func (s *MarketBundleInstallService) RetryInstallation(ctx context.Context, inst
 		InstallationID: inst.ID,
 		BundleKey:      inst.BundleKey,
 		Version:        inst.BundleVersion,
-		Status:        model.InstallStateDownloading,
-		IsIdempotent:  false,
+		Status:         model.InstallStateDownloading,
+		IsIdempotent:   false,
 	}, nil
 }
 
@@ -1102,9 +1161,9 @@ func (s *MarketBundleInstallService) buildIdempotentResponse(inst *model.MarketB
 		resourceMappings = append(resourceMappings, &model.ResourceMappingResponse{
 			ResourceType:      m.ResourceType,
 			MarketResourceKey: m.MarketResourceKey,
-			LocalID:          m.LocalID,
-			LocalName:        m.LocalName,
-			Status:           m.Status,
+			LocalID:           m.LocalID,
+			LocalName:         m.LocalName,
+			Status:            m.Status,
 		})
 	}
 
@@ -1113,21 +1172,21 @@ func (s *MarketBundleInstallService) buildIdempotentResponse(inst *model.MarketB
 		bindingStatuses = append(bindingStatuses, &model.BindingStatusResponse{
 			BindingKey:        b.BindingKey,
 			DeviceTemplateKey: b.DeviceTemplateKey,
-			Required:         b.Required,
-			LocalDeviceID:   b.LocalDeviceID,
-			Status:          b.Status,
-			ErrorMessage:    b.ErrorMessage,
+			Required:          b.Required,
+			LocalDeviceID:     b.LocalDeviceID,
+			Status:            b.Status,
+			ErrorMessage:      b.ErrorMessage,
 		})
 	}
 
 	return &model.InstallBundleResponse{
-		InstallationID:   inst.ID,
-		BundleKey:       inst.BundleKey,
-		Version:         inst.BundleVersion,
-		Status:          inst.Status,
-		ResourceMappings: resourceMappings,
-		BindingStatus:   bindingStatuses,
-		IsIdempotent:    true,
+		InstallationID:    inst.ID,
+		BundleKey:         inst.BundleKey,
+		Version:           inst.BundleVersion,
+		Status:            inst.Status,
+		ResourceMappings:  resourceMappings,
+		BindingStatus:     bindingStatuses,
+		IsIdempotent:      true,
 		ExistingInstallID: inst.ID,
 	}, nil
 }
@@ -1137,14 +1196,14 @@ func (s *MarketBundleInstallService) buildInstallResponse(installID, bundleKey, 
 	allMappings := append(templateMappings, dashboardMappings...)
 
 	return &model.InstallBundleResponse{
-		InstallationID:   installID,
-		BundleKey:        bundleKey,
-		Version:          version,
-		Status:           status,
-		ResourceMappings: allMappings,
-		BindingStatus:    bindingStatuses,
-		Warnings:         warnings,
-		IsIdempotent:     isIdempotent,
+		InstallationID:    installID,
+		BundleKey:         bundleKey,
+		Version:           version,
+		Status:            status,
+		ResourceMappings:  allMappings,
+		BindingStatus:     bindingStatuses,
+		Warnings:          warnings,
+		IsIdempotent:      isIdempotent,
 		ExistingInstallID: existingID,
 	}, nil
 }
@@ -1152,10 +1211,10 @@ func (s *MarketBundleInstallService) buildInstallResponse(installID, bundleKey, 
 func (s *MarketBundleInstallService) recordAudit(ctx context.Context, installID, tenantID, action, prevState, newState string, mapping *model.MarketResourceMapping) {
 	audit := &model.MarketInstallationAudit{
 		InstallationID: installID,
-		TenantID:      tenantID,
-		Action:        action,
-		PrevState:     prevState,
-		NewState:      newState,
+		TenantID:       tenantID,
+		Action:         action,
+		PrevState:      prevState,
+		NewState:       newState,
 	}
 	if mapping != nil {
 		audit.ResourceType = mapping.ResourceType

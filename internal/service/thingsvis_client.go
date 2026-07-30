@@ -297,14 +297,10 @@ func compactBody(bodyBytes []byte) string {
 
 // ThingsVisImportRequest is the request structure for importing a dashboard
 type ThingsVisImportRequest struct {
-	Name           string                `json:"name"`
-	SchemaVersion  string                `json:"schemaVersion"`
-	CanvasConfig   json.RawMessage       `json:"canvasConfig"`
-	Nodes          json.RawMessage       `json:"nodes"`
-	DataSources    json.RawMessage       `json:"dataSources"`
-	Variables      json.RawMessage       `json:"variables"`
-	DeviceBindings []DeviceBindingImport `json:"deviceBindings"`
-	FieldBindings  []FieldBindingImport  `json:"fieldBindings"`
+	DashboardSnapshot ThingsVisMarketSnapshot `json:"dashboardSnapshot"`
+	DeviceBindings    []DeviceBindingImport   `json:"deviceBindings"`
+	Name              string                  `json:"name,omitempty"`
+	ProjectID         string                  `json:"projectId,omitempty"`
 }
 
 // FieldBindingImport represents a field binding in the import request
@@ -317,61 +313,31 @@ type FieldBindingImport struct {
 
 // DeviceBindingImport represents a device binding in the import request
 type DeviceBindingImport struct {
-	BindingKey  string `json:"bindingKey"`
-	TemplateID  string `json:"templateId"`
-	Required    bool   `json:"required"`
-	AllowMany   bool   `json:"allowMany"`
-	DisplayName string `json:"displayName"`
+	BindingKey    string `json:"bindingKey"`
+	LocalDeviceID string `json:"localDeviceId"`
 }
 
 // ImportDashboard imports a dashboard template into ThingsVis
-func (c *ThingsVisClient) ImportDashboard(ctx context.Context, tenantID string, req *ThingsVisImportRequest) (string, error) {
-	reqBytes, err := json.Marshal(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal import request: %w", err)
+func (c *ThingsVisClient) ImportDashboard(ctx context.Context, tenantID, userID string, req *ThingsVisImportRequest) (string, error) {
+	var response struct {
+		DashboardID string `json:"dashboardId"`
 	}
-
-	url := fmt.Sprintf("%s/api/v1/dashboards/import", c.baseURL)
-
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBytes))
-	if err != nil {
-		return "", fmt.Errorf("failed to create import request: %w", err)
+	if err := c.doMarketInternalJSON(
+		ctx,
+		http.MethodPost,
+		"/api/internal/market-dashboards/import",
+		tenantID,
+		userID,
+		"",
+		req,
+		&response,
+	); err != nil {
+		return "", err
 	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-Tenant-ID", tenantID)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrThingsVisServiceUnavailable, err)
+	if response.DashboardID == "" {
+		return "", fmt.Errorf("%w: dashboardId is empty", ErrThingsVisInvalidResponse)
 	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("%w: failed to read import response: %v", ErrThingsVisInvalidResponse, err)
-	}
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("%w: status=%d body=%s", ErrThingsVisRequestRejected, resp.StatusCode, compactBody(bodyBytes))
-	}
-
-	var importResp struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
-		Data    struct {
-			DashboardID string `json:"dashboardId"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(bodyBytes, &importResp); err != nil {
-		return "", fmt.Errorf("%w: failed to parse import response: %v", ErrThingsVisInvalidResponse, err)
-	}
-
-	if importResp.Code != 0 {
-		return "", fmt.Errorf("thingsvis import failed: code=%d message=%s", importResp.Code, importResp.Message)
-	}
-
-	return importResp.Data.DashboardID, nil
+	return response.DashboardID, nil
 }
 
 // DeleteDashboard deletes a dashboard from ThingsVis

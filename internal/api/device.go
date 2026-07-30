@@ -1038,6 +1038,53 @@ func (*DeviceApi) InstallBundleFromMarket(c *gin.Context) {
 
 // GetBundleInstallStatus 获取 Bundle 安装状态
 // @Router   /api/v1/device/market/bundles/install/:id [get]
+// ListMarketBundles lists published dashboard templates from Horizon.
+// @Router /api/v1/device/market/bundles [get]
+func (*DeviceApi) ListMarketBundles(c *gin.Context) {
+	var req model.MarketBundleListQuery
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	result, err := service.NewMarketBundleCatalogService().List(c.Request.Context(), req)
+	if err != nil {
+		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
+		return
+	}
+	c.Set("data", result)
+}
+
+// GetMarketBundleDetail returns a safe dashboard-template catalog projection.
+// @Router /api/v1/device/market/bundles/:bundleKey [get]
+func (*DeviceApi) GetMarketBundleDetail(c *gin.Context) {
+	bundleKey := c.Param("bundleKey")
+	if bundleKey == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "bundle key is required"))
+		return
+	}
+	result, err := service.NewMarketBundleCatalogService().Detail(c.Request.Context(), bundleKey)
+	if err != nil {
+		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
+		return
+	}
+	c.Set("data", result)
+}
+
+// GetMarketBundlePrecheck returns device roles and compatibility requirements.
+// @Router /api/v1/device/market/bundles/:bundleKey/precheck [get]
+func (*DeviceApi) GetMarketBundlePrecheck(c *gin.Context) {
+	bundleKey := c.Param("bundleKey")
+	if bundleKey == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "bundle key is required"))
+		return
+	}
+	result, err := service.NewMarketBundleCatalogService().Precheck(c.Request.Context(), bundleKey, c.Query("version"))
+	if err != nil {
+		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
+		return
+	}
+	c.Set("data", result)
+}
+
 func (*DeviceApi) GetBundleInstallStatus(c *gin.Context) {
 	installID := c.Param("id")
 	if installID == "" {

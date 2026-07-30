@@ -415,6 +415,109 @@ func (c *MarketClient) GetMarketTemplateDetail(ctx context.Context, marketTempla
 	return result, nil
 }
 
+// ListMarketBundles returns Horizon's published dashboard-template catalog.
+func (c *MarketClient) ListMarketBundles(ctx context.Context, query model.MarketBundleListQuery) (*model.MarketBundleListResult, error) {
+	values := url.Values{}
+	if query.Keyword != "" {
+		values.Set("keyword", query.Keyword)
+	}
+	if query.Category != "" {
+		values.Set("category", query.Category)
+	}
+	if query.SortBy != "" {
+		values.Set("sort_by", query.SortBy)
+	}
+	if query.Page < 1 {
+		query.Page = 1
+	}
+	if query.PageSize < 1 || query.PageSize > 100 {
+		query.PageSize = 12
+	}
+	values.Set("page", fmt.Sprintf("%d", query.Page))
+	values.Set("page_size", fmt.Sprintf("%d", query.PageSize))
+
+	requestURL := fmt.Sprintf("%s/api/market/bundles?%s", c.baseURL, values.Encode())
+	var response struct {
+		Code int `json:"code"`
+		Data []struct {
+			BundleKey     string `json:"bundleKey"`
+			Name          string `json:"name"`
+			Description   string `json:"description"`
+			Category      string `json:"category"`
+			Author        string `json:"author"`
+			CoverAssetKey string `json:"coverAssetKey"`
+			LatestVersion string `json:"latestVersion"`
+			InstallCount  int    `json:"installCount"`
+			UpdatedAt     string `json:"updatedAt"`
+		} `json:"data"`
+		Total    int `json:"total"`
+		Page     int `json:"page"`
+		PageSize int `json:"pageSize"`
+	}
+	if err := c.getMarketJSON(ctx, requestURL, &response); err != nil {
+		return nil, err
+	}
+
+	items := make([]model.MarketBundleListItem, 0, len(response.Data))
+	for _, item := range response.Data {
+		items = append(items, model.MarketBundleListItem{
+			BundleKey:     item.BundleKey,
+			Name:          item.Name,
+			Description:   item.Description,
+			Category:      item.Category,
+			Author:        item.Author,
+			LatestVersion: item.LatestVersion,
+			InstallCount:  item.InstallCount,
+			Thumbnail:     item.CoverAssetKey,
+			PublishedAt:   item.UpdatedAt,
+		})
+	}
+	return &model.MarketBundleListResult{
+		List:     items,
+		Total:    response.Total,
+		Page:     response.Page,
+		PageSize: response.PageSize,
+	}, nil
+}
+
+// GetMarketBundleCatalog returns Horizon's safe public bundle projection.
+func (c *MarketClient) GetMarketBundleCatalog(ctx context.Context, bundleKey string) (*model.HorizonBundleCatalog, error) {
+	requestURL := fmt.Sprintf("%s/api/market/bundles/%s/catalog", c.baseURL, url.PathEscape(bundleKey))
+	var response struct {
+		Code int                        `json:"code"`
+		Data model.HorizonBundleCatalog `json:"data"`
+	}
+	if err := c.getMarketJSON(ctx, requestURL, &response); err != nil {
+		return nil, err
+	}
+	return &response.Data, nil
+}
+
+func (c *MarketClient) getMarketJSON(ctx context.Context, requestURL string, output interface{}) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create market request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrMarketServiceUnavailable, err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("%w: failed to read response", ErrMarketInvalidResponse)
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("%w: status=%d body=%s", ErrMarketRequestRejected, resp.StatusCode, compactMarketBody(body))
+	}
+	if err := json.Unmarshal(body, output); err != nil {
+		return fmt.Errorf("%w: %v", ErrMarketInvalidResponse, err)
+	}
+	return nil
+}
+
 // DownloadTemplate downloads the full template definition (with device model) from the market.
 func (c *MarketClient) DownloadTemplate(ctx context.Context, token string, marketTemplateID string, version string) (*model.MarketTemplateFullData, error) {
 	url := fmt.Sprintf("%s/api/market/templates/%s/download", c.baseURL, marketTemplateID)

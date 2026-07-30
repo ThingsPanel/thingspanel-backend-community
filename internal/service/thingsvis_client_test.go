@@ -239,6 +239,62 @@ func TestThingsVisClient_AnalyzeMarketDashboardRequiresAuthorization(t *testing.
 	}
 }
 
+func TestThingsVisClient_ImportDashboardUsesInternalContract(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/internal/market-dashboards/import" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if r.Header.Get("X-Internal-Token") != "shared-secret" {
+			t.Fatal("missing internal token")
+		}
+		if r.Header.Get("X-Tenant-ID") != "tenant-1" || r.Header.Get("X-User-ID") != "user-1" {
+			t.Fatal("missing tenant or user identity")
+		}
+
+		var request ThingsVisImportRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if request.DashboardSnapshot.Name != "Temperature" {
+			t.Fatalf("snapshot name = %q, want Temperature", request.DashboardSnapshot.Name)
+		}
+		if len(request.DeviceBindings) != 1 ||
+			request.DeviceBindings[0].BindingKey != "room_sensor" ||
+			request.DeviceBindings[0].LocalDeviceID != "device-1" {
+			t.Fatalf("unexpected bindings: %+v", request.DeviceBindings)
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]string{"dashboardId": "dashboard-1"})
+	}))
+	defer server.Close()
+
+	client := &ThingsVisClient{
+		baseURL:       server.URL,
+		internalToken: "shared-secret",
+		httpClient:    server.Client(),
+	}
+	dashboardID, err := client.ImportDashboard(context.Background(), "tenant-1", "user-1", &ThingsVisImportRequest{
+		DashboardSnapshot: ThingsVisMarketSnapshot{
+			Name:          "Temperature",
+			SchemaVersion: "thingsvis-1",
+			CanvasConfig:  json.RawMessage(`{}`),
+			Nodes:         json.RawMessage(`[]`),
+			DataSources:   json.RawMessage(`[]`),
+			Variables:     json.RawMessage(`[]`),
+		},
+		DeviceBindings: []DeviceBindingImport{
+			{BindingKey: "room_sensor", LocalDeviceID: "device-1"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ImportDashboard() error = %v", err)
+	}
+	if dashboardID != "dashboard-1" {
+		t.Fatalf("dashboardID = %q, want dashboard-1", dashboardID)
+	}
+}
+
 func TestCompactBody(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -258,7 +314,7 @@ func TestCompactBody(t *testing.T) {
 		{
 			name:     "long body",
 			input:    []byte(`{"code":0,"data":"` + strings.Repeat("a", 300) + `"}`),
-			expected: strings.Repeat("a", 256) + "...",
+			expected: (`{"code":0,"data":"` + strings.Repeat("a", 300) + `"}`)[:256] + "...",
 		},
 	}
 
