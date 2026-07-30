@@ -133,16 +133,7 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 	if len(failures) > 0 {
 		return nil, errcode.WithData(errcode.CodeParamError, failures)
 	}
-	templateKeyByID := make(map[string]string)
-	keyOwner := make(map[string]string)
-	for _, template := range templates {
-		key := sanitizeResourceKey(template.Name)
-		if owner, exists := keyOwner[key]; exists && owner != template.ID {
-			return nil, errcode.WithData(errcode.CodeParamError, "device template names produce duplicate resource keys")
-		}
-		keyOwner[key] = template.ID
-		templateKeyByID[template.ID] = key
-	}
+	templateKeyByID := buildDeviceTemplateResourceKeys(templates)
 
 	thingsvisRoles := make([]ThingsVisDeviceRole, 0, len(req.DeviceRoles))
 	for _, role := range req.DeviceRoles {
@@ -196,7 +187,7 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 		DeviceBindings: deviceBindings,
 		FieldBindings:  fieldBindings,
 	}
-	resources := publisher.buildBundleResources(templates, thingModels, []model.DashboardTemplate{dashboard})
+	resources := publisher.buildBundleResources(templates, templateKeyByID, thingModels, []model.DashboardTemplate{dashboard})
 	if failures := publisher.checkForRealIDs(resources); len(failures) > 0 {
 		return nil, errcode.WithData(errcode.CodeParamError, failures)
 	}

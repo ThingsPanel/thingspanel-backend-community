@@ -103,8 +103,10 @@ func (s *MarketBundlePublish) PublishDraft(ctx context.Context, req model.Publis
 		return nil, precheckReport, fmt.Errorf("failed to export dashboards")
 	}
 
+	templateResourceKeys := buildDeviceTemplateResourceKeys(deviceTemplates)
+
 	// Step 6: Validate field bindings exist in thing models
-	bindErrors := s.validateFieldBindings(deviceTemplates, thingModelMap, dashboardTemplates)
+	bindErrors := s.validateFieldBindings(deviceTemplates, templateResourceKeys, thingModelMap, dashboardTemplates)
 	if len(bindErrors) > 0 {
 		precheckReport := &model.PublishDraftPrecheckReport{
 			Passed: false,
@@ -114,7 +116,7 @@ func (s *MarketBundlePublish) PublishDraft(ctx context.Context, req model.Publis
 	}
 
 	// Step 7: Build bundle resources
-	bundleResources := s.buildBundleResources(deviceTemplates, thingModelMap, dashboardTemplates)
+	bundleResources := s.buildBundleResources(deviceTemplates, templateResourceKeys, thingModelMap, dashboardTemplates)
 
 	// Step 8: Validate protocol configs (sanitize secrets)
 	sanitizedResources, secretWarnings := s.sanitizeProtocolConfigs(bundleResources)
@@ -433,16 +435,14 @@ func (s *MarketBundlePublish) exportDashboards(ctx context.Context, dashboards [
 }
 
 // validateFieldBindings validates that all field bindings reference valid fields in thing models.
-func (s *MarketBundlePublish) validateFieldBindings(templates []model.LocalDeviceTemplate, thingModelMap ThingModelMap, dashboards []model.DashboardTemplate) []model.PrecheckError {
+func (s *MarketBundlePublish) validateFieldBindings(templates []model.LocalDeviceTemplate, templateResourceKeys map[string]string, thingModelMap ThingModelMap, dashboards []model.DashboardTemplate) []model.PrecheckError {
 	var errors []model.PrecheckError
 
 	// Build a map of template resource keys to template IDs
 	templateKeyToID := make(map[string]string)
-	templateIDToResourceKey := make(map[string]string)
 	for _, tpl := range templates {
-		resourceKey := sanitizeResourceKey(tpl.Name)
+		resourceKey := templateResourceKeys[tpl.ID]
 		templateKeyToID[resourceKey] = tpl.ID
-		templateIDToResourceKey[tpl.ID] = resourceKey
 	}
 
 	// Build a set of valid field identifiers per template
@@ -509,12 +509,12 @@ func getValidFields(fields map[string]model.ThingModelField) []string {
 }
 
 // buildBundleResources builds the bundle resources from templates and dashboards.
-func (s *MarketBundlePublish) buildBundleResources(templates []model.LocalDeviceTemplate, thingModelMap ThingModelMap, dashboards []model.DashboardTemplate) *model.BundleResources {
+func (s *MarketBundlePublish) buildBundleResources(templates []model.LocalDeviceTemplate, templateResourceKeys map[string]string, thingModelMap ThingModelMap, dashboards []model.DashboardTemplate) *model.BundleResources {
 	deviceTemplates := make([]model.BundleDeviceTemplate, 0, len(templates))
 
 	for _, tpl := range templates {
 		dt := model.BundleDeviceTemplate{
-			ResourceKey: sanitizeResourceKey(tpl.Name),
+			ResourceKey: templateResourceKeys[tpl.ID],
 			Version:     tpl.Version,
 			Name:        tpl.Name,
 			ThingModel:  thingModelMap[tpl.ID],
@@ -707,16 +707,53 @@ func sanitizeResourceKey(name string) string {
 		}
 	}
 	key := result.String()
-	// Ensure minimum length
 	if len(key) < 3 {
 		key = "res-" + key
 	}
-	// Trim leading/trailing hyphens
 	key = strings.Trim(key, "-")
+	if len(key) > resourceKeyMaxLength {
+		key = strings.TrimRight(key[:resourceKeyMaxLength], "-")
+	}
 	if len(key) < 3 {
 		key = "default-resource"
 	}
 	return key
+}
+
+const (
+	resourceKeyMaxLength  = 64
+	resourceKeyHashLength = 12
+)
+
+// buildDeviceTemplateResourceKeys creates stable contract keys for device templates.
+// Existing name-based keys are preserved when unique. Only colliding keys receive
+// a deterministic template-ID suffix, so the result is independent of input order.
+func buildDeviceTemplateResourceKeys(templates []model.LocalDeviceTemplate) map[string]string {
+	baseByID := make(map[string]string, len(templates))
+	baseCounts := make(map[string]int, len(templates))
+	for _, template := range templates {
+		base := sanitizeResourceKey(template.Name)
+		baseByID[template.ID] = base
+		baseCounts[base]++
+	}
+
+	keys := make(map[string]string, len(templates))
+	for _, template := range templates {
+		base := baseByID[template.ID]
+		if baseCounts[base] == 1 {
+			keys[template.ID] = base
+			continue
+		}
+
+		sum := sha256.Sum256([]byte(template.ID))
+		suffix := "-" + hex.EncodeToString(sum[:])[:resourceKeyHashLength]
+		maxBaseLength := resourceKeyMaxLength - len(suffix)
+		if len(base) > maxBaseLength {
+			base = strings.TrimRight(base[:maxBaseLength], "-")
+		}
+		keys[template.ID] = base + suffix
+	}
+	return keys
 }
 
 func isLetter(c rune) bool {

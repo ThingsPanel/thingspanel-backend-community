@@ -18,22 +18,66 @@ func TestSanitizeResourceKey(t *testing.T) {
 		{"simple", "Temperature Sensor", "temperature-sensor"},
 		{"with underscores", "my_device_name", "my-device-name"},
 		{"with numbers", "Sensor123", "sensor123"},
-		{"starting with number", "123Sensor", "ares-123sensor"},
-		{"with spaces", "  Test   Device  ", "test---device"},
-		{"Chinese characters", "温湿度传感器", "----------------"},
-		{"empty", "", "default-resource"},
+		{"starting with number", "123Sensor", "a123sensor"},
+		{"with spaces", "  Test   Device  ", "a--test---device"},
+		{"Chinese characters", "温湿度传感器", "res-a"},
+		{"empty", "", "res"},
 		{"only spaces", "   ", "default-resource"},
-		{"special chars", "sensor@#$%", "sensor----"},
+		{"special chars", "sensor@#$%", "sensor"},
+		{"long name", strings.Repeat("sensor", 20), strings.Repeat("sensor", 10) + "sens"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := sanitizeResourceKey(tt.input)
-			if len(result) < 3 {
-				result = "default-resource"
+			if result != tt.expected {
+				t.Fatalf("sanitizeResourceKey(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
-			t.Logf("Input: %q -> Output: %q (expected: %q)", tt.input, result, tt.expected)
 		})
+	}
+}
+
+func TestBuildDeviceTemplateResourceKeysPreservesUniqueKeys(t *testing.T) {
+	templates := []model.LocalDeviceTemplate{
+		{ID: "template-temperature", Name: "Temperature Sensor"},
+		{ID: "template-humidity", Name: "Humidity Sensor"},
+	}
+
+	keys := buildDeviceTemplateResourceKeys(templates)
+	if keys["template-temperature"] != "temperature-sensor" {
+		t.Fatalf("unexpected temperature template key: %s", keys["template-temperature"])
+	}
+	if keys["template-humidity"] != "humidity-sensor" {
+		t.Fatalf("unexpected humidity template key: %s", keys["template-humidity"])
+	}
+}
+
+func TestBuildDeviceTemplateResourceKeysDisambiguatesCollisionsDeterministically(t *testing.T) {
+	templates := []model.LocalDeviceTemplate{
+		{ID: "template-temperature", Name: "温度传感器"},
+		{ID: "template-humidity", Name: "湿度传感器"},
+		{ID: "template-room-space", Name: "Room Sensor"},
+		{ID: "template-room-underscore", Name: "room_sensor"},
+	}
+
+	keys := buildDeviceTemplateResourceKeys(templates)
+	reversed := []model.LocalDeviceTemplate{templates[3], templates[2], templates[1], templates[0]}
+	reversedKeys := buildDeviceTemplateResourceKeys(reversed)
+	pattern := regexp.MustCompile(`^[a-z][a-z0-9-]{2,63}$`)
+
+	seen := make(map[string]string)
+	for _, template := range templates {
+		key := keys[template.ID]
+		if key != reversedKeys[template.ID] {
+			t.Fatalf("resource key depends on template order for %s: %s != %s", template.ID, key, reversedKeys[template.ID])
+		}
+		if !pattern.MatchString(key) {
+			t.Fatalf("resource key does not satisfy the bundle contract: %s", key)
+		}
+		if owner, exists := seen[key]; exists {
+			t.Fatalf("templates %s and %s received duplicate resource key %s", owner, template.ID, key)
+		}
+		seen[key] = template.ID
 	}
 }
 
@@ -69,15 +113,15 @@ func TestValidateBundleKey(t *testing.T) {
 		"a1b2c3",
 		"my-bundle-key-123",
 		"smart-home-basic",
-		"a-b-c-",     // trailing hyphen allowed
-		"a--b--c",    // consecutive hyphens allowed
+		"a-b-c-",  // trailing hyphen allowed
+		"a--b--c", // consecutive hyphens allowed
 	}
 
 	invalidKeys := []string{
-		"ab",          // too short
-		"A-b-c",       // uppercase
-		"a_b_c",       // underscore
-		"-abc",        // starts with hyphen
+		"ab",    // too short
+		"A-b-c", // uppercase
+		"a_b_c", // underscore
+		"-abc",  // starts with hyphen
 	}
 
 	bundleKeyRegex := regexp.MustCompile(`^[a-z][a-z0-9-]{2,63}$`)
@@ -143,8 +187,8 @@ func TestCheckForRealIDs(t *testing.T) {
 		},
 		Dashboards: []model.DashboardTemplate{
 			{
-				ResourceKey:  "test-dashboard",
-				Name:         "Test Dashboard",
+				ResourceKey:   "test-dashboard",
+				Name:          "Test Dashboard",
 				SchemaVersion: "thingsvis-1",
 			},
 		},
@@ -193,7 +237,7 @@ func TestCheckForRealIDsWithUUID(t *testing.T) {
 
 	// Since we're checking the serialized JSON, real UUIDs would be detected
 	errors := service.checkForRealIDs(&resources)
-	
+
 	// This test validates that UUID patterns in serialized JSON would be caught
 	t.Logf("UUID detection test completed, errors found: %d", len(errors))
 }
@@ -438,9 +482,9 @@ func TestValidatePublishDraftRequest_EmptyDeviceTemplateIDs(t *testing.T) {
 	req := model.PublishDraftRequest{
 		DeviceTemplateIDs: []string{},
 		DashboardIDs:      []string{"dashboard-1"},
-		BundleKey:        "test-bundle",
-		Version:          "1.0.0",
-		MarketToken:      "token",
+		BundleKey:         "test-bundle",
+		Version:           "1.0.0",
+		MarketToken:       "token",
 	}
 
 	err := service.validatePublishDraftRequest(req)
@@ -454,9 +498,9 @@ func TestValidatePublishDraftRequest_EmptyDashboardIDs(t *testing.T) {
 	req := model.PublishDraftRequest{
 		DeviceTemplateIDs: []string{"template-1"},
 		DashboardIDs:      []string{},
-		BundleKey:        "test-bundle",
-		Version:          "1.0.0",
-		MarketToken:      "token",
+		BundleKey:         "test-bundle",
+		Version:           "1.0.0",
+		MarketToken:       "token",
 	}
 
 	err := service.validatePublishDraftRequest(req)
@@ -470,9 +514,9 @@ func TestValidatePublishDraftRequest_InvalidBundleKey(t *testing.T) {
 	req := model.PublishDraftRequest{
 		DeviceTemplateIDs: []string{"template-1"},
 		DashboardIDs:      []string{"dashboard-1"},
-		BundleKey:        "TestBundle", // Invalid: starts with uppercase
-		Version:          "1.0.0",
-		MarketToken:      "token",
+		BundleKey:         "TestBundle", // Invalid: starts with uppercase
+		Version:           "1.0.0",
+		MarketToken:       "token",
 	}
 
 	err := service.validatePublishDraftRequest(req)
@@ -486,9 +530,9 @@ func TestValidatePublishDraftRequest_InvalidVersion(t *testing.T) {
 	req := model.PublishDraftRequest{
 		DeviceTemplateIDs: []string{"template-1"},
 		DashboardIDs:      []string{"dashboard-1"},
-		BundleKey:        "test-bundle",
-		Version:          "1.0", // Invalid: missing patch version
-		MarketToken:      "token",
+		BundleKey:         "test-bundle",
+		Version:           "1.0", // Invalid: missing patch version
+		MarketToken:       "token",
 	}
 
 	err := service.validatePublishDraftRequest(req)
@@ -502,9 +546,9 @@ func TestValidatePublishDraftRequest_EmptyToken(t *testing.T) {
 	req := model.PublishDraftRequest{
 		DeviceTemplateIDs: []string{"template-1"},
 		DashboardIDs:      []string{"dashboard-1"},
-		BundleKey:        "test-bundle",
-		Version:          "1.0.0",
-		MarketToken:      "", // Empty token
+		BundleKey:         "test-bundle",
+		Version:           "1.0.0",
+		MarketToken:       "", // Empty token
 	}
 
 	err := service.validatePublishDraftRequest(req)
@@ -518,9 +562,9 @@ func TestValidatePublishDraftRequest_Valid(t *testing.T) {
 	req := model.PublishDraftRequest{
 		DeviceTemplateIDs: []string{"template-1"},
 		DashboardIDs:      []string{"dashboard-1"},
-		BundleKey:        "test-bundle",
-		Version:          "1.0.0",
-		MarketToken:      "valid-token",
+		BundleKey:         "test-bundle",
+		Version:           "1.0.0",
+		MarketToken:       "valid-token",
 	}
 
 	err := service.validatePublishDraftRequest(req)
@@ -534,9 +578,9 @@ func TestValidatePublishDraftRequest_ValidWithHyphens(t *testing.T) {
 	req := model.PublishDraftRequest{
 		DeviceTemplateIDs: []string{"template-1", "template-2"},
 		DashboardIDs:      []string{"dashboard-1", "dashboard-2"},
-		BundleKey:        "smart-home-basic-v2",
-		Version:          "2.0.0-beta.1",
-		MarketToken:      "valid-token",
+		BundleKey:         "smart-home-basic-v2",
+		Version:           "2.0.0-beta.1",
+		MarketToken:       "valid-token",
 	}
 
 	err := service.validatePublishDraftRequest(req)
