@@ -596,11 +596,6 @@ func (c *MarketClient) PublishBundle(ctx context.Context, token string, idempote
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+token)
-	if marketUserID, err := c.ExtractUserIDFromMarketToken(token); err == nil {
-		// Keep parity with device-template publishing. Direct market-service
-		// deployments do not have Kong available to inject this identity header.
-		httpReq.Header.Set("X-User-Id", marketUserID)
-	}
 	if idempotencyKey != "" {
 		httpReq.Header.Set("Idempotency-Key", idempotencyKey)
 	}

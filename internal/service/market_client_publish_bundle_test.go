@@ -25,8 +25,8 @@ func TestMarketClient_PublishBundle_Success(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer "+marketToken {
 			t.Errorf("Unexpected Authorization header: %s", r.Header.Get("Authorization"))
 		}
-		if r.Header.Get("X-User-Id") != "market-user-123" {
-			t.Errorf("Unexpected X-User-Id header: %s", r.Header.Get("X-User-Id"))
+		if r.Header.Get("X-User-Id") != "" {
+			t.Errorf("X-User-Id must not be sent by the client: %s", r.Header.Get("X-User-Id"))
 		}
 		if r.Header.Get("Idempotency-Key") == "" {
 			t.Error("Expected Idempotency-Key header")
