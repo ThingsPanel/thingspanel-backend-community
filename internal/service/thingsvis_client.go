@@ -317,11 +317,29 @@ type DeviceBindingImport struct {
 	LocalDeviceID string `json:"localDeviceId"`
 }
 
+// ThingsVisImportResponse identifies the concrete dashboard created by ThingsVis.
+type ThingsVisImportResponse struct {
+	DashboardID string `json:"dashboardId"`
+	ProjectID   string `json:"projectId"`
+}
+
 // ImportDashboard imports a dashboard template into ThingsVis
 func (c *ThingsVisClient) ImportDashboard(ctx context.Context, tenantID, userID string, req *ThingsVisImportRequest) (string, error) {
-	var response struct {
-		DashboardID string `json:"dashboardId"`
+	response, err := c.ImportDashboardWithResult(ctx, tenantID, userID, req)
+	if err != nil {
+		return "", err
 	}
+	return response.DashboardID, nil
+}
+
+// ImportDashboardWithResult imports a template and preserves all identifiers
+// returned by ThingsVis. ImportDashboard remains as a compatibility wrapper.
+func (c *ThingsVisClient) ImportDashboardWithResult(
+	ctx context.Context,
+	tenantID, userID string,
+	req *ThingsVisImportRequest,
+) (*ThingsVisImportResponse, error) {
+	var response ThingsVisImportResponse
 	if err := c.doMarketInternalJSON(
 		ctx,
 		http.MethodPost,
@@ -332,12 +350,12 @@ func (c *ThingsVisClient) ImportDashboard(ctx context.Context, tenantID, userID 
 		req,
 		&response,
 	); err != nil {
-		return "", err
+		return nil, err
 	}
 	if response.DashboardID == "" {
-		return "", fmt.Errorf("%w: dashboardId is empty", ErrThingsVisInvalidResponse)
+		return nil, fmt.Errorf("%w: dashboardId is empty", ErrThingsVisInvalidResponse)
 	}
-	return response.DashboardID, nil
+	return &response, nil
 }
 
 // DeleteDashboard deletes a dashboard from ThingsVis

@@ -295,6 +295,35 @@ func TestThingsVisClient_ImportDashboardUsesInternalContract(t *testing.T) {
 	}
 }
 
+func TestThingsVisClient_ImportDashboardWithResultPreservesProjectID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"dashboardId": "dashboard-1",
+			"projectId":   "project-1",
+		})
+	}))
+	defer server.Close()
+
+	client := &ThingsVisClient{
+		baseURL:       server.URL,
+		internalToken: "shared-secret",
+		httpClient:    server.Client(),
+	}
+	result, err := client.ImportDashboardWithResult(
+		context.Background(),
+		"tenant-1",
+		"user-1",
+		&ThingsVisImportRequest{},
+	)
+	if err != nil {
+		t.Fatalf("ImportDashboardWithResult() error = %v", err)
+	}
+	if result.DashboardID != "dashboard-1" || result.ProjectID != "project-1" {
+		t.Fatalf("unexpected import result: %+v", result)
+	}
+}
+
 func TestCompactBody(t *testing.T) {
 	tests := []struct {
 		name     string

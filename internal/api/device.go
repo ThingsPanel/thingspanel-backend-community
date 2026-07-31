@@ -1036,6 +1036,89 @@ func (*DeviceApi) InstallBundleFromMarket(c *gin.Context) {
 	c.Set("data", response)
 }
 
+// DownloadDashboardTemplateFromMarket downloads reusable templates and their
+// device-template dependencies without creating runtime dashboards.
+// @Router /api/v1/device/market/bundles/download [post]
+func (*DeviceApi) DownloadDashboardTemplateFromMarket(c *gin.Context) {
+	var req model.DownloadDashboardTemplateRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	result, err := service.NewDashboardTemplateService().Download(c.Request.Context(), &req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", result)
+}
+
+// ListLocalDashboardTemplates lists tenant-owned reusable dashboard templates.
+// @Router /api/v1/device/dashboard-templates [get]
+func (*DeviceApi) ListLocalDashboardTemplates(c *gin.Context) {
+	var req model.ListLocalDashboardTemplatesRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	result, err := service.NewDashboardTemplateService().List(c.Request.Context(), claims.TenantID, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", result)
+}
+
+// ListDashboardTemplateCompatibleDevices resolves compatible real devices from
+// the locally installed device template IDs.
+// @Router /api/v1/device/dashboard-templates/:id/compatible-devices [get]
+func (*DeviceApi) ListDashboardTemplateCompatibleDevices(c *gin.Context) {
+	templateID := c.Param("id")
+	if templateID == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "dashboard template ID is required"))
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	result, err := service.NewDashboardTemplateService().CompatibleDevices(
+		c.Request.Context(),
+		claims.TenantID,
+		templateID,
+	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", result)
+}
+
+// CreateDashboardFromLocalTemplate binds compatible real devices and creates a
+// concrete ThingsVis dashboard.
+// @Router /api/v1/device/dashboard-templates/:id/instances [post]
+func (*DeviceApi) CreateDashboardFromLocalTemplate(c *gin.Context) {
+	templateID := c.Param("id")
+	if templateID == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "dashboard template ID is required"))
+		return
+	}
+	var req model.CreateDashboardTemplateInstanceRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	result, err := service.NewDashboardTemplateService().CreateInstance(
+		c.Request.Context(),
+		claims.TenantID,
+		claims.ID,
+		templateID,
+		&req,
+	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", result)
+}
+
 // GetBundleInstallStatus 获取 Bundle 安装状态
 // @Router   /api/v1/device/market/bundles/install/:id [get]
 // ListMarketBundles lists published dashboard templates from Horizon.
