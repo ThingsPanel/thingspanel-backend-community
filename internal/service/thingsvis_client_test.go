@@ -333,6 +333,77 @@ func TestThingsVisClient_ImportDashboardWithResultForwardsAuthorization(t *testi
 	}
 }
 
+func TestThingsVisClient_CreateDashboardFromSnapshotUsesPublicAPI(t *testing.T) {
+	requests := make([]string, 0, 3)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.Method+" "+r.URL.RequestURI())
+		if r.Header.Get("Authorization") != "Bearer thingsvis-user-token" {
+			t.Fatalf("authorization header = %q", r.Header.Get("Authorization"))
+		}
+
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/projects":
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": []map[string]string{{"id": "project-1", "name": "市场看板"}},
+				"meta": map[string]int{"page": 1, "limit": 1, "total": 1, "totalPages": 1},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/dashboards":
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"id":        "dashboard-1",
+				"projectId": "project-1",
+			})
+		case r.Method == http.MethodPut && r.URL.Path == "/dashboards/dashboard-1":
+			var input map[string]interface{}
+			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+				t.Fatalf("decode update request: %v", err)
+			}
+			dataSources := input["dataSources"].([]interface{})
+			config := dataSources[0].(map[string]interface{})["config"].(map[string]interface{})
+			if config["deviceId"] != "device-1" {
+				t.Fatalf("update deviceId = %v", config["deviceId"])
+			}
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"id":        "dashboard-1",
+				"projectId": "project-1",
+			})
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.RequestURI())
+		}
+	}))
+	defer server.Close()
+
+	client := &ThingsVisClient{
+		baseURL:    server.URL,
+		httpClient: server.Client(),
+	}
+	result, err := client.CreateDashboardFromSnapshot(
+		context.Background(),
+		"Bearer thingsvis-user-token",
+		"Temperature",
+		ThingsVisMarketSnapshot{
+			CanvasConfig: json.RawMessage(`{"mode":"desktop"}`),
+			Nodes:        json.RawMessage(`[]`),
+			DataSources:  json.RawMessage(`[{"id":"source-1","config":{"deviceId":"device-1"}}]`),
+			Variables:    json.RawMessage(`[]`),
+		},
+	)
+	if err != nil {
+		t.Fatalf("CreateDashboardFromSnapshot() error = %v", err)
+	}
+	if result.DashboardID != "dashboard-1" || result.ProjectID != "project-1" {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+	want := []string{
+		"GET /projects?page=1&limit=100",
+		"POST /dashboards",
+		"PUT /dashboards/dashboard-1",
+	}
+	if strings.Join(requests, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("requests = %#v, want %#v", requests, want)
+	}
+}
+
 func TestCompactBody(t *testing.T) {
 	tests := []struct {
 		name     string

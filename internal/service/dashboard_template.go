@@ -480,27 +480,18 @@ func (s *DashboardTemplateService) CreateInstance(
 	if err := json.Unmarshal(template.Snapshot, &snapshot); err != nil {
 		return nil, errcode.WithData(errcode.CodeSystemError, "invalid local dashboard template snapshot")
 	}
-	importBindings := make([]DeviceBindingImport, 0, len(resolved))
-	for _, binding := range bindings {
-		if deviceID := resolved[binding.BindingKey]; deviceID != "" {
-			importBindings = append(importBindings, DeviceBindingImport{
-				BindingKey:    binding.BindingKey,
-				LocalDeviceID: deviceID,
-			})
-		}
+	resolvedDataSources, err := resolveDashboardDataSourceBindings(snapshot.DataSources, resolved)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, "resolve dashboard device bindings: "+err.Error())
 	}
 
-	importResult, err := s.thingsVis.ImportDashboardWithResult(ctx, tenantID, userID, authorization, &ThingsVisImportRequest{
-		Name: req.Name,
-		DashboardSnapshot: ThingsVisMarketSnapshot{
-			Name:          req.Name,
-			SchemaVersion: snapshot.SchemaVersion,
-			CanvasConfig:  snapshot.CanvasConfig,
-			Nodes:         snapshot.Nodes,
-			DataSources:   snapshot.DataSources,
-			Variables:     snapshot.Variables,
-		},
-		DeviceBindings: importBindings,
+	importResult, err := s.thingsVis.CreateDashboardFromSnapshot(ctx, authorization, req.Name, ThingsVisMarketSnapshot{
+		Name:          req.Name,
+		SchemaVersion: snapshot.SchemaVersion,
+		CanvasConfig:  snapshot.CanvasConfig,
+		Nodes:         snapshot.Nodes,
+		DataSources:   resolvedDataSources,
+		Variables:     snapshot.Variables,
 	})
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeSystemError, "create ThingsVis dashboard: "+err.Error())
@@ -516,8 +507,7 @@ func (s *DashboardTemplateService) CreateInstance(
 		DeviceBindings:      bindingsJSON,
 	}
 	if err := s.repo.CreateInstance(ctx, instance); err != nil {
-		// The remote dashboard already exists. Surface the persistence failure
-		// instead of pretending the operation is fully tracked.
+		_ = s.thingsVis.DeleteDashboardWithAuthorization(ctx, importResult.DashboardID, authorization)
 		return nil, dbError("record dashboard template instance", err)
 	}
 
@@ -526,6 +516,43 @@ func (s *DashboardTemplateService) CreateInstance(
 		ProjectID:   importResult.ProjectID,
 		Name:        req.Name,
 	}, nil
+}
+
+func resolveDashboardDataSourceBindings(
+	raw json.RawMessage,
+	resolved map[string]string,
+) (json.RawMessage, error) {
+	var dataSources []map[string]interface{}
+	if err := json.Unmarshal(raw, &dataSources); err != nil {
+		return nil, fmt.Errorf("invalid dataSources: %w", err)
+	}
+
+	for _, dataSource := range dataSources {
+		config, ok := dataSource["config"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		deviceBinding, ok := config["deviceBinding"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		bindingKey, _ := deviceBinding["$deviceBinding"].(string)
+		if bindingKey == "" {
+			continue
+		}
+		deviceID := resolved[bindingKey]
+		if deviceID == "" {
+			continue
+		}
+
+		// Keep the data-source id unchanged because nodes and event actions
+		// reference it. Only replace the portable market placeholder with the
+		// runtime field consumed by ThingsVis.
+		delete(config, "deviceBinding")
+		config["deviceId"] = deviceID
+	}
+
+	return json.Marshal(dataSources)
 }
 
 func (s *DashboardTemplateService) getTenantTemplate(
