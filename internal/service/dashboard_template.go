@@ -32,6 +32,15 @@ func NewDashboardTemplateService() *DashboardTemplateService {
 	}
 }
 
+// NewDashboardTemplateServiceWithThingsVisBaseURL uses the same public
+// ThingsVis proxy as the browser. This avoids assuming the IoT backend shares
+// Docker DNS with ThingsVis in every deployment.
+func NewDashboardTemplateServiceWithThingsVisBaseURL(baseURL string) *DashboardTemplateService {
+	result := NewDashboardTemplateService()
+	result.thingsVis = NewThingsVisClientWithBaseURL(baseURL)
+	return result
+}
+
 func (s *DashboardTemplateService) Download(
 	ctx context.Context,
 	req *model.DownloadDashboardTemplateRequest,

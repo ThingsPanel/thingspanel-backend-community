@@ -1104,8 +1104,13 @@ func (*DeviceApi) CreateDashboardFromLocalTemplate(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	publicOrigin, err := requestPublicOrigin(c)
+	if err != nil {
+		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
+		return
+	}
 	claims := c.MustGet("claims").(*utils.UserClaims)
-	result, err := service.NewDashboardTemplateService().CreateInstance(
+	result, err := service.NewDashboardTemplateServiceWithThingsVisBaseURL(publicOrigin+"/thingsvis-api").CreateInstance(
 		c.Request.Context(),
 		claims.TenantID,
 		claims.ID,

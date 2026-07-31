@@ -297,6 +297,9 @@ func TestThingsVisClient_ImportDashboardUsesInternalContract(t *testing.T) {
 
 func TestThingsVisClient_ImportDashboardWithResultForwardsAuthorization(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/market-dashboards/import" {
+			t.Fatalf("request path = %q", r.URL.Path)
+		}
 		if r.Header.Get("Authorization") != "Bearer thingsvis-user-token" {
 			t.Fatalf("authorization header = %q", r.Header.Get("Authorization"))
 		}

@@ -340,10 +340,16 @@ func (c *ThingsVisClient) ImportDashboardWithResult(
 	req *ThingsVisImportRequest,
 ) (*ThingsVisImportResponse, error) {
 	var response ThingsVisImportResponse
+	path := "/api/internal/market-dashboards/import"
+	if authorization != "" {
+		// Browser/user authorization goes through the public /thingsvis-api
+		// proxy, whose upstream prefix is /api/v1.
+		path = "/market-dashboards/import"
+	}
 	if err := c.doMarketInternalJSON(
 		ctx,
 		http.MethodPost,
-		"/api/internal/market-dashboards/import",
+		path,
 		tenantID,
 		userID,
 		authorization,
