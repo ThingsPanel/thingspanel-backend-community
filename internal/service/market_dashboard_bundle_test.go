@@ -28,6 +28,16 @@ func TestValidateDashboardBundleRoles(t *testing.T) {
 	}
 }
 
+func TestValidateDashboardBundleRolesAllowsDashboardWithoutDevices(t *testing.T) {
+	roles, err := validateDashboardBundleRoles(nil)
+	if err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+	if len(roles) != 0 {
+		t.Fatalf("expected no roles, got %d", len(roles))
+	}
+}
+
 func TestValidateDashboardBundleRolesRejectsDuplicateBindingKey(t *testing.T) {
 	_, err := validateDashboardBundleRoles([]model.DashboardBundleRole{
 		{SourceDeviceID: "sensor-1", BindingKey: "shared-role", DisplayName: "Sensor"},
