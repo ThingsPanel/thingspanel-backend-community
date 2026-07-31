@@ -447,7 +447,7 @@ func (s *DashboardTemplateService) CompatibleDevices(
 
 func (s *DashboardTemplateService) CreateInstance(
 	ctx context.Context,
-	tenantID, userID, templateID string,
+	tenantID, userID, templateID, authorization string,
 	req *model.CreateDashboardTemplateInstanceRequest,
 ) (*model.CreateDashboardTemplateInstanceResponse, error) {
 	template, err := s.getTenantTemplate(ctx, tenantID, templateID)
@@ -481,7 +481,7 @@ func (s *DashboardTemplateService) CreateInstance(
 		}
 	}
 
-	importResult, err := s.thingsVis.ImportDashboardWithResult(ctx, tenantID, userID, &ThingsVisImportRequest{
+	importResult, err := s.thingsVis.ImportDashboardWithResult(ctx, tenantID, userID, authorization, &ThingsVisImportRequest{
 		Name: req.Name,
 		DashboardSnapshot: ThingsVisMarketSnapshot{
 			Name:          req.Name,

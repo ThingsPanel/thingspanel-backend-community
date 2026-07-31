@@ -1110,6 +1110,7 @@ func (*DeviceApi) CreateDashboardFromLocalTemplate(c *gin.Context) {
 		claims.TenantID,
 		claims.ID,
 		templateID,
+		c.GetHeader("Authorization"),
 		&req,
 	)
 	if err != nil {

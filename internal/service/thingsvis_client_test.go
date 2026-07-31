@@ -295,8 +295,14 @@ func TestThingsVisClient_ImportDashboardUsesInternalContract(t *testing.T) {
 	}
 }
 
-func TestThingsVisClient_ImportDashboardWithResultPreservesProjectID(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+func TestThingsVisClient_ImportDashboardWithResultForwardsAuthorization(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer thingsvis-user-token" {
+			t.Fatalf("authorization header = %q", r.Header.Get("Authorization"))
+		}
+		if r.Header.Get("X-Internal-Token") != "" {
+			t.Fatal("internal token must not be sent with user authorization")
+		}
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]string{
 			"dashboardId": "dashboard-1",
@@ -306,14 +312,14 @@ func TestThingsVisClient_ImportDashboardWithResultPreservesProjectID(t *testing.
 	defer server.Close()
 
 	client := &ThingsVisClient{
-		baseURL:       server.URL,
-		internalToken: "shared-secret",
-		httpClient:    server.Client(),
+		baseURL:    server.URL,
+		httpClient: server.Client(),
 	}
 	result, err := client.ImportDashboardWithResult(
 		context.Background(),
 		"tenant-1",
 		"user-1",
+		"Bearer thingsvis-user-token",
 		&ThingsVisImportRequest{},
 	)
 	if err != nil {

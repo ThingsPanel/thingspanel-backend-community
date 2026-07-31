@@ -325,7 +325,7 @@ type ThingsVisImportResponse struct {
 
 // ImportDashboard imports a dashboard template into ThingsVis
 func (c *ThingsVisClient) ImportDashboard(ctx context.Context, tenantID, userID string, req *ThingsVisImportRequest) (string, error) {
-	response, err := c.ImportDashboardWithResult(ctx, tenantID, userID, req)
+	response, err := c.ImportDashboardWithResult(ctx, tenantID, userID, "", req)
 	if err != nil {
 		return "", err
 	}
@@ -336,7 +336,7 @@ func (c *ThingsVisClient) ImportDashboard(ctx context.Context, tenantID, userID 
 // returned by ThingsVis. ImportDashboard remains as a compatibility wrapper.
 func (c *ThingsVisClient) ImportDashboardWithResult(
 	ctx context.Context,
-	tenantID, userID string,
+	tenantID, userID, authorization string,
 	req *ThingsVisImportRequest,
 ) (*ThingsVisImportResponse, error) {
 	var response ThingsVisImportResponse
@@ -346,7 +346,7 @@ func (c *ThingsVisClient) ImportDashboardWithResult(
 		"/api/internal/market-dashboards/import",
 		tenantID,
 		userID,
-		"",
+		authorization,
 		req,
 		&response,
 	); err != nil {
