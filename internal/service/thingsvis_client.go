@@ -317,27 +317,188 @@ type DeviceBindingImport struct {
 	LocalDeviceID string `json:"localDeviceId"`
 }
 
+// ThingsVisImportResponse identifies the concrete dashboard created by ThingsVis.
+type ThingsVisImportResponse struct {
+	DashboardID string `json:"dashboardId"`
+	ProjectID   string `json:"projectId"`
+}
+
+type thingsVisProject struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type thingsVisProjectList struct {
+	Data []thingsVisProject `json:"data"`
+}
+
+type thingsVisDashboard struct {
+	ID        string `json:"id"`
+	ProjectID string `json:"projectId"`
+}
+
+type thingsVisCreateProjectRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+type thingsVisCreateDashboardRequest struct {
+	Name         string          `json:"name"`
+	ProjectID    string          `json:"projectId"`
+	CanvasConfig json.RawMessage `json:"canvasConfig,omitempty"`
+}
+
+type thingsVisUpdateDashboardRequest struct {
+	Name         string          `json:"name"`
+	CanvasConfig json.RawMessage `json:"canvasConfig"`
+	Nodes        json.RawMessage `json:"nodes"`
+	DataSources  json.RawMessage `json:"dataSources"`
+	Variables    json.RawMessage `json:"variables"`
+}
+
+// CreateDashboardFromSnapshot uses the same authenticated public API that the
+// ThingsPanel browser client already uses. There is deliberately no dependency
+// on an internal ThingsVis route, token, or Docker DNS name here.
+func (c *ThingsVisClient) CreateDashboardFromSnapshot(
+	ctx context.Context,
+	authorization, name string,
+	snapshot ThingsVisMarketSnapshot,
+) (*ThingsVisImportResponse, error) {
+	if authorization == "" {
+		return nil, fmt.Errorf("%w: ThingsVis authorization is not provided", ErrThingsVisServiceUnavailable)
+	}
+
+	var projects thingsVisProjectList
+	if err := c.doMarketInternalJSON(
+		ctx,
+		http.MethodGet,
+		"/projects?page=1&limit=100",
+		"",
+		"",
+		authorization,
+		nil,
+		&projects,
+	); err != nil {
+		return nil, err
+	}
+
+	const marketProjectName = "市场看板"
+	projectID := ""
+	for _, project := range projects.Data {
+		if project.Name == marketProjectName {
+			projectID = project.ID
+			break
+		}
+	}
+	if projectID == "" {
+		var project thingsVisProject
+		if err := c.doMarketInternalJSON(
+			ctx,
+			http.MethodPost,
+			"/projects",
+			"",
+			"",
+			authorization,
+			thingsVisCreateProjectRequest{
+				Name:        marketProjectName,
+				Description: "从 ThingsPanel 看板模板创建",
+			},
+			&project,
+		); err != nil {
+			return nil, err
+		}
+		projectID = project.ID
+	}
+	if projectID == "" {
+		return nil, fmt.Errorf("%w: project id is empty", ErrThingsVisInvalidResponse)
+	}
+
+	var dashboard thingsVisDashboard
+	if err := c.doMarketInternalJSON(
+		ctx,
+		http.MethodPost,
+		"/dashboards",
+		"",
+		"",
+		authorization,
+		thingsVisCreateDashboardRequest{
+			Name:         name,
+			ProjectID:    projectID,
+			CanvasConfig: snapshot.CanvasConfig,
+		},
+		&dashboard,
+	); err != nil {
+		return nil, err
+	}
+	if dashboard.ID == "" {
+		return nil, fmt.Errorf("%w: dashboard id is empty", ErrThingsVisInvalidResponse)
+	}
+
+	if err := c.doMarketInternalJSON(
+		ctx,
+		http.MethodPut,
+		"/dashboards/"+dashboard.ID,
+		"",
+		"",
+		authorization,
+		thingsVisUpdateDashboardRequest{
+			Name:         name,
+			CanvasConfig: snapshot.CanvasConfig,
+			Nodes:        snapshot.Nodes,
+			DataSources:  snapshot.DataSources,
+			Variables:    snapshot.Variables,
+		},
+		&dashboard,
+	); err != nil {
+		_ = c.DeleteDashboardWithAuthorization(ctx, dashboard.ID, authorization)
+		return nil, err
+	}
+
+	return &ThingsVisImportResponse{
+		DashboardID: dashboard.ID,
+		ProjectID:   projectID,
+	}, nil
+}
+
 // ImportDashboard imports a dashboard template into ThingsVis
 func (c *ThingsVisClient) ImportDashboard(ctx context.Context, tenantID, userID string, req *ThingsVisImportRequest) (string, error) {
-	var response struct {
-		DashboardID string `json:"dashboardId"`
+	response, err := c.ImportDashboardWithResult(ctx, tenantID, userID, "", req)
+	if err != nil {
+		return "", err
+	}
+	return response.DashboardID, nil
+}
+
+// ImportDashboardWithResult imports a template and preserves all identifiers
+// returned by ThingsVis. ImportDashboard remains as a compatibility wrapper.
+func (c *ThingsVisClient) ImportDashboardWithResult(
+	ctx context.Context,
+	tenantID, userID, authorization string,
+	req *ThingsVisImportRequest,
+) (*ThingsVisImportResponse, error) {
+	var response ThingsVisImportResponse
+	path := "/api/internal/market-dashboards/import"
+	if authorization != "" {
+		// Browser/user authorization goes through the public /thingsvis-api
+		// proxy, whose upstream prefix is /api/v1.
+		path = "/market-dashboards/import"
 	}
 	if err := c.doMarketInternalJSON(
 		ctx,
 		http.MethodPost,
-		"/api/internal/market-dashboards/import",
+		path,
 		tenantID,
 		userID,
-		"",
+		authorization,
 		req,
 		&response,
 	); err != nil {
-		return "", err
+		return nil, err
 	}
 	if response.DashboardID == "" {
-		return "", fmt.Errorf("%w: dashboardId is empty", ErrThingsVisInvalidResponse)
+		return nil, fmt.Errorf("%w: dashboardId is empty", ErrThingsVisInvalidResponse)
 	}
-	return response.DashboardID, nil
+	return &response, nil
 }
 
 // DeleteDashboard deletes a dashboard from ThingsVis
@@ -362,5 +523,26 @@ func (c *ThingsVisClient) DeleteDashboard(ctx context.Context, tenantID, dashboa
 		return fmt.Errorf("%w: status=%d body=%s", ErrThingsVisRequestRejected, resp.StatusCode, string(body))
 	}
 
+	return nil
+}
+
+// DeleteDashboardWithAuthorization deletes a dashboard through the public API.
+func (c *ThingsVisClient) DeleteDashboardWithAuthorization(ctx context.Context, dashboardID, authorization string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/dashboards/"+dashboardID, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create delete request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", authorization)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrThingsVisServiceUnavailable, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("%w: status=%d body=%s", ErrThingsVisRequestRejected, resp.StatusCode, compactBody(body))
+	}
 	return nil
 }

@@ -166,7 +166,7 @@ type PublishDashboardBundleRequest struct {
 	Description   string                `json:"description"`
 	CoverAssetKey string                `json:"coverAssetKey,omitempty"`
 	MarketToken   string                `json:"marketToken" validate:"required"`
-	DeviceRoles   []DashboardBundleRole `json:"deviceRoles" validate:"required,min=1,dive"`
+	DeviceRoles   []DashboardBundleRole `json:"deviceRoles" validate:"omitempty,dive"`
 }
 
 // PublishDraftPrecheckReport is the pre-check report returned before publishing

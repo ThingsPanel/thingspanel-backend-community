@@ -166,6 +166,8 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		deviceMarketBundleApi.GET("bundles", api.Controllers.DeviceApi.ListMarketBundles)
 		deviceMarketBundleApi.GET("bundles/:bundleKey", api.Controllers.DeviceApi.GetMarketBundleDetail)
 		deviceMarketBundleApi.GET("bundles/:bundleKey/precheck", api.Controllers.DeviceApi.GetMarketBundlePrecheck)
+		// 下载到本地模板库，不创建 ThingsVis 看板实例。
+		deviceMarketBundleApi.POST("bundles/download", api.Controllers.DeviceApi.DownloadDashboardTemplateFromMarket)
 		// 从市场安装 Bundle
 		deviceMarketBundleApi.POST("bundles/install", api.Controllers.DeviceApi.InstallBundleFromMarket)
 		// 获取安装状态
@@ -178,6 +180,13 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		deviceMarketBundleApi.POST("bundles/install/:id/compensate", api.Controllers.DeviceApi.CompensateBundleInstall)
 		// 列出租户的安装记录
 		deviceMarketBundleApi.GET("bundles/installations", api.Controllers.DeviceApi.ListBundleInstallations)
+	}
+
+	dashboardTemplateAPI := deviceapi.Group("dashboard-templates")
+	{
+		dashboardTemplateAPI.GET("", api.Controllers.DeviceApi.ListLocalDashboardTemplates)
+		dashboardTemplateAPI.GET(":id/compatible-devices", api.Controllers.DeviceApi.ListDashboardTemplateCompatibleDevices)
+		dashboardTemplateAPI.POST(":id/instances", api.Controllers.DeviceApi.CreateDashboardFromLocalTemplate)
 	}
 
 	// 设备分组

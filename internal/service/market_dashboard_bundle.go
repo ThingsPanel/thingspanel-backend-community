@@ -43,12 +43,6 @@ func (s *MarketDashboardBundleService) Analyze(ctx context.Context, dashboardID,
 			"detail": err.Error(),
 		})
 	}
-	if len(analyzed.DeviceReferences) == 0 {
-		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"error": "dashboard does not reference any concrete ThingsPanel device",
-		})
-	}
-
 	result := &model.AnalyzeDashboardBundleResponse{
 		DashboardID:      analyzed.Dashboard.ID,
 		DashboardName:    analyzed.Dashboard.Name,
@@ -258,9 +252,6 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 }
 
 func validateDashboardBundleRoles(input []model.DashboardBundleRole) (map[string]model.DashboardBundleRole, error) {
-	if len(input) == 0 {
-		return nil, fmt.Errorf("at least one device role is required")
-	}
 	bindingPattern := regexp.MustCompile(`^[a-z][a-z0-9-]{2,63}$`)
 	byDevice := make(map[string]model.DashboardBundleRole)
 	bindingKeys := make(map[string]bool)
