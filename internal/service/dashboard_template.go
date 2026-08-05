@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	"project/internal/dal"
 	"project/internal/model"
 	"project/internal/repo"
 	"project/pkg/errcode"
 	"project/pkg/utils"
 
+	"github.com/go-basic/uuid"
 	"gorm.io/gorm"
 )
 
@@ -86,6 +89,9 @@ func (s *DashboardTemplateService) Download(
 	if err := s.validateDeviceTemplateMappings(ctx, tenantID, bundle, templateMappings); err != nil {
 		return nil, fail("MODELS_INCOMPATIBLE", err)
 	}
+	if err := s.ensureDeviceTemplateConfigs(ctx, tenantID, bundle, templateMappings); err != nil {
+		return nil, fail("CONFIGS_INSTALL_FAILED", err)
+	}
 	_ = s.installService.installRepo.UpdateStatus(ctx, installID, model.InstallStateModelsInstalled, "", "")
 
 	response, err := s.saveDashboardTemplates(ctx, tenantID, req, bundle, templateMappings)
@@ -111,6 +117,86 @@ func (s *DashboardTemplateService) Download(
 		installID,
 	)
 	return response, nil
+}
+
+// ensureDeviceTemplateConfigs makes a downloaded dashboard dependency usable
+// for real-device creation. Bundles contain only public protocol defaults, so
+// credentials and other tenant-specific connection values are never copied.
+func (s *DashboardTemplateService) ensureDeviceTemplateConfigs(
+	ctx context.Context,
+	tenantID string,
+	bundle *model.HorizonBundleDownload,
+	templateMappings []*model.ResourceMappingResponse,
+) error {
+	var resources model.BundleResources
+	if err := json.Unmarshal(bundle.Resources, &resources); err != nil {
+		return errcode.WithData(errcode.CodeParamError, "invalid device template resources: "+err.Error())
+	}
+
+	mappings := make(map[string]*model.ResourceMappingResponse, len(templateMappings))
+	for _, mapping := range templateMappings {
+		mappings[mapping.MarketResourceKey] = mapping
+	}
+
+	for _, deviceTemplate := range resources.DeviceTemplates {
+		mapping := mappings[deviceTemplate.ResourceKey]
+		if mapping == nil || mapping.LocalID == "" {
+			return errcode.WithData(errcode.CodeParamError, "device template dependency is unavailable: "+deviceTemplate.ResourceKey)
+		}
+
+		existing, err := dal.GetDeviceConfigByTemplateID(mapping.LocalID)
+		if err == nil {
+			if existing.TenantID != tenantID {
+				return errcode.WithData(errcode.CodeParamError, "device template configuration belongs to another tenant")
+			}
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return dbError("query device template configuration", err)
+		}
+
+		protocolConfig := "{}"
+		protocolType := ""
+		if deviceTemplate.Protocol != nil {
+			protocolType = strings.TrimSpace(deviceTemplate.Protocol.ProtocolType)
+		}
+		if deviceTemplate.Protocol != nil && len(deviceTemplate.Protocol.PublicDefaults) > 0 {
+			payload, marshalErr := json.Marshal(deviceTemplate.Protocol.PublicDefaults)
+			if marshalErr != nil {
+				return fmt.Errorf("marshal public protocol defaults for %s: %w", deviceTemplate.ResourceKey, marshalErr)
+			}
+			protocolConfig = string(payload)
+		}
+
+		configID := uuid.New()
+		configName := deviceTemplate.Name + " 默认配置"
+		deviceConnType := "A"
+		now := time.Now().UTC()
+		config := &model.DeviceConfig{
+			ID:               configID,
+			Name:             configName,
+			DeviceTemplateID: &mapping.LocalID,
+			DeviceType:       "1",
+			ProtocolType:     stringPointer(protocolType),
+			ProtocolConfig:   &protocolConfig,
+			DeviceConnType:   &deviceConnType,
+			TenantID:         tenantID,
+			CreatedAt:        now,
+			UpdatedAt:        now,
+		}
+		if err := dal.CreateDeviceConfig(config); err != nil {
+			return dbError("create device template configuration", err)
+		}
+	}
+
+	return nil
+}
+
+func stringPointer(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func (s *DashboardTemplateService) prepareDownloadInstallation(
@@ -442,12 +528,21 @@ func (s *DashboardTemplateService) CompatibleDevices(
 		if err != nil {
 			return nil, dbError("list compatible devices", err)
 		}
+		config, err := dal.GetDeviceConfigByTemplateID(binding.LocalDeviceTemplateID)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, dbError("query compatible device configuration", err)
+		}
+		configID := ""
+		if config != nil && config.TenantID == tenantID {
+			configID = config.ID
+		}
 		result.Bindings = append(result.Bindings, &model.CompatibleDeviceBinding{
 			BindingKey:              binding.BindingKey,
 			DisplayName:             binding.DisplayName,
 			Required:                binding.Required,
 			LocalDeviceTemplateID:   binding.LocalDeviceTemplateID,
 			LocalDeviceTemplateName: binding.LocalDeviceTemplateName,
+			LocalDeviceConfigID:     configID,
 			Devices:                 devices,
 		})
 	}

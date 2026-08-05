@@ -143,6 +143,7 @@ type CompatibleDeviceBinding struct {
 	Required                bool                `json:"required"`
 	LocalDeviceTemplateID   string              `json:"localDeviceTemplateId"`
 	LocalDeviceTemplateName string              `json:"localDeviceTemplateName"`
+	LocalDeviceConfigID     string              `json:"localDeviceConfigId,omitempty"`
 	Devices                 []*CompatibleDevice `json:"devices"`
 }
 
