@@ -307,32 +307,19 @@ func (w *telemetryWriter) batchInsert(historyData []TelemetryData, currentData [
 }
 
 // fallbackInsert 逐条插入兜底（批量失败时使用）
+//
+// 历史表和最新值表的去重键不同（历史表为 device_id+key+ts，最新值表为
+// device_id+key），因此 deduplicateAndConvert 返回的两个切片长度可能不一致，
+// 通常 len(historyData) >= len(currentData)。两个表必须各自遍历自己的切片，
+// 不能共用同一个下标，否则当 len(historyData) > len(currentData) 时会因
+// currentData[i] 越界而 panic。
 func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentData []TelemetryCurrentData) (written, failed int) {
+	// 历史表逐条插入
 	for i := range historyData {
-		// 逐条使用事务插入
-		err := w.db.Transaction(func(tx *gorm.DB) error {
-			// 插入历史表
-			if err := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "device_id"}, {Name: "key"}, {Name: "ts"}},
-				DoNothing: true,
-			}).Create(&historyData[i]).Error; err != nil {
-				return err
-			}
-
-			// 插入最新值表
-			if err := tx.Clauses(clause.OnConflict{
-				Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}},
-				DoUpdates: clause.AssignmentColumns([]string{
-					"ts", "bool_v", "number_v", "string_v", "tenant_id",
-				}),
-			}).Create(&currentData[i]).Error; err != nil {
-				return err
-			}
-
-			return nil
-		})
-
-		if err != nil {
+		if err := w.db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "device_id"}, {Name: "key"}, {Name: "ts"}},
+			DoNothing: true,
+		}).Create(&historyData[i]).Error; err != nil {
 			// 采样记录单条失败的关键信息，便于排查 Timescale 等错误
 			sample := map[string]interface{}{
 				"device_id": historyData[i].DeviceID,
@@ -341,9 +328,9 @@ func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentDat
 				"tenant_id": historyData[i].TenantID,
 			}
 			if j, jerr := json.Marshal(sample); jerr == nil {
-				w.logger.Errorf("single insert failed: sample=%s, err=%v", string(j), err)
+				w.logger.Errorf("single history insert failed: sample=%s, err=%v", string(j), err)
 			} else {
-				w.logger.Errorf("single insert failed: device_id=%s, key=%s, err=%v", historyData[i].DeviceID, historyData[i].Key, err)
+				w.logger.Errorf("single history insert failed: device_id=%s, key=%s, err=%v", historyData[i].DeviceID, historyData[i].Key, err)
 			}
 
 			// 记录诊断：仅在单条插入真实失败时，增加 storage_failed 并记录失败详情到失败列表。
@@ -351,6 +338,19 @@ func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentDat
 			failed++
 		} else {
 			written++
+		}
+	}
+
+	// 最新值表逐条插入
+	for i := range currentData {
+		if err := w.db.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"ts", "bool_v", "number_v", "string_v", "tenant_id",
+			}),
+		}).Create(&currentData[i]).Error; err != nil {
+			w.logger.Errorf("single current insert failed: device_id=%s, key=%s, err=%v", currentData[i].DeviceID, currentData[i].Key, err)
+			diagnostics.GetInstance().RecordStorageFailed(currentData[i].DeviceID, fmt.Sprintf("存储失败：%v", err))
 		}
 	}
 
