@@ -106,8 +106,8 @@ type PublishToMarketReq struct {
 	MarketName     string `json:"market_name"`                                 // 市场展示名称
 	Brand          string `json:"brand"`                                       // 品牌
 	Model          string `json:"model"`                                       // 型号
-	Category       string `json:"category"`                                     // 分类
-	Version        string `json:"version"`                                      // 版本号
+	Category       string `json:"category"`                                    // 分类
+	Version        string `json:"version"`                                     // 版本号
 	Author         string `json:"author"`                                      // 作者
 	Description    string `json:"description"`                                 // 描述
 }
@@ -128,16 +128,17 @@ type DeviceConfigPayload struct {
 
 // PublishTemplateReq 发布模板到市场的业务契约对象（发送给 market-service）
 type PublishTemplateReq struct {
-	CoverURL           string                 `json:"cover_url,omitempty"`
-	Name               string                 `json:"name"`
-	Brand              string                 `json:"brand"`
-	Model              string                 `json:"model"`
-	Category           string                 `json:"category"`
-	Author             string                 `json:"author"`
-	Version            string                 `json:"version"`
-	Description        string                 `json:"description"`
+	CoverURL         string `json:"cover_url,omitempty"`
+	SourceTemplateID string `json:"source_template_id"`
+	Name             string `json:"name"`
+	Brand            string `json:"brand"`
+	Model            string `json:"model"`
+	Category         string `json:"category"`
+	Author           string `json:"author"`
+	Version          string `json:"version"`
+	Description      string `json:"description"`
 	// DeviceConfig 凭证协议配置
-	DeviceConfig       *DeviceConfigPayload   `json:"device_config"`
+	DeviceConfig *DeviceConfigPayload `json:"device_config"`
 	// TemplateDefinition 模板定义（面板+物模型）
 	TemplateDefinition map[string]interface{} `json:"template_definition"`
 	PluginDependencies []PluginDependency     `json:"plugin_dependencies"`
@@ -176,20 +177,20 @@ type MarketTemplateListReq struct {
 
 // MarketTemplateFullData 市场模板完整数据（从市场下载的完整定义）
 type MarketTemplateFullData struct {
-	Name               string                 `json:"name"`
-	Brand              string                 `json:"brand"`
-	ModelNumber        string                 `json:"model_number"`
-	Category           string                 `json:"category"`
-	Author             string                 `json:"author"`
-	VersionID          string                 `json:"version_id"`
-	Version            string                 `json:"version"`
-	Description        string                 `json:"description"`
-	CoverURL           string                 `json:"cover_url"`
+	Name        string `json:"name"`
+	Brand       string `json:"brand"`
+	ModelNumber string `json:"model_number"`
+	Category    string `json:"category"`
+	Author      string `json:"author"`
+	VersionID   string `json:"version_id"`
+	Version     string `json:"version"`
+	Description string `json:"description"`
+	CoverURL    string `json:"cover_url"`
 	// 设备配置（凭证协议配置）
 	DeviceConfig *DeviceConfigPayload `json:"device_config"`
 	// 模板定义（物模型 + 面板配置）
 	TemplateDefinition *TemplateDefinitionPayload `json:"template_definition"`
-	PluginDependencies []PluginDependency `json:"plugin_dependencies"`
+	PluginDependencies []PluginDependency         `json:"plugin_dependencies"`
 }
 
 // TemplateDefinitionPayload 模板定义（面板配置）
