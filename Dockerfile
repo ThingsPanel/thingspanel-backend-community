@@ -4,7 +4,9 @@ WORKDIR $GOPATH/src/app
 ADD . ./
 ENV GO111MODULE=on
 ENV GOPROXY="https://goproxy.cn,direct"
-RUN go build -o ThingsPanel-Go .
+ARG VERSION=dev
+RUN go build -ldflags "-X project/pkg/global.SYSTEM_VERSION=${VERSION}" -o ThingsPanel-Go . \
+    && test "$(./ThingsPanel-Go --version)" = "$VERSION"
 
 FROM alpine:latest
 LABEL description="ThingsPanel Go Backend"

@@ -76,6 +76,9 @@ jobs:
             source ~/.bash_profile
             find /home/thingspanel/thingspanel-backend-community -mindepth 1 ! -path '/home/thingspanel/thingspanel-backend-community/files*' -exec rm -rf {} +
             tar -zxvf /home/thingspanel/thingspanel-backend-community.tar.gz -C /home/thingspanel/thingspanel-backend-community
-            cd /home/thingspanel/thingspanel-backend-community/ && go build -o thingspanel-backend-community
+            cd /home/thingspanel/thingspanel-backend-community/ || exit 1
+            BUILD_VERSION="dev-${{ github.sha }}"
+            go build -ldflags "-X project/pkg/global.SYSTEM_VERSION=$BUILD_VERSION" -o thingspanel-backend-community || exit 1
+            test "$(./thingspanel-backend-community --version)" = "$BUILD_VERSION" || exit 1
             /root/.local/share/pnpm/pm2 stop thingspanel-backend-community
             /root/.local/share/pnpm/pm2 start thingspanel-backend-community
