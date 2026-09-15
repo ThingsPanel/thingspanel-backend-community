@@ -61,6 +61,10 @@ type ActiveDeviceReq struct {
 	Name         string `json:"name" validate:"max=255"`                  // 设备名称
 }
 
+type ActivatePreRegisterReq struct {
+	ID string `json:"id" validate:"required,max=36"` // 预注册设备ID
+}
+
 type GetDeviceListByPageReq struct {
 	PageReq
 	ActivateFlag      *string `json:"activate_flag" form:"activate_flag" validate:"omitempty,max=36"`           // 激活状态

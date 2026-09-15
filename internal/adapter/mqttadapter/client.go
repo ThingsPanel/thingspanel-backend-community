@@ -35,10 +35,7 @@ func CreateMQTTClient(config MQTTConfig, logger *logrus.Logger) (mqtt.Client, er
 	}
 	opts.SetClientID(clientID)
 
-	// 干净会话
-	opts.SetCleanSession(false)
-	// 恢复客户端订阅，需要 broker 支持
-	opts.SetResumeSubs(true)
+	configureSubscriptionSession(opts)
 	// 自动重连
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetryInterval(5 * time.Second)
@@ -83,6 +80,12 @@ func CreateMQTTClient(config MQTTConfig, logger *logrus.Logger) (mqtt.Client, er
 
 	logger.WithField("client_id", clientID).Info("MQTT Adapter client created and connected")
 	return client, nil
+}
+
+func configureSubscriptionSession(opts *mqtt.ClientOptions) {
+	// 服务每次连接都会主动订阅，使用新会话避免 broker 恢复旧订阅但丢失本进程回调。
+	opts.SetCleanSession(true)
+	opts.SetResumeSubs(false)
 }
 
 // DisconnectMQTTClient 断开 MQTT 客户端连接

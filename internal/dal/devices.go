@@ -306,11 +306,14 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 	var (
 		count      int64
 		deviceList = []model.GetDeviceListByPageRsp{}
-		builder    = q.WithContext(ctx).
-				Where(q.TenantID.Eq(tenant_id)).
-				Where(q.ActivateFlag.Eq("active")).
-				LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
+		builder    = q.WithContext(ctx).LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
 	)
+	if tenant_id != "" {
+		builder = builder.Where(q.TenantID.Eq(tenant_id))
+	}
+	if req.DeviceConfigId == nil || strings.TrimSpace(*req.DeviceConfigId) == "" {
+		builder = builder.Where(q.ActivateFlag.Eq("active"))
+	}
 	if hasValue(req.GroupId) {
 		groupIds, err := GetGroupChildrenIds(strings.TrimSpace(*req.GroupId))
 		if err != nil {
@@ -458,14 +461,20 @@ func GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq
 	deviceList := []model.GetDevicePreRegisterListByPageRsp{}
 	queryBuilder := q.WithContext(context.Background())
 
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
+	if tenant_id != "" {
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
+	}
 
 	if req.ActivateFlag != nil && *req.ActivateFlag != "" {
 		queryBuilder = queryBuilder.Where(q.ActivateFlag.Eq(*req.ActivateFlag))
 	}
 
 	if req.IsEnabled != nil && *req.IsEnabled != "" {
-		queryBuilder = queryBuilder.Where(q.IsEnabled.Eq(*req.IsEnabled))
+		if *req.IsEnabled == "enabled" {
+			queryBuilder = queryBuilder.Where(q.IsEnabled.In("enabled", ""))
+		} else {
+			queryBuilder = queryBuilder.Where(q.IsEnabled.Eq(*req.IsEnabled))
+		}
 	}
 
 	if req.ProductID != "" {

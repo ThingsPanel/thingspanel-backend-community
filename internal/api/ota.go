@@ -156,6 +156,21 @@ func (*OTAApi) UpdateOTAUpgradeTaskStatus(c *gin.Context) {
 	c.Set("data", nil)
 }
 
+// GET /api/v1/ota/task/detail/logs?detail_id=
+func (*OTAApi) HandleOTAProgressLogs(c *gin.Context) {
+	detailID := c.Query("detail_id")
+	if detailID == "" {
+		c.Error(fmt.Errorf("detail_id is required"))
+		return
+	}
+	list, err := service.GroupApp.OTA.ListOTAProgressLogs(detailID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", list)
+}
+
 // GET /api/v1/ota/download/{filepath}
 func (*OTAApi) DownloadOTAUpgradePackage(c *gin.Context) {
 	filePath := "./files/upgradePackage/" + c.Param("path") + "/" + c.Param("file")

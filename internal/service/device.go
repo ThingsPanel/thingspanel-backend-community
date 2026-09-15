@@ -577,7 +577,11 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 }
 
 func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
-	total, list, err := dal.GetDeviceListByPage(req, u.TenantID)
+	tenantID := u.TenantID
+	if skipTenantFilter(u.Authority) {
+		tenantID = ""
+	}
+	total, list, err := dal.GetDeviceListByPage(req, tenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -622,8 +626,170 @@ func (d *Device) CheckDeviceNumber(deviceNumber string) (*errcode.Error, bool) {
 	return errcode.WithVars(204003, nil), true
 }
 
+func (*Device) CreateDevicePreRegister(req *model.CreateDevicePreRegisterReq, claims *utils.UserClaims) error {
+	product, err := dal.GetProductByID(req.ProductID)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	rows := []preRegisterRow{}
+	if req.CreateType == "2" {
+		if req.BatchFile == nil || *req.BatchFile == "" {
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": "batch_file is required"})
+		}
+		rows, err = parsePreRegisterExcel(*req.BatchFile)
+		if err != nil {
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": err.Error()})
+		}
+	} else {
+		count := 1
+		if req.DeviceCount != nil && *req.DeviceCount > 0 {
+			count = *req.DeviceCount
+		}
+		for i := 0; i < count; i++ {
+			id := uuid.New()
+			number := id[:16]
+			rows = append(rows, preRegisterRow{
+				DeviceNumber: number,
+				Name:         number,
+				Voucher:      `{"username":"` + uuid.New()[0:22] + `"}`,
+			})
+		}
+	}
+	now := time.Now().UTC()
+	batch := req.BatchNumber
+	for _, row := range rows {
+		id := uuid.New()
+		name := row.Name
+		if name == "" {
+			name = row.DeviceNumber
+		}
+		voucher := row.Voucher
+		if voucher == "" {
+			voucher = `{"username":"` + uuid.New()[0:22] + `"}`
+		}
+		device := model.Device{
+			ID:             id,
+			Name:           &name,
+			Voucher:        voucher,
+			TenantID:       claims.TenantID,
+			IsEnabled:      "disabled",
+			ActivateFlag:   "inactive",
+			CreatedAt:      &now,
+			UpdateAt:       &now,
+			DeviceNumber:   row.DeviceNumber,
+			ProductID:      &req.ProductID,
+			CurrentVersion: req.CurrentVersion,
+			DeviceConfigID: product.DeviceConfigID,
+			BatchNumber:    &batch,
+			IsOnline:       0,
+		}
+		if row.Label != "" {
+			device.Label = &row.Label
+		}
+		exists, existsErr := dal.DeviceNumberExists(row.DeviceNumber)
+		if existsErr != nil {
+			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": existsErr.Error()})
+		}
+		if exists {
+			return errcode.NewWithMessage(errcode.CodeParamError, fmt.Sprintf("设备编号 %s 已存在，请修改模板后重试", row.DeviceNumber))
+		}
+		if err := dal.CreateDevice(&device); err != nil {
+			mapped := mapDeviceInsertError(err, row.DeviceNumber)
+			return errcode.NewWithMessage(errcode.CodeParamError, mapped.Error())
+		}
+	}
+	return nil
+}
+
+type preRegisterRow struct {
+	DeviceNumber string
+	Voucher      string
+	Name         string
+	Label        string
+}
+
+func parsePreRegisterExcel(fileURL string) ([]preRegisterRow, error) {
+	path := strings.TrimPrefix(fileURL, "./")
+	path = strings.TrimPrefix(path, "/")
+	if !strings.HasPrefix(path, "files/") {
+		return nil, fmt.Errorf("invalid batch file path")
+	}
+	xlsx, err := excelize.OpenFile(path)
+	if err != nil {
+		return nil, err
+	}
+	defer xlsx.Close()
+	sheet := xlsx.GetSheetName(0)
+	records, err := xlsx.GetRows(sheet)
+	if err != nil {
+		return nil, err
+	}
+	var rows []preRegisterRow
+	for i, rec := range records {
+		if i == 0 || len(rec) == 0 {
+			continue
+		}
+		item := preRegisterRow{}
+		if len(rec) > 0 {
+			item.DeviceNumber = strings.TrimSpace(rec[0])
+		}
+		if len(rec) > 1 {
+			item.Voucher = strings.TrimSpace(rec[1])
+		}
+		if len(rec) > 2 {
+			item.Name = strings.TrimSpace(rec[2])
+		}
+		if len(rec) > 3 {
+			item.Label = strings.TrimSpace(rec[3])
+		}
+		if item.DeviceNumber == "" {
+			continue
+		}
+		rows = append(rows, item)
+	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("excel has no device rows")
+	}
+	return rows, nil
+}
+
+func (*Device) ActivatePreRegister(req model.ActivatePreRegisterReq, claims *utils.UserClaims) (*model.Device, error) {
+	device, err := dal.GetDeviceByID(req.ID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	if device.TenantID != "" && device.TenantID != claims.TenantID && !skipTenantFilter(claims.Authority) {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
+	flag, enabled, err := preRegisterActivateState(device.ActivateFlag)
+	if err != nil {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, err.Error())
+	}
+	now := time.Now().UTC()
+	device.ActivateFlag = flag
+	device.IsEnabled = enabled
+	device.IsOnline = 1
+	device.ActivateAt = &now
+	device.UpdateAt = &now
+	if (device.DeviceConfigID == nil || *device.DeviceConfigID == "") && device.ProductID != nil && *device.ProductID != "" {
+		if product, pErr := dal.GetProductByID(*device.ProductID); pErr == nil && product.DeviceConfigID != nil {
+			device.DeviceConfigID = product.DeviceConfigID
+		}
+	}
+	updated, err := dal.UpdateDevice(device)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	initialize.DelDeviceCache(device.ID)
+	return updated, nil
+}
+
 func (*Device) GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
-	total, list, err := dal.GetDevicePreRegisterListByPage(req, u.TenantID)
+	tenantID := u.TenantID
+	if skipTenantFilter(u.Authority) {
+		tenantID = ""
+	}
+	total, list, err := dal.GetDevicePreRegisterListByPage(req, tenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -702,8 +868,9 @@ func (*Device) ExportDevicePreRegister(req model.ExportPreRegisterReq, claims *u
 	excelName := "files/excel/product_data" + time.Now().Format("20060102150405") + ".xlsx"
 	if err := excel_file.SaveAs(excelName); err != nil {
 		logrus.Error(err)
+		return "", err
 	}
-	return excelName, nil
+	return "/" + excelName, nil
 }
 
 func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string) ([]map[string]interface{}, error) {

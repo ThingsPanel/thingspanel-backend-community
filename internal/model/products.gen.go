@@ -19,6 +19,7 @@ type Product struct {
 	ProductKey     *string   `gorm:"column:product_key;comment:产品key" json:"product_key"`        // 产品key
 	ProductModel   *string   `gorm:"column:product_model;comment:产品型号(编号)" json:"product_model"` // 产品型号(编号)
 	ImageURL       *string   `gorm:"column:image_url;comment:图片" json:"image_url"`               // 图片
+	TOSImageURL    *string   `gorm:"-" json:"tos_image_url,omitempty"`                           // App 使用的 TOS 产品图片
 	CreatedAt      time.Time `gorm:"column:created_at;not null;comment:创建时间" json:"created_at"`  // 创建时间
 	Remark         *string   `gorm:"column:remark" json:"remark"`
 	AdditionalInfo *string   `gorm:"column:additional_info" json:"additional_info"`

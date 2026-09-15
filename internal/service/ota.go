@@ -3,13 +3,15 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	dal "project/internal/dal"
 	model "project/internal/model"
 	query "project/internal/query"
-	"project/mqtt/publish"
+	mqtt "project/mqtt"
 	"project/pkg/common"
 	global "project/pkg/global"
 	utils "project/pkg/utils"
@@ -19,6 +21,50 @@ import (
 )
 
 type OTA struct{}
+
+func usesDevicePullOTA(otapackage *model.OtaUpgradePackage) bool {
+	if otapackage == nil || otapackage.AdditionalInfo == nil || *otapackage.AdditionalInfo == "" {
+		return false
+	}
+	var additional struct {
+		DeliveryProtocol   string `json:"deliveryProtocol"`
+		OrchestrationRoute string `json:"orchestrationRoute"`
+	}
+	return json.Unmarshal([]byte(*otapackage.AdditionalInfo), &additional) == nil &&
+		(additional.DeliveryProtocol == "xiaozhi_http" || additional.OrchestrationRoute == "device_integration")
+}
+
+func devicePullOTADescription(otapackage *model.OtaUpgradePackage) string {
+	if otapackage != nil && otapackage.AdditionalInfo != nil {
+		var additional struct {
+			OrchestrationRoute string `json:"orchestrationRoute"`
+		}
+		if json.Unmarshal([]byte(*otapackage.AdditionalInfo), &additional) == nil && additional.OrchestrationRoute == "device_integration" {
+			return "等待设备交互服务编排"
+		}
+	}
+	return "等待设备主动检查升级"
+}
+
+func buildOTAInformParams(otapackage *model.OtaUpgradePackage, downloadAddress string, size int64) map[string]interface{} {
+	packageURL, signature, signatureType, module := "", "", "", ""
+	if otapackage.PackageURL != nil {
+		packageURL = strings.TrimRight(downloadAddress, "/") + strings.TrimPrefix(*otapackage.PackageURL, ".")
+	}
+	if otapackage.Signature != nil {
+		signature = *otapackage.Signature
+	}
+	if otapackage.SignatureType != nil {
+		signatureType = *otapackage.SignatureType
+	}
+	if otapackage.Module != nil {
+		module = *otapackage.Module
+	}
+	return map[string]interface{}{
+		"version": otapackage.Version, "size": strconv.FormatInt(size, 10), "url": packageURL,
+		"signMethod": signatureType, "sign": signature, "module": module,
+	}
+}
 
 func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenantID string) error {
 	var ota = model.OtaUpgradePackage{}
@@ -169,8 +215,11 @@ func (o *OTA) UpdateOTAUpgradeTaskStatus(req *model.UpdateOTAUpgradeTaskStatusRe
 	if err != nil {
 		return err
 	}
-	// 4-升级成功 6-已取消 不修改
-	if taskDetail.Status == 4 || taskDetail.Status == 6 {
+	// 4-升级成功 不可改；6-已取消 允许重新升级
+	if taskDetail.Status == 4 {
+		return fmt.Errorf("the task status cannot be modified")
+	}
+	if taskDetail.Status == 6 && req.Action != 1 {
 		return fmt.Errorf("the task status cannot be modified")
 	}
 	// 升级成功的任务不能取消升级
@@ -231,12 +280,16 @@ func (*OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) error 
 		}
 		return fmt.Errorf("the device is offline")
 	}
-	// 查看设备是否有其他升级中的任务
-	count, err := query.OtaUpgradeTaskDetail.Where(query.OtaUpgradeTaskDetail.DeviceID.Eq(taskDetail.DeviceID), query.OtaUpgradeTaskDetail.Status.Lt(4)).Count()
+	// 查看设备是否有其他升级中的任务（必须排除当前刚插入的明细，否则永远“上次升级未完成”）
+	count, err := query.OtaUpgradeTaskDetail.Where(
+		query.OtaUpgradeTaskDetail.DeviceID.Eq(taskDetail.DeviceID),
+		query.OtaUpgradeTaskDetail.Status.Lt(4),
+		query.OtaUpgradeTaskDetail.ID.Neq(taskDetail.ID),
+	).Count()
 	if err != nil {
 		return err
 	}
-	if count > 0 {
+	if shouldBlockForUnfinishedOTA(int(count)) {
 		//修改设备升级任务信息
 		taskDetail.Status = 5
 		desc := "上次升级未完成"
@@ -250,13 +303,21 @@ func (*OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) error 
 		return fmt.Errorf("the device is upgrading")
 	}
 	// 推送升级包
-	taskQuery, err := query.OtaUpgradeTask.Select(query.OtaUpgradeTask.ID).Where(query.OtaUpgradeTask.ID.Eq(taskDetail.OtaUpgradeTaskID)).First()
+	taskQuery, err := query.OtaUpgradeTask.Where(query.OtaUpgradeTask.ID.Eq(taskDetail.OtaUpgradeTaskID)).First()
 	if err != nil {
 		return err
 	}
-	otataskid := taskQuery.ID
-	otapackage, err := query.OtaUpgradePackage.Where(query.OtaUpgradePackage.ID.Eq(otataskid)).First()
+	otapackage, err := query.OtaUpgradePackage.Where(query.OtaUpgradePackage.ID.Eq(resolveOTAPackageID(taskQuery.ID, taskQuery.OtaUpgradePackageID))).First()
 	if err != nil {
+		return err
+	}
+	if usesDevicePullOTA(otapackage) {
+		t := time.Now().UTC()
+		desc := devicePullOTADescription(otapackage)
+		taskDetail.Status = 1
+		taskDetail.StatusDescription = &desc
+		taskDetail.UpdatedAt = &t
+		_, err := query.OtaUpgradeTaskDetail.Updates(taskDetail)
 		return err
 	}
 	var otamsg = make(map[string]interface{})
@@ -267,38 +328,115 @@ func (*OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) error 
 	}
 	otamsg["id"] = randNum
 	otamsg["code"] = "200"
-	var otamsgparams = make(map[string]interface{})
-	otamsgparams["version"] = otapackage.Version
-	otamsgparams["size"] = "0"
-	otamsgparams["url"] = global.OtaAddress + strings.TrimPrefix(*otapackage.PackageURL, ".")
-	otamsgparams["signMethod"] = otapackage.SignatureType
-	otamsgparams["sign"] = ""
-	otamsgparams["module"] = otapackage.Module
-	//其他配置格式成map
+	packageSize := int64(0)
+	if otapackage.PackageURL != nil {
+		filePath := "." + strings.Replace(*otapackage.PackageURL, "/api/v1/ota/download", "", 1)
+		info, statErr := os.Stat(filePath)
+		if statErr != nil {
+			return fmt.Errorf("ota package is unavailable: %w", statErr)
+		}
+		packageSize = info.Size()
+	}
+	otamsgparams := buildOTAInformParams(otapackage, global.OtaAddress, packageSize)
 	var m map[string]interface{}
-	err = json.Unmarshal([]byte(*otapackage.AdditionalInfo), &m)
-	if err != nil {
-		logrus.Error(err)
+	if otapackage.AdditionalInfo != nil && *otapackage.AdditionalInfo != "" {
+		if err = json.Unmarshal([]byte(*otapackage.AdditionalInfo), &m); err != nil {
+			logrus.Error(err)
+		}
 	}
 	otamsgparams["extData"] = m
 	otamsg["params"] = otamsgparams
 	palyload, json_err := json.Marshal(otamsg)
 	if json_err != nil {
-		logrus.Error(err)
+		logrus.Error(json_err)
 	} else {
-		// 修改设备升级任务信息
-		//修改设备升级任务信息
-		taskDetail.Status = 1
-		desc := "已通知设备"
-		taskDetail.StatusDescription = &desc
 		t := time.Now().UTC()
 		taskDetail.UpdatedAt = &t
-		_, err := query.OtaUpgradeTaskDetail.Updates(taskDetail)
-		if err != nil {
+		if pubErr := mqtt.PublishOTAInform(device.DeviceNumber, palyload); pubErr != nil {
+			taskDetail.Status = 1
+			desc := "通知发送失败: " + pubErr.Error()
+			taskDetail.StatusDescription = &desc
+			_, _ = query.OtaUpgradeTaskDetail.Updates(taskDetail)
+			logrus.WithError(pubErr).WithFields(logrus.Fields{
+				"stage": "ota_inform_publish", "device_id": device.ID, "device_number": device.DeviceNumber, "task_detail": taskDetail.ID,
+			}).Error("[OTA] inform publish failed")
+			return pubErr
+		}
+		taskDetail.Status = 2
+		desc := "已通知设备"
+		taskDetail.StatusDescription = &desc
+		if _, err := query.OtaUpgradeTaskDetail.Updates(taskDetail); err != nil {
 			return err
 		}
-		go publish.PublishOtaAdress(device.DeviceNumber, palyload)
+		logrus.WithFields(logrus.Fields{
+			"stage": "ota_inform_publish", "device_number": device.DeviceNumber,
+			"topics": mqtt.OTAInformTopics(device.DeviceNumber), "task_detail": taskDetail.ID, "payload": string(palyload),
+		}).Info("[OTA] inform published")
 	}
 
 	return nil
+}
+
+func (*OTA) ApplyOTAProgress(raw []byte) error {
+	progress, err := parseOTAProgressPayload(raw)
+	if err != nil {
+		logrus.WithError(err).WithField("payload", string(raw)).Error("[OTA] bad progress payload")
+		return err
+	}
+	status, ok := nextOTAStatusFromStep(progress.Step)
+	if !ok {
+		return fmt.Errorf("invalid ota step %d", progress.Step)
+	}
+	var device *model.Device
+	if progress.DeviceKey != "" {
+		device, err = dal.GetDeviceByID(progress.DeviceKey)
+		if err != nil {
+			device, err = dal.GetDeviceByDeviceNumber(progress.DeviceKey)
+		}
+	}
+	if err != nil || device == nil {
+		logrus.WithField("device_key", progress.DeviceKey).Error("[OTA] progress device not found")
+		return fmt.Errorf("ota progress device not found: %s", progress.DeviceKey)
+	}
+	detail, err := query.OtaUpgradeTaskDetail.Where(
+		query.OtaUpgradeTaskDetail.DeviceID.Eq(device.ID),
+		query.OtaUpgradeTaskDetail.Status.In(otaInProgressStatuses()...),
+	).First()
+	if err != nil {
+		detail, err = query.OtaUpgradeTaskDetail.Where(
+			query.OtaUpgradeTaskDetail.DeviceID.Eq(device.ID),
+		).Order(query.OtaUpgradeTaskDetail.UpdatedAt.Desc()).First()
+		if err != nil {
+			logrus.WithError(err).WithField("device_id", device.ID).Error("[OTA] no task for progress")
+			return err
+		}
+		logrus.WithFields(logrus.Fields{
+			"device_id": device.ID, "task_detail": detail.ID, "prev_status": detail.Status, "step": progress.Step,
+		}).Warn("[OTA] no in-progress task, applying to latest detail")
+	}
+	if detail.Status == 4 && progress.Step != 100 {
+		return nil
+	}
+	detail.Status = status
+	step := int16(progress.Step)
+	detail.Step = &step
+	desc := progress.Desc
+	detail.StatusDescription = &desc
+	now := time.Now().UTC()
+	detail.UpdatedAt = &now
+	if _, err = query.OtaUpgradeTaskDetail.Where(query.OtaUpgradeTaskDetail.ID.Eq(detail.ID)).Updates(detail); err != nil {
+		return err
+	}
+	logRow := buildOTAProgressLog(detail.ID, device.ID, progress, status, string(raw))
+	if err = dal.InsertOTAProgressLog(logRow.ID, logRow.TaskDetailID, logRow.DeviceID, logRow.Step, logRow.Status, logRow.Description, logRow.Payload); err != nil {
+		logrus.WithError(err).Error("[OTA] persist progress log failed")
+	}
+	logrus.WithFields(logrus.Fields{
+		"stage": "ota_progress", "device_id": device.ID, "task_detail": detail.ID, "step": progress.Step, "status": status, "log_id": logRow.ID,
+	}).Info("[OTA] progress applied")
+	return nil
+}
+
+func (*OTA) ListOTAProgressLogs(detailID string) ([]dal.OTAProgressLogRow, error) {
+	return dal.ListOTAProgressLogs(detailID)
 }

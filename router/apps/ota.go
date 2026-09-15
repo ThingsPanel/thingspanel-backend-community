@@ -28,7 +28,7 @@ func (*OTA) InitOTA(Router *gin.RouterGroup) {
 			task.GET("", api.Controllers.OTAApi.HandleOTAUpgradeTaskByPage)
 
 			task.GET("detail", api.Controllers.OTAApi.HandleOTAUpgradeTaskDetailByPage)
-
+			task.GET("detail/logs", api.Controllers.OTAApi.HandleOTAProgressLogs)
 			task.PUT("detail", api.Controllers.OTAApi.UpdateOTAUpgradeTaskStatus)
 		}
 	}
