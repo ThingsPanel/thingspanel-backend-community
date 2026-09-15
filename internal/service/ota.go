@@ -31,7 +31,7 @@ func usesDevicePullOTA(otapackage *model.OtaUpgradePackage) bool {
 		OrchestrationRoute string `json:"orchestrationRoute"`
 	}
 	return json.Unmarshal([]byte(*otapackage.AdditionalInfo), &additional) == nil &&
-		(additional.DeliveryProtocol == "xiaozhi_http" || additional.OrchestrationRoute == "device_integration")
+		(additional.DeliveryProtocol == "ygsoul_http" || additional.OrchestrationRoute == "device_integration")
 }
 
 func devicePullOTADescription(otapackage *model.OtaUpgradePackage) string {

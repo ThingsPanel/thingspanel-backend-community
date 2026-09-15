@@ -35,12 +35,12 @@ func TestOTAInformTopicsCoverOfficialTypoAndDocs(t *testing.T) {
 	}
 }
 
-func TestXiaoZhiHttpPackageDoesNotUseMqttInform(t *testing.T) {
-	httpDelivery := `{"deliveryProtocol":"xiaozhi_http","chip":"ESP32S3"}`
+func TestYGSoulHttpPackageDoesNotUseMqttInform(t *testing.T) {
+	httpDelivery := `{"deliveryProtocol":"ygsoul_http","chip":"ESP32S3"}`
 	mqttDelivery := `{"deliveryProtocol":"ydp_mqtt"}`
 	integrationDelivery := `{"deliveryProtocol":"ydp_mqtt","orchestrationRoute":"device_integration"}`
 	if !usesDevicePullOTA(&model.OtaUpgradePackage{AdditionalInfo: &httpDelivery}) {
-		t.Fatal("xiaozhi_http must wait for device HTTP check")
+		t.Fatal("ygsoul_http must wait for device HTTP check")
 	}
 	if usesDevicePullOTA(&model.OtaUpgradePackage{AdditionalInfo: &mqttDelivery}) {
 		t.Fatal("ydp_mqtt must keep existing MQTT inform")
