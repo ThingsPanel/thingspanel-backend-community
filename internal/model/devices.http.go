@@ -85,25 +85,26 @@ type GetDeviceListByPageReq struct {
 }
 
 type GetDeviceListByPageRsp struct {
-	ID               string     `json:"id"`                 // 设备ID
-	DeviceNumber     string     `json:"device_number"`      // 设备编号
-	Name             string     `json:"name"`               // 设备名称
-	DeviceConfigID   string     `json:"device_config_id"`   // 设备配置ID
-	DeviceConfigName string     `json:"device_config_name"` // 设备配置名称
-	Ts               *time.Time `json:"ts"`                 // 上次推送时间
-	ActivateFlag     string     `json:"activate_flag"`      // 激活状态
-	ActivateAt       *time.Time `json:"activate_at"`        // 激活时间
-	BatchNumber      string     `json:"batch_number"`       // 批次编号
-	CurrentVersion   string     `json:"current_version"`    // 当前版本
-	CreatedAt        *time.Time `json:"created_at"`         // 创建时间
-	IsOnline         int        `json:"is_online"`          // 是否在线
-	Location         string     `json:"location"`           // 位置
-	AccessWay        string     `json:"access_way"`         // 接入方式
-	ProtocolType     string     `json:"protocol_type"`      // 协议类型
-	DeviceStatus     int        `json:"device_status"`      // 设备状态
-	WarnStatus       string     `json:"warn_status"`        //设备是否告警 Y告警 N未告警
-	DeviceType       string     `json:"device_type"`        // 设备类型 1-网关 2-网关子设备 3-网关子设备子设备
-	ImageURL         string     `json:"image_url"`          // 图片地址
+	ID               string     `json:"id"`                   // 设备ID
+	DeviceNumber     string     `json:"device_number"`        // 设备编号
+	Name             string     `json:"name"`                 // 设备名称
+	DeviceConfigID   string     `json:"device_config_id"`     // 设备配置ID
+	DeviceConfigName string     `json:"device_config_name"`   // 设备配置名称
+	Ts               *time.Time `json:"ts"`                   // 上次推送时间
+	ActivateFlag     string     `json:"activate_flag"`        // 激活状态
+	ActivateAt       *time.Time `json:"activate_at"`          // 激活时间
+	BatchNumber      string     `json:"batch_number"`         // 批次编号
+	CurrentVersion   string     `json:"current_version"`      // 当前版本
+	CreatedAt        *time.Time `json:"created_at"`           // 创建时间
+	IsOnline         int        `json:"is_online"`            // 是否在线
+	Location         string     `json:"location"`             // 位置
+	AccessWay        string     `json:"access_way"`           // 接入方式
+	ProtocolType     string     `json:"protocol_type"`        // 协议类型
+	DeviceStatus     int        `json:"device_status"`        // 设备状态
+	WarnStatus       string     `json:"warn_status"`          //设备是否告警 Y告警 N未告警
+	DeviceType       string     `json:"device_type"`          // 设备类型 1-网关 2-网关子设备 3-网关子设备子设备
+	ImageURL         string     `json:"image_url"`            // 图片地址
+	GroupPaths       []string   `gorm:"-" json:"group_paths"` // 所属设备分组的完整路径
 }
 
 type CreateDeviceGroupReq struct {

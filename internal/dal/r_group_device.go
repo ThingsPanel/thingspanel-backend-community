@@ -2,11 +2,62 @@ package dal
 
 import (
 	"context"
+	"fmt"
+	"strings"
+
 	model "project/internal/model"
 	query "project/internal/query"
+	global "project/pkg/global"
 
 	"github.com/sirupsen/logrus"
 )
+
+type DeviceGroupPath struct {
+	DeviceID  string `gorm:"column:device_id"`
+	GroupPath string `gorm:"column:group_path"`
+}
+
+// GetDeviceGroupPathsByDeviceIDs returns every directly assigned group's full
+// hierarchy for a page of devices in one query.
+func GetDeviceGroupPathsByDeviceIDs(deviceIDs []string, tenantID string) ([]DeviceGroupPath, error) {
+	if len(deviceIDs) == 0 {
+		return []DeviceGroupPath{}, nil
+	}
+
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(deviceIDs)), ",")
+	sql := fmt.Sprintf(`
+		WITH RECURSIVE group_chain AS (
+			SELECT rgd.device_id, rgd.group_id AS assigned_group_id,
+				g.id, g.parent_id, g.name, 1 AS level
+			FROM r_group_device rgd
+			JOIN groups g ON g.id = rgd.group_id AND g.tenant_id = rgd.tenant_id
+			WHERE rgd.tenant_id = ? AND rgd.device_id IN (%s)
+			UNION ALL
+			SELECT gc.device_id, gc.assigned_group_id,
+				g.id, g.parent_id, g.name, gc.level + 1
+			FROM groups g
+			JOIN group_chain gc ON gc.parent_id = g.id
+			WHERE g.tenant_id = ?
+		)
+		SELECT device_id,
+			string_agg(name, '/' ORDER BY level DESC) AS group_path
+		FROM group_chain
+		GROUP BY device_id, assigned_group_id
+		ORDER BY device_id, group_path
+	`, placeholders)
+	args := make([]interface{}, 0, len(deviceIDs)+2)
+	args = append(args, tenantID)
+	for _, deviceID := range deviceIDs {
+		args = append(args, deviceID)
+	}
+	args = append(args, tenantID)
+
+	paths := []DeviceGroupPath{}
+	if err := global.DB.Raw(sql, args...).Scan(&paths).Error; err != nil {
+		return nil, err
+	}
+	return paths, nil
+}
 
 func BatchCreateRGroupDevice(r []*model.RGroupDevice) error {
 	return query.RGroupDevice.CreateInBatches(r, len(r))

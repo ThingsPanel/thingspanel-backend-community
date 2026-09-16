@@ -584,7 +584,25 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 		})
 	}
 	if len(list) > 0 {
+		deviceIDs := make([]string, 0, len(list))
 		for i := range list {
+			deviceIDs = append(deviceIDs, list[i].ID)
+		}
+		groupPaths, groupErr := dal.GetDeviceGroupPathsByDeviceIDs(deviceIDs, u.TenantID)
+		if groupErr != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": groupErr.Error(),
+			})
+		}
+		pathsByDeviceID := make(map[string][]string, len(list))
+		for _, groupPath := range groupPaths {
+			pathsByDeviceID[groupPath.DeviceID] = append(pathsByDeviceID[groupPath.DeviceID], groupPath.GroupPath)
+		}
+		for i := range list {
+			list[i].GroupPaths = pathsByDeviceID[list[i].ID]
+			if list[i].GroupPaths == nil {
+				list[i].GroupPaths = []string{}
+			}
 			list[i].DeviceStatus = list[i].IsOnline
 			if list[i].WarnStatus == "N" || list[i].WarnStatus == "" {
 				list[i].WarnStatus = "N"
