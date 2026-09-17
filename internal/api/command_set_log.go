@@ -38,7 +38,7 @@ func (CommandSetLogApi) CommandPutMessage(c *gin.Context) {
 	}
 
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.CommandData.CommandPutMessageForUser(c, userClaims.ID, &req, strconv.Itoa(constant.Manual), userClaims)
+	err := service.GroupApp.CommandData.CommandPutMessage(c, userClaims.ID, &req, strconv.Itoa(constant.Manual))
 	if err != nil {
 		c.Error(err)
 		return

@@ -85,8 +85,7 @@ func (*DeviceApi) ActiveDevice(c *gin.Context) {
 		return
 	}
 
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	device, err := service.GroupApp.Device.ActiveDevice(req, claims)
+	device, err := service.GroupApp.Device.ActiveDevice(req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -318,14 +317,9 @@ func (*DeviceApi) MarketRefresh(c *gin.Context) {
 	var req struct {
 		RefreshToken string `json:"refresh_token" binding:"required"`
 	}
-	if !BindAndValidate(c, &req) {
-		return
-	}
+	if !BindAndValidate(c, &req) { return }
 	loginRsp, err := service.NewMarketClient().Refresh(c, req.RefreshToken)
-	if err != nil {
-		c.Error(errcode.NewWithMessage(errcode.CodeSystemError, err.Error()))
-		return
-	}
+	if err != nil { c.Error(errcode.NewWithMessage(errcode.CodeSystemError, err.Error())); return }
 	c.Set("data", loginRsp)
 }
 
@@ -603,7 +597,7 @@ func (*DeviceApi) HandleTenantDeviceList(c *gin.Context) {
 		return
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetTenantDeviceList(&req, userClaims)
+	data, err := service.GroupApp.Device.GetTenantDeviceList(&req, userClaims.TenantID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -641,8 +635,7 @@ func (*DeviceApi) CreateSonDevice(c *gin.Context) {
 		return
 	}
 
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Device.CreateSonDevice(c, &param, claims)
+	err := service.GroupApp.Device.CreateSonDevice(c, &param)
 	if err != nil {
 		c.Error(err)
 		return
@@ -660,8 +653,7 @@ func (*DeviceApi) DeviceConnectForm(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.Device.DeviceConnectForm(c, &param, claims)
+	list, err := service.GroupApp.Device.DeviceConnectForm(c, &param)
 	if err != nil {
 		c.Error(err)
 		return
@@ -685,8 +677,7 @@ func (*DeviceApi) DeviceConnect(c *gin.Context) {
 		lang = "zh_CN"
 	}
 
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.Device.DeviceConnect(c, &param, lang, claims)
+	list, err := service.GroupApp.Device.DeviceConnect(c, &param, lang)
 	if err != nil {
 		c.Error(err)
 		return
@@ -704,8 +695,7 @@ func (*DeviceApi) UpdateDeviceVoucher(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	voucher, err := service.GroupApp.Device.UpdateDeviceVoucher(c, &param, claims)
+	voucher, err := service.GroupApp.Device.UpdateDeviceVoucher(c, &param)
 	if err != nil {
 		c.Error(err)
 		return
@@ -745,8 +735,7 @@ func (*DeviceApi) HandleSubList(c *gin.Context) {
 // /api/v1/device/metrics/{id}
 func (*DeviceApi) HandleMetrics(c *gin.Context) {
 	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.Device.GetMetrics(id, claims)
+	list, err := service.GroupApp.Device.GetMetrics(id)
 	if err != nil {
 		c.Error(err)
 		return
@@ -762,8 +751,7 @@ func (*DeviceApi) HandleActionByDeviceID(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.Device.GetActionByDeviceID(param.DeviceID, claims)
+	list, err := service.GroupApp.Device.GetActionByDeviceID(param.DeviceID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -779,8 +767,7 @@ func (*DeviceApi) HandleConditionByDeviceID(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.Device.GetConditionByDeviceID(param.DeviceID, claims)
+	list, err := service.GroupApp.Device.GetConditionByDeviceID(param.DeviceID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -791,8 +778,7 @@ func (*DeviceApi) HandleConditionByDeviceID(c *gin.Context) {
 // /api/v1/device/map/telemetry/{id}
 func (*DeviceApi) HandleMapTelemetry(c *gin.Context) {
 	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetMapTelemetry(id, claims)
+	data, err := service.GroupApp.Device.GetMapTelemetry(id)
 	if err != nil {
 		c.Error(err)
 		return
@@ -819,8 +805,7 @@ func (*DeviceApi) UpdateDeviceConfig(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Device.UpdateDeviceConfig(&param, claims)
+	err := service.GroupApp.Device.UpdateDeviceConfig(&param)
 	if err != nil {
 		c.Error(err)
 		return
@@ -831,8 +816,7 @@ func (*DeviceApi) UpdateDeviceConfig(c *gin.Context) {
 // /api/v1/device/online/status/{id} [get]
 func (*DeviceApi) HandleDeviceOnlineStatus(c *gin.Context) {
 	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetDeviceOnlineStatusForUser(id, claims)
+	data, err := service.GroupApp.Device.GetDeviceOnlineStatus(id)
 	if err != nil {
 		c.Error(err)
 		return
@@ -910,7 +894,7 @@ func (*DeviceApi) HandleDeviceSelector(c *gin.Context) {
 func (*DeviceApi) HandleTenantTelemetryData(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	data, err := service.GroupApp.Device.GetTenantTelemetryData(userClaims)
+	data, err := service.GroupApp.Device.GetTenantTelemetryData(userClaims.TenantID)
 	if err != nil {
 		c.Error(err)
 		return

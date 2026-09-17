@@ -9,9 +9,6 @@ import (
 type SceneAutomationLog struct{}
 
 func (*SceneAutomationLog) GetSceneAutomationLog(req *model.GetSceneAutomationLogReq, u *utils.UserClaims) (interface{}, error) {
-	if err := ensureTenantDeviceAdministrator(u); err != nil {
-		return nil, err
-	}
 	total, data, err := dal.GetSceneAutomationLog(req, u.TenantID)
 	logList := make(map[string]interface{})
 	logList["total"] = total

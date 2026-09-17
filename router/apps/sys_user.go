@@ -24,8 +24,6 @@ func (*User) InitUser(Router *gin.RouterGroup) {
 		userapi.POST("", api.Controllers.UserApi.CreateUser)
 		userapi.PUT("", api.Controllers.UserApi.UpdateUser)
 		userapi.DELETE(":id", api.Controllers.UserApi.DeleteUser)
-		userapi.GET(":id/device-permissions", api.Controllers.UserApi.GetUserDevicePermissions)
-		userapi.PUT(":id/device-permissions", api.Controllers.UserApi.UpdateUserDevicePermissions)
 		userapi.GET(":id", api.Controllers.UserApi.HandleUser)
 		userapi.POST("transform", api.Controllers.UserApi.TransformUser)
 

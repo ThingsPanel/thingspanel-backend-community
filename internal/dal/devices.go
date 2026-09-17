@@ -292,7 +292,7 @@ func RemoveSubDevice(deviceId string, tenant_id string) error {
 }
 
 // 获取设备列表，分页
-func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id, userID string, fullAccess bool) (int64, []model.GetDeviceListByPageRsp, error) {
+func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (int64, []model.GetDeviceListByPageRsp, error) {
 	q := query.Device
 	c := query.DeviceConfig
 	lda := query.LatestDeviceAlarm
@@ -311,16 +311,6 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id, userID st
 				Where(q.ActivateFlag.Eq("active")).
 				LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
 	)
-	if !fullAccess {
-		accessibleIDs, err := GetAccessibleDeviceIDs(userID, tenant_id)
-		if err != nil {
-			return count, deviceList, err
-		}
-		if len(accessibleIDs) == 0 {
-			return 0, deviceList, nil
-		}
-		builder = builder.Where(q.ID.In(accessibleIDs...))
-	}
 	if hasValue(req.GroupId) {
 		groupIds, err := GetGroupChildrenIds(strings.TrimSpace(*req.GroupId))
 		if err != nil {
@@ -811,7 +801,7 @@ func CheckVoucherExists(voucher string, excludeDeviceID string) (bool, error) {
 }
 
 // 获取设备选择器
-func GetDeviceSelector(req model.DeviceSelectorReq, tenantId, userID string, fullAccess bool) (*model.DeviceSelectorRes, error) {
+func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) (*model.DeviceSelectorRes, error) {
 	device := query.Device
 	deviceConfig := query.DeviceConfig
 
@@ -829,16 +819,6 @@ func GetDeviceSelector(req model.DeviceSelectorReq, tenantId, userID string, ful
 	}
 
 	query = query.Where(device.TenantID.Eq(tenantId))
-	if !fullAccess {
-		accessibleIDs, err := GetAccessibleDeviceIDs(userID, tenantId)
-		if err != nil {
-			return nil, err
-		}
-		if len(accessibleIDs) == 0 {
-			return &model.DeviceSelectorRes{Total: 0, List: []*model.DeviceSelectorData{}}, nil
-		}
-		query = query.Where(device.ID.In(accessibleIDs...))
-	}
 
 	query = query.Select(device.ID.As("device_id"), device.Name.As("device_name"), deviceConfig.DeviceType.As("device_type"))
 

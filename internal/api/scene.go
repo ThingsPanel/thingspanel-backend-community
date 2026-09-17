@@ -85,7 +85,7 @@ func (*SceneApi) ActiveScene(c *gin.Context) {
 	id := c.Param("id")
 
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Scene.ActiveScene(id, userClaims.ID, userClaims)
+	err := service.GroupApp.Scene.ActiveScene(id, userClaims.ID, userClaims.TenantID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -99,8 +99,7 @@ func (*SceneApi) HandleSceneLog(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Scene.GetSceneLog(req, userClaims)
+	data, err := service.GroupApp.Scene.GetSceneLog(req)
 	if err != nil {
 		c.Error(err)
 		return

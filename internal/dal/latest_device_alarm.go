@@ -22,16 +22,3 @@ func (q *LatestDeviceAlarmQuery) CountDevicesByTenantAndStatus(ctx context.Conte
 
 	return count, err
 }
-
-// CountDevicesByTenantAndStatusForUser counts only devices in a user's scope.
-func (q *LatestDeviceAlarmQuery) CountDevicesByTenantAndStatusForUser(ctx context.Context, tenantID string, deviceIDs []string) (int64, error) {
-	if len(deviceIDs) == 0 {
-		return 0, nil
-	}
-	lda := query.LatestDeviceAlarm
-	return lda.WithContext(ctx).
-		Where(lda.TenantID.Eq(tenantID), lda.DeviceID.In(deviceIDs...)).
-		Where(lda.AlarmStatus.Neq("N")).
-		Distinct(lda.DeviceID).
-		Count()
-}

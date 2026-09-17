@@ -413,43 +413,6 @@ func (*User) GetUserById(id string) (*model.User, error) {
 	return user, nil
 }
 
-// GetUserDevicePermissions returns only active devices in the current tenant.
-// The caller must be a tenant administrator; this prevents a regular user
-// from probing another member's scope.
-func (*User) GetUserDevicePermissions(userID string, claims *utils.UserClaims) (model.UserDevicePermissionsRsp, error) {
-	if claims == nil || claims.Authority != "TENANT_ADMIN" {
-		return model.UserDevicePermissionsRsp{}, errcode.New(errcode.CodeNoPermission)
-	}
-	user, err := dal.GetUsersById(userID)
-	if err != nil || user.TenantID == nil || *user.TenantID != claims.TenantID || user.Authority == nil || *user.Authority != "TENANT_USER" {
-		return model.UserDevicePermissionsRsp{}, errcode.New(errcode.CodeNoPermission)
-	}
-	devices, err := dal.GetUserDevicePermissionItems(userID, claims.TenantID)
-	if err != nil {
-		return model.UserDevicePermissionsRsp{}, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
-	}
-	return model.UserDevicePermissionsRsp{UserID: userID, Devices: devices}, nil
-}
-
-// UpdateUserDevicePermissions replaces a user's device scope atomically.
-// Tenant and target user ownership are derived from the authenticated admin.
-func (*User) UpdateUserDevicePermissions(userID string, req *model.UpdateUserDevicePermissionsReq, claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != "TENANT_ADMIN" {
-		return errcode.New(errcode.CodeNoPermission)
-	}
-	user, err := dal.GetUsersById(userID)
-	if err != nil || user.TenantID == nil || *user.TenantID != claims.TenantID || user.Authority == nil || *user.Authority != "TENANT_USER" {
-		return errcode.New(errcode.CodeNoPermission)
-	}
-	if err := dal.ReplaceUserDeviceAccess(userID, claims.TenantID, req.Assignments); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errcode.New(errcode.CodeNoPermission)
-		}
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
-	}
-	return nil
-}
-
 // @description  分页获取用户列表
 func (*User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetUserListByPage(userListReq, claims)

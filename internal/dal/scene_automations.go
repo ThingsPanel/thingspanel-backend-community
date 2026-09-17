@@ -50,13 +50,6 @@ func GetSceneAutomation(id string, tx *query.QueryTx) (*model.SceneAutomation, e
 	}
 }
 
-func GetSceneAutomationByTenant(id, tenantID string) (*model.SceneAutomation, error) {
-	return query.SceneAutomation.Where(
-		query.SceneAutomation.ID.Eq(id),
-		query.SceneAutomation.TenantID.Eq(tenantID),
-	).First()
-}
-
 func SwitchSceneAutomation(id, enabled string, tx *query.QueryTx) error {
 	_, err := tx.SceneAutomation.Where(tx.SceneAutomation.ID.Eq(id)).Update(tx.SceneAutomation.Enabled, enabled)
 	return err

@@ -116,7 +116,7 @@ func (*BoardApi) HandleDeviceTotal(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	board := service.GroupApp.Board
-	total, err := board.GetDeviceTotal(c, userClaims)
+	total, err := board.GetDeviceTotal(c, userClaims.Authority, userClaims.TenantID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -177,7 +177,7 @@ func (*BoardApi) HandleTenantDeviceInfo(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	board := service.GroupApp.Board
-	total, err := board.GetDeviceByTenantIDForUser(c, userClaims)
+	total, err := board.GetDeviceByTenantID(c, userClaims.TenantID)
 	if err != nil {
 		c.Error(err)
 		return

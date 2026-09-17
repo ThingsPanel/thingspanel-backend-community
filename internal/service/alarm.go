@@ -8,11 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"project/initialize"
 	"project/internal/dal"
+	"project/initialize"
 	model "project/internal/model"
 	"project/pkg/errcode"
-	"project/pkg/utils"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
@@ -21,10 +20,7 @@ import (
 type Alarm struct{}
 
 // CreateAlarmConfig 创建告警配置
-func (*Alarm) CreateAlarmConfig(req *model.CreateAlarmConfigReq, claims *utils.UserClaims) (data *model.AlarmConfig, err error) {
-	if err := ensureTenantDeviceAdministrator(claims); err != nil {
-		return nil, err
-	}
+func (*Alarm) CreateAlarmConfig(req *model.CreateAlarmConfigReq) (data *model.AlarmConfig, err error) {
 	data = &model.AlarmConfig{}
 	t := time.Now().UTC()
 	data.ID = uuid.New()
@@ -48,14 +44,7 @@ func (*Alarm) CreateAlarmConfig(req *model.CreateAlarmConfigReq, claims *utils.U
 }
 
 // DeleteAlarmConfig 删除告警配置
-func (*Alarm) DeleteAlarmConfig(id string, claims *utils.UserClaims) (err error) {
-	if err := ensureTenantDeviceAdministrator(claims); err != nil {
-		return err
-	}
-	alarmConfig, err := dal.GetAlarmByID(id)
-	if err != nil || alarmConfig == nil || alarmConfig.TenantID != claims.TenantID {
-		return errcode.New(errcode.CodeNoPermission)
-	}
+func (*Alarm) DeleteAlarmConfig(id string) (err error) {
 	err = dal.DeleteAlarmConfig(id)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -80,14 +69,7 @@ func (*Alarm) DeleteAlarmConfig(id string, claims *utils.UserClaims) (err error)
 }
 
 // UpdateAlarmConfig 更新告警配置
-func (*Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq, claims *utils.UserClaims) (data *model.AlarmConfig, err error) {
-	if err := ensureTenantDeviceAdministrator(claims); err != nil {
-		return nil, err
-	}
-	existing, err := dal.GetAlarmByID(req.ID)
-	if err != nil || existing == nil || existing.TenantID != claims.TenantID {
-		return nil, errcode.New(errcode.CodeNoPermission)
-	}
+func (*Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq) (data *model.AlarmConfig, err error) {
 	data = &model.AlarmConfig{}
 	data.ID = req.ID
 	if req.Name != nil {
@@ -131,10 +113,7 @@ func (*Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq, claims *utils.U
 }
 
 // GetAlarmConfigListByPage 分页查询告警配置
-func (*Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq, claims *utils.UserClaims) (data map[string]interface{}, err error) {
-	if err := ensureTenantDeviceAdministrator(claims); err != nil {
-		return nil, err
-	}
+func (*Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq) (data map[string]interface{}, err error) {
 	total, list, err := dal.GetAlarmConfigListByPage(req)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -148,10 +127,7 @@ func (*Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq, c
 }
 
 // UpdateAlarmInfo 更新告警信息
-func (*Alarm) UpdateAlarmInfo(req *model.UpdateAlarmInfoReq, userid string, claims *utils.UserClaims) (alarmInfo *model.AlarmInfo, err error) {
-	if err := ensureTenantDeviceAdministrator(claims); err != nil {
-		return nil, err
-	}
+func (*Alarm) UpdateAlarmInfo(req *model.UpdateAlarmInfoReq, userid string) (alarmInfo *model.AlarmInfo, err error) {
 	alarmInfo, err = dal.GetAlarmInfoByID(req.Id)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -172,10 +148,7 @@ func (*Alarm) UpdateAlarmInfo(req *model.UpdateAlarmInfoReq, userid string, clai
 }
 
 // UpdateAlarmInfoBatch 批量更新告警信息
-func (*Alarm) UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid string, claims *utils.UserClaims) error {
-	if err := ensureTenantDeviceAdministrator(claims); err != nil {
-		return err
-	}
+func (*Alarm) UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid string) error {
 	if len(req.Id) == 0 {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
 			"id": "id is empty",
@@ -191,10 +164,7 @@ func (*Alarm) UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid st
 }
 
 // GetAlarmInfoListByPage 分页查询告警信息
-func (*Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq, claims *utils.UserClaims) (data map[string]interface{}, err error) {
-	if err := ensureTenantDeviceAdministrator(claims); err != nil {
-		return nil, err
-	}
+func (*Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq) (data map[string]interface{}, err error) {
 	total, list, err := dal.GetAlarmInfoListByPage(req)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -208,30 +178,12 @@ func (*Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq, claim
 }
 
 // GetAlarmHisttoryListByPage 分页查询告警信息
-func (*Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, claims *utils.UserClaims) (data map[string]interface{}, err error) {
-	if claims == nil {
-		return nil, errcode.New(errcode.CodeNoPermission)
-	}
-	accessibleDeviceIDs := []string(nil)
-	if !hasFullDeviceAccess(claims) {
-		accessibleDeviceIDs, err = dal.GetAccessibleDeviceIDs(claims.ID, claims.TenantID)
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
-		}
-	}
-	total, list, err := dal.GetAlarmHistoryListByPage(req, claims.TenantID, accessibleDeviceIDs, hasFullDeviceAccess(claims))
+func (*Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, tenantID string) (data map[string]interface{}, err error) {
+	total, list, err := dal.GetAlarmHistoryListByPage(req, tenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
-	}
-	if rows, ok := list.([]map[string]interface{}); ok {
-		for _, row := range rows {
-			if historyID, ok := row["id"].(string); ok {
-				_, manageErr := ensureAlarmHistoryAccess(historyID, claims, dal.DeviceAccessManage)
-				row["can_manage"] = manageErr == nil
-			}
-		}
 	}
 	data = make(map[string]interface{})
 	data["total"] = total
@@ -239,11 +191,8 @@ func (*Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, 
 	return
 }
 
-func (*Alarm) AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, claims *utils.UserClaims) (err error) {
-	if _, err := ensureAlarmHistoryAccess(req.AlarmHistoryId, claims, dal.DeviceAccessManage); err != nil {
-		return err
-	}
-	err = dal.AlarmHistoryDescUpdate(req, claims.TenantID)
+func (*Alarm) AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, tenantID string) (err error) {
+	err = dal.AlarmHistoryDescUpdate(req, tenantID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -252,17 +201,11 @@ func (*Alarm) AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, claim
 	return
 }
 
-func (*Alarm) GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq, claims *utils.UserClaims) (bool, error) {
-	if err := ensureDeviceAccess(req.DeviceId, claims, dal.DeviceAccessRead); err != nil {
-		return false, err
-	}
-	return dal.GetDeviceAlarmStatus(req), nil
+func (*Alarm) GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq) bool {
+	return dal.GetDeviceAlarmStatus(req)
 }
 
-func (*Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq, claims *utils.UserClaims) ([]model.AlarmConfig, error) {
-	if err := ensureDeviceAccess(req.DeviceId, claims, dal.DeviceAccessRead); err != nil {
-		return nil, err
-	}
+func (*Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.AlarmConfig, error) {
 	data, err := dal.GetConfigByDevice(req)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -505,12 +448,8 @@ Details: %s`,
 }
 
 // 通过id获取告警信息
-
-func (*Alarm) GetAlarmInfoHistoryByID(id string, claims *utils.UserClaims) (map[string]interface{}, error) {
-	if _, err := ensureAlarmHistoryAccess(id, claims, dal.DeviceAccessRead); err != nil {
-		return nil, err
-	}
-	alarmInfo, err := dal.GetAlarmInfoHistoryByID(id, claims.TenantID)
+func (*Alarm) GetAlarmInfoHistoryByID(id string) (map[string]interface{}, error) {
+	alarmInfo, err := dal.GetAlarmInfoHistoryByID(id)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -520,25 +459,12 @@ func (*Alarm) GetAlarmInfoHistoryByID(id string, claims *utils.UserClaims) (map[
 }
 
 // GetAlarmDeviceCountsByTenant 获取租户下告警设备数量
-func (a *Alarm) GetAlarmDeviceCountsByTenant(claims *utils.UserClaims) (*model.AlarmDeviceCountsResponse, error) {
-	if claims == nil {
-		return nil, errcode.New(errcode.CodeNoPermission)
-	}
+func (a *Alarm) GetAlarmDeviceCountsByTenant(tenantID string) (*model.AlarmDeviceCountsResponse, error) {
 	ctx := context.Background()
 	db := &dal.LatestDeviceAlarmQuery{}
 
 	// 查询所有告警设备总数
-	var totalCount int64
-	var err error
-	if hasFullDeviceAccess(claims) {
-		totalCount, err = db.CountDevicesByTenantAndStatus(ctx, claims.TenantID)
-	} else {
-		deviceIDs, idsErr := dal.GetAccessibleDeviceIDs(claims.ID, claims.TenantID)
-		if idsErr != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": idsErr.Error()})
-		}
-		totalCount, err = db.CountDevicesByTenantAndStatusForUser(ctx, claims.TenantID, deviceIDs)
-	}
+	totalCount, err := db.CountDevicesByTenantAndStatus(ctx, tenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"operation": "count_alarm_devices",
@@ -552,11 +478,8 @@ func (a *Alarm) GetAlarmDeviceCountsByTenant(claims *utils.UserClaims) (*model.A
 }
 
 // DeleteAlarmHistory 删除告警历史
-func (*Alarm) DeleteAlarmHistory(id string, claims *utils.UserClaims) (err error) {
-	if _, err := ensureAlarmHistoryAccess(id, claims, dal.DeviceAccessManage); err != nil {
-		return err
-	}
-	err = dal.DeleteAlarmHistory(id, claims.TenantID)
+func (*Alarm) DeleteAlarmHistory(id string, tenantID string) (err error) {
+	err = dal.DeleteAlarmHistory(id, tenantID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),

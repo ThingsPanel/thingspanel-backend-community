@@ -52,12 +52,9 @@ func GetAlarmByID(id string) (*model.AlarmConfig, error) {
 }
 
 // 根据告警信息ID获取告警信息
-func GetAlarmInfoHistoryByID(id, tenantID string) (map[string]interface{}, error) {
+func GetAlarmInfoHistoryByID(id string) (map[string]interface{}, error) {
 	var result map[string]interface{}
-	err := query.AlarmHistory.Where(
-		query.AlarmHistory.ID.Eq(id),
-		query.AlarmHistory.TenantID.Eq(tenantID),
-	).Select(query.AlarmHistory.ALL).Scan(&result)
+	err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id)).Select(query.AlarmHistory.ALL).Scan(&result)
 	if err != nil {
 		return nil, err
 	}
@@ -130,13 +127,6 @@ func GetAlarmInfoByID(id string) (*model.AlarmInfo, error) {
 	return data, nil
 }
 
-func GetAlarmHistoryByID(id, tenantID string) (*model.AlarmHistory, error) {
-	return query.AlarmHistory.Where(
-		query.AlarmHistory.ID.Eq(id),
-		query.AlarmHistory.TenantID.Eq(tenantID),
-	).First()
-}
-
 func UpdateAlarmInfo(d *model.AlarmInfo) error {
 	info, err := query.AlarmInfo.Updates(d)
 	if err != nil {
@@ -205,7 +195,7 @@ func GetAlarmInfoListByPage(d *model.GetAlarmInfoListByPageReq) (int64, interfac
 	return count, list, nil
 }
 
-func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID string, accessibleDeviceIDs []string, fullAccess bool) (int64, interface{}, error) {
+func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID string) (int64, interface{}, error) {
 	q := query.AlarmHistory
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
@@ -222,19 +212,6 @@ func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID str
 	if d.DeviceId != nil && *d.DeviceId != "" {
 		//queryBuilder = queryBuilder.Where(q.AlarmDeviceList.Like(fmt.Sprintf("%%%s%%", *d.DeviceId)))
 		queryBuilder = queryBuilder.Where(gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(*d.DeviceId))...)
-	}
-	if !fullAccess {
-		if len(accessibleDeviceIDs) == 0 {
-			return 0, []map[string]interface{}{}, nil
-		}
-		for i, deviceID := range accessibleDeviceIDs {
-			conditions := gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(deviceID))
-			if i == 0 {
-				queryBuilder = queryBuilder.Where(conditions...)
-			} else {
-				queryBuilder = queryBuilder.Or(conditions...)
-			}
-		}
 	}
 
 	count, err := queryBuilder.Count()
@@ -264,26 +241,7 @@ func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID str
 			deviceIds  []string
 			deviceList = make([]map[string]interface{}, 0)
 		)
-		alarmDeviceList, ok := v["alarm_device_list"].(string)
-		if !ok {
-			if raw, rawOK := v["alarm_device_list"].([]byte); rawOK {
-				alarmDeviceList = string(raw)
-			}
-		}
-		_ = json.Unmarshal([]byte(alarmDeviceList), &deviceIds)
-		if !fullAccess {
-			visible := make(map[string]struct{}, len(accessibleDeviceIDs))
-			for _, deviceID := range accessibleDeviceIDs {
-				visible[deviceID] = struct{}{}
-			}
-			filtered := deviceIds[:0]
-			for _, deviceID := range deviceIds {
-				if _, ok := visible[deviceID]; ok {
-					filtered = append(filtered, deviceID)
-				}
-			}
-			deviceIds = filtered
-		}
+		_ = json.Unmarshal([]byte(v["alarm_device_list"].(string)), &deviceIds)
 		_ = query.Device.Where(query.Device.ID.In(deviceIds...)).Select(query.Device.ID, query.Device.Name).Scan(&deviceList)
 		list[i]["alarm_device_list"] = deviceList
 	}
