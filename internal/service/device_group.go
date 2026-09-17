@@ -222,6 +222,9 @@ func (*DeviceGroup) CreateDeviceGroupRelation(req model.CreateDeviceGroupRelatio
 		if err != nil || device.TenantID != claims.TenantID {
 			return errcode.New(errcode.CodeNoPermission)
 		}
+		if err := ensureDeviceAccess(v, claims, dal.DeviceAccessManage); err != nil {
+			return err
+		}
 
 		var deviceGroupRelation = model.RGroupDevice{}
 		deviceGroupRelation.DeviceID = v
@@ -241,6 +244,9 @@ func (*DeviceGroup) DeleteDeviceGroupRelation(group_id, device_id string, claims
 	if err != nil || device.TenantID != claims.TenantID {
 		return errcode.New(errcode.CodeNoPermission)
 	}
+	if err := ensureDeviceAccess(device_id, claims, dal.DeviceAccessManage); err != nil {
+		return err
+	}
 
 	err = dal.DeleteRGroupDevice(group_id, device_id, claims.TenantID)
 	return err
@@ -251,7 +257,7 @@ func (*DeviceGroup) GetDeviceGroupRelation(req model.GetDeviceListByGroup, claim
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
 
-	total, list, err := dal.GetRGroupDeviceByGroupId(req, claims.TenantID)
+	total, list, err := dal.GetRGroupDeviceByGroupId(req, claims.TenantID, claims.ID, hasFullDeviceAccess(claims))
 	if err != nil {
 		return nil, err
 	}

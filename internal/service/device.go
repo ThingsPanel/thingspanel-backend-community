@@ -32,6 +32,9 @@ import (
 type Device struct{}
 
 func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims) (device model.Device, err error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return device, err
+	}
 	t := time.Now().UTC()
 
 	// 如果提供了ID，使用提供的ID，否则自动生成
@@ -133,6 +136,9 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 
 // 服务接入批量创建设备
 func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.UserClaims) (data any, err error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return nil, err
+	}
 	t := time.Now().UTC()
 	var deviceList []*model.Device
 	for _, v := range req.DeviceList {
@@ -268,6 +274,9 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims)
 	if oldDevice.TenantID != claims.TenantID {
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
+	if err := ensureDeviceAccess(oldDevice.ID, claims, dal.DeviceAccessManage); err != nil {
+		return nil, err
+	}
 
 	// 如果req.DeviceNumber被修改，需要校验req.DeviceNumber是否系统唯一
 	if req.DeviceNumber != nil && *req.DeviceNumber != "" {
@@ -352,7 +361,10 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims)
 	return device, err
 }
 
-func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
+func (*Device) ActiveDevice(req model.ActiveDeviceReq, claims *utils.UserClaims) (any, error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return nil, err
+	}
 	// 去空格
 	req.DeviceNumber = strings.TrimSpace(req.DeviceNumber)
 	req.Name = strings.TrimSpace(req.Name)
@@ -398,6 +410,9 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
+	}
+	if err := ensureDeviceAccess(id, userClaims, dal.DeviceAccessManage); err != nil {
+		return err
 	}
 	// 如果有子设备，不允许删除
 	data, err := dal.GetSubDeviceListByParentID(id)
@@ -520,6 +535,9 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 	if device.TenantID != claims.TenantID {
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
+	if err := ensureDeviceAccess(id, claims, dal.DeviceAccessRead); err != nil {
+		return nil, err
+	}
 
 	data, err := dal.GetDeviceDetail(id)
 	if err != nil {
@@ -577,15 +595,29 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 }
 
 func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
-	total, list, err := dal.GetDeviceListByPage(req, u.TenantID)
+	total, list, err := dal.GetDeviceListByPage(req, u.TenantID, u.ID, hasFullDeviceAccess(u))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
 	if len(list) > 0 {
+		accessMap := map[string]string{}
+		if !hasFullDeviceAccess(u) {
+			accessMap, err = dal.GetUserDeviceAccess(u.ID, u.TenantID)
+			if err != nil {
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+			}
+		}
 		for i := range list {
 			list[i].DeviceStatus = list[i].IsOnline
+			if hasFullDeviceAccess(u) {
+				list[i].AccessLevel = dal.DeviceAccessManage
+				list[i].CanManage = true
+			} else {
+				list[i].AccessLevel = accessMap[list[i].ID]
+				list[i].CanManage = accessMap[list[i].ID] == dal.DeviceAccessManage
+			}
 			if list[i].WarnStatus == "N" || list[i].WarnStatus == "" {
 				list[i].WarnStatus = "N"
 			} else {
@@ -706,7 +738,11 @@ func (*Device) ExportDevicePreRegister(req model.ExportPreRegisterReq, claims *u
 	return excelName, nil
 }
 
-func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string) ([]map[string]interface{}, error) {
+func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, claims *utils.UserClaims) ([]map[string]interface{}, error) {
+	if claims == nil || claims.TenantID == "" {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
+	tenantID := claims.TenantID
 	var data []map[string]interface{}
 	var err error
 
@@ -729,6 +765,21 @@ func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, tenantID string)
 
 	if data == nil {
 		data = []map[string]interface{}{}
+	}
+	if !hasFullDeviceAccess(claims) {
+		accessMap, err := dal.GetUserDeviceAccess(claims.ID, claims.TenantID)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+		}
+		filtered := make([]map[string]interface{}, 0, len(data))
+		for _, item := range data {
+			deviceID := fmt.Sprintf("%v", item["id"])
+			if deviceID == "<nil>" || accessMap[deviceID] == "" {
+				continue
+			}
+			filtered = append(filtered, item)
+		}
+		data = filtered
 	}
 	return data, nil
 	// list, err := dal.DeviceQuery{}.Find(ctx, device.TenantID.Eq(tenantID))
@@ -761,10 +812,28 @@ func (*Device) GetDeviceList(ctx context.Context, userClaims *utils.UserClaims, 
 			"sql_error": err.Error(),
 		})
 	}
+	if !hasFullDeviceAccess(userClaims) {
+		accessMap, accessErr := dal.GetUserDeviceAccess(userClaims.ID, userClaims.TenantID)
+		if accessErr != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": accessErr.Error()})
+		}
+		filtered := make([]map[string]interface{}, 0, len(list))
+		for _, item := range list {
+			deviceID := fmt.Sprintf("%v", item["id"])
+			if deviceID == "<nil>" || accessMap[deviceID] == "" {
+				continue
+			}
+			filtered = append(filtered, item)
+		}
+		list = filtered
+	}
 	return list, err
 }
 
-func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDeviceRes) error {
+func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDeviceRes, claims *utils.UserClaims) error {
+	if err := ensureDeviceAccess(param.ID, claims, dal.DeviceAccessManage); err != nil {
+		return err
+	}
 	var (
 		device = query.Device
 		db     = dal.DeviceQuery{}
@@ -772,6 +841,9 @@ func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDevice
 	// param.SonID使用英文逗号分割
 	sonIDs := strings.Split(param.SonID, ",")
 	for _, sonID := range sonIDs {
+		if err := ensureDeviceAccess(sonID, claims, dal.DeviceAccessManage); err != nil {
+			return err
+		}
 		// 验证子设备无绑定 & 设备类型= 网关类型 & 设备设置 id not is null
 		deviceInfo, err := db.First(ctx, device.ID.Eq(sonID), device.ParentID.IsNull(), device.DeviceConfigID.IsNotNull())
 		if err != nil {
@@ -817,7 +889,10 @@ func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDevice
 }
 
 // 获取凭证表单
-func (d *Device) DeviceConnectForm(ctx context.Context, param *model.DeviceConnectFormReq) (any, error) {
+func (d *Device) DeviceConnectForm(ctx context.Context, param *model.DeviceConnectFormReq, claims *utils.UserClaims) (any, error) {
+	if err := ensureDeviceAccess(param.DeviceID, claims, dal.DeviceAccessManage); err != nil {
+		return nil, err
+	}
 	var voucherType string
 	var deviceType string
 	var protocolType string
@@ -913,7 +988,10 @@ func (*Device) GetVoucherTypeForm(voucherType string, deviceType string, protoco
 	return pp.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_FORM))
 }
 
-func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectFormReq, lang string) (any, error) {
+func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectFormReq, lang string, claims *utils.UserClaims) (any, error) {
+	if err := ensureDeviceAccess(param.DeviceID, claims, dal.DeviceAccessManage); err != nil {
+		return nil, err
+	}
 	// 获取设备信息
 	device, err := dal.GetDeviceByID(param.DeviceID)
 	if err != nil {
@@ -995,7 +1073,10 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 }
 
 // 更换设备配置
-func (*Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
+func (*Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq, claims *utils.UserClaims) error {
+	if err := ensureDeviceAccess(param.DeviceID, claims, dal.DeviceAccessManage); err != nil {
+		return err
+	}
 	// 查找原设备配置
 	device, err := dal.GetDeviceByID(param.DeviceID)
 	if err != nil {
@@ -1056,7 +1137,7 @@ func (*Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
 	return err
 }
 
-func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDeviceVoucherReq) (string, error) {
+func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDeviceVoucherReq, claims *utils.UserClaims) (string, error) {
 	var (
 		db     = dal.DeviceQuery{}
 		device = query.Device
@@ -1071,6 +1152,9 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 			"error": "get device info failed:" + err.Error(),
 			"id":    param.DeviceID,
 		})
+	}
+	if err := ensureDeviceAccess(param.DeviceID, claims, dal.DeviceAccessManage); err != nil {
+		return "", err
 	}
 	if v, ok := param.Voucher.(string); ok {
 		voucher = v
@@ -1138,6 +1222,9 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 
 // GetSubList
 func (*Device) GetSubList(ctx context.Context, parent_id string, page, pageSize int64, userClaims *utils.UserClaims) ([]model.GetSubListResp, int64, error) {
+	if err := ensureDeviceAccess(parent_id, userClaims, dal.DeviceAccessRead); err != nil {
+		return nil, 0, err
+	}
 	data, count, err := dal.DeviceQuery{}.GetSubList(ctx, parent_id, pageSize, page, userClaims.TenantID)
 	if err != nil {
 		return nil, 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -1150,7 +1237,10 @@ func (*Device) GetSubList(ctx context.Context, parent_id string, page, pageSize 
 }
 
 // 获取自动化下拉标识，看板下拉标识
-func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error) {
+func (*Device) GetMetrics(device_id string, claims *utils.UserClaims) ([]model.GetModelSourceATRes, error) {
+	if err := ensureDeviceAccess(device_id, claims, dal.DeviceAccessRead); err != nil {
+		return nil, err
+	}
 	res := make([]model.GetModelSourceATRes, 0)
 
 	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(device_id)
@@ -1377,7 +1467,10 @@ func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error)
 
 // 获取自动化一类设备Action下拉菜单；
 // 包含遥测、属性、命令
-func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
+func (*Device) GetActionByDeviceID(deviceID string, claims *utils.UserClaims) (any, error) {
+	if err := ensureDeviceAccess(deviceID, claims, dal.DeviceAccessRead); err != nil {
+		return nil, err
+	}
 	/*返回数据结构
 	{
 		"data_source_type": "telemetry",
@@ -1606,7 +1699,10 @@ func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
 
 // 获取自动化一类设备Condition下拉菜单；
 // 包含遥测、属性、事件
-func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
+func (*Device) GetConditionByDeviceID(deviceID string, claims *utils.UserClaims) (any, error) {
+	if err := ensureDeviceAccess(deviceID, claims, dal.DeviceAccessRead); err != nil {
+		return nil, err
+	}
 	/*返回数据结构
 	{
 		"data_source_type": "telemetry",
@@ -1802,7 +1898,10 @@ func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
 	return res, nil
 }
 
-func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error) {
+func (*Device) GetMapTelemetry(device_id string, claims *utils.UserClaims) (map[string]interface{}, error) {
+	if err := ensureDeviceAccess(device_id, claims, dal.DeviceAccessRead); err != nil {
+		return nil, err
+	}
 	res := make(map[string]interface{}, 0)
 
 	device, err := dal.GetDeviceByID(device_id)
@@ -1906,6 +2005,17 @@ func (*Device) GetDeviceTemplateChartSelect(userClaims *utils.UserClaims) (any, 
 }
 
 func (*Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error) {
+	return getDeviceOnlineStatus(device_id)
+}
+
+func (*Device) GetDeviceOnlineStatusForUser(device_id string, claims *utils.UserClaims) (map[string]int, error) {
+	if err := ensureDeviceAccess(device_id, claims, dal.DeviceAccessRead); err != nil {
+		return nil, err
+	}
+	return getDeviceOnlineStatus(device_id)
+}
+
+func getDeviceOnlineStatus(device_id string) (map[string]int, error) {
 	deviceInfo, err := dal.GetDeviceByID(device_id)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -2053,6 +2163,9 @@ func (*Device) GatewayDeviceRegister(req model.DeviceRegisterReq) (model.DeviceR
 
 // 设备单指标图表数据查询
 func (*Device) GetDeviceMetricsChart(param *model.GetDeviceMetricsChartReq, userClaims *utils.UserClaims) (any, error) {
+	if err := ensureDeviceAccess(param.DeviceID, userClaims, dal.DeviceAccessRead); err != nil {
+		return nil, err
+	}
 	var data model.DeviceMetricsChartData
 
 	data.DeviceID = param.DeviceID
@@ -2197,7 +2310,7 @@ func (*Device) GetDeviceMetricsChart(param *model.GetDeviceMetricsChartReq, user
 // 设备选择器
 func (*Device) GetDeviceSelector(req model.DeviceSelectorReq, userClaims *utils.UserClaims) (*model.DeviceSelectorRes, error) {
 	tenantId := userClaims.TenantID
-	list, err := dal.GetDeviceSelector(req, tenantId)
+	list, err := dal.GetDeviceSelector(req, tenantId, userClaims.ID, hasFullDeviceAccess(userClaims))
 	if err != nil {
 		return nil, err
 	}
@@ -2205,17 +2318,30 @@ func (*Device) GetDeviceSelector(req model.DeviceSelectorReq, userClaims *utils.
 }
 
 // 获取租户下最近上报数据的三个设备的遥测数据
-func (d *Device) GetTenantTelemetryData(tenantId string) ([]map[string]interface{}, error) {
-	devices, err := dal.GetTenantTelemetryData(tenantId)
+func (d *Device) GetTenantTelemetryData(claims *utils.UserClaims) ([]map[string]interface{}, error) {
+	if claims == nil || claims.TenantID == "" {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
+	devices, err := dal.GetTenantTelemetryData(claims.TenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": "get tenant telemetry data failed:" + err.Error(),
-			"id":    tenantId,
+			"id":    claims.TenantID,
 		})
+	}
+	accessMap := map[string]string{}
+	if !hasFullDeviceAccess(claims) {
+		accessMap, err = dal.GetUserDeviceAccess(claims.ID, claims.TenantID)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+		}
 	}
 	telemetryDataList := make([]map[string]interface{}, 0)
 	for _, device := range devices {
-		telemetryData, err := d.GetMapTelemetry(device.DeviceID)
+		if !hasFullDeviceAccess(claims) && accessMap[device.DeviceID] == "" {
+			continue
+		}
+		telemetryData, err := d.GetMapTelemetry(device.DeviceID, claims)
 		if err != nil {
 			return nil, err
 		}

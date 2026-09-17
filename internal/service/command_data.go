@@ -16,6 +16,7 @@ import (
 	"project/pkg/common"
 	"project/pkg/constant"
 	"project/pkg/errcode"
+	"project/pkg/utils"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
@@ -30,9 +31,23 @@ func (c *CommandData) SetDownlinkBus(bus *downlink.Bus) {
 	c.downlinkBus = bus
 }
 
-// PutMessage 下发命令（改造为异步模式，支持多层网关）
-// 保持原有的 CommandPutMessage 接口签名
+// CommandPutMessage is kept for trusted internal workers that already have
+// their own execution checks (automation/expected-data). HTTP callers must use
+// CommandPutMessageForUser below so a user scope is checked before any effect.
 func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType string) error {
+	return c.commandPutMessage(ctx, operatorID, putMessageReq, operationType, nil)
+}
+
+func (c *CommandData) CommandPutMessageForUser(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType string, claims *utils.UserClaims) error {
+	return c.commandPutMessage(ctx, operatorID, putMessageReq, operationType, claims)
+}
+
+func (c *CommandData) commandPutMessage(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType string, claims *utils.UserClaims) error {
+	if claims != nil {
+		if err := ensureDeviceAccess(putMessageReq.DeviceID, claims, dal.DeviceAccessManage); err != nil {
+			return err
+		}
+	}
 	// 1. 获取设备信息
 	device, err := initialize.GetDeviceCacheById(putMessageReq.DeviceID)
 	if err != nil {

@@ -11,6 +11,29 @@ import (
 
 type UserApi struct{}
 
+func (*UserApi) GetUserDevicePermissions(c *gin.Context) {
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.User.GetUserDevicePermissions(c.Param("id"), claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
+func (*UserApi) UpdateUserDevicePermissions(c *gin.Context) {
+	var req model.UpdateUserDevicePermissionsReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	if err := service.GroupApp.User.UpdateUserDevicePermissions(c.Param("id"), &req, claims); err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", nil)
+}
+
 // Login
 // @Summary      用户登录
 // @Description  认证令牌(Token)将在用户成功登录后生成并返回。客户端需要在后续所有需要认证的API请求中，将此令牌添加到HTTP请求头(Header)的'x-token'字段中。服务器将通过验证此令牌来确认用户身份并授权访问受保护资源。

@@ -21,12 +21,22 @@ func DeleteRGroupDevice(group_id, device_id, tenantID string) error {
 	return err
 }
 
-func GetRGroupDeviceByGroupId(req model.GetDeviceListByGroup, tenantID string) (int64, interface{}, error) {
+func GetRGroupDeviceByGroupId(req model.GetDeviceListByGroup, tenantID, userID string, fullAccess bool) (int64, interface{}, error) {
 	// 获取分组下设备,分页返回
 	q := query.RGroupDevice
 	var devicesList []model.GetDeviceListByGroupRsp
 	queryBuilder := q.WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.GroupID.Eq(req.GroupId), q.TenantID.Eq(tenantID))
+	if !fullAccess {
+		accessibleIDs, err := GetAccessibleDeviceIDs(userID, tenantID)
+		if err != nil {
+			return 0, devicesList, err
+		}
+		if len(accessibleIDs) == 0 {
+			return 0, devicesList, nil
+		}
+		queryBuilder = queryBuilder.Where(q.DeviceID.In(accessibleIDs...))
+	}
 	var count int64
 	count, err := queryBuilder.Count()
 	if err != nil {

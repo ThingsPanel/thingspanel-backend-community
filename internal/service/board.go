@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gen"
 )
 
 type Board struct{}
@@ -183,16 +184,23 @@ func (*Board) GetBoardListByTenantId(tenantid string) (interface{}, error) {
 // @AUTHOR:zxq
 // @DATE: 2024-03-01 19:04
 // @DESCRIPTIONS: 获得设备总数
-func (*Board) GetDeviceTotal(ctx context.Context, authority string, tenantID string) (int64, error) {
+func (*Board) GetDeviceTotal(ctx context.Context, U *utils.UserClaims) (int64, error) {
 	var (
 		total int64
 		err   error
 		db    = dal.DeviceQuery{}
 	)
-	if common.CheckUserIsAdmin(authority) {
+	if hasFullDeviceAccess(U) {
 		total, err = db.Count(ctx)
 	} else {
-		total, err = db.CountByTenantID(ctx, tenantID)
+		ids, accessErr := dal.GetAccessibleDeviceIDs(U.ID, U.TenantID)
+		if accessErr != nil {
+			return 0, accessErr
+		}
+		if len(ids) == 0 {
+			return 0, nil
+		}
+		total, err = db.CountByWhere(ctx, query.Device.TenantID.Eq(U.TenantID), query.Device.ID.In(ids...))
 	}
 	if err != nil {
 		return 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -215,7 +223,17 @@ func (*Board) GetDevice(ctx context.Context, U *utils.UserClaims) (data *model.G
 	)
 
 	if !common.CheckUserIsAdmin(U.Authority) {
-		total, err = db.CountByTenantID(ctx, U.TenantID)
+		if hasFullDeviceAccess(U) {
+			total, err = db.CountByTenantID(ctx, U.TenantID)
+		} else {
+			ids, accessErr := dal.GetAccessibleDeviceIDs(U.ID, U.TenantID)
+			if accessErr != nil {
+				return nil, accessErr
+			}
+			if len(ids) > 0 {
+				total, err = db.CountByWhere(ctx, device.TenantID.Eq(U.TenantID), device.ID.In(ids...))
+			}
+		}
 	} else {
 		total, err = db.CountByWhere(ctx, device.ActivateFlag.Neq("inactive"))
 	}
@@ -227,7 +245,17 @@ func (*Board) GetDevice(ctx context.Context, U *utils.UserClaims) (data *model.G
 		return
 	}
 	if !common.CheckUserIsAdmin(U.Authority) {
-		on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.TenantID.Eq(U.TenantID), device.IsOnline.Eq(1))
+		if hasFullDeviceAccess(U) {
+			on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.TenantID.Eq(U.TenantID), device.IsOnline.Eq(1))
+		} else {
+			ids, accessErr := dal.GetAccessibleDeviceIDs(U.ID, U.TenantID)
+			if accessErr != nil {
+				return nil, accessErr
+			}
+			if len(ids) > 0 {
+				on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.TenantID.Eq(U.TenantID), device.IsOnline.Eq(1), device.ID.In(ids...))
+			}
+		}
 	} else {
 		on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.IsOnline.Eq(1))
 	}
@@ -251,19 +279,46 @@ func (*Board) GetDevice(ctx context.Context, U *utils.UserClaims) (data *model.G
 // @DATE: 2024-03-04 09:04
 // @DESCRIPTIONS: 获得已激活的设备总数/在线数
 func (*Board) GetDeviceByTenantID(ctx context.Context, tenantID string) (data *model.GetBoardDeviceRes, err error) {
+	return getDeviceByTenantID(ctx, &utils.UserClaims{TenantID: tenantID, Authority: "TENANT_ADMIN"})
+}
+
+func (*Board) GetDeviceByTenantIDForUser(ctx context.Context, U *utils.UserClaims) (data *model.GetBoardDeviceRes, err error) {
+	return getDeviceByTenantID(ctx, U)
+}
+
+func getDeviceByTenantID(ctx context.Context, U *utils.UserClaims) (data *model.GetBoardDeviceRes, err error) {
 	var (
 		total, on int64
 		device    = query.Device
 		db        = dal.DeviceQuery{}
 	)
 
-	total, err = db.CountByWhere(ctx, device.TenantID.Eq(tenantID), device.ActivateFlag.Neq("inactive"))
+	conditions := []gen.Condition{device.TenantID.Eq(U.TenantID), device.ActivateFlag.Neq("inactive")}
+	if !hasFullDeviceAccess(U) {
+		ids, accessErr := dal.GetAccessibleDeviceIDs(U.ID, U.TenantID)
+		if accessErr != nil {
+			return nil, accessErr
+		}
+		if len(ids) == 0 {
+			return &model.GetBoardDeviceRes{}, nil
+		}
+		conditions = append(conditions, device.ID.In(ids...))
+	}
+	total, err = db.CountByWhere(ctx, conditions...)
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count failed:", err)
 		return
 	}
 	//
-	on, err = db.CountByWhere(ctx, device.ActivateFlag.Eq("active"), device.TenantID.Eq(tenantID), device.IsOnline.Eq(1))
+	onConditions := []gen.Condition{device.ActivateFlag.Eq("active"), device.TenantID.Eq(U.TenantID), device.IsOnline.Eq(1)}
+	if !hasFullDeviceAccess(U) {
+		ids, accessErr := dal.GetAccessibleDeviceIDs(U.ID, U.TenantID)
+		if accessErr != nil {
+			return nil, accessErr
+		}
+		onConditions = append(onConditions, device.ID.In(ids...))
+	}
+	on, err = db.CountByWhere(ctx, onConditions...)
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count/on failed:", err)
 		return
@@ -293,4 +348,3 @@ func (*Device) GetDeviceTrend(ctx context.Context, tenantID string, startTime, e
 		Points: points,
 	}, nil
 }
-
