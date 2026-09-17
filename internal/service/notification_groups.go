@@ -26,6 +26,9 @@ type NotificationGroup struct{}
 //		Remark             string    `json:"remark" validate:"required"`              // 备注
 //	}
 func (*NotificationGroup) CreateNotificationGroup(createNotificationgroupReq *model.CreateNotificationGroupReq, u *utils.UserClaims) (*model.NotificationGroup, error) {
+	if err := ensureTenantDeviceAdministrator(u); err != nil {
+		return nil, err
+	}
 	var notificationGroup model.NotificationGroup
 	notificationGroup.ID = uuid.New()
 	notificationGroup.Name = createNotificationgroupReq.Name
@@ -49,22 +52,34 @@ func (*NotificationGroup) CreateNotificationGroup(createNotificationgroupReq *mo
 	return &notificationGroup, nil
 }
 
-func (*NotificationGroup) GetNotificationGroupById(id string) (notificationGroup *model.NotificationGroup, err error) {
+func (*NotificationGroup) GetNotificationGroupById(id string, claims *utils.UserClaims) (notificationGroup *model.NotificationGroup, err error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return nil, err
+	}
 	notificationGroup, err = dal.GetNotificationGroupById(id)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
+	if notificationGroup.TenantID != claims.TenantID {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
 	return
 }
 
-func (*NotificationGroup) UpdateNotificationGroup(id string, updateNotificationgroupReq *model.UpdateNotificationGroupReq) (*model.NotificationGroup, error) {
+func (*NotificationGroup) UpdateNotificationGroup(id string, updateNotificationgroupReq *model.UpdateNotificationGroupReq, claims *utils.UserClaims) (*model.NotificationGroup, error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return nil, err
+	}
 	notificationGroup, err := dal.GetNotificationGroupById(id)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
+	}
+	if notificationGroup.TenantID != claims.TenantID {
+		return nil, errcode.New(errcode.CodeNoPermission)
 	}
 	utils.SerializeData(updateNotificationgroupReq, notificationGroup)
 
@@ -78,8 +93,15 @@ func (*NotificationGroup) UpdateNotificationGroup(id string, updateNotificationg
 	return notificationGroup, nil
 }
 
-func (*NotificationGroup) DeleteNotificationGroup(id string) error {
-	err := dal.DeleteNotificationGroup(id)
+func (*NotificationGroup) DeleteNotificationGroup(id string, claims *utils.UserClaims) error {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return err
+	}
+	notificationGroup, err := dal.GetNotificationGroupById(id)
+	if err != nil || notificationGroup == nil || notificationGroup.TenantID != claims.TenantID {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	err = dal.DeleteNotificationGroup(id)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -89,6 +111,9 @@ func (*NotificationGroup) DeleteNotificationGroup(id string) error {
 }
 
 func (*NotificationGroup) GetNotificationGroupListByPage(pageParam *model.GetNotificationGroupListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
+	if err := ensureTenantDeviceAdministrator(u); err != nil {
+		return nil, err
+	}
 	total, list, err := dal.GetNotificationGroupListByPage(pageParam, u)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{

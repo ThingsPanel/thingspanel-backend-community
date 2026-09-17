@@ -10,6 +10,9 @@ import (
 type Scene struct{}
 
 func (*Scene) CreateScene(req model.CreateSceneReq, claims *utils.UserClaims) (string, error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return "", err
+	}
 	id, err := dal.CreateSceneInfo(req, claims)
 	if err != nil {
 		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -20,6 +23,9 @@ func (*Scene) CreateScene(req model.CreateSceneReq, claims *utils.UserClaims) (s
 }
 
 func (*Scene) UpdateScene(req model.UpdateSceneReq, claims *utils.UserClaims) (string, error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return "", err
+	}
 	id, err := dal.UpdateSceneInfo(req, claims)
 	if err != nil {
 		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -30,6 +36,9 @@ func (*Scene) UpdateScene(req model.UpdateSceneReq, claims *utils.UserClaims) (s
 }
 
 func (*Scene) DeleteScene(scene_id string, claims *utils.UserClaims) error {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return err
+	}
 	err := dal.DeleteSceneInfo(scene_id, claims.TenantID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -40,6 +49,9 @@ func (*Scene) DeleteScene(scene_id string, claims *utils.UserClaims) error {
 }
 
 func (*Scene) GetScene(scene_id string, claims *utils.UserClaims) (interface{}, error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return nil, err
+	}
 	sceneInfo, err := dal.GetSceneInfoByTenant(scene_id, claims.TenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -61,6 +73,9 @@ func (*Scene) GetScene(scene_id string, claims *utils.UserClaims) (interface{}, 
 }
 
 func (*Scene) GetSceneListByPage(req model.GetSceneListByPageReq, claims *utils.UserClaims) (interface{}, error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return nil, err
+	}
 	total, sceneInfo, err := dal.GetSceneInfoByPage(&req, claims.TenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -74,15 +89,21 @@ func (*Scene) GetSceneListByPage(req model.GetSceneListByPageReq, claims *utils.
 }
 
 // TODO
-func (*Scene) ActiveScene(scene_id, _, tenantID string) error {
-	err := GroupApp.ActiveSceneExecute(scene_id, tenantID)
+func (*Scene) ActiveScene(scene_id, _ string, claims *utils.UserClaims) error {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return err
+	}
+	err := GroupApp.ActiveSceneExecute(scene_id, claims.TenantID)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (*Scene) GetSceneLog(req model.GetSceneLogListByPageReq) (interface{}, error) {
+func (*Scene) GetSceneLog(req model.GetSceneLogListByPageReq, claims *utils.UserClaims) (interface{}, error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return nil, err
+	}
 	total, data, err := dal.GetSceneLogByPage(req)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{

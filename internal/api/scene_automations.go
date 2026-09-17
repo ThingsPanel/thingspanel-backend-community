@@ -35,7 +35,8 @@ func (*SceneAutomationsApi) CreateSceneAutomations(c *gin.Context) {
 // /api/v1/scene_automations/{id} [delete]
 func (*SceneAutomationsApi) DeleteSceneAutomations(c *gin.Context) {
 	id := c.Param("id")
-	err := service.GroupApp.SceneAutomation.DeleteSceneAutomation(id)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.SceneAutomation.DeleteSceneAutomation(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -47,7 +48,8 @@ func (*SceneAutomationsApi) DeleteSceneAutomations(c *gin.Context) {
 // /api/v1/scene_automations/switch/{id} [post]
 func (*SceneAutomationsApi) SwitchSceneAutomations(c *gin.Context) {
 	id := c.Param("id")
-	err := service.GroupApp.SceneAutomation.SwitchSceneAutomation(id, "")
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.SceneAutomation.SwitchSceneAutomation(id, "", userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -75,7 +77,8 @@ func (*SceneAutomationsApi) UpdateSceneAutomations(c *gin.Context) {
 // /api/v1/scene_automations/detail/{id} [get]
 func (*SceneAutomationsApi) HandleSceneAutomations(c *gin.Context) {
 	id := c.Param("id")
-	data, err := service.GroupApp.SceneAutomation.GetSceneAutomation(id)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.SceneAutomation.GetSceneAutomation(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return

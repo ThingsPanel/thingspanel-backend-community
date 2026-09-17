@@ -21,7 +21,7 @@ func (*AlarmApi) CreateAlarmConfig(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	req.TenantID = userClaims.TenantID
-	data, err := service.GroupApp.Alarm.CreateAlarmConfig(&req)
+	data, err := service.GroupApp.Alarm.CreateAlarmConfig(&req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -40,7 +40,8 @@ func (*AlarmApi) DeleteAlarmConfig(c *gin.Context) {
 		return
 	}
 
-	err := service.GroupApp.Alarm.DeleteAlarmConfig(id)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.Alarm.DeleteAlarmConfig(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -56,7 +57,7 @@ func (*AlarmApi) UpdateAlarmConfig(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	req.TenantID = &userClaims.TenantID
-	data, err := service.GroupApp.Alarm.UpdateAlarmConfig(&req)
+	data, err := service.GroupApp.Alarm.UpdateAlarmConfig(&req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -73,7 +74,7 @@ func (*AlarmApi) ServeAlarmConfigListByPage(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	req.TenantID = userClaims.TenantID
 
-	data, err := service.GroupApp.Alarm.GetAlarmConfigListByPage(&req)
+	data, err := service.GroupApp.Alarm.GetAlarmConfigListByPage(&req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -89,7 +90,7 @@ func (*AlarmApi) UpdateAlarmInfo(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	data, err := service.GroupApp.Alarm.UpdateAlarmInfo(&req, userClaims.ID)
+	data, err := service.GroupApp.Alarm.UpdateAlarmInfo(&req, userClaims.ID, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -105,7 +106,7 @@ func (*AlarmApi) BatchUpdateAlarmInfo(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	err := service.GroupApp.Alarm.UpdateAlarmInfoBatch(&req, userClaims.ID)
+	err := service.GroupApp.Alarm.UpdateAlarmInfoBatch(&req, userClaims.ID, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -122,7 +123,7 @@ func (*AlarmApi) HandleAlarmInfoListByPage(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	req.TenantID = userClaims.TenantID
 
-	data, err := service.GroupApp.Alarm.GetAlarmInfoListByPage(&req)
+	data, err := service.GroupApp.Alarm.GetAlarmInfoListByPage(&req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -139,7 +140,7 @@ func (*AlarmApi) HandleAlarmHisttoryListByPage(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	data, err := service.GroupApp.Alarm.GetAlarmHisttoryListByPage(&req, userClaims.TenantID)
+	data, err := service.GroupApp.Alarm.GetAlarmHisttoryListByPage(&req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -156,7 +157,7 @@ func (*AlarmApi) AlarmHistoryDescUpdate(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	err := service.GroupApp.Alarm.AlarmHistoryDescUpdate(&req, userClaims.TenantID)
+	err := service.GroupApp.Alarm.AlarmHistoryDescUpdate(&req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -170,9 +171,13 @@ func (*AlarmApi) HandleDeviceAlarmStatus(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	// var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	ok := service.GroupApp.Alarm.GetDeviceAlarmStatus(&req)
+	ok, err := service.GroupApp.Alarm.GetDeviceAlarmStatus(&req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	c.Set("data", map[string]bool{
 		"alarm": ok,
 	})
@@ -185,9 +190,9 @@ func (*AlarmApi) HandleConfigByDevice(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	// var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	list, err := service.GroupApp.Alarm.GetConfigByDevice(&req)
+	list, err := service.GroupApp.Alarm.GetConfigByDevice(&req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -205,7 +210,8 @@ func (*AlarmApi) HandleAlarmInfoHistory(c *gin.Context) {
 		return
 	}
 
-	data, err := service.GroupApp.Alarm.GetAlarmInfoHistoryByID(id)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.Alarm.GetAlarmInfoHistoryByID(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -227,7 +233,7 @@ func (api *AlarmApi) GetAlarmDeviceCountsByTenant(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
 	// 调用服务层获取告警设备数量
-	counts, err := service.GroupApp.Alarm.GetAlarmDeviceCountsByTenant(userClaims.TenantID)
+	counts, err := service.GroupApp.Alarm.GetAlarmDeviceCountsByTenant(userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -248,7 +254,7 @@ func (*AlarmApi) DeleteAlarmHistory(c *gin.Context) {
 
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	err := service.GroupApp.Alarm.DeleteAlarmHistory(id, userClaims.TenantID)
+	err := service.GroupApp.Alarm.DeleteAlarmHistory(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return

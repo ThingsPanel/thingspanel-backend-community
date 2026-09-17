@@ -38,7 +38,8 @@ func (*NotificationGroupApi) CreateNotificationGroup(c *gin.Context) {
 // @Router   /api/v1/notification_group/{id} [get]
 func (*NotificationGroupApi) HandleNotificationGroupById(c *gin.Context) {
 	id := c.Param("id")
-	if ntfgroup, err := service.GroupApp.NotificationGroup.GetNotificationGroupById(id); err != nil {
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	if ntfgroup, err := service.GroupApp.NotificationGroup.GetNotificationGroupById(id, userClaims); err != nil {
 		c.Error(err)
 		return
 	} else {
@@ -60,7 +61,8 @@ func (*NotificationGroupApi) UpdateNotificationGroup(c *gin.Context) {
 		return
 	}
 
-	if updated, err := service.GroupApp.NotificationGroup.UpdateNotificationGroup(id, &req); err != nil {
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	if updated, err := service.GroupApp.NotificationGroup.UpdateNotificationGroup(id, &req, userClaims); err != nil {
 		c.Error(err)
 		return
 	} else {
@@ -77,7 +79,8 @@ func (*NotificationGroupApi) UpdateNotificationGroup(c *gin.Context) {
 // @Router   /api/v1/notification_group/{id} [delete]
 func (*NotificationGroupApi) DeleteNotificationGroup(c *gin.Context) {
 	id := c.Param("id")
-	if err := service.GroupApp.NotificationGroup.DeleteNotificationGroup(id); err != nil {
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	if err := service.GroupApp.NotificationGroup.DeleteNotificationGroup(id, userClaims); err != nil {
 		c.Error(err)
 		return
 	} else {

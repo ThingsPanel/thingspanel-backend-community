@@ -14,6 +14,9 @@ import (
 type SceneAutomation struct{}
 
 func (s *SceneAutomation) CreateSceneAutomation(req *model.CreateSceneAutomationReq, u *utils.UserClaims) (string, error) {
+	if err := ensureTenantDeviceAdministrator(u); err != nil {
+		return "", err
+	}
 	var scene_automation_id string
 
 	// 开启事物
@@ -233,7 +236,13 @@ func (*SceneAutomation) AutomateCacheSet(scene_automation_id string) error {
 	return nil
 }
 
-func (*SceneAutomation) DeleteSceneAutomation(scene_automation_id string) error {
+func (*SceneAutomation) DeleteSceneAutomation(scene_automation_id string, claims *utils.UserClaims) error {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return err
+	}
+	if automation, err := dal.GetSceneAutomation(scene_automation_id, nil); err != nil || automation == nil || automation.TenantID != claims.TenantID {
+		return errcode.New(errcode.CodeNoPermission)
+	}
 	err := dal.DeleteSceneAutomation(scene_automation_id, nil)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -260,8 +269,11 @@ func (*SceneAutomation) DeleteSceneAutomation(scene_automation_id string) error 
 	return nil
 }
 
-func (*SceneAutomation) GetSceneAutomation(scene_automation_id string) (interface{}, error) {
-	sceneAutomation, err := dal.GetSceneAutomation(scene_automation_id, nil)
+func (*SceneAutomation) GetSceneAutomation(scene_automation_id string, claims *utils.UserClaims) (interface{}, error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return nil, err
+	}
+	sceneAutomation, err := dal.GetSceneAutomationByTenant(scene_automation_id, claims.TenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -384,7 +396,13 @@ func (*SceneAutomation) GetSceneAutomation(scene_automation_id string) (interfac
 	return res, err
 }
 
-func (*SceneAutomation) SwitchSceneAutomation(scene_automation_id, target string) error {
+func (*SceneAutomation) SwitchSceneAutomation(scene_automation_id, target string, claims *utils.UserClaims) error {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return err
+	}
+	if automation, err := dal.GetSceneAutomation(scene_automation_id, nil); err != nil || automation == nil || automation.TenantID != claims.TenantID {
+		return errcode.New(errcode.CodeNoPermission)
+	}
 	// 开启事物
 	tx, err := dal.StartTransaction()
 	if err != nil {
@@ -461,6 +479,9 @@ func (*SceneAutomation) SwitchSceneAutomation(scene_automation_id, target string
 }
 
 func (*SceneAutomation) GetSceneAutomationByPageReq(req *model.GetSceneAutomationByPageReq, u *utils.UserClaims) (interface{}, error) {
+	if err := ensureTenantDeviceAdministrator(u); err != nil {
+		return nil, err
+	}
 	total, sceneInfo, err := dal.GetSceneAutomationByPage(req, u.TenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -474,6 +495,9 @@ func (*SceneAutomation) GetSceneAutomationByPageReq(req *model.GetSceneAutomatio
 }
 
 func (*SceneAutomation) GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlarmByPageReq, u *utils.UserClaims) (interface{}, error) {
+	if err := ensureTenantDeviceAdministrator(u); err != nil {
+		return nil, err
+	}
 	total, sceneInfo, err := dal.GetSceneAutomationWithAlarmByPageReq(req, u.TenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -487,6 +511,12 @@ func (*SceneAutomation) GetSceneAutomationWithAlarmByPageReq(req *model.GetScene
 }
 
 func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationReq, u *utils.UserClaims) (string, error) {
+	if err := ensureTenantDeviceAdministrator(u); err != nil {
+		return "", err
+	}
+	if automation, err := dal.GetSceneAutomation(req.ID, nil); err != nil || automation == nil || automation.TenantID != u.TenantID {
+		return "", errcode.New(errcode.CodeNoPermission)
+	}
 	var scene_automation_id string
 
 	// 开启事物
