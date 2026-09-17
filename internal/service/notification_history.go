@@ -4,6 +4,7 @@ import (
 	dal "project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/errcode"
+	"project/pkg/utils"
 )
 
 type NotificationHisory struct{}
@@ -20,7 +21,10 @@ type NotificationHisory struct{}
 // 	Remark           *string   `gorm:"column:remark" json:"remark"`
 // }
 
-func (*NotificationHisory) GetNotificationHistoryListByPage(pageParam *model.GetNotificationHistoryListByPageReq) (map[string]interface{}, error) {
+func (*NotificationHisory) GetNotificationHistoryListByPage(pageParam *model.GetNotificationHistoryListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
+	if err := ensureTenantDeviceAdministrator(claims); err != nil {
+		return nil, err
+	}
 	total, list, err := dal.GetNotificationHisoryListByPage(pageParam)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{

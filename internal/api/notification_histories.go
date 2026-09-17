@@ -20,7 +20,7 @@ func (*NotificationHistoryApi) HandleNotificationHistoryListByPage(c *gin.Contex
 
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	req.TenantID = userClaims.TenantID
-	notificationList, err := service.GroupApp.NotificationHisory.GetNotificationHistoryListByPage(&req)
+	notificationList, err := service.GroupApp.NotificationHisory.GetNotificationHistoryListByPage(&req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
