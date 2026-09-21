@@ -72,6 +72,7 @@ type GetDeviceListByPageReq struct {
 	Name              *string `json:"name" form:"name" validate:"omitempty,max=255"`                            // 设备名称
 	CurrentVersion    *string `json:"current_version" form:"current_version" validate:"omitempty,max=36"`       // 当前版本
 	GroupId           *string `json:"group_id" form:"group_id" validate:"omitempty,max=36"`                     //组id
+	GroupScope        *string `json:"group_scope" form:"group_scope" validate:"omitempty,oneof=ungrouped"`      //分组范围：ungrouped表示未加入任何分组
 	DeviceConfigId    *string `json:"device_config_id" form:"device_config_id" validate:"omitempty,max=36"`     // 设备配置ID
 	DeviceTemplateID  *string `json:"device_template_id" form:"device_template_id" validate:"omitempty,max=36"` // 设备物模型ID
 	IsOnline          *int    `json:"is_online" form:"is_online" validate:"omitempty,max=36"`                   // 组id
@@ -150,6 +151,11 @@ type DeviceGroupStatistics struct {
 	OnlineTotal  int64 `json:"online_total"`
 	OfflineTotal int64 `json:"offline_total"`
 	AlarmTotal   int64 `json:"alarm_total"`
+}
+
+type DeviceGroupCounts struct {
+	DeviceTotal    int64 `json:"device_total"`
+	UngroupedTotal int64 `json:"ungrouped_total"`
 }
 
 type CreateDeviceGroupRelationReq struct {

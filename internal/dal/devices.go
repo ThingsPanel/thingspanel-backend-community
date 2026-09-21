@@ -328,6 +328,12 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		}
 		builder = builder.Where(q.ID.In(ids...))
 	}
+	if req.GroupScope != nil && strings.TrimSpace(*req.GroupScope) == "ungrouped" {
+		groupedDeviceIDs := query.RGroupDevice.WithContext(ctx).
+			Where(query.RGroupDevice.TenantID.Eq(tenant_id)).
+			Select(query.RGroupDevice.DeviceID)
+		builder = builder.Where(gen.Columns{q.ID}.NotIn(groupedDeviceIDs))
+	}
 	if hasValue(req.IsEnabled) {
 		builder = builder.Where(q.IsEnabled.Eq(strings.TrimSpace(*req.IsEnabled)))
 	}

@@ -80,6 +80,79 @@ func GetDeviceGroupAll(tenantId string) ([]*model.Group, error) {
 	return g, nil
 }
 
+type deviceGroupCountRow struct {
+	GroupID     string `gorm:"column:group_id"`
+	DeviceCount int64  `gorm:"column:device_count"`
+}
+
+// GetDeviceGroupDeviceCounts returns active device counts for each group,
+// including devices in descendant groups. A device belonging to multiple
+// descendant groups is counted once per ancestor group.
+func GetDeviceGroupDeviceCounts(tenantID string) (map[string]int64, error) {
+	rows := make([]deviceGroupCountRow, 0)
+	err := global.DB.Raw(`
+		WITH RECURSIVE group_tree AS (
+			SELECT id AS ancestor_id, id AS group_id
+			FROM groups
+			WHERE tenant_id = ?
+
+			UNION ALL
+
+			SELECT gt.ancestor_id, child.id
+			FROM group_tree gt
+			JOIN groups child
+			  ON child.parent_id = gt.group_id
+			 AND child.tenant_id = ?
+		), grouped_devices AS (
+			SELECT gt.ancestor_id AS group_id, rgd.device_id
+			FROM group_tree gt
+			JOIN r_group_device rgd
+			  ON rgd.group_id = gt.group_id
+			 AND rgd.tenant_id = ?
+			JOIN devices d
+			  ON d.id = rgd.device_id
+			 AND d.tenant_id = rgd.tenant_id
+			 AND d.activate_flag = 'active'
+			GROUP BY gt.ancestor_id, rgd.device_id
+		)
+		SELECT group_id, COUNT(*) AS device_count
+		FROM grouped_devices
+		GROUP BY group_id
+	`, tenantID, tenantID, tenantID).Scan(&rows).Error
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+
+	counts := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		counts[row.GroupID] = row.DeviceCount
+	}
+	return counts, nil
+}
+
+func GetDeviceGroupCounts(tenantID string) (*model.DeviceGroupCounts, error) {
+	var counts model.DeviceGroupCounts
+	err := global.DB.Raw(`
+		SELECT
+			COUNT(*) AS device_total,
+			COALESCE(SUM(CASE WHEN NOT EXISTS (
+				SELECT 1
+				FROM r_group_device rgd
+				WHERE rgd.device_id = d.id
+				  AND rgd.tenant_id = d.tenant_id
+			) THEN 1 ELSE 0 END), 0) AS ungrouped_total
+		FROM devices d
+		WHERE d.tenant_id = ?
+		  AND d.activate_flag = 'active'
+	`, tenantID).Scan(&counts).Error
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return &counts, nil
+}
+
 func GetAutoBindRootDeviceGroupID(tx *query.Query, tenantId string) (string, error) {
 	rootGroups, err := tx.Group.
 		Where(tx.Group.TenantID.Eq(tenantId)).

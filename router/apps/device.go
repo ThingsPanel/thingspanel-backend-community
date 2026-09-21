@@ -208,6 +208,9 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// 分组树查询
 		deviceGroupapi.GET("tree", api.Controllers.DeviceApi.HandleDeviceGroupByTree)
 
+		// 设备分组统计
+		deviceGroupapi.GET("counts", api.Controllers.DeviceApi.HandleDeviceGroupCounts)
+
 		// 详情查询
 		deviceGroupapi.GET("detail/:id", api.Controllers.DeviceApi.HandleDeviceGroupByDetail)
 	}

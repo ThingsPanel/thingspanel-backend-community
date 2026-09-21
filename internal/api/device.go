@@ -493,6 +493,18 @@ func (*DeviceApi) HandleDeviceGroupByTree(c *gin.Context) {
 	c.Set("data", data)
 }
 
+// HandleDeviceGroupCounts 获取租户设备总数和未分组设备数
+// @Router   /api/v1/device/group/counts [get]
+func (*DeviceApi) HandleDeviceGroupCounts(c *gin.Context) {
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.DeviceGroup.GetDeviceGroupCounts(userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
 // GetDeviceGroupByDetail 获取设备分组详情
 // @Router   /api/v1/device/group/detail/{id} [get]
 func (*DeviceApi) HandleDeviceGroupByDetail(c *gin.Context) {

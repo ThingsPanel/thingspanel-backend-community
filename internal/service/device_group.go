@@ -14,8 +14,13 @@ import (
 type DeviceGroup struct{}
 
 type TreeNode struct {
-	Group    *model.Group `json:"group"`
-	Children []*TreeNode  `json:"children,omitempty"`
+	Group    *TreeGroup  `json:"group"`
+	Children []*TreeNode `json:"children,omitempty"`
+}
+
+type TreeGroup struct {
+	*model.Group
+	DeviceCount int64 `json:"device_count"`
 }
 
 func (*DeviceGroup) CreateDeviceGroup(req model.CreateDeviceGroupReq, claims *utils.UserClaims) error {
@@ -152,6 +157,13 @@ func (*DeviceGroup) GetDeviceGroupByTree(userClaims *utils.UserClaims) (interfac
 			"tenant_id": userClaims.TenantID,
 		}), nil
 	}
+	counts, err := dal.GetDeviceGroupDeviceCounts(userClaims.TenantID)
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":     err.Error(),
+			"tenant_id": userClaims.TenantID,
+		}), nil
+	}
 
 	nodeMap := make(map[string]*TreeNode)
 	var rootNodes []*TreeNode
@@ -159,7 +171,10 @@ func (*DeviceGroup) GetDeviceGroupByTree(userClaims *utils.UserClaims) (interfac
 	// Initialize nodes
 	for _, group := range data {
 		nodeMap[group.ID] = &TreeNode{
-			Group: group,
+			Group: &TreeGroup{
+				Group:       group,
+				DeviceCount: counts[group.ID],
+			},
 		}
 	}
 
@@ -174,6 +189,17 @@ func (*DeviceGroup) GetDeviceGroupByTree(userClaims *utils.UserClaims) (interfac
 	}
 
 	return rootNodes, nil
+}
+
+func (*DeviceGroup) GetDeviceGroupCounts(userClaims *utils.UserClaims) (*model.DeviceGroupCounts, error) {
+	counts, err := dal.GetDeviceGroupCounts(userClaims.TenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error":     err.Error(),
+			"tenant_id": userClaims.TenantID,
+		})
+	}
+	return counts, nil
 }
 
 func (*DeviceGroup) GetDeviceGroupDetail(id string, claims *utils.UserClaims) (interface{}, error) {
