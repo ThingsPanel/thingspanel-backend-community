@@ -3,8 +3,10 @@ package dal
 
 import (
 	"context"
+	"strings"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gen"
 
@@ -139,6 +141,15 @@ func VerifyOpenAPIKey(ctx context.Context, appKey string) (string, string, error
 	cacheKeyCreatedID := "apikey:createdid:" + appKey
 	tenantID, err := global.REDIS.Get(ctx, cacheKey).Result()
 	createdID, err1 := global.REDIS.Get(ctx, cacheKeyCreatedID).Result()
+	// 这个 key 曾经被 middleware.APIKeyValidator 用同名前缀写成整条 JSON 记录，
+	// 结果 tenantID 变成 `{"id":...,"tenant_id":"xxx",...}` 这样的字符串，
+	// 拿去 WHERE tenant_id = ... 查不到任何数据：接口返回 200 + 空列表，
+	// 调用方（如事件适配器）会把"空列表"当成真话，从而静默停掉整条链路。
+	// 两边现在已拆成不同 key，这里再做一次形状校验，让历史脏缓存能自愈。
+	if looksLikeCachedJSON(tenantID) || looksLikeCachedJSON(createdID) {
+		logrus.Warnf("检测到 %s 缓存值格式异常(疑似 JSON 记录)，回源数据库并重写缓存", cacheKey)
+		err = redis.Nil
+	}
 	if err != nil || err1 != nil {
 		// 如果缓存中不存在，则从数据库中查询
 		apiKey, err := query.OpenAPIKey.WithContext(ctx).Where(query.OpenAPIKey.APIKey.Eq(appKey), query.OpenAPIKey.Status.Eq(1)).First()
@@ -158,4 +169,11 @@ func VerifyOpenAPIKey(ctx context.Context, appKey string) (string, string, error
 		}
 	}
 	return tenantID, createdID, nil
+}
+
+// looksLikeCachedJSON 判断缓存里存的是不是一整条 JSON 记录而不是裸的 ID。
+// 租户 ID / 用户 ID 都是短标识符，正常情况下不会以 '{' 或 '[' 开头。
+func looksLikeCachedJSON(v string) bool {
+	s := strings.TrimSpace(v)
+	return strings.HasPrefix(s, "{") || strings.HasPrefix(s, "[")
 }
