@@ -10,7 +10,7 @@ import (
 
 var (
 	VERSION         = "0.0.20"
-	VERSION_NUMBER  = 20
+	VERSION_NUMBER  = 21
 	SYSTEM_VERSION  = "dev" // 发布时通过 -ldflags -X 注入 Git Tag。
 	DB              *gorm.DB
 	REDIS           *redis.Client
