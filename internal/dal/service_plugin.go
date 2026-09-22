@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"project/internal/model"
@@ -55,6 +56,9 @@ func GetServicePluginListByPage(req *model.GetServicePluginByPageReq) (int64, []
 	queryBuilder := q.WithContext(context.Background())
 	if req.ServiceType != 0 {
 		queryBuilder = queryBuilder.Where(q.ServiceType.Eq(req.ServiceType))
+	}
+	if req.Search != "" {
+		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", req.Search)))
 	}
 
 	count, err := queryBuilder.Count()
