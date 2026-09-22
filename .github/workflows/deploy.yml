@@ -1,5 +1,5 @@
 # ThingsPanel 后端社区版自动部署工作流
-# 通过 Tailscale SSH 访问 demo 主机，公网 22 端口可以保持关闭。
+# 通过 Tailscale SSH 访问 c.thingspanel.cn 主机，公网 22 端口可以保持关闭。
 name: deploy
 on:
   push:
@@ -26,11 +26,11 @@ jobs:
       - name: Upload via Tailscale SSH
         run: |
           set -euo pipefail
-          tailscale ssh root@100.126.67.60 'cat > /home/thingspanel/thingspanel-backend-community.tar.gz' < thingspanel-backend-community.tar.gz
+          tailscale ssh root@100.94.106.71 'cat > /home/thingspanel/thingspanel-backend-community.tar.gz' < thingspanel-backend-community.tar.gz
       - name: Deploy via Tailscale SSH
         run: |
           set -euo pipefail
-          tailscale ssh root@100.126.67.60 'bash -s' <<'REMOTE_SCRIPT'
+          tailscale ssh root@100.94.106.71 'bash -s' <<'REMOTE_SCRIPT'
           set -euo pipefail
           find /home/thingspanel/thingspanel-backend-community -mindepth 1 ! -path '/home/thingspanel/thingspanel-backend-community/files*' -exec rm -rf {} +
           tar -zxvf /home/thingspanel/thingspanel-backend-community.tar.gz -C /home/thingspanel/thingspanel-backend-community
