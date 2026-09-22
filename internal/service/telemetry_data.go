@@ -892,17 +892,11 @@ func (*TelemetryData) GetTelemetrServeStatisticData(req *model.GetTelemetryStati
 
 // 处理时间范围
 func processTimeRange(req *model.GetTelemetryStatisticReq) error {
-	if req.AggregateWindow == "no_aggregate" {
-		// 起始时间和结束时间的差值不能大于一天，时间示例1741679355121
-		if req.EndTime-req.StartTime > 24*time.Hour.Milliseconds() {
-			return errcode.New(207001)
-		}
-	}
 	if req.TimeRange == "custom" {
 		if req.StartTime == 0 || req.EndTime == 0 || req.StartTime > req.EndTime {
 			return errcode.New(207002) // 时间范围无效
 		}
-		return nil
+		return validateNonAggregateTimeRange(req)
 	}
 
 	timeRanges := map[string]time.Duration{
@@ -934,6 +928,16 @@ func processTimeRange(req *model.GetTelemetryStatisticReq) error {
 	now := time.Now()
 	req.EndTime = now.UnixNano() / 1e6
 	req.StartTime = now.Add(-duration).UnixNano() / 1e6
+	return validateNonAggregateTimeRange(req)
+}
+
+// validateNonAggregateTimeRange must run after preset ranges are resolved.
+// Otherwise last_30d + no_aggregate is checked while both timestamps are
+// still zero and can issue an oversized raw-data RPC that exceeds gRPC's 4 MiB limit.
+func validateNonAggregateTimeRange(req *model.GetTelemetryStatisticReq) error {
+	if req.AggregateWindow == "no_aggregate" && req.EndTime-req.StartTime > 24*time.Hour.Milliseconds() {
+		return errcode.New(207001)
+	}
 	return nil
 }
 
