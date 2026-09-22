@@ -72,11 +72,32 @@ jobs:
           port: 22
           script: |
             source ~/.bash_profile
+            CONFIG_BACKUP="/home/thingspanel/thingspanel-backend-community.conf.yml.deploy-backup"
+            if [ -f /home/thingspanel/thingspanel-backend-community/configs/conf.yml ]; then
+              cp -p /home/thingspanel/thingspanel-backend-community/configs/conf.yml "$CONFIG_BACKUP"
+            else
+              rm -f "$CONFIG_BACKUP"
+            fi
             find /home/thingspanel/thingspanel-backend-community -mindepth 1 ! -path '/home/thingspanel/thingspanel-backend-community/files*' -exec rm -rf {} +
             tar -zxvf /home/thingspanel/thingspanel-backend-community.tar.gz -C /home/thingspanel/thingspanel-backend-community
+            if [ -f "$CONFIG_BACKUP" ]; then
+              cp -p "$CONFIG_BACKUP" /home/thingspanel/thingspanel-backend-community/configs/conf.yml
+              rm -f "$CONFIG_BACKUP"
+            else
+              echo "missing production config backup" >&2
+              exit 1
+            fi
             cd /home/thingspanel/thingspanel-backend-community/ || exit 1
             BUILD_VERSION="dev-${{ github.sha }}"
             go build -ldflags "-X project/pkg/global.SYSTEM_VERSION=$BUILD_VERSION" -o thingspanel-backend-community || exit 1
             test "$(./thingspanel-backend-community --version)" = "$BUILD_VERSION" || exit 1
             /root/.local/share/pnpm/pm2 stop thingspanel-backend-community
             /root/.local/share/pnpm/pm2 start thingspanel-backend-community
+            for attempt in $(seq 1 30); do
+              if ss -ltn | grep -q ':9999 '; then
+                break
+              fi
+              sleep 2
+            done
+            ss -ltn | grep -q ':9999 ' || { echo "backend did not listen on 9999" >&2; exit 1; }
+            curl --fail --silent --show-error --max-time 5 http://127.0.0.1:9999/health >/dev/null || exit 1
