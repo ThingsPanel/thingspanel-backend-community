@@ -37,8 +37,23 @@ type WSClient struct {
 	MsgType  int // websocket.TextMessage or websocket.BinaryMessage
 	Mu       *sync.Mutex
 	Keys     []string // 订阅的字段（为空表示订阅全部）
-	// Send 用于写入数据的缓冲管道，避免在多个goroutine中直接写Conn导致阻塞
+	// Send 用于写入数据的缓冲管道，避免在多个goroutine中直接写Conn导致阻塞。
+	// 关闭 Send 的所有权只属于 WSManager（见 closeSend），调用方不要自己 close，
+	// 否则会出现重复 close 的 panic。
 	Send chan []byte
+	// closeOnce 保证 Send 只被关闭一次：连接断开时 handler 的 defer 和写 goroutine
+	// 的错误分支都会走到取消订阅，二者可能并发。
+	closeOnce sync.Once
+}
+
+// closeSend 幂等地关闭写队列，结束对应的写入 goroutine。
+func (c *WSClient) closeSend() {
+	if c == nil || c.Send == nil {
+		return
+	}
+	c.closeOnce.Do(func() {
+		close(c.Send)
+	})
 }
 
 // WSEvent WebSocket 事件
@@ -106,6 +121,20 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 		}
 	}
 
+	// 同一条连接会被取消订阅两次（handler 的 defer + 写 goroutine 的错误分支）。
+	// 只有真正摘掉了客户端的那一次才能去减 Redis 计数，否则会多减一次：
+	// 当同一设备还有别的订阅者时，计数会被提前减到 0 并删除 ws:sub:<id>，
+	// 而 checkAndPublishToWS 以该 key 是否存在作为"有没有订阅者"的判据，
+	// RefreshSubscription 用的又是 Expire（对不存在的 key 不会重建），
+	// 于是剩下那个连接还活着、心跳也正常，却再也收不到任何遥测推送。
+	if removedClient == nil {
+		logrus.WithFields(logrus.Fields{
+			"device_id": deviceID,
+			"conn_id":   connID,
+		}).Debug("WebSocket client already unsubscribed, skip counter decrement")
+		return nil
+	}
+
 	// 更新 Redis 订阅表
 	ctx := context.Background()
 	count, err := m.redisClient.Decr(ctx, "ws:sub:"+deviceID).Result()
@@ -124,10 +153,9 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 		"conn_id":   connID,
 	}).Info("WebSocket client unsubscribed from device")
 
-	// 关闭写队列（如果存在），以结束对应的写入 goroutine
-	if removedClient != nil && removedClient.Send != nil {
-		close(removedClient.Send)
-	}
+	// 关闭写队列（如果存在），以结束对应的写入 goroutine。
+	// 仍持有写锁，与 PushToDevice 的读锁互斥，保证不会出现"向已关闭 channel 发送"。
+	removedClient.closeSend()
 
 	return nil
 }
@@ -144,10 +172,14 @@ func (m *WSManager) RefreshSubscription(deviceID string) error {
 
 // PushToDevice 推送消息到设备订阅者（本实例）
 func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
+	// 整个发送过程持有读锁：UnsubscribeDevice 需要写锁才能关闭 Send，
+	// 这样就不会在本函数发送的同时把 channel 关掉（"send on closed channel" 会 panic，
+	// 而本函数运行在 ListenForEvents 这个没有 recover 的 goroutine 上，会直接带崩进程）。
+	// 下面的发送都是非阻塞的（select + default），不会长时间占锁。
 	m.mutex.RLock()
-	clients, ok := m.deviceClients[deviceID]
-	m.mutex.RUnlock()
+	defer m.mutex.RUnlock()
 
+	clients, ok := m.deviceClients[deviceID]
 	if !ok || len(clients) == 0 {
 		return // 本实例无订阅者
 	}

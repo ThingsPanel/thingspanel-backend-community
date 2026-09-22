@@ -429,9 +429,9 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 		return
 	}
 	defer func() {
-		// 取消订阅并关闭写通道
+		// 取消订阅；写通道由 UnsubscribeDevice 负责关闭（幂等），
+		// 这里不要再 close，否则与写 goroutine 的错误分支重复 close 会 panic。
 		global.TPWSManager.UnsubscribeDevice(deviceID, connID)
-		close(wsClient.Send)
 	}()
 
 	// 启动写入 goroutine（负责将缓冲消息写入 WebSocket，避免在主读循环或推送路径中直接写 Conn 导致阻塞）
@@ -853,8 +853,8 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 		return
 	}
 	defer func() {
+		// 写通道由 UnsubscribeDevice 负责关闭（幂等），这里不要再 close。
 		global.TPWSManager.UnsubscribeDevice(deviceID, connID)
-		close(wsClient.Send)
 	}()
 
 	// 启动写入 goroutine
