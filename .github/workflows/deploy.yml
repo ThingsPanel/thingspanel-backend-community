@@ -22,9 +22,7 @@
 # 4. 使用 PM2 重启服务
 #
 # 必需的 Secrets:
-# - C_HOST: 部署服务器地址
-# - C_USER: 服务器用户名
-# - C_PASS: 服务器密码
+# - C_SSH_KEY: 社区版服务器 root 账号的 SSH 私钥
 #
 # 注意事项:
 # 1. 部署时会保留 files 目录，不会被清理
@@ -59,18 +57,18 @@ jobs:
         uses: appleboy/scp-action@master
         with:
           # Github Action 的服务器文件路径
-          host: ${{ secrets.C_HOST }}
-          username: ${{ secrets.C_USER }}
-          password: ${{ secrets.C_PASS }}
+          host: 47.92.253.145
+          username: root
+          key: ${{ secrets.C_SSH_KEY }}
           source: "thingspanel-backend-community.tar.gz"
           target: "/home/thingspanel/"
       # 部署运行
       - name: Deploy
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.C_HOST }}
-          username: ${{ secrets.C_USER }}
-          password: ${{ secrets.C_PASS }}
+          host: 47.92.253.145
+          username: root
+          key: ${{ secrets.C_SSH_KEY }}
           port: 22
           script: |
             source ~/.bash_profile
