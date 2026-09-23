@@ -161,8 +161,8 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 							Unit:             getStrP(m, "unit"),
 							Description:      getStrP(m, "description"),
 							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:       now,
-							UpdatedAt:       now,
+							CreatedAt:        now,
+							UpdatedAt:        now,
 						}
 						if err := tx.Create(&created).Error; err != nil {
 							tx.Rollback()
@@ -191,8 +191,8 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 							Unit:             getStrP(m, "unit"),
 							Description:      getStrP(m, "description"),
 							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:       now,
-							UpdatedAt:       now,
+							CreatedAt:        now,
+							UpdatedAt:        now,
 						}
 						if err := tx.Create(&created).Error; err != nil {
 							tx.Rollback()
@@ -216,11 +216,11 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 							TenantID:         claims.TenantID,
 							DataName:         getStrP(m, "data_name"),
 							DataIdentifier:   getStr(m, "data_identifier"),
-							Param:           getStrP(m, "params"),
+							Param:            getStrP(m, "params"),
 							Description:      getStrP(m, "description"),
 							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:       now,
-							UpdatedAt:       now,
+							CreatedAt:        now,
+							UpdatedAt:        now,
 						}
 						if err := tx.Create(&created).Error; err != nil {
 							tx.Rollback()
@@ -244,11 +244,11 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 							TenantID:         claims.TenantID,
 							DataName:         getStrP(m, "data_name"),
 							DataIdentifier:   getStr(m, "data_identifier"),
-							Param:           getStrP(m, "params"),
+							Param:            getStrP(m, "params"),
 							Description:      getStrP(m, "description"),
 							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:       now,
-							UpdatedAt:       now,
+							CreatedAt:        now,
+							UpdatedAt:        now,
 						}
 						if err := tx.Create(&created).Error; err != nil {
 							tx.Rollback()
@@ -275,7 +275,7 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		ID:               dcID,
 		Name:             dcName,
 		DeviceTemplateID: &templateID, // 引用新创建的 DeviceTemplate
-		DeviceType:       "1",        // 默认直连设备
+		DeviceType:       "1",         // 默认直连设备
 		TenantID:         claims.TenantID,
 		ImageURL:         localImageURL,
 		CreatedAt:        now,
