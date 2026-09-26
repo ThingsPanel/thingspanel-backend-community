@@ -85,6 +85,10 @@ func ServeUiElementsListByAuthority(u *utils.UserClaims) (int64, interface{}, er
 			uielementsListrsp = append(uielementsListrsp, uielementsList[i].ToRsp())
 			queryChildrenByAuthority(uielementsListrsp[i], u.Authority)
 		}
+		if u.Authority == "TENANT_ADMIN" {
+			uielementsListrsp = filterCommunityTenantUserMenus(uielementsListrsp)
+			count = int64(len(uielementsListrsp))
+		}
 		appendTenantDashboardMenus(uielementsListrsp, u.TenantID)
 		return count, uielementsListrsp, err
 	} else {
@@ -113,6 +117,18 @@ func ServeUiElementsListByAuthority(u *utils.UserClaims) (int64, interface{}, er
 		}
 		return 0, data, nil
 	}
+}
+
+func filterCommunityTenantUserMenus(items []*model.UiElementsListRsp) []*model.UiElementsListRsp {
+	filtered := make([]*model.UiElementsListRsp, 0, len(items))
+	for _, item := range items {
+		if item.ElementCode == "management_user" || item.ElementCode == "manage_user" {
+			continue
+		}
+		item.Children = filterCommunityTenantUserMenus(item.Children)
+		filtered = append(filtered, item)
+	}
+	return filtered
 }
 
 // 获取租户下权限配置表单树

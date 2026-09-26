@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"project/pkg/authz"
 	"project/pkg/common"
 	"project/pkg/errcode"
 
@@ -31,6 +32,12 @@ type User struct{}
 
 // @description  创建用户
 func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.UserClaims) error {
+	if claims.Authority != "SYS_ADMIN" {
+		return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
+			"required_role": "SYS_ADMIN",
+			"current_role":  claims.Authority,
+		})
+	}
 	// 检查手机号是否重复
 	if exists, err := dal.CheckPhoneNumberExists(createUserReq.PhoneNumber); err != nil {
 		return err
@@ -69,17 +76,6 @@ func (u *User) CreateUser(createUserReq *model.CreateUserReq, claims *utils.User
 	case "SYS_ADMIN": // 系统管理员创建租户管理员
 		user.Authority = StringPtr("TENANT_ADMIN")
 		user.TenantID = StringPtr(strings.Split(uuid.New(), "-")[0])
-	case "TENANT_ADMIN": // 租户管理员创建租户用户
-		user.Authority = StringPtr("TENANT_USER")
-		a, err := u.GetUserById(claims.ID)
-		if err != nil {
-			logrus.Error(err)
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error":    err.Error(),
-				"admin_id": claims.ID,
-			})
-		}
-		user.TenantID = a.TenantID
 	default:
 		// 权限不足
 		return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
@@ -153,6 +149,9 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 		}
 		// 数据库操作失败,返回系统级数据库错误
 		return nil, errcode.New(errcode.CodeDBError)
+	}
+	if user.Authority == nil || !authz.IsCommunityAuthority(*user.Authority) {
+		return nil, errcode.New(errcode.CodeInvalidAuth)
 	}
 	// 是否加密配置
 	if logic.UserIsEncrypt(ctx) {
@@ -415,6 +414,10 @@ func (*User) GetUserById(id string) (*model.User, error) {
 
 // @description  分页获取用户列表
 func (*User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
+	if claims.Authority == "TENANT_ADMIN" {
+		// Community tenants have a single administrator and no tenant subusers.
+		return map[string]interface{}{"total": int64(0), "list": []map[string]interface{}{}}, nil
+	}
 	total, list, err := dal.GetUserListByPage(userListReq, claims)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -515,6 +518,9 @@ func (*User) UpdateUser(updateUserReq *model.UpdateUserReq, claims *utils.UserCl
 			"user_id": updateUserReq.ID,
 		})
 	}
+	if user.Authority == nil || !authz.IsCommunityAuthority(*user.Authority) {
+		return errcode.New(errcode.CodeNoPermission)
+	}
 
 	// 判断用户权限，租户管理员和租户用户不能修改其他租户的信息
 	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
@@ -592,6 +598,9 @@ func (*User) DeleteUser(id string, claims *utils.UserClaims) error {
 			"user_id": id,
 		})
 	}
+	if user.Authority == nil || !authz.IsCommunityAuthority(*user.Authority) {
+		return errcode.New(errcode.CodeNoPermission)
+	}
 
 	// 判断用户权限，租户管理员和租户用户不能修改其他租户的信息
 	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
@@ -644,6 +653,10 @@ func (*User) GetUser(id string, claims *utils.UserClaims) (interface{}, error) {
 			"error":   err.Error(),
 			"user_id": id,
 		})
+	}
+	authority, ok := userWithAddress["authority"].(*string)
+	if !ok || authority == nil || !authz.IsCommunityAuthority(*authority) {
+		return nil, errcode.New(errcode.CodeNoPermission)
 	}
 
 	// 权限检查
@@ -736,6 +749,9 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 			"error":   err.Error(),
 			"user_id": transformUserReq.BecomeUserID,
 		})
+	}
+	if becomeUser.Authority == nil || !authz.IsCommunityAuthority(*becomeUser.Authority) {
+		return nil, errcode.New(errcode.CodeNoPermission)
 	}
 
 	if claims.Authority == "TENANT_ADMIN" {
@@ -1107,6 +1123,9 @@ func (u *User) UpdateUserAddress(userID string, updateAddressReq *model.UpdateUs
 			"user_id": userID,
 		})
 	}
+	if user.Authority == nil || !authz.IsCommunityAuthority(*user.Authority) {
+		return errcode.New(errcode.CodeNoPermission)
+	}
 
 	// 权限检查：租户管理员和租户用户不能修改其他租户的用户地址
 	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
@@ -1132,7 +1151,7 @@ func (u *User) UpdateUserAddress(userID string, updateAddressReq *model.UpdateUs
 	return nil
 }
 
-// GetUserSelector 获取用户选择器列表（租户管理员 + 租户用户）
+// GetUserSelector 获取社区版租户管理员选择器。
 func (*User) GetUserSelector(req *model.UserSelectorReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetUserSelector(req, claims.TenantID)
 	if err != nil {

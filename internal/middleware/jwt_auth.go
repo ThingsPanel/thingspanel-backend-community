@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"project/internal/dal"
+	"project/pkg/authz"
 	"project/pkg/global"
 	utils "project/pkg/utils"
 
@@ -83,6 +84,15 @@ func isValidJWT(c *gin.Context, token string) bool {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Code:      ErrCodeInvalidToken,
 			Message:   "invalid token format",
+			RequestID: requestID,
+		})
+		c.Abort()
+		return false
+	}
+	if claims == nil || !authz.IsCommunityAuthority(claims.Authority) {
+		c.JSON(http.StatusForbidden, ErrorResponse{
+			Code:      ErrCodeInvalidToken,
+			Message:   "authority is not supported by the community edition",
 			RequestID: requestID,
 		})
 		c.Abort()

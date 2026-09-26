@@ -517,7 +517,7 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 			"message":   "get device failed",
 		})
 	}
-	if device.TenantID != claims.TenantID {
+	if !canReadTenantDevice(claims, device.TenantID) {
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
 
@@ -577,7 +577,8 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 }
 
 func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
-	total, list, err := dal.GetDeviceListByPage(req, u.TenantID)
+	allTenants := u.Authority == dal.SYS_ADMIN
+	total, list, err := dal.GetDeviceListByPage(req, u.TenantID, allTenants)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -598,6 +599,10 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 	deviceListRsp["list"] = list
 
 	return deviceListRsp, err
+}
+
+func canReadTenantDevice(claims *utils.UserClaims, deviceTenantID string) bool {
+	return claims != nil && (claims.Authority == dal.SYS_ADMIN || claims.TenantID == deviceTenantID)
 }
 
 func (d *Device) CheckDeviceNumber(deviceNumber string) (*errcode.Error, bool) {

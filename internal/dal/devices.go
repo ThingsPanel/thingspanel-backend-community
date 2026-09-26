@@ -292,7 +292,7 @@ func RemoveSubDevice(deviceId string, tenant_id string) error {
 }
 
 // 获取设备列表，分页
-func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (int64, []model.GetDeviceListByPageRsp, error) {
+func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string, allTenants bool) (int64, []model.GetDeviceListByPageRsp, error) {
 	q := query.Device
 	c := query.DeviceConfig
 	lda := query.LatestDeviceAlarm
@@ -307,10 +307,12 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		count      int64
 		deviceList = []model.GetDeviceListByPageRsp{}
 		builder    = q.WithContext(ctx).
-				Where(q.TenantID.Eq(tenant_id)).
 				Where(q.ActivateFlag.Eq("active")).
 				LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
 	)
+	if !allTenants {
+		builder = builder.Where(q.TenantID.Eq(tenant_id))
+	}
 	if hasValue(req.GroupId) {
 		groupIds, err := GetGroupChildrenIds(strings.TrimSpace(*req.GroupId))
 		if err != nil {

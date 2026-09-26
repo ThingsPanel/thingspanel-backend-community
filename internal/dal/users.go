@@ -786,7 +786,7 @@ func GetTenantAdmin(tenantID string) (*model.User, error) {
 		First()
 }
 
-// GetUserSelector 获取用户选择器列表（租户管理员 + 租户用户）
+// GetUserSelector 获取社区版租户管理员选择器。社区版没有租户子用户。
 func GetUserSelector(req *model.UserSelectorReq, tenantID string) (int64, []model.UserSelectorItem, error) {
 	q := query.User
 	var count int64
@@ -795,7 +795,7 @@ func GetUserSelector(req *model.UserSelectorReq, tenantID string) (int64, []mode
 	// 查询租户管理员和普通用户
 	queryBuilder := q.WithContext(context.Background()).
 		Where(q.TenantID.Eq(tenantID)).
-		Where(q.Authority.In(TENANT_ADMIN, TENANT_USER)).
+		Where(q.Authority.Eq(TENANT_ADMIN)).
 		Where(q.Status.Eq("N")) // 只查询正常状态的用户
 
 	// 名称模糊匹配
