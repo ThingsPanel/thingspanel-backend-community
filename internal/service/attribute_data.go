@@ -121,9 +121,10 @@ func (a *AttributeData) SetDownlinkBus(bus *downlink.Bus) {
 // AttributePutMessage 属性设置下发（改造为异步模式，支持多层网关）
 func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID string, putMessageReq *model.AttributePutMessage, operationType string) error {
 	// 1. 获取设备信息
-	device, err := initialize.GetDeviceCacheById(putMessageReq.DeviceID)
+	// Resolve service-owned downlink routes from the database's current device relation.
+	device, err := dal.GetDeviceByID(putMessageReq.DeviceID)
 	if err != nil {
-		return fmt.Errorf("device not found: %w", err)
+		return fmt.Errorf("failed to load device from database: %w", err)
 	}
 
 	// 2. 生成 message_id（8位唯一字符串）

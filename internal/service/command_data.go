@@ -48,9 +48,11 @@ func (c *CommandData) CommandPutMessageWithResult(ctx context.Context, operatorI
 
 func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string, enforceTenant bool) (string, error) {
 	// 1. 获取设备信息
-	device, err := initialize.GetDeviceCacheById(putMessageReq.DeviceID)
+	// Downlink routing needs the current access_way and service_access_id relation;
+	// Redis device cache entries may not contain those database fields.
+	device, err := dal.GetDeviceByID(putMessageReq.DeviceID)
 	if err != nil {
-		return "", fmt.Errorf("device not found: %w", err)
+		return "", fmt.Errorf("failed to load device from database: %w", err)
 	}
 	if enforceTenant && device.TenantID != tenantID {
 		return "", errcode.NewWithMessage(errcode.CodeParamError, "device not found")

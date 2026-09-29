@@ -190,3 +190,21 @@ func GetCommandSetLogsByPage(req *model.GetCommandSetLogsListByPageReq) ([]*mode
 func UpdateCommandSetLog(log *model.CommandSetLog) error {
 	return query.CommandSetLog.Save(log)
 }
+
+// UpdateCommandPublishStatus advances pending commands without overwriting an
+// acknowledgement that may have arrived before the publisher completed.
+func UpdateCommandPublishStatus(messageID, deviceID, status, errorMsg string) (bool, error) {
+	if status != "1" && status != "2" {
+		return false, fmt.Errorf("invalid command publish status: %s", status)
+	}
+	command := query.CommandSetLog
+	result, err := command.Where(
+		command.MessageID.Eq(messageID),
+		command.DeviceID.Eq(deviceID),
+		command.Status.Eq("0"),
+	).UpdateSimple(command.Status.Value(status), command.ErrorMessage.Value(errorMsg))
+	if err != nil {
+		return false, err
+	}
+	return result.RowsAffected > 0, nil
+}

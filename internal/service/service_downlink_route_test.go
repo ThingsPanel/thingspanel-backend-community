@@ -1,12 +1,19 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 
+	"project/internal/downlink"
 	"project/internal/model"
+	"project/internal/query"
+	"project/pkg/global"
+
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
 )
 
 type fakeServiceDownlinkLookup struct {
@@ -81,6 +88,25 @@ func TestResolveServiceDownlinkRouteUsesServiceBindingAndPlatformNumber(t *testi
 		if lookup.accessCalls != 1 || lookup.pluginCalls != 1 || lookup.lastAccessID != "access-1" || lookup.lastPluginID != "plugin-1" {
 			t.Fatalf("unexpected lookup calls with config %v: %+v", configID, lookup)
 		}
+	}
+}
+
+func TestResolveServiceDownlinkRouteUsesGenericPluginPrefix(t *testing.T) {
+	lookup := &fakeServiceDownlinkLookup{
+		access: &model.ServiceAccess{ID: "access-1", ServicePluginID: "plugin-1", TenantID: "tenant-a"},
+		plugin: &model.ServicePlugin{ID: "plugin-1", ServiceType: 2, ServiceConfig: ptr(`{"sub_topic_prefix":"plugin/sample-service/"}`)},
+	}
+	route, err := resolveServiceDownlinkRouteWithLookup(&model.Device{
+		DeviceNumber:    "service-device-1",
+		TenantID:        "tenant-a",
+		AccessWay:       ptr("B"),
+		ServiceAccessID: ptr("access-1"),
+	}, lookup)
+	if err != nil {
+		t.Fatalf("resolve generic service route: %v", err)
+	}
+	if !route.IsService || route.TopicPrefix != "plugin/sample-service/" {
+		t.Fatalf("generic service route = %+v, want plugin/sample-service/ prefix", route)
 	}
 }
 
@@ -175,6 +201,73 @@ func TestResolveServiceDownlinkRouteFailsClosed(t *testing.T) {
 				t.Fatalf("invalid service binding unexpectedly queried access: %+v", test.lookup)
 			}
 		})
+	}
+}
+
+func TestDownlinkEntrypointsLoadServiceRelationFromDatabase(t *testing.T) {
+	oldDevice := query.Device
+	oldRedis := global.REDIS
+	db, err := gorm.Open(sqlite.Open("file:downlink-device-route?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	if err := db.AutoMigrate(&model.Device{}); err != nil {
+		t.Fatalf("migrate devices: %v", err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("get test database connection: %v", err)
+	}
+	testQuery := query.Use(db)
+	query.Device = &testQuery.Device
+	global.REDIS = nil
+	t.Cleanup(func() {
+		query.Device = oldDevice
+		global.REDIS = oldRedis
+		_ = sqlDB.Close()
+	})
+
+	device := &model.Device{
+		ID:           "service-device-1",
+		Voucher:      "service-device-1",
+		TenantID:     "tenant-a",
+		IsEnabled:    "enabled",
+		ActivateFlag: "active",
+		DeviceNumber: "svc-platform-number",
+		AccessWay:    ptr("B"),
+		// Intentionally incomplete service relation: every route must fail closed.
+	}
+	if err := query.Device.Create(device); err != nil {
+		t.Fatalf("create service device: %v", err)
+	}
+
+	commandValue := `"on"`
+	command := &CommandData{}
+	command.SetDownlinkBus(downlink.NewBus(1))
+	_, commandErr := command.CommandPutMessageWithResult(context.Background(), "user-1", &model.PutMessageForCommand{
+		DeviceID: device.ID,
+		Identify: "switch",
+		Value:    &commandValue,
+	}, "1", device.TenantID)
+
+	attributeErr := (&AttributeData{}).AttributePutMessage(context.Background(), "user-1", &model.AttributePutMessage{
+		DeviceID: device.ID,
+		Value:    `{"switch":true}`,
+	}, "1")
+
+	telemetryErr := (&TelemetryData{}).TelemetryPutMessage(context.Background(), "user-1", &model.PutMessage{
+		DeviceID: device.ID,
+		Value:    `{"switch":true}`,
+	}, "1")
+
+	for name, callErr := range map[string]error{
+		"command":   commandErr,
+		"attribute": attributeErr,
+		"telemetry": telemetryErr,
+	} {
+		if callErr == nil || !strings.Contains(callErr.Error(), "no service_access_id") {
+			t.Errorf("%s downlink error = %v, want missing service_access_id from the database-loaded service device", name, callErr)
+		}
 	}
 }
 

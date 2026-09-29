@@ -1149,9 +1149,10 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 
 	// 步骤2: 获取设备信息
 	// ---------------------------------------------
-	deviceInfo, err := initialize.GetDeviceCacheById(param.DeviceID)
+	// Service downlink routing depends on current DB access_way/service_access_id fields.
+	deviceInfo, err := dal.GetDeviceByID(param.DeviceID)
 	if err != nil {
-		logrus.Error(ctx, "[TelemetryPutMessage][GetDeviceCacheById]failed:", err)
+		logrus.Error(ctx, "[TelemetryPutMessage][LoadDeviceFromDatabase]failed:", err)
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": err.Error(),
 		})
