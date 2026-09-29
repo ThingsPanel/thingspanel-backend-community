@@ -129,40 +129,28 @@ func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
 	}
 
 	// 1. 数据脚本处理（如果配置了）
-	processedPayload := msg.Payload
-	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
-		output, err := f.processor.Decode(f.ctx, &processor.DecodeInput{
-			DeviceConfigID: *device.DeviceConfigID,
-			Type:           processor.DataTypeTelemetry,
-			RawData:        msg.Payload,
-			Timestamp:      msg.Timestamp,
-		})
-
-		if err != nil {
-			// 记录诊断：processor 解码失败
-			diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("解码失败：%v", err))
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"error":     err,
-			}).Error("Processor decode failed, terminate processing")
-			return // 脚本失败直接终止
+	processedPayload, decodeOutput, err := decodeTelemetryPayload(f.ctx, f.processor, device.DeviceConfigID, msg.Payload, msg.Timestamp)
+	if err != nil {
+		// 记录诊断：processor 解码失败
+		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, fmt.Sprintf("解码失败：%v", err))
+		f.logger.WithFields(logrus.Fields{
+			"device_id": device.ID,
+			"error":     err,
+		}).Error("Processor decode failed, terminate processing")
+		return
+	}
+	if decodeOutput != nil && !decodeOutput.Success {
+		// 记录诊断：processor 执行失败
+		errMsg := "执行失败"
+		if decodeOutput.Error != nil {
+			errMsg = fmt.Sprintf("执行失败：%v", decodeOutput.Error)
 		}
-
-		if !output.Success {
-			// 记录诊断：processor 执行失败
-			errMsg := "执行失败"
-			if output.Error != nil {
-				errMsg = fmt.Sprintf("执行失败：%v", output.Error)
-			}
-			diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, errMsg)
-			f.logger.WithFields(logrus.Fields{
-				"device_id": device.ID,
-				"error":     output.Error,
-			}).Error("Processor execution failed, terminate processing")
-			return // 脚本失败直接终止
-		}
-
-		processedPayload = output.Data
+		diagnostics.GetInstance().RecordUplinkFailed(device.ID, diagnostics.StageProcessor, errMsg)
+		f.logger.WithFields(logrus.Fields{
+			"device_id": device.ID,
+			"error":     decodeOutput.Error,
+		}).Error("Processor execution failed, terminate processing")
+		return
 	}
 
 	// 2. 根据消息类型判断是否为网关消息
@@ -173,6 +161,28 @@ func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
 		// 直连设备消息
 		f.processDirectDeviceMessage(device, processedPayload, msg)
 	}
+}
+
+// decodeTelemetryPayload runs the device-config script only when a configuration
+// is bound. Unconfigured native devices already publish platform telemetry JSON;
+// their payload must pass through unchanged and must not require a processor.
+func decodeTelemetryPayload(ctx context.Context, dataProcessor processor.DataProcessor, deviceConfigID *string, rawData []byte, timestamp int64) ([]byte, *processor.DecodeOutput, error) {
+	if deviceConfigID == nil || *deviceConfigID == "" {
+		return rawData, nil, nil
+	}
+	output, err := dataProcessor.Decode(ctx, &processor.DecodeInput{
+		DeviceConfigID: *deviceConfigID,
+		Type:           processor.DataTypeTelemetry,
+		RawData:        rawData,
+		Timestamp:      timestamp,
+	})
+	if err != nil {
+		return nil, output, err
+	}
+	if output == nil {
+		return nil, nil, fmt.Errorf("processor returned no telemetry output")
+	}
+	return output.Data, output, nil
 }
 
 // processGatewayMessage 处理网关消息（拆分后递归处理）

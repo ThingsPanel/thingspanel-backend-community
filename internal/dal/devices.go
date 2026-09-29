@@ -292,7 +292,7 @@ func RemoveSubDevice(deviceId string, tenant_id string) error {
 }
 
 // 获取设备列表，分页
-func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (int64, []model.GetDeviceListByPageRsp, error) {
+func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string, allTenants bool) (int64, []model.GetDeviceListByPageRsp, error) {
 	q := query.Device
 	c := query.DeviceConfig
 	lda := query.LatestDeviceAlarm
@@ -307,11 +307,13 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		count      int64
 		deviceList = []model.GetDeviceListByPageRsp{}
 		builder    = q.WithContext(ctx).
-				Where(q.TenantID.Eq(tenant_id)).
 				Where(q.ActivateFlag.Eq("active")).
 				LeftJoin(c, c.ID.EqCol(q.DeviceConfigID)).
 				LeftJoin(lda, lda.DeviceID.EqCol(q.ID))
 	)
+	if !allTenants {
+		builder = builder.Where(q.TenantID.Eq(tenant_id))
+	}
 	if hasValue(req.GroupId) {
 		groupIds, err := GetGroupChildrenIds(strings.TrimSpace(*req.GroupId))
 		if err != nil {
@@ -330,9 +332,11 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 		builder = builder.Where(q.ID.In(ids...))
 	}
 	if req.GroupScope != nil && strings.TrimSpace(*req.GroupScope) == "ungrouped" {
-		groupedDeviceIDs := query.RGroupDevice.WithContext(ctx).
-			Where(query.RGroupDevice.TenantID.Eq(tenant_id)).
-			Select(query.RGroupDevice.DeviceID)
+		groupQuery := query.RGroupDevice.WithContext(ctx)
+		if !allTenants {
+			groupQuery = groupQuery.Where(query.RGroupDevice.TenantID.Eq(tenant_id))
+		}
+		groupedDeviceIDs := groupQuery.Select(query.RGroupDevice.DeviceID)
 		builder = builder.Where(gen.Columns{q.ID}.NotIn(groupedDeviceIDs))
 	}
 	if hasValue(req.IsEnabled) {
@@ -348,7 +352,9 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenant_id string) (i
 				query.Device.Where(c.ProtocolType.Eq(value)).Or(q.DeviceConfigID.IsNull()),
 			)
 		} else {
-			builder = builder.Where(c.ProtocolType.Eq(value))
+			builder = builder.Where(
+				query.Device.Where(c.ProtocolType.Eq(value)).Or(q.ServiceAccessID.IsNotNull()),
+			)
 		}
 	}
 	if hasValue(req.ServiceAccessID) {
@@ -788,6 +794,20 @@ func GetSubDeviceExists(deviceId, subAddr string) bool {
 // CheckDeviceNumberExists checks if a device number already exists in the database
 func CheckDeviceNumberExists(deviceNumber string) (bool, error) {
 	count, err := query.Device.Where(query.Device.DeviceNumber.Eq(deviceNumber)).Count()
+	if err != nil {
+		logrus.Error(err)
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// CheckServiceDeviceNumberExists detects legacy service-bound devices that
+// still use the connector's un-namespaced external number.
+func CheckServiceDeviceNumberExists(serviceAccessID, deviceNumber string) (bool, error) {
+	count, err := query.Device.Where(
+		query.Device.ServiceAccessID.Eq(serviceAccessID),
+		query.Device.DeviceNumber.Eq(deviceNumber),
+	).Count()
 	if err != nil {
 		logrus.Error(err)
 		return false, err

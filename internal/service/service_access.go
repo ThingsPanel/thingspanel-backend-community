@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -106,6 +107,10 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 
 		rsp, err := http_client.Notification("1", string(dataBytes), host)
 		if err != nil {
+			if errors.Is(err, http_client.ErrNotificationNotSupported) {
+				logrus.Warn("服务插件未实现可选的配置变更通知，继续完成接入点更新")
+				return nil
+			}
 			return errcode.WithVars(105001, map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -177,7 +182,7 @@ func (*ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDeviceL
 	}
 	for i, dataDevice := range data.List {
 		for _, device := range devices {
-			if dataDevice.DeviceNumber == device.DeviceNumber {
+			if dataDevice.DeviceNumber == device.DeviceNumber || serviceExternalDeviceNumber(device.ProtocolConfig) == dataDevice.DeviceNumber {
 				data.List[i].IsBind = true
 				if device.DeviceConfigID != nil {
 					data.List[i].DeviceConfigID = *device.DeviceConfigID
@@ -186,6 +191,20 @@ func (*ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDeviceL
 		}
 	}
 	return data, nil
+}
+
+func serviceExternalDeviceNumber(protocolConfig *string) string {
+	if protocolConfig == nil || *protocolConfig == "" {
+		return ""
+	}
+	var config map[string]interface{}
+	if err := json.Unmarshal([]byte(*protocolConfig), &config); err != nil {
+		return ""
+	}
+	if number, ok := config["device_number"].(string); ok {
+		return number
+	}
+	return ""
 }
 
 // 通过service_identifier获取插件服务信息

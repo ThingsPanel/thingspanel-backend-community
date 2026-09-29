@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -133,22 +136,27 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 
 // 服务接入批量创建设备
 func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.UserClaims) (data any, err error) {
+	// Service ownership is required even when the optional device config is absent.
+	serviceAccess, err := dal.GetServiceAccessByID(req.ServiceAccessId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve service access: %w", err)
+	}
+	if claims == nil || serviceAccess.TenantID != claims.TenantID {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
 	t := time.Now().UTC()
 	var deviceList []*model.Device
 	for _, v := range req.DeviceList {
-		if v.DeviceName == "" && v.DeviceNumber == "" && v.DeviceConfigId == "" {
+		if v.DeviceConfigId != nil && strings.TrimSpace(*v.DeviceConfigId) == "" {
+			v.DeviceConfigId = nil
+		}
+		if v.DeviceName == "" && v.DeviceNumber == "" && (v.DeviceConfigId == nil || *v.DeviceConfigId == "") {
 			continue
 		}
 		// 校验必填字段
 		if v.DeviceNumber == "" {
 			return nil, errcode.WithVars(100005, map[string]interface{}{
 				"field": "device_number",
-			})
-		}
-
-		if v.DeviceConfigId == "" {
-			return nil, errcode.WithVars(100005, map[string]interface{}{
-				"field": "device_config_id",
 			})
 		}
 
@@ -159,7 +167,19 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 		}
 
 		// 校验设备号是否存在
-		exists, err := dal.CheckDeviceNumberExists(v.DeviceNumber)
+		// Device numbers are globally unique in the current schema. Namespace
+		// connector identities by tenant and access point while preserving the
+		// original external number in protocol_config.
+		externalNumber := v.DeviceNumber
+		legacyExists, err := dal.CheckServiceDeviceNumberExists(req.ServiceAccessId, externalNumber)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		}
+		if legacyExists {
+			continue
+		}
+		deviceNumber := serviceDeviceNumber(claims.TenantID, req.ServiceAccessId, externalNumber)
+		exists, err := dal.CheckDeviceNumberExists(deviceNumber)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),
@@ -172,14 +192,16 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 		device := model.Device{
 			ID:              uuid.New(),
 			Name:            &v.DeviceName,
-			DeviceNumber:    v.DeviceNumber,
+			DeviceNumber:    deviceNumber,
 			Voucher:         `{"username":"` + uuid.New()[0:22] + `"}`,
 			TenantID:        claims.TenantID,
 			CreatedAt:       &t,
 			UpdateAt:        &t,
 			AccessWay:       StringPtr("B"),
 			Description:     v.Description,
-			DeviceConfigID:  &v.DeviceConfigId,
+			DeviceConfigID:  v.DeviceConfigId,
+			ProtocolConfig:  v.ProtocolConfig,
+			AdditionalInfo:  v.AdditionalInfo,
 			IsOnline:        0,
 			ActivateFlag:    "active",
 			ServiceAccessID: &req.ServiceAccessId,
@@ -194,13 +216,6 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 	} else {
 		// 发送通知给服务插件
 		// 获取服务接入信息
-		serviceAccess, err := dal.GetServiceAccessByID(req.ServiceAccessId)
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-				"message":   "create device success, query service access failed",
-			})
-		}
 		// 查询服务地址
 		_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
 		if err != nil {
@@ -223,6 +238,10 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 
 		rsp, err := http_client.Notification("1", string(dataBytes), host)
 		if err != nil {
+			if errors.Is(err, http_client.ErrNotificationNotSupported) {
+				logrus.Warn("service plugin does not support optional device sync notification; connector startup sync will reconcile devices")
+				return deviceList, nil
+			}
 			return nil, errcode.WithVars(105001, map[string]interface{}{
 				"error": "create device success, notification failed" + err.Error(),
 			})
@@ -232,6 +251,14 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 	}
 
 	return deviceList, err
+}
+
+func serviceDeviceNumber(tenantID, accessID, externalNumber string) string {
+	if strings.TrimSpace(externalNumber) == "" {
+		return externalNumber
+	}
+	sum := sha256.Sum256([]byte(tenantID + ":" + accessID + ":" + externalNumber))
+	return "svc-" + hex.EncodeToString(sum[:])[:32]
 }
 
 func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
@@ -517,7 +544,7 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 			"message":   "get device failed",
 		})
 	}
-	if device.TenantID != claims.TenantID {
+	if !canReadTenantDevice(claims, device.TenantID) {
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
 
@@ -577,7 +604,8 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 }
 
 func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
-	total, list, err := dal.GetDeviceListByPage(req, u.TenantID)
+	allTenants := u.Authority == dal.SYS_ADMIN
+	total, list, err := dal.GetDeviceListByPage(req, u.TenantID, allTenants)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -588,7 +616,7 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 		for i := range list {
 			deviceIDs = append(deviceIDs, list[i].ID)
 		}
-		groupPaths, groupErr := dal.GetDeviceGroupPathsByDeviceIDs(deviceIDs, u.TenantID)
+		groupPaths, groupErr := dal.GetDeviceGroupPathsByDeviceIDs(deviceIDs, u.TenantID, allTenants)
 		if groupErr != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": groupErr.Error(),
@@ -616,6 +644,10 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 	deviceListRsp["list"] = list
 
 	return deviceListRsp, err
+}
+
+func canReadTenantDevice(claims *utils.UserClaims, deviceTenantID string) bool {
+	return claims != nil && (claims.Authority == dal.SYS_ADMIN || claims.TenantID == deviceTenantID)
 }
 
 func (d *Device) CheckDeviceNumber(deviceNumber string) (*errcode.Error, bool) {

@@ -19,38 +19,40 @@ type DeviceGroupPath struct {
 
 // GetDeviceGroupPathsByDeviceIDs returns every directly assigned group's full
 // hierarchy for a page of devices in one query.
-func GetDeviceGroupPathsByDeviceIDs(deviceIDs []string, tenantID string) ([]DeviceGroupPath, error) {
+func GetDeviceGroupPathsByDeviceIDs(deviceIDs []string, tenantID string, allTenants bool) ([]DeviceGroupPath, error) {
 	if len(deviceIDs) == 0 {
 		return []DeviceGroupPath{}, nil
 	}
 
 	placeholders := strings.TrimRight(strings.Repeat("?,", len(deviceIDs)), ",")
+	deviceFilter := fmt.Sprintf("rgd.device_id IN (%s)", placeholders)
+	args := make([]interface{}, 0, len(deviceIDs)+1)
+	for _, deviceID := range deviceIDs {
+		args = append(args, deviceID)
+	}
+	if !allTenants {
+		deviceFilter += " AND rgd.tenant_id = ?"
+		args = append(args, tenantID)
+	}
 	sql := fmt.Sprintf(`
 		WITH RECURSIVE group_chain AS (
-			SELECT rgd.device_id, rgd.group_id AS assigned_group_id,
+			SELECT rgd.device_id, rgd.group_id AS assigned_group_id, rgd.tenant_id,
 				g.id, g.parent_id, g.name, 1 AS level
 			FROM r_group_device rgd
 			JOIN groups g ON g.id = rgd.group_id AND g.tenant_id = rgd.tenant_id
-			WHERE rgd.tenant_id = ? AND rgd.device_id IN (%s)
+			WHERE %s
 			UNION ALL
-			SELECT gc.device_id, gc.assigned_group_id,
+			SELECT gc.device_id, gc.assigned_group_id, gc.tenant_id,
 				g.id, g.parent_id, g.name, gc.level + 1
 			FROM groups g
-			JOIN group_chain gc ON gc.parent_id = g.id
-			WHERE g.tenant_id = ?
+			JOIN group_chain gc ON gc.parent_id = g.id AND gc.tenant_id = g.tenant_id
 		)
 		SELECT device_id,
 			string_agg(name, '/' ORDER BY level DESC) AS group_path
 		FROM group_chain
 		GROUP BY device_id, assigned_group_id
 		ORDER BY device_id, group_path
-	`, placeholders)
-	args := make([]interface{}, 0, len(deviceIDs)+2)
-	args = append(args, tenantID)
-	for _, deviceID := range deviceIDs {
-		args = append(args, deviceID)
-	}
-	args = append(args, tenantID)
+	`, deviceFilter)
 
 	paths := []DeviceGroupPath{}
 	if err := global.DB.Raw(sql, args...).Scan(&paths).Error; err != nil {

@@ -88,7 +88,7 @@ func (f *ResponseUplink) processMessage(msg *DeviceMessage) {
 	// 3. 根据消息类型更新对应日志表
 	switch msg.Type {
 	case MessageTypeCommandResponse, MessageTypeGatewayCommandResponse:
-		f.updateCommandLog(messageID, success, responseData)
+		f.updateCommandLog(messageID, msg.DeviceID, success, responseData, msg.Payload)
 
 	case MessageTypeAttributeSetResponse, MessageTypeGatewayAttributeSetResponse:
 		f.updateAttributeLog(messageID, success, responseData)
@@ -105,7 +105,7 @@ func (f *ResponseUplink) processMessage(msg *DeviceMessage) {
 func (f *ResponseUplink) parseResponse(payload []byte) (string, bool) {
 	// 尝试解析响应格式
 	var response struct {
-		Result  int    `json:"result"`  // 0-成功 1-失败
+		Result  *int   `json:"result"`  // 0-成功 1-失败
 		Message string `json:"message"` // 消息内容
 		Errcode string `json:"errcode"` // 错误码（可选）
 		Ts      int64  `json:"ts"`      // 时间戳（可选）
@@ -117,9 +117,13 @@ func (f *ResponseUplink) parseResponse(payload []byte) (string, bool) {
 		f.logger.WithError(err).WithField("payload", string(payload)).Warn("Failed to parse response as JSON")
 		return string(payload), false // 解析失败视为失败
 	}
+	if response.Result == nil || (*response.Result != 0 && *response.Result != 1) {
+		f.logger.WithField("payload", string(payload)).Warn("Command response has no supported result")
+		return string(payload), false
+	}
 
 	// 判断成功/失败: result 为 0 表示成功
-	success := response.Result == 0
+	success := *response.Result == 0
 
 	errorMsg := ""
 	if !success {
@@ -137,7 +141,7 @@ func (f *ResponseUplink) parseResponse(payload []byte) (string, bool) {
 }
 
 // updateCommandLog 更新命令日志
-func (f *ResponseUplink) updateCommandLog(messageID string, success bool, errorMsg string) {
+func (f *ResponseUplink) updateCommandLog(messageID, deviceID string, success bool, errorMsg string, response []byte) {
 	// 状态: 3=成功, 4=失败
 	status := "3" // 成功
 	var errorMsgPtr *string
@@ -149,10 +153,11 @@ func (f *ResponseUplink) updateCommandLog(messageID string, success bool, errorM
 
 	// 更新日志
 	result, err := query.CommandSetLog.
-		Where(query.CommandSetLog.MessageID.Eq(messageID)).
+		Where(query.CommandSetLog.MessageID.Eq(messageID), query.CommandSetLog.DeviceID.Eq(deviceID)).
 		Updates(map[string]interface{}{
 			"status":        &status,
 			"error_message": errorMsgPtr,
+			"rsp_data":      string(response),
 		})
 
 	if err != nil {

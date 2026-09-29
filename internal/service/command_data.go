@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -19,7 +20,10 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
+
+const commandStatusTimeout = 30 * time.Second
 
 type CommandData struct {
 	downlinkBus *downlink.Bus // ✨ 依赖注入
@@ -33,22 +37,43 @@ func (c *CommandData) SetDownlinkBus(bus *downlink.Bus) {
 // PutMessage 下发命令（改造为异步模式，支持多层网关）
 // 保持原有的 CommandPutMessage 接口签名
 func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType string) error {
+	_, err := c.commandPutMessageWithResult(ctx, operatorID, putMessageReq, operationType, "", false)
+	return err
+}
+
+// CommandPutMessageWithResult 接受命令并返回可用于查询回执的 message_id。
+func (c *CommandData) CommandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string) (string, error) {
+	return c.commandPutMessageWithResult(ctx, operatorID, putMessageReq, operationType, tenantID, true)
+}
+
+func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string, enforceTenant bool) (string, error) {
 	// 1. 获取设备信息
 	device, err := initialize.GetDeviceCacheById(putMessageReq.DeviceID)
 	if err != nil {
-		return fmt.Errorf("device not found: %w", err)
+		return "", fmt.Errorf("device not found: %w", err)
+	}
+	if enforceTenant && device.TenantID != tenantID {
+		return "", errcode.NewWithMessage(errcode.CodeParamError, "device not found")
+	}
+	if c.downlinkBus == nil {
+		return "", fmt.Errorf("downlink service not available")
 	}
 
-	// 2. 生成 message_id，8位唯一字符串
-	messageId := uuid.New()[:8]
+	// 2. 使用完整 UUID 作为 message_id，避免短 ID 碰撞导致回执关联错误
+	messageId := uuid.New()
 
 	// 3. 获取设备类型和协议类型
+	serviceRoute, err := resolveServiceDownlinkRoute(device)
+	if err != nil {
+		return "", err
+	}
+	isService := serviceRoute.IsService
 	var deviceType string
 	var protocolType string
-	if device.DeviceConfigID != nil {
+	if !isService && device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
-			return fmt.Errorf("failed to get device config: %w", err)
+			return "", fmt.Errorf("failed to get device config: %w", err)
 		}
 		deviceType = deviceConfig.DeviceType
 		if deviceConfig.ProtocolType != nil {
@@ -62,71 +87,121 @@ func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, 
 	}
 
 	// 4. 构造命令数据
-	commandData := map[string]interface{}{
-		"method": putMessageReq.Identify, // identify 映射为 method
-	}
-	if putMessageReq.Value != nil {
-		valueStr := strings.TrimSpace(*putMessageReq.Value)
-		if valueStr != "" {
-			if !json.Valid([]byte(valueStr)) {
-				return errcode.NewWithMessage(errcode.CodeParamError, "value is not a valid JSON")
-			}
-			commandData["params"] = json.RawMessage(valueStr)
-		}
+	commandData, err := buildCommandData(putMessageReq.Identify, putMessageReq.Value)
+	if err != nil {
+		return "", errcode.NewWithMessage(errcode.CodeParamError, "value is not a valid JSON")
 	}
 
 	// 5. 处理多层网关数据嵌套
 	transformedData, err := transformCommandDataForMultiLevelGateway(commandData, device, deviceType)
 	if err != nil {
-		return fmt.Errorf("failed to transform command data: %w", err)
+		return "", fmt.Errorf("failed to transform command data: %w", err)
 	}
 
 	jsonData, err := json.Marshal(transformedData)
 	if err != nil {
-		return errcode.NewWithMessage(errcode.CodeParamError, "command data is not a valid JSON")
+		return "", errcode.NewWithMessage(errcode.CodeParamError, "command data is not a valid JSON")
 	}
 
 	// 6. 处理网关层级，获取目标设备信息
-	targetDevice, targetDeviceNumber, topicPrefix, err := c.resolveDeviceInfo(device, deviceType, protocolType)
+	targetDevice, targetDeviceNumber, topicPrefix := device, device.DeviceNumber, serviceRoute.TopicPrefix
+	if isService {
+		targetDeviceNumber = serviceRoute.DeviceNumber
+	}
+	if !isService {
+		targetDevice, targetDeviceNumber, topicPrefix, err = c.resolveDeviceInfo(device, deviceType, protocolType)
+	}
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// 7. 创建 pending 日志（记录转换后的完整数据）
 	transformedDataStr := string(jsonData)
 	if err := c.createCommandLogForPut(device, messageId, putMessageReq.Identify, &transformedDataStr, operationType); err != nil {
 		logrus.WithError(err).Error("Failed to create command log")
-		// 不阻塞发送流程
+		return "", fmt.Errorf("failed to create command log: %w", err)
 	}
 
 	// 8. 使用 downlink.Bus 发送
-	if c.downlinkBus != nil {
-		msg := &downlink.Message{
-			DeviceID:       device.ID,                         // 原始设备ID（用于日志关联）
-			DeviceNumber:   targetDeviceNumber,                // 目标设备编号
-			DeviceType:     deviceType,                        // 设备类型
-			DeviceConfigID: c.getDeviceConfigID(targetDevice), // 使用顶层网关的配置ID（用于脚本编码）
-			Type:           downlink.MessageTypeCommand,
-			Data:           jsonData,
-			Topic:          "",          // 不再传Topic，由Adapter构造
-			TopicPrefix:    topicPrefix, // 协议插件前缀
-			MessageID:      messageId,
-		}
-		c.downlinkBus.PublishCommand(msg)
+	msg := &downlink.Message{
+		DeviceID:       device.ID,                         // 原始设备ID（用于日志关联）
+		DeviceNumber:   targetDeviceNumber,                // 目标设备编号
+		DeviceType:     deviceType,                        // 设备类型
+		DeviceConfigID: c.getDeviceConfigID(targetDevice), // 使用顶层网关的配置ID（用于脚本编码）
+		Type:           downlink.MessageTypeCommand,
+		Data:           jsonData,
+		Topic:          "",          // 不再传Topic，由Adapter构造
+		TopicPrefix:    topicPrefix, // 协议插件前缀
+		MessageID:      messageId,
+	}
+	c.downlinkBus.PublishCommand(msg)
 
-		logrus.WithFields(logrus.Fields{
-			"device_id":            device.ID,
-			"target_device_id":     targetDevice.ID,
-			"target_device_number": targetDeviceNumber,
-			"device_type":          deviceType,
-			"message_id":           messageId,
-			"identify":             putMessageReq.Identify,
-		}).Info("Command sent via downlink")
-	} else {
-		return fmt.Errorf("downlink service not available")
+	logrus.WithFields(logrus.Fields{
+		"device_id":            device.ID,
+		"target_device_id":     targetDevice.ID,
+		"target_device_number": targetDeviceNumber,
+		"device_type":          deviceType,
+		"message_id":           messageId,
+		"identify":             putMessageReq.Identify,
+	}).Info("Command sent via downlink")
+	return messageId, nil
+}
+
+// GetCommandStatus 按租户查询单条命令状态；不存在或不属于该租户统一返回 not_found。
+func (*CommandData) GetCommandStatus(ctx context.Context, messageID, tenantID string) (*model.CommandStatusResponse, error) {
+	log, err := dal.GetCommandSetLogByMessageIDAndTenant(ctx, messageID, tenantID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &model.CommandStatusResponse{MessageID: messageID, Status: "not_found"}, nil
+		}
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 	}
 
-	return nil
+	status := "accepted"
+	if log.Status != nil {
+		switch *log.Status {
+		case "0":
+			status = "accepted"
+		case "1":
+			status = "published"
+		case "2":
+			status = "publish_failed"
+		case "3":
+			status = "device_succeeded"
+		case "4":
+			status = "device_failed"
+		default:
+			status = "unknown"
+		}
+	}
+	if (status == "accepted" || status == "published") && time.Since(log.CreatedAt) >= commandStatusTimeout {
+		status = "timeout"
+	}
+
+	return &model.CommandStatusResponse{
+		MessageID:    messageID,
+		Status:       status,
+		RawStatus:    log.Status,
+		ErrorMessage: log.ErrorMessage,
+		CreatedAt:    log.CreatedAt,
+		Response:     log.RspDatum,
+	}, nil
+}
+
+func buildCommandData(identify string, value *string) (map[string]interface{}, error) {
+	commandData := map[string]interface{}{"method": identify}
+	if value == nil {
+		return commandData, nil
+	}
+	valueStr := strings.TrimSpace(*value)
+	if valueStr == "" {
+		return commandData, nil
+	}
+	if !json.Valid([]byte(valueStr)) {
+		return nil, fmt.Errorf("value is not a valid JSON")
+	}
+	commandData["params"] = json.RawMessage(valueStr)
+	return commandData, nil
 }
 
 // createCommandLogForPut 创建命令日志（for PutMessageForCommand）
