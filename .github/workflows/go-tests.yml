@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       timescaledb:
-        image: timescale/timescaledb:2.8.1-pg14
+        image: ghcr.io/thingspanel/timescaledb:2.8.1-pg14
         env:
           POSTGRES_DB: thingspanel_test_ci
           POSTGRES_USER: postgres
