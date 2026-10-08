@@ -61,6 +61,10 @@ type ActiveDeviceReq struct {
 	Name         string `json:"name" validate:"max=255"`                  // 设备名称
 }
 
+type ActivatePreRegisterReq struct {
+	ID string `json:"id" validate:"required,max=36"` // 预注册设备ID
+}
+
 type GetDeviceListByPageReq struct {
 	PageReq
 	ActivateFlag      *string `json:"activate_flag" form:"activate_flag" validate:"omitempty,max=36"`           // 激活状态
@@ -89,8 +93,11 @@ type GetDeviceListByPageRsp struct {
 	ID               string     `json:"id"`                 // 设备ID
 	DeviceNumber     string     `json:"device_number"`      // 设备编号
 	Name             string     `json:"name"`               // 设备名称
+	ProductID        string     `json:"product_id"`         // 必填产品外键
+	ProductCode      string     `json:"productCode"`        // 产品型号编码，来自产品外键
 	DeviceConfigID   string     `json:"device_config_id"`   // 设备配置ID
 	DeviceConfigName string     `json:"device_config_name"` // 设备配置名称
+	YgsoulProductKey string     `json:"ygsoulProductKey"`   // 产品外键关联产品型号得到的业务编码
 	Ts               *time.Time `json:"ts"`                 // 上次推送时间
 	ActivateFlag     string     `json:"activate_flag"`      // 激活状态
 	ActivateAt       *time.Time `json:"activate_at"`        // 激活时间

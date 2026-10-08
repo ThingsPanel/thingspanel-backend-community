@@ -1307,3 +1307,62 @@ func (*DeviceApi) ListBundleInstallations(c *gin.Context) {
 
 	c.Set("data", response)
 }
+
+// @Router /api/v1/device/preRegister/activate [put]
+func (*DeviceApi) ActivatePreRegister(c *gin.Context) {
+	var req model.ActivatePreRegisterReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	device, err := service.GroupApp.Device.ActivatePreRegister(req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", device)
+}
+
+// @Router /api/v1/device/preRegister [get]
+func (*DeviceApi) HandleDevicePreRegisterList(c *gin.Context) {
+	var req model.GetDevicePreRegisterListByPageReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.Device.GetDevicePreRegisterListByPage(&req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
+// @Router /api/v1/device/preRegister [post]
+func (*DeviceApi) CreateDevicePreRegister(c *gin.Context) {
+	var req model.CreateDevicePreRegisterReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	if err := service.GroupApp.Device.CreateDevicePreRegister(&req, claims); err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", nil)
+}
+
+// @Router /api/v1/device/preRegister/export [get]
+func (*DeviceApi) ExportDevicePreRegister(c *gin.Context) {
+	var req model.ExportPreRegisterReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	path, err := service.GroupApp.Device.ExportDevicePreRegister(req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", path)
+}

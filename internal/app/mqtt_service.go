@@ -129,6 +129,19 @@ func (s *MQTTService) initMQTTAdapter() error {
 	s.mqttAdapter = mqttadapter.NewAdapter(bus, mqttClient, s.app.Logger)
 	tempAdapter = s.mqttAdapter       // 赋值给临时变量，供回调使用
 	globalMQTTAdapter = s.mqttAdapter // 设置全局实例
+	mqttadapter.SetGlobalAdapter(s.mqttAdapter)
+	mqtt.RegisterOTAInformPublisher(func(deviceNumber string, payload []byte) error {
+		var last error
+		for _, topic := range mqtt.OTAInformTopics(deviceNumber) {
+			if err := s.mqttAdapter.PublishRaw(topic, 1, payload); err != nil {
+				last = err
+				logrus.WithError(err).WithField("topic", topic).Error("[OTA] adapter publish failed")
+				continue
+			}
+			logrus.WithField("topic", topic).Info("[OTA] adapter published inform")
+		}
+		return last
+	})
 	logrus.Info("MQTT Adapter created with independent client")
 
 	// 5. 首次订阅所有 Topic（重连后会通过 OnConnectCallback 自动重新订阅）

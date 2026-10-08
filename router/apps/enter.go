@@ -6,6 +6,7 @@ type apps struct {
 	Casbin                     // 权限
 	Dict                       // 字典模块
 	OTA                        // OTA
+	Product                    // 产品管理
 	UpLoad                     // 文件上传
 	ProtocolPlugin             // 协议插件
 	Device                     // 设备

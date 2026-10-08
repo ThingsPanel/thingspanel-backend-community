@@ -219,7 +219,11 @@ func (*DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByP
 }
 
 func (*DeviceConfig) GetDeviceConfigListMenu(req *model.GetDeviceConfigListMenuReq, claims *utils.UserClaims) (any, error) {
-	data, err := dal.GetDeviceConfigSelectList(req.DeviceConfigName, claims.TenantID, req.DeviceType, req.ProtocolType)
+	tenantID := claims.TenantID
+	if skipTenantFilter(claims.Authority) {
+		tenantID = ""
+	}
+	data, err := dal.GetDeviceConfigSelectList(req.DeviceConfigName, tenantID, req.DeviceType, req.ProtocolType)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),

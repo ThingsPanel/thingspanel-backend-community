@@ -18,10 +18,7 @@ def test_add(t *testing.T):
 ```
 
 ## 运行测试
-- 运行测试命令：`run_env=localdev go test -v ./...`
-- 运行测试命令会自动查找`./test`目录下所有以`*_test.py`结尾的文件，并执行测试函数。
-- 如果测试函数中有`t.Error()`或`t.Fail()`，则测试失败。
-- 如果测试函数中没有`t.Error()`或`t.Fail()`，则测试成功。
-
-- 在本地环境中一键测试项目中所有的单元测试：`run_env=localdev go test -v ./...`
-- 请提前改好configs/conf-localdev.yaml中的数据库配置，并确保本地环境中已经启动了数据库。
+- 全量 Go 测试：`go test ./...`。
+- 数据库集成测试必须设置 `TEST_DATABASE_URL`，不再通过 `run_env` 选择环境，也不会跳过。
+- 连接串必须指向本机或回环地址，且数据库名以 `thingspanel_test_` 开头。用例会清空该库的整个 `public` schema，并要求数据库已安装 TimescaleDB 扩展；禁止指向共享库或线上库。
+- 示例：`TEST_DATABASE_URL='postgres://<用户>:<密码>@127.0.0.1:5432/thingspanel_test_local' go test ./...`。
