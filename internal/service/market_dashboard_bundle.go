@@ -48,6 +48,7 @@ func (s *MarketDashboardBundleService) Analyze(ctx context.Context, dashboardID,
 		DashboardName:    analyzed.Dashboard.Name,
 		DeviceReferences: make([]model.DashboardBundleDeviceReference, 0, len(analyzed.DeviceReferences)),
 	}
+	usedBindingKeys := make(map[string]bool)
 	for _, reference := range analyzed.DeviceReferences {
 		device, err := query.Device.WithContext(ctx).Where(
 			query.Device.ID.Eq(reference.SourceDeviceID),
@@ -85,7 +86,7 @@ func (s *MarketDashboardBundleService) Analyze(ctx context.Context, dashboardID,
 			SourceDeviceID:      reference.SourceDeviceID,
 			SourceDeviceName:    deviceName,
 			DeviceTemplateID:    *config.DeviceTemplateID,
-			SuggestedBindingKey: suggestBindingKey(deviceName, reference.SourceDeviceID),
+			SuggestedBindingKey: uniqueSuggestedBindingKey(deviceName, reference.SourceDeviceID, usedBindingKeys),
 			RequiredFields:      fields,
 		})
 	}
@@ -348,4 +349,17 @@ func suggestBindingKey(name, deviceID string) string {
 		value = value[:64]
 	}
 	return value
+}
+
+func uniqueSuggestedBindingKey(name, deviceID string, used map[string]bool) string {
+	key := suggestBindingKey(name, deviceID)
+	if used[key] {
+		key = deviceRoleBindingKey(deviceID)
+	}
+	base := key
+	for suffix := 2; used[key]; suffix++ {
+		key = fmt.Sprintf("%s-%d", base, suffix)
+	}
+	used[key] = true
+	return key
 }

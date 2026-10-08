@@ -7,6 +7,34 @@ import (
 	"project/internal/model"
 )
 
+func TestUniqueSuggestedBindingKeysForHeatingStation(t *testing.T) {
+	used := make(map[string]bool)
+	roles := make([]model.DashboardBundleRole, 0, 3)
+	for index, name := range []string{"供热站主控DEMO", "补水泵DEMO", "补水电动阀DEMO"} {
+		deviceID := []string{"controller-1", "pump-1", "valve-1"}[index]
+		roles = append(roles, model.DashboardBundleRole{
+			SourceDeviceID: deviceID,
+			BindingKey:     uniqueSuggestedBindingKey(name, deviceID, used),
+			DisplayName:    name,
+		})
+	}
+	if roles[0].BindingKey != "demo" {
+		t.Fatalf("expected existing non-conflicting key to be preserved: %s", roles[0].BindingKey)
+	}
+	if _, err := validateDashboardBundleRoles(roles); err != nil {
+		t.Fatalf("analysis must produce publishable roles: %v", err)
+	}
+}
+
+func TestUniqueSuggestedBindingKeyHandlesExistingFallback(t *testing.T) {
+	deviceID := "pump-1"
+	used := map[string]bool{"demo": true, deviceRoleBindingKey(deviceID): true}
+	key := uniqueSuggestedBindingKey("补水泵DEMO", deviceID, used)
+	if key != deviceRoleBindingKey(deviceID)+"-2" {
+		t.Fatalf("unexpected collision resolution: %s", key)
+	}
+}
+
 func TestValidateDashboardBundleRoles(t *testing.T) {
 	roles, err := validateDashboardBundleRoles([]model.DashboardBundleRole{
 		{
