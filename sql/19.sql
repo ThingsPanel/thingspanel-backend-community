@@ -109,7 +109,7 @@ COMMENT ON TABLE market_installation_audit IS
 INSERT INTO public.sys_ui_elements
     (id, parent_id, element_code, element_type, orders, param1, param2, param3, authority, description, created_at, remark, multilingual, route_path)
 VALUES
-    ('f9ee1a58-d3c1-e5e6-1c12-d142442b7ece', '95e2a961-382b-f4a6-87b3-1898123c95bc', 'visualization_thingsvis-template', 3, 1, '/visualization/thingsvis-template', 'clarity:plugin-line', '0', '["TENANT_ADMIN","SYS_ADMIN"]'::json, '看板模板', '2026-07-31 11:50:15.995616+08', '', 'route.visualization-thingsvis-template', ''),
+    ('f9ee1a58-d3c1-e5e6-1c12-d142442b7ece', '95e2a961-382b-f4a6-87b3-1898123c95bc', 'visualization_thingsvis-template', 3, 1, '/visualization/thingsvis-template', 'clarity:plugin-line', '1', '["TENANT_ADMIN","SYS_ADMIN"]'::json, '看板模板', '2026-07-31 11:50:15.995616+08', '', 'route.visualization-thingsvis-template', ''),
     ('8a2aab63-13a3-81eb-4b41-8067c133ccf2', '0', 'resource-hub', 1, 116, '/resource-hub', 'icon-park-outline:data-server', '0', '["TENANT_ADMIN","SYS_ADMIN"]'::json, '资源中心', '2026-07-31 16:56:02.283589+08', '', 'route.resource-hub', ''),
     ('c645e229-76a5-c4f5-8dd1-9d2c49f744ad', '8a2aab63-13a3-81eb-4b41-8067c133ccf2', 'resource-hub_device', 3, 2, '/resource-hub/device-template', 'mdi:monitor-dashboard', '0', '["SYS_ADMIN","TENANT_ADMIN"]'::json, '设备模板', '2026-07-31 17:42:40.329918+08', '', 'route.resource-hub_device', ''),
     ('33a98c3f-b2fb-0d0c-bd2b-13785d77bc12', '8a2aab63-13a3-81eb-4b41-8067c133ccf2', 'resource-hub_dashboard', 3, 1, '/resource-hub/dashboard-template', 'icon-park-outline:workbench', '0', '["SYS_ADMIN","TENANT_ADMIN"]'::json, '看板模板', '2026-07-31 17:44:11.409574+08', '', 'route.resource-hub_dashboard', '')

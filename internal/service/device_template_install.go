@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"strings"
+	"os"
 	"time"
 
 	"project/internal/dal"
@@ -29,6 +29,23 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 			"error": "Failed to download template from market: " + err.Error(),
 		})
 	}
+
+	// Copy the resource-center cover locally before creating database records.
+	// The local file is removed if any later installation step fails.
+	localImageURL, localImagePath, err := localizeMarketTemplateImage(context.Background(), client, fullData)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": "Failed to localize market template cover: " + err.Error(),
+		})
+	}
+	installCommitted := false
+	defer func() {
+		if !installCommitted && localImagePath != "" {
+			if removeErr := os.Remove(localImagePath); removeErr != nil && !os.IsNotExist(removeErr) {
+				logrus.Errorf("Failed to clean up localized market template cover %s: %v", localImagePath, removeErr)
+			}
+		}
+	}()
 
 	// 2. Check plugin dependencies (before any DB writes)
 	missingPlugins := checkMissingPlugins(fullData.PluginDependencies)
@@ -260,7 +277,7 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		DeviceTemplateID: &templateID, // 引用新创建的 DeviceTemplate
 		DeviceType:       "1",        // 默认直连设备
 		TenantID:         claims.TenantID,
-		ImageURL:         resolveMarketTemplateImageURL(fullData),
+		ImageURL:         localImageURL,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
@@ -313,6 +330,7 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 			"error": "Failed to commit transaction: " + err.Error(),
 		})
 	}
+	installCommitted = true
 
 	// 4. Report successful local use to the resource center (async, non-blocking).
 	// dcID is stable and acts as the idempotency key for this real local import.
@@ -341,24 +359,6 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		DeviceConfig:   createdDC,
 		MissingPlugins: missingPlugins,
 	}, nil
-}
-
-// resolveMarketTemplateImageURL prefers the resource-center-owned cover and
-// only falls back to the publisher's original device-config image for legacy
-// download payloads.
-func resolveMarketTemplateImageURL(fullData *model.MarketTemplateFullData) *string {
-	if fullData == nil {
-		return nil
-	}
-	if coverURL := strings.TrimSpace(fullData.CoverURL); coverURL != "" {
-		return &coverURL
-	}
-	if fullData.DeviceConfig != nil {
-		if imageURL := strings.TrimSpace(fullData.DeviceConfig.ImageURL); imageURL != "" {
-			return &imageURL
-		}
-	}
-	return nil
 }
 
 // checkMissingPlugins checks which plugin dependencies are not installed locally

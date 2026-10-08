@@ -26,7 +26,8 @@ type CreateServicePluginReq struct {
 
 type GetServicePluginByPageReq struct {
 	PageReq
-	ServiceType int32 `json:"service_type" form:"service_type"`
+	ServiceType int32  `json:"service_type" form:"service_type"`
+	Search      string `json:"search" form:"search"`
 }
 
 type UpdateServicePluginReq struct {

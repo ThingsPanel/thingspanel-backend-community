@@ -10,8 +10,8 @@ import (
 
 var (
 	VERSION         = "0.0.20"
-	VERSION_NUMBER  = 24
-	SYSTEM_VERSION  = "v1.2.9"
+	VERSION_NUMBER  = 25
+	SYSTEM_VERSION  = "v1.2.9" // 85 测试环境发布版本。
 	DB              *gorm.DB
 	REDIS           *redis.Client
 	STATUS_REDIS    *redis.Client

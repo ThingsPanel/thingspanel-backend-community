@@ -107,7 +107,7 @@ func (v *APIKeyValidator) ValidateAPIKey(apiKey string) (*APIKeyInfo, error) {
 
 // 从缓存获取APIKey信息
 func (v *APIKeyValidator) getFromCache(apiKey string) (*APIKeyInfo, error) {
-	key := fmt.Sprintf("apikey:%s", apiKey)
+	key := fmt.Sprintf("apikey:info:%s", apiKey)
 	data, err := v.redisClient.Get(v.ctx, key).Result()
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (v *APIKeyValidator) getFromCache(apiKey string) (*APIKeyInfo, error) {
 
 // 设置APIKey缓存
 func (v *APIKeyValidator) setCache(apiKey string, info *APIKeyInfo) error {
-	key := fmt.Sprintf("apikey:%s", apiKey)
+	key := fmt.Sprintf("apikey:info:%s", apiKey)
 	data, err := json.Marshal(info)
 	if err != nil {
 		return err
@@ -135,7 +135,7 @@ func (v *APIKeyValidator) setCache(apiKey string, info *APIKeyInfo) error {
 
 // 删除APIKey缓存
 func (v *APIKeyValidator) DeleteCache(apiKey string) error {
-	key := fmt.Sprintf("apikey:%s", apiKey)
+	key := fmt.Sprintf("apikey:info:%s", apiKey)
 	return v.redisClient.Del(v.ctx, key).Err()
 }
 

@@ -42,8 +42,7 @@ on:
     inputs:
       tag:
         description: 'Tag name'    # 手动触发时可以指定标签名
-        required: false
-        default: 'latest'
+        required: true
 
 jobs:
   build:
@@ -53,6 +52,8 @@ jobs:
     # 步骤1: 检出代码仓库
     - name: Checkout repository
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
     
     # 步骤2: 设置 Go 开发环境
     - name: Set up Go
@@ -64,7 +65,15 @@ jobs:
     # 如果是 release 触发则使用 release 标签，手动触发则使用用户输入的标签
     - name: Determine Release Tag
       id: determine-tag
-      run: echo "RELEASE_TAG=$(if [ '${{ github.event_name }}' == 'release' ]; then echo '${{ github.event.release.tag_name }}'; else echo '${{ github.event.inputs.tag }}'; fi)" >> $GITHUB_ENV
+      env:
+        REQUESTED_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      run: |
+        if [[ ! "$REQUESTED_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+          echo "Invalid release tag: $REQUESTED_TAG" >&2
+          exit 1
+        fi
+        git checkout --detach "refs/tags/$REQUESTED_TAG"
+        echo "RELEASE_TAG=$REQUESTED_TAG" >> "$GITHUB_ENV"
     
     # 步骤4: 获取现有 Release 信息
     # 获取当前 Release 的信息用于后续上传资源
@@ -77,7 +86,7 @@ jobs:
           echo "Using existing release: ${{ github.event.release.tag_name }}"
         else
           # 手动触发时，获取或创建 Release
-          tag=${{ github.event.inputs.tag || 'latest' }}
+          tag="$RELEASE_TAG"
           echo "RELEASE_TAG=$tag" >> $GITHUB_ENV
           
           # 检查是否存在该标签的 Release
@@ -162,7 +171,7 @@ jobs:
           fi
           
           # 执行 Go 构建命令
-          go build -o "$output_file"
+          go build -ldflags "-X project/pkg/global.SYSTEM_VERSION=${RELEASE_TAG}" -o "$output_file"
           
           # 检查构建是否成功
           if [ $? -ne 0 ]; then
@@ -190,6 +199,14 @@ jobs:
     
     # 步骤6: 上传构建产物到 GitHub Release
     # 将所有平台的压缩包上传为 Release 的附件
+    - name: Verify release version
+      run: |
+        actual_version=$(./dist/linux-amd64/thingspanel-backend-community --version)
+        if [ "$actual_version" != "$RELEASE_TAG" ]; then
+          echo "Version mismatch: expected $RELEASE_TAG, got $actual_version" >&2
+          exit 1
+        fi
+
     - name: Upload Release Assets
       id: upload-release-assets
       run: |

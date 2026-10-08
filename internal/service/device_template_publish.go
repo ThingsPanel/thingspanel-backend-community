@@ -157,15 +157,16 @@ func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, _ *utils.Us
 
 	// 8. Build publish request to market
 	marketReq := &model.PublishTemplateReq{
-		Name:               name,
-		Brand:              brand,
-		Model:              devModel,
-		Category:           category,
-		Author:             author,
-		Version:            version,
-		Description:        description,
-		CoverURL:           coverURL,
-		DeviceConfig:       deviceConfig,
+		SourceTemplateID: tplID,
+		Name:             name,
+		Brand:            brand,
+		Model:            devModel,
+		Category:         category,
+		Author:           author,
+		Version:          version,
+		Description:      description,
+		CoverURL:         coverURL,
+		DeviceConfig:     deviceConfig,
 		TemplateDefinition: map[string]interface{}{
 			"web_chart_config": tplDef["web_chart_config"],
 			"app_chart_config": tplDef["app_chart_config"],

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"project/internal/app"
+	"project/pkg/global"
 
 	"github.com/sirupsen/logrus"
 )
@@ -23,7 +24,12 @@ func main() {
 	// 解析命令行参数
 	// go run . -config ./configs/conf-dev.yml
 	configPath := flag.String("config", "", "配置文件路径...")
+	showVersion := flag.Bool("version", false, "显示版本并退出")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(global.SYSTEM_VERSION)
+		return
+	}
 
 	// 根据是否指定配置文件选择配置加载方式
 	var configOption app.Option
