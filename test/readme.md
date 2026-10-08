@@ -18,10 +18,5 @@ def test_add(t *testing.T):
 ```
 
 ## 运行测试
-- 运行测试命令：`run_env=localdev go test -v ./...`
-- 运行测试命令会自动查找`./test`目录下所有以`*_test.py`结尾的文件，并执行测试函数。
-- 如果测试函数中有`t.Error()`或`t.Fail()`，则测试失败。
-- 如果测试函数中没有`t.Error()`或`t.Fail()`，则测试成功。
-
-- 在本地环境中一键测试项目中所有的单元测试：`run_env=localdev go test -v ./...`
-- 请提前改好configs/conf-localdev.yaml中的数据库配置，并确保本地环境中已经启动了数据库。
+- 默认运行：`go test ./...`。未设置数据库测试环境时，数据库集成用例会明确跳过；其他 Go 测试仍正常执行。
+- `pg_test.go` 会执行 `DROP SCHEMA public CASCADE`，会清空配置数据库的整个 `public` schema。只有配置确认指向专用、可销毁的隔离测试数据库时，才可设置 `run_env=localdev` 或 `run_env=git-actions` 运行数据库集成用例；禁止指向共享库或线上库。

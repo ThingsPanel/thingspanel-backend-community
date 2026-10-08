@@ -29,27 +29,40 @@ var config *initialize.DbConfig
 var db *gorm.DB
 
 func TestDatebase(t *testing.T) {
+	runEnv := os.Getenv("run_env")
+	configPath, ok := databaseTestConfigPath(runEnv)
+	if !ok {
+		if runEnv != "" {
+			t.Fatalf("unsupported database test environment %q; use localdev or git-actions", runEnv)
+		}
+		t.Skip("database integration test requires run_env=localdev or run_env=git-actions; it resets the configured database schema")
+	}
+
 	// 要保证测试顺序，下面的函数都不能以Test开头
-	testConnect(t)
+	testConnect(t, configPath)
 	testDDLInit(t)
 	testNotificationGroup(t)
 }
 
-func testConnect(t *testing.T) {
-	require := require.New(t)
-	if os.Getenv("run_env") == "git-actions" {
-		initialize.ViperInit("../configs/conf-push-test.yml")
-	} else if os.Getenv("run_env") == "localdev" {
-		initialize.ViperInit("../configs/conf-localdev.yml")
-	} else {
-		t.Log("未知环境")
-		return
+func databaseTestConfigPath(runEnv string) (string, bool) {
+	switch runEnv {
+	case "git-actions":
+		return "../configs/conf-push-test.yml", true
+	case "localdev":
+		return "../configs/conf-localdev.yml", true
+	default:
+		return "", false
 	}
+}
+
+func testConnect(t *testing.T, configPath string) {
+	require := require.New(t)
+	require.NoError(initialize.ViperInit(configPath))
 	var err error
 	config, err = initialize.LoadDbConfig()
-	require.Nil(err)
+	require.NoError(err)
 	db, err = initialize.PgConnect(config)
-	require.Nil(err)
+	require.NoError(err)
 }
 
 func testDDLInit(t *testing.T) {
