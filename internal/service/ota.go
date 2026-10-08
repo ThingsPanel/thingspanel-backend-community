@@ -2,9 +2,12 @@ package service
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,9 +18,6 @@ import (
 	dal "project/internal/dal"
 	model "project/internal/model"
 	query "project/internal/query"
-	mqtt "project/mqtt"
-	"project/pkg/common"
-	global "project/pkg/global"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
@@ -50,10 +50,24 @@ func devicePullOTADescription(otapackage *model.OtaUpgradePackage) string {
 	return "等待设备主动检查升级"
 }
 
+func validateOTAUpdate(req *model.UpdateOTAUpgradePackageReq, current *model.OtaUpgradePackage) error {
+	if req.PackageUrl != nil && (current.PackageURL == nil || *req.PackageUrl != *current.PackageURL) {
+		return fmt.Errorf("OTA 固件地址不可修改，请重新上传 TOS 固件包")
+	}
+	if req.AdditionalInfo != nil && (current.AdditionalInfo == nil || *req.AdditionalInfo != *current.AdditionalInfo) {
+		return fmt.Errorf("OTA TOS 对象信息不可修改")
+	}
+	return nil
+}
+
 func buildOTAInformParams(otapackage *model.OtaUpgradePackage, downloadAddress string, size int64) map[string]interface{} {
 	packageURL, signature, signatureType, module := "", "", "", ""
 	if otapackage.PackageURL != nil {
-		packageURL = strings.TrimRight(downloadAddress, "/") + strings.TrimPrefix(*otapackage.PackageURL, ".")
+		if strings.HasPrefix(*otapackage.PackageURL, "https://") {
+			packageURL = *otapackage.PackageURL
+		} else {
+			packageURL = strings.TrimRight(downloadAddress, "/") + strings.TrimPrefix(*otapackage.PackageURL, ".")
+		}
 	}
 	if otapackage.Signature != nil {
 		signature = *otapackage.Signature
@@ -75,6 +89,7 @@ func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenan
 		ObjectKey string `json:"tosObjectKey"`
 		SHA256    string `json:"sha256"`
 		Size      int64  `json:"size"`
+		Receipt   string `json:"tosReceipt"`
 	}
 	if req.AdditionalInfo == nil || json.Unmarshal([]byte(*req.AdditionalInfo), &stored) != nil {
 		return fmt.Errorf("OTA 固件必须先上传并校验 TOS")
@@ -82,6 +97,9 @@ func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenan
 	hashBytes, hashErr := hex.DecodeString(stored.SHA256)
 	if hashErr != nil || len(hashBytes) != 32 || stored.Size <= 0 || req.PackageUrl == nil || !strings.HasPrefix(*req.PackageUrl, "https://") {
 		return fmt.Errorf("OTA 固件必须先上传并校验 TOS")
+	}
+	if !validOTAFirmwareReceipt(os.Getenv("YOMI_INTERNAL_EVENT_TOKEN"), stored.ObjectKey, *req.PackageUrl, stored.SHA256, stored.Size, stored.Receipt) {
+		return fmt.Errorf("OTA 固件缺少有效的 TOS 上传凭据")
 	}
 	config, err := dal.GetDeviceConfigByID(req.DeviceConfigID)
 	if err != nil {
@@ -99,6 +117,11 @@ func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenan
 	if productKey == "" || stored.ObjectKey != expectedKey || !strings.HasSuffix(*req.PackageUrl, "/"+expectedKey) {
 		return fmt.Errorf("OTA 固件 TOS 对象键与产品/版本不匹配")
 	}
+	additionalInfo, err := prepareTOSOTAAdditionalInfo(*req.AdditionalInfo, stored.ObjectKey, stored.SHA256, stored.Receipt, stored.Size, productKey)
+	if err != nil {
+		return err
+	}
+	req.AdditionalInfo = additionalInfo
 	if req.SignatureType == nil || !strings.EqualFold(*req.SignatureType, "SHA256") {
 		return fmt.Errorf("TOS 固件签名算法必须为 SHA256")
 	}
@@ -128,13 +151,94 @@ func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenan
 	ota.CreatedAt = t
 	ota.UpdatedAt = &t
 	ota.Remark = req.Remark
-	return dal.CreateOtaUpgradePackage(&ota)
+	return dal.CreateOtaUpgradePackage(&ota, func() error {
+		return verifyOTAObjectAvailable(*req.PackageUrl, stored.Size)
+	})
 }
 
-func (*OTA) UpdateOTAUpgradePackage(req *model.UpdateOTAUpgradePackageReq) error {
-
-	oldota, err := dal.GetOtaUpgradePackageByID(req.Id)
+func verifyOTAObjectAvailable(publicURL string, expectedSize int64) error {
+	parsed, err := url.Parse(publicURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || expectedSize <= 0 {
+		return fmt.Errorf("TOS 固件地址或大小无效")
+	}
+	req, err := http.NewRequest(http.MethodHead, publicURL, nil)
 	if err != nil {
+		return err
+	}
+	client := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("TOS 固件公网校验失败: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || resp.ContentLength != expectedSize {
+		return fmt.Errorf("TOS 固件公网地址不可用或大小不匹配")
+	}
+	return nil
+}
+
+func validOTAFirmwareReceipt(token, objectKey, publicURL, digest string, size int64, receipt string) bool {
+	if token == "" || receipt == "" || size <= 0 {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(token))
+	_, _ = fmt.Fprintf(mac, "%s\n%s\n%s\n%d", objectKey, publicURL, digest, size)
+	expected, err := hex.DecodeString(receipt)
+	return err == nil && hmac.Equal(expected, mac.Sum(nil))
+}
+
+func prepareTOSOTAAdditionalInfo(raw, objectKey, digest, receipt string, size int64, productKey string) (*string, error) {
+	var additional map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &additional); err != nil || additional == nil {
+		return nil, fmt.Errorf("OTA 固件附加信息无效")
+	}
+	additional["tosObjectKey"] = objectKey
+	additional["sha256"] = digest
+	additional["size"] = size
+	additional["tosReceipt"] = receipt
+	additional["deliveryProtocol"] = "ygsoul_http"
+	if productKey == "a100" {
+		additional["orchestrationRoute"] = "device_integration"
+	}
+	encoded, err := json.Marshal(additional)
+	if err != nil {
+		return nil, err
+	}
+	value := string(encoded)
+	return &value, nil
+}
+
+func isVerifiedTOSOTAPackage(ota *model.OtaUpgradePackage, token string) bool {
+	if ota == nil || ota.AdditionalInfo == nil || ota.PackageURL == nil {
+		return false
+	}
+	var metadata struct {
+		ObjectKey string `json:"tosObjectKey"`
+		SHA256    string `json:"sha256"`
+		Receipt   string `json:"tosReceipt"`
+		Size      int64  `json:"size"`
+	}
+	if json.Unmarshal([]byte(*ota.AdditionalInfo), &metadata) != nil {
+		return false
+	}
+	hash, err := hex.DecodeString(metadata.SHA256)
+	if err != nil || len(hash) != sha256.Size || metadata.Size <= 0 || !strings.HasPrefix(metadata.ObjectKey, "firmware/") {
+		return false
+	}
+	parsed, err := url.Parse(*ota.PackageURL)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || !strings.HasSuffix(parsed.Path, "/"+metadata.ObjectKey) {
+		return false
+	}
+	return validOTAFirmwareReceipt(token, metadata.ObjectKey, *ota.PackageURL, metadata.SHA256, metadata.Size, metadata.Receipt)
+}
+
+func (*OTA) UpdateOTAUpgradePackage(req *model.UpdateOTAUpgradePackageReq, tenantID string) error {
+
+	oldota, err := dal.GetOtaUpgradePackageByIDAndTenant(req.Id, tenantID)
+	if err != nil {
+		return err
+	}
+	if err := validateOTAUpdate(req, oldota); err != nil {
 		return err
 	}
 
@@ -149,24 +253,15 @@ func (*OTA) UpdateOTAUpgradePackage(req *model.UpdateOTAUpgradePackageReq) error
 	// ota.Module = req.Module
 	// ota.PackageType = *req.PackageType
 	// ota.SignatureType = req.SignatureType
-	ota.AdditionalInfo = req.AdditionalInfo
+	ota.AdditionalInfo = oldota.AdditionalInfo
 	ota.Description = req.Description
-	ota.PackageURL = req.PackageUrl
-	if req.PackageUrl != oldota.PackageURL {
-		// 生成文件签名
-		fileurl := *req.PackageUrl
-		filepath := strings.Replace(fileurl, "/api/v1/ota/download", "", 1)
-		signature, err := utils.FileSign(filepath, *req.SignatureType)
-		if err != nil {
-			return err
-		}
-		ota.Signature = &signature
-	}
+	ota.PackageURL = oldota.PackageURL
+	ota.Signature = oldota.Signature
 
 	t := time.Now().UTC()
 	ota.UpdatedAt = &t
 	ota.Remark = req.Remark
-	info, err := dal.UpdateOtaUpgradePackage(&ota)
+	info, err := dal.UpdateOtaUpgradePackage(&ota, tenantID)
 	if err != nil {
 		return err
 	}
@@ -176,8 +271,8 @@ func (*OTA) UpdateOTAUpgradePackage(req *model.UpdateOTAUpgradePackageReq) error
 	return nil
 }
 
-func (*OTA) DeleteOTAUpgradePackage(packageId string) error {
-	ota, err := dal.GetOtaUpgradePackageByID(packageId)
+func (*OTA) DeleteOTAUpgradePackage(packageId, tenantID string) error {
+	ota, err := dal.GetOtaUpgradePackageByIDAndTenant(packageId, tenantID)
 	if err != nil {
 		return err
 	}
@@ -190,10 +285,9 @@ func (*OTA) DeleteOTAUpgradePackage(packageId string) error {
 	if info.ObjectKey == "" {
 		return fmt.Errorf("缺少 TOS 对象键，拒绝删除 OTA 包")
 	}
-	if err := deleteOTAFirmwareFromTOS(info.ObjectKey); err != nil {
-		return err
-	}
-	return dal.DeleteOtaUpgradePackage(packageId)
+	return dal.DeleteOtaUpgradePackageAndTOS(packageId, tenantID, info.ObjectKey, func() error {
+		return deleteOTAFirmwareFromTOS(info.ObjectKey)
+	})
 }
 
 func deleteOTAFirmwareFromTOS(objectKey string) error {
@@ -230,6 +324,46 @@ func deleteOTAFirmwareFromTOS(objectKey string) error {
 	return nil
 }
 
+func dispatchOTADevice(firmwareEndpoint, token, deviceNumber, requestID, packageID string) error {
+	endpoint, err := url.ParseRequestURI(firmwareEndpoint)
+	if err != nil || endpoint.Host == "" || !strings.HasSuffix(endpoint.Path, "/firmware") || token == "" {
+		return fmt.Errorf("设备 OTA 派发服务未配置")
+	}
+	ip := net.ParseIP(endpoint.Hostname())
+	private := endpoint.Scheme == "http" && (endpoint.Hostname() == "host.docker.internal" || endpoint.Hostname() == "yomi-server" || (ip != nil && ip.IsLoopback()))
+	if endpoint.Scheme != "https" && !private {
+		return fmt.Errorf("设备 OTA 派发服务必须使用 HTTPS")
+	}
+	endpoint.Path = strings.TrimSuffix(endpoint.Path, "/firmware") + "/devices/" + url.PathEscape(deviceNumber) + "/dispatch"
+	endpoint.RawQuery = ""
+	endpoint.Fragment = ""
+	body, _ := json.Marshal(map[string]string{"requestId": requestID, "packageId": packageID})
+	req, err := http.NewRequest(http.MethodPost, endpoint.String(), bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Yomi-Internal-Token", token)
+	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	var result struct {
+		Code int `json:"code"`
+		Data struct {
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK || result.Code != 0 || result.Data.Status != "ACCEPTED" {
+		return fmt.Errorf("设备 OTA 派发未被接受")
+	}
+	return nil
+}
+
 func (*OTA) GetOTAUpgradePackageListByPage(req *model.GetOTAUpgradePackageLisyByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetOtaUpgradePackageListByPage(req, userClaims.TenantID)
 	if err != nil {
@@ -244,7 +378,7 @@ func (*OTA) GetOTAUpgradePackageListByPage(req *model.GetOTAUpgradePackageLisyBy
 
 func (o *OTA) CreateOTAUpgradeTask(req *model.CreateOTAUpgradeTaskReq) error {
 	tasks, err := dal.CreateOTAUpgradeTaskWithDetail(req)
-	if err == nil {
+	if err == nil && req.Source != "device_integration" {
 		go func() {
 			for _, t := range tasks {
 				o.PushOTAUpgradePackage(t)
@@ -387,70 +521,28 @@ func (*OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) error 
 	if err != nil {
 		return err
 	}
-	if usesDevicePullOTA(otapackage) {
-		t := time.Now().UTC()
-		desc := devicePullOTADescription(otapackage)
-		taskDetail.Status = 1
+	if !isVerifiedTOSOTAPackage(otapackage, os.Getenv("YOMI_INTERNAL_EVENT_TOKEN")) {
+		return fmt.Errorf("OTA 包缺少有效 TOS 对象或上传凭据，拒绝回退到 ThingsPanel 文件服务")
+	}
+	if !usesDevicePullOTA(otapackage) {
+		return fmt.Errorf("OTA 包未配置设备交互服务下发，拒绝回退到 ThingsPanel 文件服务")
+	}
+	t := time.Now().UTC()
+	desc := devicePullOTADescription(otapackage)
+	if err := dispatchOTADevice(os.Getenv("YOMI_OTA_FIRMWARE_URL"), os.Getenv("YOMI_INTERNAL_EVENT_TOKEN"), device.DeviceNumber, taskDetail.ID, otapackage.ID); err != nil {
+		taskDetail.Status = 5
+		desc = "设备交互服务 OTA 派发失败"
 		taskDetail.StatusDescription = &desc
 		taskDetail.UpdatedAt = &t
-		_, err := query.OtaUpgradeTaskDetail.Updates(taskDetail)
+		_, _ = query.OtaUpgradeTaskDetail.Updates(taskDetail)
 		return err
 	}
-	var otamsg = make(map[string]interface{})
-	// 获取随机九位数字并转换为字符串
-	randNum, err := common.GetRandomNineDigits()
-	if err != nil {
-		return err
-	}
-	otamsg["id"] = randNum
-	otamsg["code"] = "200"
-	packageSize := int64(0)
-	if otapackage.PackageURL != nil {
-		filePath := "." + strings.Replace(*otapackage.PackageURL, "/api/v1/ota/download", "", 1)
-		info, statErr := os.Stat(filePath)
-		if statErr != nil {
-			return fmt.Errorf("ota package is unavailable: %w", statErr)
-		}
-		packageSize = info.Size()
-	}
-	otamsgparams := buildOTAInformParams(otapackage, global.OtaAddress, packageSize)
-	var m map[string]interface{}
-	if otapackage.AdditionalInfo != nil && *otapackage.AdditionalInfo != "" {
-		if err = json.Unmarshal([]byte(*otapackage.AdditionalInfo), &m); err != nil {
-			logrus.Error(err)
-		}
-	}
-	otamsgparams["extData"] = m
-	otamsg["params"] = otamsgparams
-	palyload, json_err := json.Marshal(otamsg)
-	if json_err != nil {
-		logrus.Error(json_err)
-	} else {
-		t := time.Now().UTC()
-		taskDetail.UpdatedAt = &t
-		if pubErr := mqtt.PublishOTAInform(device.DeviceNumber, palyload); pubErr != nil {
-			taskDetail.Status = 1
-			desc := "通知发送失败: " + pubErr.Error()
-			taskDetail.StatusDescription = &desc
-			_, _ = query.OtaUpgradeTaskDetail.Updates(taskDetail)
-			logrus.WithError(pubErr).WithFields(logrus.Fields{
-				"stage": "ota_inform_publish", "device_id": device.ID, "device_number": device.DeviceNumber, "task_detail": taskDetail.ID,
-			}).Error("[OTA] inform publish failed")
-			return pubErr
-		}
-		taskDetail.Status = 2
-		desc := "已通知设备"
-		taskDetail.StatusDescription = &desc
-		if _, err := query.OtaUpgradeTaskDetail.Updates(taskDetail); err != nil {
-			return err
-		}
-		logrus.WithFields(logrus.Fields{
-			"stage": "ota_inform_publish", "device_number": device.DeviceNumber,
-			"topics": mqtt.OTAInformTopics(device.DeviceNumber), "task_detail": taskDetail.ID, "payload": string(palyload),
-		}).Info("[OTA] inform published")
-	}
-
-	return nil
+	taskDetail.Status = 2
+	desc = "已通知设备检查 TOS 固件"
+	taskDetail.StatusDescription = &desc
+	taskDetail.UpdatedAt = &t
+	_, err = query.OtaUpgradeTaskDetail.Updates(taskDetail)
+	return err
 }
 
 func (*OTA) ApplyOTAProgress(raw []byte) error {
@@ -513,6 +605,6 @@ func (*OTA) ApplyOTAProgress(raw []byte) error {
 	return nil
 }
 
-func (*OTA) ListOTAProgressLogs(detailID string) ([]dal.OTAProgressLogRow, error) {
-	return dal.ListOTAProgressLogs(detailID)
+func (*OTA) ListOTAProgressLogs(detailID, tenantID string) ([]dal.OTAProgressLogRow, error) {
+	return dal.ListOTAProgressLogs(detailID, tenantID)
 }

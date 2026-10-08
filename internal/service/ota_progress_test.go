@@ -131,11 +131,11 @@ func TestProgressLooksAtPendingPushedAndUpgrading(t *testing.T) {
 }
 
 func TestOTAProgressLogUsesVersionedMigration(t *testing.T) {
-	ddl, err := os.ReadFile("../../sql/24.sql")
+	ddl, err := os.ReadFile("../../sql/25.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if global.VERSION_NUMBER != 24 || !strings.Contains(string(ddl), "ota_upgrade_progress_logs") || !strings.Contains(string(ddl), "COMMENT ON TABLE") {
-		t.Fatalf("OTA progress schema must be released as migration 24, version=%d", global.VERSION_NUMBER)
+	if global.VERSION_NUMBER != 25 || !strings.Contains(string(ddl), "ota_upgrade_progress_logs") || !strings.Contains(string(ddl), "COMMENT ON TABLE") {
+		t.Fatalf("OTA progress schema must be released as migration 25, version=%d", global.VERSION_NUMBER)
 	}
 }

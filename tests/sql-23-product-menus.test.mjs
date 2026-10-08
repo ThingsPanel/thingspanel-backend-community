@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 const dir = dirname(fileURLToPath(import.meta.url))
-const sql = readFileSync(join(dir, '..', 'sql', '21.sql'), 'utf8')
+const sql = readFileSync(join(dir, '..', 'sql', '23.sql'), 'utf8')
 
-test('21.sql inserts product and OTA menus for SYS_ADMIN', () => {
+test('23.sql inserts product and OTA menus for SYS_ADMIN', () => {
   for (const code of ['product', 'product_list', 'product_update-package', 'product_update-ota']) {
     assert.match(sql, new RegExp(`'${code}'`))
   }

@@ -146,29 +146,13 @@ func uploadOTAFirmware(file *multipart.FileHeader, productKey, version string) (
 		return nil, err
 	}
 	defer source.Close()
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", sanitizeFilename(file.Filename))
-	if err == nil {
-		_, err = io.Copy(part, source)
-	}
-	if err == nil {
-		err = writer.WriteField("productKey", productKey)
-	}
-	if err == nil {
-		err = writer.WriteField("version", version)
-	}
-	if closeErr := writer.Close(); err == nil {
-		err = closeErr
-	}
-	if err != nil {
-		return nil, err
-	}
+	body, contentType := streamOTAFirmwareMultipart(source, sanitizeFilename(file.Filename), productKey, version)
 	req, err := http.NewRequest(http.MethodPost, endpoint, body)
 	if err != nil {
+		body.Close()
 		return nil, err
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("X-Yomi-Internal-Token", token)
 	resp, err := (&http.Client{Timeout: 60 * time.Second}).Do(req)
 	if err != nil {
@@ -183,15 +167,43 @@ func uploadOTAFirmware(file *multipart.FileHeader, productKey, version string) (
 			PublicURL string `json:"publicUrl"`
 			SHA256    string `json:"sha256"`
 			Size      int64  `json:"size"`
+			Receipt   string `json:"receipt"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK || payload.Code != 0 || payload.Data.Storage != "tos" || !strings.HasPrefix(payload.Data.PublicURL, "https://") || !strings.HasPrefix(payload.Data.ObjectKey, "firmware/") || payload.Data.SHA256 == "" {
+	if resp.StatusCode != http.StatusOK || payload.Code != 0 || payload.Data.Storage != "tos" || !strings.HasPrefix(payload.Data.PublicURL, "https://") || !strings.HasPrefix(payload.Data.ObjectKey, "firmware/") || payload.Data.SHA256 == "" || payload.Data.Receipt == "" {
 		return nil, errors.New("OTA 固件未写入 TOS")
 	}
-	return map[string]interface{}{"path": payload.Data.PublicURL, "tosObjectKey": payload.Data.ObjectKey, "sha256": payload.Data.SHA256, "size": payload.Data.Size}, nil
+	return map[string]interface{}{"path": payload.Data.PublicURL, "tosObjectKey": payload.Data.ObjectKey, "sha256": payload.Data.SHA256, "size": payload.Data.Size, "tosReceipt": payload.Data.Receipt}, nil
+}
+
+func streamOTAFirmwareMultipart(source io.Reader, filename, productKey, version string) (io.ReadCloser, string) {
+	pipeReader, pipeWriter := io.Pipe()
+	writer := multipart.NewWriter(pipeWriter)
+	contentType := writer.FormDataContentType()
+	go func() {
+		part, err := writer.CreateFormFile("file", filename)
+		if err == nil {
+			_, err = io.Copy(part, source)
+		}
+		if err == nil {
+			err = writer.WriteField("productKey", productKey)
+		}
+		if err == nil {
+			err = writer.WriteField("version", version)
+		}
+		if err == nil {
+			err = writer.Close()
+		}
+		if err != nil {
+			_ = pipeWriter.CloseWithError(err)
+			return
+		}
+		_ = pipeWriter.Close()
+	}()
+	return pipeReader, contentType
 }
 
 func resolveUploadType(c *gin.Context) string {

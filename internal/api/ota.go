@@ -42,7 +42,8 @@ func (*OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
 // @Router   /api/v1/ota/package/{id} [delete]
 func (*OTAApi) DeleteOTAUpgradePackage(c *gin.Context) {
 	id := c.Param("id")
-	err := service.GroupApp.OTA.DeleteOTAUpgradePackage(id)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.OTA.DeleteOTAUpgradePackage(id, userClaims.TenantID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -57,7 +58,8 @@ func (*OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	err := service.GroupApp.OTA.UpdateOTAUpgradePackage(&req)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.OTA.UpdateOTAUpgradePackage(&req, userClaims.TenantID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -163,7 +165,8 @@ func (*OTAApi) HandleOTAProgressLogs(c *gin.Context) {
 		c.Error(fmt.Errorf("detail_id is required"))
 		return
 	}
-	list, err := service.GroupApp.OTA.ListOTAProgressLogs(detailID)
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	list, err := service.GroupApp.OTA.ListOTAProgressLogs(detailID, userClaims.TenantID)
 	if err != nil {
 		c.Error(err)
 		return

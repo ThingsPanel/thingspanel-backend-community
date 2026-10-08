@@ -6,6 +6,7 @@ type CreateOTAUpgradeTaskReq struct {
 	Description         *string  `json:"description" validate:"omitempty,max=500"`           // 描述
 	Remark              *string  `json:"remark" validate:"omitempty,max=255"`                // 备注
 	DeviceIdList        []string `json:"device_id_list" validate:"required"`                 // 设备列表
+	Source              string   `json:"source" validate:"omitempty,oneof=device_integration"`
 }
 
 // type CreateOTAUpgradeTaskDeviceListReq struct {
