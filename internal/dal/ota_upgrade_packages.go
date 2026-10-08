@@ -39,6 +39,30 @@ func UpdateOtaUpgradePackage(p *model.OtaUpgradePackage, tenantID string) (gen.R
 	return info, err
 }
 
+func UpdateOTAPackageTOSMetadata(id string, tenantID *string, objectKey, publicURL, digest string, signatureType, additionalInfo *string) error {
+	if tenantID == nil || *tenantID == "" || objectKey == "" {
+		return fmt.Errorf("OTA 租户或 TOS 对象键缺失")
+	}
+	return global.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", objectKey).Error; err != nil {
+			return err
+		}
+		result := tx.Model(&model.OtaUpgradePackage{}).
+			Where("id = ? AND tenant_id = ?", id, *tenantID).
+			Updates(map[string]interface{}{
+				"package_url": publicURL, "signature": digest, "signature_type": signatureType,
+				"additional_info": additionalInfo, "updated_at": gorm.Expr("NOW()"),
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return fmt.Errorf("OTA TOS 元数据更新未命中唯一租户包记录")
+		}
+		return nil
+	})
+}
+
 func GetOtaUpgradePackageByIDAndTenant(id, tenantID string) (*model.OtaUpgradePackage, error) {
 	var ota model.OtaUpgradePackage
 	err := global.DB.Where("id = ? AND tenant_id = ?", id, tenantID).First(&ota).Error

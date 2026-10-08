@@ -6,10 +6,57 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"project/internal/model"
 )
+
+func TestExpectedLegacyOTAObjectKeyBindsConfiguredProductAndVersion(t *testing.T) {
+	for _, tc := range []struct {
+		name, product, version, want string
+	}{
+		{"A100", "A100 电子吧唧模板 01", "1.0.7", "firmware/a100/1.0.7/xiaozhi-1.0.7.bin"},
+		{"ESP32S3", "YGSoul ESP32S3", "1.0.38", "firmware/esp32s3/1.0.38/xiaozhi-1.0.38.bin"},
+		{"unsupported", "unknown", "1.0.0", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := expectedLegacyOTAObjectKey(tc.product, tc.version); got != tc.want {
+				t.Fatalf("object key = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRequestExistingFirmwareReceiptUsesAuthenticatedExactKey(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/internal/ota/firmware/receipt" {
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		if r.Header.Get("X-Yomi-Internal-Token") != "test-token" {
+			t.Fatal("internal token header missing")
+		}
+		body := make([]byte, r.ContentLength)
+		if _, err := r.Body.Read(body); err != nil && err.Error() != "EOF" {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), `"objectKey":"firmware/a100/1.0.7/xiaozhi-1.0.7.bin"`) {
+			t.Fatalf("unexpected request body %s", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":0,"data":{"storage":"tos","objectKey":"firmware/a100/1.0.7/xiaozhi-1.0.7.bin","publicUrl":"https://bucket.tos.example/firmware/a100/1.0.7/xiaozhi-1.0.7.bin","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":42,"receipt":"signed"}}`))
+	}))
+	defer server.Close()
+	receipt, err := requestExistingFirmwareReceipt(server.URL+"/api/v1/internal/ota/firmware", "test-token", "firmware/a100/1.0.7/xiaozhi-1.0.7.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.Receipt != "signed" || receipt.Size != 42 {
+		t.Fatalf("unexpected receipt: %#v", receipt)
+	}
+}
 
 func TestValidateOTAUpdateRejectsFirmwareAddressChanges(t *testing.T) {
 	current := &model.OtaUpgradePackage{PackageURL: stringPtr("https://tos.example/firmware/1.bin"), AdditionalInfo: stringPtr(`{"tosObjectKey":"firmware/1.bin"}`)}

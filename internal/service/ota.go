@@ -521,6 +521,15 @@ func (*OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) error 
 	if err != nil {
 		return err
 	}
+	if err := ensureLegacyOTAPackageHasTOSReceipt(otapackage); err != nil {
+		taskDetail.Status = 5
+		desc := "旧 TOS 固件迁移校验失败"
+		taskDetail.StatusDescription = &desc
+		t := time.Now().UTC()
+		taskDetail.UpdatedAt = &t
+		_, _ = query.OtaUpgradeTaskDetail.Updates(taskDetail)
+		return err
+	}
 	if !isVerifiedTOSOTAPackage(otapackage, os.Getenv("YOMI_INTERNAL_EVENT_TOKEN")) {
 		return fmt.Errorf("OTA 包缺少有效 TOS 对象或上传凭据，拒绝回退到 ThingsPanel 文件服务")
 	}
