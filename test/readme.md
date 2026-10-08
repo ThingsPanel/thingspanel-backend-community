@@ -18,5 +18,7 @@ def test_add(t *testing.T):
 ```
 
 ## 运行测试
-- 默认运行：`go test ./...`。未设置数据库测试环境时，数据库集成用例会明确跳过；其他 Go 测试仍正常执行。
-- `pg_test.go` 会执行 `DROP SCHEMA public CASCADE`，会清空配置数据库的整个 `public` schema。只有配置确认指向专用、可销毁的隔离测试数据库时，才可设置 `run_env=localdev` 或 `run_env=git-actions` 运行数据库集成用例；禁止指向共享库或线上库。
+- 全量 Go 测试：`go test ./...`。
+- 数据库集成测试必须设置 `TEST_DATABASE_URL`，不再通过 `run_env` 选择环境，也不会跳过。
+- 连接串必须指向本机或回环地址，且数据库名以 `thingspanel_test_` 开头。用例会清空该库的整个 `public` schema，并要求数据库已安装 TimescaleDB 扩展；禁止指向共享库或线上库。
+- 示例：`TEST_DATABASE_URL='postgres://<用户>:<密码>@127.0.0.1:5432/thingspanel_test_local' go test ./...`。

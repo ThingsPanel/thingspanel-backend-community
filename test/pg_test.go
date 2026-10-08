@@ -29,37 +29,24 @@ var config *initialize.DbConfig
 var db *gorm.DB
 
 func TestDatebase(t *testing.T) {
-	runEnv := os.Getenv("run_env")
-	configPath, ok := databaseTestConfigPath(runEnv)
-	if !ok {
-		if runEnv != "" {
-			t.Fatalf("unsupported database test environment %q; use localdev or git-actions", runEnv)
-		}
-		t.Skip("database integration test requires run_env=localdev or run_env=git-actions; it resets the configured database schema")
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Fatal("TEST_DATABASE_URL is required; use a dedicated loopback PostgreSQL database named thingspanel_test_*")
 	}
 
 	// 要保证测试顺序，下面的函数都不能以Test开头
-	testConnect(t, configPath)
+	testConnect(t, dsn)
+	if sqlDB, err := db.DB(); err == nil {
+		defer sqlDB.Close()
+	}
 	testDDLInit(t)
 	testNotificationGroup(t)
 }
 
-func databaseTestConfigPath(runEnv string) (string, bool) {
-	switch runEnv {
-	case "git-actions":
-		return "../configs/conf-push-test.yml", true
-	case "localdev":
-		return "../configs/conf-localdev.yml", true
-	default:
-		return "", false
-	}
-}
-
-func testConnect(t *testing.T, configPath string) {
+func testConnect(t *testing.T, dsn string) {
 	require := require.New(t)
-	require.NoError(initialize.ViperInit(configPath))
 	var err error
-	config, err = initialize.LoadDbConfig()
+	config, err = databaseTestConfig(dsn)
 	require.NoError(err)
 	db, err = initialize.PgConnect(config)
 	require.NoError(err)
@@ -70,21 +57,22 @@ func testDDLInit(t *testing.T) {
 
 	// 清空数据库所有的表
 	res := db.Exec("DROP SCHEMA public CASCADE;CREATE SCHEMA public;")
-	require.Nil(res.Error)
+	require.NoError(res.Error)
 
 	// 切换到新创建的数据库
 	db, err := initialize.PgConnect(config)
-	require.Nil(err)
+	require.NoError(err)
 
 	// ts := db.Exec("CREATE TABLE sys_version (version_number INT NOT NULL DEFAULT 0, version varchar(255) NOT NULL, PRIMARY KEY (version_number))")
 	// err = ts.Error
 	// require.Nilf(err,"CREATE TABLE sys_version error %v",err)
 
 	// 执行1.sql文件
+	require.NoError(db.Exec("CREATE EXTENSION IF NOT EXISTS timescaledb").Error)
 	err = initialize.ExecuteSQLFile(db, "../sql/1.sql")
-	require.Nilf(err, "执行ddl失败%v", err)
+	require.NoError(err, "执行ddl失败")
 
-	require.Nilf(err, "ddl提交失败%v", err)
+	require.NoError(err, "ddl提交失败")
 	t.Log("初始化数据库成功")
 }
 
