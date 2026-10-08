@@ -23,6 +23,15 @@ func OperationLogs() gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		// 工位授权首次响应含一次性令牌；保留操作元数据，不记录请求或响应正文。
+		if strings.Contains(c.Request.URL.Path, "/factory-batches") {
+			start := time.Now().UTC()
+			c.Next()
+			cost := time.Since(start).Milliseconds()
+			redacted := "[出厂预制敏感操作正文已隐藏]"
+			saveOperationLog(c, start, cost, redacted, redacted)
+			return
+		}
 
 		logrus.Info("开始处理请求:", c.Request.URL.Path, "方法:", c.Request.Method)
 		requestMessage, _ := processRequestBody(c)

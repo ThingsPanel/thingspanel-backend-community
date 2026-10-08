@@ -1,8 +1,12 @@
 package service
 
 import (
+	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -67,6 +71,37 @@ func buildOTAInformParams(otapackage *model.OtaUpgradePackage, downloadAddress s
 }
 
 func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenantID string) error {
+	var stored struct {
+		ObjectKey string `json:"tosObjectKey"`
+		SHA256    string `json:"sha256"`
+		Size      int64  `json:"size"`
+	}
+	if req.AdditionalInfo == nil || json.Unmarshal([]byte(*req.AdditionalInfo), &stored) != nil {
+		return fmt.Errorf("OTA 固件必须先上传并校验 TOS")
+	}
+	hashBytes, hashErr := hex.DecodeString(stored.SHA256)
+	if hashErr != nil || len(hashBytes) != 32 || stored.Size <= 0 || req.PackageUrl == nil || !strings.HasPrefix(*req.PackageUrl, "https://") {
+		return fmt.Errorf("OTA 固件必须先上传并校验 TOS")
+	}
+	config, err := dal.GetDeviceConfigByID(req.DeviceConfigID)
+	if err != nil {
+		return err
+	}
+	product := strings.ToLower(config.Name)
+	productKey := ""
+	if strings.Contains(product, "esp32s3") {
+		productKey = "esp32s3"
+	}
+	if strings.Contains(product, "a100") {
+		productKey = "a100"
+	}
+	expectedKey := fmt.Sprintf("firmware/%s/%s/xiaozhi-%s.bin", productKey, req.Version, req.Version)
+	if productKey == "" || stored.ObjectKey != expectedKey || !strings.HasSuffix(*req.PackageUrl, "/"+expectedKey) {
+		return fmt.Errorf("OTA 固件 TOS 对象键与产品/版本不匹配")
+	}
+	if req.SignatureType == nil || !strings.EqualFold(*req.SignatureType, "SHA256") {
+		return fmt.Errorf("TOS 固件签名算法必须为 SHA256")
+	}
 	var ota = model.OtaUpgradePackage{}
 	ota.ID = uuid.New()
 	ota.Name = req.Name
@@ -78,14 +113,7 @@ func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenan
 	ota.PackageType = *req.PackageType
 	ota.SignatureType = req.SignatureType
 
-	// 生成文件签名
-	fileurl := *req.PackageUrl
-	filepath := strings.Replace(fileurl, "/api/v1/ota/download", "", 1)
-	signature, err := utils.FileSign(filepath, *req.SignatureType)
-	if err != nil {
-		return err
-	}
-	ota.Signature = &signature
+	ota.Signature = &stored.SHA256
 
 	ota.AdditionalInfo = req.AdditionalInfo
 	defaultAdditionalInfo := "{}"
@@ -100,8 +128,7 @@ func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenan
 	ota.CreatedAt = t
 	ota.UpdatedAt = &t
 	ota.Remark = req.Remark
-	err = dal.CreateOtaUpgradePackage(&ota)
-	return err
+	return dal.CreateOtaUpgradePackage(&ota)
 }
 
 func (*OTA) UpdateOTAUpgradePackage(req *model.UpdateOTAUpgradePackageReq) error {
@@ -150,8 +177,57 @@ func (*OTA) UpdateOTAUpgradePackage(req *model.UpdateOTAUpgradePackageReq) error
 }
 
 func (*OTA) DeleteOTAUpgradePackage(packageId string) error {
-	err := dal.DeleteOtaUpgradePackage(packageId)
-	return err
+	ota, err := dal.GetOtaUpgradePackageByID(packageId)
+	if err != nil {
+		return err
+	}
+	var info struct {
+		ObjectKey string `json:"tosObjectKey"`
+	}
+	if ota.AdditionalInfo != nil {
+		_ = json.Unmarshal([]byte(*ota.AdditionalInfo), &info)
+	}
+	if info.ObjectKey == "" {
+		return fmt.Errorf("缺少 TOS 对象键，拒绝删除 OTA 包")
+	}
+	if err := deleteOTAFirmwareFromTOS(info.ObjectKey); err != nil {
+		return err
+	}
+	return dal.DeleteOtaUpgradePackage(packageId)
+}
+
+func deleteOTAFirmwareFromTOS(objectKey string) error {
+	endpoint, token := os.Getenv("YOMI_OTA_FIRMWARE_URL"), os.Getenv("YOMI_INTERNAL_EVENT_TOKEN")
+	parsed, err := url.ParseRequestURI(endpoint)
+	private := parsed != nil && parsed.Scheme == "http" && (parsed.Hostname() == "host.docker.internal" || parsed.Hostname() == "yomi-server")
+	if err != nil || parsed == nil || parsed.Host == "" || (!private && parsed.Scheme != "https") || token == "" {
+		return fmt.Errorf("TOS 固件删除服务未配置")
+	}
+	if !strings.HasPrefix(objectKey, "firmware/") || strings.Contains(objectKey, "..") {
+		return fmt.Errorf("无效的 TOS 固件对象键")
+	}
+	body, _ := json.Marshal(map[string]string{"objectKey": objectKey})
+	req, err := http.NewRequest(http.MethodDelete, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Yomi-Internal-Token", token)
+	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	var result struct {
+		Code int `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK || result.Code != 0 {
+		return fmt.Errorf("TOS 固件删除失败")
+	}
+	return nil
 }
 
 func (*OTA) GetOTAUpgradePackageListByPage(req *model.GetOTAUpgradePackageLisyByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {

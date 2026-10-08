@@ -38,19 +38,19 @@ func TestOtaPackageLookupUsesPackageIDNotTaskID(t *testing.T) {
 }
 
 func TestActivatePreRegisterRejectsAlreadyActive(t *testing.T) {
-	_, _, err := preRegisterActivateState("active")
+	_, _, _, err := preRegisterActivateState("active")
 	if err == nil {
 		t.Fatal("already active devices must not be activated again")
 	}
 }
 
-func TestActivatePreRegisterSetsActiveAndEnabled(t *testing.T) {
-	flag, enabled, err := preRegisterActivateState("inactive")
+func TestActivatePreRegisterSetsActiveEnabledAndOffline(t *testing.T) {
+	flag, enabled, online, err := preRegisterActivateState("inactive")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if flag != "active" || enabled != "enabled" {
-		t.Fatalf("got flag=%s enabled=%s", flag, enabled)
+	if flag != "active" || enabled != "enabled" || online != 0 {
+		t.Fatalf("got flag=%s enabled=%s online=%d", flag, enabled, online)
 	}
 }
 

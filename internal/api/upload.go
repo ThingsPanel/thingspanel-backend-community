@@ -96,6 +96,15 @@ func (*UpLoadApi) UpFile(c *gin.Context) {
 		c.Set("data", map[string]interface{}{"path": filePath, "tos_path": tosPath})
 		return
 	}
+	if fileType == "upgradePackage" {
+		data, err := uploadOTAFirmware(file, c.PostForm("productKey"), c.PostForm("version"))
+		if err != nil {
+			c.Error(errcode.WithVars(errcode.CodeFileSaveError, map[string]interface{}{"error": err.Error()}))
+			return
+		}
+		c.Set("data", data)
+		return
+	}
 
 	// 生成文件路径
 	uploadDir, fileName, err := generateFilePath(fileType, file.Filename)
@@ -122,6 +131,67 @@ func (*UpLoadApi) UpFile(c *gin.Context) {
 	c.Set("data", map[string]interface{}{
 		"path": filePath,
 	})
+}
+
+func uploadOTAFirmware(file *multipart.FileHeader, productKey, version string) (map[string]interface{}, error) {
+	endpoint := os.Getenv("YOMI_OTA_FIRMWARE_URL")
+	token := os.Getenv("YOMI_INTERNAL_EVENT_TOKEN")
+	parsed, err := url.ParseRequestURI(endpoint)
+	isPrivateYomiHost := parsed != nil && parsed.Scheme == "http" && (parsed.Hostname() == "host.docker.internal" || parsed.Hostname() == "yomi-server")
+	if err != nil || parsed == nil || parsed.Host == "" || (!isPrivateYomiHost && parsed.Scheme != "https") || token == "" {
+		return nil, errors.New("OTA TOS 上传服务未配置")
+	}
+	source, err := file.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer source.Close()
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", sanitizeFilename(file.Filename))
+	if err == nil {
+		_, err = io.Copy(part, source)
+	}
+	if err == nil {
+		err = writer.WriteField("productKey", productKey)
+	}
+	if err == nil {
+		err = writer.WriteField("version", version)
+	}
+	if closeErr := writer.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodPost, endpoint, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("X-Yomi-Internal-Token", token)
+	resp, err := (&http.Client{Timeout: 60 * time.Second}).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var payload struct {
+		Code int `json:"code"`
+		Data struct {
+			Storage   string `json:"storage"`
+			ObjectKey string `json:"objectKey"`
+			PublicURL string `json:"publicUrl"`
+			SHA256    string `json:"sha256"`
+			Size      int64  `json:"size"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK || payload.Code != 0 || payload.Data.Storage != "tos" || !strings.HasPrefix(payload.Data.PublicURL, "https://") || !strings.HasPrefix(payload.Data.ObjectKey, "firmware/") || payload.Data.SHA256 == "" {
+		return nil, errors.New("OTA 固件未写入 TOS")
+	}
+	return map[string]interface{}{"path": payload.Data.PublicURL, "tosObjectKey": payload.Data.ObjectKey, "sha256": payload.Data.SHA256, "size": payload.Data.Size}, nil
 }
 
 func resolveUploadType(c *gin.Context) string {

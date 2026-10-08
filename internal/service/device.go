@@ -589,6 +589,10 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 	}
 	if len(list) > 0 {
 		for i := range list {
+			list[i].YgsoulProductKey, err = requiredProductCode(list[i])
+			if err != nil {
+				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+			}
 			list[i].DeviceStatus = list[i].IsOnline
 			if list[i].WarnStatus == "N" || list[i].WarnStatus == "" {
 				list[i].WarnStatus = "N"
@@ -602,6 +606,13 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 	deviceListRsp["list"] = list
 
 	return deviceListRsp, err
+}
+
+func requiredProductCode(item model.GetDeviceListByPageRsp) (string, error) {
+	if strings.TrimSpace(item.ProductID) == "" || strings.TrimSpace(item.ProductCode) == "" {
+		return "", fmt.Errorf("device %s has no required product association or product_model", item.DeviceNumber)
+	}
+	return strings.TrimSpace(item.ProductCode), nil
 }
 
 func (d *Device) CheckDeviceNumber(deviceNumber string) (*errcode.Error, bool) {
@@ -630,6 +641,9 @@ func (*Device) CreateDevicePreRegister(req *model.CreateDevicePreRegisterReq, cl
 	product, err := dal.GetProductByID(req.ProductID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	if err := validatePreRegisterProduct(*product); err != nil {
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": err.Error()})
 	}
 	rows := []preRegisterRow{}
 	if req.CreateType == "2" {
@@ -701,6 +715,16 @@ func (*Device) CreateDevicePreRegister(req *model.CreateDevicePreRegisterReq, cl
 	return nil
 }
 
+func validatePreRegisterProduct(product model.Product) error {
+	if product.ProductModel == nil || strings.TrimSpace(*product.ProductModel) == "" {
+		return fmt.Errorf("product_model is required for device preregistration")
+	}
+	if product.DeviceConfigID == nil || strings.TrimSpace(*product.DeviceConfigID) == "" {
+		return fmt.Errorf("device_config_id is required for device preregistration")
+	}
+	return nil
+}
+
 type preRegisterRow struct {
 	DeviceNumber string
 	Voucher      string
@@ -761,14 +785,14 @@ func (*Device) ActivatePreRegister(req model.ActivatePreRegisterReq, claims *uti
 	if device.TenantID != "" && device.TenantID != claims.TenantID && !skipTenantFilter(claims.Authority) {
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
-	flag, enabled, err := preRegisterActivateState(device.ActivateFlag)
+	flag, enabled, online, err := preRegisterActivateState(device.ActivateFlag)
 	if err != nil {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, err.Error())
 	}
 	now := time.Now().UTC()
 	device.ActivateFlag = flag
 	device.IsEnabled = enabled
-	device.IsOnline = 1
+	device.IsOnline = online
 	device.ActivateAt = &now
 	device.UpdateAt = &now
 	if (device.DeviceConfigID == nil || *device.DeviceConfigID == "") && device.ProductID != nil && *device.ProductID != "" {

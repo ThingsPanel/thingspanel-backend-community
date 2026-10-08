@@ -10,11 +10,11 @@ var (
 	errProductHasActiveDevices = errors.New("产品下存在已激活设备，无法删除")
 )
 
-func preRegisterActivateState(currentFlag string) (activateFlag string, isEnabled string, err error) {
+func preRegisterActivateState(currentFlag string) (activateFlag string, isEnabled string, isOnline int16, err error) {
 	if currentFlag == "active" {
-		return "", "", errors.New("设备已激活")
+		return "", "", 0, errors.New("设备已激活")
 	}
-	return "active", "enabled", nil
+	return "active", "enabled", 0, nil
 }
 
 func canRetryOTAStatus(status int16) bool {
