@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net"
@@ -12,6 +14,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,6 +32,137 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+type notificationSessionHelperHandshake struct {
+	Address    string `json:"address"`
+	Bearer     string `json:"bearer"`
+	JWTKey     string `json:"jwtKey"`
+	ControlKey string `json:"controlKey"`
+}
+
+type notificationSessionHelperCommand struct {
+	Action string `json:"action"`
+}
+
+// TestNotificationSessionHTTPSubprocessHelper is an opt-in, test-only server
+// launched by the notification core integration test. It publishes fixture
+// connection details through a 0600 handshake file; no JWT or key is logged.
+func TestNotificationSessionHTTPSubprocessHelper(t *testing.T) {
+	if os.Getenv("NOTIFICATION_SESSION_HELPER_MODE") != "serve" {
+		t.Skip("subprocess helper mode is opt-in")
+	}
+	db := openNotificationIdentityPGFixture(t)
+	redisClient := startNotificationIdentityRedis(t)
+	previousRedis := global.REDIS
+	global.REDIS = redisClient
+	t.Cleanup(func() { global.REDIS = previousRedis })
+
+	const jwtKey = "fixture-only-cross-process-session-jwt-key"
+	previousJWTKey := viper.GetString("jwt.key")
+	previousSessionTimeout := viper.GetInt("session.timeout")
+	viper.Set("jwt.key", jwtKey)
+	viper.Set("session.timeout", 30)
+	t.Cleanup(func() {
+		viper.Set("jwt.key", previousJWTKey)
+		viper.Set("session.timeout", previousSessionTimeout)
+	})
+	if err := db.Exec(`INSERT INTO users (id, tenant_id, status, authority) VALUES (?, ?, ?, ?)`, "identity-cross-process", "tenant-cross-process", "N", "TENANT_ADMIN").Error; err != nil {
+		t.Fatal("seed isolated cross-process identity user")
+	}
+	bearer := notificationSessionJWT(t, jwtKey, "identity-cross-process", "tenant-cross-process", "TENANT_ADMIN", time.Now().Add(time.Hour))
+	if err := redisClient.Set(context.Background(), bearer, "1", time.Hour).Err(); err != nil {
+		t.Fatal("seed isolated cross-process Redis session")
+	}
+	controlKeyBytes := make([]byte, 32)
+	if _, err := rand.Read(controlKeyBytes); err != nil {
+		t.Fatal("create private control key")
+	}
+	controlKey := hex.EncodeToString(controlKeyBytes)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal("listen on an owned random loopback address")
+	}
+	defer listener.Close()
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.GET("/api/v1/notification/session-context", middleware.JWTAuth(), (&NotificationIdentityApi{}).SessionContext)
+	stop := make(chan struct{})
+	var stopOnce sync.Once
+	engine.POST("/__test/session-control", func(c *gin.Context) {
+		if c.ClientIP() != "127.0.0.1" || c.GetHeader("Authorization") != "Bearer "+controlKey {
+			c.Status(http.StatusUnauthorized)
+			return
+		}
+		var command notificationSessionHelperCommand
+		decoder := json.NewDecoder(http.MaxBytesReader(c.Writer, c.Request.Body, 1024))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&command) != nil {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		var updateErr error
+		switch command.Action {
+		case "revoke":
+			updateErr = redisClient.Del(c.Request.Context(), bearer).Err()
+		case "restore-session":
+			updateErr = redisClient.Set(c.Request.Context(), bearer, "1", time.Hour).Err()
+		case "change-role":
+			updateErr = db.Exec(`UPDATE users SET authority='TENANT_USER' WHERE id='identity-cross-process'`).Error
+		case "change-tenant":
+			updateErr = db.Exec(`UPDATE users SET tenant_id='tenant-other' WHERE id='identity-cross-process'`).Error
+		case "restore-identity":
+			updateErr = db.Exec(`UPDATE users SET status='N', authority='TENANT_ADMIN', tenant_id='tenant-cross-process' WHERE id='identity-cross-process'`).Error
+		case "stop":
+			c.Status(http.StatusNoContent)
+			stopOnce.Do(func() { close(stop) })
+			return
+		default:
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		if updateErr != nil {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		c.Status(http.StatusNoContent)
+	})
+	server := &http.Server{Handler: engine, ReadHeaderTimeout: 2 * time.Second}
+	serveDone := make(chan error, 1)
+	go func() { serveDone <- server.Serve(listener) }()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
+	})
+
+	handshakePath := os.Getenv("NOTIFICATION_SESSION_HELPER_HANDSHAKE")
+	if handshakePath == "" {
+		t.Fatal("private session helper handshake path is required")
+	}
+	handshake := notificationSessionHelperHandshake{Address: "http://" + listener.Addr().String(), Bearer: bearer, JWTKey: jwtKey, ControlKey: controlKey}
+	data, err := json.Marshal(handshake)
+	if err != nil {
+		t.Fatal("encode private session helper handshake")
+	}
+	temporary := handshakePath + ".tmp"
+	if err := os.WriteFile(temporary, data, 0600); err != nil {
+		t.Fatal("write private session helper handshake")
+	}
+	if err := os.Rename(temporary, handshakePath); err != nil {
+		t.Fatal("publish private session helper handshake")
+	}
+
+	select {
+	case <-stop:
+	case err := <-serveDone:
+		if err != nil && err != http.ErrServerClosed {
+			t.Fatalf("session helper HTTP server stopped unexpectedly: %v", err)
+		}
+	case <-time.After(90 * time.Second):
+		t.Fatal("session helper exceeded its hard lifetime")
+	}
+}
 
 const approvedNotificationIdentityTestDSN = "postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test"
 
