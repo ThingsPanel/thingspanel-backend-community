@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"project/internal/app"
 	"project/pkg/global"
@@ -71,9 +73,16 @@ func main() {
 		logrus.Fatalf("启动服务失败: %v", err)
 	}
 
-	// 等待服务运行并处理退出
-	application.Wait()
+	// WaitGroup entries are released by StopAll, so waiting before Shutdown
+	// deadlocks a healthy long-running process. Wait for an OS termination
+	// signal, then use the service manager's bounded reverse-order shutdown.
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signals)
+	waitForApplicationShutdown(application, signals)
+}
 
-	// 应用关闭时自动调用 Shutdown 方法清理资源
-	defer application.Shutdown()
+func waitForApplicationShutdown(application *app.Application, signals <-chan os.Signal) {
+	<-signals
+	application.Shutdown()
 }

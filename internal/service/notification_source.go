@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -105,6 +107,12 @@ type SourceBridge struct {
 }
 
 func NewSourceBridge(config SourceBridgeConfig, checker SourceCompatibilityChecker) (*SourceBridge, error) {
+	return newSourceBridge(config, checker, nil)
+}
+
+// newSourceBridge allows package tests to trust an ephemeral TLS certificate.
+// Production construction always passes nil and therefore uses system roots.
+func newSourceBridge(config SourceBridgeConfig, checker SourceCompatibilityChecker, roots *x509.CertPool) (*SourceBridge, error) {
 	if !config.Enabled {
 		return &SourceBridge{config: config}, nil
 	}
@@ -125,7 +133,7 @@ func NewSourceBridge(config SourceBridgeConfig, checker SourceCompatibilityCheck
 		config: config,
 		base:   parsed,
 		check:  checker,
-		client: &http.Client{Timeout: config.RequestTimeout, Transport: &http.Transport{Proxy: nil, ForceAttemptHTTP2: false, MaxIdleConns: 8, MaxIdleConnsPerHost: 2, IdleConnTimeout: 30 * time.Second}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
+		client: &http.Client{Timeout: config.RequestTimeout, Transport: &http.Transport{Proxy: nil, ForceAttemptHTTP2: false, TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}, MaxIdleConns: 8, MaxIdleConnsPerHost: 2, IdleConnTimeout: 30 * time.Second}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 	}, nil
 }
 

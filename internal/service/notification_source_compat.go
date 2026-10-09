@@ -3,6 +3,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,6 +38,12 @@ type EmailSourceCompatibilityChecker struct {
 }
 
 func NewEmailSourceCompatibilityChecker(baseURL, projectionBearerToken string) (*EmailSourceCompatibilityChecker, error) {
+	return newEmailSourceCompatibilityChecker(baseURL, projectionBearerToken, nil)
+}
+
+// newEmailSourceCompatibilityChecker accepts test-only roots for an ephemeral
+// TLS proxy while keeping all production constructors on system roots.
+func newEmailSourceCompatibilityChecker(baseURL, projectionBearerToken string, roots *x509.CertPool) (*EmailSourceCompatibilityChecker, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil || parsed == nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" || !validSourceProjectionToken(projectionBearerToken) {
 		return nil, errors.New("source compatibility configuration invalid")
@@ -45,6 +53,7 @@ func NewEmailSourceCompatibilityChecker(baseURL, projectionBearerToken string) (
 		Transport: &http.Transport{
 			Proxy:                 nil,
 			ForceAttemptHTTP2:     false,
+			TLSClientConfig:       &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12},
 			MaxIdleConns:          4,
 			MaxIdleConnsPerHost:   1,
 			IdleConnTimeout:       10 * time.Second,
