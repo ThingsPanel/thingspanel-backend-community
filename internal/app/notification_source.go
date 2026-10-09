@@ -3,8 +3,11 @@ package app
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"project/internal/dal"
 	"project/internal/service"
@@ -104,4 +107,86 @@ func WithNotificationSourceRelay(config service.SourceBridgeConfig, checker serv
 		app.RegisterService(NewNotificationSourceRelayService(bridge))
 		return nil
 	}
+}
+
+const (
+	notificationSourceBridgeEnabledEnv = "NOTIFICATION_SOURCE_BRIDGE_ENABLED"
+	notificationEncoreBaseURLEnv       = "NOTIFICATION_ENCORE_BASE_URL"
+	notificationSourceDeploymentIDEnv  = "NOTIFICATION_SOURCE_DEPLOYMENT_ID"
+	notificationSourceBearerTokenEnv   = "NOTIFICATION_SOURCE_BEARER_TOKEN"
+	notificationProjectionBearerEnv    = "NOTIFICATION_PROJECTION_BEARER_TOKEN"
+)
+
+// WithNotificationSourceRelayFromEnv always installs a startup guard, even
+// when the bridge is disabled. That guard prevents an Encore-owned route from
+// silently falling back to the legacy sender after configuration is removed.
+func WithNotificationSourceRelayFromEnv() Option {
+	return func(app *Application) error {
+		enabled, err := sourceBridgeEnabledFromEnv()
+		if err != nil {
+			return errors.New("notification source bridge configuration invalid")
+		}
+		config := service.SourceBridgeConfig{
+			Enabled:               enabled,
+			BaseURL:               os.Getenv(notificationEncoreBaseURLEnv),
+			DeploymentID:          os.Getenv(notificationSourceDeploymentIDEnv),
+			SourceBearerToken:     os.Getenv(notificationSourceBearerTokenEnv),
+			ProjectionBearerToken: os.Getenv(notificationProjectionBearerEnv),
+		}
+		if !enabled {
+			return WithNotificationSourceRelay(config, nil)(app)
+		}
+		if !validSourceBridgeToken(config.SourceBearerToken) || !validSourceBridgeDeploymentID(config.DeploymentID) {
+			return errors.New("notification source bridge configuration incomplete")
+		}
+		checker, err := service.NewEmailSourceCompatibilityChecker(config.BaseURL, config.ProjectionBearerToken)
+		if err != nil {
+			return errors.New("notification source bridge configuration invalid")
+		}
+		if err := WithNotificationSourceRelay(config, checker)(app); err != nil {
+			checker.Close()
+			return errors.New("notification source bridge configuration invalid")
+		}
+		return nil
+	}
+}
+
+func sourceBridgeEnabledFromEnv() (bool, error) {
+	raw, configured := os.LookupEnv(notificationSourceBridgeEnabledEnv)
+	if !configured {
+		return false, nil
+	}
+	switch raw {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, errors.New("notification source bridge enabled value invalid")
+	}
+}
+
+func validSourceBridgeToken(token string) bool {
+	if len(token) < 32 || len(token) > 8192 {
+		return false
+	}
+	for _, char := range token {
+		if unicode.IsSpace(char) || unicode.IsControl(char) {
+			return false
+		}
+	}
+	return true
+}
+
+func validSourceBridgeDeploymentID(value string) bool {
+	if value == "" || len(value) > 128 || strings.TrimSpace(value) != value {
+		return false
+	}
+	for _, char := range value {
+		if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || strings.ContainsRune("._:-", char) {
+			continue
+		}
+		return false
+	}
+	return true
 }

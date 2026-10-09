@@ -392,6 +392,11 @@ func (s *SourceBridge) Close() {
 			transport.CloseIdleConnections()
 		}
 	}
+	if s != nil {
+		if closer, ok := s.check.(interface{ Close() }); ok {
+			closer.Close()
+		}
+	}
 }
 
 func (s *SourceBridge) buildOutbox(route dal.SourceRouteSnapshot, tenantID, legacyGroupID, eventID, actionID string, occurred time.Time, subject, text, legacyJSON string) (*dal.SourceOutboxRecord, error) {

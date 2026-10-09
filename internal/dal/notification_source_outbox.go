@@ -311,7 +311,7 @@ func ClaimSourceOutbox(ctx context.Context, limit int, lease time.Duration, maxA
 }
 
 func ValidateSourceBridgeStartup(enabled bool, deploymentID string) error {
-	if global.DB == nil {
+	if global.DB == nil || (enabled && deploymentID == "") {
 		return errors.New("source bridge startup unavailable")
 	}
 	var tableCount int
@@ -321,11 +321,11 @@ func ValidateSourceBridgeStartup(enabled bool, deploymentID string) error {
 		to_regclass('notification_source_outbox')]) AS t(rel) WHERE rel IS NOT NULL`).Scan(&tableCount).Error; err != nil {
 		return errors.New("source bridge startup unavailable")
 	}
-	if tableCount != 3 {
-		if enabled {
-			return errors.New("source bridge schema unavailable")
-		}
+	if tableCount == 0 && !enabled {
 		return nil
+	}
+	if tableCount != 3 {
+		return errors.New("source bridge schema unavailable")
 	}
 	var encoreRoutes int64
 	if err := global.DB.Session(&gorm.Session{Logger: logger.Discard}).Raw(`SELECT count(*) FROM notification_source_group_routes WHERE engine = 'encore'`).Scan(&encoreRoutes).Error; err != nil {
@@ -336,8 +336,9 @@ func ValidateSourceBridgeStartup(enabled bool, deploymentID string) error {
 	}
 	if enabled {
 		var mismatchedRoutes int64
-		if err := global.DB.Session(&gorm.Session{Logger: logger.Discard}).Raw(`SELECT count(*) FROM notification_source_group_routes
-			WHERE engine = 'encore' AND source_deployment_id <> ?`, deploymentID).Scan(&mismatchedRoutes).Error; err != nil || mismatchedRoutes != 0 {
+		err := global.DB.Session(&gorm.Session{Logger: logger.Discard}).Raw(`SELECT count(*) FROM notification_source_group_routes
+			WHERE source_deployment_id <> ?`, deploymentID).Scan(&mismatchedRoutes).Error
+		if err != nil || mismatchedRoutes != 0 {
 			return errors.New("source bridge deployment identity mismatch")
 		}
 	}
