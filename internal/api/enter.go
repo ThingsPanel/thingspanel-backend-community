@@ -37,6 +37,7 @@ type Controller struct {
 	NotificationGroupApi          // 通知组
 	NotificationHistoryApi        // 通知历史
 	NotificationServicesConfigApi // 通知服务配置
+	NotificationIdentityApi       // Encore 通知的只读用户会话核验
 	AlarmApi                      // 告警
 	SceneAutomationsApi           // 场景联动
 	SceneApi                      // 场景
