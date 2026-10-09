@@ -103,6 +103,21 @@ func TestSourceRelayRetryUsesFrozenBodyAndKeyAfterLostAck(t *testing.T) {
 }
 
 func TestSourceRelayAcceptsOnlySchemaValid202AndDoesNotFollowRedirects(t *testing.T) {
+	t.Run("truncated 202 remains retryable because the target may have committed", func(t *testing.T) {
+		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
+			_, _ = w.Write([]byte(`{"code":200,"data":{"accepted":true`))
+		}))
+		defer server.Close()
+		bridge := testSourceBridge(t, server)
+		defer bridge.Close()
+		result := bridge.Deliver(context.Background(), testOutboxRecord(t))
+		if result.Accepted || result.StatusCode != http.StatusBadGateway || result.SafeCode != "unexpected_response" {
+			t.Fatalf("truncated 202 was not classified as an unknown retryable outcome: %+v", result)
+		}
+	})
+
 	t.Run("200 is not a durable acknowledgement", func(t *testing.T) {
 		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)

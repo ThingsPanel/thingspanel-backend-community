@@ -269,7 +269,10 @@ func (s *SourceBridge) Deliver(ctx context.Context, record dal.SourceOutboxRecor
 		if isJSONResponse(response) && json.Unmarshal(body, &envelope) == nil && envelope.Code == 200 && strings.TrimSpace(envelope.Message) != "" && strings.TrimSpace(envelope.RequestID) != "" && envelope.Data.Accepted && envelope.Data.NotificationID != "" && (envelope.Data.IntakeStatus == "ready" || envelope.Data.IntakeStatus == "blocked") && envelope.Data.DeliveryIDs != nil {
 			return dal.SourceAttemptResult{StatusCode: response.StatusCode, Accepted: true}
 		}
-		return dal.SourceAttemptResult{StatusCode: http.StatusUnprocessableEntity, SafeCode: "unexpected_response"}
+		// A 202 may already have committed the idempotent intent even when its
+		// acknowledgement body was truncated or invalid. Treat it as an unknown
+		// outcome so the same frozen key can be retried safely.
+		return dal.SourceAttemptResult{StatusCode: http.StatusBadGateway, SafeCode: "unexpected_response"}
 	}
 	code := "relay_retry"
 	if response.StatusCode == 401 {

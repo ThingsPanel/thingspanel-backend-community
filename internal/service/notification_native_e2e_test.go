@@ -1,9 +1,11 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -62,25 +64,87 @@ func TestNativeEncoreSourceBridgeEndToEnd(t *testing.T) {
 	target, _ := url.Parse(nativeE2ECoreURL)
 	var captureMu sync.Mutex
 	var acceptedResponses []sourceAccepted
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.ModifyResponse = func(response *http.Response) error {
-		if response.Request != nil && response.Request.URL.Path == sourceEventPath {
-			body, err := io.ReadAll(io.LimitReader(response.Body, maxSourceBody+1))
-			if err != nil || len(body) > maxSourceBody {
-				return io.ErrUnexpectedEOF
-			}
-			_ = response.Body.Close()
-			response.Body = io.NopCloser(strings.NewReader(string(body)))
-			var envelope sourceEnvelope[sourceAccepted]
-			if json.Unmarshal(body, &envelope) == nil && envelope.Code == 200 && envelope.Data.Accepted {
-				captureMu.Lock()
-				acceptedResponses = append(acceptedResponses, envelope.Data)
-				captureMu.Unlock()
+	var acceptedBodies [][]byte
+	var acceptedKeys []string
+	ackDropped := false
+	var sourceStatuses []int
+	sourceAuthForwarded := false
+	proxyTransport := &http.Transport{Proxy: nil, ForceAttemptHTTP2: false}
+	t.Cleanup(proxyTransport.CloseIdleConnections)
+	reverseProxy := httputil.NewSingleHostReverseProxy(target)
+	proxyServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != sourceEventPath {
+			reverseProxy.ServeHTTP(w, r)
+			return
+		}
+		captureMu.Lock()
+		sourceAuthForwarded = r.Header.Get("Authorization") == "Bearer "+nativeE2ESourceToken
+		captureMu.Unlock()
+		requestBody, err := io.ReadAll(io.LimitReader(r.Body, maxSourceBody+1))
+		_ = r.Body.Close()
+		if err != nil || len(requestBody) == 0 || len(requestBody) > maxSourceBody {
+			http.Error(w, "source request invalid", http.StatusBadRequest)
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(requestBody))
+		upstreamURL := *target
+		upstreamURL.Path = r.URL.Path
+		upstreamURL.RawPath = r.URL.RawPath
+		upstreamURL.RawQuery = r.URL.RawQuery
+		upstreamRequest := r.Clone(r.Context())
+		upstreamRequest.URL = &upstreamURL
+		upstreamRequest.Host = target.Host
+		upstreamRequest.RequestURI = ""
+		response, err := proxyTransport.RoundTrip(upstreamRequest)
+		if err != nil {
+			http.Error(w, "upstream unavailable", http.StatusBadGateway)
+			return
+		}
+		defer response.Body.Close()
+		captureMu.Lock()
+		sourceStatuses = append(sourceStatuses, response.StatusCode)
+		captureMu.Unlock()
+		body, err := io.ReadAll(io.LimitReader(response.Body, maxSourceBody+1))
+		if err != nil || len(body) > maxSourceBody {
+			http.Error(w, "upstream response invalid", http.StatusBadGateway)
+			return
+		}
+		var envelope sourceEnvelope[sourceAccepted]
+		isDurableAcceptance := response.StatusCode == http.StatusAccepted && json.Unmarshal(body, &envelope) == nil && envelope.Code == 200 && envelope.Data.Accepted
+		if isDurableAcceptance {
+			captureMu.Lock()
+			acceptedResponses = append(acceptedResponses, envelope.Data)
+			acceptedBodies = append(acceptedBodies, append([]byte(nil), requestBody...))
+			acceptedKeys = append(acceptedKeys, r.Header.Get("Idempotency-Key"))
+			dropThisAck := !ackDropped
+			ackDropped = true
+			captureMu.Unlock()
+			if dropThisAck {
+				hijacker, ok := w.(http.Hijacker)
+				if !ok {
+					t.Error("TLS proxy cannot inject a dropped acknowledgement")
+					return
+				}
+				conn, _, err := hijacker.Hijack()
+				if err != nil {
+					t.Error("could not drop first native acknowledgement")
+					return
+				}
+				partial := body[:len(body)/2]
+				_, _ = fmt.Fprintf(conn, "HTTP/1.1 202 Accepted\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n", len(body)+32)
+				_, _ = conn.Write(partial)
+				_ = conn.Close()
+				return
 			}
 		}
-		return nil
-	}
-	proxyServer := httptest.NewTLSServer(proxy)
+		for key, values := range response.Header {
+			for _, value := range values {
+				w.Header().Add(key, value)
+			}
+		}
+		w.WriteHeader(response.StatusCode)
+		_, _ = w.Write(body)
+	}))
 	t.Cleanup(proxyServer.Close)
 	roots := x509.NewCertPool()
 	roots.AddCert(proxyServer.Certificate())
@@ -153,16 +217,37 @@ func TestNativeEncoreSourceBridgeEndToEnd(t *testing.T) {
 		t.Fatal("relay native source outbox")
 	}
 	var state string
-	if err := global.DB.Raw(`SELECT state FROM notification_source_outbox WHERE id = ?`, outbox.ID).Row().Scan(&state); err != nil || state != "handed_off" {
-		t.Fatalf("source outbox handoff state=%q", state)
+	var attempts int
+	var failureCode string
+	if err := global.DB.Raw(`SELECT state, attempts, coalesce(failure_code, '') FROM notification_source_outbox WHERE id = ?`, outbox.ID).Row().Scan(&state, &attempts, &failureCode); err != nil || state != "retry_wait" || attempts != 1 {
+		captureMu.Lock()
+		defer captureMu.Unlock()
+		t.Fatalf("dropped native durable ACK was not retained for retry: state=%q attempts=%d failure=%q upstream_statuses=%v accepted_responses=%d ack_dropped=%v source_auth_forwarded=%v err=%v", state, attempts, failureCode, sourceStatuses, len(acceptedResponses), ackDropped, sourceAuthForwarded, err)
 	}
-	if result := bridge.Deliver(context.Background(), outbox); !result.Accepted || result.StatusCode != http.StatusAccepted {
-		t.Fatalf("replay source event was not accepted: HTTP %d", result.StatusCode)
+	if err := global.DB.Exec(`UPDATE notification_source_outbox SET next_attempt_at = ? WHERE id = ?`, time.Now().UTC().Add(-time.Second), outbox.ID).Error; err != nil {
+		t.Fatal("make native source retry immediately eligible")
+	}
+	bridge.Close()
+	restartedChecker, err := newEmailSourceCompatibilityChecker(proxyServer.URL, nativeE2EProjToken, roots)
+	if err != nil {
+		t.Fatal("recreate compatibility checker after relay restart")
+	}
+	restartedBridge, err := newSourceBridge(SourceBridgeConfig{Enabled: true, BaseURL: proxyServer.URL, DeploymentID: nativeE2EDeployment, SourceBearerToken: nativeE2ESourceToken, ProjectionBearerToken: nativeE2EProjToken, RequestTimeout: 5 * time.Second}, restartedChecker, roots)
+	if err != nil {
+		restartedChecker.Close()
+		t.Fatal("recreate relay after simulated process restart")
+	}
+	t.Cleanup(restartedBridge.Close)
+	if err := restartedBridge.RunOnce(context.Background(), 10, 3); err != nil {
+		t.Fatal("restarted relay retry failed")
+	}
+	if err := global.DB.Raw(`SELECT state, attempts FROM notification_source_outbox WHERE id = ?`, outbox.ID).Row().Scan(&state, &attempts); err != nil || state != "handed_off" || attempts != 2 {
+		t.Fatalf("restarted relay did not persist source handoff: state=%q attempts=%d", state, attempts)
 	}
 	captureMu.Lock()
-	if len(acceptedResponses) != 2 || acceptedResponses[0].NotificationID == "" || acceptedResponses[0].NotificationID != acceptedResponses[1].NotificationID || len(acceptedResponses[0].DeliveryIDs) != 1 || len(acceptedResponses[1].DeliveryIDs) != 1 || acceptedResponses[0].DeliveryIDs[0] != acceptedResponses[1].DeliveryIDs[0] {
+	if len(acceptedResponses) != 2 || acceptedResponses[0].NotificationID == "" || acceptedResponses[0].NotificationID != acceptedResponses[1].NotificationID || len(acceptedResponses[0].DeliveryIDs) != 1 || len(acceptedResponses[1].DeliveryIDs) != 1 || acceptedResponses[0].DeliveryIDs[0] != acceptedResponses[1].DeliveryIDs[0] || len(acceptedBodies) != 2 || string(acceptedBodies[0]) != string(outbox.RequestBody) || string(acceptedBodies[1]) != string(outbox.RequestBody) || len(acceptedKeys) != 2 || acceptedKeys[0] != outbox.IdempotencyKey || acceptedKeys[1] != outbox.IdempotencyKey {
 		captureMu.Unlock()
-		t.Fatal("source event idempotent retry changed notification or delivery IDs")
+		t.Fatal("native idempotent retry changed source key, body, notification, or delivery IDs")
 	}
 	accepted := acceptedResponses[0]
 	captureMu.Unlock()
