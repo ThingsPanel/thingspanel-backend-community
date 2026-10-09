@@ -11,6 +11,7 @@ import (
 	"project/pkg/global"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 )
 
@@ -179,6 +180,21 @@ func SaveAlarmHistoryWithSource(ctx context.Context, alarm *model.AlarmHistory, 
 // SwitchSourceRoute persists an already server-confirmed projection under the
 // same tuple lock used by event creation. A previous version is immutable.
 func SwitchSourceRoute(ctx context.Context, key SourceRouteKey, expectedVersion, groupRevision int64, notificationGroupID, projectionKey string) error {
+	return switchSourceRoute(ctx, key, expectedVersion, groupRevision, notificationGroupID, projectionKey, nil)
+}
+
+// SwitchSourceRouteIfLegacyGroupUnchanged performs the route CAS only if the
+// exact legacy group read before the remote compatibility check is still
+// current. The tuple advisory lock serializes it with both alarm creation and
+// all bridge-enabled legacy group writes.
+func SwitchSourceRouteIfLegacyGroupUnchanged(ctx context.Context, key SourceRouteKey, expectedVersion, groupRevision int64, notificationGroupID, projectionKey string, expectedGroup *model.NotificationGroup) error {
+	if expectedGroup == nil || expectedGroup.ID != key.LegacyGroup || expectedGroup.TenantID != key.TenantID {
+		return ErrSourceRouteConflict
+	}
+	return switchSourceRoute(ctx, key, expectedVersion, groupRevision, notificationGroupID, projectionKey, expectedGroup)
+}
+
+func switchSourceRoute(ctx context.Context, key SourceRouteKey, expectedVersion, groupRevision int64, notificationGroupID, projectionKey string, expectedGroup *model.NotificationGroup) error {
 	if key.DeploymentID == "" || key.TenantID == "" || key.LegacyGroup == "" || notificationGroupID == "" || projectionKey == "" || groupRevision < 1 {
 		return ErrSourceRouteConflict
 	}
@@ -208,6 +224,15 @@ func SwitchSourceRoute(ctx context.Context, key SourceRouteKey, expectedVersion,
 			key.DeploymentID, key.TenantID, key.LegacyGroup).Scan(&current).Error; err != nil {
 			return ErrSourceRouteUnavailable
 		}
+		if expectedGroup != nil {
+			var current model.NotificationGroup
+			result := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+				Where("id = ? AND tenant_id = ?", key.LegacyGroup, key.TenantID).
+				Take(&current)
+			if result.Error != nil || result.RowsAffected != 1 || !sameNotificationGroupSnapshot(&current, expectedGroup) {
+				return ErrSourceRouteConflict
+			}
+		}
 		if current.RouteVersion != expectedVersion || (current.BoundGroupID != nil && *current.BoundGroupID != notificationGroupID) || groupRevision <= current.GroupRevision {
 			return ErrSourceRouteConflict
 		}
@@ -235,6 +260,24 @@ func SwitchSourceRoute(ctx context.Context, key SourceRouteKey, expectedVersion,
 		}
 		return nil
 	})
+}
+
+func sameNotificationGroupSnapshot(current, expected *model.NotificationGroup) bool {
+	if current == nil || expected == nil {
+		return false
+	}
+	return current.ID == expected.ID && current.TenantID == expected.TenantID && current.Name == expected.Name &&
+		current.NotificationType == expected.NotificationType && current.Status == expected.Status &&
+		sameOptionalString(current.NotificationConfig, expected.NotificationConfig) &&
+		sameOptionalString(current.Description, expected.Description) && sameOptionalString(current.Remark, expected.Remark) &&
+		current.CreatedAt.Equal(expected.CreatedAt) && current.UpdatedAt.Equal(expected.UpdatedAt)
+}
+
+func sameOptionalString(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func ClaimSourceOutbox(ctx context.Context, limit int, lease time.Duration, maxAttempts int, now time.Time) ([]SourceOutboxRecord, error) {

@@ -10,9 +10,9 @@ import (
 
 func TestNotificationMemberReaderEnvironmentFailsClosed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	t.Setenv(notificationMemberReaderTokenEnv, "")
-	t.Setenv(notificationMemberReaderDeploymentsEnv, "deployment-a")
-	t.Setenv(notificationMemberReaderTenantsEnv, "tenant-a")
+	t.Setenv("NOTIFICATION_MEMBER_READER_TOKEN", "")
+	t.Setenv("NOTIFICATION_MEMBER_READER_DEPLOYMENTS", "deployment-a")
+	t.Setenv("NOTIFICATION_MEMBER_READER_TENANT_IDS", "tenant-a")
 	reader := NewNotificationMemberReaderFromEnv()
 	engine := gin.New()
 	engine.GET("/api/v1/notification/source-members/:id", reader.GetMemberContact)
@@ -25,9 +25,9 @@ func TestNotificationMemberReaderEnvironmentFailsClosed(t *testing.T) {
 
 func TestNotificationMemberReaderEnvironmentParsesAllowLists(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	t.Setenv(notificationMemberReaderTokenEnv, "0123456789abcdef0123456789abcdef")
-	t.Setenv(notificationMemberReaderDeploymentsEnv, "deployment-a, deployment-b")
-	t.Setenv(notificationMemberReaderTenantsEnv, "tenant-a,tenant-b")
+	t.Setenv("NOTIFICATION_MEMBER_READER_TOKEN", "0123456789abcdef0123456789abcdef")
+	t.Setenv("NOTIFICATION_MEMBER_READER_DEPLOYMENTS", "deployment-a, deployment-b")
+	t.Setenv("NOTIFICATION_MEMBER_READER_TENANT_IDS", "tenant-a,tenant-b")
 	reader := NewNotificationMemberReaderFromEnv()
 	engine := gin.New()
 	engine.GET("/api/v1/notification/source-members/:id", reader.GetMemberContact)
@@ -37,7 +37,7 @@ func TestNotificationMemberReaderEnvironmentParsesAllowLists(t *testing.T) {
 		t.Fatalf("configured route did not reach authentication: status=%d", response.Code)
 	}
 
-	t.Setenv(notificationMemberReaderDeploymentsEnv, "deployment-a,,deployment-b")
+	t.Setenv("NOTIFICATION_MEMBER_READER_DEPLOYMENTS", "deployment-a,,deployment-b")
 	reader = NewNotificationMemberReaderFromEnv()
 	engine = gin.New()
 	engine.GET("/api/v1/notification/source-members/:id", reader.GetMemberContact)

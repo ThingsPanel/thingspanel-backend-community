@@ -200,7 +200,7 @@ func TestSourceGroupCompatibilityRejectsWholeLegacyFanoutTypes(t *testing.T) {
 			t.Errorf("unsupported whole-group type accepted: %q", kind)
 		}
 	}
-	for _, kind := range []string{"EMAIL", "SME_CODE", "MEMBER", "WEBHOOK", "EMAIL,MEMBER"} {
+	for _, kind := range []string{"EMAIL"} {
 		if !sourceGroupTypesSupported(kind) {
 			t.Errorf("known type rejected before full compatibility check: %q", kind)
 		}
@@ -251,6 +251,6 @@ func TestSourceProjectionRequiresExactServerConfirmedTuple(t *testing.T) {
 
 type testCompatibilityChecker struct{}
 
-func (testCompatibilityChecker) CheckEncoreCompatibility(_ context.Context, _ *model.NotificationGroup, _ string) error {
+func (testCompatibilityChecker) CheckEncoreCompatibility(_ context.Context, _ *model.NotificationGroup, _ SourceGroupProjectionRequest) error {
 	return nil
 }

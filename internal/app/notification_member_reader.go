@@ -1,47 +1,11 @@
 package app
 
-import (
-	"os"
-	"strings"
-
-	"project/internal/api"
-)
-
-const (
-	notificationMemberReaderTokenEnv       = "NOTIFICATION_MEMBER_READER_TOKEN"
-	notificationMemberReaderDeploymentsEnv = "NOTIFICATION_MEMBER_READER_DEPLOYMENTS"
-	notificationMemberReaderTenantsEnv     = "NOTIFICATION_MEMBER_READER_TENANT_IDS"
-)
+import "project/internal/api"
 
 // NewNotificationMemberReaderFromEnv builds the private source-member and
 // source-tenant read handler. Missing or malformed settings leave it disabled;
 // the routes then return 404. Router wiring must place both routes before
 // JWT/API-key and operation-log middleware.
 func NewNotificationMemberReaderFromEnv() *api.NotificationMemberReaderApi {
-	return api.NewNotificationMemberReader(api.NotificationMemberReaderConfig{
-		Token:                os.Getenv(notificationMemberReaderTokenEnv),
-		AllowedDeploymentIDs: parseNotificationReaderIDs(os.Getenv(notificationMemberReaderDeploymentsEnv)),
-		AllowedTenantIDs:     parseNotificationReaderIDs(os.Getenv(notificationMemberReaderTenantsEnv)),
-	})
-}
-
-func parseNotificationReaderIDs(raw string) []string {
-	if raw == "" {
-		return nil
-	}
-	parts := strings.Split(raw, ",")
-	ids := make([]string, 0, len(parts))
-	seen := make(map[string]struct{}, len(parts))
-	for _, part := range parts {
-		id := strings.TrimSpace(part)
-		if id == "" || len(id) > 128 || strings.ContainsAny(id, "\r\n\t") {
-			return nil
-		}
-		if _, duplicate := seen[id]; duplicate {
-			return nil
-		}
-		seen[id] = struct{}{}
-		ids = append(ids, id)
-	}
-	return ids
+	return api.NewNotificationMemberReaderFromEnv()
 }

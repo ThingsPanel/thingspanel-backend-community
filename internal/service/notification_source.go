@@ -92,10 +92,9 @@ type sourceEventPayload struct {
 }
 
 type SourceCompatibilityChecker interface {
-	// CheckEncoreCompatibility validates every active legacy recipient, its
-	// tenant-controlled resolution path, and an exact target binding. It must
-	// fail when any member cannot be represented; partial fan-out is forbidden.
-	CheckEncoreCompatibility(context.Context, *model.NotificationGroup, string) error
+	// CheckEncoreCompatibility validates the exact tenant-scoped native group
+	// revision against legacy EMAIL semantics. Partial fan-out is forbidden.
+	CheckEncoreCompatibility(context.Context, *model.NotificationGroup, SourceGroupProjectionRequest) error
 }
 
 type SourceBridge struct {
@@ -216,14 +215,14 @@ func (s *SourceBridge) RegisterProjection(ctx context.Context, request SourceGro
 // projection, then CAS-updates the old source route. Replaying the same key and
 // tuple after a lost response is safe; a failed local CAS leaves legacy routing.
 func (s *SourceBridge) SwitchToEncore(ctx context.Context, request SourceGroupProjectionRequest, idempotencyKey string, expectedRouteVersion int64) error {
-	if !s.Enabled() {
+	if !s.Enabled() || s.check == nil || request.SourceDeploymentID != s.config.DeploymentID || request.TenantID == "" || request.LegacyGroupID == "" || request.NotificationGroupID == "" || request.GroupRevision < 1 {
 		return errors.New("source bridge disabled")
 	}
-	group, err := dal.GetNotificationGroupById(request.LegacyGroupID)
-	if err != nil || group == nil || group.TenantID != request.TenantID || group.Status != "OPEN" || !sourceGroupTypesSupported(group.NotificationType) {
+	group, err := dal.GetNotificationGroupByTenantID(request.LegacyGroupID, request.TenantID)
+	if err != nil || group == nil || group.Status != "OPEN" || !sourceGroupTypesSupported(group.NotificationType) {
 		return errors.New("source group unavailable")
 	}
-	if err := s.check.CheckEncoreCompatibility(ctx, group, request.NotificationGroupID); err != nil {
+	if err := s.check.CheckEncoreCompatibility(ctx, group, request); err != nil {
 		return errors.New("source group is not compatible")
 	}
 	projection, err := s.RegisterProjection(ctx, request, idempotencyKey)
@@ -234,32 +233,16 @@ func (s *SourceBridge) SwitchToEncore(ctx context.Context, request SourceGroupPr
 		return errors.New("source projection response invalid")
 	}
 	key := dal.SourceRouteKey{DeploymentID: request.SourceDeploymentID, TenantID: request.TenantID, LegacyGroup: request.LegacyGroupID}
-	if err := dal.SwitchSourceRoute(ctx, key, expectedRouteVersion, projection.GroupRevision, projection.NotificationGroupID, idempotencyKey); err != nil {
+	if err := dal.SwitchSourceRouteIfLegacyGroupUnchanged(ctx, key, expectedRouteVersion, projection.GroupRevision, projection.NotificationGroupID, idempotencyKey, group); err != nil {
 		return errors.New("source route update failed")
 	}
 	return nil
 }
 
 func sourceGroupTypesSupported(raw string) bool {
-	parts := strings.Split(raw, ",")
-	if len(parts) == 0 {
-		return false
-	}
-	seen := make(map[string]bool, len(parts))
-	for _, part := range parts {
-		typeName := strings.TrimSpace(part)
-		if typeName == "" || seen[typeName] {
-			return false
-		}
-		seen[typeName] = true
-		switch typeName {
-		case model.NoticeType_Email, model.NoticeType_SME_CODE, model.NoticeType_Member, model.NoticeType_Webhook:
-		default:
-			// APP fan-out, VOICE, and unknown historical types stay wholly legacy.
-			return false
-		}
-	}
-	return true
+	// Only EMAIL has an end-to-end compatibility proof in this migration.
+	// Composite groups and every other historical type remain wholly legacy.
+	return raw == model.NoticeType_Email
 }
 
 func (s *SourceBridge) Deliver(ctx context.Context, record dal.SourceOutboxRecord) dal.SourceAttemptResult {

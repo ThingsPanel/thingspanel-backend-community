@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"unicode"
 
 	"project/internal/dal"
 
@@ -30,7 +31,7 @@ func NewNotificationMemberReader(config NotificationMemberReaderConfig) *Notific
 		allowedDeployments: make(map[string]struct{}, len(config.AllowedDeploymentIDs)),
 		allowedTenants:     make(map[string]struct{}, len(config.AllowedTenantIDs)),
 	}
-	if len(config.Token) < 32 || strings.TrimSpace(config.Token) != config.Token {
+	if !validReaderToken(config.Token) {
 		return reader
 	}
 	for _, id := range config.AllowedDeploymentIDs {
@@ -51,6 +52,18 @@ func NewNotificationMemberReader(config NotificationMemberReaderConfig) *Notific
 	reader.tokenDigest = sha256.Sum256([]byte(config.Token))
 	reader.enabled = true
 	return reader
+}
+
+func validReaderToken(token string) bool {
+	if len(token) < 32 || len(token) > 8192 {
+		return false
+	}
+	for _, char := range token {
+		if unicode.IsSpace(char) || unicode.IsControl(char) {
+			return false
+		}
+	}
+	return true
 }
 
 func validReaderScopeID(value string) bool {
@@ -172,7 +185,7 @@ func (reader *NotificationMemberReaderApi) authenticate(request *http.Request) b
 		return false
 	}
 	token := strings.TrimPrefix(values[0], "Bearer ")
-	if token == "" || strings.TrimSpace(token) != token {
+	if !validReaderToken(token) {
 		return false
 	}
 	digest := sha256.Sum256([]byte(token))
