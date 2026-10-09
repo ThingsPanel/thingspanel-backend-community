@@ -122,33 +122,47 @@ const (
 // silently falling back to the legacy sender after configuration is removed.
 func WithNotificationSourceRelayFromEnv() Option {
 	return func(app *Application) error {
-		enabled, err := sourceBridgeEnabledFromEnv()
+		bridge, err := NewNotificationSourceBridgeFromEnv()
 		if err != nil {
-			return errors.New("notification source bridge configuration invalid")
+			return err
 		}
-		config := service.SourceBridgeConfig{
-			Enabled:               enabled,
-			BaseURL:               os.Getenv(notificationEncoreBaseURLEnv),
-			DeploymentID:          os.Getenv(notificationSourceDeploymentIDEnv),
-			SourceBearerToken:     os.Getenv(notificationSourceBearerTokenEnv),
-			ProjectionBearerToken: os.Getenv(notificationProjectionBearerEnv),
-		}
-		if !enabled {
-			return WithNotificationSourceRelay(config, nil)(app)
-		}
-		if !validSourceBridgeToken(config.SourceBearerToken) || !validSourceBridgeDeploymentID(config.DeploymentID) {
-			return errors.New("notification source bridge configuration incomplete")
-		}
-		checker, err := service.NewEmailSourceCompatibilityChecker(config.BaseURL, config.ProjectionBearerToken)
-		if err != nil {
-			return errors.New("notification source bridge configuration invalid")
-		}
-		if err := WithNotificationSourceRelay(config, checker)(app); err != nil {
-			checker.Close()
-			return errors.New("notification source bridge configuration invalid")
-		}
+		service.SetActiveSourceBridge(bridge)
+		app.RegisterService(NewNotificationSourceRelayService(bridge))
 		return nil
 	}
+}
+
+// NewNotificationSourceBridgeFromEnv constructs the bridge without starting
+// its relay worker. The standalone operator uses this to validate and apply a
+// single route while leaving queued events untouched.
+func NewNotificationSourceBridgeFromEnv() (*service.SourceBridge, error) {
+	enabled, err := sourceBridgeEnabledFromEnv()
+	if err != nil {
+		return nil, errors.New("notification source bridge configuration invalid")
+	}
+	config := service.SourceBridgeConfig{
+		Enabled:               enabled,
+		BaseURL:               os.Getenv(notificationEncoreBaseURLEnv),
+		DeploymentID:          os.Getenv(notificationSourceDeploymentIDEnv),
+		SourceBearerToken:     os.Getenv(notificationSourceBearerTokenEnv),
+		ProjectionBearerToken: os.Getenv(notificationProjectionBearerEnv),
+	}
+	if !enabled {
+		return service.NewSourceBridge(config, nil)
+	}
+	if !validSourceBridgeToken(config.SourceBearerToken) || !validSourceBridgeDeploymentID(config.DeploymentID) {
+		return nil, errors.New("notification source bridge configuration incomplete")
+	}
+	checker, err := service.NewEmailSourceCompatibilityChecker(config.BaseURL, config.ProjectionBearerToken)
+	if err != nil {
+		return nil, errors.New("notification source bridge configuration invalid")
+	}
+	bridge, err := service.NewSourceBridge(config, checker)
+	if err != nil {
+		checker.Close()
+		return nil, errors.New("notification source bridge configuration invalid")
+	}
+	return bridge, nil
 }
 
 func sourceBridgeEnabledFromEnv() (bool, error) {

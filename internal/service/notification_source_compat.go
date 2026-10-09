@@ -474,3 +474,16 @@ func PlanLegacyEmailGroupImport(group *model.NotificationGroup, tenantID, name s
 	}
 	return plan, nil
 }
+
+// PlanLegacyEmailGroupImportDraft creates the disabled body for review before
+// the native group exists. The target ID and metadata are assumptions only;
+// SwitchToEncore must later verify the complete published group snapshot.
+func PlanLegacyEmailGroupImportDraft(group *model.NotificationGroup, tenantID, name, targetInstanceID string) (LegacyEmailImportPlan, error) {
+	return PlanLegacyEmailGroupImport(group, tenantID, name, VerifiedSMTPImportTarget{
+		ID:       targetInstanceID,
+		TenantID: tenantID,
+		PluginID: sourceSMTPPluginID,
+		Channel:  "email",
+		Enabled:  true,
+	})
+}

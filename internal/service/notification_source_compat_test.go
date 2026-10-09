@@ -180,3 +180,15 @@ func TestPlanLegacyEmailImportProducesDisabledSecretFreeBody(t *testing.T) {
 		t.Fatal("cross-tenant import target accepted")
 	}
 }
+
+func TestPlanLegacyEmailGroupImportDraftDoesNotClaimTargetVerification(t *testing.T) {
+	plan, err := PlanLegacyEmailGroupImportDraft(legacyEmailGroupFixture(), "tenant-a", "Draft", "instance-assumed")
+	if err != nil {
+		t.Fatalf("plan draft import: %v", err)
+	}
+	if plan.Enabled || len(plan.Bindings) != 2 || plan.Bindings[0].InstanceID != "instance-assumed" {
+		t.Fatalf("unexpected draft import plan: %+v", plan)
+	}
+	// The helper intentionally creates a request body only. Full target identity,
+	// enabled state, credentials, recipients, and content are checked at apply.
+}
