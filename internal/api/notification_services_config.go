@@ -1,6 +1,8 @@
 package api
 
 import (
+	"net/http"
+
 	dal "project/internal/dal"
 	model "project/internal/model"
 	service "project/internal/service"
@@ -76,6 +78,10 @@ func (*NotificationServicesConfigApi) HandleNotificationServicesConfig(c *gin.Co
 // SendTestEmail 发送测试邮件
 // @Router   /api/v1/notification/services/config/e-mail/test [post]
 func (*NotificationServicesConfigApi) SendTestEmail(c *gin.Context) {
+	if !notificationServicesSysAdmin(c) {
+		return
+	}
+
 	var req model.SendTestEmailReq
 	if !BindAndValidate(c, &req) {
 		return
@@ -86,4 +92,17 @@ func (*NotificationServicesConfigApi) SendTestEmail(c *gin.Context) {
 		return
 	}
 	c.Set("data", nil)
+}
+
+func notificationServicesSysAdmin(c *gin.Context) bool {
+	value, exists := c.Get("claims")
+	claims, valid := value.(*utils.UserClaims)
+	if !exists || !valid || claims == nil || claims.Authority != dal.SYS_ADMIN {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+			"code":    errcode.CodeNoPermission,
+			"message": "SYS_ADMIN required",
+		})
+		return false
+	}
+	return true
 }
