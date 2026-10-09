@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"time"
 
 	dal "project/internal/dal"
@@ -49,43 +51,64 @@ func (*NotificationGroup) CreateNotificationGroup(createNotificationgroupReq *mo
 	return &notificationGroup, nil
 }
 
-func (*NotificationGroup) GetNotificationGroupById(id string) (notificationGroup *model.NotificationGroup, err error) {
-	notificationGroup, err = dal.GetNotificationGroupById(id)
+func (*NotificationGroup) GetNotificationGroupById(id, tenantID string) (notificationGroup *model.NotificationGroup, err error) {
+	notificationGroup, err = dal.GetNotificationGroupByTenantID(id, tenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		if errors.Is(err, dal.ErrNotificationGroupNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "notification group not found")
+		}
+		return nil, errcode.New(errcode.CodeDBError)
 	}
 	return
 }
 
-func (*NotificationGroup) UpdateNotificationGroup(id string, updateNotificationgroupReq *model.UpdateNotificationGroupReq) (*model.NotificationGroup, error) {
-	notificationGroup, err := dal.GetNotificationGroupById(id)
+func (*NotificationGroup) UpdateNotificationGroup(ctx context.Context, id, tenantID string, updateNotificationgroupReq *model.UpdateNotificationGroupReq) (*model.NotificationGroup, error) {
+	notificationGroup, err := dal.GetNotificationGroupByTenantID(id, tenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		if errors.Is(err, dal.ErrNotificationGroupNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "notification group not found")
+		}
+		return nil, errcode.New(errcode.CodeDBError)
 	}
 	utils.SerializeData(updateNotificationgroupReq, notificationGroup)
 
 	notificationGroup.UpdatedAt = time.Now().UTC()
-	err = dal.UpdateNotificationGroup(notificationGroup)
+	bridge := currentSourceBridge()
+	key := dal.SourceRouteKey{TenantID: tenantID, LegacyGroup: id}
+	bridgeEnabled := bridge != nil && bridge.Enabled()
+	if bridgeEnabled {
+		key.DeploymentID = bridge.DeploymentID()
+	}
+	err = dal.UpdateNotificationGroupForTenant(ctx, notificationGroup, key, bridgeEnabled)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, notificationGroupWriteError(err)
 	}
 	return notificationGroup, nil
 }
 
-func (*NotificationGroup) DeleteNotificationGroup(id string) error {
-	err := dal.DeleteNotificationGroup(id)
+func (*NotificationGroup) DeleteNotificationGroup(ctx context.Context, id, tenantID string) error {
+	bridge := currentSourceBridge()
+	key := dal.SourceRouteKey{TenantID: tenantID, LegacyGroup: id}
+	bridgeEnabled := bridge != nil && bridge.Enabled()
+	if bridgeEnabled {
+		key.DeploymentID = bridge.DeploymentID()
+	}
+	err := dal.DeleteNotificationGroupForTenant(ctx, id, tenantID, key, bridgeEnabled)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return notificationGroupWriteError(err)
 	}
 	return nil
+}
+
+func notificationGroupWriteError(err error) error {
+	switch {
+	case errors.Is(err, dal.ErrNotificationGroupNotFound):
+		return errcode.NewWithMessage(errcode.CodeNotFound, "notification group not found")
+	case errors.Is(err, dal.ErrNotificationGroupReadOnly):
+		return errcode.NewWithMessage(errcode.CodeOpDenied, "notification group is managed by the notification service")
+	default:
+		return errcode.New(errcode.CodeDBError)
+	}
 }
 
 func (*NotificationGroup) GetNotificationGroupListByPage(pageParam *model.GetNotificationGroupListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
