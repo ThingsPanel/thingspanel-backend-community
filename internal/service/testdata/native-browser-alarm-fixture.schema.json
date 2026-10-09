@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Local native notification browser E2E fixture",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sourceDeploymentId",
+    "tenantId",
+    "nativeInstanceId",
+    "nativeGroupId",
+    "nativeGroupRevision"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "sourceDeploymentId": { "const": "deployment-native" },
+    "tenantId": { "const": "tenant-native" },
+    "nativeInstanceId": { "type": "string", "format": "uuid" },
+    "nativeGroupId": { "type": "string", "format": "uuid" },
+    "nativeGroupRevision": { "type": "integer", "minimum": 1 }
+  }
+}
