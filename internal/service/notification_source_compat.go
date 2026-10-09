@@ -41,6 +41,12 @@ func NewEmailSourceCompatibilityChecker(baseURL, projectionBearerToken string) (
 	return newEmailSourceCompatibilityChecker(baseURL, projectionBearerToken, nil)
 }
 
+// NewEmailSourceCompatibilityCheckerWithRoots keeps production certificate
+// verification enabled while allowing an operator-managed private CA.
+func NewEmailSourceCompatibilityCheckerWithRoots(baseURL, projectionBearerToken string, roots *x509.CertPool) (*EmailSourceCompatibilityChecker, error) {
+	return newEmailSourceCompatibilityChecker(baseURL, projectionBearerToken, roots)
+}
+
 // newEmailSourceCompatibilityChecker accepts test-only roots for an ephemeral
 // TLS proxy while keeping all production constructors on system roots.
 func newEmailSourceCompatibilityChecker(baseURL, projectionBearerToken string, roots *x509.CertPool) (*EmailSourceCompatibilityChecker, error) {

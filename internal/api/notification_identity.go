@@ -30,7 +30,13 @@ func (*NotificationIdentityApi) SessionContext(c *gin.Context) {
 		return
 	}
 	claims, ok := value.(*utils.UserClaims)
-	if !ok || claims == nil || strings.TrimSpace(claims.ID) == "" || strings.TrimSpace(claims.TenantID) == "" {
+	if !ok || claims == nil || strings.TrimSpace(claims.ID) == "" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	authority := strings.ToUpper(strings.TrimSpace(claims.Authority))
+	platformActor := authority == "SYS_ADMIN"
+	if (strings.TrimSpace(claims.TenantID) == "" && !platformActor) || (authority != "SYS_ADMIN" && authority != "TENANT_ADMIN" && authority != "TENANT_USER") {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
@@ -44,12 +50,12 @@ func (*NotificationIdentityApi) SessionContext(c *gin.Context) {
 		return
 	}
 	user, err := dal.GetUsersById(claims.ID)
-	if err != nil || user == nil || user.Status == nil || *user.Status != "N" || user.TenantID == nil || *user.TenantID != claims.TenantID || user.Authority == nil || !strings.EqualFold(*user.Authority, claims.Authority) {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
+	databaseTenant := ""
+	if user != nil && user.TenantID != nil {
+		databaseTenant = strings.TrimSpace(*user.TenantID)
 	}
-	authority := strings.ToUpper(strings.TrimSpace(claims.Authority))
-	if authority != "SYS_ADMIN" && authority != "TENANT_ADMIN" && authority != "TENANT_USER" {
+	tenantMatches := databaseTenant == strings.TrimSpace(claims.TenantID) && (databaseTenant != "" || platformActor)
+	if err != nil || user == nil || user.Status == nil || *user.Status != "N" || !tenantMatches || user.Authority == nil || !strings.EqualFold(strings.TrimSpace(*user.Authority), authority) {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}

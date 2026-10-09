@@ -38,6 +38,7 @@ type SourceBridgeConfig struct {
 	DeploymentID          string
 	SourceBearerToken     string
 	ProjectionBearerToken string
+	TLSRoots              *x509.CertPool
 	PollInterval          time.Duration
 	RequestTimeout        time.Duration
 }
@@ -107,7 +108,7 @@ type SourceBridge struct {
 }
 
 func NewSourceBridge(config SourceBridgeConfig, checker SourceCompatibilityChecker) (*SourceBridge, error) {
-	return newSourceBridge(config, checker, nil)
+	return newSourceBridge(config, checker, config.TLSRoots)
 }
 
 // newSourceBridge allows package tests to trust an ephemeral TLS certificate.

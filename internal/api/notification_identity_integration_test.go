@@ -223,6 +223,33 @@ func TestNotificationSessionContextChecksLiveJWTRedisAndUserState(t *testing.T) 
 	if status != http.StatusOK || payload["userId"] != "identity-user" || payload["tenantId"] != "tenant-identity" || payload["authority"] != "TENANT_ADMIN" || headers.Get("Cache-Control") != "no-store" || len(payload) != 3 {
 		t.Fatalf("valid session context mismatch: status=%d payload=%v headers=%v", status, payload, headers)
 	}
+	if err := db.Exec(`INSERT INTO users (id, tenant_id, status, authority) VALUES (?, NULL, ?, ?)`, "identity-platform", "N", "SYS_ADMIN").Error; err != nil {
+		t.Fatal("seed isolated platform identity user")
+	}
+	platformToken := notificationSessionJWT(t, jwtKey, "identity-platform", "", "SYS_ADMIN", time.Now().Add(time.Hour))
+	if err := redisClient.Set(context.Background(), platformToken, "1", time.Hour).Err(); err != nil {
+		t.Fatal("seed active platform JWT session")
+	}
+	status, _, payload = request(platformToken, "")
+	if status != http.StatusOK || payload["userId"] != "identity-platform" || payload["tenantId"] != "" || payload["authority"] != "SYS_ADMIN" || len(payload) != 3 {
+		t.Fatalf("tenantless platform session mismatch: status=%d payload=%v", status, payload)
+	}
+	if err := db.Exec(`UPDATE users SET tenant_id='tenant-unexpected' WHERE id='identity-platform'`).Error; err != nil {
+		t.Fatal("change isolated platform tenant context")
+	}
+	if status, _, _ := request(platformToken, ""); status != http.StatusUnauthorized {
+		t.Fatalf("tenantless platform JWT survived database tenant change: status=%d", status)
+	}
+	if err := db.Exec(`UPDATE users SET tenant_id=NULL WHERE id='identity-platform'`).Error; err != nil {
+		t.Fatal("restore isolated platform tenant context")
+	}
+	tenantlessTenantToken := notificationSessionJWT(t, jwtKey, "identity-platform", "", "TENANT_ADMIN", time.Now().Add(time.Hour))
+	if err := redisClient.Set(context.Background(), tenantlessTenantToken, "1", time.Hour).Err(); err != nil {
+		t.Fatal("seed invalid tenantless tenant JWT session")
+	}
+	if status, _, _ := request(tenantlessTenantToken, ""); status != http.StatusUnauthorized {
+		t.Fatalf("tenantless tenant administrator was accepted: status=%d", status)
+	}
 
 	// JWTs that still have a Redis marker but have expired must fail JWT parsing.
 	expiredJWT := notificationSessionJWT(t, jwtKey, "identity-user", "tenant-identity", "TENANT_ADMIN", time.Now().Add(-time.Minute))
