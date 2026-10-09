@@ -31,12 +31,13 @@ const (
 )
 
 type SourceBridgeConfig struct {
-	Enabled        bool
-	BaseURL        string
-	DeploymentID   string
-	BearerToken    string
-	PollInterval   time.Duration
-	RequestTimeout time.Duration
+	Enabled               bool
+	BaseURL               string
+	DeploymentID          string
+	SourceBearerToken     string
+	ProjectionBearerToken string
+	PollInterval          time.Duration
+	RequestTimeout        time.Duration
 }
 
 type SourceGroupProjectionRequest struct {
@@ -112,7 +113,7 @@ func NewSourceBridge(config SourceBridgeConfig, checker SourceCompatibilityCheck
 	if err != nil || parsed == nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, errors.New("source bridge configuration invalid")
 	}
-	if config.DeploymentID == "" || config.BearerToken == "" || checker == nil {
+	if config.DeploymentID == "" || config.SourceBearerToken == "" || config.ProjectionBearerToken == "" || checker == nil {
 		return nil, errors.New("source bridge configuration incomplete")
 	}
 	if config.PollInterval <= 0 {
@@ -155,11 +156,23 @@ func (s *SourceBridge) postJSON(ctx context.Context, path, idempotencyKey string
 	if !s.Enabled() || len(body) == 0 || len(body) > maxSourceBody || len(idempotencyKey) < 8 || len(idempotencyKey) > 128 {
 		return nil, nil, errors.New("source request unavailable")
 	}
+	var bearerToken string
+	switch path {
+	case sourceEventPath:
+		bearerToken = s.config.SourceBearerToken
+	case sourceProjectPath:
+		bearerToken = s.config.ProjectionBearerToken
+	default:
+		return nil, nil, errors.New("source request unavailable")
+	}
+	if bearerToken == "" {
+		return nil, nil, errors.New("source request unavailable")
+	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint(path), bytes.NewReader(body))
 	if err != nil {
 		return nil, nil, errors.New("source request unavailable")
 	}
-	request.Header.Set("Authorization", "Bearer "+s.config.BearerToken)
+	request.Header.Set("Authorization", "Bearer "+bearerToken)
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", idempotencyKey)
 	response, err := s.client.Do(request)

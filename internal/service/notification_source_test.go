@@ -26,7 +26,7 @@ func testSourceBridge(t *testing.T, server *httptest.Server) *SourceBridge {
 	}
 	client := server.Client()
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &SourceBridge{config: SourceBridgeConfig{Enabled: true, DeploymentID: "deployment-test", BearerToken: "source-test-token"}, base: base, client: client}
+	return &SourceBridge{config: SourceBridgeConfig{Enabled: true, DeploymentID: "deployment-test", SourceBearerToken: "source-test-token", ProjectionBearerToken: "projection-test-token"}, base: base, client: client}
 }
 
 func testOutboxRecord(t *testing.T) dal.SourceOutboxRecord {
@@ -48,6 +48,9 @@ func TestSourceRelayRetryUsesFrozenBodyAndKeyAfterLostAck(t *testing.T) {
 	var keys []string
 	requests := 0
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer source-test-token" {
+			t.Error("event ingress did not use its source-purpose credential")
+		}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			t.Errorf("read request body: %v", err)
@@ -174,7 +177,7 @@ func TestSourceEventPayloadEnforcesFrozenSchemaBounds(t *testing.T) {
 }
 
 func TestNewSourceBridgeRejectsUnsafeEndpointAndMissingCompatibilityCheck(t *testing.T) {
-	baseConfig := SourceBridgeConfig{Enabled: true, BaseURL: "http://127.0.0.1:1234", DeploymentID: "deployment", BearerToken: "token"}
+	baseConfig := SourceBridgeConfig{Enabled: true, BaseURL: "http://127.0.0.1:1234", DeploymentID: "deployment", SourceBearerToken: "source-token", ProjectionBearerToken: "projection-token"}
 	if _, err := NewSourceBridge(baseConfig, testCompatibilityChecker{}); err == nil {
 		t.Fatal("http endpoint accepted")
 	}
@@ -185,6 +188,9 @@ func TestNewSourceBridgeRejectsUnsafeEndpointAndMissingCompatibilityCheck(t *tes
 	baseConfig.BaseURL = "https://example.invalid"
 	if _, err := NewSourceBridge(baseConfig, nil); err == nil {
 		t.Fatal("missing compatibility checker accepted")
+	}
+	if _, err := NewSourceBridge(SourceBridgeConfig{Enabled: true, BaseURL: "https://example.invalid", DeploymentID: "deployment", SourceBearerToken: "source-token"}, testCompatibilityChecker{}); err == nil {
+		t.Fatal("missing projection-purpose credential accepted")
 	}
 }
 
@@ -209,8 +215,8 @@ func TestSourceProjectionRequiresExactServerConfirmedTuple(t *testing.T) {
 			if r.Method != http.MethodPost || r.URL.Path != sourceProjectPath {
 				t.Errorf("unexpected projection request %s %s", r.Method, r.URL.Path)
 			}
-			if r.Header.Get("Authorization") != "Bearer source-test-token" || r.Header.Get("Idempotency-Key") != key {
-				t.Error("source identity or replay key missing")
+			if r.Header.Get("Authorization") != "Bearer projection-test-token" || r.Header.Get("Idempotency-Key") != key {
+				t.Error("projection identity or replay key missing")
 			}
 			var got SourceGroupProjectionRequest
 			if err := json.NewDecoder(r.Body).Decode(&got); err != nil || got != request {
