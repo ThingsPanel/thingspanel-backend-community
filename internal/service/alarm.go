@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"project/internal/dal"
 	"project/initialize"
+	"project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/errcode"
 
@@ -219,7 +220,7 @@ func (*Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq) ([]model.Ala
 func (*Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
 	alarmConfig, err := dal.GetAlarmByID(alarmConfigID)
 	if err != nil {
-		logrus.Error(err)
+		logrus.Warn("alarm configuration lookup failed")
 		return false, ""
 	}
 
@@ -227,62 +228,9 @@ func (*Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
 		return false, ""
 	}
 
-	if alarmConfig.NotificationGroupID != "" {
-		// 组装标准的通知内容
-		subject := fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
-
-		// 处理描述字段的指针类型
-		description := ""
-		if alarmConfig.Description != nil {
-			description = *alarmConfig.Description
-		}
-
-		notificationContent := fmt.Sprintf(`Alert: %s
-Level: %s
-Time: %s
-Description: %s
-Details: %s`,
-			alarmConfig.Name,
-			alarmConfig.AlarmLevel,
-			time.Now().Format("2006-01-02 15:04:05"),
-			description,
-			content)
-
-		// 获取租户管理员ID
-		var tenantAdminID string
-		if tenantAdmin, err := dal.GetTenantAdmin(alarmConfig.TenantID); err == nil && tenantAdmin != nil {
-			tenantAdminID = tenantAdmin.ID
-		}
-
-		// 构建增强的告警JSON (AddAlarmInfo方法没有device_ids参数，设为空数组)
-		alertData := map[string]interface{}{
-			"subject":         subject,
-			"content":         notificationContent,
-			"timestamp":       time.Now().Format(time.RFC3339),
-			"alarm_config_id": alarmConfig.ID,
-			"alarm_level":     alarmConfig.AlarmLevel,
-			"tenant_id":       alarmConfig.TenantID,
-			"tenant_admin_id": tenantAdminID,
-			"device_ids":      []string{},
-			"devices":         []map[string]interface{}{},
-		}
-
-		// 序列化JSON，不转义HTML字符
-		buffer := &bytes.Buffer{}
-		encoder := json.NewEncoder(buffer)
-		encoder.SetEscapeHTML(false)
-		err = encoder.Encode(alertData)
-		if err != nil {
-			logrus.Error("构建告警JSON失败:", err)
-		} else {
-			alertJson := strings.TrimSpace(buffer.String())
-			GroupApp.NotificationServicesConfig.ExecuteNotification(alarmConfig.NotificationGroupID, alertJson)
-		}
-	}
-
 	id := uuid.New()
 	t := time.Now().UTC()
-	err = dal.CreateAlarmInfo(&model.AlarmInfo{
+	alarmRow := &model.AlarmInfo{
 		ID:               id,
 		Name:             alarmConfig.Name,
 		AlarmConfigID:    alarmConfigID,
@@ -292,10 +240,66 @@ Details: %s`,
 		Description:      alarmConfig.Description,
 		ProcessingResult: "UND",
 		TenantID:         alarmConfig.TenantID,
-	})
+	}
+	var subject, notificationContent, alertJSON string
+	if alarmConfig.NotificationGroupID != "" {
+		subject = fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
+		description := ""
+		if alarmConfig.Description != nil {
+			description = *alarmConfig.Description
+		}
+		notificationContent = fmt.Sprintf(`Alert: %s
+Level: %s
+Time: %s
+Description: %s
+Details: %s`, alarmConfig.Name, alarmConfig.AlarmLevel, t.Format("2006-01-02 15:04:05"), description, content)
+		var tenantAdminID string
+		if tenantAdmin, lookupErr := dal.GetTenantAdmin(alarmConfig.TenantID); lookupErr == nil && tenantAdmin != nil {
+			tenantAdminID = tenantAdmin.ID
+		}
+		alertData := map[string]interface{}{"subject": subject, "content": notificationContent, "timestamp": t.Format(time.RFC3339), "alarm_config_id": alarmConfig.ID, "alarm_level": alarmConfig.AlarmLevel, "tenant_id": alarmConfig.TenantID, "tenant_admin_id": tenantAdminID, "device_ids": []string{}, "devices": []map[string]interface{}{}}
+		buffer := &bytes.Buffer{}
+		encoder := json.NewEncoder(buffer)
+		encoder.SetEscapeHTML(false)
+		if err := encoder.Encode(alertData); err != nil {
+			logrus.Warn("alarm notification payload could not be encoded")
+		} else {
+			alertJSON = strings.TrimSpace(buffer.String())
+		}
+	}
+
+	route := dal.SourceRouteSnapshot{Engine: "legacy"}
+	if alarmConfig.NotificationGroupID == "" {
+		err = dal.SaveAlarmInfoQuietly(context.Background(), alarmRow)
+	} else if bridge := currentSourceBridge(); bridge == nil || !bridge.Enabled() {
+		err = dal.SaveAlarmInfoQuietly(context.Background(), alarmRow)
+	} else if alertJSON == "" {
+		remark := "source_payload_unavailable"
+		alarmRow.Remark = &remark
+		err = dal.SaveAlarmInfoQuietly(context.Background(), alarmRow)
+		route.Engine = "blocked"
+	} else {
+		key := dal.SourceRouteKey{DeploymentID: bridge.DeploymentID(), TenantID: alarmConfig.TenantID, LegacyGroup: alarmConfig.NotificationGroupID}
+		route, err = dal.SaveAlarmInfoWithSource(context.Background(), alarmRow, key, func(snapshot dal.SourceRouteSnapshot) (*dal.SourceOutboxRecord, error) {
+			return bridge.buildOutbox(snapshot, alarmConfig.TenantID, alarmConfig.NotificationGroupID, id, uuid.New(), t, subject, notificationContent, alertJSON)
+		})
+		if errors.Is(err, dal.ErrSourceRouteUnavailable) {
+			// Routing metadata failure preserves the alarm and suppresses every sender.
+			remark := "source_route_unavailable"
+			alarmRow.Remark = &remark
+			err = dal.SaveAlarmInfoQuietly(context.Background(), alarmRow)
+			route.Engine = "blocked"
+			if err == nil {
+				logrus.Warn("notification source route unavailable; alarm saved and delivery suppressed")
+			}
+		}
+	}
 	if err != nil {
-		logrus.Error(err)
+		logrus.Warn("alarm persistence failed")
 		return false, ""
+	}
+	if route.Engine == "legacy" && alarmConfig.NotificationGroupID != "" && alertJSON != "" {
+		GroupApp.NotificationServicesConfig.ExecuteNotification(alarmConfig.NotificationGroupID, alertJSON)
 	}
 	return true, id
 }
@@ -334,8 +338,8 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 	var alarmName string
 	alarmConfig, err := dal.GetAlarmByID(alarmConfigID)
 	if err != nil {
-		logrus.Error(err)
-		return false, alarmName, err.Error()
+		logrus.Warn("alarm configuration lookup failed")
+		return false, alarmName, "告警配置读取失败"
 	}
 
 	if alarmConfig.Enabled != "Y" {
@@ -343,9 +347,11 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 	}
 	alarmName = alarmConfig.Name
 	id := uuid.New()
+	var subject, notificationContent, alertJSON string
+	t := time.Now().UTC()
 	if alarmConfig.NotificationGroupID != "" {
 		// 组装标准的通知内容
-		subject := fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
+		subject = fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
 
 		// 处理描述字段的指针类型
 		description := ""
@@ -353,14 +359,14 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 			description = *alarmConfig.Description
 		}
 
-		notificationContent := fmt.Sprintf(`Alert: %s
+		notificationContent = fmt.Sprintf(`Alert: %s
 Level: %s
 Time: %s
 Description: %s
 Details: %s`,
 			alarmConfig.Name,
 			alarmConfig.AlarmLevel,
-			time.Now().Format("2006-01-02 15:04:05"),
+			t.Format("2006-01-02 15:04:05"),
 			description,
 			content)
 
@@ -398,7 +404,7 @@ Details: %s`,
 			"alarm_config_name": alarmConfig.Name,
 			"subject":           subject,
 			"content":           notificationContent,
-			"timestamp":         time.Now().Format(time.RFC3339),
+			"timestamp":         t.Format(time.RFC3339),
 			"alarm_level":       alarmConfig.AlarmLevel,
 			"tenant_id":         alarmConfig.TenantID,
 			"tenant_admin_id":   tenantAdminID,
@@ -412,16 +418,15 @@ Details: %s`,
 		encoder.SetEscapeHTML(false)
 		err = encoder.Encode(alertData)
 		if err != nil {
-			logrus.Error("构建告警JSON失败:", err)
+			logrus.Warn("alarm notification payload could not be encoded")
 		} else {
-			alertJson := strings.TrimSpace(buffer.String())
-			GroupApp.NotificationServicesConfig.ExecuteNotification(alarmConfig.NotificationGroupID, alertJson)
+			alertJSON = strings.TrimSpace(buffer.String())
+			notificationContent, _ = alertData["content"].(string)
 		}
 	}
 	device_ids_str, _ := json.Marshal(device_ids)
 
-	t := time.Now().UTC()
-	err = dal.AlarmHistorySave(&model.AlarmHistory{
+	alarmRow := &model.AlarmHistory{
 		ID:                id,
 		Name:              alarmConfig.Name,
 		AlarmConfigID:     alarmConfigID,
@@ -433,10 +438,38 @@ Details: %s`,
 		AlarmDeviceList:   string(device_ids_str),
 		AlarmStatus:       alarmConfig.AlarmLevel,
 		CreateAt:          t,
-	})
+	}
+	route := dal.SourceRouteSnapshot{Engine: "legacy"}
+	if alarmConfig.NotificationGroupID == "" {
+		err = dal.SaveAlarmHistoryQuietly(context.Background(), alarmRow)
+	} else if bridge := currentSourceBridge(); bridge == nil || !bridge.Enabled() {
+		err = dal.SaveAlarmHistoryQuietly(context.Background(), alarmRow)
+	} else if alertJSON == "" {
+		remark := "source_payload_unavailable"
+		alarmRow.Remark = &remark
+		err = dal.SaveAlarmHistoryQuietly(context.Background(), alarmRow)
+		route.Engine = "blocked"
+	} else {
+		key := dal.SourceRouteKey{DeploymentID: bridge.DeploymentID(), TenantID: alarmConfig.TenantID, LegacyGroup: alarmConfig.NotificationGroupID}
+		route, err = dal.SaveAlarmHistoryWithSource(context.Background(), alarmRow, key, func(snapshot dal.SourceRouteSnapshot) (*dal.SourceOutboxRecord, error) {
+			return bridge.buildOutbox(snapshot, alarmConfig.TenantID, alarmConfig.NotificationGroupID, id, uuid.New(), t, subject, notificationContent, alertJSON)
+		})
+		if errors.Is(err, dal.ErrSourceRouteUnavailable) {
+			remark := "source_route_unavailable"
+			alarmRow.Remark = &remark
+			err = dal.SaveAlarmHistoryQuietly(context.Background(), alarmRow)
+			route.Engine = "blocked"
+			if err == nil {
+				logrus.Warn("notification source route unavailable; alarm saved and delivery suppressed")
+			}
+		}
+	}
 	if err != nil {
-		logrus.Error(err)
-		return false, alarmName, err.Error()
+		logrus.Warn("alarm persistence failed")
+		return false, alarmName, "告警持久化失败"
+	}
+	if route.Engine == "legacy" && alarmConfig.NotificationGroupID != "" && alertJSON != "" {
+		GroupApp.NotificationServicesConfig.ExecuteNotification(alarmConfig.NotificationGroupID, alertJSON)
 	}
 	for _, deviceId := range device_ids {
 		// 已废弃：手机端推送现在通过通知系统统一处理
