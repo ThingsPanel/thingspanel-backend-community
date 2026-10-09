@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -48,7 +49,11 @@ func TestNativeProjectionSuccessThenLegacyCASConflictKeepsRouteLegacy(t *testing
 	var projectionStatuses []int
 	var projectionResponses []SourceGroupProjection
 	var mutationErr error
+	var sourceIngressCalls atomic.Int32
 	proxyServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == sourceEventPath {
+			sourceIngressCalls.Add(1)
+		}
 		if r.Method != http.MethodPost || r.URL.Path != sourceProjectPath {
 			coreProxy.ServeHTTP(w, r)
 			return
@@ -152,10 +157,13 @@ func TestNativeProjectionSuccessThenLegacyCASConflictKeepsRouteLegacy(t *testing
 	if err := compareSourceEmailProjection(snapshot, []string{"ops@example.test"}, legacyConfig); err != nil {
 		t.Fatal("native email projection semantics do not match the isolated legacy group")
 	}
-	const projectionKey = "native-cas-conflict-projection-01"
+	projectionKey := "native-cas-conflict-projection-" + uuid.NewString()
 	err = bridge.SwitchToEncore(context.Background(), request, projectionKey, 0)
 	if err == nil || err.Error() != "source route update failed" {
-		t.Fatalf("local CAS failure was not returned to caller: %v", err)
+		mu.Lock()
+		statuses := append([]int(nil), projectionStatuses...)
+		mu.Unlock()
+		t.Fatalf("local CAS failure was not returned to caller: error=%v core_projection_statuses=%v", err, statuses)
 	}
 	mu.Lock()
 	statuses := append([]int(nil), projectionStatuses...)
@@ -172,5 +180,53 @@ func TestNativeProjectionSuccessThenLegacyCASConflictKeepsRouteLegacy(t *testing
 	if err != nil || route.Engine != "legacy" || route.RouteVersion != 0 || route.NotificationGroupID != "" {
 		t.Fatalf("failed local CAS changed route ownership: route=%+v err=%v", route, err)
 	}
-	t.Logf("native projection CAS fixture: core_projection_status=200 local_route_error=visible route_engine=%s route_version=%d", route.Engine, route.RouteVersion)
+	if err := db.Exec(`CREATE TABLE alarm_config (
+		id text PRIMARY KEY, name text NOT NULL, description text, alarm_level text NOT NULL,
+		notification_group_id text NOT NULL, created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL,
+		tenant_id text NOT NULL, remark text, enabled text NOT NULL)`).Error; err != nil {
+		t.Fatal("create isolated alarm configuration table")
+	}
+	if err := db.Exec(`CREATE TABLE notification_histories (
+		id text PRIMARY KEY, send_time timestamptz NOT NULL, send_content text, send_target text NOT NULL,
+		send_result text, notification_type text NOT NULL, tenant_id text NOT NULL, remark text)`).Error; err != nil {
+		t.Fatal("create isolated notification history table")
+	}
+	const alarmConfigID = "native-cas-conflict-future-alarm"
+	if err := db.Exec(`INSERT INTO alarm_config (id, name, description, alarm_level, notification_group_id, created_at, updated_at, tenant_id, enabled)
+		VALUES (?, ?, ?, 'H', ?, now(), now(), ?, 'Y')`, alarmConfigID, "CAS conflict future alarm", "isolated fixture", legacyGroupID, nativeE2ETenant).Error; err != nil {
+		t.Fatal("create isolated future alarm configuration")
+	}
+	legacySink := startCountingFixtureSMTP(t)
+	if err := redirectNativeBrowserLegacySMTPToSink(db, legacySink); err != nil {
+		t.Fatal("redirect legacy sender to isolated SMTP sink")
+	}
+	ok, alarmID := GroupApp.Alarm.AddAlarmInfo(alarmConfigID, "CAS conflict future alarm fixture")
+	if !ok || alarmID == "" {
+		t.Fatal("alarm after visible CAS failure was not persisted")
+	}
+	var alarmRows, sourceRows int64
+	if err := db.Raw(`SELECT count(*) FROM alarm_info WHERE id = ? AND alarm_config_id = ? AND tenant_id = ?`, alarmID, alarmConfigID, nativeE2ETenant).Scan(&alarmRows).Error; err != nil {
+		t.Fatal("count persisted future alarm")
+	}
+	if err := db.Raw(`SELECT count(*) FROM notification_source_outbox WHERE source_event_id = ? AND tenant_id = ?`, alarmID, nativeE2ETenant).Scan(&sourceRows).Error; err != nil {
+		t.Fatal("count source outbox for future alarm")
+	}
+	if alarmRows != 1 || sourceRows != 0 {
+		t.Fatalf("future event did not remain legacy-owned after failed CAS: alarm_rows=%d source_rows=%d", alarmRows, sourceRows)
+	}
+	if !legacySink.waitForCount(1, 3*time.Second) {
+		t.Fatal("future legacy-owned alarm did not reach the isolated SMTP sink")
+	}
+	if sourceIngressCalls.Load() != 0 {
+		t.Fatalf("future legacy-owned alarm reached native ingress after failed CAS: requests=%d", sourceIngressCalls.Load())
+	}
+	query := url.Values{"sourceType": {"alarm"}, "sourceId": {alarmID}, "page": {"1"}, "pageSize": {"20"}}
+	var nativePage struct {
+		Total int64 `json:"total"`
+	}
+	status := nativeE2EGetJSON(t, proxyServer.Client(), proxyServer.URL+"/api/v2/notifications?"+query.Encode(), adminJWT, &nativePage)
+	if status != http.StatusOK || nativePage.Total != 0 {
+		t.Fatalf("native Core received an alarm after failed source CAS: status=%d rows=%d", status, nativePage.Total)
+	}
+	t.Logf("native projection CAS fixture: core_projection_status=200 local_route_error=visible route_engine=%s route_version=%d future_alarm_rows=%d future_outbox_rows=%d legacy_sink_delta=%d native_ingress_calls=%d native_source_rows=%d", route.Engine, route.RouteVersion, alarmRows, sourceRows, legacySink.count.Load(), sourceIngressCalls.Load(), nativePage.Total)
 }
