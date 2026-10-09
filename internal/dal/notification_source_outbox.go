@@ -194,6 +194,47 @@ func SwitchSourceRouteIfLegacyGroupUnchanged(ctx context.Context, key SourceRout
 	return switchSourceRoute(ctx, key, expectedVersion, groupRevision, notificationGroupID, projectionKey, expectedGroup)
 }
 
+// SwitchSourceRouteToLegacy explicitly changes only the route for future
+// source events. The immutable bound target, projection revisions, and outbox
+// rows remain intact; this is not a replay or recall operation.
+func SwitchSourceRouteToLegacy(ctx context.Context, key SourceRouteKey, expectedVersion int64) error {
+	if key.DeploymentID == "" || key.TenantID == "" || key.LegacyGroup == "" || expectedVersion < 1 || global.DB == nil {
+		return ErrSourceRouteConflict
+	}
+	return global.DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Discard}).Transaction(func(tx *gorm.DB) error {
+		lockKey := sourceRouteAdvisoryKey(key)
+		if err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, lockKey).Error; err != nil {
+			return ErrSourceRouteUnavailable
+		}
+		var current struct {
+			Engine              string  `gorm:"column:engine"`
+			NotificationGroupID *string `gorm:"column:notification_group_id"`
+			BoundGroupID        *string `gorm:"column:bound_notification_group_id"`
+			GroupRevision       int64   `gorm:"column:group_revision"`
+			RouteVersion        int64   `gorm:"column:route_version"`
+		}
+		result := tx.Raw(`SELECT engine, notification_group_id, bound_notification_group_id, group_revision, route_version
+			FROM notification_source_group_routes
+			WHERE source_deployment_id = ? AND tenant_id = ? AND legacy_group_id = ? FOR UPDATE`,
+			key.DeploymentID, key.TenantID, key.LegacyGroup).Scan(&current)
+		if result.Error != nil {
+			return ErrSourceRouteUnavailable
+		}
+		if result.RowsAffected != 1 || current.Engine != "encore" || current.RouteVersion != expectedVersion || current.NotificationGroupID == nil || current.BoundGroupID == nil || *current.NotificationGroupID != *current.BoundGroupID || current.GroupRevision < 1 {
+			return ErrSourceRouteConflict
+		}
+		result = tx.Exec(`UPDATE notification_source_group_routes
+			SET engine = 'legacy', notification_group_id = NULL, group_revision = 0,
+				route_version = route_version + 1, updated_at = now()
+			WHERE source_deployment_id = ? AND tenant_id = ? AND legacy_group_id = ?
+				AND engine = 'encore' AND route_version = ?`, key.DeploymentID, key.TenantID, key.LegacyGroup, expectedVersion)
+		if result.Error != nil || result.RowsAffected != 1 {
+			return ErrSourceRouteConflict
+		}
+		return nil
+	})
+}
+
 func switchSourceRoute(ctx context.Context, key SourceRouteKey, expectedVersion, groupRevision int64, notificationGroupID, projectionKey string, expectedGroup *model.NotificationGroup) error {
 	if key.DeploymentID == "" || key.TenantID == "" || key.LegacyGroup == "" || notificationGroupID == "" || projectionKey == "" || groupRevision < 1 {
 		return ErrSourceRouteConflict

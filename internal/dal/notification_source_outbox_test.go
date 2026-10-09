@@ -109,6 +109,14 @@ func openNotificationSourceFixture(t *testing.T) *gorm.DB {
 			t.Fatal("could not apply source migration in isolated schema")
 		}
 	}
+	migration24, err := os.ReadFile("../../sql/24.sql")
+	if err != nil {
+		t.Fatal("could not read source rollback migration")
+	}
+	migration24SQL := strings.ReplaceAll(string(migration24), "public.", `"`+schema+`".`)
+	if err := db.Exec(migration24SQL).Error; err != nil {
+		t.Fatal("could not apply source rollback migration in isolated schema")
+	}
 	global.DB = db
 	return db
 }

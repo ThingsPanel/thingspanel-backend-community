@@ -107,6 +107,14 @@ func openSourceCompatPGFixture(t *testing.T) {
 	if err := db.Exec(migrationSQL).Error; err != nil {
 		t.Fatal("could not create isolated source route tables")
 	}
+	migration24, err := os.ReadFile("../../sql/24.sql")
+	if err != nil {
+		t.Fatal("could not read source rollback migration")
+	}
+	migration24SQL := strings.ReplaceAll(string(migration24), "public.", `"`+schema+`".`)
+	if err := db.Exec(migration24SQL).Error; err != nil {
+		t.Fatal("could not apply source rollback migration")
+	}
 }
 
 func TestSwitchToEncoreRequiresExactRevisionAndRechecksLegacyGroupAtCAS(t *testing.T) {
