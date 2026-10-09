@@ -19,7 +19,7 @@ var (
 // UpdateNotificationGroupForTenant serializes legacy edits with route changes.
 // When the bridge is enabled, missing route tables or lookup errors fail closed.
 func UpdateNotificationGroupForTenant(ctx context.Context, group *model.NotificationGroup, key SourceRouteKey, bridgeEnabled bool) error {
-	if global.DB == nil || group == nil || group.ID == "" || group.TenantID == "" {
+	if global.DB == nil || group == nil || group.ID == "" || group.TenantID == "" || key.TenantID != group.TenantID || key.LegacyGroup != group.ID {
 		return ErrSourceRouteUnavailable
 	}
 	return withLegacyGroupWriteLock(ctx, key, bridgeEnabled, func(tx *gorm.DB) error {
@@ -37,7 +37,7 @@ func UpdateNotificationGroupForTenant(ctx context.Context, group *model.Notifica
 }
 
 func DeleteNotificationGroupForTenant(ctx context.Context, id, tenantID string, key SourceRouteKey, bridgeEnabled bool) error {
-	if global.DB == nil || id == "" || tenantID == "" {
+	if global.DB == nil || id == "" || tenantID == "" || key.TenantID != tenantID || key.LegacyGroup != id {
 		return ErrSourceRouteUnavailable
 	}
 	return withLegacyGroupWriteLock(ctx, key, bridgeEnabled, func(tx *gorm.DB) error {
@@ -61,6 +61,14 @@ func withLegacyGroupWriteLock(ctx context.Context, key SourceRouteKey, bridgeEna
 	}
 	db := global.DB.WithContext(ctx).Session(&gorm.Session{Logger: logger.Discard})
 	return db.Transaction(func(tx *gorm.DB) error {
+		var groupType string
+		group := tx.Raw(`SELECT notification_type FROM notification_groups WHERE id = ? AND tenant_id = ? FOR UPDATE`, key.LegacyGroup, key.TenantID).Scan(&groupType)
+		if group.Error != nil {
+			return ErrSourceRouteUnavailable
+		}
+		if group.RowsAffected > 0 && groupType == notificationEncoreGroupType {
+			return ErrNotificationGroupReadOnly
+		}
 		if bridgeEnabled {
 			var tables int
 			if err := tx.Raw(`SELECT count(*) FROM unnest(ARRAY[

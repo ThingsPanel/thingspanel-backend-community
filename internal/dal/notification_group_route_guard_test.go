@@ -119,3 +119,42 @@ func TestEnabledLegacyGroupWriteFailsClosedWhenRouteSchemaMissing(t *testing.T) 
 		t.Fatalf("enabled bridge must fail closed without route tables, got %v", err)
 	}
 }
+
+func TestEncoreAliasRemainsReadOnlyWithoutRouteOrAfterStop(t *testing.T) {
+	db := openNotificationSourceFixture(t)
+	createNotificationGroupFixture(t)
+	ctx := context.Background()
+	closedAlias := &model.NotificationGroup{ID: "alias-closed", TenantID: "tenant-a", Name: "closed alias", NotificationType: notificationEncoreGroupType, Status: "CLOSE", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	if err := db.Create(closedAlias).Error; err != nil {
+		t.Fatal("create failed-projection alias fixture")
+	}
+	closedKey := SourceRouteKey{DeploymentID: "deploy-alias-guard", TenantID: "tenant-a", LegacyGroup: closedAlias.ID}
+	closedAlias.Name = "attempted edit"
+	if err := UpdateNotificationGroupForTenant(ctx, closedAlias, closedKey, false); !errors.Is(err, ErrNotificationGroupReadOnly) {
+		t.Fatalf("closed ENCORE alias without a route was editable: %v", err)
+	}
+	if err := DeleteNotificationGroupForTenant(ctx, closedAlias.ID, closedAlias.TenantID, closedKey, false); !errors.Is(err, ErrNotificationGroupReadOnly) {
+		t.Fatalf("closed ENCORE alias without a route was deletable: %v", err)
+	}
+
+	stoppedAlias := &model.NotificationGroup{ID: "alias-stopped", TenantID: "tenant-a", Name: "stopped alias", NotificationType: notificationEncoreGroupType, Status: "CLOSE", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	if err := db.Create(stoppedAlias).Error; err != nil {
+		t.Fatal("create stopped alias fixture")
+	}
+	if err := db.Exec(`INSERT INTO notification_source_group_routes
+		(source_deployment_id,tenant_id,legacy_group_id,engine,notification_group_id,bound_notification_group_id,group_revision,route_version)
+		VALUES (?,?,?,?,NULL,?,?,?)`, "deploy-alias-guard", "tenant-a", stoppedAlias.ID, "legacy", "native-stopped", 0, 2).Error; err != nil {
+		t.Fatal("create stopped route fixture")
+	}
+	stoppedKey := SourceRouteKey{DeploymentID: "deploy-alias-guard", TenantID: "tenant-a", LegacyGroup: stoppedAlias.ID}
+	if err := UpdateNotificationGroupForTenant(ctx, stoppedAlias, stoppedKey, true); !errors.Is(err, ErrNotificationGroupReadOnly) {
+		t.Fatalf("stopped ENCORE alias was editable: %v", err)
+	}
+	if err := DeleteNotificationGroupForTenant(ctx, stoppedAlias.ID, stoppedAlias.TenantID, stoppedKey, true); !errors.Is(err, ErrNotificationGroupReadOnly) {
+		t.Fatalf("stopped ENCORE alias was deletable: %v", err)
+	}
+	var name string
+	if err := db.Raw(`SELECT name FROM notification_groups WHERE id = ?`, stoppedAlias.ID).Row().Scan(&name); err != nil || name != "stopped alias" {
+		t.Fatalf("guarded alias changed: name=%q err=%v", name, err)
+	}
+}
