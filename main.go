@@ -47,6 +47,7 @@ func main() {
 		app.WithLogger(),
 		app.WithDatabase(),
 		app.WithRedis(),
+		app.WithNotificationSourceRelayFromEnv(),
 
 		// 服务
 		app.WithStorageService(),   // 1. Storage
