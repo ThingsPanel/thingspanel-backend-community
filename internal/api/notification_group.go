@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/http"
 	model "project/internal/model"
 	service "project/internal/service"
 	utils "project/pkg/utils"
@@ -13,25 +14,7 @@ type NotificationGroupApi struct{}
 // CreateNotificationGroup 创建消息通知组
 // @Router   /api/v1/notification_group [post]
 func (*NotificationGroupApi) CreateNotificationGroup(c *gin.Context) {
-	var req model.CreateNotificationGroupReq
-
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	notificationGroup, err := service.GroupApp.NotificationGroup.CreateNotificationGroup(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	notificationGroupOs, err := utils.SerializeData(*notificationGroup, ReadNotificationGroupOutSchema{})
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", notificationGroupOs)
+	retireLegacyNotificationGroupWrite(c)
 }
 
 // GetNotificationGroup 获取通知组详情
@@ -55,37 +38,13 @@ func (*NotificationGroupApi) HandleNotificationGroupById(c *gin.Context) {
 // UpdateNotificationGroup 更新通知组
 // @Router   /api/v1/notification_group/{id} [put]
 func (*NotificationGroupApi) UpdateNotificationGroup(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	var req model.UpdateNotificationGroupReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	if updated, err := service.GroupApp.NotificationGroup.UpdateNotificationGroup(c.Request.Context(), id, userClaims.TenantID, &req); err != nil {
-		c.Error(err)
-		return
-	} else {
-		updateoutput, err := utils.SerializeData(updated, UpdateNotificationGroupOutSchema{})
-		if err != nil {
-			c.Error(err)
-			return
-		}
-		c.Set("data", updateoutput)
-	}
+	retireLegacyNotificationGroupWrite(c)
 }
 
 // DeleteNotificationGroup 删除通知组
 // @Router   /api/v1/notification_group/{id} [delete]
 func (*NotificationGroupApi) DeleteNotificationGroup(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.NotificationGroup.DeleteNotificationGroup(c.Request.Context(), id, userClaims.TenantID); err != nil {
-		c.Error(err)
-		return
-	} else {
-		c.Set("data", nil)
-	}
+	retireLegacyNotificationGroupWrite(c)
 }
 
 // GetNotificationGroupListByPage 获取通知组列表并分页
@@ -108,4 +67,14 @@ func (*NotificationGroupApi) HandleNotificationGroupListByPage(c *gin.Context) {
 		return
 	}
 	c.Set("data", ntfoutput)
+}
+
+// Only legacy public writes are retired. Native publication and compatibility
+// reads keep their existing authenticated, tenant-scoped routes.
+func retireLegacyNotificationGroupWrite(c *gin.Context) {
+	c.AbortWithStatusJSON(http.StatusGone, gin.H{
+		"code":    http.StatusGone,
+		"message": "legacy notification group management is retired; use notification policies",
+		"reason":  "legacy_notification_group_retired",
+	})
 }

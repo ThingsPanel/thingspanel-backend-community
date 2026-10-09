@@ -28,7 +28,7 @@ import (
 
 const approvedNotificationGroupSourceDSN = "postgres://notification_test:fixture-only-password@127.0.0.1:25543/notification_test"
 
-func TestLegacyNotificationGroupHTTPRejectsEncoreOwnerAndKeepsAPPOnLegacy(t *testing.T) {
+func TestLegacyNotificationGroupHTTPRetiresWritesAndPreservesExistingData(t *testing.T) {
 	db := openNotificationGroupSourceFixture(t)
 	legacyConfig := `{"EMAIL":"ops@example.test"}`
 	appConfig := `{"APP":true}`
@@ -60,13 +60,18 @@ func TestLegacyNotificationGroupHTTPRejectsEncoreOwnerAndKeepsAPPOnLegacy(t *tes
 	manager := errcode.NewErrorManager("", "")
 	engine := gin.New()
 	engine.Use((&response.Handler{ErrManager: manager}).Middleware())
-	engine.PUT("/api/v1/notification_group/:id", func(c *gin.Context) {
+	engine.Use(func(c *gin.Context) {
 		c.Set("claims", &utils.UserClaims{ID: "actor", TenantID: "tenant-a", Authority: "TENANT_ADMIN"})
-		(&NotificationGroupApi{}).UpdateNotificationGroup(c)
+		c.Next()
 	})
-	request := func(id, body string) (int, map[string]any) {
+	api := &NotificationGroupApi{}
+	engine.POST("/api/v1/notification_group", api.CreateNotificationGroup)
+	engine.PUT("/api/v1/notification_group/:id", api.UpdateNotificationGroup)
+	engine.DELETE("/api/v1/notification_group/:id", api.DeleteNotificationGroup)
+	engine.GET("/api/v1/notification_group/:id", api.HandleNotificationGroupById)
+	request := func(method, target, body string) (int, map[string]any) {
 		t.Helper()
-		req := httptest.NewRequest(http.MethodPut, "/api/v1/notification_group/"+id, strings.NewReader(body))
+		req := httptest.NewRequest(method, target, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		recorder := httptest.NewRecorder()
 		engine.ServeHTTP(recorder, req)
@@ -77,18 +82,36 @@ func TestLegacyNotificationGroupHTTPRejectsEncoreOwnerAndKeepsAPPOnLegacy(t *tes
 		return recorder.Code, envelope
 	}
 
-	status, denied := request("migrated-email", `{"name":"must-not-change"}`)
-	if status != http.StatusOK || denied["code"] != float64(errcode.CodeOpDenied) {
-		t.Fatalf("legacy HTTP edit of Encore-owned group was not denied: status=%d response=%v", status, denied)
+	for _, write := range []struct {
+		method string
+		target string
+		body   string
+	}{
+		{http.MethodPost, "/api/v1/notification_group", `{"name":"must-not-create"}`},
+		{http.MethodPut, "/api/v1/notification_group/migrated-email", `{"name":"must-not-change"}`},
+		{http.MethodDelete, "/api/v1/notification_group/migrated-email", ""},
+	} {
+		status, denied := request(write.method, write.target, write.body)
+		if status != http.StatusGone || denied["reason"] != "legacy_notification_group_retired" {
+			t.Fatalf("legacy %s was not retired for tenant admin: status=%d response=%v", write.method, status, denied)
+		}
 	}
 	var persistedName string
 	if err := db.Raw(`SELECT name FROM notification_groups WHERE id = 'migrated-email'`).Row().Scan(&persistedName); err != nil || persistedName != "migrated-email" {
 		t.Fatal("denied HTTP edit changed the Encore-owned legacy row")
 	}
+	var groupCount int
+	if err := db.Raw(`SELECT count(*) FROM notification_groups`).Row().Scan(&groupCount); err != nil || groupCount != 2 {
+		t.Fatalf("retired HTTP create/delete changed existing groups: count=%d err=%v", groupCount, err)
+	}
+	status, read := request(http.MethodGet, "/api/v1/notification_group/migrated-email", "")
+	if status != http.StatusOK || read["code"] != float64(errcode.CodeSuccess) {
+		t.Fatalf("tenant-scoped legacy group GET was not preserved: status=%d response=%v", status, read)
+	}
 
-	status, allowed := request("legacy-app", `{"description":"still legacy"}`)
-	if status != http.StatusOK || allowed["code"] != float64(errcode.CodeSuccess) {
-		t.Fatalf("unmigrated APP legacy edit was not preserved: status=%d response=%v", status, allowed)
+	status, retiredAPP := request(http.MethodPut, "/api/v1/notification_group/legacy-app", `{"description":"still legacy"}`)
+	if status != http.StatusGone || retiredAPP["reason"] != "legacy_notification_group_retired" {
+		t.Fatalf("unmigrated APP legacy write was not retired: status=%d response=%v", status, retiredAPP)
 	}
 	var routeType string
 	if err := db.Raw(`SELECT notification_type FROM notification_groups WHERE id = 'legacy-app'`).Row().Scan(&routeType); err != nil || routeType != model.NoticeType_APP {
@@ -175,4 +198,26 @@ func openNotificationGroupSourceFixture(t *testing.T) *gorm.DB {
 		}
 	}
 	return db
+}
+
+func TestAllLegacyNotificationGroupPublicWritesAreGone(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, test := range []struct {
+		method  string
+		handler gin.HandlerFunc
+	}{
+		{http.MethodPost, (&NotificationGroupApi{}).CreateNotificationGroup},
+		{http.MethodPut, (&NotificationGroupApi{}).UpdateNotificationGroup},
+		{http.MethodDelete, (&NotificationGroupApi{}).DeleteNotificationGroup},
+	} {
+		t.Run(test.method, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(test.method, "/api/v1/notification_group", strings.NewReader("{}"))
+			test.handler(c)
+			if recorder.Code != http.StatusGone || !c.IsAborted() || !strings.Contains(recorder.Body.String(), "legacy_notification_group_retired") {
+				t.Fatalf("retired write must stop before any service or database mutation: status=%d", recorder.Code)
+			}
+		})
+	}
 }
