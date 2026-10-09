@@ -17,6 +17,8 @@ import (
 	"project/internal/dal"
 	"project/internal/model"
 	"project/pkg/global"
+
+	"github.com/google/uuid"
 )
 
 func TestAlarmProducerSendsLegacyOnlyAndSuppressesOnSourcePersistenceFailure(t *testing.T) {
@@ -108,8 +110,13 @@ func TestAlarmProducerSendsLegacyOnlyAndSuppressesOnSourcePersistenceFailure(t *
 		t.Fatalf("source transaction partially persisted: alarm=%d outbox=%d", failedAlarmCount, failedOutboxCount)
 	}
 
-	if ok, _ := GroupApp.Alarm.AddAlarmInfo("encore-alarm", "Encore-owned fixture"); !ok {
+	ok, sourceAlarmID := GroupApp.Alarm.AddAlarmInfo("encore-alarm", "Encore-owned fixture")
+	if !ok {
 		t.Fatal("Encore-owned alarm was not durably accepted by the source outbox")
+	}
+	var outbox dal.SourceOutboxRecord
+	if err := db.Where("source_event_id = ? AND legacy_group_id = ?", sourceAlarmID, "native-owned").Take(&outbox).Error; err != nil {
+		t.Fatal("read frozen Encore-owned alarm source event")
 	}
 	if err := bridge.RunOnce(context.Background(), 10, 3); err != nil {
 		t.Fatal("relay unavailable Core fixture")
@@ -122,6 +129,34 @@ func TestAlarmProducerSendsLegacyOnlyAndSuppressesOnSourcePersistenceFailure(t *
 	if coreRequests.Load() != 1 {
 		t.Fatalf("expected only the Encore relay to reach Core fixture, requests=%d", coreRequests.Load())
 	}
+	// Preserve representative queued, in-flight, and terminal source rows on
+	// this same immutable Encore tuple before rolling future events back.
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	insertHistoricalSourceState := func(state string) string {
+		t.Helper()
+		id, eventID, actionID, idemKey := uuid.NewString(), uuid.NewString(), uuid.NewString(), "rollback-"+uuid.NewString()
+		var leaseToken any
+		var leaseUntil any
+		var handedOffAt any
+		switch state {
+		case "leased":
+			leaseToken, leaseUntil = uuid.NewString(), now.Add(time.Minute)
+		case "handed_off":
+			handedOffAt = now
+		}
+		if err := db.Exec(`INSERT INTO notification_source_outbox
+			(id, source_deployment_id, tenant_id, source_event_id, source_action_id, legacy_group_id, notification_group_id,
+			 group_revision, idempotency_key, request_body, body_sha256, occurred_at, expires_at, state, attempts, next_attempt_at,
+			 lease_token, lease_until, handed_off_at)
+			VALUES (?, ?, ?, ?, ?, 'native-owned', 'native-group', 3, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`, id, bridge.DeploymentID(), "tenant-a",
+			eventID, actionID, idemKey, []byte(`{"historicalFixture":true}`), strings.Repeat("b", 64), now, now.Add(time.Hour), state, now, leaseToken, leaseUntil, handedOffAt).Error; err != nil {
+			t.Fatalf("insert historical %s source row", state)
+		}
+		return id
+	}
+	pendingID := insertHistoricalSourceState("pending")
+	leasedID := insertHistoricalSourceState("leased")
+	handedOffID := insertHistoricalSourceState("handed_off")
 	if count := smtp.count.Load(); count != 1 {
 		t.Fatalf("source SQL failure or Core outage fell back to old SMTP sender: fixture sends=%d", count)
 	}
@@ -135,8 +170,14 @@ func TestAlarmProducerSendsLegacyOnlyAndSuppressesOnSourcePersistenceFailure(t *
 		t.Fatal("future alarm did not use the explicitly restored legacy sender")
 	}
 	var historicalState string
-	if err := db.Raw(`SELECT state FROM notification_source_outbox WHERE legacy_group_id = 'native-owned'`).Row().Scan(&historicalState); err != nil || historicalState != "retry_wait" {
+	if err := db.Raw(`SELECT state FROM notification_source_outbox WHERE source_event_id = ? AND legacy_group_id = 'native-owned'`, sourceAlarmID).Row().Scan(&historicalState); err != nil || historicalState != "retry_wait" {
 		t.Fatalf("rollback rewrote or discarded the historical Encore-owned outbox: state=%q err=%v", historicalState, err)
+	}
+	for id, want := range map[string]string{pendingID: "pending", leasedID: "leased", handedOffID: "handed_off"} {
+		var state, target string
+		if err := db.Raw(`SELECT state, notification_group_id FROM notification_source_outbox WHERE id = ?`, id).Row().Scan(&state, &target); err != nil || state != want || target != "native-group" {
+			t.Fatalf("rollback changed historical %s source ownership: state=%q target=%q err=%v", want, state, target, err)
+		}
 	}
 	if count := smtp.count.Load(); count != 2 {
 		t.Fatalf("historical Encore event was resent by the legacy sender: fixture sends=%d", count)
