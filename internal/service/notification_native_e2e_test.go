@@ -340,6 +340,7 @@ func openNativeSourceE2EPG(t *testing.T) *gorm.DB {
 		_ = adminPool.Close()
 	})
 	for _, ddl := range []string{
+		`CREATE TABLE casbin_rule (ptype text NOT NULL, v0 text, v1 text, v2 text, v3 text, v4 text, v5 text)`,
 		`CREATE TABLE notification_groups (id text PRIMARY KEY, name text NOT NULL, notification_type text NOT NULL, status text NOT NULL, notification_config text, description text, tenant_id text NOT NULL, created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL, remark text)`,
 		`CREATE TABLE notification_services_config (id text PRIMARY KEY, config text, notice_type text NOT NULL, status text NOT NULL, remark text)`,
 		`CREATE TABLE alarm_info (id text PRIMARY KEY, alarm_config_id text NOT NULL, name text NOT NULL, alarm_time timestamptz NOT NULL, description text, content text, processor text, processing_result text NOT NULL, tenant_id text NOT NULL, remark text, alarm_level text)`,
@@ -351,6 +352,7 @@ func openNativeSourceE2EPG(t *testing.T) *gorm.DB {
 	}
 	applyNativeE2EMigration(t, db, schema, "../../sql/23.sql")
 	applyNativeE2EMigration(t, db, schema, "../../sql/24.sql")
+	applyNativeE2EMigration(t, db, schema, "../../sql/25.sql")
 	return db
 }
 

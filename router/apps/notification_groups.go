@@ -11,6 +11,10 @@ type NotificationGroup struct {
 
 func (*NotificationGroup) InitNotificationGroup(Router *gin.RouterGroup) {
 	url := Router.Group("notification_group")
+	// Tenant alarm-default policy is deliberately a separate pointer from
+	// per-alarm notification_group_id fields.
+	Router.GET("notification-default-policy", api.Controllers.NotificationGroupApi.GetTenantDefaultPolicy)
+	Router.PUT("notification-default-policy", api.Controllers.NotificationGroupApi.PutTenantDefaultPolicy)
 	{
 		// Explicit tenant-scoped bridge between native notification groups and
 		// the existing community alarm selector. Static routes must precede :id.

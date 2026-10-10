@@ -258,6 +258,12 @@ func (s *SourceBridge) Deliver(ctx context.Context, record dal.SourceOutboxRecor
 	if !validOutboxRecord(record) {
 		return dal.SourceAttemptResult{StatusCode: http.StatusUnprocessableEntity, SafeCode: "invalid_source_event"}
 	}
+	// Do not send a frozen event from another deployment through this
+	// deployment's credential. The remote API remains responsible for tenant
+	// authorization, but the deployment boundary can be checked locally.
+	if record.SourceDeploymentID != s.config.DeploymentID {
+		return dal.SourceAttemptResult{StatusCode: http.StatusForbidden, SafeCode: "source_scope_mismatch"}
+	}
 	response, body, err := s.postJSON(ctx, sourceEventPath, record.IdempotencyKey, record.RequestBody)
 	if err != nil {
 		return dal.SourceAttemptResult{SafeCode: "relay_retry"}
@@ -412,7 +418,7 @@ func (s *SourceBridge) Close() {
 }
 
 func (s *SourceBridge) buildOutbox(route dal.SourceRouteSnapshot, tenantID, legacyGroupID, eventID, actionID string, occurred time.Time, subject, text, legacyJSON string) (*dal.SourceOutboxRecord, error) {
-	if !s.Enabled() || route.Engine != "encore" || route.NotificationGroupID == "" || route.GroupRevision < 1 {
+	if !s.Enabled() || (route.Engine != "encore" && route.Engine != "blocked") || route.NotificationGroupID == "" || route.GroupRevision < 1 {
 		return nil, errors.New("source route invalid")
 	}
 	var legacy map[string]json.RawMessage

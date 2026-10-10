@@ -187,13 +187,29 @@ func openNotificationGroupSourceFixture(t *testing.T) *gorm.DB {
 		created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL, remark text)`).Error; err != nil {
 		t.Fatal("create isolated legacy notification group table")
 	}
-	for _, file := range []string{"../../sql/23.sql", "../../sql/24.sql"} {
+	if err := db.Exec(`CREATE TABLE casbin_rule (ptype text NOT NULL, v0 text, v1 text, v2 text, v3 text, v4 text, v5 text)`).Error; err != nil {
+		t.Fatal("create isolated Casbin policy table")
+	}
+	for _, file := range []string{"../../sql/23.sql", "../../sql/24.sql", "../../sql/25.sql"} {
 		migration, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal("read source route migration")
 		}
 		migrationSQL := strings.ReplaceAll(string(migration), "public.", `"`+schema+`".`)
-		if err := db.Exec(migrationSQL).Error; err != nil {
+		if strings.HasSuffix(file, "25.sql") {
+			lines := strings.Split(migrationSQL, "\n")
+			filtered := lines[:0]
+			for _, line := range lines {
+				if !strings.HasPrefix(strings.TrimSpace(line), "--") {
+					filtered = append(filtered, line)
+				}
+			}
+			for _, statement := range strings.Split(strings.Join(filtered, "\n"), ";") {
+				if statement = strings.TrimSpace(statement); statement != "" && db.Exec(statement).Error != nil {
+					t.Fatal("apply isolated default policy migration")
+				}
+			}
+		} else if err := db.Exec(migrationSQL).Error; err != nil {
 			t.Fatal("apply isolated source route migration")
 		}
 	}

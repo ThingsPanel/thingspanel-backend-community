@@ -92,7 +92,7 @@ func (*Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq) (data *model.Al
 		data.Enabled = *req.Enabled
 	}
 
-	err = dal.UpdateAlarmConfig(data)
+	err = dal.UpdateAlarmConfigFields(data, req.NotificationGroupID != nil)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -242,7 +242,8 @@ func (*Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
 		TenantID:         alarmConfig.TenantID,
 	}
 	var subject, notificationContent, alertJSON string
-	if alarmConfig.NotificationGroupID != "" {
+	bridge := currentSourceBridge()
+	if alarmConfig.NotificationGroupID != "" || bridge != nil && bridge.Enabled() {
 		subject = fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
 		description := ""
 		if alarmConfig.Description != nil {
@@ -269,15 +270,25 @@ Details: %s`, alarmConfig.Name, alarmConfig.AlarmLevel, t.Format("2006-01-02 15:
 	}
 
 	route := dal.SourceRouteSnapshot{Engine: "legacy"}
-	if alarmConfig.NotificationGroupID == "" {
+	if alarmConfig.NotificationGroupID == "" && (bridge == nil || !bridge.Enabled()) {
 		err = dal.SaveAlarmInfoQuietly(context.Background(), alarmRow)
-	} else if bridge := currentSourceBridge(); bridge == nil || !bridge.Enabled() {
+	} else if alarmConfig.NotificationGroupID != "" && (bridge == nil || !bridge.Enabled()) {
 		err = dal.SaveAlarmInfoQuietly(context.Background(), alarmRow)
 	} else if alertJSON == "" {
 		remark := "source_payload_unavailable"
 		alarmRow.Remark = &remark
 		err = dal.SaveAlarmInfoQuietly(context.Background(), alarmRow)
 		route.Engine = "blocked"
+	} else if alarmConfig.NotificationGroupID == "" {
+		route, _, err = dal.SaveAlarmInfoWithDefaultSource(context.Background(), alarmRow, bridge.DeploymentID(), alarmConfig.TenantID, func(snapshot dal.SourceRouteSnapshot, aliasID string) (*dal.SourceOutboxRecord, error) {
+			return bridge.buildOutbox(snapshot, alarmConfig.TenantID, aliasID, id, uuid.New(), t, subject, notificationContent, alertJSON)
+		})
+		if errors.Is(err, dal.ErrDefaultPolicyUnavailable) {
+			remark := "default_policy_unavailable"
+			alarmRow.Remark = &remark
+			err = dal.SaveAlarmInfoQuietly(context.Background(), alarmRow)
+			route.Engine = "blocked"
+		}
 	} else {
 		key := dal.SourceRouteKey{DeploymentID: bridge.DeploymentID(), TenantID: alarmConfig.TenantID, LegacyGroup: alarmConfig.NotificationGroupID}
 		route, err = dal.SaveAlarmInfoWithSource(context.Background(), alarmRow, key, func(snapshot dal.SourceRouteSnapshot) (*dal.SourceOutboxRecord, error) {
@@ -349,7 +360,8 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, scene_automation_id, group_id
 	id := uuid.New()
 	var subject, notificationContent, alertJSON string
 	t := time.Now().UTC()
-	if alarmConfig.NotificationGroupID != "" {
+	bridge := currentSourceBridge()
+	if alarmConfig.NotificationGroupID != "" || bridge != nil && bridge.Enabled() {
 		// 组装标准的通知内容
 		subject = fmt.Sprintf("[ALERT] %s [%s]", alarmConfig.Name, alarmConfig.AlarmLevel)
 
@@ -440,15 +452,25 @@ Details: %s`,
 		CreateAt:          t,
 	}
 	route := dal.SourceRouteSnapshot{Engine: "legacy"}
-	if alarmConfig.NotificationGroupID == "" {
+	if alarmConfig.NotificationGroupID == "" && (bridge == nil || !bridge.Enabled()) {
 		err = dal.SaveAlarmHistoryQuietly(context.Background(), alarmRow)
-	} else if bridge := currentSourceBridge(); bridge == nil || !bridge.Enabled() {
+	} else if alarmConfig.NotificationGroupID != "" && (bridge == nil || !bridge.Enabled()) {
 		err = dal.SaveAlarmHistoryQuietly(context.Background(), alarmRow)
 	} else if alertJSON == "" {
 		remark := "source_payload_unavailable"
 		alarmRow.Remark = &remark
 		err = dal.SaveAlarmHistoryQuietly(context.Background(), alarmRow)
 		route.Engine = "blocked"
+	} else if alarmConfig.NotificationGroupID == "" {
+		route, _, err = dal.SaveAlarmHistoryWithDefaultSource(context.Background(), alarmRow, bridge.DeploymentID(), alarmConfig.TenantID, func(snapshot dal.SourceRouteSnapshot, aliasID string) (*dal.SourceOutboxRecord, error) {
+			return bridge.buildOutbox(snapshot, alarmConfig.TenantID, aliasID, id, uuid.New(), t, subject, notificationContent, alertJSON)
+		})
+		if errors.Is(err, dal.ErrDefaultPolicyUnavailable) {
+			remark := "default_policy_unavailable"
+			alarmRow.Remark = &remark
+			err = dal.SaveAlarmHistoryQuietly(context.Background(), alarmRow)
+			route.Engine = "blocked"
+		}
 	} else {
 		key := dal.SourceRouteKey{DeploymentID: bridge.DeploymentID(), TenantID: alarmConfig.TenantID, LegacyGroup: alarmConfig.NotificationGroupID}
 		route, err = dal.SaveAlarmHistoryWithSource(context.Background(), alarmRow, key, func(snapshot dal.SourceRouteSnapshot) (*dal.SourceOutboxRecord, error) {

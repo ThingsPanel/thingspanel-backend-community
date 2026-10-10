@@ -88,6 +88,9 @@ func openSourceCompatPGFixture(t *testing.T) {
 		created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL, remark text)`).Error; err != nil {
 		t.Fatal("could not create legacy group fixture")
 	}
+	if err := db.Exec(`CREATE TABLE casbin_rule (ptype text NOT NULL, v0 text, v1 text, v2 text, v3 text, v4 text, v5 text)`).Error; err != nil {
+		t.Fatal("could not create Casbin fixture")
+	}
 	config := `{"EMAIL":"ops@example.test"}`
 	if err := db.Create(&model.NotificationGroup{ID: "legacy-a", Name: "legacy", NotificationType: model.NoticeType_Email, Status: "OPEN", NotificationConfig: &config, TenantID: "tenant-a", CreatedAt: time.Now(), UpdatedAt: time.Now()}).Error; err != nil {
 		t.Fatal("could not create legacy group row")
@@ -114,6 +117,23 @@ func openSourceCompatPGFixture(t *testing.T) {
 	migration24SQL := strings.ReplaceAll(string(migration24), "public.", `"`+schema+`".`)
 	if err := db.Exec(migration24SQL).Error; err != nil {
 		t.Fatal("could not apply source rollback migration")
+	}
+	migration25, err := os.ReadFile("../../sql/25.sql")
+	if err != nil {
+		t.Fatal("could not read default policy migration")
+	}
+	migration25SQL := strings.ReplaceAll(string(migration25), "public.", `"`+schema+`".`)
+	lines := strings.Split(migration25SQL, "\n")
+	filtered := lines[:0]
+	for _, line := range lines {
+		if !strings.HasPrefix(strings.TrimSpace(line), "--") {
+			filtered = append(filtered, line)
+		}
+	}
+	for _, statement := range strings.Split(strings.Join(filtered, "\n"), ";") {
+		if statement = strings.TrimSpace(statement); statement != "" && db.Exec(statement).Error != nil {
+			t.Fatal("could not apply default policy migration")
+		}
 	}
 }
 

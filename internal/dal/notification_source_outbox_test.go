@@ -48,6 +48,9 @@ func openNotificationSourceFixture(t *testing.T) *gorm.DB {
 	if err := db.Exec(`CREATE SCHEMA "` + schema + `"`).Error; err != nil {
 		t.Fatal("could not create isolated schema")
 	}
+	if err := db.Exec(`CREATE TABLE "` + schema + `".casbin_rule (ptype text NOT NULL, v0 text, v1 text, v2 text, v3 text, v4 text, v5 text)`).Error; err != nil {
+		t.Fatal("could not create isolated Casbin policy table")
+	}
 	previous := global.DB
 	t.Cleanup(func() {
 		global.DB = previous
@@ -116,6 +119,27 @@ func openNotificationSourceFixture(t *testing.T) *gorm.DB {
 	migration24SQL := strings.ReplaceAll(string(migration24), "public.", `"`+schema+`".`)
 	if err := db.Exec(migration24SQL).Error; err != nil {
 		t.Fatal("could not apply source rollback migration in isolated schema")
+	}
+	migration25, err := os.ReadFile("../../sql/25.sql")
+	if err != nil {
+		t.Fatal("could not read default policy migration")
+	}
+	migration25SQL := strings.ReplaceAll(string(migration25), "public.", `"`+schema+`".`)
+	lines25 := strings.Split(migration25SQL, "\n")
+	filtered25 := lines25[:0]
+	for _, line := range lines25 {
+		if !strings.HasPrefix(strings.TrimSpace(line), "--") {
+			filtered25 = append(filtered25, line)
+		}
+	}
+	migration25SQL = strings.Join(filtered25, "\n")
+	for _, statement := range strings.Split(migration25SQL, ";") {
+		statement = strings.TrimSpace(statement)
+		if statement != "" {
+			if err := db.Exec(statement).Error; err != nil {
+				t.Fatalf("could not apply default policy migration: %v", err)
+			}
+		}
 	}
 	global.DB = db
 	return db

@@ -162,6 +162,31 @@ func TestSourceRelayRejectsTamperedOutboxBeforeNetwork(t *testing.T) {
 	}
 }
 
+func TestSourceRelayBlocksWrongDeploymentBeforeNetwork(t *testing.T) {
+	called := false
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+	bridge := testSourceBridge(t, server)
+	defer bridge.Close()
+	record := testOutboxRecord(t)
+	record.SourceDeploymentID = "another-deployment"
+	var event sourceEvent
+	if err := json.Unmarshal(record.RequestBody, &event); err != nil {
+		t.Fatal("decode fixture source event")
+	}
+	event.SourceDeploymentID = record.SourceDeploymentID
+	record.RequestBody, _ = json.Marshal(event)
+	digest := sha256.Sum256(record.RequestBody)
+	record.BodySHA256 = hex.EncodeToString(digest[:])
+	result := bridge.Deliver(context.Background(), record)
+	if called || result.StatusCode != http.StatusForbidden || result.SafeCode != "source_scope_mismatch" {
+		t.Fatalf("wrong-deployment event was not blocked before network: %+v called=%v", result, called)
+	}
+}
+
 func TestSourceEventPayloadEnforcesFrozenSchemaBounds(t *testing.T) {
 	record := testOutboxRecord(t)
 	var event sourceEvent
