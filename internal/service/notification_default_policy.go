@@ -42,6 +42,9 @@ func GetTenantDefaultPolicy(ctx context.Context, tenantID string) (TenantDefault
 	view.Version = selected.Version
 	view.AvailablePolicies = make([]DefaultPolicySummary, 0, len(available))
 	for _, state := range available {
+		if !summaryFromNativeState(state).Ready || !defaultPolicySnapshotReady(ctx, bridge, tenantID, state) {
+			continue
+		}
 		view.AvailablePolicies = append(view.AvailablePolicies, summaryFromNativeState(state))
 	}
 	if selected.NativeGroupID != nil && selected.AliasGroupID != nil {
@@ -50,6 +53,9 @@ func GetTenantDefaultPolicy(ctx context.Context, tenantID string) (TenantDefault
 		state, stateErr := dal.GetNativePublishState(ctx, key, nativeID)
 		if stateErr != nil {
 			state = dal.NativePublishState{NativeGroupID: nativeID, LegacyGroupID: aliasID, GroupRevision: selected.GroupRevision, Status: "unavailable", Engine: "legacy"}
+		} else if summaryFromNativeState(state).Ready && !defaultPolicySnapshotReady(ctx, bridge, tenantID, state) {
+			state.Status = "unavailable"
+			state.Published = false
 		}
 		view.Selected = ptrDefaultPolicySummary(summaryFromNativeState(state))
 	}
@@ -65,6 +71,14 @@ func SetTenantDefaultPolicy(ctx context.Context, tenantID, nativeGroupID string,
 	aliasID := ""
 	if nativeGroupID != "" {
 		aliasID = deterministicNativeAliasID(bridge.DeploymentID(), tenantID, nativeGroupID)
+		key := dal.SourceRouteKey{DeploymentID: bridge.DeploymentID(), TenantID: tenantID, LegacyGroup: aliasID}
+		state, err := dal.GetNativePublishState(ctx, key, nativeGroupID)
+		if err != nil {
+			return view, ErrDefaultPolicyUnavailable
+		}
+		if !summaryFromNativeState(state).Ready || !defaultPolicySnapshotReady(ctx, bridge, tenantID, state) {
+			return view, ErrDefaultPolicyInvalid
+		}
 	}
 	if _, err := dal.SetTenantDefaultPolicy(ctx, bridge.DeploymentID(), tenantID, nativeGroupID, aliasID, expectedVersion); err != nil {
 		switch {
@@ -77,6 +91,21 @@ func SetTenantDefaultPolicy(ctx context.Context, tenantID, nativeGroupID string,
 		}
 	}
 	return GetTenantDefaultPolicy(ctx, tenantID)
+}
+
+// defaultPolicySnapshotReady reuses the same bounded, TLS-verified Core
+// snapshot check used before publishing. It runs only in management reads and
+// writes, never while an alarm transaction holds its routing locks.
+func defaultPolicySnapshotReady(ctx context.Context, bridge *SourceBridge, tenantID string, state dal.NativePublishState) bool {
+	if bridge == nil || !bridge.Enabled() || tenantID == "" || !state.Published || !state.Enabled || state.Engine != "encore" || state.LegacyGroupID == "" || state.NativeGroupID == "" || state.GroupRevision < 1 {
+		return false
+	}
+	request := SourceGroupProjectionRequest{
+		SourceDeploymentID: bridge.DeploymentID(), TenantID: tenantID,
+		LegacyGroupID: state.LegacyGroupID, NotificationGroupID: state.NativeGroupID,
+		GroupRevision: state.GroupRevision,
+	}
+	return bridge.ValidateNativePublishSnapshot(ctx, request) == nil
 }
 
 func summaryFromNativeState(state dal.NativePublishState) DefaultPolicySummary {
