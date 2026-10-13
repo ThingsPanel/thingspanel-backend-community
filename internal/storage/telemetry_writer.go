@@ -309,7 +309,7 @@ func (w *telemetryWriter) batchInsert(historyData []TelemetryData, currentData [
 // fallbackInsert 逐条插入兜底（批量失败时使用）
 func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentData []TelemetryCurrentData) (written, failed int) {
 	for i := range historyData {
-		// 逐条使用事务插入
+		// 逐条使用事务插入历史表
 		err := w.db.Transaction(func(tx *gorm.DB) error {
 			// 插入历史表
 			if err := tx.Clauses(clause.OnConflict{
@@ -318,17 +318,6 @@ func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentDat
 			}).Create(&historyData[i]).Error; err != nil {
 				return err
 			}
-
-			// 插入最新值表
-			if err := tx.Clauses(clause.OnConflict{
-				Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}},
-				DoUpdates: clause.AssignmentColumns([]string{
-					"ts", "bool_v", "number_v", "string_v", "tenant_id",
-				}),
-			}).Create(&currentData[i]).Error; err != nil {
-				return err
-			}
-
 			return nil
 		})
 
@@ -348,6 +337,40 @@ func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentDat
 
 			// 记录诊断：仅在单条插入真实失败时，增加 storage_failed 并记录失败详情到失败列表。
 			diagnostics.GetInstance().RecordStorageFailed(historyData[i].DeviceID, fmt.Sprintf("存储失败：%v", err))
+			failed++
+		} else {
+			written++
+		}
+	}
+
+	// 单独循环插入最新值表
+	for i := range currentData {
+		err := w.db.Transaction(func(tx *gorm.DB) error {
+			// 插入最新值表
+			if err := tx.Clauses(clause.OnConflict{
+				Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}},
+				DoUpdates: clause.AssignmentColumns([]string{
+					"ts", "bool_v", "number_v", "string_v", "tenant_id",
+				}),
+			}).Create(&currentData[i]).Error; err != nil {
+				return err
+			}
+			return nil
+		})
+
+		if err != nil {
+			sample := map[string]interface{}{
+				"device_id": currentData[i].DeviceID,
+				"key":       currentData[i].Key,
+				"ts":        currentData[i].TS,
+				"tenant_id": currentData[i].TenantID,
+			}
+			if j, jerr := json.Marshal(sample); jerr == nil {
+				w.logger.Errorf("current data single insert failed: sample=%s, err=%v", string(j), err)
+			} else {
+				w.logger.Errorf("current data single insert failed: device_id=%s, key=%s, err=%v", currentData[i].DeviceID, currentData[i].Key, err)
+			}
+			diagnostics.GetInstance().RecordStorageFailed(currentData[i].DeviceID, fmt.Sprintf("最新值存储失败：%v", err))
 			failed++
 		} else {
 			written++
