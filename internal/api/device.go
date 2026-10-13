@@ -987,13 +987,13 @@ func (*DeviceApi) AnalyzeDashboardBundle(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	publicOrigin, err := requestPublicOrigin(c)
+	thingsVisBaseURL, err := thingsVisPublicAPIBaseURL(c)
 	if err != nil {
 		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
 		return
 	}
 	claims := c.MustGet("claims").(*utils.UserClaims)
-	result, err := service.NewMarketDashboardBundleService(publicOrigin+"/thingsvis-api").Analyze(
+	result, err := service.NewMarketDashboardBundleService(thingsVisBaseURL).Analyze(
 		c.Request.Context(),
 		req.DashboardID,
 		c.GetHeader("Authorization"),
@@ -1013,13 +1013,13 @@ func (*DeviceApi) PublishDashboardBundle(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	publicOrigin, err := requestPublicOrigin(c)
+	thingsVisBaseURL, err := thingsVisPublicAPIBaseURL(c)
 	if err != nil {
 		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
 		return
 	}
 	claims := c.MustGet("claims").(*utils.UserClaims)
-	result, err := service.NewMarketDashboardBundleService(publicOrigin+"/thingsvis-api").Publish(
+	result, err := service.NewMarketDashboardBundleService(thingsVisBaseURL).Publish(
 		c.Request.Context(),
 		&req,
 		c.GetHeader("Authorization"),
@@ -1119,13 +1119,13 @@ func (*DeviceApi) CreateDashboardFromLocalTemplate(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	publicOrigin, err := requestPublicOrigin(c)
+	thingsVisBaseURL, err := thingsVisPublicAPIBaseURL(c)
 	if err != nil {
 		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
 		return
 	}
 	claims := c.MustGet("claims").(*utils.UserClaims)
-	result, err := service.NewDashboardTemplateServiceWithThingsVisBaseURL(publicOrigin+"/thingsvis-api").CreateInstance(
+	result, err := service.NewDashboardTemplateServiceWithThingsVisBaseURL(thingsVisBaseURL).CreateInstance(
 		c.Request.Context(),
 		claims.TenantID,
 		claims.ID,
