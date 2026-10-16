@@ -266,8 +266,12 @@ func newMarketDeviceConfig(fullData *model.MarketTemplateFullData, templateID, t
 }
 
 func createMarketTemplateModels(tx *gorm.DB, tplDef *model.TemplateDefinitionPayload, templateID, tenantID string, now time.Time) error {
-	if tplDef == nil {
-		return nil
+	if tplDef == nil || *tplDef == nil {
+		return fmt.Errorf("invalid template_definition: expected an object")
+	}
+	parsed, err := parseMarketTemplateModelFields(tplDef)
+	if err != nil {
+		return err
 	}
 	modelRows := []struct {
 		key   string
@@ -288,21 +292,112 @@ func createMarketTemplateModels(tx *gorm.DB, tplDef *model.TemplateDefinitionPay
 		}},
 	}
 	for _, rowType := range modelRows {
-		entries, ok := (*tplDef)[rowType.key].([]interface{})
-		if !ok {
-			continue
-		}
-		for _, entry := range entries {
-			fields, ok := entry.(map[string]interface{})
-			if !ok {
-				continue
-			}
+		for _, fields := range parsed[rowType.key] {
 			if err := tx.Create(rowType.new(fields)).Error; err != nil {
 				return fmt.Errorf("Failed to create %s: %w", rowType.label, err)
 			}
 		}
 	}
 	return nil
+}
+
+// parseMarketTemplateModelFields validates the resource-center contract and normalizes
+// only aliases already accepted by its public catalog implementation.
+func parseMarketTemplateModelFields(tplDef *model.TemplateDefinitionPayload) (map[string][]map[string]interface{}, error) {
+	parsed := make(map[string][]map[string]interface{}, 4)
+	for _, kind := range []string{"telemetry", "attributes", "events", "commands"} {
+		raw, exists := (*tplDef)[kind]
+		if !exists || raw == nil {
+			parsed[kind] = nil
+			continue
+		}
+		entries, ok := raw.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid template_definition.%s: expected an array", kind)
+		}
+		fieldsList := make([]map[string]interface{}, 0, len(entries))
+		for index, item := range entries {
+			fields, ok := item.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("invalid template_definition.%s[%d]: expected an object", kind, index)
+			}
+			name, err := marketModelString(fields, kind, index, "data_name", "buttom_name", "name", "label")
+			if err != nil {
+				return nil, err
+			}
+			identifier, err := marketModelString(fields, kind, index, "data_identifier", "identifier", "key")
+			if err != nil {
+				return nil, err
+			}
+			if identifier == "" {
+				return nil, fmt.Errorf("invalid template_definition.%s[%d]: missing data_identifier (or identifier/key)", kind, index)
+			}
+			if name == "" {
+				name = identifier
+			}
+			canonical := map[string]interface{}{"data_name": name, "data_identifier": identifier}
+			aliases := []struct {
+				target string
+				keys   []string
+			}{
+				{"data_type", []string{"data_type", "dataType", "type"}},
+				{"read_write_flag", []string{"read_write_flag", "accessMode"}},
+				{"unit", []string{"unit"}},
+				{"description", []string{"description", "remark"}},
+			}
+			for _, alias := range aliases {
+				value, err := marketModelString(fields, kind, index, alias.keys...)
+				if err != nil {
+					return nil, err
+				}
+				if value != "" {
+					canonical[alias.target] = value
+				}
+			}
+			for _, key := range []string{"additional_info", "params"} {
+				value, exists := fields[key]
+				if !exists || value == nil {
+					continue
+				}
+				text, err := marketModelJSONText(value)
+				if err != nil {
+					return nil, fmt.Errorf("invalid template_definition.%s[%d].%s: %w", kind, index, key, err)
+				}
+				canonical[key] = text
+			}
+			fieldsList = append(fieldsList, canonical)
+		}
+		parsed[kind] = fieldsList
+	}
+	return parsed, nil
+}
+
+func marketModelJSONText(value interface{}) (string, error) {
+	if text, ok := value.(string); ok {
+		return text, nil
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return "", fmt.Errorf("expected a string or JSON value: %w", err)
+	}
+	return string(encoded), nil
+}
+
+func marketModelString(fields map[string]interface{}, kind string, index int, keys ...string) (string, error) {
+	for _, key := range keys {
+		value, exists := fields[key]
+		if !exists || value == nil {
+			continue
+		}
+		text, ok := value.(string)
+		if !ok {
+			return "", fmt.Errorf("invalid template_definition.%s[%d].%s: expected a string", kind, index, key)
+		}
+		if text != "" {
+			return text, nil
+		}
+	}
+	return "", nil
 }
 
 // checkMissingPlugins checks which plugin dependencies are not installed locally

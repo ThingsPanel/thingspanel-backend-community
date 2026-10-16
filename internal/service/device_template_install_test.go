@@ -175,3 +175,63 @@ func TestMarketTemplateInstallLockKeyIsStableAndTenantScoped(t *testing.T) {
 		t.Fatal("different template names should not share an advisory lock key")
 	}
 }
+
+func TestParseMarketTemplateModelFieldsSupportsAllModelKindsAndCatalogAliases(t *testing.T) {
+	definition := model.TemplateDefinitionPayload{
+		"telemetry": []interface{}{map[string]interface{}{
+			"data_name": "开关", "data_identifier": "switch", "data_type": "Boolean", "read_write_flag": "RW",
+		}},
+		"attributes": []interface{}{map[string]interface{}{
+			"buttom_name": "亮度", "identifier": "brightness", "dataType": "Number", "accessMode": "R", "unit": "%", "remark": "当前亮度",
+		}},
+		"events": []interface{}{map[string]interface{}{
+			"name": "状态变化", "key": "state_changed", "params": map[string]interface{}{"code": "integer"},
+		}},
+		"commands": []interface{}{map[string]interface{}{
+			"label": "开灯", "data_identifier": "turn_on", "type": "Boolean", "additional_info": "{}",
+		}},
+	}
+
+	got, err := parseMarketTemplateModelFields(&definition)
+	if err != nil {
+		t.Fatalf("parseMarketTemplateModelFields() error = %v", err)
+	}
+	want := map[string]map[string]string{
+		"telemetry":  {"data_name": "开关", "data_identifier": "switch", "data_type": "Boolean", "read_write_flag": "RW"},
+		"attributes": {"data_name": "亮度", "data_identifier": "brightness", "data_type": "Number", "read_write_flag": "R", "unit": "%", "description": "当前亮度"},
+		"events":     {"data_name": "状态变化", "data_identifier": "state_changed", "params": `{"code":"integer"}`},
+		"commands":   {"data_name": "开灯", "data_identifier": "turn_on", "data_type": "Boolean", "additional_info": "{}"},
+	}
+	for kind, expected := range want {
+		if len(got[kind]) != 1 {
+			t.Fatalf("%s rows = %d, want 1", kind, len(got[kind]))
+		}
+		for key, value := range expected {
+			if got[kind][0][key] != value {
+				t.Errorf("%s[%s] = %v, want %q", kind, key, got[kind][0][key], value)
+			}
+		}
+	}
+}
+
+func TestCreateMarketTemplateModelsRejectsMalformedDefinitions(t *testing.T) {
+	tests := []struct {
+		name string
+		def  model.TemplateDefinitionPayload
+		want string
+	}{
+		{name: "nil definition", def: nil, want: "expected an object"},
+		{name: "non-array model kind", def: model.TemplateDefinitionPayload{"telemetry": map[string]interface{}{}}, want: "template_definition.telemetry: expected an array"},
+		{name: "non-object model row", def: model.TemplateDefinitionPayload{"attributes": []interface{}{"bad row"}}, want: "template_definition.attributes[0]: expected an object"},
+		{name: "missing identifier", def: model.TemplateDefinitionPayload{"events": []interface{}{map[string]interface{}{"name": "started"}}}, want: "missing data_identifier"},
+		{name: "wrong field type", def: model.TemplateDefinitionPayload{"commands": []interface{}{map[string]interface{}{"key": "start", "label": "Start", "type": true}}}, want: "template_definition.commands[0].type: expected a string"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := createMarketTemplateModels(nil, &tt.def, "template-id", "tenant-id", time.Now())
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("createMarketTemplateModels() error = %v, want substring %q", err, tt.want)
+			}
+		})
+	}
+}
