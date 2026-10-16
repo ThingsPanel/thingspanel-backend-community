@@ -42,13 +42,7 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		})
 	}
 	installCommitted := false
-	defer func() {
-		if !installCommitted && localImagePath != "" {
-			if removeErr := os.Remove(localImagePath); removeErr != nil && !os.IsNotExist(removeErr) {
-				logrus.Errorf("Failed to clean up localized market template cover %s: %v", localImagePath, removeErr)
-			}
-		}
-	}()
+	defer cleanupLocalizedMarketTemplateCover(&installCommitted, localImagePath)
 
 	// 2. Check plugin dependencies (before any DB writes)
 	missingPlugins := checkMissingPlugins(fullData.PluginDependencies)
@@ -144,6 +138,15 @@ func marketTemplateInstallLockKey(tenantID, templateName string) int64 {
 	_, _ = h.Write([]byte{0})
 	_, _ = h.Write([]byte(templateName))
 	return int64(h.Sum64())
+}
+
+func cleanupLocalizedMarketTemplateCover(installCommitted *bool, localImagePath string) {
+	if *installCommitted || localImagePath == "" {
+		return
+	}
+	if removeErr := os.Remove(localImagePath); removeErr != nil && !os.IsNotExist(removeErr) {
+		logrus.Errorf("Failed to clean up localized market template cover %s: %v", localImagePath, removeErr)
+	}
 }
 
 func upsertMarketDeviceTemplate(tx *gorm.DB, fullData *model.MarketTemplateFullData, tenantID string, now time.Time) (string, error) {
