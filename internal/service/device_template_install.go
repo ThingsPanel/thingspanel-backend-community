@@ -306,70 +306,84 @@ func createMarketTemplateModels(tx *gorm.DB, tplDef *model.TemplateDefinitionPay
 func parseMarketTemplateModelFields(tplDef *model.TemplateDefinitionPayload) (map[string][]map[string]interface{}, error) {
 	parsed := make(map[string][]map[string]interface{}, 4)
 	for _, kind := range []string{"telemetry", "attributes", "events", "commands"} {
-		raw, exists := (*tplDef)[kind]
-		if !exists || raw == nil {
-			parsed[kind] = nil
-			continue
+		fields, err := parseMarketTemplateModelKind(kind, (*tplDef)[kind])
+		if err != nil {
+			return nil, err
 		}
-		entries, ok := raw.([]interface{})
-		if !ok {
-			return nil, fmt.Errorf("invalid template_definition.%s: expected an array", kind)
-		}
-		fieldsList := make([]map[string]interface{}, 0, len(entries))
-		for index, item := range entries {
-			fields, ok := item.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("invalid template_definition.%s[%d]: expected an object", kind, index)
-			}
-			name, err := marketModelString(fields, kind, index, "data_name", "buttom_name", "name", "label")
-			if err != nil {
-				return nil, err
-			}
-			identifier, err := marketModelString(fields, kind, index, "data_identifier", "identifier", "key")
-			if err != nil {
-				return nil, err
-			}
-			if identifier == "" {
-				return nil, fmt.Errorf("invalid template_definition.%s[%d]: missing data_identifier (or identifier/key)", kind, index)
-			}
-			if name == "" {
-				name = identifier
-			}
-			canonical := map[string]interface{}{"data_name": name, "data_identifier": identifier}
-			aliases := []struct {
-				target string
-				keys   []string
-			}{
-				{"data_type", []string{"data_type", "dataType", "type"}},
-				{"read_write_flag", []string{"read_write_flag", "accessMode"}},
-				{"unit", []string{"unit"}},
-				{"description", []string{"description", "remark"}},
-			}
-			for _, alias := range aliases {
-				value, err := marketModelString(fields, kind, index, alias.keys...)
-				if err != nil {
-					return nil, err
-				}
-				if value != "" {
-					canonical[alias.target] = value
-				}
-			}
-			for _, key := range []string{"additional_info", "params"} {
-				value, exists := fields[key]
-				if !exists || value == nil {
-					continue
-				}
-				text, err := marketModelJSONText(value)
-				if err != nil {
-					return nil, fmt.Errorf("invalid template_definition.%s[%d].%s: %w", kind, index, key, err)
-				}
-				canonical[key] = text
-			}
-			fieldsList = append(fieldsList, canonical)
-		}
-		parsed[kind] = fieldsList
+		parsed[kind] = fields
 	}
 	return parsed, nil
+}
+
+func parseMarketTemplateModelKind(kind string, raw interface{}) ([]map[string]interface{}, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	entries, ok := raw.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid template_definition.%s: expected an array", kind)
+	}
+	fieldsList := make([]map[string]interface{}, 0, len(entries))
+	for index, item := range entries {
+		fields, ok := item.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid template_definition.%s[%d]: expected an object", kind, index)
+		}
+		canonical, err := normalizeMarketTemplateModelField(fields, kind, index)
+		if err != nil {
+			return nil, err
+		}
+		fieldsList = append(fieldsList, canonical)
+	}
+	return fieldsList, nil
+}
+
+func normalizeMarketTemplateModelField(fields map[string]interface{}, kind string, index int) (map[string]interface{}, error) {
+	name, err := marketModelString(fields, kind, index, "data_name", "buttom_name", "name", "label")
+	if err != nil {
+		return nil, err
+	}
+	identifier, err := marketModelString(fields, kind, index, "data_identifier", "identifier", "key")
+	if err != nil {
+		return nil, err
+	}
+	if identifier == "" {
+		return nil, fmt.Errorf("invalid template_definition.%s[%d]: missing data_identifier (or identifier/key)", kind, index)
+	}
+	if name == "" {
+		name = identifier
+	}
+	canonical := map[string]interface{}{"data_name": name, "data_identifier": identifier}
+	aliases := []struct {
+		target string
+		keys   []string
+	}{
+		{"data_type", []string{"data_type", "dataType", "type"}},
+		{"read_write_flag", []string{"read_write_flag", "accessMode"}},
+		{"unit", []string{"unit"}},
+		{"description", []string{"description", "remark"}},
+	}
+	for _, alias := range aliases {
+		value, err := marketModelString(fields, kind, index, alias.keys...)
+		if err != nil {
+			return nil, err
+		}
+		if value != "" {
+			canonical[alias.target] = value
+		}
+	}
+	for _, key := range []string{"additional_info", "params"} {
+		value, exists := fields[key]
+		if !exists || value == nil {
+			continue
+		}
+		text, err := marketModelJSONText(value)
+		if err != nil {
+			return nil, fmt.Errorf("invalid template_definition.%s[%d].%s: %w", kind, index, key, err)
+		}
+		canonical[key] = text
+	}
+	return canonical, nil
 }
 
 func marketModelJSONText(value interface{}) (string, error) {
