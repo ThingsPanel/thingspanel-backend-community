@@ -7,7 +7,36 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 )
+
+func TestThingsVisPublicAPIBaseURL(t *testing.T) {
+	t.Setenv("GOTP_THINGSVIS_PUBLIC_API_BASE_URL", "")
+	gin.SetMode(gin.TestMode)
+	request := httptest.NewRequest(http.MethodPost, "http://localhost:18080/api/v1/test", nil)
+	request.Header.Set("Origin", "http://localhost:18080")
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	context.Request = request
+
+	t.Cleanup(func() { viper.Set("thingsvis.public_api_base_url", nil) })
+	viper.Set("thingsvis.public_api_base_url", "")
+	got, err := thingsVisPublicAPIBaseURL(context)
+	if err != nil || got != "http://localhost:18080/thingsvis-api" {
+		t.Fatalf("fallback URL = %q, error = %v", got, err)
+	}
+
+	viper.Set("thingsvis.public_api_base_url", "http://thingsvis-server:8000/api/v1/")
+	got, err = thingsVisPublicAPIBaseURL(context)
+	if err != nil || got != "http://thingsvis-server:8000/api/v1" {
+		t.Fatalf("configured URL = %q, error = %v", got, err)
+	}
+
+	t.Setenv("GOTP_THINGSVIS_PUBLIC_API_BASE_URL", "http://other-service:9000/api/v1")
+	got, err = thingsVisPublicAPIBaseURL(context)
+	if err != nil || got != "http://other-service:9000/api/v1" {
+		t.Fatalf("environment URL = %q, error = %v", got, err)
+	}
+}
 
 func TestRequestPublicOriginUsesBrowserOrigin(t *testing.T) {
 	tests := []struct {
