@@ -55,8 +55,14 @@ jobs:
       # 切换到thingspanel-backend-community分支或创建它
       - name: Setup or create target branch in enterprise
         run: |
+          set -euo pipefail
           cd enterprise
-          git checkout thingspanel-backend-community || git checkout -b thingspanel-backend-community
+          if git ls-remote --exit-code --heads origin thingspanel-backend-community >/dev/null 2>&1; then
+            git fetch origin thingspanel-backend-community
+            git checkout -B thingspanel-backend-community FETCH_HEAD
+          else
+            git checkout -b thingspanel-backend-community origin/main
+          fi
           git rm -r --cached .
           git clean -fdx
         shell: bash
@@ -69,6 +75,7 @@ jobs:
           token: ${{ secrets.ACCESS_TOKEN }}
           path: 'community'
           fetch-depth: 0
+          ref: master
 
       # 配置 Git 用户信息
       - name: Configure git identity
@@ -87,8 +94,34 @@ jobs:
       # 提交变更到企业版的thingspanel-backend-community分支
       - name: Commit and push changes
         run: |
+          set -euo pipefail
           cd enterprise
           git add .
-          git commit -m 'merge community changes to enterprise'
-          git push origin thingspanel-backend-community
+          if git diff --cached --quiet; then
+            echo "No community changes to sync"
+          else
+            git commit -m 'merge community changes to enterprise'
+            git push origin thingspanel-backend-community
+          fi
         shell: bash
+
+      - name: Open Enterprise main pull request
+        env:
+          GH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          open_pr=$(gh pr list \
+            --repo ThingsPanel/thingspanel-backend-enterprise \
+            --head thingspanel-backend-community \
+            --base main \
+            --state open \
+            --json number \
+            --jq 'length')
+          if [ "$open_pr" -eq 0 ]; then
+            gh pr create \
+              --repo ThingsPanel/thingspanel-backend-enterprise \
+              --base main \
+              --head thingspanel-backend-community \
+              --title "Sync Community backend changes" \
+              --body "Merges the synchronized Community backend snapshot into Enterprise. Review before merging to trigger the Enterprise Demo deployment."
+          fi
