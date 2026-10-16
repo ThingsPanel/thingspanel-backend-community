@@ -162,3 +162,16 @@ func TestDownloadMarketTemplateImageRejectsCrossOriginRedirect(t *testing.T) {
 		t.Fatalf("expected cross-origin redirect error, got %v", err)
 	}
 }
+
+func TestMarketTemplateInstallLockKeyIsStableAndTenantScoped(t *testing.T) {
+	key := marketTemplateInstallLockKey("tenant-a", "开关")
+	if key != marketTemplateInstallLockKey("tenant-a", "开关") {
+		t.Fatal("same tenant/template should use the same advisory lock key")
+	}
+	if key == marketTemplateInstallLockKey("tenant-b", "开关") {
+		t.Fatal("different tenants should not share an advisory lock key")
+	}
+	if key == marketTemplateInstallLockKey("tenant-a", "卧室灯") {
+		t.Fatal("different template names should not share an advisory lock key")
+	}
+}

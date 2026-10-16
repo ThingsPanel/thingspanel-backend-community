@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"hash/fnv"
 	"os"
 	"time"
 
@@ -63,6 +64,16 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 			tx.Rollback()
 		}
 	}()
+
+	// Serialize installs for the same tenant/name pair. The lookup below is
+	// otherwise vulnerable to two concurrent requests both observing no row and
+	// creating duplicate device templates.
+	if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", marketTemplateInstallLockKey(claims.TenantID, fullData.Name)).Error; err != nil {
+		tx.Rollback()
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"error": "Failed to lock device template installation: " + err.Error(),
+		})
+	}
 
 	// ── 3.1 Create/update DeviceTemplate ──────────────────────────────────────
 	now := time.Now().UTC()
@@ -161,8 +172,8 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 							Unit:             getStrP(m, "unit"),
 							Description:      getStrP(m, "description"),
 							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:       now,
-							UpdatedAt:       now,
+							CreatedAt:        now,
+							UpdatedAt:        now,
 						}
 						if err := tx.Create(&created).Error; err != nil {
 							tx.Rollback()
@@ -191,8 +202,8 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 							Unit:             getStrP(m, "unit"),
 							Description:      getStrP(m, "description"),
 							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:       now,
-							UpdatedAt:       now,
+							CreatedAt:        now,
+							UpdatedAt:        now,
 						}
 						if err := tx.Create(&created).Error; err != nil {
 							tx.Rollback()
@@ -216,11 +227,11 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 							TenantID:         claims.TenantID,
 							DataName:         getStrP(m, "data_name"),
 							DataIdentifier:   getStr(m, "data_identifier"),
-							Param:           getStrP(m, "params"),
+							Param:            getStrP(m, "params"),
 							Description:      getStrP(m, "description"),
 							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:       now,
-							UpdatedAt:       now,
+							CreatedAt:        now,
+							UpdatedAt:        now,
 						}
 						if err := tx.Create(&created).Error; err != nil {
 							tx.Rollback()
@@ -244,11 +255,11 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 							TenantID:         claims.TenantID,
 							DataName:         getStrP(m, "data_name"),
 							DataIdentifier:   getStr(m, "data_identifier"),
-							Param:           getStrP(m, "params"),
+							Param:            getStrP(m, "params"),
 							Description:      getStrP(m, "description"),
 							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:       now,
-							UpdatedAt:       now,
+							CreatedAt:        now,
+							UpdatedAt:        now,
 						}
 						if err := tx.Create(&created).Error; err != nil {
 							tx.Rollback()
@@ -275,7 +286,7 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		ID:               dcID,
 		Name:             dcName,
 		DeviceTemplateID: &templateID, // 引用新创建的 DeviceTemplate
-		DeviceType:       "1",        // 默认直连设备
+		DeviceType:       "1",         // 默认直连设备
 		TenantID:         claims.TenantID,
 		ImageURL:         localImageURL,
 		CreatedAt:        now,
@@ -359,6 +370,14 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		DeviceConfig:   createdDC,
 		MissingPlugins: missingPlugins,
 	}, nil
+}
+
+func marketTemplateInstallLockKey(tenantID, templateName string) int64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(tenantID))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write([]byte(templateName))
+	return int64(h.Sum64())
 }
 
 // checkMissingPlugins checks which plugin dependencies are not installed locally
