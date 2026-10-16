@@ -77,84 +77,13 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		})
 	}
 
-	// ── 3.1 Create/update DeviceTemplate ──────────────────────────────────────
 	now := time.Now().UTC()
-	flag := int16(1) // private
-
-	// Check if template with same name already exists
-	existingTpl, err := query.DeviceTemplate.WithContext(context.Background()).
-		Where(query.DeviceTemplate.Name.Eq(fullData.Name), query.DeviceTemplate.TenantID.Eq(claims.TenantID)).
-		First()
-	if err != nil && err.Error() != "record not found" {
+	templateID, err := upsertMarketDeviceTemplate(tx, fullData, claims.TenantID, now)
+	if err != nil {
 		tx.Rollback()
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "Failed to check existing template: " + err.Error(),
-		})
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
 	}
-
-	var templateID string
-	isUpdate := false
-	if existingTpl != nil {
-		templateID = existingTpl.ID
-		isUpdate = true
-	} else {
-		templateID = uuid.New()
-		isUpdate = false
-	}
-
-	// Parse template definition (panel config + web_chart_config / app_chart_config)
-	var webChartConfig, appChartConfig string
-	tplDef := fullData.TemplateDefinition // *map[string]interface{}
-	if tplDef != nil {
-		if v, ok := (*tplDef)["web_chart_config"]; ok && v != nil {
-			if bytes, err := json.Marshal(v); err == nil {
-				webChartConfig = string(bytes)
-			}
-		}
-		if v, ok := (*tplDef)["app_chart_config"]; ok && v != nil {
-			if bytes, err := json.Marshal(v); err == nil {
-				appChartConfig = string(bytes)
-			}
-		}
-	}
-
-	newTemplate := &model.DeviceTemplate{
-		ID:             templateID,
-		Name:           fullData.Name,
-		TenantID:       claims.TenantID,
-		Brand:          ptrStrP(fullData.Brand),
-		ModelNumber:    ptrStrP(fullData.ModelNumber),
-		Author:         ptrStrP(fullData.Author),
-		Version:        ptrStrP(fullData.Version),
-		Description:    ptrStrP(fullData.Description),
-		Flag:           &flag,
-		WebChartConfig: ptrStrP(webChartConfig),
-		AppChartConfig: ptrStrP(appChartConfig),
-		CreatedAt:      now,
-		UpdatedAt:      now,
-	}
-
-	if isUpdate {
-		// Clean up existing device models before update
-		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelTelemetry{})
-		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelAttribute{})
-		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelEvent{})
-		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelCommand{})
-
-		if err := tx.Save(newTemplate).Error; err != nil {
-			tx.Rollback()
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error": "Failed to update template: " + err.Error(),
-			})
-		}
-	} else {
-		if err := tx.Create(newTemplate).Error; err != nil {
-			tx.Rollback()
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error": "Failed to create template: " + err.Error(),
-			})
-		}
-	}
+	tplDef := fullData.TemplateDefinition
 
 	// ── 3.2 Create device models from template_definition ─────────────────────
 	if err := createMarketTemplateModels(tx, tplDef, templateID, claims.TenantID, now); err != nil {
@@ -162,60 +91,8 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
 	}
 
-	// ── 3.3 Create DeviceConfig ──────────────────────────────────────────────
 	dcID := uuid.New()
-	dcName := fullData.Name
-	if fullData.DeviceConfig != nil {
-		if fullData.DeviceConfig.Name != "" {
-			dcName = fullData.DeviceConfig.Name
-		}
-	}
-
-	newDC := &model.DeviceConfig{
-		ID:               dcID,
-		Name:             dcName,
-		DeviceTemplateID: &templateID, // 引用新创建的 DeviceTemplate
-		DeviceType:       "1",         // 默认直连设备
-		TenantID:         claims.TenantID,
-		ImageURL:         localImageURL,
-		CreatedAt:        now,
-		UpdatedAt:        now,
-	}
-
-	if fullData.DeviceConfig != nil {
-		newDC.DeviceType = fullData.DeviceConfig.DeviceType
-		if fullData.DeviceConfig.DeviceType == "" {
-			newDC.DeviceType = "1"
-		}
-		if fullData.DeviceConfig.ProtocolType != "" {
-			newDC.ProtocolType = &fullData.DeviceConfig.ProtocolType
-		}
-		if fullData.DeviceConfig.VoucherType != "" {
-			newDC.VoucherType = &fullData.DeviceConfig.VoucherType
-		}
-		if fullData.DeviceConfig.ProtocolConfig != nil {
-			if bytes, err := json.Marshal(fullData.DeviceConfig.ProtocolConfig); err == nil {
-				s := string(bytes)
-				newDC.ProtocolConfig = &s
-			}
-		}
-		if fullData.DeviceConfig.DeviceConnType != "" {
-			newDC.DeviceConnType = &fullData.DeviceConfig.DeviceConnType
-		}
-		if fullData.DeviceConfig.OtherConfig != nil {
-			if bytes, err := json.Marshal(fullData.DeviceConfig.OtherConfig); err == nil {
-				s := string(bytes)
-				newDC.OtherConfig = &s
-			}
-		}
-		if fullData.DeviceConfig.AdditionalInfo != nil {
-			if bytes, err := json.Marshal(fullData.DeviceConfig.AdditionalInfo); err == nil {
-				s := string(bytes)
-				newDC.AdditionalInfo = &s
-			}
-		}
-		newDC.AutoRegister = fullData.DeviceConfig.AutoRegister
-	}
+	newDC := newMarketDeviceConfig(fullData, templateID, claims.TenantID, localImageURL, dcID, now)
 
 	if err := tx.Create(newDC).Error; err != nil {
 		tx.Rollback()
@@ -267,6 +144,122 @@ func marketTemplateInstallLockKey(tenantID, templateName string) int64 {
 	_, _ = h.Write([]byte{0})
 	_, _ = h.Write([]byte(templateName))
 	return int64(h.Sum64())
+}
+
+func upsertMarketDeviceTemplate(tx *gorm.DB, fullData *model.MarketTemplateFullData, tenantID string, now time.Time) (string, error) {
+	existingTpl, err := query.DeviceTemplate.WithContext(context.Background()).
+		Where(query.DeviceTemplate.Name.Eq(fullData.Name), query.DeviceTemplate.TenantID.Eq(tenantID)).
+		First()
+	if err != nil && err.Error() != "record not found" {
+		return "", fmt.Errorf("Failed to check existing template: %w", err)
+	}
+	templateID := uuid.New()
+	if existingTpl != nil {
+		templateID = existingTpl.ID
+	}
+	flag := int16(1)
+	webChartConfig, appChartConfig := marketTemplateChartConfigs(fullData.TemplateDefinition)
+	newTemplate := &model.DeviceTemplate{
+		ID:             templateID,
+		Name:           fullData.Name,
+		TenantID:       tenantID,
+		Brand:          ptrStrP(fullData.Brand),
+		ModelNumber:    ptrStrP(fullData.ModelNumber),
+		Author:         ptrStrP(fullData.Author),
+		Version:        ptrStrP(fullData.Version),
+		Description:    ptrStrP(fullData.Description),
+		Flag:           &flag,
+		WebChartConfig: ptrStrP(webChartConfig),
+		AppChartConfig: ptrStrP(appChartConfig),
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if existingTpl != nil {
+		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelTelemetry{})
+		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelAttribute{})
+		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelEvent{})
+		tx.Where("device_template_id = ?", templateID).Delete(&model.DeviceModelCommand{})
+		if err := tx.Save(newTemplate).Error; err != nil {
+			return "", fmt.Errorf("Failed to update template: %w", err)
+		}
+		return templateID, nil
+	}
+	if err := tx.Create(newTemplate).Error; err != nil {
+		return "", fmt.Errorf("Failed to create template: %w", err)
+	}
+	return templateID, nil
+}
+
+func marketTemplateChartConfigs(tplDef *model.TemplateDefinitionPayload) (string, string) {
+	var webChartConfig, appChartConfig string
+	if tplDef == nil {
+		return webChartConfig, appChartConfig
+	}
+	if v, ok := (*tplDef)["web_chart_config"]; ok && v != nil {
+		if bytes, err := json.Marshal(v); err == nil {
+			webChartConfig = string(bytes)
+		}
+	}
+	if v, ok := (*tplDef)["app_chart_config"]; ok && v != nil {
+		if bytes, err := json.Marshal(v); err == nil {
+			appChartConfig = string(bytes)
+		}
+	}
+	return webChartConfig, appChartConfig
+}
+
+func newMarketDeviceConfig(fullData *model.MarketTemplateFullData, templateID, tenantID string, imageURL *string, deviceConfigID string, now time.Time) *model.DeviceConfig {
+	dcName := fullData.Name
+	if fullData.DeviceConfig != nil && fullData.DeviceConfig.Name != "" {
+		dcName = fullData.DeviceConfig.Name
+	}
+	newDC := &model.DeviceConfig{
+		ID:               deviceConfigID,
+		Name:             dcName,
+		DeviceTemplateID: &templateID,
+		DeviceType:       "1",
+		TenantID:         tenantID,
+		ImageURL:         imageURL,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+	if fullData.DeviceConfig == nil {
+		return newDC
+	}
+	config := fullData.DeviceConfig
+	newDC.DeviceType = config.DeviceType
+	if config.DeviceType == "" {
+		newDC.DeviceType = "1"
+	}
+	if config.ProtocolType != "" {
+		newDC.ProtocolType = &config.ProtocolType
+	}
+	if config.VoucherType != "" {
+		newDC.VoucherType = &config.VoucherType
+	}
+	if config.ProtocolConfig != nil {
+		if bytes, err := json.Marshal(config.ProtocolConfig); err == nil {
+			s := string(bytes)
+			newDC.ProtocolConfig = &s
+		}
+	}
+	if config.DeviceConnType != "" {
+		newDC.DeviceConnType = &config.DeviceConnType
+	}
+	if config.OtherConfig != nil {
+		if bytes, err := json.Marshal(config.OtherConfig); err == nil {
+			s := string(bytes)
+			newDC.OtherConfig = &s
+		}
+	}
+	if config.AdditionalInfo != nil {
+		if bytes, err := json.Marshal(config.AdditionalInfo); err == nil {
+			s := string(bytes)
+			newDC.AdditionalInfo = &s
+		}
+	}
+	newDC.AutoRegister = config.AutoRegister
+	return newDC
 }
 
 func createMarketTemplateModels(tx *gorm.DB, tplDef *model.TemplateDefinitionPayload, templateID, tenantID string, now time.Time) error {
