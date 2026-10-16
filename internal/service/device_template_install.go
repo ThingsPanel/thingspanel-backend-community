@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"hash/fnv"
 	"os"
 	"time"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 // InstallFromMarket downloads a template from the market and creates it locally:
@@ -155,122 +157,9 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 	}
 
 	// ── 3.2 Create device models from template_definition ─────────────────────
-	if tplDef != nil {
-		// 从 template_definition 中提取物模型
-		if v, ok := (*tplDef)["telemetry"]; ok {
-			if ts, ok := v.([]interface{}); ok {
-				for _, t := range ts {
-					if m, ok := t.(map[string]interface{}); ok {
-						created := model.DeviceModelTelemetry{
-							ID:               uuid.New(),
-							DeviceTemplateID: templateID,
-							TenantID:         claims.TenantID,
-							DataName:         getStrP(m, "data_name"),
-							DataIdentifier:   getStr(m, "data_identifier"),
-							ReadWriteFlag:    getStrP(m, "read_write_flag"),
-							DataType:         getStrP(m, "data_type"),
-							Unit:             getStrP(m, "unit"),
-							Description:      getStrP(m, "description"),
-							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:        now,
-							UpdatedAt:        now,
-						}
-						if err := tx.Create(&created).Error; err != nil {
-							tx.Rollback()
-							return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-								"error": "Failed to create telemetry: " + err.Error(),
-							})
-						}
-					}
-				}
-			}
-		}
-
-		// Attributes
-		if v, ok := (*tplDef)["attributes"]; ok {
-			if attrs, ok := v.([]interface{}); ok {
-				for _, a := range attrs {
-					if m, ok := a.(map[string]interface{}); ok {
-						created := model.DeviceModelAttribute{
-							ID:               uuid.New(),
-							DeviceTemplateID: templateID,
-							TenantID:         claims.TenantID,
-							DataName:         getStrP(m, "data_name"),
-							DataIdentifier:   getStr(m, "data_identifier"),
-							ReadWriteFlag:    getStrP(m, "read_write_flag"),
-							DataType:         getStrP(m, "data_type"),
-							Unit:             getStrP(m, "unit"),
-							Description:      getStrP(m, "description"),
-							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:        now,
-							UpdatedAt:        now,
-						}
-						if err := tx.Create(&created).Error; err != nil {
-							tx.Rollback()
-							return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-								"error": "Failed to create attribute: " + err.Error(),
-							})
-						}
-					}
-				}
-			}
-		}
-
-		// Events
-		if v, ok := (*tplDef)["events"]; ok {
-			if evts, ok := v.([]interface{}); ok {
-				for _, e := range evts {
-					if m, ok := e.(map[string]interface{}); ok {
-						created := model.DeviceModelEvent{
-							ID:               uuid.New(),
-							DeviceTemplateID: templateID,
-							TenantID:         claims.TenantID,
-							DataName:         getStrP(m, "data_name"),
-							DataIdentifier:   getStr(m, "data_identifier"),
-							Param:            getStrP(m, "params"),
-							Description:      getStrP(m, "description"),
-							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:        now,
-							UpdatedAt:        now,
-						}
-						if err := tx.Create(&created).Error; err != nil {
-							tx.Rollback()
-							return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-								"error": "Failed to create event: " + err.Error(),
-							})
-						}
-					}
-				}
-			}
-		}
-
-		// Commands
-		if v, ok := (*tplDef)["commands"]; ok {
-			if cmds, ok := v.([]interface{}); ok {
-				for _, c := range cmds {
-					if m, ok := c.(map[string]interface{}); ok {
-						created := model.DeviceModelCommand{
-							ID:               uuid.New(),
-							DeviceTemplateID: templateID,
-							TenantID:         claims.TenantID,
-							DataName:         getStrP(m, "data_name"),
-							DataIdentifier:   getStr(m, "data_identifier"),
-							Param:            getStrP(m, "params"),
-							Description:      getStrP(m, "description"),
-							AdditionalInfo:   getStrP(m, "additional_info"),
-							CreatedAt:        now,
-							UpdatedAt:        now,
-						}
-						if err := tx.Create(&created).Error; err != nil {
-							tx.Rollback()
-							return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-								"error": "Failed to create command: " + err.Error(),
-							})
-						}
-					}
-				}
-			}
-		}
+	if err := createMarketTemplateModels(tx, tplDef, templateID, claims.TenantID, now); err != nil {
+		tx.Rollback()
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
 	}
 
 	// ── 3.3 Create DeviceConfig ──────────────────────────────────────────────
@@ -378,6 +267,46 @@ func marketTemplateInstallLockKey(tenantID, templateName string) int64 {
 	_, _ = h.Write([]byte{0})
 	_, _ = h.Write([]byte(templateName))
 	return int64(h.Sum64())
+}
+
+func createMarketTemplateModels(tx *gorm.DB, tplDef *model.TemplateDefinitionPayload, templateID, tenantID string, now time.Time) error {
+	if tplDef == nil {
+		return nil
+	}
+	modelRows := []struct {
+		key   string
+		label string
+		new   func(map[string]interface{}) interface{}
+	}{
+		{"telemetry", "telemetry", func(fields map[string]interface{}) interface{} {
+			return &model.DeviceModelTelemetry{ID: uuid.New(), DeviceTemplateID: templateID, TenantID: tenantID, DataName: getStrP(fields, "data_name"), DataIdentifier: getStr(fields, "data_identifier"), ReadWriteFlag: getStrP(fields, "read_write_flag"), DataType: getStrP(fields, "data_type"), Unit: getStrP(fields, "unit"), Description: getStrP(fields, "description"), AdditionalInfo: getStrP(fields, "additional_info"), CreatedAt: now, UpdatedAt: now}
+		}},
+		{"attributes", "attribute", func(fields map[string]interface{}) interface{} {
+			return &model.DeviceModelAttribute{ID: uuid.New(), DeviceTemplateID: templateID, TenantID: tenantID, DataName: getStrP(fields, "data_name"), DataIdentifier: getStr(fields, "data_identifier"), ReadWriteFlag: getStrP(fields, "read_write_flag"), DataType: getStrP(fields, "data_type"), Unit: getStrP(fields, "unit"), Description: getStrP(fields, "description"), AdditionalInfo: getStrP(fields, "additional_info"), CreatedAt: now, UpdatedAt: now}
+		}},
+		{"events", "event", func(fields map[string]interface{}) interface{} {
+			return &model.DeviceModelEvent{ID: uuid.New(), DeviceTemplateID: templateID, TenantID: tenantID, DataName: getStrP(fields, "data_name"), DataIdentifier: getStr(fields, "data_identifier"), Param: getStrP(fields, "params"), Description: getStrP(fields, "description"), AdditionalInfo: getStrP(fields, "additional_info"), CreatedAt: now, UpdatedAt: now}
+		}},
+		{"commands", "command", func(fields map[string]interface{}) interface{} {
+			return &model.DeviceModelCommand{ID: uuid.New(), DeviceTemplateID: templateID, TenantID: tenantID, DataName: getStrP(fields, "data_name"), DataIdentifier: getStr(fields, "data_identifier"), Param: getStrP(fields, "params"), Description: getStrP(fields, "description"), AdditionalInfo: getStrP(fields, "additional_info"), CreatedAt: now, UpdatedAt: now}
+		}},
+	}
+	for _, rowType := range modelRows {
+		entries, ok := (*tplDef)[rowType.key].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, entry := range entries {
+			fields, ok := entry.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if err := tx.Create(rowType.new(fields)).Error; err != nil {
+				return fmt.Errorf("Failed to create %s: %w", rowType.label, err)
+			}
+		}
+	}
+	return nil
 }
 
 // checkMissingPlugins checks which plugin dependencies are not installed locally
