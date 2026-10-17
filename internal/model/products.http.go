@@ -7,6 +7,7 @@ type CreateProductReq struct {
 	ProductKey     *string `json:"product_key" validate:"omitempty,max=255"`     // 产品key,为空后端自动生成
 	ProductModel   *string `json:"product_model" validate:"omitempty,max=100"`   // 产品型号
 	ImageUrl       *string `json:"image_url" validate:"omitempty,max=500"`       // 产品图片
+	TOSImageURL    *string `json:"tos_image_url" validate:"omitempty,max=500"`   // App 使用的 TOS 产品图片
 	AdditionalInfo *string `json:"additional_info" validate:"omitempty"`         // 附加信息
 	Remark         *string `json:"remark" validate:"omitempty,max=255"`          // 备注
 	DeviceConfigID *string `json:"device_config_id" validate:"omitempty,max=36"` // 设备配置id
@@ -18,6 +19,7 @@ type UpdateProductReq struct {
 	Description  *string `json:"description"  validate:"omitempty,max=255"`  // 产品描述
 	ProductModel *string `json:"product_model" validate:"omitempty,max=100"` // 产品型号
 	ImageUrl     *string `json:"image_url" validate:"omitempty,max=500"`     // 产品图片
+	TOSImageURL  *string `json:"tos_image_url" validate:"omitempty,max=500"` // App 使用的 TOS 产品图片
 	ProductType  *string `json:"product_type" validate:"omitempty,max=36"`   // 产品类型
 }
 

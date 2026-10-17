@@ -32,6 +32,12 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// 编号校验
 		deviceapi.GET("check/:deviceNumber", api.Controllers.DeviceApi.CheckDeviceNumber)
 
+		// 产品预注册
+		deviceapi.GET("preRegister", api.Controllers.DeviceApi.HandleDevicePreRegisterList)
+		deviceapi.POST("preRegister", api.Controllers.DeviceApi.CreateDevicePreRegister)
+		deviceapi.GET("preRegister/export", api.Controllers.DeviceApi.ExportDevicePreRegister)
+		deviceapi.PUT("preRegister/activate", api.Controllers.DeviceApi.ActivatePreRegister)
+
 		// 租户下设备列表
 		deviceapi.GET("tenant/list", api.Controllers.DeviceApi.HandleTenantDeviceList)
 

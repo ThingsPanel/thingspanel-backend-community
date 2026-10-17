@@ -145,6 +145,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.OTA.InitOTA(v1) // OTA模块
 
+			apps.Model.Product.InitProduct(v1) // 产品管理
+
 			apps.Model.UpLoad.Init(v1) // 文件上传
 
 			apps.Model.ProtocolPlugin.InitProtocolPlugin(v1) // 协议插件模块

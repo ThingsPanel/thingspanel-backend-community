@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"project/initialize"
+	"project/internal/service"
 	"project/internal/uplink"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -183,6 +184,11 @@ func (a *Adapter) SubscribeDeviceTopics(client mqtt.Client) error {
 			handler:  a.handleStatusMessage,
 			describe: "设备状态上报",
 		},
+		TopicPatternOTAProgress: {
+			qos:      1,
+			handler:  a.handleOTAProgressMessage,
+			describe: "设备OTA进度上报",
+		},
 	}
 
 	for topic, config := range topics {
@@ -204,6 +210,17 @@ func (a *Adapter) SubscribeDeviceTopics(client mqtt.Client) error {
 	}
 
 	return nil
+}
+
+func (a *Adapter) handleOTAProgressMessage(_ mqtt.Client, msg mqtt.Message) {
+	a.logger.WithFields(logrus.Fields{
+		"stage":   "ota_progress_rx",
+		"topic":   msg.Topic(),
+		"payload": string(msg.Payload()),
+	}).Info("[OTA] progress received")
+	if err := service.GroupApp.OTA.ApplyOTAProgress(msg.Payload()); err != nil {
+		a.logger.WithError(err).Error("[OTA] apply progress failed")
+	}
 }
 
 // SubscribeGatewayTopics 订阅网关上行 Topic（供 MQTT 服务初始化时调用）

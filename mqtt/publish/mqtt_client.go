@@ -72,14 +72,18 @@ func CreateMqttClient() {
 // PublishOtaAdress 发送ota版本包消息给直连设备
 // 保留此函数用于 OTA 功能（企业版兼容性）
 func PublishOtaAdress(deviceNumber string, payload []byte) error {
+	if mqttClient == nil {
+		logrus.Error("MQTT client is not ready, skip OTA publish")
+		return fmt.Errorf("mqtt client is not ready")
+	}
 	topic := config.MqttConfig.OTA.PublishTopic + deviceNumber
 	qos := byte(config.MqttConfig.OTA.QoS)
-	// 发布消息
 	token := mqttClient.Publish(topic, qos, false, payload)
 	if token.Wait() && token.Error() != nil {
 		logrus.Error(token.Error())
+		return token.Error()
 	}
-	return token.Error()
+	return nil
 }
 
 // PublishOnlineMessage 发送在线离线消息

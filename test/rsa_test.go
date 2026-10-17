@@ -3,15 +3,8 @@ package test
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
-	"errors"
 	"fmt"
-	"log"
-	"os"
-	"strings"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
@@ -21,43 +14,6 @@ import (
 
 var RSAPrivateKey *rsa.PrivateKey
 var RSAPublicKey *rsa.PublicKey
-
-func RsaDecryptInit(filePath string) (err error) {
-	key, err := os.ReadFile(filePath)
-	if err != nil {
-		return errors.New("加载私钥错误1：" + err.Error())
-	}
-	block, _ := pem.Decode(key)
-	if block == nil {
-		return errors.New("加载私钥错误2：")
-	}
-
-	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return errors.New("加载私钥错误3：" + err.Error())
-	}
-	RSAPrivateKey = privateKey
-
-	return err
-}
-
-func RsaDecryptPublicInit(filePath string) (err error) {
-	key, err := os.ReadFile(filePath)
-	if err != nil {
-		return errors.New("加载公钥错误1：" + err.Error())
-	}
-	block, _ := pem.Decode(key)
-	if block == nil {
-		return errors.New("加载公钥错误2：")
-	}
-
-	publicKey, err := x509.ParsePKCS1PublicKey(block.Bytes)
-	if err != nil {
-		return errors.New("加载公钥错误3：" + err.Error())
-	}
-	RSAPublicKey = publicKey
-	return err
-}
 
 func DecryptPassword(encryptedPassword string) ([]byte, error) {
 	ciphertext, err := base64.StdEncoding.DecodeString(encryptedPassword)
@@ -81,34 +37,33 @@ func HashPassword(decryptedPassword []byte, _ []byte) (password []byte, err erro
 	return hashedPassword, err
 }
 
-func Encrypt() string {
+func Encrypt() (string, error) {
 	message := []byte("123456salt")
-	encryptedMessage, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, RSAPublicKey, message, nil)
+	encryptedMessage, err := rsa.EncryptPKCS1v15(rand.Reader, RSAPublicKey, message)
 	if err != nil {
-		log.Printf("加密失败: %v", err)
+		return "", fmt.Errorf("加密失败: %w", err)
 	}
-	encryptPassword := base64.StdEncoding.EncodeToString(encryptedMessage)
-	return encryptPassword
+	return base64.StdEncoding.EncodeToString(encryptedMessage), nil
 }
 
 func TestRSA(t *testing.T) {
-	// 初始化公钥私钥
-	RsaDecryptInit("../rsa_key/private_key.pem")
-	RsaDecryptPublicInit("../rsa_key/public.pem")
-	// 加密测试
-	//
-	password := Encrypt()
-	fmt.Println(password)
-	// 解密
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	RSAPrivateKey = privateKey
+	RSAPublicKey = &privateKey.PublicKey
+
+	message := []byte("123456salt")
+	password, err := Encrypt()
+	if err != nil {
+		t.Fatalf("encrypt message: %v", err)
+	}
 	passwords, err := DecryptPassword(password)
 	if err != nil {
-		return
+		t.Fatalf("decrypt ciphertext: %v", err)
 	}
-	//解密后密码
-	fmt.Println("密码：", string(passwords))
-	passwordss := strings.TrimRight(string(passwords), "salt")
-	// 去掉随机盐密码
-	fmt.Println("私钥：", string(passwordss))
-
-	t.Logf("%v", passwordss)
+	if string(passwords) != string(message) {
+		t.Fatalf("decrypted message = %q, want %q", passwords, message)
+	}
 }

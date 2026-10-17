@@ -99,7 +99,9 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 	var data []model.DeviceConfigRsp
 	var deviceconfigList []*model.DeviceConfig
 	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
+	if claims.Authority != "SYS_ADMIN" {
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
+	}
 
 	if deviceconfig.DeviceTemplateId != nil && *deviceconfig.DeviceTemplateId != "" {
 		queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(*deviceconfig.DeviceTemplateId))
@@ -147,7 +149,9 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 func GetDeviceConfigSelectList(deviceConfigName *string, tenantID string, deviceType *string, protocolType *string) (any, error) {
 	q := query.DeviceConfig
 	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
+	if tenantID != "" {
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
+	}
 	if deviceConfigName != nil {
 		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *deviceConfigName)))
 	}

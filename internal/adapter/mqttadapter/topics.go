@@ -23,6 +23,8 @@ const (
 	// 格式: devices/status/{device_id}
 	TopicPatternStatus = "devices/status/+"
 
+	TopicPatternOTAProgress = "ota/devices/progress"
+
 	// 网关 Topic 模式（前缀为 gateway/）
 	TopicPatternGatewayTelemetry = "gateway/telemetry"
 	TopicPatternGatewayAttribute = "gateway/attributes/+"
