@@ -67,8 +67,9 @@ func (CommandSetLogApi) GetCommandStatus(c *gin.Context) {
 // /api/v1/command/datas/{id}
 func (CommandSetLogApi) HandleCommandList(c *gin.Context) {
 	id := c.Param("id")
+	claims := c.MustGet("claims").(*utils.UserClaims)
 
-	data, err := service.GroupApp.CommandData.GetCommonList(c, id)
+	data, err := service.GroupApp.CommandData.GetCommonList(c.Request.Context(), id, claims.TenantID, communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return

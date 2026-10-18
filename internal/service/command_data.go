@@ -268,12 +268,15 @@ func (c *CommandData) getDeviceConfigID(device *model.Device) string {
 	return *device.DeviceConfigID
 }
 
-// GetCommonList 获取命令列表（保留原有方法）
-func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCommandListRes, error) {
+// GetCommonList returns the commands available to a device in the caller's tenant.
+func (*CommandData) GetCommonList(ctx context.Context, id, tenantID, communityAuthorization string) ([]model.GetCommandListRes, error) {
 	list := make([]model.GetCommandListRes, 0)
 
-	deviceInfo, err := dal.DeviceQuery{}.First(ctx, query.Device.ID.Eq(id))
+	deviceInfo, err := dal.DeviceQuery{}.First(ctx, query.Device.ID.Eq(id), query.Device.TenantID.Eq(tenantID))
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return list, errcode.NewWithMessage(errcode.CodeOpDenied, "device not found")
+		}
 		logrus.Error(ctx, "[GetCommonList]device failed:", err)
 		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -285,20 +288,39 @@ func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCo
 		return list, nil
 	}
 
-	deviceConfigsInfo, err := dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*deviceInfo.DeviceConfigID))
+	deviceConfigsInfo, err := dal.GetDeviceConfigByIDForTenant(ctx, *deviceInfo.DeviceConfigID, tenantID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return list, errcode.NewWithMessage(errcode.CodeOpDenied, "device config not found")
+		}
 		logrus.Debug(ctx, "[GetCommonList]device_configs failed:", err)
 		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
 
+	if hasNativeDeviceConfigBinding(deviceConfigsInfo) {
+		return nativeDeviceCommands(ctx, communityAuthorization, deviceConfigsInfo)
+	}
+
 	if deviceConfigsInfo.DeviceTemplateID == nil || common.CheckEmpty(*deviceConfigsInfo.DeviceTemplateID) {
 		logrus.Debug("device_configs.device_template_id is empty")
 		return list, nil
 	}
+	// A device config must not grant access to a legacy template owned by another tenant.
+	_, err = query.DeviceTemplate.WithContext(ctx).
+		Where(query.DeviceTemplate.ID.Eq(*deviceConfigsInfo.DeviceTemplateID), query.DeviceTemplate.TenantID.Eq(tenantID)).First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return list, errcode.NewWithMessage(errcode.CodeOpDenied, "device template not found")
+		}
+		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
 
-	commandList, err := dal.DeviceModelCommandsQuery{}.Find(ctx, query.DeviceModelCommand.DeviceTemplateID.Eq(*deviceConfigsInfo.DeviceTemplateID))
+	commandList, err := dal.DeviceModelCommandsQuery{}.Find(ctx,
+		query.DeviceModelCommand.DeviceTemplateID.Eq(*deviceConfigsInfo.DeviceTemplateID),
+		query.DeviceModelCommand.TenantID.Eq(tenantID),
+	)
 	if err != nil {
 		logrus.Error(ctx, "[GetCommonList]device_model_command failed:", err)
 		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
