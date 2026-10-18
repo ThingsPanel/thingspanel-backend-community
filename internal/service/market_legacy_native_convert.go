@@ -838,8 +838,7 @@ func legacyParameters(raw json.RawMessage, kind, path string) (json.RawMessage, 
 				return nil, fmt.Errorf("%s.name.default: conflicts with data_name", itemPath)
 			}
 		}
-		description := map[string]json.RawMessage{"description": item["description"], "description_i18n": item["description_i18n"]}
-		descriptionI18n, err := legacyDescription(description, itemPath)
+		descriptionI18n, err := legacyDescription(item, itemPath)
 		if err != nil {
 			return nil, err
 		}
@@ -971,9 +970,17 @@ func legacyParameterEnumType(item map[string]json.RawMessage, path string) (json
 		if err := legacyRejectUnknown(config, configPath, []string{"value", "desc", "label"}); err != nil {
 			return nil, err
 		}
-		rows = append(rows, mustJSON(map[string]json.RawMessage{
-			"value_type": mustJSON(dataType), "value": config["value"], "description": config["desc"], "label": config["label"],
-		}))
+		row := map[string]json.RawMessage{
+			"value_type": mustJSON(dataType),
+			"value":      config["value"],
+		}
+		if description, ok := config["desc"]; ok {
+			row["description"] = description
+		}
+		if label, ok := config["label"]; ok {
+			row["label"] = label
+		}
+		rows = append(rows, mustJSON(row))
 	}
 	return legacyEnumType(rows, path+".enum_config")
 }

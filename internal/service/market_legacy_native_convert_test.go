@@ -52,6 +52,18 @@ func TestConvertLegacyMarketTemplateToNativePreservesV2Shape(t *testing.T) {
 	if !bytes.Contains(nativeModel.Fields[2], []byte(`"schemaVersion":1`)) || !bytes.Contains(nativeModel.Fields[2], []byte(`"identifier":"payload"`)) {
 		t.Fatalf("event parameters were not mapped to native Parameters: %s", nativeModel.Fields[2])
 	}
+	var eventField map[string]json.RawMessage
+	_ = json.Unmarshal(nativeModel.Fields[2], &eventField)
+	var eventParameters struct {
+		Items []map[string]json.RawMessage `json:"items"`
+	}
+	_ = json.Unmarshal(eventField["parameters"], &eventParameters)
+	if len(eventParameters.Items) != 1 {
+		t.Fatalf("event parameter missing from native document: %s", nativeModel.Fields[2])
+	}
+	if _, present := eventParameters.Items[0]["descriptionI18n"]; present {
+		t.Fatalf("omitted legacy parameter description was invented: %s", eventParameters.Items[0]["descriptionI18n"])
+	}
 	if !bytes.Contains(nativeModel.Fields[3], []byte(`"identifier":"enabled"`)) {
 		t.Fatalf("command parameter was not retained: %s", nativeModel.Fields[3])
 	}
@@ -60,6 +72,36 @@ func TestConvertLegacyMarketTemplateToNativePreservesV2Shape(t *testing.T) {
 	}
 	if !bytes.Contains(converted.Resources, []byte(`9007199254740001`)) || !bytes.Contains(converted.Resources, []byte(`1.2345678901234567`)) {
 		t.Fatalf("chart numeric values changed during conversion: %s", converted.Resources)
+	}
+}
+
+func TestConvertLegacyMarketTemplateToNativeAcceptsOptionalEnumParameterDescription(t *testing.T) {
+	full := legacyNativeFixture()
+	var definition map[string]json.RawMessage
+	if err := json.Unmarshal(full.TemplateDefinition, &definition); err != nil {
+		t.Fatal(err)
+	}
+	var commands []map[string]json.RawMessage
+	if err := json.Unmarshal(definition["commands"], &commands); err != nil || len(commands) != 1 {
+		t.Fatalf("decode fixture command: err=%v count=%d", err, len(commands))
+	}
+	paramsJSON, err := json.Marshal([]map[string]interface{}{{
+		"data_identifier": "state", "data_name": "State", "param_type": "Enum", "data_type": "String",
+		"enum_config": []map[string]interface{}{{"value": "on", "label": map[string]string{"default": "On"}}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commands[0]["params"] = mustJSON(string(paramsJSON))
+	definition["commands"] = mustJSON(commands)
+	full.TemplateDefinition = mustJSON(definition)
+
+	converted, err := convertLegacyMarketTemplateToNative(full)
+	if err != nil {
+		t.Fatalf("convert optional enum parameter metadata: %v", err)
+	}
+	if !bytes.Contains(converted.Model, []byte(`"kind":"ENUM"`)) || !bytes.Contains(converted.Model, []byte(`"default":"On"`)) {
+		t.Fatalf("enum parameter type or optional label was not retained: %s", converted.Model)
 	}
 }
 
