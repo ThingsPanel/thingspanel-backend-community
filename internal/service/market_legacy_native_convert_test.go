@@ -169,9 +169,9 @@ func TestConvertLegacyMarketTemplateToNativeRejectsAmbiguousOrLossyInput(t *test
 			want: "vendor_extension",
 		},
 		{
-			name: "native BOOLEAN enum base is invalid",
+			name: "native OBJECT enum base is invalid",
 			mutate: func(t *testing.T, full *model.MarketTemplateFullData) {
-				replaceLegacyDefinitionText(t, full, `"data_type":"Enum","unit":""`, `"data_type":"Enum","value_type":{"kind":"ENUM","baseKind":"BOOLEAN","enumValues":[{"code":true,"label":{"default":"On"}}]},"unit":""`)
+				replaceLegacyDefinitionText(t, full, `"data_type":"Enum","unit":""`, `"data_type":"Enum","value_type":{"kind":"ENUM","baseKind":"OBJECT","enumValues":[{"code":true,"label":{"default":"On"}}]},"unit":""`)
 			},
 			want: "baseKind: unsupported enum base kind",
 		},
@@ -271,8 +271,8 @@ func TestConvertLegacyMarketTemplateToNativeUsesCoreBoolEnumBaseEverywhere(t *te
 		if err := json.Unmarshal(raw, &valueType); err != nil {
 			t.Fatalf("%s: decode value type: %v", path, err)
 		}
-		if valueType.Kind != "ENUM" || valueType.BaseKind != "BOOL" || len(valueType.Options) != 2 {
-			t.Fatalf("%s: expected ENUM/BOOL with two options, got %s", path, raw)
+		if valueType.Kind != "ENUM" || valueType.BaseKind != "BOOLEAN" || len(valueType.Options) != 2 {
+			t.Fatalf("%s: expected wire ENUM/BOOLEAN with two options, got %s", path, raw)
 		}
 		var codes []bool
 		for _, optionRaw := range valueType.Options {
