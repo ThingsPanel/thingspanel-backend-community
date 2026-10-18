@@ -14,7 +14,9 @@ import (
 )
 
 func publishNativeDeviceConfig(ctx context.Context, req model.PublishToMarketReq, dc *model.DeviceConfig, communityAuthorization, publicOrigin string) (*model.MarketPublishApiResponse, error) {
-	if dc.NativeThingModelSnapshotID == nil || dc.NativeThingModelRevision == nil || dc.DeviceTemplateID != nil {
+	if dc == nil || dc.NativeThingModelID == nil || dc.NativeThingModelSnapshotID == nil || dc.NativeThingModelRevision == nil ||
+		strings.TrimSpace(*dc.NativeThingModelID) == "" || strings.TrimSpace(*dc.NativeThingModelSnapshotID) == "" ||
+		*dc.NativeThingModelRevision < 1 || dc.DeviceTemplateID != nil {
 		return nil, errcode.WithData(errcode.CodeParamError, "device config native binding is incomplete or mixed with a legacy template")
 	}
 	nativeClient, err := newNativeMarketImportClient()
@@ -25,7 +27,33 @@ func publishNativeDeviceConfig(ctx context.Context, req model.PublishToMarketReq
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeSystemError, "failed to read bound native model snapshot: "+err.Error())
 	}
-	if snapshot.SnapshotID != *dc.NativeThingModelSnapshotID {
+	marketReq, err := buildNativeDeviceTemplateMarketPackage(req, dc, snapshot, publicOrigin, nil)
+	if err != nil {
+		return nil, err
+	}
+	marketReq.PluginDependencies = getPluginDependenciesFromProtocol(dc)
+	marketUserID := marketSubject(req.MarketToken)
+	apiResp, err := NewMarketClient().PublishTemplate(ctx, req.MarketToken, marketUserID, marketReq)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, "Market service unreachable or request failed: "+err.Error())
+	}
+	if apiResp.Code != 0 {
+		return apiResp, errcode.WithData(errcode.CodeSystemError, apiResp.Message)
+	}
+	return apiResp, nil
+}
+
+// buildNativeDeviceTemplateMarketPackage assembles the exact market request
+// from a tenant-scoped DeviceConfig and its already authenticated, pinned
+// native snapshot. It intentionally performs no native or market HTTP calls.
+func buildNativeDeviceTemplateMarketPackage(req model.PublishToMarketReq, dc *model.DeviceConfig, snapshot *nativeMarketSnapshotResponse, publicOrigin string, pluginDependencies []model.PluginDependency) (*model.PublishTemplateReq, error) {
+	if dc == nil || dc.NativeThingModelID == nil || dc.NativeThingModelSnapshotID == nil || dc.NativeThingModelRevision == nil || dc.DeviceTemplateID != nil {
+		return nil, errcode.WithData(errcode.CodeParamError, "device config native binding is incomplete or mixed with a legacy template")
+	}
+	if snapshot == nil || snapshot.PublishedRevision < 1 || strings.TrimSpace(snapshot.ModelID) == "" ||
+		strings.TrimSpace(snapshot.SnapshotID) == "" || snapshot.ModelID != *dc.NativeThingModelID ||
+		snapshot.PublishedRevision != *dc.NativeThingModelRevision || snapshot.SnapshotID != *dc.NativeThingModelSnapshotID ||
+		snapshot.Resources.ModelID != *dc.NativeThingModelID || snapshot.Resources.Revision < 0 {
 		return nil, errcode.WithData(errcode.CodeParamError, "native snapshot does not match the device config binding")
 	}
 	dependency, err := buildMarketNativeThingModelDependency(snapshot)
@@ -134,20 +162,11 @@ func publishNativeDeviceConfig(ctx context.Context, req model.PublishToMarketReq
 		OtherConfig: scrubMarketSecrets(parseJSON(ptrStr(dc.OtherConfig))), AdditionalInfo: scrubMarketSecrets(parseJSON(ptrStr(dc.AdditionalInfo))),
 		AutoRegister: dc.AutoRegister, ImageURL: cover,
 	}
-	marketReq := &model.PublishTemplateReq{
+	return &model.PublishTemplateReq{
 		SourceTemplateID: dc.ID, Name: name, Brand: brand, Model: modelName, Category: category,
 		Author: author, Version: version, Description: description, CoverURL: cover, DeviceConfig: deviceConfig,
-		TemplateDefinition: map[string]interface{}{"native_thing_model": string(depRaw), "native_thing_model_encoding": "raw-json-string-v1"}, PluginDependencies: getPluginDependenciesFromProtocol(dc),
-	}
-	marketUserID := marketSubject(req.MarketToken)
-	apiResp, err := NewMarketClient().PublishTemplate(ctx, req.MarketToken, marketUserID, marketReq)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeSystemError, "Market service unreachable or request failed: "+err.Error())
-	}
-	if apiResp.Code != 0 {
-		return apiResp, errcode.WithData(errcode.CodeSystemError, apiResp.Message)
-	}
-	return apiResp, nil
+		TemplateDefinition: map[string]interface{}{"native_thing_model": string(depRaw), "native_thing_model_encoding": "raw-json-string-v1"}, PluginDependencies: pluginDependencies,
+	}, nil
 }
 
 func rawNestedString(raw json.RawMessage, keys ...string) string {
