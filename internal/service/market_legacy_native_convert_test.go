@@ -168,6 +168,13 @@ func TestConvertLegacyMarketTemplateToNativeRejectsAmbiguousOrLossyInput(t *test
 			},
 			want: "vendor_extension",
 		},
+		{
+			name: "native BOOLEAN enum base is invalid",
+			mutate: func(t *testing.T, full *model.MarketTemplateFullData) {
+				replaceLegacyDefinitionText(t, full, `"data_type":"Enum","unit":""`, `"data_type":"Enum","value_type":{"kind":"ENUM","baseKind":"BOOLEAN","enumValues":[{"code":true,"label":{"default":"On"}}]},"unit":""`)
+			},
+			want: "baseKind: unsupported enum base kind",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -190,6 +197,128 @@ func TestConvertLegacyMarketTemplateToNativeRejectsAmbiguousOrLossyInput(t *test
 			}
 		})
 	}
+}
+
+func TestConvertLegacyMarketTemplateToNativeUsesCoreBoolEnumBaseEverywhere(t *testing.T) {
+	full := legacyNativeFixture()
+	var definition map[string]json.RawMessage
+	if err := json.Unmarshal(full.TemplateDefinition, &definition); err != nil {
+		t.Fatal(err)
+	}
+	appendRow := func(group string, row map[string]interface{}) {
+		t.Helper()
+		var rows []json.RawMessage
+		if err := json.Unmarshal(definition[group], &rows); err != nil {
+			t.Fatalf("decode %s rows: %v", group, err)
+		}
+		rows = append(rows, mustJSON(row))
+		definition[group] = mustJSON(rows)
+	}
+	appendRow("telemetry", map[string]interface{}{
+		"data_name": "Connected", "data_identifier": "connected", "read_write_flag": "R", "data_type": "Boolean", "additional_info": "[]",
+	})
+	appendRow("attributes", map[string]interface{}{
+		"data_name": "Switch", "data_identifier": "switch", "read_write_flag": "RW", "data_type": "Enum",
+		"additional_info": `[{"value_type":"Boolean","value":true,"description":"On"},{"value_type":"Boolean","value":false,"description":"Off"}]`,
+	})
+	setLegacyParameterFixture(t, definition, "events", map[string]interface{}{
+		"data_identifier": "enabled", "data_name": "Enabled", "read_write_flag": "Enum", "data_type": "Boolean",
+		"enum_config": []map[string]interface{}{{"value": true, "desc": "On"}, {"value": false, "desc": "Off"}},
+	})
+	setLegacyParameterFixture(t, definition, "commands", map[string]interface{}{
+		"data_identifier": "enabled", "data_name": "Enabled", "param_type": "Enum", "data_type": "Boolean",
+		"enum_config": []map[string]interface{}{{"value": true, "desc": "On"}, {"value": false, "desc": "Off"}},
+	})
+	full.TemplateDefinition = mustJSON(definition)
+
+	converted, err := convertLegacyMarketTemplateToNative(full)
+	if err != nil {
+		t.Fatalf("convert bool scalar and enum fixtures: %v", err)
+	}
+	var native struct {
+		Fields []struct {
+			Identifier string          `json:"identifier"`
+			ValueType  json.RawMessage `json:"valueType"`
+			Parameters json.RawMessage `json:"parameters"`
+		} `json:"fields"`
+	}
+	if err := json.Unmarshal(converted.Model, &native); err != nil {
+		t.Fatal(err)
+	}
+	fieldByID := make(map[string]struct {
+		ValueType  json.RawMessage
+		Parameters json.RawMessage
+	}, len(native.Fields))
+	for _, field := range native.Fields {
+		fieldByID[field.Identifier] = struct {
+			ValueType  json.RawMessage
+			Parameters json.RawMessage
+		}{field.ValueType, field.Parameters}
+	}
+	var scalar struct {
+		Kind string `json:"kind"`
+	}
+	if err := json.Unmarshal(fieldByID["connected"].ValueType, &scalar); err != nil || scalar.Kind != "BOOL" {
+		t.Fatalf("Boolean scalar did not map to native BOOL: %s err=%v", fieldByID["connected"].ValueType, err)
+	}
+	assertBoolEnum := func(path string, raw json.RawMessage) {
+		t.Helper()
+		var valueType struct {
+			Kind     string            `json:"kind"`
+			BaseKind string            `json:"baseKind"`
+			Options  []json.RawMessage `json:"enumValues"`
+		}
+		if err := json.Unmarshal(raw, &valueType); err != nil {
+			t.Fatalf("%s: decode value type: %v", path, err)
+		}
+		if valueType.Kind != "ENUM" || valueType.BaseKind != "BOOL" || len(valueType.Options) != 2 {
+			t.Fatalf("%s: expected ENUM/BOOL with two options, got %s", path, raw)
+		}
+		var codes []bool
+		for _, optionRaw := range valueType.Options {
+			var option struct {
+				Code json.RawMessage `json:"code"`
+			}
+			if err := json.Unmarshal(optionRaw, &option); err != nil {
+				t.Fatalf("%s: decode enum option: %v", path, err)
+			}
+			var code bool
+			if err := json.Unmarshal(option.Code, &code); err != nil {
+				t.Fatalf("%s: expected JSON boolean enum code, got %s", path, option.Code)
+			}
+			codes = append(codes, code)
+		}
+		if !(codes[0] && !codes[1]) {
+			t.Fatalf("%s: boolean enum codes changed: %#v", path, codes)
+		}
+	}
+	assertBoolEnum("switch", fieldByID["switch"].ValueType)
+	for _, fieldID := range []string{"report", "set_enabled"} {
+		var params struct {
+			Items []struct {
+				Identifier string          `json:"identifier"`
+				ValueType  json.RawMessage `json:"valueType"`
+			} `json:"items"`
+		}
+		if err := json.Unmarshal(fieldByID[fieldID].Parameters, &params); err != nil || len(params.Items) != 1 {
+			t.Fatalf("%s: decode enum parameters: err=%v raw=%s", fieldID, err, fieldByID[fieldID].Parameters)
+		}
+		assertBoolEnum(fieldID+"."+params.Items[0].Identifier, params.Items[0].ValueType)
+	}
+}
+
+func setLegacyParameterFixture(t *testing.T, definition map[string]json.RawMessage, group string, parameter map[string]interface{}) {
+	t.Helper()
+	var rows []map[string]json.RawMessage
+	if err := json.Unmarshal(definition[group], &rows); err != nil || len(rows) != 1 {
+		t.Fatalf("decode %s fixture rows: err=%v count=%d", group, err, len(rows))
+	}
+	paramsJSON, err := json.Marshal([]map[string]interface{}{parameter})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows[0]["params"] = mustJSON(string(paramsJSON))
+	definition[group] = mustJSON(rows)
 }
 
 func TestConvertLegacyMarketTemplateToNativeFreezesCoverReference(t *testing.T) {

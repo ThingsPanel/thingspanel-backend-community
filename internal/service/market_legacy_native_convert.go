@@ -583,7 +583,7 @@ func legacyValueType(raw json.RawMessage, path string) (json.RawMessage, error) 
 		}
 	case "ENUM":
 		var base string
-		if err := json.Unmarshal(object["baseKind"], &base); err != nil || (base != "STRING" && base != "NUMBER" && base != "BOOLEAN") {
+		if err := json.Unmarshal(object["baseKind"], &base); err != nil || (base != "STRING" && base != "NUMBER" && base != "BOOL") {
 			return nil, fmt.Errorf("%s.baseKind: unsupported enum base kind", path)
 		}
 		if len(object["constraint"]) > 0 && !bytes.Equal(bytes.TrimSpace(object["constraint"]), []byte("null")) {
@@ -638,7 +638,7 @@ func legacyEnumType(rows []json.RawMessage, path string) (json.RawMessage, error
 		if err := json.Unmarshal(row["value_type"], &label); err != nil {
 			return nil, fmt.Errorf("%s.value_type: required enum scalar type", rowPath)
 		}
-		rowBase := map[string]string{"String": "STRING", "Number": "NUMBER", "Boolean": "BOOLEAN"}[label]
+		rowBase := map[string]string{"String": "STRING", "Number": "NUMBER", "Boolean": "BOOL"}[label]
 		if rowBase == "" {
 			return nil, fmt.Errorf("%s.value_type: unsupported enum scalar type %q", rowPath, label)
 		}
@@ -694,7 +694,7 @@ func legacyEnumCode(raw json.RawMessage, base, path string) error {
 		if json.Unmarshal(trimmed, &value) != nil {
 			return fmt.Errorf("%s: expected string enum code", path)
 		}
-	case "BOOLEAN":
+	case "BOOL":
 		if !bytes.Equal(trimmed, []byte("true")) && !bytes.Equal(trimmed, []byte("false")) {
 			return fmt.Errorf("%s: expected boolean enum code", path)
 		}
@@ -909,7 +909,7 @@ func legacyParameterValueType(item map[string]json.RawMessage, kind, path string
 			}
 			var base string
 			_ = json.Unmarshal(object["baseKind"], &base)
-			if map[string]string{"String": "STRING", "Number": "NUMBER", "Boolean": "BOOLEAN"}[dataType] != base {
+			if map[string]string{"String": "STRING", "Number": "NUMBER", "Boolean": "BOOL"}[dataType] != base {
 				return nil, fmt.Errorf("%s.data_type: conflicts with value_type.baseKind", path)
 			}
 			converted, err := legacyParameterEnumType(item, path)
@@ -956,7 +956,7 @@ func legacyParameterEnumType(item map[string]json.RawMessage, path string) (json
 	if err := json.Unmarshal(item["data_type"], &dataType); err != nil {
 		return nil, fmt.Errorf("%s.data_type: required for enum parameter", path)
 	}
-	base := map[string]string{"String": "STRING", "Number": "NUMBER", "Boolean": "BOOLEAN"}[dataType]
+	base := map[string]string{"String": "STRING", "Number": "NUMBER", "Boolean": "BOOL"}[dataType]
 	if base == "" {
 		return nil, fmt.Errorf("%s.data_type: unsupported enum scalar type %q", path, dataType)
 	}
