@@ -17,6 +17,20 @@ jobs:
     if: github.ref == 'refs/heads/codex/thingmodel-dev-integration-20261018'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: qa_native_binding_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: native-binding-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qa_native_binding_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,6 +46,10 @@ jobs:
           git diff HEAD^ HEAD --check
       - name: Native binding and market package tests
         run: go test ./internal/service ./internal/api ./internal/repo -count=1
+      - name: Native binding PostgreSQL migration integration
+        env:
+          TEST_NATIVE_BINDING_DSN: host=127.0.0.1 port=5432 user=postgres password=native-binding-test-only dbname=qa_native_binding_test sslmode=disable
+        run: go test -p 1 ./initialize -run '^TestNativeBindingSchemaPostgres$' -count=1
       - name: Build the complete Community program
         env:
           CGO_ENABLED: '0'

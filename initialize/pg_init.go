@@ -73,6 +73,9 @@ func PgInit() (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("检查数据库版本失败: %w", err)
 	}
+	if err = ApplyNativeBindingSchema(db); err != nil {
+		return nil, fmt.Errorf("初始化 native binding schema 失败: %w", err)
+	}
 
 	return db, nil
 }
