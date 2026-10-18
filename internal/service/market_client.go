@@ -549,6 +549,7 @@ func (c *MarketClient) DownloadTemplate(ctx context.Context, token string, marke
 		return nil, fmt.Errorf("failed to create download request: %w", err)
 	}
 	httpReq.Header.Set("Authorization", "Bearer "+token)
+	httpReq.Header.Set("X-ThingsPanel-Template-Contract", "native-thing-model-v1")
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
