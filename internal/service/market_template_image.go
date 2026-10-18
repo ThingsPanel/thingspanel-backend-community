@@ -41,6 +41,13 @@ func localizeMarketTemplateImage(ctx context.Context, client *MarketClient, full
 }
 
 func downloadMarketTemplateImage(ctx context.Context, client *MarketClient, coverURL, storageDir string) (string, string, error) {
+	return downloadMarketTemplateImageNamed(ctx, client, coverURL, storageDir, "")
+}
+
+// downloadMarketTemplateImageNamed supports stable filenames for retryable
+// native imports. The market version and dependency checksum form the name;
+// retries therefore keep the exact URL already written into native resources.
+func downloadMarketTemplateImageNamed(ctx context.Context, client *MarketClient, coverURL, storageDir, stableName string) (string, string, error) {
 	if client == nil || client.httpClient == nil {
 		return "", "", fmt.Errorf("market client is not configured")
 	}
@@ -90,6 +97,9 @@ func downloadMarketTemplateImage(ctx context.Context, client *MarketClient, cove
 	}
 
 	dateDir := time.Now().Format("2006-01-02")
+	if stableName != "" {
+		dateDir = "market-native"
+	}
 	finalDir := filepath.Join(storageDir, dateDir)
 	stagingDir := filepath.Join(storageDir, ".staging")
 	if err := os.MkdirAll(finalDir, 0755); err != nil {
@@ -100,6 +110,9 @@ func downloadMarketTemplateImage(ctx context.Context, client *MarketClient, cove
 	}
 
 	fileName := uuid.New() + extension
+	if stableName != "" {
+		fileName = stableName + extension
+	}
 	stagingPath := filepath.Join(stagingDir, fileName+".tmp")
 	finalPath := filepath.Join(finalDir, fileName)
 	if err := os.WriteFile(stagingPath, data, 0644); err != nil {
@@ -113,6 +126,17 @@ func downloadMarketTemplateImage(ctx context.Context, client *MarketClient, cove
 
 	localURL := "./" + path.Join("files", "deviceConfig", dateDir, fileName)
 	return localURL, finalPath, nil
+}
+
+func localizeMarketTemplateImageStable(ctx context.Context, client *MarketClient, fullData *model.MarketTemplateFullData, stableName string) (*string, error) {
+	if fullData == nil || strings.TrimSpace(fullData.CoverURL) == "" {
+		return nil, nil
+	}
+	localURL, _, err := downloadMarketTemplateImageNamed(ctx, client, strings.TrimSpace(fullData.CoverURL), marketTemplateImageDir, stableName)
+	if err != nil {
+		return nil, err
+	}
+	return &localURL, nil
 }
 
 func validateMarketTemplateAssetURL(baseURL, assetURL string) error {

@@ -6,13 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"project/internal/dal"
 	"project/internal/model"
 	"project/internal/query"
 	"project/pkg/errcode"
 	"project/pkg/utils"
-
-	"github.com/golang-jwt/jwt"
 )
 
 // ptrStr safely dereferences a *string, returning "" if nil.
@@ -29,192 +26,27 @@ func parseJSON(data string) map[string]interface{} {
 		return nil
 	}
 	var result map[string]interface{}
-	_ = json.Unmarshal([]byte(data), &result)
+	decoder := json.NewDecoder(strings.NewReader(data))
+	decoder.UseNumber()
+	_ = decoder.Decode(&result)
 	return result
 }
 
 // PublishToMarket 以 device_config_id 为入口，发布 DeviceConfig（凭证协议）和 DeviceTemplate（物模型+面板）到市场
-func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, _ *utils.UserClaims, publicOrigin string) (*model.MarketPublishApiResponse, error) {
-	// 1. Get the DeviceConfig
-	dc, err := dal.GetDeviceConfigByID(req.DeviceConfigID)
+func (*DeviceTemplate) PublishToMarket(ctx context.Context, req model.PublishToMarketReq, claims *utils.UserClaims, communityAuthorization, publicOrigin string) (*model.MarketPublishApiResponse, error) {
+	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
+		return nil, errcode.WithData(errcode.CodeParamError, "authenticated tenant is required")
+	}
+	dc, err := query.DeviceConfig.WithContext(ctx).Where(query.DeviceConfig.ID.Eq(req.DeviceConfigID), query.DeviceConfig.TenantID.Eq(claims.TenantID)).First()
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": fmt.Sprintf("failed to find device config: %s", err.Error()),
 		})
 	}
-	// 发布时不能依赖可能过期的 Redis 配置缓存，否则 image_url 更新后仍会被读成空值。
-	if dc.ImageURL == nil || strings.TrimSpace(ptrStr(dc.ImageURL)) == "" {
-		if freshConfig, queryErr := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(req.DeviceConfigID)).First(); queryErr == nil {
-			dc.ImageURL = freshConfig.ImageURL
-		}
+	if dc.NativeThingModelID != nil && strings.TrimSpace(*dc.NativeThingModelID) != "" {
+		return publishNativeDeviceConfig(ctx, req, dc, communityAuthorization, publicOrigin)
 	}
-
-	// 2. Get the DeviceTemplate (via device_template_id)
-	if dc.DeviceTemplateID == nil || *dc.DeviceTemplateID == "" {
-		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"error": "device config has no associated device template",
-		})
-	}
-	tplID := *dc.DeviceTemplateID
-	tpl, err := dal.GetDeviceTemplateById(tplID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": fmt.Sprintf("failed to find device template: %s", err.Error()),
-		})
-	}
-
-	// 3. Build DeviceConfig payload (凭证协议配置)
-	deviceConfig := &model.DeviceConfigPayload{
-		Name:           dc.Name,
-		DeviceType:     dc.DeviceType,
-		ProtocolType:   ptrStr(dc.ProtocolType),
-		VoucherType:    ptrStr(dc.VoucherType),
-		ProtocolConfig: parseJSON(ptrStr(dc.ProtocolConfig)),
-		DeviceConnType: ptrStr(dc.DeviceConnType),
-		OtherConfig:    parseJSON(ptrStr(dc.OtherConfig)),
-		AdditionalInfo: parseJSON(ptrStr(dc.AdditionalInfo)),
-		AutoRegister:   dc.AutoRegister,
-	}
-
-	// 4. Build TemplateDefinition payload (面板配置)
-	tplDef := map[string]interface{}{
-		"web_chart_config": parseJSON(ptrStr(tpl.WebChartConfig)),
-		"app_chart_config": parseJSON(ptrStr(tpl.AppChartConfig)),
-	}
-
-	// 5. Build device model (telemetry, attributes, commands, events)
-	deviceModel := map[string]interface{}{
-		"telemetry":  []interface{}{},
-		"attributes": []interface{}{},
-		"commands":   []interface{}{},
-		"events":     []interface{}{},
-	}
-
-	if ts, err := dal.GetDeviceModelTelemetryDataList(tplID); err == nil && ts != nil {
-		deviceModel["telemetry"] = ts
-	}
-	if attrs, err := dal.GetDeviceModelAttributeDataList(tplID); err == nil && attrs != nil {
-		deviceModel["attributes"] = attrs
-	}
-	if evts, err := dal.GetDeviceModelEventDataList(tplID); err == nil && evts != nil {
-		deviceModel["events"] = evts
-	}
-	if cmds, err := dal.GetDeviceModelCommandDataList(tplID); err == nil && cmds != nil {
-		deviceModel["commands"] = cmds
-	}
-
-	// 6. Extract metadata (priority: Request > Template/Config > Default)
-	name := req.MarketName
-	if name == "" {
-		name = tpl.Name
-	}
-	brand := req.Brand
-	if brand == "" {
-		brand = ptrStr(tpl.Brand)
-	}
-	if brand == "" {
-		brand = "DefaultBrand"
-	}
-	devModel := req.Model
-	if devModel == "" {
-		devModel = ptrStr(tpl.ModelNumber)
-	}
-	if devModel == "" {
-		devModel = "DefaultModel"
-	}
-	category := req.Category
-	if category == "" {
-		category = "default"
-	}
-	version := req.Version
-	if version == "" {
-		version = ptrStr(tpl.Version)
-	}
-	author := req.Author
-	if author == "" {
-		author = ptrStr(tpl.Author)
-	}
-	description := req.Description
-	if description == "" {
-		description = ptrStr(tpl.Description)
-	}
-	coverURL := strings.TrimSpace(req.CoverURL)
-	if coverURL == "" && dc.ImageURL != nil {
-		coverURL = strings.TrimSpace(*dc.ImageURL)
-	}
-	if coverURL == "" && publicOrigin != "" {
-		if path := strings.TrimSpace(ptrStr(tpl.Path)); path != "" {
-			coverURL = strings.TrimRight(publicOrigin, "/") + "/" + strings.TrimPrefix(path, "./")
-		}
-	}
-	if coverURL != "" && publicOrigin != "" && !strings.HasPrefix(coverURL, "http://") && !strings.HasPrefix(coverURL, "https://") {
-		coverURL = strings.TrimRight(publicOrigin, "/") + "/" + strings.TrimPrefix(coverURL, "./")
-	}
-	deviceConfig.ImageURL = coverURL
-
-	// 7. Extract plugin dependencies from DeviceConfig.protocol_type
-	pluginDeps := getPluginDependenciesFromProtocol(dc)
-
-	// 8. Build publish request to market
-	marketReq := &model.PublishTemplateReq{
-		SourceTemplateID: tplID,
-		Name:             name,
-		Brand:            brand,
-		Model:            devModel,
-		Category:         category,
-		Author:           author,
-		Version:          version,
-		Description:      description,
-		CoverURL:         coverURL,
-		DeviceConfig:     deviceConfig,
-		TemplateDefinition: map[string]interface{}{
-			"web_chart_config": tplDef["web_chart_config"],
-			"app_chart_config": tplDef["app_chart_config"],
-			"cover_url":        coverURL,
-			"template_path":    ptrStr(tpl.Path),
-			"telemetry":        deviceModel["telemetry"],
-			"attributes":       deviceModel["attributes"],
-			"commands":         deviceModel["commands"],
-			"events":           deviceModel["events"],
-		},
-		PluginDependencies: pluginDeps,
-	}
-
-	// 9. Parse MarketToken to get UserID (sub claim)
-	marketUserID := ""
-	token, _, _ := new(jwt.Parser).ParseUnverified(req.MarketToken, jwt.MapClaims{})
-	if token != nil {
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			if sub, ok := claims["sub"].(string); ok {
-				marketUserID = sub
-			}
-		}
-	}
-
-	// 10. Send to Market
-	client := NewMarketClient()
-	apiResp, err := client.PublishTemplate(context.Background(), req.MarketToken, marketUserID, marketReq)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": "Market service unreachable or request failed: " + err.Error(),
-		})
-	}
-
-	// 11. Handle version conflict (code 4009)
-	if apiResp.Code == 4009 {
-		return apiResp, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error":   "Version conflict: this template version already exists in the market",
-			"message": apiResp.Message,
-		})
-	}
-
-	if apiResp.Code != 0 {
-		return apiResp, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": apiResp.Message,
-		})
-	}
-
-	return apiResp, nil
+	return nil, errcode.WithData(errcode.CodeParamError, "unsupported device config: native_thing_model_binding is required for market publication")
 }
 
 // getPluginDependenciesFromProtocol 从 DeviceConfig 的 protocol_type 提取插件依赖

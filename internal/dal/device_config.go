@@ -3,6 +3,7 @@ package dal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,9 +13,12 @@ import (
 	utils "project/pkg/utils"
 
 	"gorm.io/gen"
+	"gorm.io/gorm"
 
 	"github.com/sirupsen/logrus"
 )
+
+var ErrNativeBindingRevisionConflict = errors.New("native binding revision conflict")
 
 func CreateDeviceConfig(deviceconfig *model.DeviceConfig) error {
 	return query.DeviceConfig.Create(deviceconfig)
@@ -45,12 +49,54 @@ func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
 	return err
 }
 
+func UpdateDeviceConfigForTenant(id, tenantID string, condsMap map[string]interface{}) error {
+	condsMap["updated_at"] = time.Now().UTC()
+	result := global.DB.Model(&model.DeviceConfig{}).
+		Where("id = ? AND tenant_id = ?", id, tenantID).
+		Updates(condsMap)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("update device config failed: record not found for tenant")
+	}
+	return nil
+}
+
+func UpdateDeviceConfigWithBindingCAS(id, tenantID string, expectedRevision int, condsMap map[string]interface{}) error {
+	condsMap["updated_at"] = time.Now().UTC()
+	condsMap["native_binding_revision"] = gorm.Expr("native_binding_revision + 1")
+	return global.DB.Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&model.DeviceConfig{}).
+			Where("id = ? AND tenant_id = ? AND native_binding_revision = ?", id, tenantID, expectedRevision).
+			Updates(condsMap)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrNativeBindingRevisionConflict
+		}
+		return nil
+	})
+}
+
 func DeleteDeviceConfig(id string) error {
 	_, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(id)).Delete()
 	if err != nil {
 		logrus.Error(err)
 	}
 	return err
+}
+
+func DeleteDeviceConfigForTenant(id, tenantID string) error {
+	result := global.DB.Where("id = ? AND tenant_id = ?", id, tenantID).Delete(&model.DeviceConfig{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("delete device config failed: record not found for tenant")
+	}
+	return nil
 }
 
 func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
@@ -174,6 +220,19 @@ func (DeviceConfigQuery) First(ctx context.Context, option ...gen.Condition) (in
 		logrus.Error(ctx, err)
 	}
 	return
+}
+
+func GetDeviceConfigByIDForTenant(ctx context.Context, id, tenantID string) (*model.DeviceConfig, error) {
+	info, err := query.DeviceConfig.WithContext(ctx).
+		Where(query.DeviceConfig.ID.Eq(id), query.DeviceConfig.TenantID.Eq(tenantID)).
+		First()
+	if err != nil {
+		return nil, err
+	}
+	if info == nil {
+		return nil, fmt.Errorf("device config not found for tenant")
+	}
+	return info, nil
 }
 
 func (DeviceConfigQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.DeviceConfig, err error) {

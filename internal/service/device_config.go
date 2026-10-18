@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -71,29 +72,62 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 	return deviceconfig, err
 }
 
-func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, error) {
-	// 对修改设备模板id进行特殊处理
-	if req.DeviceTemplateId != nil && *req.DeviceTemplateId == "" {
-		err := dal.UpdateDeviceConfigTemplateID(req.Id, nil)
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
-		}
-		req.DeviceTemplateId = nil
-	}
+func (*DeviceConfig) UpdateDeviceConfig(ctx context.Context, req model.UpdateDeviceConfigReq, claims *utils.UserClaims, authToken string) (any, error) {
 	condsMap, err := StructToMapAndVerifyJson(req, "additional_info", "protocol_config", "other_config")
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
 			"err": err.Error(),
 		})
 	}
-	// 获取原配置信息
-	oldConfig, err := dal.GetDeviceConfigByID(req.Id)
+	oldConfig, err := dal.GetDeviceConfigByIDForTenant(context.Background(), req.Id, claims.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, errcode.New(errcode.CodeOpDenied)
+	}
+	delete(condsMap, "id")
+	delete(condsMap, "native_thing_model_id")
+	delete(condsMap, "native_thing_model_snapshot_id")
+	delete(condsMap, "native_thing_model_revision")
+	delete(condsMap, "native_binding_revision")
+	if req.DeviceTemplateId != nil {
+		if strings.TrimSpace(*req.DeviceTemplateId) == "" {
+			condsMap["device_template_id"] = nil
+		} else if oldConfig.NativeThingModelID != nil {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "native and legacy templates cannot be bound at the same time")
+		}
+	}
+	bindingFieldsProvided := req.NativeThingModelID != nil || req.NativeThingModelSnapshotID != nil || req.NativeThingModelRevision != nil
+	if req.NativeBindingRevision != nil && !bindingFieldsProvided {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "native_binding_revision is only valid with a native binding update")
+	}
+	if bindingFieldsProvided {
+		if req.NativeThingModelID == nil || req.NativeThingModelSnapshotID == nil || req.NativeThingModelRevision == nil || req.NativeBindingRevision == nil {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "native binding fields and native_binding_revision must be supplied together")
+		}
+		if *req.NativeBindingRevision != oldConfig.NativeBindingRevision {
+			return nil, errcode.NewWithMessage(errcode.CodeOpDenied, "native binding changed; reload and try again")
+		}
+		if req.DeviceTemplateId != nil && strings.TrimSpace(*req.DeviceTemplateId) != "" {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "native and legacy templates cannot be bound at the same time")
+		}
+		modelID := strings.TrimSpace(*req.NativeThingModelID)
+		snapshotID := strings.TrimSpace(*req.NativeThingModelSnapshotID)
+		revision := *req.NativeThingModelRevision
+		if modelID == "" && snapshotID == "" && revision == 0 {
+			condsMap["native_thing_model_id"] = nil
+			condsMap["native_thing_model_snapshot_id"] = nil
+			condsMap["native_thing_model_revision"] = nil
+		} else {
+			if modelID == "" || snapshotID == "" || revision <= 0 {
+				return nil, errcode.NewWithMessage(errcode.CodeParamError, "a native binding requires model ID, published revision, and snapshot ID")
+			}
+			if err := validateNativeSnapshot(ctx, authToken, modelID, revision, snapshotID); err != nil {
+				return nil, errcode.NewWithMessage(errcode.CodeParamError, "the selected native published snapshot could not be verified")
+			}
+			condsMap["native_thing_model_id"] = modelID
+			condsMap["native_thing_model_snapshot_id"] = snapshotID
+			condsMap["native_thing_model_revision"] = revision
+			condsMap["device_template_id"] = nil
+		}
 	}
 	// 判断other_config是否变更，如果变更要对online_timeout和heartbeat进行校验，如果online_timeout和heartbeat都不为0,则组织修改，提示只允许设置其中一个
 	if req.OtherConfig != nil && req.OtherConfig != oldConfig.OtherConfig {
@@ -110,8 +144,15 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, e
 	}
 
 	logrus.Debug("condsMap:", condsMap)
-	err = dal.UpdateDeviceConfig(req.Id, condsMap)
+	if bindingFieldsProvided {
+		err = dal.UpdateDeviceConfigWithBindingCAS(req.Id, claims.TenantID, *req.NativeBindingRevision, condsMap)
+	} else {
+		err = dal.UpdateDeviceConfigForTenant(req.Id, claims.TenantID, condsMap)
+	}
 	if err != nil {
+		if errors.Is(err, dal.ErrNativeBindingRevisionConflict) {
+			return nil, errcode.NewWithMessage(errcode.CodeOpDenied, "native binding changed; reload and try again")
+		}
 		logrus.Error(err)
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -120,7 +161,7 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, e
 	// 清除设备配置信息缓存
 	initialize.DelDeviceConfigCache(req.Id)
 	// 获取设备配置信息
-	data, err := dal.GetDeviceConfigByID(req.Id)
+	data, err := dal.GetDeviceConfigByIDForTenant(context.Background(), req.Id, claims.TenantID)
 	if err != nil {
 		return data, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -161,7 +202,10 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq) (any, e
 	return data, nil
 }
 
-func (*DeviceConfig) DeleteDeviceConfig(id string) error {
+func (*DeviceConfig) DeleteDeviceConfig(id string, claims *utils.UserClaims) error {
+	if _, err := dal.GetDeviceConfigByIDForTenant(context.Background(), id, claims.TenantID); err != nil {
+		return errcode.New(errcode.CodeOpDenied)
+	}
 	// 检查是否存在关联的 device 记录
 	devices, err := dal.GetDevicesByDeviceConfigID(id)
 	if err != nil {
@@ -174,7 +218,7 @@ func (*DeviceConfig) DeleteDeviceConfig(id string) error {
 	}
 
 	// 删除 device config
-	err = dal.DeleteDeviceConfig(id)
+	err = dal.DeleteDeviceConfigForTenant(id, claims.TenantID)
 	if err != nil {
 		logrus.Error(err)
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -189,13 +233,10 @@ func (*DeviceConfig) DeleteDeviceConfig(id string) error {
 	return nil
 }
 
-func (*DeviceConfig) GetDeviceConfigByID(ctx context.Context, id string) (any, error) {
-	db := dal.DeviceConfigQuery{}
-	info, err := db.First(ctx, query.DeviceConfig.ID.Eq(id))
+func (*DeviceConfig) GetDeviceConfigByID(ctx context.Context, id string, claims *utils.UserClaims) (any, error) {
+	info, err := dal.GetDeviceConfigByIDForTenant(ctx, id, claims.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, errcode.New(errcode.CodeOpDenied)
 	}
 	// res := dal.DeviceConfigVo{}.PoToVo(info)
 	return info, nil

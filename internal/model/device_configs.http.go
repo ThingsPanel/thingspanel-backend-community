@@ -16,21 +16,25 @@ type CreateDeviceConfigReq struct {
 }
 
 type UpdateDeviceConfigReq struct {
-	Id               string     `json:"id" validate:"required,max=36"`                   // 设备配置id
-	Name             *string    `json:"name"  validate:"omitempty,max=99"`               // 设备配置名称
-	DeviceTemplateId *string    `json:"device_template_id" validate:"omitempty,max=36"`  // 设备模板id
-	ProtocolType     *string    `json:"protocol_type" validate:"omitempty,max=100"`      // 协议类型 （枚举在字典里获取）
-	VoucherType      *string    `json:"voucher_type" validate:"omitempty,max=500"`       // 凭证类型 凭证类型（没有具体的枚举，不同协议有不同的类型）
-	ProtocolConfig   *string    `json:"protocol_config" validate:"omitempty"`            // 协议配置
-	DeviceConnType   *string    `json:"device_conn_type" validate:"omitempty,oneof=A B"` // 设备连接方式（默认A）A-设备连接平台B-平台连接设备
-	AdditionalInfo   *string    `json:"additional_info" validate:"omitempty"`            // 附加信息
-	Description      *string    `json:"description" validate:"omitempty,max=255"`        // 描述
-	Remark           *string    `json:"remark" validate:"omitempty,max=255"`             // 备注
-	UpdatedAt        *time.Time `json:"updated_at" validate:"omitempty"`                 // 更新时间
-	OtherConfig      *string    `json:"other_config" validate:"omitempty"`               //其他配置
-	AutoRegister     *int16     `json:"auto_register" validate:"omitempty,oneof=0 1"`    // 是否自动注册
-	TemplateSecret   *string    `json:"template_secret" validate:"omitempty,max=255"`    // 模板密钥
-	ImageURL         *string    `json:"image_url" validate:"omitempty,max=255"`          // 图片地址
+	Id                         string     `json:"id" validate:"required,max=36"`                  // 设备配置id
+	Name                       *string    `json:"name"  validate:"omitempty,max=99"`              // 设备配置名称
+	DeviceTemplateId           *string    `json:"device_template_id" validate:"omitempty,max=36"` // 设备模板id
+	NativeThingModelID         *string    `json:"native_thing_model_id" validate:"omitempty,max=36"`
+	NativeThingModelSnapshotID *string    `json:"native_thing_model_snapshot_id" validate:"omitempty,max=36"`
+	NativeThingModelRevision   *int       `json:"native_thing_model_revision" validate:"omitempty,min=0"`
+	NativeBindingRevision      *int       `json:"native_binding_revision" validate:"omitempty,min=0"`
+	ProtocolType               *string    `json:"protocol_type" validate:"omitempty,max=100"`      // 协议类型 （枚举在字典里获取）
+	VoucherType                *string    `json:"voucher_type" validate:"omitempty,max=500"`       // 凭证类型 凭证类型（没有具体的枚举，不同协议有不同的类型）
+	ProtocolConfig             *string    `json:"protocol_config" validate:"omitempty"`            // 协议配置
+	DeviceConnType             *string    `json:"device_conn_type" validate:"omitempty,oneof=A B"` // 设备连接方式（默认A）A-设备连接平台B-平台连接设备
+	AdditionalInfo             *string    `json:"additional_info" validate:"omitempty"`            // 附加信息
+	Description                *string    `json:"description" validate:"omitempty,max=255"`        // 描述
+	Remark                     *string    `json:"remark" validate:"omitempty,max=255"`             // 备注
+	UpdatedAt                  *time.Time `json:"updated_at" validate:"omitempty"`                 // 更新时间
+	OtherConfig                *string    `json:"other_config" validate:"omitempty"`               //其他配置
+	AutoRegister               *int16     `json:"auto_register" validate:"omitempty,oneof=0 1"`    // 是否自动注册
+	TemplateSecret             *string    `json:"template_secret" validate:"omitempty,max=255"`    // 模板密钥
+	ImageURL                   *string    `json:"image_url" validate:"omitempty,max=255"`          // 图片地址
 }
 
 type GetDeviceConfigListByPageReq struct {
