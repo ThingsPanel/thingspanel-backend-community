@@ -142,7 +142,7 @@ func TestConvertLegacyMarketTemplateToNativeRejectsAmbiguousOrLossyInput(t *test
 			if bytes.Equal(before, after) {
 				t.Fatal("test mutator did not change its fixture")
 			}
-			_, err := convertLegacyMarketTemplateToNative(full)
+			_, err = convertLegacyMarketTemplateToNative(full)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("expected error containing %q, got %v", test.want, err)
 			}
