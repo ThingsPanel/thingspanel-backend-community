@@ -111,3 +111,10 @@ Mosquitto2.1.2 `src/topic_tok.c` 处理 `$share/group/$tp/...` 首token与`$tp/.
 - 原先SIGKILL测试带source_event_id，不能独立证明平台ingestion_id去重。root审查后新增nosource变体，SQL source_event_id为NULL，真实Linux镜像/PG的race连续两次PASS，同UUID/ingestion_id，receipt/event/effect intent各1。原有source-ID证据保留；均不证明副作用已经执行或物理设备效果。
 - 宿主盘曾仅余约500MiB，导致go build的strip报告No space left on device。只删除本任务旧复制context的 `/tmp/tp-mqtt-20261019/qa-context2/.cache`（约1.4GiB可重建Go build/module副本）；保留共享Go缓存、所有源码、原始日志/manifest、镜像与用户iOS产物。回收后约1.9GiB可用。候选最终18包race与build正在新目录运行。
 - 本轮可复用结论已提交远程Candidate Memory：stored，memory_id=`69f6302e-3faa-4f72-a98e-62e4bc812aff`，evidence_id=`lev-79801d442b4ce28bfc21a5fd`。记忆明确区分SIGKILL/未执行effect、observed/未知reported时间及未复现失败，不记录Gate放行。
+
+### 2026-10-20T03:31:26+08:00 — 独立工程检查点已提交
+
+- 社区候选提交 `ba4ccecd50da123d84d361ed1fc5639d4806d330`，分支 `codex/gmqtt-community-20261019`；108个增量文件（包含原始证据）。没有stage原工作树通知或版本改动。candidate只余此前未纳入的临时project二进制，未删除。
+- 最终回归口径：单轮18包中17包PASS，CLI仅测试fixture受umask影响FAIL；显式Chmod建立错误权限后单独CLI真实PG/race PASS；全项目 `go build -p 1 ./...` PASS。不宣称一轮18包全绿。199个Go/SQL文件在提交前与测试manifest逐一SHA核验，无差异。三项预期skip和两次SIGKILL专测范围见final18证据。
+- 原始日志/Go buildinfo保留原字节及SHA；精确路径的.gitattributes只关闭它们的空白检查，未改写或裁剪原日志。其他staged diff检查通过。
+- 已按技术总监、产品经理、公司老板三种视角写入 `docs/gmqtt-community-completion-report-2026-10-20.md`，明确为尚未完工的工程检查点报告，不冒充真人签字或生产证书。总目标仍active；后续重点为真实协议/兼容门禁、同条件收益及长稳资源、运行/回退、现有AI owner的受限工具与用户委托及真实场景验收。

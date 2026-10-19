@@ -4,7 +4,7 @@
 
 范围仅为社区 Mosquitto；企业 VerneMQ/EMQX 未实施、未采购、未测试，不属于本期欠项。本文为代理按三个角色拟稿，不是三名真人签字或独立 SRE 接管记录。计划的 62 项社区 AC 当前为 22 PARTIAL、40 PENDING；11 项企业专项 OUT_OF_SCOPE。G0–G5-C 均未放行。
 
-当前候选位于分支 `codex/gmqtt-community-20261019`，此前检查点 `ad2cbd7f`。本轮待提交源快照的 199 个 Go/SQL 文件已逐一核对，与[最终验证源码 manifest](gmqtt-evidence-2026-10-19/final18-race/source-manifest-after-cutover-test-fix.json)一致。原工作树的通知、版本等其他任务改动保留。
+当前候选位于分支 `codex/gmqtt-community-20261019`，工程提交 `ba4ccecd50da123d84d361ed1fc5639d4806d330`，此前检查点 `ad2cbd7f`。本轮已提交源快照的 199 个 Go/SQL 文件已逐一核对，与[最终验证源码 manifest](gmqtt-evidence-2026-10-19/final18-race/source-manifest-after-cutover-test-fix.json)一致。原工作树的通知、版本等其他任务改动保留。
 
 ## 一、给技术总监的汇报
 
