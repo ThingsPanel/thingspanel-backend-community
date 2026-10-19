@@ -1,0 +1,1381 @@
+=== RUN   TestCommandFrameRoundTripsBinaryAndBase64EncodesOnce
+--- PASS: TestCommandFrameRoundTripsBinaryAndBase64EncodesOnce (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/expired
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/expired (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/over_24_hours
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/over_24_hours (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/oversized_payload
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/oversized_payload (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/empty_payload
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/empty_payload (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/empty_target
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/empty_target (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/wildcard_target_topic
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/wildcard_target_topic (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/wrong_target_topic_family
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/wrong_target_topic_family (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/topic_command_id_mismatch
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/topic_command_id_mismatch (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/empty_topic_level
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/empty_topic_level (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/invalid_UTF-8_topic
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/invalid_UTF-8_topic (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/oversized_topic
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/oversized_topic (0.00s)
+=== RUN   TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/control_character_topic
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage/control_character_topic (0.00s)
+--- PASS: TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage (0.00s)
+=== RUN   TestGoldenEnvelopeAndParseArbitraryBinary
+--- PASS: TestGoldenEnvelopeAndParseArbitraryBinary (0.00s)
+=== RUN   TestEmptyLivePayloadIsEmptyBase64AndRetainedClearIsZeroBytes
+--- PASS: TestEmptyLivePayloadIsEmptyBase64AndRetainedClearIsZeroBytes (0.00s)
+=== RUN   TestParseIngressRejectsTenantIdentityVersionAndMetadataForgery
+=== RUN   TestParseIngressRejectsTenantIdentityVersionAndMetadataForgery/forged_tenant
+--- PASS: TestParseIngressRejectsTenantIdentityVersionAndMetadataForgery/forged_tenant (0.00s)
+=== RUN   TestParseIngressRejectsTenantIdentityVersionAndMetadataForgery/unknown_metadata
+--- PASS: TestParseIngressRejectsTenantIdentityVersionAndMetadataForgery/unknown_metadata (0.00s)
+=== RUN   TestParseIngressRejectsTenantIdentityVersionAndMetadataForgery/unsupported_version
+--- PASS: TestParseIngressRejectsTenantIdentityVersionAndMetadataForgery/unsupported_version (0.00s)
+=== RUN   TestParseIngressRejectsTenantIdentityVersionAndMetadataForgery/forged_connection
+--- PASS: TestParseIngressRejectsTenantIdentityVersionAndMetadataForgery/forged_connection (0.00s)
+--- PASS: TestParseIngressRejectsTenantIdentityVersionAndMetadataForgery (0.00s)
+=== RUN   TestIngressTopicTypedEncodingHashAndInputValidation
+--- PASS: TestIngressTopicTypedEncodingHashAndInputValidation (0.02s)
+=== RUN   TestACLSeparatesPublishAndSubscribeAndHandlesMixedFilters
+--- PASS: TestACLSeparatesPublishAndSubscribeAndHandlesMixedFilters (0.00s)
+=== RUN   TestAuthTypesValidateBeforeUse
+--- PASS: TestAuthTypesValidateBeforeUse (0.00s)
+=== RUN   TestUnsupportedCapabilityIsExplicit
+--- PASS: TestUnsupportedCapabilityIsExplicit (0.00s)
+=== RUN   TestFilterSubsetDoesNotBroadenSubscriptions
+--- PASS: TestFilterSubsetDoesNotBroadenSubscriptions (0.00s)
+=== RUN   TestSharedDeliveryUsesUnderlyingFilter
+--- PASS: TestSharedDeliveryUsesUnderlyingFilter (0.00s)
+=== RUN   TestProtectedNormalNamespaceStillRequiresACL
+--- PASS: TestProtectedNormalNamespaceStillRequiresACL (0.00s)
+=== RUN   TestFilterMatchesInternalCoversWildcardAndLegacyForms
+--- PASS: TestFilterMatchesInternalCoversWildcardAndLegacyForms (0.00s)
+=== RUN   TestUniqueJSONHandlesArraysEscapesAndDepthBound
+--- PASS: TestUniqueJSONHandlesArraysEscapesAndDepthBound (0.00s)
+=== RUN   TestStateBoundToBrokerAndPrincipal
+--- PASS: TestStateBoundToBrokerAndPrincipal (0.00s)
+PASS
+ok  	project/internal/brokercontract	1.489s
+=== RUN   TestOfflineCommandQueueAdmissionDoesNotAuthorizeOutput
+--- PASS: TestOfflineCommandQueueAdmissionDoesNotAuthorizeOutput (0.01s)
+=== RUN   TestDeviceWillCannotInjectCommandFrameOrTopic
+--- PASS: TestDeviceWillCannotInjectCommandFrameOrTopic (0.00s)
+=== RUN   TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain
+=== RUN   TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/expired
+--- PASS: TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/expired (0.00s)
+=== RUN   TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/wrong_tenant
+--- PASS: TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/wrong_tenant (0.00s)
+=== RUN   TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/wrong_target
+--- PASS: TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/wrong_target (0.00s)
+=== RUN   TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/wrong_epoch
+--- PASS: TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/wrong_epoch (0.00s)
+=== RUN   TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/wrong_mapping
+--- PASS: TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/wrong_mapping (0.00s)
+=== RUN   TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/wrong_wire_topic
+--- PASS: TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain/wrong_wire_topic (0.00s)
+--- PASS: TestCommandDeliveryChecksExpiryIdentityEpochMappingAndRetain (0.01s)
+=== RUN   TestOutgoingStripsFrameOnlyFromDeliveryAndPreservesStoredBytes
+--- PASS: TestOutgoingStripsFrameOnlyFromDeliveryAndPreservesStoredBytes (0.00s)
+=== RUN   TestServiceRewriteRequiresLegalDurableCommandFrame
+--- PASS: TestServiceRewriteRequiresLegalDurableCommandFrame (0.00s)
+=== RUN   TestConnectingDeviceGrantAllowsPublishButDeniesCommandDelivery
+--- PASS: TestConnectingDeviceGrantAllowsPublishButDeniesCommandDelivery (0.00s)
+=== RUN   TestServiceCanReceiveInternalIngressAtAnyBindingPhase
+--- PASS: TestServiceCanReceiveInternalIngressAtAnyBindingPhase (0.00s)
+=== RUN   TestActiveDeviceGrantCanReceiveOwnCommand
+--- PASS: TestActiveDeviceGrantCanReceiveOwnCommand (0.00s)
+=== RUN   TestRawBytesAndAuthenticatedPrincipal
+--- PASS: TestRawBytesAndAuthenticatedPrincipal (0.00s)
+=== RUN   TestDelayedDisconnectAndBoundedAuthentication
+--- PASS: TestDelayedDisconnectAndBoundedAuthentication (0.00s)
+=== RUN   TestOwnerFaultsDeny
+=== RUN   TestOwnerFaultsDeny/500
+--- PASS: TestOwnerFaultsDeny/500 (0.00s)
+=== RUN   TestOwnerFaultsDeny/invalid
+--- PASS: TestOwnerFaultsDeny/invalid (0.00s)
+=== RUN   TestOwnerFaultsDeny/trailing
+--- PASS: TestOwnerFaultsDeny/trailing (0.00s)
+=== RUN   TestOwnerFaultsDeny/timeout
+--- PASS: TestOwnerFaultsDeny/timeout (0.20s)
+=== RUN   TestOwnerFaultsDeny/bad_policy
+--- PASS: TestOwnerFaultsDeny/bad_policy (0.00s)
+--- PASS: TestOwnerFaultsDeny (0.21s)
+=== RUN   TestInsecureRemoteOwnerRejected
+--- PASS: TestInsecureRemoteOwnerRejected (0.00s)
+=== RUN   TestImmediateWillRetainsClosingIdentityWithoutReopeningAuthorization
+--- PASS: TestImmediateWillRetainsClosingIdentityWithoutReopeningAuthorization (0.00s)
+=== RUN   TestRewriteMintsDistinctIngestionIDForEachDevicePublish
+--- PASS: TestRewriteMintsDistinctIngestionIDForEachDevicePublish (0.00s)
+=== RUN   TestServiceIngressEnvelopeLimitUsesDecodedDevicePayload
+--- PASS: TestServiceIngressEnvelopeLimitUsesDecodedDevicePayload (0.42s)
+=== RUN   TestServiceIngressLowerDecodedLimitAndMaximumOriginalTopic
+--- PASS: TestServiceIngressLowerDecodedLimitAndMaximumOriginalTopic (0.45s)
+=== RUN   TestServiceRejectsIngressEnvelopeAboveTwoMiB
+--- PASS: TestServiceRejectsIngressEnvelopeAboveTwoMiB (0.00s)
+=== RUN   TestReadyButUncompletedAuthStillConsumesPendingCapacity
+--- PASS: TestReadyButUncompletedAuthStillConsumesPendingCapacity (0.00s)
+=== RUN   TestPointerReuseCancelsOldRequestAndDiscardsLateAllow
+--- PASS: TestPointerReuseCancelsOldRequestAndDiscardsLateAllow (0.00s)
+=== RUN   TestPointerReuseHighFrequencyStaysBounded
+--- PASS: TestPointerReuseHighFrequencyStaysBounded (1.19s)
+=== RUN   TestPointerReuseCannotLeaveOldPendingClientID
+--- PASS: TestPointerReuseCannotLeaveOldPendingClientID (0.00s)
+=== RUN   TestRuntimeFenceStagesOnWorkerAndInstallsOnTickBeforeAck
+--- PASS: TestRuntimeFenceStagesOnWorkerAndInstallsOnTickBeforeAck (0.01s)
+=== RUN   TestRuntimeFenceLeaseAndNewEpochAdmission
+--- PASS: TestRuntimeFenceLeaseAndNewEpochAdmission (0.00s)
+=== RUN   TestRuntimePendingDeadlineDoesNotExtendOnStalledTick
+--- PASS: TestRuntimePendingDeadlineDoesNotExtendOnStalledTick (0.00s)
+=== RUN   TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks
+=== RUN   TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/owner_failure
+--- PASS: TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/owner_failure (0.00s)
+=== RUN   TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/redirect
+--- PASS: TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/redirect (0.00s)
+=== RUN   TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/malformed
+--- PASS: TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/malformed (0.00s)
+=== RUN   TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/duplicate_json
+--- PASS: TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/duplicate_json (0.00s)
+=== RUN   TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/unknown_field
+--- PASS: TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/unknown_field (0.00s)
+=== RUN   TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/overflow
+--- PASS: TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/overflow (0.00s)
+=== RUN   TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/malformed_fence
+--- PASS: TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/malformed_fence (0.00s)
+=== RUN   TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/too_many_fences
+--- PASS: TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks/too_many_fences (0.02s)
+--- PASS: TestRuntimeControlRejectsOwnerFailuresAndBoundsAcks (0.05s)
+PASS
+ok  	project/internal/mosquittodriver	3.855s
+=== RUN   TestPostgresAdmissionBindingAllowsConnectingButActiveBindingDoesNot
+--- PASS: TestPostgresAdmissionBindingAllowsConnectingButActiveBindingDoesNot (0.12s)
+=== RUN   TestOwnerGrantCarriesConnectingBindingPhase
+--- PASS: TestOwnerGrantCarriesConnectingBindingPhase (0.00s)
+=== RUN   TestGormPersistenceClientIDBindingAndPhase
+--- PASS: TestGormPersistenceClientIDBindingAndPhase (0.02s)
+=== RUN   TestMigrationPostgresStateMachineAndRollback
+--- PASS: TestMigrationPostgresStateMachineAndRollback (0.85s)
+=== RUN   TestAuthenticateCreatesNarrowDeviceGrantAndStableConnectionID
+--- PASS: TestAuthenticateCreatesNarrowDeviceGrantAndStableConnectionID (0.00s)
+=== RUN   TestAuthenticateGatewayExpandsOnlyActiveChildNumbers
+--- PASS: TestAuthenticateGatewayExpandsOnlyActiveChildNumbers (0.00s)
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/duplicate_voucher_semantic_matches
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/duplicate_voucher_semantic_matches (0.00s)
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/disabled_device
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/disabled_device (0.00s)
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/inactive_device
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/inactive_device (0.00s)
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/cross_tenant_client_takeover
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/cross_tenant_client_takeover (0.00s)
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/draining_binding
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/draining_binding (0.00s)
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/database_failure
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/database_failure (0.00s)
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/uncertified_custom_topic_mapping
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/uncertified_custom_topic_mapping (0.00s)
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft (0.00s)
+=== RUN   TestExplicitServiceAllowlistAndNoDeviceFallback
+--- PASS: TestExplicitServiceAllowlistAndNoDeviceFallback (0.00s)
+=== RUN   TestServicePublishPolicyRejectsInternalAndBroadSpoofFilters
+--- PASS: TestServicePublishPolicyRejectsInternalAndBroadSpoofFilters (0.00s)
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/read-only_service_may_omit_targets
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/read-only_service_may_omit_targets (0.00s)
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/publish_without_explicit_targets_is_rejected_at_configuration
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/publish_without_explicit_targets_is_rejected_at_configuration (0.00s)
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/target_identifiers_cannot_contain_MQTT_wildcards
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/target_identifiers_cannot_contain_MQTT_wildcards (0.00s)
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/target_from_another_tenant_is_denied_by_default_scope
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/target_from_another_tenant_is_denied_by_default_scope (0.00s)
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/explicit_multi-tenant_scope_still_compiles_only_selected_devices
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/explicit_multi-tenant_scope_still_compiles_only_selected_devices (0.00s)
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/duplicate_device_number_is_rejected
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/duplicate_device_number_is_rejected (0.00s)
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/literal_device_number_must_belong_to_scope
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/literal_device_number_must_belong_to_scope (0.00s)
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices (0.00s)
+=== RUN   TestServiceGrantRejectsResponseOver64KiB
+--- PASS: TestServiceGrantRejectsResponseOver64KiB (0.03s)
+=== RUN   TestHTTPBearerCellScopeBodyLimitAndGenericFailures
+--- PASS: TestHTTPBearerCellScopeBodyLimitAndGenericFailures (0.00s)
+=== RUN   TestPostgresVoucherJSONBSemanticsAndOwnerTransactions
+--- PASS: TestPostgresVoucherJSONBSemanticsAndOwnerTransactions (0.22s)
+=== RUN   TestPostgresRuntimeSyncTokenScopeDuplicateAckAndBootFence
+--- PASS: TestPostgresRuntimeSyncTokenScopeDuplicateAckAndBootFence (0.29s)
+PASS
+ok  	project/internal/brokercontrol	3.128s
+=== RUN   TestPostgresProcessOneInCellKeepsOlderOtherCellReceiptUntouched
+--- PASS: TestPostgresProcessOneInCellKeepsOlderOtherCellReceiptUntouched (0.17s)
+=== RUN   TestPostgresProcessOneInCellFencesRouteChangedReceiptAtOriginalCell
+--- PASS: TestPostgresProcessOneInCellFencesRouteChangedReceiptAtOriginalCell (0.11s)
+=== RUN   TestPostgresProcessOneInCellRetryAndConcurrentCellsAreIsolated
+--- PASS: TestPostgresProcessOneInCellRetryAndConcurrentCellsAreIsolated (0.17s)
+=== RUN   TestPostgresConnectingBindingAcceptsPendingButDoesNotProcess
+--- PASS: TestPostgresConnectingBindingAcceptsPendingButDoesNotProcess (0.10s)
+=== RUN   TestPostgresQuarantineConcurrentDuplicatesShareStableRecord
+--- PASS: TestPostgresQuarantineConcurrentDuplicatesShareStableRecord (0.31s)
+=== RUN   TestPostgresQuarantineTenantAndDeviceScopesAreIsolated
+--- PASS: TestPostgresQuarantineTenantAndDeviceScopesAreIsolated (0.07s)
+=== RUN   TestPostgresQuarantineRejectsFencedAndInactiveBindings
+--- PASS: TestPostgresQuarantineRejectsFencedAndInactiveBindings (0.07s)
+=== RUN   TestPostgresQuarantineCapacityRollsBackAndDuplicateBypassesNewSlot
+--- PASS: TestPostgresQuarantineCapacityRollsBackAndDuplicateBypassesNewSlot (0.09s)
+=== RUN   TestPostgresQuarantineQuotaSerializesDifferentDevicesInTenant
+--- PASS: TestPostgresQuarantineQuotaSerializesDifferentDevicesInTenant (0.10s)
+=== RUN   TestPostgresQuarantineDatabaseFailureRollsBack
+--- PASS: TestPostgresQuarantineDatabaseFailureRollsBack (0.08s)
+=== RUN   TestQuarantineRejectsInvalidTopicReasonAndOversizeBody
+--- PASS: TestQuarantineRejectsInvalidTopicReasonAndOversizeBody (0.00s)
+=== RUN   TestQuarantineIDIncludesEveryField
+--- PASS: TestQuarantineIDIncludesEveryField (0.00s)
+=== RUN   TestPostgresAuditedRetirementBackpressureAndQuarantine
+--- PASS: TestPostgresAuditedRetirementBackpressureAndQuarantine (0.24s)
+=== RUN   TestPostgresRetiredQuarantineRequiresRouteHistoryAndExactSourceScope
+--- PASS: TestPostgresRetiredQuarantineRequiresRouteHistoryAndExactSourceScope (0.15s)
+=== RUN   TestPostgresMigrationActivationGatesLedgerProcessing
+--- PASS: TestPostgresMigrationActivationGatesLedgerProcessing (0.26s)
+=== RUN   TestPostgresIngestionIDReceiptRetryScopeAndSourceDedup
+--- PASS: TestPostgresIngestionIDReceiptRetryScopeAndSourceDedup (0.09s)
+=== RUN   TestPostgresConcurrentDuplicateAcceptUsesOneStableReceipt
+--- PASS: TestPostgresConcurrentDuplicateAcceptUsesOneStableReceipt (0.35s)
+=== RUN   TestPostgresSameSourceEventWithDifferentIngressTimestampIsDuplicate
+--- PASS: TestPostgresSameSourceEventWithDifferentIngressTimestampIsDuplicate (0.09s)
+=== RUN   TestPostgresSameSamplesWithoutSourceIDRemainDistinct
+--- PASS: TestPostgresSameSamplesWithoutSourceIDRemainDistinct (0.10s)
+=== RUN   TestPostgresRejectsWrongEpochAndScopesReceiptReads
+--- PASS: TestPostgresRejectsWrongEpochAndScopesReceiptReads (0.09s)
+=== RUN   TestPostgresHandlerRollbackRetryAndNoDuplicateProcessing
+--- PASS: TestPostgresHandlerRollbackRetryAndNoDuplicateProcessing (0.10s)
+=== RUN   TestPostgresHandlerFailuresBecomeAuditableDeadLetter
+--- PASS: TestPostgresHandlerFailuresBecomeAuditableDeadLetter (0.09s)
+=== RUN   TestPostgresRawPayloadLimitIsIndependentOfMetadataLimit
+--- PASS: TestPostgresRawPayloadLimitIsIndependentOfMetadataLimit (0.17s)
+=== RUN   TestPostgresCapacityAndOversizeRollBackAcceptance
+--- PASS: TestPostgresCapacityAndOversizeRollBackAcceptance (0.09s)
+=== RUN   TestPostgresInactiveBindingRejectsAcceptance
+--- PASS: TestPostgresInactiveBindingRejectsAcceptance (0.08s)
+PASS
+ok  	project/internal/brokerledger	4.663s
+=== RUN   TestImmutableMappingAndScope
+--- PASS: TestImmutableMappingAndScope (0.00s)
+=== RUN   TestRejectUnexpressibleAndInternalTargets
+--- PASS: TestRejectUnexpressibleAndInternalTargets (0.00s)
+=== RUN   TestLiteralTopicCharactersAndVersion
+--- PASS: TestLiteralTopicCharactersAndVersion (0.00s)
+=== RUN   TestSnapshotCacheIsBoundedAndRulesAreImmutable
+--- PASS: TestSnapshotCacheIsBoundedAndRulesAreImmutable (0.00s)
+PASS
+ok  	project/internal/brokermapper	1.434s
+=== RUN   TestCommandContextIgnoresHistoricalTombstonesButBoundsFreshConnections
+--- PASS: TestCommandContextIgnoresHistoricalTombstonesButBoundsFreshConnections (0.35s)
+=== RUN   TestCommandContextFreshOnlineFingerprintAndReadOnly
+--- PASS: TestCommandContextFreshOnlineFingerprintAndReadOnly (0.31s)
+=== RUN   TestCommandContextRequiresFreshOnlineAndCurrentRoute
+=== RUN   TestCommandContextRequiresFreshOnlineAndCurrentRoute/expired-activity
+--- PASS: TestCommandContextRequiresFreshOnlineAndCurrentRoute/expired-activity (0.30s)
+=== RUN   TestCommandContextRequiresFreshOnlineAndCurrentRoute/old-epoch
+--- PASS: TestCommandContextRequiresFreshOnlineAndCurrentRoute/old-epoch (0.26s)
+=== RUN   TestCommandContextRequiresFreshOnlineAndCurrentRoute/draining-route
+--- PASS: TestCommandContextRequiresFreshOnlineAndCurrentRoute/draining-route (0.24s)
+=== RUN   TestCommandContextRequiresFreshOnlineAndCurrentRoute/cross-tenant
+--- PASS: TestCommandContextRequiresFreshOnlineAndCurrentRoute/cross-tenant (0.25s)
+=== RUN   TestCommandContextRequiresFreshOnlineAndCurrentRoute/missing-child-heartbeat
+--- PASS: TestCommandContextRequiresFreshOnlineAndCurrentRoute/missing-child-heartbeat (0.26s)
+=== RUN   TestCommandContextRequiresFreshOnlineAndCurrentRoute/current-parent-path-required
+--- PASS: TestCommandContextRequiresFreshOnlineAndCurrentRoute/current-parent-path-required (0.24s)
+=== RUN   TestCommandContextRequiresFreshOnlineAndCurrentRoute/valid-child-fresh-heartbeat
+--- PASS: TestCommandContextRequiresFreshOnlineAndCurrentRoute/valid-child-fresh-heartbeat (0.30s)
+=== RUN   TestCommandContextRequiresFreshOnlineAndCurrentRoute/root-must-be-active
+--- PASS: TestCommandContextRequiresFreshOnlineAndCurrentRoute/root-must-be-active (0.25s)
+=== RUN   TestCommandContextRequiresFreshOnlineAndCurrentRoute/root-must-exist-in-tenant
+--- PASS: TestCommandContextRequiresFreshOnlineAndCurrentRoute/root-must-exist-in-tenant (0.25s)
+--- PASS: TestCommandContextRequiresFreshOnlineAndCurrentRoute (2.35s)
+=== RUN   TestPostgresConnectingBindingAcceptsObservationButBlocksProjection
+--- PASS: TestPostgresConnectingBindingAcceptsObservationButBlocksProjection (0.17s)
+=== RUN   TestInspectCurrentHeartbeatDeadlineAndReadOnly
+=== RUN   TestInspectCurrentHeartbeatDeadlineAndReadOnly/fresh
+--- PASS: TestInspectCurrentHeartbeatDeadlineAndReadOnly/fresh (0.01s)
+=== RUN   TestInspectCurrentHeartbeatDeadlineAndReadOnly/expired
+--- PASS: TestInspectCurrentHeartbeatDeadlineAndReadOnly/expired (0.00s)
+--- PASS: TestInspectCurrentHeartbeatDeadlineAndReadOnly (0.28s)
+=== RUN   TestInspectCurrentFencesTenantDisabledDrainingAndEpoch
+=== RUN   TestInspectCurrentFencesTenantDisabledDrainingAndEpoch/cross-tenant-is-not-found
+--- PASS: TestInspectCurrentFencesTenantDisabledDrainingAndEpoch/cross-tenant-is-not-found (0.29s)
+=== RUN   TestInspectCurrentFencesTenantDisabledDrainingAndEpoch/disabled-device-is-unknown
+--- PASS: TestInspectCurrentFencesTenantDisabledDrainingAndEpoch/disabled-device-is-unknown (0.28s)
+=== RUN   TestInspectCurrentFencesTenantDisabledDrainingAndEpoch/inactive-device-is-unknown
+--- PASS: TestInspectCurrentFencesTenantDisabledDrainingAndEpoch/inactive-device-is-unknown (0.32s)
+=== RUN   TestInspectCurrentFencesTenantDisabledDrainingAndEpoch/draining-is-unknown
+--- PASS: TestInspectCurrentFencesTenantDisabledDrainingAndEpoch/draining-is-unknown (0.35s)
+=== RUN   TestInspectCurrentFencesTenantDisabledDrainingAndEpoch/old-epoch-is-unknown
+--- PASS: TestInspectCurrentFencesTenantDisabledDrainingAndEpoch/old-epoch-is-unknown (0.27s)
+--- PASS: TestInspectCurrentFencesTenantDisabledDrainingAndEpoch (1.51s)
+=== RUN   TestInspectCurrentGatewayChildUnknownWithoutChildHeartbeat
+--- PASS: TestInspectCurrentGatewayChildUnknownWithoutChildHeartbeat (0.27s)
+=== RUN   TestInspectCurrentGatewayChildOldParentUnknown
+--- PASS: TestInspectCurrentGatewayChildOldParentUnknown (0.32s)
+=== RUN   TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly
+=== RUN   TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly/old-close
+--- PASS: TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly/old-close (0.32s)
+=== RUN   TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly/future-close
+--- PASS: TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly/future-close (0.29s)
+=== RUN   TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly/stale-received-close
+--- PASS: TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly/stale-received-close (0.32s)
+=== RUN   TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly/fresh-close
+--- PASS: TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly/fresh-close (0.34s)
+=== RUN   TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly/fresh-close-with-stale-open
+--- PASS: TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly/fresh-close-with-stale-open (0.31s)
+--- PASS: TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly (1.57s)
+=== RUN   TestProjectCurrentHeartbeatDeadlineAndAtomicEffects
+--- PASS: TestProjectCurrentHeartbeatDeadlineAndAtomicEffects (0.32s)
+=== RUN   TestProjectCurrentTimeoutModeAndUnknownActivity
+=== RUN   TestProjectCurrentTimeoutModeAndUnknownActivity/timeout-mode-idle-offline
+--- PASS: TestProjectCurrentTimeoutModeAndUnknownActivity/timeout-mode-idle-offline (0.58s)
+=== RUN   TestProjectCurrentTimeoutModeAndUnknownActivity/missing-and-future-unknown
+=== RUN   TestProjectCurrentTimeoutModeAndUnknownActivity/missing-and-future-unknown/missing
+--- PASS: TestProjectCurrentTimeoutModeAndUnknownActivity/missing-and-future-unknown/missing (0.24s)
+=== RUN   TestProjectCurrentTimeoutModeAndUnknownActivity/missing-and-future-unknown/future
+--- PASS: TestProjectCurrentTimeoutModeAndUnknownActivity/missing-and-future-unknown/future (0.25s)
+--- PASS: TestProjectCurrentTimeoutModeAndUnknownActivity/missing-and-future-unknown (0.49s)
+--- PASS: TestProjectCurrentTimeoutModeAndUnknownActivity (1.08s)
+=== RUN   TestProjectCurrentEpochFenceAndGatewaySourcePath
+=== RUN   TestProjectCurrentEpochFenceAndGatewaySourcePath/old-epoch-unknown
+--- PASS: TestProjectCurrentEpochFenceAndGatewaySourcePath/old-epoch-unknown (0.24s)
+=== RUN   TestProjectCurrentEpochFenceAndGatewaySourcePath/gateway-child-and-reparent
+--- PASS: TestProjectCurrentEpochFenceAndGatewaySourcePath/gateway-child-and-reparent (0.26s)
+--- PASS: TestProjectCurrentEpochFenceAndGatewaySourcePath (0.50s)
+=== RUN   TestProjectCurrentTransitionFailureRollsBackTogether
+--- PASS: TestProjectCurrentTransitionFailureRollsBackTogether (0.26s)
+=== RUN   TestLateOfflineCannotCloseNewConnection
+--- PASS: TestLateOfflineCannotCloseNewConnection (0.16s)
+=== RUN   TestCloseTombstoneAndFencing
+--- PASS: TestCloseTombstoneAndFencing (0.15s)
+=== RUN   TestStaleOpenObservationIsUnknown
+--- PASS: TestStaleOpenObservationIsUnknown (0.17s)
+=== RUN   TestProjectRecoversCommittedObservationAndIsIdempotent
+--- PASS: TestProjectRecoversCommittedObservationAndIsIdempotent (0.19s)
+=== RUN   TestProjectRecomputesNewestConnectionStateBeforeWriting
+--- PASS: TestProjectRecomputesNewestConnectionStateBeforeWriting (0.17s)
+=== RUN   TestProjectFailureKeepsQueueAndUnknownDoesNotForgeOffline
+--- PASS: TestProjectFailureKeepsQueueAndUnknownDoesNotForgeOffline (0.16s)
+=== RUN   TestProjectFutureAndStaleReceivedOnlineRemainUnknown
+=== RUN   TestProjectFutureAndStaleReceivedOnlineRemainUnknown/future-observation
+--- PASS: TestProjectFutureAndStaleReceivedOnlineRemainUnknown/future-observation (0.16s)
+=== RUN   TestProjectFutureAndStaleReceivedOnlineRemainUnknown/stale-receipt
+--- PASS: TestProjectFutureAndStaleReceivedOnlineRemainUnknown/stale-receipt (0.15s)
+--- PASS: TestProjectFutureAndStaleReceivedOnlineRemainUnknown (0.30s)
+=== RUN   TestPendingPageHasHardMaximum
+--- PASS: TestPendingPageHasHardMaximum (0.50s)
+=== RUN   TestDeferProjectionMovesFailureBehindNewerWork
+--- PASS: TestDeferProjectionMovesFailureBehindNewerWork (0.11s)
+=== RUN   TestProjectEnforcesTenantAndRouteFence
+--- PASS: TestProjectEnforcesTenantAndRouteFence (0.15s)
+=== RUN   TestSkipProjectionOnlyDeletesDirtyKey
+--- PASS: TestSkipProjectionOnlyDeletesDirtyKey (0.16s)
+PASS
+ok  	project/internal/brokerstate	12.999s
+=== RUN   TestPostgresDispatchSuccessErrorAndTerminalGuard
+=== RUN   TestPostgresDispatchSuccessErrorAndTerminalGuard/success_is_protocol_acknowledgement_and_dispatches_once
+--- PASS: TestPostgresDispatchSuccessErrorAndTerminalGuard/success_is_protocol_acknowledgement_and_dispatches_once (0.16s)
+=== RUN   TestPostgresDispatchSuccessErrorAndTerminalGuard/publish_error_is_unknown_and_never_reclaimed
+--- PASS: TestPostgresDispatchSuccessErrorAndTerminalGuard/publish_error_is_unknown_and_never_reclaimed (0.11s)
+=== RUN   TestPostgresDispatchSuccessErrorAndTerminalGuard/permanent_guard_rejection_makes_no_publish
+--- PASS: TestPostgresDispatchSuccessErrorAndTerminalGuard/permanent_guard_rejection_makes_no_publish (0.12s)
+--- PASS: TestPostgresDispatchSuccessErrorAndTerminalGuard (0.39s)
+=== RUN   TestPostgresDispatchRejectsExpiryAndChangedEpochBeforePublish
+=== RUN   TestPostgresDispatchRejectsExpiryAndChangedEpochBeforePublish/expired
+--- PASS: TestPostgresDispatchRejectsExpiryAndChangedEpochBeforePublish/expired (0.12s)
+=== RUN   TestPostgresDispatchRejectsExpiryAndChangedEpochBeforePublish/epoch_changed
+--- PASS: TestPostgresDispatchRejectsExpiryAndChangedEpochBeforePublish/epoch_changed (0.13s)
+--- PASS: TestPostgresDispatchRejectsExpiryAndChangedEpochBeforePublish (0.25s)
+=== RUN   TestPostgresClaimInCellDoesNotConsumeOtherCellCommand
+--- PASS: TestPostgresClaimInCellDoesNotConsumeOtherCellCommand (0.12s)
+=== RUN   TestPostgresDispatchHoldsRouteLockAcrossPublish
+--- PASS: TestPostgresDispatchHoldsRouteLockAcrossPublish (0.31s)
+=== RUN   TestPostgresPlanCapacityCountAndTenantIsolation
+--- PASS: TestPostgresPlanCapacityCountAndTenantIsolation (0.24s)
+=== RUN   TestPostgresPlanCapacityBytesExactBoundary
+--- PASS: TestPostgresPlanCapacityBytesExactBoundary (0.32s)
+=== RUN   TestPostgresPlanPreviewIsNotCommandAndAuthorizationIsExactAndIdempotent
+--- PASS: TestPostgresPlanPreviewIsNotCommandAndAuthorizationIsExactAndIdempotent (0.12s)
+=== RUN   TestPostgresPlanConcurrentSameKeyReturnsOneCommand
+--- PASS: TestPostgresPlanConcurrentSameKeyReturnsOneCommand (0.15s)
+=== RUN   TestPostgresPlanConcurrentSubmitConsumesAtMostOnce
+--- PASS: TestPostgresPlanConcurrentSubmitConsumesAtMostOnce (0.14s)
+=== RUN   TestPostgresPlanPersistFailureDoesNotConsumeAuthorization
+--- PASS: TestPostgresPlanPersistFailureDoesNotConsumeAuthorization (0.15s)
+=== RUN   TestPostgresPlanGuardRouteFenceExpiryAndCancellation
+--- PASS: TestPostgresPlanGuardRouteFenceExpiryAndCancellation (0.16s)
+=== RUN   TestPostgresConcurrentSubmitIdempotencyAndConflict
+--- PASS: TestPostgresConcurrentSubmitIdempotencyAndConflict (0.25s)
+=== RUN   TestPostgresSubmitPersistFailureRollsBack
+--- PASS: TestPostgresSubmitPersistFailureRollsBack (0.07s)
+=== RUN   TestPostgresLogicalDeviceMustDescendFromTargetRoot
+--- PASS: TestPostgresLogicalDeviceMustDescendFromTargetRoot (0.08s)
+=== RUN   TestPostgresClaimCompetesExpiryFenceAndEarlyAck
+--- PASS: TestPostgresClaimCompetesExpiryFenceAndEarlyAck (0.11s)
+=== RUN   TestGetScopedLegacyNonUUIDFallsBackWithoutMaskingDatabaseErrors
+--- PASS: TestGetScopedLegacyNonUUIDFallsBackWithoutMaskingDatabaseErrors (0.08s)
+=== RUN   TestPostgresFindIdempotentScopesCallerAndIgnoresAcceptedExpiry
+--- PASS: TestPostgresFindIdempotentScopesCallerAndIgnoresAcceptedExpiry (0.09s)
+=== RUN   TestPostgresExpiryFencingAndStaleDispatchNeverRequeues
+--- PASS: TestPostgresExpiryFencingAndStaleDispatchNeverRequeues (0.43s)
+PASS
+ok  	project/internal/brokercommands	5.064s
+=== RUN   TestDescribeReturnsExactPublishedSnapshotAndPins
+--- PASS: TestDescribeReturnsExactPublishedSnapshotAndPins (0.01s)
+=== RUN   TestDescribeAcceptsExplicitZeroResourceRevisionButRejectsMissingOrNull
+=== RUN   TestDescribeAcceptsExplicitZeroResourceRevisionButRejectsMissingOrNull/revision-zero-is-published-shape
+--- PASS: TestDescribeAcceptsExplicitZeroResourceRevisionButRejectsMissingOrNull/revision-zero-is-published-shape (0.00s)
+=== RUN   TestDescribeAcceptsExplicitZeroResourceRevisionButRejectsMissingOrNull/revision-missing
+--- PASS: TestDescribeAcceptsExplicitZeroResourceRevisionButRejectsMissingOrNull/revision-missing (0.00s)
+=== RUN   TestDescribeAcceptsExplicitZeroResourceRevisionButRejectsMissingOrNull/revision-null
+--- PASS: TestDescribeAcceptsExplicitZeroResourceRevisionButRejectsMissingOrNull/revision-null (0.00s)
+--- PASS: TestDescribeAcceptsExplicitZeroResourceRevisionButRejectsMissingOrNull (0.01s)
+=== RUN   TestNewClientRequiresHTTPSExceptExplicitLoopbackDevelopment
+--- PASS: TestNewClientRequiresHTTPSExceptExplicitLoopbackDevelopment (0.00s)
+=== RUN   TestDescribeRejectsRedirectAndIdentityOrSnapshotMismatch
+=== RUN   TestDescribeRejectsRedirectAndIdentityOrSnapshotMismatch/redirect
+--- PASS: TestDescribeRejectsRedirectAndIdentityOrSnapshotMismatch/redirect (0.00s)
+=== RUN   TestDescribeRejectsRedirectAndIdentityOrSnapshotMismatch/cross-tenant
+--- PASS: TestDescribeRejectsRedirectAndIdentityOrSnapshotMismatch/cross-tenant (0.00s)
+=== RUN   TestDescribeRejectsRedirectAndIdentityOrSnapshotMismatch/wrong-exact-snapshot
+--- PASS: TestDescribeRejectsRedirectAndIdentityOrSnapshotMismatch/wrong-exact-snapshot (0.00s)
+=== RUN   TestDescribeRejectsRedirectAndIdentityOrSnapshotMismatch/wrong-version-response
+--- PASS: TestDescribeRejectsRedirectAndIdentityOrSnapshotMismatch/wrong-version-response (0.00s)
+--- PASS: TestDescribeRejectsRedirectAndIdentityOrSnapshotMismatch (0.01s)
+=== RUN   TestDescribePaginationBoundAndLegacyBindingFailClosed
+=== RUN   TestDescribePaginationBoundAndLegacyBindingFailClosed/finds-snapshot-on-next-page
+--- PASS: TestDescribePaginationBoundAndLegacyBindingFailClosed/finds-snapshot-on-next-page (0.01s)
+=== RUN   TestDescribePaginationBoundAndLegacyBindingFailClosed/over-limit-fails-closed
+--- PASS: TestDescribePaginationBoundAndLegacyBindingFailClosed/over-limit-fails-closed (0.00s)
+=== RUN   TestDescribePaginationBoundAndLegacyBindingFailClosed/legacy-snapshot-not-found
+--- PASS: TestDescribePaginationBoundAndLegacyBindingFailClosed/legacy-snapshot-not-found (0.00s)
+--- PASS: TestDescribePaginationBoundAndLegacyBindingFailClosed (0.01s)
+=== RUN   TestDescribeRejectsOversizeTimeoutCancellationAndDuplicateKeys
+=== RUN   TestDescribeRejectsOversizeTimeoutCancellationAndDuplicateKeys/oversize
+--- PASS: TestDescribeRejectsOversizeTimeoutCancellationAndDuplicateKeys/oversize (0.01s)
+=== RUN   TestDescribeRejectsOversizeTimeoutCancellationAndDuplicateKeys/timeout
+--- PASS: TestDescribeRejectsOversizeTimeoutCancellationAndDuplicateKeys/timeout (2.00s)
+=== RUN   TestDescribeRejectsOversizeTimeoutCancellationAndDuplicateKeys/cancel
+--- PASS: TestDescribeRejectsOversizeTimeoutCancellationAndDuplicateKeys/cancel (0.00s)
+=== RUN   TestDescribeRejectsOversizeTimeoutCancellationAndDuplicateKeys/duplicate-keys
+--- PASS: TestDescribeRejectsOversizeTimeoutCancellationAndDuplicateKeys/duplicate-keys (0.00s)
+--- PASS: TestDescribeRejectsOversizeTimeoutCancellationAndDuplicateKeys (2.01s)
+=== RUN   TestValidateCommandEnumStillAppliesScalarConstraints
+--- PASS: TestValidateCommandEnumStillAppliesScalarConstraints (0.00s)
+=== RUN   TestValidateCommandBoundsNumberParsing
+=== RUN   TestValidateCommandBoundsNumberParsing/huge_positive_exponent
+--- PASS: TestValidateCommandBoundsNumberParsing/huge_positive_exponent (0.00s)
+=== RUN   TestValidateCommandBoundsNumberParsing/huge_negative_exponent
+--- PASS: TestValidateCommandBoundsNumberParsing/huge_negative_exponent (0.00s)
+=== RUN   TestValidateCommandBoundsNumberParsing/long_exponent
+--- PASS: TestValidateCommandBoundsNumberParsing/long_exponent (0.00s)
+=== RUN   TestValidateCommandBoundsNumberParsing/oversized_digits
+--- PASS: TestValidateCommandBoundsNumberParsing/oversized_digits (0.00s)
+--- PASS: TestValidateCommandBoundsNumberParsing (0.00s)
+=== RUN   TestValidateCommandUsesCoreUTF8ByteMaxLength
+--- PASS: TestValidateCommandUsesCoreUTF8ByteMaxLength (0.00s)
+=== RUN   TestValidateCommandRejectsNonFiniteConstraint
+--- PASS: TestValidateCommandRejectsNonFiniteConstraint (0.00s)
+PASS
+ok  	project/internal/brokersemantic	3.530s
+=== RUN   TestCreateMQTTClientBeforeConnectFailureStopsBeforeNetworkDial
+--- PASS: TestCreateMQTTClientBeforeConnectFailureStopsBeforeNetworkDial (0.00s)
+=== RUN   TestCreateMQTTClientContextReturnsOnCanceledStartup
+--- PASS: TestCreateMQTTClientContextReturnsOnCanceledStartup (0.00s)
+=== RUN   TestMQTTClientManualAckFollowsConfig
+--- PASS: TestMQTTClientManualAckFollowsConfig (0.00s)
+=== RUN   TestCreateMQTTClientContextBoundsUnavailableBrokerRetry
+time="2026-10-20T04:09:25+08:00" level=warning msg="MQTT Adapter connection failed; retrying" client_id=lifecycle-test error="network Error : dial tcp 127.0.0.1:58711: connect: connection refused"
+--- PASS: TestCreateMQTTClientContextBoundsUnavailableBrokerRetry (0.15s)
+=== RUN   TestIngressV1RejectsRawLegacyPublishBeforeClientAccess
+--- PASS: TestIngressV1RejectsRawLegacyPublishBeforeClientAccess (0.00s)
+=== RUN   TestIngressProfileMustBeExplicitAndComplete
+--- PASS: TestIngressProfileMustBeExplicitAndComplete (0.00s)
+=== RUN   TestPlatformRetainedClearHasNoBusinessEffect
+--- PASS: TestPlatformRetainedClearHasNoBusinessEffect (0.00s)
+=== RUN   TestIngressBusinessFamiliesAreExact
+--- PASS: TestIngressBusinessFamiliesAreExact (0.00s)
+=== RUN   TestManualAckWaitsForAcceptedBoundary
+time="2026-10-20T04:09:25+08:00" level=warning msg="Trusted MQTT delivery pending; not acknowledged" error="database unavailable" topic="$tp/ingress/v1/test"
+--- PASS: TestManualAckWaitsForAcceptedBoundary (0.10s)
+=== RUN   TestMapDownlinkUsesOneSnapshotWireTopicAndParams
+--- PASS: TestMapDownlinkUsesOneSnapshotWireTopicAndParams (0.00s)
+=== RUN   TestStandardDownlinkAllowsOwnedResponseTopics
+--- PASS: TestStandardDownlinkAllowsOwnedResponseTopics (0.00s)
+=== RUN   TestCustomDownlinkDoesNotFallbackForUnmappedCanonicalTopic
+--- PASS: TestCustomDownlinkDoesNotFallbackForUnmappedCanonicalTopic (0.00s)
+=== RUN   TestRememberedMappingHasHardCapacityAndExplicitInvalidation
+--- PASS: TestRememberedMappingHasHardCapacityAndExplicitInvalidation (0.12s)
+=== RUN   TestPermanentReceiptConflictQuarantinesBeforeFailureResponseAndAck
+time="2026-10-20T04:09:25+08:00" level=warning msg="Trusted MQTT delivery pending; not acknowledged" error="brokerledger: source event conflicts with accepted receipt\nquarantine transaction failed" topic="$tp/ingress/v1/t/d/k"
+time="2026-10-20T04:09:25+08:00" level=warning msg="trusted ingress permanently rejected and durably quarantined; no business success" device_id=device-a reason=source_event_id_conflict tenant_id=tenant-a
+time="2026-10-20T04:09:25+08:00" level=warning msg="trusted ingress permanently rejected and durably quarantined; no business success" device_id=device-a reason=source_event_id_conflict tenant_id=tenant-a
+--- PASS: TestPermanentReceiptConflictQuarantinesBeforeFailureResponseAndAck (0.10s)
+=== RUN   TestIngressResponseWaitUnblocksWhenAdapterContextIsCancelled
+--- PASS: TestIngressResponseWaitUnblocksWhenAdapterContextIsCancelled (0.00s)
+=== RUN   TestLegacyResponseWaitRetainsTokenWaitPolicy
+--- PASS: TestLegacyResponseWaitRetainsTokenWaitPolicy (0.03s)
+=== RUN   TestCommandResponseScopeDatabaseFailureIsTransient
+--- PASS: TestCommandResponseScopeDatabaseFailureIsTransient (0.00s)
+=== RUN   TestQuarantineMustCommitBeforeManualAckAndDoesNotAcceptBusiness
+time="2026-10-20T04:09:26+08:00" level=warning msg="Trusted MQTT delivery pending; not acknowledged" error="brokercontract: unauthorized\nquarantine database unavailable" topic="$tp/ingress/v1/test"
+time="2026-10-20T04:09:26+08:00" level=warning msg="trusted ingress permanently rejected and durably quarantined; no business success" device_id=d reason=command_ack_scope_denied tenant_id=t
+--- PASS: TestQuarantineMustCommitBeforeManualAckAndDoesNotAcceptBusiness (0.10s)
+=== RUN   TestDecodeCommandAckPayload
+=== RUN   TestDecodeCommandAckPayload/direct_success_ack
+--- PASS: TestDecodeCommandAckPayload/direct_success_ack (0.00s)
+=== RUN   TestDecodeCommandAckPayload/direct_failed_ack
+--- PASS: TestDecodeCommandAckPayload/direct_failed_ack (0.00s)
+=== RUN   TestDecodeCommandAckPayload/missing_result
+--- PASS: TestDecodeCommandAckPayload/missing_result (0.00s)
+=== RUN   TestDecodeCommandAckPayload/invalid_result
+--- PASS: TestDecodeCommandAckPayload/invalid_result (0.00s)
+--- PASS: TestDecodeCommandAckPayload (0.00s)
+PASS
+ok  	project/internal/adapter/mqttadapter	2.367s
+=== RUN   TestReliableDelayedOldAttributeReceiptCannotReplaceNewerTimestamp
+--- PASS: TestReliableDelayedOldAttributeReceiptCannotReplaceNewerTimestamp (0.47s)
+=== RUN   TestReliableSameTimestampAttributeUpdateRemainsPermitted
+--- PASS: TestReliableSameTimestampAttributeUpdateRemainsPermitted (0.40s)
+=== RUN   TestReliableEventBusinessAndReceiptCommitTogether
+--- PASS: TestReliableEventBusinessAndReceiptCommitTogether (0.41s)
+=== RUN   TestReliableEffectFailureRollsBackDomain
+--- PASS: TestReliableEffectFailureRollsBackDomain (0.33s)
+=== RUN   TestReliableCommandAckRemainsScoped
+--- PASS: TestReliableCommandAckRemainsScoped (0.24s)
+=== RUN   TestReliableDurableCommandAckAssociatesLogicalChildAndRootTransport
+--- PASS: TestReliableDurableCommandAckAssociatesLogicalChildAndRootTransport (0.22s)
+=== RUN   TestReliableCommandAckIsIdempotentForSameOutcomeAndRejectsConflict
+--- PASS: TestReliableCommandAckIsIdempotentForSameOutcomeAndRejectsConflict (0.23s)
+=== RUN   TestReliableChildCommandAckRejectsWrongDeviceTenantAndEpoch
+=== RUN   TestReliableChildCommandAckRejectsWrongDeviceTenantAndEpoch/wrong_transport_device
+--- PASS: TestReliableChildCommandAckRejectsWrongDeviceTenantAndEpoch/wrong_transport_device (0.21s)
+=== RUN   TestReliableChildCommandAckRejectsWrongDeviceTenantAndEpoch/wrong_tenant
+--- PASS: TestReliableChildCommandAckRejectsWrongDeviceTenantAndEpoch/wrong_tenant (0.24s)
+=== RUN   TestReliableChildCommandAckRejectsWrongDeviceTenantAndEpoch/wrong_route_epoch
+--- PASS: TestReliableChildCommandAckRejectsWrongDeviceTenantAndEpoch/wrong_route_epoch (0.20s)
+--- PASS: TestReliableChildCommandAckRejectsWrongDeviceTenantAndEpoch (0.65s)
+=== RUN   TestParseResponseRequiresKnownResult
+time="2026-10-20T04:09:33+08:00" level=warning msg="Command response has no supported result" payload="{\"message\":\"success\"}"
+time="2026-10-20T04:09:33+08:00" level=warning msg="Command response has no supported result" payload="{\"result\":2}"
+--- PASS: TestParseResponseRequiresKnownResult (0.00s)
+=== RUN   TestStatusUplinkBoundDeviceIgnoresLegacyExpiryAndUsesSQLActivity
+time="2026-10-20T04:09:33+08:00" level=info msg="准备发送SSE事件: {device_online {\"device_id\":\"number-activity\",\"device_name\":\"number-activity\",\"is_online\":false} activity-uplink-tenant}"
+time="2026-10-20T04:09:33+08:00" level=info msg="发送SSE事件: {device_online {\"device_id\":\"number-activity\",\"device_name\":\"number-activity\",\"is_online\":false} activity-uplink-tenant}"
+--- PASS: TestStatusUplinkBoundDeviceIgnoresLegacyExpiryAndUsesSQLActivity (0.47s)
+=== RUN   TestDecodeTelemetryPayloadWithoutDeviceConfigPassesRawPayloadThrough
+--- PASS: TestDecodeTelemetryPayloadWithoutDeviceConfigPassesRawPayloadThrough (0.00s)
+=== RUN   TestDecodeTelemetryPayloadWithDeviceConfigRetainsDecodeBehavior
+--- PASS: TestDecodeTelemetryPayloadWithDeviceConfigRetainsDecodeBehavior (0.00s)
+=== RUN   TestDecodeTelemetryPayloadPreservesProcessorFailureSignals
+=== RUN   TestDecodeTelemetryPayloadPreservesProcessorFailureSignals/decode_error
+--- PASS: TestDecodeTelemetryPayloadPreservesProcessorFailureSignals/decode_error (0.00s)
+=== RUN   TestDecodeTelemetryPayloadPreservesProcessorFailureSignals/execution_failure_remains_visible_to_caller
+--- PASS: TestDecodeTelemetryPayloadPreservesProcessorFailureSignals/execution_failure_remains_visible_to_caller (0.00s)
+=== RUN   TestDecodeTelemetryPayloadPreservesProcessorFailureSignals/nil_output_is_rejected
+--- PASS: TestDecodeTelemetryPayloadPreservesProcessorFailureSignals/nil_output_is_rejected (0.00s)
+--- PASS: TestDecodeTelemetryPayloadPreservesProcessorFailureSignals (0.00s)
+=== RUN   TestTrustedTelemetryReceiptIDStablePerPacketAndScopedPerLogicalDevice
+--- PASS: TestTrustedTelemetryReceiptIDStablePerPacketAndScopedPerLogicalDevice (0.00s)
+=== RUN   TestTrustedTelemetryBuildsCommitRoutedStorageMessage
+--- PASS: TestTrustedTelemetryBuildsCommitRoutedStorageMessage (0.00s)
+=== RUN   TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup
+=== RUN   TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/missing_device_id
+--- PASS: TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/missing_device_id (0.00s)
+=== RUN   TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/wrong_device_id_type
+--- PASS: TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/wrong_device_id_type (0.00s)
+=== RUN   TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/missing_broker_cell
+--- PASS: TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/missing_broker_cell (0.00s)
+=== RUN   TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/zero_epoch
+--- PASS: TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/zero_epoch (0.00s)
+=== RUN   TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/fractional_epoch
+--- PASS: TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/fractional_epoch (0.00s)
+=== RUN   TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/string_profile
+--- PASS: TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/string_profile (0.00s)
+=== RUN   TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/missing_timestamp
+--- PASS: TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup/missing_timestamp (0.00s)
+--- PASS: TestTrustedTelemetryRejectsMalformedMetadataBeforeDeviceLookup (0.00s)
+=== RUN   TestTrustedTelemetryStorageSendStopsWithContext
+--- PASS: TestTrustedTelemetryStorageSendStopsWithContext (0.02s)
+=== RUN   TestTrustedTelemetryProfileRecognitionIsExact
+--- PASS: TestTrustedTelemetryProfileRecognitionIsExact (0.00s)
+PASS
+ok  	project/internal/uplink	5.258s
+=== RUN   TestTrustedTelemetryFinalBatchCommitsReceiptActivityAndEffectAtomically
+--- PASS: TestTrustedTelemetryFinalBatchCommitsReceiptActivityAndEffectAtomically (0.42s)
+=== RUN   TestTrustedTelemetryRejectsStaleBindingsTenantAndReparentedChild
+=== RUN   TestTrustedTelemetryRejectsStaleBindingsTenantAndReparentedChild/old_epoch
+--- PASS: TestTrustedTelemetryRejectsStaleBindingsTenantAndReparentedChild/old_epoch (0.02s)
+=== RUN   TestTrustedTelemetryRejectsStaleBindingsTenantAndReparentedChild/connecting_phase
+--- PASS: TestTrustedTelemetryRejectsStaleBindingsTenantAndReparentedChild/connecting_phase (0.01s)
+=== RUN   TestTrustedTelemetryRejectsStaleBindingsTenantAndReparentedChild/wrong_tenant
+--- PASS: TestTrustedTelemetryRejectsStaleBindingsTenantAndReparentedChild/wrong_tenant (0.01s)
+=== RUN   TestTrustedTelemetryRejectsStaleBindingsTenantAndReparentedChild/child_was_reparented
+--- PASS: TestTrustedTelemetryRejectsStaleBindingsTenantAndReparentedChild/child_was_reparented (0.02s)
+--- PASS: TestTrustedTelemetryRejectsStaleBindingsTenantAndReparentedChild (0.33s)
+=== RUN   TestTrustedTelemetryTransactionFailureRollsBackEveryTable
+--- PASS: TestTrustedTelemetryTransactionFailureRollsBackEveryTable (0.29s)
+=== RUN   TestTrustedTelemetryDuplicateReceiptAndOldSampleDoNotDuplicateEffectOrRegressLatest
+--- PASS: TestTrustedTelemetryDuplicateReceiptAndOldSampleDoNotDuplicateEffectOrRegressLatest (0.35s)
+=== RUN   TestTrustedTelemetryMetricsCountInsertedRowsAndBatchDuplicates
+--- PASS: TestTrustedTelemetryMetricsCountInsertedRowsAndBatchDuplicates (0.34s)
+=== RUN   TestTrustedAndLegacyItemsUseSeparateCommitPaths
+--- PASS: TestTrustedAndLegacyItemsUseSeparateCommitPaths (0.29s)
+=== RUN   TestTrustedTelemetryBindingFinalLockBlocksRouteMigration
+--- PASS: TestTrustedTelemetryBindingFinalLockBlocksRouteMigration (0.47s)
+PASS
+ok  	project/internal/storage	4.065s
+=== RUN   TestAutomateEventParamConditionCheck
+=== PAUSE TestAutomateEventParamConditionCheck
+=== RUN   TestBrokerAIToolsRealSessionPolicyAndResultScoping
+=== RUN   TestBrokerAIToolsRealSessionPolicyAndResultScoping/revoked_parent_JWT_session
+--- PASS: TestBrokerAIToolsRealSessionPolicyAndResultScoping/revoked_parent_JWT_session (0.00s)
+=== RUN   TestBrokerAIToolsRealSessionPolicyAndResultScoping/disabled_user
+--- PASS: TestBrokerAIToolsRealSessionPolicyAndResultScoping/disabled_user (0.01s)
+=== RUN   TestBrokerAIToolsRealSessionPolicyAndResultScoping/disabled_device
+--- PASS: TestBrokerAIToolsRealSessionPolicyAndResultScoping/disabled_device (0.01s)
+=== RUN   TestBrokerAIToolsRealSessionPolicyAndResultScoping/changed_tenant
+--- PASS: TestBrokerAIToolsRealSessionPolicyAndResultScoping/changed_tenant (0.01s)
+=== RUN   TestBrokerAIToolsRealSessionPolicyAndResultScoping/changed_authority
+--- PASS: TestBrokerAIToolsRealSessionPolicyAndResultScoping/changed_authority (0.01s)
+=== RUN   TestBrokerAIToolsRealSessionPolicyAndResultScoping/revoked_capability
+--- PASS: TestBrokerAIToolsRealSessionPolicyAndResultScoping/revoked_capability (0.00s)
+=== RUN   TestBrokerAIToolsRealSessionPolicyAndResultScoping/semantic_upstream_echo_rejected_escaped=false
+--- PASS: TestBrokerAIToolsRealSessionPolicyAndResultScoping/semantic_upstream_echo_rejected_escaped=false (0.03s)
+=== RUN   TestBrokerAIToolsRealSessionPolicyAndResultScoping/semantic_upstream_echo_rejected_escaped=true
+    broker_ai_tools_integration_test.go:315: issue describe grant with local semantic fixture: tool delegation capacity exceeded
+--- FAIL: TestBrokerAIToolsRealSessionPolicyAndResultScoping/semantic_upstream_echo_rejected_escaped=true (0.00s)
+--- FAIL: TestBrokerAIToolsRealSessionPolicyAndResultScoping (0.54s)
+=== RUN   TestPostgresAutomationEffectAtomicallyCreatesCommandAndActionReceipt
+--- PASS: TestPostgresAutomationEffectAtomicallyCreatesCommandAndActionReceipt (0.61s)
+=== RUN   TestPostgresConcurrentAutomationWorkersPlanEffectOnce
+--- PASS: TestPostgresConcurrentAutomationWorkersPlanEffectOnce (0.49s)
+=== RUN   TestPostgresAutomationRejectsOldRouteAndPolicyDrift
+=== RUN   TestPostgresAutomationRejectsOldRouteAndPolicyDrift/epoch-changed
+--- PASS: TestPostgresAutomationRejectsOldRouteAndPolicyDrift/epoch-changed (0.26s)
+=== RUN   TestPostgresAutomationRejectsOldRouteAndPolicyDrift/binding-freeze
+--- PASS: TestPostgresAutomationRejectsOldRouteAndPolicyDrift/binding-freeze (0.26s)
+=== RUN   TestPostgresAutomationRejectsOldRouteAndPolicyDrift/trigger-epoch-mismatch
+--- PASS: TestPostgresAutomationRejectsOldRouteAndPolicyDrift/trigger-epoch-mismatch (0.25s)
+=== RUN   TestPostgresAutomationRejectsOldRouteAndPolicyDrift/old-trigger
+--- PASS: TestPostgresAutomationRejectsOldRouteAndPolicyDrift/old-trigger (0.27s)
+--- PASS: TestPostgresAutomationRejectsOldRouteAndPolicyDrift (1.04s)
+=== RUN   TestPostgresAutomationTransactionRollbackAndBoundedRetry
+--- PASS: TestPostgresAutomationTransactionRollbackAndBoundedRetry (0.34s)
+=== RUN   TestPostgresAutomationFailureRetryStopsAtFiveAttempts
+--- PASS: TestPostgresAutomationFailureRetryStopsAtFiveAttempts (0.39s)
+=== RUN   TestPostgresAutomationRejectsCrossTenantForgedTriggerSource
+--- PASS: TestPostgresAutomationRejectsCrossTenantForgedTriggerSource (0.31s)
+=== RUN   TestPostgresAutomationEventAndAttributeConditionsCreateCommands
+=== RUN   TestPostgresAutomationEventAndAttributeConditionsCreateCommands/attribute
+time="2026-10-20T04:09:49+08:00" level=warning msg="比较:operator:=, condValue:true, actualValue: true, result:0"
+--- PASS: TestPostgresAutomationEventAndAttributeConditionsCreateCommands/attribute (0.30s)
+=== RUN   TestPostgresAutomationEventAndAttributeConditionsCreateCommands/event
+--- PASS: TestPostgresAutomationEventAndAttributeConditionsCreateCommands/event (0.31s)
+--- PASS: TestPostgresAutomationEventAndAttributeConditionsCreateCommands (0.61s)
+=== RUN   TestPostgresAutomationUnsupportedActionAuditedWithoutCommand
+--- PASS: TestPostgresAutomationUnsupportedActionAuditedWithoutCommand (0.36s)
+=== RUN   TestPostgresAutomationPolicyProofRejectsTenantAndPolicyDrift
+=== RUN   TestPostgresAutomationPolicyProofRejectsTenantAndPolicyDrift/policy-modified
+--- PASS: TestPostgresAutomationPolicyProofRejectsTenantAndPolicyDrift/policy-modified (0.33s)
+=== RUN   TestPostgresAutomationPolicyProofRejectsTenantAndPolicyDrift/policy-disabled
+--- PASS: TestPostgresAutomationPolicyProofRejectsTenantAndPolicyDrift/policy-disabled (0.38s)
+--- PASS: TestPostgresAutomationPolicyProofRejectsTenantAndPolicyDrift (1.01s)
+=== RUN   TestPostgresAutomationRateWindowBurstRefillAndDeviceIsolation
+--- PASS: TestPostgresAutomationRateWindowBurstRefillAndDeviceIsolation (0.51s)
+=== RUN   TestPostgresAutomationFailedPlanDoesNotConsumeWindowToken
+--- PASS: TestPostgresAutomationFailedPlanDoesNotConsumeWindowToken (0.34s)
+=== RUN   TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess
+=== RUN   TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/attribute-control
+--- PASS: TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/attribute-control (0.00s)
+=== RUN   TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/attribute-query
+--- PASS: TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/attribute-query (0.00s)
+=== RUN   TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/telemetry-control
+--- PASS: TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/telemetry-control (0.00s)
+=== RUN   TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/ota-create
+--- PASS: TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/ota-create (0.00s)
+=== RUN   TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/ota-publish
+--- PASS: TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/ota-publish (0.00s)
+=== RUN   TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/expected-create
+--- PASS: TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/expected-create (0.00s)
+=== RUN   TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/expected-send
+--- PASS: TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess/expected-send (0.00s)
+--- PASS: TestIngressV1RejectsUnsupportedLegacyDownlinksBeforeDatabaseAccess (0.00s)
+=== RUN   TestLegacyDownlinkCapabilityRemainsAvailable
+--- PASS: TestLegacyDownlinkCapabilityRemainsAvailable (0.00s)
+=== RUN   TestCommandIdempotencyKeepsLargeIntegerPrecisionAndIgnoresDerivedRoute
+--- PASS: TestCommandIdempotencyKeepsLargeIntegerPrecisionAndIgnoresDerivedRoute (0.00s)
+=== RUN   TestCommandCanonicalRejectsAmbiguousDuplicateParameters
+--- PASS: TestCommandCanonicalRejectsAmbiguousDuplicateParameters (0.00s)
+=== RUN   TestCommandCanonicalDistinguishesExplicitNullAndOmittedParams
+--- PASS: TestCommandCanonicalDistinguishesExplicitNullAndOmittedParams (0.00s)
+=== RUN   TestDurableCommandCanonicalIdentityAndExpiry
+--- PASS: TestDurableCommandCanonicalIdentityAndExpiry (0.00s)
+=== RUN   TestDurableMultiLevelTransformPreservesPayload
+--- PASS: TestDurableMultiLevelTransformPreservesPayload (0.00s)
+=== RUN   TestDurableMultiLevelTransformFourLevelVectors
+--- PASS: TestDurableMultiLevelTransformFourLevelVectors (0.00s)
+=== RUN   TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor
+=== RUN   TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor/active-path-accepted
+--- PASS: TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor/active-path-accepted (0.22s)
+=== RUN   TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor/root-disabled
+--- PASS: TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor/root-disabled (0.22s)
+=== RUN   TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor/root-inactive
+--- PASS: TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor/root-inactive (0.21s)
+=== RUN   TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor/middle-disabled
+--- PASS: TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor/middle-disabled (0.21s)
+=== RUN   TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor/middle-inactive
+--- PASS: TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor/middle-inactive (0.20s)
+--- PASS: TestReadCommandFingerprintRejectsDisabledOrInactiveRootAndAncestor (1.06s)
+=== RUN   TestCommandPlanServicePreviewAuthorizeSubmitLifecycle
+--- PASS: TestCommandPlanServicePreviewAuthorizeSubmitLifecycle (1.11s)
+=== RUN   TestResolveDashboardDataSourceBindingsPreservesReferences
+--- PASS: TestResolveDashboardDataSourceBindingsPreservesReferences (0.00s)
+=== RUN   TestValidateTemplateDeviceBindingsRequiresAllRequiredRoles
+--- PASS: TestValidateTemplateDeviceBindingsRequiresAllRequiredRoles (0.00s)
+=== RUN   TestValidateTemplateDeviceBindingsRejectsUnknownRoleBeforeDeviceLookup
+--- PASS: TestValidateTemplateDeviceBindingsRejectsUnknownRoleBeforeDeviceLookup (0.00s)
+=== RUN   TestBrokerStatusEvidenceServiceAuthProfileAndTenantScope
+--- PASS: TestBrokerStatusEvidenceServiceAuthProfileAndTenantScope (0.49s)
+=== RUN   TestTelemetryEvidenceRequestBounds
+=== RUN   TestTelemetryEvidenceRequestBounds/over_24h
+--- PASS: TestTelemetryEvidenceRequestBounds/over_24h (0.00s)
+=== RUN   TestTelemetryEvidenceRequestBounds/too_many_keys
+--- PASS: TestTelemetryEvidenceRequestBounds/too_many_keys (0.00s)
+=== RUN   TestTelemetryEvidenceRequestBounds/duplicate_key
+--- PASS: TestTelemetryEvidenceRequestBounds/duplicate_key (0.00s)
+=== RUN   TestTelemetryEvidenceRequestBounds/zero_limit
+--- PASS: TestTelemetryEvidenceRequestBounds/zero_limit (0.00s)
+=== RUN   TestTelemetryEvidenceRequestBounds/oversized_limit
+--- PASS: TestTelemetryEvidenceRequestBounds/oversized_limit (0.00s)
+=== RUN   TestTelemetryEvidenceRequestBounds/whitespace_key
+--- PASS: TestTelemetryEvidenceRequestBounds/whitespace_key (0.00s)
+=== RUN   TestTelemetryEvidenceRequestBounds/missing_start
+--- PASS: TestTelemetryEvidenceRequestBounds/missing_start (0.00s)
+=== RUN   TestTelemetryEvidenceRequestBounds/reversed
+--- PASS: TestTelemetryEvidenceRequestBounds/reversed (0.00s)
+--- PASS: TestTelemetryEvidenceRequestBounds (0.00s)
+=== RUN   TestTelemetryMetricDefinitionUsesPublishedEncoreShape
+--- PASS: TestTelemetryMetricDefinitionUsesPublishedEncoreShape (0.00s)
+=== RUN   TestTelemetryMetricDefinitionFailsClosed
+=== RUN   TestTelemetryMetricDefinitionFailsClosed/duplicate_JSON_key
+--- PASS: TestTelemetryMetricDefinitionFailsClosed/duplicate_JSON_key (0.00s)
+=== RUN   TestTelemetryMetricDefinitionFailsClosed/missing_fields
+--- PASS: TestTelemetryMetricDefinitionFailsClosed/missing_fields (0.00s)
+=== RUN   TestTelemetryMetricDefinitionFailsClosed/untyped_telemetry
+--- PASS: TestTelemetryMetricDefinitionFailsClosed/untyped_telemetry (0.00s)
+=== RUN   TestTelemetryMetricDefinitionFailsClosed/unreadable
+--- PASS: TestTelemetryMetricDefinitionFailsClosed/unreadable (0.00s)
+=== RUN   TestTelemetryMetricDefinitionFailsClosed/unsupported_enum
+--- PASS: TestTelemetryMetricDefinitionFailsClosed/unsupported_enum (0.00s)
+--- PASS: TestTelemetryMetricDefinitionFailsClosed (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/INT/42
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/INT/42 (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/INT/42.0
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/INT/42.0 (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/INT/"42"
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/INT/"42" (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/FLOAT/1.25
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/FLOAT/1.25 (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/NUMBER/-2e3
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/NUMBER/-2e3 (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/FLOAT/"1.25"
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/FLOAT/"1.25" (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/BOOL/true
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/BOOL/true (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/BOOL/1
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/BOOL/1 (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/STRING/"ok"
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/STRING/"ok" (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/STRING/null
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/STRING/null (0.00s)
+=== RUN   TestTelemetryValuesMatchPublishedScalarKind/STRING/[]
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind/STRING/[] (0.00s)
+--- PASS: TestTelemetryValuesMatchPublishedScalarKind (0.00s)
+=== RUN   TestDownloadMarketTemplateImage
+--- PASS: TestDownloadMarketTemplateImage (0.01s)
+=== RUN   TestLocalizeMarketTemplateImageWithoutCover
+=== RUN   TestLocalizeMarketTemplateImageWithoutCover/nil_payload
+--- PASS: TestLocalizeMarketTemplateImageWithoutCover/nil_payload (0.00s)
+=== RUN   TestLocalizeMarketTemplateImageWithoutCover/empty_cover
+--- PASS: TestLocalizeMarketTemplateImageWithoutCover/empty_cover (0.00s)
+=== RUN   TestLocalizeMarketTemplateImageWithoutCover/legacy_publisher_image_is_not_downloaded
+--- PASS: TestLocalizeMarketTemplateImageWithoutCover/legacy_publisher_image_is_not_downloaded (0.00s)
+--- PASS: TestLocalizeMarketTemplateImageWithoutCover (0.00s)
+=== RUN   TestDownloadMarketTemplateImageRejectsUntrustedOrigin
+--- PASS: TestDownloadMarketTemplateImageRejectsUntrustedOrigin (0.00s)
+=== RUN   TestValidateMarketTemplateAssetURLAllowsEquivalentLoopbackHost
+--- PASS: TestValidateMarketTemplateAssetURLAllowsEquivalentLoopbackHost (0.00s)
+=== RUN   TestDownloadMarketTemplateImageRejectsInvalidContent
+--- PASS: TestDownloadMarketTemplateImageRejectsInvalidContent (0.00s)
+=== RUN   TestDownloadMarketTemplateImageRejectsOversizeBody
+--- PASS: TestDownloadMarketTemplateImageRejectsOversizeBody (0.00s)
+=== RUN   TestDownloadMarketTemplateImageRejectsCrossOriginRedirect
+--- PASS: TestDownloadMarketTemplateImageRejectsCrossOriginRedirect (0.00s)
+=== RUN   TestMapMarketBundleDetailPreservesBindingIdentity
+--- PASS: TestMapMarketBundleDetailPreservesBindingIdentity (0.00s)
+=== RUN   TestSelectCatalogVersionUsesLatestVersion
+--- PASS: TestSelectCatalogVersionUsesLatestVersion (0.00s)
+=== RUN   TestSanitizeResourceKey
+=== RUN   TestSanitizeResourceKey/simple
+--- PASS: TestSanitizeResourceKey/simple (0.00s)
+=== RUN   TestSanitizeResourceKey/with_underscores
+--- PASS: TestSanitizeResourceKey/with_underscores (0.00s)
+=== RUN   TestSanitizeResourceKey/with_numbers
+--- PASS: TestSanitizeResourceKey/with_numbers (0.00s)
+=== RUN   TestSanitizeResourceKey/starting_with_number
+--- PASS: TestSanitizeResourceKey/starting_with_number (0.00s)
+=== RUN   TestSanitizeResourceKey/with_spaces
+--- PASS: TestSanitizeResourceKey/with_spaces (0.00s)
+=== RUN   TestSanitizeResourceKey/Chinese_characters
+--- PASS: TestSanitizeResourceKey/Chinese_characters (0.00s)
+=== RUN   TestSanitizeResourceKey/empty
+--- PASS: TestSanitizeResourceKey/empty (0.00s)
+=== RUN   TestSanitizeResourceKey/only_spaces
+--- PASS: TestSanitizeResourceKey/only_spaces (0.00s)
+=== RUN   TestSanitizeResourceKey/special_chars
+--- PASS: TestSanitizeResourceKey/special_chars (0.00s)
+=== RUN   TestSanitizeResourceKey/long_name
+--- PASS: TestSanitizeResourceKey/long_name (0.00s)
+--- PASS: TestSanitizeResourceKey (0.00s)
+=== RUN   TestBuildDeviceTemplateResourceKeysPreservesUniqueKeys
+--- PASS: TestBuildDeviceTemplateResourceKeysPreservesUniqueKeys (0.00s)
+=== RUN   TestBuildDeviceTemplateResourceKeysDisambiguatesCollisionsDeterministically
+--- PASS: TestBuildDeviceTemplateResourceKeysDisambiguatesCollisionsDeterministically (0.00s)
+=== RUN   TestGenerateIdempotencyKey
+--- PASS: TestGenerateIdempotencyKey (0.00s)
+=== RUN   TestRequireSuccessfulHorizonPublish
+--- PASS: TestRequireSuccessfulHorizonPublish (0.00s)
+=== RUN   TestRequireSuccessfulHorizonPublishRejectsBusinessError
+--- PASS: TestRequireSuccessfulHorizonPublishRejectsBusinessError (0.00s)
+=== RUN   TestRequireSuccessfulHorizonPublishRejectsIncompleteData
+--- PASS: TestRequireSuccessfulHorizonPublishRejectsIncompleteData (0.00s)
+=== RUN   TestValidateBundleKey
+--- PASS: TestValidateBundleKey (0.00s)
+=== RUN   TestValidateVersion
+--- PASS: TestValidateVersion (0.00s)
+=== RUN   TestCheckForRealIDs
+--- PASS: TestCheckForRealIDs (0.00s)
+=== RUN   TestCheckForRealIDsWithUUID
+--- PASS: TestCheckForRealIDsWithUUID (0.00s)
+=== RUN   TestCheckForRealIDsDetectsDeviceFieldAndKnownSourceID
+--- PASS: TestCheckForRealIDsDetectsDeviceFieldAndKnownSourceID (0.00s)
+=== RUN   TestMarketAccessModeConversion
+--- PASS: TestMarketAccessModeConversion (0.00s)
+=== RUN   TestProtocolConfigAllowlist
+--- PASS: TestProtocolConfigAllowlist (0.00s)
+=== RUN   TestSecretFieldPatterns
+--- PASS: TestSecretFieldPatterns (0.00s)
+=== RUN   TestBundleSecurityConst
+--- PASS: TestBundleSecurityConst (0.00s)
+=== RUN   TestPrecheckErrorCodes
+--- PASS: TestPrecheckErrorCodes (0.00s)
+=== RUN   TestBundleKindConstants
+--- PASS: TestBundleKindConstants (0.00s)
+=== RUN   TestContractVersion
+--- PASS: TestContractVersion (0.00s)
+=== RUN   TestNormalizeJSON
+=== RUN   TestNormalizeJSON/simple_object
+--- PASS: TestNormalizeJSON/simple_object (0.00s)
+=== RUN   TestNormalizeJSON/with_spaces
+--- PASS: TestNormalizeJSON/with_spaces (0.00s)
+=== RUN   TestNormalizeJSON/with_newlines
+--- PASS: TestNormalizeJSON/with_newlines (0.00s)
+=== RUN   TestNormalizeJSON/nested_object
+--- PASS: TestNormalizeJSON/nested_object (0.00s)
+--- PASS: TestNormalizeJSON (0.00s)
+=== RUN   TestIsLetter
+--- PASS: TestIsLetter (0.00s)
+=== RUN   TestIsDigit
+--- PASS: TestIsDigit (0.00s)
+=== RUN   TestPtrStr
+--- PASS: TestPtrStr (0.00s)
+=== RUN   TestNewMarketBundlePublish
+--- PASS: TestNewMarketBundlePublish (0.00s)
+=== RUN   TestValidatePublishDraftRequest_EmptyDeviceTemplateIDs
+--- PASS: TestValidatePublishDraftRequest_EmptyDeviceTemplateIDs (0.00s)
+=== RUN   TestValidatePublishDraftRequest_EmptyDashboardIDs
+--- PASS: TestValidatePublishDraftRequest_EmptyDashboardIDs (0.00s)
+=== RUN   TestValidatePublishDraftRequest_InvalidBundleKey
+--- PASS: TestValidatePublishDraftRequest_InvalidBundleKey (0.00s)
+=== RUN   TestValidatePublishDraftRequest_InvalidVersion
+--- PASS: TestValidatePublishDraftRequest_InvalidVersion (0.00s)
+=== RUN   TestValidatePublishDraftRequest_EmptyToken
+--- PASS: TestValidatePublishDraftRequest_EmptyToken (0.00s)
+=== RUN   TestValidatePublishDraftRequest_Valid
+--- PASS: TestValidatePublishDraftRequest_Valid (0.00s)
+=== RUN   TestValidatePublishDraftRequest_ValidWithHyphens
+--- PASS: TestValidatePublishDraftRequest_ValidWithHyphens (0.00s)
+=== RUN   TestMarketClient_PublishBundle_Success
+--- PASS: TestMarketClient_PublishBundle_Success (0.00s)
+=== RUN   TestMarketClient_PublishBundle_ServerError
+--- PASS: TestMarketClient_PublishBundle_ServerError (0.00s)
+=== RUN   TestMarketClient_PublishBundle_InvalidResponse
+--- PASS: TestMarketClient_PublishBundle_InvalidResponse (0.00s)
+=== RUN   TestMarketClient_PublishBundle_NonZeroCode
+--- PASS: TestMarketClient_PublishBundle_NonZeroCode (0.00s)
+=== RUN   TestMarketClient_PublishBundle_EmptyIdempotencyKey
+--- PASS: TestMarketClient_PublishBundle_EmptyIdempotencyKey (0.00s)
+=== RUN   TestMarketClient_PublishBundle_RequestMarshalError
+    market_client_publish_bundle_test.go:231: Got error (expected if server unreachable): http request failed: Post "http://localhost:8081/api/market/bundles/publish": dial tcp [::1]:8081: connect: connection refused
+--- PASS: TestMarketClient_PublishBundle_RequestMarshalError (0.00s)
+=== RUN   TestParseExistsFromBody
+=== RUN   TestParseExistsFromBody/flat_exists
+--- PASS: TestParseExistsFromBody/flat_exists (0.00s)
+=== RUN   TestParseExistsFromBody/nested_exists_in_data
+--- PASS: TestParseExistsFromBody/nested_exists_in_data (0.00s)
+=== RUN   TestParseExistsFromBody/boolean_data
+--- PASS: TestParseExistsFromBody/boolean_data (0.00s)
+=== RUN   TestParseExistsFromBody/missing_exists
+--- PASS: TestParseExistsFromBody/missing_exists (0.00s)
+--- PASS: TestParseExistsFromBody (0.00s)
+=== RUN   TestCheckUserExists_ResponseClassify
+=== RUN   TestCheckUserExists_ResponseClassify/not_found
+--- PASS: TestCheckUserExists_ResponseClassify/not_found (0.00s)
+=== RUN   TestCheckUserExists_ResponseClassify/bad_request_but_user_not_exists
+--- PASS: TestCheckUserExists_ResponseClassify/bad_request_but_user_not_exists (0.00s)
+=== RUN   TestCheckUserExists_ResponseClassify/non-200_rejected
+--- PASS: TestCheckUserExists_ResponseClassify/non-200_rejected (0.00s)
+=== RUN   TestCheckUserExists_ResponseClassify/invalid_body
+--- PASS: TestCheckUserExists_ResponseClassify/invalid_body (0.00s)
+=== RUN   TestCheckUserExists_ResponseClassify/ok_exists
+--- PASS: TestCheckUserExists_ResponseClassify/ok_exists (0.00s)
+--- PASS: TestCheckUserExists_ResponseClassify (0.00s)
+=== RUN   TestValidateDashboardBundleRoles
+--- PASS: TestValidateDashboardBundleRoles (0.00s)
+=== RUN   TestValidateDashboardBundleRolesAllowsDashboardWithoutDevices
+--- PASS: TestValidateDashboardBundleRolesAllowsDashboardWithoutDevices (0.00s)
+=== RUN   TestValidateDashboardBundleRolesRejectsDuplicateBindingKey
+--- PASS: TestValidateDashboardBundleRolesRejectsDuplicateBindingKey (0.00s)
+=== RUN   TestDashboardPublishIdempotencyKeySeparatesVersions
+--- PASS: TestDashboardPublishIdempotencyKeySeparatesVersions (0.00s)
+=== RUN   TestNormalizeDashboardBundleRolesRemovesSourceDeviceIdentity
+--- PASS: TestNormalizeDashboardBundleRolesRemovesSourceDeviceIdentity (0.00s)
+=== RUN   TestSuggestBindingKeyUsesOpaqueFallback
+--- PASS: TestSuggestBindingKeyUsesOpaqueFallback (0.00s)
+=== RUN   TestNormalizeDashboardBundleRolesConvertsLegacyUnderscores
+--- PASS: TestNormalizeDashboardBundleRolesConvertsLegacyUnderscores (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteNativeDoesNotReadDatabase
+--- PASS: TestResolveServiceDownlinkRouteNativeDoesNotReadDatabase (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteUsesServiceBindingAndPlatformNumber
+--- PASS: TestResolveServiceDownlinkRouteUsesServiceBindingAndPlatformNumber (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteUsesGenericPluginPrefix
+--- PASS: TestResolveServiceDownlinkRouteUsesGenericPluginPrefix (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/service_access_B_without_id
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/service_access_B_without_id (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/access_lookup_failure
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/access_lookup_failure (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/cross_tenant_access
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/cross_tenant_access (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/plugin_lookup_failure
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/plugin_lookup_failure (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/nil_service_config
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/nil_service_config (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/empty_service_config
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/empty_service_config (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/wrong_plugin_type
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/wrong_plugin_type (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/invalid_service_config_JSON
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/invalid_service_config_JSON (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/missing_prefix
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/missing_prefix (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/wildcard_prefix
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/wildcard_prefix (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/slash-only_prefix
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/slash-only_prefix (0.00s)
+=== RUN   TestResolveServiceDownlinkRouteFailsClosed/invalid_device_number
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed/invalid_device_number (0.00s)
+--- PASS: TestResolveServiceDownlinkRouteFailsClosed (0.00s)
+=== RUN   TestDownlinkEntrypointsLoadServiceRelationFromDatabase
+--- PASS: TestDownlinkEntrypointsLoadServiceRelationFromDatabase (0.06s)
+=== RUN   TestBuildCommandDataPreservesGenericCommandPayload
+--- PASS: TestBuildCommandDataPreservesGenericCommandPayload (0.00s)
+=== RUN   TestProcessTimeRangeRejectsLongPresetNonAggregateQuery
+--- PASS: TestProcessTimeRangeRejectsLongPresetNonAggregateQuery (0.00s)
+=== RUN   TestProcessTimeRangeAllowsShortPresetNonAggregateQuery
+--- PASS: TestProcessTimeRangeAllowsShortPresetNonAggregateQuery (0.00s)
+=== RUN   TestProcessTimeRangeRejectsLongCustomNonAggregateQuery
+--- PASS: TestProcessTimeRangeRejectsLongCustomNonAggregateQuery (0.00s)
+=== RUN   TestThingsVisClient_ExportDashboardForMarket_Success
+--- PASS: TestThingsVisClient_ExportDashboardForMarket_Success (0.00s)
+=== RUN   TestThingsVisClient_ExportDashboardForMarket_EmptyID
+--- PASS: TestThingsVisClient_ExportDashboardForMarket_EmptyID (0.00s)
+=== RUN   TestThingsVisClient_ExportDashboardForMarket_ServerError
+--- PASS: TestThingsVisClient_ExportDashboardForMarket_ServerError (0.00s)
+=== RUN   TestThingsVisClient_ExportDashboardForMarket_NonZeroCode
+--- PASS: TestThingsVisClient_ExportDashboardForMarket_NonZeroCode (0.00s)
+=== RUN   TestThingsVisClient_ExportDashboardForMarket_NilData
+--- PASS: TestThingsVisClient_ExportDashboardForMarket_NilData (0.00s)
+=== RUN   TestNewThingsVisClient_DefaultBaseURL
+--- PASS: TestNewThingsVisClient_DefaultBaseURL (0.00s)
+=== RUN   TestThingsVisClient_AnalyzeMarketDashboard
+--- PASS: TestThingsVisClient_AnalyzeMarketDashboard (0.00s)
+=== RUN   TestThingsVisClient_AnalyzeMarketDashboardSupportsInternalTokenFallback
+--- PASS: TestThingsVisClient_AnalyzeMarketDashboardSupportsInternalTokenFallback (0.00s)
+=== RUN   TestThingsVisClient_AnalyzeMarketDashboardRequiresAuthorization
+--- PASS: TestThingsVisClient_AnalyzeMarketDashboardRequiresAuthorization (0.00s)
+=== RUN   TestThingsVisClient_ImportDashboardUsesInternalContract
+--- PASS: TestThingsVisClient_ImportDashboardUsesInternalContract (0.00s)
+=== RUN   TestThingsVisClient_ImportDashboardWithResultForwardsAuthorization
+--- PASS: TestThingsVisClient_ImportDashboardWithResultForwardsAuthorization (0.00s)
+=== RUN   TestThingsVisClient_CreateDashboardFromSnapshotUsesPublicAPI
+--- PASS: TestThingsVisClient_CreateDashboardFromSnapshotUsesPublicAPI (0.00s)
+=== RUN   TestCompactBody
+=== RUN   TestCompactBody/empty_body
+--- PASS: TestCompactBody/empty_body (0.00s)
+=== RUN   TestCompactBody/normal_body
+--- PASS: TestCompactBody/normal_body (0.00s)
+=== RUN   TestCompactBody/long_body
+--- PASS: TestCompactBody/long_body (0.00s)
+--- PASS: TestCompactBody (0.00s)
+=== CONT  TestAutomateEventParamConditionCheck
+=== RUN   TestAutomateEventParamConditionCheck/match_configured_fields_and_ignore_dynamic_timestamp
+=== PAUSE TestAutomateEventParamConditionCheck/match_configured_fields_and_ignore_dynamic_timestamp
+=== RUN   TestAutomateEventParamConditionCheck/exists_matches_present_field
+=== PAUSE TestAutomateEventParamConditionCheck/exists_matches_present_field
+=== RUN   TestAutomateEventParamConditionCheck/numeric_greater_or_equal_matches
+=== PAUSE TestAutomateEventParamConditionCheck/numeric_greater_or_equal_matches
+=== RUN   TestAutomateEventParamConditionCheck/missing_field_with_not_equal_does_not_match
+=== PAUSE TestAutomateEventParamConditionCheck/missing_field_with_not_equal_does_not_match
+=== RUN   TestAutomateEventParamConditionCheck/legacy_full_json_is_not_handled_by_field_matcher
+=== PAUSE TestAutomateEventParamConditionCheck/legacy_full_json_is_not_handled_by_field_matcher
+=== RUN   TestAutomateEventParamConditionCheck/nested_dot_path_matches
+=== PAUSE TestAutomateEventParamConditionCheck/nested_dot_path_matches
+=== RUN   TestAutomateEventParamConditionCheck/in_matches_one_scalar_array_item
+=== PAUSE TestAutomateEventParamConditionCheck/in_matches_one_scalar_array_item
+=== CONT  TestAutomateEventParamConditionCheck/match_configured_fields_and_ignore_dynamic_timestamp
+=== CONT  TestAutomateEventParamConditionCheck/nested_dot_path_matches
+=== CONT  TestAutomateEventParamConditionCheck/in_matches_one_scalar_array_item
+=== CONT  TestAutomateEventParamConditionCheck/legacy_full_json_is_not_handled_by_field_matcher
+=== CONT  TestAutomateEventParamConditionCheck/exists_matches_present_field
+=== CONT  TestAutomateEventParamConditionCheck/numeric_greater_or_equal_matches
+=== CONT  TestAutomateEventParamConditionCheck/missing_field_with_not_equal_does_not_match
+--- PASS: TestAutomateEventParamConditionCheck/nested_dot_path_matches (0.00s)
+--- PASS: TestAutomateEventParamConditionCheck/match_configured_fields_and_ignore_dynamic_timestamp (0.00s)
+--- PASS: TestAutomateEventParamConditionCheck/numeric_greater_or_equal_matches (0.00s)
+--- PASS: TestAutomateEventParamConditionCheck/legacy_full_json_is_not_handled_by_field_matcher (0.00s)
+--- PASS: TestAutomateEventParamConditionCheck/exists_matches_present_field (0.00s)
+--- PASS: TestAutomateEventParamConditionCheck/in_matches_one_scalar_array_item (0.00s)
+--- PASS: TestAutomateEventParamConditionCheck/missing_field_with_not_equal_does_not_match (0.00s)
+--- PASS: TestAutomateEventParamConditionCheck (0.00s)
+FAIL
+FAIL	project/internal/service	10.148s
+=== RUN   TestBrokerAIToolHTTPDelegationRevocationAndOperationLogIsolation
+=== RUN   TestBrokerAIToolHTTPDelegationRevocationAndOperationLogIsolation/ChatBridge_runtime_adapter_dispatcher_and_real_CLI
+--- PASS: TestBrokerAIToolHTTPDelegationRevocationAndOperationLogIsolation/ChatBridge_runtime_adapter_dispatcher_and_real_CLI (1.69s)
+--- PASS: TestBrokerAIToolHTTPDelegationRevocationAndOperationLogIsolation (2.16s)
+=== RUN   TestBrokerAIToolPositiveDescribeTelemetryAndPreview
+--- PASS: TestBrokerAIToolPositiveDescribeTelemetryAndPreview (0.98s)
+=== RUN   TestBrokerAIToolRoutesAreFixedPOSTOnly
+--- PASS: TestBrokerAIToolRoutesAreFixedPOSTOnly (0.00s)
+=== RUN   TestBrokerAIToolRejectsCredentialMixing
+=== RUN   TestBrokerAIToolRejectsCredentialMixing/issuer_authorization_header
+--- PASS: TestBrokerAIToolRejectsCredentialMixing/issuer_authorization_header (0.00s)
+=== RUN   TestBrokerAIToolRejectsCredentialMixing/issuer_api_key
+--- PASS: TestBrokerAIToolRejectsCredentialMixing/issuer_api_key (0.00s)
+=== RUN   TestBrokerAIToolRejectsCredentialMixing/tool_x-token
+--- PASS: TestBrokerAIToolRejectsCredentialMixing/tool_x-token (0.00s)
+=== RUN   TestBrokerAIToolRejectsCredentialMixing/tool_api_key
+--- PASS: TestBrokerAIToolRejectsCredentialMixing/tool_api_key (0.00s)
+=== RUN   TestBrokerAIToolRejectsCredentialMixing/tool_missing_bearer
+--- PASS: TestBrokerAIToolRejectsCredentialMixing/tool_missing_bearer (0.00s)
+=== RUN   TestBrokerAIToolRejectsCredentialMixing/tool_malformed_bearer
+--- PASS: TestBrokerAIToolRejectsCredentialMixing/tool_malformed_bearer (0.00s)
+--- PASS: TestBrokerAIToolRejectsCredentialMixing (0.00s)
+=== RUN   TestBrokerAIToolStrictBoundedBodies
+=== RUN   TestBrokerAIToolStrictBoundedBodies/issuer_unknown_field
+--- PASS: TestBrokerAIToolStrictBoundedBodies/issuer_unknown_field (0.00s)
+=== RUN   TestBrokerAIToolStrictBoundedBodies/issuer_duplicate_field
+--- PASS: TestBrokerAIToolStrictBoundedBodies/issuer_duplicate_field (0.00s)
+=== RUN   TestBrokerAIToolStrictBoundedBodies/issuer_trailing_JSON
+--- PASS: TestBrokerAIToolStrictBoundedBodies/issuer_trailing_JSON (0.00s)
+=== RUN   TestBrokerAIToolStrictBoundedBodies/tool_unknown_field
+--- PASS: TestBrokerAIToolStrictBoundedBodies/tool_unknown_field (0.00s)
+=== RUN   TestBrokerAIToolStrictBoundedBodies/tool_duplicate_field
+--- PASS: TestBrokerAIToolStrictBoundedBodies/tool_duplicate_field (0.00s)
+=== RUN   TestBrokerAIToolStrictBoundedBodies/revoke_nonempty_body
+--- PASS: TestBrokerAIToolStrictBoundedBodies/revoke_nonempty_body (0.00s)
+--- PASS: TestBrokerAIToolStrictBoundedBodies (0.00s)
+=== RUN   TestBrokerAIToolRejectsMultipleCredentialHeaderValues
+--- PASS: TestBrokerAIToolRejectsMultipleCredentialHeaderValues (0.00s)
+=== RUN   TestBrokerAIToolErrorCategoriesAreFixed
+--- PASS: TestBrokerAIToolErrorCategoriesAreFixed (0.00s)
+=== RUN   TestBrokerCommandPlanBodyLimitsRejectsKnownOversizeBeforeBodyLogger
+--- PASS: TestBrokerCommandPlanBodyLimitsRejectsKnownOversizeBeforeBodyLogger (0.00s)
+=== RUN   TestBrokerCommandPlanBodyLimitsRejectsUnknownOversizeBeforeLogger
+--- PASS: TestBrokerCommandPlanBodyLimitsRejectsUnknownOversizeBeforeLogger (0.00s)
+=== RUN   TestBrokerCommandPlanBodyLimitsReplaysValidBodyToLoggerAndHandler
+--- PASS: TestBrokerCommandPlanBodyLimitsReplaysValidBodyToLoggerAndHandler (0.00s)
+=== RUN   TestBrokerCommandPlanBodyLimitsLeavesOtherRequestsUntouched
+--- PASS: TestBrokerCommandPlanBodyLimitsLeavesOtherRequestsUntouched (0.00s)
+=== RUN   TestCommandPlanBodyIsBoundedUniqueAndStrict
+=== RUN   TestCommandPlanBodyIsBoundedUniqueAndStrict/valid
+--- PASS: TestCommandPlanBodyIsBoundedUniqueAndStrict/valid (0.00s)
+=== RUN   TestCommandPlanBodyIsBoundedUniqueAndStrict/duplicate-key
+--- PASS: TestCommandPlanBodyIsBoundedUniqueAndStrict/duplicate-key (0.00s)
+=== RUN   TestCommandPlanBodyIsBoundedUniqueAndStrict/unknown-field
+--- PASS: TestCommandPlanBodyIsBoundedUniqueAndStrict/unknown-field (0.00s)
+=== RUN   TestCommandPlanBodyIsBoundedUniqueAndStrict/trailing-value
+--- PASS: TestCommandPlanBodyIsBoundedUniqueAndStrict/trailing-value (0.00s)
+=== RUN   TestCommandPlanBodyIsBoundedUniqueAndStrict/too-large
+--- PASS: TestCommandPlanBodyIsBoundedUniqueAndStrict/too-large (0.00s)
+--- PASS: TestCommandPlanBodyIsBoundedUniqueAndStrict (0.00s)
+=== RUN   TestCommandPlanHumanSessionAndSafeErrorCategories
+--- PASS: TestCommandPlanHumanSessionAndSafeErrorCategories (0.00s)
+=== RUN   TestBrokerStatusEvidenceHandlerAuthAndProfileErrors
+=== RUN   TestBrokerStatusEvidenceHandlerAuthAndProfileErrors/missing_identity
+--- PASS: TestBrokerStatusEvidenceHandlerAuthAndProfileErrors/missing_identity (0.00s)
+=== RUN   TestBrokerStatusEvidenceHandlerAuthAndProfileErrors/unsupported_profile
+--- PASS: TestBrokerStatusEvidenceHandlerAuthAndProfileErrors/unsupported_profile (0.00s)
+--- PASS: TestBrokerStatusEvidenceHandlerAuthAndProfileErrors (0.00s)
+=== RUN   TestBrokerStatusEvidenceHandlerUnknownAndTenantScopedNotFound
+=== RUN   TestBrokerStatusEvidenceHandlerUnknownAndTenantScopedNotFound/owner_tenant_sees_unknown_as_explicit_result
+--- PASS: TestBrokerStatusEvidenceHandlerUnknownAndTenantScopedNotFound/owner_tenant_sees_unknown_as_explicit_result (0.00s)
+=== RUN   TestBrokerStatusEvidenceHandlerUnknownAndTenantScopedNotFound/other_tenant_gets_not_found
+--- PASS: TestBrokerStatusEvidenceHandlerUnknownAndTenantScopedNotFound/other_tenant_gets_not_found (0.00s)
+--- PASS: TestBrokerStatusEvidenceHandlerUnknownAndTenantScopedNotFound (0.11s)
+=== RUN   TestBrokerSemanticEvidenceAuthenticatedEncoreLookup
+--- PASS: TestBrokerSemanticEvidenceAuthenticatedEncoreLookup (0.16s)
+=== RUN   TestBrokerTelemetryEvidenceTrustedReceiptsAndSemanticPins
+--- PASS: TestBrokerTelemetryEvidenceTrustedReceiptsAndSemanticPins (0.25s)
+=== RUN   TestTelemetryEvidenceQueryRejectsRepeatedParameters
+--- PASS: TestTelemetryEvidenceQueryRejectsRepeatedParameters (0.00s)
+=== RUN   TestRequestPublicOriginUsesBrowserOrigin
+=== RUN   TestRequestPublicOriginUsesBrowserOrigin/production_domain
+--- PASS: TestRequestPublicOriginUsesBrowserOrigin/production_domain (0.00s)
+=== RUN   TestRequestPublicOriginUsesBrowserOrigin/local_frontend_port
+--- PASS: TestRequestPublicOriginUsesBrowserOrigin/local_frontend_port (0.00s)
+=== RUN   TestRequestPublicOriginUsesBrowserOrigin/referer_fallback
+--- PASS: TestRequestPublicOriginUsesBrowserOrigin/referer_fallback (0.00s)
+=== RUN   TestRequestPublicOriginUsesBrowserOrigin/request_host_fallback
+--- PASS: TestRequestPublicOriginUsesBrowserOrigin/request_host_fallback (0.00s)
+--- PASS: TestRequestPublicOriginUsesBrowserOrigin (0.00s)
+=== RUN   TestRequestPublicOriginRejectsForeignOrigin
+--- PASS: TestRequestPublicOriginRejectsForeignOrigin (0.00s)
+PASS
+ok  	project/internal/api	5.503s
+=== RUN   TestPlannedCommandNativeMosquittoPostgresE2E
+time="2026-10-20T04:10:19+08:00" level=info msg="MQTT Adapter initialized successfully - all subscriptions active"
+time="2026-10-20T04:10:19+08:00" level=info msg="准备发送SSE事件: {device_online {\"device_id\":\"native-e2e-number\",\"device_name\":\"native-e2e-number\",\"is_online\":true} tenant-mqtt-e2e}"
+time="2026-10-20T04:10:19+08:00" level=info msg="发送SSE事件: {device_online {\"device_id\":\"native-e2e-number\",\"device_name\":\"native-e2e-number\",\"is_online\":true} tenant-mqtt-e2e}"
+time="2026-10-20T04:10:20+08:00" level=info msg="MQTT服务已停止"
+--- PASS: TestPlannedCommandNativeMosquittoPostgresE2E (6.76s)
+=== RUN   TestDurableCommandNativeMosquittoPostgresE2E
+time="2026-10-20T04:10:24+08:00" level=info msg="MQTT Adapter initialized successfully - all subscriptions active"
+time="2026-10-20T04:10:27+08:00" level=info msg="MQTT服务已停止"
+--- PASS: TestDurableCommandNativeMosquittoPostgresE2E (6.38s)
+=== RUN   TestBrokerIngressNativeReceiptSurvivesSubscriberDisconnectBeforeAck
+--- PASS: TestBrokerIngressNativeReceiptSurvivesSubscriberDisconnectBeforeAck (1.54s)
+=== RUN   TestBrokerIngressNativeSIGKILLChild
+    broker_ingestion_sigkill_native_test.go:82: private child helper
+--- SKIP: TestBrokerIngressNativeSIGKILLChild (0.00s)
+=== RUN   TestBrokerIngressNativeReceiptSurvivesSIGKILLBeforeAck
+    broker_ingestion_sigkill_native_test.go:166: set TP_NATIVE_E2E_DOCKER_IMAGE to the frozen Linux production image
+--- SKIP: TestBrokerIngressNativeReceiptSurvivesSIGKILLBeforeAck (0.00s)
+=== RUN   TestBrokerIngressWorkerConfiguredCellUsesScopedStoreAPI
+--- PASS: TestBrokerIngressWorkerConfiguredCellUsesScopedStoreAPI (0.00s)
+=== RUN   TestBrokerIngressWorkerConfiguredCellFailsClosedWithoutScopedStoreAPI
+--- PASS: TestBrokerIngressWorkerConfiguredCellFailsClosedWithoutScopedStoreAPI (0.00s)
+=== RUN   TestBrokerIngressNativeMosquittoOwnerPostgresE2E
+time="2026-10-20T04:10:31+08:00" level=info msg="准备发送SSE事件: {device_online {\"device_id\":\"native-e2e-number\",\"device_name\":\"native-e2e-number\",\"is_online\":true} tenant-mqtt-e2e}"
+time="2026-10-20T04:10:31+08:00" level=info msg="发送SSE事件: {device_online {\"device_id\":\"native-e2e-number\",\"device_name\":\"native-e2e-number\",\"is_online\":true} tenant-mqtt-e2e}"
+time="2026-10-20T04:10:33+08:00" level=info msg="MQTT Adapter initialized successfully - all subscriptions active"
+time="2026-10-20T04:10:38+08:00" level=info msg="MQTT服务已停止"
+time="2026-10-20T04:10:38+08:00" level=info msg="MQTT服务已停止"
+--- PASS: TestBrokerIngressNativeMosquittoOwnerPostgresE2E (9.73s)
+=== RUN   TestBrokerIngressAcceptorUsesStableScopedIngestionReceiptID
+--- PASS: TestBrokerIngressAcceptorUsesStableScopedIngestionReceiptID (0.00s)
+=== RUN   TestBrokerIngressLegacyGMQTTOwnerPostgresHealth
+    broker_ingress_legacy_gmqtt_e2e_test.go:42: set TEST_MQTT_LEGACY_GMQTT_E2E=1 to run isolated legacy GMQTT full-stack health
+--- SKIP: TestBrokerIngressLegacyGMQTTOwnerPostgresHealth (0.00s)
+=== RUN   TestBrokerIngressLegacyDoesNotRequireDBOrStartWorker
+--- PASS: TestBrokerIngressLegacyDoesNotRequireDBOrStartWorker (0.00s)
+=== RUN   TestBrokerIngressIngressV1FailsClosedWithoutDB
+--- PASS: TestBrokerIngressIngressV1FailsClosedWithoutDB (0.00s)
+=== RUN   TestBrokerIngressAcceptorRejectsUntrustedRouteEpoch
+--- PASS: TestBrokerIngressAcceptorRejectsUntrustedRouteEpoch (0.00s)
+=== RUN   TestBrokerIngressAcceptorUsesOnlyExplicitSourceEventID
+time="2026-10-20T04:10:38+08:00" level=info msg="MQTT ingress durably accepted; business processing remains pending" device_id=device duplicate=false receipt_id=receipt-id tenant_id=tenant
+time="2026-10-20T04:10:38+08:00" level=info msg="MQTT ingress durably accepted; business processing remains pending" device_id=device duplicate=false receipt_id=receipt-id tenant_id=tenant
+--- PASS: TestBrokerIngressAcceptorUsesOnlyExplicitSourceEventID (0.00s)
+=== RUN   TestBrokerIngressAttributeSourceEventIDRemainsBusinessPayload
+time="2026-10-20T04:10:38+08:00" level=info msg="MQTT ingress durably accepted; business processing remains pending" device_id=device duplicate=false receipt_id=receipt-id tenant_id=tenant
+--- PASS: TestBrokerIngressAttributeSourceEventIDRemainsBusinessPayload (0.00s)
+=== RUN   TestBrokerIngressWorkerStopWaitsAndStartIsIdempotent
+--- PASS: TestBrokerIngressWorkerStopWaitsAndStartIsIdempotent (0.00s)
+=== RUN   TestBrokerIngressAcceptorRejectPersistsWithoutBusinessAcceptance
+--- PASS: TestBrokerIngressAcceptorRejectPersistsWithoutBusinessAcceptance (1.00s)
+=== RUN   TestMQTTServiceSubscriptionFailureDisconnectsAndDoesNotPublishAdapter
+time="2026-10-20T04:10:39+08:00" level=info msg="MQTT Adapter client disconnected"
+--- PASS: TestMQTTServiceSubscriptionFailureDisconnectsAndDoesNotPublishAdapter (0.00s)
+=== RUN   TestMQTTServiceReconnectCallbackResubscribesAfterAdapterIsReady
+time="2026-10-20T04:10:39+08:00" level=info msg="MQTT Adapter initialized successfully - all subscriptions active"
+time="2026-10-20T04:10:39+08:00" level=info msg="MQTT Adapter client disconnected"
+time="2026-10-20T04:10:39+08:00" level=info msg="MQTT服务已停止"
+--- PASS: TestMQTTServiceReconnectCallbackResubscribesAfterAdapterIsReady (0.00s)
+=== RUN   TestMQTTServiceStopCancelsConcurrentStartup
+time="2026-10-20T04:10:39+08:00" level=info msg="正在启动MQTT服务..."
+time="2026-10-20T04:10:39+08:00" level=info msg="Using default broker: localhost:1883"
+time="2026-10-20T04:10:39+08:00" level=info msg="Using default user: root"
+time="2026-10-20T04:10:39+08:00" level=info msg="Using default pass: root"
+time="2026-10-20T04:10:39+08:00" level=info msg="Using default channel_buffer_size: 10000"
+time="2026-10-20T04:10:39+08:00" level=info msg="Using default write_workers: 10"
+time="2026-10-20T04:10:39+08:00" level=info msg="Using default pool_size: 100"
+time="2026-10-20T04:10:39+08:00" level=info msg="Using default batch_size: 100"
+time="2026-10-20T04:10:39+08:00" level=error msg="Failed to initialize MQTT Adapter" error="failed to create MQTT client for Adapter: context canceled"
+time="2026-10-20T04:10:39+08:00" level=info msg="MQTT服务已停止"
+--- PASS: TestMQTTServiceStopCancelsConcurrentStartup (0.00s)
+=== RUN   TestServiceManagerCancelsContextAwareStartup
+time="2026-10-20T04:10:39+08:00" level=info msg="服务 contextual 已注册"
+time="2026-10-20T04:10:39+08:00" level=info msg="正在启动服务: contextual"
+time="2026-10-20T04:10:39+08:00" level=info msg="正在停止服务: contextual"
+time="2026-10-20T04:10:39+08:00" level=info msg="服务 contextual 已成功停止"
+--- PASS: TestServiceManagerCancelsContextAwareStartup (0.00s)
+=== RUN   TestStartupFailureStopsEarlierProducers
+time="2026-10-20T04:10:39+08:00" level=info msg="服务 producer 已注册"
+time="2026-10-20T04:10:39+08:00" level=info msg="服务 relay 已注册"
+time="2026-10-20T04:10:39+08:00" level=info msg="服务 http 已注册"
+time="2026-10-20T04:10:39+08:00" level=info msg="正在启动服务: producer"
+time="2026-10-20T04:10:39+08:00" level=info msg="正在启动服务: relay"
+time="2026-10-20T04:10:39+08:00" level=info msg="正在停止服务: relay"
+time="2026-10-20T04:10:39+08:00" level=info msg="服务 relay 已成功停止"
+time="2026-10-20T04:10:39+08:00" level=info msg="正在停止服务: producer"
+time="2026-10-20T04:10:39+08:00" level=info msg="服务 producer 已成功停止"
+--- PASS: TestStartupFailureStopsEarlierProducers (0.00s)
+PASS
+ok  	project/internal/app	27.372s
+=== RUN   TestDecodeCursorRoundTripAndRejectMalformed
+--- PASS: TestDecodeCursorRoundTripAndRejectMalformed (0.00s)
+=== RUN   TestRunRequiresTenantAndBoundsLimit
+--- PASS: TestRunRequiresTenantAndBoundsLimit (0.00s)
+=== RUN   TestRunNeverPrintsDSNOnConnectionError
+--- PASS: TestRunNeverPrintsDSNOnConnectionError (0.00s)
+=== RUN   TestRecordJSONContainsNoPayloadOrSecrets
+--- PASS: TestRecordJSONContainsNoPayloadOrSecrets (0.00s)
+=== RUN   TestReadDSNFromEnvironmentOrFile
+--- PASS: TestReadDSNFromEnvironmentOrFile (0.00s)
+=== RUN   TestPostgresAuditReadOnlyTenantPaginationAndRedaction
+--- PASS: TestPostgresAuditReadOnlyTenantPaginationAndRedaction (0.59s)
+PASS
+ok  	project/cmd/tp-broker-audit	2.047s
+=== RUN   TestRouteCLIValidationAndRedaction
+--- PASS: TestRouteCLIValidationAndRedaction (0.00s)
+=== RUN   TestRouteCLIPostgresTenantScopeReadOnlyAndPaging
+--- PASS: TestRouteCLIPostgresTenantScopeReadOnlyAndPaging (0.67s)
+PASS
+ok  	project/cmd/tp-broker-route	2.111s
+=== RUN   TestLedgerDoesNotPromoteBrokerAckToAcceptance
+--- PASS: TestLedgerDoesNotPromoteBrokerAckToAcceptance (0.00s)
+=== RUN   TestLedgerRejectsAcceptanceWithoutIngressEvidence
+--- PASS: TestLedgerRejectsAcceptanceWithoutIngressEvidence (0.00s)
+PASS
+ok  	project/test/mosquitto-community	1.385s
+=== RUN   TestCutoverPlanStrictAndExactDigest
+=== RUN   TestCutoverPlanStrictAndExactDigest/tenant_uuid_not_required
+--- PASS: TestCutoverPlanStrictAndExactDigest/tenant_uuid_not_required (0.00s)
+=== RUN   TestCutoverPlanStrictAndExactDigest/floating_epoch
+--- PASS: TestCutoverPlanStrictAndExactDigest/floating_epoch (0.00s)
+=== RUN   TestCutoverPlanStrictAndExactDigest/trailing_JSON
+--- PASS: TestCutoverPlanStrictAndExactDigest/trailing_JSON (0.00s)
+=== RUN   TestCutoverPlanStrictAndExactDigest/uppercase_hash
+--- PASS: TestCutoverPlanStrictAndExactDigest/uppercase_hash (0.00s)
+=== RUN   TestCutoverPlanStrictAndExactDigest/duplicate_key
+--- PASS: TestCutoverPlanStrictAndExactDigest/duplicate_key (0.00s)
+=== RUN   TestCutoverPlanStrictAndExactDigest/unknown_key
+--- PASS: TestCutoverPlanStrictAndExactDigest/unknown_key (0.00s)
+=== RUN   TestCutoverPlanStrictAndExactDigest/irrelevant_null_field
+--- PASS: TestCutoverPlanStrictAndExactDigest/irrelevant_null_field (0.00s)
+--- PASS: TestCutoverPlanStrictAndExactDigest (0.00s)
+=== RUN   TestCutoverDSNFileRequirementsAndErrorRedaction
+--- PASS: TestCutoverDSNFileRequirementsAndErrorRedaction (0.00s)
+=== RUN   TestCutoverPostgresFreezeRetryAndBarrierFailClosed
+--- PASS: TestCutoverPostgresFreezeRetryAndBarrierFailClosed (0.52s)
+PASS
+ok  	project/cmd/tp-broker-cutover	2.464s
+=== RUN   TestDelegationConcurrentBudgetIsAtomic
+--- PASS: TestDelegationConcurrentBudgetIsAtomic (0.05s)
+=== RUN   TestDelegationInvalidScopeAndDeviceDoNotSpendBudget
+--- PASS: TestDelegationInvalidScopeAndDeviceDoNotSpendBudget (0.03s)
+=== RUN   TestDelegationRevocationAndWrongOwner
+--- PASS: TestDelegationRevocationAndWrongOwner (0.02s)
+=== RUN   TestDelegationExpiryUsesRedisTTLAndExpiredIndexIsReclaimed
+--- PASS: TestDelegationExpiryUsesRedisTTLAndExpiredIndexIsReclaimed (0.06s)
+=== RUN   TestDelegationTenantCapacityAndMalformedCredentials
+--- PASS: TestDelegationTenantCapacityAndMalformedCredentials (0.15s)
+=== RUN   TestDelegationNeverSerializesParentSession
+--- PASS: TestDelegationNeverSerializesParentSession (0.02s)
+PASS
+ok  	project/internal/brokeraitools	1.755s
+=== RUN   TestRunHTTPSFixedRouteAndTrustedCA
+--- PASS: TestRunHTTPSFixedRouteAndTrustedCA (0.02s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/duplicate_top_field
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/duplicate_top_field (0.00s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/duplicate_nested_field
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/duplicate_nested_field (0.00s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/unknown_top_field
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/unknown_top_field (0.00s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/unknown_operation
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/unknown_operation (0.00s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/invalid_token
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/invalid_token (0.00s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/null_input
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/null_input (0.00s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/array_input
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/array_input (0.00s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/unknown_input_field
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/unknown_input_field (0.00s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/unknown_nested_command_field
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/unknown_nested_command_field (0.00s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/input_contains_token
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/input_contains_token (0.00s)
+=== RUN   TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/trailing_value
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork/trailing_value (0.00s)
+--- PASS: TestRunRejectsMalformedAndOverbroadRequestsBeforeNetwork (0.04s)
+=== RUN   TestRunOriginRulesAndDevelopmentHTTP
+--- PASS: TestRunOriginRulesAndDevelopmentHTTP (0.00s)
+=== RUN   TestRunRedirectDoesNotForwardBearer
+--- PASS: TestRunRedirectDoesNotForwardBearer (0.01s)
+=== RUN   TestRunKeepsTLSVerificationEnabledWithoutCustomCA
+2026/10/20 04:10:53 http: TLS handshake error from 127.0.0.1:59593: remote error: tls: bad certificate
+--- PASS: TestRunKeepsTLSVerificationEnabledWithoutCustomCA (0.01s)
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/known_category
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/known_category (0.01s)
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/unknown_category
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/unknown_category (0.01s)
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/secret_reflection
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/secret_reflection (0.01s)
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/oversized
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/oversized (0.01s)
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/duplicate_response
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/duplicate_response (0.01s)
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/device_mismatch
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/device_mismatch (0.01s)
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/operation_mismatch
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/operation_mismatch (0.01s)
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/missing_tenant
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/missing_tenant (0.01s)
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/missing_subject
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/missing_subject (0.01s)
+=== RUN   TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/unknown_success_field
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse/unknown_success_field (0.01s)
+--- PASS: TestRunMapsFixedErrorsAndBlocksSecretOrOversizeResponse (0.08s)
+=== RUN   TestRunHonorsParentDeadlineForSlowHeaderAndBody
+=== RUN   TestRunHonorsParentDeadlineForSlowHeaderAndBody/header
+--- PASS: TestRunHonorsParentDeadlineForSlowHeaderAndBody/header (0.31s)
+=== RUN   TestRunHonorsParentDeadlineForSlowHeaderAndBody/body
+--- PASS: TestRunHonorsParentDeadlineForSlowHeaderAndBody/body (0.10s)
+--- PASS: TestRunHonorsParentDeadlineForSlowHeaderAndBody (0.41s)
+PASS
+ok  	project/cmd/tp-broker-tools-client	2.045s

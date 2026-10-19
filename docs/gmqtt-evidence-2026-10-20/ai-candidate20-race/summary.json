@@ -1,0 +1,177 @@
+{
+  "started_at": "2026-10-19T20:08:35.252254+00:00",
+  "finished_at": "2026-10-19T20:10:55.233140+00:00",
+  "command": [
+    "go",
+    "test",
+    "-json",
+    "-race",
+    "-p",
+    "1",
+    "-count=1",
+    "-timeout",
+    "12m",
+    "./internal/brokercontract",
+    "./internal/mosquittodriver",
+    "./internal/brokercontrol",
+    "./internal/brokerledger",
+    "./internal/brokermapper",
+    "./internal/brokerstate",
+    "./internal/brokercommands",
+    "./internal/brokersemantic",
+    "./internal/adapter/mqttadapter",
+    "./internal/uplink",
+    "./internal/storage",
+    "./internal/service",
+    "./internal/api",
+    "./internal/app",
+    "./cmd/tp-broker-audit",
+    "./cmd/tp-broker-route",
+    "./test/mosquitto-community",
+    "./cmd/tp-broker-cutover",
+    "./internal/brokeraitools",
+    "./cmd/tp-broker-tools-client"
+  ],
+  "exit_code": 1,
+  "source_count": 218,
+  "package_results": [
+    {
+      "Action": "pass",
+      "Package": "project/internal/brokercontract",
+      "Elapsed": 1.49
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/mosquittodriver",
+      "Elapsed": 3.855
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/brokercontrol",
+      "Elapsed": 3.128
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/brokerledger",
+      "Elapsed": 4.663
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/brokermapper",
+      "Elapsed": 1.435
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/brokerstate",
+      "Elapsed": 12.999
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/brokercommands",
+      "Elapsed": 5.064
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/brokersemantic",
+      "Elapsed": 3.5300000000000002
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/adapter/mqttadapter",
+      "Elapsed": 2.367
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/uplink",
+      "Elapsed": 5.258
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/storage",
+      "Elapsed": 4.065
+    },
+    {
+      "Action": "fail",
+      "Package": "project/internal/service",
+      "Elapsed": 10.148
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/api",
+      "Elapsed": 5.503
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/app",
+      "Elapsed": 27.372
+    },
+    {
+      "Action": "pass",
+      "Package": "project/cmd/tp-broker-audit",
+      "Elapsed": 2.047
+    },
+    {
+      "Action": "pass",
+      "Package": "project/cmd/tp-broker-route",
+      "Elapsed": 2.111
+    },
+    {
+      "Action": "pass",
+      "Package": "project/test/mosquitto-community",
+      "Elapsed": 1.385
+    },
+    {
+      "Action": "pass",
+      "Package": "project/cmd/tp-broker-cutover",
+      "Elapsed": 2.465
+    },
+    {
+      "Action": "pass",
+      "Package": "project/internal/brokeraitools",
+      "Elapsed": 1.755
+    },
+    {
+      "Action": "pass",
+      "Package": "project/cmd/tp-broker-tools-client",
+      "Elapsed": 2.045
+    }
+  ],
+  "failed_tests": [
+    {
+      "Action": "fail",
+      "Package": "project/internal/service",
+      "Test": "TestBrokerAIToolsRealSessionPolicyAndResultScoping/semantic_upstream_echo_rejected_escaped=true",
+      "Elapsed": 0
+    },
+    {
+      "Action": "fail",
+      "Package": "project/internal/service",
+      "Test": "TestBrokerAIToolsRealSessionPolicyAndResultScoping",
+      "Elapsed": 0.54
+    }
+  ],
+  "skipped_tests": [
+    {
+      "Action": "skip",
+      "Package": "project/internal/app",
+      "Test": "TestBrokerIngressNativeSIGKILLChild",
+      "Elapsed": 0
+    },
+    {
+      "Action": "skip",
+      "Package": "project/internal/app",
+      "Test": "TestBrokerIngressNativeReceiptSurvivesSIGKILLBeforeAck",
+      "Elapsed": 0
+    },
+    {
+      "Action": "skip",
+      "Package": "project/internal/app",
+      "Test": "TestBrokerIngressLegacyGMQTTOwnerPostgresHealth",
+      "Elapsed": 0
+    }
+  ],
+  "python_exit_code": 0,
+  "build_status": "not run: prior failure or insufficient disk",
+  "source_changed": [],
+  "free_disk_bytes": 1428774912
+}

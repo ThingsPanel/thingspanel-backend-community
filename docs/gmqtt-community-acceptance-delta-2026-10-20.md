@@ -11,3 +11,7 @@
 - **遥测证据时间：**[telemetry evidence API记录](gmqtt-evidence-2026-10-19/community-telemetry-evidence-api.md) 只查询processed trusted receipts，按observed_at过滤。当前writer没有独立设备reported timestamp，API明确 `reported_at:null` / `reported_time_available:false`；不会把broker观测时刻伪装成设备采样时间。空或缺失单位返回 `unit_known:false`。
 - **可靠命令的终态：**网络不确定或到期后可保持/进入 `unknown` 且不自动重发；该状态不证明设备已执行或未执行。ingress_v1当前明确拒绝enabled custom topic mapping和旧service/protocol/raw legacy downlink入口，这些是实际兼容缺口，不能标N/A。
 - **仍未验收：**72小时稳定性、完整旧新栈成对基线、全量故障矩阵、完整两cell route barrier/灰度/回滚、完整社区AI盲测/人效/成本以及物理设备效果仍未完成。不得生产切流，也不据局部测试或包级通过率宣称完工。
+
+## 受限 AI 工具增量（2026-10-20，集成中）
+
+新增默认关闭的四个固定工具、120 秒/20 次/明确设备范围的委托凭证，复用既有用户会话、Casbin、语义与命令 owner。真实私有 PG/Redis 的 HTTP 正向 describe/telemetry/preview 和结果读取、撤销/父会话失效、OperationLogs 保密子项已执行。preview 只创建计划，不创建命令。可选 ChatBridge dispatcher→Python adapter→真实 Go 客户端→TLS Gin→私有 PG/Redis 结果读取已通过隔离串联；尚无部署、真实模型调用或物理效果。详见[委托证据](gmqtt-evidence-2026-10-20/ai-delegation-test-plan.md)。AC-A01–A06 仍保持 PENDING；不因这些工具子项提高完整项目通过率。

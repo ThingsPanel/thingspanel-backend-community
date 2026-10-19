@@ -1,0 +1,9 @@
+{
+  "community_broker_contract": "1",
+  "tools": [
+    {"name": "community_devices_describe", "operation": "devices.describe"},
+    {"name": "community_telemetry_query", "operation": "telemetry.query"},
+    {"name": "community_commands_preview", "operation": "commands.preview"},
+    {"name": "community_commands_get_result", "operation": "commands.getResult"}
+  ]
+}

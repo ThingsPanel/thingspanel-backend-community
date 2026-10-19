@@ -1,0 +1,51 @@
+# AI delegation negative acceptance plan
+
+Status: partial execution evidence. The delegation core and service boundary have private-Redis/PG coverage, and one opt-in HTTP integration test has run against private PostgreSQL/Redis. The HTTP test uses a synthetic signed parent session, a private command row, and the real OperationLogs middleware; it is not a deployed ChatBridge integration and does not call a real model.
+
+| Area | Setup / attempt | Expected result | Evidence still required |
+|---|---|---|---|
+| Issuance scope | Issue for a device outside the authenticated tenant, inactive/disabled device, duplicate device, wildcard or over-limit list | Reject before creating a grant; no device details leak | Service integration covers invalid/cross-tenant/disabled scopes. HTTP integration covers successful same-tenant active-device issuance and checks response `tenant_id`/`subject_id`; malformed/duplicate/oversize bodies are rejected. |
+| Lifetime and budget | Issue a grant; make 21 authorized-scope calls and call after expiry | At most 20 calls succeed; expired token fails closed | HTTP integration with Redis TTL and fixed error category |
+| Scope and device | Use a valid token with an ungranted operation/device; then use an allowed request | Deny invalid attempt without spending budget; allowed call remains usable | Service integration covers cross-tenant/disabled scope. The positive HTTP integration also rejects an ungranted operation and same-tenant device, permits scoped reads, and checks replay restrictions. Budget accounting is covered by core tests; the positive HTTP test does not add a semantic-owner call counter. |
+| Revocation and parent session | Revoke grant, log out parent session, revoke parent session, then replay token | All subsequent delegated calls fail closed | HTTP integration verifies revoke→401 and parent Redis-session deletion→401 for later calls. Expiry, concurrent revoke/use, and repeat revocation races remain untested here. |
+| Human API separation | Present a delegation token to human command authorize, submit, and operation-result endpoints; try token as `x-token` and conflicting bearer/header credentials | Never authenticate as a human; no authorization or command submission occurs | HTTP integration injects the authenticated parent claims into the existing authorize/submit handlers and verifies opaque token as `x-token` gets 401. Other human operation-result APIs and middleware deployment path remain outside this test. |
+| OperationLogs secrecy | Exercise issue, revoke, success, malformed token, Redis error, and upstream error through routes mounted before OperationLogs | No parent JWT, opaque bearer, private grant body, or raw backend error appears in request/response logs | HTTP integration confirms issued opaque/parent tokens and command payload are absent from logrus and private `operation_logs`, while a later sentinel POST is captured. Redis/upstream error-path logging and production proxy/access logs remain untested. |
+| Response handling | Oversized/malformed JSON, repeated POST, cache/proxy inspection | Bounded parsing; `Cache-Control: no-store`; fixed error envelope; no replay side effects | Handler tests cover issuer/tool size limits, duplicate/unknown/trailing JSON, credential conflicts, fixed errors and no-store. Cache/proxy behavior, repeated POST semantics, and deployed HTTP stack remain untested. |
+| Business boundaries | `devices.describe`, bounded `telemetry.query`, and `commands.preview` on an allowed device; attempt invalid telemetry bounds and ungranted scope | Reads remain explicitly scoped; preview is proposal only and does not dispatch a command | The positive private PG/Redis + Encore-stub HTTP integration verifies all three operations, rejects invalid telemetry bounds/device/scope/replay attempts, and checks preview creates only a plan: no broker command request or command log. Human authorization handoff and `commands.getResult` remain covered only by earlier service/HTTP tests; physical command execution is not implied. |
+| Feature gates | Disable AI tools, ingress v1, route fencing, or command plans independently | Routes stay unavailable when a required gate is off | Application startup/config matrix |
+| Runtime handoff | Revoke or expire the grant during a model session; attempt model-supplied URL, headers, actor, tenant, or credentials | Fixed-origin adapter uses only server-bound session context; revoked context cannot continue | The optional Python adapter has unit coverage against ChatBridge's real dispatcher/registry contracts, but no live issuer/gateway handoff or complete Python→Go CLI→TLS→Gin chain has been verified. Model-session revocation and adversarial runtime trials remain pending. |
+
+## Core test execution
+
+On 2026-10-20, `go test -v -race -count=1 ./internal/brokeraitools` passed against a test-owned loopback Redis subprocess. All six tests ran; none skipped. The run verified exactly 20 successes among 100 concurrent calls, scope/device rejection without budget loss, owner-only revocation, Redis TTL and expired-index reclamation, per-user and per-tenant caps, malformed token/unknown scope rejection, and parent-session omission from `Issued`, `Credential`, and `Subject` JSON. Expiry acceleration touched only the private Redis instance. The tests use a synthetic parent-session marker, never a real JWT.
+
+On 2026-10-20, `TEST_BROKER_DATABASE_DSN=<private QA DSN> go test -v -race -count=1 ./internal/service -run '^TestBrokerAIToolsRealSessionPolicyAndResultScoping$'` passed against a helper-created private PostgreSQL schema and private Redis subprocess; the test ran, not skipped. It used synthetic signed JWT sessions and verified flag-off behavior, live session/user/device/tenant/authority/capability revalidation, explicit Casbin route policy, same-tenant/device grant issuance, cross-tenant and disabled-device rejection, service revocation, caller/device/tenant-scoped command result access, omission of command payload/parameters/raw error and parent JWT from returned data, replay-preview rejection, and rejection of upstream responses that echo the parent JWT in both plain and JSON-escaped form. A targeted service race run passed after adding the escaped-echo case. This is service-layer integration evidence; it does not exercise HTTP routing or logging middleware.
+
+## HTTP integration execution
+
+On 2026-10-20, `go test -v -race -count=1 ./internal/api -run '^TestBrokerAIToolHTTPDelegationRevocationAndOperationLogIsolation$'` passed against the existing private-schema PostgreSQL fixture and a test-owned loopback Redis process; the test ran, not skipped. It created a current synthetic parent JWT/Redis session, user, active device, explicit Casbin `g2`/allow policy, scoped durable command row and private `operation_logs` table. The actual HTTP handlers issued a grant (`201`) whose `tenant_id` and `subject_id` matched the verified parent; a `commands.getResult` request returned the same server-derived identities and only the safe result projection. The opaque token used as `x-token` for existing human command authorize/submit handlers returned `401`; grant revocation and parent-session deletion each made subsequent tool calls return `401`.
+
+The test registered the AI delegation routes before `OperationLogs`, then registered a normal POST sentinel after it. The sentinel request/response appeared in the captured logrus output and private `operation_logs` row; neither the issued opaque token, parent JWT nor command payload appeared in those logs. This verifies the handler registration ordering exercised by this test, not the full production router or external proxy logs. The test does not deploy ChatBridge, connect a model, prove tool registration, or verify a physical device effect.
+
+The command run above is a targeted API test, not a complete `internal/api` or repository suite. No end-to-end model/runtime handoff is claimed; remaining negative cases in the table are still pending. Do not use real user JWTs in test fixtures; use synthetic sessions and isolated Redis/PostgreSQL fixtures.
+
+## Positive operations integration update
+
+On 2026-10-20, lifecycle added and ran
+`TestBrokerAIToolPositiveDescribeTelemetryAndPreview` in
+`internal/api/broker_ai_tools_positive_integration_test.go` against a private
+PostgreSQL schema and private Redis process, with a local Encore-contract HTTP
+stub. The test verifies delegated describe, telemetry from a seeded processed
+receipt, and command preview; it also checks invalid telemetry windows,
+ungranted operation/device, replay read scopes, and replay-preview rejection.
+The preview adds one command plan while leaving broker command requests and
+command logs unchanged, so it proves plan-only behavior and no dispatch. This
+is Go API/owner integration evidence only. It does not exercise the Python
+adapter, Go tools client, TLS transport between those processes, live ChatBridge
+issuer/gateway flow, model calls, command submission, or a physical device.
+
+## Frozen candidate verification and runtime chain
+
+The later [20-package candidate run](ai-candidate20-race/README.md) preserves 19 passing packages and the service test-fixture capacity failure. That fixture now revokes its echo-test grants; the entire corrected service package passed against explicitly configured real PG/Redis with no skipped tests. Both escaped and unescaped parent-JWT reflection cases actually passed in that rerun. A prior root exploratory service command without the DB variable skipped and is not validation evidence. Full build and 14 Python adapter tests passed.
+
+The same candidate run actually executed `TestBrokerAIToolHTTPDelegationRevocationAndOperationLogIsolation/ChatBridge_runtime_adapter_dispatcher_and_real_CLI`: existing ChatBridge dispatcher/registry and this adapter invoked the built Go CLI over verified TLS to the private Gin API and real PG/Redis, performing only a scoped result lookup. It proves this isolated RPC chain with a fixture-created trusted binding; it does not install a live gateway/session exchange, run a model, exercise model-driven diagnosis or produce a physical effect. Earlier statements in this document about unverified runtime handoff refer to those live deployment/model boundaries; the isolated result RPC now has evidence.
