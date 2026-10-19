@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "test_source_sha256": "b08d07c3fff9fa6e6ba354c00a3e62827e994256a1ca612b5478ccc1742cdc93",
+  "command": "TEST_MQTT_NATIVE_AUTH_BOUND_E2E=1 go test -json -race -p 1 -count=2 -timeout 90s ./internal/app -run ^TestBrokerAuthPendingNativeOverlap$"
+}
