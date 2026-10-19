@@ -1,0 +1,17 @@
+{
+  "started_at": "2026-10-19T16:32:44.520900836Z",
+  "finished_at": "0001-01-01T00:00:00Z",
+  "message_target": 2,
+  "messages_broker_acknowledged": 2,
+  "messages_ingress_seen": 2,
+  "reconnect_target": 10,
+  "authenticated_reconnects": 0,
+  "message_duration_ns": 15055522860,
+  "reconnect_duration_ns": 0,
+  "mqtt_versions": [
+    "3.1.1",
+    "5"
+  ],
+  "business_acceptance": "unobserved; broker PUBACK and ingress observation are separate stages",
+  "failure": "CONNECT rejected for qa-device-device-a, reason=0x5"
+}

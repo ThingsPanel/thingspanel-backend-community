@@ -1,10 +1,14 @@
 package mqttadapter
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	bc "project/internal/brokercontract"
+	"project/internal/brokermapper"
 	"strings"
+	"sync"
 	"time"
 
 	"project/initialize"
@@ -29,9 +33,17 @@ type UplinkMessage struct {
 // Adapter MQTT 适配器
 // 负责将 MQTT 消息转换为统一的 DeviceMessage 格式
 type Adapter struct {
-	bus        *uplink.Bus
-	mqttClient mqtt.Client
-	logger     *logrus.Logger
+	ctx             context.Context
+	inputProfile    string
+	ingressTrust    bc.TrustedMetadata
+	retainedProfile bc.RetainedProfile
+	ingressAcceptor IngressAcceptor
+	mapperRepo      *brokermapper.Repository
+	mappingMu       sync.RWMutex
+	mappingVersions map[string]string
+	bus             *uplink.Bus
+	mqttClient      mqtt.Client
+	logger          *logrus.Logger
 }
 
 // publicPayload MQTT 消息格式
@@ -474,6 +486,13 @@ func (a *Adapter) PublishMessage(deviceNumber string, msgType downlink.MessageTy
 	}
 
 	// 3. 发送MQTT消息
+	if a.inputProfile == "ingress_v1" {
+		mappedTopic, mappedPayload, mapErr := a.mapDownlink(deviceNumber, topic, payload)
+		if mapErr != nil {
+			return fmt.Errorf("map MQTT downlink: %w", mapErr)
+		}
+		topic, payload = mappedTopic, mappedPayload
+	}
 	token := a.mqttClient.Publish(topic, qos, false, payload)
 	if !token.WaitTimeout(5 * time.Second) {
 		return fmt.Errorf("mqtt publish timeout: topic=%s", topic)

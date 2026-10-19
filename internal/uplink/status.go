@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	"project/initialize"
+	"project/internal/brokerstate"
 	"project/internal/dal"
 	"project/internal/model"
 	"project/internal/service"
@@ -20,16 +23,22 @@ type StatusUplink struct {
 	// 依赖注入
 	heartbeatService *service.HeartbeatService
 	logger           *logrus.Logger
+	brokerState      *brokerstate.Store
+	brokerProjection bool
 
 	// 运行状态
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx         context.Context
+	cancel      context.CancelFunc
+	lifecycleMu sync.Mutex
+	done        chan struct{}
 }
 
 // StatusUplinkConfig 状态流程配置
 type StatusUplinkConfig struct {
 	HeartbeatService *service.HeartbeatService
 	Logger           *logrus.Logger
+	BrokerStateStore *brokerstate.Store
+	InputProfile     string
 }
 
 // NewStatusUplink 创建状态流处理器
@@ -39,10 +48,18 @@ func NewStatusUplink(config StatusUplinkConfig) *StatusUplink {
 	if config.Logger == nil {
 		config.Logger = logrus.StandardLogger()
 	}
+	if config.InputProfile == "" {
+		config.InputProfile = viper.GetString("mqtt.input_profile")
+	}
+	if config.BrokerStateStore == nil && config.InputProfile == "ingress_v1" && global.DB != nil {
+		config.BrokerStateStore = brokerstate.New(global.DB)
+	}
 
 	return &StatusUplink{
 		heartbeatService: config.HeartbeatService,
 		logger:           config.Logger,
+		brokerState:      config.BrokerStateStore,
+		brokerProjection: config.InputProfile == "ingress_v1" && config.BrokerStateStore != nil,
 		ctx:              ctx,
 		cancel:           cancel,
 	}
@@ -50,16 +67,44 @@ func NewStatusUplink(config StatusUplinkConfig) *StatusUplink {
 
 // Start 启动状态流处理
 func (f *StatusUplink) Start(input <-chan *DeviceMessage) error {
+	f.lifecycleMu.Lock()
+	if err := f.ctx.Err(); err != nil {
+		f.lifecycleMu.Unlock()
+		return err
+	}
+	if f.done != nil {
+		f.lifecycleMu.Unlock()
+		return nil
+	}
+	done := make(chan struct{})
+	f.done = done
+	f.lifecycleMu.Unlock()
 	f.logger.Info("🚀 StatusUplink starting...")
+	var ticker *time.Ticker
+	var tickerC <-chan time.Time
+	if f.brokerProjection {
+		ticker = time.NewTicker(time.Second)
+		tickerC = ticker.C
+	}
 
 	go func() {
+		defer close(done)
+		if ticker != nil {
+			defer ticker.Stop()
+		}
 		f.logger.Info("✅ StatusUplink message loop started")
 		for {
 			select {
 			case <-f.ctx.Done():
 				f.logger.Info("StatusUplink stopped")
 				return
-			case msg := <-input:
+			case <-tickerC:
+				f.retryBrokerProjections()
+			case msg, ok := <-input:
+				if !ok {
+					f.logger.Info("StatusUplink input closed")
+					return
+				}
 				if msg == nil {
 					f.logger.Warn("Received nil message, skipping")
 					continue
@@ -76,12 +121,22 @@ func (f *StatusUplink) Start(input <-chan *DeviceMessage) error {
 
 // Stop 停止状态流处理
 func (f *StatusUplink) Stop() error {
+	f.lifecycleMu.Lock()
 	f.cancel()
+	done := f.done
+	f.lifecycleMu.Unlock()
+	if done != nil {
+		<-done
+	}
 	return nil
 }
 
 // processMessage 处理状态消息
 func (f *StatusUplink) processMessage(msg *DeviceMessage) {
+	if f.brokerProjection && msg != nil && sourceOf(msg) == "broker_connection" {
+		f.processBrokerProjection(msg)
+		return
+	}
 	// 1. 解析状态 (0=离线, 1=在线)
 	status, err := f.parseStatus(msg.Payload)
 	if err != nil {
@@ -104,6 +159,17 @@ func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 		return
 	}
 
+	if f.brokerProjection && f.brokerState != nil {
+		owned, lookupErr := f.brokerState.OwnsDevice(f.ctx, device.TenantID, device.ID)
+		if lookupErr != nil {
+			f.logger.WithError(lookupErr).Warn("broker state ownership unavailable; legacy status write paused")
+			return
+		}
+		if owned {
+			f.processBrokerProjection(&DeviceMessage{TenantID: device.TenantID, DeviceID: device.ID, Metadata: map[string]interface{}{"source": "broker_connection"}})
+			return
+		}
+	}
 	// 3. 检查心跳配置
 	config, err := f.heartbeatService.GetConfig(device)
 
@@ -151,32 +217,96 @@ func (f *StatusUplink) processMessage(msg *DeviceMessage) {
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"status":    status,
-			"source":    msg.Metadata["source"],
+			"source":    sourceOf(msg),
 		}).Debug("【设备上下线】Device status unchanged, skipping notification")
+		return
+	}
+	f.afterStatusChange(device, status, msg.Metadata)
+}
+
+func (f *StatusUplink) afterStatusChange(device *model.Device, status int16, metadata map[string]interface{}) {
+	if device == nil {
 		return
 	}
 
 	f.logger.WithFields(logrus.Fields{
 		"device_id": device.ID,
 		"status":    status,
-		"source":    msg.Metadata["source"],
+		"source":    metadata["source"],
 	}).Debug("【设备上下线】Device status updated")
 
 	// 5. 清理设备缓存
 	initialize.DelDeviceCache(device.ID)
 
 	// 6. 发布到 Redis Pub/Sub (供 WebSocket 订阅)
-	go f.publishToRedis(device, status, msg.Metadata)
+	go f.publishToRedis(device, status, metadata)
 
 	// 7. SSE 通知客户端
 	go f.notifyClients(device, status)
 
 	// 8. 触发自动化
-	go f.triggerAutomation(device, status)
+	if !f.brokerProjection || metadata["source"] != "broker_connection" {
+		go f.triggerAutomation(device, status)
+	}
 
 	// 9. 预期数据发送(上线时)
-	if status == 1 {
+	if status == 1 && (!f.brokerProjection || metadata["source"] != "broker_connection") {
 		go f.sendExpectedData(device)
+	}
+}
+
+func sourceOf(msg *DeviceMessage) string {
+	if msg == nil || msg.Metadata == nil {
+		return ""
+	}
+	source, _ := msg.Metadata["source"].(string)
+	return source
+}
+
+func (f *StatusUplink) processBrokerProjection(msg *DeviceMessage) {
+	if f.brokerState == nil || msg.TenantID == "" || msg.DeviceID == "" {
+		f.logger.Error("broker state projection missing store or scope")
+		return
+	}
+	ctx := f.ctx
+	projection, err := f.brokerState.ProjectCurrent(ctx, msg.TenantID, msg.DeviceID)
+	if err != nil {
+		f.deferBrokerProjection(msg, err, "broker state projection failed")
+		return
+	}
+	if !projection.Changed {
+		return
+	}
+	status := int16(0)
+	if projection.Status == "online" {
+		status = 1
+	}
+	f.afterStatusChange(&projection.Device, status, msg.Metadata)
+}
+
+func (f *StatusUplink) deferBrokerProjection(msg *DeviceMessage, cause error, message string) {
+	fields := logrus.Fields{"tenant_id": msg.TenantID, "device_id": msg.DeviceID}
+	if err := f.brokerState.DeferCurrentProjection(f.ctx, msg.TenantID, msg.DeviceID); err != nil {
+		f.logger.WithError(err).WithFields(fields).Warn(message + "; retry key remains in place")
+		return
+	}
+	f.logger.WithError(cause).WithFields(fields).Warn(message + "; retry key deferred")
+}
+
+func (f *StatusUplink) retryBrokerProjections() {
+	if !f.brokerProjection || f.brokerState == nil || f.ctx.Err() != nil {
+		return
+	}
+	keys, err := f.brokerState.PendingCurrent(f.ctx, 256)
+	if err != nil {
+		f.logger.WithError(err).Error("failed to read broker state projection queue")
+		return
+	}
+	for _, key := range keys {
+		if f.ctx.Err() != nil {
+			return
+		}
+		f.processMessage(&DeviceMessage{Type: MessageTypeStatus, TenantID: key.TenantID, DeviceID: key.DeviceID, Metadata: map[string]interface{}{"source": "broker_connection"}})
 	}
 }
 
@@ -267,9 +397,15 @@ func (f *StatusUplink) triggerAutomation(device *model.Device, status int16) {
 // sendExpectedData 发送预期数据
 func (f *StatusUplink) sendExpectedData(device *model.Device) {
 	// 延迟3秒发送预期数据(与原有逻辑保持一致)
-	time.Sleep(3 * time.Second)
+	timer := time.NewTimer(3 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-f.ctx.Done():
+		return
+	case <-timer.C:
+	}
 
-	err := service.GroupApp.ExpectedData.Send(context.Background(), device.ID)
+	err := service.GroupApp.ExpectedData.Send(f.ctx, device.ID)
 	if err != nil {
 		f.logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to send expected data")
 	} else {

@@ -2,9 +2,21 @@ package mqttadapter
 
 import (
 	"project/pkg/common"
+	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
 )
+
+// Response delivery must not hold a durable-ingress callback indefinitely during
+// shutdown or a broker outage. Legacy profile retains its existing wait policy.
+func (a *Adapter) waitResponseToken(token mqtt.Token) error {
+	if a.inputProfile == "ingress_v1" {
+		return WaitTokenContext(a.adapterContext(), token, 5*time.Second)
+	}
+	token.Wait()
+	return token.Error()
+}
 
 // publishAttributeResponse 发送属性上报 ACK 响应
 // 协议层行为：告诉设备"我收到了你的属性上报"
@@ -22,9 +34,7 @@ func (a *Adapter) publishAttributeResponse(deviceNumber, messageID string, err e
 
 	// 发布消息
 	token := a.mqttClient.Publish(topic, 1, false, payload)
-	token.Wait()
-
-	if publishErr := token.Error(); publishErr != nil {
+	if publishErr := a.waitResponseToken(token); publishErr != nil {
 		a.logger.WithFields(logrus.Fields{
 			"device_number": deviceNumber,
 			"message_id":    messageID,
@@ -56,9 +66,7 @@ func (a *Adapter) publishEventResponse(deviceNumber, messageID, method string, e
 
 	// 发布消息
 	token := a.mqttClient.Publish(topic, 1, false, payload)
-	token.Wait()
-
-	if publishErr := token.Error(); publishErr != nil {
+	if publishErr := a.waitResponseToken(token); publishErr != nil {
 		a.logger.WithFields(logrus.Fields{
 			"device_number": deviceNumber,
 			"message_id":    messageID,

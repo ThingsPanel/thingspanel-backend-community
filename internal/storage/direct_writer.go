@@ -47,6 +47,12 @@ func (w *DirectWriter) WriteAttributeData(ctx context.Context, data *AttributeDa
 	return nil
 }
 
+// WriteAttributeDataIfNewer prevents a delayed durable receipt from replacing a
+// newer snapshot. Legacy write ordering is unchanged for the legacy profile.
+func (w *DirectWriter) WriteAttributeDataIfNewer(ctx context.Context, data *AttributeData) error {
+	return w.db.WithContext(ctx).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}}, DoUpdates: clause.AssignmentColumns([]string{"ts", "bool_v", "number_v", "string_v", "tenant_id"}), Where: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "attribute_datas.ts <= excluded.ts"}}}}).Create(data).Error
+}
+
 // WriteEventData 直接写入事件数据
 func (w *DirectWriter) WriteEventData(ctx context.Context, data *EventDataModel) error {
 	if err := w.db.WithContext(ctx).Create(data).Error; err != nil {

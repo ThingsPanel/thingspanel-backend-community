@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"project/internal/app"
 	"project/pkg/global"
@@ -65,14 +68,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Register cancellation before startup, including an unavailable MQTT broker.
+	runCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
 	// 启动所有服务
-	if err := application.Start(); err != nil {
+	if err := application.StartContext(runCtx); err != nil {
+		if runCtx.Err() != nil {
+			return
+		}
 		logrus.Fatalf("启动服务失败: %v", err)
 	}
 
-	// 等待服务运行并处理退出
-	application.Wait()
+	// WaitGroup entries are released by StopAll, so waiting before Shutdown
+	// deadlocks a healthy long-running process. Wait for an OS termination
+	// signal, then use the service manager's bounded reverse-order shutdown.
+	<-runCtx.Done()
+	application.Shutdown()
+}
 
-	// 应用关闭时自动调用 Shutdown 方法清理资源
-	defer application.Shutdown()
+func waitForApplicationShutdown(application *app.Application, signals <-chan os.Signal) {
+	<-signals
+	application.Shutdown()
 }

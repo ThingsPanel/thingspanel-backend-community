@@ -1,0 +1,43 @@
+FROM golang:1.26.2-bookworm AS sanitizer-build
+
+ARG MOSQUITTO_COMMIT=99fa50f30e325609394c324c8ff71cfbbe95d8ab
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake build-essential gcc libcjson-dev libsqlite3-dev libssl-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /workspace
+COPY --from=mosquitto-src / /mosquitto-src
+RUN test "$(git -C /mosquitto-src describe --tags --exact-match)" = "v2.1.2" \
+    && test "$(git -C /mosquitto-src rev-parse HEAD)" = "${MOSQUITTO_COMMIT}"
+ENV CFLAGS="-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer"
+ENV CXXFLAGS="-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer"
+ENV LDFLAGS="-fsanitize=address,undefined"
+RUN cmake -S /mosquitto-src -B /tmp/mosq-asan -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_INSTALL_PREFIX=/usr/local -DWITH_DOCS=OFF -DWITH_TESTS=OFF \
+    -DWITH_BUNDLED_DEPS=ON -DWITH_TLS=ON -DWITH_TLS_PSK=ON -DWITH_WEBSOCKETS=OFF \
+    && cmake --build /tmp/mosq-asan --parallel 4 \
+    && cmake --install /tmp/mosq-asan
+COPY . .
+ENV CGO_CFLAGS="-I/mosquitto-src/include -I/usr/include/cjson -fsanitize=address,undefined -fno-omit-frame-pointer"
+ENV CGO_LDFLAGS="-fsanitize=address,undefined"
+RUN go version \
+    && go build -asan -tags mosquitto_plugin -buildmode=c-shared -o /tmp/tp-mosquitto-plugin.so ./cmd/tp-mosquitto-plugin \
+    && go build -o /tmp/mqtt-community-qa ./test/mosquitto-community
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates libcjson1 libsqlite3-0 libssl3 libasan8 libubsan1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 1883 mosquitto \
+    && useradd --system --uid 1883 --gid mosquitto --no-create-home \
+       --shell /usr/sbin/nologin mosquitto \
+    && mkdir -p /mosquitto/config /mosquitto/data /mosquitto/plugins \
+    && chown -R mosquitto:mosquitto /mosquitto
+COPY --from=sanitizer-build /usr/local/ /usr/local/
+COPY --from=sanitizer-build /tmp/tp-mosquitto-plugin.so /mosquitto/plugins/tp-mosquitto-plugin.so
+COPY --from=sanitizer-build /tmp/mqtt-community-qa /usr/local/bin/mqtt-community-qa
+COPY deploy/mosquitto-community/mosquitto.plugin.linux-qa.conf /mosquitto/config/mosquitto.conf
+COPY deploy/mosquitto-community/run-linux-plugin-qa.sh /usr/local/bin/run-linux-plugin-qa
+RUN chmod 0755 /usr/local/bin/run-linux-plugin-qa && ldconfig
+ENV ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:abort_on_error=1
+ENV UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1
+ENTRYPOINT ["/usr/local/bin/run-linux-plugin-qa"]

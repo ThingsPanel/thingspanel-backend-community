@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"project/initialize"
 	"project/internal/dal"
 	"project/internal/diagnostics"
@@ -105,16 +108,24 @@ func (f *TelemetryUplink) Stop() {
 
 // processMessage 处理单条遥测消息
 func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
+	trusted, transportDeviceID, _, _, _, trustErr := trustedTelemetryMetadata(msg)
+	if trustErr != nil {
+		f.logger.WithError(trustErr).Error("Invalid trusted telemetry transport metadata")
+		return
+	}
 	// 从 metadata 获取设备ID
 	deviceIDObj, ok := msg.GetMetadata("device_id")
 	if !ok {
 		f.logger.Error("Device ID not found in message metadata")
 		return
 	}
-
 	deviceID, ok := deviceIDObj.(string)
 	if !ok {
 		f.logger.Error("Invalid device ID type in metadata")
+		return
+	}
+	if trusted && (deviceID != transportDeviceID || msg.DeviceID != transportDeviceID || msg.TenantID == "") {
+		f.logger.Error("Trusted telemetry identity does not match message scope")
 		return
 	}
 
@@ -125,6 +136,10 @@ func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
 			"device_id": deviceID,
 			"error":     err,
 		}).Error("Failed to get device from cache")
+		return
+	}
+	if trusted && device.TenantID != msg.TenantID {
+		f.logger.Error("Trusted telemetry tenant does not match cached device")
 		return
 	}
 
@@ -161,6 +176,80 @@ func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
 		// 直连设备消息
 		f.processDirectDeviceMessage(device, processedPayload, msg)
 	}
+}
+
+// trustedTelemetryMetadata recognizes only the exact ingress_v1 marker. A
+// malformed marker or any missing trusted scope field is rejected before the
+// device cache or legacy heartbeat/automation paths are reached.
+func trustedTelemetryMetadata(msg *DeviceMessage) (bool, string, string, uint64, time.Time, error) {
+	if msg == nil {
+		return false, "", "", 0, time.Time{}, fmt.Errorf("nil telemetry message")
+	}
+	value, exists := msg.GetMetadata("transport_profile")
+	if !exists {
+		return false, "", "", 0, time.Time{}, nil
+	}
+	profile, ok := value.(string)
+	if !ok {
+		return false, "", "", 0, time.Time{}, fmt.Errorf("transport profile must be a string")
+	}
+	if profile != "ingress_v1" {
+		return false, "", "", 0, time.Time{}, nil
+	}
+	deviceValue, ok := msg.GetMetadata("device_id")
+	deviceID, validDevice := deviceValue.(string)
+	if !ok || !validDevice || strings.TrimSpace(deviceID) == "" {
+		return false, "", "", 0, time.Time{}, fmt.Errorf("trusted device id missing or invalid")
+	}
+	cellValue, ok := msg.GetMetadata("broker_cell")
+	cell, validCell := cellValue.(string)
+	if !ok || !validCell || strings.TrimSpace(cell) == "" {
+		return false, "", "", 0, time.Time{}, fmt.Errorf("trusted broker cell missing or invalid")
+	}
+	epochValue, ok := msg.GetMetadata("route_epoch")
+	epoch, validEpoch := strictTelemetryEpoch(epochValue)
+	if !ok || !validEpoch || epoch == 0 {
+		return false, "", "", 0, time.Time{}, fmt.Errorf("trusted route epoch missing or invalid")
+	}
+	if msg.Timestamp <= 0 {
+		return false, "", "", 0, time.Time{}, fmt.Errorf("trusted observation timestamp missing or invalid")
+	}
+	return true, deviceID, cell, epoch, time.UnixMilli(msg.Timestamp).UTC(), nil
+}
+
+func strictTelemetryEpoch(value interface{}) (uint64, bool) {
+	switch n := value.(type) {
+	case uint64:
+		return n, true
+	case uint:
+		return uint64(n), true
+	case uint32:
+		return uint64(n), true
+	case int:
+		if n >= 0 {
+			return uint64(n), true
+		}
+	case int64:
+		if n >= 0 {
+			return uint64(n), true
+		}
+	case int32:
+		if n >= 0 {
+			return uint64(n), true
+		}
+	case json.Number:
+		v, err := n.Int64()
+		if err == nil && v >= 0 {
+			return uint64(v), true
+		}
+	case float64:
+		if n >= 0 && n <= math.MaxInt64 && math.Trunc(n) == n && n <= 9007199254740991 {
+			return uint64(n), true
+		}
+	case string:
+		// Strings are deliberately rejected: JSON transport epochs are numeric.
+	}
+	return 0, false
 }
 
 // decodeTelemetryPayload runs the device-config script only when a configuration
@@ -312,8 +401,19 @@ func (f *TelemetryUplink) processSubGateways(parentID string, subGatewayData map
 
 // processDirectDeviceMessage 处理单个设备的遥测数据
 func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, payload []byte, originalMsg *DeviceMessage) {
-	// 1. 心跳刷新(最优先,确保设备活跃性)
-	f.refreshHeartbeat(device)
+	trusted, transportDeviceID, brokerCell, routeEpoch, observedAt, trustErr := trustedTelemetryMetadata(originalMsg)
+	if trustErr != nil {
+		f.logger.WithError(trustErr).Error("Invalid trusted telemetry transport metadata")
+		return
+	}
+	if trusted && (transportDeviceID != originalMsg.DeviceID || device.TenantID != originalMsg.TenantID) {
+		f.logger.Error("Trusted telemetry identity does not match logical device scope")
+		return
+	}
+	// Legacy heartbeat remains the owner only for the legacy input profile.
+	if !trusted {
+		f.refreshHeartbeat(device)
+	}
 
 	// 2. 数据转发（同步执行）
 	// if err := publish.ForwardTelemetryMessage(device.ID, payload); err != nil {
@@ -337,15 +437,32 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 		}
 	}
 
-	f.storageInput <- &storage.Message{
+	stored := &storage.Message{
 		DeviceID:  device.ID,
 		TenantID:  device.TenantID,
 		DataType:  storage.DataTypeTelemetry,
 		Timestamp: time.Now().UnixMilli(),
 		Data:      telemetryPoints,
 	}
+	if trusted {
+		stored.Timestamp = observedAt.UnixMilli()
+		stored.BrokerRoute = &storage.TrustedTelemetryRoute{ReceiptID: uuid.NewString(), TransportDeviceID: transportDeviceID, BrokerCell: brokerCell, RouteEpoch: routeEpoch, ObservedAt: observedAt}
+		stored.AfterCommit = func() {
+			if global.REDIS != nil {
+				f.checkAndPublishToWS(device.ID, device.TenantID, triggerValues)
+			}
+		}
+	}
+	select {
+	case f.storageInput <- stored:
+	case <-f.ctx.Done():
+		return
+	}
 
-	// 5. WebSocket 实时推送（异步）
+	if trusted {
+		return
+	}
+	// Legacy WebSocket/scene behavior is intentionally unchanged.
 	go f.checkAndPublishToWS(device.ID, device.TenantID, triggerValues)
 
 	// 6. 场景联动（异步）
@@ -373,7 +490,6 @@ func (f *TelemetryUplink) convertToTelemetryPoints(payload []byte, device *model
 		// JSON 解析失败，包装成 {"_raw": 原始值}
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
-			"payload":   string(payload),
 			"error":     err,
 		}).Warn("【遥测上行】payload is not valid JSON object, wrapping as {\"_raw\": ...}")
 

@@ -1,0 +1,221 @@
+Linux plugin QA config: owner=http://127.0.0.1:18084 cell=qa-community instance=mosquitto-plugin-qa pending=128 sessions=128 token_bytes=64
+fixture ready at http://127.0.0.1:18084/v1/authenticate; token file /tmp/tp-broker-fixture.token (value not printed)
+1792428560: Info: running mosquitto as user: mosquitto.
+1792428560: mosquitto version 2.1.2 starting
+1792428560: Config loaded from /mosquitto/config/mosquitto.conf.
+1792428560: Bridge support available.
+1792428560: Persistence support available.
+1792428560: TLS support available.
+1792428560: TLS-PSK support available.
+1792428560: Websockets support NOT available.
+1792428560: Loading plugin: /mosquitto/plugins/tp-mosquitto-plugin.so
+1792428560: Plugin thingspanel-community has registered to receive 'basic-auth' events.
+1792428560: Plugin thingspanel-community has registered to receive 'acl-check' events.
+1792428560: Plugin thingspanel-community has registered to receive 'message-in' events.
+1792428560: Plugin thingspanel-community has registered to receive 'message-out' events.
+1792428560: Plugin thingspanel-community has registered to receive 'tick' events.
+1792428560: Plugin thingspanel-community has registered to receive 'connect' events.
+1792428560: Plugin thingspanel-community has registered to receive 'disconnect' events.
+1792428560: Plugin thingspanel-community has registered to receive 'connect' events.
+1792428560: Plugin thingspanel-community version contract-1 loaded.
+1792428560: Opening ipv4 listen socket on port 1883.
+1792428560: mosquitto version 2.1.2 running
+1792428561: New connection from 127.0.0.1:39542 on port 1883.
+1792428561: New connection from 127.0.0.1:39552 on port 1883.
+1792428561: New connection from 127.0.0.1:39560 on port 1883.
+1792428561: New connection from 127.0.0.1:39564 on port 1883.
+1792428561: New connection from 127.0.0.1:39570 on port 1883.
+1792428561: New connection from 127.0.0.1:39584 on port 1883.
+1792428561: New connection from 127.0.0.1:39596 on port 1883.
+1792428561: New connection from 127.0.0.1:39612 on port 1883.
+1792428561: New connection from 127.0.0.1:39624 on port 1883.
+1792428561: New connection from 127.0.0.1:39626 on port 1883.
+1792428561: New connection from 127.0.0.1:39638 on port 1883.
+1792428561: New connection from 127.0.0.1:39644 on port 1883.
+1792428561: New connection from 127.0.0.1:39654 on port 1883.
+1792428561: Client 127.0.0.1 [127.0.0.1:39542] disconnected: connection closed by client.
+1792428561: New connection from 127.0.0.1:39656 on port 1883.
+1792428561: New connection from 127.0.0.1:39660 on port 1883.
+1792428561: New connection from 127.0.0.1:39666 on port 1883.
+1792428561: New connection from 127.0.0.1:39680 on port 1883.
+1792428562: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1792428562: New client connected from 127.0.0.1:39638 as stress-reconnect-9 (p5, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-9 (0, 0)
+1792428562: New client connected from 127.0.0.1:39660 as stress-reconnect-13 (p5, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-13 (0, 0)
+1792428562: New client connected from 127.0.0.1:39666 as stress-reconnect-14 (p4, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-14 (0, 0)
+1792428562: New client connected from 127.0.0.1:39570 as stress-reconnect-3 (p5, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-3 (0, 0)
+1792428562: New client connected from 127.0.0.1:39564 as stress-reconnect-2 (p4, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-2 (0, 0)
+1792428562: New client connected from 127.0.0.1:39560 as stress-reconnect-1 (p5, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-1 (0, 0)
+1792428562: New client connected from 127.0.0.1:39654 as stress-reconnect-11 (p5, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-11 (0, 0)
+1792428562: New client connected from 127.0.0.1:39656 as stress-reconnect-12 (p4, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-12 (0, 0)
+1792428562: New client connected from 127.0.0.1:39624 as stress-reconnect-7 (p5, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-7 (0, 0)
+1792428562: New client connected from 127.0.0.1:39644 as stress-reconnect-10 (p4, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-10 (0, 0)
+1792428562: New client connected from 127.0.0.1:39612 as stress-reconnect-6 (p4, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-6 (0, 0)
+1792428562: New client connected from 127.0.0.1:39680 as stress-reconnect-15 (p5, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-15 (0, 0)
+1792428562: New client connected from 127.0.0.1:39584 as stress-reconnect-4 (p4, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-4 (0, 0)
+1792428562: New client connected from 127.0.0.1:39596 as stress-reconnect-5 (p5, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-5 (0, 0)
+1792428562: New client connected from 127.0.0.1:39552 as stress-reconnect-0 (p4, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-0 (0, 0)
+1792428562: New client connected from 127.0.0.1:39626 as stress-reconnect-8 (p4, c1, k30, u'qa-device-device-a').
+1792428562: No will message specified.
+1792428562: Sending CONNACK to stress-reconnect-8 (0, 0)
+1792428562: Received DISCONNECT from stress-reconnect-9
+1792428562: Client stress-reconnect-9 [127.0.0.1:39638] disconnected.
+1792428562: New connection from 127.0.0.1:39682 on port 1883.
+1792428562: New connection from 127.0.0.1:39686 on port 1883.
+1792428562: New connection from 127.0.0.1:39698 on port 1883.
+1792428562: New connection from 127.0.0.1:39704 on port 1883.
+1792428562: New connection from 127.0.0.1:39712 on port 1883.
+1792428562: New connection from 127.0.0.1:39710 on port 1883.
+1792428562: New connection from 127.0.0.1:39716 on port 1883.
+1792428562: New connection from 127.0.0.1:39718 on port 1883.
+1792428562: New connection from 127.0.0.1:39728 on port 1883.
+1792428562: New connection from 127.0.0.1:39740 on port 1883.
+1792428562: New connection from 127.0.0.1:39750 on port 1883.
+1792428562: New connection from 127.0.0.1:39752 on port 1883.
+1792428562: New connection from 127.0.0.1:39760 on port 1883.
+1792428562: New connection from 127.0.0.1:39768 on port 1883.
+1792428562: New connection from 127.0.0.1:39782 on port 1883.
+1792428562: New connection from 127.0.0.1:39784 on port 1883.
+1792428562: Received DISCONNECT from stress-reconnect-13
+1792428562: Client stress-reconnect-13 [127.0.0.1:39660] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-14
+1792428562: Client stress-reconnect-14 [127.0.0.1:39666] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-3
+1792428562: Client stress-reconnect-3 [127.0.0.1:39570] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-2
+1792428562: Client stress-reconnect-2 [127.0.0.1:39564] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-1
+1792428562: Client stress-reconnect-1 [127.0.0.1:39560] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-11
+1792428562: Client stress-reconnect-11 [127.0.0.1:39654] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-12
+1792428562: Client stress-reconnect-12 [127.0.0.1:39656] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-7
+1792428562: Client stress-reconnect-7 [127.0.0.1:39624] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-10
+1792428562: Client stress-reconnect-10 [127.0.0.1:39644] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-6
+1792428562: Client stress-reconnect-6 [127.0.0.1:39612] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-15
+1792428562: Client stress-reconnect-15 [127.0.0.1:39680] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-4
+1792428562: Client stress-reconnect-4 [127.0.0.1:39584] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-5
+1792428562: Client stress-reconnect-5 [127.0.0.1:39596] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-0
+1792428562: Client stress-reconnect-0 [127.0.0.1:39552] disconnected.
+1792428562: Received DISCONNECT from stress-reconnect-8
+1792428562: Client stress-reconnect-8 [127.0.0.1:39626] disconnected.
+1792428563: New client connected from 127.0.0.1:39682 as stress-reconnect-16 (p4, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-16 (0, 0)
+1792428563: New client connected from 127.0.0.1:39718 as stress-reconnect-22 (p4, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-22 (0, 0)
+1792428563: New client connected from 127.0.0.1:39750 as stress-reconnect-26 (p4, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-26 (0, 0)
+1792428563: New client connected from 127.0.0.1:39784 as stress-reconnect-30 (p4, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-30 (0, 0)
+1792428563: New client connected from 127.0.0.1:39710 as stress-reconnect-20 (p4, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-20 (0, 0)
+1792428563: New client connected from 127.0.0.1:39686 as stress-reconnect-17 (p5, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-17 (0, 0)
+1792428563: New client connected from 127.0.0.1:39698 as stress-reconnect-18 (p4, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-18 (0, 0)
+1792428563: New client connected from 127.0.0.1:39704 as stress-reconnect-24 (p4, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-24 (0, 0)
+1792428563: New client connected from 127.0.0.1:39768 as stress-reconnect-29 (p5, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-29 (0, 0)
+1792428563: New client connected from 127.0.0.1:39782 as stress-reconnect-31 (p5, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-31 (0, 0)
+1792428563: New client connected from 127.0.0.1:39728 as stress-reconnect-19 (p5, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-19 (0, 0)
+1792428563: New client connected from 127.0.0.1:39712 as stress-reconnect-23 (p5, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-23 (0, 0)
+1792428563: New client connected from 127.0.0.1:39740 as stress-reconnect-25 (p5, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-25 (0, 0)
+1792428563: New client connected from 127.0.0.1:39716 as stress-reconnect-21 (p5, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-21 (0, 0)
+1792428563: New client connected from 127.0.0.1:39752 as stress-reconnect-27 (p5, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-27 (0, 0)
+1792428563: New client connected from 127.0.0.1:39760 as stress-reconnect-28 (p4, c1, k30, u'qa-device-device-a').
+1792428563: No will message specified.
+1792428563: Sending CONNACK to stress-reconnect-28 (0, 0)
+1792428563: Received DISCONNECT from stress-reconnect-16
+1792428563: Client stress-reconnect-16 [127.0.0.1:39682] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-22
+1792428563: Client stress-reconnect-22 [127.0.0.1:39718] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-26
+1792428563: Client stress-reconnect-26 [127.0.0.1:39750] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-30
+1792428563: Client stress-reconnect-30 [127.0.0.1:39784] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-20
+1792428563: Client stress-reconnect-20 [127.0.0.1:39710] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-17
+1792428563: Client stress-reconnect-17 [127.0.0.1:39686] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-18
+1792428563: Client stress-reconnect-18 [127.0.0.1:39698] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-28
+1792428563: Client stress-reconnect-28 [127.0.0.1:39760] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-24
+1792428563: Client stress-reconnect-24 [127.0.0.1:39704] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-27
+1792428563: Client stress-reconnect-27 [127.0.0.1:39752] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-25
+1792428563: Client stress-reconnect-25 [127.0.0.1:39740] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-23
+1792428563: Client stress-reconnect-23 [127.0.0.1:39712] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-19
+1792428563: Client stress-reconnect-19 [127.0.0.1:39728] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-31
+1792428563: Client stress-reconnect-31 [127.0.0.1:39782] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-29
+1792428563: Client stress-reconnect-29 [127.0.0.1:39768] disconnected.
+1792428563: Received DISCONNECT from stress-reconnect-21
+1792428563: Client stress-reconnect-21 [127.0.0.1:39716] disconnected.
+PASS: sanitizer stress counts messages=0 acked=0 ingress_seen=0 reconnects=32 MQTT3/5; elapsed=2.051439686s; report=/qa-out/reconnect32-concurrency16.json
+PASS: all live MQTT checks completed
+1792428563: mosquitto version 2.1.2 terminating
+1792428563: Saving in-memory database to /mosquitto/data//mosquitto.db.

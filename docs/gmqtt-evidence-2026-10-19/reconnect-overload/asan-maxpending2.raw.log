@@ -1,0 +1,63 @@
+Linux plugin QA config: owner=http://127.0.0.1:18084 cell=qa-community instance=mosquitto-plugin-qa pending=2 sessions=128 token_bytes=64
+fixture ready at http://127.0.0.1:18084/v1/authenticate; token file /tmp/tp-broker-fixture.token (value not printed)
+1792427563: Info: running mosquitto as user: mosquitto.
+1792427563: mosquitto version 2.1.2 starting
+1792427563: Config loaded from /mosquitto/config/mosquitto.conf.
+1792427563: Bridge support available.
+1792427563: Persistence support available.
+1792427563: TLS support available.
+1792427563: TLS-PSK support available.
+1792427563: Websockets support NOT available.
+1792427563: Loading plugin: /mosquitto/plugins/tp-mosquitto-plugin.so
+1792427563: Plugin thingspanel-community has registered to receive 'basic-auth' events.
+1792427563: Plugin thingspanel-community has registered to receive 'acl-check' events.
+1792427563: Plugin thingspanel-community has registered to receive 'message-in' events.
+1792427563: Plugin thingspanel-community has registered to receive 'message-out' events.
+1792427563: Plugin thingspanel-community has registered to receive 'tick' events.
+1792427563: Plugin thingspanel-community has registered to receive 'connect' events.
+1792427563: Plugin thingspanel-community has registered to receive 'disconnect' events.
+1792427563: Plugin thingspanel-community has registered to receive 'connect' events.
+1792427563: Plugin thingspanel-community version contract-1 loaded.
+1792427563: Opening ipv4 listen socket on port 1883.
+1792427563: mosquitto version 2.1.2 running
+1792427564: New connection from 127.0.0.1:50206 on port 1883.
+1792427564: New connection from 127.0.0.1:50210 on port 1883.
+1792427564: Client 127.0.0.1 [127.0.0.1:50206] disconnected: connection closed by client.
+1792427569: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1792427569: New client connected from 127.0.0.1:50210 as stress-service (p4, c1, k30, u'qa-service').
+1792427569: No will message specified.
+1792427569: Sending CONNACK to stress-service (0, 0)
+1792427569: Received SUBSCRIBE from stress-service
+1792427569: 	tp-internal/ingress/v1/# (QoS 1)
+1792427569: stress-service 1 tp-internal/ingress/v1/#
+1792427569: Sending SUBACK to stress-service
+1792427569: New connection from 127.0.0.1:50218 on port 1883.
+1792427574: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1792427574: New client connected from 127.0.0.1:50218 as stress-device-4 (p4, c1, k30, u'qa-device-device-a').
+1792427574: No will message specified.
+1792427574: Sending CONNACK to stress-device-4 (0, 0)
+1792427574: Received PUBLISH from stress-device-4 (d0, q1, r0, m1, 'telemetry/device-a/stress/0', ... (16 bytes))
+1792427574: Sending PUBLISH to stress-service (d0, q1, r0, m1, 'tp-internal/ingress/v1/cWEtdGVuYW50/ZGV2aWNlLWE/b-dGVsZW1ldHJ5L2RldmljZS1hL3N0cmVzcy8w', ... (534 bytes))
+1792427574: Sending PUBACK to stress-device-4 (m1, rc0)
+1792427574: Received DISCONNECT from stress-device-4
+1792427574: Client stress-device-4 [127.0.0.1:50218] disconnected.
+1792427574: Received PUBACK from stress-service (Mid: 1, RC:0)
+1792427574: New connection from 127.0.0.1:33710 on port 1883.
+1792427579: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1792427579: New client connected from 127.0.0.1:33710 as stress-device-5 (p5, c1, k30, u'qa-device-device-a').
+1792427579: No will message specified.
+1792427579: Sending CONNACK to stress-device-5 (0, 0)
+1792427579: Received PUBLISH from stress-device-5 (d0, q1, r0, m1, 'telemetry/device-a/stress/1', ... (16 bytes))
+1792427579: Sending PUBLISH to stress-service (d0, q1, r0, m2, 'tp-internal/ingress/v1/cWEtdGVuYW50/ZGV2aWNlLWE/b-dGVsZW1ldHJ5L2RldmljZS1hL3N0cmVzcy8x', ... (534 bytes))
+1792427579: Sending PUBACK to stress-device-5 (m1, rc0)
+1792427579: Received DISCONNECT from stress-device-5
+1792427579: Client stress-device-5 [127.0.0.1:33710] disconnected.
+1792427579: Received PUBACK from stress-service (Mid: 2, RC:0)
+1792427579: New connection from 127.0.0.1:33726 on port 1883.
+1792427579: Sending CONNACK to stress-reconnect-0 (0, 5)
+1792427579: Client stress-reconnect-0 [127.0.0.1:33726] disconnected: not authorised.
+FAIL: reconnect 0 MQTT mqtt311: CONNECT rejected for qa-device-device-a, reason=0x5
+1792427579: Received DISCONNECT from stress-service
+1792427579: Client stress-service [127.0.0.1:50210] disconnected.
+1792427579: mosquitto version 2.1.2 terminating
+1792427579: Saving in-memory database to /mosquitto/data//mosquitto.db.

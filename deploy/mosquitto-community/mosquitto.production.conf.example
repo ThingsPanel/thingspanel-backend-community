@@ -1,0 +1,12 @@
+# Template for a reviewed deployment profile. Do not expose a listener until
+# the authentication/ACL plugin and its policy have been built and verified.
+listener 1883 0.0.0.0
+allow_anonymous false
+persistence true
+persistence_location /mosquitto/data/
+log_dest stdout
+log_type error
+log_type warning
+log_type notice
+user mosquitto
+plugin /mosquitto/plugins/libtp-mosquitto-plugin.so

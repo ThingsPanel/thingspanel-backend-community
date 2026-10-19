@@ -1,0 +1,722 @@
+[
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-binary-unicode-ingress",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-bare-denied",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-immediate",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-offline-expired",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-offline-principal-mismatch",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-offline-revoked",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-offline-stale-route",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-offline-valid",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-online-stale-route",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-restart-expired",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-restart-identity-qa-command-device-b",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-command-restart-identity-qa-command-revoked-device-a",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-empty-ingress",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-explicit-shared-group",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-max-payload-max-topic-ingress",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-platform-retained-clear-and-isolation",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt311-service-narrow-filter",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-binary-unicode-ingress",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-bare-denied",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-immediate",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-offline-expired",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-offline-principal-mismatch",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-offline-revoked",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-offline-stale-route",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-offline-valid",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-online-stale-route",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-restart-expired",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-restart-identity-qa-command-device-b",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-command-restart-identity-qa-command-revoked-device-a",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "observed",
+      "ingress_seen": "not_applicable",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-empty-ingress",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-explicit-shared-group",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-max-payload-max-topic-ingress",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-platform-retained-clear-and-isolation",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "mqtt-mqtt5-service-narrow-filter",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "observed",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "observed",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "state-offline-connection-seq2",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "not_applicable",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "not_applicable",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  },
+  {
+    "run_id": "2026-10-19T17:00:19.494575182Z",
+    "case": "state-online-connection-seq1",
+    "stages": {
+      "accepted": "unobserved",
+      "broker_ack": "not_applicable",
+      "device_delivery": "missing",
+      "ingress_seen": "observed",
+      "planned": "observed",
+      "sent": "not_applicable",
+      "sideeffects": "unobserved",
+      "terminal": "unobserved"
+    },
+    "verdict": "INCOMPLETE",
+    "rules": [
+      "broker_ack does not imply accepted",
+      "accepted requires ingress_seen evidence",
+      "unobserved stages remain incomplete"
+    ]
+  }
+]

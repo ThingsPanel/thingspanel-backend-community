@@ -1,0 +1,372 @@
+{
+  "calls": {
+    "qa-device-device-a": 23,
+    "qa-service": 13
+  },
+  "cancelled": {},
+  "auths": [
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:33:24.770612966Z",
+      "returned_at": "2026-10-19T16:33:24.771308117Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:33:29.788125852Z",
+      "returned_at": "2026-10-19T16:33:29.788334334Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-device-4",
+      "protocol": 4,
+      "connection_nonce": "6971798bb7971c0e8f302aa16e4bf942",
+      "connection_id": "fixture-conn-6971798bb7971c0e8f302aa16e4bf942",
+      "received_at": "2026-10-19T16:33:29.789951408Z",
+      "returned_at": "2026-10-19T16:33:29.790265381Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-device-4",
+      "protocol": 4,
+      "connection_nonce": "6971798bb7971c0e8f302aa16e4bf942",
+      "connection_id": "fixture-conn-6971798bb7971c0e8f302aa16e4bf942",
+      "received_at": "2026-10-19T16:33:34.806987541Z",
+      "returned_at": "2026-10-19T16:33:34.807123197Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:33:34.807772017Z",
+      "returned_at": "2026-10-19T16:33:34.807837429Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-device-5",
+      "protocol": 5,
+      "connection_nonce": "e29db954932f3a4e2542e03d91cdbd66",
+      "connection_id": "fixture-conn-e29db954932f3a4e2542e03d91cdbd66",
+      "received_at": "2026-10-19T16:33:34.808846469Z",
+      "returned_at": "2026-10-19T16:33:34.808905589Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-device-5",
+      "protocol": 5,
+      "connection_nonce": "e29db954932f3a4e2542e03d91cdbd66",
+      "connection_id": "fixture-conn-e29db954932f3a4e2542e03d91cdbd66",
+      "received_at": "2026-10-19T16:33:39.825452639Z",
+      "returned_at": "2026-10-19T16:33:39.825674162Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:33:39.826667829Z",
+      "returned_at": "2026-10-19T16:33:39.826902559Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-0",
+      "protocol": 4,
+      "connection_nonce": "c05506e0196ed8daa27cc97119b424e1",
+      "connection_id": "fixture-conn-c05506e0196ed8daa27cc97119b424e1",
+      "received_at": "2026-10-19T16:33:39.829499009Z",
+      "returned_at": "2026-10-19T16:33:39.829667412Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:33:44.848922152Z",
+      "returned_at": "2026-10-19T16:33:44.849005353Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-0",
+      "protocol": 4,
+      "connection_nonce": "c05506e0196ed8daa27cc97119b424e1",
+      "connection_id": "fixture-conn-c05506e0196ed8daa27cc97119b424e1",
+      "received_at": "2026-10-19T16:33:44.849003686Z",
+      "returned_at": "2026-10-19T16:33:44.849057099Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-1",
+      "protocol": 5,
+      "connection_nonce": "2b34dc961037af3e860fa95cfdbcd9fe",
+      "connection_id": "fixture-conn-2b34dc961037af3e860fa95cfdbcd9fe",
+      "received_at": "2026-10-19T16:33:44.849553891Z",
+      "returned_at": "2026-10-19T16:33:44.84962276Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-1",
+      "protocol": 5,
+      "connection_nonce": "2b34dc961037af3e860fa95cfdbcd9fe",
+      "connection_id": "fixture-conn-2b34dc961037af3e860fa95cfdbcd9fe",
+      "received_at": "2026-10-19T16:33:49.862839379Z",
+      "returned_at": "2026-10-19T16:33:49.862884584Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-2",
+      "protocol": 4,
+      "connection_nonce": "c831dbe2d76b0bf0f47f485c6adcf36c",
+      "connection_id": "fixture-conn-c831dbe2d76b0bf0f47f485c6adcf36c",
+      "received_at": "2026-10-19T16:33:49.862956078Z",
+      "returned_at": "2026-10-19T16:33:49.862974576Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:33:49.863105065Z",
+      "returned_at": "2026-10-19T16:33:49.863118814Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-2",
+      "protocol": 4,
+      "connection_nonce": "c831dbe2d76b0bf0f47f485c6adcf36c",
+      "connection_id": "fixture-conn-c831dbe2d76b0bf0f47f485c6adcf36c",
+      "received_at": "2026-10-19T16:33:54.883769854Z",
+      "returned_at": "2026-10-19T16:33:54.883912842Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-3",
+      "protocol": 5,
+      "connection_nonce": "d56203f057385db5070847eebe4dbe0f",
+      "connection_id": "fixture-conn-d56203f057385db5070847eebe4dbe0f",
+      "received_at": "2026-10-19T16:33:54.884685194Z",
+      "returned_at": "2026-10-19T16:33:54.884823641Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:33:54.884682153Z",
+      "returned_at": "2026-10-19T16:33:54.884909842Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:33:59.895920313Z",
+      "returned_at": "2026-10-19T16:33:59.896039969Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-3",
+      "protocol": 5,
+      "connection_nonce": "d56203f057385db5070847eebe4dbe0f",
+      "connection_id": "fixture-conn-d56203f057385db5070847eebe4dbe0f",
+      "received_at": "2026-10-19T16:33:59.895978891Z",
+      "returned_at": "2026-10-19T16:33:59.896042136Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-4",
+      "protocol": 4,
+      "connection_nonce": "fd29db855581b9e38e708d41aaf01dbe",
+      "connection_id": "fixture-conn-fd29db855581b9e38e708d41aaf01dbe",
+      "received_at": "2026-10-19T16:33:59.896209122Z",
+      "returned_at": "2026-10-19T16:33:59.896621546Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:34:04.910334749Z",
+      "returned_at": "2026-10-19T16:34:04.910461363Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-4",
+      "protocol": 4,
+      "connection_nonce": "fd29db855581b9e38e708d41aaf01dbe",
+      "connection_id": "fixture-conn-fd29db855581b9e38e708d41aaf01dbe",
+      "received_at": "2026-10-19T16:34:04.910339748Z",
+      "returned_at": "2026-10-19T16:34:04.91046228Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-5",
+      "protocol": 5,
+      "connection_nonce": "1d03e3966e4c1ca26efae55ee450fded",
+      "connection_id": "fixture-conn-1d03e3966e4c1ca26efae55ee450fded",
+      "received_at": "2026-10-19T16:34:04.910906659Z",
+      "returned_at": "2026-10-19T16:34:04.910962071Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-5",
+      "protocol": 5,
+      "connection_nonce": "1d03e3966e4c1ca26efae55ee450fded",
+      "connection_id": "fixture-conn-1d03e3966e4c1ca26efae55ee450fded",
+      "received_at": "2026-10-19T16:34:09.939292607Z",
+      "returned_at": "2026-10-19T16:34:09.939938555Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-6",
+      "protocol": 4,
+      "connection_nonce": "8f3675b37b0aee6d70335f40516c3841",
+      "connection_id": "fixture-conn-8f3675b37b0aee6d70335f40516c3841",
+      "received_at": "2026-10-19T16:34:09.940690459Z",
+      "returned_at": "2026-10-19T16:34:09.940777124Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:34:09.940849539Z",
+      "returned_at": "2026-10-19T16:34:09.94089483Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:34:14.966417122Z",
+      "returned_at": "2026-10-19T16:34:14.966697451Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-6",
+      "protocol": 4,
+      "connection_nonce": "8f3675b37b0aee6d70335f40516c3841",
+      "connection_id": "fixture-conn-8f3675b37b0aee6d70335f40516c3841",
+      "received_at": "2026-10-19T16:34:14.966784199Z",
+      "returned_at": "2026-10-19T16:34:14.967041486Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-7",
+      "protocol": 5,
+      "connection_nonce": "5ff9d0fa14c357857dfd923fec52b725",
+      "connection_id": "fixture-conn-5ff9d0fa14c357857dfd923fec52b725",
+      "received_at": "2026-10-19T16:34:14.968418671Z",
+      "returned_at": "2026-10-19T16:34:14.968755124Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-7",
+      "protocol": 5,
+      "connection_nonce": "5ff9d0fa14c357857dfd923fec52b725",
+      "connection_id": "fixture-conn-5ff9d0fa14c357857dfd923fec52b725",
+      "received_at": "2026-10-19T16:34:19.999007919Z",
+      "returned_at": "2026-10-19T16:34:19.999202124Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:34:19.999114459Z",
+      "returned_at": "2026-10-19T16:34:19.999214207Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-8",
+      "protocol": 4,
+      "connection_nonce": "2806810260ecbc99a646c16366c3db34",
+      "connection_id": "fixture-conn-2806810260ecbc99a646c16366c3db34",
+      "received_at": "2026-10-19T16:34:19.999897779Z",
+      "returned_at": "2026-10-19T16:34:20.000022485Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-service",
+      "wire_client_id": "stress-service",
+      "protocol": 4,
+      "connection_nonce": "9eae0b6868f76067fd307460d0d4f270",
+      "connection_id": "fixture-conn-9eae0b6868f76067fd307460d0d4f270",
+      "received_at": "2026-10-19T16:34:25.019599628Z",
+      "returned_at": "2026-10-19T16:34:25.019835999Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-8",
+      "protocol": 4,
+      "connection_nonce": "2806810260ecbc99a646c16366c3db34",
+      "connection_id": "fixture-conn-2806810260ecbc99a646c16366c3db34",
+      "received_at": "2026-10-19T16:34:25.020696068Z",
+      "returned_at": "2026-10-19T16:34:25.021374514Z",
+      "result": "grant_returned"
+    },
+    {
+      "username": "qa-device-device-a",
+      "wire_client_id": "stress-reconnect-9",
+      "protocol": 5,
+      "connection_nonce": "4826eb1bef79df5b6afea09d3aedbf41",
+      "connection_id": "fixture-conn-4826eb1bef79df5b6afea09d3aedbf41",
+      "received_at": "2026-10-19T16:34:25.021276724Z",
+      "returned_at": "2026-10-19T16:34:25.021377389Z",
+      "result": "grant_returned"
+    }
+  ],
+  "barrier_calls": 0,
+  "barrier_waiting": 0,
+  "barrier_max": 0
+}

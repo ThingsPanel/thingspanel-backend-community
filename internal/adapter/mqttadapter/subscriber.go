@@ -30,7 +30,9 @@ func (a *Adapter) SubscribeResponseTopics(client mqtt.Client) error {
 		// 使用共享订阅（VerneMQ 支持）
 		topic := genSharedTopic(topic)
 		token := client.Subscribe(topic, qos, a.handleResponseMessage)
-		token.Wait()
+		if err := WaitTokenContext(a.adapterContext(), token, 5*time.Second); err != nil {
+			return err
+		}
 		if err := token.Error(); err != nil {
 			a.logger.WithFields(logrus.Fields{
 				"topic": topic,
@@ -238,7 +240,9 @@ func (a *Adapter) SubscribeDeviceTopics(client mqtt.Client) error {
 		// 使用共享订阅（VerneMQ 支持）
 		sharedTopic := genSharedTopic(topic)
 		token := client.Subscribe(sharedTopic, config.qos, config.handler)
-		token.Wait()
+		if err := WaitTokenContext(a.adapterContext(), token, 5*time.Second); err != nil {
+			return err
+		}
 		if err := token.Error(); err != nil {
 			a.logger.WithFields(logrus.Fields{
 				"topic": sharedTopic,
@@ -283,7 +287,9 @@ func (a *Adapter) SubscribeGatewayTopics(client mqtt.Client) error {
 		// 使用共享订阅（VerneMQ 支持）
 		sharedTopic := genSharedTopic(topic)
 		token := client.Subscribe(sharedTopic, config.qos, config.handler)
-		token.Wait()
+		if err := WaitTokenContext(a.adapterContext(), token, 5*time.Second); err != nil {
+			return err
+		}
 		if err := token.Error(); err != nil {
 			a.logger.WithFields(logrus.Fields{
 				"topic": sharedTopic,
