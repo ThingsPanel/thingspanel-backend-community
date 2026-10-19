@@ -21,9 +21,10 @@ type MQTTConfig struct {
 	Broker            string
 	Username          string
 	Password          string
-	ClientID          string                   // 可选，不提供则自动生成
-	ManualAck         bool                     // ingress_v1 保留失败消息供 broker 重投
-	OnConnectCallback func(client mqtt.Client) // 连接成功回调（用于重新订阅）
+	ClientID          string                         // 可选，不提供则自动生成
+	ManualAck         bool                           // ingress_v1 保留失败消息供 broker 重投
+	BeforeConnect     func(client mqtt.Client) error // 安装持久会话重投处理器，必须早于 CONNECT
+	OnConnectCallback func(client mqtt.Client)       // 连接成功回调（用于重新订阅）
 }
 
 // CreateMQTTClient 创建 MQTT 客户端（Adapter 专用）。
@@ -50,6 +51,12 @@ func CreateMQTTClientContext(ctx context.Context, config MQTTConfig, logger *log
 	opts := newMQTTClientOptions(config, logger)
 	clientID := opts.ClientID
 	client := mqtt.NewClient(opts)
+	if config.BeforeConnect != nil {
+		if err := config.BeforeConnect(client); err != nil {
+			client.Disconnect(0)
+			return nil, err
+		}
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			client.Disconnect(0)

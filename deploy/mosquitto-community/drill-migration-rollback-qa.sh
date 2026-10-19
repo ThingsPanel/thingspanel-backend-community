@@ -31,8 +31,13 @@ schema="mqtt_qa_drill_$(date +%s)_$$${RANDOM}"
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/tp-broker-drill.XXXXXX")"
 schema_created=0
 broker_pid=""
+sub_pid=""
 cleanup() {
   status=$?
+  if [[ -n "$sub_pid" ]] && kill -0 "$sub_pid" 2>/dev/null; then
+    kill -TERM "$sub_pid" 2>/dev/null || true
+    wait "$sub_pid" 2>/dev/null || true
+  fi
   if [[ -n "$broker_pid" ]] && kill -0 "$broker_pid" 2>/dev/null; then
     kill -TERM "$broker_pid" 2>/dev/null || true
     wait "$broker_pid" 2>/dev/null || true

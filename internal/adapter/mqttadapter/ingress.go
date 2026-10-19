@@ -59,6 +59,16 @@ func (a *Adapter) adapterContext() context.Context {
 	return context.Background()
 }
 
+// RegisterIngressRoutes must run before CONNECT when resuming a persistent
+// session. A broker may send queued packets immediately after CONNACK, before
+// an asynchronous OnConnect callback or a new SUBSCRIBE can install handlers.
+func (a *Adapter) RegisterIngressRoutes(client mqtt.Client) {
+	if a.inputProfile == "ingress_v1" {
+		client.AddRoute(bc.IngressPrefix+"/#", a.handleIngressMessage)
+		client.AddRoute(bc.StatePrefix+"/#", a.handleStateMessage)
+	}
+}
+
 // SubscribeAllContext selects exactly one business ingress. Legacy raw and v1
 // subscriptions cannot be active together in one configured Adapter.
 func (a *Adapter) SubscribeAllContext(ctx context.Context, client mqtt.Client) error {
@@ -180,6 +190,9 @@ func (a *Adapter) HandleIngressMessage(topic string, body []byte, retained bool)
 		return bc.ErrUnauthorized
 	}
 	metadata := map[string]interface{}{"device_id": env.DeviceID, "topic": canonicalTopic, "original_topic": wireTopic, "source_protocol": "mqtt", "transport_profile": "ingress_v1", "broker_cell": env.Metadata.BrokerCell, "broker_instance": env.Metadata.BrokerInstance, "connection_id": env.Metadata.ConnectionID, "route_epoch": env.Metadata.RouteEpoch, "policy_version": env.Metadata.PolicyVersion, "mapping_version": env.Metadata.MappingVersion, "observed_at": env.Metadata.ObservedAt, "message_id": messageID}
+	if env.Metadata.IngestionID != "" {
+		metadata["ingestion_id"] = env.Metadata.IngestionID
+	}
 	payload := env.Values
 	switch kind {
 	case uplink.MessageTypeCommandResponse, uplink.MessageTypeGatewayCommandResponse:

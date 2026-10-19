@@ -89,8 +89,9 @@
 
 ## 本轮具体验证与边界
 
-- 原生 ingress E2E 与命令 E2E 分别在固定 Mosquitto 2.1.2、私有 PostgreSQL schema、真实 Paho Adapter/Owner 下通过；见 [native ingress E2E](gmqtt-evidence-2026-10-19/native-mosquitto-owner-ledger-e2e.md) 与 [durable command regression](gmqtt-evidence-2026-10-19/durable-command-idempotency-regression.md)。报告用例不是全仓测试，且不证明物理设备动作。
+- 原生 ingress E2E 已分别验证真实 EVT、ATTR、TEL 样本到自动化持久命令、Paho 测试设备收到并 ACK；见 [native ingress E2E](gmqtt-evidence-2026-10-19/native-mosquitto-owner-ledger-e2e.md) 和 [automation native command E2E](gmqtt-evidence-2026-10-19/automation-native-command-e2e.md)。这是本地软件链子项，不证明物理设备动作，AC-C12 仍 PARTIAL。
 - 状态投影/quarantine 的真实 PG 回归见 [quarantine regression](gmqtt-evidence-2026-10-19/broker-quarantine-regression.md)；时间边界回归见 [state boundary regression](gmqtt-evidence-2026-10-19/broker-state-time-boundary-regression.md)。
 - Linux MQTT3/5 离线持久会话与受控 Broker 重启矩阵见 [Linux command-frame QA](gmqtt-evidence-2026-10-19/linux-command-frame-qa.md)。最大认证并发仍需 barrier-controlled overlap；OS崩溃/断电未覆盖。
-- automation planner 当前实现中。SQL009 持久化实际策略快照和动作审计；独立 PG planner 验证尚未完成。当前不宣称自动化完整、生产准入或项目完工。
+- automation PostgreSQL 子项已覆盖每设备 burst=10、按 1 token/3 秒补充、不同设备隔离及失败事务不消耗 token；状态 activity/timeout、freshness unknown 子项通过 PG 测试。SQL011 safe-voucher、SQL012 route-change 也有 PG/迁移相关测试；均非对应 AC 全覆盖。
+- 机器自动命令不再是“新profile一律拒绝”：带可信策略快照/proof 的同源 EVT/ATTR rule command 已经由 SQL009 planner、既有 dispatcher 和 native MQTT 设备 ACK；缺 proof、跨设备条件及 unsupported 动作仍拒绝或记录 unsupported。AI场景、授权矩阵、人效/成本等验收仍未通过。
 - QA schema检查器对编号迁移动态排序；`brokerqa`私有 schema fresh/repeat 通过，策略快照列5个、动作审计列11个。检查器不执行生产迁移，也不验证索引。

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"project/internal/uplink"
 	"project/pkg/global"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
@@ -84,6 +86,13 @@ func (a *brokerIngressAcceptor) Accept(ctx context.Context, input *uplink.Device
 		SourceEventID: sourceID, BrokerCell: cell, RouteEpoch: epoch,
 		Payload: append([]byte(nil), input.Payload...), Metadata: metadata,
 	}
+	if value, exists := metadata["ingestion_id"]; exists {
+		ingestionID, ok := value.(string)
+		if !ok || ingestionID == "" || len(ingestionID) > 128 || strings.TrimSpace(ingestionID) != ingestionID {
+			return errBrokerIngressTrust
+		}
+		message.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("broker-ingress-v1\x00"+input.TenantID+"\x00"+input.DeviceID+"\x00"+string(input.Type)+"\x00"+cell+"\x00"+ingestionID)).String()
+	}
 	id, duplicate, err := a.store.Accept(ctx, message)
 	if err != nil {
 		return err
@@ -125,6 +134,7 @@ type brokerIngressWorker struct {
 	store          ingressReceiptStore
 	processor      ingressProcessor
 	processEffects func(context.Context) (bool, error)
+	runtimeSync    func(context.Context) error
 	logger         *logrus.Logger
 	mu             sync.Mutex
 	cancel         context.CancelFunc
@@ -139,6 +149,11 @@ func (w *brokerIngressWorker) Start(ctx context.Context) error {
 	defer w.mu.Unlock()
 	if w.done != nil {
 		return nil
+	}
+	if w.runtimeSync != nil {
+		if e := w.runtimeSync(ctx); e != nil {
+			return e
+		}
 	}
 	workerCtx, cancel := context.WithCancel(ctx)
 	w.cancel, w.done = cancel, make(chan struct{})
@@ -169,7 +184,27 @@ func (w *brokerIngressWorker) run(ctx context.Context, done chan struct{}) {
 	defer close(done)
 	delay := 100 * time.Millisecond
 	const maxDelay = 2 * time.Second
+	var lastSync time.Time
 	for ctx.Err() == nil {
+		if w.runtimeSync != nil && time.Since(lastSync) >= 5*time.Second {
+			if e := w.runtimeSync(ctx); e != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				if w.logger != nil {
+					w.logger.Warn("reliable ingress paused: route runtime synchronization unavailable")
+				}
+				timer := time.NewTimer(time.Second)
+				select {
+				case <-ctx.Done():
+					timer.Stop()
+					return
+				case <-timer.C:
+				}
+				continue
+			}
+			lastSync = time.Now()
+		}
 		processed, err := w.store.ProcessOne(ctx, w.processor.Process)
 		if ctx.Err() == nil && w.processEffects != nil {
 			effectProcessed, effectErr := w.processEffects(ctx)
@@ -279,6 +314,11 @@ func (s *MQTTService) configureBrokerIngress(ctx context.Context, adapter *mqtta
 	store := brokerledger.New(s.app.DB)
 	processor := uplink.NewReliableProcessor(s.logger())
 	worker := &brokerIngressWorker{store: store, processor: processor, logger: s.logger()}
+	runtimeSync, err := brokerRuntimeSync(s.app.DB, "adapter", "effects")
+	if err != nil {
+		return err
+	}
+	worker.runtimeSync = runtimeSync
 	worker.processEffects = func(ctx context.Context) (bool, error) {
 		return service.ProcessBrokerAutomationEffect(ctx, s.app.DB, viper.GetString("mqtt.broker_cell"))
 	}

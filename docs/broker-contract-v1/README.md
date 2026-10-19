@@ -105,3 +105,27 @@ MESSAGE_OUT is denied. The ledger keeps matching connecting receipts pending
 without running business handlers; they become eligible after activation.
 Draining does not issue or refresh a lease. A phase flag is not a completed
 migration barrier or proof that old wire sessions were drained.
+
+## Stable platform ingestion identity
+
+The current community shim mints `_tp.ingestion_id` from its random process boot
+identity and a monotonic publish sequence. It performs no entropy or network I/O
+per publication. A newly published identical sample gets a different ID; the
+same persisted internal envelope keeps its ID across subscriber redelivery.
+The Adapter derives a scoped stable receipt UUID from this trusted ID. This
+closes commit-before-second-hop-ACK retries without deduplicating legitimate
+identical samples by their content. Device `source_event_id` remains a separate
+cross-publication deduplication contract; MQTT Packet Identifier is never used
+as that key. Missing ingestion IDs in older unpublished v1 envelopes preserve
+the earlier weaker behavior and must be drained before certifying this profile.
+
+Telemetry derives its final-batch receipt from the same ingestion ID and logical
+child device. This prevents duplicate effects after an already committed batch;
+it does not make the earlier in-memory telemetry bus durable.
+
+The opt-in strict migration runtime endpoint is `/v1/runtime/sync`, bound to the
+broker's existing cell/instance token and actual boot ID. Its bounded HTTP worker
+stages fences; only main-thread Tick installs them, and a subsequent request may
+ACK them. Control leases expire ten seconds from request initiation. See the
+[runtime integration evidence](../gmqtt-evidence-2026-10-19/runtime-fence-integration.md)
+for implementation boundaries and uncompleted migration scenarios.

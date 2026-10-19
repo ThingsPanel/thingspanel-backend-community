@@ -1,0 +1,17 @@
+ok  	project/internal/brokercontract	1.399s
+ok  	project/internal/mosquittodriver	3.903s
+ok  	project/internal/brokercontrol	2.868s
+ok  	project/internal/brokerledger	4.440s
+ok  	project/internal/brokermapper	1.397s
+ok  	project/internal/brokerstate	8.666s
+ok  	project/internal/brokercommands	4.259s
+ok  	project/internal/brokersemantic	3.451s
+ok  	project/internal/adapter/mqttadapter	2.834s
+ok  	project/internal/uplink	4.964s
+ok  	project/internal/storage	3.983s
+ok  	project/internal/service	8.147s
+ok  	project/internal/api	1.964s
+ok  	project/internal/app	20.869s
+ok  	project/cmd/tp-broker-audit	2.260s
+ok  	project/cmd/tp-broker-route	2.466s
+ok  	project/test/mosquitto-community	1.449s

@@ -24,7 +24,7 @@
       "properties": {
         "contract_version":{"const":"1"},"tenant_id":{"type":"string","minLength":1,"maxLength":256},
         "principal_kind":{"enum":["device","gateway","service"]},"broker_cell":{"type":"string","minLength":1,"maxLength":256},
-        "broker_instance":{"type":"string","minLength":1,"maxLength":256},"connection_id":{"type":"string","maxLength":256},
+        "broker_instance":{"type":"string","minLength":1,"maxLength":256},"connection_id":{"type":"string","maxLength":256},"ingestion_id":{"type":"string","minLength":1,"maxLength":128},
         "route_epoch":{"type":"integer","minimum":0},"policy_version":{"type":"string","minLength":1,"maxLength":256},
         "mapping_version":{"type":"string","minLength":1,"maxLength":256},"original_topic_b64":{"type":"string","maxLength":87380,"contentEncoding":"base64"},
         "original_qos":{"type":"integer","minimum":0,"maximum":2},"original_retain":{"type":"boolean"},

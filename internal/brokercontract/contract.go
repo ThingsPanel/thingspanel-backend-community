@@ -60,6 +60,7 @@ type Metadata struct {
 	BrokerCell       string        `json:"broker_cell"`
 	BrokerInstance   string        `json:"broker_instance"`
 	ConnectionID     string        `json:"connection_id,omitempty"`
+	IngestionID      string        `json:"ingestion_id,omitempty"`
 	RouteEpoch       uint64        `json:"route_epoch"`
 	PolicyVersion    string        `json:"policy_version"`
 	MappingVersion   string        `json:"mapping_version"`
@@ -259,6 +260,7 @@ func validateMetadata(p Principal, m Metadata) error {
 	if m.ContractVersion != ContractVersion || m.TenantID != p.TenantID || m.PrincipalKind != p.Kind ||
 		!validIdentity(m.BrokerCell) || !validIdentity(m.BrokerInstance) ||
 		(m.ConnectionID != "" && !validIdentity(m.ConnectionID)) ||
+		(m.IngestionID != "" && (!validIdentity(m.IngestionID) || len(m.IngestionID) > 128)) ||
 		!validIdentity(m.PolicyVersion) || !validIdentity(m.MappingVersion) || m.OriginalQoS > 2 || m.ObservedAt.IsZero() {
 		return ErrInvalidMetadata
 	}

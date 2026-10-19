@@ -55,6 +55,8 @@ func TestBrokerIngressNativeMosquittoOwnerPostgresE2E(t *testing.T) {
 	if os.Getenv("TEST_MQTT_NATIVE_E2E") != "1" {
 		t.Skip("set TEST_MQTT_NATIVE_E2E=1 to build/load native Mosquitto and run PostgreSQL/Redis integration")
 	}
+	loadDuration := nativeE2ELoadDuration(t)
+	t.Setenv("TP_BROKER_ROUTE_FENCING", "1")
 	root := repoRootForNativeE2E(t)
 	mosquittoPath := nativeE2EPath("MOSQUITTO_BIN", "/tmp/tp-mqtt-20261019/build/install/sbin/mosquitto")
 	includePath := nativeE2EPath("MOSQUITTO_INCLUDE_DIR", "/tmp/tp-mqtt-20261019/mosquitto/include")
@@ -86,6 +88,9 @@ func TestBrokerIngressNativeMosquittoOwnerPostgresE2E(t *testing.T) {
 		query.Device, query.CommandSetLog = previousDeviceQuery, previousCommandQuery
 	})
 	seedNativeE2EData(t, db)
+	if strings.TrimSpace(os.Getenv("TP_NATIVE_E2E_LOAD_PROFILE")) == "100-devices" {
+		seedNativeE2ELoadDevices(t, db, nativeE2ELoadConnections)
+	}
 
 	tokenBytes := make([]byte, 48)
 	if _, err := rand.Read(tokenBytes); err != nil {
@@ -96,7 +101,7 @@ func TestBrokerIngressNativeMosquittoOwnerPostgresE2E(t *testing.T) {
 		Tokens: []brokercontrol.TokenBinding{{Token: ownerToken, BrokerCell: nativeE2ECell, BrokerInstance: nativeE2ENode}},
 		Services: []brokercontrol.ServiceCredential{{
 			Username: "mqtt-e2e-service", Password: "e2e-service-password", BrokerCell: nativeE2ECell, BrokerInstance: nativeE2ENode,
-			AllowedClientIDs: []string{"mqtt-e2e-failed-acceptor", "mqtt-e2e-service"},
+			AllowedClientIDs: []string{"mqtt-e2e-failed-acceptor", "mqtt-e2e-service", "mqtt-e2e-load-observer"},
 			AllowedDeviceIDs: []string{nativeE2EDevice},
 			Principal:        bc.Principal{TenantID: nativeE2ETenant, DeviceID: "service-mqtt-e2e", Kind: bc.PrincipalService},
 			Policy:           bc.Policy{Publish: []string{"devices/command/native-e2e-number/+", "devices/event/response/+/+", "devices/attributes/response/+/+"}, Subscribe: []string{bc.IngressPrefix + "/#", bc.StatePrefix + "/#"}, MaxPayload: bc.MaxPayloadBytes, MaxQoS: 1, RetainProfile: bc.RetainedLiveIngress},
@@ -107,23 +112,42 @@ func TestBrokerIngressNativeMosquittoOwnerPostgresE2E(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ownerServer := httptest.NewServer(owner.Handler())
+	ownerServer := httptest.NewServer(owner.RuntimeHandler(brokercontrol.NewMigrationStore(db)))
 	t.Cleanup(ownerServer.Close)
 	tokenPath := filepath.Join(t.TempDir(), "broker-owner.token")
 	if err := os.WriteFile(tokenPath, []byte(ownerToken), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	pluginPath := buildNativeE2EPlugin(t, root, includePath, cjsonPath)
-	brokerAddr, brokerLog, stopBroker := startNativeE2EBroker(t, mosquittoPath, pluginPath, ownerServer.URL, tokenPath, root)
+	var brokerAddr, brokerLog string
+	var stopBroker func()
+	if loadDuration > 0 {
+		brokerAddr, brokerLog, stopBroker = startNativeE2ELoadBroker(t, mosquittoPath, pluginPath, ownerServer.URL, tokenPath, root, 128, 128)
+	} else {
+		brokerAddr, brokerLog, stopBroker = startNativeE2EBroker(t, mosquittoPath, pluginPath, ownerServer.URL, tokenPath, root)
+	}
 	t.Cleanup(stopBroker)
 	setNativeE2EViper(t, brokerAddr)
+	previousFencing, previousRuntimeInstance := viper.GetBool("mqtt.route_fencing"), viper.GetString("mqtt.runtime_instance")
+	viper.Set("mqtt.route_fencing", true)
+	viper.Set("mqtt.runtime_instance", "mqtt-e2e-backend")
+	t.Cleanup(func() {
+		viper.Set("mqtt.route_fencing", previousFencing)
+		viper.Set("mqtt.runtime_instance", previousRuntimeInstance)
+	})
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
 	bus := uplink.NewBus(uplink.BusConfig{BufferSize: 64}, log)
 	t.Cleanup(bus.Close)
 	storageInput := make(chan *storage.Message, 64)
-	storageManager := storage.New(db, log, storage.Config{ChannelBufferSize: 64, TelemetryBatchSize: 1, TelemetryFlushInterval: 250})
+	storageBatchSize := 1
+	storageChannelBuffer := 64
+	if loadDuration > 0 {
+		storageBatchSize = 32
+		storageChannelBuffer = 1024
+	}
+	storageManager := storage.New(db, log, storage.Config{ChannelBufferSize: storageChannelBuffer, TelemetryBatchSize: storageBatchSize, TelemetryFlushInterval: 250})
 	storageCtx, storageCancel := context.WithCancel(context.Background())
 	if err := storageManager.Start(storageCtx, storageInput); err != nil {
 		t.Fatalf("start production storage manager: %v", err)
@@ -308,6 +332,72 @@ func TestBrokerIngressNativeMosquittoOwnerPostgresE2E(t *testing.T) {
 		return db.Table("broker_command_requests").Select("state").Where("id=? AND tenant_id=?", planned.CommandID, nativeE2ETenant).Scan(&state).Error == nil && state == brokercommands.StateDeviceReportedSuccess
 	})
 
+	// ATTR follows the reliable receipt worker, then the same durable planner and
+	// command dispatcher. Keep this distinct from the planner-only ATTR vectors.
+	attrScene, attrCondition, attrAction := "scene-native-attribute-e2e", "condition-native-attribute-e2e", "action-native-attribute-e2e"
+	if err := db.Create(&model.SceneAutomation{ID: attrScene, Name: "native attribute automation", Enabled: "Y", TenantID: nativeE2ETenant, Creator: "fixture", Updator: "fixture", CreatedAt: time.Now().UTC()}).Error; err != nil {
+		t.Fatal(err)
+	}
+	attrType, attrParam, attrOperator := "ATTR", "humidity", ">"
+	if err := db.Create(&model.DeviceTriggerCondition{ID: attrCondition, SceneAutomationID: attrScene, Enabled: "Y", GroupID: "g1", TriggerConditionType: model.DEVICE_TRIGGER_CONDITION_TYPE_ONE, TriggerSource: stringPtr(nativeE2EDevice), TriggerParamType: &attrType, TriggerParam: &attrParam, TriggerOperator: &attrOperator, TriggerValue: "60", TenantID: nativeE2ETenant}).Error; err != nil {
+		t.Fatal(err)
+	}
+	attrActionType, attrActionParam, attrActionValue := "CMD", "setPower", `{"method":"setPower","params":{"value":77}}`
+	if err := db.Create(&model.SceneActionInfo{ID: attrAction, SceneID: attrScene, ActionTarget: nativeE2EDevice, ActionType: model.AUTOMATE_ACTION_TYPE_ONE, ActionParamType: &attrActionType, ActionParam: &attrActionParam, ActionValue: &attrActionValue, CreatedAt: time.Now().UTC(), TenantID: nativeE2ETenant}).Error; err != nil {
+		t.Fatal(err)
+	}
+	attrMessageID := "attr-native-automation"
+	publishNativeE2E(t, ctx, deviceClient, "devices/attributes/"+attrMessageID, []byte(`{"humidity":72}`))
+	var receiptCount, effectCount, actionCount int64
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		_ = db.Table("broker_ingress_receipts").Where("tenant_id=? AND device_id=? AND stream='attribute' AND metadata->>'message_id'=? AND state='processed'", nativeE2ETenant, nativeE2EDevice, attrMessageID).Count(&receiptCount).Error
+		_ = db.Table("broker_ingress_effects").Where("tenant_id=? AND device_id=? AND effect_kind='automation' AND receipt_id IN (SELECT id FROM broker_ingress_receipts WHERE metadata->>'message_id'=?)", nativeE2ETenant, nativeE2EDevice, attrMessageID).Count(&effectCount).Error
+		_ = db.Table("broker_automation_actions").Where("scene_id=? AND state='accepted' AND effect_id IN (SELECT id FROM broker_ingress_effects WHERE receipt_id IN (SELECT id FROM broker_ingress_receipts WHERE metadata->>'message_id'=?))", attrScene, attrMessageID).Count(&actionCount).Error
+		if receiptCount == 1 && effectCount == 1 && actionCount == 1 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if receiptCount != 1 || effectCount != 1 || actionCount != 1 {
+		t.Fatalf("ATTR receipt/effect/action counts=%d/%d/%d", receiptCount, effectCount, actionCount)
+	}
+	var attrCommand struct {
+		CommandID string `gorm:"column:command_id"`
+		State     string `gorm:"column:state"`
+	}
+	if err := db.Table("broker_automation_actions").Select("command_id,state").Where("scene_id=? AND effect_id IN (SELECT id FROM broker_ingress_effects WHERE receipt_id IN (SELECT id FROM broker_ingress_receipts WHERE metadata->>'message_id'=?))", attrScene, attrMessageID).Take(&attrCommand).Error; err != nil {
+		t.Fatal(err)
+	}
+	var attrIssued brokercommands.Row
+	if err := db.Where("id=? AND tenant_id=?", attrCommand.CommandID, nativeE2ETenant).Take(&attrIssued).Error; err != nil {
+		t.Fatal(err)
+	}
+	if attrCommand.State != "accepted" || attrIssued.CallerID != "automation:"+attrScene || attrIssued.Intent != "automation.command" {
+		t.Fatalf("ATTR automation did not create machine command: state=%q caller=%q intent=%q", attrCommand.State, attrIssued.CallerID, attrIssued.Intent)
+	}
+	var attrDelivery struct {
+		topic   string
+		payload []byte
+	}
+	select {
+	case attrDelivery = <-telemetryCommands:
+	case <-time.After(10 * time.Second):
+		t.Fatalf("device received no ATTR automation command; broker log: %s", nativeE2ETail(brokerLog))
+	}
+	if wantTopic := "devices/command/native-e2e-number/" + attrCommand.CommandID; attrDelivery.topic != wantTopic {
+		t.Fatalf("ATTR command topic=%q, want %q", attrDelivery.topic, wantTopic)
+	}
+	var attrWire map[string]any
+	if err := json.Unmarshal(attrDelivery.payload, &attrWire); err != nil || attrWire["method"] != "setPower" || attrWire["params"].(map[string]any)["value"] != float64(77) {
+		t.Fatalf("ATTR command wire payload=%s err=%v", attrDelivery.payload, err)
+	}
+	publishNativeE2E(t, ctx, deviceClient, "devices/command/response/"+attrCommand.CommandID, []byte(`{"result":0}`))
+	waitNativeE2E(t, 10*time.Second, "ATTR automation command device ACK", func() bool {
+		var state string
+		return db.Table("broker_command_requests").Select("state").Where("id=? AND tenant_id=?", attrCommand.CommandID, nativeE2ETenant).Scan(&state).Error == nil && state == brokercommands.StateDeviceReportedSuccess
+	})
+
 	// A valid command ACK updates its own row. A publish naming an ID belonging
 	// to another device is rejected before ledger acceptance and leaves that row.
 	seedNativeE2ECommand(t, db, nativeE2EDevice, "cmd-e2e-valid", "0")
@@ -325,8 +415,8 @@ func TestBrokerIngressNativeMosquittoOwnerPostgresE2E(t *testing.T) {
 	if got := nativeE2ECommandStatus(t, db, "other-device", "cmd-e2e-foreign"); got != "0" {
 		t.Fatalf("cross-device ACK changed foreign command status to %q", got)
 	}
-	if receipts := nativeE2EBusinessReceiptCount(t, db); receipts != 5 {
-		t.Fatalf("expected event, attribute, telemetry sample, two valid command ACK business receipts; got %d", receipts)
+	if receipts := nativeE2EBusinessReceiptCount(t, db); receipts != 7 {
+		t.Fatalf("expected event, two attribute, telemetry sample, and three valid command ACK business receipts; got %d", receipts)
 	}
 	if receipts := nativeE2EStreamReceiptCount(t, db, "state_transition"); receipts != 1 {
 		t.Fatalf("expected one distinct state-transition receipt; got %d", receipts)
@@ -365,6 +455,10 @@ func TestBrokerIngressNativeMosquittoOwnerPostgresE2E(t *testing.T) {
 	if stateHistory != 1 {
 		t.Fatalf("expected one online status history row after projection, got %d", stateHistory)
 	}
+	if loadDuration > 0 {
+		runNativeE2ELoad(t, ctx, db, brokerAddr, loadDuration)
+	}
+	assertNativeRuntimeFence(t, ctx, db, deviceClient, brokerLog)
 
 	if err := service.Stop(); err != nil {
 		t.Fatalf("stop MQTTService: %v", err)
@@ -472,7 +566,7 @@ func migrateNativeE2ESchema(t *testing.T, db *gorm.DB, root string) error {
 	)`).Error; err != nil {
 		return err
 	}
-	for _, filename := range []string{"001_broker_owner_tables.sql", "002_ledger.sql", "003_state.sql", "004_mapping_snapshots.sql", "005_ingress_effects.sql", "006_commands.sql", "007_state_projection.sql", "008_quarantine.sql", "009_automation_actions.sql", "010_telemetry_activity.sql", "011_safe_device_voucher.sql"} {
+	for _, filename := range []string{"001_broker_owner_tables.sql", "002_ledger.sql", "003_state.sql", "004_mapping_snapshots.sql", "005_ingress_effects.sql", "006_commands.sql", "007_state_projection.sql", "008_quarantine.sql", "009_automation_actions.sql", "010_telemetry_activity.sql", "011_safe_device_voucher.sql", "012_route_changes.sql"} {
 		body, err := os.ReadFile(filepath.Join(root, "sql", "broker", filename))
 		if err != nil {
 			return fmt.Errorf("read broker migration %s: %w", filename, err)

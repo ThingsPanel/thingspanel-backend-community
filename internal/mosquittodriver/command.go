@@ -54,6 +54,9 @@ func (d *Driver) AuthorizePayload(ptr uintptr, access int, topic string, payload
 // Outgoing copies only payload bytes. Stored messages keep the private frame so
 // an offline/retry delivery cannot lose its expiry and fencing metadata.
 func (d *Driver) Outgoing(ptr uintptr, topic string, payload []byte, qos byte, retain bool) ([]byte, bool, error) {
+	if d.cfg.RuntimeFencing && !d.Authorize(ptr, 1, topic, len(payload), qos, retain) {
+		return nil, false, errors.New("runtime outgoing fence denied delivery")
+	}
 	if !bc.IsCommandFrame(payload) {
 		if bc.IsCommandTopic(topic) {
 			return nil, false, errors.New("unframed command delivery denied")

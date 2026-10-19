@@ -27,6 +27,7 @@ type Config struct {
 	OwnerURL, Token, Cell, Instance string
 	MaxPending, MaxSessions         int
 	Timeout                         time.Duration
+	RuntimeFencing                  bool
 }
 type session struct {
 	id                           uint64
@@ -48,16 +49,23 @@ type Completion struct {
 	Allow   bool
 }
 type Driver struct {
-	mu         sync.Mutex
-	cfg        Config
-	http       *http.Client
-	sessions   map[uintptr]*session
-	pending    map[string]*session
-	sequence   uint64
-	activeAuth int
-	bootID     string
-	ctx        context.Context
-	cancel     context.CancelFunc
+	mu                             sync.Mutex
+	cfg                            Config
+	http                           *http.Client
+	sessions                       map[uintptr]*session
+	pending                        map[string]*session
+	sequence                       uint64
+	ingestionSequence              uint64
+	activeAuth                     int
+	bootID                         string
+	ctx                            context.Context
+	cancel                         context.CancelFunc
+	runtimeFences                  map[string]uint64
+	runtimeAcks                    []bc.RuntimeFenceAck
+	runtimePending                 *bc.RuntimeSyncResponse
+	runtimeValidUntil, runtimeNext time.Time
+	runtimePendingDeadline         time.Time
+	runtimeSyncing                 bool
 }
 
 func New(cfg Config) (*Driver, error) {
@@ -84,7 +92,18 @@ func New(cfg Config) (*Driver, error) {
 		cfg.Timeout = 2 * time.Second
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Driver{cfg: cfg, http: &http.Client{Timeout: cfg.Timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, sessions: map[uintptr]*session{}, pending: map[string]*session{}, bootID: nonce(), ctx: ctx, cancel: cancel}, nil
+	d := &Driver{cfg: cfg, http: &http.Client{Timeout: cfg.Timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, sessions: map[uintptr]*session{}, pending: map[string]*session{}, bootID: nonce(), ctx: ctx, cancel: cancel}
+	if cfg.RuntimeFencing {
+		started := time.Now()
+		response, e := d.requestRuntime(nil)
+		if e != nil {
+			cancel()
+			return nil, e
+		}
+		d.installRuntimeLocked(response)
+		d.runtimeValidUntil = started.Add(10 * time.Second)
+	}
+	return d, nil
 }
 func nonce() string {
 	var b [16]byte
@@ -92,6 +111,18 @@ func nonce() string {
 		panic(e)
 	}
 	return hex.EncodeToString(b[:])
+}
+
+// The random boot prefix plus a monotonic counter distinguishes legitimate
+// identical publications without entropy/system I/O in a publish callback.
+func (d *Driver) nextIngestionID() (string, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.ingestionSequence == ^uint64(0) {
+		return "", errors.New("ingestion identity capacity exhausted")
+	}
+	d.ingestionSequence++
+	return "mosq-" + d.bootID + "-" + strconv.FormatUint(d.ingestionSequence, 16), nil
 }
 
 // Begin copies all credentials before returning to the C callback. A duplicate
@@ -162,6 +193,9 @@ func (d *Driver) authenticate(ctx context.Context, s *session, refresh bool) {
 	if d.sessions[s.pointer] != s || s.closed || ctx.Err() != nil {
 		return
 	}
+	if err == nil && !d.runtimeGrantAllowedLocked(grant) {
+		err = errors.New("runtime route fence denied grant")
+	}
 	if refresh && err == nil && (grant.ConnectionID != s.grant.ConnectionID || grant.Principal != s.grant.Principal || grant.RouteEpoch != s.grant.RouteEpoch) {
 		err = errors.New("grant identity changed")
 	}
@@ -186,7 +220,7 @@ func (d *Driver) Poll() *Completion {
 			continue
 		}
 		delete(d.pending, id)
-		ok := s.result == nil
+		ok := s.result == nil && d.runtimeGrantAllowedLocked(s.grant)
 		if !ok {
 			s.cancel()
 			delete(d.sessions, s.pointer)
@@ -232,6 +266,7 @@ func (d *Driver) IsClosed(ptr uintptr) bool {
 func (d *Driver) Tick() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	d.tickRuntimeLocked()
 	n := 0
 	for ptr, s := range d.sessions {
 		if s.closed {
@@ -262,7 +297,7 @@ func (d *Driver) snapshot(ptr uintptr) (bc.Grant, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	s := d.sessions[ptr]
-	if s == nil || s.closed || s.result != nil || !s.grant.Allow || !time.Now().Before(s.grant.ExpiresAt) {
+	if s == nil || s.closed || s.result != nil || !s.grant.Allow || !time.Now().Before(s.grant.ExpiresAt) || !d.runtimeGrantAllowedLocked(s.grant) {
 		return bc.Grant{}, errors.New("no active grant")
 	}
 	return s.grant, nil
@@ -336,7 +371,11 @@ func (d *Driver) Rewrite(ptr uintptr, topic string, payload []byte, qos byte, re
 	if retain && len(payload) == 0 && g.Policy.RetainProfile == "platform-retained" {
 		return t, []byte{}, true, nil
 	}
-	m := bc.Metadata{ContractVersion: "1", TenantID: g.Principal.TenantID, PrincipalKind: g.Principal.Kind, BrokerCell: d.cfg.Cell, BrokerInstance: d.cfg.Instance, ConnectionID: g.ConnectionID, RouteEpoch: g.RouteEpoch, PolicyVersion: g.PolicyVersion, MappingVersion: g.MappingVersion, OriginalQoS: qos, OriginalRetain: retain, ObservedAt: time.Now().UTC()}
+	ingestionID, e := d.nextIngestionID()
+	if e != nil {
+		return "", nil, false, e
+	}
+	m := bc.Metadata{ContractVersion: "1", TenantID: g.Principal.TenantID, PrincipalKind: g.Principal.Kind, BrokerCell: d.cfg.Cell, BrokerInstance: d.cfg.Instance, ConnectionID: g.ConnectionID, IngestionID: ingestionID, RouteEpoch: g.RouteEpoch, PolicyVersion: g.PolicyVersion, MappingVersion: g.MappingVersion, OriginalQoS: qos, OriginalRetain: retain, ObservedAt: time.Now().UTC()}
 	// EncodeEnvelope sets the original wire topic from this fixed transport value.
 	m.OriginalTopicB64 = base64Topic(topic)
 	b, e := bc.EncodeEnvelope(g.Principal, m, payload)
@@ -428,6 +467,10 @@ func (d *Driver) RewriteWill(ptr uintptr, topic string, payload []byte, qos byte
 	if retain && len(payload) == 0 && g.Policy.RetainProfile == bc.RetainedPlatform {
 		return target, []byte{}, retain, nil
 	}
-	b, e := bc.EncodeEnvelope(g.Principal, bc.Metadata{ContractVersion: "1", TenantID: g.Principal.TenantID, PrincipalKind: g.Principal.Kind, BrokerCell: d.cfg.Cell, BrokerInstance: d.cfg.Instance, ConnectionID: g.ConnectionID, RouteEpoch: g.RouteEpoch, PolicyVersion: g.PolicyVersion, MappingVersion: g.MappingVersion, OriginalTopicB64: bc.EncodeOriginalTopic([]byte(topic)), OriginalQoS: qos, OriginalRetain: retain, ObservedAt: time.Now().UTC()}, payload)
+	ingestionID, e := d.nextIngestionID()
+	if e != nil {
+		return "", nil, false, e
+	}
+	b, e := bc.EncodeEnvelope(g.Principal, bc.Metadata{ContractVersion: "1", TenantID: g.Principal.TenantID, PrincipalKind: g.Principal.Kind, BrokerCell: d.cfg.Cell, BrokerInstance: d.cfg.Instance, ConnectionID: g.ConnectionID, IngestionID: ingestionID, RouteEpoch: g.RouteEpoch, PolicyVersion: g.PolicyVersion, MappingVersion: g.MappingVersion, OriginalTopicB64: bc.EncodeOriginalTopic([]byte(topic)), OriginalQoS: qos, OriginalRetain: retain, ObservedAt: time.Now().UTC()}, payload)
 	return target, b, retain, e
 }

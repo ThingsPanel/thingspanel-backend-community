@@ -164,12 +164,26 @@ func (s *MQTTService) initMQTTAdapter(ctx context.Context) error {
 	password := viper.GetString("mqtt.pass")
 	clientID := viper.GetString("mqtt.client_id")
 	var adapterRef atomic.Pointer[mqttadapter.Adapter]
+	prepareAdapter := func(client mqtt_client.Client) error {
+		adapter := mqttadapter.NewAdapter(bus, client, s.logger())
+		adapter.SetContext(ctx)
+		if err := adapter.ConfigureIngressFromConfig(); err != nil {
+			return fmt.Errorf("failed to configure MQTT ingress: %w", err)
+		}
+		if err := s.configureBrokerIngress(ctx, adapter); err != nil {
+			return fmt.Errorf("failed to initialize reliable MQTT ingress: %w", err)
+		}
+		adapter.RegisterIngressRoutes(client)
+		adapterRef.Store(adapter)
+		return nil
+	}
 	mqttConfig := mqttadapter.MQTTConfig{
-		Broker:    broker,
-		Username:  username,
-		Password:  password,
-		ClientID:  clientID,
-		ManualAck: viper.GetString("mqtt.input_profile") == "ingress_v1",
+		Broker:        broker,
+		Username:      username,
+		Password:      password,
+		ClientID:      clientID,
+		ManualAck:     viper.GetString("mqtt.input_profile") == "ingress_v1",
+		BeforeConnect: prepareAdapter,
 		OnConnectCallback: func(client mqtt_client.Client) {
 			if ctx.Err() != nil {
 				return
@@ -187,18 +201,16 @@ func (s *MQTTService) initMQTTAdapter(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create MQTT client for Adapter: %w", err)
 	}
-	adapter := mqttadapter.NewAdapter(bus, client, s.logger())
-	adapter.SetContext(ctx)
-	// ConfigureIngressFromConfig is supplied by the broker-contract integration.
-	if err := adapter.ConfigureIngressFromConfig(); err != nil {
-		mqttadapter.DisconnectMQTTClient(client, s.logger())
-		return fmt.Errorf("failed to configure MQTT ingress: %w", err)
+	adapter := adapterRef.Load()
+	if adapter == nil {
+		// Test factories must honor BeforeConnect for persistent-session tests.
+		// This fallback also preserves legacy injectable factories.
+		if err := prepareAdapter(client); err != nil {
+			mqttadapter.DisconnectMQTTClient(client, s.logger())
+			return err
+		}
+		adapter = adapterRef.Load()
 	}
-	if err := s.configureBrokerIngress(ctx, adapter); err != nil {
-		mqttadapter.DisconnectMQTTClient(client, s.logger())
-		return fmt.Errorf("failed to initialize reliable MQTT ingress: %w", err)
-	}
-	adapterRef.Store(adapter)
 	if err := ctx.Err(); err != nil {
 		mqttadapter.DisconnectMQTTClient(client, s.logger())
 		return err

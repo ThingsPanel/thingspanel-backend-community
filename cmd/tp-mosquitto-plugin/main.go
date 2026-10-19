@@ -31,7 +31,7 @@ func TPStart() C.int {
 	}
 	maxPending, _ := strconv.Atoi(os.Getenv("TP_BROKER_MAX_PENDING"))
 	maxSessions, _ := strconv.Atoi(os.Getenv("TP_BROKER_MAX_SESSIONS"))
-	runtimeDriver, err = driver.New(driver.Config{OwnerURL: os.Getenv("TP_BROKER_OWNER_URL"), Token: strings.TrimSpace(string(token)), Cell: os.Getenv("TP_BROKER_CELL"), Instance: os.Getenv("TP_BROKER_INSTANCE"), MaxPending: maxPending, MaxSessions: maxSessions, Timeout: 2 * time.Second})
+	runtimeDriver, err = driver.New(driver.Config{OwnerURL: os.Getenv("TP_BROKER_OWNER_URL"), Token: strings.TrimSpace(string(token)), Cell: os.Getenv("TP_BROKER_CELL"), Instance: os.Getenv("TP_BROKER_INSTANCE"), MaxPending: maxPending, MaxSessions: maxSessions, Timeout: 2 * time.Second, RuntimeFencing: os.Getenv("TP_BROKER_ROUTE_FENCING") == "1"})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "ThingsPanel plugin: invalid control-plane configuration:", err)
 		return 1

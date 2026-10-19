@@ -22,13 +22,14 @@ The evidence covers these separate outcomes:
 - An ordinary attribute sample is recorded under its existing payload contract. Glue-level coverage also verifies that an ordinary attribute field named `source_event_id` remains business payload rather than becoming the event idempotency key.
 - An actual MQTT telemetry publish passes through the production adapter, uplink bus, `TelemetryUplink`, and storage batch writer. PostgreSQL assertions cover tenant/device-scoped history and current value, a `telemetry_sample` receipt at the authenticated cell and route epoch, telemetry activity, and the drained state-projection queue.
 - That telemetry receipt matches a configured TEL automation policy. The planner creates a durable machine command; the real device receives the expected command topic and unframed JSON payload, and its MQTT response advances the command to `device_reported_success`.
+- An actual attribute publish enters the native application path and matches an ATTR condition. The planner creates a durable machine command, the real Paho device receives the command topic and unframed payload, and its MQTT response advances the request to `device_reported_success`.
 - A valid command ACK updates its own command row. An ACK targeting a command owned by another device leaves that row unchanged, creates no additional accepted receipt, and receives no application-subscriber PUBACK.
 
-The asserted ACK evidence comes from Mosquitto's log lines for the actual client IDs, while receipt and business outcomes are queried independently from PostgreSQL. These checks demonstrate broker transport acknowledgement, application acceptance acknowledgement, ledger terminal processing, and database business writes as separate boundaries. The native TEL command path reaches a real MQTT device client and receives its ACK; it does not establish physical actuator behavior on hardware. ATTR ingress is verified for its persisted business row, while ATTR automation matching remains covered only by PostgreSQL planner tests.
+The asserted ACK evidence comes from Mosquitto's log lines for the actual client IDs, while receipt and business outcomes are queried independently from PostgreSQL. These checks demonstrate broker transport acknowledgement, application acceptance acknowledgement, ledger terminal processing, and database business writes as separate boundaries. EVT, TEL, and ATTR each reach a durable automation command delivered to a real MQTT test client and receive its ACK; this does not establish physical actuator behavior on hardware. The native ATTR path uses an actual persisted attribute sample, not only a planner fixture.
 
 Most recent local run:
 
 ```text
 TEST_MQTT_NATIVE_E2E=1 go test ./internal/app -run '^TestBrokerIngressNativeMosquittoOwnerPostgresE2E$' -count=1 -v
-PASS (5.64s)
+PASS (5.44s; EVT, TEL, and ATTR automation command ACK paths)
 ```

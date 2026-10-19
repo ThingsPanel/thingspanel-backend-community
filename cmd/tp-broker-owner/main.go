@@ -68,7 +68,7 @@ func run() error {
 		_ = sqlDB.Close()
 		return err
 	}
-	server := &http.Server{Addr: listen, Handler: owner.Handler(), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10, ErrorLog: log.New(io.Discard, "", 0)}
+	server := &http.Server{Addr: listen, Handler: owner.RuntimeHandler(brokercontrol.NewMigrationStore(db)), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10, ErrorLog: log.New(io.Discard, "", 0)}
 	cert, key := os.Getenv("TP_BROKER_OWNER_TLS_CERT"), os.Getenv("TP_BROKER_OWNER_TLS_KEY")
 	if (cert == "") != (key == "") {
 		_ = sqlDB.Close()

@@ -23,6 +23,7 @@ import (
 var (
 	ErrBindingInactive = errors.New("brokerledger: transport binding is not active")
 	ErrFenced          = errors.New("brokerledger: route epoch is fenced")
+	ErrRouteRetired    = errors.New("brokerledger: route was durably retired by an audited migration")
 	ErrConflict        = errors.New("brokerledger: source event conflicts with accepted receipt")
 	ErrTooLarge        = errors.New("brokerledger: message exceeds size limit")
 	ErrTenantCapacity  = errors.New("brokerledger: tenant pending capacity exceeded")
@@ -166,7 +167,7 @@ func (s *Store) Accept(ctx context.Context, msg Message) (id string, duplicate b
 	if msg.ID == "" {
 		msg.ID = uuid.NewString()
 	} else if _, parseErr := uuid.Parse(msg.ID); parseErr != nil {
-		return "", false, fmt.Errorf("brokerledger: invalid receipt id: %w", parseErr)
+		return "", false, fmt.Errorf("%w: invalid receipt id", ErrInvalid)
 	}
 	digest, err := canonicalDigest(msg, canonical)
 	if err != nil {
@@ -195,11 +196,14 @@ func (s *Store) Accept(ctx context.Context, msg Message) (id string, duplicate b
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
-			if msg.SourceEventID == "" {
-				return ErrConflict
-			}
 			var existing receiptRow
-			lookup := tx.Where("tenant_id = ? AND device_id = ? AND stream = ? AND source_event_id = ?", msg.TenantID, msg.DeviceID, msg.Stream, msg.SourceEventID).First(&existing)
+			lookup := tx.Where("tenant_id = ? AND device_id = ? AND stream = ?", msg.TenantID, msg.DeviceID, msg.Stream)
+			if msg.SourceEventID != "" {
+				lookup = lookup.Where("source_event_id = ?", msg.SourceEventID)
+			} else {
+				lookup = lookup.Where("id = ? AND broker_cell = ? AND route_epoch = ? AND source_event_id IS NULL", msg.ID, msg.BrokerCell, msg.RouteEpoch)
+			}
+			lookup = lookup.First(&existing)
 			if lookup.Error != nil {
 				if errors.Is(lookup.Error, gorm.ErrRecordNotFound) {
 					return ErrConflict
@@ -266,7 +270,7 @@ func canonicalMetadata(input map[string]any) ([]byte, []byte, error) {
 }
 
 var volatileMetadataKeys = map[string]struct{}{
-	"broker_instance": {}, "connection_id": {}, "observed_at": {}, "received_at": {},
+	"broker_instance": {}, "connection_id": {}, "observed_at": {}, "received_at": {}, "ingestion_id": {},
 	"timestamp":   {},
 	"route_epoch": {}, "broker_cell": {},
 }
@@ -313,12 +317,13 @@ func stripTransportVolatility(value any) (any, error) {
 
 func canonicalDigest(msg Message, stableMetadata []byte) ([32]byte, error) {
 	body, err := json.Marshal(struct {
-		TenantID string          `json:"tenant_id"`
-		DeviceID string          `json:"device_id"`
-		Stream   string          `json:"stream"`
-		Payload  []byte          `json:"payload"`
-		Metadata json.RawMessage `json:"metadata"`
-	}{msg.TenantID, msg.DeviceID, msg.Stream, msg.Payload, stableMetadata})
+		TenantID      string          `json:"tenant_id"`
+		DeviceID      string          `json:"device_id"`
+		Stream        string          `json:"stream"`
+		SourceEventID string          `json:"source_event_id,omitempty"`
+		Payload       []byte          `json:"payload"`
+		Metadata      json.RawMessage `json:"metadata"`
+	}{msg.TenantID, msg.DeviceID, msg.Stream, msg.SourceEventID, msg.Payload, stableMetadata})
 	if err != nil {
 		return [32]byte{}, err
 	}
@@ -351,6 +356,13 @@ func requireAdmissionBinding(tx *gorm.DB, tenantID, deviceID, cell string, epoch
 		return err
 	}
 	if (binding.Phase != "active" && binding.Phase != "connecting") || binding.BrokerCell != cell || binding.RouteEpoch != epoch {
+		retired, e := auditedRouteRetired(tx, tenantID, deviceID, cell, epoch, binding)
+		if e != nil {
+			return e
+		}
+		if retired {
+			return ErrRouteRetired
+		}
 		if binding.Phase != "active" && binding.Phase != "connecting" {
 			return ErrBindingInactive
 		}

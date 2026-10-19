@@ -54,6 +54,19 @@ func lockCurrentRoute(tx *gorm.DB, tenant, device string) (routeRow, string, err
 	return route, root, e
 }
 func currentDecision(tx *gorm.DB, device model.Device, root string, route routeRow) (Decision, error) {
+	return evaluateCurrent(tx, device, root, route, true)
+}
+
+// evaluateCurrent is also used by the read-only evidence API. Only the state
+// projector may lock devices or reschedule work.
+func evaluateCurrent(tx *gorm.DB, device model.Device, root string, route routeRow, project bool) (Decision, error) {
+	read := func() *gorm.DB {
+		query := tx.Session(&gorm.Session{})
+		if project {
+			query = query.Clauses(clause.Locking{Strength: "SHARE"})
+		}
+		return query
+	}
 	// Validate the logical device's CURRENT path while holding its transport fence.
 	id := device.ID
 	for depth := 0; id != root; depth++ {
@@ -61,7 +74,7 @@ func currentDecision(tx *gorm.DB, device model.Device, root string, route routeR
 			return Decision{}, ErrFenced
 		}
 		var child model.Device
-		if e := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("tenant_id=? AND id=? AND is_enabled='enabled'", device.TenantID, id).Take(&child).Error; e != nil {
+		if e := read().Where("tenant_id=? AND id=? AND is_enabled='enabled'", device.TenantID, id).Take(&child).Error; e != nil {
 			if errors.Is(e, gorm.ErrRecordNotFound) {
 				return Decision{}, ErrFenced
 			}
@@ -78,7 +91,7 @@ func currentDecision(tx *gorm.DB, device model.Device, root string, route routeR
 	}
 	if device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
 		var config model.DeviceConfig
-		if e := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=?", *device.DeviceConfigID, device.TenantID).Take(&config).Error; e != nil {
+		if e := read().Where("id=? AND tenant_id=?", *device.DeviceConfigID, device.TenantID).Take(&config).Error; e != nil {
 			return Decision{}, e
 		}
 		if config.OtherConfig != nil && *config.OtherConfig != "" {
@@ -98,12 +111,17 @@ func currentDecision(tx *gorm.DB, device model.Device, root string, route routeR
 	}
 	now := time.Now().UTC()
 	next := now.Add(time.Minute)
-	if hasActivity {
+	if hasActivity && project {
 		if e := tx.Model(&activityRow{}).Where("tenant_id=? AND device_id=?", device.TenantID, device.ID).Update("next_check_at", next).Error; e != nil {
 			return Decision{}, e
 		}
 	}
 	if cfg.Heartbeat == 0 && cfg.Timeout == 0 {
+		// A gateway socket proves transport reachability, not a child's liveness.
+		// Historical direct-device observations cannot establish that either.
+		if root != device.ID {
+			return Decision{Status: "unknown"}, nil
+		}
 		return snapshotTx(tx, device.TenantID, device.ID, route.BrokerCell, route.RouteEpoch)
 	}
 	if !hasActivity || activity.TransportDeviceID != root || activity.BrokerCell != route.BrokerCell || activity.RouteEpoch != route.RouteEpoch || activity.ObservedAt.After(now.Add(5*time.Second)) {
@@ -122,8 +140,10 @@ func currentDecision(tx *gorm.DB, device model.Device, root string, route routeR
 			next = deadline
 		}
 	}
-	if e := tx.Model(&activityRow{}).Where("tenant_id=? AND device_id=?", device.TenantID, device.ID).Update("next_check_at", next).Error; e != nil {
-		return Decision{}, e
+	if project {
+		if e := tx.Model(&activityRow{}).Where("tenant_id=? AND device_id=?", device.TenantID, device.ID).Update("next_check_at", next).Error; e != nil {
+			return Decision{}, e
+		}
 	}
 	return result, nil
 }

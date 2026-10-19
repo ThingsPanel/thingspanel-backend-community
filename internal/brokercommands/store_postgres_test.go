@@ -51,7 +51,7 @@ func postgresStore(t *testing.T) (*Store, *gorm.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dbSQL.SetMaxOpenConns(64)
+	dbSQL.SetMaxOpenConns(12)
 	t.Cleanup(func() {
 		_ = dbSQL.Close()
 		_ = admin.Exec("DROP SCHEMA " + quoted + " CASCADE").Error

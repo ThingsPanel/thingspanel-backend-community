@@ -16,12 +16,13 @@ import (
 )
 
 type brokerCommandWorker struct {
-	store    *brokercommands.Store
-	adapter  *mqttadapter.Adapter
-	logger   *logrus.Logger
-	cancel   context.CancelFunc
-	done     chan struct{}
-	stopOnce sync.Once
+	store       *brokercommands.Store
+	adapter     *mqttadapter.Adapter
+	logger      *logrus.Logger
+	cancel      context.CancelFunc
+	done        chan struct{}
+	stopOnce    sync.Once
+	runtimeSync func(context.Context) error
 }
 
 func commandGuard(ctx context.Context, tx *gorm.DB, row brokercommands.Row) error {
@@ -45,6 +46,18 @@ func startBrokerCommandWorker(ctx context.Context, adapter *mqttadapter.Adapter,
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	w := &brokerCommandWorker{store: brokercommands.New(global.DB), adapter: adapter, logger: logger, cancel: cancel, done: make(chan struct{})}
+	runtimeSync, err := brokerRuntimeSync(global.DB, "dispatcher")
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	w.runtimeSync = runtimeSync
+	if runtimeSync != nil {
+		if err := runtimeSync(ctx); err != nil {
+			cancel()
+			return nil, err
+		}
+	}
 	go w.run(ctx)
 	return w, nil
 }
@@ -56,7 +69,25 @@ func (w *brokerCommandWorker) Stop() {
 func (w *brokerCommandWorker) run(ctx context.Context) {
 	defer close(w.done)
 	sweep := time.Now().Add(-time.Minute)
+	var lastSync time.Time
 	for ctx.Err() == nil {
+		if w.runtimeSync != nil && time.Since(lastSync) >= 5*time.Second {
+			if err := w.runtimeSync(ctx); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				w.logger.Warn("command dispatch paused: route runtime synchronization unavailable")
+				timer := time.NewTimer(time.Second)
+				select {
+				case <-ctx.Done():
+					timer.Stop()
+					return
+				case <-timer.C:
+				}
+				continue
+			}
+			lastSync = time.Now()
+		}
 		if time.Since(sweep) >= time.Minute {
 			if _, err := w.store.MarkStaleDispatches(ctx, 30*time.Second); err != nil && ctx.Err() == nil {
 				w.logger.WithError(err).Warn("durable command stale sweep failed")

@@ -13,6 +13,8 @@ type ingressRejector interface {
 
 func permanentAcceptanceReason(err error) string {
 	switch {
+	case errors.Is(err, brokerledger.ErrRouteRetired):
+		return "retired_transport_route"
 	case errors.Is(err, brokerledger.ErrConflict):
 		return "source_event_id_conflict"
 	case errors.Is(err, brokerledger.ErrTooLarge):

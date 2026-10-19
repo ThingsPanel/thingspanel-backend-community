@@ -27,8 +27,9 @@
 
 ## 2026-10-20 状态更新
 
-- **已通过的子项（不等于完整 AC PASS）：**状态投影真实 PostgreSQL 测试、毒消息 quarantine 回归、原生命令 E2E，以及 Linux 离线/重启命令帧矩阵。现有可复核报告入口见 [状态边界回归](gmqtt-evidence-2026-10-19/broker-state-time-boundary-regression.md)、[quarantine 回归](gmqtt-evidence-2026-10-19/broker-quarantine-regression.md)、[原生 Owner/ledger 上行 E2E](gmqtt-evidence-2026-10-19/native-mosquitto-owner-ledger-e2e.md) 与 [Linux 命令帧 QA](gmqtt-evidence-2026-10-19/linux-command-frame-qa.md)。候选中的 Linux 报告已记录两阶段 ACL 修复后的离线/重启矩阵通过；原始 ledger/hash 与固定制品身份仍应在最终候选发布包中复核，旧失败记录保留作为修复前对照。
-- **自动化：**migration 009 已持久化策略快照内容及动作审计行；automation planner 实现仍在进行，独立真实 PG 验收待完成，不能声称自动化已完成。
+- **已通过的子项（不等于完整 AC PASS）：**状态 activity/freshness/timeout 和状态投影有真实 PostgreSQL 测试；SQL011 safe-voucher、SQL012 route-change 相关PG/迁移检查通过；automation limiter 的每设备burst=10、每3秒补1、设备隔离和失败回滚通过PG测试。EVT/ATTR/TEL真实native ingress均闭环到持久自动命令及Paho测试设备ACK，Linux离线/重启帧矩阵也已通过。详见 [状态边界回归](gmqtt-evidence-2026-10-19/broker-state-time-boundary-regression.md)、[quarantine 回归](gmqtt-evidence-2026-10-19/broker-quarantine-regression.md)、[原生Owner/ledger/automation E2E](gmqtt-evidence-2026-10-19/native-mosquitto-owner-ledger-e2e.md)、[Linux命令帧QA](gmqtt-evidence-2026-10-19/linux-command-frame-qa.md)。这些均只记子项通过。
+- **自动化能力修正：**旧“新profile机器自动命令暂拒绝”描述已过时。同源EVT/ATTR且有可信policy snapshot/proof的command动作走durable dispatcher；缺proof、跨设备条件和unsupported action仍拒绝或审计。AC-A01–A06的AI场景、盲测、人效/成本未通过。
+- **仍未过的关键门槛：**runtime admission barrier尚未接入并现场验证；G0完整baseline、完整栈容量/故障与72小时长稳、AI W14–16以及正式试点评估均未通过。整体仍PARTIAL，不可据此切流。
 - **迁移前置检查：**QA迁移检查器按当前全部编号迁移动态发现并校验必需列；brokerqa 私有 schema 的 fresh apply、repeat apply、列检查均通过。该脚本不是生产自动迁移工具。
 
 ## 明确的能力边界
@@ -37,8 +38,8 @@
 2. `legacy`仍为默认配置；`ingress_v1`显式启用且要求SQL schema齐全，不能新旧原始入口双消费。
 3. MQTT3 PUBACK只记`broker_acknowledged`，不等同Broker规则放行、设备收到或物理执行。命令到期未有设备报告为unknown，不自动重发非幂等动作。
 4. 命令私有存储帧在每次READ/MESSAGE_OUT验证目标/epoch/mapping/expiry后才剥离。当前只认证候选canonical command主题；MQTT3/5离线队列、expiry及受控Broker重启矩阵已通过，仍不等于OS崩溃/断电、设备物理效果或完整命令AC通过。
-5. 新profile的机器自动命令暂拒绝，因为现有入口没有policy ID/revision。custom command wire mapping、QoS2、wire-retained、延迟/恢复Will没有完整认证，不能假设不在用或算PASS。
-6. 关键事件/属性的业务行与automation intent同事务落库，但intent仍需独立可靠派发；“已处理”不等于规则动作或设备效果。
+5. 新profile仅允许带可信策略快照/proof 的已认证机器自动命令；同源EVT/ATTR command已有native ACK子项。缺少proof仍拒绝；custom command wire mapping、QoS2、wire-retained、延迟/恢复Will没有完整认证，不能假设不在用或算PASS。
+6. 关键事件/属性的业务行与automation intent同事务落库；当前同源EVT/ATTR MQTT command动作已有PG planner与native ACK子项，unsupported action仍只记录审计。该子项不等于完整规则覆盖或物理设备效果。
 7. Native pending认证断开无插件回调，使用最长2秒截止而不解引用悬空client指针。Linux曾发现ready但未完成认证回调的pending计数缺口并已补修；当前最大并发断言仍需barrier-controlled overlap验证。
 
 ### 一期适用 AC 范围

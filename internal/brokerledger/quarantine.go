@@ -95,7 +95,18 @@ func (s *Store) RecordRejection(ctx context.Context, rejection Rejection) (id st
 		if br.Error != nil {
 			return br.Error
 		}
-		if br.RowsAffected != 1 || binding.BrokerCell != rejection.BrokerCell || binding.RouteEpoch != int64(rejection.RouteEpoch) || binding.Phase != "active" {
+		if br.RowsAffected != 1 {
+			return ErrQuarantineFenced
+		}
+		if rejection.Reason == "retired_transport_route" {
+			retired, e := auditedRouteRetired(tx, rejection.TenantID, rejection.DeviceID, rejection.BrokerCell, int64(rejection.RouteEpoch), bindingRow{BrokerCell: binding.BrokerCell, RouteEpoch: binding.RouteEpoch, Phase: binding.Phase})
+			if e != nil {
+				return e
+			}
+			if !retired {
+				return ErrQuarantineFenced
+			}
+		} else if binding.BrokerCell != rejection.BrokerCell || binding.RouteEpoch != int64(rejection.RouteEpoch) || binding.Phase != "active" {
 			return ErrQuarantineFenced
 		}
 

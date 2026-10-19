@@ -37,6 +37,8 @@ RUN test "${MOSQUITTO_COMMIT}" = "99fa50f30e325609394c324c8ff71cfbbe95d8ab" \
        -o /out/tp-broker-owner ./cmd/tp-broker-owner \
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" \
        -o /out/tp-broker-readiness ./deploy/mosquitto-community/readiness \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" \
+       -o /out/tp-broker-audit ./cmd/tp-broker-audit \
     && chmod 0555 /out/*
 
 FROM ${DEBIAN_BASE} AS runtime
@@ -54,9 +56,10 @@ COPY --from=go-build /src/LICENSE /usr/share/licenses/mosquitto/thingspanel-comm
 COPY --from=go-build /out/libtp-mosquitto-plugin.so /mosquitto/plugins/libtp-mosquitto-plugin.so
 COPY --from=go-build /out/tp-broker-owner /usr/local/bin/tp-broker-owner
 COPY --from=go-build /out/tp-broker-readiness /usr/local/bin/tp-broker-readiness
+COPY --from=go-build /out/tp-broker-audit /usr/local/bin/tp-broker-audit
 COPY deploy/mosquitto-community/entrypoint.production.sh /usr/local/bin/tp-broker-entrypoint
 COPY deploy/mosquitto-community/mosquitto.production.conf /mosquitto/config/mosquitto.conf
-RUN chmod 0555 /usr/local/bin/tp-broker-entrypoint /usr/local/bin/tp-broker-owner /usr/local/bin/tp-broker-readiness \
+RUN chmod 0555 /usr/local/bin/tp-broker-entrypoint /usr/local/bin/tp-broker-owner /usr/local/bin/tp-broker-readiness /usr/local/bin/tp-broker-audit \
     && chmod 0444 /mosquitto/config/mosquitto.conf /mosquitto/plugins/libtp-mosquitto-plugin.so \
        /usr/share/licenses/mosquitto/LICENSE.txt /usr/share/licenses/mosquitto/epl-v20 \
        /usr/share/licenses/mosquitto/edl-v10 /usr/share/licenses/mosquitto/thingspanel-community-LICENSE \

@@ -447,6 +447,14 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 	if trusted {
 		stored.Timestamp = observedAt.UnixMilli()
 		stored.BrokerRoute = &storage.TrustedTelemetryRoute{ReceiptID: uuid.NewString(), TransportDeviceID: transportDeviceID, BrokerCell: brokerCell, RouteEpoch: routeEpoch, ObservedAt: observedAt}
+		if value, exists := originalMsg.GetMetadata("ingestion_id"); exists {
+			ingestionID, ok := value.(string)
+			if !ok || ingestionID == "" || len(ingestionID) > 128 || strings.TrimSpace(ingestionID) != ingestionID {
+				f.logger.Error("Invalid trusted telemetry ingestion identity")
+				return
+			}
+			stored.BrokerRoute.ReceiptID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("broker-telemetry-v1\x00"+device.TenantID+"\x00"+device.ID+"\x00"+brokerCell+"\x00"+ingestionID)).String()
+		}
 		stored.AfterCommit = func() {
 			if global.REDIS != nil {
 				f.checkAndPublishToWS(device.ID, device.TenantID, triggerValues)
