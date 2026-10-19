@@ -118,3 +118,11 @@ Mosquitto2.1.2 `src/topic_tok.c` 处理 `$share/group/$tp/...` 首token与`$tp/.
 - 最终回归口径：单轮18包中17包PASS，CLI仅测试fixture受umask影响FAIL；显式Chmod建立错误权限后单独CLI真实PG/race PASS；全项目 `go build -p 1 ./...` PASS。不宣称一轮18包全绿。199个Go/SQL文件在提交前与测试manifest逐一SHA核验，无差异。三项预期skip和两次SIGKILL专测范围见final18证据。
 - 原始日志/Go buildinfo保留原字节及SHA；精确路径的.gitattributes只关闭它们的空白检查，未改写或裁剪原日志。其他staged diff检查通过。
 - 已按技术总监、产品经理、公司老板三种视角写入 `docs/gmqtt-community-completion-report-2026-10-20.md`，明确为尚未完工的工程检查点报告，不冒充真人签字或生产证书。总目标仍active；后续重点为真实协议/兼容门禁、同条件收益及长稳资源、运行/回退、现有AI owner的受限工具与用户委托及真实场景验收。
+
+### 2026-10-20T04:15:40+08:00 — 受限AI工程检查点，仍为第4/6步
+
+- 社区候选工程提交 `f43b9911b201bfd66754ccacefddbfabd0138bd9`，42个增量文件，保留原工作树通知/版本独立改动；企业版未实施。固定工具委托、Redis有界生命周期、current user/session/device/Casbin校验、完整身份TLS传输及可选现有ChatBridge adapter已实现。默认关闭，不含模型自批/submit工具。
+- 候选单轮20包race：19包PASS；service新escaped-echo子项因fixture未清理前一委托撞8活跃上限FAIL。只加该fixture的Revoke清理，真实PG/Redis整个service包复跑PASS且0skip；全项目build PASS。原始失败和复跑均存ai-candidate20-race，218受管源文件的前后manifest只有测试清理一处变化。根此前省略TEST_BROKER_DATABASE_DSN的探索性service命令实际skip，不算集成证据；本轮明确纠正。
+- Python adapter 14项PASS。真实现有ChatBridge dispatcher/registry+本仓库Python adapter+实际构建Go CLI+临时CA/TLS Gin+私有PG/Redis只读getResult子项实际PASS且未skip。describe/telemetry/preview正向HTTP服务链使用Encore stub，preview无command request/log/派发。解码后JSON凭证检查同时拦原样及unicode转义parent JWT回显。
+- 有意义的限制保留：无线上gateway/人类session到thread issuer接线、无真实模型调用或租户模型费用认证；live Encore/真人盲评人效/物理效果未验。72h、配对收益、真实现场黄金样本及完整两cell灰度/回退仍待完成。下一块两cell runtime子进程fixture先在任务tmp起草，不混进本次源快照。
+- 正式远程Candidate Memory最新stored：`45852ba0-931a-4b6a-93f6-260fb2ca6956`，evidence `lev-1e5c17d0c4c38348e142aa4c`。Luna此前Redis子项stored：`74ea1a68-9ea7-452d-a509-03f127273023`（`lev-4105cba3614eeed36152ba77`）；service子项stored：`79d2a920-2d59-401b-8154-51b587c25bf6`（`lev-ebc14287e35e6463f9369b46`）。后两者当时尚无HTTP证据，本次记忆记录后续执行边界，不追改旧记忆。
