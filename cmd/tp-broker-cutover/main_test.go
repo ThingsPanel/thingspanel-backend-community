@@ -243,6 +243,51 @@ func TestCutoverPostgresFreezeRetryAndBarrierFailClosed(t *testing.T) {
 	if code := run(ctx, wrongArgs, getenv, &wrongOut, &wrongErr); code != 1 || wrongOut.Len() != 0 {
 		t.Fatalf("wrong-tenant plan code=%d out=%q", code, wrongOut.String())
 	}
+
+	// This fixture ACKs the already registered test members through the store
+	// API. It checks CLI audit propagation only; it is not runtime fence proof.
+	for _, role := range []string{"broker", "adapter", "dispatcher", "effects"} {
+		if _, err := store.RegisterMember(ctx, "cell-target", role, role+"-target", "boot-target"); err != nil {
+			t.Fatalf("register target member %s: %v", role, err)
+		}
+		if err := store.AcknowledgeFence(ctx, "tenant-cutover", "device-cutover", changeID, role, role+"-one", "boot-one", strings.Repeat("c", 64)); err != nil {
+			t.Fatalf("acknowledge fixture source member %s: %v", role, err)
+		}
+	}
+
+	var prepareOut, prepareErr strings.Builder
+	if code := run(ctx, prepareArgs, getenv, &prepareOut, &prepareErr); code != 0 {
+		t.Fatalf("prepare apply code=%d stderr=%s", code, prepareErr.String())
+	}
+	var prepared commandOutput
+	if err := json.Unmarshal([]byte(prepareOut.String()), &prepared); err != nil || prepared.Operation != "prepare" || prepared.Result != "applied" || prepared.PlanHash != hex.EncodeToString(prepareSum[:]) {
+		t.Fatalf("prepare output=%s err=%v", prepareOut.String(), err)
+	}
+	var audit struct {
+		Evidence []byte `gorm:"column:evidence"`
+	}
+	if err := db.Table("broker_route_change_events").Select("evidence").Where("change_id=? AND stage='operator_apply'", changeID).Take(&audit).Error; err != nil {
+		t.Fatal("read prepare operator audit")
+	}
+	var evidence struct {
+		Operation string `json:"operation"`
+		Actor     string `json:"actor"`
+		PlanSHA   string `json:"plan_sha256"`
+	}
+	if err := json.Unmarshal(audit.Evidence, &evidence); err != nil || evidence.Operation != "prepare" || evidence.Actor != "operator-test" || evidence.PlanSHA != hex.EncodeToString(prepareSum[:]) {
+		t.Fatalf("prepare operator audit=%s err=%v", string(audit.Evidence), err)
+	}
+	var frozen struct {
+		Actor   string `gorm:"column:actor"`
+		PlanSHA string `gorm:"column:plan_sha256"`
+		Phase   string `gorm:"column:phase"`
+	}
+	if err := db.Table("broker_route_changes").Select("actor,plan_sha256,phase").Where("id=?", changeID).Take(&frozen).Error; err != nil {
+		t.Fatal("read original freeze audit")
+	}
+	if frozen.Actor != "operator-test" || frozen.PlanSHA != hash || frozen.Phase != "connecting" {
+		t.Fatalf("original freeze audit changed: actor=%q plan_sha=%q phase=%q", frozen.Actor, frozen.PlanSHA, frozen.Phase)
+	}
 }
 
 func cutoverDSNWithSchema(dsn, schema string) string {

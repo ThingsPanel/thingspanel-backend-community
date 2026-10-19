@@ -27,13 +27,39 @@ var (
 	ErrTargetUnproven    = errors.New("brokercontrol: target access has not been proven")
 )
 
-type MigrationStore struct{ db *gorm.DB }
+type routeOperationAudit struct {
+	operation  string
+	actor      string
+	planSHA256 string
+}
+
+type MigrationStore struct {
+	db    *gorm.DB
+	audit *routeOperationAudit
+}
 
 func NewMigrationStore(db *gorm.DB) *MigrationStore {
 	if db != nil {
 		db = db.Session(&gorm.Session{Logger: logger.Discard})
 	}
 	return &MigrationStore{db: db}
+}
+
+// WithOperationAudit returns an independent store copy that adds an audit event
+// to the selected operator operation. The audit is an application-side label,
+// not a signed human identity proof or a substitute for the route barriers.
+func (s *MigrationStore) WithOperationAudit(actor, planSHA256, operation string) (*MigrationStore, error) {
+	if s == nil || s.db == nil || !routeField(actor, 128) || !routeHash(planSHA256) {
+		return nil, ErrMigrationInvalid
+	}
+	switch operation {
+	case "prepare", "activate", "rebase":
+	default:
+		return nil, ErrMigrationInvalid
+	}
+	copy := *s
+	copy.audit = &routeOperationAudit{operation: operation, actor: actor, planSHA256: planSHA256}
+	return &copy, nil
 }
 
 type RouteMember struct {
@@ -270,7 +296,7 @@ func (s *MigrationStore) AcknowledgeFence(ctx context.Context, tenant, device, c
 	if _, e := uuid.Parse(changeID); e != nil {
 		return ErrMigrationInvalid
 	}
-	return s.changeTx(ctx, tenant, device, changeID, func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
+	return s.changeTx(ctx, tenant, device, changeID, "fence_ack", func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
 		frozen := c.Phase == "frozen" && b.Phase == "draining" && b.BrokerCell == c.SourceCell && b.RouteEpoch == uint64(c.SourceEpoch)
 		connecting := c.Phase == "connecting" && b.Phase == "connecting" && b.BrokerCell == c.TargetCell && b.RouteEpoch == uint64(c.SourceEpoch+1)
 		if !frozen && !connecting {
@@ -306,8 +332,11 @@ func (s *MigrationStore) AcknowledgeFence(ctx context.Context, tenant, device, c
 
 // changeTx takes locks in cell -> tenants -> binding -> change order. All later
 // operations recheck the same scoped change, protecting against stale operators.
-func (s *MigrationStore) changeTx(ctx context.Context, tenant, device, id string, fn func(*gorm.DB, *RouteChange, *TransportBinding) error) error {
+func (s *MigrationStore) changeTx(ctx context.Context, tenant, device, id, operation string, fn func(*gorm.DB, *RouteChange, *TransportBinding) error) error {
 	if !s.valid(ctx) || !routeField(tenant, 36) || !routeField(device, 36) {
+		return ErrMigrationInvalid
+	}
+	if s.audit != nil && s.audit.operation != operation {
 		return ErrMigrationInvalid
 	}
 	if _, e := uuid.Parse(id); e != nil {
@@ -337,7 +366,17 @@ func (s *MigrationStore) changeTx(ctx context.Context, tenant, device, id string
 		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=?::uuid AND tenant_id=? AND device_id=?", id, tenant, device).Take(&c).Error; e != nil {
 			return e
 		}
-		return fn(tx, &c, &binding)
+		if err := fn(tx, &c, &binding); err != nil {
+			return err
+		}
+		if s.audit != nil {
+			return routeEvent(tx, c.ID, "operator_apply", map[string]string{
+				"operation":   s.audit.operation,
+				"actor":       s.audit.actor,
+				"plan_sha256": s.audit.planSHA256,
+			})
+		}
+		return nil
 	})
 }
 
@@ -369,7 +408,7 @@ func (s *MigrationStore) RebaseBarrier(ctx context.Context, tenant, device, id, 
 	if !routeHash(expectedMembersSHA) || !routeHash(newMembersSHA) || !routeHash(reasonSHA) {
 		return ErrMigrationInvalid
 	}
-	return s.changeTx(ctx, tenant, device, id, func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
+	return s.changeTx(ctx, tenant, device, id, "rebase", func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
 		frozen := c.Phase == "frozen" && b.Phase == "draining" && b.BrokerCell == c.SourceCell && b.RouteEpoch == uint64(c.SourceEpoch)
 		connecting := c.Phase == "connecting" && b.Phase == "connecting" && b.BrokerCell == c.TargetCell && b.RouteEpoch == uint64(c.SourceEpoch+1)
 		if (!frozen && !connecting) || c.MembersSHA256 != expectedMembersSHA {
@@ -404,7 +443,7 @@ func (s *MigrationStore) PrepareTarget(ctx context.Context, tenant, device, id, 
 	if !routeHash(targetReadySHA) {
 		return ErrMigrationInvalid
 	}
-	return s.changeTx(ctx, tenant, device, id, func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
+	return s.changeTx(ctx, tenant, device, id, "prepare", func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
 		if c.Phase == "connecting" && b.Phase == "connecting" && b.BrokerCell == c.TargetCell && b.RouteEpoch == uint64(c.SourceEpoch+1) && c.TargetReadySHA256 != nil && *c.TargetReadySHA256 == targetReadySHA {
 			return nil
 		}
@@ -434,7 +473,7 @@ func (s *MigrationStore) PrepareTarget(ctx context.Context, tenant, device, id, 
 // which proves causality after PrepareTarget. Its application/observed timestamp
 // is deliberately not compared with PostgreSQL's prepared_at clock.
 func (s *MigrationStore) Activate(ctx context.Context, tenant, device, id string) error {
-	return s.changeTx(ctx, tenant, device, id, func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
+	return s.changeTx(ctx, tenant, device, id, "activate", func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
 		if c.Phase == "active" && b.Phase == "active" && b.BrokerCell == c.TargetCell && b.RouteEpoch == uint64(c.SourceEpoch+1) {
 			return nil
 		}

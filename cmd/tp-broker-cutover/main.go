@@ -261,6 +261,15 @@ func onlyPlanFields(p cutoverPlan, operation string) bool {
 }
 
 func applyPlan(ctx context.Context, store *brokercontrol.MigrationStore, p cutoverPlan, rawPlanHash, actor string) error {
+	if p.Operation != "freeze" {
+		// Freeze already persists these references on the route change. Later
+		// approved steps record their own reviewed file and actor atomically.
+		reviewed, err := store.WithOperationAudit(actor, rawPlanHash, p.Operation)
+		if err != nil {
+			return err
+		}
+		store = reviewed
+	}
 	switch p.Operation {
 	case "freeze":
 		_, err := store.Freeze(ctx, brokercontrol.FreezeRouteRequest{ChangeID: p.ChangeID, TenantID: p.TenantID, DeviceID: p.DeviceID, ExpectedCell: *p.ExpectedCell, TargetCell: *p.TargetCell, ExpectedEpoch: *p.ExpectedEpoch, MembersSHA256: *p.MembersSHA256, PlanSHA256: rawPlanHash, Actor: actor})

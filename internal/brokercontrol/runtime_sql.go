@@ -41,7 +41,7 @@ func (s *MigrationStore) SyncFinalSQLRuntime(ctx context.Context, cell, instance
 		// Validate the actual frozen scope in a transaction using the SAME lock
 		// order as final commits. Freeze retired all old pending receipts/effects
 		// and unsent/uncertain commands, so none may remain eligible here.
-		e := s.changeTx(ctx, f.TenantID, f.DeviceID, f.ChangeID, func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
+		e := s.changeTx(ctx, f.TenantID, f.DeviceID, f.ChangeID, "runtime_sync", func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
 			frozen := c.Phase == "frozen" && b.Phase == "draining" && b.BrokerCell == c.SourceCell && b.RouteEpoch == uint64(c.SourceEpoch)
 			connecting := c.Phase == "connecting" && b.Phase == "connecting" && b.BrokerCell == c.TargetCell && b.RouteEpoch == uint64(c.SourceEpoch+1)
 			if !frozen && !connecting {
