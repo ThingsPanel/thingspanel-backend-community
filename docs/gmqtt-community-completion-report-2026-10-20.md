@@ -2,9 +2,9 @@
 
 **状态：工程检查点报告，尚未完工，不可据此生产切流或结算完整项目。**
 
-范围仅为社区 Mosquitto；企业 VerneMQ/EMQX 未实施、未采购、未测试，不属于本期欠项。本文为代理按三个角色拟稿，不是三名真人签字或独立 SRE 接管记录。计划的 62 项社区 AC 当前为 22 PARTIAL、40 PENDING；11 项企业专项 OUT_OF_SCOPE。G0–G5-C 均未放行。
+范围仅为社区 Mosquitto；企业 VerneMQ/EMQX 未实施、未采购、未测试，不属于本期欠项。本文为代理按三个角色拟稿，不是三名真人签字或独立 SRE 接管记录。计划的 62 项社区 AC 当前为 24 PARTIAL、38 PENDING；11 项企业专项 OUT_OF_SCOPE。G0–G5-C 均未放行。
 
-当前候选位于分支 `codex/gmqtt-community-20261019`，最新工程提交 `f43b9911b201bfd66754ccacefddbfabd0138bd9`；此前检查点 `ba4ccecd`、`ad2cbd7f`。本轮 218 个受管 Go/SQL/Python/C/header 源文件已逐一核对，与[当前验证源码 manifest](gmqtt-evidence-2026-10-20/ai-candidate20-race/source-manifest-after-fixture-fix.json)一致。前一轮 199 个 Go/SQL 文件的证据另行保留。原工作树的通知、版本等其他任务改动保留。
+当前候选位于分支 `codex/gmqtt-community-20261019`，最新测试工程提交 `395a64c6aa5fd50c5d2982794f261fa7b7917db8`，AI工程提交 `f43b9911`；此前检查点 `ba4ccecd`、`ad2cbd7f`。当前受管源码为原[218个验证源文件](gmqtt-evidence-2026-10-20/ai-candidate20-race/source-manifest-after-fixture-fix.json)加[两个独立复跑的native测试源](gmqtt-evidence-2026-10-20/two-cell-native/README.md)，提交前均核对SHA；生产逻辑未因新增迁移测试改变。前一轮 199 个 Go/SQL 文件的证据另行保留。原工作树的通知、版本等其他任务改动保留。
 
 ## 一、给技术总监的汇报
 
@@ -20,7 +20,7 @@
 | 可靠入账 | 内存队列和确认窗口不能证明业务已持久接受 | EVT/ATTR 收据、领域变更与 effect intent 同事务；最终 TEL 批次有可信收据与 route fence。普通遥测早期 MQTT ACK 仍不能代表最终批次落库 |
 | 崩溃重投 | 提交后 ACK 前崩溃可能再次处理 | 持久订阅在 CONNECT 前注册路由；无设备 source ID 的真实 SIGKILL 重投保持同 ingestion_id/UUID，数据库业务与意图各一条。未证明意图已执行或物理效果 |
 | 多 cell | 全局领取 receipt 可能由错误连接处理 | worker 按配置 cell 领取，空 cell/不支持 scoped store 失败关闭；真实 PG 隔离、迁移及并发子项通过 |
-| 状态和迁移 | 陈旧状态或跨主机时间比较可能误判 | 新鲜连接/活动与 unknown；SQL012 CAS、自动 runtime fence ACK、代次递增和 reviewed-plan CLI。receipt 因果改由绑定锁和新代次证明，连接仍要求真实且新鲜 |
+| 状态和迁移 | 陈旧状态或跨主机时间比较可能误判 | 新鲜连接/活动与 unknown；SQL012 CAS、自动 runtime fence ACK、代次递增和 reviewed-plan CLI。receipt 因果改由绑定锁和新代次证明，连接仍要求真实且新鲜；单binding native A/1→B/2→A/3已独立复跑两次，目标ready hash仅fixture声明 |
 | 命令 | 协议 PUBACK 容易被误解为执行成功 | 既有 command owner 保存意图、幂等、过期和 unknown；SQL013 preview/hash 授权/submit；真实 MQTT 到 Paho 测试设备 ACK 已通过，Encore 为契约 stub |
 | 语义/证据 | 裸数值缺少发布模型、单位和来源 | tenant-scoped 已发布 Encore 语义、只读状态、SQL014 遥测证据；独立设备采样时间未知，空单位明确未知。未验证 live Encore |
 | AI 工具委托 | 既有运行时没有本项目受限工具与可信用户委托接线 | 默认关闭；120秒/20次/明确设备范围；每次重验父会话、用户和显式权限。Go固定TLS客户端保留服务端身份，Python现有runtime adapter核对tenant/user/thread/device；真实隔离RPC串联通过，未部署线上登录/线程交接 |
@@ -29,13 +29,15 @@
 
 最新增量验证：[20包回归证据](gmqtt-evidence-2026-10-20/ai-candidate20-race/README.md)中19包通过、service包因测试未清理活跃委托撞到真实上限而失败；只修测试清理后，整个service包在显式真实PG/Redis下通过且无skip，完整构建通过。Python adapter 14项通过，实际ChatBridge dispatcher→Python adapter→Go CLI→TLS Gin→PG/Redis的只读结果查询子项通过。源码只有该测试清理一处区别；不把组合结果说成单轮20包全绿。根此前一个未设DB变量的探索性命令跳过了集成，不能作为通过证据，已在原始记录中澄清。解码后检查可拦截JSON转义的凭证回显；预览仍只创建计划，不创建或派发命令。
 
+[两cell专项](gmqtt-evidence-2026-10-20/two-cell-native/README.md)新增精确测试源的Luna race count2，两次均通过且无skip，验证真实四角色自动屏障、新设备连接、新代pending→processed及回A的epoch3。root更早版本首轮也通过，但没有后续加强断言的源SHA；不混成三次完全同源认证。目标ready SHA为合成fixture标记，未证明生产配置、存储或consumer readiness认证；也未覆盖命令在途或磁盘故障。
+
 另有新链 C100/R100 每秒、60 秒 6,000 条健康对账与旧链 5 秒 500 条健康对账；它们没有构成同条件收益测试。旧版本 ASan 压力不能替代当前源码认证。此前 Activate 单次失败在诊断 10 次中未复现，其具体触发原因仍未确认；确定性时钟偏移回归证明本轮因果修正的必要边界。
 
 ### 收益、退化与下一步
 
 收益是权限/入账/命令结果有明确责任和可复核记录。新增 SQL、控制依赖与持久数据也带来开销，目前无吞吐或成本优势结论。新 profile 对 custom command mapping、传统 raw/service/protocol 下发、OTA/expected-data 等仍有拒绝或兼容缺口；QoS2、wire-retained、延迟/恢复 Will 尚未完整认证。不能让这些在用设备直接迁移。
 
-推荐下一步先冻结真实在用协议与容量，补兼容和当前版本故障矩阵，再在足够磁盘的隔离环境做三次配对收益与完整 72 小时稳定性。随后执行两 cell 灰度/回退及接管演练。当前机器曾接近磁盘满，只回收了本任务复制的约 1.4GiB Go 缓存，仍不适合作为未经容量规划的长稳场地。
+推荐下一步先冻结真实在用协议与容量，补兼容和当前版本故障矩阵，再在足够磁盘的隔离环境做三次配对收益与完整 72 小时稳定性。随后将单binding native往返扩展为完整profile、多binding/命令/旧系统退役灰度与接管演练。当前机器曾接近磁盘满，只回收了本任务复制的约 1.4GiB Go 缓存，仍不适合作为未经容量规划的长稳场地。
 
 ## 二、给产品经理的汇报
 
@@ -72,8 +74,8 @@
 | 继续社区 1A 质量与运维验收，同时建设 1B 的受限 AI 工具接入 | 保留完整一期目标，并逐项取得生产和价值证据 | 推荐；先落实真实样本、隔离长稳资源和验收参与人 |
 | 在完成 Broker 认证后先关闭 AI 发布基础能力 | 可按 G3/G4 单独决定基础发布，完整项目仍须 G5 | 作为阶段交付选项，须保持 AI 未完工的合同口径 |
 
-尚需实际条件：足够容量的隔离长稳/配对环境、真实在用协议样本、两 cell 操作演练、live Encore 接线，以及计划要求的独立真人评审/操作员。三份代理报告不替代这些人和运行时长。
+尚需实际条件：足够容量的隔离长稳/配对环境、真实在用协议样本、完整profile的两 cell 操作与接管演练、live Encore 接线，以及计划要求的独立真人评审/操作员。三份代理报告不替代这些人和运行时长。
 
 ## 复用结论与正式记忆收据
 
-已通过远程 MCP 提交 Candidate Memory，最新结果 `stored`：`45852ba0-931a-4b6a-93f6-260fb2ca6956`，evidence `lev-1e5c17d0c4c38348e142aa4c`。内容为委托/日志边界、转义凭证检查、完整身份RPC和测试skip判别，不包含生产放行结论。此前SIGKILL、Redis和service增量记忆收据见[执行日志](gmqtt-community-execution-log-2026-10-19.md)。
+已通过远程 MCP 提交 Candidate Memory，最新结果 `stored`：`cdac9a3d-ef1a-456b-bd54-7ea550a44366`，evidence `lev-272983a46bd4389e072aef00`。内容为独立后端进程、connecting生产gating、真实连接/收据证明与epoch递增回退，不包含生产放行结论。此前SIGKILL、Redis和service增量记忆收据见[执行日志](gmqtt-community-execution-log-2026-10-19.md)。

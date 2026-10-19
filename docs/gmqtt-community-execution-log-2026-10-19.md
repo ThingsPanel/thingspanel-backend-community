@@ -126,3 +126,11 @@ Mosquitto2.1.2 `src/topic_tok.c` 处理 `$share/group/$tp/...` 首token与`$tp/.
 - Python adapter 14项PASS。真实现有ChatBridge dispatcher/registry+本仓库Python adapter+实际构建Go CLI+临时CA/TLS Gin+私有PG/Redis只读getResult子项实际PASS且未skip。describe/telemetry/preview正向HTTP服务链使用Encore stub，preview无command request/log/派发。解码后JSON凭证检查同时拦原样及unicode转义parent JWT回显。
 - 有意义的限制保留：无线上gateway/人类session到thread issuer接线、无真实模型调用或租户模型费用认证；live Encore/真人盲评人效/物理效果未验。72h、配对收益、真实现场黄金样本及完整两cell灰度/回退仍待完成。下一块两cell runtime子进程fixture先在任务tmp起草，不混进本次源快照。
 - 正式远程Candidate Memory最新stored：`45852ba0-931a-4b6a-93f6-260fb2ca6956`，evidence `lev-1e5c17d0c4c38348e142aa4c`。Luna此前Redis子项stored：`74ea1a68-9ea7-452d-a509-03f127273023`（`lev-4105cba3614eeed36152ba77`）；service子项stored：`79d2a920-2d59-401b-8154-51b587c25bf6`（`lev-ebc14287e35e6463f9369b46`）。后两者当时尚无HTTP证据，本次记忆记录后续执行边界，不追改旧记忆。
+
+### 2026-10-20T04:27:18+08:00 — native双cell往返子项
+
+- 新测试工程提交 `395a64c6aa5fd50c5d2982794f261fa7b7917db8`：两个真实Mosquitto、两个独立后端testbinary进程、一个私有brokerqa schema/Redis/Owner；没有改生产逻辑。root首次旧断言版PASS 16.81s；加入initial connection等待、按cell新connectionID、receipt恰1和阶段日志后，Luna在managed candidate独立race count2均PASS（16.85s/15.79s）、0skip。原始JSON及两测试精确SHA已归档two-cell-native；root首轮未保存pre-change源SHA，故不称三次同源。
+- A/1→B/2→A/3真实四角色fresh roster/自动fence ACK、旧source新publish拒绝、目标实际新连接、connecting新代非空业务receipt pending→activate→processed/唯一业务行与effect intent已验证。生产ledger本来就跳过精确connecting receipt，不需要测试专用worker闸门。A保持同进程运行，没有借重启刷新代次；runtime真正重启的ACK继承另待验。
+- 合成targetReadySHA只测试API格式和native运行流程，不是实际配置/存储/consumer门禁证据；没有命令在途/Unknown、旧GMQTT退役、50binding规模、真实硬件、Broker重启或生产灰度。AC-D01/D05改PARTIAL，社区24 PARTIAL/38 PENDING/0完整PASS，Gate仍未放行。
+- 可复用结论远程Candidate Memory `stored`：`cdac9a3d-ef1a-456b-bd54-7ea550a44366`，evidence `lev-272983a46bd4389e072aef00`。同时只读MCP查找G0真实固件/QoS/retained/规模资料无命中（items空），没有以文档或授权代替这些现场事实。
+- 当前继续离线独立事件判定器自检；机器约1.2GiB空闲，未启动无法容纳全账本的72小时正式长稳，也未切1883/9999。
