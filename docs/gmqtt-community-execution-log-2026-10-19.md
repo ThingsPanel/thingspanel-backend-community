@@ -142,3 +142,23 @@ Mosquitto2.1.2 `src/topic_tok.c` 处理 `$share/group/$tp/...` 首token与`$tp/.
 - Luna真实私有brokerqa两包race共39测试PASS/0fail/0skip；root核对7个源SHA，并对变更后Store复跑真实native双cellA1→B2→A3：PASS16.52秒、0skip；全项目build exit0。原始JSON、源码hash和边界归档cutover-audit。Linux冻结镜像未重建，不代表本次新Store源码，不能沿用镜像认证。
 - 当前仍第4/6步，24PARTIAL/38PENDING/0完整PASS。缺真实G0样本/规模、足够长稳环境、完整兼容/故障、配对收益和72h、实际灰度/live Encore/真人AI价值验收。只回收本任务可重建缓存；磁盘仍约1.2GiB，未动原1883/9999。
 - 远程Candidate Memory已stored：`d9a43804-08a4-4ecc-b9f6-1fe84c6661f8`，evidence `lev-3d7c9ad4eca608a07091b82c`。收据实际返回约04:43:44，提交payload的occurred_at手工填04:45:00（领先约76秒），不将该字段当测试或性能时钟证据。
+
+### 2026-10-20T06:27:37+08:00 — 用户调整本轮验收为结构完整与冒烟
+
+- 原文：“冒烟测试完成就行了……整个链路通了就行了。我们自己去做测试去，现在是要验证结构的完整性，还有别把什么东西给漏了，锦上添花的测试没必要去做。”因此停止长稳、配对性能、极限压力、百次故障、真人盲评扩测；原AC与生产证据保留供用户后测，不冒充通过，不再作为本轮开发退出门槛。
+- 截至当前工程提交：`e565a0ae` native pending128重叠（三次同源实际PASS），`9c262135` 计划100调用者消费（代码未因新指示再扩测试）。同键100成功99dup、换key1成功99拒绝；源与组合证据归档plan-concurrent100，末尾仅补非空ID断言的两目标复跑也通过。此前完整包23PASS，不能混称一个最终源全包运行。
+- 范围核查纠正AC-D03纯EMQX专属误列社区：保留73长期ID，61社区24PARTIAL/37PENDING/0正式PASS，12二期OUT_OF_SCOPE。仅范围分类修正，不减少实际社区功能、不增加PASS。
+- 真正结构缺口：旧OTA/expected-data/遥测属性控制/部分protocol/custom-downlink在ingress_v1有明确拒绝；AI只有adapter和API，缺真实BFF/可信宿主登录线程绑定及设备详情授权入口。继续补这些功能，区分未实现与未测试。
+- 主代理补了ChatBridge两个可选公共runtime adapter注册hook，原两文件修改前clean，未切换其main分支/未stage其他dirty；可重建patch在integrations/chatbridge/patches。Luna分别接Go BFF、Python Host、Vue设备详情入口；暂不启新服务/重启8001/调用模型。新增人类GET stored plan供UI按真实存储参数审阅后使用既有authorize/submit。
+- 用户原文反馈远程MCP最终stored：`1ad47310-7f90-48a6-b9ce-90a6c45fc26a`，evidence `lev-e9d96dd9c13a7ca90f11c62e`。首次用不支持的human_feedback类型被拒（not_stored）；查证schema后用human_input+可信user_prompt_submit原始事件重新提交成功，不将原失败说成存储成功。技术native-auth子项亦stored `623b6cbb-eb80-4af9-bf04-dedd72afe9f5`（`lev-4b4bf00575e3b3ff293e7b23`）。
+
+### 2026-10-20T06:30:23+08:00 — 先解释范围，等待用户判断
+
+用户要求逐条说明OTA、期望消息、协议插件/自定义下行、AI对话和前端接线后再决定进度。已停止所有Luna新增实现/验证/服务启动；没有改生产流量。当前源码核查：社区后端注册OTA接口，但社区前端只找到OTA API wrapper/文案，没有确认现用完整页面；期望消息确实在设备详情tab注册并调用expected/data接口。新ingress_v1是本轮后端处理模式，旧通路拒绝保护是本轮适配边界，不是社区授权限制。AI是原计划附加产品目标，与Broker替换基础链独立。新增Vue按钮/组件和Python Host尚未整体验通，Go聊天BFF尚未落地；不将其说成正式上线。范围等待用户看完解释再定，未继续自动补齐全部旧族。
+
+
+### 2026-10-20T06:34:20+08:00 — 三角色报告按范围判断状态归整
+
+- 只更新报告、台账和结构清单，没有恢复功能实现、运行扩展测试或启动服务。技术总监、产品经理、老板三份汇报保留在一个Markdown中，标为阶段草稿，明确已有候选、未验证草稿、尚缺BFF与社区旧下行兼容；不宣告完工。
+- Luna只读核查确认：OTA有后端/API和前端service函数，但没有找到社区页面/路由；期望消息确在社区设备详情tab。上行immutable custom mapping已有有限支持，拒绝缺口应具体写作旧raw/service/protocol与custom command下行，不笼统说所有插件/自定义映射不可用。
+- 本次文档提交前工程HEAD为9c26213532d07fa9923b86d7ea4d5e0a3b8e8bac；按明确路径仅同步文档，不运行会复制冻结源码草稿的全量同步脚本。72小时等专项按用户指示留待后续，不因当前磁盘空间变化重启扩测；已有用户指示memory stored收据不重复提交。
