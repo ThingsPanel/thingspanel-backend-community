@@ -44,6 +44,9 @@ func startBrokerCommandWorker(ctx context.Context, adapter *mqttadapter.Adapter,
 	if !global.DB.Migrator().HasTable("broker_command_requests") {
 		return nil, errors.New("durable command migration 006 is required")
 	}
+	if err := service.ExpectedDataIngressSchemaReady(global.DB); err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	w := &brokerCommandWorker{store: brokercommands.New(global.DB), adapter: adapter, logger: logger, cancel: cancel, done: make(chan struct{})}
 	runtimeSync, err := brokerRuntimeSync(global.DB, "dispatcher")
@@ -69,7 +72,7 @@ func (w *brokerCommandWorker) Stop() {
 func (w *brokerCommandWorker) run(ctx context.Context) {
 	defer close(w.done)
 	sweep := time.Now().Add(-time.Minute)
-	var lastSync time.Time
+	var lastSync, lastExpected time.Time
 	for ctx.Err() == nil {
 		if w.runtimeSync != nil && time.Since(lastSync) >= 5*time.Second {
 			if err := w.runtimeSync(ctx); err != nil {
@@ -93,6 +96,15 @@ func (w *brokerCommandWorker) run(ctx context.Context) {
 				w.logger.WithError(err).Warn("durable command stale sweep failed")
 			}
 			sweep = time.Now()
+		}
+		if time.Since(lastExpected) >= 5*time.Second {
+			expectedCtx, expectedCancel := context.WithTimeout(ctx, 2*time.Second)
+			err := service.DispatchPendingExpected(expectedCtx, viper.GetString("mqtt.broker_cell"))
+			expectedCancel()
+			if err != nil && ctx.Err() == nil {
+				w.logger.WithError(err).Warn("pending expected message dispatch deferred")
+			}
+			lastExpected = time.Now()
 		}
 		row, err := w.store.ClaimInCell(ctx, viper.GetString("mqtt.broker_cell"), commandGuard)
 		if err == nil && row != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	bc "project/internal/brokercontract"
 	"project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/errcode"
@@ -42,14 +43,28 @@ func mergeIdentifyAndPayload(identify string, paramsStr *string) (string, error)
 
 // 创建预期数据
 func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedDataReq, userClaims *utils.UserClaims) (*model.ExpectedData, error) {
-	if err := requireLegacyDownlink("expected data"); err != nil {
-		return nil, err
+	if ctx == nil || req == nil {
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{"request": "expected message request is required"})
+	}
+	if req.SendType != "telemetry" && req.SendType != "attribute" && req.SendType != "command" {
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{"send_type": "unsupported expected message type"})
+	}
+	ingress := isIngressV1Commands()
+	if !ingress {
+		if err := requireLegacyDownlink("expected data"); err != nil {
+			return nil, err
+		}
 	}
 	if req.SendType == "command" {
 		if req.Identify == nil {
 			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
 				"identify": "identify is required",
 			})
+		}
+		if ingress && req.Payload != nil {
+			if err := bc.ValidateUniqueJSON([]byte(*req.Payload)); err != nil {
+				return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{"payload": "payload must be valid unique JSON"})
+			}
 		}
 		// 将identify和payload合并成一个json字符串
 		payload, err := mergeIdentifyAndPayload(*req.Identify, req.Payload)
@@ -64,6 +79,18 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 			"payload": "payload is required",
 		})
 	}
+	if userClaims == nil || userClaims.ID == "" || userClaims.TenantID == "" {
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{"caller": "authenticated caller is required"})
+	}
+	if ingress {
+		if len(*req.Payload) == 0 || len(*req.Payload) > 1<<20 || bc.ValidateUniqueJSON([]byte(*req.Payload)) != nil {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{"payload": "payload must be valid unique JSON within 1 MiB"})
+		}
+		var payloadObject map[string]any
+		if err := json.Unmarshal([]byte(*req.Payload), &payloadObject); err != nil || payloadObject == nil {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{"payload": "payload must be a JSON object"})
+		}
+	}
 	// 创建预期数据
 	ed := &model.ExpectedData{
 		ID:         uuid.New(),
@@ -76,7 +103,15 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 		Label:      req.Label,
 		TenantID:   userClaims.TenantID,
 	}
-	err := dal.ExpectedDataDal{}.Create(ctx, ed)
+	var err error
+	if ingress {
+		if ed.ExpiryTime != nil && !ed.ExpiryTime.After(time.Now()) {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{"expiry": "expiry must be in the future"})
+		}
+		err = e.createIngress(ctx, ed, userClaims)
+	} else {
+		err = dal.ExpectedDataDal{}.Create(ctx, ed)
+	}
 	if err != nil {
 		logrus.Error(err)
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -85,7 +120,12 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 	}
 
 	// 查询预期数据
-	expectedData, err := dal.ExpectedDataDal{}.GetByID(ctx, ed.ID)
+	var expectedData *model.ExpectedData
+	if ingress {
+		expectedData, err = getExpectedDataGlobal(ctx, ed.ID)
+	} else {
+		expectedData, err = dal.ExpectedDataDal{}.GetByID(ctx, ed.ID)
+	}
 	if err != nil {
 		logrus.Error(err)
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -93,6 +133,12 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 		})
 	}
 
+	if ingress {
+		if err := sendExpectedIngress(ctx, req.DeviceID); err != nil {
+			logrus.WithError(err).WithField("expectedDataID", ed.ID).Warn("预期消息已保存，等待持久发送重试")
+		}
+		return getExpectedDataGlobal(ctx, ed.ID)
+	}
 	// 查询设备在线状态
 	deviceStatus, err := GroupApp.Device.GetDeviceOnlineStatus(req.DeviceID)
 	if err != nil {
@@ -117,8 +163,8 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 }
 
 // 删除预期数据
-func (*ExpectedData) Delete(ctx context.Context, id string) error {
-	return dal.ExpectedDataDal{}.Delete(ctx, id)
+func (*ExpectedData) DeleteScoped(ctx context.Context, id string, claims *utils.UserClaims) error {
+	return deleteExpectedScoped(ctx, id, claims)
 }
 
 // 分页查询
@@ -137,6 +183,9 @@ func (*ExpectedData) PageList(ctx context.Context, req *model.GetExpectedDataPag
 
 // 发送预期数据
 func (*ExpectedData) Send(ctx context.Context, deviceID string) error {
+	if isIngressV1Commands() {
+		return sendExpectedIngress(ctx, deviceID)
+	}
 	if err := requireLegacyDownlink("expected data dispatch"); err != nil {
 		return err
 	}

@@ -38,7 +38,7 @@ func (d *Driver) AuthorizePayload(ptr uintptr, access int, topic string, payload
 		return err == nil && len(env.Values) <= g.Policy.MaxPayload
 	}
 	if !bc.IsCommandFrame(payload) {
-		return !bc.IsCommandTopic(topic)
+		return !bc.IsControlledDownlinkTopic(topic)
 	}
 	g, err := d.snapshot(ptr)
 	if err != nil {
@@ -58,7 +58,7 @@ func (d *Driver) Outgoing(ptr uintptr, topic string, payload []byte, qos byte, r
 		return nil, false, errors.New("runtime outgoing fence denied delivery")
 	}
 	if !bc.IsCommandFrame(payload) {
-		if bc.IsCommandTopic(topic) {
+		if bc.IsControlledDownlinkTopic(topic) {
 			return nil, false, errors.New("unframed command delivery denied")
 		}
 		return nil, false, nil

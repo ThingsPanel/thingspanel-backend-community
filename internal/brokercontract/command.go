@@ -28,10 +28,11 @@ type CommandFrame struct {
 func IsCommandFrame(b []byte) bool { return bytes.HasPrefix(b, []byte(commandMarker)) }
 
 func (f CommandFrame) Validate(now time.Time) error {
-	if f.CommandID == "" || f.TenantID == "" || f.TargetDeviceID == "" || f.RouteEpoch == 0 || f.MappingVersion == "" || f.WireTopic == "" || strings.ContainsAny(f.WireTopic, "+#\x00") || IsInternalResource(f.WireTopic) || !IsCommandTopic(f.WireTopic) || len(f.Payload) == 0 || len(f.Payload) > MaxCommandPayload {
+	if f.CommandID == "" || f.TenantID == "" || f.TargetDeviceID == "" || f.RouteEpoch == 0 || f.MappingVersion == "" || f.WireTopic == "" || strings.ContainsAny(f.WireTopic, "+#\x00") || IsInternalResource(f.WireTopic) || !IsControlledDownlinkTopic(f.WireTopic) || len(f.Payload) == 0 || len(f.Payload) > MaxCommandPayload {
 		return errors.New("invalid command storage frame")
 	}
-	if strings.Split(f.WireTopic, "/")[3] != f.CommandID {
+	parts := strings.Split(f.WireTopic, "/")
+	if (IsCommandTopic(f.WireTopic) && parts[3] != f.CommandID) || (len(parts) == 5 && parts[4] != f.CommandID) {
 		return errors.New("command topic message id does not match frame")
 	}
 	if f.ExpiresAt <= now.UnixMilli() || f.ExpiresAt > now.Add(24*time.Hour).UnixMilli() {
@@ -71,4 +72,28 @@ func IsCommandTopic(topic string) bool {
 	}
 	parts := strings.Split(topic, "/")
 	return len(parts) == 4 && (parts[0] == "devices" || parts[0] == "gateway") && parts[1] == "command" && parts[2] != "" && parts[3] != ""
+}
+
+// IsControlledDownlinkTopic is a finite set of device-wire control families.
+// Attribute report/event replies are deliberately outside it. Telemetry control
+// has no wire message ID; its private storage frame still carries an intent ID.
+func IsControlledDownlinkTopic(topic string) bool {
+	if IsCommandTopic(topic) {
+		return true
+	}
+	if ValidatePublishTopic(topic) != nil {
+		return false
+	}
+	p := strings.Split(topic, "/")
+	if len(p) < 4 || (p[0] != "devices" && p[0] != "gateway") {
+		return false
+	}
+	for _, level := range p {
+		if level == "" {
+			return false
+		}
+	}
+	return (len(p) == 4 && p[1] == "telemetry" && p[2] == "control") ||
+		(len(p) == 5 && p[1] == "attributes" && p[2] == "set") ||
+		(len(p) == 4 && p[1] == "attributes" && p[2] == "get")
 }

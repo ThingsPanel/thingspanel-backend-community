@@ -480,7 +480,7 @@ func buildDevicePolicy(root DeviceRecord, children []DeviceRecord, kind brokerco
 		prefix = "gateway"
 	}
 	publish := []string{prefix + "/telemetry", prefix + "/attributes/+", prefix + "/event/+", prefix + "/command/response/+", prefix + "/attributes/set/response/+", prefix + "/event/response/+"}
-	subscribe := make([]string, 0, 7*(1+len(children)))
+	subscribe := make([]string, 0, 6*(1+len(children)))
 	devices := append([]DeviceRecord{root}, children...)
 	for _, d := range devices {
 		if d.DeviceNumber == "" {
@@ -488,7 +488,7 @@ func buildDevicePolicy(root DeviceRecord, children []DeviceRecord, kind brokerco
 		}
 		n := d.DeviceNumber
 		subscribe = append(subscribe, prefix+"/telemetry/control/"+n, prefix+"/attributes/set/"+n+"/+", prefix+"/attributes/get/"+n,
-			prefix+"/command/"+n+"/+", prefix+"/attributes/response/"+n+"/+", prefix+"/event/response/"+n+"/+", "ota/devices/inform/"+n)
+			prefix+"/command/"+n+"/+", prefix+"/attributes/response/"+n+"/+", prefix+"/event/response/"+n+"/+")
 	}
 	return normalizePolicy(brokercontract.Policy{Publish: publish, Subscribe: subscribe, MaxPayload: brokercontract.MaxPayloadBytes, MaxQoS: 1, RetainProfile: brokercontract.RetainedLiveIngress})
 }

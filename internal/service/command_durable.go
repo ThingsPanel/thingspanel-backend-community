@@ -97,6 +97,12 @@ func ValidateDurableCommandCaller(ctx context.Context, tx *gorm.DB, row brokerco
 	if ctx == nil || tx == nil || row.TenantID == "" || row.CallerID == "" {
 		return errors.New("durable command caller context is incomplete")
 	}
+	if strings.HasPrefix(row.Intent, "expected.") {
+		return validateExpectedDownlinkCaller(ctx, tx, row)
+	}
+	if strings.HasPrefix(row.Intent, "control.") {
+		return validateStandardControlCaller(ctx, tx, row)
+	}
 	if row.Intent == automationCommandIntent {
 		return ValidateAutomationCommand(ctx, tx, row)
 	}
@@ -219,6 +225,10 @@ type commandFingerprintSnapshot struct {
 }
 
 func readCommandFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDeviceID, targetRootID, expectedConfigID string) (string, *model.DataScript, commandFingerprintSnapshot, error) {
+	return readDownlinkFingerprint(ctx, tx, tenant, logicalDeviceID, targetRootID, expectedConfigID, processor.ScriptTypeCommand)
+}
+
+func readDownlinkFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDeviceID, targetRootID, expectedConfigID, scriptType string) (string, *model.DataScript, commandFingerprintSnapshot, error) {
 	if tx == nil || ctx == nil || tenant == "" || logicalDeviceID == "" || targetRootID == "" {
 		return "", nil, commandFingerprintSnapshot{}, errors.New("command fingerprint input is incomplete")
 	}
@@ -313,7 +323,7 @@ func readCommandFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDev
 	rootDevice := snapshot.Devices[len(snapshot.Devices)-1]
 	var scripts []model.DataScript
 	if rootDevice.DeviceConfigID != nil && *rootDevice.DeviceConfigID != "" {
-		if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "SHARE"}).Where("device_config_id = ? AND script_type = ?", *rootDevice.DeviceConfigID, processor.ScriptTypeCommand).Order("id ASC").Find(&scripts).Error; err != nil {
+		if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "SHARE"}).Where("device_config_id = ? AND script_type = ?", *rootDevice.DeviceConfigID, scriptType).Order("id ASC").Find(&scripts).Error; err != nil {
 			return "", nil, commandFingerprintSnapshot{}, err
 		}
 	}
@@ -528,6 +538,9 @@ func ValidateDurableCommandSnapshot(ctx context.Context, tx *gorm.DB, row broker
 	}
 	if prepared.ConfigurationSHA256 == "" || len(prepared.Encoded) == 0 || len(prepared.Encoded) > brokercommands.MaxCommandPayload {
 		return fmt.Errorf("%w: prepared command is incomplete", brokercommands.ErrRejected)
+	}
+	if strings.HasPrefix(row.Intent, "expected.") || strings.HasPrefix(row.Intent, "control.") {
+		return validateExpectedDownlinkSnapshot(ctx, tx, row, prepared)
 	}
 	if prepared.Message.DeviceID != row.DeviceID || prepared.Message.Type != downlink.MessageTypeCommand || prepared.Message.TopicPrefix != "" || prepared.Message.Topic != "" {
 		return fmt.Errorf("%w: prepared command routing fields are invalid", brokercommands.ErrRejected)

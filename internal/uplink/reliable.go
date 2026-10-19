@@ -213,9 +213,13 @@ func (p *ReliableProcessor) response(ctx context.Context, tx *gorm.DB, device *m
 		table = "attribute_set_logs"
 	}
 	logicalDevice := device.ID
-	if table == "command_set_logs" {
+	if table == "command_set_logs" || table == "attribute_set_logs" {
 		row, err := brokercommands.New(tx).GetScoped(ctx, msg.TenantID, id)
 		if err == nil {
+			if (table == "attribute_set_logs" && row.Intent != "expected.attribute" && row.Intent != "control.attribute") ||
+				(table == "command_set_logs" && ((strings.HasPrefix(row.Intent, "expected.") && row.Intent != "expected.command") || strings.HasPrefix(row.Intent, "control."))) {
+				return errors.New("response family does not match durable downlink")
+			}
 			if row.TargetDeviceID != device.ID || row.RouteEpoch <= 0 || uint64(row.RouteEpoch) != msg.RouteEpoch {
 				return errors.New("response command route scope mismatch")
 			}

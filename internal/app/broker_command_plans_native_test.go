@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -34,6 +35,7 @@ import (
 	jwt "github.com/golang-jwt/jwt"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"gorm.io/gorm"
 )
 
 // TestPlannedCommandNativeMosquittoPostgresE2E proves the SQL013 plan lifecycle
@@ -64,7 +66,7 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 	if err := migrateNativeE2ESchema(t, db, root); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.User{}, &model.DeviceModelCommand{}, &model.DataScript{}, &model.CommandSetLog{}, &model.DeviceTopicMapping{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.DeviceModelCommand{}, &model.DataScript{}, &model.CommandSetLog{}, &model.AttributeSetLog{}, &model.TelemetrySetLog{}, &model.ExpectedData{}, &model.DeviceTopicMapping{}); err != nil {
 		t.Fatalf("migrate command-plan business fixture: %v", err)
 	}
 
@@ -160,7 +162,7 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 			Username: "mqtt-e2e-service", Password: "e2e-service-password", BrokerCell: nativeE2ECell, BrokerInstance: nativeE2ENode,
 			AllowedClientIDs: []string{"mqtt-e2e-service"}, AllowedDeviceIDs: []string{nativeE2EDevice},
 			Principal:     bc.Principal{TenantID: nativeE2ETenant, DeviceID: "service-mqtt-e2e", Kind: bc.PrincipalService},
-			Policy:        bc.Policy{Publish: []string{"devices/command/native-e2e-number/+", "devices/event/response/+/+", "devices/attributes/response/+/+"}, Subscribe: []string{bc.IngressPrefix + "/#", bc.StatePrefix + "/#"}, MaxPayload: bc.MaxPayloadBytes, MaxQoS: 1, RetainProfile: bc.RetainedLiveIngress},
+			Policy:        bc.Policy{Publish: []string{"devices/command/native-e2e-number/+", "devices/telemetry/control/native-e2e-number", "devices/attributes/get/native-e2e-number", "devices/attributes/set/native-e2e-number/+", "devices/event/response/+/+", "devices/attributes/response/+/+"}, Subscribe: []string{bc.IngressPrefix + "/#", bc.StatePrefix + "/#"}, MaxPayload: bc.MaxPayloadBytes, MaxQoS: 1, RetainProfile: bc.RetainedLiveIngress},
 			PolicyVersion: "native-command-plan-v1", MappingVersion: "standard-v1",
 		}},
 	})
@@ -203,9 +205,9 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 		t.Fatalf("initialize route-fenced MQTTService: %v; broker log: %s", err, nativeE2ETail(brokerLog))
 	}
 	device := connectNativeE2EDevice(t, ctx, brokerAddr)
-	deviceMessages := make(chan []byte, 4)
+	deviceMessages := make(chan nativeExpectedDelivery, 8)
 	if err := mqttadapter.WaitTokenContext(ctx, device.Subscribe("devices/command/native-e2e-number/+", 1, func(_ mqtt.Client, msg mqtt.Message) {
-		deviceMessages <- append([]byte(nil), msg.Payload()...)
+		deviceMessages <- nativeExpectedDelivery{topic: msg.Topic(), payload: append([]byte(nil), msg.Payload()...)}
 	}), 5*time.Second); err != nil {
 		t.Fatalf("subscribe real device command topic: %v", err)
 	}
@@ -232,7 +234,7 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 	}
 	select {
 	case got := <-deviceMessages:
-		t.Fatalf("preview published a device command: %s", got)
+		t.Fatalf("preview published a device command: %s", got.payload)
 	case <-time.After(300 * time.Millisecond):
 	}
 	use := service.CommandPlanUse{PlanHash: preview.PlanHash, IdempotencyKey: "native-plan-submit-key"}
@@ -259,7 +261,11 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 	}
 	var payload []byte
 	select {
-	case payload = <-deviceMessages:
+	case delivery := <-deviceMessages:
+		if delivery.topic != "devices/command/native-e2e-number/"+commandID {
+			t.Fatalf("planned command arrived on unexpected topic %q", delivery.topic)
+		}
+		payload = delivery.payload
 	case <-time.After(10 * time.Second):
 		t.Fatalf("no real MQTT command delivery; broker log: %s", nativeE2ETail(brokerLog))
 	}
@@ -272,7 +278,7 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 	}
 	select {
 	case duplicate := <-deviceMessages:
-		t.Fatalf("plan retry caused second MQTT delivery: %s", duplicate)
+		t.Fatalf("plan retry caused second MQTT delivery: %s", duplicate.payload)
 	case <-time.After(300 * time.Millisecond):
 	}
 	statusBeforeAck, err := cmdService.GetCommandStatus(ctx, commandID, nativeE2ETenant)
@@ -293,6 +299,196 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 	}
 	if _, err := brokercommands.New(db).GetScoped(ctx, nativeE2ETenant, commandID); err != nil {
 		t.Fatalf("load terminal command receipt: %v", err)
+	}
+	runExpectedNativeSmoke(t, ctx, db, device, deviceMessages, claims)
+}
+
+type nativeExpectedDelivery struct {
+	topic   string
+	payload []byte
+}
+
+func runExpectedNativeSmoke(t *testing.T, ctx context.Context, db *gorm.DB, device mqtt.Client, deliveries chan nativeExpectedDelivery, claims *utils.UserClaims) {
+	t.Helper()
+	t.Run("expected-data-downlinks", func(t *testing.T) {
+		t.Helper()
+		if os.Getenv("TEST_MQTT_EXPECTED_SMOKE") != "1" {
+			t.Skip("set TEST_MQTT_EXPECTED_SMOKE=1 to run expected-data native smoke")
+		}
+		const number = "native-e2e-number"
+		for _, filter := range []string{
+			"devices/telemetry/control/" + number,
+			"devices/attributes/get/" + number,
+			"devices/attributes/set/" + number + "/+",
+		} {
+			if err := mqttadapter.WaitTokenContext(ctx, device.Subscribe(filter, 1, func(_ mqtt.Client, msg mqtt.Message) {
+				deliveries <- nativeExpectedDelivery{topic: msg.Topic(), payload: append([]byte(nil), msg.Payload()...)}
+			}), 5*time.Second); err != nil {
+				t.Fatalf("subscribe expected-data wire filter %q: %v", filter, err)
+			}
+		}
+
+		expectedSvc := &service.ExpectedData{}
+		for _, tc := range []struct {
+			kind, topic string
+			payload     string
+			identify    *string
+		}{
+			{kind: "telemetry", topic: "devices/telemetry/control/" + number, payload: `{"temperature":21}`},
+			{kind: "attribute", topic: "", payload: `{"temperature":22}`},
+			{kind: "command", topic: "", identify: stringPtr("set_expected"), payload: `{"value":true}`},
+		} {
+			request := &model.CreateExpectedDataReq{DeviceID: nativeE2EDevice, SendType: tc.kind, Payload: &tc.payload, Identify: tc.identify}
+			created, err := expectedSvc.Create(ctx, request, claims)
+			if err != nil {
+				t.Fatalf("create %s expected-data intent: %v", tc.kind, err)
+			}
+			var saved model.ExpectedData
+			if err := db.Where("id=? AND tenant_id=?", created.ID, nativeE2ETenant).Take(&saved).Error; err != nil {
+				t.Fatalf("load %s expected-data receipt: %v", tc.kind, err)
+			}
+			if saved.Message == nil || *saved.Message == "" {
+				t.Fatalf("%s expected-data intent has no command receipt ID", tc.kind)
+			}
+			id := *saved.Message
+			if tc.kind == "attribute" {
+				tc.topic = "devices/attributes/set/" + number + "/" + id
+			} else if tc.kind == "command" {
+				tc.topic = "devices/command/" + number + "/" + id
+			}
+			select {
+			case got := <-deliveries:
+				if got.topic != tc.topic {
+					t.Fatalf("%s expected data delivered on %q, want %q", tc.kind, got.topic, tc.topic)
+				}
+				if len(got.payload) == 0 || bytes.Contains(got.payload, []byte("TP-COMMAND")) || bytes.Contains(got.payload, []byte("tp-internal")) {
+					t.Fatalf("%s private frame leaked or payload empty", tc.kind)
+				}
+				var wire map[string]any
+				if err := json.Unmarshal(got.payload, &wire); err != nil {
+					t.Fatalf("%s wire payload is not JSON: %v", tc.kind, err)
+				}
+				if tc.kind == "command" {
+					params, ok := wire["params"].(map[string]any)
+					if wire["method"] != "set_expected" || !ok || params["value"] != true {
+						t.Fatalf("unexpected command wire payload: %s", got.payload)
+					}
+				} else if (tc.kind == "telemetry" && wire["temperature"] != float64(21)) || (tc.kind == "attribute" && wire["temperature"] != float64(22)) {
+					t.Fatalf("unexpected %s wire payload: %s", tc.kind, got.payload)
+				}
+			case <-time.After(10 * time.Second):
+				t.Fatalf("timed out waiting for %s expected data", tc.kind)
+			}
+
+			if err := expectedSvc.Send(ctx, nativeE2EDevice); err != nil {
+				t.Fatalf("retry expected-data send for %s: %v", tc.kind, err)
+			}
+			select {
+			case duplicate := <-deliveries:
+				t.Fatalf("expected-data Send retry duplicated %s on %q", tc.kind, duplicate.topic)
+			case <-time.After(300 * time.Millisecond):
+			}
+
+			if tc.kind == "telemetry" {
+				waitNativeE2E(t, 10*time.Second, "telemetry protocol acknowledgment", func() bool {
+					row, err := brokercommands.New(db).GetScoped(ctx, nativeE2ETenant, id)
+					return err == nil && row.State == brokercommands.StateBrokerAccepted
+				})
+				continue
+			}
+			ackTopic := "devices/command/response/" + id
+			if tc.kind == "attribute" {
+				ackTopic = "devices/attributes/set/response/" + id
+			}
+			publishNativeE2E(t, ctx, device, ackTopic, []byte(`{"result":0}`))
+			waitNativeE2E(t, 10*time.Second, tc.kind+" scoped device ACK", func() bool {
+				row, err := brokercommands.New(db).GetScoped(ctx, nativeE2ETenant, id)
+				return err == nil && row.State == brokercommands.StateDeviceReportedSuccess
+			})
+		}
+
+		// The established manual control APIs use the same durable wire owner but
+		// do not create scheduled expected_datas rows.
+		standard := &service.TelemetryData{}
+		telemetryValue := `{"temperature":31}`
+		if err := standard.TelemetryPutMessage(ctx, claims.ID, &model.PutMessage{DeviceID: nativeE2EDevice, Value: telemetryValue}, "1"); err != nil {
+			t.Fatalf("standard telemetry control API: %v", err)
+		}
+		telemetryRow := latestNativeControlRow(t, ctx, db, "control.telemetry")
+		telemetryWire := awaitNativeDelivery(t, deliveries, "devices/telemetry/control/"+number)
+		assertNativeJSONField(t, telemetryWire, "temperature", float64(31))
+		waitNativeE2E(t, 10*time.Second, "standard telemetry protocol acknowledgment", func() bool {
+			row, err := brokercommands.New(db).GetScoped(ctx, nativeE2ETenant, telemetryRow.ID)
+			return err == nil && row.State == brokercommands.StateBrokerAccepted
+		})
+
+		attributeValue := `{"temperature":32}`
+		if err := (&service.AttributeData{}).AttributePutMessage(ctx, claims.ID, &model.AttributePutMessage{DeviceID: nativeE2EDevice, Value: attributeValue}, "1"); err != nil {
+			t.Fatalf("standard attribute control API: %v", err)
+		}
+		attributeRow := latestNativeControlRow(t, ctx, db, "control.attribute")
+		attributeTopic := "devices/attributes/set/" + number + "/" + attributeRow.ID
+		assertNativeJSONField(t, awaitNativeDelivery(t, deliveries, attributeTopic), "temperature", float64(32))
+		publishNativeE2E(t, ctx, device, "devices/attributes/set/response/"+attributeRow.ID, []byte(`{"result":0}`))
+		waitNativeE2E(t, 10*time.Second, "standard attribute device ACK", func() bool {
+			row, err := brokercommands.New(db).GetScoped(ctx, nativeE2ETenant, attributeRow.ID)
+			return err == nil && row.State == brokercommands.StateDeviceReportedSuccess
+		})
+
+		getClaims := claims
+		if err := (&service.AttributeData{}).AttributeGetMessage(getClaims, &model.AttributeGetMessageReq{DeviceID: nativeE2EDevice, Keys: []string{"temperature"}}); err != nil {
+			t.Fatalf("standard attribute get API: %v", err)
+		}
+		getRow := latestNativeControlRow(t, ctx, db, "control.attribute_get")
+		getWire := awaitNativeDelivery(t, deliveries, "devices/attributes/get/"+number)
+		var getPayload map[string]any
+		if err := json.Unmarshal(getWire, &getPayload); err != nil || fmt.Sprint(getPayload["keys"]) != "[temperature]" {
+			t.Fatalf("unexpected attribute-get wire payload %s err=%v", getWire, err)
+		}
+		waitNativeE2E(t, 10*time.Second, "standard attribute get protocol acknowledgment", func() bool {
+			row, err := brokercommands.New(db).GetScoped(ctx, nativeE2ETenant, getRow.ID)
+			return err == nil && row.State == brokercommands.StateBrokerAccepted
+		})
+
+		wrongClaims := &utils.UserClaims{ID: claims.ID, TenantID: "tenant-native-e2e-other", Authority: claims.Authority}
+		payload := `{"temperature":99}`
+		if _, err := expectedSvc.Create(ctx, &model.CreateExpectedDataReq{DeviceID: nativeE2EDevice, SendType: "telemetry", Payload: &payload}, wrongClaims); err == nil {
+			t.Fatal("cross-tenant expected-data creation was accepted")
+		}
+	})
+}
+
+func latestNativeControlRow(t *testing.T, ctx context.Context, db *gorm.DB, intent string) brokercommands.Row {
+	t.Helper()
+	var row brokercommands.Row
+	if err := db.WithContext(ctx).Where("tenant_id=? AND device_id=? AND intent=?", nativeE2ETenant, nativeE2EDevice, intent).Order("created_at DESC").Take(&row).Error; err != nil {
+		t.Fatalf("load standard control receipt %s: %v", intent, err)
+	}
+	return row
+}
+
+func awaitNativeDelivery(t *testing.T, deliveries <-chan nativeExpectedDelivery, topic string) []byte {
+	t.Helper()
+	select {
+	case got := <-deliveries:
+		if got.topic != topic {
+			t.Fatalf("device received topic %q, want %q", got.topic, topic)
+		}
+		if len(got.payload) == 0 || bytes.Contains(got.payload, []byte("TP-COMMAND")) || bytes.Contains(got.payload, []byte("tp-internal")) {
+			t.Fatalf("private command frame leaked or payload was empty")
+		}
+		return got.payload
+	case <-time.After(10 * time.Second):
+		t.Fatalf("timed out waiting for native device topic %q", topic)
+		return nil
+	}
+}
+
+func assertNativeJSONField(t *testing.T, payload []byte, key string, want any) {
+	t.Helper()
+	var wire map[string]any
+	if err := json.Unmarshal(payload, &wire); err != nil || wire[key] != want {
+		t.Fatalf("wire JSON field %s=%v want=%v payload=%s err=%v", key, wire[key], want, payload, err)
 	}
 }
 

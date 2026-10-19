@@ -120,7 +120,11 @@ func (a *AttributeData) SetDownlinkBus(bus *downlink.Bus) {
 
 // AttributePutMessage 属性设置下发（改造为异步模式，支持多层网关）
 func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID string, putMessageReq *model.AttributePutMessage, operationType string) error {
-	if err := requireLegacyDownlink("attribute control"); err != nil {
+	if isIngressV1Commands() {
+		if putMessageReq == nil || operationType != "1" {
+			return errors.New("standard attribute control requires an authenticated manual request")
+		}
+		_, err := submitStandardControl(ctx, operatorID, putMessageReq.DeviceID, "attribute", putMessageReq.Value)
 		return err
 	}
 	// 1. 获取设备信息
@@ -273,8 +277,20 @@ func (a *AttributeData) getDeviceConfigID(device *model.Device) string {
 	return *device.DeviceConfigID
 }
 
-func (a *AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.AttributeGetMessageReq) error {
-	if err := requireLegacyDownlink("attribute query downlink"); err != nil {
+func (a *AttributeData) AttributeGetMessage(claims *utils.UserClaims, req *model.AttributeGetMessageReq) error {
+	if isIngressV1Commands() {
+		if claims == nil || req == nil {
+			return errors.New("attribute query caller is required")
+		}
+		keys := req.Keys
+		if keys == nil {
+			keys = []string{}
+		}
+		payload, err := json.Marshal(map[string]any{"keys": keys})
+		if err != nil {
+			return err
+		}
+		_, err = submitStandardControl(context.Background(), claims.ID, req.DeviceID, "attribute_get", string(payload))
 		return err
 	}
 	logrus.Debug("AttributeGetMessage")

@@ -48,6 +48,45 @@ func TestCommandFrameRoundTripsBinaryAndBase64EncodesOnce(t *testing.T) {
 	}
 }
 
+func TestCommandFrameSupportsControlledTelemetryAndAttributeTopics(t *testing.T) {
+	now := time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name, topic, id string
+	}{
+		{"telemetry control", "devices/telemetry/control/1001", "intent-1"},
+		{"control command", "devices/command/1001/intent-2", "intent-2"},
+		{"attribute set", "devices/attributes/set/1001/temperature", "temperature"},
+		{"attribute get", "devices/attributes/get/1001", "intent-get"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := validCommandFrame(now)
+			f.CommandID, f.WireTopic = tt.id, tt.topic
+			encoded, err := EncodeCommandFrame(f, now)
+			if err != nil {
+				t.Fatalf("encode frame: %v", err)
+			}
+			got, err := ParseCommandFrame(encoded, now)
+			if err != nil || got.WireTopic != tt.topic || !bytes.Equal(got.Payload, f.Payload) {
+				t.Fatalf("frame round trip topic=%q payload=%x err=%v", got.WireTopic, got.Payload, err)
+			}
+		})
+	}
+	for _, ordinary := range []string{
+		"devices/telemetry/1001",
+		"devices/attributes/response/1001/temperature",
+	} {
+		if IsControlledDownlinkTopic(ordinary) {
+			t.Errorf("ordinary device report was classified as controlled downlink: %q", ordinary)
+		}
+	}
+	bad := validCommandFrame(now)
+	bad.CommandID, bad.WireTopic = "intent-other", "devices/attributes/set/1001/temperature"
+	if _, err := EncodeCommandFrame(bad, now); err == nil {
+		t.Fatal("attribute message id mismatch was accepted")
+	}
+}
+
 func TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage(t *testing.T) {
 	now := time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
 	tests := []struct {

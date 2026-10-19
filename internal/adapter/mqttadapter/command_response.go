@@ -7,12 +7,13 @@ import (
 	bc "project/internal/brokercontract"
 	"project/internal/dal"
 	"project/pkg/global"
+	"strings"
 )
 
 func (a *Adapter) commandResponseScope(tenant, transport, id string, epoch uint64) (string, error) {
 	row, err := brokercommands.New(global.DB).GetScoped(a.adapterContext(), tenant, id)
 	if err == nil {
-		if row.TargetDeviceID != transport || row.RouteEpoch <= 0 || uint64(row.RouteEpoch) != epoch {
+		if ((strings.HasPrefix(row.Intent, "expected.") && row.Intent != "expected.command") || strings.HasPrefix(row.Intent, "control.")) || row.TargetDeviceID != transport || row.RouteEpoch <= 0 || uint64(row.RouteEpoch) != epoch {
 			return "", bc.ErrUnauthorized
 		}
 		return row.DeviceID, nil

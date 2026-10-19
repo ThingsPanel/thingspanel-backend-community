@@ -2,11 +2,11 @@ package service
 
 import "project/pkg/errcode"
 
-// Until these wire families have the same durable intent/fence/receipt owner,
-// accepting their old in-memory enqueue would misrepresent successful control.
+// Legacy-only product families stay unavailable on the community ingress
+// profile. Supported standard controls use the durable owner instead.
 func requireLegacyDownlink(kind string) error {
 	if isIngressV1Commands() {
-		return errcode.NewWithMessage(errcode.CodeParamError, "unsupported_capability: "+kind+" has no certified durable ingress_v1 downlink")
+		return errcode.NewWithMessage(errcode.CodeParamError, "unsupported_capability: "+kind+" is not supported by the community ingress_v1 profile")
 	}
 	return nil
 }

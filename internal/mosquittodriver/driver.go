@@ -319,7 +319,7 @@ func (d *Driver) Authorize(ptr uintptr, access int, topic string, size int, qos 
 	if size < 0 || size > maxSize || qos > g.Policy.MaxQoS {
 		return false
 	}
-	if access == 1 && bc.IsCommandTopic(topic) && g.BindingPhase == "connecting" {
+	if access == 1 && bc.IsControlledDownlinkTopic(topic) && g.BindingPhase == "connecting" {
 		return false
 	}
 	action := bc.Action("publish")
@@ -353,7 +353,7 @@ func (d *Driver) Rewrite(ptr uintptr, topic string, payload []byte, qos byte, re
 			if err != nil || f.WireTopic != topic || retain {
 				return "", nil, false, errors.New("command storage frame denied")
 			}
-		} else if bc.IsCommandTopic(topic) {
+		} else if bc.IsControlledDownlinkTopic(topic) {
 			return "", nil, false, errors.New("command requires durable storage frame")
 		}
 		return topic, payload, retain, nil
@@ -448,7 +448,7 @@ func (d *Driver) RewriteWill(ptr uintptr, topic string, payload []byte, qos byte
 	d.mu.Unlock()
 	// A device Will uses the preserved native wire path. It must never inject
 	// an actuator command or impersonate a private service storage frame.
-	if g.Principal.Kind != bc.PrincipalService && (bc.IsCommandTopic(topic) || bc.IsCommandFrame(payload)) {
+	if g.Principal.Kind != bc.PrincipalService && (bc.IsControlledDownlinkTopic(topic) || bc.IsCommandFrame(payload)) {
 		return "", nil, false, errors.New("device will cannot originate command storage")
 	}
 	if len(payload) > g.Policy.MaxPayload || qos > g.Policy.MaxQoS || bc.AuthorizeTopic(g.Principal, g.Policy, bc.ActionPublish, topic) != nil {

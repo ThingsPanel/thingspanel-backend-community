@@ -581,7 +581,7 @@ func migrateNativeE2ESchema(t *testing.T, db *gorm.DB, root string) error {
 	)`).Error; err != nil {
 		return err
 	}
-	for _, filename := range []string{"001_broker_owner_tables.sql", "002_ledger.sql", "003_state.sql", "004_mapping_snapshots.sql", "005_ingress_effects.sql", "006_commands.sql", "007_state_projection.sql", "008_quarantine.sql", "009_automation_actions.sql", "010_telemetry_activity.sql", "011_safe_device_voucher.sql", "012_route_changes.sql", "013_command_plans.sql", "014_telemetry_evidence_index.sql"} {
+	for _, filename := range []string{"001_broker_owner_tables.sql", "002_ledger.sql", "003_state.sql", "004_mapping_snapshots.sql", "005_ingress_effects.sql", "006_commands.sql", "007_state_projection.sql", "008_quarantine.sql", "009_automation_actions.sql", "010_telemetry_activity.sql", "011_safe_device_voucher.sql", "012_route_changes.sql", "013_command_plans.sql", "014_telemetry_evidence_index.sql", "015_expected_context.sql"} {
 		body, err := os.ReadFile(filepath.Join(root, "sql", "broker", filename))
 		if err != nil {
 			return fmt.Errorf("read broker migration %s: %w", filename, err)

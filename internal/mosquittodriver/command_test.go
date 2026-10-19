@@ -117,3 +117,92 @@ func TestServiceRewriteRequiresLegalDurableCommandFrame(t *testing.T) {
 		t.Fatal("retained command frame accepted")
 	}
 }
+
+func TestControlledTelemetryAndAttributeDeliveryGatesAndStripsFrame(t *testing.T) {
+	grant := testGrant()
+	grant.Policy.Subscribe = []string{
+		"devices/command/device-a/+",
+		"devices/telemetry/control/+",
+		"devices/attributes/get/+",
+		"devices/attributes/set/+/+",
+	}
+	d := commandDriver(t, grant)
+	now := time.Now()
+	tests := []struct {
+		name, topic, id string
+	}{
+		{"telemetry control", "devices/telemetry/control/1001", "intent-telemetry"},
+		{"command", "devices/command/device-a/intent-command", "intent-command"},
+		{"attribute set", "devices/attributes/set/1001/temperature", "temperature"},
+		{"attribute get", "devices/attributes/get/1001", "intent-get"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			frame, err := bc.EncodeCommandFrame(bc.CommandFrame{
+				CommandID: tt.id, TenantID: "tenant-a", TargetDeviceID: "device-a", RouteEpoch: 1,
+				MappingVersion: "standard-1", WireTopic: tt.topic,
+				ExpiresAt: now.Add(time.Minute).UnixMilli(), Payload: []byte(`{"set":true}`),
+			}, now)
+			if err != nil {
+				t.Fatalf("encode frame: %v", err)
+			}
+			if !d.AuthorizePayload(1, 1, tt.topic, frame, 1, false) {
+				t.Fatal("valid controlled delivery was denied")
+			}
+			wire, changed, err := d.Outgoing(1, tt.topic, frame, 1, false)
+			if err != nil || !changed || string(wire) != `{"set":true}` {
+				t.Fatalf("wire payload=%s changed=%v err=%v", wire, changed, err)
+			}
+			if d.AuthorizePayload(1, 1, tt.topic, []byte(`{"set":true}`), 1, false) {
+				t.Fatal("unframed controlled delivery was accepted")
+			}
+		})
+	}
+
+	for _, tt := range []struct {
+		name, topic string
+		mutate      func(*bc.CommandFrame)
+	}{
+		{"telemetry expired", "devices/telemetry/control/1001", func(f *bc.CommandFrame) { f.ExpiresAt = now.Add(-time.Second).UnixMilli() }},
+		{"attribute expired", "devices/attributes/set/1001/temperature", func(f *bc.CommandFrame) { f.ExpiresAt = now.Add(-time.Second).UnixMilli() }},
+		{"attribute get expired", "devices/attributes/get/1001", func(f *bc.CommandFrame) { f.ExpiresAt = now.Add(-time.Second).UnixMilli() }},
+		{"telemetry wrong tenant", "devices/telemetry/control/1001", func(f *bc.CommandFrame) { f.TenantID = "tenant-b" }},
+		{"attribute wrong tenant", "devices/attributes/set/1001/temperature", func(f *bc.CommandFrame) { f.TenantID = "tenant-b" }},
+		{"attribute get wrong tenant", "devices/attributes/get/1001", func(f *bc.CommandFrame) { f.TenantID = "tenant-b" }},
+		{"attribute message id mismatch", "devices/attributes/set/1001/temperature", func(f *bc.CommandFrame) { f.CommandID = "other-id" }},
+		{"attribute wrong device", "devices/attributes/set/1001/temperature", func(f *bc.CommandFrame) { f.TargetDeviceID = "device-b" }},
+		{"telemetry wrong epoch", "devices/telemetry/control/1001", func(f *bc.CommandFrame) { f.RouteEpoch++ }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := bc.CommandFrame{
+				CommandID: "temperature", TenantID: "tenant-a", TargetDeviceID: "device-a", RouteEpoch: 1,
+				MappingVersion: "standard-1", WireTopic: tt.topic,
+				ExpiresAt: now.Add(time.Minute).UnixMilli(), Payload: []byte("value"),
+			}
+			if tt.topic == "devices/telemetry/control/1001" {
+				f.CommandID = "intent-telemetry"
+			}
+			tt.mutate(&f)
+			body, err := json.Marshal(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			framed := append([]byte("\x00TP-COMMAND/1\n"), body...)
+			if d.AuthorizePayload(1, 1, tt.topic, framed, 1, false) {
+				t.Fatal("stale or mismatched controlled delivery was accepted")
+			}
+		})
+	}
+
+	for _, topic := range []string{
+		"devices/telemetry/device-a",
+		"devices/attributes/response/device-a/temperature",
+	} {
+		if bc.IsControlledDownlinkTopic(topic) {
+			t.Errorf("ordinary uplink response classified as downlink: %s", topic)
+		}
+		if out, changed, err := d.Outgoing(1, topic, []byte("ordinary-report"), 1, false); err != nil || changed || out != nil {
+			t.Errorf("ordinary response mishandled topic=%s out=%q changed=%v err=%v", topic, out, changed, err)
+		}
+	}
+}

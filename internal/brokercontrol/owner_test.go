@@ -129,8 +129,11 @@ func TestAuthenticateCreatesNarrowDeviceGrantAndStableConnectionID(t *testing.T)
 	if repo.lastCredential != `{"username":"device-user","password":"device-pass"}` {
 		t.Fatalf("credential query must be a strict two-field JSON value: %s", repo.lastCredential)
 	}
-	if !hasExact(first.Policy.Subscribe, "devices/command/number-1/+") || !hasExact(first.Policy.Subscribe, "ota/devices/inform/number-1") {
-		t.Fatalf("missing own command/OTA subscriptions: %#v", first.Policy.Subscribe)
+	if !hasExact(first.Policy.Subscribe, "devices/command/number-1/+") {
+		t.Fatalf("missing own command subscription: %#v", first.Policy.Subscribe)
+	}
+	if hasExact(first.Policy.Subscribe, "ota/devices/inform/number-1") {
+		t.Fatalf("community device policy must not grant OTA inform: %#v", first.Policy.Subscribe)
 	}
 	if err := bc.AuthorizeTopic(first.Principal, first.Policy, bc.ActionReceive, "devices/command/number-1/set"); err != nil {
 		t.Fatal(err)
