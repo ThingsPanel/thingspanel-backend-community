@@ -6,7 +6,7 @@
 
 | 结构模块 | 已有实现与冒烟 | 当前收尾判断 |
 |---|---|---|
-| Mosquitto/原生插件/唯一身份owner | 固定2.1.2、本机构建和冻结Linux镜像、私有Owner/ACL/实际连接 | 已有证据按源码快照记录；冻结镜像未因后续生产代码更新而重建 |
+| Mosquitto/原生插件/唯一身份owner | 固定2.1.2、本机构建和冻结Linux镜像、私有Owner/ACL/实际连接 | 已有证据按源码快照记录；冻结镜像未因后续代码更新而重建，当前OrbStack中也已找不到历史tag/ID，详见[制品核查](gmqtt-evidence-2026-10-20/artifact-availability.md) |
 | Adapter/遥测/事件/属性/状态 | 可信入口到既有SQL/状态owner，原生协议子项已有证据 | 入账主链已有冒烟；不等于全部旧下行都接通 |
 | 持久命令/回执/切换 | canonical CMD的preview→人工授权接口→submit→MQTT→测试客户端ACK有隔离native证据；单binding双cell往返已跑 | MQTT ACK、设备回报和物理效果分别判断；不再扩展故障轮数 |
 | OTA | 有后端路由及API封装；社区实际页面/使用场景未确认 | 不自行新增OTA产品；若最终确认不属于本期，明确记录，而不是暗中标为完成 |

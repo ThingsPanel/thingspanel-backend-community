@@ -1,6 +1,6 @@
 # Community broker production image
 
-This profile builds Mosquitto 2.1.2 and `libtp-mosquitto-plugin.so` from the same source headers, then packages only the broker executable, plugin, fixed broker configuration, owner executable, and small readiness tooling. The image also contains the broker-owner executable; Compose runs it as a separate process using the same image. Both processes run as UID/GID 1883. The final container root filesystem can be read-only; only `/mosquitto/data` needs persistent write access.
+This profile builds Mosquitto 2.1.2 and `libtp-mosquitto-plugin.so` from the same source headers, then packages only the broker executable, plugin, fixed broker configuration, owner executable, readiness tooling, and the `tp-broker-audit` operator utility. The image also contains the broker-owner executable; Compose runs it as a separate process using the same image. Both processes run as UID/GID 1883. The final container root filesystem can be read-only; only `/mosquitto/data` needs persistent write access.
 
 The source commit is `99fa50f30e325609394c324c8ff71cfbbe95d8ab`. The Debian and Go OCI index digests, with their platform manifests, are recorded in `base-images.manifest`. The build pins the index digests. Debian apt packages are still fetched from the live Debian repositories during a build, so preserve the resulting image digest and build SBOM as release evidence.
 

@@ -162,3 +162,8 @@ Mosquitto2.1.2 `src/topic_tok.c` 处理 `$share/group/$tp/...` 首token与`$tp/.
 - 只更新报告、台账和结构清单，没有恢复功能实现、运行扩展测试或启动服务。技术总监、产品经理、老板三份汇报保留在一个Markdown中，标为阶段草稿，明确已有候选、未验证草稿、尚缺BFF与社区旧下行兼容；不宣告完工。
 - Luna只读核查确认：OTA有后端/API和前端service函数，但没有找到社区页面/路由；期望消息确在社区设备详情tab。上行immutable custom mapping已有有限支持，拒绝缺口应具体写作旧raw/service/protocol与custom command下行，不笼统说所有插件/自定义映射不可用。
 - 本次文档提交前工程HEAD为9c26213532d07fa9923b86d7ea4d5e0a3b8e8bac；按明确路径仅同步文档，不运行会复制冻结源码草稿的全量同步脚本。72小时等专项按用户指示留待后续，不因当前磁盘空间变化重启扩测；已有用户指示memory stored收据不重复提交。
+
+
+### 2026-10-20T06:36:49+08:00 — 制品可用性只读核查
+
+Luna和主代理只读核查当前Docker context为orbstack，历史冻结镜像tag及完整ID均No such image；Luna在指定tmp/证据目录未找到可load归档，不推断原因或全机器不可恢复。SBOM与历史测试记录保留。候选e11dcdc7的production Dockerfile已打包audit，但手册开头遗漏该工具，本轮仅补正文档。cutover/route/reconcile/tools-client为独立管理/离线/Host工具，不擅自塞进Broker运行容器；无功能代码修改、构建、测试、服务启动或生产操作。用户范围判断仍未到达，新增接线继续冻结；最终范围选定后再重建交付制品并做必要冒烟。
