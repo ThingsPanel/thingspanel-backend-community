@@ -31,8 +31,12 @@ func (f CommandFrame) Validate(now time.Time) error {
 	if f.CommandID == "" || f.TenantID == "" || f.TargetDeviceID == "" || f.RouteEpoch == 0 || f.MappingVersion == "" || f.WireTopic == "" || strings.ContainsAny(f.WireTopic, "+#\x00") || IsInternalResource(f.WireTopic) || !IsControlledDownlinkTopic(f.WireTopic) || len(f.Payload) == 0 || len(f.Payload) > MaxCommandPayload {
 		return errors.New("invalid command storage frame")
 	}
-	parts := strings.Split(f.WireTopic, "/")
-	if (IsCommandTopic(f.WireTopic) && parts[3] != f.CommandID) || (len(parts) == 5 && parts[4] != f.CommandID) {
+	_, canonical, controlled := SplitControlledDownlinkTopic(f.WireTopic)
+	if !controlled {
+		return errors.New("invalid controlled downlink topic")
+	}
+	parts := strings.Split(canonical, "/")
+	if (IsCommandTopic(canonical) && parts[3] != f.CommandID) || (len(parts) == 5 && parts[1] == "attributes" && parts[2] == "set" && parts[4] != f.CommandID) {
 		return errors.New("command topic message id does not match frame")
 	}
 	if f.ExpiresAt <= now.UnixMilli() || f.ExpiresAt > now.Add(24*time.Hour).UnixMilli() {
@@ -71,18 +75,41 @@ func IsCommandTopic(topic string) bool {
 		return false
 	}
 	parts := strings.Split(topic, "/")
-	return len(parts) == 4 && (parts[0] == "devices" || parts[0] == "gateway") && parts[1] == "command" && parts[2] != "" && parts[3] != ""
+	return len(parts) == 4 && (parts[0] == "devices" || parts[0] == "gateway") && parts[1] == "command" && parts[2] != "" && parts[2] != "response" && parts[3] != ""
 }
 
-// IsControlledDownlinkTopic is a finite set of device-wire control families.
-// Attribute report/event replies are deliberately outside it. Telemetry control
-// has no wire message ID; its private storage frame still carries an intent ID.
+// SplitControlledDownlinkTopic recognizes a controlled device-wire topic either
+// directly or beneath a validated legacy plugin prefix. The returned canonical
+// topic excludes the plugin prefix; ordinary report/response topics are false.
+func SplitControlledDownlinkTopic(topic string) (prefix, canonical string, ok bool) {
+	if ValidatePublishTopic(topic) != nil {
+		return "", "", false
+	}
+	if isCanonicalControlledDownlink(topic) {
+		return "", topic, true
+	}
+	parts := strings.Split(topic, "/")
+	for i := 1; i < len(parts); i++ {
+		candidatePrefix := strings.Join(parts[:i], "/") + "/"
+		candidate := strings.Join(parts[i:], "/")
+		if ValidPluginPrefix(candidatePrefix) && isCanonicalControlledDownlink(candidate) {
+			return candidatePrefix, candidate, true
+		}
+	}
+	return "", "", false
+}
+
+// IsControlledDownlinkTopic is a finite set of device-wire control families,
+// optionally beneath a registered service topic prefix. Attribute report/event
+// replies are deliberately outside it.
 func IsControlledDownlinkTopic(topic string) bool {
+	_, _, ok := SplitControlledDownlinkTopic(topic)
+	return ok
+}
+
+func isCanonicalControlledDownlink(topic string) bool {
 	if IsCommandTopic(topic) {
 		return true
-	}
-	if ValidatePublishTopic(topic) != nil {
-		return false
 	}
 	p := strings.Split(topic, "/")
 	if len(p) < 4 || (p[0] != "devices" && p[0] != "gateway") {
@@ -94,6 +121,6 @@ func IsControlledDownlinkTopic(topic string) bool {
 		}
 	}
 	return (len(p) == 4 && p[1] == "telemetry" && p[2] == "control") ||
-		(len(p) == 5 && p[1] == "attributes" && p[2] == "set") ||
+		(len(p) == 5 && p[1] == "attributes" && p[2] == "set" && p[3] != "response") ||
 		(len(p) == 4 && p[1] == "attributes" && p[2] == "get")
 }

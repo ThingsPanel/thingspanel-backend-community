@@ -54,6 +54,7 @@ type Principal struct {
 // Metadata is minted by the trusted broker boundary. Device supplied JSON is
 // always treated as payload bytes and can never populate these fields.
 type Metadata struct {
+	PluginContextID  string        `json:"plugin_context_id,omitempty"`
 	ContractVersion  string        `json:"contract_version"`
 	TenantID         string        `json:"tenant_id"`
 	PrincipalKind    PrincipalKind `json:"principal_kind"`
@@ -113,37 +114,43 @@ type AuthRequest struct {
 }
 
 type Grant struct {
-	Allow          bool      `json:"allow"`
-	Principal      Principal `json:"principal,omitempty"`
-	Policy         Policy    `json:"policy,omitempty"`
-	PolicyVersion  string    `json:"policy_version,omitempty"`
-	MappingVersion string    `json:"mapping_version,omitempty"`
-	ConnectionID   string    `json:"connection_id,omitempty"`
-	PolicyHash     string    `json:"policy_hash,omitempty"`
-	RouteEpoch     uint64    `json:"route_epoch,omitempty"`
-	BindingPhase   string    `json:"binding_phase,omitempty"`
-	ExpiresAt      time.Time `json:"expires_at,omitempty"`
-	DenyCode       string    `json:"deny_code,omitempty"`
-	Retryable      bool      `json:"retryable,omitempty"`
+	PluginContextID string         `json:"plugin_context_id,omitempty"`
+	PluginTargets   []PluginTarget `json:"plugin_targets,omitempty"`
+	Allow           bool           `json:"allow"`
+	Principal       Principal      `json:"principal,omitempty"`
+	Policy          Policy         `json:"policy,omitempty"`
+	PolicyVersion   string         `json:"policy_version,omitempty"`
+	MappingVersion  string         `json:"mapping_version,omitempty"`
+	ConnectionID    string         `json:"connection_id,omitempty"`
+	PolicyHash      string         `json:"policy_hash,omitempty"`
+	RouteEpoch      uint64         `json:"route_epoch,omitempty"`
+	BindingPhase    string         `json:"binding_phase,omitempty"`
+	ExpiresAt       time.Time      `json:"expires_at,omitempty"`
+	DenyCode        string         `json:"deny_code,omitempty"`
+	Retryable       bool           `json:"retryable,omitempty"`
 }
 
 func (g Grant) MarshalJSON() ([]byte, error) {
 	type grantJSON struct {
-		Allow          bool       `json:"allow"`
-		Principal      *Principal `json:"principal,omitempty"`
-		Policy         *Policy    `json:"policy,omitempty"`
-		PolicyVersion  string     `json:"policy_version,omitempty"`
-		MappingVersion string     `json:"mapping_version,omitempty"`
-		ConnectionID   string     `json:"connection_id,omitempty"`
-		PolicyHash     string     `json:"policy_hash,omitempty"`
-		RouteEpoch     *uint64    `json:"route_epoch,omitempty"`
-		BindingPhase   string     `json:"binding_phase,omitempty"`
-		ExpiresAt      *time.Time `json:"expires_at,omitempty"`
-		DenyCode       string     `json:"deny_code,omitempty"`
-		Retryable      bool       `json:"retryable,omitempty"`
+		PluginContextID string         `json:"plugin_context_id,omitempty"`
+		PluginTargets   []PluginTarget `json:"plugin_targets,omitempty"`
+		Allow           bool           `json:"allow"`
+		Principal       *Principal     `json:"principal,omitempty"`
+		Policy          *Policy        `json:"policy,omitempty"`
+		PolicyVersion   string         `json:"policy_version,omitempty"`
+		MappingVersion  string         `json:"mapping_version,omitempty"`
+		ConnectionID    string         `json:"connection_id,omitempty"`
+		PolicyHash      string         `json:"policy_hash,omitempty"`
+		RouteEpoch      *uint64        `json:"route_epoch,omitempty"`
+		BindingPhase    string         `json:"binding_phase,omitempty"`
+		ExpiresAt       *time.Time     `json:"expires_at,omitempty"`
+		DenyCode        string         `json:"deny_code,omitempty"`
+		Retryable       bool           `json:"retryable,omitempty"`
 	}
 	out := grantJSON{Allow: g.Allow, DenyCode: g.DenyCode, Retryable: g.Retryable}
 	if g.Allow {
+		out.PluginContextID = g.PluginContextID
+		out.PluginTargets = g.PluginTargets
 		out.Principal = &g.Principal
 		out.Policy = &g.Policy
 		out.PolicyVersion = g.PolicyVersion
@@ -188,6 +195,9 @@ func ValidateAuthRequest(r AuthRequest) error {
 }
 
 func ValidateGrant(g Grant) error {
+	if err := validatePluginGrant(g); g.Allow && err != nil {
+		return err
+	}
 	if !g.Allow {
 		return nil
 	}
@@ -257,7 +267,7 @@ func EncodeEnvelope(p Principal, m Metadata, payload []byte) ([]byte, error) {
 }
 
 func validateMetadata(p Principal, m Metadata) error {
-	if m.ContractVersion != ContractVersion || m.TenantID != p.TenantID || m.PrincipalKind != p.Kind ||
+	if (m.PluginContextID != "" && !validPluginContextID(m.PluginContextID)) || m.ContractVersion != ContractVersion || m.TenantID != p.TenantID || m.PrincipalKind != p.Kind ||
 		!validIdentity(m.BrokerCell) || !validIdentity(m.BrokerInstance) ||
 		(m.ConnectionID != "" && !validIdentity(m.ConnectionID)) ||
 		(m.IngestionID != "" && (!validIdentity(m.IngestionID) || len(m.IngestionID) > 128)) ||

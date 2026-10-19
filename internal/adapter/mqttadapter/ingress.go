@@ -160,6 +160,15 @@ func (a *Adapter) HandleIngressMessage(topic string, body []byte, retained bool)
 	if retained || env.Metadata.RetainedReplay {
 		return nil
 	}
+	var pluginCanonicalTopic string
+	var pluginIngress bool
+	env, pluginCanonicalTopic, pluginIngress, err = a.normalizePluginIngress(env)
+	if err != nil {
+		return err
+	}
+	if pluginIngress && isPluginStatusTopic([]pluginTopicCandidate{{canonical: pluginCanonicalTopic}}) {
+		return a.handleNormalizedPluginStatus(env, pluginCanonicalTopic)
+	}
 	device, err := initialize.GetDeviceCacheById(env.DeviceID)
 	if err != nil {
 		return err
@@ -172,9 +181,12 @@ func (a *Adapter) HandleIngressMessage(topic string, body []byte, retained bool)
 		return err
 	}
 	wireTopic := string(wire)
-	canonicalTopic, err := a.mapIngress(env.Metadata.MappingVersion, device, wireTopic)
-	if err != nil {
-		return err
+	canonicalTopic := pluginCanonicalTopic
+	if !pluginIngress {
+		canonicalTopic, err = a.mapIngress(env.Metadata.MappingVersion, device, wireTopic)
+		if err != nil {
+			return err
+		}
 	}
 	if err = a.RememberMapping(device.ID, env.Metadata.MappingVersion); err != nil {
 		return err

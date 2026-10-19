@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"project/internal/processor"
 	"project/internal/query"
 	"project/internal/service"
+	"project/internal/storage"
 	"project/internal/uplink"
 	"project/pkg/global"
 	"project/pkg/utils"
@@ -91,6 +93,7 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 		query.Device, query.CommandSetLog = previousDeviceQuery, previousLogQuery
 	})
 	seedNativeE2EData(t, db)
+	seedNativeE2EPluginData(t, db)
 
 	const userID, configID, templateID = "operator-plan-native-e2e", "config-plan-native-e2e", "template-plan-native-e2e"
 	status, authority, protocolType, tenant := "N", "TENANT_ADMIN", "MQTT", nativeE2ETenant
@@ -160,10 +163,22 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 		Tokens: []brokercontrol.TokenBinding{{Token: ownerToken, BrokerCell: nativeE2ECell, BrokerInstance: nativeE2ENode}},
 		Services: []brokercontrol.ServiceCredential{{
 			Username: "mqtt-e2e-service", Password: "e2e-service-password", BrokerCell: nativeE2ECell, BrokerInstance: nativeE2ENode,
-			AllowedClientIDs: []string{"mqtt-e2e-service"}, AllowedDeviceIDs: []string{nativeE2EDevice},
+			// The backend producer keeps its exact client ID but now also owns
+			// the plugin socket target, so the Owner derives the registered
+			// prefix aliases from the canonical filters below.
+			AllowedClientIDs: []string{"mqtt-e2e-service"}, AllowedDeviceIDs: []string{nativeE2EDevice, nativeE2EPluginDevice},
 			Principal:     bc.Principal{TenantID: nativeE2ETenant, DeviceID: "service-mqtt-e2e", Kind: bc.PrincipalService},
-			Policy:        bc.Policy{Publish: []string{"devices/command/native-e2e-number/+", "devices/telemetry/control/native-e2e-number", "devices/attributes/get/native-e2e-number", "devices/attributes/set/native-e2e-number/+", "devices/event/response/+/+", "devices/attributes/response/+/+"}, Subscribe: []string{bc.IngressPrefix + "/#", bc.StatePrefix + "/#"}, MaxPayload: bc.MaxPayloadBytes, MaxQoS: 1, RetainProfile: bc.RetainedLiveIngress},
+			Policy:        bc.Policy{Publish: []string{"devices/command/native-e2e-number/+", "devices/command/" + nativeE2EPluginNumber + "/+", "devices/telemetry/control/native-e2e-number", "devices/attributes/get/native-e2e-number", "devices/attributes/set/native-e2e-number/+", "devices/event/response/+/+", "devices/attributes/response/+/+"}, Subscribe: []string{bc.IngressPrefix + "/#", bc.StatePrefix + "/#"}, MaxPayload: bc.MaxPayloadBytes, MaxQoS: 1, RetainProfile: bc.RetainedLiveIngress},
 			PolicyVersion: "native-command-plan-v1", MappingVersion: "standard-v1",
+		}, {
+			// Legacy shared plugin credential: random SDK ClientID, owner-derived
+			// finite prefix ACL, no client-supplied scope.
+			Username: nativeE2EPluginService, Password: nativeE2EPluginSecret, BrokerCell: nativeE2ECell, BrokerInstance: nativeE2ENode,
+			PluginSocket: true, AllowAnyClientID: true,
+			AllowedDeviceIDs: []string{nativeE2EPluginDevice}, AllowedTenantIDs: []string{nativeE2ETenant},
+			Principal:     bc.Principal{TenantID: nativeE2ETenant, DeviceID: "service-plugin-e2e", Kind: bc.PrincipalService},
+			Policy:        bc.Policy{Publish: []string{"devices/telemetry"}, MaxPayload: bc.MaxPayloadBytes, MaxQoS: 1, RetainProfile: bc.RetainedLiveIngress},
+			PolicyVersion: "native-plugin-v1", MappingVersion: brokercontrol.MappingVersion,
 		}},
 	})
 	if err != nil {
@@ -190,8 +205,19 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 	logger.SetOutput(io.Discard)
 	bus := uplink.NewBus(uplink.BusConfig{BufferSize: 64}, logger)
 	t.Cleanup(bus.Close)
+	// The plugin-socket smoke stores decoded telemetry through the same
+	// production batch writer the ingress E2E uses; the plan flow does not
+	// publish telemetry, so this only adds the worker the plugin case needs.
+	storageInput := make(chan *storage.Message, 64)
+	storageManager := storage.New(db, logger, storage.Config{ChannelBufferSize: 64, TelemetryBatchSize: 1, TelemetryFlushInterval: 250})
+	storageCtx, storageCancel := context.WithCancel(context.Background())
+	if err := storageManager.Start(storageCtx, storageInput); err != nil {
+		t.Fatalf("start production storage manager: %v", err)
+	}
+	t.Cleanup(func() { _ = storageManager.Stop(5 * time.Second); storageCancel() })
 	statusUplink := uplink.NewStatusUplink(uplink.StatusUplinkConfig{HeartbeatService: service.NewHeartbeatService(redisClient, logger), BrokerStateStore: brokerstate.New(db), InputProfile: "ingress_v1", Logger: logger})
-	manager := uplink.NewUplinkManager(uplink.UplinkManagerConfig{Bus: bus, StatusUplink: statusUplink, Logger: logger})
+	telemetryUplink := uplink.NewTelemetryUplink(uplink.TelemetryUplinkConfig{Processor: processor.NewScriptProcessor(), StorageInput: storageInput, HeartbeatService: service.NewHeartbeatService(redisClient, logger), Logger: logger})
+	manager := uplink.NewUplinkManager(uplink.UplinkManagerConfig{Bus: bus, TelemetryUplink: telemetryUplink, StatusUplink: statusUplink, Logger: logger})
 	flow := &UplinkServiceWrapper{UplinkManager: manager, bus: bus, isEnabled: true, logger: logger}
 	if err := flow.Start(); err != nil {
 		t.Fatalf("start state projection: %v", err)
@@ -301,6 +327,7 @@ func TestPlannedCommandNativeMosquittoPostgresE2E(t *testing.T) {
 		t.Fatalf("load terminal command receipt: %v", err)
 	}
 	runExpectedNativeSmoke(t, ctx, db, device, deviceMessages, claims)
+	runPluginNativeSmoke(t, ctx, db, brokerAddr, claims)
 }
 
 type nativeExpectedDelivery struct {
@@ -500,4 +527,210 @@ func commandPlanNativeSessionToken(t *testing.T, key, userID, tenant, authority 
 		t.Fatal("sign isolated command-plan user session")
 	}
 	return token
+}
+
+// Plugin-socket fixture. The device is owned by an existing service access, so
+// the Owner derives its transport namespace instead of trusting any prefix the
+// SDK sends. Both credentials are synthetic.
+const (
+	nativeE2EPluginDevice  = "device-plugin-e2e"
+	nativeE2EPluginNumber  = "plugin-e2e-number"
+	nativeE2EPluginPrefix  = "svc-plugin/"
+	nativeE2EPluginService = "mqtt-e2e-plugin"
+	nativeE2EPluginSecret  = "e2e-plugin-password"
+	nativeE2EPluginUser    = "plugin-e2e-device"
+	nativeE2EPluginPass    = "plugin-e2e-device-password"
+)
+
+func seedNativeE2EPluginData(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	now := time.Now().UTC()
+	config := `{"sub_topic_prefix":"` + strings.TrimSuffix(nativeE2EPluginPrefix, "/") + `"}`
+	plugin := model.ServicePlugin{ID: "plugin-e2e-service", Name: "community plugin e2e", ServiceIdentifier: "community-plugin-e2e",
+		ServiceType: 2, ServiceConfig: &config, CreateAt: now, UpdateAt: now}
+	if err := db.Create(&plugin).Error; err != nil {
+		t.Fatalf("seed plugin socket service: %v", err)
+	}
+	access := model.ServiceAccess{ID: "access-plugin-e2e", Name: "community plugin e2e access", ServicePluginID: plugin.ID,
+		Voucher: "{}", TenantID: nativeE2ETenant, CreateAt: now, UpdateAt: now}
+	if err := db.Create(&access).Error; err != nil {
+		t.Fatalf("seed plugin socket service access: %v", err)
+	}
+	accessWay := "B"
+	voucher := fmt.Sprintf(`{"username":%q,"password":%q}`, nativeE2EPluginUser, nativeE2EPluginPass)
+	device := model.Device{ID: nativeE2EPluginDevice, TenantID: nativeE2ETenant, DeviceNumber: nativeE2EPluginNumber, Voucher: voucher,
+		IsEnabled: "enabled", ActivateFlag: "active", AccessWay: &accessWay, ServiceAccessID: &access.ID}
+	if err := db.Create(&device).Error; err != nil {
+		t.Fatalf("seed plugin-owned device: %v", err)
+	}
+}
+
+// runPluginNativeSmoke proves the unchanged legacy SDK contract still reaches
+// real Mosquitto/Paho/PostgreSQL boundaries: shared credential with a random
+// ClientID, canonical (prefix-free) uplink, owner-derived prefix command
+// delivery with the private frame stripped, both supported ACK shapes binding
+// their own durable row, the per-device voucher keeping raw JSON intact, and a
+// real broker-level scope denial. No physical device is involved.
+func runPluginNativeSmoke(t *testing.T, ctx context.Context, db *gorm.DB, brokerAddr string, claims *utils.UserClaims) {
+	t.Helper()
+	t.Run("plugin-socket", func(t *testing.T) {
+		t.Helper()
+		if os.Getenv("TEST_MQTT_EXPECTED_SMOKE") != "1" {
+			t.Skip("set TEST_MQTT_EXPECTED_SMOKE=1 to run the native plugin-socket smoke")
+		}
+		if err := GetGlobalMQTTAdapter().RememberMapping(nativeE2EPluginDevice, "standard-v1"); err != nil {
+			t.Fatalf("remember plugin socket mapping: %v", err)
+		}
+		random := make([]byte, 8)
+		if _, err := rand.Read(random); err != nil {
+			t.Fatal("generate legacy SDK client ID")
+		}
+		plugin := connectNativeE2EClient(t, ctx, brokerAddr, "legacy-sdk-"+hex.EncodeToString(random), nativeE2EPluginService, nativeE2EPluginSecret)
+		commands := make(chan nativeExpectedDelivery, 8)
+		if granted := subscribeNativeE2EPlugin(t, ctx, plugin, nativeE2EPluginPrefix+"devices/command/+/+", func(_ mqtt.Client, msg mqtt.Message) {
+			commands <- nativeExpectedDelivery{topic: msg.Topic(), payload: append([]byte(nil), msg.Payload()...)}
+		}); granted != 1 {
+			t.Fatalf("in-scope plugin wildcard subscription granted qos=%d, want 1", granted)
+		}
+		// Real SUBACK denial, not a helper assertion: the finite plugin ACL only
+		// covers this target's own number and registered prefix.
+		for _, filter := range []string{
+			nativeE2EPluginPrefix + "devices/command/foreign-number/+",
+			"other-plugin/devices/command/+/+",
+		} {
+			if granted := subscribeNativeE2EPlugin(t, ctx, plugin, filter, nil); granted != 0x80 {
+				t.Fatalf("out-of-scope plugin subscription %q granted qos=%d, want 0x80", filter, granted)
+			}
+		}
+
+		// Legacy shared credential: prefix-free telemetry wrapped as
+		// {"device_id":...,"values":"<base64>"} on the SDK's canonical topic.
+		inner := []byte(`{"temperature":23.5}`)
+		wrapped, err := json.Marshal(map[string]string{"device_id": nativeE2EPluginDevice, "values": base64.StdEncoding.EncodeToString(inner)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		publishNativeE2E(t, ctx, plugin, "devices/telemetry", wrapped)
+		waitNativeE2E(t, 10*time.Second, "plugin shared-credential telemetry", func() bool {
+			value, ok := nativeE2ETelemetryValue(db, nativeE2EPluginDevice, "temperature")
+			return ok && value == 23.5
+		})
+
+		// Status 1 then 0 on the same SDK connection. The driver owns the
+		// ingestion identity; the app must project the physical value it was sent.
+		for _, want := range []bool{true, false} {
+			value := []byte("0")
+			if want {
+				value = []byte("1")
+			}
+			publishNativeE2E(t, ctx, plugin, "devices/status/"+nativeE2EPluginDevice, value)
+			waitNativeE2E(t, 10*time.Second, fmt.Sprintf("plugin socket status online=%t", want), func() bool {
+				found, online := nativeE2EPluginObservation(db)
+				return found && online == want
+			})
+		}
+
+		// Two manual commands: the first is acknowledged with the legacy bare
+		// ACK, the second with the v2 values-object ACK. Each must bind its own
+		// durable row, and the SDK must receive the stripped business payload.
+		cmdService := &service.CommandData{}
+		var sent []string
+		for _, value := range []string{`{"value":true}`, `{"value":false}`} {
+			id, err := cmdService.CommandPutMessageWithResult(ctx, claims.ID,
+				&model.PutMessageForCommand{DeviceID: nativeE2EPluginDevice, Identify: "set_power", Value: &value}, "1", nativeE2ETenant)
+			if err != nil || id == "" {
+				t.Fatalf("plugin command submit id=%q err=%v", id, err)
+			}
+			payload := awaitNativeDelivery(t, commands, nativeE2EPluginPrefix+"devices/command/"+nativeE2EPluginNumber+"/"+id)
+			var wire map[string]any
+			if err := json.Unmarshal(payload, &wire); err != nil || wire["method"] != "set_power" {
+				t.Fatalf("plugin command wire payload=%s err=%v", payload, err)
+			}
+			sent = append(sent, id)
+		}
+		// Before its own ACK the second row may legitimately sit in any
+		// pre-terminal progress state (accepted -> dispatching -> broker
+		// acknowledged). Only device success is excluded here.
+		if row, err := brokercommands.New(db).GetScoped(ctx, nativeE2ETenant, sent[1]); err != nil ||
+			(row.State != brokercommands.StateAccepted && row.State != brokercommands.StateDispatching && row.State != brokercommands.StateBrokerAccepted) {
+			t.Fatalf("second plugin command pre-ACK state=%+v err=%v", row, err)
+		}
+		publishNativeE2E(t, ctx, plugin, "devices/command/response/"+sent[0], []byte(`{"result":0}`))
+		waitNativeE2E(t, 10*time.Second, "plugin bare command ACK", func() bool {
+			row, err := brokercommands.New(db).GetScoped(ctx, nativeE2ETenant, sent[0])
+			return err == nil && row.State == brokercommands.StateDeviceReportedSuccess
+		})
+		if row, err := brokercommands.New(db).GetScoped(ctx, nativeE2ETenant, sent[1]); err != nil || row.State == brokercommands.StateDeviceReportedSuccess {
+			t.Fatalf("bare ACK completed an unrelated durable row: %+v err=%v", row, err)
+		}
+		wrappedAck := fmt.Sprintf(`{"device_id":%q,"values":{"result":0}}`, nativeE2EPluginDevice)
+		publishNativeE2E(t, ctx, plugin, "devices/command/response/"+sent[1], []byte(wrappedAck))
+		waitNativeE2E(t, 10*time.Second, "plugin values-object command ACK", func() bool {
+			row, err := brokercommands.New(db).GetScoped(ctx, nativeE2ETenant, sent[1])
+			return err == nil && row.State == brokercommands.StateDeviceReportedSuccess
+		})
+
+		// Per-device voucher: the raw JSON object carries a field literally named
+		// "values" and must stay raw. The legacy wrapper decoder would reject
+		// this exact payload, so a stored sample proves the raw path was used.
+		direct := connectNativeE2EClient(t, ctx, brokerAddr, "plugin-direct-device", nativeE2EPluginUser, nativeE2EPluginPass)
+		raw := fmt.Sprintf(`{"device_id":%q,"values":26.5}`, nativeE2EPluginDevice)
+		publishNativeE2E(t, ctx, direct, "devices/telemetry", []byte(raw))
+		waitNativeE2E(t, 10*time.Second, "per-device voucher raw telemetry", func() bool {
+			value, ok := nativeE2ETelemetryValue(db, nativeE2EPluginDevice, "values")
+			return ok && value == 26.5
+		})
+		var tenant string
+		if err := db.Table("telemetry_datas").Select("tenant_id").Where("device_id=? AND key=?", nativeE2EPluginDevice, "values").Take(&tenant).Error; err != nil || tenant != nativeE2ETenant {
+			t.Fatalf("per-device voucher sample landed on tenant %q err=%v", tenant, err)
+		}
+	})
+}
+
+func connectNativeE2EClient(t *testing.T, ctx context.Context, broker, clientID, username, password string) mqtt.Client {
+	t.Helper()
+	options := mqtt.NewClientOptions().AddBroker(broker).SetClientID(clientID).SetUsername(username).SetPassword(password).SetCleanSession(true)
+	client := mqtt.NewClient(options)
+	if err := mqttadapter.WaitTokenContext(ctx, client.Connect(), 5*time.Second); err != nil {
+		t.Fatalf("connect native client %q: %v", clientID, err)
+	}
+	t.Cleanup(func() { client.Disconnect(250) })
+	return client
+}
+
+func subscribeNativeE2EPlugin(t *testing.T, ctx context.Context, client mqtt.Client, filter string, handler mqtt.MessageHandler) byte {
+	t.Helper()
+	token, ok := client.Subscribe(filter, 1, handler).(*mqtt.SubscribeToken)
+	if !ok {
+		t.Fatalf("subscribe %q did not return a subscription token", filter)
+	}
+	if err := mqttadapter.WaitTokenContext(ctx, token, 5*time.Second); err != nil {
+		t.Fatalf("subscribe %q: %v", filter, err)
+	}
+	granted, present := token.Result()[filter]
+	if !present {
+		t.Fatalf("subscribe %q returned no SUBACK result", filter)
+	}
+	return granted
+}
+
+func nativeE2ETelemetryValue(db *gorm.DB, device, key string) (float64, bool) {
+	var row storage.TelemetryCurrentData
+	if err := db.Where("device_id=? AND tenant_id=? AND key=?", device, nativeE2ETenant, key).Take(&row).Error; err != nil {
+		return 0, false
+	}
+	if row.NumberV == nil {
+		return 0, false
+	}
+	return *row.NumberV, true
+}
+
+func nativeE2EPluginObservation(db *gorm.DB) (bool, bool) {
+	var row struct{ Online bool }
+	if err := db.Table("broker_connection_observations").Select("online").
+		Where("tenant_id=? AND device_id=?", nativeE2ETenant, nativeE2EPluginDevice).
+		Order("event_seq DESC").Limit(1).Take(&row).Error; err != nil {
+		return false, false
+	}
+	return true, row.Online
 }

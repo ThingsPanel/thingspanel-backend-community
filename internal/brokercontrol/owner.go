@@ -26,7 +26,7 @@ const (
 	MaxAuthBodyBytes      = 16 << 10
 	DefaultGrantTTL       = 60 * time.Second
 	MaxServiceTargets     = 256
-	MaxGrantResponseBytes = 64 << 10
+	MaxGrantResponseBytes = 1 << 20
 )
 
 var (
@@ -48,6 +48,8 @@ type ServiceCredential struct {
 	AllowedClientIDs []string                 `json:"allowed_client_ids"`
 	AllowedDeviceIDs []string                 `json:"allowed_device_ids,omitempty"`
 	AllowedTenantIDs []string                 `json:"allowed_tenant_ids,omitempty"`
+	PluginSocket     bool                     `json:"plugin_socket,omitempty"`
+	AllowAnyClientID bool                     `json:"allow_any_client_id,omitempty"`
 	Principal        brokercontract.Principal `json:"principal"`
 	Policy           brokercontract.Policy    `json:"policy"`
 	PolicyVersion    string                   `json:"policy_version"`
@@ -93,7 +95,9 @@ func NewOwner(repo Repository, cfg Config) (*Owner, error) {
 		if !validConfigString(service.Username) || service.Password == "" || !utf8.ValidString(service.Password) || len(service.Password) > 256 ||
 			!validConfigString(service.BrokerCell) || !validConfigString(service.BrokerInstance) || service.Principal.Kind != brokercontract.PrincipalService ||
 			brokercontract.ValidatePrincipal(service.Principal) != nil || brokercontract.ValidatePolicy(service.Policy) != nil ||
-			!validConfigString(service.PolicyVersion) || !validConfigString(service.MappingVersion) || len(service.AllowedClientIDs) == 0 {
+			!validConfigString(service.PolicyVersion) || !validConfigString(service.MappingVersion) ||
+			(len(service.AllowedClientIDs) == 0 && !service.AllowAnyClientID) || (service.AllowAnyClientID && !service.PluginSocket) ||
+			(service.PluginSocket && (len(service.AllowedDeviceIDs) == 0 || len(service.AllowedTenantIDs) == 0 || service.MappingVersion != MappingVersion)) {
 			return nil, errors.New("brokercontrol: invalid service allowlist entry")
 		}
 		key := service.Username + "\x00" + service.BrokerCell + "\x00" + service.BrokerInstance
@@ -108,7 +112,7 @@ func NewOwner(repo Repository, cfg Config) (*Owner, error) {
 			return nil, errors.New("brokercontrol: invalid service target scope")
 		}
 		for _, filter := range service.Policy.Publish {
-			if !validServicePublishFilter(filter) {
+			if !service.PluginSocket && !validServicePublishFilter(filter) {
 				return nil, errors.New("brokercontrol: service publish filter is outside the finite community allowlist")
 			}
 		}
@@ -294,11 +298,36 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 		if req.BrokerCell != s.BrokerCell || req.BrokerInstance != s.BrokerInstance {
 			continue
 		}
-		if !constantStringEqual(req.Password, s.Password) || !containsExact(s.AllowedClientIDs, req.WireClientID) {
+		if !constantStringEqual(req.Password, s.Password) || (!s.AllowAnyClientID && !containsExact(s.AllowedClientIDs, req.WireClientID)) {
 			return deny, nil
 		}
 		policy := normalizePolicy(s.Policy)
-		if len(policy.Publish) > 0 {
+		var pluginTargets []brokercontract.PluginTarget
+		if s.PluginSocket {
+			targets, targetErr := o.repo.ResolveServiceTargets(ctx, s.AllowedDeviceIDs)
+			if targetErr != nil {
+				return deny, ErrUnavailable
+			}
+			if len(targets) != len(s.AllowedDeviceIDs) {
+				return deny, nil
+			}
+			for _, target := range targets {
+				if target.DeviceNumberCount != 1 || target.IsEnabled != "enabled" || target.ActivateFlag != "active" || !containsExact(s.AllowedTenantIDs, target.TenantID) {
+					return deny, nil
+				}
+			}
+			pluginTargets, targetErr = o.resolvePluginTargets(ctx, s.AllowedDeviceIDs, s.AllowedTenantIDs, s.BrokerCell)
+			if targetErr != nil {
+				return deny, targetErr
+			}
+			if len(pluginTargets) != len(s.AllowedDeviceIDs) {
+				return deny, nil
+			}
+			policy, targetErr = buildPluginPolicy(pluginTargets)
+			if targetErr != nil {
+				return deny, nil
+			}
+		} else if len(policy.Publish) > 0 {
 			targets, targetErr := o.repo.ResolveServiceTargets(ctx, s.AllowedDeviceIDs)
 			if targetErr != nil {
 				return deny, ErrUnavailable
@@ -307,8 +336,37 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 			if targetErr != nil {
 				return deny, nil
 			}
+			pluginIDs := make([]string, 0, len(targets))
+			for _, target := range targets {
+				if pluginOwnedRecord(target) {
+					pluginIDs = append(pluginIDs, target.ID)
+				}
+			}
+			if len(pluginIDs) > 0 {
+				if _, ok := o.repo.(pluginTargetResolver); !ok {
+					return deny, ErrUnavailable
+				}
+				allowedTenants := s.AllowedTenantIDs
+				if len(allowedTenants) == 0 {
+					allowedTenants = []string{s.Principal.TenantID}
+				}
+				pluginTargets, targetErr = o.resolvePluginTargets(ctx, pluginIDs, allowedTenants, s.BrokerCell)
+				if targetErr != nil {
+					return deny, targetErr
+				}
+				if len(pluginTargets) != len(pluginIDs) {
+					return deny, nil
+				}
+				policy, targetErr = addPluginPublishAliases(policy, pluginTargets)
+				if targetErr != nil {
+					return deny, nil
+				}
+			}
 		}
-		return o.issueGrant(ctx, req, s.Principal, policy, s.PolicyVersion, s.MappingVersion)
+		if !s.PluginSocket {
+			pluginTargets = nil
+		}
+		return o.issueGrant(ctx, req, s.Principal, policy, s.PolicyVersion, s.MappingVersion, pluginTargets)
 	}
 	if serviceNameMatched {
 		return deny, nil
@@ -335,8 +393,32 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 	if device.ID == "" || device.TenantID == "" || device.DeviceNumber == "" || device.IsEnabled != "enabled" || device.ActivateFlag != "active" {
 		return deny, nil
 	}
-	if device.DeviceType == "3" { // Gateway child devices must authenticate through their gateway.
+	pluginOwned := pluginOwnedRecord(device)
+	if device.DeviceType == "3" && !pluginOwned { // Native gateway children still authenticate through their gateway.
 		return deny, nil
+	}
+	var pluginTargets []brokercontract.PluginTarget
+	if pluginOwned {
+		resolver, ok := o.repo.(pluginTargetResolver)
+		if !ok {
+			return deny, ErrUnavailable
+		}
+		resolved, resolveErr := resolver.ResolvePluginTargets(ctx, []string{device.ID})
+		if resolveErr != nil {
+			return deny, ErrUnavailable
+		}
+		if len(resolved) > 1 {
+			return deny, nil
+		}
+		if len(resolved) == 1 {
+			pluginTargets, resolveErr = o.resolvePluginTargets(ctx, []string{device.ID}, []string{device.TenantID}, req.BrokerCell)
+			if resolveErr != nil {
+				return deny, resolveErr
+			}
+			if len(pluginTargets) != 1 {
+				return deny, nil
+			}
+		}
 	}
 	children := []DeviceRecord(nil)
 	if device.DeviceType == "2" || device.DeviceType == "" {
@@ -379,7 +461,15 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 		deny.DenyCode = "mapping_not_certified"
 		return deny, nil
 	}
-	return o.issueGrant(ctx, req, principal, policy, "", snapshot.Version)
+	if len(pluginTargets) > 0 {
+		policy, err = buildPluginPolicy(pluginTargets)
+		if err != nil {
+			deny.DenyCode = "plugin_policy_not_certified"
+			return deny, nil
+		}
+		principal.Kind = pluginTargets[0].Kind
+	}
+	return o.issueGrant(ctx, req, principal, policy, "", snapshot.Version, pluginTargets)
 }
 
 func addMappingFilters(policy *brokercontract.Policy, snapshot *brokermapper.Snapshot, deviceNumber string) error {
@@ -412,19 +502,24 @@ func addMappingFilters(policy *brokercontract.Policy, snapshot *brokermapper.Sna
 	return brokercontract.ValidatePolicy(*policy)
 }
 
-func (o *Owner) issueGrant(ctx context.Context, req brokercontract.AuthRequest, p brokercontract.Principal, policy brokercontract.Policy, policyVersion, mappingVersion string) (brokercontract.Grant, error) {
+func (o *Owner) issueGrant(ctx context.Context, req brokercontract.AuthRequest, p brokercontract.Principal, policy brokercontract.Policy, policyVersion, mappingVersion string, pluginTargetSets ...[]brokercontract.PluginTarget) (brokercontract.Grant, error) {
 	deny := brokercontract.Grant{Allow: false, DenyCode: "not_authorized"}
 	if brokercontract.ValidatePrincipal(p) != nil || brokercontract.ValidatePolicy(policy) != nil {
 		return deny, nil
 	}
 	var binding TransportBinding
 	var err error
-	if admission, ok := o.repo.(interface {
-		ResolveAdmissionBinding(context.Context, string, string, string) (TransportBinding, error)
-	}); ok && p.Kind != brokercontract.PrincipalService {
-		binding, err = admission.ResolveAdmissionBinding(ctx, p.TenantID, p.DeviceID, req.BrokerCell)
+	if len(pluginTargetSets) > 0 && len(pluginTargetSets[0]) > 0 {
+		target := pluginTargetSets[0][0]
+		binding = TransportBinding{TenantID: target.TenantID, DeviceID: target.DeviceID, BrokerCell: req.BrokerCell, RouteEpoch: target.RouteEpoch, Phase: target.BindingPhase}
 	} else {
-		binding, err = o.repo.ResolveActiveBinding(ctx, p.TenantID, p.DeviceID, req.BrokerCell)
+		if admission, ok := o.repo.(interface {
+			ResolveAdmissionBinding(context.Context, string, string, string) (TransportBinding, error)
+		}); ok && p.Kind != brokercontract.PrincipalService {
+			binding, err = admission.ResolveAdmissionBinding(ctx, p.TenantID, p.DeviceID, req.BrokerCell)
+		} else {
+			binding, err = o.repo.ResolveActiveBinding(ctx, p.TenantID, p.DeviceID, req.BrokerCell)
+		}
 	}
 	if err != nil {
 		if errors.Is(err, ErrBindingConflict) {
@@ -460,6 +555,15 @@ func (o *Owner) issueGrant(ctx context.Context, req brokercontract.AuthRequest, 
 	}
 	if !owned {
 		return deny, nil
+	}
+	if len(pluginTargetSets) > 0 && len(pluginTargetSets[0]) > 0 {
+		if err := o.persistPluginGrant(ctx, &grant, req.BrokerCell, req.BrokerInstance, pluginTargetSets[0]); err != nil {
+			return deny, ErrUnavailable
+		}
+		response, err = json.Marshal(grant)
+		if err != nil || len(response) > MaxGrantResponseBytes {
+			return deny, ErrUnavailable
+		}
 	}
 	return grant, nil
 }

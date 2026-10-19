@@ -87,6 +87,60 @@ func TestCommandFrameSupportsControlledTelemetryAndAttributeTopics(t *testing.T)
 	}
 }
 
+func TestSplitControlledDownlinkTopicSupportsRegisteredPrefixes(t *testing.T) {
+	tests := []struct {
+		topic, prefix, canonical string
+	}{
+		{"devices/command/1001/cmd-1", "", "devices/command/1001/cmd-1"},
+		{"service/alarm/devices/command/1001/cmd-1", "service/alarm/", "devices/command/1001/cmd-1"},
+		{"service/alarm/devices/attributes/set/1001/temperature", "service/alarm/", "devices/attributes/set/1001/temperature"},
+		{"tenant/x/gateway/telemetry/control/gw-1", "tenant/x/", "gateway/telemetry/control/gw-1"},
+	}
+	for _, tt := range tests {
+		prefix, canonical, ok := SplitControlledDownlinkTopic(tt.topic)
+		if !ok || prefix != tt.prefix || canonical != tt.canonical {
+			t.Errorf("SplitControlledDownlinkTopic(%q) = %q, %q, %v", tt.topic, prefix, canonical, ok)
+		}
+		if !IsControlledDownlinkTopic(tt.topic) {
+			t.Errorf("prefixed controlled topic not recognized: %q", tt.topic)
+		}
+	}
+	for _, topic := range []string{
+		"service/alarm/devices/event/response/1001/e1",
+		"service/alarm/devices/attributes/response/1001/a1",
+		"service/alarm/devices/telemetry/1001",
+		"$tp-internal/devices/command/1001/cmd-1",
+		"service//alarm/devices/command/1001/cmd-1",
+	} {
+		if prefix, canonical, ok := SplitControlledDownlinkTopic(topic); ok {
+			t.Errorf("ordinary/invalid topic accepted as controlled: %q => %q,%q", topic, prefix, canonical)
+		}
+	}
+}
+
+func TestCommandFrameMessageIDValidationUsesCanonicalPrefixedTopic(t *testing.T) {
+	now := time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
+	f := validCommandFrame(now)
+	f.CommandID = "cmd-1"
+	f.WireTopic = "service/alarm/devices/command/1001/cmd-1"
+	if _, err := EncodeCommandFrame(f, now); err != nil {
+		t.Fatalf("valid prefixed command frame rejected: %v", err)
+	}
+	f.CommandID = "other"
+	if _, err := EncodeCommandFrame(f, now); err == nil {
+		t.Fatal("prefixed canonical command id mismatch accepted")
+	}
+	f.CommandID = "temperature"
+	f.WireTopic = "service/alarm/devices/attributes/set/1001/temperature"
+	if _, err := EncodeCommandFrame(f, now); err != nil {
+		t.Fatalf("valid prefixed attribute frame rejected: %v", err)
+	}
+	f.CommandID = "other"
+	if _, err := EncodeCommandFrame(f, now); err == nil {
+		t.Fatal("prefixed canonical attribute ID mismatch accepted")
+	}
+}
+
 func TestCommandFrameRejectsExpiryBoundsSizeAndMalformedStorage(t *testing.T) {
 	now := time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
 	tests := []struct {

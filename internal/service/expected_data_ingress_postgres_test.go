@@ -13,6 +13,7 @@ import (
 	"github.com/go-basic/uuid"
 	"github.com/spf13/viper"
 	"project/internal/brokercommands"
+	"project/internal/downlink"
 	"project/internal/model"
 	"project/pkg/global"
 	"project/pkg/utils"
@@ -91,6 +92,13 @@ func TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope(t *testing.T)
 	if err := db.Model(&model.ExpectedData{}).Where("tenant_id=?", "tenant-b").Count(&crossTenantRows).Error; err != nil || crossTenantRows != 0 {
 		t.Fatalf("cross-tenant rows=%d err=%v", crossTenantRows, err)
 	}
+	if err := GroupApp.ExpectedData.DeleteScoped(context.Background(), created[0].ID, &utils.UserClaims{ID: "expected-user-b", TenantID: "tenant-b"}); err == nil {
+		t.Fatal("cross-tenant expected-data delete was accepted")
+	}
+	stillPending, err := getExpectedDataGlobal(context.Background(), created[0].ID)
+	if err != nil || stillPending.Status != "pending" {
+		t.Fatalf("cross-tenant delete changed expected message status=%v err=%v", stillPending, err)
+	}
 
 	// The current broker connection evidence is the only online gate; the
 	// expected-data acceptance itself is tested independently of MQTT/device ACK.
@@ -130,6 +138,47 @@ func TestExpectedDataIngressPostgresAdmissionDispatchRetryAndScope(t *testing.T)
 	if err := db.Model(&brokercommands.Row{}).Count(&commandCount).Error; err != nil || commandCount != 3 {
 		t.Fatalf("idempotent retry created extra command rows=%d err=%v", commandCount, err)
 	}
+
+	t.Run("registered_plugin_socket_is_frozen", func(t *testing.T) {
+		if err := db.AutoMigrate(&model.ServicePlugin{}, &model.ServiceAccess{}); err != nil {
+			t.Fatal(err)
+		}
+		config := `{"sub_topic_prefix":"service/alarm/"}`
+		plugin := model.ServicePlugin{ID: "plugin-expected", ServiceIdentifier: "expected-plugin", ServiceType: 2, ServiceConfig: &config}
+		access := model.ServiceAccess{ID: "access-expected", ServicePluginID: plugin.ID, TenantID: tenant}
+		if err := db.Create(&plugin).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Create(&access).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Model(&model.Device{}).Where("id=?", deviceID).Updates(map[string]any{"service_access_id": access.ID, "access_way": "B"}).Error; err != nil {
+			t.Fatal(err)
+		}
+		defer db.Model(&model.Device{}).Where("id=?", deviceID).Updates(map[string]any{"service_access_id": nil, "access_way": nil})
+		for _, ed := range created {
+			prepared, target, err := prepareExpectedDownlink(context.Background(), ed)
+			if err != nil || target != deviceID || prepared.Message.TopicPrefix != "service/alarm/" || prepared.Message.DeviceType != "1" {
+				t.Fatalf("prepare plugin %s: target=%s prefix=%s err=%v", ed.SendType, target, prepared.Message.TopicPrefix, err)
+			}
+			if prepared.Message.Type == downlink.MessageTypeCommand && !strings.Contains(string(prepared.Encoded), `"method":"set_power"`) {
+				t.Fatalf("plugin command lost SDK method: %s", prepared.Encoded)
+			}
+			row := brokercommands.Row{TenantID: tenant, DeviceID: deviceID, TargetDeviceID: deviceID, Intent: "expected." + ed.SendType}
+			if err := validateExpectedDownlinkSnapshot(context.Background(), db, row, prepared); err != nil {
+				t.Fatalf("frozen plugin %s snapshot invalid: %v", ed.SendType, err)
+			}
+			if err := db.Model(&model.ServicePlugin{}).Where("id=?", plugin.ID).Update("service_config", `{"sub_topic_prefix":"service/changed/"}`).Error; err != nil {
+				t.Fatal(err)
+			}
+			if err := validateExpectedDownlinkSnapshot(context.Background(), db, row, prepared); !errors.Is(err, brokercommands.ErrFenced) {
+				t.Fatalf("plugin prefix change did not fence %s: %v", ed.SendType, err)
+			}
+			if err := db.Model(&model.ServicePlugin{}).Where("id=?", plugin.ID).Update("service_config", config).Error; err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
 
 	expiredAt := time.Now().UTC().Add(-time.Minute)
 	expired := &model.ExpectedData{ID: uuid.New(), DeviceID: deviceID, SendType: "telemetry", Payload: `{"old":true}`, CreatedAt: time.Now().UTC(), Status: "pending", ExpiryTime: &expiredAt, TenantID: tenant}

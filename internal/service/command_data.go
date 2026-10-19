@@ -120,9 +120,6 @@ func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorI
 		protocolType = "MQTT" // 无配置时默认为MQTT
 		deviceType = "1"      // 默认为直连设备
 	}
-	if durableCommands && (isService || protocolType != "MQTT") {
-		return "", fmt.Errorf("service and protocol-plugin commands are not supported for mqtt.input_profile=ingress_v1")
-	}
 
 	// 4. 构造命令数据
 	commandData, err := buildCommandData(putMessageReq.Identify, putMessageReq.Value)

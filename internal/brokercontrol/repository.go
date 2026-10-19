@@ -8,15 +8,18 @@ import (
 )
 
 type DeviceRecord struct {
-	ID             string  `gorm:"column:id"`
-	TenantID       string  `gorm:"column:tenant_id"`
-	DeviceNumber   string  `gorm:"column:device_number"`
-	DeviceNumberCount int64 `gorm:"column:device_number_count"`
-	IsEnabled      string  `gorm:"column:is_enabled"`
-	ActivateFlag   string  `gorm:"column:activate_flag"`
-	ParentID       *string `gorm:"column:parent_id"`
-	DeviceConfigID *string `gorm:"column:device_config_id"`
-	DeviceType     string  `gorm:"column:device_type"`
+	ID                string  `gorm:"column:id"`
+	TenantID          string  `gorm:"column:tenant_id"`
+	DeviceNumber      string  `gorm:"column:device_number"`
+	DeviceNumberCount int64   `gorm:"column:device_number_count"`
+	IsEnabled         string  `gorm:"column:is_enabled"`
+	ActivateFlag      string  `gorm:"column:activate_flag"`
+	ParentID          *string `gorm:"column:parent_id"`
+	DeviceConfigID    *string `gorm:"column:device_config_id"`
+	DeviceType        string  `gorm:"column:device_type"`
+	ServiceAccessID   *string `gorm:"column:service_access_id"`
+	AccessWay         *string `gorm:"column:access_way"`
+	ProtocolType      *string `gorm:"column:protocol_type"`
 }
 
 type ClientIDBinding struct {

@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 	"project/internal/brokercommands"
 	bc "project/internal/brokercontract"
+	"project/internal/brokerplugin"
 	"project/internal/downlink"
 	"project/internal/model"
 	"project/internal/processor"
@@ -142,7 +143,11 @@ func prepareExpectedDownlink(ctx context.Context, ed *model.ExpectedData) (broke
 			if err := tx.Where("id=? AND tenant_id=?", current, ed.TenantID).Take(&root).Error; err != nil {
 				return err
 			}
-			if root.ParentID == nil || *root.ParentID == "" {
+			pluginRoute, routeErr := brokerplugin.Resolve(tx.WithContext(ctx), &root)
+			if routeErr != nil {
+				return routeErr
+			}
+			if pluginRoute != nil || root.ParentID == nil || *root.ParentID == "" {
 				target = root.ID
 				break
 			}
@@ -159,18 +164,11 @@ func prepareExpectedDownlink(ctx context.Context, ed *model.ExpectedData) (broke
 		if err != nil {
 			return err
 		}
-		for _, d := range snapshot.Devices {
-			if d.ServiceAccessID != nil && *d.ServiceAccessID != "" {
-				return fmt.Errorf("%w: expected message requires standard device/gateway transport", brokercommands.ErrRejected)
-			}
-		}
-		for _, c := range snapshot.Configs {
-			if c.ProtocolType != nil && *c.ProtocolType != "" && *c.ProtocolType != "MQTT" {
-				return fmt.Errorf("%w: plugin must expose standard device/gateway transport", brokercommands.ErrRejected)
-			}
-		}
 		deviceType := snapshot.Devices[0].DeviceType
-		nested, err := transformDurableCommandData(data, snapshot.Devices, deviceType)
+		if snapshot.Plugin != nil {
+			deviceType = snapshotWireDeviceType(snapshot)
+		}
+		nested, err := transformDurableDownlinkData(data, snapshot, deviceType)
 		if err != nil {
 			return err
 		}
@@ -178,7 +176,7 @@ func prepareExpectedDownlink(ctx context.Context, ed *model.ExpectedData) (broke
 		if err != nil {
 			return err
 		}
-		prepared.Message = downlink.Message{DeviceID: ed.DeviceID, DeviceNumber: root.DeviceNumber, DeviceType: deviceType, DeviceConfigID: cfg, Type: typ, Data: raw}
+		prepared.Message = downlink.Message{DeviceID: ed.DeviceID, DeviceNumber: root.DeviceNumber, DeviceType: deviceType, DeviceConfigID: cfg, Type: typ, Data: raw, TopicPrefix: snapshotTopicPrefix(snapshot)}
 		prepared.ConfigurationSHA256 = fingerprint
 		prepared.Encoded = append([]byte(nil), raw...)
 		if script != nil {
@@ -281,14 +279,14 @@ func validateExpectedDownlinkSnapshot(ctx context.Context, tx *gorm.DB, row brok
 	if err != nil {
 		return err
 	}
-	if p.Message.Type != typ || p.Message.DeviceID != row.DeviceID || p.Message.Topic != "" || p.Message.TopicPrefix != "" {
+	if p.Message.Type != typ || p.Message.DeviceID != row.DeviceID || p.Message.Topic != "" {
 		return brokercommands.ErrRejected
 	}
 	fingerprint, _, snapshot, err := readDownlinkFingerprint(ctx, tx, row.TenantID, row.DeviceID, row.TargetDeviceID, p.Message.DeviceConfigID, scriptType)
 	if err != nil {
 		return err
 	}
-	if len(snapshot.Devices) == 0 || p.Message.DeviceNumber != snapshot.Devices[len(snapshot.Devices)-1].DeviceNumber || p.Message.DeviceType != snapshot.Devices[0].DeviceType || fingerprint != p.ConfigurationSHA256 {
+	if len(snapshot.Devices) == 0 || p.Message.DeviceNumber != snapshot.Devices[len(snapshot.Devices)-1].DeviceNumber || p.Message.TopicPrefix != snapshotTopicPrefix(snapshot) || p.Message.DeviceType != snapshotWireDeviceType(snapshot) || fingerprint != p.ConfigurationSHA256 {
 		return brokercommands.ErrFenced
 	}
 	return nil
@@ -371,4 +369,14 @@ func submitStandardControl(ctx context.Context, caller, deviceID, kind, value st
 		return "", err
 	}
 	return row.ID, nil
+}
+
+func snapshotWireDeviceType(snapshot commandFingerprintSnapshot) string {
+	if snapshot.Plugin != nil && snapshot.Plugin.ServiceType == 2 {
+		return "1"
+	}
+	if len(snapshot.Devices) == 0 {
+		return ""
+	}
+	return snapshot.Devices[0].DeviceType
 }

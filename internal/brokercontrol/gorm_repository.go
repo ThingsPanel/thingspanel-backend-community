@@ -33,7 +33,10 @@ func (r *GormRepository) FindCredentialMatches(ctx context.Context, voucherJSON 
 	err := r.quietDB(ctx).Raw(`SELECT d.id, d.tenant_id, d.device_number,
 		(SELECT count(*) FROM devices d2 WHERE d2.device_number = d.device_number) AS device_number_count,
 		d.is_enabled, d.activate_flag, d.parent_id, d.device_config_id,
-		COALESCE(c.device_type, '') AS device_type
+		COALESCE(c.device_type, '') AS device_type,
+		NULLIF(to_jsonb(d)->>'service_access_id','') AS service_access_id,
+		NULLIF(to_jsonb(d)->>'access_way','') AS access_way,
+		NULLIF(to_jsonb(c)->>'protocol_type','') AS protocol_type
 		FROM devices d LEFT JOIN device_configs c ON c.id = d.device_config_id AND c.tenant_id = d.tenant_id
 		WHERE md5(broker_safe_voucher_v1(d.voucher)::text) = md5(?::jsonb::text)
 		AND broker_safe_voucher_v1(d.voucher) = ?::jsonb ORDER BY d.id LIMIT 2`, voucherJSON, voucherJSON).Scan(&devices).Error
@@ -48,7 +51,10 @@ func (r *GormRepository) ResolveServiceTargets(ctx context.Context, ids []string
 	err := r.quietDB(ctx).Raw(`SELECT d.id, d.tenant_id, d.device_number,
 		(SELECT count(*) FROM devices d2 WHERE d2.device_number = d.device_number) AS device_number_count,
 		d.is_enabled, d.activate_flag, d.parent_id, d.device_config_id,
-		COALESCE(c.device_type, '') AS device_type
+		COALESCE(c.device_type, '') AS device_type,
+		NULLIF(to_jsonb(d)->>'service_access_id','') AS service_access_id,
+		NULLIF(to_jsonb(d)->>'access_way','') AS access_way,
+		NULLIF(to_jsonb(c)->>'protocol_type','') AS protocol_type
 		FROM devices d LEFT JOIN device_configs c ON c.id = d.device_config_id AND c.tenant_id = d.tenant_id
 		WHERE d.id IN ? AND d.is_enabled = 'enabled' AND d.activate_flag = 'active'
 		AND (d.device_config_id IS NULL OR c.id IS NOT NULL) ORDER BY d.id`, ids).Scan(&devices).Error

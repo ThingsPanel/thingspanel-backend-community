@@ -15,6 +15,7 @@ import (
 
 	"project/internal/brokercommands"
 	bc "project/internal/brokercontract"
+	"project/internal/brokerplugin"
 	"project/internal/downlink"
 	"project/internal/model"
 	"project/internal/processor"
@@ -218,10 +219,12 @@ type commandScriptSnapshot struct {
 }
 
 type commandFingerprintSnapshot struct {
-	Devices  []commandDeviceSnapshot     `json:"devices"`
-	Configs  []commandConfigSnapshot     `json:"configs"`
-	Commands []commandDefinitionSnapshot `json:"commands"`
-	Scripts  []commandScriptSnapshot     `json:"scripts"`
+	PluginPath []commandDeviceSnapshot     `json:"plugin_path,omitempty"`
+	Plugin     *brokerplugin.Route         `json:"plugin,omitempty"`
+	Devices    []commandDeviceSnapshot     `json:"devices"`
+	Configs    []commandConfigSnapshot     `json:"configs"`
+	Commands   []commandDefinitionSnapshot `json:"commands"`
+	Scripts    []commandScriptSnapshot     `json:"scripts"`
 }
 
 func readCommandFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDeviceID, targetRootID, expectedConfigID string) (string, *model.DataScript, commandFingerprintSnapshot, error) {
@@ -267,7 +270,31 @@ func readDownlinkFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDe
 		}
 		snapshot.Devices[len(snapshot.Devices)-1].DeviceType = deviceType
 		if currentID == targetRootID {
-			if device.ParentID != nil && *device.ParentID != "" {
+			pluginRoute, routeErr := brokerplugin.Resolve(tx.WithContext(ctx), &device)
+			if routeErr != nil {
+				return "", nil, commandFingerprintSnapshot{}, routeErr
+			}
+			snapshot.Plugin = pluginRoute
+			if pluginRoute != nil && pluginRoute.ServiceType == 1 && deviceType != "1" {
+				parent := device.ParentID
+				seen := map[string]bool{device.ID: true}
+				for parent != nil && *parent != "" {
+					if len(snapshot.PluginPath) >= 7 || seen[*parent] {
+						return "", nil, commandFingerprintSnapshot{}, fmt.Errorf("%w: invalid plugin parent hierarchy", brokercommands.ErrRejected)
+					}
+					seen[*parent] = true
+					var ancestor model.Device
+					if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=?", *parent, tenant).Take(&ancestor).Error; err != nil {
+						return "", nil, commandFingerprintSnapshot{}, err
+					}
+					if ancestor.IsEnabled != "enabled" || ancestor.ActivateFlag != "active" {
+						return "", nil, commandFingerprintSnapshot{}, brokercommands.ErrRejected
+					}
+					snapshot.PluginPath = append(snapshot.PluginPath, commandDeviceSnapshot{ID: ancestor.ID, TenantID: ancestor.TenantID, ParentID: ancestor.ParentID, SubDeviceAddr: ancestor.SubDeviceAddr, DeviceNumber: ancestor.DeviceNumber, IsEnabled: ancestor.IsEnabled, ActivateFlag: ancestor.ActivateFlag})
+					parent = ancestor.ParentID
+				}
+			}
+			if pluginRoute == nil && device.ParentID != nil && *device.ParentID != "" {
 				return "", nil, commandFingerprintSnapshot{}, fmt.Errorf("%w: command target is not a root device", brokercommands.ErrRejected)
 			}
 			if (device.DeviceConfigID != nil && *device.DeviceConfigID != expectedConfigID) || ((device.DeviceConfigID == nil || *device.DeviceConfigID == "") && expectedConfigID != "") {
@@ -352,23 +379,21 @@ func readDownlinkFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDe
 
 func prepareDurableDownlink(ctx context.Context, db *gorm.DB, message *downlink.Message, tenant, logicalDeviceID, targetRootID, deviceType string, commandData map[string]interface{}) (brokercommands.PreparedCommand, error) {
 	prepared := brokercommands.PreparedCommand{Message: *message}
-	if message.TopicPrefix != "" {
-		return prepared, errors.New("protocol-plugin topic prefixes are not supported for ingress_v1 durable commands")
-	}
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		fingerprint, script, snapshot, err := readCommandFingerprint(ctx, tx, tenant, logicalDeviceID, targetRootID, message.DeviceConfigID)
 		if err != nil {
 			return err
 		}
-		if snapshot.Devices[0].DeviceType != deviceType {
+		if snapshot.Plugin != nil {
+			deviceType = snapshotWireDeviceType(snapshot)
+		}
+		if snapshot.Plugin == nil && snapshot.Devices[0].DeviceType != deviceType {
 			return fmt.Errorf("%w: command device configuration changed while preparing", brokercommands.ErrFenced)
 		}
-		for _, config := range snapshot.Configs {
-			if config.ProtocolType != nil && *config.ProtocolType != "" && *config.ProtocolType != "MQTT" {
-				return fmt.Errorf("%w: protocol-plugin commands are not supported for ingress_v1", brokercommands.ErrRejected)
-			}
+		if message.TopicPrefix != snapshotTopicPrefix(snapshot) {
+			return fmt.Errorf("%w: plugin socket prefix changed while preparing", brokercommands.ErrFenced)
 		}
-		transformed, err := transformDurableCommandData(commandData, snapshot.Devices, deviceType)
+		transformed, err := transformDurableDownlinkData(commandData, snapshot, deviceType)
 		if err != nil {
 			return err
 		}
@@ -542,7 +567,7 @@ func ValidateDurableCommandSnapshot(ctx context.Context, tx *gorm.DB, row broker
 	if strings.HasPrefix(row.Intent, "expected.") || strings.HasPrefix(row.Intent, "control.") {
 		return validateExpectedDownlinkSnapshot(ctx, tx, row, prepared)
 	}
-	if prepared.Message.DeviceID != row.DeviceID || prepared.Message.Type != downlink.MessageTypeCommand || prepared.Message.TopicPrefix != "" || prepared.Message.Topic != "" {
+	if prepared.Message.DeviceID != row.DeviceID || prepared.Message.Type != downlink.MessageTypeCommand || prepared.Message.Topic != "" {
 		return fmt.Errorf("%w: prepared command routing fields are invalid", brokercommands.ErrRejected)
 	}
 	fingerprint, _, snapshot, err := readCommandFingerprint(ctx, tx, row.TenantID, row.DeviceID, row.TargetDeviceID, prepared.Message.DeviceConfigID)
@@ -555,6 +580,9 @@ func ValidateDurableCommandSnapshot(ctx context.Context, tx *gorm.DB, row broker
 	if prepared.Message.DeviceNumber == "" || prepared.Message.DeviceNumber != snapshot.Devices[len(snapshot.Devices)-1].DeviceNumber {
 		return fmt.Errorf("%w: prepared command target device number is invalid", brokercommands.ErrRejected)
 	}
+	if prepared.Message.TopicPrefix != snapshotTopicPrefix(snapshot) {
+		return fmt.Errorf("%w: plugin socket changed after acceptance", brokercommands.ErrFenced)
+	}
 	if fingerprint != prepared.ConfigurationSHA256 {
 		return fmt.Errorf("%w: command configuration changed after acceptance", brokercommands.ErrFenced)
 	}
@@ -562,3 +590,20 @@ func ValidateDurableCommandSnapshot(ctx context.Context, tx *gorm.DB, row broker
 }
 
 func stringPtr(s string) *string { return &s }
+
+func snapshotTopicPrefix(snapshot commandFingerprintSnapshot) string {
+	if snapshot.Plugin != nil {
+		return snapshot.Plugin.TopicPrefix
+	}
+	return ""
+}
+func transformDurableDownlinkData(data map[string]interface{}, snapshot commandFingerprintSnapshot, deviceType string) (map[string]interface{}, error) {
+	if snapshot.Plugin != nil {
+		if snapshot.Plugin.ServiceType == 2 {
+			return data, nil
+		}
+		path := append(append([]commandDeviceSnapshot(nil), snapshot.Devices...), snapshot.PluginPath...)
+		return transformDurableCommandData(data, path, deviceType)
+	}
+	return transformDurableCommandData(data, snapshot.Devices, deviceType)
+}

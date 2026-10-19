@@ -40,8 +40,19 @@ type session struct {
 	cancel                       context.CancelFunc
 	eventSeq                     uint64
 	lastObservation              time.Time
+	pluginStatuses               map[string]pluginStatus
+	pluginStatusOrder            []string
+	pluginStatusCursor           int
 	closed                       bool
 	retireAt                     time.Time
+}
+
+type pluginStatus struct {
+	topic             string
+	payload           []byte
+	qos               byte
+	lastEmitted       time.Time
+	disconnectPending bool
 }
 type Completion struct {
 	ID      string
@@ -118,6 +129,10 @@ func nonce() string {
 func (d *Driver) nextIngestionID() (string, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	return d.nextIngestionIDLocked()
+}
+
+func (d *Driver) nextIngestionIDLocked() (string, error) {
 	if d.ingestionSequence == ^uint64(0) {
 		return "", errors.New("ingestion identity capacity exhausted")
 	}
@@ -168,13 +183,18 @@ func (d *Driver) authenticate(ctx context.Context, s *session, refresh bool) {
 				if resp.StatusCode != 200 {
 					err = errors.New("owner rejected authentication")
 				} else {
-					dec := json.NewDecoder(io.LimitReader(resp.Body, 65537))
-					dec.DisallowUnknownFields()
-					err = dec.Decode(&grant)
-					if err == nil {
-						var extra any
-						if dec.Decode(&extra) != io.EOF {
-							err = errors.New("invalid authentication response")
+					raw, readErr := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+					if readErr != nil || len(raw) > 1<<20 || bc.ValidateUniqueJSON(raw) != nil {
+						err = errors.New("invalid authentication response")
+					} else {
+						dec := json.NewDecoder(bytes.NewReader(raw))
+						dec.DisallowUnknownFields()
+						err = dec.Decode(&grant)
+						if err == nil {
+							var extra any
+							if dec.Decode(&extra) != io.EOF {
+								err = errors.New("invalid authentication response")
+							}
 						}
 					}
 				}
@@ -247,7 +267,16 @@ func (d *Driver) Closed(ptr uintptr) {
 		if s.connected {
 			s.closed = true
 			s.connected = false
-			s.retireAt = time.Now().Add(5 * time.Second)
+			if len(s.pluginStatusOrder) > 0 {
+				for _, id := range s.pluginStatusOrder {
+					status := s.pluginStatuses[id]
+					status.disconnectPending = true
+					s.pluginStatuses[id] = status
+				}
+				s.retireAt = s.grant.ExpiresAt
+			} else {
+				s.retireAt = time.Now().Add(5 * time.Second)
+			}
 			s.request.Password = ""
 		} else {
 			delete(d.sessions, ptr)
@@ -270,7 +299,7 @@ func (d *Driver) Tick() {
 	n := 0
 	for ptr, s := range d.sessions {
 		if s.closed {
-			if time.Now().After(s.retireAt) {
+			if !time.Now().Before(s.grant.ExpiresAt) || (!hasPendingPluginStatus(s) && time.Now().After(s.retireAt)) {
 				delete(d.sessions, ptr)
 			}
 			continue
@@ -335,6 +364,9 @@ func (d *Driver) Authorize(ptr uintptr, access int, topic string, size int, qos 
 	if retain && g.Policy.RetainProfile == "live-ingress" && access == 2 {
 		return false
 	}
+	if access == 4 && pluginServiceGrant(g) && pluginSubscribeFilterAllowed(g, topic) {
+		return true
+	}
 	return bc.AuthorizeTopic(g.Principal, g.Policy, action, topic) == nil
 }
 
@@ -356,6 +388,16 @@ func (d *Driver) Rewrite(ptr uintptr, topic string, payload []byte, qos byte, re
 		} else if bc.IsControlledDownlinkTopic(topic) {
 			return "", nil, false, errors.New("command requires durable storage frame")
 		}
+		if pluginServiceGrant(g) {
+			if !pluginUplinkTopicAllowed(g, topic) || bc.IsInternalResource(topic) || bc.IsCommandFrame(payload) || bc.IsControlledDownlinkTopic(topic) {
+				return "", nil, false, errors.New("plugin service publish denied")
+			}
+			outTopic, outPayload, outRetain, err := d.encodePluginIngress(g, topic, payload, qos, retain)
+			if err == nil {
+				d.rememberPluginStatus(ptr, g, topic, payload, qos, retain)
+			}
+			return outTopic, outPayload, outRetain, err
+		}
 		return topic, payload, retain, nil
 	}
 	if !d.Authorize(ptr, 2, topic, len(payload), qos, retain) {
@@ -375,10 +417,13 @@ func (d *Driver) Rewrite(ptr uintptr, topic string, payload []byte, qos byte, re
 	if e != nil {
 		return "", nil, false, e
 	}
-	m := bc.Metadata{ContractVersion: "1", TenantID: g.Principal.TenantID, PrincipalKind: g.Principal.Kind, BrokerCell: d.cfg.Cell, BrokerInstance: d.cfg.Instance, ConnectionID: g.ConnectionID, IngestionID: ingestionID, RouteEpoch: g.RouteEpoch, PolicyVersion: g.PolicyVersion, MappingVersion: g.MappingVersion, OriginalQoS: qos, OriginalRetain: retain, ObservedAt: time.Now().UTC()}
+	m := bc.Metadata{PluginContextID: g.PluginContextID, ContractVersion: "1", TenantID: g.Principal.TenantID, PrincipalKind: g.Principal.Kind, BrokerCell: d.cfg.Cell, BrokerInstance: d.cfg.Instance, ConnectionID: g.ConnectionID, IngestionID: ingestionID, RouteEpoch: g.RouteEpoch, PolicyVersion: g.PolicyVersion, MappingVersion: g.MappingVersion, OriginalQoS: qos, OriginalRetain: retain, ObservedAt: time.Now().UTC()}
 	// EncodeEnvelope sets the original wire topic from this fixed transport value.
 	m.OriginalTopicB64 = base64Topic(topic)
 	b, e := bc.EncodeEnvelope(g.Principal, m, payload)
+	if e == nil && g.PluginContextID != "" {
+		d.rememberPluginStatus(ptr, g, topic, payload, qos, retain)
+	}
 	return t, b, retain, e
 }
 func base64Topic(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
@@ -407,6 +452,9 @@ func (d *Driver) Observation(ptr uintptr, online bool) (string, []byte, error) {
 	if s == nil || s.result != nil || !s.grant.Allow {
 		return "", nil, errors.New("no connection grant")
 	}
+	if s.grant.PluginContextID != "" {
+		return "", nil, errors.New("plugin context status is reported by the SDK")
+	}
 	return d.observationLocked(s, online)
 }
 func (d *Driver) observationLocked(s *session, online bool) (string, []byte, error) {
@@ -423,12 +471,27 @@ func (d *Driver) observationLocked(s *session, online bool) (string, []byte, err
 // fresh online observation per active connection per 30 seconds, with no queue.
 func (d *Driver) NextObservation() (string, []byte, error) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	for _, s := range d.sessions {
-		if s.connected && s.result == nil && s.grant.Allow && s.grant.Principal.Kind != bc.PrincipalService && time.Since(s.lastObservation) >= 30*time.Second {
-			return d.observationLocked(s, true)
+		if !s.grant.Allow || s.grant.PluginContextID == "" || s.result != nil || !time.Now().Before(s.grant.ExpiresAt) {
+			continue
+		}
+		topic, payload, qos, id, ok := d.nextPluginStatusLocked(s, time.Now())
+		if !ok {
+			continue
+		}
+		g := s.grant
+		d.mu.Unlock()
+		outTopic, body, _, err := d.encodePluginIngressWithID(g, topic, payload, qos, false, id, time.Now().UTC())
+		return outTopic, body, err
+	}
+	for _, s := range d.sessions {
+		if s.connected && s.result == nil && s.grant.Allow && s.grant.Principal.Kind != bc.PrincipalService && s.grant.PluginContextID == "" && time.Since(s.lastObservation) >= 30*time.Second {
+			topic, payload, err := d.observationLocked(s, true)
+			d.mu.Unlock()
+			return topic, payload, err
 		}
 	}
+	d.mu.Unlock()
 	return "", nil, nil
 }
 
@@ -458,6 +521,16 @@ func (d *Driver) RewriteWill(ptr uintptr, topic string, payload []byte, qos byte
 		return "", nil, false, errors.New("retained will not certified")
 	}
 	if g.Principal.Kind == bc.PrincipalService {
+		if pluginServiceGrant(g) && pluginUplinkTopicAllowed(g, topic) && isPluginStatusWill(g, topic) {
+			if string(payload) != "0" {
+				return "", nil, false, errors.New("closed plugin status Will must report offline")
+			}
+			outTopic, outPayload, outRetain, err := d.encodePluginIngress(g, topic, payload, qos, retain)
+			if err == nil {
+				d.rememberPluginStatus(ptr, g, topic, payload, qos, retain)
+			}
+			return outTopic, outPayload, outRetain, err
+		}
 		return "", nil, retain, nil
 	}
 	target, e := bc.IngressTopic(g.Principal.TenantID, g.Principal.DeviceID, []byte(topic))
@@ -471,6 +544,12 @@ func (d *Driver) RewriteWill(ptr uintptr, topic string, payload []byte, qos byte
 	if e != nil {
 		return "", nil, false, e
 	}
-	b, e := bc.EncodeEnvelope(g.Principal, bc.Metadata{ContractVersion: "1", TenantID: g.Principal.TenantID, PrincipalKind: g.Principal.Kind, BrokerCell: d.cfg.Cell, BrokerInstance: d.cfg.Instance, ConnectionID: g.ConnectionID, IngestionID: ingestionID, RouteEpoch: g.RouteEpoch, PolicyVersion: g.PolicyVersion, MappingVersion: g.MappingVersion, OriginalTopicB64: bc.EncodeOriginalTopic([]byte(topic)), OriginalQoS: qos, OriginalRetain: retain, ObservedAt: time.Now().UTC()}, payload)
+	b, e := bc.EncodeEnvelope(g.Principal, bc.Metadata{PluginContextID: g.PluginContextID, ContractVersion: "1", TenantID: g.Principal.TenantID, PrincipalKind: g.Principal.Kind, BrokerCell: d.cfg.Cell, BrokerInstance: d.cfg.Instance, ConnectionID: g.ConnectionID, IngestionID: ingestionID, RouteEpoch: g.RouteEpoch, PolicyVersion: g.PolicyVersion, MappingVersion: g.MappingVersion, OriginalTopicB64: bc.EncodeOriginalTopic([]byte(topic)), OriginalQoS: qos, OriginalRetain: retain, ObservedAt: time.Now().UTC()}, payload)
+	if e == nil && g.PluginContextID != "" {
+		if isPluginStatusWill(g, topic) && string(payload) != "0" {
+			return "", nil, false, errors.New("closed plugin status Will must report offline")
+		}
+		d.rememberPluginStatus(ptr, g, topic, payload, qos, retain)
+	}
 	return target, b, retain, e
 }

@@ -12,7 +12,7 @@ import (
 // PublishDurableCommand preserves the final mapped wire bytes inside a private
 // frame. Broker READ/MESSAGE_OUT checks expiry and route before unwrapping.
 func (a *Adapter) PublishDurableCommand(ctx context.Context, row brokercommands.Row, msg *downlink.Message, payload []byte) error {
-	if a.inputProfile != "ingress_v1" || msg == nil || row.RouteEpoch <= 0 || row.ID == "" || msg.TopicPrefix != "" {
+	if a.inputProfile != "ingress_v1" || msg == nil || row.RouteEpoch <= 0 || row.ID == "" {
 		return errors.New("durable MQTT command profile unavailable")
 	}
 	if !row.ExpiresAt.After(time.Now()) {
@@ -42,6 +42,12 @@ func (a *Adapter) PublishDurableCommand(ctx context.Context, row brokercommands.
 		}
 	default:
 		return errors.New("unsupported durable downlink family")
+	}
+	if msg.TopicPrefix != "" {
+		if !bc.ValidPluginPrefix(msg.TopicPrefix) {
+			return errors.New("invalid plugin socket prefix")
+		}
+		topic = msg.TopicPrefix + topic
 	}
 	version, ok := a.rememberedMapping(row.TargetDeviceID)
 	if !ok {

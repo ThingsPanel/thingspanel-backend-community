@@ -568,7 +568,7 @@ func nativeE2ESearchPath(dsn, schema string) string {
 
 func migrateNativeE2ESchema(t *testing.T, db *gorm.DB, root string) error {
 	t.Helper()
-	if err := db.AutoMigrate(&model.Device{}, &model.DeviceConfig{}, &model.DeviceStatusHistory{}, &storage.TelemetryData{}, &storage.TelemetryCurrentData{}, &model.CommandSetLog{}, &model.AttributeSetLog{}, &model.SceneAutomation{}, &model.SceneActionInfo{}, &model.DeviceTriggerCondition{}, &model.DeviceModelCommand{}, &model.DataScript{}, &storage.EventDataModel{}, &storage.AttributeData{}); err != nil {
+	if err := db.AutoMigrate(&model.Device{}, &model.DeviceConfig{}, &model.DeviceStatusHistory{}, &storage.TelemetryData{}, &storage.TelemetryCurrentData{}, &model.CommandSetLog{}, &model.AttributeSetLog{}, &model.SceneAutomation{}, &model.SceneActionInfo{}, &model.DeviceTriggerCondition{}, &model.DeviceModelCommand{}, &model.DataScript{}, &storage.EventDataModel{}, &storage.AttributeData{}, &model.ServicePlugin{}, &model.ServiceAccess{}); err != nil {
 		return fmt.Errorf("migrate business fixture tables: %w", err)
 	}
 	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS attribute_datas_device_key ON attribute_datas(device_id,key)").Error; err != nil {
@@ -581,7 +581,7 @@ func migrateNativeE2ESchema(t *testing.T, db *gorm.DB, root string) error {
 	)`).Error; err != nil {
 		return err
 	}
-	for _, filename := range []string{"001_broker_owner_tables.sql", "002_ledger.sql", "003_state.sql", "004_mapping_snapshots.sql", "005_ingress_effects.sql", "006_commands.sql", "007_state_projection.sql", "008_quarantine.sql", "009_automation_actions.sql", "010_telemetry_activity.sql", "011_safe_device_voucher.sql", "012_route_changes.sql", "013_command_plans.sql", "014_telemetry_evidence_index.sql", "015_expected_context.sql"} {
+	for _, filename := range []string{"001_broker_owner_tables.sql", "002_ledger.sql", "003_state.sql", "004_mapping_snapshots.sql", "005_ingress_effects.sql", "006_commands.sql", "007_state_projection.sql", "008_quarantine.sql", "009_automation_actions.sql", "010_telemetry_activity.sql", "011_safe_device_voucher.sql", "012_route_changes.sql", "013_command_plans.sql", "014_telemetry_evidence_index.sql", "015_expected_context.sql", "016_plugin_context.sql"} {
 		body, err := os.ReadFile(filepath.Join(root, "sql", "broker", filename))
 		if err != nil {
 			return fmt.Errorf("read broker migration %s: %w", filename, err)

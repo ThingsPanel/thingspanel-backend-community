@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	bc "project/internal/brokercontract"
+	"project/internal/brokerplugin"
+	"project/internal/model"
 	"strings"
 	"time"
 
@@ -426,7 +428,19 @@ func checkDevicePair(tx *gorm.DB, tenant, logicalDeviceID, targetRootID string) 
 		}
 		if currentID == targetRootID {
 			if current.ParentID != nil && *current.ParentID != "" {
-				return fmt.Errorf("%w: target device is not a root", ErrRejected)
+				// Only a registered plugin can own a logical child as its
+				// transport endpoint. Native MQTT children still require root.
+				var device model.Device
+				if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=?", current.ID, tenant).Take(&device).Error; err != nil {
+					return err
+				}
+				route, err := brokerplugin.Resolve(tx, &device)
+				if err != nil {
+					return err
+				}
+				if route == nil || logicalDeviceID != targetRootID {
+					return fmt.Errorf("%w: target device is not a root", ErrRejected)
+				}
 			}
 			return nil
 		}

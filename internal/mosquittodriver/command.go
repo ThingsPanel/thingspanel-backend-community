@@ -18,10 +18,20 @@ func (d *Driver) AuthorizePayload(ptr uintptr, access int, topic string, payload
 		d.mu.Lock()
 		s := d.sessions[ptr]
 		offline := s == nil || s.closed
+		var offlineGrant bc.Grant
+		if s != nil {
+			offlineGrant = s.grant
+		}
 		d.mu.Unlock()
 		if offline {
 			f, err := bc.ParseCommandFrame(payload, time.Now())
-			return err == nil && f.WireTopic == topic && qos <= 1 && !retain
+			if err != nil || f.WireTopic != topic || qos > 1 || retain {
+				return false
+			}
+			if pluginServiceGrant(offlineGrant) {
+				return d.pluginFrameTarget(offlineGrant, f)
+			}
+			return true
 		}
 	}
 	if !d.Authorize(ptr, access, topic, len(payload), qos, retain) {
@@ -29,6 +39,19 @@ func (d *Driver) AuthorizePayload(ptr uintptr, access int, topic string, payload
 	}
 	if access != 1 {
 		return true
+	}
+	if bc.IsCommandFrame(payload) {
+		g, err := d.snapshot(ptr)
+		if err != nil || retain {
+			return false
+		}
+		f, err := bc.ParseCommandFrame(payload, time.Now())
+		if err != nil || f.WireTopic != topic {
+			return false
+		}
+		if pluginServiceGrant(g) {
+			return d.pluginFrameTarget(g, f)
+		}
 	}
 	if g, err := d.snapshot(ptr); err == nil && g.Principal.Kind == bc.PrincipalService && strings.HasPrefix(topic, bc.IngressPrefix+"/") {
 		if len(payload) == 0 {
@@ -72,7 +95,16 @@ func (d *Driver) Outgoing(ptr uintptr, topic string, payload []byte, qos byte, r
 		return nil, false, err
 	}
 	g, err := d.snapshot(ptr)
-	if err != nil || g.Principal.Kind == bc.PrincipalService || retain || f.WireTopic != topic || f.TenantID != g.Principal.TenantID || f.TargetDeviceID != g.Principal.DeviceID || f.RouteEpoch != g.RouteEpoch || f.MappingVersion != g.MappingVersion {
+	if err != nil || retain || f.WireTopic != topic {
+		return nil, false, errors.New("command delivery identity or route denied")
+	}
+	if pluginServiceGrant(g) {
+		if !d.pluginFrameTarget(g, f) {
+			return nil, false, errors.New("plugin command delivery target or route denied")
+		}
+		return f.Payload, true, nil
+	}
+	if g.Principal.Kind == bc.PrincipalService || f.TenantID != g.Principal.TenantID || f.TargetDeviceID != g.Principal.DeviceID || f.RouteEpoch != g.RouteEpoch || f.MappingVersion != g.MappingVersion {
 		return nil, false, errors.New("command delivery identity or route denied")
 	}
 	return f.Payload, true, err
