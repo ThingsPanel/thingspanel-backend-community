@@ -3,6 +3,7 @@ package brokercommands
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -170,7 +171,7 @@ func TestPostgresPlanConcurrentSameKeyReturnsOneCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const n = 8
+	const n = 100
 	type result struct {
 		row Row
 		dup bool
@@ -178,23 +179,36 @@ func TestPostgresPlanConcurrentSameKeyReturnsOneCommand(t *testing.T) {
 	}
 	results := make([]result, n)
 	start := make(chan struct{})
+	ready := make(chan struct{}, n)
 	var wg sync.WaitGroup
 	for i := range results {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
+			ready <- struct{}{}
 			<-start
 			results[i].row, results[i].dup, results[i].err = store.SubmitPlan(context.Background(), tenant, caller, p.ID, p.PlanSHA256, auth, "same-key", planGuardOK, persistLog)
 		}(i)
+	}
+	for i := 0; i < n; i++ {
+		select {
+		case <-ready:
+		case <-time.After(10 * time.Second):
+			close(start)
+			wg.Wait()
+			t.Fatalf("only %d of %d callers reached the start barrier", i, n)
+		}
 	}
 	close(start)
 	wg.Wait()
 	var id string
 	duplicates := 0
+	successes := 0
 	for i, result := range results {
 		if result.err != nil {
 			t.Fatalf("same-key submit %d: %v", i, result.err)
 		}
+		successes++
 		if id == "" {
 			id = result.row.ID
 		}
@@ -206,10 +220,14 @@ func TestPostgresPlanConcurrentSameKeyReturnsOneCommand(t *testing.T) {
 		}
 	}
 	var commands, logs int64
-	db.Model(&Row{}).Count(&commands)
-	db.Table("command_set_logs").Count(&logs)
-	if duplicates != n-1 || commands != 1 || logs != 1 {
-		t.Fatalf("duplicates=%d commands=%d logs=%d, want %d/1/1", duplicates, commands, logs, n-1)
+	if err := db.Model(&Row{}).Count(&commands).Error; err != nil {
+		t.Fatal("count submitted commands")
+	}
+	if err := db.Table("command_set_logs").Count(&logs).Error; err != nil {
+		t.Fatal("count command logs")
+	}
+	if id == "" || successes != n || duplicates != n-1 || commands != 1 || logs != 1 {
+		t.Fatalf("successes=%d duplicates=%d commands=%d logs=%d, want %d/%d/1/1", successes, duplicates, commands, logs, n, n-1)
 	}
 }
 
@@ -226,44 +244,69 @@ func TestPostgresPlanConcurrentSubmitConsumesAtMostOnce(t *testing.T) {
 		dup bool
 		err error
 	}
-	results := make([]result, 2)
+	const n = 100
+	results := make([]result, n)
 	start := make(chan struct{})
+	ready := make(chan struct{}, n)
 	var wg sync.WaitGroup
 	for i := range results {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
+			ready <- struct{}{}
 			<-start
 			key := "same-key"
-			if i == 1 {
-				key = "different-key"
+			if i > 0 {
+				key = fmt.Sprintf("unique-%02d", i)
 			}
 			results[i].row, results[i].dup, results[i].err = store.SubmitPlan(context.Background(), tenant, caller, p.ID, p.PlanSHA256, auth, key, planGuardOK, persistLog)
 		}(i)
 	}
+	for i := 0; i < n; i++ {
+		select {
+		case <-ready:
+		case <-time.After(10 * time.Second):
+			close(start)
+			wg.Wait()
+			t.Fatalf("only %d of %d callers reached the start barrier", i, n)
+		}
+	}
 	close(start)
 	wg.Wait()
 	var id string
+	successes, rejected := 0, 0
 	for _, result := range results {
 		if result.err == nil {
+			successes++
+			if result.dup {
+				t.Fatal("unique-key winner unexpectedly reported duplicate")
+			}
 			if id == "" {
 				id = result.row.ID
 			}
 			if result.row.ID != id {
 				t.Fatalf("multiple commands %s and %s", id, result.row.ID)
 			}
-		} else if !errors.Is(result.err, ErrRejected) {
+		} else if errors.Is(result.err, ErrRejected) {
+			rejected++
+		} else {
 			t.Fatalf("submit result error=%v, want success or rejected", result.err)
 		}
 	}
-	if id == "" {
-		t.Fatal("both submissions failed")
+	if id == "" || successes != 1 || rejected != n-1 {
+		t.Fatalf("successes=%d rejected=%d command=%q, want 1/%d/nonempty", successes, rejected, id, n-1)
 	}
 	var commands, logs int64
-	db.Model(&Row{}).Count(&commands)
-	db.Table("command_set_logs").Count(&logs)
+	if err := db.Model(&Row{}).Count(&commands).Error; err != nil {
+		t.Fatal("count submitted commands")
+	}
+	if err := db.Table("command_set_logs").Count(&logs).Error; err != nil {
+		t.Fatal("count command logs")
+	}
 	var stored Plan
-	db.Where("id=?", p.ID).Take(&stored)
+	if err := db.Where("id=?", p.ID).Take(&stored).Error; err != nil {
+		t.Fatal("read consumed plan")
+	}
 	if commands != 1 || logs != 1 || stored.CommandID == nil || *stored.CommandID != id {
 		t.Fatalf("command=%d log=%d plan.command_id=%v, want exactly one linked command", commands, logs, stored.CommandID)
 	}

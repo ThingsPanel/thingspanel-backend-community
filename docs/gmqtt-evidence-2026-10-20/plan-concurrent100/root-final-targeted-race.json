@@ -1,0 +1,12 @@
+{"Time":"2026-10-20T04:58:10.765669+08:00","Action":"start","Package":"project/internal/brokercommands"}
+{"Time":"2026-10-20T04:58:11.395013+08:00","Action":"run","Package":"project/internal/brokercommands","Test":"TestPostgresPlanConcurrentSameKeyReturnsOneCommand"}
+{"Time":"2026-10-20T04:58:11.395089+08:00","Action":"output","Package":"project/internal/brokercommands","Test":"TestPostgresPlanConcurrentSameKeyReturnsOneCommand","Output":"=== RUN   TestPostgresPlanConcurrentSameKeyReturnsOneCommand\n"}
+{"Time":"2026-10-20T04:58:11.776101+08:00","Action":"output","Package":"project/internal/brokercommands","Test":"TestPostgresPlanConcurrentSameKeyReturnsOneCommand","Output":"--- PASS: TestPostgresPlanConcurrentSameKeyReturnsOneCommand (0.38s)\n"}
+{"Time":"2026-10-20T04:58:11.776185+08:00","Action":"pass","Package":"project/internal/brokercommands","Test":"TestPostgresPlanConcurrentSameKeyReturnsOneCommand","Elapsed":0.38}
+{"Time":"2026-10-20T04:58:11.776211+08:00","Action":"run","Package":"project/internal/brokercommands","Test":"TestPostgresPlanConcurrentSubmitConsumesAtMostOnce"}
+{"Time":"2026-10-20T04:58:11.776219+08:00","Action":"output","Package":"project/internal/brokercommands","Test":"TestPostgresPlanConcurrentSubmitConsumesAtMostOnce","Output":"=== RUN   TestPostgresPlanConcurrentSubmitConsumesAtMostOnce\n"}
+{"Time":"2026-10-20T04:58:12.256759+08:00","Action":"output","Package":"project/internal/brokercommands","Test":"TestPostgresPlanConcurrentSubmitConsumesAtMostOnce","Output":"--- PASS: TestPostgresPlanConcurrentSubmitConsumesAtMostOnce (0.48s)\n"}
+{"Time":"2026-10-20T04:58:12.256818+08:00","Action":"pass","Package":"project/internal/brokercommands","Test":"TestPostgresPlanConcurrentSubmitConsumesAtMostOnce","Elapsed":0.48}
+{"Time":"2026-10-20T04:58:12.256833+08:00","Action":"output","Package":"project/internal/brokercommands","Output":"PASS\n"}
+{"Time":"2026-10-20T04:58:13.280723+08:00","Action":"output","Package":"project/internal/brokercommands","Output":"ok  \tproject/internal/brokercommands\t2.515s\n"}
+{"Time":"2026-10-20T04:58:13.280828+08:00","Action":"pass","Package":"project/internal/brokercommands","Elapsed":2.515}
