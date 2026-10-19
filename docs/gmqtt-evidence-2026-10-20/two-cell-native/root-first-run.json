@@ -1,0 +1,9 @@
+{"Time":"2026-10-20T04:21:21.92052+08:00","Action":"start","Package":"project/internal/app"}
+{"Time":"2026-10-20T04:21:22.981179+08:00","Action":"run","Package":"project/internal/app","Test":"TestBrokerMigrationNativeTwoCellRoundTrip"}
+{"Time":"2026-10-20T04:21:22.981245+08:00","Action":"output","Package":"project/internal/app","Test":"TestBrokerMigrationNativeTwoCellRoundTrip","Output":"=== RUN   TestBrokerMigrationNativeTwoCellRoundTrip\n"}
+{"Time":"2026-10-20T04:21:37.394559+08:00","Action":"output","Package":"project/internal/app","Test":"TestBrokerMigrationNativeTwoCellRoundTrip","Output":"    broker_migration_roundtrip_native_test.go:196: isolated native A/1 -\u003e B/2 -\u003e A/3: real four-role barriers, connecting receipts and business processing verified; no command or physical-effect certification\n"}
+{"Time":"2026-10-20T04:21:39.791279+08:00","Action":"output","Package":"project/internal/app","Test":"TestBrokerMigrationNativeTwoCellRoundTrip","Output":"--- PASS: TestBrokerMigrationNativeTwoCellRoundTrip (16.81s)\n"}
+{"Time":"2026-10-20T04:21:39.791335+08:00","Action":"pass","Package":"project/internal/app","Test":"TestBrokerMigrationNativeTwoCellRoundTrip","Elapsed":16.81}
+{"Time":"2026-10-20T04:21:39.791369+08:00","Action":"output","Package":"project/internal/app","Output":"PASS\n"}
+{"Time":"2026-10-20T04:21:40.801979+08:00","Action":"output","Package":"project/internal/app","Output":"ok  \tproject/internal/app\t18.882s\n"}
+{"Time":"2026-10-20T04:21:40.802057+08:00","Action":"pass","Package":"project/internal/app","Elapsed":18.882}

@@ -12,7 +12,7 @@
 | G1-C / W03 | Native macOS 与 Linux/arm64 c-shared 构建/加载、身份封装、ACL、即时Will、platform-retained、shared 前缀已有分项证据 | Linux/arm64协议与离线持久会话/受控Broker重启命令帧矩阵有PASS证据；pending认证断开仍只有有界超时，立即取消不支持；延迟Will与Will重启恢复未认证；MaxPending重叠压力和sanitizer门槛未完成 |
 | G2-C / W06–10 | Owner、不可变mapper快照、手动第二跳ACK、持久收据/业务事务/intent、命令幂等/冻结编码/最终fence、生命周期与SQL013持久命令计划代码已实现；automation链、状态投影、quarantine、SIGKILL redelivery、Linux离线/重启及计划命令的单次原生Mosquitto子项有证据 | 计划命令原生E2E使用Encore HTTP stub和Paho测试设备，证明一条协议级投递/设备ACK路径，不证明物理执行或live Encore；feature默认关闭，完整故障/幂等矩阵及旧下行unsupported边界仍待验 |
 | G3-C / W11–13 | Luna独立QA已有raw NDJSON与分阶段判定器；建立独立PG、原生Broker、Linux构建及干净候选工作树 | 全量适用AC、配对性能/容量、故障命中与对账、72小时长稳、安装接班未完成；无生产证书 |
-| G4-C / W17 | 旧运行1883/9999未切换，隔离实验端口/卷独立；SQL012 runtime已自动ACK的单cell freeze有Mosquitto集成子项；新增plan-based `tp-broker-cutover`可调用freeze/prepare/activate/rebase | 没有完成两cell全迁移、生产式灰度和回滚。CLI只有freeze持久化actor与plan hash，其他阶段缺完整操作审计；membership retirement与全量阶段故障验收待完成 |
+| G4-C / W17 | 旧运行1883/9999未切换，隔离实验端口/卷独立；SQL012 runtime单cell freeze与一条binding的两个native cell A/1→B/2→A/3均有真实集成子项；新增plan-based `tp-broker-cutover`可调用freeze/prepare/activate/rebase | Luna独立两轮native往返通过，但未完成50 binding、多家族/命令/旧系统退役和生产式灰度。CLI只有freeze持久化actor与plan hash，其他阶段缺完整操作审计；membership retirement与全量阶段故障验收待完成 |
 | G5-C / W14–16 | 只读核验现有Encore原生模型API/快照/授权/receipt；command-plan service集成和一条原生Mosquitto/Paho测试设备协议路径均有分项证据 | 原生计划测试使用Encore `httptest` stub，不代表live Encore或物理效果；AI产品切片、盲测/人效/成本/留出集尚未完成，也未进行模型付费调用 |
 
 逐 AC 当前判定见[社区 AC 逐项执行台账](gmqtt-community-ac-ledger-2026-10-20.md)。只有完整覆盖单项计划断言才会标 PASS。
@@ -64,4 +64,6 @@
 
 ## 组织与后续顺序
 
-总6步：1盘点；2合同/原生PoC；3可靠链集成；4独立完整质量/故障/性能验收；5灰度与回滚接管；6技术总监、产品经理、老板三份Markdown完工汇报及记忆收据。当前第3步。主代理负责复杂设计和集成，三个Luna负责模块实现、独立QA和测试；不把未达到的后续Gate写成完成。
+总6步：1盘点；2合同/原生PoC；3可靠链集成；4独立完整质量/故障/性能验收；5灰度与回滚接管；6技术总监、产品经理、老板三份Markdown完工汇报及记忆收据。当前第4步；并行补隔离迁移子项，尚未进入生产灰度。主代理负责复杂设计和集成，三个Luna负责模块实现、独立QA和测试；不把未达到的后续Gate写成完成。
+
+- **两cell边界更新：**[native往返证据](gmqtt-evidence-2026-10-20/two-cell-native/README.md)在两个真实Mosquitto与两个独立后端进程中验证四角色真实ACK、同wire ClientID的新连接、新代pending receipt与激活后唯一业务行/effect intent。精确源SHA的Luna两轮均PASS、0skip；root更早版本首轮亦PASS但没有后续断言加强。ready hash是fixture声明，不是目标配置认证；未做Broker重启、磁盘故障、命令在途和legacy退役。AC-D01/D05改PARTIAL，当前社区24 PARTIAL、38 PENDING、0完整PASS；Gate仍未放行。

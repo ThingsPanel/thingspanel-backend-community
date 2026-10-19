@@ -15,3 +15,7 @@
 ## 受限 AI 工具增量（2026-10-20，集成中）
 
 新增默认关闭的四个固定工具、120 秒/20 次/明确设备范围的委托凭证，复用既有用户会话、Casbin、语义与命令 owner。真实私有 PG/Redis 的 HTTP 正向 describe/telemetry/preview 和结果读取、撤销/父会话失效、OperationLogs 保密子项已执行。preview 只创建计划，不创建命令。可选 ChatBridge dispatcher→Python adapter→真实 Go 客户端→TLS Gin→私有 PG/Redis 结果读取已通过隔离串联；尚无部署、真实模型调用或物理效果。详见[委托证据](gmqtt-evidence-2026-10-20/ai-delegation-test-plan.md)。AC-A01–A06 仍保持 PENDING；不因这些工具子项提高完整项目通过率。
+
+## 两个原生cell往返子项
+
+[隔离native A/1→B/2→A/3](gmqtt-evidence-2026-10-20/two-cell-native/README.md)的精确测试源在Luna独立race count2中两次通过、无skip；只新增测试，没有更改生产逻辑。验证单binding的真实运行成员/屏障、旧源publish拒绝、目标真实连接和pending→processed业务收据；未验证目标配置cert、命令/物理执行、存储故障或正式灰度。AC-D01与D05为PARTIAL，完整两cell与生产门禁仍未完成。
