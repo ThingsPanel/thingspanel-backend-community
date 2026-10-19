@@ -134,3 +134,11 @@ Mosquitto2.1.2 `src/topic_tok.c` 处理 `$share/group/$tp/...` 首token与`$tp/.
 - 合成targetReadySHA只测试API格式和native运行流程，不是实际配置/存储/consumer门禁证据；没有命令在途/Unknown、旧GMQTT退役、50binding规模、真实硬件、Broker重启或生产灰度。AC-D01/D05改PARTIAL，社区24 PARTIAL/38 PENDING/0完整PASS，Gate仍未放行。
 - 可复用结论远程Candidate Memory `stored`：`cdac9a3d-ef1a-456b-bd54-7ea550a44366`，evidence `lev-272983a46bd4389e072aef00`。同时只读MCP查找G0真实固件/QoS/retained/规模资料无命中（items空），没有以文档或授权代替这些现场事实。
 - 当前继续离线独立事件判定器自检；机器约1.2GiB空闲，未启动无法容纳全账本的72小时正式长稳，也未切1883/9999。
+
+### 2026-10-20T04:45:00+08:00 — 离线判定器与切换审计增量
+
+- 工程提交 `27e4fa6d8fb5b476533fd8773c99241eb2a64f9d`：新增独立离线 `tp-broker-reconcile`。七阶段有界/hash输入、严格字段和大小、tenant/device/event及receipt/effect唯一、deadline判定；1k合法事件0误报，四类各100错误均检出，同总数丢重亦检出，缺证据BLOCKED/损坏INVALID。Luna race自检通过；尚未接正式采集，AC-Q02不改为PASS。
+- 工程提交 `860bdb9d8c6f4134c06d85e254ea30ea9fe5e176`：CLI prepare/activate/rebase使用独立审计Store副本，按实际操作标签校验，并同事务追加operator_apply(operation,actor,raw plan SHA)。audit INSERT失败回滚phase和先前事件；fence ACK/runtime_sync不被错标。内部无facade的Store保留原行为；actor/hash不是签名审批，成功重试可追加记录。无新DDL/设备wire契约变更。
+- Luna真实私有brokerqa两包race共39测试PASS/0fail/0skip；root核对7个源SHA，并对变更后Store复跑真实native双cellA1→B2→A3：PASS16.52秒、0skip；全项目build exit0。原始JSON、源码hash和边界归档cutover-audit。Linux冻结镜像未重建，不代表本次新Store源码，不能沿用镜像认证。
+- 当前仍第4/6步，24PARTIAL/38PENDING/0完整PASS。缺真实G0样本/规模、足够长稳环境、完整兼容/故障、配对收益和72h、实际灰度/live Encore/真人AI价值验收。只回收本任务可重建缓存；磁盘仍约1.2GiB，未动原1883/9999。
+- 远程Candidate Memory已stored：`d9a43804-08a4-4ecc-b9f6-1fe84c6661f8`，evidence `lev-3d7c9ad4eca608a07091b82c`。收据实际返回约04:43:44，提交payload的occurred_at手工填04:45:00（领先约76秒），不将该字段当测试或性能时钟证据。

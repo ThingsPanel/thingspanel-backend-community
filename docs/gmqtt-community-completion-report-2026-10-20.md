@@ -4,7 +4,7 @@
 
 范围仅为社区 Mosquitto；企业 VerneMQ/EMQX 未实施、未采购、未测试，不属于本期欠项。本文为代理按三个角色拟稿，不是三名真人签字或独立 SRE 接管记录。计划的 62 项社区 AC 当前为 24 PARTIAL、38 PENDING；11 项企业专项 OUT_OF_SCOPE。G0–G5-C 均未放行。
 
-当前候选位于分支 `codex/gmqtt-community-20261019`，最新测试工程提交 `395a64c6aa5fd50c5d2982794f261fa7b7917db8`，AI工程提交 `f43b9911`；此前检查点 `ba4ccecd`、`ad2cbd7f`。当前受管源码为原[218个验证源文件](gmqtt-evidence-2026-10-20/ai-candidate20-race/source-manifest-after-fixture-fix.json)加[两个独立复跑的native测试源](gmqtt-evidence-2026-10-20/two-cell-native/README.md)，提交前均核对SHA；生产逻辑未因新增迁移测试改变。前一轮 199 个 Go/SQL 文件的证据另行保留。原工作树的通知、版本等其他任务改动保留。
+当前候选位于分支 `codex/gmqtt-community-20261019`，最新工程提交 `860bdb9d8c6f4134c06d85e254ea30ea9fe5e176`（切换操作事务审计），此前 `27e4fa6d`（离线对账工具）、`395a64c6`（native双cell测试）、`f43b9911`（受限AI）。验证按各自源码快照记录：[218个AI轮验证源文件](gmqtt-evidence-2026-10-20/ai-candidate20-race/source-manifest-after-fixture-fix.json)、[双cell测试源](gmqtt-evidence-2026-10-20/two-cell-native/README.md)、[审计增量源及回归](gmqtt-evidence-2026-10-20/cutover-audit/README.md)，不能合并成最新源码完整认证。现有Linux镜像是审计代码变更前的冻结产物，本次未重建。原工作树的通知、版本等其他任务改动保留。
 
 ## 一、给技术总监的汇报
 
@@ -24,12 +24,16 @@
 | 命令 | 协议 PUBACK 容易被误解为执行成功 | 既有 command owner 保存意图、幂等、过期和 unknown；SQL013 preview/hash 授权/submit；真实 MQTT 到 Paho 测试设备 ACK 已通过，Encore 为契约 stub |
 | 语义/证据 | 裸数值缺少发布模型、单位和来源 | tenant-scoped 已发布 Encore 语义、只读状态、SQL014 遥测证据；独立设备采样时间未知，空单位明确未知。未验证 live Encore |
 | AI 工具委托 | 既有运行时没有本项目受限工具与可信用户委托接线 | 默认关闭；120秒/20次/明确设备范围；每次重验父会话、用户和显式权限。Go固定TLS客户端保留服务端身份，Python现有runtime adapter核对tenant/user/thread/device；真实隔离RPC串联通过，未部署线上登录/线程交接 |
+| 迁移操作审计 | freeze外的批准文件hash/actor原先只输出到终端 | CLI prepare/activate/rebase在状态变更同一事务追加operator_apply；注入审计写失败会回滚状态和阶段事件。actor/hash为DB调用者标签，重试可追加；非签名人类审批，完整运维认证待验 |
+| 离线独立对账 | 只看总数可能掩盖一丢一重及串租户 | 七阶段有界/hash输入按事件、tenant/device、receipt/effect和deadline判定；正确1k包与四类各100注入自检通过。尚未连接正式采集，不是零丢失或时延认证 |
 
 验证结果：一次 18 包 race 回归中 17 包通过，CLI 测试受 `umask 077` 影响而失败；修正测试创建文件的权限前提后，同环境单独重跑 CLI 包通过，生产逻辑未为此放宽。`go build -p 1 ./...` 通过。三项预期 skip 为子进程 helper、未在该轮启用固定 Linux 镜像的 SIGKILL、未启用的旧 GMQTT 健康测试。固定 Linux 镜像的 SIGKILL 无 source ID 用例另行连续运行两次；固定名原始日志仅保留最后一次。完整失败、诊断和复跑见[验证记录](gmqtt-evidence-2026-10-19/final18-race/README.md)。
 
 最新增量验证：[20包回归证据](gmqtt-evidence-2026-10-20/ai-candidate20-race/README.md)中19包通过、service包因测试未清理活跃委托撞到真实上限而失败；只修测试清理后，整个service包在显式真实PG/Redis下通过且无skip，完整构建通过。Python adapter 14项通过，实际ChatBridge dispatcher→Python adapter→Go CLI→TLS Gin→PG/Redis的只读结果查询子项通过。源码只有该测试清理一处区别；不把组合结果说成单轮20包全绿。根此前一个未设DB变量的探索性命令跳过了集成，不能作为通过证据，已在原始记录中澄清。解码后检查可拦截JSON转义的凭证回显；预览仍只创建计划，不创建或派发命令。
 
 [两cell专项](gmqtt-evidence-2026-10-20/two-cell-native/README.md)新增精确测试源的Luna race count2，两次均通过且无skip，验证真实四角色自动屏障、新设备连接、新代pending→processed及回A的epoch3。root更早版本首轮也通过，但没有后续加强断言的源SHA；不混成三次完全同源认证。目标ready SHA为合成fixture标记，未证明生产配置、存储或consumer readiness认证；也未覆盖命令在途或磁盘故障。
+
+最新[审计增量回归](gmqtt-evidence-2026-10-20/cutover-audit/README.md)：Luna在真实私有PG下两包race共39测试PASS、0失败/0skip；root以变更后的生产Store复跑native A→B→A测试PASS（16.52秒、0skip），全项目 `go build -p 1 ./...` PASS。这不等于CLI在native测试里执行，CLI审计字段和失败回滚来自独立PG用例。[离线判定器自检](../cmd/tp-broker-reconcile/SELF-CHECK.md)通过1k合法事件、四类各100错误、同总数丢重和坏证据/边界校验；AC-Q02仍PENDING，等待实际采集接线与独立验收。
 
 另有新链 C100/R100 每秒、60 秒 6,000 条健康对账与旧链 5 秒 500 条健康对账；它们没有构成同条件收益测试。旧版本 ASan 压力不能替代当前源码认证。此前 Activate 单次失败在诊断 10 次中未复现，其具体触发原因仍未确认；确定性时钟偏移回归证明本轮因果修正的必要边界。
 
@@ -78,4 +82,4 @@
 
 ## 复用结论与正式记忆收据
 
-已通过远程 MCP 提交 Candidate Memory，最新结果 `stored`：`cdac9a3d-ef1a-456b-bd54-7ea550a44366`，evidence `lev-272983a46bd4389e072aef00`。内容为独立后端进程、connecting生产gating、真实连接/收据证明与epoch递增回退，不包含生产放行结论。此前SIGKILL、Redis和service增量记忆收据见[执行日志](gmqtt-community-execution-log-2026-10-19.md)。
+已通过远程 MCP 提交 Candidate Memory，最新结果 `stored`：`d9a43804-08a4-4ecc-b9f6-1fe84c6661f8`，evidence `lev-3d7c9ad4eca608a07091b82c`。内容为切换操作事务审计、实际回归及离线对账自检的边界，不包含生产放行结论。此前双cell、SIGKILL、Redis和service增量记忆收据见[执行日志](gmqtt-community-execution-log-2026-10-19.md)。

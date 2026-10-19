@@ -4,7 +4,7 @@
 
 ## 当前快照
 
-- 报告来源是 source checkpoint `ad2cbd7f` 加其后的未提交源码快照；这不是新的可复现 commit。新的冻结 commit 尚待 root 提供，候选最终 18 项回归仍在运行，本页不引用其结果。
+- 候选分支tip为 `860bdb9d`，包含先前 `27e4fa6d` 离线事件判定器和审计CLI提交，不代表完整验收。审计CLI 39项测试/0 skip、一次native复跑和build已核实通过；Linux镜像尚未因新增代码重建。
 - 社区验收仍按原 73 项计划：62 项社区 AC 保持 PARTIAL/PENDING，企业专项 11 项 OUT_OF_SCOPE。没有 Gate 或完整 AC 因局部用例而通过。
 
 ## 技术负责人可引用
@@ -12,7 +12,7 @@
 - 原生计划命令用例通过一次：真实 Mosquitto/社区插件、隔离 PG/Redis、应用 Adapter/dispatcher 和 Paho 测试设备完成 preview、真人授权、幂等提交、命令收取及 scoped ACK。语义 API 是精确响应的 `httptest` stub，不是 live Encore；设备 ACK 只证明测试设备的协议回执，不证明物理效果。见[planned-command native E2E](../gmqtt-evidence-2026-10-19/planned-command-native-mosquitto-e2e-2026-10-20.md)。
 - 两个独立结果目录记录 adapter subscriber 子进程在 receipt 提交后、MQTT ACK 前遭 `SIGKILL` 的重投测试；Mosquitto broker 在测试中持续运行，无 `source_event_id` 的样本依靠 `ingestion_id` 去重，重投为 duplicate，业务 effect 计数为 1。结果分别覆盖有、无 `source_event_id` 两种 payload；无 source ID 的 `-count=2` 只将最后一次成功运行的原始日志归档到固定文件名。此测试不覆盖 broker 进程重启、硬重启、磁盘故障或 RPO0。见[sigkill evidence](sigkill/)。
 - 对一个冻结本地镜像已生成 Syft provenance、SPDX 与 Syft inventory。它们是静态软件库存，不是漏洞扫描、生产制品认证或法律意见。见[SBOM provenance](sbom/provenance.json)。
-- SQL012 状态机有真实 Mosquitto 单 cell 自动 ACK 子项；`tp-broker-cutover` 可按审核计划执行 freeze/prepare/activate/rebase。只有 freeze 持久保存 actor 和原始计划 hash；其他阶段未持久记录完整 actor/hash 审计。membership retirement 与双 cell 灰度/回退仍待运行验证。见[cutover CLI 限制](../../deploy/mosquitto-community/CUTOVER-CLI.md)。
+- SQL012 状态机有真实 Mosquitto 单 cell 自动 ACK 子项；`tp-broker-cutover` 可按审核计划执行 freeze/prepare/activate/rebase。freeze持久保存actor/raw plan hash，prepare/activate/rebase在同事务追加操作者标签/raw hash的`operator_apply`事件，成功重试可能追加事件；标签不是签名身份或审批证明。membership retirement 与双 cell 灰度/回退仍待运行验证。见[cutover CLI限制](../../deploy/mosquitto-community/CUTOVER-CLI.md)。
 - telemetry evidence 只查询 trusted processed receipt；当前 writer 没有独立设备 reported timestamp，API 返回 `reported_at:null`、`reported_time_available:false`，缺单位时 `unit_known=false`。见[telemetry evidence API](../gmqtt-evidence-2026-10-19/community-telemetry-evidence-api.md)。
 
 尚待技术验收的重点包括 72 小时稳定性、完整新旧栈配对基线、全量故障矩阵、完整两 cell route barrier/灰度/回退，以及真实物理设备效果。`ingress_v1` 下 custom topic mapping 与旧 service/protocol/raw legacy downlink 是明确 unsupported 边界。
