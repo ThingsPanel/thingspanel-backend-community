@@ -40,7 +40,8 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd -- "$script_dir/../.." && pwd)"
 migration_dir="$repo_root/sql/broker"
 contract_file="$script_dir/migration-required-columns.tsv"
-[[ -d "$migration_dir" && -r "$contract_file" ]] || { echo "migration inputs are unavailable" >&2; exit 66; }
+index_contract_file="$script_dir/migration-required-indexes.tsv"
+[[ -d "$migration_dir" && -r "$contract_file" && -r "$index_contract_file" ]] || { echo "migration inputs are unavailable" >&2; exit 66; }
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "$temp_dir"' EXIT
 
@@ -126,4 +127,35 @@ if [[ -n "$voucher_function" ]]; then
   echo "broker schema is incomplete for ingress_v1; missing required function: broker_safe_voucher_v1(text)" >&2
   exit 2
 fi
-echo "broker schema check passed: required columns and broker_safe_voucher_v1(text) exist in schema ${schema}"
+
+index_check_sql="$temp_dir/check-required-indexes.sql"
+{
+  printf 'WITH expected(index_name) AS (VALUES\n'
+  first=1
+  while IFS= read -r index_name || [[ -n "${index_name:-}" ]]; do
+    [[ -z "${index_name:-}" || "$index_name" == \#* ]] && continue
+    [[ "$index_name" =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || { echo "invalid required index name in manifest" >&2; exit 66; }
+    if ((first)); then first=0; else printf ',\n'; fi
+    printf "('%s')" "$index_name"
+  done < "$index_contract_file"
+  cat <<'SQL'
+)
+SELECT expected.index_name
+FROM expected
+LEFT JOIN pg_indexes actual
+  ON actual.schemaname = :'schema'
+ AND actual.indexname = expected.index_name
+WHERE actual.indexname IS NULL
+ORDER BY expected.index_name;
+SQL
+} > "$index_check_sql"
+missing_indexes="$(psql "$dsn" -X -v ON_ERROR_STOP=1 -v schema="$schema" -At -f "$index_check_sql")" || {
+  echo "schema index check query failed" >&2
+  exit 69
+}
+if [[ -n "$missing_indexes" ]]; then
+  echo "broker schema is incomplete; missing required indexes:" >&2
+  printf '%s\n' "$missing_indexes" >&2
+  exit 2
+fi
+echo "broker schema check passed: required columns, function and indexes exist in schema ${schema}"

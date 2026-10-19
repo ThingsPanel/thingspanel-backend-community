@@ -76,13 +76,14 @@ func (s *Store) Apply(ctx context.Context, o bc.StateObservation) (Decision, err
 
 func snapshotTx(tx *gorm.DB, tenant, device, cell string, epoch uint64) (Decision, error) {
 	var out Decision
-	var counts struct{ Total, Active, Stale int64 }
+	var counts struct{ Total, Active, Stale, FreshClosed int64 }
 	now := time.Now()
 	past, future := now.Add(-60*time.Second), now.Add(5*time.Second)
 	err := tx.Raw(`SELECT count(*) AS total,
 	 count(*) FILTER(WHERE online AND observed_at>=? AND observed_at<=? AND received_at>=?) AS active,
-	 count(*) FILTER(WHERE online AND NOT(observed_at>=? AND observed_at<=? AND received_at>=?)) AS stale
-	 FROM broker_connection_observations WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=?`, past, future, past, past, future, past, tenant, device, cell, epoch).Scan(&counts).Error
+	 count(*) FILTER(WHERE online AND NOT(observed_at>=? AND observed_at<=? AND received_at>=?)) AS stale,
+	 count(*) FILTER(WHERE NOT online AND observed_at>=? AND observed_at<=? AND received_at>=?) AS fresh_closed
+	 FROM broker_connection_observations WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=?`, past, future, past, past, future, past, past, future, past, tenant, device, cell, epoch).Scan(&counts).Error
 	if err != nil {
 		return out, err
 	}
@@ -92,7 +93,7 @@ func snapshotTx(tx *gorm.DB, tenant, device, cell string, epoch uint64) (Decisio
 		out.Status, out.Fresh = "online", true
 	} else if counts.Stale > 0 {
 		out.Fresh = false
-	} else if counts.Total > 0 {
+	} else if counts.FreshClosed > 0 {
 		out.Status, out.Fresh = "offline", true
 	}
 	return out, nil

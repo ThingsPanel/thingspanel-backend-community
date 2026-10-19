@@ -52,8 +52,11 @@ func TestBrokerIngressLegacyGMQTTOwnerPostgresHealth(t *testing.T) {
 	if err := migrateNativeE2ESchema(t, db, root); err != nil {
 		t.Fatal(err)
 	}
+	if err := db.AutoMigrate(&model.ExpectedData{}); err != nil {
+		t.Fatalf("migrate expected-data status-uplink fixture table: %v", err)
+	}
 	legacyRunID := nativeE2ERandomID(t)
-	pgUser, pgPassword := startLegacyGMQTTDBRole(t, schema, legacyRunID)
+	pgUser, pgPassword, pgDatabase := startLegacyGMQTTDBRole(t, schema, legacyRunID)
 	seedNativeE2EData(t, db)
 	seedNativeE2ELoadDevicesLegacy(t, db, nativeE2ELoadConnections)
 
@@ -72,8 +75,18 @@ func TestBrokerIngressLegacyGMQTTOwnerPostgresHealth(t *testing.T) {
 		stopRedis()
 	})
 
-	brokerURL, rootPassword, stopBroker := startLegacyGMQTTContainer(t, legacyRunID, pgUser, pgPassword)
+	brokerURL, rootPassword, stopBroker := startLegacyGMQTTContainer(t, legacyRunID, pgUser, pgPassword, pgDatabase)
 	t.Cleanup(stopBroker)
+	if inspect, err := exec.Command("docker", "inspect", "--format", "{{json .NetworkSettings.Ports}} {{json .NetworkSettings.Networks}}", "qa-gmqtt-old-"+legacyRunID).CombinedOutput(); err != nil {
+		t.Logf("legacy Docker endpoint inspect failed: %v", err)
+	} else {
+		t.Logf("legacy Docker endpoint inspect: %s", strings.TrimSpace(string(inspect)))
+	}
+	probe, probeErr := legacyWaitRawConnectReady(brokerURL, rootPassword, 10*time.Second)
+	if probeErr != nil {
+		t.Fatalf("legacy listener never returned a successful MQTT 3.1.1 CONNACK: %v", probeErr)
+	}
+	t.Logf("raw MQTT 3.1.1 CONNACK readiness probe: %x", probe)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	values := map[string]string{"mqtt.broker": brokerURL, "mqtt.user": "root", "mqtt.pass": rootPassword, "mqtt.client_id": "qa-legacy-adapter-" + legacyRunID, "mqtt.input_profile": "legacy"}
@@ -135,7 +148,7 @@ func TestBrokerIngressLegacyGMQTTOwnerPostgresHealth(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = flow.Stop() })
 
-	adapterOptions := mqttclient.NewClientOptions().AddBroker(brokerURL).SetClientID("qa-legacy-adapter-" + legacyRunID).SetUsername("root").SetPassword(rootPassword).SetCleanSession(true).SetAutoReconnect(false)
+	adapterOptions := mqttclient.NewClientOptions().AddBroker(brokerURL).SetClientID("qa-legacy-adapter-" + legacyRunID).SetUsername("root").SetPassword(rootPassword).SetCleanSession(true).SetAutoReconnect(false).SetProtocolVersion(4)
 	adapterClient := mqttclient.NewClient(adapterOptions)
 	if err := mqttadapter.WaitTokenContext(ctx, adapterClient.Connect(), 8*time.Second); err != nil {
 		logPath := captureLegacyGMQTTLogs(legacyRunID)
@@ -152,6 +165,48 @@ func TestBrokerIngressLegacyGMQTTOwnerPostgresHealth(t *testing.T) {
 	t.Cleanup(func() { mqttadapter.DisconnectMQTTClient(adapterClient, log) })
 
 	runLegacyGMQTTLoad(t, ctx, db, brokerURL, observed, legacyRunID)
+}
+
+func legacyRawConnectProbe(brokerURL, password string) ([]byte, error) {
+	addr := strings.TrimPrefix(brokerURL, "tcp://")
+	conn, err := net.DialTimeout("tcp", addr, time.Second)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	field := func(s string) []byte { return append([]byte{byte(len(s) >> 8), byte(len(s))}, []byte(s)...) }
+	var body []byte
+	body = append(body, field("MQTT")...)
+	body = append(body, 4, 0xC2, 0, 60)
+	body = append(body, field("qa-raw-probe")...)
+	body = append(body, field("root")...)
+	body = append(body, field(password)...)
+	packet := []byte{0x10, byte(len(body))}
+	packet = append(packet, body...)
+	if _, err := conn.Write(packet); err != nil {
+		return nil, err
+	}
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	response := make([]byte, 4)
+	n, err := conn.Read(response)
+	return response[:n], err
+}
+
+func legacyWaitRawConnectReady(brokerURL, password string, timeout time.Duration) ([]byte, error) {
+	deadline := time.Now().Add(timeout)
+	var lastResponse []byte
+	var lastErr error
+	for time.Now().Before(deadline) {
+		lastResponse, lastErr = legacyRawConnectProbe(brokerURL, password)
+		if lastErr == nil && len(lastResponse) == 4 && lastResponse[0] == 0x20 && lastResponse[3] == 0 {
+			return lastResponse, nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if lastErr != nil {
+		return lastResponse, lastErr
+	}
+	return lastResponse, fmt.Errorf("unexpected CONNACK %x", lastResponse)
 }
 
 type legacyAdapterObservation struct {
@@ -207,7 +262,7 @@ func runLegacyGMQTTLoad(t *testing.T, ctx context.Context, db *gorm.DB, broker s
 	clients := make([]mqttclient.Client, nativeE2ELoadConnections)
 	for i := range clients {
 		username, password := nativeE2ELoadVoucher(i)
-		options := mqttclient.NewClientOptions().AddBroker(broker).SetClientID(fmt.Sprintf("legacy-device-%03d", i)).SetUsername(username).SetPassword(password).SetCleanSession(true).SetAutoReconnect(false)
+		options := mqttclient.NewClientOptions().AddBroker(broker).SetClientID(fmt.Sprintf("legacy-device-%03d", i)).SetUsername(username).SetPassword(password).SetCleanSession(true).SetAutoReconnect(false).SetProtocolVersion(4)
 		client := mqttclient.NewClient(options)
 		if err := mqttadapter.WaitTokenContext(ctx, client.Connect(), 8*time.Second); err != nil {
 			t.Fatalf("connect legacy fixture device %03d: %v", i, err)
@@ -437,7 +492,7 @@ func seedNativeE2ELoadDevicesLegacy(t *testing.T, db *gorm.DB, count int) {
 	}
 }
 
-func startLegacyGMQTTDBRole(t *testing.T, schema, runID string) (string, string) {
+func startLegacyGMQTTDBRole(t *testing.T, schema, runID string) (string, string, string) {
 	t.Helper()
 	dsnBytes, err := os.ReadFile("/tmp/tp-mqtt-20261019/qa-dsn")
 	if err != nil {
@@ -445,6 +500,10 @@ func startLegacyGMQTTDBRole(t *testing.T, schema, runID string) (string, string)
 	}
 	admin, err := gorm.Open(postgres.Open(strings.TrimSpace(string(dsnBytes))), &gorm.Config{})
 	if err != nil {
+		t.Fatal(err)
+	}
+	var databaseName string
+	if err := admin.Raw("SELECT current_database()").Row().Scan(&databaseName); err != nil {
 		t.Fatal(err)
 	}
 	random := make([]byte, 24)
@@ -475,10 +534,10 @@ func startLegacyGMQTTDBRole(t *testing.T, schema, runID string) (string, string)
 	if sqlDB, e := admin.DB(); e == nil {
 		_ = sqlDB.Close()
 	}
-	return role, password
+	return role, password, databaseName
 }
 
-func startLegacyGMQTTContainer(t *testing.T, runID, pgUser, pgPassword string) (string, string, func()) {
+func startLegacyGMQTTContainer(t *testing.T, runID, pgUser, pgPassword, pgDatabase string) (string, string, func()) {
 	t.Helper()
 	image := "registry.cn-hangzhou.aliyuncs.com/thingspanel/thingspanel-gmqtt:v1.1.7"
 	network := "qa-gmqtt-" + runID
@@ -514,7 +573,7 @@ log:
   format: text
   dump_packet: false
 `
-	thingspanelConfig := fmt.Sprintf("db:\n  redis:\n    conn: legacy-redis:6379\n    db_num: 0\n    password: \"\"\n  psql:\n    psqladdr: host.docker.internal\n    psqlport: 35432\n    psqldb: ThingsPanel\n    psqluser: %s\n    psqlpass: %s\nmqtt:\n  broker: 127.0.0.1:1883\n  password: %s\n  plugin_password: %s\n", pgUser, pgPassword, rootPassword, nativeE2ERandomID(t))
+	thingspanelConfig := fmt.Sprintf("db:\n  redis:\n    conn: legacy-redis:6379\n    db_num: 0\n    password: \"\"\n  psql:\n    psqladdr: host.docker.internal\n    psqlport: 35432\n    psqldb: %s\n    psqluser: %s\n    psqlpass: %s\nmqtt:\n  broker: 127.0.0.1:1883\n  password: %s\n  plugin_password: %s\n", pgDatabase, pgUser, pgPassword, rootPassword, nativeE2ERandomID(t))
 	defaultPath, pluginPath := filepath.Join(dir, "default_config.yml"), filepath.Join(dir, "thingspanel.yml")
 	if err := os.WriteFile(defaultPath, []byte(defaultConfig), 0600); err != nil {
 		t.Fatal(err)
@@ -522,7 +581,7 @@ log:
 	if err := os.WriteFile(pluginPath, []byte(thingspanelConfig), 0600); err != nil {
 		t.Fatal(err)
 	}
-	args := []string{"run", "-d", "--rm", "--name", brokerName, "--network", network, "-p", fmt.Sprintf("127.0.0.1:%d:1883", port), "-v", defaultPath + ":/gmqttd/default_config.yml:ro", "-v", pluginPath + ":/gmqttd/thingspanel.yml:ro", image}
+	args := []string{"run", "-d", "--name", brokerName, "--network", network, "-p", fmt.Sprintf("127.0.0.1:%d:1883", port), "-v", defaultPath + ":/gmqttd/default_config.yml:ro", "-v", pluginPath + ":/gmqttd/thingspanel.yml:ro", image}
 	if out, err := exec.Command("docker", args...).CombinedOutput(); err != nil {
 		t.Fatalf("start isolated legacy GMQTT: %v %s", err, out)
 	}
@@ -542,7 +601,9 @@ func captureLegacyGMQTTLogs(runID string) string {
 	path := filepath.Join("/tmp", "tp-mqtt-20261019", "build", "legacy-gmqtt-"+runID+".log")
 	name := "qa-gmqtt-old-" + runID
 	output, err := exec.Command("docker", "logs", name).CombinedOutput()
-	if err != nil { return path }
+	if err != nil {
+		return path
+	}
 	_ = os.WriteFile(path, output, 0600)
 	return path
 }

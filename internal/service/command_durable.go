@@ -60,6 +60,7 @@ func getDurableCommandStore(db *gorm.DB) (*brokercommands.Store, error) {
 		"device_configs":            {"id", "tenant_id", "device_type", "device_template_id", "protocol_type"},
 		"device_model_commands":     {"id", "device_template_id", "data_identifier", "tenant_id"},
 		"data_scripts":              {"id", "device_config_id", "script_type", "enable_flag", "content"},
+		"device_topic_mappings":     {"id", "device_config_id", "enabled"},
 	}
 	for table, columns := range requiredColumns {
 		if !db.Migrator().HasTable(table) {
@@ -99,7 +100,7 @@ func ValidateDurableCommandCaller(ctx context.Context, tx *gorm.DB, row brokerco
 	if row.Intent == automationCommandIntent {
 		return ValidateAutomationCommand(ctx, tx, row)
 	}
-	if row.Intent != manualCommandIntent || row.CallerID == automationCallerID {
+	if (row.Intent != manualCommandIntent && row.Intent != plannedCommandIntent) || row.CallerID == automationCallerID {
 		return fmt.Errorf("%w: caller has no supported auditable authorization policy", brokercommands.ErrRejected)
 	}
 	var user model.User
@@ -118,6 +119,9 @@ func ValidateDurableCommandCaller(ctx context.Context, tx *gorm.DB, row brokerco
 	const route = "api/v1/command/datas/pub"
 	configured := global.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g2", 0, route)
 	if len(configured) == 0 {
+		if row.Intent == plannedCommandIntent {
+			return validatePlannedCommandFinal(ctx, tx, row)
+		}
 		return nil // Mirrors middleware's unconfigured-route behavior.
 	}
 	allowed, err := global.CasbinEnforcer.Enforce(row.CallerID, route, "allow")
@@ -126,6 +130,9 @@ func ValidateDurableCommandCaller(ctx context.Context, tx *gorm.DB, row brokerco
 	}
 	if !allowed {
 		return fmt.Errorf("%w: caller is not authorized for the command route", brokercommands.ErrRejected)
+	}
+	if row.Intent == plannedCommandIntent {
+		return validatePlannedCommandFinal(ctx, tx, row)
 	}
 	return nil
 }
@@ -164,6 +171,7 @@ type commandDeviceSnapshot struct {
 	ID              string  `json:"id"`
 	TenantID        string  `json:"tenant_id"`
 	IsEnabled       string  `json:"is_enabled"`
+	ActivateFlag    string  `json:"activate_flag"`
 	ParentID        *string `json:"parent_id,omitempty"`
 	DeviceConfigID  *string `json:"device_config_id,omitempty"`
 	DeviceNumber    string  `json:"device_number"`
@@ -227,12 +235,12 @@ func readCommandFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDev
 		if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND tenant_id = ?", currentID, tenant).Take(&device).Error; err != nil {
 			return "", nil, commandFingerprintSnapshot{}, err
 		}
-		if device.IsEnabled != "enabled" {
+		if device.IsEnabled != "enabled" || device.ActivateFlag != "active" {
 			return "", nil, commandFingerprintSnapshot{}, fmt.Errorf("%w: device in command path is disabled", brokercommands.ErrRejected)
 		}
 		deviceType := "1"
 		snapshot.Devices = append(snapshot.Devices, commandDeviceSnapshot{
-			ID: device.ID, TenantID: device.TenantID, IsEnabled: device.IsEnabled, ParentID: device.ParentID,
+			ID: device.ID, TenantID: device.TenantID, IsEnabled: device.IsEnabled, ActivateFlag: device.ActivateFlag, ParentID: device.ParentID,
 			DeviceConfigID: device.DeviceConfigID, DeviceNumber: device.DeviceNumber, SubDeviceAddr: device.SubDeviceAddr,
 			Protocol: device.Protocol, AccessWay: device.AccessWay, ServiceAccessID: device.ServiceAccessID,
 		})
@@ -273,6 +281,14 @@ func readCommandFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDev
 	templateIDs := make([]string, 0, len(configIDs))
 	for _, id := range configIDs {
 		config := configsByID[id]
+		var mapping model.DeviceTopicMapping
+		err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "SHARE"}).Where("device_config_id=? AND enabled=true", config.ID).Take(&mapping).Error
+		if err == nil {
+			return "", nil, commandFingerprintSnapshot{}, fmt.Errorf("%w: custom command mapping has no frozen durable proof", brokercommands.ErrRejected)
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil, commandFingerprintSnapshot{}, err
+		}
 		snapshot.Configs = append(snapshot.Configs, commandConfigSnapshot{
 			ID: config.ID, TenantID: config.TenantID, DeviceType: config.DeviceType, DeviceTemplateID: config.DeviceTemplateID,
 			ProtocolType: config.ProtocolType, ProtocolConfig: config.ProtocolConfig, AdditionalInfo: config.AdditionalInfo, OtherConfig: config.OtherConfig,
@@ -411,7 +427,7 @@ func transformDurableCommandData(payload map[string]interface{}, path []commandD
 	}
 }
 
-func (c *CommandData) submitDurableCommand(ctx context.Context, operatorID, tenantID string, req *model.PutMessageForCommand, operationType string, device, target *model.Device, message *downlink.Message, deviceType string, commandData map[string]interface{}) (string, error) {
+func (c *CommandData) submitDurableCommand(ctx context.Context, operatorID, tenantID string, req *model.PutMessageForCommand, operationType string, device, target *model.Device, message *downlink.Message, deviceType string, commandData map[string]interface{}, hooks ...durablePreparationHook) (string, error) {
 	if device == nil || target == nil || req == nil || message == nil {
 		return "", errors.New("durable command input is incomplete")
 	}
@@ -454,35 +470,50 @@ func (c *CommandData) submitDurableCommand(ctx context.Context, operatorID, tena
 	}); err != nil {
 		return "", fmt.Errorf("authorize durable command: %w", err)
 	}
-	operationTypeCopy := operationType
-	identifyCopy := req.Identify
-	dataCopy := string(prepared.Message.Data)
-	row, _, err := store.Submit(ctx, brokercommands.Request{
+	entry := durablePreparation{Request: brokercommands.Request{
 		TenantID: tenantID, CallerID: callerID, Intent: intent, IdempotencyKey: req.IdempotencyKey,
 		DeviceID: device.ID, TargetDeviceID: target.ID, CanonicalRequest: canonical,
 		Payload: messageBytes, ExpiresAt: expiresAt,
-	}, func(tx *gorm.DB, row brokercommands.Row) error {
-		if err := ValidateDurableCommandCaller(ctx, tx, row); err != nil {
-			return err
+	}, Prepared: prepared, Identify: req.Identify, OperationType: operationType}
+	if len(hooks) > 0 {
+		if len(hooks) != 1 || hooks[0] == nil {
+			return "", brokercommands.ErrInvalid
 		}
-		fingerprint, _, _, err := readCommandFingerprint(ctx, tx, tenantID, device.ID, target.ID, message.DeviceConfigID)
-		if err != nil {
-			return err
-		}
-		if fingerprint != prepared.ConfigurationSHA256 {
-			return fmt.Errorf("%w: command configuration changed before durable acceptance", brokercommands.ErrFenced)
-		}
-		logRow := model.CommandSetLog{
-			ID: row.ID, DeviceID: device.ID, OperationType: &operationTypeCopy,
-			MessageID: &row.ID, Identify: &identifyCopy, Datum: &dataCopy,
-			Status: stringPtr("0"), CreatedAt: row.CreatedAt,
-		}
-		return tx.Create(&logRow).Error
+		return hooks[0](entry)
+	}
+	row, _, err := store.Submit(ctx, entry.Request, func(tx *gorm.DB, row brokercommands.Row) error {
+		return persistPreparedCommand(ctx, tx, row, entry)
 	})
 	if err != nil {
 		return "", err
 	}
 	return row.ID, nil
+}
+
+type durablePreparation struct {
+	Request                 brokercommands.Request
+	Prepared                brokercommands.PreparedCommand
+	Identify, OperationType string
+}
+type durablePreparationHook func(durablePreparation) (string, error)
+
+func persistPreparedCommand(ctx context.Context, tx *gorm.DB, row brokercommands.Row, entry durablePreparation) error {
+	// Admission of a planned command uses the same authenticated command
+	// permission; its plan is linked atomically by the command owner's hook.
+	authorizationRow := row
+	authorizationRow.Intent = manualCommandIntent
+	if err := ValidateDurableCommandCaller(ctx, tx, authorizationRow); err != nil {
+		return err
+	}
+	fingerprint, _, _, err := readCommandFingerprint(ctx, tx, row.TenantID, row.DeviceID, row.TargetDeviceID, entry.Prepared.Message.DeviceConfigID)
+	if err != nil {
+		return err
+	}
+	if fingerprint != entry.Prepared.ConfigurationSHA256 {
+		return fmt.Errorf("%w: command configuration changed before durable acceptance", brokercommands.ErrFenced)
+	}
+	operationType, identify, data := entry.OperationType, entry.Identify, string(entry.Prepared.Message.Data)
+	return tx.Create(&model.CommandSetLog{ID: row.ID, DeviceID: row.DeviceID, OperationType: &operationType, MessageID: &row.ID, Identify: &identify, Datum: &data, Status: stringPtr("0"), CreatedAt: row.CreatedAt}).Error
 }
 
 // ValidateDurableCommandSnapshot rechecks the prepared message fingerprint at

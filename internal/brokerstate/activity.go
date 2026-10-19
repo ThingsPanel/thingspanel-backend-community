@@ -67,6 +67,18 @@ func evaluateCurrent(tx *gorm.DB, device model.Device, root string, route routeR
 		}
 		return query
 	}
+	if root != device.ID {
+		var transport model.Device
+		if e := read().Where("tenant_id=? AND id=? AND is_enabled='enabled' AND activate_flag='active'", device.TenantID, root).Take(&transport).Error; e != nil {
+			if errors.Is(e, gorm.ErrRecordNotFound) {
+				return Decision{}, ErrFenced
+			}
+			return Decision{}, e
+		}
+		if transport.ParentID != nil && *transport.ParentID != "" {
+			return Decision{}, ErrFenced
+		}
+	}
 	// Validate the logical device's CURRENT path while holding its transport fence.
 	id := device.ID
 	for depth := 0; id != root; depth++ {
@@ -74,7 +86,7 @@ func evaluateCurrent(tx *gorm.DB, device model.Device, root string, route routeR
 			return Decision{}, ErrFenced
 		}
 		var child model.Device
-		if e := read().Where("tenant_id=? AND id=? AND is_enabled='enabled'", device.TenantID, id).Take(&child).Error; e != nil {
+		if e := read().Where("tenant_id=? AND id=? AND is_enabled='enabled' AND activate_flag='active'", device.TenantID, id).Take(&child).Error; e != nil {
 			if errors.Is(e, gorm.ErrRecordNotFound) {
 				return Decision{}, ErrFenced
 			}

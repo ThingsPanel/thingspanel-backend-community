@@ -1,0 +1,44 @@
+=== RUN   TestCutoverPlanStrictAndExactDigest
+
+=== RUN   TestCutoverPlanStrictAndExactDigest/unknown_key
+
+--- PASS: TestCutoverPlanStrictAndExactDigest/unknown_key (0.00s)
+
+=== RUN   TestCutoverPlanStrictAndExactDigest/irrelevant_null_field
+
+--- PASS: TestCutoverPlanStrictAndExactDigest/irrelevant_null_field (0.00s)
+
+=== RUN   TestCutoverPlanStrictAndExactDigest/tenant_uuid_not_required
+
+--- PASS: TestCutoverPlanStrictAndExactDigest/tenant_uuid_not_required (0.00s)
+
+=== RUN   TestCutoverPlanStrictAndExactDigest/floating_epoch
+
+--- PASS: TestCutoverPlanStrictAndExactDigest/floating_epoch (0.00s)
+
+=== RUN   TestCutoverPlanStrictAndExactDigest/trailing_JSON
+
+--- PASS: TestCutoverPlanStrictAndExactDigest/trailing_JSON (0.00s)
+
+=== RUN   TestCutoverPlanStrictAndExactDigest/uppercase_hash
+
+--- PASS: TestCutoverPlanStrictAndExactDigest/uppercase_hash (0.00s)
+
+=== RUN   TestCutoverPlanStrictAndExactDigest/duplicate_key
+
+--- PASS: TestCutoverPlanStrictAndExactDigest/duplicate_key (0.00s)
+
+--- PASS: TestCutoverPlanStrictAndExactDigest (0.01s)
+
+=== RUN   TestCutoverDSNFileRequirementsAndErrorRedaction
+
+--- PASS: TestCutoverDSNFileRequirementsAndErrorRedaction (0.00s)
+
+=== RUN   TestCutoverPostgresFreezeRetryAndBarrierFailClosed
+
+--- PASS: TestCutoverPostgresFreezeRetryAndBarrierFailClosed (0.70s)
+
+PASS
+
+ok  	project/cmd/tp-broker-cutover	2.320s
+

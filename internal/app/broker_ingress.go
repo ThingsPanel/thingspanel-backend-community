@@ -131,6 +131,7 @@ func strictUint64(value any) (uint64, bool) {
 }
 
 type brokerIngressWorker struct {
+	cell           string
 	store          ingressReceiptStore
 	processor      ingressProcessor
 	processEffects func(context.Context) (bool, error)
@@ -205,7 +206,7 @@ func (w *brokerIngressWorker) run(ctx context.Context, done chan struct{}) {
 			}
 			lastSync = time.Now()
 		}
-		processed, err := w.store.ProcessOne(ctx, w.processor.Process)
+		processed, err := w.processOne(ctx)
 		if ctx.Err() == nil && w.processEffects != nil {
 			effectProcessed, effectErr := w.processEffects(ctx)
 			processed = processed || effectProcessed
@@ -242,6 +243,19 @@ func (w *brokerIngressWorker) run(ctx context.Context, done chan struct{}) {
 			}
 		}
 	}
+}
+
+func (w *brokerIngressWorker) processOne(ctx context.Context) (bool, error) {
+	if w.cell == "" {
+		return w.store.ProcessOne(ctx, w.processor.Process)
+	}
+	store, ok := w.store.(interface {
+		ProcessOneInCell(context.Context, string, func(context.Context, *gorm.DB, brokerledger.Message) error) (bool, error)
+	})
+	if !ok {
+		return false, errors.New("reliable ingress store does not support cell scoping")
+	}
+	return store.ProcessOneInCell(ctx, w.cell, w.processor.Process)
 }
 
 var ingressRequiredColumns = map[string][]string{
@@ -313,14 +327,14 @@ func (s *MQTTService) configureBrokerIngress(ctx context.Context, adapter *mqtta
 	}
 	store := brokerledger.New(s.app.DB)
 	processor := uplink.NewReliableProcessor(s.logger())
-	worker := &brokerIngressWorker{store: store, processor: processor, logger: s.logger()}
+	worker := &brokerIngressWorker{cell: viper.GetString("mqtt.broker_cell"), store: store, processor: processor, logger: s.logger()}
 	runtimeSync, err := brokerRuntimeSync(s.app.DB, "adapter", "effects")
 	if err != nil {
 		return err
 	}
 	worker.runtimeSync = runtimeSync
 	worker.processEffects = func(ctx context.Context) (bool, error) {
-		return service.ProcessBrokerAutomationEffect(ctx, s.app.DB, viper.GetString("mqtt.broker_cell"))
+		return service.ProcessBrokerAutomationEffect(ctx, s.app.DB, worker.cell)
 	}
 	if err := worker.Start(ctx); err != nil {
 		return err

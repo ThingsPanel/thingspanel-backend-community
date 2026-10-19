@@ -87,3 +87,27 @@ Mosquitto2.1.2 `src/topic_tok.c` 处理 `$share/group/$tp/...` 首token与`$tp/.
 仍在第3步收口并启动第4步隔离健康检查。G0真实黄金样本和规模、旧/新完整栈配对收益、全故障/72h、完整legacy灰度与回退、AI场景/留出评测未完成。没有生产切流，没有最终完工报告或生产证书。
 
 远程Candidate Memory补充收据：`stored`，memory_id `e39ac3d2-a3e5-4da0-b8ea-a1900ea79611`，evidence_id `lev-690b2afdcdd7f2fbb3ec2119`。内容为平台ingestion_id与设备source_event_id的分工、commit/ACK重投窗口，以及主线程安装fence后才确认的边界；未把尚未完成的Gate记为通过。
+
+## 2026-10-20 02:06 CST — candidate runtime checkpoint and next command boundary
+
+- Managed community candidate commit `ad2cbd7f5e7fac399b0a3e55840c349d4b707d20` preserves only broker allowlisted work; unrelated notification work and version edits remain in the original checkout. Seventeen selected packages passed `go test -race -p 1 -count=1` with isolated QA PostgreSQL and native E2E enabled; package log and scope are in `phase3-runtime-candidate-*`.
+- Persistent service startup now registers ingress handlers before CONNECT; OnConnect is asynchronous and cannot close the immediate CONNACK/redelivery window. Native disconnect-after-receipt/before-ACK scenario passed five repetitions, one receipt/business update/effect intent each. Not a process/OS crash claim.
+- New-only health profile C100/R100/s, 100 synthetic devices/1tenant, 60 seconds passed 6,000 records at all observed stages, no wrong binding/duplicate/extra records; stage polling timestamps are not latency evidence and effects execution is unobserved. Old/new paired benefit and 72 hours remain outstanding.
+- Formal remote Candidate Memory stored: `0faa8706-0c32-4e66-93c6-47b365a4da05`, evidence `lev-afb495f0a556c1485e836bb2`. The submitted occurred_at was manually entered 02:15, roughly eight minutes after the actual receipt time 02:06; technical validation facts and commit are unchanged.
+- Continuing implementation: tenant-scoped read-only Encore semantic evidence, command-owner plan/authorization primitives and state fingerprint revalidation. SQL013 is additive and not yet a released AI feature; no paid model calls or real-device cutover performed.
+
+## 2026-10-20T03:02:59+08:00 — 第4/6步：完整回归失败保留及边界修正
+
+- 冻结candidate在ad2cbd7f之上的未提交源快照完成17包 `go test -json -race -p 1 -count=1`：522个run事件；native ingress、durable command、planned-command到模拟设备ACK、持久服务session断连重投均实际运行通过。唯一预期skip为未启用legacy opt-in。唯一真实失败为 `TestPostgresMigrationActivationGatesLedgerProcessing`：Activate返回target未证明；原JSON/raw与源码manifest保留在 `/tmp/tp-mqtt-20261019/build/candidate17-race/`，不能将此轮宣称全绿。`go build ./...`及主程序构建通过。
+- root最小修复：Activate的receipt证明不再比较应用/观察钟created_at与PG的prepared_at；exact target cell/new epoch的受理已在binding锁后发生，证明顺序。真实连接仍要求PG received_at晚于prepare并满足新鲜度。新增确定性receipt钟慢2分钟仍可激活、无真实连接仍拒绝、旧epoch即便时间更新仍拒绝。目标ledger race实际PASS，route状态机/回退精准PG测试实际PASS；独立Luna诊断与全包重跑进行中。
+- 最新Linux生产候选镜像 `sha256:ac1a075beb345ea8475d385d2b37d0af9a5bde5cbdcc66ae906f0f061b07fa8e` 的严格Owner Runtime TLS链与持久重投两项真实E2E已PASS。Syft v1.54.1工具按官方资产SHA验证后生成SPDX/Syft JSON及Go构建依赖补充记录；SBOM不代表已通过漏洞、完整运行时故障或生产准入。
+- SQL013命令计划：有preview/人类hash授权/submit、同key返回原命令、换key不能重复消费、最终权限/状态/配置校验；真实Mosquitto/PG/Paho模拟设备ACK已验证。Encore语义来自HTTP契约stub，非live Encore；无LLM调用、无物理设备效果证据。默认关闭。
+- SQL014与只读遥测证据API：精确tenant+logical device+trusted batch receipt，24小时窗口/8个key/200点/16MiB查询上限，语义单位来自已发布模型，未知单位显式标记。root复核真实uplink/writer发现当前timestamp是broker observed时间，API明确reported_at=null、reported_time_available=false，不将其伪称设备采样时间。真实writer和PG/API回归已PASS；live Encore未验。
+- 原始工作树通知/物模型独立改动仍保留；candidate暂不同步仍在测试的新文件。企业版未实施。完整配对收益、G0真实在用协议冻结、72小时、两cell真实灰度/回退、完整AI及两名真人评测仍待完成；未发生产放行或完工结论。
+
+### 2026-10-20T03:17:06+08:00 — 验证口径、磁盘和记忆收据
+
+- 旧candidate的Activate单次失败在独立诊断count10中未复现：应用钟比PG clock约快0.56–0.82ms，receipt晚于prepared约4.9–10.2ms。因此不把该次失败的触发归因宣称已证实；保留原失败。修复针对的是确定可证明的跨钟因果缺陷，ledger/control真实PG全包race通过，无skip。
+- 原先SIGKILL测试带source_event_id，不能独立证明平台ingestion_id去重。root审查后新增nosource变体，SQL source_event_id为NULL，真实Linux镜像/PG的race连续两次PASS，同UUID/ingestion_id，receipt/event/effect intent各1。原有source-ID证据保留；均不证明副作用已经执行或物理设备效果。
+- 宿主盘曾仅余约500MiB，导致go build的strip报告No space left on device。只删除本任务旧复制context的 `/tmp/tp-mqtt-20261019/qa-context2/.cache`（约1.4GiB可重建Go build/module副本）；保留共享Go缓存、所有源码、原始日志/manifest、镜像与用户iOS产物。回收后约1.9GiB可用。候选最终18包race与build正在新目录运行。
+- 本轮可复用结论已提交远程Candidate Memory：stored，memory_id=`69f6302e-3faa-4f72-a98e-62e4bc812aff`，evidence_id=`lev-79801d442b4ce28bfc21a5fd`。记忆明确区分SIGKILL/未执行effect、observed/未知reported时间及未复现失败，不记录Gate放行。

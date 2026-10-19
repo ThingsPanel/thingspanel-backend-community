@@ -42,6 +42,9 @@ func mergeIdentifyAndPayload(identify string, paramsStr *string) (string, error)
 
 // 创建预期数据
 func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedDataReq, userClaims *utils.UserClaims) (*model.ExpectedData, error) {
+	if err := requireLegacyDownlink("expected data"); err != nil {
+		return nil, err
+	}
 	if req.SendType == "command" {
 		if req.Identify == nil {
 			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -134,6 +137,9 @@ func (*ExpectedData) PageList(ctx context.Context, req *model.GetExpectedDataPag
 
 // 发送预期数据
 func (*ExpectedData) Send(ctx context.Context, deviceID string) error {
+	if err := requireLegacyDownlink("expected data dispatch"); err != nil {
+		return err
+	}
 	// 查询预期数据
 	ed, err := dal.ExpectedDataDal{}.GetAllByDeviceID(ctx, deviceID)
 	if err != nil {

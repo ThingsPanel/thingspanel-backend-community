@@ -449,6 +449,9 @@ func (a *Adapter) extractDeviceIDFromPayload(payload []byte) string {
 // PublishMessage 实现 MessagePublisher 接口
 // 根据设备信息构造Topic并发送MQTT消息
 func (a *Adapter) PublishMessage(deviceNumber string, msgType downlink.MessageType, deviceType string, topicPrefix string, messageID string, qos byte, payload []byte) error {
+	if a.inputProfile == "ingress_v1" {
+		return errors.New("ingress_v1 requires the durable command owner; legacy raw downlinks are unsupported")
+	}
 	// 1. 根据设备类型和协议选择Topic基础路径
 	// 协议插件：始终使用 devices 路径（插件自己处理层级关系）
 	// MQTT协议：根据设备类型选择 devices 或 gateway
@@ -486,13 +489,6 @@ func (a *Adapter) PublishMessage(deviceNumber string, msgType downlink.MessageTy
 	}
 
 	// 3. 发送MQTT消息
-	if a.inputProfile == "ingress_v1" {
-		mappedTopic, mappedPayload, mapErr := a.mapDownlink(deviceNumber, topic, payload)
-		if mapErr != nil {
-			return fmt.Errorf("map MQTT downlink: %w", mapErr)
-		}
-		topic, payload = mappedTopic, mappedPayload
-	}
 	token := a.mqttClient.Publish(topic, qos, false, payload)
 	if !token.WaitTimeout(5 * time.Second) {
 		return fmt.Errorf("mqtt publish timeout: topic=%s", topic)

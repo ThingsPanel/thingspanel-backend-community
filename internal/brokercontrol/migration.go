@@ -430,6 +430,9 @@ func (s *MigrationStore) PrepareTarget(ctx context.Context, tenant, device, id, 
 // Activate requires BOTH a fresh real connection observation and a nonempty
 // trusted ingress receipt accepted in this new connecting epoch. AUTH alone,
 // a changed DNS record or an old retained message cannot satisfy this check.
+// Receipt admission checks the incremented binding epoch under its row lock,
+// which proves causality after PrepareTarget. Its application/observed timestamp
+// is deliberately not compared with PostgreSQL's prepared_at clock.
 func (s *MigrationStore) Activate(ctx context.Context, tenant, device, id string) error {
 	return s.changeTx(ctx, tenant, device, id, func(tx *gorm.DB, c *RouteChange, b *TransportBinding) error {
 		if c.Phase == "active" && b.Phase == "active" && b.BrokerCell == c.TargetCell && b.RouteEpoch == uint64(c.SourceEpoch+1) {
@@ -448,7 +451,7 @@ func (s *MigrationStore) Activate(ctx context.Context, tenant, device, id string
 		if e := tx.Raw(`SELECT EXISTS(SELECT 1 FROM broker_connection_observations WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=? AND online AND received_at>=? AND received_at>=now()-interval '30 seconds' AND observed_at>=now()-interval '30 seconds' AND observed_at<=now()+interval '5 seconds')`, tenant, device, c.TargetCell, c.SourceEpoch+1, c.PreparedAt).Scan(&connected).Error; e != nil {
 			return e
 		}
-		if e := tx.Raw(`SELECT EXISTS(SELECT 1 FROM broker_ingress_receipts WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=? AND state='pending' AND octet_length(payload)>0 AND created_at>=?)`, tenant, device, c.TargetCell, c.SourceEpoch+1, c.PreparedAt).Scan(&ingress).Error; e != nil {
+		if e := tx.Raw(`SELECT EXISTS(SELECT 1 FROM broker_ingress_receipts WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=? AND state='pending' AND octet_length(payload)>0)`, tenant, device, c.TargetCell, c.SourceEpoch+1).Scan(&ingress).Error; e != nil {
 			return e
 		}
 		if !connected || !ingress {

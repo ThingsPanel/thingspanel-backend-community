@@ -180,7 +180,7 @@ func TestProjectCurrentEpochFenceAndGatewaySourcePath(t *testing.T) {
 	})
 	t.Run("gateway-child-and-reparent", func(t *testing.T) {
 		s := activityStore(t)
-		if err := s.db.Exec(`INSERT INTO broker_transport_bindings VALUES('ta','gateway','c',4,'active'); INSERT INTO devices(id,tenant_id,is_enabled,activate_flag,device_number,voucher,is_online,parent_id) VALUES('child','ta','enabled','active','n-child','{}',0,'gateway')`).Error; err != nil {
+		if err := s.db.Exec(`INSERT INTO broker_transport_bindings VALUES('ta','gateway','c',4,'active'); INSERT INTO devices(id,tenant_id,is_enabled,activate_flag,device_number,voucher,is_online) VALUES('gateway','ta','enabled','active','n-gateway','{}',0); INSERT INTO devices(id,tenant_id,is_enabled,activate_flag,device_number,voucher,is_online,parent_id) VALUES('child','ta','enabled','active','n-child','{}',0,'gateway')`).Error; err != nil {
 			t.Fatal(err)
 		}
 		configureActivity(t, s, "child", "ta", 30, 0)

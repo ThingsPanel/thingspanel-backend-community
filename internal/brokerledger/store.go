@@ -376,6 +376,19 @@ func requireAdmissionBinding(tx *gorm.DB, tenantID, deviceID, cell string, epoch
 // atomically with the original receipt's processed state. No worker is started
 // by this package and a committed receipt is not proof of physical device effect.
 func (s *Store) ProcessOne(ctx context.Context, handler func(context.Context, *gorm.DB, Message) error) (processed bool, err error) {
+	return s.processOne(ctx, "", handler)
+}
+
+// ProcessOneInCell keeps the business response/telemetry bus in the same cell
+// as its MQTT Adapter. A backend replica must not steal another cell's work.
+func (s *Store) ProcessOneInCell(ctx context.Context, cell string, handler func(context.Context, *gorm.DB, Message) error) (bool, error) {
+	if strings.TrimSpace(cell) == "" {
+		return false, ErrInvalid
+	}
+	return s.processOne(ctx, cell, handler)
+}
+
+func (s *Store) processOne(ctx context.Context, cell string, handler func(context.Context, *gorm.DB, Message) error) (processed bool, err error) {
 	if s == nil || s.db == nil {
 		return false, errors.New("brokerledger: database is nil")
 	}
@@ -383,10 +396,13 @@ func (s *Store) ProcessOne(ctx context.Context, handler func(context.Context, *g
 		return false, errors.New("brokerledger: context and handler are required")
 	}
 	var candidate receiptRow
-	err = s.db.WithContext(ctx).Table("broker_ingress_receipts AS r").Select("r.*").
+	query := s.db.WithContext(ctx).Table("broker_ingress_receipts AS r").Select("r.*").
 		Joins("LEFT JOIN broker_transport_bindings b ON b.tenant_id=r.tenant_id AND b.device_id=r.device_id").
-		Where("r.state = ? AND r.retry_after <= now() AND (b.device_id IS NULL OR b.phase<>'connecting' OR b.broker_cell<>r.broker_cell OR b.route_epoch<>r.route_epoch)", statePending).
-		Order("r.created_at, r.id").Take(&candidate).Error
+		Where("r.state = ? AND r.retry_after <= now() AND (b.device_id IS NULL OR b.phase<>'connecting' OR b.broker_cell<>r.broker_cell OR b.route_epoch<>r.route_epoch)", statePending)
+	if cell != "" {
+		query = query.Where("r.broker_cell=?", cell)
+	}
+	err = query.Order("r.created_at, r.id").Take(&candidate).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, nil
 	}
@@ -415,6 +431,9 @@ func (s *Store) ProcessOne(ctx context.Context, handler func(context.Context, *g
 		}
 		if lock.Error != nil {
 			return lock.Error
+		}
+		if cell != "" && claimed.BrokerCell != cell {
+			return nil
 		}
 		if bindingFound && binding.Phase == "connecting" && binding.BrokerCell == claimed.BrokerCell && binding.RouteEpoch == claimed.RouteEpoch {
 			return nil

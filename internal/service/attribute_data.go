@@ -120,6 +120,9 @@ func (a *AttributeData) SetDownlinkBus(bus *downlink.Bus) {
 
 // AttributePutMessage 属性设置下发（改造为异步模式，支持多层网关）
 func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID string, putMessageReq *model.AttributePutMessage, operationType string) error {
+	if err := requireLegacyDownlink("attribute control"); err != nil {
+		return err
+	}
 	// 1. 获取设备信息
 	// Resolve service-owned downlink routes from the database's current device relation.
 	device, err := dal.GetDeviceByID(putMessageReq.DeviceID)
@@ -271,6 +274,9 @@ func (a *AttributeData) getDeviceConfigID(device *model.Device) string {
 }
 
 func (a *AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.AttributeGetMessageReq) error {
+	if err := requireLegacyDownlink("attribute query downlink"); err != nil {
+		return err
+	}
 	logrus.Debug("AttributeGetMessage")
 	// 1. 获取设备信息
 	device, err := dal.GetDeviceByID(req.DeviceID)

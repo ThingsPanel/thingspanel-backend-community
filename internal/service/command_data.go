@@ -48,7 +48,7 @@ func (c *CommandData) CommandPutMessageWithResult(ctx context.Context, operatorI
 	return c.commandPutMessageWithResult(ctx, operatorID, putMessageReq, operationType, tenantID, true)
 }
 
-func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string, enforceTenant bool) (string, error) {
+func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string, enforceTenant bool, hooks ...durablePreparationHook) (string, error) {
 	if putMessageReq == nil {
 		return "", errcode.NewWithMessage(errcode.CodeParamError, "command request is required")
 	}
@@ -56,7 +56,7 @@ func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorI
 	if !durableCommands && (putMessageReq.IdempotencyKey != "" || putMessageReq.ExpiresAt != nil) {
 		return "", errcode.NewWithMessage(errcode.CodeParamError, "idempotency_key and expires_at require mqtt.input_profile=ingress_v1")
 	}
-	if durableCommands && enforceTenant && putMessageReq.IdempotencyKey != "" {
+	if durableCommands && enforceTenant && putMessageReq.IdempotencyKey != "" && len(hooks) == 0 {
 		caller, intent, err := durableCommandIdentity(operationType, operatorID)
 		if err != nil {
 			return "", err
@@ -172,7 +172,7 @@ func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorI
 		MessageID:      messageId,
 	}
 	if durableCommands {
-		return c.submitDurableCommand(ctx, operatorID, tenantID, putMessageReq, operationType, device, targetDevice, msg, deviceType, commandData)
+		return c.submitDurableCommand(ctx, operatorID, tenantID, putMessageReq, operationType, device, targetDevice, msg, deviceType, commandData, hooks...)
 	}
 	if err := c.createCommandLogForPut(device, messageId, putMessageReq.Identify, &transformedDataStr, operationType); err != nil {
 		logrus.WithError(err).Error("Failed to create command log")

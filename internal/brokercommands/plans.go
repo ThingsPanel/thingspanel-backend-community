@@ -13,6 +13,8 @@ import (
 )
 
 const MaxPlanTTL = 2 * time.Minute
+const maxPendingPlans = 256
+const maxPendingPlanBytes = 16 << 20
 
 // Plan is server-generated input plus the context fingerprint to revalidate.
 // No operation here invokes a model or accepts a model's approval assertion.
@@ -62,11 +64,11 @@ func (s *Store) CreatePlan(ctx context.Context, req Request, contextSHA []byte, 
 		if err := checkDevicePair(tx, req.TenantID, req.DeviceID, req.TargetDeviceID); err != nil {
 			return err
 		}
-		var pending int64
-		if err := tx.Model(&Plan{}).Where("tenant_id=? AND expires_at>now() AND command_id IS NULL AND revoked_at IS NULL", req.TenantID).Count(&pending).Error; err != nil {
+		var pending struct{ Count, Bytes int64 }
+		if err := tx.Raw(`SELECT count(*) AS count,coalesce(sum(octet_length(canonical_request)+octet_length(payload)),0) AS bytes FROM broker_command_plans WHERE tenant_id=? AND expires_at>now() AND command_id IS NULL AND revoked_at IS NULL`, req.TenantID).Scan(&pending).Error; err != nil {
 			return err
 		}
-		if pending >= maxPending {
+		if pending.Count >= maxPendingPlans || pending.Bytes+int64(len(req.CanonicalRequest)+len(req.Payload)) > maxPendingPlanBytes {
 			return ErrCapacity
 		}
 		p = Plan{ID: uuid.NewString(), TenantID: req.TenantID, CallerID: req.CallerID, Intent: req.Intent, DeviceID: req.DeviceID, TargetDeviceID: req.TargetDeviceID, RouteCell: binding.BrokerCell, RouteEpoch: binding.RouteEpoch, CanonicalRequest: append([]byte(nil), req.CanonicalRequest...), Payload: append([]byte(nil), req.Payload...), ContextSHA256: append([]byte(nil), contextSHA...), ExpiresAt: req.ExpiresAt.UTC(), CreatedAt: time.Now().UTC()}

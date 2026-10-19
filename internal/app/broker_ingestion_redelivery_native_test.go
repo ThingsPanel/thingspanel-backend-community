@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -78,7 +79,11 @@ func TestBrokerIngressNativeReceiptSurvivesSubscriberDisconnectBeforeAck(t *test
 	includePath := nativeE2EPath("MOSQUITTO_INCLUDE_DIR", "/tmp/tp-mqtt-20261019/mosquitto/include")
 	cjsonPath := nativeE2EPath("CJSON_INCLUDE_DIR", "/opt/homebrew/opt/cjson/include")
 	redisPath := nativeE2EPath("REDIS_SERVER", "/opt/homebrew/bin/redis-server")
-	for _, path := range []string{mosquittoPath, filepath.Join(includePath, "mosquitto_broker.h"), cjsonPath, redisPath} {
+	required := []string{redisPath}
+	if strings.TrimSpace(os.Getenv("TP_NATIVE_E2E_DOCKER_IMAGE")) == "" {
+		required = append(required, mosquittoPath, filepath.Join(includePath, "mosquitto_broker.h"), cjsonPath)
+	}
+	for _, path := range required {
 		if _, err := os.Stat(path); err != nil {
 			t.Skipf("native MQTT dependency unavailable: %v", err)
 		}
@@ -125,7 +130,10 @@ func TestBrokerIngressNativeReceiptSurvivesSubscriberDisconnectBeforeAck(t *test
 	if err := os.WriteFile(tokenPath, []byte(ownerToken), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	plugin := buildNativeE2EPlugin(t, root, includePath, cjsonPath)
+	plugin := ""
+	if strings.TrimSpace(os.Getenv("TP_NATIVE_E2E_DOCKER_IMAGE")) == "" {
+		plugin = buildNativeE2EPlugin(t, root, includePath, cjsonPath)
+	}
 	brokerAddr, brokerLog, stopBroker := startNativeE2EBroker(t, mosquittoPath, plugin, ownerServer.URL, tokenPath, root)
 	t.Cleanup(stopBroker)
 	setNativeE2EViper(t, brokerAddr)
@@ -139,7 +147,6 @@ func TestBrokerIngressNativeReceiptSurvivesSubscriberDisconnectBeforeAck(t *test
 
 	log := logrus.New()
 	log.SetOutput(io.Discard)
-	device := connectNativeE2EDevice(t, context.Background(), brokerAddr)
 	bus := uplink.NewBus(uplink.BusConfig{BufferSize: 8}, log)
 	t.Cleanup(bus.Close)
 	base := mqttadapter.MQTTConfig{Broker: brokerAddr, Username: "mqtt-e2e-service", Password: "e2e-service-password", ClientID: nativeRedeliveryClientID, ManualAck: true}
@@ -167,6 +174,7 @@ func TestBrokerIngressNativeReceiptSurvivesSubscriberDisconnectBeforeAck(t *test
 	if err := firstAdapter.SubscribeAllContext(firstCtx, firstClient); err != nil {
 		t.Fatal(err)
 	}
+	device := connectNativeE2EDevice(t, context.Background(), brokerAddr)
 	payload := []byte(`{"temperature":22.4}`)
 	publishNativeE2E(t, context.Background(), device, "devices/attributes/redelivery-sample", payload)
 	select {

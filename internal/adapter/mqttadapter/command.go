@@ -22,13 +22,15 @@ func (a *Adapter) PublishDurableCommand(ctx context.Context, row brokercommands.
 	if msg.DeviceType != "1" {
 		topic = BuildGatewayCommandTopic(msg.DeviceNumber, row.ID)
 	}
-	topic, payload, err := a.mapDownlink(msg.DeviceNumber, topic, payload)
-	if err != nil {
-		return err
-	}
 	version, ok := a.rememberedMapping(row.TargetDeviceID)
 	if !ok {
 		return ErrMappingVersionUnavailable
+	}
+	// Encoded bytes were frozen by the command owner. Applying a subsequently
+	// remembered custom mapping here would reinterpret an already approved
+	// intent. Custom command mapping needs a separately frozen mapping proof.
+	if version != "standard-v1" {
+		return errors.New("custom command mappings are unsupported for durable commands")
 	}
 	frame, err := bc.EncodeCommandFrame(bc.CommandFrame{CommandID: row.ID, TenantID: row.TenantID, TargetDeviceID: row.TargetDeviceID, RouteEpoch: uint64(row.RouteEpoch), MappingVersion: version, WireTopic: topic, ExpiresAt: row.ExpiresAt.UnixMilli(), Payload: payload}, time.Now())
 	if err != nil {

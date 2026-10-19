@@ -1,0 +1,61 @@
+1792436963: mosquitto version 2.1.2 starting
+1792436963: Config loaded from /mosquitto/config/mosquitto.conf.
+1792436963: Bridge support available.
+1792436963: Persistence support available.
+1792436963: TLS support available.
+1792436963: TLS-PSK support available.
+1792436963: Websockets support available.
+1792436963: Loading plugin: /mosquitto/plugins/libtp-mosquitto-plugin.so
+1792436963: Info: running mosquitto as user: mosquitto.
+1792436963: Plugin thingspanel-community has registered to receive 'basic-auth' events.
+1792436963: Plugin thingspanel-community has registered to receive 'acl-check' events.
+1792436963: Plugin thingspanel-community has registered to receive 'message-in' events.
+1792436963: Plugin thingspanel-community has registered to receive 'message-out' events.
+1792436963: Plugin thingspanel-community has registered to receive 'tick' events.
+1792436963: Plugin thingspanel-community has registered to receive 'connect' events.
+1792436963: Plugin thingspanel-community has registered to receive 'disconnect' events.
+1792436963: Plugin thingspanel-community has registered to receive 'connect' events.
+1792436963: Plugin thingspanel-community version contract-1 loaded.
+1792436963: Opening ipv4 listen socket on port 1883.
+1792436963: mosquitto version 2.1.2 running
+1792436963: New connection from 192.168.215.1:50900 on port 1883.
+1792436963: New client connected from 192.168.215.1:50900 as mqtt-e2e-sigkill (p4, c0, k30, u'mqtt-e2e-service').
+1792436963: No will message specified.
+1792436963: Sending CONNACK to mqtt-e2e-sigkill (0, 0)
+1792436963: Received SUBSCRIBE from mqtt-e2e-sigkill
+1792436963: 	tp-internal/ingress/v1/# (QoS 1)
+1792436963: mqtt-e2e-sigkill 1 tp-internal/ingress/v1/#
+1792436963: Sending SUBACK to mqtt-e2e-sigkill
+1792436963: Received SUBSCRIBE from mqtt-e2e-sigkill
+1792436963: 	tp-internal/state/v1/# (QoS 1)
+1792436963: mqtt-e2e-sigkill 1 tp-internal/state/v1/#
+1792436963: Sending SUBACK to mqtt-e2e-sigkill
+1792436963: New connection from 192.168.215.1:50908 on port 1883.
+1792436963: New client connected from 192.168.215.1:50908 as device-native-e2e (p4, c1, k30, u'mqtt-e2e-device').
+1792436963: No will message specified.
+1792436963: Sending CONNACK to device-native-e2e (0, 0)
+1792436963: Received PUBLISH from device-native-e2e (d0, q1, r0, m1, 'devices/event/sigkill', ... (41 bytes))
+1792436963: Sending PUBLISH to mqtt-e2e-sigkill (d0, q1, r0, m1, 'tp-internal/ingress/v1/dGVuYW50LW1xdHQtZTJl/ZGV2aWNlLW1xdHQtZTJl/b-ZGV2aWNlcy9ldmVudC9zaWdraWxs', ... (612 bytes))
+1792436963: Sending PUBACK to device-native-e2e (m1, rc0)
+1792436963: Sending PUBLISH to mqtt-e2e-sigkill (d0, q1, r0, m2, 'tp-internal/state/v1/dGVuYW50LW1xdHQtZTJl/ZGV2aWNlLW1xdHQtZTJl', ... (454 bytes))
+1792436964: Received PUBACK from mqtt-e2e-sigkill (Mid: 2, RC:0)
+1792436964: Client mqtt-e2e-sigkill [192.168.215.1:50900] disconnected: connection closed by client.
+1792436964: New connection from 192.168.215.1:56230 on port 1883.
+1792436964: Client mqtt-e2e-sigkill [192.168.215.1:50900] disconnected: session taken over.
+1792436964: New client connected from 192.168.215.1:56230 as mqtt-e2e-sigkill (p4, c0, k30, u'mqtt-e2e-service').
+1792436964: No will message specified.
+1792436964: Sending CONNACK to mqtt-e2e-sigkill (1, 0)
+1792436964: Sending PUBLISH to mqtt-e2e-sigkill (d1, q1, r0, m1, 'tp-internal/ingress/v1/dGVuYW50LW1xdHQtZTJl/ZGV2aWNlLW1xdHQtZTJl/b-ZGV2aWNlcy9ldmVudC9zaWdraWxs', ... (612 bytes))
+1792436964: Received SUBSCRIBE from mqtt-e2e-sigkill
+1792436964: 	tp-internal/ingress/v1/# (QoS 1)
+1792436964: mqtt-e2e-sigkill 1 tp-internal/ingress/v1/#
+1792436964: Sending SUBACK to mqtt-e2e-sigkill
+1792436964: Received SUBSCRIBE from mqtt-e2e-sigkill
+1792436964: 	tp-internal/state/v1/# (QoS 1)
+1792436964: mqtt-e2e-sigkill 1 tp-internal/state/v1/#
+1792436964: Sending SUBACK to mqtt-e2e-sigkill
+1792436964: Received PUBLISH from mqtt-e2e-sigkill (d0, q1, r0, m3, 'devices/event/response/native-e2e-number/sigkill', ... (67 bytes))
+1792436964: Sending PUBACK to mqtt-e2e-sigkill (m3, rc0)
+1792436964: Received PUBACK from mqtt-e2e-sigkill (Mid: 1, RC:0)
+1792436964: Received DISCONNECT from mqtt-e2e-sigkill
+1792436964: Client mqtt-e2e-sigkill [192.168.215.1:56230] disconnected.

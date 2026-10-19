@@ -1,0 +1,44 @@
+{"Time":"2026-10-20T03:21:29.462145+08:00","Action":"start","Package":"project/cmd/tp-broker-cutover"}
+{"Time":"2026-10-20T03:21:30.054141+08:00","Action":"run","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest"}
+{"Time":"2026-10-20T03:21:30.054253+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest","Output":"=== RUN   TestCutoverPlanStrictAndExactDigest\n"}
+{"Time":"2026-10-20T03:21:30.055378+08:00","Action":"run","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/unknown_key"}
+{"Time":"2026-10-20T03:21:30.055398+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/unknown_key","Output":"=== RUN   TestCutoverPlanStrictAndExactDigest/unknown_key\n"}
+{"Time":"2026-10-20T03:21:30.055905+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/unknown_key","Output":"--- PASS: TestCutoverPlanStrictAndExactDigest/unknown_key (0.00s)\n"}
+{"Time":"2026-10-20T03:21:30.055926+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/unknown_key","Elapsed":0}
+{"Time":"2026-10-20T03:21:30.055949+08:00","Action":"run","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/irrelevant_null_field"}
+{"Time":"2026-10-20T03:21:30.055958+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/irrelevant_null_field","Output":"=== RUN   TestCutoverPlanStrictAndExactDigest/irrelevant_null_field\n"}
+{"Time":"2026-10-20T03:21:30.056354+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/irrelevant_null_field","Output":"--- PASS: TestCutoverPlanStrictAndExactDigest/irrelevant_null_field (0.00s)\n"}
+{"Time":"2026-10-20T03:21:30.056378+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/irrelevant_null_field","Elapsed":0}
+{"Time":"2026-10-20T03:21:30.0564+08:00","Action":"run","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/tenant_uuid_not_required"}
+{"Time":"2026-10-20T03:21:30.056409+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/tenant_uuid_not_required","Output":"=== RUN   TestCutoverPlanStrictAndExactDigest/tenant_uuid_not_required\n"}
+{"Time":"2026-10-20T03:21:30.057065+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/tenant_uuid_not_required","Output":"--- PASS: TestCutoverPlanStrictAndExactDigest/tenant_uuid_not_required (0.00s)\n"}
+{"Time":"2026-10-20T03:21:30.057086+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/tenant_uuid_not_required","Elapsed":0}
+{"Time":"2026-10-20T03:21:30.057096+08:00","Action":"run","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/floating_epoch"}
+{"Time":"2026-10-20T03:21:30.057116+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/floating_epoch","Output":"=== RUN   TestCutoverPlanStrictAndExactDigest/floating_epoch\n"}
+{"Time":"2026-10-20T03:21:30.057449+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/floating_epoch","Output":"--- PASS: TestCutoverPlanStrictAndExactDigest/floating_epoch (0.00s)\n"}
+{"Time":"2026-10-20T03:21:30.057466+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/floating_epoch","Elapsed":0}
+{"Time":"2026-10-20T03:21:30.057477+08:00","Action":"run","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/trailing_JSON"}
+{"Time":"2026-10-20T03:21:30.057485+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/trailing_JSON","Output":"=== RUN   TestCutoverPlanStrictAndExactDigest/trailing_JSON\n"}
+{"Time":"2026-10-20T03:21:30.057656+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/trailing_JSON","Output":"--- PASS: TestCutoverPlanStrictAndExactDigest/trailing_JSON (0.00s)\n"}
+{"Time":"2026-10-20T03:21:30.057673+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/trailing_JSON","Elapsed":0}
+{"Time":"2026-10-20T03:21:30.057683+08:00","Action":"run","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/uppercase_hash"}
+{"Time":"2026-10-20T03:21:30.057692+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/uppercase_hash","Output":"=== RUN   TestCutoverPlanStrictAndExactDigest/uppercase_hash\n"}
+{"Time":"2026-10-20T03:21:30.058054+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/uppercase_hash","Output":"--- PASS: TestCutoverPlanStrictAndExactDigest/uppercase_hash (0.00s)\n"}
+{"Time":"2026-10-20T03:21:30.058072+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/uppercase_hash","Elapsed":0}
+{"Time":"2026-10-20T03:21:30.058136+08:00","Action":"run","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/duplicate_key"}
+{"Time":"2026-10-20T03:21:30.058152+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/duplicate_key","Output":"=== RUN   TestCutoverPlanStrictAndExactDigest/duplicate_key\n"}
+{"Time":"2026-10-20T03:21:30.058242+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/duplicate_key","Output":"--- PASS: TestCutoverPlanStrictAndExactDigest/duplicate_key (0.00s)\n"}
+{"Time":"2026-10-20T03:21:30.05826+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest/duplicate_key","Elapsed":0}
+{"Time":"2026-10-20T03:21:30.05935+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest","Output":"--- PASS: TestCutoverPlanStrictAndExactDigest (0.01s)\n"}
+{"Time":"2026-10-20T03:21:30.059373+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPlanStrictAndExactDigest","Elapsed":0.01}
+{"Time":"2026-10-20T03:21:30.059401+08:00","Action":"run","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverDSNFileRequirementsAndErrorRedaction"}
+{"Time":"2026-10-20T03:21:30.059407+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverDSNFileRequirementsAndErrorRedaction","Output":"=== RUN   TestCutoverDSNFileRequirementsAndErrorRedaction\n"}
+{"Time":"2026-10-20T03:21:30.063729+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverDSNFileRequirementsAndErrorRedaction","Output":"--- PASS: TestCutoverDSNFileRequirementsAndErrorRedaction (0.00s)\n"}
+{"Time":"2026-10-20T03:21:30.063745+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverDSNFileRequirementsAndErrorRedaction","Elapsed":0}
+{"Time":"2026-10-20T03:21:30.063754+08:00","Action":"run","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPostgresFreezeRetryAndBarrierFailClosed"}
+{"Time":"2026-10-20T03:21:30.06376+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPostgresFreezeRetryAndBarrierFailClosed","Output":"=== RUN   TestCutoverPostgresFreezeRetryAndBarrierFailClosed\n"}
+{"Time":"2026-10-20T03:21:30.764615+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPostgresFreezeRetryAndBarrierFailClosed","Output":"--- PASS: TestCutoverPostgresFreezeRetryAndBarrierFailClosed (0.70s)\n"}
+{"Time":"2026-10-20T03:21:30.764684+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Test":"TestCutoverPostgresFreezeRetryAndBarrierFailClosed","Elapsed":0.7}
+{"Time":"2026-10-20T03:21:30.764745+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Output":"PASS\n"}
+{"Time":"2026-10-20T03:21:31.782306+08:00","Action":"output","Package":"project/cmd/tp-broker-cutover","Output":"ok  \tproject/cmd/tp-broker-cutover\t2.320s\n"}
+{"Time":"2026-10-20T03:21:31.782436+08:00","Action":"pass","Package":"project/cmd/tp-broker-cutover","Elapsed":2.32}

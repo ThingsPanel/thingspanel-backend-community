@@ -145,3 +145,51 @@ func TestInspectCurrentGatewayChildOldParentUnknown(t *testing.T) {
 		t.Fatalf("reparented child evidence=%+v err=%v", got, err)
 	}
 }
+
+func TestInspectCurrentClosedConnectionsRequireFreshEvidenceAndRemainReadOnly(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		observed   time.Time
+		received   time.Time
+		staleOpen  bool
+		wantStatus string
+		wantFresh  bool
+	}{
+		{name: "old-close", observed: time.Now().Add(-2 * time.Minute), received: time.Now(), wantStatus: "unknown"},
+		{name: "future-close", observed: time.Now().Add(10 * time.Second), received: time.Now(), wantStatus: "unknown"},
+		{name: "stale-received-close", observed: time.Now(), received: time.Now().Add(-2 * time.Minute), wantStatus: "unknown"},
+		{name: "fresh-close", observed: time.Now(), received: time.Now(), wantStatus: "offline", wantFresh: true},
+		{name: "fresh-close-with-stale-open", observed: time.Now(), received: time.Now(), staleOpen: true, wantStatus: "unknown"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := activityStore(t)
+			setActivity(t, s, "ta", "da", "da", "c", 1, time.Now().UTC())
+			if err := s.db.Exec(`INSERT INTO broker_connection_observations(tenant_id,device_id,broker_cell,broker_instance,node_boot_id,connection_id,route_epoch,event_seq,online,observed_at,received_at) VALUES('ta','da','c','instance','boot','closed',1,1,false,?,?)`, tc.observed, tc.received).Error; err != nil {
+				t.Fatal(err)
+			}
+			if tc.staleOpen {
+				if err := s.db.Exec(`INSERT INTO broker_connection_observations(tenant_id,device_id,broker_cell,broker_instance,node_boot_id,connection_id,route_epoch,event_seq,online,observed_at,received_at) VALUES('ta','da','c','old-instance','old-boot','stale-open',1,1,true,now()-interval '2 minutes',now())`).Error; err != nil {
+					t.Fatal(err)
+				}
+			}
+			var nextBefore time.Time
+			if err := s.db.Raw(`SELECT next_check_at FROM broker_telemetry_activity WHERE tenant_id='ta' AND device_id='da'`).Scan(&nextBefore).Error; err != nil {
+				t.Fatal(err)
+			}
+			receiptsBefore := countActivityRows(t, s, "broker_ingress_receipts", "tenant_id='ta' AND device_id='da'")
+			historyBefore := countActivityRows(t, s, "device_status_history", "tenant_id='ta' AND device_id='da'")
+			effectsBefore := countActivityRows(t, s, "broker_ingress_effects", "tenant_id='ta' AND device_id='da'")
+			got, err := s.InspectCurrent(context.Background(), "ta", "da")
+			if err != nil || got.Status != tc.wantStatus || got.Fresh != tc.wantFresh {
+				t.Fatalf("closed evidence=%+v err=%v, want status=%s fresh=%v", got, err, tc.wantStatus, tc.wantFresh)
+			}
+			var nextAfter time.Time
+			if err := s.db.Raw(`SELECT next_check_at FROM broker_telemetry_activity WHERE tenant_id='ta' AND device_id='da'`).Scan(&nextAfter).Error; err != nil {
+				t.Fatal(err)
+			}
+			if !nextAfter.Equal(nextBefore) || countActivityRows(t, s, "broker_ingress_receipts", "tenant_id='ta' AND device_id='da'") != receiptsBefore || countActivityRows(t, s, "device_status_history", "tenant_id='ta' AND device_id='da'") != historyBefore || countActivityRows(t, s, "broker_ingress_effects", "tenant_id='ta' AND device_id='da'") != effectsBefore {
+				t.Fatal("read-only evidence changed schedule or durable side effects")
+			}
+		})
+	}
+}

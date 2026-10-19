@@ -1138,6 +1138,9 @@ func formatTime(timestamp int64) string {
 //
 //	error: 处理过程中的错误
 func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
+	if err := requireLegacyDownlink("telemetry control"); err != nil {
+		return err
+	}
 	// 步骤1: 校验入参
 	// ---------------------------------------------
 	// 校验参数值必须是有效的JSON

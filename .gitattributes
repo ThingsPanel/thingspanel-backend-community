@@ -1,0 +1,3 @@
+# Preserve exact tool output bytes and their recorded SHA-256 hashes.
+docs/gmqtt-evidence-2026-10-19/final18-race/*.log -whitespace
+docs/gmqtt-evidence-2026-10-20/sbom/plugin-go-version.txt -whitespace

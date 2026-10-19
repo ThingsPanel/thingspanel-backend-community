@@ -43,6 +43,14 @@ type Client struct {
 	http *http.Client
 }
 
+// CloseIdleConnections releases pooled transport connections when the
+// configured Encore endpoint changes or the containing application shuts down.
+func (c *Client) CloseIdleConnections() {
+	if c != nil && c.http != nil {
+		c.http.CloseIdleConnections()
+	}
+}
+
 // Pins identify the immutable model snapshot and the resource revision
 // published with it.
 type Pins struct {

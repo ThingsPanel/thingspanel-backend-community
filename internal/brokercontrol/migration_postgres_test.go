@@ -324,6 +324,14 @@ func TestMigrationPostgresStateMachineAndRollback(t *testing.T) {
 	if err := store.Activate(ctx, "tenant-1", "device-1", change.ID); !errors.Is(err, ErrTargetUnproven) {
 		t.Fatalf("connection without ingress activated: %v", err)
 	}
+	// A newer wall timestamp does not turn an old-route receipt into proof of
+	// access to the incremented target epoch.
+	if err := db.Exec(`INSERT INTO broker_ingress_receipts(id,tenant_id,device_id,stream,broker_cell,route_epoch,payload,metadata,canonical_sha256,state,created_at) VALUES(?::uuid,? ,?,'event','cell-a',4,decode('01','hex'),'{}',decode(repeat('ab',32),'hex'),'pending',now()+interval '1 second')`, uuid.NewString(), "tenant-1", "device-1").Error; err != nil {
+		t.Fatal("seed old-route receipt with newer wall timestamp")
+	}
+	if err := store.Activate(ctx, "tenant-1", "device-1", change.ID); !errors.Is(err, ErrTargetUnproven) {
+		t.Fatalf("old epoch with newer timestamp activated target: %v", err)
+	}
 	if err := db.Exec(`INSERT INTO broker_ingress_receipts(id,tenant_id,device_id,stream,broker_cell,route_epoch,payload,metadata,canonical_sha256,state) VALUES(?::uuid,? ,?,'event','cell-b',5,decode('01','hex'),'{}',decode(repeat('ab',32),'hex'),'pending')`, uuid.NewString(), "tenant-1", "device-1").Error; err != nil {
 		t.Fatal("seed trusted connecting-epoch ingress")
 	}

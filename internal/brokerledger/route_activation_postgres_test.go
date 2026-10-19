@@ -75,6 +75,15 @@ func TestPostgresMigrationActivationGatesLedgerProcessing(t *testing.T) {
 	if err := db.Table("broker_ingress_receipts").Where("id=? AND state='pending'", id).Count(&pending).Error; err != nil || pending != 1 {
 		t.Fatalf("connecting receipt pending=%d err=%v", pending, err)
 	}
+	// The exact new epoch was admitted under the binding lock after Prepare.
+	// Receipt timestamps may come from another host clock; they cannot establish
+	// or disprove that transaction order. Simulate skew deterministically.
+	if err := db.Exec("UPDATE broker_ingress_receipts SET created_at=(SELECT prepared_at-interval '2 minutes' FROM broker_route_changes WHERE id=?) WHERE id=?", changeID, id).Error; err != nil {
+		t.Fatal("simulate independent receipt clock")
+	}
+	if err := routes.Activate(ctx, tenant, device, changeID); !errors.Is(err, brokercontrol.ErrTargetUnproven) {
+		t.Fatalf("new-epoch receipt without real connection activated: %v", err)
+	}
 	if err := db.Exec(`INSERT INTO broker_connection_observations(tenant_id,device_id,broker_cell,broker_instance,node_boot_id,connection_id,route_epoch,event_seq,online,observed_at,received_at) VALUES(?,?,?,?,?,?,5,1,true,now(),now())`, tenant, device, target, "broker-1", "target-boot", "conn-1").Error; err != nil {
 		t.Fatal("seed actual target connection observation")
 	}

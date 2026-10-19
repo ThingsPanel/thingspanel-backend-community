@@ -62,7 +62,11 @@ func TestBrokerIngressNativeMosquittoOwnerPostgresE2E(t *testing.T) {
 	includePath := nativeE2EPath("MOSQUITTO_INCLUDE_DIR", "/tmp/tp-mqtt-20261019/mosquitto/include")
 	cjsonPath := nativeE2EPath("CJSON_INCLUDE_DIR", "/opt/homebrew/opt/cjson/include")
 	redisPath := nativeE2EPath("REDIS_SERVER", "/opt/homebrew/bin/redis-server")
-	for _, path := range []string{mosquittoPath, filepath.Join(includePath, "mosquitto_broker.h"), cjsonPath, redisPath} {
+	required := []string{redisPath}
+	if strings.TrimSpace(os.Getenv("TP_NATIVE_E2E_DOCKER_IMAGE")) == "" {
+		required = append(required, mosquittoPath, filepath.Join(includePath, "mosquitto_broker.h"), cjsonPath)
+	}
+	for _, path := range required {
 		if _, err := os.Stat(path); err != nil {
 			t.Skipf("native MQTT e2e dependency %q unavailable: %v (override the corresponding environment path)", path, err)
 		}
@@ -118,7 +122,10 @@ func TestBrokerIngressNativeMosquittoOwnerPostgresE2E(t *testing.T) {
 	if err := os.WriteFile(tokenPath, []byte(ownerToken), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	pluginPath := buildNativeE2EPlugin(t, root, includePath, cjsonPath)
+	pluginPath := ""
+	if strings.TrimSpace(os.Getenv("TP_NATIVE_E2E_DOCKER_IMAGE")) == "" {
+		pluginPath = buildNativeE2EPlugin(t, root, includePath, cjsonPath)
+	}
 	var brokerAddr, brokerLog string
 	var stopBroker func()
 	if loadDuration > 0 {
@@ -497,14 +504,10 @@ func repoRootForNativeE2E(t *testing.T) string {
 
 func nativeE2EPostgres(t *testing.T) (*gorm.DB, string, func()) {
 	t.Helper()
-	dsnBytes, err := os.ReadFile("/tmp/tp-mqtt-20261019/qa-dsn")
-	if err != nil {
-		t.Skipf("PostgreSQL QA DSN unavailable: %v", err)
-	}
-	dsn := strings.TrimSpace(string(dsnBytes))
+	dsn := nativeE2EQADataSource(t)
 	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
 	if err != nil {
-		t.Skipf("cannot connect PostgreSQL QA instance: %v", err)
+		t.Skip("cannot connect PostgreSQL QA instance")
 	}
 	adminSQL, err := admin.DB()
 	if err != nil {
@@ -538,6 +541,18 @@ func nativeE2EPostgres(t *testing.T) (*gorm.DB, string, func()) {
 	return isolated, schema, cleanup
 }
 
+func nativeE2EQADataSource(t *testing.T) string {
+	t.Helper()
+	if dsn := strings.TrimSpace(os.Getenv("TEST_BROKER_DATABASE_DSN")); dsn != "" {
+		return dsn
+	}
+	dsnBytes, err := os.ReadFile("/tmp/tp-mqtt-20261019/qa-dsn")
+	if err != nil {
+		t.Skip("PostgreSQL QA DSN unavailable")
+	}
+	return strings.TrimSpace(string(dsnBytes))
+}
+
 func nativeE2ESearchPath(dsn, schema string) string {
 	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
 		parsed, err := url.Parse(dsn)
@@ -566,7 +581,7 @@ func migrateNativeE2ESchema(t *testing.T, db *gorm.DB, root string) error {
 	)`).Error; err != nil {
 		return err
 	}
-	for _, filename := range []string{"001_broker_owner_tables.sql", "002_ledger.sql", "003_state.sql", "004_mapping_snapshots.sql", "005_ingress_effects.sql", "006_commands.sql", "007_state_projection.sql", "008_quarantine.sql", "009_automation_actions.sql", "010_telemetry_activity.sql", "011_safe_device_voucher.sql", "012_route_changes.sql"} {
+	for _, filename := range []string{"001_broker_owner_tables.sql", "002_ledger.sql", "003_state.sql", "004_mapping_snapshots.sql", "005_ingress_effects.sql", "006_commands.sql", "007_state_projection.sql", "008_quarantine.sql", "009_automation_actions.sql", "010_telemetry_activity.sql", "011_safe_device_voucher.sql", "012_route_changes.sql", "013_command_plans.sql", "014_telemetry_evidence_index.sql"} {
 		body, err := os.ReadFile(filepath.Join(root, "sql", "broker", filename))
 		if err != nil {
 			return fmt.Errorf("read broker migration %s: %w", filename, err)
@@ -610,6 +625,9 @@ func buildNativeE2EPlugin(t *testing.T, root, includePath, cjsonPath string) str
 
 func startNativeE2EBroker(t *testing.T, binary, plugin, ownerURL, tokenPath, root string) (string, string, func()) {
 	t.Helper()
+	if image := strings.TrimSpace(os.Getenv("TP_NATIVE_E2E_DOCKER_IMAGE")); image != "" {
+		return startNativeDockerBroker(t, image, ownerURL, tokenPath)
+	}
 	port := freeNativeE2EPort(t)
 	addr := fmt.Sprintf("tcp://127.0.0.1:%d", port)
 	dir := t.TempDir()

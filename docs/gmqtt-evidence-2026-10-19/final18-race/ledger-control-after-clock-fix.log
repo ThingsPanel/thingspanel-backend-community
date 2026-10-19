@@ -1,0 +1,220 @@
+=== RUN   TestPostgresProcessOneInCellKeepsOlderOtherCellReceiptUntouched
+
+--- PASS: TestPostgresProcessOneInCellKeepsOlderOtherCellReceiptUntouched (0.27s)
+
+=== RUN   TestPostgresProcessOneInCellFencesRouteChangedReceiptAtOriginalCell
+
+--- PASS: TestPostgresProcessOneInCellFencesRouteChangedReceiptAtOriginalCell (0.14s)
+
+=== RUN   TestPostgresProcessOneInCellRetryAndConcurrentCellsAreIsolated
+
+--- PASS: TestPostgresProcessOneInCellRetryAndConcurrentCellsAreIsolated (0.17s)
+
+=== RUN   TestPostgresConnectingBindingAcceptsPendingButDoesNotProcess
+
+--- PASS: TestPostgresConnectingBindingAcceptsPendingButDoesNotProcess (0.10s)
+
+=== RUN   TestPostgresQuarantineConcurrentDuplicatesShareStableRecord
+
+--- PASS: TestPostgresQuarantineConcurrentDuplicatesShareStableRecord (0.38s)
+
+=== RUN   TestPostgresQuarantineTenantAndDeviceScopesAreIsolated
+
+--- PASS: TestPostgresQuarantineTenantAndDeviceScopesAreIsolated (0.11s)
+
+=== RUN   TestPostgresQuarantineRejectsFencedAndInactiveBindings
+
+--- PASS: TestPostgresQuarantineRejectsFencedAndInactiveBindings (0.10s)
+
+=== RUN   TestPostgresQuarantineCapacityRollsBackAndDuplicateBypassesNewSlot
+
+--- PASS: TestPostgresQuarantineCapacityRollsBackAndDuplicateBypassesNewSlot (0.12s)
+
+=== RUN   TestPostgresQuarantineQuotaSerializesDifferentDevicesInTenant
+
+--- PASS: TestPostgresQuarantineQuotaSerializesDifferentDevicesInTenant (0.12s)
+
+=== RUN   TestPostgresQuarantineDatabaseFailureRollsBack
+
+--- PASS: TestPostgresQuarantineDatabaseFailureRollsBack (0.09s)
+
+=== RUN   TestQuarantineRejectsInvalidTopicReasonAndOversizeBody
+
+--- PASS: TestQuarantineRejectsInvalidTopicReasonAndOversizeBody (0.00s)
+
+=== RUN   TestQuarantineIDIncludesEveryField
+
+--- PASS: TestQuarantineIDIncludesEveryField (0.00s)
+
+=== RUN   TestPostgresAuditedRetirementBackpressureAndQuarantine
+
+--- PASS: TestPostgresAuditedRetirementBackpressureAndQuarantine (0.37s)
+
+=== RUN   TestPostgresRetiredQuarantineRequiresRouteHistoryAndExactSourceScope
+
+--- PASS: TestPostgresRetiredQuarantineRequiresRouteHistoryAndExactSourceScope (0.26s)
+
+=== RUN   TestPostgresMigrationActivationGatesLedgerProcessing
+
+--- PASS: TestPostgresMigrationActivationGatesLedgerProcessing (0.50s)
+
+=== RUN   TestPostgresIngestionIDReceiptRetryScopeAndSourceDedup
+
+--- PASS: TestPostgresIngestionIDReceiptRetryScopeAndSourceDedup (0.27s)
+
+=== RUN   TestPostgresConcurrentDuplicateAcceptUsesOneStableReceipt
+
+--- PASS: TestPostgresConcurrentDuplicateAcceptUsesOneStableReceipt (0.45s)
+
+=== RUN   TestPostgresSameSourceEventWithDifferentIngressTimestampIsDuplicate
+
+--- PASS: TestPostgresSameSourceEventWithDifferentIngressTimestampIsDuplicate (0.08s)
+
+=== RUN   TestPostgresSameSamplesWithoutSourceIDRemainDistinct
+
+--- PASS: TestPostgresSameSamplesWithoutSourceIDRemainDistinct (0.12s)
+
+=== RUN   TestPostgresRejectsWrongEpochAndScopesReceiptReads
+
+--- PASS: TestPostgresRejectsWrongEpochAndScopesReceiptReads (0.11s)
+
+=== RUN   TestPostgresHandlerRollbackRetryAndNoDuplicateProcessing
+
+--- PASS: TestPostgresHandlerRollbackRetryAndNoDuplicateProcessing (0.12s)
+
+=== RUN   TestPostgresHandlerFailuresBecomeAuditableDeadLetter
+
+--- PASS: TestPostgresHandlerFailuresBecomeAuditableDeadLetter (0.12s)
+
+=== RUN   TestPostgresRawPayloadLimitIsIndependentOfMetadataLimit
+
+--- PASS: TestPostgresRawPayloadLimitIsIndependentOfMetadataLimit (0.18s)
+
+=== RUN   TestPostgresCapacityAndOversizeRollBackAcceptance
+
+--- PASS: TestPostgresCapacityAndOversizeRollBackAcceptance (0.11s)
+
+=== RUN   TestPostgresInactiveBindingRejectsAcceptance
+
+--- PASS: TestPostgresInactiveBindingRejectsAcceptance (0.12s)
+
+PASS
+
+ok  	project/internal/brokerledger	6.037s
+
+=== RUN   TestPostgresAdmissionBindingAllowsConnectingButActiveBindingDoesNot
+
+--- PASS: TestPostgresAdmissionBindingAllowsConnectingButActiveBindingDoesNot (0.14s)
+
+=== RUN   TestOwnerGrantCarriesConnectingBindingPhase
+
+--- PASS: TestOwnerGrantCarriesConnectingBindingPhase (0.00s)
+
+=== RUN   TestGormPersistenceClientIDBindingAndPhase
+
+--- PASS: TestGormPersistenceClientIDBindingAndPhase (0.03s)
+
+=== RUN   TestMigrationPostgresStateMachineAndRollback
+
+--- PASS: TestMigrationPostgresStateMachineAndRollback (1.55s)
+
+=== RUN   TestAuthenticateCreatesNarrowDeviceGrantAndStableConnectionID
+
+--- PASS: TestAuthenticateCreatesNarrowDeviceGrantAndStableConnectionID (0.00s)
+
+=== RUN   TestAuthenticateGatewayExpandsOnlyActiveChildNumbers
+
+--- PASS: TestAuthenticateGatewayExpandsOnlyActiveChildNumbers (0.00s)
+
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft
+
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/duplicate_voucher_semantic_matches
+
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/duplicate_voucher_semantic_matches (0.00s)
+
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/disabled_device
+
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/disabled_device (0.00s)
+
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/inactive_device
+
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/inactive_device (0.00s)
+
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/cross_tenant_client_takeover
+
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/cross_tenant_client_takeover (0.00s)
+
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/draining_binding
+
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/draining_binding (0.00s)
+
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/database_failure
+
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/database_failure (0.00s)
+
+=== RUN   TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/uncertified_custom_topic_mapping
+
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft/uncertified_custom_topic_mapping (0.00s)
+
+--- PASS: TestAuthenticateFailsClosedForDuplicatesInactiveRoutesAndClientIDTheft (0.00s)
+
+=== RUN   TestExplicitServiceAllowlistAndNoDeviceFallback
+
+--- PASS: TestExplicitServiceAllowlistAndNoDeviceFallback (0.00s)
+
+=== RUN   TestServicePublishPolicyRejectsInternalAndBroadSpoofFilters
+
+--- PASS: TestServicePublishPolicyRejectsInternalAndBroadSpoofFilters (0.00s)
+
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices
+
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/read-only_service_may_omit_targets
+
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/read-only_service_may_omit_targets (0.00s)
+
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/publish_without_explicit_targets_is_rejected_at_configuration
+
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/publish_without_explicit_targets_is_rejected_at_configuration (0.00s)
+
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/target_identifiers_cannot_contain_MQTT_wildcards
+
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/target_identifiers_cannot_contain_MQTT_wildcards (0.00s)
+
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/target_from_another_tenant_is_denied_by_default_scope
+
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/target_from_another_tenant_is_denied_by_default_scope (0.00s)
+
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/explicit_multi-tenant_scope_still_compiles_only_selected_devices
+
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/explicit_multi-tenant_scope_still_compiles_only_selected_devices (0.00s)
+
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/duplicate_device_number_is_rejected
+
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/duplicate_device_number_is_rejected (0.00s)
+
+=== RUN   TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/literal_device_number_must_belong_to_scope
+
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices/literal_device_number_must_belong_to_scope (0.00s)
+
+--- PASS: TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices (0.00s)
+
+=== RUN   TestServiceGrantRejectsResponseOver64KiB
+
+--- PASS: TestServiceGrantRejectsResponseOver64KiB (0.03s)
+
+=== RUN   TestHTTPBearerCellScopeBodyLimitAndGenericFailures
+
+--- PASS: TestHTTPBearerCellScopeBodyLimitAndGenericFailures (0.00s)
+
+=== RUN   TestPostgresVoucherJSONBSemanticsAndOwnerTransactions
+
+--- PASS: TestPostgresVoucherJSONBSemanticsAndOwnerTransactions (0.43s)
+
+=== RUN   TestPostgresRuntimeSyncTokenScopeDuplicateAckAndBootFence
+
+--- PASS: TestPostgresRuntimeSyncTokenScopeDuplicateAckAndBootFence (0.64s)
+
+PASS
+
+ok  	project/internal/brokercontrol	4.424s
+

@@ -2,6 +2,8 @@
 # the authentication/ACL plugin and its policy have been built and verified.
 listener 1883 0.0.0.0
 allow_anonymous false
+# Bound wire packets before plugin copies; trusted ingress envelopes fit below 2 MiB.
+max_packet_size 2097152
 persistence true
 persistence_location /mosquitto/data/
 log_dest stdout
@@ -10,3 +12,5 @@ log_type warning
 log_type notice
 user mosquitto
 plugin /mosquitto/plugins/libtp-mosquitto-plugin.so
+# Mosquitto 2.1.2's stock $SYS scheduler supplies an independent <=1s main-loop wake.
+sys_interval 1
