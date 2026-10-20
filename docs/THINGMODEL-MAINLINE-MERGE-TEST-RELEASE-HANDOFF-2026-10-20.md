@@ -100,6 +100,7 @@ blocking_gates:
 |---|---|---|---|
 | Community backend 集成候选 | `codex/thingmodel-dev-integration-20261018` | `cd5b5841b597d1c3293c1a9ba8a3de7ea11a860b` | 已提交的 Encore 原生物模型集成、市场发布/安装和相关迁移代码候选；合并前仍需逐仓核对主线差异和测试 |
 | Community backend 市场修复 | `codex/thingmodel-market-source-reuse-20261020` | 修复 commit `eb165d40db69c51067c98b0a03e728a84b0dc23f` | 同租户安装时仅复用完全相同的固定源快照；专项 Go 回归已通过。分支随后加入本移交文档，基于上面的集成候选 |
+| Community backend 市场图表 API 地址 | `codex/thingmodel-market-source-reuse-20261020` | `71a716f9d5e79ded41f36f6ab2947867b1cc0a5b` | 市场图表包 API 支持使用配置的 ThingsVis 内部地址；专项 `internal/api` 测试通过。与同租户模型复用修复一并在此分支 |
 | Community frontend | `codex/native-device-metadata` | `ee5aab55ba604165d99a07734d92b2705e97e0c1` | 66 QA 的原生物模型/设备消费前端候选；生产构建成功，全仓类型检查尚未通过 |
 | Encore kernel | `codex/thingmodel-dev-integration-20261018` | `37fbb5e8e83c47fa98a1eea59fefa38ceff97737` | 66 QA 使用的原生 API 候选，已在远端；不含本次额外升级安装器交付 |
 | Test automation | `codex/thingmodel-native-qa-automation-20261020` | `80a9f644c946b8b3f76b6c870eadc3fa28bbb391` | 原生模型、模板、市场、设备绑定/消费原子动作及校验器；8 个注册表、52 个动作校验通过，不包含账号密码 |
@@ -271,4 +272,5 @@ Community 主工作区 `/Users/junhong/Downloads/code/thingspanel-backend-commun
 
 - 2026-10-20：基于 66 QA 实际部署和数据库回读，补入市场源租户同名安装修复；明确隔离 QA 已通过项和仍阻断产品发布的项目。
 - 2026-10-20：补入 backend、frontend、Encore kernel 和 Test Automation 已推送分支及完整 commit；明确正式 installer 升级/回滚实现仍未完成，QA 工具不能代替产品升级器。
+- 2026-10-20：追加提交市场图表包 ThingsVis 地址配置及定向 API 回归；确认旧后端工作树显示为删除的市场导入/发布实现已在远端集成候选中。
 - 权威的实时状态更新：在本文件“当前状态”和第 4、7 节同步，并附带变更日期、证据路径；不要用更早的设计草稿覆盖最新执行证据。
