@@ -1,10 +1,14 @@
 package mqttadapter
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
 	"project/initialize"
+	"project/internal/dal"
 	"project/internal/uplink"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -62,8 +66,20 @@ func (a *Adapter) handleResponseMessage(client mqtt.Client, msg mqtt.Message) {
 	messageID := parts[len(parts)-1]
 	msgType := a.detectResponseType(topic)
 
-	// 2. 验证 payload 格式
-	responsePayload, err := a.verifyPayload(payload)
+	// 命令 ACK 允许设备直接发布 {result,message,ts}，也兼容既有 {device_id,values} 信封。
+	var responseBytes []byte
+	var responseDeviceID string
+	var err error
+	isCommandResponse := msgType == uplink.MessageTypeCommandResponse || msgType == uplink.MessageTypeGatewayCommandResponse
+	if isCommandResponse {
+		responseBytes, responseDeviceID, err = decodeCommandAckPayload(payload)
+	} else {
+		var responsePayload *publicPayload
+		responsePayload, err = a.verifyPayload(payload)
+		if err == nil {
+			responseBytes, responseDeviceID = responsePayload.Values, responsePayload.DeviceId
+		}
+	}
 	if err != nil {
 		a.logger.WithFields(logrus.Fields{
 			"topic": topic,
@@ -72,11 +88,19 @@ func (a *Adapter) handleResponseMessage(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	// 3. 获取设备信息
-	device, err := initialize.GetDeviceCacheById(responsePayload.DeviceId)
+	// 3. 获取设备信息。命令 ACK 统一以 message_id 对应的命令日志为准，避免 ACK 中设备号误关联。
+	if isCommandResponse {
+		commandLog, lookupErr := dal.GetCommandSetLogByMessageIDOnly(context.Background(), messageID)
+		if lookupErr != nil {
+			a.logger.WithFields(logrus.Fields{"message_id": messageID, "error": lookupErr}).Warn("Command ACK has no matching command log")
+			return
+		}
+		responseDeviceID = commandLog.DeviceID
+	}
+	device, err := initialize.GetDeviceCacheById(responseDeviceID)
 	if err != nil {
 		a.logger.WithFields(logrus.Fields{
-			"device_id": responsePayload.DeviceId,
+			"device_id": responseDeviceID,
 			"error":     err,
 		}).Error("Device not found in cache")
 		return
@@ -88,7 +112,7 @@ func (a *Adapter) handleResponseMessage(client mqtt.Client, msg mqtt.Message) {
 		DeviceID:  device.ID,
 		TenantID:  device.TenantID,
 		Timestamp: time.Now().UnixMilli(),
-		Payload:   responsePayload.Values,
+		Payload:   responseBytes,
 		Metadata: map[string]interface{}{
 			"device_id":       device.ID,
 			"topic":           topic,
@@ -112,6 +136,31 @@ func (a *Adapter) handleResponseMessage(client mqtt.Client, msg mqtt.Message) {
 		"message_id": messageID,
 		"msg_type":   msgType,
 	}).Info("Response message published to bus")
+}
+
+// decodeCommandAckPayload accepts both a direct command ACK and the legacy MQTT envelope.
+func decodeCommandAckPayload(body []byte) ([]byte, string, error) {
+	var envelope struct {
+		DeviceID string `json:"device_id"`
+		Values   []byte `json:"values"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return nil, "", err
+	}
+	response := body
+	if len(envelope.Values) > 0 {
+		response = envelope.Values
+	}
+	var ack struct {
+		Result *int `json:"result"`
+	}
+	if err := json.Unmarshal(response, &ack); err != nil {
+		return nil, "", err
+	}
+	if ack.Result == nil || (*ack.Result != 0 && *ack.Result != 1) {
+		return nil, "", errors.New("command ACK result must be 0 or 1")
+	}
+	return response, envelope.DeviceID, nil
 }
 
 // detectResponseType 检测响应类型

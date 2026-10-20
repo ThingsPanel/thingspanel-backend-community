@@ -202,25 +202,19 @@ func (h *Handler) updateLogStatus(messageID, deviceID, status, errorMsg string, 
 
 	switch msgType {
 	case MessageTypeCommand:
-		// 查询命令日志表
-		log, err := dal.GetCommandSetLogByMessageID(messageID, deviceID)
+		updated, err := dal.UpdateCommandPublishStatus(messageID, deviceID, status, errorMsg)
 		if err != nil {
 			h.logger.WithError(err).WithFields(logrus.Fields{
 				"message_id": messageID,
 				"device_id":  deviceID,
-			}).Warn("Failed to find command log")
+			}).Error("Failed to update command publish status")
 			return
 		}
-
-		// 更新状态
-		log.Status = &status
-		if errorMsg != "" {
-			log.ErrorMessage = &errorMsg
-		}
-
-		// 保存更新
-		if err := dal.UpdateCommandSetLog(log); err != nil {
-			h.logger.WithError(err).WithField("message_id", messageID).Error("Failed to update command log status")
+		if !updated {
+			h.logger.WithFields(logrus.Fields{
+				"message_id": messageID,
+				"device_id":  deviceID,
+			}).Debug("Command publish status skipped: log is no longer pending or does not exist")
 		} else {
 			h.logger.WithFields(logrus.Fields{
 				"message_id": messageID,

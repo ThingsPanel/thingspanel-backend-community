@@ -71,7 +71,10 @@ func PgInit() (*gorm.DB, error) {
 	// 检查版本
 	err = CheckVersion(db)
 	if err != nil {
-		fmt.Println(err)
+		return nil, fmt.Errorf("检查数据库版本失败: %w", err)
+	}
+	if err = ApplyNativeBindingSchema(db); err != nil {
+		return nil, fmt.Errorf("初始化 native binding schema 失败: %w", err)
 	}
 
 	return db, nil
@@ -204,6 +207,9 @@ func CheckVersion(db *gorm.DB) error {
 
 	}
 	tx := db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
 	// 查询版本号
 	result = db.Table("sys_version").Select("version_number").Scan(&dataVersionNumber)
 	if result.Error != nil {

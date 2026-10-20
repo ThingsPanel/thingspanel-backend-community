@@ -117,3 +117,29 @@ func TestRequestPublicOriginRejectsForeignOrigin(t *testing.T) {
 		t.Fatalf("expected trusted request host, got %s", origin)
 	}
 }
+
+func TestCommunitySessionAuthorizationPrefersXToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name          string
+		xToken        string
+		authorization string
+		want          string
+	}{
+		{name: "community session header", xToken: "session-token", authorization: "Bearer market-token", want: "Bearer session-token"},
+		{name: "already bearer formatted session", xToken: "Bearer session-token", want: "Bearer session-token"},
+		{name: "authorization fallback", authorization: "Bearer session-token", want: "Bearer session-token"},
+		{name: "no community session", authorization: "market-token", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			context, _ := gin.CreateTestContext(httptest.NewRecorder())
+			context.Request = httptest.NewRequest(http.MethodPost, "http://localhost/test", nil)
+			context.Request.Header.Set("x-token", tt.xToken)
+			context.Request.Header.Set("Authorization", tt.authorization)
+			if got := communitySessionAuthorization(context); got != tt.want {
+				t.Fatalf("communitySessionAuthorization() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

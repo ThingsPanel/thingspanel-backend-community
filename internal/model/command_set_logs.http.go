@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type GetCommandSetLogsListByPageReq struct {
 	PageReq
 	DeviceId      string  `json:"device_id" form:"device_id" validate:"required,max=36"`               // 设备ID
@@ -8,4 +10,14 @@ type GetCommandSetLogsListByPageReq struct {
 	OperationType *string `json:"operation_type" form:"operation_type" validate:"omitempty,oneof=1 2"` //操作类型 1-手动操作 2-自动触发
 	IdentifyName  *string `json:"identify_name" form:"identify_name" validate:"omitempty,max=100"`     //数据标识符名称
 
+}
+
+// CommandStatusResponse is the single-command receipt returned by the status endpoint.
+type CommandStatusResponse struct {
+	MessageID    string    `json:"message_id"`
+	Status       string    `json:"status"`
+	RawStatus    *string   `json:"raw_status,omitempty"`
+	ErrorMessage *string   `json:"error_message,omitempty"`
+	CreatedAt    time.Time `json:"created_at,omitempty"`
+	Response     *string   `json:"response,omitempty"`
 }

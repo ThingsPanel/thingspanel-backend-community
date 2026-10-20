@@ -150,6 +150,21 @@ func GetCommandSetLogByMessageID(messageID string, deviceID string) (*model.Comm
 		First()
 }
 
+// GetCommandSetLogByMessageIDAndTenant returns a command log only when its device belongs to the caller's tenant.
+func GetCommandSetLogByMessageIDAndTenant(ctx context.Context, messageID, tenantID string) (*model.CommandSetLog, error) {
+	return query.CommandSetLog.WithContext(ctx).
+		Join(query.Device, query.Device.ID.EqCol(query.CommandSetLog.DeviceID)).
+		Where(query.CommandSetLog.MessageID.Eq(messageID), query.Device.TenantID.Eq(tenantID)).
+		First()
+}
+
+// GetCommandSetLogByMessageIDOnly resolves the command owner when an MQTT ACK omits device_id.
+func GetCommandSetLogByMessageIDOnly(ctx context.Context, messageID string) (*model.CommandSetLog, error) {
+	return query.CommandSetLog.WithContext(ctx).
+		Where(query.CommandSetLog.MessageID.Eq(messageID)).
+		First()
+}
+
 // GetCommandSetLogsByPage 分页查询命令下发日志
 func GetCommandSetLogsByPage(req *model.GetCommandSetLogsListByPageReq) ([]*model.CommandSetLog, int64, error) {
 	q := query.CommandSetLog.Order(query.CommandSetLog.CreatedAt.Desc())
@@ -174,4 +189,22 @@ func GetCommandSetLogsByPage(req *model.GetCommandSetLogsListByPageReq) ([]*mode
 // UpdateCommandSetLog 更新命令日志
 func UpdateCommandSetLog(log *model.CommandSetLog) error {
 	return query.CommandSetLog.Save(log)
+}
+
+// UpdateCommandPublishStatus advances pending commands without overwriting an
+// acknowledgement that may have arrived before the publisher completed.
+func UpdateCommandPublishStatus(messageID, deviceID, status, errorMsg string) (bool, error) {
+	if status != "1" && status != "2" {
+		return false, fmt.Errorf("invalid command publish status: %s", status)
+	}
+	command := query.CommandSetLog
+	result, err := command.Where(
+		command.MessageID.Eq(messageID),
+		command.DeviceID.Eq(deviceID),
+		command.Status.Eq("0"),
+	).UpdateSimple(command.Status.Value(status), command.ErrorMessage.Value(errorMsg))
+	if err != nil {
+		return false, err
+	}
+	return result.RowsAffected > 0, nil
 }
