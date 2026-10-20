@@ -356,28 +356,64 @@ func TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices(t 
 	})
 }
 
-func TestServiceGrantRejectsResponseOver64KiB(t *testing.T) {
-	s := serviceFixture()
-	s.Policy.Publish = []string{
+// The authenticated grant response ceiling is MaxGrantResponseBytes (1 MiB),
+// sized to carry the bounded 256-target scope and to match the driver decoder.
+// The former 64 KiB rejection boundary is obsolete, so this test now pins the
+// real boundary: a 256-target grant above 64 KiB but within 1 MiB must be a
+// valid grant, and only a response above 1 MiB is rejected, before any ClientID
+// is claimed.
+func TestServiceGrantResponseSizeBoundaryAllows64KiBTo1MiBAndRejectsOver1MiB(t *testing.T) {
+	publishFamilies := []string{
 		"devices/command/+/+", "gateway/command/+/+", "devices/telemetry/control/+", "gateway/telemetry/control/+",
 		"devices/attributes/get/+", "gateway/attributes/get/+", "devices/attributes/set/+/+", "gateway/attributes/set/+/+",
 		"devices/attributes/response/+/+", "gateway/attributes/response/+/+", "devices/event/response/+/+", "gateway/event/response/+/+", "ota/devices/inform/+",
 	}
-	s.AllowedDeviceIDs = make([]string, 0, MaxServiceTargets)
-	targets := make(map[string]DeviceRecord, MaxServiceTargets)
-	for i := 0; i < MaxServiceTargets; i++ {
-		id := fmt.Sprintf("target-%03d", i)
-		s.AllowedDeviceIDs = append(s.AllowedDeviceIDs, id)
-		targets[id] = DeviceRecord{ID: id, TenantID: "tenant-a", DeviceNumber: fmt.Sprintf("device-number-%03d-1234567890123456789", i), DeviceNumberCount: 1, IsEnabled: "enabled", ActivateFlag: "active"}
+	fixture := func(numberSuffix string) (ServiceCredential, *fakeRepository) {
+		s := serviceFixture()
+		s.Policy.Publish = publishFamilies
+		s.AllowedDeviceIDs = make([]string, 0, MaxServiceTargets)
+		targets := make(map[string]DeviceRecord, MaxServiceTargets)
+		for i := 0; i < MaxServiceTargets; i++ {
+			id := fmt.Sprintf("target-%03d", i)
+			s.AllowedDeviceIDs = append(s.AllowedDeviceIDs, id)
+			targets[id] = DeviceRecord{ID: id, TenantID: "tenant-a", DeviceNumber: fmt.Sprintf("device-number-%03d-%s", i, numberSuffix), DeviceNumberCount: 1, IsEnabled: "enabled", ActivateFlag: "active"}
+		}
+		return s, &fakeRepository{serviceTargets: targets}
 	}
-	repo := &fakeRepository{serviceTargets: targets}
-	g, err := testOwner(t, repo, []ServiceCredential{s}).Authenticate(context.Background(), serviceRequest())
-	if err != nil || g.Allow || g.DenyCode != "grant_too_large" {
-		t.Fatalf("oversized scoped grant not denied explicitly: %#v %v", g, err)
-	}
-	if len(repo.clientOwners) != 0 {
-		t.Fatal("oversized grant claimed ClientID before size validation")
-	}
+
+	t.Run("over 64KiB and within 1MiB is a valid grant", func(t *testing.T) {
+		s, repo := fixture("1234567890123456789")
+		g, err := testOwner(t, repo, []ServiceCredential{s}).Authenticate(context.Background(), serviceRequest())
+		if err != nil || !g.Allow {
+			t.Fatalf("256-target grant within the 1 MiB ceiling was not allowed: allow=%t deny=%q err=%v", g.Allow, g.DenyCode, err)
+		}
+		response, err := json.Marshal(g)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(response) <= 64<<10 {
+			t.Fatalf("fixture no longer exercises the obsolete 64 KiB boundary: size=%d", len(response))
+		}
+		if len(response) > MaxGrantResponseBytes {
+			t.Fatalf("allowed grant exceeds the 1 MiB ceiling: size=%d ceiling=%d", len(response), MaxGrantResponseBytes)
+		}
+		if len(repo.clientOwners) != 1 {
+			t.Fatalf("accepted grant did not claim exactly one ClientID: %d", len(repo.clientOwners))
+		}
+	})
+
+	t.Run("over 1MiB is rejected before the ClientID is claimed", func(t *testing.T) {
+		// Long device numbers keep the target count at the 256 bound while
+		// pushing the marshalled response past 1 MiB.
+		s, repo := fixture(strings.Repeat("x", 400))
+		g, err := testOwner(t, repo, []ServiceCredential{s}).Authenticate(context.Background(), serviceRequest())
+		if err != nil || g.Allow || g.DenyCode != "grant_too_large" {
+			t.Fatalf("oversized scoped grant not denied explicitly: allow=%t deny=%q err=%v", g.Allow, g.DenyCode, err)
+		}
+		if len(repo.clientOwners) != 0 {
+			t.Fatal("oversized grant claimed ClientID before size validation")
+		}
+	})
 }
 
 func TestHTTPBearerCellScopeBodyLimitAndGenericFailures(t *testing.T) {

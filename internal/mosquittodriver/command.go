@@ -52,6 +52,14 @@ func (d *Driver) AuthorizePayload(ptr uintptr, access int, topic string, payload
 		if pluginServiceGrant(g) {
 			return d.pluginFrameTarget(g, f)
 		}
+		if g.Principal.Kind == bc.PrincipalService {
+			return false
+		}
+		canonical := f.CanonicalTopic
+		if canonical == "" {
+			canonical = f.WireTopic
+		}
+		return f.TenantID == g.Principal.TenantID && f.TargetDeviceID == g.Principal.DeviceID && f.RouteEpoch == g.RouteEpoch && f.MappingVersion == g.MappingVersion && bc.AuthorizeTopic(g.Principal, g.Policy, bc.ActionReceive, canonical) == nil
 	}
 	if g, err := d.snapshot(ptr); err == nil && g.Principal.Kind == bc.PrincipalService && strings.HasPrefix(topic, bc.IngressPrefix+"/") {
 		if len(payload) == 0 {
@@ -60,18 +68,8 @@ func (d *Driver) AuthorizePayload(ptr uintptr, access int, topic string, payload
 		env, err := bc.ParseIngress(topic, payload, bc.TrustedMetadata{BrokerCell: d.cfg.Cell, BrokerInstance: d.cfg.Instance})
 		return err == nil && len(env.Values) <= g.Policy.MaxPayload
 	}
-	if !bc.IsCommandFrame(payload) {
-		return !bc.IsControlledDownlinkTopic(topic)
-	}
 	g, err := d.snapshot(ptr)
-	if err != nil {
-		return false
-	}
-	if g.Principal.Kind == bc.PrincipalService {
-		return false
-	}
-	f, err := bc.ParseCommandFrame(payload, time.Now())
-	return err == nil && !retain && f.WireTopic == topic && f.TenantID == g.Principal.TenantID && f.TargetDeviceID == g.Principal.DeviceID && f.RouteEpoch == g.RouteEpoch && f.MappingVersion == g.MappingVersion
+	return err == nil && !bc.IsControlledDownlinkTopic(topic) && !protectedDownlinkTopic(g, topic)
 }
 
 // Outgoing copies only payload bytes. Stored messages keep the private frame so
@@ -81,7 +79,8 @@ func (d *Driver) Outgoing(ptr uintptr, topic string, payload []byte, qos byte, r
 		return nil, false, errors.New("runtime outgoing fence denied delivery")
 	}
 	if !bc.IsCommandFrame(payload) {
-		if bc.IsControlledDownlinkTopic(topic) {
+		g, err := d.snapshot(ptr)
+		if err != nil || bc.IsControlledDownlinkTopic(topic) || protectedDownlinkTopic(g, topic) {
 			return nil, false, errors.New("unframed command delivery denied")
 		}
 		return nil, false, nil
@@ -104,8 +103,24 @@ func (d *Driver) Outgoing(ptr uintptr, topic string, payload []byte, qos byte, r
 		}
 		return f.Payload, true, nil
 	}
+	canonical := f.CanonicalTopic
+	if canonical == "" {
+		canonical = f.WireTopic
+	}
+	if bc.AuthorizeTopic(g.Principal, g.Policy, bc.ActionReceive, canonical) != nil {
+		return nil, false, errors.New("canonical command topic is outside device scope")
+	}
 	if g.Principal.Kind == bc.PrincipalService || f.TenantID != g.Principal.TenantID || f.TargetDeviceID != g.Principal.DeviceID || f.RouteEpoch != g.RouteEpoch || f.MappingVersion != g.MappingVersion {
 		return nil, false, errors.New("command delivery identity or route denied")
 	}
 	return f.Payload, true, err
+}
+
+func protectedDownlinkTopic(g bc.Grant, topic string) bool {
+	for _, filter := range g.ProtectedDownlink {
+		if bc.FilterMatches(filter, topic) {
+			return true
+		}
+	}
+	return false
 }

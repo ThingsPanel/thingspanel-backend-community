@@ -118,6 +118,31 @@ func TestSplitControlledDownlinkTopicSupportsRegisteredPrefixes(t *testing.T) {
 	}
 }
 
+func TestCustomWireCommandFrameRequiresCanonicalScopedProof(t *testing.T) {
+	now := time.Now()
+	f := validCommandFrame(now)
+	f.CommandID = "cmd-42"
+	f.CanonicalTopic = "devices/command/num-1/cmd-42"
+	f.TargetDeviceNumber = "num-1"
+	f.WireTopic = "custom/device-1/command/cmd-42"
+	if _, err := EncodeCommandFrame(f, now); err != nil {
+		t.Fatalf("valid mapped command frame rejected: %v", err)
+	}
+	for name, mutate := range map[string]func(*CommandFrame){
+		"missing canonical":      func(x *CommandFrame) { x.CanonicalTopic = "" },
+		"wrong target number":    func(x *CommandFrame) { x.TargetDeviceNumber = "num-2" },
+		"uncontrolled canonical": func(x *CommandFrame) { x.CanonicalTopic = "devices/telemetry/num-1" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			bad := f
+			mutate(&bad)
+			if _, err := EncodeCommandFrame(bad, now); err == nil {
+				t.Fatal("invalid mapped command frame accepted")
+			}
+		})
+	}
+}
+
 func TestCommandFrameMessageIDValidationUsesCanonicalPrefixedTopic(t *testing.T) {
 	now := time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
 	f := validCommandFrame(now)

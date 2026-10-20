@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"project/internal/brokercommands"
+	"project/internal/brokerplugin"
 	"project/internal/model"
 	"project/pkg/constant"
 )
@@ -111,5 +113,46 @@ func TestDurableMultiLevelTransformFourLevelVectors(t *testing.T) {
 	const gatewayWant = `{"sub_gateway_data":{"branch-b":{"sub_gateway_data":{"branch-a":{"gateway_data":{"method":"set","params":{"value":1}}}}}}}`
 	if string(gotJSON) != gatewayWant {
 		t.Fatalf("multi-level gateway command=%s, want %s", gotJSON, gatewayWant)
+	}
+}
+
+func TestCommandFingerprintSnapshotLegacyJSONIsStable(t *testing.T) {
+	type legacyFingerprint struct {
+		PluginPath []commandDeviceSnapshot     `json:"plugin_path,omitempty"`
+		Plugin     *brokerplugin.Route         `json:"plugin,omitempty"`
+		Devices    []commandDeviceSnapshot     `json:"devices"`
+		Configs    []commandConfigSnapshot     `json:"configs"`
+		Commands   []commandDefinitionSnapshot `json:"commands"`
+		Scripts    []commandScriptSnapshot     `json:"scripts"`
+	}
+	legacy := legacyFingerprint{
+		Devices:  []commandDeviceSnapshot{{ID: "device-1", TenantID: "tenant-1", DeviceNumber: "number-1"}},
+		Configs:  []commandConfigSnapshot{{ID: "config-1", TenantID: "tenant-1", DeviceType: "1"}},
+		Commands: []commandDefinitionSnapshot{{ID: "command-1", DeviceTemplateID: "template-1", DataIdentifier: "switch", TenantID: "tenant-1"}},
+		Scripts:  []commandScriptSnapshot{{ID: "script-1", DeviceConfigID: "config-1", ScriptType: "E", EnableFlag: "enabled"}},
+	}
+	current := commandFingerprintSnapshot{
+		Devices: legacy.Devices, Configs: legacy.Configs, Commands: legacy.Commands, Scripts: legacy.Scripts,
+	}
+	oldJSON, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newJSON, err := json.Marshal(current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(newJSON) != string(oldJSON) {
+		t.Fatalf("standard fingerprint JSON changed: old=%s new=%s", oldJSON, newJSON)
+	}
+	if got := effectiveMappingVersion(""); got != "standard-v1" {
+		t.Fatalf("legacy prepared command mapping version=%q, want standard-v1", got)
+	}
+	var prepared brokercommands.PreparedCommand
+	if err := json.Unmarshal([]byte(`{"message":{"device_id":"device-1"}}`), &prepared); err != nil {
+		t.Fatal(err)
+	}
+	if got := effectiveMappingVersion(prepared.MappingVersion); got != "standard-v1" {
+		t.Fatalf("prepared command without new field maps to %q, want standard-v1", got)
 	}
 }

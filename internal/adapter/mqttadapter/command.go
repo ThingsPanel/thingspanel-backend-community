@@ -1,7 +1,9 @@
 package mqttadapter
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"project/internal/brokercommands"
 	bc "project/internal/brokercontract"
@@ -43,23 +45,50 @@ func (a *Adapter) PublishDurableCommand(ctx context.Context, row brokercommands.
 	default:
 		return errors.New("unsupported durable downlink family")
 	}
+	canonicalTopic := topic
 	if msg.TopicPrefix != "" {
 		if !bc.ValidPluginPrefix(msg.TopicPrefix) {
 			return errors.New("invalid plugin socket prefix")
 		}
 		topic = msg.TopicPrefix + topic
+		canonicalTopic = topic
 	}
-	version, ok := a.rememberedMapping(row.TargetDeviceID)
-	if !ok {
-		return ErrMappingVersionUnavailable
+	var prepared brokercommands.PreparedCommand
+	if err := json.Unmarshal(row.Payload, &prepared); err != nil {
+		return errors.New("durable command mapping proof is unavailable")
 	}
-	// Encoded bytes were frozen by the command owner. Applying a subsequently
-	// remembered custom mapping here would reinterpret an already approved
-	// intent. Custom command mapping needs a separately frozen mapping proof.
+	if msg.DeviceID != prepared.Message.DeviceID || msg.DeviceNumber != prepared.Message.DeviceNumber || msg.DeviceConfigID != prepared.Message.DeviceConfigID || msg.Type != prepared.Message.Type || msg.TopicPrefix != prepared.Message.TopicPrefix || !bytes.Equal(payload, prepared.Encoded) {
+		return errors.New("durable command payload does not match its accepted snapshot")
+	}
+	version := prepared.MappingVersion
+	if version == "" {
+		version = "standard-v1" // compatibility for pre-mapping standard durable rows
+	}
+	var wirePayload = payload
 	if version != "standard-v1" {
-		return errors.New("custom command mappings are unsupported for durable commands")
+		if msg.TopicPrefix != "" || row.TargetDeviceID != msg.DeviceID {
+			return errors.New("custom mapping is unsupported for plugin-prefixed command routes")
+		}
+		repo, err := a.mappingRepository()
+		if err != nil {
+			return err
+		}
+		snapshot, err := repo.Load(ctx, version)
+		if err != nil {
+			return ErrMappingVersionUnavailable
+		}
+		topic, wirePayload, err = mapDownlinkWithDeviceSnapshot(snapshot, msg.DeviceID, msg.DeviceNumber, canonicalTopic, payload)
+		if err != nil {
+			return err
+		}
 	}
-	frame, err := bc.EncodeCommandFrame(bc.CommandFrame{CommandID: row.ID, TenantID: row.TenantID, TargetDeviceID: row.TargetDeviceID, RouteEpoch: uint64(row.RouteEpoch), MappingVersion: version, WireTopic: topic, ExpiresAt: row.ExpiresAt.UnixMilli(), Payload: payload}, time.Now())
+	canonicalProof := ""
+	targetNumberProof := ""
+	if version != "standard-v1" {
+		canonicalProof = canonicalTopic
+		targetNumberProof = msg.DeviceNumber
+	}
+	frame, err := bc.EncodeCommandFrame(bc.CommandFrame{CommandID: row.ID, TenantID: row.TenantID, TargetDeviceID: row.TargetDeviceID, TargetDeviceNumber: targetNumberProof, RouteEpoch: uint64(row.RouteEpoch), MappingVersion: version, CanonicalTopic: canonicalProof, WireTopic: topic, ExpiresAt: row.ExpiresAt.UnixMilli(), Payload: wirePayload}, time.Now())
 	if err != nil {
 		return err
 	}

@@ -206,3 +206,46 @@ func TestControlledTelemetryAndAttributeDeliveryGatesAndStripsFrame(t *testing.T
 		}
 	}
 }
+
+func TestCustomMappedCommandRequiresFrameAndBothScopedTopics(t *testing.T) {
+	grant := testGrant()
+	grant.MappingVersion = "mapping-custom-v1"
+	grant.Policy.Publish = []string{"devices/telemetry"}
+	grant.Policy.Subscribe = []string{"devices/command/num-1/+", "custom/device-1/cmd/#"}
+	grant.ProtectedDownlink = []string{"custom/device-1/cmd/#"}
+	d := commandDriver(t, grant)
+	topic := "custom/device-1/cmd/cmd-1"
+	if d.AuthorizePayload(1, 1, topic, []byte(`{"value":1}`), 1, false) {
+		t.Fatal("unframed mapped command was accepted")
+	}
+	if _, _, err := d.Outgoing(1, topic, []byte(`{"value":1}`), 1, false); err == nil {
+		t.Fatal("unframed mapped command reached device wire")
+	}
+	frame, err := bc.EncodeCommandFrame(bc.CommandFrame{
+		CommandID: "cmd-1", TenantID: grant.Principal.TenantID, TargetDeviceID: grant.Principal.DeviceID,
+		TargetDeviceNumber: "num-1", RouteEpoch: grant.RouteEpoch, MappingVersion: grant.MappingVersion,
+		CanonicalTopic: "devices/command/num-1/cmd-1", WireTopic: topic,
+		ExpiresAt: time.Now().Add(time.Minute).UnixMilli(), Payload: []byte(`{"set":1}`),
+	}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.AuthorizePayload(1, 1, topic, frame, 1, false) {
+		t.Fatal("valid scoped mapped command frame denied")
+	}
+	wire, changed, err := d.Outgoing(1, topic, frame, 1, false)
+	if err != nil || !changed || string(wire) != `{"set":1}` {
+		t.Fatalf("mapped command frame was not restored: %s %v %v", wire, changed, err)
+	}
+}
+
+func TestServiceCannotPublishBareProtectedCustomTopic(t *testing.T) {
+	grant := testGrant()
+	grant.Principal = bc.Principal{TenantID: "tenant-a", DeviceID: "service-a", Kind: bc.PrincipalService}
+	grant.Policy.Publish = []string{"devices/command/num-1/+", "custom/device-1/cmd/#"}
+	grant.ProtectedDownlink = []string{"custom/device-1/cmd/#"}
+	d := commandDriver(t, grant)
+	if _, _, _, err := d.Rewrite(1, "custom/device-1/cmd/cmd-1", []byte(`{"value":1}`), 1, false); err == nil {
+		t.Fatal("service published bare mapped command")
+	}
+}

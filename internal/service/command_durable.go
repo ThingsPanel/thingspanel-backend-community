@@ -15,6 +15,7 @@ import (
 
 	"project/internal/brokercommands"
 	bc "project/internal/brokercontract"
+	"project/internal/brokermapper"
 	"project/internal/brokerplugin"
 	"project/internal/downlink"
 	"project/internal/model"
@@ -61,7 +62,7 @@ func getDurableCommandStore(db *gorm.DB) (*brokercommands.Store, error) {
 		"device_configs":            {"id", "tenant_id", "device_type", "device_template_id", "protocol_type"},
 		"device_model_commands":     {"id", "device_template_id", "data_identifier", "tenant_id"},
 		"data_scripts":              {"id", "device_config_id", "script_type", "enable_flag", "content"},
-		"device_topic_mappings":     {"id", "device_config_id", "enabled"},
+		"device_topic_mappings":     {"id", "device_config_id", "enabled", "direction", "source_topic", "target_topic", "priority", "data_identifier"},
 	}
 	for table, columns := range requiredColumns {
 		if !db.Migrator().HasTable(table) {
@@ -219,12 +220,14 @@ type commandScriptSnapshot struct {
 }
 
 type commandFingerprintSnapshot struct {
-	PluginPath []commandDeviceSnapshot     `json:"plugin_path,omitempty"`
-	Plugin     *brokerplugin.Route         `json:"plugin,omitempty"`
-	Devices    []commandDeviceSnapshot     `json:"devices"`
-	Configs    []commandConfigSnapshot     `json:"configs"`
-	Commands   []commandDefinitionSnapshot `json:"commands"`
-	Scripts    []commandScriptSnapshot     `json:"scripts"`
+	PluginPath     []commandDeviceSnapshot     `json:"plugin_path,omitempty"`
+	Plugin         *brokerplugin.Route         `json:"plugin,omitempty"`
+	Devices        []commandDeviceSnapshot     `json:"devices"`
+	Configs        []commandConfigSnapshot     `json:"configs"`
+	Commands       []commandDefinitionSnapshot `json:"commands"`
+	Scripts        []commandScriptSnapshot     `json:"scripts"`
+	MappingVersion string                      `json:"mapping_version,omitempty"`
+	Mappings       []brokermapper.Rule         `json:"mappings,omitempty"`
 }
 
 func readCommandFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDeviceID, targetRootID, expectedConfigID string) (string, *model.DataScript, commandFingerprintSnapshot, error) {
@@ -318,20 +321,45 @@ func readDownlinkFingerprint(ctx context.Context, tx *gorm.DB, tenant, logicalDe
 	templateIDs := make([]string, 0, len(configIDs))
 	for _, id := range configIDs {
 		config := configsByID[id]
-		var mapping model.DeviceTopicMapping
-		err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "SHARE"}).Where("device_config_id=? AND enabled=true", config.ID).Take(&mapping).Error
-		if err == nil {
-			return "", nil, commandFingerprintSnapshot{}, fmt.Errorf("%w: custom command mapping has no frozen durable proof", brokercommands.ErrRejected)
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", nil, commandFingerprintSnapshot{}, err
-		}
 		snapshot.Configs = append(snapshot.Configs, commandConfigSnapshot{
 			ID: config.ID, TenantID: config.TenantID, DeviceType: config.DeviceType, DeviceTemplateID: config.DeviceTemplateID,
 			ProtocolType: config.ProtocolType, ProtocolConfig: config.ProtocolConfig, AdditionalInfo: config.AdditionalInfo, OtherConfig: config.OtherConfig,
 		})
 		if config.DeviceTemplateID != nil && *config.DeviceTemplateID != "" {
 			templateIDs = append(templateIDs, *config.DeviceTemplateID)
+		}
+	}
+	// Freeze the target's immutable topic rules into the same command fingerprint
+	// as device/config/script state. Mapping-enabled gateway/plugin paths remain
+	// denied until their multi-device routing contract is explicitly certified.
+	if len(snapshot.Devices) > 0 && snapshot.Devices[0].DeviceConfigID != nil && *snapshot.Devices[0].DeviceConfigID != "" {
+		mapper := brokermapper.NewRepository(tx)
+		mappingSnapshot, mapErr := mapper.CompileForDeviceConfig(ctx, tenant, *snapshot.Devices[0].DeviceConfigID)
+		if mapErr != nil {
+			if errors.Is(mapErr, brokermapper.ErrUnsupportedMapping) {
+				return "", nil, commandFingerprintSnapshot{}, fmt.Errorf("%w: %v", brokercommands.ErrRejected, mapErr)
+			}
+			return "", nil, commandFingerprintSnapshot{}, mapErr
+		}
+		if mappingSnapshot.Version != "standard-v1" {
+			if len(snapshot.Devices) != 1 || snapshot.Plugin != nil {
+				return "", nil, commandFingerprintSnapshot{}, fmt.Errorf("%w: custom mappings on gateway or plugin routes are not certified", brokercommands.ErrRejected)
+			}
+			snapshot.MappingVersion = mappingSnapshot.Version
+			snapshot.Mappings = mappingSnapshot.Rules()
+		}
+	}
+	// A mapping attached to another ancestor/config cannot be silently ignored.
+	for _, configID := range configIDs {
+		if len(snapshot.Devices) > 0 && snapshot.Devices[0].DeviceConfigID != nil && configID == *snapshot.Devices[0].DeviceConfigID {
+			continue
+		}
+		var enabled bool
+		if err := tx.WithContext(ctx).Raw(`SELECT EXISTS (SELECT 1 FROM device_topic_mappings WHERE device_config_id=? AND enabled=TRUE)`, configID).Scan(&enabled).Error; err != nil {
+			return "", nil, commandFingerprintSnapshot{}, err
+		}
+		if enabled {
+			return "", nil, commandFingerprintSnapshot{}, fmt.Errorf("%w: custom mapping on non-target config is not certified", brokercommands.ErrRejected)
 		}
 	}
 	sort.Strings(templateIDs)
@@ -405,6 +433,7 @@ func prepareDurableDownlink(ctx context.Context, db *gorm.DB, message *downlink.
 		prepared.Message.DeviceNumber = snapshot.Devices[len(snapshot.Devices)-1].DeviceNumber
 		prepared.Message.DeviceType = deviceType
 		prepared.ConfigurationSHA256 = fingerprint
+		prepared.MappingVersion = effectiveMappingVersion(snapshot.MappingVersion)
 		if script == nil {
 			prepared.Encoded = append([]byte(nil), prepared.Message.Data...)
 			return nil
@@ -583,10 +612,20 @@ func ValidateDurableCommandSnapshot(ctx context.Context, tx *gorm.DB, row broker
 	if prepared.Message.TopicPrefix != snapshotTopicPrefix(snapshot) {
 		return fmt.Errorf("%w: plugin socket changed after acceptance", brokercommands.ErrFenced)
 	}
+	if effectiveMappingVersion(prepared.MappingVersion) != effectiveMappingVersion(snapshot.MappingVersion) {
+		return fmt.Errorf("%w: topic mapping changed after acceptance", brokercommands.ErrFenced)
+	}
 	if fingerprint != prepared.ConfigurationSHA256 {
 		return fmt.Errorf("%w: command configuration changed after acceptance", brokercommands.ErrFenced)
 	}
 	return nil
+}
+
+func effectiveMappingVersion(version string) string {
+	if version == "" {
+		return "standard-v1"
+	}
+	return version
 }
 
 func stringPtr(s string) *string { return &s }

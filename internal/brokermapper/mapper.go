@@ -9,6 +9,7 @@ import (
 	"errors"
 	bc "project/internal/brokercontract"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -55,6 +56,9 @@ func Compile(rules []Rule) (*Snapshot, error) {
 		if err := validateTemplate(r.TargetTopic); err != nil {
 			return nil, err
 		}
+		if strings.Contains(r.TargetTopic, "/#") && !strings.Contains(r.SourceTopic, "/#") {
+			return nil, errors.New("multi-level target wildcard has no source capture")
+		}
 		if r.Direction == "up" && !approvedUplink(r.TargetTopic) {
 			return nil, errors.New("mapping target is not an approved uplink family")
 		}
@@ -67,13 +71,17 @@ func Compile(rules []Rule) (*Snapshot, error) {
 	return &Snapshot{Version: "mapping-" + hex.EncodeToString(sum[:]), rules: copyRules}, nil
 }
 func validateTemplate(t string) error {
-	if t == "" || (strings.HasPrefix(t, "$") || bc.IsInternalResource(t)) || strings.Contains(t, "#") {
+	if t == "" || (strings.HasPrefix(t, "$") || bc.IsInternalResource(t)) {
 		return bc.ErrInvalidTopic
 	}
 	t = strings.ReplaceAll(t, "{device_number}", "+")
+	t = strings.ReplaceAll(t, "{device_id}", "+")
 	t = strings.ReplaceAll(t, "{message_id}", "+")
 	if strings.ContainsAny(t, "{}") {
 		return errors.New("unknown mapping template variable")
+	}
+	if strings.Count(t, "#") > 1 || (strings.Contains(t, "#") && !strings.HasSuffix(t, "/#")) {
+		return errors.New("multi-level wildcard is only supported as the final topic level")
 	}
 	return bc.ValidateSubscribeFilter(t)
 }
@@ -83,6 +91,12 @@ func approvedUplink(t string) bool {
 			if t == root+suffix {
 				return true
 			}
+		}
+		// These two telemetry target forms are documented by the legacy topic
+		// mapping API. They remain internal canonical routing values; only the
+		// authenticated device envelope can select the business principal.
+		if t == root+"telemetry/+" || t == root+"telemetry/{device_number}/+" {
+			return true
 		}
 	}
 	return false
@@ -98,19 +112,42 @@ func approvedDownlink(t string) bool {
 	return t == "ota/devices/inform/{device_number}"
 }
 func match(pattern, actual, device string) (map[string]string, bool) {
+	return matchForDevice(pattern, actual, device, "")
+}
+
+func matchForDevice(pattern, actual, deviceNumber, deviceID string) (map[string]string, bool) {
 	p, a := strings.Split(pattern, "/"), strings.Split(actual, "/")
-	if len(p) != len(a) {
+	if len(p) == 0 || len(a) == 0 {
 		return nil, false
 	}
-	vars := map[string]string{"device_number": device}
-	wildcard := ""
+	vars := map[string]string{"device_number": deviceNumber, "device_id": deviceID}
+	wildcardIndex := 0
 	for i, x := range p {
+		if x == "#" {
+			if i != len(p)-1 || len(a) < i {
+				return nil, false
+			}
+			vars["_tail"] = strings.Join(a[i:], "/")
+			if i < len(a) {
+				tail := a[len(a)-1]
+				vars["message_id"] = tail
+				vars["_wildcard_0"] = tail
+			}
+			return vars, true
+		}
+		if i >= len(a) {
+			return nil, false
+		}
 		if a[i] == "" {
 			return nil, false
 		}
 		switch x {
 		case "{device_number}":
-			if a[i] != device {
+			if a[i] != deviceNumber {
+				return nil, false
+			}
+		case "{device_id}":
+			if deviceID == "" || a[i] != deviceID {
 				return nil, false
 			}
 		case "{message_id}":
@@ -119,34 +156,65 @@ func match(pattern, actual, device string) (map[string]string, bool) {
 			}
 			vars["message_id"] = a[i]
 		case "+":
-			wildcard = a[i]
+			vars["_wildcard_"+strconv.Itoa(wildcardIndex)] = a[i]
+			wildcardIndex++
 		default:
 			if x != a[i] {
 				return nil, false
 			}
 		}
 	}
-	if vars["message_id"] == "" {
-		vars["message_id"] = wildcard
+	if len(p) != len(a) {
+		return nil, false
+	}
+	if vars["message_id"] == "" && wildcardIndex > 0 {
+		vars["message_id"] = vars["_wildcard_"+strconv.Itoa(wildcardIndex-1)]
 	}
 	return vars, true
 }
 func render(t string, vars map[string]string) (string, error) {
-	for k, v := range vars {
-		t = strings.ReplaceAll(t, "{"+k+"}", v)
-	}
-	if strings.Contains(t, "+") {
-		if vars["message_id"] == "" {
+	parts := strings.Split(t, "/")
+	wildcardIndex := 0
+	for i := 0; i < len(parts); i++ {
+		part := parts[i]
+		switch part {
+		case "{device_number}":
+			parts[i] = vars["device_number"]
+		case "{device_id}":
+			parts[i] = vars["device_id"]
+		case "{message_id}":
+			parts[i] = vars["message_id"]
+		case "+":
+			parts[i] = vars["_wildcard_"+strconv.Itoa(wildcardIndex)]
+			wildcardIndex++
+		case "#":
+			tail := vars["_tail"]
+			if tail == "" {
+				tail = vars["message_id"]
+			}
+			if tail == "" {
+				parts = parts[:i]
+				break
+			}
+			parts = append(parts[:i], strings.Split(tail, "/")...)
+			i = len(parts)
+			continue
+		}
+		if parts[i] == "" {
 			return "", ErrUnmapped
 		}
-		t = strings.ReplaceAll(t, "+", vars["message_id"])
 	}
-	if strings.ContainsAny(t, "{}") {
+	t = strings.Join(parts, "/")
+	if strings.ContainsAny(t, "{}+#") {
 		return "", ErrUnmapped
 	}
 	return t, bc.ValidatePublishTopic(t)
 }
 func (s *Snapshot) Up(source, deviceNumber string) (string, error) {
+	return s.UpForDevice(source, "", deviceNumber)
+}
+
+func (s *Snapshot) UpForDevice(source, deviceID, deviceNumber string) (string, error) {
 	if bc.ValidatePublishTopic(source) != nil || bc.ValidatePublishTopic(deviceNumber) != nil || strings.Contains(deviceNumber, "/") {
 		return "", bc.ErrInvalidTopic
 	}
@@ -154,7 +222,7 @@ func (s *Snapshot) Up(source, deviceNumber string) (string, error) {
 		if r.Direction != "up" {
 			continue
 		}
-		if vars, ok := match(r.SourceTopic, source, deviceNumber); ok {
+		if vars, ok := matchForDevice(r.SourceTopic, source, deviceNumber, deviceID); ok {
 			return render(r.TargetTopic, vars)
 		}
 	}
@@ -177,6 +245,10 @@ func (s *Snapshot) Up(source, deviceNumber string) (string, error) {
 // Down returns exactly one device wire topic, avoiding the old dual publication.
 // A data_identifier rule sends the original JSON params bytes when its method matches.
 func (s *Snapshot) Down(canonical, deviceNumber string, payload []byte) (string, []byte, error) {
+	return s.DownForDevice(canonical, "", deviceNumber, payload)
+}
+
+func (s *Snapshot) DownForDevice(canonical, deviceID, deviceNumber string, payload []byte) (string, []byte, error) {
 	var fallback *Rule
 	var fallbackVars map[string]string
 	canonicalMatched := false
@@ -185,7 +257,7 @@ func (s *Snapshot) Down(canonical, deviceNumber string, payload []byte) (string,
 		if r.Direction != "down" {
 			continue
 		}
-		vars, ok := match(r.TargetTopic, canonical, deviceNumber)
+		vars, ok := matchForDevice(r.TargetTopic, canonical, deviceNumber, deviceID)
 		if !ok {
 			continue
 		}

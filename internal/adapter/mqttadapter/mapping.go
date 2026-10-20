@@ -68,7 +68,7 @@ func (a *Adapter) mapIngress(version string, device *model.Device, original stri
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrMappingVersionUnavailable, err)
 	}
-	return snapshot.Up(original, device.DeviceNumber)
+	return snapshot.UpForDevice(original, device.ID, device.DeviceNumber)
 }
 
 // RememberMapping stores the version only after the ingress owner and envelope
@@ -168,8 +168,12 @@ func (a *Adapter) mapDownlink(deviceNumber, canonical string, payload []byte) (s
 }
 
 func mapDownlinkWithSnapshot(snapshot *brokermapper.Snapshot, deviceNumber, canonical string, payload []byte) (string, []byte, error) {
+	return mapDownlinkWithDeviceSnapshot(snapshot, "", deviceNumber, canonical, payload)
+}
+
+func mapDownlinkWithDeviceSnapshot(snapshot *brokermapper.Snapshot, deviceID, deviceNumber, canonical string, payload []byte) (string, []byte, error) {
 	if snapshot == nil || deviceNumber == "" {
 		return "", nil, errors.New("mqtt adapter: mapping scope is missing")
 	}
-	return snapshot.Down(canonical, deviceNumber, payload)
+	return snapshot.DownForDevice(canonical, deviceID, deviceNumber, payload)
 }

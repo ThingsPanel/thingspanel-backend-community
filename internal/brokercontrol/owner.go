@@ -303,6 +303,7 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 		}
 		policy := normalizePolicy(s.Policy)
 		var pluginTargets []brokercontract.PluginTarget
+		var protectedDownlink []string
 		if s.PluginSocket {
 			targets, targetErr := o.repo.ResolveServiceTargets(ctx, s.AllowedDeviceIDs)
 			if targetErr != nil {
@@ -336,6 +337,10 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 			if targetErr != nil {
 				return deny, nil
 			}
+			policy, protectedDownlink, targetErr = addServiceMappingPublishAliases(ctx, o.repo, policy, targets)
+			if targetErr != nil {
+				return deny, nil
+			}
 			pluginIDs := make([]string, 0, len(targets))
 			for _, target := range targets {
 				if pluginOwnedRecord(target) {
@@ -366,7 +371,7 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 		if !s.PluginSocket {
 			pluginTargets = nil
 		}
-		return o.issueGrant(ctx, req, s.Principal, policy, s.PolicyVersion, s.MappingVersion, pluginTargets)
+		return o.issueGrant(ctx, req, s.Principal, policy, s.PolicyVersion, s.MappingVersion, pluginTargets, protectedDownlink)
 	}
 	if serviceNameMatched {
 		return deny, nil
@@ -457,11 +462,15 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 			return deny, ErrUnavailable
 		}
 	}
-	if err := addMappingFilters(&policy, snapshot, device.DeviceNumber); err != nil {
+	if err := addMappingFilters(&policy, snapshot, device.ID, device.DeviceNumber); err != nil {
 		deny.DenyCode = "mapping_not_certified"
 		return deny, nil
 	}
 	if len(pluginTargets) > 0 {
+		if snapshot.Version != "standard-v1" {
+			deny.DenyCode = "mapping_not_certified"
+			return deny, nil
+		}
 		policy, err = buildPluginPolicy(pluginTargets)
 		if err != nil {
 			deny.DenyCode = "plugin_policy_not_certified"
@@ -469,25 +478,22 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 		}
 		principal.Kind = pluginTargets[0].Kind
 	}
-	return o.issueGrant(ctx, req, principal, policy, "", snapshot.Version, pluginTargets)
+	protected := mappingProtectedDownlinks(snapshot, device.ID, device.DeviceNumber)
+	return o.issueGrant(ctx, req, principal, policy, "", snapshot.Version, pluginTargets, protected)
 }
 
-func addMappingFilters(policy *brokercontract.Policy, snapshot *brokermapper.Snapshot, deviceNumber string) error {
-	if snapshot == nil || deviceNumber == "" {
+func addMappingFilters(policy *brokercontract.Policy, snapshot *brokermapper.Snapshot, deviceID, deviceNumber string) error {
+	if snapshot == nil || deviceNumber == "" || deviceID == "" {
 		return errors.New("missing mapping snapshot scope")
 	}
 	for _, rule := range snapshot.Rules() {
-		if !strings.Contains(rule.SourceTopic, "{device_number}") {
+		if !strings.Contains(rule.SourceTopic, "{device_number}") && !strings.Contains(rule.SourceTopic, "{device_id}") {
 			return errors.New("mapping source lacks device scope")
 		}
-		for _, level := range strings.Split(rule.SourceTopic, "/") {
-			if level == "+" || level == "#" {
-				return errors.New("mapping source contains an unscoped wildcard")
-			}
-		}
 		filter := strings.ReplaceAll(rule.SourceTopic, "{device_number}", deviceNumber)
+		filter = strings.ReplaceAll(filter, "{device_id}", deviceID)
 		filter = strings.ReplaceAll(filter, "{message_id}", "+")
-		if strings.ContainsAny(filter, "{}#") || brokercontract.ValidateSubscribeFilter(filter) != nil || brokercontract.IsInternalResource(filter) {
+		if strings.ContainsAny(filter, "{}") || brokercontract.ValidateSubscribeFilter(filter) != nil || brokercontract.IsInternalResource(filter) {
 			return errors.New("invalid mapping source filter")
 		}
 		if rule.Direction == "up" {
@@ -502,15 +508,15 @@ func addMappingFilters(policy *brokercontract.Policy, snapshot *brokermapper.Sna
 	return brokercontract.ValidatePolicy(*policy)
 }
 
-func (o *Owner) issueGrant(ctx context.Context, req brokercontract.AuthRequest, p brokercontract.Principal, policy brokercontract.Policy, policyVersion, mappingVersion string, pluginTargetSets ...[]brokercontract.PluginTarget) (brokercontract.Grant, error) {
+func (o *Owner) issueGrant(ctx context.Context, req brokercontract.AuthRequest, p brokercontract.Principal, policy brokercontract.Policy, policyVersion, mappingVersion string, pluginTargets []brokercontract.PluginTarget, protectedDownlink []string) (brokercontract.Grant, error) {
 	deny := brokercontract.Grant{Allow: false, DenyCode: "not_authorized"}
 	if brokercontract.ValidatePrincipal(p) != nil || brokercontract.ValidatePolicy(policy) != nil {
 		return deny, nil
 	}
 	var binding TransportBinding
 	var err error
-	if len(pluginTargetSets) > 0 && len(pluginTargetSets[0]) > 0 {
-		target := pluginTargetSets[0][0]
+	if len(pluginTargets) > 0 {
+		target := pluginTargets[0]
 		binding = TransportBinding{TenantID: target.TenantID, DeviceID: target.DeviceID, BrokerCell: req.BrokerCell, RouteEpoch: target.RouteEpoch, Phase: target.BindingPhase}
 	} else {
 		if admission, ok := o.repo.(interface {
@@ -532,6 +538,15 @@ func (o *Owner) issueGrant(ctx context.Context, req brokercontract.AuthRequest, 
 	if err != nil {
 		return deny, ErrUnavailable
 	}
+	if len(protectedDownlink) > 0 {
+		policyJSON, err = json.Marshal(struct {
+			Policy            brokercontract.Policy `json:"policy"`
+			ProtectedDownlink []string              `json:"protected_downlink"`
+		}{policy, protectedDownlink})
+		if err != nil {
+			return deny, ErrUnavailable
+		}
+	}
 	sum := sha256.Sum256(policyJSON)
 	policyHash := hex.EncodeToString(sum[:])
 	if policyVersion == "" {
@@ -539,7 +554,7 @@ func (o *Owner) issueGrant(ctx context.Context, req brokercontract.AuthRequest, 
 	}
 	connectionSum := sha256.Sum256([]byte("thingspanel/mosquitto/connection/v1\x00" + req.BrokerInstance + "\x00" + req.ConnectionNonce))
 	connectionID := "mosq-" + base64.RawURLEncoding.EncodeToString(connectionSum[:18])
-	grant := brokercontract.Grant{Allow: true, Principal: p, Policy: policy, PolicyVersion: policyVersion, MappingVersion: mappingVersion, ConnectionID: connectionID, PolicyHash: policyHash, RouteEpoch: binding.RouteEpoch, ExpiresAt: time.Now().UTC().Add(o.ttl)}
+	grant := brokercontract.Grant{Allow: true, Principal: p, Policy: policy, PolicyVersion: policyVersion, MappingVersion: mappingVersion, ConnectionID: connectionID, PolicyHash: policyHash, RouteEpoch: binding.RouteEpoch, ExpiresAt: time.Now().UTC().Add(o.ttl), ProtectedDownlink: append([]string(nil), protectedDownlink...)}
 	grant.BindingPhase = binding.Phase
 	response, err := json.Marshal(grant)
 	if err != nil {
@@ -556,8 +571,8 @@ func (o *Owner) issueGrant(ctx context.Context, req brokercontract.AuthRequest, 
 	if !owned {
 		return deny, nil
 	}
-	if len(pluginTargetSets) > 0 && len(pluginTargetSets[0]) > 0 {
-		if err := o.persistPluginGrant(ctx, &grant, req.BrokerCell, req.BrokerInstance, pluginTargetSets[0]); err != nil {
+	if len(pluginTargets) > 0 {
+		if err := o.persistPluginGrant(ctx, &grant, req.BrokerCell, req.BrokerInstance, pluginTargets); err != nil {
 			return deny, ErrUnavailable
 		}
 		response, err = json.Marshal(grant)

@@ -178,6 +178,7 @@ func prepareExpectedDownlink(ctx context.Context, ed *model.ExpectedData) (broke
 		}
 		prepared.Message = downlink.Message{DeviceID: ed.DeviceID, DeviceNumber: root.DeviceNumber, DeviceType: deviceType, DeviceConfigID: cfg, Type: typ, Data: raw, TopicPrefix: snapshotTopicPrefix(snapshot)}
 		prepared.ConfigurationSHA256 = fingerprint
+		prepared.MappingVersion = effectiveMappingVersion(snapshot.MappingVersion)
 		prepared.Encoded = append([]byte(nil), raw...)
 		if script != nil {
 			if script.Content == nil || *script.Content == "" {
@@ -286,7 +287,7 @@ func validateExpectedDownlinkSnapshot(ctx context.Context, tx *gorm.DB, row brok
 	if err != nil {
 		return err
 	}
-	if len(snapshot.Devices) == 0 || p.Message.DeviceNumber != snapshot.Devices[len(snapshot.Devices)-1].DeviceNumber || p.Message.TopicPrefix != snapshotTopicPrefix(snapshot) || p.Message.DeviceType != snapshotWireDeviceType(snapshot) || fingerprint != p.ConfigurationSHA256 {
+	if len(snapshot.Devices) == 0 || p.Message.DeviceNumber != snapshot.Devices[len(snapshot.Devices)-1].DeviceNumber || p.Message.TopicPrefix != snapshotTopicPrefix(snapshot) || p.Message.DeviceType != snapshotWireDeviceType(snapshot) || effectiveMappingVersion(p.MappingVersion) != effectiveMappingVersion(snapshot.MappingVersion) || fingerprint != p.ConfigurationSHA256 {
 		return brokercommands.ErrFenced
 	}
 	return nil

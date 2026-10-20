@@ -116,41 +116,46 @@ type AuthRequest struct {
 type Grant struct {
 	PluginContextID string         `json:"plugin_context_id,omitempty"`
 	PluginTargets   []PluginTarget `json:"plugin_targets,omitempty"`
-	Allow           bool           `json:"allow"`
-	Principal       Principal      `json:"principal,omitempty"`
-	Policy          Policy         `json:"policy,omitempty"`
-	PolicyVersion   string         `json:"policy_version,omitempty"`
-	MappingVersion  string         `json:"mapping_version,omitempty"`
-	ConnectionID    string         `json:"connection_id,omitempty"`
-	PolicyHash      string         `json:"policy_hash,omitempty"`
-	RouteEpoch      uint64         `json:"route_epoch,omitempty"`
-	BindingPhase    string         `json:"binding_phase,omitempty"`
-	ExpiresAt       time.Time      `json:"expires_at,omitempty"`
-	DenyCode        string         `json:"deny_code,omitempty"`
-	Retryable       bool           `json:"retryable,omitempty"`
+	// ProtectedDownlink filters require a private command frame even when their
+	// device wire topic is not one of the built-in canonical command families.
+	ProtectedDownlink []string  `json:"protected_downlink,omitempty"`
+	Allow             bool      `json:"allow"`
+	Principal         Principal `json:"principal,omitempty"`
+	Policy            Policy    `json:"policy,omitempty"`
+	PolicyVersion     string    `json:"policy_version,omitempty"`
+	MappingVersion    string    `json:"mapping_version,omitempty"`
+	ConnectionID      string    `json:"connection_id,omitempty"`
+	PolicyHash        string    `json:"policy_hash,omitempty"`
+	RouteEpoch        uint64    `json:"route_epoch,omitempty"`
+	BindingPhase      string    `json:"binding_phase,omitempty"`
+	ExpiresAt         time.Time `json:"expires_at,omitempty"`
+	DenyCode          string    `json:"deny_code,omitempty"`
+	Retryable         bool      `json:"retryable,omitempty"`
 }
 
 func (g Grant) MarshalJSON() ([]byte, error) {
 	type grantJSON struct {
-		PluginContextID string         `json:"plugin_context_id,omitempty"`
-		PluginTargets   []PluginTarget `json:"plugin_targets,omitempty"`
-		Allow           bool           `json:"allow"`
-		Principal       *Principal     `json:"principal,omitempty"`
-		Policy          *Policy        `json:"policy,omitempty"`
-		PolicyVersion   string         `json:"policy_version,omitempty"`
-		MappingVersion  string         `json:"mapping_version,omitempty"`
-		ConnectionID    string         `json:"connection_id,omitempty"`
-		PolicyHash      string         `json:"policy_hash,omitempty"`
-		RouteEpoch      *uint64        `json:"route_epoch,omitempty"`
-		BindingPhase    string         `json:"binding_phase,omitempty"`
-		ExpiresAt       *time.Time     `json:"expires_at,omitempty"`
-		DenyCode        string         `json:"deny_code,omitempty"`
-		Retryable       bool           `json:"retryable,omitempty"`
+		PluginContextID   string         `json:"plugin_context_id,omitempty"`
+		PluginTargets     []PluginTarget `json:"plugin_targets,omitempty"`
+		ProtectedDownlink []string       `json:"protected_downlink,omitempty"`
+		Allow             bool           `json:"allow"`
+		Principal         *Principal     `json:"principal,omitempty"`
+		Policy            *Policy        `json:"policy,omitempty"`
+		PolicyVersion     string         `json:"policy_version,omitempty"`
+		MappingVersion    string         `json:"mapping_version,omitempty"`
+		ConnectionID      string         `json:"connection_id,omitempty"`
+		PolicyHash        string         `json:"policy_hash,omitempty"`
+		RouteEpoch        *uint64        `json:"route_epoch,omitempty"`
+		BindingPhase      string         `json:"binding_phase,omitempty"`
+		ExpiresAt         *time.Time     `json:"expires_at,omitempty"`
+		DenyCode          string         `json:"deny_code,omitempty"`
+		Retryable         bool           `json:"retryable,omitempty"`
 	}
 	out := grantJSON{Allow: g.Allow, DenyCode: g.DenyCode, Retryable: g.Retryable}
 	if g.Allow {
 		out.PluginContextID = g.PluginContextID
 		out.PluginTargets = g.PluginTargets
+		out.ProtectedDownlink = g.ProtectedDownlink
 		out.Principal = &g.Principal
 		out.Policy = &g.Policy
 		out.PolicyVersion = g.PolicyVersion
@@ -206,6 +211,25 @@ func ValidateGrant(g Grant) error {
 		!validIdentity(g.PolicyVersion) || !validIdentity(g.MappingVersion) || g.ExpiresAt.IsZero() ||
 		!validIdentity(g.ConnectionID) || g.RouteEpoch == 0 {
 		return ErrInvalidMetadata
+	}
+	for _, filter := range g.ProtectedDownlink {
+		if ValidateSubscribeFilter(filter) != nil || IsInternalResource(filter) {
+			return ErrInvalidMetadata
+		}
+		policyFilters := g.Policy.Subscribe
+		if g.Principal.Kind == PrincipalService {
+			policyFilters = g.Policy.Publish
+		}
+		found := false
+		for _, allowed := range policyFilters {
+			if allowed == filter {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return ErrInvalidMetadata
+		}
 	}
 	return nil
 }

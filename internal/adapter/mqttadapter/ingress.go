@@ -188,6 +188,9 @@ func (a *Adapter) HandleIngressMessage(topic string, body []byte, retained bool)
 			return err
 		}
 	}
+	if err = validateCanonicalTopicScope(canonicalTopic, device.DeviceNumber); err != nil {
+		return a.rejectTrustedIngress(topic, body, env, "mapped_topic_scope_denied", err)
+	}
 	if err = a.RememberMapping(device.ID, env.Metadata.MappingVersion); err != nil {
 		return err
 	}
@@ -283,6 +286,10 @@ func classifyIngressTopic(topic string) (string, string, error) {
 	switch {
 	case len(parts) == 2 && parts[1] == "telemetry":
 		return prefix + "telemetry", "", nil
+	case len(parts) == 3 && parts[1] == "telemetry" && parts[2] != "":
+		return prefix + "telemetry", parts[2], nil
+	case len(parts) == 4 && parts[1] == "telemetry" && parts[2] != "" && parts[3] != "":
+		return prefix + "telemetry", parts[3], nil
 	case len(parts) == 3 && (parts[1] == "event" || parts[1] == "attributes") && parts[2] != "":
 		kind := parts[1]
 		if kind == "attributes" {
@@ -295,6 +302,14 @@ func classifyIngressTopic(topic string) (string, string, error) {
 		return prefix + "attribute_set_response", parts[4], nil
 	}
 	return "", "", bc.ErrInvalidTopic
+}
+
+func validateCanonicalTopicScope(topic, deviceNumber string) error {
+	parts := strings.Split(topic, "/")
+	if len(parts) == 4 && (parts[0] == "devices" || parts[0] == "gateway") && parts[1] == "telemetry" && parts[2] != deviceNumber {
+		return bc.ErrUnauthorized
+	}
+	return nil
 }
 
 func (a *Adapter) handleStateMessage(_ mqtt.Client, m mqtt.Message) {

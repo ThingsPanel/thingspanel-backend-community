@@ -15,11 +15,15 @@ const commandMarker = "\x00TP-COMMAND/1\n"
 const MaxCommandPayload = 512 << 10
 
 type CommandFrame struct {
-	CommandID      string `json:"command_id"`
-	TenantID       string `json:"tenant_id"`
-	TargetDeviceID string `json:"target_device_id"`
-	RouteEpoch     uint64 `json:"route_epoch"`
-	MappingVersion string `json:"mapping_version"`
+	CommandID          string `json:"command_id"`
+	TenantID           string `json:"tenant_id"`
+	TargetDeviceID     string `json:"target_device_id"`
+	TargetDeviceNumber string `json:"target_device_number,omitempty"`
+	RouteEpoch         uint64 `json:"route_epoch"`
+	MappingVersion     string `json:"mapping_version"`
+	// CanonicalTopic is populated for custom wire mappings. Empty preserves the
+	// original standard/plugin frame encoding, where WireTopic is canonical.
+	CanonicalTopic string `json:"canonical_topic,omitempty"`
 	WireTopic      string `json:"wire_topic"`
 	ExpiresAt      int64  `json:"expires_at"`
 	Payload        []byte `json:"payload"`
@@ -28,14 +32,31 @@ type CommandFrame struct {
 func IsCommandFrame(b []byte) bool { return bytes.HasPrefix(b, []byte(commandMarker)) }
 
 func (f CommandFrame) Validate(now time.Time) error {
-	if f.CommandID == "" || f.TenantID == "" || f.TargetDeviceID == "" || f.RouteEpoch == 0 || f.MappingVersion == "" || f.WireTopic == "" || strings.ContainsAny(f.WireTopic, "+#\x00") || IsInternalResource(f.WireTopic) || !IsControlledDownlinkTopic(f.WireTopic) || len(f.Payload) == 0 || len(f.Payload) > MaxCommandPayload {
+	if f.CommandID == "" || f.TenantID == "" || f.TargetDeviceID == "" || f.RouteEpoch == 0 || f.MappingVersion == "" || f.WireTopic == "" || strings.ContainsAny(f.WireTopic, "+#\x00") || IsInternalResource(f.WireTopic) || ValidatePublishTopic(f.WireTopic) != nil || len(f.Payload) == 0 || len(f.Payload) > MaxCommandPayload {
 		return errors.New("invalid command storage frame")
 	}
-	_, canonical, controlled := SplitControlledDownlinkTopic(f.WireTopic)
+	canonical := f.CanonicalTopic
+	if canonical == "" {
+		canonical = f.WireTopic
+	} else if strings.ContainsAny(canonical, "+#\x00") || IsInternalResource(canonical) || !IsControlledDownlinkTopic(canonical) || f.TargetDeviceNumber == "" {
+		return errors.New("invalid canonical command topic")
+	}
+	_, canonical, controlled := SplitControlledDownlinkTopic(canonical)
 	if !controlled {
 		return errors.New("invalid controlled downlink topic")
 	}
 	parts := strings.Split(canonical, "/")
+	if f.CanonicalTopic != "" {
+		deviceNumberIndex := 2
+		if len(parts) > 1 && parts[1] == "telemetry" {
+			deviceNumberIndex = 3
+		} else if len(parts) > 2 && parts[1] == "attributes" {
+			deviceNumberIndex = 3
+		}
+		if deviceNumberIndex >= len(parts) || parts[deviceNumberIndex] != f.TargetDeviceNumber {
+			return errors.New("canonical command topic does not match target device number")
+		}
+	}
 	if (IsCommandTopic(canonical) && parts[3] != f.CommandID) || (len(parts) == 5 && parts[1] == "attributes" && parts[2] == "set" && parts[4] != f.CommandID) {
 		return errors.New("command topic message id does not match frame")
 	}

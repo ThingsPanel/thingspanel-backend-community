@@ -348,7 +348,7 @@ func (d *Driver) Authorize(ptr uintptr, access int, topic string, size int, qos 
 	if size < 0 || size > maxSize || qos > g.Policy.MaxQoS {
 		return false
 	}
-	if access == 1 && bc.IsControlledDownlinkTopic(topic) && g.BindingPhase == "connecting" {
+	if access == 1 && (bc.IsControlledDownlinkTopic(topic) || protectedDownlinkTopic(g, topic)) && g.BindingPhase == "connecting" {
 		return false
 	}
 	action := bc.Action("publish")
@@ -385,7 +385,14 @@ func (d *Driver) Rewrite(ptr uintptr, topic string, payload []byte, qos byte, re
 			if err != nil || f.WireTopic != topic || retain {
 				return "", nil, false, errors.New("command storage frame denied")
 			}
-		} else if bc.IsControlledDownlinkTopic(topic) {
+			canonical := f.CanonicalTopic
+			if canonical == "" {
+				canonical = f.WireTopic
+			}
+			if bc.AuthorizeTopic(g.Principal, g.Policy, bc.ActionPublish, canonical) != nil {
+				return "", nil, false, errors.New("command canonical topic denied")
+			}
+		} else if bc.IsControlledDownlinkTopic(topic) || protectedDownlinkTopic(g, topic) {
 			return "", nil, false, errors.New("command requires durable storage frame")
 		}
 		if pluginServiceGrant(g) {

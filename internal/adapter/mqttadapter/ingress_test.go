@@ -49,16 +49,30 @@ func TestPlatformRetainedClearHasNoBusinessEffect(t *testing.T) {
 	}
 }
 func TestIngressBusinessFamiliesAreExact(t *testing.T) {
-	for _, tt := range []struct{ topic, kind string }{{"devices/telemetry", "telemetry"}, {"devices/event/e1", "event"}, {"gateway/attributes/a1", "gateway_attribute"}, {"devices/command/response/c1", "command_response"}, {"gateway/attributes/set/response/a1", "gateway_attribute_set_response"}} {
-		k, _, e := classifyIngressTopic(tt.topic)
-		if e != nil || k != tt.kind {
-			t.Fatalf("%s: %s %v", tt.topic, k, e)
+	for _, tt := range []struct{ topic, kind, messageID string }{
+		{"devices/telemetry", "telemetry", ""},
+		{"devices/telemetry/temperature", "telemetry", "temperature"},
+		{"devices/telemetry/num-1/temperature", "telemetry", "temperature"},
+		{"devices/event/e1", "event", "e1"},
+		{"gateway/attributes/a1", "gateway_attribute", "a1"},
+		{"devices/command/response/c1", "command_response", "c1"},
+		{"gateway/attributes/set/response/a1", "gateway_attribute_set_response", "a1"},
+	} {
+		k, messageID, e := classifyIngressTopic(tt.topic)
+		if e != nil || k != tt.kind || messageID != tt.messageID {
+			t.Fatalf("%s: kind=%s message_id=%s err=%v", tt.topic, k, messageID, e)
 		}
 	}
 	for _, topic := range []string{"devices/command/a/b", "devices/status/a", "devices/event/", "devices/command/response/c1/extra", "$tp/state/v1/a/b"} {
 		if _, _, e := classifyIngressTopic(topic); e == nil {
 			t.Fatalf("unsafe family %s", topic)
 		}
+	}
+	if err := validateCanonicalTopicScope("devices/telemetry/num-1/temperature", "num-1"); err != nil {
+		t.Fatalf("matching authenticated device scope rejected: %v", err)
+	}
+	if err := validateCanonicalTopicScope("devices/telemetry/num-2/temperature", "num-1"); !errors.Is(err, bc.ErrUnauthorized) {
+		t.Fatalf("cross-device canonical telemetry scope err=%v, want unauthorized", err)
 	}
 }
 

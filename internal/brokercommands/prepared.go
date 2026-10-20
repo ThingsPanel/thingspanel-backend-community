@@ -8,6 +8,7 @@ type PreparedCommand struct {
 	Message             downlink.Message `json:"message"`
 	Encoded             []byte           `json:"encoded"`
 	ConfigurationSHA256 string           `json:"configuration_sha256"`
+	MappingVersion      string           `json:"mapping_version,omitempty"`
 	Automation          *AutomationProof `json:"automation,omitempty"`
 }
 
