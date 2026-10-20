@@ -77,6 +77,60 @@ func TestNativeMarketImportPreservesLargeEnumAndNestedChartNumbers(t *testing.T)
 	}
 }
 
+func TestNativeMarketImportReusesExactSourceSnapshot(t *testing.T) {
+	modelJSON := json.RawMessage(`{"name":"source-model","fields":[]}`)
+	dependencyResources := json.RawMessage(`{"profile":{"name":"source-model","cover":"asset://native-profile-cover"},"webChartConfig":null,"appChartConfig":null}`)
+	assets := []model.MarketNativeThingModelAsset{{Key: "native-profile-cover", Source: "market-cover"}}
+	checksum, err := marketNativeDependencyHash(modelJSON, dependencyResources, assets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependency := &model.MarketNativeThingModelDependency{
+		ContractVersion: marketNativeThingModelContractVersion, SourceModelID: "source-model-id",
+		SourceSnapshotID: "source-snapshot-id", SourceRevision: 3,
+		DependencyChecksum: checksum, Model: modelJSON, Resources: dependencyResources, Assets: assets,
+	}
+	targetResources := json.RawMessage(`{"profile":{"name":"source-model","cover":"./files/deviceConfig/native-cover.png"},"webChartConfig":null,"appChartConfig":null}`)
+	var createOrPublishCalled bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v2/thing-models/source-model-id/versions/3" {
+			createOrPublishCalled = true
+			http.Error(w, "unexpected import request", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"modelID":"source-model-id","publishedRevision":3,"snapshotID":"source-snapshot-id","checksum":"source-checksum","model":{"name":"source-model","fields":[]},"resources":{"modelID":"source-model-id","revision":2,"profile":{"name":"source-model","cover":"./files/deviceConfig/original-cover.png"},"webChartConfig":null,"appChartConfig":null}}`)
+	}))
+	defer server.Close()
+	client := &nativeMarketImportClient{baseURL: server.URL, httpClient: server.Client()}
+	result, err := client.importSnapshot(context.Background(), "Bearer test-community-token", "stable-import-id", dependency, targetResources)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if createOrPublishCalled {
+		t.Fatal("exact source snapshot should be reused without create or publish")
+	}
+	if result.ModelID != dependency.SourceModelID || result.SnapshotID != dependency.SourceSnapshotID || result.PublishedRevision == nil || *result.PublishedRevision != 3 {
+		t.Fatalf("unexpected reused source result: %+v", result)
+	}
+}
+
+func TestNativeMarketSourceSnapshotReuseRejectsChangedContent(t *testing.T) {
+	dependency := &model.MarketNativeThingModelDependency{
+		SourceModelID: "source-model-id", SourceSnapshotID: "source-snapshot-id", SourceRevision: 3,
+		Model:     json.RawMessage(`{"name":"source-model","fields":[]}`),
+		Resources: json.RawMessage(`{"profile":{"name":"source-model","cover":"asset://native-profile-cover"},"webChartConfig":null,"appChartConfig":null}`),
+		Assets:    []model.MarketNativeThingModelAsset{{Key: "native-profile-cover", Source: "market-cover"}},
+	}
+	snapshot := &nativeMarketSnapshotResponse{ModelID: dependency.SourceModelID, PublishedRevision: 3, SnapshotID: dependency.SourceSnapshotID, Model: json.RawMessage(`{"name":"other-model","fields":[]}`)}
+	snapshot.Resources.Profile = json.RawMessage(`{"name":"source-model","cover":"./files/deviceConfig/original-cover.png"}`)
+	snapshot.Resources.WebChartConfig = json.RawMessage(`null`)
+	snapshot.Resources.AppChartConfig = json.RawMessage(`null`)
+	if err := verifyMarketSourceSnapshotContent(dependency, snapshot); err == nil {
+		t.Fatal("source snapshot with changed model content was accepted for reuse")
+	}
+}
+
 func TestNativeMarketDependencyOpaqueEncodingSurvivesHorizonMapRoundTrip(t *testing.T) {
 	const large = "9007199254740993"
 	modelJSON := json.RawMessage(`{"properties":[{"enum":[` + large + `]}]}`)

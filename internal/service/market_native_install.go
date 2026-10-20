@@ -85,7 +85,13 @@ func installNativeMarketDeviceConfig(ctx context.Context, market *MarketClient, 
 	if err != nil || importedSnapshot.SnapshotID != *importRecord.LocalSnapshotID {
 		return nil, false, errcode.WithData(errcode.CodeSystemError, "imported native model snapshot is no longer available")
 	}
-	if err := verifyImportedNativeSnapshotContent(dependency.Model, targetResources, importedSnapshot); err != nil {
+	var snapshotVerifyErr error
+	if importedSnapshot.SnapshotID == dependency.SourceSnapshotID {
+		snapshotVerifyErr = verifyMarketSourceSnapshotContent(dependency, importedSnapshot)
+	} else {
+		snapshotVerifyErr = verifyImportedNativeSnapshotContent(dependency.Model, targetResources, importedSnapshot)
+	}
+	if snapshotVerifyErr != nil {
 		return nil, false, errcode.WithData(errcode.CodeSystemError, "imported native model failed full payload verification")
 	}
 	deviceConfig := buildImportedMarketDeviceConfig(fullData, claims, localCoverURL, importRecord)

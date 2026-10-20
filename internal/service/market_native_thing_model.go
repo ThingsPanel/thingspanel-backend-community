@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,6 +48,14 @@ type nativeMarketImportResult struct {
 type nativeMarketCreateRequest struct {
 	Model     json.RawMessage `json:"model"`
 	Resources json.RawMessage `json:"resources"`
+}
+
+type nativeMarketHTTPError struct {
+	StatusCode int
+}
+
+func (e *nativeMarketHTTPError) Error() string {
+	return fmt.Sprintf("native thing-model request returned status %d", e.StatusCode)
 }
 
 type nativeMarketImportClient struct {
@@ -104,6 +113,31 @@ func (c *nativeMarketImportClient) importSnapshot(ctx context.Context, community
 	if !json.Valid(targetResources) {
 		return nil, fmt.Errorf("resolved native dependency resources are invalid")
 	}
+	// Publishing a template and installing it back into its source tenant is a
+	// supported round trip. The source model already occupies its tenant-scoped
+	// name, so reuse it only when the immutable source snapshot and full package
+	// payload match exactly. Other tenants receive a 404 here and follow the
+	// normal create/import path below.
+	sourceSnapshot, sourceErr := c.readSnapshot(ctx, communityAuthorization, dependency.SourceModelID, dependency.SourceRevision)
+	if sourceErr == nil {
+		if sourceSnapshot.SnapshotID != dependency.SourceSnapshotID {
+			return nil, fmt.Errorf("source native model exists, but its published snapshot does not match this market package")
+		}
+		if err := verifyMarketSourceSnapshotContent(dependency, sourceSnapshot); err != nil {
+			return nil, fmt.Errorf("source native model exists, but cannot be safely reused: %w", err)
+		}
+		publishedRevision := uint64(sourceSnapshot.PublishedRevision)
+		resourcesRevision := uint64(sourceSnapshot.Resources.Revision)
+		return &nativeMarketImportResult{
+			ModelID: sourceSnapshot.ModelID, DraftRevision: publishedRevision,
+			PublishedRevision: &publishedRevision, ResourcesRevision: &resourcesRevision,
+			SnapshotID: sourceSnapshot.SnapshotID,
+		}, nil
+	}
+	var sourceHTTPError *nativeMarketHTTPError
+	if !errors.As(sourceErr, &sourceHTTPError) || sourceHTTPError.StatusCode != http.StatusNotFound {
+		return nil, fmt.Errorf("check source native model before import: %w", sourceErr)
+	}
 	createRequest, err := json.Marshal(struct {
 		Model     json.RawMessage `json:"model"`
 		Resources json.RawMessage `json:"resources"`
@@ -138,6 +172,59 @@ func (c *nativeMarketImportClient) importSnapshot(ctx context.Context, community
 	}
 	published.SnapshotID = createdSnapshot.SnapshotID
 	return &published, nil
+}
+
+func verifyMarketSourceSnapshotContent(dependency *model.MarketNativeThingModelDependency, snapshot *nativeMarketSnapshotResponse) error {
+	if dependency == nil || snapshot == nil || snapshot.ModelID != dependency.SourceModelID || snapshot.PublishedRevision != dependency.SourceRevision || snapshot.SnapshotID != dependency.SourceSnapshotID {
+		return fmt.Errorf("source snapshot identity does not match the immutable market dependency")
+	}
+	actualModel, err := canonicalJSON(snapshot.Model)
+	if err != nil {
+		return fmt.Errorf("source model snapshot is invalid")
+	}
+	expectedModel, err := canonicalJSON(dependency.Model)
+	if err != nil || !bytes.Equal(actualModel, expectedModel) {
+		return fmt.Errorf("source model payload differs from the immutable market dependency")
+	}
+	actualResources, err := json.Marshal(struct {
+		Profile        json.RawMessage `json:"profile"`
+		WebChartConfig json.RawMessage `json:"webChartConfig"`
+		AppChartConfig json.RawMessage `json:"appChartConfig"`
+	}{snapshot.Resources.Profile, nullIfEmptyJSON(snapshot.Resources.WebChartConfig), nullIfEmptyJSON(snapshot.Resources.AppChartConfig)})
+	if err != nil {
+		return fmt.Errorf("source model resources are invalid")
+	}
+	if len(dependency.Assets) > 0 {
+		if len(dependency.Assets) != 1 || dependency.Assets[0].Key != "native-profile-cover" || dependency.Assets[0].Source != "market-cover" {
+			return fmt.Errorf("source snapshot contains an unsupported market asset mapping")
+		}
+		profile, err := rawObject(json.RawMessage(actualResources))
+		if err != nil {
+			return fmt.Errorf("source model profile is invalid")
+		}
+		profileObject, err := rawObject(profile["profile"])
+		if err != nil || rawString(profile["profile"], "cover") == "" {
+			return fmt.Errorf("source model cover is missing")
+		}
+		profileObject["cover"] = json.RawMessage(`"asset://native-profile-cover"`)
+		profile["profile"], err = json.Marshal(profileObject)
+		if err != nil {
+			return fmt.Errorf("normalize source model cover for package comparison")
+		}
+		actualResources, err = json.Marshal(profile)
+		if err != nil {
+			return fmt.Errorf("encode normalized source model resources")
+		}
+	}
+	actualCanonicalResources, err := canonicalJSON(actualResources)
+	if err != nil {
+		return fmt.Errorf("source model resources are invalid")
+	}
+	expectedCanonicalResources, err := canonicalJSON(dependency.Resources)
+	if err != nil || !bytes.Equal(actualCanonicalResources, expectedCanonicalResources) {
+		return fmt.Errorf("source model resources differ from the immutable market dependency")
+	}
+	return nil
 }
 
 func verifyImportedNativeSnapshotContent(expectedModel, expectedResources json.RawMessage, snapshot *nativeMarketSnapshotResponse) error {
@@ -212,7 +299,7 @@ func (c *nativeMarketImportClient) doJSON(ctx context.Context, method, path, aut
 		return fmt.Errorf("native thing-model response exceeds %d bytes", maxMarketNativeModelPayload)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("native thing-model request returned status %d", resp.StatusCode)
+		return &nativeMarketHTTPError{StatusCode: resp.StatusCode}
 	}
 	if output != nil {
 		if err := json.Unmarshal(data, output); err != nil {
