@@ -31,10 +31,10 @@
 
 | 仓库 | 分支 | 关键提交 |
 |---|---|---|
-| 后端 | `codex/northbound-community-20261021` | `b764b99e` 独立「数据转发」菜单、`aeaa72cc` 验收工具三处修复、`a2a1186c` 本文档的数字更正 |
+| 后端 | `codex/northbound-community-20261021` | `b764b99e` 独立「数据转发」菜单、`aeaa72cc` 验收工具三处修复，以及最后一次 `docs(northbound)` 数字更正 |
 | 前端 | `codex/northbound-frontend-20261021` | `47608c3f` 新增页面、`613966d7` 拆出独立「数据转发」菜单 |
 
-> 具体 HEAD 以 `git log -1` 为准，别照抄文档里的哈希——文档本身也会再产生提交。
+> 具体 HEAD 以 `git log -1` 为准，别照抄文档里的哈希——文档自己也会再产生提交。
 
 > 前端基线不要用本地 `master`（`c6968c77`，那是物模型 UI 那条线的分支，不是本分支的
 > 祖先）。要算差异就用 `git diff $(git merge-base HEAD origin/master)`，结果是 7 新增 + 9 修改。
