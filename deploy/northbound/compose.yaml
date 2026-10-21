@@ -1,0 +1,110 @@
+# 北向服务（数据转发）单机编排。
+#
+# 前提：社区既有部署已经在跑（PostgreSQL、Redis、MQTT Broker、社区后端）。
+# 这里只加三个进程，不重复创建社区已有的东西。
+#
+# ── 哪些部分是实测过的 ──────────────────────────────────────────────────
+#  ✔ 两个插件镜像：本文件里的 build 段配 Dockerfile.plugin，已真实构建并
+#    启动验证（见 docs/northbound/reports/release.md 的插件一致性检查）。
+#  ✔ 本文件本身：docker compose config 校验通过。
+#  ✘ 整栈 `up` 起来联调：本次没有跑。验收用的是裸进程（docs/northbound/
+#    DEPLOYMENT.md §3），端口与变量与此处一致，但没有真的用 compose 起过。
+#  ✘ Encore 核心镜像：由 `encore build docker` 产出，本次构建未完成，因此
+#    northbound-core 服务是按官方用法写的，未实测。
+#    核心需要 infra 配置来指定 northbound 库的连接，构建时用：
+#      encore build docker <tag> --config <infra 配置>
+#    不要用 --skip-config 生成生产镜像。
+# ────────────────────────────────────────────────────────────────────────
+#
+# 用法：
+#   cp northbound.env.example northbound.env && $EDITOR northbound.env
+#   docker compose --env-file northbound.env up -d
+#   docker compose --env-file northbound.env ps
+#
+# 首次启动前必须先跑数据库迁移（源端表不在自动迁移范围里）：
+#   COMMUNITY_DSN=... ./migrate.sh
+
+name: tp-northbound
+
+services:
+  # ---------------------------------------------------------------------
+  # 北向核心：管理面 + 投递底座。有状态（自己的 northbound 库）。
+  # ---------------------------------------------------------------------
+  northbound-core:
+    image: ${NB_CORE_IMAGE:?请在 northbound.env 里设置 NB_CORE_IMAGE}
+    container_name: tp-northbound-core
+    restart: unless-stopped
+    environment:
+      # 秘密只从环境注入，不写进镜像、不写进配置文件。
+      NB_SERVICE_TOKEN: ${NB_SERVICE_TOKEN:?缺少 NB_SERVICE_TOKEN}
+      NB_SECRET_KEY: ${NB_SECRET_KEY:?缺少 NB_SECRET_KEY}
+      # 容器之间用服务名，不用 127.0.0.1。
+      NB_HTTP_PLUGIN_ENDPOINT: http://northbound-sink-http:18081
+      NB_HTTP_PLUGIN_TOKEN: ${NB_PLUGIN_TOKEN:?缺少 NB_PLUGIN_TOKEN}
+      NB_MQTT_PLUGIN_ENDPOINT: http://northbound-sink-mqtt:18082
+      NB_MQTT_PLUGIN_TOKEN: ${NB_PLUGIN_TOKEN}
+      NB_WORKERS: ${NB_WORKERS:-8}
+      NB_MAX_BACKLOG_EVENTS: ${NB_MAX_BACKLOG_EVENTS:-20000}
+      NB_MAX_BATCH_EVENTS: ${NB_MAX_BATCH_EVENTS:-200}
+      NB_MAX_EVENT_BYTES: ${NB_MAX_EVENT_BYTES:-262144}
+      NB_LEASE: ${NB_LEASE:-30s}
+      NB_MAX_ATTEMPTS: ${NB_MAX_ATTEMPTS:-12}
+      NB_EVENT_RETENTION: ${NB_EVENT_RETENTION:-168h}
+      NB_DELIVERY_RETENTION: ${NB_DELIVERY_RETENTION:-720h}
+    ports:
+      # 只绑回环地址。管理面不应该从公网可达；对外暴露走社区后端代理。
+      - "127.0.0.1:${NB_CORE_HOST_PORT:-4020}:${NB_CORE_CONTAINER_PORT:-4000}"
+    networks:
+      - tp
+    depends_on:
+      # 只等进程起来，不等"健康"：镜像基于 distroless，里面没有 shell 也没有
+      # curl，写不出可靠的容器内探针。插件是否真的可用由核心自己探测
+      # （describe 失败会把连接器标成 unreachable），不靠 compose 判断。
+      northbound-sink-http:
+        condition: service_started
+      northbound-sink-mqtt:
+        condition: service_started
+
+  # ---------------------------------------------------------------------
+  # HTTP 出口插件。无状态：挂了直接重启，不影响账本。
+  # ---------------------------------------------------------------------
+  northbound-sink-http:
+    image: ${NB_HTTP_PLUGIN_IMAGE:-tp/northbound-sink-http:dev}
+    build:
+      context: ../..
+      dockerfile: deploy/northbound/Dockerfile.plugin
+      args:
+        PLUGIN: northbound-http
+    container_name: tp-northbound-sink-http
+    restart: unless-stopped
+    # --host 0.0.0.0 是必须的：Docker 的端口发布转发到容器的 eth0，
+    # 而插件默认只听 127.0.0.1（裸进程安装时更安全）。漏了这个参数，
+    # 容器是 Up 的、日志也说 listening，但从宿主机永远连不上。
+    command: ["--host", "0.0.0.0", "--port", "18081", "--token", "${NB_PLUGIN_TOKEN:?缺少 NB_PLUGIN_TOKEN}"]
+    ports:
+      - "127.0.0.1:${NB_HTTP_PLUGIN_HOST_PORT:-18081}:18081"
+    networks:
+      - tp
+
+  # ---------------------------------------------------------------------
+  # MQTT 出口插件。同样无状态。
+  # ---------------------------------------------------------------------
+  northbound-sink-mqtt:
+    image: ${NB_MQTT_PLUGIN_IMAGE:-tp/northbound-sink-mqtt:dev}
+    build:
+      context: ../..
+      dockerfile: deploy/northbound/Dockerfile.plugin
+      args:
+        PLUGIN: northbound-mqtt
+    container_name: tp-northbound-sink-mqtt
+    restart: unless-stopped
+    command: ["--host", "0.0.0.0", "--port", "18082", "--token", "${NB_PLUGIN_TOKEN:?缺少 NB_PLUGIN_TOKEN}"]
+    ports:
+      - "127.0.0.1:${NB_MQTT_PLUGIN_HOST_PORT:-18082}:18082"
+    networks:
+      - tp
+
+networks:
+  tp:
+    external: true
+    name: ${TP_NETWORK:-tp-community}

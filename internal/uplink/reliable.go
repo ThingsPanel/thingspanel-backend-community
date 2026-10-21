@@ -14,6 +14,7 @@ import (
 	"project/internal/brokercommands"
 	"project/internal/brokerledger"
 	"project/internal/model"
+	"project/internal/northbound"
 	"project/internal/processor"
 	"project/internal/storage"
 )
@@ -159,6 +160,18 @@ func (p *ReliableProcessor) write(ctx context.Context, tx *gorm.DB, device *mode
 	}
 	id := uuid.NewSHA1(uuid.NameSpaceOID, []byte(msg.ID+"/"+device.ID+"/automation")).String()
 	if e := tx.WithContext(ctx).Exec(`INSERT INTO broker_ingress_effects(id,receipt_id,tenant_id,device_id,effect_kind,payload) VALUES(?,?,?,?,?,?::jsonb) ON CONFLICT(receipt_id,device_id,effect_kind) DO NOTHING`, id, msg.ID, msg.TenantID, device.ID, "automation", string(intent)).Error; e != nil {
+		return e
+	}
+	// Northbound enrolment is part of this same transaction. A capacity
+	// rejection is counted on the northbound side and does not fail ingest.
+	if e := northbound.EnrollBusinessEvent(ctx, tx, northbound.BusinessInput{
+		TenantID:   msg.TenantID,
+		DeviceID:   device.ID,
+		MessageID:  msg.ID,
+		Family:     family,
+		OccurredAt: messageTime(msg),
+		Values:     values,
+	}); e != nil {
 		return e
 	}
 	return brokerledger.CheckEffectCapacity(tx.WithContext(ctx), msg.TenantID)

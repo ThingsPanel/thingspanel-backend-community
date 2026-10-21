@@ -202,6 +202,9 @@ func RouterInit() *gin.Engine {
 
 			// 初始化系统监控路由
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)
+
+			// 数据转发（北向服务）
+			apps.Model.Northbound.InitNorthbound(v1)
 		}
 	}
 

@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm/logger"
 	"project/internal/brokerledger"
 	"project/internal/model"
+	"project/internal/northbound"
 )
 
 var errTelemetryRouteFenced = errors.New("trusted telemetry route is fenced")
@@ -148,7 +149,7 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 				}
 				budgets[item.tenantID] = budget
 			}
-			if e := recordTrustedTelemetry(tx, item, budget); e != nil {
+			if e := recordTrustedTelemetry(ctx, tx, item, budget); e != nil {
 				return e
 			}
 		}
@@ -214,7 +215,7 @@ func validateTelemetryAncestry(tx *gorm.DB, item *telemetryBatchItem) error {
 	}
 	return errTelemetryRouteFenced
 }
-func recordTrustedTelemetry(tx *gorm.DB, item *telemetryBatchItem, budget *telemetryEffectBudget) error {
+func recordTrustedTelemetry(ctx context.Context, tx *gorm.DB, item *telemetryBatchItem, budget *telemetryEffectBudget) error {
 	values := map[string]interface{}{}
 	for _, p := range item.points {
 		if _, exists := values[p.Key]; exists {
@@ -269,6 +270,18 @@ func recordTrustedTelemetry(tx *gorm.DB, item *telemetryBatchItem, budget *telem
 	}
 
 	if e := tx.Exec(`INSERT INTO broker_telemetry_activity(tenant_id,device_id,transport_device_id,broker_cell,route_epoch,receipt_id,observed_at,next_check_at) VALUES(?,?,?,?,?,?,?,now()) ON CONFLICT(tenant_id,device_id) DO UPDATE SET transport_device_id=excluded.transport_device_id,broker_cell=excluded.broker_cell,route_epoch=excluded.route_epoch,receipt_id=excluded.receipt_id,observed_at=excluded.observed_at,next_check_at=now() WHERE broker_telemetry_activity.route_epoch<>excluded.route_epoch OR broker_telemetry_activity.broker_cell<>excluded.broker_cell OR broker_telemetry_activity.transport_device_id<>excluded.transport_device_id OR broker_telemetry_activity.observed_at<=excluded.observed_at`, item.tenantID, item.deviceID, r.TransportDeviceID, r.BrokerCell, r.RouteEpoch, r.ReceiptID, r.ObservedAt).Error; e != nil {
+		return e
+	}
+	// Northbound enrolment shares this transaction: if the row cannot be
+	// written, the telemetry batch must not commit either. Capacity rejection is
+	// recorded separately and is not an error.
+	if e := northbound.EnrollTelemetry(ctx, tx, northbound.TelemetryInput{
+		TenantID:   item.tenantID,
+		DeviceID:   item.deviceID,
+		ReceiptID:  r.ReceiptID,
+		OccurredAt: r.ObservedAt,
+		Values:     values,
+	}); e != nil {
 		return e
 	}
 	return tx.Exec(`INSERT INTO broker_state_projection_queue(tenant_id,device_id) VALUES(?,?) ON CONFLICT(tenant_id,device_id) DO UPDATE SET updated_at=now()`, item.tenantID, item.deviceID).Error

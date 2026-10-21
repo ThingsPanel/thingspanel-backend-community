@@ -53,6 +53,7 @@ type Controller struct {
 	DeviceAuthApi // 设备动态认证
 	DeviceTopicMappingApi
 	DashboardMenuApi
+	NorthboundSourceApi // 数据转发（北向服务）源端状态与传输代理
 }
 
 var (

@@ -1,0 +1,9 @@
+# Compiled connector binaries. They are built from main.go and must never be
+# committed: a stale binary in the tree is how a "fixed" plugin keeps failing.
+northbound-http/northbound-plugin-http
+northbound-mqtt/northbound-plugin-mqtt
+
+# Go build leftovers. `go build` occasionally leaves a zero-byte
+# *-go-tmp-umask file and editors leave numbered copies of main.go behind.
+*-go-tmp-umask
+main.go.*

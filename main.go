@@ -51,6 +51,9 @@ func main() {
 		app.WithDatabase(),
 		app.WithRedis(),
 
+		// 北向源端：只读配置并登记 relay，登记本身跑在既有遥测/属性事务里
+		app.WithNorthboundSource(),
+
 		// 服务
 		app.WithStorageService(),   // 1. Storage
 		app.WithFlowService(),      // 2. Flow

@@ -1,0 +1,36 @@
+# 北向出口插件的通用镜像。
+#
+# 两个插件（HTTP / MQTT）用同一个 Dockerfile，靠构建参数 PLUGIN 选目录。这样做
+# 是为了让「两个插件长得一样」这件事在构建层面也是真的：如果哪天只给其中一个加了
+# 依赖，这里会立刻暴露。
+#
+# 构建上下文必须是仓库根目录，因为 northbound-http 用 replace 指向了同仓库的
+# northbound-sdk-go：
+#
+#   docker build -f deploy/northbound/Dockerfile.plugin \
+#     --build-arg PLUGIN=northbound-http \
+#     -t tp/northbound-sink-http:dev .
+#
+# syntax=docker/dockerfile:1
+
+ARG GO_VERSION=1.23
+
+FROM golang:${GO_VERSION}-alpine AS build
+ARG PLUGIN=northbound-http
+WORKDIR /src
+
+# 先把两个模块整体拷进来。COPY 的粒度故意粗：Go 的模块解析会顺着 replace 走
+# 到 ../northbound-sdk-go，少拷一个目录就是编译失败，不是缓存问题。
+COPY plugins/ ./plugins/
+
+WORKDIR /src/plugins/${PLUGIN}
+# CGO 关掉是为了能跑在 distroless/static 上；插件不依赖 libc 也不需要证书包之外
+# 的任何东西（TLS 用系统根证书，见下面的 CA 拷贝）。
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags='-s -w' -o /out/plugin .
+
+FROM gcr.io/distroless/static:nonroot
+COPY --from=build /out/plugin /plugin
+# 非 root 运行：插件只监听高位端口，不需要任何特权。
+USER 65532:65532
+EXPOSE 18081 18082
+ENTRYPOINT ["/plugin"]
