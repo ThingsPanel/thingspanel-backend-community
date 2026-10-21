@@ -11,8 +11,8 @@
 
 ## 1. 一句话现状
 
-**代码写完了，三个验收入口在本机真实环境下全部通过（27 + 22 + 24 = 73 条断言，
-0 失败 0 跳过）。没做完的是三件"需要有环境才能做"的验证：前端构建、Encore 生产镜像、
+**代码写完了，三个验收入口在本机真实环境下全部通过（27 + 22 + 25 = 74 条断言，
+0 失败 0 跳过），并且在空库冷启动后复跑过一遍。没做完的是三件"需要有环境才能做"的验证：前端构建、Encore 生产镜像、
 容器编排联调。**
 
 ---
@@ -108,13 +108,86 @@ curl -s -H 'Authorization: Bearer dev-plugin-token' \
 cd /Users/junhong/Downloads/code/nb-workspaces/backend
 python3 scripts/qa/northbound/journey.py     # 约 1 分钟，27 条
 python3 scripts/qa/northbound/recovery.py    # 约 1 分钟，22 条
-python3 scripts/qa/northbound/release.py     # 约 1.5 分钟，24 条
+python3 scripts/qa/northbound/release.py     # 约 1.5 分钟，25 条（会杀掉 encore run）
 ```
 
 报告写到 `docs/northbound/reports/`。**跳过的断言在报告里单独计数，不算通过。**
 
 > `release.py` 会跑 `go vet` + `encore test` + `go build`，在低配机器上可能超过
 > 2 分钟。用后台方式跑，不要用默认 120 秒超时的前台命令（我踩过一次，误以为是 OOM）。
+
+### 2.6 环境会自己挂：Docker 重启 = Encore 核心死
+
+**这是本次交付最后阶段真实发生的一次故障，务必知道。**
+
+`encore run` 的数据库不是一个固定服务，而是 Encore CLI 自己拉起的容器
+（`sqldb-bw4dm-default-*`，映射到随机高位端口，这次是 `32768`）。这些容器**没有
+restart policy**。所以只要 OrbStack / Docker Desktop 重启，它们会停在 `Exited (255)`，
+而其它带 restart policy 的容器会自己起来——**看起来一切正常，只有北向核心死了**。
+
+表现是：
+
+```
+northbound: probe query failed: unavailable: FATAL: database not running:
+  dial tcp 127.0.0.1:32768: connect: connection refused (SQLSTATE 08006)
+```
+
+随后每个请求都是 `unavailable`，`encore run` 进程退出。本次它连续跑了 **3 小时 9 分**
+才因为宿主 Docker 重启而倒。
+
+判断方法（30 秒）：
+
+```bash
+docker ps -a --filter name=sqldb --format '{{.Names}}\t{{.Status}}'
+# 看到 Exited (255) → 就是这个问题
+lsof -nP -iTCP:4020 -sTCP:LISTEN   # 端口还在但 curl 返回 000，也指向这里
+```
+
+恢复：重新起 `encore run`（见 §2.2 第 4 个进程）。它会重建集群、自动重跑迁移。
+
+**但要注意代价**：重建 = **Encore 侧数据全丢**（连接、任务、版本、事件、投递账本全在
+那个容器里）。社区侧的 `northbound_source_outbox` 在 15432 那个持久容器里，不会丢，
+但里面的 `handed_off` 记录对应的北向事件已经不存在了。所以：
+
+- 开发/验收环境：直接重跑 `journey.py`，它会自己建连接和任务。
+- **不要**把 `encore run` 的本地库当账本用。生产必须给 Encore 配外部托管 PostgreSQL
+  （见 `DEPLOYMENT.md`），那才是持久的。
+
+顺带一提：冷启动后 `encore run` 要重新编译整个应用，本机大约 **3～5 分钟**，
+期间端口已经 listen 但 HTTP 不响应（`curl` 返回 000）。这不是挂了，别急着杀。
+
+### 2.7 跑完验收先探活，别假设核心还活着
+
+**观察到的现象**：有一次跑完 `release.py` 之后，`:4020` 无监听、`encore run` 进程消失，
+但 `sqldb-*` 容器仍然 Up。紧接着再跑 `release.py`，幂等那两条就变成了
+`首次 0 条 -> 重复提交后 0 条`——**环境故障被报成了产品缺陷**。
+
+**做了对照实验，不要冤枉 `encore test`**：
+
+```bash
+# 测试前 200，跑一次 encore test，测试后仍然 200，PID 没变
+$ encore test ./northbound/ -count=1 ; echo $?
+0
+```
+
+所以 `encore test` **不是**元凶。那次消失最可能的原因是机器当时负载 66，进程被系统
+回收；但我没有拿到 OOM 日志，**不写成结论**。
+
+**因此做了两件事**：
+
+1. `release.py` 开头加了一条前置断言 `核心在线（inbox 可达）`。核心没起来时，红在第一行，
+   而不是在下游产生一堆看起来像数据 bug 的红。
+2. 把 `encore test` 整组挪到脚本最后。它不是元凶，但它是唯一会改动应用运行形态的检查，
+   放在最后不影响其它断言。
+
+**接手时请这样用**：
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:4020/v1/inbox/events \
+  -H 'Content-Type: application/json' -H 'X-Northbound-Token: dev-service-token' \
+  -d '{"contractVersion":"northbound-source/v1","sourceProfile":"ingress_v1","events":[]}'
+# 200 = 核心正常；000/502 = 需要按 §2.2 第 4 个进程重启
+```
 
 ---
 
@@ -236,6 +309,23 @@ encore.app/northbound.deliverBatch(...)  worker.go:167
 | paho `Publish` 不认 `json.RawMessage` | 报 `unknown payload type` | MQTT 插件注释 |
 | `retained_profile` 合法值是 `live-ingress`，不是 `retained_live_ingress` | 后端起不来 | QA 配置 |
 
+### 5.4 退避测试原来是概率红的（已修）
+
+`TestBackoffGrowsAndIsCapped` 里断言 `nextBackoff(6, 10) >= 30s`。但 attempt 6 的基数
+是 32s 且 `backoffFor` 带 ±20% 抖动，真实取值范围是 **25.6s～38.4s** —— 也就是说这个
+断言有约三分之一概率随机失败。
+
+本次是在 release 复跑时撞上的（同一份代码前几次都是绿的）。已改成按抖动区间判断：
+
+```go
+if d := nextBackoff(6, 10); d < 25*time.Second || d > 39*time.Second { ... }
+```
+
+并用 `encore test -run TestBackoffGrowsAndIsCapped -count=20` 连跑 20 次确认稳定。
+
+**教训**：任何带抖动的函数，断言必须写成区间。随机的红比不测更糟——它和真实回归
+长得一模一样。
+
 ---
 
 ## 6. 几个关键决策，以及为什么
@@ -266,7 +356,7 @@ docs/northbound/
 └── reports/             ← 三份脚本生成的真实报告
     ├── journey.md       (27 通过 / 0 失败 / 0 跳过)
     ├── recovery.md      (22 通过 / 0 失败 / 0 跳过)
-    └── release.md       (24 通过 / 0 失败 / 0 跳过)
+    └── release.md       (25 通过 / 0 失败 / 0 跳过)
 
 encore-api/northbound/       ← Encore 服务（16 个 go 文件 + 迁移 + 单测）
 internal/northbound/         ← 社区侧源端（登记 + relay）

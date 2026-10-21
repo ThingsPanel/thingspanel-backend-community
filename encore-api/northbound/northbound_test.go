@@ -225,8 +225,14 @@ func TestBackoffGrowsAndIsCapped(t *testing.T) {
 		t.Fatalf("retry_after must be honoured, got %v", d)
 	}
 	// A short retry_after must not shorten the platform's own backoff.
-	if d := nextBackoff(6, 10); d < 30*time.Second {
-		t.Fatalf("a small retry_after must not shrink the backoff, got %v", d)
+	//
+	// This has to be expressed as a band, not a lower bound: backoffFor applies
+	// ±20% jitter, so attempt 6 (32s base) legitimately lands anywhere in
+	// 25.6s..38.4s. Asserting ">= 30s" made this test fail roughly a third of
+	// the time, which is worse than not having it: a flaky red is indistinguishable
+	// from a real regression.
+	if d := nextBackoff(6, 10); d < 25*time.Second || d > 39*time.Second {
+		t.Fatalf("a small retry_after must leave attempt 6 inside its jitter band (25.6s..38.4s), got %v", d)
 	}
 	// The cap still applies to a target that asks for a very long wait.
 	if d := nextBackoff(1, 3600_000); d != 5*time.Minute {

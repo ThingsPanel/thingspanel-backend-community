@@ -28,7 +28,14 @@ PLUGIN_TOKEN = os.environ.get("NB_PLUGIN_TOKEN", "dev-plugin-token")
 
 
 def sh(cmd: list[str], cwd: Path | None = None, timeout: int = 240) -> tuple[int, str]:
-    proc = subprocess.run(cmd, cwd=str(cwd or REPO), capture_output=True, text=True, timeout=timeout)
+    # Go module downloads must not make a code-quality check look like a code
+    # defect. On a cold module cache `go vet` pulls encore.dev; without a proxy
+    # that can stall until the timeout and the check reports a false failure.
+    env = dict(os.environ)
+    env.setdefault("GOPROXY", "https://goproxy.cn,direct")
+    env.setdefault("GOFLAGS", "-mod=mod")
+    proc = subprocess.run(cmd, cwd=str(cwd or REPO), capture_output=True, text=True,
+                          timeout=timeout, env=env)
     return proc.returncode, (proc.stdout + proc.stderr).strip()
 
 
@@ -47,6 +54,12 @@ def plugin_call(base: str, path: str, body=None, token: str | None = PLUGIN_TOKE
 def run() -> int:
     r = Report("北向服务 release 验收")
 
+    # Fail fast and clearly if the core is not up. Without this, a dead core
+    # shows up as a pile of unrelated failures further down (0 deliveries, no
+    # ack levels) and reads like a product defect instead of an environment one.
+    probe = lib.inbox([])
+    r.add("核心在线（inbox 可达）", probe.status in (200, 204), f"HTTP {probe.status}")
+
     # =====================================================================
     print("\n[A] 代码质量")
     # =====================================================================
@@ -58,26 +71,24 @@ def run() -> int:
     rc, out = sh(["gofmt", "-l", *existing])
     r.add("自有 Go 代码通过 gofmt", rc == 0 and out == "", out[:300] or "无未格式化文件")
 
+    # Generous timeout: on a cold module cache vet has to fetch and compile the
+    # whole community module, which is minutes on a loaded machine.
     rc, out = sh(["go", "vet", "./internal/northbound/...", "./internal/api/...", "./internal/app/..."],
-                 timeout=420)
+                 timeout=900)
     r.add("自有包通过 go vet", rc == 0, out[:400] or "无告警")
 
     encore = REPO / "encore-api"
-    rc, out = sh(["go", "vet", "./..."], cwd=encore, timeout=420)
+    rc, out = sh(["go", "vet", "./..."], cwd=encore, timeout=900)
     r.add("Encore 应用通过 go vet", rc == 0, out[:400] or "无告警")
 
     # Encore applications must be tested through the encore CLI: running plain
     # `go test` panics with "encore apps must be run using the encore command".
-    rc, out = sh(["encore", "test", "./..."], cwd=encore, timeout=900)
-    # Encore's own summary ("One or more more tests failed.") says nothing about
-    # which package broke, so surface the failing lines instead.
-    if rc == 0:
-        detail = (out.strip().splitlines() or ["无输出"])[-1][:300]
-    else:
-        bad = [ln for ln in out.splitlines()
-               if ln.startswith("FAIL") or "--- FAIL" in ln or ln.startswith("panic:")]
-        detail = ("失败包: " + " | ".join(bad[:4])) if bad else out[-400:]
-    r.add("Encore 应用单元测试通过（encore test）", rc == 0, detail)
+    #
+    # This check is deliberately deferred to the end of the script: `encore test`
+    # takes over the app and the running `encore run` process dies with it. When
+    # it ran here, every later assertion that needs a live core (idempotency,
+    # QoS0 ack) failed and looked like a product defect. It is a real check, it
+    # just has to be the last thing that touches the core.
 
     rc, out = sh(["go", "build", "-p", "2", "./..."], timeout=600)
     r.add("社区后端可构建", rc == 0, out[:300] or "ok")
@@ -287,6 +298,20 @@ def run() -> int:
     r.add("合同记录了修订历史",
           "修订记录" in contract_text and len(versions) >= 2,
           " -> ".join(versions) if versions else "未找到版本行")
+
+    # =====================================================================
+    print("\n[D] Encore 单元测试（放最后：它会杀掉正在运行的核心）")
+    # =====================================================================
+    rc, out = sh(["encore", "test", "./..."], cwd=encore, timeout=900)
+    # Encore's own summary ("One or more more tests failed.") says nothing about
+    # which package broke, so surface the failing lines instead.
+    if rc == 0:
+        detail = (out.strip().splitlines() or ["无输出"])[-1][:300]
+    else:
+        bad = [ln for ln in out.splitlines()
+               if ln.startswith("FAIL") or "--- FAIL" in ln or ln.startswith("panic:")]
+        detail = ("失败包: " + " | ".join(bad[:4])) if bad else out[-400:]
+    r.add("Encore 应用单元测试通过（encore test）", rc == 0, detail)
 
     r.write("release.md")
     return r.finish()
