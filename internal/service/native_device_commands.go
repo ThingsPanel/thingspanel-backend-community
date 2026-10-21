@@ -44,6 +44,11 @@ type nativeCommandParameter struct {
 type nativeCommandValueType struct {
 	Kind       string `json:"kind"`
 	BaseKind   string `json:"baseKind"`
+	Constraint *struct {
+		TrueText  string `json:"trueText"`
+		FalseText string `json:"falseText"`
+	} `json:"constraint"`
+
 	EnumValues []struct {
 		Code  json.RawMessage   `json:"code"`
 		Label nativeCommandI18n `json:"label"`
@@ -73,34 +78,11 @@ func hasNativeDeviceConfigBinding(config *model.DeviceConfig) bool {
 }
 
 func nativeDeviceCommands(ctx context.Context, communityAuthorization string, config *model.DeviceConfig) ([]model.GetCommandListRes, error) {
-	if config == nil || config.NativeThingModelID == nil || config.NativeThingModelSnapshotID == nil ||
-		config.NativeThingModelRevision == nil || config.NativeBindingRevision <= 0 {
-		return nil, fmt.Errorf("native device-config binding is incomplete")
-	}
-	if config.DeviceTemplateID != nil {
-		return nil, fmt.Errorf("native device-config binding cannot also reference a legacy template")
-	}
-	modelID := strings.TrimSpace(*config.NativeThingModelID)
-	snapshotID := strings.TrimSpace(*config.NativeThingModelSnapshotID)
-	revision := *config.NativeThingModelRevision
-	if modelID == "" || snapshotID == "" || revision <= 0 {
-		return nil, fmt.Errorf("native device-config binding is incomplete")
-	}
-	if strings.TrimSpace(communityAuthorization) == "" {
-		return nil, fmt.Errorf("authenticated Community session is required to read native commands")
-	}
-
-	client, err := newNativeMarketImportClient()
+	snapshot, err := readNativeBindingSnapshot(ctx, communityAuthorization, config)
 	if err != nil {
 		return nil, err
 	}
-	snapshot, err := client.readSnapshot(ctx, communityAuthorization, modelID, revision)
-	if err != nil {
-		return nil, fmt.Errorf("read bound native command snapshot: %w", err)
-	}
-	if snapshot.SnapshotID != snapshotID {
-		return nil, fmt.Errorf("native command snapshot does not match the device-config binding")
-	}
+
 	return nativeCommandListFromModel(snapshot.Model)
 }
 

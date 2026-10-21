@@ -160,7 +160,7 @@ func (*DeviceConfigApi) HandleActionByDeviceConfigID(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	list, err := service.GroupApp.DeviceConfig.GetActionByDeviceConfigID(param.DeviceConfigID)
+	list, err := service.GroupApp.DeviceConfig.GetActionByDeviceConfigID(c.Request.Context(), param.DeviceConfigID, c.MustGet("claims").(*utils.UserClaims), communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return
@@ -175,7 +175,7 @@ func (*DeviceConfigApi) HandleConditionByDeviceConfigID(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	list, err := service.GroupApp.DeviceConfig.GetConditionByDeviceConfigID(param.DeviceConfigID)
+	list, err := service.GroupApp.DeviceConfig.GetConditionByDeviceConfigID(c.Request.Context(), param.DeviceConfigID, c.MustGet("claims").(*utils.UserClaims), communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return

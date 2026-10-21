@@ -769,7 +769,7 @@ func (*DeviceApi) HandleSubList(c *gin.Context) {
 // /api/v1/device/metrics/{id}
 func (*DeviceApi) HandleMetrics(c *gin.Context) {
 	id := c.Param("id")
-	list, err := service.GroupApp.Device.GetMetrics(id)
+	list, err := service.GroupApp.Device.GetMetrics(c.Request.Context(), id, c.MustGet("claims").(*utils.UserClaims), communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return
@@ -785,7 +785,7 @@ func (*DeviceApi) HandleActionByDeviceID(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	list, err := service.GroupApp.Device.GetActionByDeviceID(param.DeviceID)
+	list, err := service.GroupApp.Device.GetActionByDeviceID(c.Request.Context(), param.DeviceID, c.MustGet("claims").(*utils.UserClaims), communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return
@@ -801,7 +801,7 @@ func (*DeviceApi) HandleConditionByDeviceID(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	list, err := service.GroupApp.Device.GetConditionByDeviceID(param.DeviceID)
+	list, err := service.GroupApp.Device.GetConditionByDeviceID(c.Request.Context(), param.DeviceID, c.MustGet("claims").(*utils.UserClaims), communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return
