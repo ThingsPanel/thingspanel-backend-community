@@ -634,3 +634,10 @@ HTTP 插件 `:18081`、MQTT 插件 `:18082`、本地接收端 `:18090`、Mosquit
 > 运维提醒：这三个进程必须用受管后台方式启动。用 `nohup ... &` 起的进程在 shell
 > 退出后会被回收，脚本会以「插件全部 502」的形式失败——本次就踩过一次，误以为是
 > 代码问题。
+
+## 菜单层级收尾修正
+
+最终交接版本将北向页挂在独立的「数据转发 → 北向数据转发」菜单下，路径为
+`/data-forwarding/northbound`；既有「数据服务 → 规则引擎」保留原位。
+`sql/northbound/002_data_forwarding_menu.sql` 为动态菜单注册两个角色权限，
+由 `deploy/northbound/migrate.sh` 应用并检查。

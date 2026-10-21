@@ -159,7 +159,7 @@ pnpm build
 - 4 个 `.vue` 里 109 个 `$t()` 键在中英文里都存在
 - 7 个新增文件里 30 条 import，相对路径与 `@/` 别名 0 条解析失败
 - 6 个语言 JSON 都能 `json.load`
-- 路由键 `data-service_northbound` 两边都注册
+- 路由键 `data-forwarding_northbound` 两边都注册；父菜单为独立「数据转发」组
 
 **风险**：TS 类型错误目前只经过人工核对，没有编译器背书。
 

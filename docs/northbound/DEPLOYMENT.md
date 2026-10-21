@@ -245,7 +245,7 @@ pnpm install
 pnpm build          # 内部先跑 vue-tsc --noEmit
 ```
 
-产物与社区前端一样交给现有 Web 服务器。北向页面挂在 `/data-service/northbound`，
+产物与社区前端一样交给现有 Web 服务器。北向页面挂在 `/data-forwarding/northbound`，
 菜单名「数据转发」，位于「数据服务」分组下。
 
 前端把请求发到 `${origin}/api/v1/northbound/*`，由社区后端代理到 Encore。**前端

@@ -7,7 +7,7 @@
 
 ## 1. 入口与权限
 
-左侧菜单 **数据服务 → 数据转发**，页面路径 `/data-service/northbound`。
+左侧菜单 **数据转发 → 北向数据转发**，页面路径 `/data-forwarding/northbound`。
 
 页面有四个标签页：
 

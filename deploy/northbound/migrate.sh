@@ -47,11 +47,11 @@ for t in northbound_source_outbox northbound_source_rejects; do
     missing=1
   fi
 done
-menu_count=$(psql_run -tAc "SELECT count(*) FROM public.sys_ui_elements WHERE element_code='data-service_northbound' AND route_path='view.data-service_northbound'")
+menu_count=$(psql_run -tAc "SELECT count(*) FROM public.sys_ui_elements WHERE element_code='data-forwarding_northbound' AND route_path='view.data-forwarding_northbound'")
 if [ "$menu_count" = "1" ]; then
-  echo "    OK  data-service_northbound menu"
+  echo "    OK  data-forwarding_northbound menu"
 else
-  echo "    缺失或重复 data-service_northbound menu ($menu_count)" >&2
+  echo "    缺失或重复 data-forwarding_northbound menu ($menu_count)" >&2
   missing=1
 fi
 

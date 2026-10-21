@@ -78,7 +78,7 @@
 
 | 文件 | 改动 |
 |---|---|
-| `src/router/elegant/{routes,imports,transform}.ts` | 注册 `data-service_northbound` → `/data-service/northbound` |
+| `src/router/elegant/{routes,imports,transform}.ts` | 注册 `data-forwarding_northbound` → `/data-forwarding/northbound` |
 | `src/locales/langs/{zh-cn,en-us}/{route,page,common}.json` | 1 个路由键 + 1 个公共键 + 103 个页面键，中英文都补齐 |
 
 ---
