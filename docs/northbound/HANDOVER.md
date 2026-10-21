@@ -24,8 +24,20 @@
 | 仓库 | 隔离工作区 | 分支 | 基线 |
 |---|---|---|---|
 | 后端 | `/Users/junhong/Downloads/code/nb-workspaces/backend` | `codex/northbound-community-20261021` | `1a1ef0a0` |
-| 前端 | `/Users/junhong/Downloads/code/nb-workspaces/frontend` | `codex/northbound-frontend-20261021` | `c6968c77` |
+| 前端 | `/Users/junhong/Downloads/code/nb-workspaces/frontend` | `codex/northbound-frontend-20261021` | `e49f49ac`（`origin/master`） |
 | Kernel | `/Users/junhong/Downloads/code/iot-api-encore-kernel` | **只读，不要改** | — |
+
+两个分支都已提交并推送，工作区是干净的：
+
+| 仓库 | 分支 | 关键提交 |
+|---|---|---|
+| 后端 | `codex/northbound-community-20261021` | `b764b99e` 独立「数据转发」菜单、`aeaa72cc` 验收工具三处修复、`a2a1186c` 本文档的数字更正 |
+| 前端 | `codex/northbound-frontend-20261021` | `47608c3f` 新增页面、`613966d7` 拆出独立「数据转发」菜单 |
+
+> 具体 HEAD 以 `git log -1` 为准，别照抄文档里的哈希——文档本身也会再产生提交。
+
+> 前端基线不要用本地 `master`（`c6968c77`，那是物模型 UI 那条线的分支，不是本分支的
+> 祖先）。要算差异就用 `git diff $(git merge-base HEAD origin/master)`，结果是 7 新增 + 9 修改。
 
 主工作树 `/Users/junhong/Downloads/code/thingspanel-backend-community` 里有别的会话
 **未提交**的成果，不要 reset / clean / stash 它。
@@ -108,7 +120,7 @@ curl -s -H 'Authorization: Bearer dev-plugin-token' \
 cd /Users/junhong/Downloads/code/nb-workspaces/backend
 python3 scripts/qa/northbound/journey.py     # 约 1 分钟，27 条
 python3 scripts/qa/northbound/recovery.py    # 约 1 分钟，22 条
-python3 scripts/qa/northbound/release.py     # 约 1.5 分钟，25 条（会杀掉 encore run）
+python3 scripts/qa/northbound/release.py     # 约 1.5 分钟，25 条（含 encore test，放在最后）
 ```
 
 报告写到 `docs/northbound/reports/`。**跳过的断言在报告里单独计数，不算通过。**
@@ -204,7 +216,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:4020/v1/inbox/
 | NB-07 两个插件真实运行 | ✅ 完成 | HTTP 与 MQTT 都真实送达，MQTT 过真实 Broker |
 | NB-08 一致性测试 | ✅ 完成 | 合同 §11 每条都有脚本断言，见台账 NB-08 |
 | NB-09 前端页面 | ⚠️ **代码完成，构建未跑** | 见 §4 第 1 条 |
-| NB-10 部署与文档 | ✅ 完成 | 5 份文档 + 单机编排 + 迁移脚本 + 变更摘要 |
+| NB-10 部署与文档 | ✅ 完成 | 7 份文档齐备（合同/台账/部署/使用/维护/变更/移交）+ 单机编排 + 迁移脚本 |
 
 详细施工记录（每步做了什么、为什么、改了哪些文件、证据在哪）在
 `docs/northbound/EXECUTION-LEDGER.md`。**那份台账是本项目最重要的文档**，接手先读它。
@@ -358,7 +370,7 @@ docs/northbound/
     ├── recovery.md      (22 通过 / 0 失败 / 0 跳过)
     └── release.md       (25 通过 / 0 失败 / 0 跳过)
 
-encore-api/northbound/       ← Encore 服务（16 个 go 文件 + 迁移 + 单测）
+encore-api/northbound/       ← Encore 服务（17 个 go 文件 + 迁移 + 单测）
 internal/northbound/         ← 社区侧源端（登记 + relay）
 plugins/northbound-http/     ← HTTP 出口插件
 plugins/northbound-mqtt/     ← MQTT 出口插件
@@ -368,7 +380,16 @@ deploy/northbound/           ← 单机编排 + 镜像 + 迁移脚本
 sql/northbound/              ← 社区库迁移
 ```
 
-变更规模：后端 **126 新增 + 7 修改**，前端 **4 新增 + 9 修改**。
+变更规模（相对各自基线，已排除 `tools/`）：
+
+| 仓库 | 新增 | 修改 | 合计 |
+|---|---|---|---|
+| 后端 | 128 | 8 | 136 文件 / +27164 −3 行 |
+| 前端 | 7 | 9 | 16 文件 |
+
+后端那 128 个新增里，**67 个不是这次写的**：`encore-api/devicemetadata`（48）、
+`encore-api/thingmodel`（15）、`encore-api/l1-access`（3）、`encore-api/internal/authz`（1）
+来自已验收的物模型成果（见 §8 第 2 条）。本次北向自己新增的是 **61 个文件**。
 
 ---
 

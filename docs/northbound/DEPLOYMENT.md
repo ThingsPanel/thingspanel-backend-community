@@ -246,7 +246,9 @@ pnpm build          # 内部先跑 vue-tsc --noEmit
 ```
 
 产物与社区前端一样交给现有 Web 服务器。北向页面挂在 `/data-forwarding/northbound`，
-菜单名「数据转发」，位于「数据服务」分组下。
+菜单是**独立的顶级分组「数据转发」**，其下挂「北向数据转发」；既有「数据服务 → 规则
+引擎」保持原样不动。菜单由 `sql/northbound/002_data_forwarding_menu.sql` 注册
+（`SYS_ADMIN` + `TENANT_ADMIN` 可见）。
 
 前端把请求发到 `${origin}/api/v1/northbound/*`，由社区后端代理到 Encore。**前端
 不需要知道 Encore 的地址**，也不需要直连 Encore。

@@ -3,14 +3,16 @@
 给代码审查与合入用。**只列这次实际改了什么**，不重复讲功能背景（那是
 `CONTRACT-v1.md` 和 `USAGE.md` 的事）。
 
-分支：后端 `codex/northbound-community-20261021`（基线 `1a1ef0a0`），
-前端 `codex/northbound-frontend-20261021`（基线 `c6968c77`）。
+分支：后端 `codex/northbound-community-20261021`（基线 `1a1ef0a0`，HEAD `aeaa72cc`），
+前端 `codex/northbound-frontend-20261021`（基线 `e49f49ac`，HEAD `613966d7`）。两个分支
+都已推送。
 
 ---
 
 ## 1. 一句话
 
-在社区版加了一个「数据服务 → 数据转发」入口：源端在既有事务里登记，Encore 侧做
+在社区版加了一个独立的「数据转发 → 北向数据转发」菜单（`/data-forwarding/northbound`）：
+源端在既有事务里登记，Encore 侧做
 配置与投递账本，两个真实运行的插件（HTTP / MQTT）把数据送到客户系统。**没有新账号
 体系、没有新队列、没有重写物模型或 Broker。**
 
@@ -50,7 +52,7 @@
 | `deploy/northbound/`（5 个文件） | 单机编排、插件 Dockerfile、迁移脚本、env 模板、README |
 | `docs/northbound/`（7 个文档 + 3 份报告） | 移交、合同、台账、部署、使用、维护、变更摘要，以及脚本生成的 journey/recovery/release 报告 |
 
-### 3.2 后端修改（6 个文件，逐个说明为什么）
+### 3.2 后端修改（8 个文件，逐个说明为什么）
 
 | 文件 | 改动 | 为什么 |
 |---|---|---|
@@ -61,6 +63,7 @@
 | `internal/storage/telemetry_broker.go` | 在可信遥测批次提交的同一事务里登记北向事件 | 这是「已登记」的唯一保证点：事务回滚则事件不登记，事务提交则事件一定可见 |
 | `internal/uplink/reliable.go` | 在可靠属性/事件写入的同一事务里登记 | 同上，覆盖非遥测的两类数据 |
 | `.gitignore` | 忽略 `*.go.[0-9]*`、`*-go-tmp-umask` | `go build` 与编辑器会留零字节/编号副本，不挡住就会误提交 |
+| `go.mod` | 把 `gopkg.in/natefinch/lumberjack.v2` 从 `indirect` 提升为直接依赖 | `go vet` 带 `-mod=mod` 跑时自动收敛。代码本来就直接 import 它，标成 indirect 是历史遗留，这次改动是正确的收敛，不是新增依赖 |
 
 ### 3.3 前端新增
 

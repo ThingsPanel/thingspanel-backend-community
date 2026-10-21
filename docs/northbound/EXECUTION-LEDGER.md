@@ -26,6 +26,14 @@ git worktree add /Users/junhong/Downloads/code/nb-workspaces/frontend \
 
 主工作树未被 reset、clean、stash 或覆盖；Kernel 未被修改、未删除、未新增 worktree。
 
+> **更正（交付后核对）**：前端分支的**实际基线是 `e49f49ac`（`origin/master`），不是上表
+> 写的 `c6968c77`**。证据：`git merge-base --is-ancestor c6968c77 HEAD` 返回非零，
+> `git merge-base HEAD origin/master` 返回 `e49f49ac`；分支上两个提交的父链是
+> `e49f49ac → 47608c3f → 613966d7`。`c6968c77` 是本地 `master`（物模型 UI 那条线）的
+> 提交，与本分支没有祖先关系。所以算前端差异必须用
+> `git diff $(git merge-base HEAD origin/master)`，直接用 `c6968c77` 会多出 2 个删除
+> 和 11 个无关修改。上表保留原记录是为了说明当时是怎么判断的，但**不要照着它算 diff**。
+
 ### 0.1 为什么后端基线取 `1a1ef0a0` 而不是 `main`
 
 核查结论（`git ls-tree` 对比）：
@@ -768,3 +776,27 @@ release.md  结论：通过    断言：25 通过 / 0 失败 / 0 跳过
 | 设备 → Broker → 厂商插件 → `ingress_v1` | **未测** | `.so` 不在本仓库 |
 | 保留期清理定时触发 | **只做代码审查** | 没等 7/30 天真实窗口 |
 | 多副本 Encore 核心 | **未实测** | 只在单副本下跑过 |
+
+### 7.6 交付后的文档一致性复核（只改文档，未改代码）
+
+收尾时把文档里的数字和路径逐条对着仓库核了一遍，查出 6 处写错的地方。都是**文档错，
+不是实现错**，但错的地方正好是接手人要用的（基线、差异怎么算、菜单点哪里），所以逐条
+改掉，并把查法留在这里以便复核。
+
+| # | 错在哪 | 原来是 | 实际是 | 怎么查出来的 |
+|---|---|---|---|---|
+| 1 | 前端基线 | `c6968c77` | `e49f49ac`（`origin/master`） | `git merge-base --is-ancestor c6968c77 HEAD` 返回非零；父链是 `e49f49ac → 47608c3f → 613966d7` |
+| 2 | 前端差异规模 | 4 新增 + 9 修改 | **7 新增 + 9 修改** | `git diff --name-status $(git merge-base HEAD origin/master)` |
+| 3 | 后端差异规模 | 126 新增 + 7 修改 | **128 新增 + 8 修改**（136 文件 / +27164 −3） | `git diff --stat 1a1ef0a0 -- . ':(exclude)tools'` |
+| 4 | `encore-api/northbound` go 文件数 | 16 | **17**（含 `northbound_test.go`） | `ls encore-api/northbound/*.go \| wc -l` |
+| 5 | 菜单层级（`DEPLOYMENT.md`、`MAINTENANCE.md`） | 「数据服务」分组下的「数据转发」 | **独立顶级分组「数据转发」→「北向数据转发」** | `sql/northbound/002_data_forwarding_menu.sql` 里 `data-forwarding` 的 `parent_id` 指向自身 |
+| 6 | `HANDOVER.md` §2.5 | `release.py`「会杀掉 encore run」 | 不杀（§2.7 已用对照实验推翻，§2.5 漏改） | `grep -rn '杀掉' docs/northbound/` |
+
+另外补了两处漏记：`CHANGES.md` §3.2 的表头写「6 个文件」但表里只有 7 行、且完全没提
+`go.mod` 的改动（实际 8 个修改文件），已补上 `go.mod` 那一行并说明为什么它是对的。
+
+**没有改的东西**：代码、迁移、验收脚本的断言逻辑、三份报告。所以 §7.4 的 74 条断言
+结论继续有效——这一节只动 `.md`。
+
+> 教训：差异规模、基线这类数字不要凭记忆写，也不要沿用「当时打算用的」那个值。
+> 每次都用命令重新算一遍，命令本身写进文档，别人才能复核。
