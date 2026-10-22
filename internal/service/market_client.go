@@ -539,12 +539,12 @@ func (c *MarketClient) getMarketJSON(ctx context.Context, requestURL string, out
 
 // DownloadTemplate downloads the full template definition (with device model) from the market.
 func (c *MarketClient) DownloadTemplate(ctx context.Context, token string, marketTemplateID string, version string) (*model.MarketTemplateFullData, error) {
-	url := fmt.Sprintf("%s/api/market/templates/%s/download", c.baseURL, marketTemplateID)
+	requestURL := fmt.Sprintf("%s/api/market/templates/%s/download", c.baseURL, url.PathEscape(marketTemplateID))
 	if version != "" {
-		url += "?version=" + version
+		requestURL += "?" + url.Values{"version": {version}}.Encode()
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create download request: %w", err)
 	}
@@ -567,11 +567,26 @@ func (c *MarketClient) DownloadTemplate(ctx context.Context, token string, marke
 	}
 
 	var result struct {
-		Code int                          `json:"code"`
-		Data model.MarketTemplateFullData `json:"data"`
+		Code    int                          `json:"code"`
+		Message string                       `json:"message"`
+		Data    model.MarketTemplateFullData `json:"data"`
 	}
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse download response: %w", err)
+	}
+	if result.Code != 0 {
+		return nil, fmt.Errorf("market rejected template download: %s", result.Message)
+	}
+	if strings.HasPrefix(result.Data.CoverURL, marketTemplateAssetPrefix) {
+		base, err := url.Parse(c.baseURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid market base URL")
+		}
+		asset, err := url.Parse(result.Data.CoverURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid market cover URL")
+		}
+		result.Data.CoverURL = base.ResolveReference(asset).String()
 	}
 
 	fmt.Printf("[MarketClient] DownloadTemplate: MarketTemplateID=%s, VersionID=%s, Version=%s, Name=%s\n",

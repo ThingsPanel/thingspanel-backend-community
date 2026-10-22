@@ -1,0 +1,15 @@
+{
+  "device_config": {
+    "name": "Portable Sensor Config",
+    "device_type": "1",
+    "protocol_type": "mqtt",
+    "auto_register": 0
+  },
+  "template_definition": {
+    "native_thing_model_encoding": "raw-json-string-v1",
+    "native_thing_model": "{\"contract_version\":\"1\",\"dependency_checksum\":\"4a372ee98b6ad9dae76957e1629ccad2d8c126604bfdab232811eef228ad263e\",\"model\":{\"fields\":[{\"access\":{\"observe\":true,\"read\":true,\"write\":false},\"identifier\":\"temperature\",\"kind\":\"TELEMETRY\",\"nameI18n\":{\"default\":\"温度\"},\"unit\":\"℃\",\"valueType\":{\"kind\":\"FLOAT\"}},{\"access\":{\"observe\":true,\"read\":true,\"write\":false},\"identifier\":\"mode\",\"kind\":\"ATTRIBUTE\",\"nameI18n\":{\"default\":\"模式\"},\"valueType\":{\"baseKind\":\"NUMBER\",\"enumValues\":[{\"code\":9007199254740993,\"label\":{\"default\":\"节能\"}}],\"kind\":\"ENUM\"}},{\"access\":{\"observe\":true,\"read\":true,\"write\":false},\"identifier\":\"alarm\",\"kind\":\"EVENT\",\"nameI18n\":{\"default\":\"告警\"},\"parameters\":{\"items\":[{\"identifier\":\"active\",\"nameI18n\":{\"default\":\"激活\"},\"valueType\":{\"kind\":\"BOOL\"}}],\"schemaVersion\":1}},{\"access\":{\"observe\":false,\"read\":false,\"write\":true},\"identifier\":\"setMode\",\"kind\":\"COMMAND\",\"nameI18n\":{\"default\":\"设置模式\"},\"parameters\":{\"items\":[{\"identifier\":\"mode\",\"nameI18n\":{\"default\":\"模式\"},\"valueType\":{\"baseKind\":\"NUMBER\",\"enumValues\":[{\"code\":9007199254740993,\"label\":{\"default\":\"节能\"}}],\"kind\":\"ENUM\"}}],\"schemaVersion\":1}}],\"name\":\"Portable Sensor\"},\"resources\":{\"appChartConfig\":null,\"profile\":{\"author\":\"contract-fixture\",\"brand\":\"Test\",\"cover\":\"\",\"modelNumber\":\"Fixture\",\"tags\":[],\"version\":\"1.0.0\"},\"webChartConfig\":{\"threshold\":9007199254740995}},\"source_checksum\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source_model_id\":\"fixture-model\",\"source_resources_revision\":2,\"source_revision\":3,\"source_snapshot_id\":\"fixture-snapshot\"}"
+  },
+  "plugin_dependencies": [],
+  "package_cover_url": "",
+  "package_cover_sha256": ""
+}

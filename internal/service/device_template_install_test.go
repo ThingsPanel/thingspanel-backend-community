@@ -28,7 +28,7 @@ func TestInstallFromMarketRejectsLegacyPackageBeforeStorage(t *testing.T) {
 			t.Errorf("unexpected download request: %s", r.URL)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":200,"data":{"name":"Legacy","version":"1.0.0","template_definition":{"telemetry":[{"data_identifier":"temperature","data_type":"float"}]}}}`))
+		_, _ = w.Write([]byte(`{"code":0,"data":{"name":"Legacy","version":"1.0.0","template_definition":{"telemetry":[{"data_identifier":"temperature","data_type":"float"}]}}}`))
 	}))
 	defer server.Close()
 	previousURL := viper.Get("market.base_url")

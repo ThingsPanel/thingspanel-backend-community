@@ -14,9 +14,31 @@ import (
 // ConvertedLegacyNativePackage contains only semantic content proven by the
 // legacy package; it does not claim native model or snapshot provenance.
 type ConvertedLegacyNativePackage struct {
-	Model     json.RawMessage                     `json:"model"`
-	Resources json.RawMessage                     `json:"resources"`
-	Assets    []model.MarketNativeThingModelAsset `json:"assets,omitempty"`
+	AssetSources map[string]string                   `json:"asset_sources,omitempty"`
+	Model        json.RawMessage                     `json:"model"`
+	Resources    json.RawMessage                     `json:"resources"`
+	Assets       []model.MarketNativeThingModelAsset `json:"assets,omitempty"`
+}
+
+// PreviewLegacyMarketTemplate returns a draft for an explicit publisher-led
+// migration. It never creates snapshot provenance, calls services or installs.
+func PreviewLegacyMarketTemplate(full *model.MarketTemplateFullData) (*ConvertedLegacyNativePackage, error) {
+	converted, err := convertLegacyMarketTemplateToNative(full)
+	if err != nil {
+		return nil, err
+	}
+	if len(converted.Assets) > 0 {
+		definition, err := legacyObject(full.TemplateDefinition, "template_definition")
+		if err != nil {
+			return nil, err
+		}
+		cover, err := legacyCover(full, definition)
+		if err != nil {
+			return nil, err
+		}
+		converted.AssetSources = map[string]string{"native-profile-cover": cover}
+	}
+	return converted, nil
 }
 
 // convertLegacyMarketTemplateToNative converts the historical device-template

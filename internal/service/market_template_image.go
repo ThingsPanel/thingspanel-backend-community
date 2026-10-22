@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -48,6 +50,10 @@ func downloadMarketTemplateImage(ctx context.Context, client *MarketClient, cove
 // native imports. The market version and dependency checksum form the name;
 // retries therefore keep the exact URL already written into native resources.
 func downloadMarketTemplateImageNamed(ctx context.Context, client *MarketClient, coverURL, storageDir, stableName string) (string, string, error) {
+	return downloadMarketTemplateImageVerified(ctx, client, coverURL, storageDir, stableName, "")
+}
+
+func downloadMarketTemplateImageVerified(ctx context.Context, client *MarketClient, coverURL, storageDir, stableName, expectedChecksum string) (string, string, error) {
 	if client == nil || client.httpClient == nil {
 		return "", "", fmt.Errorf("market client is not configured")
 	}
@@ -89,6 +95,12 @@ func downloadMarketTemplateImageNamed(ctx context.Context, client *MarketClient,
 	}
 	if len(data) > marketTemplateImageMaxSize {
 		return "", "", fmt.Errorf("market cover exceeds %d bytes", marketTemplateImageMaxSize)
+	}
+	if expectedChecksum != "" {
+		digest := sha256.Sum256(data)
+		if hex.EncodeToString(digest[:]) != expectedChecksum {
+			return "", "", fmt.Errorf("market model cover checksum mismatch")
+		}
 	}
 
 	extension, err := marketTemplateImageExtension(http.DetectContentType(data))
@@ -132,7 +144,7 @@ func localizeMarketTemplateImageStable(ctx context.Context, client *MarketClient
 	if fullData == nil || strings.TrimSpace(fullData.CoverURL) == "" {
 		return nil, nil
 	}
-	localURL, _, err := downloadMarketTemplateImageNamed(ctx, client, strings.TrimSpace(fullData.CoverURL), marketTemplateImageDir, stableName)
+	localURL, _, err := downloadMarketTemplateImageVerified(ctx, client, strings.TrimSpace(fullData.CoverURL), marketTemplateImageDir, stableName, fullData.CoverSHA256)
 	if err != nil {
 		return nil, err
 	}

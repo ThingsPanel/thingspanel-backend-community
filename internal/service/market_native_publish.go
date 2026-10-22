@@ -71,10 +71,9 @@ func buildNativeDeviceTemplateMarketPackage(req model.PublishToMarketReq, dc *mo
 	profileCover := rawString(resources["profile"], "cover")
 	if profileCover != "" {
 		profileCover = resolveMarketSourceAsset(profileCover, publicOrigin)
-		if cover != "" && resolveMarketSourceAsset(cover, publicOrigin) != profileCover {
-			return nil, errcode.WithData(errcode.CodeParamError, "device config cover and native profile cover differ; market package supports one cover asset")
+		if cover == "" {
+			cover = profileCover
 		}
-		cover = profileCover
 		profile, err := rawObject(resources["profile"])
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeParamError, "native profile is invalid")
@@ -93,8 +92,6 @@ func buildNativeDeviceTemplateMarketPackage(req model.PublishToMarketReq, dc *mo
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeSystemError, "checksum native dependency")
 		}
-	} else if cover != "" {
-		return nil, errcode.WithData(errcode.CodeParamError, "device config cover cannot substitute for an empty native profile cover")
 	}
 	cover = resolveMarketSourceAsset(cover, publicOrigin)
 	if err := validateMarketPortableResources(dependency.Resources); err != nil {
@@ -160,9 +157,10 @@ func buildNativeDeviceTemplateMarketPackage(req model.PublishToMarketReq, dc *mo
 		Name: dc.Name, DeviceType: dc.DeviceType, ProtocolType: ptrStr(dc.ProtocolType), VoucherType: ptrStr(dc.VoucherType),
 		ProtocolConfig: scrubMarketSecrets(parseJSON(ptrStr(dc.ProtocolConfig))), DeviceConnType: ptrStr(dc.DeviceConnType),
 		OtherConfig: scrubMarketSecrets(parseJSON(ptrStr(dc.OtherConfig))), AdditionalInfo: scrubMarketSecrets(parseJSON(ptrStr(dc.AdditionalInfo))),
-		AutoRegister: dc.AutoRegister, ImageURL: cover,
+		AutoRegister: dc.AutoRegister, ImageURL: profileCover,
 	}
 	return &model.PublishTemplateReq{
+		NativeCoverURL:   &profileCover,
 		SourceTemplateID: dc.ID, Name: name, Brand: brand, Model: modelName, Category: category,
 		Author: author, Version: version, Description: description, CoverURL: cover, DeviceConfig: deviceConfig,
 		TemplateDefinition: map[string]interface{}{"native_thing_model": string(depRaw), "native_thing_model_encoding": "raw-json-string-v1"}, PluginDependencies: pluginDependencies,

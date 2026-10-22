@@ -129,15 +129,16 @@ type DeviceConfigPayload struct {
 
 // PublishTemplateReq 发布模板到市场的业务契约对象（发送给 market-service）
 type PublishTemplateReq struct {
-	CoverURL         string `json:"cover_url,omitempty"`
-	SourceTemplateID string `json:"source_template_id"`
-	Name             string `json:"name"`
-	Brand            string `json:"brand"`
-	Model            string `json:"model"`
-	Category         string `json:"category"`
-	Author           string `json:"author"`
-	Version          string `json:"version"`
-	Description      string `json:"description"`
+	NativeCoverURL   *string `json:"native_cover_url,omitempty"` // immutable model resource, independent of catalog cover
+	CoverURL         string  `json:"cover_url,omitempty"`
+	SourceTemplateID string  `json:"source_template_id"`
+	Name             string  `json:"name"`
+	Brand            string  `json:"brand"`
+	Model            string  `json:"model"`
+	Category         string  `json:"category"`
+	Author           string  `json:"author"`
+	Version          string  `json:"version"`
+	Description      string  `json:"description"`
 	// DeviceConfig 凭证协议配置
 	DeviceConfig *DeviceConfigPayload `json:"device_config"`
 	// TemplateDefinition 模板定义（面板+物模型）
@@ -200,6 +201,7 @@ type MarketTemplateListReq struct {
 
 // MarketTemplateFullData 市场模板完整数据（从市场下载的完整定义）
 type MarketTemplateFullData struct {
+	CoverSHA256 string `json:"cover_sha256,omitempty"`
 	Name        string `json:"name"`
 	Brand       string `json:"brand"`
 	ModelNumber string `json:"model_number"`
