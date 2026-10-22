@@ -62,7 +62,7 @@ func (receiver *MessagePush) MessagePushSend(message model.MessagePushSend) (res
 		return
 	}
 	if config.Url == "" {
-		return
+		return "", errors.New("App push endpoint is not configured")
 	}
 	jsonData, _ := json.Marshal(message)
 	logrus.Debug(fmt.Sprintf("发送url:%s, 请求参数：%s", config.Url, string(jsonData)))
@@ -75,18 +75,24 @@ func (receiver *MessagePush) MessagePushSend(message model.MessagePushSend) (res
 	req.Header.Set("Content-Type", "application/json")
 
 	// 发送请求
-	client := &http.Client{}
+	client := &http.Client{Timeout: 12 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Println("Error sending request:", err)
 		return
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("App push HTTP status %d", resp.StatusCode)
+	}
 	// 读取响应
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (64<<10)+1))
 	if err != nil {
 		fmt.Println("Error reading response:", err)
 		return
+	}
+	if len(body) > 64<<10 {
+		return "", errors.New("App push response exceeds limit")
 	}
 	// 打印响应
 	logrus.Debug("Response:", string(body))
@@ -118,7 +124,7 @@ func (receiver *MessagePush) AlarmMessagePushSend(triggered, alarmConfigId strin
 	}
 }
 
-func (receiver *MessagePush) MessagePushSendAndLog(message model.MessagePushSend, mange model.MessagePushManage, messageType int64) {
+func (receiver *MessagePush) MessagePushSendAndLog(message model.MessagePushSend, mange model.MessagePushManage, messageType int64) error {
 	res, err := receiver.MessagePushSend(message)
 	contents, _ := json.Marshal(message)
 	log := model.MessagePushLog{
@@ -186,6 +192,19 @@ func (receiver *MessagePush) MessagePushSendAndLog(message model.MessagePushSend
 			}
 		}
 	}
+	// Older cloud functions wrap provider rejection in code=200. Inspect the
+	// nested provider result as well; acceptance is not proof of phone delivery.
+	if log.Status == 1 {
+		var envelope struct {
+			Data map[string]interface{} `json:"data"`
+		}
+		if json.Unmarshal([]byte(res), &envelope) == nil {
+			if code, exists := envelope.Data["errCode"]; exists && code != float64(0) {
+				log.Status = 2
+				log.ErrMessage = "App push provider rejected the request"
+			}
+		}
+	}
 	err = dal.MessagePushSendLogSave(&log)
 	if err != nil {
 		logrus.Error("消息推送日志记录失败:", err)
@@ -202,6 +221,10 @@ func (receiver *MessagePush) MessagePushSendAndLog(message model.MessagePushSend
 	if err != nil {
 		logrus.Error("消息推送更新最近发送时间失败:", err)
 	}
+	if log.Status != 1 {
+		return errors.New("App push was not accepted")
+	}
+	return nil
 }
 
 // NotificationMessagePushSend 处理通知触发的手机端推送

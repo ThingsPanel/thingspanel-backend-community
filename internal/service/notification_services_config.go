@@ -230,8 +230,10 @@ func (n *NotificationServicesConfig) handleMemberNotification(notificationGroup 
 				}
 
 				// 对用户的每个推送记录都发送推送（支持多设备）
+				accepted, failed := 0, 0
 				for _, pushManage := range pushManages {
 					if pushManage.PushID == "" {
+						failed++
 						logrus.Warn("用户推送ID为空:", userName, "设备类型:", pushManage.DeviceType, "跳过")
 						continue
 					}
@@ -249,13 +251,22 @@ func (n *NotificationServicesConfig) handleMemberNotification(notificationGroup 
 					}
 
 					// 调用消息推送服务并记录日志
-					GroupApp.MessagePush.MessagePushSendAndLog(message, *pushManage, 2) // 2表示通知推送
+					if err := GroupApp.MessagePush.MessagePushSendAndLog(message, *pushManage, 2); err != nil {
+						failed++
+					} else {
+						accepted++
+					}
 				}
 
-				// 记录APP推送通知历史（成功发送给至少一个设备）
+				// 仅全部设备被服务商受理时记为成功；部分失败也明确记录。
 				pushTarget := fmt.Sprintf("用户:%s", userName)
 				pushContent := subject
-				n.saveNotificationHistory("APP", tenantID, pushTarget, pushContent, "SUCCESS", nil)
+				result := "SUCCESS"
+				if accepted == 0 || failed > 0 {
+					result = "FAILURE"
+				}
+				remark := fmt.Sprintf("服务商受理 %d 台，失败 %d 台；受理不代表手机送达", accepted, failed)
+				n.saveNotificationHistory("APP", tenantID, pushTarget, pushContent, result, &remark)
 			default:
 				logrus.Warn("不支持的成员通知类型:", notifyType)
 			}

@@ -1,5 +1,10 @@
 # Notification merge and App verification — 2026-10-22
 
+Follow-up: [App page fixes and real-phone verification](APP-NOTIFICATION-LOCAL-TEST-2026-10-22.md)
+records the subsequent fixes, enabled local bridge, new single-CID UniPush
+adapter, and successful Android notification display. The disabled-bridge and
+known-limitation statements below describe the earlier merge checkpoint.
+
 ## Local merge
 
 Notification source: `codex/notification-preview-20261010`.

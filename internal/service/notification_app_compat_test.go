@@ -12,7 +12,7 @@ import (
 	"project/pkg/global"
 )
 
-// These characterization tests send only to httptest and use the isolated
+// These regression tests send only to httptest and use the isolated
 // notification_test database. They do not prove delivery to a phone.
 func appPushFixture(t *testing.T, status int, response string) *[]model.MessagePushSend {
 	t.Helper()
@@ -57,8 +57,9 @@ func TestAppPushLegacyProviderResponseLogging(t *testing.T) {
 		{"legacy_accepted", 200, `{"code":200}`, 1},
 		{"provider_rejected", 200, `{"errCode":1001}`, 2},
 		{"malformed_response", 200, `not-json`, 2},
-		// Existing limitation: HTTP status is ignored by MessagePushSend.
-		{"known_limitation_http_500_with_success_body", 500, `{"errCode":0}`, 1},
+		{"http_500_with_success_body", 500, `{"errCode":0}`, 2},
+		{"nested_provider_rejection", 200, `{"code":200,"data":{"errCode":1001}}`, 2},
+		{"nested_provider_accepted", 200, `{"code":200,"data":{"errCode":0}}`, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			captured := appPushFixture(t, tc.status, tc.body)
@@ -104,7 +105,7 @@ func TestAppPushLegacyMultiDeviceAndTenantSelection(t *testing.T) {
 	}
 }
 
-func TestAppPushLegacyKnownLimitationGroupSuccessAfterProviderRejection(t *testing.T) {
+func TestAppPushGroupFailureAfterProviderRejection(t *testing.T) {
 	captured := appPushFixture(t, 200, `{"errCode":1001}`)
 	manage := model.MessagePushManage{ID: "rejected", UserID: "app-user", PushID: "client-rejected", Status: 1, CreateTime: time.Now()}
 	if err := global.DB.Create(&manage).Error; err != nil {
@@ -123,8 +124,7 @@ func TestAppPushLegacyKnownLimitationGroupSuccessAfterProviderRejection(t *testi
 	if err := global.DB.First(&history).Error; err != nil {
 		t.Fatal(err)
 	}
-	if len(*captured) != 1 || pushLog.Status != 2 || history.SendResult == nil || *history.SendResult != "SUCCESS" {
-		t.Fatalf("legacy outcome changed; reassess adapter boundary: push=%d history=%v", pushLog.Status, history.SendResult)
+	if len(*captured) != 1 || pushLog.Status != 2 || history.SendResult == nil || *history.SendResult != "FAILURE" {
+		t.Fatalf("provider failure must propagate: push=%d history=%v", pushLog.Status, history.SendResult)
 	}
-	t.Log("Confirmed limitation: provider rejects the device push but legacy group history records SUCCESS; this is not a native per-target delivery result.")
 }
