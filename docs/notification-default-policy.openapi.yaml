@@ -1,0 +1,224 @@
+openapi: 3.0.3
+info:
+  title: Tenant Default Notification Policy API
+  version: "1.0"
+  description: >-
+    Tenant-scoped pointer to an already published native notification group.
+    Authentication and tenant scope come from the signed session; requests do
+    not accept a tenant identifier.
+paths:
+  /api/v1/notification-default-policy:
+    get:
+      operationId: getTenantDefaultNotificationPolicy
+      summary: Read the tenant default notification policy
+      security:
+        - NotificationSession: []
+      responses:
+        "200":
+          description: Current pointer and policies whose current published snapshot is usable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidQuery"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    put:
+      operationId: setTenantDefaultNotificationPolicy
+      summary: Set or clear the tenant default notification policy
+      description: >-
+        nativeGroupId must identify a tenant-owned, active source route. Before
+        changing the pointer, the service checks the exact published Core group
+        revision and its currently enabled instances and plugins. An empty
+        nativeGroupId clears the pointer. expectedVersion is a compare-and-set
+        version; stale writes are rejected. Existing alarms are not rewritten.
+      security:
+        - NotificationSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDefaultPolicyRequest"
+      responses:
+        "200":
+          description: Updated policy pointer and currently usable published policies.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidBody"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/PolicyUnavailable"
+        "409":
+          $ref: "#/components/responses/VersionConflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+components:
+  securitySchemes:
+    NotificationSession:
+      type: apiKey
+      in: header
+      name: x-token
+      description: Signed user session. Must resolve to TENANT_ADMIN or SYS_ADMIN with a tenant claim.
+  schemas:
+    SetDefaultPolicyRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - nativeGroupId
+        - expectedVersion
+      properties:
+        nativeGroupId:
+          type: string
+          maxLength: 128
+          description: Tenant-owned native notification group ID; empty string clears the default.
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+    PolicyEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          enum: [200]
+        message:
+          type: string
+          enum: [Success]
+        data:
+          $ref: "#/components/schemas/TenantDefaultPolicyView"
+    TenantDefaultPolicyView:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+        - selected
+        - availablePolicies
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        selected:
+          type: object
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DefaultPolicySummary"
+          description: Null when no policy is selected; unavailable selections remain visible with ready=false.
+        availablePolicies:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefaultPolicySummary"
+    DefaultPolicySummary:
+      type: object
+      additionalProperties: false
+      required:
+        - nativeGroupId
+        - aliasGroupId
+        - name
+        - groupRevision
+        - routeVersion
+        - status
+        - ready
+      properties:
+        nativeGroupId:
+          type: string
+        aliasGroupId:
+          type: string
+        name:
+          type: string
+        groupRevision:
+          type: integer
+          format: int64
+          minimum: 0
+        routeVersion:
+          type: integer
+          format: int64
+          minimum: 0
+        status:
+          type: string
+          enum: [published, stopped, unpublished, unavailable]
+        ready:
+          type: boolean
+          description: >-
+            True only when the source route is published and a current Core
+            snapshot confirms this exact published group revision plus all
+            currently enabled bound instances and plugins.
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+  responses:
+    InvalidQuery:
+      description: GET query parameters are not accepted.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    InvalidBody:
+      description: Body is malformed or contains missing, null, duplicate, unknown, or invalid fields.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Unauthenticated:
+      description: Missing, invalid, or tenantless signed session.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Forbidden:
+      description: Signed session is not TENANT_ADMIN or SYS_ADMIN.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PolicyUnavailable:
+      description: Target policy is missing, disabled, unpublished, outside the authenticated tenant scope, or its current Core snapshot cannot be confirmed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    VersionConflict:
+      description: expectedVersion is stale; reread before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    UnsupportedMediaType:
+      description: PUT requires application/json.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Unavailable:
+      description: The notification policy store or source bridge is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"

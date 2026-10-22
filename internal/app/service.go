@@ -54,9 +54,13 @@ func (m *ServiceManager) StartAll() error {
 		return fmt.Errorf("服务已经启动")
 	}
 
-	for _, service := range m.services {
+	for i, service := range m.services {
 		logrus.Infof("正在启动服务: %s", service.Name())
 		if err := service.Start(); err != nil {
+			// A later startup failure must not leave earlier producers running.
+			// The failing component may also own partially initialized resources.
+			m.stopServices([]Service{service}, false)
+			m.stopServices(m.services[:i], true)
 			return fmt.Errorf("启动服务 %s 失败: %v", service.Name(), err)
 		}
 		m.wg.Add(1)
@@ -74,22 +78,29 @@ func (m *ServiceManager) StopAll() {
 	if !m.started {
 		return
 	}
+	m.stopServices(m.services, true)
+	m.started = false
+}
+
+func (m *ServiceManager) stopServices(services []Service, counted bool) {
 
 	// 创建一个带超时的上下文，确保停止操作不会永远阻塞
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	// 反向遍历服务列表，确保按照依赖顺序停止
-	for i := len(m.services) - 1; i >= 0; i-- {
-		service := m.services[i]
+	for i := len(services) - 1; i >= 0; i-- {
+		service := services[i]
 		logrus.Infof("正在停止服务: %s", service.Name())
 
 		// 创建一个通道来接收停止完成的信号
 		done := make(chan error, 1)
 
 		go func(s Service) {
+			if counted {
+				defer m.wg.Done()
+			}
 			done <- s.Stop()
-			m.wg.Done()
 		}(service)
 
 		// 等待服务停止或超时
@@ -105,7 +116,6 @@ func (m *ServiceManager) StopAll() {
 		}
 	}
 
-	m.started = false
 }
 
 // Wait 等待所有服务完成

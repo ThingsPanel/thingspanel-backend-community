@@ -65,6 +65,16 @@ func RouterInit() *gin.Engine {
 		logrus.Fatalf("初始化响应处理器失败: %v", err)
 	}
 
+	controllers := new(api.Controller)
+	// This read-only identity assertion carries the original user token. Keep
+	// it outside operation-log middleware and require JWT session validation.
+	router.GET("/api/v1/notification/session-context", middleware.JWTAuth(), controllers.NotificationIdentityApi.SessionContext)
+	// Dedicated deployment credentials protect these reads. Mount them before
+	// operation logging so credentials and member contact details are excluded.
+	reader := api.NewNotificationMemberReaderFromEnv()
+	router.GET("/api/v1/notification/source-members/:id", reader.GetMemberContact)
+	router.GET("/api/v1/notification/source-tenants/:id", reader.GetTenantPresence)
+
 	// 记录操作日志
 	router.Use(middleware.OperationLogs())
 	// 全局使用
@@ -72,7 +82,6 @@ func RouterInit() *gin.Engine {
 	// 使用中间件
 	router.Use(handler.Middleware())
 
-	controllers := new(api.Controller)
 	// 健康检查
 	router.GET("/health", controllers.SystemApi.HealthCheck)
 
