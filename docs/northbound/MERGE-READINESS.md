@@ -19,13 +19,44 @@
 
 | # | 硬阻断 | 后果 | 谁能解 |
 |---|---|---|---|
-| 1 | 上游 `codex/gmqtt-community-20261019` 没进 `main` | 北向分支基线 `1a1ef0a0` 在那条分支上。直接合 = 581 新增 + 41 修改、+229346 行一起进 `main`，等于替 broker 改造做了一次未经单独评审的合并 | 团队决定先合 gmqtt |
+| 1 | mosquitto 驱动这条线还没进任何主线 | 北向分支基线 `1a1ef0a0` 是这条线的 HEAD。`main` 和 `main-1.3.0` 里都没有 `internal/mosquittodriver/`、`internal/brokerledger/`、`telemetry_broker.go`。直接合 = 581 新增 + 41 修改、+229346 行一起进 `main`，等于替整条 broker 线做了一次未经单独评审的合并 | 团队先把 mosquitto 线定版并推成分支 |
 | 2 | 前端没构建、没类型检查、没在浏览器点过 | NB-09 完成标准是「页面真实可用」，现在只有静态检查。前端 `build` 会先跑 `vue-tsc`，类型错就红 | 我（需要能装依赖的网络） |
 | 3 | 社区库迁移在子目录，自动迁移不执行 | `initialize/pg_init.go:231` 只扫 `sql/<数字>.sql`；`sql/northbound/001…002` 不会被自动执行。合了、重启了、功能启用了，表却不存在 | 合并时必须配套跑 `deploy/northbound/migrate.sh` |
 | 4 | 没有发行清单 | NB-10 要求锁定代码/镜像/迁移 checksum/插件 digest。现在镜像也没构建，无从锁 | 我（需要能构建的环境） |
 
 好消息：**北向功能默认关闭**（`northbound.enabled=false`），所以第 1、3 条不会立刻弄坏
-线上；但「合并后默认关闭」不等于「可以合并」，因为评审看到的 diff 会混着 broker 改造。
+线上；但「合并后默认关闭」不等于「可以合并」，因为评审看到的 diff 会混着整条 broker 线。
+
+### 0.1 关于 broker 线：先把名字理清（2026-10-23 更正）
+
+我最初写的是「上游 gmqtt 分支没合进 main，要先合 gmqtt」。方向对，但**名字说错了**，而且
+漏查了 `main-1.3.0` 和本地主工作树。实测结果：
+
+| 分支 / 位置 | `internal/mosquittodriver/` | `internal/brokerledger/` | `telemetry_broker.go` | `reliable.go` |
+|---|---|---|---|---|
+| `origin/main`（10-16） | 0 | 0 | 0 | 0 |
+| `origin/main-1.3.0`（10-22，最新发布线） | 0 | 0 | 0 | 0 |
+| `origin/codex/gmqtt-community-20261019`（10-20） | **14** | 11 | 1 | 1 |
+| 本地主工作树 `main`（`0e3ba828`） | 14（未跟踪） | 11（未跟踪） | 1（未跟踪） | 1（未跟踪） |
+
+三条结论：
+
+1. **gmqtt 确实没了。** `codex/gmqtt-community-20261019` 这个分支名是历史遗留，里面已经是
+   mosquitto 实现（`internal/mosquittodriver/` 含 driver/runtime/command/plugin 共 14 个文件）。
+   所以「gmqtt 换成 mosquitto」在代码层面成立，只是分支没改名——**看名字会判断错**。
+2. **但这套 mosquitto 实现没进任何远端主线。** `main` 与 `main-1.3.0` 里连
+   `internal/mosquittodriver/` 都没有；`main-1.3.0` 上只有 `internal/storage/telemetry_writer.go`，
+   **没有可信遥测批次事务这个边界**，北向的登记点在那里无处可挂。
+3. **主工作树里还有一份更新的、未提交的版本。** `internal/mosquittodriver/`、
+   `internal/brokerledger/`、`internal/storage/telemetry_broker.go` 全是 `??` 未跟踪状态，
+   且与 `1a1ef0a0` 不同：多了 `delegated_protocol_test.go`，少了 `plugin.go`/`plugin_test.go`，
+   `telemetry_broker.go` 差 38 行、`reliable.go` 差 6 行。函数签名
+   `commitTrustedTelemetry` / `recordTrustedTelemetry` 仍在，所以北向的登记点可以移植，
+   但不能直接套用，需要按新版重新对位。
+
+**对合并意味着什么**：不是「先合一个叫 gmqtt 的分支」，而是**先把 mosquitto 这条线定版、
+推成可评审的分支**，再让北向 rebase 上去、重新确认两个登记点的插入位置。北向现在基于 10-20
+那版，团队手上可能有更新的版本，两边不一致就合不了。
 
 ---
 
@@ -67,14 +98,15 @@
 
 ### P0：不补就不能合
 
-1. **定合并顺序**：先合 `codex/gmqtt-community-20261019` 到 `main`，再合北向。gmqtt 分支
-   的 HEAD 就是本分支的基线 `1a1ef0a0`，所以合完它之后，北向的 diff 会从 622 文件掉到
-   142 文件（+27603 −3，含 `tools/`；排除 `tools/` 是 136 文件 / +27164 −3）。
+1. **先给 mosquitto 线定版**：确认团队以哪一份为准——`codex/gmqtt-community-20261019`
+   的 `1a1ef0a0`，还是主工作树里那份更新的未提交版本。定版后推成可评审分支并合入主线，
+   再让北向 rebase 上去、重新确认 `telemetry_broker.go` / `reliable.go` 两处登记点的位置。
    复核命令：
    ```bash
-   git diff --stat origin/main...codex/northbound-community-20261021 | tail -1   # 现在：622 文件 / +229346
+   # 现在：622 文件 / +229346（相对 origin/main，混着整条 broker 线）
+   git diff --stat origin/main...codex/northbound-community-20261021 | tail -1
+   # 相对 broker 线本身：142 文件 / +27603 −3（含 tools/；排除 tools/ 是 136 / +27164 −3）
    git diff --stat origin/codex/gmqtt-community-20261019...codex/northbound-community-20261021 | tail -1
-   # 现在：142 文件 / +27603 −3  ← 这就是合完 gmqtt 之后的量
    ```
 2. **前端真构建一次**（NB-09 的硬条件）：
    ```bash
@@ -114,20 +146,25 @@
 ## 4. 给合并人的操作步骤
 
 ```bash
-# 1. 后端：先确认 gmqtt 已在 main
-git log --oneline origin/main | head -5
-git ls-tree -r --name-only origin/main -- internal/brokerledger | head -1   # 有输出才说明已合
+# 1. 后端：先确认 mosquitto 线（分支名仍叫 gmqtt）已经在主线
+git ls-tree -r --name-only origin/main-1.3.0 -- internal/mosquittodriver | head -1
+# 有输出才说明这条线已合；现在没有输出
 
-# 2. 合 gmqtt（若尚未合）
-git checkout main && git merge --no-ff codex/gmqtt-community-20261019
+# 2. 若尚未合：先把这条线定版、推成分支、走评审
+#    注意分支名是历史遗留，内容已经是 mosquitto，别被名字骗了
+git checkout -b broker/mosquitto-release origin/codex/gmqtt-community-20261019
 
-# 3. 合北向（此时 diff 应只有 136 文件）
+# 3. 北向 rebase 到定版后的 broker 线，重新确认两个登记点
+git rebase broker/mosquitto-release
+# 改完必须重跑：telemetry_broker.go / reliable.go 在新版里差 38 行 / 6 行
+
+# 4. 合北向（此时 diff 应只有 136 文件，排除 tools/）
 git merge --no-ff codex/northbound-community-20261021
 
-# 4. 跑迁移（必须，自动迁移不扫子目录）
+# 5. 跑迁移（必须，自动迁移不扫子目录）
 ./deploy/northbound/migrate.sh
 
-# 5. 前端
+# 6. 前端
 cd ../thingspanel-frontend-community
 git merge --no-ff codex/northbound-frontend-20261021
 pnpm install && pnpm build
@@ -164,7 +201,8 @@ pnpm install && pnpm build
 
 ## 6. 一句话给评审
 
-**可以开始评审，但别急着合 `main`。** 先合 gmqtt，再让前端真构建一次，合并时记得跑
-`migrate.sh`。这三件事做完，代码质量本身没有问题——74 条断言是真跑的，两个插件是真送达的，
-账本是真落库的。剩下的缺口集中在「发行级验证」（新装/升级/回退/清单）和「安全边界」
-（租户隔离、容器加固），不是功能没写完。
+**可以开始评审，但别急着合 `main`。** 先把 mosquitto 那条线定版（分支名还叫 gmqtt，
+内容已经是 mosquitto；`main` 和 `main-1.3.0` 都还没有它），北向 rebase 上去重新对位两处
+登记点，再让前端真构建一次，合并时记得跑 `migrate.sh`。这几件事做完，代码质量本身没有
+问题——74 条断言是真跑的，两个插件是真送达的，账本是真落库的。剩下的缺口集中在
+「发行级验证」（新装/升级/回退/清单）和「安全边界」（租户隔离、容器加固），不是功能没写完。

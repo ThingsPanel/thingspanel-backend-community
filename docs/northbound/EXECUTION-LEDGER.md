@@ -45,6 +45,10 @@ git worktree add /Users/junhong/Downloads/code/nb-workspaces/frontend \
 北向服务的交接点（可信遥测批次事务、可靠属性/事件事务）只存在于后者。若以 `main` 为基线，NB-04 将没有可挂载的持久边界，只能退化成内存总线转发，与本任务书第 5 节矛盾。因此：
 
 - **后端基线 = `codex/gmqtt-community-20261019@1a1ef0a0`（已提交、可审查）**。
+  **分支名是历史遗留，内容早已换成 mosquitto**：`internal/mosquittodriver/` 14 个文件
+  （driver/runtime/command/plugin），Go 侧只通过插件控制面与 broker 通信，不再内嵌 gmqtt。
+  另外 `origin/main-1.3.0@48616009`（10-22，比 main 新）同样没有这套目录，
+  所以「合到 main-1.3.0」也一样编译不过，必须先合这条线。
 - 依赖关系：合入顺序必须是 broker 改造先入主干，北向随后。这一点写入 §9 阻塞与依赖。
 - 未采用“把主工作树 204 项未跟踪文件一起提交”的做法，因为那会把其它会话未完成、未验收的成果混进本分支，无法逐项审查。
 

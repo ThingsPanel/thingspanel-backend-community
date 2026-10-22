@@ -44,7 +44,7 @@
 | 社区后端 | `127.0.0.1:9998` | `service.http.port` |
 | 社区 PostgreSQL | `127.0.0.1:15432` | 容器端口映射，库名 `thingspanel_manual` |
 | Redis | `127.0.0.1:16379` | 容器端口映射，用 db 1 与 db 10 |
-| 社区 MQTT Broker（gmqtt） | `127.0.0.1:11883` | `mqtt.broker` |
+| 社区 MQTT Broker（mosquitto） | `127.0.0.1:11883` | `mqtt.broker`。broker 本体是 mosquitto（带社区插件），Go 侧通过 `internal/mosquittodriver` 的控制面与它通信 |
 | 验收用 Mosquitto | `127.0.0.1:18830` | `mosquitto.conf` 的 `listener` |
 | 验收用本地接收端 | `127.0.0.1:18090` | `receiver.py --port` |
 

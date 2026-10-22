@@ -51,7 +51,7 @@
 |---|---|---|---|
 | 1 | 社区 PostgreSQL | 15432 | 已由 OrbStack 容器提供（库 `thingspanel_manual`，用户 `tp_manual`） |
 | 2 | Redis | 16379 | 同上（db 1 / db 10） |
-| 3 | 社区 MQTT Broker（gmqtt） | 11883 | 同上 |
+| 3 | 社区 MQTT Broker（mosquitto） | 11883 | 同上。broker 本体是 mosquitto，代码侧由 `internal/mosquittodriver` 通过插件控制面协作；`codex/gmqtt-*` 只是历史分支名，里面已经没有 gmqtt |
 | 4 | Encore 核心 | 4020 | 见下 |
 | 5 | HTTP 插件 | 18081 | `/tmp/nb-qa/sink-http --port 18081 --token dev-plugin-token` |
 | 6 | MQTT 插件 | 18082 | `/tmp/nb-qa/sink-mqtt --port 18082 --token dev-plugin-token` |
@@ -207,7 +207,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:4020/v1/inbox/
 
 | 任务 | 状态 | 说明 |
 |---|---|---|
-| NB-01 基线与范围冻结 | ✅ 完成 | 基线 `1a1ef0a0`（不是 `main`，`main` 缺 broker 改造，编译不过） |
+| NB-01 基线与范围冻结 | ✅ 完成 | 基线 `1a1ef0a0`（不是 `main`：`main` 与 `main-1.3.0` 都还没有 `internal/mosquittodriver/`、`brokerledger/`、`telemetry_broker.go`，编译不过） |
 | NB-02 Encore 核心纳入社区版 | ✅ 完成 | `encore-api/` 独立 module，北向服务在里面 |
 | NB-03 接口合同冻结 | ✅ 完成 | `CONTRACT-v1.md`，已到 v1.2（两次更正都有修订记录） |
 | NB-04 数据交接（事务内登记） | ✅ 完成 | 链路真实跑通；设备接入那一跳未测（见 §4） |
@@ -344,7 +344,7 @@ if d := nextBackoff(6, 10); d < 25*time.Second || d > 39*time.Second { ... }
 
 | 决策 | 原因 |
 |---|---|
-| 基线用 `1a1ef0a0` 而不是 `main` | `main` 没有 `internal/brokerledger/`、`uplink/reliable.go`、`storage/telemetry_broker.go`，而这些正是北向挂载持久边界的地方 |
+| 基线用 `1a1ef0a0` 而不是 `main` | `main`（以及最新的 `main-1.3.0`）没有 `internal/mosquittodriver/`、`internal/brokerledger/`、`uplink/reliable.go`、`storage/telemetry_broker.go`，而这些正是北向挂载持久边界的地方。注意：`1a1ef0a0` 所在分支名叫 `codex/gmqtt-community-20261019`，但内容已经是 mosquitto 实现，**不要被分支名误导** |
 | 源端表放社区主库，投递账本放 Encore 库 | 源端登记必须和遥测批次在**同一事务**；投递账本是北向自己的 |
 | 不新建账号体系 | 复用社区令牌，代理只做 `x-token` → `Bearer` 转换，不提权不签发 |
 | 任务只有草稿能删 | 跑过的任务拥有必须留存的投递记录，删除会毁审计证据 |

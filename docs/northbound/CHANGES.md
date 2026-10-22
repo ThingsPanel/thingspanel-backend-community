@@ -20,10 +20,13 @@
 
 ## 2. 合入前置条件（重要）
 
-1. **必须先合 broker 改造。** 本分支基线是 `codex/gmqtt-community-20261019@1a1ef0a0`，
-   不是 `main`。`main@0e3ba828` 里没有 `internal/brokerledger/`、
-   `internal/uplink/reliable.go`、`internal/storage/telemetry_broker.go`，而这些正是
-   北向服务挂载持久边界的地方。先合 `main` 会编译不过。
+1. **必须先合 broker 线（mosquitto 驱动）。** 本分支基线是
+   `codex/gmqtt-community-20261019@1a1ef0a0`——**分支名是历史遗留，内容已经是 mosquitto
+   实现**（`internal/mosquittodriver/`），不要按名字判断。`main@be3d5eba`（10-16）和
+   `main-1.3.0@48616009`（10-22，最新发布线）里都**没有** `internal/mosquittodriver/`、
+   `internal/brokerledger/`、`internal/uplink/reliable.go`、
+   `internal/storage/telemetry_broker.go`，而这些正是北向服务挂载持久边界的地方。
+   基线不对会编译不过。
 2. **`encore-api/` 整个目录是新增的**，但其中大部分不是本任务写的（见 §4）。
    合入时需要把物模型那批包一起带上，否则 `encore-api` 编不过、北向服务也起不来。
 
