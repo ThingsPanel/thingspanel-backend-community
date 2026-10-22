@@ -1,8 +1,10 @@
 package model
 
 type CreateMessagePushReq struct {
-	PushId     string `json:"pushId" validate:"required"`
-	DeviceType string `json:"deviceType" validate:"required"`
+	AppID          string `json:"appId"`
+	InstallationID string `json:"installationId"`
+	PushId         string `json:"pushId" validate:"required"`
+	DeviceType     string `json:"deviceType" validate:"required"`
 }
 
 type MessagePushMangeLogoutReq struct {

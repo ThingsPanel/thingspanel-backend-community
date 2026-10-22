@@ -94,9 +94,9 @@ func GetAlarmByID(id string) (*model.AlarmConfig, error) {
 }
 
 // 根据告警信息ID获取告警信息
-func GetAlarmInfoHistoryByID(id string) (map[string]interface{}, error) {
+func GetAlarmInfoHistoryByID(id, tenantID string) (map[string]interface{}, error) {
 	var result map[string]interface{}
-	err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id)).Select(query.AlarmHistory.ALL).Scan(&result)
+	err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id), query.AlarmHistory.TenantID.Eq(tenantID)).Select(query.AlarmHistory.ALL).Scan(&result)
 	if err != nil {
 		return nil, err
 	}
@@ -399,4 +399,16 @@ func DeleteAlarmNameCache(alarmId string) error {
 	redis := global.REDIS
 	cacheKey := fmt.Sprintf("GetAlarmNameWithCache:alarmId:%s", alarmId)
 	return redis.Del(context.Background(), cacheKey).Err()
+}
+
+func GetAlarmNotificationInfoByID(id, tenantID string) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	err := query.AlarmInfo.Where(query.AlarmInfo.ID.Eq(id), query.AlarmInfo.TenantID.Eq(tenantID)).Select(query.AlarmInfo.ALL).Scan(&result)
+	if err != nil || len(result) == 0 {
+		return result, err
+	}
+	result["create_at"] = result["alarm_time"]
+	result["alarm_status"] = result["alarm_level"]
+	result["alarm_device_list"] = []map[string]interface{}{}
+	return result, nil
 }

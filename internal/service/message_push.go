@@ -45,7 +45,7 @@ func (receiver *MessagePush) MessagePushMangeLogout(req *model.MessagePushMangeL
 	if exists {
 		return dal.LogoutMessagePushMange(userId, req.PushId)
 	}
-	return errors.New("当前用户推送id不存在")
+	return nil
 }
 
 func (receiver *MessagePush) GetMessagePushConfig() (*model.MessagePushConfigRes, error) {

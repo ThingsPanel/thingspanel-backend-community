@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/http"
 	"project/internal/model"
 	"project/internal/service"
 	"project/pkg/utils"
@@ -18,6 +19,15 @@ func (*MessagePushApi) CreateMessagePush(c *gin.Context) {
 		return
 	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	if req.InstallationID != "" || req.AppID != "" {
+		device, err := service.GroupApp.MessagePush.BindDevice(c.Request.Context(), &req, userClaims, c.GetHeader("x-token"))
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"code": 400, "message": "App device registration rejected"})
+			return
+		}
+		c.Set("data", gin.H{"bindingId": device.ID, "userId": device.UserID, "tenantId": device.TenantID})
+		return
+	}
 	err := service.GroupApp.MessagePush.CreateMessagePush(&req, userClaims.ID)
 	if err != nil {
 		c.Error(err)
@@ -34,6 +44,10 @@ func (*MessagePushApi) MessagePushMangeLogout(c *gin.Context) {
 		return
 	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	if err := service.GroupApp.MessagePush.UnbindDevice(c.Request.Context(), userClaims.ID, req.PushId, c.GetHeader("x-token")); err != nil {
+		c.Error(err)
+		return
+	}
 	err := service.GroupApp.MessagePush.MessagePushMangeLogout(&req, userClaims.ID)
 	if err != nil {
 		c.Error(err)

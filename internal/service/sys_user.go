@@ -244,7 +244,7 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 			})
 		}
 		if oldToken != "" {
-			if err := global.REDIS.Del(context.Background(), oldToken).Err(); err != nil && !errors.Is(err, redis.Nil) {
+			if err := global.REDIS.Del(context.Background(), oldToken, dal.AppPushSessionKey(oldToken)).Err(); err != nil && !errors.Is(err, redis.Nil) {
 				return nil, errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 					"error": err.Error(),
 					"email": user.Email,
@@ -268,7 +268,7 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 
 // @description 退出登录
 func (*User) Logout(token string) error {
-	if err := global.REDIS.Del(context.Background(), token).Err(); err != nil {
+	if err := global.REDIS.Del(context.Background(), token, dal.AppPushSessionKey(token)).Err(); err != nil {
 		return errcode.New(errcode.CodeTokenDeleteError)
 	}
 	return nil

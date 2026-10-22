@@ -77,6 +77,9 @@ func PgInit() (*gorm.DB, error) {
 		return nil, fmt.Errorf("初始化 native binding schema 失败: %w", err)
 	}
 
+	if err = ApplyAppPushSchema(db); err != nil {
+		return nil, fmt.Errorf("initialize app push schema: %w", err)
+	}
 	return db, nil
 }
 
@@ -174,6 +177,9 @@ func PgConnect(config *DbConfig) (*gorm.DB, error) {
 
 	log.Println("连接数据库完成...")
 
+	if err = ApplyAppPushSchema(db); err != nil {
+		return nil, fmt.Errorf("initialize app push schema: %w", err)
+	}
 	return db, nil
 }
 

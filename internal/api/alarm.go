@@ -205,7 +205,18 @@ func (*AlarmApi) HandleAlarmInfoHistory(c *gin.Context) {
 		return
 	}
 
-	data, err := service.GroupApp.Alarm.GetAlarmInfoHistoryByID(id)
+	tenantID := c.MustGet("claims").(*utils.UserClaims).TenantID
+	var data map[string]interface{}
+	var err error
+	switch c.Query("recordType") {
+	case "", "history":
+		data, err = service.GroupApp.Alarm.GetAlarmInfoHistoryByID(id, tenantID)
+	case "info":
+		data, err = service.GroupApp.Alarm.GetAlarmNotificationInfoByID(id, tenantID)
+	default:
+		c.Error(errcode.New(errcode.CodeParamError))
+		return
+	}
 	if err != nil {
 		c.Error(err)
 		return

@@ -73,6 +73,8 @@ func RouterInit() *gin.Engine {
 	// operation logging so credentials and member contact details are excluded.
 	reader := api.NewNotificationMemberReaderFromEnv()
 	router.GET("/api/v1/notification/source-members/:id", reader.GetMemberContact)
+	router.GET("/api/v1/notification/source-app-members/:id", reader.GetAppMemberDevices)
+	router.GET("/api/v1/notification/source-app-devices/:id", reader.GetAppDevice)
 	router.GET("/api/v1/notification/source-tenants/:id", reader.GetTenantPresence)
 
 	// 记录操作日志

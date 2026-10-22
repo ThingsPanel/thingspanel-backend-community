@@ -434,6 +434,11 @@ func (s *SourceBridge) buildOutbox(route dal.SourceRouteSnapshot, tenantID, lega
 		legacy = map[string]json.RawMessage{}
 	}
 	payload := sourceEventPayload{Subject: subject, Text: text, Variables: map[string]json.RawMessage{}, LegacyAlertJSON: legacy}
+	payload.Variables["alarmId"], _ = json.Marshal(eventID)
+	payload.Variables["alarmKind"] = json.RawMessage(`"history"`)
+	if kind, ok := legacy["alarm_record_type"]; ok {
+		payload.Variables["alarmKind"] = append(json.RawMessage(nil), kind...)
+	}
 	event := sourceEvent{SchemaVersion: "1.0", SourceDeploymentID: s.config.DeploymentID, SourceEventID: eventID, ActionID: actionID, TenantID: tenantID, NotificationGroupID: route.NotificationGroupID, GroupRevision: route.GroupRevision, OccurredAt: occurred.UTC().Format(time.RFC3339Nano), ExpiresAt: occurred.UTC().Add(24 * time.Hour).Format(time.RFC3339Nano), Payload: payload}
 	if !validateSourceEvent(event) {
 		return nil, errors.New("source payload invalid")

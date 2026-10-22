@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -77,6 +78,23 @@ func TestAlarmInfoAndAlarmExecuteResolveDefaultButPreserveExplicitGroup(t *testi
 		t.Fatal("explicit alarm was not persisted")
 	}
 	assertAlarmOutboxTarget(t, db, addID, "native-default-policy", 1, "pending")
+	for _, v := range []struct{ id, kind string }{{addID, "info"}, {executeID, "history"}} {
+		var raw []byte
+		if err := db.Raw("SELECT request_body FROM notification_source_outbox WHERE source_event_id = ?", v.id).Row().Scan(&raw); err != nil {
+			t.Fatal(err)
+		}
+		var event sourceEvent
+		if json.Unmarshal(raw, &event) != nil {
+			t.Fatal("invalid outbox")
+		}
+		var id, kind string
+		json.Unmarshal(event.Payload.Variables["alarmId"], &id)
+		json.Unmarshal(event.Payload.Variables["alarmKind"], &kind)
+		if id != v.id || kind != v.kind {
+			t.Fatal("App click target does not match alarm record", id, kind)
+		}
+	}
+
 	assertAlarmOutboxTarget(t, db, executeID, "native-default-policy", 1, "pending")
 	assertAlarmOutboxTarget(t, db, explicitID, "native-explicit-policy", 1, "pending")
 

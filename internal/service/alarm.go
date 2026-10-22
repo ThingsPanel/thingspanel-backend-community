@@ -258,7 +258,7 @@ Details: %s`, alarmConfig.Name, alarmConfig.AlarmLevel, t.Format("2006-01-02 15:
 		if tenantAdmin, lookupErr := dal.GetTenantAdmin(alarmConfig.TenantID); lookupErr == nil && tenantAdmin != nil {
 			tenantAdminID = tenantAdmin.ID
 		}
-		alertData := map[string]interface{}{"subject": subject, "content": notificationContent, "timestamp": t.Format(time.RFC3339), "alarm_config_id": alarmConfig.ID, "alarm_level": alarmConfig.AlarmLevel, "tenant_id": alarmConfig.TenantID, "tenant_admin_id": tenantAdminID, "device_ids": []string{}, "devices": []map[string]interface{}{}}
+		alertData := map[string]interface{}{"id": id, "alarm_record_type": "info", "subject": subject, "content": notificationContent, "timestamp": t.Format(time.RFC3339), "alarm_config_id": alarmConfig.ID, "alarm_level": alarmConfig.AlarmLevel, "tenant_id": alarmConfig.TenantID, "tenant_admin_id": tenantAdminID, "device_ids": []string{}, "devices": []map[string]interface{}{}}
 		buffer := &bytes.Buffer{}
 		encoder := json.NewEncoder(buffer)
 		encoder.SetEscapeHTML(false)
@@ -503,8 +503,8 @@ Details: %s`,
 }
 
 // 通过id获取告警信息
-func (*Alarm) GetAlarmInfoHistoryByID(id string) (map[string]interface{}, error) {
-	alarmInfo, err := dal.GetAlarmInfoHistoryByID(id)
+func (*Alarm) GetAlarmInfoHistoryByID(id, tenantID string) (map[string]interface{}, error) {
+	alarmInfo, err := dal.GetAlarmInfoHistoryByID(id, tenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -541,4 +541,10 @@ func (*Alarm) DeleteAlarmHistory(id string, tenantID string) (err error) {
 		})
 	}
 	return
+}
+
+// GetAlarmNotificationInfoByID exposes the legacy active-alarm record only when
+// the notification explicitly declares its record type. Tenant scope is mandatory.
+func (*Alarm) GetAlarmNotificationInfoByID(id, tenantID string) (map[string]interface{}, error) {
+	return dal.GetAlarmNotificationInfoByID(id, tenantID)
 }

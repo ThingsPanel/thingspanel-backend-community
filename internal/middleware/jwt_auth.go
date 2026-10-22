@@ -10,7 +10,6 @@ import (
 	utils "project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -70,11 +69,6 @@ func isValidJWT(c *gin.Context, token string) bool {
 		return false
 	}
 
-	// 刷新 token 过期时间
-	timeout := viper.GetInt("session.timeout")
-	logrus.Infof("刷新 token 过期时间: %d 分钟", timeout)
-	global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute)
-
 	// 验证 JWT
 	key := viper.GetString("jwt.key")
 	j := utils.NewJWT([]byte(key))
@@ -89,6 +83,18 @@ func isValidJWT(c *gin.Context, token string) bool {
 		return false
 	}
 
+	// Refresh only an existing session; never resurrect a concurrent logout.
+	ttl := time.Duration(viper.GetInt("session.timeout")) * time.Minute
+	cap := time.Until(time.Unix(claims.ExpiresAt, 0))
+	if ttl <= 0 || ttl > cap {
+		ttl = cap
+	}
+	refreshed, refreshErr := global.REDIS.Eval(c.Request.Context(), `if redis.call('GET',KEYS[1]) ~= '1' then return 0 end
+ redis.call('PEXPIRE',KEYS[1],ARGV[1]); redis.call('PEXPIRE',KEYS[2],ARGV[1]); return 1`, []string{token, dal.AppPushSessionKey(token)}, ttl.Milliseconds()).Int()
+	if refreshErr != nil || refreshed != 1 {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Code: ErrCodeTokenExpired, Message: "session unavailable"})
+		return false
+	}
 	// 设置 claims 到上下文
 	c.Set("claims", claims)
 	return true
