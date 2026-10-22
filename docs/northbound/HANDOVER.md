@@ -359,6 +359,7 @@ if d := nextBackoff(6, 10); d < 25*time.Second || d > 39*time.Second { ... }
 ```
 docs/northbound/
 ├── HANDOVER.md          ← 本文件，接手先读这个
+├── MERGE-READINESS.md   ← 给合并人：任务对照表、阻断项、合并步骤
 ├── EXECUTION-LEDGER.md  ← 施工台账，最详细，按 NB-01..NB-10 逐条记
 ├── CONTRACT-v1.md       ← 唯一接口合同（v1.2）
 ├── DEPLOYMENT.md        ← 装/升/退，含实测端口与未验证清单
