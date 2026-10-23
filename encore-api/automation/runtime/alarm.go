@@ -58,10 +58,8 @@ func (r *Runtime) applyAlarmVerdict(ctx context.Context, rule *store.Rule, devic
 			return r.transition(ctx, active, TransitionNoTransition, seq, res,
 				"触发条件不再成立，但没有配置恢复条件，保持活动告警")
 		}
-		rec := domain.Evaluate(*def.Recovery, domain.EvalContext{
-			Now: now, SelfDeviceID: deviceID,
-			MaxAge: def.Freshness.MaxAge.Std(), Lookup: r.lookup(ctx),
-		})
+		rec := domain.Evaluate(*def.Recovery,
+			r.evalContext(ctx, &def, deviceID, nil, now))
 		switch rec.Verdict {
 		case domain.VerdictTrue:
 			if def.Recovery.For.Std() > 0 {

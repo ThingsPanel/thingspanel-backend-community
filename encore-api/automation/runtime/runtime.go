@@ -181,6 +181,25 @@ func checkFreshness(s domain.Sample, now time.Time, f domain.Freshness) Freshnes
 	return Freshness{OK: true, Age: age, LastSeen: s.ObservedAt}
 }
 
+// evalContext builds the evaluator context from a rule definition.
+//
+// Every path goes through it — real evaluation, recovery, branch conditions,
+// pending timers — so a rule's freshness contract cannot mean one thing on the
+// ingest path and something else on the timer path.
+func (r *Runtime) evalContext(ctx context.Context, def *domain.Definition, deviceID string,
+	trigger *domain.Sample, now time.Time) domain.EvalContext {
+
+	return domain.EvalContext{
+		Now:          now,
+		SelfDeviceID: deviceID,
+		Trigger:      trigger,
+		MaxAge:       def.Freshness.MaxAge.Std(),
+		Mode:         def.Freshness.Mode,
+		Heartbeat:    def.Freshness.Heartbeat.Std(),
+		Lookup:       r.lookup(ctx),
+	}
+}
+
 // lookupFunc adapts the store to the evaluator's Lookup signature.
 // lookup reads the latest stored sample for a condition.
 //
@@ -188,8 +207,7 @@ func checkFreshness(s domain.Sample, now time.Time, f domain.Freshness) Freshnes
 // "the database refused" and "the device never reported" lead an operator to
 // completely different actions, and the evaluator reports them as different
 // verdicts (error vs unknown).
-func (r *Runtime) lookup(ctx context.Context) func(string, domain.SignalKind, string) (domain.Sample, bool, error) {
-	return func(deviceID string, signal domain.SignalKind, key string) (domain.Sample, bool, error) {
+func (r *Runtime) lookup(ctx context.Context) func(string, domain.SignalKind, string) (domain.Sample, bool, error) {	return func(deviceID string, signal domain.SignalKind, key string) (domain.Sample, bool, error) {
 		s, ok, err := r.store.LatestState(ctx, deviceID, signal, key)
 		if err != nil {
 			return domain.Sample{}, false, err

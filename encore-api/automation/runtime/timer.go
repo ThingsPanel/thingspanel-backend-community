@@ -29,6 +29,10 @@ type TickResult struct {
 	ScheduleSkipped      int `json:"schedule_skipped"`
 	ScheduleFailed       int `json:"schedule_failed"`
 	ScheduleRecovered    int `json:"schedule_recovered"`
+
+	// NoDataNoted counts alarm episodes that were marked "cannot be confirmed"
+	// because their subject stopped reporting.
+	NoDataNoted int `json:"no_data_noted"`
 }
 
 // Tick runs one scheduler pass: due condition timers, due run continuations and
@@ -80,6 +84,11 @@ func (r *Runtime) Tick(ctx context.Context) (TickResult, error) {
 		out.ScheduleSkipped = sched.Skipped
 		out.ScheduleFailed += sched.Failed
 		out.ScheduleRecovered = sched.Recovered
+	}
+
+	// Silence is a fact worth recording, but it must not stop the pass.
+	if noted, nerr := r.SweepNoData(ctx, now, 200); nerr == nil {
+		out.NoDataNoted = noted
 	}
 
 	n, err := r.DispatchOutbox(ctx, 50)
@@ -168,10 +177,8 @@ func (r *Runtime) fireRecovery(ctx context.Context, rule *store.Rule, p *store.P
 		_ = r.store.ClearPending(ctx, p.ScopeKey)
 		return "dropped"
 	}
-	res := domain.Evaluate(*rule.Definition.Recovery, domain.EvalContext{
-		Now: now, SelfDeviceID: p.DeviceID,
-		MaxAge: rule.Definition.Freshness.MaxAge.Std(), Lookup: r.lookup(ctx),
-	})
+	res := domain.Evaluate(*rule.Definition.Recovery,
+		r.evalContext(ctx, &rule.Definition, p.DeviceID, nil, now))
 	_ = r.store.ClearPending(ctx, p.ScopeKey)
 	if res.Verdict != domain.VerdictTrue {
 		return "dropped"

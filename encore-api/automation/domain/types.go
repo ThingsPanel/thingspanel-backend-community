@@ -155,10 +155,43 @@ type EventField struct {
 	Value    string `json:"value"`
 }
 
+// FreshnessMode declares *how* a value earns the right to be treated as current
+// evidence. The distinction matters because the two kinds of device report in
+// completely different ways, and using one rule for both is a real defect:
+// treating "last change was long ago" as "data is stale" makes every
+// change-only sensor look dead, while treating silence as "still current" lets a
+// high-temperature alarm stand on a reading from yesterday.
+type FreshnessMode string
+
+const (
+	// FreshnessPeriodic means the device reports on a schedule, so the age of
+	// its last value is meaningful evidence of liveness.
+	FreshnessPeriodic FreshnessMode = "periodic"
+	// FreshnessOnChange means the device only reports when something changes.
+	// The age of the last value then says nothing, so liveness must come from a
+	// declared heartbeat window instead.
+	FreshnessOnChange FreshnessMode = "on_change"
+)
+
 // Freshness declares how long a stored state value stays trustworthy.
 type Freshness struct {
 	MaxAge Duration `json:"max_age"`
 	MaxGap Duration `json:"max_gap"`
+
+	// Mode defaults to periodic, which is the legacy behaviour.
+	Mode FreshnessMode `json:"mode,omitempty"`
+
+	// Heartbeat is the liveness window for an on-change signal: how long the
+	// device's status may be silent and still count as alive. Required when Mode
+	// is on_change, because without it "no change" and "no device" are
+	// indistinguishable and the only honest answer is unknown.
+	Heartbeat Duration `json:"heartbeat,omitempty"`
+
+	// NoData turns silence into an explicit unknown verdict: after this long
+	// without any report from the subject, a running condition stops being
+	// provable and an active alarm records why. Zero means "not configured",
+	// which keeps the legacy behaviour for existing rules.
+	NoData Duration `json:"no_data,omitempty"`
 }
 
 // TargetSpec is resolved to a frozen snapshot when a run is accepted.
@@ -380,6 +413,13 @@ type EvalContext struct {
 	// silent two hours ago must not clear an active alarm by timing out.
 	MaxAge time.Duration
 
+	// Mode and Heartbeat decide how freshness is established. With the default
+	// (periodic, or an empty mode) MaxAge applies to the value itself. With
+	// on_change the value's own age is ignored and liveness is read from the
+	// device's status signal within Heartbeat.
+	Mode      FreshnessMode
+	Heartbeat time.Duration
+
 	// Lookup reads the latest stored sample. The error return exists so a
 	// storage failure can be reported as "error" instead of being silently
 	// downgraded to "no data" — the two mean different things to an operator.
@@ -508,16 +548,98 @@ func evaluateLeaf(c Condition, ctx EvalContext) LeafResult {
 	}
 	// Freshness applies to values read from storage. The triggering sample is
 	// the current evidence by construction, so it is exempt.
-	if !fromTrigger && ctx.MaxAge > 0 && !sample.ObservedAt.IsZero() &&
-		ctx.Now.Sub(sample.ObservedAt) > ctx.MaxAge {
-		return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
-			Code: "stale_evidence", DeviceID: deviceID, Key: c.Key,
-			Age: sample.ObservedAt.Format(time.RFC3339),
-			Message: fmt.Sprintf("数据已过期（最后更新 %s，超过 max_age %s），结果不确定",
-				sample.ObservedAt.Format(time.RFC3339), ctx.MaxAge),
-		}}}
+	if !fromTrigger {
+		if lr, stale := freshnessVerdict(c, deviceID, sample, ctx); stale {
+			return lr
+		}
 	}
 	return compareLeaf(c, sample, ctx.Now)
+}
+
+// freshnessVerdict decides whether a stored value may still be used as evidence.
+//
+// The two modes answer different questions:
+//
+//   - periodic: "is this value recent enough to describe the device now?" The
+//     value's own timestamp answers it.
+//   - on_change: "is the device still alive?" The value's timestamp cannot
+//     answer it — a sensor that has not changed in two days may be perfectly
+//     healthy — so liveness is read from the status signal instead, and the rule
+//     must declare how long that heartbeat may be silent.
+func freshnessVerdict(c Condition, deviceID string, s Sample, ctx EvalContext) (LeafResult, bool) {
+	if ctx.Mode == FreshnessOnChange {
+		if ctx.Heartbeat <= 0 {
+			return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
+				Code: "heartbeat_not_declared", DeviceID: deviceID, Key: c.Key,
+				Message: "仅变更上报的信号未声明心跳有效期，无法判断数据是否仍然可信",
+			}}}, true
+		}
+		if ctx.Lookup == nil {
+			return LeafResult{Verdict: VerdictError, Reasons: []Reason{{
+				Code: "read_error", DeviceID: deviceID, Key: c.Key,
+				Message: "没有可用的读取通道，无法确认设备心跳",
+			}}}, true
+		}
+		hb, ok, err := ctx.Lookup(deviceID, SignalStatus, "online")
+		if err != nil {
+			return LeafResult{Verdict: VerdictError, Reasons: []Reason{{
+				Code: "read_error", DeviceID: deviceID, Key: c.Key,
+				Message: "读取设备在线状态失败：" + err.Error(),
+			}}}, true
+		}
+		if !ok {
+			return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
+				Code: "no_heartbeat", DeviceID: deviceID, Key: c.Key,
+				Message: "没有设备在线状态，仅变更上报的信号无法确认真实性",
+			}}}, true
+		}
+		if !hb.ObservedAt.IsZero() && ctx.Now.Sub(hb.ObservedAt) > ctx.Heartbeat {
+			return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
+				Code: "no_heartbeat", DeviceID: deviceID, Key: c.Key,
+				Age: hb.ObservedAt.Format(time.RFC3339),
+				Message: fmt.Sprintf("设备心跳已超过 %s 未更新，数据是否仍有效无法确认", ctx.Heartbeat),
+			}}}, true
+		}
+		if !truthy(hb.Value) {
+			return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
+				Code: "device_offline", DeviceID: deviceID, Key: c.Key,
+				Message: "设备当前不在线，保留最后值但不能作为当前证据",
+			}}}, true
+		}
+		return LeafResult{}, false
+	}
+
+	if ctx.MaxAge > 0 && !s.ObservedAt.IsZero() && ctx.Now.Sub(s.ObservedAt) > ctx.MaxAge {
+		return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
+			Code: "stale_evidence", DeviceID: deviceID, Key: c.Key,
+			Age: s.ObservedAt.Format(time.RFC3339),
+			Message: fmt.Sprintf("数据已过期（最后更新 %s，超过 max_age %s），结果不确定",
+				s.ObservedAt.Format(time.RFC3339), ctx.MaxAge),
+		}}}, true
+	}
+	return LeafResult{}, false
+}
+
+// truthy reads a status value as "yes". The wire shapes differ between adapters
+// (bool, 0/1, "online"/"offline"), so one helper decides it everywhere.
+func truthy(v any) bool {
+	switch t := v.(type) {
+	case bool:
+		return t
+	case string:
+		s := strings.ToLower(strings.TrimSpace(t))
+		return s == "1" || s == "true" || s == "online"
+	case float64:
+		return t != 0
+	case int:
+		return t != 0
+	case int64:
+		return t != 0
+	case nil:
+		return false
+	default:
+		return false
+	}
 }
 
 func compareLeaf(c Condition, s Sample, now time.Time) LeafResult {

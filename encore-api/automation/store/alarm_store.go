@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
+
+	"encore.app/automation/domain"
 )
 
 // Episode is one active or historical alarm instance. Identity is
@@ -231,4 +234,93 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return string(buf[i:])
+}
+
+// ListActiveEpisodes returns the active episodes of every tenant, oldest first.
+//
+// A worker serves all tenants, so this scan is deliberately not tenant scoped;
+// the caller filters by policy definition and by subject.
+func (s *Store) ListActiveEpisodes(ctx context.Context, limit int) ([]*Episode, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	rows, err := s.DB.QueryContext(ctx, `
+        SELECT id, tenant_id, policy_id, subject_id, dimension, state, revision, epoch,
+               opened_at, last_seq, acked_at, acked_by, cleared_at, updated_at
+          FROM alarm_episodes
+         WHERE state='active'
+         ORDER BY opened_at
+         LIMIT `+strconv.Itoa(limit))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*Episode
+	for rows.Next() {
+		var (
+			e         Episode
+			ackedAt   sql.NullTime
+			ackedBy   sql.NullString
+			clearedAt sql.NullTime
+		)
+		if err := rows.Scan(&e.ID, &e.TenantID, &e.PolicyID, &e.SubjectID, &e.Dimension,
+			&e.State, &e.Revision, &e.Epoch, &e.OpenedAt, &e.LastSeq,
+			&ackedAt, &ackedBy, &clearedAt, &e.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if ackedAt.Valid {
+			t := ackedAt.Time
+			e.AckedAt = &t
+		}
+		e.AckedBy = ackedBy.String
+		if clearedAt.Valid {
+			t := clearedAt.Time
+			e.ClearedAt = &t
+		}
+		out = append(out, &e)
+	}
+	return out, rows.Err()
+}
+
+// LastTransition returns the most recent lifecycle fact of an episode, which is
+// what makes a repeated "no data" note idempotent: the sweep only adds a note
+// when the last fact is something else.
+func (s *Store) LastTransition(ctx context.Context, episodeID string) (*Transition, error) {
+	var tr Transition
+	var evidence []byte
+	err := s.DB.QueryRowContext(ctx, `
+        SELECT id, episode_id, tenant_id, kind, seq, revision, epoch, evidence, created_at
+          FROM alarm_transitions WHERE episode_id=$1
+         ORDER BY seq DESC, created_at DESC LIMIT 1`, episodeID).
+		Scan(&tr.ID, &tr.EpisodeID, &tr.TenantID, &tr.Kind, &tr.Seq, &tr.Revision,
+			&tr.Epoch, &evidence, &tr.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	_ = json.Unmarshal(evidence, &tr.Evidence)
+	return &tr, nil
+}
+
+// LatestObservedAt returns the newest observation time for one signal across a
+// set of keys. It answers "when did this device last say anything about the
+// fields this rule watches", which is what a no-data decision needs.
+func (s *Store) LatestObservedAt(ctx context.Context, deviceID string, signal domain.SignalKind, keys []string) (time.Time, bool, error) {
+	if len(keys) == 0 {
+		return time.Time{}, false, nil
+	}
+	var latest sql.NullTime
+	err := s.DB.QueryRowContext(ctx, `
+        SELECT max(observed_at) FROM auto_state
+         WHERE device_id=$1 AND signal=$2 AND key = ANY($3)`,
+		deviceID, string(signal), keys).Scan(&latest)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if !latest.Valid {
+		return time.Time{}, false, nil
+	}
+	return latest.Time, true, nil
 }

@@ -468,6 +468,82 @@ def main() -> int:
     check("a deleted schedule is gone", gone.get("code") == "not_found",
           json.dumps(gone, ensure_ascii=False)[:200])
 
+    print("== 13. duration, hysteresis and no-data (A08) ==")
+    # The acceptance fixture: trigger above 30, recover below 28. 29 is neither,
+    # so the alarm must stay open and the episode must record why.
+    band_def = {
+        "kind": "alarm_policy", "mode": "single", "scope": "device",
+        "trigger": {"groups": [{"conditions": [{
+            "source": "self", "signal": "telemetry", "key": "temperature",
+            "operator": ">", "value": "30", "unit": "℃"}]}], "for": "0s"},
+        "recovery": {"groups": [{"conditions": [{
+            "source": "self", "signal": "telemetry", "key": "temperature",
+            "operator": "<", "value": "28", "unit": "℃"}]}]},
+        "freshness": {"max_age": "10m", "max_gap": "10m", "no_data": "5m"},
+        "targets": {"device_ids": [device_id]},
+        "steps": [{"kind": "notify", "notification_policy_id": "np-e2e", "value": "温度过高"}],
+    }
+    band = automation("/v1/rules", "POST", {
+        "name": f"A08-BAND-{suffix}", "definition": band_def, "enabled": True})
+    band_id = band.get("id")
+    check("hysteresis policy created", bool(band_id),
+          json.dumps(band, ensure_ascii=False)[:300])
+
+    automation("/v1/ingress/events", "POST", {
+        "event_id": f"{ev_id}-band-hot", "device_id": device_id, "signal": "telemetry",
+        "key": "temperature", "value": "35", "unit": "℃"})
+    band_active = automation(f"/v1/alarms?policy_id={band_id}&state=active").get("alarms") or []
+    check("hysteresis alarm opened", len(band_active) == 1,
+          json.dumps(band_active, ensure_ascii=False)[:200])
+
+    if band_active:
+        band_ep = band_active[0]["id"]
+        automation("/v1/ingress/events", "POST", {
+            "event_id": f"{ev_id}-band-mid", "device_id": device_id, "signal": "telemetry",
+            "key": "temperature", "value": "29", "unit": "℃"})
+        still_open = automation(f"/v1/alarms?policy_id={band_id}&state=active").get("alarms") or []
+        check("29 degrees is inside the dead band and keeps the alarm",
+              len(still_open) == 1, json.dumps(still_open, ensure_ascii=False)[:200])
+        band_trs = automation(f"/v1/alarms/{band_ep}/transitions").get("transitions") or []
+        band_kinds = [t.get("kind") for t in band_trs]
+        check("the dead band is recorded as no_transition",
+              "no_transition" in band_kinds, ",".join(band_kinds))
+
+        automation("/v1/ingress/events", "POST", {
+            "event_id": f"{ev_id}-band-cold", "device_id": device_id, "signal": "telemetry",
+            "key": "temperature", "value": "27", "unit": "℃"})
+        cleared_band = automation(f"/v1/alarms?policy_id={band_id}&state=active").get("alarms") or []
+        check("below the recovery threshold clears the alarm",
+              len(cleared_band) == 0, json.dumps(cleared_band, ensure_ascii=False)[:200])
+
+    # A change-only rule must declare a heartbeat, otherwise the runtime could
+    # only ever answer "unknown" for it.
+    no_hb = {
+        "kind": "automation", "mode": "single", "scope": "device",
+        "trigger": {"groups": [{"conditions": [{
+            "source": "self", "signal": "attribute", "key": "mode",
+            "operator": "=", "value": "1"}]}]},
+        "freshness": {"max_age": "10m", "max_gap": "10m", "mode": "on_change"},
+        "targets": {"device_ids": [device_id]},
+        "steps": [{"kind": "action", "action": "telemetry", "identifier": "switch", "value": "1"}],
+    }
+    rejected_hb = automation("/v1/rules", "POST", {
+        "name": f"A08-NOHB-{suffix}", "definition": no_hb, "enabled": True})
+    check("on_change without heartbeat is rejected", rejected_hb.get("code") != "ok",
+          json.dumps(rejected_hb, ensure_ascii=False)[:200])
+
+    with_hb = dict(no_hb)
+    with_hb["freshness"] = {"max_age": "10m", "max_gap": "10m",
+                            "mode": "on_change", "heartbeat": "5m"}
+    accepted_hb = automation("/v1/rules", "POST", {
+        "name": f"A08-HB-{suffix}", "definition": with_hb, "enabled": True})
+    check("on_change with heartbeat is accepted", bool(accepted_hb.get("id")),
+          json.dumps(accepted_hb, ensure_ascii=False)[:200])
+
+    tick_a08 = automation("/v1/tick", "POST")
+    check("tick reports no-data sweeps", "no_data_noted" in (tick_a08 or {}),
+          json.dumps(tick_a08 or {}, ensure_ascii=False)[:200])
+
     print()
     if FAILURES:
         print(f"RESULT: {len(FAILURES)} check(s) failed")

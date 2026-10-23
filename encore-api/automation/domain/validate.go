@@ -93,6 +93,23 @@ func Validate(d *Definition) error {
 	if d.Freshness.MaxGap > d.Freshness.MaxAge {
 		add("freshness.max_gap", "gap_exceeds_age", "max_gap 不能大于 max_age")
 	}
+	switch d.Freshness.Mode {
+	case "", FreshnessPeriodic:
+	case FreshnessOnChange:
+		// Without a declared window, "the value did not change" and "the device
+		// is gone" look identical, and guessing between them is exactly the
+		// defect this field exists to prevent.
+		if d.Freshness.Heartbeat <= 0 {
+			add("freshness.heartbeat", "heartbeat_required",
+				"仅变更上报（on_change）必须声明 heartbeat，否则无法判断设备是否仍然可信")
+		}
+	default:
+		add("freshness.mode", "invalid_freshness_mode",
+			fmt.Sprintf("未知新鲜度依据 %q（只能是 periodic 或 on_change）", d.Freshness.Mode))
+	}
+	if d.Freshness.NoData < 0 {
+		add("freshness.no_data", "invalid_freshness", "no_data 不能为负数")
+	}
 
 	// Targets: at least one selection, bounded size.
 	if len(d.Targets.DeviceIDs) == 0 && len(d.Targets.DeviceConfigIDs) == 0 &&

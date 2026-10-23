@@ -371,10 +371,6 @@ func (r *Runtime) executeRun(ctx context.Context, runID string, startPC int) err
 
 	// Branch conditions evaluate against the revision the run was admitted on,
 	// so a concurrent edit cannot change what a half-finished program means.
-	var maxAge domain.Duration
-	if pinned, perr := r.store.GetRuleRevision(ctx, run.RuleID, run.Revision); perr == nil && pinned != nil {
-		maxAge = pinned.Definition.Freshness.MaxAge
-	}
 	if run.Status != StatusAccepted && run.Status != StatusRunning && run.Status != StatusQueued {
 		return nil
 	}
@@ -405,8 +401,7 @@ func (r *Runtime) executeRun(ctx context.Context, runID string, startPC int) err
 		switch step.Kind {
 		case domain.StepBranch:
 			verdict := domain.Evaluate(domain.Trigger{Groups: []domain.Group{*step.Condition}},
-				domain.EvalContext{Now: r.Now(), SelfDeviceID: run.DeviceID,
-					MaxAge: maxAge.Std(), Lookup: r.lookup(ctx)})
+				r.evalContext(ctx, &rule.Definition, run.DeviceID, nil, r.Now()))
 			stepID := r.newStep(ctx, runID, pc, "branch", r.stepKey(run, pc, 0))
 			detail, _ := json.Marshal(map[string]any{"verdict": verdict.Verdict, "reasons": verdict.Reasons})
 			_ = r.store.UpdateStepStatus(ctx, stepID, "succeeded", string(detail))

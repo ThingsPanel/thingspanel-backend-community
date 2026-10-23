@@ -113,13 +113,8 @@ func (r *Runtime) recordEvaluationError(ctx context.Context, rule *store.Rule, e
 // Simulation and explain both use it, so they can never disagree with the real
 // path about what a rule means.
 func (r *Runtime) EvaluateSample(ctx context.Context, rule *store.Rule, deviceID string, trigger *domain.Sample, now time.Time) domain.Result {
-	return domain.Evaluate(rule.Definition.Trigger, domain.EvalContext{
-		Now:          now,
-		SelfDeviceID: deviceID,
-		Trigger:      trigger,
-		MaxAge:       rule.Definition.Freshness.MaxAge.Std(),
-		Lookup:       r.lookup(ctx),
-	})
+	return domain.Evaluate(rule.Definition.Trigger,
+		r.evalContext(ctx, &rule.Definition, deviceID, trigger, now))
 }
 
 func (r *Runtime) evaluateRule(ctx context.Context, rule *store.Rule, e *store.IngestEvent, seq int64, now time.Time) error {

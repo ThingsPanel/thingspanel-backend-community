@@ -664,7 +664,7 @@ func (s *Service) Tick(ctx context.Context) (*TickResponse, error) {
 		ScheduleMaterialized: res.ScheduleMaterialized, ScheduleDuplicates: res.ScheduleDuplicates,
 		ScheduleMisfired: res.ScheduleMisfired, ScheduleExecuted: res.ScheduleExecuted,
 		ScheduleSkipped: res.ScheduleSkipped, ScheduleFailed: res.ScheduleFailed,
-		ScheduleRecovered: res.ScheduleRecovered,
+		ScheduleRecovered: res.ScheduleRecovered, NoDataNoted: res.NoDataNoted,
 	}, nil
 }
 

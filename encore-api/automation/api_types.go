@@ -317,6 +317,7 @@ type TickResponse struct {
 	ScheduleSkipped      int `json:"schedule_skipped"`
 	ScheduleFailed       int `json:"schedule_failed"`
 	ScheduleRecovered    int `json:"schedule_recovered"`
+	NoDataNoted          int `json:"no_data_noted"`
 }
 
 // RecoverResponse reports how many receipts were replayed.
