@@ -28,6 +28,15 @@ type IngestEvent struct {
 	ObservedAt time.Time
 	Params     map[string]any
 	Source     string
+	// InputClass names the adapter that produced this event (telemetry,
+	// gateway_attribute, alarm, ...) so the explain view does not have to
+	// infer it from the signal.
+	InputClass string
+	// GatewayID is set when a gateway relayed the sample.
+	GatewayID string
+	// CausalRoot and CausalHop carry the alarm-driven chain origin and depth.
+	CausalRoot string
+	CausalHop  int
 	// Seq is the receipt order assigned by the store; it is read back when a
 	// receipt is replayed after a restart.
 	Seq int64
@@ -68,11 +77,14 @@ func (s *Store) InsertEvent(ctx context.Context, e *IngestEvent) (*Receipt, erro
 
 	res, err := s.DB.ExecContext(ctx, `
         INSERT INTO auto_inbox (event_id, tenant_id, device_id, signal, key, value, unit,
-                                quality, observed_at, seq, source, params)
-        VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),$8,$9,$10,$11,$12)
+                                quality, observed_at, seq, source, params, input_class, gateway_id,
+                                causal_root, causal_hop)
+        VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),$8,$9,$10,$11,$12,NULLIF($13,''),NULLIF($14,''),
+                NULLIF($15,''),$16)
         ON CONFLICT (event_id) DO NOTHING`,
 		e.EventID, e.TenantID, e.DeviceID, string(e.Signal), e.Key, value, e.Unit,
-		string(quality), e.ObservedAt, seq, source, params)
+		string(quality), e.ObservedAt, seq, source, params, e.InputClass, e.GatewayID,
+		e.CausalRoot, e.CausalHop)
 	if err != nil {
 		return nil, fmt.Errorf("insert event: %w", err)
 	}
@@ -175,21 +187,28 @@ type Pending struct {
 	RequireProcessedBefore time.Time
 	State                 string
 	DeferCount            int
+	// CausalRoot and CausalHop keep the alarm-driven chain across a wait, so a
+	// loop that passes through a "for: 5m" rule still hits the hop limit.
+	CausalRoot string
+	CausalHop  int
 }
 
 // UpsertPending creates or extends the pending record for a scope.
 func (s *Store) UpsertPending(ctx context.Context, p *Pending) error {
 	_, err := s.DB.ExecContext(ctx, `
         INSERT INTO auto_pending (scope_key, tenant_id, rule_id, revision, device_id, started_at,
-                                  deadline, last_evidence_at, evidence_seq, require_processed_before, state)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
+                                  deadline, last_evidence_at, evidence_seq, require_processed_before,
+                                  state, causal_root, causal_hop)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',NULLIF($11,''),$12)
         ON CONFLICT (scope_key) DO UPDATE
            SET revision=EXCLUDED.revision, deadline=EXCLUDED.deadline,
                last_evidence_at=EXCLUDED.last_evidence_at, evidence_seq=EXCLUDED.evidence_seq,
                require_processed_before=EXCLUDED.require_processed_before,
+               causal_root=EXCLUDED.causal_root, causal_hop=EXCLUDED.causal_hop,
                state='pending', updated_at=now()`,
 		p.ScopeKey, p.TenantID, p.RuleID, p.Revision, p.DeviceID, p.StartedAt,
-		p.Deadline, p.LastEvidenceAt, p.EvidenceSeq, p.RequireProcessedBefore)
+		p.Deadline, p.LastEvidenceAt, p.EvidenceSeq, p.RequireProcessedBefore,
+		p.CausalRoot, p.CausalHop)
 	return err
 }
 
@@ -198,11 +217,12 @@ func (s *Store) GetPending(ctx context.Context, scopeKey string) (*Pending, erro
 	var p Pending
 	err := s.DB.QueryRowContext(ctx, `
         SELECT scope_key, tenant_id, rule_id, revision, device_id, started_at, deadline,
-               last_evidence_at, evidence_seq, require_processed_before, state, defer_count
+               last_evidence_at, evidence_seq, require_processed_before, state, defer_count,
+               coalesce(causal_root,''), causal_hop
           FROM auto_pending WHERE scope_key=$1`, scopeKey).
 		Scan(&p.ScopeKey, &p.TenantID, &p.RuleID, &p.Revision, &p.DeviceID, &p.StartedAt,
 			&p.Deadline, &p.LastEvidenceAt, &p.EvidenceSeq, &p.RequireProcessedBefore,
-			&p.State, &p.DeferCount)
+			&p.State, &p.DeferCount, &p.CausalRoot, &p.CausalHop)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -228,7 +248,8 @@ func (s *Store) DeferPending(ctx context.Context, scopeKey string, next time.Tim
 func (s *Store) DuePending(ctx context.Context, now time.Time, limit int) ([]*Pending, error) {
 	rows, err := s.DB.QueryContext(ctx, `
         SELECT scope_key, tenant_id, rule_id, revision, device_id, started_at, deadline,
-               last_evidence_at, evidence_seq, require_processed_before, state, defer_count
+               last_evidence_at, evidence_seq, require_processed_before, state, defer_count,
+               coalesce(causal_root,''), causal_hop
           FROM auto_pending
          WHERE state='pending' AND deadline <= $1
          ORDER BY deadline
@@ -242,7 +263,8 @@ func (s *Store) DuePending(ctx context.Context, now time.Time, limit int) ([]*Pe
 		var p Pending
 		if err := rows.Scan(&p.ScopeKey, &p.TenantID, &p.RuleID, &p.Revision, &p.DeviceID,
 			&p.StartedAt, &p.Deadline, &p.LastEvidenceAt, &p.EvidenceSeq,
-			&p.RequireProcessedBefore, &p.State, &p.DeferCount); err != nil {
+			&p.RequireProcessedBefore, &p.State, &p.DeferCount,
+			&p.CausalRoot, &p.CausalHop); err != nil {
 			return nil, err
 		}
 		out = append(out, &p)
@@ -265,6 +287,12 @@ type Run struct {
 	Generation     int64
 	DeviceID       string
 	TriggerEventID string
+	// CausalRoot is the alarm transition that started this chain; CausalHop is
+	// how many alarm-triggered runs deep it is. Both are empty for a run started
+	// by a plain telemetry sample.
+	CausalRoot string
+	CausalHop  int
+	CauseEventID string
 	Status         string
 	ReasonCode     string
 	Reason         string
@@ -296,12 +324,12 @@ func (s *Store) CreateRun(ctx context.Context, r *Run) error {
 	_, err := s.DB.ExecContext(ctx, `
         INSERT INTO auto_runs (id, tenant_id, rule_id, revision, definition_hash, scope_key,
                                generation, device_id, trigger_event_id, status, reason_code, reason,
-                               snapshot, started_at, deadline)
+                               snapshot, started_at, deadline, causal_root, causal_hop, cause_event_id)
         VALUES ($1,$2,$3,$4,$5,$6,$7,NULLIF($8,''),NULLIF($9,''),$10,NULLIF($11,''),
-                NULLIF($12,''),$13,$14,$15)`,
+                NULLIF($12,''),$13,$14,$15,NULLIF($16,''),$17,NULLIF($18,''))`,
 		r.ID, r.TenantID, r.RuleID, r.Revision, r.DefinitionHash, r.ScopeKey,
 		r.Generation, r.DeviceID, r.TriggerEventID, r.Status, r.ReasonCode, r.Reason,
-		r.Snapshot, r.StartedAt, r.Deadline)
+		r.Snapshot, r.StartedAt, r.Deadline, r.CausalRoot, r.CausalHop, r.CauseEventID)
 	return err
 }
 
@@ -382,7 +410,8 @@ func (s *Store) ListRuns(ctx context.Context, tenantID, ruleID, deviceID string,
 	}
 	q := `SELECT id, tenant_id, rule_id, revision, definition_hash, scope_key, generation,
                  coalesce(device_id,''), coalesce(trigger_event_id,''), status,
-                 coalesce(reason_code,''), coalesce(reason,''), snapshot, started_at, finished_at, deadline
+                 coalesce(reason_code,''), coalesce(reason,''), snapshot, started_at, finished_at, deadline,
+                 coalesce(causal_root,''), causal_hop, coalesce(cause_event_id,'')
             FROM auto_runs WHERE tenant_id=$1`
 	args := []any{tenantID}
 	if ruleID != "" {
@@ -410,7 +439,8 @@ func (s *Store) ListRuns(ctx context.Context, tenantID, ruleID, deviceID string,
 		)
 		if err := rows.Scan(&r.ID, &r.TenantID, &r.RuleID, &r.Revision, &r.DefinitionHash,
 			&r.ScopeKey, &r.Generation, &r.DeviceID, &r.TriggerEventID, &r.Status,
-			&r.ReasonCode, &r.Reason, &snapshot, &r.StartedAt, &finishedAt, &deadline); err != nil {
+			&r.ReasonCode, &r.Reason, &snapshot, &r.StartedAt, &finishedAt, &deadline,
+			&r.CausalRoot, &r.CausalHop, &r.CauseEventID); err != nil {
 			return nil, err
 		}
 		r.Snapshot = snapshot

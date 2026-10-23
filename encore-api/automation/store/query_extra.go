@@ -15,7 +15,9 @@ func (s *Store) UnprocessedEvents(ctx context.Context, limit int) ([]*IngestEven
 	}
 	rows, err := s.DB.QueryContext(ctx, `
         SELECT event_id, tenant_id, device_id, signal, key, value, coalesce(unit,''),
-               quality, observed_at, seq, params
+               quality, observed_at, seq, params,
+               coalesce(input_class,''), coalesce(gateway_id,''),
+               coalesce(causal_root,''), causal_hop
           FROM auto_inbox
          WHERE processed_at IS NULL
          ORDER BY seq
@@ -34,7 +36,8 @@ func (s *Store) UnprocessedEvents(ctx context.Context, limit int) ([]*IngestEven
 			params []byte
 		)
 		if err := rows.Scan(&e.EventID, &e.TenantID, &e.DeviceID, &signal, &e.Key, &value,
-			&e.Unit, &qual, &e.ObservedAt, &e.Seq, &params); err != nil {
+			&e.Unit, &qual, &e.ObservedAt, &e.Seq, &params,
+			&e.InputClass, &e.GatewayID, &e.CausalRoot, &e.CausalHop); err != nil {
 			return nil, err
 		}
 		e.Signal = domainSignal(signal)

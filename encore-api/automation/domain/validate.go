@@ -160,7 +160,7 @@ func validateCondition(c Condition, field string, add func(string, string, strin
 		add(field+".device_id", "missing_device", "指定设备条件必须给出 device_id")
 	}
 	switch c.Signal {
-	case SignalTelemetry, SignalAttribute, SignalEvent, SignalStatus:
+	case SignalTelemetry, SignalAttribute, SignalEvent, SignalStatus, SignalAlarm:
 	default:
 		add(field+".signal", "unsupported_signal", "不支持的信号类型: "+string(c.Signal))
 	}

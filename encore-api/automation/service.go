@@ -18,6 +18,7 @@ import (
 	"encore.dev/storage/sqldb"
 
 	"encore.app/automation/domain"
+	"encore.app/automation/ingress"
 	"encore.app/automation/ports"
 	"encore.app/automation/runtime"
 	"encore.app/automation/store"
@@ -397,6 +398,65 @@ func (s *Service) IngestEvent(ctx context.Context, req *IngestRequest) (*IngestR
 		return nil, internal(err)
 	}
 	return &IngestResponse{EventID: rec.EventID, Seq: rec.Seq, Duplicate: rec.Duplicate}, nil
+}
+
+// IngestUplink is the explicit input adapter for the owner modules.
+//
+// Each input class has its own normalization rules: telemetry and attributes
+// produce one durable sample per key, events are instantaneous, online/offline
+// is a state transition, and an alarm transition carries the authoritative
+// transition id. The tenant always comes from the session, never from the body.
+//
+//encore:api auth method=POST path=/v1/ingress/uplink
+func (s *Service) IngestUplink(ctx context.Context, req *UplinkRequest) (*UplinkResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	class := ingress.Class(req.Class)
+	if class == "" {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "class 为必填"}
+	}
+	values := map[string]any{}
+	if strings.TrimSpace(req.Values) != "" {
+		if err := json.Unmarshal([]byte(req.Values), &values); err != nil {
+			return nil, &errs.Error{Code: errs.InvalidArgument, Message: "values 不是合法 JSON 对象"}
+		}
+	}
+	var params map[string]any
+	if strings.TrimSpace(req.Params) != "" {
+		if err := json.Unmarshal([]byte(req.Params), &params); err != nil {
+			return nil, &errs.Error{Code: errs.InvalidArgument, Message: "params 不是合法 JSON 对象"}
+		}
+	}
+	events, err := ingress.Normalize(class, ingress.Envelope{
+		TenantID: tenantID, DeviceID: req.DeviceID, GatewayID: req.GatewayID,
+		MessageID: req.MessageID, ObservedAt: req.ObservedAt, Values: values,
+		Params: params, Units: req.Units, Quality: req.Quality, Source: req.Source,
+		CausalRoot: req.CausalRoot, CausalHop: req.CausalHop,
+	}, time.Now().UTC())
+	if err != nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
+	}
+
+	out := &UplinkResponse{Class: string(class), EventIDs: make([]string, 0, len(events))}
+	for i := range events {
+		rec, err := rt.Ingest(ctx, events[i])
+		if err != nil {
+			return nil, internal(err)
+		}
+		out.EventIDs = append(out.EventIDs, rec.EventID)
+		if rec.Duplicate {
+			out.Duplicates++
+			continue
+		}
+		out.Accepted++
+	}
+	return out, nil
 }
 
 // ---------------------------------------------------------------------------

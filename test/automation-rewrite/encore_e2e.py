@@ -319,6 +319,74 @@ def main() -> int:
         check("recorded status is send-success (1)", statuses == {"1"},
               ",".join(sorted(str(x) for x in statuses)))
 
+    print("== 10. uplink adapter path (A05) ==")
+    # A separate rule on a separate key, so the earlier single-run assertion is
+    # not disturbed. This drives the same endpoint the community uplink would
+    # call after decode and transform.
+    a05_def = {
+        "kind": "automation", "mode": "single", "scope": "device",
+        "trigger": {"for": "0s", "groups": [{"conditions": [{
+            "source": "self", "signal": "telemetry", "key": "pressure",
+            "operator": ">", "value": "10", "unit": "kPa"}]}]},
+        "freshness": {"max_age": "10m", "max_gap": "10m"},
+        "targets": {"device_ids": [device_id]},
+        "steps": [{"kind": "action", "action": "telemetry",
+                   "identifier": "switch", "value": "2"}],
+    }
+    a05_rule = automation("/v1/rules", "POST", {
+        "name": f"A05-{suffix}", "definition": a05_def, "enabled": True})
+    a05_rule_id = a05_rule.get("id")
+    check("A05 rule created", bool(a05_rule_id), json.dumps(a05_rule, ensure_ascii=False)[:300])
+
+    uplink = {
+        "class": "telemetry", "device_id": device_id,
+        "observed_at": "2026-10-23T10:00:00Z",
+        "values": json.dumps({"pressure": 12.5}), "source": "e2e-relay",
+    }
+    first_up = automation("/v1/ingress/uplink", "POST", uplink)
+    check("adapter accepted the first delivery",
+          first_up.get("accepted") == 1 and first_up.get("duplicates") == 0,
+          json.dumps(first_up, ensure_ascii=False))
+    retry = automation("/v1/ingress/uplink", "POST", uplink)
+    check("relay retry is recognised as a duplicate",
+          retry.get("duplicates") == 1 and retry.get("accepted") == 0,
+          json.dumps(retry, ensure_ascii=False))
+    check("retry keeps the same event id",
+          (retry.get("event_ids") or [None])[0] == (first_up.get("event_ids") or [None])[0],
+          f"{first_up.get('event_ids')} vs {retry.get('event_ids')}")
+
+    a05_runs = automation(f"/v1/rules/{a05_rule_id}/runs").get("runs") or []
+    check("redelivery produced exactly one run", len(a05_runs) == 1,
+          f"{len(a05_runs)} run(s)")
+    if a05_runs:
+        detail = automation(f"/v1/runs/{a05_runs[0]['id']}")
+        check("adapter run succeeded", detail.get("status") == "succeeded",
+              f"{detail.get('status')} / {detail.get('reason_code')}")
+        a05_outbox = detail.get("outbox") or []
+        check("one command per accepted delivery", len(a05_outbox) == 1,
+              json.dumps(a05_outbox, ensure_ascii=False))
+
+    print("== 11. gateway and status adapters ==")
+    gw = automation("/v1/ingress/uplink", "POST", {
+        "class": "gateway_telemetry", "device_id": device_id,
+        "gateway_id": "gw-e2e", "message_id": f"gw-{suffix}",
+        "values": json.dumps({"battery": 88}), "source": "e2e-gateway",
+    })
+    check("gateway telemetry accepted", gw.get("accepted") == 1,
+          json.dumps(gw, ensure_ascii=False))
+    online = automation("/v1/ingress/uplink", "POST", {
+        "class": "status", "device_id": device_id,
+        "values": json.dumps({"online": "1"}), "source": "e2e-status",
+    })
+    check("status adapter accepted", online.get("accepted") == 1,
+          json.dumps(online, ensure_ascii=False))
+    bad = automation("/v1/ingress/uplink", "POST", {
+        "class": "event", "device_id": device_id,
+        "values": json.dumps({"level": 3}), "source": "e2e-status",
+    })
+    check("event without identifier is rejected", bad.get("code") != "ok",
+          json.dumps(bad, ensure_ascii=False))
+
     print()
     if FAILURES:
         print(f"RESULT: {len(FAILURES)} check(s) failed")

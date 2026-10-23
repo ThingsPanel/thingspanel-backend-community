@@ -52,6 +52,9 @@ const (
 	SignalAttribute SignalKind = "attribute"
 	SignalEvent     SignalKind = "event"
 	SignalStatus    SignalKind = "status"
+	// SignalAlarm is an alarm lifecycle transition used as an input. It lets a
+	// rule react to "alarm qualified/cleared" without polling the alarm table.
+	SignalAlarm SignalKind = "alarm"
 )
 
 // Verdict is the four-valued result of a condition. "unknown" and "error" are

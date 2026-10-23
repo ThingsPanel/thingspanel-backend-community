@@ -135,6 +135,40 @@ type IngestRequest struct {
 	Params     string `json:"params,omitempty"`
 }
 
+// UplinkRequest is one raw uplink message forwarded by the owner modules.
+//
+// Values are already post-transform: the uplink pipeline applied unit
+// conversion and the thing-model mapping before this call, so the adapter never
+// re-interprets a raw payload and the pipeline is never asked to transform the
+// same sample twice.
+type UplinkRequest struct {
+	// Class selects the adapter: telemetry, attribute, event, status, alarm,
+	// gateway_telemetry, gateway_attribute or gateway_event.
+	Class      string            `json:"class"`
+	DeviceID   string            `json:"device_id"`
+	GatewayID  string            `json:"gateway_id,omitempty"`
+	MessageID  string            `json:"message_id,omitempty"`
+	ObservedAt time.Time         `json:"observed_at,omitempty"`
+	// Values is the decoded payload as JSON text. Encore API schemas do not
+	// allow untyped maps, so the wire format stays a string.
+	Values     string            `json:"values"`
+	Params     string            `json:"params,omitempty"`
+	Units      map[string]string `json:"units,omitempty"`
+	Quality    string            `json:"quality,omitempty"`
+	Source     string            `json:"source,omitempty"`
+	CausalRoot string            `json:"causal_root,omitempty"`
+	CausalHop  int               `json:"causal_hop,omitempty"`
+}
+
+// UplinkResponse reports what the adapter produced. Duplicates counts the
+// events that were already in the inbox, which is the redelivery evidence.
+type UplinkResponse struct {
+	Class      string   `json:"class"`
+	Accepted   int      `json:"accepted"`
+	Duplicates int      `json:"duplicates"`
+	EventIDs   []string `json:"event_ids"`
+}
+
 // IngestResponse reports the receipt. Duplicate=true means the event was
 // already applied and no second action was produced.
 type IngestResponse struct {

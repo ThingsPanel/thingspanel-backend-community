@@ -113,9 +113,11 @@ func (r *Runtime) firePending(ctx context.Context, p *store.Pending, now time.Ti
 		_ = r.store.ClearPending(ctx, p.ScopeKey)
 		if rule.Definition.Kind == domain.KindAlarm {
 			seq, _ := r.store.NextSeq(ctx)
-			_ = r.qualify(ctx, rule, p.DeviceID, res, seq, now, "")
+			_ = r.qualify(ctx, rule, p.DeviceID, res, seq, now,
+				cause{Root: p.CausalRoot, Hop: p.CausalHop})
 		} else {
-			_, _ = r.acceptRun(ctx, rule, p.DeviceID, "", res, now, p.EvidenceSeq)
+			_, _ = r.acceptRun(ctx, rule, p.DeviceID, "", cause{Root: p.CausalRoot, Hop: p.CausalHop},
+				res, now, p.EvidenceSeq)
 		}
 		return "fired"
 	case domain.VerdictFalse:
@@ -157,7 +159,8 @@ func (r *Runtime) fireRecovery(ctx context.Context, rule *store.Rule, p *store.P
 		return "dropped"
 	}
 	seq, _ := r.store.NextSeq(ctx)
-	_ = r.clear(ctx, rule, ep, seq, now, res, "")
+	_ = r.clear(ctx, rule, ep, seq, now, res,
+		cause{Root: p.CausalRoot, Hop: p.CausalHop})
 	return "fired"
 }
 

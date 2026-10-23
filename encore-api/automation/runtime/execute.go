@@ -30,7 +30,7 @@ const (
 // acceptRun applies the run-mode contract and, when admitted, creates the run
 // with a frozen target snapshot.
 func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, triggerEventID string,
-	res domain.Result, now time.Time, seq int64) (*store.Run, error) {
+	c cause, res domain.Result, now time.Time, seq int64) (*store.Run, error) {
 
 	def := rule.Definition
 	scope := ScopeKey(&def, rule.ID, deviceID)
@@ -45,7 +45,7 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 	case domain.ModeSingle:
 		if active > 0 {
 			// Record the decision instead of silently dropping the trigger.
-			return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, res, now,
+			return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, c, res, now,
 				StatusIgnored, "mode_single_busy", "已有运行未结束，本次按 single 模式忽略")
 		}
 	case domain.ModeRestart:
@@ -65,7 +65,7 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 				maxDepth = def.Queue.MaxDepth
 			}
 			if depth >= maxDepth {
-				return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, res, now,
+				return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, c, res, now,
 					StatusRejected, "queue_overflow",
 					fmt.Sprintf("排队已满（%d），本次触发被拒绝", depth))
 			}
@@ -77,7 +77,7 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 			maxConcurrent = def.Parallel.MaxConcurrent
 		}
 		if active >= maxConcurrent {
-			return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, res, now,
+			return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, c, res, now,
 				StatusRejected, "parallel_limit",
 				fmt.Sprintf("并行上限 %d 已满，本次触发被拒绝", maxConcurrent))
 		}
@@ -90,7 +90,7 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 
 	targets, err := r.resolveTargets(ctx, rule, deviceID)
 	if err != nil {
-		return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, res, now,
+		return r.recordSkippedRun(ctx, rule, deviceID, scope, triggerEventID, c, res, now,
 			StatusRejected, "target_resolution_failed", err.Error())
 	}
 
@@ -116,6 +116,9 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 		Generation:     generation,
 		DeviceID:       deviceID,
 		TriggerEventID: triggerEventID,
+		CausalRoot:     c.Root,
+		CausalHop:      c.Hop,
+		CauseEventID:   c.EventID,
 		Status:         status,
 		Snapshot:       snapshot,
 		StartedAt:      now,
@@ -138,7 +141,7 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 }
 
 func (r *Runtime) recordSkippedRun(ctx context.Context, rule *store.Rule, deviceID, scope, triggerEventID string,
-	res domain.Result, now time.Time, status, reasonCode, reason string) (*store.Run, error) {
+	c cause, res domain.Result, now time.Time, status, reasonCode, reason string) (*store.Run, error) {
 
 	generation, _ := r.store.NextGeneration(ctx, scope)
 	snapshot, _ := json.Marshal(map[string]any{
@@ -149,6 +152,7 @@ func (r *Runtime) recordSkippedRun(ctx context.Context, rule *store.Rule, device
 		ID: NewID(), TenantID: rule.TenantID, RuleID: rule.ID, Revision: rule.Revision,
 		DefinitionHash: rule.DefinitionHash, ScopeKey: scope, Generation: generation,
 		DeviceID: deviceID, TriggerEventID: triggerEventID, Status: status,
+		CausalRoot: c.Root, CausalHop: c.Hop, CauseEventID: c.EventID,
 		ReasonCode: reasonCode, Reason: reason, Snapshot: snapshot, StartedAt: now,
 	}
 	if err := r.store.CreateRun(ctx, run); err != nil {

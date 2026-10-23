@@ -26,7 +26,7 @@ const (
 // abnormal sample updates that episode; it does not create a new alarm. An
 // unknown sample never clears an active alarm.
 func (r *Runtime) applyAlarmVerdict(ctx context.Context, rule *store.Rule, deviceID, scope string,
-	res domain.Result, seq int64, now time.Time, eventID string) error {
+	res domain.Result, seq int64, now time.Time, c cause) error {
 
 	def := rule.Definition
 	active, err := r.store.GetActiveEpisode(ctx, rule.TenantID, rule.ID, deviceID, "")
@@ -43,9 +43,9 @@ func (r *Runtime) applyAlarmVerdict(ctx context.Context, rule *store.Rule, devic
 		if def.Trigger.For.Std() > 0 {
 			return r.startPending(ctx, rule, deviceID, scope, domain.Sample{
 				DeviceID: deviceID, ObservedAt: now, Seq: seq,
-			}, seq, now)
+			}, c, seq, now)
 		}
-		return r.qualify(ctx, rule, deviceID, res, seq, now, eventID)
+		return r.qualify(ctx, rule, deviceID, res, seq, now, c)
 
 	case domain.VerdictFalse:
 		// The abnormal trigger no longer holds. That alone is not a recovery:
@@ -64,9 +64,9 @@ func (r *Runtime) applyAlarmVerdict(ctx context.Context, rule *store.Rule, devic
 		switch rec.Verdict {
 		case domain.VerdictTrue:
 			if def.Recovery.For.Std() > 0 {
-				return r.startRecoveryPending(ctx, rule, deviceID, scope, now, seq)
+				return r.startRecoveryPending(ctx, rule, deviceID, scope, now, seq, c)
 			}
-			return r.clear(ctx, rule, active, seq, now, rec, eventID)
+			return r.clear(ctx, rule, active, seq, now, rec, c)
 		case domain.VerdictFalse:
 			return r.transition(ctx, active, TransitionNoTransition, seq, rec,
 				"处于迟滞中性区：既未确认异常持续，也未满足恢复条件")
@@ -89,7 +89,7 @@ func (r *Runtime) applyAlarmVerdict(ctx context.Context, rule *store.Rule, devic
 }
 
 func (r *Runtime) qualify(ctx context.Context, rule *store.Rule, deviceID string, res domain.Result,
-	seq int64, now time.Time, eventID string) error {
+	seq int64, now time.Time, c cause) error {
 
 	ep := &store.Episode{
 		ID: NewID(), TenantID: rule.TenantID, PolicyID: rule.ID, SubjectID: deviceID,
@@ -105,22 +105,39 @@ func (r *Runtime) qualify(ctx context.Context, rule *store.Rule, deviceID string
 		}
 		return err
 	}
+	transitionID := NewID()
 	if _, err := r.store.AddTransition(ctx, nil, &store.Transition{
-		ID: NewID(), EpisodeID: ep.ID, TenantID: rule.TenantID, Kind: TransitionQualified,
+		ID: transitionID, EpisodeID: ep.ID, TenantID: rule.TenantID, Kind: TransitionQualified,
 		Seq: seq, Revision: rule.Revision, Epoch: ep.Epoch, Evidence: res,
 	}); err != nil {
 		return err
 	}
 	_ = r.store.ClearPending(ctx, ScopeKey(&rule.Definition, rule.ID, deviceID))
-	_, _ = r.store.PublishEvent(ctx, nil, NewID(), rule.TenantID, "alarm.qualified", ep.ID, map[string]any{
-		"episode_id": ep.ID, "policy_id": rule.ID, "device_id": deviceID,
-		"seq": seq, "revision": rule.Revision, "event_id": eventID,
-	})
+	_, _ = r.store.PublishEvent(ctx, nil, NewID(), rule.TenantID, "alarm.qualified", ep.ID,
+		alarmPayload(ep, rule, deviceID, seq, TransitionQualified, "active", transitionID, c))
 	return nil
 }
 
+// alarmPayload is the contract a linked rule consumes. It carries the stable
+// transition id (the dedupe key), the episode identity and the causal chain, so
+// an alarm-driven run can be traced back and stopped at the hop limit.
+func alarmPayload(ep *store.Episode, rule *store.Rule, deviceID string, seq int64,
+	kind, state, transitionID string, c cause) map[string]any {
+
+	root := c.Root
+	if root == "" {
+		root = transitionID
+	}
+	return map[string]any{
+		"transition_id": transitionID, "kind": kind, "state": state,
+		"episode_id": ep.ID, "policy_id": rule.ID, "device_id": deviceID,
+		"seq": seq, "revision": rule.Revision, "event_id": c.EventID,
+		"causal_root": root, "causal_hop": c.Hop,
+	}
+}
+
 func (r *Runtime) clear(ctx context.Context, rule *store.Rule, ep *store.Episode, seq int64,
-	now time.Time, res domain.Result, eventID string) error {
+	now time.Time, res domain.Result, c cause) error {
 
 	changed, err := r.store.ClearEpisode(ctx, ep.ID, seq)
 	if err != nil {
@@ -129,17 +146,16 @@ func (r *Runtime) clear(ctx context.Context, rule *store.Rule, ep *store.Episode
 	if !changed {
 		return nil
 	}
+	transitionID := NewID()
 	if _, err := r.store.AddTransition(ctx, nil, &store.Transition{
-		ID: NewID(), EpisodeID: ep.ID, TenantID: rule.TenantID, Kind: TransitionClear,
+		ID: transitionID, EpisodeID: ep.ID, TenantID: rule.TenantID, Kind: TransitionClear,
 		Seq: seq, Revision: rule.Revision, Epoch: ep.Epoch, Evidence: res,
 	}); err != nil {
 		return err
 	}
 	_ = r.store.ClearPending(ctx, ScopeKey(&rule.Definition, rule.ID, ep.SubjectID))
-	_, _ = r.store.PublishEvent(ctx, nil, NewID(), rule.TenantID, "alarm.cleared", ep.ID, map[string]any{
-		"episode_id": ep.ID, "policy_id": rule.ID, "device_id": ep.SubjectID,
-		"seq": seq, "revision": rule.Revision, "event_id": eventID,
-	})
+	_, _ = r.store.PublishEvent(ctx, nil, NewID(), rule.TenantID, "alarm.cleared", ep.ID,
+		alarmPayload(ep, rule, ep.SubjectID, seq, TransitionClear, "cleared", transitionID, c))
 	return nil
 }
 
@@ -155,7 +171,7 @@ func (r *Runtime) transition(ctx context.Context, ep *store.Episode, kind string
 }
 
 func (r *Runtime) startRecoveryPending(ctx context.Context, rule *store.Rule, deviceID, scope string,
-	now time.Time, seq int64) error {
+	now time.Time, seq int64, c cause) error {
 
 	recScope := scope + ":recovery"
 	p := &store.Pending{
@@ -163,6 +179,7 @@ func (r *Runtime) startRecoveryPending(ctx context.Context, rule *store.Rule, de
 		DeviceID: deviceID, StartedAt: now,
 		Deadline: now.Add(rule.Definition.Recovery.For.Std()),
 		LastEvidenceAt: now, EvidenceSeq: seq, RequireProcessedBefore: now,
+		CausalRoot: c.Root, CausalHop: c.Hop,
 	}
 	return r.store.UpsertPending(ctx, p)
 }
@@ -213,7 +230,11 @@ func (r *Runtime) performAlarm(ctx context.Context, run *store.Run, stepID strin
 		Code: "alarm_action_from_automation",
 		Message: "自动化按旧场景告警动作提交的授权事件型判定",
 	}}}
-	if err := r.qualify(ctx, policy, subject, res, seq, r.Now(), run.TriggerEventID); err != nil {
+	// The linked alarm inherits the run's chain so an alarm -> rule -> alarm
+	// loop is stopped at the hop limit instead of running forever.
+	if err := r.qualify(ctx, policy, subject, res, seq, r.Now(), cause{
+		Root: run.CausalRoot, Hop: run.CausalHop, EventID: run.TriggerEventID,
+	}); err != nil {
 		return stepFailed, err
 	}
 	detail, _ := json.Marshal(map[string]any{"policy_id": policy.ID, "subject": subject, "seq": seq})

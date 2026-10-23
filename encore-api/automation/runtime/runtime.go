@@ -18,6 +18,31 @@ import (
 // Clock is injectable so tests can drive virtual time.
 type Clock func() time.Time
 
+const (
+	// MaxCausalHop bounds an alarm-driven chain. Each alarm-triggered run adds
+	// one hop; a chain that reaches the limit is stopped and the reason is
+	// published, so "why did nothing happen" stays answerable.
+	MaxCausalHop = 8
+
+	// StatusCoalesce is how long a repeated online/offline report is treated as
+	// the same state. Devices re-announce online on every reconnect; without
+	// this window each announcement would start another run.
+	StatusCoalesce = 60 * time.Second
+)
+
+// cause carries the chain origin through the evaluation path so a run can be
+// traced back to the alarm transition that started it.
+type cause struct {
+	Root    string
+	Hop     int
+	EventID string
+}
+
+// causeOf reads the causal context off an inbox event.
+func causeOf(e *store.IngestEvent) cause {
+	return cause{Root: e.CausalRoot, Hop: e.CausalHop, EventID: e.EventID}
+}
+
 // Runtime wires the store and the outbound ports.
 type Runtime struct {
 	store *store.Store

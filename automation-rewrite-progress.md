@@ -219,49 +219,134 @@ GET  /v1/backlog                     GET  /v1/events
 | G7 | 通知核心未做真实联测 | 契约已按 `notification_source.go` 对齐，状态“待联测” | A15 |
 | G8 | 未做重启恢复的进程级演练 | `RecoverAfterRestart` + 持久 pending 已实现并有单元用例，缺 kill -9 演练 | A11 |
 | G9 | 性能预算表未填数字 | 只有 `Backlog` 观测口，缺压测数据 | A30/A31 |
+| G10 | 旧上行**尚未转发**到新入口 | 新入口已可用且已验证，但社区 MQTT 链路没加钩子；现在接会与旧引擎双写 | A33 切换时接线，见 6.6 |
 
 ---
 
-## 6. 本轮验证汇总
+## 6. A05 事件入口与交接可靠性（本轮新增，已完成到测试）
+
+### 6.1 输入分类（显式适配，不靠猜）
+
+入口：`POST /v1/ingress/uplink`，`class` 决定走哪个适配器。代码在 `automation/ingress/`。
+
+| class | 信号 | 语义 | 一条报文产出 |
+| --- | --- | --- | --- |
+| `telemetry` | `telemetry` | 持久样本，可被后续条件读取 | 每个 key 一条事件 |
+| `attribute` | `attribute` | 持久状态值，可回读 | 每个 key 一条事件 |
+| `event` | `event` | **瞬时**，只表示“这次发生了” | 一条，`value` 恒为 `true`，参数放 `params` |
+| `status` | `status` | 上下线，是状态迁移 | 一条，`key=online`，值归一成布尔 |
+| `alarm` | `alarm` | 告警生命周期迁移 | 一条，`key` 为迁移类型 |
+| `gateway_telemetry` / `gateway_attribute` / `gateway_event` | 同上 | 网关代传的子设备流量 | 同上，另记 `gateway_id` |
+
+两条硬规则：
+
+1. **解码与转换在适配器之前**。进来的值已经是物模型转换、单位换算后的结果，适配器不重新解释原始报文，也不让管道对同一份数据转换两次（对应 B02“转换阶段固定；不重复评估”）。
+2. **属性与瞬时事件不混用**。事件条件只在“本次样本”可证，绝不会被读成持续状态——这是旧实现把很久前一次事件当持续条件的问题。
+
+### 6.2 稳定事件 ID（重投不变）
+
+`ingress.StableID` 用 `sha256(各部分用 0x1f 连接)` 取前 16 字节。优先级：
+
+| 输入 | ID 来源 | 为什么 |
+| --- | --- | --- |
+| attribute / event | 主题里的 `message_id` 优先 | 同一消息重发即使 JSON 重排也能去重 |
+| telemetry | `(class, tenant, device, key, observed_at, value)` 内容哈希 | 同一读数重投去重，**不同时刻的同值仍算两条证据**（否则“持续 5 分钟”会断） |
+| status | `(tenant, device, value, observed_at)` | 真实迁移保持独立，重复上报由状态比对识别 |
+| alarm | 告警 owner 生成的 `transition_id` | 权威 ID，重投不重复启动同一联动动作 |
+
+接收时间**不参与** ID 计算，所以 broker 重投、relay 重试、进程重启都不会改变 ID。
+
+### 6.3 持久受理点、ACK、重放与保留窗口
+
+| 项 | 落点 | 说明 |
+| --- | --- | --- |
+| 持久受理点 | `auto_inbox`，`event_id` 主键 | 先落库再评估；崩溃只留可重放的行，不会静默丢样本 |
+| ACK 语义 | `processed_at` 置位 | 未置位 = 已受理未处理，`RecoverAfterRestart` 按 `seq` 顺序补处理 |
+| 重放 | `RecoverAfterRestart(limit)` | 幂等：第二次调用返回 0，不再产生运行 |
+| 保留窗口 | `auto_inbox` 按 `received_at` 建索引 | 清理策略属 A32，本轮只保证可查 |
+| 跨库原子性 | **不声称** | inbox 在自动化库，原始遥测在 TSDB，明确是“至少一次 + 幂等”而不是本地事务 |
+
+### 6.4 重复上报与因果链
+
+- **重复上线被识别**：`status` 信号在 `StatusCoalesce`（60s）内值未变时，仍然落库（它是真实报文），但跳过评估，并发布 `ingress.duplicate_state` 记录判定原因。设备每次重连都报一次 online，不这样处理会重复触发。
+- **因果链**：`auto_runs` / `auto_pending` / `auto_inbox` 都带 `causal_root` 与 `causal_hop`。告警迁移事件把发起运行的链信息带出去，联动规则继承并把跳数 +1。
+- **循环停止**：`runtime.MaxCausalHop = 8`。超限不执行，发布 `causal.hop_exceeded`，带 `causal_root`、`causal_hop`、`limit` 和原因，可查询。
+- 跳数在等待期间不丢：`for: 5m` 的规则把链信息写进 `auto_pending`，到点续跑仍算同一跳。
+
+### 6.5 本轮 A05 证据
+
+| 完成标准 | 证据（可复跑） |
+| --- | --- |
+| 每种输入都有样例 | `ingress_test.go` 18 个用例：telemetry/attribute/event/status/alarm/网关三类全覆盖 |
+| 重投证据 | `TestRedeliveredUplinkProducesOneRun`（同报文两次 → 1 次运行、1 条命令）；e2e 第 10 节真实 HTTP 重投 |
+| 重启证据 | `TestRestartRecoversUnprocessedReceiptsOnce`（先落库不处理 → 恢复补处理 → 二次恢复 0 条） |
+| 重复上线被识别 | `TestRepeatedOnlineIsRecognised`（10s 内重复 online 不新增运行；真实断开重连仍会动作） |
+| 属性与瞬时事件不混用 | `TestAttributeAndEventStayDistinct`（属性投影成值，事件投影成 `true`） |
+| 告警转换可触发联动 | `TestAlarmTransitionTriggersLinkedRule`（`tr-100` → 运行 `causal_root=tr-100, hop=1`） |
+| 同一转换重投不重复动作 | `TestAlarmTransitionRedeliveryIsIdempotent` |
+| 因果跳数受限且原因可查 | `TestCausalHopLimitStopsTheLoop`（超限 0 运行 + 1 条 `causal.hop_exceeded`） |
+
+### 6.6 尚未接线（如实登记，不假装完成）
+
+**旧上行还没有转发到新服务。** 现在新入口只由显式调用驱动，社区后端的 MQTT 上行链路没有加转发钩子。
+
+原因不是漏做，而是现在接上会**双写**：旧规则引擎仍在跑，同一个遥测会既走旧场景又走新规则，产生两次真实下发，正好违反 A05 的“旧、新路径不会同时产生真实副作用”。正确顺序是 A33 切换时：
+
+1. 先关旧引擎的规则执行（保留采集与转发）；
+2. 再把 uplink 的 `telemetry/attribute/event/status` 四类在转换之后转发到 `/v1/ingress/uplink`；
+3. 用 A01 台账逐条比对旧场景结果与新运行结果，一致后才删旧执行路径。
+
+这一步的接线点已定：`internal/uplink/*.go` 四个 handler 在写库之后、调旧 service 之前，是唯一需要改的位置。本轮不改它，避免把“未切换”变成“已双写”。
+
+---
+
+## 7. 本轮验证汇总
 
 ```bash
 cd encore-api
-encore check 'curl /v1/health'   # check: 1/1 commands succeeded（19 endpoints registered）
-encore test ./...                # automation ok / automation/domain ok
+encore check 'curl /v1/health'   # check: 1/1 commands succeeded（20 endpoints registered）
+encore test ./...                # domain ok / ingress ok / automation ok
 ```
 
-- `automation/domain`：30 个表驱动用例（9 比较符、四值判定、单位不匹配、事件参数、跨设备、校验门）。
-- `automation`：23 个 DB 集成用例（幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条）。
-- 端到端：25 项检查全通过。
+| 包 | 用例数 | 覆盖 |
+| --- | --- | --- |
+| `automation/domain` | 42 | 9 比较符、四值判定、单位不匹配、事件参数、跨设备、校验门 |
+| `automation/ingress` | 18 | 六类输入 + 网关三类、稳定 ID、重投、瞬时事件、状态归一、因果跳数 |
+| `automation`（DB 集成） | 30 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条 |
+| **合计** | **90** | 全部通过 |
+
+端到端：`encore_e2e.py` **33 项检查全通过**（第 10、11 节为本轮 A05 新增的真实 HTTP 适配器路径）。
 
 修复的真实缺陷（不是测试凑数）：
 
 1. 设备目录 `page_size=2000` 被后端拒绝（上限 1000），且端口把 `code!=200` 当空列表 → 目标解析静默变空。已改为分页 + 校验 `code`。
 2. `is_online` 是 0/1 数字而非布尔，按 bool 解析会整体失败。
 3. 标签字段缺失被当成“没有匹配设备”，改为显式 `label_not_exposed`。
+4. `auto_inbox` 原本不存因果链，重启恢复会**静默重置跳数**，让循环上限失效。已在迁移 `2_ingress_causal.up.sql` 补列，`UnprocessedEvents` 一并回读。
+5. 告警迁移事件原本不带 `transition_id`，下游只能靠内容哈希去重（弱）。现在带权威 ID + `causal_root`/`causal_hop`。
 
 ---
 
-## 7. 下一项可以开始的任务
+## 8. 下一项可以开始的任务
 
-按依赖顺序，下一步是 **A02 收尾 + A05/A06 起步**，两者可并行：
+A05 的入口与交接已经到“测试完成”。下一步按依赖选 **A06（条件组合与错误判定）**，因为它只依赖 A04+A05，且能直接消掉旧代码最危险的那个缺陷：
 
-1. **A02（页面与操作对照）**：核对前端仓库版本，产出六类页面的旧→新操作映射与截图证据。
+1. **A06（下一项）**：保留 9 个比较符、AND/OR、跨设备条件，补齐“两设备同名字段不同数值”与“缺测/读失败/非法数字/单位不兼容”的对照用例。
+   - 现状：评估器与四值判定已在 A04 落地，A06 要做的是把旧场景的每一种条件组合做成对照表，逐条与旧实现比对，并补 `unknown`/`error` 的可解释原因。
+2. **A02（并行）**：核对前端仓库版本，产出六类页面（全局场景联动、场景管理、设备自动化、设备告警、模板自动化、模板告警）的旧→新操作对照。
    - 入口：`/Users/junhong/Downloads/code/thingspanel-frontend-community`
-   - 交付：页面清单 + 每页操作对照 + 缺失能力清单。
-2. **A05（事件与消费者）**：把 `auto_events` 接到通知核心与外部消费者，补“告警事件 → 通知”的真实联测（当前 G7 待联测）。
-3. **A06（批量目标）**：与目录 owner 约定 `area` 成员关系、`label`、能力清单三个字段，消掉 G1/G2/G3。
-4. **A10（代际校验）**：在命令受理端接受 `X-Automation-Generation`，消掉 G4。
+3. **G7 通知联测**：`alarm.qualified/cleared` 事件契约已对齐 `notification_source.go`，但通知核心的真实联测还没做，仍是“待联测”。
+4. **A10（代际校验）**：命令受理端接受 `X-Automation-Generation`，消掉 G4。
 
-建议先做 A05，因为它能立刻把 G7 从“待联测”变成“已联测”，是本轮唯一还挂着的跨模块验收。
+不建议现在动 A33 的切换接线（6.6 节），因为旧引擎还在跑，接上就是双写。
 
 ---
 
-## 8. 六句话汇报
+## 9. 六句话汇报（本轮 = A05）
 
-1. **做了什么**：在 `48616009` 上开独立工作树，交付 `encore-api/`（Encore 唯一宿主，19 个接口、13 张表、单一评估器、持久运行、告警 episode、无副作用模拟、三个窄端口），并提交 `c72fdab6`。
-2. **原来什么还保留**：设备命令、通知、目录、物模型、接入、JWT 鉴权全部原样复用；旧场景的 9 个比较符、TEL/ATTR/CMD 动作、组间 OR 组内 AND 语义逐项对齐，没有新建第二套。
-3. **怎么证明做对**：`encore test ./...` 53 个用例全绿；`encore_e2e.py` 25 项检查全通过，其中旧库 `telemetry_set_logs` 回读到 `{"switch":1}`、`status=1`，证明新链路真的走了旧命令模块。
-4. **难点和性能结果**：难点是“未知不等于假”——旧代码在读不到值时直接恢复告警，新实现把 unknown/error 提为一等值并有专门用例守住；性能只到“有观测口”阶段（`/v1/backlog`），预算表数字尚未填。
-5. **还有什么没完成**：A02 六类页面证据、A05 通知真实联测、A06 目录三字段（区域/标签/能力）、A10 代际校验、A11 kill -9 演练、性能与迁移回退。
-6. **下一项怎样衔接**：先做 A05，把已实现的 `alarm.qualified/cleared` 事件接到通知核心并跑真实联测，把 G7 从“待联测”转为“已联测”；同时并行 A02 页面核对，为前端切换提供对照表。
+1. **做了什么**：新增 `automation/ingress` 显式适配层（六类输入 + 网关三类），新增 `POST /v1/ingress/uplink`，把稳定事件 ID、重复上线识别、因果链与跳数上限贯通到 `auto_inbox`/`auto_pending`/`auto_runs`，迁移 `2_ingress_causal.up.sql` 补 4 组列。
+2. **原来什么还保留**：命令、通知、目录、物模型、接入一行没改；旧 MQTT 主题分类（`devices/telemetry`、`devices/attributes/{id}`、`devices/event/{id}`、`devices/status/{id}`、`gateway/*`）与旧 `DeviceMessage` 形状原样映射，没有另造协议。
+3. **怎么证明做对**：`encore test ./...` **90 个用例全绿**（domain 42 / ingress 18 / DB 集成 30）；`encore_e2e.py` **33 项检查全通过**，其中第 10 节用真实 HTTP 重投证明“同报文两次 → 1 次运行、1 条命令、事件 ID 不变”，第 11 节证明网关与状态适配器可用、缺标识的事件被拒。
+4. **难点和性能结果**：难点是“同值不同时刻仍是两条证据”——ID 里必须带 `observed_at`，否则持续条件窗口会断；另一个难点是因果跳数要跨等待存活，最后落在 `auto_pending` 上。性能只到“有观测口”（`/v1/backlog`），预算数字仍未填。
+5. **还有什么没完成**：旧上行**尚未转发**到新服务（现在接会双写，属 A33 切换动作，接线点已定）；G7 通知核心真实联测；G1/G2/G3 目录三字段；G4 代际校验；A11 kill -9 演练；性能与迁移回退。
+6. **下一项怎样衔接**：A06 只依赖 A04+A05，已在手：把旧场景每一种条件组合做成对照表，逐条与旧实现比对，并给 `unknown`/`error` 补可解释原因；A02 页面核对可并行。
