@@ -145,7 +145,8 @@ func (r *Runtime) fireRecovery(ctx context.Context, rule *store.Rule, p *store.P
 		return "dropped"
 	}
 	res := domain.Evaluate(*rule.Definition.Recovery, domain.EvalContext{
-		Now: now, SelfDeviceID: p.DeviceID, Lookup: r.lookup(ctx),
+		Now: now, SelfDeviceID: p.DeviceID,
+		MaxAge: rule.Definition.Freshness.MaxAge.Std(), Lookup: r.lookup(ctx),
 	})
 	_ = r.store.ClearPending(ctx, p.ScopeKey)
 	if res.Verdict != domain.VerdictTrue {

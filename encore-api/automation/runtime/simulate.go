@@ -77,9 +77,9 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 	sort.SliceStable(parsed, func(i, j int) bool { return parsed[i].at.Before(parsed[j].at) })
 
 	state := map[string]domain.Sample{}
-	lookup := func(deviceID string, signal domain.SignalKind, key string) (domain.Sample, bool) {
+	lookup := func(deviceID string, signal domain.SignalKind, key string) (domain.Sample, bool, error) {
 		s, ok := state[stateKey(deviceID, signal, key)]
-		return s, ok
+		return s, ok, nil
 	}
 
 	res := &SimResult{

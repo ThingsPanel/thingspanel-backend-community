@@ -10,14 +10,22 @@ func sample(device, key string, v any, at time.Time) Sample {
 		Unit: "℃", Quality: QualityGood, ObservedAt: at}
 }
 
-func lookupOf(samples ...Sample) func(string, SignalKind, string) (Sample, bool) {
+func lookupOf(samples ...Sample) func(string, SignalKind, string) (Sample, bool, error) {
 	m := map[string]Sample{}
 	for _, s := range samples {
 		m[s.DeviceID+"|"+string(s.Signal)+"|"+s.Key] = s
 	}
-	return func(deviceID string, sig SignalKind, key string) (Sample, bool) {
+	return func(deviceID string, sig SignalKind, key string) (Sample, bool, error) {
 		s, ok := m[deviceID+"|"+string(sig)+"|"+key]
-		return s, ok
+		return s, ok, nil
+	}
+}
+
+// failingLookup simulates a storage failure, which must surface as "error" and
+// never be downgraded to "no data" or "false".
+func failingLookup(err error) func(string, SignalKind, string) (Sample, bool, error) {
+	return func(string, SignalKind, string) (Sample, bool, error) {
+		return Sample{}, false, err
 	}
 }
 

@@ -23,6 +23,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 COMMUNITY_TOKEN: str | None = None
 AUTOMATION_TOKEN = "e2e-user:unset:tenant_admin:*"
@@ -338,9 +339,13 @@ def main() -> int:
     a05_rule_id = a05_rule.get("id")
     check("A05 rule created", bool(a05_rule_id), json.dumps(a05_rule, ensure_ascii=False)[:300])
 
+    # The device clock is two hours behind, which is beyond the rule's max_age.
+    # The sample being evaluated is still current evidence by construction, so
+    # the rule must fire; a stored value of that age would not.
+    behind = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
     uplink = {
         "class": "telemetry", "device_id": device_id,
-        "observed_at": "2026-10-23T10:00:00Z",
+        "observed_at": behind,
         "values": json.dumps({"pressure": 12.5}), "source": "e2e-relay",
     }
     first_up = automation("/v1/ingress/uplink", "POST", uplink)

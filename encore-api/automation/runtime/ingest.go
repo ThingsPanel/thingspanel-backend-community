@@ -117,6 +117,7 @@ func (r *Runtime) EvaluateSample(ctx context.Context, rule *store.Rule, deviceID
 		Now:          now,
 		SelfDeviceID: deviceID,
 		Trigger:      trigger,
+		MaxAge:       rule.Definition.Freshness.MaxAge.Std(),
 		Lookup:       r.lookup(ctx),
 	})
 }

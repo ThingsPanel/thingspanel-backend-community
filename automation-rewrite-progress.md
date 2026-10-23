@@ -223,7 +223,7 @@ GET  /v1/backlog                     GET  /v1/events
 
 ---
 
-## 6. A05 事件入口与交接可靠性（本轮新增，已完成到测试）
+## 6. A05 事件入口与交接可靠性（已完成到测试）
 
 ### 6.1 输入分类（显式适配，不靠猜）
 
@@ -300,7 +300,60 @@ GET  /v1/backlog                     GET  /v1/events
 
 ---
 
-## 7. 本轮验证汇总
+## 7. A06 条件组合与错误判定（已完成到测试）
+
+### 7.1 旧条件面完整保留
+
+| 旧能力 | 现状 | 证据 |
+| --- | --- | --- |
+| 9 个比较符（`=` `!=` `>` `<` `>=` `<=` `between` `in` `exists`） | 全部保留，语义逐条对齐 | `TestAllLegacyOperators` 16 行对照（含边界值） |
+| 组间 OR / 组内 AND | 保留，并记录每组判定 | `TestGroupSemantics` |
+| 指定设备 / 跨设备条件 | 保留，按 `device_id` 精确取数 | `TestCrossDeviceReadsTheNamedDevice`、`TestTwoDevicesSameFieldDifferentValues` |
+| 事件参数匹配 | 保留，事件条件只在触发时刻可证 | `TestEventConditionIsOnlyCurrentAtTriggerTime` |
+
+### 7.2 四值判定补强（本轮实际改动）
+
+以前只有 `no_data` / `quality_unknown` / `unit_mismatch` / `invalid_compare` 四种原因，且**存储读取失败会被折叠成“没有数据”**。现在：
+
+| 情况 | 判定 | 原因码 | 为什么重要 |
+| --- | --- | --- | --- |
+| 存储读取失败 | `error` | `read_error` | “数据库拒绝”和“设备从未上报”要分开，否则排障方向全错 |
+| 数据早于 `max_age` | `unknown` | `stale_evidence` | 陈旧值既不能当 `true`（会误动作），也不能当 `false`（会误恢复） |
+| 实际值不是数字 | `error` | `invalid_number` | 区分“数据坏了”与“条件不成立” |
+| 阈值写错 | `error` | `invalid_threshold` | 配置错误要报出来，不能静默 `false` |
+| `between` 格式错 | `error` | `invalid_range` | 同上 |
+| 单位不一致 | `error` | `unit_mismatch` | 原来就有，补了原因码断言 |
+
+关键语义：**触发样本本身永远算当前证据**。设备时钟落后 2 小时是现场常见问题，如果按存储时间判新鲜度，这类设备会永远“数据过期”。规则是：
+
+- 触发样本与条件同设备同信号同 key，且不早于存储值 → 用触发样本，跳过 `max_age`；
+- 存储值严格更新（乱序到达）→ 用存储值，避免迟到的旧样本覆盖当前判断。
+
+这个取舍有专门用例：`TestTriggeringSampleIsExemptFromMaxAge`。
+
+### 7.3 本轮 A06 证据
+
+| 完成标准 | 证据 |
+| --- | --- |
+| 两设备同名字段不同数值判断准确 | `TestCrossDeviceReadsTheNamedDevice`（域层）+ `TestTwoDevicesSameFieldDifferentValues`（DB 层，dev1 热 dev2 冷 → 不动作；dev2 变热 → 动作） |
+| 所有旧有效比较符与分组有对照用例 | `TestAllLegacyOperators` 16 行 + `TestGroupSemantics` + `TestErrorInOneGroupIsNotMaskedByTrueInAnother` |
+| 缺测可解释 | `TestMissingDataIsUnknownNotFalse`（`no_data`） |
+| 数据读取失败可解释 | `TestReadFailureIsErrorNotMissingData`（`read_error`，不是 `no_data`） |
+| 非法数字可解释 | `TestNonNumericValueIsClassified`、`TestMalformedThresholdIsClassified` |
+| 单位不兼容可解释 | `TestUnitMismatchReportsItsReasonCode` |
+| 不落入正常恢复 | `TestStaleRecoveryEvidenceDoesNotClearAlarm`（DB 层：恢复条件读的是 1 小时前的值 → 告警保持 active，迁移表记 `unknown`） |
+| 不落入默认 true | `TestPendingExpiresInsteadOfFiringOnStaleEvidence`（到点但证据过期 → 0 运行 0 命令 + 1 条 `pending.expired`） |
+
+### 7.4 仍未解决
+
+| 编号 | 差异 | 说明 |
+| --- | --- | --- |
+| G11 | 输入键**不含模型版本** | `auto_state` 主键是 `(device_id, signal, key)`。设备物模型换版后，旧值仍按同一 key 命中。要修需目录/物模型 owner 提供版本号，属跨模块。本轮不造假：宁可保持现状并登记，也不编一个本地版本号 |
+| G12 | 恢复条件读的是**存储值**，可能是别的设备 | 这是设计使然（恢复条件可引用其他设备），但意味着“恢复证据的新鲜度”取决于那个设备自己的上报节奏。已在 `max_age` 里体现，不做额外假设 |
+
+---
+
+## 8. 本轮验证汇总
 
 ```bash
 cd encore-api
@@ -310,10 +363,10 @@ encore test ./...                # domain ok / ingress ok / automation ok
 
 | 包 | 用例数 | 覆盖 |
 | --- | --- | --- |
-| `automation/domain` | 42 | 9 比较符、四值判定、单位不匹配、事件参数、跨设备、校验门 |
+| `automation/domain` | 72 | 9 比较符、四值判定、单位不匹配、事件参数、跨设备、校验门、A06 对照 30 条 |
 | `automation/ingress` | 18 | 六类输入 + 网关三类、稳定 ID、重投、瞬时事件、状态归一、因果跳数 |
-| `automation`（DB 集成） | 30 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条 |
-| **合计** | **90** | 全部通过 |
+| `automation`（DB 集成） | 33 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条、A06 三条 |
+| **合计** | **123** | 全部通过 |
 
 端到端：`encore_e2e.py` **33 项检查全通过**（第 10、11 节为本轮 A05 新增的真实 HTTP 适配器路径）。
 
@@ -324,15 +377,19 @@ encore test ./...                # domain ok / ingress ok / automation ok
 3. 标签字段缺失被当成“没有匹配设备”，改为显式 `label_not_exposed`。
 4. `auto_inbox` 原本不存因果链，重启恢复会**静默重置跳数**，让循环上限失效。已在迁移 `2_ingress_causal.up.sql` 补列，`UnprocessedEvents` 一并回读。
 5. 告警迁移事件原本不带 `transition_id`，下游只能靠内容哈希去重（弱）。现在带权威 ID + `causal_root`/`causal_hop`。
+6. `lookup` 把存储错误当成“没有数据”返回，导致数据库故障与设备静默不可区分。现在错误上抛为 `error`，缺测为 `unknown`。
+7. 陈旧值原本仍被当作当前证据：恢复条件可以拿 1 小时前的读数清掉活动告警。现在按 `max_age` 判为 `unknown`，并记录 `stale_evidence`。
+8. 触发样本一度被误判为“读到的旧值”而判过期（设备时钟滞后场景）。现在触发样本在同信号同 key 且不早于存储值时优先，既有用例守住。
 
 ---
 
-## 8. 下一项可以开始的任务
+## 9. 下一项可以开始的任务
 
-A05 的入口与交接已经到“测试完成”。下一步按依赖选 **A06（条件组合与错误判定）**，因为它只依赖 A04+A05，且能直接消掉旧代码最危险的那个缺陷：
+A06 已到“测试完成”。按依赖选 **A07（单次与周期定时的可靠执行）**，它只依赖 A04+A05，且是“场景定时”这一类旧功能的直接替代：
 
-1. **A06（下一项）**：保留 9 个比较符、AND/OR、跨设备条件，补齐“两设备同名字段不同数值”与“缺测/读失败/非法数字/单位不兼容”的对照用例。
-   - 现状：评估器与四值判定已在 A04 落地，A06 要做的是把旧场景的每一种条件组合做成对照表，逐条与旧实现比对，并补 `unknown`/`error` 的可解释原因。
+1. **A07（下一项）**：单次定时（指定时刻执行一次）与周期定时（cron 风格），要求进程重启后不丢、不重复、错过窗口有明确处理。
+   - 现状：`auto_run_timers` 已提供持久 `wait` 续跑，`auto_pending` 提供“持续 N 秒”，但**还没有独立的定时触发器**（按时刻/按周期启动规则，而不是等数据）。
+   - 要做：`auto_schedules` 表 + 到期扫描 + 与 `acceptRun` 的幂等衔接（同一时刻只执行一次，重启后不补跑或按策略补跑，需明确）。
 2. **A02（并行）**：核对前端仓库版本，产出六类页面（全局场景联动、场景管理、设备自动化、设备告警、模板自动化、模板告警）的旧→新操作对照。
    - 入口：`/Users/junhong/Downloads/code/thingspanel-frontend-community`
 3. **G7 通知联测**：`alarm.qualified/cleared` 事件契约已对齐 `notification_source.go`，但通知核心的真实联测还没做，仍是“待联测”。
@@ -342,11 +399,11 @@ A05 的入口与交接已经到“测试完成”。下一步按依赖选 **A06�
 
 ---
 
-## 9. 六句话汇报（本轮 = A05）
+## 10. 六句话汇报（本轮 = A06）
 
-1. **做了什么**：新增 `automation/ingress` 显式适配层（六类输入 + 网关三类），新增 `POST /v1/ingress/uplink`，把稳定事件 ID、重复上线识别、因果链与跳数上限贯通到 `auto_inbox`/`auto_pending`/`auto_runs`，迁移 `2_ingress_causal.up.sql` 补 4 组列。
-2. **原来什么还保留**：命令、通知、目录、物模型、接入一行没改；旧 MQTT 主题分类（`devices/telemetry`、`devices/attributes/{id}`、`devices/event/{id}`、`devices/status/{id}`、`gateway/*`）与旧 `DeviceMessage` 形状原样映射，没有另造协议。
-3. **怎么证明做对**：`encore test ./...` **90 个用例全绿**（domain 42 / ingress 18 / DB 集成 30）；`encore_e2e.py` **33 项检查全通过**，其中第 10 节用真实 HTTP 重投证明“同报文两次 → 1 次运行、1 条命令、事件 ID 不变”，第 11 节证明网关与状态适配器可用、缺标识的事件被拒。
-4. **难点和性能结果**：难点是“同值不同时刻仍是两条证据”——ID 里必须带 `observed_at`，否则持续条件窗口会断；另一个难点是因果跳数要跨等待存活，最后落在 `auto_pending` 上。性能只到“有观测口”（`/v1/backlog`），预算数字仍未填。
-5. **还有什么没完成**：旧上行**尚未转发**到新服务（现在接会双写，属 A33 切换动作，接线点已定）；G7 通知核心真实联测；G1/G2/G3 目录三字段；G4 代际校验；A11 kill -9 演练；性能与迁移回退。
-6. **下一项怎样衔接**：A06 只依赖 A04+A05，已在手：把旧场景每一种条件组合做成对照表，逐条与旧实现比对，并给 `unknown`/`error` 补可解释原因；A02 页面核对可并行。
+1. **做了什么**：给四值判定补了 5 个可解释原因码（`read_error` / `stale_evidence` / `invalid_number` / `invalid_threshold` / `invalid_range`），让存储读取失败不再被折叠成“没有数据”，让陈旧值不再被当成当前证据；新增 A06 对照用例 30 条（域层）+ 3 条（DB 层）。
+2. **原来什么还保留**：9 个比较符、组间 OR 组内 AND、指定设备与跨设备条件、事件参数匹配全部原样；旧条件类型码与动作类型码没有改动。
+3. **怎么证明做对**：`encore test ./...` **123 个用例全绿**（domain 72 / ingress 18 / DB 集成 33）；`encore_e2e.py` **33 项检查全通过**。最能说明问题的一条：`TestStaleRecoveryEvidenceDoesNotClearAlarm`——恢复条件读到 1 小时前的值，告警保持 active，迁移表记 `unknown`，旧实现会在这里直接恢复。
+4. **难点和性能结果**：难点是“新鲜度该按谁的时间算”。按存储时间算，时钟滞后的设备会永远过期；不判新鲜度，静默设备会一直“满足条件”。最后定为：触发样本在同信号同 key 且不早于存储值时优先，其余一律受 `max_age` 约束。性能上每次条件求值多一次 `LatestState` 点查（主键命中），分支条件多一次修订读取（每运行一次），都未做压测。
+5. **还有什么没完成**：G11 输入键不含模型版本（需物模型 owner 给版本号）；G7 通知真实联测；G1/G2/G3 目录三字段；G4 代际校验；旧上行仍未接线（A33）；A11 kill -9 演练；性能预算与迁移回退。
+6. **下一项怎样衔接**：A07 只依赖 A04+A05，直接复用本轮的 `auto_pending`/`auto_run_timers` 与 `acceptRun` 幂等路径，新增 `auto_schedules` 与到期扫描即可；A02 页面核对可并行。

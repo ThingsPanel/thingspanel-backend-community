@@ -8,6 +8,7 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -331,7 +332,19 @@ type Reason struct {
 	Key      string `json:"key,omitempty"`
 	Expected string `json:"expected,omitempty"`
 	Actual   string `json:"actual,omitempty"`
+	// Age is the timestamp of the evidence a staleness decision was based on.
+	Age string `json:"age,omitempty"`
 }
+
+// CompareError classifies why a comparison could not be performed, so an
+// explain view can say "the value is not a number" instead of a generic
+// "invalid comparison". Every branch that can fail returns one.
+type CompareError struct {
+	Code string
+	Msg  string
+}
+
+func (e *CompareError) Error() string { return e.Msg }
 
 // LeafResult is the outcome of one condition.
 type LeafResult struct {
@@ -358,10 +371,19 @@ type Result struct {
 // latest stored state for a (device, signal, key); Trigger is the sample that
 // woke the evaluator (nil when running from a timer).
 type EvalContext struct {
-	Now     time.Time
+	Now          time.Time
 	SelfDeviceID string
-	Trigger *Sample
-	Lookup  func(deviceID string, signal SignalKind, key string) (Sample, bool)
+	Trigger      *Sample
+
+	// MaxAge bounds how old a stored value may be and still count as evidence.
+	// A value older than this is "unknown", never "false": a device that went
+	// silent two hours ago must not clear an active alarm by timing out.
+	MaxAge time.Duration
+
+	// Lookup reads the latest stored sample. The error return exists so a
+	// storage failure can be reported as "error" instead of being silently
+	// downgraded to "no data" — the two mean different things to an operator.
+	Lookup func(deviceID string, signal SignalKind, key string) (Sample, bool, error)
 }
 
 // Evaluate runs the trigger against the context.
@@ -450,24 +472,49 @@ func evaluateLeaf(c Condition, ctx EvalContext) LeafResult {
 		return compareLeaf(c, *ctx.Trigger, ctx.Now)
 	}
 
-	sample, ok := ctx.Lookup(deviceID, c.Signal, c.Key)
-	if !ok {
-		// A triggering sample for the same device/key is still usable even if
-		// the state store has not caught up yet.
-		if ctx.Trigger != nil && ctx.Trigger.DeviceID == deviceID &&
-			ctx.Trigger.Key == c.Key && ctx.Trigger.Signal == c.Signal {
-			sample, ok = *ctx.Trigger, true
-		} else {
-			return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
-				Code: "no_data", DeviceID: deviceID, Key: c.Key,
-				Message: "没有该设备该指标的数据，结果不确定",
-			}}}
-		}
+	sample, ok, err := ctx.Lookup(deviceID, c.Signal, c.Key)
+	if err != nil {
+		return LeafResult{Verdict: VerdictError, Reasons: []Reason{{
+			Code: "read_error", DeviceID: deviceID, Key: c.Key,
+			Message: "读取设备数据失败：" + err.Error(),
+		}}}
+	}
+
+	// The sample being evaluated is the freshest evidence for its own signal:
+	// it is the message that arrived just now. Prefer it over the stored value
+	// when it is at least as new, so a device with a lagging clock is not
+	// mistaken for a device that went silent.
+	//
+	// When the stored value is strictly newer (an out-of-order delivery), the
+	// stored value wins — otherwise a late-arriving old sample would overwrite
+	// the judgement about the current state.
+	fromTrigger := false
+	if t := ctx.Trigger; t != nil && t.DeviceID == deviceID &&
+		t.Key == c.Key && t.Signal == c.Signal &&
+		(!ok || !t.ObservedAt.Before(sample.ObservedAt)) {
+		sample, fromTrigger = *t, true
+	}
+	if !ok && !fromTrigger {
+		return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
+			Code: "no_data", DeviceID: deviceID, Key: c.Key,
+			Message: "没有该设备该指标的数据，结果不确定",
+		}}}
 	}
 	if sample.Quality == QualityUnknown {
 		return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
 			Code: "quality_unknown", DeviceID: deviceID, Key: c.Key,
 			Message: "数据质量标记为未知，结果不确定",
+		}}}
+	}
+	// Freshness applies to values read from storage. The triggering sample is
+	// the current evidence by construction, so it is exempt.
+	if !fromTrigger && ctx.MaxAge > 0 && !sample.ObservedAt.IsZero() &&
+		ctx.Now.Sub(sample.ObservedAt) > ctx.MaxAge {
+		return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
+			Code: "stale_evidence", DeviceID: deviceID, Key: c.Key,
+			Age: sample.ObservedAt.Format(time.RFC3339),
+			Message: fmt.Sprintf("数据已过期（最后更新 %s，超过 max_age %s），结果不确定",
+				sample.ObservedAt.Format(time.RFC3339), ctx.MaxAge),
 		}}}
 	}
 	return compareLeaf(c, sample, ctx.Now)
@@ -490,8 +537,13 @@ func compareLeaf(c Condition, s Sample, now time.Time) LeafResult {
 
 	ok, err := compareValues(c.Operator, c.Value, s.Value)
 	if err != nil {
+		code := "invalid_compare"
+		var ce *CompareError
+		if errors.As(err, &ce) {
+			code = ce.Code
+		}
 		return LeafResult{Verdict: VerdictError, Reasons: []Reason{{
-			Code: "invalid_compare", DeviceID: s.DeviceID, Key: c.Key,
+			Code: code, DeviceID: s.DeviceID, Key: c.Key,
 			Expected: c.Operator + " " + c.Value, Actual: fmt.Sprint(s.Value),
 			Message: err.Error(),
 		}}}
@@ -521,8 +573,13 @@ func matchEventParams(c Condition, s Sample) LeafResult {
 		}
 		matched, err := compareValues(f.Operator, f.Value, actual)
 		if err != nil {
+			code := "invalid_compare"
+			var ce *CompareError
+			if errors.As(err, &ce) {
+				code = ce.Code
+			}
 			return LeafResult{Verdict: VerdictError, Reasons: []Reason{{
-				Code: "invalid_compare", DeviceID: s.DeviceID, Key: f.Path, Message: err.Error(),
+				Code: code, DeviceID: s.DeviceID, Key: f.Path, Message: err.Error(),
 			}}}
 		}
 		if !matched {
@@ -594,16 +651,19 @@ func compareValues(op, expected string, actual any) (bool, error) {
 	case OpBetween:
 		parts := strings.Split(expected, "-")
 		if len(parts) != 2 {
-			return false, fmt.Errorf("between 需要 min-max 形式，实际为 %q", expected)
+			return false, &CompareError{Code: "invalid_range",
+				Msg: fmt.Sprintf("between 需要 min-max 形式，实际为 %q", expected)}
 		}
 		lo, err1 := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
 		hi, err2 := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
 		if err1 != nil || err2 != nil {
-			return false, fmt.Errorf("between 边界不是数字: %q", expected)
+			return false, &CompareError{Code: "invalid_threshold",
+				Msg: fmt.Sprintf("between 边界不是数字: %q", expected)}
 		}
 		n, ok := toFloat(actual)
 		if !ok {
-			return false, fmt.Errorf("实际值 %v 不是数字", actual)
+			return false, &CompareError{Code: "invalid_number",
+				Msg: fmt.Sprintf("实际值 %v 不是数字", actual)}
 		}
 		return n >= lo && n <= hi, nil
 	case OpEq, OpNeq:
@@ -615,11 +675,13 @@ func compareValues(op, expected string, actual any) (bool, error) {
 	case OpGt, OpLt, OpGte, OpLte:
 		n, ok := toFloat(actual)
 		if !ok {
-			return false, fmt.Errorf("实际值 %v 不是数字，无法做大小比较", actual)
+			return false, &CompareError{Code: "invalid_number",
+				Msg: fmt.Sprintf("实际值 %v 不是数字，无法做大小比较", actual)}
 		}
 		want, err := strconv.ParseFloat(strings.TrimSpace(expected), 64)
 		if err != nil {
-			return false, fmt.Errorf("阈值 %q 不是数字", expected)
+			return false, &CompareError{Code: "invalid_threshold",
+				Msg: fmt.Sprintf("阈值 %q 不是数字", expected)}
 		}
 		switch op {
 		case OpGt:
@@ -632,7 +694,8 @@ func compareValues(op, expected string, actual any) (bool, error) {
 			return n <= want, nil
 		}
 	default:
-		return false, fmt.Errorf("不支持的比较符 %q", op)
+		return false, &CompareError{Code: "bad_operator",
+			Msg: fmt.Sprintf("不支持的比较符 %q", op)}
 	}
 }
 

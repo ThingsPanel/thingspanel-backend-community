@@ -167,12 +167,21 @@ func checkFreshness(s domain.Sample, now time.Time, f domain.Freshness) Freshnes
 }
 
 // lookupFunc adapts the store to the evaluator's Lookup signature.
-func (r *Runtime) lookup(ctx context.Context) func(string, domain.SignalKind, string) (domain.Sample, bool) {
-	return func(deviceID string, signal domain.SignalKind, key string) (domain.Sample, bool) {
+// lookup reads the latest stored sample for a condition.
+//
+// The storage error is passed through instead of being folded into "not found":
+// "the database refused" and "the device never reported" lead an operator to
+// completely different actions, and the evaluator reports them as different
+// verdicts (error vs unknown).
+func (r *Runtime) lookup(ctx context.Context) func(string, domain.SignalKind, string) (domain.Sample, bool, error) {
+	return func(deviceID string, signal domain.SignalKind, key string) (domain.Sample, bool, error) {
 		s, ok, err := r.store.LatestState(ctx, deviceID, signal, key)
-		if err != nil || !ok {
-			return domain.Sample{}, false
+		if err != nil {
+			return domain.Sample{}, false, err
 		}
-		return s, true
+		if !ok {
+			return domain.Sample{}, false, nil
+		}
+		return s, true, nil
 	}
 }
