@@ -205,18 +205,74 @@ func (s *Store) GetRuleRevision(ctx context.Context, ruleID string, revision int
 }
 
 // ListRules returns the tenant's rules, optionally filtered by kind.
-func (s *Store) ListRules(ctx context.Context, tenantID string, kind string, limit, offset int) ([]*Rule, error) {
+// RuleFilter narrows a rule listing.
+//
+// The old UI never showed "all rules of the tenant": every entry point was a
+// context — a device, a device template, an alarm tab, a name search. A listing
+// that can only filter by kind turns those four tabs into a full-tenant dump,
+// which is why these filters live in the store and not in the caller.
+type RuleFilter struct {
+	Kind string
+	// DeviceID matches rules that act on the device or whose conditions watch it.
+	DeviceID string
+	// DeviceConfigID matches rules scoped to a template (template tabs).
+	DeviceConfigID string
+	// Name is a case-insensitive substring match.
+	Name string
+	// Enabled is nil for "any".
+	Enabled *bool
+	// HasAlarmStep matches rules whose program contains an alarm step. The old
+	// "告警规则" tab was exactly this: automations with an alarm action, not a
+	// separate object type.
+	HasAlarmStep bool
+	Limit        int
+	Offset       int
+}
+
+func (s *Store) ListRules(ctx context.Context, tenantID string, f RuleFilter) ([]*Rule, error) {
+	limit := f.Limit
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
 	q := `SELECT ` + ruleColumns + ` FROM auto_rules
 	       WHERE tenant_id=$1 AND deleted_at IS NULL`
 	args := []any{tenantID}
-	if kind != "" {
-		q += ` AND kind=$2`
-		args = append(args, kind)
+	add := func(cond string, val any) {
+		args = append(args, val)
+		q += fmt.Sprintf(` AND `+cond, len(args))
 	}
-	q += fmt.Sprintf(` ORDER BY created_at DESC LIMIT %d OFFSET %d`, limit, offset)
+	if f.Kind != "" {
+		add(`kind=$%d`, f.Kind)
+	}
+	if f.Name != "" {
+		add(`name ILIKE '%%' || $%d || '%%'`, f.Name)
+	}
+	if f.Enabled != nil {
+		add(`enabled=$%d`, *f.Enabled)
+	}
+	if f.DeviceID != "" {
+		// A rule belongs to a device when it targets it or watches it. Both
+		// halves are needed: a device automation usually watches the device and
+		// acts on it, but a scene can act without watching.
+		add(`(
+            definition->'targets'->'device_ids' @> to_jsonb($%[1]d::text)
+            OR EXISTS (
+                SELECT 1
+                  FROM jsonb_array_elements(coalesce(definition->'trigger'->'groups','[]'::jsonb)) g,
+                       jsonb_array_elements(coalesce(g->'conditions','[]'::jsonb)) c
+                 WHERE c->>'device_id' = $%[1]d
+            )
+        )`, f.DeviceID)
+	}
+	if f.DeviceConfigID != "" {
+		add(`definition->'targets'->'device_config_ids' @> to_jsonb($%[1]d::text)`,
+			f.DeviceConfigID)
+	}
+	if f.HasAlarmStep {
+		// Recursive descent so an alarm step nested inside a branch still counts.
+		q += ` AND jsonb_path_exists(definition, '$.**.kind ? (@ == "alarm")')`
+	}
+	q += fmt.Sprintf(` ORDER BY created_at DESC LIMIT %d OFFSET %d`, limit, f.Offset)
 
 	rows, err := s.DB.QueryContext(ctx, q, args...)
 	if err != nil {

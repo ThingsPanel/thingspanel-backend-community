@@ -36,6 +36,11 @@ type cause struct {
 	Root    string
 	Hop     int
 	EventID string
+	// Manual marks a run started by an explicit user action ("激活" on a scene)
+	// instead of an evaluated trigger. It travels into the run snapshot so the
+	// detail view can say "手动执行" instead of inferring it from an empty
+	// trigger_event_id — an empty id is also what a timer-driven run looks like.
+	Manual bool
 }
 
 // causeOf reads the causal context off an inbox event.

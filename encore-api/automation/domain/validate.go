@@ -55,8 +55,15 @@ func Validate(d *Definition) error {
 		add("scope", "unsupported_scope", "不支持的作用范围: "+string(d.Scope))
 	}
 
+	// A manual scene has no trigger: the user presses "激活" and the steps run.
+	// The old scene object worked exactly like that (no enable switch, no
+	// condition). Forcing a condition on it would make the author invent one and
+	// would change the meaning of an existing scene, so the requirement is
+	// relaxed for kind=scene only — and only there.
 	if len(d.Trigger.Groups) == 0 {
-		add("trigger.groups", "empty_trigger", "至少需要一组触发条件")
+		if d.Kind != KindScene {
+			add("trigger.groups", "empty_trigger", "至少需要一组触发条件")
+		}
 	}
 	for gi, g := range d.Trigger.Groups {
 		if len(g.Conditions) == 0 {

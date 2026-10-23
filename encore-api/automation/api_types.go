@@ -51,10 +51,27 @@ type RuleResponse struct {
 }
 
 // ListRulesRequest filters the tenant's rules.
+//
+// Every field mirrors an entry point the old UI already had: the device and
+// template tabs pass their own id, the alarm tab passes has_alarm_step, and the
+// search box passes name. Without them those four tabs would show the whole
+// tenant instead of their own context.
 type ListRulesRequest struct {
-	Kind   string `json:"kind" query:"kind"`
-	Limit  int    `json:"limit" query:"limit"`
-	Offset int    `json:"offset" query:"offset"`
+	Kind           string `json:"kind" query:"kind"`
+	DeviceID       string `json:"device_id" query:"device_id"`
+	DeviceConfigID string `json:"device_config_id" query:"device_config_id"`
+	Name           string `json:"name" query:"name"`
+	Enabled        string `json:"enabled" query:"enabled"`
+	HasAlarmStep   bool   `json:"has_alarm_step" query:"has_alarm_step"`
+	Limit          int    `json:"limit" query:"limit"`
+	Offset         int    `json:"offset" query:"offset"`
+}
+
+// RunRuleRequest names the subject for a manual run. It is optional: a
+// rule-scoped scene does not need one, and a device-scoped rule with a single
+// target falls back to that target.
+type RunRuleRequest struct {
+	DeviceID string `json:"device_id" query:"device_id"`
 }
 
 // ListRulesResponse is a page of rules.

@@ -231,7 +231,16 @@ func (s *Service) ListRules(ctx context.Context, req *ListRulesRequest) (*ListRu
 	if err != nil {
 		return nil, err
 	}
-	rules, err := rt.Store().ListRules(ctx, tenantID, req.Kind, req.Limit, req.Offset)
+	rules, err := rt.Store().ListRules(ctx, tenantID, store.RuleFilter{
+		Kind:           req.Kind,
+		DeviceID:       req.DeviceID,
+		DeviceConfigID: req.DeviceConfigID,
+		Name:           req.Name,
+		Enabled:        parseEnabled(req.Enabled),
+		HasAlarmStep:   req.HasAlarmStep,
+		Limit:          req.Limit,
+		Offset:         req.Offset,
+	})
 	if err != nil {
 		return nil, internal(err)
 	}
@@ -241,6 +250,22 @@ func (s *Service) ListRules(ctx context.Context, req *ListRulesRequest) (*ListRu
 	}
 	out.Total = len(out.Rules)
 	return out, nil
+}
+
+// parseEnabled turns the query string into a tri-state filter. An empty value
+// means "any", which is what the old lists did: they showed enabled and disabled
+// rules together with a switch on each card.
+func parseEnabled(v string) *bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "1", "yes":
+		t := true
+		return &t
+	case "false", "0", "no":
+		f := false
+		return &f
+	default:
+		return nil
+	}
 }
 
 // DeleteRule soft deletes and disables a rule. In-flight runs keep their pinned
@@ -495,6 +520,47 @@ func (s *Service) ListRuleRuns(ctx context.Context, id string) (*ListRunsRespons
 		out.Runs = append(out.Runs, toRunResponse(r, nil, nil, nil))
 	}
 	return out, nil
+}
+
+// RunRule executes a rule immediately, without evaluating its trigger.
+//
+// This is the endpoint behind the legacy scene page's "激活" button: the old
+// scene object had no condition and no enable switch, the user was the trigger.
+// Without it that button simply stops working on the new backend, which is a
+// regression rather than a simplification.
+//
+// The run-mode contract still applies (single/restart/queued/parallel), because
+// pressing the button twice is exactly the re-entry those modes describe. A
+// skipped admission comes back as a run with status ignored/rejected, so the
+// caller can say "已被忽略：上一次还没跑完" instead of showing nothing.
+//
+//encore:api auth method=POST path=/v1/rules/:id/run
+func (s *Service) RunRule(ctx context.Context, id string, req *RunRuleRequest) (*RunResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	rule, err := rt.Store().GetRule(ctx, tenantID, id)
+	if err != nil {
+		return nil, internal(err)
+	}
+	deviceID := ""
+	if req != nil {
+		deviceID = strings.TrimSpace(req.DeviceID)
+	}
+	run, err := rt.RunNow(ctx, rule, deviceID)
+	if err != nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
+	}
+	steps, _ := rt.Store().ListSteps(ctx, run.ID)
+	targets, _ := rt.Store().ListTargets(ctx, run.ID)
+	outbox, _ := rt.Store().OutboxForRun(ctx, run.ID)
+	out := toRunResponse(run, steps, targets, outbox)
+	return &out, nil
 }
 
 // GetRun is the explain view: run header, every step, the frozen target snapshot

@@ -103,6 +103,7 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 		"generation":      generation,
 		"verdict":         res.Verdict,
 		"mode":            def.Mode,
+		"manual":          c.Manual,
 	})
 	deadline := now.Add(def.Budget.MaxRunDuration.Std())
 
@@ -379,6 +380,50 @@ func (r *Runtime) executeRun(ctx context.Context, runID string) (bool, error) {
 // it safe to call from anywhere.
 func (r *Runtime) ResumeRun(ctx context.Context, runID string) (bool, error) {
 	return r.executeRun(ctx, runID)
+}
+
+// RunNow starts a run without evaluating a trigger. It is what the old scene
+// page's "激活" button did: the user is the trigger.
+//
+// The run-mode contract still applies, because "the user pressed it twice" is
+// exactly the re-entry case single/restart/queued/parallel exist for. The manual
+// flag is recorded in the snapshot so the detail view can tell this apart from a
+// condition-driven run.
+func (r *Runtime) RunNow(ctx context.Context, rule *store.Rule, deviceID string) (*store.Run, error) {
+	if rule.Kind == domain.KindAlarm {
+		return nil, errors.New("告警策略没有可执行的动作；手动执行只适用于场景和自动化")
+	}
+	res := domain.Result{
+		Verdict: domain.VerdictTrue,
+		Reasons: []domain.Reason{{
+			Code:    "manual_run",
+			Message: "用户手动执行，未经条件判定",
+		}},
+	}
+	subject := deviceID
+	if subject == "" && rule.Definition.Scope == domain.ScopeDevice {
+		// A device-scoped rule needs a subject to isolate its scope. Fall back to
+		// the single target when the caller did not name one.
+		if ids := rule.Definition.Targets.DeviceIDs; len(ids) == 1 {
+			subject = ids[0]
+		} else {
+			return nil, errors.New("该规则按设备隔离，手动执行必须指定 device_id")
+		}
+	}
+	run, err := r.acceptRun(ctx, rule, subject, "", cause{Manual: true}, res, r.Now(), 0)
+	if err != nil {
+		return run, err
+	}
+	// acceptRun returns the row it inserted, which still says "accepted" because
+	// the program runs after the insert. Reload so the caller sees the real
+	// outcome instead of a status that was true for a few microseconds.
+	if run == nil || run.ID == "" {
+		return run, nil
+	}
+	if fresh, gerr := r.store.GetRunByID(ctx, run.ID); gerr == nil {
+		return fresh, nil
+	}
+	return run, nil
 }
 
 // executeRunFromPC resumes at an explicit program counter. It is used by the

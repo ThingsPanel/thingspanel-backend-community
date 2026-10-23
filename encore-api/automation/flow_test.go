@@ -184,7 +184,13 @@ func (e *testEnv) createRule(def domain.Definition) *store.Rule {
 	if err := e.st.CreateRule(e.ctx(), rule); err != nil {
 		e.t.Fatalf("create rule: %v", err)
 	}
-	return rule
+	// CreateRule writes revision=1 and version=1; re-read so the caller works
+	// with the stored values instead of the zero-value struct it passed in.
+	stored, err := e.st.GetRule(e.ctx(), e.tenant, rule.ID)
+	if err != nil {
+		e.t.Fatalf("reload rule: %v", err)
+	}
+	return stored
 }
 
 func (e *testEnv) ingest(eventID, device, key string, value any, quality string) *store.Receipt {
