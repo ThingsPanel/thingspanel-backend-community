@@ -1,0 +1,263 @@
+package domain
+
+import (
+	"fmt"
+	"strings"
+	"time"
+)
+
+// Issue is one machine readable validation failure. The API returns these so
+// Web, CLI and MCP all report the same field level error instead of a generic
+// 500.
+type Issue struct {
+	Field   string `json:"field"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func (i Issue) Error() string { return i.Field + ": " + i.Message }
+
+// ValidationError aggregates issues.
+type ValidationError struct {
+	Issues []Issue
+}
+
+func (e *ValidationError) Error() string {
+	parts := make([]string, 0, len(e.Issues))
+	for _, i := range e.Issues {
+		parts = append(parts, i.Error())
+	}
+	return "规则校验失败: " + strings.Join(parts, "; ")
+}
+
+// Validate checks a definition before it may be stored as a revision. It is the
+// single gate used by every entry point (A04).
+func Validate(d *Definition) error {
+	d.Normalize()
+	var issues []Issue
+	add := func(field, code, msg string) {
+		issues = append(issues, Issue{Field: field, Code: code, Message: msg})
+	}
+
+	switch d.Kind {
+	case KindAutomation, KindScene, KindAlarm:
+	default:
+		add("kind", "unsupported_kind", "不支持的类型: "+string(d.Kind))
+	}
+	switch d.Mode {
+	case ModeSingle, ModeRestart, ModeQueued, ModeParallel:
+	default:
+		add("mode", "unsupported_mode", "不支持的运行模式: "+string(d.Mode))
+	}
+	switch d.Scope {
+	case ScopeDevice, ScopeRule:
+	default:
+		add("scope", "unsupported_scope", "不支持的作用范围: "+string(d.Scope))
+	}
+
+	if len(d.Trigger.Groups) == 0 {
+		add("trigger.groups", "empty_trigger", "至少需要一组触发条件")
+	}
+	for gi, g := range d.Trigger.Groups {
+		if len(g.Conditions) == 0 {
+			add(fmt.Sprintf("trigger.groups[%d]", gi), "empty_group", "条件组不能为空")
+			continue
+		}
+		for ci, c := range g.Conditions {
+			field := fmt.Sprintf("trigger.groups[%d].conditions[%d]", gi, ci)
+			validateCondition(c, field, add)
+		}
+	}
+	if d.Trigger.For < 0 {
+		add("trigger.for", "negative_duration", "持续时间不能为负")
+	}
+	if d.Trigger.For > Duration(24*time.Hour) {
+		add("trigger.for", "duration_too_long", "持续时间超过 24 小时")
+	}
+	if d.Recovery != nil {
+		if len(d.Recovery.Groups) == 0 {
+			add("recovery.groups", "empty_recovery", "恢复条件不能为空")
+		}
+		for gi, g := range d.Recovery.Groups {
+			for ci, c := range g.Conditions {
+				validateCondition(c, fmt.Sprintf("recovery.groups[%d].conditions[%d]", gi, ci), add)
+			}
+		}
+	}
+	if d.Freshness.MaxAge <= 0 {
+		add("freshness.max_age", "invalid_freshness", "max_age 必须为正数")
+	}
+	if d.Freshness.MaxGap <= 0 {
+		add("freshness.max_gap", "invalid_freshness", "max_gap 必须为正数")
+	}
+	if d.Freshness.MaxGap > d.Freshness.MaxAge {
+		add("freshness.max_gap", "gap_exceeds_age", "max_gap 不能大于 max_age")
+	}
+
+	// Targets: at least one selection, bounded size.
+	if len(d.Targets.DeviceIDs) == 0 && len(d.Targets.DeviceConfigIDs) == 0 &&
+		len(d.Targets.AreaIDs) == 0 && len(d.Targets.Labels) == 0 &&
+		len(d.Targets.DeviceTypes) == 0 {
+		add("targets", "empty_targets", "至少需要指定一个目标（设备/配置/区域/标签/类型）")
+	}
+	if d.Targets.MaxTargets <= 0 || d.Targets.MaxTargets > 1000 {
+		add("targets.max_targets", "invalid_budget", "目标上限必须在 1..1000 之间")
+	}
+	if lm := strings.ToLower(d.Targets.LabelMatch); lm != "" && lm != "and" && lm != "or" {
+		add("targets.label_match", "invalid_label_match", "标签匹配只能是 and 或 or")
+	}
+
+	// Steps and budget.
+	stepCount, maxDepth := countSteps(d.Steps, 1)
+	if stepCount == 0 {
+		add("steps", "empty_steps", "至少需要一个执行步骤")
+	}
+	if stepCount > d.Budget.MaxSteps {
+		add("steps", "too_many_steps",
+			fmt.Sprintf("步骤数 %d 超过预算 %d", stepCount, d.Budget.MaxSteps))
+	}
+	if maxDepth > d.Budget.MaxDepth {
+		add("steps", "too_deep",
+			fmt.Sprintf("分支嵌套深度 %d 超过预算 %d", maxDepth, d.Budget.MaxDepth))
+	}
+	validateSteps(d.Steps, "steps", add)
+
+	if d.Mode == ModeQueued {
+		if d.Queue == nil || d.Queue.TTL <= 0 || d.Queue.MaxDepth <= 0 {
+			add("queue", "invalid_queue", "排队模式必须声明 ttl 与 max_depth")
+		}
+	}
+	if d.Mode == ModeParallel {
+		if d.Parallel == nil || d.Parallel.MaxConcurrent <= 0 || d.Parallel.TTL <= 0 {
+			add("parallel", "invalid_parallel", "并行模式必须声明 max_concurrent 与 ttl")
+		}
+	}
+
+	// Alarm policies must not carry device actions: the alarm owner only
+	// produces lifecycle transitions.
+	if d.Kind == KindAlarm {
+		for i, s := range d.Steps {
+			if s.Kind == StepAction || s.Kind == StepActivateScene {
+				add(fmt.Sprintf("steps[%d]", i), "alarm_side_effect",
+					"告警策略不能直接下发设备动作；请用告警生命周期事件触发自动化")
+			}
+		}
+	}
+
+	if len(issues) > 0 {
+		return &ValidationError{Issues: issues}
+	}
+	return nil
+}
+
+func validateCondition(c Condition, field string, add func(string, string, string)) {
+	switch c.Source {
+	case "", "self", "device":
+	default:
+		add(field+".source", "unsupported_source", "条件来源只能是 self 或 device")
+	}
+	if c.Source == "device" && strings.TrimSpace(c.DeviceID) == "" {
+		add(field+".device_id", "missing_device", "指定设备条件必须给出 device_id")
+	}
+	switch c.Signal {
+	case SignalTelemetry, SignalAttribute, SignalEvent, SignalStatus:
+	default:
+		add(field+".signal", "unsupported_signal", "不支持的信号类型: "+string(c.Signal))
+	}
+	if strings.TrimSpace(c.Key) == "" {
+		add(field+".key", "missing_key", "必须指定指标标识符")
+	}
+	if !ValidOperators[c.Operator] {
+		add(field+".operator", "unsupported_operator", "不支持的比较符: "+c.Operator)
+	}
+	if c.Signal == SignalEvent && c.EventMatch != nil {
+		if len(c.EventMatch.Fields) == 0 {
+			add(field+".event_match", "empty_event_match", "事件字段条件不能为空")
+		}
+		for i, f := range c.EventMatch.Fields {
+			if strings.TrimSpace(f.Path) == "" {
+				add(fmt.Sprintf("%s.event_match.fields[%d].path", field, i), "missing_path", "字段路径不能为空")
+			}
+			if !ValidOperators[f.Operator] {
+				add(fmt.Sprintf("%s.event_match.fields[%d].operator", field, i), "unsupported_operator",
+					"不支持的比较符: "+f.Operator)
+			}
+		}
+	}
+}
+
+func validateSteps(steps []Step, field string, add func(string, string, string)) {
+	for i, s := range steps {
+		f := fmt.Sprintf("%s[%d]", field, i)
+		switch s.Kind {
+		case StepAction:
+			switch s.Action {
+			case "telemetry", "attribute", "command":
+			default:
+				add(f+".action", "unsupported_action", "不支持的动作类型: "+s.Action)
+			}
+			if strings.TrimSpace(s.Identifier) == "" && s.Action != "telemetry" && s.Action != "attribute" {
+				add(f+".identifier", "missing_identifier", "命令动作必须指定标识符")
+			}
+			if strings.TrimSpace(s.Value) == "" {
+				add(f+".value", "missing_value", "动作必须给出目标值")
+			}
+		case StepWait:
+			if s.Wait <= 0 {
+				add(f+".wait", "invalid_wait", "等待步骤必须给出正数时长")
+			}
+			if s.Wait > Duration(24*time.Hour) {
+				add(f+".wait", "wait_too_long", "等待时长超过 24 小时")
+			}
+		case StepAlarm:
+			if strings.TrimSpace(s.AlarmPolicyID) == "" {
+				add(f+".alarm_policy_id", "missing_policy", "告警步骤必须指定策略")
+			}
+		case StepNotify:
+			if strings.TrimSpace(s.NotificationPolicyID) == "" {
+				add(f+".notification_policy_id", "missing_policy", "通知步骤必须指定通知策略")
+			}
+		case StepBranch:
+			if s.Condition == nil || len(s.Condition.Conditions) == 0 {
+				add(f+".condition", "empty_branch_condition", "分支必须给出条件")
+			}
+			if len(s.Then) == 0 && len(s.Else) == 0 {
+				add(f, "empty_branch", "分支至少需要一个 then 或 else 步骤")
+			}
+			validateSteps(s.Then, f+".then", add)
+			validateSteps(s.Else, f+".else", add)
+		case StepActivateScene:
+			if strings.TrimSpace(s.Value) == "" {
+				add(f+".value", "missing_scene", "必须指定要激活的场景")
+			}
+		default:
+			add(f+".kind", "unsupported_step", "不支持的步骤类型: "+string(s.Kind))
+		}
+	}
+}
+
+// CountSteps reports the flattened step count, used by the API to show the
+// budget consumption before publishing.
+func CountSteps(steps []Step) int {
+	n, _ := countSteps(steps, 1)
+	return n
+}
+
+func countSteps(steps []Step, depth int) (count, maxDepth int) {
+	maxDepth = depth
+	for _, s := range steps {
+		count++
+		if s.Kind == StepBranch {
+			c1, d1 := countSteps(s.Then, depth+1)
+			c2, d2 := countSteps(s.Else, depth+1)
+			count += c1 + c2
+			if d1 > maxDepth {
+				maxDepth = d1
+			}
+			if d2 > maxDepth {
+				maxDepth = d2
+			}
+		}
+	}
+	return count, maxDepth
+}
