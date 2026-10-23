@@ -248,9 +248,25 @@ func validateSteps(steps []Step, field string, add func(string, string, string))
 				add(f+".value", "missing_scene", "必须指定要激活的场景")
 			}
 		default:
-			add(f+".kind", "unsupported_step", "不支持的步骤类型: "+string(s.Kind))
+			if !SupportsStepKind(s.Kind) {
+				add(f+".kind", "unsupported_step",
+					"不支持的步骤类型: "+string(s.Kind)+"（本版本可执行："+supportedStepList()+"）")
+			}
 		}
 	}
+}
+
+// supportedStepList renders the executable kinds in a stable order, so the error
+// message tells the author what they may use instead of only what they cannot.
+func supportedStepList() string {
+	kinds := []StepKind{StepAction, StepWait, StepBranch, StepAlarm, StepNotify, StepActivateScene}
+	parts := make([]string, 0, len(kinds))
+	for _, k := range kinds {
+		if SupportsStepKind(k) {
+			parts = append(parts, string(k))
+		}
+	}
+	return strings.Join(parts, "/")
 }
 
 // CountSteps reports the flattened step count, used by the API to show the

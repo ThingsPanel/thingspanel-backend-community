@@ -544,6 +544,90 @@ def main() -> int:
     check("tick reports no-data sweeps", "no_data_noted" in (tick_a08 or {}),
           json.dumps(tick_a08 or {}, ensure_ascii=False)[:200])
 
+    print("== 14. run progress, step identity and declared steps (A09) ==")
+    # The run detail must let an operator tell "was this device part of the run"
+    # (selected) from "what did the dispatch return" (status). Sharing one field
+    # is what made a resumed step believe it owned no devices.
+    targets = run.get("targets") or []
+    check("target keeps the frozen selection separate from the result",
+          len(targets) == 1 and targets[0].get("selected") is True
+          and targets[0].get("status") in ("accepted", "unknown", "failed"),
+          json.dumps(targets, ensure_ascii=False)[:300])
+
+    # Every step must be terminal and must carry an attempt counter, otherwise a
+    # retry is invisible and a stuck step cannot be told apart from a fresh one.
+    steps = run.get("steps") or []
+    check("every step reached a terminal status",
+          bool(steps) and all(s.get("status") != "pending" for s in steps),
+          json.dumps(steps, ensure_ascii=False)[:300])
+    check("step rows carry an attempt counter",
+          bool(steps) and all("attempt" in s for s in steps),
+          json.dumps(steps, ensure_ascii=False)[:300])
+    check("step identity is stable and run scoped",
+          bool(steps) and all(s.get("idempotency_key", "").startswith(run_id)
+                              for s in steps),
+          json.dumps([s.get("idempotency_key") for s in steps], ensure_ascii=False)[:300])
+
+    # An unimplemented step must be refused when the rule is published, and the
+    # message must name what is executable instead of only what is not.
+    bad_def = json.loads(json.dumps(definition))
+    bad_def["steps"] = [{"kind": "loop_forever", "value": "x"}]
+    rejected_step = automation("/v1/rules", "POST", {
+        "name": f"A09-BADSTEP-{suffix}", "definition": bad_def, "enabled": True})
+    body = json.dumps(rejected_step, ensure_ascii=False)
+    check("an unimplemented step is rejected at publish", rejected_step.get("code") != "ok", body[:300])
+    check("the rejection names the executable step kinds",
+          all(k in body for k in ("action", "wait", "branch", "alarm", "notify", "activate_scene")),
+          body[:400])
+
+    # The scheduler pass must report its run bookkeeping, so an operator can see
+    # that interrupted runs were picked up and overdue runs were closed.
+    tick_a09 = automation("/v1/tick", "POST")
+    check("tick reports run expiry and resume counters",
+          "runs_expired" in (tick_a09 or {}) and "runs_resumed" in (tick_a09 or {}),
+          json.dumps(tick_a09 or {}, ensure_ascii=False)[:300])
+
+    # A wait step is a durable business timer: the run must still be running with
+    # the wait recorded, not finished and not stuck.
+    wait_def = json.loads(json.dumps(definition))
+    wait_def["steps"] = [
+        {"kind": "action", "action": "telemetry", "identifier": "switch", "value": "1"},
+        {"kind": "wait", "wait": "2s"},
+        {"kind": "action", "action": "telemetry", "identifier": "switch", "value": "0"},
+    ]
+    wait_rule = automation("/v1/rules", "POST", {
+        "name": f"A09-WAIT-{suffix}", "definition": wait_def, "enabled": True})
+    wait_rule_id = wait_rule.get("id")
+    check("wait rule published", bool(wait_rule_id), json.dumps(wait_rule, ensure_ascii=False)[:200])
+    if wait_rule_id:
+        automation("/v1/ingress/events", "POST", {
+            "event_id": f"encore-e2e-wait-{suffix}", "device_id": device_id,
+            "signal": "telemetry", "key": "temperature", "value": "36", "unit": "℃",
+        })
+        wait_runs = automation(f"/v1/rules/{wait_rule_id}/runs").get("runs") or []
+        check("the wait rule produced one run", len(wait_runs) == 1, f"{len(wait_runs)} run(s)")
+        if wait_runs:
+            wait_run_id = wait_runs[0]["id"]
+            waiting = automation(f"/v1/runs/{wait_run_id}")
+            check("the run parks on the wait instead of finishing",
+                  waiting.get("status") == "running", waiting.get("status", ""))
+            wsteps = waiting.get("steps") or []
+            check("the wait step is recorded as waiting",
+                  any(s.get("kind") == "wait" and s.get("status") == "waiting" for s in wsteps),
+                  json.dumps(wsteps, ensure_ascii=False)[:300])
+            # The timer is the only thing that may resume it.
+            time.sleep(3)
+            automation("/v1/tick", "POST")
+            resumed = automation(f"/v1/runs/{wait_run_id}")
+            check("the timer resumes the run to completion",
+                  resumed.get("status") == "succeeded",
+                  f"{resumed.get('status')} / {resumed.get('reason_code')}")
+            rsteps = resumed.get("steps") or []
+            check("the step after the wait ran exactly once",
+                  len([s for s in rsteps if s.get("idx") == 2]) == 1
+                  and all(s.get("status") != "pending" for s in rsteps),
+                  json.dumps([(s.get("idx"), s.get("status")) for s in rsteps], ensure_ascii=False)[:300])
+
     print()
     if FAILURES:
         print(f"RESULT: {len(FAILURES)} check(s) failed")

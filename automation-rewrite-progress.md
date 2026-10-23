@@ -13,7 +13,7 @@
 | 工作树 | `/Users/junhong/Downloads/code/tp-automation-rewrite`（独立 `git worktree`，不动同事的 43 个未提交修改） |
 | 分支 | `feat/automation-rewrite-20261023` |
 | 基线提交 | `486160092b1579965573814c8dd11a2a689c9246`（研究基线） |
-| 本轮提交 | `9e964641`（A07）；此前 `c72fdab6` → `cdb0ea26` → `105526ec` → `dd0ed6f9` |
+| 本轮提交 | A09（本次提交）；此前 `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` |
 | 主仓 HEAD | `0e3ba8281f09c815dabcd03c634d17af845e950b`（`main`，比基线旧 75 个提交，未改动） |
 
 基线关系核对结论（`git rev-list --left-right --count`）：
@@ -220,6 +220,9 @@ GET  /v1/backlog                     GET  /v1/events
 | G8 | 未做重启恢复的进程级演练 | `RecoverAfterRestart` + 持久 pending 已实现并有单元用例，缺 kill -9 演练 | A11 |
 | G9 | 性能预算表未填数字 | 只有 `Backlog` 观测口，缺压测数据 | A30/A31 |
 | G10 | 旧上行**尚未转发**到新入口 | 新入口已可用且已验证，但社区 MQTT 链路没加钩子；现在接会与旧引擎双写 | A33 切换时接线，见 6.6 |
+| G11 | `auto_state` 主键是 `(device_id, signal, key)`，**不含物模型版本** | 物模型改标识符/单位后，旧值仍会命中新 key | 物模型 owner + A10 |
+| G12 | 恢复条件读的是**最新存储值**，不是触发时刻的快照 | 对迟滞语义无影响，但解释链上会看到比触发更新的证据 | A08 遗留，待 A14 执行记录统一 |
+| G13 | `budget.max_attempts` **未在步骤上强制** | 目前靠运行级 `deadline` 兜底；步骤 `attempt` 只计数不拒绝 | A11/A12 运行模式补强 |
 
 ---
 
@@ -426,22 +429,181 @@ encore_e2e.py --community http://127.0.0.1:19999 --automation http://127.0.0.1:1
 
 ---
 
-## 9. 本轮验证汇总
+## 9. A08 持续条件、迟滞与缺测（已完成到测试）
+
+A07 解决“什么时候启动一次运行”，A08 解决“这次运行该不该启动、能不能算数”。旧系统的三处硬伤：持续窗口可以被一条更晚的“正常”读数从背后推翻（V31 已修）、触发与恢复用同一个阈值导致临界值抖动反复告警、设备静默后告警永远停在“触发”且没有任何提示。
+
+### 9.1 持续条件与输入进度屏障（保留 + 加固）
+
+`for = 5m` 的语义原样保留：第一条满足条件的样本只创建 `auto_pending`，不执行动作；到期由 `DuePending` 扫描，判定仍为 true 才启动运行。屏障（V31）继续生效：若 deadline 之前收到的样本还有未处理的，定时器**延后 2 秒**并发布 `pending.deferred`，不允许 5:00 的定时越过 4:59 的“正常”读数。
+
+### 9.2 迟滞（回差）：中性区不产生迁移
+
+触发与恢复用不同阈值，两者之间是**中性区**：
+
+| 读数 | 判定 | 结果 |
+| --- | --- | --- |
+| > 30℃ | true | 触发（`qualified`） |
+| < 28℃ | false | 恢复（`clear`） |
+| 28–30℃（如 29℃） | 中性区 | 保持现状，记录 `no_transition` |
+
+29℃ 既不触发也不解除，且会**留下一条 `no_transition` 迁移记录**——不是“什么都没发生”，而是“评估过、决定不动”。回差只在已触发方向生效，首次判定仍用原阈值，旧规则的阈值语义不会整体偏移。
+
+### 9.3 恢复必须整段保持
+
+恢复窗口与触发窗口对称：4 分 59 秒不清告警，第 5 分钟才清。第 4 分钟重启后，`auto_pending` 里的 `started_at`/`deadline` 不变，原窗口照常走完，**不重新计时**。反过来，一次高温读数之后设备静默，pending 到期时判定为 unknown，产生 `pending.expired` 并清掉 pending——静默不能当作“恢复正常”。
+
+### 9.4 `freshness.mode`：周期采样 vs 仅变更上报
+
+两种设备的“新鲜”含义完全不同，不能用同一条规则：
+
+| 模式 | 依据 | 适用 |
+| --- | --- | --- |
+| `periodic`（默认，旧语义） | 值本身的年龄（`max_age`） | 周期性上报的传感器 |
+| `on_change` | **值年龄不作依据**，靠 `heartbeat` 内的 status 心跳判活 | 只在变化时上报的开关/门磁 |
+
+`on_change` 未声明 `heartbeat` 时**发布即拒绝**（`heartbeat_required`）：没有心跳窗口，“值没变”和“设备没了”长得一模一样，猜任何一个都是错的。判活读 status 信号的 `online`，`bool`/`"1"`/`"true"`/`"online"`/数字都能识别；读不到心跳判 `no_heartbeat`（unknown），不在线判 `device_offline`（unknown）。
+
+### 9.5 `freshness.no_data`：静默是事实，不是恢复
+
+设备静默超过 `no_data` 窗口时：
+
+1. 对活动告警追加一条 `kind=unknown`、`evidence.code=no_data` 的迁移，带 `last_seen`、`silent_for`；
+2. 发布 `alarm.no_data` 事件；
+3. **绝不清告警**——设备可能只是安静，把静默当恢复是这类系统最危险的谎；
+4. 每段静默只记一次（`alreadyNoted` 幂等），且不阻碍后续真实恢复：静默后再报 20℃，告警仍能正常 clear。
+
+未声明 `no_data` 的策略完全不受影响（opt-in）。
+
+### 9.6 单一 `evalContext()` 统一四条求值路径
+
+此前“分支条件”只读 `max_age`，其余路径走完整新鲜度判定——同一条规则在不同位置对“数据可信”给出不同答案。本轮把上下文构造收敛到 `evalContext(ctx, def, deviceID, trigger, now)`，实时求值、恢复求值、分支条件、定时器续跑四条路径全部经它构造，规则的新鲜度契约只有一种含义。
+
+### 9.7 证据
+
+```bash
+encore test ./automation/... -run 'Hysteresis|Recovery|Silence|NoData|OnChange|Periodic|Heartbeat|Status|Freshness|EmptyMode'
+# ok  encore.app/automation / encore.app/automation/domain
+
+encore_e2e.py --community http://127.0.0.1:19999 --automation http://127.0.0.1:14000
+# == 13. duration, hysteresis and no-data (A08) ==  8 项全 PASS
+```
+
+数据库集成用例直接覆盖任务书的验收夹具：`TestHysteresisNeutralZoneRecordsNoTransition`（>30 触发 / 29 中性 / 27 清）、`TestRecoveryMustHoldForTheFullWindow`（4m59 不清、5m 清）、`TestRecoveryPendingSurvivesRestart`（重启续原窗口）、`TestSilenceAfterHighReadingDoesNotQualify`、`TestNoDataMarksActiveAlarmUnconfirmed`（静默 → `NoDataNoted=1`、告警仍 active、迁移为 unknown/`no_data`、再 tick 不重复、随后 20℃ 仍能恢复）。
+
+### 9.8 未完成（如实登记）
+
+| 项 | 说明 |
+| --- | --- |
+| 恢复条件仍读存储值（G12） | 恢复求值用 `Lookup` 读最新存储样本，而不是“触发时刻的快照”；对迟滞语义无影响，但解释链上会看到比触发更新的证据 |
+| 前端缺测/迟滞配置 | 依赖 A02 页面核对；接口字段已就绪 |
+| 输入键不含模型版本（G11） | `auto_state` 主键是 `(device_id, signal, key)`，物模型改标识符后旧值仍会命中 |
+
+---
+
+## 10. A09 有限运行、步骤记录与稳定身份（已完成到测试）
+
+旧实现里“运行”只活在进程内：除了 `wait` 有定时器，其它位置一崩就没人知道走到哪一步；步骤行的 id 每次重新生成，重试时状态写不进去；目标行的 `status` 既表示“被选中”又表示“下发结果”，重放时把选择覆盖掉。这一章把运行变成**有检查点、有租约、有稳定身份**的有限程序。
+
+### 10.1 运行契约：检查点 + 租约 + 恢复计数
+
+迁移 `4_run_progress.up.sql` 给 `auto_runs` 加三列：
+
+| 列 | 作用 |
+| --- | --- |
+| `cursor_pc` | **已经开始的**程序计数器。写在步骤执行**之前**，所以崩溃窗口是“这步可能做了”，由步骤/动作身份吸收；写在之后会留下“做了但指针还指着它”的窗口，重放时无法区分 |
+| `lease_owner` / `lease_until` | 谁在走这个程序。租约 2 分钟，崩溃的 worker 留下**过期租约**而不是隐形锁，恢复才是可判定的 |
+| `resume_count` | 这个运行被接管过几次。是“撑过了一次崩溃”的证据，不是健康指标 |
+
+领取条件只有一条：**未结束 且 没有活着的租约**。两个副本不会走同一程序；重复唤醒也不会因为“定时器响了两次”而重跑。
+
+### 10.2 步骤身份：id 由数据库返回
+
+`ensureStep` → `UpsertStep`，`ON CONFLICT (run_id, idx) DO UPDATE ... RETURNING id, attempt`。
+
+这里有个必须用 RETURNING 的理由：重启后行已存在，若调用方继续用自己新生成的 id，之后每一次 `UpdateStepStatus` 都更新 0 行——步骤永远停在 `pending`，也就是任务书禁止的“永久卡死步骤”。现在 `UpdateStepStatus` 把 0 行直接当错误返回，这类问题不会再静默。
+
+`attempt` 在每次重入时 +1：重试同一个程序计数器是**同一个逻辑步骤的第二次尝试**，不是新步骤。`stepKey = runID:pc`，**不含 attempt**——传输重试必须复用同一身份，否则对端无法去重。
+
+### 10.3 幂等受理与结果关联
+
+`EnqueueOutbox` 返回 `inserted bool`。重复插入意味着“这个逻辑动作已经有行了”，按已有行的状态分流：
+
+| 已有状态 | 处理 |
+| --- | --- |
+| `accepted` | 直接复用结果，**不再调用端口**——重试不会被算成第二次受理 |
+| `pending` / `dispatched` | 用**同一个 id** 重试传输，对端仍可去重 |
+| `cancelled` | 报 cancelled，绝不悄悄重发 |
+
+“合法第二次执行”是另一个运行、另一个 `run_id`、另一个 key，因此照常受理——`TestALegitimateSecondRunIsNotDeduplicated` 守住这条，避免把去重做成“第二次触发丢失”。
+
+### 10.4 目标选择与结果必须分开（本轮修掉的真实缺陷）
+
+`auto_targets.status` 原本兼作两职。第一遍执行把 `selected` 覆写成 `accepted`，于是**重放时找不到任何已选目标**，`performAction` 走进 `empty_targets` 分支，把步骤标成 `skipped`——一个真实动作静默变成空操作。这类问题不会报错，只会“什么也没发生”。
+
+修法是把选择冻结到独立列 `selected`（迁移里回填 `status='selected'` 的历史行），`performAction` 只看 `selected`，`status` 专职承载下发结果。接口同时暴露两个字段，运维能分清“这个设备是否属于这次运行”和“这次下发返回了什么”。
+
+### 10.5 声明支持的步骤 = 有实现的步骤
+
+`domain.StepImplementations` 成为唯一清单，校验与运行期都读它：
+
+- 发布时未知步骤被拒，错误信息**列出本版本可执行的六种**（`action/wait/branch/alarm/notify/activate_scene`），作者不用猜；
+- 运行期万一遇到（历史数据或手写数据）不再伪装成普通失败，而是以 `unsupported_step` 结束并说明“发布时应当被拒绝”；
+- `TestEveryDeclaredStepKindHasARealImplementation` 对清单里**每一种**都造一条可发布规则并真跑，断言不出现 `unsupported_step`/`step_rejected`、步骤行存在且不停在 `pending`。清单加一种而没加实现，这条测试会直接失败。
+
+### 10.6 过期与恢复扫描（Tick 顺序有意义）
+
+```
+DuePending → ExpireOverdueRuns → DueRunTimers → ResumableRuns → FireDue → SweepNoData → DispatchOutbox
+```
+
+过期必须排在续跑**之前**：等待与 deadline 同时到点时，若先跑定时器，运行会在“已经超预算”的情况下继续执行，而过期永远不会发生。过期时同语句清租约，并取消该运行的待触发定时与未派发意图。
+
+恢复扫描只挑“未结束 + 租约过期或为空 + deadline 未到 + 没有待触发的 wait 定时器”的运行——**有待触发的 wait 不能被恢复**，否则会跳过等待。`POST /v1/tick` 现在返回 `runs_expired` / `runs_resumed` 两个计数。
+
+### 10.7 证据
+
+```bash
+encore test ./automation/... -run 'Resume|Replay|Legitimate|WaitResumes|Overdue|TwoWorkers|UnsupportedStep|EveryDeclared|RunStatusIsNever'
+# ok  encore.app/automation
+
+encore_e2e.py --community http://127.0.0.1:19999 --automation http://127.0.0.1:14000
+# == 14. run progress, step identity and declared steps (A09) ==  13 项全 PASS
+```
+
+最关键的三条：
+
+- `TestResumeAfterCrashContinuesFromTheCheckpoint`：把运行改回“死在第 0 步之后、第 1 步尚未记录”的状态（`status=running`、过期租约、`cursor_pc=1`，并删掉第 1 步的行与意图），一次 tick 后运行 `succeeded`、`resume_count=1`、设备指令从 2 条变成 **3 条**（只补第 1 步，没有重放第 0 步）、两步都是终态。
+- `TestReplayOfAnAcceptedActionIsNotASecondAction`：同一步骤被重新进入，端口调用数**仍是 1**、意图行数仍是 1、key 未变。
+- `TestResumedStepRowKeepsItsIdentity`：重试后步骤行 id 不变、`attempt=1`、状态从 `pending` 走到终态。
+
+### 10.8 未完成（如实登记）
+
+| 项 | 说明 |
+| --- | --- |
+| 真实 `kill -9` 演练（G8） | 单测用“崩溃后留下的行状态”驱动，是同一份契约；真正的进程级演练仍待 A30/A31 的故障测试一起做 |
+| 排队 TTL | `mode=queued` 的 `ttl` 目前只校验不生效，属 A11/A12 四种运行模式补强 |
+| 步骤级重试上限 | `budget.max_attempts` 未在步骤上强制；目前靠运行级 deadline 兜底 |
+| 常驻调度循环 | 与 A07 同一处阻塞：A33 切换时接 |
+
+---
+
+## 11. 本轮验证汇总
 
 ```bash
 cd encore-api
-encore check 'curl /v1/health'   # check: 1/1 commands succeeded（20 endpoints registered）
+encore check 'curl /v1/health'   # check: 1/1 commands succeeded（28 endpoints registered）
 encore test ./...                # domain ok / ingress ok / automation ok
 ```
 
 | 包 | 用例数 | 覆盖 |
 | --- | --- | --- |
-| `automation/domain` | 59 | 9 比较符、四值判定、单位不匹配、事件参数、跨设备、校验门、A06 对照 30 条、cron 解析与夏令时 12 条、漏跑策略 8 条 |
+| `automation/domain` | 68 | 9 比较符、四值判定、单位不匹配、事件参数、跨设备、校验门、A06 对照 30 条、cron 解析与夏令时 12 条、漏跑策略 8 条、A08 新鲜度与迟滞 9 条 |
 | `automation/ingress` | 12 | 六类输入 + 网关三类、稳定 ID、重投、瞬时事件、状态归一、因果跳数 |
-| `automation`（DB 集成） | 47 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条、A06 三条、A07 十三条 |
-| **合计（顶层用例）** | **118** | 全部通过；含子测试共 156 条断言级用例 |
+| `automation`（DB 集成） | 64 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条 |
+| **合计（顶层用例）** | **144** | 全部通过；含子测试共 190 条断言级用例 |
 
-端到端：`encore_e2e.py` **53 项检查全通过**（第 10、11 节为 A05 的真实 HTTP 适配器路径，第 12 节为 A07 的定时执行路径）。
+端到端：`encore_e2e.py` **74 项检查全通过**（第 10、11 节为 A05 的真实 HTTP 适配器路径，第 12 节为 A07 定时，第 13 节为 A08 迟滞与新鲜度，第 14 节为 A09 运行进度与步骤身份）。
 
 修复的真实缺陷（不是测试凑数）：
 
@@ -458,32 +620,38 @@ encore test ./...                # domain ok / ingress ok / automation ok
 11. 错过的时刻被当成“待执行”插入（`claimed`），于是 `skip` 策略下仍然补跑了一次。现在历史时刻一律写 `skipped` 并附原因，`run_once` 才额外在当前时刻补一行。
 12. 停用后重新启用时 `next_fire_at` 为 NULL 且不重算，定时永远不再触发。现在启用时按 `now` 重算。
 13. 一次性定时的时刻已过去时，`next_fire_at` 为 NULL 但记录 `enabled=true`，接口静默返回一个永远不会响的定时。现在直接拒绝并说明原因。
+14. **目标行 `status` 兼作“是否被选中”和“下发结果”**：第一遍执行把 `selected` 覆写成 `accepted`，重放时找不到已选目标，真实动作静默变成 `skipped`。已拆出 `selected` 列。
+15. **步骤行 id 每次重新生成**，`ON CONFLICT DO UPDATE` 不返回真实 id，后续状态更新命中 0 行 → 步骤永远停在 `pending`（永久卡死步骤）。已改为 `RETURNING id, attempt` 并由数据库给 id。
+16. `CreateStep` 的错误被丢弃，可能在**没有步骤记录**的情况下派发设备动作（无来源动作）。现在失败即结束运行并写明原因。
+17. 重放时 `EnqueueOutbox` 撞唯一索引后仍用新 id 调 `MarkOutbox`，更新 0 行，意图状态与实际脱节。现在重复插入时回读已有行并按状态分流。
+18. 运行**没有执行租约**，两个 worker 可以同时走同一程序，重复副作用只能靠 outbox 唯一键兜住（表现为莫名的 `step_failed`）。现在领取是排他的，拿不到租约就什么都不做。
+19. 运行预算耗尽但无人推进时永远停在 `running`，读起来像“还在跑”。现在由 `ExpireOverdueRuns` 收成 `expired` 并带 `finished_at` 与原因。
+20. 未实现的步骤在运行期被当作普通失败，原因码是 `step_rejected` / “步骤执行失败”，看不出是规则问题。现在发布期就拒绝，运行期以 `unsupported_step` 明确说明。
 
 ---
 
-## 10. 下一项可以开始的任务
+## 12. 下一项可以开始的任务
 
-A07 已到“测试完成”。按依赖选 **A08（持续条件、迟滞与缺测处理）**，它只依赖 A06 的判定层，且是旧“持续 N 秒”语义的直接加固：
+A09 已到“测试完成”。按依赖选 **A10（设备控制贯通与代际校验）**：它是 A09 的身份契约在下游的落点，且能直接消掉登记在案的 G4。
 
-1. **A08（下一项）**：持续条件（`for`）+ 迟滞（回差）+ 缺测（no-data）三条判定语义。
-   - 现状：`for` 与 `auto_pending` 已可用，V31 输入进度屏障已挡“定时器越过未处理样本”；但**迟滞**（触发/恢复用不同阈值）与**缺测超时**（设备静默 N 分钟主动产生 unknown 判定）还没有。
-   - 要做：`Definition` 增加 `hysteresis`（恢复阈值/回差）与 `no_data`（静默超时）两段；`evaluateLeaf` 在恢复方向用回差阈值；新增 `no_data` 定时扫描（复用 `auto_pending` 的到期机制与 `MisfireGrace` 式的宽限判定）。
-   - 关键约束：回差只在**已触发**方向生效，不能改变“首次判定”的语义，否则旧的阈值规则会全部偏移。
-2. **A02（并行）**：核对前端仓库版本，产出六类页面（全局场景联动、场景管理、设备自动化、设备告警、模板自动化、模板告警）的旧→新操作对照。
-   - 入口：`/Users/junhong/Downloads/code/thingspanel-frontend-community`
-3. **A07 剩余接线（阻塞在别处）**：常驻调度循环（A33 切换时接）、前端定时编辑（依赖 A02）。
-4. **G7 通知联测**：`alarm.qualified/cleared` 事件契约已对齐 `notification_source.go`，真实联测仍未做，保持“待联测”。
-5. **A10（代际校验）**：命令受理端接受 `X-Automation-Generation`，消掉 G4。
+1. **A10（下一项）**：把 `scope_key` / `generation` / 动作 ID 贯穿到设备命令 owner，让“被新触发替换掉的旧运行”在下发端被拒绝，而不是只在自动化侧停止派发。
+   - 现状：`dispatchOne` 只在**调用前**检查运行是否已取消（进程内最强的检查），命令 owner 侧不认识 `generation`；G4 仍未消。
+   - 要做：命令受理接口接受 `X-Automation-Scope` / `X-Automation-Generation` / `X-Automation-Action-Id`；owner 记录已见的最大 generation，低于它的请求返回 `superseded` 而不是执行；`superseded` 在自动化侧映射为 `cancelled`（不是 `failed`，也不是成功）。
+   - 关键约束：旧调用方不传这三个头时必须保持旧行为，不能因为新头缺失就拒收。
+2. **A02（并行）**：六类页面旧→新操作对照，入口 `/Users/junhong/Downloads/code/thingspanel-frontend-community`。A07/A08/A09 的接口都已就绪，对照表能直接指出定时编辑、缺测配置、运行详情三块该落在哪个页面。
+3. **A11/A12（运行模式补强）**：`queued` 的 TTL 目前只校验不生效；`parallel` 的 TTL 同样；四种模式的 scope 与溢出边界需要一轮专门的用例。
+4. **A07/A09 剩余接线**：常驻调度循环（A33 切换时接）。
+5. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持“待联测”。
 
-不建议现在动 A33 的切换接线（6.6 节），因为旧引擎还在跑，接上就是双写。
+不建议现在动 A33 的切换接线（5.2 节 G10 / 6.6 节），因为旧引擎还在跑，接上就是双写。
 
 ---
 
-## 11. 六句话汇报（本轮 = A07）
+## 13. 六句话汇报（本轮 = A09）
 
-1. **做了什么**：把定时从“进程内 goroutine”改成**业务数据 + 幂等 occurrence**。新增 `auto_schedules`（一条定时）与 `auto_schedule_fires`（一次应执行的时刻，`UNIQUE (schedule_id, scheduled_for)`）；新增五字段 cron 解析、IANA 时区、夏令时两条边、`skip`/`run_once` 漏跑策略；新增 8 个接口（CRUD、启停、预览、occurrence 历史），并把定时接进现有的 `POST /v1/tick` 单一遍循环。
-2. **原来什么还保留**：旧“场景定时”的语义都保留了——按固定时刻执行一次、按周期执行、到点后走同一套动作与目标解析、停用即不执行、删除即不再触发。没有新建第二套动作/通知/设备命令实现，定时只负责“什么时候启动一次运行”，之后完全复用 `acceptRun` 与既有 outbox。
-3. **怎么证明做对**：`encore test ./...` **118 个顶层用例（含子测试 156 条）全绿**；`encore_e2e.py` **53 项检查全通过**，其中第 12 节是真实 HTTP 的定时路径（预览→创建 6 秒后的一次性定时→tick 命中→occurrence `done` 带 `run_id`→再 tick 不再执行→停用/启用/删除）。最能说明问题的一条：`TestCrashDuringExecutionAdoptsTheExistingRun`——把 occurrence 改回“已开始但崩溃”并保留已创建的运行，下一轮只把它标 `done`，运行数与设备指令数都仍是 1。
-4. **难点和性能结果**：难点是“错过”的判定。按字面“到期时间早于现在就是错过”，正常晚几秒的扫描会被记成漏跑，一次性定时几乎每次都被标 `missed`（端到端第一次跑就抓到了这个：`schedule_misfired=1` 而运行明明成功）。最终引入 `MisfireGrace = 2 分钟`，并让**同一个常量**同时决定“跑不跑”和“记不记 missed”。性能上没有压测，只有结构上的保证：到期扫描走 `next_fire_at` 的部分索引 + `LIMIT 50` + `SKIP LOCKED`，单轮不随定时总数线性增长；occurrence 查询走 `(schedule_id, scheduled_for)` 唯一索引。
-5. **还有什么没完成**：常驻调度循环未接（依赖 A33 切换，现在靠 `POST /v1/tick` 驱动）；前端定时编辑未做（依赖 A02）；“立即执行一次”属 A21 不在本轮；迟滞与缺测属 A08；G1–G4、G7、G11 仍按原登记保持未完成；性能预算、迁移回退演练、kill -9 演练仍未做。
-6. **下一项怎样衔接**：A08 直接落在本轮的判定层与定时机制上——`for` 复用 `auto_pending`，缺测超时可以复用刚做好的 `next_fire_at` + 租约 + 宽限判定这套模式，不需要再引入第二种定时设施；A02 页面核对可并行，产出的六类页面对照会直接告诉 A07 的定时编辑该放在哪个页面。
+1. **做了什么**：把运行从“只活在进程里”改成**有检查点、有租约、有稳定身份**的有限程序。`auto_runs` 增加 `cursor_pc`/`lease_owner`/`lease_until`/`resume_count`；步骤行 id 改为由数据库 `RETURNING` 给出并带 `attempt`；`EnqueueOutbox` 返回是否真插入，重复时按已有状态复用而不重复受理；`Tick` 增加“先过期、再续跑”两遍扫描并返回 `runs_expired`/`runs_resumed`；`domain.StepImplementations` 成为“声明支持 = 有实现”的唯一清单。
+2. **原来什么还保留**：所有旧语义都在——顺序执行、`wait` 到点续跑、分支三态、四种运行模式、目标快照、outbox 先落库后派发、取消不追回已受理的动作。没有新建第二套执行器：`wait` 仍走 `auto_run_timers`，动作仍走同一个 `performAction` → outbox → 设备命令 owner，通知/场景/告警步骤的实现一行未换。
+3. **怎么证明做对**：`encore test ./...` **144 个顶层用例（含子测试 190 条）全绿**；`encore_e2e.py` **74 项检查全通过**，其中第 14 节走真实 HTTP 验证目标 `selected` 与结果 `status` 分离、步骤全部终态且带 `attempt`、未实现步骤发布即被拒并列出可执行种类、以及 `wait` 让运行停在 `running` 后由定时器续跑到 `succeeded`。最能说明问题的一条：`TestResumeAfterCrashContinuesFromTheCheckpoint`——造出“死在第 0 步之后”的状态后一次 tick，运行成功、`resume_count=1`、设备指令 2→3 条（只补第 1 步），既没有重放也没有卡死。
+4. **难点和性能结果**：难点是“重放窗口”到底该由谁吸收。检查点写在步骤**之前**，窗口就变成“这步可能做了”，由步骤/动作身份去重；写在之后则会留下“做了但指针还指着它”的窗口，那时已无法区分“重试”和“第二次执行”。第二个难点是发现目标行 `status` 一词两用——它不会报错，只会让真实动作静默变 `skipped`，是靠 `TestResumedStepRowKeepsItsIdentity` 先红才暴露的。性能上没有压测，只有结构保证：每步一次 `cursor_pc` 单行 UPDATE，恢复扫描走 `started_at` 部分索引 + `LIMIT 20`，过期扫描走 `deadline` 部分索引 + `SKIP LOCKED`，都不随运行总数线性增长。
+5. **还有什么没完成**：真实 `kill -9` 演练（G8）仍待 A30/A31；`queued`/`parallel` 的 TTL 只校验不生效（A11/A12）；步骤级重试上限未强制，目前靠运行级 deadline 兜底；常驻调度循环仍阻塞在 A33；G1–G4、G7、G11、G12 按原登记保持未完成；性能预算表、迁移回退演练、三个纵向业务样例仍未做。
+6. **下一项怎样衔接**：A10 直接接在本轮的身份契约上——`scope_key`/`generation`/动作 ID 已经写进 outbox 与命令请求，A10 只需让设备命令 owner 认识它们并把“被替换的旧运行”拒在下发端；届时 `superseded` 会作为新的结果状态回到本轮刚做好的 `recordStepDispatchFailure`，不用再改执行器结构。A02 可并行，产出的页面清单会直接指出运行详情（本轮新增的 `cursor_pc`/`resume_count`/`selected`）该展示在哪一页。

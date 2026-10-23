@@ -111,8 +111,8 @@ func ScopeKey(def *domain.Definition, ruleID, deviceID string) string {
 type OpCode int
 
 const (
-	OpStep   OpCode = iota // a real step
-	OpJump                 // unconditional jump
+	OpStep OpCode = iota // a real step
+	OpJump               // unconditional jump
 )
 
 // Instruction is a compiled step with branch targets.
@@ -207,7 +207,8 @@ func (r *Runtime) evalContext(ctx context.Context, def *domain.Definition, devic
 // "the database refused" and "the device never reported" lead an operator to
 // completely different actions, and the evaluator reports them as different
 // verdicts (error vs unknown).
-func (r *Runtime) lookup(ctx context.Context) func(string, domain.SignalKind, string) (domain.Sample, bool, error) {	return func(deviceID string, signal domain.SignalKind, key string) (domain.Sample, bool, error) {
+func (r *Runtime) lookup(ctx context.Context) func(string, domain.SignalKind, string) (domain.Sample, bool, error) {
+	return func(deviceID string, signal domain.SignalKind, key string) (domain.Sample, bool, error) {
 		s, ok, err := r.store.LatestState(ctx, deviceID, signal, key)
 		if err != nil {
 			return domain.Sample{}, false, err

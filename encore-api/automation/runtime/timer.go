@@ -33,6 +33,12 @@ type TickResult struct {
 	// NoDataNoted counts alarm episodes that were marked "cannot be confirmed"
 	// because their subject stopped reporting.
 	NoDataNoted int `json:"no_data_noted"`
+
+	// Run bookkeeping. A run that nobody finishes is worse than a failed one:
+	// it reads as "still working" forever. Expiry and resume make both outcomes
+	// explicit.
+	RunsExpired int `json:"runs_expired"`
+	RunsResumed int `json:"runs_resumed"`
 }
 
 // Tick runs one scheduler pass: due condition timers, due run continuations and
@@ -58,16 +64,41 @@ func (r *Runtime) Tick(ctx context.Context) (TickResult, error) {
 		}
 	}
 
+	// Runs whose budget is spent are closed first, before any continuation is
+	// considered. Otherwise a wait that comes due at the same moment as the
+	// deadline would resume a run that is no longer allowed to run, and the
+	// expiry would silently never happen.
+	if expired, eerr := r.store.ExpireOverdueRuns(ctx, now, 50); eerr == nil {
+		out.RunsExpired = len(expired)
+		for _, id := range expired {
+			_ = r.store.CancelRunTimers(ctx, id)
+			_ = r.store.CancelRunOutbox(ctx, id)
+		}
+	}
+
 	timers, err := r.store.DueRunTimers(ctx, now, 50)
 	if err != nil {
 		return out, err
 	}
 	out.RunTimers = len(timers)
 	for _, t := range timers {
-		if err := r.executeRun(ctx, t.RunID, t.PC+1); err != nil {
+		if _, err := r.executeRunFromPC(ctx, t.RunID, t.PC+1); err != nil {
 			// A run that cannot resume is finished with a readable reason by
 			// executeRun; keep draining the rest.
 			continue
+		}
+	}
+
+	// Interrupted runs (a crash, or a worker that died holding the lease) resume
+	// from their checkpoint. Resuming from the beginning would replay finished
+	// steps; the checkpoint is what makes "no action without a source" true.
+	if resumable, rerr := r.store.ResumableRuns(ctx, now, 20); rerr == nil {
+		for _, id := range resumable {
+			claimed, err := r.executeRun(ctx, id)
+			if err != nil || !claimed {
+				continue
+			}
+			out.RunsResumed++
 		}
 	}
 

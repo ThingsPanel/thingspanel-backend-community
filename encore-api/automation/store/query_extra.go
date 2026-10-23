@@ -53,6 +53,17 @@ func (s *Store) UnprocessedEvents(ctx context.Context, limit int) ([]*IngestEven
 
 // GetOutbox loads one intent by id.
 func (s *Store) GetOutbox(ctx context.Context, id string) (*OutboxItem, error) {
+	return s.getOutboxWhere(ctx, `id=$1`, id)
+}
+
+// GetOutboxByKey loads the intent that already carries a logical action
+// identity. A retry of the same step finds the row it created earlier, so the
+// outcome can be reused instead of accepted a second time.
+func (s *Store) GetOutboxByKey(ctx context.Context, key string) (*OutboxItem, error) {
+	return s.getOutboxWhere(ctx, `idempotency_key=$1`, key)
+}
+
+func (s *Store) getOutboxWhere(ctx context.Context, where string, arg any) (*OutboxItem, error) {
 	var (
 		o       OutboxItem
 		payload []byte
@@ -61,7 +72,7 @@ func (s *Store) GetOutbox(ctx context.Context, id string) (*OutboxItem, error) {
         SELECT id, tenant_id, coalesce(run_id,''), coalesce(step_id,''), kind, scope_key,
                generation, idempotency_key, payload, state, attempt,
                coalesce(accepted_ref,''), coalesce(last_error,'')
-          FROM auto_outbox WHERE id=$1`, id).
+          FROM auto_outbox WHERE `+where, arg).
 		Scan(&o.ID, &o.TenantID, &o.RunID, &o.StepID, &o.Kind, &o.ScopeKey, &o.Generation,
 			&o.IdempotencyKey, &payload, &o.State, &o.Attempt, &o.AcceptedRef, &o.LastError)
 	if errors.Is(err, sql.ErrNoRows) {

@@ -15,10 +15,10 @@ import (
 // CreateRuleRequest is the authoring payload. The definition is validated and
 // normalized before it is stored, so an invalid rule can never be published.
 type CreateRuleRequest struct {
-	Name       string             `json:"name"`
-	Definition domain.Definition  `json:"definition"`
-	Enabled    bool               `json:"enabled"`
-	LegacyID   string             `json:"legacy_id,omitempty"`
+	Name       string            `json:"name"`
+	Definition domain.Definition `json:"definition"`
+	Enabled    bool              `json:"enabled"`
+	LegacyID   string            `json:"legacy_id,omitempty"`
 }
 
 // UpdateRuleRequest carries the optimistic version the client last saw.
@@ -107,13 +107,13 @@ type SimSampleInput struct {
 
 // SimulateResponse wraps the trace plus the explicit zero side-effect count.
 type SimulateResponse struct {
-	RuleID         string             `json:"rule_id"`
-	Revision       int                `json:"revision"`
-	DefinitionHash string             `json:"definition_hash"`
-	Steps          []runtime.SimStep  `json:"steps"`
-	WouldRun       int                `json:"would_run"`
-	SideEffects    int                `json:"side_effects"`
-	Notes          []string           `json:"notes"`
+	RuleID         string            `json:"rule_id"`
+	Revision       int               `json:"revision"`
+	DefinitionHash string            `json:"definition_hash"`
+	Steps          []runtime.SimStep `json:"steps"`
+	WouldRun       int               `json:"would_run"`
+	SideEffects    int               `json:"side_effects"`
+	Notes          []string          `json:"notes"`
 }
 
 // ---------------------------------------------------------------------------
@@ -122,17 +122,17 @@ type SimulateResponse struct {
 
 // IngestRequest is one normalized uplink event.
 type IngestRequest struct {
-	EventID    string         `json:"event_id"`
-	DeviceID   string         `json:"device_id"`
-	Signal     string         `json:"signal"`
-	Key        string         `json:"key"`
-	Value      string         `json:"value"`
-	Unit       string         `json:"unit,omitempty"`
-	Quality    string         `json:"quality,omitempty"`
-	ObservedAt time.Time      `json:"observed_at,omitempty"`
+	EventID    string    `json:"event_id"`
+	DeviceID   string    `json:"device_id"`
+	Signal     string    `json:"signal"`
+	Key        string    `json:"key"`
+	Value      string    `json:"value"`
+	Unit       string    `json:"unit,omitempty"`
+	Quality    string    `json:"quality,omitempty"`
+	ObservedAt time.Time `json:"observed_at,omitempty"`
 	// Params is the event parameter object as JSON text. Encore API schemas do
 	// not allow untyped maps, so the wire format stays a string.
-	Params     string `json:"params,omitempty"`
+	Params string `json:"params,omitempty"`
 }
 
 // UplinkRequest is one raw uplink message forwarded by the owner modules.
@@ -144,11 +144,11 @@ type IngestRequest struct {
 type UplinkRequest struct {
 	// Class selects the adapter: telemetry, attribute, event, status, alarm,
 	// gateway_telemetry, gateway_attribute or gateway_event.
-	Class      string            `json:"class"`
-	DeviceID   string            `json:"device_id"`
-	GatewayID  string            `json:"gateway_id,omitempty"`
-	MessageID  string            `json:"message_id,omitempty"`
-	ObservedAt time.Time         `json:"observed_at,omitempty"`
+	Class      string    `json:"class"`
+	DeviceID   string    `json:"device_id"`
+	GatewayID  string    `json:"gateway_id,omitempty"`
+	MessageID  string    `json:"message_id,omitempty"`
+	ObservedAt time.Time `json:"observed_at,omitempty"`
 	// Values is the decoded payload as JSON text. Encore API schemas do not
 	// allow untyped maps, so the wire format stays a string.
 	Values     string            `json:"values"`
@@ -216,7 +216,11 @@ type StepResponse struct {
 
 // TargetResponse is one resolved or excluded device.
 type TargetResponse struct {
-	DeviceID   string `json:"device_id"`
+	DeviceID string `json:"device_id"`
+	// Selected is the frozen selection decision; Status is the dispatch result.
+	// They are separate so "was this device part of the run" stays answerable
+	// after the action has run.
+	Selected   bool   `json:"selected"`
 	Status     string `json:"status"`
 	ReasonCode string `json:"reason_code,omitempty"`
 	Reason     string `json:"reason,omitempty"`
@@ -283,12 +287,12 @@ type AckAlarmResponse struct {
 
 // TransitionResponse is one lifecycle fact.
 type TransitionResponse struct {
-	ID       string    `json:"id"`
-	Kind     string    `json:"kind"`
-	Seq      int64     `json:"seq"`
-	Revision int       `json:"revision"`
-	Epoch    int64     `json:"epoch"`
-	Evidence string    `json:"evidence,omitempty"`
+	ID        string    `json:"id"`
+	Kind      string    `json:"kind"`
+	Seq       int64     `json:"seq"`
+	Revision  int       `json:"revision"`
+	Epoch     int64     `json:"epoch"`
+	Evidence  string    `json:"evidence,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -318,6 +322,9 @@ type TickResponse struct {
 	ScheduleFailed       int `json:"schedule_failed"`
 	ScheduleRecovered    int `json:"schedule_recovered"`
 	NoDataNoted          int `json:"no_data_noted"`
+
+	RunsExpired int `json:"runs_expired"`
+	RunsResumed int `json:"runs_resumed"`
 }
 
 // RecoverResponse reports how many receipts were replayed.

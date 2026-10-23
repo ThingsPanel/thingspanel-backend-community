@@ -95,14 +95,14 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 	}
 
 	snapshot, _ := json.Marshal(map[string]any{
-		"rule_id":       rule.ID,
-		"revision":      rule.Revision,
+		"rule_id":         rule.ID,
+		"revision":        rule.Revision,
 		"definition_hash": rule.DefinitionHash,
-		"device_id":     deviceID,
-		"targets":       len(targets),
-		"generation":    generation,
-		"verdict":       res.Verdict,
-		"mode":          def.Mode,
+		"device_id":       deviceID,
+		"targets":         len(targets),
+		"generation":      generation,
+		"verdict":         res.Verdict,
+		"mode":            def.Mode,
 	})
 	deadline := now.Add(def.Budget.MaxRunDuration.Std())
 
@@ -134,7 +134,7 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 	if status == StatusQueued {
 		return run, nil
 	}
-	if err := r.executeRun(ctx, run.ID, 0); err != nil {
+	if _, err := r.executeRun(ctx, run.ID); err != nil {
 		return run, err
 	}
 	return run, nil
@@ -360,36 +360,84 @@ func hasCapability(d ports.Device, capability string) bool {
 // Execution
 // ---------------------------------------------------------------------------
 
-// executeRun walks the compiled program from a program counter. It is safe to
-// call again after a restart: terminal steps are skipped and a pending wait
-// simply returns without changing state.
-func (r *Runtime) executeRun(ctx context.Context, runID string, startPC int) error {
+// executeRun walks the compiled program from the run's persisted checkpoint.
+//
+// It returns whether this worker actually got the run. `false` means another
+// worker holds a live lease: walking the program anyway would repeat side
+// effects, so doing nothing is the only correct answer.
+func (r *Runtime) executeRun(ctx context.Context, runID string) (bool, error) {
 	run, err := r.store.GetRunByID(ctx, runID)
 	if err != nil {
-		return err
+		return false, err
 	}
+	return r.executeRunAt(ctx, run, run.CursorPC)
+}
 
+// ResumeRun executes a run from its checkpoint, reporting whether this worker got
+// it. It is the manual form of the recovery sweep: an operator (or the CLI) can
+// nudge an interrupted run without waiting for the next pass, and the lease keeps
+// it safe to call from anywhere.
+func (r *Runtime) ResumeRun(ctx context.Context, runID string) (bool, error) {
+	return r.executeRun(ctx, runID)
+}
+
+// executeRunFromPC resumes at an explicit program counter. It is used by the
+// wait timer, whose continuation point is the recorded counter, not the
+// checkpoint (the checkpoint still points at the wait step itself).
+func (r *Runtime) executeRunFromPC(ctx context.Context, runID string, pc int) (bool, error) {
+	run, err := r.store.GetRunByID(ctx, runID)
+	if err != nil {
+		return false, err
+	}
+	return r.executeRunAt(ctx, run, pc)
+}
+
+func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int) (bool, error) {
 	// Branch conditions evaluate against the revision the run was admitted on,
 	// so a concurrent edit cannot change what a half-finished program means.
-	if run.Status != StatusAccepted && run.Status != StatusRunning && run.Status != StatusQueued {
-		return nil
+	if run.Status != StatusAccepted && run.Status != StatusRunning {
+		return false, nil
 	}
+	now := r.Now()
+	claimed, err := r.store.ClaimRun(ctx, run.ID, r.workerID, now, now.Add(store.RunLeaseDuration))
+	if err != nil {
+		return false, err
+	}
+	if !claimed {
+		return false, nil
+	}
+	// The lease is released on every exit path, including a panic in a port. A
+	// leftover lease would only delay the next resume by one lease period, but
+	// releasing eagerly keeps "who is working on this" accurate.
+	defer func() { _ = r.store.ReleaseRun(ctx, run.ID, r.workerID) }()
+
 	rule, err := r.store.GetRuleRevision(ctx, run.RuleID, run.Revision)
 	if err != nil {
-		_ = r.store.FinishRun(ctx, runID, StatusFailed, "revision_missing", "规则版本不可用")
-		return err
+		_ = r.store.FinishRun(ctx, run.ID, StatusFailed, "revision_missing", "规则版本不可用")
+		return true, err
 	}
 	prog := Compile(rule.Definition.Steps)
 
-	_ = r.store.MarkRunRunning(ctx, runID)
 	pc := startPC
+	if pc < 0 {
+		pc = 0
+	}
+	if pc > len(prog) {
+		pc = len(prog)
+	}
 	failed := false
 	anyFailed := false
 
 	for pc >= 0 && pc < len(prog) {
 		if run.Deadline != nil && r.Now().After(*run.Deadline) {
-			_ = r.store.FinishRun(ctx, runID, StatusExpired, "run_budget_exceeded", "运行超过最长时限")
-			return nil
+			_ = r.store.FinishRun(ctx, run.ID, StatusExpired, "run_budget_exceeded", "运行超过最长时限")
+			return true, nil
+		}
+		// Checkpoint before the step runs. If the process dies inside the step,
+		// the resume starts here and the replay is absorbed by the stable step
+		// and action identity instead of producing a second action.
+		if err := r.store.SetRunCursor(ctx, run.ID, pc); err != nil {
+			return true, err
 		}
 		ins := prog[pc]
 		if ins.Op == OpJump {
@@ -400,11 +448,18 @@ func (r *Runtime) executeRun(ctx context.Context, runID string, startPC int) err
 
 		switch step.Kind {
 		case domain.StepBranch:
+			stepID, attempt, err := r.ensureStep(ctx, run, pc, "branch")
+			if err != nil {
+				return true, err
+			}
 			verdict := domain.Evaluate(domain.Trigger{Groups: []domain.Group{*step.Condition}},
 				r.evalContext(ctx, &rule.Definition, run.DeviceID, nil, r.Now()))
-			stepID := r.newStep(ctx, runID, pc, "branch", r.stepKey(run, pc, 0))
-			detail, _ := json.Marshal(map[string]any{"verdict": verdict.Verdict, "reasons": verdict.Reasons})
-			_ = r.store.UpdateStepStatus(ctx, stepID, "succeeded", string(detail))
+			detail, _ := json.Marshal(map[string]any{
+				"verdict": verdict.Verdict, "reasons": verdict.Reasons, "attempt": attempt,
+			})
+			if err := r.store.UpdateStepStatus(ctx, stepID, "succeeded", string(detail)); err != nil {
+				return true, err
+			}
 			switch verdict.Verdict {
 			case domain.VerdictTrue:
 				pc++
@@ -413,35 +468,45 @@ func (r *Runtime) executeRun(ctx context.Context, runID string, startPC int) err
 			default:
 				// unknown/error never falls into else silently: the branch stops
 				// the run with an explanation the customer can read.
-				_ = r.store.FinishRun(ctx, runID, StatusFailed, "branch_undetermined",
+				_ = r.store.FinishRun(ctx, run.ID, StatusFailed, "branch_undetermined",
 					"分支条件无法确定（数据未知或错误），未进入任何分支")
-				return nil
+				return true, nil
 			}
 			continue
 
 		case domain.StepWait:
-			dueAt := r.Now().Add(step.Wait.Std())
-			if err := r.store.ScheduleWait(ctx, runID, pc, dueAt); err != nil {
-				return err
+			stepID, attempt, err := r.ensureStep(ctx, run, pc, "wait")
+			if err != nil {
+				return true, err
 			}
-			stepID := r.newStep(ctx, runID, pc, "wait", r.stepKey(run, pc, 0))
-			detail, _ := json.Marshal(map[string]any{"due_at": dueAt})
-			_ = r.store.UpdateStepStatus(ctx, stepID, "waiting", string(detail))
-			return nil // resumed by the timer worker
+			dueAt := r.Now().Add(step.Wait.Std())
+			if err := r.store.ScheduleWait(ctx, run.ID, pc, dueAt); err != nil {
+				return true, err
+			}
+			detail, _ := json.Marshal(map[string]any{"due_at": dueAt, "attempt": attempt})
+			if err := r.store.UpdateStepStatus(ctx, stepID, "waiting", string(detail)); err != nil {
+				return true, err
+			}
+			return true, nil // resumed by the timer worker
 
 		default:
-			stepID := r.newStep(ctx, runID, pc, string(step.Kind), r.stepKey(run, pc, 0))
-			outcome, err := r.performStep(ctx, run, rule, stepID, step, pc)
+			stepID, attempt, err := r.ensureStep(ctx, run, pc, string(step.Kind))
 			if err != nil {
-				return err
+				return true, err
+			}
+			outcome, err := r.performStep(ctx, run, rule, stepID, step, pc, attempt)
+			if err != nil {
+				// A step that cannot even record its intent must stop the run:
+				// continuing would dispatch actions with no source record.
+				_ = r.store.FinishRun(ctx, run.ID, StatusFailed, "step_error", err.Error())
+				return true, err
 			}
 			if outcome != stepOK {
 				anyFailed = true
 				if !step.ContinueOnFailure {
-					failed = true
-					status := StatusFailed
-					_ = r.store.FinishRun(ctx, runID, status, outcome, "步骤执行失败")
-					return nil
+					_ = r.store.FinishRun(ctx, run.ID, StatusFailed, outcome,
+						stepFailureMessage(outcome, step))
+					return true, nil
 				}
 			}
 			pc++
@@ -450,42 +515,65 @@ func (r *Runtime) executeRun(ctx context.Context, runID string, startPC int) err
 
 	switch {
 	case failed:
-		_ = r.store.FinishRun(ctx, runID, StatusFailed, "step_failed", "步骤执行失败")
+		_ = r.store.FinishRun(ctx, run.ID, StatusFailed, "step_failed", "步骤执行失败")
 	case anyFailed:
-		_ = r.store.FinishRun(ctx, runID, StatusPartial, "step_partial", "部分步骤失败")
+		_ = r.store.FinishRun(ctx, run.ID, StatusPartial, "step_partial", "部分步骤失败")
 	default:
-		_ = r.store.FinishRun(ctx, runID, StatusSucceeded, "", "")
+		_ = r.store.FinishRun(ctx, run.ID, StatusSucceeded, "", "")
 	}
 	r.promoteQueued(ctx, run.ScopeKey)
-	return nil
+	return true, nil
 }
 
 type stepOutcome = string
 
 const (
-	stepOK       stepOutcome = ""
-	stepFailed   stepOutcome = "step_failed"
-	stepUnknown  stepOutcome = "step_unknown"
-	stepRejected stepOutcome = "step_rejected"
+	stepOK          stepOutcome = ""
+	stepFailed      stepOutcome = "step_failed"
+	stepUnknown     stepOutcome = "step_unknown"
+	stepRejected    stepOutcome = "step_rejected"
+	stepUnsupported stepOutcome = "unsupported_step"
 )
 
-func (r *Runtime) newStep(ctx context.Context, runID string, pc int, kind, key string) string {
-	id := NewID()
-	_ = r.store.CreateStep(ctx, &store.Step{
-		ID: id, RunID: runID, Idx: pc, Kind: kind, Status: "pending", IdempotencyKey: key,
-	})
-	return id
+// stepFailureMessage turns an outcome into a sentence a customer can act on.
+// "步骤执行失败" alone tells nobody whether to fix the device or the rule.
+func stepFailureMessage(outcome stepOutcome, step domain.Step) string {
+	switch outcome {
+	case stepUnsupported:
+		return "规则包含未实现的步骤类型 " + string(step.Kind) + "；发布时应当被拒绝"
+	case stepUnknown:
+		return "步骤结果未知（无法确认对端是否已受理），未按成功处理"
+	case stepRejected:
+		return "步骤被对端拒绝"
+	default:
+		return "步骤执行失败"
+	}
 }
 
-func (r *Runtime) stepKey(run *store.Run, pc int, attempt int) string {
-	// A transport retry of the same logical step keeps the same key; a second
-	// legitimate execution of the step in another run gets a different run id.
+// ensureStep records the logical step identity and returns the authoritative row
+// id. The id is not generated by the caller because a re-entry hits the existing
+// row, and a caller-invented id would silently update nothing from then on.
+func (r *Runtime) ensureStep(ctx context.Context, run *store.Run, pc int, kind string) (string, int, error) {
+	return r.store.UpsertStep(ctx, &store.Step{
+		ID: NewID(), RunID: run.ID, Idx: pc, Kind: kind,
+		Status: "pending", IdempotencyKey: r.stepKey(run, pc),
+	})
+}
+
+// stepKey is the logical step identity inside a run.
+//
+// It deliberately has no attempt component: a transport retry of the same step
+// must reuse the same identity, otherwise the far end cannot dedupe it. A second
+// *legitimate* execution is a different run and therefore gets a different run
+// id — that is the occurrence boundary, and it is why two runs of the same rule
+// are both accepted instead of being folded into one.
+func (r *Runtime) stepKey(run *store.Run, pc int) string {
 	return fmt.Sprintf("%s:%d", run.ID, pc)
 }
 
 // performStep writes the intent and dispatches it.
 func (r *Runtime) performStep(ctx context.Context, run *store.Run, rule *store.Rule, stepID string,
-	step domain.Step, pc int) (stepOutcome, error) {
+	step domain.Step, pc, attempt int) (stepOutcome, error) {
 
 	switch step.Kind {
 	case domain.StepAction:
@@ -497,9 +585,17 @@ func (r *Runtime) performStep(ctx context.Context, run *store.Run, rule *store.R
 	case domain.StepActivateScene:
 		return r.performScene(ctx, run, stepID, step, pc)
 	default:
-		_ = r.store.UpdateStepStatus(ctx, stepID, "failed",
-			`{"reason":"unsupported_step"}`)
-		return stepRejected, nil
+		// Validation rejects unknown kinds at publish time, so reaching here
+		// means the stored revision predates the check or was written by hand.
+		// Either way it must stop the run with a readable reason instead of
+		// being treated as a successful no-op.
+		detail, _ := json.Marshal(map[string]any{
+			"reason": "unsupported_step", "kind": string(step.Kind), "attempt": attempt,
+		})
+		if err := r.store.UpdateStepStatus(ctx, stepID, "failed", string(detail)); err != nil {
+			return stepFailed, err
+		}
+		return stepUnsupported, nil
 	}
 }
 
@@ -510,7 +606,10 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, stepID stri
 	}
 	var deviceIDs []string
 	for _, t := range targets {
-		if t.Status == "selected" {
+		// Selected is the frozen snapshot; Status has since been overwritten by
+		// the dispatch result of an earlier attempt. Filtering on Status would
+		// make a resumed step believe it owns no devices.
+		if t.Selected {
 			deviceIDs = append(deviceIDs, t.DeviceID)
 		}
 	}
@@ -528,7 +627,7 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, stepID stri
 		item := &store.OutboxItem{
 			ID: NewID(), TenantID: run.TenantID, RunID: run.ID, StepID: stepID,
 			Kind: "command", ScopeKey: run.ScopeKey, Generation: run.Generation,
-			IdempotencyKey: fmt.Sprintf("%s:cmd:%s", r.stepKey(run, pc, 0), deviceID),
+			IdempotencyKey: fmt.Sprintf("%s:cmd:%s", r.stepKey(run, pc), deviceID),
 			Payload:        payload,
 		}
 		accepted, state, _, msg, err := r.enqueueAndDispatch(ctx, item)
@@ -537,21 +636,33 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, stepID stri
 		}
 		_ = r.store.UpdateTargetStatus(ctx, run.ID, deviceID, state, "", msg)
 		switch {
-		case !accepted && state == "failed":
-			anyFail = true
+		case accepted:
+			// Nothing to record here: the target row already carries "accepted".
 		case state == "unknown":
 			anyUnknown = true
+		default:
+			// failed or cancelled — either way the device did not take it.
+			anyFail = true
 		}
 	}
 	switch {
 	case anyUnknown:
-		_ = r.store.UpdateStepStatus(ctx, stepID, "unknown", `{"reason":"device_result_unknown"}`)
+		if err := r.store.UpdateStepStatus(ctx, stepID, "unknown",
+			`{"reason":"device_result_unknown"}`); err != nil {
+			return stepFailed, err
+		}
 		return stepUnknown, nil
 	case anyFail:
-		_ = r.store.UpdateStepStatus(ctx, stepID, "failed", `{"reason":"command_rejected"}`)
+		if err := r.store.UpdateStepStatus(ctx, stepID, "failed",
+			`{"reason":"command_rejected"}`); err != nil {
+			return stepFailed, err
+		}
 		return stepFailed, nil
 	default:
-		_ = r.store.UpdateStepStatus(ctx, stepID, "accepted", `{"reason":"accepted_by_command_owner"}`)
+		if err := r.store.UpdateStepStatus(ctx, stepID, "accepted",
+			`{"reason":"accepted_by_command_owner"}`); err != nil {
+			return stepFailed, err
+		}
 		return stepOK, nil
 	}
 }
@@ -565,19 +676,21 @@ func (r *Runtime) performNotify(ctx context.Context, run *store.Run, stepID stri
 	item := &store.OutboxItem{
 		ID: NewID(), TenantID: run.TenantID, RunID: run.ID, StepID: stepID,
 		Kind: "notification", ScopeKey: run.ScopeKey, Generation: run.Generation,
-		IdempotencyKey: r.stepKey(run, pc, 0) + ":notify",
+		IdempotencyKey: r.stepKey(run, pc) + ":notify",
 		Payload:        payload,
 	}
 	accepted, state, _, msg, err := r.enqueueAndDispatch(ctx, item)
 	if err != nil {
 		return stepFailed, err
 	}
-	if !accepted && state == "failed" {
-		_ = r.store.UpdateStepStatus(ctx, stepID, "failed", `{"reason":"`+msg+`"}`)
-		return stepFailed, nil
+	if accepted {
+		if err := r.store.UpdateStepStatus(ctx, stepID, "accepted",
+			`{"reason":"accepted_by_notification_core"}`); err != nil {
+			return stepFailed, err
+		}
+		return stepOK, nil
 	}
-	_ = r.store.UpdateStepStatus(ctx, stepID, "accepted", `{"reason":"accepted_by_notification_core"}`)
-	return stepOK, nil
+	return r.recordStepDispatchFailure(ctx, stepID, state, msg)
 }
 
 func (r *Runtime) performScene(ctx context.Context, run *store.Run, stepID string, step domain.Step, pc int) (stepOutcome, error) {
@@ -585,38 +698,80 @@ func (r *Runtime) performScene(ctx context.Context, run *store.Run, stepID strin
 	item := &store.OutboxItem{
 		ID: NewID(), TenantID: run.TenantID, RunID: run.ID, StepID: stepID,
 		Kind: "scene", ScopeKey: run.ScopeKey, Generation: run.Generation,
-		IdempotencyKey: r.stepKey(run, pc, 0) + ":scene",
+		IdempotencyKey: r.stepKey(run, pc) + ":scene",
 		Payload:        payload,
 	}
 	accepted, state, _, msg, err := r.enqueueAndDispatch(ctx, item)
 	if err != nil {
 		return stepFailed, err
 	}
-	if !accepted && state == "failed" {
-		_ = r.store.UpdateStepStatus(ctx, stepID, "failed", `{"reason":"`+msg+`"}`)
-		return stepFailed, nil
+	if accepted {
+		if err := r.store.UpdateStepStatus(ctx, stepID, "accepted",
+			`{"reason":"scene_accepted"}`); err != nil {
+			return stepFailed, err
+		}
+		return stepOK, nil
 	}
-	_ = r.store.UpdateStepStatus(ctx, stepID, "accepted", `{"reason":"scene_accepted"}`)
-	return stepOK, nil
+	return r.recordStepDispatchFailure(ctx, stepID, state, msg)
+}
+
+// recordStepDispatchFailure keeps "unknown" and "refused" apart on the step row.
+// Folding them together is how a rejected command ends up looking like a sent
+// one, which is the exact failure the four-value verdict exists to prevent.
+func (r *Runtime) recordStepDispatchFailure(ctx context.Context, stepID, state, msg string) (stepOutcome, error) {
+	detail, _ := json.Marshal(map[string]any{"reason": state, "message": msg})
+	status, outcome := "failed", stepFailed
+	if state == "unknown" {
+		status, outcome = "unknown", stepUnknown
+	}
+	if err := r.store.UpdateStepStatus(ctx, stepID, status, string(detail)); err != nil {
+		return stepFailed, err
+	}
+	return outcome, nil
 }
 
 // enqueueAndDispatch commits the intent first, then performs the network call.
-// If the process dies between the two, the intent is still claimable by the
-// dispatcher: no silent loss, and no double action because the idempotency key
-// is unique.
+//
+// The split is what makes a crash between the two harmless: the intent is still
+// claimable by the dispatcher, so nothing is lost, and the unique idempotency key
+// means nothing is doubled.
+//
+// A duplicate insert means this exact logical action already has a row. That
+// happens on a resume after a crash inside the step. The existing row is reused:
+//   - already accepted → the step is reported as accepted again, with no second
+//     call, so a retry can never be counted as a second acceptance;
+//   - not yet confirmed → the transport is retried with the SAME identity, so the
+//     far end can still dedupe it;
+//   - cancelled → reported as cancelled, never silently re-sent.
 func (r *Runtime) enqueueAndDispatch(ctx context.Context, item *store.OutboxItem) (bool, string, string, string, error) {
 	tx, err := r.store.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return false, "failed", "", err.Error(), err
 	}
-	if err := r.store.EnqueueOutbox(ctx, tx, item); err != nil {
+	inserted, err := r.store.EnqueueOutbox(ctx, tx, item)
+	if err != nil {
 		_ = tx.Rollback()
 		return false, "failed", "", err.Error(), err
 	}
 	if err := tx.Commit(); err != nil {
 		return false, "failed", "", err.Error(), err
 	}
-	return r.dispatchOne(ctx, item)
+	if inserted {
+		return r.dispatchOne(ctx, item)
+	}
+
+	existing, err := r.store.GetOutboxByKey(ctx, item.IdempotencyKey)
+	if err != nil {
+		return false, "unknown", "", "重复意图回读失败: " + err.Error(), err
+	}
+	switch existing.State {
+	case "accepted":
+		return true, "accepted", existing.AcceptedRef, existing.LastError, nil
+	case "cancelled":
+		return false, "cancelled", "", "运行已取消，意图未派发", nil
+	default:
+		return r.dispatchOne(ctx, existing)
+	}
 }
 
 func (r *Runtime) promoteQueued(ctx context.Context, scope string) {
@@ -628,7 +783,7 @@ func (r *Runtime) promoteQueued(ctx context.Context, scope string) {
 		if err := r.store.MarkRunRunning(ctx, next); err != nil {
 			return
 		}
-		if err := r.executeRun(ctx, next, 0); err != nil {
+		if _, err := r.executeRun(ctx, next); err != nil {
 			return
 		}
 	}

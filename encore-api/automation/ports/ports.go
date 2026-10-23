@@ -28,12 +28,12 @@ var ErrLabelNotExposed = errors.New("device directory does not expose device lab
 
 // Config is resolved from the environment so no secret is baked into code.
 type Config struct {
-	CommunityBaseURL string
-	CommunityToken   string
-	NotificationURL  string
+	CommunityBaseURL  string
+	CommunityToken    string
+	NotificationURL   string
 	NotificationToken string
-	DeploymentID     string
-	Timeout          time.Duration
+	DeploymentID      string
+	Timeout           time.Duration
 }
 
 // FromEnv builds the port configuration.
@@ -246,17 +246,17 @@ func (h *HTTPCommandOwner) ActivateScene(ctx context.Context, tenantID, sceneID 
 
 // NotificationRequest is a business notification intent.
 type NotificationRequest struct {
-	TenantID            string
-	PolicyID            string
-	GroupRevision       int64
-	SourceEventID       string
-	ActionID            string
-	Subject             string
-	Text                string
-	Variables           map[string]any
-	OccurredAt          time.Time
-	ExpiresAt           time.Time
-	IdempotencyKey      string
+	TenantID       string
+	PolicyID       string
+	GroupRevision  int64
+	SourceEventID  string
+	ActionID       string
+	Subject        string
+	Text           string
+	Variables      map[string]any
+	OccurredAt     time.Time
+	ExpiresAt      time.Time
+	IdempotencyKey string
 }
 
 // NotificationResult is the intake outcome. "accepted" means the notification

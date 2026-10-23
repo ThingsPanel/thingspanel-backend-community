@@ -537,7 +537,8 @@ func toRunResponse(r *store.Run, steps []*store.Step, targets []store.Target, ou
 	}
 	for _, t := range targets {
 		out.Targets = append(out.Targets, TargetResponse{
-			DeviceID: t.DeviceID, Status: t.Status, ReasonCode: t.ReasonCode, Reason: t.Reason,
+			DeviceID: t.DeviceID, Selected: t.Selected, Status: t.Status,
+			ReasonCode: t.ReasonCode, Reason: t.Reason,
 		})
 	}
 	for _, o := range outbox {
@@ -665,6 +666,7 @@ func (s *Service) Tick(ctx context.Context) (*TickResponse, error) {
 		ScheduleMisfired: res.ScheduleMisfired, ScheduleExecuted: res.ScheduleExecuted,
 		ScheduleSkipped: res.ScheduleSkipped, ScheduleFailed: res.ScheduleFailed,
 		ScheduleRecovered: res.ScheduleRecovered, NoDataNoted: res.NoDataNoted,
+		RunsExpired: res.RunsExpired, RunsResumed: res.RunsResumed,
 	}, nil
 }
 

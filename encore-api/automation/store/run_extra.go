@@ -31,11 +31,13 @@ func (s *Store) GetRunByID(ctx context.Context, runID string) (*Run, error) {
         SELECT id, tenant_id, rule_id, revision, definition_hash, scope_key, generation,
                device_id, trigger_event_id, status, reason_code, reason, snapshot,
                started_at, finished_at, deadline,
-               coalesce(causal_root,''), causal_hop, coalesce(cause_event_id,'')
+               coalesce(causal_root,''), causal_hop, coalesce(cause_event_id,''),
+               cursor_pc, resume_count
           FROM auto_runs WHERE id=$1`, runID).
 		Scan(&r.ID, &r.TenantID, &r.RuleID, &r.Revision, &r.DefinitionHash, &r.ScopeKey,
 			&r.Generation, &deviceID, &triggerID, &r.Status, &reasonCode, &reason, &snapshot,
-			&r.StartedAt, &finishedAt, &deadline, &r.CausalRoot, &r.CausalHop, &r.CauseEventID)
+			&r.StartedAt, &finishedAt, &deadline, &r.CausalRoot, &r.CausalHop, &r.CauseEventID,
+			&r.CursorPC, &r.ResumeCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}

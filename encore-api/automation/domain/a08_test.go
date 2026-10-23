@@ -145,7 +145,7 @@ func TestOnChangeRequiresHeartbeat(t *testing.T) {
 			Mode: FreshnessOnChange,
 		},
 		Targets: TargetSpec{DeviceIDs: []string{"dev-1"}},
-		Steps: []Step{{Kind: StepAction, Action: "telemetry", Identifier: "switch", Value: "1"}},
+		Steps:   []Step{{Kind: StepAction, Action: "telemetry", Identifier: "switch", Value: "1"}},
 	}
 	def.Normalize()
 	err := Validate(&def)

@@ -270,13 +270,13 @@ func TestOnceSpecIsAnAbsoluteInstant(t *testing.T) {
 
 func TestValidateRejectsUnschedulableSpecs(t *testing.T) {
 	cases := map[string]ScheduleSpec{
-		"unknown kind":       {Kind: "sometimes"},
-		"once without time":  {Kind: ScheduleOnce},
-		"once with cron":     {Kind: ScheduleOnce, RunAt: time.Now(), Cron: "0 9 * * *"},
-		"cron without cron":  {Kind: ScheduleCron},
-		"cron malformed":     {Kind: ScheduleCron, Cron: "0 9 * *"},
-		"unknown timezone":   {Kind: ScheduleCron, Cron: "0 9 * * *", Timezone: "Mars/Olympus"},
-		"unknown misfire":    {Kind: ScheduleCron, Cron: "0 9 * * *", Misfire: "retry"},
+		"unknown kind":      {Kind: "sometimes"},
+		"once without time": {Kind: ScheduleOnce},
+		"once with cron":    {Kind: ScheduleOnce, RunAt: time.Now(), Cron: "0 9 * * *"},
+		"cron without cron": {Kind: ScheduleCron},
+		"cron malformed":    {Kind: ScheduleCron, Cron: "0 9 * *"},
+		"unknown timezone":  {Kind: ScheduleCron, Cron: "0 9 * * *", Timezone: "Mars/Olympus"},
+		"unknown misfire":   {Kind: ScheduleCron, Cron: "0 9 * * *", Misfire: "retry"},
 	}
 	for name, spec := range cases {
 		if err := spec.Validate(); err == nil {

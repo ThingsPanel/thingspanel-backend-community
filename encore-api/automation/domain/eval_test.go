@@ -40,10 +40,10 @@ func trigger(key, op, val string) Trigger {
 func TestOperators(t *testing.T) {
 	now := time.Now()
 	cases := []struct {
-		name  string
-		op    string
-		want  string
-		value any
+		name    string
+		op      string
+		want    string
+		value   any
 		verdict Verdict
 	}{
 		{"eq number", OpEq, "30", 30.0, VerdictTrue},

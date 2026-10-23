@@ -292,4 +292,3 @@ func TestAttributeAndEventStayDistinct(t *testing.T) {
 		t.Log("event params are carried on the inbox row, not the state row")
 	}
 }
-

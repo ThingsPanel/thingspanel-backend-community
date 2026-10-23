@@ -104,22 +104,22 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 
 // Definition is the immutable, versioned body of a rule revision.
 type Definition struct {
-	Kind      RuleKind    `json:"kind"`
-	Mode      RunMode     `json:"mode"`
-	Scope     ScopeKind   `json:"scope"`
-	Trigger   Trigger     `json:"trigger"`
-	Recovery  *Trigger    `json:"recovery,omitempty"`
-	Freshness Freshness   `json:"freshness"`
-	Targets   TargetSpec  `json:"targets"`
-	Steps     []Step      `json:"steps"`
-	Queue     *QueueRule  `json:"queue,omitempty"`
+	Kind      RuleKind      `json:"kind"`
+	Mode      RunMode       `json:"mode"`
+	Scope     ScopeKind     `json:"scope"`
+	Trigger   Trigger       `json:"trigger"`
+	Recovery  *Trigger      `json:"recovery,omitempty"`
+	Freshness Freshness     `json:"freshness"`
+	Targets   TargetSpec    `json:"targets"`
+	Steps     []Step        `json:"steps"`
+	Queue     *QueueRule    `json:"queue,omitempty"`
 	Parallel  *ParallelRule `json:"parallel,omitempty"`
-	Budget    Budget      `json:"budget"`
+	Budget    Budget        `json:"budget"`
 }
 
 // Trigger is an OR of groups; each group is an AND of conditions.
 type Trigger struct {
-	Groups []Group `json:"groups"`
+	Groups []Group  `json:"groups"`
 	For    Duration `json:"for"`
 }
 
@@ -134,13 +134,13 @@ type Group struct {
 // how cross-device rules avoid reading the same identifier from the wrong
 // device.
 type Condition struct {
-	Source    string     `json:"source"` // self | device
-	DeviceID  string     `json:"device_id,omitempty"`
-	Signal    SignalKind `json:"signal"`
-	Key       string     `json:"key"`
-	Operator  string     `json:"operator"`
-	Value     string     `json:"value"`
-	Unit      string     `json:"unit,omitempty"`
+	Source     string      `json:"source"` // self | device
+	DeviceID   string      `json:"device_id,omitempty"`
+	Signal     SignalKind  `json:"signal"`
+	Key        string      `json:"key"`
+	Operator   string      `json:"operator"`
+	Value      string      `json:"value"`
+	Unit       string      `json:"unit,omitempty"`
 	EventMatch *EventMatch `json:"event_match,omitempty"`
 }
 
@@ -196,43 +196,66 @@ type Freshness struct {
 
 // TargetSpec is resolved to a frozen snapshot when a run is accepted.
 type TargetSpec struct {
-	DeviceIDs      []string `json:"device_ids,omitempty"`
-	DeviceConfigIDs []string `json:"device_config_ids,omitempty"`
-	AreaIDs        []string `json:"area_ids,omitempty"`
-	IncludeSubAreas bool    `json:"include_sub_areas,omitempty"`
-	Labels         []string `json:"labels,omitempty"`
-	LabelMatch     string   `json:"label_match,omitempty"` // and | or
-	DeviceTypes    []string `json:"device_types,omitempty"`
-	RequiredCapability string `json:"required_capability,omitempty"`
-	MaxTargets     int      `json:"max_targets,omitempty"`
+	DeviceIDs          []string `json:"device_ids,omitempty"`
+	DeviceConfigIDs    []string `json:"device_config_ids,omitempty"`
+	AreaIDs            []string `json:"area_ids,omitempty"`
+	IncludeSubAreas    bool     `json:"include_sub_areas,omitempty"`
+	Labels             []string `json:"labels,omitempty"`
+	LabelMatch         string   `json:"label_match,omitempty"` // and | or
+	DeviceTypes        []string `json:"device_types,omitempty"`
+	RequiredCapability string   `json:"required_capability,omitempty"`
+	MaxTargets         int      `json:"max_targets,omitempty"`
 }
 
 // Step is one finite action in a run.
 type Step struct {
-	Kind       StepKind   `json:"kind"`
-	DeviceRef  string     `json:"device_ref,omitempty"` // target | self | explicit id
-	Action     string     `json:"action,omitempty"`     // telemetry | attribute | command
-	Identifier string     `json:"identifier,omitempty"`
-	Value      string     `json:"value,omitempty"`
-	Wait       Duration   `json:"wait,omitempty"`
-	AlarmPolicyID string  `json:"alarm_policy_id,omitempty"`
-	NotificationPolicyID string `json:"notification_policy_id,omitempty"`
-	ContinueOnFailure bool `json:"continue_on_failure,omitempty"`
-	Then       []Step     `json:"then,omitempty"` // finite if/else branch
-	Else       []Step     `json:"else,omitempty"`
-	Condition  *Group     `json:"condition,omitempty"`
+	Kind                 StepKind `json:"kind"`
+	DeviceRef            string   `json:"device_ref,omitempty"` // target | self | explicit id
+	Action               string   `json:"action,omitempty"`     // telemetry | attribute | command
+	Identifier           string   `json:"identifier,omitempty"`
+	Value                string   `json:"value,omitempty"`
+	Wait                 Duration `json:"wait,omitempty"`
+	AlarmPolicyID        string   `json:"alarm_policy_id,omitempty"`
+	NotificationPolicyID string   `json:"notification_policy_id,omitempty"`
+	ContinueOnFailure    bool     `json:"continue_on_failure,omitempty"`
+	Then                 []Step   `json:"then,omitempty"` // finite if/else branch
+	Else                 []Step   `json:"else,omitempty"`
+	Condition            *Group   `json:"condition,omitempty"`
 }
 
 type StepKind string
 
 const (
-	StepAction       StepKind = "action"
-	StepWait         StepKind = "wait"
-	StepAlarm        StepKind = "alarm"
-	StepNotify       StepKind = "notify"
-	StepBranch       StepKind = "branch"
+	StepAction        StepKind = "action"
+	StepWait          StepKind = "wait"
+	StepAlarm         StepKind = "alarm"
+	StepNotify        StepKind = "notify"
+	StepBranch        StepKind = "branch"
 	StepActivateScene StepKind = "activate_scene"
 )
+
+// StepImplementations is the single list of step kinds this release can actually
+// execute, with a human readable description of what "execute" means.
+//
+// Validation reads this map, so a definition is rejected at publish time when it
+// names a step the runtime cannot perform. The runtime's dispatch table is
+// checked against the same map by a test, so "accepted at publish" and
+// "executable at run time" cannot drift apart — a rule that publishes
+// successfully must not fail halfway through a run with "unsupported step".
+var StepImplementations = map[StepKind]string{
+	StepAction:        "设备动作：写入遥测/属性，或下发命令（经设备命令 owner）",
+	StepWait:          "等待：持久业务定时器，进程重启后从记录的程序计数器继续",
+	StepAlarm:         "告警操作：对指定策略触发或解除告警生命周期",
+	StepNotify:        "通知：提交给通知 owner，动作 ID 稳定，重试不重复受理",
+	StepBranch:        "条件分支：按四值判定选择 then/else，未知不落入任何分支",
+	StepActivateScene: "激活场景：把场景 ID 交给场景执行方",
+}
+
+// SupportsStepKind reports whether a step kind has a real implementation.
+func SupportsStepKind(k StepKind) bool {
+	_, ok := StepImplementations[k]
+	return ok
+}
 
 // QueueRule bounds the queued mode.
 type QueueRule struct {
@@ -249,11 +272,11 @@ type ParallelRule struct {
 // Budget is the versioned runtime budget (A04/Task book 7.4). Zero values are
 // replaced by defaults during validation so nothing is "unlimited".
 type Budget struct {
-	MaxSteps        int      `json:"max_steps"`
-	MaxDepth        int      `json:"max_depth"`
-	MaxRunDuration  Duration `json:"max_run_duration"`
-	MaxAttempts     int      `json:"max_attempts"`
-	ActionTimeout   Duration `json:"action_timeout"`
+	MaxSteps       int      `json:"max_steps"`
+	MaxDepth       int      `json:"max_depth"`
+	MaxRunDuration Duration `json:"max_run_duration"`
+	MaxAttempts    int      `json:"max_attempts"`
+	ActionTimeout  Duration `json:"action_timeout"`
 }
 
 // DefaultBudget is the frozen default for the first release. Values are small
@@ -596,7 +619,7 @@ func freshnessVerdict(c Condition, deviceID string, s Sample, ctx EvalContext) (
 		if !hb.ObservedAt.IsZero() && ctx.Now.Sub(hb.ObservedAt) > ctx.Heartbeat {
 			return LeafResult{Verdict: VerdictUnknown, Reasons: []Reason{{
 				Code: "no_heartbeat", DeviceID: deviceID, Key: c.Key,
-				Age: hb.ObservedAt.Format(time.RFC3339),
+				Age:     hb.ObservedAt.Format(time.RFC3339),
 				Message: fmt.Sprintf("设备心跳已超过 %s 未更新，数据是否仍有效无法确认", ctx.Heartbeat),
 			}}}, true
 		}

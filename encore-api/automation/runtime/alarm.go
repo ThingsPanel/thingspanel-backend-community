@@ -176,7 +176,7 @@ func (r *Runtime) startRecoveryPending(ctx context.Context, rule *store.Rule, de
 	p := &store.Pending{
 		ScopeKey: recScope, TenantID: rule.TenantID, RuleID: rule.ID, Revision: rule.Revision,
 		DeviceID: deviceID, StartedAt: now,
-		Deadline: now.Add(rule.Definition.Recovery.For.Std()),
+		Deadline:       now.Add(rule.Definition.Recovery.For.Std()),
 		LastEvidenceAt: now, EvidenceSeq: seq, RequireProcessedBefore: now,
 		CausalRoot: c.Root, CausalHop: c.Hop,
 	}
@@ -226,7 +226,7 @@ func (r *Runtime) performAlarm(ctx context.Context, run *store.Run, stepID strin
 		return stepFailed, err
 	}
 	res := domain.Result{Verdict: domain.VerdictTrue, Reasons: []domain.Reason{{
-		Code: "alarm_action_from_automation",
+		Code:    "alarm_action_from_automation",
 		Message: "自动化按旧场景告警动作提交的授权事件型判定",
 	}}}
 	// The linked alarm inherits the run's chain so an alarm -> rule -> alarm
@@ -237,7 +237,9 @@ func (r *Runtime) performAlarm(ctx context.Context, run *store.Run, stepID strin
 		return stepFailed, err
 	}
 	detail, _ := json.Marshal(map[string]any{"policy_id": policy.ID, "subject": subject, "seq": seq})
-	_ = r.store.UpdateStepStatus(ctx, stepID, "succeeded", string(detail))
+	if err := r.store.UpdateStepStatus(ctx, stepID, "succeeded", string(detail)); err != nil {
+		return stepFailed, err
+	}
 	return stepOK, nil
 }
 

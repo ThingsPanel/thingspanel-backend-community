@@ -47,7 +47,7 @@ const MisfireGrace = 2 * time.Minute
 
 // ScheduleSpec is the authored part of a schedule.
 type ScheduleSpec struct {
-	Kind     ScheduleKind
+	Kind ScheduleKind
 	// Cron is the five-field expression, used when Kind is cron.
 	Cron string
 	// RunAt is the absolute instant, used when Kind is once. It is stored as an

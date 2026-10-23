@@ -135,7 +135,7 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 				actions := describeActions(prog)
 				res.Steps = append(res.Steps, SimStep{
 					At: rel(base, now), Kind: "action", Verdict: "true",
-					Detail: fmt.Sprintf("持续条件成立，将执行 %d 个步骤", len(actions)),
+					Detail:  fmt.Sprintf("持续条件成立，将执行 %d 个步骤", len(actions)),
 					Actions: actions,
 				})
 			}
@@ -189,7 +189,7 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 					res.WouldRun++
 					res.Steps = append(res.Steps, SimStep{
 						At: rel(base, item.at), Kind: "action", Verdict: "true",
-						Detail: "立即满足（for=0 保持旧触发语义），将执行步骤",
+						Detail:  "立即满足（for=0 保持旧触发语义），将执行步骤",
 						Actions: describeActions(prog),
 					})
 				}
