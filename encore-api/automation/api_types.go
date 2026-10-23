@@ -309,6 +309,14 @@ type TickResponse struct {
 	PendingDropped  int `json:"pending_dropped"`
 	RunTimers       int `json:"run_timers"`
 	OutboxDrained   int `json:"outbox_drained"`
+
+	ScheduleMaterialized int `json:"schedule_materialized"`
+	ScheduleDuplicates   int `json:"schedule_duplicates"`
+	ScheduleMisfired     int `json:"schedule_misfired"`
+	ScheduleExecuted     int `json:"schedule_executed"`
+	ScheduleSkipped      int `json:"schedule_skipped"`
+	ScheduleFailed       int `json:"schedule_failed"`
+	ScheduleRecovered    int `json:"schedule_recovered"`
 }
 
 // RecoverResponse reports how many receipts were replayed.
@@ -344,6 +352,93 @@ type EventResponse struct {
 // EventsResponse is the feed page.
 type EventsResponse struct {
 	Events []EventResponse `json:"events"`
+}
+
+// ---------------------------------------------------------------------------
+// Schedules (A07)
+// ---------------------------------------------------------------------------
+
+// ScheduleRequest creates or replaces a timed trigger.
+//
+// Kind is "once" (needs RunAt) or "cron" (needs Cron). Timezone is an IANA name;
+// leaving it empty uses the deployment's local zone, which is what the legacy
+// scene timer did.
+type ScheduleRequest struct {
+	RuleID        string     `json:"rule_id"`
+	Kind          string     `json:"kind"`
+	Cron          string     `json:"cron,omitempty"`
+	Timezone      string     `json:"timezone,omitempty"`
+	RunAt         *time.Time `json:"run_at,omitempty"`
+	MisfirePolicy string     `json:"misfire_policy,omitempty"`
+	Enabled       *bool      `json:"enabled,omitempty"`
+}
+
+// ScheduleResponse is one stored schedule.
+type ScheduleResponse struct {
+	ID            string     `json:"id"`
+	TenantID      string     `json:"tenant_id"`
+	RuleID        string     `json:"rule_id"`
+	Kind          string     `json:"kind"`
+	Cron          string     `json:"cron,omitempty"`
+	Timezone      string     `json:"timezone"`
+	RunAt         *time.Time `json:"run_at,omitempty"`
+	MisfirePolicy string     `json:"misfire_policy"`
+	Enabled       bool       `json:"enabled"`
+	NextFireAt    *time.Time `json:"next_fire_at,omitempty"`
+	LastFireAt    *time.Time `json:"last_fire_at,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+}
+
+// ListSchedulesResponse is the schedule list.
+type ListSchedulesResponse struct {
+	Schedules []ScheduleResponse `json:"schedules"`
+}
+
+// ListSchedulesRequest filters the schedule list.
+type ListSchedulesRequest struct {
+	RuleID string `json:"rule_id" query:"rule_id"`
+	Limit  int    `json:"limit" query:"limit"`
+}
+
+// ListFiresRequest pages the occurrence history of one schedule.
+type ListFiresRequest struct {
+	Limit int `json:"limit" query:"limit"`
+}
+
+// PreviewScheduleRequest asks what an expression means without storing it.
+type PreviewScheduleRequest struct {
+	Kind          string     `json:"kind"`
+	Cron          string     `json:"cron,omitempty"`
+	Timezone      string     `json:"timezone,omitempty"`
+	RunAt         *time.Time `json:"run_at,omitempty"`
+	MisfirePolicy string     `json:"misfire_policy,omitempty"`
+	From          *time.Time `json:"from,omitempty"`
+	Count         int        `json:"count,omitempty"`
+}
+
+// PreviewScheduleResponse lists the next occurrences in the schedule's zone.
+type PreviewScheduleResponse struct {
+	Timezone string   `json:"timezone"`
+	Next     []string `json:"next"`
+}
+
+// FireResponse is one attempted occurrence.
+type FireResponse struct {
+	ID           string    `json:"id"`
+	ScheduleID   string    `json:"schedule_id"`
+	RuleID       string    `json:"rule_id"`
+	ScheduledFor time.Time `json:"scheduled_for"`
+	State        string    `json:"state"`
+	RunID        string    `json:"run_id,omitempty"`
+	Attempt      int       `json:"attempt"`
+	Missed       int       `json:"missed,omitempty"`
+	Error        string    `json:"error,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+// ListFiresResponse is the occurrence history of a schedule.
+type ListFiresResponse struct {
+	Fires []FireResponse `json:"fires"`
 }
 
 // HealthResponse proves the process booted with a usable database handle.

@@ -50,6 +50,11 @@ type Runtime struct {
 	notif ports.NotificationOwner
 	dir   ports.Directory
 	clock Clock
+
+	// workerID identifies this process when it leases a schedule or a fire.
+	// Two replicas therefore never claim the same due row, and a lease left
+	// behind by a crashed process simply expires.
+	workerID string
 }
 
 // New builds a runtime. Any port may be nil, in which case the corresponding
@@ -58,8 +63,18 @@ func New(st *store.Store, cmds ports.CommandOwner, notif ports.NotificationOwner
 	if clock == nil {
 		clock = time.Now
 	}
-	return &Runtime{store: st, cmds: cmds, notif: notif, dir: dir, clock: clock}
+	return &Runtime{
+		store:    st,
+		cmds:     cmds,
+		notif:    notif,
+		dir:      dir,
+		clock:    clock,
+		workerID: "w-" + NewID()[:8],
+	}
 }
+
+// WorkerID exposes this process identity for logs and diagnostics.
+func (r *Runtime) WorkerID() string { return r.workerID }
 
 // Store exposes the store for the API layer (read paths only).
 func (r *Runtime) Store() *store.Store { return r.store }

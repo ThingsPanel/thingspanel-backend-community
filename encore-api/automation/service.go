@@ -256,7 +256,14 @@ func (s *Service) DeleteRule(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	return internal(rt.Store().DeleteRule(ctx, tenantID, id))
+	if err := rt.Store().DeleteRule(ctx, tenantID, id); err != nil {
+		return internal(err)
+	}
+	// A deleted rule must not leave a schedule that still fires. The due time is
+	// cleared here as well, so the scan cannot pick it up even before the
+	// soft-deleted rule is filtered out of the join.
+	_ = rt.Store().CancelSchedulesForRule(ctx, id)
+	return nil
 }
 
 // SetRuleEnabled is the switch used by the legacy on/off page control.
@@ -274,6 +281,10 @@ func (s *Service) SetRuleEnabled(ctx context.Context, id string, req *SetEnabled
 	if _, err := rt.Store().SetEnabled(ctx, tenantID, id, req.Enabled, req.Version); err != nil {
 		return nil, internal(err)
 	}
+	// Schedules are deliberately left alone here. The due scan joins the rule and
+	// requires it to be enabled, so a disabled rule fires nothing; and because the
+	// stored due time is kept, re-enabling resumes under the schedule's misfire
+	// policy instead of silently losing the job.
 	stored, err := rt.Store().GetRule(ctx, tenantID, id)
 	if err != nil {
 		return nil, internal(err)
@@ -650,6 +661,10 @@ func (s *Service) Tick(ctx context.Context) (*TickResponse, error) {
 		PendingExamined: res.PendingExamined, PendingFired: res.PendingFired,
 		PendingDeferred: res.PendingDeferred, PendingDropped: res.PendingDropped,
 		RunTimers: res.RunTimers, OutboxDrained: res.OutboxDrained,
+		ScheduleMaterialized: res.ScheduleMaterialized, ScheduleDuplicates: res.ScheduleDuplicates,
+		ScheduleMisfired: res.ScheduleMisfired, ScheduleExecuted: res.ScheduleExecuted,
+		ScheduleSkipped: res.ScheduleSkipped, ScheduleFailed: res.ScheduleFailed,
+		ScheduleRecovered: res.ScheduleRecovered,
 	}, nil
 }
 
@@ -713,6 +728,307 @@ func (s *Service) Events(ctx context.Context, req *EventsRequest) (*EventsRespon
 			ID: e.ID, Kind: e.Kind, Subject: e.Subject, Payload: string(e.Payload),
 			Seq: e.Seq, CreatedAt: e.CreatedAt,
 		})
+	}
+	return out, nil
+}
+
+// ---------------------------------------------------------------------------
+// Schedules (A07)
+// ---------------------------------------------------------------------------
+//
+// A schedule is business data, not a source-code cron entry: it is created,
+// changed and deleted through these endpoints, so adding one never needs a
+// deployment and deleting one cannot leave a ghost job behind.
+//
+// The occurrence, not the schedule, is the unit of work. Each occurrence gets a
+// row unique on (schedule_id, scheduled_for), which is what makes a duplicate
+// wake-up, a retried claim and a restart all harmless.
+
+// defaultTimezone keeps the legacy scene timer's behaviour: an expression
+// without an explicit zone is evaluated in the deployment's own zone, not UTC.
+// TP_SCHEDULE_TZ overrides it for a container that runs with TZ=UTC.
+func defaultTimezone() string {
+	if tz := strings.TrimSpace(os.Getenv("TP_SCHEDULE_TZ")); tz != "" {
+		return tz
+	}
+	if name := time.Local.String(); name != "" && name != "Local" {
+		return name
+	}
+	return "UTC"
+}
+
+func specFromRequest(kind, cron, tz string, runAt *time.Time, misfire string) domain.ScheduleSpec {
+	if strings.TrimSpace(tz) == "" {
+		tz = defaultTimezone()
+	}
+	if strings.TrimSpace(misfire) == "" {
+		misfire = string(domain.MisfireSkip)
+	}
+	spec := domain.ScheduleSpec{
+		Kind:     domain.ScheduleKind(strings.TrimSpace(kind)),
+		Cron:     strings.TrimSpace(cron),
+		Timezone: tz,
+		Misfire:  domain.MisfirePolicy(strings.TrimSpace(misfire)),
+	}
+	if runAt != nil {
+		spec.RunAt = *runAt
+	}
+	return spec
+}
+
+func scheduleResponse(sc *store.Schedule) ScheduleResponse {
+	return ScheduleResponse{
+		ID: sc.ID, TenantID: sc.TenantID, RuleID: sc.RuleID, Kind: sc.Kind,
+		Cron: sc.Cron, Timezone: sc.Timezone, RunAt: sc.RunAt,
+		MisfirePolicy: sc.MisfirePolicy, Enabled: sc.Enabled,
+		NextFireAt: sc.NextFireAt, LastFireAt: sc.LastFireAt, CreatedAt: sc.CreatedAt,
+	}
+}
+
+func fireResponse(f *store.Fire) FireResponse {
+	return FireResponse{
+		ID: f.ID, ScheduleID: f.ScheduleID, RuleID: f.RuleID, ScheduledFor: f.ScheduledFor,
+		State: f.State, RunID: f.RunID, Attempt: f.Attempt, Missed: f.Missed,
+		Error: f.Error, CreatedAt: f.CreatedAt,
+	}
+}
+
+// CreateSchedule attaches a timed trigger to an existing rule.
+//
+//encore:api auth method=POST path=/v1/schedules
+func (s *Service) CreateSchedule(ctx context.Context, req *ScheduleRequest) (*ScheduleResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(req.RuleID) == "" {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "rule_id 不能为空"}
+	}
+	// The rule must exist in this tenant: a schedule without an owner would
+	// fire into nothing and be impossible to find from the UI.
+	if _, err := rt.Store().GetRule(ctx, tenantID, req.RuleID); err != nil {
+		return nil, internal(err)
+	}
+	spec := specFromRequest(req.Kind, req.Cron, req.Timezone, req.RunAt, req.MisfirePolicy)
+	sc, err := runtime.ScheduleFromSpec(tenantID, req.RuleID, runtime.NewID(), spec, rt.Now())
+	if err != nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
+	}
+	// A one-off whose instant has already passed has no next occurrence, so it
+	// would be stored enabled but never fire. Refusing it here is better than
+	// leaving a schedule that silently does nothing.
+	if spec.Kind == domain.ScheduleOnce && sc.NextFireAt == nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument,
+			Message: "单次定时的执行时刻必须晚于当前时间；如需立即执行请直接触发规则"}
+	}
+	if req.Enabled != nil {
+		sc.Enabled = *req.Enabled
+	}
+	if err := rt.Store().CreateSchedule(ctx, sc); err != nil {
+		return nil, internal(err)
+	}
+	stored, err := rt.Store().GetSchedule(ctx, tenantID, sc.ID)
+	if err != nil {
+		return nil, internal(err)
+	}
+	out := scheduleResponse(stored)
+	return &out, nil
+}
+
+// UpdateSchedule rewrites a schedule and recomputes its next occurrence from
+// now, so an edited expression never inherits a stale due time.
+//
+//encore:api auth method=PUT path=/v1/schedules/:id
+func (s *Service) UpdateSchedule(ctx context.Context, id string, req *ScheduleRequest) (*ScheduleResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	current, err := rt.Store().GetSchedule(ctx, tenantID, id)
+	if err != nil {
+		return nil, internal(err)
+	}
+	spec := specFromRequest(req.Kind, req.Cron, req.Timezone, req.RunAt, req.MisfirePolicy)
+	next, err := runtime.ScheduleFromSpec(tenantID, current.RuleID, id, spec, rt.Now())
+	if err != nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
+	}
+	if spec.Kind == domain.ScheduleOnce && next.NextFireAt == nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument,
+			Message: "单次定时的执行时刻必须晚于当前时间；如需立即执行请直接触发规则"}
+	}
+	next.Enabled = current.Enabled
+	if req.Enabled != nil {
+		next.Enabled = *req.Enabled
+	}
+	if err := rt.Store().UpdateSchedule(ctx, next); err != nil {
+		return nil, internal(err)
+	}
+	stored, err := rt.Store().GetSchedule(ctx, tenantID, id)
+	if err != nil {
+		return nil, internal(err)
+	}
+	out := scheduleResponse(stored)
+	return &out, nil
+}
+
+// GetSchedule reads one schedule.
+//
+//encore:api auth method=GET path=/v1/schedules/:id
+func (s *Service) GetSchedule(ctx context.Context, id string) (*ScheduleResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	sc, err := rt.Store().GetSchedule(ctx, tenantID, id)
+	if err != nil {
+		return nil, internal(err)
+	}
+	out := scheduleResponse(sc)
+	return &out, nil
+}
+
+// ListSchedules lists schedules, optionally for one rule.
+//
+//encore:api auth method=GET path=/v1/schedules
+func (s *Service) ListSchedules(ctx context.Context, req *ListSchedulesRequest) (*ListSchedulesResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	list, err := rt.Store().ListSchedules(ctx, tenantID, strings.TrimSpace(req.RuleID), req.Limit)
+	if err != nil {
+		return nil, internal(err)
+	}
+	out := &ListSchedulesResponse{Schedules: make([]ScheduleResponse, 0, len(list))}
+	for _, sc := range list {
+		out.Schedules = append(out.Schedules, scheduleResponse(sc))
+	}
+	return out, nil
+}
+
+// SetScheduleEnabled turns a schedule on or off. Enabling recomputes the next
+// occurrence from now; disabling clears it, so neither a burst of catch-up runs
+// nor a schedule that can never fire again is possible.
+//
+//encore:api auth method=POST path=/v1/schedules/:id/enabled
+func (s *Service) SetScheduleEnabled(ctx context.Context, id string, req *SetEnabledRequest) (*ScheduleResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	current, err := rt.Store().GetSchedule(ctx, tenantID, id)
+	if err != nil {
+		return nil, internal(err)
+	}
+	var next *time.Time
+	if req.Enabled {
+		spec := runtime.SpecOf(current)
+		spec.Validate()
+		n, err := spec.NextAfter(rt.Now())
+		if err != nil {
+			return nil, &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
+		}
+		if !n.IsZero() {
+			u := n.UTC()
+			next = &u
+		}
+	}
+	if err := rt.Store().SetScheduleEnabled(ctx, tenantID, id, req.Enabled, next); err != nil {
+		return nil, internal(err)
+	}
+	stored, err := rt.Store().GetSchedule(ctx, tenantID, id)
+	if err != nil {
+		return nil, internal(err)
+	}
+	out := scheduleResponse(stored)
+	return &out, nil
+}
+
+// DeleteSchedule removes a schedule and its due time in one statement.
+//
+//encore:api auth method=DELETE path=/v1/schedules/:id
+func (s *Service) DeleteSchedule(ctx context.Context, id string) error {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return err
+	}
+	return internal(rt.Store().DeleteSchedule(ctx, tenantID, id))
+}
+
+// ListFires reads the occurrence history of one schedule. It is what answers
+// "did the 9:00 job run, and if not, why".
+//
+//encore:api auth method=GET path=/v1/schedules/:id/fires
+func (s *Service) ListFires(ctx context.Context, id string, req *ListFiresRequest) (*ListFiresResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := rt.Store().GetSchedule(ctx, tenantID, id); err != nil {
+		return nil, internal(err)
+	}
+	fires, err := rt.Store().ListFires(ctx, id, req.Limit)
+	if err != nil {
+		return nil, internal(err)
+	}
+	out := &ListFiresResponse{Fires: make([]FireResponse, 0, len(fires))}
+	for _, f := range fires {
+		out.Fires = append(out.Fires, fireResponse(f))
+	}
+	return out, nil
+}
+
+// PreviewSchedule shows what an expression means before it is saved. It stores
+// nothing, so an operator can compare "0 9 * * 1-5" with the real calendar.
+//
+//encore:api auth method=POST path=/v1/schedule-preview
+func (s *Service) PreviewSchedule(ctx context.Context, req *PreviewScheduleRequest) (*PreviewScheduleResponse, error) {
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	spec := specFromRequest(req.Kind, req.Cron, req.Timezone, req.RunAt, req.MisfirePolicy)
+	from := rt.Now()
+	if req.From != nil {
+		from = *req.From
+	}
+	times, err := rt.PreviewSchedule(spec, from, req.Count)
+	if err != nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
+	}
+	loc, _ := spec.Location()
+	out := &PreviewScheduleResponse{Timezone: spec.Timezone, Next: make([]string, 0, len(times))}
+	for _, t := range times {
+		out.Next = append(out.Next, t.In(loc).Format(time.RFC3339))
 	}
 	return out, nil
 }

@@ -392,6 +392,82 @@ def main() -> int:
     check("event without identifier is rejected", bad.get("code") != "ok",
           json.dumps(bad, ensure_ascii=False))
 
+    print("== 12. timed triggers (A07) ==")
+    preview = automation("/v1/schedule-preview", "POST", {
+        "kind": "cron", "cron": "0 9 * * 1-5", "timezone": "Asia/Shanghai", "count": 3})
+    nxt = preview.get("next") or []
+    check("preview returns three weekday 09:00 occurrences",
+          len(nxt) == 3 and all(t[11:16] == "09:00" for t in nxt),
+          json.dumps(preview, ensure_ascii=False)[:300])
+
+    past = (datetime.now(timezone.utc) - timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    rejected = automation("/v1/schedules", "POST", {
+        "rule_id": a05_rule_id, "kind": "once", "run_at": past})
+    check("a one-off in the past is rejected", rejected.get("code") != "ok",
+          json.dumps(rejected, ensure_ascii=False)[:200])
+
+    fire_at = datetime.now(timezone.utc) + timedelta(seconds=6)
+    created = automation("/v1/schedules", "POST", {
+        "rule_id": a05_rule_id, "kind": "once",
+        "run_at": fire_at.strftime("%Y-%m-%dT%H:%M:%SZ")})
+    sched_id = created.get("id")
+    check("one-off schedule created with a due time",
+          bool(sched_id) and bool(created.get("next_fire_at")),
+          json.dumps(created, ensure_ascii=False)[:300])
+
+    listed = automation(f"/v1/schedules?rule_id={a05_rule_id}")
+    check("schedule listed under its rule",
+          len(listed.get("schedules") or []) == 1,
+          json.dumps(listed, ensure_ascii=False)[:200])
+
+    runs_before = len(automation(f"/v1/rules/{a05_rule_id}/runs").get("runs") or [])
+    fired = None
+    deadline = time.time() + 40
+    while time.time() < deadline:
+        tick = automation("/v1/tick", "POST")
+        if (tick or {}).get("schedule_executed", 0) >= 1:
+            fired = tick
+            break
+        time.sleep(2)
+    check("the scheduler executed the due one-off", fired is not None,
+          json.dumps(fired or {}, ensure_ascii=False))
+
+    fires = automation(f"/v1/schedules/{sched_id}/fires").get("fires") or []
+    check("the occurrence is recorded as done",
+          len(fires) == 1 and fires[0].get("state") == "done",
+          json.dumps(fires, ensure_ascii=False)[:300])
+    runs_after = automation(f"/v1/rules/{a05_rule_id}/runs").get("runs") or []
+    check("the timed trigger produced exactly one run",
+          len(runs_after) == runs_before + 1, f"{runs_before} -> {len(runs_after)}")
+
+    again = automation("/v1/tick", "POST")
+    check("a spent one-off does not fire again",
+          (again or {}).get("schedule_executed", 0) == 0,
+          json.dumps(again or {}, ensure_ascii=False))
+    spent = automation(f"/v1/schedules/{sched_id}")
+    check("a spent one-off is disabled", spent.get("enabled") is False,
+          json.dumps(spent, ensure_ascii=False)[:200])
+
+    recurring = automation("/v1/schedules", "POST", {
+        "rule_id": a05_rule_id, "kind": "cron", "cron": "0 3 * * *",
+        "timezone": "Asia/Shanghai"})
+    rec_id = recurring.get("id")
+    check("recurring schedule created", bool(rec_id),
+          json.dumps(recurring, ensure_ascii=False)[:200])
+    off = automation(f"/v1/schedules/{rec_id}/enabled", "POST", {"enabled": False})
+    check("disabling clears the due time",
+          off.get("enabled") is False and not off.get("next_fire_at"),
+          json.dumps(off, ensure_ascii=False)[:200])
+    on = automation(f"/v1/schedules/{rec_id}/enabled", "POST", {"enabled": True})
+    check("re-enabling recomputes the due time",
+          on.get("enabled") is True and bool(on.get("next_fire_at")),
+          json.dumps(on, ensure_ascii=False)[:200])
+
+    automation(f"/v1/schedules/{rec_id}", "DELETE")
+    gone = automation(f"/v1/schedules/{rec_id}")
+    check("a deleted schedule is gone", gone.get("code") == "not_found",
+          json.dumps(gone, ensure_ascii=False)[:200])
+
     print()
     if FAILURES:
         print(f"RESULT: {len(FAILURES)} check(s) failed")

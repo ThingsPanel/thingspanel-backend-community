@@ -19,6 +19,16 @@ type TickResult struct {
 	PendingDropped  int `json:"pending_dropped"`
 	RunTimers       int `json:"run_timers"`
 	OutboxDrained   int `json:"outbox_drained"`
+
+	// Schedule counters. They are separate from the condition timers because a
+	// scheduled occurrence is a different thing from a `for` deadline.
+	ScheduleMaterialized int `json:"schedule_materialized"`
+	ScheduleDuplicates   int `json:"schedule_duplicates"`
+	ScheduleMisfired     int `json:"schedule_misfired"`
+	ScheduleExecuted     int `json:"schedule_executed"`
+	ScheduleSkipped      int `json:"schedule_skipped"`
+	ScheduleFailed       int `json:"schedule_failed"`
+	ScheduleRecovered    int `json:"schedule_recovered"`
 }
 
 // Tick runs one scheduler pass: due condition timers, due run continuations and
@@ -57,6 +67,21 @@ func (r *Runtime) Tick(ctx context.Context) (TickResult, error) {
 		}
 	}
 
+	// Timed triggers run in the same pass, before the outbox is drained, so a
+	// scheduled run's control command leaves in the same tick that created it.
+	// A broken schedule is counted and skipped; it must not stop the pass.
+	if sched, serr := r.FireDue(ctx, ScheduleBatch); serr != nil {
+		out.ScheduleFailed++
+	} else {
+		out.ScheduleMaterialized = sched.Materialized
+		out.ScheduleDuplicates = sched.Duplicates
+		out.ScheduleMisfired = sched.Misfired
+		out.ScheduleExecuted = sched.Executed
+		out.ScheduleSkipped = sched.Skipped
+		out.ScheduleFailed += sched.Failed
+		out.ScheduleRecovered = sched.Recovered
+	}
+
 	n, err := r.DispatchOutbox(ctx, 50)
 	out.OutboxDrained = n
 	if err != nil {
@@ -64,7 +89,6 @@ func (r *Runtime) Tick(ctx context.Context) (TickResult, error) {
 	}
 	return out, nil
 }
-
 func (r *Runtime) firePending(ctx context.Context, p *store.Pending, now time.Time) string {
 	// Input-progress barrier (V31). A deadline must not be decided while a
 	// sample received before the deadline is still unprocessed: otherwise a
