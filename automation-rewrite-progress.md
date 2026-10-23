@@ -13,7 +13,7 @@
 | 工作树 | `/Users/junhong/Downloads/code/tp-automation-rewrite`（独立 `git worktree`，不动同事的 43 个未提交修改） |
 | 分支 | `feat/automation-rewrite-20261023` |
 | 基线提交 | `486160092b1579965573814c8dd11a2a689c9246`（研究基线） |
-| 本轮提交 | A09（本次提交）；此前 `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` |
+| 本轮提交 | `256f83cb`（A09）；此前 `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` |
 | 主仓 HEAD | `0e3ba8281f09c815dabcd03c634d17af845e950b`（`main`，比基线旧 75 个提交，未改动） |
 
 基线关系核对结论（`git rev-list --left-right --count`）：
