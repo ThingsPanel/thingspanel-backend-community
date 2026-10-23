@@ -1,0 +1,20 @@
+{
+  "code": 200,
+  "message": "ok",
+  "requestId": "grant-list-fixture",
+  "data": {
+    "items": [
+      {
+        "pluginRegistrationId": "plugin-registration-fixture",
+        "tenantId": "tenant-opaque-fixture",
+        "enabled": false,
+        "version": 2,
+        "createdAt": "2026-10-09T12:00:00Z",
+        "updatedAt": "2026-10-09T12:05:00Z"
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "total": 1
+  }
+}

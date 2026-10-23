@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "sourceDeploymentId": "community-fixture",
+  "sourceEventId": "alarm-fixture-001",
+  "actionId": "notify-action-fixture",
+  "tenantId": "tenant-fixture",
+  "notificationGroupId": "group-fixture",
+  "groupRevision": 1,
+  "occurredAt": "2026-10-09T00:00:00Z",
+  "expiresAt": "2030-01-01T00:00:00Z",
+  "payload": {
+    "subject": "Fixture alert",
+    "text": "Mock only, never send externally.",
+    "variables": {
+      "device.name": "cold-room-fixture",
+      "device.extra": {"nullable": null, "labels": ["cold", null]}
+    },
+    "legacyAlertJson": {
+      "device": {"description": null, "metadata": {"owner": null}},
+      "samples": [null, {"value": 4}]
+    }
+  }
+}

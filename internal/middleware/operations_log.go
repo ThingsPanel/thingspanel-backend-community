@@ -19,6 +19,13 @@ import (
 
 func OperationLogs() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if sensitiveAccountPath(c.Request.URL.Path) {
+			// Credential-bearing requests/responses must never enter body logs.
+			start := time.Now().UTC()
+			c.Next()
+			saveOperationLog(c, start, time.Since(start).Milliseconds(), "[account payload omitted]", "[account payload omitted]")
+			return
+		}
 		if !isModifyMethod(c.Request.Method) {
 			c.Next()
 			return
@@ -139,4 +146,11 @@ func newResponseBodyWriter(c *gin.Context) responseBodyWriter {
 func (r responseBodyWriter) Write(b []byte) (int, error) {
 	r.body.Write(b)
 	return r.ResponseWriter.Write(b)
+}
+
+func sensitiveAccountPath(path string) bool {
+	p := strings.ToLower(path)
+	return p == "/api/v1/login" || strings.HasPrefix(p, "/api/v1/auth/") ||
+		strings.HasPrefix(p, "/api/v1/user/") || strings.HasPrefix(p, "/api/v1/tenant/") ||
+		strings.Contains(p, "password") || strings.Contains(p, "/login")
 }

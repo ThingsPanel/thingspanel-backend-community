@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -190,6 +191,9 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 // UserLoginAfter
 // @description 用户登录后token获取保存
 func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
+	if os.Getenv("TP_AUTH_OWNER") == "encore" {
+		return nil, errors.New("legacy session writer is retired")
+	}
 	key := strings.TrimSpace(viper.GetString("jwt.key"))
 	if key == "" {
 		return nil, errcode.WithData(errcode.CodeTokenGenerateError, map[string]interface{}{
@@ -276,6 +280,9 @@ func (*User) Logout(token string) error {
 
 // @description 刷新token
 func (*User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, error) {
+	if os.Getenv("TP_AUTH_OWNER") == "encore" {
+		return nil, errors.New("legacy session writer is retired")
+	}
 	// 通过邮箱获取用户信息
 	user, err := dal.GetUsersByEmail(userClaims.Email)
 	if err != nil {
@@ -721,6 +728,9 @@ func (*User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUser
 
 // @description SuperAdmin Become Other admin
 func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *utils.UserClaims) (*model.LoginRsp, error) {
+	if os.Getenv("TP_AUTH_OWNER") == "encore" {
+		return nil, errors.New("legacy session writer is retired")
+	}
 	// 权限检查
 	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
 		return nil, errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{

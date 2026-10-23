@@ -1,0 +1,27 @@
+{
+  "name": "Fixture group",
+  "enabled": false,
+  "bindings": [
+    {
+      "bindingId": "binding-fixture",
+      "instanceId": "im-fixture",
+      "recipientSource": {
+        "kind": "literal",
+        "recipient": {
+          "kind": "webhook",
+          "address": "default"
+        }
+      },
+      "contentBinding": {
+        "kind": "text",
+        "title": "Alarm",
+        "text": "{{device.name}} temperature alert"
+      }
+    }
+  ],
+  "id": "group-fixture",
+  "revision": 1,
+  "version": 1,
+  "migrationState": "native",
+  "sourceProjections": []
+}

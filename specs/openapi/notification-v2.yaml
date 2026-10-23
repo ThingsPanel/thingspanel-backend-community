@@ -1,0 +1,1390 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: ThingsPanel Notification Business API
+  version: 2.0.2
+  description: |
+    Frozen business contract for the community notification service hosted by
+    the existing Encore Go notification service. Business fields use camelCase.
+    This document is the sole source for business v2 DTOs. Plugin wire v1 and
+    source ingress are separate contracts under specs/notification/.
+servers:
+  - url: https://thingspanel.example.invalid
+    description: Placeholder platform origin; route this path to Encore notification.
+tags:
+  - name: PluginRegistry
+  - name: PluginGrants
+  - name: Instances
+  - name: Groups
+  - name: GroupProjections
+  - name: Notifications
+  - name: SourceIngress
+  - name: Receipts
+security:
+  - UserJWT: []
+paths:
+  /api/v2/notification-plugins:
+    get:
+      tags: [PluginRegistry]
+      operationId: listNotificationPlugins
+      description: SYS_ADMIN sees the global registration directory. Other authorized users see only registrations with an enabled grant for their verified tenant.
+      security: [{UserJWT: []}]
+      x-required-permission: notification:read
+      responses:
+        '200': {$ref: '#/components/responses/PluginList'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+    post:
+      tags: [PluginRegistry]
+      operationId: registerNotificationPlugin
+      description: SYS_ADMIN creates a global registration. Registration does not grant it to any tenant; use the plugin grant endpoint to authorize a tenant explicitly.
+      security: [{UserJWT: []}]
+      x-required-permission: notification:plugin:manage
+      x-required-role: SYS_ADMIN
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PluginRegistration'}
+      responses:
+        '201': {$ref: '#/components/responses/PluginCreated'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-plugins/{id}:
+    parameters: [{$ref: '#/components/parameters/ResourceId'}]
+    get:
+      tags: [PluginRegistry]
+      operationId: getNotificationPlugin
+      description: SYS_ADMIN reads the global registration directory independent of tenant grants. Other authorized users receive only registrations granted to their verified tenant; an ungranted registration is not found.
+      x-required-permission: notification:read
+      responses:
+        '200': {$ref: '#/components/responses/PluginDetail'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+    put:
+      tags: [PluginRegistry]
+      operationId: updateNotificationPlugin
+      description: Updates a global registration. Existing tenant grants remain independent and unchanged.
+      x-required-permission: notification:plugin:manage
+      x-required-role: SYS_ADMIN
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PluginUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/PluginDetail'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-plugin-grants:
+    get:
+      tags: [PluginGrants]
+      operationId: listNotificationPluginGrants
+      description: SYS_ADMIN only. Lists all grants, including disabled grants, with an optional registration filter. Tenant IDs are opaque identifiers supplied by an administrator. Reject unsupported or repeated query parameters.
+      security: [{UserJWT: []}]
+      x-required-permission: notification:plugin:manage
+      x-required-role: SYS_ADMIN
+      parameters:
+        - name: pluginRegistrationId
+          in: query
+          required: false
+          schema: {$ref: '#/components/schemas/NonEmptyString'}
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PageSize'}
+      responses:
+        '200': {$ref: '#/components/responses/PluginGrantList'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+    put:
+      tags: [PluginGrants]
+      operationId: setNotificationPluginGrant
+      description: >-
+        SYS_ADMIN only. The verified administrator must explicitly provide the target tenantId; it is not used to impersonate a tenant principal. expectedVersion 0 creates a missing grant at version 1; an existing grant requires its exact current version and increments it by one. enabled false revokes future use without deleting the grant, recalling an in-flight provider request, or changing accepted/unknown terminal outcomes. Same Idempotency-Key and body replay the original grant version and HTTP status before checking current version or tenant-directory availability; reuse with a different body returns 409. A missing tenant returns 404 and tenant-directory failure returns 503.
+      security: [{UserJWT: []}]
+      x-required-permission: notification:plugin:manage
+      x-required-role: SYS_ADMIN
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PluginGrantUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/PluginGrantUpdated'}
+        '201': {$ref: '#/components/responses/PluginGrantCreated'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-instances:
+    get:
+      tags: [Instances]
+      operationId: listNotificationInstances
+      x-required-permission: notification:read
+      parameters:
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PageSize'}
+        - in: query
+          name: pluginId
+          schema: {type: string}
+        - in: query
+          name: channel
+          schema: {$ref: '#/components/schemas/Channel'}
+      responses:
+        '200': {$ref: '#/components/responses/InstanceList'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+    post:
+      tags: [Instances]
+      operationId: createNotificationInstance
+      description: Tenant self-service account creation is disabled. SYS_ADMIN must use the explicit selected-tenant platform route; TENANT_ADMIN and TENANT_USER receive 403.
+      x-required-role: SYS_ADMIN
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InstanceCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/InstanceCreated'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-instances/validate:
+    post:
+      tags: [Instances]
+      operationId: validateNotificationInstance
+      description: Tenant self-service account validation is disabled. SYS_ADMIN must use the explicit selected-tenant platform route; TENANT_ADMIN and TENANT_USER receive 403. Validation never sends a message.
+      x-required-role: SYS_ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InstanceValidate'}
+      responses:
+        '200': {$ref: '#/components/responses/Validation'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-instances/{id}:
+    parameters: [{$ref: '#/components/parameters/ResourceId'}]
+    get:
+      tags: [Instances]
+      operationId: getNotificationInstance
+      x-required-permission: notification:read
+      responses:
+        '200': {$ref: '#/components/responses/InstanceDetail'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+    put:
+      tags: [Instances]
+      operationId: updateNotificationInstance
+      description: Tenant self-service account updates are disabled. SYS_ADMIN must use the explicit selected-tenant platform route; TENANT_ADMIN and TENANT_USER receive 403.
+      x-required-role: SYS_ADMIN
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InstanceUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/InstanceDetail'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-instances/{id}/test:
+    parameters: [{$ref: '#/components/parameters/ResourceId'}]
+    post:
+      tags: [Instances]
+      operationId: submitNotificationInstanceTest
+      x-required-permission: [notification:manage, notification:send_test]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TestSendRequest'}
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+        '429': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-instances/{id}/receipt-credential:
+    parameters: [{$ref: '#/components/parameters/ResourceId'}]
+    post:
+      tags: [Instances]
+      operationId: rotateNotificationReceiptCredential
+      description: Tenant self-service receipt credential issuance is disabled. SYS_ADMIN must use the explicit selected-tenant platform route; the response contains a one-time secret and is never cached.
+      x-required-role: SYS_ADMIN
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '200':
+          description: One-time credential display; response must be no-store and excluded from logs/traces.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReceiptCredentialResponse'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+  /api/v2/platform/notification-tenants/{tenantId}/notification-plugins:
+    parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema: {$ref: '#/components/schemas/NonEmptyString'}
+    get:
+      tags: [PluginRegistry, Instances]
+      operationId: listSelectedTenantNotificationPlugins
+      description: SYS_ADMIN only. The target tenant is checked against the live tenant directory. Returns only plugins currently granted to that target tenant; this target never becomes an impersonated user tenant.
+      x-required-role: SYS_ADMIN
+      parameters: []
+      responses:
+        '200': {$ref: '#/components/responses/PluginList'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+  /api/v2/platform/notification-tenants/{tenantId}/notification-instances:
+    parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema: {$ref: '#/components/schemas/NonEmptyString'}
+    get:
+      tags: [Instances]
+      operationId: listSelectedTenantNotificationInstances
+      description: SYS_ADMIN only. Lists safe account summaries for the explicit, live-verified target tenant. Secret values are never returned.
+      x-required-role: SYS_ADMIN
+      parameters:
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PageSize'}
+        - in: query
+          name: pluginId
+          schema: {type: string}
+        - in: query
+          name: channel
+          schema: {$ref: '#/components/schemas/Channel'}
+      responses:
+        '200': {$ref: '#/components/responses/InstanceList'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+    post:
+      tags: [Instances]
+      operationId: createSelectedTenantNotificationInstance
+      description: SYS_ADMIN only. Creates an account under the explicitly selected, live-verified tenant. Authenticated tenant claims are not rewritten. Secrets remain encrypted in that tenant's instance storage.
+      x-required-role: SYS_ADMIN
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InstanceCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/InstanceCreated'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+  /api/v2/platform/notification-tenants/{tenantId}/notification-instances/validate:
+    parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema: {$ref: '#/components/schemas/NonEmptyString'}
+    post:
+      tags: [Instances]
+      operationId: validateSelectedTenantNotificationInstance
+      description: SYS_ADMIN only. Validates an account for the explicit, live-verified target tenant. Validation never sends a message.
+      x-required-role: SYS_ADMIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InstanceValidate'}
+      responses:
+        '200': {$ref: '#/components/responses/Validation'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+  /api/v2/platform/notification-tenants/{tenantId}/notification-instances/{id}:
+    parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema: {$ref: '#/components/schemas/NonEmptyString'}
+      - {$ref: '#/components/parameters/ResourceId'}
+    get:
+      tags: [Instances]
+      operationId: getSelectedTenantNotificationInstance
+      description: SYS_ADMIN only. Reads a safe summary for the explicit, live-verified target tenant. Secret values are never returned.
+      x-required-role: SYS_ADMIN
+      responses:
+        '200': {$ref: '#/components/responses/InstanceDetail'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+    put:
+      tags: [Instances]
+      operationId: updateSelectedTenantNotificationInstance
+      description: SYS_ADMIN only. Updates the account for the explicit, live-verified target tenant. Secret values remain encrypted at rest.
+      x-required-role: SYS_ADMIN
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InstanceUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/InstanceDetail'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+  /api/v2/platform/notification-tenants/{tenantId}/notification-instances/{id}/receipt-credential:
+    parameters:
+      - name: tenantId
+        in: path
+        required: true
+        schema: {$ref: '#/components/schemas/NonEmptyString'}
+      - {$ref: '#/components/parameters/ResourceId'}
+    post:
+      tags: [Instances]
+      operationId: rotateSelectedTenantNotificationReceiptCredential
+      description: SYS_ADMIN only. Issues a one-time receipt credential for an account in the explicit, live-verified target tenant. The response is never cached or logged.
+      x-required-role: SYS_ADMIN
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      responses:
+        '200':
+          description: One-time credential display; response must be no-store and excluded from logs/traces.
+          headers:
+            Cache-Control: {schema: {type: string, const: no-store}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReceiptCredentialResponse'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-groups:
+    get:
+      tags: [Groups]
+      operationId: listNotificationGroups
+      x-required-permission: notification:read
+      parameters:
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PageSize'}
+      responses:
+        '200': {$ref: '#/components/responses/GroupList'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+    post:
+      tags: [Groups]
+      operationId: createNotificationGroup
+      x-required-permission: notification:manage
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GroupCreate'}
+      responses:
+        '201': {$ref: '#/components/responses/GroupCreated'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-groups/{id}:
+    parameters: [{$ref: '#/components/parameters/ResourceId'}]
+    get:
+      tags: [Groups]
+      operationId: getNotificationGroup
+      x-required-permission: notification:read
+      responses:
+        '200': {$ref: '#/components/responses/GroupDetail'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+    put:
+      tags: [Groups]
+      operationId: updateNotificationGroup
+      x-required-permission: notification:manage
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GroupUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/GroupDetail'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-group-projections:
+    post:
+      tags: [GroupProjections]
+      operationId: registerNotificationGroupProjection
+      summary: Register a legacy group mapping using a deployment-scoped relay identity.
+      description: |
+        This endpoint is reserved for the authenticated legacy source adapter;
+        ordinary user JWTs cannot create or change migration projections. The
+        source credential binds sourceDeploymentId and an allowed tenant set.
+        The service verifies tenantId against that credential and verifies that
+        notificationGroupId/groupRevision is an already-published group revision
+        in the same tenant. The tuple (sourceDeploymentId, tenantId,
+        legacyGroupId) is permanently bound to one notificationGroupId. A
+        separate immutable record is stored for each groupRevision. Replaying
+        the same tuple and revision returns its original record; binding that
+        tuple to another group or changing the target for an existing revision
+        conflicts. Any already-published revision of the bound group may be
+        recorded, including a missing historical revision; the latest revision
+        is the maximum recorded revision and replaying an older revision never
+        lowers it. Group views return the complete projection history, bounded
+        to 128 revisions per source tuple for v1; attempts beyond that limit
+        conflict and require the later T08 history/pagination work. The caller
+        records a projection in its own legacy database before routing that
+        legacy group to Encore. Its switch transaction uses expected-old-revision
+        compare-and-swap and rejects downgrade, so replay or concurrent workers
+        cannot restore an older route.
+      security: [{SourceProjectionBearer: []}]
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SourceGroupProjectionRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/GroupProjection'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409':
+          description: Stable source tuple or revision target conflict, source projection history reached 128 records, or idempotency key reused with different intent.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notifications:
+    get:
+      tags: [Notifications]
+      operationId: listNotifications
+      x-required-permission: notification:read
+      description: Tenant-scoped durable requests, including blocked requests with no deliveries. Never derive this list from the delivery table.
+      parameters:
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PageSize'}
+        - {in: query, name: sourceType, schema: {type: string, enum: [alarm, automation, manual, test]}}
+        - {in: query, name: sourceId, schema: {type: string}}
+        - {in: query, name: intakeStatus, schema: {$ref: '#/components/schemas/IntakeStatus'}}
+        - {in: query, name: from, schema: {type: string, format: date-time}}
+        - {in: query, name: to, schema: {type: string, format: date-time}}
+      responses:
+        '200': {$ref: '#/components/responses/NotificationList'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+    post:
+      tags: [Notifications]
+      operationId: submitNotification
+      x-required-permission: notification:send
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NotificationSubmit'}
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+        '429': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notifications/{id}:
+    parameters: [{$ref: '#/components/parameters/ResourceId'}]
+    get:
+      tags: [Notifications]
+      operationId: getNotification
+      x-required-permission: notification:read
+      responses:
+        '200': {$ref: '#/components/responses/NotificationDetail'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-deliveries:
+    get:
+      tags: [Notifications]
+      operationId: listNotificationDeliveries
+      x-required-permission: notification:read
+      parameters:
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PageSize'}
+        - {in: query, name: instanceId, schema: {type: string}}
+        - {in: query, name: sourceType, schema: {type: string, enum: [alarm, automation, manual, test]}}
+        - {in: query, name: sourceId, schema: {type: string}}
+        - {in: query, name: dispatchStatus, schema: {$ref: '#/components/schemas/DispatchStatus'}}
+        - {in: query, name: deliveryStatus, schema: {$ref: '#/components/schemas/DeliveryStatus'}}
+        - {in: query, name: from, schema: {type: string, format: date-time}}
+        - {in: query, name: to, schema: {type: string, format: date-time}}
+      responses:
+        '200': {$ref: '#/components/responses/DeliveryList'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-deliveries/{id}:
+    parameters: [{$ref: '#/components/parameters/ResourceId'}]
+    get:
+      tags: [Notifications]
+      operationId: getNotificationDelivery
+      x-required-permission: notification:read
+      responses:
+        '200': {$ref: '#/components/responses/DeliveryDetail'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '404': {$ref: '#/components/responses/DomainError'}
+  /api/v2/notification-ingress/events:
+    post:
+      tags: [SourceIngress]
+      operationId: receiveSourceNotificationEvent
+      security: [{SourceEventBearer: []}]
+      description: |
+        Source relay identity is bound to an allowed deployment and tenant set.
+        A valid event whose immutable group revision cannot be resolved is
+        durably accepted as blocked and returns 202. Invalid identity or format
+        is rejected. Replays with the same stable event and digest return the
+        original notification; a different digest conflicts. HTTP 202 means
+        durable intake only, never provider acceptance or delivery.
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../notification/source-event-v1.schema.json'}
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '400': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '401': {$ref: '#/components/responses/RuntimeOrDomainError'}
+        '403': {$ref: '#/components/responses/DomainError'}
+        '409': {$ref: '#/components/responses/DomainError'}
+        '422': {$ref: '#/components/responses/DomainError'}
+        '503': {$ref: '#/components/responses/DomainError'}
+  /api/v1/notification-instances/{instance_id}/receipts:
+    parameters:
+      - name: instance_id
+        in: path
+        required: true
+        schema: {$ref: '#/components/schemas/NonEmptyString'}
+    post:
+      tags: [Receipts]
+      operationId: acceptNotificationReceipt
+      security: [{InstanceReceiptBearer: []}]
+      description: |
+        Encore notification service hosts this legacy-compatible standard path.
+        It is a raw protocol ACK, not a business envelope. Persist before ACK.
+        Same event id and digest is idempotently accepted; same id with a
+        different digest is durably recorded as conflict and returns 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../notification/plugin-v1.openapi.yaml#/components/schemas/Receipt'}
+      responses:
+        '200':
+          description: Durably accepted or identical duplicate; not proof of delivery.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReceiptAck'}
+              example: {accepted: true}
+        '400': {$ref: '#/components/responses/ProtocolError'}
+        '401': {$ref: '#/components/responses/ProtocolError'}
+        '403': {$ref: '#/components/responses/ProtocolError'}
+        '409': {$ref: '#/components/responses/ProtocolError'}
+        '503': {$ref: '#/components/responses/ProtocolError'}
+components:
+  securitySchemes:
+    UserJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Existing valid user session; tenant and roles are derived from verified identity.
+    SourceEventBearer:
+      type: http
+      scheme: bearer
+      description: Relay-only credential bound server-side to sourceDeploymentId and allowed tenant IDs.
+    SourceProjectionBearer:
+      type: http
+      scheme: bearer
+      description: Legacy group projection identity bound server-side to one sourceDeploymentId and an allowed tenant set; distinct from user and receipt credentials.
+    InstanceReceiptBearer:
+      type: http
+      scheme: bearer
+      description: Per-instance receipt credential; tenant and instance scope are derived from the credential.
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema: {$ref: '#/components/schemas/NonEmptyString'}
+    Page:
+      name: page
+      in: query
+      schema: {type: integer, minimum: 1, default: 1}
+    PageSize:
+      name: pageSize
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 8, maxLength: 128}
+  responses:
+    PluginList:
+      description: Visible plugin registry entries. Secret tokens are never returned.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopePluginList'}
+    PluginCreated:
+      description: Created plugin registry entry.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopePlugin'}
+    PluginDetail:
+      description: Plugin registration and health metadata without credentials.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopePlugin'}
+    PluginGrantList:
+      description: Global SYS_ADMIN grant list, including disabled grants; contains no plugin credentials or configuration secrets.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopePluginGrantList'}
+    PluginGrantCreated:
+      description: Newly created tenant grant at version 1.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopePluginGrant'}
+    PluginGrantUpdated:
+      description: Updated tenant grant. Idempotent replay returns the original response status and grant version.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopePluginGrant'}
+    InstanceList:
+      description: Tenant-scoped instance list.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeInstanceList'}
+    InstanceCreated:
+      description: Created instance; secret values are never returned.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeInstance'}
+    InstanceDetail:
+      description: Instance with secretState flags only.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeInstance'}
+    Validation:
+      description: Configuration validation only; no notification is sent.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeValidation'}
+    GroupList:
+      description: Tenant-scoped notification groups.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeGroupList'}
+    GroupCreated:
+      description: Created group with its initial immutable revision.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeGroup'}
+    GroupDetail:
+      description: Group and published immutable revision.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeGroup'}
+    GroupProjection:
+      description: Durable, validated mapping from one legacy group identity to a published Encore group revision.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeGroupProjection'}
+    Accepted:
+      description: Intent committed durably before response. Does not mean accepted by provider or delivered.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeAccepted'}
+          example:
+            code: 200
+            message: ok
+            requestId: request-fixture-001
+            data:
+              accepted: true
+              notificationId: notification-fixture-001
+              deliveryIds: [delivery-fixture-001]
+              intakeStatus: ready
+    NotificationDetail:
+      description: Request details and per-target delivery summaries.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeNotification'}
+    NotificationList:
+      description: Tenant-authorized requests, including blocked requests without delivery targets.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeNotificationList'}
+    DeliveryList:
+      description: Tenant-authorized, paginated delivery records with redacted content and recipients.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeDeliveryList'}
+    DeliveryDetail:
+      description: Delivery record with redacted diagnostic details.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/EnvelopeDelivery'}
+    DomainError:
+      description: Domain-level HTTP error envelope. HTTP status equals body.code.
+      x-http-status-equals-body-code: true
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/DomainError'}
+    RuntimeOrDomainError:
+      description: Encore may reject authentication/parsing before the handler using a runtime envelope; domain errors use DomainError.
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - {$ref: '#/components/schemas/DomainError'}
+              - {$ref: '#/components/schemas/RuntimeError'}
+    ProtocolError:
+      description: Raw plugin/receipt protocol error, never business enveloped.
+      content:
+        application/json:
+          schema: {$ref: '../notification/plugin-v1.openapi.yaml#/components/schemas/ProtocolError'}
+  schemas:
+    NonEmptyString: {type: string, minLength: 1, pattern: '\S'}
+    Channel: {type: string, enum: [email, sms, voice, im, webhook]}
+    DispatchStatus: {type: string, enum: [queued, sending, accepted, failed, unknown]}
+    DeliveryStatus: {type: string, enum: [unsupported, pending, delivered, failed, unknown]}
+    IntakeStatus: {type: string, enum: [ready, blocked]}
+    Permission: {type: string, enum: [notification:read, notification:manage, notification:send, notification:send_test, notification:plugin:manage]}
+    EnvelopeBase:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId, data]
+      properties:
+        code: {type: integer, const: 200}
+        message: {type: string, const: ok}
+        requestId: {$ref: '#/components/schemas/NonEmptyString'}
+        data: {type: object}
+    EnvelopePluginList:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              required: [items]
+              properties:
+                items: {type: array, items: {$ref: '#/components/schemas/Plugin'}}
+    EnvelopePlugin:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/Plugin'}
+    EnvelopePluginGrantList:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              required: [items, page, pageSize, total]
+              properties:
+                items: {type: array, items: {$ref: '#/components/schemas/PluginGrantView'}}
+                page: {type: integer, minimum: 1}
+                pageSize: {type: integer, minimum: 1, maximum: 100}
+                total: {type: integer, minimum: 0}
+    EnvelopePluginGrant:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/PluginGrantView'}
+    EnvelopeInstanceList:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              required: [items, page, pageSize, total]
+              properties:
+                items: {type: array, items: {$ref: '#/components/schemas/Instance'}}
+                page: {type: integer, minimum: 1}
+                pageSize: {type: integer, minimum: 1}
+                total: {type: integer, minimum: 0}
+    EnvelopeInstance:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/Instance'}
+    ValidationResult:
+      type: object
+      additionalProperties: false
+      required: [valid, errors]
+      properties:
+        valid: {type: boolean}
+        errors: {type: array, items: {$ref: '#/components/schemas/FieldError'}}
+      oneOf:
+        - properties:
+            valid: {const: true}
+            errors: {maxItems: 0}
+        - properties:
+            valid: {const: false}
+            errors: {minItems: 1}
+    EnvelopeValidation:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/ValidationResult'}
+    EnvelopeGroupList:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              required: [items, page, pageSize, total]
+              properties:
+                items: {type: array, items: {$ref: '#/components/schemas/Group'}}
+                page: {type: integer, minimum: 1}
+                pageSize: {type: integer, minimum: 1}
+                total: {type: integer, minimum: 0}
+    EnvelopeGroup:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/Group'}
+    EnvelopeGroupProjection:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/SourceGroupProjection'}
+    EnvelopeAccepted:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/Accepted'}
+    EnvelopeNotification:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/Notification'}
+    EnvelopeNotificationList:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              required: [items, page, pageSize, total]
+              properties:
+                items: {type: array, items: {$ref: '#/components/schemas/Notification'}}
+                page: {type: integer, minimum: 1}
+                pageSize: {type: integer, minimum: 1, maximum: 100}
+                total: {type: integer, minimum: 0}
+    EnvelopeDeliveryList:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: false
+              required: [items, page, pageSize, total]
+              properties:
+                items: {type: array, items: {$ref: '#/components/schemas/Delivery'}}
+                page: {type: integer, minimum: 1}
+                pageSize: {type: integer, minimum: 1}
+                total: {type: integer, minimum: 0}
+    EnvelopeDelivery:
+      allOf:
+        - {$ref: '#/components/schemas/EnvelopeBase'}
+        - type: object
+          properties:
+            data: {$ref: '#/components/schemas/Delivery'}
+    PluginRegistration:
+      type: object
+      additionalProperties: false
+      required: [pluginId, pluginVersion, origin, authSecret, manifestDigest]
+      properties:
+        pluginId: {$ref: '#/components/schemas/NonEmptyString'}
+        pluginVersion: {$ref: '#/components/schemas/NonEmptyString'}
+        origin: {type: string, format: uri, description: HTTPS origin only and exact operator allowlist match. Redirects and unsafe addresses are prohibited; RFC1918 cluster targets require an explicit operator CIDR allowlist and DNS pinning.}
+        authSecret: {type: string, minLength: 1, writeOnly: true}
+        manifestDigest: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+    PluginUpdate:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, enabled]
+      properties:
+        expectedVersion: {type: integer, minimum: 1}
+        enabled: {type: boolean}
+    PluginGrantUpdate:
+      type: object
+      additionalProperties: false
+      required: [pluginRegistrationId, tenantId, enabled, expectedVersion]
+      properties:
+        pluginRegistrationId: {$ref: '#/components/schemas/NonEmptyString'}
+        tenantId: {type: string, minLength: 1, maxLength: 128, pattern: '\S', description: Opaque target tenant identifier. It is explicitly selected by a verified SYS_ADMIN and is not a tenant authentication claim.}
+        enabled: {type: boolean}
+        expectedVersion: {type: integer, minimum: 0, description: Zero creates a missing grant at version 1; existing grants require the exact current version.}
+    PluginGrantView:
+      type: object
+      additionalProperties: false
+      required: [pluginRegistrationId, tenantId, enabled, version, createdAt, updatedAt]
+      properties:
+        pluginRegistrationId: {$ref: '#/components/schemas/NonEmptyString'}
+        tenantId: {type: string, minLength: 1, maxLength: 128, pattern: '\S'}
+        enabled: {type: boolean}
+        version: {type: integer, minimum: 1}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    Plugin:
+      type: object
+      additionalProperties: false
+      required: [id, pluginId, pluginVersion, origin, manifestDigest, manifest, enabled, health, version]
+      properties:
+        id: {$ref: '#/components/schemas/NonEmptyString'}
+        pluginId: {$ref: '#/components/schemas/NonEmptyString'}
+        pluginVersion: {$ref: '#/components/schemas/NonEmptyString'}
+        origin: {type: string, format: uri}
+        manifestDigest: {type: string}
+        manifest: {$ref: '#/components/schemas/PluginManifestSummary'}
+        enabled: {type: boolean}
+        health: {type: string, enum: [unknown, healthy, unhealthy]}
+        version: {type: integer, minimum: 1}
+    PluginManifestSummary:
+      type: object
+      additionalProperties: false
+      required: [pluginId, name, pluginVersion, channels, contentModes, configSchema, recipientSchema, secretFields, capabilities]
+      properties:
+        pluginId: {$ref: '#/components/schemas/NonEmptyString'}
+        name: {$ref: '#/components/schemas/NonEmptyString'}
+        pluginVersion: {$ref: '#/components/schemas/NonEmptyString'}
+        channels: {type: array, minItems: 1, items: {$ref: '#/components/schemas/Channel'}}
+        contentModes: {type: array, minItems: 1, items: {type: string, enum: [text, template]}}
+        configSchema: {type: object, additionalProperties: true, description: Safe JSON Schema metadata only; secret values are never returned.}
+        recipientSchema: {type: object, additionalProperties: true}
+        secretFields: {type: array, uniqueItems: true, items: {$ref: '#/components/schemas/NonEmptyString'}}
+        identityFields:
+          type: array
+          minItems: 1
+          maxItems: 64
+          uniqueItems: true
+          description: Optional identity field declarations copied from plugin identity_fields; absence means a legacy plugin and does not imply guessed identity fields.
+          items: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z_][A-Za-z0-9_]*$'}
+        capabilities:
+          type: object
+          additionalProperties: false
+          required: [deliveryReceipts]
+          properties:
+            deliveryReceipts: {type: boolean}
+    SecretPatch:
+      type: object
+      additionalProperties: false
+      description: Omitted fields preserve secrets. Mask strings are invalid secret values. set and clear are mutually exclusive.
+      properties:
+        set: {type: object, additionalProperties: {type: string}, writeOnly: true}
+        clear: {type: array, uniqueItems: true, items: {$ref: '#/components/schemas/NonEmptyString'}}
+      not:
+        required: [set, clear]
+    InstanceCreate:
+      type: object
+      additionalProperties: false
+      description: Creating a new instance establishes a new provider identity and remains available for legacy plugins.
+      required: [pluginRegistrationId, name, channel, config, providerIdentity]
+      properties:
+        pluginRegistrationId: {$ref: '#/components/schemas/NonEmptyString'}
+        name: {$ref: '#/components/schemas/NonEmptyString'}
+        channel: {$ref: '#/components/schemas/Channel'}
+        config: {type: object, additionalProperties: true, writeOnly: true}
+        providerIdentity: {type: object, additionalProperties: {type: string}}
+    InstanceUpdate:
+      type: object
+      additionalProperties: false
+      description: >-
+        For an existing plugin that declares identityFields, compare the canonical JSON values of those fields in the complete effective config, including secret values. Adding, removing, or changing any identity field returns 409 identity_change_requires_new_instance; create a replacement instance instead. Secret rotation is permitted only for fields not declared as identity fields, including password or URL secrets. A legacy plugin with identityFields absent does not allow config or secret changes on existing instances; name and enabled remain editable. New instance creation remains allowed.
+      required: [expectedVersion]
+      properties:
+        expectedVersion: {type: integer, minimum: 1}
+        name: {type: string, minLength: 1}
+        configPatch: {type: object, additionalProperties: true, writeOnly: true}
+        secrets: {$ref: '#/components/schemas/SecretPatch'}
+        enabled: {type: boolean}
+    Instance:
+      type: object
+      additionalProperties: false
+      required: [id, pluginRegistrationId, name, channel, config, providerIdentity, enabled, version, configVersion, secretState]
+      properties:
+        id: {$ref: '#/components/schemas/NonEmptyString'}
+        pluginRegistrationId: {$ref: '#/components/schemas/NonEmptyString'}
+        name: {$ref: '#/components/schemas/NonEmptyString'}
+        channel: {$ref: '#/components/schemas/Channel'}
+        config: {type: object, additionalProperties: true, description: Non-secret configuration values only; secret fields are omitted and represented by secretState.}
+        providerIdentity: {type: object, additionalProperties: {type: string}}
+        enabled: {type: boolean}
+        version: {type: integer, minimum: 1}
+        configVersion: {type: integer, minimum: 1}
+        secretState: {type: object, additionalProperties: {type: boolean}}
+    InstanceValidate:
+      type: object
+      additionalProperties: false
+      properties:
+        instanceId: {$ref: '#/components/schemas/NonEmptyString'}
+        expectedVersion: {type: integer, minimum: 1}
+        configPatch: {type: object, additionalProperties: true, writeOnly: true}
+        draft:
+          type: object
+          additionalProperties: false
+          required: [pluginRegistrationId, channel, config]
+          properties:
+            pluginRegistrationId: {$ref: '#/components/schemas/NonEmptyString'}
+            channel: {$ref: '#/components/schemas/Channel'}
+            config: {type: object, additionalProperties: true, writeOnly: true}
+      oneOf:
+        - required: [instanceId, expectedVersion, configPatch]
+        - required: [draft]
+    TestSendRequest:
+      type: object
+      additionalProperties: false
+      required: [recipient, content, expiresAt]
+      properties:
+        recipient: {$ref: '#/components/schemas/Recipient'}
+        content: {$ref: '#/components/schemas/Content'}
+        expiresAt: {type: string, format: date-time}
+    ReceiptCredentialResponse:
+      type: object
+      additionalProperties: false
+      required: [credential, expiresAt]
+      properties:
+        credential: {type: string, readOnly: true, description: One-time value; response must be no-store and excluded from logs and traces.}
+        expiresAt: {type: string, format: date-time}
+    Recipient:
+      type: object
+      additionalProperties: false
+      required: [kind, address]
+      properties:
+        kind: {type: string, enum: [email, phone, chat_id, user_id, webhook]}
+        address: {$ref: '#/components/schemas/NonEmptyString'}
+    Content:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [kind, text]
+          properties:
+            kind: {type: string, const: text}
+            title: {type: string}
+            text: {$ref: '#/components/schemas/NonEmptyString'}
+        - type: object
+          additionalProperties: false
+          required: [kind, template]
+          properties:
+            kind: {type: string, const: template}
+            title: {type: string}
+            template:
+              type: object
+              additionalProperties: false
+              required: [id, params]
+              properties:
+                id: {$ref: '#/components/schemas/NonEmptyString'}
+                locale: {type: string}
+                params: {type: object, additionalProperties: true}
+    Source:
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type: {type: string, enum: [alarm, automation, manual, test]}
+        id: {$ref: '#/components/schemas/NonEmptyString'}
+    NotificationSubmit:
+      type: object
+      additionalProperties: false
+      required: [source, deliveries, expiresAt]
+      properties:
+        source: {$ref: '#/components/schemas/Source'}
+        deliveries:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: object
+            additionalProperties: false
+            required: [instanceId, recipient, content]
+            properties:
+              instanceId: {$ref: '#/components/schemas/NonEmptyString'}
+              recipient: {$ref: '#/components/schemas/Recipient'}
+              content: {$ref: '#/components/schemas/Content'}
+        expiresAt: {type: string, format: date-time}
+    GroupCreate:
+      type: object
+      additionalProperties: false
+      required: [name, enabled, bindings]
+      properties:
+        name: {$ref: '#/components/schemas/NonEmptyString'}
+        enabled: {type: boolean}
+        bindings: {type: array, items: {$ref: '#/components/schemas/GroupBinding'}}
+    SourceGroupProjectionRequest:
+      type: object
+      additionalProperties: false
+      required: [sourceDeploymentId, tenantId, legacyGroupId, notificationGroupId, groupRevision]
+      properties:
+        sourceDeploymentId: {$ref: '#/components/schemas/NonEmptyString'}
+        tenantId: {$ref: '#/components/schemas/NonEmptyString'}
+        legacyGroupId: {$ref: '#/components/schemas/NonEmptyString'}
+        notificationGroupId: {$ref: '#/components/schemas/NonEmptyString'}
+        groupRevision: {type: integer, minimum: 1}
+    SourceGroupProjection:
+      type: object
+      additionalProperties: false
+      required: [sourceDeploymentId, tenantId, legacyGroupId, notificationGroupId, groupRevision, createdAt]
+      properties:
+        sourceDeploymentId: {$ref: '#/components/schemas/NonEmptyString'}
+        tenantId: {$ref: '#/components/schemas/NonEmptyString'}
+        legacyGroupId: {$ref: '#/components/schemas/NonEmptyString'}
+        notificationGroupId: {$ref: '#/components/schemas/NonEmptyString'}
+        groupRevision: {type: integer, minimum: 1}
+        createdAt: {type: string, format: date-time}
+    GroupUpdate:
+      type: object
+      additionalProperties: false
+      required: [name, enabled, bindings, expectedVersion]
+      properties:
+        name: {$ref: '#/components/schemas/NonEmptyString'}
+        enabled: {type: boolean}
+        bindings: {type: array, items: {$ref: '#/components/schemas/GroupBinding'}}
+        expectedVersion: {type: integer, minimum: 1}
+    GroupBinding:
+      type: object
+      additionalProperties: false
+      required: [bindingId, instanceId, recipientSource, contentBinding]
+      properties:
+        bindingId: {$ref: '#/components/schemas/NonEmptyString'}
+        instanceId: {$ref: '#/components/schemas/NonEmptyString'}
+        recipientSource:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind, recipient]
+              properties:
+                kind: {type: string, const: literal}
+                recipient: {$ref: '#/components/schemas/Recipient'}
+            - type: object
+              additionalProperties: false
+              required: [kind, userId, contactField]
+              properties:
+                kind: {type: string, const: member}
+                userId: {$ref: '#/components/schemas/NonEmptyString'}
+                contactField: {type: string, enum: [email, phone, appDevice, applicationUserId]}
+        contentBinding:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [kind, title, text]
+              properties:
+                kind: {type: string, const: text}
+                title: {type: string}
+                text: {$ref: '#/components/schemas/NonEmptyString'}
+            - type: object
+              additionalProperties: false
+              required: [kind, templateId, locale, paramsMapping]
+              properties:
+                kind: {type: string, const: template}
+                templateId: {$ref: '#/components/schemas/NonEmptyString'}
+                locale: {type: string}
+                paramsMapping: {type: object, additionalProperties: {type: string}}
+    Group:
+      type: object
+      additionalProperties: false
+      required: [name, enabled, bindings, id, revision, version, migrationState]
+      properties:
+        name: {$ref: '#/components/schemas/NonEmptyString'}
+        enabled: {type: boolean}
+        bindings: {type: array, items: {$ref: '#/components/schemas/GroupBinding'}}
+        id: {$ref: '#/components/schemas/NonEmptyString'}
+        revision: {type: integer, minimum: 1}
+        version: {type: integer, minimum: 1}
+        migrationState: {type: string, enum: [native, legacy_unmigrated, projection_pending]}
+        sourceProjections:
+          type: array
+          readOnly: true
+          maxItems: 128
+          items: {$ref: '#/components/schemas/SourceGroupProjection'}
+          description: Complete immutable projection history for this source tuple, ordered by groupRevision; v1 caps history at 128 records.
+    Accepted:
+      type: object
+      additionalProperties: false
+      required: [accepted, notificationId, deliveryIds, intakeStatus]
+      properties:
+        accepted: {type: boolean, const: true}
+        notificationId: {$ref: '#/components/schemas/NonEmptyString'}
+        deliveryIds: {type: array, items: {$ref: '#/components/schemas/NonEmptyString'}}
+        intakeStatus: {$ref: '#/components/schemas/IntakeStatus'}
+        blockedReason: {type: string}
+    Notification:
+      type: object
+      additionalProperties: false
+      required: [id, source, intakeStatus, createdAt, deliveries]
+      properties:
+        id: {$ref: '#/components/schemas/NonEmptyString'}
+        source: {$ref: '#/components/schemas/Source'}
+        intakeStatus: {$ref: '#/components/schemas/IntakeStatus'}
+        blockedReason: {type: string}
+        createdAt: {type: string, format: date-time}
+        deliveries: {type: array, items: {$ref: '#/components/schemas/DeliverySummary'}}
+    DeliverySummary:
+      type: object
+      additionalProperties: false
+      required: [deliveryId, dispatchStatus, deliveryStatus, attemptCount]
+      properties:
+        deliveryId: {$ref: '#/components/schemas/NonEmptyString'}
+        dispatchStatus: {$ref: '#/components/schemas/DispatchStatus'}
+        deliveryStatus: {$ref: '#/components/schemas/DeliveryStatus'}
+        attemptCount: {type: integer, minimum: 0}
+        providerMessageId: {type: string}
+    Delivery:
+      allOf:
+        - {$ref: '#/components/schemas/DeliverySummary'}
+        - type: object
+          required: [notificationId, instanceId, configVersion, recipient, source, createdAt]
+          properties:
+            notificationId: {$ref: '#/components/schemas/NonEmptyString'}
+            instanceId: {$ref: '#/components/schemas/NonEmptyString'}
+            configVersion: {type: integer, minimum: 1}
+            recipient: {$ref: '#/components/schemas/RedactedRecipient'}
+            source: {$ref: '#/components/schemas/Source'}
+            createdAt: {type: string, format: date-time}
+            error: {$ref: '#/components/schemas/RedactedError'}
+    RedactedRecipient:
+      type: object
+      additionalProperties: false
+      required: [kind, display]
+      properties:
+        kind: {type: string, enum: [email, phone, chat_id, user_id, webhook]}
+        display: {type: string, description: Masked address or safe target label; never the complete private address.}
+    RedactedError:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code: {$ref: '#/components/schemas/NonEmptyString'}
+        message: {type: string, description: Redacted diagnostic summary; no credentials, full recipient, or full body.}
+        reason: {type: string}
+    ReceiptAck:
+      type: object
+      additionalProperties: false
+      required: [accepted]
+      properties:
+        accepted: {type: boolean, const: true}
+    DomainError:
+      type: object
+      additionalProperties: false
+      required: [code, message, details, requestId]
+      properties:
+        code: {type: integer, enum: [400, 401, 403, 404, 409, 422, 429, 503]}
+        message: {type: string}
+        details:
+          type: object
+          additionalProperties: false
+          required: [reason]
+          properties:
+            reason: {$ref: '#/components/schemas/NonEmptyString'}
+            fields: {type: array, items: {$ref: '#/components/schemas/FieldError'}}
+        requestId: {$ref: '#/components/schemas/NonEmptyString'}
+    RuntimeError:
+      type: object
+      additionalProperties: true
+      description: Encore framework-level error envelope produced before a handler runs; normalized by the v2 client using HTTP status. Encore structured errors use a string error code and may return null details.
+      required: [code, message]
+      properties:
+        code: {type: string, enum: [canceled, unknown, invalid_argument, deadline_exceeded, not_found, already_exists, permission_denied, resource_exhausted, failed_precondition, aborted, out_of_range, unimplemented, internal, unavailable, data_loss, unauthenticated]}
+        message: {type: string}
+        details:
+          oneOf:
+            - {type: 'null'}
+            - {type: object, additionalProperties: true}
+            - {type: array, items: {}}
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, reason]
+      properties:
+        field: {type: string}
+        reason: {type: string}

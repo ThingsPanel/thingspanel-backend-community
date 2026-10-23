@@ -28,6 +28,7 @@ import (
 func RouterInit() *gin.Engine {
 	// gin.SetMode(gin.ReleaseMode) //开启生产模式
 	router := gin.Default()
+	router.Use(middleware.RetireAuthWriters())
 	// Swagger文档路由
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

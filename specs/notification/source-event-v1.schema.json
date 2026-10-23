@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thingspanel.example.invalid/specs/notification/source-event-v1.schema.json",
+  "title": "ThingsPanel Source Notification Event v1",
+  "description": "Stable, tenant-authorized source intent sent by the legacy community outbox to Encore notification ingress. Tenant authority is derived from the relay credential and checked against the body value. Implementations must additionally reject duplicate JSON object keys, excessive nesting, oversized bodies, trailing JSON and unsupported schemas before semantic intake.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sourceDeploymentId",
+    "sourceEventId",
+    "actionId",
+    "tenantId",
+    "notificationGroupId",
+    "groupRevision",
+    "occurredAt",
+    "expiresAt",
+    "payload"
+  ],
+  "properties": {
+    "schemaVersion": {"type": "string", "const": "1.0"},
+    "sourceDeploymentId": {"$ref": "#/$defs/id"},
+    "sourceEventId": {"$ref": "#/$defs/id"},
+    "actionId": {"$ref": "#/$defs/id"},
+    "tenantId": {"$ref": "#/$defs/id", "description": "Must be in the tenant allowlist bound to the authenticated source deployment."},
+    "notificationGroupId": {"$ref": "#/$defs/id"},
+    "groupRevision": {"type": "integer", "minimum": 1},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "expiresAt": {"type": "string", "format": "date-time"},
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject", "text", "variables"],
+      "properties": {
+        "subject": {"type": "string", "maxLength": 512},
+        "text": {"type": "string", "maxLength": 65536},
+        "variables": {
+          "type": "object",
+          "maxProperties": 256,
+          "propertyNames": {"pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"},
+          "additionalProperties": {"$ref": "#/$defs/JsonValue"}
+        },
+        "legacyAlertJson": {
+          "type": "object",
+          "maxProperties": 256,
+          "additionalProperties": {"$ref": "#/$defs/JsonValue"},
+          "description": "Optional compatibility data for explicitly configured legacy webhook templates only. Never executable and never interpreted as provider code."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S"},
+    "JsonValue": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "maxLength": 65536},
+        {"type": "number"},
+        {"type": "boolean"},
+        {"type": "array", "maxItems": 256, "items": {"$ref": "#/$defs/JsonValue"}},
+        {"type": "object", "maxProperties": 256, "additionalProperties": {"$ref": "#/$defs/JsonValue"}}
+      ]
+    }
+  }
+}

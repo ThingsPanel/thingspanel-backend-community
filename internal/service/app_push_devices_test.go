@@ -19,7 +19,10 @@ func TestAppDeviceLifecycle(t *testing.T) {
 	if err := initialize.ApplyAppPushSchema(global.DB); err != nil {
 		t.Fatal(err)
 	}
-	if err := global.DB.Exec(`CREATE TABLE users(id text PRIMARY KEY,tenant_id text,status text); INSERT INTO users VALUES ('u1','t1','N'),('u2','t1','N'),('u3','t2','N')`).Error; err != nil {
+	if err := global.DB.Exec(`CREATE TABLE users(id text PRIMARY KEY,tenant_id text,status text,auth_version bigint NOT NULL DEFAULT 0); INSERT INTO users(id,tenant_id,status) VALUES ('u1','t1','N'),('u2','t1','N'),('u3','t2','N')`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := global.DB.Exec(`ALTER TABLE app_push_devices ADD COLUMN auth_version bigint NOT NULL DEFAULT 0`).Error; err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
@@ -80,6 +83,11 @@ func TestAppDeviceLifecycle(t *testing.T) {
 		t.Fatal("disabled member can receive")
 	}
 	global.DB.Exec("UPDATE users SET status = 'N' WHERE id = 'u2'")
+	global.DB.Exec("UPDATE users SET auth_version=1 WHERE id='u2'")
+	if len(read("t1", "", d.ID)) != 0 {
+		t.Fatal("revoked auth version can receive notifications")
+	}
+	global.DB.Exec("UPDATE users SET auth_version=0 WHERE id='u2'")
 	var wg sync.WaitGroup
 	for i := 0; i < 12; i++ {
 		wg.Add(1)

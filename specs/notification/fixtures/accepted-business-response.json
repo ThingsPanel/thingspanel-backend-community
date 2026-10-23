@@ -1,0 +1,14 @@
+{
+  "httpStatus": 202,
+  "body": {
+    "code": 200,
+    "message": "ok",
+    "requestId": "request-fixture-001",
+    "data": {
+      "accepted": true,
+      "notificationId": "notification-fixture-001",
+      "deliveryIds": ["delivery-fixture-001"],
+      "intakeStatus": "ready"
+    }
+  }
+}

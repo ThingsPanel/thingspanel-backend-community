@@ -1,0 +1,9 @@
+{
+  "httpStatus": 409,
+  "body": {
+    "code": 409,
+    "message": "version conflict",
+    "details": {"reason": "expected_version_mismatch"},
+    "requestId": "request-fixture-version-conflict"
+  }
+}

@@ -1,0 +1,10 @@
+[
+  {"dispatchStatus": "queued", "deliveryStatus": "pending", "label": "已排队"},
+  {"dispatchStatus": "sending", "deliveryStatus": "pending", "label": "提交中"},
+  {"dispatchStatus": "accepted", "deliveryStatus": "unsupported", "label": "服务商已受理；此通道不提供送达回执"},
+  {"dispatchStatus": "accepted", "deliveryStatus": "pending", "label": "服务商已受理；等待送达回执"},
+  {"dispatchStatus": "accepted", "deliveryStatus": "delivered", "label": "服务商报告已送达"},
+  {"dispatchStatus": "accepted", "deliveryStatus": "failed", "label": "服务商报告投递失败"},
+  {"dispatchStatus": "failed", "deliveryStatus": "pending", "label": "发送失败"},
+  {"dispatchStatus": "unknown", "deliveryStatus": "pending", "label": "是否受理未知，系统不会自动重发"}
+]

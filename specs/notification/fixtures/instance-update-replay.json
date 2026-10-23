@@ -1,0 +1,44 @@
+{
+  "resourceId": "instance-fixture-001",
+  "tenantId": "tenant-fixture",
+  "initialVersion": 4,
+  "firstRequest": {
+    "method": "PUT",
+    "path": "/api/v2/notification-instances/instance-fixture-001",
+    "headers": {"Idempotency-Key": "instance-update-replay-001"},
+    "body": {"expectedVersion": 4, "name": "Primary SMS"},
+    "requestId": "request-fixture-first"
+  },
+  "firstResponse": {
+    "httpStatus": 200,
+    "requestId": "request-fixture-first",
+    "resourceId": "instance-fixture-001",
+    "version": 5
+  },
+  "sameKeyReplay": {
+    "body": {"expectedVersion": 4, "name": "Primary SMS"},
+    "requestId": "request-fixture-replay",
+    "httpStatus": 200,
+    "responseRequestId": "request-fixture-replay",
+    "resourceId": "instance-fixture-001",
+    "version": 5
+  },
+  "sameKeyDifferentBody": {
+    "body": {"expectedVersion": 4, "name": "Renamed SMS"},
+    "httpStatus": 409,
+    "bodyCode": 409
+  },
+  "newKeyStaleExpectedVersion": {
+    "idempotencyKey": "instance-update-new-key-002",
+    "body": {"expectedVersion": 4, "name": "Primary SMS"},
+    "httpStatus": 409,
+    "bodyCode": 409
+  },
+  "rules": {
+    "sameKeySameDigestChecksIdempotencyBeforeExpectedVersion": true,
+    "replayReturnsOriginalBusinessResourceIdAndVersion": true,
+    "replayRequestIdIsCurrentHttpRequest": true,
+    "sameKeyDifferentDigestConflicts": true,
+    "newKeyWithStaleExpectedVersionConflicts": true
+  }
+}

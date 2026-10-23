@@ -1,0 +1,8 @@
+[
+  {"caseId": "CTR-02-create", "method": "POST", "path": "/api/v2/notification-groups", "expectedStatus": 201, "bodyCode": 200},
+  {"caseId": "CTR-02-submit", "method": "POST", "path": "/api/v2/notifications", "expectedStatus": 202, "bodyCode": 200},
+  {"caseId": "CTR-02-ingress", "method": "POST", "path": "/api/v2/notification-ingress/events", "expectedStatus": 202, "bodyCode": 200},
+  {"caseId": "CTR-02-runtime-auth", "method": "POST", "path": "/api/v2/notifications", "expectedStatus": 401, "assertion": "real HTTP status; runtime error envelope allowed"},
+  {"caseId": "CTR-02-domain-conflict", "method": "POST", "path": "/api/v2/notifications", "expectedStatus": 409, "bodyCode": 409},
+  {"caseId": "CTR-02-receipt", "method": "POST", "path": "/api/v1/notification-instances/instance-fixture-001/receipts", "expectedStatus": 200, "body": {"accepted": true}, "assertion": "raw ACK; no business envelope"}
+]

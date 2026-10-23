@@ -80,6 +80,9 @@ func PgInit() (*gorm.DB, error) {
 	if err = ApplyAppPushSchema(db); err != nil {
 		return nil, fmt.Errorf("initialize app push schema: %w", err)
 	}
+	if err = ApplyAuthSchema(db); err != nil {
+		return nil, err
+	}
 	return db, nil
 }
 
@@ -179,6 +182,9 @@ func PgConnect(config *DbConfig) (*gorm.DB, error) {
 
 	if err = ApplyAppPushSchema(db); err != nil {
 		return nil, fmt.Errorf("initialize app push schema: %w", err)
+	}
+	if err = ApplyAuthSchema(db); err != nil {
+		return nil, err
 	}
 	return db, nil
 }

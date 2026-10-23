@@ -14,6 +14,7 @@ import (
 )
 
 type AppPushDevice struct {
+	AuthVersion    int64     `json:"-"`
 	ID             string    `json:"id"`
 	TenantID       string    `json:"tenantId"`
 	UserID         string    `json:"userId"`
@@ -91,7 +92,7 @@ func ReadAppPushDevices(ctx context.Context, tenant, user, id string) ([]AppPush
 		return nil, ErrNotificationMemberReadUnavailable
 	}
 	var rows []AppPushDevice
-	q := global.DB.WithContext(ctx).Table("app_push_devices AS d").Select("d.*").Joins("JOIN users u ON u.id = d.user_id AND u.tenant_id = d.tenant_id AND u.status = 'N'").Where("d.tenant_id = ? AND d.active AND d.expires_at > now()", tenant)
+	q := global.DB.WithContext(ctx).Table("app_push_devices AS d").Select("d.*").Joins("JOIN users u ON u.id = d.user_id AND u.tenant_id = d.tenant_id AND u.status = 'N' AND u.auth_version = d.auth_version").Where("d.tenant_id = ? AND d.active AND d.expires_at > now()", tenant)
 	if user != "" {
 		q = q.Where("d.user_id = ?", user)
 	}

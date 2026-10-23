@@ -1,0 +1,10 @@
+{
+  "id": "wechat-web",
+  "label": "微信扫码登录",
+  "kind": "wechat-web",
+  "appId": "WEBSITE_APPLICATION_APP_ID",
+  "appSecret": "",
+  "redirectUrl": "https://panel.example.com/api/v1/auth/external/callback",
+  "tenantIds": ["EXISTING_TENANT_ID"],
+  "reviewId": "WEBSITE_SOURCE_ACCEPTANCE_RECORD"
+}

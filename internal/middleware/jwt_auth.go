@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"os"
 	"time"
 
 	"project/internal/dal"
@@ -83,6 +84,14 @@ func isValidJWT(c *gin.Context, token string) bool {
 		return false
 	}
 
+	if !NativeAccountCurrent(c.Request.Context(), claims) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{Code: ErrCodeInvalidToken, Message: "session unavailable"})
+		return false
+	}
+	if os.Getenv("TP_AUTH_OWNER") == "encore" {
+		c.Set("claims", claims)
+		return true
+	}
 	// Refresh only an existing session; never resurrect a concurrent logout.
 	ttl := time.Duration(viper.GetInt("session.timeout")) * time.Minute
 	cap := time.Until(time.Unix(claims.ExpiresAt, 0))
