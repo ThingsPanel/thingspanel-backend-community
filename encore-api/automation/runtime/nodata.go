@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"encore.app/automation/domain"
@@ -71,18 +72,28 @@ func (r *Runtime) SweepNoData(ctx context.Context, now time.Time, limit int) (in
 			message = "从未收到该设备的相关上报，条件是否成立无法确认"
 			evidence["message"] = message
 		}
-		if _, err := r.store.AddTransition(ctx, nil, &store.Transition{
-			ID: NewID(), EpisodeID: ep.ID, TenantID: ep.TenantID, Kind: TransitionUnknown,
-			Seq: seq, Revision: ep.Revision, Epoch: ep.Epoch, Evidence: evidence,
+		// The note and its announcement are written together: a note nobody is
+		// told about is the same as no note at all.
+		transitionID := NewID()
+		if err := r.store.WithTx(ctx, func(tx *sql.Tx) error {
+			if _, err := r.store.AddTransition(ctx, tx, &store.Transition{
+				ID: transitionID, EpisodeID: ep.ID, TenantID: ep.TenantID, Kind: TransitionUnknown,
+				Seq: seq, Revision: ep.Revision, Epoch: ep.Epoch, Evidence: evidence,
+			}); err != nil {
+				return err
+			}
+			_, err := r.store.PublishEvent(ctx, tx, NewID(), ep.TenantID, "alarm.no_data", ep.ID,
+				map[string]any{
+					"transition_id": transitionID, "kind": "no_data", "episode_id": ep.ID,
+					"policy_id": ep.PolicyID, "policy_key": ep.PolicyKey,
+					"subject_id": ep.SubjectID, "device_id": ep.SubjectID,
+					"no_data": window.String(), "last_seen": last,
+					"reason": "设备静默超过 no_data，告警保持活动但状态不确定",
+				})
+			return err
 		}); err != nil {
 			return noted, err
 		}
-		_, _ = r.store.PublishEvent(ctx, nil, NewID(), ep.TenantID, "alarm.no_data", ep.ID,
-			map[string]any{
-				"episode_id": ep.ID, "policy_id": ep.PolicyID, "device_id": ep.SubjectID,
-				"no_data": window.String(), "last_seen": last,
-				"reason": "设备静默超过 no_data，告警保持活动但状态不确定",
-			})
 		noted++
 	}
 	return noted, nil

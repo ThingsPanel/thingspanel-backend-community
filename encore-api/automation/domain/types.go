@@ -115,6 +115,84 @@ type Definition struct {
 	Queue     *QueueRule    `json:"queue,omitempty"`
 	Parallel  *ParallelRule `json:"parallel,omitempty"`
 	Budget    Budget        `json:"budget"`
+	// Alarm is present only on kind=alarm_policy. It declares the stable
+	// business key and which intake channels may qualify this policy, which is
+	// what lets one editable policy be fed by the internal detector and by an
+	// authorised event source without either channel being able to impersonate
+	// the other.
+	Alarm *AlarmSpec `json:"alarm,omitempty"`
+}
+
+// AlarmSource names one authorised way to qualify an alarm policy.
+//
+// The two channels are validated separately and reach the lifecycle through two
+// different entry points. That separation is the point: an HTTP request must
+// never be able to claim "the evaluator said the condition holds", because the
+// evaluator is the only thing that can actually know.
+type AlarmSource string
+
+const (
+	// AlarmSourceDetector is the internal evaluator (A08). It is not reachable
+	// over HTTP at all — the only caller is the ingest/timer path, which already
+	// holds a domain.Result produced by domain.Evaluate.
+	AlarmSourceDetector AlarmSource = "detector"
+	// AlarmSourceEvent is an authorised business event, used to preserve the
+	// legacy scene "raise this alarm" action. It must name its allowed callers.
+	AlarmSourceEvent AlarmSource = "event"
+)
+
+// AlarmSpec is the alarm owner's part of a policy.
+type AlarmSpec struct {
+	// Key is the stable business key of the policy. The active alarm identity is
+	// (tenant, key, subject, dimension), so re-publishing a policy — or
+	// migrating a legacy alarm_config whose new rule id differs — keeps the same
+	// active alarm instead of opening a second one. Empty means "use the rule
+	// id", which is what every policy created before this field existed does.
+	Key string `json:"key,omitempty"`
+
+	// Sources lists the channels allowed to qualify this policy. Empty is
+	// rejected: an alarm nobody can qualify is not an alarm.
+	Sources []AlarmSource `json:"sources"`
+
+	// AllowedSources names the caller identities allowed to use the event
+	// channel ("scene:abc", "automation", "tpctl"). Required when Sources
+	// contains event, forbidden otherwise — declaring a whitelist for a channel
+	// that is closed would be a lie the operator would trust.
+	AllowedSources []string `json:"allowed_sources,omitempty"`
+
+	// Level is the legacy alarm grade H/M/L, kept so existing lists and filters
+	// keep working.
+	Level string `json:"level,omitempty"`
+
+	// Dimension separates several alarms of the same subject under one policy
+	// (per channel, per phase). Empty is the legacy single-alarm behaviour.
+	Dimension string `json:"dimension,omitempty"`
+}
+
+// Allows reports whether a channel may qualify this policy.
+func (a *AlarmSpec) Allows(s AlarmSource) bool {
+	if a == nil {
+		return false
+	}
+	for _, x := range a.Sources {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+// SourceAllowed reports whether a named caller may use the event channel.
+func (a *AlarmSpec) SourceAllowed(name string) bool {
+	if a == nil || name == "" {
+		return false
+	}
+	for _, x := range a.AllowedSources {
+		if x == name {
+			return true
+		}
+	}
+	return false
 }
 
 // Trigger is an OR of groups; each group is an AND of conditions.
@@ -339,6 +417,14 @@ func (d *Definition) Normalize() {
 	}
 	if d.Targets.MaxTargets == 0 {
 		d.Targets.MaxTargets = 200
+	}
+	// An alarm policy that says nothing about its intake is detector-only. That
+	// is the most restrictive reading, and it is the one that cannot be abused:
+	// the event channel — the only one an outside caller can reach — always has
+	// to be declared, together with the callers allowed to use it. Defaulting the
+	// other way would quietly open a channel that the operator never asked for.
+	if d.Kind == KindAlarm && d.Alarm == nil {
+		d.Alarm = &AlarmSpec{Sources: []AlarmSource{AlarmSourceDetector}}
 	}
 }
 

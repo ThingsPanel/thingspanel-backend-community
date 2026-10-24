@@ -85,34 +85,26 @@ func (s *Store) getOutboxWhere(ctx context.Context, where string, arg any) (*Out
 	return &o, nil
 }
 
-// GetActiveEpisodeByID loads an active episode by id.
-func (s *Store) GetActiveEpisodeByID(ctx context.Context, tenantID, id string) (*Episode, error) {
-	var (
-		e         Episode
-		ackedAt   sql.NullTime
-		ackedBy   sql.NullString
-		clearedAt sql.NullTime
-	)
-	err := s.DB.QueryRowContext(ctx, `
-        SELECT id, tenant_id, policy_id, subject_id, dimension, state, revision, epoch,
-               opened_at, last_seq, acked_at, acked_by, cleared_at, updated_at
-          FROM alarm_episodes WHERE id=$1 AND tenant_id=$2`, id, tenantID).
-		Scan(&e.ID, &e.TenantID, &e.PolicyID, &e.SubjectID, &e.Dimension, &e.State,
-			&e.Revision, &e.Epoch, &e.OpenedAt, &e.LastSeq, &ackedAt, &ackedBy, &clearedAt, &e.UpdatedAt)
+// GetEpisodeByID loads an episode by id, active or historical, so a detail link
+// into the history keeps working after the alarm recovered.
+func (s *Store) GetEpisodeByID(ctx context.Context, tenantID, id string) (*Episode, error) {
+	e, err := scanEpisode(s.row(ctx, nil, `SELECT `+episodeColumns+`
+          FROM alarm_episodes WHERE id=$1 AND tenant_id=$2`, id, tenantID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
-	if err != nil {
-		return nil, err
+	return e, err
+}
+
+// GetActiveEpisodeByID is kept for the ack path, which may only touch an active
+// alarm.
+func (s *Store) GetActiveEpisodeByID(ctx context.Context, tenantID, id string) (*Episode, error) {
+	e, err := scanEpisode(s.row(ctx, nil, `SELECT `+episodeColumns+`
+          FROM alarm_episodes WHERE id=$1 AND tenant_id=$2 AND state='active'`, id, tenantID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
 	}
-	if ackedAt.Valid {
-		e.AckedAt = &ackedAt.Time
-	}
-	e.AckedBy = ackedBy.String
-	if clearedAt.Valid {
-		e.ClearedAt = &clearedAt.Time
-	}
-	return &e, nil
+	return e, err
 }
 
 // BacklogStats reports the queue depths used by readiness and performance tests.

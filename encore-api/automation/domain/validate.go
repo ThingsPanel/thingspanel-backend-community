@@ -166,6 +166,15 @@ func Validate(d *Definition) error {
 					"告警策略不能直接下发设备动作；请用告警生命周期事件触发自动化")
 			}
 		}
+		if d.Alarm == nil {
+			add("alarm", "missing_alarm_spec",
+				"告警策略必须声明 alarm：稳定业务键 key 与受理来源 sources")
+		} else {
+			validateAlarmSpec(d.Alarm, add)
+		}
+
+	} else if d.Alarm != nil {
+		add("alarm", "alarm_spec_not_allowed", "只有告警策略可以声明 alarm")
 	}
 
 	if len(issues) > 0 {
@@ -325,4 +334,77 @@ func countSteps(steps []Step, depth int) (count, maxDepth int) {
 		}
 	}
 	return count, maxDepth
+}
+
+// validateAlarmSpec enforces the two things that make an alarm policy
+// trustworthy: an identity that survives re-publishing, and intake channels that
+// are declared rather than assumed.
+func validateAlarmSpec(a *AlarmSpec, add func(string, string, string)) {
+	if k := strings.TrimSpace(a.Key); k != "" {
+		if len(k) > 120 {
+			add("alarm.key", "invalid_alarm_key", "业务键不能超过 120 个字符")
+		} else if !validAlarmKey(k) {
+			add("alarm.key", "invalid_alarm_key",
+				"业务键只能包含字母、数字、点、下划线、冒号和连字符")
+		}
+	}
+	if len(a.Sources) == 0 {
+		add("alarm.sources", "empty_alarm_sources",
+			"必须声明至少一个受理来源（detector / event）")
+	}
+	seen := map[AlarmSource]bool{}
+	hasEvent := false
+	for _, s := range a.Sources {
+		switch s {
+		case AlarmSourceDetector:
+		case AlarmSourceEvent:
+			hasEvent = true
+		default:
+			add("alarm.sources", "invalid_alarm_source",
+				"未知受理来源 "+string(s)+"（只能是 detector 或 event）")
+		}
+		if seen[s] {
+			add("alarm.sources", "duplicate_alarm_source", "受理来源重复: "+string(s))
+		}
+		seen[s] = true
+	}
+	// The event channel is the only one an outside caller can reach, so it is
+	// the only one that needs a whitelist. Demanding one when the channel is
+	// closed would be a declaration nobody enforces; allowing event without one
+	// would let any caller raise any alarm.
+	if hasEvent {
+		if len(a.AllowedSources) == 0 {
+			add("alarm.allowed_sources", "empty_allowed_sources",
+				"声明 event 受理来源时必须给出允许的调用方（如 scene:<id>、automation）")
+		}
+		for i, s := range a.AllowedSources {
+			if strings.TrimSpace(s) == "" {
+				add(fmt.Sprintf("alarm.allowed_sources[%d]", i), "empty_allowed_source",
+					"允许的调用方不能为空字符串")
+			}
+		}
+	} else if len(a.AllowedSources) > 0 {
+		add("alarm.allowed_sources", "allowed_sources_without_event",
+			"未声明 event 受理来源时不应给出调用方白名单")
+	}
+	switch a.Level {
+	case "", "H", "M", "L":
+	default:
+		add("alarm.level", "invalid_alarm_level", "告警等级只能是 H、M 或 L")
+	}
+	if len(a.Dimension) > 64 {
+		add("alarm.dimension", "invalid_alarm_dimension", "维度标识不能超过 64 个字符")
+	}
+}
+
+func validAlarmKey(k string) bool {
+	for _, r := range k {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case r == '.', r == '_', r == ':', r == '-':
+		default:
+			return false
+		}
+	}
+	return k != ""
 }

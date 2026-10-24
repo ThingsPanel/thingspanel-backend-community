@@ -638,11 +638,7 @@ func (s *Service) ListAlarms(ctx context.Context, req *ListAlarmsRequest) (*List
 	}
 	out := &ListAlarmsResponse{Alarms: make([]AlarmResponse, 0, len(eps))}
 	for _, e := range eps {
-		out.Alarms = append(out.Alarms, AlarmResponse{
-			ID: e.ID, PolicyID: e.PolicyID, SubjectID: e.SubjectID, Dimension: e.Dimension,
-			State: e.State, Revision: e.Revision, Epoch: e.Epoch, OpenedAt: e.OpenedAt,
-			LastSeq: e.LastSeq, AckedAt: e.AckedAt, AckedBy: e.AckedBy, ClearedAt: e.ClearedAt,
-		})
+		out.Alarms = append(out.Alarms, alarmResponse(e))
 	}
 	return out, nil
 }
@@ -671,6 +667,106 @@ func (s *Service) AckAlarm(ctx context.Context, id string, req *AckAlarmRequest)
 		return nil, internal(err)
 	}
 	return &AckAlarmResponse{Acknowledged: ok}, nil
+}
+
+// GetAlarm returns one episode, active or historical, so an existing detail link
+// keeps working after the alarm recovered.
+//
+//encore:api auth method=GET path=/v1/alarms/:id
+func (s *Service) GetAlarm(ctx context.Context, id string) (*AlarmResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	ep, err := rt.Store().GetEpisodeByID(ctx, tenantID, id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, &errs.Error{Code: errs.NotFound, Message: "告警不存在"}
+		}
+		return nil, internal(err)
+	}
+	out := alarmResponse(ep)
+	return &out, nil
+}
+
+// SubmitAlarmEvent submits an authorised alarm action on the event channel.
+//
+// This is the intake the legacy scene "raise this alarm" action uses. It is not a
+// generic "set the verdict" endpoint: the policy must declare the event channel,
+// the caller must be on its whitelist, and only qualified/clear can be asserted.
+// A detector policy refuses it outright, which is what stops an ordinary business
+// request from impersonating the evaluator.
+//
+//encore:api auth method=POST path=/v1/alarm-policies/:id/events
+func (s *Service) SubmitAlarmEvent(ctx context.Context, id string, req *AlarmEventRequest) (*AlarmEventResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	var payload map[string]any
+	if req.Payload != "" {
+		if err := json.Unmarshal([]byte(req.Payload), &payload); err != nil {
+			return nil, &errs.Error{Code: errs.InvalidArgument,
+				Message: "payload 必须是合法 JSON"}
+		}
+	}
+	dec, err := rt.SubmitAlarmEvent(ctx, tenantID, id, runtime.AlarmEventRequest{
+		ActionID: req.ActionID, Source: req.Source, Kind: req.Kind,
+		SubjectID: req.SubjectID, Dimension: req.Dimension, Payload: payload,
+	})
+	if err != nil {
+		return nil, internal(err)
+	}
+	return &AlarmEventResponse{
+		Outcome: dec.Outcome, ReasonCode: dec.ReasonCode,
+		EpisodeID: dec.EpisodeID, TransitionID: dec.TransitionID, Replayed: dec.Replayed,
+	}, nil
+}
+
+// ReconcileAlarms reports this service's own alarm counters so the migration tool
+// can diff them against the legacy alarm_info / alarm_history rows.
+//
+//encore:api auth method=GET path=/v1/alarm-reconcile
+func (s *Service) ReconcileAlarms(ctx context.Context) (*AlarmReconcileResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	st, err := rt.Store().AlarmStatsOf(ctx, tenantID)
+	if err != nil {
+		return nil, internal(err)
+	}
+	return &AlarmReconcileResponse{
+		ActiveEpisodes: st.ActiveEpisodes, TotalEpisodes: st.TotalEpisodes,
+		Transitions: st.Transitions, ByPolicy: st.ByPolicy,
+		ByState: st.ByState, ByLevel: st.ByLevel,
+	}, nil
+}
+
+func alarmResponse(e *store.Episode) AlarmResponse {
+	out := AlarmResponse{
+		ID: e.ID, PolicyID: e.PolicyID, PolicyKey: e.PolicyKey, SubjectID: e.SubjectID,
+		Dimension: e.Dimension, State: e.State, Level: e.Level, Source: e.Source,
+		Revision: e.Revision, Epoch: e.Epoch, OpenedAt: e.OpenedAt,
+		FirstSeq: e.FirstSeq, LastSeq: e.LastSeq, SampleCount: e.SampleCount,
+		AckedAt: e.AckedAt, AckedBy: e.AckedBy, ClearedAt: e.ClearedAt,
+	}
+	if len(e.LastEvidence) > 0 {
+		out.LastEvidence = string(e.LastEvidence)
+	}
+	return out
 }
 
 // ListAlarmTransitions returns the lifecycle history of an episode.

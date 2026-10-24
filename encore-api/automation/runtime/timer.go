@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
@@ -33,6 +32,9 @@ type TickResult struct {
 	// NoDataNoted counts alarm episodes that were marked "cannot be confirmed"
 	// because their subject stopped reporting.
 	NoDataNoted int `json:"no_data_noted"`
+
+	// AlarmRelayed counts alarm transitions turned into rule inputs in this pass.
+	AlarmRelayed int `json:"alarm_relayed"`
 
 	// Run bookkeeping. A run that nobody finishes is worse than a failed one:
 	// it reads as "still working" forever. Expiry and resume make both outcomes
@@ -122,6 +124,12 @@ func (r *Runtime) Tick(ctx context.Context) (TickResult, error) {
 		out.NoDataNoted = noted
 	}
 
+	// Alarm transitions become rule inputs before the outbox is drained, so a
+	// linkage that only notifies leaves in the same tick that raised the alarm.
+	if relayed, rerr := r.RelayAlarmEvents(ctx, 100); rerr == nil {
+		out.AlarmRelayed = relayed
+	}
+
 	n, err := r.DispatchOutbox(ctx, 50)
 	out.OutboxDrained = n
 	if err != nil {
@@ -177,7 +185,7 @@ func (r *Runtime) firePending(ctx context.Context, p *store.Pending, now time.Ti
 		_ = r.store.ClearPending(ctx, p.ScopeKey)
 		if rule.Definition.Kind == domain.KindAlarm {
 			seq, _ := r.store.NextSeq(ctx)
-			_ = r.qualify(ctx, rule, p.DeviceID, res, seq, now,
+			_, _ = r.submitDetectorVerdict(ctx, rule, p.DeviceID, res, seq, now,
 				cause{Root: p.CausalRoot, Hop: p.CausalHop})
 		} else {
 			_, _ = r.acceptRun(ctx, rule, p.DeviceID, "", cause{Root: p.CausalRoot, Hop: p.CausalHop},
@@ -214,16 +222,22 @@ func (r *Runtime) fireRecovery(ctx context.Context, rule *store.Rule, p *store.P
 	if res.Verdict != domain.VerdictTrue {
 		return "dropped"
 	}
-	ep, err := r.store.GetActiveEpisode(ctx, rule.TenantID, rule.ID, p.DeviceID, "")
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return "dropped"
-		}
+	seq, _ := r.store.NextSeq(ctx)
+	// The recovery window has just been satisfied, so the decision must not
+	// re-evaluate the recovery condition: doing so would restart the window it
+	// just finished and the alarm would never clear.
+	dec, derr := r.decide(ctx, decisionInput{
+		rule: rule, subject: p.DeviceID, dimension: rule.AlarmDimension(),
+		kind: TransitionClear, res: res, seq: seq, now: now,
+		c:      cause{Root: p.CausalRoot, Hop: p.CausalHop},
+		source: string(domain.AlarmSourceDetector), skipRecoveryCheck: true,
+	})
+	if derr != nil {
 		return "dropped"
 	}
-	seq, _ := r.store.NextSeq(ctx)
-	_ = r.clear(ctx, rule, ep, seq, now, res,
-		cause{Root: p.CausalRoot, Hop: p.CausalHop})
+	if dec.Outcome != OutcomeCleared {
+		return "dropped"
+	}
 	return "fired"
 }
 

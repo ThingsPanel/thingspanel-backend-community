@@ -273,18 +273,63 @@ type ListAlarmsRequest struct {
 
 // AlarmResponse is one alarm episode.
 type AlarmResponse struct {
-	ID        string     `json:"id"`
-	PolicyID  string     `json:"policy_id"`
-	SubjectID string     `json:"subject_id"`
-	Dimension string     `json:"dimension,omitempty"`
-	State     string     `json:"state"`
-	Revision  int        `json:"revision"`
-	Epoch     int64      `json:"epoch"`
-	OpenedAt  time.Time  `json:"opened_at"`
-	LastSeq   int64      `json:"last_seq"`
-	AckedAt   *time.Time `json:"acked_at,omitempty"`
-	AckedBy   string     `json:"acked_by,omitempty"`
-	ClearedAt *time.Time `json:"cleared_at,omitempty"`
+	ID       string `json:"id"`
+	PolicyID string `json:"policy_id"`
+	// PolicyKey is the stable business identity. Two episodes of the same key,
+	// subject and dimension can never be active at the same time.
+	PolicyKey    string     `json:"policy_key"`
+	SubjectID    string     `json:"subject_id"`
+	Dimension    string     `json:"dimension,omitempty"`
+	State        string     `json:"state"`
+	Level        string     `json:"level,omitempty"`
+	Source       string     `json:"source,omitempty"`
+	Revision     int        `json:"revision"`
+	Epoch        int64      `json:"epoch"`
+	OpenedAt     time.Time  `json:"opened_at"`
+	FirstSeq     int64      `json:"first_seq"`
+	LastSeq      int64      `json:"last_seq"`
+	SampleCount  int64      `json:"sample_count"`
+	LastEvidence string     `json:"last_evidence,omitempty"`
+	AckedAt      *time.Time `json:"acked_at,omitempty"`
+	AckedBy      string     `json:"acked_by,omitempty"`
+	ClearedAt    *time.Time `json:"cleared_at,omitempty"`
+}
+
+// AlarmEventRequest submits an authorised alarm action on the event channel.
+//
+// It is deliberately not a "set verdict" endpoint: only qualified and clear are
+// accepted, only for policies that declare the event channel, and only from the
+// callers the policy whitelists. There is no way to express "unknown" or "error"
+// here because only the evaluator can know those.
+type AlarmEventRequest struct {
+	ActionID  string `json:"action_id"`
+	Source    string `json:"source"`
+	Kind      string `json:"kind"`
+	SubjectID string `json:"subject_id"`
+	Dimension string `json:"dimension,omitempty"`
+	Payload   string `json:"payload,omitempty"`
+}
+
+// AlarmEventResponse reports what the alarm owner decided.
+type AlarmEventResponse struct {
+	Outcome      string `json:"outcome"`
+	ReasonCode   string `json:"reason_code,omitempty"`
+	EpisodeID    string `json:"episode_id,omitempty"`
+	TransitionID string `json:"transition_id,omitempty"`
+	Replayed     bool   `json:"replayed,omitempty"`
+}
+
+// AlarmReconcileResponse is the reconciliation contract with the legacy alarm
+// tables. The legacy side compares these counters with its own alarm_info and
+// alarm_history rows; this service cannot read that database, so the comparison
+// is an explicit hand-off rather than a silent assumption.
+type AlarmReconcileResponse struct {
+	ActiveEpisodes int64            `json:"active_episodes"`
+	TotalEpisodes  int64            `json:"total_episodes"`
+	Transitions    int64            `json:"transitions"`
+	ByPolicy       map[string]int64 `json:"by_policy"`
+	ByState        map[string]int64 `json:"by_state"`
+	ByLevel        map[string]int64 `json:"by_level"`
 }
 
 // ListAlarmsResponse is a page of episodes.

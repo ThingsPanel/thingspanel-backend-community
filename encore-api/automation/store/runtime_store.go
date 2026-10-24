@@ -772,6 +772,7 @@ func (s *Store) PublishEvent(ctx context.Context, tx *sql.Tx, id, tenantID, kind
 // EventRecord is one business transition in the feed.
 type EventRecord struct {
 	ID        string
+	TenantID  string
 	Kind      string
 	Subject   string
 	Payload   json.RawMessage
