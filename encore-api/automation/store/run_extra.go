@@ -59,6 +59,7 @@ func (s *Store) GetRunByID(ctx context.Context, runID string) (*Run, error) {
 }
 
 // MarkRunRunning moves a run into the running state (idempotent).
+// MarkRunRunning starts a run that was admitted.
 func (s *Store) MarkRunRunning(ctx context.Context, runID string) error {
 	_, err := s.DB.ExecContext(ctx, `
         UPDATE auto_runs SET status='running'
@@ -66,13 +67,36 @@ func (s *Store) MarkRunRunning(ctx context.Context, runID string) error {
 	return err
 }
 
+// StartQueuedRun starts a run that waited, and restarts its clock.
+//
+// A queued run's budget must begin when it actually runs, otherwise a run that
+// waited most of its TTL would have almost no time left to execute the steps it
+// was admitted for.
+func (s *Store) StartQueuedRun(ctx context.Context, runID string, deadline time.Time) error {
+	res, err := s.DB.ExecContext(ctx, `
+        UPDATE auto_runs SET status='running', deadline=$2
+         WHERE id=$1 AND status='queued'`, runID, deadline)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // NextQueuedRun returns the oldest queued run of a scope.
+//
+// The order is the scope's generation, which increases with every admission, so
+// it is the arrival order. Ordering by started_at would be wrong: two triggers
+// that arrive in the same millisecond share a timestamp, and the tie-break would
+// then be a random uuid — the queue would look ordered but fire out of order.
 func (s *Store) NextQueuedRun(ctx context.Context, scopeKey string) (string, error) {
 	var id string
 	err := s.DB.QueryRowContext(ctx, `
         SELECT id FROM auto_runs
          WHERE scope_key=$1 AND status='queued'
-         ORDER BY started_at LIMIT 1`, scopeKey).Scan(&id)
+         ORDER BY generation, id LIMIT 1`, scopeKey).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil
 	}

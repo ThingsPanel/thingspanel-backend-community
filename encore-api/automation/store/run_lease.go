@@ -115,8 +115,12 @@ func (s *Store) ExpireOverdueRuns(ctx context.Context, now time.Time, limit int)
         )
         UPDATE auto_runs r
            SET status='expired',
-               reason_code='run_budget_exceeded',
-               reason='运行超过最长时限',
+               reason_code=coalesce(nullif(r.snapshot->>'deadline_reason',''), 'run_budget_exceeded'),
+               reason=CASE coalesce(nullif(r.snapshot->>'deadline_reason',''), 'run_budget_exceeded')
+                        WHEN 'parallel_ttl_exceeded' THEN '并行模式超过最长占用时限，已终止'
+                        WHEN 'queue_ttl_exceeded'    THEN '排队超过最长等待时限，已终止'
+                        ELSE '运行超过最长时限'
+                      END,
                finished_at=$1,
                lease_owner=NULL,
                lease_until=NULL

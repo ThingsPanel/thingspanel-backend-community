@@ -94,6 +94,25 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 			StatusRejected, "target_resolution_failed", err.Error())
 	}
 
+	deadlineReason := ""
+	deadline := now.Add(def.Budget.MaxRunDuration.Std())
+	if def.Mode == domain.ModeParallel && def.Parallel != nil && def.Parallel.TTL > 0 {
+		// A parallel slot is a shared resource: the run may not hold it longer
+		// than the rule allows, even if its own step budget is larger.
+		if ttl := now.Add(def.Parallel.TTL.Std()); ttl.Before(deadline) {
+			deadline = ttl
+			deadlineReason = "parallel_ttl_exceeded"
+		}
+	}
+	if def.Mode == domain.ModeQueued && def.Queue != nil && def.Queue.TTL > 0 {
+		// A queued run may wait up to the queue TTL and then run for the full
+		// step budget. The combined bound is only a safety net for a queue that
+		// never drains; the wait itself is checked when the run is promoted,
+		// because "waited too long" is a different outcome from "ran too long".
+		deadline = now.Add(def.Queue.TTL.Std()).Add(def.Budget.MaxRunDuration.Std())
+		deadlineReason = "queue_ttl_exceeded"
+	}
+
 	snapshot, _ := json.Marshal(map[string]any{
 		"rule_id":         rule.ID,
 		"revision":        rule.Revision,
@@ -104,8 +123,10 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 		"verdict":         res.Verdict,
 		"mode":            def.Mode,
 		"manual":          c.Manual,
+		// Which clock ran out, so the expiry reason is readable instead of
+		// always claiming the step budget was exceeded.
+		"deadline_reason": deadlineReason,
 	})
-	deadline := now.Add(def.Budget.MaxRunDuration.Std())
 
 	run := &store.Run{
 		ID:             NewID(),
@@ -845,13 +866,54 @@ func (r *Runtime) enqueueAndDispatch(ctx context.Context, item *store.OutboxItem
 	}
 }
 
+// promoteQueued starts the next waiting run of a scope.
+//
+// Two checks happen here rather than at admission time, because both can change
+// while the run waits:
+//
+//   - the queue TTL: a trigger that waited longer than the rule allows must not
+//     fire late. Running it anyway is how a light turns on for a person who left
+//     the corridor ten minutes ago.
+//   - the rule and its revision: a rule disabled or deleted while its trigger
+//     waited must not still act on devices.
+//
+// A run that fails either check is closed with a readable reason and the queue
+// moves on; it never stays "queued" forever and never blocks the ones behind it.
 func (r *Runtime) promoteQueued(ctx context.Context, scope string) {
 	for {
 		next, err := r.store.NextQueuedRun(ctx, scope)
 		if err != nil || next == "" {
 			return
 		}
-		if err := r.store.MarkRunRunning(ctx, next); err != nil {
+		run, err := r.store.GetRunByID(ctx, next)
+		if err != nil {
+			return
+		}
+		rule, err := r.store.GetRuleRevision(ctx, run.RuleID, run.Revision)
+		if err != nil {
+			_ = r.store.FinishRun(ctx, next, StatusCancelled, "rule_unavailable_before_start",
+				"排队期间规则版本已不可用，未执行")
+			_ = r.store.CancelRunOutbox(ctx, next)
+			continue
+		}
+		if !rule.Enabled {
+			_ = r.store.FinishRun(ctx, next, StatusCancelled, "rule_disabled_before_start",
+				"排队期间规则已被停用，未执行")
+			_ = r.store.CancelRunOutbox(ctx, next)
+			continue
+		}
+		if ttl := rule.Definition.Queue; ttl != nil && ttl.TTL > 0 {
+			waited := r.Now().Sub(run.StartedAt)
+			if waited > ttl.TTL.Std() {
+				_ = r.store.FinishRun(ctx, next, StatusExpired, "queue_ttl_exceeded",
+					fmt.Sprintf("排队等待 %s 超过上限 %s，未执行", waited.Truncate(time.Second), ttl.TTL.Std()))
+				_ = r.store.CancelRunOutbox(ctx, next)
+				continue
+			}
+		}
+		// The run's own clock starts now, not when it was queued.
+		deadline := r.Now().Add(rule.Definition.Budget.MaxRunDuration.Std())
+		if err := r.store.StartQueuedRun(ctx, next, deadline); err != nil {
 			return
 		}
 		if _, err := r.executeRun(ctx, next); err != nil {
