@@ -1119,3 +1119,105 @@ func envOr(key, fallback string) string {
 	}
 	return fallback
 }
+
+// ExplainRule answers "why did this rule not run?" for one device and window.
+//
+// It is a separate endpoint from GetRun because the interesting case is the one
+// with no run at all. Without it the only honest answer to a customer is "look
+// in the logs", which is the situation A17 exists to remove.
+//
+//encore:api auth method=GET path=/v1/rules/:id/explain
+func (s *Service) ExplainRule(ctx context.Context, id string, req *ExplainRequest) (*ExplainResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	rule, err := rt.Store().GetRule(ctx, tenantID, id)
+	if err != nil {
+		return nil, internal(err)
+	}
+	from, err := parseTimeParam(req.From)
+	if err != nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "from 不是合法的 RFC3339 时间"}
+	}
+	to, err := parseTimeParam(req.To)
+	if err != nil {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "to 不是合法的 RFC3339 时间"}
+	}
+	deviceID := req.DeviceID
+	if deviceID == "" {
+		deviceID = firstTargetDevice(rule.Definition)
+	}
+	if deviceID == "" {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "必须指定 device_id，规则也没有可推断的目标设备"}
+	}
+
+	res, err := rt.Explain(ctx, rule, deviceID, from, to)
+	if err != nil {
+		return nil, internal(err)
+	}
+	out := &ExplainResponse{
+		RuleID: res.RuleID, DeviceID: res.DeviceID, From: res.From, To: res.To,
+		Verdict: string(res.Verdict), Reasons: res.Reasons,
+		Evidence: EvidenceResponse{
+			RunsInWindow:  res.Evidence.RunsInWindow,
+			StateObserved: res.Evidence.StateObserved,
+			Complete:      res.Evidence.Complete,
+			Note:          res.Evidence.Note,
+		},
+	}
+	for _, r := range res.Runs {
+		out.Runs = append(out.Runs, toRunResponse(r.Run, r.Steps, r.Target, nil))
+	}
+	if p := res.Pending; p != nil {
+		out.Pending = &PendingResponse{
+			ScopeKey: p.ScopeKey, StartedAt: p.StartedAt, Deadline: p.Deadline,
+			LastEvidenceAt: p.LastEvidenceAt, RequireBefore: p.RequireBefore,
+			DeferCount: p.DeferCount, RemainingMillis: p.RemainingMillis,
+		}
+	}
+	if i := res.Input; i != nil {
+		out.Input = &InputResponse{
+			DeviceID: i.DeviceID, Signal: string(i.Signal), Key: i.Key, Value: encodeSampleValue(i.Value),
+			Quality: string(i.Quality), ObservedAt: i.ObservedAt, AgeMillis: i.AgeMillis,
+		}
+	}
+	return out, nil
+}
+
+// encodeSampleValue renders a stored sample value as JSON text for the API.
+func encodeSampleValue(v any) string {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	return string(raw)
+}
+
+// parseTimeParam accepts an empty value as "not given".
+func parseTimeParam(v string) (time.Time, error) {
+	if v == "" {
+		return time.Time{}, nil
+	}
+	return time.Parse(time.RFC3339, v)
+}
+
+// firstTargetDevice infers the device from the rule when the caller did not name
+// one: an explicit single device target, or the rule's own trigger device.
+func firstTargetDevice(def domain.Definition) string {
+	if len(def.Targets.DeviceIDs) == 1 {
+		return def.Targets.DeviceIDs[0]
+	}
+	for _, g := range def.Trigger.Groups {
+		for _, c := range g.Conditions {
+			if c.Source == "device" && c.DeviceID != "" {
+				return c.DeviceID
+			}
+		}
+	}
+	return ""
+}

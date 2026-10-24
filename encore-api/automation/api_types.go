@@ -483,3 +483,58 @@ func toRuleResponse(r *store.Rule) RuleResponse {
 		Definition: r.Definition, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 	}
 }
+
+// ExplainRequest asks why a rule did or did not run for one device in a window.
+type ExplainRequest struct {
+	DeviceID string `query:"device_id"`
+	From     string `query:"from"`
+	To       string `query:"to"`
+}
+
+// ExplainResponse is the answer, including what it is based on.
+type ExplainResponse struct {
+	RuleID   string    `json:"rule_id"`
+	DeviceID string    `json:"device_id"`
+	From     time.Time `json:"from"`
+	To       time.Time `json:"to"`
+	// Verdict is fired | waiting_for_duration | condition_not_met |
+	// undetermined | no_data | not_fired.
+	Verdict string `json:"verdict"`
+	// Reasons are the evaluator's own reasons, not a second opinion.
+	Reasons []domain.Reason  `json:"reasons"`
+	Runs    []RunResponse    `json:"runs"`
+	Pending *PendingResponse `json:"pending,omitempty"`
+	Input   *InputResponse   `json:"input,omitempty"`
+	// Evidence says how much history the answer rests on. When it is not
+	// complete the caller must show that instead of a confident reason.
+	Evidence EvidenceResponse `json:"evidence"`
+}
+
+type PendingResponse struct {
+	ScopeKey        string    `json:"scope_key"`
+	StartedAt       time.Time `json:"started_at"`
+	Deadline        time.Time `json:"deadline"`
+	LastEvidenceAt  time.Time `json:"last_evidence_at"`
+	RequireBefore   time.Time `json:"require_processed_before"`
+	DeferCount      int       `json:"defer_count"`
+	RemainingMillis int64     `json:"remaining_ms"`
+}
+
+type InputResponse struct {
+	DeviceID string `json:"device_id"`
+	Signal   string `json:"signal"`
+	Key      string `json:"key"`
+	// Value is the sample encoded as JSON text, the same shape the command
+	// payload uses, so no interface type leaks into the API schema.
+	Value      string    `json:"value"`
+	Quality    string    `json:"quality"`
+	ObservedAt time.Time `json:"observed_at"`
+	AgeMillis  int64     `json:"age_ms"`
+}
+
+type EvidenceResponse struct {
+	RunsInWindow  int    `json:"runs_in_window"`
+	StateObserved bool   `json:"state_observed"`
+	Complete      bool   `json:"complete"`
+	Note          string `json:"note"`
+}
