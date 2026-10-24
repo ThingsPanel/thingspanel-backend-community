@@ -1,6 +1,6 @@
 # 自动化 / 场景 / 告警重写 — 第一轮执行记录
 
-更新时间：2026-10-23
+更新时间：2026-10-24
 执行人：接手开发（WorkBuddy）
 依据：《开发交接提示语 2026-10-23》《开发任务书 v1.1》A01–A34
 
@@ -13,7 +13,7 @@
 | 工作树 | `/Users/junhong/Downloads/code/tp-automation-rewrite`（独立 `git worktree`，不动同事的 43 个未提交修改） |
 | 分支 | `feat/automation-rewrite-20261023` |
 | 基线提交 | `486160092b1579965573814c8dd11a2a689c9246`（研究基线） |
-| 本轮提交 | `63e030ec`（A17）；此前 `e2b76c95`（A14）→ `2ecf77cf`（A12）→ `fa5c599c`（A11）→ `09bc1a7e`（A10）→ `805b1d5e`（A02 阻塞修复）→ `256f83cb`（A09）→ `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` |
+| 本轮提交 | `a0b4bfd2`（A16）→ `e60ccb77`（A13）→ `9049561e`（A15）→ `63e030ec`（A17）→ `e2b76c95`（A14）→ `2ecf77cf`（A12）→ `fa5c599c`（A11）→ `09bc1a7e`（A10）→ `805b1d5e`（A02 阻塞修复）→ `256f83cb`（A09）→ `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` |
 | 主仓 HEAD | `0e3ba8281f09c815dabcd03c634d17af845e950b`（`main`，比基线旧 75 个提交，未改动） |
 
 基线关系核对结论（`git rev-list --left-right --count`）：
@@ -755,7 +755,126 @@ guard 不通过时步骤记 `skipped` + verdict + evidence，运行以 `guard_bl
 
 ---
 
-## 16. 本轮验证汇总
+## 16. A15 告警策略与生命周期（已完成到测试，提交 `9049561e`）
+
+### 16.1 三件必须拆开的事
+
+旧实现把"异常发生了""告警还在""通知发了"挤在同一行状态里，于是三件事互相污染：
+
+1. **同一异常持续上报**会不断新建告警行（每来一条样本一条），运维看到 5 条告警，其实是 1 件事；
+2. **确认（ack）**顺手把状态改成"已处理"，而异常其实还在，恢复信号永远等不到那个已经不在 active 的 episode；
+3. **发布新版策略**被当成"旧告警作废"，于是改一个阈值就把正在响的告警静默清掉。
+
+A15 的答案是：episode 的身份是 `(tenant, policy_key, subject_id, dimension)`，`policy_key` 是策略的**业务键**而不是行 id，所以发布新版（`revision` 变）不换身份；`ack` 只写确认字段，不碰 `state`；恢复只能由 `clear` 转换完成。
+
+### 16.2 两条受理通道，一条 HTTP 摸不到
+
+`Definition.Alarm *AlarmSpec` 显式声明 `sources`：
+
+| 通道 | 谁能进来 | 为什么这样切 |
+| --- | --- | --- |
+| `detector` | 只从执行器内部的判定结果进来（`submitDetectorVerdict`） | 普通业务请求不能冒充"评估器说条件成立"——这条路径**不经 HTTP**，从结构上不可达 |
+| `event` | `POST /v1/alarm-policies/:id/events`，且 `source` 必须在 `allowed_sources` 白名单内 | 外部系统要能报事件，但必须点名是谁 |
+
+`Normalize()` 对 `Kind==KindAlarm && Alarm==nil` 给出**最严格**的默认（detector-only），而不是"全开"。`validate.go` 里：告警类型缺 `alarm` 报 `missing_alarm_spec`；非告警类型带 `alarm` 报 `alarm_spec_not_allowed`；`event` 通道没写白名单直接拒绝。
+
+### 16.3 去重边界是 `action_id`，不是内容哈希
+
+`alarm_event_intake` 主键 `(tenant_id, policy_key, action_id)`：
+
+- 同 `action_id` 同内容 → 回放原结果（`Replayed=true`），不重复转换；
+- 同 `action_id` 不同内容 → `action_id_content_mismatch` 显式冲突，不"以最后一条为准"；
+- 受理记录先 `ReserveAlarmIntake`（`ON CONFLICT DO NOTHING` + 回读），转换完 `FinishAlarmIntake`，中途崩了下次重判而不是重放半成品。
+
+乱序与旧执行者：`RefreshEpisode` 带 `WHERE last_seq < $2`，`AdvanceEpisodeRevision` 带 `WHERE revision < $2`，`ClearEpisode` 返回 `ClearOutOfOrder` / `ClearStaleRev` / `ClearNotActive` 而不是默默写成功。
+
+### 16.4 一次转换 = 一条事实 + 一个事件 + 一个通知意图，同一事务
+
+`decideInTx` 里 `publishAlarmEvent` 写 outbox 事件、`enqueueAlarmNotification` 写 outbox 通知（`IdempotencyKey = "alarm:"+transitionID+":notify"`）。三者同事务，所以不存在"告警响了但事件丢了"或"事件发了但告警没建"。
+
+`alarm.*` 事件经 `RelayAlarmEvents` 变成 `SignalAlarm` 输入（`EventID = "alarm:"+transitionID`，`CausalHop+1`），中继游标是 `auto_events.relayed_at`。告警↔联动环靠 `MaxCausalHop=8` 截断并留 `causal.hop_exceeded` 事实。
+
+### 16.5 缺测与等待都复用既有机制
+
+- `Trigger.For > 0` 且无 active → `startPending` 并返回 `waiting_for_duration`，**没有为告警另建第二套等待表**；
+- 缺测写 `alarm.no_data` 事件与缺测记录同事务，payload 带 `transition_id`/`policy_key`/`subject_id`；
+- `unknown` / `error` 既不当作恢复也不当作确认，只记录事实（`ReasonHysteresisNeutral`）。
+
+### 16.6 证据
+
+`automation/a15_alarm_test.go` **13 例**：5 次上报仍是 1 条 active（`sample_count=5`，1 条 qualified 事实，1 条 `alarm.qualified`）、ack 不清告警、发新版不重复不误清、detector 策略拒绝 event 通道、事件源必须白名单、同 action 只应用一次、同 id 异内容冲突、乱序/旧执行者改不动生命周期、转换经事件出口公告、一次转换触发联动规则、联动环在跳数上限截断、unknown/error 不算恢复、不支持的 kind 被拒。
+
+迁移 `automation/migrations/5_alarm_policy.up.sql`：补 `policy_key/level/source/first_seq/sample_count/last_evidence`，活动唯一索引改为 `(tenant_id, policy_key, subject_id, dimension) WHERE state='active'`，建 `alarm_event_intake`，`auto_events` 加 `relayed_at`。
+
+---
+
+## 17. A13 旧场景行为（已完成到测试，提交 `e60ccb77`）
+
+### 17.1 旧场景不是一种东西，是两种
+
+旧 `scenes` 表里混着两类东西，行为完全不同：
+
+| 形态 | 是什么 | 迁移后 |
+| --- | --- | --- |
+| 状态场景（`state_scene`） | 一个设备的一条状态写入，按下即生效 | `KindScene`，单步，**一次性、不隐含持续监督** |
+| 动作流程（`sequence`） | 多动作按顺序执行，含命令、场景激活、告警、服务调用 | `KindScene`，多步保序 |
+
+关键点：两种形态**入口都还是那个按钮**（`KindScene`），用户的使用习惯不变；变的是内部结构可被正确执行。
+
+### 17.2 旧告警动作必须落到现在的策略上
+
+旧场景里的"触发告警"动作，迁移时走 `Resolver.AlarmPolicyFor(legacyID)` → `store.GetRuleByLegacyID`（`WHERE tenant_id AND legacy_id AND deleted_at IS NULL`）。查不到就报 `action_unresolved` **让迁移失败**，而不是丢动作、也不是另建一份策略——后者会造成两套告警定义同时存在。
+
+### 17.3 环与超深链在迁移期就拒绝
+
+`CheckCycles(root, l)` 返回**具体路径**，`MaxSceneDepth = 8`。自环、三节点环、超深链在预演阶段就报 `scene_cycle` / `scene_depth_exceeded`，不留到运行期变成递归爆栈。
+
+### 17.4 预演是无副作用的
+
+`POST /v1/legacy/scene-plan` 返回：将要发布的确切定义 + 逐动作映射（`StepMapping`）+ 全部 issue。`PlanLegacyScene` 不写任何表，可以先看清楚再迁移。
+
+`ContinueOnFailure` 保留，并记入 `ContinuedSteps` 让人看见"这一步失败会被忽略"。`TypeService` 显式失败（服务动作社区版没有执行者，不假装成功）。
+
+### 17.5 证据
+
+`automation/legacy/scene_test.go` **13 例**：单设备状态写是 state_scene、多动作保序是 sequence、命令不算状态、config 扇出、告警必须解析到已有策略（缺失即失败）、service 动作显式失败、`continue_on_failure` 保留并报告、缺失设备报 issue 而非空目标、自环/三节点环/超深链、空场景、`Summarize`。
+
+`automation/a13_scene_test.go` **5 例**（DB 集成）：迁移后场景保序且真的抬起告警（步骤 `0:action:accepted`、`1:alarm:succeeded`，episode `Source="event:automation"`）、同一场景跑两次只抬一次告警、状态场景一次性且无 timer/pending、告警动作解析不到则迁移失败、环在迁移前被拒。
+
+---
+
+## 18. A16 通知插座：交接不等于送达（已完成到测试，提交 `a0b4bfd2`）
+
+### 18.1 一个 "ok" 撑不起四种现实
+
+旧端口只有一个成功/失败。现实有四种：
+
+| 值 | 含义 | 该怎么做 |
+| --- | --- | --- |
+| `NotificationAccepted` | 202 + body 明确 accepted | `handed_off`，**不等于终端已收到** |
+| `NotificationAcceptanceUnknown` | 传输错误、body 读不出、5xx、202 但没有 accepted | 用**同一冻结意图、同一幂等键**重放 |
+| `NotificationProviderUnknown` | 通知核自己也不知道（`provider_unknown` / `delivery_unknown` / 带 unknown 且无 delivery id） | **不绕过通知核盲重发**，保留 `unresolved` |
+| `NotificationFailed` | 明确失败 | 记 step 失败 |
+
+`HTTPNotificationOwner.Submit` 按这张表映射，200 不再等于"受理"。
+
+### 18.2 正文在入队时冻结
+
+`performNotify` 把 `occurred_at` / `expires_at` / `group_revision` 写进 outbox payload。之后改通知组、改默认策略，都**不改已经排队的这条消息**——否则"昨天那条告警为什么发给了新加的人"永远查不清。
+
+`dispatchNotification` 只读冻结 payload，不看当前策略。
+
+### 18.3 告警和它的通知同事务
+
+`enqueueAlarmNotification` 在转换事务内写 outbox，键 `alarm:<transitionID>:notify`。通知所有者缺失时（`notif == nil`）→ `unresolved` 且**不失败**，告警本身保持 active——消息可以丢，告警状态不能丢。
+
+### 18.4 证据
+
+`automation/a16_notify_test.go` **6 例**：202+accepted 是 `handed_off` 不是 delivered（outbox `handed_off`、`accepted_ref=n-42`、step `0:notify:handed_off`）、受理响应丢失后同键同正文重放、provider unknown 三轮 tick 仍只调用 1 次且 step 记 `provider_unknown`、改通知组不重写已排队消息（仍发"原文本"、`group_revision=5`、`np-1`）、告警与通知同事务提交（`alarm:<transitionID>:notify`，tick 后 `handed_off`，告警仍 active）、通知所有者缺失时告警仍在。
+
+---
+
+## 19. 本轮验证汇总
 
 ```bash
 cd encore-api
@@ -767,11 +886,14 @@ encore test ./...                # domain ok / ingress ok / automation ok
 | --- | --- | --- |
 | `automation/domain` | 68 | 9 比较符、四值判定、单位不匹配、事件参数、跨设备、校验门、A06 对照 30 条、cron 解析与夏令时 12 条、漏跑策略 8 条、A08 新鲜度与迟滞 9 条 |
 | `automation/ingress` | 12 | 六类输入 + 网关三类、稳定 ID、重投、瞬时事件、状态归一、因果跳数 |
-| `automation`（DB 集成） | 99 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条、A10 七条、A11 十一条、A12 七条、A14 六条、A17 六条 |
+| `automation/legacy` | 13 | A13 场景形态分类、动作保序、告警动作解析、环与超深链、`Summarize` |
+| `automation`（DB 集成） | 134 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条、A10 七条、A11 十一条、A12 七条、A13 五条、A14 六条、A15 十三条、A16 六条、A17 六条 |
 | `automationguard`（独立集成） | 11 | 代际拒绝、幂等回放、冲突、在飞、租约过期、旧调用方隔离 |
-| **合计（顶层用例）** | **190** | 全部通过；含子测试共 **236** 条断言级用例 |
+| **合计（顶层用例）** | **238** | 全部通过（`encore test -count=1 ./automation/...` 强制重跑无缓存） |
 
-端到端：`encore_e2e.py` **74 项检查全通过**（第 10、11 节为 A05 的真实 HTTP 适配器路径，第 12 节为 A07 定时，第 13 节为 A08 迟滞与新鲜度，第 14 节为 A09 运行进度与步骤身份）。A10–A17 的章节待补（见第 17 章）。
+端点数：`service.go` 内 `//encore:api` 共 **34** 个（`encore check` 1/1 成功）。
+
+端到端：`encore_e2e.py` **74 项检查全通过**（第 10、11 节为 A05 的真实 HTTP 适配器路径，第 12 节为 A07 定时，第 13 节为 A08 迟滞与新鲜度，第 14 节为 A09 运行进度与步骤身份）。A10–A17 的章节待补（见第 20 章）。
 
 
 修复的真实缺陷（不是测试凑数）：
@@ -807,33 +929,38 @@ encore test ./...                # domain ok / ingress ok / automation ok
 29. 互锁只能靠"分支 + `continue_on_failure`"表达，于是条件为 `unknown` 时动作照样执行 —— 传感器掉线时门照开。改为 `Step.Guard`，只在 `VerdictTrue` 放行。
 30. 解释查询把"没有样本"和"条件不满足"答成同一句话，用户据此去改阈值，越改越错。拆出 `no_data` / `undetermined` 两个独立值。
 31. 集成测试之间通过 worker 扫全库互相串扰：前序用例遗留的 waiting run 被后续用例的 `advance`+`tick` 唤醒，经错误的 fake owner 派发。现在每个用例 `t.Cleanup` 关掉自己的未完成工作（`closeUnfinishedWork`）。
+32. **告警身份用了策略行 id**：发布新版策略会换行 id，于是每改一次阈值就把正在响的告警清掉一次、再建一条新的。改为业务键 `policy_key`，活动唯一索引随之改为 `(tenant_id, policy_key, subject_id, dimension)`。
+33. **`ack` 与 `clear` 抢同一个状态字段**：确认被写成"处理完了"，异常还在但 episode 已不在 active，恢复信号无处落地。拆成确认字段与状态字段，`ack` 不再碰 `state`。
+34. **告警事件入口没有通道概念**：任何带策略 id 的请求都能冒充"评估器说条件成立"。现在 `AlarmSpec.Sources` 显式声明，detector 通道不经 HTTP 可达，event 通道必须 `allowed_sources` 白名单；缺 `alarm` 声明的告警规则直接发布期拒绝。
+35. **`VerdictFalse` 被路由到 `no_transition`**：恢复路径整条不走（A15 首轮 6 个用例同时挂）。"条件不成立"与"没有转换"必须分开，`false` 改为走 `TransitionClear`。
+36. **通知端口只有一个成功/失败**：受理响应丢失被当成失败重发、provider unknown 被当成失败盲重发、200 被当成"已送达"。现在四态分离，202+accepted 才是 `handed_off` 且明确不等于终端已收到。
+37. **通知正文在派发时才读当前策略**：改一次通知组，所有已排队的消息都改成新收件人。现在 `occurred_at`/`expires_at`/`group_revision` 在入队时冻结进 outbox payload。
+38. **旧场景按表名批量改名**：状态写入和动作流程被当成同一种东西，动作顺序丢失、旧告警动作要么被丢要么另建一份策略。现在两种形态显式分类、告警动作解析到 `legacy_id` 对应策略（查不到即迁移失败）、环与超深链在预演期带路径拒绝。
 
 ---
 
-## 17. 下一项可以开始的任务
+## 20. 下一项可以开始的任务
 
-A10–A17 五块已到“测试完成”。按依赖选 **A15（告警策略与生命周期）** 为主、**A13（旧场景行为）** 并行：
+A01–A17 已到"测试完成"（A02 有剩余项，见第 4 条）。按依赖推进 **A18（最小规则模板）** 为主、**A02 剩余（`ListRuns` 分页）** 并行：
 
-1. **A15（主）**：`AlarmPolicy` 作为唯一可编辑告警策略；按 租户＋稳定策略业务键＋主体＋维度 维护活动 episode；`revision/epoch/seq` 进入判定与历史，拒绝旧执行者与乱序恢复。
-   - 现状：A05 已给出稳定事件 ID 与因果链，A08 已给出 `qualified/clear` 的判定基础，A09/A10 已给出幂等受理与代际；但 **episode 身份、确认（ack）语义、发布新版不重复建告警** 这三件事还没有落点。
-   - 完成标准（任务书原文）：同一异常持续上报只维护同一活动身份；确认后异常仍 active；发布新版不无故重复建告警；`qualified/clear/no-transition/unknown/error` 分开；旧 `false` 装饰器不再隐藏地修改生命周期。
-2. **A13（并行）**：旧场景行为——状态场景 vs 动作流程分开，旧场景的告警动作改走声明式事件型策略。
-3. **A16（A15 之后）**：通知插座与默认策略，`/api/v2/notification-ingress/events`，**202 才算 handed_off**，Core 受理丢失与 provider unknown 分开验证。
-4. **A18–A34**：模板与资源包、前端六类页面、执行详情页、无副作用模拟、`tpctl`、MCP、外部执行器合同、Node-RED/Flink 样例、旧调用方适配、迁移回退、性能容量、验收与切换。
-5. **A02 剩余**：`ListRuns` 补 `limit/offset/before/after/status` 与 `total`（R7）；前端 `pop-up.vue:332` 硬编码 `enabled:'Y'`。
-6. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持“待联测”。
-7. **`encore_e2e.py` 补 A10–A17 章节**并重跑。
+1. **A18（主）**：最小规则模板——把已经跑通的规则结构沉淀成 4 个可直接用的模板（单条件触发动作、持续条件触发动作、定时动作、批量按区域/标签下发）。
+   - 现状：A06 的四值判定、A08 的持续条件与迟滞、A07 的定时、A12 的批量目标都已具备，模板只是把它们**声明化**，不需要新执行语义。
+   - 完成标准（任务书原文）：模板是声明而非第二套实现；从模板实例化出的规则能被现有校验门接受；模板不携带租户私有数据。
+2. **A02 剩余（并行）**：`ListRuns` 补 `limit/offset/before/after/status` 与 `total`（R7）；前端 `pop-up.vue:332` 硬编码 `enabled:'Y'`。
+3. **A19–A34**：设备模板关联/继承、换模板与引用失效、模板资源包、前端六类页面、执行详情页、无副作用模拟与变更预览、`tpctl` CLI、MCP、外部执行器合同、Node-RED/Flink 样例、旧调用方适配、迁移回退工具、性能容量配额、验收、切换。
+4. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持"待联测"。A16 只在**端口层**证明了四态语义，真通知核的 202 响应体尚未实测。
+5. **`encore_e2e.py` 补 A10–A17 章节**并重跑。
 
 不建议现在动 A33 的切换接线（5.2 节 G10 / 6.6 节），因为旧引擎还在跑，接上就是双写。
 
 ---
 
-## 18. 六句话汇报（本轮 = A10 / A11 / A12 / A14 / A17）
+## 21. 六句话汇报（本轮 = A15 / A13 / A16）
 
-1. **做了什么**：五件事，一条线——把"谁有权动设备、动哪些、什么条件下动、没动是为什么"这四问全部落到可验证的位置。A10 在设备命令受理边界加**代际 + 幂等键 + 精确响应回放**（`automation_scope_generation` 用 `GREATEST` 单调抬升，`automation_command_guard` 存原始 status/body，四种拒绝码 4090–4093）；A11 把四种运行模式对"输掉的那次触发"的答复写实（`ORDER BY generation, id`、推进时校验 TTL、`StartQueuedRun` 重置时钟、过期原因写明是哪只钟）；A12 把动态目标做成**入场冻结 + 执行前批量复核**，新增 `partial` 状态，标签改精确分词；A14 把互锁从"分支 + 忽略失败"里独立成 `Step.Guard`，只在 `VerdictTrue` 放行；A17 新增 `GET /v1/rules/:id/explain` 六值判定。
-2. **原来什么还保留**：旧调用方**零改动**——不带 `X-Idempotency-Key` 时 `Guard` 直接放行，控制台/App/脚本/Postman 全走旧路径；设备命令仍由既有 owner 执行，没有新建第二套下发通道；`continue_on_failure`、`branch`、`wait`、四种模式、目标快照、outbox 先落库后派发、取消不追回已受理动作，全部语义不变。`area` 目标仍显式 `area_not_supported`（社区目录没有区域层级，另造资产目录是任务书禁止的）。
-3. **怎么证明做对**：`encore test ./...` **190 个顶层用例（含子测试 236 条）全绿**，`encore check` **30 端点**，`internal/automationguard` 11 个独立集成用例全绿。最能说明问题的三条：`TestAnOlderGenerationNeverReachesTheDevice`——旧代际的命令即使晚到也拿不到设备；`TestAnAttemptThatDiedMidFlightStaysUnknown`——连试 3 次仍是 `unknown`，绝不因为"重试了"就当成成功；`TestQueuedModeRunsInArrivalOrder`——直接断言 `NextQueuedRun` 的返回，而不是看列表顺眼。
-4. **难点和性能结果**：最难的是发现"裁决点站错了位置"——A09 的检查在调用前，而取消是并发的，检查通过到请求到达之间就是 G4 的窗口；结论是必须把裁决搬到最后一个能拒绝的门上，并且用**单调代际**而不是到达顺序，否则晚到的旧命令仍然会赢。第二个难点是 gin 中间件不 `Abort` 就继续走 handler，这类错**不报错、日志正常、响应 200**，只能靠"设备侧到底收到几条"这种外部观察才抓得到。性能上没有压测，只有结构保证：代际查询是主键单行、幂等键是主键单行、目标复核是**一次**批量调用（不随目标数线性增长 HTTP 往返）、队列推进走 `LIMIT 1` + `SKIP LOCKED`。
-5. **还有什么没完成**：A13/A15/A16 未开始（episode 身份与 ack 语义是下一块硬骨头）；A18–A34 全部未开始；A02 的 `ListRuns` 分页与前端硬编码未改；`encore_e2e.py` 还没补 A10–A17 章节；真实 `kill -9` 演练（G8）待 A30/A31；常驻调度循环仍阻塞在 A33；性能预算表、迁移回退演练、三个纵向业务样例仍未做；G1–G3、G5、G7、G11–G13 按原登记保持未完成。
-6. **下一项怎样衔接**：A15 直接接在本轮的四个落点上——A05 的稳定事件 ID 与因果链给 episode 提供身份素材，A08 的 `qualified/clear` 判定给生命周期提供语义，A10 的幂等键给"同一异常持续上报不重复建告警"提供机制，A17 的六值判定给"确认后异常仍 active"提供可解释性。A13 并行，它要回答的"状态场景 vs 动作流程"会决定 A15 的 episode 是否需要区分"状态型主体"和"事件型主体"。A16 排在 A15 之后，因为通知插座必须先有权威的 `transition_id` 才能做到"重投不重复执行"。
+1. **做了什么**：三件事，都围绕"别把两件不同的事说成同一件"。A15 把告警从"一行状态"拆成**身份 + 生命周期 + 受理通道**：episode 身份是 `(tenant, policy_key, subject, dimension)`，`policy_key` 是业务键所以发新版不换身份；`ack` 只写确认字段不碰 `state`；detector 通道不经 HTTP、event 通道必须白名单；`action_id` 是去重边界（同 id 同内容回放、同 id 异内容冲突）；转换、`alarm.*` 事件、通知意图同一事务。A13 把旧场景拆成**状态场景**与**动作流程**两种形态，动作顺序保留、旧告警动作解析到现在的策略（查不到就迁移失败）、环与超深链在预演期拒绝，`POST /v1/legacy/scene-plan` 是无副作用预演。A16 把通知端口的"ok"拆成**四态**：202+accepted 才算 `handed_off`（且明确不是"终端已收到"）、受理响应丢失用同一冻结意图同键重放、provider unknown 不绕过通知核盲重发、正文在入队时冻结。
+2. **原来什么还保留**：旧场景**入口不变**——两种形态都还是 `KindScene`，用户按的还是那个按钮；`continue_on_failure` 保留并被记录；旧告警动作不另建策略，走 `legacy_id → policy_key`；通知仍然交给既有通知核（`HTTPNotificationOwner`），没有第二套发送通道；A08 的 `for` 等待被告警复用而不是另建一套等待表；缺测仍走既有 `alarm.no_data`；`ack` 不改变"异常还在"这个事实。通知组、默认策略、`/api/v2/notification-ingress/events` 的对外契约没有改。
+3. **怎么证明做对**：`encore test -count=1 ./automation/...` **238 个顶层用例全绿**（`automation` 134、`domain` 68、`legacy` 13、`ingress` 12、`automationguard` 11），`encore check` 1/1，`service.go` 登记 **34 端点**。最能说明问题的五条：`TestRepeatedAbnormalSamplesKeepOneActiveIdentity`——5 次上报仍是 1 条 active、`sample_count=5`、只有 1 条 qualified 事实；`TestAcknowledgingDoesNotClearTheAlarm`——确认后仍 active；`TestPublishingANewRevisionDoesNotDuplicateOrClearTheAlarm`——发新版既不重复也不误清；`TestAProviderUnknownOutcomeIsNotResent`——三轮 tick 仍只调用 1 次；`TestAMigratedSceneKeepsItsOrderAndRaisesTheRealAlarm`——迁移后步骤 `0:action:accepted`、`1:alarm:succeeded`，真的抬起了告警。
+4. **难点和性能结果**：最难的三个。第一，**身份选择**——一开始想用策略行 id 做 episode 身份，但发布新版会换行 id，等于每改一次阈值就把正在响的告警清掉一次；改成业务键 `policy_key` 后这个问题从结构上消失。第二，**`ack` 与 `clear` 抢同一个字段**——旧代码里确认就是"处理完了"，异常还在但 episode 已经不在 active，恢复信号无处落地；拆成"确认字段"和"状态字段"之后才成立。第三，**`false` 的去向**——首轮把 `VerdictFalse` 路由到 `no_transition`，结果恢复路径整条不走，6 个用例同时挂；这说明"条件不成立"和"没有转换"必须分开。性能上没有压测，只有结构保证：episode 查询是唯一索引单行、`action_id` 去重是主键单行、转换全程一个事务（1 次 begin/commit，不是 4 次）、告警事件中继是 `LIMIT 100` 批量且带游标、目标复核仍是一次批量调用。
+5. **还有什么没完成**：A18–A34 全部未开始（模板、资源包、前端六类页面、执行详情、模拟预演、`tpctl`、MCP、外部执行器、Node-RED/Flink 样例、旧调用方适配、迁移回退、性能容量、验收、切换）；A02 的 `ListRuns` 分页与前端硬编码未改；`encore_e2e.py` 还没补 A10–A17 章节；**A16 只在端口层验证，真通知核的 202 响应体与 provider unknown 实测未做，保持"待联测"（G7）**；真实 `kill -9` 演练（G8）待 A30/A31；常驻调度循环仍阻塞在 A33；性能预算表、迁移回退演练、三个纵向业务样例仍未做；G1–G3、G5、G7、G11–G13 按原登记保持未完成。
+6. **下一项怎样衔接**：A18 直接建在本轮的三个落点上——A15 的 `AlarmSpec` 是"声明式策略"的样板，模板可以照它的形状声明 `sources`/`level`/`dimension`；A13 的 `Plan`/`StepMapping` 已经是"先给出将要发布的确切定义再执行"的结构，模板实例化可以复用它做预演；A16 的冻结 payload 说明"实例化时就把该冻的冻住"，模板不该在运行期回读模板本身（否则改模板会改历史规则）。A18 之后接 A19/A20（设备模板关联与换模板失效），因为"模板改了，引用它的规则怎么办"是同一个问题的下一层。
 
