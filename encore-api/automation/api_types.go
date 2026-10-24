@@ -583,3 +583,73 @@ type EvidenceResponse struct {
 	Complete      bool   `json:"complete"`
 	Note          string `json:"note"`
 }
+
+// ---------------------------------------------------------------------------
+// A13 legacy scene migration
+// ---------------------------------------------------------------------------
+
+// LegacyActionInput is one scene_action_info row as the migration tool read it.
+type LegacyActionInput struct {
+	ID        string `json:"id"`
+	Target    string `json:"target"`
+	Type      string `json:"type"`
+	ParamType string `json:"param_type,omitempty"`
+	Param     string `json:"param,omitempty"`
+	Value     string `json:"value,omitempty"`
+	// ContinueOnFailure is the legacy "keep going after an error" switch.
+	ContinueOnFailure bool `json:"continue_on_failure,omitempty"`
+}
+
+// LegacySceneInput is one legacy scene with its ordered actions.
+type LegacySceneInput struct {
+	ID      string              `json:"id"`
+	Name    string              `json:"name,omitempty"`
+	Actions []LegacyActionInput `json:"actions"`
+}
+
+// LegacyScenePlanRequest is a dry run of the migration for one scene.
+//
+// The graph and the known device ids are supplied by the caller because the
+// legacy rows live in another database: this service cannot read them, and
+// pretending otherwise would turn "not found" into "assume it exists".
+type LegacyScenePlanRequest struct {
+	Scene         LegacySceneInput   `json:"scene"`
+	Graph         []LegacySceneInput `json:"graph,omitempty"`
+	Devices       []string           `json:"devices,omitempty"`
+	DeviceConfigs []string           `json:"device_configs,omitempty"`
+}
+
+// LegacyStepMappingResponse is what one legacy action became.
+type LegacyStepMappingResponse struct {
+	Index             int    `json:"index"`
+	LegacyActionID    string `json:"legacy_action_id"`
+	LegacyType        string `json:"legacy_type"`
+	StepKind          string `json:"step_kind"`
+	Target            string `json:"target"`
+	ContinueOnFailure bool   `json:"continue_on_failure"`
+	Note              string `json:"note,omitempty"`
+}
+
+// LegacyIssueResponse is one reason a scene cannot be migrated as it stands.
+type LegacyIssueResponse struct {
+	Code    string `json:"code"`
+	Field   string `json:"field"`
+	Message string `json:"message"`
+}
+
+// LegacyScenePlanResponse is the plan plus the report that explains it.
+type LegacyScenePlanResponse struct {
+	SceneID    string `json:"scene_id"`
+	Name       string `json:"name,omitempty"`
+	Shape      string `json:"shape"`
+	Migratable bool   `json:"migratable"`
+	// Definition is the rule body the migration would publish.
+	Definition domain.Definition `json:"definition"`
+	// Mapping preserves the original action order so before and after can be
+	// compared one row at a time.
+	Mapping        []LegacyStepMappingResponse `json:"mapping"`
+	ContinuedSteps []string                    `json:"continued_steps,omitempty"`
+	Issues         []LegacyIssueResponse       `json:"issues,omitempty"`
+	// CyclePath is set when the activation graph loops.
+	CyclePath []string `json:"cycle_path,omitempty"`
+}

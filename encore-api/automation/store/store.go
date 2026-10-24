@@ -387,3 +387,27 @@ func (s *Store) BindingsForDevice(ctx context.Context, tenantID, deviceID, devic
 	}
 	return out, rows.Err()
 }
+
+// GetRuleByLegacyID resolves a rule by the id it had in the old console.
+//
+// The migration uses it to keep the link between an old object and the new one
+// explicit. Without it the only way to find the policy for a legacy alarm id is to
+// match on name, which is exactly the kind of guess that silently attaches an
+// action to the wrong alarm.
+func (s *Store) GetRuleByLegacyID(ctx context.Context, tenantID, legacyID string) (*Rule, error) {
+	if legacyID == "" {
+		return nil, ErrNotFound
+	}
+	var id string
+	err := s.DB.QueryRowContext(ctx, `
+        SELECT id FROM auto_rules
+         WHERE tenant_id=$1 AND legacy_id=$2 AND deleted_at IS NULL
+         ORDER BY created_at LIMIT 1`, tenantID, legacyID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return s.GetRule(ctx, tenantID, id)
+}

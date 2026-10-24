@@ -19,6 +19,7 @@ import (
 
 	"encore.app/automation/domain"
 	"encore.app/automation/ingress"
+	"encore.app/automation/legacy"
 	"encore.app/automation/ports"
 	"encore.app/automation/runtime"
 	"encore.app/automation/store"
@@ -797,6 +798,137 @@ func (s *Service) ListAlarmTransitions(ctx context.Context, id string) (*ListTra
 		out.Transitions = append(out.Transitions, TransitionResponse{
 			ID: t.ID, Kind: t.Kind, Seq: t.Seq, Revision: t.Revision, Epoch: t.Epoch,
 			Evidence: string(evidence), CreatedAt: t.CreatedAt,
+		})
+	}
+	return out, nil
+}
+
+// ---------------------------------------------------------------------------
+// A13 legacy scene migration
+// ---------------------------------------------------------------------------
+
+// legacySnapshot answers the migration questions from the snapshot the caller
+// supplied, plus this service's own alarm policies.
+//
+// The split matters: device and scene existence come from the legacy database,
+// which only the caller can read; the alarm policy mapping comes from here,
+// because that is where the policy now lives. Neither side guesses about the
+// other.
+type legacySnapshot struct {
+	scenes  map[string]*legacy.Scene
+	devices map[string]bool
+	configs map[string]bool
+	resolve func(legacyAlarmID string) (string, string, bool, error)
+}
+
+func (l *legacySnapshot) SceneExists(id string) (bool, error) {
+	_, ok := l.scenes[id]
+	return ok, nil
+}
+
+func (l *legacySnapshot) DeviceExists(id string) (bool, error) { return l.devices[id], nil }
+
+func (l *legacySnapshot) DeviceConfigExists(id string) (bool, error) { return l.configs[id], nil }
+
+func (l *legacySnapshot) AlarmPolicyFor(id string) (string, string, bool, error) {
+	return l.resolve(id)
+}
+
+func (l *legacySnapshot) Load(id string) (*legacy.Scene, error) { return l.scenes[id], nil }
+
+func toLegacyScene(in *LegacySceneInput) *legacy.Scene {
+	out := &legacy.Scene{ID: in.ID, Name: in.Name}
+	for _, a := range in.Actions {
+		out.Actions = append(out.Actions, legacy.Action{
+			ID: a.ID, Target: a.Target, Type: a.Type, ParamType: a.ParamType,
+			Param: a.Param, Value: a.Value, ContinueOnFailure: a.ContinueOnFailure,
+		})
+	}
+	return out
+}
+
+// PlanLegacyScene is the side-effect-free migration preview for one old scene.
+//
+// It classifies the scene, maps every action, reports every problem at once, and
+// returns the exact definition the migration would publish. Nothing is written:
+// the operator compares the plan with the old behaviour first, which is what makes
+// "迁移前后行为可对照" a fact instead of a promise.
+//
+//encore:api auth method=POST path=/v1/legacy/scene-plan
+func (s *Service) PlanLegacyScene(ctx context.Context, req *LegacyScenePlanRequest) (*LegacyScenePlanResponse, error) {
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+
+	snap := &legacySnapshot{
+		scenes:  map[string]*legacy.Scene{},
+		devices: map[string]bool{},
+		configs: map[string]bool{},
+	}
+	scene := toLegacyScene(&req.Scene)
+	if scene.ID == "" {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "scene.id 必填"}
+	}
+	snap.scenes[scene.ID] = scene
+	for i := range req.Graph {
+		g := toLegacyScene(&req.Graph[i])
+		if g.ID != "" {
+			snap.scenes[g.ID] = g
+		}
+	}
+	for _, d := range req.Devices {
+		snap.devices[d] = true
+	}
+	for _, c := range req.DeviceConfigs {
+		snap.configs[c] = true
+	}
+	// The legacy alarm id is what the old form stored in action_target. The
+	// mapping is by legacy_id, which the migration writes onto the policy so the
+	// active alarm keeps its identity.
+	snap.resolve = func(legacyAlarmID string) (string, string, bool, error) {
+		rule, gerr := rt.Store().GetRuleByLegacyID(ctx, tenantID, legacyAlarmID)
+		if gerr != nil {
+			if errors.Is(gerr, store.ErrNotFound) {
+				return "", "", false, nil
+			}
+			return "", "", false, gerr
+		}
+		if rule.Kind != domain.KindAlarm {
+			return "", "", false, nil
+		}
+		return rule.ID, rule.PolicyKey(), true, nil
+	}
+
+	plan := legacy.Build(scene, snap)
+	out := &LegacyScenePlanResponse{
+		SceneID: plan.SceneID, Name: plan.Name, Shape: string(plan.Shape),
+		Migratable: plan.OK(), Definition: plan.Definition,
+		ContinuedSteps: plan.ContinuedSteps,
+	}
+	for i, m := range plan.Mapping {
+		out.Mapping = append(out.Mapping, LegacyStepMappingResponse{
+			Index: i, LegacyActionID: m.LegacyActionID, LegacyType: m.LegacyType,
+			StepKind: m.StepKind, Target: m.Target,
+			ContinueOnFailure: m.ContinueOnFailure, Note: m.Note,
+		})
+	}
+	for _, iss := range plan.Issues {
+		out.Issues = append(out.Issues, LegacyIssueResponse{
+			Code: iss.Code, Field: iss.Field, Message: iss.Message,
+		})
+	}
+	// A scene that activates other scenes can still loop even when every single
+	// action resolves. Check the graph, not just the rows.
+	if path, iss := legacy.CheckCycles(scene.ID, snap); iss != nil {
+		out.Migratable = false
+		out.CyclePath = path
+		out.Issues = append(out.Issues, LegacyIssueResponse{
+			Code: iss.Code, Field: iss.Field, Message: iss.Message,
 		})
 	}
 	return out, nil
