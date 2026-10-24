@@ -563,3 +563,47 @@ func itoaTest(n int) string {
 	}
 	return string(buf[i:])
 }
+
+// TestASustainedAlarmEventuallyOpens is the regression guard for a gate that was
+// written twice.
+//
+// The "hold for this long" rule belongs to the detector's entry point. When the
+// same check was repeated in decideQualified, the timer's own verdict came back
+// through that second check, decided the wait had not happened, and re-armed the
+// pending window — so an alarm policy with a duration re-armed itself on every
+// tick and never opened, while every log line looked healthy.
+func TestASustainedAlarmEventuallyOpens(t *testing.T) {
+	e := newEnv(t)
+	policy := e.alarmPolicy(func(d *domain.Definition) {
+		d.Trigger.For = domain.Duration(30 * time.Second)
+	})
+
+	// One hot sample starts the wait but must not open the alarm.
+	e.ingest("ev-a15-sustained-1", e.dev1, "temperature", 35.0, "")
+	if eps := e.episodesOf(policy.PolicyKey()); len(eps) != 0 {
+		t.Fatalf("one sample opened an alarm that asks for 30s of sustained condition")
+	}
+
+	// After the declared duration the timer produces the qualified verdict.
+	e.advance(31 * time.Second)
+	if _, err := e.rt.Tick(e.ctx()); err != nil {
+		t.Fatalf("tick: %v", err)
+	}
+	eps := e.episodesOf(policy.PolicyKey())
+	if len(eps) != 1 {
+		t.Fatalf("the sustained condition never opened an alarm (got %d)", len(eps))
+	}
+	if eps[0].State != "active" {
+		t.Fatalf("want an active alarm, got %q", eps[0].State)
+	}
+
+	// And the wait is not re-armed afterwards: a second tick must not create a
+	// second pending window or a second alarm.
+	e.advance(31 * time.Second)
+	if _, err := e.rt.Tick(e.ctx()); err != nil {
+		t.Fatalf("second tick: %v", err)
+	}
+	if eps := e.episodesOf(policy.PolicyKey()); len(eps) != 1 {
+		t.Fatalf("the alarm was re-opened instead of staying one alarm (got %d)", len(eps))
+	}
+}

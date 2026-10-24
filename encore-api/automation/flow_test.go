@@ -189,19 +189,31 @@ func newEnv(t *testing.T) *testEnv {
 
 // closeUnfinishedWork cancels everything this test left running, so no other
 // test's clock advance can wake it up.
+//
+// The service-level tests all run under the fixed tenant the auth layer hands
+// back outside a real request, so their leftovers have to be cleared here as
+// well: Tick sweeps the whole database, and one stale pending window from an
+// earlier test fires inside a later test's tick and breaks an assertion that has
+// nothing to do with it.
 func (e *testEnv) closeUnfinishedWork() {
+	for _, tenant := range []string{e.tenant, serviceTestTenant} {
+		e.cancelTenantWork(tenant)
+	}
+}
+
+func (e *testEnv) cancelTenantWork(tenant string) {
 	bg := context.Background()
 	_, _ = e.st.DB.ExecContext(bg, `
         UPDATE auto_runs SET status='cancelled', reason_code='test_teardown', finished_at=now()
-         WHERE tenant_id=$1 AND status IN ('accepted','running','queued')`, e.tenant)
+         WHERE tenant_id=$1 AND status IN ('accepted','running','queued')`, tenant)
 	_, _ = e.st.DB.ExecContext(bg, `
         UPDATE auto_run_timers SET state='cancelled'
-         WHERE state='pending' AND run_id IN (SELECT id FROM auto_runs WHERE tenant_id=$1)`, e.tenant)
+         WHERE state='pending' AND run_id IN (SELECT id FROM auto_runs WHERE tenant_id=$1)`, tenant)
 	_, _ = e.st.DB.ExecContext(bg, `
         UPDATE auto_outbox SET state='cancelled', updated_at=now()
-         WHERE tenant_id=$1 AND state IN ('pending','dispatched')`, e.tenant)
+         WHERE tenant_id=$1 AND state IN ('pending','dispatched')`, tenant)
 	_, _ = e.st.DB.ExecContext(bg, `
-        DELETE FROM auto_pending WHERE tenant_id=$1`, e.tenant)
+        DELETE FROM auto_pending WHERE tenant_id=$1`, tenant)
 }
 
 func (e *testEnv) advance(d time.Duration) { e.now = e.now.Add(d) }

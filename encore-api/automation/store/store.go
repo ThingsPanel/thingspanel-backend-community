@@ -57,16 +57,17 @@ func (s *Store) NextSeq(ctx context.Context) (int64, error) {
 
 // CreateRule inserts a new rule at revision 1 and publishes the revision row.
 func (s *Store) CreateRule(ctx context.Context, r *Rule) error {
+	return s.WithTx(ctx, func(tx *sql.Tx) error { return s.createRuleTx(ctx, tx, r) })
+}
+
+// createRuleTx writes the rule and its first revision inside a caller's
+// transaction, so a rule created from a template and the record of which
+// template it came from cannot be committed one without the other.
+func (s *Store) createRuleTx(ctx context.Context, tx *sql.Tx, r *Rule) error {
 	def, err := json.Marshal(r.Definition)
 	if err != nil {
 		return err
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
 	if _, err := tx.ExecContext(ctx, `
         INSERT INTO auto_rules (id, tenant_id, name, kind, enabled, revision, definition,
                                 definition_hash, version, legacy_id, created_at, updated_at)
@@ -79,21 +80,20 @@ func (s *Store) CreateRule(ctx context.Context, r *Rule) error {
         VALUES ($1,1,$2,$3)`, r.ID, def, r.DefinitionHash); err != nil {
 		return fmt.Errorf("insert revision: %w", err)
 	}
-	return tx.Commit()
+	return nil
 }
 
 // UpdateRule writes a new revision when expectedVersion matches.
 func (s *Store) UpdateRule(ctx context.Context, r *Rule, expectedVersion int) error {
+	return s.WithTx(ctx, func(tx *sql.Tx) error { return s.updateRuleTx(ctx, tx, r, expectedVersion) })
+}
+
+// updateRuleTx is UpdateRule inside a caller's transaction.
+func (s *Store) updateRuleTx(ctx context.Context, tx *sql.Tx, r *Rule, expectedVersion int) error {
 	def, err := json.Marshal(r.Definition)
 	if err != nil {
 		return err
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
 	var nextRev int
 	if err := tx.QueryRowContext(ctx,
 		`SELECT revision + 1 FROM auto_rules WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL FOR UPDATE`,
@@ -124,7 +124,7 @@ func (s *Store) UpdateRule(ctx context.Context, r *Rule, expectedVersion int) er
 	}
 	r.Revision = nextRev
 	r.Version = expectedVersion + 1
-	return tx.Commit()
+	return nil
 }
 
 // SetEnabled flips the enabled flag with an optimistic check.

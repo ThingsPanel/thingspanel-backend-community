@@ -84,6 +84,15 @@ func (r *Runtime) WorkerID() string { return r.workerID }
 // Store exposes the store for the API layer (read paths only).
 func (r *Runtime) Store() *store.Store { return r.store }
 
+// Directory exposes the device directory port.
+//
+// It is exported for the template path only: instantiating a template must check
+// that the chosen device really exposes the signal the template needs, and doing
+// that here keeps a single reader of the community device list instead of a
+// second client in the API layer. It may be nil, which callers must treat as
+// "cannot verify" rather than "verified".
+func (r *Runtime) Directory() ports.Directory { return r.dir }
+
 // Now returns the runtime clock.
 func (r *Runtime) Now() time.Time { return r.clock() }
 

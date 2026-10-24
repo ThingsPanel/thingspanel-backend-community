@@ -131,6 +131,31 @@ func (r *Runtime) submitDetectorVerdict(ctx context.Context, rule *store.Rule, s
 			return Decision{Outcome: OutcomeNoTransition, ReasonCode: ReasonWaitingForTrigger}, nil
 		}
 	}
+	return r.decideDetector(ctx, rule, subjectID, res, seq, now, c)
+}
+
+// confirmDetectorVerdict is the same submission made *after* the declared
+// duration has already elapsed.
+//
+// The timer path must not go through the "wait for `for`" gate again: it has just
+// finished that wait and cleared the pending window, so re-entering the gate
+// would start a fresh pending row and the alarm would never open — one
+// re-arm per tick, forever, with every log line looking healthy. Keeping the two
+// entries separate is what makes that mistake impossible to reintroduce: the
+// gate lives in exactly one function, and the timer does not call it.
+func (r *Runtime) confirmDetectorVerdict(ctx context.Context, rule *store.Rule, subjectID string,
+	res domain.Result, seq int64, now time.Time, c cause) (Decision, error) {
+
+	if !rule.Definition.Alarm.Allows(domain.AlarmSourceDetector) {
+		return Decision{Outcome: OutcomeRejected, ReasonCode: ReasonNotDetector}, nil
+	}
+	return r.decideDetector(ctx, rule, subjectID, res, seq, now, c)
+}
+
+// decideDetector maps a detector verdict onto a lifecycle transition.
+func (r *Runtime) decideDetector(ctx context.Context, rule *store.Rule, subjectID string,
+	res domain.Result, seq int64, now time.Time, c cause) (Decision, error) {
+
 	// A false verdict is a *clear candidate*, not a decision: whether it clears
 	// depends on the recovery condition and on the hysteresis band. Routing it
 	// through the clear path is what makes "the abnormal condition stopped" and
@@ -329,14 +354,13 @@ func (r *Runtime) decideQualified(ctx context.Context, tx *sql.Tx, in decisionIn
 	evidence := evidenceBytes(in.res, in.source, in.evidence)
 
 	if active == nil {
-		// A configured "for" means the condition must hold for a while first. The
-		// alarm owner does not wait again on its own: it records the pending
-		// window and lets the timer path come back with a qualified verdict. That
-		// is what "告警侧不再重复等待" means — there is one waiting mechanism, not
-		// two that can disagree about the deadline.
-		if rule.Definition.Trigger.For.Std() > 0 {
-			return Decision{Outcome: OutcomeNoTransition, ReasonCode: ReasonWaitingForTrigger}, nil
-		}
+		// No "for" gate here. The wait belongs to the detector's entry point and
+		// lives there exactly once (submitDetectorVerdict), because that is the
+		// only place that knows "this is a fresh observation of a continuous
+		// condition". Checking it again here would block the very verdict the
+		// timer produces after the wait has already elapsed, and would also
+		// wrongly delay an event-channel qualification — an event is a fact that
+		// happened, not a condition to sustain.
 		ep := &store.Episode{
 			ID: NewID(), TenantID: rule.TenantID, PolicyID: rule.ID, PolicyKey: rule.PolicyKey(),
 			SubjectID: in.subject, Dimension: in.dimension, State: "active",

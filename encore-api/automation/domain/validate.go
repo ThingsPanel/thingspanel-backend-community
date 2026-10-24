@@ -133,7 +133,13 @@ func Validate(d *Definition) error {
 
 	// Steps and budget.
 	stepCount, maxDepth := countSteps(d.Steps, 1)
-	if stepCount == 0 {
+	// An alarm policy has no actions to run: its "effect" is the lifecycle
+	// transition and the notification intent written in the same transaction as
+	// that transition. Requiring a step here used to force authors to add one
+	// that never executes — a form field that looks like it sends a message and
+	// does nothing. The runtime already refuses to start a run for an alarm
+	// policy, so an empty step list is the truthful representation.
+	if stepCount == 0 && d.Kind != KindAlarm {
 		add("steps", "empty_steps", "至少需要一个执行步骤")
 	}
 	if stepCount > d.Budget.MaxSteps {

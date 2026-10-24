@@ -185,7 +185,10 @@ func (r *Runtime) firePending(ctx context.Context, p *store.Pending, now time.Ti
 		_ = r.store.ClearPending(ctx, p.ScopeKey)
 		if rule.Definition.Kind == domain.KindAlarm {
 			seq, _ := r.store.NextSeq(ctx)
-			_, _ = r.submitDetectorVerdict(ctx, rule, p.DeviceID, res, seq, now,
+			// confirm, not submit: the declared duration has just elapsed and the
+			// pending window is already cleared. Going back through the "wait for
+			// `for`" gate would re-arm it and the alarm would never open.
+			_, _ = r.confirmDetectorVerdict(ctx, rule, p.DeviceID, res, seq, now,
 				cause{Root: p.CausalRoot, Hop: p.CausalHop})
 		} else {
 			_, _ = r.acceptRun(ctx, rule, p.DeviceID, "", cause{Root: p.CausalRoot, Hop: p.CausalHop},

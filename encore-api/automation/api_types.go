@@ -3,6 +3,7 @@ package automation
 import (
 	"time"
 
+	"encore.app/automation/blueprint"
 	"encore.app/automation/domain"
 	"encore.app/automation/runtime"
 	"encore.app/automation/store"
@@ -652,4 +653,120 @@ type LegacyScenePlanResponse struct {
 	Issues         []LegacyIssueResponse       `json:"issues,omitempty"`
 	// CyclePath is set when the activation graph loops.
 	CyclePath []string `json:"cycle_path,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// A18: rule templates
+// ---------------------------------------------------------------------------
+
+// BlueprintResponse is one template version as a form renders it.
+//
+// The parameter list is the whole contract: Web, CLI and MCP all read it and all
+// validate against it, which is what makes "the same values are accepted
+// everywhere" true instead of aspirational.
+type BlueprintResponse struct {
+	Key      string `json:"key"`
+	Version  int    `json:"version"`
+	Revision string `json:"revision"`
+	Name     string `json:"name"`
+	Summary  string `json:"summary"`
+	// Guidance is the one sentence shown above the form.
+	Guidance string               `json:"guidance"`
+	Params   []blueprint.Param    `json:"params"`
+	Requires []blueprint.Capability `json:"requires,omitempty"`
+	// Versions lists every published version so an upgrade can name one.
+	Versions []int `json:"versions"`
+}
+
+// ListBlueprintsResponse lists the built-in templates.
+type ListBlueprintsResponse struct {
+	Blueprints []BlueprintResponse `json:"blueprints"`
+}
+
+// BlueprintPreviewRequest asks what a set of values would produce.
+type BlueprintPreviewRequest struct {
+	Key     string            `json:"key"`
+	Version int               `json:"version"`
+	Values  map[string]string `json:"values"`
+}
+
+// BlueprintPreviewResponse is the definition plus everything we could and could
+// not check about it. It has no side effects: nothing is created, no device is
+// touched.
+type BlueprintPreviewResponse struct {
+	Valid        bool                   `json:"valid"`
+	BlueprintKey string                 `json:"blueprint_key"`
+	Version      int                    `json:"version"`
+	Revision     string                 `json:"revision"`
+	Values       map[string]string      `json:"values,omitempty"`
+	Overrides    map[string]string      `json:"overrides,omitempty"`
+	Capabilities []blueprint.Capability `json:"capabilities,omitempty"`
+	Definition   *domain.Definition     `json:"definition,omitempty"`
+	// Issues carries both errors (which make Valid false) and warnings such as
+	// "the device directory does not expose capabilities, so we could not verify
+	// this metric exists".
+	Issues []blueprint.Issue `json:"issues,omitempty"`
+}
+
+// InstantiateBlueprintRequest creates a real rule from a template.
+type InstantiateBlueprintRequest struct {
+	Version int    `json:"version"`
+	Name    string `json:"name"`
+	// Disabled is opt-in rather than Enabled opt-out: a customer who just picked
+	// a template and filled the form expects it to work, and "created but
+	// silently paused" is the worst of both worlds. A caller that wants a draft
+	// says so.
+	Disabled bool              `json:"disabled"`
+	Values   map[string]string `json:"values"`
+}
+
+// BlueprintOriginResponse says where a rule came from and what an upgrade would
+// do to it.
+type BlueprintOriginResponse struct {
+	RuleID            string            `json:"rule_id"`
+	BlueprintKey      string            `json:"blueprint_key"`
+	BlueprintVersion  int               `json:"blueprint_version"`
+	BlueprintRevision string            `json:"blueprint_revision"`
+	Params            map[string]string `json:"params,omitempty"`
+	Overrides         map[string]string `json:"overrides,omitempty"`
+	Capabilities      []string          `json:"capabilities,omitempty"`
+	CreatedAt         time.Time         `json:"created_at"`
+	UpgradedAt        *time.Time        `json:"upgraded_at,omitempty"`
+	// LatestVersion is the newest published version of this template.
+	LatestVersion int `json:"latest_version"`
+	// UpdateAvailable is true when a newer version exists. It is informational:
+	// nothing moves until the customer asks.
+	UpdateAvailable bool `json:"update_available"`
+	// Diff and Issues are filled in only when an update is available, so the
+	// caller can see what the move would cost before asking for it.
+	Diff    *blueprint.Diff    `json:"diff,omitempty"`
+	Blocked bool               `json:"blocked,omitempty"`
+	Issues  []blueprint.Issue  `json:"issues,omitempty"`
+}
+
+// GetRuleBlueprintResponse is the origin plus the rule it belongs to.
+type GetRuleBlueprintResponse struct {
+	RuleID string                   `json:"rule_id"`
+	Origin *BlueprintOriginResponse `json:"origin,omitempty"`
+	// Note explains why Origin is absent instead of leaving the caller to guess.
+	Note string `json:"note,omitempty"`
+}
+
+// UpgradeBlueprintRequest moves an instance to another template version.
+type UpgradeBlueprintRequest struct {
+	Version int               `json:"version"`
+	Values  map[string]string `json:"values"`
+	// DryRun reports what would happen without publishing anything.
+	DryRun bool `json:"dry_run"`
+}
+
+// UpgradeBlueprintResponse is the plan, and the rule when the plan was applied.
+type UpgradeBlueprintResponse struct {
+	RuleID  string              `json:"rule_id"`
+	Blocked bool                `json:"blocked"`
+	Applied bool                `json:"applied"`
+	Diff    *blueprint.Diff     `json:"diff,omitempty"`
+	Issues  []blueprint.Issue   `json:"issues,omitempty"`
+	Rule    *RuleResponse       `json:"rule,omitempty"`
+	Origin  *BlueprintOriginResponse `json:"origin,omitempty"`
 }
