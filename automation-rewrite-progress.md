@@ -874,7 +874,70 @@ A15 的答案是：episode 的身份是 `(tenant, policy_key, subject_id, dimens
 
 ---
 
-## 19. 本轮验证汇总
+## 19. A18 最小规则模板与版本化参数（已完成到测试，提交 `1ba7d31f`）
+
+### 19.1 模板不是第二套实现
+
+模板只做一件事：把一组参数**声明**成一个普通的 `domain.Definition`，然后走和手写规则完全相同的 `domain.Validate` 门。所以"从模板建的规则"和"手写的规则"在运行期是同一个东西——一个评估器、一个校验器、一个编译器。让模板成为"实例"的，是一条独立的来源记录，不是一种特殊的规则。
+
+四个模板（就是任务书点名的那四个）：
+
+| 模板 | 形态 | 为什么是这个形态 |
+| --- | --- | --- |
+| `sustained_high_temperature` 持续高温与恢复 | 告警策略（v1 / v2） | 要能被确认、能进告警列表、能追溯 |
+| `door_left_open` 门未关超时 | 告警策略（v1 / v2） | 同上 |
+| `device_offline` 设备离线 / 无数据 | 告警策略 | 在线状态是状态信号，不是数值 |
+| `motion_then_light_off` 有人后延时关灯 | 动作流程（自动化） | 纯动作序列，没有告警生命周期 |
+
+把前三个做成告警策略、第四个做成自动化，是刻意的：任务书明确要求"不要把所有执行结果都伪装成告警"。
+
+### 19.2 参数契约
+
+`Param` 有六种类型：`device` / `number` / `duration` / `enum` / `text` / `policy`。校验只有一处（`blueprint.Instantiate`），Web、CLI、MCP 都从这里拿结果，所以"同一个值在三处被同样接受或拒绝"是结构保证而不是约定。
+
+- 默认值只放阈值和时长，**任何模板都不带设备 id、不带通知组 id**（有测试守着）；
+- `duration` 必须能 `time.ParseDuration`，且 `0s` 也算非法（"等 0 秒"不是等待）；
+- 未知参数直接报 `unknown_param`——CLI 打错一个字母不能变成"静默忽略你填的值"；
+- 版本 revision 由声明面（key + version + params + requires）算出，不是手写常量，因此不会和表单显示的内容漂移。
+
+### 19.3 升级只能显式发生
+
+发布新版模板**不碰任何在用实例**。升级走 `PlanUpgrade`，规则是：
+
+1. 只能向前；
+2. 客户覆盖过的参数必须还存在——否则 `override_param_removed`，并把客户填的原值引出来；
+3. 结果必须仍能通过校验——新版收窄范围时，`out_of_range` 会指名是哪个参数、允许范围从多少变成多少；
+4. 客户没动过的值跟随新默认值，这正是"版本"的意义，且 diff 里明写。
+
+`Diff` 单列 `RangesChanged`（例如 `-50..200 → -50..120`），因为范围变化才是"客户的值突然不合法"的真正原因，说"模板变了"等于没说。
+
+### 19.4 性能与存储
+
+实例行只存模板身份 + 参数值 + 覆盖值，**不复制 AST**；定义只存在于 `auto_rule_revisions`。一个模板被一千条规则用，就是一份 body 加一千行小记录。`auto_blueprint_instances (tenant_id, blueprint_key, blueprint_version)` 有索引，回答"这个版本影响谁"不用扫规则表。
+
+### 19.5 能力校验：能证明才拒绝
+
+`Requires` / `Param.Capability` 声明模板需要的字段（`telemetry:temperature` 之类），实例化时用**既有设备目录端口**查一次：
+
+- 设备目录没接入、查询失败、或设备的能力清单为空 → `capability_unverified` **警告**，规则照建；
+- 设备能力清单明确不含该字段 → `capability_missing` **拒绝**。
+
+社区设备列表根本不暴露能力清单，所以"空"绝不能读成"没有"——那样每个模板在每台真实设备上都会被拒。
+
+### 19.6 顺带修掉的两个真实缺陷
+
+1. **带持续时长的告警永远不触发**。"等 `for`"这道门被写了两遍（`submitDetectorVerdict` 和 `decideQualified`），定时器在等待结束后产生的合格判定又走回第二道门，第二道门说"还没等够"，于是重新起一个 pending——每个 tick 重起一次，永远不开告警，而日志里一切正常。现在这道门只存在于入口一处，定时器走 `confirmDetectorVerdict` 直接判定。回归用例 `TestASustainedAlarmEventuallyOpens`。
+2. **告警策略被迫声明一个永远不会执行的步骤**。`Validate` 对所有类型都要求至少一步，而告警策略根本没有动作可跑（`RunNow` 明确拒绝、ingest 走判定而不是开 run），作者只能加一个装饰性步骤，表单上看还像是"这一步会发消息"。现在告警类型允许零步骤。
+
+### 19.7 证据
+
+`automation/blueprint`（纯单元，18 例）：四个模板只要一个设备 id 就能产出可运行定义、模板不带真实设备/通知组、告警模板零步骤、动作流程是 restart 模式且三步、能力跟随所选指标、未知参数、必填缺失、数字越界、时长非法、新鲜度窗口长于等待、发新版不动在用实例、diff 如实反映默认值与范围变化、越界覆盖阻止升级、干净升级保留客户值并取新默认、不能降级、被移除的覆盖参数阻止升级、未覆盖的被移除参数不阻止、revision 由声明面推导。
+
+`automation`（DB 集成，12 例）：四个模板带参数列出、模板产出普通规则 + 来源记录、**规则真的会跑**（一条样本不告警 → 等够时长开告警 → 降到恢复阈值自动恢复）、发新版不改在用规则、升级后重发修订并重新固定来源、越界覆盖阻止升级且不发布、dry run 不发布、手写规则没有来源也不能升级、未知设备被拒且不留规则、能力缺失才拒绝（空清单只警告）、预演不产生任何副作用、预演一次报出全部字段问题。
+
+---
+
+## 20. 本轮验证汇总
 
 ```bash
 cd encore-api
@@ -887,11 +950,12 @@ encore test ./...                # domain ok / ingress ok / automation ok
 | `automation/domain` | 68 | 9 比较符、四值判定、单位不匹配、事件参数、跨设备、校验门、A06 对照 30 条、cron 解析与夏令时 12 条、漏跑策略 8 条、A08 新鲜度与迟滞 9 条 |
 | `automation/ingress` | 12 | 六类输入 + 网关三类、稳定 ID、重投、瞬时事件、状态归一、因果跳数 |
 | `automation/legacy` | 13 | A13 场景形态分类、动作保序、告警动作解析、环与超深链、`Summarize` |
-| `automation`（DB 集成） | 134 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条、A10 七条、A11 十一条、A12 七条、A13 五条、A14 六条、A15 十三条、A16 六条、A17 六条 |
+| `automation/blueprint` | 18 | 四个模板、参数契约、版本 diff、显式升级、覆盖冲突、能力跟随指标 |
+| `automation`（DB 集成） | 147 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条、A10 七条、A11 十一条、A12 七条、A13 五条、A14 六条、A15 十三条、A16 六条、A17 六条 |
 | `automationguard`（独立集成） | 11 | 代际拒绝、幂等回放、冲突、在飞、租约过期、旧调用方隔离 |
-| **合计（顶层用例）** | **238** | 全部通过（`encore test -count=1 ./automation/...` 强制重跑无缓存） |
+| **合计（顶层用例）** | **269** | 全部通过（`encore test -count=1 ./automation/...` 强制重跑无缓存） |
 
-端点数：`service.go` 内 `//encore:api` 共 **34** 个（`encore check` 1/1 成功）。
+端点数：**39** 个（启动日志 `registered 39 API endpoints`，`encore check` 1/1 成功）。
 
 端到端：`encore_e2e.py` **74 项检查全通过**（第 10、11 节为 A05 的真实 HTTP 适配器路径，第 12 节为 A07 定时，第 13 节为 A08 迟滞与新鲜度，第 14 节为 A09 运行进度与步骤身份）。A10–A17 的章节待补（见第 20 章）。
 
@@ -935,32 +999,35 @@ encore test ./...                # domain ok / ingress ok / automation ok
 35. **`VerdictFalse` 被路由到 `no_transition`**：恢复路径整条不走（A15 首轮 6 个用例同时挂）。"条件不成立"与"没有转换"必须分开，`false` 改为走 `TransitionClear`。
 36. **通知端口只有一个成功/失败**：受理响应丢失被当成失败重发、provider unknown 被当成失败盲重发、200 被当成"已送达"。现在四态分离，202+accepted 才是 `handed_off` 且明确不等于终端已收到。
 37. **通知正文在派发时才读当前策略**：改一次通知组，所有已排队的消息都改成新收件人。现在 `occurred_at`/`expires_at`/`group_revision` 在入队时冻结进 outbox payload。
-38. **旧场景按表名批量改名**：状态写入和动作流程被当成同一种东西，动作顺序丢失、旧告警动作要么被丢要么另建一份策略。现在两种形态显式分类、告警动作解析到 `legacy_id` 对应策略（查不到即迁移失败）、环与超深链在预演期带路径拒绝。
+39. **带持续时长的告警永远不触发**："等 `for`"这道门被写了两遍，定时器等待结束后的合格判定又走回第二道门，于是每次 tick 都重起一个 pending，告警永不打开而日志一切正常。现在这道门只在入口一处，定时器走 `confirmDetectorVerdict`。回归用例 `TestASustainedAlarmEventuallyOpens`。
+40. **告警策略被迫声明一个永不执行的步骤**：`Validate` 对所有类型都要求至少一步，而告警策略没有动作可跑，作者只能加装饰性步骤，表单上还像是"会发消息"。现在告警类型允许零步骤。
+41. **服务层测试共用一个租户，Tick 会扫到别的用例的遗留 pending**：一个用例留下的恢复等待窗被另一个用例的 tick 唤醒，把无关断言打挂。`closeUnfinishedWork` 现在同时清理该租户。
+42. **旧场景按表名批量改名**：状态写入和动作流程被当成同一种东西，动作顺序丢失、旧告警动作要么被丢要么另建一份策略。现在两种形态显式分类、告警动作解析到 `legacy_id` 对应策略（查不到即迁移失败）、环与超深链在预演期带路径拒绝。
 
 ---
 
-## 20. 下一项可以开始的任务
+## 21. 下一项可以开始的任务
 
-A01–A17 已到"测试完成"（A02 有剩余项，见第 4 条）。按依赖推进 **A18（最小规则模板）** 为主、**A02 剩余（`ListRuns` 分页）** 并行：
+A01–A18 已到"测试完成"（A02 有剩余项，见第 3 条）。按依赖推进 **A19（设备模板关联与继承）** 为主、**A02 剩余（`ListRuns` 分页）** 并行：
 
-1. **A18（主）**：最小规则模板——把已经跑通的规则结构沉淀成 4 个可直接用的模板（单条件触发动作、持续条件触发动作、定时动作、批量按区域/标签下发）。
-   - 现状：A06 的四值判定、A08 的持续条件与迟滞、A07 的定时、A12 的批量目标都已具备，模板只是把它们**声明化**，不需要新执行语义。
-   - 完成标准（任务书原文）：模板是声明而非第二套实现；从模板实例化出的规则能被现有校验门接受；模板不携带租户私有数据。
-2. **A02 剩余（并行）**：`ListRuns` 补 `limit/offset/before/after/status` 与 `total`（R7）；前端 `pop-up.vue:332` 硬编码 `enabled:'Y'`。
-3. **A19–A34**：设备模板关联/继承、换模板与引用失效、模板资源包、前端六类页面、执行详情页、无副作用模拟与变更预览、`tpctl` CLI、MCP、外部执行器合同、Node-RED/Flink 样例、旧调用方适配、迁移回退工具、性能容量配额、验收、切换。
-4. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持"待联测"。A16 只在**端口层**证明了四态语义，真通知核的 202 响应体尚未实测。
-5. **`encore_e2e.py` 补 A10–A17 章节**并重跑。
+1. **A19（主）**：保留设备模板关联、新设备继承和参数覆盖——以 Binding 保存"模板/设备 × 规则或告警策略"的固定版本、参数与来源；`self` 引用在设备实例化时解析。
+   - 现状：`auto_bindings` 表在 A04 就已建好（`binding_key` 唯一、带 `revision`/`params`/`source`/`device_config_id`），但**没有任何代码写过它**；A18 的 `auto_blueprint_instances` 是"规则来自哪个模板"，A19 要的是"这条规则绑到哪些设备/模板"，两者是不同的问题，不能合并成一张表。
+   - 完成标准（任务书原文）：同模板新增两台设备自动生效，各自 pending/run/告警独立；改一台覆盖值不改变其他设备；旧模板关联数量与设备生效范围可对账，不会迁移出两条重复有效规则。
+2. **A20（紧随）**：换模板、升级、删除与引用失效——依赖 A19 的绑定关系才有"引用"可查。
+3. **A02 剩余（并行）**：`ListRuns` 补 `limit/offset/before/after/status` 与 `total`（R7）；前端 `pop-up.vue:332` 硬编码 `enabled:'Y'`。
+4. **A21–A34**：模板资源包、前端六类页面、执行详情页、无副作用模拟与变更预览、`tpctl` CLI、MCP、外部执行器合同、Node-RED/Flink 样例、旧调用方适配、迁移回退工具、性能容量配额、验收、切换。
+5. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持"待联测"。A16 只在**端口层**证明了四态语义，真通知核的 202 响应体尚未实测。
+6. **`encore_e2e.py` 补 A10–A18 章节**并重跑。
 
 不建议现在动 A33 的切换接线（5.2 节 G10 / 6.6 节），因为旧引擎还在跑，接上就是双写。
 
 ---
 
-## 21. 六句话汇报（本轮 = A15 / A13 / A16）
+## 22. 六句话汇报（本轮 = A15 / A13 / A16 / A18）
 
-1. **做了什么**：三件事，都围绕"别把两件不同的事说成同一件"。A15 把告警从"一行状态"拆成**身份 + 生命周期 + 受理通道**：episode 身份是 `(tenant, policy_key, subject, dimension)`，`policy_key` 是业务键所以发新版不换身份；`ack` 只写确认字段不碰 `state`；detector 通道不经 HTTP、event 通道必须白名单；`action_id` 是去重边界（同 id 同内容回放、同 id 异内容冲突）；转换、`alarm.*` 事件、通知意图同一事务。A13 把旧场景拆成**状态场景**与**动作流程**两种形态，动作顺序保留、旧告警动作解析到现在的策略（查不到就迁移失败）、环与超深链在预演期拒绝，`POST /v1/legacy/scene-plan` 是无副作用预演。A16 把通知端口的"ok"拆成**四态**：202+accepted 才算 `handed_off`（且明确不是"终端已收到"）、受理响应丢失用同一冻结意图同键重放、provider unknown 不绕过通知核盲重发、正文在入队时冻结。
-2. **原来什么还保留**：旧场景**入口不变**——两种形态都还是 `KindScene`，用户按的还是那个按钮；`continue_on_failure` 保留并被记录；旧告警动作不另建策略，走 `legacy_id → policy_key`；通知仍然交给既有通知核（`HTTPNotificationOwner`），没有第二套发送通道；A08 的 `for` 等待被告警复用而不是另建一套等待表；缺测仍走既有 `alarm.no_data`；`ack` 不改变"异常还在"这个事实。通知组、默认策略、`/api/v2/notification-ingress/events` 的对外契约没有改。
-3. **怎么证明做对**：`encore test -count=1 ./automation/...` **238 个顶层用例全绿**（`automation` 134、`domain` 68、`legacy` 13、`ingress` 12、`automationguard` 11），`encore check` 1/1，`service.go` 登记 **34 端点**。最能说明问题的五条：`TestRepeatedAbnormalSamplesKeepOneActiveIdentity`——5 次上报仍是 1 条 active、`sample_count=5`、只有 1 条 qualified 事实；`TestAcknowledgingDoesNotClearTheAlarm`——确认后仍 active；`TestPublishingANewRevisionDoesNotDuplicateOrClearTheAlarm`——发新版既不重复也不误清；`TestAProviderUnknownOutcomeIsNotResent`——三轮 tick 仍只调用 1 次；`TestAMigratedSceneKeepsItsOrderAndRaisesTheRealAlarm`——迁移后步骤 `0:action:accepted`、`1:alarm:succeeded`，真的抬起了告警。
-4. **难点和性能结果**：最难的三个。第一，**身份选择**——一开始想用策略行 id 做 episode 身份，但发布新版会换行 id，等于每改一次阈值就把正在响的告警清掉一次；改成业务键 `policy_key` 后这个问题从结构上消失。第二，**`ack` 与 `clear` 抢同一个字段**——旧代码里确认就是"处理完了"，异常还在但 episode 已经不在 active，恢复信号无处落地；拆成"确认字段"和"状态字段"之后才成立。第三，**`false` 的去向**——首轮把 `VerdictFalse` 路由到 `no_transition`，结果恢复路径整条不走，6 个用例同时挂；这说明"条件不成立"和"没有转换"必须分开。性能上没有压测，只有结构保证：episode 查询是唯一索引单行、`action_id` 去重是主键单行、转换全程一个事务（1 次 begin/commit，不是 4 次）、告警事件中继是 `LIMIT 100` 批量且带游标、目标复核仍是一次批量调用。
-5. **还有什么没完成**：A18–A34 全部未开始（模板、资源包、前端六类页面、执行详情、模拟预演、`tpctl`、MCP、外部执行器、Node-RED/Flink 样例、旧调用方适配、迁移回退、性能容量、验收、切换）；A02 的 `ListRuns` 分页与前端硬编码未改；`encore_e2e.py` 还没补 A10–A17 章节；**A16 只在端口层验证，真通知核的 202 响应体与 provider unknown 实测未做，保持"待联测"（G7）**；真实 `kill -9` 演练（G8）待 A30/A31；常驻调度循环仍阻塞在 A33；性能预算表、迁移回退演练、三个纵向业务样例仍未做；G1–G3、G5、G7、G11–G13 按原登记保持未完成。
-6. **下一项怎样衔接**：A18 直接建在本轮的三个落点上——A15 的 `AlarmSpec` 是"声明式策略"的样板，模板可以照它的形状声明 `sources`/`level`/`dimension`；A13 的 `Plan`/`StepMapping` 已经是"先给出将要发布的确切定义再执行"的结构，模板实例化可以复用它做预演；A16 的冻结 payload 说明"实例化时就把该冻的冻住"，模板不该在运行期回读模板本身（否则改模板会改历史规则）。A18 之后接 A19/A20（设备模板关联与换模板失效），因为"模板改了，引用它的规则怎么办"是同一个问题的下一层。
-
+1. **做了什么**：四件事，一条主线——**别把两件不同的事说成同一件**。A15 把告警从"一行状态"拆成身份 + 生命周期 + 受理通道（episode 身份是 `(tenant, policy_key, subject, dimension)`，`policy_key` 是业务键所以发新版不换身份；`ack` 只写确认字段不碰 `state`；detector 通道不经 HTTP、event 通道必须白名单；`action_id` 是去重边界）。A13 把旧场景拆成状态场景与动作流程（顺序保留、旧告警动作解析到现在的策略、环与超深链在预演期带路径拒绝、`/v1/legacy/scene-plan` 无副作用）。A16 把通知端口的"ok"拆成四态（202+accepted 才算 `handed_off` 且不等于终端已收到、受理响应丢失用同一冻结意图同键重放、provider unknown 不盲重发、正文入队即冻结）。A18 把"模板"和"规则"拆开（模板是声明、走同一个校验门；实例只存身份+参数；升级只能显式发生；四个模板里三个是告警策略、一个是动作流程）。
+2. **原来什么还保留**：旧场景入口不变（两种形态都还是 `KindScene`，用户按的还是那个按钮）；`continue_on_failure` 保留并被记录；旧告警动作不另建策略，走 `legacy_id → policy_key`；通知仍交给既有通知核，没有第二套发送通道；A08 的 `for` 等待被告警复用而不是另建等待表；`ack` 不改变"异常还在"这个事实；模板实例就是普通规则，`/v1/rules` 的读、改、启停、模拟、解释、运行记录全部照旧可用；`auto_bindings` 表没被改动（留给 A19）。
+3. **怎么证明做对**：`encore test -count=1 ./automation/...` **269 个顶层用例全绿**（`automation` 147、`blueprint` 18、`domain` 68、`legacy` 13、`ingress` 12、`automationguard` 11），`encore check` 1/1，**39 个端点**。最能说明问题的六条：`TestRepeatedAbnormalSamplesKeepOneActiveIdentity`（5 次上报仍是 1 条 active）、`TestAProviderUnknownOutcomeIsNotResent`（三轮 tick 仍只调用 1 次）、`TestAMigratedSceneKeepsItsOrderAndRaisesTheRealAlarm`（迁移后 `0:action:accepted` → `1:alarm:succeeded`）、`TestTheRuleFromATemplateActuallyRuns`（一条样本不告警 → 等够时长开告警 → 降到恢复阈值自动恢复）、`TestPublishingANewTemplateVersionDoesNotChangeARunningRule`（发 v2 后在用规则仍是 5m、revision 仍是 1）、`TestAnUpgradeIsBlockedWhenTheCustomersValueNoLongerFits`（150 °C 越界，升级被拒且一个字节都没发布）。
+4. **难点和性能结果**：最难的三处。第一，**身份选择**——episode 用策略行 id 会让"每改一次阈值就清一次告警"，换成业务键后问题从结构上消失。第二，**同一道门写了两遍**——"等 `for`"既在入口又在判定里，于是带持续时长的告警永远不触发，而日志完全正常；这类 bug 只能靠"模板真的跑一次"才暴露，写死一个 `for=0` 的用例永远发现不了。第三，**模板升级的边界**——客户覆盖过的值不能丢、没覆盖的应跟随新默认，这两条一开始写反了（把 `cur.Values` 整体带过去），表现是"升级后默认值没变"，看起来像 diff 撒谎。性能上没有压测，只有结构保证：实例行不复制 AST、定义只在 `auto_rule_revisions`、`(tenant_id, blueprint_key, blueprint_version)` 有索引、规则与来源同事务写（1 次 begin/commit）、能力校验复用既有目录端口且只查一次。
+5. **还有什么没完成**：A19–A34 全部未开始（设备模板继承、换模板失效、资源包、前端六类页面、执行详情、模拟预演、`tpctl`、MCP、外部执行器、Node-RED/Flink 样例、旧调用方适配、迁移回退、性能容量、验收、切换）；A02 的 `ListRuns` 分页与前端硬编码未改；`encore_e2e.py` 还没补 A10–A18 章节；**A16 只在端口层验证，真通知核的 202 响应体与 provider unknown 实测未做，保持"待联测"（G7）**；真实 `kill -9` 演练（G8）待 A30/A31；常驻调度循环仍阻塞在 A33；性能预算表、迁移回退演练、三个纵向业务样例仍未做；G1–G3、G5、G7、G11–G13 按原登记保持未完成。
+6. **下一项怎样衔接**：A19 直接接 A18 的"来源"与 A04 的 `auto_bindings`。A18 回答的是"这条规则来自哪个模板版本"（一规则一来源），A19 回答的是"这条规则绑到哪些设备/模板，每台的覆盖值是多少"（一规则多绑定）；两张表分开正是因为一条模板规则要能服务一批设备，而每台设备的覆盖值必须独立、且改一台不能影响另一台。A18 已经把"客户覆盖值"这个概念立住了（`Overrides` + 升级时保留），A19 只是把它从"规则级"下沉到"设备级"。A19 之后必须接 A20，因为"换模板/删设备后旧规则不会偷偷继续跑"只有在绑定关系存在之后才有"引用"可查。
