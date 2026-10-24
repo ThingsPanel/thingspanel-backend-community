@@ -48,26 +48,7 @@ func (r *Runtime) dispatchOne(ctx context.Context, item *store.OutboxItem) (bool
 		return r.finishDispatch(ctx, item, res.State, res.Ref, res.Message, err)
 
 	case "notification":
-		var p struct {
-			PolicyID string         `json:"policy_id"`
-			Subject  string         `json:"subject"`
-			Text     string         `json:"text"`
-			Vars     map[string]any `json:"variables"`
-		}
-		if err := json.Unmarshal(item.Payload, &p); err != nil {
-			_ = r.store.MarkOutbox(ctx, item.ID, "failed", "", err.Error(), r.Now())
-			return false, "failed", "", err.Error(), nil
-		}
-		if r.notif == nil {
-			_ = r.store.MarkOutbox(ctx, item.ID, "unknown", "", "notification owner not configured", r.Now())
-			return false, "unknown", "", "notification owner not configured", ports.ErrNotConfigured
-		}
-		res, err := r.notif.Submit(ctx, ports.NotificationRequest{
-			TenantID: item.TenantID, PolicyID: p.PolicyID, Subject: p.Subject, Text: p.Text,
-			Variables: p.Vars, SourceEventID: item.ID, ActionID: item.IdempotencyKey,
-			OccurredAt: r.Now(), IdempotencyKey: item.IdempotencyKey,
-		})
-		return r.finishDispatch(ctx, item, res.State, res.NotificationID, res.Message, err)
+		return r.dispatchNotification(ctx, item)
 
 	case "scene":
 		var p struct {
@@ -89,6 +70,108 @@ func (r *Runtime) dispatchOne(ctx context.Context, item *store.OutboxItem) (bool
 		_ = r.store.MarkOutbox(ctx, item.ID, "failed", "", "unsupported outbox kind: "+item.Kind, r.Now())
 		return false, "failed", "", "unsupported outbox kind: " + item.Kind, nil
 	}
+}
+
+// dispatchNotification submits a frozen notification intent.
+//
+// Everything the core needs is read out of the stored payload, never re-rendered
+// here. That is what makes "默认策略变更不改历史待发任务" true: the body, the group
+// revision and the occurrence time were fixed when the intent was created, so a
+// retry an hour later sends the same message the customer was promised.
+func (r *Runtime) dispatchNotification(ctx context.Context, item *store.OutboxItem) (bool, string, string, string, error) {
+	var p struct {
+		PolicyID      string         `json:"policy_id"`
+		GroupRevision int64          `json:"group_revision"`
+		Subject       string         `json:"subject"`
+		Text          string         `json:"text"`
+		Vars          map[string]any `json:"variables"`
+		OccurredAt    string         `json:"occurred_at"`
+		ExpiresAt     string         `json:"expires_at"`
+	}
+	if err := json.Unmarshal(item.Payload, &p); err != nil {
+		_ = r.store.MarkOutbox(ctx, item.ID, "failed", "", err.Error(), r.Now())
+		return false, "failed", "", err.Error(), nil
+	}
+	if r.notif == nil {
+		// The alarm or the run is already committed. A missing notification owner
+		// costs the message, not the business fact.
+		_ = r.store.MarkOutbox(ctx, item.ID, "unresolved", "", "notification owner not configured", r.Now())
+		return false, "not_configured", "", "notification owner not configured", nil
+	}
+	occurred := parseFrozenTime(p.OccurredAt, r.Now())
+	expires := parseFrozenTime(p.ExpiresAt, occurred.Add(24*time.Hour))
+
+	res, err := r.notif.Submit(ctx, ports.NotificationRequest{
+		TenantID: item.TenantID, PolicyID: p.PolicyID, GroupRevision: p.GroupRevision,
+		Subject: p.Subject, Text: p.Text, Variables: p.Vars,
+		SourceEventID: item.ID, ActionID: item.IdempotencyKey,
+		OccurredAt: occurred, ExpiresAt: expires, IdempotencyKey: item.IdempotencyKey,
+	})
+	if err != nil && res.State == "" {
+		res.State = ports.NotificationAcceptanceUnknown
+	}
+
+	switch res.State {
+	case ports.NotificationAccepted:
+		// handed_off is deliberately not "delivered": the core owns the message
+		// from here, and claiming more than that is how "已发送" ends up meaning
+		// nothing.
+		detail := map[string]any{
+			"reason": "handed_off_to_notification_core", "notification_id": res.NotificationID,
+			"delivery_ids": res.DeliveryIDs, "intake_status": res.Message,
+			"note": "已交给通知核心受理，不代表终端已收到",
+		}
+		body, _ := json.Marshal(detail)
+		_ = r.store.MarkOutboxWithDetail(ctx, item.ID, "handed_off", res.NotificationID, res.Message, body, r.Now())
+		r.confirmNotificationStep(ctx, item, "handed_off", detail)
+		return true, "handed_off", res.NotificationID, res.Message, nil
+
+	case ports.NotificationProviderUnknown:
+		// The core accepted but cannot say what the provider did. Resending from
+		// here would bypass the core, so the intent stops and stays visible.
+		detail := map[string]any{
+			"reason": "provider_outcome_unknown", "notification_id": res.NotificationID,
+			"delivery_ids": res.DeliveryIDs, "intake_status": res.Message,
+			"note": "通知核心已受理但供应商结果未知，不由本服务重发",
+		}
+		body, _ := json.Marshal(detail)
+		_ = r.store.MarkOutboxWithDetail(ctx, item.ID, "unresolved", res.NotificationID, res.Message, body, r.Now())
+		r.confirmNotificationStep(ctx, item, "provider_unknown", detail)
+		return false, "provider_unknown", res.NotificationID, res.Message, nil
+
+	case ports.NotificationFailed:
+		_ = r.store.MarkOutbox(ctx, item.ID, "failed", "", res.Message, r.Now())
+		return false, "failed", "", res.Message, nil
+
+	default:
+		// Acceptance unknown: the request may or may not have arrived. Replaying
+		// the same frozen intent with the same key is safe, and that is the only
+		// retry this service performs.
+		_ = r.store.MarkOutbox(ctx, item.ID, "dispatched", "", res.Message, r.Now().Add(inFlightRetry))
+		return false, "acceptance_unknown", "", res.Message, nil
+	}
+}
+
+// parseFrozenTime reads a frozen RFC3339 timestamp, falling back to the supplied
+// default when the intent predates the field.
+func parseFrozenTime(s string, def time.Time) time.Time {
+	if s == "" {
+		return def
+	}
+	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		return t
+	}
+	return def
+}
+
+// confirmNotificationStep records the intake outcome on the step, so the run
+// detail shows "handed off to the notification core" instead of a bare success.
+func (r *Runtime) confirmNotificationStep(ctx context.Context, item *store.OutboxItem, status string, detail map[string]any) {
+	if item.StepID == "" {
+		return
+	}
+	body, _ := json.Marshal(detail)
+	_ = r.store.UpdateStepStatus(ctx, item.StepID, status, string(body))
 }
 
 // finishDispatch turns the owner's answer into an outbox state.

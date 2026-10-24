@@ -331,8 +331,27 @@ type NotificationRequest struct {
 	IdempotencyKey string
 }
 
-// NotificationResult is the intake outcome. "accepted" means the notification
-// core took responsibility; it is not proof that a phone received anything.
+// Notification intake states.
+//
+// These are three different facts and they lead to three different actions, which
+// is why they are not collapsed into "ok / not ok":
+//
+//   - accepted: the core took responsibility and gave us ids. The intent is
+//     handed off. It is *not* proof that a phone received anything.
+//   - acceptance_unknown: we never got a usable answer. Replaying the same frozen
+//     intent with the same idempotency key is safe and correct, because the core
+//     dedupes on that key.
+//   - provider_unknown: the core accepted the intent but could not tell us what
+//     the provider did. Resending would bypass the core and risk a duplicate
+//     message, so the intent stops here and stays visible.
+const (
+	NotificationAccepted          = "accepted"
+	NotificationAcceptanceUnknown = "acceptance_unknown"
+	NotificationProviderUnknown   = "provider_unknown"
+	NotificationFailed            = "failed"
+)
+
+// NotificationResult is the intake outcome.
 type NotificationResult struct {
 	State          string
 	NotificationID string
@@ -400,7 +419,9 @@ func (h *HTTPNotificationOwner) Submit(ctx context.Context, req NotificationRequ
 
 	resp, err := h.client.Do(httpReq)
 	if err != nil {
-		return NotificationResult{State: "unknown", Message: err.Error()}, nil
+		// The request may well have been received: a timeout is not a refusal.
+		// Replaying the same key is what makes the retry safe.
+		return NotificationResult{State: NotificationAcceptanceUnknown, Message: err.Error()}, nil
 	}
 	defer resp.Body.Close()
 	payload, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
@@ -415,18 +436,41 @@ func (h *HTTPNotificationOwner) Submit(ctx context.Context, req NotificationRequ
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(payload, &envelope); err != nil {
-		return NotificationResult{State: "unknown", Message: "unreadable intake response"}, nil
+		// A 202 whose body we cannot read is still a 202: the core took the
+		// request but we cannot confirm the ids. That is acceptance-unknown, not
+		// a failure.
+		if resp.StatusCode == http.StatusAccepted {
+			return NotificationResult{State: NotificationAcceptanceUnknown,
+				Message: "unreadable intake response"}, nil
+		}
+		return NotificationResult{State: NotificationAcceptanceUnknown,
+			Message: "unreadable intake response"}, nil
 	}
 	switch {
 	case resp.StatusCode == http.StatusAccepted && envelope.Data.Accepted:
+		if isProviderUnknown(envelope.Data.IntakeStatus, envelope.Data.DeliveryIDs) {
+			return NotificationResult{
+				State: NotificationProviderUnknown, NotificationID: envelope.Data.NotificationID,
+				DeliveryIDs: envelope.Data.DeliveryIDs,
+				Message:     envelope.Data.IntakeStatus,
+			}, nil
+		}
 		return NotificationResult{
-			State: "accepted", NotificationID: envelope.Data.NotificationID,
+			State: NotificationAccepted, NotificationID: envelope.Data.NotificationID,
 			DeliveryIDs: envelope.Data.DeliveryIDs, Message: envelope.Data.IntakeStatus,
 		}, nil
+	case resp.StatusCode == http.StatusAccepted:
+		// 202 without an explicit acceptance: the core has the request but did not
+		// promise anything. Treat it as acceptance-unknown so a replay resolves it,
+		// rather than claiming it was handed off.
+		return NotificationResult{State: NotificationAcceptanceUnknown,
+			Message: fmt.Sprintf("http %d without accepted=true", resp.StatusCode)}, nil
 	case resp.StatusCode >= 500:
-		return NotificationResult{State: "unknown", Message: fmt.Sprintf("http %d", resp.StatusCode)}, nil
+		return NotificationResult{State: NotificationAcceptanceUnknown,
+			Message: fmt.Sprintf("http %d", resp.StatusCode)}, nil
 	default:
-		return NotificationResult{State: "failed", Message: fmt.Sprintf("http %d code %d", resp.StatusCode, envelope.Code)}, nil
+		return NotificationResult{State: NotificationFailed,
+			Message: fmt.Sprintf("http %d code %d", resp.StatusCode, envelope.Code)}, nil
 	}
 }
 
@@ -641,4 +685,19 @@ func (h *HTTPDirectory) list(ctx context.Context, tenantID string) ([]Device, er
 		out = filtered
 	}
 	return out, nil
+}
+
+// isProviderUnknown reads the core's intake status for the one case that must not
+// be retried from here: the core accepted the intent but could not establish what
+// the provider did. Resending would bypass the core and could deliver twice.
+func isProviderUnknown(intakeStatus string, deliveryIDs []string) bool {
+	s := strings.ToLower(strings.TrimSpace(intakeStatus))
+	switch s {
+	case "provider_unknown", "provider-unknown", "delivery_unknown", "delivery-unknown",
+		"provider_failed_unknown", "unknown":
+		return true
+	}
+	// An accepted intent with no delivery id yet is the same situation under a
+	// different name: the core owns it, and only the core can say more.
+	return s != "" && len(deliveryIDs) == 0 && strings.Contains(s, "unknown")
 }

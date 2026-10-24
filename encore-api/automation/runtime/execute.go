@@ -905,10 +905,17 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, rule *store
 }
 
 func (r *Runtime) performNotify(ctx context.Context, run *store.Run, stepID string, step domain.Step, pc int) (stepOutcome, error) {
+	// The body is frozen here, once. The dispatcher sends exactly these bytes on
+	// every attempt, so editing the notification group later cannot rewrite a
+	// message that is already queued.
+	now := r.Now()
 	payload, _ := json.Marshal(map[string]any{
-		"policy_id": step.NotificationPolicyID,
-		"subject":   "自动化通知",
-		"text":      step.Value,
+		"policy_id":      step.NotificationPolicyID,
+		"group_revision": step.NotificationRevision,
+		"subject":        "自动化通知",
+		"text":           step.Value,
+		"occurred_at":    now.UTC().Format(time.RFC3339Nano),
+		"expires_at":     now.Add(24 * time.Hour).UTC().Format(time.RFC3339Nano),
 	})
 	item := &store.OutboxItem{
 		ID: NewID(), TenantID: run.TenantID, RunID: run.ID, StepID: stepID,
@@ -921,8 +928,23 @@ func (r *Runtime) performNotify(ctx context.Context, run *store.Run, stepID stri
 		return stepFailed, err
 	}
 	if accepted {
-		if err := r.store.UpdateStepStatus(ctx, stepID, "accepted",
-			`{"reason":"accepted_by_notification_core"}`); err != nil {
+		// The dispatcher already wrote the intake detail onto the step. "handed_off"
+		// is the honest word: the core owns the message, the phone has not
+		// necessarily seen it.
+		return stepOK, nil
+	}
+	if state == "provider_unknown" {
+		// The core took the intent and could not say what the provider did. The
+		// message is not lost and it is not resent from here, so the run is not
+		// failed; the intent stays visible as unresolved.
+		return stepOK, nil
+	}
+	if state == "acceptance_unknown" {
+		// The intent stays dispatched and is replayed with the same key. That is
+		// not a failure of the run, so it must not fail the step — but it must not
+		// read as handed off either.
+		if err := r.store.UpdateStepStatus(ctx, stepID, "dispatched",
+			`{"reason":"notification_acceptance_unknown","note":"未收到通知核心的有效受理响应，将以同一幂等键重放"}`); err != nil {
 			return stepFailed, err
 		}
 		return stepOK, nil

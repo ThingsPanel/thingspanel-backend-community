@@ -537,7 +537,58 @@ func (r *Runtime) publishAlarmEvent(ctx context.Context, tx *sql.Tx, rule *store
 		"seq": seq, "revision": rule.Revision, "event_id": c.EventID,
 		"causal_root": root, "causal_hop": c.Hop,
 	}
-	_, err := r.store.PublishEvent(ctx, tx, NewID(), rule.TenantID, "alarm."+kind, ep.ID, payload)
+	if _, err := r.store.PublishEvent(ctx, tx, NewID(), rule.TenantID, "alarm."+kind, ep.ID, payload); err != nil {
+		return err
+	}
+	return r.enqueueAlarmNotification(ctx, tx, rule, ep, transitionID, kind)
+}
+
+// enqueueAlarmNotification writes the notification intent in the same transaction
+// as the alarm transition.
+//
+// Two facts depend on this being one transaction: an alarm that exists always has
+// its message queued (so "the alarm fired but nobody was told" cannot happen), and
+// a message never exists for a transition that rolled back. The body is frozen
+// here — group revision, occurrence time and expiry — so a later edit of the
+// notification group cannot rewrite a message that is already queued.
+func (r *Runtime) enqueueAlarmNotification(ctx context.Context, tx *sql.Tx, rule *store.Rule,
+	ep *store.Episode, transitionID, kind string) error {
+
+	spec := rule.Definition.Alarm
+	if spec == nil || spec.NotifyPolicyID == "" {
+		return nil
+	}
+	// Only the two real state changes notify. An "unknown" note is a fact for the
+	// operator, not a reason to page somebody at 3am.
+	if kind != TransitionQualified && kind != TransitionClear {
+		return nil
+	}
+	now := r.Now()
+	text := "告警触发：" + rule.Name
+	if kind == TransitionClear {
+		text = "告警恢复：" + rule.Name
+	}
+	body, _ := json.Marshal(map[string]any{
+		"policy_id":      spec.NotifyPolicyID,
+		"group_revision": spec.NotifyRevision,
+		"subject":        ep.SubjectID,
+		"text":           text,
+		"occurred_at":    now.UTC().Format(time.RFC3339Nano),
+		"expires_at":     now.Add(24 * time.Hour).UTC().Format(time.RFC3339Nano),
+		"variables": map[string]any{
+			"episode_id": ep.ID, "policy_key": rule.PolicyKey(), "level": ep.Level,
+			"subject_id": ep.SubjectID, "dimension": ep.Dimension,
+			"transition_id": transitionID, "kind": kind,
+		},
+	})
+	_, err := r.store.EnqueueOutbox(ctx, tx, &store.OutboxItem{
+		ID: NewID(), TenantID: rule.TenantID, Kind: "notification",
+		ScopeKey: "alarm:" + ep.ID, Generation: 0,
+		// The transition id makes the intent exactly-once per transition, no
+		// matter how many times the decision is replayed.
+		IdempotencyKey: "alarm:" + transitionID + ":notify",
+		Payload:        body,
+	})
 	return err
 }
 

@@ -802,3 +802,20 @@ func (s *Store) EventsSince(ctx context.Context, tenantID string, after int64, l
 	}
 	return out, rows.Err()
 }
+
+// MarkOutboxWithDetail records an intake outcome together with the evidence the
+// owner returned (notification id, delivery ids, intake status).
+//
+// The detail goes into last_error's sibling column so the run detail and the
+// explain view can show what the owner actually said, instead of a bare state name
+// that the operator has to interpret.
+func (s *Store) MarkOutboxWithDetail(ctx context.Context, id, state, acceptedRef, lastErr string,
+	detail []byte, retryAt time.Time) error {
+	_, err := s.DB.ExecContext(ctx, `
+        UPDATE auto_outbox
+           SET state=$2, accepted_ref=NULLIF($3,''), last_error=NULLIF($4,''),
+               next_attempt_at=$5, updated_at=now(),
+               payload = COALESCE(payload, '{}'::jsonb) || jsonb_build_object('outcome', $6::jsonb)
+         WHERE id=$1`, id, state, acceptedRef, lastErr, retryAt, string(detail))
+	return err
+}

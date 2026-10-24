@@ -167,6 +167,16 @@ type AlarmSpec struct {
 	// Dimension separates several alarms of the same subject under one policy
 	// (per channel, per phase). Empty is the legacy single-alarm behaviour.
 	Dimension string `json:"dimension,omitempty"`
+
+	// NotifyPolicyID is the notification group an alarm transition notifies.
+	//
+	// The intent is written in the same transaction as the transition, so an alarm
+	// that exists always has its message queued, and a message never exists for an
+	// alarm that was rolled back. Empty means "raise the alarm, notify nobody",
+	// which is a legitimate configuration.
+	NotifyPolicyID string `json:"notify_policy_id,omitempty"`
+	// NotifyRevision pins the group snapshot the policy was authored against.
+	NotifyRevision int64 `json:"notify_revision,omitempty"`
 }
 
 // Allows reports whether a channel may qualify this policy.
@@ -295,10 +305,14 @@ type Step struct {
 	Wait                 Duration `json:"wait,omitempty"`
 	AlarmPolicyID        string   `json:"alarm_policy_id,omitempty"`
 	NotificationPolicyID string   `json:"notification_policy_id,omitempty"`
-	ContinueOnFailure    bool     `json:"continue_on_failure,omitempty"`
-	Then                 []Step   `json:"then,omitempty"` // finite if/else branch
-	Else                 []Step   `json:"else,omitempty"`
-	Condition            *Group   `json:"condition,omitempty"`
+	// NotificationRevision pins the notification group snapshot this step was
+	// authored against. It is frozen into the intent, so editing the group later
+	// cannot change a message that is already queued.
+	NotificationRevision int64  `json:"notification_revision,omitempty"`
+	ContinueOnFailure    bool   `json:"continue_on_failure,omitempty"`
+	Then                 []Step `json:"then,omitempty"` // finite if/else branch
+	Else                 []Step `json:"else,omitempty"`
+	Condition            *Group `json:"condition,omitempty"`
 	// Guard is re-evaluated immediately before this step runs. It exists because
 	// "check something first" is not the same decision as "if X then Y else Z":
 	// a branch picks a path, a guard decides whether this particular action may
