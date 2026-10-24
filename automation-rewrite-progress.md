@@ -13,7 +13,7 @@
 | 工作树 | `/Users/junhong/Downloads/code/tp-automation-rewrite`（独立 `git worktree`，不动同事的 43 个未提交修改） |
 | 分支 | `feat/automation-rewrite-20261023` |
 | 基线提交 | `486160092b1579965573814c8dd11a2a689c9246`（研究基线） |
-| 本轮提交 | `256f83cb`（A09）；此前 `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` |
+| 本轮提交 | `63e030ec`（A17）；此前 `e2b76c95`（A14）→ `2ecf77cf`（A12）→ `fa5c599c`（A11）→ `09bc1a7e`（A10）→ `805b1d5e`（A02 阻塞修复）→ `256f83cb`（A09）→ `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` |
 | 主仓 HEAD | `0e3ba8281f09c815dabcd03c634d17af845e950b`（`main`，比基线旧 75 个提交，未改动） |
 
 基线关系核对结论（`git rev-list --left-right --count`）：
@@ -588,11 +588,178 @@ encore_e2e.py --community http://127.0.0.1:19999 --automation http://127.0.0.1:1
 
 ---
 
-## 11. 本轮验证汇总
+## 11. A10 设备控制贯通与代际校验（已完成到测试，提交 `09bc1a7e`）
+
+### 11.1 问题：裁决点站错了位置
+
+A09 之后，"被新触发替换掉的旧运行不该再动设备"这件事只在**自动化进程内**成立：`dispatchOne` 在调用前看一眼运行是否已取消。但取消是并发发生的——检查通过之后、HTTP 请求到达之前，新触发完全可以完成受理。此时旧命令仍然打到设备上，而运行记录写着"已取消"。G4 登记的就是这个窗口。
+
+A10 的结论是：**裁决点必须搬到最后一道能拒绝的门上**，也就是设备命令的受理边界。搬过去之后，即使旧命令比新命令**晚到**，也必须被拒——这是 A09 那套"先到先得"逻辑做不到的。
+
+### 11.2 三样东西：代际、幂等键、精确响应
+
+`sql/28.sql` 新建两张表（走 `initialize/command_guard_schema.go`，复用既有的 `native_component_migration_ledger` + 咨询锁 + sha256 漂移检测，不新造一套迁移机制）：
+
+```sql
+CREATE TABLE IF NOT EXISTS automation_scope_generation (
+    scope_key text PRIMARY KEY, generation bigint NOT NULL DEFAULT 0, ...);
+CREATE TABLE IF NOT EXISTS automation_command_guard (
+    idempotency_key text PRIMARY KEY, tenant_id text NOT NULL DEFAULT '',
+    scope_key text NOT NULL DEFAULT '', generation bigint NOT NULL DEFAULT 0,
+    action_kind text NOT NULL DEFAULT '', device_id text NOT NULL DEFAULT '',
+    payload_hash text NOT NULL DEFAULT '', state text NOT NULL DEFAULT 'in_flight',
+    http_status integer NOT NULL DEFAULT 0, response_body text NOT NULL DEFAULT '',
+    accepted_ref text NOT NULL DEFAULT '', lease_until timestamptz, ...);
+```
+
+- **代际**用 `GREATEST` 单调抬升，不依赖到达顺序：`INSERT ... ON CONFLICT DO UPDATE SET generation = GREATEST(generation, excluded.generation)`。带 `X-Automation-Generation` 小于已见最高值的请求一律 409。
+- **幂等键**用 `ON CONFLICT DO NOTHING` 抢占：抢到即执行，抢不到就按已有行的 `state` 分流，而不是重放副作用。
+- **精确响应**存原始 status + body，回放时**原样吐出**。这一点很关键：调用方拿到的是"第一次的真实答复"，不是"我又做了一次，结果碰巧一样"。
+
+### 11.3 四种拒绝码与自动化侧的四种后果
+
+| 受理结果 | 拒绝码 | 自动化侧 | 为什么不是别的 |
+| --- | --- | --- | --- |
+| 同键同内容 | — | 回放首次响应，`accepted` | 重试不等于重做 |
+| 同键异内容 | 4092 | `failed`，不重试 | 同键换内容说明调用方有 bug，重试只会更乱 |
+| 代际落后 | 4091 + `X-Automation-Superseded: 1` | 运行 `cancelled`，**停止后续程序**，原因 `superseded` | 不是 failed（没出错），也不是成功（设备没动） |
+| 仍在处理中 | 4093 | `dispatched`，+5s 再问 | 不能当成功，也不能当失败 |
+| 租约过期仍无结论 | 4090 | `unresolved`，**永不重发** | 不知道设备收没收到，重发可能双开 |
+
+`ports.Dispatch` 现在**先读 `X-Automation-Superseded` 头与 4090–4093**，再走原来的通用 HTTP 映射——顺序不能反，否则 4091 会被通用映射折叠成普通冲突。
+
+### 11.4 旧调用方零改动
+
+`Guard(db)` 在没有 `X-Idempotency-Key` 时直接 `c.Next()`，一个字节的额外逻辑都不做。控制台、App、脚本、Postman 全部走旧路径。只有自动化调用方带键，才进入这套状态机——所以"fail closed"（`db == nil` 时 503）也只针对自动化调用方，不会让别人的接口在数据库抖动时变脆。
+
+### 11.5 本轮修掉的两个真实缺陷
+
+1. **拒绝的命令仍然到达设备**。`TestAnOlderGenerationNeverReachesTheDevice` 报 "an older generation must be refused, got 200"。根因：gin 中间件只 `return` 不 `c.Abort()`，引擎继续往下走 handler，响应体看起来还正常——**肉眼完全看不出来**。已改为 `writeAborted`（`Abort` + 写 body + `WriteHeaderNow`），superseded 与 replay 两条分支统一走它。
+2. **回放 body 为空**。`TestSameKeyAndSameContentReplaysTheFirstAnswer` 第二次拿到空串。根因：`guardRow.Response` 没有 `gorm:"column:response_body"`，gorm 按 `response` 找列找不到 → 空。这类错不会报错，只会让"精确响应回放"退化成"回放一个空 200"。
+
+### 11.6 证据
+
+`internal/automationguard` 11 个集成用例（`TEST_AUTOMATION_GUARD_DSN` 门控，只允许 `qa_automation_guard_test` 库，防误连）：旧调用方不受影响 / 同键同内容回放 / 同键异内容冲突 / 旧代际永不触达设备 / 同代际多个动作都放行 / 在飞不重发 / 中途死亡保持 unknown（连试 3 次仍是 unknown）/ 业务错误记 failed 且可回放 / superseded 可回放 / 无库只拒自动化调用方 / 记录带路由种类与 scope。
+
+`automation/a10_dispatch_test.go` 7 例：superseded → run `cancelled` + step `0:action:cancelled` + outbox `cancelled`；superseded 停止后续程序；冲突记 failed 不重试；unresolved 不无限重试；在飞先问后确认；意图携带 scope/generation/key；第二次运行拿到不同的键。
+
+---
+
+## 12. A11 四种运行模式的边界（已完成到测试，提交 `fa5c599c`）
+
+### 12.1 排队的顺序不能靠时间戳
+
+`NextQueuedRun` 原本 `ORDER BY started_at`。同毫秒触发的多个运行共享时间戳，tie-break 落到随机 uuid 上——**排队顺序退化成随机**。`TestQueuedModeRunsInArrivalOrder` 直接抓到（`next was "ev-a11-queue-3"`）。改为 `ORDER BY generation, id`：generation 随每次受理单调递增，它就是到达顺序，不依赖时钟精度。
+
+### 12.2 TTL 要在"推进时"校验，不是"入队时"
+
+走廊的灯不该在十分钟后才亮。排队 TTL 如果只在入队时算一次，排到队首时早就超时了却还是会执行。现在 `promoteQueued` 在推进前重新校验，超时即 `queue_ttl_exceeded`，不执行、不堵后面。
+
+`StartQueuedRun` 同时**重置运行时钟**：排队等待的时间不该吃掉执行预算，否则"排了两分钟、预算三分钟"的运行只剩一分钟干活。
+
+### 12.3 过期原因要写明是哪只钟
+
+`ExpireOverdueRuns` 的 `reason_code` 改读 `snapshot->>'deadline_reason'`，`reason` 用 CASE 分 `parallel_ttl_exceeded` / `queue_ttl_exceeded` / 默认。运维看到"超时"能立刻知道是并行上限还是排队上限，不用去猜。
+
+`acceptRun` 里：parallel 取 `min(stepBudget, parallel.TTL)`；queued 取 `queue.TTL + stepBudget`。
+
+### 12.4 证据
+
+`automation/a11_modes_test.go` 11 例：single 记录被忽略的触发、restart 取消旧运行且新代际更高、queued 按到达顺序（直接断言 `NextQueuedRun` 而非列表序）、排队超 TTL 不迟到、排队期间停用不执行、溢出拒绝、parallel 上限、parallel TTL 过期、取消不改写已受理动作（靠 wait 步骤让运行保持 running）、device scope 各自运行、rule scope 互相竞争。
+
+---
+
+## 13. A12 批量目标：冻结、复核、部分失败（已完成到测试，提交 `2ecf77cf`）
+
+### 13.1 三种"没做成"必须分开
+
+| 情形 | 结果 | 原因码 |
+| --- | --- | --- |
+| 规则本来就没有目标 | `skipped` | — |
+| 有目标但全部被排除 | `failed` | `all_targets_excluded` |
+| 有目标但全部不可用 | `failed` | `all_targets_unavailable` |
+| 部分成功、部分排除 | `partial`（新状态） | `partial_targets` |
+
+把前三种混成一个"失败"或一个"跳过"，运维就无法区分"规则配错了"和"设备掉线了"。`partial` 是新加的运行状态，因为"20 台成功、1 台被排除"既不是成功也不是失败。
+
+### 13.2 入场冻结 + 执行前批量复核
+
+入场时把目标写进快照（可追溯：事后能回答"当时选了谁"）；真正执行前用**一次** `dir.ByIDs` 批量复核归属与能力。两次之间设备可能被删、被移出租户、能力被摘——复核把这类情况变成明确的 `excluded`，而不是一个设备侧的超时。
+
+### 13.3 标签必须精确分词
+
+`strings.Contains(d.Label, "floor-1")` 会让 `floor-1` 选中 `floor-10`——**静默驱动错误的设备**，这是最危险的一类错。新增 `ports.LabelTokens` 按 `,，;；|/` 与空格分词，HTTP 目录与测试 fake 共用同一份实现，保证"测过的语义就是跑着的语义"。
+
+### 13.4 区域仍然显式不支持
+
+社区版目录没有区域层级。`area` 目标类型返回明确的 `area_not_supported`，而不是空列表——另造一套资产目录是任务书明令禁止的（不新建第二套）。
+
+### 13.5 证据
+
+`automation/a12_targets_test.go` 7 例：入场冻结、无目标 skipped vs 全排除 failed、执行前设备消失（用 wait 开窗后复核）、20+1 台 → `partial`、标签 AND/OR、device_config 实例展开、跨租户不泄漏（报 `device_not_found`，不透露存在性）。
+
+---
+
+## 14. A14 有限分支与前置检查（已完成到测试，提交 `e2b76c95`）
+
+### 14.1 互锁不该写成"分支 + 忽略失败"
+
+旧做法要表达"只有门开着才开门"，只能写一个 `if` 分支再给动作加 `continue_on_failure`。问题在于 `continue_on_failure` 是给"失败可以容忍"用的，它不区分"条件是 false"和"条件是 unknown"——于是传感器掉线时，门照样开。
+
+A14 把这件事独立出来：`Step.Guard *Group`。语义只有一条：**只在 `VerdictTrue` 放行**。`unknown` / `error` 一律阻断，`continue_on_failure` 不能放行 guard（这是刻意的——放行就等于把互锁变成建议）。
+
+### 14.2 阻断是可解释的
+
+guard 不通过时步骤记 `skipped` + verdict + evidence，运行以 `guard_blocked` 结束。运维看到的是"第 2 步的前置检查未通过，因为 CO 浓度 unknown"，而不是"运行失败"。
+
+### 14.3 发布期就拒绝错的结构
+
+- 分支嵌套 `maxBranchDepth = 3`，超深报 `nesting_too_deep`；
+- `Guard` 挂在 `branch` / `wait` 上报 `guard_not_allowed`（这两个步骤没有副作用，挂 guard 只会让人误解语义）；
+- `Guard` 非空但条件为空 → 报错，不允许"空 guard 恒真"这种默认。
+
+### 14.4 证据
+
+`automation/a14_branch_test.go` 6 例：四值路径各自去向、未确定**不进 else**（`branch_undetermined`）、guard 阻断（`guard_blocked` + step skipped + **0 条命令**）、guard 放行、超深嵌套发布期拒绝、wait 上挂 guard 拒绝。
+
+---
+
+## 15. A17 解释查询：回答"为什么没跑"（已完成到测试，提交 `63e030ec`）
+
+### 15.1 最贵的错答
+
+用户问"为什么没触发"，最贵的错误答案是**"条件不满足"**——而传感器其实从来没上报过。这两个结论在旧实现里长得一模一样。
+
+`GET /v1/rules/:id/explain` 给出六值：
+
+| 值 | 含义 |
+| --- | --- |
+| `fired` | 窗口内确有运行 |
+| `waiting_for_duration` | 条件已成立，还在等持续时长（附剩余毫秒） |
+| `condition_not_met` | 有新鲜数据，条件确实不成立 |
+| `undetermined` | 有数据但证据过期/不完整 |
+| `no_data` | 压根没有样本 |
+| `not_fired` | 其他未触发情形 |
+
+`no_data` 与 `undetermined` 是两个独立值，就是为了挡住上面那个错答。`evidence.complete=false` 时响应里明说证据不足。
+
+### 15.2 解释与决策共用同一个评估器
+
+`Explain` 复用 `domain.Evaluate`，不另写一份判定逻辑。否则解释会慢慢和真实决策漂移——那种 bug 最难查，因为两边看起来都对。
+
+### 15.3 证据
+
+`automation/a17_explain_test.go` 6 例：fired / no_data / condition_not_met / waiting_for_duration / 过期 → undetermined / 窗口边界。
+
+`encore check` 端点从 28 增至 **30**（`explain` 与既有 `pending`/`inputs` 一并登记）。
+
+---
+
+## 16. 本轮验证汇总
 
 ```bash
 cd encore-api
-encore check 'curl /v1/health'   # check: 1/1 commands succeeded（28 endpoints registered）
+encore check 'curl /v1/health'   # check: 1/1 commands succeeded（30 endpoints registered）
 encore test ./...                # domain ok / ingress ok / automation ok
 ```
 
@@ -600,10 +767,12 @@ encore test ./...                # domain ok / ingress ok / automation ok
 | --- | --- | --- |
 | `automation/domain` | 68 | 9 比较符、四值判定、单位不匹配、事件参数、跨设备、校验门、A06 对照 30 条、cron 解析与夏令时 12 条、漏跑策略 8 条、A08 新鲜度与迟滞 9 条 |
 | `automation/ingress` | 12 | 六类输入 + 网关三类、稳定 ID、重投、瞬时事件、状态归一、因果跳数 |
-| `automation`（DB 集成） | 64 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条 |
-| **合计（顶层用例）** | **144** | 全部通过；含子测试共 190 条断言级用例 |
+| `automation`（DB 集成） | 99 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条、A10 七条、A11 十一条、A12 七条、A14 六条、A17 六条 |
+| `automationguard`（独立集成） | 11 | 代际拒绝、幂等回放、冲突、在飞、租约过期、旧调用方隔离 |
+| **合计（顶层用例）** | **190** | 全部通过；含子测试共 **236** 条断言级用例 |
 
-端到端：`encore_e2e.py` **74 项检查全通过**（第 10、11 节为 A05 的真实 HTTP 适配器路径，第 12 节为 A07 定时，第 13 节为 A08 迟滞与新鲜度，第 14 节为 A09 运行进度与步骤身份）。
+端到端：`encore_e2e.py` **74 项检查全通过**（第 10、11 节为 A05 的真实 HTTP 适配器路径，第 12 节为 A07 定时，第 13 节为 A08 迟滞与新鲜度，第 14 节为 A09 运行进度与步骤身份）。A10–A17 的章节待补（见第 17 章）。
+
 
 修复的真实缺陷（不是测试凑数）：
 
@@ -627,31 +796,44 @@ encore test ./...                # domain ok / ingress ok / automation ok
 18. 运行**没有执行租约**，两个 worker 可以同时走同一程序，重复副作用只能靠 outbox 唯一键兜住（表现为莫名的 `step_failed`）。现在领取是排他的，拿不到租约就什么都不做。
 19. 运行预算耗尽但无人推进时永远停在 `running`，读起来像“还在跑”。现在由 `ExpireOverdueRuns` 收成 `expired` 并带 `finished_at` 与原因。
 20. 未实现的步骤在运行期被当作普通失败，原因码是 `step_rejected` / “步骤执行失败”，看不出是规则问题。现在发布期就拒绝，运行期以 `unsupported_step` 明确说明。
+21. **gin 中间件只 `return` 不 `c.Abort()`**：被代际校验拒绝的旧命令照样走到设备 handler 并下发，响应体还是 200 —— 这是 A10 最危险的一个，因为它**在日志里看起来完全正常**。已统一走 `writeAborted`。
+22. `guardRow.Response` 未映射 `response_body` 列，gorm 按字段名找列找不到 → 幂等回放返回空 body，"精确响应回放"静默退化为"回放一个空 200"。
+23. 排队序用 `ORDER BY started_at`，同毫秒触发共享时间戳，tie-break 落到随机 uuid → **排队顺序变随机**。改为 `ORDER BY generation, id`。
+24. 排队 TTL 只在入队时算一次，排到队首时早已超时却仍执行（走廊灯十分钟后才亮）。改为推进时校验。
+25. `StartQueuedRun` 不重置运行时钟，排队时间吃掉执行预算，运行还没干活就 `expired`。
+26. 标签用 `strings.Contains` 匹配，`floor-1` 会命中 `floor-10` —— **静默驱动错误设备**，无任何报错。改为 `ports.LabelTokens` 精确分词。
+27. 目标复核只在入场做一次，两次之间被删除/移出租户的设备会变成设备侧超时，原因不可读。改为执行前一次批量复核。
+28. "部分目标被排除但其余成功"被记为成功，运维看不出少了一台。新增 `partial` 运行状态。
+29. 互锁只能靠"分支 + `continue_on_failure`"表达，于是条件为 `unknown` 时动作照样执行 —— 传感器掉线时门照开。改为 `Step.Guard`，只在 `VerdictTrue` 放行。
+30. 解释查询把"没有样本"和"条件不满足"答成同一句话，用户据此去改阈值，越改越错。拆出 `no_data` / `undetermined` 两个独立值。
+31. 集成测试之间通过 worker 扫全库互相串扰：前序用例遗留的 waiting run 被后续用例的 `advance`+`tick` 唤醒，经错误的 fake owner 派发。现在每个用例 `t.Cleanup` 关掉自己的未完成工作（`closeUnfinishedWork`）。
 
 ---
 
-## 12. 下一项可以开始的任务
+## 17. 下一项可以开始的任务
 
-A09 已到“测试完成”。按依赖选 **A10（设备控制贯通与代际校验）**：它是 A09 的身份契约在下游的落点，且能直接消掉登记在案的 G4。
+A10–A17 五块已到“测试完成”。按依赖选 **A15（告警策略与生命周期）** 为主、**A13（旧场景行为）** 并行：
 
-1. **A10（下一项）**：把 `scope_key` / `generation` / 动作 ID 贯穿到设备命令 owner，让“被新触发替换掉的旧运行”在下发端被拒绝，而不是只在自动化侧停止派发。
-   - 现状：`dispatchOne` 只在**调用前**检查运行是否已取消（进程内最强的检查），命令 owner 侧不认识 `generation`；G4 仍未消。
-   - 要做：命令受理接口接受 `X-Automation-Scope` / `X-Automation-Generation` / `X-Automation-Action-Id`；owner 记录已见的最大 generation，低于它的请求返回 `superseded` 而不是执行；`superseded` 在自动化侧映射为 `cancelled`（不是 `failed`，也不是成功）。
-   - 关键约束：旧调用方不传这三个头时必须保持旧行为，不能因为新头缺失就拒收。
-2. **A02（并行）**：六类页面旧→新操作对照，入口 `/Users/junhong/Downloads/code/thingspanel-frontend-community`。A07/A08/A09 的接口都已就绪，对照表能直接指出定时编辑、缺测配置、运行详情三块该落在哪个页面。
-3. **A11/A12（运行模式补强）**：`queued` 的 TTL 目前只校验不生效；`parallel` 的 TTL 同样；四种模式的 scope 与溢出边界需要一轮专门的用例。
-4. **A07/A09 剩余接线**：常驻调度循环（A33 切换时接）。
-5. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持“待联测”。
+1. **A15（主）**：`AlarmPolicy` 作为唯一可编辑告警策略；按 租户＋稳定策略业务键＋主体＋维度 维护活动 episode；`revision/epoch/seq` 进入判定与历史，拒绝旧执行者与乱序恢复。
+   - 现状：A05 已给出稳定事件 ID 与因果链，A08 已给出 `qualified/clear` 的判定基础，A09/A10 已给出幂等受理与代际；但 **episode 身份、确认（ack）语义、发布新版不重复建告警** 这三件事还没有落点。
+   - 完成标准（任务书原文）：同一异常持续上报只维护同一活动身份；确认后异常仍 active；发布新版不无故重复建告警；`qualified/clear/no-transition/unknown/error` 分开；旧 `false` 装饰器不再隐藏地修改生命周期。
+2. **A13（并行）**：旧场景行为——状态场景 vs 动作流程分开，旧场景的告警动作改走声明式事件型策略。
+3. **A16（A15 之后）**：通知插座与默认策略，`/api/v2/notification-ingress/events`，**202 才算 handed_off**，Core 受理丢失与 provider unknown 分开验证。
+4. **A18–A34**：模板与资源包、前端六类页面、执行详情页、无副作用模拟、`tpctl`、MCP、外部执行器合同、Node-RED/Flink 样例、旧调用方适配、迁移回退、性能容量、验收与切换。
+5. **A02 剩余**：`ListRuns` 补 `limit/offset/before/after/status` 与 `total`（R7）；前端 `pop-up.vue:332` 硬编码 `enabled:'Y'`。
+6. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持“待联测”。
+7. **`encore_e2e.py` 补 A10–A17 章节**并重跑。
 
 不建议现在动 A33 的切换接线（5.2 节 G10 / 6.6 节），因为旧引擎还在跑，接上就是双写。
 
 ---
 
-## 13. 六句话汇报（本轮 = A09）
+## 18. 六句话汇报（本轮 = A10 / A11 / A12 / A14 / A17）
 
-1. **做了什么**：把运行从“只活在进程里”改成**有检查点、有租约、有稳定身份**的有限程序。`auto_runs` 增加 `cursor_pc`/`lease_owner`/`lease_until`/`resume_count`；步骤行 id 改为由数据库 `RETURNING` 给出并带 `attempt`；`EnqueueOutbox` 返回是否真插入，重复时按已有状态复用而不重复受理；`Tick` 增加“先过期、再续跑”两遍扫描并返回 `runs_expired`/`runs_resumed`；`domain.StepImplementations` 成为“声明支持 = 有实现”的唯一清单。
-2. **原来什么还保留**：所有旧语义都在——顺序执行、`wait` 到点续跑、分支三态、四种运行模式、目标快照、outbox 先落库后派发、取消不追回已受理的动作。没有新建第二套执行器：`wait` 仍走 `auto_run_timers`，动作仍走同一个 `performAction` → outbox → 设备命令 owner，通知/场景/告警步骤的实现一行未换。
-3. **怎么证明做对**：`encore test ./...` **144 个顶层用例（含子测试 190 条）全绿**；`encore_e2e.py` **74 项检查全通过**，其中第 14 节走真实 HTTP 验证目标 `selected` 与结果 `status` 分离、步骤全部终态且带 `attempt`、未实现步骤发布即被拒并列出可执行种类、以及 `wait` 让运行停在 `running` 后由定时器续跑到 `succeeded`。最能说明问题的一条：`TestResumeAfterCrashContinuesFromTheCheckpoint`——造出“死在第 0 步之后”的状态后一次 tick，运行成功、`resume_count=1`、设备指令 2→3 条（只补第 1 步），既没有重放也没有卡死。
-4. **难点和性能结果**：难点是“重放窗口”到底该由谁吸收。检查点写在步骤**之前**，窗口就变成“这步可能做了”，由步骤/动作身份去重；写在之后则会留下“做了但指针还指着它”的窗口，那时已无法区分“重试”和“第二次执行”。第二个难点是发现目标行 `status` 一词两用——它不会报错，只会让真实动作静默变 `skipped`，是靠 `TestResumedStepRowKeepsItsIdentity` 先红才暴露的。性能上没有压测，只有结构保证：每步一次 `cursor_pc` 单行 UPDATE，恢复扫描走 `started_at` 部分索引 + `LIMIT 20`，过期扫描走 `deadline` 部分索引 + `SKIP LOCKED`，都不随运行总数线性增长。
-5. **还有什么没完成**：真实 `kill -9` 演练（G8）仍待 A30/A31；`queued`/`parallel` 的 TTL 只校验不生效（A11/A12）；步骤级重试上限未强制，目前靠运行级 deadline 兜底；常驻调度循环仍阻塞在 A33；G1–G4、G7、G11、G12 按原登记保持未完成；性能预算表、迁移回退演练、三个纵向业务样例仍未做。
-6. **下一项怎样衔接**：A10 直接接在本轮的身份契约上——`scope_key`/`generation`/动作 ID 已经写进 outbox 与命令请求，A10 只需让设备命令 owner 认识它们并把“被替换的旧运行”拒在下发端；届时 `superseded` 会作为新的结果状态回到本轮刚做好的 `recordStepDispatchFailure`，不用再改执行器结构。A02 可并行，产出的页面清单会直接指出运行详情（本轮新增的 `cursor_pc`/`resume_count`/`selected`）该展示在哪一页。
+1. **做了什么**：五件事，一条线——把"谁有权动设备、动哪些、什么条件下动、没动是为什么"这四问全部落到可验证的位置。A10 在设备命令受理边界加**代际 + 幂等键 + 精确响应回放**（`automation_scope_generation` 用 `GREATEST` 单调抬升，`automation_command_guard` 存原始 status/body，四种拒绝码 4090–4093）；A11 把四种运行模式对"输掉的那次触发"的答复写实（`ORDER BY generation, id`、推进时校验 TTL、`StartQueuedRun` 重置时钟、过期原因写明是哪只钟）；A12 把动态目标做成**入场冻结 + 执行前批量复核**，新增 `partial` 状态，标签改精确分词；A14 把互锁从"分支 + 忽略失败"里独立成 `Step.Guard`，只在 `VerdictTrue` 放行；A17 新增 `GET /v1/rules/:id/explain` 六值判定。
+2. **原来什么还保留**：旧调用方**零改动**——不带 `X-Idempotency-Key` 时 `Guard` 直接放行，控制台/App/脚本/Postman 全走旧路径；设备命令仍由既有 owner 执行，没有新建第二套下发通道；`continue_on_failure`、`branch`、`wait`、四种模式、目标快照、outbox 先落库后派发、取消不追回已受理动作，全部语义不变。`area` 目标仍显式 `area_not_supported`（社区目录没有区域层级，另造资产目录是任务书禁止的）。
+3. **怎么证明做对**：`encore test ./...` **190 个顶层用例（含子测试 236 条）全绿**，`encore check` **30 端点**，`internal/automationguard` 11 个独立集成用例全绿。最能说明问题的三条：`TestAnOlderGenerationNeverReachesTheDevice`——旧代际的命令即使晚到也拿不到设备；`TestAnAttemptThatDiedMidFlightStaysUnknown`——连试 3 次仍是 `unknown`，绝不因为"重试了"就当成成功；`TestQueuedModeRunsInArrivalOrder`——直接断言 `NextQueuedRun` 的返回，而不是看列表顺眼。
+4. **难点和性能结果**：最难的是发现"裁决点站错了位置"——A09 的检查在调用前，而取消是并发的，检查通过到请求到达之间就是 G4 的窗口；结论是必须把裁决搬到最后一个能拒绝的门上，并且用**单调代际**而不是到达顺序，否则晚到的旧命令仍然会赢。第二个难点是 gin 中间件不 `Abort` 就继续走 handler，这类错**不报错、日志正常、响应 200**，只能靠"设备侧到底收到几条"这种外部观察才抓得到。性能上没有压测，只有结构保证：代际查询是主键单行、幂等键是主键单行、目标复核是**一次**批量调用（不随目标数线性增长 HTTP 往返）、队列推进走 `LIMIT 1` + `SKIP LOCKED`。
+5. **还有什么没完成**：A13/A15/A16 未开始（episode 身份与 ack 语义是下一块硬骨头）；A18–A34 全部未开始；A02 的 `ListRuns` 分页与前端硬编码未改；`encore_e2e.py` 还没补 A10–A17 章节；真实 `kill -9` 演练（G8）待 A30/A31；常驻调度循环仍阻塞在 A33；性能预算表、迁移回退演练、三个纵向业务样例仍未做；G1–G3、G5、G7、G11–G13 按原登记保持未完成。
+6. **下一项怎样衔接**：A15 直接接在本轮的四个落点上——A05 的稳定事件 ID 与因果链给 episode 提供身份素材，A08 的 `qualified/clear` 判定给生命周期提供语义，A10 的幂等键给"同一异常持续上报不重复建告警"提供机制，A17 的六值判定给"确认后异常仍 active"提供可解释性。A13 并行，它要回答的"状态场景 vs 动作流程"会决定 A15 的 episode 是否需要区分"状态型主体"和"事件型主体"。A16 排在 A15 之后，因为通知插座必须先有权威的 `transition_id` 才能做到"重投不重复执行"。
+
