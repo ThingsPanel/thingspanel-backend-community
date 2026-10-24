@@ -508,6 +508,19 @@ func (s *Store) UpsertStep(ctx context.Context, st *Step) (string, int, error) {
 	return id, attempt, err
 }
 
+// StepStatus reads one step's current status. It exists so a late confirmation
+// from the command owner can complete an undecided step without overwriting a
+// step that already reached a terminal state.
+func (s *Store) StepStatus(ctx context.Context, stepID string) (string, error) {
+	var status string
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT status FROM auto_steps WHERE id=$1`, stepID).Scan(&status)
+	if err == sql.ErrNoRows {
+		return "", ErrNotFound
+	}
+	return status, err
+}
+
 // UpdateStepStatus records a step transition.
 //
 // A zero-row update is returned as an error rather than swallowed: it means the

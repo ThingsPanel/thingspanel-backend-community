@@ -546,6 +546,12 @@ func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int)
 				_ = r.store.FinishRun(ctx, run.ID, StatusFailed, "step_error", err.Error())
 				return true, err
 			}
+			if outcome == stepSuperseded {
+				// The run was cancelled while this step was being dispatched.
+				// Returning without FinishRun keeps the reason "superseded"
+				// instead of rewriting it into success or failure.
+				return true, nil
+			}
 			if outcome != stepOK {
 				anyFailed = true
 				if !step.ContinueOnFailure {
@@ -578,6 +584,10 @@ const (
 	stepUnknown     stepOutcome = "step_unknown"
 	stepRejected    stepOutcome = "step_rejected"
 	stepUnsupported stepOutcome = "unsupported_step"
+	// stepSuperseded means the command owner refused the action because a newer
+	// trigger in the same scope already won. The run is already cancelled by the
+	// time this is returned, so the loop must stop without finishing it again.
+	stepSuperseded stepOutcome = "superseded"
 )
 
 // stepFailureMessage turns an outcome into a sentence a customer can act on.
@@ -663,7 +673,7 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, stepID stri
 		return stepOK, nil
 	}
 
-	anyFail, anyUnknown := false, false
+	anyFail, anyUnknown, anySuperseded := false, false, false
 	for _, deviceID := range deviceIDs {
 		payload, _ := json.Marshal(map[string]any{
 			"kind": step.Action, "device_id": deviceID,
@@ -683,7 +693,12 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, stepID stri
 		switch {
 		case accepted:
 			// Nothing to record here: the target row already carries "accepted".
-		case state == "unknown":
+		case state == "superseded":
+			anySuperseded = true
+		case state == "unknown", state == "in_flight":
+			// in_flight is not a decision: an identical attempt is still being
+			// processed, so the honest step state is "not confirmed yet". The
+			// outbox row stays retryable and will complete the step later.
 			anyUnknown = true
 		default:
 			// failed or cancelled — either way the device did not take it.
@@ -691,6 +706,12 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, stepID stri
 		}
 	}
 	switch {
+	case anySuperseded:
+		if err := r.store.UpdateStepStatus(ctx, stepID, "cancelled",
+			`{"reason":"superseded_by_newer_generation"}`); err != nil {
+			return stepFailed, err
+		}
+		return stepSuperseded, nil
 	case anyUnknown:
 		if err := r.store.UpdateStepStatus(ctx, stepID, "unknown",
 			`{"reason":"device_result_unknown"}`); err != nil {
@@ -766,8 +787,13 @@ func (r *Runtime) performScene(ctx context.Context, run *store.Run, stepID strin
 func (r *Runtime) recordStepDispatchFailure(ctx context.Context, stepID, state, msg string) (stepOutcome, error) {
 	detail, _ := json.Marshal(map[string]any{"reason": state, "message": msg})
 	status, outcome := "failed", stepFailed
-	if state == "unknown" {
+	switch state {
+	case "unknown", "in_flight":
 		status, outcome = "unknown", stepUnknown
+	case "superseded":
+		// Not a failure of this run: a newer run in the same scope won. Calling
+		// it failed would make an expected race look like a defect.
+		status, outcome = "cancelled", stepSuperseded
 	}
 	if err := r.store.UpdateStepStatus(ctx, stepID, status, string(detail)); err != nil {
 		return stepFailed, err

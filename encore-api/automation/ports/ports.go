@@ -96,9 +96,29 @@ type CommandRequest struct {
 	Deadline       time.Time
 }
 
+// Command result states. They describe what the owner did with the intent, not
+// what the device did with the command.
+const (
+	// CommandAccepted means the owner took responsibility and returned an id.
+	CommandAccepted = "accepted"
+	// CommandFailed means the owner refused it and nothing will happen.
+	CommandFailed = "failed"
+	// CommandUnknown means nobody knows whether it took effect.
+	CommandUnknown = "unknown"
+	// CommandSuperseded means a newer trigger in the same scope already won, so
+	// this action was refused before it could reach a device.
+	CommandSuperseded = "superseded"
+	// CommandConflict means the idempotency key was reused for different
+	// content. It is a programming error, not a retry.
+	CommandConflict = "conflict"
+	// CommandInFlight means an identical attempt is still being processed. The
+	// answer is "ask again shortly", never "send it again".
+	CommandInFlight = "in_flight"
+)
+
 // CommandResult is the acceptance outcome, not the physical effect.
 type CommandResult struct {
-	State   string // accepted | failed | unknown
+	State   string // accepted | failed | unknown | superseded | conflict | in_flight
 	Ref     string
 	Message string
 }
@@ -167,11 +187,34 @@ func (h *HTTPCommandOwner) Dispatch(ctx context.Context, req CommandRequest) (Co
 		Data    json.RawMessage `json:"data"`
 	}
 	_ = json.Unmarshal(payload, &envelope)
+
+	// The acceptance guard answers with its own codes and, for supersession, a
+	// header the caller can read without parsing a message. Both are checked
+	// before the generic HTTP mapping so a refusal is never mistaken for a
+	// transport failure.
+	if resp.Header.Get("X-Automation-Superseded") == "true" || envelope.Code == codeGuardSuperseded {
+		return CommandResult{
+			State:   CommandSuperseded,
+			Ref:     guardRef(payload),
+			Message: "已被更新的触发取代，未下发: " + envelope.Message,
+		}, nil
+	}
+	switch envelope.Code {
+	case codeGuardKeyConflict:
+		return CommandResult{State: CommandConflict, Message: "同一幂等键被用于不同内容: " + envelope.Message}, nil
+	case codeGuardInFlight:
+		return CommandResult{State: CommandInFlight, Message: "同一动作正在处理中: " + envelope.Message}, nil
+	case codeGuardUnknown:
+		// The previous attempt died while holding the key. Retrying cannot
+		// resolve it, so it must be surfaced instead of retried forever.
+		return CommandResult{State: CommandUnknown, Message: "结果未知，需人工核对: " + envelope.Message}, nil
+	}
+
 	switch {
 	case resp.StatusCode >= 500:
-		return CommandResult{State: "unknown", Message: fmt.Sprintf("http %d: %s", resp.StatusCode, envelope.Message)}, nil
+		return CommandResult{State: CommandUnknown, Message: fmt.Sprintf("http %d: %s", resp.StatusCode, envelope.Message)}, nil
 	case resp.StatusCode >= 400 || envelope.Code != 200:
-		return CommandResult{State: "failed", Message: fmt.Sprintf("http %d code %d: %s", resp.StatusCode, envelope.Code, envelope.Message)}, nil
+		return CommandResult{State: CommandFailed, Message: fmt.Sprintf("http %d code %d: %s", resp.StatusCode, envelope.Code, envelope.Message)}, nil
 	default:
 		ref := ""
 		if len(envelope.Data) > 0 {
@@ -185,8 +228,37 @@ func (h *HTTPCommandOwner) Dispatch(ctx context.Context, req CommandRequest) (Co
 				}
 			}
 		}
-		return CommandResult{State: "accepted", Ref: ref, Message: "accepted by command owner"}, nil
+		return CommandResult{State: CommandAccepted, Ref: ref, Message: "accepted by command owner"}, nil
 	}
+}
+
+// Guard refusal codes, mirrored from internal/automationguard. They are
+// duplicated rather than imported because this package must stay independent of
+// the community backend's internal tree.
+const (
+	codeGuardSuperseded  = 4090
+	codeGuardKeyConflict = 4091
+	codeGuardInFlight    = 4092
+	codeGuardUnknown     = 4093
+)
+
+// guardRef keeps the owner's id on a refusal when it was reported, so a run can
+// still be correlated with whatever the first attempt may have created.
+func guardRef(payload []byte) string {
+	var envelope struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(payload, &envelope) != nil || len(envelope.Data) == 0 {
+		return ""
+	}
+	var data map[string]any
+	if json.Unmarshal(envelope.Data, &data) != nil {
+		return ""
+	}
+	if v, ok := data["accepted_ref"].(string); ok {
+		return v
+	}
+	return ""
 }
 
 func (h *HTTPCommandOwner) Status(ctx context.Context, ref string) (string, error) {

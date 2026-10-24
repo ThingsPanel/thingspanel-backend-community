@@ -2,6 +2,8 @@ package apps
 
 import (
 	"project/internal/api"
+	"project/internal/automationguard"
+	"project/pkg/global"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,7 +44,9 @@ func (*TelemetryData) InitTelemetryData(Router *gin.RouterGroup) {
 		telemetrydataapi.GET("set/logs", api.Controllers.TelemetryDataApi.ServeSetLogsDataListByPage)
 
 		// 下发遥测
-		telemetrydataapi.POST("pub", api.Controllers.TelemetryDataApi.TelemetryPutMessage)
+		// 自动化下发的请求带 X-Idempotency-Key，由守卫做代际与幂等校验；
+		// 原有调用方不带该头，行为完全不变。
+		telemetrydataapi.POST("pub", automationguard.Guard(global.DB), api.Controllers.TelemetryDataApi.TelemetryPutMessage)
 
 		//获取模拟设备发送遥测数据的回显数据ServeEchoData
 		telemetrydataapi.GET("simulation", api.Controllers.TelemetryDataApi.ServeEchoData)

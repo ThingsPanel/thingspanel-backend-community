@@ -2,6 +2,8 @@ package apps
 
 import (
 	"project/internal/api"
+	"project/internal/automationguard"
+	"project/pkg/global"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,7 +23,7 @@ func (*AttributeData) InitAttributeData(Router *gin.RouterGroup) {
 		attributedataapi.DELETE(":id", api.Controllers.AttributeDataApi.DeleteData)
 
 		// 下发属性
-		attributedataapi.POST("pub", api.Controllers.AttributeDataApi.AttributePutMessage)
+		attributedataapi.POST("pub", automationguard.Guard(global.DB), api.Controllers.AttributeDataApi.AttributePutMessage)
 
 		// 向设备请求属性
 		attributedataapi.GET("get", api.Controllers.AttributeDataApi.AttributeGetMessage)

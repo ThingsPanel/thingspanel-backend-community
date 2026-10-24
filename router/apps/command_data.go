@@ -2,6 +2,8 @@ package apps
 
 import (
 	"project/internal/api"
+	"project/internal/automationguard"
+	"project/pkg/global"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,7 +17,7 @@ func (*CommandData) InitCommandData(Router *gin.RouterGroup) {
 		commandDataApi.GET("set/logs", api.Controllers.CommandSetLogApi.ServeSetLogsDataListByPage)
 
 		// 下发命令
-		commandDataApi.POST("pub", api.Controllers.CommandSetLogApi.CommandPutMessage)
+		commandDataApi.POST("pub", automationguard.Guard(global.DB), api.Controllers.CommandSetLogApi.CommandPutMessage)
 
 		// 按 message_id 查询单条命令状态
 		commandDataApi.GET("status/:message_id", api.Controllers.CommandSetLogApi.GetCommandStatus)

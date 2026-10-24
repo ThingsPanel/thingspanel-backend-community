@@ -97,6 +97,36 @@ func (s *Store) CancelRunOutbox(ctx context.Context, runID string) error {
 	return err
 }
 
+// CancelRun closes one run because it was superseded, and stops the work that
+// belongs to it. It only touches runs that are still active: a finished run must
+// keep the outcome it actually reached.
+func (s *Store) CancelRun(ctx context.Context, runID, reason string, now time.Time) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `
+        UPDATE auto_runs
+           SET status='cancelled', reason_code='superseded', reason=$2,
+               finished_at=$3, lease_owner=NULL, lease_until=NULL
+         WHERE id=$1 AND status IN ('accepted','running','queued')`, runID, reason, now); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+        UPDATE auto_run_timers SET state='cancelled'
+         WHERE run_id=$1 AND state='pending'`, runID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+        UPDATE auto_outbox SET state='cancelled', updated_at=now()
+         WHERE run_id=$1 AND state IN ('pending','dispatched')`, runID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // UpdateTargetStatus records a per-device result.
 func (s *Store) UpdateTargetStatus(ctx context.Context, runID, deviceID, status, reasonCode, reason string) error {
 	_, err := s.DB.ExecContext(ctx, `

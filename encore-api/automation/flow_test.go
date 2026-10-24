@@ -162,7 +162,30 @@ func newEnv(t *testing.T) *testEnv {
 			DeviceConfigID: "cfg-1", DeviceType: "sensor", Online: 1},
 	}}
 	e.rt = runtime.New(e.st, e.cmds, e.notif, e.dir, func() time.Time { return e.now })
+
+	// The worker sweeps the whole database, which is correct in production and
+	// a trap in tests: a run left waiting by an earlier test would be resumed by
+	// a later test's tick and dispatched through the wrong fake owner. Closing
+	// this test's own unfinished work keeps every assertion local.
+	t.Cleanup(func() { e.closeUnfinishedWork() })
 	return e
+}
+
+// closeUnfinishedWork cancels everything this test left running, so no other
+// test's clock advance can wake it up.
+func (e *testEnv) closeUnfinishedWork() {
+	bg := context.Background()
+	_, _ = e.st.DB.ExecContext(bg, `
+        UPDATE auto_runs SET status='cancelled', reason_code='test_teardown', finished_at=now()
+         WHERE tenant_id=$1 AND status IN ('accepted','running','queued')`, e.tenant)
+	_, _ = e.st.DB.ExecContext(bg, `
+        UPDATE auto_run_timers SET state='cancelled'
+         WHERE state='pending' AND run_id IN (SELECT id FROM auto_runs WHERE tenant_id=$1)`, e.tenant)
+	_, _ = e.st.DB.ExecContext(bg, `
+        UPDATE auto_outbox SET state='cancelled', updated_at=now()
+         WHERE tenant_id=$1 AND state IN ('pending','dispatched')`, e.tenant)
+	_, _ = e.st.DB.ExecContext(bg, `
+        DELETE FROM auto_pending WHERE tenant_id=$1`, e.tenant)
 }
 
 func (e *testEnv) advance(d time.Duration) { e.now = e.now.Add(d) }
