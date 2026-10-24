@@ -504,6 +504,31 @@ func (h *HTTPDirectory) ByDeviceConfig(ctx context.Context, tenantID string, con
 	return out, nil
 }
 
+// LabelTokens splits the community directory's single label field into the
+// individual labels it carries.
+//
+// The field is free text that people fill with several tags separated by commas
+// or spaces. Matching it with strings.Contains makes "floor-1" match "floor-10",
+// which silently targets the wrong devices — so the field is tokenised and
+// compared exactly. Both the HTTP directory and the test fake use this function
+// so they cannot drift apart.
+func LabelTokens(label string) []string {
+	fields := strings.FieldsFunc(label, func(r rune) bool {
+		switch r {
+		case ',', '，', ';', '；', '|', '/', ' ', '\t', '\n':
+			return true
+		}
+		return false
+	})
+	out := make([]string, 0, len(fields))
+	for _, f := range fields {
+		if t := strings.TrimSpace(f); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 func (h *HTTPDirectory) ByLabels(ctx context.Context, tenantID string, labels []string, matchAll bool) ([]Device, error) {
 	all, err := h.list(ctx, tenantID)
 	if err != nil {
@@ -512,12 +537,17 @@ func (h *HTTPDirectory) ByLabels(ctx context.Context, tenantID string, labels []
 	var out []Device
 	labelled := 0
 	for _, d := range all {
-		if strings.TrimSpace(d.Label) != "" {
+		tokens := LabelTokens(d.Label)
+		if len(tokens) > 0 {
 			labelled++
+		}
+		have := map[string]bool{}
+		for _, t := range tokens {
+			have[t] = true
 		}
 		hits := 0
 		for _, l := range labels {
-			if strings.Contains(d.Label, l) {
+			if have[l] {
 				hits++
 			}
 		}

@@ -71,38 +71,54 @@ type fakeDirectory struct {
 	devices map[string]ports.Device
 }
 
-func (d *fakeDirectory) ByIDs(_ context.Context, _ string, ids []string) ([]ports.Device, error) {
+// visible mirrors the real directory, which only ever answers for the tenant
+// that asked. Without this the fake would let a cross-tenant device through and
+// hide exactly the leak the tests are meant to catch.
+func (d *fakeDirectory) visible(dev ports.Device, tenantID string) bool {
+	return dev.TenantID == "" || tenantID == "" || dev.TenantID == tenantID
+}
+
+func (d *fakeDirectory) ByIDs(_ context.Context, tenantID string, ids []string) ([]ports.Device, error) {
 	var out []ports.Device
 	for _, id := range ids {
-		if dev, ok := d.devices[id]; ok {
+		if dev, ok := d.devices[id]; ok && d.visible(dev, tenantID) {
 			out = append(out, dev)
 		}
 	}
 	return out, nil
 }
 
-func (d *fakeDirectory) ByDeviceConfig(_ context.Context, _ string, cfgIDs []string) ([]ports.Device, error) {
+func (d *fakeDirectory) ByDeviceConfig(_ context.Context, tenantID string, cfgIDs []string) ([]ports.Device, error) {
 	want := map[string]bool{}
 	for _, c := range cfgIDs {
 		want[c] = true
 	}
 	var out []ports.Device
 	for _, dev := range d.devices {
-		if want[dev.DeviceConfigID] {
+		if want[dev.DeviceConfigID] && d.visible(dev, tenantID) {
 			out = append(out, dev)
 		}
 	}
 	return out, nil
 }
 
-func (d *fakeDirectory) ByLabels(_ context.Context, _ string, labels []string, matchAll bool) ([]ports.Device, error) {
+func (d *fakeDirectory) ByLabels(_ context.Context, tenantID string, labels []string, matchAll bool) ([]ports.Device, error) {
 	var out []ports.Device
 	for _, dev := range d.devices {
+		// Same tokeniser as the HTTP directory, so a test cannot pass here and
+		// fail against the real backend.
+		have := map[string]bool{}
+		for _, tok := range ports.LabelTokens(dev.Label) {
+			have[tok] = true
+		}
 		hits := 0
 		for _, l := range labels {
-			if dev.Label == l {
+			if have[l] {
 				hits++
 			}
+		}
+		if !d.visible(dev, tenantID) {
+			continue
 		}
 		if (matchAll && hits == len(labels)) || (!matchAll && hits > 0) {
 			out = append(out, dev)
@@ -111,10 +127,10 @@ func (d *fakeDirectory) ByLabels(_ context.Context, _ string, labels []string, m
 	return out, nil
 }
 
-func (d *fakeDirectory) ByType(_ context.Context, _, deviceType string) ([]ports.Device, error) {
+func (d *fakeDirectory) ByType(_ context.Context, tenantID, deviceType string) ([]ports.Device, error) {
 	var out []ports.Device
 	for _, dev := range d.devices {
-		if dev.DeviceType == deviceType {
+		if d.visible(dev, tenantID) && dev.DeviceType == deviceType {
 			out = append(out, dev)
 		}
 	}

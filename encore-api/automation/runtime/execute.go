@@ -353,6 +353,54 @@ func (r *Runtime) resolveTargets(ctx context.Context, rule *store.Rule, triggerD
 	return out, nil
 }
 
+// targetProblem explains why a frozen target can no longer be acted on.
+type targetProblem struct {
+	code string
+	text string
+}
+
+// recheckTargets verifies, in one directory call, that every selected device is
+// still visible to this tenant and still has the capability the rule asked for.
+//
+// It is a single batch call on purpose: one request per target would turn a
+// 200-device rule into 200 directory reads every time the step runs.
+func (r *Runtime) recheckTargets(ctx context.Context, run *store.Run, rule *store.Rule, deviceIDs []string) map[string]targetProblem {
+	out := map[string]targetProblem{}
+	if r.dir == nil {
+		// No directory configured: the frozen snapshot is all we have. Saying
+		// so is better than inventing a verification that did not happen.
+		return out
+	}
+	found, err := r.dir.ByIDs(ctx, run.TenantID, deviceIDs)
+	if err != nil {
+		// The directory is unavailable, so nothing can be verified. Refusing the
+		// whole step keeps us from acting on devices we cannot see.
+		for _, id := range deviceIDs {
+			out[id] = targetProblem{code: "directory_unavailable", text: "执行前复核失败：设备目录不可用"}
+		}
+		return out
+	}
+	byID := map[string]ports.Device{}
+	for _, d := range found {
+		byID[d.ID] = d
+	}
+	capability := ""
+	if rule != nil {
+		capability = rule.Definition.Targets.RequiredCapability
+	}
+	for _, id := range deviceIDs {
+		d, ok := byID[id]
+		if !ok {
+			out[id] = targetProblem{code: "device_unavailable", text: "执行前复核：设备不存在或不在本租户"}
+			continue
+		}
+		if capability != "" && !hasCapability(d, capability) {
+			out[id] = targetProblem{code: "capability_missing", text: "执行前复核：设备不具备所需能力 " + capability}
+		}
+	}
+	return out
+}
+
 func (r *Runtime) deviceByID(ctx context.Context, tenantID, deviceID string) (ports.Device, bool) {
 	if r.dir == nil {
 		return ports.Device{}, false
@@ -493,6 +541,7 @@ func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int)
 	}
 	failed := false
 	anyFailed := false
+	anyPartial := false
 
 	for pc >= 0 && pc < len(prog) {
 		if run.Deadline != nil && r.Now().After(*run.Deadline) {
@@ -567,6 +616,14 @@ func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int)
 				_ = r.store.FinishRun(ctx, run.ID, StatusFailed, "step_error", err.Error())
 				return true, err
 			}
+			if outcome == stepPartial {
+				// The step did its work for the targets it could reach. The run
+				// continues, and ends as "partial" so a skipped device is never
+				// reported as a full success.
+				anyPartial = true
+				pc++
+				continue
+			}
 			if outcome == stepSuperseded {
 				// The run was cancelled while this step was being dispatched.
 				// Returning without FinishRun keeps the reason "superseded"
@@ -590,6 +647,9 @@ func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int)
 		_ = r.store.FinishRun(ctx, run.ID, StatusFailed, "step_failed", "步骤执行失败")
 	case anyFailed:
 		_ = r.store.FinishRun(ctx, run.ID, StatusPartial, "step_partial", "部分步骤失败")
+	case anyPartial:
+		_ = r.store.FinishRun(ctx, run.ID, StatusPartial, "partial_targets",
+			"部分目标未纳入本次执行，详见运行详情")
 	default:
 		_ = r.store.FinishRun(ctx, run.ID, StatusSucceeded, "", "")
 	}
@@ -609,6 +669,11 @@ const (
 	// trigger in the same scope already won. The run is already cancelled by the
 	// time this is returned, so the loop must stop without finishing it again.
 	stepSuperseded stepOutcome = "superseded"
+	// stepPartial means the step ran, but not for every target it was admitted
+	// with. It is neither success (a device was skipped) nor failure (the rest
+	// of the batch worked), which is exactly what the run status "partial" is
+	// for.
+	stepPartial stepOutcome = "partial_targets"
 )
 
 // stepFailureMessage turns an outcome into a sentence a customer can act on.
@@ -653,7 +718,7 @@ func (r *Runtime) performStep(ctx context.Context, run *store.Run, rule *store.R
 
 	switch step.Kind {
 	case domain.StepAction:
-		return r.performAction(ctx, run, stepID, step, pc)
+		return r.performAction(ctx, run, rule, stepID, step, pc)
 	case domain.StepNotify:
 		return r.performNotify(ctx, run, stepID, step, pc)
 	case domain.StepAlarm:
@@ -675,7 +740,7 @@ func (r *Runtime) performStep(ctx context.Context, run *store.Run, rule *store.R
 	}
 }
 
-func (r *Runtime) performAction(ctx context.Context, run *store.Run, stepID string, step domain.Step, pc int) (stepOutcome, error) {
+func (r *Runtime) performAction(ctx context.Context, run *store.Run, rule *store.Rule, stepID string, step domain.Step, pc int) (stepOutcome, error) {
 	targets, err := r.store.ListTargets(ctx, run.ID)
 	if err != nil {
 		return stepFailed, err
@@ -690,12 +755,54 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, stepID stri
 		}
 	}
 	if len(deviceIDs) == 0 {
+		// "The rule has no targets" and "every target was excluded" are
+		// different facts. The first is a skipped step; the second means the
+		// rule was asked to act and could not, which must not read as success.
+		if len(targets) > 0 {
+			detail, _ := json.Marshal(map[string]any{
+				"reason": "all_targets_excluded", "targets": len(targets),
+			})
+			if err := r.store.UpdateStepStatus(ctx, stepID, "failed", string(detail)); err != nil {
+				return stepFailed, err
+			}
+			return stepFailed, nil
+		}
 		_ = r.store.UpdateStepStatus(ctx, stepID, "skipped", `{"reason":"empty_targets"}`)
 		return stepOK, nil
 	}
 
+	// Ownership and capability are re-checked at execution time, not only when
+	// the targets were frozen: a device may have been deleted, moved to another
+	// tenant, or lost the capability while the run waited in a queue.
+	unavailable := r.recheckTargets(ctx, run, rule, deviceIDs)
+	if len(unavailable) == len(deviceIDs) {
+		detail, _ := json.Marshal(map[string]any{
+			"reason": "all_targets_unavailable", "targets": len(deviceIDs),
+		})
+		if err := r.store.UpdateStepStatus(ctx, stepID, "failed", string(detail)); err != nil {
+			return stepFailed, err
+		}
+		return stepFailed, nil
+	}
+
 	anyFail, anyUnknown, anySuperseded := false, false, false
+	// Targets already excluded when the snapshot was frozen (a device that no
+	// longer exists, a capability the device does not have) are counted so the
+	// step can end as "partial" instead of claiming the whole batch worked.
+	excludedAtAdmission := 0
+	for _, t := range targets {
+		if !t.Selected && t.Status == "excluded" {
+			excludedAtAdmission++
+		}
+	}
+	if len(unavailable) > 0 {
+		anyFail = true
+	}
 	for _, deviceID := range deviceIDs {
+		if reason, gone := unavailable[deviceID]; gone {
+			_ = r.store.UpdateTargetStatus(ctx, run.ID, deviceID, "excluded", reason.code, reason.text)
+			continue
+		}
 		payload, _ := json.Marshal(map[string]any{
 			"kind": step.Action, "device_id": deviceID,
 			"identifier": step.Identifier, "value": step.Value,
@@ -746,9 +853,18 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, stepID stri
 		}
 		return stepFailed, nil
 	default:
-		if err := r.store.UpdateStepStatus(ctx, stepID, "accepted",
-			`{"reason":"accepted_by_command_owner"}`); err != nil {
+		detail, _ := json.Marshal(map[string]any{
+			"reason": "accepted_by_command_owner",
+			"targets_accepted": len(deviceIDs) - len(unavailable),
+			"targets_excluded": excludedAtAdmission,
+		})
+		if err := r.store.UpdateStepStatus(ctx, stepID, "accepted", string(detail)); err != nil {
 			return stepFailed, err
+		}
+		if excludedAtAdmission > 0 {
+			// Every reachable device took the action, but the batch the rule was
+			// admitted with was larger. That is "partial", not "succeeded".
+			return stepPartial, nil
 		}
 		return stepOK, nil
 	}
