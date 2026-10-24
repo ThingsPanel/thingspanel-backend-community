@@ -210,9 +210,30 @@ func validateCondition(c Condition, field string, add func(string, string, strin
 	}
 }
 
+// maxBranchDepth bounds how deeply if/else may nest. A deeper program cannot be
+// read by a customer in the form they built it, and it makes the compiled
+// program and the run record harder to follow than the rule is worth.
+const maxBranchDepth = 3
+
 func validateSteps(steps []Step, field string, add func(string, string, string)) {
+	validateStepsAt(steps, field, 0, add)
+}
+
+func validateStepsAt(steps []Step, field string, depth int, add func(string, string, string)) {
 	for i, s := range steps {
 		f := fmt.Sprintf("%s[%d]", field, i)
+		if s.Guard != nil {
+			if len(s.Guard.Conditions) == 0 {
+				add(f+".guard", "empty_guard", "前置检查必须给出条件")
+			}
+			for j, c := range s.Guard.Conditions {
+				validateCondition(c, fmt.Sprintf("%s.guard.conditions[%d]", f, j), add)
+			}
+			if s.Kind == StepBranch || s.Kind == StepWait {
+				add(f+".guard", "guard_not_allowed",
+					"前置检查只能挂在会产生实际动作的步骤上")
+			}
+		}
 		switch s.Kind {
 		case StepAction:
 			switch s.Action {
@@ -248,8 +269,12 @@ func validateSteps(steps []Step, field string, add func(string, string, string))
 			if len(s.Then) == 0 && len(s.Else) == 0 {
 				add(f, "empty_branch", "分支至少需要一个 then 或 else 步骤")
 			}
-			validateSteps(s.Then, f+".then", add)
-			validateSteps(s.Else, f+".else", add)
+			if depth+1 > maxBranchDepth {
+				add(f, "nesting_too_deep",
+					fmt.Sprintf("分支嵌套超过 %d 层", maxBranchDepth))
+			}
+			validateStepsAt(s.Then, f+".then", depth+1, add)
+			validateStepsAt(s.Else, f+".else", depth+1, add)
 		case StepActivateScene:
 			if strings.TrimSpace(s.Value) == "" {
 				add(f+".value", "missing_scene", "必须指定要激活的场景")

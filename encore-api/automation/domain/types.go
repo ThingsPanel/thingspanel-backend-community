@@ -221,6 +221,12 @@ type Step struct {
 	Then                 []Step   `json:"then,omitempty"` // finite if/else branch
 	Else                 []Step   `json:"else,omitempty"`
 	Condition            *Group   `json:"condition,omitempty"`
+	// Guard is re-evaluated immediately before this step runs. It exists because
+	// "check something first" is not the same decision as "if X then Y else Z":
+	// a branch picks a path, a guard decides whether this particular action may
+	// happen at all. Without it, customers express interlocks as a branch plus
+	// "continue on failure", which is exactly the switch that hides a refusal.
+	Guard *Group `json:"guard,omitempty"`
 }
 
 type StepKind string

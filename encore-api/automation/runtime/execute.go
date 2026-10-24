@@ -624,6 +624,13 @@ func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int)
 				pc++
 				continue
 			}
+			if outcome == stepGuarded {
+				// A guard is not a soft failure: continue_on_failure cannot
+				// wave it through, otherwise it is not an interlock.
+				_ = r.store.FinishRun(ctx, run.ID, StatusFailed, "guard_blocked",
+					stepFailureMessage(stepGuarded, step))
+				return true, nil
+			}
 			if outcome == stepSuperseded {
 				// The run was cancelled while this step was being dispatched.
 				// Returning without FinishRun keeps the reason "superseded"
@@ -674,6 +681,11 @@ const (
 	// of the batch worked), which is exactly what the run status "partial" is
 	// for.
 	stepPartial stepOutcome = "partial_targets"
+	// stepGuarded means the action's own precondition said "not now". It is a
+	// deliberate stop, not a failure of the device, and it is never continued
+	// past even when the step says continue_on_failure: a guard that could be
+	// ignored would not be a guard.
+	stepGuarded stepOutcome = "guard_blocked"
 )
 
 // stepFailureMessage turns an outcome into a sentence a customer can act on.
@@ -686,6 +698,8 @@ func stepFailureMessage(outcome stepOutcome, step domain.Step) string {
 		return "步骤结果未知（无法确认对端是否已受理），未按成功处理"
 	case stepRejected:
 		return "步骤被对端拒绝"
+	case stepGuarded:
+		return "前置检查未通过，动作未执行"
 	default:
 		return "步骤执行失败"
 	}
@@ -715,6 +729,26 @@ func (r *Runtime) stepKey(run *store.Run, pc int) string {
 // performStep writes the intent and dispatches it.
 func (r *Runtime) performStep(ctx context.Context, run *store.Run, rule *store.Rule, stepID string,
 	step domain.Step, pc, attempt int) (stepOutcome, error) {
+
+	// The guard runs immediately before the step, with the same evaluator the
+	// trigger and the branch use, so "the data says X" means the same thing
+	// everywhere. unknown and error do not become false and do not become true:
+	// an interlock whose input is missing must stop the action, not wave it
+	// through.
+	if step.Guard != nil {
+		verdict := domain.Evaluate(domain.Trigger{Groups: []domain.Group{*step.Guard}},
+			r.evalContext(ctx, &rule.Definition, run.DeviceID, nil, r.Now()))
+		if verdict.Verdict != domain.VerdictTrue {
+			detail, _ := json.Marshal(map[string]any{
+				"reason": "guard_blocked", "verdict": verdict.Verdict,
+				"evidence": verdict.Reasons, "attempt": attempt,
+			})
+			if err := r.store.UpdateStepStatus(ctx, stepID, "skipped", string(detail)); err != nil {
+				return stepFailed, err
+			}
+			return stepGuarded, nil
+		}
+	}
 
 	switch step.Kind {
 	case domain.StepAction:
@@ -854,7 +888,7 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, rule *store
 		return stepFailed, nil
 	default:
 		detail, _ := json.Marshal(map[string]any{
-			"reason": "accepted_by_command_owner",
+			"reason":           "accepted_by_command_owner",
 			"targets_accepted": len(deviceIDs) - len(unavailable),
 			"targets_excluded": excludedAtAdmission,
 		})
