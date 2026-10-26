@@ -1,0 +1,327 @@
+[
+  {
+    "id": "tab-a29",
+    "type": "tab",
+    "label": "ThingsPanel 自动化 · 外部执行器最小样例",
+    "disabled": false,
+    "info": "先跑 ①，再跑 ② 或 ③。环境变量：TP_BASE / TP_TOKEN / TP_DEVICE / TP_RULE_ID / TP_RULE_REVISION / TP_POLICY_ID / TP_POLICY_REVISION。"
+  },
+  {
+    "id": "i1",
+    "type": "inject",
+    "name": "① 登记执行者",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 80,
+    "wires": [
+      [
+        "f1"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "f1",
+    "type": "function",
+    "name": "构造登记体",
+    "func": "\nconst base = (env.get(\"TP_BASE\") || \"http://127.0.0.1:14000\").replace(/\\/+$/, \"\");\nconst token = env.get(\"TP_TOKEN\");\nif (!token) { node.warn(\"TP_TOKEN 未设置：请在 settings.js 的 functionExternalModules/环境变量里给出\"); return null; }\nconst device = env.get(\"TP_DEVICE\") || \"demo-device-1\";\nconst auth = { authorization: \"Bearer \" + token, \"content-type\": \"application/json\" };\n\n// 登记是唯一一次\"声明权限\"的动作：scope 是白名单，空表示什么都不允许，\n// 所以 device 必须显式写进去。engine 只是记录，不改变语义。\nmsg.url = base + \"/v1/executors\";\nmsg.headers = auth;\nmsg.payload = {\n    name: \"node-red-\" + device,\n    contract: {\n        engine: \"node_red\",\n        input_scope: { device_ids: [device] },\n        outputs: [\"action_intent\", \"alarm_verdict\"],\n        target_scope: { device_ids: [device] },\n        max_targets: 5,\n        max_rate_per_min: 60\n    }\n};\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 80,
+    "wires": [
+      [
+        "h1"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "h1",
+    "type": "http request",
+    "name": "POST /v1/executors",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 620,
+    "y": 80,
+    "wires": [
+      [
+        "f2"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "f2",
+    "type": "function",
+    "name": "记住 id / epoch / hash",
+    "func": "\n// 合同一旦登记就不可改：改范围要重新登记、代际 +1，旧部署的消息会被拒。\n// 所以这里把 epoch 和 contract_hash 一起记住，后面每条消息都要带上。\nif (!msg.payload || !msg.payload.id) {\n    node.warn(\"登记失败：\" + JSON.stringify(msg.payload));\n    msg.payload = { ok: false, answer: msg.payload };\n    return msg;\n}\nflow.set(\"executor\", msg.payload);\nmsg.payload = {\n    ok: true,\n    id: msg.payload.id,\n    epoch: msg.payload.epoch,\n    contract_hash: msg.payload.contract_hash,\n    summary: msg.payload.summary,\n    healthy: msg.payload.healthy\n};\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 880,
+    "y": 80,
+    "wires": [
+      [
+        "d1"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "d1",
+    "type": "debug",
+    "name": "登记结果",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1120,
+    "y": 80,
+    "wires": [],
+    "z": "tab-a29"
+  },
+  {
+    "id": "i2",
+    "type": "inject",
+    "name": "② 发一条 intent",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 220,
+    "wires": [
+      [
+        "f3"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "f3",
+    "type": "function",
+    "name": "构造 intent",
+    "func": "\nconst base = (env.get(\"TP_BASE\") || \"http://127.0.0.1:14000\").replace(/\\/+$/, \"\");\nconst token = env.get(\"TP_TOKEN\");\nif (!token) { node.warn(\"TP_TOKEN 未设置：请在 settings.js 的 functionExternalModules/环境变量里给出\"); return null; }\nconst device = env.get(\"TP_DEVICE\") || \"demo-device-1\";\nconst auth = { authorization: \"Bearer \" + token, \"content-type\": \"application/json\" };\n\nconst reg = flow.get(\"executor\");\nif (!reg) { node.warn(\"先跑 ① 登记\"); return null; }\nconst seq = (flow.get(\"seq\") || 0) + 1;\nflow.set(\"seq\", seq);\nconst now = Date.now();\n\nmsg.url = base + \"/v1/executors/\" + reg.id + \"/intents\";\nmsg.headers = auth;\nmsg.payload = {\n    epoch: reg.epoch,\n    seq: seq,\n    contract_hash: reg.contract_hash,\n    issued_at: new Date(now).toISOString(),\n    expires_at: new Date(now + 60000).toISOString(),\n    idempotency_key: \"nr-intent-\" + reg.id + \"-\" + seq,\n    // intent 只点名\"执行哪条已发布规则的哪一版\"，不带步骤：\n    // 让外部引擎自带步骤就会出现第二条执行路径，两条路径同时拥有同一台设备。\n    rule_id: env.get(\"TP_RULE_ID\"),\n    revision: Number(env.get(\"TP_RULE_REVISION\") || 1),\n    device_id: device\n};\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 220,
+    "wires": [
+      [
+        "h2"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "h2",
+    "type": "http request",
+    "name": "POST /v1/executors/:id/intents",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 620,
+    "y": 220,
+    "wires": [
+      [
+        "f4"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "f4",
+    "type": "function",
+    "name": "读懂回答",
+    "func": "\nconst a = msg.payload || {};\nif (a.accepted === true) {\n    msg.payload = a.replayed\n        ? { 结果: \"已受理（重投，未再次执行）\", run_id: a.run_id, status: a.status, outcome: a.outcome }\n        : { 结果: \"已受理\", run_id: a.run_id, status: a.status, outcome: a.outcome };\n    return msg;\n}\nconst fields = (a.issues || []).map(function (i) { return i.field + \": \" + i.message; }).join(\"\\n\");\nif (a.reason_code === \"replayed_sequence\") {\n    msg.payload = { 结果: \"序号没有前进：这是重放或乱序\", 该做什么: \"不要重发；换新的 idempotency_key 并把 seq +1\", 详情: fields };\n} else {\n    msg.payload = { 结果: \"被拒绝\", reason_code: a.reason_code, 该做什么: \"按 fields 改请求再发，不要原样重试\", 详情: fields };\n}\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 900,
+    "y": 220,
+    "wires": [
+      [
+        "d2"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "d2",
+    "type": "debug",
+    "name": "intent 结果",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1120,
+    "y": 220,
+    "wires": [],
+    "z": "tab-a29"
+  },
+  {
+    "id": "i3",
+    "type": "inject",
+    "name": "③ 发一条判定",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 360,
+    "wires": [
+      [
+        "f5"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "f5",
+    "type": "function",
+    "name": "构造 verdict",
+    "func": "\nconst base = (env.get(\"TP_BASE\") || \"http://127.0.0.1:14000\").replace(/\\/+$/, \"\");\nconst token = env.get(\"TP_TOKEN\");\nif (!token) { node.warn(\"TP_TOKEN 未设置：请在 settings.js 的 functionExternalModules/环境变量里给出\"); return null; }\nconst device = env.get(\"TP_DEVICE\") || \"demo-device-1\";\nconst auth = { authorization: \"Bearer \" + token, \"content-type\": \"application/json\" };\n\nconst reg = flow.get(\"executor\");\nif (!reg) { node.warn(\"先跑 ① 登记\"); return null; }\nconst seq = (flow.get(\"seq\") || 0) + 1;\nflow.set(\"seq\", seq);\nconst now = Date.now();\n\nmsg.url = base + \"/v1/executors/\" + reg.id + \"/verdicts\";\nmsg.headers = auth;\nmsg.payload = {\n    epoch: reg.epoch,\n    seq: seq,\n    contract_hash: reg.contract_hash,\n    issued_at: new Date(now).toISOString(),\n    expires_at: new Date(now + 60000).toISOString(),\n    idempotency_key: \"nr-verdict-\" + reg.id + \"-\" + seq,\n    policy_id: env.get(\"TP_POLICY_ID\"),\n    policy_revision: Number(env.get(\"TP_POLICY_REVISION\") || 1),\n    // raw = \"现在为真\"，持续时长由平台按发布值自己算。\n    // 想让引擎自己算就发 qualified，并且必须带 since，平台会重算而不是相信标签。\n    mode: \"raw\",\n    observed: true,\n    subject_id: device,\n    action_kind: \"qualified\"\n};\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 360,
+    "wires": [
+      [
+        "h3"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "h3",
+    "type": "http request",
+    "name": "POST /v1/executors/:id/verdicts",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 620,
+    "y": 360,
+    "wires": [
+      [
+        "f6"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "f6",
+    "type": "function",
+    "name": "读懂回答",
+    "func": "\nconst a = msg.payload || {};\nif (a.accepted === true) {\n    msg.payload = a.replayed\n        ? { 结果: \"已受理（重投，未再次执行）\", run_id: a.run_id, status: a.status, outcome: a.outcome }\n        : { 结果: \"已受理\", run_id: a.run_id, status: a.status, outcome: a.outcome };\n    return msg;\n}\nconst fields = (a.issues || []).map(function (i) { return i.field + \": \" + i.message; }).join(\"\\n\");\nif (a.reason_code === \"replayed_sequence\") {\n    msg.payload = { 结果: \"序号没有前进：这是重放或乱序\", 该做什么: \"不要重发；换新的 idempotency_key 并把 seq +1\", 详情: fields };\n} else {\n    msg.payload = { 结果: \"被拒绝\", reason_code: a.reason_code, 该做什么: \"按 fields 改请求再发，不要原样重试\", 详情: fields };\n}\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 900,
+    "y": 360,
+    "wires": [
+      [
+        "d3"
+      ]
+    ],
+    "z": "tab-a29"
+  },
+  {
+    "id": "d3",
+    "type": "debug",
+    "name": "verdict 结果",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1120,
+    "y": 360,
+    "wires": [],
+    "z": "tab-a29"
+  }
+]
