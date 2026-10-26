@@ -45,8 +45,19 @@ type Rule struct {
 	DefinitionHash string
 	Version        int
 	LegacyID       string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// ResourceKey is the bundle identity of this rule (A21). It is a business
+	// key, not a row id, so importing the same package into another tenant — or
+	// into the same tenant twice — finds the rule it already created instead of
+	// making a second one.
+	ResourceKey string
+	// BundleHash is the hash of the package-form definition that produced this
+	// rule (A21). It is a different value from DefinitionHash on purpose: the
+	// stored definition has local ids and resolved notification targets, while
+	// the package has resource keys and slots. Comparing the two would make
+	// every import look like a change.
+	BundleHash string
+	CreatedAt  time.Time
+	UpdatedAt   time.Time
 
 	// The three fields below are not columns. They are filled in when the rule
 	// is materialized for one device (A19), so that the run and the pending
@@ -86,9 +97,11 @@ func (s *Store) createRuleTx(ctx context.Context, tx *sql.Tx, r *Rule) error {
 	}
 	if _, err := tx.ExecContext(ctx, `
         INSERT INTO auto_rules (id, tenant_id, name, kind, enabled, revision, definition,
-                                definition_hash, version, legacy_id, created_at, updated_at)
-        VALUES ($1,$2,$3,$4,$5,1,$6,$7,1,NULLIF($8,''),now(),now())`,
-		r.ID, r.TenantID, r.Name, string(r.Kind), r.Enabled, def, r.DefinitionHash, r.LegacyID); err != nil {
+                                definition_hash, version, legacy_id, resource_key, bundle_hash,
+                                created_at, updated_at)
+        VALUES ($1,$2,$3,$4,$5,1,$6,$7,1,NULLIF($8,''),NULLIF($9,''),NULLIF($10,''),now(),now())`,
+		r.ID, r.TenantID, r.Name, string(r.Kind), r.Enabled, def, r.DefinitionHash,
+		r.LegacyID, r.ResourceKey, r.BundleHash); err != nil {
 		return fmt.Errorf("insert rule: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -123,9 +136,10 @@ func (s *Store) updateRuleTx(ctx context.Context, tx *sql.Tx, r *Rule, expectedV
 	res, err := tx.ExecContext(ctx, `
         UPDATE auto_rules
            SET name=$3, definition=$4, definition_hash=$5, revision=$6,
-               version=version+1, updated_at=now()
+               version=version+1, updated_at=now(),
+               bundle_hash=COALESCE(NULLIF($8,''), bundle_hash)
          WHERE id=$1 AND tenant_id=$2 AND version=$7 AND deleted_at IS NULL`,
-		r.ID, r.TenantID, r.Name, def, r.DefinitionHash, nextRev, expectedVersion)
+		r.ID, r.TenantID, r.Name, def, r.DefinitionHash, nextRev, expectedVersion, r.BundleHash)
 	if err != nil {
 		return err
 	}
@@ -173,7 +187,8 @@ func (s *Store) DeleteRule(ctx context.Context, tenantID, ruleID string) error {
 }
 
 const ruleColumns = `id, tenant_id, name, kind, enabled, revision, definition, definition_hash,
-                     version, coalesce(legacy_id,''), created_at, updated_at`
+                     version, coalesce(legacy_id,''), coalesce(resource_key,''),
+                     coalesce(bundle_hash,''), created_at, updated_at`
 
 func scanRule(sc interface{ Scan(...any) error }) (*Rule, error) {
 	var (
@@ -182,7 +197,8 @@ func scanRule(sc interface{ Scan(...any) error }) (*Rule, error) {
 		raw  []byte
 	)
 	if err := sc.Scan(&r.ID, &r.TenantID, &r.Name, &kind, &r.Enabled, &r.Revision,
-		&raw, &r.DefinitionHash, &r.Version, &r.LegacyID, &r.CreatedAt, &r.UpdatedAt); err != nil {
+		&raw, &r.DefinitionHash, &r.Version, &r.LegacyID, &r.ResourceKey, &r.BundleHash,
+		&r.CreatedAt, &r.UpdatedAt); err != nil {
 		return nil, err
 	}
 	r.Kind = domain.RuleKind(kind)
@@ -209,7 +225,8 @@ func (s *Store) GetRule(ctx context.Context, tenantID, ruleID string) (*Rule, er
 func (s *Store) GetRuleRevision(ctx context.Context, ruleID string, revision int) (*Rule, error) {
 	row := s.DB.QueryRowContext(ctx, `
         SELECT r.id, r.tenant_id, r.name, r.kind, r.enabled, rev.revision, rev.definition,
-               rev.definition_hash, r.version, coalesce(r.legacy_id,''), r.created_at, r.updated_at
+               rev.definition_hash, r.version, coalesce(r.legacy_id,''),
+               coalesce(r.resource_key,''), coalesce(r.bundle_hash,''), r.created_at, r.updated_at
           FROM auto_rules r
           JOIN auto_rule_revisions rev ON rev.rule_id = r.id AND rev.revision = $2
          WHERE r.id = $1`, ruleID, revision)
