@@ -1,6 +1,6 @@
 # 自动化 / 场景 / 告警重写 — 第一轮执行记录
 
-更新时间：2026-10-24
+更新时间：2026-10-26
 执行人：接手开发（WorkBuddy）
 依据：《开发交接提示语 2026-10-23》《开发任务书 v1.1》A01–A34
 
@@ -11,9 +11,11 @@
 | 项 | 值 |
 | --- | --- |
 | 工作树 | `/Users/junhong/Downloads/code/tp-automation-rewrite`（独立 `git worktree`，不动同事的 43 个未提交修改） |
-| 分支 | `feat/automation-rewrite-20261023` |
+| 前端工作树 | `/Users/junhong/Downloads/code/tp-automation-frontend`（基于 `c6968c77`，`node_modules` 软链到主仓） |
+| 分支 | `feat/automation-rewrite-20261023`（前后端同名） |
 | 基线提交 | `486160092b1579965573814c8dd11a2a689c9246`（研究基线） |
-| 本轮提交 | `a0b4bfd2`（A16）→ `e60ccb77`（A13）→ `9049561e`（A15）→ `63e030ec`（A17）→ `e2b76c95`（A14）→ `2ecf77cf`（A12）→ `fa5c599c`（A11）→ `09bc1a7e`（A10）→ `805b1d5e`（A02 阻塞修复）→ `256f83cb`（A09）→ `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` |
+| 本轮提交 | `a0b4bfd2`（A16）→ `e60ccb77`（A13）→ `9049561e`（A15）→ `63e030ec`（A17）→ `e2b76c95`（A14）→ `2ecf77cf`（A12）→ `fa5c599c`（A11）→ `09bc1a7e`（A10）→ `805b1d5e`（A02 阻塞修复）→ `256f83cb`（A09）→ `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` → `751798da`（A19）→ `64673598`（A20）→ `881d6d7a`（A21）→ `fe845508`（A02 剩余）→ `f8867fd0`（A25）→ `2be979a7`（A26）→ `7c389ac0`（A27）→ `28dc99e8`（A28） |
+| 前端提交 | `bdaf3b85`（A22/A23/A24） |
 | 主仓 HEAD | `0e3ba8281f09c815dabcd03c634d17af845e950b`（`main`，比基线旧 75 个提交，未改动） |
 
 基线关系核对结论（`git rev-list --left-right --count`）：
@@ -1066,18 +1068,30 @@ encore test ./...                # domain ok / ingress ok / automation ok
 56. **MCP 的 `update_rule` 用 POST 打一个声明为 PUT 的端点**：真服务回 404 "endpoint not found"，读起来像"这条规则不存在" —— 最误导人的一种错。假后端什么方法都收，所以单测全绿。补 `putJSON`，并加一张"工具 → 方法+路径"对照表，把 23 个工具全部钉死。
 57. **幂等回放会把已删除的规则当成答案返回**："建了 → 删了 → 再建同样的"参数一样、键一样，缓存里躺着一条已经不存在的规则。接口报成功，列表却是空的。回放前先确认规则还在，不在就真的去做。
 
+58. **表单不编辑的字段在保存时被悄悄丢掉**：页面只画了条件、步骤、目标，而 `params`/`recovery`/`queue`/`parallel`/`budget`/`alarm` 这些槽位不在表单里。第一版 `formToDefinition` 直接重建定义，于是"打开一条带恢复条件和排队策略的规则、改个名字、保存"会把它改弱——**保存成功、校验通过、行为变了**。现在 `mergeDefinition(original, edited)` 把这些槽位从原定义带回，并有往返用例钉住。
+59. **时长往返会改写用户写的字**：`5m0s` 打开再保存变成 `300s`。两者等价，但客户会以为规则被人动过（diff 上就是一条变更）。`normalizeDuration` 现在优先保留已经是合法 duration 的原文，只有人话（`5分钟`）才转换。
+60. **`device_ref: "target"` 被写回**：这是缺省值，写回去等于给每台设备加了一条与原来不同的定义，`definition_hash` 变了、修订历史多一条，而语义完全相同。改为非 `target` 才写。
+61. **前端请求封装只认 `{code, data}` 信封**：`@/service/request` 是给社区后端写的，自动化引擎返回裸 JSON，于是所有字段都读成 `undefined`——页面不报错、只是空。另写 `automation-rules.ts`（axios 实例 + `AutomationApiError` 保留 `code`/`fields`/`outcomeUnknown`），不再复用那个封装。
+62. **`updateRule` 用 POST 打 PUT 端点**：与 A27 的 MCP 同一个错（第 56 条），前端也踩了一次，说明"方法+路径"对照表应该由生成器产出而不是各自手写。现在 `updateRule` 用 `put`。
+63. **页面注册了不等于客户点得到**：菜单来自数据库 `sys_ui_elements`（`GET /ui_elements/menu` → `adapterOfFetchUserRouterList` → `resolveViewNameByPath` → `views` glob），路由表里加了两个页面，客户侧仍然是空白。补 `sql/29.sql` 幂等插入两条（列表可见、编辑页 `param3='1'` 隐藏但保留路由，与既有 `*-edit` 页一致）。
+64. **校验脚本放进了被忽略的目录**：`scripts/` 在 `.gitignore:47` 里，27 项断言写完等于没提交。移到 `src/__tests__/automation/`，并加 `npm run check:automation-ui`。
+65. **运行被规则模式跳过，接口却回 `accepted`**：外部 intent 拿到 `accepted:true` 和一个 run_id，但那是一条 `rejected` 运行（`target_resolution_failed`），一个命令都没发。调用方会据此认为"设备已经动作了"。这是被 `cmds.count()==1` 这条断言逼出来的——只看状态码的用例永远发现不了。现在用例显式区分"被准入"与"被执行"，并断言命令只下发一次。
+66. **`rejected` 同时表示"消息被拒"和"运行被跳过"**：被跳过的运行重投时，幂等查询把它当成"可重试"，于是又撞上 `replayed_sequence`——调用方既不知道自己该改什么，也不知道该不该重发。现在准入阶段拒绝记 `denied`（可重发），被跳过/失败按真实状态记，重投语义才和序号语义一致。
+67. **非告警策略被包成 500**：外部引擎把场景 id 当 `policy_id` 发过来，`PolicyRevision` 返回普通 error，端点包成内部错误——运维要去看日志，而真实答案是"你指错了规则"。改为 `ErrNotFound`，调用方拿到 `policy_missing`。
+68. **新登记的执行者在列表里显示不健康**：`last_seen_at` 插入时留空，`Healthy` 是"5 分钟内见过"，于是刚登记完就是红的。登记本身就是活着的证据，插入时即落 `last_seen_at`。
+
 46. **旧场景按表名批量改名**：状态写入和动作流程被当成同一种东西，动作顺序丢失、旧告警动作要么被丢要么另建一份策略。现在两种形态显式分类、告警动作解析到 `legacy_id` 对应策略（查不到即迁移失败）、环与超深链在预演期带路径拒绝。
 
 ---
 
 ## 22. 下一项可以开始的任务
 
-A01–A21、A02 剩余、A25、A26、A27 已到"测试完成"。下一批按依赖是 **A22/A23/A24（前端）**：
+A01–A28、A02 剩余、A25、A26、A27 已到"测试完成"（A22/A23/A24 在前端工作树 `tp-automation-frontend` 的 `bdaf3b85`）。下一批按依赖是 **A29**：
 
-1. **A22/A23/A24 前端**：六类页面、设备/模板/告警上下文页、执行详情与排障入口。需要先开 `thingspanel-frontend-community` 工作树；后端侧缺的是"页面要的一次性聚合读"——目前设备上下文页要打 4 个请求，是否合并成一个 `GET /v1/devices/:id/automation-context` 要在动前端之前定。
-2. **A28–A34**：外部执行器合同、Node-RED/Flink 样例（A29 只做最小）、旧调用方适配、迁移回退工具、性能容量配额、验收（U01–U09、V01–V32）、切换。
+1. **A29 Node-RED / Flink 最小接入样例**：任务书写明"只做最小"。两个样例都只做一件事——按 A28 的合同登记、发一条 intent 或一条 verdict、处理 `denied` 与 `replayed_sequence` 两种回答。不做通用节点库，不做可视化编排。
+2. **A30–A34**：旧调用方适配（App/面板/ThingsVis）、迁移回退工具、性能容量配额、验收（U01–U09、V01–V32）、切换。
 3. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持"待联测"。
-5. **`encore_e2e.py` 补 A10–A25 章节**并重跑（现在停在 A09）。
+4. **`encore_e2e.py` 补 A10–A28 章节**并重跑（现在停在 A09）。
 
 不建议现在动 A33 的切换接线（5.2 节 G10 / 6.6 节），因为旧引擎还在跑，接上就是双写。
 
@@ -1160,3 +1174,20 @@ A01–A21、A02 剩余、A25、A26、A27 已到"测试完成"。下一批按依�
 
 6. **下一项怎样衔接**：A27 之后，"同一组合法/非法/跨租户定义经三种入口结果一致"这条验收有了可执行的证据，A32 的 U09 可以直接引用 `mcp_smoke.py` 第 4 节和第 10 节。接下来做 A22/A23/A24（前端六类页面、设备/模板/告警上下文页、执行详情与排障入口），它们要的数据源现在都齐了：列表与筛选是 A02，上下文是 A19 的 `device-automation`，详情与排障是 A09 的 `runs`/`explain` 加上 A25 的 `simulate`。前端要先开 `thingspanel-frontend-community` 的工作树，这是下一个动作。
 
+### A22 / A23 / A24（前端规则页、上下文页、执行详情与排障，前端提交 `bdaf3b85`）
+
+1. **做了什么**：在前端工作树 `tp-automation-frontend`（分支 `feat/automation-rewrite-20261023`，基线 `c6968c77`）上补三块。A22：规则列表（每行一句话摘要、类型标签、启停开关先写后改、修订号、最近修改）与一屏编辑页（本地预检 → `validateRule` → `change-preview` → 带令牌保存），高级折叠里才是执行方式、目标范围、数据新鲜度。A23：设备页与模板页顶部新增"生效规则"面板，按 `template` / `device` / `condition` 三类来源分别标注，目录不可用时明确说"没列出模板规则不代表不存在"。A24：运行记录抽屉（时间范围 + 结果筛选 + 服务端分页 + 展开看步骤）、执行时间线（`unknown` 用琥珀色而不是红色）、"为什么不触发"（判定 + 依据 + `evidence.complete=false` 时如实提示证据不足）、试运行（顶部写"不会开关设备"，`side_effects>0` 直接报错并要求上报 rule_id）。另有 `automation-rules.ts`（类型化客户端）、`summary.ts`（纯函数文案层）、`form.ts`（表单 ↔ 定义）。
+2. **原来什么还保留**：设备页原来的"场景联动"列表原样在 `EffectiveRules` 面板**下方**，没有替换；规则的读、改、启停、模拟、解释、运行记录全部走既有端点；不带 `previewToken` 的旧保存路径服务端仍然放行，所以老页面不改也能用；编辑页不重建定义——`mergeDefinition` 把表单不编辑的槽位从原定义带回。
+3. **怎么证明做对**：`npm run check:automation-ui` **27/27**（时长解析、组间或/组内与、分支两臂、`no_data` ≠ `condition_not_met`、`unknown` 不显示为失败、被排除设备给原因、时间线顺序、字段错误定位、表单往返、空条件行丢弃、`mergeDefinition` 保留参数槽）；`vue-tsc --noEmit` 对新增文件**零错误**（其余报错是仓库既有：`packages/axios`、`vitest` 缺失、`grid` 组件）；`vite build` **成功**。最能说明问题的四条：`TestAnEmptyRowIsDroppedNotSaved`（空条件行不会被存成"永远为真"）、`TestTheRoundTripKeepsWhatTheFormDoesNotEdit`（保存后 `params`/`recovery`/`queue` 还在）、`TestUnknownIsNotFailure`（`unknown` 文案与颜色都不同于失败）、`TestAFieldErrorLandsOnTheRightInput`（服务端 `trigger.groups` 前缀成 `definition.trigger.groups` 才对得上表单 path）。
+4. **难点和性能结果**：最难的是**"表单不编辑的字段必须原样带回"**。这不是 UI 问题，是数据问题：`params`/`recovery`/`queue`/`parallel`/`budget`/`alarm` 都不在表单里，任何一次"改个名字保存"都可能把规则改弱，而校验会通过、页面会成功。第二个坑是**时长往返**：`5m0s` 存成 `300s` 语义相同但 diff 上是"这条规则被人动过"。性能上没有额外开销：列表页一次 `GET /v1/rules` 就够（摘要由纯函数在本地生成，不发第二个请求）；编辑页保存是固定 3 次调用（validate → preview → update），失败即停。
+5. **还有什么没完成**：**没有做过真实浏览器联调**——`check:automation-ui` 是纯函数断言，`vite build` 只证明能编译，页面在浏览器里点一遍仍是"待联测"；A02 文档里 `pop-up.vue:332` 硬编码 `enabled:'Y'` 仍未修；`sql/29.sql` 只是种子，已在客户库上验证菜单可达但未在干净库上跑过完整升级路径；告警上下文页只做了设备/模板两类，策略侧没做。
+6. **下一项怎样衔接**：A28 的"生效规则"数据源正是 A23 的 `device-automation`；A24 的试运行与"为什么不触发"分别是 A25 的 `simulate` 与 A17 的 `explain`。A28 之后前端还缺一个"执行者"页面（登记、健康、消息流水），它的数据源是 `GET /v1/executors` 与 `GET /v1/executors/:id/messages`，留给 A30 之后与旧调用方适配一起做。
+
+### A28（外部执行器合同，提交 `28dc99e8`）
+
+1. **做了什么**：给 Node-RED / Flink 这类外部引擎开一条**受合同约束**的通道。`automation/executor` 是纯函数包（不碰 DB 和网络）：`Scope` 是白名单，空表示"什么都不允许"，缺字段必须 fail closed；`Envelope` 带 `epoch`（登记代际）与 `seq`（单调序号），重放与旧代际在准入阶段就被拒；`Verdict` 必须点名已发布的策略 `revision` 与 `definition_hash`，`raw` 与 `qualified` 语义分离——`raw` 带 `since` 是混用、`raw` 想判 `qualified` 是冒充、`qualified` 的持续时长由平台按发布值**重算**而不是听引擎的。迁移 12 建 `auto_executors` 与 `auto_executor_messages`；序号推进用条件 `UPDATE ... WHERE epoch=$3 AND last_seq<$4`，让"这条不是重放"成为数据库决定。六个端点：登记、列表、心跳、intent、verdict、消息流水。**intent 只允许"执行某个已发布规则版本"**，不允许自由步骤——否则会出现第二条执行路径，两条路径同时拥有同一台设备。
+2. **原来什么还保留**：外部 intent 走的就是 `RunNow`，也就是网页"立即执行"按钮用的那条路，run/dispatch/命令 owner 全部复用；外部 verdict 走的就是 `SubmitAlarmEvent`，与旧场景的告警动作同一个受理口；`single`/`restart`/`queued`/`parallel` 四种运行模式对外部 intent 一样生效（原生运行占着设备时，外部 intent 得到 `ignored` 而不是第二条副作用）；规则的读改启停、绑定、资源包、CLI、MCP 一个字节没动。
+3. **怎么证明做对**：`encore test -count=1 ./automation/...` **393 个用例全绿**（automation 226 / domain 77 / blueprint 18 / bundle 15 / legacy 13 / ingress 12 / executor 32），`encore check` 1/1，**58 个端点**。最能说明问题的六条：`TestAnExternalIntentRunsThePublishedRuleOnce`（一次 intent = 一条运行 = 一条命令，`cmds.count()==1`）、`TestARetriedIntentIsTheSameRunAndNotASecondCommand`（同键重投仍是同一条运行、仍是一条命令）、`TestAReplayedSequenceDoesNotRunTheRuleAgain`（新键旧序号被拒且不产生第二条运行）、`TestAnIntentCannotRunAlongsideANativeRun`（原生运行占着设备时外部 intent 得到 `ignored`，一条命令都没多）、`TestARawObservationCannotClaimThePublishedHold`（raw + qualified 被拒且不产生告警）、`TestARegistrationWithNoTargetScopeIsRefusedWithTheField`（`details.fields` 里能读到 `contract.target_scope`）。
+4. **难点和性能结果**：难的不是端点，是**"看起来被拒了"和"真的什么都没发生"之间的差**。这一版测试逼出四个真问题（见 65–68）：运行被规则模式跳过时接口仍回 `accepted`、`rejected` 同时表示"消息被拒"和"运行被跳过"、非告警策略被包成 500、新登记的执行者显示不健康。第二个难点是**准入顺序**：便宜的本地判断（合同/代际/序号）先做，再查幂等键，最后才查规则与设备目录——这样一条重放只花一次行查询，而不是一次目录调用。性能上：一次 intent 是 1 次 `GetExecutor` + 1 次幂等键查询 + 1 次 `GetRule` + 最多 1 次目录查询 + 1 次条件 UPDATE；序号推进不加重试循环，两个并发消息由数据库决定谁赢。
+5. **还有什么没完成**：A29–A34 未开始；**执行者页面没做**（登记/健康/流水只有接口，前端要到 A30 之后）；`MaxRatePerMin` 已进合同但**没有真正的限流器**，目前只是登记值，超频还没有被执行；合同一旦登记不能原地修改，只能 `RebindExecutorContract` 抬代际——这条路径有 store 方法和用例，但没有对应端点，运维要用 SQL 或后续页面；`credential_id` 只存指纹，凭据签发与校验本身仍在既有鉴权体系里，没有做"每个执行者一把钥匙"；`encore_e2e.py` 还没补 A10–A28 章节；G7 通知真实联测仍"待联测"。
+6. **下一项怎样衔接**：A29 直接消费这一版的六个端点——两个最小样例（Node-RED 一个 flow、Flink 一个 job）各做一件事：登记 → 发一条 intent 或一条 verdict → 处理 `denied`（带 `fields`，改了再发）与 `replayed_sequence`（换新键或就此停下）。样例的价值不在功能多，而在于把"外部引擎真的按合同说话"这件事跑一遍；A30 的旧调用方适配（App/面板/ThingsVis）要在同一条通道上再验证一次，因为那三类调用方的重试策略与 Node-RED 不同。A28 的 `AdvanceExecutorSeq` 与 `auto_executor_messages` 也是 A32 验收里"重复与重放不产生第二次物理动作"的直接证据。
