@@ -213,12 +213,10 @@ func (s *Service) ExportBundle(ctx context.Context, req *ExportBundleRequest) (*
 			return id
 		})
 		if len(outside) > 0 {
-			return nil, &errs.Error{
-				Code: errs.FailedPrecondition,
-				Message: fmt.Sprintf("规则「%s」引用了包外的对象（%s）；请把它们一起导出，否则导入后这一步永远失败",
+			return nil, detailError(errs.FailedPrecondition,
+				fmt.Sprintf("规则「%s」引用了包外的对象（%s）；请把它们一起导出，否则导入后这一步永远失败",
 					r.Name, strings.Join(uniqueStrings(outside), ", ")),
-				Meta: errs.Metadata{"rule_id": r.ID},
-			}
+				ErrorDetail{Code: "reference_outside_bundle", RuleID: r.ID})
 		}
 
 		// Notification targets become slots. A notify step exists only to
@@ -499,12 +497,10 @@ func (s *Service) ImportBundle(ctx context.Context, req *BundleImportRequest) (*
 				Rules: stored.CreatedRules, Plan: plan,
 			}, nil
 		case !req.Resume:
-			return nil, &errs.Error{
-				Code: errs.FailedPrecondition,
-				Message: fmt.Sprintf("这个包的上一次导入停在 %s；请用 resume 继续，或先处理原因：%s",
+			return nil, detailError(errs.FailedPrecondition,
+				fmt.Sprintf("这个包的上一次导入停在 %s；请用 resume 继续，或先处理原因：%s",
 					stored.Status, stored.ReasonMsg),
-				Meta: errs.Metadata{"import_id": stored.ID, "status": stored.Status},
-			}
+				ErrorDetail{Code: "import_not_resumed", ImportID: stored.ID, Status: stored.Status})
 		}
 	}
 
@@ -646,8 +642,8 @@ func (s *Service) failBundleImport(ctx context.Context, tenantID, importID strin
 	}
 	resp.Status = store.BundleFailed
 	resp.Rules = createdRules
-	return resp, &errs.Error{Code: errs.Internal, Message: message,
-		Meta: errs.Metadata{"import_id": importID, "reason_code": code}}
+	return resp, detailError(errs.Internal, message,
+		ErrorDetail{Code: "import_failed", ImportID: importID, ReasonCode: code})
 }
 
 // ---------------------------------------------------------------------------

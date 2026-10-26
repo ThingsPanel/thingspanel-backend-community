@@ -484,9 +484,9 @@ func asParamError(err error, target **domain.ParamError) bool {
 func paramErr(err error) error {
 	var pe *domain.ParamError
 	if asParamError(err, &pe) {
-		return &errs.Error{Code: errs.InvalidArgument, Message: pe.Message, Meta: errs.Metadata{
-			"field": "params." + pe.Param, "code": pe.Code,
-		}}
+		return detailError(errs.InvalidArgument, pe.Message, ErrorDetail{
+			Field: "params." + pe.Param, Code: pe.Code,
+		})
 	}
 	return &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
 }

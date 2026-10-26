@@ -244,11 +244,16 @@ func (s *Service) checkBindingsAfterEdit(ctx context.Context, tenantID, ruleID s
 	if len(broken) == 0 || force {
 		return nil
 	}
-	return &errs.Error{
-		Code:    errs.FailedPrecondition,
-		Message: "这次改动会让已有设备的参数值失效：" + broken[0].Message + "；请先调整那些设备的值，或确认后强制保存",
-		Meta:    errs.Metadata{"code": "binding_incompatible", "affected": len(broken)},
-	}
+	e := detailError(errs.FailedPrecondition,
+		"这次改动会让已有设备的参数值失效："+broken[0].Message+"；请先调整那些设备的值，或确认后强制保存",
+		ErrorDetail{
+			Code: "binding_incompatible",
+			Fields: []map[string]string{{
+				"field": "bindings", "code": "binding_incompatible", "message": broken[0].Message,
+			}},
+		})
+	e.Meta["affected"] = len(broken)
+	return e
 }
 
 // GetRule reads one rule.
@@ -347,8 +352,8 @@ func (r *ListRunsRequest) toQuery(tenantID, ruleID string) (store.RunQuery, erro
 				continue
 			}
 			if !knownRunStatus(s) {
-				return q, &errs.Error{Code: errs.InvalidArgument,
-					Message: "没有这个运行状态：" + s, Meta: errs.Metadata{"field": "status"}}
+				return q, detailError(errs.InvalidArgument,
+					"没有这个运行状态："+s, ErrorDetail{Code: "unknown_status", Field: "status"})
 			}
 			q.Statuses = append(q.Statuses, s)
 		}
@@ -441,12 +446,30 @@ func invalidDefinition(err error) error {
 	var ve *domain.ValidationError
 	if errors.As(err, &ve) {
 		msgs := make([]string, 0, len(ve.Issues))
+		// The message is for humans; fields is for everything else. A CLI, an
+		// MCP tool and the web form all need to know *which* input was wrong,
+		// and none of them should be parsing Chinese prose to find out.
+		fields := make([]map[string]string, 0, len(ve.Issues))
 		for _, i := range ve.Issues {
 			msgs = append(msgs, i.Field+": "+i.Message)
+			fields = append(fields, map[string]string{
+				"field": i.Field, "code": i.Code, "message": i.Message,
+			})
 		}
-		return &errs.Error{Code: errs.InvalidArgument, Message: strings.Join(msgs, "; ")}
+		return detailError(errs.InvalidArgument, strings.Join(msgs, "; "), ErrorDetail{
+			Code: "invalid_definition", Fields: fields,
+		})
 	}
-	return &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
+	var pe *domain.ParamError
+	if errors.As(err, &pe) {
+		return detailError(errs.InvalidArgument, err.Error(), ErrorDetail{
+			Code: "invalid_param",
+			Fields: []map[string]string{{
+				"field": "params." + pe.Param, "code": pe.Code, "message": pe.Message,
+			}},
+		})
+	}
+	return detailError(errs.InvalidArgument, err.Error(), ErrorDetail{Code: "invalid_definition"})
 }
 
 // ---------------------------------------------------------------------------
@@ -480,7 +503,8 @@ func (s *Service) SimulateRule(ctx context.Context, id string, req *SimulateRequ
 	}
 	out := &SimulateResponse{
 		RuleID: res.RuleID, Revision: res.Revision, DefinitionHash: res.DefinitionHash,
-		Steps: res.Steps, WouldRun: res.WouldRun, SideEffects: res.SideEffects, Notes: res.Notes,
+		Steps: res.Steps, Actions: res.Actions, WouldRun: res.WouldRun,
+		SideEffects: res.SideEffects, EndsAt: res.EndsAt, Notes: res.Notes,
 	}
 	return out, nil
 }

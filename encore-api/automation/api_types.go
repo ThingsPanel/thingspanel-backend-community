@@ -137,9 +137,16 @@ type SimulateResponse struct {
 	Revision       int               `json:"revision"`
 	DefinitionHash string            `json:"definition_hash"`
 	Steps          []runtime.SimStep `json:"steps"`
-	WouldRun       int               `json:"would_run"`
-	SideEffects    int               `json:"side_effects"`
-	Notes          []string          `json:"notes"`
+	// Actions is what the run would actually do, with the outcome each step
+	// would have. It is the readable half of a simulation: "would execute the
+	// valve" is an answer, "the program has four steps" is not.
+	Actions     []runtime.SimAction `json:"actions,omitempty"`
+	WouldRun    int                 `json:"would_run"`
+	SideEffects int                 `json:"side_effects"`
+	// EndsAt is the virtual clock when the body finished, which differs from
+	// the last sample once a rule waits.
+	EndsAt string   `json:"ends_at,omitempty"`
+	Notes  []string `json:"notes"`
 }
 
 // ---------------------------------------------------------------------------

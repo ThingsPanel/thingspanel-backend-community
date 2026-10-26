@@ -391,3 +391,52 @@ func hasAction(actions []runtime.SimAction, want string) bool {
 	}
 	return false
 }
+
+// TestAPreviewStillAppliesAfterTheClockTicks is the bug the CLI found and the
+// tests could not: the token used to be a hash *including* the expiry, and
+// every recheck computed a fresh expiry, so the digest never matched and every
+// save was refused as stale. A frozen test clock hid it completely.
+func TestAPreviewStillAppliesAfterTheClockTicks(t *testing.T) {
+	e := newEnv(t)
+	dev := e.templateDevice("dev-a25-8-" + runtime.NewID()[:8])
+	rule := e.createNamedRuleIn(serviceTestTenant, "慢慢看再保存", thresholdRule(dev, "30", 0))
+	body := thresholdRule(dev, "40", 0)
+
+	preview, err := e.svc().PreviewRuleChange(e.ctx(), rule.ID, &ChangePreviewRequest{Definition: body})
+	if err != nil {
+		t.Fatalf("preview: %v", err)
+	}
+
+	// The user reads the page for a minute and a half, then saves.
+	e.now = e.now.Add(90 * time.Second)
+
+	if _, err := e.svc().UpdateRule(e.ctx(), rule.ID, &UpdateRuleRequest{
+		Definition: body, Version: rule.Version, PreviewToken: preview.Token,
+	}); err != nil {
+		t.Fatalf("a preview taken 90s ago must still apply: %v", err)
+	}
+}
+
+// TestAnExpiredPreviewIsRefused: the other half — the TTL still means something.
+func TestAnExpiredPreviewIsRefused(t *testing.T) {
+	e := newEnv(t)
+	dev := e.templateDevice("dev-a25-9-" + runtime.NewID()[:8])
+	rule := e.createNamedRuleIn(serviceTestTenant, "放了太久的预览", thresholdRule(dev, "30", 0))
+	body := thresholdRule(dev, "40", 0)
+
+	preview, err := e.svc().PreviewRuleChange(e.ctx(), rule.ID, &ChangePreviewRequest{Definition: body})
+	if err != nil {
+		t.Fatalf("preview: %v", err)
+	}
+	e.now = e.now.Add(previewTTL + time.Minute)
+
+	_, err = e.svc().UpdateRule(e.ctx(), rule.ID, &UpdateRuleRequest{
+		Definition: body, Version: rule.Version, PreviewToken: preview.Token,
+	})
+	if err == nil {
+		t.Fatal("an expired preview must not be applied")
+	}
+	if meta, _ := errs.Meta(err)["code"].(string); meta != "preview_expired" {
+		t.Fatalf("want preview_expired, got %v", errs.Meta(err))
+	}
+}

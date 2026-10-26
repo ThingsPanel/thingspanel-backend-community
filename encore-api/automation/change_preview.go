@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"encore.dev/beta/errs"
@@ -95,8 +97,8 @@ type ChangePreviewResponse struct {
 	// save should ask first.
 	RequiresConfirmation bool `json:"requiresConfirmation"`
 
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expiresAt"`
+	Token     string         `json:"token"`
+	ExpiresAt time.Time      `json:"expiresAt"`
 	Issues    []domain.Issue `json:"issues,omitempty"`
 }
 
@@ -310,9 +312,28 @@ func runPolicyOf(def domain.Definition, now time.Time) RunPolicyPreview {
 //   - the rule's version (somebody saved in between),
 //   - the new body's hash (the editor changed the form),
 //   - the affected scope (devices were added to the template),
-//   - the dependency set (an alarm policy was deleted),
-//   - the clock (the preview went stale).
+//   - the dependency set (an alarm policy was deleted).
+//
+// The expiry is carried in the token rather than folded into the hash, because
+// a preview computed at 10:00:01 and re-checked at 10:00:02 would otherwise
+// produce two different tokens for the same world — and every save would be
+// refused as stale. That is not a theoretical bug: the in-process tests never
+// saw it because they run on a frozen clock, and the CLI hit it on the first
+// real save.
+//
+// The expiry is therefore *checked*, not *protected*: the token is a "did you
+// actually look at the impact?" guard, not an authorisation. Anybody who wants
+// to skip it can simply not send one — the save path runs its own binding and
+// version checks either way.
 func previewToken(ruleID string, out *ChangePreviewResponse) string {
+	expiry := out.ExpiresAt.Unix()
+	sum := previewDigest(ruleID, out, expiry)
+	return fmt.Sprintf("pv1:%d:%s", expiry, sum)
+}
+
+// previewDigest is the deterministic half: the same world always produces the
+// same digest.
+func previewDigest(ruleID string, out *ChangePreviewResponse, expiry int64) string {
 	scope := append([]string{}, out.Scope.DeviceIDs...)
 	sort.Strings(scope)
 	deps := make([]string, 0, len(out.Dependencies))
@@ -330,11 +351,23 @@ func previewToken(ruleID string, out *ChangePreviewResponse) string {
 		Expiry  int64    `json:"expiry"`
 	}{
 		RuleID: ruleID, Version: out.BaseVersion, Before: out.HashBefore,
-		After: out.HashAfter, Scope: scope, Deps: deps,
-		Expiry: out.ExpiresAt.Unix(),
+		After: out.HashAfter, Scope: scope, Deps: deps, Expiry: expiry,
 	})
 	sum := sha256.Sum256(body)
-	return "pv1:" + hex.EncodeToString(sum[:16])
+	return hex.EncodeToString(sum[:16])
+}
+
+// parsePreviewToken reads back the expiry a token was issued with.
+func parsePreviewToken(tok string) (expiry int64, digest string, ok bool) {
+	parts := strings.Split(tok, ":")
+	if len(parts) != 3 || parts[0] != "pv1" {
+		return 0, "", false
+	}
+	n, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return 0, "", false
+	}
+	return n, parts[2], true
 }
 
 // checkPreviewToken refuses a save whose preview no longer describes the world.
@@ -344,28 +377,41 @@ func (s *Service) checkPreviewToken(ctx context.Context, tenantID, ruleID string
 	if req.PreviewToken == "" {
 		return nil // the legacy edit path does not send one
 	}
-	// Recompute the preview the caller claims to have seen. If it does not
-	// reproduce byte for byte, something moved.
+	expiry, digest, ok := parsePreviewToken(req.PreviewToken)
+	if !ok {
+		return detailError(errs.InvalidArgument,
+			"预览令牌格式不对，请重新预览", ErrorDetail{Code: "preview_invalid"})
+	}
+	// Recompute the preview the caller claims to have seen, using the expiry
+	// the token was issued with, so the comparison is about the world and not
+	// about when we happened to look.
 	again, err := s.PreviewRuleChange(ctx, ruleID, &ChangePreviewRequest{Definition: req.Definition})
 	if err != nil {
 		return err
 	}
 	if again.BaseVersion != existing.Version || again.HashAfter == "" {
-		return &errs.Error{Code: errs.FailedPrecondition,
-			Message: "规则在预览之后被改过，请重新预览再保存",
-			Meta:    errs.Metadata{"code": "preview_stale"}}
+		return detailError(errs.FailedPrecondition,
+			"规则在预览之后被改过，请重新预览再保存", ErrorDetail{Code: "preview_stale"})
 	}
-	if again.Token != req.PreviewToken {
-		code := "preview_stale"
-		msg := "预览与当前内容不再一致，请重新预览再保存"
-		if time.Now().After(again.ExpiresAt) {
-			code = "preview_expired"
-			msg = "预览已过期，请重新预览再保存"
-		}
-		return &errs.Error{Code: errs.FailedPrecondition, Message: msg,
-			Meta: errs.Metadata{"code": code}}
+	if previewDigest(ruleID, again, expiry) != digest {
+		return detailError(errs.FailedPrecondition,
+			"预览与当前内容不再一致，请重新预览再保存", ErrorDetail{Code: "preview_stale"})
+	}
+	if s.nowForPreview().After(time.Unix(expiry, 0)) {
+		return detailError(errs.FailedPrecondition,
+			"预览已过期，请重新预览再保存", ErrorDetail{Code: "preview_expired"})
 	}
 	return nil
+}
+
+// nowForPreview is the clock the expiry check uses. It is a method so tests can
+// pin it; in production it is the runtime's clock, which is the same clock that
+// stamped the expiry.
+func (s *Service) nowForPreview() time.Time {
+	if rt, err := s.rtOrErr(); err == nil {
+		return rt.Now()
+	}
+	return time.Now()
 }
 
 func containsString(list []string, want string) bool {

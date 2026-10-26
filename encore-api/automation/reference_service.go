@@ -284,15 +284,15 @@ func (s *Service) DeleteRule(ctx context.Context, id string, req *DeleteRuleRequ
 	}
 	if len(refs) > 0 && !force {
 		names := make([]string, 0, len(refs))
+		ids := make([]string, 0, len(refs))
 		for _, r := range refs {
 			names = append(names, r.Name)
+			ids = append(ids, r.ID)
 		}
-		return nil, &errs.Error{
-			Code: errs.FailedPrecondition,
-			Message: fmt.Sprintf("还有 %d 条规则引用了它（%v）；先解除引用再删除，否则那些步骤会永远失败",
+		return nil, detailError(errs.FailedPrecondition,
+			fmt.Sprintf("还有 %d 条规则引用了它（%v）；先解除引用再删除，否则那些步骤会永远失败",
 				len(refs), names),
-			Meta: errs.Metadata{"referencing_rule_ids": joinIDs(refs)},
-		}
+			ErrorDetail{Code: "referenced_by_rules", ReferencingRuleIDs: ids})
 	}
 
 	detached, err := rt.Store().DetachBindingsForRule(ctx, tenantID, id, "rule_deleted")
