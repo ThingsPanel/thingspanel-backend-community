@@ -69,6 +69,10 @@ func (f *fakeNotifier) Submit(_ context.Context, req ports.NotificationRequest) 
 
 type fakeDirectory struct {
 	devices map[string]ports.Device
+	// err simulates "the directory is reachable but failing". A20's
+	// reconciliation must treat that differently from "the device is gone", so
+	// the fake has to be able to produce it.
+	err error
 }
 
 // visible mirrors the real directory, which only ever answers for the tenant
@@ -79,6 +83,9 @@ func (d *fakeDirectory) visible(dev ports.Device, tenantID string) bool {
 }
 
 func (d *fakeDirectory) ByIDs(_ context.Context, tenantID string, ids []string) ([]ports.Device, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
 	var out []ports.Device
 	for _, id := range ids {
 		if dev, ok := d.devices[id]; ok && d.visible(dev, tenantID) {

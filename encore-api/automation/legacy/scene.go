@@ -287,8 +287,13 @@ func buildStep(a Action, r Resolver) (domain.Step, StepMapping, error) {
 		if !ok {
 			return domain.Step{}, m, fmt.Errorf("引用的场景 %s 不存在或已失效", a.Target)
 		}
+		// The scene id goes in Value, which is where both the validator and the
+		// executor read it. Putting it in DeviceRef (as an earlier version of
+		// this mapping did) produced a step that failed validation with
+		// "missing_scene" and, if it had ever been stored, would have dispatched
+		// an activation for scene "".
 		step := domain.Step{
-			Kind: domain.StepActivateScene, DeviceRef: a.Target,
+			Kind: domain.StepActivateScene, Value: a.Target,
 			ContinueOnFailure: a.ContinueOnFailure,
 		}
 		m.StepKind = string(domain.StepActivateScene)

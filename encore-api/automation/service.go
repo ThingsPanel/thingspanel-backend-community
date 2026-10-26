@@ -269,28 +269,8 @@ func parseEnabled(v string) *bool {
 	}
 }
 
-// DeleteRule soft deletes and disables a rule. In-flight runs keep their pinned
-// revision, so a deletion never changes what an already accepted run does.
-//
-//encore:api auth method=DELETE path=/v1/rules/:id
-func (s *Service) DeleteRule(ctx context.Context, id string) error {
-	tenantID, err := mustTenant()
-	if err != nil {
-		return err
-	}
-	rt, err := s.rtOrErr()
-	if err != nil {
-		return err
-	}
-	if err := rt.Store().DeleteRule(ctx, tenantID, id); err != nil {
-		return internal(err)
-	}
-	// A deleted rule must not leave a schedule that still fires. The due time is
-	// cleared here as well, so the scan cannot pick it up even before the
-	// soft-deleted rule is filtered out of the join.
-	_ = rt.Store().CancelSchedulesForRule(ctx, id)
-	return nil
-}
+// DeleteRule lives in reference_service.go: A20 gave it a reference pre-check,
+// a tombstone reason and a body describing what it stopped.
 
 // SetRuleEnabled is the switch used by the legacy on/off page control.
 //
