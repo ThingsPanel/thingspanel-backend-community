@@ -76,7 +76,7 @@ func (r *GormRepository) HasEnabledTopicMappings(ctx context.Context, tenantID, 
 	var exists bool
 	err := r.quietDB(ctx).Raw(`SELECT EXISTS (
 		SELECT 1 FROM device_topic_mappings m
-		JOIN device_configs c ON c.id = m.device_config_id
+		JOIN device_configs c ON CAST(c.id AS text) = CAST(m.device_config_id AS text)
 		WHERE c.tenant_id = ? AND c.id = ? AND m.enabled = TRUE
 	)`, tenantID, deviceConfigID).Scan(&exists).Error
 	return exists, err

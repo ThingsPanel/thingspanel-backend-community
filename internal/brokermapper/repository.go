@@ -59,7 +59,7 @@ func (r *Repository) CompileForDeviceConfig(ctx context.Context, tenantID, devic
 	db := r.DB.Session(&gorm.Session{Logger: logger.Discard}).WithContext(ctx)
 	err := db.Raw(`SELECT m.id, m.direction, m.source_topic, m.target_topic, m.priority, m.data_identifier
 		FROM device_topic_mappings m
-		JOIN device_configs c ON c.id = m.device_config_id AND c.tenant_id = ?
+		JOIN device_configs c ON CAST(c.id AS text) = CAST(m.device_config_id AS text) AND c.tenant_id = ?
 		WHERE c.id = ? AND m.enabled = TRUE
 		ORDER BY m.priority ASC, m.id ASC`, tenantID, deviceConfigID).Scan(&rows).Error
 	if err != nil {
