@@ -14,7 +14,7 @@
 | 前端工作树 | `/Users/junhong/Downloads/code/tp-automation-frontend`（基于 `c6968c77`，`node_modules` 软链到主仓） |
 | 分支 | `feat/automation-rewrite-20261023`（前后端同名） |
 | 基线提交 | `486160092b1579965573814c8dd11a2a689c9246`（研究基线） |
-| 本轮提交 | `a0b4bfd2`（A16）→ `e60ccb77`（A13）→ `9049561e`（A15）→ `63e030ec`（A17）→ `e2b76c95`（A14）→ `2ecf77cf`（A12）→ `fa5c599c`（A11）→ `09bc1a7e`（A10）→ `805b1d5e`（A02 阻塞修复）→ `256f83cb`（A09）→ `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` → `751798da`（A19）→ `64673598`（A20）→ `881d6d7a`（A21）→ `fe845508`（A02 剩余）→ `f8867fd0`（A25）→ `2be979a7`（A26）→ `7c389ac0`（A27）→ `28dc99e8`（A28） |
+| 本轮提交 | `a0b4bfd2`（A16）→ `e60ccb77`（A13）→ `9049561e`（A15）→ `63e030ec`（A17）→ `e2b76c95`（A14）→ `2ecf77cf`（A12）→ `fa5c599c`（A11）→ `09bc1a7e`（A10）→ `805b1d5e`（A02 阻塞修复）→ `256f83cb`（A09）→ `99776e10`（A08）→ `9e964641`（A07）→ `dd0ed6f9`（A06）→ `105526ec`（A05）→ `cdb0ea26` → `c72fdab6` → `751798da`（A19）→ `64673598`（A20）→ `881d6d7a`（A21）→ `fe845508`（A02 剩余）→ `f8867fd0`（A25）→ `2be979a7`（A26）→ `7c389ac0`（A27）→ `28dc99e8`（A28）→ `85e8cc12`（A29） |
 | 前端提交 | `bdaf3b85`（A22/A23/A24） |
 | 主仓 HEAD | `0e3ba8281f09c815dabcd03c634d17af845e950b`（`main`，比基线旧 75 个提交，未改动） |
 
@@ -1080,18 +1080,22 @@ encore test ./...                # domain ok / ingress ok / automation ok
 67. **非告警策略被包成 500**：外部引擎把场景 id 当 `policy_id` 发过来，`PolicyRevision` 返回普通 error，端点包成内部错误——运维要去看日志，而真实答案是"你指错了规则"。改为 `ErrNotFound`，调用方拿到 `policy_missing`。
 68. **新登记的执行者在列表里显示不健康**：`last_seen_at` 插入时留空，`Healthy` 是"5 分钟内见过"，于是刚登记完就是红的。登记本身就是活着的证据，插入时即落 `last_seen_at`。
 
+69. **Node-RED flow 的 `wires` 少了一层数组**：写成 `["f1"]` 而不是 `[["f1"]]`，Node-RED 会把字符串当输出列表逐字符走，导入后**点任何按钮都没有反应，也不报错**。生成脚本里的结构检查抓到的——这类错只有真点一下才会发现，而"点一下"在 CI 里做不了。
+70. **Flink 的 `flink-core` 是 provided**：Flink 在自己的 module 里把 `flink-core`/`flink-runtime` 声明成 `provided`，所以只依赖 `flink-streaming-java` 能编译、不能启动，死在 `ClassNotFoundException: ExecutionConfig`。pom 里显式补上这两个依赖。
+71. **Java 17+ 跑 Flink 需要 `--add-opens`**：缺了它 Kryo（chill）反射访问 `java.util` 被模块系统拦掉，报错栈落在 `ContinuousFileMonitoringFunction` 上，读起来像文件源的问题。集群部署时由 `flink-conf.yaml` 的 `env.java.opts.all` 提供，本地跑要自己写。
+
 46. **旧场景按表名批量改名**：状态写入和动作流程被当成同一种东西，动作顺序丢失、旧告警动作要么被丢要么另建一份策略。现在两种形态显式分类、告警动作解析到 `legacy_id` 对应策略（查不到即迁移失败）、环与超深链在预演期带路径拒绝。
 
 ---
 
 ## 22. 下一项可以开始的任务
 
-A01–A28、A02 剩余、A25、A26、A27 已到"测试完成"（A22/A23/A24 在前端工作树 `tp-automation-frontend` 的 `bdaf3b85`）。下一批按依赖是 **A29**：
+A01–A29、A02 剩余、A25、A26、A27 已到"测试完成"（A22/A23/A24 在前端工作树 `tp-automation-frontend` 的 `bdaf3b85`）。下一批按依赖是 **A30**：
 
-1. **A29 Node-RED / Flink 最小接入样例**：任务书写明"只做最小"。两个样例都只做一件事——按 A28 的合同登记、发一条 intent 或一条 verdict、处理 `denied` 与 `replayed_sequence` 两种回答。不做通用节点库，不做可视化编排。
-2. **A30–A34**：旧调用方适配（App/面板/ThingsVis）、迁移回退工具、性能容量配额、验收（U01–U09、V01–V32）、切换。
+1. **A30 旧调用方适配（App / 面板 / ThingsVis）**：这三类调用方的重试策略不同（App 退避重试、面板可能并发点两次、ThingsVis 可能整批重发），A29 已把三种回答的语义钉死，A30 要确认它们在拿到这三种回答时都做对。
+2. **A31–A34**：迁移回退工具、性能容量配额、验收（U01–U09、V01–V32）、切换。
 3. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持"待联测"。
-4. **`encore_e2e.py` 补 A10–A28 章节**并重跑（现在停在 A09）。
+4. **`encore_e2e.py` 补 A10–A29 章节**并重跑（现在停在 A09）。
 
 不建议现在动 A33 的切换接线（5.2 节 G10 / 6.6 节），因为旧引擎还在跑，接上就是双写。
 
@@ -1191,3 +1195,12 @@ A01–A28、A02 剩余、A25、A26、A27 已到"测试完成"（A22/A23/A24 在�
 4. **难点和性能结果**：难的不是端点，是**"看起来被拒了"和"真的什么都没发生"之间的差**。这一版测试逼出四个真问题（见 65–68）：运行被规则模式跳过时接口仍回 `accepted`、`rejected` 同时表示"消息被拒"和"运行被跳过"、非告警策略被包成 500、新登记的执行者显示不健康。第二个难点是**准入顺序**：便宜的本地判断（合同/代际/序号）先做，再查幂等键，最后才查规则与设备目录——这样一条重放只花一次行查询，而不是一次目录调用。性能上：一次 intent 是 1 次 `GetExecutor` + 1 次幂等键查询 + 1 次 `GetRule` + 最多 1 次目录查询 + 1 次条件 UPDATE；序号推进不加重试循环，两个并发消息由数据库决定谁赢。
 5. **还有什么没完成**：A29–A34 未开始；**执行者页面没做**（登记/健康/流水只有接口，前端要到 A30 之后）；`MaxRatePerMin` 已进合同但**没有真正的限流器**，目前只是登记值，超频还没有被执行；合同一旦登记不能原地修改，只能 `RebindExecutorContract` 抬代际——这条路径有 store 方法和用例，但没有对应端点，运维要用 SQL 或后续页面；`credential_id` 只存指纹，凭据签发与校验本身仍在既有鉴权体系里，没有做"每个执行者一把钥匙"；`encore_e2e.py` 还没补 A10–A28 章节；G7 通知真实联测仍"待联测"。
 6. **下一项怎样衔接**：A29 直接消费这一版的六个端点——两个最小样例（Node-RED 一个 flow、Flink 一个 job）各做一件事：登记 → 发一条 intent 或一条 verdict → 处理 `denied`（带 `fields`，改了再发）与 `replayed_sequence`（换新键或就此停下）。样例的价值不在功能多，而在于把"外部引擎真的按合同说话"这件事跑一遍；A30 的旧调用方适配（App/面板/ThingsVis）要在同一条通道上再验证一次，因为那三类调用方的重试策略与 Node-RED 不同。A28 的 `AdvanceExecutorSeq` 与 `auto_executor_messages` 也是 A32 验收里"重复与重放不产生第二次物理动作"的直接证据。
+
+### A29（Node-RED 与 Flink 最小接入样例，提交 `85e8cc12`）
+
+1. **做了什么**：两个能对着真服务说话的样例 + 一个协议冒烟。`samples/node-red` 是 16 节点的 flow（登记 / 发 intent / 发判定），JS 里构造信封、读懂回答；`flows.json` 由 `build_flow.py` 生成，生成时做四项结构检查（节点 id 唯一、wire 指向真实节点、每个 `http request` 上游必须设 `msg.url` 与鉴权头、每段 JS 用 `node` 解析）。`samples/flink` 是最小 DataStream 作业：读 `device,temperature` → 超阈值 → 逐条 POST verdict，序号用时钟做基线所以跨重启也单调。`test/automation-rewrite/executor_smoke.py` 是 37 项断言，纯 HTTP 打真服务，发的是和两个样例同一组请求。
+2. **原来什么还保留**：样例没有新增任何服务端能力，用的全是 A28 的六个端点；`samples/README.md` 把合同（`epoch`/`seq`/`contract_hash`/`idempotency_key`）和三种回答（受理 / 重投 / 拒绝）写成一张能照着抄的表，没有引入第二套术语。
+3. **怎么证明做对**：`executor_smoke.py` 对 `TP_AUTH_MODE=dev encore run` 的真实实例 **37/37**；Flink 作业对同一实例跑通（`35.5 → qualified`、`41.0 → no_transition`、`20.0` 被阈值过滤、`bad-line` 被丢弃）；`build_flow.py` 的结构检查全过（6 段 JS 由 `node` 解析）。最能说明问题的五条：登记校验的 `contract.target_scope` 能从 `details.fields` 读到、intent 的 `run_id` 能在 `/v1/rules/:id/runs` 里查到、同键重投是同一个 episode、新键旧序号拿到 `replayed_sequence`、消息流水里 `denied` 与 `qualified` 都在。
+4. **难点和性能结果**：难的是**"样例跑通"这句话经常是假的**。三个真问题都是"看起来没问题、跑起来才知道"：`wires` 写成 `["f1"]` 而不是 `[["f1"]]`，Node-RED 会把字符串当输出列表逐字符走，导入后点任何按钮都没反应也不报错；Flink 在自己的 module 里把 `flink-core` 声明成 `provided`，编译期看不出来，启动才 `ClassNotFoundException: ExecutionConfig`；Java 17+ 还要 `--add-opens java.base/java.util=ALL-UNNAMED`，否则 Kryo 反射被模块系统拦掉，报错栈落在 `ContinuousFileMonitoringFunction` 上，看起来像文件源的问题。性能上没有新开销：两个样例都是每条样本一次 HTTP，没有批量、没有本地缓存。
+5. **还有什么没完成**：**Node-RED 本身没装，flow 没在真 Node-RED 里点过**——结构检查与协议冒烟能证明"请求对不对"，不能证明"导入后能点通"；Flink 只跑过 `local` 模式，没连 YARN/K8s，没有 checkpoint 与 exactly-once（去重靠平台的 `idempotency_key` + `seq`）；样例不演示心跳与消息流水；A30–A34 未开始。
+6. **下一项怎样衔接**：A30 的旧调用方适配（App / 面板 / ThingsVis）要在这条通道上再验一次，因为那三类调用方的重试策略和 Node-RED 不同——App 会退避重试、面板可能并发点两次、ThingsVis 可能整批重发。A29 已经把那三种回答的语义钉死了，A30 要做的是**确认旧调用方在拿到这三种回答时都做对**，而不是再写一遍合同。
