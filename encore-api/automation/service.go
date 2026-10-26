@@ -318,7 +318,67 @@ func (s *Service) ListRules(ctx context.Context, req *ListRulesRequest) (*ListRu
 	for _, r := range rules {
 		out.Rules = append(out.Rules, toRuleResponse(r))
 	}
-	out.Total = len(out.Rules)
+	// Total is the number of matching rules, not the size of this page. The App
+	// dashboard asks for one row just to print a count.
+	total, err := rt.Store().CountRules(ctx, tenantID, store.RuleFilter{
+		Kind:           req.Kind,
+		DeviceID:       req.DeviceID,
+		DeviceConfigID: req.DeviceConfigID,
+		Name:           req.Name,
+		Enabled:        parseEnabled(req.Enabled),
+		HasAlarmStep:   req.HasAlarmStep,
+	})
+	if err != nil {
+		return nil, internal(err)
+	}
+	out.Total = total
+	return out, nil
+}
+
+// ResolveLegacyRef maps an id from the old console onto the rule that now owns
+// it (A30).
+//
+// The old App and the old panel still send `scene.id` and
+// `scene_automations.id`. Those two id spaces are not the same object and were
+// never unique across kinds, so this reports ambiguity instead of choosing: a
+// compat adapter that silently picks the first match turns "activate the
+// hallway scene" into "run some other rule".
+//
+//encore:api auth method=GET path=/v1/legacy-refs/:legacyId
+func (s *Service) ResolveLegacyRef(ctx context.Context, legacyId string) (*LegacyRefResponse, error) {
+	legacyID := legacyId
+	tenantID, err := mustTenant()
+	if err != nil {
+		return nil, err
+	}
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(legacyID) == "" {
+		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "legacy id 不能为空"}
+	}
+	candidates, err := rt.Store().FindRulesByLegacyID(ctx, tenantID, legacyID, 5)
+	if err != nil {
+		return nil, internal(err)
+	}
+	if len(candidates) == 0 {
+		return nil, detailError(errs.NotFound, "这个旧 id 还没有迁移到新规则", ErrorDetail{
+			Code: "legacy_ref_missing", Field: "legacy_id",
+		})
+	}
+	out := &LegacyRefResponse{
+		LegacyID:   legacyID,
+		RuleID:     candidates[0].ID,
+		Kind:       string(candidates[0].Kind),
+		Name:       candidates[0].Name,
+		Enabled:    candidates[0].Enabled,
+		Ambiguous:  len(candidates) > 1,
+		Candidates: make([]string, 0, len(candidates)),
+	}
+	for _, c := range candidates {
+		out.Candidates = append(out.Candidates, c.ID)
+	}
 	return out, nil
 }
 

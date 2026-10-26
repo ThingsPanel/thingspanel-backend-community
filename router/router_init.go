@@ -3,6 +3,7 @@ package router
 import (
 	"time"
 
+	"project/internal/automationcompat"
 	middleware "project/internal/middleware"
 	"project/internal/middleware/response"
 	"project/pkg/global"
@@ -210,6 +211,24 @@ func RouterInit() *gin.Engine {
 
 			// 初始化系统监控路由
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)
+
+			// A30 旧客户端兼容适配，影子挂载。
+			//
+			// 只在 AUTOMATION_COMPAT_MODE=shadow 时注册，路径是 /api/v1/compat/*，
+			// 旧引擎继续服务真正的旧路径，所以这一步不会让任何设备被执行两次。
+			// 接管（把适配器挂到 /api/v1/scene 等真实路径上）属于 A33，届时同一个
+			// 提交里要删掉 apps.Model.Scene / SceneAutomations / Alarm 的旧注册，
+			// 否则 Gin 会因为路由重复直接 panic。
+			if compatCfg, err := automationcompat.ConfigFromEnv(); err != nil {
+				logrus.Warnf("自动化兼容适配未启用：%v", err)
+			} else if compatCfg.Mode == automationcompat.ModeShadow {
+				automationcompat.MountShadow(v1, automationcompat.NewHandlers(automationcompat.Deps{
+					Core:   automationcompat.NewCoreClient(compatCfg.CoreBaseURL, compatCfg.Timeout),
+					Sunset: compatCfg.Sunset,
+				}))
+				logrus.Infof("自动化兼容适配已挂载到 /api/v1/compat，到期日 %s",
+					compatCfg.Sunset.Format("2006-01-02"))
+			}
 		}
 	}
 

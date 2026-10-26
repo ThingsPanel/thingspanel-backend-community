@@ -99,6 +99,23 @@ type ListRulesResponse struct {
 	Total int            `json:"total"`
 }
 
+// LegacyRefResponse resolves an id from the old console to the rule that now
+// owns it (A30).
+//
+// The compat adapter needs this because the App and the old panel still send
+// `scene.id` / `scene_automations.id`. Two things matter more than the id
+// itself: Ambiguous says the mapping is not one-to-one (so the adapter can
+// refuse instead of guessing), and Candidates shows what the choices were.
+type LegacyRefResponse struct {
+	LegacyID   string   `json:"legacy_id"`
+	RuleID     string   `json:"rule_id"`
+	Kind       string   `json:"kind"`
+	Name       string   `json:"name"`
+	Enabled    bool     `json:"enabled"`
+	Ambiguous  bool     `json:"ambiguous"`
+	Candidates []string `json:"candidates"`
+}
+
 // ValidateRuleRequest validates a definition without storing it.
 type ValidateRuleRequest struct {
 	Definition domain.Definition `json:"definition"`

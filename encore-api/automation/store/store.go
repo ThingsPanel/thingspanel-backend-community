@@ -267,8 +267,42 @@ func (s *Store) ListRules(ctx context.Context, tenantID string, f RuleFilter) ([
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
-	q := `SELECT ` + ruleColumns + ` FROM auto_rules
-	       WHERE tenant_id=$1 AND deleted_at IS NULL`
+	where, args := ruleWhere(tenantID, f)
+	q := `SELECT ` + ruleColumns + ` FROM auto_rules ` + where +
+		fmt.Sprintf(` ORDER BY created_at DESC LIMIT %d OFFSET %d`, limit, f.Offset)
+
+	rows, err := s.DB.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*Rule
+	for rows.Next() {
+		r, err := scanRule(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// CountRules returns how many rules match the same filter ListRules pages over.
+//
+// The list used to report Total = len(page), which is only correct on the last
+// page. A30 found it through the App: the dashboard asks for page_size=1 just to
+// show a badge, so the badge read "1" for every tenant with at least one rule.
+func (s *Store) CountRules(ctx context.Context, tenantID string, f RuleFilter) (int, error) {
+	where, args := ruleWhere(tenantID, f)
+	var n int
+	err := s.DB.QueryRowContext(ctx, `SELECT count(*) FROM auto_rules `+where, args...).Scan(&n)
+	return n, err
+}
+
+// ruleWhere builds the shared WHERE clause so the page and the count can never
+// disagree about what "matching" means.
+func ruleWhere(tenantID string, f RuleFilter) (string, []any) {
+	q := `WHERE tenant_id=$1 AND deleted_at IS NULL`
 	args := []any{tenantID}
 	add := func(cond string, val any) {
 		args = append(args, val)
@@ -305,22 +339,7 @@ func (s *Store) ListRules(ctx context.Context, tenantID string, f RuleFilter) ([
 		// Recursive descent so an alarm step nested inside a branch still counts.
 		q += ` AND jsonb_path_exists(definition, '$.**.kind ? (@ == "alarm")')`
 	}
-	q += fmt.Sprintf(` ORDER BY created_at DESC LIMIT %d OFFSET %d`, limit, f.Offset)
-
-	rows, err := s.DB.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []*Rule
-	for rows.Next() {
-		r, err := scanRule(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, r)
-	}
-	return out, rows.Err()
+	return q, args
 }
 
 // CandidateRules returns the enabled rules that could react to a device/signal.
@@ -393,4 +412,42 @@ func (s *Store) GetRuleByLegacyID(ctx context.Context, tenantID, legacyID string
 		return nil, err
 	}
 	return s.GetRule(ctx, tenantID, id)
+}
+
+// FindRulesByLegacyID returns every rule that claims the same old id.
+//
+// GetRuleByLegacyID picks the earliest and says nothing, which is right for the
+// migration (it wrote the mapping and knows it wrote one row) and wrong for the
+// compat adapter (A30), which reads a mapping it did not write. An old id that
+// resolves to two rules is a migration defect, and the adapter must report it
+// rather than route a customer's "activate scene" to whichever row sorted first.
+func (s *Store) FindRulesByLegacyID(ctx context.Context, tenantID, legacyID string, limit int) ([]*Rule, error) {
+	if legacyID == "" {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 20 {
+		limit = 5
+	}
+	rows, err := s.DB.QueryContext(ctx, `
+        SELECT id FROM auto_rules
+         WHERE tenant_id=$1 AND legacy_id=$2 AND deleted_at IS NULL
+         ORDER BY created_at LIMIT $3`, tenantID, legacyID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*Rule
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		r, err := s.GetRule(ctx, tenantID, id)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
