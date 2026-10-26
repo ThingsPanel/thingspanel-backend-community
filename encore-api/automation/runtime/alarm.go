@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -742,13 +743,19 @@ func (r *Runtime) performAlarm(ctx context.Context, run *store.Run, stepID strin
 
 // PolicyRevision exposes the published revision of an alarm policy so an
 // external executor can pin the same immutable parameters (A28).
+//
+// A rule that exists but is not an alarm policy is reported as not found, not as
+// an internal failure: the caller asked for "the alarm policy with this id", and
+// there is none. Turning that into a 500 would tell an external engine its
+// request was broken when the real answer is "you named the wrong rule", and it
+// would put a stack trace where the caller needs `policy_missing`.
 func (r *Runtime) PolicyRevision(ctx context.Context, tenantID, policyID string) (*store.Rule, error) {
 	rule, err := r.store.GetRule(ctx, tenantID, policyID)
 	if err != nil {
 		return nil, err
 	}
 	if rule.Kind != domain.KindAlarm {
-		return nil, errors.New("rule is not an alarm policy")
+		return nil, fmt.Errorf("%w: rule %s is not an alarm policy", store.ErrNotFound, policyID)
 	}
 	return rule, nil
 }
