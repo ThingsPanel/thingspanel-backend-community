@@ -982,7 +982,7 @@ A15 的答案是：episode 的身份是 `(tenant, policy_key, subject_id, dimens
 
 ```bash
 cd encore-api
-encore check 'curl /v1/health'   # check: 1/1 commands succeeded（46 endpoints registered）
+encore check 'curl /v1/health'   # check: 1/1 commands succeeded（52 endpoints registered）
 encore test ./...                # domain ok / ingress ok / automation ok
 ```
 
@@ -992,11 +992,12 @@ encore test ./...                # domain ok / ingress ok / automation ok
 | `automation/ingress` | 12 | 六类输入 + 网关三类、稳定 ID、重投、瞬时事件、状态归一、因果跳数 |
 | `automation/legacy` | 13 | A13 场景形态分类、动作保序、告警动作解析、环与超深链、`Summarize` |
 | `automation/blueprint` | 18 | 四个模板、参数契约、版本 diff、显式升级、覆盖冲突、能力跟随指标 |
-| `automation`（DB 集成） | 169 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟两条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条、A10 七条、A11 十一条、A12 七条、A13 五条、A14 六条、A15 十三条、A16 六条、A17 六条、A19 九条、A20 十二条 |
+| `automation/bundle` | 15 | A21 资源包：哈希稳定性、元数据不入哈希、角色/插槽声明、引用闭合、凭据扫描、预览 create/update/skip、能力未证实不拒绝 |
+| `automation`（DB 集成） | 193 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟三条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条、A10 七条、A11 十一条、A12 七条、A13 五条、A14 六条、A15 十三条、A16 六条、A17 六条、A19 九条、A20 十二条、A21 十条、A02 五条、A25 九条 |
 | `automationguard`（独立集成） | 11 | 代际拒绝、幂等回放、冲突、在飞、租约过期、旧调用方隔离 |
-| **合计（顶层用例）** | **300** | 全部通过（`encore test -count=1 ./automation/...` 强制重跑无缓存） |
+| **合计（顶层用例）** | **328** | 全部通过（`encore test -count=1 ./automation/...` 强制重跑无缓存） |
 
-端点数：**46** 个（启动日志 `registered 46 API endpoints`，`encore check` 1/1 成功）。
+端点数：**52** 个（启动日志 `registered 52 API endpoints`，`encore check` 1/1 成功）。
 
 端到端：`encore_e2e.py` **74 项检查全通过**（第 10、11 节为 A05 的真实 HTTP 适配器路径，第 12 节为 A07 定时，第 13 节为 A08 迟滞与新鲜度，第 14 节为 A09 运行进度与步骤身份）。A10–A20 的章节待补（见第 22 章）。
 
@@ -1057,15 +1058,13 @@ encore test ./...                # domain ok / ingress ok / automation ok
 
 ## 22. 下一项可以开始的任务
 
-A01–A20 已到"测试完成"（A02 有剩余项，见第 2 条）。按依赖推进 **A21（模板资源包与一键导入）** 为主、**A02 剩余（`ListRuns` 分页）** 并行：
+A01–A21、A02 剩余、A25 已到"测试完成"。下一批按依赖是 **A26（`tpctl`）** 与 **A22/A23/A24（前端）**：
 
-1. **A21（主）**：模板资源包——把一组规则 + 参数 + 目标选择器打成可导出的包，支持预演（不落库）与一键导入。
-   - 现状：A18 已经有 `blueprint` 包（四个内置模板、参数契约、版本 diff、显式升级），A19 已经有绑定与参数覆盖，A20 已经有引用预检与版本兼容检查。A21 要做的是把这些串成"一个包能装进另一套环境"，缺口是：没有序列化格式、没有跨环境的 id 映射、没有导入前的 dry-run 报告。
-   - 完成标准（任务书原文）：模板包可导出、可预演、可导入；导入不覆盖本地已改过的值；无法映射的引用不自动发布。
-2. **A02 剩余（并行）**：`ListRuns` 补 `limit/offset/before/after/status` 与 `total`（R7）；前端 `pop-up.vue:332` 硬编码 `enabled:'Y'`。
-3. **A21–A34**：模板资源包、前端六类页面、执行详情页、无副作用模拟与变更预览、`tpctl` CLI、MCP、外部执行器合同、Node-RED/Flink 样例、旧调用方适配、迁移回退工具、性能容量配额、验收、切换。
-4. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持"待联测"。A16 只在**端口层**证明了四态语义，真通知核的 202 响应体尚未实测。
-5. **`encore_e2e.py` 补 A10–A19 章节**并重跑。
+1. **A26 `tpctl` CLI**：把已经就绪的 52 个端点包成命令行（`rules/bindings/bundles/runs/legacy` 五组子命令），要求"命令能重放 HTTP 请求、能输出 JSON、失败退出码非零"。它依赖 A21 的导入状态机（`imports/:id` 可断点续传）与 A02 的分页参数，这两块现在都有真实实现可对。
+2. **A22/A23/A24 前端**：六类页面、设备/模板/告警上下文页、执行详情与排障入口。需要先开 `thingspanel-frontend-community` 工作树；后端侧缺的是"页面要的一次性聚合读"——目前设备上下文页要打 4 个请求，是否合并成一个 `GET /v1/devices/:id/automation-context` 要在动前端之前定。
+3. **A27–A34**：MCP、外部执行器合同、Node-RED/Flink 样例（A29 只做最小）、旧调用方适配、迁移回退工具、性能容量配额、验收（U01–U09、V01–V32）、切换。
+4. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持"待联测"。
+5. **`encore_e2e.py` 补 A10–A25 章节**并重跑（现在停在 A09）。
 
 不建议现在动 A33 的切换接线（5.2 节 G10 / 6.6 节），因为旧引擎还在跑，接上就是双写。
 
@@ -1097,3 +1096,30 @@ A01–A20 已到"测试完成"（A02 有剩余项，见第 2 条）。按依赖�
 4. **难点和性能结果**：最难的是**"不存在"和"问不到"必须分开**。目录超时如果当成"设备都没了"，一次抖动就能把全租户的设备级绑定全部脱离，而且事后无法复原——所以目录不可用时直接返回 `directory_unavailable` 并且一个字节都不改。第二个坑是**清理范围**：按设备清 pending 会把同一台设备上其他仍然有效的等待窗一起丢掉，改成按 (设备, 规则)。第三个是**引用匹配的精度**：第一版把 `identifier` 也算引用，而它是动作要写的遥测 key，客户用一个 uuid 形状的 key 就会让自己的规则删不掉。性能上：对账是**一次**目录调用（不是每行一次），绑定查询按设备做了一次本地缓存，`auto_bindings (tenant_id, device_id) WHERE enabled` 有部分索引，引用检查是一条 `jsonb_path_exists`（GIN 索引可加在 `definition` 上，本轮未建，因为规则数量在社区版是百级）。
 5. **还有什么没完成**：A21–A34 未开始；**"无法映射的新模型不自动发布"只做到一半**——`revision-check` 能拦住"新正文套不上已有绑定"，但"物模型换了、映射不出来"要靠 A21 的资源包预演和 A31 的迁移回退才闭环；换模板后的"旧关联数量对账"目前只在模板页给 attached/detached 两个数，没有逐台设备的差异视图；A02 的 `ListRuns` 分页与前端硬编码未改；`encore_e2e.py` 还没补 A10–A20 章节；G7 通知真实联测仍"待联测"。
 6. **下一项怎样衔接**：A20 依赖 A19 才有"引用"可查（绑定行指向 `rule_id`），A21 依赖 A20 才有"导入前先问能不能装"的抓手——资源包导入时必然带着一堆规则之间、规则与策略之间的引用，`ReferencingRules` 与 `revision-check` 正好是它的预演器。A20 的 `delete_reason` 与 `detached_at` 也是 A21"导入不覆盖本地已改过的值"的判据：一行被本地改过或被本地删过，导入就不能悄悄改回去。
+
+### A21（模板资源包与一键导入，提交 `881d6d7a`）
+
+1. **做了什么**：把"一组规则"打成能装进另一套环境的包。五个端点：导出、预演、导入、导入列表、导入详情。包里规则用**业务键**（`rule:door-left-open`）而不是行 id；设备以**角色**出现（`device` / `template`），导入时映射成目标环境的真实设备或模板；通知策略以**插槽**出现（`slot:on-call`），导入方选本地策略或明确拒绝——拒绝时删掉 notify 步骤而不是留一个之后校验不过的步骤。导入是一个状态机（`staged → activating → activated|failed`），`created_rules` 是断点续传的恢复点，同一 content hash 第二次导入直接返回第一次的结果。
+2. **原来什么还保留**：规则本体、修订历史、绑定、启停、模拟、解释、运行记录全部照旧；导入出来的就是普通规则，`/v1/rules` 下所有既有读改路径都能用。A18 的 `blueprint` 包不动（它是"内置模板 + 参数契约"，A21 是"用户自己的包"），A19 的绑定与覆盖不动，A20 的删除预检不动。旧的、没有角色和插槽的包仍然能导入（`TestAnOldPackageWithoutRolesOrSlotsStillImports`）。
+3. **怎么证明做对**：`encore test -count=1 ./automation/...` **319 个顶层用例全绿**（automation 184 / bundle 15 / domain 77 / blueprint 18 / legacy 13 / ingress 12），`encore check` 1/1，**51 个端点**。最能说明问题的五条：`TestImportingTheSamePackageTwiceCreatesItOnce`（同包导两次只有一条规则）、`TestAFailedImportIsNotReportedAsDoneAndResumes`（中途失败状态是 `failed` 不是 `activated`，resume 续跑且不重复建）、`TestAnOptionalSlotLeftUnansweredMeansNoNotification`（拒绝插槽后步骤被删掉，不是留一个坏的）、`TestAPackageWithACredentialInAWebhookIsRefused`（正文里有 webhook 凭据直接拒）、`TestAnUnmappedRoleIsRefusedAndCreatesNothing`（角色没映射，一行都不写）。
+4. **难点和性能结果**：最难的是**两种哈希不能混**。`definition_hash` 是本地形态（含本地 id 与已解析的通知目标），`bundle_hash` 是包形态；一开始拿前者当"这个包装过没"的判据，于是每次重导都像"变了"，永远拿不到 skip。现在两列分开，`updateRuleTx` 用 `COALESCE(NULLIF($8,''), bundle_hash)` 保证本地编辑不会把包形态冲掉。第二个坑是**导出被自己的校验拒绝**：模板规则的目标列表本来为空（靠绑定展开），导出时置空就过不了"至少一个目标"。做法是保留列表但内容换成角色键，导入时再回填。性能上：导出是**一次**全量规则读 + 一次绑定读（不是每条规则一次），导入的 existing 查询走 `RulesByResourceKeys` 批量，`auto_rules (tenant_id, resource_key) WHERE resource_key IS NOT NULL AND deleted_at IS NULL` 是唯一索引，所以"重复导入"是一次索引查找而不是扫描。
+5. **还有什么没完成**：A22–A34 未开始；包格式只覆盖规则 + 绑定 + 通知插槽，**不含告警策略本体与设备物模型**（这两样在社区版属于别的模块，跨环境需要各自导出）；导入的并发互斥靠唯一索引 + 状态机，两个进程同时 resume 同一个 import 目前是"后到的看到 `activating` 就等"，没有分布式锁；`encore_e2e.py` 还没补 A21 章节；G7 通知真实联测仍"待联测"。
+6. **下一项怎样衔接**：A21 把"跨环境搬运"做完了，A22/A23/A24 才有页面可画——导入页要的预演报告就是 `POST /v1/bundles/preview` 的响应。A25 直接复用 A21 的 `bundle.Hash` 与 `DefinitionRefs`：变更预览的"前后哈希"和"依赖存在性"与资源包是同一套口径，否则同一份正文在两个页面上会算出两个结论。
+
+### A02 剩余（运行日志分页与过滤，提交 `fe845508`）
+
+1. **做了什么**：把运行日志从"样本"变成"清单"。`ListRuns` 补 `limit/offset/before/after/status` 与 `total`，响应回显真实窗口；`status` 是逗号集合，拼错直接 400 并回显那个值；时间窗口限定 `started_at`，必须 RFC3339；排序改成 `(started_at DESC, id DESC)` 防止跨页重复。
+2. **原来什么还保留**：不带任何查询串的旧调用仍然返回原来的形状（默认 50 条），前端不改一行代码也能用；运行详情、步骤明细、解释查询都不动。
+3. **怎么证明做对**：5 条用例（`TestTheRunLogReportsATotalNotJustAPage`、`TestTheRunLogCanBeBoundedByTime`、`TestTheRunLogFiltersByStatusSet`、`TestAMisspelledStatusIsRefused`、`TestTheOldCallWithoutFiltersStillWorks`）。其中"拼错状态是 400 而不是空列表"是刻意的：空日志会被读成"没有失败"。
+4. **难点和性能结果**：`count(*)` 与分页查询是两次往返，但都走 `(tenant_id, rule_id, started_at DESC)`；`runSelect` 与 `scanRuns` 抽出来共用，直接消掉了"加列漏改"这类风险——A21 加 `resource_key`/`bundle_hash` 时就因为 `GetRuleRevision` 的 SELECT 列表没跟着改而全挂过一次（`revision_missing`），同样的坑不想再踩第二次。
+5. **还有什么没完成**：前端 `pop-up.vue:332` 硬编码 `enabled:'Y'` 仍在（属 A22/A23 前端范围）；日志没有"按设备过滤"的入口（`RunQuery` 已有 `DeviceID` 字段，接口没暴露）。
+6. **下一项怎样衔接**：分页参数是 A26 `tpctl` 的直接消费者（`tpctl runs list --rule --status --limit`），也是 A24 执行详情页的数据源。
+
+### A25（无副作用模拟与变更预览，提交 `f8867fd0`）
+
+1. **做了什么**：两件事。第一，模拟真的走**编译后的程序**：同一个 PC、同一组分支目标、同一条守卫规则、同一份步骤与时长预算，`StepWait` 推进虚拟时钟，所以 `ends_at` 是"程序跑完的时刻"而不是"最后一个样本"；每个拟动作带 `would_execute` / `blocked` 与可读说明；参数按设备绑定值 `Materialize`（与执行器同一个 `bindRule`）。第二，`POST /v1/rules/:id/change-preview` 回答"这次改动会碰到什么"：作用域从定义 + 绑定展开（模板规则目标列表为空但影响 40 台也报 40 台，列表截到 50 但计数精确）、run policy、依赖存在性、绑定兼容问题、是否需要确认，并给出 `pv1:<sha256[:16]>` 令牌绑定 (rule, version, before/after hash, scope, deps, expiry)。保存时重算比对：版本变了或正文变了是 `preview_stale`，过期是 `preview_expired`。
+2. **原来什么还保留**：`/v1/rules/:id/simulate` 的入参与响应字段没删（`steps`/`notes` 照旧），新增的 `actions`/`ends_at`/`side_effects` 是追加；不带 `previewToken` 的旧编辑路径完全不变（`checkPreviewToken` 见到空令牌直接放行）；`force=true` 的语义沿用 A20 的"我确认，但我不改设备上的值"。
+3. **怎么证明做对**：`encore test -count=1 ./automation/...` **328 个顶层用例全绿**（automation 193 / bundle 15 / domain 77 / blueprint 18 / legacy 13 / ingress 12），`encore check` 1/1，**52 个端点**。最能说明问题的五条：`TestTheSimulationNeverCallsTheWriteExits`（命令/通知端口是"一碰就 fail"的，模拟跑完一次都没碰）、`TestTheSimulationAgreesWithTheRealEvaluation`（同一条样本，模拟说跑 1 次、真实路径也确实 1 条运行；降到阈值以下两边都是 0）、`TestTheSimulationStopsAtAGuard`（守卫不成立时第一个动作就 `blocked`，后面的泵根本不出现）、`TestASaveWithAStalePreviewIsRefused`（别人先存了一版，旧令牌被拒）、`TestASaveThatWouldOrphanDeviceValuesIsRefused`（不预览也拦得住，`force` 才放行且设备上的 55 一个字节没变）。
+4. **难点和性能结果**：最难的是**"模拟"不能是第二个解释器**。第一版把步骤平铺列出，等于告诉客户"两条分支都会走"——比没有模拟更糟，因为它自信地错。改成走同一个编译产物后，又暴露出第二个问题：模拟用的是模板正文，而真实执行用的是 `bindRule` 填过参数的那份，于是 `{{limit}}` 原样进判定、`40 > "{{limit}}"` 判不出真，表现为"模拟 0 次、现实 1 次"。这条是 A19 埋下的、单测发现不了的坑，被"模拟必须和现实一致"这个用例钉住了。性能上：模拟是纯内存（一次规则读 + 每设备一次绑定读，设备数在模拟输入里是个位数量级），不写任何表；预览是 2–3 次读（规则、绑定、目录），目录故障时降级为空作用域而不是报错——编辑器不该因为目录抖动打不开。
+5. **还有什么没完成**：A22–A34 未开始；模拟**不模拟时间流逝带来的外部状态变化**（比如等待期间设备离线，只按样本判定新鲜度，不模拟心跳缺失的完整语义）；预览的 `requiresConfirmation` 阈值是"设备数 > 1 或有绑定问题"，没有按租户配置；`encore_e2e.py` 还没补 A25 章节；G7 通知真实联测仍"待联测"。
+6. **下一项怎样衔接**：A25 是 A22/A23/A24 三个页面的共同底座——编辑器要的"保存前先看一眼"就是 `change-preview`，排障页要的"这条规则本来会做什么"就是 `simulate`。A26 `tpctl` 把两者都包成命令（`tpctl rules preview --file`、`tpctl rules simulate --samples`），这样"页面能做的命令行也能做"，联调和自动化脚本不必依赖浏览器。A25 之后才能做 A32 的验收：U05/U06 要的"模拟无副作用"和"预览不能套用过期计划"现在有可执行的证据了。
