@@ -25,6 +25,16 @@ const (
 	TransitionNoTransition = "no_transition"
 	TransitionUnknown      = "unknown"
 	TransitionError        = "error"
+	// TransitionImported marks an episode that was adopted from the old system
+	// rather than raised by this one. It is a distinct fact because the customer
+	// was notified by the old engine: re-raising would send a second message for
+	// a problem they already know about.
+	TransitionImported = "imported"
+	// TransitionRollback marks an episode a migration took back. It is not a
+	// "clear": the condition did not recover, an operator withdrew the import.
+	// Writing "clear" here would put a recovery that never happened into the
+	// history the customer reads.
+	TransitionRollback = "rollback"
 )
 
 // Decision outcomes. The five the task book asks to keep apart are here as

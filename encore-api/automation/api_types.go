@@ -832,3 +832,179 @@ type UpgradeBlueprintResponse struct {
 	Rule    *RuleResponse       `json:"rule,omitempty"`
 	Origin  *BlueprintOriginResponse `json:"origin,omitempty"`
 }
+
+// ---------------------------------------------------------------------------
+// A31: resumable migration
+// ---------------------------------------------------------------------------
+
+// MigrationCreateRequest opens a migration run from a snapshot of the old rows.
+//
+// The snapshot is supplied by the caller because the legacy tables live in
+// another database. Devices and device configs are passed as id lists rather
+// than looked up: the migration must be able to say "this action points at a
+// device that does not exist" instead of assuming it does.
+//
+// Every old object type the customer actually uses has to appear here, even the
+// ones this release cannot convert. An object that is simply absent from the
+// snapshot becomes an object nobody notices is missing, which is the failure
+// mode A31 exists to prevent.
+type MigrationCreateRequest struct {
+	Name string `json:"name"`
+	// Scenes come from scene_info + scene_action_info. They are buttons: the old
+	// table has no enabled column, so a migrated scene is always available.
+	Scenes []LegacySceneInput `json:"scenes,omitempty"`
+	// Automations come from scene_automations + device_trigger_condition +
+	// action_info. They are inventoried so each one gets a written disposition;
+	// see LegacyAutomationInput for why they are not converted yet.
+	Automations []LegacyAutomationInput `json:"automations,omitempty"`
+	// Alarms are the still-active rows of alarm_info. They are adopted, not
+	// re-raised: adopting writes the episode and its history row and sends
+	// nothing, because the customer has already been told about that alarm.
+	Alarms        []LegacyAlarmInput `json:"alarms,omitempty"`
+	Devices       []string           `json:"devices,omitempty"`
+	DeviceConfigs []string           `json:"device_configs,omitempty"`
+	// Apply runs the first batch immediately. Dry run is the default: a plan
+	// nobody read is not an approval.
+	Apply bool `json:"apply,omitempty"`
+}
+
+// LegacyTriggerConditionInput is one device_trigger_condition row.
+//
+// It is carried in full rather than as a count so the disposition can name what
+// is actually in the row. "1 条联动未迁移" is not actionable; "触发器用了运算符
+// 7（between）" is.
+type LegacyTriggerConditionInput struct {
+	ID string `json:"id,omitempty"`
+	// Type is the old trigger_condition_type: 10 single device, 11 device
+	// config, 2 time range.
+	Type      string `json:"type"`
+	GroupID   string `json:"group_id,omitempty"`
+	Source    string `json:"source,omitempty"`
+	ParamType string `json:"param_type,omitempty"`
+	Param     string `json:"param,omitempty"`
+	Operator  string `json:"operator,omitempty"`
+	Value     string `json:"value,omitempty"`
+}
+
+// LegacyAutomationInput is one scene_automations row with its triggers.
+//
+// A31 does not convert automations, and this is deliberate rather than an
+// omission. Converting one needs three things this release cannot establish on
+// its own:
+//
+//   - the meaning of the old numeric trigger_operator (1..8). The old column
+//     comment lists eight operators in order but no backend code in the
+//     community repository consumes them, so any mapping is an inference. An
+//     inferred ">=" read as ">" silently changes what a customer's automation
+//     does, which is worse than not migrating it.
+//   - a device-config trigger (type 11) means "any device of this config". The
+//     new model expresses that as a template rule plus a binding (A19), not as
+//     a condition, so the row cannot be copied across.
+//   - a time-range trigger (type 2) belongs to a schedule (A07), not to a
+//     trigger group.
+//
+// So each automation becomes one item with status "unsupported" and a reason
+// that names exactly which of the three blocked it. The operator gets a written
+// list to work from instead of a migration that quietly changed behaviour.
+type LegacyAutomationInput struct {
+	ID         string                        `json:"id"`
+	Name       string                        `json:"name,omitempty"`
+	Enabled    bool                          `json:"enabled,omitempty"`
+	Conditions []LegacyTriggerConditionInput `json:"conditions,omitempty"`
+	Actions    []LegacyActionInput           `json:"actions,omitempty"`
+}
+
+// LegacyAlarmInput is one still-active alarm_info row.
+//
+// Status is the old alarm_status column: L/M/H mean active, N means recovered.
+// It is a level, not a boolean — reading it as Y/N is the A30 defect that made
+// every alarm render in a neutral colour, and the same mistake here would import
+// recovered alarms as live ones.
+type LegacyAlarmInput struct {
+	ID string `json:"id"`
+	// PolicyLegacyID is the alarm_config id the old alarm belonged to. The policy
+	// has to be migrated before its alarms can be, because the active-alarm
+	// identity is (policy key, subject, dimension) and inventing a key would open
+	// a second alarm for a problem the customer already has.
+	PolicyLegacyID string `json:"policy_legacy_id"`
+	Subject        string `json:"subject"`
+	Dimension      string `json:"dimension,omitempty"`
+	Level          string `json:"level,omitempty"`
+	Status         string `json:"status"`
+	OpenedAt       string `json:"opened_at,omitempty"`
+}
+
+// MigrationItemResponse is one legacy object inside a run.
+type MigrationItemResponse struct {
+	LegacyID string `json:"legacy_id"`
+	Kind     string `json:"kind"`
+	Name     string `json:"name,omitempty"`
+	Status   string `json:"status"`
+	RuleID   string `json:"rule_id,omitempty"`
+	// EpisodeID is set for an adopted alarm. It is reported so the operator can
+	// open the alarm and check it is the same one the old console showed.
+	EpisodeID  string `json:"episode_id,omitempty"`
+	ReasonCode string `json:"reason_code,omitempty"`
+	Reason     string `json:"reason,omitempty"`
+}
+
+// MigrationResponse is the run and everything that needs a human.
+type MigrationResponse struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Status       string `json:"status"`
+	SnapshotHash string `json:"snapshot_hash"`
+	Total        int    `json:"total"`
+	Applied      int    `json:"applied"`
+	Skipped      int    `json:"skipped"`
+	Failed       int    `json:"failed"`
+	// Unresolved is unsupported + ambiguous. It is reported separately from
+	// Failed because retrying it changes nothing and because a report where
+	// applied+failed == total hides exactly the objects a customer will miss.
+	Unresolved int                     `json:"unresolved"`
+	Items      []MigrationItemResponse `json:"items"`
+	// Notes are computed on read, not stored: they say the things a count cannot
+	// say ("12 条联动本次不转换", "还有 250 条待应用"). Storing them would let a
+	// note go stale while the counts moved on.
+	Notes     []string `json:"notes,omitempty"`
+	CreatedAt string   `json:"created_at"`
+	UpdatedAt string   `json:"updated_at"`
+}
+
+// MigrationApplyRequest runs the next batch.
+type MigrationApplyRequest struct {
+	Limit int `json:"limit,omitempty"`
+}
+
+// MigrationVerifyResponse is the reconciliation with the snapshot.
+type MigrationVerifyResponse struct {
+	// Complete is true only when nothing is missing, mismatched or duplicated.
+	Complete bool `json:"complete"`
+	// Missing lists legacy ids whose rule no longer exists.
+	Missing []string `json:"missing"`
+	// DisabledMismatch lists rules whose switch no longer matches the snapshot.
+	DisabledMismatch []string `json:"disabled_mismatch"`
+	// Changed lists rules whose definition was edited after the migration. That
+	// is allowed — a customer may edit a migrated scene — so it is reported, not
+	// treated as an error.
+	Changed []string `json:"changed"`
+	// Orphans lists rules that carry a legacy id from this run but have no item,
+	// which would mean the mapping was written twice.
+	Orphans []string `json:"orphans"`
+	// DuplicateActiveAlarms counts (policy, subject, dimension) with more than one
+	// active episode. It must be zero; the partial unique index is what keeps it
+	// there, and this counter is how the operator checks the index is still doing
+	// its job after the import.
+	DuplicateActiveAlarms int      `json:"duplicate_active_alarms"`
+	Unresolved            []string `json:"unresolved"`
+	Notes                 []string `json:"notes,omitempty"`
+}
+
+// MigrationRollbackRequest undoes a run.
+type MigrationRollbackRequest struct {
+	Limit int `json:"limit,omitempty"`
+	// Force also removes rules that already ran. It is refused by default: a
+	// rollback deletes the rule, it cannot un-send a command, so removing the
+	// only record of an accepted command would be worse than keeping the rule.
+	Force bool `json:"force,omitempty"`
+}
