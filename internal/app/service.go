@@ -47,6 +47,14 @@ func (m *ServiceManager) RegisterService(service Service) {
 
 // StartAll 启动所有注册的服务
 func (m *ServiceManager) StartAll() error {
+	return m.StartAllContext(context.Background())
+}
+
+// StartAllContext propagates startup cancellation to context-aware services.
+func (m *ServiceManager) StartAllContext(ctx context.Context) error {
+	if ctx == nil {
+		return fmt.Errorf("service startup context is nil")
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -56,7 +64,15 @@ func (m *ServiceManager) StartAll() error {
 
 	for i, service := range m.services {
 		logrus.Infof("正在启动服务: %s", service.Name())
-		if err := service.Start(); err != nil {
+		var startErr error
+		if err := ctx.Err(); err != nil {
+			startErr = err
+		} else if contextual, ok := service.(interface{ StartContext(context.Context) error }); ok {
+			startErr = contextual.StartContext(ctx)
+		} else {
+			startErr = service.Start()
+		}
+		if err := startErr; err != nil {
 			// A later startup failure must not leave earlier producers running.
 			// The failing component may also own partially initialized resources.
 			m.stopServices([]Service{service}, false)

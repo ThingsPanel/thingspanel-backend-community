@@ -1,0 +1,1177 @@
+[
+  {
+    "path": "cmd/tp-broker-audit/main.go",
+    "sha256": "e4e1fbc7f8f003258c0a70366b1d120f0ba692ada50c7b1d8ef3b90fdfd0456e",
+    "bytes": 10033
+  },
+  {
+    "path": "cmd/tp-broker-audit/main_test.go",
+    "sha256": "a1c085570edcd99a0fbfbb87475f231af0f94e9eed1c2d5ab31103edb4d02b37",
+    "bytes": 3226
+  },
+  {
+    "path": "cmd/tp-broker-audit/postgres_test.go",
+    "sha256": "fe85b8f7c4ea083cab1d4c85d9982307e992979444bcd226fbd95eac7e579a77",
+    "bytes": 10078
+  },
+  {
+    "path": "cmd/tp-broker-owner/main.go",
+    "sha256": "a4d28854fd8e6a20f7f128fb1749e16ac801040e89de9fe10a3bba1728393b7f",
+    "bytes": 3839
+  },
+  {
+    "path": "cmd/tp-mosquitto-plugin/main.go",
+    "sha256": "01168c78c070d294a5a9debb9d818ad3f7b7a3aa07af38095b20954fb8d8e30a",
+    "bytes": 5661
+  },
+  {
+    "path": "cmd/tp-mosquitto-plugin/shim.c",
+    "sha256": "b0f7c823ee0ba9257e1e481a27b7198d5b0f658310df7396aa97854bc7c95bd3",
+    "bytes": 5563
+  },
+  {
+    "path": "cmd/tp-mosquitto-plugin/stub.go",
+    "sha256": "60f2306b5473887a4cb7f8ea6c062d759bcb9528b16333ca66218c270599d45d",
+    "bytes": 164
+  },
+  {
+    "path": "deploy/mosquitto-community/BROKER-AUDIT-RUNBOOK.md",
+    "sha256": "e27ddd80afcac9e5cd2e9d1e580ad372680e356785227ebdc40757dbd19b2ce6",
+    "bytes": 2256
+  },
+  {
+    "path": "deploy/mosquitto-community/Dockerfile",
+    "sha256": "6b59763a1023e8ceb885c3868ccd6bb335042ab2410cff9cff3b7c440f15c2b7",
+    "bytes": 1404
+  },
+  {
+    "path": "deploy/mosquitto-community/Dockerfile.linux-plugin-qa",
+    "sha256": "4e7abba1ea15b10d5b675bebf1c674a8981bf3020a57a627cc6e73c2ca8c6162",
+    "bytes": 1018
+  },
+  {
+    "path": "deploy/mosquitto-community/Dockerfile.linux-plugin-qa.dockerignore",
+    "sha256": "1f38b212edcb875a92aa539ff6d70ac2afcdb7394c058724ef200f2cb66dc9d7",
+    "bytes": 67
+  },
+  {
+    "path": "deploy/mosquitto-community/Dockerfile.linux-sanitizer-qa",
+    "sha256": "bd6663e0e26ab4a807f9fe4ec6e6b6c2b735311af8d8632b9b6caf5af21a8885",
+    "bytes": 2538
+  },
+  {
+    "path": "deploy/mosquitto-community/Dockerfile.production",
+    "sha256": "590cc2d52437211aed962dca105d6310144655060ec3ab0a88e7fd56a495ab95",
+    "bytes": 3896
+  },
+  {
+    "path": "deploy/mosquitto-community/Dockerfile.production.dockerignore",
+    "sha256": "d1781a4f3540e4d7bc7627a50c73519e9de06e2d4702ff2a912224942b468793",
+    "bytes": 456
+  },
+  {
+    "path": "deploy/mosquitto-community/PRODUCTION-RUNBOOK.md",
+    "sha256": "399af2018dd735bd61d9ffa17e4005b7ab65674d2d852f57386aee8f35396a96",
+    "bytes": 8764
+  },
+  {
+    "path": "deploy/mosquitto-community/README.md",
+    "sha256": "7f8149a9de05bf3eadc001e8b72102a310178188478fc07816e566ef1abfdd21",
+    "bytes": 8604
+  },
+  {
+    "path": "deploy/mosquitto-community/base-images.manifest",
+    "sha256": "e442dab5ba8acb0da5abc539d0a668634ef1eb7ed7906580756245d3da89fa60",
+    "bytes": 854
+  },
+  {
+    "path": "deploy/mosquitto-community/build-linux-plugin-qa.sh",
+    "sha256": "eca605cc234b50ad8edd2f769411e31090ed9d20dc02f5d5748b90805e44cfab",
+    "bytes": 866
+  },
+  {
+    "path": "deploy/mosquitto-community/build-linux-sanitizer-qa.sh",
+    "sha256": "9b3770aa79b13aaa375e03b2ff1ac90153700ca257db3bcf73287787cecccf28",
+    "bytes": 549
+  },
+  {
+    "path": "deploy/mosquitto-community/check-broker-schema.sh",
+    "sha256": "3a450636191b004854cd7fd02d6beeb2fdbf9270278762a925a9c4cd3c51ae2d",
+    "bytes": 4936
+  },
+  {
+    "path": "deploy/mosquitto-community/compose.production.example.yaml",
+    "sha256": "1793d1cc655a7d69191e2751cdf017fbdc361e3e78bf49c44b567a0d515c8687",
+    "bytes": 2618
+  },
+  {
+    "path": "deploy/mosquitto-community/compose.yaml",
+    "sha256": "8b39a05ce9899b2392fad74381609b7655adcf7c88e88ce2de62889788acb52b",
+    "bytes": 634
+  },
+  {
+    "path": "deploy/mosquitto-community/drill-migration-rollback-qa.sh",
+    "sha256": "076051525216018a8210e88804f9f2fe5d3f6640df41d889c72716cdb5d0fdae",
+    "bytes": 4614
+  },
+  {
+    "path": "deploy/mosquitto-community/entrypoint.production.sh",
+    "sha256": "6097e7b0ca8417997a08d41061dd2078302b99cad38ce860c2d92a78a7237c0e",
+    "bytes": 272
+  },
+  {
+    "path": "deploy/mosquitto-community/migration-checker-qa-evidence-2026-10-20.md",
+    "sha256": "3708a300df087a4095d7d744cec6bba737f2c0d446f216621e078df0a33219f7",
+    "bytes": 3713
+  },
+  {
+    "path": "deploy/mosquitto-community/migration-required-columns.tsv",
+    "sha256": "a44167e220621d275039226e2b217467003b2ed190ee82688735c27d4c1f8bfe",
+    "bytes": 1732
+  },
+  {
+    "path": "deploy/mosquitto-community/mosquitto.local.conf",
+    "sha256": "bdc2714190f1f6edb1c2e9250657c6515374096a817369a10189b0867bbae530",
+    "bytes": 361
+  },
+  {
+    "path": "deploy/mosquitto-community/mosquitto.native.conf",
+    "sha256": "04dc7e88d30fc2547e89d8d48204405d2d5d41fea53cbbb7131d7c71392f45c5",
+    "bytes": 355
+  },
+  {
+    "path": "deploy/mosquitto-community/mosquitto.plugin.linux-qa.conf",
+    "sha256": "5eb28bebd7a74abc81697737e115b41893f599804f826239ed070d8765245664",
+    "bytes": 367
+  },
+  {
+    "path": "deploy/mosquitto-community/mosquitto.plugin.native.conf",
+    "sha256": "72d2f2b3b56a603e8a24f096f57234fc7f868399caa0cbf08321c97102caf1a2",
+    "bytes": 428
+  },
+  {
+    "path": "deploy/mosquitto-community/mosquitto.production.conf",
+    "sha256": "2490cddd3c774981cbeed3a32330fd40ecd28f30cfd93c1d835cb0d364d49535",
+    "bytes": 508
+  },
+  {
+    "path": "deploy/mosquitto-community/mosquitto.production.conf.example",
+    "sha256": "556145c0a153b3160fe9982709f8dcef8b8c10885b4a2096dc2f1618421420d5",
+    "bytes": 384
+  },
+  {
+    "path": "deploy/mosquitto-community/readiness/main.go",
+    "sha256": "b7e38bab989209e430ba7aacea8899a29a11aafc1da1704ae200a3e7e98872ad",
+    "bytes": 2498
+  },
+  {
+    "path": "deploy/mosquitto-community/run-linux-plugin-qa.sh",
+    "sha256": "93725396635cafb1b75466f9105885ea62f9c11c3d21cc92b5c1d2738adff4b7",
+    "bytes": 3302
+  },
+  {
+    "path": "docs/broker-contract-v1/README.md",
+    "sha256": "12cc83ceb34ee5d0486f971da933de2ac7c03cea0bba2fcc87521f54fa71cbe8",
+    "bytes": 6573
+  },
+  {
+    "path": "docs/broker-contract-v1/golden-envelope.json",
+    "sha256": "ede054a820e1001fc194e7959fd62644b248e1a73613e054f2da1f72b4743063",
+    "bytes": 430
+  },
+  {
+    "path": "docs/broker-contract-v1/schema.json",
+    "sha256": "e60cf00c84112e73cbc3139e63ad7a9c3d8a065b521be6d5045b6cc529b997e7",
+    "bytes": 5142
+  },
+  {
+    "path": "docs/gmqtt-community-ac-ledger-2026-10-20.md",
+    "sha256": "6f079aa34367ec4d18ec1b04cbdbf135e073cc16fa68f8ce6be4736f35b1fd52",
+    "bytes": 49658
+  },
+  {
+    "path": "docs/gmqtt-community-acceptance-tracker-2026-10-19.md",
+    "sha256": "5d8972d91cabea707d5a395385f83b28a5d80d16424028e70f03094e0768c085",
+    "bytes": 9113
+  },
+  {
+    "path": "docs/gmqtt-community-execution-log-2026-10-19.md",
+    "sha256": "cefd88f0ee9df06e64e35c991b83822a8f5aaa40376f22cfb7033c20840b27e7",
+    "bytes": 11629
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/automation-native-command-e2e.md",
+    "sha256": "8e7776f295f79dce537f7e41b0717a42142c4c7dd072d1801a74bb31dc5871cc",
+    "bytes": 1836
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/broker-automation-planner-postgres.md",
+    "sha256": "9cb6bed2a59c0b767ea80f02410593a1c49fce0081cfc89c15418f8ed40c41e8",
+    "bytes": 1617
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/broker-quarantine-regression.md",
+    "sha256": "5277f3b5a90d4ff53e5ed6c36f0c0bc85b52fff5e341459674102b30055b5cd4",
+    "bytes": 2577
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/broker-state-time-boundary-regression.md",
+    "sha256": "490ecee06ccce296d465476e29402c092ffe9dd42bb4af82a77cffd31344fcef",
+    "bytes": 964
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/connecting-phase-admission-tests.md",
+    "sha256": "544dc3b0f0b0c77bbdf5b1702f68b04bd1fce3b73e52259302384bbe6fd3380d",
+    "bytes": 1545
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/durable-command-idempotency-regression.md",
+    "sha256": "198831eeff7e15c5bcf321d358c0a61810fb973850f11b67dca5d007d3992e1a",
+    "bytes": 1383
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/gmqtt-g0-readonly-baseline.md",
+    "sha256": "750926e03ed81ccf2fe26959cc73ef766a5e66700e38e4c1205a0516f98ee28b",
+    "bytes": 2734
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/latest-linux-plugin-2026-10-20/matrix.assertions.json",
+    "sha256": "970f3ef29e6118c923ece0333201f0ffcf4050ba780c6016a9028be2e5e5267f",
+    "bytes": 20918
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/latest-linux-plugin-2026-10-20/matrix.raw.ndjson",
+    "sha256": "3d348412590257fa65c88db6421d4ed85c1dd1a1a0f30661ab16048a62699956",
+    "bytes": 68398
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/latest-linux-plugin-2026-10-20/native-source-files.sha256",
+    "sha256": "c5263d2952ca19e710760a436c74b0e7e10fbc3a577aaa1f90b69d5915d26263",
+    "bytes": 2104
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/linux-command-frame-qa.md",
+    "sha256": "775654de7cbeda7a2b88c46210015ddbe7dc543f1dcb3d9999759d400697f175",
+    "bytes": 4306
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/linux-plugin-abi-qa.md",
+    "sha256": "53ea5075005ba8d2581513553a4cfaf349fc08c4d15fec7fcbc879248be996be",
+    "bytes": 3027
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/linux-sanitizer-smoke.md",
+    "sha256": "60a82985693f69fb46bd14d2ca26f8603d399b7e223874be3879b2061bb3b6b2",
+    "bytes": 1630
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/linux-sanitizer-stress-10k-1k.md",
+    "sha256": "f23cbb6b59af36ad4c9d141117433997eaef3b23042cb0e5503d3642e5db3bff",
+    "bytes": 2102
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/local-g0-runtime-inventory-2026-10-20.md",
+    "sha256": "ff8fb19f5318082ddea165ebdc32a301c9666be0b1df09a6ea632c8e9848ddbf",
+    "bytes": 2215
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mosquitto-2.1.2-local-build.md",
+    "sha256": "5c5dffc5542dfc436c444b9aa1bbb7484b5113c8e9fa71b2d12d582bf30720cf",
+    "bytes": 6237
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mosquitto-binary.sha256",
+    "sha256": "1455dc83948d96dd91db6a8474ad4ed6b00bd6c69b93bf9012932d418e6f9ad2",
+    "bytes": 117
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mosquitto-linux-arm64-build.md",
+    "sha256": "8eea2c357d9f9e43f966c4abdfddd61a6b91eb185e3f035155ca1c3bcaeaeab1",
+    "bytes": 906
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64-asan-smoke.assertions.json",
+    "sha256": "7ff6f201ca2c8ad746ec5d81e654ec5f4911a2f7245f00d2a675d52603ac2ecc",
+    "bytes": 528
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64-asan-smoke.raw.ndjson",
+    "sha256": "ee11d9119638c0e28c3bb7862f088ac5087d508153c78bd53829097bfcb1d86e",
+    "bytes": 1629
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64-asan-smoke.sha256",
+    "sha256": "c4cb16409882427d67d987c95347f7983a6119901c3585713e3e8fe08cdabd35",
+    "bytes": 297
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64-asan-stress-10k-1k.assertions.json",
+    "sha256": "30fb2e8684956d4ff71dfeb18d6d443e5c66d1d4d6ef228a9b149e68a842a3b9",
+    "bytes": 830
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64-asan-stress-10k-1k.raw.log",
+    "sha256": "41d264bc76b3a0a19664ce97e314f1f5324cf573517a194c8839a0643e9f310b",
+    "bytes": 4215738
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64-asan-stress-10k-1k.raw.ndjson",
+    "sha256": "87990248651768ab6e7167311944d28e584ddaa1cf1017472ae2e8c29af5d164",
+    "bytes": 1457
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64-asan-stress-10k-1k.sha256",
+    "sha256": "ee592994fca3b26c7c2ac87c38ae99a6d20ac312a63b78cd6bb6528770e78c10",
+    "bytes": 464
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64-command-qa.assertions.json",
+    "sha256": "69889463f20557f7f0ce7e451976b5967370863b7d1e0a0f9bebae34f97d3e66",
+    "bytes": 6456
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64-command-qa.raw.ndjson",
+    "sha256": "90cbe70f5b33ee74bdc089a3b6d0c132152299d04947e65761a4ca4bfc411014",
+    "bytes": 20576
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64-command-qa.sha256",
+    "sha256": "754b5eaeb836a547494b264a5001ab43b988526ed4fa6ed6d2c0f89f71f8b21f",
+    "bytes": 297
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64.assertions.json",
+    "sha256": "b5479febbdfe0e5aeb7b17f2e8506824eb4e626f177ba4bbcfb12e6b0d6de30e",
+    "bytes": 6456
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64.raw.ndjson",
+    "sha256": "2d165d8ad6783d06c7bd2de80ca16bafe51aacd3660f9a32a1bbdc8710429b7f",
+    "bytes": 20575
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-community-linux-arm64.sha256",
+    "sha256": "949d6326339e6aaf8fe1956a2495a6288e4788ea3b95e3a831aa5796a640f3e8",
+    "bytes": 287
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-qa-20261019.assertions.json",
+    "sha256": "88e77b96d8de7ef93f7e7a2ea23c3ee346cdfc54b1922016f7300298cb14efa3",
+    "bytes": 3196
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-qa-20261019.raw.ndjson",
+    "sha256": "e489c9064aa6fc89f51c407565de84e9aa1b556548a8b5624047466996263bb5",
+    "bytes": 9900
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-qa-20261019.sha256",
+    "sha256": "8031ce65ade1455d61f697f2ca937e3f7bce94caecf29f7ef7e1c50a0df63a7a",
+    "bytes": 594
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-qa-advanced-20261019.assertions.json",
+    "sha256": "8d2904abc62f571531f049f4017769860b8409139444b9126fb7e82347338854",
+    "bytes": 6420
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-qa-advanced-20261019.md",
+    "sha256": "226d4d70d52c1a21bed1184125856282fa2a17884b0fb64a30418f2cb5575b6a",
+    "bytes": 3366
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-qa-advanced-20261019.raw.ndjson",
+    "sha256": "887ae31a13e7064c40c09e3f5b34aa4f82e45ef3a3823f63b810fc66161225ef",
+    "bytes": 20066
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/mqtt-qa-advanced-20261019.sha256",
+    "sha256": "86e4af255ed7be156e1fd66a3a38a7567ac9fb211fb67bf38f8cefa0f89a7f7b",
+    "bytes": 617
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/native-mosquitto-owner-ledger-e2e.md",
+    "sha256": "a46099dadd3e9276a3a8f5a588f70bb841ac943c4af161605311ff851f7d2130",
+    "bytes": 4231
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/reconnect-overload/asan-maxpending2.owner.json",
+    "sha256": "c3e16d36153b2d06c57cb53cec78095da234c470726908f099b24f404a7baf77",
+    "bytes": 3311
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/reconnect-overload/asan-maxpending2.raw.log",
+    "sha256": "5de6817378db3d8dbee999df65c43c5c9569a83adde0be3bf047774b2ffa397b",
+    "bytes": 4474
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/reconnect-overload/asan-maxpending2.report.json",
+    "sha256": "325fae4a1a84dfce7b13cdcf5e9c2c30ede5ee4a4a6b0b727ae2c694013794f6",
+    "bytes": 524
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/reconnect-overload/asan-maxpending8.owner.json",
+    "sha256": "2760fe1e1d780ef7dc32ea4922c6ac2434168ec5381d990aceb20c5135c78a26",
+    "bytes": 14295
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/reconnect-overload/asan-maxpending8.raw.log",
+    "sha256": "52a917709a6dfa0b2c367c20853effb07ec2538159da3c7831b98effcb34434d",
+    "bytes": 9047
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/reconnect-overload/asan-maxpending8.report.json",
+    "sha256": "ec95ec6f730c3dd052be54da981d57f28757259baaff6412d67276a5879b442b",
+    "bytes": 477
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/reconnect-overload/native-maxpending2.owner.json",
+    "sha256": "8bf67e4726262a56e061a6d5e23ebc31f98d3cb14f4bdb0f9ab743f2f8e22231",
+    "bytes": 5316
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/reconnect-overload/native-maxpending2.raw.log",
+    "sha256": "5b3e9a471995e34a894e55bbc15a51fcdac8d834f3375ccea49048863f294969",
+    "bytes": 8208
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/reconnect-overload/native-maxpending2.report.json",
+    "sha256": "9360e3ec9c89090d2806fd08f67a090056ec9b04fdc7e491315e37428998da8b",
+    "bytes": 473
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/shared-subscription-prefix-control.md",
+    "sha256": "765d66c04c81a1ac5966faef578e831913e7ea6052687a98f5678425bcb96e3f",
+    "bytes": 1051
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/SHA256SUMS",
+    "sha256": "97baeaaa2b596f098c4aacd8761531c5340f0467e3028d64fe89cec59d7583d3",
+    "bytes": 3418
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/asan-tick-probe-report.json",
+    "sha256": "96fae91743cedd133eb4923f0ec6fb3b41b1afdeda0b047da251a68f90a447be",
+    "bytes": 273
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/asan-tick-probe-report.json.owner.json",
+    "sha256": "b3cc2b000263acd1adffbe819b886b9fe594a4605fb411ae0f3af67d48be006f",
+    "bytes": 2194
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/asan-tick-probe.log",
+    "sha256": "b4eb45a493062dc86f91697789f92c850ed87535ff65038e5fd4fde2dc5db42a",
+    "bytes": 3725
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/mosquitto.sys-interval-1.qa.conf",
+    "sha256": "4f7bf5a4edb803a6d5f55719cb7f5340b64cbd35f6b037945081dddb89efdd8d",
+    "bytes": 214
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/native-tick-probe-report.json",
+    "sha256": "ca89168eb08f0a38a8bdab927378512dfdfac3512a83b8bfae1e9f3e8549bdbe",
+    "bytes": 272
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/native-tick-probe-report.json.owner.json",
+    "sha256": "20205eef315e65dbc5884ba3e4bf18b0a89cc17847e188409089b8ac88007cf7",
+    "bytes": 1377
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/native-tick-probe.log",
+    "sha256": "5e9dde70d0344f5f4624316b93cda004903404c378459055e1259903699286b7",
+    "bytes": 3577
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/reconnect32-concurrency16.owner.json",
+    "sha256": "695a9b3e78514f0ebc369840ee2d54aba34e47954ce5b3758728db9566f6f78a",
+    "bytes": 13018
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/reconnect32-concurrency16.raw.log",
+    "sha256": "b3676959dfbcc5a801bd2d271adda162b7d2db0093ad457e94a349592bddfc81",
+    "bytes": 14911
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/reconnect32-concurrency16.report.json",
+    "sha256": "53082c6c466555ea3ca615562742af987806f6867addb09f8ec2eb7b57a963cc",
+    "bytes": 905
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/stress-10k-1k-concurrency16.owner.json",
+    "sha256": "97e27c8f9e6ad24eeb11548f373170ce9630c692f4242589500bba7493aeac17",
+    "bytes": 403612
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/stress-10k-1k-concurrency16.raw.log",
+    "sha256": "9c19c2feef88cf62b55cdb41412c8463aa14b58cbd0eddc666cd9717a24db485",
+    "bytes": 4622551
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/stress-10k-1k-concurrency16.report.json",
+    "sha256": "97b623866b181618b605955c9c59653d25f32f3acbdbc0790ffb334674fb5987",
+    "bytes": 10608
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/sys-interval-1-idle10-empty-confirm.owner.json",
+    "sha256": "e47db867bb6ec4b2437e63ee5c243932f6b3de93b772b33f373e83d75dae40c1",
+    "bytes": 4146
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/sys-interval-1-idle10-empty-confirm.raw.log",
+    "sha256": "3e199dd7390815b085e4ea0b7677b9ac8037a5e21ec73a699d997128e8a3ef54",
+    "bytes": 6351
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/sys-interval-1-idle10-empty-confirm.report.json",
+    "sha256": "f571474d862583a2e09a9a2ae5b5b27f469fc4d2c9df6ad2a239072d0be6f7a9",
+    "bytes": 623
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/sys-interval-1-idle10.owner.json",
+    "sha256": "19906b583e7a342cc1153c3657dfb3777dec027a2321fcfcc42e6eafc3c6d325",
+    "bytes": 4121
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/sys-interval-1-idle10.raw.log",
+    "sha256": "314b0f2f0fc91e2757a966a422a28e4b9de126abdafb955601212102e8ec823e",
+    "bytes": 6345
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/sys-interval-1-idle10.report.json",
+    "sha256": "60a5d6f5e183c7efcade0cc336688b85351487340dfb18e659a3402ebea7eb5c",
+    "bytes": 623
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/sys-interval-1-refresh-revocation.owner.json",
+    "sha256": "1fe00cc6334b81e15bec407062df2c7a6171dfeeaaff50592aa9b46d90e924a9",
+    "bytes": 1361
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/sys-interval-1-refresh-revocation.raw.log",
+    "sha256": "3aef64ec45a4ead2af5fbecad2097c2546ee5e2e7bc6d8ca0aeb1fbc38d90eb6",
+    "bytes": 3477
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/sys-interval-1-refresh-revocation.report.json",
+    "sha256": "8510d1de43cb2fc459707f0076c0d7a0d01357a6468dbb94ce760f2687fd7e70",
+    "bytes": 113
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-19/tick-scheduler/sys-interval-followup-2026-10-20.md",
+    "sha256": "f93983f2b1897a6ae5011bfc33ec19285ff0f9492c504ca6c10db25cd9dd8a7a",
+    "bytes": 5003
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-20-broker-audit.md",
+    "sha256": "ef61e49086160a04a59d1332333fb21272517f7916a3785deb2ed006d26d1a84",
+    "bytes": 1467
+  },
+  {
+    "path": "docs/gmqtt-evidence-2026-10-20-telemetry-batch-fence.md",
+    "sha256": "8fa9516ff52b501b6ffab4151b404e7080f937b6b11be79fb7da7267a481566e",
+    "bytes": 2196
+  },
+  {
+    "path": "docs/gmqtt-replacement-plan-2026-10-19.md",
+    "sha256": "acd0da4a98eaa3dd85fb786cfe09d803678a3ccf0aa8877eaf5d567637c37dc7",
+    "bytes": 203739
+  },
+  {
+    "path": "internal/adapter/mqttadapter/adapter.go",
+    "sha256": "bfe9a201b55f7b7b686149b9cb3b8ca99364ec527d87793c0c7743c0b30e09e7",
+    "bytes": 15909
+  },
+  {
+    "path": "internal/adapter/mqttadapter/client.go",
+    "sha256": "983b82318a7381151732f0313482602294fbf4eb1e0e88abbd34af1e14f8e1cf",
+    "bytes": 4971
+  },
+  {
+    "path": "internal/adapter/mqttadapter/client_lifecycle_test.go",
+    "sha256": "855693f9e33661d3f6bb1c3ca601849a38c167858de0cfedc673c883910946cd",
+    "bytes": 1929
+  },
+  {
+    "path": "internal/adapter/mqttadapter/command.go",
+    "sha256": "33d2e1ad7b96c4b8edfdc33902981d586af1afaa8e9346cfc4b461ff22c1166b",
+    "bytes": 1809
+  },
+  {
+    "path": "internal/adapter/mqttadapter/command_response.go",
+    "sha256": "5ac6a4357463c8c0a6de5315b20fc1c423323e060aa96c4d65f300ad62d56e79",
+    "bytes": 1026
+  },
+  {
+    "path": "internal/adapter/mqttadapter/ingress.go",
+    "sha256": "b197b127a531844b5c68ed51580b7dc72e4ce255cc3a7b1f8123b96eb6fcbad4",
+    "bytes": 11967
+  },
+  {
+    "path": "internal/adapter/mqttadapter/ingress_test.go",
+    "sha256": "64b8a94a4e9fd14e1997c64b01f2c586a15f0bd19d6efd1d5c72319996c45222",
+    "bytes": 3494
+  },
+  {
+    "path": "internal/adapter/mqttadapter/mapping.go",
+    "sha256": "a7fdf327f37da120f59f50b4f9fd4b0775e509948ee1c43d5f03fef9d9116de1",
+    "bytes": 5677
+  },
+  {
+    "path": "internal/adapter/mqttadapter/mapping_test.go",
+    "sha256": "02ed8c66c64d27cd42994b2d9cc6f73aa9208565433381b06e9434ad36831308",
+    "bytes": 3212
+  },
+  {
+    "path": "internal/adapter/mqttadapter/publisher.go",
+    "sha256": "c7e5d98f47ce6ef85fbd3e58c398450cfd02f5f10d15252f6d9a88d42c63b2d7",
+    "bytes": 2680
+  },
+  {
+    "path": "internal/adapter/mqttadapter/quarantine.go",
+    "sha256": "5409dd76ba1b8a5ab80a7ca05d4e91c120696f085fd75bce993233e8ba398e22",
+    "bytes": 1580
+  },
+  {
+    "path": "internal/adapter/mqttadapter/quarantine_permanent_test.go",
+    "sha256": "1b5672e375e2a278495ca2021fb8b64d554f748d7b126033aaacab77868c2c0c",
+    "bytes": 8742
+  },
+  {
+    "path": "internal/adapter/mqttadapter/quarantine_test.go",
+    "sha256": "1a7bb9b894dd696b232a2901cf856e7aa7eccbbaf06d6a1c8310cb626f243107",
+    "bytes": 2660
+  },
+  {
+    "path": "internal/adapter/mqttadapter/subscriber.go",
+    "sha256": "0f0c27431782f23e3b03755e9bcfa41933bfa250a17ee5fae0ea983ecf664191",
+    "bytes": 11379
+  },
+  {
+    "path": "internal/adapter/mqttadapter/subscriber_test.go",
+    "sha256": "374172287f9184304081ccfca77a2b666668e601052e5b44991b9baa6e6be780",
+    "bytes": 1311
+  },
+  {
+    "path": "internal/app/application.go",
+    "sha256": "f25ae8fba8f6ffb8286c12b5889c8ad70cf6492e8fbfe12b02bd21682734f267",
+    "bytes": 2681
+  },
+  {
+    "path": "internal/app/broker_commands.go",
+    "sha256": "52ea790ae9b2450db303b15b2839a47d96db6895026e393b378ac699e1be432b",
+    "bytes": 2914
+  },
+  {
+    "path": "internal/app/broker_commands_e2e_test.go",
+    "sha256": "c988620c7820a5c89fe54b7e490ae4762d2fd1f74fef34e0361d884e118f8436",
+    "bytes": 19450
+  },
+  {
+    "path": "internal/app/broker_ingress.go",
+    "sha256": "0f5cf1285ef776d08e1b9532352ff4bb6f15bf839f38599e34eff070cc6fb6f2",
+    "bytes": 9847
+  },
+  {
+    "path": "internal/app/broker_ingress_e2e_test.go",
+    "sha256": "c3912a64e361c8e93bd6ee7fd0e0faf1b947a60e203dca89a823a7e395faa718",
+    "bytes": 35508
+  },
+  {
+    "path": "internal/app/broker_ingress_test.go",
+    "sha256": "c4063314e6b74425aadedb0b7fbe8c4360439f0f7efe20a603396c003de30476",
+    "bytes": 5910
+  },
+  {
+    "path": "internal/app/broker_quarantine_e2e_test.go",
+    "sha256": "9622160606d39012358ae7e6699d7b8a039efabce106d6382e535c627cdf7c45",
+    "bytes": 2573
+  },
+  {
+    "path": "internal/app/downlink.go",
+    "sha256": "b6ab25203ce053240546195c81eb9acbafee6647e2492669b2319edaad1c868a",
+    "bytes": 2877
+  },
+  {
+    "path": "internal/app/mqtt_service.go",
+    "sha256": "f21014f721dc3e956bc088209c102785c37b3729b0e66f4db6e5bd93275508af",
+    "bytes": 8556
+  },
+  {
+    "path": "internal/app/mqtt_service_lifecycle_test.go",
+    "sha256": "0ba6edf984f5247c1daee618b91b9d8fbc49476a84e9cc81b398aae8a3e46e02",
+    "bytes": 4344
+  },
+  {
+    "path": "internal/app/service.go",
+    "sha256": "5d71e910461a4a031321026c414bfd7b19242d3a3553ffc8d06dd964d2473218",
+    "bytes": 3361
+  },
+  {
+    "path": "internal/app/service_context_test.go",
+    "sha256": "2049944e754f513fb3d097dc6d8849b3ecb8ce8994836dfd1ee968038bd76e5e",
+    "bytes": 1017
+  },
+  {
+    "path": "internal/app/service_test.go",
+    "sha256": "fba51de0d16da9241dc9c9a31cb20a5dee50cb37be6b5af796a2f325f4691352",
+    "bytes": 1238
+  },
+  {
+    "path": "internal/brokercommands/dispatch.go",
+    "sha256": "17881710632df7eb1ace5411f334cc8d219d26e0c5d1574cf7939dbc5cedf19e",
+    "bytes": 2856
+  },
+  {
+    "path": "internal/brokercommands/dispatch_postgres_test.go",
+    "sha256": "144235c755aed8a3a2c209c9e9ab82b6fef3091e2431a6fb9f10707123990a70",
+    "bytes": 7375
+  },
+  {
+    "path": "internal/brokercommands/idempotency.go",
+    "sha256": "d7ee90a83ad262086d0ee96d0155195c96e0f8b5d67e76c7dafd2213564904e4",
+    "bytes": 1019
+  },
+  {
+    "path": "internal/brokercommands/prepared.go",
+    "sha256": "ce56f96e30b0d99647173c57504ca1a44a9ce4256c6b1d62ae4270b9f16f1544",
+    "bytes": 855
+  },
+  {
+    "path": "internal/brokercommands/store.go",
+    "sha256": "bc161c72b4459b8c3fb25104f59dd74d283a9186d36fe99a938bf1cead80ee2a",
+    "bytes": 18324
+  },
+  {
+    "path": "internal/brokercommands/store_postgres_test.go",
+    "sha256": "41124810ef166b81562e85c9395979058806fab95b40f2bb7ee92d623774cc2f",
+    "bytes": 15995
+  },
+  {
+    "path": "internal/brokercontract/command.go",
+    "sha256": "46596cef61ee48ea24bd8e60e47faf885259b8bb55feed4e298736cebda1cd1d",
+    "bytes": 2580
+  },
+  {
+    "path": "internal/brokercontract/command_test.go",
+    "sha256": "885af2e74b9a6978b0f03c558db13ce29ff3c4c5c90e8a13447759e360925877",
+    "bytes": 4063
+  },
+  {
+    "path": "internal/brokercontract/contract.go",
+    "sha256": "c72aa7af70ea42dd0aad1104629d30f7fbcab6b74588e357b536d73027c34f0c",
+    "bytes": 21222
+  },
+  {
+    "path": "internal/brokercontract/contract_test.go",
+    "sha256": "cb62fd68fb192b6ad38b1aa5a62da6e3c5159251e992e73fd9d4a1c18a45b68a",
+    "bytes": 11581
+  },
+  {
+    "path": "internal/brokercontract/json.go",
+    "sha256": "37ee66a880ff348381daba8a8586ee3f338321bcb9912f0bef7d4c3c2b2414eb",
+    "bytes": 1691
+  },
+  {
+    "path": "internal/brokercontract/json_test.go",
+    "sha256": "7b8f30aebc923a8bdfb549246ac669cc33bc5d114d557a61b4fd222950572068",
+    "bytes": 605
+  },
+  {
+    "path": "internal/brokercontract/state.go",
+    "sha256": "bcd9d1859451fe8a0a0e909410def774a93297eac3a34e5b8652dd5cf310b2df",
+    "bytes": 2332
+  },
+  {
+    "path": "internal/brokercontract/state_test.go",
+    "sha256": "d223bec1f33ea31a433f7ffeb9fe7855d04cb37a262d0b93b13216420c687811",
+    "bytes": 899
+  },
+  {
+    "path": "internal/brokercontrol/README.md",
+    "sha256": "54e3598790f6184df07929de2692f1923398c5a3cebf5c9433d01ea701686021",
+    "bytes": 1195
+  },
+  {
+    "path": "internal/brokercontrol/connecting_test.go",
+    "sha256": "97061619b943b4b38346808dd6c6aa3630eaa0ce22a905208c37656044030a96",
+    "bytes": 4656
+  },
+  {
+    "path": "internal/brokercontrol/gorm_repository.go",
+    "sha256": "1c5b2086ae0a88924052eb96e6c76b4429d8ab9c36e4ad2351b62efae8d9874e",
+    "bytes": 5957
+  },
+  {
+    "path": "internal/brokercontrol/gorm_repository_test.go",
+    "sha256": "86fede7891ce7db3481396c8e598bdf94edf6875b8b700bb9b9c06ea855c578f",
+    "bytes": 1933
+  },
+  {
+    "path": "internal/brokercontrol/owner.go",
+    "sha256": "6c8f1d8d3ea12c6cc79da937459f97b1f4b49793dec32999389d91066c1b6bde",
+    "bytes": 20937
+  },
+  {
+    "path": "internal/brokercontrol/owner_test.go",
+    "sha256": "ed208f47a266185d962a212ceedb81571d47d10c41bb4360625eb66a88ae092a",
+    "bytes": 19853
+  },
+  {
+    "path": "internal/brokercontrol/postgres_integration_test.go",
+    "sha256": "ebcf579b55e971ce5d41f774a4a17c33fa61137425c0bc805383408db7e4270a",
+    "bytes": 12180
+  },
+  {
+    "path": "internal/brokercontrol/repository.go",
+    "sha256": "d25aefdc87f0c15057185002de26373534dc51394f9b53df7a9d527828b9054f",
+    "bytes": 2274
+  },
+  {
+    "path": "internal/brokerledger/connecting_test.go",
+    "sha256": "75367cabe55e385491de400bd2e4675b792712ff72a9bee1ceeeda0ced902fe4",
+    "bytes": 1842
+  },
+  {
+    "path": "internal/brokerledger/effects.go",
+    "sha256": "d61f7fe9be394672ffafa8f1b26f4a029ba572b2b1ae38bcbff37da3b0383a3d",
+    "bytes": 790
+  },
+  {
+    "path": "internal/brokerledger/quarantine.go",
+    "sha256": "8db5d21e9f656282aaee3847ad95f339dfd49ce1298f1747893fab850e1e389d",
+    "bytes": 6591
+  },
+  {
+    "path": "internal/brokerledger/quarantine_postgres_test.go",
+    "sha256": "cbb22303be4575fe4602441b5af9ba8980e540c1072bf84bc7f7b148ab517fee",
+    "bytes": 9593
+  },
+  {
+    "path": "internal/brokerledger/store.go",
+    "sha256": "b93cd3dc496fe40130c3c08f2fb96536beffd2fe5ac6561fc70c35d9b292a151",
+    "bytes": 20243
+  },
+  {
+    "path": "internal/brokerledger/store_postgres_test.go",
+    "sha256": "5b5c87e21da49081b42ea5e7d2d046935a001957535e713fed16fecfd28829b9",
+    "bytes": 15624
+  },
+  {
+    "path": "internal/brokermapper/mapper.go",
+    "sha256": "daadb0a9e897b7a48b8a70e7161d8261cbd40bd48fc34643169c40158e696853",
+    "bytes": 7752
+  },
+  {
+    "path": "internal/brokermapper/mapper_test.go",
+    "sha256": "1dcdd411fa1433af1bb7cd650917ebf6863e18631a71a0ce445b6ad0b983246f",
+    "bytes": 2122
+  },
+  {
+    "path": "internal/brokermapper/repository.go",
+    "sha256": "627fceea2cdcdce0afbfcd5c891354c2be2886a433bcf88a0090284c6ac6f5dc",
+    "bytes": 5180
+  },
+  {
+    "path": "internal/brokermapper/repository_test.go",
+    "sha256": "d05c4dae5a197af2cd7d6141a4f638d66b0755885ac7b3e531147c975f0f3980",
+    "bytes": 1184
+  },
+  {
+    "path": "internal/brokerstate/activity.go",
+    "sha256": "d57b566a975fe6020e6fe03a3f306faa99510a562f190842c8f123cd6968ad32",
+    "bytes": 6920
+  },
+  {
+    "path": "internal/brokerstate/connecting_test.go",
+    "sha256": "643d1640cddd215ad07ab7c163c72c5e453c42229abcb3f1a4d0363656ba2cf7",
+    "bytes": 1590
+  },
+  {
+    "path": "internal/brokerstate/state.go",
+    "sha256": "36d5d924415ce69d453db94eb3b6178e973297879e0a10f694cd465af66f354b",
+    "bytes": 10679
+  },
+  {
+    "path": "internal/brokerstate/state_activity_test.go",
+    "sha256": "760b0af808e84597d57a0bf425dce440985a0aec0620d0b0052e7133b8a793ca",
+    "bytes": 11229
+  },
+  {
+    "path": "internal/brokerstate/state_test.go",
+    "sha256": "829c49e4d127224ab4f5b1430c987cbf6412e45237ecf53c75e2ad966a414931",
+    "bytes": 11931
+  },
+  {
+    "path": "internal/downlink/command.go",
+    "sha256": "e5b60089a29c1280e6d56a03421f4952b9ded79246ca96040ba97e67ad9a4da1",
+    "bytes": 958
+  },
+  {
+    "path": "internal/model/command_set_logs.http.go",
+    "sha256": "22ac188b931b6d2ff7cbfa01d8fac7799ce6f24e90ed97127e6af55e4aaa49db",
+    "bytes": 1178
+  },
+  {
+    "path": "internal/model/common.go",
+    "sha256": "4f6e299c6007a7e19487344e6046146f7558bc47d240d8f6eb4d134cbe7b7849",
+    "bytes": 1711
+  },
+  {
+    "path": "internal/mosquittodriver/command.go",
+    "sha256": "d5f61fca087be365da252b1810e7a750d94678f7454504f0e157bb0f1ebc4ce6",
+    "bytes": 3084
+  },
+  {
+    "path": "internal/mosquittodriver/command_offline_test.go",
+    "sha256": "82f31c906270c5ca148f02fae139547332abdee47904e958ebbe910e7e3d3100",
+    "bytes": 1430
+  },
+  {
+    "path": "internal/mosquittodriver/command_test.go",
+    "sha256": "181e782cd85bf994a26bee6c45cee177de7a52b15ea3706af3c284aad3d13092",
+    "bytes": 4470
+  },
+  {
+    "path": "internal/mosquittodriver/connecting_test.go",
+    "sha256": "bf68fa8d1dfce7be1b1ef09ea61038b90961c98ae83c70df2b126176b7525845",
+    "bytes": 1975
+  },
+  {
+    "path": "internal/mosquittodriver/driver.go",
+    "sha256": "8b837a6e1558c3970349b8244cd2f5ba6b1e5716300ce8449d75fdf0f1e6cf9f",
+    "bytes": 15583
+  },
+  {
+    "path": "internal/mosquittodriver/driver_test.go",
+    "sha256": "7d31eff67e83a64240297fa596f5e9ac9fb22d887f7352dda30b5d8fa2d9211c",
+    "bytes": 6086
+  },
+  {
+    "path": "internal/mosquittodriver/ingress_payload_boundary_test.go",
+    "sha256": "4bff1e28fd9ce28c2743f338c37a444be2c10814215e1d3de4353efa4b172e8f",
+    "bytes": 4661
+  },
+  {
+    "path": "internal/mosquittodriver/pending_ready_test.go",
+    "sha256": "e0644ae67cdf0db4f42d8ee70b5a52e58dab2d9b46ea2d5e7b047aa80147a536",
+    "bytes": 1062
+  },
+  {
+    "path": "internal/mosquittodriver/pointer_reuse_test.go",
+    "sha256": "b267cf7435e8fa50016de870e6cf6ce2245398fb4a3fb5cc2207943060b8dde6",
+    "bytes": 4562
+  },
+  {
+    "path": "internal/service/broker_automation.go",
+    "sha256": "7f662c1fa03abd0912d99723654a631033e9bed423e42f8052556c0b2bca5833",
+    "bytes": 19778
+  },
+  {
+    "path": "internal/service/broker_automation_postgres_test.go",
+    "sha256": "b3471c4aea0c530214ca65f77b816fc3f7064b1ae4f7233ebcfa79ac7f15b561",
+    "bytes": 20218
+  },
+  {
+    "path": "internal/service/broker_automation_rate_postgres_test.go",
+    "sha256": "ed9b2bd6085f5c732b4a6fdc4d1f6317b3980755e907115deb8d64585724062c",
+    "bytes": 7064
+  },
+  {
+    "path": "internal/service/command_canonical_test.go",
+    "sha256": "00db32e4b2aacc2c623a886d84b7d07bd46f9de689f117841d07c6ad3d9a540b",
+    "bytes": 1665
+  },
+  {
+    "path": "internal/service/command_data.go",
+    "sha256": "1ba3c9a7d861e93c5b35206fbb7f7e1e60c7bac588cb4733d353d0518567fa83",
+    "bytes": 19693
+  },
+  {
+    "path": "internal/service/command_durable.go",
+    "sha256": "a540f9859048dbc9aaa21508664b7601ad112e321832e921f9bc16ded7018521",
+    "bytes": 22917
+  },
+  {
+    "path": "internal/service/command_durable_test.go",
+    "sha256": "ca1b4f95b0b950eab38b15408360063b4bba7a62d62d4fff8349f6534dd4e4ba",
+    "bytes": 4452
+  },
+  {
+    "path": "internal/storage/direct_writer.go",
+    "sha256": "2e6c46890ce91087bdc58aa3e9f345d59200dba91729d54007385246e2a91c4a",
+    "bytes": 4312
+  },
+  {
+    "path": "internal/storage/telemetry_broker.go",
+    "sha256": "82ea3806f3985960e937d222c23491e6d77bad6a56f00b39f333fef2abb4e666",
+    "bytes": 10826
+  },
+  {
+    "path": "internal/storage/telemetry_broker_postgres_test.go",
+    "sha256": "ba5bf36e99959e4666d5f8bcf7b27a4d47ef17297d7c3a2dbae3dcef02ce0563",
+    "bytes": 21149
+  },
+  {
+    "path": "internal/storage/telemetry_writer.go",
+    "sha256": "a4f5969c189a8441a7649dd9d4e60f659edb9c95d61621177370cc121ffb1a3d",
+    "bytes": 11549
+  },
+  {
+    "path": "internal/storage/types.go",
+    "sha256": "c42ed4fbe353b9e08eabeedd63f0ec667bafcb0cf63db4778b4d73fa1230df07",
+    "bytes": 3425
+  },
+  {
+    "path": "internal/uplink/bus.go",
+    "sha256": "ccc2eb2a5794c992318cc6a312b27eb41fd883b70436e4bba5ed6cfee6da68f3",
+    "bytes": 7147
+  },
+  {
+    "path": "internal/uplink/reliable.go",
+    "sha256": "11a06354ce8678ce3d1b9cc4d09c53a235aeae8543514f053887b5039442609e",
+    "bytes": 8907
+  },
+  {
+    "path": "internal/uplink/reliable_postgres_test.go",
+    "sha256": "bf44a45687d58722b92ad5c582282958e91b1412cc5bbe77781c5e5f83cb61d7",
+    "bytes": 15023
+  },
+  {
+    "path": "internal/uplink/response_test.go",
+    "sha256": "cfdbf8e3ecc9aba6ff68adb02c3d2cec045c7f5cecf883a4e64470e31e10a66d",
+    "bytes": 708
+  },
+  {
+    "path": "internal/uplink/status.go",
+    "sha256": "6483b3bc4727eb87210f85b06f31489a0caeef0ba625893065c2fe1d6aa69bb0",
+    "bytes": 12639
+  },
+  {
+    "path": "internal/uplink/status_activity_postgres_test.go",
+    "sha256": "3579b6355b3945cc49f00f3244ecdd94bb8233b984a1f90ff4dafcbf65d1d9da",
+    "bytes": 9130
+  },
+  {
+    "path": "internal/uplink/telemetry.go",
+    "sha256": "156e70b6f52374001e47d39e5da47c351362148aff3f51be47ff0eb5b46b5845",
+    "bytes": 20367
+  },
+  {
+    "path": "internal/uplink/telemetry_trusted_route_test.go",
+    "sha256": "c234efd08d240262bd10fc28728a4b2b3be3f135dfca05f6600384d3f1968a1f",
+    "bytes": 4360
+  },
+  {
+    "path": "main.go",
+    "sha256": "11cc36f6e1e760e2690bbb38c777d63fd5897f75cc3cc16c22c0e14fbfb3e0cf",
+    "bytes": 2560
+  },
+  {
+    "path": "main_lifecycle_test.go",
+    "sha256": "253d46dea43fc3bbd5b9dd1f5b5f87d64381876874ad0c0e6363ffb3ba34b279",
+    "bytes": 1134
+  },
+  {
+    "path": "sql/broker/001_broker_owner_tables.sql",
+    "sha256": "517cebd9fae8fc16b4895af171df2d801e7df028f911d0efdacbe699c394b29f",
+    "bytes": 1074
+  },
+  {
+    "path": "sql/broker/002_ledger.sql",
+    "sha256": "14e054e0f11f8042fcd76b3220a74adb32c85150d94133d7f5e5012b80c744fc",
+    "bytes": 1474
+  },
+  {
+    "path": "sql/broker/003_state.sql",
+    "sha256": "c6f46d91384464607bf399fe5454da688a9849f4fefdd101fdf71b665753fbd2",
+    "bytes": 781
+  },
+  {
+    "path": "sql/broker/004_mapping_snapshots.sql",
+    "sha256": "fb152ce33a78817f949a013eb91031b096942fcfdc2bf1f0496fa17a316b4ad3",
+    "bytes": 255
+  },
+  {
+    "path": "sql/broker/005_ingress_effects.sql",
+    "sha256": "e33a02b55d02fdcc059a8f15c9882e6c407aa72a8a2f11f8d9ea94ca2501b256",
+    "bytes": 840
+  },
+  {
+    "path": "sql/broker/006_commands.sql",
+    "sha256": "14ef5ed80054de8791d3c18df86b191d05d71a58cb7b52be17f480441af57ab6",
+    "bytes": 1660
+  },
+  {
+    "path": "sql/broker/007_state_projection.sql",
+    "sha256": "2cf265120378e0f5b7d712681ffb5f9bc96ae638e53c54589c33115ee929770f",
+    "bytes": 516
+  },
+  {
+    "path": "sql/broker/008_quarantine.sql",
+    "sha256": "089a6dde68ecd7ae2623d363fe72961323cf61b4b9231cfb939cd6c444c834f0",
+    "bytes": 1030
+  },
+  {
+    "path": "sql/broker/009_automation_actions.sql",
+    "sha256": "065f32095774dd0aecedbffcd5d7fbed0962521479926cc31c7f9c689e2fff4d",
+    "bytes": 2151
+  },
+  {
+    "path": "sql/broker/010_telemetry_activity.sql",
+    "sha256": "bd5dcf6ccb35e1afefb3780bbefba97db67cecf4c45eff4d49a7a802371d1d1e",
+    "bytes": 697
+  },
+  {
+    "path": "sql/broker/011_safe_device_voucher.sql",
+    "sha256": "5b19e2c93d9f57833952244b9bedaa886ff6224550cd6daf85d983a86470ce60",
+    "bytes": 1384
+  },
+  {
+    "path": "test/mosquitto-community/advanced.go",
+    "sha256": "f7407d88c8f67df2fe84b5fbf05c6c6f436901ad48f656e94da4ffbc7b37e592",
+    "bytes": 38602
+  },
+  {
+    "path": "test/mosquitto-community/fixture.go",
+    "sha256": "74523b15b4bdd74a4057d644d101b9a3ac8b9d8447c4f35d51da5dcba5dad0f2",
+    "bytes": 10901
+  },
+  {
+    "path": "test/mosquitto-community/ledger.go",
+    "sha256": "1ad79059971be633baded9b47edc63facea83ebb0926de1fda2c4645749bd5a5",
+    "bytes": 6619
+  },
+  {
+    "path": "test/mosquitto-community/ledger_test.go",
+    "sha256": "172ef7a0389f3da421fdbb774b022d725fefc8cdee492a36fdc9868c99d56c89",
+    "bytes": 1222
+  },
+  {
+    "path": "test/mosquitto-community/main.go",
+    "sha256": "e785acf1230dbee11cff8280bc6eb3ba36730b14f67b1816cda30d49cce8b8cd",
+    "bytes": 5841
+  },
+  {
+    "path": "test/mosquitto-community/mqttwire.go",
+    "sha256": "657321d8f432c1d940d13ccc82a0e4994c02f953f0ad1c6652c907eb1800594d",
+    "bytes": 10471
+  },
+  {
+    "path": "test/mosquitto-community/runner.go",
+    "sha256": "2b4e29ebc548995448e55df4d75c12f5be31dbc446b7b1a0fd9849288ab18103",
+    "bytes": 27222
+  },
+  {
+    "path": "test/mosquitto-community/stress.go",
+    "sha256": "0e8d9a35108294c09f51b74e03e7eff60b56d939a3df6b47717a1c86dacfd806",
+    "bytes": 7899
+  },
+  {
+    "path": "test/mosquitto-community/tick_probe.go",
+    "sha256": "e1f817f146f29d3672b460de07162a7d3220d29afd2638c34a483f70975c0dc4",
+    "bytes": 3365
+  }
+]

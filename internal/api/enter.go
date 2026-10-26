@@ -27,6 +27,7 @@ type Controller struct {
 	AttributeDataApi              // 属性数据
 	EventDataApi                  // 事件数据
 	CommandSetLogApi              // 命令下发记录
+	CommandPlanApi                // 持久命令计划的预览、授权和提交
 	OperationLogsApi              // 系统日志
 	LogoApi                       // 站标
 	DataPolicyApi                 // 数据清理

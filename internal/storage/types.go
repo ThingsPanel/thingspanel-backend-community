@@ -16,11 +16,24 @@ const (
 
 // Message 统一消息格式
 type Message struct {
-	DeviceID  string      `json:"device_id"`
-	TenantID  string      `json:"tenant_id"`
-	DataType  DataType    `json:"data_type"`
-	Timestamp int64       `json:"timestamp"` // 毫秒时间戳
-	Data      interface{} `json:"data"`
+	DeviceID    string                 `json:"device_id"`
+	TenantID    string                 `json:"tenant_id"`
+	DataType    DataType               `json:"data_type"`
+	Timestamp   int64                  `json:"timestamp"` // 毫秒时间戳
+	Data        interface{}            `json:"data"`
+	BrokerRoute *TrustedTelemetryRoute `json:"-"`
+	AfterCommit func()                 `json:"-"`
+}
+
+// TrustedTelemetryRoute originates in the authenticated MQTT adapter metadata,
+// never in device JSON. Ordinary telemetry remains best effort until the batch
+// commits; this snapshot fences the final write against transport migration.
+type TrustedTelemetryRoute struct {
+	ReceiptID         string
+	TransportDeviceID string
+	BrokerCell        string
+	RouteEpoch        uint64
+	ObservedAt        time.Time
 }
 
 // TelemetryDataPoint 遥测数据点

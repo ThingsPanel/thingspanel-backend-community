@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -1138,6 +1139,13 @@ func formatTime(timestamp int64) string {
 //
 //	error: 处理过程中的错误
 func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
+	if isIngressV1Commands() {
+		if param == nil || operationType != "1" {
+			return errors.New("standard telemetry control requires an authenticated manual request")
+		}
+		_, err := submitStandardControl(ctx, userID, param.DeviceID, "telemetry", param.Value)
+		return err
+	}
 	// 步骤1: 校验入参
 	// ---------------------------------------------
 	// 校验参数值必须是有效的JSON

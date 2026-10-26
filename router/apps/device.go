@@ -26,6 +26,7 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 
 		// 详情查询
 		deviceapi.GET("/detail/:id", api.Controllers.DeviceApi.HandleDeviceByID)
+		deviceapi.GET("telemetry/evidence/:id", api.Controllers.DeviceApi.BrokerTelemetryEvidence)
 		// 查
 		deviceapi.GET("", api.Controllers.DeviceApi.HandleDeviceListByPage)
 
@@ -73,6 +74,8 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 
 		// 设备在线状态查询
 		deviceapi.GET("online/status/:id", api.Controllers.DeviceApi.HandleDeviceOnlineStatus)
+		deviceapi.GET("status/evidence/:id", api.Controllers.DeviceApi.BrokerStatusEvidence)
+		deviceapi.GET("semantic/evidence/:id", api.Controllers.DeviceApi.BrokerSemanticEvidence)
 
 		// 设备调试日志（gmqtt 采集，平台提供读取/开关）
 		deviceapi.POST(":device_id/debug", api.Controllers.DeviceDebugApi.SetDeviceDebug)

@@ -30,10 +30,12 @@ type telemetryWriter struct {
 
 // telemetryBatchItem 批次项
 type telemetryBatchItem struct {
-	deviceID  string               // 设备ID
-	tenantID  string               // 租户ID
-	timestamp int64                // 时间戳（毫秒）
-	points    []TelemetryDataPoint // 遥测数据点列表
+	deviceID    string               // 设备ID
+	tenantID    string               // 租户ID
+	timestamp   int64                // 时间戳（毫秒）
+	points      []TelemetryDataPoint // 遥测数据点列表
+	route       *TrustedTelemetryRoute
+	afterCommit func()
 }
 
 // newTelemetryWriter 创建遥测数据写入器
@@ -116,10 +118,12 @@ func (w *telemetryWriter) write(msg *Message) error {
 
 	// 创建批次项
 	item := &telemetryBatchItem{
-		deviceID:  msg.DeviceID,
-		tenantID:  msg.TenantID,
-		timestamp: msg.Timestamp,
-		points:    points,
+		deviceID:    msg.DeviceID,
+		tenantID:    msg.TenantID,
+		timestamp:   msg.Timestamp,
+		points:      points,
+		route:       msg.BrokerRoute,
+		afterCommit: msg.AfterCommit,
 	}
 
 	// 加入缓冲区，检查是否需要刷新
@@ -167,6 +171,23 @@ func (w *telemetryWriter) flushRemaining() {
 
 // doFlush 执行实际的刷新操作
 func (w *telemetryWriter) doFlush(batch []*telemetryBatchItem) {
+	var legacy, trusted []*telemetryBatchItem
+	for _, item := range batch {
+		if item.route == nil {
+			legacy = append(legacy, item)
+		} else {
+			trusted = append(trusted, item)
+		}
+	}
+	if len(legacy) > 0 {
+		w.doFlushLegacy(legacy)
+	}
+	if len(trusted) > 0 {
+		w.doFlushTrusted(trusted)
+	}
+}
+
+func (w *telemetryWriter) doFlushLegacy(batch []*telemetryBatchItem) {
 	// 1. 批次内去重并转换为数据库模型
 	historyData, currentData, duplicates := w.deduplicateAndConvert(batch)
 

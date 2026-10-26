@@ -121,6 +121,9 @@ func (*OTA) GetOTAUpgradePackageListByPage(req *model.GetOTAUpgradePackageLisyBy
 }
 
 func (o *OTA) CreateOTAUpgradeTask(req *model.CreateOTAUpgradeTaskReq) error {
+	if err := requireLegacyDownlink("OTA control"); err != nil {
+		return err
+	}
 	tasks, err := dal.CreateOTAUpgradeTaskWithDetail(req)
 	if err == nil {
 		go func() {
@@ -212,6 +215,9 @@ func (o *OTA) UpdateOTAUpgradeTaskStatus(req *model.UpdateOTAUpgradeTaskStatusRe
 	return err
 }
 func (*OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) error {
+	if err := requireLegacyDownlink("OTA publish"); err != nil {
+		return err
+	}
 	// 查看设备是否在线
 	device := &model.Device{}
 	device, err := query.Device.Where(query.Device.ID.Eq(taskDetail.DeviceID)).First()

@@ -1,10 +1,14 @@
 package mqttadapter
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	bc "project/internal/brokercontract"
+	"project/internal/brokermapper"
 	"strings"
+	"sync"
 	"time"
 
 	"project/initialize"
@@ -29,9 +33,17 @@ type UplinkMessage struct {
 // Adapter MQTT 适配器
 // 负责将 MQTT 消息转换为统一的 DeviceMessage 格式
 type Adapter struct {
-	bus        *uplink.Bus
-	mqttClient mqtt.Client
-	logger     *logrus.Logger
+	ctx             context.Context
+	inputProfile    string
+	ingressTrust    bc.TrustedMetadata
+	retainedProfile bc.RetainedProfile
+	ingressAcceptor IngressAcceptor
+	mapperRepo      *brokermapper.Repository
+	mappingMu       sync.RWMutex
+	mappingVersions map[string]string
+	bus             *uplink.Bus
+	mqttClient      mqtt.Client
+	logger          *logrus.Logger
 }
 
 // publicPayload MQTT 消息格式
@@ -437,6 +449,9 @@ func (a *Adapter) extractDeviceIDFromPayload(payload []byte) string {
 // PublishMessage 实现 MessagePublisher 接口
 // 根据设备信息构造Topic并发送MQTT消息
 func (a *Adapter) PublishMessage(deviceNumber string, msgType downlink.MessageType, deviceType string, topicPrefix string, messageID string, qos byte, payload []byte) error {
+	if a.inputProfile == "ingress_v1" {
+		return errors.New("ingress_v1 requires the durable command owner; legacy raw downlinks are unsupported")
+	}
 	// 1. 根据设备类型和协议选择Topic基础路径
 	// 协议插件：始终使用 devices 路径（插件自己处理层级关系）
 	// MQTT协议：根据设备类型选择 devices 或 gateway

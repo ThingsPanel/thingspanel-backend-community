@@ -1,7 +1,11 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"project/initialize"
 	"project/internal/adapter/mqttadapter"
@@ -12,26 +16,42 @@ import (
 	"github.com/spf13/viper"
 )
 
+var errMQTTServiceStopping = errors.New("MQTT service is stopping")
+
 // MQTTService 实现MQTT相关服务
 type MQTTService struct {
-	app         *Application
-	initialized bool
-	mqttAdapter *mqttadapter.Adapter
+	app *Application
+
+	mu           sync.Mutex
+	initialized  bool
+	starting     bool
+	startCancel  context.CancelFunc
+	startDone    chan struct{}
+	startErr     error
+	generation   uint64
+	mqttAdapter  *mqttadapter.Adapter
+	mqttClient   mqtt_client.Client
+	brokerWorker *brokerIngressWorker
+
+	clientFactory func(context.Context, mqttadapter.MQTTConfig, *logrus.Logger) (mqtt_client.Client, error)
+	subscribe     func(context.Context, *mqttadapter.Adapter, mqtt_client.Client) error
 }
+
+var globalMQTTAdapterMu sync.RWMutex
 
 // 全局 Adapter 实例（供其他模块调用）
 var globalMQTTAdapter *mqttadapter.Adapter
 
 // GetGlobalMQTTAdapter 获取全局 MQTT Adapter 实例
 func GetGlobalMQTTAdapter() *mqttadapter.Adapter {
+	globalMQTTAdapterMu.RLock()
+	defer globalMQTTAdapterMu.RUnlock()
 	return globalMQTTAdapter
 }
 
 // NewMQTTService 创建MQTT服务实例
 func NewMQTTService() *MQTTService {
-	return &MQTTService{
-		initialized: false,
-	}
+	return &MQTTService{}
 }
 
 // Name 返回服务名称
@@ -39,127 +59,287 @@ func (s *MQTTService) Name() string {
 	return "MQTT服务"
 }
 
-// Start 启动MQTT服务
+// Start 兼容 Service 接口；独立取消由 Stop 提供。
 func (s *MQTTService) Start() error {
-	logrus.Info("正在启动MQTT服务...")
+	return s.StartContext(context.Background())
+}
 
-	// 初始化MQTT配置（只加载配置，不创建客户端）
+// StartContext 启动 MQTT 服务，并响应调用者的 ctx 取消。
+func (s *MQTTService) StartContext(parent context.Context) error {
+	if parent == nil {
+		return errors.New("MQTT service context is nil")
+	}
+	s.mu.Lock()
+	if s.initialized {
+		s.mu.Unlock()
+		return nil
+	}
+	if s.starting {
+		done := s.startDone
+		s.mu.Unlock()
+		select {
+		case <-done:
+			s.mu.Lock()
+			err := s.startErr
+			if err == nil && s.initialized {
+				s.mu.Unlock()
+				return nil
+			}
+			s.mu.Unlock()
+			return err
+		case <-parent.Done():
+			return parent.Err()
+		}
+	}
+	ctx, cancel := context.WithCancel(parent)
+	s.generation++
+	generation := s.generation
+	done := make(chan struct{})
+	s.starting = true
+	s.startCancel = cancel
+	s.startDone = done
+	s.mu.Unlock()
+
+	err := s.start(ctx)
+	if err == nil && ctx.Err() != nil {
+		err = ctx.Err()
+	}
+	if err != nil {
+		s.cleanupPartialStart()
+		cancel()
+	}
+
+	s.mu.Lock()
+	if err == nil {
+		s.initialized = true
+	}
+	s.starting = false
+	s.startDone = nil
+	s.startErr = err
+	if err != nil {
+		s.startCancel = nil
+	}
+	close(done)
+	s.mu.Unlock()
+	if err == nil {
+		// Keep the caller context alive for reconnect callbacks. If the parent
+		// cancels after startup, stop the connected client as part of its lifecycle.
+		go func() {
+			<-ctx.Done()
+			s.stopGeneration(generation)
+		}()
+	}
+	return err
+}
+
+func (s *MQTTService) start(ctx context.Context) error {
+	logrus.Info("正在启动MQTT服务...")
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := mqtt.MqttInit(); err != nil {
 		return err
 	}
-
-	// 初始化限流器
 	initialize.NewAutomateLimiter()
-
-	// 注意: 设备状态监控已由 Flow 层的 HeartbeatMonitor 和 StatusUplink 接管
-	// 不再使用 device.InitDeviceStatus()
-
-	// ⚠️ 旧的订阅流程已废弃，不再调用 subscribe.SubscribeInit()
-	// ⚠️ 旧的发布流程已废弃，不再调用 publish.PublishInit()
-	// 所有 MQTT 操作（订阅+发布）现在由 MQTTAdapter 统一管理
-
-	// ✨ 创建 MQTT Adapter 并订阅所有 Topic
-	if err := s.initMQTTAdapter(); err != nil {
+	if err := s.initMQTTAdapter(ctx); err != nil {
 		logrus.WithError(err).Error("Failed to initialize MQTT Adapter")
 		return err
 	}
-
-	s.initialized = true
 	logrus.Info("MQTT服务启动完成")
 	return nil
 }
 
 // initMQTTAdapter 初始化 MQTT Adapter（创建独立的 MQTT 客户端）
-func (s *MQTTService) initMQTTAdapter() error {
-	// 1. 获取 Flow Bus
+func (s *MQTTService) initMQTTAdapter(ctx context.Context) error {
+	if s.app == nil {
+		return errors.New("application is nil")
+	}
 	bus := s.app.GetUplinkBus()
 	if bus == nil {
 		return fmt.Errorf("uplink bus not initialized, cannot create MQTT Adapter")
 	}
 
-	// 2. 创建 Adapter 专用的 MQTT 客户端（不依赖 mqtt/publish/）
 	broker := viper.GetString("mqtt.broker")
 	username := viper.GetString("mqtt.user")
 	password := viper.GetString("mqtt.pass")
 	clientID := viper.GetString("mqtt.client_id")
-
-	// 3. 先创建临时 Adapter（用于订阅回调）
-	var tempAdapter *mqttadapter.Adapter
-
+	var adapterRef atomic.Pointer[mqttadapter.Adapter]
+	prepareAdapter := func(client mqtt_client.Client) error {
+		adapter := mqttadapter.NewAdapter(bus, client, s.logger())
+		adapter.SetContext(ctx)
+		if err := adapter.ConfigureIngressFromConfig(); err != nil {
+			return fmt.Errorf("failed to configure MQTT ingress: %w", err)
+		}
+		if err := s.configureBrokerIngress(ctx, adapter); err != nil {
+			return fmt.Errorf("failed to initialize reliable MQTT ingress: %w", err)
+		}
+		adapter.RegisterIngressRoutes(client)
+		adapterRef.Store(adapter)
+		return nil
+	}
 	mqttConfig := mqttadapter.MQTTConfig{
-
-		Broker:   broker,
-		Username: username,
-		Password: password,
-		ClientID: clientID,
-
-		// ✨ 设置连接成功回调：重连后自动重新订阅所有 Topic
+		Broker:        broker,
+		Username:      username,
+		Password:      password,
+		ClientID:      clientID,
+		ManualAck:     viper.GetString("mqtt.input_profile") == "ingress_v1",
+		BeforeConnect: prepareAdapter,
 		OnConnectCallback: func(client mqtt_client.Client) {
-			if tempAdapter == nil {
-				return // 首次连接时 adapter 还未创建，跳过
+			if ctx.Err() != nil {
+				return
 			}
-
-			logrus.Info("Re-subscribing all topics after reconnection...")
-
-			// 重新订阅响应 Topic
-			if err := tempAdapter.SubscribeResponseTopics(client); err != nil {
-				logrus.WithError(err).Error("Failed to re-subscribe response topics")
+			adapter := adapterRef.Load()
+			if adapter == nil {
+				return // 首次连接可能早于 Adapter 构造；启动流程会执行首轮订阅。
 			}
-
-			// 重新订阅设备上行 Topic
-			if err := tempAdapter.SubscribeDeviceTopics(client); err != nil {
-				logrus.WithError(err).Error("Failed to re-subscribe device topics")
+			if err := s.subscribeAdapter(ctx, adapter, client); err != nil {
+				logrus.WithError(err).Error("Failed to re-subscribe MQTT Adapter topics")
 			}
-
-			// 重新订阅网关上行 Topic
-			if err := tempAdapter.SubscribeGatewayTopics(client); err != nil {
-				logrus.WithError(err).Error("Failed to re-subscribe gateway topics")
-			}
-
-			logrus.Info("All topics re-subscribed successfully after reconnection")
 		},
 	}
-
-	mqttClient, err := mqttadapter.CreateMQTTClient(mqttConfig, s.app.Logger)
+	client, err := s.createClient(ctx, mqttConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create MQTT client for Adapter: %w", err)
 	}
-
-	// 4. 创建 MQTT Adapter
-	s.mqttAdapter = mqttadapter.NewAdapter(bus, mqttClient, s.app.Logger)
-	tempAdapter = s.mqttAdapter       // 赋值给临时变量，供回调使用
-	globalMQTTAdapter = s.mqttAdapter // 设置全局实例
-	logrus.Info("MQTT Adapter created with independent client")
-
-	// 5. 首次订阅所有 Topic（重连后会通过 OnConnectCallback 自动重新订阅）
-	if err := s.mqttAdapter.SubscribeResponseTopics(mqttClient); err != nil {
-		return fmt.Errorf("failed to subscribe response topics: %w", err)
+	adapter := adapterRef.Load()
+	if adapter == nil {
+		// Test factories must honor BeforeConnect for persistent-session tests.
+		// This fallback also preserves legacy injectable factories.
+		if err := prepareAdapter(client); err != nil {
+			mqttadapter.DisconnectMQTTClient(client, s.logger())
+			return err
+		}
+		adapter = adapterRef.Load()
+	}
+	if err := ctx.Err(); err != nil {
+		mqttadapter.DisconnectMQTTClient(client, s.logger())
+		return err
+	}
+	if err := s.subscribeAdapter(ctx, adapter, client); err != nil {
+		mqttadapter.DisconnectMQTTClient(client, s.logger())
+		return fmt.Errorf("failed to subscribe MQTT Adapter topics: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		mqttadapter.DisconnectMQTTClient(client, s.logger())
+		return err
 	}
 
-	if err := s.mqttAdapter.SubscribeDeviceTopics(mqttClient); err != nil {
-		return fmt.Errorf("failed to subscribe device topics: %w", err)
+	s.mu.Lock()
+	if !s.starting || ctx.Err() != nil {
+		s.mu.Unlock()
+		mqttadapter.DisconnectMQTTClient(client, s.logger())
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return errMQTTServiceStopping
 	}
-
-	if err := s.mqttAdapter.SubscribeGatewayTopics(mqttClient); err != nil {
-		return fmt.Errorf("failed to subscribe gateway topics: %w", err)
-	}
-
+	s.mqttAdapter = adapter
+	s.mqttClient = client
+	globalMQTTAdapterMu.Lock()
+	globalMQTTAdapter = adapter
+	globalMQTTAdapterMu.Unlock()
+	s.mu.Unlock()
 	logrus.Info("MQTT Adapter initialized successfully - all subscriptions active")
-	logrus.Info("📌 Automatic re-subscription on reconnect is enabled")
-	logrus.Info("📌 Old mqtt/subscribe/ flow is now completely bypassed")
 	return nil
 }
 
-// Stop 停止MQTT服务
+func (s *MQTTService) createClient(ctx context.Context, config mqttadapter.MQTTConfig) (mqtt_client.Client, error) {
+	if s.clientFactory != nil {
+		return s.clientFactory(ctx, config, s.logger())
+	}
+	return mqttadapter.CreateMQTTClientContext(ctx, config, s.logger())
+}
+
+func (s *MQTTService) subscribeAdapter(ctx context.Context, adapter *mqttadapter.Adapter, client mqtt_client.Client) error {
+	if s.subscribe != nil {
+		return s.subscribe(ctx, adapter, client)
+	}
+	return adapter.SubscribeAllContext(ctx, client)
+}
+
+func (s *MQTTService) logger() *logrus.Logger {
+	if s.app != nil && s.app.Logger != nil {
+		return s.app.Logger
+	}
+	return logrus.StandardLogger()
+}
+
+func (s *MQTTService) cleanupPartialStart() {
+	s.mu.Lock()
+	client := s.mqttClient
+	adapter := s.mqttAdapter
+	worker := s.brokerWorker
+	s.mqttClient = nil
+	s.mqttAdapter = nil
+	s.brokerWorker = nil
+	globalMQTTAdapterMu.Lock()
+	if globalMQTTAdapter == adapter {
+		globalMQTTAdapter = nil
+	}
+	globalMQTTAdapterMu.Unlock()
+	s.mu.Unlock()
+	if worker != nil {
+		worker.Stop()
+	}
+	if client != nil {
+		mqttadapter.DisconnectMQTTClient(client, s.logger())
+	}
+}
+
+// Stop 停止 MQTT 服务。调用期间可取消正在进行的 StartContext。
 func (s *MQTTService) Stop() error {
-	if !s.initialized {
+	return s.stopGeneration(0)
+}
+
+func (s *MQTTService) stopGeneration(generation uint64) error {
+	s.mu.Lock()
+	if generation != 0 && s.generation != generation {
+		s.mu.Unlock()
 		return nil
 	}
+	cancel := s.startCancel
+	done := s.startDone
+	if cancel != nil {
+		cancel()
+	}
+	s.mu.Unlock()
+	if done != nil {
+		<-done
+	}
 
-	logrus.Info("正在停止MQTT服务...")
-	// 这里可以添加停止MQTT客户端的逻辑
-	// 如果mqtt包提供了关闭方法，可以在这里调用
+	s.mu.Lock()
+	if generation != 0 && s.generation != generation {
+		s.mu.Unlock()
+		return nil
+	}
+	worker := s.brokerWorker
+	s.mu.Unlock()
+	if worker != nil {
+		worker.Stop()
+	}
 
+	s.mu.Lock()
+	if generation != 0 && s.generation != generation {
+		s.mu.Unlock()
+		return nil
+	}
+	client := s.mqttClient
+	adapter := s.mqttAdapter
+	s.mqttClient = nil
+	s.mqttAdapter = nil
+	s.brokerWorker = nil
+	s.initialized = false
+	s.startCancel = nil
+	globalMQTTAdapterMu.Lock()
+	if globalMQTTAdapter == adapter {
+		globalMQTTAdapter = nil
+	}
+	globalMQTTAdapterMu.Unlock()
+	s.mu.Unlock()
+
+	if client != nil {
+		mqttadapter.DisconnectMQTTClient(client, s.logger())
+	}
 	logrus.Info("MQTT服务已停止")
 	return nil
 }
@@ -168,9 +348,9 @@ func (s *MQTTService) Stop() error {
 func WithMQTTService() Option {
 	return func(app *Application) error {
 		service := NewMQTTService()
-		service.app = app // ✨ 设置 Application 引用
+		service.app = app
 		app.RegisterService(service)
-		app.mqttService = service // ✨ 保存服务引用
+		app.mqttService = service
 		return nil
 	}
 }

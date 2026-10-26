@@ -1,7 +1,7 @@
 package main
 
 import (
-	"os"
+	"context"
 	"testing"
 	"time"
 
@@ -24,13 +24,14 @@ func TestTerminationSignalStopsApplicationWithoutWaitingFirst(t *testing.T) {
 	if err := application.Start(); err != nil {
 		t.Fatal("start application")
 	}
-	signals := make(chan os.Signal, 1)
+	runCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	done := make(chan struct{})
 	go func() {
-		waitForApplicationShutdown(application, signals)
+		waitForApplicationShutdown(application, runCtx.Done())
 		close(done)
 	}()
-	signals <- os.Interrupt
+	cancel()
 
 	select {
 	case <-done:

@@ -62,6 +62,9 @@ func RouterInit() *gin.Engine {
 	// router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	router.Use(middleware.Cors())
+	// Credential routes precede full-body operation logging and ordinary JWT auth.
+	api.RegisterBrokerAIToolRoutes(router)
+	router.Use(api.BrokerCommandPlanBodyLimits())
 	// 初始化响应处理器
 	handler, err := response.NewHandler("configs/messages.yaml", "configs/messages_str.yaml")
 	if err != nil {

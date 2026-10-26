@@ -1,0 +1,5 @@
+71a5bee1504aca0bb2c3b057b00d13dfa4146353cd45ac0777838cc92c92fec5  /tmp/tp-mqtt-20261019/build/install/sbin/mosquitto
+32ece9cdc9462730ca7f2fe248e6415d0c0692d5cf51e637e21e60151da6fd92  /tmp/tp-mqtt-20261019/build/tp-mosquitto.so
+a1f4819a90e86cf98003000b40d6ba10c4e0f9ee560b7c5a45556f739184cf1f  /tmp/tp-mqtt-20261019/build/mqtt-community-qa
+e489c9064aa6fc89f51c407565de84e9aa1b556548a8b5624047466996263bb5  docs/gmqtt-evidence-2026-10-19/mqtt-qa-20261019.raw.ndjson
+88e77b96d8de7ef93f7e7a2ea23c3ee346cdfc54b1922016f7300298cb14efa3  docs/gmqtt-evidence-2026-10-19/mqtt-qa-20261019.assertions.json

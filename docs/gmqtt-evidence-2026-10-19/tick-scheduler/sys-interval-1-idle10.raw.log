@@ -1,0 +1,93 @@
+Linux plugin QA config: owner=http://127.0.0.1:18084 cell=qa-community instance=mosquitto-plugin-qa pending=128 sessions=128 token_bytes=64
+fixture ready at http://127.0.0.1:18084/v1/authenticate; token file /tmp/tp-broker-fixture.token (value not printed)
+1792428288: Info: running mosquitto as user: mosquitto.
+1792428288: mosquitto version 2.1.2 starting
+1792428288: Config loaded from /mosquitto/config/mosquitto.conf.
+1792428288: Bridge support available.
+1792428288: Persistence support available.
+1792428288: TLS support available.
+1792428288: TLS-PSK support available.
+1792428288: Websockets support NOT available.
+1792428288: Loading plugin: /mosquitto/plugins/tp-mosquitto-plugin.so
+1792428288: Plugin thingspanel-community has registered to receive 'basic-auth' events.
+1792428288: Plugin thingspanel-community has registered to receive 'acl-check' events.
+1792428288: Plugin thingspanel-community has registered to receive 'message-in' events.
+1792428288: Plugin thingspanel-community has registered to receive 'message-out' events.
+1792428288: Plugin thingspanel-community has registered to receive 'tick' events.
+1792428288: Plugin thingspanel-community has registered to receive 'connect' events.
+1792428288: Plugin thingspanel-community has registered to receive 'disconnect' events.
+1792428288: Plugin thingspanel-community has registered to receive 'connect' events.
+1792428288: Plugin thingspanel-community version contract-1 loaded.
+1792428288: Opening ipv4 listen socket on port 1883.
+1792428288: mosquitto version 2.1.2 running
+1792428289: New connection from 127.0.0.1:48672 on port 1883.
+1792428289: New connection from 127.0.0.1:48680 on port 1883.
+1792428289: Client 127.0.0.1 [127.0.0.1:48672] disconnected: connection closed by client.
+1792428290: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1792428290: New client connected from 127.0.0.1:48680 as stress-reconnect-0 (p4, c1, k30, u'qa-device-device-a').
+1792428290: No will message specified.
+1792428290: Sending CONNACK to stress-reconnect-0 (0, 0)
+1792428290: Received DISCONNECT from stress-reconnect-0
+1792428290: Client stress-reconnect-0 [127.0.0.1:48680] disconnected.
+1792428290: New connection from 127.0.0.1:48696 on port 1883.
+1792428291: New client connected from 127.0.0.1:48696 as stress-reconnect-1 (p5, c1, k30, u'qa-device-device-a').
+1792428291: No will message specified.
+1792428291: Sending CONNACK to stress-reconnect-1 (0, 0)
+1792428291: Received DISCONNECT from stress-reconnect-1
+1792428291: Client stress-reconnect-1 [127.0.0.1:48696] disconnected.
+1792428291: New connection from 127.0.0.1:48704 on port 1883.
+1792428292: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1792428292: New client connected from 127.0.0.1:48704 as stress-reconnect-2 (p4, c1, k30, u'qa-device-device-a').
+1792428292: No will message specified.
+1792428292: Sending CONNACK to stress-reconnect-2 (0, 0)
+1792428292: Received DISCONNECT from stress-reconnect-2
+1792428292: Client stress-reconnect-2 [127.0.0.1:48704] disconnected.
+1792428292: New connection from 127.0.0.1:48708 on port 1883.
+1792428293: New client connected from 127.0.0.1:48708 as stress-reconnect-3 (p5, c1, k30, u'qa-device-device-a').
+1792428293: No will message specified.
+1792428293: Sending CONNACK to stress-reconnect-3 (0, 0)
+1792428293: Received DISCONNECT from stress-reconnect-3
+1792428293: Client stress-reconnect-3 [127.0.0.1:48708] disconnected.
+1792428293: New connection from 127.0.0.1:48718 on port 1883.
+1792428294: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1792428294: New client connected from 127.0.0.1:48718 as stress-reconnect-4 (p4, c1, k30, u'qa-device-device-a').
+1792428294: No will message specified.
+1792428294: Sending CONNACK to stress-reconnect-4 (0, 0)
+1792428294: Received DISCONNECT from stress-reconnect-4
+1792428294: Client stress-reconnect-4 [127.0.0.1:48718] disconnected.
+1792428294: New connection from 127.0.0.1:41840 on port 1883.
+1792428295: New client connected from 127.0.0.1:41840 as stress-reconnect-5 (p5, c1, k30, u'qa-device-device-a').
+1792428295: No will message specified.
+1792428295: Sending CONNACK to stress-reconnect-5 (0, 0)
+1792428295: Received DISCONNECT from stress-reconnect-5
+1792428295: Client stress-reconnect-5 [127.0.0.1:41840] disconnected.
+1792428295: New connection from 127.0.0.1:41844 on port 1883.
+1792428296: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1792428296: New client connected from 127.0.0.1:41844 as stress-reconnect-6 (p4, c1, k30, u'qa-device-device-a').
+1792428296: No will message specified.
+1792428296: Sending CONNACK to stress-reconnect-6 (0, 0)
+1792428296: Received DISCONNECT from stress-reconnect-6
+1792428296: Client stress-reconnect-6 [127.0.0.1:41844] disconnected.
+1792428296: New connection from 127.0.0.1:41858 on port 1883.
+1792428297: New client connected from 127.0.0.1:41858 as stress-reconnect-7 (p5, c1, k30, u'qa-device-device-a').
+1792428297: No will message specified.
+1792428297: Sending CONNACK to stress-reconnect-7 (0, 0)
+1792428297: Received DISCONNECT from stress-reconnect-7
+1792428297: Client stress-reconnect-7 [127.0.0.1:41858] disconnected.
+1792428297: New connection from 127.0.0.1:41870 on port 1883.
+1792428298: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1792428298: New client connected from 127.0.0.1:41870 as stress-reconnect-8 (p4, c1, k30, u'qa-device-device-a').
+1792428298: No will message specified.
+1792428298: Sending CONNACK to stress-reconnect-8 (0, 0)
+1792428298: Received DISCONNECT from stress-reconnect-8
+1792428298: Client stress-reconnect-8 [127.0.0.1:41870] disconnected.
+1792428298: New connection from 127.0.0.1:41884 on port 1883.
+1792428299: New client connected from 127.0.0.1:41884 as stress-reconnect-9 (p5, c1, k30, u'qa-device-device-a').
+1792428299: No will message specified.
+1792428299: Sending CONNACK to stress-reconnect-9 (0, 0)
+1792428299: Received DISCONNECT from stress-reconnect-9
+1792428299: Client stress-reconnect-9 [127.0.0.1:41884] disconnected.
+PASS: sanitizer stress counts messages=0 acked=0 ingress_seen=0 reconnects=10 MQTT3/5; elapsed=10.046790553s; report=/qa-out/idle10-receipt.json
+PASS: all live MQTT checks completed
+1792428299: mosquitto version 2.1.2 terminating
+1792428299: Saving in-memory database to /mosquitto/data//mosquitto.db.

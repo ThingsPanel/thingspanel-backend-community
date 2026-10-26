@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"project/initialize"
+	"project/internal/brokercommands"
 	"project/internal/dal"
 	"project/internal/downlink"
 	"project/internal/model"
@@ -17,6 +18,7 @@ import (
 	"project/pkg/common"
 	"project/pkg/constant"
 	"project/pkg/errcode"
+	"project/pkg/global"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
@@ -46,7 +48,38 @@ func (c *CommandData) CommandPutMessageWithResult(ctx context.Context, operatorI
 	return c.commandPutMessageWithResult(ctx, operatorID, putMessageReq, operationType, tenantID, true)
 }
 
-func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string, enforceTenant bool) (string, error) {
+func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string, enforceTenant bool, hooks ...durablePreparationHook) (string, error) {
+	if putMessageReq == nil {
+		return "", errcode.NewWithMessage(errcode.CodeParamError, "command request is required")
+	}
+	durableCommands := isIngressV1Commands()
+	if !durableCommands && (putMessageReq.IdempotencyKey != "" || putMessageReq.ExpiresAt != nil) {
+		return "", errcode.NewWithMessage(errcode.CodeParamError, "idempotency_key and expires_at require mqtt.input_profile=ingress_v1")
+	}
+	if durableCommands && enforceTenant && putMessageReq.IdempotencyKey != "" && len(hooks) == 0 {
+		caller, intent, err := durableCommandIdentity(operationType, operatorID)
+		if err != nil {
+			return "", err
+		}
+		if err := ValidateDurableCommandCaller(ctx, global.DB, brokercommands.Row{TenantID: tenantID, CallerID: caller, Intent: intent}); err != nil {
+			return "", err
+		}
+		canonical, err := canonicalizeCommand(putMessageReq, "")
+		if err != nil {
+			return "", err
+		}
+		store, err := getDurableCommandStore(global.DB)
+		if err != nil {
+			return "", err
+		}
+		row, found, err := store.FindIdempotent(ctx, tenantID, caller, intent, putMessageReq.IdempotencyKey, canonical)
+		if err != nil {
+			return "", err
+		}
+		if found {
+			return row.ID, nil
+		}
+	}
 	// 1. 获取设备信息
 	// Downlink routing needs the current access_way and service_access_id relation;
 	// Redis device cache entries may not contain those database fields.
@@ -57,7 +90,7 @@ func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorI
 	if enforceTenant && device.TenantID != tenantID {
 		return "", errcode.NewWithMessage(errcode.CodeParamError, "device not found")
 	}
-	if c.downlinkBus == nil {
+	if !durableCommands && c.downlinkBus == nil {
 		return "", fmt.Errorf("downlink service not available")
 	}
 
@@ -95,9 +128,12 @@ func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorI
 	}
 
 	// 5. 处理多层网关数据嵌套
-	transformedData, err := transformCommandDataForMultiLevelGateway(commandData, device, deviceType)
-	if err != nil {
-		return "", fmt.Errorf("failed to transform command data: %w", err)
+	transformedData := commandData
+	if !durableCommands {
+		transformedData, err = transformCommandDataForMultiLevelGateway(commandData, device, deviceType)
+		if err != nil {
+			return "", fmt.Errorf("failed to transform command data: %w", err)
+		}
 	}
 
 	jsonData, err := json.Marshal(transformedData)
@@ -117,14 +153,10 @@ func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorI
 		return "", err
 	}
 
-	// 7. 创建 pending 日志（记录转换后的完整数据）
+	// 7. Build the downlink before persisting it. ingress_v1 stores this exact
+	// logical request and command log together; the dispatcher later replaces
+	// MessageID with the durable row ID before publishing.
 	transformedDataStr := string(jsonData)
-	if err := c.createCommandLogForPut(device, messageId, putMessageReq.Identify, &transformedDataStr, operationType); err != nil {
-		logrus.WithError(err).Error("Failed to create command log")
-		return "", fmt.Errorf("failed to create command log: %w", err)
-	}
-
-	// 8. 使用 downlink.Bus 发送
 	msg := &downlink.Message{
 		DeviceID:       device.ID,                         // 原始设备ID（用于日志关联）
 		DeviceNumber:   targetDeviceNumber,                // 目标设备编号
@@ -135,6 +167,13 @@ func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorI
 		Topic:          "",          // 不再传Topic，由Adapter构造
 		TopicPrefix:    topicPrefix, // 协议插件前缀
 		MessageID:      messageId,
+	}
+	if durableCommands {
+		return c.submitDurableCommand(ctx, operatorID, tenantID, putMessageReq, operationType, device, targetDevice, msg, deviceType, commandData, hooks...)
+	}
+	if err := c.createCommandLogForPut(device, messageId, putMessageReq.Identify, &transformedDataStr, operationType); err != nil {
+		logrus.WithError(err).Error("Failed to create command log")
+		return "", fmt.Errorf("failed to create command log: %w", err)
 	}
 	c.downlinkBus.PublishCommand(msg)
 
@@ -151,6 +190,30 @@ func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorI
 
 // GetCommandStatus 按租户查询单条命令状态；不存在或不属于该租户统一返回 not_found。
 func (*CommandData) GetCommandStatus(ctx context.Context, messageID, tenantID string) (*model.CommandStatusResponse, error) {
+	if isIngressV1Commands() {
+		store, err := getDurableCommandStore(global.DB)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		}
+		row, err := store.GetScoped(ctx, tenantID, messageID)
+		if errors.Is(err, brokercommands.ErrNotFound) {
+			// Cutover may still have scoped legacy operations in flight. Preserve
+			// their receipt lookup; never fall back to a global message_id query.
+			return legacyCommandStatus(ctx, messageID, tenantID)
+		}
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		}
+		response := &model.CommandStatusResponse{MessageID: row.ID, Status: row.State, CreatedAt: row.CreatedAt}
+		if row.LastError != "" {
+			response.ErrorMessage = &row.LastError
+		}
+		return response, nil
+	}
+	return legacyCommandStatus(ctx, messageID, tenantID)
+}
+
+func legacyCommandStatus(ctx context.Context, messageID, tenantID string) (*model.CommandStatusResponse, error) {
 	log, err := dal.GetCommandSetLogByMessageIDAndTenant(ctx, messageID, tenantID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

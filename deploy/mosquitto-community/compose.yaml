@@ -1,0 +1,20 @@
+services:
+  mosquitto:
+    image: local/tp-mosquitto-community:2.1.2
+    platform: linux/arm64
+    container_name: tp-mosquitto-community-qa-20261019
+    restart: "no"
+    ports:
+      - "127.0.0.1:${TP_MQTT_PORT:-32883}:1883"
+    volumes:
+      - ./mosquitto.local.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/mosquitto_sub", "-h", "127.0.0.1", "-p", "1883", "-t", "$$SYS/broker/version", "-C", "1", "-W", "2"]
+      interval: 20s
+      timeout: 17s
+      retries: 3
+
+volumes:
+  mosquitto_data:
+    name: tp-mosquitto-community-qa-20261019-data

@@ -1,0 +1,874 @@
+[
+  {
+    "path": "cmd/tp-broker-audit/main.go",
+    "sha256": "e4e1fbc7f8f003258c0a70366b1d120f0ba692ada50c7b1d8ef3b90fdfd0456e"
+  },
+  {
+    "path": "cmd/tp-broker-audit/main_test.go",
+    "sha256": "a1c085570edcd99a0fbfbb87475f231af0f94e9eed1c2d5ab31103edb4d02b37"
+  },
+  {
+    "path": "cmd/tp-broker-audit/postgres_test.go",
+    "sha256": "fe85b8f7c4ea083cab1d4c85d9982307e992979444bcd226fbd95eac7e579a77"
+  },
+  {
+    "path": "cmd/tp-broker-cutover/main.go",
+    "sha256": "acb64cbf66ea703842ec2f04a11d18914d18394ceb4c52b7a6f3d6e78ea6cd83"
+  },
+  {
+    "path": "cmd/tp-broker-cutover/main_test.go",
+    "sha256": "3f368761007725a83ceb3b331938081f508960e0121a10b9e4e4fec4ca61c83d"
+  },
+  {
+    "path": "cmd/tp-broker-owner/main.go",
+    "sha256": "fe587df4496d6e677caf1175d666d3a35aa753d10a15761b82e254ca9603e10a"
+  },
+  {
+    "path": "cmd/tp-broker-route/main.go",
+    "sha256": "1bcc4bf773738c2924b1037b0f9de14644e246953500aca28dfd2d81f1fd2066"
+  },
+  {
+    "path": "cmd/tp-broker-route/main_test.go",
+    "sha256": "c338307d3aa8983ecff1947e51159da23d5a2f43cea0203682c91d8569772d7f"
+  },
+  {
+    "path": "cmd/tp-broker-tools-client/client.go",
+    "sha256": "28a51bcba6d77bc90dce5edd5f841829ad8a06ca0dc39684b65247943a486627"
+  },
+  {
+    "path": "cmd/tp-broker-tools-client/client_test.go",
+    "sha256": "d9f1f0cd0870ff5ac5db734549e66b29085e7da6f1e2a4e71b67a0ee0b294d0b"
+  },
+  {
+    "path": "cmd/tp-broker-tools-client/main.go",
+    "sha256": "dada992961388c7c643f315b98063f6abe6ef713008397b181386108cfc56a0c"
+  },
+  {
+    "path": "cmd/tp-mosquitto-plugin/main.go",
+    "sha256": "2698bcc7a6cbf3ca62c0fcc9aabd81a4139ec31b504b488913aaf9d0cbe0a7bc"
+  },
+  {
+    "path": "cmd/tp-mosquitto-plugin/shim.c",
+    "sha256": "b0f7c823ee0ba9257e1e481a27b7198d5b0f658310df7396aa97854bc7c95bd3"
+  },
+  {
+    "path": "cmd/tp-mosquitto-plugin/stub.go",
+    "sha256": "60f2306b5473887a4cb7f8ea6c062d759bcb9528b16333ca66218c270599d45d"
+  },
+  {
+    "path": "deploy/mosquitto-community/readiness/main.go",
+    "sha256": "b7e38bab989209e430ba7aacea8899a29a11aafc1da1704ae200a3e7e98872ad"
+  },
+  {
+    "path": "integrations/chatbridge/__init__.py",
+    "sha256": "926d05459cc0d5e1ed80769b2136d723cb0472d97e4e25d7e56587d29dc6366b"
+  },
+  {
+    "path": "integrations/chatbridge/broker_tools.py",
+    "sha256": "e6e03b074c4aee3e24ab3884f3bc8aeaacc446b9da30cc94709c469f809a9493"
+  },
+  {
+    "path": "integrations/chatbridge/tests/test_broker_tools.py",
+    "sha256": "758432f8dfd61f711e4607a4b8601c2444b68f517a0bfac4f0236c72b6809682"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/adapter.go",
+    "sha256": "6078fca3a3ffe0da9afb62eae359a2e5c5ab9cf37648dc0e28ded0b9c80f6f62"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/beforeconnect_test.go",
+    "sha256": "8c7563bad199749cfffb844c575add0b4fe9f26cb4a74fae5bd63e8560c6541f"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/client.go",
+    "sha256": "ff5f384ad3feb1946f590cb1c15870edf96f6e553dd74ab9747cee6d1880072f"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/client_lifecycle_test.go",
+    "sha256": "855693f9e33661d3f6bb1c3ca601849a38c167858de0cfedc673c883910946cd"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/command.go",
+    "sha256": "ea9c8de28df1e1d9cbdaee9004bf99c616202b4836693cec79003e07656754de"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/command_response.go",
+    "sha256": "5ac6a4357463c8c0a6de5315b20fc1c423323e060aa96c4d65f300ad62d56e79"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/downlink_profile_test.go",
+    "sha256": "e255006475add235e5ef08ecdd2b1f17de893c964ac5a50780c7c913c66b957e"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/ingress.go",
+    "sha256": "91d7fb98f67a0f53852f6b3f80cdf6b9dc9492126297ffd5d1edfc2183064b8a"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/ingress_test.go",
+    "sha256": "64b8a94a4e9fd14e1997c64b01f2c586a15f0bd19d6efd1d5c72319996c45222"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/mapping.go",
+    "sha256": "a7fdf327f37da120f59f50b4f9fd4b0775e509948ee1c43d5f03fef9d9116de1"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/mapping_test.go",
+    "sha256": "02ed8c66c64d27cd42994b2d9cc6f73aa9208565433381b06e9434ad36831308"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/publisher.go",
+    "sha256": "c7e5d98f47ce6ef85fbd3e58c398450cfd02f5f10d15252f6d9a88d42c63b2d7"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/quarantine.go",
+    "sha256": "8cee9c27fe7856a2e74faa07579826b96cec62c4369175aec07511658a702d79"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/quarantine_permanent_test.go",
+    "sha256": "1b5672e375e2a278495ca2021fb8b64d554f748d7b126033aaacab77868c2c0c"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/quarantine_test.go",
+    "sha256": "1a7bb9b894dd696b232a2901cf856e7aa7eccbbaf06d6a1c8310cb626f243107"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/subscriber.go",
+    "sha256": "0f0c27431782f23e3b03755e9bcfa41933bfa250a17ee5fae0ea983ecf664191"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/subscriber_test.go",
+    "sha256": "374172287f9184304081ccfca77a2b666668e601052e5b44991b9baa6e6be780"
+  },
+  {
+    "path": "internal/adapter/mqttadapter/topics.go",
+    "sha256": "293aa3f8cbab0c937d5e78ba43e6f6f7d16f68fa2375436f9fefc6c09d69bb9e"
+  },
+  {
+    "path": "internal/api/broker_ai_tools.go",
+    "sha256": "a5a4eae5d515b348fc35413b76a6a4f99bf052e46482c6668e6ba1e713036b5f"
+  },
+  {
+    "path": "internal/api/broker_ai_tools_http_integration_test.go",
+    "sha256": "7c82df97dca500dfccec7d3be69206aed9fb87a1c568f017762788cc1c38b964"
+  },
+  {
+    "path": "internal/api/broker_ai_tools_positive_integration_test.go",
+    "sha256": "9a96b98e032770c94ffd26f57f61ad7175d36180f6f5a305aaff07ccb2410cf0"
+  },
+  {
+    "path": "internal/api/broker_ai_tools_runtime_e2e_test.go",
+    "sha256": "d4bd3cb7d6d69bc9ecb60e169f648ed28c686cc4892a1c78d16b64025b4a3538"
+  },
+  {
+    "path": "internal/api/broker_ai_tools_test.go",
+    "sha256": "ff255c5c68d5eceba29513f958052ee63b1b09e0539eeba9b2f59fd25498abef"
+  },
+  {
+    "path": "internal/api/broker_request_limits.go",
+    "sha256": "ccc150d7d2e26530ed5d1595ceb99cbe3eab493873a4e933eca9a22da5271678"
+  },
+  {
+    "path": "internal/api/broker_request_limits_test.go",
+    "sha256": "ca872ebe6ca251062dbd09d60e885b65c5b6a77bc767de97a4725536ab25616e"
+  },
+  {
+    "path": "internal/api/broker_test_redis_helpers_test.go",
+    "sha256": "92742ab54416e579ff1ea315e8729633b1bea97f8d99b3cce2c88d18ef847b51"
+  },
+  {
+    "path": "internal/api/command_plans.go",
+    "sha256": "8d94328a4ebcf2e67224372be36d693197eb8be75d56f17a254274251e629677"
+  },
+  {
+    "path": "internal/api/command_plans_test.go",
+    "sha256": "59cb6039acdcd6e432e389432aa2532bd95c10ebcae898b19d9b61f8d3c88ce0"
+  },
+  {
+    "path": "internal/api/device_broker_evidence.go",
+    "sha256": "143a37ef9d00f0e9b1a48cb78632fe417f5808db0e5327d0b13c371a245a0382"
+  },
+  {
+    "path": "internal/api/device_broker_evidence_test.go",
+    "sha256": "2d5f71263c79b2d54bad9073aa13b1229cef615f64c153f13e0a2f84d9a33fe3"
+  },
+  {
+    "path": "internal/api/device_broker_semantic.go",
+    "sha256": "e4a2fce8f9bb036541fcec5fecbf1a6db12c33e7a98420f3316b4b101fb03508"
+  },
+  {
+    "path": "internal/api/device_broker_semantic_integration_test.go",
+    "sha256": "57fe1dbcfdcecc09c52407157fed16edeb1bb3ab960d8c80faa2e66ef24add26"
+  },
+  {
+    "path": "internal/api/device_telemetry_evidence.go",
+    "sha256": "b626779c2a431a244c814cdd37188798a2f152646ab9ecad4a7d057a71f14b61"
+  },
+  {
+    "path": "internal/api/device_telemetry_evidence_integration_test.go",
+    "sha256": "f6a75eec4d0cbcee8153eaa68aa12ba820e4acf0c3cb030688350dbb935efaad"
+  },
+  {
+    "path": "internal/api/enter.go",
+    "sha256": "38ae62b14bfb24049cb95ea492b2a18b38e3be76c3554c16f972ddc35c10b533"
+  },
+  {
+    "path": "internal/app/application.go",
+    "sha256": "f25ae8fba8f6ffb8286c12b5889c8ad70cf6492e8fbfe12b02bd21682734f267"
+  },
+  {
+    "path": "internal/app/broker_command_plans_native_test.go",
+    "sha256": "76e63ffdc759254c7fc0eea001c4f243a474ce6365316303d97dd38887685fde"
+  },
+  {
+    "path": "internal/app/broker_commands.go",
+    "sha256": "62bfe3adbec521ef6d91312a51e05fd798884ade7402a14b2df5d54be2496891"
+  },
+  {
+    "path": "internal/app/broker_commands_e2e_test.go",
+    "sha256": "c988620c7820a5c89fe54b7e490ae4762d2fd1f74fef34e0361d884e118f8436"
+  },
+  {
+    "path": "internal/app/broker_ingestion_redelivery_native_test.go",
+    "sha256": "ecc758f591d7539739341b744c9fad7727403979a1624d3c1d05d4ad43e9e26c"
+  },
+  {
+    "path": "internal/app/broker_ingestion_sigkill_native_test.go",
+    "sha256": "b16ce0eeb021965115a76dd1595d7d7fcd24e4014aabf3104b2c5f42f67eeb36"
+  },
+  {
+    "path": "internal/app/broker_ingress.go",
+    "sha256": "432d37d25e52e7bcb83eaf9a014f4fdf872b35aeec4d70200dba7eb89b0de1c9"
+  },
+  {
+    "path": "internal/app/broker_ingress_cell_test.go",
+    "sha256": "948d5deec4cb6da9da69d2c79bccf0cd5fb9cf60cd6e7c1ce917a8ec425e0658"
+  },
+  {
+    "path": "internal/app/broker_ingress_e2e_test.go",
+    "sha256": "d5bdb74448c1e8ad4deacb4683c5a1dafdbceeebab0696925fd223cceaa33170"
+  },
+  {
+    "path": "internal/app/broker_ingress_ingestion_test.go",
+    "sha256": "bfe8963c1cd5eca98bb8da2f87d085243da869e47b6702b805e01eb567b1c5e4"
+  },
+  {
+    "path": "internal/app/broker_ingress_legacy_gmqtt_e2e_test.go",
+    "sha256": "19d3326ff108661b3caa917b01623a634c15de174e9989a3ff4250d8102bf29d"
+  },
+  {
+    "path": "internal/app/broker_ingress_load_e2e_test.go",
+    "sha256": "c9be207faa050613f45fc1011a1cf934b7eaa962e74a7c1f182ccaf2f168027f"
+  },
+  {
+    "path": "internal/app/broker_ingress_test.go",
+    "sha256": "c4063314e6b74425aadedb0b7fbe8c4360439f0f7efe20a603396c003de30476"
+  },
+  {
+    "path": "internal/app/broker_native_docker_test.go",
+    "sha256": "81c12b5078e4d5157c1f76378240603b82d250e2cfb7b88cddc9dc966e6b3f78"
+  },
+  {
+    "path": "internal/app/broker_quarantine_e2e_test.go",
+    "sha256": "9622160606d39012358ae7e6699d7b8a039efabce106d6382e535c627cdf7c45"
+  },
+  {
+    "path": "internal/app/broker_runtime.go",
+    "sha256": "bcd441dda5a847963fb74dd8fafc1679e6096830698233a32d493f5f896eb08f"
+  },
+  {
+    "path": "internal/app/broker_runtime_native_test.go",
+    "sha256": "ac17c547ae7f8679616904caf5c84a107eb6085029eb34956e83678d81f3000b"
+  },
+  {
+    "path": "internal/app/downlink.go",
+    "sha256": "b6ab25203ce053240546195c81eb9acbafee6647e2492669b2319edaad1c868a"
+  },
+  {
+    "path": "internal/app/mqtt_service.go",
+    "sha256": "41bd856af19cabca9cc9fd58724707f19ff24bf10945f06adef152c6f0559c47"
+  },
+  {
+    "path": "internal/app/mqtt_service_lifecycle_test.go",
+    "sha256": "0ba6edf984f5247c1daee618b91b9d8fbc49476a84e9cc81b398aae8a3e46e02"
+  },
+  {
+    "path": "internal/app/service.go",
+    "sha256": "5d71e910461a4a031321026c414bfd7b19242d3a3553ffc8d06dd964d2473218"
+  },
+  {
+    "path": "internal/app/service_context_test.go",
+    "sha256": "2049944e754f513fb3d097dc6d8849b3ecb8ce8994836dfd1ee968038bd76e5e"
+  },
+  {
+    "path": "internal/app/service_test.go",
+    "sha256": "fba51de0d16da9241dc9c9a31cb20a5dee50cb37be6b5af796a2f325f4691352"
+  },
+  {
+    "path": "internal/brokeraitools/delegation.go",
+    "sha256": "13eb5eb96b832bfc18582ed423a5b2512ef488d8fd1a2ede3356bf0d0aa41a1a"
+  },
+  {
+    "path": "internal/brokeraitools/delegation_redis_test.go",
+    "sha256": "343b36e750b6d74f618cb30b8c22c7b073c444fb34d63d8f4b118c14e8d33650"
+  },
+  {
+    "path": "internal/brokercommands/dispatch.go",
+    "sha256": "17881710632df7eb1ace5411f334cc8d219d26e0c5d1574cf7939dbc5cedf19e"
+  },
+  {
+    "path": "internal/brokercommands/dispatch_postgres_test.go",
+    "sha256": "144235c755aed8a3a2c209c9e9ab82b6fef3091e2431a6fb9f10707123990a70"
+  },
+  {
+    "path": "internal/brokercommands/idempotency.go",
+    "sha256": "d7ee90a83ad262086d0ee96d0155195c96e0f8b5d67e76c7dafd2213564904e4"
+  },
+  {
+    "path": "internal/brokercommands/plans.go",
+    "sha256": "769688bc53d7d95f344fd5e8cccaf63d216f9e4c5113a5048b9502d5ccfc0920"
+  },
+  {
+    "path": "internal/brokercommands/plans_capacity_postgres_test.go",
+    "sha256": "b5f062ce110d2d8cc0caa7f79d25bd8123eee38585f03726670144572e5a6754"
+  },
+  {
+    "path": "internal/brokercommands/plans_postgres_test.go",
+    "sha256": "c22373cbc036bc2f1f1df84bc49d6adae255c69dfba566b9c0d2bafba9faf315"
+  },
+  {
+    "path": "internal/brokercommands/prepared.go",
+    "sha256": "ce56f96e30b0d99647173c57504ca1a44a9ce4256c6b1d62ae4270b9f16f1544"
+  },
+  {
+    "path": "internal/brokercommands/store.go",
+    "sha256": "bc161c72b4459b8c3fb25104f59dd74d283a9186d36fe99a938bf1cead80ee2a"
+  },
+  {
+    "path": "internal/brokercommands/store_postgres_test.go",
+    "sha256": "1906288d81dcd4315f6177194188e4e5b594feb9b4c579ad15eced19795866a6"
+  },
+  {
+    "path": "internal/brokercontract/command.go",
+    "sha256": "46596cef61ee48ea24bd8e60e47faf885259b8bb55feed4e298736cebda1cd1d"
+  },
+  {
+    "path": "internal/brokercontract/command_test.go",
+    "sha256": "885af2e74b9a6978b0f03c558db13ce29ff3c4c5c90e8a13447759e360925877"
+  },
+  {
+    "path": "internal/brokercontract/contract.go",
+    "sha256": "992b32cf22f53e00f46442c928acfbf127da3b862d7a3b49c5550057f00945e4"
+  },
+  {
+    "path": "internal/brokercontract/contract_test.go",
+    "sha256": "cb62fd68fb192b6ad38b1aa5a62da6e3c5159251e992e73fd9d4a1c18a45b68a"
+  },
+  {
+    "path": "internal/brokercontract/json.go",
+    "sha256": "37ee66a880ff348381daba8a8586ee3f338321bcb9912f0bef7d4c3c2b2414eb"
+  },
+  {
+    "path": "internal/brokercontract/json_test.go",
+    "sha256": "7b8f30aebc923a8bdfb549246ac669cc33bc5d114d557a61b4fd222950572068"
+  },
+  {
+    "path": "internal/brokercontract/runtime.go",
+    "sha256": "a884345b8dbe8370817f9a2767626d8ed76f84075430ab8039d1c601f9568bd5"
+  },
+  {
+    "path": "internal/brokercontract/state.go",
+    "sha256": "bcd9d1859451fe8a0a0e909410def774a93297eac3a34e5b8652dd5cf310b2df"
+  },
+  {
+    "path": "internal/brokercontract/state_test.go",
+    "sha256": "d223bec1f33ea31a433f7ffeb9fe7855d04cb37a262d0b93b13216420c687811"
+  },
+  {
+    "path": "internal/brokercontrol/connecting_test.go",
+    "sha256": "97061619b943b4b38346808dd6c6aa3630eaa0ce22a905208c37656044030a96"
+  },
+  {
+    "path": "internal/brokercontrol/gorm_repository.go",
+    "sha256": "1c5b2086ae0a88924052eb96e6c76b4429d8ab9c36e4ad2351b62efae8d9874e"
+  },
+  {
+    "path": "internal/brokercontrol/gorm_repository_test.go",
+    "sha256": "86fede7891ce7db3481396c8e598bdf94edf6875b8b700bb9b9c06ea855c578f"
+  },
+  {
+    "path": "internal/brokercontrol/migration.go",
+    "sha256": "8b544fce70e06fa7110ce54ad6d127f0375654a53b7f486e589466ef72ee321d"
+  },
+  {
+    "path": "internal/brokercontrol/migration_postgres_test.go",
+    "sha256": "fe08791cbd588ebb3ff41dc3f4c851ba37de1a3b2e569d51cfc75ced8a774e6f"
+  },
+  {
+    "path": "internal/brokercontrol/owner.go",
+    "sha256": "6c8f1d8d3ea12c6cc79da937459f97b1f4b49793dec32999389d91066c1b6bde"
+  },
+  {
+    "path": "internal/brokercontrol/owner_test.go",
+    "sha256": "ed208f47a266185d962a212ceedb81571d47d10c41bb4360625eb66a88ae092a"
+  },
+  {
+    "path": "internal/brokercontrol/postgres_integration_test.go",
+    "sha256": "ebcf579b55e971ce5d41f774a4a17c33fa61137425c0bc805383408db7e4270a"
+  },
+  {
+    "path": "internal/brokercontrol/repository.go",
+    "sha256": "d25aefdc87f0c15057185002de26373534dc51394f9b53df7a9d527828b9054f"
+  },
+  {
+    "path": "internal/brokercontrol/runtime.go",
+    "sha256": "cf0a4f0dc9f94cc8943350623c98e8ac272b67da41220a93628540a886ce19ee"
+  },
+  {
+    "path": "internal/brokercontrol/runtime_postgres_test.go",
+    "sha256": "4901709fa72988e4e483dfef754de386bd151b1a7199110ee533912852f6207e"
+  },
+  {
+    "path": "internal/brokercontrol/runtime_sql.go",
+    "sha256": "39252d4b362ea5826611be0d0b807ee9c047c00041adfd98b5657ec52ac00508"
+  },
+  {
+    "path": "internal/brokerledger/cell_processing_postgres_test.go",
+    "sha256": "aebcbdca0ea5bd4b29a6204d7e09b2320050d047781eb73ef9c9668afd0321af"
+  },
+  {
+    "path": "internal/brokerledger/connecting_test.go",
+    "sha256": "75367cabe55e385491de400bd2e4675b792712ff72a9bee1ceeeda0ced902fe4"
+  },
+  {
+    "path": "internal/brokerledger/effects.go",
+    "sha256": "d61f7fe9be394672ffafa8f1b26f4a029ba572b2b1ae38bcbff37da3b0383a3d"
+  },
+  {
+    "path": "internal/brokerledger/quarantine.go",
+    "sha256": "0fcd8a179e7c4f8dd678e34ae560aa3845880eb5a0667695d111224f5b44ddd0"
+  },
+  {
+    "path": "internal/brokerledger/quarantine_postgres_test.go",
+    "sha256": "cbb22303be4575fe4602441b5af9ba8980e540c1072bf84bc7f7b148ab517fee"
+  },
+  {
+    "path": "internal/brokerledger/retired.go",
+    "sha256": "2b2164a2a727d0bf8689f149fb00c287b706e10031811a78e58fabc74bb1d625"
+  },
+  {
+    "path": "internal/brokerledger/retired_postgres_test.go",
+    "sha256": "b2f0c99cfd952fb324d377609dafc36df8fec596fbd92c2324ac876e335aed00"
+  },
+  {
+    "path": "internal/brokerledger/route_activation_postgres_test.go",
+    "sha256": "37eb68a82dbf8f722b2034ef54019158617803da59a135eabdc6f98d45b20daa"
+  },
+  {
+    "path": "internal/brokerledger/store.go",
+    "sha256": "22ea416d16f1a2936881faa227605e62c7c61d2ae4879d051417b18eac1d34ad"
+  },
+  {
+    "path": "internal/brokerledger/store_ingestion_test.go",
+    "sha256": "5278e94f8ff962febf16e82337ca6db7e9215526928bd370e1e5a3a2e1d8c08d"
+  },
+  {
+    "path": "internal/brokerledger/store_postgres_test.go",
+    "sha256": "5b5c87e21da49081b42ea5e7d2d046935a001957535e713fed16fecfd28829b9"
+  },
+  {
+    "path": "internal/brokermapper/mapper.go",
+    "sha256": "daadb0a9e897b7a48b8a70e7161d8261cbd40bd48fc34643169c40158e696853"
+  },
+  {
+    "path": "internal/brokermapper/mapper_test.go",
+    "sha256": "1dcdd411fa1433af1bb7cd650917ebf6863e18631a71a0ce445b6ad0b983246f"
+  },
+  {
+    "path": "internal/brokermapper/repository.go",
+    "sha256": "627fceea2cdcdce0afbfcd5c891354c2be2886a433bcf88a0090284c6ac6f5dc"
+  },
+  {
+    "path": "internal/brokermapper/repository_test.go",
+    "sha256": "d05c4dae5a197af2cd7d6141a4f638d66b0755885ac7b3e531147c975f0f3980"
+  },
+  {
+    "path": "internal/brokersemantic/client.go",
+    "sha256": "77a6b4be9a818b58ea4b691ea86a0c924847e31657a607d70304d48be735bcca"
+  },
+  {
+    "path": "internal/brokersemantic/client_test.go",
+    "sha256": "b9af5b3d959da68f102d5a537c81df00e034f7702397a2c1598cf566d3829fde"
+  },
+  {
+    "path": "internal/brokersemantic/command.go",
+    "sha256": "f76cd1a68e5c5e8ec7bd8e60f27b286dc411e4589f02edb6488cd79067b27b4b"
+  },
+  {
+    "path": "internal/brokersemantic/command_test.go",
+    "sha256": "c188ee834359a507622dbd78564adb2639fd2e316fdb8d4dc2efdbfbee5bdcd7"
+  },
+  {
+    "path": "internal/brokerstate/activity.go",
+    "sha256": "505dddb040001dd56bdda37c7868e02c16121b46382cf135f5b155b1c78a4ee5"
+  },
+  {
+    "path": "internal/brokerstate/command_context.go",
+    "sha256": "3a437a3cd82d1d93c7823545e2adb942877c6162b8fb1c2668e67f77696d2845"
+  },
+  {
+    "path": "internal/brokerstate/command_context_capacity_test.go",
+    "sha256": "18670272b36832a6f68c03212c44b1c3706a35d9b7b06f4f72aa606b26afdf34"
+  },
+  {
+    "path": "internal/brokerstate/command_context_postgres_test.go",
+    "sha256": "7072b6e8309b367b3cd200ecff1022d617a52ec0087f41b28cfa605591aeee70"
+  },
+  {
+    "path": "internal/brokerstate/connecting_test.go",
+    "sha256": "643d1640cddd215ad07ab7c163c72c5e453c42229abcb3f1a4d0363656ba2cf7"
+  },
+  {
+    "path": "internal/brokerstate/evidence.go",
+    "sha256": "55d26854c411c9487ceee91f9e41fb5e0e67f415d46a24eae03914ef329b60a7"
+  },
+  {
+    "path": "internal/brokerstate/evidence_postgres_test.go",
+    "sha256": "356f1fda3bdae55ceaac9a7d68fbf39b65889fe87590d95e33c65229ff0ecf59"
+  },
+  {
+    "path": "internal/brokerstate/state.go",
+    "sha256": "085ec04c97b3845811ff6af90abba01137dcb6761d8989e9f8be22c77768ed3e"
+  },
+  {
+    "path": "internal/brokerstate/state_activity_test.go",
+    "sha256": "4e19023d0a5fc4966d582ec90d3dd1cb91965ae0281c752cc8f9add264cbfe77"
+  },
+  {
+    "path": "internal/brokerstate/state_test.go",
+    "sha256": "829c49e4d127224ab4f5b1430c987cbf6412e45237ecf53c75e2ad966a414931"
+  },
+  {
+    "path": "internal/downlink/command.go",
+    "sha256": "e5b60089a29c1280e6d56a03421f4952b9ded79246ca96040ba97e67ad9a4da1"
+  },
+  {
+    "path": "internal/model/command_set_logs.http.go",
+    "sha256": "22ac188b931b6d2ff7cbfa01d8fac7799ce6f24e90ed97127e6af55e4aaa49db"
+  },
+  {
+    "path": "internal/model/common.go",
+    "sha256": "4f6e299c6007a7e19487344e6046146f7558bc47d240d8f6eb4d134cbe7b7849"
+  },
+  {
+    "path": "internal/mosquittodriver/command.go",
+    "sha256": "dce85a9386acd541ff77e7ca2495000084fee7129fbd6d4f3c444099f7259d5f"
+  },
+  {
+    "path": "internal/mosquittodriver/command_offline_test.go",
+    "sha256": "82f31c906270c5ca148f02fae139547332abdee47904e958ebbe910e7e3d3100"
+  },
+  {
+    "path": "internal/mosquittodriver/command_test.go",
+    "sha256": "181e782cd85bf994a26bee6c45cee177de7a52b15ea3706af3c284aad3d13092"
+  },
+  {
+    "path": "internal/mosquittodriver/connecting_test.go",
+    "sha256": "bf68fa8d1dfce7be1b1ef09ea61038b90961c98ae83c70df2b126176b7525845"
+  },
+  {
+    "path": "internal/mosquittodriver/driver.go",
+    "sha256": "038d7d294c17d933cd7ddc102e50800db06583650b11ace182bf15ea5ddb2174"
+  },
+  {
+    "path": "internal/mosquittodriver/driver_test.go",
+    "sha256": "7d31eff67e83a64240297fa596f5e9ac9fb22d887f7352dda30b5d8fa2d9211c"
+  },
+  {
+    "path": "internal/mosquittodriver/ingestion_test.go",
+    "sha256": "59450be68af13aa5cb7e8f4b414017ea7d58907ef06f6f785e05a999b1296cba"
+  },
+  {
+    "path": "internal/mosquittodriver/ingress_payload_boundary_test.go",
+    "sha256": "4bff1e28fd9ce28c2743f338c37a444be2c10814215e1d3de4353efa4b172e8f"
+  },
+  {
+    "path": "internal/mosquittodriver/pending_ready_test.go",
+    "sha256": "e0644ae67cdf0db4f42d8ee70b5a52e58dab2d9b46ea2d5e7b047aa80147a536"
+  },
+  {
+    "path": "internal/mosquittodriver/pointer_reuse_test.go",
+    "sha256": "b267cf7435e8fa50016de870e6cf6ce2245398fb4a3fb5cc2207943060b8dde6"
+  },
+  {
+    "path": "internal/mosquittodriver/runtime.go",
+    "sha256": "25976b9f44133869c4d0a9d8a06a3638ce6ea2b8493a90ee13f645e7b09631b5"
+  },
+  {
+    "path": "internal/mosquittodriver/runtime_test.go",
+    "sha256": "95adbb6fcb65ab9ba0f3f3e13bc5c1553dbb2dfff21708ba5f92896f375f23f0"
+  },
+  {
+    "path": "internal/service/attribute_data.go",
+    "sha256": "eee8ddcdb9fb973461bcb51cdbad96ef6dd658f2b57706cc3ebdd2843a225585"
+  },
+  {
+    "path": "internal/service/broker_ai_tools.go",
+    "sha256": "abf1cc676ad526e6a82876ee74b375750e5323250465948c047df8e8a64e6bb5"
+  },
+  {
+    "path": "internal/service/broker_ai_tools_integration_test.go",
+    "sha256": "208c97cc053827716dabc693c43a8b568a8a98bc8c47a492e862ef546de28285"
+  },
+  {
+    "path": "internal/service/broker_automation.go",
+    "sha256": "7f662c1fa03abd0912d99723654a631033e9bed423e42f8052556c0b2bca5833"
+  },
+  {
+    "path": "internal/service/broker_automation_postgres_test.go",
+    "sha256": "b3471c4aea0c530214ca65f77b816fc3f7064b1ae4f7233ebcfa79ac7f15b561"
+  },
+  {
+    "path": "internal/service/broker_automation_rate_postgres_test.go",
+    "sha256": "ed9b2bd6085f5c732b4a6fdc4d1f6317b3980755e907115deb8d64585724062c"
+  },
+  {
+    "path": "internal/service/broker_downlink_capability.go",
+    "sha256": "9e09881eb370b4f4c68efb40d0da74417ff9abab9cc3588ac6ec2ac363cb3ee8"
+  },
+  {
+    "path": "internal/service/broker_downlink_capability_test.go",
+    "sha256": "7d85bf89bd87da411107bf1a66c80d576202cdd5ca6457715323326696a9e728"
+  },
+  {
+    "path": "internal/service/broker_test_redis_helpers_test.go",
+    "sha256": "7681e0b9ff6318785b686dceb9cdff175288b1dbc5bad9589c429c44ac7958db"
+  },
+  {
+    "path": "internal/service/command_canonical_test.go",
+    "sha256": "00db32e4b2aacc2c623a886d84b7d07bd46f9de689f117841d07c6ad3d9a540b"
+  },
+  {
+    "path": "internal/service/command_data.go",
+    "sha256": "f122b23c1823946213d6c6a5b5049935ff8f2064c7cfd4bd50cac885c8d2e24d"
+  },
+  {
+    "path": "internal/service/command_durable.go",
+    "sha256": "09bfa6f6eeef93710b646a69db786ab2d3ce0c8c56f3b7fbe87932b758846434"
+  },
+  {
+    "path": "internal/service/command_durable_test.go",
+    "sha256": "ca1b4f95b0b950eab38b15408360063b4bba7a62d62d4fff8349f6534dd4e4ba"
+  },
+  {
+    "path": "internal/service/command_fingerprint_active_postgres_test.go",
+    "sha256": "e3b10fe257b4759931dd0447cc3fde6397dbafb33770795fa71027c6d80fedef"
+  },
+  {
+    "path": "internal/service/command_plans.go",
+    "sha256": "5f1b53cecb1ac673a8558e8ec7c24c89c9d620fc3e368526c214a87948746b28"
+  },
+  {
+    "path": "internal/service/command_plans_integration_test.go",
+    "sha256": "4b0c8a14b95ac1c4c9df549a804a56a436ec7b10fc7b4d9f4705b8beaf2002d0"
+  },
+  {
+    "path": "internal/service/device_broker_evidence.go",
+    "sha256": "cb3c51116cbfb687be43e015289c91bbade3b417a30f87bf452a799500424bb9"
+  },
+  {
+    "path": "internal/service/device_broker_evidence_test.go",
+    "sha256": "12e36d2cff7e5180476dd013bf5fe591b584d27b5986e01e3562bb5679e35c36"
+  },
+  {
+    "path": "internal/service/device_broker_semantic.go",
+    "sha256": "b059221a15b1ba84d3bf298162467fd6ff1497dac1ac355ad0e81e1dffcf8ed5"
+  },
+  {
+    "path": "internal/service/device_telemetry_evidence.go",
+    "sha256": "8a10cc731440cc6f39fb7fd4b1ad93d62546e18bb7014bf041c959c188a79c71"
+  },
+  {
+    "path": "internal/service/device_telemetry_evidence_test.go",
+    "sha256": "caf10dcc3a9fd8a3df9106961fe204a088e14c620bb1ab90517d78d9d518416a"
+  },
+  {
+    "path": "internal/service/expected_data.go",
+    "sha256": "1ef3752b1090c9a8be0f4e639c95dbc0dd92ccc0da4862b8badcdb4f981e7e55"
+  },
+  {
+    "path": "internal/service/ota.go",
+    "sha256": "374f6d0ebcb1da01b6f3abfa688018f48736579b0d71fdf5cff251bd35ff0bf5"
+  },
+  {
+    "path": "internal/service/telemetry_data.go",
+    "sha256": "4d0d723b0a748bb98fc03b1d41e29be7aaf630bf25b2200dc135cd6ed67a43f8"
+  },
+  {
+    "path": "internal/storage/direct_writer.go",
+    "sha256": "2e6c46890ce91087bdc58aa3e9f345d59200dba91729d54007385246e2a91c4a"
+  },
+  {
+    "path": "internal/storage/telemetry_broker.go",
+    "sha256": "82ea3806f3985960e937d222c23491e6d77bad6a56f00b39f333fef2abb4e666"
+  },
+  {
+    "path": "internal/storage/telemetry_broker_postgres_test.go",
+    "sha256": "ba5bf36e99959e4666d5f8bcf7b27a4d47ef17297d7c3a2dbae3dcef02ce0563"
+  },
+  {
+    "path": "internal/storage/telemetry_writer.go",
+    "sha256": "a4f5969c189a8441a7649dd9d4e60f659edb9c95d61621177370cc121ffb1a3d"
+  },
+  {
+    "path": "internal/storage/types.go",
+    "sha256": "c42ed4fbe353b9e08eabeedd63f0ec667bafcb0cf63db4778b4d73fa1230df07"
+  },
+  {
+    "path": "internal/uplink/bus.go",
+    "sha256": "ccc2eb2a5794c992318cc6a312b27eb41fd883b70436e4bba5ed6cfee6da68f3"
+  },
+  {
+    "path": "internal/uplink/reliable.go",
+    "sha256": "11a06354ce8678ce3d1b9cc4d09c53a235aeae8543514f053887b5039442609e"
+  },
+  {
+    "path": "internal/uplink/reliable_postgres_test.go",
+    "sha256": "bf44a45687d58722b92ad5c582282958e91b1412cc5bbe77781c5e5f83cb61d7"
+  },
+  {
+    "path": "internal/uplink/response_test.go",
+    "sha256": "cfdbf8e3ecc9aba6ff68adb02c3d2cec045c7f5cecf883a4e64470e31e10a66d"
+  },
+  {
+    "path": "internal/uplink/status.go",
+    "sha256": "6483b3bc4727eb87210f85b06f31489a0caeef0ba625893065c2fe1d6aa69bb0"
+  },
+  {
+    "path": "internal/uplink/status_activity_postgres_test.go",
+    "sha256": "3579b6355b3945cc49f00f3244ecdd94bb8233b984a1f90ff4dafcbf65d1d9da"
+  },
+  {
+    "path": "internal/uplink/telemetry.go",
+    "sha256": "e91b78b8722a699c7d8925e60f507e767b4f51725aa47a397114fca1b3b3f588"
+  },
+  {
+    "path": "internal/uplink/telemetry_ingestion_id_test.go",
+    "sha256": "f0268beb669fb993bd984ce298f095e59e581f2595e6629d31914be0b4789574"
+  },
+  {
+    "path": "internal/uplink/telemetry_trusted_route_test.go",
+    "sha256": "c234efd08d240262bd10fc28728a4b2b3be3f135dfca05f6600384d3f1968a1f"
+  },
+  {
+    "path": "main.go",
+    "sha256": "11cc36f6e1e760e2690bbb38c777d63fd5897f75cc3cc16c22c0e14fbfb3e0cf"
+  },
+  {
+    "path": "main_lifecycle_test.go",
+    "sha256": "253d46dea43fc3bbd5b9dd1f5b5f87d64381876874ad0c0e6363ffb3ba34b279"
+  },
+  {
+    "path": "router/apps/command_data.go",
+    "sha256": "56221f8e2b3441310d9d5ac932c51af37070489315435eb151f3af9a3affb5cf"
+  },
+  {
+    "path": "router/apps/device.go",
+    "sha256": "845ed6a7988b75784bd357ae41ee0e6e908910a9d3fcdb7c9d852d17e2002e29"
+  },
+  {
+    "path": "router/router_init.go",
+    "sha256": "ad025e0983ea4385e4c2726d278aefc012fdeecae41b9afd7c605a523442b00b"
+  },
+  {
+    "path": "sql/broker/001_broker_owner_tables.sql",
+    "sha256": "517cebd9fae8fc16b4895af171df2d801e7df028f911d0efdacbe699c394b29f"
+  },
+  {
+    "path": "sql/broker/002_ledger.sql",
+    "sha256": "14e054e0f11f8042fcd76b3220a74adb32c85150d94133d7f5e5012b80c744fc"
+  },
+  {
+    "path": "sql/broker/003_state.sql",
+    "sha256": "c6f46d91384464607bf399fe5454da688a9849f4fefdd101fdf71b665753fbd2"
+  },
+  {
+    "path": "sql/broker/004_mapping_snapshots.sql",
+    "sha256": "fb152ce33a78817f949a013eb91031b096942fcfdc2bf1f0496fa17a316b4ad3"
+  },
+  {
+    "path": "sql/broker/005_ingress_effects.sql",
+    "sha256": "e33a02b55d02fdcc059a8f15c9882e6c407aa72a8a2f11f8d9ea94ca2501b256"
+  },
+  {
+    "path": "sql/broker/006_commands.sql",
+    "sha256": "14ef5ed80054de8791d3c18df86b191d05d71a58cb7b52be17f480441af57ab6"
+  },
+  {
+    "path": "sql/broker/007_state_projection.sql",
+    "sha256": "2cf265120378e0f5b7d712681ffb5f9bc96ae638e53c54589c33115ee929770f"
+  },
+  {
+    "path": "sql/broker/008_quarantine.sql",
+    "sha256": "089a6dde68ecd7ae2623d363fe72961323cf61b4b9231cfb939cd6c444c834f0"
+  },
+  {
+    "path": "sql/broker/009_automation_actions.sql",
+    "sha256": "065f32095774dd0aecedbffcd5d7fbed0962521479926cc31c7f9c689e2fff4d"
+  },
+  {
+    "path": "sql/broker/010_telemetry_activity.sql",
+    "sha256": "bd5dcf6ccb35e1afefb3780bbefba97db67cecf4c45eff4d49a7a802371d1d1e"
+  },
+  {
+    "path": "sql/broker/011_safe_device_voucher.sql",
+    "sha256": "5b19e2c93d9f57833952244b9bedaa886ff6224550cd6daf85d983a86470ce60"
+  },
+  {
+    "path": "sql/broker/012_route_changes.sql",
+    "sha256": "54d0a3158455efa01fd028b20d3bf3f98f915e83bbc5c3c999ebcffb79a0214d"
+  },
+  {
+    "path": "sql/broker/013_command_plans.sql",
+    "sha256": "91674d5054cef8da88dede8fc6a6b0c46eb07b980a2e228a6fd9da23da342d21"
+  },
+  {
+    "path": "sql/broker/014_telemetry_evidence_index.sql",
+    "sha256": "b76e84527d549df85960c63863a16d8f5a4aa9fb805fd8930c84bec90ad835a0"
+  },
+  {
+    "path": "test/mosquitto-community/advanced.go",
+    "sha256": "f7407d88c8f67df2fe84b5fbf05c6c6f436901ad48f656e94da4ffbc7b37e592"
+  },
+  {
+    "path": "test/mosquitto-community/fixture.go",
+    "sha256": "74523b15b4bdd74a4057d644d101b9a3ac8b9d8447c4f35d51da5dcba5dad0f2"
+  },
+  {
+    "path": "test/mosquitto-community/ledger.go",
+    "sha256": "1ad79059971be633baded9b47edc63facea83ebb0926de1fda2c4645749bd5a5"
+  },
+  {
+    "path": "test/mosquitto-community/ledger_test.go",
+    "sha256": "172ef7a0389f3da421fdbb774b022d725fefc8cdee492a36fdc9868c99d56c89"
+  },
+  {
+    "path": "test/mosquitto-community/main.go",
+    "sha256": "e785acf1230dbee11cff8280bc6eb3ba36730b14f67b1816cda30d49cce8b8cd"
+  },
+  {
+    "path": "test/mosquitto-community/mqttwire.go",
+    "sha256": "657321d8f432c1d940d13ccc82a0e4994c02f953f0ad1c6652c907eb1800594d"
+  },
+  {
+    "path": "test/mosquitto-community/runner.go",
+    "sha256": "2b4e29ebc548995448e55df4d75c12f5be31dbc446b7b1a0fd9849288ab18103"
+  },
+  {
+    "path": "test/mosquitto-community/stress.go",
+    "sha256": "0e8d9a35108294c09f51b74e03e7eff60b56d939a3df6b47717a1c86dacfd806"
+  },
+  {
+    "path": "test/mosquitto-community/tick_probe.go",
+    "sha256": "e1f817f146f29d3672b460de07162a7d3220d29afd2638c34a483f70975c0dc4"
+  }
+]

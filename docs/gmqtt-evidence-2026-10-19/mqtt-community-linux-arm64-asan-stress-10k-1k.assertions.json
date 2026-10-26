@@ -1,0 +1,28 @@
+{
+  "run": "asan-stress-10k-1k",
+  "verdict": "INCONCLUSIVE",
+  "requested": {
+    "qos1_messages": 10000,
+    "authenticated_reconnects": 1000,
+    "protocols": ["MQTT 3.1.1", "MQTT 5"]
+  },
+  "observed": {
+    "messages_sent": 10000,
+    "broker_puback_success": 10000,
+    "ingress_packets_validated": 10000,
+    "reconnects_succeeded": 2,
+    "reconnects_attempted": 3
+  },
+  "failure": "Third reconnect attempt returned MQTT 3 CONNACK rc=5 (not authorized); the requested reconnect tier did not complete.",
+  "sanitizers": {
+    "address_sanitizer_diagnostic": false,
+    "undefined_behavior_sanitizer_diagnostic": false,
+    "leak_detection_enabled": false
+  },
+  "business_stages": {
+    "accepted": "unobserved",
+    "terminal": "unobserved",
+    "sideeffects": "unobserved"
+  },
+  "production_performance_claim": false
+}

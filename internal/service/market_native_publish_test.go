@@ -32,9 +32,9 @@ func nativePublishFixture() (*model.DeviceConfig, *nativeMarketSnapshotResponse)
 	return &model.DeviceConfig{
 		ID: "12d00000-0000-4000-8000-000000000012", Name: "QA Sensor Config", NativeThingModelID: &modelID,
 		NativeThingModelSnapshotID: &snapshotID, NativeThingModelRevision: &revision,
-		DeviceType: "1", ProtocolConfig: stringPtr(`{"client_id":"qa-client","password":"qa-password","nested":{"access_token":"qa-access-token","region":"lab"}}`),
-		OtherConfig:    stringPtr(`{"tenant_id":"qa-tenant-secret","device_id":"real-device-secret","keep":"safe"}`),
-		AdditionalInfo: stringPtr(`{"user_id":"qa-user-secret","operator":"facility-team","label":"portable"}`),
+		DeviceType: "1", ProtocolConfig: marketPublishStringPtr(`{"client_id":"qa-client","password":"qa-password","nested":{"access_token":"qa-access-token","region":"lab"}}`),
+		OtherConfig:    marketPublishStringPtr(`{"tenant_id":"qa-tenant-secret","device_id":"real-device-secret","keep":"safe"}`),
+		AdditionalInfo: marketPublishStringPtr(`{"user_id":"qa-user-secret","operator":"facility-team","label":"portable"}`),
 	}, snapshot
 }
 
@@ -221,4 +221,4 @@ func TestPublishNativeDeviceConfigUsesNativeMarketPackageBuilder(t *testing.T) {
 	}
 }
 
-func stringPtr(value string) *string { return &value }
+func marketPublishStringPtr(value string) *string { return &value }

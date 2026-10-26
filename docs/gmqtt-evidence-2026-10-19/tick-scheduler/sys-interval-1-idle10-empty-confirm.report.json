@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "started_at": "2026-10-19T16:46:45.930865984Z",
+  "finished_at": "2026-10-19T16:46:56.072206719Z",
+  "message_target": 0,
+  "messages_broker_acknowledged": 0,
+  "messages_ingress_seen": 0,
+  "reconnect_target": 10,
+  "authenticated_reconnects": 10,
+  "reconnect_durations_ms": [
+    1019,
+    1005,
+    1021,
+    1008,
+    1018,
+    1005,
+    1026,
+    1003,
+    1023,
+    1006
+  ],
+  "message_duration_ns": 416,
+  "reconnect_duration_ns": 10140561375,
+  "mqtt_versions": [
+    "3.1.1",
+    "5"
+  ],
+  "business_acceptance": "unobserved; broker PUBACK and ingress observation are separate stages"
+}
