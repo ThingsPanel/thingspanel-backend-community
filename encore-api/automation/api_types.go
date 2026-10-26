@@ -27,6 +27,14 @@ type UpdateRuleRequest struct {
 	Name       string            `json:"name"`
 	Definition domain.Definition `json:"definition"`
 	Version    int               `json:"version"`
+	// PreviewToken is the token a change preview returned. When present it is
+	// checked: a preview that no longer describes this rule is refused rather
+	// than applied. The legacy edit path sends none, which is why it stays
+	// optional — the check is an improvement, not a new gate on old pages.
+	PreviewToken string `json:"previewToken,omitempty"`
+	// Force saves even though existing bindings cannot carry their values into
+	// the new body. Like the delete override in A20, it has to be said out loud.
+	Force bool `json:"force,omitempty"`
 }
 
 // SetEnabledRequest flips the switch with the same optimistic check.

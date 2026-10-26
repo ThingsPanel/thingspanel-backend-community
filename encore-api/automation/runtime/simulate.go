@@ -31,15 +31,30 @@ type SimStep struct {
 	Actions []string        `json:"actions,omitempty"`
 }
 
+// SimAction is one step the simulation would take, with the outcome it would
+// have. "would_execute" means the adapter would have been called; "skipped"
+// means a branch did not go there; "blocked" means a guard or the budget stopped
+// it. None of them actually calls anything.
+type SimAction struct {
+	Path    string `json:"path"`
+	Kind    string `json:"kind"`
+	Detail  string `json:"detail"`
+	Outcome string `json:"outcome"`
+}
+
 // SimResult is the whole simulation outcome.
 type SimResult struct {
-	RuleID         string    `json:"rule_id"`
-	Revision       int       `json:"revision"`
-	DefinitionHash string    `json:"definition_hash"`
-	Steps          []SimStep `json:"steps"`
-	WouldRun       int       `json:"would_run"`
-	SideEffects    int       `json:"side_effects"` // always 0: proof of no side effect
-	Notes          []string  `json:"notes"`
+	RuleID         string      `json:"rule_id"`
+	Revision       int         `json:"revision"`
+	DefinitionHash string      `json:"definition_hash"`
+	Steps          []SimStep   `json:"steps"`
+	Actions        []SimAction `json:"actions,omitempty"`
+	WouldRun       int         `json:"would_run"`
+	SideEffects    int         `json:"side_effects"` // always 0: proof of no side effect
+	// EndsAt is the virtual clock when the program finished, which is not the
+	// same as the last sample once a rule waits.
+	EndsAt string   `json:"ends_at,omitempty"`
+	Notes  []string `json:"notes"`
 }
 
 // Simulate replays samples against the same evaluator the runtime uses, with a
@@ -50,8 +65,29 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 	if err != nil {
 		return nil, err
 	}
-	def := rule.Definition
-	prog := Compile(def.Steps)
+	// A rule with parameters does not have one body: it has one body per device,
+	// because the binding supplies the values. Resolving them with bindRule is
+	// not a convenience — it is the only way the simulation can agree with the
+	// real evaluation, since a device whose threshold is overridden would
+	// otherwise be simulated against the template default and fire at the wrong
+	// moment.
+	type body struct {
+		def  domain.Definition
+		prog []Instruction
+	}
+	bodies := map[string]*body{}
+	bodyFor := func(deviceID string) (*body, error) {
+		if b, ok := bodies[deviceID]; ok {
+			return b, nil
+		}
+		bound, berr := bindRule(rule, r.bindingsFor(ctx, tenantID, deviceID)[rule.ID])
+		if berr != nil {
+			return nil, berr
+		}
+		b := &body{def: bound.Definition, prog: Compile(bound.Definition.Steps)}
+		bodies[deviceID] = b
+		return b, nil
+	}
 
 	base := r.Now()
 	parsed := make([]struct {
@@ -86,11 +122,16 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 		RuleID: rule.ID, Revision: rule.Revision, DefinitionHash: rule.DefinitionHash,
 		Notes: []string{"模拟使用同一评估器与虚拟时钟，不会调用设备命令、正式告警或通知"},
 	}
+	if rule.Definition.HasParams() {
+		res.Notes = append(res.Notes,
+			"参数已按设备绑定值填充（与真实执行同一份 Materialize 结果），不是模板默认值")
+	}
 
 	type pendingSim struct {
 		start    time.Time
 		deadline time.Time
 		device   string
+		body     *body
 		lastSeen time.Time
 		recovery bool
 	}
@@ -104,6 +145,7 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 			return
 		}
 		now := pend.deadline
+		def := pend.body.def
 		// Freshness at the moment the timer fires.
 		fresh := checkFreshness(domain.Sample{ObservedAt: pend.lastSeen}, now, def.Freshness)
 		if !fresh.OK {
@@ -132,12 +174,15 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 				})
 			} else {
 				res.WouldRun++
-				actions := describeActions(prog)
+				actions, trace, ends := simulateProgram(def, pend.body.prog, pend.device, now, lookup, base)
+				res.Actions = append(res.Actions, actions...)
+				res.Steps = append(res.Steps, trace...)
 				res.Steps = append(res.Steps, SimStep{
 					At: rel(base, now), Kind: "action", Verdict: "true",
-					Detail:  fmt.Sprintf("持续条件成立，将执行 %d 个步骤", len(actions)),
-					Actions: actions,
+					Detail:  fmt.Sprintf("持续条件成立，将执行 %d 个步骤", countWould(actions)),
+					Actions: describeActionsOf(actions),
 				})
+				res.EndsAt = rel(base, ends)
 			}
 		default:
 			res.Steps = append(res.Steps, SimStep{
@@ -152,6 +197,11 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 		emitTimerIfDue(item.at)
 
 		dev := item.s.DeviceID
+		b, berr := bodyFor(dev)
+		if berr != nil {
+			return nil, berr
+		}
+		def := b.def
 		sig := domain.SignalKind(item.s.Signal)
 		q := domain.Quality(item.s.Quality)
 		if q == "" {
@@ -187,16 +237,20 @@ func (r *Runtime) Simulate(ctx context.Context, tenantID, ruleID string, samples
 					})
 				} else {
 					res.WouldRun++
+					actions, trace, ends := simulateProgram(def, b.prog, dev, item.at, lookup, base)
+					res.Actions = append(res.Actions, actions...)
+					res.Steps = append(res.Steps, trace...)
 					res.Steps = append(res.Steps, SimStep{
 						At: rel(base, item.at), Kind: "action", Verdict: "true",
-						Detail:  "立即满足（for=0 保持旧触发语义），将执行步骤",
-						Actions: describeActions(prog),
+						Detail:  fmt.Sprintf("立即满足（for=0 保持旧触发语义），将执行 %d 个步骤", countWould(actions)),
+						Actions: describeActionsOf(actions),
 					})
+					res.EndsAt = rel(base, ends)
 				}
 			} else if pend == nil {
 				pend = &pendingSim{
 					start: item.at, deadline: item.at.Add(def.Trigger.For.Std()),
-					device: dev, lastSeen: item.at,
+					device: dev, body: b, lastSeen: item.at,
 				}
 				res.Steps = append(res.Steps, SimStep{
 					At: rel(base, item.at), Kind: "pending", Verdict: "true",
@@ -260,6 +314,148 @@ func defSelfDevice(samples []SimSample) string {
 		}
 	}
 	return ""
+}
+
+// simulateProgram walks the compiled body exactly the way the executor does:
+// the same program counter, the same branch targets, the same guard rule, the
+// same budget. The only difference is that a step which would call an adapter
+// records "would_execute" instead of calling it.
+//
+// Writing this as a second interpreter would be the mistake: two interpreters
+// disagree eventually, and then the simulation is confidently wrong.
+func simulateProgram(def domain.Definition, prog []Instruction, deviceID string,
+	start time.Time, lookup func(string, domain.SignalKind, string) (domain.Sample, bool, error),
+	base time.Time) ([]SimAction, []SimStep, time.Time) {
+
+	var actions []SimAction
+	var trace []SimStep
+	now := start
+	steps := 0
+	maxSteps := def.Budget.MaxSteps
+	if maxSteps <= 0 {
+		maxSteps = 32
+	}
+	maxDur := def.Budget.MaxRunDuration.Std()
+
+	ctxAt := func(t time.Time) domain.EvalContext {
+		return domain.EvalContext{
+			Now: t, SelfDeviceID: deviceID, Lookup: lookup,
+			MaxAge: def.Freshness.MaxAge.Std(), Mode: def.Freshness.Mode,
+			Heartbeat: def.Freshness.Heartbeat.Std(),
+		}
+	}
+
+	pc := 0
+	for pc >= 0 && pc < len(prog) {
+		if steps >= maxSteps {
+			trace = append(trace, SimStep{At: rel(base, now), Kind: "budget",
+				Detail: fmt.Sprintf("步骤预算 %d 用尽，后续步骤不会执行", maxSteps)})
+			break
+		}
+		if maxDur > 0 && now.Sub(start) > maxDur {
+			trace = append(trace, SimStep{At: rel(base, now), Kind: "budget",
+				Detail: "运行时长预算用尽，后续步骤不会执行"})
+			break
+		}
+		ins := prog[pc]
+		if ins.Op == OpJump {
+			pc = ins.JumpTarget
+			continue
+		}
+		steps++
+		s := ins.Step
+
+		if s.Kind == domain.StepBranch {
+			verdict := domain.VerdictFalse
+			if s.Condition != nil {
+				// Same shape the executor uses for a branch condition.
+				verdict = domain.Evaluate(domain.Trigger{Groups: []domain.Group{*s.Condition}},
+					ctxAt(now)).Verdict
+			}
+			taken := verdict == domain.VerdictTrue
+			detail := "条件不成立，走 else 分支"
+			if taken {
+				detail = "条件成立，走 then 分支"
+			}
+			if verdict != domain.VerdictTrue && verdict != domain.VerdictFalse {
+				detail = "条件无法判定（" + string(verdict) + "），按不成立处理，走 else 分支"
+			}
+			trace = append(trace, SimStep{At: rel(base, now), Kind: "branch",
+				Verdict: string(verdict), Detail: ins.Path + "：" + detail})
+			if taken {
+				pc++
+			} else {
+				pc = ins.ElseTarget
+			}
+			continue
+		}
+
+		// A guard is an interlock, not a soft failure: the executor stops the
+		// run and never continues past it.
+		if s.Guard != nil {
+			g := domain.Evaluate(domain.Trigger{Groups: []domain.Group{*s.Guard}},
+				ctxAt(now)).Verdict
+			if g != domain.VerdictTrue {
+				actions = append(actions, SimAction{Path: ins.Path, Kind: string(s.Kind),
+					Outcome: "blocked",
+					Detail:  "前置条件不成立（" + string(g) + "），实际执行会在这里终止"})
+				trace = append(trace, SimStep{At: rel(base, now), Kind: "guard",
+					Verdict: string(g), Detail: ins.Path + "：前置条件不成立，运行会终止"})
+				return actions, trace, now
+			}
+			trace = append(trace, SimStep{At: rel(base, now), Kind: "guard",
+				Verdict: "true", Detail: ins.Path + "：前置条件成立，放行"})
+		}
+
+		switch s.Kind {
+		case domain.StepWait:
+			now = now.Add(s.Wait.Std())
+			actions = append(actions, SimAction{Path: ins.Path, Kind: "wait",
+				Outcome: "would_execute", Detail: "等待 " + s.Wait.Std().String() +
+					"，虚拟时钟推进到 " + rel(base, now)})
+		default:
+			actions = append(actions, SimAction{Path: ins.Path, Kind: string(s.Kind),
+				Outcome: "would_execute", Detail: describeStep(s)})
+		}
+		pc++
+	}
+	return actions, trace, now
+}
+
+func countWould(actions []SimAction) int {
+	n := 0
+	for _, a := range actions {
+		if a.Outcome == "would_execute" {
+			n++
+		}
+	}
+	return n
+}
+
+func describeActionsOf(actions []SimAction) []string {
+	out := make([]string, 0, len(actions))
+	for _, a := range actions {
+		mark := "将执行"
+		if a.Outcome != "would_execute" {
+			mark = "不会执行（" + a.Outcome + "）"
+		}
+		out = append(out, a.Path+" "+mark+": "+a.Detail)
+	}
+	return out
+}
+
+func describeStep(s domain.Step) string {
+	switch s.Kind {
+	case domain.StepAction:
+		return fmt.Sprintf("%s %s=%s", s.Action, s.Identifier, s.Value)
+	case domain.StepAlarm:
+		return "告警:" + s.AlarmPolicyID
+	case domain.StepNotify:
+		return "通知:" + s.NotificationPolicyID
+	case domain.StepActivateScene:
+		return "激活场景:" + s.Value
+	}
+	return string(s.Kind)
 }
 
 func describeActions(prog []Instruction) []string {

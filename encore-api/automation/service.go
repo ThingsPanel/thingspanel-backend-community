@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -185,6 +186,18 @@ func (s *Service) UpdateRule(ctx context.Context, id string, req *UpdateRuleRequ
 	if strings.TrimSpace(name) == "" {
 		name = existing.Name
 	}
+
+	// "普通保存内部完成必要校验": a save that would orphan the per-device values
+	// three devices are running on is refused here, not left for somebody to
+	// notice later on the device page.
+	if err := s.checkBindingsAfterEdit(ctx, tenantID, id, def, req.Force); err != nil {
+		return nil, err
+	}
+	// A preview that no longer matches this rule is not a preview of this save.
+	if err := s.checkPreviewToken(ctx, tenantID, id, req, existing); err != nil {
+		return nil, err
+	}
+
 	rule := &store.Rule{
 		ID: id, TenantID: tenantID, Name: name, Kind: def.Kind,
 		Definition: def, DefinitionHash: domain.DefinitionHash(def),
@@ -198,6 +211,44 @@ func (s *Service) UpdateRule(ctx context.Context, id string, req *UpdateRuleRequ
 	}
 	out := toRuleResponse(stored)
 	return &out, nil
+}
+
+// checkBindingsAfterEdit refuses an edit whose stored per-device values no
+// longer fit the new parameter contract.
+//
+// It only speaks when there is something to lose: a rule with no bindings, or
+// one whose bindings carry no parameters, saves exactly as before.
+func (s *Service) checkBindingsAfterEdit(ctx context.Context, tenantID, ruleID string,
+	def domain.Definition, force bool) error {
+
+	rt, err := s.rtOrErr()
+	if err != nil {
+		return err
+	}
+	bindings, berr := rt.Store().ListBindingsForRule(ctx, tenantID, ruleID)
+	if berr != nil {
+		return internal(berr)
+	}
+	var broken []domain.Issue
+	for _, b := range bindings {
+		if !b.Enabled || len(b.Params) == 0 {
+			continue
+		}
+		if _, verr := def.Values(b.Params); verr != nil {
+			broken = append(broken, domain.Issue{
+				Field: "bindings", Code: "binding_incompatible",
+				Message: fmt.Sprintf("%s 上的值无法套用到新版本：%v", scopeLabel(b), verr),
+			})
+		}
+	}
+	if len(broken) == 0 || force {
+		return nil
+	}
+	return &errs.Error{
+		Code:    errs.FailedPrecondition,
+		Message: "这次改动会让已有设备的参数值失效：" + broken[0].Message + "；请先调整那些设备的值，或确认后强制保存",
+		Meta:    errs.Metadata{"code": "binding_incompatible", "affected": len(broken)},
+	}
 }
 
 // GetRule reads one rule.
