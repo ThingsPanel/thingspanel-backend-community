@@ -19,6 +19,13 @@ var ErrNotFound = errors.New("not found")
 // ErrConflict is returned when an optimistic version check fails.
 var ErrConflict = errors.New("version conflict")
 
+// ErrAlreadyDone is returned when the requested change is already true.
+//
+// It is separate from ErrNotFound because the two lead to different messages:
+// "there is no such binding" is a mistake, "it is already detached" is the
+// outcome the caller asked for.
+var ErrAlreadyDone = errors.New("already done")
+
 // Store wraps the database handle.
 type Store struct {
 	DB *sql.DB
@@ -40,6 +47,15 @@ type Rule struct {
 	LegacyID       string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+
+	// The three fields below are not columns. They are filled in when the rule
+	// is materialized for one device (A19), so that the run and the pending
+	// window can freeze "which binding, which values" next to the record they
+	// belong to. A rule loaded straight from the database has them empty, which
+	// is exactly right: it describes the shared body, not one device's copy.
+	BindingID     string
+	BindingSource string
+	BindingParams map[string]string
 }
 
 // NextSeq returns a monotonic sequence number used for ordering and dedupe.
@@ -293,7 +309,11 @@ func (s *Store) ListRules(ctx context.Context, tenantID string, f RuleFilter) ([
 // CandidateRules returns the enabled rules that could react to a device/signal.
 // The candidate index is derived from the definition's condition device ids and
 // from the bindings, so evaluation never scans every tenant rule.
-func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, signal, key string) ([]*Rule, error) {
+//
+// deviceConfigID may be empty when the tenant has no template bindings at all;
+// the caller skips the device→template lookup in that case rather than paying
+// for it on every uplink.
+func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, deviceConfigID, signal, key string) ([]*Rule, error) {
 	rows, err := s.DB.QueryContext(ctx, `
         SELECT DISTINCT `+ruleColumns+`
           FROM auto_rules r
@@ -305,14 +325,16 @@ func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, signal, 
                SELECT 1 FROM jsonb_array_elements(r.definition->'trigger'->'groups') g,
                              jsonb_array_elements(g->'conditions') c
                 WHERE (c->>'source' = 'self' OR c->>'source' IS NULL)
-                  AND c->>'signal' = $2
-                  AND c->>'key' = $3
+                  AND c->>'signal' = $4
+                  AND c->>'key' = $5
              )
              OR EXISTS (
                SELECT 1 FROM auto_bindings b
-                WHERE b.rule_id = r.id AND b.enabled AND b.device_id = $4
+                WHERE b.rule_id = r.id AND b.enabled
+                  AND ((b.device_id IS NOT NULL AND b.device_id = $2)
+                       OR (b.device_config_id IS NOT NULL AND $3 <> '' AND b.device_config_id = $3))
              )
-           )`, tenantID, signal, key, deviceID)
+           )`, tenantID, deviceID, deviceConfigID, signal, key)
 	if err != nil {
 		return nil, err
 	}
@@ -329,64 +351,8 @@ func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, signal, 
 }
 
 // ---------------------------------------------------------------------------
-// Bindings
+// Bindings live in binding_store.go
 // ---------------------------------------------------------------------------
-
-// Binding links a shared definition revision to a device or template.
-type Binding struct {
-	ID             string
-	BindingKey     string
-	TenantID       string
-	RuleID         string
-	Revision       int
-	Source         string
-	DeviceID       string
-	DeviceConfigID string
-	TemplateID     string
-	Params         map[string]any
-	Enabled        bool
-}
-
-// UpsertBinding creates or updates one binding.
-func (s *Store) UpsertBinding(ctx context.Context, b *Binding) error {
-	params, _ := json.Marshal(b.Params)
-	_, err := s.DB.ExecContext(ctx, `
-        INSERT INTO auto_bindings (id, binding_key, tenant_id, rule_id, revision, source,
-                                   device_id, device_config_id, template_id, params, enabled)
-        VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,''),NULLIF($8,''),NULLIF($9,''),$10,$11)
-        ON CONFLICT (binding_key) DO UPDATE
-           SET revision=EXCLUDED.revision, params=EXCLUDED.params, enabled=EXCLUDED.enabled`,
-		b.ID, b.BindingKey, b.TenantID, b.RuleID, b.Revision, b.Source,
-		b.DeviceID, b.DeviceConfigID, b.TemplateID, params, b.Enabled)
-	return err
-}
-
-// BindingsForDevice returns bindings that apply to a concrete device.
-func (s *Store) BindingsForDevice(ctx context.Context, tenantID, deviceID, deviceConfigID string) ([]*Binding, error) {
-	rows, err := s.DB.QueryContext(ctx, `
-        SELECT id, binding_key, tenant_id, rule_id, revision, source,
-               coalesce(device_id,''), coalesce(device_config_id,''), coalesce(template_id,''),
-               params, enabled
-          FROM auto_bindings
-         WHERE tenant_id=$1 AND enabled
-           AND (device_id=$2 OR device_config_id=$3)`, tenantID, deviceID, deviceConfigID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []*Binding
-	for rows.Next() {
-		var b Binding
-		var params []byte
-		if err := rows.Scan(&b.ID, &b.BindingKey, &b.TenantID, &b.RuleID, &b.Revision, &b.Source,
-			&b.DeviceID, &b.DeviceConfigID, &b.TemplateID, &params, &b.Enabled); err != nil {
-			return nil, err
-		}
-		_ = json.Unmarshal(params, &b.Params)
-		out = append(out, &b)
-	}
-	return out, rows.Err()
-}
 
 // GetRuleByLegacyID resolves a rule by the id it had in the old console.
 //

@@ -115,6 +115,13 @@ type Definition struct {
 	Queue     *QueueRule    `json:"queue,omitempty"`
 	Parallel  *ParallelRule `json:"parallel,omitempty"`
 	Budget    Budget        `json:"budget"`
+	// Params declares the slots this body exposes to a device binding. A rule
+	// with no params is a fixed rule; a rule with params is a template rule
+	// that a device (or a device template) may fill in differently. The body
+	// itself stays one row — the per-device value is a small binding row, not a
+	// copied rule.
+	Params []Param `json:"params,omitempty"`
+
 	// Alarm is present only on kind=alarm_policy. It declares the stable
 	// business key and which intake channels may qualify this policy, which is
 	// what lets one editable policy be fed by the internal detector and by an

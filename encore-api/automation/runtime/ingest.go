@@ -72,20 +72,52 @@ func (r *Runtime) Ingest(ctx context.Context, e store.IngestEvent) (*store.Recei
 		return rec, r.store.MarkProcessed(ctx, e.EventID)
 	}
 
-	rules, err := r.store.CandidateRules(ctx, e.TenantID, e.DeviceID, string(e.Signal), e.Key)
-	if err != nil {
+	if err := r.evaluateForDevice(ctx, &e, rec.Seq, now); err != nil {
 		return rec, err
-	}
-	for _, rule := range rules {
-		if err := r.evaluateRule(ctx, rule, &e, rec.Seq, now); err != nil {
-			// One broken rule must not block the others or lose the receipt.
-			r.recordEvaluationError(ctx, rule, &e, err)
-		}
 	}
 	if err := r.store.MarkProcessed(ctx, e.EventID); err != nil {
 		return rec, err
 	}
 	return rec, nil
+}
+
+// evaluateForDevice resolves the candidate rules for one event, fills in the
+// device's parameter values and evaluates each rule.
+//
+// Both the live ingest path and the restart recovery path go through it. They
+// used to be separate loops, which is how a crash-recovered event could be
+// evaluated against the template body — with the placeholders still in it —
+// while the same event evaluated correctly before the crash.
+func (r *Runtime) evaluateForDevice(ctx context.Context, e *store.IngestEvent, seq int64, now time.Time) error {
+	// Which template this device belongs to is only needed when the tenant
+	// actually uses template bindings; asking the directory on every uplink
+	// would be a cost with no benefit for the common case.
+	configID := ""
+	if r.usesTemplateBindings(ctx, e.TenantID) {
+		configID = r.deviceConfigOf(ctx, e.TenantID, e.DeviceID)
+	}
+	rules, err := r.store.CandidateRules(ctx, e.TenantID, e.DeviceID, configID, string(e.Signal), e.Key)
+	if err != nil {
+		return err
+	}
+	// One lookup per event, not one per rule: a device bound to twelve rules
+	// still costs a single query.
+	bound := r.bindingsFor(ctx, e.TenantID, e.DeviceID)
+	for _, rule := range rules {
+		// The rule body is shared; the values are this device's. Materializing
+		// here — and only here — is what makes "edit the rule once, 500 devices
+		// follow, one device overrides" true without 500 copies of the body.
+		effective, berr := bindRule(rule, bound[rule.ID])
+		if berr != nil {
+			r.recordEvaluationError(ctx, rule, e, berr)
+			continue
+		}
+		if err := r.evaluateRule(ctx, effective, e, seq, now); err != nil {
+			// One broken rule must not block the others or lose the receipt.
+			r.recordEvaluationError(ctx, rule, e, err)
+		}
+	}
+	return nil
 }
 
 // sameValue compares two stored values by their canonical JSON form, so a bool
@@ -185,6 +217,11 @@ func (r *Runtime) startPending(ctx context.Context, rule *store.Rule, deviceID, 
 		RequireProcessedBefore: now,
 		CausalRoot:             c.Root,
 		CausalHop:              c.Hop,
+		// Freeze the values the window was opened with, so an edit to the
+		// device override halfway through cannot move the deadline the customer
+		// is already waiting on.
+		BindingParams: rule.BindingParams,
+		BindingSource: rule.BindingSource,
 	}
 	if existing != nil {
 		// Keep the original start and deadline: later samples only refresh the

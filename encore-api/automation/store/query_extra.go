@@ -145,3 +145,38 @@ func (s *Store) Backlog(ctx context.Context) (*BacklogStats, error) {
 	}
 	return &st, nil
 }
+
+// RulesMatchingDevice returns the enabled rules whose trigger names "self" and
+// that are therefore evaluated for any device reporting the matching signal.
+//
+// The device page needs them: they are not bound, but they do apply, and a page
+// that lists only bindings would tell the customer "nothing runs on this
+// device" while three legacy scene automations quietly do.
+func (s *Store) RulesMatchingDevice(ctx context.Context, tenantID, deviceID string) ([]*Rule, error) {
+	rows, err := s.DB.QueryContext(ctx, `
+        SELECT DISTINCT `+ruleColumns+`
+          FROM auto_rules r
+         WHERE r.tenant_id = $1
+           AND r.deleted_at IS NULL
+           AND r.enabled
+           AND EXISTS (
+             SELECT 1 FROM jsonb_array_elements(r.definition->'trigger'->'groups') g,
+                           jsonb_array_elements(g->'conditions') c
+              WHERE (c->>'source' = 'self' OR c->>'source' IS NULL)
+           )
+         ORDER BY r.name
+         LIMIT 200`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*Rule
+	for rows.Next() {
+		r, err := scanRule(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}

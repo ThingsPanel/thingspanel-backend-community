@@ -183,6 +183,11 @@ func Validate(d *Definition) error {
 		add("alarm", "alarm_spec_not_allowed", "只有告警策略可以声明 alarm")
 	}
 
+	// Parameter slots are checked last, because the check reads the serialized
+	// body: everything above has to be structurally sound before asking which
+	// placeholders the body actually contains.
+	validateParams(d, add)
+
 	if len(issues) > 0 {
 		return &ValidationError{Issues: issues}
 	}

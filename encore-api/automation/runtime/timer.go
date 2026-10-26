@@ -156,7 +156,10 @@ func (r *Runtime) firePending(ctx context.Context, p *store.Pending, now time.Ti
 		return "deferred"
 	}
 
-	rule, err := r.store.GetRuleRevision(ctx, p.RuleID, p.Revision)
+	// The parameter values are the ones the window was opened with, not the
+	// ones the binding has now: the deadline being tested was computed from the
+	// former.
+	rule, err := r.ruleForRunWithSource(ctx, p.RuleID, p.Revision, p.BindingParams, p.BindingSource)
 	if err != nil {
 		_ = r.store.ClearPending(ctx, p.ScopeKey)
 		return "dropped"
@@ -253,15 +256,12 @@ func (r *Runtime) RecoverAfterRestart(ctx context.Context, limit int) (int, erro
 		return 0, err
 	}
 	for _, e := range events {
-		rules, err := r.store.CandidateRules(ctx, e.TenantID, e.DeviceID, string(e.Signal), e.Key)
-		if err != nil {
-			continue
-		}
 		now := r.Now()
-		for _, rule := range rules {
-			if err := r.evaluateRule(ctx, rule, e, e.Seq, now); err != nil {
-				r.recordEvaluationError(ctx, rule, e, err)
-			}
+		// Recovery goes through the same candidate resolution as the live path,
+		// so a recovered event is evaluated with this device's parameter values
+		// instead of the template body.
+		if err := r.evaluateForDevice(ctx, e, e.Seq, now); err != nil {
+			continue
 		}
 		if err := r.store.MarkProcessed(ctx, e.EventID); err != nil {
 			return 0, err

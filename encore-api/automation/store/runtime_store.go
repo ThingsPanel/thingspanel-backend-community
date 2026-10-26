@@ -191,6 +191,17 @@ type Pending struct {
 	// loop that passes through a "for: 5m" rule still hits the hop limit.
 	CausalRoot string
 	CausalHop  int
+	// BindingSource records whether the values came from the device row or the
+	// template row. It is frozen with them so a sustained trigger reports the
+	// same provenance as a one-shot one.
+	BindingSource string
+	// BindingParams are the parameter values the window was opened with.
+	//
+	// They are frozen here for the same reason the notification body is frozen
+	// into the outbox: a customer waiting out "5 minutes at 60 °C" must not get
+	// a different deadline because somebody edited the device override halfway
+	// through. Recomputing at fire time would do exactly that.
+	BindingParams map[string]string
 }
 
 // UpsertPending creates or extends the pending record for a scope.
@@ -198,17 +209,19 @@ func (s *Store) UpsertPending(ctx context.Context, p *Pending) error {
 	_, err := s.DB.ExecContext(ctx, `
         INSERT INTO auto_pending (scope_key, tenant_id, rule_id, revision, device_id, started_at,
                                   deadline, last_evidence_at, evidence_seq, require_processed_before,
-                                  state, causal_root, causal_hop)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',NULLIF($11,''),$12)
+                                  state, causal_root, causal_hop, binding_params, binding_source)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',NULLIF($11,''),$12,$13,NULLIF($14,''))
         ON CONFLICT (scope_key) DO UPDATE
            SET revision=EXCLUDED.revision, deadline=EXCLUDED.deadline,
                last_evidence_at=EXCLUDED.last_evidence_at, evidence_seq=EXCLUDED.evidence_seq,
                require_processed_before=EXCLUDED.require_processed_before,
                causal_root=EXCLUDED.causal_root, causal_hop=EXCLUDED.causal_hop,
+               binding_params=COALESCE(auto_pending.binding_params, EXCLUDED.binding_params),
+               binding_source=COALESCE(auto_pending.binding_source, EXCLUDED.binding_source),
                state='pending', updated_at=now()`,
 		p.ScopeKey, p.TenantID, p.RuleID, p.Revision, p.DeviceID, p.StartedAt,
 		p.Deadline, p.LastEvidenceAt, p.EvidenceSeq, p.RequireProcessedBefore,
-		p.CausalRoot, p.CausalHop)
+		p.CausalRoot, p.CausalHop, paramsJSON(p.BindingParams), p.BindingSource)
 	return err
 }
 
@@ -218,11 +231,13 @@ func (s *Store) GetPending(ctx context.Context, scopeKey string) (*Pending, erro
 	err := s.DB.QueryRowContext(ctx, `
         SELECT scope_key, tenant_id, rule_id, revision, device_id, started_at, deadline,
                last_evidence_at, evidence_seq, require_processed_before, state, defer_count,
-               coalesce(causal_root,''), causal_hop
+               coalesce(causal_root,''), causal_hop, coalesce(binding_params,'{}'::jsonb),
+               coalesce(binding_source,'')
           FROM auto_pending WHERE scope_key=$1`, scopeKey).
 		Scan(&p.ScopeKey, &p.TenantID, &p.RuleID, &p.Revision, &p.DeviceID, &p.StartedAt,
 			&p.Deadline, &p.LastEvidenceAt, &p.EvidenceSeq, &p.RequireProcessedBefore,
-			&p.State, &p.DeferCount, &p.CausalRoot, &p.CausalHop)
+			&p.State, &p.DeferCount, &p.CausalRoot, &p.CausalHop,
+			(*paramsScanner)(&p.BindingParams), &p.BindingSource)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -249,7 +264,8 @@ func (s *Store) DuePending(ctx context.Context, now time.Time, limit int) ([]*Pe
 	rows, err := s.DB.QueryContext(ctx, `
         SELECT scope_key, tenant_id, rule_id, revision, device_id, started_at, deadline,
                last_evidence_at, evidence_seq, require_processed_before, state, defer_count,
-               coalesce(causal_root,''), causal_hop
+               coalesce(causal_root,''), causal_hop, coalesce(binding_params,'{}'::jsonb),
+               coalesce(binding_source,'')
           FROM auto_pending
          WHERE state='pending' AND deadline <= $1
          ORDER BY deadline
@@ -264,7 +280,8 @@ func (s *Store) DuePending(ctx context.Context, now time.Time, limit int) ([]*Pe
 		if err := rows.Scan(&p.ScopeKey, &p.TenantID, &p.RuleID, &p.Revision, &p.DeviceID,
 			&p.StartedAt, &p.Deadline, &p.LastEvidenceAt, &p.EvidenceSeq,
 			&p.RequireProcessedBefore, &p.State, &p.DeferCount,
-			&p.CausalRoot, &p.CausalHop); err != nil {
+			&p.CausalRoot, &p.CausalHop,
+			(*paramsScanner)(&p.BindingParams), &p.BindingSource); err != nil {
 			return nil, err
 		}
 		out = append(out, &p)

@@ -126,6 +126,12 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 		// Which clock ran out, so the expiry reason is readable instead of
 		// always claiming the step budget was exceeded.
 		"deadline_reason": deadlineReason,
+		// The values this run was accepted with. A resume must reproduce the
+		// same body, so they travel with the run instead of being re-read from
+		// a binding somebody may have edited since.
+		"binding_params":   rule.BindingParams,
+		"binding_id":       rule.BindingID,
+		"binding_source":   rule.BindingSource,
 	})
 
 	run := &store.Run{
@@ -525,7 +531,7 @@ func (r *Runtime) executeRunAt(ctx context.Context, run *store.Run, startPC int)
 	// releasing eagerly keeps "who is working on this" accurate.
 	defer func() { _ = r.store.ReleaseRun(ctx, run.ID, r.workerID) }()
 
-	rule, err := r.store.GetRuleRevision(ctx, run.RuleID, run.Revision)
+	rule, err := r.ruleForRun(ctx, run.RuleID, run.Revision, runBindingParams(run))
 	if err != nil {
 		_ = r.store.FinishRun(ctx, run.ID, StatusFailed, "revision_missing", "规则版本不可用")
 		return true, err
@@ -1061,7 +1067,7 @@ func (r *Runtime) promoteQueued(ctx context.Context, scope string) {
 		if err != nil {
 			return
 		}
-		rule, err := r.store.GetRuleRevision(ctx, run.RuleID, run.Revision)
+		rule, err := r.ruleForRun(ctx, run.RuleID, run.Revision, runBindingParams(run))
 		if err != nil {
 			_ = r.store.FinishRun(ctx, next, StatusCancelled, "rule_unavailable_before_start",
 				"排队期间规则版本已不可用，未执行")

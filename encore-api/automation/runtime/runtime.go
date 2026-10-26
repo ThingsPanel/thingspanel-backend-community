@@ -60,6 +60,12 @@ type Runtime struct {
 	// Two replicas therefore never claim the same due row, and a lease left
 	// behind by a crashed process simply expires.
 	workerID string
+
+	// bindings caches the device→template and tenant→uses-templates answers.
+	// Both change on configuration edits, not on uplinks, so caching them keeps
+	// the ingest path at one indexed query for tenants without template
+	// bindings.
+	bindings bindingCache
 }
 
 // New builds a runtime. Any port may be nil, in which case the corresponding
