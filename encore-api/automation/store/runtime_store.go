@@ -426,33 +426,85 @@ func (s *Store) GetRun(ctx context.Context, tenantID, runID string) (*Run, error
 	return &r, nil
 }
 
-// ListRuns returns recent runs for a rule or device.
-func (s *Store) ListRuns(ctx context.Context, tenantID, ruleID, deviceID string, limit int) ([]*Run, error) {
-	if limit <= 0 || limit > 200 {
-		limit = 50
+// RunQuery narrows a run listing.
+//
+// The old list took a limit and nothing else, which is why every page had to
+// load fifty runs to show twenty and had no way to ask "what failed yesterday".
+// Paging is by (started_at, id) rather than offset alone so that a run arriving
+// between two pages cannot make one row appear twice or vanish.
+type RunQuery struct {
+	TenantID string
+	RuleID   string
+	DeviceID string
+	Statuses []string
+	// Before/After bound started_at. Both are optional.
+	Before *time.Time
+	After  *time.Time
+	Limit  int
+	Offset int
+}
+
+// ListRunsPaged returns one page and the total number of matching runs.
+func (s *Store) ListRunsPaged(ctx context.Context, q RunQuery) ([]*Run, int, error) {
+	if q.Limit <= 0 {
+		q.Limit = 50
 	}
-	q := `SELECT id, tenant_id, rule_id, revision, definition_hash, scope_key, generation,
+	if q.Limit > 200 {
+		q.Limit = 200
+	}
+	if q.Offset < 0 {
+		q.Offset = 0
+	}
+	where := ` FROM auto_runs WHERE tenant_id=$1`
+	args := []any{q.TenantID}
+	if q.RuleID != "" {
+		args = append(args, q.RuleID)
+		where += fmt.Sprintf(` AND rule_id=$%d`, len(args))
+	}
+	if q.DeviceID != "" {
+		args = append(args, q.DeviceID)
+		where += fmt.Sprintf(` AND device_id=$%d`, len(args))
+	}
+	if len(q.Statuses) > 0 {
+		args = append(args, q.Statuses)
+		where += fmt.Sprintf(` AND status = ANY($%d)`, len(args))
+	}
+	if q.Before != nil {
+		args = append(args, *q.Before)
+		where += fmt.Sprintf(` AND started_at < $%d`, len(args))
+	}
+	if q.After != nil {
+		args = append(args, *q.After)
+		where += fmt.Sprintf(` AND started_at >= $%d`, len(args))
+	}
+
+	var total int
+	if err := s.DB.QueryRowContext(ctx, `SELECT count(*)`+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	args = append(args, q.Limit, q.Offset)
+	rows, err := s.DB.QueryContext(ctx, runSelect+where+
+		fmt.Sprintf(` ORDER BY started_at DESC, id DESC LIMIT $%d OFFSET $%d`, len(args)-1, len(args)),
+		args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out, err := scanRuns(rows)
+	return out, total, err
+}
+
+// runSelect is the column list every run listing shares, so a new column cannot
+// be added to one query and forgotten in the other.
+const runSelect = `SELECT id, tenant_id, rule_id, revision, definition_hash, scope_key, generation,
                  coalesce(device_id,''), coalesce(trigger_event_id,''), status,
                  coalesce(reason_code,''), coalesce(reason,''), snapshot, started_at, finished_at, deadline,
                  coalesce(causal_root,''), causal_hop, coalesce(cause_event_id,''),
                  cursor_pc, resume_count
-            FROM auto_runs WHERE tenant_id=$1`
-	args := []any{tenantID}
-	if ruleID != "" {
-		args = append(args, ruleID)
-		q += fmt.Sprintf(` AND rule_id=$%d`, len(args))
-	}
-	if deviceID != "" {
-		args = append(args, deviceID)
-		q += fmt.Sprintf(` AND device_id=$%d`, len(args))
-	}
-	q += fmt.Sprintf(` ORDER BY started_at DESC LIMIT %d`, limit)
+            `
 
-	rows, err := s.DB.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+func scanRuns(rows *sql.Rows) ([]*Run, error) {
 	var out []*Run
 	for rows.Next() {
 		var (
@@ -477,6 +529,31 @@ func (s *Store) ListRuns(ctx context.Context, tenantID, ruleID, deviceID string,
 		out = append(out, &r)
 	}
 	return out, rows.Err()
+}
+
+// ListRuns returns recent runs for a rule or device.
+func (s *Store) ListRuns(ctx context.Context, tenantID, ruleID, deviceID string, limit int) ([]*Run, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	q := runSelect + `FROM auto_runs WHERE tenant_id=$1`
+	args := []any{tenantID}
+	if ruleID != "" {
+		args = append(args, ruleID)
+		q += fmt.Sprintf(` AND rule_id=$%d`, len(args))
+	}
+	if deviceID != "" {
+		args = append(args, deviceID)
+		q += fmt.Sprintf(` AND device_id=$%d`, len(args))
+	}
+	q += fmt.Sprintf(` ORDER BY started_at DESC LIMIT %d`, limit)
+
+	rows, err := s.DB.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRuns(rows)
 }
 
 // ---------------------------------------------------------------------------

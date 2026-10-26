@@ -269,6 +269,69 @@ func parseEnabled(v string) *bool {
 	}
 }
 
+// toQuery turns the query string into a store query, refusing values that would
+// silently return nothing.
+//
+// An unknown status is the dangerous one: filtering on "faild" would show an
+// empty list, and an empty list reads as "nothing failed". Refusing is the only
+// answer that cannot be misread.
+func (r *ListRunsRequest) toQuery(tenantID, ruleID string) (store.RunQuery, error) {
+	q := store.RunQuery{TenantID: tenantID, RuleID: ruleID, Limit: r.Limit, Offset: r.Offset}
+	// The window is normalised here, not only inside the store, so the response
+	// can echo the window that was actually used instead of the zero the caller
+	// left out.
+	if q.Limit <= 0 {
+		q.Limit = 50
+	}
+	if q.Limit > 200 {
+		q.Limit = 200
+	}
+	if q.Offset < 0 {
+		q.Offset = 0
+	}
+	if r.Status != "" {
+		for _, part := range strings.Split(r.Status, ",") {
+			s := strings.TrimSpace(part)
+			if s == "" {
+				continue
+			}
+			if !knownRunStatus(s) {
+				return q, &errs.Error{Code: errs.InvalidArgument,
+					Message: "没有这个运行状态：" + s, Meta: errs.Metadata{"field": "status"}}
+			}
+			q.Statuses = append(q.Statuses, s)
+		}
+	}
+	for _, pair := range []struct {
+		raw    string
+		target **time.Time
+		field  string
+	}{{r.Before, &q.Before, "before"}, {r.After, &q.After, "after"}} {
+		if pair.raw == "" {
+			continue
+		}
+		t, err := time.Parse(time.RFC3339, pair.raw)
+		if err != nil {
+			return q, &errs.Error{Code: errs.InvalidArgument,
+				Message: pair.field + " 需要 RFC3339 时间，例如 2026-10-23T08:00:00Z",
+				Meta:    errs.Metadata{"field": pair.field}}
+		}
+		*pair.target = &t
+	}
+	return q, nil
+}
+
+func knownRunStatus(s string) bool {
+	switch s {
+	case runtime.StatusAccepted, runtime.StatusRunning, runtime.StatusQueued,
+		runtime.StatusSucceeded, runtime.StatusPartial, runtime.StatusFailed,
+		runtime.StatusCancelled, runtime.StatusIgnored, runtime.StatusRejected,
+		runtime.StatusExpired:
+		return true
+	}
+	return false
+}
+
 // DeleteRule lives in reference_service.go: A20 gave it a reference pre-check,
 // a tombstone reason and a body describing what it stopped.
 
@@ -480,10 +543,16 @@ func (s *Service) IngestUplink(ctx context.Context, req *UplinkRequest) (*Uplink
 // Runs
 // ---------------------------------------------------------------------------
 
-// ListRuleRuns lists recent runs of a rule.
+// ListRuleRuns lists runs of a rule, one page at a time.
+//
+// The old version returned the latest fifty and nothing else. That is not a
+// listing, it is a sample: a page showing twenty of them could not say whether
+// there were more, and "show me what failed yesterday" was unanswerable. The
+// filters below are the four questions the run log actually gets asked, and
+// `total` is what lets a pager show a count instead of "next" forever.
 //
 //encore:api auth method=GET path=/v1/rules/:id/runs
-func (s *Service) ListRuleRuns(ctx context.Context, id string) (*ListRunsResponse, error) {
+func (s *Service) ListRuleRuns(ctx context.Context, id string, req *ListRunsRequest) (*ListRunsResponse, error) {
 	tenantID, err := mustTenant()
 	if err != nil {
 		return nil, err
@@ -492,11 +561,21 @@ func (s *Service) ListRuleRuns(ctx context.Context, id string) (*ListRunsRespons
 	if err != nil {
 		return nil, err
 	}
-	runs, err := rt.Store().ListRuns(ctx, tenantID, id, "", 50)
+	if req == nil {
+		req = &ListRunsRequest{}
+	}
+	q, perr := req.toQuery(tenantID, id)
+	if perr != nil {
+		return nil, perr
+	}
+	runs, total, err := rt.Store().ListRunsPaged(ctx, q)
 	if err != nil {
 		return nil, internal(err)
 	}
-	out := &ListRunsResponse{Runs: make([]RunResponse, 0, len(runs))}
+	out := &ListRunsResponse{
+		Runs: make([]RunResponse, 0, len(runs)),
+		Total: total, Limit: q.Limit, Offset: q.Offset,
+	}
 	for _, r := range runs {
 		out.Runs = append(out.Runs, toRunResponse(r, nil, nil, nil))
 	}

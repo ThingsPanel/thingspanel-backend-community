@@ -256,8 +256,24 @@ type OutboxResponse struct {
 }
 
 // ListRunsResponse is a page of runs.
+// ListRunsRequest narrows a run listing.
+//
+// `status` is a comma-separated set rather than a single value because the
+// question is almost always "what went wrong", and "wrong" is five statuses.
+type ListRunsRequest struct {
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+	Status string `json:"status"`
+	// Before/After bound the run's start time, in RFC3339.
+	Before string `json:"before"`
+	After  string `json:"after"`
+}
+
 type ListRunsResponse struct {
-	Runs []RunResponse `json:"runs"`
+	Runs   []RunResponse `json:"runs"`
+	Total  int           `json:"total"`
+	Limit  int           `json:"limit"`
+	Offset int           `json:"offset"`
 }
 
 // ---------------------------------------------------------------------------
