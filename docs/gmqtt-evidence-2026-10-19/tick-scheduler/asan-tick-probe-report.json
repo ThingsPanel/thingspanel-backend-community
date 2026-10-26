@@ -1,9 +1,0 @@
-{
-  "started_at": "2026-10-19T16:42:04.30522775Z",
-  "idle_connect_duration_ns": 5022966903,
-  "traffic_source_connect_duration_ns": 5029076631,
-  "traffic_target_connect_duration_ns": 53237553,
-  "traffic_ping_interval_ms": 100,
-  "traffic_pings": 3,
-  "status": "PASS"
-}

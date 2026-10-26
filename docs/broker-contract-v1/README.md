@@ -127,5 +127,5 @@ The opt-in strict migration runtime endpoint is `/v1/runtime/sync`, bound to the
 broker's existing cell/instance token and actual boot ID. Its bounded HTTP worker
 stages fences; only main-thread Tick installs them, and a subsequent request may
 ACK them. Control leases expire ten seconds from request initiation. See the
-[runtime integration evidence](../gmqtt-evidence-2026-10-19/runtime-fence-integration.md)
+[runtime integration evidence](https://github.com/ThingsPanel/thingspanel-backend-community/blob/1a1ef0a005a64a8d80e627cb8546794e018e2c9d/docs/gmqtt-evidence-2026-10-19/runtime-fence-integration.md)
 for implementation boundaries and uncompleted migration scenarios.

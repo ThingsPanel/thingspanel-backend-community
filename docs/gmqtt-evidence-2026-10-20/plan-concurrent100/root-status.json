@@ -1,5 +1,0 @@
-{
-  "exit_code": 0,
-  "test_source_sha256": "e0c42955872f9548543e6c0686b11bf3992eaf6a1aec35678e76366166e40352",
-  "command": "private QA DSN variables injected; go test -json -race -p 1 -count=1 -timeout 2m ./internal/brokercommands"
-}

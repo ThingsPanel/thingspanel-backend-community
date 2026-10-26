@@ -4,13 +4,13 @@
 **本次第一阶段仅实施社区版：Mosquitto 2.1.x 替换 GMQTT、开放插座契约、稳定可靠接入、社区 AI 业务场景与独立验收。企业 VerneMQ/EMQX 在第二阶段另行立项，不属于本期开发、采购、验收和付款范围。**  
 完整产品远期方向：社区 Mosquitto；企业 VerneMQ、EMQX  
 文档用途：研发派工、架构评审、质量验收、灰度与生产交付  
-当前状态（2026-10-20 实施更新）：**社区候选已完成多项实现和隔离协议/数据库测试；G0–G5-C 尚未放行，完整同条件收益、72 小时稳定性、真实灰度与 AI 产品价值仍待验收。企业版未实施，不属于本期欠项。** 当前实施事实见[验收跟踪](gmqtt-community-acceptance-tracker-2026-10-19.md)、[逐项 AC 台账](gmqtt-community-ac-ledger-2026-10-20.md)和[三角色检查点报告](gmqtt-community-completion-report-2026-10-20.md)。下文设计及其历史核验记录保留原始口径，不能用作当前生产放行证明。
+当前状态（2026-10-20 实施更新）：**社区候选已完成多项实现和隔离协议/数据库测试；G0–G5-C 尚未放行，完整同条件收益、72 小时稳定性、真实灰度与 AI 产品价值仍待验收。企业版未实施，不属于本期欠项。** 当前实施事实见[验收跟踪](gmqtt-community-acceptance-tracker-2026-10-19.md)、[逐项 AC 台账](gmqtt-community-ac-ledger-2026-10-20.md)和[三角色检查点报告](https://github.com/ThingsPanel/thingspanel-backend-community/blob/1a1ef0a005a64a8d80e627cb8546794e018e2c9d/docs/gmqtt-community-completion-report-2026-10-20.md)。下文设计及其历史核验记录保留原始口径，不能用作当前生产放行证明。
 
 ## 本轮开发交付口径调整（用户于2026-10-20明确指示）
 
 本轮以**结构完整、主要功能链路冒烟跑通、没有关键入口漏接**为完成条件。72小时长稳、配对性能/容量、压力极限、批量重复故障、真人盲测/人效等专项由用户团队后续自行执行；开发阶段停止继续扩展这些测试。保留已有证据和原验收规范供后续使用，不将未跑的专项标为PASS。实际未实现或未接线的功能须与“仅未做充分测试”分开处理，不能以本次测试范围缩小掩盖功能遗漏。
 
-用户随后要求先说明OTA、期望消息、旧下行、AI对话及前端接线，再判断功能范围。新增接线已冻结；现有主链分项证据与实际兼容缺口见[结构与冒烟清单](gmqtt-community-structure-smoke-checklist-2026-10-20.md)。本次调整测试规模不代表批准新增完整OTA或AI产品。
+用户随后要求先说明OTA、期望消息、旧下行、AI对话及前端接线，再判断功能范围。新增接线已冻结；现有主链分项证据与实际兼容缺口见[结构与冒烟清单](https://github.com/ThingsPanel/thingspanel-backend-community/blob/1a1ef0a005a64a8d80e627cb8546794e018e2c9d/docs/gmqtt-community-structure-smoke-checklist-2026-10-20.md)。本次调整测试规模不代表批准新增完整OTA或AI产品。
 
 ## 阅读导引
 

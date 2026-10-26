@@ -23,4 +23,12 @@
 - SKIP 包括未配置隔离 PostgreSQL、Redis、原生 Broker、ChatBridge、私有子进程入口，以及 Windows 不具备的 Unix 权限/SIGKILL/符号链接前提；没有把这些测试计为通过。没有执行真实设备、72 小时长稳、切换灰度或生产认证。
 - 生命周期竞态检查：`go test -race -json -timeout 120s . ./internal/app ./internal/adapter/mqttadapter -run 'Test(TerminationSignal|Startup|ServiceManager|MQTTService|CreateMQTTClient|MQTTClientManualAck)'`，3 个包、11 个测试通过，0 skip，无竞态报告。
 
-历史文档的 Markdown 行尾双空格保留，不在合并中进行无关格式清理。最终提交版本可通过 `git log --merges main-1.3.0` 查询本合并提交及其双父节点。
+合并提交为 `d336de64`，双父节点为 `33466805` 和 `1a1ef0a0`。过程材料的后续清理不改变本次验证结果。
+
+## 2026-10-26 过程材料清理
+
+- 删除来源两个历史证据目录的179个文件、7份重复阶段报告，以及只为这些旧日志服务的 `.gitattributes`，共187个已跟踪文件，约22.1MB。旧日志、NDJSON/JSON、构建清单、SBOM库存及哈希记录保留在Git历史中，可按固定提交核对。
+- 将有价值的结论、历史镜像身份、失败后复跑边界和未完成验收收敛到[验证摘要](gmqtt-validation-summary.md)，精简[验收跟踪](gmqtt-community-acceptance-tracker-2026-10-19.md)，保留完整AC台账。保留文档中的旧证据链接改指固定来源提交。
+- 源码、测试、16份broker迁移、现行契约、构建脚本、部署配置与runbook均保留；没有清理其他任务、仓库或运行数据。
+- 删除本次合并产生的5份临时验证日志，约0.93MB；实际结果和必要错误摘要已保存在本文中。
+- 本次为材料整理，检查删除范围、文档引用和Git状态；119个历史文件链接均在固定来源提交中存在，修改文档的本地文件链接无缺失，16份broker迁移仍在。未改动源码，不重复运行已通过且未受影响的Go测试。

@@ -1,8 +1,0 @@
-{"run":"asan-stress-10k-1k","stage":"planned","status":"observed","evidence":"isolated linux/arm64 sanitizer broker/plugin; requested 10000 QoS1 ingress messages and 1000 authenticated reconnects"}
-{"run":"asan-stress-10k-1k","stage":"sent","status":"observed","evidence":"10000 device MQTT PUBLISH requests completed without transport errors; MQTT 3.1.1 and MQTT 5 each exercised"}
-{"run":"asan-stress-10k-1k","stage":"broker_ack","status":"observed","evidence":"10000 successful QoS1 broker PUBACKs; does not imply business acceptance"}
-{"run":"asan-stress-10k-1k","stage":"ingress_seen","status":"observed","evidence":"10000 corresponding service subscriber PUBLISH packets were acknowledged and runner validated ingress envelopes"}
-{"run":"asan-stress-10k-1k","stage":"reconnect","status":"incomplete","evidence":"2 authenticated connect/disconnect cycles succeeded; third attempt was rejected by Mosquitto with MQTT 3 CONNACK rc=5 (not authorized), before completing 1000"}
-{"run":"asan-stress-10k-1k","stage":"accepted","status":"unobserved","evidence":"fixture has no durable business acceptor; broker acknowledgement and ingress receipt are not application acceptance"}
-{"run":"asan-stress-10k-1k","stage":"terminal","status":"unobserved","evidence":"no downstream terminal business result was observed"}
-{"run":"asan-stress-10k-1k","stage":"sideeffects","status":"unobserved","evidence":"no physical or external business side effect was observed"}

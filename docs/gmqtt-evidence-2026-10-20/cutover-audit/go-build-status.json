@@ -1,1 +1,0 @@
-{"command": ["go", "build", "-p", "1", "./..."], "exit_code": 0}

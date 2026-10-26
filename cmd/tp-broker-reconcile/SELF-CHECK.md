@@ -2,7 +2,7 @@
 
 Validation command: `go test -race -count=1 ./cmd/tp-broker-reconcile`
 
-Result: `ok project/cmd/tp-broker-reconcile 6.036s` (2026-10-20). Raw `go test -json` output: [go-test-race.json](../../docs/gmqtt-evidence-2026-10-20/reconcile-selfcheck/go-test-race.json).
+Result: `ok project/cmd/tp-broker-reconcile 6.036s` (2026-10-20). Raw `go test -json` output: [go-test-race.json](https://github.com/ThingsPanel/thingspanel-backend-community/blob/1a1ef0a005a64a8d80e627cb8546794e018e2c9d/docs/gmqtt-evidence-2026-10-20/reconcile-selfcheck/go-test-race.json).
 
 The test pack contains 1,000 valid events across two tenant IDs and ten device IDs and returns PASS. Mutated, rehashed packs detect exactly 100 each of missing accepted records, excess side-effect rows, wrong-scope terminal records, and late terminal records. A 3,001-effect single-event pack detects all 3,000 excess effects. Count-compensation, earlier-than-planned timestamps, reused receipts, terminal failure, contradictory same-effect records, missing evidence, altered hash, duplicate JSON keys, unknown fields, duplicate records, symlink files, missing required fields, and configured size bounds are also checked. Manifest case aliases (alone or beside canonical keys) are rejected. These are checker self-tests, not evidence of broker or business-system behavior.
 

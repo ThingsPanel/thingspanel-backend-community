@@ -1,9 +1,0 @@
-{
-  "internal/brokercontrol/migration.go": "f947f0d84dc7f25f975031f7606469e89d15287b2237ecfe1f00c01b930dbd35",
-  "internal/brokercontrol/runtime_sql.go": "b341777ba934fcc1a88c82a8601d80a08c4023d115774f20a89a717189aab877",
-  "internal/brokercontrol/operation_audit_postgres_test.go": "ef2c39d12574a22b02341204caca94af2c27d670de9565233b394f6f9fabc6a4",
-  "cmd/tp-broker-cutover/main.go": "599144300bf28854d08b76e770a896e350dee791cee8964589f647aa5de4096e",
-  "cmd/tp-broker-cutover/main_test.go": "54f4fd52e0891e31a0af45380692b7739973e28a8e3fb1a439aba621a9ea9661",
-  "internal/app/broker_migration_cells_native_test.go": "fae94647e6224b0871e5f37c6c45dd080a5193ddfee71cf407674090e61b41f7",
-  "internal/app/broker_migration_roundtrip_native_test.go": "4ccf8da8544b15b954ba5b2ee1ee112d2d882c747a34904a62246ed631b8ed99"
-}

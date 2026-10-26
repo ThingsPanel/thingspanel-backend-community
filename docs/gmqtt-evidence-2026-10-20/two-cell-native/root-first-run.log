@@ -1,5 +1,0 @@
-=== RUN   TestBrokerMigrationNativeTwoCellRoundTrip
-    broker_migration_roundtrip_native_test.go:196: isolated native A/1 -> B/2 -> A/3: real four-role barriers, connecting receipts and business processing verified; no command or physical-effect certification
---- PASS: TestBrokerMigrationNativeTwoCellRoundTrip (16.81s)
-PASS
-ok  	project/internal/app	18.882s
