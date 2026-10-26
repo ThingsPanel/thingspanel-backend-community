@@ -1,9 +1,14 @@
 package initialize
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"strings"
 	"testing"
+
+	nativebindingsql "project/sql"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -62,6 +67,29 @@ func TestNativeBindingSchemaPostgres(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "checksum drift") {
 			t.Fatalf("expected checksum drift error, got %v", err)
 		}
+	})
+
+	t.Run("legacy checkout line endings do not block startup", func(t *testing.T) {
+		resetNativeBindingTestSchema(t, db)
+		if err := ApplyNativeBindingSchema(db); err != nil {
+			t.Fatalf("initial startup: %v", err)
+		}
+		migrations, err := nativebindingsql.NativeBindingMigrations()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, migration := range migrations {
+			lf := bytes.ReplaceAll(migration.Contents, []byte("\r\n"), []byte("\n"))
+			digest := sha256.Sum256(bytes.ReplaceAll(lf, []byte("\n"), []byte("\r\n")))
+			if err := db.Exec(`UPDATE public.native_component_migration_ledger SET checksum = ?
+				WHERE module_name = ? AND file_name = ?`, hex.EncodeToString(digest[:]), nativeBindingMigrationModule, migration.FileName).Error; err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := ApplyNativeBindingSchema(db); err != nil {
+			t.Fatalf("startup from another checkout: %v", err)
+		}
+		assertNativeBindingLedgerCount(t, db, 2)
 	})
 
 	t.Run("wrongly grouped check constraint stops startup", func(t *testing.T) {

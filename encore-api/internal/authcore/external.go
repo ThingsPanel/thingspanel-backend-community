@@ -15,6 +15,7 @@ import (
 )
 
 type ProviderConfig struct {
+	Enabled      bool     `json:"enabled"`
 	ID           string   `json:"id"`
 	Label        string   `json:"label"`
 	Kind         string   `json:"kind"` // oidc, wechat-web or wechat-mini
@@ -89,7 +90,7 @@ func NewProvider(c ProviderConfig) (*Provider, error) {
 	} else if c.ClientID == "" || !validHTTPS(c.Issuer) || !validHTTPS(c.TokenURL) || !validHTTPS(c.JWKSURL) || !validHTTPS(c.AuthorizeURL) || !validHTTPS(c.RedirectURL) || c.ClientSecret == "" {
 		return nil, ErrUnavailable
 	}
-	h := &http.Client{Timeout: 8 * time.Second, Transport: &boundedKeysTransport{keysURL: c.JWKSURL, base: &http.Transport{Proxy: nil, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: 5 * time.Second}}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	h := &http.Client{Timeout: 8 * time.Second, Transport: &boundedKeysTransport{keysURL: c.JWKSURL, base: &http.Transport{Proxy: nil, DialContext: dialProvider, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: 5 * time.Second, IdleConnTimeout: 30 * time.Second, MaxIdleConns: 4, MaxConnsPerHost: 4}}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	if c.Kind != "oidc" {
 		return &Provider{Config: c, HTTP: h}, nil
 	}

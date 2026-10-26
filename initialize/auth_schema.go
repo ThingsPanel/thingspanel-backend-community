@@ -1,8 +1,6 @@
 package initialize
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 
 	nativebindingsql "project/sql"
@@ -39,15 +37,14 @@ func ApplyAuthSchema(db *gorm.DB) error {
 		}
 
 		for _, migration := range migrations {
-			digest := sha256.Sum256(migration.Contents)
-			checksum := hex.EncodeToString(digest[:])
+			checksum := nativebindingsql.MigrationChecksum(migration.Contents)
 			var recorded string
 			result := tx.Table(authMigrationLedgerTable).
 				Select("checksum").
 				Where("module_name = ? AND file_name = ?", authMigrationModule, migration.FileName).
 				Take(&recorded)
 			if result.Error == nil {
-				if recorded != checksum {
+				if !nativebindingsql.MigrationChecksumMatches(recorded, migration.Contents) {
 					return fmt.Errorf("authentication migration checksum drift for %s: recorded %s, source %s", migration.FileName, recorded, checksum)
 				}
 				continue
@@ -70,7 +67,8 @@ func ApplyAuthSchema(db *gorm.DB) error {
            (table_name='users' OR table_name='app_push_devices') AND column_name='auth_version' AND data_type='bigint' AND is_nullable='NO')
           AND EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='auth_external_bindings'::regclass AND contype='u' AND pg_get_constraintdef(oid)='UNIQUE (issuer, subject)')
           AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='auth_external_bindings' AND column_name='self_unlinked' AND data_type='boolean' AND is_nullable='NO')
-          AND to_regclass('auth_audit_events') IS NOT NULL`).Scan(&valid).Error; err != nil || !valid {
+          AND to_regclass('auth_audit_events') IS NOT NULL
+          AND to_regclass('auth_provider_settings') IS NOT NULL`).Scan(&valid).Error; err != nil || !valid {
 			return fmt.Errorf("authentication schema verification failed: %v", err)
 		}
 		return nil

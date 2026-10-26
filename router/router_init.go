@@ -1,12 +1,14 @@
 package router
 
 import (
+	"os"
 	"time"
 
 	middleware "project/internal/middleware"
 	"project/internal/middleware/response"
 	"project/pkg/global"
 	"project/pkg/metrics"
+	"project/pkg/utils"
 	"project/router/apps"
 
 	"github.com/gin-gonic/gin"
@@ -73,6 +75,36 @@ func RouterInit() *gin.Engine {
 	// Dedicated deployment credentials protect these reads. Mount them before
 	// operation logging so credentials and member contact details are excluded.
 	reader := api.NewNotificationMemberReaderFromEnv()
+	// Explicit legacy capabilities: optional sign-in is disabled until the
+	// deployment switches its single authentication owner and ingress together.
+	for _, path := range []string{"/api/v1/auth/login-options", "/api/v1/auth/external/providers"} {
+		router.GET(path, func(c *gin.Context) {
+			c.Header("Cache-Control", "no-store")
+			if os.Getenv("TP_AUTH_OWNER") == "encore" {
+				c.JSON(503, gin.H{"code": 503, "message": "authentication routing is not configured"})
+				return
+			}
+			var data any = gin.H{"password": gin.H{"enabled": true}, "external": gin.H{"enabled": false, "providers": []any{}}}
+			if c.Request.URL.Path == "/api/v1/auth/external/providers" {
+				data = []any{}
+			}
+			c.JSON(200, gin.H{"code": 200, "message": "success", "data": data})
+		})
+	}
+	router.GET("/api/v1/auth/admin/providers", middleware.JWTAuth(), func(c *gin.Context) {
+		v, ok := c.Get("claims")
+		claims, valid := v.(*utils.UserClaims)
+		if !ok || !valid || claims.Authority != "SYS_ADMIN" || claims.Delegated {
+			c.JSON(403, gin.H{"code": 403, "message": "Forbidden"})
+			return
+		}
+		c.Header("Cache-Control", "no-store")
+		if os.Getenv("TP_AUTH_OWNER") == "encore" {
+			c.JSON(503, gin.H{"code": 503, "message": "authentication routing is not configured"})
+			return
+		}
+		c.JSON(200, gin.H{"code": 200, "message": "success", "data": gin.H{"editable": false, "reason": "native_auth_not_enabled", "providers": []any{}, "callbackUrl": ""}})
+	})
 	router.GET("/api/v1/notification/source-members/:id", reader.GetMemberContact)
 	router.GET("/api/v1/notification/source-app-members/:id", reader.GetAppMemberDevices)
 	router.GET("/api/v1/notification/source-app-devices/:id", reader.GetAppDevice)

@@ -84,6 +84,10 @@ func reply(w http.ResponseWriter, data any, e error) {
 			status = 503
 		}
 		message = http.StatusText(status)
+		var configError *ProviderConfigError
+		if errors.As(e, &configError) {
+			data = map[string]any{"fields": configError.Fields}
+		}
 	}
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"code": status, "message": message, "data": data})
@@ -125,13 +129,31 @@ func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	path := r.URL.Path
-	if path == "/api/v1/auth/external/providers" && r.Method == "GET" {
-		out := []map[string]string{}
-		for _, p := range h.Runtime.Providers {
-			out = append(out, map[string]string{"id": p.Config.ID, "label": p.Config.Label, "kind": p.Config.Kind})
+	if path == "/api/v1/auth/admin/providers" {
+		h.providerAdmin(w, r)
+		return
+	}
+	// Resolve optional providers without changing the base password/session path.
+	if strings.HasPrefix(path, "/api/v1/auth/external/") || strings.HasPrefix(path, "/api/v1/auth/wechat-mini/") || path == "/api/v1/auth/login-options" {
+		snapshot, e := h.Runtime.providerSnapshot(r.Context())
+		if e != nil {
+			reply(w, nil, e)
+			return
 		}
-		sort.Slice(out, func(i, j int) bool { return out[i]["id"] < out[j]["id"] })
-		reply(w, out, nil)
+		h = &HTTP{Runtime: snapshot}
+	}
+	if path == "/api/v1/auth/login-options" && r.Method == "GET" {
+		channel := r.URL.Query().Get("channel")
+		if channel != "web" && channel != "mp-weixin" && channel != "app" {
+			reply(w, nil, ErrForbidden)
+			return
+		}
+		providers := h.publicProviders(channel)
+		reply(w, map[string]any{"password": map[string]bool{"enabled": true}, "external": map[string]any{"enabled": len(providers) > 0, "providers": providers}}, nil)
+		return
+	}
+	if path == "/api/v1/auth/external/providers" && r.Method == "GET" {
+		reply(w, h.publicProviders(""), nil)
 		return
 	}
 	// Do not trust forwarded IP headers here. Deployment must pass client identity
@@ -480,6 +502,14 @@ func (h *HTTP) callback(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, h.Runtime.Origin+"/auth-callback?authError=failed", http.StatusSeeOther)
 		return
 	}
+	if t.Purpose == "provider-test" {
+		result := "success"
+		if h.finishProviderTest(r, t) != nil {
+			result = "failed"
+		}
+		http.Redirect(w, r, h.Runtime.Origin+"/management/setting?authTest="+result, http.StatusSeeOther)
+		return
+	}
 	p := h.Runtime.Providers[t.Provider]
 	if p == nil || !p.BrowserProvider() || p.Config.ReviewID != t.Revision {
 		http.Redirect(w, r, h.Runtime.Origin+"/auth-callback?authError=failed", http.StatusSeeOther)
@@ -559,4 +589,16 @@ func (h *HTTP) loginIdentity(w http.ResponseWriter, r *http.Request, p *Provider
 	}
 	session, e := h.Runtime.Core.Issue(r.Context(), u)
 	reply(w, session, e)
+}
+
+func (h *HTTP) publicProviders(channel string) []map[string]string {
+	out := []map[string]string{}
+	for _, p := range h.Runtime.Providers {
+		if channel == "app" || (channel == "web" && p.Config.Kind == "wechat-mini") || (channel == "mp-weixin" && p.Config.Kind != "wechat-mini") {
+			continue
+		}
+		out = append(out, map[string]string{"id": p.Config.ID, "label": p.Config.Label, "kind": p.Config.Kind})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i]["id"] < out[j]["id"] })
+	return out
 }

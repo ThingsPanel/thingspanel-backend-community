@@ -1,8 +1,6 @@
 package initialize
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -40,15 +38,14 @@ func ApplyNativeBindingSchema(db *gorm.DB) error {
 		}
 
 		for _, migration := range migrations {
-			digest := sha256.Sum256(migration.Contents)
-			checksum := hex.EncodeToString(digest[:])
+			checksum := nativebindingsql.MigrationChecksum(migration.Contents)
 			var recorded string
 			result := tx.Table(nativeBindingLedgerTable).
 				Select("checksum").
 				Where("module_name = ? AND file_name = ?", nativeBindingMigrationModule, migration.FileName).
 				Take(&recorded)
 			if result.Error == nil {
-				if recorded != checksum {
+				if !nativebindingsql.MigrationChecksumMatches(recorded, migration.Contents) {
 					return fmt.Errorf("native binding migration checksum drift for %s: recorded %s, source %s", migration.FileName, recorded, checksum)
 				}
 				continue

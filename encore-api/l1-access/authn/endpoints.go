@@ -1,11 +1,22 @@
 package authn
 
 import (
+	"encoding/json"
 	"encore.app/internal/authcore"
 	"net/http"
 )
 
 func serveAuthentication(w http.ResponseWriter, r *http.Request) {
+	if !authcore.Enabled() && r.Method == "GET" && (r.URL.Path == "/api/v1/auth/login-options" || r.URL.Path == "/api/v1/auth/external/providers") {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "application/json")
+		var data any = authcore.DisabledLoginOptions()
+		if r.URL.Path == "/api/v1/auth/external/providers" {
+			data = []any{}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "message": "success", "data": data})
+		return
+	}
 	runtime, e := authcore.Load()
 	if e != nil {
 		w.Header().Set("Cache-Control", "no-store")
