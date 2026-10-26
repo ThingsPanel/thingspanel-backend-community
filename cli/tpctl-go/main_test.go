@@ -223,6 +223,32 @@ func TestRetryingTheSameIntentUsesTheSameKey(t *testing.T) {
 	}
 }
 
+// TestTheKeyTravelsInTheBodyAsWellAsTheHeader: an Encore typed handler cannot
+// read headers, so a key that only travels in one is a key the service never
+// sees — and the retry it was meant to protect becomes a second action.
+func TestTheKeyTravelsInTheBodyAsWellAsTheHeader(t *testing.T) {
+	srv, cap := newServer(t, 200, `{"id":"r1"}`)
+	file := writeTemp(t, `{"name":"高温","definition":{"kind":"automation"}}`)
+	if code, _, _ := runCLI("--base-url", srv.URL, "rules", "create", "--file", file); code != 0 {
+		t.Fatalf("create failed: %d", code)
+	}
+	req := cap.last()
+	if req.Idem == "" {
+		t.Fatal("a create must carry a key")
+	}
+	if !strings.Contains(req.Body, `"request_id":"`+req.Idem+`"`) {
+		t.Fatalf("the key must be in the body too, got %s", req.Body)
+	}
+
+	// A read must not pick one up: there is nothing to de-duplicate.
+	if code, _, _ := runCLI("--base-url", srv.URL, "rules", "list"); code != 0 {
+		t.Fatalf("list failed: %d", code)
+	}
+	if strings.Contains(cap.last().Body, "request_id") {
+		t.Fatalf("a read must not send request_id: %s", cap.last().Body)
+	}
+}
+
 // TestAnExplicitKeyWins: scripts that want to pin a key can.
 func TestAnExplicitKeyWins(t *testing.T) {
 	srv, cap := newServer(t, 200, `{}`)

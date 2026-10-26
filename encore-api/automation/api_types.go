@@ -20,6 +20,9 @@ type CreateRuleRequest struct {
 	Definition domain.Definition `json:"definition"`
 	Enabled    bool              `json:"enabled"`
 	LegacyID   string            `json:"legacy_id,omitempty"`
+	// RequestID makes a retried create safe. It travels in the body rather than
+	// in a header because a typed Encore handler cannot see headers.
+	RequestID string `json:"request_id,omitempty"`
 }
 
 // UpdateRuleRequest carries the optimistic version the client last saw.
@@ -35,6 +38,10 @@ type UpdateRuleRequest struct {
 	// Force saves even though existing bindings cannot carry their values into
 	// the new body. Like the delete override in A20, it has to be said out loud.
 	Force bool `json:"force,omitempty"`
+	// RequestID replays the first save instead of colliding with it. Without it
+	// a retry after a timeout fails on the version check, which reads like
+	// "somebody else edited this" when nobody did.
+	RequestID string `json:"request_id,omitempty"`
 }
 
 // SetEnabledRequest flips the switch with the same optimistic check.
@@ -81,6 +88,9 @@ type ListRulesRequest struct {
 // target falls back to that target.
 type RunRuleRequest struct {
 	DeviceID string `json:"device_id" query:"device_id"`
+	// RequestID makes a retried manual run safe. Without it, a client that
+	// times out and retries produces a second run and a second device command.
+	RequestID string `json:"request_id,omitempty"`
 }
 
 // ListRulesResponse is a page of rules.
@@ -419,6 +429,10 @@ type TickResponse struct {
 
 	RunsExpired int `json:"runs_expired"`
 	RunsResumed int `json:"runs_resumed"`
+
+	// RequestsPruned counts expired inbound-dedupe rows dropped this pass. The
+	// table is a retry window, not an audit log, so old rows go.
+	RequestsPruned int `json:"requests_pruned"`
 }
 
 // RecoverResponse reports how many receipts were replayed.

@@ -818,8 +818,12 @@ func run(argv []string, stdout, stderr io.Writer) int {
 	if cmd.sideEffect {
 		idem = g.idempotencyKey
 		if idem == "" {
-			idem = intentKey(cmd.name, body)
+			idem = intentKey(intentLabel(cmd), cmd.method+" "+cmd.path, body)
 		}
+		// The key goes into the body as well as the header. Encore's typed
+		// handlers cannot see headers, so a header-only key is a key the
+		// service never reads — the retry would create a second run.
+		body = withRequestID(body, idem)
 	}
 	requestID := newRequestID()
 
@@ -913,6 +917,37 @@ func buildRequest(in *invocation) (any, map[string][]string, error) {
 		return nil, nil, nil
 	}
 	return in.cmd.build(in)
+}
+
+// withRequestID copies the derived idempotency key into the request body.
+//
+// The header stays (it is what a proxy or a log reads), but the service reads
+// the body: an Encore typed handler has no access to headers, so a key that
+// only travels in one is a key the service never sees.
+func withRequestID(body any, key string) any {
+	m, ok := body.(map[string]any)
+	if !ok || key == "" {
+		return body
+	}
+	out := make(map[string]any, len(m)+1)
+	for k, v := range m {
+		out[k] = v
+	}
+	out["request_id"] = key
+	return out
+}
+
+// intentLabel names an endpoint in the key by its first spelling, so an alias
+// and its replacement do not produce two different keys for one request.
+func intentLabel(cmd *command) string {
+	if cmd.legacy {
+		for _, c := range commands() {
+			if c.method == cmd.method && c.path == cmd.path && !c.legacy {
+				return c.name
+			}
+		}
+	}
+	return cmd.name
 }
 
 func fillPath(cmd *command, args []string) (string, error) {

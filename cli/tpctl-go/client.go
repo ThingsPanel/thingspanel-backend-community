@@ -246,15 +246,19 @@ func newRequestID() string {
 	return fmt.Sprintf("tpctl-%d-%s", time.Now().UnixNano(), hex.EncodeToString(b))
 }
 
-// intentKey derives an idempotency key from the command and its body.
+// intentKey derives an idempotency key from the endpoint and the body.
 //
 // Same intent, same key — that is the whole point. A retry after a timeout
 // therefore cannot open the light twice, without the user having to remember
 // anything. `--idempotency-key` still overrides it when a script wants to pin
 // the key across differently-shaped invocations.
-func intentKey(command string, body any) string {
+//
+// The scope is the method plus the *path template*, not the command name, so
+// `automations create` and `rules create` — two spellings of one endpoint —
+// produce the same key. A retry that switched spelling is still a retry.
+func intentKey(label, scope string, body any) string {
 	sum := sha256.New()
-	sum.Write([]byte(command))
+	sum.Write([]byte(scope))
 	if body != nil {
 		// encoding/json sorts map keys, so the same intent produces the same
 		// bytes even when the flags were given in a different order.
@@ -263,7 +267,7 @@ func intentKey(command string, body any) string {
 			sum.Write(raw)
 		}
 	}
-	return "tpctl-" + sanitizeKey(command) + "-" + hex.EncodeToString(sum.Sum(nil))[:16]
+	return "tpctl-" + sanitizeKey(label) + "-" + hex.EncodeToString(sum.Sum(nil))[:16]
 }
 
 func sanitizeKey(s string) string {

@@ -139,6 +139,12 @@ func (s *Service) CreateRule(ctx context.Context, req *CreateRuleRequest) (*Rule
 	if strings.TrimSpace(req.Name) == "" {
 		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "规则名称不能为空"}
 	}
+	// A create that was retried returns the rule the first attempt made, not a
+	// second one with the same name. If that rule has since been deleted, the
+	// key is stale and the create runs for real.
+	if prior, ok := s.replayRule(ctx, tenantID, req.RequestID); ok {
+		return prior, nil
+	}
 	def := req.Definition
 	def.Normalize()
 	if err := domain.Validate(&def); err != nil {
@@ -157,6 +163,7 @@ func (s *Service) CreateRule(ctx context.Context, req *CreateRuleRequest) (*Rule
 		return nil, internal(err)
 	}
 	out := toRuleResponse(stored)
+	s.remember(ctx, tenantID, req.RequestID, "create_rule", &out)
 	return &out, nil
 }
 
@@ -175,6 +182,11 @@ func (s *Service) UpdateRule(ctx context.Context, id string, req *UpdateRuleRequ
 	existing, err := rt.Store().GetRule(ctx, tenantID, id)
 	if err != nil {
 		return nil, internal(err)
+	}
+	// A save that was retried replays the first answer. Without this the retry
+	// fails on the version check and reads as "somebody else edited this".
+	if prior, ok := s.replayRule(ctx, tenantID, req.RequestID); ok {
+		return prior, nil
 	}
 	def := req.Definition
 	def.Kind = existing.Kind // the kind is fixed for the lifetime of a rule
@@ -210,6 +222,7 @@ func (s *Service) UpdateRule(ctx context.Context, id string, req *UpdateRuleRequ
 		return nil, internal(err)
 	}
 	out := toRuleResponse(stored)
+	s.remember(ctx, tenantID, req.RequestID, "update_rule", &out)
 	return &out, nil
 }
 
@@ -687,6 +700,13 @@ func (s *Service) RunRule(ctx context.Context, id string, req *RunRuleRequest) (
 	if req != nil {
 		deviceID = strings.TrimSpace(req.DeviceID)
 	}
+	// "Run now" is the one endpoint that reaches a device on demand, so it is
+	// also the one a retried request would double. The key is checked before
+	// the run is created, not after: a run that exists is already a command.
+	var prior RunResponse
+	if req != nil && s.replay(ctx, tenantID, req.RequestID, &prior) {
+		return &prior, nil
+	}
 	run, err := rt.RunNow(ctx, rule, deviceID)
 	if err != nil {
 		return nil, &errs.Error{Code: errs.InvalidArgument, Message: err.Error()}
@@ -695,6 +715,9 @@ func (s *Service) RunRule(ctx context.Context, id string, req *RunRuleRequest) (
 	targets, _ := rt.Store().ListTargets(ctx, run.ID)
 	outbox, _ := rt.Store().OutboxForRun(ctx, run.ID)
 	out := toRunResponse(run, steps, targets, outbox)
+	if req != nil {
+		s.remember(ctx, tenantID, req.RequestID, "run_rule", &out)
+	}
 	return &out, nil
 }
 
@@ -1086,6 +1109,13 @@ func (s *Service) Tick(ctx context.Context) (*TickResponse, error) {
 	if err != nil {
 		return nil, internal(err)
 	}
+	// Dedupe rows are a retry window, not an audit log. The delete is indexed
+	// and normally matches nothing, so it rides along with the sweep. A failure
+	// here must not fail the tick: the scheduler has real work to report.
+	pruned := 0
+	if n, perr := rt.Store().PruneRequests(ctx, requestRetentionHours); perr == nil {
+		pruned = int(n)
+	}
 	return &TickResponse{
 		PendingExamined: res.PendingExamined, PendingFired: res.PendingFired,
 		PendingDeferred: res.PendingDeferred, PendingDropped: res.PendingDropped,
@@ -1095,6 +1125,7 @@ func (s *Service) Tick(ctx context.Context) (*TickResponse, error) {
 		ScheduleSkipped: res.ScheduleSkipped, ScheduleFailed: res.ScheduleFailed,
 		ScheduleRecovered: res.ScheduleRecovered, NoDataNoted: res.NoDataNoted,
 		RunsExpired: res.RunsExpired, RunsResumed: res.RunsResumed,
+		RequestsPruned: pruned,
 	}, nil
 }
 

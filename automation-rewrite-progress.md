@@ -993,13 +993,20 @@ encore test ./...                # domain ok / ingress ok / automation ok
 | `automation/legacy` | 13 | A13 场景形态分类、动作保序、告警动作解析、环与超深链、`Summarize` |
 | `automation/blueprint` | 18 | 四个模板、参数契约、版本 diff、显式升级、覆盖冲突、能力跟随指标 |
 | `automation/bundle` | 15 | A21 资源包：哈希稳定性、元数据不入哈希、角色/插槽声明、引用闭合、凭据扫描、预览 create/update/skip、能力未证实不拒绝 |
-| `automation`（DB 集成） | 193 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟三条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条、A10 七条、A11 十一条、A12 七条、A13 五条、A14 六条、A15 十三条、A16 六条、A17 六条、A19 九条、A20 十二条、A21 十条、A02 五条、A25 九条 |
+| `automation`（DB 集成） | 207 | 幂等、持续条件、V31 屏障、证据过期、四种运行模式、等待续跑、分支三态、通知端口、未知不当成功、告警四条、模拟三条、目标解析三条、A05 七条、A06 三条、A07 十四条、A08 七条、A09 十条、A10 七条、A11 十一条、A12 七条、A13 五条、A14 六条、A15 十三条、A16 六条、A17 六条、A19 九条、A20 十二条、A21 十条、A02 五条、A25 九条、A26 五条、A27 八条 |
 | `automationguard`（独立集成） | 11 | 代际拒绝、幂等回放、冲突、在飞、租约过期、旧调用方隔离 |
-| **合计（顶层用例）** | **328** | 全部通过（`encore test -count=1 ./automation/...` 强制重跑无缓存） |
+| `cli/tpctl-go` | 21 | 退出码契约、机器可读错误、幂等键推导、旧命令映射、`--raw`、代理错误页、幂等键进 body |
+| `cli/tpctl-mcp` | 18 | 协议协商、通知不应答、工具表稳定、文本与结构化一致、工具错误不升级为协议错误、租户参数拒绝、读不带键、方法+路径对照、未知结果 |
+| **合计（Go 顶层用例）** | **382** | 全部通过（`encore test -count=1 ./automation/...` 强制重跑无缓存） |
+
+真实服务冒烟（不是 mock）：
+
+- `test/automation-rewrite/tpctl_smoke.sh`：**27/27**
+- `test/automation-rewrite/mcp_smoke.py`：**36/36**
 
 端点数：**52** 个（启动日志 `registered 52 API endpoints`，`encore check` 1/1 成功）。
 
-端到端：`encore_e2e.py` **74 项检查全通过**（第 10、11 节为 A05 的真实 HTTP 适配器路径，第 12 节为 A07 定时，第 13 节为 A08 迟滞与新鲜度，第 14 节为 A09 运行进度与步骤身份）。A10–A20 的章节待补（见第 22 章）。
+端到端：`encore_e2e.py` **74 项检查全通过**（第 10、11 节为 A05 的真实 HTTP 适配器路径，第 12 节为 A07 定时，第 13 节为 A08 迟滞与新鲜度，第 14 节为 A09 运行进度与步骤身份）。A10–A27 的章节待补（见第 22 章），其中 A26/A27 已有独立的真实服务冒烟脚本先兜住。
 
 
 修复的真实缺陷（不是测试凑数）：
@@ -1051,6 +1058,13 @@ encore test ./...                # domain ok / ingress ok / automation ok
 48. **引用检查会误伤**：第一版 `ReferencingRules` 把 `identifier` 也算引用，而 `identifier` 是动作要写的遥测 key，客户用一个 uuid 形状的 key 就会让自己的规则删不掉。改为只认 `alarm_policy_id` 与 `activate_scene` 步骤的 `value`。
 49. **幽灵等待窗按设备清理会误删**：一条规则失去绑定，如果按设备清 pending，同一台设备上其他仍然有效的等待窗会被一起丢掉。改为按 (设备, 规则) 精确清理。
 50. **目录不可用与设备已删除不可区分**：若把目录报错当成"设备都不存在"，一次目录抖动就会把全租户的设备级绑定全部脱离。现在返回 `directory_unavailable` 且**一个字节都不改**。
+51. **机器可读的码只写进了 `errs.Meta`**：Encore 只把 `Details` 返回给客户端，`Meta` 留在进程内。于是 `preview_stale` / `binding_incompatible` / `referenced_by_rules` 从来没到过调用方 —— 网页和 CLI 只收到一句中文，无法分支。新增 `ErrorDetail`，同时写 `Details`（客户端契约）与 `Meta`（进程内断言）。
+52. **变更预览令牌把过期时间戳哈希了进去**：校验时重新计算预览会得到一个新的过期时间，摘要永远不同，于是**每一次保存都被判为 `preview_stale`**。冻结时钟的用例看不见这个 bug。改为 `pv1:<expiry>:<digest>`，TTL 单独校验。
+53. **`SimulateResponse` 丢掉了 `actions` 与 `ends_at`**：runtime 明明算出了"会执行哪些步骤、走到哪个分支"，接口把它们扔了，调用方只拿到一个数字。补字段并改用走 service 方法的用例（直接调 runtime 看不见响应类型的丢失）。
+54. **`bundle_hash` 加进了已经应用过的迁移 9**：Encore 只记版本号不记文件哈希，老库永远不会重跑 9，启动即 `column "bundle_hash" does not exist`。新增 `10_rule_bundle_hash.up.sql`。
+55. **入口没有幂等**：出站方向从 A10 起每个意图都有稳定键，入口这层从来没看过它。一个超时后重试的 `run_rule` 会造出第二次运行 —— 而一次运行就是一次设备命令。"助手重试了"变成了"门开了两次"。新增 `auto_requests`（按租户分区）、`request_id` 入参，`run_rule` / `create_rule` / `update_rule` 三处生效。
+56. **MCP 的 `update_rule` 用 POST 打一个声明为 PUT 的端点**：真服务回 404 "endpoint not found"，读起来像"这条规则不存在" —— 最误导人的一种错。假后端什么方法都收，所以单测全绿。补 `putJSON`，并加一张"工具 → 方法+路径"对照表，把 23 个工具全部钉死。
+57. **幂等回放会把已删除的规则当成答案返回**："建了 → 删了 → 再建同样的"参数一样、键一样，缓存里躺着一条已经不存在的规则。接口报成功，列表却是空的。回放前先确认规则还在，不在就真的去做。
 
 46. **旧场景按表名批量改名**：状态写入和动作流程被当成同一种东西，动作顺序丢失、旧告警动作要么被丢要么另建一份策略。现在两种形态显式分类、告警动作解析到 `legacy_id` 对应策略（查不到即迁移失败）、环与超深链在预演期带路径拒绝。
 
@@ -1058,12 +1072,11 @@ encore test ./...                # domain ok / ingress ok / automation ok
 
 ## 22. 下一项可以开始的任务
 
-A01–A21、A02 剩余、A25 已到"测试完成"。下一批按依赖是 **A26（`tpctl`）** 与 **A22/A23/A24（前端）**：
+A01–A21、A02 剩余、A25、A26、A27 已到"测试完成"。下一批按依赖是 **A22/A23/A24（前端）**：
 
-1. **A26 `tpctl` CLI**：把已经就绪的 52 个端点包成命令行（`rules/bindings/bundles/runs/legacy` 五组子命令），要求"命令能重放 HTTP 请求、能输出 JSON、失败退出码非零"。它依赖 A21 的导入状态机（`imports/:id` 可断点续传）与 A02 的分页参数，这两块现在都有真实实现可对。
-2. **A22/A23/A24 前端**：六类页面、设备/模板/告警上下文页、执行详情与排障入口。需要先开 `thingspanel-frontend-community` 工作树；后端侧缺的是"页面要的一次性聚合读"——目前设备上下文页要打 4 个请求，是否合并成一个 `GET /v1/devices/:id/automation-context` 要在动前端之前定。
-3. **A27–A34**：MCP、外部执行器合同、Node-RED/Flink 样例（A29 只做最小）、旧调用方适配、迁移回退工具、性能容量配额、验收（U01–U09、V01–V32）、切换。
-4. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持"待联测"。
+1. **A22/A23/A24 前端**：六类页面、设备/模板/告警上下文页、执行详情与排障入口。需要先开 `thingspanel-frontend-community` 工作树；后端侧缺的是"页面要的一次性聚合读"——目前设备上下文页要打 4 个请求，是否合并成一个 `GET /v1/devices/:id/automation-context` 要在动前端之前定。
+2. **A28–A34**：外部执行器合同、Node-RED/Flink 样例（A29 只做最小）、旧调用方适配、迁移回退工具、性能容量配额、验收（U01–U09、V01–V32）、切换。
+3. **G7 通知联测**：`alarm.qualified/cleared` 契约已对齐 `notification_source.go`，真实联测仍未做，保持"待联测"。
 5. **`encore_e2e.py` 补 A10–A25 章节**并重跑（现在停在 A09）。
 
 不建议现在动 A33 的切换接线（5.2 节 G10 / 6.6 节），因为旧引擎还在跑，接上就是双写。
@@ -1132,3 +1145,18 @@ A01–A21、A02 剩余、A25 已到"测试完成"。下一批按依赖是 **A26�
 4. **难点和性能结果**：这一项真正的价值不是命令，而是它**逼出了四个只在进程外才看得见的缺陷**（见下 51–54）。最难的是"结果未知"这个状态：写入超时之后既不能说成功也不能说失败，唯一诚实的做法是给一个稳定的幂等键让重试是安全的，并把这条建议写进 `hint`。性能上没有压力：所有命令都是**一次** HTTP 调用（`capabilities` 除外，它显式打两个），分页参数原样透传，CLI 不缓存也不预取。
 5. **还有什么没完成**：A27–A34 未开始；CLI 没有 `schedules`（定时）和 `alarms` 的事件通道命令——前者是 A07 的既有能力，后者是 A15 的内部通道，是否需要暴露给命令行要在 A27 里和 MCP 一起定；`tpctl` 没有 shell 自动补全；冒烟脚本依赖 `TP_AUTH_MODE=dev`，生产令牌（legacy-jwt）路径只做了手工验证。
 6. **下一项怎样衔接**：A27 的 MCP 工具与 A26 共用同一张"任务级动作"清单——工具名、参数、错误码应该和命令一一对应，否则 AI 与命令行会给出两种答案。A26 也把 A25 的 `simulate`/`preview` 变成了可脚本化的动作，A32 的验收（U09：网页/tpctl/MCP 提交同一条错误定义，结果一致）因此有了两个真实入口。
+
+### A27（MCP 薄适配 + 入口幂等，本轮提交）
+
+1. **做了什么**：`cli/tpctl-mcp` 是一个 stdio JSON-RPC 2.0 的 MCP 服务器，**23 个工具**与 `tpctl` 的命令一一对应（规则读写、校验、预览、模拟、解释、执行、运行日志、绑定、设备上下文、告警、模板发现、资源包三件套）。协议层做对四件事：支持 `2024-11-05`/`2025-03-26`/`2025-06-18` 并回显客户端版本、没有 `id` 的通知**永不应答**、`tools/list` 稳定排序、`tools/call` 同时给文本与 `structuredContent`。工具失败返回 `isError: true` 的**工具结果**而不是协议错误，让模型能读到 `code`/`fields` 自己改参数。租户不接受参数（`tenant`/`tenant_id`/`tenantId` 一律拒绝且请求不发出）。同时补上了**入口幂等**：`auto_requests` 表 + `request_id` 入参，`run_rule`/`create_rule`/`update_rule` 三处生效，键同时放 header 和 body（Encore 类型化处理器读不到 header）。
+
+2. **原来什么还保留**：所有工具打的是网页和 `tpctl` 用的同一批端点，没有第二套实现，也没有本地校验分支；不带 `request_id` 的调用行为完全不变（网页的"立即执行"按钮照旧每次都是新运行）；`auto_requests` 只增不改，其他表一个字节没动；`TickResponse` 只追加了 `requests_pruned` 一个字段。
+
+3. **怎么证明做对**：`encore test -count=1 ./automation/...` **343 个顶层用例全绿**（automation 207 / domain 77 / blueprint 18 / bundle 15 / legacy 13 / ingress 12），`cli/tpctl-go` **21 例**、`cli/tpctl-mcp` **18 例**，合计 **382**。真实服务冒烟两套：`tpctl_smoke.sh` **27/27**、`mcp_smoke.py` **36/36**。最能说明问题的五条：`TestEveryToolReachesTheEndpointItClaims`（23 个工具的方法+路径对照表）、`TestARetriedRunIsTheSameRun`（同一个键跑两次只有 1 条运行、1 条出站意图）、`TestTheTenantCannotBeChosenByTheModel`（三种写法都被拒，且一个请求都没发出去）、`TestASuccessfulCallReturnsTextAndStructureThatAgree`（文本与结构化是同一份字节）、`TestEveryWriteCarriesAKeyAndNoReadDoes`（把 23 个工具全扫一遍）。冒烟脚本第 4 节还把**同一份非法定义**分别经 HTTP、`tpctl`、MCP 三个入口提交，断言三者报出**同样的字段列表** `['steps','targets','trigger.groups']`。
+
+4. **难点和性能结果**：难的不是协议，是**"看起来对"和"真的对"之间的距离**。单测对着假后端全绿，一上真服务就连挂三处：`update_rule` 用 POST 打一个声明为 PUT 的端点（404 读起来像"规则不存在"）、预览令牌因为把过期时间戳哈希进去而永远校验不过、`create_rule` 的幂等键只放在 header 里而服务端根本读不到 header。第二个难点是**幂等回放会返回幽灵**：建了→删了→再建同样的，缓存里那条规则已经不存在，接口报成功而列表是空的——加了"回放前确认规则还在"才收住。性能上没有压力：MCP 是纯转发，一次工具调用一次 HTTP；`tools/list` 21 个工具序列化 < 1ms；`auto_requests` 每个写请求一行，`Tick` 顺带按 24 小时窗口清理（索引列上的 DELETE，正常情况下匹配 0 行）。
+
+5. **还有什么没完成**：A22–A34 未开始；MCP 没有暴露 `schedules`（定时）与告警事件通道——前者是 A07 既有能力，后者是 A15 内部通道，要不要给模型需要单独定；MCP 只实现了 stdio 传输，没有 SSE/HTTP 传输；`import_bundle` 的 `resume` 参数有但还没有冒烟覆盖；`encore_e2e.py` 仍未补 A10–A27 章节；G7 通知真实联测仍"待联测"。
+
+6. **下一项怎样衔接**：A27 之后，"同一组合法/非法/跨租户定义经三种入口结果一致"这条验收有了可执行的证据，A32 的 U09 可以直接引用 `mcp_smoke.py` 第 4 节和第 10 节。接下来做 A22/A23/A24（前端六类页面、设备/模板/告警上下文页、执行详情与排障入口），它们要的数据源现在都齐了：列表与筛选是 A02，上下文是 A19 的 `device-automation`，详情与排障是 A09 的 `runs`/`explain` 加上 A25 的 `simulate`。前端要先开 `thingspanel-frontend-community` 的工作树，这是下一个动作。
+
