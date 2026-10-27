@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"project/internal/automationcompat"
+	"project/internal/automationguard"
 	middleware "project/internal/middleware"
 	"project/internal/middleware/response"
 	"project/pkg/global"
@@ -82,6 +83,14 @@ func RouterInit() *gin.Engine {
 	router.Use(middleware.OperationLogs())
 	// 全局使用
 	global.ResponseHandler = handler
+	// 命令受理守卫必须在响应中间件之外。
+	//
+	// 它要记录"这次下发返回了什么"，重试时原样回放。如果它注册在响应中间件
+	// 里面，它会先于响应包写入就判定响应已写出，调用方拿到的是空 200——自动化
+	// 服务把空包读成拒绝，于是每条命令都显示失败，而设备其实已经动作了。
+	// 放在这里，它看到的是完整的响应包，成功与失败两条路都记对。
+	// 没有 X-Idempotency-Key 的请求原样放行，控制台与脚本行为不变。
+	router.Use(automationguard.Guard(global.DB))
 	// 使用中间件
 	router.Use(handler.Middleware())
 

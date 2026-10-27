@@ -422,3 +422,71 @@ func insertGuardRow(t *testing.T, db *gorm.DB, key, state, scope string, generat
 		t.Fatalf("insert guard row %s: %v", key, err)
 	}
 }
+
+// envelopeMiddleware mirrors internal/middleware/response step 2: it writes the
+// success envelope only if nothing has written to the response yet. The stand-in
+// is deliberate — the real one loads its message catalogue from a relative path,
+// which a package test cannot reach — but the behaviour under test (the
+// "already written" short circuit) is identical.
+func envelopeMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+		if c.Writer.Written() {
+			return
+		}
+		if data, exists := c.Get("data"); exists {
+			c.JSON(http.StatusOK, gin.H{"code": 200, "message": "操作成功", "data": data})
+		}
+	}
+}
+
+// TestTheResponseEnvelopeSurvivesTheGuard: the guard must be mounted outside the
+// response middleware.
+//
+// Mounted inside it, the guard decides the response is already written before
+// the envelope exists and hands the caller an empty 200. The automation service
+// reads an empty body as code 0 and records every command as failed — while the
+// device has already acted. That is the worst possible shape of bug: the work
+// happens and the record says it did not.
+func TestTheResponseEnvelopeSurvivesTheGuard(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := openGuardDB(t)
+	r := gin.New()
+	r.Use(Guard(db))
+	r.Use(envelopeMiddleware())
+	r.POST("/api/v1/telemetry/datas/pub", func(c *gin.Context) {
+		c.Set("data", nil) // exactly what TelemetryPutMessage does
+	})
+
+	body := `{"device_id":"dev-1","value":"{\"switch\":1}"}`
+	send := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/telemetry/datas/pub", bytes.NewBufferString(body))
+		req.Header.Set(HeaderIdempotencyKey, "envelope:1:cmd:dev-1")
+		req.Header.Set(HeaderScope, "rule-envelope:dev-1")
+		req.Header.Set(HeaderGeneration, "1")
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w
+	}
+
+	first := send()
+	if first.Code != http.StatusOK {
+		t.Fatalf("下发应该成功，实际 %d: %s", first.Code, first.Body.String())
+	}
+	var envelope struct {
+		Code int `json:"code"`
+	}
+	if err := json.Unmarshal(first.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("响应应该是 JSON，实际 %q", first.Body.String())
+	}
+	if envelope.Code != 200 {
+		t.Fatalf("调用方必须拿到成功码，空响应体会被自动化服务读成拒绝；实际 %q", first.Body.String())
+	}
+
+	// A retry must get the same envelope back, not an empty body.
+	second := send()
+	if second.Body.String() != first.Body.String() {
+		t.Fatalf("重试应该原样回放第一次的响应，实际 %q 对比 %q", second.Body.String(), first.Body.String())
+	}
+}
