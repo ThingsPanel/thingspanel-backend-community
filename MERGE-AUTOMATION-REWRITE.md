@@ -105,9 +105,29 @@ encore run --port=14000 --browser=never
 
 ## 4. 数据库
 
-- 社区后端：**不动**，没有新增迁移。
+- 社区后端：**不动**，没有新增迁移。**但已有环境要补一条菜单记录**，见下。
 - 自动化服务：Encore 托管的 `automation` 库，迁移在 `encore-api/automation/migrations/`（16 个文件，`1_init` 到 `16_migration_item_enabled`）。Encore 部署时自动执行，**不要手工跑**。
 - 切回旧引擎：`GOTP_AUTOMATION_MODE=legacy` 即可，`automation` 库留着不影响原有功能。
+
+### 4.1 已有环境必须补一条菜单记录
+
+新装环境会由 `sql/1.sql` 带上，**已经跑过初始化的库不会重跑**，所以要手工执行一次：
+
+```sql
+INSERT INTO public.sys_ui_elements
+  (id, parent_id, element_code, element_type, orders, param1, param2, param3,
+   authority, description, created_at, remark, multilingual, route_path)
+VALUES
+  ('4b1f2c7e-8a3d-4e15-9c62-0d7a5b3f8e21', '676e8f33-875a-0473-e9ca-c82fd09fef57',
+   'automation_rule-edit', 3, 1144, '/automation/rule-edit', '', '1',
+   '["TENANT_ADMIN","SYS_ADMIN"]'::json, '规则编辑', now(), '',
+   'route.automation_rule-edit', 'view.automation_rule-edit')
+ON CONFLICT (id) DO NOTHING;
+```
+
+**为什么需要**：前端是动态路由，路由由这张表下发。规则编辑页是设备详情 / 设备配置详情里"生效规则"点进来的落点，缺了这条记录，客户从设备详情点某条规则会直接看到 404。`param3='1'` 表示不在侧栏显示——它不该是一个能独立进入的页面。
+
+`parent_id` 是"自动化"目录的 id，如果你们的库里这个 id 不一样，按 `element_code='automation'` 查一下替换。
 
 ---
 

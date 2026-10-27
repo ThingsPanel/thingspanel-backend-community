@@ -1720,5 +1720,10 @@ INSERT INTO public.sys_ui_elements (id, parent_id, element_code, element_type, o
 INSERT INTO public.sys_ui_elements (id, parent_id, element_code, element_type, orders, param1, param2, param3, authority, description, created_at, remark, multilingual, route_path) VALUES('18892c6e-ca04-f2b5-c243-f2c7230b3f33', '990af72f-06ce-5f23-3af6-1694bd479c96', 'manage_user', 3, 1, '/manage/user', '', '0', '["TENANT_ADMIN","SYS_ADMIN"]'::json, 'user', '2024-09-04 10:05:06.377', '', 'default', '');
 INSERT INTO public.logo (id, system_name, logo_cache, logo_background, logo_loading, home_background, remark) VALUES('a', 'ThingsPanel', '', '', '', '', NULL);
 
+-- 规则编辑页是设备详情 / 设备配置详情"生效规则"的落点。
+-- 动态路由靠这张表注册，缺了这条记录，从设备详情点某条规则会直接 404。
+-- param3='1' 表示不在侧栏显示——它不是一个能独立进入的页面。
+INSERT INTO public.sys_ui_elements (id, parent_id, element_code, element_type, orders, param1, param2, param3, authority, description, created_at, remark, multilingual, route_path) VALUES('4b1f2c7e-8a3d-4e15-9c62-0d7a5b3f8e21', '676e8f33-875a-0473-e9ca-c82fd09fef57', 'automation_rule-edit', 3, 1144, '/automation/rule-edit', '', '1', '["TENANT_ADMIN","SYS_ADMIN"]'::json, '规则编辑', '2026-10-28 00:00:00', '', 'route.automation_rule-edit', 'view.automation_rule-edit');
+
 ALTER TABLE "public"."scene_action_info"
 ALTER COLUMN "action_param" TYPE varchar(50) COLLATE "pg_catalog"."default";
