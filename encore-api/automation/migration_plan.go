@@ -34,11 +34,12 @@ import (
 // part of "what was approved", and including it would make the same plan hash
 // differently depending on how it was submitted.
 type migrationSnapshot struct {
-	Scenes        []LegacySceneInput      `json:"scenes"`
-	Automations   []LegacyAutomationInput `json:"automations"`
-	Alarms        []LegacyAlarmInput      `json:"alarms"`
-	Devices       []string                `json:"devices"`
-	DeviceConfigs []string                `json:"device_configs"`
+	Scenes        []LegacySceneInput       `json:"scenes"`
+	Automations   []LegacyAutomationInput  `json:"automations"`
+	AlarmConfigs  []LegacyAlarmConfigInput `json:"alarm_configs"`
+	Alarms        []LegacyAlarmInput       `json:"alarms"`
+	Devices       []string                 `json:"devices"`
+	DeviceConfigs []string                 `json:"device_configs"`
 }
 
 // snapshotHash identifies the approved plan.
@@ -50,6 +51,7 @@ func snapshotHash(req *MigrationCreateRequest) string {
 	snap := migrationSnapshot{
 		Scenes:        req.Scenes,
 		Automations:   req.Automations,
+		AlarmConfigs:  req.AlarmConfigs,
 		Alarms:        req.Alarms,
 		Devices:       append([]string{}, req.Devices...),
 		DeviceConfigs: append([]string{}, req.DeviceConfigs...),
@@ -96,7 +98,17 @@ func planMigration(migrationID string, req *MigrationCreateRequest, snap *legacy
 		}
 	}
 	for i := range req.Automations {
-		if err := add(planAutomation(&req.Automations[i])); err != nil {
+		if err := add(planAutomation(&req.Automations[i], snap)); err != nil {
+			return nil, err
+		}
+	}
+	// Alarm configurations are planned before the alarms that adopt them: the
+	// policy has to exist before an active alarm can attach its identity to it.
+	// The order inside this function is the plan order, and the plan is what gets
+	// applied, so getting it right here is what keeps "the policy is missing"
+	// from being the answer for every alarm on the first run.
+	for i := range req.AlarmConfigs {
+		if err := add(planAlarmConfig(&req.AlarmConfigs[i], req)); err != nil {
 			return nil, err
 		}
 	}
@@ -154,60 +166,142 @@ func joinIssues(issues []legacy.Issue) string {
 	return strings.Join(parts, "；")
 }
 
-// planAutomation writes the disposition for one old automation.
+// planAutomation converts one old automation, or says why it cannot be.
 //
-// A31 does not convert automations. The reason is recorded per row rather than
-// stated once in a document, because "N 条联动未迁移" is not something an operator
-// can act on. Each of the three blockers below needs a different human decision:
-//
-//   - the old trigger_operator is a number (1..8) with no consumer in the
-//     community repository, so mapping it is an inference. Reading ">=" as ">"
-//     silently changes what a customer's automation does.
-//   - a device-config trigger (type 11) means "any device of this config", which
-//     the new model expresses as a template rule plus a binding, not a condition.
-//   - a time-range trigger (type 2) belongs to a schedule, not a trigger group.
-func planAutomation(in *LegacyAutomationInput) *store.MigrationItem {
+// A31 shipped this as "always unsupported" on a false premise: that the operator
+// column held a number with no consumer. It holds a string, and the old evaluator
+// consumes it, so the mapping in legacy.BuildAutomation is a translation rather
+// than an inference. What remains here is the same shape as planScene: collect
+// every blocker, write them per row, and only refuse the individual object.
+func planAutomation(in *LegacyAutomationInput, snap *legacySnapshot) *store.MigrationItem {
 	it := &store.MigrationItem{
 		LegacyID: in.ID, Kind: store.MigrationKindAutomation, Name: in.Name,
-		Status: store.MigrationUnsupported, ReasonCode: "automation_trigger_unverified",
+		Status: store.MigrationPlanned, Enabled: in.Enabled,
 	}
 
-	var blockers []string
-	ops := map[string]bool{}
-	types := map[string]int{}
-	for _, c := range in.Conditions {
-		types[c.Type]++
-		if c.Operator != "" {
-			ops[c.Operator] = true
-		}
+	plan := legacy.BuildAutomation(toLegacyAutomation(in), snap)
+	if !plan.OK() {
+		it.Status = store.MigrationUnsupported
+		it.ReasonCode = plan.Issues[0].Code
+		it.Reason = joinIssues(plan.Issues)
+		return it
 	}
-	if len(in.Conditions) == 0 {
-		blockers = append(blockers, "没有触发条件，无法判断它原本什么时候执行")
+	def := plan.Definition
+	// Validate normalizes in place, so the definition that is hashed here is the
+	// same one CreateRule would store. Hashing the un-normalized body would make
+	// every migrated rule look "changed" on the very first verify.
+	if err := domain.Validate(&def); err != nil {
+		it.Status = store.MigrationUnsupported
+		it.ReasonCode = "definition_invalid"
+		it.Reason = err.Error()
+		return it
 	}
-	if n := types["11"]; n > 0 {
-		blockers = append(blockers, fmt.Sprintf(
-			"有 %d 条触发条件是「单类设备」，新模型要用模板绑定（A19）表达，不是一条条件", n))
-	}
-	if n := types["2"]; n > 0 {
-		blockers = append(blockers, fmt.Sprintf(
-			"有 %d 条触发条件是「时间范围」，新模型属于排程（A07），不是触发组", n))
-	}
-	if n := types["10"]; n > 0 {
-		keys := make([]string, 0, len(ops))
-		for op := range ops {
-			keys = append(keys, op)
-		}
-		sort.Strings(keys)
-		blockers = append(blockers, fmt.Sprintf(
-			"有 %d 条设备触发条件，用到的运算符是 %s；旧库把运算符存成数字，社区版代码里没有可核对的映射依据，直接推断会把 >= 读成 > 而不报错",
-			n, "["+strings.Join(keys, ", ")+"]"))
-	}
-	if len(blockers) == 0 {
-		blockers = append(blockers, "触发条件为空或类型未知")
-	}
-	it.Reason = "未转换：" + strings.Join(blockers, "；") +
-		"。处理方式：在联动页面按原意重建一条，或先确认旧库运算符含义后补迁移规则"
+	it.Definition = def
+	it.HasDefinition = true
 	return it
+}
+
+// planAlarmConfig turns one old alarm configuration into an event-only policy.
+//
+// The old table has no condition, so there is nothing to evaluate and nothing to
+// guess: the policy declares the event channel and the callers that the old data
+// shows raising it. An active alarm can then attach to it by identity, which is
+// the whole reason this has to be planned before the alarms.
+func planAlarmConfig(in *LegacyAlarmConfigInput, req *MigrationCreateRequest) *store.MigrationItem {
+	it := &store.MigrationItem{
+		LegacyID: in.ID, Kind: store.MigrationKindAlarmConfig, Name: in.Name,
+		Status: store.MigrationPlanned,
+	}
+	if in.Enabled != nil && !*in.Enabled {
+		// Migrating a switched-off configuration as an enabled policy would turn
+		// something the customer turned off back on. It is skipped, with the
+		// instruction, rather than silently re-enabled.
+		it.Status = store.MigrationSkipped
+		it.ReasonCode = "alarm_config_disabled"
+		it.Reason = "旧告警配置已停用（enabled=N），不迁移；需要保留请先在旧界面启用再迁移"
+		return it
+	}
+
+	plan := legacy.BuildAlarmConfig(toLegacyAlarmConfig(in), alarmCallersFor(in, req))
+	if !plan.OK() {
+		it.Status = store.MigrationUnsupported
+		it.ReasonCode = plan.Issues[0].Code
+		it.Reason = joinIssues(plan.Issues)
+		return it
+	}
+	def := plan.Definition
+	if err := domain.Validate(&def); err != nil {
+		it.Status = store.MigrationUnsupported
+		it.ReasonCode = "definition_invalid"
+		it.Reason = err.Error()
+		return it
+	}
+	it.Definition = def
+	it.HasDefinition = true
+	if in.NotifyGroupID != "" {
+		// Said per row rather than once in a document: the group is the one thing
+		// this migration cannot carry across, and an operator reading a green
+		// report would otherwise assume notifications still work.
+		it.Reason = "已建为事件型告警策略；旧通知组 " + in.NotifyGroupID +
+			" 未自动绑定，需要在新策略里重新选择通知组"
+	}
+	return it
+}
+
+// alarmCallersFor derives who raises one old alarm configuration.
+//
+// Two sources, merged: the callers the snapshot states explicitly (which is how
+// the upgrade script supplies them, because the scenes are in a later pass) and
+// the "触发告警" actions of the scenes and automations that happen to be in the
+// same snapshot. Neither is invented — a caller that is not in the old data is
+// not added, and one that is there is not dropped.
+func alarmCallersFor(in *LegacyAlarmConfigInput, req *MigrationCreateRequest) []string {
+	callers := append([]string{}, in.Callers...)
+	for _, sc := range req.Scenes {
+		for _, a := range sc.Actions {
+			if a.Type == legacy.TypeRaiseAlarm && a.Target == in.ID {
+				callers = append(callers, "scene:"+sc.ID)
+				break
+			}
+		}
+	}
+	for _, au := range req.Automations {
+		for _, a := range au.Actions {
+			if a.Type == legacy.TypeRaiseAlarm && a.Target == in.ID {
+				callers = append(callers, "automation:"+au.ID)
+				break
+			}
+		}
+	}
+	return callers
+}
+
+// toLegacyAutomation converts the wire type into the planner's input.
+func toLegacyAutomation(in *LegacyAutomationInput) *legacy.Automation {
+	out := &legacy.Automation{ID: in.ID, Name: in.Name}
+	// Absent means "the caller did not say", and the safe reading of that is
+	// "leave it on": arriving disabled would silently stop a rule the customer
+	// never turned off.
+	out.Enabled = in.Enabled == nil || *in.Enabled
+	for _, c := range in.Conditions {
+		out.Conditions = append(out.Conditions, legacy.TriggerCondition{
+			ID: c.ID, GroupID: c.GroupID, Type: c.Type, Source: c.Source,
+			ParamType: c.ParamType, Param: c.Param, Operator: c.Operator, Value: c.Value,
+		})
+	}
+	for _, a := range in.Actions {
+		out.Actions = append(out.Actions, legacy.Action{
+			ID: a.ID, Target: a.Target, Type: a.Type, ParamType: a.ParamType,
+			Param: a.Param, Value: a.Value, ContinueOnFailure: a.ContinueOnFailure,
+		})
+	}
+	return out
+}
+
+func toLegacyAlarmConfig(in *LegacyAlarmConfigInput) *legacy.AlarmConfig {
+	return &legacy.AlarmConfig{
+		ID: in.ID, Name: in.Name, Level: in.Level, NotifyGroupID: in.NotifyGroupID,
+	}
 }
 
 // planAlarm decides whether one old active alarm can be adopted.

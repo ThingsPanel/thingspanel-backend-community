@@ -60,8 +60,16 @@ func Validate(d *Definition) error {
 	// condition). Forcing a condition on it would make the author invent one and
 	// would change the meaning of an existing scene, so the requirement is
 	// relaxed for kind=scene only — and only there.
+	//
+	// An event-only alarm policy is the second exception, for the same reason. A
+	// policy that declares the event channel and nothing else is never evaluated
+	// by the detector: submitDetectorVerdict refuses it on the channel check
+	// before it ever reads the trigger. Demanding a condition there would be
+	// demanding a condition nothing evaluates — which is precisely the shape a
+	// migrated legacy alarm_config has, since the old table has no condition
+	// column at all.
 	if len(d.Trigger.Groups) == 0 {
-		if d.Kind != KindScene {
+		if d.Kind != KindScene && !eventOnlyAlarm(d) {
 			add("trigger.groups", "empty_trigger", "至少需要一组触发条件")
 		}
 	}
@@ -119,7 +127,13 @@ func Validate(d *Definition) error {
 	}
 
 	// Targets: at least one selection, bounded size.
-	if len(d.Targets.DeviceIDs) == 0 && len(d.Targets.DeviceConfigIDs) == 0 &&
+	//
+	// An event-only alarm policy is exempt for the same reason it has no trigger:
+	// its subject is the one the caller names in the event, not a set the policy
+	// selects. Demanding a target there would force the author to pick a device
+	// the policy does not actually monitor, which reads as a scope limit that is
+	// not one.
+	if !eventOnlyAlarm(d) && len(d.Targets.DeviceIDs) == 0 && len(d.Targets.DeviceConfigIDs) == 0 &&
 		len(d.Targets.AreaIDs) == 0 && len(d.Targets.Labels) == 0 &&
 		len(d.Targets.DeviceTypes) == 0 {
 		add("targets", "empty_targets", "至少需要指定一个目标（设备/配置/区域/标签/类型）")
@@ -192,6 +206,19 @@ func Validate(d *Definition) error {
 		return &ValidationError{Issues: issues}
 	}
 	return nil
+}
+
+// eventOnlyAlarm reports whether d is an alarm policy whose only intake is the
+// event channel. Such a policy has no detector condition by construction, so the
+// "at least one trigger group" rule does not apply to it.
+//
+// The check reads the sources *after* Normalize has run, so an empty source list
+// has already become [detector] and is not mistaken for an event-only policy.
+func eventOnlyAlarm(d *Definition) bool {
+	if d.Kind != KindAlarm || d.Alarm == nil || len(d.Alarm.Sources) != 1 {
+		return false
+	}
+	return d.Alarm.Sources[0] == AlarmSourceEvent
 }
 
 func validateCondition(c Condition, field string, add func(string, string, string)) {

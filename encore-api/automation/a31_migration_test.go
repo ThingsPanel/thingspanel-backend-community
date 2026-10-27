@@ -524,35 +524,282 @@ func TestTheSameOldIdTwiceIsRefused(t *testing.T) {
 	}
 }
 
-func TestAnAutomationGetsAWrittenDisposition(t *testing.T) {
+// TestAnAutomationIsConvertedWithItsOperators replaces an earlier test that
+// asserted the opposite. That test was written on the belief that the old
+// trigger_operator was a number with no consumer; it is a string and the old
+// evaluator reads it, so "not converted" was a defect wearing a reason.
+//
+// What has to be true now: the groups survive as OR-of-AND, the operator is the
+// same string, and the rule is a real automation rather than a scene.
+func TestAnAutomationIsConvertedWithItsOperators(t *testing.T) {
+	e := newEnv(t)
+	on := true
+	resp, err := e.svc().CreateMigration(e.ctx(), &MigrationCreateRequest{
+		Name: "联动转换",
+		Automations: []LegacyAutomationInput{{
+			ID: "auto-ok", Name: "温度高或湿度高就开风机", Enabled: &on,
+			Conditions: []LegacyTriggerConditionInput{
+				{ID: "c1", GroupID: "g1", Type: "10", Source: e.dev1,
+					ParamType: "TEL", Param: "temperature", Operator: ">=", Value: "30"},
+				{ID: "c2", GroupID: "g2", Type: "10", Source: e.dev1,
+					ParamType: "TEL", Param: "humidity", Operator: ">", Value: "80"},
+			},
+			Actions: []LegacyActionInput{
+				{ID: "a1", Target: e.dev1, Type: "10", ParamType: "CMD", Param: "fan", Value: "on"},
+			},
+		}},
+		Devices: []string{e.dev1},
+		Apply:   true,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	it := itemOf(t, resp, "auto-ok")
+	if it.Status != store.MigrationApplied {
+		t.Fatalf("联动应该被转换，实际 %s：%s", it.Status, it.Reason)
+	}
+	rule, err := e.st.GetRule(e.ctx(), serviceTestTenant, it.RuleID)
+	if err != nil {
+		t.Fatalf("读回迁移出来的规则: %v", err)
+	}
+	if rule.Definition.Kind != domain.KindAutomation {
+		t.Fatalf("联动必须迁移成 automation，实际 %s", rule.Definition.Kind)
+	}
+	if len(rule.Definition.Trigger.Groups) != 2 {
+		t.Fatalf("两个 group_id 应该成为两组 OR 条件，实际 %d 组", len(rule.Definition.Trigger.Groups))
+	}
+	// The operator is the thing that was wrongly declared unknowable. If it
+	// drifted, the rule now fires on a different comparison.
+	if got := rule.Definition.Trigger.Groups[0].Conditions[0].Operator; got != ">=" {
+		t.Fatalf("运算符应该原样保留 >=\uff0c实际 %q", got)
+	}
+	if got := rule.Definition.Trigger.Groups[1].Conditions[0].Operator; got != ">" {
+		t.Fatalf("运算符应该原样保留 >，实际 %q", got)
+	}
+	if len(rule.Definition.Steps) != 1 {
+		t.Fatalf("应该有一个动作步骤，实际 %d", len(rule.Definition.Steps))
+	}
+	if !rule.Enabled {
+		t.Fatal("旧联动是启用的，迁移后不应该变成停用")
+	}
+}
+
+// TestAnAutomationThatMixesTriggerSetsIsRefused: a config trigger selects a
+// target set, a device trigger names one device. Putting both in one rule would
+// need a target set the trigger never chose, so the row is refused — and the
+// reason names the structure, not a guess about the data.
+func TestAnAutomationThatMixesTriggerSetsIsRefused(t *testing.T) {
 	e := newEnv(t)
 	resp, err := e.svc().CreateMigration(e.ctx(), &MigrationCreateRequest{
-		Name: "联动只盘点",
+		Name: "混用触发集",
 		Automations: []LegacyAutomationInput{{
-			ID: "auto-1", Name: "温度高了开风机",
+			ID: "auto-mixed", Name: "混用",
 			Conditions: []LegacyTriggerConditionInput{
-				{ID: "c1", Type: "10", Source: e.dev1, ParamType: "TEL", Param: "temperature", Operator: "3", Value: "30"},
-				{ID: "c2", Type: "11", Source: "cfg-1", ParamType: "TEL", Param: "temperature", Operator: "3", Value: "30"},
+				{ID: "c1", Type: "10", Source: e.dev1, ParamType: "TEL", Param: "temperature", Operator: ">", Value: "30"},
+				{ID: "c2", Type: "11", Source: "cfg-1", ParamType: "TEL", Param: "temperature", Operator: ">", Value: "30"},
 			},
-			Actions: []LegacyActionInput{{ID: "a1", Target: e.dev1, Type: "10", ParamType: "CMD", Param: "fan", Value: "on"}},
+			Actions: []LegacyActionInput{
+				{ID: "a1", Target: e.dev1, Type: "10", ParamType: "CMD", Param: "fan", Value: "on"},
+			},
+		}},
+		Devices:       []string{e.dev1},
+		DeviceConfigs: []string{"cfg-1"},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	it := itemOf(t, resp, "auto-mixed")
+	if it.Status != store.MigrationUnsupported {
+		t.Fatalf("混用触发集应该被拒绝，实际 %s", it.Status)
+	}
+	if it.ReasonCode != "mixed_trigger_sources" {
+		t.Fatalf("原因码应该是 mixed_trigger_sources，实际 %q（%s）", it.ReasonCode, it.Reason)
+	}
+}
+
+// TestATimeRangeTriggerPointsAtSchedules: a time range is when a rule may run,
+// which this release models as a schedule. Copying it into a trigger group would
+// turn "only between 08:00 and 18:00" into a condition on a device.
+func TestATimeRangeTriggerPointsAtSchedules(t *testing.T) {
+	e := newEnv(t)
+	resp, err := e.svc().CreateMigration(e.ctx(), &MigrationCreateRequest{
+		Name: "时间范围触发",
+		Automations: []LegacyAutomationInput{{
+			ID: "auto-time", Name: "只在白天",
+			Conditions: []LegacyTriggerConditionInput{
+				{ID: "c1", Type: "22", Value: "137|08:00:00+00:00|18:00:00+00:00"},
+			},
+			Actions: []LegacyActionInput{
+				{ID: "a1", Target: e.dev1, Type: "10", ParamType: "CMD", Param: "fan", Value: "on"},
+			},
+		}},
+		Devices: []string{e.dev1},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	it := itemOf(t, resp, "auto-time")
+	if it.Status != store.MigrationUnsupported {
+		t.Fatalf("时间范围触发应该被拒绝，实际 %s", it.Status)
+	}
+	if it.ReasonCode != "time_range_trigger_needs_schedule" {
+		t.Fatalf("原因码应该是 time_range_trigger_needs_schedule，实际 %q", it.ReasonCode)
+	}
+	if !strings.Contains(it.Reason, "排程") {
+		t.Fatalf("原因里应该说清楚它属于排程，实际 %q", it.Reason)
+	}
+}
+
+// TestAnAlarmConfigBecomesAnEventOnlyPolicy: the old alarm_config has no
+// condition column, so the only faithful conversion is a policy that the
+// detector never evaluates and only the event channel may qualify. The level and
+// the derived callers have to survive, because they are what makes an adopted
+// active alarm attach to the right policy.
+func TestAnAlarmConfigBecomesAnEventOnlyPolicy(t *testing.T) {
+	e := newEnv(t)
+	on := true
+	resp, err := e.svc().CreateMigration(e.ctx(), &MigrationCreateRequest{
+		Name: "第一遍：告警策略",
+		AlarmConfigs: []LegacyAlarmConfigInput{{
+			ID: "ac-1", Name: "高温告警", Level: "H", Enabled: &on,
+			NotifyGroupID: "ng-1",
+			Callers:       []string{"scene:sc-1"},
 		}},
 		Apply: true,
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	it := itemOf(t, resp, "auto-1")
-	if it.Status != store.MigrationUnsupported {
-		t.Fatalf("联动本次不转换，应该是 unsupported，实际 %s", it.Status)
+	it := itemOf(t, resp, "ac-1")
+	if it.Status != store.MigrationApplied {
+		t.Fatalf("告警配置应该被转换成策略，实际 %s：%s", it.Status, it.Reason)
 	}
-	// The disposition has to name the blockers, not just say "not migrated".
-	if !strings.Contains(it.Reason, "单类设备") {
-		t.Fatalf("原因里应该点名单类设备触发条件，实际 %q", it.Reason)
+	rule, err := e.st.GetRule(e.ctx(), serviceTestTenant, it.RuleID)
+	if err != nil {
+		t.Fatalf("读回策略: %v", err)
 	}
-	if !strings.Contains(it.Reason, "运算符") {
-		t.Fatalf("原因里应该点名运算符编码问题，实际 %q", it.Reason)
+	if rule.Definition.Kind != domain.KindAlarm {
+		t.Fatalf("应该建告警策略，实际 %s", rule.Definition.Kind)
 	}
-	if resp.Applied != 0 {
-		t.Fatalf("联动不应该被算成已迁移，实际 applied=%d", resp.Applied)
+	if rule.Definition.Alarm == nil {
+		t.Fatal("告警策略必须带 alarm 段")
+	}
+	if len(rule.Definition.Alarm.Sources) != 1 || rule.Definition.Alarm.Sources[0] != domain.AlarmSourceEvent {
+		t.Fatalf("旧告警配置没有触发条件，只能声明事件通道，实际 %v", rule.Definition.Alarm.Sources)
+	}
+	if rule.Definition.Alarm.Level != "H" {
+		t.Fatalf("等级应该保留 H，实际 %q", rule.Definition.Alarm.Level)
+	}
+	if len(rule.Definition.Alarm.AllowedSources) != 1 || rule.Definition.Alarm.AllowedSources[0] != "scene:sc-1" {
+		t.Fatalf("允许的调用方应该来自旧数据里的引用方，实际 %v", rule.Definition.Alarm.AllowedSources)
+	}
+	// No trigger groups: an event-only policy has no detector condition, and
+	// validation has to accept that rather than force an invented one.
+	if len(rule.Definition.Trigger.Groups) != 0 {
+		t.Fatalf("事件型策略不应该有触发组，实际 %d 组", len(rule.Definition.Trigger.Groups))
+	}
+	// The old notification group is reported, not silently mapped onto an id
+	// from another owner.
+	if !strings.Contains(it.Reason, "ng-1") {
+		t.Fatalf("提示里应该点名未绑定的旧通知组，实际 %q", it.Reason)
+	}
+}
+
+// TestAnActiveAlarmAttachesToTheMigratedPolicy is the second pass: after the
+// policy exists, the alarm that was open on a device is adopted onto it instead
+// of being re-raised, and the identity is the policy key rather than a new one.
+func TestAnActiveAlarmAttachesToTheMigratedPolicy(t *testing.T) {
+	e := newEnv(t)
+	on := true
+	before := e.outboxCount()
+	if _, err := e.svc().CreateMigration(e.ctx(), &MigrationCreateRequest{
+		Name:         "第一遍：告警策略",
+		AlarmConfigs: []LegacyAlarmConfigInput{{ID: "ac-2", Name: "高温告警", Level: "M", Enabled: &on}},
+		Apply:        true,
+	}); err != nil {
+		t.Fatalf("pass 1: %v", err)
+	}
+
+	resp, err := e.svc().CreateMigration(e.ctx(), &MigrationCreateRequest{
+		Name: "第二遍：活动告警",
+		Alarms: []LegacyAlarmInput{{
+			ID: "al-1", PolicyLegacyID: "ac-2", Subject: e.dev1,
+			Level: "M", Status: "M", OpenedAt: "2026-10-01T08:00:00Z",
+		}},
+		Apply: true,
+	})
+	if err != nil {
+		t.Fatalf("pass 2: %v", err)
+	}
+	it := itemOf(t, resp, "al-1")
+	if it.Status != store.MigrationApplied {
+		t.Fatalf("活动告警应该被领养，实际 %s：%s", it.Status, it.Reason)
+	}
+	if it.EpisodeID == "" {
+		t.Fatal("领养后应该给出告警实例 id")
+	}
+	// Adopting must not send anything: the customer was already told.
+	if n := e.outboxCount() - before; n != 0 {
+		t.Fatalf("领养旧告警不应该发通知，实际新增 %d 条", n)
+	}
+}
+
+// TestASecondRunDoesNotReportTheFirstRunsRulesAsOrphans is the defect that only
+// a second run against a real installation showed: verify only counted rules
+// written by *applied* items, so the rules the first run created came back as
+// "orphans" on the second run. The check that exists to catch a duplicated rule
+// was instead accusing a correct re-run of being one.
+func TestASecondRunDoesNotReportTheFirstRunsRulesAsOrphans(t *testing.T) {
+	e := newEnv(t)
+	snap := func(name string) *MigrationCreateRequest {
+		return &MigrationCreateRequest{
+			Name:    name,
+			Scenes:  []LegacySceneInput{legacySceneWriting("sc-rerun", e.dev1, "switch", "1")},
+			Devices: []string{e.dev1},
+			Apply:   true,
+		}
+	}
+	if _, err := e.svc().CreateMigration(e.ctx(), snap("第一次")); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	second, err := e.svc().CreateMigration(e.ctx(), snap("第二次"))
+	if err != nil {
+		t.Fatalf("second run: %v", err)
+	}
+	it := itemOf(t, second, "sc-rerun")
+	if it.Status != store.MigrationSkipped {
+		t.Fatalf("第二次应该跳过，实际 %s", it.Status)
+	}
+	v, err := e.svc().VerifyMigration(e.ctx(), second.ID)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if len(v.Orphans) != 0 {
+		t.Fatalf("第二次运行不应该把第一次建的规则报成重复占用，实际 %v", v.Orphans)
+	}
+	if !v.Complete {
+		t.Fatalf("重跑之后对账应该通过，实际 missing=%v disabled=%v", v.Missing, v.DisabledMismatch)
+	}
+}
+
+// TestADisabledAlarmConfigIsSkippedNotEnabled: turning something the customer
+// switched off back on is worse than leaving it behind, so it is skipped with
+// the instruction instead of migrated enabled.
+func TestADisabledAlarmConfigIsSkippedNotEnabled(t *testing.T) {
+	e := newEnv(t)
+	off := false
+	resp, err := e.svc().CreateMigration(e.ctx(), &MigrationCreateRequest{
+		Name:         "停用的告警配置",
+		AlarmConfigs: []LegacyAlarmConfigInput{{ID: "ac-3", Name: "已停用", Level: "L", Enabled: &off}},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	it := itemOf(t, resp, "ac-3")
+	if it.Status != store.MigrationSkipped {
+		t.Fatalf("停用的告警配置应该跳过，实际 %s", it.Status)
+	}
+	if it.ReasonCode != "alarm_config_disabled" {
+		t.Fatalf("原因码应该是 alarm_config_disabled，实际 %q", it.ReasonCode)
 	}
 }

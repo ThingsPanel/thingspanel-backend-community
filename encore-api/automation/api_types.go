@@ -733,8 +733,8 @@ type BlueprintResponse struct {
 	Name     string `json:"name"`
 	Summary  string `json:"summary"`
 	// Guidance is the one sentence shown above the form.
-	Guidance string               `json:"guidance"`
-	Params   []blueprint.Param    `json:"params"`
+	Guidance string                 `json:"guidance"`
+	Params   []blueprint.Param      `json:"params"`
 	Requires []blueprint.Capability `json:"requires,omitempty"`
 	// Versions lists every published version so an upgrade can name one.
 	Versions []int `json:"versions"`
@@ -801,9 +801,9 @@ type BlueprintOriginResponse struct {
 	UpdateAvailable bool `json:"update_available"`
 	// Diff and Issues are filled in only when an update is available, so the
 	// caller can see what the move would cost before asking for it.
-	Diff    *blueprint.Diff    `json:"diff,omitempty"`
-	Blocked bool               `json:"blocked,omitempty"`
-	Issues  []blueprint.Issue  `json:"issues,omitempty"`
+	Diff    *blueprint.Diff   `json:"diff,omitempty"`
+	Blocked bool              `json:"blocked,omitempty"`
+	Issues  []blueprint.Issue `json:"issues,omitempty"`
 }
 
 // GetRuleBlueprintResponse is the origin plus the rule it belongs to.
@@ -824,12 +824,12 @@ type UpgradeBlueprintRequest struct {
 
 // UpgradeBlueprintResponse is the plan, and the rule when the plan was applied.
 type UpgradeBlueprintResponse struct {
-	RuleID  string              `json:"rule_id"`
-	Blocked bool                `json:"blocked"`
-	Applied bool                `json:"applied"`
-	Diff    *blueprint.Diff     `json:"diff,omitempty"`
-	Issues  []blueprint.Issue   `json:"issues,omitempty"`
-	Rule    *RuleResponse       `json:"rule,omitempty"`
+	RuleID  string                   `json:"rule_id"`
+	Blocked bool                     `json:"blocked"`
+	Applied bool                     `json:"applied"`
+	Diff    *blueprint.Diff          `json:"diff,omitempty"`
+	Issues  []blueprint.Issue        `json:"issues,omitempty"`
+	Rule    *RuleResponse            `json:"rule,omitempty"`
 	Origin  *BlueprintOriginResponse `json:"origin,omitempty"`
 }
 
@@ -854,9 +854,13 @@ type MigrationCreateRequest struct {
 	// table has no enabled column, so a migrated scene is always available.
 	Scenes []LegacySceneInput `json:"scenes,omitempty"`
 	// Automations come from scene_automations + device_trigger_condition +
-	// action_info. They are inventoried so each one gets a written disposition;
-	// see LegacyAutomationInput for why they are not converted yet.
+	// action_info. They are converted by legacy.BuildAutomation; the rows that
+	// still cannot be converted carry the structural reason in the item.
 	Automations []LegacyAutomationInput `json:"automations,omitempty"`
+	// AlarmConfigs come from alarm_config. They become event-only alarm policies
+	// and must be planned before Alarms, because an adopted alarm needs a policy
+	// to attach its identity to.
+	AlarmConfigs []LegacyAlarmConfigInput `json:"alarm_configs,omitempty"`
 	// Alarms are the still-active rows of alarm_info. They are adopted, not
 	// re-raised: adopting writes the episode and its history row and sends
 	// nothing, because the customer has already been told about that alarm.
@@ -872,46 +876,84 @@ type MigrationCreateRequest struct {
 //
 // It is carried in full rather than as a count so the disposition can name what
 // is actually in the row. "1 条联动未迁移" is not actionable; "触发器用了运算符
-// 7（between）" is.
+// between，但取值不是 2-6 的形状" is.
 type LegacyTriggerConditionInput struct {
 	ID string `json:"id,omitempty"`
 	// Type is the old trigger_condition_type: 10 single device, 11 device
-	// config, 2 time range.
+	// config, 22 time range. The generated column comment says "2" for the time
+	// range, but the constant the old engine compares against is "22".
 	Type      string `json:"type"`
 	GroupID   string `json:"group_id,omitempty"`
 	Source    string `json:"source,omitempty"`
 	ParamType string `json:"param_type,omitempty"`
 	Param     string `json:"param,omitempty"`
-	Operator  string `json:"operator,omitempty"`
-	Value     string `json:"value,omitempty"`
+	// Operator is one of "=", "!=", ">", "<", ">=", "<=", "between", "in" —
+	// stored as a string and consumed as a string by the old evaluator.
+	Operator string `json:"operator,omitempty"`
+	Value    string `json:"value,omitempty"`
 }
 
-// LegacyAutomationInput is one scene_automations row with its triggers.
+// LegacyAutomationInput is one scene_automations row with its triggers and
+// actions.
 //
-// A31 does not convert automations, and this is deliberate rather than an
-// omission. Converting one needs three things this release cannot establish on
-// its own:
+// A31 first shipped this as inventory only, on the stated grounds that the old
+// trigger_operator was a number with no consumer in the community repository.
+// Both halves of that were wrong: the operator is stored as the string "=",
+// "!=", ">", "<", ">=", "<=", "between", "in" (device_trigger_condition.http.go),
+// and broker_automation.go really does pass it to the evaluator. So the mapping
+// is a translation of code that exists, and it lives in legacy.BuildAutomation.
 //
-//   - the meaning of the old numeric trigger_operator (1..8). The old column
-//     comment lists eight operators in order but no backend code in the
-//     community repository consumes them, so any mapping is an inference. An
-//     inferred ">=" read as ">" silently changes what a customer's automation
-//     does, which is worse than not migrating it.
-//   - a device-config trigger (type 11) means "any device of this config". The
-//     new model expresses that as a template rule plus a binding (A19), not as
-//     a condition, so the row cannot be copied across.
-//   - a time-range trigger (type 2) belongs to a schedule (A07), not to a
-//     trigger group.
+// What still cannot be converted is structural, not clerical, and each row that
+// hits one says which:
 //
-// So each automation becomes one item with status "unsupported" and a reason
-// that names exactly which of the three blocked it. The operator gets a written
-// list to work from instead of a migration that quietly changed behaviour.
+//   - a time-range trigger (type 22) is when the rule may run, which the new
+//     model puts in a schedule (A07), not in a trigger group;
+//   - a device-config trigger (type 11) selects a target set, so it cannot be
+//     mixed with explicit-device triggers or with actions on another config;
+//   - a service action (type 40) called a webhook, and this release has no owner
+//     for it.
 type LegacyAutomationInput struct {
-	ID         string                        `json:"id"`
-	Name       string                        `json:"name,omitempty"`
-	Enabled    bool                          `json:"enabled,omitempty"`
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+	// Enabled is scene_automations.enabled decoded from "Y"/"N". A pointer so
+	// that "absent" and "explicitly off" stay distinguishable: absent means the
+	// caller did not know, and defaulting that to "off" would quietly disable
+	// every rule a hand-written snapshot mentions.
+	Enabled    *bool                         `json:"enabled,omitempty"`
 	Conditions []LegacyTriggerConditionInput `json:"conditions,omitempty"`
 	Actions    []LegacyActionInput           `json:"actions,omitempty"`
+}
+
+// LegacyAlarmConfigInput is one alarm_config row.
+//
+// It has no condition column: the community schema is name, description, level,
+// notification group and enabled. The old alarms were raised by a 联动/场景
+// "触发告警" action or by an outside caller, so the faithful new object is an
+// event-only alarm policy — not a detector policy with an invented threshold.
+type LegacyAlarmConfigInput struct {
+	ID string `json:"id"`
+	// Name is the policy name shown in the new console.
+	Name string `json:"name,omitempty"`
+	// Level is H/M/L. A row with no level is refused rather than defaulted:
+	// picking one would change how the alarm is filtered and displayed.
+	Level string `json:"level,omitempty"`
+	// NotifyGroupID is the old notification_groups id. It is carried so the
+	// report can say the group needs re-selecting; it is not written into
+	// AlarmSpec.NotifyPolicyID, because the notification owner has its own ids
+	// and a foreign id there would look wired up while sending nothing.
+	NotifyGroupID string `json:"notify_group_id,omitempty"`
+	// Callers lists the identities allowed to raise this alarm, as read from the
+	// old rows that point at it ("scene:<id>", "automation:<id>").
+	//
+	// It is supplied rather than derived because the policies have to be migrated
+	// in their own pass: a scene whose action raises this alarm cannot be planned
+	// until the policy exists, so the scene is not in the same request. Deriving
+	// the list from a request that cannot contain the scene would produce a
+	// policy nobody is allowed to raise.
+	Callers []string `json:"callers,omitempty"`
+	// Enabled is the old Y/N flag, decoded. A pointer for the same reason as in
+	// LegacyAutomationInput: absent is not "off".
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // LegacyAlarmInput is one still-active alarm_info row.

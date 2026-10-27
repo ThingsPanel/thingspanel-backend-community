@@ -190,21 +190,29 @@ func (s *Service) VerifyMigration(ctx context.Context, id string) (*MigrationVer
 	levelMismatch := 0
 
 	for _, it := range items {
-		switch it.Status {
-		case store.MigrationUnsupported, store.MigrationAmbiguous:
+		if it.Status == store.MigrationUnsupported || it.Status == store.MigrationAmbiguous {
 			// Unresolved items are listed separately and keep the run from being
 			// "complete". They are exactly the objects a customer will miss.
 			out.Unresolved = append(out.Unresolved, it.LegacyID)
 			continue
-		case store.MigrationApplied:
-		default:
+		}
+		// A skipped item still points at what this run owns. "Already migrated by
+		// an earlier run" and "the alarm was already open" are successes, and
+		// leaving them out of the claim set made every second run report its
+		// predecessor's rules as orphans — the check cried wolf exactly when the
+		// operator was re-running to confirm the first run was sound.
+		if it.Status != store.MigrationApplied && it.Status != store.MigrationSkipped {
 			continue
 		}
 
 		switch it.Kind {
 		case store.MigrationKindAlarm:
 			if it.EpisodeID == "" {
-				out.Missing = append(out.Missing, it.LegacyID)
+				// A skipped alarm with no episode is "already recovered, nothing
+				// to adopt" — not something missing.
+				if it.Status == store.MigrationApplied {
+					out.Missing = append(out.Missing, it.LegacyID)
+				}
 				continue
 			}
 			ep, gerr := rt.Store().EpisodeByID(ctx, tenantID, it.EpisodeID)
@@ -226,7 +234,11 @@ func (s *Service) VerifyMigration(ctx context.Context, id string) (*MigrationVer
 			}
 		default:
 			if it.RuleID == "" {
-				out.Missing = append(out.Missing, it.LegacyID)
+				// Same distinction: a skipped row that never got a rule (a
+				// disabled alarm configuration) is a decision, not a gap.
+				if it.Status == store.MigrationApplied {
+					out.Missing = append(out.Missing, it.LegacyID)
+				}
 				continue
 			}
 			rule, gerr := rt.Store().GetRule(ctx, tenantID, it.RuleID)
@@ -238,10 +250,12 @@ func (s *Service) VerifyMigration(ctx context.Context, id string) (*MigrationVer
 				return nil, internal(gerr)
 			}
 			claimed[it.LegacyID] = rule.ID
-			// Scenes have no enable switch in the old console; they are always
-			// available. A migrated scene that is now disabled was turned off on
-			// purpose, which is allowed but worth reporting.
-			if !rule.Enabled {
+			// The switch is compared with the one the snapshot asked for, not
+			// with "on". A scene always asks for on (the old scene table has no
+			// switch), so a disabled migrated scene is still reported; an
+			// automation that was off in the old console and arrived off is not,
+			// because reporting it would teach the operator to ignore this list.
+			if rule.Enabled != it.RuleEnabled() {
 				out.DisabledMismatch = append(out.DisabledMismatch, it.LegacyID)
 			}
 			if it.HasDefinition && rule.DefinitionHash != domain.DefinitionHash(it.Definition) {
@@ -257,9 +271,13 @@ func (s *Service) VerifyMigration(ctx context.Context, id string) (*MigrationVer
 	// has two rules where the old console had one.
 	legacyIDs := make([]string, 0, len(items))
 	for _, it := range items {
-		if it.Kind == store.MigrationKindScene || it.Kind == store.MigrationKindAutomation {
-			legacyIDs = append(legacyIDs, it.LegacyID)
+		if it.Kind == store.MigrationKindAlarm {
+			continue
 		}
+		// Every non-alarm kind creates a rule, so every one of them can leave an
+		// orphan behind. Listing only scenes and automations here would hide a
+		// duplicated alarm policy.
+		legacyIDs = append(legacyIDs, it.LegacyID)
 	}
 	rules, err := rt.Store().RulesByLegacyIDs(ctx, tenantID, legacyIDs)
 	if err != nil {
@@ -481,13 +499,10 @@ func (s *Service) applyItem(ctx context.Context, tenantID string, rt *runtime.Ru
 	switch it.Kind {
 	case store.MigrationKindAlarm:
 		s.applyAlarmItem(ctx, tenantID, rt, migrationID, it)
-	case store.MigrationKindAutomation:
-		// Should never reach the batch (planning marks them unsupported), but if
-		// one does, saying so is better than creating a rule nobody designed.
-		_ = rt.Store().SetMigrationItemStatus(ctx, migrationID, it.LegacyID,
-			store.MigrationUnsupported, "", "automation_trigger_unverified",
-			"联动没有可用的转换规则，未创建")
 	default:
+		// Scenes, automations and alarm configurations all become a rule. They
+		// differ in how the definition was produced, not in how it is stored, so
+		// there is one path rather than three that drift apart.
 		s.applySceneItem(ctx, tenantID, rt, migrationID, it)
 	}
 }
@@ -536,7 +551,7 @@ func (s *Service) applySceneItem(ctx context.Context, tenantID string, rt *runti
 	}
 	rule := &store.Rule{
 		ID: runtime.NewID(), TenantID: tenantID, Name: name,
-		Kind: it.Definition.Kind, Enabled: true,
+		Kind: it.Definition.Kind, Enabled: it.RuleEnabled(),
 		Definition: it.Definition, DefinitionHash: hash,
 		LegacyID: it.LegacyID,
 	}
@@ -545,8 +560,15 @@ func (s *Service) applySceneItem(ctx context.Context, tenantID string, rt *runti
 			store.MigrationFailed, "", "create_failed", err.Error())
 		return
 	}
+	// The plan may have written a note that outlives the apply — "the old
+	// notification group is not bound", for instance. Replacing it with "created"
+	// would throw away the one thing the operator has to act on.
+	note := "已创建规则"
+	if r := strings.TrimSpace(it.Reason); r != "" {
+		note = "已创建规则；" + r
+	}
 	_ = rt.Store().SetMigrationItemStatus(ctx, migrationID, it.LegacyID,
-		store.MigrationApplied, rule.ID, "", "已创建规则")
+		store.MigrationApplied, rule.ID, "", note)
 }
 
 func (s *Service) applyAlarmItem(ctx context.Context, tenantID string, rt *runtime.Runtime,
@@ -702,14 +724,19 @@ func runNotes(m *store.Migration, items []*store.MigrationItem) []string {
 		notes = append(notes, "这次迁移还没有应用完，再次调用 apply 继续")
 	}
 	automations := 0
+	unresolvedAutomations := 0
 	for _, it := range items {
 		if it.Kind == store.MigrationKindAutomation {
 			automations++
+			if it.Status == store.MigrationUnsupported || it.Status == store.MigrationAmbiguous {
+				unresolvedAutomations++
+			}
 		}
 	}
 	if automations > 0 {
 		notes = append(notes, fmt.Sprintf(
-			"有 %d 条联动本次不转换（触发条件需要人工确认），逐条原因见 items", automations))
+			"快照里有 %d 条联动，其中 %d 条已转换、%d 条无法自动转换（原因逐条写在 items 里）",
+			automations, automations-unresolvedAutomations, unresolvedAutomations))
 	}
 	return notes
 }

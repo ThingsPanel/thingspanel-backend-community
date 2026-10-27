@@ -42,7 +42,11 @@ const (
 const (
 	MigrationKindScene      = "scene"
 	MigrationKindAutomation = "automation"
-	MigrationKindAlarm      = "alarm"
+	// MigrationKindAlarmConfig is an alarm_config row. It becomes an event-only
+	// alarm policy, which is why it is a separate kind from MigrationKindAlarm:
+	// one creates a policy, the other adopts a live alarm onto it.
+	MigrationKindAlarmConfig = "alarm_config"
+	MigrationKindAlarm       = "alarm"
 )
 
 // Migration is one run.
@@ -101,8 +105,18 @@ type MigrationItem struct {
 	// matters because an empty definition is invalid and must not be applied.
 	HasDefinition bool
 	// Alarm is the payload of an alarm item, nil for the other kinds.
-	Alarm     *AlarmAdoption
+	Alarm *AlarmAdoption
+	// Enabled is the switch the migrated rule is created with. Nil means "on",
+	// which is what a scene is: the old scene table has no enable column at all,
+	// and a rule that a snapshot never mentioned the switch for must not arrive
+	// disabled.
+	Enabled   *bool
 	UpdatedAt time.Time
+}
+
+// RuleEnabled reports the switch the migrated rule should be created with.
+func (m *MigrationItem) RuleEnabled() bool {
+	return m.Enabled == nil || *m.Enabled
 }
 
 // CreateMigration stores a run and its items in one transaction.
@@ -148,11 +162,11 @@ func insertMigrationItem(ctx context.Context, tx *sql.Tx, it *MigrationItem) err
 	_, err := tx.ExecContext(ctx, `
         INSERT INTO auto_migration_items
             (migration_id, legacy_id, kind, name, status, rule_id, episode_id,
-             reason_code, reason, definition, payload)
+             reason_code, reason, definition, payload, enabled)
         VALUES ($1,$2,$3,$4,$5,NULLIF($6,'')::uuid,NULLIF($7,''),
-                NULLIF($8,''),NULLIF($9,''),$10,$11)`,
+                NULLIF($8,''),NULLIF($9,''),$10,$11,$12)`,
 		it.MigrationID, it.LegacyID, it.Kind, it.Name, it.Status, it.RuleID,
-		it.EpisodeID, it.ReasonCode, it.Reason, def, payload)
+		it.EpisodeID, it.ReasonCode, it.Reason, def, payload, it.RuleEnabled())
 	if err != nil {
 		return fmt.Errorf("insert migration item %s: %w", it.LegacyID, err)
 	}
@@ -195,7 +209,7 @@ func (s *Store) ListMigrationItems(ctx context.Context, migrationID, status stri
 	q := `SELECT migration_id::text, legacy_id, kind, name, status,
                  coalesce(rule_id::text,''), coalesce(episode_id,''),
                  coalesce(reason_code,''), coalesce(reason,''),
-                 definition, payload, updated_at
+                 definition, payload, enabled, updated_at
             FROM auto_migration_items WHERE migration_id=$1`
 	args := []any{migrationID}
 	if status != "" {
@@ -227,7 +241,7 @@ func (s *Store) NextMigrationBatch(ctx context.Context, migrationID string, limi
         SELECT migration_id::text, legacy_id, kind, name, status,
                coalesce(rule_id::text,''), coalesce(episode_id,''),
                coalesce(reason_code,''), coalesce(reason,''),
-               definition, payload, updated_at
+               definition, payload, enabled, updated_at
           FROM auto_migration_items
          WHERE migration_id=$1 AND status IN ('planned','failed')
          ORDER BY kind, legacy_id LIMIT %d`, limit), migrationID)
@@ -244,7 +258,8 @@ func scanMigrationItems(rows *sql.Rows) ([]*MigrationItem, error) {
 		var it MigrationItem
 		var def, payload []byte
 		if err := rows.Scan(&it.MigrationID, &it.LegacyID, &it.Kind, &it.Name, &it.Status,
-			&it.RuleID, &it.EpisodeID, &it.ReasonCode, &it.Reason, &def, &payload, &it.UpdatedAt); err != nil {
+			&it.RuleID, &it.EpisodeID, &it.ReasonCode, &it.Reason, &def, &payload,
+			&it.Enabled, &it.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if len(def) > 0 {
