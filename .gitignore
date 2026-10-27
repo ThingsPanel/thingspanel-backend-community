@@ -23,3 +23,6 @@ configs/conf-localdev.yml
 
 # A29 sample build output
 samples/flink/target/
+
+# 运行时生成的实例遥测状态文件
+configs/.telemetry_state.json
