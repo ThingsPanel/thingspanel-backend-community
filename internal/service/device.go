@@ -124,6 +124,7 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 	var IsOnline int16 = 0
 	device.IsOnline = IsOnline
 	device.ActivateFlag = "active"
+	device.IsEnabled = "enabled"
 	err = dal.CreateDevice(&device)
 	if err != nil {
 		return device, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -204,6 +205,7 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 			AdditionalInfo:  v.AdditionalInfo,
 			IsOnline:        0,
 			ActivateFlag:    "active",
+			IsEnabled:       "enabled",
 			ServiceAccessID: &req.ServiceAccessId,
 		}
 		deviceList = append(deviceList, &device)
@@ -404,6 +406,10 @@ func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 	}
 	device.Name = &req.Name
 	device.ActivateFlag = "active"
+	// Fill the missing initial state without overriding an explicit disable.
+	if device.IsEnabled == "" {
+		device.IsEnabled = "enabled"
+	}
 	t := time.Now().UTC()
 	device.UpdateAt = &t
 	device.ActivateAt = &t
@@ -1388,6 +1394,7 @@ func (*Device) GatewayRegister(req model.GatewayRegisterReq) (model.GatewayRegis
 	device.DeviceNumber = req.GatewayId
 	device.IsOnline = 1
 	device.ActivateFlag = "active"
+	device.IsEnabled = "enabled"
 	return result, dal.CreateDevice(device)
 }
 
@@ -1439,6 +1446,7 @@ func (*Device) GatewayDeviceRegister(req model.DeviceRegisterReq) (model.DeviceR
 		subDeviceItem.DeviceNumber = uuid.New()
 		subDeviceItem.IsOnline = 1
 		subDeviceItem.ActivateFlag = "active"
+		subDeviceItem.IsEnabled = "enabled"
 		subDeviceItem.SubDeviceAddr = &v.SubAddr
 
 		// subDevices = append(subDevices, subDeviceItem)
