@@ -285,9 +285,11 @@ func TestAlarmConfigKeepsItsCallers(t *testing.T) {
 	if !p.OK() {
 		t.Fatalf("unexpected issues: %v", p.Issues)
 	}
+	// "automation" is the source a rule reports when its alarm step fires, so it
+	// is always allowed; the derived ids ride along and are de-duplicated.
 	got := strings.Join(p.Definition.Alarm.AllowedSources, ",")
-	if got != "scene:sc-1,automation:au-1" {
-		t.Fatalf("调用方应该去重并保留，实际 %q", got)
+	if got != "automation,automation:au-1,scene:sc-1" {
+		t.Fatalf("调用方应该去重、排序并包含 automation，实际 %q", got)
 	}
 	if len(p.Definition.Trigger.Groups) != 0 {
 		t.Fatalf("事件型策略不应该有触发组，实际 %d 组", len(p.Definition.Trigger.Groups))

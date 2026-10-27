@@ -690,8 +690,12 @@ func TestAnAlarmConfigBecomesAnEventOnlyPolicy(t *testing.T) {
 	if rule.Definition.Alarm.Level != "H" {
 		t.Fatalf("等级应该保留 H，实际 %q", rule.Definition.Alarm.Level)
 	}
-	if len(rule.Definition.Alarm.AllowedSources) != 1 || rule.Definition.Alarm.AllowedSources[0] != "scene:sc-1" {
-		t.Fatalf("允许的调用方应该来自旧数据里的引用方，实际 %v", rule.Definition.Alarm.AllowedSources)
+	// "automation" must be there: that is the source name a scene's alarm step
+	// reports, so without it the policy would reject the very step that raises
+	// it. The derived caller id is kept as evidence but is not what the runtime
+	// sends.
+	if got := strings.Join(rule.Definition.Alarm.AllowedSources, ","); got != "automation,scene:sc-1" {
+		t.Fatalf("允许的调用方应该是 automation 加旧数据里的引用方，实际 %v", rule.Definition.Alarm.AllowedSources)
 	}
 	// No trigger groups: an event-only policy has no detector condition, and
 	// validation has to accept that rather than force an invented one.

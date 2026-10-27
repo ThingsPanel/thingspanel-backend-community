@@ -21,6 +21,7 @@ package legacy
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -476,16 +477,25 @@ func BuildAlarmConfig(c *AlarmConfig, callers []string) *AutomationPlan {
 	return p
 }
 
-// normaliseCallers sorts and de-duplicates the derived caller list.
+// normaliseCallers builds the event-channel allow list for a migrated policy.
+//
+// The one name that must always be present is "automation": that is what
+// runtime/execute.go's performAlarm reports as the source when a scene or an
+// automation raises the alarm. Without it every migrated policy would reject
+// the very step that was written to raise it — the scene would run, the alarm
+// step would be recorded as rejected, and nothing would appear in the alarm
+// list. The caller ids derived from the old graph are kept alongside it because
+// they are useful evidence in the run log, and they do not widen anything: only
+// a caller that names itself can use them.
 //
 // A configuration nothing references still needs a policy, because its active
 // alarms have to attach to something. Such a policy gets the explicit caller
-// "legacy-import" — a name that grants exactly one thing, and only to a caller
-// that identifies itself as such. It is not a wildcard.
+// "legacy-import" in addition to "automation".
 func normaliseCallers(callers []string) []string {
 	seen := map[string]bool{}
-	out := make([]string, 0, len(callers)+1)
-	for _, c := range callers {
+	out := make([]string, 0, len(callers)+2)
+	// Sorted so the definition hash is stable across runs.
+	for _, c := range append([]string{SourceAutomation}, callers...) {
 		c = strings.TrimSpace(c)
 		if c == "" || seen[c] {
 			continue
@@ -493,8 +503,14 @@ func normaliseCallers(callers []string) []string {
 		seen[c] = true
 		out = append(out, c)
 	}
-	if len(out) == 0 {
+	if len(out) == 1 {
 		out = append(out, "legacy-import")
 	}
+	sort.Strings(out)
 	return out
 }
+
+// SourceAutomation is the source name runtime/execute.go reports when a rule
+// raises an alarm through a step. It is spelled out here rather than imported
+// from runtime to keep this package free of runtime dependencies.
+const SourceAutomation = "automation"

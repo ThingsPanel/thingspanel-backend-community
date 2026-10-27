@@ -281,6 +281,154 @@ func TestAnUnresolvedAlarmActionFailsTheMigration(t *testing.T) {
 	}
 }
 
+// TestAMigratedPolicyAcceptsTheSceneThatRaisesIt is the end-to-end version of
+// the migration: the policy comes from legacy.BuildAlarmConfig (the code the
+// upgrade script runs), and the alarm is raised by a scene step, which reports
+// its source as "automation".
+//
+// This is the failure that is invisible in a dry run: the policy looks right,
+// the scene looks right, and the alarm step is rejected at runtime because the
+// allow list was built only from the old caller ids. The scene then "succeeds"
+// while nothing reaches the alarm list.
+func TestAMigratedPolicyAcceptsTheSceneThatRaisesIt(t *testing.T) {
+	e := newEnv(t)
+	plan := legacy.BuildAlarmConfig(&legacy.AlarmConfig{
+		ID: "ac-migrated", Name: "高温告警", Level: "H",
+	}, []string{"scene:scene-legacy-9"})
+	if !plan.OK() {
+		t.Fatalf("the alarm config must migrate: %v", plan.Issues)
+	}
+	rule := &store.Rule{
+		ID: runtime.NewID(), TenantID: e.tenant, Name: plan.Name,
+		Kind: plan.Definition.Kind, Enabled: true, Definition: plan.Definition,
+		DefinitionHash: domain.DefinitionHash(plan.Definition), LegacyID: "ac-migrated",
+	}
+	if err := e.st.CreateRule(e.ctx(), rule); err != nil {
+		t.Fatalf("create policy: %v", err)
+	}
+	stored, err := e.st.GetRule(e.ctx(), e.tenant, rule.ID)
+	if err != nil {
+		t.Fatalf("reload policy: %v", err)
+	}
+
+	res := &storeResolver{
+		e: e, scenes: map[string]*legacy.Scene{},
+		devices: map[string]bool{e.dev1: true}, configs: map[string]bool{},
+	}
+	scene := &legacy.Scene{ID: "scene-legacy-9", Name: "着火处置", Actions: []legacy.Action{
+		{ID: "act-1", Target: e.dev1, Type: legacy.TypeSingleDevice,
+			ParamType: legacy.ParamTelemetry, Param: "switch", Value: "1"},
+		{ID: "act-2", Target: "ac-migrated", Type: legacy.TypeRaiseAlarm},
+	}}
+	res.scenes[scene.ID] = scene
+	scenePlan := legacy.Build(scene, res)
+	if !scenePlan.OK() {
+		t.Fatalf("the scene must migrate: %v", scenePlan.Issues)
+	}
+	sceneRule := e.createRule(scenePlan.Definition)
+
+	run, err := e.rt.RunNow(e.ctx(), sceneRule, e.dev1)
+	if err != nil {
+		t.Fatalf("run the scene: %v", err)
+	}
+	if run.Status != runtime.StatusSucceeded {
+		t.Fatalf("want succeeded, got %q (%s / %s)", run.Status, run.ReasonCode, run.Reason)
+	}
+	if got := e.stepStatuses(run.ID); len(got) != 2 || got[1] != "1:alarm:succeeded" {
+		t.Fatalf("the alarm step must take effect, not be rejected: %v", got)
+	}
+	if ep := e.activeAlarm(stored.PolicyKey(), e.dev1); ep == nil {
+		t.Fatalf("the migrated policy must accept the scene's alarm; allow list was %v",
+			stored.Definition.Alarm.AllowedSources)
+	}
+}
+
+// TestEachStepActsOnTheDeviceItNames: "open the valve on A, then start the pump
+// on B" is the ordinary scene, not an exotic one. Every step used to be
+// dispatched to every target, so both devices received both commands and the
+// scene did something the author never asked for. DeviceRef is what keeps a step
+// on its own device; "target" and "self" still mean the whole target set, which
+// is what blueprints and single-device rules rely on.
+func TestEachStepActsOnTheDeviceItNames(t *testing.T) {
+	e := newEnv(t)
+	def := domain.Definition{
+		Kind:  domain.KindScene,
+		Mode:  domain.ModeSingle,
+		Scope: domain.ScopeRule,
+		Freshness: domain.Freshness{
+			MaxAge: domain.Duration(10 * time.Minute),
+			MaxGap: domain.Duration(10 * time.Minute),
+		},
+		Targets: domain.TargetSpec{DeviceIDs: []string{e.dev1, e.dev2}},
+		Steps: []domain.Step{
+			{Kind: domain.StepAction, DeviceRef: e.dev1, Action: "telemetry",
+				Identifier: "switch", Value: "1"},
+			{Kind: domain.StepAction, DeviceRef: e.dev2, Action: "telemetry",
+				Identifier: "speed", Value: "2"},
+		},
+	}
+	def.Normalize()
+	rule := e.createRule(def)
+
+	before := e.cmds.count()
+	run, err := e.rt.RunNow(e.ctx(), rule, "")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if run.Status != runtime.StatusSucceeded {
+		t.Fatalf("want succeeded, got %q (%s / %s)", run.Status, run.ReasonCode, run.Reason)
+	}
+
+	calls := e.cmds.calls[before:]
+	if len(calls) != 2 {
+		t.Fatalf("want one command per step, got %d: %+v", len(calls), calls)
+	}
+	if calls[0].DeviceID != e.dev1 || calls[0].Identifier != "switch" {
+		t.Fatalf("step 0 must act on %s/switch, got %+v", e.dev1, calls[0])
+	}
+	if calls[1].DeviceID != e.dev2 || calls[1].Identifier != "speed" {
+		t.Fatalf("step 1 must act on %s/speed, got %+v", e.dev2, calls[1])
+	}
+}
+
+// TestAStepNamingAForeignDeviceStops: a step whose device is not in the run's
+// target set must fail rather than fall back to the remaining targets, because
+// falling back would command devices the author did not name.
+func TestAStepNamingAForeignDeviceStops(t *testing.T) {
+	e := newEnv(t)
+	def := domain.Definition{
+		Kind:  domain.KindScene,
+		Mode:  domain.ModeSingle,
+		Scope: domain.ScopeRule,
+		Freshness: domain.Freshness{
+			MaxAge: domain.Duration(10 * time.Minute),
+			MaxGap: domain.Duration(10 * time.Minute),
+		},
+		Targets: domain.TargetSpec{DeviceIDs: []string{e.dev1}},
+		Steps: []domain.Step{
+			{Kind: domain.StepAction, DeviceRef: "device-that-is-not-a-target",
+				Action: "telemetry", Identifier: "switch", Value: "1"},
+		},
+	}
+	def.Normalize()
+	rule := e.createRule(def)
+
+	before := e.cmds.count()
+	run, err := e.rt.RunNow(e.ctx(), rule, "")
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if got := e.cmds.count() - before; got != 0 {
+		t.Fatalf("no command may be sent when the step names a foreign device, got %d", got)
+	}
+	if run.Status != runtime.StatusFailed {
+		t.Fatalf("want failed, got %q", run.Status)
+	}
+	if got := e.stepStatuses(run.ID); len(got) != 1 || got[0] != "0:action:failed" {
+		t.Fatalf("want the step to fail: %v", got)
+	}
+}
+
 // TestASceneCycleIsRefusedBeforeMigration: two scenes activating each other must
 // be refused at migration time, not discovered by a runaway at 3am.
 func TestASceneCycleIsRefusedBeforeMigration(t *testing.T) {

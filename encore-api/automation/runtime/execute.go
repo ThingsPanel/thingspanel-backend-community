@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"encore.app/automation/domain"
@@ -809,6 +810,34 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, rule *store
 		}
 		_ = r.store.UpdateStepStatus(ctx, stepID, "skipped", `{"reason":"empty_targets"}`)
 		return stepOK, nil
+	}
+
+	// A step may name the one device it acts on. Without this the run's whole
+	// target set received every command, which quietly turned "open the valve
+	// on A, then start the pump on B" into "open the valve and start the pump on
+	// both" — the two-device scene is the ordinary case, not the exotic one.
+	// "target", "self" and the empty string all keep meaning the run's target
+	// set, which is what blueprints and single-device rules rely on.
+	if ref := strings.TrimSpace(step.DeviceRef); ref != "" && ref != "self" && ref != "target" {
+		narrowed := make([]string, 0, 1)
+		for _, id := range deviceIDs {
+			if id == ref {
+				narrowed = append(narrowed, id)
+			}
+		}
+		if len(narrowed) == 0 {
+			// The step names a device the run does not own. Sending the command
+			// to the remaining targets would act on devices the author did not
+			// name, so the step stops instead.
+			detail, _ := json.Marshal(map[string]any{
+				"reason": "device_ref_not_in_targets", "device_ref": ref,
+			})
+			if err := r.store.UpdateStepStatus(ctx, stepID, "failed", string(detail)); err != nil {
+				return stepFailed, err
+			}
+			return stepFailed, nil
+		}
+		deviceIDs = narrowed
 	}
 
 	// Ownership and capability are re-checked at execution time, not only when

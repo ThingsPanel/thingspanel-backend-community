@@ -104,17 +104,23 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 
 // Definition is the immutable, versioned body of a rule revision.
 type Definition struct {
-	Kind      RuleKind      `json:"kind"`
-	Mode      RunMode       `json:"mode"`
-	Scope     ScopeKind     `json:"scope"`
-	Trigger   Trigger       `json:"trigger"`
-	Recovery  *Trigger      `json:"recovery,omitempty"`
-	Freshness Freshness     `json:"freshness"`
-	Targets   TargetSpec    `json:"targets"`
-	Steps     []Step        `json:"steps"`
-	Queue     *QueueRule    `json:"queue,omitempty"`
-	Parallel  *ParallelRule `json:"parallel,omitempty"`
-	Budget    Budget        `json:"budget"`
+	Kind  RuleKind  `json:"kind"`
+	Mode  RunMode   `json:"mode"`
+	Scope ScopeKind `json:"scope"`
+	// Description is the free text the old console let people write next to a
+	// scene or an automation ("阀门检修时关掉"). It carries no behaviour, but
+	// dropping it on the way into the new model would lose the only place a
+	// customer explains why a rule exists, so it lives in the definition and is
+	// echoed back unchanged.
+	Description string        `json:"description,omitempty"`
+	Trigger     Trigger       `json:"trigger"`
+	Recovery    *Trigger      `json:"recovery,omitempty"`
+	Freshness   Freshness     `json:"freshness"`
+	Targets     TargetSpec    `json:"targets"`
+	Steps       []Step        `json:"steps"`
+	Queue       *QueueRule    `json:"queue,omitempty"`
+	Parallel    *ParallelRule `json:"parallel,omitempty"`
+	Budget      Budget        `json:"budget"`
 	// Params declares the slots this body exposes to a device binding. A rule
 	// with no params is a fixed rule; a rule with params is a template rule
 	// that a device (or a device template) may fill in differently. The body
