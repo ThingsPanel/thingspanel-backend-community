@@ -642,7 +642,7 @@ func nativeE2EWaitCoreHealth(t *testing.T, timeout time.Duration) error {
 func sqlQuoteValue(value string) string { return strings.ReplaceAll(value, "'", "''") }
 
 func readNativeCoreCount(query string, count *int) error {
-	command := exec.Command("docker", "exec", "tp-notification-execution-pg-clean", "psql", "-U", "notification_test", "-d", "notification_core_native", "-Atc", query)
+	command := exec.Command("psql", "-h", "127.0.0.1", "-p", "25543", "-U", "notification_test", "-d", "notification_core_native", "-Atc", query)
 	command.Env = append(os.Environ(), "PGPASSWORD=fixture-only-password")
 	output, err := command.Output()
 	if err != nil {
