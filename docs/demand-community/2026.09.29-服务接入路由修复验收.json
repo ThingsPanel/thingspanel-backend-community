@@ -1,0 +1,302 @@
+{
+  "devices": [
+    {
+      "name": "ESP-01S灯",
+      "device_id": "80156eee-2d7d-5a0b-c110-9511b82e9c39",
+      "entity_id": "switch.esp_01sdeng",
+      "commandIDs": [
+        "df613b40-33a2-6b12-7147-307d57902116",
+        "853014bf-7017-f59a-06ed-f438da7c7768",
+        "94ae091e-4d4c-8b10-5f4e-c821822d7322",
+        "5c7e749b-2526-c327-d10e-325b3ec55ef7",
+        "542f2cf8-293c-d73b-2f84-ca53a038941d"
+      ],
+      "commands": [
+        {
+          "name": "ESP-01S灯",
+          "device_id": "80156eee-2d7d-5a0b-c110-9511b82e9c39",
+          "entity_id": "switch.esp_01sdeng",
+          "command_id": "df613b40-33a2-6b12-7147-307d57902116",
+          "params": "on",
+          "time": "2026-09-29 14:26:13.651247+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663173
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-9c76c7aa68f68759b89c2d5ce9ce6e91/df613b40-33a2-6b12-7147-307d57902116",
+          "ha_received": true
+        },
+        {
+          "name": "ESP-01S灯",
+          "device_id": "80156eee-2d7d-5a0b-c110-9511b82e9c39",
+          "entity_id": "switch.esp_01sdeng",
+          "command_id": "853014bf-7017-f59a-06ed-f438da7c7768",
+          "params": "off",
+          "time": "2026-09-29 14:27:04.591842+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663224
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-9c76c7aa68f68759b89c2d5ce9ce6e91/853014bf-7017-f59a-06ed-f438da7c7768",
+          "ha_received": true
+        },
+        {
+          "name": "ESP-01S灯",
+          "device_id": "80156eee-2d7d-5a0b-c110-9511b82e9c39",
+          "entity_id": "switch.esp_01sdeng",
+          "command_id": "94ae091e-4d4c-8b10-5f4e-c821822d7322",
+          "params": "on",
+          "time": "2026-09-29 14:27:36.971201+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663257
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-9c76c7aa68f68759b89c2d5ce9ce6e91/94ae091e-4d4c-8b10-5f4e-c821822d7322",
+          "ha_received": true
+        },
+        {
+          "name": "ESP-01S灯",
+          "device_id": "80156eee-2d7d-5a0b-c110-9511b82e9c39",
+          "entity_id": "switch.esp_01sdeng",
+          "command_id": "5c7e749b-2526-c327-d10e-325b3ec55ef7",
+          "params": "off",
+          "time": "2026-09-29 14:27:50.365298+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663270
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-9c76c7aa68f68759b89c2d5ce9ce6e91/5c7e749b-2526-c327-d10e-325b3ec55ef7",
+          "ha_received": true
+        },
+        {
+          "name": "ESP-01S灯",
+          "device_id": "80156eee-2d7d-5a0b-c110-9511b82e9c39",
+          "entity_id": "switch.esp_01sdeng",
+          "command_id": "542f2cf8-293c-d73b-2f84-ca53a038941d",
+          "params": "invalid-query-for-ack-test",
+          "time": "2026-09-29 14:28:55.748924+08:00",
+          "status": "4",
+          "ack": {
+            "errcode": "000",
+            "message": "unsupported home assistant query \"invalid-query-for-ack-test\"",
+            "result": 1,
+            "ts": 1790663335
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-9c76c7aa68f68759b89c2d5ce9ce6e91/542f2cf8-293c-d73b-2f84-ca53a038941d",
+          "ha_received": true
+        }
+      ]
+    },
+    {
+      "name": "Yeelight",
+      "device_id": "31544a4d-edfb-ab71-3c22-1b377cbf4604",
+      "entity_id": "light.yeelink_mono1_d9b1_light_2",
+      "commandIDs": [
+        "476ce4ad-ffa8-59a2-ef3e-0612e884479e",
+        "5fce8e8c-f1c0-1d7c-55eb-2f20da4d8206",
+        "f5cece90-1bb6-8737-f6b9-83efabca4f72",
+        "d6d98e44-c9f8-fbb5-e2cd-ddb813099c9e",
+        "16e4afe5-f92b-1914-6e49-e430d65baac9"
+      ],
+      "commands": [
+        {
+          "name": "Yeelight",
+          "device_id": "31544a4d-edfb-ab71-3c22-1b377cbf4604",
+          "entity_id": "light.yeelink_mono1_d9b1_light_2",
+          "command_id": "476ce4ad-ffa8-59a2-ef3e-0612e884479e",
+          "params": "on",
+          "time": "2026-09-29 14:26:13.716698+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663174
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-b733d8410b7db9301985f3eaf755248e/476ce4ad-ffa8-59a2-ef3e-0612e884479e",
+          "ha_received": true
+        },
+        {
+          "name": "Yeelight",
+          "device_id": "31544a4d-edfb-ab71-3c22-1b377cbf4604",
+          "entity_id": "light.yeelink_mono1_d9b1_light_2",
+          "command_id": "5fce8e8c-f1c0-1d7c-55eb-2f20da4d8206",
+          "params": "off",
+          "time": "2026-09-29 14:27:04.871045+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663224
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-b733d8410b7db9301985f3eaf755248e/5fce8e8c-f1c0-1d7c-55eb-2f20da4d8206",
+          "ha_received": true
+        },
+        {
+          "name": "Yeelight",
+          "device_id": "31544a4d-edfb-ab71-3c22-1b377cbf4604",
+          "entity_id": "light.yeelink_mono1_d9b1_light_2",
+          "command_id": "f5cece90-1bb6-8737-f6b9-83efabca4f72",
+          "params": "on",
+          "time": "2026-09-29 14:27:37.377399+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663257
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-b733d8410b7db9301985f3eaf755248e/f5cece90-1bb6-8737-f6b9-83efabca4f72",
+          "ha_received": true
+        },
+        {
+          "name": "Yeelight",
+          "device_id": "31544a4d-edfb-ab71-3c22-1b377cbf4604",
+          "entity_id": "light.yeelink_mono1_d9b1_light_2",
+          "command_id": "d6d98e44-c9f8-fbb5-e2cd-ddb813099c9e",
+          "params": "off",
+          "time": "2026-09-29 14:27:50.404494+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663270
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-b733d8410b7db9301985f3eaf755248e/d6d98e44-c9f8-fbb5-e2cd-ddb813099c9e",
+          "ha_received": true
+        },
+        {
+          "name": "Yeelight",
+          "device_id": "31544a4d-edfb-ab71-3c22-1b377cbf4604",
+          "entity_id": "light.yeelink_mono1_d9b1_light_2",
+          "command_id": "16e4afe5-f92b-1914-6e49-e430d65baac9",
+          "params": "on",
+          "time": "2026-09-29 14:28:11.233140+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663291
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-b733d8410b7db9301985f3eaf755248e/16e4afe5-f92b-1914-6e49-e430d65baac9",
+          "ha_received": true
+        }
+      ]
+    },
+    {
+      "name": "WLED",
+      "device_id": "2a91ca8c-ab79-121f-c38a-a424d13482ab",
+      "entity_id": "light.wled",
+      "commandIDs": [
+        "1a11b71f-523a-bc0f-1d02-0e0c5fd4e519",
+        "e2cdfc61-2914-3187-4165-7742fcea4a76",
+        "0564cdcd-d2d6-053a-c3b9-68aab4d79cef",
+        "5b2efbd0-cef4-56b6-95e5-d0ad6535ea4f"
+      ],
+      "commands": [
+        {
+          "name": "WLED",
+          "device_id": "2a91ca8c-ab79-121f-c38a-a424d13482ab",
+          "entity_id": "light.wled",
+          "command_id": "1a11b71f-523a-bc0f-1d02-0e0c5fd4e519",
+          "params": "on",
+          "time": "2026-09-29 14:26:13.754361+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663174
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-9411303bedd81251e8890b6ed84a5327/1a11b71f-523a-bc0f-1d02-0e0c5fd4e519",
+          "ha_received": true
+        },
+        {
+          "name": "WLED",
+          "device_id": "2a91ca8c-ab79-121f-c38a-a424d13482ab",
+          "entity_id": "light.wled",
+          "command_id": "e2cdfc61-2914-3187-4165-7742fcea4a76",
+          "params": "off",
+          "time": "2026-09-29 14:27:05.141961+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663225
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-9411303bedd81251e8890b6ed84a5327/e2cdfc61-2914-3187-4165-7742fcea4a76",
+          "ha_received": true
+        },
+        {
+          "name": "WLED",
+          "device_id": "2a91ca8c-ab79-121f-c38a-a424d13482ab",
+          "entity_id": "light.wled",
+          "command_id": "0564cdcd-d2d6-053a-c3b9-68aab4d79cef",
+          "params": "on",
+          "time": "2026-09-29 14:27:37.708714+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663257
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-9411303bedd81251e8890b6ed84a5327/0564cdcd-d2d6-053a-c3b9-68aab4d79cef",
+          "ha_received": true
+        },
+        {
+          "name": "WLED",
+          "device_id": "2a91ca8c-ab79-121f-c38a-a424d13482ab",
+          "entity_id": "light.wled",
+          "command_id": "5b2efbd0-cef4-56b6-95e5-d0ad6535ea4f",
+          "params": "off",
+          "time": "2026-09-29 14:27:50.496317+08:00",
+          "status": "3",
+          "ack": {
+            "message": "success",
+            "result": 0,
+            "ts": 1790663270
+          },
+          "topic": "plugin/homeassistant/devices/command/svc-9411303bedd81251e8890b6ed84a5327/5b2efbd0-cef4-56b6-95e5-d0ad6535ea4f",
+          "ha_received": true
+        }
+      ]
+    }
+  ],
+  "fourround_states": {
+    "on1": {
+      "switch.esp_01sdeng": "on",
+      "light.yeelink_mono1_d9b1_light_2": "on",
+      "light.wled": "on"
+    },
+    "off1": {
+      "switch.esp_01sdeng": "off",
+      "light.yeelink_mono1_d9b1_light_2": "off",
+      "light.wled": "off"
+    },
+    "on2": {
+      "switch.esp_01sdeng": "on",
+      "light.yeelink_mono1_d9b1_light_2": "on",
+      "light.wled": "on"
+    },
+    "off2": {
+      "switch.esp_01sdeng": "off",
+      "light.yeelink_mono1_d9b1_light_2": "off",
+      "light.wled": "off"
+    }
+  },
+  "finalstates": {
+    "switch.esp_01sdeng": "off",
+    "light.yeelink_mono1_d9b1_light_2": "on",
+    "light.wled": "off"
+  },
+  "beforestates": {
+    "switch.esp_01sdeng": "off",
+    "light.yeelink_mono1_d9b1_light_2": "on",
+    "light.wled": "off"
+  }
+}

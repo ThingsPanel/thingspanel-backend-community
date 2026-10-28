@@ -1,10 +1,19 @@
 package mqttadapter
 
 import (
+	"context"
+	"errors"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	connectAttemptTimeout = 5 * time.Second
+	connectRetryInterval  = 5 * time.Second
+	connectPollInterval   = 50 * time.Millisecond
+	connectStartupLimit   = 30 * time.Second
 )
 
 // MQTTConfig MQTT 客户端配置
@@ -12,82 +21,142 @@ type MQTTConfig struct {
 	Broker            string
 	Username          string
 	Password          string
-	ClientID          string                   // 可选，不提供则自动生成
-	OnConnectCallback func(client mqtt.Client) // 连接成功回调（用于重新订阅）
+	ClientID          string                         // 可选，不提供则自动生成
+	ManualAck         bool                           // ingress_v1 保留失败消息供 broker 重投
+	BeforeConnect     func(client mqtt.Client) error // 安装持久会话重投处理器，必须早于 CONNECT
+	OnConnectCallback func(client mqtt.Client)       // 连接成功回调（用于重新订阅）
 }
 
-// CreateMQTTClient 创建 MQTT 客户端（Adapter 专用）
+// CreateMQTTClient 创建 MQTT 客户端（Adapter 专用）。
+// 为兼容现有调用方保留此入口；新的生命周期代码应传递明确的 context。
 func CreateMQTTClient(config MQTTConfig, logger *logrus.Logger) (mqtt.Client, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), connectStartupLimit)
+	defer cancel()
+	return CreateMQTTClientContext(ctx, config, logger)
+}
+
+// CreateMQTTClientContext 创建 MQTT 客户端，并在 ctx 取消时终止启动重试。
+// 每次连接等待都有上限；整体启动期限由调用方 ctx 决定。
+func CreateMQTTClientContext(ctx context.Context, config MQTTConfig, logger *logrus.Logger) (mqtt.Client, error) {
+	if ctx == nil {
+		return nil, errors.New("MQTT client context is nil")
+	}
 	if logger == nil {
 		logger = logrus.StandardLogger()
 	}
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, connectStartupLimit)
+	defer cancel()
 
-	// 初始化配置
+	opts := newMQTTClientOptions(config, logger)
+	clientID := opts.ClientID
+	client := mqtt.NewClient(opts)
+	if config.BeforeConnect != nil {
+		if err := config.BeforeConnect(client); err != nil {
+			client.Disconnect(0)
+			return nil, err
+		}
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			client.Disconnect(0)
+			return nil, err
+		}
+
+		token := client.Connect()
+		if err := WaitTokenContext(ctx, token, connectAttemptTimeout); err == nil {
+			logger.WithField("client_id", clientID).Info("MQTT Adapter client created and connected")
+			return client, nil
+		} else if ctx.Err() != nil {
+			client.Disconnect(0)
+			return nil, ctx.Err()
+		} else {
+			logger.WithError(err).WithField("client_id", clientID).Warn("MQTT Adapter connection failed; retrying")
+			// A timed-out Paho token can still complete in the background. Disconnect
+			// before creating another attempt so failed startup cannot leave a live client.
+			client.Disconnect(0)
+		}
+
+		timer := time.NewTimer(connectRetryInterval)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			client.Disconnect(0)
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+func newMQTTClientOptions(config MQTTConfig, logger *logrus.Logger) *mqtt.ClientOptions {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(config.Broker)
 	opts.SetUsername(config.Username)
 	opts.SetPassword(config.Password)
 
-	// 客户端 ID
 	clientID := config.ClientID
 	if clientID == "" {
 		clientID = "thingspanel-adapter-default"
 	}
 	opts.SetClientID(clientID)
 
-	// 干净会话
+	// 持久会话用于保留 broker 端订阅和离线 QoS 消息。
 	opts.SetCleanSession(false)
-	// 恢复客户端订阅，需要 broker 支持
 	opts.SetResumeSubs(true)
-	// 自动重连
 	opts.SetAutoReconnect(true)
-	opts.SetConnectRetryInterval(5 * time.Second)
+	opts.SetConnectRetry(false) // 首次启动重试受 ctx 管理，连接后由 AutoReconnect 管理。
+	opts.SetConnectTimeout(connectAttemptTimeout)
+	opts.SetConnectRetryInterval(connectRetryInterval)
 	opts.SetMaxReconnectInterval(200 * time.Second)
-	// 消息顺序
+	opts.SetAutoAckDisabled(config.ManualAck)
 	opts.SetOrderMatters(false)
-
-	// 连接成功回调（首次连接 + 重连成功都会触发）
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		logger.WithField("client_id", clientID).Info("MQTT Adapter client connected")
-
-		// ✨ 重连后自动执行订阅回调（确保订阅不丢失）
 		if config.OnConnectCallback != nil {
-			logger.Info("Executing OnConnectCallback to re-subscribe topics...")
 			config.OnConnectCallback(client)
 		}
 	})
-
-	// 断线回调（仅记录日志，自动重连由 SetAutoReconnect 处理）
 	opts.SetConnectionLostHandler(func(_ mqtt.Client, err error) {
 		logger.WithError(err).Warn("MQTT Adapter connection lost, auto-reconnect will handle it...")
 	})
-
-	// 重连中回调（可选，帮助追踪重连状态）
 	opts.SetReconnectingHandler(func(_ mqtt.Client, _ *mqtt.ClientOptions) {
 		logger.Info("MQTT Adapter reconnecting...")
 	})
+	return opts
+}
 
-	// 创建客户端
-	client := mqtt.NewClient(opts)
-
-	// 等待连接成功，失败重新连接
-	for {
-		token := client.Connect()
-		if token.Wait() && token.Error() != nil {
-			logger.WithError(token.Error()).Error("MQTT Adapter connection failed, retrying...")
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		break
+// WaitTokenContext 等待 Paho token 完成，直到它完成、ctx 取消或 timeout 到期。
+// timeout 为 0 时只受 ctx 控制。调用方在取消后仍需关闭所属 MQTT client。
+func WaitTokenContext(ctx context.Context, token mqtt.Token, timeout time.Duration) error {
+	if ctx == nil {
+		return errors.New("MQTT token context is nil")
 	}
-
-	logger.WithField("client_id", clientID).Info("MQTT Adapter client created and connected")
-	return client, nil
+	if token == nil {
+		return errors.New("MQTT token is nil")
+	}
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	for {
+		if token.WaitTimeout(connectPollInterval) {
+			return token.Error()
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+	}
 }
 
 // DisconnectMQTTClient 断开 MQTT 客户端连接
 func DisconnectMQTTClient(client mqtt.Client, logger *logrus.Logger) {
-	if client != nil && client.IsConnected() {
+	if client != nil {
 		client.Disconnect(250)
 		if logger != nil {
 			logger.Info("MQTT Adapter client disconnected")

@@ -1,0 +1,28 @@
+{
+  "sourceTuple": {
+    "sourceDeploymentId": "community-fixture-a",
+    "tenantId": "tenant-fixture",
+    "legacyGroupId": "legacy-group-fixture",
+    "notificationGroupId": "group-fixture-001"
+  },
+  "initialRevisions": [3],
+  "cases": [
+    {"name": "same-revision-same-target", "groupRevision": 3, "notificationGroupId": "group-fixture-001", "decision": "replay", "latestRevision": 3},
+    {"name": "same-revision-other-target", "groupRevision": 3, "notificationGroupId": "group-other", "decision": "conflict", "latestRevision": 3},
+    {"name": "new-revision-same-target", "groupRevision": 4, "notificationGroupId": "group-fixture-001", "decision": "create", "latestRevision": 4},
+    {"name": "historical-backfill-after-latest", "groupRevision": 2, "notificationGroupId": "group-fixture-001", "decision": "create", "latestRevision": 4},
+    {"name": "old-revision-replay-does-not-downgrade", "groupRevision": 3, "notificationGroupId": "group-fixture-001", "decision": "replay", "latestRevision": 4},
+    {"name": "same-tuple-different-group", "groupRevision": 5, "notificationGroupId": "group-other", "decision": "conflict", "latestRevision": 4}
+  ],
+  "historyLimit": 128,
+  "atLimit": {
+    "existingRevisions": 128,
+    "newRevisionDecision": "history_limit",
+    "existingRevisionReplayDecision": "replay"
+  },
+  "legacySwitchRules": {
+    "usesExpectedOldRevisionCompareAndSwap": true,
+    "rejectsDowngrade": true,
+    "switchOccursInLegacyDatabaseTransaction": true
+  }
+}

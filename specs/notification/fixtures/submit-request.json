@@ -1,0 +1,14 @@
+{
+  "source": {"type": "alarm", "id": "alarm-fixture-001"},
+  "deliveries": [
+    {
+      "instanceId": "sms-fixture-001",
+      "recipient": {"kind": "phone", "address": "+12025550101"},
+      "content": {
+        "kind": "template",
+        "template": {"id": "APPROVED_TEMPLATE_FIXTURE", "locale": "en_US", "params": {"device": "cold-room-fixture"}}
+      }
+    }
+  ],
+  "expiresAt": "2030-01-01T00:00:00Z"
+}

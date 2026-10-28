@@ -1,0 +1,11 @@
+{
+  "databaseUrl": "postgres://USER:PASSWORD@POSTGRES:5432/EXISTING_COMMUNITY_DATABASE?sslmode=require",
+  "redisUrl": "redis://:PASSWORD@REDIS:6379/0",
+  "signingKey": "",
+  "sessionSeconds": 86400,
+  "maxFailures": 5,
+  "lockSeconds": 900,
+  "rsaPrivateKeyFile": "",
+  "publicOrigin": "https://panel.example.com",
+  "providers": []
+}

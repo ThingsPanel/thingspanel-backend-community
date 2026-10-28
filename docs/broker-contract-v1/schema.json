@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://thingspanel.example/schemas/broker-contract-v1.json",
+  "title": "ThingsPanel community broker contract v1",
+  "oneOf": [
+    { "$ref": "#/$defs/Envelope" },
+    { "$ref": "#/$defs/AuthRequest" },
+    { "$ref": "#/$defs/Grant" },
+    { "$ref": "#/$defs/CommandFrame" }
+  ],
+  "$defs": {
+    "Principal": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tenant_id", "device_id", "principal_kind"],
+      "properties": {
+        "tenant_id": {"type":"string","minLength":1,"maxLength":256},
+        "device_id": {"type":"string","minLength":1,"maxLength":256},
+        "principal_kind": {"enum":["device","gateway","service"]}
+      }
+    },
+    "Metadata": {
+      "type":"object","additionalProperties":false,
+      "required":["contract_version","tenant_id","principal_kind","broker_cell","broker_instance","route_epoch","policy_version","mapping_version","original_topic_b64","original_qos","original_retain","retained_replay","observed_at"],
+      "properties": {
+        "contract_version":{"const":"1"},"tenant_id":{"type":"string","minLength":1,"maxLength":256},
+        "principal_kind":{"enum":["device","gateway","service"]},"broker_cell":{"type":"string","minLength":1,"maxLength":256},
+        "broker_instance":{"type":"string","minLength":1,"maxLength":256},"connection_id":{"type":"string","maxLength":256},"ingestion_id":{"type":"string","minLength":1,"maxLength":128},
+        "route_epoch":{"type":"integer","minimum":0},"policy_version":{"type":"string","minLength":1,"maxLength":256},
+        "mapping_version":{"type":"string","minLength":1,"maxLength":256},"original_topic_b64":{"type":"string","maxLength":87380,"contentEncoding":"base64"},
+        "original_qos":{"type":"integer","minimum":0,"maximum":2},"original_retain":{"type":"boolean"},
+        "retained_replay":{"type":"boolean"},"observed_at":{"type":"string","format":"date-time"}
+      }
+    },
+    "Envelope": {
+      "type":"object","additionalProperties":false,"required":["device_id","values","_tp"],
+      "properties":{"device_id":{"type":"string","minLength":1,"maxLength":256},"values":{"type":"string","contentEncoding":"base64"},"_tp":{"$ref":"#/$defs/Metadata"}}
+    },
+    "CommandFrame": {
+      "description":"JSON body stored after the private NUL-prefixed TP-COMMAND/1 marker; not a device wire envelope.",
+      "type":"object","additionalProperties":false,
+      "required":["command_id","tenant_id","target_device_id","route_epoch","mapping_version","wire_topic","expires_at","payload"],
+      "properties":{
+        "command_id":{"type":"string","minLength":1,"maxLength":256},
+        "tenant_id":{"type":"string","minLength":1,"maxLength":256},
+        "target_device_id":{"type":"string","minLength":1,"maxLength":256},
+        "route_epoch":{"type":"integer","minimum":1},
+        "mapping_version":{"type":"string","minLength":1,"maxLength":256},
+        "wire_topic":{"type":"string","minLength":1,"maxLength":65535,"pattern":"^(devices|gateway)/command/[^/+#]+/[^/+#]+$"},
+        "expires_at":{"type":"integer","description":"Unix time in milliseconds; greater than broker now and at most 24 hours ahead."},
+        "payload":{"type":"string","contentEncoding":"base64","minLength":4,"maxLength":699052}
+      }
+    },
+    "Policy": {
+      "type":"object","additionalProperties":false,"required":["publish","subscribe","max_payload","max_qos","retain_profile"],
+      "properties":{"publish":{"type":["array","null"],"items":{"type":"string","minLength":1}},"subscribe":{"type":["array","null"],"items":{"type":"string","minLength":1}},"max_payload":{"type":"integer","minimum":0,"maximum":1048576},"max_qos":{"type":"integer","minimum":0,"maximum":2},"retain_profile":{"enum":["","live-ingress","platform-retained","wire-retained"]}}
+    },
+    "AuthRequest": {
+      "type":"object","additionalProperties":false,"required":["request_id","provider","broker_cell","broker_instance","wire_client_id","protocol"],
+      "properties":{"request_id":{"type":"string"},"provider":{"type":"string"},"broker_cell":{"type":"string"},"broker_instance":{"type":"string"},"connection_nonce":{"type":"string"},"wire_client_id":{"type":"string"},"username":{"type":"string"},"password":{"type":"string"},"protocol":{"type":"integer"},"peer":{"type":"string"}}
+    },
+    "Grant": {
+      "type":"object","additionalProperties":false,"required":["allow"],
+      "properties":{"allow":{"type":"boolean"},"principal":{"$ref":"#/$defs/Principal"},"policy":{"$ref":"#/$defs/Policy"},"policy_version":{"type":"string"},"mapping_version":{"type":"string"},"connection_id":{"type":"string"},"policy_hash":{"type":"string"},"binding_phase":{"type":"string","enum":["active","connecting"]},"route_epoch":{"type":"integer","minimum":0},"expires_at":{"type":"string","format":"date-time"},"deny_code":{"type":"string"},"retryable":{"type":"boolean"}},
+      "allOf":[{"if":{"properties":{"allow":{"const":true}}},"then":{"required":["principal","policy","policy_version","mapping_version","connection_id","route_epoch","expires_at"],"properties":{"route_epoch":{"type":"integer","minimum":1}}}}]
+    }
+  }
+}

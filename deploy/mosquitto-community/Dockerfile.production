@@ -1,0 +1,71 @@
+# Production image. The broker and plugin are built from the same pinned
+# Mosquitto source tree so the plugin ABI headers cannot drift independently.
+ARG DEBIAN_BASE=debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+ARG GO_BASE=golang:1.26.2-bookworm@sha256:47ce5636e9936b2c5cbf708925578ef386b4f8872aec74a67bd13a627d242b19
+ARG MOSQUITTO_COMMIT=99fa50f30e325609394c324c8ff71cfbbe95d8ab
+
+FROM ${DEBIAN_BASE} AS mosquitto-build
+ARG MOSQUITTO_COMMIT
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential ca-certificates cmake git libcjson-dev libsqlite3-dev libssl-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+RUN git init . \
+    && git remote add origin https://github.com/eclipse-mosquitto/mosquitto.git \
+    && git fetch --depth 1 origin "${MOSQUITTO_COMMIT}" \
+    && git checkout --detach FETCH_HEAD \
+    && test "$(git rev-parse HEAD)" = "${MOSQUITTO_COMMIT}" \
+    && cmake -S /src -B /build -DCMAKE_BUILD_TYPE=Release \
+       -DCMAKE_INSTALL_PREFIX=/usr/local -DWITH_DOCS=OFF -DWITH_TESTS=OFF \
+       -DWITH_BUNDLED_DEPS=ON -DWITH_TLS=ON -DWITH_TLS_PSK=ON \
+       -DWITH_WEBSOCKETS=ON -DWITH_WEBSOCKETS_BUILTIN=ON \
+    && cmake --build /build --parallel \
+    && DESTDIR=/stage cmake --install /build
+
+FROM ${GO_BASE} AS go-build
+ARG MOSQUITTO_COMMIT
+WORKDIR /src
+COPY . /src
+COPY --from=mosquitto-build /stage/usr/local/include /opt/mosquitto/include
+RUN apt-get update && apt-get install -y --no-install-recommends libcjson-dev \
+    && rm -rf /var/lib/apt/lists/*
+RUN test "${MOSQUITTO_COMMIT}" = "99fa50f30e325609394c324c8ff71cfbbe95d8ab" \
+    && CGO_ENABLED=1 CGO_CFLAGS="-I/opt/mosquitto/include -I/usr/include" \
+       go build -trimpath -tags mosquitto_plugin -buildmode=c-shared \
+       -o /out/libtp-mosquitto-plugin.so ./cmd/tp-mosquitto-plugin \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" \
+       -o /out/tp-broker-owner ./cmd/tp-broker-owner \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" \
+       -o /out/tp-broker-readiness ./deploy/mosquitto-community/readiness \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" \
+       -o /out/tp-broker-audit ./cmd/tp-broker-audit \
+    && chmod 0555 /out/*
+
+FROM ${DEBIAN_BASE} AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates libcjson1 libsqlite3-0 libssl3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 1883 mosquitto \
+    && useradd --system --uid 1883 --gid mosquitto --no-create-home \
+       --shell /usr/sbin/nologin mosquitto \
+    && install -d -o 1883 -g 1883 -m 0750 /mosquitto/data /mosquitto/plugins /run/secrets
+COPY --from=mosquitto-build /stage/usr/local/sbin/mosquitto /usr/local/sbin/mosquitto
+RUN install -d -m 0755 /usr/share/licenses/mosquitto
+COPY --from=mosquitto-build /src/LICENSE.txt /src/epl-v20 /src/edl-v10 /usr/share/licenses/mosquitto/
+COPY --from=go-build /src/LICENSE /usr/share/licenses/mosquitto/thingspanel-community-LICENSE
+COPY --from=go-build /out/libtp-mosquitto-plugin.so /mosquitto/plugins/libtp-mosquitto-plugin.so
+COPY --from=go-build /out/tp-broker-owner /usr/local/bin/tp-broker-owner
+COPY --from=go-build /out/tp-broker-readiness /usr/local/bin/tp-broker-readiness
+COPY --from=go-build /out/tp-broker-audit /usr/local/bin/tp-broker-audit
+COPY deploy/mosquitto-community/entrypoint.production.sh /usr/local/bin/tp-broker-entrypoint
+COPY deploy/mosquitto-community/mosquitto.production.conf /mosquitto/config/mosquitto.conf
+RUN chmod 0555 /usr/local/bin/tp-broker-entrypoint /usr/local/bin/tp-broker-owner /usr/local/bin/tp-broker-readiness /usr/local/bin/tp-broker-audit \
+    && chmod 0444 /mosquitto/config/mosquitto.conf /mosquitto/plugins/libtp-mosquitto-plugin.so \
+       /usr/share/licenses/mosquitto/LICENSE.txt /usr/share/licenses/mosquitto/epl-v20 \
+       /usr/share/licenses/mosquitto/edl-v10 /usr/share/licenses/mosquitto/thingspanel-community-LICENSE \
+    && ldconfig
+USER 1883:1883
+WORKDIR /mosquitto
+EXPOSE 1883
+ENTRYPOINT ["/usr/local/bin/tp-broker-entrypoint"]
+CMD ["broker"]

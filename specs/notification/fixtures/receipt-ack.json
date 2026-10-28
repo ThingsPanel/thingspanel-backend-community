@@ -1,0 +1,5 @@
+{
+  "httpStatus": 200,
+  "body": {"accepted": true},
+  "assertions": {"hasBusinessEnvelope": false, "persistBeforeAck": true, "meansDelivered": false}
+}

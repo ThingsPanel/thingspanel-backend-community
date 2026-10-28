@@ -1,0 +1,11 @@
+[Unit]
+Description=Drive ThingsPanel automation schedules and durable continuations
+
+[Timer]
+OnActiveSec=1s
+OnUnitInactiveSec=1s
+AccuracySec=100ms
+Unit=automation-tick.service
+
+[Install]
+WantedBy=timers.target

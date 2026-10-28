@@ -1,0 +1,6 @@
+{
+  "pluginRegistrationId": "plugin-registration-fixture",
+  "tenantId": "tenant-opaque-fixture",
+  "enabled": true,
+  "expectedVersion": 0
+}

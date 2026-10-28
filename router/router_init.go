@@ -1,12 +1,17 @@
 package router
 
 import (
+	"os"
 	"time"
 
+	"project/internal/automationcompat"
+	"project/internal/automationguard"
 	middleware "project/internal/middleware"
 	"project/internal/middleware/response"
+	"project/internal/uplink"
 	"project/pkg/global"
 	"project/pkg/metrics"
+	"project/pkg/utils"
 	"project/router/apps"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +33,7 @@ import (
 func RouterInit() *gin.Engine {
 	// gin.SetMode(gin.ReleaseMode) //开启生产模式
 	router := gin.Default()
+	router.Use(middleware.RetireAuthWriters())
 	// Swagger文档路由
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -59,20 +65,73 @@ func RouterInit() *gin.Engine {
 	// router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	router.Use(middleware.Cors())
+	// Credential routes precede full-body operation logging and ordinary JWT auth.
+	api.RegisterBrokerAIToolRoutes(router)
+	router.Use(api.BrokerCommandPlanBodyLimits())
 	// 初始化响应处理器
 	handler, err := response.NewHandler("configs/messages.yaml", "configs/messages_str.yaml")
 	if err != nil {
 		logrus.Fatalf("初始化响应处理器失败: %v", err)
 	}
 
+	controllers := new(api.Controller)
+	// This read-only identity assertion carries the original user token. Keep
+	// it outside operation-log middleware and require JWT session validation.
+	router.GET("/api/v1/notification/session-context", middleware.JWTAuth(), controllers.NotificationIdentityApi.SessionContext)
+	// Dedicated deployment credentials protect these reads. Mount them before
+	// operation logging so credentials and member contact details are excluded.
+	reader := api.NewNotificationMemberReaderFromEnv()
+	// Explicit legacy capabilities: optional sign-in is disabled until the
+	// deployment switches its single authentication owner and ingress together.
+	for _, path := range []string{"/api/v1/auth/login-options", "/api/v1/auth/external/providers"} {
+		router.GET(path, func(c *gin.Context) {
+			c.Header("Cache-Control", "no-store")
+			if os.Getenv("TP_AUTH_OWNER") == "encore" {
+				c.JSON(503, gin.H{"code": 503, "message": "authentication routing is not configured"})
+				return
+			}
+			var data any = gin.H{"password": gin.H{"enabled": true}, "external": gin.H{"enabled": false, "providers": []any{}}}
+			if c.Request.URL.Path == "/api/v1/auth/external/providers" {
+				data = []any{}
+			}
+			c.JSON(200, gin.H{"code": 200, "message": "success", "data": data})
+		})
+	}
+	router.GET("/api/v1/auth/admin/providers", middleware.JWTAuth(), func(c *gin.Context) {
+		v, ok := c.Get("claims")
+		claims, valid := v.(*utils.UserClaims)
+		if !ok || !valid || claims.Authority != "SYS_ADMIN" || claims.Delegated {
+			c.JSON(403, gin.H{"code": 403, "message": "Forbidden"})
+			return
+		}
+		c.Header("Cache-Control", "no-store")
+		if os.Getenv("TP_AUTH_OWNER") == "encore" {
+			c.JSON(503, gin.H{"code": 503, "message": "authentication routing is not configured"})
+			return
+		}
+		c.JSON(200, gin.H{"code": 200, "message": "success", "data": gin.H{"editable": false, "reason": "native_auth_not_enabled", "providers": []any{}, "callbackUrl": ""}})
+	})
+	router.GET("/api/v1/notification/source-members/:id", reader.GetMemberContact)
+	router.GET("/api/v1/notification/source-app-members/:id", reader.GetAppMemberDevices)
+	router.GET("/api/v1/notification/source-app-devices/:id", reader.GetAppDevice)
+	router.GET("/api/v1/notification/source-tenants/:id", reader.GetTenantPresence)
+	router.GET("/api/v1/notification/source-policies/:id", reader.GetAutomationPolicy)
+
 	// 记录操作日志
 	router.Use(middleware.OperationLogs())
 	// 全局使用
 	global.ResponseHandler = handler
+	// 命令受理守卫必须在响应中间件之外。
+	//
+	// 它要记录"这次下发返回了什么"，重试时原样回放。如果它注册在响应中间件
+	// 里面，它会先于响应包写入就判定响应已写出，调用方拿到的是空 200——自动化
+	// 服务把空包读成拒绝，于是每条命令都显示失败，而设备其实已经动作了。
+	// 放在这里，它看到的是完整的响应包，成功与失败两条路都记对。
+	// 没有 X-Idempotency-Key 的请求原样放行，控制台与脚本行为不变。
+	router.Use(automationguard.Guard(global.DB))
 	// 使用中间件
 	router.Use(handler.Middleware())
 
-	controllers := new(api.Controller)
 	// 健康检查
 	router.GET("/health", controllers.SystemApi.HealthCheck)
 
@@ -131,6 +190,10 @@ func RouterInit() *gin.Engine {
 
 		// 需要权限校验
 		v1.Use(middleware.CasbinRBAC())
+		v1.GET("/automation/runtime", func(c *gin.Context) {
+			c.Header("Cache-Control", "no-store")
+			c.JSON(200, gin.H{"code": 200, "message": "success", "data": gin.H{"mode": uplink.CurrentAutomationMode()}})
+		})
 		// SSE服务
 		SSERouter(v1)
 
@@ -199,6 +262,24 @@ func RouterInit() *gin.Engine {
 
 			// 初始化系统监控路由
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)
+
+			// A30 旧客户端兼容适配，影子挂载。
+			//
+			// 只在 AUTOMATION_COMPAT_MODE=shadow 时注册，路径是 /api/v1/compat/*，
+			// 旧引擎继续服务真正的旧路径，所以这一步不会让任何设备被执行两次。
+			// 接管（把适配器挂到 /api/v1/scene 等真实路径上）属于 A33，届时同一个
+			// 提交里要删掉 apps.Model.Scene / SceneAutomations / Alarm 的旧注册，
+			// 否则 Gin 会因为路由重复直接 panic。
+			if compatCfg, err := automationcompat.ConfigFromEnv(); err != nil {
+				logrus.Warnf("自动化兼容适配未启用：%v", err)
+			} else if compatCfg.Mode == automationcompat.ModeShadow {
+				automationcompat.MountShadow(v1, automationcompat.NewHandlers(automationcompat.Deps{
+					Core:   automationcompat.NewCoreClient(compatCfg.CoreBaseURL, compatCfg.Timeout),
+					Sunset: compatCfg.Sunset,
+				}))
+				logrus.Infof("自动化兼容适配已挂载到 /api/v1/compat，到期日 %s",
+					compatCfg.Sunset.Format("2006-01-02"))
+			}
 		}
 	}
 

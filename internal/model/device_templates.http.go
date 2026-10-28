@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -128,20 +129,43 @@ type DeviceConfigPayload struct {
 
 // PublishTemplateReq 发布模板到市场的业务契约对象（发送给 market-service）
 type PublishTemplateReq struct {
-	CoverURL         string `json:"cover_url,omitempty"`
-	SourceTemplateID string `json:"source_template_id"`
-	Name             string `json:"name"`
-	Brand            string `json:"brand"`
-	Model            string `json:"model"`
-	Category         string `json:"category"`
-	Author           string `json:"author"`
-	Version          string `json:"version"`
-	Description      string `json:"description"`
+	NativeCoverURL   *string `json:"native_cover_url,omitempty"` // immutable model resource, independent of catalog cover
+	CoverURL         string  `json:"cover_url,omitempty"`
+	SourceTemplateID string  `json:"source_template_id"`
+	Name             string  `json:"name"`
+	Brand            string  `json:"brand"`
+	Model            string  `json:"model"`
+	Category         string  `json:"category"`
+	Author           string  `json:"author"`
+	Version          string  `json:"version"`
+	Description      string  `json:"description"`
 	// DeviceConfig 凭证协议配置
 	DeviceConfig *DeviceConfigPayload `json:"device_config"`
 	// TemplateDefinition 模板定义（面板+物模型）
 	TemplateDefinition map[string]interface{} `json:"template_definition"`
 	PluginDependencies []PluginDependency     `json:"plugin_dependencies"`
+}
+
+// MarketNativeThingModelDependency is a portable, version-pinned native
+// thing-model dependency carried inside a device-template market package.
+// Model and Resources use the native v2 command transport contract; source IDs
+// are provenance only and are never used as target-environment references.
+type MarketNativeThingModelDependency struct {
+	ContractVersion         string                        `json:"contract_version"`
+	SourceModelID           string                        `json:"source_model_id"`
+	SourceSnapshotID        string                        `json:"source_snapshot_id"`
+	SourceRevision          int                           `json:"source_revision"`
+	SourceResourcesRevision int                           `json:"source_resources_revision"`
+	SourceChecksum          string                        `json:"source_checksum"`
+	DependencyChecksum      string                        `json:"dependency_checksum"`
+	Model                   json.RawMessage               `json:"model"`
+	Resources               json.RawMessage               `json:"resources"`
+	Assets                  []MarketNativeThingModelAsset `json:"assets,omitempty"`
+}
+
+type MarketNativeThingModelAsset struct {
+	Key    string `json:"key"`
+	Source string `json:"source"`
 }
 
 // MarketPublishApiResponse 市场发布的标准响应
@@ -162,7 +186,7 @@ type PluginDependency struct {
 // InstallFromMarketReq 从市场安装模板请求
 type InstallFromMarketReq struct {
 	MarketTemplateID string `json:"market_template_id" validate:"required"`
-	Version          string `json:"version" validate:"omitempty"` // 不传则安装最新版
+	Version          string `json:"version" validate:"required"` // exact market version selected by the installer
 	MarketToken      string `json:"market_token" validate:"required"`
 }
 
@@ -177,6 +201,7 @@ type MarketTemplateListReq struct {
 
 // MarketTemplateFullData 市场模板完整数据（从市场下载的完整定义）
 type MarketTemplateFullData struct {
+	CoverSHA256 string `json:"cover_sha256,omitempty"`
 	Name        string `json:"name"`
 	Brand       string `json:"brand"`
 	ModelNumber string `json:"model_number"`
@@ -189,13 +214,13 @@ type MarketTemplateFullData struct {
 	// 设备配置（凭证协议配置）
 	DeviceConfig *DeviceConfigPayload `json:"device_config"`
 	// 模板定义（物模型 + 面板配置）
-	TemplateDefinition *TemplateDefinitionPayload `json:"template_definition"`
-	PluginDependencies []PluginDependency         `json:"plugin_dependencies"`
+	TemplateDefinition json.RawMessage    `json:"template_definition"`
+	PluginDependencies []PluginDependency `json:"plugin_dependencies"`
 }
 
-// TemplateDefinitionPayload 模板定义（面板配置）
-// 使用 map[string]interface{} 以兼容 JSON 序列化/反序列化
-type TemplateDefinitionPayload map[string]interface{}
+// TemplateDefinitionPayload is decoded from raw JSON at the market boundary.
+// Keeping it raw prevents native model enum/chart numbers from being rounded
+// through float64 before checksum validation and import.
 
 // InstallFromMarketRsp 安装响应（含插件缺失警告）
 type InstallFromMarketRsp struct {

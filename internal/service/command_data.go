@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"project/initialize"
+	"project/internal/brokercommands"
 	"project/internal/dal"
 	"project/internal/downlink"
 	"project/internal/model"
@@ -16,10 +18,14 @@ import (
 	"project/pkg/common"
 	"project/pkg/constant"
 	"project/pkg/errcode"
+	"project/pkg/global"
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
+
+const commandStatusTimeout = 30 * time.Second
 
 type CommandData struct {
 	downlinkBus *downlink.Bus // ✨ 依赖注入
@@ -33,22 +39,76 @@ func (c *CommandData) SetDownlinkBus(bus *downlink.Bus) {
 // PutMessage 下发命令（改造为异步模式，支持多层网关）
 // 保持原有的 CommandPutMessage 接口签名
 func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType string) error {
+	_, err := c.commandPutMessageWithResult(ctx, operatorID, putMessageReq, operationType, "", false)
+	return err
+}
+
+// CommandPutMessageWithResult 接受命令并返回可用于查询回执的 message_id。
+func (c *CommandData) CommandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string) (string, error) {
+	return c.commandPutMessageWithResult(ctx, operatorID, putMessageReq, operationType, tenantID, true)
+}
+
+func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorID string, putMessageReq *model.PutMessageForCommand, operationType, tenantID string, enforceTenant bool, hooks ...durablePreparationHook) (string, error) {
+	if putMessageReq == nil {
+		return "", errcode.NewWithMessage(errcode.CodeParamError, "command request is required")
+	}
+	durableCommands := isIngressV1Commands()
+	if !durableCommands && (putMessageReq.IdempotencyKey != "" || putMessageReq.ExpiresAt != nil) {
+		return "", errcode.NewWithMessage(errcode.CodeParamError, "idempotency_key and expires_at require mqtt.input_profile=ingress_v1")
+	}
+	if durableCommands && enforceTenant && putMessageReq.IdempotencyKey != "" && len(hooks) == 0 {
+		caller, intent, err := durableCommandIdentity(operationType, operatorID)
+		if err != nil {
+			return "", err
+		}
+		if err := ValidateDurableCommandCaller(ctx, global.DB, brokercommands.Row{TenantID: tenantID, CallerID: caller, Intent: intent}); err != nil {
+			return "", err
+		}
+		canonical, err := canonicalizeCommand(putMessageReq, "")
+		if err != nil {
+			return "", err
+		}
+		store, err := getDurableCommandStore(global.DB)
+		if err != nil {
+			return "", err
+		}
+		row, found, err := store.FindIdempotent(ctx, tenantID, caller, intent, putMessageReq.IdempotencyKey, canonical)
+		if err != nil {
+			return "", err
+		}
+		if found {
+			return row.ID, nil
+		}
+	}
 	// 1. 获取设备信息
-	device, err := initialize.GetDeviceCacheById(putMessageReq.DeviceID)
+	// Downlink routing needs the current access_way and service_access_id relation;
+	// Redis device cache entries may not contain those database fields.
+	device, err := dal.GetDeviceByID(putMessageReq.DeviceID)
 	if err != nil {
-		return fmt.Errorf("device not found: %w", err)
+		return "", fmt.Errorf("failed to load device from database: %w", err)
+	}
+	if enforceTenant && device.TenantID != tenantID {
+		return "", errcode.NewWithMessage(errcode.CodeParamError, "device not found")
+	}
+	if !durableCommands && c.downlinkBus == nil {
+		return "", fmt.Errorf("downlink service not available")
 	}
 
-	// 2. 生成 message_id，8位唯一字符串
-	messageId := uuid.New()[:8]
+	// 2. 使用完整 UUID 作为 message_id，避免短 ID 碰撞导致回执关联错误
+	messageId := uuid.New()
 
 	// 3. 获取设备类型和协议类型
+	serviceRoute, err := resolveServiceDownlinkRoute(device)
+	if err != nil {
+		return "", err
+	}
+	isService := serviceRoute.IsService
 	var deviceType string
 	var protocolType string
-	if device.DeviceConfigID != nil {
+	if !isService && device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
-			return fmt.Errorf("failed to get device config: %w", err)
+			return "", fmt.Errorf("failed to get device config: %w", err)
 		}
 		deviceType = deviceConfig.DeviceType
 		if deviceConfig.ProtocolType != nil {
@@ -62,71 +122,151 @@ func (c *CommandData) CommandPutMessage(ctx context.Context, operatorID string, 
 	}
 
 	// 4. 构造命令数据
-	commandData := map[string]interface{}{
-		"method": putMessageReq.Identify, // identify 映射为 method
-	}
-	if putMessageReq.Value != nil {
-		valueStr := strings.TrimSpace(*putMessageReq.Value)
-		if valueStr != "" {
-			if !json.Valid([]byte(valueStr)) {
-				return errcode.NewWithMessage(errcode.CodeParamError, "value is not a valid JSON")
-			}
-			commandData["params"] = json.RawMessage(valueStr)
-		}
+	commandData, err := buildCommandData(putMessageReq.Identify, putMessageReq.Value)
+	if err != nil {
+		return "", errcode.NewWithMessage(errcode.CodeParamError, "value is not a valid JSON")
 	}
 
 	// 5. 处理多层网关数据嵌套
-	transformedData, err := transformCommandDataForMultiLevelGateway(commandData, device, deviceType)
-	if err != nil {
-		return fmt.Errorf("failed to transform command data: %w", err)
+	transformedData := commandData
+	if !durableCommands {
+		transformedData, err = transformCommandDataForMultiLevelGateway(commandData, device, deviceType)
+		if err != nil {
+			return "", fmt.Errorf("failed to transform command data: %w", err)
+		}
 	}
 
 	jsonData, err := json.Marshal(transformedData)
 	if err != nil {
-		return errcode.NewWithMessage(errcode.CodeParamError, "command data is not a valid JSON")
+		return "", errcode.NewWithMessage(errcode.CodeParamError, "command data is not a valid JSON")
 	}
 
 	// 6. 处理网关层级，获取目标设备信息
-	targetDevice, targetDeviceNumber, topicPrefix, err := c.resolveDeviceInfo(device, deviceType, protocolType)
+	targetDevice, targetDeviceNumber, topicPrefix := device, device.DeviceNumber, serviceRoute.TopicPrefix
+	if isService {
+		targetDeviceNumber = serviceRoute.DeviceNumber
+	}
+	if !isService {
+		targetDevice, targetDeviceNumber, topicPrefix, err = c.resolveDeviceInfo(device, deviceType, protocolType)
+	}
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	// 7. 创建 pending 日志（记录转换后的完整数据）
+	// 7. Build the downlink before persisting it. ingress_v1 stores this exact
+	// logical request and command log together; the dispatcher later replaces
+	// MessageID with the durable row ID before publishing.
 	transformedDataStr := string(jsonData)
+	msg := &downlink.Message{
+		DeviceID:       device.ID,                         // 原始设备ID（用于日志关联）
+		DeviceNumber:   targetDeviceNumber,                // 目标设备编号
+		DeviceType:     deviceType,                        // 设备类型
+		DeviceConfigID: c.getDeviceConfigID(targetDevice), // 使用顶层网关的配置ID（用于脚本编码）
+		Type:           downlink.MessageTypeCommand,
+		Data:           jsonData,
+		Topic:          "",          // 不再传Topic，由Adapter构造
+		TopicPrefix:    topicPrefix, // 协议插件前缀
+		MessageID:      messageId,
+	}
+	if durableCommands {
+		return c.submitDurableCommand(ctx, operatorID, tenantID, putMessageReq, operationType, device, targetDevice, msg, deviceType, commandData, hooks...)
+	}
 	if err := c.createCommandLogForPut(device, messageId, putMessageReq.Identify, &transformedDataStr, operationType); err != nil {
 		logrus.WithError(err).Error("Failed to create command log")
-		// 不阻塞发送流程
+		return "", fmt.Errorf("failed to create command log: %w", err)
 	}
+	c.downlinkBus.PublishCommand(msg)
 
-	// 8. 使用 downlink.Bus 发送
-	if c.downlinkBus != nil {
-		msg := &downlink.Message{
-			DeviceID:       device.ID,                         // 原始设备ID（用于日志关联）
-			DeviceNumber:   targetDeviceNumber,                // 目标设备编号
-			DeviceType:     deviceType,                        // 设备类型
-			DeviceConfigID: c.getDeviceConfigID(targetDevice), // 使用顶层网关的配置ID（用于脚本编码）
-			Type:           downlink.MessageTypeCommand,
-			Data:           jsonData,
-			Topic:          "",          // 不再传Topic，由Adapter构造
-			TopicPrefix:    topicPrefix, // 协议插件前缀
-			MessageID:      messageId,
+	logrus.WithFields(logrus.Fields{
+		"device_id":            device.ID,
+		"target_device_id":     targetDevice.ID,
+		"target_device_number": targetDeviceNumber,
+		"device_type":          deviceType,
+		"message_id":           messageId,
+		"identify":             putMessageReq.Identify,
+	}).Info("Command sent via downlink")
+	return messageId, nil
+}
+
+// GetCommandStatus 按租户查询单条命令状态；不存在或不属于该租户统一返回 not_found。
+func (*CommandData) GetCommandStatus(ctx context.Context, messageID, tenantID string) (*model.CommandStatusResponse, error) {
+	if isIngressV1Commands() {
+		store, err := getDurableCommandStore(global.DB)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 		}
-		c.downlinkBus.PublishCommand(msg)
+		row, err := store.GetScoped(ctx, tenantID, messageID)
+		if errors.Is(err, brokercommands.ErrNotFound) {
+			// Cutover may still have scoped legacy operations in flight. Preserve
+			// their receipt lookup; never fall back to a global message_id query.
+			return legacyCommandStatus(ctx, messageID, tenantID)
+		}
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		}
+		response := &model.CommandStatusResponse{MessageID: row.ID, Status: row.State, CreatedAt: row.CreatedAt}
+		if row.LastError != "" {
+			response.ErrorMessage = &row.LastError
+		}
+		return response, nil
+	}
+	return legacyCommandStatus(ctx, messageID, tenantID)
+}
 
-		logrus.WithFields(logrus.Fields{
-			"device_id":            device.ID,
-			"target_device_id":     targetDevice.ID,
-			"target_device_number": targetDeviceNumber,
-			"device_type":          deviceType,
-			"message_id":           messageId,
-			"identify":             putMessageReq.Identify,
-		}).Info("Command sent via downlink")
-	} else {
-		return fmt.Errorf("downlink service not available")
+func legacyCommandStatus(ctx context.Context, messageID, tenantID string) (*model.CommandStatusResponse, error) {
+	log, err := dal.GetCommandSetLogByMessageIDAndTenant(ctx, messageID, tenantID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &model.CommandStatusResponse{MessageID: messageID, Status: "not_found"}, nil
+		}
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 	}
 
-	return nil
+	status := "accepted"
+	if log.Status != nil {
+		switch *log.Status {
+		case "0":
+			status = "accepted"
+		case "1":
+			status = "published"
+		case "2":
+			status = "publish_failed"
+		case "3":
+			status = "device_succeeded"
+		case "4":
+			status = "device_failed"
+		default:
+			status = "unknown"
+		}
+	}
+	if (status == "accepted" || status == "published") && time.Since(log.CreatedAt) >= commandStatusTimeout {
+		status = "timeout"
+	}
+
+	return &model.CommandStatusResponse{
+		MessageID:    messageID,
+		Status:       status,
+		RawStatus:    log.Status,
+		ErrorMessage: log.ErrorMessage,
+		CreatedAt:    log.CreatedAt,
+		Response:     log.RspDatum,
+	}, nil
+}
+
+func buildCommandData(identify string, value *string) (map[string]interface{}, error) {
+	commandData := map[string]interface{}{"method": identify}
+	if value == nil {
+		return commandData, nil
+	}
+	valueStr := strings.TrimSpace(*value)
+	if valueStr == "" {
+		return commandData, nil
+	}
+	if !json.Valid([]byte(valueStr)) {
+		return nil, fmt.Errorf("value is not a valid JSON")
+	}
+	commandData["params"] = json.RawMessage(valueStr)
+	return commandData, nil
 }
 
 // createCommandLogForPut 创建命令日志（for PutMessageForCommand）
@@ -191,12 +331,15 @@ func (c *CommandData) getDeviceConfigID(device *model.Device) string {
 	return *device.DeviceConfigID
 }
 
-// GetCommonList 获取命令列表（保留原有方法）
-func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCommandListRes, error) {
+// GetCommonList returns the commands available to a device in the caller's tenant.
+func (*CommandData) GetCommonList(ctx context.Context, id, tenantID, communityAuthorization string) ([]model.GetCommandListRes, error) {
 	list := make([]model.GetCommandListRes, 0)
 
-	deviceInfo, err := dal.DeviceQuery{}.First(ctx, query.Device.ID.Eq(id))
+	deviceInfo, err := dal.DeviceQuery{}.First(ctx, query.Device.ID.Eq(id), query.Device.TenantID.Eq(tenantID))
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return list, errcode.NewWithMessage(errcode.CodeOpDenied, "device not found")
+		}
 		logrus.Error(ctx, "[GetCommonList]device failed:", err)
 		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -208,20 +351,39 @@ func (*CommandData) GetCommonList(ctx context.Context, id string) ([]model.GetCo
 		return list, nil
 	}
 
-	deviceConfigsInfo, err := dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*deviceInfo.DeviceConfigID))
+	deviceConfigsInfo, err := dal.GetDeviceConfigByIDForTenant(ctx, *deviceInfo.DeviceConfigID, tenantID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return list, errcode.NewWithMessage(errcode.CodeOpDenied, "device config not found")
+		}
 		logrus.Debug(ctx, "[GetCommonList]device_configs failed:", err)
 		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
 
+	if hasNativeDeviceConfigBinding(deviceConfigsInfo) {
+		return nativeDeviceCommands(ctx, communityAuthorization, deviceConfigsInfo)
+	}
+
 	if deviceConfigsInfo.DeviceTemplateID == nil || common.CheckEmpty(*deviceConfigsInfo.DeviceTemplateID) {
 		logrus.Debug("device_configs.device_template_id is empty")
 		return list, nil
 	}
+	// A device config must not grant access to a legacy template owned by another tenant.
+	_, err = query.DeviceTemplate.WithContext(ctx).
+		Where(query.DeviceTemplate.ID.Eq(*deviceConfigsInfo.DeviceTemplateID), query.DeviceTemplate.TenantID.Eq(tenantID)).First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return list, errcode.NewWithMessage(errcode.CodeOpDenied, "device template not found")
+		}
+		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
 
-	commandList, err := dal.DeviceModelCommandsQuery{}.Find(ctx, query.DeviceModelCommand.DeviceTemplateID.Eq(*deviceConfigsInfo.DeviceTemplateID))
+	commandList, err := dal.DeviceModelCommandsQuery{}.Find(ctx,
+		query.DeviceModelCommand.DeviceTemplateID.Eq(*deviceConfigsInfo.DeviceTemplateID),
+		query.DeviceModelCommand.TenantID.Eq(tenantID),
+	)
 	if err != nil {
 		logrus.Error(ctx, "[GetCommonList]device_model_command failed:", err)
 		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{

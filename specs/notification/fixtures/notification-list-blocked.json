@@ -1,0 +1,11 @@
+{
+  "code": 200,
+  "message": "ok",
+  "requestId": "query-fixture-1",
+  "data": {
+    "items": [{"id":"blocked-fixture-1","source":{"type":"alarm","id":"event-fixture-1"},"intakeStatus":"blocked","blockedReason":"group_revision_unavailable","createdAt":"2026-10-09T00:00:00Z","deliveries":[]}],
+    "page": 1,
+    "pageSize": 20,
+    "total": 1
+  }
+}

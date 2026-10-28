@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"project/internal/dal"
 	"strconv"
 	"strings"
 	"sync"
@@ -237,13 +239,6 @@ func validateToken(token string) (*utils.UserClaims, error) {
 		return nil, errors.New("token is expired")
 	}
 
-	// 刷新 token 过期时间
-	timeout := viper.GetInt("session.timeout")
-	if timeout == 0 {
-		timeout = 60 // 默认60分钟
-	}
-	global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute)
-
 	// 验证 JWT
 	key := viper.GetString("jwt.key")
 	j := utils.NewJWT([]byte(key))
@@ -252,6 +247,23 @@ func validateToken(token string) (*utils.UserClaims, error) {
 		return nil, errors.New("invalid token")
 	}
 
+	if !middleware.NativeAccountCurrent(context.Background(), claims) {
+		return nil, errors.New("session unavailable")
+	}
+	if os.Getenv("TP_AUTH_OWNER") != "encore" {
+		ttl := time.Duration(viper.GetInt("session.timeout")) * time.Minute
+		cap := time.Until(time.Unix(claims.ExpiresAt, 0))
+		if ttl <= 0 || ttl > cap {
+			ttl = cap
+		}
+		if ttl <= 0 {
+			return nil, errors.New("token expired")
+		}
+		n, e := global.REDIS.Eval(context.Background(), `if redis.call('GET',KEYS[1])~='1' then return 0 end;redis.call('PEXPIRE',KEYS[1],ARGV[1]);redis.call('PEXPIRE',KEYS[2],ARGV[1]);return 1`, []string{token, dal.AppPushSessionKey(token)}, ttl.Milliseconds()).Int()
+		if e != nil || n != 1 {
+			return nil, errors.New("session unavailable")
+		}
+	}
 	return claims, nil
 }
 

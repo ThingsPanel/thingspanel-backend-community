@@ -1,0 +1,72 @@
+services:
+  owner:
+    image: ${TP_COMMUNITY_IMAGE:?set TP_COMMUNITY_IMAGE to a reviewed immutable image tag}
+    command: ["owner"]
+    user: "1883:1883"
+    environment:
+      TP_BROKER_OWNER_LISTEN: 127.0.0.1:9801
+      TP_BROKER_OWNER_DATABASE_DSN: ${TP_BROKER_OWNER_DATABASE_DSN:?set a secret DSN}
+      TP_BROKER_OWNER_TOKENS_FILE: /run/secrets/broker-owner-tokens.json
+      TP_BROKER_OWNER_SERVICES_FILE: /run/secrets/broker-services.json
+    secrets:
+      - source: broker-owner-tokens
+        target: broker-owner-tokens.json
+      - source: broker-services
+        target: broker-services.json
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      # Liveness only. Broker readiness is checked by the authenticated broker
+      # healthcheck below; this endpoint does not claim DB/schema readiness.
+      test: ["CMD", "/usr/local/bin/tp-broker-readiness", "owner-liveness"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  broker:
+    image: ${TP_COMMUNITY_IMAGE:?set TP_COMMUNITY_IMAGE to a reviewed immutable image tag}
+    command: ["broker"]
+    network_mode: "service:owner"
+    depends_on:
+      owner:
+        condition: service_healthy
+    user: "1883:1883"
+    environment:
+      TP_BROKER_OWNER_URL: http://127.0.0.1:9801
+      TP_BROKER_TOKEN_FILE: /run/secrets/broker-plugin-token
+      TP_BROKER_CELL: ${TP_BROKER_CELL:?set logical broker cell}
+      TP_BROKER_INSTANCE: ${TP_BROKER_INSTANCE:?set broker instance id}
+      TP_BROKER_READINESS_CLIENT_ID: ${TP_BROKER_READINESS_CLIENT_ID:-tp-community-readiness}
+    secrets:
+      - source: broker-services
+        target: broker-services.json
+      - source: broker-plugin-token
+        target: broker-plugin-token
+    volumes:
+      - broker-data:/mosquitto/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      # Authenticated Paho connection and SUBACK on an owner-authorized filter.
+      test: ["CMD", "/usr/local/bin/tp-broker-readiness", "broker"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+volumes:
+  broker-data:
+
+secrets:
+  broker-owner-tokens:
+    file: ${TP_BROKER_OWNER_TOKENS_FILE:?stage owner tokens file with UID/GID 1883 and mode 0440}
+  broker-services:
+    file: ${TP_BROKER_SERVICES_FILE:?stage service policy file with UID/GID 1883 and mode 0440}
+  broker-plugin-token:
+    file: ${TP_BROKER_PLUGIN_TOKEN_FILE:?stage raw plugin token with UID/GID 1883 and mode 0440}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,9 +12,41 @@ import (
 	"time"
 
 	"project/internal/model"
+	"project/pkg/errcode"
+	"project/pkg/utils"
+
+	"github.com/spf13/viper"
 )
 
 var testPNG = []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0x00, 0x00, 0x00, 0x0d, 'I', 'H', 'D', 'R'}
+
+// Legacy installs used to write template rows. The native branch must reject
+// them before touching storage, rather than silently restoring that old path.
+func TestInstallFromMarketRejectsLegacyPackageBeforeStorage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/market/templates/legacy/download" || r.URL.Query().Get("version") != "1.0.0" {
+			t.Errorf("unexpected download request: %s", r.URL)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":0,"data":{"name":"Legacy","version":"1.0.0","template_definition":{"telemetry":[{"data_identifier":"temperature","data_type":"float"}]}}}`))
+	}))
+	defer server.Close()
+	previousURL := viper.Get("market.base_url")
+	viper.Set("market.base_url", server.URL)
+	t.Cleanup(func() { viper.Set("market.base_url", previousURL) })
+
+	result, err := (&DeviceTemplate{}).InstallFromMarket(context.Background(), model.InstallFromMarketReq{
+		MarketTemplateID: "legacy", Version: "1.0.0", MarketToken: "test-token",
+	}, &utils.UserClaims{TenantID: "test-tenant"}, "test-session")
+	var applicationError *errcode.Error
+	if result != nil || !errors.As(err, &applicationError) || applicationError.Code != errcode.CodeParamError {
+		t.Fatalf("expected legacy package rejection, got result=%v err=%v", result, err)
+	}
+	message, ok := applicationError.Data.(string)
+	if !ok || !strings.Contains(message, "native_thing_model contract_version=1 is required") {
+		t.Fatalf("unexpected rejection reason: %v", applicationError.Data)
+	}
+}
 
 func TestDownloadMarketTemplateImage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -160,78 +193,5 @@ func TestDownloadMarketTemplateImageRejectsCrossOriginRedirect(t *testing.T) {
 	)
 	if err == nil || !strings.Contains(err.Error(), "not hosted by the configured resource center") {
 		t.Fatalf("expected cross-origin redirect error, got %v", err)
-	}
-}
-
-func TestMarketTemplateInstallLockKeyIsStableAndTenantScoped(t *testing.T) {
-	key := marketTemplateInstallLockKey("tenant-a", "开关")
-	if key != marketTemplateInstallLockKey("tenant-a", "开关") {
-		t.Fatal("same tenant/template should use the same advisory lock key")
-	}
-	if key == marketTemplateInstallLockKey("tenant-b", "开关") {
-		t.Fatal("different tenants should not share an advisory lock key")
-	}
-	if key == marketTemplateInstallLockKey("tenant-a", "卧室灯") {
-		t.Fatal("different template names should not share an advisory lock key")
-	}
-}
-
-func TestParseMarketTemplateModelFieldsSupportsAllModelKindsAndCatalogAliases(t *testing.T) {
-	definition := model.TemplateDefinitionPayload{
-		"telemetry": []interface{}{map[string]interface{}{
-			"data_name": "开关", "data_identifier": "switch", "data_type": "Boolean", "read_write_flag": "RW",
-		}},
-		"attributes": []interface{}{map[string]interface{}{
-			"buttom_name": "亮度", "identifier": "brightness", "dataType": "Number", "accessMode": "R", "unit": "%", "remark": "当前亮度",
-		}},
-		"events": []interface{}{map[string]interface{}{
-			"name": "状态变化", "key": "state_changed", "params": map[string]interface{}{"code": "integer"},
-		}},
-		"commands": []interface{}{map[string]interface{}{
-			"label": "开灯", "data_identifier": "turn_on", "type": "Boolean", "additional_info": "{}",
-		}},
-	}
-
-	got, err := parseMarketTemplateModelFields(&definition)
-	if err != nil {
-		t.Fatalf("parseMarketTemplateModelFields() error = %v", err)
-	}
-	want := map[string]map[string]string{
-		"telemetry":  {"data_name": "开关", "data_identifier": "switch", "data_type": "Boolean", "read_write_flag": "RW"},
-		"attributes": {"data_name": "亮度", "data_identifier": "brightness", "data_type": "Number", "read_write_flag": "R", "unit": "%", "description": "当前亮度"},
-		"events":     {"data_name": "状态变化", "data_identifier": "state_changed", "params": `{"code":"integer"}`},
-		"commands":   {"data_name": "开灯", "data_identifier": "turn_on", "data_type": "Boolean", "additional_info": "{}"},
-	}
-	for kind, expected := range want {
-		if len(got[kind]) != 1 {
-			t.Fatalf("%s rows = %d, want 1", kind, len(got[kind]))
-		}
-		for key, value := range expected {
-			if got[kind][0][key] != value {
-				t.Errorf("%s[%s] = %v, want %q", kind, key, got[kind][0][key], value)
-			}
-		}
-	}
-}
-
-func TestCreateMarketTemplateModelsRejectsMalformedDefinitions(t *testing.T) {
-	tests := []struct {
-		name string
-		def  model.TemplateDefinitionPayload
-		want string
-	}{
-		{name: "nil definition", def: nil, want: "expected an object"},
-		{name: "non-array model kind", def: model.TemplateDefinitionPayload{"telemetry": map[string]interface{}{}}, want: "template_definition.telemetry: expected an array"},
-		{name: "non-object model row", def: model.TemplateDefinitionPayload{"attributes": []interface{}{"bad row"}}, want: "template_definition.attributes[0]: expected an object"},
-		{name: "missing identifier", def: model.TemplateDefinitionPayload{"events": []interface{}{map[string]interface{}{"name": "started"}}}, want: "missing data_identifier"},
-		{name: "wrong field type", def: model.TemplateDefinitionPayload{"commands": []interface{}{map[string]interface{}{"key": "start", "label": "Start", "type": true}}}, want: "template_definition.commands[0].type: expected a string"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := createMarketTemplateModels(nil, &tt.def, "template-id", "tenant-id", time.Now())
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("createMarketTemplateModels() error = %v, want substring %q", err, tt.want)
-			}
-		})
 	}
 }

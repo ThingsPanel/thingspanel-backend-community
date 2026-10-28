@@ -6,6 +6,7 @@ import (
 	service "project/internal/service"
 	"project/pkg/errcode"
 	utils "project/pkg/utils"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -317,9 +318,14 @@ func (*DeviceApi) MarketRefresh(c *gin.Context) {
 	var req struct {
 		RefreshToken string `json:"refresh_token" binding:"required"`
 	}
-	if !BindAndValidate(c, &req) { return }
+	if !BindAndValidate(c, &req) {
+		return
+	}
 	loginRsp, err := service.NewMarketClient().Refresh(c, req.RefreshToken)
-	if err != nil { c.Error(errcode.NewWithMessage(errcode.CodeSystemError, err.Error())); return }
+	if err != nil {
+		c.Error(errcode.NewWithMessage(errcode.CodeSystemError, err.Error()))
+		return
+	}
 	c.Set("data", loginRsp)
 }
 
@@ -338,7 +344,7 @@ func (*DeviceApi) PublishToMarket(c *gin.Context) {
 	}
 
 	// 调用服务层
-	apiResp, err := service.GroupApp.DeviceTemplate.PublishToMarket(req, userClaims, publicOrigin)
+	apiResp, err := service.GroupApp.DeviceTemplate.PublishToMarket(c.Request.Context(), req, userClaims, communitySessionAuthorization(c), publicOrigin)
 	if err != nil {
 		c.Error(err)
 		return
@@ -412,12 +418,28 @@ func (*DeviceApi) InstallFromMarket(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	data, err := service.GroupApp.DeviceTemplate.InstallFromMarket(req, userClaims)
+	data, err := service.GroupApp.DeviceTemplate.InstallFromMarket(c.Request.Context(), req, userClaims, communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return
 	}
 	c.Set("data", data)
+}
+
+// communitySessionAuthorization forwards the authenticated Community session
+// credential to native APIs. The market access token is deliberately unrelated.
+func communitySessionAuthorization(c *gin.Context) string {
+	if token := strings.TrimSpace(c.GetHeader("x-token")); token != "" {
+		if strings.HasPrefix(strings.ToLower(token), "bearer ") {
+			return token
+		}
+		return "Bearer " + token
+	}
+	authorization := strings.TrimSpace(c.GetHeader("Authorization"))
+	if strings.HasPrefix(strings.ToLower(authorization), "bearer ") {
+		return authorization
+	}
+	return ""
 }
 
 // CreateDeviceGroup 创建设备分组
@@ -747,7 +769,7 @@ func (*DeviceApi) HandleSubList(c *gin.Context) {
 // /api/v1/device/metrics/{id}
 func (*DeviceApi) HandleMetrics(c *gin.Context) {
 	id := c.Param("id")
-	list, err := service.GroupApp.Device.GetMetrics(id)
+	list, err := service.GroupApp.Device.GetMetrics(c.Request.Context(), id, c.MustGet("claims").(*utils.UserClaims), communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return
@@ -763,7 +785,7 @@ func (*DeviceApi) HandleActionByDeviceID(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	list, err := service.GroupApp.Device.GetActionByDeviceID(param.DeviceID)
+	list, err := service.GroupApp.Device.GetActionByDeviceID(c.Request.Context(), param.DeviceID, c.MustGet("claims").(*utils.UserClaims), communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return
@@ -779,7 +801,7 @@ func (*DeviceApi) HandleConditionByDeviceID(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	list, err := service.GroupApp.Device.GetConditionByDeviceID(param.DeviceID)
+	list, err := service.GroupApp.Device.GetConditionByDeviceID(c.Request.Context(), param.DeviceID, c.MustGet("claims").(*utils.UserClaims), communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return

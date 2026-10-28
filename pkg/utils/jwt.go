@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -12,11 +13,15 @@ type JWT struct {
 }
 
 type UserClaims struct {
-	ID         string    `json:"id"`
-	Email      string    `json:"email"`
-	CreateTime time.Time `json:"create_time"`
-	Authority  string    `json:"authority"`
-	TenantID   string    `json:"tenant_id"`
+	Delegated    bool      `json:"delegated,omitempty"`
+	ActorID      string    `json:"actor_id,omitempty"`
+	ActorVersion int64     `json:"actor_version,omitempty"`
+	AuthVersion  int64     `json:"auth_version"`
+	ID           string    `json:"id"`
+	Email        string    `json:"email"`
+	CreateTime   time.Time `json:"create_time"`
+	Authority    string    `json:"authority"`
+	TenantID     string    `json:"tenant_id"`
 	jwt.StandardClaims
 }
 
@@ -37,16 +42,15 @@ func (j *JWT) GenerateToken(claims UserClaims) (string, error) {
 
 // 解析token
 func (j *JWT) ParseToken(token string) (*UserClaims, error) {
-	tokenClaims, err := jwt.ParseWithClaims(token, &UserClaims{}, func(_ *jwt.Token) (interface{}, error) {
+	tokenClaims, err := (&jwt.Parser{ValidMethods: []string{"HS256"}}).ParseWithClaims(token, &UserClaims{}, func(_ *jwt.Token) (interface{}, error) {
 		return j.Key, nil
 	})
 	if err != nil {
 		logrus.Error(err.Error())
 		return nil, err
 	}
-	if claims, ok := tokenClaims.Claims.(*UserClaims); ok && tokenClaims.Valid {
+	if claims, ok := tokenClaims.Claims.(*UserClaims); ok && tokenClaims.Valid && claims.ExpiresAt > time.Now().Unix() && claims.AuthVersion >= 0 {
 		return claims, nil
 	}
-	logrus.Error(err.Error())
-	return nil, err
+	return nil, errors.New("invalid token claims")
 }

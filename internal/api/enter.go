@@ -27,6 +27,7 @@ type Controller struct {
 	AttributeDataApi              // 属性数据
 	EventDataApi                  // 事件数据
 	CommandSetLogApi              // 命令下发记录
+	CommandPlanApi                // 持久命令计划的预览、授权和提交
 	OperationLogsApi              // 系统日志
 	LogoApi                       // 站标
 	DataPolicyApi                 // 数据清理
@@ -37,6 +38,7 @@ type Controller struct {
 	NotificationGroupApi          // 通知组
 	NotificationHistoryApi        // 通知历史
 	NotificationServicesConfigApi // 通知服务配置
+	NotificationIdentityApi       // Encore 通知的只读用户会话核验
 	AlarmApi                      // 告警
 	SceneAutomationsApi           // 场景联动
 	SceneApi                      // 场景

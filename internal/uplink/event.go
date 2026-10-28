@@ -324,7 +324,7 @@ func (f *EventUplink) processDirectDeviceEvent(device *model.Device, eventInfo *
 
 	// 4. 场景联动（异步）
 	go func() {
-		err := service.GroupApp.Execute(device, service.AutomateFromExt{
+		err := DispatchAutomation(device, service.AutomateFromExt{
 			TriggerParamType: model.TRIGGER_PARAM_TYPE_EVT,
 			TriggerParam:     []string{eventInfo.Method},
 			TriggerValues: map[string]interface{}{
@@ -418,7 +418,7 @@ func (f *EventUplink) notifyDeviceOnline(device *model.Device) {
 	global.TPSSEManager.BroadcastEventToTenant(device.TenantID, sseEvent)
 
 	// 触发自动化
-	err := service.GroupApp.Execute(device, service.AutomateFromExt{
+	err := DispatchAutomation(device, service.AutomateFromExt{
 		TriggerParamType: model.TRIGGER_PARAM_TYPE_STATUS,
 		TriggerParam:     []string{},
 		TriggerValues: map[string]interface{}{

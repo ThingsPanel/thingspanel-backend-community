@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -684,12 +685,12 @@ func (*TelemetryData) GetSimulationInit(deviceId string) (*model.SimulationInitR
 	defaultData := `{"_data1": 25.5, "_data2": 60}`
 
 	resp := &model.SimulationInitResp{
-		Username:         username,
-		Password:         password,
-		ClientID:        clientID,
-		Server:          host,
-		Port:            port,
-		Topic:           config.MqttConfig.Telemetry.SubscribeTopic,
+		Username: username,
+		Password: password,
+		ClientID: clientID,
+		Server:   host,
+		Port:     port,
+		Topic:    config.MqttConfig.Telemetry.SubscribeTopic,
 		TopicOptions: []model.SimulationTopicOption{
 			{Label: "遥测", Value: config.MqttConfig.Telemetry.SubscribeTopic},
 			{Label: "属性", Value: attrTopic},
@@ -1138,6 +1139,13 @@ func formatTime(timestamp int64) string {
 //
 //	error: 处理过程中的错误
 func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, param *model.PutMessage, operationType string) error {
+	if isIngressV1Commands() {
+		if param == nil || operationType != "1" {
+			return errors.New("standard telemetry control requires an authenticated manual request")
+		}
+		_, err := submitStandardControl(ctx, userID, param.DeviceID, "telemetry", param.Value)
+		return err
+	}
 	// 步骤1: 校验入参
 	// ---------------------------------------------
 	// 校验参数值必须是有效的JSON
@@ -1149,9 +1157,10 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 
 	// 步骤2: 获取设备信息
 	// ---------------------------------------------
-	deviceInfo, err := initialize.GetDeviceCacheById(param.DeviceID)
+	// Service downlink routing depends on current DB access_way/service_access_id fields.
+	deviceInfo, err := dal.GetDeviceByID(param.DeviceID)
 	if err != nil {
-		logrus.Error(ctx, "[TelemetryPutMessage][GetDeviceCacheById]failed:", err)
+		logrus.Error(ctx, "[TelemetryPutMessage][LoadDeviceFromDatabase]failed:", err)
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": err.Error(),
 		})
@@ -1165,7 +1174,12 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		deviceType   string
 	)
 
-	if deviceInfo.DeviceConfigID != nil {
+	serviceRoute, err := resolveServiceDownlinkRoute(deviceInfo)
+	if err != nil {
+		return err
+	}
+	isService := serviceRoute.IsService
+	if !isService && deviceInfo.DeviceConfigID != nil && *deviceInfo.DeviceConfigID != "" {
 		// 读取设备配置信息
 		deviceConfig, err = dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 		if err != nil {
@@ -1192,8 +1206,11 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 
 	// 步骤4: 获取协议插件前缀和目标设备编号
 	// ---------------------------------------------
-	var topicPrefix string
+	topicPrefix := serviceRoute.TopicPrefix
 	var targetDeviceNumber string
+	if isService {
+		targetDeviceNumber = serviceRoute.DeviceNumber
+	}
 
 	// 获取Topic前缀（仅协议插件需要）
 	if protocolType != "MQTT" {

@@ -2,6 +2,7 @@ package http_client
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 )
+
+// ErrNotificationNotSupported is returned when a newer connector does not
+// implement the legacy service-configuration notification callback.
+var ErrNotificationNotSupported = errors.New("service plugin does not support configuration notifications")
 
 /*
 - 有子设备关联的设备配置不能更换协议类型
@@ -32,11 +37,13 @@ type ListData struct {
 	List  []DeviceData `json:"list"`
 }
 type DeviceData struct {
-	DeviceName     string `json:"device_name"`
-	DeviceNumber   string `json:"device_number"`
-	Description    string `json:"description"`
-	IsBind         bool   `json:"is_bind"`
-	DeviceConfigID string `json:"device_config_id"`
+	DeviceName     string          `json:"device_name"`
+	DeviceNumber   string          `json:"device_number"`
+	Description    string          `json:"description"`
+	IsBind         bool            `json:"is_bind"`
+	DeviceConfigID string          `json:"device_config_id"`
+	ProtocolConfig json.RawMessage `json:"protocol_config"`
+	AdditionalInfo json.RawMessage `json:"additional_info"`
 }
 
 // 获取插件的表单配置
@@ -93,6 +100,9 @@ func Notification(messageType string, message string, host string) ([]byte, erro
 		return nil, fmt.Errorf("post plugin notification failed: %s", err)
 	}
 	defer response.Body.Close()
+	if response.StatusCode == http.StatusNotFound {
+		return nil, ErrNotificationNotSupported
+	}
 	if response.StatusCode != 200 {
 		err = fmt.Errorf("protocol plugin response message: %s", response.Status)
 		logrus.Error(err)

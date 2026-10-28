@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"project/internal/model"
 	service "project/internal/service"
 	"project/pkg/utils"
@@ -19,7 +18,7 @@ func (*ExpectedDataApi) HandleExpectedDataList(c *gin.Context) {
 		return
 	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ExpectedData.PageList(context.Background(), &req, userClaims)
+	resp, err := service.GroupApp.ExpectedData.PageList(c.Request.Context(), &req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -35,7 +34,7 @@ func (*ExpectedDataApi) CreateExpectedData(c *gin.Context) {
 		return
 	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ExpectedData.Create(c, &req, userClaims)
+	resp, err := service.GroupApp.ExpectedData.Create(c.Request.Context(), &req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -47,7 +46,8 @@ func (*ExpectedDataApi) CreateExpectedData(c *gin.Context) {
 // /api/v1/expected/data/{id} DELETE
 func (*ExpectedDataApi) DeleteExpectedData(c *gin.Context) {
 	id := c.Param("id")
-	err := service.GroupApp.ExpectedData.Delete(c, id)
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.ExpectedData.DeleteScoped(c.Request.Context(), id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return

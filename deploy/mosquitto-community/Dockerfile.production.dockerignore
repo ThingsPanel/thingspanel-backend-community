@@ -1,0 +1,18 @@
+# Minimal allowlist for the Go builder; no docs, git metadata, local build
+# output, QA material, deployment secrets, or unrelated application assets.
+**
+!go.mod
+!go.sum
+!LICENSE
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!pkg/
+!pkg/**
+!deploy/
+!deploy/mosquitto-community/
+!deploy/mosquitto-community/readiness/
+!deploy/mosquitto-community/readiness/**
+!deploy/mosquitto-community/entrypoint.production.sh
+!deploy/mosquitto-community/mosquitto.production.conf

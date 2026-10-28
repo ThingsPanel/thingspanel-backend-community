@@ -1,0 +1,19 @@
+FROM golang:1.26.2-bookworm AS plugin-build
+
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libcjson-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /workspace
+COPY . .
+COPY --from=mosquitto-src /include /opt/mosquitto/include
+ENV CGO_CFLAGS="-I/opt/mosquitto/include -I/usr/include/cjson"
+RUN go version && \
+    go build -tags mosquitto_plugin -buildmode=c-shared -o /out/tp-mosquitto-plugin.so ./cmd/tp-mosquitto-plugin && \
+    go build -o /out/mqtt-community-qa ./test/mosquitto-community
+
+FROM tp-mosquitto:2.1.2-qa
+COPY --from=plugin-build /out/tp-mosquitto-plugin.so /mosquitto/plugins/tp-mosquitto-plugin.so
+COPY --from=plugin-build /out/mqtt-community-qa /usr/local/bin/mqtt-community-qa
+COPY deploy/mosquitto-community/mosquitto.plugin.linux-qa.conf /mosquitto/config/mosquitto.conf
+COPY deploy/mosquitto-community/run-linux-plugin-qa.sh /usr/local/bin/run-linux-plugin-qa
+RUN chmod 0755 /usr/local/bin/run-linux-plugin-qa
+ENTRYPOINT ["/usr/local/bin/run-linux-plugin-qa"]

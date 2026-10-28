@@ -22,7 +22,14 @@ func CasbinRBAC() gin.HandlerFunc {
 			isVerify := service.GroupApp.Casbin.GetUrl(url)
 			if isVerify {
 				userClaims := c.MustGet("claims").(*utils.UserClaims)
-				isSuccess := service.GroupApp.Casbin.Verify(userClaims.ID, url)
+				subject := userClaims.ID
+				// This endpoint is governed by the signed authority claim. The
+				// legacy userID->custom-roleID mapping cannot express a platform
+				// tenant-admin role consistently across tenants.
+				if url == "api/v1/notification-default-policy" {
+					subject = strings.ToUpper(strings.TrimSpace(userClaims.Authority))
+				}
+				isSuccess := service.GroupApp.Casbin.Verify(subject, url)
 				if !isSuccess {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "非法访问"})
 					c.Abort()

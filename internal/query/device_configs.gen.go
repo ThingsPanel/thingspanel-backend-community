@@ -30,6 +30,10 @@ func newDeviceConfig(db *gorm.DB, opts ...gen.DOOption) deviceConfig {
 	_deviceConfig.ID = field.NewString(tableName, "id")
 	_deviceConfig.Name = field.NewString(tableName, "name")
 	_deviceConfig.DeviceTemplateID = field.NewString(tableName, "device_template_id")
+	_deviceConfig.NativeThingModelID = field.NewString(tableName, "native_thing_model_id")
+	_deviceConfig.NativeThingModelSnapshotID = field.NewString(tableName, "native_thing_model_snapshot_id")
+	_deviceConfig.NativeThingModelRevision = field.NewInt(tableName, "native_thing_model_revision")
+	_deviceConfig.NativeBindingRevision = field.NewInt(tableName, "native_binding_revision")
 	_deviceConfig.DeviceType = field.NewString(tableName, "device_type")
 	_deviceConfig.ProtocolType = field.NewString(tableName, "protocol_type")
 	_deviceConfig.VoucherType = field.NewString(tableName, "voucher_type")
@@ -54,25 +58,29 @@ func newDeviceConfig(db *gorm.DB, opts ...gen.DOOption) deviceConfig {
 type deviceConfig struct {
 	deviceConfigDo
 
-	ALL              field.Asterisk
-	ID               field.String // Id
-	Name             field.String // 名称
-	DeviceTemplateID field.String // 设备模板id
-	DeviceType       field.String // 设备类型 1直连设备 2网关设备 3网关子设备
-	ProtocolType     field.String // 协议类型
-	VoucherType      field.String // 凭证类型
-	ProtocolConfig   field.String // 协议表单配置
-	DeviceConnType   field.String // 设备连接方式（默认A）A-设备连接平台B-平台连接设备
-	AdditionalInfo   field.String // 附加信息
-	Description      field.String // 描述
-	TenantID         field.String // 租户id
-	CreatedAt        field.Time   // 创建时间
-	UpdatedAt        field.Time   // 更新时间
-	Remark           field.String // 备注
-	OtherConfig      field.String // 其他配置
-	TemplateSecret   field.String
-	AutoRegister     field.Int16
-	ImageURL         field.String
+	ALL                        field.Asterisk
+	ID                         field.String // Id
+	Name                       field.String // 名称
+	DeviceTemplateID           field.String // 设备模板id
+	NativeThingModelID         field.String
+	NativeThingModelSnapshotID field.String
+	NativeThingModelRevision   field.Int
+	NativeBindingRevision      field.Int
+	DeviceType                 field.String // 设备类型 1直连设备 2网关设备 3网关子设备
+	ProtocolType               field.String // 协议类型
+	VoucherType                field.String // 凭证类型
+	ProtocolConfig             field.String // 协议表单配置
+	DeviceConnType             field.String // 设备连接方式（默认A）A-设备连接平台B-平台连接设备
+	AdditionalInfo             field.String // 附加信息
+	Description                field.String // 描述
+	TenantID                   field.String // 租户id
+	CreatedAt                  field.Time   // 创建时间
+	UpdatedAt                  field.Time   // 更新时间
+	Remark                     field.String // 备注
+	OtherConfig                field.String // 其他配置
+	TemplateSecret             field.String
+	AutoRegister               field.Int16
+	ImageURL                   field.String
 
 	fieldMap map[string]field.Expr
 }
@@ -92,6 +100,10 @@ func (d *deviceConfig) updateTableName(table string) *deviceConfig {
 	d.ID = field.NewString(table, "id")
 	d.Name = field.NewString(table, "name")
 	d.DeviceTemplateID = field.NewString(table, "device_template_id")
+	d.NativeThingModelID = field.NewString(table, "native_thing_model_id")
+	d.NativeThingModelSnapshotID = field.NewString(table, "native_thing_model_snapshot_id")
+	d.NativeThingModelRevision = field.NewInt(table, "native_thing_model_revision")
+	d.NativeBindingRevision = field.NewInt(table, "native_binding_revision")
 	d.DeviceType = field.NewString(table, "device_type")
 	d.ProtocolType = field.NewString(table, "protocol_type")
 	d.VoucherType = field.NewString(table, "voucher_type")
@@ -123,10 +135,14 @@ func (d *deviceConfig) GetFieldByName(fieldName string) (field.OrderExpr, bool) 
 }
 
 func (d *deviceConfig) fillFieldMap() {
-	d.fieldMap = make(map[string]field.Expr, 18)
+	d.fieldMap = make(map[string]field.Expr, 22)
 	d.fieldMap["id"] = d.ID
 	d.fieldMap["name"] = d.Name
 	d.fieldMap["device_template_id"] = d.DeviceTemplateID
+	d.fieldMap["native_thing_model_id"] = d.NativeThingModelID
+	d.fieldMap["native_thing_model_snapshot_id"] = d.NativeThingModelSnapshotID
+	d.fieldMap["native_thing_model_revision"] = d.NativeThingModelRevision
+	d.fieldMap["native_binding_revision"] = d.NativeBindingRevision
 	d.fieldMap["device_type"] = d.DeviceType
 	d.fieldMap["protocol_type"] = d.ProtocolType
 	d.fieldMap["voucher_type"] = d.VoucherType

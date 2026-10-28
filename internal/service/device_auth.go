@@ -80,7 +80,7 @@ func (*DeviceAuth) Auth(req *model.DeviceAuthReq) (*model.DeviceAuthRes, error) 
 			ActivateFlag:   "active",
 			IsOnline:       0,
 			TenantID:       deviceConfig.TenantID,
-			IsEnabled:      "enable",
+			IsEnabled:      "enabled",
 		}
 
 		if deviceConfig.DeviceType == "3" {

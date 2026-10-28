@@ -1,0 +1,12 @@
+{
+  "api_version": "1.0",
+  "plugin_id": "example.legacy",
+  "name": "Legacy notification plugin",
+  "plugin_version": "1.0.0",
+  "channels": ["webhook"],
+  "content_modes": ["text"],
+  "config_schema": {"type": "object", "properties": {"endpoint": {"type": "string"}}},
+  "recipient_schema": {"type": "object", "properties": {}},
+  "secret_fields": [],
+  "capabilities": {"delivery_receipts": false}
+}

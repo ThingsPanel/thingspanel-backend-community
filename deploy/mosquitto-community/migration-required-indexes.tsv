@@ -1,0 +1,6 @@
+# Required broker indexes for ingress_v1 and telemetry evidence.
+# Format: one exact index name per line. Update with numbered SQL migrations.
+broker_ingress_receipts_trusted_telemetry_device_time_idx
+broker_expected_context_owner_idx
+broker_expected_context_dispatch_idx
+broker_plugin_contexts_expiry_idx

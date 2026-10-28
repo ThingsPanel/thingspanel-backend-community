@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -121,6 +124,7 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 	var IsOnline int16 = 0
 	device.IsOnline = IsOnline
 	device.ActivateFlag = "active"
+	device.IsEnabled = "enabled"
 	err = dal.CreateDevice(&device)
 	if err != nil {
 		return device, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -133,22 +137,27 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 
 // 服务接入批量创建设备
 func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.UserClaims) (data any, err error) {
+	// Service ownership is required even when the optional device config is absent.
+	serviceAccess, err := dal.GetServiceAccessByID(req.ServiceAccessId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve service access: %w", err)
+	}
+	if claims == nil || serviceAccess.TenantID != claims.TenantID {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
 	t := time.Now().UTC()
 	var deviceList []*model.Device
 	for _, v := range req.DeviceList {
-		if v.DeviceName == "" && v.DeviceNumber == "" && v.DeviceConfigId == "" {
+		if v.DeviceConfigId != nil && strings.TrimSpace(*v.DeviceConfigId) == "" {
+			v.DeviceConfigId = nil
+		}
+		if v.DeviceName == "" && v.DeviceNumber == "" && (v.DeviceConfigId == nil || *v.DeviceConfigId == "") {
 			continue
 		}
 		// 校验必填字段
 		if v.DeviceNumber == "" {
 			return nil, errcode.WithVars(100005, map[string]interface{}{
 				"field": "device_number",
-			})
-		}
-
-		if v.DeviceConfigId == "" {
-			return nil, errcode.WithVars(100005, map[string]interface{}{
-				"field": "device_config_id",
 			})
 		}
 
@@ -159,7 +168,19 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 		}
 
 		// 校验设备号是否存在
-		exists, err := dal.CheckDeviceNumberExists(v.DeviceNumber)
+		// Device numbers are globally unique in the current schema. Namespace
+		// connector identities by tenant and access point while preserving the
+		// original external number in protocol_config.
+		externalNumber := v.DeviceNumber
+		legacyExists, err := dal.CheckServiceDeviceNumberExists(req.ServiceAccessId, externalNumber)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		}
+		if legacyExists {
+			continue
+		}
+		deviceNumber := serviceDeviceNumber(claims.TenantID, req.ServiceAccessId, externalNumber)
+		exists, err := dal.CheckDeviceNumberExists(deviceNumber)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),
@@ -172,16 +193,19 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 		device := model.Device{
 			ID:              uuid.New(),
 			Name:            &v.DeviceName,
-			DeviceNumber:    v.DeviceNumber,
+			DeviceNumber:    deviceNumber,
 			Voucher:         `{"username":"` + uuid.New()[0:22] + `"}`,
 			TenantID:        claims.TenantID,
 			CreatedAt:       &t,
 			UpdateAt:        &t,
 			AccessWay:       StringPtr("B"),
 			Description:     v.Description,
-			DeviceConfigID:  &v.DeviceConfigId,
+			DeviceConfigID:  v.DeviceConfigId,
+			ProtocolConfig:  v.ProtocolConfig,
+			AdditionalInfo:  v.AdditionalInfo,
 			IsOnline:        0,
 			ActivateFlag:    "active",
+			IsEnabled:       "enabled",
 			ServiceAccessID: &req.ServiceAccessId,
 		}
 		deviceList = append(deviceList, &device)
@@ -194,13 +218,6 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 	} else {
 		// 发送通知给服务插件
 		// 获取服务接入信息
-		serviceAccess, err := dal.GetServiceAccessByID(req.ServiceAccessId)
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-				"message":   "create device success, query service access failed",
-			})
-		}
 		// 查询服务地址
 		_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
 		if err != nil {
@@ -223,6 +240,10 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 
 		rsp, err := http_client.Notification("1", string(dataBytes), host)
 		if err != nil {
+			if errors.Is(err, http_client.ErrNotificationNotSupported) {
+				logrus.Warn("service plugin does not support optional device sync notification; connector startup sync will reconcile devices")
+				return deviceList, nil
+			}
 			return nil, errcode.WithVars(105001, map[string]interface{}{
 				"error": "create device success, notification failed" + err.Error(),
 			})
@@ -232,6 +253,14 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 	}
 
 	return deviceList, err
+}
+
+func serviceDeviceNumber(tenantID, accessID, externalNumber string) string {
+	if strings.TrimSpace(externalNumber) == "" {
+		return externalNumber
+	}
+	sum := sha256.Sum256([]byte(tenantID + ":" + accessID + ":" + externalNumber))
+	return "svc-" + hex.EncodeToString(sum[:])[:32]
 }
 
 func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
@@ -377,6 +406,10 @@ func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 	}
 	device.Name = &req.Name
 	device.ActivateFlag = "active"
+	// Fill the missing initial state without overriding an explicit disable.
+	if device.IsEnabled == "" {
+		device.IsEnabled = "enabled"
+	}
 	t := time.Now().UTC()
 	device.UpdateAt = &t
 	device.ActivateAt = &t
@@ -517,7 +550,7 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 			"message":   "get device failed",
 		})
 	}
-	if device.TenantID != claims.TenantID {
+	if !canReadTenantDevice(claims, device.TenantID) {
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
 
@@ -577,14 +610,33 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 }
 
 func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
-	total, list, err := dal.GetDeviceListByPage(req, u.TenantID)
+	allTenants := u.Authority == dal.SYS_ADMIN
+	total, list, err := dal.GetDeviceListByPage(req, u.TenantID, allTenants)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
 	if len(list) > 0 {
+		deviceIDs := make([]string, 0, len(list))
 		for i := range list {
+			deviceIDs = append(deviceIDs, list[i].ID)
+		}
+		groupPaths, groupErr := dal.GetDeviceGroupPathsByDeviceIDs(deviceIDs, u.TenantID, allTenants)
+		if groupErr != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": groupErr.Error(),
+			})
+		}
+		pathsByDeviceID := make(map[string][]string, len(list))
+		for _, groupPath := range groupPaths {
+			pathsByDeviceID[groupPath.DeviceID] = append(pathsByDeviceID[groupPath.DeviceID], groupPath.GroupPath)
+		}
+		for i := range list {
+			list[i].GroupPaths = pathsByDeviceID[list[i].ID]
+			if list[i].GroupPaths == nil {
+				list[i].GroupPaths = []string{}
+			}
 			list[i].DeviceStatus = list[i].IsOnline
 			if list[i].WarnStatus == "N" || list[i].WarnStatus == "" {
 				list[i].WarnStatus = "N"
@@ -598,6 +650,10 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 	deviceListRsp["list"] = list
 
 	return deviceListRsp, err
+}
+
+func canReadTenantDevice(claims *utils.UserClaims, deviceTenantID string) bool {
+	return claims != nil && (claims.Authority == dal.SYS_ADMIN || claims.TenantID == deviceTenantID)
 }
 
 func (d *Device) CheckDeviceNumber(deviceNumber string) (*errcode.Error, bool) {
@@ -1150,656 +1206,16 @@ func (*Device) GetSubList(ctx context.Context, parent_id string, page, pageSize 
 }
 
 // 获取自动化下拉标识，看板下拉标识
-func (*Device) GetMetrics(device_id string) ([]model.GetModelSourceATRes, error) {
-	res := make([]model.GetModelSourceATRes, 0)
-
-	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(device_id)
-	if err != nil && len(telemetryDatas) == 0 {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get telemetry data failed:" + err.Error(),
-			"id":    device_id,
-		})
-	}
-
-	attributeDatas, err := dal.GetAttributeDataList(device_id)
-	if err != nil && len(attributeDatas) == 0 {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get attribute data failed:" + err.Error(),
-			"id":    device_id,
-		})
-	}
-
-	device, err := dal.GetDeviceByID(device_id)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get device failed:" + err.Error(),
-			"id":    device_id,
-		})
-	}
-
-	var deviceConfig *model.DeviceConfig
-	var eventDatas []*model.DeviceModelEvent
-	var commandDatas []*model.DeviceModelCommand
-	telemetryModelMap := make(map[string]*model.DeviceModelTelemetry)
-	deviceAttributeModelMap := make(map[string]*model.DeviceModelAttribute)
-	if device.DeviceConfigID != nil {
-		// 获取设备配置
-		deviceConfig, err = dal.GetDeviceConfigByID(*device.DeviceConfigID)
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error": "get device config failed:" + err.Error(),
-				"id":    device_id,
-			})
-		}
-		// 是否有设备模板
-		if deviceConfig.DeviceTemplateID != nil {
-			// 查询遥测模型
-			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"error": "get device model telemetry failed:" + err.Error(),
-					"id":    device_id,
-				})
-			}
-			// 遍历并转换为map,供下面填入遥测模板数据使用
-			for _, v := range telemetryModel {
-				telemetryModelMap[v.DataIdentifier] = v
-			}
-
-			attributeList, err := dal.GetDeviceModelAttributeDataList(*deviceConfig.DeviceTemplateID)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"error": "get device model attribute failed:" + err.Error(),
-					"id":    device_id,
-				})
-			}
-			// 遍历并转换为map
-			for _, v := range attributeList {
-				deviceAttributeModelMap[v.DataIdentifier] = v
-			}
-			eventDatas, err = dal.GetDeviceModelEventDataList(*deviceConfig.DeviceTemplateID)
-			if err != nil && len(eventDatas) == 0 {
-				return nil, err
-			}
-
-			commandDatas, err = dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
-			if err != nil && len(eventDatas) == 0 {
-				return nil, err
-			}
-		}
-
-	}
-	s := "string"
-	telemetryDatasMap := make(map[string]*model.TelemetryCurrentData)
-	if len(telemetryDatas) != 0 {
-		resInfo := model.GetModelSourceATRes{
-			DataSourceTypeRes: string(constant.TelemetrySource),
-			Options:           make([]*model.Options, 0),
-		}
-
-		for _, telemetry := range telemetryDatas {
-			telemetryDatasMap[telemetry.Key] = telemetry
-			var dt string
-
-			if telemetry.BoolV != nil {
-				dt = "boolean"
-			} else if telemetry.NumberV != nil {
-				dt = "number"
-			} else if telemetry.StringV != nil {
-				dt = "string"
-			}
-
-			info := &model.Options{
-				Key:      telemetry.Key,
-				DataType: &dt,
-			}
-
-			item, ok := telemetryModelMap[telemetry.Key]
-			if ok {
-				if item.DataType != nil && *item.DataType == "Enum" {
-					info.DataType = item.DataType
-					json.Unmarshal([]byte(*item.AdditionalInfo), &info.Enum)
-				}
-				info.Label = item.DataName
-			}
-
-			resInfo.Options = append(resInfo.Options, info)
-		}
-		// 遍历telemetryModelMap，如果遥测数据telemetryDatasMap中没有，需要加到resInfo.Options
-		for k, v := range telemetryModelMap {
-			_, ok := telemetryDatasMap[k]
-			if !ok {
-				info := &model.Options{
-					Key:      k,
-					DataType: v.DataType,
-					Label:    v.DataName,
-				}
-				if v.DataType != nil && *v.DataType == "Enum" {
-					json.Unmarshal([]byte(*v.AdditionalInfo), &info.Enum)
-				}
-				resInfo.Options = append(resInfo.Options, info)
-			}
-		}
-		res = append(res, resInfo)
-	}
-
-	// 映射
-	attributeDatasMap := make(map[string]*model.AttributeData)
-	if len(attributeDatas) != 0 {
-		resInfo := model.GetModelSourceATRes{
-			DataSourceTypeRes: string(constant.AttributeSource),
-			Options:           make([]*model.Options, 0),
-		}
-
-		for _, attribute := range attributeDatas {
-			var dt string
-			if attribute.BoolV != nil {
-				dt = "boolean"
-			} else if attribute.NumberV != nil {
-				dt = "number"
-			} else if attribute.StringV != nil {
-				dt = "string"
-			}
-
-			info := &model.Options{
-				Key:      attribute.Key,
-				DataType: &dt,
-			}
-
-			item, ok := deviceAttributeModelMap[attribute.Key]
-			if ok {
-				if item.DataType != nil && *item.DataType == "Enum" {
-					info.DataType = item.DataType
-					json.Unmarshal([]byte(*item.AdditionalInfo), &info.Enum)
-				}
-				info.Label = item.DataName
-			}
-
-			resInfo.Options = append(resInfo.Options, info)
-		}
-		// 遍历attributeDatasMap，如果遥测数据attributeDatasMap中没有，需要加到resInfo.Options
-		for k, v := range deviceAttributeModelMap {
-			_, ok := attributeDatasMap[k]
-			if !ok {
-				info := &model.Options{
-					Key:      k,
-					Label:    v.DataName,
-					DataType: v.DataType,
-				}
-				if v.DataType != nil && *v.DataType == "Enum" {
-					json.Unmarshal([]byte(*v.AdditionalInfo), &info.Enum)
-				}
-				resInfo.Options = append(resInfo.Options, info)
-			}
-		}
-		res = append(res, resInfo)
-	}
-
-	if len(eventDatas) != 0 {
-		resInfo := model.GetModelSourceATRes{
-			DataSourceTypeRes: string(constant.EventSource),
-			Options:           make([]*model.Options, 0),
-		}
-
-		for _, event := range eventDatas {
-			info := &model.Options{
-				Key:      event.DataIdentifier,
-				Label:    event.DataName,
-				DataType: &s,
-				Params:   event.Param,
-			}
-			info.Label = event.DataName
-			resInfo.Options = append(resInfo.Options, info)
-		}
-		res = append(res, resInfo)
-	}
-
-	if len(commandDatas) != 0 {
-		resInfo := model.GetModelSourceATRes{
-			DataSourceTypeRes: string(constant.CommandSource),
-			Options:           make([]*model.Options, 0),
-		}
-
-		for _, command := range commandDatas {
-			info := &model.Options{
-				Key:      command.DataIdentifier,
-				Label:    command.DataName,
-				DataType: &s,
-			}
-			info.Label = command.DataName
-			resInfo.Options = append(resInfo.Options, info)
-		}
-		res = append(res, resInfo)
-	}
-
-	return res, nil
+func (*Device) GetMetrics(ctx context.Context, deviceID string, claims *utils.UserClaims, authorization string) ([]nativeMetricGroup, error) {
+	return nativeDeviceMetricMenu(ctx, deviceID, claims, authorization, "TELEMETRY", "ATTRIBUTE", "EVENT", "COMMAND")
 }
 
-// 获取自动化一类设备Action下拉菜单；
-// 包含遥测、属性、命令
-func (*Device) GetActionByDeviceID(deviceID string) (any, error) {
-	/*返回数据结构
-	{
-		"data_source_type": "telemetry",
-		"options": [
-			{
-				"key": "temp",
-				"label": "温度",
-				"data_type": "number",
-				"unit": "℃"
-			}
-		]
-	},
-	{
-		"data_source_type": "attribute",
-		"options": [
-			{
-				"key": "version",
-				"label": "固件版本",
-				"data_type": "string"
-			}
-		]
-	},
-	*/
-	//
-	//http://47.251.45.205:9999/api/v1/device/metrics/condition/menu?device_id=653e34cf-eb4d-2219-b182-79bc1f8379f1
-	// 获取设备配置信息
-	device, err := dal.GetDeviceByID(deviceID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get device failed:" + err.Error(),
-			"id":    deviceID,
-		})
-	}
-	type option struct {
-		Key           string  `json:"key"`
-		Label         *string `json:"label"`
-		DataType      *string `json:"data_type"`
-		Uint          *string `json:"unit"`
-		ReadWriteFlag *string `json:"read_write_flag"`
-	}
-	type actionModelSource struct {
-		DataSourceTypeRes string    `json:"data_source_type"`
-		Options           []*option `json:"options"`
-		Label             string    `json:"label"`
-	}
-	// 获取设备遥测当前值
-	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(deviceID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get device current telemetry failed:" + err.Error(),
-			"id":    deviceID,
-		})
-	}
-	var telemetryOptions []*option
-	for _, telemetry := range telemetryDatas {
-		var o option
-		o.Key = telemetry.Key
-		switch {
-		case telemetry.BoolV != nil:
-			o.DataType = StringPtr("Boolean")
-		case telemetry.NumberV != nil:
-			o.DataType = StringPtr("Number")
-		case telemetry.StringV != nil:
-			o.DataType = StringPtr("String")
-		}
-		telemetryOptions = append(telemetryOptions, &o)
-	}
-	// 获取设备属性当前值
-	attributeDatas, err := dal.GetAttributeDataList(deviceID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get device current attribute failed:" + err.Error(),
-			"id":    deviceID,
-		})
-	}
-	var attributeOptions []*option
-	for _, attribute := range attributeDatas {
-		var o option
-		o.Key = attribute.Key
-		switch {
-		case attribute.BoolV != nil:
-			o.DataType = StringPtr("Boolean")
-		case attribute.NumberV != nil:
-			o.DataType = StringPtr("Number")
-		case attribute.StringV != nil:
-			o.DataType = StringPtr("String")
-		}
-		attributeOptions = append(attributeOptions, &o)
-	}
-	var commandOptions []*option
-	res := make([]actionModelSource, 0)
-	if device.DeviceConfigID != nil {
-		// 获取设备配置信息
-		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error": "get device config failed:" + err.Error(),
-				"id":    deviceID,
-			})
-		}
-		if deviceConfig.DeviceTemplateID != nil {
-			// 获取设备模板遥测
-			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"error": "get device template telemetry failed:" + err.Error(),
-					"id":    deviceID,
-				})
-			}
-			// 有映射的做映射
-			for _, model := range telemetryModel {
-				// 存在模型对应字段的标志
-				flag := false
-				for _, v := range telemetryOptions {
-					if model.DataIdentifier == v.Key {
-						v.Label = model.DataName
-						v.DataType = model.DataType
-						v.Uint = model.Unit
-						v.ReadWriteFlag = model.ReadWriteFlag
-						flag = true
-					}
-				}
-				if !flag {
-					// 没有对应的字段，直接添加
-					var o option
-					o.Key = model.DataIdentifier
-					o.Label = model.DataName
-					o.DataType = model.DataType
-					o.Uint = model.Unit
-					o.ReadWriteFlag = model.ReadWriteFlag
-					telemetryOptions = append(telemetryOptions, &o)
-				}
-			}
-			// 获取设备模板属性
-			attributeModel, err := dal.GetDeviceModelAttributeDataList(*deviceConfig.DeviceTemplateID)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"error": "get device template attribute failed:" + err.Error(),
-					"id":    deviceID,
-				})
-			}
-			attributeOptions := make([]*option, 0)
-			for _, model := range attributeModel {
-				// 存在模型对应字段的标志
-				flag := false
-				for _, v := range attributeOptions {
-					if model.DataIdentifier == v.Key {
-						v.Label = model.DataName
-						v.DataType = model.DataType
-						v.Uint = model.Unit
-						v.ReadWriteFlag = model.ReadWriteFlag
-						flag = true
-					}
-				}
-				if !flag {
-					// 没有对应的字段，直接添加
-					var o option
-					o.Key = model.DataIdentifier
-					o.Label = model.DataName
-					o.DataType = model.DataType
-					o.Uint = model.Unit
-					o.ReadWriteFlag = model.ReadWriteFlag
-					attributeOptions = append(attributeOptions, &o)
-				}
-			}
-			// 获取设备模板命令
-			commandDatas, err := dal.GetDeviceModelCommandDataList(*deviceConfig.DeviceTemplateID)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"error": "get device template command failed:" + err.Error(),
-					"id":    deviceID,
-				})
-			}
-
-			for _, command := range commandDatas {
-				var o option
-				o.Key = command.DataIdentifier
-				o.Label = command.DataName
-				o.DataType = StringPtr("String")
-				commandOptions = append(commandOptions, &o)
-			}
-		}
-
-	}
-	// 返回
-
-	if len(telemetryOptions) != 0 {
-		res = append(res, actionModelSource{
-			Label:             "遥测",
-			DataSourceTypeRes: string(constant.TelemetrySource),
-			Options:           telemetryOptions,
-		})
-	}
-	if len(attributeOptions) != 0 {
-		res = append(res, actionModelSource{
-			Label:             "属性",
-			DataSourceTypeRes: string(constant.AttributeSource),
-			Options:           attributeOptions,
-		})
-	}
-	if len(commandOptions) != 0 {
-		res = append(res, actionModelSource{
-			Label:             "命令",
-			DataSourceTypeRes: string(constant.CommandSource),
-			Options:           commandOptions,
-		})
-	}
-	res = append(res, actionModelSource{
-		Label:             "自定义遥测",
-		DataSourceTypeRes: "c_telemetry",
-		Options:           []*option{},
-	})
-	res = append(res, actionModelSource{
-		Label:             "自定义属性",
-		DataSourceTypeRes: "c_attribute",
-		Options:           []*option{},
-	})
-	res = append(res, actionModelSource{
-		Label:             "自定义命令",
-		DataSourceTypeRes: "c_command",
-		Options:           []*option{},
-	})
-
-	return res, nil
+func (*Device) GetActionByDeviceID(ctx context.Context, deviceID string, claims *utils.UserClaims, authorization string) ([]nativeMetricGroup, error) {
+	return nativeDeviceMetricMenu(ctx, deviceID, claims, authorization, "COMMAND")
 }
 
-// 获取自动化一类设备Condition下拉菜单；
-// 包含遥测、属性、事件
-func (*Device) GetConditionByDeviceID(deviceID string) (any, error) {
-	/*返回数据结构
-	{
-		"data_source_type": "telemetry",
-		"options": [
-			{
-				"key": "temp",
-				"label": "温度",
-				"data_type": "number",
-				"unit": "℃"
-			}
-		]
-	},
-	{
-		"data_source_type": "attribute",
-		"options": [
-			{
-				"key": "version",
-				"label": "固件版本",
-				"data_type": "string"
-			}
-		]
-	},
-	*/
-	// 获取设备配置信息
-	device, err := dal.GetDeviceByID(deviceID)
-	if err != nil {
-		return nil, err
-	}
-	type options struct {
-		Key      string  `json:"key"`
-		Label    *string `json:"label"`
-		DataType *string `json:"data_type"`
-		Uint     *string `json:"unit"`
-	}
-	type actionModelSource struct {
-		DataSourceTypeRes string     `json:"data_source_type"`
-		Options           []*options `json:"options"`
-	}
-	// 获取设备遥测当前值
-	telemetryDatas, err := dal.GetCurrentTelemetryDataEvolution(deviceID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get device current telemetry failed:" + err.Error(),
-			"id":    deviceID,
-		})
-	}
-	var telemetryOptions []*options
-	for _, telemetry := range telemetryDatas {
-		var o options
-		o.Key = telemetry.Key
-		switch {
-		case telemetry.BoolV != nil:
-			o.DataType = StringPtr("boolean")
-		case telemetry.NumberV != nil:
-			o.DataType = StringPtr("number")
-		case telemetry.StringV != nil:
-			o.DataType = StringPtr("string")
-		}
-		telemetryOptions = append(telemetryOptions, &o)
-	}
-	// 获取设备属性当前值
-	attributeDatas, err := dal.GetAttributeDataList(deviceID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get device current attribute failed:" + err.Error(),
-			"id":    deviceID,
-		})
-	}
-	var attributeOptions []*options
-	for _, attribute := range attributeDatas {
-		var o options
-		o.Key = attribute.Key
-		switch {
-		case attribute.BoolV != nil:
-			o.DataType = StringPtr("boolean")
-		case attribute.NumberV != nil:
-			o.DataType = StringPtr("number")
-		case attribute.StringV != nil:
-			o.DataType = StringPtr("string")
-		}
-		attributeOptions = append(attributeOptions, &o)
-	}
-	var eventOptions []*options
-	res := make([]actionModelSource, 0)
-	if device.DeviceConfigID != nil {
-		// 获取设备配置信息
-		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
-		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error": "get device config failed:" + err.Error(),
-				"id":    deviceID,
-			})
-		}
-		if deviceConfig.DeviceTemplateID != nil {
-			// 获取设备模板遥测
-			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"error": "get device template telemetry failed:" + err.Error(),
-					"id":    deviceID,
-				})
-			}
-			// 有映射的做映射
-			for _, model := range telemetryModel {
-				// 存在模型对应字段的标志
-				flag := false
-				for _, v := range telemetryOptions {
-					if model.DataIdentifier == v.Key {
-						v.Label = model.DataName
-						v.DataType = model.DataType
-						v.Uint = model.Unit
-						flag = true
-					}
-				}
-				if !flag {
-					// 没有对应的字段，直接添加
-					var o options
-					o.Key = model.DataIdentifier
-					o.Label = model.DataName
-					o.DataType = model.DataType
-					o.Uint = model.Unit
-					telemetryOptions = append(telemetryOptions, &o)
-				}
-			}
-			// 获取设备模板属性
-			attributeModel, err := dal.GetDeviceModelAttributeDataList(*deviceConfig.DeviceTemplateID)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"error": "get device template attribute failed:" + err.Error(),
-					"id":    deviceID,
-				})
-			}
-			// attributeOptions := make([]*options, 0)
-			for _, model := range attributeModel {
-				// 存在模型对应字段的标志
-				flag := false
-				for _, v := range attributeOptions {
-					if model.DataIdentifier == v.Key {
-						v.Label = model.DataName
-						v.DataType = model.DataType
-						v.Uint = model.Unit
-						flag = true
-					}
-				}
-				if !flag {
-					// 没有对应的字段，直接添加
-					var o options
-					o.Key = model.DataIdentifier
-					o.Label = model.DataName
-					o.DataType = model.DataType
-					o.Uint = model.Unit
-					attributeOptions = append(attributeOptions, &o)
-				}
-			}
-			// 获取设备模板命令
-			eventDatas, err := dal.GetDeviceModelEventDataList(*deviceConfig.DeviceTemplateID)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"error": "get device template command failed:" + err.Error(),
-					"id":    deviceID,
-				})
-			}
-
-			for _, event := range eventDatas {
-				var o options
-				o.Key = event.DataIdentifier
-				o.Label = event.DataName
-				o.DataType = StringPtr("string")
-				eventOptions = append(eventOptions, &o)
-			}
-		}
-	}
-	// 返回
-
-	if len(telemetryOptions) != 0 {
-		res = append(res, actionModelSource{
-			DataSourceTypeRes: string(constant.TelemetrySource),
-			Options:           telemetryOptions,
-		})
-	}
-	if len(attributeOptions) != 0 {
-		res = append(res, actionModelSource{
-			DataSourceTypeRes: string(constant.AttributeSource),
-			Options:           attributeOptions,
-		})
-	}
-	if len(eventOptions) != 0 {
-		res = append(res, actionModelSource{
-			DataSourceTypeRes: string(constant.EventSource),
-			Options:           eventOptions,
-		})
-	}
-	return res, nil
+func (*Device) GetConditionByDeviceID(ctx context.Context, deviceID string, claims *utils.UserClaims, authorization string) ([]nativeMetricGroup, error) {
+	return nativeDeviceMetricMenu(ctx, deviceID, claims, authorization, "TELEMETRY", "ATTRIBUTE", "EVENT")
 }
 
 func (*Device) GetMapTelemetry(device_id string) (map[string]interface{}, error) {
@@ -1978,6 +1394,7 @@ func (*Device) GatewayRegister(req model.GatewayRegisterReq) (model.GatewayRegis
 	device.DeviceNumber = req.GatewayId
 	device.IsOnline = 1
 	device.ActivateFlag = "active"
+	device.IsEnabled = "enabled"
 	return result, dal.CreateDevice(device)
 }
 
@@ -2029,6 +1446,7 @@ func (*Device) GatewayDeviceRegister(req model.DeviceRegisterReq) (model.DeviceR
 		subDeviceItem.DeviceNumber = uuid.New()
 		subDeviceItem.IsOnline = 1
 		subDeviceItem.ActivateFlag = "active"
+		subDeviceItem.IsEnabled = "enabled"
 		subDeviceItem.SubDeviceAddr = &v.SubAddr
 
 		// subDevices = append(subDevices, subDeviceItem)

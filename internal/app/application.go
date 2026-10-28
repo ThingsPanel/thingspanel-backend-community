@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"project/internal/downlink"
 	"project/internal/query"
 	"project/internal/storage"
@@ -64,6 +65,11 @@ func (app *Application) RegisterService(service Service) {
 // Start 启动所有注册的服务
 func (app *Application) Start() error {
 	return app.ServiceManager.StartAll()
+}
+
+// StartContext permits cancellation while MQTT or other contextual services start.
+func (app *Application) StartContext(ctx context.Context) error {
+	return app.ServiceManager.StartAllContext(ctx)
 }
 
 // Shutdown 优雅关闭所有资源

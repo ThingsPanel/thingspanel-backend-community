@@ -35,7 +35,8 @@ func (*DeviceConfigApi) UpdateDeviceConfig(c *gin.Context) {
 		return
 	}
 
-	data, err := service.GroupApp.DeviceConfig.UpdateDeviceConfig(req)
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.DeviceConfig.UpdateDeviceConfig(c, req, userClaims, c.GetHeader("x-token"))
 	if err != nil {
 		c.Error(err)
 		return
@@ -48,7 +49,8 @@ func (*DeviceConfigApi) UpdateDeviceConfig(c *gin.Context) {
 // @Router   /api/v1/device_config/{id} [delete]
 func (*DeviceConfigApi) DeleteDeviceConfig(c *gin.Context) {
 	id := c.Param("id")
-	err := service.GroupApp.DeviceConfig.DeleteDeviceConfig(id)
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.DeviceConfig.DeleteDeviceConfig(id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -60,7 +62,8 @@ func (*DeviceConfigApi) DeleteDeviceConfig(c *gin.Context) {
 // @Router   /api/v1/device_config/{id} [get]
 func (*DeviceConfigApi) HandleDeviceConfigById(c *gin.Context) {
 	id := c.Param("id")
-	info, err := service.GroupApp.DeviceConfig.GetDeviceConfigByID(c, id)
+	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	info, err := service.GroupApp.DeviceConfig.GetDeviceConfigByID(c, id, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -157,7 +160,7 @@ func (*DeviceConfigApi) HandleActionByDeviceConfigID(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	list, err := service.GroupApp.DeviceConfig.GetActionByDeviceConfigID(param.DeviceConfigID)
+	list, err := service.GroupApp.DeviceConfig.GetActionByDeviceConfigID(c.Request.Context(), param.DeviceConfigID, c.MustGet("claims").(*utils.UserClaims), communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return
@@ -172,7 +175,7 @@ func (*DeviceConfigApi) HandleConditionByDeviceConfigID(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	list, err := service.GroupApp.DeviceConfig.GetConditionByDeviceConfigID(param.DeviceConfigID)
+	list, err := service.GroupApp.DeviceConfig.GetConditionByDeviceConfigID(c.Request.Context(), param.DeviceConfigID, c.MustGet("claims").(*utils.UserClaims), communitySessionAuthorization(c))
 	if err != nil {
 		c.Error(err)
 		return

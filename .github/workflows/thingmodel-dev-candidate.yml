@@ -1,0 +1,68 @@
+name: ThingModel DEV Candidate
+
+on:
+  push:
+    branches:
+      - codex/thingmodel-dev-integration-20261018
+
+permissions:
+  contents: read
+
+concurrency:
+  group: thingmodel-dev-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-and-build:
+    if: github.ref == 'refs/heads/codex/thingmodel-dev-integration-20261018'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: qa_native_binding_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: native-binding-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qa_native_binding_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Verify candidate scope
+        run: |
+          test -z "$(git status --porcelain)"
+          git diff HEAD^ HEAD --check
+      - name: Native binding and market package tests
+        run: go test ./internal/service ./internal/api ./internal/repo -count=1
+      - name: Native binding PostgreSQL migration integration
+        env:
+          TEST_NATIVE_BINDING_DSN: host=127.0.0.1 port=5432 user=postgres password=native-binding-test-only dbname=qa_native_binding_test sslmode=disable
+        run: go test -p 1 ./initialize -run '^TestNativeBindingSchemaPostgres$' -count=1
+      - name: Build the complete Community program
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p candidate
+          go build -trimpath -ldflags "-s -w -X project/pkg/global.SYSTEM_VERSION=dev-${GITHUB_SHA:0:12}" -o candidate/ThingsPanel-Go .
+          ./candidate/ThingsPanel-Go --version
+          git rev-parse HEAD > candidate/SOURCE_COMMIT
+          sha256sum candidate/ThingsPanel-Go > candidate/SHA256SUMS
+      - name: Upload un-released build candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: community-native-candidate-${{ github.sha }}
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 7

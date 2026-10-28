@@ -1,0 +1,16 @@
+Verified 2026-10-19 with docker buildx imagetools inspect.
+
+Build/runtime Debian image:
+  debian:bookworm-slim
+  OCI index: sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+  linux/amd64: sha256:a4672c0cb26fbdde88e38fa2dfb6c681942306680e41e4378b28770b6e79ee91
+  linux/arm64/v8: sha256:a1b86db52ce3daef089e45aabe36dfec4091f82464c25c1fdcf03de197cbe82a
+
+Go builder:
+  golang:1.26.2-bookworm
+  OCI index: sha256:47ce5636e9936b2c5cbf708925578ef386b4f8872aec74a67bd13a627d242b19
+  linux/amd64: sha256:6b9b1ff26b22fde9b31abc5c6994586f588107ee3aa54dba50626aaac5884995
+  linux/arm64/v8: sha256:3fc85666d679424f406bbe27d9ffb24df50d5d800380f365c9e7cf6778072a75
+
+Mosquitto source: tag v2.1.2 at commit 99fa50f30e325609394c324c8ff71cfbbe95d8ab.
+The Dockerfile uses digest-pinned OCI indexes; the platform children above are recorded for audit.

@@ -1,0 +1,7 @@
+{
+  "sourceDeploymentId": "community-fixture-a",
+  "tenantId": "tenant-fixture",
+  "legacyGroupId": "legacy-group-fixture",
+  "notificationGroupId": "group-fixture-001",
+  "groupRevision": 3
+}

@@ -1,0 +1,8 @@
+{
+  "pluginRegistrationId": "plugin-registration-fixture",
+  "tenantId": "tenant-opaque-fixture",
+  "enabled": true,
+  "version": 1,
+  "createdAt": "2026-10-09T12:00:00Z",
+  "updatedAt": "2026-10-09T12:00:00Z"
+}

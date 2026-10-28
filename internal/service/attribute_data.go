@@ -120,19 +120,32 @@ func (a *AttributeData) SetDownlinkBus(bus *downlink.Bus) {
 
 // AttributePutMessage 属性设置下发（改造为异步模式，支持多层网关）
 func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID string, putMessageReq *model.AttributePutMessage, operationType string) error {
+	if isIngressV1Commands() {
+		if putMessageReq == nil || operationType != "1" {
+			return errors.New("standard attribute control requires an authenticated manual request")
+		}
+		_, err := submitStandardControl(ctx, operatorID, putMessageReq.DeviceID, "attribute", putMessageReq.Value)
+		return err
+	}
 	// 1. 获取设备信息
-	device, err := initialize.GetDeviceCacheById(putMessageReq.DeviceID)
+	// Resolve service-owned downlink routes from the database's current device relation.
+	device, err := dal.GetDeviceByID(putMessageReq.DeviceID)
 	if err != nil {
-		return fmt.Errorf("device not found: %w", err)
+		return fmt.Errorf("failed to load device from database: %w", err)
 	}
 
 	// 2. 生成 message_id（8位唯一字符串）
 	messageId := uuid.New()[:8]
 
 	// 3. 获取设备类型和协议类型
+	serviceRoute, err := resolveServiceDownlinkRoute(device)
+	if err != nil {
+		return err
+	}
+	isService := serviceRoute.IsService
 	var deviceType string
 	var protocolType string
-	if device.DeviceConfigID != nil {
+	if !isService && device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
 			return fmt.Errorf("failed to get device config: %w", err)
@@ -154,7 +167,13 @@ func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID stri
 	}
 
 	// 5. 处理网关层级，获取目标设备信息
-	targetDevice, targetDeviceNumber, topicPrefix, err := a.resolveDeviceInfo(device, deviceType, protocolType)
+	targetDevice, targetDeviceNumber, topicPrefix := device, device.DeviceNumber, serviceRoute.TopicPrefix
+	if isService {
+		targetDeviceNumber = serviceRoute.DeviceNumber
+	}
+	if !isService {
+		targetDevice, targetDeviceNumber, topicPrefix, err = a.resolveDeviceInfo(device, deviceType, protocolType)
+	}
 	if err != nil {
 		return err
 	}
@@ -177,18 +196,18 @@ func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID stri
 			DeviceConfigID: a.getDeviceConfigID(targetDevice), // 使用顶层网关的配置ID（用于脚本编码）
 			Type:           downlink.MessageTypeAttributeSet,
 			Data:           jsonData,
-			Topic:          "",                                // 不再传Topic，由Adapter构造
-			TopicPrefix:    topicPrefix,                       // 协议插件前缀
+			Topic:          "",          // 不再传Topic，由Adapter构造
+			TopicPrefix:    topicPrefix, // 协议插件前缀
 			MessageID:      messageId,
 		}
 		a.downlinkBus.PublishAttributeSet(msg)
 
 		logrus.WithFields(logrus.Fields{
-			"device_id":           device.ID,
-			"target_device_id":    targetDevice.ID,
+			"device_id":            device.ID,
+			"target_device_id":     targetDevice.ID,
 			"target_device_number": targetDeviceNumber,
-			"device_type":         deviceType,
-			"message_id":          messageId,
+			"device_type":          deviceType,
+			"message_id":           messageId,
 		}).Info("Attribute set sent via downlink")
 	} else {
 		return fmt.Errorf("downlink service not available")
@@ -258,7 +277,22 @@ func (a *AttributeData) getDeviceConfigID(device *model.Device) string {
 	return *device.DeviceConfigID
 }
 
-func (a *AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.AttributeGetMessageReq) error {
+func (a *AttributeData) AttributeGetMessage(claims *utils.UserClaims, req *model.AttributeGetMessageReq) error {
+	if isIngressV1Commands() {
+		if claims == nil || req == nil {
+			return errors.New("attribute query caller is required")
+		}
+		keys := req.Keys
+		if keys == nil {
+			keys = []string{}
+		}
+		payload, err := json.Marshal(map[string]any{"keys": keys})
+		if err != nil {
+			return err
+		}
+		_, err = submitStandardControl(context.Background(), claims.ID, req.DeviceID, "attribute_get", string(payload))
+		return err
+	}
 	logrus.Debug("AttributeGetMessage")
 	// 1. 获取设备信息
 	device, err := dal.GetDeviceByID(req.DeviceID)
@@ -274,9 +308,14 @@ func (a *AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.Attr
 	}
 
 	// 2. 获取设备类型和协议类型
+	serviceRoute, err := resolveServiceDownlinkRoute(device)
+	if err != nil {
+		return err
+	}
+	isService := serviceRoute.IsService
 	var deviceType string
 	var protocolType string
-	if device.DeviceConfigID != nil {
+	if !isService && device.DeviceConfigID != nil && *device.DeviceConfigID != "" {
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
 			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -295,7 +334,13 @@ func (a *AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.Attr
 	}
 
 	// 3. 处理网关层级，获取目标设备信息
-	targetDevice, targetDeviceNumber, topicPrefix, err := a.resolveDeviceInfo(device, deviceType, protocolType)
+	targetDevice, targetDeviceNumber, topicPrefix := device, device.DeviceNumber, serviceRoute.TopicPrefix
+	if isService {
+		targetDeviceNumber = serviceRoute.DeviceNumber
+	}
+	if !isService {
+		targetDevice, targetDeviceNumber, topicPrefix, err = a.resolveDeviceInfo(device, deviceType, protocolType)
+	}
 	if err != nil {
 		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
 			"system_error": err.Error(),
@@ -331,24 +376,24 @@ func (a *AttributeData) AttributeGetMessage(_ *utils.UserClaims, req *model.Attr
 	// 6. 构造下行消息
 	msg := &downlink.Message{
 		DeviceID:       device.ID,
-		DeviceNumber:   targetDeviceNumber,               // 目标设备编号
-		DeviceType:     deviceType,                       // 设备类型
+		DeviceNumber:   targetDeviceNumber,                // 目标设备编号
+		DeviceType:     deviceType,                        // 设备类型
 		DeviceConfigID: a.getDeviceConfigID(targetDevice), // 使用顶层网关的配置ID（用于脚本编码）
 		Type:           downlink.MessageTypeAttributeGet,
 		Data:           payload,
-		Topic:          "",                               // 不再传Topic，由Adapter构造
-		TopicPrefix:    topicPrefix,                      // 协议插件前缀
-		MessageID:      "",                               // 属性获取不需要记录日志
+		Topic:          "",          // 不再传Topic，由Adapter构造
+		TopicPrefix:    topicPrefix, // 协议插件前缀
+		MessageID:      "",          // 属性获取不需要记录日志
 	}
 
 	// 7. 发送到 Bus
 	a.downlinkBus.PublishAttributeGet(msg)
 
 	logrus.WithFields(logrus.Fields{
-		"device_id":           device.ID,
-		"target_device_id":    targetDevice.ID,
+		"device_id":            device.ID,
+		"target_device_id":     targetDevice.ID,
 		"target_device_number": targetDeviceNumber,
-		"device_type":         deviceType,
+		"device_type":          deviceType,
 	}).Info("Attribute get sent via downlink")
 
 	return nil

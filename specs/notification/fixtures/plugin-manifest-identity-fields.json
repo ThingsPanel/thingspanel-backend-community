@@ -1,0 +1,21 @@
+{
+  "api_version": "1.0",
+  "plugin_id": "example.notification",
+  "name": "Example notification plugin",
+  "plugin_version": "1.0.1",
+  "channels": ["webhook"],
+  "content_modes": ["text"],
+  "config_schema": {
+    "type": "object",
+    "properties": {
+      "account_id": {"type": "string"},
+      "region": {"type": "string"},
+      "password": {"type": "string"}
+    },
+    "required": ["account_id", "region"]
+  },
+  "recipient_schema": {"type": "object", "properties": {}},
+  "secret_fields": ["password"],
+  "identity_fields": ["account_id", "region"],
+  "capabilities": {"delivery_receipts": false}
+}

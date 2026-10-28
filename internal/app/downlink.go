@@ -20,6 +20,7 @@ type DownlinkServiceWrapper struct {
 	cancel    context.CancelFunc
 	logger    *logrus.Logger
 	processor *processor.ScriptProcessor
+	commands  *brokerCommandWorker
 }
 
 // Name 服务名称
@@ -37,6 +38,11 @@ func (s *DownlinkServiceWrapper) Start() error {
 
 	// 创建 Handler（直接使用 Adapter 作为 MessagePublisher）
 	s.handler = downlink.NewHandler(adapter, s.processor, s.logger)
+	commands, err := startBrokerCommandWorker(s.ctx, adapter, s.logger)
+	if err != nil {
+		return err
+	}
+	s.commands = commands
 
 	// 启动 Bus
 	s.bus.Start(s.ctx, s.handler)
@@ -48,6 +54,7 @@ func (s *DownlinkServiceWrapper) Start() error {
 func (s *DownlinkServiceWrapper) Stop() error {
 	s.logger.Info("Stopping downlink service...")
 	s.cancel()
+	s.commands.Stop()
 	s.bus.Close()
 	s.logger.Info("Downlink service stopped")
 	return nil

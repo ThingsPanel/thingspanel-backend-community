@@ -31,6 +31,48 @@ func UpdateAlarmConfig(d *model.AlarmConfig) error {
 	return nil
 }
 
+// UpdateAlarmConfigFields preserves the generated GORM non-zero update
+// behavior for optional fields while allowing an explicit empty group ID to
+// be written when a caller supplied notification_group_id: "".
+func UpdateAlarmConfigFields(d *model.AlarmConfig, setNotificationGroup bool) error {
+	if d == nil || d.ID == "" {
+		return fmt.Errorf("invalid alarm config update")
+	}
+	updates := map[string]interface{}{"updated_at": d.UpdatedAt}
+	if d.Name != "" {
+		updates["name"] = d.Name
+	}
+	if d.Description != nil {
+		updates["description"] = d.Description
+	}
+	if d.AlarmLevel != "" {
+		updates["alarm_level"] = d.AlarmLevel
+	}
+	if setNotificationGroup {
+		updates["notification_group_id"] = d.NotificationGroupID
+	}
+	if !d.CreatedAt.IsZero() {
+		updates["created_at"] = d.CreatedAt
+	}
+	if d.TenantID != "" {
+		updates["tenant_id"] = d.TenantID
+	}
+	if d.Remark != nil {
+		updates["remark"] = d.Remark
+	}
+	if d.Enabled != "" {
+		updates["enabled"] = d.Enabled
+	}
+	result := global.DB.Model(&model.AlarmConfig{}).Where("id = ?", d.ID).Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("no data updated")
+	}
+	return nil
+}
+
 func DeleteAlarmConfig(id string) error {
 	info, err := query.AlarmConfig.Where(query.AlarmConfig.ID.Eq(id)).Delete()
 	if err != nil {
@@ -52,9 +94,9 @@ func GetAlarmByID(id string) (*model.AlarmConfig, error) {
 }
 
 // 根据告警信息ID获取告警信息
-func GetAlarmInfoHistoryByID(id string) (map[string]interface{}, error) {
+func GetAlarmInfoHistoryByID(id, tenantID string) (map[string]interface{}, error) {
 	var result map[string]interface{}
-	err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id)).Select(query.AlarmHistory.ALL).Scan(&result)
+	err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id), query.AlarmHistory.TenantID.Eq(tenantID)).Select(query.AlarmHistory.ALL).Scan(&result)
 	if err != nil {
 		return nil, err
 	}
@@ -357,4 +399,16 @@ func DeleteAlarmNameCache(alarmId string) error {
 	redis := global.REDIS
 	cacheKey := fmt.Sprintf("GetAlarmNameWithCache:alarmId:%s", alarmId)
 	return redis.Del(context.Background(), cacheKey).Err()
+}
+
+func GetAlarmNotificationInfoByID(id, tenantID string) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	err := query.AlarmInfo.Where(query.AlarmInfo.ID.Eq(id), query.AlarmInfo.TenantID.Eq(tenantID)).Select(query.AlarmInfo.ALL).Scan(&result)
+	if err != nil || len(result) == 0 {
+		return result, err
+	}
+	result["create_at"] = result["alarm_time"]
+	result["alarm_status"] = result["alarm_level"]
+	result["alarm_device_list"] = []map[string]interface{}{}
+	return result, nil
 }

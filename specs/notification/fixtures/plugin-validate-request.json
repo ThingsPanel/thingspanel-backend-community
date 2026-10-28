@@ -1,0 +1,7 @@
+{
+  "api_version": "1.0",
+  "tenant_id": "tenant-fixture",
+  "instance_id": "instance-fixture-001",
+  "config_version": 1,
+  "config": {"optionalValue": null, "labels": ["fixture", null]}
+}

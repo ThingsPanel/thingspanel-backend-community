@@ -1,0 +1,544 @@
+# Execution update 2026-10-09: preserve plugin wire semantics.
+# The standard receipt endpoint is hosted by the Encore notification service.
+# Business v2 and source-ingress contracts are finalized by T01; see ../START-HERE.md.
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: ThingsPanel Notification Plugin V1
+  version: 1.0.0
+  description: |
+    设计提案。Plugin 标签的四个路径由通知插件提供；ThingsPanel 标签的
+    receipts 路径由平台提供，使用不同服务器和不同方向的认证。
+    平台发送请求中的 tenant_id 来自受信上下文；回执租户由专用令牌确定。
+    一个 send 仅有一个目标、一个内容快照、一次有界供应商提交尝试。
+    accepted 不是 delivered；unknown 禁止自动重发。delivery_id/attempt_id
+    不代表供应商原生幂等。平台不依赖 HTTP 错误码推断“本次未受理”。
+    接口只接受单个完整 UTF-8 JSON 对象，拒绝重复键、尾随 JSON、错误大小写、
+    未知字段和显式 null；config/params 内部按其 schema 单独校验。
+    JSON Schema 不能检查跨请求 ID 对应、凭据、租户权限或远程副作用，
+    实现必须执行各 operation 描述中的语义约束。
+servers:
+  - url: https://notification-plugin.example.invalid
+    description: 管理员登记的插件 origin；此占位地址不可用于真实请求
+security:
+  - PluginBearer: []
+tags:
+  - name: Plugin
+    description: 由通知插件提供；平台调用
+  - name: ThingsPanel
+    description: 由 ThingsPanel 提供；已验供应商回执的插件调用
+paths:
+  /v1/manifest:
+    get:
+      tags: [Plugin]
+      operationId: getNotificationPluginManifest
+      summary: 获取插件清单
+      description: |
+        不发送通知。平台安装时核对并固定 plugin_id/plugin_version/api_version。
+        config_schema 与 recipient_schema 使用约定的 JSON Schema 子集。
+        禁止远程 $ref；$schema 只作为方言标识，不触发网络请求。
+        secret_fields 必须指向 config_schema.properties 的顶层属性。
+        可选 identity_fields 声明实例账号身份所依赖的顶层 config 字段名；缺失表示旧插件，平台不得推测身份字段。
+      responses:
+        '200':
+          description: 插件清单
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manifest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /v1/validate:
+    post:
+      tags: [Plugin]
+      operationId: validateNotificationInstance
+      summary: 校验实例配置
+      description: |
+        仅校验配置和字段关联，不向真人发送短信、电话、邮件或 IM。
+        valid=true 当且仅当 errors 为空；字段错误使用结构化路径。
+        可选的只读远程凭据检查必须有界且不得发送测试通知。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateRequest'
+      responses:
+        '200':
+          description: 配置有效或无效都返回此规范响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /v1/send:
+    post:
+      tags: [Plugin]
+      operationId: sendNotificationDelivery
+      summary: 对一个目标执行一次提交尝试
+      description: |
+        鉴权、api_version、manifest 能力、config、recipient、content 和有效期
+        必须在调用供应商之前校验。实例账号、区域、发送身份在 V1 不可变。
+        禁用不安全 SDK 自动重试；遵守调用超时和 expires_at，不后台延迟补发。
+        所有规范 SendResult 仅用 HTTP 200，包括 rejected 和 unknown。
+        任何非规范 HTTP/JSON、超时、断连、重定向或不匹配的 delivery_id，
+        平台均保守视为 unknown，停止自动重发。不要仅根据 429/503 重试。
+        rejected 只有在插件确认本次未被供应商受理时成立。
+        accepted 且 receipt_expected=true 必须返回可关联 provider_message_id。
+        该 ID 应在实例账号及历史有效期内唯一，必要时包含账号/区域命名空间；
+        提供商回执采用相同转换。它与 delivery_id、attempt_id 不可互换。
+        receipt_expected 只在 accepted 后决定等待回执还是 unsupported。
+        网络层构造 unknown 时不得用默认 false 覆盖任务原有回执能力快照。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendRequest'
+      responses:
+        '200':
+          description: 规范提交结果；不证明用户已收到或阅读
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendResult'
+              examples:
+                accepted:
+                  value:
+                    delivery_id: delivery-demo-001
+                    outcome: accepted
+                    provider_message_id: mock:delivery-demo-001
+                    receipt_expected: true
+                rejected:
+                  value:
+                    delivery_id: delivery-demo-001
+                    outcome: rejected
+                    receipt_expected: false
+                    error:
+                      code: mock_not_submitted
+                      message: Mock 明确拒绝，未提交供应商。
+                      retryable: true
+                      retry_after_seconds: 5
+                unknown:
+                  value:
+                    delivery_id: delivery-demo-001
+                    outcome: unknown
+                    receipt_expected: true
+                    error:
+                      code: submission_uncertain
+                      message: 无法确认是否受理，禁止自动重发。
+                      retryable: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        default:
+          description: |
+            非规范结果。平台不能据此确认是否发生供应商调用，按 unknown 处理；
+            不把响应正文当作合法 SendResult，也不自动跟随重定向。
+  /healthz:
+    get:
+      tags: [Plugin]
+      operationId: getNotificationPluginHealth
+      summary: 插件进程健康检查
+      description: 不发送通知；存活和基本就绪不代表供应商当前可用。
+      responses:
+        '200':
+          description: 插件就绪；正文可为空
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/notification-instances/{instance_id}/receipts:
+    servers:
+      - url: https://thingspanel.example.invalid
+        description: ThingsPanel 平台；不是插件服务器
+    post:
+      tags: [ThingsPanel]
+      operationId: acceptNotificationReceipt
+      summary: ThingsPanel 持久接收一条已验证回执
+      security:
+        - InstanceReceiptBearer: []
+      description: |
+        此路径由 ThingsPanel 实现。专用回执 token 绑定 tenant/instance，
+        不能复用平台到插件的 PluginBearer，也不接收 JSON 自报 tenant_id。
+        插件必须先按供应商规范验证原始 Webhook/队列消息的真实性。
+        停用实例发送不等于停止接受该实例的历史回执。
+        平台在事务中持久保存规范事件及其摘要，再返回 200；unmatched
+        持久化后也可返回 200，由平台后续重关联。
+        同 (tenant,instance,event_id) 同摘要返回相同 ACK；
+        同 event_id 不同摘要记录冲突并返回 409，不覆盖已应用的状态。
+        有 delivery_id 时核对投递实例及已知 provider_message_id；
+        无 delivery_id 时按认证实例+provider_message_id 恰好匹配一条，
+        0 条保持 unmatched，多条标记 conflict，禁止取第一条。
+        可信终态匹配 sending/unknown 时，同事务补 ID、提升 dispatch 为
+        accepted、更新 delivery 状态、清理租约。明确 delivered/failed
+        可替换 delivery unknown；中间状态或 unknown 不覆盖已有终态，
+        delivered 与 failed 冲突时保留首个可信终态并记录冲突。
+        attempt_count=0 的首次 queued 不接受回执直接提升，需隔离核查。
+        已发生尝试的重试 queued 若收到精确关联的可信回执，必须原子提升 accepted，
+        清除 next_attempt_at 和租约并处理投递状态，阻止下一次领取；记录原拒绝与新证据的冲突。
+        queued/sent/ringing 等中间状态不产生此终态事件。
+        提供商原生批量回执由插件拆成多条标准事件；本接口不接收数组。
+      parameters:
+        - name: instance_id
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/NonEmptyString'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Receipt'
+            example:
+              event_id: mock-event-demo-001
+              provider_message_id: mock:delivery-demo-001
+              delivery_id: delivery-demo-001
+              status: delivered
+              occurred_at: '2026-10-09T01:00:00Z'
+              provider_code: MOCK_DELIVERED
+      responses:
+        '200':
+          description: |
+            已持久接收，或相同事件已持久存在；不保证此刻已经匹配/应用。
+            插件只有获得此确认后才可 ACK 提供商或删除上游队列消息。
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [accepted]
+                properties:
+                  accepted:
+                    type: boolean
+                    const: true
+              example: {accepted: true}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: 同事件 ID 的内容冲突；冲突证据已持久保存，原投递结果未被覆盖
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtocolError'
+        '503':
+          description: 未确认持久接收；插件保留回执并依照有界回执重试/耐久缓冲策略处理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProtocolError'
+components:
+  securitySchemes:
+    PluginBearer:
+      type: http
+      scheme: bearer
+      description: 管理员登记的服务令牌；平台调用插件四个路径
+    InstanceReceiptBearer:
+      type: http
+      scheme: bearer
+      description: 平台签发或登记的实例专用回执令牌；绑定租户与路径实例
+  responses:
+    BadRequest:
+      description: 请求格式或协议无效；send 调用方仍不得据 HTTP 状态盲重试
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProtocolError'
+    Unauthorized:
+      description: 认证失败；不得调用供应商
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProtocolError'
+    Forbidden:
+      description: 令牌没有该实例的权限；不得调用供应商或修改另一实例
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProtocolError'
+    Unavailable:
+      description: 接口不可用；send 调用方仍按未知副作用保守处理
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProtocolError'
+  schemas:
+    NonEmptyString:
+      type: string
+      minLength: 1
+      pattern: '\S'
+    Channel:
+      type: string
+      enum: [email, sms, voice, im, webhook]
+    Recipient:
+      type: object
+      additionalProperties: false
+      required: [kind, address]
+      properties:
+        kind:
+          type: string
+          enum: [email, phone, chat_id, user_id, webhook]
+        address:
+          $ref: '#/components/schemas/NonEmptyString'
+      description: |
+        还必须通过所选实例的 recipient_schema。phone 使用国际规范格式，
+        由插件转换供应商格式；webhook 通常是配置内目标的 default 标识，
+        不能让普通业务用户借 address 提交任意出站 URL。
+    Content:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [kind, text]
+          properties:
+            kind: {type: string, const: text}
+            title: {type: string}
+            text:
+              $ref: '#/components/schemas/NonEmptyString'
+        - type: object
+          additionalProperties: false
+          required: [kind, template]
+          properties:
+            kind: {type: string, const: template}
+            title:
+              type: string
+              description: 可选标题，须由插件明确支持，不参与模板参数猜测
+            template:
+              type: object
+              additionalProperties: false
+              required: [id, params]
+              properties:
+                id:
+                  $ref: '#/components/schemas/NonEmptyString'
+                locale: {type: string}
+                params:
+                  type: object
+                  additionalProperties: true
+      description: 互斥的文本或供应商模板；插件另行校验内容模式、模板变量和语言。
+    EmbeddedSchema:
+      type: object
+      required: [type]
+      properties:
+        type: {type: string, const: object}
+      additionalProperties: true
+      description: |
+        config_schema 与 recipient_schema 是嵌入式 JSON Schema Draft 2020-12 文档。
+        Core 使用 Draft 2020-12 validator 编译和验证，不另设关键字 allowlist；
+        validator 接受的标准 schema 关键字可用于插件约束。Core 拒绝网络或文件
+        外部 $ref，允许文档内引用。不执行 schema 中的代码。前端配置编辑器只支持
+        更窄的字段、关键字和格式子集：Core 接受某个 schema 不代表 UI 一定能编辑它。
+        插件作者在登记前应在目标 Core 编译 schema，并在目标 UI 逐字段试填、保存和校验。
+        无法编译的 schema 必须在安装时明确拒绝，不能悄悄忽略。
+    Manifest:
+      type: object
+      additionalProperties: false
+      required: [api_version, plugin_id, name, plugin_version, channels, content_modes, config_schema, recipient_schema, secret_fields, capabilities]
+      properties:
+        api_version: {type: string, const: '1.0'}
+        plugin_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        name:
+          $ref: '#/components/schemas/NonEmptyString'
+        plugin_version:
+          $ref: '#/components/schemas/NonEmptyString'
+        channels:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Channel'
+        content_modes:
+          type: array
+          minItems: 1
+          items: {type: string, enum: [text, template]}
+        config_schema:
+          $ref: '#/components/schemas/EmbeddedSchema'
+        recipient_schema:
+          $ref: '#/components/schemas/EmbeddedSchema'
+        secret_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/NonEmptyString'
+        identity_fields:
+          type: array
+          minItems: 1
+          maxItems: 64
+          uniqueItems: true
+          description: >-
+            Optional. Names the top-level configuration fields that identify the provider account. If omitted, this is a legacy manifest; the platform must not infer identity fields.
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: '^[A-Za-z_][A-Za-z0-9_]*$'
+        capabilities:
+          type: object
+          additionalProperties: false
+          required: [delivery_receipts]
+          properties:
+            delivery_receipts: {type: boolean}
+    ValidateRequest:
+      type: object
+      additionalProperties: false
+      required: [api_version, tenant_id, instance_id, config_version, config]
+      properties:
+        api_version: {type: string, const: '1.0'}
+        tenant_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        instance_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        config_version: {type: integer, minimum: 1}
+        config: {type: object, additionalProperties: true}
+    ValidateResult:
+      type: object
+      additionalProperties: false
+      required: [valid, errors]
+      properties:
+        valid: {type: boolean}
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, code, message]
+            properties:
+              field: {type: string}
+              code:
+                $ref: '#/components/schemas/NonEmptyString'
+              message:
+                $ref: '#/components/schemas/NonEmptyString'
+      oneOf:
+        - properties:
+            valid: {const: true}
+            errors: {maxItems: 0}
+        - properties:
+            valid: {const: false}
+            errors: {minItems: 1}
+    SendRequest:
+      type: object
+      additionalProperties: false
+      required: [api_version, delivery_id, attempt_id, tenant_id, instance_id, config_version, channel, recipient, content, config, expires_at]
+      properties:
+        api_version: {type: string, const: '1.0'}
+        delivery_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        attempt_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        tenant_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        instance_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        config_version: {type: integer, minimum: 1}
+        channel:
+          $ref: '#/components/schemas/Channel'
+        recipient:
+          $ref: '#/components/schemas/Recipient'
+        content:
+          $ref: '#/components/schemas/Content'
+        config:
+          type: object
+          additionalProperties: true
+          description: 本次不可变配置版本的必要解密内容，仅在受保护传输中使用，禁止记录日志
+        expires_at:
+          type: string
+          format: date-time
+          description: 必须为未来 RFC3339 时间；平台与插件调用前再检查
+    DeliveryError:
+      type: object
+      additionalProperties: false
+      required: [code, message, retryable]
+      properties:
+        code:
+          $ref: '#/components/schemas/NonEmptyString'
+        message:
+          $ref: '#/components/schemas/NonEmptyString'
+        retryable: {type: boolean}
+        retry_after_seconds: {type: integer, minimum: 0}
+      if:
+        required: [retry_after_seconds]
+      then:
+        properties:
+          retryable: {const: true}
+    SendResult:
+      type: object
+      additionalProperties: false
+      required: [delivery_id, outcome, receipt_expected]
+      properties:
+        delivery_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        outcome: {type: string, enum: [accepted, rejected, unknown]}
+        provider_message_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        receipt_expected: {type: boolean}
+        error:
+          $ref: '#/components/schemas/DeliveryError'
+      oneOf:
+        - properties:
+            outcome: {const: accepted}
+          not:
+            required: [error]
+          if:
+            properties:
+              receipt_expected: {const: true}
+          then:
+            required: [provider_message_id]
+        - required: [error]
+          properties:
+            outcome: {const: rejected}
+            receipt_expected: {const: false}
+          not:
+            required: [provider_message_id]
+        - required: [error]
+          properties:
+            outcome: {const: unknown}
+            error:
+              properties:
+                retryable: {const: false}
+    Receipt:
+      type: object
+      additionalProperties: false
+      required: [event_id, provider_message_id, status, occurred_at]
+      properties:
+        event_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        provider_message_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        delivery_id:
+          $ref: '#/components/schemas/NonEmptyString'
+        status:
+          type: string
+          enum: [delivered, failed, unknown]
+        occurred_at:
+          type: string
+          format: date-time
+        provider_code:
+          $ref: '#/components/schemas/NonEmptyString'
+        message:
+          $ref: '#/components/schemas/NonEmptyString'
+      description: |
+        event_id 在实例内标识一条事件，不可只用 message ID 复用所有状态。
+        无原生事件 ID 时插件构造稳定去重 ID；重复回调应保持相同规范事件。
+        message 只含安全摘要，不含凭据、完整手机号、原始正文或原始回调。
+        unknown 是供应商最终无法确认投递，不是 queued/sent/ringing 的代称。
+    ProtocolError:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          $ref: '#/components/schemas/NonEmptyString'
+        message:
+          $ref: '#/components/schemas/NonEmptyString'

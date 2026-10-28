@@ -1,0 +1,15 @@
+{
+  "httpStatus": 202,
+  "body": {
+    "code": 200,
+    "message": "ok",
+    "requestId": "request-fixture-blocked",
+    "data": {
+      "accepted": true,
+      "notificationId": "notification-fixture-blocked",
+      "deliveryIds": [],
+      "intakeStatus": "blocked",
+      "blockedReason": "group_revision_unavailable"
+    }
+  }
+}

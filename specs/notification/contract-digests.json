@@ -1,0 +1,38 @@
+{
+  "draftVersion": "notification-contracts-2026-10-09.9",
+  "status": "frozen-G1/bycoordinator2026-10-09",
+  "hashAlgorithm": "sha256",
+  "artifacts": {
+    "businessV2OpenAPI": {
+      "path": "../openapi/notification-v2.yaml",
+      "sha256": "dc474501113f6e2062819ecb9fa4a5999286a01061e95a7fbe9d2eb7292d8a9d"
+    },
+    "pluginWireV1": {
+      "path": "plugin-v1.openapi.yaml",
+      "sha256": "b3c5bcf2203ae4e6a7af202d54c45077424bf7bb3ca056c2c52211c9afe003ba",
+      "copiedFrom": "thingspanel-notification-v1-2026-10-09/spec/plugin-api.openapi.yaml"
+    },
+    "sourceEventV1": {
+      "path": "source-event-v1.schema.json",
+      "sha256": "3731e8ba012abd13ca4f411388d6c9fcdff6412a2f2f053ef5a23c26609c12ad"
+    },
+    "typescriptMapping": {
+      "path": "notification-v2.types.d.ts",
+      "sha256": "1ce81219531be3126d3a40c52f67415f4a977db9fae14ee987cd64f1605b3a9e"
+    }
+  },
+  "notes": [
+    "Coordinator amendment .9 reserves platform-selected tenant account management for SYS_ADMIN. Existing tenant account create/update/validate/receipt issuance now return 403; new platform paths require a live-verified explicit target tenant and retain tenant-scoped encrypted instances. Plugin listing is limited to grants for that tenant. DTO fields and plugin/source wire contracts are unchanged.",
+    "Coordinator amendment .8 freezes optional plugin identity_fields under api_version 1.0, its camelCase safe summary identityFields, and instance-update identity immutability. Absent declarations remain legacy and are never guessed; empty declarations are invalid. Plugin, business OpenAPI, and TypeScript mapping SHA256 digests are updated; source event v1 remains unchanged.",
+    "The .8 business OpenAPI and TypeScript mapping SHA256 digests are updated above. Plugin v1 has an additive optional identity_fields property; api_version remains 1.0. Source-event v1 is unchanged.",
+    "Coordinator amendment .7 freezes explicit platform plugin grants: SYS_ADMIN-only global list and versioned set with opaque target tenant ID, idempotent replay, and no implicit tenant grant during global registration. It adds PluginGrantUpdate/View/Page DTOs and role/permission boundaries. Grant changes are independent from plugin registration versions; plugin v1 and source event v1 are unchanged.",
+    "Coordinator amendment .6 adds read-only GET /api/v2/notifications pagination so blocked requests with zero deliveries are discoverable. NotificationView, submission idempotency, plugin v1 and source v1 remain unchanged. The amendment also declares sourceType delivery filtering, permits the already required numeric 401 domain error from raw authentication, and documents operator-approved HTTPS cluster origins.",
+    "Coordinator amendment .5 fixes GroupUpdate/Group JSON Schema composition: closed GroupCreate cannot be reused via allOf to introduce expectedVersion or response fields. Wire fields, plugin v1 and Go/TS DTOs unchanged; positive and negative schema fixtures added.",
+    "The .7 business OpenAPI and TypeScript mapping SHA256 digests are updated above. Plugin v1 and source-event v1 remain byte-for-byte unchanged. Go and TypeScript consumer drift fixtures are executable checks, not wire artifacts.",
+    "Coordinator froze G1 on 2026-10-09 for the pinned Encore framework/toolchain contract only. Evidence: ../../../evidence/t01-http-probe.json, ../../../evidence/t01-source-probe-final.log, ../../../evidence/t01-source-probe-sensitive.log, ../../../evidence/t01-existing-app-check-final.log, and ../../../evidence/T00-REPORT.md.",
+    "The scratch probe verifies framework HTTP status, auth plumbing, raw receipt ACK, route behavior, SQL transaction rollback/commit, initialization, and shutdown. It does not implement or verify notification business handlers, durable business stores, real UserJWT/source/receipt tenant authorization, source projection/CAS behavior, provider delivery, or production trace privacy; those remain T03/T07/T08 acceptance work.",
+    "Privacy evidence is limited to fake values: the typed sensitive-body sentinel had zero trace_event matches, while fake Authorization and ordinary raw-body sentinels appeared twice in local traces. T03 must guard a self-hosted no-trace configuration and verify sentinels before any real credential is used.",
+    "Go DTO snapshots and consumer fixtures are checked in the notification contract package/specs and are not included in this digest because it tracks the four wire-contract sources.",
+    "Descriptive clarification only: EmbeddedSchema now states the implemented Draft 2020-12 Core validation and narrower UI authoring boundary. No wire fields, version, or runtime behavior changed; pluginWireV1 digest is updated to match the description text."
+  ]
+}
