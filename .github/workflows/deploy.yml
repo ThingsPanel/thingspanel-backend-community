@@ -1,103 +1,63 @@
-# ThingsPanel 后端社区版自动部署工作流
-#
-# 功能说明:
-# 1. 自动编译并部署 ThingsPanel 后端社区版到指定服务器
-# 2. 保留上传的文件目录，其他目录重新部署
-#
-# 触发方式:
-# - 代码推送: 当 main 分支有代码推送时自动触发部署
-# - 手动触发: 可以通过 GitHub Actions 页面手动触发
-#
-# 部署步骤:
-# 1. 检出代码
-# 2. 设置 Go 环境 (v1.22)
-# 3. 打包源码
-# 4. 上传到部署服务器
-# 5. 部署和重启服务
-#
-# 服务器部署过程:
-# 1. 清理旧文件(保留 files 目录)
-# 2. 解压新代码
-# 3. 编译项目
-# 4. 使用 PM2 重启服务
-#
-# 必需的 Secrets:
-# - C_SSH_KEY: 社区版服务器 root 账号的 SSH 私钥
-#
-# 注意事项:
-# 1. 部署时会保留 files 目录，不会被清理
-# 2. 需要服务器已安装 Go 环境
-# 3. 需要服务器已安装 PM2
-# 4. 请确保服务器路径 /home/thingspanel/thingspanel-backend-community 存在
-
-name: deploy
-
-# 触发构建时机
+name: Community backend test deploy
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
+    paths-ignore: ['encore-api/**', 'docs/**', '.ai/**', '**/*.md']
   workflow_dispatch:
-
-# 任务
+permissions:
+  contents: read
+concurrency:
+  group: community-main-backend-deploy
+  cancel-in-progress: false
 jobs:
-  build:
-
-    # Github Action CI/CD的机器选择。
-    runs-on: ubuntu-latest
-
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
-      - name: tar 
-        run: tar -zcvf thingspanel-backend-community.tar.gz ./*
-      - name: Transfer packets server
-        uses: appleboy/scp-action@master
+          go-version-file: go.mod
+          cache: true
+      - name: Verify backend boundaries
+        run: go test ./internal/app ./internal/uplink ./internal/brokercontract ./internal/brokercontrol ./internal/brokermapper
+      - name: Build immutable backend bundle
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p candidate/configs
+          go build -trimpath -ldflags "-s -w -X project/pkg/global.SYSTEM_VERSION=dev-$GITHUB_SHA" -o candidate/ThingsPanel-Go .
+          test "$(candidate/ThingsPanel-Go --version)" = "dev-$GITHUB_SHA"
+          cp -a sql static candidate/
+          cp configs/casbin.conf configs/messages.yaml configs/messages_str.yaml candidate/configs/
+          python3 - <<'PY'
+          import pathlib,json,hashlib,os
+          root=pathlib.Path('candidate')
+          manifest={'commit':os.environ['GITHUB_SHA'],'sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}}
+          (root/'manifest.json').write_text(json.dumps(manifest,indent=2))
+          PY
+          tar -czf "backend-$GITHUB_SHA.tar.gz" -C candidate ThingsPanel-Go manifest.json sql static configs
+      - name: Configure authenticated SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY"
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-deploy-key"
+          ssh -i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'install -d -m 700 /opt/tp-community-actions/incoming'
+      - name: Upload and deploy verified backend
+        run: |
+          set -euo pipefail
+          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          scp "${args[@]}" "backend-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_backend.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/deploy_backend.py '$GITHUB_SHA'"
+      - name: Preserve source identity
+        uses: actions/upload-artifact@v4
         with:
-          # Github Action 的服务器文件路径
-          host: 47.92.253.145
-          username: root
-          key: ${{ secrets.C_SSH_KEY }}
-          source: "thingspanel-backend-community.tar.gz"
-          target: "/home/thingspanel/"
-      # 部署运行
-      - name: Deploy
-        uses: appleboy/ssh-action@master
-        with:
-          host: 47.92.253.145
-          username: root
-          key: ${{ secrets.C_SSH_KEY }}
-          port: 22
-          script: |
-            source ~/.bash_profile
-            CONFIG_BACKUP="/home/thingspanel/thingspanel-backend-community.conf.yml.deploy-backup"
-            if [ -f /home/thingspanel/thingspanel-backend-community/configs/conf.yml ]; then
-              cp -p /home/thingspanel/thingspanel-backend-community/configs/conf.yml "$CONFIG_BACKUP"
-            else
-              rm -f "$CONFIG_BACKUP"
-            fi
-            find /home/thingspanel/thingspanel-backend-community -mindepth 1 ! -path '/home/thingspanel/thingspanel-backend-community/files*' -exec rm -rf {} +
-            tar -zxvf /home/thingspanel/thingspanel-backend-community.tar.gz -C /home/thingspanel/thingspanel-backend-community
-            if [ -f "$CONFIG_BACKUP" ]; then
-              cp -p "$CONFIG_BACKUP" /home/thingspanel/thingspanel-backend-community/configs/conf.yml
-              rm -f "$CONFIG_BACKUP"
-            else
-              echo "missing production config backup" >&2
-              exit 1
-            fi
-            cd /home/thingspanel/thingspanel-backend-community/ || exit 1
-            BUILD_VERSION="dev-${{ github.sha }}"
-            go build -ldflags "-X project/pkg/global.SYSTEM_VERSION=$BUILD_VERSION" -o thingspanel-backend-community || exit 1
-            test "$(./thingspanel-backend-community --version)" = "$BUILD_VERSION" || exit 1
-            /root/.local/share/pnpm/pm2 stop thingspanel-backend-community
-            /root/.local/share/pnpm/pm2 start thingspanel-backend-community
-            for attempt in $(seq 1 30); do
-              if ss -ltn | grep -q ':9999 '; then
-                break
-              fi
-              sleep 2
-            done
-            ss -ltn | grep -q ':9999 ' || { echo "backend did not listen on 9999" >&2; exit 1; }
-            curl --fail --silent --show-error --max-time 5 http://127.0.0.1:9999/health >/dev/null || exit 1
+          name: backend-deployment-${{ github.sha }}
+          path: candidate/manifest.json
+      - name: Remove runner SSH key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/community-deploy-key"
