@@ -4,8 +4,11 @@ import (
 	"os"
 	"time"
 
+	"project/internal/automationcompat"
+	"project/internal/automationguard"
 	middleware "project/internal/middleware"
 	"project/internal/middleware/response"
+	"project/internal/uplink"
 	"project/pkg/global"
 	"project/pkg/metrics"
 	"project/pkg/utils"
@@ -112,11 +115,20 @@ func RouterInit() *gin.Engine {
 	router.GET("/api/v1/notification/source-app-members/:id", reader.GetAppMemberDevices)
 	router.GET("/api/v1/notification/source-app-devices/:id", reader.GetAppDevice)
 	router.GET("/api/v1/notification/source-tenants/:id", reader.GetTenantPresence)
+	router.GET("/api/v1/notification/source-policies/:id", reader.GetAutomationPolicy)
 
 	// 记录操作日志
 	router.Use(middleware.OperationLogs())
 	// 全局使用
 	global.ResponseHandler = handler
+	// 命令受理守卫必须在响应中间件之外。
+	//
+	// 它要记录"这次下发返回了什么"，重试时原样回放。如果它注册在响应中间件
+	// 里面，它会先于响应包写入就判定响应已写出，调用方拿到的是空 200——自动化
+	// 服务把空包读成拒绝，于是每条命令都显示失败，而设备其实已经动作了。
+	// 放在这里，它看到的是完整的响应包，成功与失败两条路都记对。
+	// 没有 X-Idempotency-Key 的请求原样放行，控制台与脚本行为不变。
+	router.Use(automationguard.Guard(global.DB))
 	// 使用中间件
 	router.Use(handler.Middleware())
 
@@ -178,6 +190,10 @@ func RouterInit() *gin.Engine {
 
 		// 需要权限校验
 		v1.Use(middleware.CasbinRBAC())
+		v1.GET("/automation/runtime", func(c *gin.Context) {
+			c.Header("Cache-Control", "no-store")
+			c.JSON(200, gin.H{"code": 200, "message": "success", "data": gin.H{"mode": uplink.CurrentAutomationMode()}})
+		})
 		// SSE服务
 		SSERouter(v1)
 
@@ -246,6 +262,24 @@ func RouterInit() *gin.Engine {
 
 			// 初始化系统监控路由
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)
+
+			// A30 旧客户端兼容适配，影子挂载。
+			//
+			// 只在 AUTOMATION_COMPAT_MODE=shadow 时注册，路径是 /api/v1/compat/*，
+			// 旧引擎继续服务真正的旧路径，所以这一步不会让任何设备被执行两次。
+			// 接管（把适配器挂到 /api/v1/scene 等真实路径上）属于 A33，届时同一个
+			// 提交里要删掉 apps.Model.Scene / SceneAutomations / Alarm 的旧注册，
+			// 否则 Gin 会因为路由重复直接 panic。
+			if compatCfg, err := automationcompat.ConfigFromEnv(); err != nil {
+				logrus.Warnf("自动化兼容适配未启用：%v", err)
+			} else if compatCfg.Mode == automationcompat.ModeShadow {
+				automationcompat.MountShadow(v1, automationcompat.NewHandlers(automationcompat.Deps{
+					Core:   automationcompat.NewCoreClient(compatCfg.CoreBaseURL, compatCfg.Timeout),
+					Sunset: compatCfg.Sunset,
+				}))
+				logrus.Infof("自动化兼容适配已挂载到 /api/v1/compat，到期日 %s",
+					compatCfg.Sunset.Format("2006-01-02"))
+			}
 		}
 	}
 

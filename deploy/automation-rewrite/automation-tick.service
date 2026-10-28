@@ -1,0 +1,13 @@
+[Unit]
+Description=ThingsPanel automation scheduler pass
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Private curl config supplies URL and Authorization. Never put a token in ExecStart.
+ExecStart=/usr/bin/curl --silent --show-error --fail --max-time 10 --request POST --config /etc/thingspanel/automation-tick.private.conf
+TimeoutStartSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

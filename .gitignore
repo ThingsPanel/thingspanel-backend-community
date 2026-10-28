@@ -20,3 +20,9 @@ configs/conf-localdev.yml
 
 # Go module cache accidentally committed on feature/market-solution-bundle-v1
 .cache/
+
+# A29 sample build output
+samples/flink/target/
+
+# 运行时生成的实例遥测状态文件
+configs/.telemetry_state.json

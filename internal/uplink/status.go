@@ -376,7 +376,7 @@ func (f *StatusUplink) triggerAutomation(device *model.Device, status int16) {
 		loginStatus = "OFF-LINE"
 	}
 
-	err := service.GroupApp.Execute(device, service.AutomateFromExt{
+	err := DispatchAutomation(device, service.AutomateFromExt{
 		TriggerParamType: model.TRIGGER_PARAM_TYPE_STATUS,
 		TriggerParam:     []string{},
 		TriggerValues: map[string]interface{}{

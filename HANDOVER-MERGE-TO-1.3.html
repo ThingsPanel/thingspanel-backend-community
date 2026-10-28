@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>交接单：自动化重写合并到 1.3 分支</title>
+<style>
+  :root {
+    --ink: #1f2328;
+    --muted: #57606a;
+    --line: #d8dee4;
+    --bg: #ffffff;
+    --soft: #f6f8fa;
+    --accent: #0969da;
+    --warn-bg: #fff8e5;
+    --warn-line: #e3b341;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--soft);
+    color: var(--ink);
+    font: 15px/1.75 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+          "Microsoft YaHei", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    max-width: 900px;
+    margin: 32px auto 80px;
+    background: var(--bg);
+    padding: 56px 64px 72px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(27,31,36,.08), 0 8px 24px rgba(27,31,36,.06);
+  }
+  h1 {
+    font-size: 28px; line-height: 1.35; margin: 0 0 8px;
+    padding-bottom: 16px; border-bottom: 2px solid var(--ink);
+    letter-spacing: -.3px;
+  }
+  h2 {
+    font-size: 21px; margin: 44px 0 14px; padding-left: 12px;
+    border-left: 4px solid var(--accent); line-height: 1.4;
+  }
+  h3 { font-size: 17px; margin: 28px 0 10px; color: #24292f; }
+  h4 { font-size: 15px; margin: 20px 0 8px; color: var(--muted); }
+  p { margin: 10px 0; }
+  strong { color: #0a0a0a; font-weight: 600; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 36px 0; }
+  ul, ol { padding-left: 26px; margin: 10px 0; }
+  li { margin: 5px 0; }
+  li > p { margin: 4px 0; }
+  blockquote {
+    margin: 16px 0; padding: 12px 18px;
+    background: var(--warn-bg); border-left: 4px solid var(--warn-line);
+    color: #4a3b00; border-radius: 0 6px 6px 0;
+  }
+  blockquote p { margin: 4px 0; }
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13px; background: rgba(175,184,193,.2);
+    padding: 2px 6px; border-radius: 4px; color: #24292f;
+  }
+  pre {
+    background: #f6f8fa; border: 1px solid var(--line);
+    border-radius: 8px; padding: 16px 18px; overflow-x: auto;
+    margin: 14px 0; line-height: 1.6;
+  }
+  pre code {
+    background: none; padding: 0; font-size: 12.5px; color: #1f2328;
+    white-space: pre;
+  }
+  table {
+    border-collapse: collapse; width: 100%; margin: 16px 0;
+    font-size: 14px; display: block; overflow-x: auto;
+  }
+  thead th {
+    background: var(--soft); font-weight: 600; text-align: left;
+    padding: 10px 12px; border: 1px solid var(--line); white-space: nowrap;
+  }
+  tbody td { padding: 9px 12px; border: 1px solid var(--line); vertical-align: top; }
+  tbody tr:nth-child(even) { background: #fcfcfd; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 4px; }
+  @media print {
+    body { background: #fff; }
+    .page { box-shadow: none; margin: 0; padding: 0; max-width: none; }
+    h2 { page-break-after: avoid; }
+    pre, table, blockquote { page-break-inside: avoid; }
+  }
+  @media (max-width: 720px) {
+    .page { margin: 0; padding: 28px 20px 48px; border-radius: 0; }
+    h1 { font-size: 23px; }
+    h2 { font-size: 19px; }
+  }
+</style>
+</head>
+<body><p><strong>2026-10-28：历史交接内容已更正，不可直接照此部署。请先阅读 docs/AUTOMATION-MERGE-1.3-20261028.md，核对共同模式、通知策略、社区数据库迁移和同步回退。</strong></p>
+<div class="page">
+<h1 id="13">交接单：自动化重写合并到 1.3 分支</h1>
+<blockquote>
+<p>给执行合并的人。照这份做，不需要再看别的文档。
+出具时间：2026-10-28 ｜ 出具人：开发（自动化重写）</p>
+</blockquote>
+<hr />
+<h2 id="_1">一、一句话说清这件事</h2>
+<p>两个仓库各有一个 <code>feat/automation-rewrite-20261023</code> 分支，<strong>已经推到 GitHub</strong>，
+要合到各自的 <strong><code>main-1.3.0</code></strong> 分支。合并冲突很少（后端 3 个、前端 2 个），
+<strong>下面每个冲突都给了解法，其中后端 3 个和前端 2 个我都实际预演过</strong>。</p>
+<p>⚠️ <strong>最重要的一条：这不是"整个后端换成 Encore"。</strong>
+合并后部署单元从 1 个变 2 个，多一个 Encore 服务进程和一套库。
+这一点必须先和运维对齐，否则上线会少起一个进程，页面全部报错。</p>
+<hr />
+<h2 id="_2">二、合并对象</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>后端</th>
+<th>前端</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>仓库</td>
+<td><code>ThingsPanel/thingspanel-backend-community</code></td>
+<td><code>ThingsPanel/thingspanel-frontend-community</code></td>
+</tr>
+<tr>
+<td>源分支</td>
+<td><code>feat/automation-rewrite-20261023</code></td>
+<td><code>feat/automation-rewrite-20261023</code></td>
+</tr>
+<tr>
+<td>源 HEAD</td>
+<td><code>4e15c11e</code></td>
+<td><code>436b2d83</code></td>
+</tr>
+<tr>
+<td>目标分支</td>
+<td><code>main-1.3.0</code></td>
+<td><code>main-1.3.0</code></td>
+</tr>
+<tr>
+<td>相对 main/master 的提交</td>
+<td>113 个</td>
+<td>4 个</td>
+</tr>
+<tr>
+<td>分叉点（merge-base）</td>
+<td><code>48616009</code></td>
+<td><code>c6968c77</code></td>
+</tr>
+</tbody>
+</table>
+<p>两个源分支都已推送，<code>git ls-remote --heads origin feat/automation-rewrite-20261023</code> 可验证。</p>
+<p><strong>合并顺序：先后端，再前端。</strong> 前端调的是后端新起的 Encore 服务。</p>
+<hr />
+<h2 id="_3">三、合并步骤</h2>
+<h3 id="31">3.1 后端</h3>
+<pre><code class="language-bash">git clone https://github.com/ThingsPanel/thingspanel-backend-community.git
+cd thingspanel-backend-community
+git checkout main-1.3.0
+git pull
+
+git merge --no-ff feat/automation-rewrite-20261023
+# 预期：3 个冲突，全部是 add/add，全部在 encore-api/ 下
+</code></pre>
+<h3 id="32">3.2 前端</h3>
+<pre><code class="language-bash">git clone https://github.com/ThingsPanel/thingspanel-frontend-community.git
+cd thingspanel-frontend-community
+git checkout main-1.3.0
+git pull
+
+git merge --no-ff feat/automation-rewrite-20261023
+# 预期：2 个冲突
+</code></pre>
+<hr />
+<h2 id="_4">四、冲突解法（核心，按这个做就行）</h2>
+<h3 id="41-3-130">4.1 后端：3 个冲突，全部取 1.3.0 的版本</h3>
+<p>冲突文件：</p>
+<pre><code>encore-api/go.mod
+encore-api/go.sum
+encore-api/l1-access/authn/auth.go
+</code></pre>
+<p><strong>解法：三个都取 1.3.0 那一侧（ours）。</strong></p>
+<pre><code class="language-bash">git checkout --ours encore-api/go.mod encore-api/go.sum encore-api/l1-access/authn/auth.go
+git add encore-api/go.mod encore-api/go.sum encore-api/l1-access/authn/auth.go
+cd encore-api &amp;&amp; go mod tidy &amp;&amp; cd ..
+</code></pre>
+<p><strong>为什么取 1.3.0 而不是合并：</strong></p>
+<ol>
+<li>
+<p><strong><code>authn/auth.go</code> 两边的函数签名根本不同，不能文本合并。</strong>
+   - 1.3.0：<code>func AuthHandler(ctx context.Context, params *AuthParams)</code> —— Encore 原生 auth handler
+   - 自动化分支：<code>func AuthHandler(ctx context.Context, token string)</code> —— 旧的自定义中间件写法
+   - 而且 1.3.0 把会话校验拆到了单独的 <code>community_session.go</code>（106 行），自动化分支是写在 auth.go 里的。
+   两份是同一件事的两种写法，选 1.3.0 的（更新、符合 Encore 规范）。</p>
+</li>
+<li>
+<p><strong><code>go.mod</code> / <code>go.sum</code>：1.3.0 是超集。</strong>
+   1.3.0 有 casbin、go-oidc、paho.mqtt、golang-jwt、pgx v5.7.2、go-redis v9 等；
+   自动化分支只多了一个 pgx v5.2.0（旧版本）。取 1.3.0 后再 <code>go mod tidy</code> 补齐即可。</p>
+</li>
+</ol>
+<p><strong>已实际验证</strong>：按上述方式解决后，<code>encore-api</code> 目录 <code>go build ./...</code> <strong>编译通过</strong>，
+说明自动化服务的代码与 1.3.0 的 authn 实现兼容，不需要改 automation 包。
+仓库根目录（社区后端）<code>go build ./...</code> 同样<strong>编译通过</strong>。</p>
+<h3 id="42-2">4.2 前端：2 个冲突，一个取我方、一个手工</h3>
+<h4 id="1-srcviewsautomationlinkage-editmodulesedit-actionvue">① <code>src/views/automation/linkage-edit/modules/edit-action.vue</code> —— 取自动化分支</h4>
+<pre><code class="language-bash">git checkout --theirs src/views/automation/linkage-edit/modules/edit-action.vue
+git add src/views/automation/linkage-edit/modules/edit-action.vue
+</code></pre>
+<p>原因：1.3.0 这一侧是空的，自动化分支在这里加了 <code>placeholderMap</code>（动作值输入框的示例值）。
+取我方即可，没有需要保留的对方内容。</p>
+<h4 id="2-srcviewsalarmwarning-messagecomponentspop-upvue">② <code>src/views/alarm/warning-message/components/pop-up.vue</code> —— <strong>不能机械解决，按下面三步</strong></h4>
+<p>这个文件是唯一需要动脑子的地方。背景：</p>
+<ul>
+<li>1.3.0 在这一版里<strong>新增了"租户默认策略"选择器</strong>（+143 / −80 行），是别人做的功能，<strong>不能丢</strong>。</li>
+<li>自动化分支在这一版里只改了 6 行：把告警接口从旧 <code>@/service/api/alarm</code> 换成新引擎的 <code>@/service/api/alarm-native</code>。</li>
+</ul>
+<p><strong>第一步：以 1.3.0 为基线</strong></p>
+<pre><code class="language-bash">git checkout --ours src/views/alarm/warning-message/components/pop-up.vue
+</code></pre>
+<p><strong>第二步：改 import（第 13 行附近）</strong></p>
+<pre><code class="language-diff">- import { addWarningMessage, editInfo } from '@/service/api/alarm'
++ import { addWarningMessage, editInfo } from '@/service/api/alarm-native'
+</code></pre>
+<p><strong>第三步：改返回值判断（约第 313 行，<code>addWarningMessage</code> 调用处）</strong></p>
+<pre><code class="language-diff">  const res = await addWarningMessage(data)
+- if (res) {
++ if (res.data) {
+</code></pre>
+<p><strong>这一步千万不能漏。</strong> 两个接口的返回形状不同：</p>
+<ul>
+<li>旧 <code>alarm.ts</code> 的 <code>addWarningMessage</code> 返回裸对象，<code>if (res)</code> 判断的是"有没有返回"。</li>
+<li>新 <code>alarm-native.ts</code> 返回 <code>{ data, error }</code>（<code>FlatResult</code>）。<strong><code>res</code> 永远是非空对象，
+  <code>if (res)</code> 永远为真</strong> —— 不改的话，添加失败也会弹"添加成功"。</li>
+</ul>
+<p><code>editInfo</code> 那边是 <code>const { data } = await editInfo(datas)</code>，<code>FlatResult</code> 本身有 <code>data</code> 字段，
+所以不用改，但合并后要确认它确实是解构 <code>data</code> 而不是整个对象。</p>
+<pre><code class="language-bash">git add src/views/alarm/warning-message/components/pop-up.vue
+</code></pre>
+<p><strong>已实际验证</strong>：按上述方式解决后，这两个文件 <code>eslint</code> 检查 <strong>0 error</strong>
+（只剩一条原有的 <code>'e' is defined but never used</code> warning，与本次无关）。</p>
+<h3 id="43">4.3 解决完提交</h3>
+<pre><code class="language-bash">git commit    # 用 git 默认的 merge commit message 即可
+git push origin main-1.3.0
+</code></pre>
+<hr />
+<h2 id="_5">五、合并后必须做的两件事（漏了会出问题）</h2>
+<h3 id="51">5.1 补一条菜单记录（已有环境必做，新装环境自动带上）</h3>
+<p>前端是动态路由，路由完全由后端 <code>sys_ui_elements</code> 表下发。
+规则编辑页 <code>/automation/rule-edit</code> 不在表里，<strong>客户从设备详情点"生效规则"里某条规则，会直接看到 404</strong>。</p>
+<p>新装环境由 <code>sql/1.sql</code> 自动带上；<strong>已经跑过初始化的库不会重跑，要手工执行一次</strong>：</p>
+<pre><code class="language-sql">INSERT INTO public.sys_ui_elements
+  (id, parent_id, element_code, element_type, orders, param1, param2, param3,
+   authority, description, created_at, remark, multilingual, route_path)
+VALUES
+  ('4b1f2c7e-8a3d-4e15-9c62-0d7a5b3f8e21', '676e8f33-875a-0473-e9ca-c82fd09fef57',
+   'automation_rule-edit', 3, 1144, '/automation/rule-edit', '', '1',
+   '[&quot;TENANT_ADMIN&quot;,&quot;SYS_ADMIN&quot;]'::json, '规则编辑', now(), '',
+   'route.automation_rule-edit', 'view.automation_rule-edit')
+ON CONFLICT (id) DO NOTHING;
+</code></pre>
+<ul>
+<li><code>param3='1'</code> 表示<strong>不在侧栏显示</strong>——它是个落点页，不该出现在菜单里。</li>
+<li><code>parent_id</code> 是"自动化"目录的 id。如果你们的库里不一样，用
+  <code>select id from sys_ui_elements where element_code='automation'</code> 查出来替换。</li>
+</ul>
+<h3 id="52">5.2 网关加一条反向代理（生产必做）</h3>
+<p>前端默认<strong>同源</strong>访问自动化服务，前缀 <code>/automation-core</code>，由反向代理剥掉前缀转发。</p>
+<pre><code class="language-nginx">location /automation-core/ {
+    proxy_pass http://&lt;自动化服务地址&gt;:&lt;端口&gt;/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Authorization $http_authorization;
+}
+</code></pre>
+<p>不加这条，所有自动化页面 404。</p>
+<p>如果不想用同源反代，也可以在构建时给绝对地址：</p>
+<pre><code class="language-bash">VITE_AUTOMATION_API_BASE_URL=https://automation.example.com npm run build
+</code></pre>
+<hr />
+<h2 id="_6">六、部署形态：两个进程、两套库</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>进程</th>
+<th>模块</th>
+<th>职责</th>
+<th>数据库</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td>社区后端（Gin，原有）</td>
+<td>仓库根 <code>module project</code></td>
+<td>设备、用户、租户、MQTT 接入、物模型</td>
+<td>原有 ThingsPanel 库</td>
+</tr>
+<tr>
+<td>B</td>
+<td>自动化服务（Encore，新增）</td>
+<td><code>encore-api/</code>，<code>module encore.app</code></td>
+<td>规则、场景、联动、告警、执行记录</td>
+<td>Encore 托管的 <code>automation</code> 库</td>
+</tr>
+</tbody>
+</table>
+<p>调用关系：设备上报 → A 接收 → HTTP 转发 <code>/v1/ingress/uplink</code> → B 判定 → B 回调 A 的命令接口下发。
+<strong>命令下发、通知、设备目录都还是原来的模块，没有第二套实现。</strong></p>
+<h3 id="_7">启动命令</h3>
+<pre><code class="language-bash"># A：原有方式不变
+go build -o tp-backend . &amp;&amp; ./tp-backend
+
+# B：首次必须先 tidy，否则 encore run 会卡在联网下载
+cd encore-api &amp;&amp; go mod tidy
+encore run --port=14000 --browser=never     # 生产用 encore build docker 产物
+</code></pre>
+<h3 id="_8">数据库迁移</h3>
+<ul>
+<li>社区后端：<strong>没有新增迁移</strong>（只有 5.1 那条菜单记录）。</li>
+<li>自动化服务：<code>encore-api/automation/migrations/</code> 下 16 个文件，<code>1_init</code> 到 <code>16_migration_item_enabled</code>。
+  <strong>Encore 部署时自动执行，不要手工跑。</strong></li>
+</ul>
+<h3 id="_9">切回旧引擎（紧急回退用）</h3>
+<pre><code class="language-bash">GOTP_AUTOMATION_MODE=legacy
+</code></pre>
+<p>默认值就是 <code>legacy</code>，也就是<strong>什么都不配等于维持现状</strong>。<code>automation</code> 库留着不影响原有功能。</p>
+<hr />
+<h2 id="_10">七、环境变量清单</h2>
+<h3 id="a">社区后端（进程 A）新增</h3>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GOTP_AUTOMATION_MODE</code></td>
+<td>否</td>
+<td><code>legacy</code>（默认）/ <code>native</code></td>
+</tr>
+<tr>
+<td><code>GOTP_AUTOMATION_BASE_URL</code></td>
+<td><code>native</code> 时必填</td>
+<td>自动化服务地址</td>
+</tr>
+<tr>
+<td><code>GOTP_AUTOMATION_TOKEN</code></td>
+<td><code>native</code> 时必填</td>
+<td>调自动化服务的令牌</td>
+</tr>
+<tr>
+<td><code>GOTP_AUTOMATION_TIMEOUT_MS</code></td>
+<td>否</td>
+<td>默认 5000</td>
+</tr>
+<tr>
+<td><code>GOTP_AUTOMATION_QUEUE</code></td>
+<td>否</td>
+<td>转发队列长度，默认 1024</td>
+</tr>
+<tr>
+<td><code>TP_THINGMODEL_NATIVE_URL</code></td>
+<td>用到原生模型时</td>
+<td>原生物模型服务地址</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><code>native</code> 但没给 <code>BASE_URL</code> 时，进程会记一条 error 并<strong>回退到内置引擎</strong>，不会静默丢上报。</p>
+</blockquote>
+<h3 id="b">自动化服务（进程 B）</h3>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>必填</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TP_AUTH_MODE</code></td>
+<td>是</td>
+<td><code>legacy-jwt</code>（生产）。<code>dev</code> / <code>passthrough</code> 禁止上生产，启动会打 WARN</td>
+</tr>
+<tr>
+<td><code>TP_JWT_KEY</code></td>
+<td><code>legacy-jwt</code> 时必填</td>
+<td>与社区后端同一个签名密钥</td>
+</tr>
+<tr>
+<td><code>TP_COMMUNITY_SESSION_BASE_URL</code></td>
+<td>是</td>
+<td>社区后端地址，用于会话校验</td>
+</tr>
+<tr>
+<td><code>TP_COMMUNITY_BASE_URL</code></td>
+<td>是</td>
+<td>社区后端地址，用于读设备目录</td>
+</tr>
+<tr>
+<td><code>TP_COMMUNITY_TOKEN</code></td>
+<td>是</td>
+<td>服务间调用令牌</td>
+</tr>
+<tr>
+<td><code>TP_NOTIFICATION_URL</code> / <code>TP_NOTIFICATION_TOKEN</code></td>
+<td>否</td>
+<td>通知服务；不配则通知记为"未知"，不会假装成功</td>
+</tr>
+<tr>
+<td><code>TP_SOURCE_DEPLOYMENT_ID</code></td>
+<td>否</td>
+<td>默认 <code>automation-rewrite</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>已知坑</strong>：社区版 <code>/api/v1/user/detail</code> 不返回 <code>tenant_id</code>，会话校验会失败。
+1.3.0 分支的 <code>authn</code> 已经处理过这个问题（这就是为什么 authn 要取 1.3.0 的版本），
+合并后请确认一次登录能拿到 <code>tenant_id</code>。</p>
+<hr />
+<h2 id="10">八、合并后怎么验证（10 分钟，按顺序）</h2>
+<h3 id="81">8.1 两个进程都活着</h3>
+<pre><code class="language-bash">curl -s -o /dev/null -w &quot;community=%{http_code}\n&quot; \
+  &quot;http://&lt;社区后端&gt;/api/v1/device?page=1&amp;page_size=1&quot; -H &quot;x-token: &lt;token&gt;&quot;
+curl -s -o /dev/null -w &quot;automation=%{http_code}\n&quot; \
+  &quot;http://&lt;自动化服务&gt;/v1/health&quot;
+</code></pre>
+<h3 id="82">8.2 规则能读出来</h3>
+<pre><code class="language-bash">curl -s &quot;http://&lt;自动化服务&gt;/v1/rules?limit=5&quot; -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+</code></pre>
+<h3 id="83">8.3 一条上报打通到底（<strong>这一条是唯一能证明真的通了的</strong>）</h3>
+<p>往 MQTT 发一条会命中规则的遥测，然后看两件事：</p>
+<ol>
+<li>设备的命令主题上有没有收到命令</li>
+<li>运行记录的 <code>status</code> 是不是 <code>succeeded</code></li>
+</ol>
+<pre><code class="language-bash">curl -s &quot;http://&lt;自动化服务&gt;/v1/rules/&lt;rule-id&gt;/runs?limit=1&quot; -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+</code></pre>
+<p>只看页面能打开、接口返回 200，<strong>都不能算通</strong>。</p>
+<h3 id="84">8.4 页面点一遍</h3>
+<ol>
+<li>场景联动 —— 有卡片，开关能点，刷新后状态还在</li>
+<li>场景管理 —— 列表能出来</li>
+<li>新建场景 —— 选「操作设备」→「单个设备」，设备下拉能列出真实设备</li>
+<li>设备详情 →「生效规则」→ 点某条规则 —— 能打开「编辑规则」（验证 5.1 那条 SQL 生效了）</li>
+<li>告警信息 —— 点「详情」，状态显示"未恢复/已确认/已恢复"，<strong>不是</strong>"所有状态"</li>
+<li>告警配置 → 新增一条 —— 保存成功提示要真实（验证 4.2 ③ 那个 <code>res.data</code> 改了）</li>
+</ol>
+<p>第 3 步里如果选完设备后属性下拉是空的，那是物模型服务没起来，不是本次代码的问题（见第十节）。</p>
+<hr />
+<h2 id="_11">九、回退</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>做法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>只想关掉新引擎，保留代码</td>
+<td>社区后端设 <code>GOTP_AUTOMATION_MODE=legacy</code>，重启进程 A</td>
+</tr>
+<tr>
+<td>要撤掉整个合并</td>
+<td><code>git revert -m 1 &lt;merge-commit&gt;</code>，前后端各撤一次</td>
+</tr>
+<tr>
+<td>自动化库要不要清</td>
+<td>不用。<code>automation</code> 库独立，回退后不再被写入，留着不影响原有功能</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_12">十、已知限制（合并前请知情，不是本次引入的）</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>问题</th>
+<th>影响</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>物模型服务（原生）不可用时，"操作设备"动作选不出属性</td>
+<td>只影响新建动作时选属性，已有规则照常跑</td>
+<td>依赖外部服务，不在本次范围</td>
+</tr>
+<tr>
+<td>2</td>
+<td>单模式规则在突发流量下会"忙时忽略"（<code>mode_single_busy</code>）</td>
+<td>设计行为，防命令风暴，不是失败</td>
+<td>符合预期</td>
+</tr>
+<tr>
+<td>3</td>
+<td>定时规则要外部 cron 打 <code>/v1/tick</code> 才会触发</td>
+<td>客户配"每天 8 点执行"不会自己跑，需要配定时任务</td>
+<td><strong>待接线</strong></td>
+</tr>
+<tr>
+<td>4</td>
+<td>通知未做真实端到端联测</td>
+<td>配了通知可能发不出去，目前只有接口级证据</td>
+<td><strong>待联测</strong></td>
+</tr>
+<tr>
+<td>5</td>
+<td>真实部署验收（U01–U09、V01–V32）未执行</td>
+<td>交付前的正式验收缺口</td>
+<td><strong>待补</strong></td>
+</tr>
+<tr>
+<td>6</td>
+<td>数据保留与配额未做</td>
+<td><code>automation</code> 库会一直增长</td>
+<td><strong>待补</strong></td>
+</tr>
+</tbody>
+</table>
+<p>第 1、2 条是设计边界；<strong>第 3 条如果客户要用定时规则，必须先配 cron</strong>，这条最容易漏。</p>
+<hr />
+<h2 id="review">十一、本次改动里最值得看的两处（review 重点）</h2>
+<p>如果只想看关键 diff：</p>
+<p><strong>① <code>87e6aef7</code> 上报链路按开关切换新引擎</strong>
+旧引擎和新引擎此前是两条互不相干的路径。要切就必须二选一，否则一条遥测会触发两次真实下发，
+设备收到两遍命令。用一个值决定（<code>GOTP_AUTOMATION_MODE</code>），默认 <code>legacy</code>。
+转发走有界队列 + 4 worker，队列满则丢弃并计数——慢引擎的代价是丢自动化事件，不是拖慢遥测。</p>
+<p><strong>② <code>5697a462</code> 命令受理守卫移到响应中间件之外</strong>
+守卫原来注册在 <code>handler.Middleware()</code> 里面，它自己写响应头后，响应中间件跳过加成功包，
+调用方拿到<strong>空体 200</strong>；自动化服务把空体读成 <code>code 0</code>，于是每条命令都记 <code>command_rejected</code>
+——<strong>而设备其实已经动作了</strong>。症状极隐蔽：MQTT 上命令确实到了，运行记录却是失败。
+已补回归测试锁住中间件顺序。</p>
+<hr />
+<h2 id="_13">十二、测试证据（本地已跑过）</h2>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>内容</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Encore 全量单测</td>
+<td><code>encore test ./automation/...</code> 七个包</td>
+<td>全过（automation 14.7s + 6 个包）</td>
+</tr>
+<tr>
+<td>命令守卫</td>
+<td>12 条，含响应包顺序回归</td>
+<td>全过</td>
+</tr>
+<tr>
+<td>上报转发</td>
+<td>9 条，含"native 无地址必须回退"</td>
+<td>全过</td>
+</tr>
+<tr>
+<td>编译静态检查</td>
+<td><code>go build ./...</code>、<code>go vet</code></td>
+<td>干净</td>
+</tr>
+<tr>
+<td>真实端到端</td>
+<td>MQTT 上报 → 规则命中 → 命令到设备 → 运行记录 <code>succeeded</code></td>
+<td>通</td>
+</tr>
+<tr>
+<td>压测</td>
+<td>30 条间隔 0.1s / 100 条无间隔</td>
+<td>全命中、0 丢弃；突发 32 条 <code>mode_single_busy</code></td>
+</tr>
+<tr>
+<td>浏览器实测</td>
+<td>场景联动/场景管理/新建场景/联动编辑/告警/规则编辑</td>
+<td>通，真实数据</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="_14">十三、遇到问题</h2>
+<p>优先看 <code>automation-rewrite-progress.md</code>（A01–A32 每项都有六句话说明和当轮缺陷清单），
+以及仓库根目录的 <code>MERGE-AUTOMATION-REWRITE.md</code>（架构与环境的更详细版本）。</p>
+</div>
+</body>
+</html>

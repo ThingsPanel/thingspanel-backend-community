@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Minimal Flink job that talks to the ThingsPanel automation executor contract.
+
+  Scope is deliberately small: one source, one threshold, one verdict sink. The
+  point of the sample is the wire contract (epoch / seq / policy revision), not
+  Flink plumbing, so there is no windowing, no state backend and no checkpoint
+  configuration here.
+
+  See README.md for the exact command line (it needs a token and an executor id,
+  which is why it is not pasted into this comment).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.thingspanel</groupId>
+  <artifactId>automation-executor-sample</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+  <name>ThingsPanel automation · external executor sample (Flink)</name>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>17</maven.compiler.release>
+    <flink.version>1.20.1</flink.version>
+  </properties>
+
+  <dependencies>
+    <!-- Compile scope, not provided: this sample is run from the command line in
+         local mode, so the runtime has to be on the classpath. A real cluster
+         submission would switch these to provided.
+
+         flink-core and flink-runtime are listed explicitly because Flink declares
+         them as provided inside its own modules, which is invisible until the job
+         starts: the first local run died with ClassNotFoundException:
+         ExecutionConfig. -->
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-core</artifactId>
+      <version>${flink.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-streaming-java</artifactId>
+      <version>${flink.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-runtime</artifactId>
+      <version>${flink.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-clients</artifactId>
+      <version>${flink.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.17.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.7.36</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.1.0</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>

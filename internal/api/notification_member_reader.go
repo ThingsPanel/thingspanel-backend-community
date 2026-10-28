@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"unicode"
 
 	"project/internal/dal"
+	"project/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,6 +22,7 @@ type NotificationMemberReaderConfig struct {
 }
 
 type NotificationMemberReaderApi struct {
+	policyView         func(context.Context, string, string) (service.TenantDefaultPolicyView, error)
 	tokenDigest        [sha256.Size]byte
 	enabled            bool
 	allowedDeployments map[string]struct{}
@@ -28,6 +31,7 @@ type NotificationMemberReaderApi struct {
 
 func NewNotificationMemberReader(config NotificationMemberReaderConfig) *NotificationMemberReaderApi {
 	reader := &NotificationMemberReaderApi{
+		policyView:         service.GetAutomationNotificationPolicies,
 		allowedDeployments: make(map[string]struct{}, len(config.AllowedDeploymentIDs)),
 		allowedTenants:     make(map[string]struct{}, len(config.AllowedTenantIDs)),
 	}

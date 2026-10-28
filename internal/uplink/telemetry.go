@@ -475,7 +475,7 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 
 	// 6. 场景联动（异步）
 	go func() {
-		err := service.GroupApp.Execute(device, service.AutomateFromExt{
+		err := DispatchAutomation(device, service.AutomateFromExt{
 			TriggerParamType: model.TRIGGER_PARAM_TYPE_TEL,
 			TriggerParam:     triggerParam,
 			TriggerValues:    triggerValues,
@@ -652,7 +652,7 @@ func (f *TelemetryUplink) notifyDeviceOnline(device *model.Device) {
 	global.TPSSEManager.BroadcastEventToTenant(device.TenantID, sseEvent)
 
 	// 触发自动化
-	err := service.GroupApp.Execute(device, service.AutomateFromExt{
+	err := DispatchAutomation(device, service.AutomateFromExt{
 		TriggerParamType: model.TRIGGER_PARAM_TYPE_STATUS,
 		TriggerParam:     []string{},
 		TriggerValues: map[string]interface{}{

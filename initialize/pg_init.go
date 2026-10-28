@@ -77,6 +77,13 @@ func PgInit() (*gorm.DB, error) {
 		return nil, fmt.Errorf("初始化 native binding schema 失败: %w", err)
 	}
 
+	// The automation command guard decides which of two competing commands is
+	// the current one. It must exist before any automation rule can fire, so it
+	// is applied with the other component schemas rather than lazily.
+	if err = ApplyCommandGuardSchema(db); err != nil {
+		return nil, fmt.Errorf("初始化自动化命令受理守卫 schema 失败: %w", err)
+	}
+
 	if err = ApplyAppPushSchema(db); err != nil {
 		return nil, fmt.Errorf("initialize app push schema: %w", err)
 	}

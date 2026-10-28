@@ -29,6 +29,16 @@ type TenantDefaultPolicyView struct {
 	AvailablePolicies []DefaultPolicySummary `json:"availablePolicies"`
 }
 
+// GetAutomationNotificationPolicies binds a private reader request to the same
+// deployment that owns the community policy routes.
+func GetAutomationNotificationPolicies(ctx context.Context, deploymentID, tenantID string) (TenantDefaultPolicyView, error) {
+	bridge := currentSourceBridge()
+	if bridge == nil || !bridge.Enabled() || bridge.DeploymentID() != deploymentID {
+		return TenantDefaultPolicyView{}, ErrDefaultPolicyUnavailable
+	}
+	return GetTenantDefaultPolicy(ctx, tenantID)
+}
+
 func GetTenantDefaultPolicy(ctx context.Context, tenantID string) (TenantDefaultPolicyView, error) {
 	var view TenantDefaultPolicyView
 	bridge := currentSourceBridge()
