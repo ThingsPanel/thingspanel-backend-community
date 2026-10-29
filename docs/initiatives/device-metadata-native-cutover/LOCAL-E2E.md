@@ -37,12 +37,27 @@
 
 仍未在浏览器里验证：需要 Community 才有数据的页面（遥测值、历史、导出正文）、设备模板详情的各 tab（需要先准备物模型和模板）、自动化 tab 的真实规则数据。
 
+## 需要 Community 的路径（用测试替身）
+
+`kernel/scripts/community-stub.mjs` 是按 Community 源码接口格式写的**测试替身**（数据是合成的，不是真实 Community）；应用用真实的 HTTP 客户端去调它。`kernel/scripts/e2e-native-community.sh` 共 31 项检查，**31/31 通过**：
+
+- 最新遥测、属性、事件读数；1 小时原始历史（约 60 条）；24 小时聚合（桶里有 `sampleCount`）。
+- 短导出：同步完成，下载文件表头正确、约 60 行，另一个用户下载返回 404。
+- **长导出（3 天）**：后台任务按小时分片读取 Community，完成后下载一个文件：表头只出现一次、约 4320 行、没有重复时间戳、新到旧排序，进度为全部完成。
+- **运行时下发**：改编号提交后，投递器真实调用 Community 的 `PUT /device`，操作变为成功，设备读回新编号；删除设备同理，调用了 `DELETE /device/:id`，操作成功，设备从租户里消失。
+
+启动需要的环境变量：`TP_BASE`（替身地址）、`TP_EMAIL`/`TP_PASSWORD`、`TP_RUNTIME_DEVICE_ID_MODE=identity`、`TP_RUNTIME_OUTBOX_DISPATCH=on`、`TP_BACKGROUND_WORKERS=on`。
+
+这仍然不是真实 Community：真实的鉴权、数据量、时序库行为和 MQTT 没有覆盖。
+
 ## 没有覆盖
 
 - 真实浏览器页面；真实 Community（读数、模拟发送、改编号下发、长导出的实际读取）；MQTT；notification 服务（被空实现替换）。
 - 需要 Community 才能成功的路径：读数/历史/导出正文、投递器下发。
 
 ## 这次跑出来的真实问题（已修）
+
+C. **设备删除“成功”后设备仍然留在列表里。** 删除请求会创建操作并投递给 Community，Community 确认后操作变成成功，但 Encore 里的设备记录一直没有被标记为已删除。已改为：运行时回执确认删除的同一个事务里软删除设备（保留历史）。有数据库测试（删除类回执会移除设备，其它类型的回执不会），并在上面的 31 项里复验。见 `native_runtime_receipt.go`。
 
 A. **新建/编辑设备模板的页面打不开。** `native-template-editor.vue` 里有两处多行 `@click`/`@keydown`，一个表达式里写了几条语句却没有分号，Vue 模板编译失败，页面 500。已改成处理函数，并新增 `device-vue-templates-compile.test.ts`：把设备、自动化、ThingsVis 下的所有页面模板都编译一遍，这类错误以后在单元测试里就会暴露。
 B. **前端合并后，所有引用告警面板的页面都起不来。** 合并时 `service/api/automation-native.ts` 被 `main-1.3.0` 同名的另一个模块覆盖，我们的 `AutomationNativeError`、`automationNative` 不存在了，导致 `native-automation-panel.vue`、`native-device-alarms.vue` 以及引用它们的模板详情、设备详情页面加载失败。我们的客户端恢复为 `automation-native-client.ts`，两个面板改为从它引用（只在集成分支，原功能分支不受影响）。
