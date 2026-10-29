@@ -55,6 +55,8 @@ E. **开发环境里导出完成后下载 404。** Vite 开发代理没有 `/api
 
 **设备模板删除（DM-TPL-009，T1；本轮新实现）**：契约定义了 `DELETE /api/v2/device-access-templates/{templateId}`，但后端和页面此前都没有。现已实现：要求 `If-Match` 为模板当前 ETag（否则 412）、`Idempotency-Key` 幂等（重放返回同样结果且不重复写审计）、仍有未删除设备绑定该模板时返回 409、其余软删除并写审计；新增权限 `template:delete`（TENANT_ADMIN）。数据库测试 `TestNativeTemplateDeleteRefusesUsedTemplatesAndIsConditionalAndIdempotent` 覆盖过期 ETag、被使用、跨租户（NotFound）、成功、重放、读取变 NotFound、审计恰好一条。页面：模板列表（卡片和列表视图）新增“删除”，点击后确认，先取最新 ETag 再删；在真实浏览器里验证——被设备使用的模板提示“仍有设备在使用该模板，请先把这些设备解绑后再删除”且仍在列表；未被使用的模板删除后列表少一项，接口读回 404。**只检查了本服务能看到的引用（设备）；契约还要求产品、OTA、自动化规则、市场包等引用，它们在别的服务里，本仓库无法跨服务检查，联调时需要补。**
 
+**设备模板复制（DM-TPL-011，T1；本轮新实现，页面验证）**：`POST /api/v2/device-access-templates/:id/copies`，请求体只有 `name`，新建一个已启用的模板，保留描述、品牌、标签、封面和整份配置（包括所选物模型版本），不复制设备；幂等键重放返回同样结果；重名返回 409；跨租户返回 404；源模板不被改动。数据库测试覆盖以上各条。页面：模板列表每个模板新增“复制”，弹窗预填“原名 副本”，提交后跳到新模板的编辑页；接口读回新模板版本 1、描述和标签与源一致；用已存在的名称再复制，提示“已有同名模板，请换一个名称”，弹窗保留可改名。
+
 **数据处理脚本的“测试运行”（真实后端，`POST /api/v2/processing-script-tests`）**：正常脚本返回拼接结果（`{"t":21}|a/b`）；运行时 `error("boom")` 返回 `SCRIPT_RUNTIME_ERROR` 并带堆栈；死循环约 1 秒后返回 `SCRIPT_TIMEOUT`；访问 `os.execute` 被沙箱拦截（`os` 不可用）。引擎为 `gopher-lua-5.1/sandbox-v1`。这只验证了“测试运行”接口；上行数据真正经过脚本处理依赖 Community/MQTT 的数据通路，没有覆盖。
 
 仍未在浏览器里验证：真实 Community 下的遥测值、历史和导出（上面用的是测试替身）。
