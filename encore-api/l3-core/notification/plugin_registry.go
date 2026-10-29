@@ -55,9 +55,8 @@ func NewSafePluginClient(options PluginHTTPOptions) (*SafePluginClient, error) {
 	if options.AllowHTTPTestOrigin && !options.TestMode {
 		return nil, ErrPluginEndpoint
 	}
-	if !options.TestMode && len(options.AllowedOrigins) == 0 {
-		return nil, ErrPluginEndpoint
-	}
+	// An unconfigured installation can manage notification groups without a
+	// provider. pluginEndpoint still rejects every unlisted outbound origin.
 	for _, origin := range options.AllowedOrigins {
 		parsed, err := url.Parse(origin)
 		if err != nil || !validPluginOriginShape(origin) {

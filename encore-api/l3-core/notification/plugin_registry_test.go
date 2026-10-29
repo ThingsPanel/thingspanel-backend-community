@@ -15,6 +15,18 @@ import (
 
 const safeManifestFixture = `{"api_version":"1.0","plugin_id":"fixture-mail","name":"Fixture Mail","plugin_version":"1.2.3","channels":["email"],"content_modes":["text"],"config_schema":{"type":"object","additionalProperties":false,"properties":{"region":{"type":"string","minLength":2},"password":{"type":"string","minLength":8}},"required":["region","password"]},"recipient_schema":{"type":"object","additionalProperties":false,"properties":{"kind":{"const":"email"},"address":{"type":"string","format":"email"}},"required":["kind","address"]},"secret_fields":["password"],"capabilities":{"delivery_receipts":true}}`
 
+func TestUnconfiguredPluginClientDeniesOutboundOrigins(t *testing.T) {
+	client, err := NewSafePluginClient(PluginHTTPOptions{})
+	if err != nil {
+		t.Fatalf("unconfigured notification provider prevented startup: %v", err)
+	}
+	for _, origin := range []string{"https://example.com", "https://frontend:8443", "http://127.0.0.1:8080"} {
+		if _, _, err := client.FetchManifest(context.Background(), origin, "unused"); err != ErrPluginEndpoint {
+			t.Fatalf("unlisted provider %q was not denied: %v", origin, err)
+		}
+	}
+}
+
 func TestPluginEndpointRejectsUnsafeOrigins(t *testing.T) {
 	for _, origin := range []string{
 		"http://127.0.0.1:8080", "https://user:pass@example.com", "https://example.com/path", "https://example.com/", "https://example.com/?token=x", "https://example.com?", "https://example.com/#fragment", "https://example.com/#", "file:///etc/passwd",
