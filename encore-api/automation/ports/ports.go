@@ -42,7 +42,7 @@ func FromEnv() Config {
 	timeout := 15 * time.Second
 	return Config{
 		CommunityBaseURL:  strings.TrimRight(os.Getenv("TP_COMMUNITY_BASE_URL"), "/"),
-		CommunityToken:    os.Getenv("TP_COMMUNITY_TOKEN"),
+		CommunityToken:    os.Getenv("TP_AUTOMATION_SERVICE_TOKEN"),
 		SourceReaderToken: os.Getenv("TP_NOTIFICATION_SOURCE_READER_TOKEN"),
 		NotificationURL:   strings.TrimRight(os.Getenv("TP_NOTIFICATION_URL"), "/"),
 		NotificationToken: os.Getenv("TP_NOTIFICATION_TOKEN"),
@@ -159,14 +159,16 @@ func (h *HTTPCommandOwner) Dispatch(ctx context.Context, req CommandRequest) (Co
 		return CommandResult{State: "failed", Message: "unsupported command kind: " + string(req.Kind)}, nil
 	}
 	raw, _ := json.Marshal(body)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, h.cfg.CommunityBaseURL+path, bytes.NewReader(raw))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, h.cfg.CommunityBaseURL+"/internal/automation"+path, bytes.NewReader(raw))
 	if err != nil {
 		return CommandResult{State: "failed", Message: err.Error()}, err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	if h.cfg.CommunityToken != "" {
-		httpReq.Header.Set("x-token", h.cfg.CommunityToken)
+		httpReq.Header.Set("Authorization", "Bearer "+h.cfg.CommunityToken)
 	}
+	httpReq.Header.Set("X-Automation-Tenant", req.TenantID)
+	httpReq.Header.Set("X-Automation-Deployment", h.cfg.DeploymentID)
 	// The command owner must be able to reject a superseded generation. The
 	// legacy API has no such field yet, so the intent is carried on the headers
 	// and the idempotency key until the cross-module field lands (A10).
@@ -639,14 +641,16 @@ func (h *HTTPDirectory) list(ctx context.Context, tenantID string) ([]Device, er
 
 	var out []Device
 	for page := 1; page <= maxPages; page++ {
-		u := fmt.Sprintf("%s/api/v1/device?page=%d&page_size=%d", h.cfg.CommunityBaseURL, page, pageSize)
+		u := fmt.Sprintf("%s/internal/automation/devices?page=%d&page_size=%d", h.cfg.CommunityBaseURL, page, pageSize)
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 		if err != nil {
 			return nil, err
 		}
 		if h.cfg.CommunityToken != "" {
-			req.Header.Set("x-token", h.cfg.CommunityToken)
+			req.Header.Set("Authorization", "Bearer "+h.cfg.CommunityToken)
 		}
+		req.Header.Set("X-Automation-Tenant", tenantID)
+		req.Header.Set("X-Automation-Deployment", h.cfg.DeploymentID)
 		resp, err := h.client.Do(req)
 		if err != nil {
 			return nil, err
@@ -680,7 +684,10 @@ func (h *HTTPDirectory) list(ctx context.Context, tenantID string) ([]Device, er
 	if tenantID != "" {
 		filtered := out[:0]
 		for _, d := range out {
-			if d.TenantID == "" || d.TenantID == tenantID {
+			if d.TenantID == "" || d.TenantID != tenantID {
+				return nil, fmt.Errorf("device directory returned a device outside requested tenant")
+			}
+			if d.TenantID == tenantID {
 				filtered = append(filtered, d)
 			}
 		}

@@ -641,6 +641,10 @@ func (s *Service) IngestUplink(ctx context.Context, req *UplinkRequest) (*Uplink
 	if err != nil {
 		return nil, err
 	}
+	return s.ingestUplink(ctx, tenantID, req)
+}
+
+func (s *Service) ingestUplink(ctx context.Context, tenantID string, req *UplinkRequest) (*UplinkResponse, error) {
 	rt, err := s.rtOrErr()
 	if err != nil {
 		return nil, err
@@ -721,7 +725,7 @@ func (s *Service) ListRuleRuns(ctx context.Context, id string, req *ListRunsRequ
 		return nil, internal(err)
 	}
 	out := &ListRunsResponse{
-		Runs: make([]RunResponse, 0, len(runs)),
+		Runs:  make([]RunResponse, 0, len(runs)),
 		Total: total, Limit: q.Limit, Offset: q.Offset,
 	}
 	for _, r := range runs {

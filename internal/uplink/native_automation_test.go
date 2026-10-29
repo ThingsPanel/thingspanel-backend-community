@@ -120,7 +120,7 @@ func TestAnEmptyTelemetryUplinkIsRefused(t *testing.T) {
 }
 
 // TestTheForwarderPostsToTheIngressPath: the service only accepts uplinks on
-// /v1/ingress/uplink, and it needs the tenant token on both headers.
+// the owner-only ingress, with independent service credentials.
 func TestTheForwarderPostsToTheIngressPath(t *testing.T) {
 	var (
 		mu     sync.Mutex
@@ -153,8 +153,8 @@ func TestTheForwarderPostsToTheIngressPath(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if gotURI != "/v1/ingress/uplink" {
-		t.Fatalf("应该发到 /v1/ingress/uplink，实际 %q", gotURI)
+	if gotURI != "/internal/automation/uplink" {
+		t.Fatalf("应该发到服务上报入口，实际 %q", gotURI)
 	}
 	if gotTok != "Bearer tok-1" {
 		t.Fatalf("应该带租户令牌，实际 %q", gotTok)

@@ -12,9 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"project/internal/automationbridge"
 	"project/internal/model"
 	"project/internal/service"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -54,6 +56,7 @@ const (
 // Params are JSON text because the service's API schema does not allow untyped
 // maps on the wire.
 type nativeUplink struct {
+	TenantID   string `json:"-"`
 	Class      string `json:"class"`
 	DeviceID   string `json:"device_id"`
 	MessageID  string `json:"message_id,omitempty"`
@@ -206,14 +209,15 @@ func (f *nativeForwarder) post(req nativeUplink) error {
 	if err != nil {
 		return err
 	}
-	httpReq, err := http.NewRequest(http.MethodPost, f.baseURL+"/v1/ingress/uplink", bytes.NewReader(body))
+	httpReq, err := http.NewRequest(http.MethodPost, f.baseURL+"/internal/automation/uplink", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set(automationbridge.TenantHeader, req.TenantID)
+	httpReq.Header.Set(automationbridge.DeploymentHeader, automationbridge.Deployment())
 	if f.token != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+f.token)
-		httpReq.Header.Set("x-token", f.token)
 	}
 	resp, err := f.client.Do(httpReq)
 	if err != nil {
@@ -234,6 +238,8 @@ func (f *nativeForwarder) post(req nativeUplink) error {
 // never re-interprets a raw payload.
 func buildNativeUplink(device *model.Device, ext service.AutomateFromExt, observed time.Time) (nativeUplink, error) {
 	req := nativeUplink{
+		TenantID:   device.TenantID,
+		MessageID:  uuid.NewString(),
 		DeviceID:   device.ID,
 		ObservedAt: observed.Format(time.RFC3339Nano),
 		Source:     "community-uplink",

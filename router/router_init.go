@@ -117,6 +117,8 @@ func RouterInit() *gin.Engine {
 	router.GET("/api/v1/notification/source-tenants/:id", reader.GetTenantPresence)
 	router.GET("/api/v1/notification/source-policies/:id", reader.GetAutomationPolicy)
 
+	api.RegisterAutomationOwnerRoutes(router,global.DB)
+
 	// 记录操作日志
 	router.Use(middleware.OperationLogs())
 	// 全局使用

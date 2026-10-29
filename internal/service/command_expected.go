@@ -294,7 +294,7 @@ func validateExpectedDownlinkSnapshot(ctx context.Context, tx *gorm.DB, row brok
 }
 
 func durableControlKind(intent string) string {
-	return strings.TrimPrefix(strings.TrimPrefix(intent, "expected."), "control.")
+	return strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(intent, "expected."), "control."), nativeAutomationPrefix)
 }
 func standardControlRoute(kind string) string {
 	switch kind {

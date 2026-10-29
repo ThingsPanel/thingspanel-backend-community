@@ -108,6 +108,9 @@ func ValidateDurableCommandCaller(ctx context.Context, tx *gorm.DB, row brokerco
 	if row.Intent == automationCommandIntent {
 		return ValidateAutomationCommand(ctx, tx, row)
 	}
+	if strings.HasPrefix(row.Intent, nativeAutomationPrefix) {
+		return ValidateNativeAutomationCommand(ctx, tx, row)
+	}
 	if (row.Intent != manualCommandIntent && row.Intent != plannedCommandIntent) || row.CallerID == automationCallerID {
 		return fmt.Errorf("%w: caller has no supported auditable authorization policy", brokercommands.ErrRejected)
 	}
@@ -593,7 +596,7 @@ func ValidateDurableCommandSnapshot(ctx context.Context, tx *gorm.DB, row broker
 	if prepared.ConfigurationSHA256 == "" || len(prepared.Encoded) == 0 || len(prepared.Encoded) > brokercommands.MaxCommandPayload {
 		return fmt.Errorf("%w: prepared command is incomplete", brokercommands.ErrRejected)
 	}
-	if strings.HasPrefix(row.Intent, "expected.") || strings.HasPrefix(row.Intent, "control.") {
+	if strings.HasPrefix(row.Intent, "expected.") || strings.HasPrefix(row.Intent, "control.") || strings.HasPrefix(row.Intent, nativeAutomationPrefix) {
 		return validateExpectedDownlinkSnapshot(ctx, tx, row, prepared)
 	}
 	if prepared.Message.DeviceID != row.DeviceID || prepared.Message.Type != downlink.MessageTypeCommand || prepared.Message.Topic != "" {

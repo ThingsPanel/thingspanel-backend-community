@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"project/internal/adapter/mqttadapter"
+	"project/internal/automationbridge"
 	"project/internal/brokerledger"
 	"project/internal/service"
 	"project/internal/uplink"
@@ -335,6 +337,15 @@ func (s *MQTTService) configureBrokerIngress(ctx context.Context, adapter *mqtta
 	worker.runtimeSync = runtimeSync
 	worker.processEffects = func(ctx context.Context) (bool, error) {
 		return service.ProcessBrokerAutomationEffect(ctx, s.app.DB, worker.cell)
+	}
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_MODE")), "native") {
+		client, err := automationbridge.NewClient()
+		if err != nil {
+			return err
+		}
+		worker.processEffects = func(ctx context.Context) (bool, error) {
+			return service.ProcessBrokerNativeAutomationEffect(ctx, s.app.DB, worker.cell, client.Deliver)
+		}
 	}
 	if err := worker.Start(ctx); err != nil {
 		return err

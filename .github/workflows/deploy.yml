@@ -20,7 +20,9 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Verify backend boundaries
-        run: go test ./internal/app ./internal/uplink ./internal/brokercontract ./internal/brokercontrol ./internal/brokermapper
+        run: |
+          go test ./internal/app ./internal/uplink ./internal/automationbridge ./internal/brokercontract ./internal/brokercontrol ./internal/brokermapper
+          go test ./internal/api -run TestAutomationOwner
       - name: Build immutable backend bundle
         env:
           CGO_ENABLED: '0'
