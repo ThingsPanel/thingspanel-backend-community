@@ -51,7 +51,7 @@ func TestSequentialModesKeepSharedOwnerGenerationScope(t *testing.T) {
 		t.Run(string(mode), func(t *testing.T) {
 			e := newEnv(t)
 			rule := e.createRule(e.withMode(mode, nil))
-			e.ingest("shared-generation-scope", e.dev1, "temperature", 35.0, "")
+			e.ingest("shared-generation-scope-"+string(mode), e.dev1, "temperature", 35.0, "")
 			req, ok := e.cmds.last()
 			runs := e.runs(rule.ID)
 			if !ok || len(runs) != 1 || req.ScopeKey != runs[0].ScopeKey {
