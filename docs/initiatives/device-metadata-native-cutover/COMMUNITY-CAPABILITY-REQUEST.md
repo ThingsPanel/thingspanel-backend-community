@@ -1,3 +1,5 @@
+> **2026-10-29 更新：本文大部分已作废。** 产品确认社区版不做设备启停和换模板；子设备解绑和凭据轮换/撤销改为直接使用 Community 现有接口（`PUT /device/sub-remove`、`POST /device/update/voucher`）实现，不再需要 Community 新增能力。现状见 `HANDOFF-ENTRY.md` §6。下面保留原文只作历史记录。
+
 # 需要 Community / MQTT 鉴权层补的能力（2026-10-29）
 
 本文给 Community 和 MQTT 接入层的维护者：新版设备元数据已经把四类操作记入「操作 + outbox」，但因为运行时没有对应能力，它们一直停在“待处理”。这里说明每一类需要什么、我们这边已经准备好什么、做到什么程度算完成。依据是代码，不是推测：`devicemetadata/native_runtime_dispatch.go`（投递器）、`native_runtime_receipt.go`（回执）、`native_device_operation.go`（操作种类）。

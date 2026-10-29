@@ -57,6 +57,11 @@ E. **开发环境里导出完成后下载 404。** Vite 开发代理没有 `/api
 
 **设备模板复制（DM-TPL-011，T1；本轮新实现，页面验证）**：`POST /api/v2/device-access-templates/:id/copies`，请求体只有 `name`，新建一个已启用的模板，保留描述、品牌、标签、封面和整份配置（包括所选物模型版本），不复制设备；幂等键重放返回同样结果；重名返回 409；跨租户返回 404；源模板不被改动。数据库测试覆盖以上各条。页面：模板列表每个模板新增“复制”，弹窗预填“原名 副本”，提交后跳到新模板的编辑页；接口读回新模板版本 1、描述和标签与源一致；用已存在的名称再复制，提示“已有同名模板，请换一个名称”，弹窗保留可改名。
 
+**子设备解绑、凭据轮换/撤销、模板固定（产品范围决定后新做，真实后端 + 测试替身）**：
+- **解绑子设备**：网关绑定子设备后再解绑（`PUT /devices/:id/gateway-membership` 置空，202），投递器依次向 Community 发出 `PUT /device {parent_id, sub_device_addr}` 和 `PUT /device/sub-remove {sub_device_id}`；子设备的网关归属读回为空，可再绑别处。
+- **凭据轮换/撤销**：数据库测试（`TestCredentialChangeIsPlannedFromStoredSecretsAndAppliedByReceipt`）覆盖：轮换时按替换凭据的解密密文计划出 `{"username":…}`；已应用回执使替换凭据变有效、旧凭据作废；撤销时设备还有别的有效凭据就退回用它，一个都不剩就用随机不可用值；替换凭据不存在返回 `CREDENTIAL_NOT_FOUND`。**没有做端到端**：现有流程里没有对外的“激活凭据”入口，不好造数据。
+- **模板固定**：已绑模板的设备改绑另一个模板、或解绑，后端返回 409“the device template cannot be changed after the device is created”；没绑模板的设备首次绑定正常。设备设置页：去掉“管理状态/停用”，“设备模板”只读显示模板名并提示“设备创建后不能更换模板”，设备编号和删除设备保留。已知问题：对已绑模板的设备再提交同一个模板返回 503（该路径本轮没有改动，页面不再提供，接口层面待排查）。
+
 **数据处理脚本的“测试运行”（真实后端，`POST /api/v2/processing-script-tests`）**：正常脚本返回拼接结果（`{"t":21}|a/b`）；运行时 `error("boom")` 返回 `SCRIPT_RUNTIME_ERROR` 并带堆栈；死循环约 1 秒后返回 `SCRIPT_TIMEOUT`；访问 `os.execute` 被沙箱拦截（`os` 不可用）。引擎为 `gopher-lua-5.1/sandbox-v1`。这只验证了“测试运行”接口；上行数据真正经过脚本处理依赖 Community/MQTT 的数据通路，没有覆盖。
 
 仍未在浏览器里验证：真实 Community 下的遥测值、历史和导出（上面用的是测试替身）。

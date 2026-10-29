@@ -8,7 +8,7 @@
 - **本机真实 HTTP 端到端（后端子集）44/44 通过，并在真实浏览器里打开了设备管理、设备详情（10 个 tab）、设备模板、分组管理页面，且在页面里新建了分组并在后端核对**（登录用测试替身，数据来自真实 Encore 后端）：完整 Encore 应用 + 真实 Postgres + 真实请求，覆盖认证权限、设备、分组、凭据、模拟器、导出、操作，见 `LOCAL-E2E.md`。它没有浏览器、没有 Community，notification 被替换成空实现，所以不等于整块签收。
 - **用 Community 测试替身跑通了需要 Community 的后端路径 31/31**（读数、历史、聚合、短/长导出、改编号和删除的真实下发与回执），并因此修了“删除成功后设备仍在列表里”的 bug；替身不是真实 Community，见 `LOCAL-E2E.md`。
 - **没有任何一块做过“真实浏览器 + 真实 Community”的整块验收（0/27）**；这次还跑出并修了租户管理员无权使用指令下发/期望消息/调试的真实问题：没有在“真实浏览器 + 真实 Community 运行时”下跑过。这台开发机（Mac）起不来完整 Encore 应用（`notification` 服务读 `/proc/self/environ`，只能 Linux），在 Mac 上构建 Linux 镜像两次都卡死，已终止。**合并后必须在 Linux/CI 上按 `E2E-CHECKLIST-2026-10-29.md` 走一遍。**
-- 有 5 类操作提交后会**一直显示“待处理”**，因为 Community 没有对应能力（见 §6）。这是有意的诚实表现，不是缺陷。
+- **范围决定（2026-10-29，产品确认）**：社区版**不做**设备启停、换模板（设备创建时选模板，之后不能换）、批量导入/换模板/绑网关、模板导入导出分享、设备登记；这些页面入口已去掉、后端也不实现。子设备解绑和凭据轮换/撤销**用 Community 现有接口实现**（见 §6）。因此不再有“因为 Community 缺能力而一直待处理”的操作。
 
 ## 2. 代码在哪（三个仓库，同名分支 `codex/metadata-menus-native-completion`）
 
@@ -68,9 +68,24 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 
 注意：`encore check` 在本机会在 notification 服务初始化处失败（它要求特定的 Linux 自托管配置），在 `main-1.3.0` 上也一样；用 `encore test` 和 `go vet ./...` 当门禁。本机想跑完整应用见 `LOCAL-E2E.md`。
 
-## 6. 提交后一直“待处理”的操作（Community 缺能力）
+## 6. 设备平台（Community）侧的应用方式
 
-设备启停、换模板、凭据轮换/撤销、解绑子设备。原因：Community 的更新接口没有启用字段，`is_enabled` 不参与 MQTT 鉴权，凭据没有按 generation 生效的账本；MQTT 接入强制层不在本仓库。要让它们真正生效，需要在 Community / MQTT 鉴权层补能力；具体要什么、做到什么算完成、联调怎么验收，见 `COMMUNITY-CAPABILITY-REQUEST.md`。改设备编号、删除设备、绑定子设备由 outbox 投递器真实下发（需开 `TP_RUNTIME_OUTBOX_DISPATCH=on`，**尚未与真实 Community 联调**）。
+提交后由后台投递器（每分钟一次，需 `TP_RUNTIME_OUTBOX_DISPATCH=on`）下发给 Community，Community 确认成功后操作才变为“已完成”；Community 明确拒绝则变为失败；网络或 5xx 保持待处理并重试。**以下全部只在 Community 测试替身下验证过，没有与真实 Community 联调。**
+
+| 操作 | Community 调用 | 说明 |
+|---|---|---|
+| 改设备编号 | `PUT /api/v1/device {device_number}` | |
+| 删除设备 | `DELETE /api/v1/device/{id}` | 回执确认后同一事务里软删除设备 |
+| 绑定子设备 | `PUT /api/v1/device {parent_id, sub_device_addr}` | |
+| **解绑子设备** | `PUT /api/v1/device/sub-remove {sub_device_id}` | 本轮新做；解绑后子设备可绑到别的网关 |
+| **凭据轮换** | `POST /api/v1/device/update/voucher {device_id, voucher}` | 本轮新做；voucher 为 `{"username":令牌}` 或 `{"username":…,"password":…}`；回执确认后替换凭据变为有效、旧凭据作废。Community 每台设备只有一个凭据，所以**没有新旧并存的重叠期**，旧凭据立刻失效 |
+| **凭据撤销** | 同上 | 设备还有别的有效凭据就改回用它；一个都不剩就换成无人知道的随机值，谁也登录不了 |
+
+凭据下发的限制：只支持可还原的令牌和用户名密码凭据；证书类、只存校验值的凭据下发时标记为失败（`CREDENTIAL_UNSUPPORTED`）。创建凭据本身不会下发给 Community（页面一直这样提示“创建凭据不会激活设备”）。
+
+**换模板**：设备创建时可选模板；创建后不能更换或解绑（后端返回 409，页面只读显示模板名）。没绑模板的设备可以绑定一次。
+
+已知问题：对已绑模板的设备再次提交“同一个模板”（不改任何内容），后端返回 503；这条路径不是本轮引入，页面也不再提供这个操作，但接口层面仍存在，需要排查。
 
 ## 7. 有意没做的
 
@@ -98,10 +113,10 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 | 改用别的路径 | `GET /reading-exports/:id/download` | 已由 `GET /metadata-downloads/:id` 承担 |
 | 已做（本轮补） | 模板校验 `POST /device-access-templates/:id/validations`；模板引用 `GET /device-access-templates/:id/references` | `validations`：与保存同一套校验，但不保存；配置有问题时返回 `valid:false` 和带 JSON 指针的问题列表（HTTP 200），只有依赖不可用才返回错误；`sourceDigest` 是所校验内容的 SHA-256；对看不见的模板返回 404。`references`：分页列出仍绑定该模板的未删除设备（`kind:"device"`），看不见的模板返回 404；只有设备一类，产品/自动化/市场包等要等跨服务引用协议。两条都有数据库测试，**页面还没有调用** |
 | 已做（本轮补） | 模板复制 `POST /device-access-templates/:id/copies` | 保留描述/品牌/标签/封面/整份配置，不复制设备；有数据库测试，并在页面里验证（模板列表“复制”） |
-| 保留能力、非核心验收 | 模板导入 `POST /device-access-template-imports`；模板导出 `GET /device-access-templates/:id/export` | 契约写明“列为保留能力，不纳入本轮核心验收必做” |
-| 保留能力、非核心验收 | 设备导入导出 `POST /device-imports`、`GET /device-imports/:id`、`POST /device-imports/:id/commits`、`GET /device-import-format`、`POST /device-exports`；批量 `POST /device-batches`、`/device-template-binding-batches`、`/gateway-membership-batches`；`GET /metadata-operations/:id/items` | 批量与导入导出，页面目前走旧路径或没有入口 |
-| 保留能力、非核心验收 | `POST /device-runtime-state-queries`、`GET /device-observation-stream` | 批量在线状态查询、实时流；实时 WebSocket 仍走旧路径 |
-| 保留能力、非核心验收 | `POST/GET/DELETE /device-access-templates/:id/enrollment-credentials…`、`POST /device-enrollments`、`GET /device-enrollment-operations/:id`、`GET /connection-providers/:id/instances/:id/discovered-devices` | 设备登记凭据与发现；依赖连接器能力 |
+| 社区版不做（产品确认） | 模板导入 `POST /device-access-template-imports`；模板导出 `GET /device-access-templates/:id/export` | 社区版不需要模板导入分享 |
+| 社区版不做（产品确认） | 设备导入导出 `POST /device-imports`、`GET /device-imports/:id`、`POST /device-imports/:id/commits`、`GET /device-import-format`、`POST /device-exports`；批量 `POST /device-batches`、`/device-template-binding-batches`、`/gateway-membership-batches`；`GET /metadata-operations/:id/items` | 批量与导入导出，页面目前走旧路径或没有入口 |
+| 保留能力、非核心验收 | `POST /device-runtime-state-queries`、`GET /device-observation-stream` | 批量在线状态查询、实时流；实时 WebSocket 仍走旧路径（不在本轮范围） |
+| 社区版不做（产品确认） | `POST/GET/DELETE /device-access-templates/:id/enrollment-credentials…`、`POST /device-enrollments`、`GET /device-enrollment-operations/:id`、`GET /connection-providers/:id/instances/:id/discovered-devices` | 设备登记与发现；社区版不需要 |
 | 跨服务协议 | `/internal/metadata-references…`（登记、确认、释放、续期、查询共 5 条） | 其他服务向本服务声明“我引用了这个模板/设备”的内部协议；模板删除要检查产品、OTA、规则、市场包引用时需要它，目前未实现，所以删除只检查设备 |
 
 是否排期实现这些保留能力，取决于业务优先级；它们都不阻塞三个菜单的现有页面。
