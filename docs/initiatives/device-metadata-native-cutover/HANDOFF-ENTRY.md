@@ -5,8 +5,8 @@
 ## 1. 一句话结论
 
 - **代码和自动化测试已完成**，三个菜单的 27 个功能块都有对应的 Encore 接口和页面，后端和前端自动化测试通过（见 §5）。
-- **本机真实 HTTP 端到端（后端子集）40/40 通过**：完整 Encore 应用 + 真实 Postgres + 真实请求，覆盖认证权限、设备、分组、凭据、模拟器、导出、操作，见 `LOCAL-E2E.md`。它没有浏览器、没有 Community，notification 被替换成空实现，所以不等于整块签收。
-- **没有任何一块做过“真实浏览器 + 真实 Community”的整块验收（0/27）**：没有在“真实浏览器 + 真实 Community 运行时”下跑过。这台开发机（Mac）起不来完整 Encore 应用（`notification` 服务读 `/proc/self/environ`，只能 Linux），在 Mac 上构建 Linux 镜像两次都卡死，已终止。**合并后必须在 Linux/CI 上按 `E2E-CHECKLIST-2026-10-29.md` 走一遍。**
+- **本机真实 HTTP 端到端（后端子集）44/44 通过，并在真实浏览器里打开了设备管理、设备详情（10 个 tab）、设备模板、分组管理页面，且在页面里新建了分组并在后端核对**（登录用测试替身，数据来自真实 Encore 后端）：完整 Encore 应用 + 真实 Postgres + 真实请求，覆盖认证权限、设备、分组、凭据、模拟器、导出、操作，见 `LOCAL-E2E.md`。它没有浏览器、没有 Community，notification 被替换成空实现，所以不等于整块签收。
+- **没有任何一块做过“真实浏览器 + 真实 Community”的整块验收（0/27）**；这次还跑出并修了租户管理员无权使用指令下发/期望消息/调试的真实问题：没有在“真实浏览器 + 真实 Community 运行时”下跑过。这台开发机（Mac）起不来完整 Encore 应用（`notification` 服务读 `/proc/self/environ`，只能 Linux），在 Mac 上构建 Linux 镜像两次都卡死，已终止。**合并后必须在 Linux/CI 上按 `E2E-CHECKLIST-2026-10-29.md` 走一遍。**
 - 有 5 类操作提交后会**一直显示“待处理”**，因为 Community 没有对应能力（见 §6）。这是有意的诚实表现，不是缺陷。
 
 ## 2. 代码在哪（三个仓库，同名分支 `codex/metadata-menus-native-completion`）
