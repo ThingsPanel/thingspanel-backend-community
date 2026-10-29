@@ -130,9 +130,9 @@ func (r *Runtime) acceptRun(ctx context.Context, rule *store.Rule, deviceID, tri
 		// The values this run was accepted with. A resume must reproduce the
 		// same body, so they travel with the run instead of being re-read from
 		// a binding somebody may have edited since.
-		"binding_params":   rule.BindingParams,
-		"binding_id":       rule.BindingID,
-		"binding_source":   rule.BindingSource,
+		"binding_params": rule.BindingParams,
+		"binding_id":     rule.BindingID,
+		"binding_source": rule.BindingSource,
 	})
 
 	run := &store.Run{
@@ -876,9 +876,16 @@ func (r *Runtime) performAction(ctx context.Context, run *store.Run, rule *store
 			"kind": step.Action, "device_id": deviceID,
 			"identifier": step.Identifier, "value": step.Value,
 		})
+		commandScope := run.ScopeKey
+		if rule.Definition.Mode == domain.ModeParallel {
+			// Parallel admissions coexist: a later run must not fence an earlier
+			// command still waiting in the owner's durable queue. The frozen run
+			// identity also keeps transport retries in the same command scope.
+			commandScope += ":run:" + run.ID
+		}
 		item := &store.OutboxItem{
 			ID: NewID(), TenantID: run.TenantID, RunID: run.ID, StepID: stepID,
-			Kind: "command", ScopeKey: run.ScopeKey, Generation: run.Generation,
+			Kind: "command", ScopeKey: commandScope, Generation: run.Generation,
 			IdempotencyKey: fmt.Sprintf("%s:cmd:%s", r.stepKey(run, pc), deviceID),
 			Payload:        payload,
 		}
