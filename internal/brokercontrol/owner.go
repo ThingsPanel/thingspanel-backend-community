@@ -92,12 +92,13 @@ func NewOwner(repo Repository, cfg Config) (*Owner, error) {
 	}
 	serviceKeys := map[string]struct{}{}
 	for _, service := range cfg.Services {
+		idlePlugin := service.PluginSocket && len(service.AllowedDeviceIDs) == 0 && len(service.AllowedTenantIDs) == 0 && len(service.Policy.Publish) == 0 && len(service.Policy.Subscribe) == 0
 		if !validConfigString(service.Username) || service.Password == "" || !utf8.ValidString(service.Password) || len(service.Password) > 256 ||
 			!validConfigString(service.BrokerCell) || !validConfigString(service.BrokerInstance) || service.Principal.Kind != brokercontract.PrincipalService ||
 			brokercontract.ValidatePrincipal(service.Principal) != nil || brokercontract.ValidatePolicy(service.Policy) != nil ||
 			!validConfigString(service.PolicyVersion) || !validConfigString(service.MappingVersion) ||
 			(len(service.AllowedClientIDs) == 0 && !service.AllowAnyClientID) || (service.AllowAnyClientID && !service.PluginSocket) ||
-			(service.PluginSocket && (len(service.AllowedDeviceIDs) == 0 || len(service.AllowedTenantIDs) == 0 || service.MappingVersion != MappingVersion)) {
+			(service.PluginSocket && (service.MappingVersion != MappingVersion || (!idlePlugin && (len(service.AllowedDeviceIDs) == 0 || len(service.AllowedTenantIDs) == 0)))) {
 			return nil, errors.New("brokercontrol: invalid service allowlist entry")
 		}
 		key := service.Username + "\x00" + service.BrokerCell + "\x00" + service.BrokerInstance
@@ -304,7 +305,9 @@ func (o *Owner) Authenticate(ctx context.Context, req brokercontract.AuthRequest
 		policy := normalizePolicy(s.Policy)
 		var pluginTargets []brokercontract.PluginTarget
 		var protectedDownlink []string
-		if s.PluginSocket {
+		// Fresh installations have no plugin devices yet. Their explicitly empty
+		// policy permits a connection, with no publish or subscribe permissions.
+		if s.PluginSocket && len(s.AllowedDeviceIDs) > 0 {
 			targets, targetErr := o.repo.ResolveServiceTargets(ctx, s.AllowedDeviceIDs)
 			if targetErr != nil {
 				return deny, ErrUnavailable

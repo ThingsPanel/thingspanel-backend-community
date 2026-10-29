@@ -284,6 +284,29 @@ func serviceRequest() bc.AuthRequest {
 	return bc.AuthRequest{RequestID: "service-request", Provider: CommunityProvider, BrokerCell: "community", BrokerInstance: "node-1", ConnectionNonce: "service-nonce", WireClientID: "svc-client", Username: "svc-user", Password: "svc-pass", Protocol: 4}
 }
 
+func TestIdlePluginCannotPublishOrSubscribe(t *testing.T) {
+	s := serviceFixture()
+	s.PluginSocket, s.AllowAnyClientID = true, true
+	s.AllowedClientIDs, s.AllowedDeviceIDs, s.AllowedTenantIDs = nil, nil, nil
+	s.Policy.Publish, s.Policy.Subscribe = nil, nil
+	owner := testOwner(t, &fakeRepository{}, []ServiceCredential{s})
+	g, err := owner.Authenticate(context.Background(), serviceRequest())
+	if err != nil || !g.Allow || len(g.Policy.Publish) != 0 || len(g.Policy.Subscribe) != 0 || len(g.PluginTargets) != 0 || g.PluginContextID != "" {
+		t.Fatalf("idle plugin must connect without data permissions: %#v %v", g, err)
+	}
+	for _, subscribe := range []bool{false, true} {
+		unsafe := s
+		if subscribe {
+			unsafe.Policy.Subscribe = []string{"devices/#"}
+		} else {
+			unsafe.Policy.Publish = []string{"devices/telemetry"}
+		}
+		if _, err := NewOwner(&fakeRepository{}, Config{Tokens: []TokenBinding{{Token: testToken(), BrokerCell: "community", BrokerInstance: "node-1"}}, Services: []ServiceCredential{unsafe}}); err == nil {
+			t.Fatal("unscoped plugin policy was accepted")
+		}
+	}
+}
+
 func TestServicePublishRequiresTenantScopedTargetsAndCompilesOnlyThoseDevices(t *testing.T) {
 	t.Run("read-only service may omit targets", func(t *testing.T) {
 		s := serviceFixture()
