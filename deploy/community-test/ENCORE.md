@@ -25,3 +25,13 @@ Mosquitto 的 `ingress_v1` 持久化事件由实际引擎模式选择消费者�
 Action 发布原生服务后安装并验证 `tp-automation-tick.timer`，每 5 秒运行一个不重叠的 oneshot。它从服务器现有 `automation-service.private.json` 读取服务身份，调用回环地址 `/internal/automation/tick`；先恢复已持久化未处理事件，再处理到期规则、等待续跑及 outbox。浏览器 `/v1/tick`、`/v1/recover` 已移除，不能用个人登录身份执行全库扫描。
 
 服务器用 `systemctl status tp-automation-tick.timer tp-automation-tick.service` 检查；最近结果在 `/opt/tp-community-actions/automation-scheduler/last-tick.json`。service 单次失败会在下一轮重新运行，错误不包含凭据；失败不切旧引擎。修改定时规则不需要重新部署。
+
+## 通知身份持续运行
+
+首次 source/projection 授权仍由现有运维工具验证平台及租户真实会话。之后由 root 私有 `notification-renew-policy.private.json` 明确登记既有部署、单租户、凭据文件及实际运行配置。它授权本机运维续期，不创建或扩展身份；不使用管理员账号或用户 JWT 维持后台服务。
+
+CLI `notification-source-provision --service-policy <绝对私有策略路径> --ttl 8h` 仅允许 Linux root，检查策略、凭据、配置及其父目录归属与权限。只延长数据库中现有、未撤销、未过期且双哈希和范围匹配的 source/projection 对；任一不匹配则整笔回滚，不能复活失效凭据。
+
+Action 构建工具并校验发布包；存在该私有策略时，安装 `tp-notification-renew.timer` 每小时续期一次，并立即验证。最近脱敏结果在服务器 `notification-renew-result.json`，私有凭据原子更新到期时间，令牌保持不变。进程无须为续期重启。
+
+若机器停止超过当前 8 小时租期，过期身份不自动恢复，需按首次签发流程重新授权。停止续期 timer 只停止延长，立即撤销须走既有凭据撤销入口。发布不覆盖策略、令牌及原有授权范围；临时验收管理员保持禁用。

@@ -214,8 +214,47 @@ receipt = json.loads((scheduler / 'last-tick.json').read_text())
 if receipt.get('status') != 'passed':
     raise RuntimeError('Native scheduler acceptance failed')
 
+renew_policy = RUNTIME / 'notification-renew-policy.private.json'
+if renew_policy.exists():
+    identity_dir = ROOT / 'notification-identity'
+    identity_dir.mkdir(mode=0o700, exist_ok=True)
+    for origin, name in [(release / 'tools/notification-source-provision', 'notification-source-provision'),
+                         (ROOT / 'incoming/notification_renew.py', 'notification_renew.py')]:
+        temporary = identity_dir / (name + '.next')
+        shutil.copyfile(str(origin), str(temporary))
+        temporary.chmod(0o700 if name == 'notification-source-provision' else 0o600)
+        os.replace(str(temporary), str(identity_dir / name))
+    pathlib.Path('/etc/systemd/system/tp-notification-renew.service').write_text('''[Unit]
+Description=Renew the existing scoped ThingsPanel notification identity
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/tp-community-actions/notification-identity/notification_renew.py
+TimeoutStartSec=40
+UMask=0077
+''')
+    pathlib.Path('/etc/systemd/system/tp-notification-renew.timer').write_text('''[Unit]
+Description=Maintain the existing ThingsPanel notification grant hourly
+
+[Timer]
+OnBootSec=20s
+OnUnitInactiveSec=1h
+AccuracySec=1min
+Unit=tp-notification-renew.service
+
+[Install]
+WantedBy=timers.target
+''')
+    run(['systemctl', 'daemon-reload'])
+    run(['systemctl', 'start', 'tp-notification-renew.service'])
+    run(['systemctl', 'enable', '--now', 'tp-notification-renew.timer'])
+    if json.loads((RUNTIME / 'notification-renew-result.json').read_text()).get('status') != 'passed':
+        raise RuntimeError('Notification source renewal verification failed')
+
 (release / 'deployment.json').write_text(json.dumps({'commit': SHA, 'image': image, 'image_id': image_id,
     'scheduler': 'tp-automation-tick.timer',
+    'notification_renewal': 'tp-notification-renew.timer' if renew_policy.exists() else None,
     'previous_images': old_images, 'migrations_applied': {database: [m['version'] for m in pending]
                                                        for database, _, pending in plans}}, indent=2))
 print('Encore and notification deployed and verified: ' + SHA)

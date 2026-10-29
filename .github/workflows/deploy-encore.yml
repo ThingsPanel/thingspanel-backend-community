@@ -7,6 +7,7 @@ on:
       - 'deploy/community-test/*encore*'
       - 'deploy/community-test/automation_tick.py'
       - 'deploy/community-test/test_automation_tick.py'
+      - 'deploy/community-test/notification_renew.py'
       - '.github/workflows/deploy-encore.yml'
       - '.gitattributes'
   workflow_dispatch:
@@ -46,8 +47,9 @@ jobs:
         run: go test -tags notification_cli ./cmd/notification-source-provision
       - name: Package immutable tracked source
         run: |
-          mkdir candidate
+          mkdir -p candidate/tools
           git archive --format=tar HEAD encore-api | tar -xf - -C candidate
+          (cd encore-api && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags notification_cli -trimpath -o ../candidate/tools/notification-source-provision ./cmd/notification-source-provision)
           python3 - <<'PY'
           import pathlib,json,hashlib,os,tarfile
           root=pathlib.Path('candidate')
@@ -72,7 +74,7 @@ jobs:
           if ! ssh "${args[@]}" root@47.92.253.145 'test -f /opt/tp-community-actions/tools/encore-1.58.6/.archive-sha256'; then
             scp "${args[@]}" "$RUNNER_TEMP/encore-cli.tar.gz" root@47.92.253.145:/opt/tp-community-actions/incoming/encore-1.58.6-linux_amd64.tar.gz
           fi
-          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/encore_migrations.py deploy/community-test/install_encore_cli.py deploy/community-test/automation_tick.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/encore_migrations.py deploy/community-test/install_encore_cli.py deploy/community-test/automation_tick.py deploy/community-test/notification_renew.py root@47.92.253.145:/opt/tp-community-actions/incoming/
           ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/install_encore_cli.py && python3 /opt/tp-community-actions/incoming/deploy_encore.py '$GITHUB_SHA'"
       - name: Preserve source identity
         uses: actions/upload-artifact@v4

@@ -53,7 +53,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
-	fmt.Fprintln(os.Stdout, "notification source/projection credentials provisioned; private output file written")
+	fmt.Fprintln(os.Stdout, "notification credential operation completed; private result written")
 }
 
 func run() error {
@@ -61,7 +61,14 @@ func run() error {
 	outputPath := flag.String("output", "", "new private JSON output path; it must not already exist")
 	ttl := flag.Duration("ttl", 2*time.Hour, "credential lifetime (maximum 8h)")
 	renewPath := flag.String("renew-file", "", "private existing credential pair to renew; requires both current sessions")
+	servicePolicy := flag.String("service-policy", "", "root-owned local policy for renewal of an existing deployment grant")
 	flag.Parse()
+	if *servicePolicy != "" {
+		if *authPath != "" || *outputPath != "" || *renewPath != "" || flag.NArg() != 0 {
+			return errors.New("invalid service renewal arguments")
+		}
+		return runServiceRenew(*servicePolicy, *ttl)
+	}
 	if *authPath == "" || *outputPath == "" || flag.NArg() != 0 || *ttl <= 0 || *ttl > 8*time.Hour {
 		return errors.New("invalid arguments")
 	}
