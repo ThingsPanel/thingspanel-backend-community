@@ -33,7 +33,7 @@
 | T2 | 关联设备 | [x] | [x] | [ ] | 关联设备分页；绑定/解绑完整流程 | 完整页面流程未收尾 |
 | T3 | 物模型 | [x] | [x] | [ ] | 详情显示所选发布版本；编辑页换选 | 纠偏后完整联验未收尾 |
 | T4 | 协议配置 | [x] | [x] | [ ] | Topic 映射增删改启停；接入信息只读 | 真实 HTTP/UI 未验 |
-| T5 | 数据处理 | [x] | [x] | [ ] | 六阶段脚本增删改启停；**调试运行**（新）：正常脚本得输出，死循环得 SCRIPT_TIMEOUT，`os`/`io` 不可用 | 真实 HTTP/UI 未验；gopher-lua 版本待核对 |
+| T5 | 数据处理 | [x] | [x] | [ ] | 六阶段脚本增删改启停；**调试运行**（新）：正常脚本得输出，死循环得 SCRIPT_TIMEOUT，`os`/`io` 不可用 | 测试运行接口已在真实后端验证（引擎 gopher-lua-5.1/sandbox-v1，见 LOCAL-E2E.md）；页面里的脚本编辑/调试 UI 未走；上行数据真正经脚本处理依赖 Community/MQTT |
 | T6 | 自动化 | [x] | [x] | [x] | 同 D11 | 同 D11 |
 | T7 | 告警 | [x] | [x] | [x] | 新建策略并关联，设备继承显示 | 同 D12 |
 | T8 | 扩展信息 | [x] | [x] | [x] | 列表/新增/编辑/启停/删除；已有值 409 | 真实 IDP/升级未签收 |
@@ -61,6 +61,23 @@
 
 > 「整块签收」需要：页面、接口、数据库、权限、关键操作全部在真实链路上走通。E2E 栏有 `[x]` 的几块也只是局部流程证据，真实登录、升级迁移、真实运行时仍未覆盖。
 
+## 测试替身下的证据（2026-10-29 补充，不改变上表的整块签收）
+
+用真实 Encore 后端 + 前端开发服务器 + 内置浏览器，Community 与登录由测试替身代替。以下只是**局部证据**，不等于真实 Community 验收。
+
+| 块 | 证据 |
+|---|---|
+| D1 | 设备列表/紧凑读数视图读取原生设备与模板绑定 |
+| D2 | 数值读数的历史曲线在页面里取到 60 个点并算出平均/最大/最小 |
+| D3 | 遥测卡片显示替身读数；文本读数历史表（288 行、分页）；导出在页面里下载 CSV；后端 31 项检查含短/长导出 |
+| D11、T6 | 创建真实规则后，设备/模板自动化 tab 显示规则、来源、状态 |
+| D12、T7 | 告警 tab 正常渲染（无真实告警触发） |
+| D14 | 改编号、删除经投递器真实下发并回执成功；删除后设备从列表消失（修复了此前设备仍在列表的 bug） |
+| T1、T3 | 模板编辑器创建模板并选择已发布物模型版本，POST 201 |
+| T5 | 脚本测试运行：成功/运行时错误/超时/沙箱隔离 |
+
+这一轮在页面里还暴露并修了：历史表默认范围多 1 毫秒被拒、开发代理缺导出下载等路由、删除后设备不消失（见 `LOCAL-E2E.md`）。
+
 ## 外部依赖清单（解除后才能把对应块推进到 E2E）
 
 1. **DM-RT-007 回执链路（已部分落地）**：元数据侧回执入库（`native_runtime_receipt.go`）和 outbox 投递器（`native_runtime_dispatch.go`）已完成并有真实数据库测试。投递器由每分钟的定时任务驱动，需设置 `TP_RUNTIME_OUTBOX_DISPATCH=on` 才工作，默认不动，操作保持“待处理”。它只投递 Community 真有对应能力的三类：**改设备编号**（`PUT /api/v1/device`）、**删除设备**、**绑定子设备**；成功才把操作标为成功，Community 明确拒绝标为失败，网络/5xx 保持待处理并重试。**启停、换模板、凭据轮换/撤销、解绑子设备仍停在待处理**：Community 的更新接口没有启用字段，`is_enabled` 不参与 MQTT 鉴权（`mqtt/`、`internal/` 下无检查），凭据也没有按 generation 生效的账本；MQTT 接入强制层不在本仓库，必须在那边补。影响 D4、D5、D14。
@@ -68,6 +85,6 @@
 3. **模拟器（DM-RT-019，后端已做）**：`simulator-profile`（GET/PUT）、`simulator-sessions`（POST/DELETE）、`simulation-runs`（POST/GET）已实现并有真实数据库测试，迁移 0037。与契约的差异：运行是同步的，单次最多 20 条且不按 `intervalSeconds` 间隔发送；只支持 telemetry（Community 只会向遥测 topic 发）；`simulator-config` 已实现但 `topics` 恒为空（本仓库没有按用途的 topic 和样例报文来源）；未保存配置时 GET 返回 404，首次保存用 `If-Match: "sim-profile-0"`。发送委托给 Community 的 `simulation/send`，不传 server/port/topic，发往 Community 自己配置的 broker。前端已在遥测 tab 加「模拟上报」面板，未在真实浏览器验证。影响 D3。
 4. **导出（DM-RT-018，已做）**：遥测；原始 ≤24h 或聚合 ≤366 天为同步（读取原始样本 ≤5 万条）；原始 24h–31 天为后台长导出（每分钟定时任务按小时分片，可续传，≤100 万行/60 MiB，迁移 0039）。同步部分：同步生成并存入新表 `metadata_downloads`；属性/事件/百万行仍未做；`GET /reading-exports/{operationId}` 已做（仅发起人可查）；过期文件每小时自动清理；`latest-reading-deletions` 因 Community 删除会连历史一起删而有意不做。影响 D3。
 5. **诊断统计**：Community 计数无统计窗口、失败记录无 id/code。影响 D13。
-6. **真实验收环境**：这台 Mac 上无法起完整 Encore 应用——`notification` 服务读 `/proc/self/environ`，仅 Linux 可运行，`encore run` 必然在此失败，需在 Linux/容器里搭。另外本机已有 Community 栈在运行，但其中后端容器刚重启过且不是本任务启动的，未接入；需要一套固定的测试租户、账号和 `encore run` 的联调配置。
+6. **真实验收环境**（已部分解除：用临时副本可在 Mac 上起完整应用并接测试替身，见 `LOCAL-E2E.md`；真实 Community 仍缺）：原先认为这台 Mac 上无法起完整 Encore 应用——`notification` 服务读 `/proc/self/environ`，仅 Linux 可运行，`encore run` 必然在此失败，需在 Linux/容器里搭。另外本机已有 Community 栈在运行，但其中后端容器刚重启过且不是本任务启动的，未接入；需要一套固定的测试租户、账号和 `encore run` 的联调配置。
 
 **Linux 镜像尝试（2026-10-29，失败）**：在 Mac 上执行 `encore build docker tp-e2e:dev --arch arm64 --services devicemetadata,fileassets,authn --skip-config`，两次各运行 70–93 分钟，进程一直占满一个 CPU 核，没有任何输出也没有产出镜像，已手动终止（与之前卡住的 `encore check` 现象相同，未查明根因）。因此真实 HTTP 端到端仍未做；需要在原生 Linux/CI 上执行 `encore run` 或 `encore build docker` 完成。
