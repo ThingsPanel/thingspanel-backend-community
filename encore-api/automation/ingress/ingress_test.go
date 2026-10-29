@@ -168,6 +168,8 @@ func TestStatusAcceptsEveryWireShape(t *testing.T) {
 		{"bool", map[string]any{"online": true}, true},
 		{"number", map[string]any{"status": float64(0)}, false},
 		{"text", map[string]any{"status": "offline"}, false},
+		{"community broker online", map[string]any{"login": "ON-LINE"}, true},
+		{"community broker offline", map[string]any{"login": "OFF-LINE"}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

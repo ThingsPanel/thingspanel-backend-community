@@ -347,7 +347,7 @@ func statusValue(values map[string]any) (bool, bool) {
 	if len(values) == 0 {
 		return false, false
 	}
-	for _, k := range []string{"online", "status", "is_online"} {
+	for _, k := range []string{"online", "status", "is_online", "login"} {
 		if v, ok := values[k]; ok {
 			return coerceBool(v)
 		}
@@ -367,9 +367,9 @@ func coerceBool(v any) (bool, bool) {
 		return t, true
 	case string:
 		switch strings.ToLower(strings.TrimSpace(t)) {
-		case "1", "true", "online", "on":
+		case "1", "true", "online", "on", "on-line":
 			return true, true
-		case "0", "false", "offline", "off":
+		case "0", "false", "offline", "off", "off-line":
 			return false, true
 		}
 	case float64:

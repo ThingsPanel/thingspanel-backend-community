@@ -1003,7 +1003,7 @@ func (s *Service) ListAlarmTransitions(ctx context.Context, id string) (*ListTra
 	if err != nil {
 		return nil, err
 	}
-	if _, err := rt.Store().GetActiveEpisodeByID(ctx, tenantID, id); err != nil {
+	if _, err := rt.Store().GetEpisodeByID(ctx, tenantID, id); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return nil, internal(store.ErrNotFound)
 		}
