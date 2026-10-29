@@ -5,7 +5,8 @@
 ## 1. 一句话结论
 
 - **代码和自动化测试已完成**，三个菜单的 27 个功能块都有对应的 Encore 接口和页面，后端和前端自动化测试通过（见 §5）。
-- **没有任何一块做过真实端到端验收（0/27）**：没有在“真实浏览器 + 真实 Community 运行时”下跑过。这台开发机（Mac）起不来完整 Encore 应用（`notification` 服务读 `/proc/self/environ`，只能 Linux），在 Mac 上构建 Linux 镜像两次都卡死，已终止。**合并后必须在 Linux/CI 上按 `E2E-CHECKLIST-2026-10-29.md` 走一遍。**
+- **本机真实 HTTP 端到端（后端子集）40/40 通过**：完整 Encore 应用 + 真实 Postgres + 真实请求，覆盖认证权限、设备、分组、凭据、模拟器、导出、操作，见 `LOCAL-E2E.md`。它没有浏览器、没有 Community，notification 被替换成空实现，所以不等于整块签收。
+- **没有任何一块做过“真实浏览器 + 真实 Community”的整块验收（0/27）**：没有在“真实浏览器 + 真实 Community 运行时”下跑过。这台开发机（Mac）起不来完整 Encore 应用（`notification` 服务读 `/proc/self/environ`，只能 Linux），在 Mac 上构建 Linux 镜像两次都卡死，已终止。**合并后必须在 Linux/CI 上按 `E2E-CHECKLIST-2026-10-29.md` 走一遍。**
 - 有 5 类操作提交后会**一直显示“待处理”**，因为 Community 没有对应能力（见 §6）。这是有意的诚实表现，不是缺陷。
 
 ## 2. 代码在哪（三个仓库，同名分支 `codex/metadata-menus-native-completion`）
@@ -34,6 +35,8 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 3. **backend**：合并文档目录（无代码）。
 4. 在 Linux 环境启动完整应用，按 `E2E-CHECKLIST-2026-10-29.md` 做真实验收，逐块签收。
 
+**自托管部署必须设置 `TP_BACKGROUND_WORKERS=on`**：Encore 的 `cron` 只在 Encore Cloud 触发，本机和自托管默认不会运行长导出、过期文件清理、outbox 投递器；这个开关在服务进程内运行同样三个任务（见 `LOCAL-E2E.md`）。
+
 部署前要设置的环境变量与权限见 `HANDOFF-MERGE-1.3-2026-10-29.md` §8（重点：`TP_RUNTIME_OUTBOX_DISPATCH=on` 才会真正向 Community 下发改编号/删除/绑定子设备；`TP_BASE`/`TP_API_KEY` 等指向 Community；`METADATA_CREDENTIAL_KEYRING_B64`、`METADATA_CREDENTIAL_ACTIVE_KEY_REF` 凭据加密；`TP_DEVICE_CONNECTION_ENDPOINT`；`TP_AUTH_MODE`）。
 
 ## 4. 前端合并冲突（已解决，在集成分支里）
@@ -61,7 +64,7 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 
 **测试身份变更**：单元测试里的默认身份由 `platform_admin` 收紧为 `TENANT_ADMIN`（`authn.CurrentData`），所以 `l3-core/automation`、`l3-core/pluginmgr`、`l5-ops/verifier` 里依赖旧超级身份的测试已显式声明 `platform_admin`。新写测试时注意默认身份没有 `device:manage`/`plugin:manage`。
 
-注意：`encore check` 在本机会因 notification 服务配置卡住，不要用它当门禁；用 `encore test` 和 `go vet ./...`。
+注意：`encore check` 在本机会在 notification 服务初始化处失败（它要求特定的 Linux 自托管配置），在 `main-1.3.0` 上也一样；用 `encore test` 和 `go vet ./...` 当门禁。本机想跑完整应用见 `LOCAL-E2E.md`。
 
 ## 6. 提交后一直“待处理”的操作（Community 缺能力）
 
@@ -94,6 +97,7 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 | 文件 | 用途 |
 |---|---|
 | **HANDOFF-ENTRY.md** | 本页，入口 |
+| **LOCAL-E2E.md** | 本机真实 HTTP 端到端：40 项结果、没覆盖什么、复现步骤、跑出来并已修的两个真实问题 |
 | **HANDOFF-MERGE-1.3-2026-10-29.md** | 完整交接：27 个功能块逐块状态、56+ 条路由、迁移表、待处理操作、环境变量、风险清单、合并范围 |
 | **E2E-CHECKLIST-2026-10-29.md** | 验收勾选表（代码/自动化/E2E 三栏）与外部依赖清单 |
 | TEST-DEVICE-2026-10-29.md | 测试记录 |
