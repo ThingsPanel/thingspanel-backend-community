@@ -10,7 +10,7 @@
 
 要合并进 1.3 的人必须先知道的 5 件事：
 
-1. **改动已提交并推送**到三个仓库的 `codex/metadata-menus-native-completion` 分支（kernel 6 个提交，frontend 2 个功能提交 + 1 个合并提交（集成分支）；见 `HANDOFF-ENTRY.md` §2）。kernel 可快进合并；frontend 原分支落后 `main-1.3.0` 9 个提交，已在集成分支 `codex/metadata-menus-native-completion-on-1.3` 解决 16 个冲突。
+1. **改动已提交并推送**到三个仓库的 `codex/metadata-menus-native-completion` 分支（kernel 7 个提交，frontend 2 个功能提交 + 1 个合并提交（集成分支）；见 `HANDOFF-ENTRY.md` §2）。kernel 可快进合并；frontend 原分支落后 `main-1.3.0` 9 个提交，已在集成分支 `codex/metadata-menus-native-completion-on-1.3` 解决 16 个冲突。
 2. **工作区里混着不属于本任务的东西**（自动化 owner、Provider 目录、日志文件、本机路径的验收配置），见 §9。
 3. **有些操作永远停在“待处理”**：启停、换模板、凭据轮换/撤销、解绑子设备——Community 没有对应能力，不是代码没写，见 §6。
 4. **新增的 outbox 投递器默认关闭**，且 Community 客户端在未配置环境变量时默认指向 `https://demo.thingspanel.cn`，开启前必须先配置，见 §8。

@@ -12,17 +12,18 @@
 
 | 仓库 | 远程 | 基线 | 本分支提交 | 与远程 `main-1.3.0` 的关系 |
 |---|---|---|---|---|
-| kernel | `zjhong/iot-api-encore-kernel` | `fafe0f6f`（= `main-1.3.0`） | 6 个 | 只领先 6、不落后，**可直接快进合并** |
+| kernel | `zjhong/iot-api-encore-kernel` | `fafe0f6f`（= `main-1.3.0`） | 7 个 | 只领先 7、不落后，**可直接快进合并** |
 | frontend | `ThingsPanel/thingspanel-frontend-community` | `7d331d15` | 2 个功能提交 + 1 个合并提交 | 原分支 `codex/metadata-menus-native-completion` 落后 9；**已另建集成分支 `codex/metadata-menus-native-completion-on-1.3`，已合入 `main-1.3.0` 并解决 16 个冲突，领先 3、不落后，可快进合并**（§4） |
 | backend | `ThingsPanel/thingspanel-backend-community` | `d638af3e` | 仅文档（`docs/initiatives/device-metadata-native-cutover/`） | 无代码改动；文档是新目录 |
 
-kernel 的 6 个提交（按顺序）：
+kernel 的 7 个提交（按顺序）：
 1. `build(encore-api): add gopher-lua …`：只含 `go.mod/go.sum`，便于单独核对依赖。
 2. `feat(tpctl-go): …`：Go CLI。
 3. `feat(devicemetadata): database migrations 0018-0039 …`：22 个迁移，**必须整段一起合并**。
 4. `feat(encore-api): native device, template, group, runtime and export APIs`：接口、业务代码、测试。
 5. `docs: handoff entry, …`：`docs/handoff-device-metadata/` 下的交接文档副本。
 6. `test(devicemetadata): keep credential fixture timestamps …`：修复凭据测试的偶发失败。
+7. `test: give legacy l3-core and verifier tests …`：旧服务测试显式声明身份（见 §5）。
 
 frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4 个从未被 vitest 收集的 API 单元测试挪到 `src/__tests__/unit` 使其真正运行。
 
@@ -43,19 +44,22 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 - `typings/env.d.ts` 两边声明都保留。
 - 去掉了本分支对 `rule-manage` 路由的预注册（该页面在 `main-1.3.0` 已删除）及对应权限测试用例，删除了残留的 `views/automation/rule-manage/`。
 - 删除了 `__tests__/unit/automation-rules-api.test.ts`：它测的是被新引擎取代的旧版自动化接口，`main-1.3.0` 自带新的自动化测试。
-- 遗留未用文件：`views/device/shared/native-automation-panel.vue`、`native-device-alarms.vue` 仍在仓库里（不再被自动化 tab 引用），是否清理由你们决定。
+- `views/device/shared/native-automation-panel.vue`、`native-device-alarms.vue` **仍在使用**：分别是模板“告警”tab（`config-detail/modules/alarm-info.vue`）和设备“告警”tab（`details/modules/give-an-alarm.vue`），不是遗留文件，不要删。
+- **后端依赖**：新自动化 tab 调用的 `/v1/device-automation/...`、`/v1/rules/...` 等接口由 kernel 的 `encore-api/automationowner/` 提供（105 个文件，`main-1.3.0` 上没有，随本次 kernel 提交带入）。合并前端而不合并 kernel 的这一部分，自动化 tab 会没有后端。`automationowner` 的单元测试全部通过，但没有在真实环境跑过。
 - 提醒：设备/模板的“自动化”tab 现在用的是 `main-1.3.0` 的实现，**我没有在真实环境验证它在这批新后端下的表现**。
 
 ## 5. 测试状态（如实）
 
 | 范围 | 命令 | 结果 |
 |---|---|---|
-| 后端（需 Encore） | 在 `kernel/encore-api` 执行 `encore test ./devicemetadata ./internal/...` | 通过。曾有 `TestDeviceCredentialsSchemaConstraints` 偶发失败（Go 时间与数据库 `NOW()` 的微秒差触发 `activated_at >= created_at` 检查），已把夹具时间提前一分钟修复；之后无缓存全量运行全部通过 |
+| 后端（需 Encore） | 在 `kernel/encore-api` 执行 `encore test ./devicemetadata ./internal/...` | 通过。整个 Encore 模块 `encore test ./... -count=1` 通过，仅 `cmd/notification-migrate` 和 `devicemetadata/migrations/scripts` 两个 `package main` 工具包在 `encore test` 下无法链接（前者在 `main-1.3.0` 上同样如此，后者用 `go test ./devicemetadata/migrations/scripts` 通过）。曾有 `TestDeviceCredentialsSchemaConstraints` 偶发失败（Go 时间与数据库 `NOW()` 的微秒差触发 `activated_at >= created_at` 检查），已把夹具时间提前一分钟修复；之后无缓存全量运行全部通过 |
 | 前端 vitest | 在 `frontend`（集成分支）执行 `npx vitest run src/router src/__tests__/unit` | 167 过、1 败：`thingsvis-auth`“网络失败后进入冷却”，报 SSO authority 配置错误，**与本次改动无关**，未处理 |
 | 前端 node:test | `npx tsx --test src/service/api/<文件>.test.ts` | 通过 |
 | 真实端到端 | — | **0/27** |
 
 汇总（以 `E2E-CHECKLIST-2026-10-29.md` 为准）：代码 27/27，自动化 27/27，有局部端到端证据 10/27（旧文档继承、合成登录），整块签收 0/27。
+
+**测试身份变更**：单元测试里的默认身份由 `platform_admin` 收紧为 `TENANT_ADMIN`（`authn.CurrentData`），所以 `l3-core/automation`、`l3-core/pluginmgr`、`l5-ops/verifier` 里依赖旧超级身份的测试已显式声明 `platform_admin`。新写测试时注意默认身份没有 `device:manage`/`plugin:manage`。
 
 注意：`encore check` 在本机会因 notification 服务配置卡住，不要用它当门禁；用 `encore test` 和 `go vet ./...`。
 
