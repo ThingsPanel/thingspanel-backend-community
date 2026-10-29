@@ -59,8 +59,8 @@ E. **开发环境里导出完成后下载 404。** Vite 开发代理没有 `/api
 
 **子设备解绑、凭据轮换/撤销、模板固定（产品范围决定后新做，真实后端 + 测试替身）**：
 - **解绑子设备**：网关绑定子设备后再解绑（`PUT /devices/:id/gateway-membership` 置空，202），投递器依次向 Community 发出 `PUT /device {parent_id, sub_device_addr}` 和 `PUT /device/sub-remove {sub_device_id}`；子设备的网关归属读回为空，可再绑别处。
-- **凭据轮换/撤销**：数据库测试（`TestCredentialChangeIsPlannedFromStoredSecretsAndAppliedByReceipt`）覆盖：轮换时按替换凭据的解密密文计划出 `{"username":…}`；已应用回执使替换凭据变有效、旧凭据作废；撤销时设备还有别的有效凭据就退回用它，一个都不剩就用随机不可用值；替换凭据不存在返回 `CREDENTIAL_NOT_FOUND`。**没有做端到端**：现有流程里没有对外的“激活凭据”入口，不好造数据。
-- **模板固定**：已绑模板的设备改绑另一个模板、或解绑，后端返回 409“the device template cannot be changed after the device is created”；没绑模板的设备首次绑定正常。设备设置页：去掉“管理状态/停用”，“设备模板”只读显示模板名并提示“设备创建后不能更换模板”，设备编号和删除设备保留。已知问题：对已绑模板的设备再提交同一个模板返回 503（该路径本轮没有改动，页面不再提供，接口层面待排查）。
+- **凭据生命周期（端到端，真实 HTTP + 测试替身）**：先发现并补上一个洞——此前新建的凭据永远是 `pending`，没有任何地方把它置为有效，所以轮换（要求当前凭据有效）根本触发不了。现在设备的**第一个**凭据创建后排一个“激活”操作，投递器把它作为 voucher 下发给 Community，回执确认后置为 `active`；设备已有有效凭据时，新建的凭据继续 `pending`，作为轮换的替换凭据。实测：建第一个凭据（`pending`）→ Community 收到 `POST /device/update/voucher {"username":"secret-first-0001"}` → 变 `active`；建第二个凭据（`pending`，不排激活）→ 轮换（202）→ Community 收到 `{"username":"secret-second-0002"}` → 第二个 `active`、第一个 `revoked`；撤销当前有效凭据（202）→ 没有别的有效凭据，Community 收到 `{"username":"revoked-<随机>"}`，两个凭据都是 `revoked`。数据库测试（`TestCredentialChangeIsPlannedFromStoredSecretsAndAppliedByReceipt`）另外覆盖：替换凭据不存在返回 `CREDENTIAL_NOT_FOUND`；撤销时还有别的有效凭据就退回用它。证书类凭据不下发（保持 `pending`）。
+- **模板固定**：已绑模板的设备改绑另一个模板、或解绑，后端返回 409“the device template cannot be changed after the device is created”；没绑模板的设备首次绑定正常。设备设置页：去掉“管理状态/停用”，“设备模板”只读显示模板名并提示“设备创建后不能更换模板”，设备编号和删除设备保留。对已绑模板的设备再提交同一个模板，原来返回 503，根因是“内容没变化”分支的 SQL 里同一个参数既当 uuid 又当文本（Postgres 42P08），已修，并有数据库测试；该分支同时被“管理状态”“网关绑定”的无变化提交使用，一并修好。
 
 **数据处理脚本的“测试运行”（真实后端，`POST /api/v2/processing-script-tests`）**：正常脚本返回拼接结果（`{"t":21}|a/b`）；运行时 `error("boom")` 返回 `SCRIPT_RUNTIME_ERROR` 并带堆栈；死循环约 1 秒后返回 `SCRIPT_TIMEOUT`；访问 `os.execute` 被沙箱拦截（`os` 不可用）。引擎为 `gopher-lua-5.1/sandbox-v1`。这只验证了“测试运行”接口；上行数据真正经过脚本处理依赖 Community/MQTT 的数据通路，没有覆盖。
 
