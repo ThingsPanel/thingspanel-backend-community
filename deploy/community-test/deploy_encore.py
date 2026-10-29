@@ -46,12 +46,16 @@ def run(args, data=None, cwd=None, env=None, timeout=1800):
 
 package = ROOT / 'incoming' / ('encore-' + SHA + '.tar.gz')
 with tarfile.open(str(package)) as archive:
-    for member in archive.getmembers():
+    members = archive.getmembers()
+    for member in members:
         dest = (release / member.name).resolve()
         if (member.issym() or member.islnk() or not (member.isfile() or member.isdir())
                 or not str(dest).startswith(str(release.resolve()) + '/')):
             raise RuntimeError('Unsafe source bundle')
-    archive.extractall(str(release))
+        # Git must see deployment-owned source, not the CI runner's UID.
+        member.uid, member.gid = os.getuid(), os.getgid()
+        member.uname = member.gname = ''
+    archive.extractall(str(release), members=members)
 manifest = json.loads((release / 'manifest.json').read_text())
 if manifest['commit'] != SHA:
     raise RuntimeError('Source revision mismatch')
@@ -63,7 +67,7 @@ for name, checksum in manifest['sha256'].items():
         raise RuntimeError('Source checksum mismatch')
 source = release / 'encore-api'
 env = os.environ.copy()
-env.update(ENCORE_INSTALL=str(TOOLS), GOMAXPROCS='1', GOMEMLIMIT='384MiB', GOFLAGS='-p=1 -buildvcs=false',
+env.update(ENCORE_INSTALL=str(TOOLS), GOMAXPROCS='1', GOMEMLIMIT='384MiB', GOFLAGS='-p=1',
            GOCACHE=str(ROOT / 'encore-build-cache'), GOPROXY='https://goproxy.cn,direct')
 env['PATH'] = str(TOOLS / 'bin') + ':/usr/local/go/bin:' + env.get('PATH', '')
 cli = str(TOOLS / 'bin/encore')
