@@ -1,0 +1,10 @@
+9:43AM INF compiling Encore application for linux/arm64
+9:44AM ERR build infra config: 
+[31m
+Your infra configuration is incomplete
+[0m
+[31mMissing Resource Configurations:
+[0m  [1mDatabases[0m: automation, connector_runtime, file_storage, notification
+  [1mBuckets  [0m: template-image-assets
+ 
+ [3mLearn More: https://encore.dev/docs/how-to/self-host[0m

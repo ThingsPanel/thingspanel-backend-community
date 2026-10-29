@@ -1,0 +1,71 @@
+{
+  "evidenceVersion": 2,
+  "recordedAt": "2026-10-27T05:54:02Z",
+  "routeRefreshSupplementAt": "2026-10-27T05:57:00Z",
+  "scope": "Owned synthetic UI acceptance for native template custom fields; no legacy additional_info writes.",
+  "environment": {
+    "frontendOrigin": "http://127.0.0.1:5114",
+    "apiOrigin": "http://127.0.0.1:55067",
+    "apiImageId": "sha256:cc422dadc7014c26e4af8c8880b6afb149f19cc8504795baf85e17d4bea3e3ad",
+    "templateId": "101ac1e2-b45c-4128-9b50-604a19c7496f",
+    "templateName": "UI-Custom-Fields-3f056d6b",
+    "deviceId": "3d630172-2996-4e42-9705-851417bd9aed",
+    "authentication": "Owned synthetic tenantA session; no token copied into evidence."
+  },
+  "sourceFreeze": {
+    "version": "frontend85-v2",
+    "manifestSha256": "e9ce86fdf3e4960dff880a07ba49a1eda577bf23e02803ff0c3424fb093478fa",
+    "archiveSha256": "280cdabbb0b17ca3cfe2d9a3ed11b3054079825b9d5a8b9a850d0d7cc17e8169",
+    "rootVerification": "85 source files; zero drift at freeze. No source edits after freeze."
+  },
+  "results": {
+    "unknownSaveRecovery": {
+      "result": "pass",
+      "description": "One real PATCH initially returned an unknown outcome after the earlier owned-role write denial. The modal retained the locked form and original attempt; HMR-only retry visibility fix revealed an in-modal retry button without remounting. Retrying the same retained attempt succeeded; the field appeared exactly once. No request body, auth token, idempotency key, or secret was archived.",
+      "readback": {
+        "key": "uiNullNumber20261027",
+        "type": "number",
+        "defaultValue": null,
+        "enabled": false
+      }
+    },
+    "nullableNumberEdit": {
+      "result": "pass",
+      "description": "Edited the existing null-valued number field to 0 and read back 0."
+    },
+    "enablement": {
+      "result": "pass",
+      "description": "Enabled the new numeric field and read back enabled=true."
+    },
+    "unusedFieldDelete": {
+      "result": "pass",
+      "description": "Confirmed deletion of the test-only numeric field; its row was absent after the follow-up read."
+    },
+    "usedFieldConflict": {
+      "result": "pass",
+      "description": "Confirmed deletion of legacyMode, which has a saved device value. UI showed the existing-value conflict; the delete dialog closed and the row remained. The UI permits changing only its default from Safe to Manual because that does not invalidate the saved safe value; this change was expected and read back."
+    },
+    "nullableEnum": {
+      "result": "pass",
+      "description": "Created and read back an enum with defaultValue=null, one option, and enabled=false."
+    },
+    "persistenceRefresh": {
+      "result": "pass",
+      "description": "Direct reload canonicalized /device/config-detail to /device/template/detail while preserving the template id query. The template detail API returned HTTP 200 and the detail component DOM rendered. The final API-backed table read showed legacyMode, zeroCount, emptyValue, and the nullable enum field with null default."
+    }
+  },
+  "verification": {
+    "helperTests": "8/8 pass",
+    "helperStrictTypecheck": "pass",
+    "targetSfcScriptAndTemplateCompile": "pass",
+    "targetEslint": "pass with no output",
+    "fullRepositoryTypecheck": "not run by scope"
+  },
+  "boundaries": [
+    "Synthetic local auth only; real identity provider is not exercised.",
+    "No runtime activation or legacy groups migration was exercised.",
+    "No secret response content, session token, request key, or request body was saved.",
+    "Fixture limitation: /proxy-default/logo and /proxy-default/sys_version return 404 in this owned local environment; their independent generic toast was initially misattributed to the template route and is documented as corrected in the event log.",
+    "A prior diagnostic exposed one owned synthetic credential secret in a tool trace; the secret was cleared from the active view and that test credential was revoked. This does not claim every historical tool trace is secret-free."
+  ]
+}

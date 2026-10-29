@@ -1,0 +1,11 @@
+{
+  "credential_id": "2db2f37d-efa1-48f8-a409-ce7f0f905032",
+  "previous_state": "pending",
+  "state": "revoked",
+  "resource_version": 2,
+  "db_update": "committed in owned PostgreSQL as admin",
+  "http_readback_status": 200,
+  "http_readback_state": "revoked",
+  "secret_read": "false",
+  "remaining_backend_fixtures_unchanged": "not re-read; no writes to them"
+}

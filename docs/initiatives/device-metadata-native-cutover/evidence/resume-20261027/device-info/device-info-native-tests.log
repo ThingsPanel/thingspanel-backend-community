@@ -1,0 +1,12 @@
+✔ raw reader preserves large numeric tokens, escaped strings, and prototype-like own keys
+✔ payload encoder sends only supplied tokens, omits undefined, and encodes null location as clear
+✔ factory GET and update use the native device path, auth, metadata, strong ETag, and byte-exact retries
+✔ factory preserves typed 400, 401, and 412 failures without retry
+✔ parallel GET calls keep each response raw capture isolated
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0

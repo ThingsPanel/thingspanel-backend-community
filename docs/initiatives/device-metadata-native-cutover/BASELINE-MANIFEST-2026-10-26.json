@@ -1,0 +1,1037 @@
+{
+  "scope": "1.3 isolated worktree baseline; paths, Git state, byte sizes, and SHA-256 only; no file contents, secrets, DSN, or tokens captured",
+  "collectedAt": "2026-10-26",
+  "collection": {
+    "repositories": [
+      {
+        "name": "backend",
+        "path": "/Users/junhong/.codex/worktrees/device-metadata-native-cutover-1.3/backend",
+        "gitTopLevel": "/Users/junhong/.codex/worktrees/device-metadata-native-cutover-1.3/backend",
+        "branch": null,
+        "head": "d638af3e84221b2bb29b1295deef9e72521b8aa3",
+        "statusPorcelain": [
+          "?? docs/initiatives/device-metadata-native-cutover/API-CONTRACT.md",
+          "?? docs/initiatives/device-metadata-native-cutover/BACKEND-INVENTORY.md",
+          "?? docs/initiatives/device-metadata-native-cutover/CLI.md",
+          "?? docs/initiatives/device-metadata-native-cutover/DATABASE.md",
+          "?? docs/initiatives/device-metadata-native-cutover/DECISIONS.md",
+          "?? docs/initiatives/device-metadata-native-cutover/DOMAIN-MODEL.md",
+          "?? docs/initiatives/device-metadata-native-cutover/ENCORE-INVENTORY.md",
+          "?? docs/initiatives/device-metadata-native-cutover/EVIDENCE.md",
+          "?? docs/initiatives/device-metadata-native-cutover/FRONTEND-INVENTORY.md",
+          "?? docs/initiatives/device-metadata-native-cutover/GOAL-HANDOFF-2026-10-26.md",
+          "?? docs/initiatives/device-metadata-native-cutover/HANDOFF-PROMPT-2026-10-26.md",
+          "?? docs/initiatives/device-metadata-native-cutover/INVENTORY.md",
+          "?? docs/initiatives/device-metadata-native-cutover/LEGACY-ROUTES.md",
+          "?? docs/initiatives/device-metadata-native-cutover/PARALLEL-COORDINATION-2026-10-25.md",
+          "?? docs/initiatives/device-metadata-native-cutover/REVIEW-2026-10-25.md",
+          "?? docs/initiatives/device-metadata-native-cutover/REVIEW-2026-10-26.md",
+          "?? docs/initiatives/device-metadata-native-cutover/TASKS.md",
+          "?? docs/initiatives/device-metadata-native-cutover/TEST-PLAN.md",
+          "?? docs/initiatives/device-metadata-native-cutover/VALIDATION-2026-10-25.md",
+          "?? docs/initiatives/device-metadata-native-cutover/VALIDATION-2026-10-26.md",
+          "?? docs/initiatives/device-metadata-native-cutover/VALIDATION.md",
+          "?? docs/initiatives/device-metadata-native-cutover/api-operations.json",
+          "?? docs/initiatives/device-metadata-native-cutover/contract-examples.json",
+          "?? docs/initiatives/device-metadata-native-cutover/contract-validation-2026-10-25.json",
+          "?? docs/initiatives/device-metadata-native-cutover/goal-baseline-2026-10-26.json",
+          "?? docs/initiatives/device-metadata-native-cutover/legacy-routes.json",
+          "?? docs/initiatives/device-metadata-native-cutover/openapi.yaml",
+          "?? docs/initiatives/device-metadata-native-cutover/planning-validation-2026-10-25.json",
+          "?? docs/initiatives/device-metadata-native-cutover/tasks.json",
+          "?? docs/initiatives/device-metadata-native-cutover/test-cases.json",
+          "?? docs/initiatives/device-metadata-native-cutover/tools/openapi-validator/README.md",
+          "?? docs/initiatives/device-metadata-native-cutover/tools/openapi-validator/go.mod",
+          "?? docs/initiatives/device-metadata-native-cutover/tools/openapi-validator/go.sum",
+          "?? docs/initiatives/device-metadata-native-cutover/tools/openapi-validator/main.go",
+          "?? docs/initiatives/device-metadata-native-cutover/validate-plan.py"
+        ],
+        "files": [
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/API-CONTRACT.md",
+            "sha256": "258f94b6d4ae36a33eeb1585ba81f6f3310358825ac707affb0d233a34926388",
+            "bytes": 48913
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/BACKEND-INVENTORY.md",
+            "sha256": "abac501c3cf53bc6e51ad6f8f433f816237bdbde75470f2806fd017b1b4fc634",
+            "bytes": 39892
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/CLI.md",
+            "sha256": "7c39598ec7a11f1007447ed7178c61f6d72f25f7465add7486c1d93e337be40d",
+            "bytes": 85326
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/DATABASE.md",
+            "sha256": "8f0f66442b7f2a2dbbf1bd0d457d1d5b4f1b87efb4d08bc18b47c6ea874acd1b",
+            "bytes": 107666
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/DECISIONS.md",
+            "sha256": "b2365ffd1a86bf95f80edbfa1784da745f2f555b6b2eec75acfd45ee1f186937",
+            "bytes": 14454
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/DOMAIN-MODEL.md",
+            "sha256": "8f3076d61b4a11a528b84397b4a0a40f608c1e2f6a9ef0f2b90b246ba8d7b462",
+            "bytes": 13366
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/ENCORE-INVENTORY.md",
+            "sha256": "398257b919124c8a1c1216be02198e74e30fb4300189a18eebc13aee4b02158b",
+            "bytes": 25892
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/EVIDENCE.md",
+            "sha256": "0a875df60f1926e6ed7dbd2813e2d7d4ff1886247e63854ded11f5536c54869d",
+            "bytes": 96886
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/FRONTEND-INVENTORY.md",
+            "sha256": "c5286724f40a66989a773d2f7c887697f86c6634ba21596daf59f9c227df8fd1",
+            "bytes": 64878
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/GOAL-HANDOFF-2026-10-26.md",
+            "sha256": "2c3c08ead5f22c94bcd7b29c397bac099e7cf3060f95812bdc9a236c25a3a513",
+            "bytes": 13957
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/HANDOFF-PROMPT-2026-10-26.md",
+            "sha256": "130c6b0c4d8346faeb354b29c4bd3347d40c7da390e764b69c810d5a095a46c4",
+            "bytes": 5372
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/INVENTORY.md",
+            "sha256": "075d24fdbd938a12c998fa30f76d108e7c3d5742435c7d7b19fc21e1e4f51a21",
+            "bytes": 7033
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/LEGACY-ROUTES.md",
+            "sha256": "c19e1dbe3316561bef50fb313186c15d193a9ed5ad681133e37a8160fe32632e",
+            "bytes": 37520
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/PARALLEL-COORDINATION-2026-10-25.md",
+            "sha256": "6cfaf9b9543b5f9459a2bfc99c00338eb5467969ec69ecacd5f6e26c9aaf2875",
+            "bytes": 3140
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/REVIEW-2026-10-25.md",
+            "sha256": "8f3b459d4f019ecbaba23bc37b0fa5c5e12ffbb584b98f636c739fddd61d2696",
+            "bytes": 14386
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/REVIEW-2026-10-26.md",
+            "sha256": "75e8d6fa03a33b28151a432182e6b4712935906627632498ffad5998a655205a",
+            "bytes": 1446
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/TASKS.md",
+            "sha256": "c7bfc62444dec2a1f229f998ee94a9d4a0a521c50628af9955ed88ce2de9978d",
+            "bytes": 254367
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/TEST-PLAN.md",
+            "sha256": "5d999e9ba608f5833bb674fa2e172d81ca4b6052181b59e2666ea029d0c4c5ec",
+            "bytes": 44141
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/VALIDATION-2026-10-25.md",
+            "sha256": "8b59165d51f92311542cb06c8d8e2022deb2ad8c1fb6924e834d94df2d857b70",
+            "bytes": 7149
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/VALIDATION-2026-10-26.md",
+            "sha256": "6f1aa0e8efa84860ef59c97b8932646ede3457011410c4cc2be104a07e3c739b",
+            "bytes": 1178
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/VALIDATION.md",
+            "sha256": "d2216dcdba556b1867c9af926d1d5e19be96b296d133d05984113477ac41ef49",
+            "bytes": 2933
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/api-operations.json",
+            "sha256": "911de83147df0873db949c5985bdaf6576f440027a6054555322cff3b208bed6",
+            "bytes": 33689
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/contract-examples.json",
+            "sha256": "0fa9ff3e2a35bcab60ca3ad2ee2597ff6a7df20e22fdcc5c7d156fe82491ccca",
+            "bytes": 11514
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/contract-validation-2026-10-25.json",
+            "sha256": "95cbd377d88307c4041d2b6fde07def3eab4238e16be5b80e3508baf1e5767db",
+            "bytes": 6010
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/goal-baseline-2026-10-26.json",
+            "sha256": "9e78aa82802ca0bf1b2dd4330a470b9992526930af04eb23b47eee3750ba01a8",
+            "bytes": 3491
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/legacy-routes.json",
+            "sha256": "6de58fd1ba2c1755b26399addcd0c5f4a2f9c8179be7beaf19a9c64a23a5d819",
+            "bytes": 71959
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/openapi.yaml",
+            "sha256": "f174629a6f39eb72e0833eb46042bf9e693dad050897b85e8e0e9f2d2081b459",
+            "bytes": 391888
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/planning-validation-2026-10-25.json",
+            "sha256": "2b972dea024d454f00093fb64737c905a2c0fc116f40d6f3a12aca9ebfca1aa4",
+            "bytes": 5122
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/tasks.json",
+            "sha256": "f6ead7357062bcd82f1ba02494d25e06755d3038561f88225fc66e462d6e784f",
+            "bytes": 288222
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/test-cases.json",
+            "sha256": "4e427f84971d11f227d63969f5c6cff0e8c894a50900431a4800b8783c1f6074",
+            "bytes": 368058
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/tools/openapi-validator/README.md",
+            "sha256": "4b2e383677586edf758c131626cc7c5c10c7316f3fbeefa7a45af37e7b62225f",
+            "bytes": 529
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/tools/openapi-validator/go.mod",
+            "sha256": "a19e28fadb28ee633bf0d4724b7b1cf594bb41bd2732d32557c3014bee34c09f",
+            "bytes": 718
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/tools/openapi-validator/go.sum",
+            "sha256": "d94ebfce7266e128009bd91d72c6ca1d62132819f76e97798ca1af6273dadf8a",
+            "bytes": 7804
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/tools/openapi-validator/main.go",
+            "sha256": "f4970f46ef10f85fb32470781fe243820682f5d75d67c19d511894ee2ad5a397",
+            "bytes": 1181
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "docs/initiatives/device-metadata-native-cutover/validate-plan.py",
+            "sha256": "a35526770f5156f7b321460d93dd81a2630c7c9ba5f409d54eeea6beda62e864",
+            "bytes": 24312
+          }
+        ]
+      },
+      {
+        "name": "frontend",
+        "path": "/Users/junhong/.codex/worktrees/device-metadata-native-cutover-1.3/frontend",
+        "gitTopLevel": "/Users/junhong/.codex/worktrees/device-metadata-native-cutover-1.3/frontend",
+        "branch": null,
+        "head": "7d331d15329af0d636265a8a97b9534fff435a21",
+        "statusPorcelain": [],
+        "files": []
+      },
+      {
+        "name": "kernel",
+        "path": "/Users/junhong/.codex/worktrees/device-metadata-native-cutover-1.3/kernel",
+        "gitTopLevel": "/Users/junhong/.codex/worktrees/device-metadata-native-cutover-1.3/kernel",
+        "branch": null,
+        "head": "fafe0f6f8c7d8f58db69e1b4159fedaa7e55eb05",
+        "statusPorcelain": [
+          " M encore-api/devicemetadata/device_crud_test.go",
+          " M encore-api/devicemetadata/migration_service.go",
+          " M encore-api/devicemetadata/models.go",
+          " M encore-api/devicemetadata/store.go",
+          " M encore-api/l1-access/authn/auth.go",
+          " M encore-api/l1-access/authn/community_session.go",
+          " M encore-api/thingmodel/service.go",
+          " M encore-api/thingmodel/transport_test.go",
+          "?? deployments/device-metadata-ingress/",
+          "?? encore-api/devicemetadata/group_members.go",
+          "?? encore-api/devicemetadata/group_members_raw.go",
+          "?? encore-api/devicemetadata/group_members_test.go",
+          "?? encore-api/devicemetadata/group_move.go",
+          "?? encore-api/devicemetadata/group_move_test.go",
+          "?? encore-api/devicemetadata/group_read.go",
+          "?? encore-api/devicemetadata/group_read_raw.go",
+          "?? encore-api/devicemetadata/group_read_test.go",
+          "?? encore-api/devicemetadata/group_update.go",
+          "?? encore-api/devicemetadata/group_update_test.go",
+          "?? encore-api/devicemetadata/group_write.go",
+          "?? encore-api/devicemetadata/group_write_test.go",
+          "?? encore-api/devicemetadata/list_response_test.go",
+          "?? encore-api/devicemetadata/migrations/0018_device_groups.up.sql",
+          "?? encore-api/devicemetadata/migrations/0019_metadata_idempotency.up.sql",
+          "?? encore-api/devicemetadata/migrations/0020_metadata_audit_events.up.sql",
+          "?? encore-api/l1-access/authn/auth_test.go"
+        ],
+        "files": [
+          {
+            "status": "UNTRACKED",
+            "path": "deployments/device-metadata-ingress/README.md",
+            "sha256": "28e4212ad9c53ca4c07ba92cc3d4e9e629f5b08f1fc01b7170b99194f1f35f7e",
+            "bytes": 1482
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "deployments/device-metadata-ingress/go.mod",
+            "sha256": "241b55dd39f8ece7426dbdde6a7af17065390314ed7d85bd91626cea711dcf23",
+            "bytes": 97
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "deployments/device-metadata-ingress/main.go",
+            "sha256": "51681df7edd57ec27cfc438e7bc3eafb02c900d41acc205bf378d63a1c88a72e",
+            "bytes": 2806
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "deployments/device-metadata-ingress/main_test.go",
+            "sha256": "1266ccb53ca0e4830177e1395b73d0007eac7530cdc7122c4fa3a82cdff2d2d9",
+            "bytes": 6328
+          },
+          {
+            "status": "M",
+            "path": "encore-api/devicemetadata/device_crud_test.go",
+            "sha256": "67f034f7cf575c56cea2abb75b378db78eb222b3297858b5c24eaa3e94e24fe2",
+            "bytes": 20717
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_members.go",
+            "sha256": "146f40ed57a4ba07030338612a2951bbc23f2982fa770e8f619a21e76e00d893",
+            "bytes": 15483
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_members_raw.go",
+            "sha256": "3d7d8f06ec3d8c4c6a2c142c955883852b179aa8ddedcc6ffabbc56b5908b6e9",
+            "bytes": 2459
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_members_test.go",
+            "sha256": "bd1edbd733bd37da5cfea74e57ce2a307be691549baa1a0010bf1302daee810a",
+            "bytes": 26473
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_move.go",
+            "sha256": "d1a11a2b083bf235c5af499c2d5ce9056d40b379ecc26e586c54c4c8e71a93c9",
+            "bytes": 13969
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_move_test.go",
+            "sha256": "09094b22767f9633ab2fac3180284fcb72468982dac49318ff3d4b6970f5ea4f",
+            "bytes": 17299
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_read.go",
+            "sha256": "4e9ac164ef58b778a83156504e4efef2da461594ead3571609a07d591da2da27",
+            "bytes": 17543
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_read_raw.go",
+            "sha256": "3fdf8c145dbb9b8e0ce4b650c92fa1fe5167e13ecf9d3b97175d96fd8f4f4a99",
+            "bytes": 12284
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_read_test.go",
+            "sha256": "1e638a493963dc1e7867ba70452794f98a5ddeab289181922a01619af86d98bc",
+            "bytes": 23684
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_update.go",
+            "sha256": "acce014dd581bfd65e058bfc03dbd8d16fa89e4c408a517a803135698f9cabc6",
+            "bytes": 13765
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_update_test.go",
+            "sha256": "0186a5997e3d89ff1713eef6fa307dc349ac123bf0e17105f8dc88b6774b3809",
+            "bytes": 15882
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_write.go",
+            "sha256": "be2c14c7f57055cb2d66e24935e872cfc822bb2b1935cbf8edb33fdb78aaf847",
+            "bytes": 13302
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/group_write_test.go",
+            "sha256": "68ac4d07c374b856c315db28e54187ac9904815cac21b276956cc882f38c93ef",
+            "bytes": 23481
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/list_response_test.go",
+            "sha256": "37f44c6912c765b8d7ef3695ec123e144225d43ce68932d7bc783034ac84febe",
+            "bytes": 1905
+          },
+          {
+            "status": "M",
+            "path": "encore-api/devicemetadata/migration_service.go",
+            "sha256": "a987c4a47675bfd8be1be2c408d919b4c350221e31b4a0d131d92589d962ef95",
+            "bytes": 21165
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/migrations/0018_device_groups.up.sql",
+            "sha256": "fc3c00ca5f2f5eb4945239ebd348203448cae21cce8b8ec87ae663f33b2d795d",
+            "bytes": 2012
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/migrations/0019_metadata_idempotency.up.sql",
+            "sha256": "2f14c6c97f0b1c54517a63f971899dc410d1074d85e013e5e974a7aaf08779c6",
+            "bytes": 1751
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/devicemetadata/migrations/0020_metadata_audit_events.up.sql",
+            "sha256": "71d3071efdc7e92e6d50cb72038935dd5c394e37375f1da5bd7b6ed88fe952ec",
+            "bytes": 1201
+          },
+          {
+            "status": "M",
+            "path": "encore-api/devicemetadata/models.go",
+            "sha256": "ed25d4dce2ad266a8118b36471707e933f52fe69aaa15fc65f4ccc6ba805ee81",
+            "bytes": 12538
+          },
+          {
+            "status": "M",
+            "path": "encore-api/devicemetadata/store.go",
+            "sha256": "6018778faec6130665b844435b672037a31acb65f081773648c6c171c8280f22",
+            "bytes": 76182
+          },
+          {
+            "status": "M",
+            "path": "encore-api/l1-access/authn/auth.go",
+            "sha256": "77760d871a42b777af24bf10839ff5e2d0d48c30f11d5dfb85cfdfff38c7c327",
+            "bytes": 8579
+          },
+          {
+            "status": "UNTRACKED",
+            "path": "encore-api/l1-access/authn/auth_test.go",
+            "sha256": "36d81905701d169c2316905413e1170e12f6b823015cfc6878b306ce292460e0",
+            "bytes": 9799
+          },
+          {
+            "status": "M",
+            "path": "encore-api/l1-access/authn/community_session.go",
+            "sha256": "800d272acf1d05549fd97eb93f7f500bf8c9169f520d43189ed2060f14bbb185",
+            "bytes": 3807
+          },
+          {
+            "status": "M",
+            "path": "encore-api/thingmodel/service.go",
+            "sha256": "178282a702baa88343c276e4a8093e204030554316c7dc5e5ee6b3f8bba8ed63",
+            "bytes": 11527
+          },
+          {
+            "status": "M",
+            "path": "encore-api/thingmodel/transport_test.go",
+            "sha256": "853910f843f14e27b394394ce452c1aa367a3a503ea42f9ccc8db0b82fb2a2e9",
+            "bytes": 6229
+          }
+        ]
+      }
+    ]
+  },
+  "stability": {
+    "stable": true,
+    "method": "final independent rescans; manifest excluded from self-inventory and backend status",
+    "comparison": "All repository HEADs, detached branch state, tracked diffs, untracked paths, and change-file hashes matched after final manifest write.",
+    "headBranchDiffStatusUntrackedAndHashesMatch": true
+  },
+  "review": {
+    "kernelChangeReview": [
+      {
+        "path": "deployments/device-metadata-ingress/README.md",
+        "module": "isolated HTTP acceptance shim documentation",
+        "taskIds": [
+          "DM-QA-003",
+          "DM-API-004"
+        ],
+        "decision": "exclude from production implementation package; retain only as isolated QA support",
+        "reason": "README explicitly limits shim to local/isolated acceptance and says not to deploy it as a second production auth layer."
+      },
+      {
+        "path": "deployments/device-metadata-ingress/go.mod",
+        "module": "isolated HTTP acceptance shim build metadata",
+        "taskIds": [
+          "DM-QA-003"
+        ],
+        "decision": "exclude from production implementation package; QA-only dependency boundary",
+        "reason": "Belongs to the isolated ingress shim, not the Encore production app or device domain."
+      },
+      {
+        "path": "deployments/device-metadata-ingress/main.go",
+        "module": "isolated ingress HTTP 401 challenge decoration",
+        "taskIds": [
+          "DM-QA-003",
+          "DM-API-004"
+        ],
+        "decision": "exclude from production implementation package; candidate integration-test support only",
+        "reason": "Adds WWW-Authenticate on otherwise unchallenged 401; does not implement device, automation, alarm, or production auth ownership."
+      },
+      {
+        "path": "deployments/device-metadata-ingress/main_test.go",
+        "module": "isolated ingress shim tests",
+        "taskIds": [
+          "DM-QA-003"
+        ],
+        "decision": "exclude from production implementation package; QA-only support",
+        "reason": "Tests the isolated acceptance shim, not a production business endpoint."
+      },
+      {
+        "path": "encore-api/devicemetadata/device_crud_test.go",
+        "module": "device snapshot immutability and stable list pagination regressions",
+        "taskIds": [
+          "DM-API-007",
+          "DM-DEV-001",
+          "DM-DEV-003",
+          "DM-TPL-016"
+        ],
+        "decision": "include as candidate regression evidence only",
+        "reason": "Adds isolated Encore PG test proving equal-created_at device rows paginate in stable id DESC order without duplicates or omissions; retains existing selected ThingModel snapshot regression."
+      },
+      {
+        "path": "encore-api/devicemetadata/group_members.go",
+        "module": "device-group member add/remove transaction use cases",
+        "taskIds": [
+          "DM-GRP-008",
+          "DM-GRP-009",
+          "DM-API-005",
+          "DM-DB-010"
+        ],
+        "decision": "include as partial candidate implementation; authz scope, real runtime HTTP, and DB-002 acceptance remain open",
+        "reason": "Uses the tenant tree lock, CAS, receipt and audit transaction. Removal is fail-closed with 503 when the formal external reference owner is absent; test seam only permits explicitly no-reference test success. Audit records actual changed IDs.",
+        "sha256": "146f40ed57a4ba07030338612a2951bbc23f2982fa770e8f619a21e76e00d893"
+      },
+      {
+        "path": "encore-api/devicemetadata/group_members_raw.go",
+        "module": "Encore-registered native group member add/remove HTTP endpoints",
+        "taskIds": [
+          "DM-GRP-008",
+          "DM-GRP-009",
+          "DM-API-004",
+          "DM-QA-003"
+        ],
+        "decision": "include as partial candidate HTTP implementation; real listener acceptance remains open",
+        "reason": "Registers frozen add/remove paths, reuses the existing TENANT_ADMIN guard and Problem mapper, and returns stored success on idempotent replay.",
+        "sha256": "3d7d8f06ec3d8c4c6a2c142c955883852b179aa8ddedcc6ffabbc56b5908b6e9"
+      },
+      {
+        "path": "encore-api/devicemetadata/group_members_test.go",
+        "module": "group member batch validation, idempotency, CAS, and transaction regression tests",
+        "taskIds": [
+          "DM-GRP-008",
+          "DM-GRP-009",
+          "DM-API-005",
+          "DM-DB-010"
+        ],
+        "decision": "include as candidate verification evidence; focused and package Encore tests passed",
+        "reason": "Isolated Encore PG tests cover exactly 100 real live-device relations plus duplicate-set no-op version, cross-group/device preservation, changed-ID audit, tombstone cleanup, owner fail-closed and audit rollback, CAS, replay and concurrency.",
+        "sha256": "bd1edbd733bd37da5cfea74e57ce2a307be691549baa1a0010bf1302daee810a"
+      },
+      {
+        "path": "encore-api/devicemetadata/group_move.go",
+        "module": "device-group move use case: tenant tree lock, CAS, cycle/depth/name validation, receipt and audit transaction",
+        "taskIds": [
+          "DM-GRP-005",
+          "DM-API-005",
+          "DM-DB-010"
+        ],
+        "decision": "include as partial candidate implementation; runtime HTTP and complete authz/DB-002 acceptance remain open",
+        "reason": "Implements frozen move operation without changing OpenAPI or migrations 0019/0020; group row, idempotency response, and audit commit atomically."
+      },
+      {
+        "path": "encore-api/devicemetadata/group_move_test.go",
+        "module": "DM-GRP-005 move contract and Encore PostgreSQL regression tests",
+        "taskIds": [
+          "DM-GRP-005",
+          "DM-API-005",
+          "DM-DB-010",
+          "DM-API-003"
+        ],
+        "decision": "include as candidate verification evidence; focused and package Encore tests passed",
+        "reason": "Extends group write principal tests for formal TENANT_ADMIN allow and SYS_ADMIN/legacy roles/fake scopes denial.",
+        "sha256": "99e89185b7edd75a76109e1c87246af95323c89d18303dd38117fd43f3a9c10e"
+      },
+      {
+        "path": "encore-api/devicemetadata/group_read.go",
+        "module": "device-group read model, paging, tree projection, stable same-sortOrder ID ordering",
+        "taskIds": [
+          "DM-GRP-001",
+          "DM-GRP-002",
+          "DM-GRP-004",
+          "DM-DB-006",
+          "DM-API-003"
+        ],
+        "decision": "include as device-group candidate implementation; runtime HTTP acceptance remains open",
+        "reason": "Group read principal now uses shared authz.Can; only exact verified TENANT_ADMIN policy permits access; tenant-boundary/read behavior remains.",
+        "sha256": "115d19449e6c8b8f52aa3dbb1e155b85ec884ce1104a71e37b30339ecf0e3355"
+      },
+      {
+        "path": "encore-api/devicemetadata/group_read_raw.go",
+        "module": "device-group raw HTTP list/detail/tree/create/update/move handlers",
+        "taskIds": [
+          "DM-GRP-001",
+          "DM-GRP-002",
+          "DM-GRP-003",
+          "DM-GRP-004",
+          "DM-GRP-005",
+          "DM-API-005",
+          "DM-QA-003"
+        ],
+        "decision": "include as partial device-group candidate; real runtime HTTP acceptance remains open",
+        "reason": "Registers strict POST move handler; write path enforces tenant-admin guard, request key, CAS, tree lock, and transactional receipt/audit."
+      },
+      {
+        "path": "encore-api/devicemetadata/group_read_test.go",
+        "module": "device-group read/query/response tests",
+        "taskIds": [
+          "DM-GRP-001",
+          "DM-GRP-002",
+          "DM-QA-002",
+          "DM-QA-003",
+          "DM-API-003"
+        ],
+        "decision": "include as candidate verification evidence; focused cycle regression test was run",
+        "reason": "Adds shared-policy group read positive/negative principal tests; existing PG/HTTP behavior remains covered by prior acceptance evidence.",
+        "sha256": "55aec04ab13fa508c2d313cfcd3dae650e38229ff2923bd10a9333902cdac0cc"
+      },
+      {
+        "path": "encore-api/devicemetadata/group_update.go",
+        "module": "device-group partial update with ETag CAS, durable idempotency, audit, shared tree lock",
+        "taskIds": [
+          "DM-GRP-004",
+          "DM-GRP-005",
+          "DM-API-005",
+          "DM-DB-010"
+        ],
+        "decision": "include as partial candidate implementation; real runtime HTTP and full authz acceptance remain open",
+        "reason": "Update shares fixed tenant-tree advisory lock with create and move so renames/ETags serialize with hierarchy mutations."
+      },
+      {
+        "path": "encore-api/devicemetadata/group_update_test.go",
+        "module": "device-group update contract and transaction regression tests",
+        "taskIds": [
+          "DM-GRP-004",
+          "DM-API-005",
+          "DM-DB-010"
+        ],
+        "decision": "include as candidate verification evidence; focused and devicemetadata Encore package tests passed",
+        "reason": "Covers strict PATCH shape, description null, readback/tree/list ordering, ETag stale precondition, idempotent replay/conflict, duplicate sibling name, cross-tenant hide, and atomic rollback on audit failure."
+      },
+      {
+        "path": "encore-api/devicemetadata/group_write.go",
+        "module": "device-group create, trusted write principal, shared tenant tree lock",
+        "taskIds": [
+          "DM-GRP-003",
+          "DM-GRP-004",
+          "DM-GRP-005",
+          "DM-API-003",
+          "DM-API-005",
+          "DM-DB-010"
+        ],
+        "decision": "include as partial candidate implementation; full authorization matrix and runtime HTTP remain open",
+        "reason": "Group write principal now uses shared authz.Can after requiredTenantID; SYS_ADMIN remains denied without audited delegation.",
+        "sha256": "9086db96ab3e9dedbb8c2ee13cca72f9af704af35f11c2627003e2567c375860"
+      },
+      {
+        "path": "encore-api/devicemetadata/group_write_test.go",
+        "module": "device-group create and transaction regression tests",
+        "taskIds": [
+          "DM-GRP-003",
+          "DM-API-005",
+          "DM-DB-010"
+        ],
+        "decision": "include as candidate verification evidence; focused Encore tests passed",
+        "reason": "Exercises create/readback, replay/conflicts, tenant/subject isolation, expiry, parent validation, concurrency, and transaction rollback in Encore test DB."
+      },
+      {
+        "path": "encore-api/devicemetadata/list_response_test.go",
+        "module": "empty collection response contract",
+        "taskIds": [
+          "DM-API-004",
+          "DM-DEV-001",
+          "DM-TPL-001",
+          "DM-GRP-001"
+        ],
+        "decision": "include as candidate shared response-contract test",
+        "reason": "Covers non-null empty list/page response shapes for metadata endpoints; no unrelated domain behavior."
+      },
+      {
+        "path": "encore-api/devicemetadata/migration_service.go",
+        "module": "migration-log list response shape",
+        "taskIds": [
+          "DM-API-004",
+          "DM-MIG-004"
+        ],
+        "decision": "include only as a small response-shape candidate; not migration execution evidence",
+        "reason": "The diff initializes an empty migration-history slice; it does not implement or run data migration."
+      },
+      {
+        "path": "encore-api/devicemetadata/migrations/0018_device_groups.up.sql",
+        "module": "device-group schema candidate",
+        "taskIds": [
+          "DM-DB-006",
+          "DM-MIG-008"
+        ],
+        "decision": "include as uncommitted schema candidate only; not an applied migration",
+        "reason": "Untracked device-group schema source; database application status was not queried in this manifest refresh."
+      },
+      {
+        "path": "encore-api/devicemetadata/migrations/0019_metadata_idempotency.up.sql",
+        "module": "shared durable idempotency receipt schema",
+        "taskIds": [
+          "DM-DB-010",
+          "DM-API-005"
+        ],
+        "decision": "include as uncommitted schema candidate; application status is environment-specific",
+        "reason": "Untracked candidate source. Per task evidence it was applied to an isolated Encore test DB; local/default and production DB application is not asserted."
+      },
+      {
+        "path": "encore-api/devicemetadata/migrations/0020_metadata_audit_events.up.sql",
+        "module": "shared metadata audit event schema",
+        "taskIds": [
+          "DM-DB-010",
+          "DM-GRP-003"
+        ],
+        "decision": "include as uncommitted schema candidate; application status is environment-specific",
+        "reason": "Untracked candidate source appended after 0019 became immutable in the isolated test DB; no local/default or production application is asserted."
+      },
+      {
+        "path": "encore-api/devicemetadata/models.go",
+        "module": "verified tenant context and role guard for metadata service",
+        "taskIds": [
+          "DM-API-002",
+          "DM-API-003"
+        ],
+        "decision": "include as candidate authz boundary change",
+        "reason": "Central tenant resolution now requires tenant-admin context and rejects platform admin absent audited delegation."
+      },
+      {
+        "path": "encore-api/devicemetadata/store.go",
+        "module": "metadata list empty-slice normalization and stable device pagination",
+        "taskIds": [
+          "DM-API-004",
+          "DM-DEV-001",
+          "DM-TPL-001"
+        ],
+        "decision": "include as partial shared store behavior; native /api/v2 list, full filters and ACL remain open",
+        "reason": "ListDevices orders equal created_at rows by id DESC as a deterministic tie-breaker; other changes preserve nonnil empty list slices."
+      },
+      {
+        "path": "encore-api/l1-access/authn/auth.go",
+        "module": "Encore auth mode and legacy JWT validation",
+        "taskIds": [
+          "DM-API-002",
+          "DM-API-003"
+        ],
+        "decision": "include as candidate authentication hardening",
+        "reason": "Restricts dev/passthrough modes to local/test and tightens JWT algorithm/time claim checks; no credential values copied."
+      },
+      {
+        "path": "encore-api/l1-access/authn/auth_test.go",
+        "module": "authentication mode and JWT validation tests",
+        "taskIds": [
+          "DM-API-002",
+          "DM-API-003"
+        ],
+        "decision": "include as candidate auth regression tests; tests were not run for this inventory",
+        "reason": "Tests the adjacent authentication boundary changes."
+      },
+      {
+        "path": "encore-api/l1-access/authn/community_session.go",
+        "module": "Community session tenant and platform-admin identity normalization",
+        "taskIds": [
+          "DM-API-002",
+          "DM-API-003"
+        ],
+        "decision": "include as candidate identity-context change",
+        "reason": "Changes validation of tenantless platform-admin session identity; no secret values copied."
+      },
+      {
+        "path": "encore-api/thingmodel/service.go",
+        "module": "native ThingModel principal capability handling",
+        "taskIds": [
+          "DM-API-003",
+          "DM-API-007"
+        ],
+        "decision": "include as candidate authorization change for model owner",
+        "reason": "Requires audited tenant delegation for platform-admin principals; belongs to ThingModel, not alert/automation."
+      },
+      {
+        "path": "encore-api/thingmodel/transport_test.go",
+        "module": "native ThingModel principal authorization tests",
+        "taskIds": [
+          "DM-API-003",
+          "DM-API-007"
+        ],
+        "decision": "include as candidate authorization regression evidence; tests were not run for this inventory",
+        "reason": "Adds a platform-admin delegation test for the ThingModel transport."
+      },
+      {
+        "path": "encore-api/internal/authz/engine.go",
+        "module": "shared Casbin policy owner for native group read/write role checks",
+        "taskIds": [
+          "DM-API-003"
+        ],
+        "decision": "include as candidate authorization policy change; existing device/plugin policy rows unchanged",
+        "reason": "Adds only exact uppercase TENANT_ADMIN→group/read and group/write policies; no role or scope fallback.",
+        "sha256": "4da25acd62ef5015c9d2527f6a860de77948c16d7c45f5392705020ec58697c4"
+      },
+      {
+        "path": "encore-api/internal/authz/engine_test.go",
+        "module": "shared authorization policy regression tests",
+        "taskIds": [
+          "DM-API-003"
+        ],
+        "decision": "include as candidate verification evidence; focused and package Encore tests passed",
+        "reason": "Checks native group access allow/deny matrix and preserves existing device/plugin policy outcomes.",
+        "sha256": "3d0cbcb7d5f0ac50fed703649944cb44777e5960684a14eae362ceba9470cfcc"
+      }
+    ],
+    "scopeAudit": {
+      "unrelatedAutomationOrAlarmFilesFound": false,
+      "unrelatedBrokerOrNotificationFilesAmongThe18ChangesFound": false,
+      "groupReadAlarmCoupling": "The group read model has an alarmsObservedAt DTO field only; no alarm/automation query or implementation change was found among the changed Kernel files.",
+      "ingressShim": "Explicitly excluded from production package; isolated acceptance-only support.",
+      "databaseWasQueried": false,
+      "migrationApplicationStatus": "Not verified; only migration source-file presence/status/hash was inspected.",
+      "unrelatedBrokerOrNotificationFilesAmongThe22ChangesFound": false,
+      "unrelatedBrokerOrNotificationFilesAmongThe24ChangesFound": false,
+      "unrelatedBrokerOrNotificationFilesAmongTheChangedKernelFilesFound": false,
+      "all26KernelChangedFilesAccountedFor": true,
+      "all29KernelChangedFilesAccountedFor": true,
+      "membershipEndpoints": "Three added Kernel candidate files cover DM-GRP-008/009 only; no automation, alarm, broker, notification, production ingress, or migration source was changed for this membership slice.",
+      "all31KernelChangedFilesAccountedFor": true,
+      "sharedGroupAuthzPolicy": "DM-API-003 partial slice only: exact TENANT_ADMIN group read/write policies in shared authz; SYS_ADMIN without auditable delegation, historical roles, and non-formal scopes remain denied. No automation/control/verifier service source changed; task remains blocking."
+    },
+    "toolchainInventory": [
+      {
+        "repo": "backend",
+        "pinSource": "go.mod",
+        "locked": "go 1.23.0; toolchain go1.23.8",
+        "submodule": "encore-api/go.mod declares module encore.app; SDK encore.dev v1.30.0",
+        "observedCommandVersions": {
+          "go": "go1.26.2 darwin/arm64",
+          "encore": "v1.58.6"
+        },
+        "status": "Go toolchain pin exists; observed Go/Encore CLI differ from module/tooling declarations; no claim of reproducible execution.",
+        "pinFiles": [
+          {
+            "path": "go.mod",
+            "sha256": "d83733aa0346dc6eaea1d55e13705796d61bbef9fb9c5b814f4404bfac838364"
+          },
+          {
+            "path": "encore-api/go.mod",
+            "sha256": "6de5df5bd5c1b04d688a4aff96cdffd62f988ab4ed5dd476af76aad147f0c0f1"
+          }
+        ]
+      },
+      {
+        "repo": "frontend",
+        "pinSource": "package.json packageManager and pnpm-lock.yaml",
+        "locked": "pnpm@10.8.0 (integrity-qualified packageManager pin)",
+        "observedCommandVersions": {
+          "node": "v25.9.0",
+          "npm": "11.12.1",
+          "pnpm": "10.26.2"
+        },
+        "status": "pnpm lock/pin exists but installed pnpm differs; no .nvmrc/.node-version/.tool-versions or engines pin was found, so Node version is not uniquely locked.",
+        "pinFiles": [
+          {
+            "path": "package.json",
+            "sha256": "bb0c591ab34be5acbee741f48473644223d128be8ccea5b03bd197582c478f61"
+          },
+          {
+            "path": "pnpm-lock.yaml",
+            "sha256": "d0b2bb42eed361e1fa54ac4ec74de7a78d0a601de1d140deac31044de4c79812"
+          }
+        ]
+      },
+      {
+        "repo": "kernel",
+        "pinSource": "encore-api/go.mod and current Encore module metadata",
+        "locked": "go 1.23; encore.dev v1.30.0",
+        "observedCommandVersions": {
+          "go": "go1.26.2 darwin/arm64",
+          "encore": "v1.58.6",
+          "python3": "3.12.5"
+        },
+        "otherModule": "deployments/device-metadata-ingress/go.mod declares go 1.23",
+        "status": "Go directive and Encore SDK version are identified; exact Go toolchain and Encore CLI are not pinned by this checkout.",
+        "pinFiles": [
+          {
+            "path": "encore-api/go.mod",
+            "sha256": "31bb58c91385528dcac48b20ea523b33355b2e876b49c032fa2f5288996ceac0"
+          },
+          {
+            "path": "deployments/device-metadata-ingress/go.mod",
+            "sha256": "241b55dd39f8ece7426dbdde6a7af17065390314ed7d85bd91626cea711dcf23"
+          }
+        ]
+      }
+    ],
+    "migrationInventory": [
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0001_init.up.sql",
+        "sha256": "9c1e0ea209a73622b0d296fe3b263c83dbe00a7c5071205b9ae3954c992e0752",
+        "classification": "committed legacy device-metadata migration source"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0002_seed_meta_item_keys.up.sql",
+        "sha256": "38f4b576ba092d5220d541eafa893e9fa4f8b3537ac951c4f19105b7aea801db",
+        "classification": "committed legacy device-metadata migration source"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0003_add_device_soft_delete.up.sql",
+        "sha256": "ca343ab18e15266a2319a0319bf51c0aff93df313527f8249d8e046dc799f039",
+        "classification": "committed legacy device-metadata migration source"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0004_upgrade_path.up.sql",
+        "sha256": "a007d1f38f169c483792f09d8bc9ef7a9d1e1068de1b9a6acf1637ed2cb59b1c",
+        "classification": "committed legacy device-metadata migration source"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0005_create_audit_log_table.up.sql",
+        "sha256": "40bf22b1ac1770b00a99930380a0daa308e48c277bd45b8a106b59dd194f7ea8",
+        "classification": "committed legacy device-metadata migration source"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0006_add_chart_config_to_thing_models.up.sql",
+        "sha256": "fe65b02a4a2cd44bad77711c3ec865536ae2819a701cb3077d2bc06a89968235",
+        "classification": "committed legacy device-metadata migration source"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0007_add_custom_command_controls.up.sql",
+        "sha256": "17145e193e3f8e52ee946be5ae377c7a0fcdd23e1b11e443179f499841f09d18",
+        "classification": "committed legacy device-metadata migration source"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0014_typed_thing_model_items.up.sql",
+        "sha256": "683a0c13e9516640204f7cfd0ee3d6c9c817b1a6018859776f8b355c1c4b8e3e",
+        "classification": "committed native ThingModel migration series; related to reused model implementation, but not authored by commit 37f itself"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0015_native_model_commands.up.sql",
+        "sha256": "94aa2b5a611228356a233476046a4290c09b12bda89a75321bbd20c172e3c331",
+        "classification": "committed native ThingModel migration series; related to reused model implementation, but not authored by commit 37f itself"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0016_thing_model_resources.up.sql",
+        "sha256": "3f170c8236351fd675a3554ab149423782902129779d40c9e64be2815622a6c2",
+        "classification": "committed native ThingModel migration series; related to reused model implementation, but not authored by commit 37f itself"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/devicemetadata/migrations/0017_native_model_deletion.up.sql",
+        "sha256": "ce1325e1571a43a889f89bf0f537d89b62ca21306338cb5170e4a60dbc708e61",
+        "classification": "committed native ThingModel migration series; related to reused model implementation, but not authored by commit 37f itself"
+      },
+      {
+        "status": "untracked candidate source",
+        "path": "encore-api/devicemetadata/migrations/0018_device_groups.up.sql",
+        "sha256": "fc3c00ca5f2f5eb4945239ebd348203448cae21cce8b8ec87ae663f33b2d795d",
+        "classification": "untracked group schema candidate; DM-DB-006/DM-MIG-008; not known applied"
+      },
+      {
+        "status": "untracked candidate source",
+        "path": "encore-api/devicemetadata/migrations/0019_metadata_idempotency.up.sql",
+        "sha256": "2f14c6c97f0b1c54517a63f971899dc410d1074d85e013e5e974a7aaf08779c6",
+        "classification": "untracked idempotency receipt candidate; applied only in an isolated Encore test database per task evidence; not evidence of local/default or production application"
+      },
+      {
+        "status": "untracked candidate source",
+        "path": "encore-api/devicemetadata/migrations/0020_metadata_audit_events.up.sql",
+        "sha256": "71d3071efdc7e92e6d50cb72038935dd5c394e37375f1da5bd7b6ed88fe952ec",
+        "classification": "untracked audit-event candidate; isolated test schema candidate; not evidence of local/default or production application"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/l3-core/notification/migrations/0001_notification.up.sql",
+        "sha256": "bbb9f83978c29f1ecc504183a5424ba19690b1b9d9a91a107f5baeeaf0abe396",
+        "classification": "unrelated committed notification history; exclude from this initiative package"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/l3-core/notification/migrations/0002_notification_plugin_grants.up.sql",
+        "sha256": "4c63f50d1f49908773e038be08ea65e0027e8f3b32263ebf28aa3bd7c133ba3b",
+        "classification": "unrelated committed notification history; exclude from this initiative package"
+      },
+      {
+        "status": "tracked/committed source",
+        "path": "encore-api/l3-core/notification/migrations/0003_notification_alarm_source_type.up.sql",
+        "sha256": "f645d36bf26bcb7d4518de6be08d1ddb08268bbd19fa4cc555575e89386f84e4",
+        "classification": "unrelated committed notification history; exclude from this initiative package"
+      }
+    ],
+    "migrationInventoryLimits": {
+      "scope": "Every .up.sql file currently present in Kernel was path/status/hash inventoried.",
+      "appliedStatus": "Cannot distinguish database-applied migrations from source-present migrations without reading the database migration ledger; no DB was queried.",
+      "legacyCommitted": "0001-0007 are committed devicemetadata migration sources predating current native ThingModel series.",
+      "thingModel37f": "Commit 37fbb5e8e83c47fa98a1eea59fefa38ceff97737 changes only encore-api/thingmodel/app/application.go and application_test.go; it adds/changes no .up.sql. Current committed 0014-0017 files are the native ThingModel migration series from earlier Kernel commits (0014-0016 ea42ed39; 0017 59a8bdca), not migrations authored by 37f itself.",
+      "groupCandidate": "0018_device_groups.up.sql, 0019_metadata_idempotency.up.sql, and 0020_metadata_audit_events.up.sql are untracked candidate sources. 0019 was applied in an isolated Encore test DB per task evidence; this does not establish local/default or production application.",
+      "notification": "Three committed notification migrations are listed for completeness and explicitly excluded from this device/ThingModel implementation package."
+    }
+  },
+  "updatedReviewAt": "2026-10-26"
+}

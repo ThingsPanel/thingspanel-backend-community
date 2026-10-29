@@ -1,0 +1,164 @@
+{
+  "source": {
+    "manifest_sha256": "9654b44a418d1f76c9b0be296361956f42bd8cb45e3ceeb5de2281f81f31e734",
+    "archive_sha256": "de80594fb88be5335208097494e075076d7b5b6b6b72c26d80e37f60c2fc1916",
+    "manifest_files": 479,
+    "archive_entries": 479,
+    "archive_manifest_clone_mismatches": 0,
+    "clone": "/Users/junhong/Downloads/code/iot-api-encore-kernel-dm-automation-scope-http-accept-20261027"
+  },
+  "build": {
+    "encore_cli": "1.58.6",
+    "target": "linux/arm64",
+    "status": "success after private infra completion",
+    "image_tag": "codex-device-management-20261027-7312c5b5:resume-20261027",
+    "image_id": "sha256:ac61bf0cc4659afdae59df8c466a5436e5b3b902649c636b3c989a3801e22ca2",
+    "registered_api_endpoints": 215,
+    "automationowner_started": true,
+    "route_http_verified": [
+      "ListNativeDeviceCredentials",
+      "CreateNativeDeviceCredential",
+      "DeleteDeviceGroup"
+    ]
+  },
+  "infra": {
+    "four_other_logical_databases": [
+      "automation",
+      "connector_runtime",
+      "file_storage",
+      "notification"
+    ],
+    "physical_databases": "four independent empty test DBs on the owned PG",
+    "unrelated_db_migrations": "not applied",
+    "template_image_assets": "declared against unavailable local endpoint 127.0.0.1:19999; never accessed",
+    "complete_private_profile": "/Volumes/DevScratch/device-management-native-20261027/luna-http-7312c5b5/resume-20261027/build-infra.private.json",
+    "empty_test_database_check": [
+      {
+        "database": "codex_dm_test_automation",
+        "public_tables": 0
+      },
+      {
+        "database": "codex_dm_test_connector_runtime",
+        "public_tables": 0
+      },
+      {
+        "database": "codex_dm_test_file_storage",
+        "public_tables": 0
+      },
+      {
+        "database": "codex_dm_test_notification",
+        "public_tables": 0
+      }
+    ]
+  },
+  "migrations": {
+    "applied_in_order": [
+      "0030_device_credentials.up.sql",
+      "0031_metadata_secret_receipts.up.sql"
+    ],
+    "checksum_0030": "f0ef9aa1916d4121c3c333ee95b9247ff2e719e3b3aa214faae27edeb0c4365e",
+    "checksum_0031": "3b7b6ddd3b4a9edd57e3136e9bcb7b6f1415f54ca1355d4603c16da21a73a4c8",
+    "on_error_stop": true,
+    "outer_transaction_used": false,
+    "execution_exit_status": "zero for both",
+    "framework_migration_ledger": "none found; public.migration_log is business data and was not used as an Encore migration ledger",
+    "postcheck": {
+      "device_credentials_constraints": 22,
+      "device_credentials_indexes": 7,
+      "device_credentials_triggers": 3,
+      "device_credentials_functions": 3,
+      "metadata_idempotency_new_columns": 6,
+      "metadata_idempotency_new_constraints": 3,
+      "state_http_response_checks": 1
+    }
+  },
+  "runtime": {
+    "api": "http://127.0.0.1:55067",
+    "app_container": "codex-dm-template-read-7312c5b5-67dee72a-app",
+    "postgres_container": "codex-device-management-7312c5b5-pg",
+    "auth_stub_container": "codex-dm-template-read-7312c5b5-67dee72a-stub",
+    "synthetic_idp": "local stub session validation only; not a real IDP",
+    "credential_keyring": "random owned synthetic key, mode 0600 file in scratch",
+    "pending_state": "all created credentials remain pending; no activation or device connectivity claim",
+    "backend_credentials": "four backend acceptance credentials remain pending; no lifecycle activation claim"
+  },
+  "credential_http": {
+    "empty_summary_get": "200, []",
+    "create_modes": [
+      "generated token 201",
+      "provided token 201",
+      "username_password 201",
+      "public X.509 201"
+    ],
+    "strict_unknown_input": "422; no write",
+    "cache_control": "no-store on credential writes",
+    "same_idempotency_key_same_body": "201 replay; same credential ID and secret verified in memory; secret not saved to evidence",
+    "same_key_different_body": "409",
+    "cross_tenant_read_and_write": "404; no row change",
+    "summary_secret_fields": "absent",
+    "final_credentials": 4,
+    "same_key_same_body_original_request_preserved": true,
+    "same_secret_replay_comparison": "same-secret=true; compared in memory only; no secret plaintext saved"
+  },
+  "group_http": {
+    "empty_leaf_delete": "200 then GET 404 then same-key DELETE 200",
+    "parent_with_child": "409",
+    "member_group_with_member": "409",
+    "group_move": "200",
+    "member_add": "200",
+    "member_remove": "200 after permission repair",
+    "group_delete_after_member_removal": "200",
+    "device_read_before_after": "200/200; no device deletion observed",
+    "empty_leaf_same_key_empty_body_replay": true,
+    "member_remove_repair_retry_same_key": false,
+    "member_remove_repair_retry_body": "same operation/resource/device and recomputed unchanged group version; original generated key was not retained, so byte-identical body is not claimed",
+    "all_created_tenant_a_groups_after_cli_cleanup": "soft-deleted; seven synthetic groups, zero active"
+  },
+  "failures_and_repairs": [
+    {
+      "stage": "first build",
+      "status": "failed before image",
+      "cause": "incomplete build infra: four unrelated DB resources and one bucket",
+      "repair": "private complete config with four independent empty owned test DBs and unavailable local bucket endpoint; successful build-attempt2 log retained"
+    },
+    {
+      "stage": "credential replay",
+      "status": "initial replay 503",
+      "cause": "SELECT FOR SHARE required row-lock UPDATE permission",
+      "repair": "added UPDATE(id) only; exact original key/body replay recovered the successful response and repeat replay secret matched"
+    },
+    {
+      "stage": "group create",
+      "status": "initial create 500",
+      "cause": "runtime role lacked device_groups INSERT",
+      "repair": "INSERT granted on exact eight source-used columns"
+    },
+    {
+      "stage": "member removal",
+      "status": "initial remove 500",
+      "cause": "SELECT FOR UPDATE on membership table required row-lock UPDATE permission",
+      "repair": "DELETE on device_group_members plus UPDATE(group_id); retry used a new idempotency key with the same operation/body after failed transaction rollback; not claimed as same-key retry"
+    }
+  ],
+  "remaining_owned_resources": "all seven created tenant-A backend/CLI test groups are soft-deleted. Four backend acceptance credentials remain pending. The separate UI-owned pending test credential was revoked. Four unrelated test DBs remain empty. Runtime API/PG/stub/network remain running for UI reuse.",
+  "cli_group_delete": {
+    "cli": "tpctl-go current kernel worktree source",
+    "binary_sha256": "6a0f8ff5d7cf5219fad23fc00b7b1a1481aefa412225d7506321470a5e54bc53",
+    "parent_conflict": "HTTP 409 / CLI exit 5; subsequent CLI GET 200",
+    "child_delete": "HTTP 200 / CLI exit 0",
+    "child_same_key_same_if_match_replay": "HTTP 200 / CLI exit 0",
+    "parent_delete_after_child": "HTTP 200 / CLI exit 0",
+    "final_api_gets": "parent 404, child 404",
+    "token_source": "private TP_ENCORE_TOKEN_FILE; never passed in argv or printed",
+    "loopback_override": "--dev-http explicitly set",
+    "writes": "only the two existing owned synthetic groups"
+  },
+  "ui_credential_containment": {
+    "id": "2db2f37d-efa1-48f8-a409-ce7f0f905032",
+    "state": "revoked",
+    "resource_version": 2,
+    "http_readback": 200,
+    "secret_read_by_backend_agent": false,
+    "cuA_diagnostic_trace_secret_absence_claimed": false
+  }
+}

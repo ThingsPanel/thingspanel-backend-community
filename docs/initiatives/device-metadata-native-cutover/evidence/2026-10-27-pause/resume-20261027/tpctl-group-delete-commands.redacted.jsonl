@@ -1,0 +1,10 @@
+{"action":"group get parent etag","command":"tpctl group get {groupID} --save-etag <private-etag-file> --dev-http","exit_code":0,"http_status":200,"expected_status":200}
+{"action":"parent conflict delete","command":"tpctl group delete {parentGroup} --yes --idempotency-key cli-parent-conflict-20261027-01 --if-match-file {parent.etag} --dev-http","exit_code":5,"http_status":409,"expected_status":409}
+{"action":"group get parent remains","command":"tpctl group get {groupID} --save-etag <private-etag-file> --dev-http","exit_code":0,"http_status":200,"expected_status":200}
+{"action":"group get child etag","command":"tpctl group get {groupID} --save-etag <private-etag-file> --dev-http","exit_code":0,"http_status":200,"expected_status":200}
+{"action":"child delete","command":"tpctl group delete {childGroup} --yes --idempotency-key cli-child-delete-20261027-01 --if-match-file {child.etag} --dev-http","exit_code":0,"http_status":200,"expected_status":200}
+{"action":"child replay","command":"tpctl group delete {childGroup} --yes --idempotency-key cli-child-delete-20261027-01 --if-match-file {child.etag} --dev-http","exit_code":0,"http_status":200,"expected_status":200}
+{"action":"group get parent final etag","command":"tpctl group get {groupID} --save-etag <private-etag-file> --dev-http","exit_code":0,"http_status":200,"expected_status":200}
+{"action":"parent delete","command":"tpctl group delete {parentGroup} --yes --idempotency-key cli-parent-delete-20261027-01 --if-match-file {parent-final.etag} --dev-http","exit_code":0,"http_status":200,"expected_status":200}
+{"action":"child_final_get","method":"GET","path":"/api/v2/device-groups/{groupID}","http_status":404}
+{"action":"parent_final_get","method":"GET","path":"/api/v2/device-groups/{groupID}","http_status":404}

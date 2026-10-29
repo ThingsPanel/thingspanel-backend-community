@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "deviceId": "77dba166-b4d4-4b9c-8776-965c01e7343c",
+  "deviceName": "INFO-Bound-f6f0b3d5",
+  "prefetchGetStatus": 200,
+  "patchStatus": 200,
+  "patchResponseStrongEtag": true,
+  "checks": {
+    "count_is_7": true,
+    "all_other_existing_custom_fields_equal": true,
+    "no_new_custom_field_keys": true,
+    "location_address_updated": true,
+    "location_coordinates_preserved": true,
+    "etag_rotated": true
+  },
+  "requestId": "1bcc771a-a0c6-449f-b8e0-ee5e172fc5ed"
+}

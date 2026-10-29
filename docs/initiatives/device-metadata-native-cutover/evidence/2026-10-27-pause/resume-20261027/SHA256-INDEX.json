@@ -1,0 +1,82 @@
+[
+  {
+    "path": "API-READY.md",
+    "sha256": "a5431428ee1e16adc08a8b54df114a432809b438a10970d82e77f595442c60e8"
+  },
+  {
+    "path": "backend-runtime-summary.json",
+    "sha256": "7ccd89b14dc842b504db5ad96118339868d466de87dc6c46b5dd4fed81e6effd"
+  },
+  {
+    "path": "build-failure.log",
+    "sha256": "4bc0ad83b5837fecd8670103bb2d2a28cbff6b1ec6cfd02d08a2ca7036ba3d93"
+  },
+  {
+    "path": "build-success.log",
+    "sha256": "37bf6cb0384d34f7da9c0033913cd37aa81bd248693624f018d612b7db1db146"
+  },
+  {
+    "path": "credential-http-summary.json",
+    "sha256": "4e619b828a7a8d2593a7d2d226bb9e91029fd9d4bdd4f25362460be4ae88d605"
+  },
+  {
+    "path": "empty-test-database-check.json",
+    "sha256": "af44934410eca7db4680ad3e5248efdf73abb0bb1905bd8c554110de9898eb6c"
+  },
+  {
+    "path": "failures-and-repairs.json",
+    "sha256": "5eb7563244a322ffe7ccb4905b05458c88c3886e029114e89b75b9acfc8832cd"
+  },
+  {
+    "path": "group-http-requests.redacted.jsonl",
+    "sha256": "1082d115d0daa49b9a7580d8718e836cf8e9a194f3bf1efadcf3f2bfd93fcdc1"
+  },
+  {
+    "path": "group-http-summary.json",
+    "sha256": "66d033b9bda5093f7d6c233b0a110905e2d9e4000b0c25eb9342fc65f0e3346b"
+  },
+  {
+    "path": "member-removal-retry-requests.redacted.jsonl",
+    "sha256": "22f45b53d73d6db9ef9d8685f03d9ea5c3e903fac935f4c32e65cc306ddb3c6f"
+  },
+  {
+    "path": "member-removal-retry-summary.json",
+    "sha256": "a88bb2dbeb3acbd3a9890725e59b24e76956ddb509d26805383773ac7263c1f7"
+  },
+  {
+    "path": "migration-checksums.txt",
+    "sha256": "b47451d6fd0e81104e1f1eba67f76184896c8f4cd0e3e3d1eebe6d58a4d3de78"
+  },
+  {
+    "path": "resource-and-grant-inventory.json",
+    "sha256": "629006c9802ed754cb02cb42b484f09720ee4d176ca09416ca84e3423fc17326"
+  },
+  {
+    "path": "synthetic-secret-containment-event.json",
+    "sha256": "5db90259df9a1879065588fbbbe8cdefb74e6d40fe4647795b849f062e553521"
+  },
+  {
+    "path": "tpctl-build-summary.json",
+    "sha256": "4c0814d93bf3ea3d1d982abb75e50d190cbd1d4c9eacb3798fe153454a3d9651"
+  },
+  {
+    "path": "tpctl-build-toolchain.txt",
+    "sha256": "a3d12e3f8d79970b066e2e997bcea464edca36b9feff785b459c6b7a587c7077"
+  },
+  {
+    "path": "tpctl-group-delete-commands.redacted.jsonl",
+    "sha256": "66912fef7430249dd2d9456aacded914fb75e82d1156adc1cca16a5f135da69e"
+  },
+  {
+    "path": "tpctl-group-delete-summary.json",
+    "sha256": "c4b89ab56c9adeb10e7915e1fb54604b7f385a0b7fbf8fe986fa5abe8f776027"
+  },
+  {
+    "path": "tpctl-source-fingerprint.json",
+    "sha256": "ef68d4455ada4c0002ba99e560475ab27fbcab0f84d8e2192dec75d5dd80efae"
+  },
+  {
+    "path": "ui-fixture-revocation-summary.json",
+    "sha256": "399f0a795e48154494f743a96304ee2567a88172ee602943ccb8c82b18a17a1b"
+  }
+]

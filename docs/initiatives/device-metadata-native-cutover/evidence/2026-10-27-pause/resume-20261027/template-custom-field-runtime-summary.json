@@ -1,0 +1,43 @@
+{
+  "api": "http://127.0.0.1:55067",
+  "app_container": "codex-dm-template-read-7312c5b5-67dee72a-app",
+  "app_state": "running",
+  "image_tag": "codex-device-management-20261027-7312c5b5:template-custom-field-changes-480",
+  "image_id": "sha256:cc422dadc7014c26e4af8c8880b6afb149f19cc8504795baf85e17d4bea3e3ad",
+  "old_app_container": "codex-dm-template-read-7312c5b5-67dee72a-app-before-custom-field",
+  "old_app_state": "exited",
+  "old_image_id": "sha256:ac61bf0cc4659afdae59df8c466a5436e5b3b902649c636b3c989a3801e22ca2",
+  "owned_postgres_container": "codex-device-management-7312c5b5-pg",
+  "owned_stub_container": "codex-dm-template-read-7312c5b5-67dee72a-stub",
+  "target": "linux/arm64",
+  "encore_cli": "1.58.6",
+  "go_toolchain": "go1.26.2",
+  "source_manifest": "backend-source-manifest-template-custom-field-changes-480.json",
+  "source_manifest_sha256": "8e8ef99be664e57456b8199f701a9d23e45347ba82a33bdc52237f0abbeb38ea",
+  "source_archive": "backend-source-template-custom-field-changes-480.tar.gz",
+  "source_archive_sha256": "5ef78af75db18c930afd8dfea60bb36894b0c8cc7de7e90ba5861152a15f3d3c",
+  "base_479_manifest_sha256": "9654b44a418d1f76c9b0be296361956f42bd8cb45e3ceeb5de2281f81f31e734",
+  "base_479_archive_sha256": "de80594fb88be5335208097494e075076d7b5b6b6b72c26d80e37f60c2fc1916",
+  "ui_fixture": {
+    "templateId": "101ac1e2-b45c-4128-9b50-604a19c7496f",
+    "templateName": "UI-Custom-Fields-3f056d6b",
+    "deviceId": "3d630172-2996-4e42-9705-851417bd9aed",
+    "deviceName": "UI-Custom-Fields-Device-09c30f1c",
+    "tenantId": "4b26a38e-6bbf-4593-b6bc-18675bf5c4f5",
+    "status": "ready"
+  },
+  "http_fixture": {
+    "templateId": "f64aa1a5-d9ca-43b7-801f-ccc2aba828cf",
+    "templateName": "HTTP-Custom-Fields-76e0bfce",
+    "deviceId": "2cd3eef4-54a1-44bc-9484-4e3f28011a3c",
+    "deviceName": "HTTP-Custom-Fields-Device-c2ac67f2",
+    "tenantId": "4b26a38e-6bbf-4593-b6bc-18675bf5c4f5",
+    "status": "backend-http-accepted"
+  },
+  "private_profile_paths": [
+    "/Volumes/DevScratch/device-management-native-20261027/luna-http-7312c5b5/runtime-auth-template-67dee72a.private.env",
+    "/Volumes/DevScratch/device-management-native-20261027/luna-http-7312c5b5/resume-20261027/credential-keyring.private.env",
+    "/Volumes/DevScratch/device-management-native-20261027/luna-http-7312c5b5/resume-20261027/build-infra.private.json"
+  ],
+  "build_postprocessor_note": "Initial shell summary hit zsh read-only variable status; image tag and saved build log confirm successful export. No second build was run."
+}

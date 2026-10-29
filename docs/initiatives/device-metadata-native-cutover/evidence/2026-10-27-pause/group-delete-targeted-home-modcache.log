@@ -1,0 +1,11 @@
+# encore.app/devicemetadata [encore.app/devicemetadata.test]
+devicemetadata/group_delete.go:210:41: undefined: encore
+FAIL	encore.app/devicemetadata [build failed]
+FAIL
+
+── Test Failure ───────────────────────────────────────────────────────────────────────────[E1000]──
+
+One or more more tests failed.
+
+
+

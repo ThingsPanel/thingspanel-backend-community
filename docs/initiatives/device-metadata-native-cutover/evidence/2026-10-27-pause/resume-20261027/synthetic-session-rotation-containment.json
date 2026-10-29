@@ -1,0 +1,14 @@
+{
+  "event": "owned synthetic authentication session rotation after four synthetic bearer tokens were emitted in a local tool diagnostic",
+  "production_credentials_involved": false,
+  "old_mapping_replaced": true,
+  "old_mapping_size": 4,
+  "old_values_retained_or_copied": false,
+  "individual_old_token_http_statuses_observed": false,
+  "active_stub_mapping_size": 6,
+  "stub_lookup": "exact bearer-key match via constant-time comparison; no fallback",
+  "valid_signed_but_unregistered_session_http_status": 401,
+  "rotated_ui_session_http_status": 200,
+  "private_ui_session_file": "/Volumes/DevScratch/device-management-native-20261027/luna-http-7312c5b5/ui-session.private.json",
+  "private_modes": "0600"
+}

@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-27",
+  "environment": "owned synthetic tenantA browser + API 479; UI origin http://127.0.0.1:5114",
+  "nonemptyDelete": {
+    "group": "Synthetic parent",
+    "action": "UI confirm delete",
+    "result": "409 conflict shown: group has members or child groups; no deletion"
+  },
+  "emptyDeleteUnknown": {
+    "groupId": "4f4583c0-abc1-4172-9717-843508eb3fa3",
+    "uiAlertVisible": true,
+    "uiRetryControl": "重试同一删除",
+    "retryButtonGroupIdVisible": true,
+    "uiAfterRetry": "删除成功; refreshed parent sub-group table contains only Synthetic child and no deleted group"
+  },
+  "responseDropProxy": {
+    "target": "exact owned group ID + DELETE; once, only after upstream status 200",
+    "evidence": [
+      {
+        "kind": "group",
+        "method": "DELETE",
+        "upstreamStatus": 200,
+        "responseDropped": true,
+        "keyFormatValid": true
+      },
+      {
+        "kind": "group",
+        "method": "DELETE",
+        "upstreamStatus": 200,
+        "responseDropped": false,
+        "sameIdempotencyKey": true,
+        "samePayload": true,
+        "sameEtag": true,
+        "retryHadNoGetBeforePostOrDelete": true
+      }
+    ],
+    "gateActive": false,
+    "proxyStopped": true
+  },
+  "move": {
+    "group": "Synthetic child",
+    "priorPath": "Synthetic parent / Synthetic child",
+    "newPath": "Synthetic parent / UI-move-target-20261027 / Synthetic child",
+    "uiAfterReload": "path persisted"
+  },
+  "membership": {
+    "removedDevice": {
+      "name": "UI-GROUP-Child-Only",
+      "id": "7c79c26c-298d-4ac5-92e1-a37e23b9f68f"
+    },
+    "result": "removed from group; no longer listed in member table"
+  },
+  "retainedDevice": {
+    "deviceName": "UI-GROUP-Child-Only",
+    "deviceId": "7c79c26c-298d-4ac5-92e1-a37e23b9f68f",
+    "uiDeviceManageSearchResult": "1 device",
+    "uiDetailPage": "name and ID visible; page also displayed a 404 alert from another missing resource, so device-list readback is the retention proof"
+  },
+  "membershipAdd": {
+    "deviceName": "UI-GROUP-Child-Only",
+    "deviceId": "7c79c26c-298d-4ac5-92e1-a37e23b9f68f",
+    "result": "added back through UI selection; member table showed it after reload"
+  },
+  "runtime": {
+    "apiRestoredTo": "http://127.0.0.1:55067",
+    "uiStaticPort": 5114,
+    "dropProxyPort55068": "stopped",
+    "apiAndDatabase": "left running"
+  }
+}

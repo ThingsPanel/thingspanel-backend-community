@@ -1,0 +1,33 @@
+{
+  "resource": "public.device_access_templates",
+  "runtime_role": "dm_runtime_7312c5b5",
+  "pregrant_effective_update_columns": [],
+  "pregrant_existing_update_column": [
+    "id"
+  ],
+  "pregrant_table_update": false,
+  "reproduced_failure": {
+    "method": "EXPLAIN UPDATE (no data mutation)",
+    "sqlstate": "42501",
+    "class": "permission_denied"
+  },
+  "granted_update_columns": [
+    "name",
+    "description",
+    "brand",
+    "product_name",
+    "model_number",
+    "image_asset_id",
+    "tags",
+    "configuration",
+    "administrative_state",
+    "updated_by",
+    "resource_version",
+    "updated_at"
+  ],
+  "postgrant_all_target_columns_effective": true,
+  "postgrant_table_update": false,
+  "tenant_id_granted": false,
+  "deleted_at_granted": false,
+  "schema_or_migration_changes": false
+}

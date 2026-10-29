@@ -1,0 +1,10 @@
+Template custom-field frontend v2 scoped verification
+
+2026-10-27
+- template-custom-fields-state.test.ts: 8/8 pass
+- template-custom-fields-state.ts strict standalone TypeScript check: pass
+- native-template-extend-info.vue Vue script and template compile: pass
+- scoped ESLint for helper, helper test, and component: pass with no output after formatting
+- Full-repository typecheck: not run (out of scope)
+
+The unknown-attempt UI recovery was exercised before the helper immutability fix, using the HMR retry-visibility fix while preserving the live attempt. Helper immutability regression checks and final target checks ran after the helper change. Source was frozen by root as frontend85-v2; no source changes followed that freeze.
