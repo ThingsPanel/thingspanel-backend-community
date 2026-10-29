@@ -33,9 +33,9 @@
 | 运行时读取失败 | 没有 Community 时，遥测等 tab 现在显示中文“设备运行时暂时不可用，请确认设备平台已连接后重试”（之前是英文 `internal server error`，已修） |
 | 设备模板 | 点“新建设备模板”打开编辑器，填名称保存：`POST 201`，随后读回并跳到带 `id` 的编辑页（这一步先发现并修了编辑器编译错误，见下）；详情页 8 个 tab（关联设备、物模型、协议配置、数据处理、自动化、告警、扩展信息、设置）都能打开，模板读取、`/v1/rules`、`/v1/device-configs/:id/bindings` 都是 200；数据处理 tab 显示“六个处理阶段各允许一条启用脚本，语言 lua” |
 | 模板的自动化/告警 tab | 渲染 `main-1.3.0` 的新界面（“对这个对象生效的规则”“已绑定 0 条”“这个模板还没有绑定规则”“场景联动”），请求落在我们 kernel 的 `automationowner` 上并返回 200；还没有创建规则，所以没验证到有规则时的显示。Community 的 `/automation/runtime`（返回 `native`）由测试替身模拟 |
-| 自动化 tab（设备） | 这个 tab 来自 `main-1.3.0` 的新实现，请求走 `/automation-core/v1/...`。把前端环境变量 `VITE_AUTOMATION_DEV_PROXY_TARGET` 指向本应用（`http://127.0.0.1:4100`）后，我们 kernel 的 `automationowner` 对 `/v1/rules`、`/v1/device-automation/:id` 返回 200，tab 不再报“无法确认自动化服务状态”。**但测试设备没有绑定模板，面板为空，所以没有验证到真实规则数据** |
+| 自动化 tab（设备） | 这个 tab 来自 `main-1.3.0` 的新实现，请求走 `/automation-core/v1/...`。把前端环境变量 `VITE_AUTOMATION_DEV_PROXY_TARGET` 指向本应用（`http://127.0.0.1:4100`）后，我们 kernel 的 `automationowner` 对 `/v1/rules`、`/v1/device-automation/:id` 返回 200，tab 不再报“无法确认自动化服务状态”。**随后用 `POST /v1/blueprints/device_offline/instantiate` 创建了一条真实规则（“设备离线告警”），设备详情的自动化 tab 显示：规则“设备离线告警”、来源“条件匹配（不限设备）”、状态“已启用”，数据来自我们 kernel 的 `automationowner`；告警 tab 也能正常显示（告警历史为空，因为没有真实告警触发）** |
 
-仍未在浏览器里验证：需要 Community 才有数据的页面（遥测值、历史、导出正文）、设备模板详情的各 tab（需要先准备物模型和模板）、自动化 tab 的真实规则数据。
+仍未在浏览器里验证：需要真实 Community 才有数据的页面（遥测值、历史、导出正文；上面的替身只覆盖了后端接口，没有接到前端页面）、设备模板详情中依赖物模型的 tab（物模型版本选择、数据处理脚本的真实运行）。
 
 ## 需要 Community 的路径（用测试替身）
 
