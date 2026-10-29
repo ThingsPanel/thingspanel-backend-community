@@ -1,0 +1,55 @@
+name: Publish Community Release
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing published release tag, e.g. v1.3.0-rc.1
+        required: true
+permissions:
+  contents: write
+  packages: write
+concurrency:
+  group: community-release-${{ github.event.release.tag_name || inputs.version }}
+  cancel-in-progress: false
+jobs:
+  assets:
+    uses: ./.github/workflows/build-release.yml
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.version }}
+    secrets: inherit
+  images:
+    uses: ./.github/workflows/docker-image-build.yml
+    with:
+      version: ${{ github.event.release.tag_name || inputs.version }}
+    secrets: inherit
+  encore:
+    uses: ./.github/workflows/encore-image-build.yml
+    with:
+      version: ${{ github.event.release.tag_name || inputs.version }}
+    secrets: inherit
+  linux-package:
+    needs: [assets, images, encore]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select immutable release source
+        env:
+          REQUESTED_TAG: ${{ github.event.release.tag_name || inputs.version }}
+        run: python3 deploy/release/release.py select-tag --version "$REQUESTED_TAG"
+      - uses: docker/login-action@v3
+        with:
+          registry: registry.cn-hangzhou.aliyuncs.com
+          username: ${{ secrets.IMAGE_USER }}
+          password: ${{ secrets.IMAGE_PASS }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Require matching frontend and package Linux deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 deploy/release/build_bundle.py --version "$VERSION"
+          gh release upload "$VERSION" "release-output/thingspanel-linux-$VERSION.tar.gz" "release-output/SHA256SUMS" --clobber

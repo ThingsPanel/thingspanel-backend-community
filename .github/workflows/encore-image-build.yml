@@ -1,0 +1,118 @@
+name: Encore Image Build
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing published release tag
+        required: true
+permissions:
+  contents: write
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select immutable release source
+        env:
+          REQUESTED_TAG: ${{ inputs.version }}
+        run: python3 deploy/release/release.py select-tag --version "$REQUESTED_TAG"
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: encore-api/go.mod
+      - name: Install pinned Encore CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 https://d2f391esomvqpi.cloudfront.net/encore-1.58.6-linux_amd64.tar.gz -o "$RUNNER_TEMP/encore-cli.tar.gz"
+          echo "46add1a88eb02349e4ce51269fdade91c52e8fc044c972cc0ae40129a1eb91b2  $RUNNER_TEMP/encore-cli.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/encore"
+          tar -xzf "$RUNNER_TEMP/encore-cli.tar.gz" -C "$RUNNER_TEMP/encore"
+          echo "ENCORE_INSTALL=$RUNNER_TEMP/encore" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/encore/bin" >> "$GITHUB_PATH"
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        with:
+          registry: registry.cn-hangzhou.aliyuncs.com
+          username: ${{ secrets.IMAGE_USER }}
+          password: ${{ secrets.IMAGE_PASS }}
+      - name: Build portable native services and operator tool
+        working-directory: encore-api
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+          GOMAXPROCS: '2'
+          GOFLAGS: '-p=2'
+        run: |
+          set -euo pipefail
+          encore build docker "tp-encore:$VERSION-$TARGET_ARCH" --arch="$TARGET_ARCH" --services=authn,thingmodel,automation,notification --skip-config
+          mkdir -p "../release-tools/linux-$TARGET_ARCH"
+          CGO_ENABLED=0 GOOS=linux GOARCH="$TARGET_ARCH" go build -tags notification_cli -trimpath -o "../release-tools/linux-$TARGET_ARCH/notification-source-provision" ./cmd/notification-source-provision
+          tar -czf "../encore-tools-linux-$TARGET_ARCH.tar.gz" -C ../release-tools "linux-$TARGET_ARCH"
+      - name: Push architecture images
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for repository in "thingspanel/thingspanel-encore" "ghcr.io/$OWNER_LC/thingspanel-encore" "registry.cn-hangzhou.aliyuncs.com/thingspanel/thingspanel-encore"; do
+            docker tag "tp-encore:$VERSION-$TARGET_ARCH" "$repository:$VERSION-$TARGET_ARCH"
+            docker push "$repository:$VERSION-$TARGET_ARCH"
+          done
+          gh release upload "$VERSION" "encore-tools-linux-$TARGET_ARCH.tar.gz" --clobber
+  manifests:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Select immutable release source
+        env:
+          REQUESTED_TAG: ${{ inputs.version }}
+        run: python3 deploy/release/release.py select-tag --version "$REQUESTED_TAG"
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        with:
+          registry: registry.cn-hangzhou.aliyuncs.com
+          username: ${{ secrets.IMAGE_USER }}
+          password: ${{ secrets.IMAGE_PASS }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Publish complete multi-platform manifests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for repository in "thingspanel/thingspanel-encore" "ghcr.io/$OWNER_LC/thingspanel-encore" "registry.cn-hangzhou.aliyuncs.com/thingspanel/thingspanel-encore"; do
+            docker buildx imagetools create -t "$repository:$VERSION" "$repository:$VERSION-amd64" "$repository:$VERSION-arm64"
+          done
+          python3 deploy/release/release.py record-image --version "$VERSION" --component encore --image thingspanel-encore
+          gh release upload "$VERSION" release-records/encore-image.json --clobber

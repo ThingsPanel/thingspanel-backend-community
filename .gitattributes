@@ -1,2 +1,3 @@
 # Migration hashes must be identical on Windows and Linux.
 encore-api/**/migrations/*.sql text eol=lf
+deploy/release/templates/*.sh text eol=lf

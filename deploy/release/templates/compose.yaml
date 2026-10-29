@@ -1,0 +1,87 @@
+# Existing PostgreSQL/Redis and ThingsVis services must join TP_NETWORK.
+name: thingspanel-community
+x-logging: &logging
+  driver: json-file
+  options: {max-size: 10m, max-file: '3'}
+services:
+  backend:
+    image: ${TP_BACKEND_IMAGE:?load images.env}
+    restart: unless-stopped
+    env_file: [./private/backend.env]
+    volumes:
+      - ./private/backend.yml:/go/src/app/configs/conf.yml:ro
+      - backend-files:/go/src/app/files
+    logging: *logging
+  encore-api:
+    image: ${TP_ENCORE_IMAGE:?load images.env}
+    restart: unless-stopped
+    env_file: [./private/encore.env]
+    environment:
+      ENCORE_INFRA_CONFIG_PATH: /run/config/runtime.json
+      ENCORE_LISTEN_ADDR: 0.0.0.0:14000
+      PORT: '14000'
+    volumes:
+      - ./private/runtime.encore.json:/run/config/runtime.json:ro
+    logging: *logging
+  notification-core:
+    image: ${TP_ENCORE_IMAGE:?load images.env}
+    restart: unless-stopped
+    env_file: [./private/notification.env]
+    environment:
+      ENCORE_INFRA_CONFIG_PATH: /run/config/runtime.json
+      NOTIFICATION_ENCORE_INFRA_CONFIG_PATH: /run/config/runtime.json
+      ENCORE_LISTEN_ADDR: 0.0.0.0:18091
+      PORT: '18091'
+    volumes:
+      - ./private/runtime.notification.json:/run/config/runtime.json:ro
+    logging: *logging
+  owner:
+    image: ${TP_BROKER_IMAGE:?load images.env}
+    command: [owner]
+    restart: unless-stopped
+    env_file: [./private/owner.env]
+    environment:
+      TP_BROKER_OWNER_LISTEN: 0.0.0.0:9801
+      TP_BROKER_OWNER_TOKENS_FILE: /run/secrets/owner-tokens.json
+      TP_BROKER_OWNER_SERVICES_FILE: /run/secrets/services.json
+    volumes:
+      - ./private/owner-tokens.json:/run/secrets/owner-tokens.json:ro
+      - ./private/services.json:/run/secrets/services.json:ro
+    ports: ['${TP_MQTT_BIND:-0.0.0.0}:1883:1883']
+    logging: *logging
+  broker:
+    image: ${TP_BROKER_IMAGE:?load images.env}
+    command: [broker]
+    restart: unless-stopped
+    network_mode: service:owner
+    depends_on: [owner]
+    env_file: [./private/broker.env]
+    environment:
+      TP_BROKER_OWNER_URL: http://127.0.0.1:9801
+      TP_BROKER_TOKEN_FILE: /run/secrets/plugin-token
+    volumes:
+      - ./private/services.json:/run/secrets/services.json:ro
+      - ./private/plugin-token:/run/secrets/plugin-token:ro
+      - broker-data:/mosquitto/data
+    logging: *logging
+  frontend:
+    image: ${TP_FRONTEND_IMAGE:?load images.env}
+    restart: unless-stopped
+    depends_on: [backend, encore-api, notification-core]
+    ports: ['${TP_HTTP_BIND:-0.0.0.0}:${TP_HTTP_PORT:-8080}:8080']
+    logging: *logging
+  scheduler:
+    image: ${TP_BACKEND_IMAGE:?load images.env}
+    entrypoint: [/bin/sh, /run/config/tick.sh]
+    restart: unless-stopped
+    env_file: [./private/scheduler.env]
+    volumes: [./tick.sh:/run/config/tick.sh:ro]
+    depends_on: [encore-api]
+    logging: *logging
+networks:
+  default:
+    external: true
+    name: ${TP_NETWORK:?set existing dependency network}
+volumes:
+  backend-files:
+  broker-data:

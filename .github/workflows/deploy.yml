@@ -2,7 +2,7 @@ name: Community backend test deploy
 on:
   push:
     branches: [main]
-    paths-ignore: ['encore-api/**', 'docs/**', '.ai/**', '**/*.md']
+    paths-ignore: ['encore-api/**', 'docs/**', '.ai/**', '**/*.md', 'deploy/release/**', '.github/workflows/release.yml', '.github/workflows/build-release.yml', '.github/workflows/docker-image-build.yml', '.github/workflows/encore-image-build.yml', '.github/workflows/deploy.yml']
   workflow_dispatch:
 permissions:
   contents: read
