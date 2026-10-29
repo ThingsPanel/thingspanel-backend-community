@@ -53,6 +53,8 @@ E. **开发环境里导出完成后下载 404。** Vite 开发代理没有 `/api
 
 **设备模板的“协议配置”和“关联设备”（真实后端 + 测试替身，页面操作，T4/T2）**：协议配置页显示接入信息（direct / mqtt / 凭据类型 none / 在线判定 transport 60 秒）；“新增 Topic 映射”对话框能填名称、方向、源主题、目标主题，未选物模型版本时数据引用被禁用并提示原因；确定后 `PATCH` 200、列表出现该行；启用开关关闭、编辑改名都是 `PATCH` 200，接口读回 `enabled:false` 和新名称；删除后列表回到“此模板当前没有 Topic 映射”。关联设备页列出绑定该模板的设备（名称可点、编码、类型、管理状态）；通过 `PUT /devices/:id/template-binding` 把其中一台的 `templateId` 置空（202），模板的关联列表只剩另一台。没有走通的是设备设置页里“清空下拉并保存绑定”的页面点击（下拉清除图标在自动化点击下没有响应，改用同一接口验证）。顺带修了关联设备和子设备两处表格把 `enabled` 原样显示的问题，现显示“已启用 / 已停用”。
 
+**设备模板删除（DM-TPL-009，T1；本轮新实现）**：契约定义了 `DELETE /api/v2/device-access-templates/{templateId}`，但后端和页面此前都没有。现已实现：要求 `If-Match` 为模板当前 ETag（否则 412）、`Idempotency-Key` 幂等（重放返回同样结果且不重复写审计）、仍有未删除设备绑定该模板时返回 409、其余软删除并写审计；新增权限 `template:delete`（TENANT_ADMIN）。数据库测试 `TestNativeTemplateDeleteRefusesUsedTemplatesAndIsConditionalAndIdempotent` 覆盖过期 ETag、被使用、跨租户（NotFound）、成功、重放、读取变 NotFound、审计恰好一条。页面：模板列表（卡片和列表视图）新增“删除”，点击后确认，先取最新 ETag 再删；在真实浏览器里验证——被设备使用的模板提示“仍有设备在使用该模板，请先把这些设备解绑后再删除”且仍在列表；未被使用的模板删除后列表少一项，接口读回 404。**只检查了本服务能看到的引用（设备）；契约还要求产品、OTA、自动化规则、市场包等引用，它们在别的服务里，本仓库无法跨服务检查，联调时需要补。**
+
 **数据处理脚本的“测试运行”（真实后端，`POST /api/v2/processing-script-tests`）**：正常脚本返回拼接结果（`{"t":21}|a/b`）；运行时 `error("boom")` 返回 `SCRIPT_RUNTIME_ERROR` 并带堆栈；死循环约 1 秒后返回 `SCRIPT_TIMEOUT`；访问 `os.execute` 被沙箱拦截（`os` 不可用）。引擎为 `gopher-lua-5.1/sandbox-v1`。这只验证了“测试运行”接口；上行数据真正经过脚本处理依赖 Community/MQTT 的数据通路，没有覆盖。
 
 仍未在浏览器里验证：真实 Community 下的遥测值、历史和导出（上面用的是测试替身）。
