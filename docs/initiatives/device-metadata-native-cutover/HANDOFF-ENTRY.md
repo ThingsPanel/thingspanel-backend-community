@@ -46,6 +46,7 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 - 自动化相关文件（`views/automation/*`、`service/api/automation-*`、`utils/automation/*`、`router/elegant/*`、`typings/elegant-router.d.ts`）和设备/模板详情里的两个“自动化”tab（`views/device/details/modules/automate.vue`、`views/device/config-detail/modules/automate.vue`）**全部以 `main-1.3.0` 为准**，即它们用的是新引擎的 `EffectiveRules` + `sceneLinkage`，不再是本分支早期的 `NativeAutomationPanel`。
 - `typings/env.d.ts` 两边声明都保留。
 - 去掉了本分支对 `rule-manage` 路由的预注册（该页面在 `main-1.3.0` 已删除）及对应权限测试用例，删除了残留的 `views/automation/rule-manage/`。
+- `service/api/automation-native.ts` 以 `main-1.3.0` 为准；我们原来的原生自动化客户端放在新文件 `service/api/automation-native-client.ts`，`native-automation-panel.vue`、`native-device-alarms.vue`（模板/设备“告警”tab）改为从它引用。不要再把它们改回 `automation-native`，否则页面加载失败。
 - 删除了 `__tests__/unit/automation-rules-api.test.ts`：它测的是被新引擎取代的旧版自动化接口，`main-1.3.0` 自带新的自动化测试。
 - `views/device/shared/native-automation-panel.vue`、`native-device-alarms.vue` **仍在使用**：分别是模板“告警”tab（`config-detail/modules/alarm-info.vue`）和设备“告警”tab（`details/modules/give-an-alarm.vue`），不是遗留文件，不要删。
 - **后端依赖**：新自动化 tab 调用的 `/v1/device-automation/...`、`/v1/rules/...` 等接口由 kernel 的 `encore-api/automationowner/` 提供（105 个文件，`main-1.3.0` 上没有，随本次 kernel 提交带入）。合并前端而不合并 kernel 的这一部分，自动化 tab 会没有后端。`automationowner` 的单元测试全部通过，但没有在真实环境跑过。

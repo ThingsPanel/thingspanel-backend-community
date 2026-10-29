@@ -31,7 +31,9 @@
 
 | 凭据（设备详情→连接） | 点“创建凭据”直接创建 token 凭据并显示领取结果（含系统生成的凭据内容）；后端核对：列表 1 条、状态 pending、内容可读；点“撤销”并确认后依次发出读设备版本、`POST 202` 吊销、刷新列表 |
 | 运行时读取失败 | 没有 Community 时，遥测等 tab 现在显示中文“设备运行时暂时不可用，请确认设备平台已连接后重试”（之前是英文 `internal server error`，已修） |
-| 自动化 tab | 这个 tab 来自 `main-1.3.0` 的新实现，请求走 `/automation-core/v1/...`。把前端环境变量 `VITE_AUTOMATION_DEV_PROXY_TARGET` 指向本应用（`http://127.0.0.1:4100`）后，我们 kernel 的 `automationowner` 对 `/v1/rules`、`/v1/device-automation/:id` 返回 200，tab 不再报“无法确认自动化服务状态”。**但测试设备没有绑定模板，面板为空，所以没有验证到真实规则数据** |
+| 设备模板 | 点“新建设备模板”打开编辑器，填名称保存：`POST 201`，随后读回并跳到带 `id` 的编辑页（这一步先发现并修了编辑器编译错误，见下）；详情页 8 个 tab（关联设备、物模型、协议配置、数据处理、自动化、告警、扩展信息、设置）都能打开，模板读取、`/v1/rules`、`/v1/device-configs/:id/bindings` 都是 200；数据处理 tab 显示“六个处理阶段各允许一条启用脚本，语言 lua” |
+| 模板的自动化/告警 tab | 渲染 `main-1.3.0` 的新界面（“对这个对象生效的规则”“已绑定 0 条”“这个模板还没有绑定规则”“场景联动”），请求落在我们 kernel 的 `automationowner` 上并返回 200；还没有创建规则，所以没验证到有规则时的显示。Community 的 `/automation/runtime`（返回 `native`）由测试替身模拟 |
+| 自动化 tab（设备） | 这个 tab 来自 `main-1.3.0` 的新实现，请求走 `/automation-core/v1/...`。把前端环境变量 `VITE_AUTOMATION_DEV_PROXY_TARGET` 指向本应用（`http://127.0.0.1:4100`）后，我们 kernel 的 `automationowner` 对 `/v1/rules`、`/v1/device-automation/:id` 返回 200，tab 不再报“无法确认自动化服务状态”。**但测试设备没有绑定模板，面板为空，所以没有验证到真实规则数据** |
 
 仍未在浏览器里验证：需要 Community 才有数据的页面（遥测值、历史、导出正文）、设备模板详情的各 tab（需要先准备物模型和模板）、自动化 tab 的真实规则数据。
 
@@ -41,6 +43,9 @@
 - 需要 Community 才能成功的路径：读数/历史/导出正文、投递器下发。
 
 ## 这次跑出来的真实问题（已修）
+
+A. **新建/编辑设备模板的页面打不开。** `native-template-editor.vue` 里有两处多行 `@click`/`@keydown`，一个表达式里写了几条语句却没有分号，Vue 模板编译失败，页面 500。已改成处理函数，并新增 `device-vue-templates-compile.test.ts`：把设备、自动化、ThingsVis 下的所有页面模板都编译一遍，这类错误以后在单元测试里就会暴露。
+B. **前端合并后，所有引用告警面板的页面都起不来。** 合并时 `service/api/automation-native.ts` 被 `main-1.3.0` 同名的另一个模块覆盖，我们的 `AutomationNativeError`、`automationNative` 不存在了，导致 `native-automation-panel.vue`、`native-device-alarms.vue` 以及引用它们的模板详情、设备详情页面加载失败。我们的客户端恢复为 `automation-native-client.ts`，两个面板改为从它引用（只在集成分支，原功能分支不受影响）。
 
 0. **租户管理员被拒绝使用指令下发、期望消息、调试日志（浏览器里看到 403）。** 这些接口要求 `device:control`，而生产里租户管理员的角色名是 `TENANT_ADMIN`，策略表里只有小写的 `tenant_admin` 才有 `control`。单元测试用的是别的身份，所以一直没发现。已给 `TENANT_ADMIN` 补上 `device:control` 和 `device:view`（不给 `manage`），见 `internal/authz/engine.go` 与测试。
 
