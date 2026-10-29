@@ -45,14 +45,21 @@ func (s *Service) OwnerUplink(w http.ResponseWriter, r *http.Request) {
 }
 
 func authorizeOwnerUplink(r *http.Request) (string, bool) {
-	expected := strings.TrimSpace(os.Getenv("TP_AUTOMATION_SERVICE_TOKEN"))
-	deployment := strings.TrimSpace(os.Getenv("TP_SOURCE_DEPLOYMENT_ID"))
-	if len(expected) < 32 || deployment == "" || r.Header.Get("X-Automation-Deployment") != deployment {
-		return "", false
-	}
-	if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+expected)) != 1 {
+	if !authorizeOwnerDeployment(r) {
 		return "", false
 	}
 	tenant := strings.TrimSpace(r.Header.Get("X-Automation-Tenant"))
 	return tenant, tenant != "" && len(tenant) <= 256
+}
+
+func authorizeOwnerDeployment(r *http.Request) bool {
+	expected := strings.TrimSpace(os.Getenv("TP_AUTOMATION_SERVICE_TOKEN"))
+	deployment := strings.TrimSpace(os.Getenv("TP_SOURCE_DEPLOYMENT_ID"))
+	if len(expected) < 32 || deployment == "" || r.Header.Get("X-Automation-Deployment") != deployment {
+		return false
+	}
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+expected)) != 1 {
+		return false
+	}
+	return true
 }

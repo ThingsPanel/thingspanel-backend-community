@@ -1163,7 +1163,6 @@ func (s *Service) PlanLegacyScene(ctx context.Context, req *LegacyScenePlanReque
 // pending outbound intents. It is idempotent and safe to run from several
 // workers because every claim uses SKIP LOCKED.
 //
-//encore:api auth method=POST path=/v1/tick
 func (s *Service) Tick(ctx context.Context) (*TickResponse, error) {
 	rt, err := s.rtOrErr()
 	if err != nil {
@@ -1195,7 +1194,6 @@ func (s *Service) Tick(ctx context.Context) (*TickResponse, error) {
 
 // Recover replays receipts that were received but not evaluated before a crash.
 //
-//encore:api auth method=POST path=/v1/recover
 func (s *Service) Recover(ctx context.Context) (*RecoverResponse, error) {
 	rt, err := s.rtOrErr()
 	if err != nil {

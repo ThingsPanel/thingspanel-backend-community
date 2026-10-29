@@ -5,6 +5,8 @@ on:
     paths:
       - 'encore-api/**'
       - 'deploy/community-test/*encore*'
+      - 'deploy/community-test/automation_tick.py'
+      - 'deploy/community-test/test_automation_tick.py'
       - '.github/workflows/deploy-encore.yml'
       - '.gitattributes'
   workflow_dispatch:
@@ -37,6 +39,8 @@ jobs:
         working-directory: encore-api
         run: |
           encore test -p=1 ./automation/... ./thingmodel/... ./l1-access/authn ./l3-core/notification/...
+      - name: Verify scheduler transport
+        run: python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py
       - name: Package immutable tracked source
         run: |
           mkdir candidate
@@ -65,7 +69,7 @@ jobs:
           if ! ssh "${args[@]}" root@47.92.253.145 'test -f /opt/tp-community-actions/tools/encore-1.58.6/.archive-sha256'; then
             scp "${args[@]}" "$RUNNER_TEMP/encore-cli.tar.gz" root@47.92.253.145:/opt/tp-community-actions/incoming/encore-1.58.6-linux_amd64.tar.gz
           fi
-          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/encore_migrations.py deploy/community-test/install_encore_cli.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/encore_migrations.py deploy/community-test/install_encore_cli.py deploy/community-test/automation_tick.py root@47.92.253.145:/opt/tp-community-actions/incoming/
           ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/install_encore_cli.py && python3 /opt/tp-community-actions/incoming/deploy_encore.py '$GITHUB_SHA'"
       - name: Preserve source identity
         uses: actions/upload-artifact@v4
