@@ -63,7 +63,7 @@ for name, checksum in manifest['sha256'].items():
         raise RuntimeError('Source checksum mismatch')
 source = release / 'encore-api'
 env = os.environ.copy()
-env.update(ENCORE_INSTALL=str(TOOLS), GOMAXPROCS='1', GOMEMLIMIT='384MiB', GOFLAGS='-p=1',
+env.update(ENCORE_INSTALL=str(TOOLS), GOMAXPROCS='1', GOMEMLIMIT='384MiB', GOFLAGS='-p=1 -buildvcs=false',
            GOCACHE=str(ROOT / 'encore-build-cache'), GOPROXY='https://goproxy.cn,direct')
 env['PATH'] = str(TOOLS / 'bin') + ':/usr/local/go/bin:' + env.get('PATH', '')
 cli = str(TOOLS / 'bin/encore')
