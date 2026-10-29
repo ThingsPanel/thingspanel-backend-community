@@ -53,7 +53,7 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 | 范围 | 命令 | 结果 |
 |---|---|---|
 | 后端（需 Encore） | 在 `kernel/encore-api` 执行 `encore test ./devicemetadata ./internal/...` | 通过。整个 Encore 模块 `encore test ./... -count=1` 通过，仅 `cmd/notification-migrate` 和 `devicemetadata/migrations/scripts` 两个 `package main` 工具包在 `encore test` 下无法链接（前者在 `main-1.3.0` 上同样如此，后者用 `go test ./devicemetadata/migrations/scripts` 通过）。曾有 `TestDeviceCredentialsSchemaConstraints` 偶发失败（Go 时间与数据库 `NOW()` 的微秒差触发 `activated_at >= created_at` 检查），已把夹具时间提前一分钟修复；之后无缓存全量运行全部通过 |
-| 前端 vitest | 在 `frontend`（集成分支）执行 `npx vitest run src/router src/__tests__/unit` | 167 过、1 败：`thingsvis-auth`“网络失败后进入冷却”，报 SSO authority 配置错误，**与本次改动无关**，未处理 |
+| 前端 vitest | 在 `frontend`（集成分支）执行 `npx vitest run src/router src/__tests__/unit` | **168 个全部通过**。`thingsvis-auth` 原先的失败是测试数据缺 `authority`（源码要求它，`main-1.3.0` 上同样失败），已修 |
 | 前端 node:test | `npx tsx --test src/service/api/<文件>.test.ts` | 通过 |
 | 真实端到端 | — | **0/27** |
 
