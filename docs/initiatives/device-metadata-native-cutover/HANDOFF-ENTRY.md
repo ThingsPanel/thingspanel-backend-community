@@ -70,7 +70,7 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 
 ## 6. 提交后一直“待处理”的操作（Community 缺能力）
 
-设备启停、换模板、凭据轮换/撤销、解绑子设备。原因：Community 的更新接口没有启用字段，`is_enabled` 不参与 MQTT 鉴权，凭据没有按 generation 生效的账本；MQTT 接入强制层不在本仓库。要让它们真正生效，需要在 Community / MQTT 鉴权层补能力。改设备编号、删除设备、绑定子设备由 outbox 投递器真实下发（需开 `TP_RUNTIME_OUTBOX_DISPATCH=on`，**尚未与真实 Community 联调**）。
+设备启停、换模板、凭据轮换/撤销、解绑子设备。原因：Community 的更新接口没有启用字段，`is_enabled` 不参与 MQTT 鉴权，凭据没有按 generation 生效的账本；MQTT 接入强制层不在本仓库。要让它们真正生效，需要在 Community / MQTT 鉴权层补能力；具体要什么、做到什么算完成、联调怎么验收，见 `COMMUNITY-CAPABILITY-REQUEST.md`。改设备编号、删除设备、绑定子设备由 outbox 投递器真实下发（需开 `TP_RUNTIME_OUTBOX_DISPATCH=on`，**尚未与真实 Community 联调**）。
 
 ## 7. 有意没做的
 
