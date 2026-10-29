@@ -87,7 +87,7 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 
 ## 7.1 契约有、后端没有的端点（2026-10-29 逐条对照）
 
-方法：把 `API-CONTRACT.md` 里全部 `/api/v2` 端点（104 条）和后端 `//encore:api` 路由（77 条）逐条比对，缺 33 条（其中“删除设备模板”已在本阶段补上，不在下表）。**前端页面没有调用其中任何一条**（只出现在自动生成的类型里），所以现有页面不会因此 404。
+方法：把 `API-CONTRACT.md` 里全部 `/api/v2` 端点（104 条）和后端 `//encore:api` 路由（77 条）逐条比对，缺 33 条（其中“删除设备模板”已在本阶段补上，不在下表；表中“已做（本轮补）”的两条是对照后又补的，所以现在实际缺 31 条）。**前端页面没有调用其中任何一条**（只出现在自动生成的类型里），所以现有页面不会因此 404。
 
 | 类别 | 端点 | 说明 |
 |---|---|---|
@@ -96,7 +96,8 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 | 有意不做 | `POST /devices/:id/credentials/:id/reveals` | 凭据列表已直接显示明文，不需要二次揭示 |
 | 有意不做 | `GET /products`、`/products/:id` | 社区版没有产品概念 |
 | 改用别的路径 | `GET /reading-exports/:id/download` | 已由 `GET /metadata-downloads/:id` 承担 |
-| 保留能力、非核心验收 | 模板复制 `POST /device-access-templates/:id/copies`；模板导入 `POST /device-access-template-imports`；模板导出 `GET /device-access-templates/:id/export`；模板校验 `POST /device-access-templates/:id/validations`；模板引用 `GET /device-access-templates/:id/references` | 契约写明“列为保留能力，不纳入本轮核心验收必做”。`references` 与新做的模板删除相关：删除目前只检查设备引用 |
+| 已做（本轮补） | 模板校验 `POST /device-access-templates/:id/validations`；模板引用 `GET /device-access-templates/:id/references` | `validations`：与保存同一套校验，但不保存；配置有问题时返回 `valid:false` 和带 JSON 指针的问题列表（HTTP 200），只有依赖不可用才返回错误；`sourceDigest` 是所校验内容的 SHA-256；对看不见的模板返回 404。`references`：分页列出仍绑定该模板的未删除设备（`kind:"device"`），看不见的模板返回 404；只有设备一类，产品/自动化/市场包等要等跨服务引用协议。两条都有数据库测试，**页面还没有调用** |
+| 保留能力、非核心验收 | 模板复制 `POST /device-access-templates/:id/copies`；模板导入 `POST /device-access-template-imports`；模板导出 `GET /device-access-templates/:id/export` | 契约写明“列为保留能力，不纳入本轮核心验收必做” |
 | 保留能力、非核心验收 | 设备导入导出 `POST /device-imports`、`GET /device-imports/:id`、`POST /device-imports/:id/commits`、`GET /device-import-format`、`POST /device-exports`；批量 `POST /device-batches`、`/device-template-binding-batches`、`/gateway-membership-batches`；`GET /metadata-operations/:id/items` | 批量与导入导出，页面目前走旧路径或没有入口 |
 | 保留能力、非核心验收 | `POST /device-runtime-state-queries`、`GET /device-observation-stream` | 批量在线状态查询、实时流；实时 WebSocket 仍走旧路径 |
 | 保留能力、非核心验收 | `POST/GET/DELETE /device-access-templates/:id/enrollment-credentials…`、`POST /device-enrollments`、`GET /device-enrollment-operations/:id`、`GET /connection-providers/:id/instances/:id/discovered-devices` | 设备登记凭据与发现；依赖连接器能力 |
