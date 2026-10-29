@@ -2,6 +2,7 @@ package app
 
 import (
 	"project/initialize"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -11,6 +12,11 @@ import (
 func WithConfig(config *viper.Viper) Option {
 	return func(app *Application) error {
 		app.Config = config
+		// Environment-only keys must remain available to the legacy global
+		// readers, including keys absent from older configuration files.
+		viper.SetEnvPrefix("GOTP")
+		viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+		viper.AutomaticEnv()
 		// 设置全局viper实例（为了兼容现有代码）
 		for _, key := range config.AllKeys() {
 			viper.Set(key, config.Get(key))
