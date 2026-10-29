@@ -13,6 +13,7 @@ import time
 import urllib.request
 import urllib.error
 from encore_migrations import source_migrations, pending_migrations
+from encore_artifacts import prune_source_artifacts
 
 ROOT = pathlib.Path('/opt/tp-community-actions')
 RUNTIME = pathlib.Path('/opt/tp-community-main-20261028')
@@ -25,6 +26,13 @@ lock = (ROOT / 'deployment.lock').open('a')
 fcntl.flock(lock, fcntl.LOCK_EX)
 release = ROOT / 'encore-releases' / SHA
 release.mkdir(parents=True, exist_ok=True)
+
+def artifact_command(args):
+    result=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=60)
+    if result.returncode:raise RuntimeError('Could not inspect or remove superseded source artifacts')
+    return result.stdout.decode().strip()
+
+pruned_artifacts=prune_source_artifacts(ROOT,SHA,artifact_command)
 if shutil.disk_usage(str(ROOT)).free < 1024 ** 3:
     raise RuntimeError('At least 1 GiB free disk required for build')
 mem = int(next(line.split()[1] for line in pathlib.Path('/proc/meminfo').read_text().splitlines()
@@ -255,6 +263,7 @@ WantedBy=timers.target
 (release / 'deployment.json').write_text(json.dumps({'commit': SHA, 'image': image, 'image_id': image_id,
     'scheduler': 'tp-automation-tick.timer',
     'notification_renewal': 'tp-notification-renew.timer' if renew_policy.exists() else None,
+    'pruned_artifacts':pruned_artifacts,
     'previous_images': old_images, 'migrations_applied': {database: [m['version'] for m in pending]
                                                        for database, _, pending in plans}}, indent=2))
 print('Encore and notification deployed and verified: ' + SHA)
