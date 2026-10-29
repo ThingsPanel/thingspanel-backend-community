@@ -24,9 +24,7 @@ os.umask(0o077)
 lock = (ROOT / 'deployment.lock').open('a')
 fcntl.flock(lock, fcntl.LOCK_EX)
 release = ROOT / 'encore-releases' / SHA
-if release.exists():
-    raise SystemExit('Release exists; inspect before retrying')
-release.mkdir(parents=True)
+release.mkdir(parents=True, exist_ok=True)
 if shutil.disk_usage(str(ROOT)).free < 1024 ** 3:
     raise RuntimeError('At least 1 GiB free disk required for build')
 mem = int(next(line.split()[1] for line in pathlib.Path('/proc/meminfo').read_text().splitlines()

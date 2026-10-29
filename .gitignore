@@ -26,3 +26,6 @@ samples/flink/target/
 
 # 运行时生成的实例遥测状态文件
 configs/.telemetry_state.json
+
+# Deployment helper test bytecode
+deploy/community-test/__pycache__/

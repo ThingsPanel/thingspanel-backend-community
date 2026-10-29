@@ -6,6 +6,7 @@ on:
       - 'encore-api/**'
       - 'deploy/community-test/*encore*'
       - '.github/workflows/deploy-encore.yml'
+      - '.gitattributes'
   workflow_dispatch:
 permissions:
   contents: read
