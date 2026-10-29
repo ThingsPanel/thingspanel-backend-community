@@ -45,7 +45,7 @@ func TestDeliverCarriesTrustedTenantOutsideTheBody(t *testing.T) {
 		if body["message_id"] != "effect-1" {
 			t.Error("stable effect ID lost")
 		}
-		w.WriteHeader(200)
+		_, _ = w.Write([]byte(`{"class":"telemetry","accepted":1,"duplicates":0}`))
 	}))
 	defer server.Close()
 	t.Setenv("GOTP_AUTOMATION_BASE_URL", server.URL)
@@ -55,6 +55,21 @@ func TestDeliverCarriesTrustedTenantOutsideTheBody(t *testing.T) {
 	}
 	if err = client.Deliver(context.Background(), Uplink{TenantID: "tenant-a", DeviceID: "device-a", MessageID: "effect-1", Class: "telemetry", Values: `{"x":1}`}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDeliverDoesNotTreatHTML200AsAccepted(t *testing.T) {
+	t.Setenv("GOTP_AUTOMATION_TOKEN", strings.Repeat("s", 32))
+	t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "deployment-a")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte("<html>frontend</html>")) }))
+	defer server.Close()
+	t.Setenv("GOTP_AUTOMATION_BASE_URL", server.URL)
+	client, err := NewClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Deliver(context.Background(), Uplink{TenantID: "tenant-a", Class: "telemetry"}); err == nil {
+		t.Fatal("unrelated HTML 200 was treated as an ingress receipt")
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -85,6 +86,14 @@ func (c *Client) Deliver(ctx context.Context, event Uplink) error {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("native ingress HTTP %d", resp.StatusCode)
+	}
+	var receipt struct {
+		Class      string `json:"class"`
+		Accepted   int    `json:"accepted"`
+		Duplicates int    `json:"duplicates"`
+	}
+	if json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&receipt) != nil || receipt.Class != event.Class || receipt.Accepted < 0 || receipt.Duplicates < 0 {
+		return errors.New("native ingress returned an invalid acceptance receipt")
 	}
 	return nil
 }

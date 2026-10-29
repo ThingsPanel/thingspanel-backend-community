@@ -24,6 +24,10 @@ type NativeCommand struct {
 	Generation                                                            int64
 }
 
+func nativeAutomationScope(deployment, tenant, scope string) string {
+	return fmt.Sprintf("native:%x", sha256.Sum256([]byte(deployment+"\n"+tenant+"\n"+scope)))
+}
+
 func SubmitNativeAutomationCommand(ctx context.Context, req NativeCommand) (string, error) {
 	if !automationbridge.NativeEnabled() || !isIngressV1Commands() || req.TenantID == "" || req.DeviceID == "" || req.DeploymentID == "" || req.DeploymentID != automationbridge.Deployment() || req.Key == "" || req.Scope == "" || req.Generation < 1 {
 		return "", brokercommands.ErrRejected
@@ -34,7 +38,7 @@ func SubmitNativeAutomationCommand(ctx context.Context, req NativeCommand) (stri
 	if req.Kind != "telemetry" && req.Kind != "attribute" && req.Kind != "command" {
 		return "", brokercommands.ErrRejected
 	}
-	scope := fmt.Sprintf("native:%x", sha256.Sum256([]byte(req.DeploymentID+"\n"+req.TenantID+"\n"+req.Scope)))
+	scope := nativeAutomationScope(req.DeploymentID, req.TenantID, req.Scope)
 	if err := global.DB.WithContext(ctx).Exec(`INSERT INTO automation_scope_generation(scope_key,generation,updated_at) VALUES(?,?,now()) ON CONFLICT(scope_key) DO UPDATE SET generation=GREATEST(automation_scope_generation.generation,excluded.generation),updated_at=now()`, scope, req.Generation).Error; err != nil {
 		return "", err
 	}
@@ -93,6 +97,10 @@ func ValidateNativeAutomationCommand(ctx context.Context, tx *gorm.DB, row broke
 	}
 	p := prepared.NativeAutomation
 	if p == nil || p.DeploymentID == "" || p.DeploymentID != automationbridge.Deployment() || row.CallerID != "native-automation:"+p.DeploymentID || !strings.HasPrefix(row.Intent, nativeAutomationPrefix) || p.Generation < 1 {
+		return brokercommands.ErrRejected
+	}
+	var accepted NativeCommand
+	if json.Unmarshal(row.CanonicalRequest, &accepted) != nil || accepted.TenantID != row.TenantID || accepted.DeviceID != row.DeviceID || accepted.DeploymentID != p.DeploymentID || accepted.Kind != strings.TrimPrefix(row.Intent, nativeAutomationPrefix) || accepted.Key != row.IdempotencyKey || accepted.Generation != p.Generation || accepted.Scope == "" || nativeAutomationScope(accepted.DeploymentID, accepted.TenantID, accepted.Scope) != p.Scope {
 		return brokercommands.ErrRejected
 	}
 	var generation int64
