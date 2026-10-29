@@ -241,4 +241,4 @@ jobs:
           fi
         done
     
-    # Linux Compose packaging is coordinated by release.yml after all images succeed.
+    # Images are coordinated by release.yml; deployment belongs to thingspanel-installer.
