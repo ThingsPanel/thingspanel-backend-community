@@ -5,8 +5,8 @@ ADD . ./
 ENV GO111MODULE=on
 ENV GOPROXY="https://goproxy.cn,direct"
 ARG VERSION=dev
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+ARG TARGETOS
+ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags "-X project/pkg/global.SYSTEM_VERSION=${VERSION}" -o ThingsPanel-Go .
 
 FROM alpine:latest
