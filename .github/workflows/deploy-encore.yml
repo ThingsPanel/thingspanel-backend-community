@@ -41,6 +41,9 @@ jobs:
           encore test -p=1 ./automation/... ./thingmodel/... ./l1-access/authn ./l3-core/notification/...
       - name: Verify scheduler transport
         run: python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py
+      - name: Verify source credential provisioning
+        working-directory: encore-api
+        run: go test -tags notification_cli ./cmd/notification-source-provision
       - name: Package immutable tracked source
         run: |
           mkdir candidate

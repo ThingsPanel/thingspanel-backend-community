@@ -394,8 +394,12 @@ func (h *HTTPNotificationOwner) Submit(ctx context.Context, req NotificationRequ
 	if expires.IsZero() {
 		expires = occurred.Add(24 * time.Hour)
 	}
+	variables := req.Variables
+	if variables == nil {
+		variables = map[string]any{}
+	}
 	body := map[string]any{
-		"schemaVersion":       "1",
+		"schemaVersion":       "1.0",
 		"sourceDeploymentId":  h.cfg.DeploymentID,
 		"sourceEventId":       req.SourceEventID,
 		"actionId":            req.ActionID,
@@ -407,7 +411,7 @@ func (h *HTTPNotificationOwner) Submit(ctx context.Context, req NotificationRequ
 		"payload": map[string]any{
 			"subject":   req.Subject,
 			"text":      req.Text,
-			"variables": req.Variables,
+			"variables": variables,
 		},
 	}
 	raw, _ := json.Marshal(body)

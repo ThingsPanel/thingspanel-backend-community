@@ -35,12 +35,14 @@ type infraConfig struct {
 	SQLServers []struct {
 		Host      string `json:"host"`
 		TLSConfig struct {
-			Disabled bool `json:"disabled"`
+			Disabled bool `json:"disable_tls"`
 		} `json:"tls_config"`
 		Databases map[string]struct {
 			Name     string `json:"name"`
 			Username string `json:"username"`
-			Password string `json:"password"`
+			Password struct {
+				Env string `json:"$env"`
+			} `json:"password"`
 		} `json:"databases"`
 	} `json:"sql_servers"`
 }
@@ -241,10 +243,10 @@ func openNotificationDB(infraPath string) (*sql.DB, error) {
 	}
 	for _, server := range cfg.SQLServers {
 		physical, ok := server.Databases[expectedDB]
-		if !ok || physical.Name != "notification" || physical.Username == "" || physical.Password == "" || !server.TLSConfig.Disabled || !localPostgresHost(server.Host) {
+		if !ok || physical.Name != "notification" || physical.Username == "" || physical.Password.Env == "" || os.Getenv(physical.Password.Env) == "" || !server.TLSConfig.Disabled || !localPostgresHost(server.Host) {
 			continue
 		}
-		parsed := url.URL{Scheme: "postgres", Host: server.Host, Path: "/" + expectedDB, User: url.UserPassword(physical.Username, physical.Password)}
+		parsed := url.URL{Scheme: "postgres", Host: server.Host, Path: "/" + expectedDB, User: url.UserPassword(physical.Username, os.Getenv(physical.Password.Env))}
 		query := parsed.Query()
 		if server.TLSConfig.Disabled {
 			query.Set("sslmode", "disable")
