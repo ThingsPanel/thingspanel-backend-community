@@ -19,7 +19,7 @@ COMPOSE = ROOT / 'compose.encore.private.json'
 PM = '/root/.local/share/pnpm/pm2'
 CORE = 'http://127.0.0.1:18091'
 BUSINESS = 'http://127.0.0.1:9999'
-PLUGIN = 'https://127.0.0.1:18445'
+PLUGIN = 'https://172.17.0.1:18445'
 BRIDGE = 'https://127.0.0.1:18446'
 TENANT = '63a4b529'
 STAGE = 'preflight'
@@ -145,9 +145,9 @@ def apply():
         raise RuntimeError('verified tenant mismatch')
     STAGE = 'internal TLS'
     cert, private = WORK / 'internal.crt', WORK / 'internal.key'
-    if not cert.exists():
+    if not cert.exists() or '172.17.0.1' not in run(['openssl', 'x509', '-in', str(cert), '-text', '-noout']):
         config = WORK / 'certificate.cnf'
-        config.write_text('[req]\ndistinguished_name=dn\nx509_extensions=ext\nprompt=no\n[dn]\nCN=notification-internal\n[ext]\nsubjectAltName=DNS:localhost,IP:127.0.0.1\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,digitalSignature,keyEncipherment,keyCertSign\n')
+        config.write_text('[req]\ndistinguished_name=dn\nx509_extensions=ext\nprompt=no\n[dn]\nCN=notification-app-internal\n[ext]\nsubjectAltName=DNS:localhost,IP:127.0.0.1,IP:172.17.0.1\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,digitalSignature,keyEncipherment,keyCertSign\n')
         run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '365',
              '-config', str(config), '-keyout', str(private), '-out', str(cert)])
         cert.chmod(0o644)
@@ -160,7 +160,7 @@ def apply():
     adapter_trust.chmod(0o644)
     nginx = pathlib.Path('/etc/nginx/conf.d/tp-notification-app.conf')
     nginx.write_text('''server {
- listen 127.0.0.1:18445 ssl;
+ listen 172.17.0.1:18445 ssl;
  ssl_certificate CERT;
  ssl_certificate_key PRIVATE;
  location / { proxy_pass http://127.0.0.1:18093; proxy_set_header Authorization $http_authorization; }
@@ -184,6 +184,7 @@ server {
     binary = pathlib.Path('/opt/tp-community-actions/incoming/notification-unipush-20261030')
     shutil.copyfile(str(binary), str(WORK / 'notification-unipush'))
     (WORK / 'notification-unipush').chmod(0o755)
+    (WORK / '.dockerignore').write_text('*\n!Dockerfile\n!notification-unipush\n')
     (WORK / 'Dockerfile').write_text('FROM scratch\nCOPY notification-unipush /notification-unipush\nUSER 65532:65532\nENTRYPOINT ["/notification-unipush"]\n')
     run(['docker', 'build', '-t', 'tp-notification-unipush:20261030', str(WORK)], timeout=300)
     adapter_env = {
@@ -205,7 +206,7 @@ server {
     run(['docker', 'compose', '-p', 'tp-notification-app', '-f', str(adapter_compose), 'up', '-d'])
     STAGE = 'notification core allowlist'
     core_env['NOTIFICATION_PLUGIN_ALLOWED_ORIGINS'] = json.dumps(combined(core_env.get('NOTIFICATION_PLUGIN_ALLOWED_ORIGINS'), PLUGIN))
-    core_env['NOTIFICATION_PLUGIN_ALLOWED_CIDRS'] = json.dumps(combined(core_env.get('NOTIFICATION_PLUGIN_ALLOWED_CIDRS'), '127.0.0.1/32'))
+    core_env['NOTIFICATION_PLUGIN_ALLOWED_CIDRS'] = json.dumps(combined(core_env.get('NOTIFICATION_PLUGIN_ALLOWED_CIDRS'), '172.17.0.1/32'))
     save(COMPOSE, compose)
     run(['docker', 'compose', '-p', 'tp-community-main-47', '-f', str(COMPOSE), 'up', '-d', '--no-deps', 'notification-core'])
     for _ in range(40):
@@ -250,7 +251,8 @@ server {
     run(['systemctl', 'enable', '--now', 'tp-notification-app-renew.timer'])
     STAGE = 'register and authorize plugin'
     context = ssl.create_default_context(cafile=str(adapter_trust))
-    with urllib.request.urlopen(PLUGIN + '/v1/manifest', context=context, timeout=10) as r:
+    manifest_request = urllib.request.Request(PLUGIN + '/v1/manifest', headers={'Authorization': 'Bearer ' + plugin_token})
+    with urllib.request.urlopen(manifest_request, context=context, timeout=10) as r:
         manifest_raw = r.read()
     manifest = json.loads(manifest_raw)
     if manifest['plugin_id'] != 'thingspanel.unipush' or manifest['plugin_version'] != '2.0.0':
