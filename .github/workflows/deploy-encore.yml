@@ -4,7 +4,7 @@ on:
     inputs:
       mode:
         type: choice
-        options: [inspect, apply, repair-route]
+        options: [inspect, apply, repair-route, verify]
         default: inspect
         required: true
 permissions:

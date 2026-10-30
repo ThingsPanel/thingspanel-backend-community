@@ -4,6 +4,8 @@ import pathlib
 import re
 import subprocess
 import sys
+import ssl
+import urllib.request
 
 
 def command(args):
@@ -71,6 +73,44 @@ def repair_snapshot_route():
     print(json.dumps({'status': 'internal_snapshot_route_ready'}))
 
 
+def verify_restore():
+    root = pathlib.Path('/opt/tp-community-main-20261028')
+    work = root / 'notification-app-migration'
+    _, raw = command(['/root/.local/share/pnpm/pm2', 'jlist'])
+    process = next(p for p in json.loads(raw) if p['name'] == 'thingspanel-backend-community')['pm2_env']
+    if process.get('NOTIFICATION_SOURCE_BRIDGE_ENABLED') != 'true':
+        raise SystemExit('Notification bridge is not enabled')
+    url = 'http://127.0.0.1:9999/api/v1/notification/source-app-members/a9c24ba0-738d-9477-6053-34ed8a8cd3c2?tenantId=63a4b529'
+    request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + process['NOTIFICATION_MEMBER_READER_TOKEN'],
+              'X-Notification-Deployment': process['NOTIFICATION_SOURCE_DEPLOYMENT_ID']})
+    with urllib.request.urlopen(request, timeout=10) as response:
+        devices = json.load(response)
+    pair = json.loads((work / 'source.private.json').read_text())
+    url = 'https://127.0.0.1:18446/api/v1/notification-source/group-snapshots/6dafe89c-47fa-4c8d-8fdc-4fbfd876d4cf?tenantId=63a4b529&groupRevision=2'
+    request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + pair['projectionCredential']})
+    with urllib.request.urlopen(request, timeout=10, context=ssl.create_default_context(cafile=str(root / 'notification-ca.pem'))) as response:
+        snapshot = json.load(response)['data']
+    if not snapshot['group']['enabled'] or snapshot['group']['revision'] != 2:
+        raise SystemExit('Published snapshot verification failed')
+    if not all(i['enabled'] for i in snapshot['instances']) or not all(p['enabled'] for p in snapshot['plugins']):
+        raise SystemExit('Published targets are not enabled')
+    _, timer = command(['systemctl', 'is-active', 'tp-notification-app-renew.timer'])
+    _, renewal = command(['systemctl', 'show', 'tp-notification-app-renew.service', '--property=ExecMainStatus', '--value'])
+    receipt = json.loads((work / 'renew-result.json').read_text())
+    if timer.strip() != 'active' or renewal.strip() != '0' or receipt.get('status') != 'passed':
+        raise SystemExit('Service credential renewal verification failed')
+    result = {'status': 'migrated', 'tenant': 'test@test.cn', 'tenantId': '63a4b529',
+              'plugin': 'thingspanel.unipush 2.0.0', 'groupId': snapshot['group']['id'],
+              'publishedRevision': snapshot['group']['revision'], 'activeAppDeviceCount': len(devices['deviceIds']),
+              'sourceIdentityRenewal': 'active', 'identityExpiresAt': receipt.get('expires_at'),
+              'defaultPolicyChanged': False, 'phoneNotificationSent': False}
+    (work / 'result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    incoming = pathlib.Path('/opt/tp-community-actions/incoming/notification-migration.private.json')
+    if incoming.exists():
+        incoming.unlink()
+    print(json.dumps(result, ensure_ascii=False))
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         raise SystemExit('A maintenance mode is required')
@@ -78,5 +118,7 @@ if __name__ == '__main__':
         inspect()
     elif sys.argv[1] == 'repair-route':
         repair_snapshot_route()
+    elif sys.argv[1] == 'verify':
+        verify_restore()
     else:
         raise SystemExit('Unsupported maintenance mode')

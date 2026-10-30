@@ -289,7 +289,8 @@ server {
         'name': 'App 设备告警通知', 'enabled': True, 'bindings': [{
             'bindingId': str(uuid.uuid5(uuid.NAMESPACE_URL, 'thingspanel/app-migration/' + TENANT)),
             'instanceId': instance['id'], 'recipientSource': {'kind': 'member', 'userId': who['id'], 'contactField': 'appDevice'},
-            'contentBinding': {'kind': 'text', 'title': '{{subject}}', 'text': '{{text}}'}
+            'contentBinding': {'kind': 'template', 'templateId': 'device_alarm', 'locale': 'zh-CN',
+                'paramsMapping': {'title': 'subject', 'text': 'text', 'alarmId': 'alarmId', 'alarmKind': 'alarmKind'}}
         }]}
     existing_groups = api(CORE, '/api/v2/notification-groups?page=1&pageSize=100', tenant)['items']
     group = next((g for g in existing_groups if g['name'] == group_body['name'] and g['bindings'] == group_body['bindings']), None)
