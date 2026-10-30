@@ -18,6 +18,20 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        if: inputs.mode == 'apply'
+        with:
+          go-version: '1.24.0'
+      - name: Build pinned UniPush adapter
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          sha256sum --check deploy/community-test/notification-adapter-source.sha256
+          mkdir -p "$RUNNER_TEMP/notification-adapter-src"
+          tar -xzf deploy/community-test/notification-adapter-source.tar.gz -C "$RUNNER_TEMP/notification-adapter-src"
+          cd "$RUNNER_TEMP/notification-adapter-src"
+          go test ./sdk ./unipush
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o "$RUNNER_TEMP/notification-unipush-20261030" ./cmd/unipush
       - name: Prepare existing deployment access
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
@@ -25,6 +39,17 @@ jobs:
           set -euo pipefail
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-deploy-key"
+      - name: Upload private migration inputs
+        if: inputs.mode == 'apply'
+        env:
+          PAYLOAD: ${{ secrets.TP_NOTIFICATION_MIGRATION_20261030 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$PAYLOAD" > "$RUNNER_TEMP/notification-migration.private.json"
+          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          scp "${args[@]}" "$RUNNER_TEMP/notification-migration.private.json" "$RUNNER_TEMP/notification-unipush-20261030" deploy/community-test/notification_restore_apply.py root@47.92.253.145:/opt/tp-community-actions/incoming/
+          ssh "${args[@]}" root@47.92.253.145 'chmod 600 /opt/tp-community-actions/incoming/notification-migration.private.json'
       - name: Inspect or restore notification service
         env:
           MODE: ${{ inputs.mode }}
@@ -32,12 +57,18 @@ jobs:
           set -euo pipefail
           args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
           scp "${args[@]}" deploy/community-test/notification_migrate.py root@47.92.253.145:/opt/tp-community-actions/incoming/notification_migrate.py
-          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/notification_migrate.py '$MODE'" > maintenance-result.json
+          if [ "$MODE" = apply ]; then
+            script=notification_restore_apply.py
+          else
+            script=notification_migrate.py
+          fi
+          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/$script '$MODE'" > maintenance-result.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: notification-migration-report
           path: maintenance-result.json
           retention-days: 3
       - name: Remove runner key
         if: always()
-        run: rm -f "$RUNNER_TEMP/community-deploy-key"
+        run: rm -f "$RUNNER_TEMP/community-deploy-key" "$RUNNER_TEMP/notification-migration.private.json"
