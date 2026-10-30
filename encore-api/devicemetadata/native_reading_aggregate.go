@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"encore.app/internal/legacy"
+	"encore.app/internal/communityclient"
 	"encore.dev/beta/errs"
 )
 
@@ -48,7 +48,7 @@ type aggregateBucket struct {
 // aggregateHistory buckets samples into fixed UTC windows aligned to the Unix
 // epoch (a 30d window is exactly 30 days, not a calendar month). Empty buckets
 // are omitted. Result order is newest bucket first.
-func aggregateHistory(deviceID, identifier, aggregation, window string, rows []legacy.HistoryReading) ([]NativeReading, error) {
+func aggregateHistory(deviceID, identifier, aggregation, window string, rows []communityclient.HistoryReading) ([]NativeReading, error) {
 	width, ok := readingWindows[window]
 	if !ok || !validAggregation(aggregation) || aggregation == "raw" {
 		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "unsupported aggregation or window"}

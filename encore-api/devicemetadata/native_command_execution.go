@@ -13,7 +13,7 @@ import (
 	"unicode/utf8"
 
 	"encore.app/internal/authz"
-	"encore.app/internal/legacy"
+	"encore.app/internal/communityclient"
 	"encore.app/internal/nativehttp"
 	"encore.app/l1-access/authn"
 	"encore.app/thingmodel/core"
@@ -458,15 +458,15 @@ func dispatchNativeCommand(ctx context.Context, identity nativeDeviceWriteIdenti
 	var messageID string
 	var submitErr error
 	if accepted.deliveryMode == "when_online" {
-		var record legacy.ExpectedRecord
-		record, submitErr = nativeRuntimeLegacy().CreateExpectedCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.expiresAt, accepted.label)
+		var record communityclient.ExpectedRecord
+		record, submitErr = nativeRuntimeClient().CreateExpectedCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.expiresAt, accepted.label)
 		messageID = expectedMessagePrefix + record.ID
 	} else {
 		// The execution id is the runtime idempotency key, so repeating the call after an
 		// unclear failure cannot send the command twice.
 		for attempt := 0; attempt < 2; attempt++ {
-			messageID, submitErr = nativeRuntimeLegacy().SubmitCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.executionID)
-			if submitErr == nil || errors.Is(submitErr, legacy.ErrRejected) || ctx.Err() != nil {
+			messageID, submitErr = nativeRuntimeClient().SubmitCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.executionID)
+			if submitErr == nil || errors.Is(submitErr, communityclient.ErrRejected) || ctx.Err() != nil {
 				break
 			}
 		}
@@ -481,7 +481,7 @@ func dispatchNativeCommand(ctx context.Context, identity nativeDeviceWriteIdenti
 		// Only a definite refusal is a failure. When the runtime did not answer, the
 		// command may or may not have been sent, so it is recorded as unknown.
 		state, reason := "unknown", "the device runtime did not confirm whether it received the command"
-		if errors.Is(submitErr, legacy.ErrRejected) {
+		if errors.Is(submitErr, communityclient.ErrRejected) {
 			state, reason = "failed", "the device runtime did not accept the command"
 		}
 		rlog.Warn("device command was not confirmed by the runtime", "device_id", deviceID, "execution_id", accepted.executionID, "state", state)
@@ -548,7 +548,7 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 				if err != nil {
 					continue
 				}
-				rows, err := nativeRuntimeLegacy().ListExpectedCommands(ctx, legacyID, 1, 100)
+				rows, err := nativeRuntimeClient().ListExpectedCommands(ctx, legacyID, 1, 100)
 				if err != nil {
 					continue
 				}
@@ -563,7 +563,7 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 			}
 			newState = mapExpectedStatus(status)
 		default:
-			status, err := nativeRuntimeLegacy().GetCommandStatus(ctx, *c.messageID)
+			status, err := nativeRuntimeClient().GetCommandStatus(ctx, *c.messageID)
 			if err != nil {
 				continue
 			}

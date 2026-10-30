@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"encore.app/internal/authz"
-	"encore.app/internal/legacy"
+	"encore.app/internal/communityclient"
 	"encore.app/internal/nativehttp"
 	"encore.app/l1-access/authn"
 	"encore.dev"
@@ -320,7 +320,7 @@ func (communitySimulationSender) Send(ctx context.Context, tenantID, deviceID, d
 	if err != nil {
 		return err
 	}
-	return nativeRuntimeLegacy().SimulationSend(ctx, legacyID, dataJSON)
+	return nativeRuntimeClient().SimulationSend(ctx, legacyID, dataJSON)
 }
 
 var activeSimulationSender simulationSender = communitySimulationSender{}
@@ -396,7 +396,7 @@ func runDeviceSimulation(ctx context.Context, identity nativeDeviceWriteIdentity
 				failed++
 				if firstFailure == "" {
 					firstFailure = "RUNTIME_REJECTED"
-					if !errors.Is(err, legacy.ErrRejected) {
+					if !errors.Is(err, communityclient.ErrRejected) {
 						firstFailure = "RUNTIME_UNAVAILABLE"
 					}
 				}

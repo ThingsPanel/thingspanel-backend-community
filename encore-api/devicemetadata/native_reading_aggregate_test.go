@@ -5,19 +5,19 @@ import (
 	"testing"
 	"time"
 
-	"encore.app/internal/legacy"
+	"encore.app/internal/communityclient"
 )
 
-func sample(at string, value string) legacy.HistoryReading {
+func sample(at string, value string) communityclient.HistoryReading {
 	ts, err := time.Parse(time.RFC3339Nano, at)
 	if err != nil {
 		panic(err)
 	}
-	return legacy.HistoryReading{Key: "temp", Ts: ts, Value: json.RawMessage(value)}
+	return communityclient.HistoryReading{Key: "temp", Ts: ts, Value: json.RawMessage(value)}
 }
 
 func TestAggregateHistoryBucketsAreFixedUTCWindowsWithRealCounts(t *testing.T) {
-	rows := []legacy.HistoryReading{
+	rows := []communityclient.HistoryReading{
 		sample("2026-10-29T01:00:05Z", "10"),
 		sample("2026-10-29T01:59:59.999Z", "20"),
 		sample("2026-10-29T02:00:00Z", "4"), // next bucket: window ends are exclusive
@@ -50,7 +50,7 @@ func TestAggregateHistoryBucketsAreFixedUTCWindowsWithRealCounts(t *testing.T) {
 }
 
 func TestAggregateHistoryFunctions(t *testing.T) {
-	rows := []legacy.HistoryReading{
+	rows := []communityclient.HistoryReading{
 		sample("2026-10-29T00:00:10Z", "3"),
 		sample("2026-10-29T00:00:20Z", "9.5"),
 		sample("2026-10-29T00:00:25Z", "1"),
@@ -69,12 +69,12 @@ func TestAggregateHistoryFunctions(t *testing.T) {
 
 func TestAggregateHistoryWindowAlignmentAndNonNumericRules(t *testing.T) {
 	// 7d and 30d windows are multiples of the Unix epoch, not calendar weeks or months.
-	got, err := aggregateHistory("dev", "temp", "sum", "7d", []legacy.HistoryReading{sample("1970-01-09T00:00:00Z", "1")})
+	got, err := aggregateHistory("dev", "temp", "sum", "7d", []communityclient.HistoryReading{sample("1970-01-09T00:00:00Z", "1")})
 	if err != nil || *got[0].WindowStart != "1970-01-08T00:00:00.000Z" || *got[0].WindowEnd != "1970-01-15T00:00:00.000Z" {
 		t.Fatalf("7d alignment: %+v %v", got, err)
 	}
 	// Text samples cannot be summed but can be reported as the last value.
-	text := []legacy.HistoryReading{sample("2026-10-29T00:00:00Z", `"on"`), sample("2026-10-29T00:00:30Z", `"off"`)}
+	text := []communityclient.HistoryReading{sample("2026-10-29T00:00:00Z", `"on"`), sample("2026-10-29T00:00:30Z", `"off"`)}
 	if _, err := aggregateHistory("dev", "mode", "avg", "1m", text); err == nil {
 		t.Error("avg over strings must be refused")
 	}

@@ -1,4 +1,4 @@
-package pluginmgr
+package connectorcatalog
 
 import (
 	"context"

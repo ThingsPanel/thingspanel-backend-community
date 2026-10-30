@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"encore.app/internal/legacy"
+	"encore.app/internal/communityclient"
 )
 
 func TestDebugSessionID(t *testing.T) {
@@ -31,18 +31,18 @@ func TestDecodeNativeDebugSessionRequest(t *testing.T) {
 
 func TestDebugLogFromEntry(t *testing.T) {
 	at := time.Date(2026, 10, 28, 1, 2, 3, 0, time.UTC)
-	ok := debugLogFromEntry("d1", legacy.DebugEntry{Raw: `{"a":1}`, Time: at, Direction: "uplink", Action: "publish", Outcome: "ok"})
+	ok := debugLogFromEntry("d1", communityclient.DebugEntry{Raw: `{"a":1}`, Time: at, Direction: "uplink", Action: "publish", Outcome: "ok"})
 	if ok.Level != "info" || ok.Direction != "uplink" || ok.Message != "publish ok" || !strings.HasPrefix(ok.ID, "legacy-debug:") {
 		t.Fatalf("%+v", ok)
 	}
-	bad := debugLogFromEntry("d1", legacy.DebugEntry{Raw: `{"a":2}`, Time: at, Direction: "x", Action: "auth", Outcome: "error", Error: "bad"})
+	bad := debugLogFromEntry("d1", communityclient.DebugEntry{Raw: `{"a":2}`, Time: at, Direction: "x", Action: "auth", Outcome: "error", Error: "bad"})
 	if bad.Level != "error" || bad.Direction != "internal" || bad.Message != "auth error: bad" || bad.ID == ok.ID {
 		t.Fatalf("%+v", bad)
 	}
-	if got := debugLogFromEntry("d1", legacy.DebugEntry{Raw: "z", Time: at, Outcome: "drop"}); got.Level != "warning" || got.Message != "drop" {
+	if got := debugLogFromEntry("d1", communityclient.DebugEntry{Raw: "z", Time: at, Outcome: "drop"}); got.Level != "warning" || got.Message != "drop" {
 		t.Fatalf("%+v", got)
 	}
-	if got := debugLogFromEntry("d1", legacy.DebugEntry{Raw: "e", Time: at}); got.Message != "(no detail)" {
+	if got := debugLogFromEntry("d1", communityclient.DebugEntry{Raw: "e", Time: at}); got.Message != "(no detail)" {
 		t.Fatalf("%+v", got)
 	}
 }

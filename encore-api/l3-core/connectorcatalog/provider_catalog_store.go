@@ -1,4 +1,4 @@
-package pluginmgr
+package connectorcatalog
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"encore.app/l3-core/pluginmgr/providercatalog"
+	"encore.app/l3-core/connectorcatalog/providercatalog"
 	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )

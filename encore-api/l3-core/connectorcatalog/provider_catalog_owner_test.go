@@ -1,4 +1,4 @@
-package pluginmgr
+package connectorcatalog
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"encore.app/l1-access/authn"
-	"encore.app/l3-core/pluginmgr/providercatalog"
+	"encore.app/l3-core/connectorcatalog/providercatalog"
 	"encore.dev/beta/auth"
 	"encore.dev/beta/errs"
 	"encore.dev/et"

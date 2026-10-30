@@ -1,4 +1,4 @@
-package legacy
+package communityclient
 
 import (
 	"bytes"
@@ -14,31 +14,41 @@ import (
 	"time"
 )
 
+// Client talks to the Community backend that owns the device runtime: live and historical
+// readings, commands, simulation and the device records themselves.
+//
+// It is configured only from the environment and has no defaults, so a deployment that does
+// not configure it fails clearly instead of talking to a public demo server with a shared
+// password:
+//
+//	TP_COMMUNITY_BASE_URL  Community base URL, e.g. http://community:9999 (required; shared with the automation service)
+//	TP_COMMUNITY_API_KEY   a Community API key for this service (preferred)
+//	TP_COMMUNITY_EMAIL / TP_COMMUNITY_PASSWORD  a dedicated service account, used only when no API key is set
 type Client struct {
 	baseURL  string
-	apiKey   string // TP_API_KEY: if set, used as x-api-key header (skips login)
+	apiKey   string
 	email    string
 	password string
 	http     *http.Client
 }
 
+// ErrNotConfigured is returned by every call when the Community connection is not configured.
+// It is not a refusal from Community, so callers treat it as "runtime unavailable".
+var ErrNotConfigured = errors.New("device runtime is not configured: set TP_COMMUNITY_BASE_URL and TP_COMMUNITY_API_KEY (or TP_COMMUNITY_EMAIL and TP_COMMUNITY_PASSWORD)")
+
 func NewFromEnv() *Client {
-	base := strings.TrimRight(getenv("TP_BASE", "https://demo.thingspanel.cn"), "/")
 	return &Client{
-		baseURL:  base,
-		apiKey:   getenv("TP_API_KEY", ""),
-		email:    getenv("TP_EMAIL", "test@test.cn"),
-		password: getenv("TP_PASSWORD", "123456"),
+		baseURL:  strings.TrimRight(strings.TrimSpace(os.Getenv("TP_COMMUNITY_BASE_URL")), "/"),
+		apiKey:   strings.TrimSpace(os.Getenv("TP_COMMUNITY_API_KEY")),
+		email:    strings.TrimSpace(os.Getenv("TP_COMMUNITY_EMAIL")),
+		password: os.Getenv("TP_COMMUNITY_PASSWORD"),
 		http:     &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
-func getenv(k, def string) string {
-	v := strings.TrimSpace(os.Getenv(k))
-	if v == "" {
-		return def
-	}
-	return v
+// Configured reports whether a base URL and some credential are present.
+func (c *Client) Configured() bool {
+	return c.baseURL != "" && (c.apiKey != "" || (c.email != "" && c.password != ""))
 }
 
 type loginResp struct {
@@ -48,9 +58,12 @@ type loginResp struct {
 	} `json:"data"`
 }
 
-// Login returns a session token. If TP_API_KEY is set it returns a sentinel
+// Login returns a session token. If TP_COMMUNITY_API_KEY is set it returns a sentinel
 // value so callers can use the API key path instead.
 func (c *Client) Login(ctx context.Context) (string, error) {
+	if !c.Configured() {
+		return "", ErrNotConfigured
+	}
 	if c.apiKey != "" {
 		return "", nil // signal: use API key, no JWT needed
 	}
@@ -60,7 +73,7 @@ func (c *Client) Login(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if out.Data.Token == "" {
-		return "", fmt.Errorf("legacy login returned empty token")
+		return "", fmt.Errorf("community login returned empty token")
 	}
 	return out.Data.Token, nil
 }
@@ -68,7 +81,7 @@ func (c *Client) Login(ctx context.Context) (string, error) {
 // ErrRejected marks an answer from the Community runtime that definitely refused the
 // request (a 4xx status or an envelope code other than 200). Any other failure
 // (transport error, timeout, 5xx) leaves it unknown whether the runtime acted.
-var ErrRejected = errors.New("legacy runtime rejected the request")
+var ErrRejected = errors.New("community runtime rejected the request")
 
 func (c *Client) doJSON(ctx context.Context, method, path, token string, reqBody any, out any) error {
 	raw, err := c.doRaw(ctx, method, path, token, reqBody)

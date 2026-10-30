@@ -1,4 +1,4 @@
-package pluginmgr
+package connectorcatalog
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 	"encore.app/internal/authz"
 	"encore.app/l1-access/authn"
-	"encore.app/l3-core/pluginmgr/providercatalog"
+	"encore.app/l3-core/connectorcatalog/providercatalog"
 	"encore.dev/beta/errs"
 )
 

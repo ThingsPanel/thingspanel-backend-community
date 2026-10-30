@@ -12,14 +12,14 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"encore.app/internal/legacy"
+	"encore.app/internal/communityclient"
 	"encore.app/internal/nativehttp"
 	"encore.dev"
 	"encore.dev/beta/errs"
 )
 
 // Runtime reads (runtime-state, readings) are served from the Community backend
-// through internal/legacy. The Community device ID is taken from the device's
+// through internal/communityclient. The Community device ID is taken from the device's
 // runtimeRef (namespace TP_RUNTIME_COMMUNITY_NAMESPACE, default "community");
 // without one the native UUID is used only when TP_RUNTIME_DEVICE_ID_MODE=identity.
 // Every request first proves the device exists in the caller's tenant natively; the
@@ -35,13 +35,13 @@ const (
 )
 
 var (
-	runtimeLegacyOnce   sync.Once
-	runtimeLegacyClient *legacy.Client
+	runtimeClientOnce   sync.Once
+	runtimeClientInstance *communityclient.Client
 )
 
-func nativeRuntimeLegacy() *legacy.Client {
-	runtimeLegacyOnce.Do(func() { runtimeLegacyClient = legacy.NewFromEnv() })
-	return runtimeLegacyClient
+func nativeRuntimeClient() *communityclient.Client {
+	runtimeClientOnce.Do(func() { runtimeClientInstance = communityclient.NewFromEnv() })
+	return runtimeClientInstance
 }
 
 // resolveRuntimeDeviceID picks the Community device ID for a native device:
@@ -118,7 +118,7 @@ func readNativeRuntimeState(ctx context.Context, identity nativeDeviceReadIdenti
 	if err != nil {
 		return nil, err
 	}
-	flag, err := nativeRuntimeLegacy().GetOnlineFlag(ctx, legacyID)
+	flag, err := nativeRuntimeClient().GetOnlineFlag(ctx, legacyID)
 	if err != nil {
 		return nil, runtimeUpstreamError(err)
 	}
@@ -301,7 +301,7 @@ func readNativeReadings(ctx context.Context, identity nativeDeviceReadIdentity, 
 	if err != nil {
 		return nil, err
 	}
-	cli := nativeRuntimeLegacy()
+	cli := nativeRuntimeClient()
 	page := NativeReadingPage{Items: []NativeReading{}, Page: query.page, PageSize: query.pageSize}
 	switch query.kind {
 	case "telemetry", "attribute":
@@ -424,9 +424,9 @@ func (s *Service) ListNativeDeviceReadings(w http.ResponseWriter, r *http.Reques
 
 // fetchAllTelemetryHistory reads every raw sample in [from, to) page by page.
 // A range holding more than aggregateMaxRows samples is refused.
-func fetchAllTelemetryHistory(ctx context.Context, cli *legacy.Client, legacyID, identifier string, from, to time.Time) ([]legacy.HistoryReading, error) {
+func fetchAllTelemetryHistory(ctx context.Context, cli *communityclient.Client, legacyID, identifier string, from, to time.Time) ([]communityclient.HistoryReading, error) {
 	const pageSize = 1000
-	var all []legacy.HistoryReading
+	var all []communityclient.HistoryReading
 	for page := 1; ; page++ {
 		rows, total, err := cli.ListTelemetryHistory(ctx, legacyID, identifier, from.UnixMilli(), to.UnixMilli()-1, page, pageSize)
 		if err != nil {
