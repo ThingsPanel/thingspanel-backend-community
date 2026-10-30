@@ -1,88 +1,43 @@
-name: Community Encore test deploy
+name: App notification migration maintenance
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'encore-api/**'
-      - 'deploy/community-test/*encore*'
-      - 'deploy/community-test/automation_tick.py'
-      - 'deploy/community-test/test_automation_tick.py'
-      - 'deploy/community-test/notification_renew.py'
-      - '.github/workflows/deploy-encore.yml'
-      - '.gitattributes'
   workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [inspect, apply]
+        default: inspect
+        required: true
 permissions:
   contents: read
 concurrency:
   group: community-main-encore-deploy
   cancel-in-progress: false
 jobs:
-  deploy:
+  migrate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    env:
-      GOMAXPROCS: '2'
-      GOFLAGS: '-p=2'
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Verify migration history guard
-        run: python3 -m unittest discover -s deploy/community-test -p 'test_encore_migrations.py'
-      - name: Install pinned Encore CLI
-        run: |
-          set -euo pipefail
-          curl -fsSL --retry 3 https://d2f391esomvqpi.cloudfront.net/encore-1.58.6-linux_amd64.tar.gz -o "$RUNNER_TEMP/encore-cli.tar.gz"
-          echo "46add1a88eb02349e4ce51269fdade91c52e8fc044c972cc0ae40129a1eb91b2  $RUNNER_TEMP/encore-cli.tar.gz" | sha256sum --check
-          mkdir -p "$RUNNER_TEMP/encore"
-          tar -xzf "$RUNNER_TEMP/encore-cli.tar.gz" -C "$RUNNER_TEMP/encore"
-          echo "ENCORE_INSTALL=$RUNNER_TEMP/encore" >> "$GITHUB_ENV"
-          echo "$RUNNER_TEMP/encore/bin" >> "$GITHUB_PATH"
-      - name: Compile and test native services
-        working-directory: encore-api
-        run: |
-          encore test -p=1 ./automation/... ./thingmodel/... ./l1-access/authn ./l3-core/notification/...
-      - name: Verify scheduler transport
-        run: |
-          python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py
-          python3 -m unittest discover -s deploy/community-test -p test_encore_artifacts.py
-      - name: Verify source credential provisioning
-        working-directory: encore-api
-        run: go test -tags notification_cli ./cmd/notification-source-provision
-      - name: Package immutable tracked source
-        run: |
-          mkdir -p candidate/tools
-          git archive --format=tar HEAD encore-api | tar -xf - -C candidate
-          (cd encore-api && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags notification_cli -trimpath -o ../candidate/tools/notification-source-provision ./cmd/notification-source-provision)
-          python3 - <<'PY'
-          import pathlib,json,hashlib,os,tarfile
-          root=pathlib.Path('candidate')
-          manifest={'commit':os.environ['GITHUB_SHA'],'sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()}}
-          (root/'manifest.json').write_text(json.dumps(manifest,indent=2))
-          with tarfile.open('encore-'+os.environ['GITHUB_SHA']+'.tar.gz','w:gz') as archive:
-              for path in root.iterdir(): archive.add(str(path),arcname=path.name)
-          PY
-      - name: Configure authenticated SSH
+      - name: Prepare existing deployment access
         env:
           DEPLOY_KEY: ${{ secrets.C_SSH_KEY }}
         run: |
           set -euo pipefail
-          test -n "$DEPLOY_KEY"
           umask 077
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/community-deploy-key"
-          ssh -i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts root@47.92.253.145 'install -d -m 700 /opt/tp-community-actions/incoming'
-      - name: Upload source and deploy native services
+      - name: Inspect or restore notification service
+        env:
+          MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
-          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts -o ServerAliveInterval=20 -o ServerAliveCountMax=9)
-          if ! ssh "${args[@]}" root@47.92.253.145 'test -f /opt/tp-community-actions/tools/encore-1.58.6/.archive-sha256'; then
-            scp "${args[@]}" "$RUNNER_TEMP/encore-cli.tar.gz" root@47.92.253.145:/opt/tp-community-actions/incoming/encore-1.58.6-linux_amd64.tar.gz
-          fi
-          scp "${args[@]}" "encore-$GITHUB_SHA.tar.gz" deploy/community-test/deploy_encore.py deploy/community-test/encore_migrations.py deploy/community-test/encore_artifacts.py deploy/community-test/install_encore_cli.py deploy/community-test/automation_tick.py deploy/community-test/notification_renew.py root@47.92.253.145:/opt/tp-community-actions/incoming/
-          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/install_encore_cli.py && python3 /opt/tp-community-actions/incoming/deploy_encore.py '$GITHUB_SHA'"
-      - name: Preserve source identity
-        uses: actions/upload-artifact@v4
+          args=(-i "$RUNNER_TEMP/community-deploy-key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=deploy/community-test/known_hosts)
+          scp "${args[@]}" deploy/community-test/notification_migrate.py root@47.92.253.145:/opt/tp-community-actions/incoming/notification_migrate.py
+          ssh "${args[@]}" root@47.92.253.145 "python3 /opt/tp-community-actions/incoming/notification_migrate.py '$MODE'" > maintenance-result.json
+      - uses: actions/upload-artifact@v4
         with:
-          name: encore-deployment-${{ github.sha }}
-          path: candidate/manifest.json
-      - name: Remove runner SSH key
+          name: notification-migration-report
+          path: maintenance-result.json
+          retention-days: 3
+      - name: Remove runner key
         if: always()
         run: rm -f "$RUNNER_TEMP/community-deploy-key"
