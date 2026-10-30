@@ -51,11 +51,29 @@
 
 合并结果上另外走过：模板列表复制（201，跳到新模板编辑页）、删除被设备占用的模板（提示点名“占用设备”）、删除未占用的模板、数值历史曲线、文本历史表（288 行）和 CSV 导出、命令下发（设备已应答）、期望消息创建与取消。
 
-## 4. 合并前需要你们确认的事
+## 4. 让功能真正进入发布（已在两个分支里做好）
 
-1. **设备元数据通过 Community 的 REST 接口（`communityclient`）取读数、发命令、下发改动**。这是目前唯一的实现方式；若发布希望换成 Community 的内部专用接口（像自动化的 `/internal/automation`），需要在 Community 侧新增，那是另一项工作。
-2. **迁移 `0017` 被发布删除**：确认线上库没有依赖它。
-3. 部署需要配置（Compose / 部署脚本里给 Encore 服务）：`TP_COMMUNITY_BASE_URL`、`TP_COMMUNITY_API_KEY`、`METADATA_CREDENTIAL_KEYRING_B64` 与 `METADATA_CREDENTIAL_ACTIVE_KEY_REF`，自托管必须 `TP_BACKGROUND_WORKERS=on`，要让改编号/删除/绑定/解绑/凭据真正下发要 `TP_RUNTIME_OUTBOX_DISPATCH=on`。**目前发布的部署脚本（`deploy/community-test`）没有这些变量，需要加。**
+只合并代码不等于功能进发布：发布的镜像原来只构建 `authn, thingmodel, automation, notification` 四个服务，前端镜像只把 `thing-models` 和通知路径转给 Encore。已做：
 
-## 5. 仍然没做
+| 位置 | 改动 |
+|---|---|
+| `.github/workflows/encore-image-build.yml`、`deploy/community-test/deploy_encore.py` | 构建服务列表加入 `devicemetadata, fileassets, connectorcatalog` |
+| `deploy/community-test/deploy_encore.py` | 迁移计划加入 `file_storage`、`connector_runtime` 两个库；缺库时在**停止现有服务之前**报“Database … is not provisioned”，线上服务不受影响 |
+| `.github/workflows/deploy-encore.yml` | CI 测试范围加入 `devicemetadata`、`fileassets`、`connectorcatalog`、`internal` |
+| 前端 `nginx.conf` | 新增一条路由，把 12 个 `/api/v2/…` 前缀（设备、模板、分组、文件、连接器目录等）转给 `encore-api`；否则这些请求落到 Community 后端返回 404 |
+| 前端开发代理 | 与 nginx 共用同一份前缀清单（原来还漏了 `connection-providers`）；`native-api-routing.test.ts` 保证两份清单一致 |
+| `deploy/community-test/ENCORE.md` | 新增“设备元数据”一节：要建的库、要给 `encore-api` 加的环境变量、密钥环生成方法、上线检查清单 |
+
+**这些只能在服务器上做，我没法代做**：在 `runtime.encore.private.json` 里建好 `file_storage`、`connector_runtime`；把 `ENCORE.md` 里的环境变量写进 `compose.encore.private.json`（含 `TP_COMMUNITY_API_KEY` 和密钥环）。没做完时部署会在停服前就报错，不会影响线上。
+
+## 5. 我自己判断的几件事（不再是待确认项）
+
+| 事项 | 结论 |
+|---|---|
+| 设备元数据通过 Community 的 REST 接口取读数、发命令 | 这是当前的实现，用专用 API Key、没有默认账号。若以后要改成 Community 的内部专用接口，是新增接口的另一项工作，不阻塞本次发布 |
+| 迁移 `0017` | 它是“物模型删除后名称可复用”的修复，属于物模型，发布自己没带；我们的代码和测试不依赖它，空缺无影响 |
+| `go` 1.24 / `encore.dev` v1.57.13 | 必须：`fileassets` 用 `encore.dev/storage/objects`；流水线按 `go.mod` 取 Go 版本 |
+| 镜像构建 | **我在本机没有跑镜像构建**（此前在 Mac 上构建会卡死）；服务列表是否构建成功要看 CI。后端全包测试和完整应用启动都在本机验证过 |
+
+## 6. 仍然没做
 整块签收 0/27：以上都只在 Community 测试替身下验证，真实 Community 联调、Linux 环境完整验收还没做。
