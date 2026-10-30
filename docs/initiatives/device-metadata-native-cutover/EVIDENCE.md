@@ -1307,3 +1307,5 @@ GET仅SELECT摘要；POST token及username_password生成/导入、X509只接受
 - **运行验收未签收**：OrbStack 重启后自有 API 镜像与 stub 容器消失，`/tmp/ev/` 的协议配置 HTTP/UI 证据被系统清理，因此早前那次「PATCH 200/旧 ETag 412/无物模型 422/刷新读回精度」只能记为已执行、制品不可复核，不作为证据引用。三个 Tab 一律不计完成。
 - 环境阻塞（已核实，非猜测）：macOS 上 `encore run` 无法起全应用，`notification` 的隐私守卫硬性要求 `GOOS=linux`，init 失败即致命退出；`encore run` 无 `--services`；`encore build docker --services … --skip-config` 在 Encore CLI 1.58.6 上挂起 18 分钟零输出（仓库 README 已记录该 CLI 在此路径的循环），已终止。owned PG 卷 `codex-dm-native-read-57fc52d5-pgdata` 仍在。下一步改走仓库自带 Linux 容器通道重建 harness，再一次性补 A1/A2/A3 的真实 HTTP 与浏览器验收。
 - 页面明示能力边界：数据处理「调试运行」依赖 `POST /api/v2/processing-script-tests`（无 handler），页面上直接写明不可用，不做假入口；设备设置停用按合同语义提示「只阻止新绑定/新激活，不自动断开现有设备」。
+
+> 2026-10-30：为保持发布分支干净，已删除本目录下的源码快照（`*.tar.gz`，源码本身在 git 历史中）和原始运行日志（`*.log`）。摘要、清单（`*.json`/`*.md`）与截图仍保留；文中提到被删文件之处以 git 历史为准。

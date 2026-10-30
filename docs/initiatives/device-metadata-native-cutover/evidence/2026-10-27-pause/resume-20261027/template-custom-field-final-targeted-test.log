@@ -1,5 +1,0 @@
-Command (run from the frozen 480-file ordinary clone, encore-api):
-encore test ./devicemetadata -run 'TestParseNativeTemplate(CustomFieldChanges|Patch)|TestMergeNativeCustomFieldChanges|TestMergeNativeCustomFieldChangesUsesStrictDefinitionSchema|TestNativeTemplateCustomFieldChangesProtectLiveDeviceValues|TestNativeDeviceCustomFieldWriteSerializesWithDefinitionRemoval|TestNativeTemplateMutationProblemKeepsConditionalAndBusinessConflictsSeparate' -count=1
-
-Result:
-ok  encore.app/devicemetadata  1.103s

@@ -1,3 +1,0 @@
-pnpm exec tsc --project tsconfig.device-info-native.tmp.json --pretty false
-exit=0
-Scoped include: device-info-native.test.ts and device-info-native.ts. Temporary config mapped @/utils/storage to a no-secret localStg shim so the check stayed within this module; both temporary files were removed. This is not a full frontend typecheck.
