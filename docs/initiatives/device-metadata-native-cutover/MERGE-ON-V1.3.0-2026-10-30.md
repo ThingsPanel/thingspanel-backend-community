@@ -20,11 +20,19 @@
 | kernel | `codex/metadata-menus-native-completion` | `main-1.3.0` | 代码来源，保留历史；今后以 backend 分支为准 |
 
 ### 后端移植做了什么
-- 以 kernel `main-1.3.0` 为基线做文件级三方合并：新增 212 个文件、改 8 个、自动合并 5 个（`internal/authz/engine.go`、`l1-access/authn/auth.go`、`thingmodel/postgres*.go`、`thingmodel/service.go`）。
-- 整包恢复 `internal/legacy`、`internal/closedloop`、`l3-core/pluginmgr`：新代码的命令、读数、下发、凭据和“连接器目录/设备配置校验”都依赖它们。**发布有意删掉了它们，这是需要你们确认的取舍（见 §4）。**
-- `go.mod`/`go.sum` 以发布版本为准，再 `go mod tidy`：`go` 1.23.0 → 1.24.0，`encore.dev` v1.30.0 → v1.57.13，`pgx` 5.7.2 → 5.7.6，新增 `miniredis`、`testify` 升级。发布流水线用 `go-version-file: encore-api/go.mod`，所以会自动用 1.24。
+- 以 kernel `main-1.3.0` 为基线做文件级三方合并：新增约 210 个文件、自动合并 5 个（`internal/authz/engine.go`、`l1-access/authn/auth.go`、`thingmodel/postgres*.go`、`thingmodel/service.go`）；不带 `automationowner`（发布的 `automation` 路由相同）。
+- **不是把发布删掉的东西原样搬回去**。发布瘦身是对的，我们只保留设备元数据真正需要的，并改成职责清楚的样子：
+
+| 模块 | 做法 | 理由 |
+|---|---|---|
+| `internal/communityclient`（原 `internal/legacy`） | 保留，改名；**去掉默认地址 `demo.thingspanel.cn` 和默认账号 `test@test.cn/123456`**；没配置时所有调用返回明确的“设备运行时未配置”（不会被当成 Community 拒绝）；优先用 API Key | 设备元数据的读数、命令、导出、下发都要经它到 Community，职责是“设备运行时客户端”；默认账号和演示服务器绝不能进产品 |
+| `l3-core/connectorcatalog`（原 `pluginmgr`） | 只保留“连接器目录”（`/api/v2/connection-providers` 及其库、模式校验）；**不带回**原来的 SSH 安装适配器、K8s 运行器、旧设备连接器 | 模板编辑器要选连接器，所以要目录；远程执行命令的安装功能不该出现在发布里 |
+| `internal/closedloop` | 不带 | 没有任何代码使用 |
+| 迁移 `0017` | 不带 | 发布已删；我们从 `0018` 起，空缺不影响 |
+| `go` / `encore.dev` | `go` 1.24.0、`encore.dev` v1.57.13 | `fileassets`（模板封面图上传）用到 `encore.dev/storage/objects`，旧版没有；发布流水线按 `go.mod` 取 Go 版本 |
+
+- **环境变量统一到发布的命名**：`TP_COMMUNITY_BASE_URL`（与发布的自动化共用）、`TP_COMMUNITY_API_KEY`（推荐）或 `TP_COMMUNITY_EMAIL` + `TP_COMMUNITY_PASSWORD`（专用服务账号）。旧的 `TP_BASE / TP_API_KEY / TP_EMAIL / TP_PASSWORD` 不再识别。
 - `l1-access/authn/auth_test.go` 改成新的 `AuthHandler(ctx, *AuthParams)` 调用。
-- 迁移：发布到 `0016`，我们从 `0018` 起；`0017` 被发布删除，**没有恢复**（空缺不影响，全包测试和启动都通过）。
 
 ### 前端合并做了什么
 冲突 4 个：`thingsvis-auth.test.ts`（取 master）、`router/routes/index.ts`（两边的导入都保留）、`device/details/index.vue`（去掉 master 里一行多余的 `ref('')`）、`device/manage/index.vue`（保留 master 的统计接口 404 容错）。另删除 4 个 master 没有的旧自动化文件，`permission.test.ts` 用 master 的，告警列表客户端兼容发布的响应（只有 `alarms`，没有 `total/limit/offset`）。
@@ -41,14 +49,13 @@
 | 前端单元测试 | 313 个通过；node:test 相关文件通过 |
 | 页面（合并后前端 + 合并后后端） | 设备“连接”（凭据已生效、轮换/撤销）、“自动化”（显示我们创建的规则，来自发布的引擎）、“告警”、“设置”（模板只读）都正常 |
 
-没有重新验证的：模板列表复制/删除、历史表与导出、命令/期望消息等页面（代码未改，但没在合并结果上再走一遍）。
+合并结果上另外走过：模板列表复制（201，跳到新模板编辑页）、删除被设备占用的模板（提示点名“占用设备”）、删除未占用的模板、数值历史曲线、文本历史表（288 行）和 CSV 导出、命令下发（设备已应答）、期望消息创建与取消。
 
 ## 4. 合并前需要你们确认的事
 
-1. **是否接受设备元数据继续依赖 `internal/legacy` 去调 Community（REST）**。发布有意删了它；不恢复的话命令、读数、导出、凭据/子设备/改号/删除下发都无法工作。
-2. **`go` 1.24 与 `encore.dev` v1.57.13** 的版本提升是否可接受（发布原为 1.23 / v1.30.0）。
-3. **迁移 `0017` 被删**：确认线上库没有依赖它。
-4. 部署环境变量见 `HANDOFF-MERGE-1.3-2026-10-29.md` §8；自托管必须 `TP_BACKGROUND_WORKERS=on`，要让改编号/删除/绑定/解绑/凭据真正下发要 `TP_RUNTIME_OUTBOX_DISPATCH=on`，并配 `TP_BASE` 等指向 Community，以及 `METADATA_CREDENTIAL_KEYRING_B64`。
+1. **设备元数据通过 Community 的 REST 接口（`communityclient`）取读数、发命令、下发改动**。这是目前唯一的实现方式；若发布希望换成 Community 的内部专用接口（像自动化的 `/internal/automation`），需要在 Community 侧新增，那是另一项工作。
+2. **迁移 `0017` 被发布删除**：确认线上库没有依赖它。
+3. 部署需要配置（Compose / 部署脚本里给 Encore 服务）：`TP_COMMUNITY_BASE_URL`、`TP_COMMUNITY_API_KEY`、`METADATA_CREDENTIAL_KEYRING_B64` 与 `METADATA_CREDENTIAL_ACTIVE_KEY_REF`，自托管必须 `TP_BACKGROUND_WORKERS=on`，要让改编号/删除/绑定/解绑/凭据真正下发要 `TP_RUNTIME_OUTBOX_DISPATCH=on`。**目前发布的部署脚本（`deploy/community-test`）没有这些变量，需要加。**
 
 ## 5. 仍然没做
 整块签收 0/27：以上都只在 Community 测试替身下验证，真实 Community 联调、Linux 环境完整验收还没做。

@@ -140,9 +140,9 @@
 | # | 事项 | 做到什么程度 | 主要文件 |
 |---|---|---|---|
 | 1 | DM-RT-007 回执入库逻辑 | **完成并有真实数据库测试**：只有 `applied` 回执才把操作变成功；`received`/`stale` 不完成；可重试失败保持待处理；不可重试失败写 problem；摘要/generation/租户不符被拒；重放幂等 | `devicemetadata/native_runtime_receipt.go` + `_test.go` |
-| 2 | outbox 投递器 | **完成，默认关闭，未联调**：只投递改编号、删除设备、绑定子设备；成功→已生效，Community 明确拒绝→失败，超时/5xx→保持待处理重试；删除被拒时用 `DeviceGone` 确认“已不存在”才算成功 | `devicemetadata/native_runtime_dispatch.go` + `_test.go`；`internal/legacy/devices.go` |
+| 2 | outbox 投递器 | **完成，默认关闭，未联调**：只投递改编号、删除设备、绑定子设备；成功→已生效，Community 明确拒绝→失败，超时/5xx→保持待处理重试；删除被拒时用 `DeviceGone` 确认“已不存在”才算成功 | `devicemetadata/native_runtime_dispatch.go` + `_test.go`；`internal/communityclient/devices.go` |
 | 3 | 凭据明文显示 | **完成**：`GET /api/v2/devices/{id}/credentials` 每条带 `secret`（x509、已撤销为 null），响应 `no-store`；OpenAPI 新增 `CredentialDetail`；前端连接页显示 | `native_credential_read.go`；`openapi.yaml`；`native-device-credentials.vue` |
-| 4 | 原始历史读数 | **完成**：`GET .../readings?kind=telemetry&identifier&from&to`，区间 [from,to)，单次 ≤24h；前端遥测历史表改用；聚合/属性历史仍 400 | `native_runtime_read.go`；`internal/legacy/runtime.go`；`history-data.vue` |
+| 4 | 原始历史读数 | **完成**：`GET .../readings?kind=telemetry&identifier&from&to`，区间 [from,to)，单次 ≤24h；前端遥测历史表改用；聚合/属性历史仍 400 | `native_runtime_read.go`；`internal/communityclient/runtime.go`；`history-data.vue` |
 | 5 | 模板脚本沙箱调试 | **完成**：`POST /api/v2/processing-script-tests`，隔离 Lua，1 秒/256KiB；前端脚本编辑框加“调试运行” | `native_processing_script.go`；`internal/luasandbox/*`；`native-template-data-processing.vue` |
 | 6 | 设备模拟器 | **后端完成；前端面板已写，未在真实浏览器验证**：6 个接口 + 迁移 0037；运行同步且限 20 条 | `native_device_simulator.go`；`migrations/0037_*` |
 | 7 | 单一 E2E checklist | 完成 | `E2E-CHECKLIST-2026-10-29.md` |
@@ -298,7 +298,7 @@
 | 变量 | 作用 | 默认 | 备注 |
 |---|---|---|---|
 | `TP_RUNTIME_OUTBOX_DISPATCH` | 开启 outbox 投递器 | 关 | **新**，值 `on` 才开启 |
-| `TP_BASE` / `TP_API_KEY` / `TP_EMAIL` / `TP_PASSWORD` | Community 客户端地址与账号 | **`https://demo.thingspanel.cn` / 空 / `test@test.cn` / `123456`** | ⚠ 未配置时默认指向公网演示站；开启投递器前**必须**配置，否则会向演示站发写请求 |
+| `TP_COMMUNITY_BASE_URL` / `TP_COMMUNITY_API_KEY` / `TP_COMMUNITY_EMAIL` / `TP_COMMUNITY_PASSWORD` | Community 客户端地址与账号 | **`https://demo.thingspanel.cn` / 空 / `test@test.cn` / `123456`** | ⚠ 未配置时默认指向公网演示站；开启投递器前**必须**配置，否则会向演示站发写请求 |
 | `TP_RUNTIME_DEVICE_ID_MODE` | 设为 `identity` 时把原生 UUID 当 Community 设备 ID | 空 | |
 | `TP_RUNTIME_COMMUNITY_NAMESPACE` | Community 运行时引用的命名空间 | `community` | |
 | `TP_DEVICE_CONNECTION_ENDPOINT` | 连接信息里展示的接入地址 | 未配置显示“未配置” | |
@@ -361,7 +361,7 @@
 | # | 严重度 | 问题 | 位置 / 说明 |
 |---|---|---|---|
 | 1 | 高 | **全部未提交**，仍在工作区；任何清理/切分支操作都可能丢失 | kernel 197、frontend 125 |
-| 2 | 高 | 投递器开启时若未配置 `TP_BASE`，会向 `https://demo.thingspanel.cn` 发写请求 | `internal/legacy/client.go`（此前代码，默认值如此） |
+| 2 | 高 | 投递器开启时若未配置 `TP_COMMUNITY_BASE_URL`，会向 `https://demo.thingspanel.cn` 发写请求 | `internal/communityclient/client.go`（此前代码，默认值如此） |
 | 3 | 高 | 凭据明文：有 `credentials:read` 即可见所有未撤销凭据 | 产品决定，需安全评审知情 |
 | 4 | 中 | 前端 `vue-tsc` 全项目 **1316** 个类型错误；落在本分支改动/新增文件里的有 **25** 个：`src/router/routes/index.ts` 12 个（手写路由名不在生成的 `elegant-router.d.ts` 类型里，**需重新生成路由类型**）、`permission.test.ts` 3、`automation-rules-api.test.ts` 5、`device-info-state.test.ts` 2、`scoped-create-flow.ts` 2、`automation-rules.ts` 1。其余 1291 个在既有文件（如 `src/service/api/device.ts` 91 个，该文件本分支未改）。**我没有逐个确认哪些是本分支引入的** | |
 | 5 | 中 | 旧版模板 `draft/publish/archive/derive-draft/bind-thing-model` 接口及 `/api/migrate/*` 仍在代码里（HEAD 已有），与“模板不做草稿/版本/发布”的决定矛盾 | `devicemetadata/` 旧路由（60 条 `/api/...`）。**需决定合并时是否删除**；我没有删 |
@@ -385,7 +385,7 @@
 | 范围 | 命令（工作目录） | 结果 |
 |---|---|---|
 | 后端设备元数据 | `encore test ./devicemetadata -count=1`（`kernel/encore-api`） | **ok**，325 个顶层测试通过 |
-| 后端其余 | `encore test ./internal/... ./thingmodel/... -count=1` | **ok**：`internal/authz`、`internal/legacy`、`internal/luasandbox`、`thingmodel`、`thingmodel/app`、`thingmodel/core` 全部通过 |
+| 后端其余 | `encore test ./internal/... ./thingmodel/... -count=1` | **ok**：`internal/authz`、`internal/communityclient`、`internal/luasandbox`、`thingmodel`、`thingmodel/app`、`thingmodel/core` 全部通过 |
 | CLI | `go test ./...`（`kernel/cli/tpctl-go`） | **ok** |
 | 前端 node:test | 见下 | **129 项全部通过**，0 失败、0 跳过 |
 | 前端类型检查 | `npx vue-tsc --noEmit -p tsconfig.json`（`frontend`） | **1316 个错误**，其中 25 个在本分支改动文件里，见 §10 第 4 项 |
@@ -443,7 +443,7 @@ cd kernel/cli/tpctl-go && go test ./...
 2. 决定 §10 的待定项：旧模板 draft/publish 接口是否删除；automationowner 与 pluginmgr 是否同批合并；文档是否进 Community 仓库。
 3. 重新生成前端路由类型和 `generated/types.ts`，清掉 §10 第 4、9 项。
 4. 核对 gopher-lua 版本和 `go.sum`（§8.2）。
-5. 在测试环境配置 `TP_BASE` 等变量，再开 `TP_RUNTIME_OUTBOX_DISPATCH=on`，用一个测试设备联调改编号/删除/绑定。
+5. 在测试环境配置 `TP_COMMUNITY_BASE_URL` 等变量，再开 `TP_RUNTIME_OUTBOX_DISPATCH=on`，用一个测试设备联调改编号/删除/绑定。
 6. 给我们一套固定的测试租户和账号，补真实浏览器 + 真实后端的端到端，逐块更新 `E2E-CHECKLIST-2026-10-29.md`。
 7. 在 Community 接入层补“启用状态参与鉴权”和“凭据按 generation 生效”后，再扩展投递器处理启停/凭据（这是解开 D4、D14 的关键）。
 8. 之后再做：图表页面接聚合读数、更大的聚合范围（需要 Community 或时序库侧下推聚合并返回样本数）、模拟器异步化。

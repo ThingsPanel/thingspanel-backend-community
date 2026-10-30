@@ -75,7 +75,7 @@ E. **开发环境里导出完成后下载 404。** Vite 开发代理没有 `/api
 - **长导出（3 天）**：后台任务按小时分片读取 Community，完成后下载一个文件：表头只出现一次、约 4320 行、没有重复时间戳、新到旧排序，进度为全部完成。
 - **运行时下发**：改编号提交后，投递器真实调用 Community 的 `PUT /device`，操作变为成功，设备读回新编号；删除设备同理，调用了 `DELETE /device/:id`，操作成功，设备从租户里消失。
 
-启动需要的环境变量：`TP_BASE`（替身地址）、`TP_EMAIL`/`TP_PASSWORD`、`TP_RUNTIME_DEVICE_ID_MODE=identity`、`TP_RUNTIME_OUTBOX_DISPATCH=on`、`TP_BACKGROUND_WORKERS=on`。
+启动需要的环境变量：`TP_COMMUNITY_BASE_URL`（替身地址）、`TP_COMMUNITY_EMAIL`/`TP_COMMUNITY_PASSWORD`、`TP_RUNTIME_DEVICE_ID_MODE=identity`、`TP_RUNTIME_OUTBOX_DISPATCH=on`、`TP_BACKGROUND_WORKERS=on`。
 
 这仍然不是真实 Community：真实的鉴权、数据量、时序库行为和 MQTT 没有覆盖。
 

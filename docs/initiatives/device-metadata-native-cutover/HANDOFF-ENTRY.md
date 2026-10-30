@@ -40,7 +40,7 @@ frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4
 
 **自托管部署必须设置 `TP_BACKGROUND_WORKERS=on`**：Encore 的 `cron` 只在 Encore Cloud 触发，本机和自托管默认不会运行长导出、过期文件清理、outbox 投递器；这个开关在服务进程内运行同样三个任务（见 `LOCAL-E2E.md`）。
 
-部署前要设置的环境变量与权限见 `HANDOFF-MERGE-1.3-2026-10-29.md` §8（重点：`TP_RUNTIME_OUTBOX_DISPATCH=on` 才会真正向 Community 下发改编号/删除/绑定子设备；`TP_BASE`/`TP_API_KEY` 等指向 Community；`METADATA_CREDENTIAL_KEYRING_B64`、`METADATA_CREDENTIAL_ACTIVE_KEY_REF` 凭据加密；`TP_DEVICE_CONNECTION_ENDPOINT`；`TP_AUTH_MODE`）。
+部署前要设置的环境变量与权限见 `HANDOFF-MERGE-1.3-2026-10-29.md` §8（重点：`TP_RUNTIME_OUTBOX_DISPATCH=on` 才会真正向 Community 下发改编号/删除/绑定子设备；`TP_COMMUNITY_BASE_URL`/`TP_COMMUNITY_API_KEY` 等指向 Community；`METADATA_CREDENTIAL_KEYRING_B64`、`METADATA_CREDENTIAL_ACTIVE_KEY_REF` 凭据加密；`TP_DEVICE_CONNECTION_ENDPOINT`；`TP_AUTH_MODE`）。
 
 ## 4. 前端合并冲突（已解决，在集成分支里）
 
