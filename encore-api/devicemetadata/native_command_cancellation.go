@@ -79,7 +79,7 @@ func cancelNativeDeviceCommand(ctx context.Context, identity nativeDeviceWriteId
 			if err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, err
 			}
-			rows, err := nativeRuntimeLegacy().ListExpectedCommands(ctx, legacyID, 1, 100)
+			rows, err := nativeRuntimeClient().ListExpectedCommands(ctx, legacyID, 1, 100)
 			if err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 			}
@@ -92,7 +92,7 @@ func cancelNativeDeviceCommand(ctx context.Context, identity nativeDeviceWriteId
 			if status != "pending" {
 				return metadataWriteResponse{}, metadataWriteAudit{}, nativeCommandConflict("the command is no longer queued in the device runtime")
 			}
-			if err := nativeRuntimeLegacy().DeleteExpected(ctx, expectedID); err != nil {
+			if err := nativeRuntimeClient().DeleteExpected(ctx, expectedID); err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 			}
 			if _, err := tx.Exec(ctx, `UPDATE device_command_executions SET state='cancelled',reason=$4,updated_at=NOW()

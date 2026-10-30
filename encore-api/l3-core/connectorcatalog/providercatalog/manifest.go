@@ -13,7 +13,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"encore.app/l3-core/pluginmgr/providerschema"
+	"encore.app/l3-core/connectorcatalog/providerschema"
 	"github.com/google/uuid"
 )
 

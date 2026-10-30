@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"encore.app/internal/legacy"
+	"encore.app/internal/communityclient"
 	"encore.dev/beta/errs"
 	"encore.dev/cron"
 	"encore.dev/rlog"
@@ -123,7 +123,7 @@ func dispatchRuntimeOutbox(ctx context.Context, applier runtimeApplier, limit in
 
 // communityRuntimeApplier maps outbox rows onto Community calls.
 type communityRuntimeApplier struct {
-	client *legacy.Client
+	client *communityclient.Client
 }
 
 func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxItem) runtimeApplyOutcome {
@@ -146,7 +146,7 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 		err = a.client.SetDeviceNumber(ctx, legacyID, str("deviceNumber"))
 	case operationKindDeviceDeletion:
 		err = a.client.RemoveDevice(ctx, legacyID)
-		if errors.Is(err, legacy.ErrRejected) {
+		if errors.Is(err, communityclient.ErrRejected) {
 			// A previous pass may have deleted the device before its receipt was
 			// recorded; a repeat is then refused. Count that as applied only if
 			// Community confirms the device no longer exists.
@@ -179,7 +179,7 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 	if err == nil {
 		return runtimeApplyOutcome{Applied: true}
 	}
-	if errors.Is(err, legacy.ErrRejected) {
+	if errors.Is(err, communityclient.ErrRejected) {
 		return runtimeApplyOutcome{FailureCode: "RUNTIME_REJECTED"}
 	}
 	return runtimeApplyOutcome{FailureCode: "RUNTIME_UNAVAILABLE", Retryable: true}
@@ -216,7 +216,7 @@ func DispatchDeviceRuntimeOutbox(ctx context.Context) error {
 	if strings.TrimSpace(os.Getenv(runtimeDispatchEnv)) != "on" {
 		return nil
 	}
-	summary, err := dispatchRuntimeOutbox(ctx, communityRuntimeApplier{client: nativeRuntimeLegacy()}, 50)
+	summary, err := dispatchRuntimeOutbox(ctx, communityRuntimeApplier{client: nativeRuntimeClient()}, 50)
 	if err != nil {
 		return err
 	}

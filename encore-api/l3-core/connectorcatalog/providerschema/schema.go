@@ -1,6 +1,6 @@
 // Package providerschema compiles and validates the public parameter schemas
 // attached to an immutable device-provider release. It intentionally has no
-// dependency on pluginmgr or Encore service initialization.
+// dependency on the catalog service or Encore service initialization.
 package providerschema
 
 import (

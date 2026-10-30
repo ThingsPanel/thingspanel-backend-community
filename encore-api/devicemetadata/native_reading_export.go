@@ -17,7 +17,7 @@ import (
 	"unicode/utf8"
 
 	"encore.app/internal/authz"
-	"encore.app/internal/legacy"
+	"encore.app/internal/communityclient"
 	"encore.app/internal/nativehttp"
 	"encore.app/l1-access/authn"
 	"encore.dev"
@@ -138,7 +138,7 @@ func (communityHistorySource) Page(ctx context.Context, tenantID, deviceID, iden
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, total, err := nativeRuntimeLegacy().ListTelemetryHistory(ctx, legacyID, identifier, fromMs, toMs, page, pageSize)
+	rows, total, err := nativeRuntimeClient().ListTelemetryHistory(ctx, legacyID, identifier, fromMs, toMs, page, pageSize)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -196,9 +196,9 @@ func rowsForExport(deviceID string, plan readingExportPlan, samples []exportSamp
 		}
 		return rows, nil
 	}
-	byIdentifier := map[string][]legacy.HistoryReading{}
+	byIdentifier := map[string][]communityclient.HistoryReading{}
 	for _, s := range samples {
-		byIdentifier[s.Identifier] = append(byIdentifier[s.Identifier], legacy.HistoryReading{Key: s.Identifier, Ts: s.At, Value: s.Value})
+		byIdentifier[s.Identifier] = append(byIdentifier[s.Identifier], communityclient.HistoryReading{Key: s.Identifier, Ts: s.At, Value: s.Value})
 	}
 	var rows []exportRow
 	for _, identifier := range plan.identifiers {

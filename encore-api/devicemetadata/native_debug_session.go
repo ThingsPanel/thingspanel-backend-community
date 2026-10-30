@@ -11,7 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"encore.app/internal/legacy"
+	"encore.app/internal/communityclient"
 	"encore.app/internal/nativehttp"
 	"encore.dev"
 	"encore.dev/beta/errs"
@@ -103,7 +103,7 @@ func decodeNativeDebugSessionRequest(body []byte) (int, error) {
 
 // debugLogFromEntry converts a Community entry. The message never carries the raw
 // payload; level is derived from the Community outcome.
-func debugLogFromEntry(deviceID string, entry legacy.DebugEntry) NativeDebugLog {
+func debugLogFromEntry(deviceID string, entry communityclient.DebugEntry) NativeDebugLog {
 	sum := sha256.Sum256([]byte(entry.Raw))
 	level := "info"
 	switch strings.ToLower(strings.TrimSpace(entry.Outcome)) {
@@ -170,7 +170,7 @@ func createNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIde
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
 		expireAt := time.Now().Unix() + int64(seconds)
-		state, err := nativeRuntimeLegacy().SetDebug(ctx, legacyID, true, expireAt)
+		state, err := nativeRuntimeClient().SetDebug(ctx, legacyID, true, expireAt)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 		}
@@ -214,7 +214,7 @@ func stopNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIdent
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
-		current, err := nativeRuntimeLegacy().GetDebugState(ctx, legacyID)
+		current, err := nativeRuntimeClient().GetDebugState(ctx, legacyID)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 		}
@@ -223,7 +223,7 @@ func stopNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIdent
 		}
 		state := "expired"
 		if current.Enabled && time.Now().Unix() <= current.ExpireAt {
-			off, err := nativeRuntimeLegacy().SetDebug(ctx, legacyID, false, 0)
+			off, err := nativeRuntimeClient().SetDebug(ctx, legacyID, false, 0)
 			if err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 			}
@@ -257,7 +257,7 @@ func listNativeDebugLogs(ctx context.Context, identity nativeDeviceReadIdentity,
 	if err != nil {
 		return nil, err
 	}
-	rows, total, err := nativeRuntimeLegacy().ListDebugLogs(ctx, legacyID, (page-1)*pageSize, pageSize)
+	rows, total, err := nativeRuntimeClient().ListDebugLogs(ctx, legacyID, (page-1)*pageSize, pageSize)
 	if err != nil {
 		return nil, runtimeUpstreamError(err)
 	}

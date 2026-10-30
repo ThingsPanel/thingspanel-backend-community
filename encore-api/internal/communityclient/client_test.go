@@ -1,4 +1,4 @@
-package legacy
+package communityclient
 
 import (
 	"context"
@@ -253,5 +253,34 @@ func TestUnbindSubdeviceCallsSubRemoveAndSurfacesRefusal(t *testing.T) {
 	refuse = true
 	if err := cli.UnbindSubdevice(context.Background(), "dev-1"); !errors.Is(err, ErrRejected) {
 		t.Fatalf("a refusal must be ErrRejected, got %v", err)
+	}
+}
+
+func TestClientHasNoDefaultsAndRefusesWhenUnconfigured(t *testing.T) {
+	for _, key := range []string{"TP_COMMUNITY_BASE_URL", "TP_COMMUNITY_API_KEY", "TP_COMMUNITY_EMAIL", "TP_COMMUNITY_PASSWORD"} {
+		t.Setenv(key, "")
+	}
+	c := NewFromEnv()
+	if c.baseURL != "" || c.apiKey != "" || c.email != "" || c.password != "" {
+		t.Fatalf("an unconfigured client must carry no default address or credentials: %+v", c)
+	}
+	if c.Configured() {
+		t.Fatal("no configuration must not count as configured")
+	}
+	if _, err := c.Login(context.Background()); !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("login without configuration must report ErrNotConfigured, got %v", err)
+	}
+	if err := c.UnbindSubdevice(context.Background(), "dev-1"); !errors.Is(err, ErrNotConfigured) || errors.Is(err, ErrRejected) {
+		t.Fatalf("an unconfigured runtime is unavailable, not a refusal: %v", err)
+	}
+
+	t.Setenv("TP_COMMUNITY_BASE_URL", "http://community.invalid/")
+	t.Setenv("TP_COMMUNITY_EMAIL", "svc@example.test")
+	if NewFromEnv().Configured() {
+		t.Fatal("an email without a password is not a credential")
+	}
+	t.Setenv("TP_COMMUNITY_API_KEY", "key")
+	if got := NewFromEnv(); !got.Configured() || got.baseURL != "http://community.invalid" {
+		t.Fatalf("base URL and key must configure the client with the slash trimmed: %+v", got)
 	}
 }

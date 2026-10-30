@@ -1,4 +1,4 @@
-package pluginmgr
+package connectorcatalog
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	"encore.app/l3-core/pluginmgr/providercatalog"
+	"encore.app/l3-core/connectorcatalog/providercatalog"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )

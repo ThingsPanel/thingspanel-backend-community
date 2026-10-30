@@ -91,7 +91,7 @@ func readNativeStatusHistory(ctx context.Context, identity nativeDeviceReadIdent
 	}
 	page := NativeDeviceStatusEventPage{Items: []NativeDeviceStatusEvent{}, Page: query.page, PageSize: query.pageSize}
 	if !query.unknownOnly {
-		rows, total, err := nativeRuntimeLegacy().ListStatusHistory(ctx, legacyID, query.page, query.pageSize, query.fromSec, query.online)
+		rows, total, err := nativeRuntimeClient().ListStatusHistory(ctx, legacyID, query.page, query.pageSize, query.fromSec, query.online)
 		if err != nil {
 			return nil, runtimeUpstreamError(err)
 		}
