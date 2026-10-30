@@ -35,3 +35,31 @@ CLI `notification-source-provision --service-policy <绝对私有策略路径> -
 Action 构建工具并校验发布包；存在该私有策略时，安装 `tp-notification-renew.timer` 每小时续期一次，并立即验证。最近脱敏结果在服务器 `notification-renew-result.json`，私有凭据原子更新到期时间，令牌保持不变。进程无须为续期重启。
 
 若机器停止超过当前 8 小时租期，过期身份不自动恢复，需按首次签发流程重新授权。停止续期 timer 只停止延长，立即撤销须走既有凭据撤销入口。发布不覆盖策略、令牌及原有授权范围；临时验收管理员保持禁用。
+
+## 设备、模板、分组与文件服务（设备元数据）
+
+镜像现在还包含 `devicemetadata`、`fileassets`、`connectorcatalog` 三个服务，前端 `nginx.conf` 把 `/api/v2/devices` 等路径转给 `encore-api`（清单与前端开发代理一致，有测试保证）。
+
+### 1. 数据库（部署前必须准备）
+`runtime.encore.private.json` 的 `sql_servers[0].databases` 里要有这两个库，脚本会按目录执行迁移；缺任何一个，脚本在**停止现有服务之前**就报 `Database ... is not provisioned`，线上服务不受影响：
+
+| 库名 | 迁移目录 |
+|---|---|
+| `file_storage`（模板封面图） | `fileassets/migrations` |
+| `connector_runtime`（连接器目录） | `l3-core/connectorcatalog/migrations` |
+
+`device_metadata`、`automation`、`notification` 原来就有。
+
+### 2. `encore-api` 服务的环境变量（写入 `compose.encore.private.json`，不要进仓库）
+| 变量 | 作用 |
+|---|---|
+| `TP_COMMUNITY_BASE_URL` | Community 地址（与自动化共用）。**不配则设备的读数、命令、导出、下发会报“设备运行时未配置”** |
+| `TP_COMMUNITY_API_KEY` | 专用于本服务的 Community API Key（推荐）；也可用专用服务账号 `TP_COMMUNITY_EMAIL` + `TP_COMMUNITY_PASSWORD` |
+| `TP_RUNTIME_OUTBOX_DISPATCH=on` | 打开后改编号、删除、绑定/解绑子设备、凭据变更才会真正下发给 Community |
+| `TP_BACKGROUND_WORKERS=on` | 自托管必须开：长导出、过期文件清理、下发投递器靠它运行（Encore 的定时任务只在 Encore Cloud 触发） |
+| `METADATA_CREDENTIAL_KEYRING_B64`、`METADATA_CREDENTIAL_ACTIVE_KEY_REF` | 设备凭据的加密密钥环。生成：`python3 -c "import os,base64,json;print(base64.b64encode(json.dumps({'key-1':base64.b64encode(os.urandom(32)).decode()}).encode()).decode())"`，活动密钥写 `key-1`。**丢失密钥环 = 已存的凭据无法解密**，请和数据库一起备份 |
+| `TP_RUNTIME_DEVICE_ID_MODE=identity` | 仅当 Community 的设备 ID 与原生设备 UUID 相同时设置（见 `HANDOFF-MERGE-1.3-2026-10-29.md` §8） |
+
+### 3. 一次性上线检查
+1. 两个新库已建并出现在运行时配置里；2. 环境变量已写入；3. 部署后访问 `/api/v2/devices`（带登录令牌）返回 200；4. 设备详情“连接”页能创建凭据且第一个凭据显示“已生效”（说明下发链路通）。
+

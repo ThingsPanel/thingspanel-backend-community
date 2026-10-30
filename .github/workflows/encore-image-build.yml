@@ -64,7 +64,7 @@ jobs:
           GOFLAGS: '-p=2'
         run: |
           set -euo pipefail
-          encore build docker "tp-encore:$VERSION-$TARGET_ARCH" --arch="$TARGET_ARCH" --services=authn,thingmodel,automation,notification --skip-config
+          encore build docker "tp-encore:$VERSION-$TARGET_ARCH" --arch="$TARGET_ARCH" --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification --skip-config
           mkdir -p "../release-tools/linux-$TARGET_ARCH"
           CGO_ENABLED=0 GOOS=linux GOARCH="$TARGET_ARCH" go build -tags notification_cli -trimpath -o "../release-tools/linux-$TARGET_ARCH/notification-source-provision" ./cmd/notification-source-provision
           tar -czf "../encore-tools-linux-$TARGET_ARCH.tar.gz" -C ../release-tools "linux-$TARGET_ARCH"

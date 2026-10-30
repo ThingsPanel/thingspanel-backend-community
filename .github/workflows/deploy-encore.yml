@@ -39,7 +39,7 @@ jobs:
       - name: Compile and test native services
         working-directory: encore-api
         run: |
-          encore test -p=1 ./automation/... ./thingmodel/... ./l1-access/authn ./l3-core/notification/...
+          encore test -p=1 ./automation/... ./thingmodel/... ./devicemetadata/... ./fileassets/... ./l3-core/connectorcatalog/... ./internal/... ./l1-access/authn ./l3-core/notification/...
       - name: Verify scheduler transport
         run: |
           python3 -m unittest discover -s deploy/community-test -p test_automation_tick.py
