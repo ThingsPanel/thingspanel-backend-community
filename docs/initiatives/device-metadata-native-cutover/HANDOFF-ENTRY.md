@@ -29,6 +29,8 @@ kernel 的 7 个提交（按顺序）：
 
 frontend 的 2 个提交：功能（页面、传输层、测试）；以及把 4 个从未被 vitest 收集的 API 单元测试挪到 `src/__tests__/unit` 使其真正运行。
 
+> **2026-10-30 更新：本节已过期。** 同事已发布 `v1.3.0`，设备元数据功能要落到那版上，做法、验证和待确认事项见 `MERGE-ON-V1.3.0-2026-10-30.md`。
+
 ## 3. 合并顺序（建议）
 
 1. **kernel**：先合 `codex/metadata-menus-native-completion` 到 `main-1.3.0`（快进）。数据库迁移目录以 `encore-api/devicemetadata/db.go` 的声明为准，不是仓库根的 `migrations/`。
