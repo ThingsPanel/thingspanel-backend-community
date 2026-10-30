@@ -77,3 +77,20 @@
 
 ## 6. 仍然没做
 整块签收 0/27：以上都只在 Community 测试替身下验证，真实 Community 联调、Linux 环境完整验收还没做。
+
+## 7. 新旧接口覆盖核对（移交前把关，2026-10-30）
+
+方法：对比 master 与本分支前端 API 模块的导出和使用，再从 `src/views/device/*/index.vue` 沿 import 图查可达性；后端以 e2e 31/31 和页面实走为证。**结论：用户要求保留的功能都已由新接口覆盖；下列是有意去掉或仍走旧路径的项，移交人需知道。**
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| 设备/模板/分组的增删改查、复制、删除引用检查 | 已覆盖 | 原生 `/api/v2/*` |
+| 凭据激活/轮换/撤销、子设备解绑 | 已覆盖 | 经 outbox 调 Community `update/voucher`、`sub-remove` |
+| 设备启停、换模板、批量导入/换模板/绑网关、模板导入导出分享 | 有意不做 | 产品确认社区版不需要 |
+| 模板“发布到资源中心” | 已移除 | 属模板分享，与上条同口径；此前是永久禁用按钮，已删，列表页不再出现 |
+| 属性下发/下发记录/属性删除、遥测上报日志、删除最新值 | 有意去掉 | 原生契约没有对应接口；需要时另提契约 |
+| 告警历史删除 | 已移到自动化引擎 | 不在设备元数据服务内 |
+| 曲线历史、紧凑读数当前值、`details-child` / `device-analysis` / `join` | 仍走旧路径 | 可达但未迁移；按迁移期工具对待，别当作已原生化 |
+| 9 个无引用旧文件（config-detail 五个模块、config-modal、publish-confirm-modal、add-devices-step2、AutomaticModeStep） | 已删除 | 前端提交 fac4fda7 |
+
+验证：`npm run typecheck` 0 错误；`vitest src/router src/__tests__/unit` 40 个文件中仅 `notification-plugins-page` 偶发失败一次（单跑一次失败一次通过，该文件与 master 一致，与本功能无关）。后端本轮未改动，沿用此前全包通过和 e2e 31/31。发布镜像本地构建（`encore build docker`）在撰写时仍在跑，结果以流水线 `encore-image-build.yml` 为准，**未验证**。
