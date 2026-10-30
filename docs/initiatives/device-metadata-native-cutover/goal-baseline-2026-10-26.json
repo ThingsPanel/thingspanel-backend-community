@@ -1,0 +1,61 @@
+{
+  "recorded_at": "2026-10-26T07:03:37.773127+08:00",
+  "source_plan_directory": "/Users/junhong/Downloads/code/thingspanel-backend-community/docs/initiatives/device-metadata-native-cutover",
+  "active_plan_directory": "/Users/junhong/.codex/worktrees/device-metadata-native-cutover-1.3/backend/docs/initiatives/device-metadata-native-cutover",
+  "task_scope_sha256_excluding_state_and_evidence": "d2dc17c4f49abfcbeb38385731cef8100275a5d6a7f3e0e1fb3f95eea1978145",
+  "counts": {
+    "tasks": 188,
+    "blocking": 184,
+    "operations": 108,
+    "test_case_specs": 580
+  },
+  "contract_sha256": {
+    "openapi.yaml": "cfa006232c6f77a5b5dc014eee193405185cbd8e8aeb49c7d699758e7949ebc9",
+    "DATABASE.md": "5e62ef6f3ecbec97f61c9d343d53f307a754e0a85d27a7d061d2e3033dd03694",
+    "DOMAIN-MODEL.md": "4c941376815c796de162e7fe0ee96df35adf3f089d697f96a3689a345ec45fdb",
+    "TEST-PLAN.md": "4f015f6ccb08e9d196f28c57af0e466a4f08f4d8c34094ab66f5dfb9cb4d6e55",
+    "DECISIONS.md": "fb7d31eb22e2f04278888fb7edba342a0b1acdd11247a891ad6745aae43e71a8",
+    "REVIEW-2026-10-26.md": "75e8d6fa03a33b28151a432182e6b4712935906627632498ffad5998a655205a",
+    "PARALLEL-COORDINATION-2026-10-25.md": "6cfaf9b9543b5f9459a2bfc99c00338eb5467969ec69ecacd5f6e26c9aaf2875",
+    "API-CONTRACT.md": "f512978f14e02cebe0db2eef523cf1ce82c048b8f9d67e3d2d40d0d02cfa0db5",
+    "CLI.md": "f392543b5fb7fbf4172f065ecbddf5afb04b35ea6257f5617215f518c3579e80",
+    "test-cases.json": "a51dcc0ca6f6c63620c227749443815b8c95ad45705bdbe6c5642d006183b316",
+    "api-operations.json": "7f9d628602bd784fd392caa00ae086e9963b129b714891067dbfd0accfaa1b19"
+  },
+  "status_only_files": {
+    "TASKS.md": "f1896fdfbe093207b34fcaeaf9336763ca6dd5f3679caf2163db1062d3bfa22b",
+    "tasks.json": "9c8b5e50b4b24f47f7d6122c20e4cc4ab47b459c8491a9473a8f8eaad54dddeb",
+    "EVIDENCE.md": "59c88b0ab39f5dcdb102c5dd51c4897d535fdbb0584cbac479d1ade830abd1a8"
+  },
+  "repositories": {
+    "backend": {
+      "path": "/Users/junhong/.codex/worktrees/device-metadata-native-cutover-1.3/backend",
+      "head": "d638af3e84221b2bb29b1295deef9e72521b8aa3",
+      "status": [
+        "?? docs/initiatives/"
+      ]
+    },
+    "frontend": {
+      "path": "/Users/junhong/.codex/worktrees/device-metadata-native-cutover-1.3/frontend",
+      "head": "7d331d15329af0d636265a8a97b9534fff435a21",
+      "status": []
+    },
+    "kernel": {
+      "path": "/Users/junhong/.codex/worktrees/device-metadata-native-cutover-1.3/kernel",
+      "head": "fafe0f6f8c7d8f58db69e1b4159fedaa7e55eb05",
+      "status": [
+        " M encore-api/devicemetadata/device_crud_test.go",
+        "?? encore-api/devicemetadata/group_read.go",
+        "?? encore-api/devicemetadata/group_read_test.go",
+        "?? encore-api/devicemetadata/migrations/0018_device_groups.up.sql"
+      ]
+    }
+  },
+  "existing_candidate_code_sha256": {
+    "encore-api/devicemetadata/group_read.go": "95bdc07e979faae7bb0114d6e3f920e8dad2db4423225dcd92d9a335c6234856",
+    "encore-api/devicemetadata/group_read_test.go": "e792804a522a5470e58ba9c3a55cbee5f18da86a31f92f5c2757632e8f509f2e",
+    "encore-api/devicemetadata/device_crud_test.go": "c30993430a10f9ded3a97b662c8ca8a80bec26c8ea1d735ae44784fd41c59c98",
+    "encore-api/devicemetadata/migrations/0018_device_groups.up.sql": "fc3c00ca5f2f5eb4945239ebd348203448cae21cce8b8ec87ae663f33b2d795d"
+  },
+  "scope_note": "Operational handoff only. Source/candidate task scope and normative contract hashes match. Existing candidate remains partial and uncommitted."
+}

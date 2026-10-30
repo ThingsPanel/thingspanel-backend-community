@@ -1,0 +1,52 @@
+=== RUN   TestDeleteDeviceGroupEmptyLeafSoftDeletesAndReplays
+--- PASS: TestDeleteDeviceGroupEmptyLeafSoftDeletesAndReplays (0.13s)
+=== RUN   TestDeleteDeviceGroupRejectsChildrenAndMembersWithoutDeletingDevice
+    group_delete_test.go:93: group with a member must conflict, got failed_precondition: device group has changed; fetch it again before deleting
+--- FAIL: TestDeleteDeviceGroupRejectsChildrenAndMembersWithoutDeletingDevice (0.19s)
+=== RUN   TestDeleteDeviceGroupEnforcesTenantAndCAS
+--- PASS: TestDeleteDeviceGroupEnforcesTenantAndCAS (0.02s)
+=== RUN   TestDeleteDeviceGroupSerializesAgainstChildCreationAndMemberAddition
+=== RUN   TestDeleteDeviceGroupSerializesAgainstChildCreationAndMemberAddition/child-create
+=== RUN   TestDeleteDeviceGroupSerializesAgainstChildCreationAndMemberAddition/member-add
+--- PASS: TestDeleteDeviceGroupSerializesAgainstChildCreationAndMemberAddition (0.08s)
+    --- PASS: TestDeleteDeviceGroupSerializesAgainstChildCreationAndMemberAddition/child-create (0.01s)
+    --- PASS: TestDeleteDeviceGroupSerializesAgainstChildCreationAndMemberAddition/member-add (0.01s)
+=== RUN   TestDeleteDeviceGroupRawRequiresHeadersAndEmptyBody
+--- PASS: TestDeleteDeviceGroupRawRequiresHeadersAndEmptyBody (0.00s)
+=== RUN   TestSetDeviceGroupMembersPersistsCASReplayAndNoOp
+--- PASS: TestSetDeviceGroupMembersPersistsCASReplayAndNoOp (0.10s)
+=== RUN   TestSetDeviceGroupMembersRemovalSucceedsAndRollsBackAuditFailure
+9:15AM ERR device metadata db error err="ERROR: value too long for type character varying(128) (SQLSTATE 22001)" test=TestSetDeviceGroupMembersRemovalSucceedsAndRollsBackAuditFailure
+--- PASS: TestSetDeviceGroupMembersRemovalSucceedsAndRollsBackAuditFailure (0.08s)
+=== RUN   TestSetDeviceGroupMembersRemovalPreservesOtherGroupAndDevice
+--- PASS: TestSetDeviceGroupMembersRemovalPreservesOtherGroupAndDevice (0.08s)
+=== RUN   TestSetDeviceGroupMembersConcurrentCASSerializesSameGroup
+--- PASS: TestSetDeviceGroupMembersConcurrentCASSerializesSameGroup (0.06s)
+=== RUN   TestMoveDeviceGroupPreservesSubtreeAndReplays
+--- PASS: TestMoveDeviceGroupPreservesSubtreeAndReplays (0.09s)
+=== RUN   TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates
+=== RUN   TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/self
+=== RUN   TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/descendant
+=== RUN   TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/foreign
+=== RUN   TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/missing_parent
+=== RUN   TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/stale
+=== RUN   TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/duplicate_sibling
+--- PASS: TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates (0.43s)
+    --- PASS: TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/self (0.00s)
+    --- PASS: TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/descendant (0.00s)
+    --- PASS: TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/foreign (0.00s)
+    --- PASS: TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/missing_parent (0.00s)
+    --- PASS: TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/stale (0.00s)
+    --- PASS: TestMoveDeviceGroupRejectsCyclesTenantDepthAndDuplicates/duplicate_sibling (0.00s)
+=== RUN   TestMoveDeviceGroupAtoBAndBtoAConcurrentNeverCreatesCycle
+--- PASS: TestMoveDeviceGroupAtoBAndBtoAConcurrentNeverCreatesCycle (0.04s)
+FAIL
+FAIL	encore.app/devicemetadata	2.344s
+FAIL
+
+── Test Failure ───────────────────────────────────────────────────────────────────────────[E1000]──
+
+One or more more tests failed.
+
+
+

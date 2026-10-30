@@ -1,0 +1,57 @@
+{
+  "stage": "native device registration and tags UI acceptance",
+  "result": "passed with one recorded initial failure followed by a distinct new-key UI update",
+  "syntheticOnly": true,
+  "initialPatch503": {
+    "status": 503,
+    "requestId": "7d523798-9834-4c95-b05a-baae7d70f21c",
+    "reason": "owned runtime role lacked devices UPDATE column grants; original request key was lost after page reload and was not replayed"
+  },
+  "retryPatch200AndReadback": {
+    "status": 200,
+    "via": "actual UI PATCH",
+    "freshGET": 200,
+    "tags": [
+      "区域,北侧",
+      "传感器-北侧",
+      "泵房,回水"
+    ],
+    "labelsKV": {
+      "qa_label_keep": "kept",
+      "preserved": true
+    }
+  },
+  "templateCases": [
+    {
+      "name": "UI-Native-Statistics-11301780",
+      "templateId": "de534652-ef2f-4a7c-99fa-1ebb233306b8",
+      "deviceId": "58471a05-d179-4094-ad92-88dcb63ef157",
+      "deviceKind": "standalone",
+      "POST": 201,
+      "GETdevice": 200,
+      "GETtemplateBinding": 200
+    },
+    {
+      "name": "UI-Native-Gateway-20261027",
+      "templateId": "3e2add93-6946-4866-a456-09b85ade5f8c",
+      "deviceId": "c4fb26b0-2305-4a44-9a19-5769c6b5c182",
+      "deviceKind": "gateway",
+      "fixturePOST": 201,
+      "devicePOST": 201,
+      "GETdevice": 200,
+      "GETtemplateBinding": 200
+    }
+  ],
+  "defaultNoTemplateRegistration": {
+    "deviceId": "9e17b10d-91ba-4cd7-9f52-62de2d78da37",
+    "POST": 201,
+    "deviceNumberEqualsId": true,
+    "activationState": "inactive"
+  },
+  "legacyWriteEndpointsObserved": 0,
+  "authorizationBoundary": "owned local PG/API/Vite and signed synthetic tenant only; not real IDP or device activation",
+  "detailBoundary": "legacy telemetry/detail surfaces still returned 404; native device GET and edit-tags PATCH/readback were verified",
+  "sameKeyReplay": "not verified after reload because the original request key was unavailable; no claim of same-key retry",
+  "requestLogSHA256": "9e1a440ccfed0d3ca01a7ba5b3600a09232f1a004014c343785138d5fb661928",
+  "sourceManifest": "registration-tags-stage-manifest.json"
+}

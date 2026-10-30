@@ -1,0 +1,377 @@
+{
+  "version": "device-info-v1",
+  "base": "7d331d15329af0d636265a8a97b9534fff435a21",
+  "previousFreezeSha256": "e9ce86fdf3e4960dff880a07ba49a1eda577bf23e02803ff0c3424fb093478fa",
+  "scope": "Device information original location/map and current template custom-field values. Existing HTTP/OAS/backend unchanged; preserve prior 85-file source.",
+  "files": [
+    {
+      "path": "build/config/proxy.ts",
+      "sha256": "61510c1669f7c79d2d351c4bbf10c183c1f0c91c5fa3241e6242ffb88cc8fe38"
+    },
+    {
+      "path": "src/__tests__/unit/automation-rules-api.test.ts",
+      "sha256": "28f241140f53c0a66aff88916b693d372bcca8a8c40562cfdec1f1b5668323e3"
+    },
+    {
+      "path": "src/locales/langs/en-us/route.json",
+      "sha256": "53b0819507a8027f77440146c5ab75a1651e7534e45f1d5b61b2b68db6b7cf91"
+    },
+    {
+      "path": "src/locales/langs/zh-cn/route.json",
+      "sha256": "f7df261695a81969ef3e4d440ce016d1a7a87a964582f937d1dee44bfb8e051a"
+    },
+    {
+      "path": "src/router/elegant/imports.ts",
+      "sha256": "fc6cfea06a3c01e6b0f20f3bec9c022b3990812d809cbf7c0d593966becd2292"
+    },
+    {
+      "path": "src/router/elegant/routes.ts",
+      "sha256": "4ec7e26b34d7f5d4196acd702210400eb3f774a2114ac56cf9d9e8630ed6d22e"
+    },
+    {
+      "path": "src/router/elegant/transform.ts",
+      "sha256": "8897117351ef6171a5527f775ee1eeef6cfd5918ef505ce7d6a180501d7036f4"
+    },
+    {
+      "path": "src/router/guard/permission.test.ts",
+      "sha256": "57b222812f01e36d249923b9ef21cf5403bcf4f9cab1ae521b2b790f9f92ae9f"
+    },
+    {
+      "path": "src/router/routes/index.ts",
+      "sha256": "a47fa32de94874cc2ba3678ab5a5a4d56b9fab6c6f05aab00891da53a868707e"
+    },
+    {
+      "path": "src/service/api/automation-native-transport.test.ts",
+      "sha256": "df09ba2d2f7231a63c114c048d5f4109d6d8481957aacf0e1e9f6a43a5a67e6e"
+    },
+    {
+      "path": "src/service/api/automation-native-transport.ts",
+      "sha256": "f8c8a17a136e0961742ac8423fd8ab22b95d85c57d41fd35f8e424211d049005"
+    },
+    {
+      "path": "src/service/api/automation-native.ts",
+      "sha256": "f42c1de36295a613bcce242b933d7f929b3a67db739aeef0622430ab7a7526be"
+    },
+    {
+      "path": "src/service/api/automation-rule-permissions.test.ts",
+      "sha256": "2b6320294f6582af0b99b0a87042910615102f80ae5bddc20d915dd315f2241e"
+    },
+    {
+      "path": "src/service/api/automation-rule-permissions.ts",
+      "sha256": "074f12e6e303f85ec632c985c5be42a00f9424a55b43f5437e16f1e237885cf5"
+    },
+    {
+      "path": "src/service/api/automation-rules.ts",
+      "sha256": "0443a2db190dbdc2b10cba4ce320af817e017c8c7222a068b4afed0354e30099"
+    },
+    {
+      "path": "src/service/api/device-credentials-native-transport.test.ts",
+      "sha256": "adc2979b726e816d27221666f30dc78927cca44f35968657f8c9ee5ff1779125"
+    },
+    {
+      "path": "src/service/api/device-credentials-native-transport.ts",
+      "sha256": "6619423242448e46126c3112822c8658fd341e6dd5a0af73bde391a05debc4d7"
+    },
+    {
+      "path": "src/service/api/device-credentials-native.ts",
+      "sha256": "9fe442cc0fc2c60f9e1573d6491decb3f3bf9d907f59aa906c9f353cb4b87906"
+    },
+    {
+      "path": "src/service/api/device-group-delete-state.test.ts",
+      "sha256": "47c750f049608b98619119f09d867afd0a5291dd0465a8dd26f18c68bddf35f9"
+    },
+    {
+      "path": "src/service/api/device-group-delete-state.ts",
+      "sha256": "b7234812a8a979c9be2174e168697b061b8a9116ede90c323d56c31a70c155c4"
+    },
+    {
+      "path": "src/service/api/device-group-editor-state.test.ts",
+      "sha256": "d895010e56bdc71f28d8700b83bba17d061a18b4ba220d5225c4115c957ccb1e"
+    },
+    {
+      "path": "src/service/api/device-group-editor-state.ts",
+      "sha256": "78567e2811e702e14652eb247b68667840e9b6f47542d43bb912ca40c1f33883"
+    },
+    {
+      "path": "src/service/api/device-group-membership-state.test.ts",
+      "sha256": "7b299ceefd7d3cdff4cbd5e0c0b7b02b91aab175510a982c54b771296f5eef86"
+    },
+    {
+      "path": "src/service/api/device-group-membership-state.ts",
+      "sha256": "96894568f486e6e8925ba57e23273e2e76c53f9d97b651a38a198370e91237c8"
+    },
+    {
+      "path": "src/service/api/device-group-native-transport.test.ts",
+      "sha256": "a409a713e372e1e72a5a7a33d1e544f01fa8642af13686663f93938eb0b58ebb"
+    },
+    {
+      "path": "src/service/api/device-group-native-transport.ts",
+      "sha256": "10d9ab96419a1182dcca4f70a324d7cd7baa32a30f9883663126d26b22c43678"
+    },
+    {
+      "path": "src/service/api/device-group-native.ts",
+      "sha256": "2b9b0b5c91f48ef82966582d0466c68796c85e71771d59e1c47d3b3c979e1e29"
+    },
+    {
+      "path": "src/service/api/device-info-native.test.ts",
+      "sha256": "839377cf297198125cacc39a86986326153264305feeb04acb21e3dd772ef8fc"
+    },
+    {
+      "path": "src/service/api/device-info-native.ts",
+      "sha256": "9ab56b8b418abf46e665499fc5047996f2ed487d44e4884183dfda82d927a4ed"
+    },
+    {
+      "path": "src/service/api/device-native-transport.test.ts",
+      "sha256": "855114bc2f5b7c885c0771705f6279707d87130cb31b7a46a876afd9c567279b"
+    },
+    {
+      "path": "src/service/api/device-native-transport.ts",
+      "sha256": "14f542c819b46c2ea84f44488211d0822056308aa8ace83d666308c66b34bbe1"
+    },
+    {
+      "path": "src/service/api/device-native.ts",
+      "sha256": "4cd0fe683517354d1e44736f6cf249272587b50a05791ef8b7e6423ee80f9120"
+    },
+    {
+      "path": "src/service/api/file-assets-native-transport.test.ts",
+      "sha256": "a0845b482294ee35375cb00b66958f298396a49c5abd01dd25e527f82695dcbd"
+    },
+    {
+      "path": "src/service/api/file-assets-native-transport.ts",
+      "sha256": "d012a6133d5425fb4b4b8f3e44bf4b7d31706a92d51b00e8cf77e24e87a0de32"
+    },
+    {
+      "path": "src/service/api/file-assets-native.ts",
+      "sha256": "5589bbd996a024d75b8b8901ebd84ccfe7b1586ae57b74a3560b2a19fbf98d83"
+    },
+    {
+      "path": "src/service/api/generated/device-metadata/README.md",
+      "sha256": "04ba08087519cee06b5a4640841161b45400c140553ea0d723b49f0b04614290"
+    },
+    {
+      "path": "src/service/api/generated/device-metadata/contract-metadata.json",
+      "sha256": "de5651e9ed24d7bd7bcb8e271a86708da185e79599f50f17e7a602eaab2a2d61"
+    },
+    {
+      "path": "src/service/api/generated/device-metadata/manifest.json",
+      "sha256": "74357439e4c92143daf246ee2f05b8859539bc730fdd0f0db262eace1d96d78c"
+    },
+    {
+      "path": "src/service/api/generated/device-metadata/types.ts",
+      "sha256": "402eceff0915ad80bdbe6f334cbb3120194ef7127bf48cad3c6a5afe2dc93ba2"
+    },
+    {
+      "path": "src/service/api/metadata-native-http.ts",
+      "sha256": "076fd866b4464b6d9c467c809c29b95437fd673c33ebceb85060e1f05d9fea42"
+    },
+    {
+      "path": "src/service/api/template-custom-fields-state.test.ts",
+      "sha256": "d049bc5204ef87a631ac22640d1f459de9323fb32944f74a47c1a8739675d554"
+    },
+    {
+      "path": "src/service/api/template-custom-fields-state.ts",
+      "sha256": "0750cd3ccf925d7e300bb7e9e5302e4614c4c0bacd4fc98a80c57f1b335c81a5"
+    },
+    {
+      "path": "src/service/api/template-native-transport.test.ts",
+      "sha256": "ffaf5adb36972a2c06a7278dfd752a50a663b52ef5f6870f2270a62e13d8320a"
+    },
+    {
+      "path": "src/service/api/template-native-transport.ts",
+      "sha256": "1dee2bd1450a5754503c7778b2bbf722c89a5364a3294dd2b42d58f2e5c80e35"
+    },
+    {
+      "path": "src/service/api/template-native.ts",
+      "sha256": "4a2277f587cbb92e5ac556ac5ac3bb13ef42fef5f657b1198ba816013261c58c"
+    },
+    {
+      "path": "src/typings/elegant-router.d.ts",
+      "sha256": "03b2226370213d800d8c65d1185ae637196f875da7acb072259087d97c9efe55"
+    },
+    {
+      "path": "src/typings/env.d.ts",
+      "sha256": "e929cf234bcd2e850dc91bdd902353b198a5d57c18a72180872dd0883a418956"
+    },
+    {
+      "path": "src/utils/automation/form.test.ts",
+      "sha256": "d5edb06a84923da85af78aae566dde61a4045405a1829dd4068ed79a649612d0"
+    },
+    {
+      "path": "src/utils/automation/form.ts",
+      "sha256": "29f6c7111626db274b7c587bcf7ad9dc7cf197522b13f77fd92dea1fd2df7303"
+    },
+    {
+      "path": "src/utils/automation/scoped-create-flow.test.ts",
+      "sha256": "421a728c8a6e1ffec357bcce351486bed463634b6017fe9d91757e618992052f"
+    },
+    {
+      "path": "src/utils/automation/scoped-create-flow.ts",
+      "sha256": "f06620f5ab20129286413e30c27db05843fb0a75a67e061e6b0954272d275e60"
+    },
+    {
+      "path": "src/utils/automation/summary.test.ts",
+      "sha256": "cefeab4522678d03635da7009c355216474220805cda902b8eef1ed3ae6afc4d"
+    },
+    {
+      "path": "src/utils/automation/summary.ts",
+      "sha256": "0a3feb9786a1cd0d10405af018f25af704a735d230c1047deb00347044b75927"
+    },
+    {
+      "path": "src/views/automation/modules/condition-editor.vue",
+      "sha256": "a0777ae2ff40bff8519bab96c10993154fc7ca0977eb59d605446b6cb8baad4f"
+    },
+    {
+      "path": "src/views/automation/modules/effective-rules.vue",
+      "sha256": "1a89c0bf15ab302de3b87abdd46b9999b9ecfa83f4c18da818b8f63d0213b498"
+    },
+    {
+      "path": "src/views/automation/modules/explain-drawer.vue",
+      "sha256": "63fcd3bac601d51b7f796bb765238faa7f8b37f026a5f3f4a1307174fcd48a1d"
+    },
+    {
+      "path": "src/views/automation/modules/run-timeline.vue",
+      "sha256": "0d98bb49b25b91ce9a2c1c34fb3d1c3da79a2c2b543b2b1797c4fc59270e19dd"
+    },
+    {
+      "path": "src/views/automation/modules/runs-drawer.vue",
+      "sha256": "aabdd43ced99a668c3fef32a2094524785a0d3430fd16c7b5ec8c7f9677b14b3"
+    },
+    {
+      "path": "src/views/automation/modules/simulate-drawer.vue",
+      "sha256": "687f3f3142f1b6d4e29156347a5460239b1cbba979537a55fd8ca8181a999250"
+    },
+    {
+      "path": "src/views/automation/modules/step-editor.vue",
+      "sha256": "9dc5e4ce4b942d17e88413a8e854bae33824a71fa435aaa70704a6ed5d74c058"
+    },
+    {
+      "path": "src/views/automation/rule-edit/index.vue",
+      "sha256": "2b1b642e4ebf2bbfdd4ca6049acb854477f7e8f66920769bbc7b03487e4c44d3"
+    },
+    {
+      "path": "src/views/automation/rule-manage/index.vue",
+      "sha256": "a4b9aca927e47df4c658e1f34b12001ac825a6adace6ee99f9573afa60f687c9"
+    },
+    {
+      "path": "src/views/device/config-detail/index.vue",
+      "sha256": "766ddbc87e697abc391444f76a2399f299e34142cd0874ad9087b5029739375b"
+    },
+    {
+      "path": "src/views/device/config-detail/modules/alarm-info.vue",
+      "sha256": "b383fc1e3cdc9956ef636b590c81e75584b3f1dba8d5857b0a00ba0bfe5f60bd"
+    },
+    {
+      "path": "src/views/device/config-detail/modules/automate.vue",
+      "sha256": "86708de2b3a47dee9a5a300803dfc0ca5816c76635c305911bed0394899dff28"
+    },
+    {
+      "path": "src/views/device/config-detail/modules/native-template-extend-info.vue",
+      "sha256": "e81ac4b963f0b81b03fa3621a52710feee6774e3affbeaa3d867af9f62e2a469"
+    },
+    {
+      "path": "src/views/device/config-edit/index.vue",
+      "sha256": "8933436d75bfc3a0c50438a667e09081a36da0148d41dc5da873e3451491e5c2"
+    },
+    {
+      "path": "src/views/device/config-edit/native-template-editor.vue",
+      "sha256": "96d59e8aafd01bc448a3d792d5bf2523d068e9f48958f75d70993c8da314daaa"
+    },
+    {
+      "path": "src/views/device/config/index.vue",
+      "sha256": "10b934efaa099701e038057e695f09f524a42919d45d5299ff1913b287da138b"
+    },
+    {
+      "path": "src/views/device/details/index.vue",
+      "sha256": "f1fad151ca6fe2a76ed92882e03866aaf2f24d5dfd0e9443eb0f41d5efd5b115"
+    },
+    {
+      "path": "src/views/device/details/modules/automate.vue",
+      "sha256": "200dabbd5844d52b80a0965af88cd86753ef3edaac6c2e3b2bfb55b4a48d7879"
+    },
+    {
+      "path": "src/views/device/details/modules/device-info-state.test.ts",
+      "sha256": "52dcf0e6434911342712acf0d9cac44244bab4aa7157ad20306f8a698d1d6aa9"
+    },
+    {
+      "path": "src/views/device/details/modules/device-info-state.ts",
+      "sha256": "300a25e13acec3a5fb57917f3f8540c1e3095a2863516ffda84d41f937f0cfc5"
+    },
+    {
+      "path": "src/views/device/details/modules/give-an-alarm.vue",
+      "sha256": "0e8f6f594818a507a3932390f7c08a9f0c362c56eb735147bdbb155fd1f2d6ef"
+    },
+    {
+      "path": "src/views/device/details/modules/native-device-credentials-flow.test.ts",
+      "sha256": "23297af7ba82641f1ba906852231444128be6b81410bf5c3197dc7dc5283318f"
+    },
+    {
+      "path": "src/views/device/details/modules/native-device-credentials-flow.ts",
+      "sha256": "1bfcc4a473008e82e414db2242823c543891dc02fd0f37f11d9cddcfbfaebecb"
+    },
+    {
+      "path": "src/views/device/details/modules/native-device-credentials.vue",
+      "sha256": "d77946d547132b5d3977d3fc498ef1e86e441d821c44ece56a749bc3c58748ea"
+    },
+    {
+      "path": "src/views/device/details/modules/native-device-info.vue",
+      "sha256": "81d57fef79ea39fe44cedcd851f0b65682f3f6476468a73300b6866dc10d2155"
+    },
+    {
+      "path": "src/views/device/grouping-details/index.vue",
+      "sha256": "71e22841e2f8511126064f9471d146ca34b152e73eaa3195bf7486f352d606f6"
+    },
+    {
+      "path": "src/views/device/grouping-details/modules/device-select-list.vue",
+      "sha256": "0c85bfc3602ae878a66e32f11b16144ff57c8a620330d8b954d0231bbf977018"
+    },
+    {
+      "path": "src/views/device/grouping/components/add-or-edit-devices/index.vue",
+      "sha256": "63b258f78213b4a34601e009d2bd3eb24694ebd5fea8a2a919343ede3b6c024e"
+    },
+    {
+      "path": "src/views/device/grouping/index.vue",
+      "sha256": "a08204e79497916cbbe91c48d28c858aa8b3a9b299b0e1bc646ca80a5ac2a5f9"
+    },
+    {
+      "path": "src/views/device/manage/index.vue",
+      "sha256": "1151c9fb3a1d077acfc2cbcd2e6548ab70a8f74b819d47578ef4ca79b2f55335"
+    },
+    {
+      "path": "src/views/device/manage/modules/device-readings-compact.vue",
+      "sha256": "c4581ef51c8a39eba29064d41fe5b4b6b821c62c0deb90798afb3a68815c12e3"
+    },
+    {
+      "path": "src/views/device/manage/modules/native-device-registration-result.vue",
+      "sha256": "f2961e54feaefb0dd0026fb47ee37294eb7e5b00a49169b1ed63694de11c1775"
+    },
+    {
+      "path": "src/views/device/manage/modules/native-device-registration.test.ts",
+      "sha256": "e5a09c3be22f4f5ce9631f5d1493b5620eed2b6dce3e9792b2a7f68954372031"
+    },
+    {
+      "path": "src/views/device/manage/modules/native-device-registration.ts",
+      "sha256": "8da4ae6ddd6b22b1c2f654bc1f9bc7733783576f5ed850bfa079aa4b58a855d5"
+    },
+    {
+      "path": "src/views/device/native-detail-pending.vue",
+      "sha256": "10a04bc3050356d751404ba5c380a66fad9533f519c8083013f8190b46da79e3"
+    },
+    {
+      "path": "src/views/device/shared/native-automation-panel.vue",
+      "sha256": "0f21ff7e9f446f1fa37c8c12d774020c48cf36760fda3856346bff0f6e2bfe64"
+    },
+    {
+      "path": "src/views/device/shared/native-device-alarms.vue",
+      "sha256": "db5ebac896cacaee54a1fed57f5d6c6b35422f2c32efdf3b83c4b0de6f5c593c"
+    }
+  ],
+  "changedOrAdded": [
+    "src/service/api/device-info-native.test.ts",
+    "src/service/api/device-info-native.ts",
+    "src/views/device/details/index.vue",
+    "src/views/device/details/modules/device-info-state.test.ts",
+    "src/views/device/details/modules/device-info-state.ts",
+    "src/views/device/details/modules/native-device-info.vue"
+  ],
+  "verification": "5 new client tests, 9 new state tests, scoped tsc/lint/SFC pass. Whole-project vue-tsc not claimed. Actual UI acceptance pending."
+}

@@ -1,0 +1,10 @@
+{
+  "command": "cd kernel/cli/tpctl-go && go build -o <owned-scratch>/tpctl-go-cli-delete .",
+  "toolchain": "go version go1.26.2 darwin/arm64",
+  "target": "darwin/arm64",
+  "git_head": "fafe0f6f8c7d8f58db69e1b4159fedaa7e55eb05",
+  "source_manifest_sha256": "8fd7d842f8af81b5b957ba2c24335d339ad41c15164674b77c13c973b8a86102",
+  "binary_sha256": "6a0f8ff5d7cf5219fad23fc00b7b1a1481aefa412225d7506321470a5e54bc53",
+  "exit_code": 0,
+  "tests_run": false
+}

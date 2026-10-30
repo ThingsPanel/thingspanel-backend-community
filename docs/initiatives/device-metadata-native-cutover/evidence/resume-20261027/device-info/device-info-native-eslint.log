@@ -1,0 +1,2 @@
+pnpm exec eslint src/service/api/device-info-native.test.ts
+exit=0; no warnings

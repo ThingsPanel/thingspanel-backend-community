@@ -1,0 +1,114 @@
+{
+  "credential_ids_and_states": [
+    {
+      "id": "428f13b2-91fc-4778-9c0b-1e95fa27c6a9",
+      "kind": "x509",
+      "status": "pending"
+    },
+    {
+      "id": "55c76dab-73f5-471e-b69e-882f1a3472a4",
+      "kind": "username_password",
+      "status": "pending"
+    },
+    {
+      "id": "4ab9929c-affc-4d3f-a079-b091811297af",
+      "kind": "token",
+      "status": "pending"
+    },
+    {
+      "id": "4acd64a3-c40a-4880-9139-97ff3d0e109c",
+      "kind": "token",
+      "status": "pending"
+    }
+  ],
+  "created_group_resources": [
+    {
+      "id": "c5e9e0e5-1ba1-4ae0-beef-2528f92d3f85",
+      "name": "codex-resume-empty-0fe11f1b",
+      "parent_id": null,
+      "state": "deleted",
+      "members": 0
+    },
+    {
+      "id": "2a9a1b6b-0b28-4880-8928-7218e9b1d478",
+      "name": "codex-resume-parent-f7317786",
+      "parent_id": null,
+      "state": "deleted",
+      "members": 0
+    },
+    {
+      "id": "37ce957e-39a7-410d-a504-7fcddee90598",
+      "name": "codex-resume-child-8edcb220",
+      "parent_id": "2a9a1b6b-0b28-4880-8928-7218e9b1d478",
+      "state": "deleted",
+      "members": 0
+    },
+    {
+      "id": "e827667f-be88-4bde-9fa9-a8636eff6a97",
+      "name": "codex-resume-empty-8e2ca5d4",
+      "parent_id": null,
+      "state": "deleted",
+      "members": 0
+    },
+    {
+      "id": "af252181-92d3-4417-a2b6-c7b33d781e61",
+      "name": "codex-resume-parent-fd061906",
+      "parent_id": null,
+      "state": "deleted",
+      "members": 0
+    },
+    {
+      "id": "8ea96fcb-9efa-477a-a845-13be59f2672e",
+      "name": "codex-resume-child-877fe30b",
+      "parent_id": null,
+      "state": "deleted",
+      "members": 0
+    },
+    {
+      "id": "341d3600-7ba5-4f42-b786-9575f5db6e85",
+      "name": "codex-resume-member-653015d8",
+      "parent_id": null,
+      "state": "deleted",
+      "members": 0
+    }
+  ],
+  "runtime_table_privileges": [
+    "device_group_members DELETE",
+    "device_group_members INSERT",
+    "device_group_members SELECT",
+    "device_groups SELECT",
+    "device_groups UPDATE",
+    "devices INSERT",
+    "devices SELECT",
+    "metadata_audit_events INSERT",
+    "metadata_audit_events SELECT",
+    "metadata_idempotency INSERT",
+    "metadata_idempotency SELECT",
+    "metadata_idempotency UPDATE"
+  ],
+  "runtime_column_privileges": [
+    "device_credentials INSERT (cipher_suite,ciphertext,created_at,created_by,device_id,expires_at,fingerprint,fingerprint_key_id,id,key_id,kind,nonce,protection_mode,public_certificate,public_identifier,purpose,status,tenant_id,updated_at,updated_by,verifier)",
+    "device_credentials SELECT (created_at,credential_owner_id,credential_owner_kind,device_id,expires_at,fingerprint,id,kind,public_identifier,purpose,revoked_at,status,tenant_id)",
+    "device_credentials UPDATE (id)",
+    "device_group_members INSERT (created_at,created_by,device_id,group_id,tenant_id)",
+    "device_group_members SELECT (created_at,created_by,device_id,group_id,tenant_id)",
+    "device_group_members UPDATE (group_id)",
+    "device_groups INSERT (created_by,description,id,name,parent_id,sort_order,tenant_id,updated_by)",
+    "device_groups SELECT (created_at,created_by,deleted_at,description,id,name,parent_id,resource_version,sort_order,tenant_id,updated_at,updated_by)",
+    "device_groups UPDATE (created_at,created_by,deleted_at,description,id,name,parent_id,resource_version,sort_order,tenant_id,updated_at,updated_by)"
+  ],
+  "runtime_role_superuser": false,
+  "devices_delete_privilege": false,
+  "database_owner_is_runtime_role": false,
+  "remaining_owned_groups": "all seven tenant-A backend/CLI acceptance groups are soft-deleted; none active",
+  "cli_group_delete_acceptance": {
+    "parent_conflict_http": 409,
+    "parent_conflict_cli_exit": 5,
+    "child_delete_http": 200,
+    "child_delete_cli_exit": 0,
+    "child_same_key_same_if_match_replay_http": 200,
+    "parent_delete_http": 200,
+    "parent_final_get": 404,
+    "child_final_get": 404
+  }
+}

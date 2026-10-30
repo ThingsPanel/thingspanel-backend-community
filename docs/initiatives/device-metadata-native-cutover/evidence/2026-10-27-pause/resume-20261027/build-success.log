@@ -1,0 +1,21 @@
+9:47AM INF compiling Encore application for linux/arm64
+9:47AM INF saving image to local docker daemon
+9:47AM INF successfully saved local docker image
+9:47AM INF successfully exported app as docker image
+[1mBefore you deploy, you may need to configure the following:
+[0m
+[1mCron Jobs:[0m
+[36m+----------------------------+---------------------------------------+----------+
+[0m[36m| [0m[1mID                        [0m[36m | [0m[1mEndpoint Path                        [0m[36m | [0m[1mSchedule[0m[36m | [0m
+[36m+----------------------------+---------------------------------------+----------+
+[0m[36m| [0mrecover-file-asset-uploads[36m | [0m/fileassets.RecoverInterruptedUploads[36m | [0mevery:15[36m | [0m
+[36m+----------------------------+---------------------------------------+----------+
+[0m
+[1mEnvironment Variables:[0m
+[36m+------------------------+-------------------+
+[0m[36m| [0m[1mName                  [0m[36m | [0m[1mDescription      [0m[36m | [0m
+[36m+------------------------+-------------------+
+[0m[36m| [0mDM_RUNTIME_DB_PASSWORD[36m | [0mDatabase Password[36m | [0m
+[36m+------------------------+-------------------+
+[0m
+[3mLearn More: https://encore.dev/docs/how-to/self-host[0m

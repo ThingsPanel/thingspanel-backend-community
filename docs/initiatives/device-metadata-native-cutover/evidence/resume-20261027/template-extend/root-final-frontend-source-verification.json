@@ -1,0 +1,12 @@
+{
+  "version": "template-extend-v2",
+  "files": 85,
+  "changedFromV1": [
+    "src/service/api/template-custom-fields-state.test.ts",
+    "src/service/api/template-custom-fields-state.ts",
+    "src/views/device/config-detail/modules/native-template-extend-info.vue"
+  ],
+  "mismatch": [],
+  "manifestSha256": "e9ce86fdf3e4960dff880a07ba49a1eda577bf23e02803ff0c3424fb093478fa",
+  "archiveSha256": "280cdabbb0b17ca3cfe2d9a3ed11b3054079825b9d5a8b9a850d0d7cc17e8169"
+}

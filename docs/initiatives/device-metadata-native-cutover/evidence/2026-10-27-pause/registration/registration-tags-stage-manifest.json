@@ -1,0 +1,76 @@
+{
+  "scope": "native-device-registration-and-tags-ui-acceptance",
+  "parentListFreeze": {
+    "path": "/Volumes/DevScratch/device-management-native-20261027/frontend-source-manifest-final.json",
+    "sha256": "29ec8a747a9e4022c5865fe862f2a42c7bc6fac0ce70ada58d88a32130ccaac8",
+    "preserved": true
+  },
+  "files": [
+    {
+      "path": "src/views/device/manage/modules/add-devices-step1.vue",
+      "sha256": "3c1ea7f99dc039fa68649df4b8cc34fd0c5bb51e704d143fbe68acb6468da8a2"
+    },
+    {
+      "path": "src/views/device/manage/modules/native-device-registration.ts",
+      "sha256": "8da4ae6ddd6b22b1c2f654bc1f9bc7733783576f5ed850bfa079aa4b58a855d5"
+    },
+    {
+      "path": "src/service/api/device-native-transport.ts",
+      "sha256": "14f542c819b46c2ea84f44488211d0822056308aa8ace83d666308c66b34bbe1"
+    },
+    {
+      "path": "src/views/device/manage/modules/native-device-registration.test.ts",
+      "sha256": "e5a09c3be22f4f5ce9631f5d1493b5620eed2b6dce3e9792b2a7f68954372031"
+    }
+  ],
+  "excludedConcurrentChange": "src/views/device/details/index.vue is intentionally excluded from this stage archive because the credential owner has since connected the native credential tab; do not combine that follow-up UI into this registration/tags freeze.",
+  "verification": {
+    "syntheticSessionRotated": true,
+    "authBoundary": "synthetic local acceptance session; not real IDP authentication",
+    "uiOrigin": "http://127.0.0.1:5114",
+    "apiOrigin": "http://127.0.0.1:55067",
+    "initialTagPatch": {
+      "status": 503,
+      "requestId": "7d523798-9834-4c95-b05a-baae7d70f21c",
+      "reason": "owned runtime role lacked devices UPDATE column grants; original request key was lost after page reload and was not replayed"
+    },
+    "retryTagPatch": {
+      "status": 200,
+      "via": "actual UI PATCH",
+      "freshGET": 200,
+      "tags": [
+        "区域,北侧",
+        "传感器-北侧",
+        "泵房,回水"
+      ],
+      "labelsKV": {
+        "qa_label_keep": "kept",
+        "preserved": true
+      }
+    },
+    "registrationWithoutTemplate": {
+      "status": 201,
+      "state": "inactive",
+      "deviceNumberEqualsId": true
+    },
+    "registrationWithExistingTemplate": {
+      "status": 201,
+      "templateBindingGET": 200,
+      "deviceGET": 200,
+      "kind": "standalone"
+    },
+    "registrationWithGatewayTemplate": {
+      "fixtureCreationStatus": 201,
+      "deviceRegistrationStatus": 201,
+      "templateBindingGET": 200,
+      "deviceGET": 200,
+      "kind": "gateway"
+    },
+    "legacyDeviceAddVoucherPathsObserved": 0,
+    "requestLog": {
+      "path": "ui-native-request-log.jsonl",
+      "sha256": "9e1a440ccfed0d3ca01a7ba5b3600a09232f1a004014c343785138d5fb661928"
+    },
+    "notVerified": "same-key replay of the original unknown PATCH response across reload; original idempotency key was not available."
+  }
+}

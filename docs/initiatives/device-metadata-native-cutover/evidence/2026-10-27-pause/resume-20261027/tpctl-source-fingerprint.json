@@ -1,0 +1,70 @@
+{
+  "source": "kernel/cli/tpctl-go worktree current source",
+  "files": [
+    {
+      "path": "device_groups.go",
+      "sha256": "81f25453c1366bfd01e099fff9f88573ccc9953e99b4fc910b5de685db239fa8"
+    },
+    {
+      "path": "device_groups_test.go",
+      "sha256": "537053edd3d94ee247b22a791a8aeda0650309e1d64cd23e9b9b02a0be8b03bc"
+    },
+    {
+      "path": "device_template_binding_native.go",
+      "sha256": "e5fcba096a7359b0b07a498fa631b16df83ec435ef7b66886818a93f5a31d55a"
+    },
+    {
+      "path": "device_template_binding_native_test.go",
+      "sha256": "97b6b7bd572e05841361a74cb3d2e5b98ecaa66f6e990dfca5efcd1204a3df12"
+    },
+    {
+      "path": "devices_native.go",
+      "sha256": "f8e7560f5e13e955b084c9ea650096d61b62b48a29bc6c2ef3de1cee5e2ca991"
+    },
+    {
+      "path": "devices_native_test.go",
+      "sha256": "ea40efc7cc64981078e211daa1863ec4f48e4938050d7e603b095b8af7fbf5f7"
+    },
+    {
+      "path": "file_assets_native.go",
+      "sha256": "a9049740b4145914b39779072ad79f51e915f8ba3afd601be442283dc8a47308"
+    },
+    {
+      "path": "file_assets_native_test.go",
+      "sha256": "27361e7f41bcc7828c865bdff5ccd39a8f22514ba8e0301cf84f8069777b2fda"
+    },
+    {
+      "path": "go.mod",
+      "sha256": "aa498f4f8dabbadff3273bece1d9d24d5cd6db583a211600ef3aafc5ae8f8972"
+    },
+    {
+      "path": "main.go",
+      "sha256": "0f2923938ea820d77602b5d5c57390845f85628371f5e1308089803240bd84ef"
+    },
+    {
+      "path": "notification.go",
+      "sha256": "e9cb9f5354d7d03059ee5e5b996f52c62eea8878e433f13ef42a15e8b3cfab6c"
+    },
+    {
+      "path": "notification_test.go",
+      "sha256": "8ca1d74f3fd0bf5e10d0b09f44edf8ef3e978a9c750d86dcb0ce0f7320901055"
+    },
+    {
+      "path": "templates_native.go",
+      "sha256": "0fbb581e658a6f96b634d9df7a133f497bc29c0d4a61fa607fe5462d5428639c"
+    },
+    {
+      "path": "templates_native_test.go",
+      "sha256": "4acabde9a4d7b46f7600946682ed60618a10035080bd4a9aa048534aeb6ebddd"
+    },
+    {
+      "path": "templates_write_native.go",
+      "sha256": "340e9f646de7cfae068c8f45d63091c33220b1727bbdd7b2ad863826e7fb588c"
+    },
+    {
+      "path": "templates_write_native_test.go",
+      "sha256": "ec063d17d323e8df9442c138b18abe19c20a1beef92d727de863de75ff89f111"
+    }
+  ],
+  "source_manifest_sha256": "8fd7d842f8af81b5b957ba2c24335d339ad41c15164674b77c13c973b8a86102"
+}
