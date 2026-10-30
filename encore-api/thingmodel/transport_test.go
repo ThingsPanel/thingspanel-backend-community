@@ -141,6 +141,17 @@ func TestIdentityDoesNotCollapseDistinctLegacyIDsOrTrustScopes(t *testing.T) {
 	}
 }
 
+func TestPlatformAdminRequiresAuditedTenantDelegation(t *testing.T) {
+	for _, tenantID := range []string{"", "tenant-target"} {
+		_, err := principalForData(&authn.Data{
+			UserID: "sys-admin", TenantID: tenantID, Roles: []string{"SYS_ADMIN"},
+		})
+		if err == nil {
+			t.Fatalf("platform admin with tenant_id %q but no delegation entered a tenant-scoped model API", tenantID)
+		}
+	}
+}
+
 func TestVersionPaginationRejectsOverflow(t *testing.T) {
 	if _, e := paginationStart(int(^uint(0)>>1), 200); !errors.Is(e, app.ErrInvalid) {
 		t.Fatalf("overflow must fail before slicing: %v", e)

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"encore.dev/beta/errs"
+	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -38,15 +39,21 @@ func (s *Service) ListCustomCommandControls(ctx context.Context, req *CustomComm
 		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "thing_model_id is required"}
 	}
 
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, true)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "list custom controls")
+	}
+	defer tx.Rollback()
+
 	var total int
-	if err = db.QueryRow(ctx,
+	if err = tx.QueryRow(ctx,
 		`SELECT COUNT(*) FROM custom_command_controls WHERE thing_model_id = $1 AND tenant_id = $2`,
 		req.ThingModelID, tenantID,
 	).Scan(&total); err != nil {
 		return nil, errs.WrapCode(err, errs.Internal, "count custom controls")
 	}
 
-	rows, err := db.Query(ctx,
+	rows, err := tx.Query(ctx,
 		`SELECT id, thing_model_id, tenant_id, name, COALESCE(description,''), content, enable_status, COALESCE(control_type,''), created_at, updated_at
 		 FROM custom_command_controls
 		 WHERE thing_model_id = $1 AND tenant_id = $2
@@ -66,6 +73,13 @@ func (s *Service) ListCustomCommandControls(ctx context.Context, req *CustomComm
 			return nil, errs.WrapCode(err, errs.Internal, "scan custom control")
 		}
 		items = append(items, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errs.WrapCode(err, errs.Internal, "list custom controls")
+	}
+	rows.Close()
+	if err := tx.Commit(); err != nil {
+		return nil, errs.WrapCode(err, errs.Internal, "list custom controls")
 	}
 
 	return &listResponse[CustomCommandControl]{Items: items, Page: req.Page, PageSize: req.PageSize, Total: total}, nil
@@ -91,15 +105,23 @@ func (s *Service) CreateCustomCommandControl(ctx context.Context, req *CustomCom
 		req.EnableStatus = "enable"
 	}
 
-	// Verify thing_model belongs to this tenant before inserting.
-	if _, err = getThingModelByID(ctx, tenantID, req.ThingModelID); err != nil {
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "insert custom control")
+	}
+	defer tx.Rollback()
+
+	// Verify thing_model belongs to this tenant and write/read the control in
+	// the same transaction, so the trusted tenant context and ownership check
+	// cover the complete create operation.
+	if _, err = getThingModelByIDTx(ctx, tx, tenantID, req.ThingModelID); err != nil {
 		return nil, &errs.Error{Code: errs.NotFound, Message: "thing model not found"}
 	}
 
 	req.ID = uuid.New().String()
 	req.TenantID = tenantID
 
-	if _, err = db.Exec(ctx,
+	if _, err = tx.Exec(ctx,
 		`INSERT INTO custom_command_controls (id, thing_model_id, tenant_id, name, description, content, enable_status, control_type)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 		req.ID, req.ThingModelID, tenantID, req.Name, req.Description, req.Content, req.EnableStatus, req.ControlType,
@@ -107,7 +129,14 @@ func (s *Service) CreateCustomCommandControl(ctx context.Context, req *CustomCom
 		return nil, errs.WrapCode(err, errs.Internal, "insert custom control")
 	}
 
-	return getCustomCommandControl(ctx, tenantID, req.ID)
+	control, err := getCustomCommandControlTx(ctx, tx, tenantID, req.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, errs.WrapCode(err, errs.Internal, "insert custom control")
+	}
+	return control, nil
 }
 
 //encore:api auth method=PUT path=/api/custom-command-controls
@@ -121,7 +150,13 @@ func (s *Service) UpdateCustomCommandControl(ctx context.Context, req *CustomCom
 		return nil, &errs.Error{Code: errs.InvalidArgument, Message: "id is required"}
 	}
 
-	res, err := db.Exec(ctx,
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return nil, wrapCustomControlTxError(err, "update custom control")
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(ctx,
 		`UPDATE custom_command_controls
 		 SET name=$1, description=$2, content=$3, enable_status=$4, control_type=$5, updated_at=NOW()
 		 WHERE id=$6 AND tenant_id=$7`,
@@ -134,7 +169,14 @@ func (s *Service) UpdateCustomCommandControl(ctx context.Context, req *CustomCom
 		return nil, &errs.Error{Code: errs.NotFound, Message: "custom control not found"}
 	}
 
-	return getCustomCommandControl(ctx, tenantID, req.ID)
+	control, err := getCustomCommandControlTx(ctx, tx, tenantID, req.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, errs.WrapCode(err, errs.Internal, "update custom control")
+	}
+	return control, nil
 }
 
 //encore:api auth method=DELETE path=/api/custom-command-controls/:id
@@ -144,7 +186,13 @@ func (s *Service) DeleteCustomCommandControl(ctx context.Context, id string) err
 		return err
 	}
 
-	res, err := db.Exec(ctx,
+	tx, err := beginTenantScopedSQLTx(ctx, tenantID, false)
+	if err != nil {
+		return wrapCustomControlTxError(err, "delete custom control")
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec(ctx,
 		`DELETE FROM custom_command_controls WHERE id=$1 AND tenant_id=$2`,
 		id, tenantID,
 	)
@@ -154,12 +202,15 @@ func (s *Service) DeleteCustomCommandControl(ctx context.Context, id string) err
 	if n := res.RowsAffected(); n == 0 {
 		return &errs.Error{Code: errs.NotFound, Message: "custom control not found"}
 	}
+	if err := tx.Commit(); err != nil {
+		return errs.WrapCode(err, errs.Internal, "delete custom control")
+	}
 	return nil
 }
 
-func getCustomCommandControl(ctx context.Context, tenantID, id string) (*CustomCommandControl, error) {
+func getCustomCommandControlTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) (*CustomCommandControl, error) {
 	var c CustomCommandControl
-	err := db.QueryRow(ctx,
+	err := tx.QueryRow(ctx,
 		`SELECT id, thing_model_id, tenant_id, name, COALESCE(description,''), content, enable_status, COALESCE(control_type,''), created_at, updated_at
 		 FROM custom_command_controls WHERE id=$1 AND tenant_id=$2`,
 		id, tenantID,

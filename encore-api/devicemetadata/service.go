@@ -23,6 +23,7 @@ func initService() (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	startBackgroundWorkers()
 	return &Service{mqtt: bridge}, nil
 }
 

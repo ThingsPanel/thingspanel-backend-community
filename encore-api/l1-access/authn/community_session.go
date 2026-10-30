@@ -41,7 +41,8 @@ func checkCommunitySession(ctx context.Context, baseURL, token string, expected 
 		return rejectCommunitySession("configuration")
 	}
 	if ctx == nil || strings.TrimSpace(token) == "" || expected == nil ||
-		strings.TrimSpace(expected.UserID) == "" || strings.TrimSpace(expected.TenantID) == "" || len(expected.Roles) != 1 || strings.TrimSpace(expected.Roles[0]) == "" {
+		strings.TrimSpace(expected.UserID) == "" || len(expected.Roles) != 1 || strings.TrimSpace(expected.Roles[0]) == "" ||
+		(expected.TenantID == "" && expected.Roles[0] != "SYS_ADMIN") || strings.TrimSpace(expected.TenantID) != expected.TenantID {
 		return rejectCommunitySession("identity")
 	}
 

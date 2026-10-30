@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"encore.dev"
 	"encore.dev/beta/auth"
 	"encore.dev/beta/errs"
 )
@@ -74,6 +75,16 @@ func authenticate(ctx context.Context, token string) (auth.UID, *Data, error) {
 	if mode == "" {
 		mode = "legacy-jwt"
 	}
+	meta := encore.Meta()
+	var environmentType encore.EnvironmentType
+	var cloud encore.CloudProvider
+	if meta != nil {
+		environmentType = meta.Environment.Type
+		cloud = meta.Environment.Cloud
+	}
+	if err := validateAuthModeEnvironment(mode, environmentType, cloud); err != nil {
+		return "", nil, err
+	}
 
 	switch mode {
 	case "native":
@@ -122,11 +133,29 @@ func authenticate(ctx context.Context, token string) (auth.UID, *Data, error) {
 	}
 }
 
+// validateAuthModeEnvironment keeps the unauthenticated modes off shared
+// infrastructure. `encore run` reports type "development" with cloud "local",
+// while an Encore Cloud development environment runs on a real cloud provider,
+// so the local cloud (never production) counts as a local machine.
+func validateAuthModeEnvironment(mode string, environmentType encore.EnvironmentType, cloud encore.CloudProvider) error {
+	if mode != "dev" && mode != "passthrough" {
+		return nil
+	}
+	if environmentType == encore.EnvLocal || environmentType == encore.EnvTest {
+		return nil
+	}
+	if cloud == encore.CloudLocal && environmentType == encore.EnvDevelopment {
+		return nil
+	}
+	return &errs.Error{Code: errs.Internal, Message: "insecure auth mode is only available in local or test environments"}
+}
+
 type legacyJwtClaims struct {
-	ID        string `json:"id"`
-	TenantID  string `json:"tenant_id"`
-	Authority string `json:"authority"`
-	ExpiresAt int64  `json:"exp"`
+	ID        string          `json:"id"`
+	TenantID  string          `json:"tenant_id"`
+	Authority string          `json:"authority"`
+	ExpiresAt int64           `json:"exp"`
+	NotBefore json.RawMessage `json:"nbf"`
 }
 
 // parseLegacyJwtToken verifies a ThingsPanel-issued HS256 JWT using TP_JWT_KEY
@@ -162,7 +191,7 @@ func parseLegacyJwtToken(token, secretKey string) (auth.UID, *Data, error) {
 	var header struct {
 		Alg string `json:"alg"`
 	}
-	if err := json.Unmarshal(headerBytes, &header); err != nil || strings.ToUpper(header.Alg) != "HS256" {
+	if err := json.Unmarshal(headerBytes, &header); err != nil || header.Alg != "HS256" {
 		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "unsupported token algorithm, expected HS256"}
 	}
 
@@ -177,24 +206,40 @@ func parseLegacyJwtToken(token, secretKey string) (auth.UID, *Data, error) {
 		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "invalid token claims"}
 	}
 
-	if claims.ExpiresAt > 0 && time.Now().Unix() > claims.ExpiresAt {
+	if claims.ExpiresAt <= 0 {
+		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "missing or invalid token expiration"}
+	}
+	if time.Now().Unix() >= claims.ExpiresAt {
 		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "token expired"}
 	}
-
-	if claims.ID == "" || claims.TenantID == "" {
-		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "missing required claims: id or tenant_id"}
+	if len(claims.NotBefore) > 0 {
+		var notBefore int64
+		if strings.TrimSpace(string(claims.NotBefore)) == "null" || json.Unmarshal(claims.NotBefore, &notBefore) != nil || notBefore < 0 {
+			return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "invalid token not-before claim"}
+		}
+		if time.Now().Unix() < notBefore {
+			return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "token not yet valid"}
+		}
 	}
 
-	roles := []string{"TENANT_USER"}
-	if claims.Authority != "" {
-		roles = []string{claims.Authority}
+	if strings.TrimSpace(claims.ID) == "" || strings.TrimSpace(claims.ID) != claims.ID {
+		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "missing or invalid user identity"}
+	}
+	if strings.TrimSpace(claims.TenantID) != claims.TenantID {
+		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "invalid tenant identity"}
+	}
+	authority := strings.TrimSpace(claims.Authority)
+	if authority != "SYS_ADMIN" && authority != "TENANT_ADMIN" {
+		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "unsupported user authority"}
+	}
+	if claims.TenantID == "" && authority != "SYS_ADMIN" {
+		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "missing tenant identity"}
 	}
 
 	data := &Data{
 		UserID:   claims.ID,
 		TenantID: claims.TenantID,
-		Roles:    roles,
-		Scopes:   []string{"*"},
+		Roles:    []string{authority},
 	}
 	return auth.UID(claims.ID), data, nil
 }
@@ -277,8 +322,7 @@ func CurrentData() *Data {
 		return &Data{
 			UserID:   "unit-test",
 			TenantID: "test-tenant",
-			Roles:    []string{"platform_admin"},
-			Scopes:   []string{"*"},
+			Roles:    []string{"TENANT_ADMIN"},
 		}
 	}
 	return nil
