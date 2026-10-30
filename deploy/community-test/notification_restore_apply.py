@@ -170,6 +170,7 @@ server {
  ssl_certificate CERT;
  ssl_certificate_key PRIVATE;
  location /api/v2/ { proxy_pass http://127.0.0.1:18091; proxy_set_header Authorization $http_authorization; }
+ location /api/v1/notification-source/ { proxy_pass http://127.0.0.1:18091; proxy_set_header Authorization $http_authorization; }
  location /api/v1/notification/ { proxy_pass http://127.0.0.1:9999; proxy_set_header Authorization $http_authorization; }
  location / { return 404; }
 }
@@ -277,19 +278,23 @@ server {
         'name': 'App 通知（UniPush，多设备）', 'channel': 'im', 'config': {}, 'providerIdentity': {}}, key='app-migrate-instance-20261030')
     instance = api(CORE, collection + '/' + instance['id'], admin)
     validation = api(CORE, collection + '/validate', admin,
-        body={'instanceId': instance['id'], 'expectedVersion': instance['version']}, key='app-migrate-validate-20261030')
+        body={'instanceId': instance['id'], 'expectedVersion': instance['version'], 'configPatch': {}}, key='app-migrate-validate-20261030')
     if not validation.get('valid'):
         raise RuntimeError('channel validation failed')
     if not instance['enabled']:
         instance = api(CORE, collection + '/' + instance['id'], admin,
             body={'expectedVersion': instance['version'], 'enabled': True}, method='PUT', key='app-migrate-enable-20261030')
     STAGE = 'create member-based strategy'
-    group = api(CORE, '/api/v2/notification-groups', tenant, body={
+    group_body = {
         'name': 'App 设备告警通知', 'enabled': True, 'bindings': [{
             'bindingId': str(uuid.uuid5(uuid.NAMESPACE_URL, 'thingspanel/app-migration/' + TENANT)),
             'instanceId': instance['id'], 'recipientSource': {'kind': 'member', 'userId': who['id'], 'contactField': 'appDevice'},
             'contentBinding': {'kind': 'text', 'title': '{{subject}}', 'text': '{{text}}'}
-        }]}, key='app-migrate-group-20261030')
+        }]}
+    existing_groups = api(CORE, '/api/v2/notification-groups?page=1&pageSize=100', tenant)['items']
+    group = next((g for g in existing_groups if g['name'] == group_body['name'] and g['bindings'] == group_body['bindings']), None)
+    if group is None:
+        group = api(CORE, '/api/v2/notification-groups', tenant, body=group_body, key='app-migrate-group-20261030')
     STAGE = 'publish alert strategy'
     route = api(BUSINESS, '/api/v1/notification_group/native-publish?nativeGroupId=' + group['id'], tenant)
     if not route.get('published'):

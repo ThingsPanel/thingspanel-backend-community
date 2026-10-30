@@ -52,7 +52,31 @@ def inspect():
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def repair_snapshot_route():
+    path = pathlib.Path('/etc/nginx/conf.d/tp-notification-app.conf')
+    content = path.read_text()
+    location = ' location /api/v1/notification-source/ { proxy_pass http://127.0.0.1:18091; proxy_set_header Authorization $http_authorization; }\n'
+    marker = ' location /api/v2/ { proxy_pass http://127.0.0.1:18091; proxy_set_header Authorization $http_authorization; }\n'
+    if location not in content:
+        if marker not in content:
+            raise SystemExit('Unexpected internal notification routing')
+        path.write_text(content.replace(marker, marker + location))
+        rc, _ = command(['nginx', '-t'])
+        if rc:
+            path.write_text(content)
+            raise SystemExit('Internal routing check failed')
+        rc, _ = command(['systemctl', 'reload', 'nginx'])
+        if rc:
+            raise SystemExit('Internal routing reload failed')
+    print(json.dumps({'status': 'internal_snapshot_route_ready'}))
+
+
 if __name__ == '__main__':
-    if len(sys.argv) != 2 or sys.argv[1] != 'inspect':
-        raise SystemExit('Only the read-only inspect mode is currently available')
-    inspect()
+    if len(sys.argv) != 2:
+        raise SystemExit('A maintenance mode is required')
+    if sys.argv[1] == 'inspect':
+        inspect()
+    elif sys.argv[1] == 'repair-route':
+        repair_snapshot_route()
+    else:
+        raise SystemExit('Unsupported maintenance mode')
