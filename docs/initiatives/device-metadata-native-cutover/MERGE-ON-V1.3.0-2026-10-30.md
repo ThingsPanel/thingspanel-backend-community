@@ -93,4 +93,4 @@
 | 曲线历史、紧凑读数当前值、`details-child` / `device-analysis` / `join` | 仍走旧路径 | 可达但未迁移；按迁移期工具对待，别当作已原生化 |
 | 9 个无引用旧文件（config-detail 五个模块、config-modal、publish-confirm-modal、add-devices-step2、AutomaticModeStep） | 已删除 | 前端提交 fac4fda7 |
 
-验证：`npm run typecheck` 0 错误；`vitest src/router src/__tests__/unit` 40 个文件中仅 `notification-plugins-page` 偶发失败一次（单跑一次失败一次通过，该文件与 master 一致，与本功能无关）。后端本轮未改动，沿用此前全包通过和 e2e 31/31。发布镜像本地构建（`encore build docker`）在撰写时仍在跑，结果以流水线 `encore-image-build.yml` 为准，**未验证**。
+验证：`npm run typecheck` 0 错误；`vitest src/router src/__tests__/unit` 40 个文件中仅 `notification-plugins-page` 偶发失败一次（单跑一次失败一次通过，该文件与 master 一致，与本功能无关）。后端本轮未改动，沿用此前全包通过和 e2e 31/31。发布镜像本地构建（`encore build docker ... --arch=amd64 --skip-config`）在本机试了 3 次（25 分钟上限一次、无上限一次跑满 69 分钟），始终没有任何输出和子编译进程，判定为本机挂起，已手动终止，**没有得到成功或失败的构建结论**。服务清单变更已由 `encore check`、`encore test` 和 e2e 覆盖；镜像能否构建出来，以流水线 `encore-image-build.yml` 第一次运行为准，接手人合并后请先看它。
