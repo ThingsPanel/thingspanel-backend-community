@@ -62,9 +62,12 @@ func CreateDeviceWithLockedParent(device *model.Device) error {
 		return tx.Error
 	}
 	q := tx.Device
-	_, err := q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(*device.ParentID), q.TenantID.Eq(device.TenantID)).First()
+	parent, err := q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(*device.ParentID), q.TenantID.Eq(device.TenantID)).First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		err = ErrParentDeviceUnavailable
+	}
+	if err == nil {
+		err = validateNewChildConfigurations(tx.Query, parent, device)
 	}
 	if err == nil {
 		err = createDevicesWithDefaultRootGroupTx(tx.Query, []*model.Device{device})
@@ -84,6 +87,9 @@ func CreateDeviceWithLockedParent(device *model.Device) error {
 func createDevicesWithDefaultRootGroupTx(tx *query.Query, devices []*model.Device) error {
 	if len(devices) == 0 {
 		return nil
+	}
+	if err := lockNewDeviceConfigurations(tx, devices); err != nil {
+		return err
 	}
 	tenantID := devices[0].TenantID
 	if err := tx.Device.Create(devices...); err != nil {
@@ -235,6 +241,13 @@ func lockDeviceParentSet(tx *query.Query, tenantID, parentID string, childIDs []
 		if typ != "2" && typ != "3" {
 			return nil, ErrDeviceBindingInvalid
 		}
+		children, err := q.Where(q.ParentID.Eq(id)).Count()
+		if err != nil {
+			return nil, err
+		}
+		if children > 0 && typ != "2" {
+			return nil, ErrDeviceBindingInvalid
+		}
 	}
 	return locked, nil
 }
@@ -306,6 +319,20 @@ func UpdateDeviceByMap(deviceID, tenantID string, deviceMap map[string]interface
 		}
 	}
 	q := tx.Device
+	if err == nil {
+		if value, changesConfig := deviceMap["device_config_id"]; changesConfig {
+			configID, valid := value.(*string)
+			if !valid {
+				err = ErrDeviceBindingInvalid
+			} else {
+				var current *model.Device
+				current, err = q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(deviceID), q.TenantID.Eq(tenantID)).First()
+				if err == nil {
+					err = validateDeviceConfigurationRole(tx.Query, tenantID, current, configID)
+				}
+			}
+		}
+	}
 	if err == nil {
 		info, updateErr := q.Where(q.ID.Eq(deviceID), q.TenantID.Eq(tenantID)).Updates(deviceMap)
 		err = updateErr
@@ -902,17 +929,8 @@ func (DeviceQuery) Update(ctx context.Context, info *model.Device, option ...fie
 }
 
 // 更新设备配置
-func (DeviceQuery) ChangeDeviceConfig(deviceID string, deviceConfigID *string) error {
-	device := query.Device
-	info, err := device.Where(device.ID.Eq(deviceID)).Update(device.DeviceConfigID, deviceConfigID)
-	if err != nil {
-		logrus.Error(err)
-		return err
-	}
-	if info.RowsAffected == 0 {
-		return fmt.Errorf("update device config failed, no rows affected")
-	}
-	return err
+func (DeviceQuery) ChangeDeviceConfig(deviceID, tenantID string, deviceConfigID *string) error {
+	return ReplaceTenantDeviceConfigurations(context.Background(), tenantID, []string{deviceID}, deviceConfigID, false)
 }
 
 func (DeviceQuery) GetSubList(ctx context.Context, parent_id string, pageSize, page int64, tenantID string) ([]model.GetSubListResp, int64, error) {

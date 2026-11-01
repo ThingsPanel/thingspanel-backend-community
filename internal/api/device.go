@@ -842,7 +842,7 @@ func (*DeviceApi) UpdateDeviceConfig(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	err := service.GroupApp.Device.UpdateDeviceConfig(&param)
+	err := service.GroupApp.Device.UpdateDeviceConfig(&param, c.MustGet("claims").(*utils.UserClaims))
 	if err != nil {
 		c.Error(err)
 		return

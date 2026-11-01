@@ -20,6 +20,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type DeviceConfig struct{}
@@ -73,6 +74,9 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 }
 
 func (*DeviceConfig) UpdateDeviceConfig(ctx context.Context, req model.UpdateDeviceConfigReq, claims *utils.UserClaims, authToken string) (any, error) {
+	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
 	condsMap, err := StructToMapAndVerifyJson(req, "additional_info", "protocol_config", "other_config")
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -150,6 +154,15 @@ func (*DeviceConfig) UpdateDeviceConfig(ctx context.Context, req model.UpdateDev
 		err = dal.UpdateDeviceConfigForTenant(req.Id, claims.TenantID, condsMap)
 	}
 	if err != nil {
+		if errors.Is(err, dal.ErrDeviceConfigurationConflict) {
+			return nil, errcode.NewWithMessage(errcode.CodeOpDenied, "device configuration references changed; reload and try again")
+		}
+		if errors.Is(err, dal.ErrDeviceBindingOutcomeUnknown) {
+			return nil, errcode.NewWithMessage(errcode.CodeDBError, "configuration update outcome unknown; reconcile before retry")
+		}
+		if errors.Is(err, dal.ErrDeviceBindingInvalid) {
+			return nil, errcode.New(errcode.CodeParamError)
+		}
 		if errors.Is(err, dal.ErrNativeBindingRevisionConflict) {
 			return nil, errcode.NewWithMessage(errcode.CodeOpDenied, "native binding changed; reload and try again")
 		}
@@ -203,33 +216,24 @@ func (*DeviceConfig) UpdateDeviceConfig(ctx context.Context, req model.UpdateDev
 }
 
 func (*DeviceConfig) DeleteDeviceConfig(id string, claims *utils.UserClaims) error {
-	if _, err := dal.GetDeviceConfigByIDForTenant(context.Background(), id, claims.TenantID); err != nil {
-		return errcode.New(errcode.CodeOpDenied)
+	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
+		return errcode.New(errcode.CodeNoPermission)
 	}
-	// 检查是否存在关联的 device 记录
-	devices, err := dal.GetDevicesByDeviceConfigID(id)
-	if err != nil {
-		return err
+	if err := dal.DeleteDeviceConfigForTenant(id, claims.TenantID); err != nil {
+		var inUse *dal.DeviceConfigurationInUseError
+		if errors.As(err, &inUse) {
+			return errcode.WithVars(200051, map[string]interface{}{"count": inUse.Count})
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errcode.New(errcode.CodeOpDenied)
+		}
+		if errors.Is(err, dal.ErrDeviceBindingOutcomeUnknown) {
+			return errcode.NewWithMessage(errcode.CodeDBError, "configuration deletion outcome unknown; reconcile before retry")
+		}
+		return errcode.New(errcode.CodeDBError)
 	}
-	if len(devices) > 0 {
-		return errcode.WithVars(200051, map[string]interface{}{
-			"count": len(devices),
-		})
-	}
-
-	// 删除 device config
-	err = dal.DeleteDeviceConfigForTenant(id, claims.TenantID)
-	if err != nil {
-		logrus.Error(err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
-
-	// 清除设备配置信息缓存
 	initialize.DelDeviceConfigCache(id)
 	initialize.DelDeviceDataScriptCache(id)
-
 	return nil
 }
 
@@ -269,37 +273,30 @@ func (*DeviceConfig) GetDeviceConfigListMenu(req *model.GetDeviceConfigListMenuR
 	return data, nil
 }
 
-func (*DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq) error {
-	// 检查设备是否绑定了模板
-	for _, deviceID := range req.DeviceIds {
-		deviceInfo, err := dal.GetDeviceByID(deviceID)
-		if err != nil {
-			logrus.Error(err)
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+func (*DeviceConfig) BatchUpdateDeviceConfig(req *model.BatchUpdateDeviceConfigReq, claims *utils.UserClaims) error {
+	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	if req == nil {
+		return errcode.New(errcode.CodeParamError)
+	}
+	if err := dal.ReplaceTenantDeviceConfigurations(context.Background(), claims.TenantID, req.DeviceIds, &req.DeviceConfigID, true); err != nil {
+		if errors.Is(err, dal.ErrDeviceBindingOutcomeUnknown) {
+			return errcode.NewWithMessage(errcode.CodeDBError, "device configuration outcome unknown; reconcile before retry")
 		}
-		if deviceInfo.DeviceConfigID != nil && !common.CheckEmpty(*deviceInfo.DeviceConfigID) {
-			deviceName := ""
-			if deviceInfo.Name != nil {
-				deviceName = *deviceInfo.Name
-			}
-			return errcode.WithVars(200071, map[string]interface{}{
-				"device_name": deviceName,
-			})
+		if errors.Is(err, dal.ErrDeviceConfigurationConflict) {
+			return errcode.NewWithMessage(errcode.CodeOpDenied, "device configuration changed; reload and try again")
 		}
-
-		// 绑定设备模板
-		err = dal.UpdateDeviceDeviceConfigID(deviceID, &req.DeviceConfigID)
-		if err != nil {
-			logrus.Error(err)
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+		if errors.Is(err, dal.ErrDeviceBindingInvalid) {
+			return errcode.New(errcode.CodeParamError)
 		}
-		// 清除设备信息缓存
-		initialize.DelDeviceCache(deviceID)
-
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errcode.New(errcode.CodeNoPermission)
+		}
+		return errcode.New(errcode.CodeDBError)
+	}
+	for _, id := range req.DeviceIds {
+		initialize.DelDeviceCache(id)
 	}
 	return nil
 }

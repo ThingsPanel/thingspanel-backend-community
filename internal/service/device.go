@@ -1101,65 +1101,31 @@ func (*Device) DeviceConnect(ctx context.Context, param *model.DeviceConnectForm
 }
 
 // 更换设备配置
-func (*Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq) error {
-	// 查找原设备配置
-	device, err := dal.GetDeviceByID(param.DeviceID)
-	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get device info failed:" + err.Error(),
-			"id":    param.DeviceID,
-		})
+func (*Device) UpdateDeviceConfig(param *model.ChangeDeviceConfigReq, claims *utils.UserClaims) error {
+	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
+		return errcode.New(errcode.CodeNoPermission)
 	}
-	if device.DeviceConfigID != nil {
-		// 获取设备配置
-		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
-		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"error": "get device config info failed:" + err.Error(),
-				"id":    param.DeviceID,
-			})
+	if param == nil || param.DeviceConfigID == nil {
+		return errcode.New(errcode.CodeParamError)
+	}
+	configID := param.DeviceConfigID
+	if *configID == "" {
+		configID = nil
+	}
+	if err := (dal.DeviceQuery{}).ChangeDeviceConfig(param.DeviceID, claims.TenantID, configID); err != nil {
+		if errors.Is(err, dal.ErrDeviceBindingOutcomeUnknown) {
+			return errcode.NewWithMessage(errcode.CodeDBError, "device configuration outcome unknown; reconcile before retry")
 		}
-		if deviceConfig.DeviceType == strconv.Itoa(constant.GATEWAY_DEVICE) {
-			// 检查有没有子设备
-			data, err := dal.GetSubDeviceListByParentID(param.DeviceID)
-			if err != nil {
-				return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"error": "get sub device list failed:" + err.Error(),
-					"id":    param.DeviceID,
-				})
-			}
-			if len(data) > 0 {
-				return errcode.New(200061)
-			}
-		} else if deviceConfig.DeviceType == strconv.Itoa(constant.GATEWAY_SON_DEVICE) {
-			// 检查有没有关联的网关
-			if device.ParentID != nil {
-				return errcode.New(200063)
-			}
+		if errors.Is(err, dal.ErrDeviceBindingInvalid) {
+			return errcode.New(errcode.CodeParamError)
 		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errcode.New(errcode.CodeNoPermission)
+		}
+		return errcode.New(errcode.CodeDBError)
 	}
-
-	if param.DeviceConfigID == nil {
-		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": "device config id is null",
-		})
-	}
-	if param.DeviceConfigID != nil && *param.DeviceConfigID == "" {
-		param.DeviceConfigID = nil
-	}
-	// 更新设备配置id
-	err = dal.DeviceQuery{}.ChangeDeviceConfig(param.DeviceID, param.DeviceConfigID)
-	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "update device config failed:" + err.Error(),
-			"id":    param.DeviceID,
-		})
-	}
-	// 清除设备缓存
 	initialize.DelDeviceCache(param.DeviceID)
-	// 清除设备数据脚本缓存  不需要删除，脚本跟随设备配置
-	// initialize.DelDeviceDataScriptCache(param.DeviceID)
-	return err
+	return nil
 }
 
 func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDeviceVoucherReq) (string, error) {
