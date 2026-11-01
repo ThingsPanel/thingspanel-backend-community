@@ -1643,24 +1643,10 @@ func (*Device) GetDeviceSelector(req model.DeviceSelectorReq, userClaims *utils.
 }
 
 // 获取租户下最近上报数据的三个设备的遥测数据
-func (d *Device) GetTenantTelemetryData(tenantId string) ([]map[string]interface{}, error) {
-	devices, err := dal.GetTenantTelemetryData(tenantId)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": "get tenant telemetry data failed:" + err.Error(),
-			"id":    tenantId,
-		})
-	}
-	telemetryDataList := make([]map[string]interface{}, 0)
-	for _, device := range devices {
-		telemetryData, err := d.GetMapTelemetry(device.DeviceID)
-		if err != nil {
-			return nil, err
-		}
-		telemetryDataList = append(telemetryDataList, telemetryData)
-	}
-
-	return telemetryDataList, nil
+func (*Device) GetTenantTelemetryData(_ string) ([]map[string]interface{}, error) {
+	// Current-data rows and external TSDB reads cannot yet prove device ownership
+	// and deletion generation throughout this multi-stage lookup.
+	return nil, errcode.New(errcode.CodeServiceUnavailable)
 }
 
 // GetDeviceStatusHistory 获取设备状态历史记录
