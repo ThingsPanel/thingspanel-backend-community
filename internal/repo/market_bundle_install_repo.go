@@ -126,6 +126,17 @@ func (r *MarketBundleInstallRepo) UpdateStatus(ctx context.Context, id, status, 
 		Updates(updates).Error
 }
 
+// HoldFailedCompensationForReview changes only the installation record. It
+// preserves the original error details and never touches business resources.
+// The tenant and prior status predicates prevent a stale worker from moving a
+// different tenant's or a subsequently changed installation into this state.
+func (r *MarketBundleInstallRepo) HoldFailedCompensationForReview(ctx context.Context, id, tenantID string) (bool, error) {
+	result := global.DB.WithContext(ctx).Model(&model.MarketBundleInstallation{}).
+		Where("id = ? AND tenant_id = ? AND status = ?", id, tenantID, model.InstallStateFailed).
+		Updates(map[string]interface{}{"status": model.InstallStateCompensationRequired, "updated_at": time.Now()})
+	return result.RowsAffected == 1, result.Error
+}
+
 // UpdateWarnings updates installation warnings
 func (r *MarketBundleInstallRepo) UpdateWarnings(ctx context.Context, id string, warnings []string) error {
 	warningsJSON, err := json.Marshal(warnings)

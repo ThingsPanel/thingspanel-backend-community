@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 // MarketBundleInstallService handles the orchestration of market bundle installations
@@ -904,12 +906,15 @@ func (s *MarketBundleInstallService) checkCompensationNeeded(ctx context.Context
 	}
 }
 
-// CompensateInstallation removes resources created during a failed installation
+// CompensateInstallation holds unsafe automatic compensation for manual review.
 func (s *MarketBundleInstallService) CompensateInstallation(ctx context.Context, installID, tenantID string) error {
 	inst, err := s.installRepo.GetByID(ctx, installID)
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return errcode.WithData(errcode.CodeDBError, "Failed to query installation")
+	}
+	if err != nil || inst == nil || tenantID == "" || inst.TenantID != tenantID {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"error": "Installation not found: " + err.Error(),
+			"error": "Installation not found",
 		})
 	}
 
@@ -919,45 +924,20 @@ func (s *MarketBundleInstallService) CompensateInstallation(ctx context.Context,
 		})
 	}
 
-	s.recordAudit(ctx, installID, tenantID, "compensation_started", inst.Status, "COMPENSATING", nil)
-
-	// Get all created resources
-	mappings, err := s.installRepo.GetResourceMappingsByInstallation(ctx, installID)
-	if err != nil {
-		return err
-	}
-
-	// Delete created resources
-	for _, m := range mappings {
-		if m.Status == "active" {
-			switch m.ResourceType {
-			case model.ResourceTypeDeviceTemplate:
-				// Delete device template (should cascade to models)
-				if err := dal.DeleteDeviceTemplateByID(m.LocalID); err != nil {
-					logrus.Warnf("Failed to delete device template %s: %v", m.LocalID, err)
-					continue
-				}
-			case model.ResourceTypeDashboard:
-				// Delete dashboard via ThingsVis
-				if err := s.thingsVis.DeleteDashboard(ctx, tenantID, m.LocalID); err != nil {
-					logrus.Warnf("Failed to delete dashboard %s: %v", m.LocalID, err)
-					continue
-				}
-			}
-
-			// Mark mapping as deleted
-			s.installRepo.UpdateResourceMappingStatus(ctx, m.ID, "deleted")
-			s.recordAudit(ctx, installID, tenantID, "resource_deleted", "", "", m)
+	// Existing mappings are not an authoritative inventory: a remote create
+	// may have succeeded before its mapping was saved. The current code also
+	// cannot verify ownership or reconcile an unknown remote delete. Stop
+	// before any deletion until the owner ports and recovery contract exist.
+	if inst.Status == model.InstallStateFailed {
+		updated, updateErr := s.installRepo.HoldFailedCompensationForReview(ctx, installID, tenantID)
+		if updateErr != nil {
+			return errcode.WithData(errcode.CodeDBError, "Failed to retain compensation state")
+		}
+		if !updated {
+			return errcode.WithData(errcode.CodeOpDenied, "Installation changed; query its current state")
 		}
 	}
-
-	// Update installation status
-	if err := s.installRepo.UpdateStatus(ctx, installID, model.InstallStateFailed, "COMPENSATED", "Resources cleaned up"); err != nil {
-		logrus.Warnf("Failed to update installation status after compensation: %v", err)
-	}
-	s.recordAudit(ctx, installID, tenantID, "compensation_completed", "", model.InstallStateFailed, nil)
-
-	return nil
+	return errcode.WithData(errcode.CodeOpDenied, "Automatic compensation is unavailable; reconcile resource ownership and outcomes before retry")
 }
 
 // GetInstallationStatus retrieves installation status with full details
@@ -1105,21 +1085,9 @@ func (s *MarketBundleInstallService) RetryInstallation(ctx context.Context, inst
 		})
 	}
 
-	s.recordAudit(ctx, installID, tenantID, "retry_started", inst.Status, "", nil)
-
-	// Reset to DOWNLOADING state for retry
-	if err := s.installRepo.UpdateStatus(ctx, inst.ID, model.InstallStateDownloading, "", ""); err != nil {
-		return nil, err
-	}
-
-	// Return a placeholder response - in a real implementation, we'd need to re-download
-	return &model.InstallBundleResponse{
-		InstallationID: inst.ID,
-		BundleKey:      inst.BundleKey,
-		Version:        inst.BundleVersion,
-		Status:         model.InstallStateDownloading,
-		IsIdempotent:   false,
-	}, nil
+	// This endpoint previously returned DOWNLOADING without resuming any work.
+	// It cannot reconcile potentially applied side effects yet.
+	return nil, errcode.WithData(errcode.CodeOpDenied, "Automatic retry is unavailable; reconcile the existing installation first")
 }
 
 // ListInstallations lists all installations for a tenant
