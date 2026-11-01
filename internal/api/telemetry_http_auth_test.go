@@ -9,14 +9,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
+	"github.com/google/uuid"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"project/internal/middleware"
@@ -55,14 +58,89 @@ func (*telemetryCountingConn) NewStream(context.Context, *grpc.StreamDesc, strin
 	return nil, fmt.Errorf("unexpected streaming RPC")
 }
 
+// This fixture is a deliberately limited subset of sql/1.sql, not a migration test.
+func openTelemetryReadGuardPostgres(t *testing.T, recorder logger.Interface) *gorm.DB {
+	t.Helper()
+	const fixtureDSN = "postgres://telemetry_read_guard_test:fixture-only-password@127.0.0.1:25671/telemetry_read_guard_test?sslmode=disable"
+	dsn := os.Getenv("TELEMETRY_READ_GUARD_TEST_DSN")
+	if dsn == "" {
+		t.Skip("TELEMETRY_READ_GUARD_TEST_DSN not supplied")
+	}
+	if dsn != fixtureDSN {
+		t.Fatal("refusing non-fixture telemetry PostgreSQL DSN")
+	}
+	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Discard})
+	if err != nil {
+		t.Fatal("open isolated PostgreSQL fixture")
+	}
+	adminPool, err := admin.DB()
+	if err != nil {
+		t.Fatal("get fixture pool")
+	}
+	t.Cleanup(func() { _ = adminPool.Close() })
+	var database, user string
+	if err := admin.Raw("SELECT current_database(), current_user").Row().Scan(&database, &user); err != nil || database != "telemetry_read_guard_test" || user != "telemetry_read_guard_test" {
+		t.Fatal("fixture database identity mismatch")
+	}
+	schema := "telemetry_guard_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	if err := admin.Exec(`CREATE SCHEMA "` + schema + `"`).Error; err != nil {
+		t.Fatal("create isolated schema")
+	}
+	t.Cleanup(func() {
+		if err := admin.Exec(`DROP SCHEMA "` + schema + `" CASCADE`).Error; err != nil {
+			t.Error("drop isolated schema failed")
+		}
+	})
+	u, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatal("parse fixture DSN")
+	}
+	q := u.Query()
+	q.Set("options", "-c search_path="+schema)
+	u.RawQuery = q.Encode()
+	db, err := gorm.Open(postgres.Open(u.String()), &gorm.Config{Logger: recorder})
+	if err != nil {
+		t.Fatal("open isolated schema")
+	}
+	pool, err := db.DB()
+	if err != nil {
+		t.Fatal("get isolated schema pool")
+	}
+	t.Cleanup(func() { _ = pool.Close() })
+	for _, ddl := range []string{
+		`CREATE TABLE devices (id varchar(36) PRIMARY KEY, tenant_id varchar(36) NOT NULL, voucher varchar(500) NOT NULL UNIQUE, device_number varchar(36) NOT NULL UNIQUE, is_enabled varchar(36) NOT NULL, activate_flag varchar(36) NOT NULL, is_online int2 NOT NULL DEFAULT 0)`,
+		`CREATE TABLE telemetry_current_datas (device_id varchar(36) NOT NULL, "key" varchar(255) NOT NULL, ts timestamptz(6) NOT NULL, bool_v bool, number_v float8, string_v text, tenant_id varchar(36), UNIQUE(device_id, "key"))`,
+		`CREATE TABLE telemetry_datas (device_id varchar(36) NOT NULL, "key" varchar(255) NOT NULL, ts bigint NOT NULL, bool_v bool, number_v float8, string_v text, tenant_id varchar(36), UNIQUE(device_id, "key", ts))`,
+	} {
+		if err := db.Exec(ddl).Error; err != nil {
+			t.Fatal("create limited fixture tables")
+		}
+	}
+	return db
+}
+
 func TestTelemetryHTTPDeviceAuthorization(t *testing.T) {
+	runTelemetryHTTPDeviceAuthorization(t, false)
+}
+
+func TestTelemetryHTTPDeviceAuthorizationPostgres(t *testing.T) {
+	runTelemetryHTTPDeviceAuthorization(t, true)
+}
+
+func runTelemetryHTTPDeviceAuthorization(t *testing.T, usePostgres bool) {
 	oldMode := gin.Mode()
 	gin.SetMode(gin.TestMode)
 	t.Cleanup(func() { gin.SetMode(oldMode) })
 	redisClient := startWSAuthTestRedis(t)
 	t.Setenv("TP_AUTH_OWNER", "")
 	recorder := &wsAuthSQLRecorder{Interface: logger.New(log.New(io.Discard, "", 0), logger.Config{LogLevel: logger.Info})}
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: recorder})
+	var db *gorm.DB
+	var err error
+	if usePostgres {
+		db = openTelemetryReadGuardPostgres(t, recorder)
+	} else {
+		db, err = gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: recorder})
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,8 +150,10 @@ func TestTelemetryHTTPDeviceAuthorization(t *testing.T) {
 	}
 	pool.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = pool.Close() })
-	if err = db.AutoMigrate(&model.Device{}, &model.TelemetryCurrentData{}, &model.TelemetryData{}); err != nil {
-		t.Fatal(err)
+	if !usePostgres {
+		if err = db.AutoMigrate(&model.Device{}, &model.TelemetryCurrentData{}, &model.TelemetryData{}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	oldQ, oldDevice, oldCurrent, oldTelemetry := *query.Q, query.Device, query.TelemetryCurrentData, query.TelemetryData
 	*query.Q = *query.Use(db)
@@ -102,8 +182,8 @@ func TestTelemetryHTTPDeviceAuthorization(t *testing.T) {
 	if err := redisClient.Set(context.Background(), adminToken, "1", time.Hour).Err(); err != nil {
 		t.Fatal(err)
 	}
-	for _, d := range []model.Device{{ID: "own", TenantID: "tenant-a", DeviceNumber: "own"}, {ID: "foreign", TenantID: "tenant-b", DeviceNumber: "foreign"}} {
-		if err := db.Create(&d).Error; err != nil {
+	for _, d := range []model.Device{{ID: "own", TenantID: "tenant-a", DeviceNumber: "own", Voucher: "voucher-own"}, {ID: "foreign", TenantID: "tenant-b", DeviceNumber: "foreign", Voucher: "voucher-foreign"}} {
+		if err := db.Exec("INSERT INTO devices (id, tenant_id, device_number, voucher, is_enabled, activate_flag, is_online) VALUES (?, ?, ?, ?, ?, ?, ?)", d.ID, d.TenantID, d.DeviceNumber, d.Voucher, "enabled", "active", 0).Error; err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -199,6 +279,24 @@ func TestTelemetryHTTPDeviceAuthorization(t *testing.T) {
 				if code != errcode.CodeNoPermission || len(fake.methods) != before {
 					t.Fatalf("id=%s code=%d RPCs=%v", id, code, fake.methods[before:])
 				}
+			}
+		})
+	}
+	if usePostgres {
+		t.Run("database-error-fails-closed", func(t *testing.T) {
+			if err := db.Exec("ALTER TABLE devices RENAME TO fixture_hidden_devices").Error; err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := db.Exec("ALTER TABLE fixture_hidden_devices RENAME TO devices").Error; err != nil {
+					t.Error(err)
+				}
+			}()
+			viper.Set("grpc.tptodb_type", "TSDB")
+			before := len(fake.methods)
+			code, sql := call(endpoints[0], "own", claims, false)
+			if code != errcode.CodeNoPermission || len(fake.methods) != before || len(sql) == 0 {
+				t.Fatalf("DB error code=%d RPCs=%v SQL=%v", code, fake.methods[before:], sql)
 			}
 		})
 	}
