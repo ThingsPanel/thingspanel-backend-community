@@ -30,6 +30,73 @@ import (
 
 type TelemetryDataApi struct{}
 
+// authorizeWSDeviceIDs normalizes the client-selected IDs and completes the
+// entire ownership check before handlers perform any device data reads or
+// create WS/Redis subscriptions.
+func authorizeWSDeviceIDs(claims *utils.UserClaims, ids []string) ([]string, error) {
+	unique := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return nil, errors.New("device_id must be a non-empty string")
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return nil, errors.New("device_id is required")
+	}
+	if err := service.GroupApp.Device.AuthorizeWebSocketDeviceRead(claims, unique); err != nil {
+		return nil, errors.New("device access denied")
+	}
+	return unique, nil
+}
+
+func parseWSDeviceIDs(initMap map[string]interface{}) ([]string, error) {
+	if value, present := initMap["device_ids"]; present {
+		ids := make([]string, 0)
+		switch v := value.(type) {
+		case []interface{}:
+			for _, item := range v {
+				id, ok := item.(string)
+				if !ok || strings.TrimSpace(id) == "" {
+					return nil, errors.New("device_ids must contain non-empty strings")
+				}
+				ids = append(ids, strings.TrimSpace(id))
+			}
+		case string:
+			parts := []string{v}
+			if strings.Contains(v, ",") {
+				parts = strings.Split(v, ",")
+			}
+			for _, part := range parts {
+				if strings.TrimSpace(part) == "" {
+					return nil, errors.New("device_ids must contain non-empty strings")
+				}
+				ids = append(ids, strings.TrimSpace(part))
+			}
+		default:
+			return nil, errors.New("device_ids must be an array or string")
+		}
+		if len(ids) == 0 {
+			return nil, errors.New("device_ids is required")
+		}
+		return ids, nil
+	}
+	if value, present := initMap["device_id"]; present {
+		id, ok := value.(string)
+		if !ok || strings.TrimSpace(id) == "" {
+			return nil, errors.New("device_id must be a non-empty string")
+		}
+		return []string{strings.TrimSpace(id)}, nil
+	}
+	return nil, errors.New("device_ids is required")
+}
+
 // GetCurrentData 设备当前值查询
 // @Router   /api/v1/telemetry/datas/current/{id} [get]
 func (*TelemetryDataApi) HandleCurrentData(c *gin.Context) {
@@ -418,6 +485,12 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 		conn.WriteMessage(msgType, []byte(err.Error()))
 		return
 	}
+	authorizedIDs, err := authorizeWSDeviceIDs(claims, []string{deviceID})
+	if err != nil {
+		conn.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+	deviceID = authorizedIDs[0]
 
 	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, 用户ID: %s, 租户ID: %s", deviceID, claims.ID, claims.TenantID)
 	// 生成唯一连接ID并注册到 WebSocket 管理器（先创建客户端写队列，避免后续写阻塞）
@@ -630,6 +703,12 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 		conn.WriteMessage(msgType, []byte(err.Error()))
 		return
 	}
+	authorizedIDs, err := authorizeWSDeviceIDs(claims, []string{deviceID})
+	if err != nil {
+		conn.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+	deviceID = authorizedIDs[0]
 
 	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, 用户ID: %s, 租户ID: %s", deviceID, claims.ID, claims.TenantID)
 
@@ -833,6 +912,12 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 		conn.WriteMessage(msgType, []byte(err.Error()))
 		return
 	}
+	authorizedIDs, err := authorizeWSDeviceIDs(claims, []string{deviceID})
+	if err != nil {
+		conn.WriteMessage(msgType, []byte(err.Error()))
+		return
+	}
+	deviceID = authorizedIDs[0]
 
 	logrus.Infof("WebSocket连接已建立 - 设备ID: %s, Keys: %v, 用户ID: %s, 租户ID: %s", deviceID, stringKeys, claims.ID, claims.TenantID)
 

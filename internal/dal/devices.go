@@ -195,6 +195,17 @@ func GetDeviceByID(id string) (*model.Device, error) {
 	return device, nil
 }
 
+// DeviceExistsForRead performs an ownership-scoped existence check without
+// loading device metadata or credentials into the caller's process.
+func DeviceExistsForRead(id, tenantID string, allTenants bool) (bool, error) {
+	q := query.Device.Where(query.Device.ID.Eq(id))
+	if !allTenants {
+		q = q.Where(query.Device.TenantID.Eq(tenantID))
+	}
+	count, err := q.Count()
+	return count == 1, err
+}
+
 // 获取设备详情，关联设备配置
 func GetDeviceDetail(id string) (map[string]interface{}, error) {
 	device := query.Device

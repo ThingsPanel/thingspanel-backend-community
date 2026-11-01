@@ -46,34 +46,10 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 		return
 	}
 
-	// 提取 device_ids（支持数组或逗号分隔字符串或单个 device_id）
-	var deviceIDs []string
-	if v, ok := initMap["device_ids"]; ok {
-		switch t := v.(type) {
-		case []interface{}:
-			for _, it := range t {
-				if s, ok := it.(string); ok && s != "" {
-					deviceIDs = append(deviceIDs, strings.TrimSpace(s))
-				}
-			}
-		case string:
-			if strings.Contains(t, ",") {
-				for _, s := range strings.Split(t, ",") {
-					if s = strings.TrimSpace(s); s != "" {
-						deviceIDs = append(deviceIDs, s)
-					}
-				}
-			} else if t != "" {
-				deviceIDs = append(deviceIDs, strings.TrimSpace(t))
-			}
-		}
-	}
-	if len(deviceIDs) == 0 {
-		if v, ok := initMap["device_id"]; ok {
-			if s, ok := v.(string); ok && s != "" {
-				deviceIDs = append(deviceIDs, strings.TrimSpace(s))
-			}
-		}
+	deviceIDs, err := parseWSDeviceIDs(initMap)
+	if err != nil {
+		conn.WriteMessage(msgType, []byte(err.Error()))
+		return
 	}
 
 	// 规范化并提取鉴权字段（支持多种命名与 Header）
@@ -128,8 +104,9 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 		return
 	}
 
-	if len(deviceIDs) == 0 {
-		conn.WriteMessage(msgType, []byte("device_ids is required"))
+	deviceIDs, err = authorizeWSDeviceIDs(claims, deviceIDs)
+	if err != nil {
+		conn.WriteMessage(msgType, []byte(err.Error()))
 		return
 	}
 

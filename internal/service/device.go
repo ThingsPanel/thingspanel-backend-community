@@ -656,6 +656,26 @@ func canReadTenantDevice(claims *utils.UserClaims, deviceTenantID string) bool {
 	return claims != nil && (claims.Authority == dal.SYS_ADMIN || claims.TenantID == deviceTenantID)
 }
 
+// AuthorizeWebSocketDeviceRead checks ownership before a WebSocket handler
+// reads device telemetry/status or creates a subscription. Missing devices
+// and devices outside the caller's tenant are intentionally indistinguishable.
+func (*Device) AuthorizeWebSocketDeviceRead(claims *utils.UserClaims, deviceIDs []string) error {
+	if claims == nil || strings.TrimSpace(claims.ID) == "" || (claims.Authority != dal.SYS_ADMIN && strings.TrimSpace(claims.TenantID) == "") {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	for _, id := range deviceIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return errcode.New(errcode.CodeNoPermission)
+		}
+		allowed, err := dal.DeviceExistsForRead(id, claims.TenantID, claims.Authority == dal.SYS_ADMIN)
+		if err != nil || !allowed {
+			return errcode.New(errcode.CodeNoPermission)
+		}
+	}
+	return nil
+}
+
 func (d *Device) CheckDeviceNumber(deviceNumber string) (*errcode.Error, bool) {
 	device, err := query.Device.Where(query.Device.DeviceNumber.Eq(deviceNumber)).First()
 	if err != nil {
