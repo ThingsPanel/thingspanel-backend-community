@@ -1,0 +1,39 @@
+{
+  "scope": "Native device information tab UI acceptance",
+  "frontendFreeze": {
+    "manifestSha256": "00e15f2e287a25d8cc8809ef8ce26dfb7cb0371df47a6e2daec39e180e797a18",
+    "archiveSha256": "8ab37f479c36b5b7c6ae07c1bb468e7588df82c95030007e78b9acccd30247a2",
+    "status": "root froze v2; no source changes after freeze"
+  },
+  "boundDevice": {
+    "id": "77dba166-b4d4-4b9c-8776-965c01e7343c",
+    "ui": {
+      "standardSaveAndReadback": "passed; combined field/location edit preserved raw precision and disabled historical value",
+      "412Conflict": "passed; dirty Note input survived conflict refresh while concurrent count and address were read back; second save succeeded",
+      "unknownResponseRecovery": "passed; real upstream PATCH succeeded, browser response was dropped, visible retry reused original request, UI reported saved",
+      "mode": "Auto selection intentionally changed earlier from null",
+      "finalReadback": "backend GET 200, resourceVersion 5; count=7, flag=false, raw precision and archived integer tokens preserved, optional field remains unset, concurrent address and null coordinates preserved",
+      "noteCaveat": "backend read-only boolean comparison confirmed final Note exactly matches the intended unknown-response UI text; actual text was not copied into this evidence"
+    }
+  },
+  "locationOnlyDevice": {
+    "id": "2c07b863-1112-4f4b-9b7f-3e0df6a7e425",
+    "v1": "latitude 0 with longitude 121.5 saved and read back; clearing the location saved and returned empty coordinate fields",
+    "v2": "latitude 0 and longitude 0 saved successfully; clearing the location saved and returned empty coordinate fields",
+    "finalReadback": "backend GET 200, resourceVersion 5, location=null"
+  },
+  "responseDropEvidence": "device-info-response-drop-safe.jsonl; only allowlisted status/boolean fields, no request body, key, ETag value, or auth data",
+  "runtime": {
+    "apiBaseRestored": "http://127.0.0.1:55067",
+    "vite5114Listening": true,
+    "api55067Listening": true,
+    "proxy55068Listening": false,
+    "gateActive": false,
+    "gateArmed": false
+  },
+  "limits": [
+    "The UI acceptance used owned synthetic fixtures and synthetic local auth only.",
+    "The unrelated fixture logo/sys_version 404 toast was not treated as an information-tab failure.",
+    "No source edits were made after the root's v2 freeze."
+  ]
+}

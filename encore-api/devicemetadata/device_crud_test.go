@@ -3,6 +3,7 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"testing"
 
 	"github.com/google/uuid"
@@ -112,11 +113,45 @@ func TestCreateDevice_Success(t *testing.T) {
 	assert.NotEmpty(t, device.ID)
 	assert.Equal(t, tenantID, device.TenantID)
 	assert.Equal(t, tmpl.ID, device.DeviceTemplateID)
-	assert.NotEmpty(t, device.SN)       // Auto-generated
-	assert.Len(t, device.SN, 32)        // Nanoid-style 32 chars
-	assert.NotEmpty(t, device.Voucher)  // Returned on create
+	assert.NotEmpty(t, device.SN)      // Auto-generated
+	assert.Len(t, device.SN, 32)       // Nanoid-style 32 chars
+	assert.NotEmpty(t, device.Voucher) // Returned on create
 	assert.Equal(t, "INACTIVE", device.ActivateFlag)
 	assert.Equal(t, 0, device.IsOnline)
+}
+
+func TestDeviceTemplateKeepsItsThingModelSnapshotWhenDeviceIsCreated(t *testing.T) {
+	ctx := context.Background()
+	tenantID := setupTestTenant(t)
+	tmpl := createPublishedDeviceTemplate(t, ctx, tenantID)
+	modelID := tmpl.ThingModelID
+	boundSnapshotID := tmpl.ThingModelSnapshotID
+
+	device, err := createDevice(ctx, tenantID, &Device{DeviceTemplateID: tmpl.ID})
+	require.NoError(t, err)
+
+	// Publishing a newer ThingModel revision must not silently change the
+	// immutable snapshot already selected by the access template.
+	_, err = createThingModelItem(ctx, tenantID, modelID, &ThingModelItem{
+		Type:       "PROPERTY",
+		Identifier: "voltage_test",
+		NameI18n:   json.RawMessage(`{"default":"Voltage"}`),
+		ValueType:  json.RawMessage(`{"kind":"float"}`),
+		Access:     json.RawMessage(`{"read":true}`),
+	})
+	require.NoError(t, err)
+	newerSnapshot, err := publishThingModel(ctx, tenantID, modelID, testActorID(), &publishReq{Changelog: "regression test"})
+	require.NoError(t, err)
+	require.NotEqual(t, boundSnapshotID, newerSnapshot.ID)
+
+	var storedTemplateID, storedModelID, storedSnapshotID string
+	err = db.QueryRow(ctx, `SELECT d.device_template_id,t.thing_model_id,t.thing_model_snapshot_id
+		FROM devices d JOIN device_access_templates t ON t.tenant_id=d.tenant_id AND t.id=d.device_template_id
+		WHERE d.tenant_id=$1 AND d.id=$2`, tenantID, device.ID).Scan(&storedTemplateID, &storedModelID, &storedSnapshotID)
+	require.NoError(t, err)
+	assert.Equal(t, tmpl.ID, storedTemplateID)
+	assert.Equal(t, modelID, storedModelID)
+	assert.Equal(t, boundSnapshotID, storedSnapshotID)
 }
 
 func TestCreateDevice_AutoGenerateSN(t *testing.T) {
@@ -362,6 +397,42 @@ func TestListDevices_WithFilters(t *testing.T) {
 	assert.Equal(t, 1, total)
 	assert.Len(t, devices, 1)
 	assert.Equal(t, "device-1", devices[0].SN)
+}
+
+func TestListDevicesStablePaginationForEqualCreatedAt(t *testing.T) {
+	ctx := context.Background()
+	tenantID := setupTestTenant(t)
+	tmpl := createPublishedDeviceTemplate(t, ctx, tenantID)
+
+	created := make([]*Device, 0, 3)
+	for i := 0; i < 3; i++ {
+		device, err := createDevice(ctx, tenantID, &Device{
+			DeviceTemplateID: tmpl.ID,
+			SN:               "stable-page-" + uuid.NewString(),
+		})
+		require.NoError(t, err)
+		created = append(created, device)
+	}
+
+	// Equal timestamps force pagination to rely on the explicit ID tie-breaker.
+	_, err := db.Exec(ctx, `UPDATE devices SET created_at = TIMESTAMPTZ '2026-01-01 00:00:00+00'
+		WHERE tenant_id = $1 AND id IN ($2, $3, $4)`, tenantID, created[0].ID, created[1].ID, created[2].ID)
+	require.NoError(t, err)
+
+	wantIDs := []string{created[0].ID, created[1].ID, created[2].ID}
+	sort.Sort(sort.Reverse(sort.StringSlice(wantIDs)))
+
+	page1, total1, err := listDevices(ctx, tenantID, &ListDevicesReq{pageRequest: pageRequest{Page: 1, PageSize: 2}})
+	require.NoError(t, err)
+	page2, total2, err := listDevices(ctx, tenantID, &ListDevicesReq{pageRequest: pageRequest{Page: 2, PageSize: 2}})
+	require.NoError(t, err)
+	require.Equal(t, 3, total1)
+	require.Equal(t, 3, total2)
+	require.Len(t, page1, 2)
+	require.Len(t, page2, 1)
+
+	gotIDs := []string{page1[0].ID, page1[1].ID, page2[0].ID}
+	assert.Equal(t, wantIDs, gotIDs)
 }
 
 func TestUpdateDevice_OnlyAllowedFields(t *testing.T) {

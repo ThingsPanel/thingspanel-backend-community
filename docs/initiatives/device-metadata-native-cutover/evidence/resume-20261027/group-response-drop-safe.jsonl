@@ -1,0 +1,2 @@
+{"kind":"group","method":"DELETE","upstreamStatus":200,"responseDropped":true,"keyFormatValid":true}
+{"kind":"group","method":"DELETE","upstreamStatus":200,"responseDropped":false,"sameIdempotencyKey":true,"samePayload":true,"sameEtag":true,"retryHadNoGetBeforePostOrDelete":true}

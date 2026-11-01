@@ -1,0 +1,14 @@
+{
+  "files": 90,
+  "mismatch": [],
+  "manifestSha256": "557c89cea2e25228f1574b36e9ff04317bcda5c7c6d927a23c6ad728c15ed347",
+  "archiveSha256": "9a42804368c9b5cf66b99959b1138a71cb61df9c7db86200dd0a3bcf507f5ea2",
+  "changedOrAdded": [
+    "src/service/api/device-info-native.test.ts",
+    "src/service/api/device-info-native.ts",
+    "src/views/device/details/index.vue",
+    "src/views/device/details/modules/device-info-state.test.ts",
+    "src/views/device/details/modules/device-info-state.ts",
+    "src/views/device/details/modules/native-device-info.vue"
+  ]
+}

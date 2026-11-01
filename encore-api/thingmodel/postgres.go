@@ -46,6 +46,13 @@ func (postgresRepository) Execute(ctx context.Context, scope app.ReceiptScope, f
 		return app.Result{}, persistenceError(err)
 	}
 	defer tx.Rollback()
+	// The validated receipt scope is the trusted tenant source for this write.
+	// Set it locally before any lock or query, on the same transaction that
+	// owns the receipt and all business/audit/outbox writes.
+	tenantID, _ := uuid.Parse(string(scope.TenantID)) // validReceiptScope already proved this is a non-nil UUID.
+	if _, err = tx.Exec(ctx, `SELECT set_config('app.current_tenant_id', $1, true)`, tenantID.String()); err != nil {
+		return app.Result{}, persistenceError(err)
+	}
 
 	lockKey, _ := json.Marshal(struct {
 		Tenant    core.TenantID `json:"tenant"`
@@ -122,11 +129,17 @@ func (postgresRepository) Get(ctx context.Context, tenantID core.TenantID, model
 	if !validUUID(string(tenantID)) || !validUUID(string(modelID)) {
 		return app.Record{}, app.ErrInvalid
 	}
+	tx, normalizedTenantID, err := beginTenantReadTx(ctx, tenantID)
+	if err != nil {
+		return app.Record{}, err
+	}
+	defer tx.Rollback()
+	tenantID = normalizedTenantID
 	var raw []byte
 	var lifecycle string
 	var updatedAt time.Time
 	var draftRevision, publishedRevision int64
-	err := db.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT canonical_model, status, draft_revision, published_revision, updated_at
 		FROM thing_models
 		WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL AND canonical_model IS NOT NULL`,
@@ -142,6 +155,9 @@ func (postgresRepository) Get(ctx context.Context, tenantID core.TenantID, model
 	if err != nil {
 		return app.Record{}, err
 	}
+	if err := tx.Commit(); err != nil {
+		return app.Record{}, persistenceError(err)
+	}
 	return record, nil
 }
 
@@ -149,9 +165,15 @@ func (postgresRepository) List(ctx context.Context, tenantID core.TenantID, limi
 	if !validUUID(string(tenantID)) || limit < 1 || limit > 200 || offset < 0 {
 		return nil, 0, app.ErrInvalid
 	}
+	tx, normalizedTenantID, err := beginTenantReadTx(ctx, tenantID)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer tx.Rollback()
+	tenantID = normalizedTenantID
 	pattern := "%" + strings.TrimSpace(keyword) + "%"
 	var total int
-	if err := db.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		SELECT COUNT(*) FROM thing_models
 		WHERE tenant_id=$1 AND deleted_at IS NULL AND canonical_model IS NOT NULL
 		  AND ($2='' OR canonical_model->'model'->>'name' ILIKE $3)`,
@@ -159,7 +181,7 @@ func (postgresRepository) List(ctx context.Context, tenantID core.TenantID, limi
 	).Scan(&total); err != nil {
 		return nil, 0, persistenceError(err)
 	}
-	rows, err := db.Query(ctx, `
+	rows, err := tx.Query(ctx, `
 		SELECT canonical_model, status, draft_revision, published_revision, updated_at, id
 		FROM thing_models
 		WHERE tenant_id=$1 AND deleted_at IS NULL AND canonical_model IS NOT NULL
@@ -190,6 +212,10 @@ func (postgresRepository) List(ctx context.Context, tenantID core.TenantID, limi
 	if err := rows.Err(); err != nil {
 		return nil, 0, persistenceError(err)
 	}
+	rows.Close()
+	if err := tx.Commit(); err != nil {
+		return nil, 0, persistenceError(err)
+	}
 	return records, total, nil
 }
 
@@ -197,10 +223,16 @@ func (postgresRepository) Versions(ctx context.Context, tenantID core.TenantID, 
 	if !validUUID(string(tenantID)) || !validUUID(string(modelID)) {
 		return nil, app.ErrInvalid
 	}
-	if _, err := (postgresRepository{}).Get(ctx, tenantID, modelID); err != nil {
+	tx, normalizedTenantID, err := beginTenantReadTx(ctx, tenantID)
+	if err != nil {
 		return nil, err
 	}
-	rows, err := db.Query(ctx, `
+	defer tx.Rollback()
+	tenantID = normalizedTenantID
+	if _, err := getThingModelTx(ctx, tx, tenantID, modelID); err != nil {
+		return nil, err
+	}
+	rows, err := tx.Query(ctx, `
 		SELECT id, canonical_content, canonical_checksum, changelog, published_by, published_at, resources_content, resources_revision, resources_checksum
 		FROM thing_model_snapshots
 		WHERE tenant_id=$1 AND thing_model_id=$2 AND canonical_snapshot=TRUE
@@ -220,6 +252,10 @@ func (postgresRepository) Versions(ctx context.Context, tenantID core.TenantID, 
 	if err := rows.Err(); err != nil {
 		return nil, persistenceError(err)
 	}
+	rows.Close()
+	if err := tx.Commit(); err != nil {
+		return nil, persistenceError(err)
+	}
 	return versions, nil
 }
 
@@ -233,12 +269,18 @@ func (postgresRepository) Version(ctx context.Context, tenantID core.TenantID, m
 	if revision == 0 || revision > math.MaxInt32 {
 		return app.Publication{}, app.ErrNotFound
 	}
+	tx, normalizedTenantID, err := beginTenantReadTx(ctx, tenantID)
+	if err != nil {
+		return app.Publication{}, err
+	}
+	defer tx.Rollback()
+	tenantID = normalizedTenantID
 	var id, checksum, changelog, publishedBy string
 	var content, resourcesContent []byte
 	var resourcesRevision sql.NullInt64
 	var resourcesChecksum sql.NullString
 	var publishedAt time.Time
-	err := db.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		SELECT id, canonical_content, canonical_checksum, COALESCE(changelog,''), published_by, published_at, resources_content, resources_revision, resources_checksum
 		FROM thing_model_snapshots
 		WHERE tenant_id=$1 AND thing_model_id=$2 AND version=$3 AND canonical_snapshot=TRUE`,
@@ -250,14 +292,75 @@ func (postgresRepository) Version(ctx context.Context, tenantID core.TenantID, m
 	if err != nil {
 		return app.Publication{}, persistenceError(err)
 	}
-	return decodePublicationWithResources(id, content, checksum, changelog, publishedBy, publishedAt, tenantID, modelID, resourcesContent, resourcesRevision, resourcesChecksum)
+	publication, err := decodePublicationWithResources(id, content, checksum, changelog, publishedBy, publishedAt, tenantID, modelID, resourcesContent, resourcesRevision, resourcesChecksum)
+	if err != nil {
+		return app.Publication{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return app.Publication{}, persistenceError(err)
+	}
+	return publication, nil
 }
 
 func (postgresRepository) Resources(ctx context.Context, tenantID core.TenantID, modelID core.ModelID) (app.ResourcesRecord, error) {
 	if !validUUID(string(tenantID)) || !validUUID(string(modelID)) {
 		return app.ResourcesRecord{}, app.ErrInvalid
 	}
-	return readResources(ctx, db, tenantID, modelID, false)
+	tx, normalizedTenantID, err := beginTenantReadTx(ctx, tenantID)
+	if err != nil {
+		return app.ResourcesRecord{}, err
+	}
+	defer tx.Rollback()
+	tenantID = normalizedTenantID
+	resources, err := readResources(ctx, tx, tenantID, modelID, false)
+	if err != nil {
+		return app.ResourcesRecord{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return app.ResourcesRecord{}, persistenceError(err)
+	}
+	return resources, nil
+}
+
+func beginTenantReadTx(ctx context.Context, tenantID core.TenantID) (*sqldb.Tx, core.TenantID, error) {
+	parsedTenantID, err := uuid.Parse(string(tenantID))
+	if err != nil || parsedTenantID == uuid.Nil {
+		return nil, "", app.ErrInvalid
+	}
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return nil, "", persistenceError(err)
+	}
+	if _, err := tx.Exec(ctx, `SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY`); err != nil {
+		_ = tx.Rollback()
+		return nil, "", persistenceError(err)
+	}
+	normalizedTenantID := core.TenantID(parsedTenantID.String())
+	if _, err := tx.Exec(ctx, `SELECT set_config('app.current_tenant_id', $1, true)`, string(normalizedTenantID)); err != nil {
+		_ = tx.Rollback()
+		return nil, "", persistenceError(err)
+	}
+	return tx, normalizedTenantID, nil
+}
+
+func getThingModelTx(ctx context.Context, tx *sqldb.Tx, tenantID core.TenantID, modelID core.ModelID) (app.Record, error) {
+	var raw []byte
+	var lifecycle string
+	var updatedAt time.Time
+	var draftRevision, publishedRevision int64
+	err := tx.QueryRow(ctx, `
+		SELECT canonical_model, status, draft_revision, published_revision, updated_at
+		FROM thing_models
+		WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL AND canonical_model IS NOT NULL`,
+		string(tenantID), string(modelID),
+	).Scan(&raw, &lifecycle, &draftRevision, &publishedRevision, &updatedAt)
+	if errors.Is(err, sqldb.ErrNoRows) {
+		return app.Record{}, app.ErrNotFound
+	}
+	if err != nil {
+		return app.Record{}, persistenceError(err)
+	}
+	return decodeRecord(raw, lifecycle, draftRevision, publishedRevision, updatedAt, tenantID, modelID)
 }
 
 func (t *postgresTransaction) Get(ctx context.Context, tenantID core.TenantID, modelID core.ModelID) (app.Record, error) {
@@ -566,10 +669,11 @@ func validateRecord(record app.Record) error {
 }
 
 func validReceiptScope(scope app.ReceiptScope) bool {
-	if !validUUID(string(scope.TenantID)) || !validUUID(scope.SubjectID) || strings.TrimSpace(scope.Operation) == "" || len(scope.Key) < 8 || len(scope.Key) > 128 || len(scope.PayloadHash) != sha256.Size*2 {
+	tenantID, err := uuid.Parse(string(scope.TenantID))
+	if err != nil || tenantID == uuid.Nil || !validUUID(scope.SubjectID) || strings.TrimSpace(scope.Operation) == "" || len(scope.Key) < 8 || len(scope.Key) > 128 || len(scope.PayloadHash) != sha256.Size*2 {
 		return false
 	}
-	_, err := hex.DecodeString(scope.PayloadHash)
+	_, err = hex.DecodeString(scope.PayloadHash)
 	return err == nil
 }
 

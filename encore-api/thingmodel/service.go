@@ -249,11 +249,11 @@ func principalForData(d *authn.Data) (core.Principal, error) {
 	p := core.Principal{SubjectID: canonicalIdentity("subject", d.UserID), TenantID: core.TenantID(canonicalIdentity("tenant", d.TenantID))}
 	for _, r := range d.Roles {
 		switch strings.ToUpper(r) {
-		case "TENANT_ADMIN", "SYS_ADMIN", "PLATFORM_ADMIN":
+		case "SYS_ADMIN", "PLATFORM_ADMIN":
+			return core.Principal{}, &errs.Error{Code: errs.PermissionDenied, Message: "platform admin requires an audited tenant delegation"}
+		case "TENANT_ADMIN":
 			p.Capabilities = []string{string(core.CapabilityRead), string(core.CapabilityWrite), string(core.CapabilityPublish), string(core.CapabilityDelete)}
 			return p, nil
-		case "TENANT_USER", "TENANT_VIEWER":
-			p.Capabilities = []string{string(core.CapabilityRead)}
 		}
 	}
 	return p, nil

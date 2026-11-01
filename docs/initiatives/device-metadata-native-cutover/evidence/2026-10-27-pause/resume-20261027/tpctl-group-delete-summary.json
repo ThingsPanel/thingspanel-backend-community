@@ -1,0 +1,12 @@
+{
+  "cli": "tpctl-go current kernel worktree source",
+  "binary_sha256": "6a0f8ff5d7cf5219fad23fc00b7b1a1481aefa412225d7506321470a5e54bc53",
+  "parent_conflict": "HTTP 409 / CLI exit 5; subsequent CLI GET 200",
+  "child_delete": "HTTP 200 / CLI exit 0",
+  "child_same_key_same_if_match_replay": "HTTP 200 / CLI exit 0",
+  "parent_delete_after_child": "HTTP 200 / CLI exit 0",
+  "final_api_gets": "parent 404, child 404",
+  "token_source": "private TP_ENCORE_TOKEN_FILE; never passed in argv or printed",
+  "loopback_override": "--dev-http explicitly set",
+  "writes": "only the two existing owned synthetic groups"
+}

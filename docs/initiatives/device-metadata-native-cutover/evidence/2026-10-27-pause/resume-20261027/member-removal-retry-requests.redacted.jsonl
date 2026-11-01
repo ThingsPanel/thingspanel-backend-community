@@ -1,0 +1,6 @@
+{"method":"GET","path":"/api/v2/device-groups/{groupID}","status":200}
+{"method":"GET","path":"/api/v2/device-groups/{groupID}","status":200}
+{"method":"POST","path":"/api/v2/device-groups/341d3600-7ba5-4f42-b786-9575f5db6e85/member-{op}","status":200}
+{"method":"GET","path":"/api/v2/device-groups/{groupID}","status":200}
+{"method":"DELETE","path":"/api/v2/device-groups/{groupID}","status":200}
+{"method":"GET","path":"/api/v2/device-groups/{groupID}","status":200}

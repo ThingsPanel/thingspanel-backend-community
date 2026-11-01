@@ -180,7 +180,7 @@ func (s *Service) MigrateFromLegacyTemplate(ctx context.Context, legacyTemplateI
 
 	// 5. Bind device_template to new thing_model (only the 2 allowed new columns)
 	if _, err = tx.Exec(ctx, `
-		UPDATE device_templates
+		UPDATE device_access_templates
 		SET bound_thing_model_id = $1, bound_thing_model_snapshot_id = $2, updated_at = NOW()
 		WHERE id = $3 AND tenant_id = $4`,
 		tmID, snapID, legacyTemplateID, tenantID); err != nil {
@@ -304,7 +304,7 @@ func (s *Service) RollbackMigration(ctx context.Context, migrationID string) (*R
 		}
 		if ml.SourceID != "" {
 			if _, err = tx.Exec(ctx, `
-				UPDATE device_templates
+				UPDATE device_access_templates
 				SET bound_thing_model_id = NULL, bound_thing_model_snapshot_id = NULL, updated_at = NOW()
 				WHERE id = $1 AND tenant_id = $2`,
 				ml.SourceID, tenantID); err != nil {
@@ -411,7 +411,7 @@ func listMigrationLogs(ctx context.Context, tenantID, migrationType string, page
 	}
 	defer rows.Close()
 
-	var list []MigrationLog
+	list := make([]MigrationLog, 0)
 	for rows.Next() {
 		var ml MigrationLog
 		if err := rows.Scan(
