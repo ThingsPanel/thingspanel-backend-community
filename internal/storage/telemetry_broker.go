@@ -3,8 +3,10 @@ package storage
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 
@@ -15,6 +17,13 @@ import (
 	"project/internal/brokerledger"
 	"project/internal/model"
 )
+
+type telemetryCommitUnknown struct{ err error }
+
+func (e *telemetryCommitUnknown) Error() string {
+	return "telemetry transaction outcome unknown: " + e.err.Error()
+}
+func (e *telemetryCommitUnknown) Unwrap() error { return e.err }
 
 var errTelemetryRouteFenced = errors.New("trusted telemetry route is fenced")
 
@@ -33,6 +42,14 @@ type telemetryBinding struct {
 // not move the ordinary-telemetry MQTT ACK boundary out of the memory bus.
 func (w *telemetryWriter) doFlushTrusted(batch []*telemetryBatchItem) {
 	accepted, written, failed, err := w.commitTrustedTelemetry(batch)
+	var unknown *telemetryCommitUnknown
+	if errors.As(err, &unknown) {
+		w.metrics.addTelemetryFailed(int64(failed))
+		w.metrics.addTelemetryUnknown(int64(telemetryPointCount(batch) - failed))
+		w.metrics.recordTelemetryBatch(telemetryPointCount(batch))
+		w.logger.Warnf("trusted telemetry outcome unknown; no fallback: %v", err)
+		return
+	}
 	if err != nil && len(batch) > 1 {
 		// Best-effort fallback retains the SAME fencing transaction per item.
 		// Never fall through to the legacy writer after a trusted batch error.
@@ -65,10 +82,16 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 	duplicatesCommitted := 0
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	err = w.db.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	tx := w.db.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).WithContext(ctx).Begin(&sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if tx.Error != nil {
+		return nil, 0, telemetryPointCount(batch), tx.Error
+	}
+	defer tx.Rollback()
+	err = func(tx *gorm.DB) error {
 		// Use the same tenant admission lock as ingress before sorted binding locks.
 		tenants := map[string]bool{}
-		bindings := map[string]*telemetryBatchItem{}
+		type bindingKey struct{ tenant, transport string }
+		bindings := map[bindingKey]*telemetryBatchItem{}
 		for _, item := range batch {
 			if validTrustedTelemetry(item) != nil {
 				if item != nil {
@@ -77,7 +100,7 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 				continue
 			}
 			tenants[item.tenantID] = true
-			bindings[item.tenantID+"/"+item.route.TransportDeviceID] = item
+			bindings[bindingKey{item.tenantID, item.route.TransportDeviceID}] = item
 		}
 		names := make([]string, 0, len(tenants))
 		for id := range tenants {
@@ -89,12 +112,17 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 				return e
 			}
 		}
-		keys := make([]string, 0, len(bindings))
+		keys := make([]bindingKey, 0, len(bindings))
 		for key := range bindings {
 			keys = append(keys, key)
 		}
-		sort.Strings(keys)
-		current := map[string]telemetryBinding{}
+		sort.Slice(keys, func(i, j int) bool {
+			if keys[i].tenant != keys[j].tenant {
+				return keys[i].tenant < keys[j].tenant
+			}
+			return keys[i].transport < keys[j].transport
+		})
+		current := map[bindingKey]telemetryBinding{}
 		for _, key := range keys {
 			item := bindings[key]
 			var binding telemetryBinding
@@ -111,7 +139,7 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 				continue
 			}
 			r := item.route
-			b, ok := current[item.tenantID+"/"+r.TransportDeviceID]
+			b, ok := current[bindingKey{item.tenantID, r.TransportDeviceID}]
 			if !ok || b.Phase != "active" || b.BrokerCell != r.BrokerCell || b.RouteEpoch != r.RouteEpoch {
 				failed += len(item.points)
 				continue
@@ -127,17 +155,15 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 		if len(accepted) == 0 {
 			return nil
 		}
-		history, currentRows, duplicates := w.deduplicateAndConvert(accepted)
+		history, _, duplicates := w.deduplicateAndConvert(accepted)
 		if len(history) > 0 {
-			result := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}, {Name: "ts"}}, DoNothing: true}).Create(&history)
-			if result.Error != nil {
-				return result.Error
-			}
-			written = int(result.RowsAffected)
-			if e := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}}, DoUpdates: clause.AssignmentColumns([]string{"ts", "bool_v", "number_v", "string_v", "tenant_id"}), Where: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "telemetry_current_datas.ts <= excluded.ts"}}}}).Create(&currentRows).Error; e != nil {
+			var e error
+			written, e = writeTelemetryWinners(tx, history)
+			if e != nil {
 				return e
 			}
 		}
+
 		budgets := map[string]*telemetryEffectBudget{}
 		for _, item := range accepted {
 			budget := budgets[item.tenantID]
@@ -154,9 +180,15 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 		}
 		duplicatesCommitted = duplicates
 		return nil
-	})
+	}(tx)
 	if err != nil {
+		if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
+			return nil, 0, failed, &telemetryCommitUnknown{err: fmt.Errorf("write failed; rollback outcome unknown: %w", rollbackErr)}
+		}
 		return nil, 0, telemetryPointCount(batch), err
+	}
+	if err = tx.Commit().Error; err != nil {
+		return nil, 0, failed, &telemetryCommitUnknown{err: err}
 	}
 	if duplicatesCommitted > 0 {
 		w.metrics.addTelemetryDuplicates(int64(duplicatesCommitted))
