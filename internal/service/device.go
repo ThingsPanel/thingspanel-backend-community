@@ -291,6 +291,10 @@ func serviceDeviceNumber(tenantID, accessID, externalNumber string) string {
 }
 
 func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
+	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
+	disconnectAfterCommit := false
 	// 获取设备原信息
 	var oldDevice *model.Device
 	var err error
@@ -356,9 +360,7 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims)
 				if deviceConfig.ProtocolType != nil && *deviceConfig.ProtocolType != "MQTT" {
 					// 直连设备和网关设备需要通知设备断开连接
 					if deviceConfig.DeviceType == "1" || deviceConfig.DeviceType == "2" {
-						if protocolplugin.DisconnectDeviceByDeviceID(req.Id) != nil {
-							logrus.Error("DisconnectDeviceByDeviceID failed:", err)
-						}
+						disconnectAfterCommit = true
 					}
 				}
 			}
@@ -384,11 +386,25 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims)
 	}
 	condsMap["update_at"] = t
 
-	device, err := dal.UpdateDeviceByMap(req.Id, condsMap)
+	device, err := dal.UpdateDeviceByMap(req.Id, claims.TenantID, condsMap)
 	if err != nil {
+		if errors.Is(err, dal.ErrDeviceBindingOutcomeUnknown) {
+			return nil, errcode.NewWithMessage(errcode.CodeDBError, "device update outcome unknown; reconcile before retry")
+		}
+		if errors.Is(err, dal.ErrDeviceBindingInvalid) {
+			return nil, errcode.New(errcode.CodeParamError)
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.New(errcode.CodeNoPermission)
+		}
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
+	}
+	if disconnectAfterCommit {
+		if disconnectErr := protocolplugin.DisconnectDeviceByDeviceID(req.Id); disconnectErr != nil {
+			logrus.Error("DisconnectDeviceByDeviceID failed:", disconnectErr)
+		}
 	}
 	// 清除设备缓存
 	initialize.DelDeviceCache(req.Id)
@@ -870,54 +886,38 @@ func (*Device) GetDeviceList(ctx context.Context, userClaims *utils.UserClaims, 
 	return list, err
 }
 
-func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDeviceRes) error {
-	var (
-		device = query.Device
-		db     = dal.DeviceQuery{}
-	)
-	// param.SonID使用英文逗号分割
-	sonIDs := strings.Split(param.SonID, ",")
-	for _, sonID := range sonIDs {
-		// 验证子设备无绑定 & 设备类型= 网关类型 & 设备设置 id not is null
-		deviceInfo, err := db.First(ctx, device.ID.Eq(sonID), device.ParentID.IsNull(), device.DeviceConfigID.IsNotNull())
-		if err != nil {
-			logrus.Error(ctx, "[CreateSonDevice]First failed:", err)
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+func (*Device) CreateSonDevice(ctx context.Context, param *model.CreateSonDeviceRes, claims *utils.UserClaims) error {
+	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	if param == nil || strings.TrimSpace(param.ID) == "" {
+		return errcode.New(errcode.CodeParamError)
+	}
+	ids := []string{}
+	seen := map[string]bool{}
+	for _, id := range strings.Split(param.SonID, ",") {
+		if strings.TrimSpace(id) == "" || len(id) > 36 || id == param.ID {
+			return errcode.New(errcode.CodeParamError)
 		}
-
-		// 验证设备关联配置：设备类型为网关设备或子设备（支持多级网关）
-		deviceConfig, err := dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*deviceInfo.DeviceConfigID))
-		if err != nil {
-			logrus.Error(ctx, "[CreateSonDevice]First device_configs failed:", err)
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
 		}
-
-		// 检查设备类型：必须是网关设备(2)或子设备(3)
-		if deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) && deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_SON_DEVICE) {
-			logrus.Error(ctx, "[CreateSonDevice]Invalid device type:", deviceConfig.DeviceType)
-			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-				"error":       "设备类型不支持绑定，只能绑定网关设备或子设备",
-				"device_type": deviceConfig.DeviceType,
-			})
+	}
+	if err := dal.BindExistingSubDevices(ctx, claims.TenantID, param.ID, ids); err != nil {
+		if errors.Is(err, dal.ErrDeviceBindingOutcomeUnknown) {
+			return errcode.NewWithMessage(errcode.CodeDBError, "device binding outcome unknown; reconcile before retry")
 		}
-
-		deviceInfo.ParentID = &param.ID
-		deviceInfo.SubDeviceAddr = &sonID
-		// 更新子设备 parentID
-		if err = db.Update(ctx, deviceInfo, device.ParentID, device.SubDeviceAddr); err != nil {
-			logrus.Error(ctx, "[CreateSonDevice]update failed:", err)
-		} else {
-			// 通知协议插件
-			err := protocolplugin.DisconnectDeviceByDeviceID(param.ID)
-			if err != nil {
-				logrus.Error(err)
-			}
-
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errcode.New(errcode.CodeNoPermission)
 		}
+		if errors.Is(err, dal.ErrDeviceBindingInvalid) {
+			return errcode.New(errcode.CodeParamError)
+		}
+		return errcode.New(errcode.CodeDBError)
+	}
+	if err := protocolplugin.DisconnectDeviceByDeviceID(param.ID); err != nil {
+		logrus.Error(err)
 	}
 	return nil
 }

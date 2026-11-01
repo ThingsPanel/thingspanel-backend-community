@@ -669,7 +669,7 @@ func (*DeviceApi) CreateSonDevice(c *gin.Context) {
 		return
 	}
 
-	err := service.GroupApp.Device.CreateSonDevice(c, &param)
+	err := service.GroupApp.Device.CreateSonDevice(c, &param, c.MustGet("claims").(*utils.UserClaims))
 	if err != nil {
 		c.Error(err)
 		return

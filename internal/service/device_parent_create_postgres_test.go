@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/url"
 	"os"
 	"reflect"
@@ -62,13 +63,28 @@ func (tx *parentCommitLossTx) Rollback() error {
 }
 
 func TestCreateDeviceParentFencePostgres(t *testing.T) {
-	const fixture = "postgres://parent_create_test:fixture-only-password@127.0.0.1:25672/parent_create_test?sslmode=disable"
 	dsn := os.Getenv("PARENT_CREATE_TEST_DSN")
 	if dsn == "" {
 		t.Skip("PARENT_CREATE_TEST_DSN not supplied")
 	}
-	if dsn != fixture {
-		t.Fatal("refusing non-fixture DSN")
+	fixtureURL, parseErr := url.Parse(dsn)
+	if parseErr != nil || (fixtureURL.Scheme != "postgres" && fixtureURL.Scheme != "postgresql") {
+		t.Fatal("parent fixture requires an explicit PostgreSQL URL")
+	}
+	host := fixtureURL.Hostname()
+	ip := net.ParseIP(host)
+	if host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+		t.Fatal("refusing non-loopback parent fixture host")
+	}
+	// libpq URL query parameters can override the authority; disallow every
+	// connection-target override before opening any connection.
+	for _, key := range []string{"host", "hostaddr", "port", "dbname", "database", "user", "username", "service", "servicefile"} {
+		if _, exists := fixtureURL.Query()[key]; exists {
+			t.Fatal("refusing parent fixture connection-target override")
+		}
+	}
+	if fixtureURL.User == nil || fixtureURL.User.Username() != "parent_create_test" || fixtureURL.Path != "/parent_create_test" {
+		t.Fatal("parent fixture requires its dedicated database and user")
 	}
 	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Discard})
 	if err != nil {
@@ -268,7 +284,7 @@ func TestCreateDeviceParentFencePostgres(t *testing.T) {
 }
 
 // Exercises the actual T03 DeleteDevice service and ordinary CreateDevice.
-// Other parent-reference writers remain outside this barrier.
+// Existing-child binding and reparenting are covered by device_parent_bind_postgres_test.go.
 func TestCreateDeviceAgainstRealDeletePostgres(t *testing.T) {
 	db := setupSceneDeleteBarrierDB(t)
 	useSceneDeleteBarrierDB(t, db)
