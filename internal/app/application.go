@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"project/internal/automationbridge"
 	"project/internal/downlink"
 	"project/internal/query"
 	"project/internal/storage"
@@ -37,6 +38,9 @@ type Application struct {
 
 // NewApplication 创建并初始化应用
 func NewApplication(options ...Option) (*Application, error) {
+	if err := automationbridge.Initialize(); err != nil {
+		return nil, err
+	}
 	app := &Application{
 		Logger:         logrus.New(),
 		ServiceManager: NewServiceManager(),
