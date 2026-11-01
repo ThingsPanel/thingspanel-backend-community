@@ -28,3 +28,8 @@
 ## 2026-11-01 后续：原生读数默认查询
 
 `native-devices readings` 在无历史范围时自动请求 `latestOnly=true`，事件查询及显式参数保留原意；之前默认请求会被候选后端拒绝。`cli/tpctl-go` 全包测试通过。候选服务真实认证联调仍待完成，不能据此视为真实读数验收。
+
+
+## 2026-11-01：隔离 Encore 客户端联调
+
+候选 `d4e0540b` 在独立容器、隔离 PostgreSQL 和合成 HS256 JWT / 本地 session stub 下启动；notification 在临时副本中替身化。无认证设备请求 401；CLI `native-devices list` 与 MCP STDIO `encore_list_devices` 均返回 200。CLI 创建无成员测试分组、同键同请求重放、读取并保存 ETag、更新版本 1→2、旧 ETag 得到 412 / CLI 退出码 6，MCP `encore_group_get` 读到更新，CLI 删除后 GET 404。测试容器、数据卷、网络与凭据已清理。真实 Community、设备遥测/属性数据、跨租户和生产认证未验收；没有控制设备。
