@@ -32,7 +32,8 @@ func (*ServiceAccessApi) HandleList(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
+	claimsValue, _ := c.Get("claims")
+	userClaims, _ := claimsValue.(*utils.UserClaims)
 	resp, err := service.GroupApp.ServiceAccess.List(&req, userClaims)
 	if err != nil {
 		c.Error(err)
@@ -47,7 +48,9 @@ func (*ServiceAccessApi) Update(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	err := service.GroupApp.ServiceAccess.Update(&req)
+	claimsValue, _ := c.Get("claims")
+	claims, _ := claimsValue.(*utils.UserClaims)
+	err := service.GroupApp.ServiceAccess.Update(&req, claims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -58,7 +61,9 @@ func (*ServiceAccessApi) Update(c *gin.Context) {
 // /api/v1/service/access/:id [delete]
 func (*ServiceAccessApi) Delete(c *gin.Context) {
 	id := c.Param("id")
-	err := service.GroupApp.ServiceAccess.Delete(id)
+	claimsValue, _ := c.Get("claims")
+	claims, _ := claimsValue.(*utils.UserClaims)
+	err := service.GroupApp.ServiceAccess.Delete(id, claims)
 	if err != nil {
 		c.Error(err)
 		return

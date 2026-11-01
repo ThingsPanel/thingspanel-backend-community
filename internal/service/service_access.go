@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
+
+	"gorm.io/gorm"
 
 	"project/internal/dal"
 	"project/internal/model"
@@ -43,6 +46,9 @@ func (*ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *utils
 }
 
 func (*ServiceAccess) List(req *model.GetServiceAccessByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
+	if err := requireAccessClaims(userClaims); err != nil {
+		return nil, err
+	}
 	total, list, err := dal.GetServiceAccessListByPage(req, userClaims.TenantID)
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total
@@ -56,13 +62,14 @@ func (*ServiceAccess) List(req *model.GetServiceAccessByPageReq, userClaims *uti
 	return listRsp, err
 }
 
-func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
+func (*ServiceAccess) Update(req *model.UpdateAccessReq, claims *utils.UserClaims) error {
+	if err := requireAccessClaims(claims); err != nil {
+		return err
+	}
 	// 查询服务接入点信息
-	serviceAccess, err := dal.GetServiceAccessByID(req.ID)
+	serviceAccess, err := dal.GetServiceAccessByTenantID(req.ID, claims.TenantID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return accessLookupError(err)
 	}
 	updates := make(map[string]interface{})
 	if req.Name != nil {
@@ -78,11 +85,14 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 		updates["voucher"] = req.Voucher
 	}
 	updates["update_at"] = time.Now().UTC()
-	err = dal.UpdateServiceAccess(req.ID, updates)
+	affected, err := dal.UpdateServiceAccess(req.ID, claims.TenantID, updates)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
+	}
+	if affected == 0 {
+		return errcode.New(errcode.CodeNotFound)
 	}
 	if serviceAccess.Voucher != "" {
 		// 查询服务地址
@@ -121,7 +131,13 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq) error {
 	return nil
 }
 
-func (*ServiceAccess) Delete(id string) error {
+func (*ServiceAccess) Delete(id string, claims *utils.UserClaims) error {
+	if err := requireAccessClaims(claims); err != nil {
+		return err
+	}
+	if _, err := dal.GetServiceAccessByTenantID(id, claims.TenantID); err != nil {
+		return accessLookupError(err)
+	}
 	// 查询是否还有未删除的设备
 	devices, err := dal.GetServiceDeviceList(id)
 	if err != nil {
@@ -132,13 +148,30 @@ func (*ServiceAccess) Delete(id string) error {
 	if len(devices) > 0 {
 		return errcode.New(200064)
 	}
-	err = dal.DeleteServiceAccess(id)
+	affected, err := dal.DeleteServiceAccess(id, claims.TenantID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
-	return err
+	if affected == 0 {
+		return errcode.New(errcode.CodeNotFound)
+	}
+	return nil
+}
+
+func requireAccessClaims(claims *utils.UserClaims) error {
+	if claims == nil || strings.TrimSpace(claims.ID) == "" || strings.TrimSpace(claims.TenantID) == "" {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	return nil
+}
+
+func accessLookupError(err error) error {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errcode.New(errcode.CodeNotFound)
+	}
+	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 }
 
 // GetVoucherForm
