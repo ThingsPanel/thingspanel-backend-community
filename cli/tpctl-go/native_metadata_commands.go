@@ -148,6 +148,14 @@ func nativeMetadataCommands() commandsList {
 			}
 			cmd.build = func(in *invocation) (any, map[string][]string, error) {
 				q := map[string][]string{}
+				// The native readings endpoint requires latestOnly=true for the
+				// default latest-value view. Leave it unset for explicit history
+				// requests, where from/to or aggregation selects a different mode.
+				if cmd.name == "native-devices.readings" && in.last("kind") != "event" && in.last("latestOnly") == "" &&
+					in.last("from") == "" && in.last("to") == "" &&
+					in.last("aggregation") == "" && in.last("window") == "" {
+					q["latestOnly"] = []string{"true"}
+				}
 				for _, key := range keys {
 					name := key
 					if key == "pageSize" {

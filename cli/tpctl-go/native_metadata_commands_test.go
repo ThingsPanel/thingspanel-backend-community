@@ -48,6 +48,31 @@ func TestNativeMetadataReadFiltersAndPagination(t *testing.T) {
 	}
 }
 
+func TestNativeDeviceReadingsDefaultsToLatestAndPreservesExplicitModes(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		wantLatest string
+		wantFrom   string
+	}{
+		{name: "default latest", wantLatest: "true"},
+		{name: "explicit latest", args: []string{"--latestOnly", "false"}, wantLatest: "false"},
+		{name: "history", args: []string{"--from", "2026-01-01T00:00:00Z", "--to", "2026-01-01T01:00:00Z", "--identifier", "temp"}, wantFrom: "2026-01-01T00:00:00Z"},
+		{name: "event", args: []string{"--kind", "event"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, cap := newServer(t, 200, `{}`)
+			args := append([]string{"--base-url", srv.URL, "native-devices", "readings", "d1"}, tc.args...)
+			code, _, stderr := runCLI(args...)
+			q, err := url.ParseQuery(cap.last().Query)
+			if code != 0 || err != nil || q.Get("latestOnly") != tc.wantLatest || q.Get("from") != tc.wantFrom {
+				t.Fatalf("code=%d stderr=%s query=%v err=%v", code, stderr, q, err)
+			}
+		})
+	}
+}
+
 func TestNativeMetadataRequiresIfMatch(t *testing.T) {
 	srv, cap := newServer(t, 200, `{}`)
 	code, _, _ := runCLI("--base-url", srv.URL, "--idempotency-key", "group-delete-1", "native-groups", "delete", "g1")
