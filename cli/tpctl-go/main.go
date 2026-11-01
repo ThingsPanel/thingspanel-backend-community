@@ -43,6 +43,12 @@ type command struct {
 	// idempotency key automatically; reads do not, because a read that is
 	// retried twice is not a problem worth a header.
 	sideEffect bool
+	// headerOnlyKey keeps APIs that use the Idempotency-Key header from
+	// receiving the automation-specific request_id field in their JSON body.
+	headerOnlyKey bool
+	communityAPI  bool
+	noIdempotency bool
+	strictPath    bool
 	// summary is the one-line help.
 	summary string
 	// verdict turns a 200 response into a non-zero exit when the answer is
@@ -189,7 +195,7 @@ func withQuery(base map[string][]string, extra map[string][]string) map[string][
 func commands() commandsList {
 	fileFlag := flagSpec{name: "file", kind: "string", help: "请求体 JSON 文件，- 表示标准输入"}
 
-	return []*command{
+	base := []*command{
 		{
 			name: "rules.list", method: "GET", path: "/v1/rules",
 			summary: "列出规则（分页）",
@@ -630,6 +636,12 @@ func commands() commandsList {
 			},
 		},
 	}
+	added := append(thingModelCommands(), communityDeviceCommands()...)
+	added = append(added, notificationCommands()...)
+	for _, cmd := range added {
+		cmd.strictPath = true
+	}
+	return append(base, added...)
 }
 
 func enabledBody(in *invocation, enabled bool) (any, map[string][]string, error) {
@@ -797,6 +809,10 @@ func run(argv []string, stdout, stderr io.Writer) int {
 	}
 	in.cmd = cmd
 	in.global = g
+	if cmd.noIdempotency && g.idempotencyKey != "" {
+		writeError(stdout, stderr, g, cmd.name, "", &apiError{Code: "usage", Message: "此接口不保证幂等，不能使用 --idempotency-key", ExitCode: exitUsage})
+		return exitUsage
+	}
 
 	body, query, berr := buildRequest(in)
 	if berr != nil {
@@ -815,21 +831,31 @@ func run(argv []string, stdout, stderr io.Writer) int {
 	}
 
 	idem := ""
-	if cmd.sideEffect {
+	if cmd.sideEffect && !cmd.noIdempotency {
 		idem = g.idempotencyKey
 		if idem == "" {
-			idem = intentKey(intentLabel(cmd), cmd.method+" "+cmd.path, body)
+			keyPath := cmd.path
+			if cmd.headerOnlyKey {
+				keyPath = path
+			}
+			idem = intentKey(intentLabel(cmd), cmd.method+" "+keyPath, body)
 		}
 		// The key goes into the body as well as the header. Encore's typed
 		// handlers cannot see headers, so a header-only key is a key the
 		// service never reads — the retry would create a second run.
-		body = withRequestID(body, idem)
+		if !cmd.headerOnlyKey {
+			body = withRequestID(body, idem)
+		}
 	}
 	requestID := newRequestID()
 
 	c := newClient(g.baseURL, g.token, g.tenant, g.timeout)
+	c.communityAPI = cmd.communityAPI
 	resp, apiErr := c.call(cmd.method, path, toValues(query), body, idem, requestID)
 	if apiErr != nil {
+		if !cmd.sideEffect && apiErr.Code == "outcome_unknown" {
+			apiErr.Code, apiErr.ExitCode, apiErr.Message = "unavailable", exitUnavailable, "服务不可达: "+apiErr.Message
+		}
 		if resp != nil && resp.requestID != "" {
 			requestID = resp.requestID
 		}
@@ -961,6 +987,9 @@ func fillPath(cmd *command, args []string) (string, error) {
 			// /v1/rules//enabled, which is a 404 that reads like "this rule
 			// does not exist" instead of "you forgot the id".
 			return "", fmt.Errorf("%s 的 <%s> 不能为空", cmd.name, name)
+		}
+		if cmd.strictPath && (strings.ContainsAny(args[i], "/?#%") || args[i] == "." || args[i] == "..") {
+			return "", fmt.Errorf("%s 的 <%s> 不能包含路径或查询分隔符", cmd.name, name)
 		}
 		path = strings.Replace(path, ":"+name, args[i], 1)
 	}
@@ -1309,7 +1338,7 @@ func printHelp(w io.Writer, args []string) {
 			return
 		}
 	}
-	fmt.Fprintf(w, `tpctl %s — ThingsPanel 自动化命令行
+	fmt.Fprintf(w, `tpctl %s — ThingsPanel 命令行
 
 用法:
   tpctl [全局参数] <组> <动作> [参数] [--标志]
@@ -1335,6 +1364,14 @@ func printHelp(w io.Writer, args []string) {
   bundles    export preview import imports importGet
   alarms     list get ack transitions
   blueprints list preview instantiate
+  devices    list get create update delete status children
+  device-templates list get create update delete
+  device-groups    list get create update delete tree
+  thingmodels list get versions version resources create update publish update-resources
+  notifications list get send deliveries delivery plugins plugin instances instance
+             groups group group-create group-update test grants grant-set
+             instance-create instance-update instance-validate receipt-credential
+             plugin-register plugin-update tenant-plugins tenant-instances tenant-instance
 
   tpctl legacy      旧命令（automations …）到新命令的映射表
   tpctl help <命令> 单个命令的参数说明
@@ -1360,7 +1397,9 @@ func printCommandHelp(w io.Writer, c *command) {
 			fmt.Fprintf(w, "  --%-16s %s%s\n", f.name, f.help, def)
 		}
 	}
-	if c.sideEffect {
+	if c.noIdempotency {
+		fmt.Fprintln(w, "\n此写接口不保证幂等：超时后先查询结果，再决定是否重试。")
+	} else if c.sideEffect {
 		fmt.Fprintln(w, "\n这是会改变状态的命令：默认按“命令+请求体”推导幂等键，重试不会重复生效。")
 	}
 }

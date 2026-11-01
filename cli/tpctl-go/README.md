@@ -4,6 +4,39 @@ ThingsPanel 自动化的命令行入口。它只做一件事：**把同一条 HT
 没有本地执行内核，没有第二套校验，也没有另一份凭据管理——`tpctl` 里看到的规则、
 预览、运行记录，就是网页上看到的那一份。
 
+本版还覆盖 Community 主线的设备、设备模板、设备分组、物模型和通知常用接口。
+从源码构建以使用最新命令：`go build -o tpctl .`。仓库中已有的可执行文件是旧版本，
+不应作为新命令已更新的依据。
+
+```bash
+tpctl devices list --page 1 --page-size 20
+tpctl devices get DEVICE_ID
+tpctl device-groups tree
+tpctl device-templates create --file template.json
+tpctl thingmodels list --query sensor
+tpctl thingmodels versions MODEL_ID
+tpctl thingmodels create --file model-request.json
+tpctl notifications list
+tpctl notifications send --file notification-request.json
+tpctl notifications deliveries
+# 平台管理员管理指定租户的通知实例
+tpctl notifications tenant-instances TENANT_ID
+tpctl notifications instance-create TENANT_ID --file instance-request.json
+```
+
+设备、模板、分组使用当前主线 `/api/v1/device...`；物模型和通知使用
+`/api/v2/...`。`TPCTL_BASE_URL` 应指向能路由这些路径的服务入口。设备 API 使用
+`x-token`，物模型、通知和自动化使用 `Authorization: Bearer`；统一通过
+`TPCTL_TOKEN` 或 `--token` 提供令牌。不同服务的权限以服务器为准。
+
+设备类写入的现有社区接口未承诺幂等：如果请求超时，CLI 报结果未知，应先查询
+服务器再决定是否重试；这些命令不接受 `--idempotency-key`。物模型和通知写命令
+按接口契约使用 `Idempotency-Key`，JSON 文件直接提供对应接口的请求对象。通知
+提交成功只表示已接收，送达状态须查询 `notifications deliveries`。
+
+设备元数据 `/api/v2` 新接口尚未进入本分支基于的 Community `main`；其候选分支
+合入后，应按当时的正式契约补齐原生命令并做联调，不能把旧接口宣称为原生直切。
+
 ```
 tpctl [全局参数] <组> <动作> [参数] [--标志]
 ```
@@ -72,7 +105,7 @@ stdout 永远是同一个信封，失败时也是（`| jq` 因此可以无条件
 
 ## 幂等
 
-会改变状态的命令自动带 `Idempotency-Key`，键由**命令 + 请求体**推导（`sha256`
+支持幂等的写命令自动带 `Idempotency-Key`，键由**命令 + 路径 + 请求体**推导（`sha256`
 前 16 位）。同一个意图重试就是同一个键，所以超时后重跑不会开两次灯。
 `--idempotency-key` 可以钉死一个键，供脚本跨不同形态的调用复用。
 
@@ -115,7 +148,7 @@ tpctl bundles import  --file pkg.json --role door=dev-1,dev-2 --slot on-call=pol
 ## 测试
 
 ```bash
-go test ./...                                   # 20 个用例，对 httptest 服务端断言契约
+go test ./...                                   # 对 httptest 服务端断言请求与错误契约
 bash ../../test/automation-rewrite/tpctl_smoke.sh   # 27 项，对真实服务端
 ```
 

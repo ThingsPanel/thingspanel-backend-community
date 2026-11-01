@@ -55,10 +55,11 @@ type apiError struct {
 }
 
 type client struct {
-	baseURL string
-	token   string
-	tenant  string
-	http    *http.Client
+	baseURL      string
+	token        string
+	tenant       string
+	http         *http.Client
+	communityAPI bool
 }
 
 func newClient(baseURL, token, tenant string, timeout time.Duration) *client {
@@ -111,6 +112,9 @@ func (c *client) call(method, path string, query url.Values, body any,
 	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
+		if c.communityAPI {
+			req.Header.Set("x-token", c.token)
+		}
 	}
 	if c.tenant != "" {
 		req.Header.Set("X-Tenant-ID", c.tenant)
