@@ -48,6 +48,16 @@ func NewMarketBundleInstallService() *MarketBundleInstallService {
 func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *model.InstallBundleRequest, claims *utils.UserClaims) (*model.InstallBundleResponse, error) {
 	tenantID := claims.TenantID
 
+	// Reject duplicate binding keys before creating an installation or importing
+	// any resources. resolveDeviceBindings performs the same check defensively.
+	seenBindings := make(map[string]struct{}, len(req.DeviceBindings))
+	for _, binding := range req.DeviceBindings {
+		if _, exists := seenBindings[binding.BindingKey]; exists {
+			return nil, errcode.WithData(errcode.CodeParamError, "duplicate device binding: "+binding.BindingKey)
+		}
+		seenBindings[binding.BindingKey] = struct{}{}
+	}
+
 	// 1. Handle idempotency
 	idempotencyKey := req.IdempotencyKey
 	if idempotencyKey == "" {
@@ -59,6 +69,11 @@ func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *mod
 	if err == nil && existing != nil {
 		// Return existing installation
 		return s.buildIdempotentResponse(existing, tenantID)
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		// An unavailable lookup is not evidence that no installation exists.
+		// Do not create a new record or start remote work on an unknown result.
+		return nil, errcode.WithData(errcode.CodeDBError, "Failed to look up installation")
 	}
 
 	// 2. Create installation record
@@ -899,10 +914,14 @@ func (s *MarketBundleInstallService) checkCompensationNeeded(ctx context.Context
 	}
 
 	if hasCreatedResources {
-		if err := s.installRepo.UpdateStatus(ctx, installID, model.InstallStateCompensationRequired, "COMPENSATION_NEEDED", "Some resources were created before failure"); err != nil {
+		updated, err := s.installRepo.HoldFailedCompensationForReview(ctx, installID, tenantID)
+		if err != nil {
 			logrus.Warnf("Failed to update status to COMPENSATION_REQUIRED: %v", err)
+			return
 		}
-		s.recordAudit(ctx, installID, tenantID, "state_change", model.InstallStateFailed, model.InstallStateCompensationRequired, nil)
+		if updated {
+			s.recordAudit(ctx, installID, tenantID, "state_change", model.InstallStateFailed, model.InstallStateCompensationRequired, nil)
+		}
 	}
 }
 
@@ -1000,6 +1019,12 @@ func (s *MarketBundleInstallService) GetInstallationStatus(ctx context.Context, 
 
 // UpdateDeviceBinding updates a device binding for a WAITING_FOR_BINDINGS installation
 func (s *MarketBundleInstallService) UpdateDeviceBinding(ctx context.Context, installID, tenantID string, req *model.UpdateBindingRequest) error {
+	// Keep this path closed until dashboard updates, model compatibility, and
+	// binding revision/recovery are coordinated with their owning services.
+	// The existing implementation below is retained for review, not enabled.
+	if err := dashboardBindingUpdateReadiness(); err != nil {
+		return err
+	}
 	inst, err := s.installRepo.GetByID(ctx, installID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -1062,6 +1087,12 @@ func (s *MarketBundleInstallService) UpdateDeviceBinding(ctx context.Context, in
 	}
 
 	return nil
+}
+
+// dashboardBindingUpdateReadiness deliberately has no runtime override: the
+// old local-only update cannot prove that the dashboard binding was applied.
+func dashboardBindingUpdateReadiness() error {
+	return errcode.WithData(errcode.CodeOpDenied, "Automatic binding updates are unavailable; reconcile the existing installation first")
 }
 
 // RetryInstallation retries a failed installation
