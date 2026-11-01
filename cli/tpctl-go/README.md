@@ -35,7 +35,29 @@ tpctl notifications instance-create TENANT_ID --file instance-request.json
 提交成功只表示已接收，送达状态须查询 `notifications deliveries`。
 
 设备元数据 `/api/v2` 新接口尚未进入本分支基于的 Community `main`；其候选分支
-合入后，应按当时的正式契约补齐原生命令并做联调，不能把旧接口宣称为原生直切。
+合入并部署后，可使用本次新增的 `native-devices`、`native-templates`、`native-groups`
+及 `native-operations` 命令。它们调用候选的原生 API，不回退旧路径。读取详情时
+`--save-etag FILE` 将服务端 ETag 原样保存到新文件；条件更新和删除需要将它包含引号传入
+`--if-match`。原生写入必须明确指定 8–128 字符的 `--idempotency-key`，同一操作
+结果未知时沿用原键及原条件；新操作使用新键。原生命令不接受租户选择头，使用
+身份令牌授权；远程地址要求 HTTPS，本机回环地址允许 HTTP。
+同一组原生命令也提供 `device`、`template`、`group` 和 `operation` 单数名称；
+已有复数 `devices`、`device-templates`、`device-groups` 仍对应当前主线的旧接口。
+
+```bash
+tpctl native-groups list
+tpctl native-groups get GROUP_ID
+tpctl --idempotency-key group-create-001 native-groups create --file group.json
+tpctl --idempotency-key group-update-001 native-groups update GROUP_ID --if-match '"etag"' --file patch.json
+tpctl artifact download DOWNLOAD_ID --output-file readings.csv
+tpctl provider list --page 1 --page-size 20
+tpctl --idempotency-key image-upload-001 asset upload --file cover.png
+tpctl asset get ASSET_ID
+```
+
+文件下载会流式写入临时文件，校验服务端 SHA-256 ETag 后创建目标文件，不覆盖已有文件。
+这些命令还覆盖凭据生命周期、模拟器和读数导出作业等候选已注册接口；并非该候选
+全部操作的验收。请以对应版本接口和真实服务联调结果为准。
 
 ```
 tpctl [全局参数] <组> <动作> [参数] [--标志]
