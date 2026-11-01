@@ -14,6 +14,7 @@ import (
 
 	"gorm.io/gen/field"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"gorm.io/gen"
 
@@ -38,39 +39,76 @@ func createDevicesWithDefaultRootGroup(devices []*model.Device) error {
 		return nil
 	}
 
-	tenantID := devices[0].TenantID
 	return query.Q.Transaction(func(tx *query.Query) error {
-		if err := tx.Device.Create(devices...); err != nil {
-			return err
-		}
-
-		if tenantID == "" {
-			return nil
-		}
-
-		groupID, err := GetAutoBindRootDeviceGroupID(tx, tenantID)
-		if err != nil || groupID == "" {
-			return err
-		}
-
-		relations := make([]*model.RGroupDevice, 0, len(devices))
-		for _, device := range devices {
-			if device == nil || device.ID == "" || device.TenantID != tenantID {
-				continue
-			}
-			relations = append(relations, &model.RGroupDevice{
-				GroupID:  groupID,
-				DeviceID: device.ID,
-				TenantID: tenantID,
-			})
-		}
-
-		if len(relations) == 0 {
-			return nil
-		}
-
-		return tx.RGroupDevice.Create(relations...)
+		return createDevicesWithDefaultRootGroupTx(tx, devices)
 	})
+}
+
+var ErrParentDeviceUnavailable = errors.New("parent device unavailable")
+var ErrDeviceCreateOutcomeUnknown = errors.New("device creation outcome unknown")
+
+// CreateDeviceWithLockedParent holds the parent lock through the device and
+// default group writes; callers must not retry an unknown outcome blindly.
+func CreateDeviceWithLockedParent(device *model.Device) error {
+	tx := query.Use(global.DB).Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	q := tx.Device
+	_, err := q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(*device.ParentID), q.TenantID.Eq(device.TenantID)).First()
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = ErrParentDeviceUnavailable
+	}
+	if err == nil {
+		err = createDevicesWithDefaultRootGroupTx(tx.Query, []*model.Device{device})
+	}
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return ErrDeviceCreateOutcomeUnknown
+		}
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return ErrDeviceCreateOutcomeUnknown
+	}
+	return nil
+}
+
+func createDevicesWithDefaultRootGroupTx(tx *query.Query, devices []*model.Device) error {
+	if len(devices) == 0 {
+		return nil
+	}
+	tenantID := devices[0].TenantID
+	if err := tx.Device.Create(devices...); err != nil {
+		return err
+	}
+
+	if tenantID == "" {
+		return nil
+	}
+
+	groupID, err := GetAutoBindRootDeviceGroupID(tx, tenantID)
+	if err != nil || groupID == "" {
+		return err
+	}
+
+	relations := make([]*model.RGroupDevice, 0, len(devices))
+	for _, device := range devices {
+		if device == nil || device.ID == "" || device.TenantID != tenantID {
+			continue
+		}
+		relations = append(relations, &model.RGroupDevice{
+			GroupID:  groupID,
+			DeviceID: device.ID,
+			TenantID: tenantID,
+		})
+	}
+
+	if len(relations) == 0 {
+		return nil
+	}
+
+	return tx.RGroupDevice.Create(relations...)
 }
 
 func UpdateDevice(device *model.Device) (*model.Device, error) {
@@ -165,13 +203,27 @@ func DeleteDevice(id string, tenantID string) error {
 	return err
 }
 
-// 删除设备，带事务
-func DeleteDeviceWithTx(id string, tenantID string, tx *query.QueryTx) error {
-	_, err := tx.Device.Where(query.Device.ID.Eq(id), query.Device.TenantID.Eq(tenantID)).Delete()
+// LockTenantDeviceForDelete establishes ownership before any dependent data is touched.
+func LockTenantDeviceForDelete(id, tenantID string, tx *query.QueryTx) (*model.Device, error) {
+	q := tx.Device
+	return q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First()
+}
+
+func HasDeviceDeleteDependencies(id string, tx *query.QueryTx) (bool, bool, error) {
+	d := tx.Device
+	children, err := d.Where(d.ParentID.Eq(id)).Count()
 	if err != nil {
-		logrus.Error(err)
+		return false, false, err
 	}
-	return err
+	c := tx.DeviceTriggerCondition
+	triggers, err := c.Where(c.TriggerSource.Eq(id)).Count()
+	return children > 0, triggers > 0, err
+}
+
+func DeleteDeviceWithTx(id, tenantID string, tx *query.QueryTx) (int64, error) {
+	q := tx.Device
+	result, err := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).Delete()
+	return result.RowsAffected, err
 }
 
 // 根据子设备id获取父设备信息

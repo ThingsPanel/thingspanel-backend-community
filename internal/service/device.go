@@ -35,6 +35,17 @@ import (
 type Device struct{}
 
 func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims) (device model.Device, err error) {
+	defer func() {
+		if err != nil {
+			device = model.Device{}
+		}
+	}()
+	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
+		return device, errcode.New(errcode.CodeNoPermission)
+	}
+	if req.ParentID != nil && strings.TrimSpace(*req.ParentID) == "" {
+		return device, errcode.New(errcode.CodeParamError)
+	}
 	t := time.Now().UTC()
 
 	// 如果提供了ID，使用提供的ID，否则自动生成
@@ -65,6 +76,9 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 		device.ID = deviceID
 	} else {
 		device.ID = uuid.New()
+	}
+	if req.ParentID != nil && *req.ParentID == device.ID {
+		return device, errcode.New(errcode.CodeParamError)
 	}
 	device.Name = req.Name
 	if req.Voucher == nil {
@@ -125,8 +139,21 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 	device.IsOnline = IsOnline
 	device.ActivateFlag = "active"
 	device.IsEnabled = "enabled"
-	err = dal.CreateDevice(&device)
+	if device.ParentID == nil {
+		err = dal.CreateDevice(&device)
+	} else {
+		err = dal.CreateDeviceWithLockedParent(&device)
+	}
 	if err != nil {
+		if errors.Is(err, dal.ErrParentDeviceUnavailable) {
+			return device, errcode.New(errcode.CodeNoPermission)
+		}
+		if errors.Is(err, dal.ErrDeviceCreateOutcomeUnknown) {
+			return device, errcode.NewWithMessage(errcode.CodeDBError, "device creation outcome unknown; reconcile before retry")
+		}
+		if device.ParentID != nil {
+			return device, errcode.New(errcode.CodeDBError)
+		}
 		return device, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
@@ -425,37 +452,34 @@ func (*Device) ActiveDevice(req model.ActiveDeviceReq) (any, error) {
 }
 
 func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
-	// 获取设备信息
-	deviceInfo, err := dal.GetDeviceByID(id)
-	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+	if userClaims == nil || strings.TrimSpace(userClaims.ID) == "" || strings.TrimSpace(userClaims.TenantID) == "" {
+		return errcode.New(errcode.CodeNoPermission)
 	}
-	// 如果有子设备，不允许删除
-	data, err := dal.GetSubDeviceListByParentID(id)
-	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
-	if len(data) > 0 {
-		return errcode.WithData(200063, map[string]interface{}{
-			"message": "device has sub device,please remove sub device first",
-		})
-	}
-	// 关联了场景联动，不允许删除
-	conditions, err1 := dal.GetDeviceTriggerConditionListByDeviceId(id)
-	if err1 != nil {
-		return err1
-	}
-	if len(conditions) > 0 {
-		return errcode.WithData(200062, map[string]interface{}{
-			"message": "device has scene,please remove scene first",
-		})
-	}
-
 	tx := query.Use(global.DB).Begin()
+	if tx.Error != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": tx.Error.Error()})
+	}
+	deviceInfo, err := dal.LockTenantDeviceForDelete(id, userClaims.TenantID, tx)
+	if err != nil {
+		tx.Rollback()
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errcode.New(errcode.CodeNotFound)
+		}
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	children, triggers, err := dal.HasDeviceDeleteDependencies(id, tx)
+	if err != nil {
+		tx.Rollback()
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	if children {
+		tx.Rollback()
+		return errcode.WithData(200063, map[string]interface{}{"message": "device has sub device,please remove sub device first"})
+	}
+	if triggers {
+		tx.Rollback()
+		return errcode.WithData(200062, map[string]interface{}{"message": "device has scene,please remove scene first"})
+	}
 	// 删除遥测当前数据
 	err = dal.DeleteCurrentTelemetryDataByDeviceId(id, tx)
 	if err != nil {
@@ -520,7 +544,7 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	}
 
 	// 删除设备
-	err = dal.DeleteDeviceWithTx(id, userClaims.TenantID, tx)
+	affected, err := dal.DeleteDeviceWithTx(id, userClaims.TenantID, tx)
 	if err != nil {
 		tx.Rollback()
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -528,15 +552,21 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 		})
 	}
 
-	// 提交事务
-	tx.Commit()
+	if affected != 1 {
+		tx.Rollback()
+		return errcode.New(errcode.CodeNotFound)
+	}
+	// A commit error does not establish whether the database committed.
+	if err := tx.Commit(); err != nil {
+		return errcode.NewWithMessage(errcode.CodeDBError, "device deletion commit outcome unknown; reconcile before retry")
+	}
 	// 清除设备缓存
 	initialize.DelDeviceCache(id)
 	// 清除鉴权缓存
 	global.REDIS.Del(context.Background(), deviceInfo.Voucher)
 	// 通知协议插件
-	if protocolplugin.DisconnectDeviceByDeviceID(id) != nil {
-		logrus.Error("DisconnectDeviceByDeviceID failed:", err)
+	if disconnectErr := protocolplugin.DisconnectDeviceByDeviceID(id); disconnectErr != nil {
+		logrus.Error("DisconnectDeviceByDeviceID failed:", disconnectErr)
 	}
 
 	return nil
@@ -1420,15 +1450,15 @@ func (*Device) GatewayRegister(req model.GatewayRegisterReq) (model.GatewayRegis
 
 func (*Device) GatewayDeviceRegister(req model.DeviceRegisterReq) (model.DeviceRegisterRes, error) {
 	device, err := dal.GetDeviceByID(req.DeviceId)
-	if err != nil {
-		var voucher model.DeviceVoucher
-		_ = json.Unmarshal([]byte(device.Voucher), &voucher)
-
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.DeviceRegisterRes{
 			Type:    "sub-register-response",
 			Status:  "fail",
 			Message: "未查询到网关设备信息",
 		}, nil
+	}
+	if err != nil || device == nil {
+		return model.DeviceRegisterRes{}, errcode.New(errcode.CodeDBError)
 	}
 	res := model.DeviceRegisterRes{
 		Type:         "sub-register-response",
