@@ -97,10 +97,28 @@ func parseWSDeviceIDs(initMap map[string]interface{}) ([]string, error) {
 	return nil, errors.New("device_ids is required")
 }
 
+// authorizeHTTPDeviceReads completes ownership checks before data access.
+func authorizeHTTPDeviceReads(c *gin.Context, ids []string) bool {
+	value, _ := c.Get("claims")
+	claims, _ := value.(*utils.UserClaims)
+	if len(ids) == 0 {
+		c.Error(errcode.New(errcode.CodeNoPermission))
+		return false
+	}
+	if err := service.GroupApp.Device.AuthorizeWebSocketDeviceRead(claims, ids); err != nil {
+		c.Error(err)
+		return false
+	}
+	return true
+}
+
 // GetCurrentData 设备当前值查询
 // @Router   /api/v1/telemetry/datas/current/{id} [get]
 func (*TelemetryDataApi) HandleCurrentData(c *gin.Context) {
 	deviceId := c.Param("id")
+	if !authorizeHTTPDeviceReads(c, []string{deviceId}) {
+		return
+	}
 	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrData(deviceId)
 	if err != nil {
 		c.Error(err)
@@ -118,6 +136,9 @@ func (*TelemetryDataApi) HandleCurrentDataKeys(c *gin.Context) {
 		return
 	}
 
+	if !authorizeHTTPDeviceReads(c, []string{req.DeviceID}) {
+		return
+	}
 	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataKeys(&req)
 	if err != nil {
 		c.Error(err)
@@ -132,6 +153,9 @@ func (*TelemetryDataApi) HandleCurrentDataKeys(c *gin.Context) {
 func (*TelemetryDataApi) ServeHistoryData(c *gin.Context) {
 	var req model.GetTelemetryHistoryDataReq
 	if !BindAndValidate(c, &req) {
+		return
+	}
+	if !authorizeHTTPDeviceReads(c, []string{req.DeviceID}) {
 		return
 	}
 	date, err := service.GroupApp.TelemetryData.GetTelemetrHistoryData(&req)
@@ -163,6 +187,9 @@ func (*TelemetryDataApi) DeleteData(c *gin.Context) {
 // @Router   /api/v1/telemetry/datas/current/detail/{id} [get]
 func (*TelemetryDataApi) ServeCurrentDetailData(c *gin.Context) {
 	deviceId := c.Param("id")
+	if !authorizeHTTPDeviceReads(c, []string{deviceId}) {
+		return
+	}
 	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDetailData(deviceId)
 	if err != nil {
 		c.Error(err)
@@ -185,6 +212,9 @@ func (*TelemetryDataApi) ServeHistoryDataByPage(c *gin.Context) {
 	// 	return
 	// }
 
+	if !authorizeHTTPDeviceReads(c, []string{req.DeviceID}) {
+		return
+	}
 	date, err := service.GroupApp.TelemetryData.GetTelemetrHistoryDataByPageV2(&req)
 	if err != nil {
 		c.Error(err)
@@ -208,6 +238,9 @@ func (*TelemetryDataApi) ServeHistoryDataByPageV2(c *gin.Context) {
 	// 	return
 	// }
 
+	if !authorizeHTTPDeviceReads(c, []string{req.DeviceID}) {
+		return
+	}
 	date, err := service.GroupApp.TelemetryData.GetTelemetrHistoryDataByPageV2(&req)
 	if err != nil {
 		c.Error(err)
@@ -1079,6 +1112,9 @@ func (*TelemetryDataApi) ServeStatisticData(c *gin.Context) {
 		return
 	}
 
+	if !authorizeHTTPDeviceReads(c, []string{req.DeviceId}) {
+		return
+	}
 	date, err := service.GroupApp.TelemetryData.GetTelemetrServeStatisticData(&req)
 	if err != nil {
 		c.Error(err)
@@ -1134,6 +1170,9 @@ func (*TelemetryDataApi) ServeStatisticDataByDeviceId(c *gin.Context) {
 		return
 	}
 
+	if !authorizeHTTPDeviceReads(c, req.DeviceIds) {
+		return
+	}
 	data, err := service.GroupApp.TelemetryData.GetTelemetryStatisticDataByDeviceIds(&req)
 	if err != nil {
 		c.Error(err)
