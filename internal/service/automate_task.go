@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"project/internal/dal"
 	model "project/internal/model"
 	"time"
@@ -11,43 +12,69 @@ import (
 type AutomateTask struct {
 }
 
+var (
+	errAutomationClaim         = errors.New("legacy automation task claim failed")
+	errAutomationActionRead    = errors.New("legacy automation action lookup failed")
+	errAutomationTargetRead    = errors.New("legacy automation target lookup failed")
+	errAutomationActionExecute = errors.New("legacy automation action execution failed")
+	errAutomationBatch         = errors.New("legacy automation task batch failed")
+)
+
 // OnceTaskExecute
 // @description 单次任务执行
 // @params t *AutomateTask
 // @return error
 func (t *AutomateTask) OnceTaskExecute() error {
+	if err := requireLegacyAutomation(); err != nil {
+		return err
+	}
 	limit := viper.GetInt("automation_task_confg.once_task_limit")
 	result, err := dal.GetOnceTaskListWithLock(limit)
 	if err != nil {
-		return err
+		return errAutomationClaim
 	}
 	if len(result) == 0 {
 		return nil
 	}
+	return executeOnceBatch(result, t.TaskAutomationExecute, dal.TaskExpirationSave)
+}
+
+func executeOnceBatch(tasks []*model.OneTimeTask, execute func(string) error, saveExpired func([]string) error) error {
 	var expIds []string
-	for _, v := range result {
-		//已过期 更新为已过期 未设置过期时间 表示不过期
+	failed := false
+	for _, v := range tasks {
 		if v.ExpirationTime > 0 && v.ExecutionTime.Add(time.Duration(v.ExpirationTime)*time.Minute).Before(time.Now()) {
 			expIds = append(expIds, v.ID)
 			continue
 		}
-		t.TaskAutomationExecute(v.SceneAutomationID)
+		if execute(v.SceneAutomationID) != nil {
+			failed = true
+		}
 	}
-	return dal.TaskExpirationSave(expIds)
+	if saveExpired(expIds) != nil {
+		failed = true
+	}
+	if failed {
+		return errAutomationBatch
+	}
+	return nil
 }
 
 // TaskAutomationExecute
 // @description 单次任务执行
 // @params t *AutomateTask
 // @return error
-func (*AutomateTask) TaskAutomationExecute(sceneAutomationId string) {
+func (*AutomateTask) TaskAutomationExecute(sceneAutomationId string) error {
+	if err := requireLegacyAutomation(); err != nil {
+		return err
+	}
 	//查询自动化是否关闭
 	if GroupApp.CheckSceneAutomationHasClose(sceneAutomationId) {
-		return
+		return nil
 	}
 	actions, err := dal.GetActionInfoListBySceneAutomationId([]string{sceneAutomationId})
 	if err != nil {
-		return
+		return errAutomationActionRead
 	}
 	var (
 		deviceIds      []string
@@ -61,11 +88,13 @@ func (*AutomateTask) TaskAutomationExecute(sceneAutomationId string) {
 	if len(deviceConfigId) > 0 {
 		deviceIds, err = dal.GetDeviceIdsByDeviceConfigId(deviceConfigId)
 		if err != nil {
-			return
+			return errAutomationTargetRead
 		}
 	}
-	_ = GroupApp.SceneAutomateExecute(sceneAutomationId, deviceIds, actions)
-
+	if err := GroupApp.SceneAutomateExecute(sceneAutomationId, deviceIds, actions); err != nil {
+		return errAutomationActionExecute
+	}
+	return nil
 }
 
 // PeriodicTaskExecute
@@ -73,21 +102,33 @@ func (*AutomateTask) TaskAutomationExecute(sceneAutomationId string) {
 // @params t *AutomateTask
 // @return error
 func (t *AutomateTask) PeriodicTaskExecute() error {
+	if err := requireLegacyAutomation(); err != nil {
+		return err
+	}
 
 	limit := viper.GetInt("automation_task_confg.periodic_task_limit")
 	result, err := dal.GetPeriodicTaskListWithLock(limit)
 	if err != nil {
-		return err
+		return errAutomationClaim
 	}
 	if len(result) == 0 {
 		return nil
 	}
-	for _, v := range result {
-		//已过期 更新为已过期 未设置过期时间 表示不过期
+	return executePeriodicBatch(result, t.TaskAutomationExecute)
+}
+
+func executePeriodicBatch(tasks []*model.PeriodicTask, execute func(string) error) error {
+	failed := false
+	for _, v := range tasks {
 		if v.ExpirationTime > 0 && v.ExecutionTime.Add(time.Duration(v.ExpirationTime)*time.Minute).Before(time.Now()) {
 			continue
 		}
-		t.TaskAutomationExecute(v.SceneAutomationID)
+		if execute(v.SceneAutomationID) != nil {
+			failed = true
+		}
+	}
+	if failed {
+		return errAutomationBatch
 	}
 	return nil
 }
