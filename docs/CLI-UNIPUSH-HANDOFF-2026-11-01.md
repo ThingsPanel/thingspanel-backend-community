@@ -14,6 +14,7 @@
 |---|---|
 | Luna 独立测试 | `tpctl-go` 50 项、`tpctl-mcp` 18 项通过；两个模块 `go vet` 和构建通过。测试未执行真实设备命令。 |
 | 原生 CLI 对真实候选 API | **未完成**。隔离候选两次 Encore 镜像构建停在依赖下载；离线重试仍缺少其他 Go 依赖，并遇到 PostgreSQL 镜像拉取阻断。未生成镜像或发出 CRUD 请求。日志在本机 `/tmp/tpctl-native-e2e-20261101/build-attempt.log`，不可作为通过证据。 |
+| 现有网关匿名只读探测 | Luna 对 `127.0.0.1:8080` 不带凭据执行 CLI：`thingmodels list` 返回 401、退出 5；`native-devices list` 返回 404、退出 3。未进行写入。这证明错误处理和匿名路由响应，不代表已认证业务链路通过。 |
 | UniPush 联调 | 真实 notification PostgreSQL store、worker 与真实插件进程通过一次联调，目录与 UniCloud 使用本机替身；完整 Encore API 运行器、真实 App、厂商离线通道和 iOS APNs 未验证。 |
 | 镜像与生产 | 新增独立模块的 CI 检查；没有发布镜像或部署。历史记录不能替代当前环境验证。 |
 
