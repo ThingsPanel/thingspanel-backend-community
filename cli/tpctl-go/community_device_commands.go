@@ -33,14 +33,14 @@ func communityDeviceCommands() commandsList {
 		return nil, q, nil
 	}
 	var result commandsList
-	for _, r := range []struct{ name, path, label string }{
-		{"devices", "/api/v1/device", "设备"},
-		{"device-templates", "/api/v1/device/template", "设备模板"},
-		{"device-groups", "/api/v1/device/group", "设备分组"},
+	for _, r := range []struct{ name, path, detail, label string }{
+		{"devices", "/api/v1/device", "/detail/:id", "设备"},
+		{"device-templates", "/api/v1/device_config", "/:id", "设备模板"},
+		{"device-groups", "/api/v1/device/group", "/detail/:id", "设备分组"},
 	} {
 		result = append(result,
 			&command{name: r.name + ".list", method: "GET", path: r.path, flags: listFlags, build: listQuery, communityAPI: true, verdict: communityVerdict, summary: "列出" + r.label},
-			&command{name: r.name + ".get", method: "GET", path: r.path + "/detail/:id", args: []string{"id"}, communityAPI: true, verdict: communityVerdict, summary: "读取" + r.label},
+			&command{name: r.name + ".get", method: "GET", path: r.path + r.detail, args: []string{"id"}, communityAPI: true, verdict: communityVerdict, summary: "读取" + r.label},
 			&command{name: r.name + ".create", method: "POST", path: r.path, flags: []flagSpec{file}, build: fileBody, sideEffect: true, noIdempotency: true, communityAPI: true, verdict: communityVerdict, summary: "创建" + r.label},
 			&command{name: r.name + ".update", method: "PUT", path: r.path, flags: []flagSpec{file}, build: fileBody, sideEffect: true, noIdempotency: true, communityAPI: true, verdict: communityVerdict, summary: "更新" + r.label},
 			&command{name: r.name + ".delete", method: "DELETE", path: r.path + "/:id", args: []string{"id"}, sideEffect: true, noIdempotency: true, communityAPI: true, verdict: communityVerdict, summary: "删除" + r.label},

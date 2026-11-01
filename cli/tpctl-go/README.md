@@ -24,7 +24,7 @@ tpctl notifications tenant-instances TENANT_ID
 tpctl notifications instance-create TENANT_ID --file instance-request.json
 ```
 
-设备、模板、分组使用当前主线 `/api/v1/device...`；物模型和通知使用
+设备和分组使用当前主线 `/api/v1/device...`，设备模板使用 `/api/v1/device_config`；物模型和通知使用
 `/api/v2/...`。`TPCTL_BASE_URL` 应指向能路由这些路径的服务入口。设备 API 使用
 `x-token`，物模型、通知和自动化使用 `Authorization: Bearer`；统一通过
 `TPCTL_TOKEN` 或 `--token` 提供令牌。不同服务的权限以服务器为准。

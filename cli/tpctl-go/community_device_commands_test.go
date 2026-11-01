@@ -33,6 +33,14 @@ func TestCommunityDeviceListPagination(t *testing.T) {
 	}
 }
 
+func TestDeviceTemplateUsesDeviceConfigAPI(t *testing.T) {
+	srv, cap := newServer(t, 200, `{"code":200,"data":{}}`)
+	code, _, stderr := runCLI("--base-url", srv.URL, "device-templates", "get", "template-1")
+	if code != 0 || cap.last().Path != "/api/v1/device_config/template-1" {
+		t.Fatalf("code=%d stderr=%s request=%+v", code, stderr, cap.last())
+	}
+}
+
 func TestCommunityDeviceRejectsUnsupportedIdempotencyKey(t *testing.T) {
 	srv, cap := newServer(t, 200, `{"code":200}`)
 	code, _, _ := runCLI("--base-url", srv.URL, "--idempotency-key", "retry-key", "devices", "delete", "d1")
