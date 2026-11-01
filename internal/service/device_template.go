@@ -1,15 +1,18 @@
 package service
 
 import (
+	"errors"
 	"strings"
 	"time"
 
 	dal "project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/errcode"
+	"project/pkg/global"
 	utils "project/pkg/utils"
 
 	"github.com/go-basic/uuid"
+	"gorm.io/gorm"
 )
 
 type DeviceTemplate struct{}
@@ -154,20 +157,33 @@ func (*DeviceTemplate) GetDeviceTemplateByDeviceId(deviceId string) (any, error)
 }
 
 func (*DeviceTemplate) DeleteDeviceTemplate(id string, claims *utils.UserClaims) error {
-	// 根据ID 获取模版
-	t, err := dal.GetDeviceTemplateById(id)
+	if claims == nil || strings.TrimSpace(claims.ID) == "" || strings.TrimSpace(claims.TenantID) == "" {
+		return errcode.New(errcode.CodeNoPermission)
+	}
+	tx := global.DB.Begin()
+	if tx.Error != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": tx.Error.Error()})
+	}
+	defer tx.Rollback()
+	t, err := dal.LockTenantDeviceTemplate(tx, id, claims.TenantID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errcode.New(errcode.CodeNotFound)
+		}
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
 
 	// 权限校验
+	if t.Flag == nil || (*t.Flag != dal.DEVICE_TEMPLATE_PRIVATE && *t.Flag != dal.DEVICE_TEMPLATE_PUBLIC) {
+		return errcode.New(errcode.CodeOpDenied)
+	}
 	if *t.Flag == dal.DEVICE_TEMPLATE_PUBLIC && claims.Authority == dal.TENANT_USER {
 		return errcode.New(errcode.CodeOpDenied)
 	}
 	// 根据功能模板ID查询想关联的配置模板数量
-	count, err := dal.GetDeviceConfigCountByFuncTemplateId(t.ID)
+	count, err := dal.CountTemplateConfigs(tx, t.ID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -180,13 +196,19 @@ func (*DeviceTemplate) DeleteDeviceTemplate(id string, claims *utils.UserClaims)
 		})
 	}
 
-	err = dal.DeleteDeviceTemplate(id)
+	affected, err := dal.DeleteTenantDeviceTemplate(tx, id, claims.TenantID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
 	}
-	return err
+	if affected != 1 {
+		return errcode.New(errcode.CodeNotFound)
+	}
+	if err := tx.Commit().Error; err != nil {
+		return errcode.NewWithMessage(errcode.CodeDBError, "device template deletion commit outcome unknown; reconcile before retry")
+	}
+	return nil
 }
 
 func (*DeviceTemplate) GetDeviceTemplateListByPage(req model.GetDeviceTemplateListByPageReq, claims *utils.UserClaims) (interface{}, error) {

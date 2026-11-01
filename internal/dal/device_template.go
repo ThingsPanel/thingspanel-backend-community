@@ -9,6 +9,8 @@ import (
 	utils "project/pkg/utils"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -67,6 +69,23 @@ func UpdateDeviceTemplate(data *model.DeviceTemplate) (*model.DeviceTemplate, er
 func DeleteDeviceTemplate(id string) error {
 	_, err := query.DeviceTemplate.Where(query.DeviceTemplate.ID.Eq(id)).Delete()
 	return err
+}
+
+func LockTenantDeviceTemplate(tx *gorm.DB, id, tenantID string) (*model.DeviceTemplate, error) {
+	var template model.DeviceTemplate
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND tenant_id = ?", id, tenantID).First(&template).Error
+	return &template, err
+}
+
+func CountTemplateConfigs(tx *gorm.DB, id string) (int64, error) {
+	var count int64
+	err := tx.Model(&model.DeviceConfig{}).Where("device_template_id = ?", id).Count(&count).Error
+	return count, err
+}
+
+func DeleteTenantDeviceTemplate(tx *gorm.DB, id, tenantID string) (int64, error) {
+	result := tx.Where("id = ? AND tenant_id = ?", id, tenantID).Delete(&model.DeviceTemplate{})
+	return result.RowsAffected, result.Error
 }
 
 func GetDeviceTemplateListByPage(req *model.GetDeviceTemplateListByPageReq, claims *utils.UserClaims) (int64, interface{}, error) {
