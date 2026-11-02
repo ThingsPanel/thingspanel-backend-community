@@ -10,6 +10,7 @@ import (
 	"github.com/casbin/casbin/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/spf13/viper"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -38,6 +39,8 @@ func runtimeRouterFixture(t *testing.T) *gorm.DB {
 		t.Fatal("open isolated schema")
 	}
 	oldDB, oldEnforcer := global.DB, global.CasbinEnforcer
+	oldProfile := viper.Get("mqtt.input_profile")
+	viper.Set("mqtt.input_profile", "legacy")
 	global.DB = db
 	enforcer, e := casbin.NewEnforcer("../configs/casbin.conf")
 	if e != nil {
@@ -46,6 +49,7 @@ func runtimeRouterFixture(t *testing.T) *gorm.DB {
 	global.CasbinEnforcer = enforcer
 	t.Cleanup(func() {
 		global.DB, global.CasbinEnforcer = oldDB, oldEnforcer
+		viper.Set("mqtt.input_profile", oldProfile)
 		if conn, e := db.DB(); e == nil {
 			conn.Close()
 		}
@@ -92,7 +96,7 @@ func TestRuntimeScopedPostgresReadsAndReceiptsEnforceTenantLifecycle(t *testing.
 	db := runtimeRouterFixture(t)
 	for _, id := range []string{"local", "foreign", "disabled", "tombstoned", "missing"} {
 		called := false
-		w := runtimeRequest(id, "param:id", func(c *gin.Context) { called = true; c.Status(204) })
+		w := runtimeRequest(id, "param:id", func(c *gin.Context) { called = true; c.Status(204); c.Writer.WriteHeaderNow() })
 		if id == "local" {
 			if !called || w.Code != 204 {
 				t.Fatal("authorized read rejected")
@@ -107,7 +111,7 @@ func TestRuntimeScopedPostgresReadsAndReceiptsEnforceTenantLifecycle(t *testing.
 			t.Fatal(err)
 		}
 		called := false
-		w := runtimeRequest(messageID, "command", func(c *gin.Context) { called = true; c.Status(204) })
+		w := runtimeRequest(messageID, "command", func(c *gin.Context) { called = true; c.Status(204); c.Writer.WriteHeaderNow() })
 		if (id == "local") != called {
 			t.Fatalf("receipt ownership confusion: %s status=%d", id, w.Code)
 		}
@@ -119,7 +123,7 @@ func TestRuntimeScopedPostgresReadFencePreventsMidRequestTransfer(t *testing.T) 
 	entered, release, done := make(chan struct{}), make(chan struct{}), make(chan *httptest.ResponseRecorder, 1)
 	defer close(release)
 	go func() {
-		done <- runtimeRequest("local", "param:id", func(c *gin.Context) { close(entered); <-release; c.Status(204) })
+		done <- runtimeRequest("local", "param:id", func(c *gin.Context) { close(entered); <-release; c.Status(204); c.Writer.WriteHeaderNow() })
 	}()
 	select {
 	case <-entered:

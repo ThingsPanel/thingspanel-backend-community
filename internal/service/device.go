@@ -307,6 +307,9 @@ func (d *Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaim
 }
 
 func (d *Device) RuntimeUpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
+	if req.Id == "EMPTY" || strings.TrimSpace(req.Id) == "" {
+		return nil, errcode.New(errcode.CodeParamError)
+	}
 	return d.updateDevice(req, claims, true)
 }
 
