@@ -33,10 +33,10 @@ func registerRuntimeScoped(v1 *gin.RouterGroup) {
 	}
 	add("GET", "device/detail/:id", "param:id", false, d.DeviceApi.HandleDeviceByID)
 	add("GET", "device/online/status/:id", "param:id", false, d.DeviceApi.HandleDeviceOnlineStatus)
-	add("GET", "telemetry/datas/current/:id", "param:id", false, d.TelemetryDataApi.HandleCurrentData)
+	add("GET", "telemetry/datas/current/:id", "param:id", false, api.RuntimeTelemetryCurrent)
 	add("GET", "attribute/datas/:id", "param:id", false, d.AttributeDataApi.HandleDataList)
 	add("GET", "event/datas", "query:device_id", false, d.EventDataApi.HandleEventDatasListByPage)
-	add("GET", "telemetry/datas/history/page", "query:device_id", false, d.TelemetryDataApi.ServeHistoryDataByPage)
+	add("GET", "telemetry/datas/history/page", "query:device_id", false, api.RuntimeTelemetryHistory)
 	add("GET", "device/status/history", "query:device_id", false, d.DeviceApi.GetDeviceStatusHistory)
 	add("GET", "command/datas/status/:message_id", "command", false, d.CommandSetLogApi.GetCommandStatus)
 	add("POST", "command/datas/pub", "body:device_id", true, d.CommandSetLogApi.CommandPutMessage)

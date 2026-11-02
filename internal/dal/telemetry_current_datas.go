@@ -18,7 +18,7 @@ import (
 )
 
 // 从 telemetry_current_datas 中获取遥测当前数据，用于替换 telemetry_datas
-func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurrentData, error) {
+func GetCurrentTelemetryDataEvolution(deviceId string, contexts ...context.Context) ([]*model.TelemetryCurrentData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		var telemetry []*model.TelemetryCurrentData
@@ -26,12 +26,11 @@ func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurren
 			DeviceId: deviceId,
 		}
 
-		r, err := tptodb.TptodbClient.GetDeviceAttributesCurrents(context.Background(), request)
+		r, err := tptodb.TptodbClient.GetDeviceAttributesCurrents(ReadContext(contexts...), request)
 		if err != nil {
 			logrus.Printf("GetDeviceAttributesCurrents err:%+v", err)
 			return nil, err
 		}
-		logrus.Printf("data: %+v", r.Data)
 		err = json.Unmarshal([]byte(r.Data), &telemetry)
 		if err != nil {
 			logrus.Printf("Unmarshal err:%v", err)
@@ -40,7 +39,7 @@ func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurren
 		return telemetry, nil
 	}
 
-	data, err := query.TelemetryCurrentData.Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId)).Order(query.TelemetryCurrentData.T.Desc()).Find()
+	data, err := query.TelemetryCurrentData.WithContext(ReadContext(contexts...)).Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId)).Order(query.TelemetryCurrentData.T.Desc()).Find()
 	if err != nil {
 		return nil, err
 	}

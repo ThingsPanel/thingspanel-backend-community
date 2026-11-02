@@ -205,8 +205,8 @@ func GetDeviceModelCommandDataList(device_template_id string) ([]*model.DeviceMo
 	return data, nil
 }
 
-func GetDeviceModelTelemetryDataList(device_template_id string) ([]*model.DeviceModelTelemetry, error) {
-	data, err := query.DeviceModelTelemetry.
+func GetDeviceModelTelemetryDataList(device_template_id string, contexts ...context.Context) ([]*model.DeviceModelTelemetry, error) {
+	data, err := query.DeviceModelTelemetry.WithContext(ReadContext(contexts...)).
 		Where(query.DeviceModelTelemetry.DeviceTemplateID.Eq(device_template_id)).Find()
 	if err != nil {
 		return nil, err

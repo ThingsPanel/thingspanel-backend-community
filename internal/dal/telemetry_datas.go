@@ -119,7 +119,7 @@ func GetHistoryTelemetrData(deviceId, key string, startTime, endTime int64) ([]*
 	return data, nil
 }
 
-func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (int64, []*model.TelemetryData, error) {
+func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq, contexts ...context.Context) (int64, []*model.TelemetryData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		data := make([]*model.TelemetryData, 0)
@@ -128,16 +128,19 @@ func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (in
 			StartTime: p.StartTime,
 			EndTime:   p.EndTime,
 		}
+		if len(contexts) > 0 && p.Page != nil && p.PageSize != nil {
+			request.Page = int64(*p.Page)
+			request.PageRecords = int64(*p.PageSize)
+		}
 		if len(p.Key) > 0 {
 			request.Key = p.Key
 		}
-		r, err := tptodb.TptodbClient.GetDeviceHistoryWithPageAndPage(context.Background(), request)
+		r, err := tptodb.TptodbClient.GetDeviceHistoryWithPageAndPage(ReadContext(contexts...), request)
 		if err != nil {
 			logrus.Printf("err: %+v", err)
 			return 0, nil, err
 		}
 
-		logrus.Printf("data: %+v", r.Data)
 		err = json.Unmarshal([]byte(r.Data), &data)
 		if err != nil {
 			logrus.Printf("err: %+v", err)
@@ -148,7 +151,7 @@ func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (in
 
 	var count int64
 	q := query.TelemetryData
-	queryBuilder := q.WithContext(context.Background())
+	queryBuilder := q.WithContext(ReadContext(contexts...))
 
 	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(p.DeviceID))
 	queryBuilder = queryBuilder.Where(q.Key.Eq(p.Key))

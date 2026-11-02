@@ -39,16 +39,16 @@ func (t *TelemetryData) SetDownlinkBus(bus *downlink.Bus) {
 	t.downlinkBus = bus
 }
 
-func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, error) {
+func (*TelemetryData) GetCurrentTelemetrData(device_id string, contexts ...context.Context) (interface{}, error) {
 	// d, err := dal.GetCurrentTelemetrData(device_id)
 	// 数据源替换
-	d, err := dal.GetCurrentTelemetryDataEvolution(device_id)
+	d, err := dal.GetCurrentTelemetryDataEvolution(device_id, contexts...)
 	if err != nil {
 		return nil, err
 	}
 
 	// 查询设备信息
-	deviceInfo, err := dal.GetDeviceByID(device_id)
+	deviceInfo, err := dal.GetDeviceByID(device_id, contexts...)
 	if err != nil {
 		return nil, err
 	}
@@ -58,20 +58,23 @@ func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, err
 	// 是否有设备配置
 	if deviceInfo.DeviceConfigID != nil {
 		// 查询设备配置
-		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
+		deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID, contexts...)
 		if err != nil {
 			return nil, err
 		}
 		// 是否有设备模板
 		if shouldLoadLegacyTelemetryMetadata(deviceConfig) {
 			// 查询遥测模型
-			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
+			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID, contexts...)
 			if err != nil {
 				return nil, err
 			}
 			if len(telemetryModel) > 0 {
 				// 遍历并转换为map
 				for _, v := range telemetryModel {
+					if err := dal.ReadContext(contexts...).Err(); err != nil {
+						return nil, err
+					}
 					telemetryModelMap[v.DataIdentifier] = v
 					telemetryModelUintMap[v.DataIdentifier] = v.Unit
 					telemetryModelRWMap[v.DataIdentifier] = v.ReadWriteFlag
@@ -83,6 +86,9 @@ func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, err
 	data := make([]map[string]interface{}, 0)
 	if len(d) > 0 {
 		for _, v := range d {
+			if err := dal.ReadContext(contexts...).Err(); err != nil {
+				return nil, err
+			}
 			tmp := make(map[string]interface{})
 			tmp["device_id"] = v.DeviceID
 			tmp["key"] = v.Key
@@ -439,7 +445,10 @@ func (*TelemetryData) GetTelemetrHistoryDataByPage(req *model.GetTelemetryHistor
 	return easyData, nil
 }
 
-func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHistoryDataByPageReq) (interface{}, error) {
+func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHistoryDataByPageReq, contexts ...context.Context) (interface{}, error) {
+	if len(contexts) > 0 && req.ExportExcel != nil && *req.ExportExcel {
+		return nil, errors.New("runtime history export is not supported")
+	}
 	if req.ExportExcel != nil && *req.ExportExcel {
 		var addr string
 		f := excelize.NewFile()
@@ -518,7 +527,7 @@ func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHist
 	}
 
 	//  暂时忽略总数
-	total, data, err := dal.GetHistoryTelemetrDataByPage(req)
+	total, data, err := dal.GetHistoryTelemetrDataByPage(req, contexts...)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -527,6 +536,9 @@ func (*TelemetryData) GetTelemetrHistoryDataByPageV2(req *model.GetTelemetryHist
 	// 格式化
 	var easyData []map[string]interface{}
 	for _, v := range data {
+		if err := dal.ReadContext(contexts...).Err(); err != nil {
+			return nil, err
+		}
 		d := make(map[string]interface{})
 		d["ts"] = v.T
 		d["key"] = v.Key
