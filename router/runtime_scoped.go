@@ -97,7 +97,8 @@ func runtimeScope(source string, ingress bool, handler gin.HandlerFunc) gin.Hand
 		c.Request = c.Request.WithContext(ctx)
 		if owner {
 			if ctx.Err() != nil {
-				return ctx.Err()
+				runtimeReject(c, 408, "runtime request canceled")
+				return
 			}
 			runtimeLegacyRBAC(c, tenant)
 			if !c.IsAborted() {
