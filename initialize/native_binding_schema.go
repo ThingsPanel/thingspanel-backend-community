@@ -23,45 +23,9 @@ func ApplyNativeBindingSchema(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	return db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", nativeBindingLockKey).Error; err != nil {
-			return fmt.Errorf("acquire native binding migration lock: %w", err)
-		}
-		if err := tx.Exec(`CREATE TABLE IF NOT EXISTS ` + nativeBindingLedgerTable + ` (
-			module_name text NOT NULL,
-			file_name text NOT NULL,
-			checksum char(64) NOT NULL,
-			applied_at timestamp with time zone NOT NULL DEFAULT NOW(),
-			PRIMARY KEY (module_name, file_name)
-		)`).Error; err != nil {
-			return fmt.Errorf("create native component migration ledger: %w", err)
-		}
-
-		for _, migration := range migrations {
-			checksum := nativebindingsql.MigrationChecksum(migration.Contents)
-			var recorded string
-			result := tx.Table(nativeBindingLedgerTable).
-				Select("checksum").
-				Where("module_name = ? AND file_name = ?", nativeBindingMigrationModule, migration.FileName).
-				Take(&recorded)
-			if result.Error == nil {
-				if !nativebindingsql.MigrationChecksumMatches(recorded, migration.Contents) {
-					return fmt.Errorf("native binding migration checksum drift for %s: recorded %s, source %s", migration.FileName, recorded, checksum)
-				}
-				continue
-			}
-			if result.Error != gorm.ErrRecordNotFound {
-				return fmt.Errorf("read native binding migration ledger for %s: %w", migration.FileName, result.Error)
-			}
-
-			if err := tx.Exec(string(migration.Contents)).Error; err != nil {
-				return fmt.Errorf("execute native binding migration %s: %w", migration.FileName, err)
-			}
-			if err := tx.Exec("INSERT INTO "+nativeBindingLedgerTable+" (module_name, file_name, checksum) VALUES (?, ?, ?)", nativeBindingMigrationModule, migration.FileName, checksum).Error; err != nil {
-				return fmt.Errorf("record native binding migration %s: %w", migration.FileName, err)
-			}
-		}
-		return verifyNativeBindingSchema(tx)
+	return applyComponentMigrations(db, componentMigration{
+		module: nativeBindingMigrationModule, description: "native binding", lockKey: nativeBindingLockKey,
+		files: migrations, verify: verifyNativeBindingSchema,
 	})
 }
 

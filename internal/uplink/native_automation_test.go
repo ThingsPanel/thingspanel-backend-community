@@ -5,6 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +15,19 @@ import (
 	"project/internal/model"
 	"project/internal/service"
 )
+
+func isolateAutomationConfig(t *testing.T) bool {
+	t.Helper()
+	if os.Getenv("TP_TEST_UPLINK_CHILD") == t.Name() {
+		return false
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^"+t.Name()+"$")
+	cmd.Env = append(os.Environ(), "TP_TEST_UPLINK_CHILD="+t.Name())
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("child: %v: %s", err, out)
+	}
+	return true
+}
 
 // deviceForAutomation is the minimum a device needs to carry for a dispatch.
 func deviceForAutomation(id, tenant string) *model.Device {
@@ -122,6 +138,10 @@ func TestAnEmptyTelemetryUplinkIsRefused(t *testing.T) {
 // TestTheForwarderPostsToTheIngressPath: the service only accepts uplinks on
 // the owner-only ingress, with independent service credentials.
 func TestTheForwarderPostsToTheIngressPath(t *testing.T) {
+	if isolateAutomationConfig(t) {
+		return
+	}
+	t.Setenv(envAutomationMode, "legacy")
 	var (
 		mu     sync.Mutex
 		gotURI string
@@ -168,8 +188,13 @@ func TestTheForwarderPostsToTheIngressPath(t *testing.T) {
 // whole file exists for: switching to the native engine must not leave the
 // in-process engine running, because one sample would then dispatch twice.
 func TestANativeInstallationStopsUsingTheBuiltInEngine(t *testing.T) {
+	if isolateAutomationConfig(t) {
+		return
+	}
 	t.Setenv(envAutomationMode, "native")
 	t.Setenv(envAutomationBaseURL, "http://127.0.0.1:14000")
+	t.Setenv(envAutomationToken, strings.Repeat("t", 32))
+	t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "deployment")
 	resetForwarderForTest()
 
 	f := sharedForwarder()
@@ -181,9 +206,10 @@ func TestANativeInstallationStopsUsingTheBuiltInEngine(t *testing.T) {
 	}
 }
 
-// TestNativeWithoutAnAddressFallsBackInsteadOfDroppingEverything: a half
-// configured switch must not silently stop all automation.
-func TestNativeWithoutAnAddressFallsBackInsteadOfDroppingEverything(t *testing.T) {
+func TestNativeWithoutAnAddressFailsClosed(t *testing.T) {
+	if isolateAutomationConfig(t) {
+		return
+	}
 	t.Setenv(envAutomationMode, "native")
 	t.Setenv(envAutomationBaseURL, "")
 	resetForwarderForTest()
@@ -191,11 +217,31 @@ func TestNativeWithoutAnAddressFallsBackInsteadOfDroppingEverything(t *testing.T
 	if f := sharedForwarder(); f != nil {
 		t.Fatal("没有服务地址时不应该启用转发，否则每一条上报都会被丢掉")
 	}
+	if err := DispatchAutomation(deviceForAutomation("dev", "tenant"), service.AutomateFromExt{}); err == nil {
+		t.Fatal("invalid native mode fell back to legacy")
+	}
+}
+
+func TestInvalidModeDoesNotDispatchLegacy(t *testing.T) {
+	if isolateAutomationConfig(t) {
+		return
+	}
+	t.Setenv(envAutomationMode, "typo")
+	resetForwarderForTest()
+	if err := DispatchAutomation(deviceForAutomation("dev", "tenant"), service.AutomateFromExt{}); err == nil {
+		t.Fatal("invalid mode dispatched")
+	}
+	if _, err := CurrentAutomationMode(); err == nil {
+		t.Fatal("invalid mode reported as healthy")
+	}
 }
 
 // TestALegacyInstallationKeepsTheBuiltInEngine: doing nothing must keep doing
 // exactly what it does today.
 func TestALegacyInstallationKeepsTheBuiltInEngine(t *testing.T) {
+	if isolateAutomationConfig(t) {
+		return
+	}
 	t.Setenv(envAutomationMode, "")
 	resetForwarderForTest()
 
@@ -212,20 +258,88 @@ func resetForwarderForTest() {
 }
 
 func TestRuntimeModeMatchesUplinkDecision(t *testing.T) {
+	if os.Getenv("TP_TEST_UPLINK_MODE_CASE") == "" {
+		for _, name := range []string{"legacy", "invalid", "native"} {
+			cmd := exec.Command(os.Args[0], "-test.run=^TestRuntimeModeMatchesUplinkDecision$")
+			cmd.Env = append(os.Environ(), "TP_TEST_UPLINK_MODE_CASE="+name)
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("%s: %v: %s", name, err, out)
+			}
+		}
+		return
+	}
 	for _, tc := range []struct {
+		name      string
 		mode, url string
 		want      AutomationMode
+		invalid   bool
 	}{
-		{"", "", AutomationModeLegacy},
-		{"native", "", AutomationModeLegacy},
-		{"native", "http://127.0.0.1:14000", AutomationModeNative},
+		{"legacy", "", "", AutomationModeLegacy, false},
+		{"invalid", "native", "", "", true},
+		{"native", "native", "http://127.0.0.1:14000", AutomationModeNative, false},
 	} {
+		if tc.name != os.Getenv("TP_TEST_UPLINK_MODE_CASE") {
+			continue
+		}
 		t.Setenv(envAutomationMode, tc.mode)
 		t.Setenv(envAutomationBaseURL, tc.url)
+		t.Setenv(envAutomationToken, strings.Repeat("t", 32))
+		t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "deployment")
 		resetForwarderForTest()
-		if got := CurrentAutomationMode(); got != tc.want {
-			t.Fatalf("got %s want %s", got, tc.want)
+		if got, err := CurrentAutomationMode(); got != tc.want || (err != nil) != tc.invalid {
+			t.Fatalf("got %s error %v want %s", got, err, tc.want)
 		}
 	}
 	resetForwarderForTest()
+}
+
+func TestDirectFirstConfigSnapshotAndRetry(t *testing.T) {
+	scenario := os.Getenv("TP_TEST_UPLINK_FIRST_CASE")
+	if scenario == "" {
+		for _, name := range []string{"legacy", "native-invalid", "unknown"} {
+			cmd := exec.Command(os.Args[0], "-test.run=^TestDirectFirstConfigSnapshotAndRetry$")
+			cmd.Env = append(os.Environ(), "TP_TEST_UPLINK_FIRST_CASE="+name)
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("%s: %v: %s", name, err, out)
+			}
+		}
+		return
+	}
+	t.Setenv(envAutomationBaseURL, "")
+	t.Setenv(envAutomationToken, strings.Repeat("t", 32))
+	t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "deployment")
+	if scenario == "legacy" {
+		t.Setenv(envAutomationMode, "legacy")
+		if mode, err := CurrentAutomationMode(); err != nil || mode != AutomationModeLegacy {
+			t.Fatalf("mode %q err %v", mode, err)
+		}
+		if sharedForwarder() != nil {
+			t.Fatal("legacy created forwarder")
+		}
+		t.Setenv(envAutomationMode, "native")
+		t.Setenv(envAutomationBaseURL, "http://127.0.0.1:8000")
+		if mode, err := CurrentAutomationMode(); err != nil || mode != AutomationModeLegacy || sharedForwarder() != nil {
+			t.Fatalf("legacy snapshot changed: %q %v", mode, err)
+		}
+		return
+	}
+	if scenario == "unknown" {
+		t.Setenv(envAutomationMode, "typo")
+	} else {
+		t.Setenv(envAutomationMode, "native")
+	}
+	if sharedForwarder() != nil {
+		t.Fatal("invalid config created forwarder")
+	}
+	if err := DispatchAutomation(deviceForAutomation("dev", "tenant"), service.AutomateFromExt{}); err == nil {
+		t.Fatal("invalid config dispatched")
+	}
+	t.Setenv(envAutomationMode, "native")
+	t.Setenv(envAutomationBaseURL, "http://127.0.0.1:8000")
+	if mode, err := CurrentAutomationMode(); err != nil || mode != AutomationModeNative {
+		t.Fatalf("retry mode %q err %v", mode, err)
+	}
+	if sharedForwarder() == nil {
+		t.Fatal("invalid first attempt consumed forwarder once")
+	}
 }

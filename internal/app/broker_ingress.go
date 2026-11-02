@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -308,6 +307,10 @@ func validateBrokerIngressSchema(db *gorm.DB) error {
 }
 
 func (s *MQTTService) configureBrokerIngress(ctx context.Context, adapter *mqttadapter.Adapter) error {
+	modeConfig, err := automationbridge.ReadConfig()
+	if err != nil {
+		return err
+	}
 	profile := "legacy"
 	if configured := viper.GetString("mqtt.input_profile"); configured != "" {
 		profile = configured
@@ -338,7 +341,7 @@ func (s *MQTTService) configureBrokerIngress(ctx context.Context, adapter *mqtta
 	worker.processEffects = func(ctx context.Context) (bool, error) {
 		return service.ProcessBrokerAutomationEffect(ctx, s.app.DB, worker.cell)
 	}
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_MODE")), "native") {
+	if modeConfig.Mode == "native" {
 		client, err := automationbridge.NewClient()
 		if err != nil {
 			return err

@@ -2,8 +2,10 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -201,30 +203,36 @@ func (w *telemetryWriter) doFlushLegacy(batch []*telemetryBatchItem) {
 	}
 
 	// 2. 批量写入数据库
-	written, failed := w.batchInsert(historyData, currentData)
+	written, failed, unknown := w.batchInsert(historyData, currentData)
 
 	// 3. 记录监控指标
 	w.metrics.addTelemetryWritten(int64(written))
 	w.metrics.addTelemetryFailed(int64(failed))
+	w.metrics.addTelemetryUnknown(int64(unknown))
 	w.metrics.recordTelemetryBatch(len(historyData))
 
-	w.logger.Debugf("【设备诊断】flushed batch: total=%d, written=%d, failed=%d, duplicates=%d",
-		len(historyData), written, failed, duplicates)
+	w.logger.Debugf("【设备诊断】flushed batch: total=%d, written=%d, failed=%d, unknown=%d, duplicates=%d",
+		len(historyData), written, failed, unknown, duplicates)
 }
 
 // deduplicateAndConvert 批次内去重并转换为数据库模型
 func (w *telemetryWriter) deduplicateAndConvert(batch []*telemetryBatchItem) (
 	[]TelemetryData, []TelemetryCurrentData, int) {
 
-	seen := make(map[string]struct{})
+	type historyKey struct {
+		device, key string
+		ts          int64
+	}
+	type currentKeyType struct{ device, key string }
+	seen := make(map[historyKey]struct{})
 	historyData := make([]TelemetryData, 0, len(batch)*2)
-	currentMap := make(map[string]*TelemetryCurrentData)
+	currentMap := make(map[currentKeyType]*TelemetryCurrentData)
 	duplicates := 0
 
 	for _, item := range batch {
 		for _, point := range item.points {
 			// 生成唯一键：device_id|key|timestamp
-			key := fmt.Sprintf("%s|%s|%d", item.deviceID, point.Key, item.timestamp)
+			key := historyKey{item.deviceID, point.Key, item.timestamp}
 
 			// 检查是否重复
 			if _, exists := seen[key]; exists {
@@ -248,7 +256,7 @@ func (w *telemetryWriter) deduplicateAndConvert(batch []*telemetryBatchItem) (
 			})
 
 			// 构建最新值数据（时间戳为time.Time）
-			currentKey := fmt.Sprintf("%s|%s", item.deviceID, point.Key)
+			currentKey := currentKeyType{item.deviceID, point.Key}
 			ts := time.UnixMilli(item.timestamp)
 
 			if existing, ok := currentMap[currentKey]; !ok || ts.After(existing.TS) {
@@ -273,109 +281,131 @@ func (w *telemetryWriter) deduplicateAndConvert(batch []*telemetryBatchItem) (
 	return historyData, currentData, duplicates
 }
 
-// batchInsert 批量插入数据库
-func (w *telemetryWriter) batchInsert(historyData []TelemetryData, currentData []TelemetryCurrentData) (written, failed int) {
-	// 使用事务同时写入历史表和最新值表
-	err := w.db.Transaction(func(tx *gorm.DB) error {
-		// 插入历史表 - 遇到重复键则忽略（DO NOTHING）
-		if err := tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "device_id"}, {Name: "key"}, {Name: "ts"}},
-			DoNothing: true,
-		}).Create(&historyData).Error; err != nil {
-			return fmt.Errorf("insert history data failed: %w", err)
+// writeTelemetryWinners uses the caller-owned transaction; it does not commit.
+func writeTelemetryWinners(tx *gorm.DB, points []TelemetryData) (int, error) {
+	points = append([]TelemetryData(nil), points...)
+	sort.Slice(points, func(i, j int) bool {
+		if points[i].DeviceID != points[j].DeviceID {
+			return points[i].DeviceID < points[j].DeviceID
 		}
-
-		// 插入最新值表 - 遇到重复键则更新（DO UPDATE）
-		if err := tx.Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}},
-			DoUpdates: clause.AssignmentColumns([]string{
-				"ts", "bool_v", "number_v", "string_v", "tenant_id",
-			}),
-		}).Create(&currentData).Error; err != nil {
-			return fmt.Errorf("insert current data failed: %w", err)
+		if points[i].Key != points[j].Key {
+			return points[i].Key < points[j].Key
 		}
-
-		return nil
+		return points[i].TS < points[j].TS
 	})
-
-	if err != nil {
-		// 批量插入失败，降级为逐条插入
-		// 只记录一次 batch 失败日志并降级，**不**将 batch 大小直接计入 storage_failed。
-		// 同时采样少量记录用于排查（不包含完整 payload）
-		sampleCount := 5
-		if sampleCount > len(historyData) {
-			sampleCount = len(historyData)
+	result := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}, {Name: "ts"}}, DoNothing: true}).CreateInBatches(&points, 1000)
+	err := result.Error
+	if err == nil {
+		type identity struct {
+			device, key string
+			ts          int64
 		}
-		samples := make([]map[string]interface{}, 0, sampleCount)
-		for i := 0; i < sampleCount; i++ {
-			samples = append(samples, map[string]interface{}{
-				"device_id": historyData[i].DeviceID,
-				"key":       historyData[i].Key,
-				"ts":        historyData[i].TS,
-				"tenant_id": historyData[i].TenantID,
+		expected := make(map[identity]bool, len(points))
+		type currentIdentity struct{ device, key string }
+		winners := make(map[currentIdentity]TelemetryData)
+		for _, p := range points {
+			expected[identity{p.DeviceID, p.Key, p.TS}] = false
+		}
+		for offset := 0; offset < len(points) && err == nil; offset += 1000 {
+			end := offset + 1000
+			if end > len(points) {
+				end = len(points)
+			}
+			keys := make([][]interface{}, 0, end-offset)
+			for _, p := range points[offset:end] {
+				keys = append(keys, []interface{}{p.DeviceID, p.Key, p.TS})
+			}
+			var stored []TelemetryData
+			err = tx.Where("(device_id, key, ts) IN ?", keys).Find(&stored).Error
+			for _, p := range stored {
+				id := identity{p.DeviceID, p.Key, p.TS}
+				if _, ok := expected[id]; !ok {
+					err = fmt.Errorf("unexpected telemetry history key")
+					break
+				}
+				expected[id] = true
+				key := currentIdentity{p.DeviceID, p.Key}
+				if prior, ok := winners[key]; !ok || p.TS > prior.TS {
+					winners[key] = p
+				}
+			}
+		}
+		for _, found := range expected {
+			if !found && err == nil {
+				err = fmt.Errorf("telemetry history winner missing")
+			}
+		}
+		if err == nil {
+			rows := make([]TelemetryCurrentData, 0, len(winners))
+			for _, p := range winners {
+				rows = append(rows, TelemetryCurrentData{DeviceID: p.DeviceID, Key: p.Key, TS: time.UnixMilli(p.TS), BoolV: p.BoolV, NumberV: p.NumberV, StringV: p.StringV, TenantID: p.TenantID})
+			}
+			sort.Slice(rows, func(i, j int) bool {
+				if rows[i].DeviceID != rows[j].DeviceID {
+					return rows[i].DeviceID < rows[j].DeviceID
+				}
+				return rows[i].Key < rows[j].Key
 			})
+			err = tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}}, DoUpdates: clause.AssignmentColumns([]string{"ts", "bool_v", "number_v", "string_v", "tenant_id"}), Where: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "telemetry_current_datas.ts <= excluded.ts"}}}}).CreateInBatches(&rows, 1000).Error
 		}
-		if j, jerr := json.Marshal(samples); jerr == nil {
-			w.logger.Errorf("batch insert failed: total=%d, err=%v, sample=%s, fallback to single insert", len(historyData), err, string(j))
-		} else {
-			w.logger.Errorf("batch insert failed: total=%d, err=%v, fallback to single insert", len(historyData), err)
-		}
-
-		return w.fallbackInsert(historyData, currentData)
 	}
-
-	return len(historyData), 0
+	return int(result.RowsAffected), err
 }
 
-// fallbackInsert 逐条插入兜底（批量失败时使用）
-func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentData []TelemetryCurrentData) (written, failed int) {
-	for i := range historyData {
-		// 逐条使用事务插入
-		err := w.db.Transaction(func(tx *gorm.DB) error {
-			// 插入历史表
-			if err := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "device_id"}, {Name: "key"}, {Name: "ts"}},
-				DoNothing: true,
-			}).Create(&historyData[i]).Error; err != nil {
-				return err
-			}
-
-			// 插入最新值表
-			if err := tx.Clauses(clause.OnConflict{
-				Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}},
-				DoUpdates: clause.AssignmentColumns([]string{
-					"ts", "bool_v", "number_v", "string_v", "tenant_id",
-				}),
-			}).Create(&currentData[i]).Error; err != nil {
-				return err
-			}
-
-			return nil
-		})
-
-		if err != nil {
-			// 采样记录单条失败的关键信息，便于排查 Timescale 等错误
-			sample := map[string]interface{}{
-				"device_id": historyData[i].DeviceID,
-				"key":       historyData[i].Key,
-				"ts":        historyData[i].TS,
-				"tenant_id": historyData[i].TenantID,
-			}
-			if j, jerr := json.Marshal(sample); jerr == nil {
-				w.logger.Errorf("single insert failed: sample=%s, err=%v", string(j), err)
-			} else {
-				w.logger.Errorf("single insert failed: device_id=%s, key=%s, err=%v", historyData[i].DeviceID, historyData[i].Key, err)
-			}
-
-			// 记录诊断：仅在单条插入真实失败时，增加 storage_failed 并记录失败详情到失败列表。
-			diagnostics.GetInstance().RecordStorageFailed(historyData[i].DeviceID, fmt.Sprintf("存储失败：%v", err))
-			failed++
-		} else {
-			written++
-		}
+// legacyWrite writes history first and reads the committed winner for every key.
+// Statement failure is retryable only after a confirmed rollback; commit failure
+// has an unknown outcome and must never trigger automatic fallback.
+func (w *telemetryWriter) legacyWrite(points []TelemetryData) (int, bool, error) {
+	tx := w.db.Begin(&sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if tx.Error != nil {
+		return 0, false, tx.Error
 	}
+	defer tx.Rollback()
+	_, err := writeTelemetryWinners(tx, points)
+	if err != nil {
+		if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
+			return 0, true, fmt.Errorf("write: %v; rollback outcome unknown: %w", err, rollbackErr)
+		}
+		return 0, false, err
+	}
+	if err = tx.Commit().Error; err != nil {
+		return 0, true, err
+	}
+	return len(points), false, nil
+}
 
-	return written, failed
+func (w *telemetryWriter) batchInsert(historyData []TelemetryData, _ []TelemetryCurrentData) (written, failed, unknown int) {
+	written, uncertain, err := w.legacyWrite(historyData)
+	if err == nil {
+		return written, 0, 0
+	}
+	if uncertain {
+		for _, p := range historyData {
+			w.logger.Errorf("telemetry commit outcome unknown device=%s key=%s ts=%d err=%v", p.DeviceID, p.Key, p.TS, err)
+		}
+		return 0, 0, len(historyData)
+	}
+	w.logger.Errorf("telemetry batch rolled back; fallback to individual writes: count=%d err=%v", len(historyData), err)
+	return w.fallbackInsert(historyData, nil)
+}
+
+func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, _ []TelemetryCurrentData) (written, failed, unknown int) {
+	for _, point := range historyData {
+		n, uncertain, err := w.legacyWrite([]TelemetryData{point})
+		if err == nil {
+			written += n
+			continue
+		}
+		if uncertain {
+			unknown++
+			w.logger.Errorf("telemetry point commit outcome unknown device=%s key=%s ts=%d err=%v", point.DeviceID, point.Key, point.TS, err)
+			continue
+		}
+		failed++
+		diagnostics.GetInstance().RecordStorageFailed(point.DeviceID, fmt.Sprintf("存储失败：%v", err))
+		w.logger.Errorf("telemetry point rolled back device=%s key=%s ts=%d err=%v", point.DeviceID, point.Key, point.TS, err)
+	}
+	return
 }
 
 // convertValue 转换值类型到对应的数据库字段

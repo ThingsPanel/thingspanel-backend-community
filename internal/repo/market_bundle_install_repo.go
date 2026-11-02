@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -95,8 +96,34 @@ func (r *MarketBundleInstallRepo) ListByTenant(ctx context.Context, tenantID str
 	return installations, total, nil
 }
 
-// UpdateStatus updates installation status and timestamps
-func (r *MarketBundleInstallRepo) UpdateStatus(ctx context.Context, id, status, errorCode, errorMessage string) error {
+var ErrInstallationStateConflict = errors.New("installation state changed or transition is not permitted")
+
+func validInstallationTransition(from, to string) bool {
+	switch from {
+	case model.InstallStateDownloading:
+		return to == model.InstallStateDownloaded || to == model.InstallStateFailed || to == model.InstallStateCompensationRequired
+	case model.InstallStateDownloaded:
+		return to == model.InstallStateVerified || to == model.InstallStateFailed || to == model.InstallStateCompensationRequired
+	case model.InstallStateVerified:
+		return to == model.InstallStateModelsInstalled || to == model.InstallStateFailed || to == model.InstallStateCompensationRequired
+	case model.InstallStateModelsInstalled:
+		return to == model.InstallStateDashboardsCreated || to == model.InstallStateCompleted || to == model.InstallStateFailed || to == model.InstallStateCompensationRequired
+	case model.InstallStateDashboardsCreated:
+		return to == model.InstallStateCompleted || to == model.InstallStateWaitingForBindings || to == model.InstallStateFailed || to == model.InstallStateCompensationRequired
+	case model.InstallStateWaitingForBindings:
+		return to == model.InstallStateCompleted || to == model.InstallStateCompensationRequired
+	case model.InstallStateFailed:
+		return to == model.InstallStateCompensationRequired
+	}
+	return false
+}
+
+// TransitionStatus never overwrites a concurrent worker's state or a review hold.
+// It fences local state only, and does not claim atomicity with remote effects.
+func (r *MarketBundleInstallRepo) TransitionStatus(ctx context.Context, id, tenantID, from, status, errorCode, errorMessage string) error {
+	if !validInstallationTransition(from, status) {
+		return ErrInstallationStateConflict
+	}
 	now := time.Now()
 	updates := map[string]interface{}{
 		"status":     status,
@@ -120,10 +147,28 @@ func (r *MarketBundleInstallRepo) UpdateStatus(ctx context.Context, id, status, 
 		updates["completed_at"] = now
 	}
 
-	return global.DB.WithContext(ctx).
+	result := global.DB.WithContext(ctx).
 		Model(&model.MarketBundleInstallation{}).
-		Where("id = ?", id).
-		Updates(updates).Error
+		Where("id = ? AND tenant_id = ? AND status = ?", id, tenantID, from).
+		Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrInstallationStateConflict
+	}
+	return nil
+}
+
+// HoldFailedCompensationForReview changes only the installation record. It
+// preserves the original error details and never touches business resources.
+// The tenant and prior status predicates prevent a stale worker from moving a
+// different tenant's or a subsequently changed installation into this state.
+func (r *MarketBundleInstallRepo) HoldFailedCompensationForReview(ctx context.Context, id, tenantID string) (bool, error) {
+	result := global.DB.WithContext(ctx).Model(&model.MarketBundleInstallation{}).
+		Where("id = ? AND tenant_id = ? AND status = ?", id, tenantID, model.InstallStateFailed).
+		Updates(map[string]interface{}{"status": model.InstallStateCompensationRequired, "updated_at": time.Now()})
+	return result.RowsAffected == 1, result.Error
 }
 
 // UpdateWarnings updates installation warnings
@@ -132,13 +177,20 @@ func (r *MarketBundleInstallRepo) UpdateWarnings(ctx context.Context, id string,
 	if err != nil {
 		return err
 	}
-	return global.DB.WithContext(ctx).
+	result := global.DB.WithContext(ctx).
 		Model(&model.MarketBundleInstallation{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"warnings":   warningsJSON,
 			"updated_at": time.Now(),
-		}).Error
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrInstallationStateConflict
+	}
+	return nil
 }
 
 // --- Resource Mappings ---
@@ -215,7 +267,7 @@ func (r *MarketBundleInstallRepo) GetBindingStatusesByInstallation(ctx context.C
 // UpdateBindingDevice updates the bound device for a binding
 func (r *MarketBundleInstallRepo) UpdateBindingDevice(ctx context.Context, id, localDeviceID, status, errorMessage string) error {
 	now := time.Now()
-	return global.DB.WithContext(ctx).
+	result := global.DB.WithContext(ctx).
 		Model(&model.MarketBundleBindingStatus{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
@@ -224,7 +276,14 @@ func (r *MarketBundleInstallRepo) UpdateBindingDevice(ctx context.Context, id, l
 			"status":          status,
 			"error_message":   errorMessage,
 			"updated_at":      now,
-		}).Error
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrInstallationStateConflict
+	}
+	return nil
 }
 
 // GetBindingByKey retrieves binding by installation ID and binding key

@@ -61,20 +61,23 @@ func (s *DashboardTemplateService) Download(
 	}
 	installID := installation.ID
 	fail := func(code string, cause error) error {
-		s.installService.failInstallation(ctx, installID, tenantID, code, cause.Error())
-		return cause
+		return s.installService.failInstallation(ctx, installID, tenantID, code, cause)
 	}
 
 	bundle, err := s.installService.downloadBundleFromHorizon(ctx, req.MarketToken, req.BundleKey, req.Version)
 	if err != nil {
 		return nil, fail("DOWNLOAD_FAILED", err)
 	}
-	_ = s.installService.installRepo.UpdateStatus(ctx, installID, model.InstallStateDownloaded, "", "")
+	if err := s.installService.installRepo.TransitionStatus(ctx, installID, tenantID, model.InstallStateDownloading, model.InstallStateDownloaded, "", ""); err != nil {
+		return nil, installationPersistenceError(installID, "download_state_downloaded", err)
+	}
 
 	if err := s.installService.verifyBundle(ctx, installID, tenantID, bundle, req.MarketToken); err != nil {
 		return nil, fail("VERIFICATION_FAILED", err)
 	}
-	_ = s.installService.installRepo.UpdateStatus(ctx, installID, model.InstallStateVerified, "", "")
+	if err := s.installService.installRepo.TransitionStatus(ctx, installID, tenantID, model.InstallStateDownloaded, model.InstallStateVerified, "", ""); err != nil {
+		return nil, installationPersistenceError(installID, "download_state_verified", err)
+	}
 
 	templateMappings, _, err := s.installService.installDeviceTemplates(
 		ctx,
@@ -92,13 +95,17 @@ func (s *DashboardTemplateService) Download(
 	if err := s.ensureDeviceTemplateConfigs(ctx, tenantID, bundle, templateMappings); err != nil {
 		return nil, fail("CONFIGS_INSTALL_FAILED", err)
 	}
-	_ = s.installService.installRepo.UpdateStatus(ctx, installID, model.InstallStateModelsInstalled, "", "")
+	if err := s.installService.installRepo.TransitionStatus(ctx, installID, tenantID, model.InstallStateVerified, model.InstallStateModelsInstalled, "", ""); err != nil {
+		return nil, installationPersistenceError(installID, "download_state_modelsinstalled", err)
+	}
 
 	response, err := s.saveDashboardTemplates(ctx, tenantID, req, bundle, templateMappings)
 	if err != nil {
 		return nil, fail("TEMPLATES_SAVE_FAILED", err)
 	}
-	_ = s.installService.installRepo.UpdateStatus(ctx, installID, model.InstallStateCompleted, "", "")
+	if err := s.installService.installRepo.TransitionStatus(ctx, installID, tenantID, model.InstallStateModelsInstalled, model.InstallStateCompleted, "", ""); err != nil {
+		return nil, installationPersistenceError(installID, "download_state_completed", err)
+	}
 	s.installService.recordAudit(
 		ctx,
 		installID,
@@ -204,15 +211,10 @@ func (s *DashboardTemplateService) prepareDownloadInstallation(
 	req *model.DownloadDashboardTemplateRequest,
 	tenantID string,
 ) (*model.MarketBundleInstallation, error) {
-	idempotencyKey := "download:" + s.installService.generateIdempotencyKey(req.BundleKey, req.Version, tenantID)
-	existing, err := s.installService.installRepo.GetByIdempotencyKey(ctx, idempotencyKey, tenantID)
-	if err == nil {
-		_ = s.installService.installRepo.UpdateStatus(ctx, existing.ID, model.InstallStateDownloading, "", "")
-		return existing, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, dbError("query dashboard template download", err)
-	}
+	// Each download is an independent operation; saved templates are still
+	// reused by their own tenant/bundle/resource unique identity. Never reset
+	// an earlier installation while a stale worker may still hold its ID.
+	idempotencyKey := "download:" + uuid.New()
 
 	installation, err := s.installService.installRepo.CreateInstallation(ctx, &model.MarketBundleInstallation{
 		IdempotencyKey: idempotencyKey,

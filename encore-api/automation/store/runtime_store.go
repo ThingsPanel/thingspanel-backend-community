@@ -50,16 +50,18 @@ type Receipt struct {
 }
 
 // InsertEvent persists the event. A duplicate event_id returns Duplicate=true
-// and does not advance the sequence: this is the idempotency boundary that keeps
-// a replayed broker message from firing a second physical action.
+// with the original sequence. Allocated sequence values may have gaps.
 func (s *Store) InsertEvent(ctx context.Context, e *IngestEvent) (*Receipt, error) {
 	value, err := json.Marshal(e.Value)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("event payload encoding failed")
 	}
 	params := []byte(nil)
 	if e.Params != nil {
-		params, _ = json.Marshal(e.Params)
+		params, err = json.Marshal(e.Params)
+		if err != nil {
+			return nil, errors.New("event payload encoding failed")
+		}
 	}
 	source := e.Source
 	if source == "" {
@@ -72,7 +74,7 @@ func (s *Store) InsertEvent(ctx context.Context, e *IngestEvent) (*Receipt, erro
 
 	seq, err := s.NextSeq(ctx)
 	if err != nil {
-		return nil, err
+		return nil, eventSequenceUnavailable(ctx, err)
 	}
 
 	res, err := s.DB.ExecContext(ctx, `
@@ -86,16 +88,50 @@ func (s *Store) InsertEvent(ctx context.Context, e *IngestEvent) (*Receipt, erro
 		string(quality), e.ObservedAt, seq, source, params, e.InputClass, e.GatewayID,
 		e.CausalRoot, e.CausalHop)
 	if err != nil {
-		return nil, fmt.Errorf("insert event: %w", err)
+		return nil, receiptOutcomeUnavailable(ctx, err)
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, receiptOutcomeUnavailable(ctx, err)
+	}
+	if n != 0 && n != 1 {
+		return nil, receiptOutcomeUnavailable(ctx, nil)
+	}
+	if n == 0 {
 		var existing int64
-		_ = s.DB.QueryRowContext(ctx, `SELECT seq FROM auto_inbox WHERE event_id=$1`, e.EventID).Scan(&existing)
+		if err := s.DB.QueryRowContext(ctx, `SELECT seq FROM auto_inbox WHERE event_id=$1`, e.EventID).Scan(&existing); err != nil {
+			return nil, receiptOutcomeUnavailable(ctx, err)
+		}
+		if existing <= 0 {
+			return nil, receiptOutcomeUnavailable(ctx, nil)
+		}
 		e.Seq = existing
 		return &Receipt{EventID: e.EventID, Seq: existing, Duplicate: true}, nil
 	}
 	e.Seq = seq
 	return &Receipt{EventID: e.EventID, Seq: seq}, nil
+}
+
+// Sequence allocation precedes insertion and may leave gaps on error.
+func eventSequenceUnavailable(ctx context.Context, cause error) error {
+	if errors.Is(cause, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		return fmt.Errorf("event sequence unavailable: %w", context.Canceled)
+	}
+	if errors.Is(cause, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("event sequence unavailable: %w", context.DeadlineExceeded)
+	}
+	return errors.New("event sequence unavailable")
+}
+
+// Avoid exposing driver details or SQL while preserving cancellation identity.
+func receiptOutcomeUnavailable(ctx context.Context, cause error) error {
+	if errors.Is(cause, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		return fmt.Errorf("automation receipt outcome unavailable: %w", context.Canceled)
+	}
+	if errors.Is(cause, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("automation receipt outcome unavailable: %w", context.DeadlineExceeded)
+	}
+	return errors.New("automation receipt outcome unavailable")
 }
 
 // ApplyState projects the event into the latest-value table.

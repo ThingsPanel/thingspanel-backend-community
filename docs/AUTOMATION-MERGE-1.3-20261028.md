@@ -4,7 +4,9 @@
 
 ## 默认与切换
 
-默认 GOTP_AUTOMATION_MODE=legacy。GET /api/v1/automation/runtime（登录态）返回社区后端实际生效的模式；前端的场景、联动和告警均据此选择接口，不需要重新构建。查询失败停止该操作，不自动选择另一个库。native 没给 BASE_URL 时，上报与页面均使用 legacy。原生专属规则页面在 legacy 下拒绝原生请求。
+未设置 GOTP_AUTOMATION_MODE 或显式设置 legacy 时保持 legacy。显式 native 要求 GOTP_AUTOMATION_BASE_URL 为有效的 HTTP(S) 服务地址，GOTP_AUTOMATION_TOKEN 至少 32 字节，GOTP_AUTOMATION_DEPLOYMENT_ID 非空；令牌和部署 ID 还必须与接收端实际配置一致并获得相应授权。native 配置不完整或 mode 未知时应用启动失败，不回退 legacy；首次成功读取后配置即在进程内固定，修改后需重启；读取失败不固定配置。GET /api/v1/automation/runtime（登录态）返回社区后端实际生效的模式；前端的场景、联动和告警均据此选择接口，不需要重新构建。查询失败停止该操作，不自动选择另一个库。原生专属规则页面在 legacy 下拒绝原生请求。
+
+兼容影响：以前 native 缺地址可回退 legacy，现会拒绝启动；原来未配置完整服务凭据的 native 部署也需要先补齐配置。上述检查只验证本地配置，不证明远端服务可达、凭据匹配或租户授权。此门禁不代表旧 cron、手动入口和所有自动化 owner 已完成切换。
 
 native 配置地址和令牌后，必须先迁移原有规则、核对租户/设备范围、对账场景与告警数量，并验证上报至真实命令的闭环；合并不会自动迁移旧业务数据。GOTP_AUTOMATION_TOKEN 仍是原有实现中的调用身份，切换前必须验证它可以覆盖目标租户和设备，不能用单租户成功冒充多租户验收。
 
@@ -36,7 +38,7 @@ deploy/automation-rewrite/automation-tick.service 与 .timer 提供每秒一次�
 
 ## 回退
 
-先停止 automation-tick.timer 和正在执行的 automation-tick.service，停止新原生入口；确认在途命令结束，再将社区后端设为 legacy 并重启，刷新页面。需要隔离整个新引擎时停止 automation 服务。前端随实际模式恢复旧接口，原生库保留，不把原生期间新增/修改的数据自动写回旧库。
+先停止 automation-tick.timer 和正在执行的 automation-tick.service，停止新原生入口；围栏旧代次并确认在途任务与命令已排空或完成未知结果对账，再显式将社区后端 GOTP_AUTOMATION_MODE 设为 legacy 并重启，刷新页面。需要隔离整个新引擎时停止 automation 服务。前端随实际模式恢复旧接口，原生库保留，不把原生期间新增/修改的数据自动写回旧库。排空和围栏的具体操作须按实际 owner 合同执行，不应仅凭本配置门禁认定已完成。
 
 ## 发布门槛
 

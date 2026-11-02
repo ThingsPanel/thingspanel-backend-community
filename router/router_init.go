@@ -117,7 +117,7 @@ func RouterInit() *gin.Engine {
 	router.GET("/api/v1/notification/source-tenants/:id", reader.GetTenantPresence)
 	router.GET("/api/v1/notification/source-policies/:id", reader.GetAutomationPolicy)
 
-	api.RegisterAutomationOwnerRoutes(router,global.DB)
+	api.RegisterAutomationOwnerRoutes(router, global.DB)
 
 	// 记录操作日志
 	router.Use(middleware.OperationLogs())
@@ -194,7 +194,12 @@ func RouterInit() *gin.Engine {
 		v1.Use(middleware.CasbinRBAC())
 		v1.GET("/automation/runtime", func(c *gin.Context) {
 			c.Header("Cache-Control", "no-store")
-			c.JSON(200, gin.H{"code": 200, "message": "success", "data": gin.H{"mode": uplink.CurrentAutomationMode()}})
+			mode, err := uplink.CurrentAutomationMode()
+			if err != nil {
+				c.JSON(503, gin.H{"code": 503, "message": "automation configuration invalid"})
+				return
+			}
+			c.JSON(200, gin.H{"code": 200, "message": "success", "data": gin.H{"mode": mode}})
 		})
 		// SSE服务
 		SSERouter(v1)

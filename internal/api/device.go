@@ -669,7 +669,7 @@ func (*DeviceApi) CreateSonDevice(c *gin.Context) {
 		return
 	}
 
-	err := service.GroupApp.Device.CreateSonDevice(c, &param)
+	err := service.GroupApp.Device.CreateSonDevice(c, &param, c.MustGet("claims").(*utils.UserClaims))
 	if err != nil {
 		c.Error(err)
 		return
@@ -812,6 +812,9 @@ func (*DeviceApi) HandleConditionByDeviceID(c *gin.Context) {
 // /api/v1/device/map/telemetry/{id}
 func (*DeviceApi) HandleMapTelemetry(c *gin.Context) {
 	id := c.Param("id")
+	if !authorizeHTTPDeviceReads(c, []string{id}) {
+		return
+	}
 	data, err := service.GroupApp.Device.GetMapTelemetry(id)
 	if err != nil {
 		c.Error(err)
@@ -839,7 +842,7 @@ func (*DeviceApi) UpdateDeviceConfig(c *gin.Context) {
 	if !BindAndValidate(c, &param) {
 		return
 	}
-	err := service.GroupApp.Device.UpdateDeviceConfig(&param)
+	err := service.GroupApp.Device.UpdateDeviceConfig(&param, c.MustGet("claims").(*utils.UserClaims))
 	if err != nil {
 		c.Error(err)
 		return
@@ -898,6 +901,9 @@ func (*DeviceApi) HandleDeviceMetricsChart(c *gin.Context) {
 
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
+	if !authorizeHTTPDeviceReads(c, []string{param.DeviceID}) {
+		return
+	}
 	data, err := service.GroupApp.Device.GetDeviceMetricsChart(&param, userClaims)
 	if err != nil {
 		c.Error(err)

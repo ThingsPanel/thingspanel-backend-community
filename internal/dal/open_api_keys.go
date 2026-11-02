@@ -3,12 +3,16 @@ package dal
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gen"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
+	"gorm.io/plugin/dbresolver"
 
 	model "project/internal/model"
 	query "project/internal/query"
@@ -17,7 +21,7 @@ import (
 
 // CreateOpenAPIKey 创建新的OpenAPI密钥
 func CreateOpenAPIKey(key *model.OpenAPIKey) error {
-	return query.OpenAPIKey.Create(key)
+	return query.OpenAPIKey.Session(&gorm.Session{Logger: logger.Discard}).Create(key)
 }
 
 // GetOpenAPIKeyByID 根据ID获取OpenAPI密钥信息
@@ -111,6 +115,85 @@ func DeleteOpenAPIKey(id string) error {
 	return nil
 }
 
+var (
+	ErrAPIKeyWriteForbidden   = errors.New("api key write forbidden")
+	ErrAPIKeyWriteUnknown     = errors.New("api key write outcome unknown")
+	ErrAPIKeyWriteNotExecuted = errors.New("api key change not executed")
+)
+
+// MutateOpenAPIKey locks and changes a key in the same authorized scope.
+// A failed commit or unconfirmed rollback must be reconciled before retry.
+func MutateOpenAPIKey(ctx context.Context, db *gorm.DB, id, tenant string, allTenants, remove bool, updates map[string]interface{}) error {
+	if db == nil {
+		return ErrAPIKeyStore
+	}
+	tx := db.Session(&gorm.Session{Logger: logger.Discard}).WithContext(ctx).Clauses(dbresolver.Write).Begin()
+	if tx.Error != nil {
+		if ctx.Err() != nil {
+			return ErrAPIKeyWriteNotExecuted
+		}
+		return ErrAPIKeyStore
+	}
+	rollback := func(err error) error {
+		if tx.Rollback().Error != nil {
+			return ErrAPIKeyWriteUnknown
+		}
+		return err
+	}
+	rollbackBeforeWrite := func(err error) error {
+		if tx.Rollback().Error != nil {
+			logrus.Warn("API key transaction rollback or lock cleanup unconfirmed before write")
+		}
+		return err
+	}
+	scoped := func() *gorm.DB {
+		q := tx.Model(&model.OpenAPIKey{}).Where("id = ?", id)
+		if !allTenants {
+			q = q.Where("tenant_id = ?", tenant)
+		}
+		return q
+	}
+	var key model.OpenAPIKey
+	err := scoped().Select("id", "tenant_id", "status", "name").Clauses(clause.Locking{Strength: "UPDATE"}).Take(&key).Error
+	if err != nil && ctx.Err() != nil {
+		// No DML or commit has been attempted; database/sql may already have
+		// rolled back this context-bound transaction when cancellation arrived.
+		return rollbackBeforeWrite(ErrAPIKeyWriteNotExecuted)
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return rollbackBeforeWrite(ErrAPIKeyWriteForbidden)
+	}
+	if err != nil {
+		return rollbackBeforeWrite(ErrAPIKeyStore)
+	}
+	if !remove && len(updates) == 1 {
+		status, isStatus := updates["status"].(int16)
+		if isStatus && status == 0 && key.Status != nil && *key.Status == 0 {
+			if tx.Commit().Error != nil {
+				return ErrAPIKeyWriteUnknown
+			}
+			return nil
+		}
+	}
+	var result *gorm.DB
+	if remove {
+		result = scoped().Delete(&model.OpenAPIKey{})
+	} else {
+		updates["updated_at"] = time.Now()
+		result = scoped().Updates(updates)
+	}
+	if result.Error != nil {
+		return rollback(ErrAPIKeyStore)
+	}
+	if result.RowsAffected != 1 {
+		return rollback(ErrAPIKeyWriteForbidden)
+	}
+	if tx.Commit().Error != nil {
+		return ErrAPIKeyWriteUnknown
+	}
+	return nil
+}
+
 // OpenAPIKeyQuery OpenAPI密钥查询结构体
 type OpenAPIKeyQuery struct{}
 
@@ -132,48 +215,44 @@ func (OpenAPIKeyQuery) Select(ctx context.Context, option ...gen.Condition) (lis
 	return
 }
 
-// 验证OpenAPI密钥是否有效并返回租户ID
-// Redis缓存结构 key: "apikey:{api_key}" value: tenantID
-// 有效期为1小时
-func VerifyOpenAPIKey(ctx context.Context, appKey string) (string, string, error) {
-	// 从Redis缓存中获取租户ID
-	cacheKey := "apikey:" + appKey
-	cacheKeyCreatedID := "apikey:createdid:" + appKey
-	tenantID, err := global.REDIS.Get(ctx, cacheKey).Result()
-	createdID, err1 := global.REDIS.Get(ctx, cacheKeyCreatedID).Result()
-	// 这个 key 曾经被 middleware.APIKeyValidator 用同名前缀写成整条 JSON 记录，
-	// 结果 tenantID 变成 `{"id":...,"tenant_id":"xxx",...}` 这样的字符串，
-	// 拿去 WHERE tenant_id = ... 查不到任何数据：接口返回 200 + 空列表，
-	// 调用方（如事件适配器）会把"空列表"当成真话，从而静默停掉整条链路。
-	// 两边现在已拆成不同 key，这里再做一次形状校验，让历史脏缓存能自愈。
-	if looksLikeCachedJSON(tenantID) || looksLikeCachedJSON(createdID) {
-		logrus.Warnf("检测到 %s 缓存值格式异常(疑似 JSON 记录)，回源数据库并重写缓存", cacheKey)
-		err = redis.Nil
+var (
+	ErrAPIKeyNotFound = errors.New("api key not found")
+	ErrAPIKeyDisabled = errors.New("api key disabled")
+	ErrAPIKeyIdentity = errors.New("api key identity unavailable")
+	ErrAPIKeyStore    = errors.New("api key store unavailable")
+)
+
+// LookupActiveOpenAPIKey always reads the primary. Redis allow entries are not
+// authoritative for revocation; raw database errors and SQL are not exposed.
+func LookupActiveOpenAPIKey(ctx context.Context, db *gorm.DB, appKey string) (*model.OpenAPIKey, error) {
+	if appKey == "" {
+		return nil, ErrAPIKeyNotFound
 	}
-	if err != nil || err1 != nil {
-		// 如果缓存中不存在，则从数据库中查询
-		apiKey, err := query.OpenAPIKey.WithContext(ctx).Where(query.OpenAPIKey.APIKey.Eq(appKey), query.OpenAPIKey.Status.Eq(1)).First()
-		if err != nil {
-			return "", "", err
-		}
-		// 将查询结果存入Redis缓存，有效期为1小时
-		tenantID = apiKey.TenantID
-		createdID = *apiKey.CreatedID
-		err = global.REDIS.Set(ctx, cacheKey, tenantID, time.Hour).Err()
-		if err != nil {
-			logrus.Warnf("设置OpenAPI密钥缓存失败: %v", err)
-		}
-		err = global.REDIS.Set(ctx, cacheKeyCreatedID, createdID, time.Hour).Err()
-		if err != nil {
-			logrus.Warnf("设置OpenAPI密钥创建者ID缓存失败: %v", err)
-		}
+	if db == nil {
+		return nil, ErrAPIKeyStore
 	}
-	return tenantID, createdID, nil
+	var key model.OpenAPIKey
+	err := db.Session(&gorm.Session{Logger: logger.Discard}).WithContext(ctx).Clauses(dbresolver.Write).Where("api_key = ?", appKey).First(&key).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrAPIKeyNotFound
+	}
+	if err != nil {
+		return nil, ErrAPIKeyStore
+	}
+	if key.Status == nil || *key.Status != 1 {
+		return nil, ErrAPIKeyDisabled
+	}
+	if strings.TrimSpace(key.TenantID) == "" || key.CreatedID == nil || strings.TrimSpace(*key.CreatedID) == "" {
+		return nil, ErrAPIKeyIdentity
+	}
+	return &key, nil
 }
 
-// looksLikeCachedJSON 判断缓存里存的是不是一整条 JSON 记录而不是裸的 ID。
-// 租户 ID / 用户 ID 都是短标识符，正常情况下不会以 '{' 或 '[' 开头。
-func looksLikeCachedJSON(v string) bool {
-	s := strings.TrimSpace(v)
-	return strings.HasPrefix(s, "{") || strings.HasPrefix(s, "[")
+// VerifyOpenAPIKey preserves the HTTP claims contract while checking the DB.
+func VerifyOpenAPIKey(ctx context.Context, appKey string) (string, string, error) {
+	key, err := LookupActiveOpenAPIKey(ctx, global.DB, appKey)
+	if err != nil {
+		return "", "", err
+	}
+	return key.TenantID, *key.CreatedID, nil
 }

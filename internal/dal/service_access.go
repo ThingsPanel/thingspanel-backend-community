@@ -8,18 +8,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func DeleteServiceAccess(id string) error {
+func DeleteServiceAccess(id, tenantID string) (int64, error) {
 	q := query.ServiceAccess
-	queryBuilder := q.WithContext(context.Background())
-	_, err := queryBuilder.Where(q.ID.Eq(id)).Delete()
-	return err
+	result, err := q.WithContext(context.Background()).Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).Delete()
+	return result.RowsAffected, err
 }
 
-func UpdateServiceAccess(id string, updates map[string]interface{}) error {
+func UpdateServiceAccess(id, tenantID string, updates map[string]interface{}) (int64, error) {
 	q := query.ServiceAccess
-	queryBuilder := q.WithContext(context.Background())
-	_, err := queryBuilder.Where(q.ID.Eq(id)).Updates(updates)
-	return err
+	result, err := q.WithContext(context.Background()).Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).Updates(updates)
+	return result.RowsAffected, err
+}
+
+func GetServiceAccessByTenantID(id, tenantID string) (*model.ServiceAccess, error) {
+	q := query.ServiceAccess
+	return q.WithContext(context.Background()).Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First()
 }
 
 func GetServiceAccessListByPage(req *model.GetServiceAccessByPageReq, tenantID string) (int64, interface{}, error) {
