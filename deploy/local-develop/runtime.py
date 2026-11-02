@@ -183,6 +183,27 @@ def lock_images(root):
     print('Locked already-local images by immutable ID; no images pulled.')
 
 
+
+def published_ports(config, selected):
+    """Validate every published endpoint, then check only this phase's ports."""
+    all_ports = set()
+    ports = []
+    for name, service in config['services'].items():
+        for binding in service.get('ports', []):
+            if not isinstance(binding, str):
+                raise ValueError('Only explicit loopback short-form TCP bindings are supported')
+            parts = binding.split(':')
+            if len(parts) != 3 or parts[0] != '127.0.0.1' or not parts[1].isdigit() or not parts[2].isdigit():
+                raise ValueError('Refusing non-loopback or implicit host port binding')
+            port = int(parts[1])
+            if not 1024 <= port <= 65535 or port in (8080, 9999) or port in all_ports:
+                raise ValueError('Reserved, privileged or duplicate fixture port')
+            all_ports.add(port)
+            if name in selected:
+                ports.append(port)
+    return ports
+
+
 def up(root, stage):
     preflight(root)
     manifest = load_fixture(root)
@@ -204,7 +225,8 @@ def up(root, stage):
     services = {'foundation': ['postgres', 'redis'], 'native': ['broker-owner', 'mosquitto', 'backend', 'encore-api', 'notification-core', 'automation-scheduler', 'frontend']}[stage]
     if stage == 'native' and not (root / 'bootstrap.complete').exists():
         raise ValueError('Bootstrap must complete before native startup')
-    for port in ([15555, 16379] if stage == 'foundation' else [18080,19999,24000,28091,11883]):
+    config = json.loads((root / 'compose.json').read_text())
+    for port in published_ports(config, services):
         with socket.socket() as sock:
             try:
                 sock.bind(('127.0.0.1', port))

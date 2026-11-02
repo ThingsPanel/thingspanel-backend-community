@@ -57,6 +57,11 @@ class WiringSafety(unittest.TestCase):
             policy = json.loads((root / 'private/services.json').read_text())[0]
             self.assertEqual(policy['allowed_device_ids'], [])
             self.assertEqual(policy['policy']['publish'], [])
+            redis = config['services']['redis']
+            self.assertTrue(redis['command'][-1])
+            self.assertEqual(redis['command'][-1], redis['environment']['REDISCLI_AUTH'])
+            self.assertEqual(redis['command'][-1], config['services']['backend']['environment']['GOTP_DB_REDIS_PASSWORD'])
+            self.assertEqual(redis['healthcheck']['test'], ['CMD', 'redis-cli', 'ping'])
 
 class IdentitySafety(unittest.TestCase):
     def setUp(self):
@@ -259,3 +264,13 @@ class FrontendWorkspaceSeedSafety(unittest.TestCase):
         import frontend_seed
         with self.assertRaisesRegex(ValueError, 'task directory'):
             frontend_seed.prepare(Path('/Volumes/80G/test'), {}, '/tmp/not-authorized', '/tmp/node_modules')
+
+class ActualComposePortsSafety(unittest.TestCase):
+    def test_only_selected_phase_ports_are_checked(self):
+        config = {'services': {'redis': {'ports': ['127.0.0.1:26379:6379']}, 'broker': {'ports': ['127.0.0.1:21883:1883']}}}
+        self.assertEqual(runtime.published_ports(config, ['redis']), [26379])
+
+    def test_nonloopback_reserved_and_duplicate_ports_are_rejected(self):
+        for bindings in (['0.0.0.0:26379:6379'], ['127.0.0.1:8080:8080'], ['127.0.0.1:9999:9999'], ['127.0.0.1:26379:6379'] * 2):
+            with self.assertRaises(ValueError):
+                runtime.published_ports({'services': {'redis': {'ports': bindings}}}, ['redis'])
