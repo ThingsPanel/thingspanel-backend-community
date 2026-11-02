@@ -151,3 +151,25 @@ func TestRuntimeScopedPostgresFenceBlocksConcurrentTenantTransfer(t *testing.T) 
 		t.Fatal("scope changed during mutation")
 	}
 }
+
+func TestRuntimeScopedPostgresDeviceUpdateUsesAtomicOwner(t *testing.T) {
+	db := runtimeFixture(t)
+	// This calls the actual runtime-only DAL owner; there is no independent
+	// gateway SHARE lock capable of deadlocking its device UPDATE.
+	if _, err := dal.RuntimeUpdateDeviceByMap("device-a", "tenant-a", map[string]interface{}{"name": "runtime owner"}); err != nil {
+		t.Fatalf("runtime device update: %v", err)
+	}
+	if _, err := dal.RuntimeUpdateDeviceByMap("device-b", "tenant-a", map[string]interface{}{"name": "foreign overwrite"}); err == nil {
+		t.Fatal("foreign device update accepted")
+	}
+	if err := db.Model(&dal.DeviceIDReservation{}).Where("id=?", "device-a").Update("state", "tombstoned").Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := dal.RuntimeUpdateDeviceByMap("device-a", "tenant-a", map[string]interface{}{"name": "stale overwrite"}); err == nil {
+		t.Fatal("tombstoned device update accepted")
+	}
+	var d model.Device
+	if err := db.Where("id=?", "device-a").Take(&d).Error; err != nil || d.Name == nil || *d.Name != "runtime owner" {
+		t.Fatal("rejected update changed persisted device")
+	}
+}

@@ -111,6 +111,10 @@ func (*Device) RuntimeRemoveSubDevice(ctx context.Context, id string, claims *ut
 			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=?", parent, claims.TenantID).Take(&p).Error; err != nil {
 				return err
 			}
+			var parentReservation dal.DeviceIDReservation
+			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=? AND state='active'", parent, claims.TenantID).Take(&parentReservation).Error; err != nil {
+				return err
+			}
 			disconnect = p.DeviceConfigID != nil && *p.DeviceConfigID != ""
 		}
 		r := tx.Model(&model.Device{}).Where("id=? AND tenant_id=?", id, claims.TenantID).Updates(map[string]any{"parent_id": nil, "sub_device_addr": nil})

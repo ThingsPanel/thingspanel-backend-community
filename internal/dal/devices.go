@@ -357,7 +357,22 @@ func updateDeviceByMap(deviceID, tenantID string, deviceMap map[string]interface
 				}
 			}
 			if err == nil {
-				_, err = lockDeviceParentSet(tx.Query, tenantID, *parent, []string{deviceID}, false, overrides)
+				var locked map[string]*model.Device
+				locked, err = lockDeviceParentSet(tx.Query, tenantID, *parent, []string{deviceID}, false, overrides)
+				if err == nil && scoped {
+					ids := make([]string, 0, len(locked))
+					for id := range locked {
+						ids = append(ids, id)
+					}
+					sort.Strings(ids)
+					db := tx.Device.UnderlyingDB().Session(&gorm.Session{NewDB: true})
+					for _, id := range ids {
+						var reservation DeviceIDReservation
+						if err = db.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=? AND state='active'", id, tenantID).Take(&reservation).Error; err != nil {
+							break
+						}
+					}
+				}
 			}
 		}
 	}
