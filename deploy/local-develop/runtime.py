@@ -64,7 +64,7 @@ def prepare(root, backend, frontend):
     password = secrets.token_hex(32)
     (root / 'private/postgres-password').write_text(password)
     manifest = {'project': PROJECT, 'backend': backend, 'frontend': frontend, 'root': str(root),
-                'status': 'wired-unaccepted'}
+                'status': 'wired-unaccepted', 'runtime_id': secrets.token_hex(32)}
     (root / 'manifest.json').write_text(json.dumps(manifest, indent=2))
     services = {
         'postgres': {'image': 'timescale/timescaledb:latest-pg14',
@@ -126,6 +126,7 @@ def bootstrap(root):
         raise ValueError('Community database is not empty; refusing migration/adoption')
     sql(root, 'ThingsPanel', 'CREATE TABLE casbin_rule(id bigserial PRIMARY KEY,ptype varchar(100),v0 varchar(100),v1 varchar(100),v2 varchar(100),v3 varchar(100),v4 varchar(100),v5 varchar(100)); CREATE TABLE sys_version(version_number INT PRIMARY KEY,version varchar(255) NOT NULL); INSERT INTO sys_version VALUES(0,\'0.0.0\');')
     version = int(re.search(r'VERSION_NUMBER\s*=\s*(\d+)', (repo / 'pkg/global/global.go').read_text())[1])
+    sql(root, 'ThingsPanel', "CREATE TABLE local_fixture_owner(runtime_id text PRIMARY KEY); INSERT INTO local_fixture_owner VALUES('" + manifest['runtime_id'] + "');")
     ledger = []
     def apply(db, paths):
         for path in paths:
@@ -211,7 +212,7 @@ def up(root, stage):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['prepare', 'preflight', 'bootstrap', 'build', 'up', 'lock-images', 'provision-native', 'refresh-broker'])
+    parser.add_argument('action', choices=['prepare', 'preflight', 'bootstrap', 'build', 'up', 'lock-images', 'provision-native', 'refresh-broker', 'revoke-native'])
     parser.add_argument('--root', required=True)
     parser.add_argument('--stage', choices=['foundation', 'native'], default='foundation')
     parser.add_argument('--device-id', action='append', default=[])
@@ -223,13 +224,23 @@ def main():
         prepare(root, args.backend, args.frontend)
     elif args.action == 'preflight':
         preflight(root)
-    elif args.action in ('provision-native', 'refresh-broker'):
+    elif args.action in ('provision-native', 'refresh-broker', 'revoke-native'):
         import identity
         import sys
-        if args.action == 'provision-native':
-            identity.provision(root, sys.modules[__name__])
-        else:
-            identity.refresh(root, sys.modules[__name__], args.device_id)
+        import fcntl
+        lock_path = root / 'private/identity.lock'
+        with lock_path.open('a') as identity_lock:
+            lock_path.chmod(0o600)
+            try:
+                fcntl.flock(identity_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise ValueError('Another fixture identity operation is active')
+            if args.action == 'provision-native':
+                identity.provision(root, sys.modules[__name__])
+            elif args.action == 'revoke-native':
+                identity.revoke(root, sys.modules[__name__])
+            else:
+                identity.refresh(root, sys.modules[__name__], args.device_id)
     elif args.action == 'lock-images':
         lock_images(root)
     elif args.action == 'up':

@@ -1,4 +1,4 @@
-"""Fixture-only identities. Never imports existing admin credentials or broad roles."""
+"""Fixture-only identities. Broad test-tenant API keys are explicitly limited to a fresh owned fixture."""
 import json
 import os
 import re
@@ -12,7 +12,15 @@ def literal(value):
 
 def guard(root, runtime):
     runtime.preflight(root)
-    runtime.load_fixture(root)
+    if root.stat().st_mode & 0o077 or (root / 'private').stat().st_mode & 0o077:
+        raise ValueError('Fixture and private directory must be mode 0700')
+    for path in [root / 'manifest.json', root / 'compose.json', *(root / 'private').iterdir()]:
+        if path.is_symlink() or (path.is_file() and path.stat().st_mode & 0o077):
+            raise ValueError('Private fixture files must be regular owner-only files')
+    manifest = runtime.load_fixture(root)
+    if not (root / 'bootstrap.complete').exists() or not re.fullmatch(r'[a-f0-9]{64}', manifest.get('runtime_id', '')):
+        raise ValueError('Fresh fixture bootstrap ownership proof is required')
+    network_ids = set()
     for service in ('postgres', 'backend'):
         container = runtime.compose(root, 'ps', '-q', service)
         if not container or '\n' in container:
@@ -21,20 +29,39 @@ def guard(root, runtime):
         labels = info['Config']['Labels']
         if labels.get('com.docker.compose.project') != runtime.PROJECT or labels.get('com.docker.compose.project.working_dir') != str(root):
             raise ValueError('Container ownership mismatch')
+        if info['HostConfig'].get('NetworkMode') == 'host' or len(info['NetworkSettings']['Networks']) != 1:
+            raise ValueError('Unexpected fixture network mode/membership')
+        network_id = next(iter(info['NetworkSettings']['Networks'].values()))['NetworkID']
+        network_ids.add(network_id)
+        network = json.loads(runtime.run(['docker', 'network', 'inspect', network_id]))[0]
+        if network.get('Labels', {}).get('com.docker.compose.project') != runtime.PROJECT:
+            raise ValueError('Network belongs to another project')
         if service == 'postgres' and not any(m['Destination'] == '/var/lib/postgresql/data' and m['Source'] == str(root / 'postgres') for m in info['Mounts']):
             raise ValueError('Postgres mount mismatch')
+        if service == 'postgres':
+            if info['NetworkSettings']['Ports'].get('5432/tcp', []) != [{'HostIp': '127.0.0.1', 'HostPort': '15555'}]:
+                raise ValueError('Postgres loopback binding mismatch')
         if service == 'backend':
+            env = dict(item.split('=', 1) for item in info['Config']['Env'] if '=' in item)
+            if env.get('GOTP_DB_PSQL_HOST') != 'postgres' or env.get('GOTP_DB_PSQL_DBNAME') != 'ThingsPanel' or env.get('GOTP_DB_PSQL_PORT') != '5432':
+                raise ValueError('Backend database target mismatch')
             ports = info['NetworkSettings']['Ports'].get('9999/tcp', [])
             if ports != [{'HostIp': '127.0.0.1', 'HostPort': '19999'}]:
                 raise ValueError('Backend loopback binding mismatch')
 
+    if len(network_ids) != 1:
+        raise ValueError('Backend and postgres do not share the same private fixture network')
+    owner = runtime.sql(root, 'ThingsPanel', 'SELECT runtime_id FROM local_fixture_owner;')
+    if owner != manifest['runtime_id']:
+        raise ValueError('Database was not bootstrapped by this fresh fixture')
 
-def api(path, body, token=None):
+
+def api(path, body, token=None, method='POST'):
     headers = {'Content-Type': 'application/json'}
     if token:
         headers['x-token'] = token
     request = urllib.request.Request('http://127.0.0.1:19999/api/v1/' + path,
-        data=json.dumps(body).encode(), headers=headers, method='POST')
+        data=json.dumps(body).encode() if body is not None else None, headers=headers, method=method)
     # Refuse proxy environment and redirects: credentials only reach verified loopback.
     class NoRedirect(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, *args, **kwargs):
@@ -54,10 +81,106 @@ def rows(root, runtime, where):
     return json.loads(runtime.sql(root, 'ThingsPanel', "SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,email,authority,status,tenant_id FROM users WHERE " + where + ')t;'))
 
 
+def atomic(path, value):
+    temporary = path.with_suffix('.tmp')
+    temporary.write_text(json.dumps(value, indent=2))
+    temporary.chmod(0o600)
+    os.replace(temporary, path)
+
+
+def key_rows(root, runtime, name):
+    return json.loads(runtime.sql(root, 'ThingsPanel', "SELECT coalesce(json_agg(t),'[]') FROM (SELECT id,tenant_id,created_id,status,api_key,name FROM open_api_keys WHERE name=" + literal(name) + ')t;'))
+
+
+def account_login(root, runtime):
+    account = json.loads((root / 'private/native-account.json').read_text())
+    found = rows(root, runtime, 'email=' + literal(account['email']))
+    if len(found) != 1 or found[0]['authority'] != 'TENANT_ADMIN' or found[0]['status'] != 'N':
+        raise ValueError('Test account is not an active tenant administrator')
+    if account.get('id') and (account['id'] != found[0]['id'] or account['tenant_id'] != found[0]['tenant_id']):
+        raise ValueError('Test account ownership changed')
+    account.update(id=found[0]['id'], tenant_id=found[0]['tenant_id'])
+    token = api('login', {'email': account['email'], 'password': account['password']})['token']
+    return account, token
+
+
+def configure_key(root, key):
+    path = root / 'compose.json'
+    config = json.loads(path.read_text())
+    env = config['services']['encore-api']['environment']
+    if env.get('TP_COMMUNITY_BASE_URL') != 'http://backend:9999' or env.get('TP_COMMUNITY_SESSION_BASE_URL') != 'http://backend:9999':
+        raise ValueError('Refusing to install credentials for a non-fixture Community destination')
+    env.pop('TP_COMMUNITY_EMAIL', None)
+    env.pop('TP_COMMUNITY_PASSWORD', None)
+    if key:
+        env['TP_COMMUNITY_API_KEY'] = key
+    else:
+        env.pop('TP_COMMUNITY_API_KEY', None)
+    atomic(path, config)
+
+
 def provision(root, runtime):
-    # Existing Community Casbin allows routes without g2 registrations. A normal
-    # TENANT_USER therefore cannot prove a least-privilege service boundary.
-    raise ValueError('Native account provisioning is blocked: Community lacks a verified scoped service-identity contract; no user, roles or API keys created')
+    guard(root, runtime)
+    private = root / 'private'
+    statefile = private / 'native-key.json'
+    if statefile.exists():
+        state = json.loads(statefile.read_text())
+        if state.get('revoked'):
+            raise ValueError('Fixture key was revoked; no automatic resurrection or reissuance')
+    else:
+        state = {'name': 'local-fixture-' + runtime.secrets.token_hex(16), 'revoked': False}
+        atomic(statefile, state)  # Persist operation identity before the first HTTP write.
+    account = json.loads((private / 'native-account.json').read_text())
+    found = rows(root, runtime, 'email=' + literal(account['email']))
+    if not found:
+        # Only the well-known seed of this demonstrably fresh database is used.
+        seed = rows(root, runtime, "email='super@super.cn' AND authority='SYS_ADMIN' AND status='N'")
+        if len(seed) != 1:
+            raise ValueError('Fresh fixture seed administrator unavailable')
+        token = api('login', {'email': 'super@super.cn', 'password': '123456'})['token']
+        api('user', {'email': account['email'], 'password': account['password'],
+            'phone_number': 'local-' + runtime.hashlib.sha256(account['email'].encode()).hexdigest()[:16],
+            'name': 'Local test tenant', 'userRoles': [], 'remark': 'Broad identity for isolated local integration only'}, token)
+    account, token = account_login(root, runtime)
+    atomic(private / 'native-account.json', account)
+    keys = key_rows(root, runtime, state['name'])
+    if not keys:
+        api('open/keys', {'tenant_id': account['tenant_id'], 'name': state['name']}, token)
+        keys = key_rows(root, runtime, state['name'])
+    if len(keys) != 1 or keys[0]['tenant_id'] != account['tenant_id'] or keys[0]['created_id'] != account['id'] or keys[0]['status'] != 1:
+        raise ValueError('API key result is absent, ambiguous, inactive or outside test tenant; refusing adoption')
+    key = keys[0]
+    if state.get('id') and state['id'] != key['id']:
+        raise ValueError('Previously issued key identity changed')
+    state.update(id=key['id'], tenant_id=key['tenant_id'], created_id=key['created_id'], api_key=key['api_key'])
+    atomic(statefile, state)
+    configure_key(root, key['api_key'])
+    atomic(private / 'broker-scope.json', {'tenant_id': account['tenant_id']})
+    print('Issued/verified broad TENANT_ADMIN API key for one fresh local test tenant. Recreate only fixture Encore to load it. Not a production service identity.')
+
+
+def revoke(root, runtime):
+    guard(root, runtime)
+    path = root / 'private/native-key.json'
+    if not path.exists():
+        configure_key(root, None)
+        print('No fixture key issued; local runtime credential removed.')
+        return
+    state = json.loads(path.read_text())
+    account, token = account_login(root, runtime)
+    keys = key_rows(root, runtime, state['name'])
+    if len(keys) != 1 or keys[0]['tenant_id'] != account['tenant_id'] or keys[0]['created_id'] != account['id'] or (state.get('id') and keys[0]['id'] != state['id']):
+        raise ValueError('Key ownership mismatch; refusing unrelated-key revocation')
+    if keys[0]['status'] == 1:
+        api('open/keys', {'id': keys[0]['id'], 'status': 0}, token, 'PUT')
+    after = key_rows(root, runtime, state['name'])
+    if len(after) != 1 or after[0]['status'] != 0:
+        raise ValueError('Key revocation not confirmed')
+    state['revoked'] = True
+    state.pop('api_key', None)
+    atomic(path, state)
+    configure_key(root, None)
+    print('Fixture key revocation confirmed in primary database; local credential removed. No services restarted.')
 
 
 def scoped_policy(policy, targets, tenant):

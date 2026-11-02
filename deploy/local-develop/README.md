@@ -70,12 +70,31 @@ Run each command with `--root <fixture>`:
 ## Required acceptance and outstanding integration
 
 - Health/login through 18080, plus old 8080/9999 identity/data-volume unchanged.
-- Native Community authentication is **blocked**, not replaced with an ordinary
-  tenant user. Existing Casbin middleware allows unregistered routes; therefore a
-  TENANT_USER with no roles does not prove least privilege. `provision-native`
-  rejects execution before any I/O, and generated Encore environment activates
-  neither password credentials nor API keys. A verified scoped service-identity
-  contract is required before native device runtime calls can authenticate.
+- **Explicit local-test exception:** `provision-native` uses the existing formal
+  Community API-key/TENANT_ADMIN contract, with broad authority inside a single
+  new test tenant. This is not a scoped production service identity and is not a
+  production recommendation. The operator authorized this only for a new isolated
+  database with loopback ports and random private credentials.
+- After bootstrap and backend startup, run `provision-native --root <fixture>`.
+  It checks the source manifest, completed bootstrap, random ownership nonce in
+  this database, exact PG external mount, Compose project/working directory,
+  one shared project-owned network, backend DB destination and loopback bindings.
+  Imported/previous fixtures lacking the database ownership nonce are refused.
+  It logs in to the known fresh database seed, creates a new TENANT_ADMIN with a
+  random password through `/api/v1/user`, then logs into that tenant and issues
+  its API key through `/api/v1/open/keys`. SQL is used only to reconcile/verify
+  existing results; no user, role or key rows are inserted outside owner APIs.
+  HTTP has fixed loopback destination, no proxy inheritance and no redirects.
+- The key operation name is persisted before issuance; retries reconcile the same
+  exact tenant/creator/key and reject ambiguity or inactive/replaced keys. Local
+  identity operations are serialized with flock. Key and account secrets remain
+  in mode-0600 fixture files. Compose receives `TP_COMMUNITY_API_KEY`; recreate
+  only this fixture's Encore service to activate the new configuration.
+- `revoke-native --root <fixture>` disables that exact key through the official
+  authenticated PUT API and confirms status=0 in the primary database. It removes
+  the local runtime key, persists a tombstone, and never automatically resurrects
+  or reissues a revoked identity. Repeating revoke verifies the disabled state.
+  Existing processes holding the old key are rejected by live DB key validation.
 - Broker platform target scope refresh is implemented independently. Write an
   explicit `private/broker-scope.json` (0600) containing `{"tenant_id":"<fixture-tenant>"}`,
   then run `refresh-broker --device-id <id>` for every intended fixture device.

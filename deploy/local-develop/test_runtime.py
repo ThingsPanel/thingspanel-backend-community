@@ -65,11 +65,49 @@ class IdentitySafety(unittest.TestCase):
         import identity
         self.identity = identity
 
-    def test_native_account_provision_is_denied_before_any_io(self):
-        with patch.object(runtime, 'preflight') as preflight:
-            with self.assertRaisesRegex(ValueError, 'blocked'):
+    def test_provision_refuses_before_http_when_fixture_guard_fails(self):
+        with patch.object(self.identity, 'guard', side_effect=ValueError('not fresh')), patch.object(self.identity, 'api') as api:
+            with self.assertRaises(ValueError):
                 self.identity.provision(Path('/Volumes/80G/fixture'), runtime)
-            preflight.assert_not_called()
+            api.assert_not_called()
+
+    def test_revoked_fixture_key_is_not_resurrected(self):
+        import tempfile
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'private').mkdir()
+            (root / 'private/native-key.json').write_text(json.dumps({'revoked': True}))
+            with patch.object(self.identity, 'guard'), patch.object(self.identity, 'api') as api:
+                with self.assertRaisesRegex(ValueError, 'revoked'):
+                    self.identity.provision(root, runtime)
+                api.assert_not_called()
+
+    def test_idempotent_issuance_does_not_create_another_key(self):
+        import tempfile
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'private').mkdir()
+            account = {'id': 'u', 'tenant_id': 't', 'email': 'local@example.invalid', 'password': 'private'}
+            (root / 'private/native-account.json').write_text(json.dumps(account))
+            key = {'id': 'k', 'tenant_id': 't', 'created_id': 'u', 'status': 1, 'api_key': 'secret'}
+            with patch.object(self.identity, 'guard'), patch.object(self.identity, 'rows', return_value=[account]), patch.object(self.identity, 'account_login', return_value=(account, 'token')), patch.object(self.identity, 'key_rows', return_value=[key]), patch.object(self.identity, 'configure_key'), patch.object(self.identity, 'api') as api:
+                self.identity.provision(root, runtime)
+                self.identity.provision(root, runtime)
+                api.assert_not_called()
+
+    def test_idempotent_revoke_does_not_reenable_or_repeat_write(self):
+        import tempfile
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'private').mkdir()
+            (root / 'private/native-key.json').write_text(json.dumps({'id': 'k', 'name': 'key', 'revoked': True}))
+            key = {'id': 'k', 'tenant_id': 't', 'created_id': 'u', 'status': 0}
+            with patch.object(self.identity, 'guard'), patch.object(self.identity, 'account_login', return_value=({'id': 'u', 'tenant_id': 't'}, 'token')), patch.object(self.identity, 'key_rows', return_value=[key]), patch.object(self.identity, 'configure_key'), patch.object(self.identity, 'api') as api:
+                self.identity.revoke(root, runtime)
+                api.assert_not_called()
 
     def test_broker_scope_rejects_other_tenants_and_duplicates(self):
         for targets in ([{'id': 'one', 'tenant_id': 'other'}],

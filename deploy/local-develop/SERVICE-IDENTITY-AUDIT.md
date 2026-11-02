@@ -10,7 +10,7 @@ No formal scoped service identity for **Encore devicemetadata → Community gene
 runtime APIs** is present. `TP_COMMUNITY_SERVICE_*` is not referenced by this
 backend tree or the clean develop checkout. Do not invent these environment
 variables, provision a normal tenant user, or repurpose an unrelated service token.
-The local launcher's `provision-native` continues to reject before any I/O.
+The initial launcher therefore rejected provisioning. Under the subsequent explicit authorization for a fresh loopback-only test stack, the launcher now uses the existing broad API-key/TENANT_ADMIN contract for one new test tenant. It does not claim to implement the missing scoped production identity. Database ownership proof and private randomized credentials gate issuance/revocation.
 
 ## Owning contracts
 
