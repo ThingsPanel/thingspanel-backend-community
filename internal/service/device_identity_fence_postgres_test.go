@@ -7,6 +7,7 @@ import (
 	"project/internal/model"
 	"project/pkg/utils"
 	componentsql "project/sql"
+	"strings"
 	"testing"
 	"time"
 )
@@ -14,6 +15,11 @@ import (
 func TestDeviceIdentityDatabaseWriterFencePostgres(t *testing.T) {
 	db := setupSceneDeleteBarrierDB(t)
 	useSceneDeleteBarrierDB(t, db)
+	// Real creation must reserve its identity through the production DAL, not
+	// through the callback used by unrelated tests to seed legacy fixtures.
+	if err := db.Callback().Create().Remove("fixture-device-reservation"); err != nil {
+		t.Fatal(err)
+	}
 	if err := db.AutoMigrate(&model.Group{}, &model.RGroupDevice{}); err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +46,7 @@ func TestDeviceIdentityDatabaseWriterFencePostgres(t *testing.T) {
 		t.Fatal(old.Error)
 	}
 	defer old.Rollback()
-	if err := old.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES('before-cutover','tenant-a','v','before-cutover','enabled','active')`).Error; err != nil {
+	if err := old.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag,is_online) VALUES('before-cutover','tenant-a','v','before-cutover','enabled','active',0)`).Error; err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
@@ -76,15 +82,21 @@ func TestDeviceIdentityDatabaseWriterFencePostgres(t *testing.T) {
 	if err := db.Where("id='before-cutover'").Take(&reservation).Error; err != nil || reservation.State != "active" {
 		t.Fatalf("cutover omitted committed in-flight device: %+v %v", reservation, err)
 	}
-	for _, statement := range []string{
-		`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES('old-unreserved','tenant-a','v','old-unreserved','enabled','active')`,
-		`DELETE FROM devices WHERE id='before-cutover'`,
-		`UPDATE devices SET id='renamed-old' WHERE id='before-cutover'`,
-		`UPDATE devices SET tenant_id='tenant-b' WHERE id='before-cutover'`,
-	} {
-		if err := db.Exec(statement).Error; err == nil {
-			t.Fatalf("old device writer bypassed database fence: %s", statement)
+	assertFence := func(statement, want string, args ...interface{}) {
+		t.Helper()
+		err := db.Exec(statement, args...).Error
+		var state interface{ SQLState() string }
+		if !errors.As(err, &state) || state.SQLState() != "23514" || !strings.Contains(err.Error(), want) {
+			t.Fatalf("statement did not reach the expected identity fence: %s; error=%v, want SQLSTATE 23514 and %q", statement, err, want)
 		}
+	}
+	for _, rejected := range []struct{ statement, reason string }{
+		{`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag,is_online) VALUES('old-unreserved','tenant-a','v','old-unreserved','enabled','active',0)`, "device INSERT requires an active tenant identity reservation"},
+		{`DELETE FROM devices WHERE id='before-cutover'`, "device DELETE requires a tenant identity tombstone"},
+		{`UPDATE devices SET id='renamed-old' WHERE id='before-cutover'`, "device identity and tenant are immutable"},
+		{`UPDATE devices SET tenant_id='tenant-b' WHERE id='before-cutover'`, "device identity and tenant are immutable"},
+	} {
+		assertFence(rejected.statement, rejected.reason)
 	}
 	claims := &utils.UserClaims{ID: "owner", TenantID: "tenant-a"}
 	id := "fenced-new-device"
@@ -94,15 +106,11 @@ func TestDeviceIdentityDatabaseWriterFencePostgres(t *testing.T) {
 	if err := (&Device{}).DeleteDevice(id, claims); err != nil {
 		t.Fatalf("legal tombstoned delete failed: %v", err)
 	}
-	if err := db.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES(?,'tenant-a','v',?,'enabled','active')`, id, id).Error; err == nil {
-		t.Fatal("old writer resurrected tombstoned identity")
-	}
+	assertFence(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag,is_online) VALUES(?,'tenant-a','v',?,'enabled','active',0)`, "device INSERT requires an active tenant identity reservation", id, id)
 	if err := db.Exec(`INSERT INTO device_id_reservations(id,tenant_id,state) VALUES('foreign-reservation','tenant-b','active')`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES('foreign-reservation','tenant-a','v','foreign-reservation','enabled','active')`).Error; err == nil {
-		t.Fatal("foreign reservation authorized device insertion")
-	}
+	assertFence(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag,is_online) VALUES('foreign-reservation','tenant-a','v','foreign-reservation','enabled','active',0)`, "device INSERT requires an active tenant identity reservation")
 	if err := db.Exec(`UPDATE devices SET name='ordinary mutable name' WHERE id='before-cutover'`).Error; err != nil {
 		t.Fatalf("fence blocked legal nonidentity update: %v", err)
 	}

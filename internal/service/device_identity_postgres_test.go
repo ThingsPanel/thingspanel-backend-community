@@ -19,6 +19,11 @@ import (
 func TestDevicePermanentIdentityPostgres(t *testing.T) {
 	db := setupSceneDeleteBarrierDB(t)
 	useSceneDeleteBarrierDB(t, db)
+	// These cases exercise production reservation creation; the fixture
+	// callback must not manufacture a reservation on the service's behalf.
+	if err := db.Callback().Create().Remove("fixture-device-reservation"); err != nil {
+		t.Fatal(err)
+	}
 	if err := db.AutoMigrate(&model.Group{}, &model.RGroupDevice{}); err != nil {
 		t.Fatal(err)
 	}
