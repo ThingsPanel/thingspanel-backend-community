@@ -1,3 +1,26 @@
+# 当前接管基线（原始捕获保留在下文）
+
+更新：2026-11-02 09:20 UTC。原目录和旧backend根目录的历史改动均保留；未使用reset、clean、stash或批量覆盖。
+
+外置卷出现可复现的EILSEQ写入/解包失败后，开发工作树移至APFS：`/Users/junhong/Downloads/code/thingspanel-takeover-final-20261102`。原外置工作树、补丁和失败日志保留。准确版本及制品摘要见 INTEGRATION-VERSIONS.json；实际执行/通过/失败/跳过按 EVIDENCE-INDEX.json 的源码和范围核算。
+
+| 仓库 | 当前准确目录（上述根目录下） | 最近核实HEAD | 处理 |
+| --- | --- | --- | --- |
+| backend | `backend` | `ac75ce2c6c5d904c7dd0017853660f9f952b0887` | 保留并合入已核对核心/回执/迁移/T01局部修复；未闭环能力保留守卫 |
+| installer | `installer` | `524435ab85a8f94e224518c6373f1771b01e2ca8` | 整组journal修复和Agent未启动准备已合；正式安装链补测 |
+| horizon | `horizon` | `11b7da2bd50514569169c2eb65440e15ec297399` | 独立发布回执及精确版本审批已合，PG+MinIO回归通过；公开桶问题待修 |
+| frontend | `frontend` | `931cf8999538d0010828a8500541d76925a2e54e` | 状态/回执/双token已合；完整构建失败，继续修复 |
+| thingsvis | `thingsvis` | `661d36f860fcb52ce409924cdae83da07adbaa22` | 当前源码双库镜像及真实导入/恢复已验证；正式installer待共同验收 |
+| device-connector-sdk | `device-connector-sdk` | `f183a19cbc51b6c4cb1bba4119a9105098c0fed7` | 保全候选；真实执行入口及跨进程围栏待完成 |
+
+所有已列HEAD在捕获时工作区干净；后续每次写入都重新核对HEAD、原文件完整SHA和工作区差异。甲乙交付SHA约束候选，总负责人是唯一canonical写入者；已应用包的逐文件before/after与备份位于 evidence/applied-review-payloads。
+
+候选处理：通过实测的范围保留/合入；跨数据库、真实worker/SDK和原生发布缺口补实现/补测；未知结果与不安全重试继续拒绝；不丢弃旧失败证据，也不将mock/候选镜像/交叉编译计作整链验收。原35任务、100卡、357路由数量及ID不变。
+
+共同验收仍无通过项，见 JOINT-GATES.md。当前先交付可审查集成分支，未做生产部署或最终清理旧进程。
+
+---
+
 # 统一基线与接管清单
 
 采集时间（UTC）：2026-11-02T06:00:17.122503+00:00

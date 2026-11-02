@@ -1,36 +1,36 @@
 ID	范围	负责人	状态	证据	受影响门禁
-T00	固定基线、接口契约和支持版本	甲	基线已保全；门禁/合同未完成	BASELINE.md, baseline.json	J-G0/J-G1/J-G2/J-G3/J-G4
-T01	完成一个跨 Go module 的单一源码迁移样例	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-T02	统一可信身份、资源授权和协议适配规则	甲	已接收候选；待独立测试/补实现	BASELINE.md 对应候选和历史日志	J-G0/J-G1/J-G2/J-G3/J-G4
-T03	修复设备删除的租户与事务边界	甲	已接收候选；待独立测试/补实现	BASELINE.md 对应候选和历史日志	J-G0/J-G1/J-G2/J-G3/J-G4
-T04	修复遥测 fallback 和最新值乱序	甲	已接收候选；待独立测试/补实现	BASELINE.md 对应候选和历史日志	J-G0/J-G1/J-G2/J-G3/J-G4
-T05	统一自动化 owner 与所有触发入口	甲	已接收候选；待独立测试/补实现	BASELINE.md 对应候选和历史日志	J-G0/J-G1/J-G2/J-G3/J-G4
-R01	关系库连接、配置与资源装配	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-R02	多引擎 schema 与迁移执行者	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-R03	Community 表族与特殊查询方言	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-R04	物模型多关系库实现	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-R05	authcore 身份存储兼容	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-R06	automation store 的并发与持久化兼容	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-R07	通知 Store 与来源 outbox 兼容	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-R08	北向已有存储的兼容	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-R09	Broker 与指令账本的数据库语义	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-S01	冻结时序契约并建立统一历史入口	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-S02	实现 PostgreSQL/Timescale 历史适配器	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-S03	实现 TDengine 第二时序驱动	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-S04	所有历史读写、导出、统计、清理走统一入口	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-S05	跨库意图、切换、删除与历史搬迁	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-A01	用户、租户、权限与平台配置接口	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-A02	设备、产品、分组、配置与接入身份	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-A03	旧物模型/模板写入口退役及消费者收尾	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-A04	遥测、属性、事件与实时读取接口	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-A05	命令、期望数据和 OTA	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-A06	自动化、告警与原生嵌套场景	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-A07	通知来源、旧入口和应用推送边界	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-A08	市场、模板安装与仪表盘模板	乙	已接收候选；待独立测试/补实现	BASELINE.md 对应候选和历史日志	J-G0/J-G1/J-G2/J-G3/J-G4
-A09	北向数据流接线与发布	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-A10	协议/服务插件与数据脚本	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-A11	看板、系统、文件、SSE与诊断	甲	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-Q01	资源生命周期、配置和可观测性	甲/总负责人	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-Q02	发布服务、安装器、迁移与定时任务	甲/总负责人	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-Q03	真实驱动、契约和整栈验收	甲/总负责人	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
-Q04	切流、Gin退役和遗留代码清理	甲/总负责人	待逐卡核实实现与入口证据	原审计与当前源码待比对	J-G0/J-G1/J-G2/J-G3/J-G4
+T00	固定基线、接口契约和支持版本	总负责人（甲乙提供合同）	基线保全和独立分支完成；J1～J8完整可执行合同及同版本双方测试未完成	BASELINE.md; INTEGRATION-VERSIONS.json; JOINT-GATES.md	J-G0/J-G1/J-G2/J-G3/J-G4
+T01	完成一个跨 Go module 的单一源码迁移样例	甲	app/store单一业务源码已合入并通过真实PG；8路由权限/传输候选待合入；native host/迁移接管/发布缺闭环	A-T01-PG; team-a-t01-contract-adapters.json	J-G0/J-G1/J-G2/J-G3/J-G4
+T02	统一可信身份、资源授权和协议适配规则	甲	身份/当前权限/租户子设备校验部分已合入并独立通过；J6实例代次/旧实例跨进程围栏缺实现	A-CORE-INITIAL; A-GRANT-POLICY-GREEN; B-A08-ROOT	J-G0/J-G1/J-G2/J-G3/J-G4
+T03	修复设备删除的租户与事务边界	甲	设备/模板删除与父子屏障候选已合入；选定PG回归通过；全入口与共同故障组合待验收	A-CORE-INITIAL; team-a-module-report-20261102.md	J-G0/J-G1/J-G2/J-G3/J-G4
+T04	修复遥测 fallback 和最新值乱序	甲	普通PG当前/历史/回执一致性修复完成并独立测试通过；Timescale/TDengine与跨库衔接待实现/测试	A-T04-PG; A-T04-CURRENT-RED; A-T04-CURRENT-GREEN	J-G0/J-G1/J-G2/J-G3/J-G4
+T05	统一自动化 owner 与所有触发入口	甲	真实PG回执竞争/提交异常子集已通过；唯一执行者与全部触发/重启/切换尚未共同证明	A-AUTOMATION-RECEIPT	J-G0/J-G1/J-G2/J-G3/J-G4
+R01	关系库连接、配置与资源装配	甲；乙负责A08/ThingsVis各自owner	待补实际多引擎装配；主业务/authcore/模型/自动化/通知/北向/Broker仍有PG绑定；ThingsVis双库已独立验证	B-TV-FINAL-PG; B-TV-FINAL-MYSQL; OPEN-ISSUES.md	J-G0/J-G1/J-G2/J-G3/J-G4
+R02	多引擎 schema 与迁移执行者	甲（统一机制）；乙（各自schema）	PG历史/组件迁移共用schema锁且保留各账本已通过；Horizon/ThingsVis owner验证通过；MySQL通用锁及A08迁移候选待测	A-MIGRATION-PG; B-HORIZON-APPROVAL-GREEN; B-TV-MIGRATION-ADOPT	J-G0/J-G1/J-G2/J-G3/J-G4
+R03	Community 表族与特殊查询方言	甲	缺Community实际MySQL查询/约束/错误语义覆盖；不能只替换连接字符串	OPEN-ISSUES.md#multi-db	J-G0/J-G1/J-G2/J-G3/J-G4
+R04	物模型多关系库实现	甲	物模型实际多关系库实现及完整owner合同未闭环	OPEN-ISSUES.md#multi-db	J-G0/J-G1/J-G2/J-G3/J-G4
+R05	authcore 身份存储兼容	甲	authcore多库及用户/角色/权限一致性未闭环；当前PG权限修复保留	A-GRANT-POLICY-GREEN; OPEN-ISSUES.md#multi-db	J-G0/J-G1/J-G2/J-G3/J-G4
+R06	automation store 的并发与持久化兼容	甲	PG回执子集已验证；MySQL领取/幂等/恢复与真实触发缺完整验证	A-AUTOMATION-RECEIPT	J-G0/J-G1/J-G2/J-G3/J-G4
+R07	通知 Store 与来源 outbox 兼容	甲	通知Store/outbox多库与原生发布接线待闭环	OPEN-ISSUES.md#multi-db	J-G0/J-G1/J-G2/J-G3/J-G4
+R08	北向已有存储的兼容	甲	北向存储多库及实际发布服务待闭环	OPEN-ISSUES.md#release	J-G0/J-G1/J-G2/J-G3/J-G4
+R09	Broker 与指令账本的数据库语义	甲	Broker/control/ledger多库及实例代次围栏未闭环；已有路由epoch保护不能替代实例身份	OPEN-ISSUES.md#instance-fencing	J-G0/J-G1/J-G2/J-G3/J-G4
+S01	冻结时序契约并建立统一历史入口	甲	历史入口及跨库意图统一契约未完整冻结；关系库当前状态owner保留	OPEN-ISSUES.md#time-series	J-G0/J-G1/J-G2/J-G3/J-G4
+S02	实现 PostgreSQL/Timescale 历史适配器	甲	普通PG语义通过；Timescale驱动与完整产品链待真实验证	A-T04-CURRENT-GREEN	J-G0/J-G1/J-G2/J-G3/J-G4
+S03	实现 TDengine 第二时序驱动	甲	TDengine驱动/查询/统计/导出/清理及实际产品链缺闭环	OPEN-ISSUES.md#time-series	J-G0/J-G1/J-G2/J-G3/J-G4
+S04	所有历史读写、导出、统计、清理走统一入口	甲	仍需逐实际调用点切历史入口；不能以新接口数量认定替换完成	ROUTES-357.md; OPEN-ISSUES.md#time-series	J-G0/J-G1/J-G2/J-G3/J-G4
+S05	跨库意图、切换、删除与历史搬迁	甲	跨库意图、删除代次、切换与维护搬迁未完成共同故障验证	OPEN-ISSUES.md#time-series	J-G0/J-G1/J-G2/J-G3/J-G4
+A01	用户、租户、权限与平台配置接口	甲	部分身份/权限修复已合入；字典单一app/store样例已测；全部原生入口及发布未完成	A-T01-PG; A-GRANT-POLICY-GREEN; API-CARDS-100.tsv	J-G0/J-G1/J-G2/J-G3/J-G4
+A02	设备、产品、分组、配置与接入身份	甲	普通创建设备/绑定已有子设备/删除PG保护候选已合入并部分通过；原生/旧入口一致性及发布待逐卡验证	A-CORE-INITIAL; API-CARDS-100.tsv	J-G0/J-G1/J-G2/J-G3/J-G4
+A03	旧物模型/模板写入口退役及消费者收尾	甲	原生模型已有consumer继续复用；旧入口仅依批准处置；完整迁移/退役证明不足	ROUTES-357.md; API-CARDS-100.tsv	J-G0/J-G1/J-G2/J-G3/J-G4
+A04	遥测、属性、事件与实时读取接口	甲	租户最新遥测在安全PG路径恢复，普通PG一致性已测；其余历史/属性/事件/实时入口待逐卡闭环	A-CORE-INITIAL; A-T04-CURRENT-GREEN; API-CARDS-100.tsv	J-G0/J-G1/J-G2/J-G3/J-G4
+A05	命令、期望数据和 OTA	甲	已有owner/计划入口保留；命令/期望数据/OTA原生接线、权限和发布待逐卡核实	ROUTES-357.md; API-CARDS-100.tsv	J-G0/J-G1/J-G2/J-G3/J-G4
+A06	自动化、告警与原生嵌套场景	甲	自动化PG回执通过；原生嵌套场景、全部触发及旧执行者退出待验收	A-AUTOMATION-RECEIPT; API-CARDS-100.tsv	J-G0/J-G1/J-G2/J-G3/J-G4
+A07	通知来源、旧入口和应用推送边界	甲	通知来源/旧入口/推送边界待逐卡收口，不恢复批准停用的旧写者	API-CARDS-100.tsv	J-G0/J-G1/J-G2/J-G3/J-G4
+A08	市场、模板安装与仪表盘模板	乙	原键查询/当前权限/请求摘要/PG状态落盘保护已合入并测试；MySQL候选待真库；Agent动作/补偿/绑定恢复/Encore实服未闭环	B-A08-GREEN; B-A08-PG-INTEGRATED; B-A08-ROOT; OPEN-ISSUES.md#installation	J-G0/J-G1/J-G2/J-G3/J-G4
+A09	北向数据流接线与发布	甲	北向已有服务继续复用；当前release选服遗漏northbound，消费者/多库/发布待修	OPEN-ISSUES.md#release	J-G0/J-G1/J-G2/J-G3/J-G4
+A10	协议/服务插件与数据脚本	甲；乙消费资源接口	ServiceAccess稳定键/摘要/查询/写回执已测；匿名旧插件入口与SDK真实执行围栏缺闭环	A-ACCESS-PROVIDER; A-CONFIG-GREEN; OPEN-ISSUES.md#instance-fencing	J-G0/J-G1/J-G2/J-G3/J-G4
+A11	看板、系统、文件、SSE与诊断	甲（平台）；乙（ThingsVis）	ThingsVis双库当前源码构建/导入查询恢复已独立验证；其余平台API/发布/installer链待逐卡闭环	B-TV-FINAL-PG; B-TV-FINAL-MYSQL; API-CARDS-100.tsv	J-G0/J-G1/J-G2/J-G3/J-G4
+Q01	资源生命周期、配置和可观测性	总负责人协调；甲乙各owner	稳定操作键与部分恢复合同已测；整体生命周期/可观测性/可信实例尚未闭环	EVIDENCE-INDEX.json; OPEN-ISSUES.md	J-G0/J-G1/J-G2/J-G3/J-G4
+Q02	发布服务、安装器、迁移与定时任务	总负责人安排单一修改者；乙installer	整组配置journal与真实目录挂载已测；正式信任链/服务选服/全栈升级/Windows仍缺	B-INSTALLER-JOURNAL; B-INSTALLER-CONFIG; B-INSTALLER-DOCKER-MOUNT; OPEN-ISSUES.md#release	J-G0/J-G1/J-G2/J-G3/J-G4
+Q03	真实驱动、契约和整栈验收	总负责人唯一共同门禁owner	两队模块证据持续补齐；第三套固定制品共同环境尚未跑通J-G0～J-G4	JOINT-GATES.md; EVIDENCE-INDEX.json	J-G0/J-G1/J-G2/J-G3/J-G4
+Q04	切流、Gin退役和遗留代码清理	总负责人；甲乙按批准执行	禁止提前清理旧业务写者；按实际owner切换/围栏及共同验收再退役	JOINT-GATES.md; ROUTES-357.md	J-G0/J-G1/J-G2/J-G3/J-G4
