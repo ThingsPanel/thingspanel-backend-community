@@ -95,6 +95,17 @@ func (s *MarketDashboardBundleService) Analyze(ctx context.Context, dashboardID,
 
 // Publish exports one dashboard, attaches its exact dependencies, and submits it for review.
 func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.PublishDashboardBundleRequest, thingsVisAuthorization string, claims *utils.UserClaims) (*model.PublishDraftResponse, error) {
+	if claims == nil || strings.TrimSpace(claims.TenantID) == "" || strings.TrimSpace(claims.ID) == "" {
+		return nil, errcode.WithData(errcode.CodeNoPermission, "authenticated tenant subject required")
+	}
+	if req == nil {
+		return nil, errcode.WithData(errcode.CodeParamError, "publication request required")
+	}
+	if req.OperationKey != "" {
+		if _, err := dashboardPublicationOperationKey(claims, req.OperationKey); err != nil {
+			return nil, err
+		}
+	}
 	if !regexp.MustCompile(`^[a-z][a-z0-9-]{2,63}$`).MatchString(req.BundleKey) {
 		return nil, errcode.WithData(errcode.CodeParamError, "invalid bundleKey")
 	}
@@ -230,8 +241,21 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 		Security:        mustMarshalJSON(security),
 	}
 	idempotency := dashboardPublishIdempotencyKey(claims.TenantID, req.BundleKey, req.Version)
+	if req.OperationKey != "" {
+		idempotency, err = dashboardPublicationOperationKey(claims, req.OperationKey)
+		if err != nil {
+			return nil, err
+		}
+	}
 	horizonResponse, err := s.market.PublishBundle(ctx, req.MarketToken, idempotency, horizonRequest)
 	if err != nil {
+		var conflict *MarketPublicationConflictError
+		if errors.As(err, &conflict) {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"errorCode": "BUNDLE_VERSION_CONFLICT", "operationKey": req.OperationKey,
+				"error": "publication key or immutable version conflicts; query the original operation",
+			})
+		}
 		return nil, errcode.WithData(errcode.CodeSystemError, err.Error())
 	}
 	if horizonResponse.Code != 0 {
@@ -245,10 +269,13 @@ func (s *MarketDashboardBundleService) Publish(ctx context.Context, req *model.P
 		return nil, errcode.WithData(errcode.CodeSystemError, err.Error())
 	}
 	return &model.PublishDraftResponse{
-		BundleKey:   publishData.BundleKey,
-		Version:     publishData.Version,
-		ContentHash: publishData.ContentHash,
-		Status:      publishData.Status,
+		BundleKey:    publishData.BundleKey,
+		Version:      publishData.Version,
+		ContentHash:  publishData.ContentHash,
+		Status:       publishData.Status,
+		VersionID:    publishData.VersionID,
+		TargetState:  publishData.TargetState,
+		OperationKey: req.OperationKey,
 	}, nil
 }
 

@@ -215,11 +215,15 @@ func (p *MarketInstallProvider) dashboardStep(ctx context.Context, req model.Mar
 	// Community external identities are not ThingsVis CUIDs. Resolve the
 	// existing trusted SSO mapping for this exact live grant on every call.
 	var identity struct {
-		ProtocolVersion string `json:"protocolVersion"`
-		State           string `json:"state"`
-		TenantID        string `json:"tenantId"`
-		UserID          string `json:"userId"`
-		ErrorCode       string `json:"errorCode"`
+		ProtocolVersion   string `json:"protocolVersion"`
+		State             string `json:"state"`
+		TenantID          string `json:"tenantId"`
+		UserID            string `json:"userId"`
+		ErrorCode         string `json:"errorCode"`
+		ExternalTenantID  string `json:"externalTenantId"`
+		ExternalSubjectID string `json:"externalSubjectId"`
+		OperationKey      string `json:"operationKey"`
+		PayloadHash       string `json:"payloadHash"`
 	}
 	identityStatus, err := p.call(ctx, os.Getenv("TP_MARKETINSTALL_THINGSVIS_BASE_URL"), "/api/internal/market-dashboards/import/v1/identity", os.Getenv("TP_MARKETINSTALL_THINGSVIS_IDENTITY_TOKEN"), "X-TP-Service-Token", nil, req, &identity)
 	if err != nil {
@@ -231,6 +235,9 @@ func (p *MarketInstallProvider) dashboardStep(ctx context.Context, req model.Mar
 			state = "rejected"
 		}
 		return model.MarketInstallObservation{State: state, ErrorCode: identity.ErrorCode}, nil
+	}
+	if identity.ExternalTenantID != req.TenantID || identity.ExternalSubjectID != req.SubjectID || identity.OperationKey != req.IdempotencyKey || identity.PayloadHash != req.PayloadHash {
+		return model.MarketInstallObservation{State: "unknown", ErrorCode: "THINGSVIS_IDENTITY_INVALID"}, nil
 	}
 	dashboard := payload.Dashboard
 	var input interface{}
@@ -275,7 +282,7 @@ func (p *MarketInstallProvider) dashboardStep(ctx context.Context, req model.Mar
 		return model.MarketInstallObservation{State: "unknown", ErrorCode: "THINGSVIS_UNAVAILABLE"}, nil
 	}
 	if response.State == "confirmed" {
-		if response.ProtocolVersion != "thingsvis-import-receipt-v1" || response.OperationKey != req.IdempotencyKey || response.PayloadHash != req.PayloadHash || response.InstanceKey != req.OperationID || response.ResourceKey != req.Step.ResourceKey || response.DashboardID == "" || response.ReceiptID == "" {
+		if response.ProtocolVersion != "thingsvis-import-receipt-v1" || response.OperationKey != req.IdempotencyKey || response.PayloadHash != req.PayloadHash || response.InstanceKey != req.OperationID || response.ResourceKey != req.Step.ResourceKey || response.DashboardID == "" || response.ReceiptID == "" || response.ProjectID == "" {
 			return model.MarketInstallObservation{State: "unknown", ErrorCode: "THINGSVIS_RECEIPT_INVALID"}, nil
 		}
 		raw, _ := json.Marshal(response)

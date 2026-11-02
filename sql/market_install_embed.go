@@ -2,14 +2,14 @@ package sql
 
 import "embed"
 
-//go:embed 30.sql 32.sql
+//go:embed 30.sql 32.sql market_install/003_exact_plan.sql
 var marketInstallMigrationFiles embed.FS
 
 // MarketInstallMigrations extends the existing installation schema owned by
 // the community database. It is not part of Encore's sqldb migration stream.
 func MarketInstallMigrations() ([]NativeBindingMigration, error) {
 	var migrations []NativeBindingMigration
-	for _, name := range []string{"30.sql", "32.sql"} {
+	for _, name := range []string{"30.sql", "32.sql", "market_install/003_exact_plan.sql"} {
 		contents, err := marketInstallMigrationFiles.ReadFile(name)
 		if err != nil {
 			return nil, err

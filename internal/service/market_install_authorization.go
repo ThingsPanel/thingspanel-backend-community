@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"sort"
 	"time"
 
@@ -69,6 +68,13 @@ func IssueMarketInstallAuthorization(ctx context.Context, req model.MarketInstal
 	if claims == nil || claims.ID == "" || claims.TenantID == "" || rawJWT == "" || global.REDIS == nil {
 		return nil, repo.ErrMarketInstallUnauthorized
 	}
+	// Plan preparation may have made remote calls since the initial API check.
+	// Recheck the same current permission before creating a session marker or
+	// immutable execution grant. This assertion does not replace the account,
+	// auth-version, delegation and original-session checks below.
+	if err := requireCurrentMarketInstallationManagement(ctx, claims); err != nil {
+		return nil, err
+	}
 	expiry := time.Now().UTC().Add(time.Hour)
 	tokenExpiry := time.Unix(claims.ExpiresAt, 0)
 	if tokenExpiry.Before(expiry) {
@@ -89,7 +95,8 @@ func IssueMarketInstallAuthorization(ctx context.Context, req model.MarketInstal
 	if err != nil {
 		return nil, err
 	}
-	grant := repo.MarketInstallAuthorization{ID: uuid.New(), RequestKey: key, TenantID: claims.TenantID, SubjectID: claims.ID, Authority: claims.Authority, AuthVersion: claims.AuthVersion, ActorID: claims.ActorID, ActorVersion: claims.ActorVersion, Delegated: claims.Delegated, Purpose: "a08.install.v1", RequestDigest: requestDigest, PlanDigest: planDigest, Plan: rawPlan, SessionHash: dal.AppPushSessionKey(rawJWT), ExpiresAt: expiry, CreatedAt: time.Now().UTC()}
+	exact, encoding := string(rawPlan), repo.MarketInstallPlanEncoding
+	grant := repo.MarketInstallAuthorization{ID: uuid.New(), RequestKey: key, TenantID: claims.TenantID, SubjectID: claims.ID, Authority: claims.Authority, AuthVersion: claims.AuthVersion, ActorID: claims.ActorID, ActorVersion: claims.ActorVersion, Delegated: claims.Delegated, Purpose: "a08.install.v1", RequestDigest: requestDigest, PlanDigest: planDigest, Plan: rawPlan, PlanExact: &exact, PlanEncoding: &encoding, SessionHash: dal.AppPushSessionKey(rawJWT), ExpiresAt: expiry, CreatedAt: time.Now().UTC()}
 	if err := repo.MarketInstallAccountCurrent(ctx, grant); err != nil {
 		return nil, err
 	}
@@ -122,15 +129,54 @@ func readCurrentMarketInstallGrant(ctx context.Context, identity model.MarketIns
 	if marker != "1" {
 		return nil, model.MarketInstallPlan{}, repo.ErrMarketInstallUnauthorized
 	}
+	plan, exact, legacy, err := decodeMarketInstallGrantPlan(*grant)
+	if err != nil {
+		return nil, model.MarketInstallPlan{}, err
+	}
+	// A still-live immutable grant does not retain management permission after
+	// the current policy is withdrawn. Recheck the existing permission owner on
+	// every provider entry, before operation binding or business dispatch. This
+	// is an in-process policy check, not a receiver transaction/epoch fence.
+	if _, err := AuthorizeCurrentMarketInstallationManagement(ctx, model.MarketInstallationReadIdentity{ProtocolVersion: 1, TenantID: grant.TenantID, SubjectID: grant.SubjectID}); err != nil {
+		return nil, model.MarketInstallPlan{}, err
+	}
+	if legacy {
+		// Only a hash-verifiable old plan can acquire exact representation
+		// metadata. Permission denial above performs no write, and an uncertain
+		// commit below returns no executable plan. The original grant is reused.
+		if err := repo.SealMarketInstallAuthorizationPlan(ctx, *grant, exact); err != nil {
+			return nil, model.MarketInstallPlan{}, err
+		}
+		encoding := repo.MarketInstallPlanEncoding
+		grant.PlanExact, grant.PlanEncoding = &exact, &encoding
+	}
+	return grant, plan, nil
+}
+
+func decodeMarketInstallGrantPlan(grant repo.MarketInstallAuthorization) (model.MarketInstallPlan, string, bool, error) {
+	legacy := grant.PlanExact == nil && grant.PlanEncoding == nil
+	raw := grant.Plan
+	if !legacy {
+		if grant.PlanExact == nil || grant.PlanEncoding == nil || *grant.PlanEncoding != repo.MarketInstallPlanEncoding || *grant.PlanExact == "" {
+			return model.MarketInstallPlan{}, "", false, repo.ErrMarketInstallPlanIntegrity
+		}
+		raw = json.RawMessage(*grant.PlanExact)
+	}
 	var plan model.MarketInstallPlan
-	if err := json.Unmarshal(grant.Plan, &plan); err != nil {
-		return nil, plan, err
+	if err := json.Unmarshal(raw, &plan); err != nil {
+		return model.MarketInstallPlan{}, "", false, repo.ErrMarketInstallPlanIntegrity
 	}
 	digest, err := marketInstallDigest(plan)
 	if err != nil || digest != grant.PlanDigest {
-		return nil, plan, errors.New("installation plan integrity failure")
+		// Never normalize or replace the historical digest to make a JSONB
+		// exponent conversion pass. Such a row needs explicit reconciliation.
+		return model.MarketInstallPlan{}, "", false, repo.ErrMarketInstallPlanIntegrity
 	}
-	return grant, plan, nil
+	exact, err := json.Marshal(plan)
+	if err != nil {
+		return model.MarketInstallPlan{}, "", false, err
+	}
+	return plan, string(exact), legacy, nil
 }
 func ReadMarketInstallPreparedPlan(ctx context.Context, req model.MarketInstallPrepareRequest) (model.MarketInstallPlan, error) {
 	grant, plan, err := readCurrentMarketInstallGrant(ctx, req.MarketInstallIdentity)

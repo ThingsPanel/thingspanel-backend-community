@@ -1021,6 +1021,8 @@ func (*DeviceApi) PublishBundleDraft(c *gin.Context) {
 		"version":        response.Version,
 		"contentHash":    response.ContentHash,
 		"status":         response.Status,
+		"versionId":      response.VersionID,
+		"targetState":    response.TargetState,
 		"precheckReport": precheckReport,
 	})
 }
@@ -1032,6 +1034,11 @@ func (*DeviceApi) AnalyzeDashboardBundle(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	authorization, err := dashboardExportAuthorization(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	thingsVisBaseURL, err := thingsVisPublicAPIBaseURL(c)
 	if err != nil {
 		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
@@ -1041,7 +1048,7 @@ func (*DeviceApi) AnalyzeDashboardBundle(c *gin.Context) {
 	result, err := service.NewMarketDashboardBundleService(thingsVisBaseURL).Analyze(
 		c.Request.Context(),
 		req.DashboardID,
-		c.GetHeader("Authorization"),
+		authorization,
 		claims,
 	)
 	if err != nil {
@@ -1058,6 +1065,11 @@ func (*DeviceApi) PublishDashboardBundle(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	authorization, err := dashboardExportAuthorization(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	thingsVisBaseURL, err := thingsVisPublicAPIBaseURL(c)
 	if err != nil {
 		c.Error(errcode.WithData(errcode.CodeSystemError, err.Error()))
@@ -1067,7 +1079,7 @@ func (*DeviceApi) PublishDashboardBundle(c *gin.Context) {
 	result, err := service.NewMarketDashboardBundleService(thingsVisBaseURL).Publish(
 		c.Request.Context(),
 		&req,
-		c.GetHeader("Authorization"),
+		authorization,
 		claims,
 	)
 	if err != nil {

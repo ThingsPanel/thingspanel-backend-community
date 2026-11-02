@@ -164,6 +164,7 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		deviceMarketBundleApi.POST("dashboard-bundles/analyze", api.Controllers.DeviceApi.AnalyzeDashboardBundle)
 		// 发布一个看板商品并提交人工审核
 		deviceMarketBundleApi.POST("dashboard-bundles", api.Controllers.DeviceApi.PublishDashboardBundle)
+		deviceMarketBundleApi.GET("dashboard-bundles/publication-receipts", api.Controllers.DeviceApi.QueryDashboardPublicationReceipt)
 		// 发布 Bundle 草稿到市场（新版）
 		deviceMarketBundleApi.POST("bundles/publish-draft", api.Controllers.DeviceApi.PublishBundleDraft)
 		// 浏览已发布看板模板
@@ -174,6 +175,7 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		deviceMarketBundleApi.POST("bundles/download", api.Controllers.DeviceApi.DownloadDashboardTemplateFromMarket)
 		// 从市场安装 Bundle
 		deviceMarketBundleApi.POST("bundles/install", api.Controllers.DeviceApi.InstallBundleFromMarket)
+		deviceMarketBundleApi.GET("bundles/installation-operations", api.Controllers.DeviceApi.QueryBundleInstallationOperation)
 		// 获取安装状态
 		deviceMarketBundleApi.GET("bundles/install/:id", api.Controllers.DeviceApi.GetBundleInstallStatus)
 		// 更新设备绑定

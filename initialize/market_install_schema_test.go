@@ -93,8 +93,46 @@ func TestMarketInstallSchemaPostgres(t *testing.T) {
 			}
 		}
 		var count int64
-		if err := db.Table(componentMigrationLedgerTable).Where("module_name=?", marketInstallMigrationModule).Count(&count).Error; err != nil || count != 2 {
+		if err := db.Table(componentMigrationLedgerTable).Where("module_name=?", marketInstallMigrationModule).Count(&count).Error; err != nil || count != 3 {
 			t.Fatal("duplicate migration application", count, err)
+		}
+	})
+	t.Run("existing owner upgrades without rehashing or adopting legacy plans", func(t *testing.T) {
+		reset(t)
+		files, err := componentsql.MarketInstallMigrations()
+		if err != nil || len(files) != 3 || files[0].FileName != "30.sql" || files[1].FileName != "32.sql" || files[2].FileName != "market_install/003_exact_plan.sql" {
+			t.Fatal("owner migration order changed", err)
+		}
+		// Apply the actual two historical owner migrations with the same runner
+		// and checksums, then upgrade that existing receipt set.
+		old := componentMigration{module: marketInstallMigrationModule, description: "fixture prior market installation", lockKey: marketInstallMigrationLock, files: files[:2], verify: func(*gorm.DB) error { return nil }}
+		if err := applyComponentMigrations(db, old); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec(`INSERT INTO market_install_authorizations(id,tenant_id,subject_id,authority,auth_version,purpose,request_key,request_digest,plan_digest,plan,session_hash,expires_at)
+			VALUES ('old-grant','old-tenant','old-subject','TENANT_ADMIN',3,'a08.install.v1','old-original-key','old-request-digest',repeat('a',64),'{"steps":[{"value":1e+20}]}','old-session-marker',NOW()+INTERVAL '1 hour')`).Error; err != nil {
+			t.Fatal(err)
+		}
+		var before, receiptsBefore string
+		if err := db.Raw("SELECT row_to_json(a)::text FROM market_install_authorizations a WHERE id='old-grant'").Scan(&before).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Raw("SELECT string_agg(file_name || ':' || checksum || ':' || applied_at::text, ',' ORDER BY file_name) FROM native_component_migration_ledger WHERE module_name=?", marketInstallMigrationModule).Scan(&receiptsBefore).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := ApplyMarketInstallSchema(db); err != nil {
+			t.Fatal(err)
+		}
+		var unchanged bool
+		if err := db.Raw("SELECT (to_jsonb(a)-'plan_exact'-'plan_encoding')=CAST(? AS jsonb) AND plan_exact IS NULL AND plan_encoding IS NULL FROM market_install_authorizations a WHERE id='old-grant'", before).Scan(&unchanged).Error; err != nil || !unchanged {
+			t.Fatal("schema upgrade changed an old plan/digest, grant identity or lifetime", err)
+		}
+		var receiptsAfter string
+		if err := db.Raw("SELECT string_agg(file_name || ':' || checksum || ':' || applied_at::text, ',' ORDER BY file_name) FROM native_component_migration_ledger WHERE module_name=? AND file_name IN ('30.sql','32.sql')", marketInstallMigrationModule).Scan(&receiptsAfter).Error; err != nil || receiptsBefore != receiptsAfter {
+			t.Fatal("upgrade rewrote historical owner receipts", err)
+		}
+		if err := ApplyMarketInstallSchema(db); err != nil {
+			t.Fatal("restart did not reuse verified owner receipts", err)
 		}
 	})
 	t.Run("checksum and schema drift stop startup", func(t *testing.T) {
@@ -117,6 +155,26 @@ func TestMarketInstallSchemaPostgres(t *testing.T) {
 		}
 		if err := ApplyMarketInstallSchema(db); err == nil {
 			t.Fatal("schema drift hidden by ledger hit")
+		}
+		reset(t)
+		if err := ApplyMarketInstallSchema(db); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec("ALTER TABLE market_install_authorizations DROP CONSTRAINT market_install_authorizations_exact_plan_pair_check").Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := ApplyMarketInstallSchema(db); err == nil {
+			t.Fatal("exact-plan pair constraint drift hidden by ledger hit")
+		}
+		reset(t)
+		if err := ApplyMarketInstallSchema(db); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec("ALTER TABLE market_install_authorizations ALTER COLUMN plan_exact TYPE varchar(10000)").Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := ApplyMarketInstallSchema(db); err == nil {
+			t.Fatal("exact-plan storage type drift hidden by ledger hit")
 		}
 	})
 	t.Run("failed verification rolls back new ddl and ledger", func(t *testing.T) {

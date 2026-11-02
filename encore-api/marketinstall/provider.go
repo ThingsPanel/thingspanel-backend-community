@@ -19,6 +19,15 @@ type httpProvider struct {
 	client      *http.Client
 }
 
+type providerStatusError struct {
+	Action string
+	Status int
+}
+
+func (e *providerStatusError) Error() string {
+	return fmt.Sprintf("marketinstall provider %s returned status %d", e.Action, e.Status)
+}
+
 func newHTTPProvider(base, token string) (*httpProvider, error) {
 	parsed, err := url.Parse(base)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || strings.TrimSpace(token) == "" {
@@ -45,7 +54,7 @@ func (p *httpProvider) call(ctx context.Context, action string, input, output in
 	defer response.Body.Close()
 	// Never log authorization references, tokens, or raw provider error bodies.
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("marketinstall provider %s returned status %d", action, response.StatusCode)
+		return &providerStatusError{Action: action, Status: response.StatusCode}
 	}
 	limited := io.LimitReader(response.Body, 8*1024*1024+1)
 	body, err := io.ReadAll(limited)

@@ -16,6 +16,12 @@ import (
 )
 
 func InstallMarketBundleWithSelectedOwner(ctx context.Context, req *model.InstallBundleRequest, claims *utils.UserClaims, rawJWT string) (*model.InstallBundleResponse, error) {
+	if err := requireCurrentMarketInstallationManagement(ctx, claims); err != nil {
+		return nil, err
+	}
+	if req == nil {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "installation request required")
+	}
 	switch os.Getenv("TP_MARKETINSTALL_OWNER") {
 	case "", "legacy":
 		return NewMarketBundleInstallService().InstallBundle(ctx, req, claims)
@@ -81,6 +87,9 @@ func InstallMarketBundleWithSelectedOwner(ctx context.Context, req *model.Instal
 	return installationForwardResponse(operation.ID, req.BundleKey, req.Version, operation.State, operation.ErrorCode), nil
 }
 func GetSelectedMarketInstallation(ctx context.Context, id string, claims *utils.UserClaims, rawJWT string) (*model.InstallBundleResponse, error) {
+	if err := requireCurrentMarketInstallationManagement(ctx, claims); err != nil {
+		return nil, err
+	}
 	if os.Getenv("TP_MARKETINSTALL_OWNER") != "encore" {
 		return NewMarketBundleInstallService().GetInstallationStatus(ctx, id, claims.TenantID)
 	}

@@ -13,8 +13,10 @@ import (
 )
 
 // RegisterMarketInstallProviderRoutes is mounted before body/operation logging.
-// These purpose-limited machine routes require both a dedicated deployment
-// credential and a currently valid, immutable user installation authorization.
+// These purpose-limited machine routes require a dedicated deployment service
+// credential. Plan/execution routes also require a currently valid immutable
+// installation grant. read-authorize instead checks the current read permission
+// of a native-authenticated principal; it neither renews nor issues that grant.
 func RegisterMarketInstallProviderRoutes(router *gin.Engine) {
 	authenticated := func(c *gin.Context) bool {
 		configured := os.Getenv("TP_MARKETINSTALL_PROVIDER_TOKEN")
@@ -40,6 +42,13 @@ func RegisterMarketInstallProviderRoutes(router *gin.Engine) {
 		}
 		c.JSON(status, gin.H{"errorCode": code})
 	}
+	router.POST("/internal/market-install/read-authorize", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
+		if !authenticated(c) {
+			return
+		}
+		handleMarketInstallationReadAuthorization(c)
+	})
 	router.POST("/internal/market-install/prepare", func(c *gin.Context) {
 		if !authenticated(c) {
 			return

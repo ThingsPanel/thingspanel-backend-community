@@ -232,7 +232,7 @@ func parseLegacyJwtToken(token, secretKey string) (auth.UID, *Data, error) {
 	if authority != "SYS_ADMIN" && authority != "TENANT_ADMIN" {
 		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "unsupported user authority"}
 	}
-	if claims.TenantID == "" && authority != "SYS_ADMIN" {
+	if claims.TenantID == "" && claims.Authority != "SYS_ADMIN" {
 		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "missing tenant identity"}
 	}
 

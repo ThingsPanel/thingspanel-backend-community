@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/casbin/casbin/v2"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -27,7 +28,7 @@ func marketInstallProviderFixture(t *testing.T) *gorm.DB {
 	if err := db.Exec(`CREATE TABLE users(id text PRIMARY KEY,tenant_id text,status text,authority text,auth_version bigint NOT NULL DEFAULT 0)`).Error; err != nil {
 		t.Fatal(err)
 	}
-	for _, file := range []string{"27.sql", "32.sql"} {
+	for _, file := range []string{"27.sql", "32.sql", "market_install/003_exact_plan.sql"} {
 		raw, err := os.ReadFile("../../sql/" + file)
 		if err != nil {
 			t.Fatal(err)
@@ -36,14 +37,36 @@ func marketInstallProviderFixture(t *testing.T) *gorm.DB {
 			t.Fatal(err)
 		}
 	}
+	// Grant issuance now requires the same existing install resource as every
+	// public management entrypoint. Seed only this isolated fixture's policies;
+	// production missing-policy configurations remain denied.
+	enforcer, err := casbin.NewEnforcer("../../configs/casbin.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := enforcer.AddNamedGroupingPolicy("g2", MarketInstallationReadResource, "a08-grant-fixture-function"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := enforcer.AddPolicy("a08-grant-fixture-role", "a08-grant-fixture-function", "allow"); err != nil {
+		t.Fatal(err)
+	}
+	previousEnforcer := global.CasbinEnforcer
+	global.CasbinEnforcer = enforcer
+	t.Cleanup(func() { global.CasbinEnforcer = previousEnforcer })
 	return db
 }
-func marketInstallGrantFixture(t *testing.T) (*repo.MarketInstallAuthorization, model.MarketInstallStepRequest, *utils.UserClaims, string) {
+func marketInstallGrantFixture(t *testing.T, suppliedSteps ...model.MarketInstallStep) (*repo.MarketInstallAuthorization, model.MarketInstallStepRequest, *utils.UserClaims, string) {
 	t.Helper()
+	if len(suppliedSteps) > 1 {
+		t.Fatal("grant fixture accepts one immutable step")
+	}
 	ctx := context.Background()
 	user, actor := uuid.NewString(), uuid.NewString()
 	tenant := "tenant-" + uuid.NewString()
 	if err := global.DB.Exec(`INSERT INTO users(id,tenant_id,status,authority,auth_version) VALUES(?,?,'N','TENANT_ADMIN',3),(?,?,'N','TENANT_ADMIN',7)`, user, tenant, actor, tenant).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := global.CasbinEnforcer.AddNamedGroupingPolicy("g", user, "a08-grant-fixture-role"); err != nil {
 		t.Fatal(err)
 	}
 	claims := &utils.UserClaims{ID: user, TenantID: tenant, Authority: "TENANT_ADMIN", AuthVersion: 3, Delegated: true, ActorID: actor, ActorVersion: 7, StandardClaims: jwt.StandardClaims{ExpiresAt: time.Now().Add(time.Hour).Unix()}}
@@ -53,6 +76,9 @@ func marketInstallGrantFixture(t *testing.T) (*repo.MarketInstallAuthorization, 
 	}
 	t.Cleanup(func() { global.REDIS.Del(ctx, rawToken, dal.AppPushSessionKey(rawToken)) })
 	step := model.MarketInstallStep{ID: "native:create", Owner: "thingmodel", Action: "create", ResourceKey: "native", Payload: json.RawMessage(`{"model":{"name":"fixed"},"resources":{}}`)}
+	if len(suppliedSteps) == 1 {
+		step = suppliedSteps[0]
+	}
 	plan := model.MarketInstallPlan{ArtifactDigest: "sha256:" + strings.Repeat("a", 64), Steps: []model.MarketInstallStep{step}}
 	request := model.MarketInstallRequest{BundleKey: "bundle", Version: "1"}
 	grant, err := IssueMarketInstallAuthorization(ctx, request, plan, claims, rawToken, "key-"+uuid.NewString())

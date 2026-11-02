@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -15,6 +16,10 @@ func TestServiceAccessRejectsMissingIdentity(t *testing.T) {
 	for _, claims := range []*utils.UserClaims{nil, {}, {ID: "user"}, {TenantID: "tenant"}, {ID: " ", TenantID: "tenant"}} {
 		checks := []error{svc.Update(&model.UpdateAccessReq{}, claims), svc.Delete("id", claims)}
 		_, err := svc.List(&model.GetServiceAccessByPageReq{}, claims)
+		checks = append(checks, err)
+		_, err = svc.CreateAccess(&model.CreateAccessReq{Name: "new", ServicePluginID: "plugin", Voucher: "fixture"}, claims)
+		checks = append(checks, err)
+		_, err = svc.GetCreateOperation(context.Background(), "original-key", claims)
 		checks = append(checks, err)
 		for _, err := range checks {
 			var e *errcode.Error
