@@ -54,6 +54,7 @@ func verifyMarketInstallSchema(tx *gorm.DB) error {
 			"delegated": {dataType: "boolean", nullable: "NO"}, "purpose": {dataType: "text", nullable: "NO"}, "request_key": {dataType: "character varying", length: 128, nullable: "NO"},
 			"request_digest": {dataType: "character varying", length: 67, nullable: "NO"}, "plan_digest": {dataType: "character", length: 64, nullable: "NO"}, "operation_id": {dataType: "text", nullable: "NO"},
 			"plan": {dataType: "jsonb", nullable: "NO"}, "session_hash": {dataType: "text", nullable: "NO"}, "expires_at": {dataType: "timestamp with time zone", nullable: "NO"}, "revoked_at": {dataType: "timestamp with time zone", nullable: "YES"}, "created_at": {dataType: "timestamp with time zone", nullable: "NO"},
+			"plan_exact": {dataType: "text", nullable: "YES"}, "plan_encoding": {dataType: "text", nullable: "YES"},
 		},
 		"market_install_config_receipts": {
 			"tenant_id": {dataType: "text", nullable: "NO"}, "subject_id": {dataType: "text", nullable: "NO"}, "operation_key": {dataType: "character", length: 64, nullable: "NO"},
@@ -74,6 +75,12 @@ func verifyMarketInstallSchema(tx *gorm.DB) error {
 		return err
 	}
 	if err := verifyNativeConstraint(tx, "market_install_authorizations", "market_install_authorizations_purpose_check", `CHECK ((purpose = 'a08.install.v1'::text))`, "c"); err != nil {
+		return err
+	}
+	if err := verifyNativeConstraint(tx, "market_install_authorizations", "market_install_authorizations_exact_plan_pair_check", `CHECK (((plan_exact IS NULL) = (plan_encoding IS NULL)))`, "c"); err != nil {
+		return err
+	}
+	if err := verifyNativeConstraint(tx, "market_install_authorizations", "market_install_authorizations_plan_encoding_check", `CHECK (((plan_encoding IS NULL) OR (plan_encoding = 'json-number-lexeme-v1'::text)))`, "c"); err != nil {
 		return err
 	}
 	return nil

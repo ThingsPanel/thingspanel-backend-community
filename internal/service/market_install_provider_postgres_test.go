@@ -28,7 +28,7 @@ func marketInstallProviderFixture(t *testing.T) *gorm.DB {
 	if err := db.Exec(`CREATE TABLE users(id text PRIMARY KEY,tenant_id text,status text,authority text,auth_version bigint NOT NULL DEFAULT 0)`).Error; err != nil {
 		t.Fatal(err)
 	}
-	for _, file := range []string{"27.sql", "32.sql"} {
+	for _, file := range []string{"27.sql", "32.sql", "market_install/003_exact_plan.sql"} {
 		raw, err := os.ReadFile("../../sql/" + file)
 		if err != nil {
 			t.Fatal(err)
