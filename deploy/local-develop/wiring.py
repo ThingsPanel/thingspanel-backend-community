@@ -80,7 +80,7 @@ def generate(root, manifest, password, config):
             'volumes': [str(root / 'mqtt') + ':/mosquitto/data', mount('plugin-token', '/run/secrets/plugin-token'), mount('services.json', '/run/secrets/services.json')]},
         'backend': {'image': images['backend'], 'ports': ['127.0.0.1:19999:9999'],
             'environment': {'GOTP_DB_PSQL_HOST': 'postgres', 'GOTP_DB_PSQL_PORT': '5432', 'GOTP_DB_PSQL_USERNAME': 'postgres',
-                'GOTP_DB_PSQL_PASSWORD': password, 'GOTP_DB_PSQL_DBNAME': 'ThingsPanel', 'GOTP_DB_REDIS_ADDR': 'redis:6379', 'GOTP_DB_REDIS_PASSWORD': redis_password,
+                'GOTP_TELEMETRY_ENABLED': 'false', 'GOTP_DB_PSQL_PASSWORD': password, 'GOTP_DB_PSQL_DBNAME': 'ThingsPanel', 'GOTP_DB_REDIS_ADDR': 'redis:6379', 'GOTP_DB_REDIS_PASSWORD': redis_password,
                 'GOTP_MQTT_SERVER': 'mosquitto', 'GOTP_MQTT_ACCESS_ADDRESS': 'mosquitto:1883', 'GOTP_MQTT_BROKER': 'mosquitto:1883',
                 'GOTP_MQTT_INPUT_PROFILE': 'ingress_v1', 'GOTP_MQTT_BROKER_CELL': cell, 'GOTP_MQTT_BROKER_INSTANCE': instance,
                 'GOTP_MQTT_CLIENT_ID': client, 'GOTP_MQTT_USER': mqtt_user, 'GOTP_MQTT_PASS': mqtt_password,

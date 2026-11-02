@@ -323,3 +323,30 @@ class BootstrapResumeFlow(unittest.TestCase):
             self.assertTrue(any('SELECT 11;' in statement for statement in statements))
             self.assertEqual(len(json.loads((root / 'migration-ledger.json').read_text())), 7)
             self.assertEqual((root / 'bootstrap.complete').read_text(), backend['sha'])
+
+
+class AdministratorInitialization(unittest.TestCase):
+    def test_foreign_admin_is_never_adopted(self):
+        import identity, tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); (root/'private').mkdir()
+            with patch.object(identity,'rows',return_value=[{'email':'foreign'}]), patch.object(identity,'api') as api:
+                with self.assertRaisesRegex(ValueError,'refusing adoption'): identity.initialize_administrator(root,runtime)
+                api.assert_not_called()
+
+    def test_formal_init_is_idempotent_and_credentials_stay_private(self):
+        import identity, tempfile, json
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); (root/'private').mkdir()
+            def rows(*args):
+                path=root/'private/local-administrator.json'
+                if not path.exists() or not initialized[0]: return []
+                return [{'email':json.loads(path.read_text())['email'],'status':'N'}]
+            initialized=[False]
+            def api(route, body, *args):
+                if route=='tenant/super-admin/init': initialized[0]=True; return {}
+                self.assertEqual(route,'login'); return {'token':'private'}
+            with patch.object(identity,'rows',side_effect=rows),patch.object(identity,'api',side_effect=api) as call:
+                identity.initialize_administrator(root,runtime); identity.initialize_administrator(root,runtime)
+                self.assertEqual(sum(c.args[0]=='tenant/super-admin/init' for c in call.call_args_list),1)
+            self.assertEqual((root/'private/local-administrator.json').stat().st_mode & 0o777,0o600)

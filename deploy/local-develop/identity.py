@@ -119,6 +119,25 @@ def configure_key(root, key):
     atomic(path, config)
 
 
+def initialize_administrator(root, runtime):
+    # Caller has already proven fresh fixture/container/database ownership.
+    path = root / 'private/local-administrator.json'
+    if not path.exists():
+        if rows(root, runtime, "authority='SYS_ADMIN'"):
+            raise ValueError('Existing administrator has no fixture-owned credential; refusing adoption')
+        atomic(path, {'email': 'local-admin-' + runtime.secrets.token_hex(12) + '@example.invalid',
+                      'password': runtime.secrets.token_urlsafe(32) + 'Aa1!'})
+    account = json.loads(path.read_text())
+    admins = rows(root, runtime, "authority='SYS_ADMIN'")
+    if not admins:
+        api('tenant/super-admin/init', {'email': account['email'], 'password': account['password'],
+                                     'confirm_password': account['password']})
+        admins = rows(root, runtime, "authority='SYS_ADMIN'")
+    if len(admins) != 1 or admins[0]['email'] != account['email'] or admins[0]['status'] != 'N':
+        raise ValueError('Administrator identity mismatch; refusing privileged login')
+    return api('login', {'email': account['email'], 'password': account['password']})['token']
+
+
 def provision(root, runtime):
     guard(root, runtime)
     private = root / 'private'
@@ -133,11 +152,7 @@ def provision(root, runtime):
     account = json.loads((private / 'native-account.json').read_text())
     found = rows(root, runtime, 'email=' + literal(account['email']))
     if not found:
-        # Only the well-known seed of this demonstrably fresh database is used.
-        seed = rows(root, runtime, "email='super@super.cn' AND authority='SYS_ADMIN' AND status='N'")
-        if len(seed) != 1:
-            raise ValueError('Fresh fixture seed administrator unavailable')
-        token = api('login', {'email': 'super@super.cn', 'password': '123456'})['token']
+        token = initialize_administrator(root, runtime)
         api('user', {'email': account['email'], 'password': account['password'],
             'phone_number': 'local-' + runtime.hashlib.sha256(account['email'].encode()).hexdigest()[:16],
             'name': 'Local test tenant', 'userRoles': [], 'remark': 'Broad identity for isolated local integration only'}, token)
