@@ -22,6 +22,7 @@ import (
 	"encore.app/internal/authcore"
 	"encore.app/internal/runtimetenant"
 	"encore.app/l1-access/authn"
+	"encore.app/l3-core/notification"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -36,7 +37,10 @@ type authFile struct {
 	AdminToken  string `json:"adminToken"`
 	TenantToken string `json:"tenantToken"`
 }
-type liveVerifier struct{ origin string }
+type liveVerifier struct {
+	origin   string
+	sessions notification.UserSessionChecker
+}
 
 func (v liveVerifier) Verify(ctx context.Context, token string) (runtimetenant.Principal, error) {
 	var p runtimetenant.Principal
@@ -53,7 +57,8 @@ func (v liveVerifier) Verify(ctx context.Context, token string) (runtimetenant.P
 		if e != nil {
 			return p, runtimetenant.ErrUnproven
 		}
-		return runtimetenant.Principal{UserID: user.ID, RawTenantID: user.TenantID, Authority: user.Authority, Delegated: user.Delegated}, nil
+		p = runtimetenant.Principal{UserID: user.ID, RawTenantID: user.TenantID, Authority: user.Authority, Delegated: user.Delegated}
+		return v.sourceSession(ctx, token, p)
 	}
 	if mode != "" && mode != "legacy-jwt" {
 		return p, runtimetenant.ErrUnproven
@@ -84,7 +89,22 @@ func (v liveVerifier) Verify(ctx context.Context, token string) (runtimetenant.P
 	if json.Unmarshal(payload, &claims) != nil {
 		return p, runtimetenant.ErrUnproven
 	}
-	return runtimetenant.Principal{UserID: data.UserID, RawTenantID: data.TenantID, Authority: strings.ToUpper(data.Roles[0]), Delegated: claims.Delegated || claims.ActorID != ""}, nil
+	p = runtimetenant.Principal{UserID: data.UserID, RawTenantID: data.TenantID, Authority: strings.ToUpper(data.Roles[0]), Delegated: claims.Delegated || claims.ActorID != ""}
+	return v.sourceSession(ctx, token, p)
+}
+
+// Always ask the actual configured Community source, including when the local
+// native auth owner already verified the token. Same-named tenants in another
+// auth database are not proof of ownership at this source deployment.
+func (v liveVerifier) sourceSession(ctx context.Context, token string, p runtimetenant.Principal) (runtimetenant.Principal, error) {
+	if v.sessions == nil || p.Delegated {
+		return runtimetenant.Principal{}, runtimetenant.ErrUnproven
+	}
+	expected := notification.UserPrincipal{UserID: p.UserID, TenantID: p.RawTenantID, Roles: []string{p.Authority}}
+	if v.sessions.CheckUserSession(ctx, token, expected) != nil {
+		return runtimetenant.Principal{}, runtimetenant.ErrUnproven
+	}
+	return p, nil
 }
 
 func main() {
@@ -138,8 +158,13 @@ func run() error {
 	if e = database.QueryRowContext(ctx, "SELECT current_database(),current_schema()").Scan(&name, &schema); e != nil || name != m.DatabaseName || schema != "public" {
 		return errors.New("native binding database target mismatch")
 	}
+	fixture := os.Getenv("TP_RUNTIME_FIXTURE_MODE") == "1"
+	sessions, e := notification.NewLegacySessionChecker(m.Scope.CommunityOrigin, notification.LegacySessionOptions{Timeout: 3 * time.Second, TestMode: fixture, AllowHTTPTestEndpoint: fixture})
+	if e != nil {
+		return errors.New("actual Community session verifier unavailable")
+	}
 	sum := sha256.Sum256(raw)
-	result, e := runtimetenant.Provision(ctx, database, liveVerifier{origin: m.Scope.CommunityOrigin}, credentials.AdminToken, credentials.TenantToken, m.Scope, m.NativeTenantID, hex.EncodeToString(sum[:]))
+	result, e := runtimetenant.Provision(ctx, database, liveVerifier{origin: m.Scope.CommunityOrigin, sessions: sessions}, credentials.AdminToken, credentials.TenantToken, m.Scope, m.NativeTenantID, hex.EncodeToString(sum[:]))
 	if e != nil {
 		return errors.New("runtime tenant source rejected; inspect target for an existing or unknown-commit binding before retry")
 	}
