@@ -40,6 +40,12 @@ def execute(command, cwd, env, root, runtime, phase):
     runtime.preflight(root, phase)
 
 
+def encore_command(tag):
+    # Official CLI defaults to amd64; never rely on host architecture inference.
+    return ['encore', 'build', 'docker', tag, '--arch', 'arm64', '--os', 'linux', '--base', 'scratch',
+        '--services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification', '--skip-config']
+
+
 def build(root, runtime, phase, base_image=None):
     runtime.preflight(root, phase)
     manifest = runtime.load_fixture(root)
@@ -49,10 +55,11 @@ def build(root, runtime, phase, base_image=None):
     cache = root / 'cache'
     env = os.environ.copy()
     for key, directory in {'GOCACHE': 'go-build', 'GOMODCACHE': 'go-mod', 'TMPDIR': 'tmp',
-                           'XDG_CACHE_HOME': 'xdg', 'ENCORE_CACHE_DIR': 'encore', 'PNPM_HOME': 'pnpm'}.items():
+                           'XDG_CACHE_HOME': 'xdg', 'ENCORE_CACHE_DIR': 'encore', 'ENCORE_CONFIG_DIR': 'encore-config', 'PNPM_HOME': 'pnpm'}.items():
         path = cache / directory
         path.mkdir(parents=True, exist_ok=True)
         env[key] = str(path)
+    env['ENCORE_DAEMON_LOG_PATH'] = str(cache / 'encore-daemon.log')
     env.update(GOMAXPROCS='1', GOFLAGS='-p=1', GOOS='linux', GOARCH='arm64', CGO_ENABLED='0')
     provenance_path = root / 'build-provenance.json'
     provenance = json.loads(provenance_path.read_text()) if provenance_path.exists() else {}
@@ -121,8 +128,7 @@ def build(root, runtime, phase, base_image=None):
         if not version.startswith('encore version v1.58.6'):
             raise ValueError('Encore CLI 1.58.6 is required')
         tag = 'tp-local-encore:' + sha
-        execute(['encore', 'build', 'docker', tag,
-            '--services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification', '--skip-config'],
+        execute(encore_command(tag),
             repo / 'encore-api', env, root, runtime, phase)
         image = json.loads(runtime.run(['docker', 'image', 'inspect', tag]))[0]
         if image.get('Os') != 'linux' or image.get('Architecture') != 'arm64':

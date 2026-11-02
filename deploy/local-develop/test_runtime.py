@@ -189,3 +189,15 @@ class StorageSafety(unittest.TestCase):
         with patch.object(runtime, 'run', return_value='remote'):
             with self.assertRaisesRegex(ValueError, 'local OrbStack'):
                 self.storage.orbstack_internal(runtime)
+
+class EncoreBuildContract(unittest.TestCase):
+    def test_official_build_explicitly_targets_arm64_and_smallest_base(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        import build
+        command = build.encore_command('local:test')
+        self.assertEqual(command[command.index('--arch') + 1], 'arm64')
+        self.assertEqual(command[command.index('--os') + 1], 'linux')
+        self.assertEqual(command[command.index('--base') + 1], 'scratch')
+        self.assertNotIn('--push', command)
+        self.assertIn('--skip-config', command)
