@@ -121,6 +121,7 @@ def bootstrap(root, resume_owned_empty=False):
     if not any(m['Destination'] == '/var/lib/postgresql/data' and m['Source'] == str(root / 'postgres') for m in mounts):
         raise ValueError('Postgres data mount mismatch')
     repo = Path(backend['path'])
+    version = int(re.search(r'VERSION_NUMBER\s*=\s*(\d+)', (repo / 'pkg/global/global.go').read_text())[1])
     # Require the final TCP-listening postmaster, not entrypoint's temporary
     # Unix-socket-only server (same image is covered by readiness regression).
     compose(root, 'exec', '-T', 'postgres', 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-d', 'ThingsPanel')
@@ -136,7 +137,6 @@ def bootstrap(root, resume_owned_empty=False):
         if sql(root, 'ThingsPanel', "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';") != '0':
             raise ValueError('Community database is not empty; refusing migration/adoption')
         sql(root, 'ThingsPanel', 'CREATE TABLE casbin_rule(id bigserial PRIMARY KEY,ptype varchar(100),v0 varchar(100),v1 varchar(100),v2 varchar(100),v3 varchar(100),v4 varchar(100),v5 varchar(100)); CREATE TABLE sys_version(version_number INT PRIMARY KEY,version varchar(255) NOT NULL); INSERT INTO sys_version VALUES(0,\'0.0.0\');')
-        version = int(re.search(r'VERSION_NUMBER\s*=\s*(\d+)', (repo / 'pkg/global/global.go').read_text())[1])
         sql(root, 'ThingsPanel', "CREATE TABLE local_fixture_owner(runtime_id text PRIMARY KEY); INSERT INTO local_fixture_owner VALUES('" + manifest['runtime_id'] + "');")
     ledger = []
     def apply(db, paths):

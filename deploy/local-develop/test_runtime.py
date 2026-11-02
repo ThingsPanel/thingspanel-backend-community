@@ -290,3 +290,36 @@ class BootstrapRecoverySafety(unittest.TestCase):
         for key,value in [('owner_matches',False),('versions',[[1,'local-develop']]),('casbin_rows',1),('native_databases',['automation']),('other_objects',['function unexpected()']),('extra_schemas',['foreign']),('user_triggers',1),('listen_addresses','')]:
             with self.assertRaises(ValueError): self.recovery.validate(dict(self.snapshot,**{key:value}))
         with self.assertRaises(ValueError): self.recovery.validate(dict(self.snapshot,relations=self.snapshot['relations']+[('users','r')]))
+
+
+class BootstrapResumeFlow(unittest.TestCase):
+    def test_resume_runs_pinned_version_and_all_migrations(self):
+        import json, sys, tempfile
+        import bootstrap_recovery
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = root / 'repo'
+            (repo / 'pkg/global').mkdir(parents=True)
+            (repo / 'pkg/global/global.go').write_text('const VERSION_NUMBER = 1')
+            (repo / 'sql/broker').mkdir(parents=True)
+            (repo / 'sql/1.sql').write_text('SELECT 11;')
+            (repo / 'sql/broker/001_test.sql').write_text('SELECT 12;')
+            for path in runtime.DATABASES.values():
+                folder = repo / 'encore-api' / path
+                folder.mkdir(parents=True)
+                (folder / '1_init.up.sql').write_text('SELECT 13;')
+            backend = {'path': str(repo), 'sha': 'a' * 40}
+            manifest = {'project': runtime.PROJECT, 'root': str(root), 'backend': backend, 'runtime_id': 'b' * 64}
+            (root / 'manifest.json').write_text(json.dumps(manifest))
+            (root / 'compose.json').write_text(json.dumps({'services': {'postgres': {'image': 'sha256:test'}}}))
+            inspection = {'Config': {'Labels': {'com.docker.compose.project': runtime.PROJECT}}, 'Mounts': [{'Destination': '/var/lib/postgresql/data', 'Source': str(root / 'postgres')}]}
+            def fake_compose(*args, **kwargs):
+                return json.dumps([{'Service': 'postgres', 'ID': 'isolated'}]) if args[1] == 'ps' else ''
+            def fake_sql(root, database, statement):
+                return '0' if 'FROM pg_database' in statement else ''
+            with patch.object(runtime, 'preflight'), patch.object(runtime, 'source', return_value=backend), patch.object(runtime, 'compose', side_effect=fake_compose), patch.object(runtime, 'run', return_value=json.dumps([inspection])), patch.object(runtime, 'sql', side_effect=fake_sql) as sql, patch.object(bootstrap_recovery, 'validate_container'), patch.object(bootstrap_recovery, 'inspect', return_value={'validated': True}), patch.dict(sys.modules, {'runtime': runtime}):
+                runtime.bootstrap(root, resume_owned_empty=True)
+            statements = [call.args[2] for call in sql.call_args_list]
+            self.assertTrue(any('SELECT 11;' in statement for statement in statements))
+            self.assertEqual(len(json.loads((root / 'migration-ledger.json').read_text())), 7)
+            self.assertEqual((root / 'bootstrap.complete').read_text(), backend['sha'])
