@@ -16,6 +16,8 @@ import (
 	"gorm.io/gorm/clause"
 	"project/internal/brokercommands"
 	bc "project/internal/brokercontract"
+	"project/internal/brokerdelegate"
+	"project/internal/brokerroute"
 	"project/internal/downlink"
 	"project/internal/model"
 )
@@ -65,10 +67,11 @@ func readAutomationPolicy(ctx context.Context, tx *gorm.DB, tenant, scene string
 }
 
 type automationTrigger struct {
-	Type   string                 `json:"trigger_param_type"`
-	Values map[string]interface{} `json:"trigger_values"`
-	Cell   string                 `json:"broker_cell"`
-	Epoch  uint64                 `json:"route_epoch"`
+	Delegation *bc.Delegation         `json:"delegated_route,omitempty"`
+	Type       string                 `json:"trigger_param_type"`
+	Values     map[string]interface{} `json:"trigger_values"`
+	Cell       string                 `json:"broker_cell"`
+	Epoch      uint64                 `json:"route_epoch"`
 }
 
 // ProcessBrokerAutomationEffect plans at most one durable trigger in this cell.
@@ -93,6 +96,10 @@ func ProcessBrokerAutomationEffect(ctx context.Context, db *gorm.DB, cell string
 		// here too, before the source route, to avoid a planner/manual lock cycle.
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "brokercommands:"+candidate.TenantID).Error; err != nil {
 			return err
+		}
+		delegationErr := lockAutomationDelegation(tx, candidate)
+		if delegationErr != nil && !errors.Is(delegationErr, brokerroute.ErrFenced) && !errors.Is(delegationErr, brokerroute.ErrConnecting) {
+			return delegationErr
 		}
 		// Lock the authenticated transport's route before the effect, matching ingress.
 		var source struct {
@@ -121,7 +128,7 @@ func ProcessBrokerAutomationEffect(ctx context.Context, db *gorm.DB, cell string
 		terminal := func(state, detail string) error {
 			return tx.Model(&automationEffect{}).Where("id=?", effect.ID).Updates(map[string]interface{}{"state": state, "last_error": detail, "updated_at": time.Now()}).Error
 		}
-		if binding.Phase != "active" || binding.BrokerCell != cell || binding.RouteEpoch != source.RouteEpoch {
+		if delegationErr != nil || binding.Phase != "active" || binding.BrokerCell != cell || binding.RouteEpoch != source.RouteEpoch {
 			return terminal("fenced", "source transport route changed")
 		}
 		// Old triggers must never create fresh commands after a prolonged outage.
@@ -464,4 +471,20 @@ func normalizedTriggerType(s string) string {
 	default:
 		return strings.ToUpper(s)
 	}
+}
+
+func lockAutomationDelegation(tx *gorm.DB, effect automationEffect) error {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(effect.Payload, &fields) != nil {
+		return nil
+	} // existing decoder owns malformed triggers
+	raw, ok := fields["delegated_route"]
+	if !ok {
+		return nil
+	}
+	var proof bc.Delegation
+	if json.Unmarshal(raw, &proof) != nil || proof.Validate() != nil {
+		return brokerroute.ErrFenced
+	}
+	return brokerdelegate.Lock(tx, effect.TenantID, &proof, false)
 }

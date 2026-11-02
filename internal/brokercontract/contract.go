@@ -54,6 +54,10 @@ type Principal struct {
 // Metadata is minted by the trusted broker boundary. Device supplied JSON is
 // always treated as payload bytes and can never populate these fields.
 type Metadata struct {
+	// Delegation exists only after authenticated plugin normalization. It cannot
+	// be populated by broker wire JSON or by device-supplied payload fields.
+	Delegation *Delegation `json:"-"`
+
 	PluginContextID  string        `json:"plugin_context_id,omitempty"`
 	ContractVersion  string        `json:"contract_version"`
 	TenantID         string        `json:"tenant_id"`

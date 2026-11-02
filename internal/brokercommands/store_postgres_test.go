@@ -81,6 +81,7 @@ func postgresStore(t *testing.T) (*Store, *gorm.DB) {
 	if err := db.Exec(strings.ReplaceAll(string(migration), "public.", "")).Error; err != nil {
 		t.Fatalf("apply private command migration: %v", err)
 	}
+	installCommandIdentityFixture(t, db)
 	return New(db), db
 }
 
@@ -422,3 +423,32 @@ type atomicCount struct {
 
 func (c *atomicCount) Add(v int) { c.mu.Lock(); c.n += v; c.mu.Unlock() }
 func (c *atomicCount) Load() int { c.mu.Lock(); defer c.mu.Unlock(); return c.n }
+
+func installCommandIdentityFixture(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	body, err := os.ReadFile(filepath.Join("testdata", "identity-fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(string(body)).Error; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func installAuthoritativeIdentityFence(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	if err := db.Exec("ALTER TABLE devices ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now()").Error; err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join("..", "..", "sql", "31.sql")
+	body, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		body, err = os.ReadFile(filepath.Join("testdata", "device-identity-31.sql"))
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Transaction(func(tx *gorm.DB) error { return tx.Exec(string(body)).Error }); err != nil {
+		t.Fatal(err)
+	}
+}

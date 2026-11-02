@@ -14,7 +14,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
+	"project/internal/brokerdelegate"
 	"project/internal/brokerledger"
+	"project/internal/brokerroute"
 	"project/internal/model"
 )
 
@@ -101,6 +103,10 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 			}
 			tenants[item.tenantID] = true
 			bindings[bindingKey{item.tenantID, item.route.TransportDeviceID}] = item
+			if item.route.Delegation != nil {
+				bindings[bindingKey{item.tenantID, item.route.Delegation.TargetDeviceID}] = item
+			}
+
 		}
 		names := make([]string, 0, len(tenants))
 		for id := range tenants {
@@ -124,9 +130,8 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 		})
 		current := map[bindingKey]telemetryBinding{}
 		for _, key := range keys {
-			item := bindings[key]
 			var binding telemetryBinding
-			r := tx.Table("broker_transport_bindings").Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id=? AND device_id=?", item.tenantID, item.route.TransportDeviceID).Take(&binding)
+			r := tx.Table("broker_transport_bindings").Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id=? AND device_id=?", key.tenant, key.transport).Take(&binding)
 			if r.Error != nil && !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 				return r.Error
 			}
@@ -143,6 +148,16 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 			if !ok || b.Phase != "active" || b.BrokerCell != r.BrokerCell || b.RouteEpoch != r.RouteEpoch {
 				failed += len(item.points)
 				continue
+			}
+			if r.Delegation != nil {
+				e := brokerdelegate.Lock(tx, item.tenantID, r.Delegation, false)
+				if errors.Is(e, brokerroute.ErrFenced) || errors.Is(e, brokerroute.ErrConnecting) {
+					failed += len(item.points)
+					continue
+				}
+				if e != nil {
+					return e
+				}
 			}
 			if e := validateTelemetryAncestry(tx, item); errors.Is(e, errTelemetryRouteFenced) {
 				failed += len(item.points)
@@ -200,6 +215,9 @@ func validTrustedTelemetry(item *telemetryBatchItem) error {
 		return errTelemetryRouteFenced
 	}
 	r := item.route
+	if r.Delegation != nil && (r.Delegation.Validate() != nil || r.Delegation.TransportDeviceID != r.TransportDeviceID || r.Delegation.TransportRouteEpoch != r.RouteEpoch || r.Delegation.BrokerCell != r.BrokerCell || r.Delegation.ObservedAt.UnixMilli() != r.ObservedAt.UnixMilli()) {
+		return errTelemetryRouteFenced
+	}
 	if _, err := uuid.Parse(r.ReceiptID); err != nil {
 		return errTelemetryRouteFenced
 	}
@@ -234,6 +252,9 @@ func validateTelemetryAncestry(tx *gorm.DB, item *telemetryBatchItem) error {
 			return e
 		}
 		if id == item.route.TransportDeviceID {
+			if item.route.Delegation != nil && !visited[item.route.Delegation.TargetDeviceID] {
+				return errTelemetryRouteFenced
+			}
 			if device.ParentID != nil && *device.ParentID != "" {
 				return errTelemetryRouteFenced
 			}
@@ -263,7 +284,11 @@ func recordTrustedTelemetry(tx *gorm.DB, item *telemetryBatchItem, budget *telem
 	}
 	r := item.route
 	digest := sha256.Sum256(payload)
-	meta, e := json.Marshal(map[string]interface{}{"source": "trusted_telemetry_batch", "timestamp": item.timestamp, "logical_device_id": item.deviceID})
+	metadata := map[string]interface{}{"source": "trusted_telemetry_batch", "timestamp": item.timestamp, "logical_device_id": item.deviceID}
+	if r.Delegation != nil {
+		metadata["delegated_route"] = r.Delegation
+	}
+	meta, e := json.Marshal(metadata)
 	if e != nil {
 		return e
 	}
@@ -282,7 +307,11 @@ func recordTrustedTelemetry(tx *gorm.DB, item *telemetryBatchItem, budget *telem
 			return errors.New("trusted telemetry receipt conflicts")
 		}
 	}
-	intent, e := json.Marshal(map[string]interface{}{"trigger_param_type": model.TRIGGER_PARAM_TYPE_TEL, "trigger_values": values, "route_epoch": r.RouteEpoch, "broker_cell": r.BrokerCell})
+	intentData := map[string]interface{}{"trigger_param_type": model.TRIGGER_PARAM_TYPE_TEL, "trigger_values": values, "route_epoch": r.RouteEpoch, "broker_cell": r.BrokerCell}
+	if r.Delegation != nil {
+		intentData["delegated_route"] = r.Delegation
+	}
+	intent, e := json.Marshal(intentData)
 	if e != nil {
 		return e
 	}
@@ -300,7 +329,12 @@ func recordTrustedTelemetry(tx *gorm.DB, item *telemetryBatchItem, budget *telem
 		return errors.New("trusted telemetry automation capacity exceeded")
 	}
 
-	if e := tx.Exec(`INSERT INTO broker_telemetry_activity(tenant_id,device_id,transport_device_id,broker_cell,route_epoch,receipt_id,observed_at,next_check_at) VALUES(?,?,?,?,?,?,?,now()) ON CONFLICT(tenant_id,device_id) DO UPDATE SET transport_device_id=excluded.transport_device_id,broker_cell=excluded.broker_cell,route_epoch=excluded.route_epoch,receipt_id=excluded.receipt_id,observed_at=excluded.observed_at,next_check_at=now() WHERE broker_telemetry_activity.route_epoch<>excluded.route_epoch OR broker_telemetry_activity.broker_cell<>excluded.broker_cell OR broker_telemetry_activity.transport_device_id<>excluded.transport_device_id OR broker_telemetry_activity.observed_at<=excluded.observed_at`, item.tenantID, item.deviceID, r.TransportDeviceID, r.BrokerCell, r.RouteEpoch, r.ReceiptID, r.ObservedAt).Error; e != nil {
+	proofBytes, e := json.Marshal(r.Delegation)
+	if e != nil {
+		return e
+	}
+	delegatedJSON := string(proofBytes)
+	if e := tx.Exec(`INSERT INTO broker_telemetry_activity(tenant_id,device_id,transport_device_id,broker_cell,route_epoch,receipt_id,observed_at,next_check_at,delegated_route) VALUES(?,?,?,?,?,?,?,now(),?::jsonb) ON CONFLICT(tenant_id,device_id) DO UPDATE SET transport_device_id=excluded.transport_device_id,broker_cell=excluded.broker_cell,route_epoch=excluded.route_epoch,receipt_id=excluded.receipt_id,observed_at=excluded.observed_at,next_check_at=now(),delegated_route=excluded.delegated_route WHERE broker_telemetry_activity.route_epoch<>excluded.route_epoch OR broker_telemetry_activity.broker_cell<>excluded.broker_cell OR broker_telemetry_activity.transport_device_id<>excluded.transport_device_id OR broker_telemetry_activity.observed_at<=excluded.observed_at`, item.tenantID, item.deviceID, r.TransportDeviceID, r.BrokerCell, r.RouteEpoch, r.ReceiptID, r.ObservedAt, delegatedJSON).Error; e != nil {
 		return e
 	}
 	return tx.Exec(`INSERT INTO broker_state_projection_queue(tenant_id,device_id) VALUES(?,?) ON CONFLICT(tenant_id,device_id) DO UPDATE SET updated_at=now()`, item.tenantID, item.deviceID).Error

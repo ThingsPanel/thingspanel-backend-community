@@ -99,6 +99,7 @@ func (r *GormRepository) ResolvePluginTargets(ctx context.Context, ids []string)
 		       (SELECT count(*) FROM devices dx WHERE dx.device_number = d.device_number) AS device_number_count,
 		       COALESCE(sp.service_config::jsonb->>'sub_topic_prefix', '') AS topic_prefix,
 		       'device' AS kind,
+ false AS legacy_telemetry_id,
 		       'standard-v1' AS mapping_version
 		FROM devices d
 		JOIN service_access sa ON sa.id = d.service_access_id AND sa.tenant_id = d.tenant_id
@@ -110,6 +111,7 @@ func (r *GormRepository) ResolvePluginTargets(ctx context.Context, ids []string)
 		       (SELECT count(*) FROM devices dx WHERE dx.device_number = d.device_number) AS device_number_count,
 		       COALESCE(sp.service_config::jsonb->>'sub_topic_prefix', '') AS topic_prefix,
 		       CASE WHEN dc.device_type IN ('2','3') THEN 'gateway' ELSE 'device' END AS kind,
+ true AS legacy_telemetry_id,
 		       'standard-v1' AS mapping_version
 		FROM devices d
 		JOIN device_configs dc ON dc.id = d.device_config_id AND dc.tenant_id = d.tenant_id
@@ -128,6 +130,11 @@ func (r *GormRepository) ResolvePluginTargets(ctx context.Context, ids []string)
 			return nil, errors.New("brokercontrol: plugin device number is ambiguous")
 		}
 		target := row.PluginTarget
+		root, err := r.resolvePluginRoot(ctx, target.TenantID, target.DeviceID)
+		if err != nil {
+			return nil, err
+		}
+		target.TransportDeviceID = root
 		target.TopicPrefix = strings.TrimRight(strings.TrimSpace(target.TopicPrefix), "/") + "/"
 		if !brokercontract.ValidPluginPrefix(target.TopicPrefix) {
 			return nil, errors.New("brokercontrol: invalid plugin topic prefix")
@@ -163,11 +170,17 @@ func (r *GormRepository) StorePluginContext(ctx context.Context, value PluginCon
 }
 
 func validPluginTargets(targets []brokercontract.PluginTarget) bool {
+	if brokercontract.ValidatePluginTargets(targets) != nil {
+		return false
+	}
 	if len(targets) == 0 || len(targets) > MaxServiceTargets {
 		return false
 	}
 	seen := make(map[string]struct{}, len(targets))
 	for _, target := range targets {
+		if target.Validate() != nil {
+			return false
+		}
 		if target.TenantID == "" || target.DeviceID == "" || target.DeviceNumber == "" || target.MappingVersion != MappingVersion ||
 			target.RouteEpoch == 0 || (target.BindingPhase != "active" && target.BindingPhase != "connecting") || !brokercontract.ValidPluginPrefix(target.TopicPrefix) ||
 			(target.Kind != brokercontract.PrincipalDevice && target.Kind != brokercontract.PrincipalGateway) {
@@ -183,3 +196,26 @@ func validPluginTargets(targets []brokercontract.PluginTarget) bool {
 }
 
 func validPluginPrefix(prefix string) bool { return brokercontract.ValidPluginPrefix(prefix) }
+
+// resolvePluginRoot derives transport identity from active tenant-owned rows;
+// neither a service credential nor its SDK payload may name the root.
+func (r *GormRepository) resolvePluginRoot(ctx context.Context, tenant, target string) (string, error) {
+	seen := map[string]bool{}
+	id := target
+	for depth := 0; depth < 8; depth++ {
+		if seen[id] {
+			return "", ErrBindingConflict
+		}
+		seen[id] = true
+		var row struct{ ParentID *string }
+		e := r.quietDB(ctx).Table("devices").Select("parent_id").Where("id=? AND tenant_id=? AND is_enabled='enabled' AND activate_flag='active'", id, tenant).Take(&row).Error
+		if e != nil {
+			return "", e
+		}
+		if row.ParentID == nil || *row.ParentID == "" {
+			return id, nil
+		}
+		id = *row.ParentID
+	}
+	return "", ErrBindingConflict
+}

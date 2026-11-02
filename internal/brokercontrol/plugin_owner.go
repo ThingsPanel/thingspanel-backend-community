@@ -2,8 +2,6 @@ package brokercontrol
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sort"
@@ -45,6 +43,22 @@ func (o *Owner) resolvePluginTargets(ctx context.Context, ids, allowedTenants []
 		}
 		return rows[i].DeviceID < rows[j].DeviceID
 	})
+	byScope := map[string]int{}
+	for i := range rows {
+		byScope[rows[i].TenantID+"\x00"+rows[i].DeviceID] = i
+	}
+	// A physical root is not implicit authorization. It must itself be among
+	// the explicitly allowed, owner-resolved plugin targets in this grant.
+	for i := range rows {
+		root := rows[i].TransportDeviceID
+		if root == "" {
+			root = rows[i].DeviceID
+		}
+		if _, ok := byScope[rows[i].TenantID+"\x00"+root]; !ok {
+			return nil, nil
+		}
+		rows[i].TransportDeviceID = root
+	}
 	for i := range rows {
 		if !allowedID[rows[i].DeviceID] || (len(allowedTenant) > 0 && !allowedTenant[rows[i].TenantID]) || !brokercontract.ValidPluginPrefix(rows[i].TopicPrefix) {
 			return nil, nil
@@ -67,6 +81,13 @@ func (o *Owner) resolvePluginTargets(ctx context.Context, ids, allowedTenants []
 		rows[i].RouteEpoch = binding.RouteEpoch
 		rows[i].BindingPhase = binding.Phase
 		rows[i].MappingVersion = MappingVersion
+	}
+	for i := range rows {
+		root := rows[byScope[rows[i].TenantID+"\x00"+rows[i].TransportDeviceID]]
+		rows[i].TransportRouteEpoch = root.RouteEpoch
+		if root.BindingPhase == "connecting" {
+			rows[i].BindingPhase = "connecting"
+		}
 	}
 	if !validPluginTargets(rows) {
 		return nil, nil
@@ -96,6 +117,12 @@ func addPluginPublishAliases(policy brokercontract.Policy, targets []brokercontr
 			continue
 		}
 		policy.Publish = append(policy.Publish, strings.TrimSuffix(target.TopicPrefix, "/")+"/"+filter)
+		if target.LegacyTelemetryID && len(parts) == 4 && parts[1] == "telemetry" && parts[2] == "control" {
+			// The legacy protocol SDK always uses the devices wire family,
+			// including protocol targets whose canonical family is gateway.
+			policy.Publish = append(policy.Publish, target.TopicPrefix+"devices/telemetry/control/"+target.DeviceID)
+		}
+
 	}
 	policy = normalizePolicy(policy)
 	if brokercontract.ValidatePolicy(policy) != nil {
@@ -130,6 +157,10 @@ func buildPluginPolicy(targets []brokercontract.PluginTarget) (brokercontract.Po
 		for _, topic := range down {
 			subscribe = append(subscribe, topic, prefix+"/"+topic)
 		}
+		if target.LegacyTelemetryID {
+			subscribe = append(subscribe, prefix+"/devices/telemetry/control/"+target.DeviceID)
+		}
+
 	}
 	policy := normalizePolicy(brokercontract.Policy{Publish: publish, Subscribe: subscribe, MaxPayload: brokercontract.MaxPayloadBytes, MaxQoS: 1, RetainProfile: brokercontract.RetainedLiveIngress})
 	if brokercontract.ValidatePolicy(policy) != nil {
@@ -139,25 +170,7 @@ func buildPluginPolicy(targets []brokercontract.PluginTarget) (brokercontract.Po
 }
 
 func pluginContextID(principal brokercontract.Principal, cell, instance, connectionID string, targets []brokercontract.PluginTarget) (string, error) {
-	targets = append([]brokercontract.PluginTarget(nil), targets...)
-	sort.Slice(targets, func(i, j int) bool {
-		if targets[i].TenantID != targets[j].TenantID {
-			return targets[i].TenantID < targets[j].TenantID
-		}
-		return targets[i].DeviceID < targets[j].DeviceID
-	})
-	data, err := json.Marshal(struct {
-		Principal  brokercontract.Principal      `json:"principal"`
-		Cell       string                        `json:"cell"`
-		Instance   string                        `json:"instance"`
-		Connection string                        `json:"connection"`
-		Targets    []brokercontract.PluginTarget `json:"targets"`
-	}{principal, cell, instance, connectionID, targets})
-	if err != nil {
-		return "", err
-	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:]), nil
+	return brokercontract.PluginContextID(principal, cell, instance, connectionID, targets)
 }
 
 func (o *Owner) persistPluginGrant(ctx context.Context, grant *brokercontract.Grant, cell, instance string, targets []brokercontract.PluginTarget) error {
