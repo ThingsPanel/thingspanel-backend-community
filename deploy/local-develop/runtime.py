@@ -222,6 +222,9 @@ def main():
     parser.add_argument('--device-id', action='append', default=[])
     parser.add_argument('--phase', choices=['backend', 'frontend', 'encore'])
     parser.add_argument('--runtime-image')
+    parser.add_argument('--system-frontend-stage')
+    parser.add_argument('--dependency-seed')
+    parser.add_argument('--resume-private-frontend-stage', action='store_true')
     parser.add_argument('--backend')
     parser.add_argument('--frontend')
     args = parser.parse_args()
@@ -237,7 +240,7 @@ def main():
         if not args.phase:
             raise ValueError('Choose an explicit --phase backend/frontend/encore')
         import build
-        build.build(root, sys.modules[__name__], args.phase, args.runtime_image)
+        build.build(root, sys.modules[__name__], args.phase, args.runtime_image, args.system_frontend_stage, args.dependency_seed, args.resume_private_frontend_stage)
     elif args.action in ('provision-native', 'refresh-broker', 'revoke-native'):
         import identity
         import fcntl

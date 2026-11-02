@@ -229,3 +229,33 @@ class RuntimeBindingSafety(unittest.TestCase):
         self.assertEqual(env['TP_RUNTIME_COMMUNITY_PROVIDER_ID'], self.provider)
         self.assertEqual(env['TP_RUNTIME_COMMUNITY_SERVICE_INSTANCE_ID'], 'confirmed-instance')
         self.assertNotIn('TP_RUNTIME_DEVICE_ID_MODE', env)
+
+class FrontendWorkspaceSeedSafety(unittest.TestCase):
+    def test_workspace_dependency_must_not_fall_back_to_root_version(self):
+        import sys, tempfile, json
+        sys.path.insert(0, str(Path(__file__).parent))
+        import frontend_seed
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            repo, old, new = base / 'repo', base / 'old', base / 'new'
+            for root in (repo, old, new):
+                (root / 'packages/axios').mkdir(parents=True)
+            (repo / 'package.json').write_text('{}')
+            (repo / 'packages/axios/package.json').write_text(json.dumps({'dependencies': {'axios': '1.6.7'}}))
+            (old / 'packages/axios/node_modules/axios').mkdir(parents=True)
+            (old / 'packages/axios/node_modules/axios/package.json').write_text('{"version":"1.6.7"}')
+            (new / 'node_modules/axios').mkdir(parents=True)
+            (new / 'node_modules/axios/package.json').write_text('{"version":"1.5.1"}')
+            with self.assertRaisesRegex(ValueError, 'missing'):
+                frontend_seed.verify_dependency_versions(repo, old / 'node_modules', new, [Path('packages/axios')])
+            (new / 'packages/axios/node_modules/axios').mkdir(parents=True)
+            (new / 'packages/axios/node_modules/axios/package.json').write_text('{"version":"1.6.7"}')
+            versions = frontend_seed.verify_dependency_versions(repo, old / 'node_modules', new, [Path('packages/axios')])
+            self.assertEqual(versions['packages/axios:axios'], '1.6.7')
+
+    def test_system_stage_must_be_in_fresh_task_directory(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        import frontend_seed
+        with self.assertRaisesRegex(ValueError, 'task directory'):
+            frontend_seed.prepare(Path('/Volumes/80G/test'), {}, '/tmp/not-authorized', '/tmp/node_modules')
