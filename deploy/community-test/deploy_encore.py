@@ -80,10 +80,16 @@ cli = str(TOOLS / 'bin/encore')
 if not run([cli, 'version'], env=env).startswith('encore version v1.58.6'):
     raise RuntimeError('Unexpected Encore CLI version')
 run(['git', 'init', '-q', str(source)])
+marketinstall = os.environ.get('TP_DEPLOY_MARKETINSTALL', 'false')
+if marketinstall not in ('true', 'false'):
+    raise RuntimeError('Invalid TP_DEPLOY_MARKETINSTALL')
+native_services = 'authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification'
+if marketinstall == 'true':
+    native_services += ',marketinstall'
 image = 'tp-community-encore:source-' + SHA
 with (release / 'build.private.log').open('wb') as log:
     result = subprocess.run([cli, 'build', 'docker', image,
-                             '--services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification', '--skip-config'],
+                             '--services=' + native_services, '--skip-config'],
                             cwd=str(source), env=env, stdout=log, stderr=subprocess.STDOUT,
                             timeout=1800)
     if result.returncode:
@@ -100,6 +106,8 @@ databases = runtime['sql_servers'][0]['databases']
 resources = {'device_metadata': 'devicemetadata/migrations', 'automation': 'automation/migrations',
              'notification': 'l3-core/notification/migrations', 'file_storage': 'fileassets/migrations',
              'connector_runtime': 'l3-core/connectorcatalog/migrations'}
+if marketinstall == 'true':
+    resources['market_install'] = 'marketinstall/migrations'
 plans = []
 
 
