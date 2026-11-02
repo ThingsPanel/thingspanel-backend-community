@@ -571,6 +571,13 @@ func migrateNativeE2ESchema(t *testing.T, db *gorm.DB, root string) error {
 	if err := db.AutoMigrate(&model.Device{}, &model.DeviceConfig{}, &model.DeviceStatusHistory{}, &storage.TelemetryData{}, &storage.TelemetryCurrentData{}, &model.CommandSetLog{}, &model.AttributeSetLog{}, &model.SceneAutomation{}, &model.SceneActionInfo{}, &model.DeviceTriggerCondition{}, &model.DeviceModelCommand{}, &model.DataScript{}, &storage.EventDataModel{}, &storage.AttributeData{}, &model.ServicePlugin{}, &model.ServiceAccess{}); err != nil {
 		return fmt.Errorf("migrate business fixture tables: %w", err)
 	}
+	body, err := os.ReadFile(filepath.Join(root, "internal", "brokercommands", "testdata", "identity-fixture.sql"))
+	if err != nil {
+		return err
+	}
+	if err := db.Exec(string(body)).Error; err != nil {
+		return err
+	}
 	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS attribute_datas_device_key ON attribute_datas(device_id,key)").Error; err != nil {
 		return err
 	}

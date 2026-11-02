@@ -80,6 +80,23 @@ closed at delivery/guard; they are never silently rebound to the current root.
 Direct per-device plugin credentials do not implicitly gain access to a physical
 parent; a child with a separate parent uses the shared service grant with both
 explicit targets. Existing direct root-plugin credentials retain self routing.
-The nullable migration columns can remain on rollback to the previous binary.
+The nullable migration columns can remain during schema rollback, but older
+binaries do not enforce delegated proof. Before a behavioral rollback, fence
+or retire outstanding delegated leases and observations; additive columns
+alone do not make an older binary safe to resume delegated work.
 No credentials, runtime settings, deployment or production migration are part
 of these source changes.
+
+## Command identity lifecycle prerequisite
+
+New command admission, plan creation, claim and final dispatch now require
+same-tenant active `device_id_reservations` from develop migration 31. The
+logical target and its current physical ancestry are locked through commit;
+missing, foreign or tombstoned registrations reject the action. A missing
+identity schema is an infrastructure prerequisite error, never a legacy bypass.
+The lock order is existing route fences, device SHARE, then reservations in
+sorted-ID SHARE order. This preserves develop's device-before-tombstone delete
+order. Historical idempotent replays still return their original row without
+creating a new action. This older feature baseline must be integrated with the
+latest develop identity provisioning/migration before deployment; copying only
+SQL31 into an older device creation implementation is not a supported rollout.

@@ -57,6 +57,7 @@ func getDurableCommandStore(db *gorm.DB) (*brokercommands.Store, error) {
 	requiredColumns := map[string][]string{
 		"broker_command_requests":   {"id", "tenant_id", "caller_id", "intent", "idempotency_key", "device_id", "target_device_id", "route_cell", "route_epoch", "canonical_sha256", "payload", "expires_at", "state"},
 		"broker_transport_bindings": {"tenant_id", "device_id", "broker_cell", "route_epoch", "phase"},
+		"device_id_reservations":    {"id", "tenant_id", "state", "deleted_at"},
 		"devices":                   {"id", "tenant_id", "is_enabled", "parent_id"},
 		"command_set_logs":          {"id", "device_id", "operation_type", "message_id", "data", "status", "created_at"},
 		"device_configs":            {"id", "tenant_id", "device_type", "device_template_id", "protocol_type"},

@@ -84,6 +84,7 @@ func plansPostgresStore(t *testing.T) (*Store, *gorm.DB) {
 			t.Fatalf("apply private %s: %v", name, err)
 		}
 	}
+	installCommandIdentityFixture(t, db)
 	return New(db), db
 }
 

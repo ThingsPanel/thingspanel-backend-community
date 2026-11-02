@@ -459,7 +459,7 @@ func checkDevicePair(tx *gorm.DB, tenant, logicalDeviceID, targetRootID string) 
 					return fmt.Errorf("%w: target device is not a root", ErrRejected)
 				}
 			}
-			return nil
+			return lockCommandIdentities(tx, tenant, logicalDeviceID)
 		}
 		if current.ParentID == nil || *current.ParentID == "" {
 			return fmt.Errorf("%w: target is not an ancestor of logical device", ErrRejected)
