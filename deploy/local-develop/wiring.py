@@ -53,13 +53,12 @@ def generate(root, manifest, password, config):
               'TP_COMMUNITY_BASE_URL': 'http://backend:9999', 'TP_COMMUNITY_SESSION_BASE_URL': 'http://backend:9999',
               'TP_AUTOMATION_SERVICE_TOKEN': automation, 'TP_SOURCE_DEPLOYMENT_ID': deployment,
               'ENCORE_INFRA_CONFIG_PATH': '/run/config/runtime.json'}
-    # Dedicated account credentials are kept private; provisioning is explicit after initial login.
+    # Reserved pending credentials are NOT activated: no verified scoped service identity exists.
     account = {'email': 'local-native@example.invalid', 'password': secrets.token_urlsafe(32)}
     write(private / 'native-account.json', account)
     encore_env = dict(common, PORT='14000', ENCORE_LISTEN_ADDR='0.0.0.0:14000',
         TP_RUNTIME_OUTBOX_DISPATCH='on', TP_BACKGROUND_WORKERS='on', TP_RUNTIME_DEVICE_ID_MODE='identity',
-        METADATA_CREDENTIAL_KEYRING_B64=keyring(), METADATA_CREDENTIAL_ACTIVE_KEY_REF='main',
-        TP_COMMUNITY_EMAIL=account['email'], TP_COMMUNITY_PASSWORD=account['password'])
+        METADATA_CREDENTIAL_KEYRING_B64=keyring(), METADATA_CREDENTIAL_ACTIVE_KEY_REF='main')
     config['services'].update({
         'broker-owner': {'image': images['broker'], 'command': ['owner'], 'user': '0:0',
             'environment': {'TP_BROKER_OWNER_LISTEN': '127.0.0.1:9801',

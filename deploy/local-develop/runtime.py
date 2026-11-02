@@ -211,9 +211,10 @@ def up(root, stage):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['prepare', 'preflight', 'bootstrap', 'build', 'up', 'lock-images'])
+    parser.add_argument('action', choices=['prepare', 'preflight', 'bootstrap', 'build', 'up', 'lock-images', 'provision-native', 'refresh-broker'])
     parser.add_argument('--root', required=True)
     parser.add_argument('--stage', choices=['foundation', 'native'], default='foundation')
+    parser.add_argument('--device-id', action='append', default=[])
     parser.add_argument('--backend')
     parser.add_argument('--frontend')
     args = parser.parse_args()
@@ -222,6 +223,13 @@ def main():
         prepare(root, args.backend, args.frontend)
     elif args.action == 'preflight':
         preflight(root)
+    elif args.action in ('provision-native', 'refresh-broker'):
+        import identity
+        import sys
+        if args.action == 'provision-native':
+            identity.provision(root, sys.modules[__name__])
+        else:
+            identity.refresh(root, sys.modules[__name__], args.device_id)
     elif args.action == 'lock-images':
         lock_images(root)
     elif args.action == 'up':

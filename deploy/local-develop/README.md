@@ -70,13 +70,23 @@ Run each command with `--root <fixture>`:
 ## Required acceptance and outstanding integration
 
 - Health/login through 18080, plus old 8080/9999 identity/data-volume unchanged.
-- Create a dedicated Community user matching private/native-account.json;
-  automatic account provisioning is intentionally not fabricated. Until then
-  native runtime calls to Community cannot authenticate. API-key provisioning can
-  replace this dedicated account after verifying the real API contract.
-- Create isolated tenant/device, refresh the Broker platform service device and
-  tenant allowlists **from this fixture only** and restart owner/plugin. The empty
-  initial scope cannot dispatch commands. Automated refresh is not yet provided.
+- Native Community authentication is **blocked**, not replaced with an ordinary
+  tenant user. Existing Casbin middleware allows unregistered routes; therefore a
+  TENANT_USER with no roles does not prove least privilege. `provision-native`
+  rejects execution before any I/O, and generated Encore environment activates
+  neither password credentials nor API keys. A verified scoped service-identity
+  contract is required before native device runtime calls can authenticate.
+- Broker platform target scope refresh is implemented independently. Write an
+  explicit `private/broker-scope.json` (0600) containing `{"tenant_id":"<fixture-tenant>"}`,
+  then run `refresh-broker --device-id <id>` for every intended fixture device.
+  PostgreSQL/backend project ownership, exact PG mount and backend loopback binding
+  are verified first. The selected tenant must have one active tenant administrator.
+  Every requested device must be in that tenant, active/enabled, standalone, direct
+  MQTT and free of protocol-service access. Any missing or unsupported target
+  rejects the complete update; maximum 256, no duplicates. No IDs means revoke all
+  platform publish scope. Only the durable CMD topic family is enabled. The file
+  replacement is atomic and idempotent; restart only fixture broker-owner and
+  mosquitto to activate it. No restart is performed by the refresh command.
 - MQTT telemetry/history/command acknowledgement and device credential activation;
   native devices/templates/groups/files, automation tick and notification delivery.
   Notification channels/source identities still require real tenant authorization.

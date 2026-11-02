@@ -57,3 +57,35 @@ class WiringSafety(unittest.TestCase):
             policy = json.loads((root / 'private/services.json').read_text())[0]
             self.assertEqual(policy['allowed_device_ids'], [])
             self.assertEqual(policy['policy']['publish'], [])
+
+class IdentitySafety(unittest.TestCase):
+    def setUp(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        import identity
+        self.identity = identity
+
+    def test_native_account_provision_is_denied_before_any_io(self):
+        with patch.object(runtime, 'preflight') as preflight:
+            with self.assertRaisesRegex(ValueError, 'blocked'):
+                self.identity.provision(Path('/Volumes/80G/fixture'), runtime)
+            preflight.assert_not_called()
+
+    def test_broker_scope_rejects_other_tenants_and_duplicates(self):
+        for targets in ([{'id': 'one', 'tenant_id': 'other'}],
+                        [{'id': 'one', 'tenant_id': 't'}] * 2,
+                        [{'id': 'one/#', 'tenant_id': 't'}]):
+            with self.assertRaises(ValueError):
+                self.identity.scoped_policy({'policy': {}}, targets, 't')
+
+    def test_empty_scope_revokes_all_command_publish(self):
+        policy = self.identity.scoped_policy({'policy': {'publish': ['devices/command/+/+']}}, [], 't')
+        self.assertEqual(policy['allowed_device_ids'], [])
+        self.assertEqual(policy['allowed_tenant_ids'], [])
+        self.assertEqual(policy['policy']['publish'], [])
+
+    def test_finite_scope_only_enables_durable_command_family(self):
+        policy = self.identity.scoped_policy({'policy': {}}, [{'id': 'd1', 'tenant_id': 't'}], 't')
+        self.assertEqual(policy['allowed_device_ids'], ['d1'])
+        self.assertEqual(policy['allowed_tenant_ids'], ['t'])
+        self.assertEqual(policy['policy']['publish'], ['devices/command/+/+', 'gateway/command/+/+'])
