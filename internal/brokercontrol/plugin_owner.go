@@ -118,9 +118,9 @@ func addPluginPublishAliases(policy brokercontract.Policy, targets []brokercontr
 		}
 		policy.Publish = append(policy.Publish, strings.TrimSuffix(target.TopicPrefix, "/")+"/"+filter)
 		if target.LegacyTelemetryID && len(parts) == 4 && parts[1] == "telemetry" && parts[2] == "control" {
-			alias := append([]string(nil), parts...)
-			alias[3] = target.DeviceID
-			policy.Publish = append(policy.Publish, target.TopicPrefix+strings.Join(alias, "/"))
+			// The legacy protocol SDK always uses the devices wire family,
+			// including protocol targets whose canonical family is gateway.
+			policy.Publish = append(policy.Publish, target.TopicPrefix+"devices/telemetry/control/"+target.DeviceID)
 		}
 
 	}
