@@ -116,3 +116,22 @@ func RuntimeCommandPublish(c *gin.Context) {
 	}
 	c.Set("data", gin.H{"message_id": id, "status": "accepted"})
 }
+
+func runtimeDebugHandler(c *gin.Context, handler gin.HandlerFunc) {
+	ctx, err := service.RuntimeDebugContext(c.Request.Context())
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Request = c.Request.WithContext(ctx)
+	handler(c)
+}
+func RuntimeDeviceDebugSet(c *gin.Context) {
+	runtimeDebugHandler(c, Controllers.DeviceDebugApi.SetDeviceDebug)
+}
+func RuntimeDeviceDebugStatus(c *gin.Context) {
+	runtimeDebugHandler(c, Controllers.DeviceDebugApi.GetDeviceDebugStatus)
+}
+func RuntimeDeviceDebugLogs(c *gin.Context) {
+	runtimeDebugHandler(c, Controllers.DeviceDebugApi.GetDeviceDebugLogs)
+}

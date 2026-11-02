@@ -10,7 +10,6 @@ import (
 	model "project/internal/model"
 	"project/internal/query"
 	"project/pkg/errcode"
-	global "project/pkg/global"
 	utils "project/pkg/utils"
 
 	"github.com/redis/go-redis/v9"
@@ -59,8 +58,9 @@ type DeviceDebugStatus struct {
 }
 
 func (s *DeviceDebug) SetDeviceDebug(ctx context.Context, deviceID string, req *model.SetDeviceDebugReq, claims *utils.UserClaims) (DeviceDebugStatus, error) {
+	client := deviceDebugRedis(ctx)
 	var resp DeviceDebugStatus
-	if global.REDIS == nil {
+	if client == nil {
 		return resp, errcode.NewWithMessage(errcode.CodeSystemError, "redis not initialized")
 	}
 	if err := s.assertDeviceTenant(ctx, deviceID, claims); err != nil {
@@ -70,7 +70,7 @@ func (s *DeviceDebug) SetDeviceDebug(ctx context.Context, deviceID string, req *
 	now := time.Now().Unix()
 
 	if req != nil && req.Enabled != nil && !*req.Enabled {
-		_ = global.REDIS.Del(ctx, devDebugCfgKey(deviceID)).Err()
+		_ = client.Del(ctx, devDebugCfgKey(deviceID)).Err()
 		return s.GetDeviceDebugStatus(ctx, deviceID, claims)
 	}
 
@@ -80,7 +80,7 @@ func (s *DeviceDebug) SetDeviceDebug(ctx context.Context, deviceID string, req *
 		expireAt = *req.ExpireAt
 	case req != nil && req.Duration != nil:
 		if *req.Duration <= 0 {
-			_ = global.REDIS.Del(ctx, devDebugCfgKey(deviceID)).Err()
+			_ = client.Del(ctx, devDebugCfgKey(deviceID)).Err()
 			return s.GetDeviceDebugStatus(ctx, deviceID, claims)
 		}
 		expireAt = now + *req.Duration
@@ -99,7 +99,7 @@ func (s *DeviceDebug) SetDeviceDebug(ctx context.Context, deviceID string, req *
 
 	ttlSeconds := (expireAt - now) + debugTTLExtendSeconds
 	if ttlSeconds <= 0 {
-		_ = global.REDIS.Del(ctx, devDebugCfgKey(deviceID)).Err()
+		_ = client.Del(ctx, devDebugCfgKey(deviceID)).Err()
 		return s.GetDeviceDebugStatus(ctx, deviceID, claims)
 	}
 
@@ -111,7 +111,7 @@ func (s *DeviceDebug) SetDeviceDebug(ctx context.Context, deviceID string, req *
 	}
 	raw, _ := json.Marshal(cfg)
 
-	pipe := global.REDIS.Pipeline()
+	pipe := client.Pipeline()
 	pipe.Set(ctx, devDebugCfgKey(deviceID), raw, time.Duration(ttlSeconds)*time.Second)
 	pipe.Expire(ctx, devDebugLogsKey(deviceID), time.Duration(ttlSeconds)*time.Second)
 	if _, err := pipe.Exec(ctx); err != nil {
@@ -122,8 +122,9 @@ func (s *DeviceDebug) SetDeviceDebug(ctx context.Context, deviceID string, req *
 }
 
 func (s *DeviceDebug) GetDeviceDebugStatus(ctx context.Context, deviceID string, claims *utils.UserClaims) (DeviceDebugStatus, error) {
+	client := deviceDebugRedis(ctx)
 	var resp DeviceDebugStatus
-	if global.REDIS == nil {
+	if client == nil {
 		return resp, errcode.NewWithMessage(errcode.CodeSystemError, "redis not initialized")
 	}
 	if err := s.assertDeviceTenant(ctx, deviceID, claims); err != nil {
@@ -138,7 +139,7 @@ func (s *DeviceDebug) GetDeviceDebugStatus(ctx context.Context, deviceID string,
 		PayloadMaxBytes: defaultDebugPayloadMaxBytes,
 	}
 
-	val, err := global.REDIS.Get(ctx, devDebugCfgKey(deviceID)).Result()
+	val, err := client.Get(ctx, devDebugCfgKey(deviceID)).Result()
 	if err != nil {
 		if err == redis.Nil {
 			resp.Enabled = false
@@ -178,8 +179,9 @@ type DeviceDebugLogsResp struct {
 }
 
 func (s *DeviceDebug) GetDeviceDebugLogs(ctx context.Context, deviceID string, req *model.GetDeviceDebugLogsReq, claims *utils.UserClaims) (DeviceDebugLogsResp, error) {
+	client := deviceDebugRedis(ctx)
 	var resp DeviceDebugLogsResp
-	if global.REDIS == nil {
+	if client == nil {
 		return resp, errcode.NewWithMessage(errcode.CodeSystemError, "redis not initialized")
 	}
 	if err := s.assertDeviceTenant(ctx, deviceID, claims); err != nil {
@@ -201,7 +203,7 @@ func (s *DeviceDebug) GetDeviceDebugLogs(ctx context.Context, deviceID string, r
 	start := offset
 	stop := offset + limit - 1
 
-	pipe := global.REDIS.Pipeline()
+	pipe := client.Pipeline()
 	llen := pipe.LLen(ctx, key)
 	lrange := pipe.LRange(ctx, key, start, stop)
 	_, err := pipe.Exec(ctx)
@@ -217,6 +219,9 @@ func (s *DeviceDebug) GetDeviceDebugLogs(ctx context.Context, deviceID string, r
 	resp.Limit = limit
 	resp.List = make([]model.DeviceDebugLogEntry, 0, len(rows))
 	for _, raw := range rows {
+		if err := ctx.Err(); err != nil {
+			return resp, err
+		}
 		var item model.DeviceDebugLogEntry
 		if err := json.Unmarshal([]byte(raw), &item); err != nil {
 			resp.List = append(resp.List, model.DeviceDebugLogEntry{

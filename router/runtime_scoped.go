@@ -43,9 +43,9 @@ func registerRuntimeScoped(v1 *gin.RouterGroup) {
 	add("POST", "expected/data", "owner:body:device_id", true, d.ExpectedDataApi.CreateExpectedData)
 	add("GET", "expected/data/list", "query:device_id", false, d.ExpectedDataApi.HandleExpectedDataList)
 	// Debug writes only Redis. They do not upgrade the locked device row.
-	add("POST", "device/:device_id/debug", "param:device_id", false, d.DeviceDebugApi.SetDeviceDebug)
-	add("GET", "device/:device_id/debug/status", "param:device_id", false, d.DeviceDebugApi.GetDeviceDebugStatus)
-	add("GET", "device/:device_id/debug/logs", "param:device_id", false, d.DeviceDebugApi.GetDeviceDebugLogs)
+	add("POST", "device/:device_id/debug", "param:device_id", false, api.RuntimeDeviceDebugSet)
+	add("GET", "device/:device_id/debug/status", "param:device_id", false, api.RuntimeDeviceDebugStatus)
+	add("GET", "device/:device_id/debug/logs", "param:device_id", false, api.RuntimeDeviceDebugLogs)
 
 	add("PUT", "device", "owner:body:id", false, api.RuntimeUpdateDevice)
 	add("DELETE", "device/:id", "owner:param:id", false, d.DeviceApi.DeleteDevice)
