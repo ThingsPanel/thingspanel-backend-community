@@ -96,7 +96,9 @@ func (s *Store) jsonParameter(parameter string) string {
 func (s *Store) insertOperationSQL() string {
 	query := `INSERT INTO market_install_operations(id,tenant_id,subject_id,authorization_ref,request_key,request_digest,artifact_digest,plan,plan_encoding,plan_exact,state`
 	if s.dialect == MySQL {
-		query += `,bundle_key,bundle_version`
+		// MySQL evaluates the generated claim_ready_at before the dynamic
+		// created_at default on INSERT. Supply the server time explicitly.
+		query += `,bundle_key,bundle_version,created_at`
 	}
 	// PG infers one shared parameter's type from its JSONB use. Reusing that
 	// same parameter for the text column would normalize the exact plan before
@@ -107,7 +109,7 @@ func (s *Store) insertOperationSQL() string {
 	}
 	query += `) VALUES($1,$2,$3,$4,$5,$6,$7,` + s.jsonParameter("$8") + `,'` + PlanEncodingV1 + `',` + exact + `,'queued'`
 	if s.dialect == MySQL {
-		query += `,'',''`
+		query += `,'','',CURRENT_TIMESTAMP(6)`
 	}
 	query += `)`
 	if s.dialect == PostgreSQL {
