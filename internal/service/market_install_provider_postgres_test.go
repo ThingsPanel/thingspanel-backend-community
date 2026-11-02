@@ -55,8 +55,11 @@ func marketInstallProviderFixture(t *testing.T) *gorm.DB {
 	t.Cleanup(func() { global.CasbinEnforcer = previousEnforcer })
 	return db
 }
-func marketInstallGrantFixture(t *testing.T) (*repo.MarketInstallAuthorization, model.MarketInstallStepRequest, *utils.UserClaims, string) {
+func marketInstallGrantFixture(t *testing.T, suppliedSteps ...model.MarketInstallStep) (*repo.MarketInstallAuthorization, model.MarketInstallStepRequest, *utils.UserClaims, string) {
 	t.Helper()
+	if len(suppliedSteps) > 1 {
+		t.Fatal("grant fixture accepts one immutable step")
+	}
 	ctx := context.Background()
 	user, actor := uuid.NewString(), uuid.NewString()
 	tenant := "tenant-" + uuid.NewString()
@@ -73,6 +76,9 @@ func marketInstallGrantFixture(t *testing.T) (*repo.MarketInstallAuthorization, 
 	}
 	t.Cleanup(func() { global.REDIS.Del(ctx, rawToken, dal.AppPushSessionKey(rawToken)) })
 	step := model.MarketInstallStep{ID: "native:create", Owner: "thingmodel", Action: "create", ResourceKey: "native", Payload: json.RawMessage(`{"model":{"name":"fixed"},"resources":{}}`)}
+	if len(suppliedSteps) == 1 {
+		step = suppliedSteps[0]
+	}
 	plan := model.MarketInstallPlan{ArtifactDigest: "sha256:" + strings.Repeat("a", 64), Steps: []model.MarketInstallStep{step}}
 	request := model.MarketInstallRequest{BundleKey: "bundle", Version: "1"}
 	grant, err := IssueMarketInstallAuthorization(ctx, request, plan, claims, rawToken, "key-"+uuid.NewString())

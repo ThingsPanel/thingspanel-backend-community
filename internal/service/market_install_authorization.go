@@ -137,6 +137,13 @@ func readCurrentMarketInstallGrant(ctx context.Context, identity model.MarketIns
 	if err != nil || digest != grant.PlanDigest {
 		return nil, plan, errors.New("installation plan integrity failure")
 	}
+	// A still-live immutable grant does not retain management permission after
+	// the current policy is withdrawn. Recheck the existing permission owner on
+	// every provider entry, before operation binding or business dispatch. This
+	// is an in-process policy check, not a receiver transaction/epoch fence.
+	if _, err := AuthorizeCurrentMarketInstallationManagement(ctx, model.MarketInstallationReadIdentity{ProtocolVersion: 1, TenantID: grant.TenantID, SubjectID: grant.SubjectID}); err != nil {
+		return nil, model.MarketInstallPlan{}, err
+	}
 	return grant, plan, nil
 }
 func ReadMarketInstallPreparedPlan(ctx context.Context, req model.MarketInstallPrepareRequest) (model.MarketInstallPlan, error) {

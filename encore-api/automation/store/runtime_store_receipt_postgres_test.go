@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
-	"net/url"
+	"net"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -60,22 +60,81 @@ func (c *receiptInsertReplyLossConn) ExecContext(ctx context.Context, q string, 
 	return result, err
 }
 
+const automationReceiptLegacyFixture = "postgres://automation_receipt_test:fixture-only-password@127.0.0.1:25674/automation_receipt_test?sslmode=disable"
+
+// Preserve the previous exact fixture while allowing a separately provisioned
+// takeover database on an ephemeral loopback port. Neither arbitrary database
+// names nor production users become eligible through a configurable DSN.
+func automationReceiptFixtureConfig(dsn string) (*pgx.ConnConfig, error) {
+	if strings.TrimSpace(dsn) == "" {
+		return nil, errors.New("explicit automation receipt fixture configuration required")
+	}
+	config, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		return nil, errors.New("invalid automation receipt fixture configuration")
+	}
+	if dsn != automationReceiptLegacyFixture && (config.Database != "tp_takeover_automation" || config.User != "automation_fixture") {
+		return nil, errors.New("refusing non-fixture automation database or user")
+	}
+	isLoopback := func(host string) bool {
+		ip := net.ParseIP(host)
+		return ip != nil && ip.IsLoopback()
+	}
+	if !isLoopback(config.Host) || config.Port == 0 {
+		return nil, errors.New("automation receipt fixture requires an explicit loopback host")
+	}
+	for _, fallback := range config.Fallbacks {
+		if fallback == nil || !isLoopback(fallback.Host) || fallback.Port == 0 {
+			return nil, errors.New("automation receipt fixture rejects non-loopback fallback hosts")
+		}
+	}
+	return config, nil
+}
+
+func TestAutomationReceiptFixtureIsolation(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		dsn     string
+		allowed bool
+	}{
+		{"empty_configuration", "", false},
+		{"original_exact_fixture", automationReceiptLegacyFixture, true},
+		{"takeover_ipv4", "postgres://automation_fixture:fixture-only@127.0.0.1:35432/tp_takeover_automation?sslmode=disable", true},
+		{"takeover_ipv6", "postgres://automation_fixture:fixture-only@[::1]:35432/tp_takeover_automation?sslmode=disable", true},
+		{"takeover_keyword", "host=127.0.0.1 port=35432 user=automation_fixture dbname=tp_takeover_automation sslmode=disable", true},
+		{"different_database", "host=127.0.0.1 port=35432 user=automation_fixture dbname=postgres sslmode=disable", false},
+		{"different_user", "host=127.0.0.1 port=35432 user=postgres dbname=tp_takeover_automation sslmode=disable", false},
+		{"remote_host", "host=192.0.2.1 port=35432 user=automation_fixture dbname=tp_takeover_automation sslmode=disable", false},
+		{"dns_host", "host=localhost port=35432 user=automation_fixture dbname=tp_takeover_automation sslmode=disable", false},
+		{"socket_host", "host=/tmp port=35432 user=automation_fixture dbname=tp_takeover_automation sslmode=disable", false},
+		{"remote_fallback", "host=127.0.0.1,192.0.2.1 port=35432,35432 user=automation_fixture dbname=tp_takeover_automation sslmode=disable", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config, err := automationReceiptFixtureConfig(test.dsn)
+			if test.allowed {
+				if err != nil || config == nil {
+					t.Fatal("isolated fixture configuration rejected")
+				}
+			} else if err == nil || config != nil {
+				t.Fatal("non-isolated fixture configuration accepted")
+			}
+		})
+	}
+}
+
 func TestReceiptConflictVisibilityPostgres(t *testing.T) {
-	const fixture = "postgres://automation_receipt_test:fixture-only-password@127.0.0.1:25674/automation_receipt_test?sslmode=disable"
 	dsn := os.Getenv("AUTOMATION_RECEIPT_TEST_DSN")
 	if dsn == "" {
 		t.Skip("AUTOMATION_RECEIPT_TEST_DSN not supplied")
 	}
-	if dsn != fixture {
-		t.Fatal("refusing non-fixture DSN")
-	}
-	admin, err := sql.Open("pgx", dsn)
+	fixtureConfig, err := automationReceiptFixtureConfig(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
+	admin := stdlib.OpenDB(*fixtureConfig)
 	defer admin.Close()
 	var database, user string
-	if err := admin.QueryRow("SELECT current_database(),current_user").Scan(&database, &user); err != nil || database != "automation_receipt_test" || user != "automation_receipt_test" {
+	if err := admin.QueryRow("SELECT current_database(),current_user").Scan(&database, &user); err != nil || database != fixtureConfig.Database || user != fixtureConfig.User {
 		t.Fatal("fixture identity mismatch")
 	}
 	schema := "auto_receipt_" + strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -87,14 +146,12 @@ func TestReceiptConflictVisibilityPostgres(t *testing.T) {
 			t.Error("isolated schema cleanup failed")
 		}
 	}()
-	u, _ := url.Parse(dsn)
-	q := u.Query()
-	q.Set("options", "-c search_path="+schema)
-	u.RawQuery = q.Encode()
-	db, err := sql.Open("pgx", u.String())
-	if err != nil {
-		t.Fatal(err)
+	selected := fixtureConfig.Copy()
+	if selected.RuntimeParams == nil {
+		selected.RuntimeParams = map[string]string{}
 	}
+	selected.RuntimeParams["search_path"] = schema
+	db := stdlib.OpenDB(*selected)
 	defer db.Close()
 	db.SetMaxOpenConns(8)
 	if _, err := db.Exec(`CREATE SEQUENCE auto_seq`); err != nil {
@@ -182,11 +239,7 @@ func TestReceiptConflictVisibilityPostgres(t *testing.T) {
 		t.Fatalf("missing lookup receipt=%+v seq=%d err=%v", receipt, e.Seq, err)
 	}
 	// Delegate to a real autocommit PG insert, then lose its successful reply.
-	config, err := pgx.ParseConfig(u.String())
-	if err != nil {
-		t.Fatal("parse fixture config")
-	}
-	loss := &receiptInsertReplyLoss{inner: stdlib.GetConnector(*config)}
+	loss := &receiptInsertReplyLoss{inner: stdlib.GetConnector(*selected)}
 	lossDB := sql.OpenDB(loss)
 	defer lossDB.Close()
 	lost := store.IngestEvent{EventID: "lost-insert-response", TenantID: "tenant", DeviceID: "device", Signal: domain.SignalTelemetry, Key: "temp", Value: 1, ObservedAt: time.Now(), Seq: 777}
