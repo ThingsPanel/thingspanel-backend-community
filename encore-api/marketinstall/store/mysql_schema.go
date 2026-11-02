@@ -258,6 +258,19 @@ func mysqlCheckSignature(expression string) string {
 	return string(out)
 }
 
+func mysqlCheckMatches(name, expected, actual string) bool {
+	want, got := mysqlCheckSignature(expected), mysqlCheckSignature(actual)
+	if want == got {
+		return true
+	}
+	// Actual MySQL 8.4.13 metadata prints this one-value IN constraint as
+	// equality. Accept only that fixed owner constraint and unchanged literal;
+	// do not generalize transformations of arbitrary SQL expressions/literals.
+	return name == "market_install_plan_encoding" &&
+		want == mysqlCheckSignature("plan_encoding in ('"+PlanEncodingV1+"')") &&
+		got == mysqlCheckSignature("plan_encoding = '"+PlanEncodingV1+"'")
+}
+
 func verifyMySQLChecks(ctx context.Context, conn *sql.Conn, database, table string, expected map[string]string) error {
 	rows, err := conn.QueryContext(ctx, `SELECT tc.CONSTRAINT_NAME,tc.ENFORCED,cc.CHECK_CLAUSE FROM information_schema.TABLE_CONSTRAINTS tc JOIN information_schema.CHECK_CONSTRAINTS cc ON CAST(cc.CONSTRAINT_SCHEMA AS BINARY)=CAST(tc.CONSTRAINT_SCHEMA AS BINARY) AND CAST(cc.CONSTRAINT_NAME AS BINARY)=CAST(tc.CONSTRAINT_NAME AS BINARY) WHERE CAST(tc.TABLE_SCHEMA AS BINARY)=CAST(? AS BINARY) AND CAST(tc.TABLE_NAME AS BINARY)=CAST(? AS BINARY) AND tc.CONSTRAINT_TYPE='CHECK'`, database, table)
 	if err != nil {
@@ -271,7 +284,7 @@ func verifyMySQLChecks(ctx context.Context, conn *sql.Conn, database, table stri
 			return err
 		}
 		expression, known := expected[name]
-		if !known || seen[name] || enforced != "YES" || mysqlCheckSignature(expression) != mysqlCheckSignature(clause) {
+		if !known || seen[name] || enforced != "YES" || !mysqlCheckMatches(name, expression, clause) {
 			return fmt.Errorf("A08 table %s CHECK constraint drifted or is disabled: %s", table, name)
 		}
 		seen[name] = true

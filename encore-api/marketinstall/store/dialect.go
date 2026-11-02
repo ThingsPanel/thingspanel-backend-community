@@ -98,7 +98,14 @@ func (s *Store) insertOperationSQL() string {
 	if s.dialect == MySQL {
 		query += `,bundle_key,bundle_version`
 	}
-	query += `) VALUES($1,$2,$3,$4,$5,$6,$7,` + s.jsonParameter("$8") + `,'` + PlanEncodingV1 + `',$8,'queued'`
+	// PG infers one shared parameter's type from its JSONB use. Reusing that
+	// same parameter for the text column would normalize the exact plan before
+	// storage. The compatibility projection and exact text need distinct binds.
+	exact := "$9"
+	if s.dialect == PostgreSQL {
+		exact += "::text"
+	}
+	query += `) VALUES($1,$2,$3,$4,$5,$6,$7,` + s.jsonParameter("$8") + `,'` + PlanEncodingV1 + `',` + exact + `,'queued'`
 	if s.dialect == MySQL {
 		query += `,'',''`
 	}

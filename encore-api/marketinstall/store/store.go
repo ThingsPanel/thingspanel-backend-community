@@ -42,7 +42,7 @@ func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, er
 		return app.Operation{}, err
 	}
 	defer tx.Rollback()
-	result, err := s.exec(ctx, tx, s.insertOperationSQL(), op.ID, op.TenantID, op.SubjectID, op.AuthorizationRef, op.RequestKey, op.RequestDigest, op.ArtifactDigest, string(encoded))
+	result, err := s.exec(ctx, tx, s.insertOperationSQL(), op.ID, op.TenantID, op.SubjectID, op.AuthorizationRef, op.RequestKey, op.RequestDigest, op.ArtifactDigest, string(encoded), string(encoded))
 	var affected int64
 	if s.isDuplicate(err) {
 		// MySQL rejects the statement, not the surrounding transaction. Only an

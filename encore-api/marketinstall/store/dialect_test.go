@@ -105,4 +105,40 @@ func TestMySQLSchemaCheckAcceptsObserved84MetadataWithoutWeakeningLiterals(t *te
 	if mysqlCheckSignature(`char_length(request_digest)=64`) == mysqlCheckSignature(`octet_length(request_digest)=64`) {
 		t.Fatal("different function was accepted")
 	}
+	encoding, err := hex.DecodeString("2860706C616E5F656E636F64696E6760203D205F757466386D62345C276A736F6E2D6E756D6265722D6C6578656D652D76315C2729")
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodingConstraint := `plan_encoding in ('json-number-lexeme-v1')`
+	if !mysqlCheckMatches("market_install_plan_encoding", encodingConstraint, string(encoding)) {
+		t.Fatal("observed one-value IN to equality rendering was rejected")
+	}
+	for _, changed := range []string{
+		strings.Replace(string(encoding), "lexeme", "LEXEME", 1),
+		strings.Replace(string(encoding), "lexeme", "lexeme ", 1),
+		strings.Replace(string(encoding), "lexeme", "lex eme", 1),
+		strings.Replace(string(encoding), "lexeme", "lex\\eme", 1),
+		string(encoding) + " OR 1=1",
+	} {
+		if mysqlCheckMatches("market_install_plan_encoding", encodingConstraint, changed) {
+			t.Fatalf("encoding literal/condition drift was accepted: %s", changed)
+		}
+	}
+	if mysqlCheckMatches("another_constraint", encodingConstraint, string(encoding)) {
+		t.Fatal("one-value IN alias escaped its fixed owner constraint")
+	}
+	generated, err := hex.DecodeString("28636173652060737461746560207768656E205F62696E6172795C277175657565645C27207468656E2060637265617465645F617460207768656E205F62696E6172795C2772756E6E696E675C27207468656E20606C656173655F756E74696C6020656C7365204E554C4C20656E6429")
+	if err != nil {
+		t.Fatal(err)
+	}
+	shape, err := mysqlMigrationShape("0004_claim_ready.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mysqlCheckSignature(shape.generated["claim_ready_at"]) != mysqlCheckSignature(string(generated)) {
+		t.Fatal("observed readiness generated expression was rejected")
+	}
+	if mysqlCheckSignature(shape.generated["claim_ready_at"]) == mysqlCheckSignature(strings.Replace(string(generated), "queued", "QUEUED", 1)) {
+		t.Fatal("readiness state literal drift was accepted")
+	}
 }

@@ -421,6 +421,17 @@ func TestPostgresPlanExponentPreservesDigestAfterDatabaseRoundTrip(t *testing.T)
 	f := postgresStore(t)
 	op := testOperation(t, 1)
 	op.Plan.Steps[0].Payload = json.RawMessage(`{"integer":9007199254740993,"exponent":1e+20}`)
+	// Diagnose the actual PG binding behavior behind the v4 readback failure.
+	// Reusing one parameter for JSONB and TEXT coerces that parameter to JSONB
+	// first. Only an independent text parameter retains the original lexemes.
+	var projection, parameterType, coercedText, independentText string
+	if err := f.db.QueryRowContext(f.ctx, `SELECT ($1::jsonb)::text,pg_typeof($1)::text,$1::text,$2::text`, string(op.Plan.Steps[0].Payload), string(op.Plan.Steps[0].Payload)).Scan(&projection, &parameterType, &coercedText, &independentText); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("real PG shared parameter type=%s projection=%s coerced_text=%s independent_text=%s", parameterType, projection, coercedText, independentText)
+	if parameterType != "jsonb" || coercedText != projection || independentText != string(op.Plan.Steps[0].Payload) || coercedText == independentText {
+		t.Fatal("PG parameter diagnostic did not observe the exact binding boundary")
+	}
 	expected, err := app.StepHash(op.Plan.Steps[0])
 	if err != nil {
 		t.Fatal(err)
