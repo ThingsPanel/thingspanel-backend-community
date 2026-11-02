@@ -73,7 +73,7 @@ def prepare(root, backend, frontend):
                      'ports': ['127.0.0.1:15555:5432'],
                      'secrets': ['postgres-password'],
                      'volumes': [str(root / 'postgres') + ':/var/lib/postgresql/data'],
-                     'healthcheck': {'test': ['CMD-SHELL', 'pg_isready -U postgres -d ThingsPanel'], 'interval': '5s', 'retries': 24}},
+                     'healthcheck': {'test': ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U postgres -d ThingsPanel'], 'interval': '5s', 'retries': 24}},
         'redis': {'image': 'redis:6.2.7-alpine', 'ports': ['127.0.0.1:16379:6379'],
                   'volumes': [str(root / 'redis') + ':/data']}}
     # No arbitrary MQTT broker: native owner/plugin identities are required.
@@ -96,7 +96,7 @@ def sql(root, database, statement):
                    '-d', database, '-v', 'ON_ERROR_STOP=1', input=statement)
 
 
-def bootstrap(root):
+def bootstrap(root, resume_owned_empty=False):
     preflight(root)
     manifest = json.loads((root / 'manifest.json').read_text())
     if manifest['project'] != PROJECT or manifest['root'] != str(root):
@@ -121,12 +121,23 @@ def bootstrap(root):
     if not any(m['Destination'] == '/var/lib/postgresql/data' and m['Source'] == str(root / 'postgres') for m in mounts):
         raise ValueError('Postgres data mount mismatch')
     repo = Path(backend['path'])
-    # Fresh-only bootstrap: partial failures require a new fixture, never automatic destructive cleanup.
-    if sql(root, 'ThingsPanel', "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';") != '0':
-        raise ValueError('Community database is not empty; refusing migration/adoption')
-    sql(root, 'ThingsPanel', 'CREATE TABLE casbin_rule(id bigserial PRIMARY KEY,ptype varchar(100),v0 varchar(100),v1 varchar(100),v2 varchar(100),v3 varchar(100),v4 varchar(100),v5 varchar(100)); CREATE TABLE sys_version(version_number INT PRIMARY KEY,version varchar(255) NOT NULL); INSERT INTO sys_version VALUES(0,\'0.0.0\');')
     version = int(re.search(r'VERSION_NUMBER\s*=\s*(\d+)', (repo / 'pkg/global/global.go').read_text())[1])
-    sql(root, 'ThingsPanel', "CREATE TABLE local_fixture_owner(runtime_id text PRIMARY KEY); INSERT INTO local_fixture_owner VALUES('" + manifest['runtime_id'] + "');")
+    # Require the final TCP-listening postmaster, not entrypoint's temporary
+    # Unix-socket-only server (same image is covered by readiness regression).
+    compose(root, 'exec', '-T', 'postgres', 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-d', 'ThingsPanel')
+    import bootstrap_recovery
+    current_config = json.loads((root / 'compose.json').read_text())
+    bootstrap_recovery.validate_container(inspection, root, PROJECT, current_config['services']['postgres']['image'])
+    if resume_owned_empty:
+        import bootstrap_recovery
+        evidence = bootstrap_recovery.inspect(root, sys.modules[__name__], manifest)
+        (root / 'first-transaction-recovery-evidence.json').write_text(json.dumps(evidence,indent=2))
+    else:
+        # Fresh-only bootstrap: partial failures require a new fixture, never automatic destructive cleanup.
+        if sql(root, 'ThingsPanel', "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';") != '0':
+            raise ValueError('Community database is not empty; refusing migration/adoption')
+        sql(root, 'ThingsPanel', 'CREATE TABLE casbin_rule(id bigserial PRIMARY KEY,ptype varchar(100),v0 varchar(100),v1 varchar(100),v2 varchar(100),v3 varchar(100),v4 varchar(100),v5 varchar(100)); CREATE TABLE sys_version(version_number INT PRIMARY KEY,version varchar(255) NOT NULL); INSERT INTO sys_version VALUES(0,\'0.0.0\');')
+        sql(root, 'ThingsPanel', "CREATE TABLE local_fixture_owner(runtime_id text PRIMARY KEY); INSERT INTO local_fixture_owner VALUES('" + manifest['runtime_id'] + "');")
     ledger = []
     def apply(db, paths):
         for path in paths:
@@ -183,6 +194,27 @@ def lock_images(root):
     print('Locked already-local images by immutable ID; no images pulled.')
 
 
+
+def published_ports(config, selected):
+    """Validate every published endpoint, then check only this phase's ports."""
+    all_ports = set()
+    ports = []
+    for name, service in config['services'].items():
+        for binding in service.get('ports', []):
+            if not isinstance(binding, str):
+                raise ValueError('Only explicit loopback short-form TCP bindings are supported')
+            parts = binding.split(':')
+            if len(parts) != 3 or parts[0] != '127.0.0.1' or not parts[1].isdigit() or not parts[2].isdigit():
+                raise ValueError('Refusing non-loopback or implicit host port binding')
+            port = int(parts[1])
+            if not 1024 <= port <= 65535 or port in (8080, 9999) or port in all_ports:
+                raise ValueError('Reserved, privileged or duplicate fixture port')
+            all_ports.add(port)
+            if name in selected:
+                ports.append(port)
+    return ports
+
+
 def up(root, stage):
     preflight(root)
     manifest = load_fixture(root)
@@ -204,7 +236,8 @@ def up(root, stage):
     services = {'foundation': ['postgres', 'redis'], 'native': ['broker-owner', 'mosquitto', 'backend', 'encore-api', 'notification-core', 'automation-scheduler', 'frontend']}[stage]
     if stage == 'native' and not (root / 'bootstrap.complete').exists():
         raise ValueError('Bootstrap must complete before native startup')
-    for port in ([15555, 16379] if stage == 'foundation' else [18080,19999,24000,28091,11883]):
+    config = json.loads((root / 'compose.json').read_text())
+    for port in published_ports(config, services):
         with socket.socket() as sock:
             try:
                 sock.bind(('127.0.0.1', port))
@@ -218,6 +251,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['prepare', 'preflight', 'bootstrap', 'build', 'up', 'lock-images', 'provision-native', 'refresh-broker', 'revoke-native', 'configure-runtime-binding'])
     parser.add_argument('--root', required=True)
+    parser.add_argument('--resume-owned-empty-bootstrap', action='store_true')
     parser.add_argument('--stage', choices=['foundation', 'native'], default='foundation')
     parser.add_argument('--device-id', action='append', default=[])
     parser.add_argument('--phase', choices=['backend', 'frontend', 'encore'])
@@ -262,7 +296,7 @@ def main():
     elif args.action == 'up':
         up(root, args.stage)
     elif args.action == 'bootstrap':
-        bootstrap(root)
+        bootstrap(root, args.resume_owned_empty_bootstrap)
     else:
         raise ValueError('Build execution is intentionally disabled pending coordinated disk/I/O window; see README build commands')
 

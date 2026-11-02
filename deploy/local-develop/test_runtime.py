@@ -57,6 +57,11 @@ class WiringSafety(unittest.TestCase):
             policy = json.loads((root / 'private/services.json').read_text())[0]
             self.assertEqual(policy['allowed_device_ids'], [])
             self.assertEqual(policy['policy']['publish'], [])
+            redis = config['services']['redis']
+            self.assertTrue(redis['command'][-1])
+            self.assertEqual(redis['command'][-1], redis['environment']['REDISCLI_AUTH'])
+            self.assertEqual(redis['command'][-1], config['services']['backend']['environment']['GOTP_DB_REDIS_PASSWORD'])
+            self.assertEqual(redis['healthcheck']['test'], ['CMD', 'redis-cli', 'ping'])
 
 class IdentitySafety(unittest.TestCase):
     def setUp(self):
@@ -259,3 +264,89 @@ class FrontendWorkspaceSeedSafety(unittest.TestCase):
         import frontend_seed
         with self.assertRaisesRegex(ValueError, 'task directory'):
             frontend_seed.prepare(Path('/Volumes/80G/test'), {}, '/tmp/not-authorized', '/tmp/node_modules')
+
+class ActualComposePortsSafety(unittest.TestCase):
+    def test_only_selected_phase_ports_are_checked(self):
+        config = {'services': {'redis': {'ports': ['127.0.0.1:26379:6379']}, 'broker': {'ports': ['127.0.0.1:21883:1883']}}}
+        self.assertEqual(runtime.published_ports(config, ['redis']), [26379])
+
+    def test_nonloopback_reserved_and_duplicate_ports_are_rejected(self):
+        for bindings in (['0.0.0.0:26379:6379'], ['127.0.0.1:8080:8080'], ['127.0.0.1:9999:9999'], ['127.0.0.1:26379:6379'] * 2):
+            with self.assertRaises(ValueError):
+                runtime.published_ports({'services': {'redis': {'ports': bindings}}}, ['redis'])
+
+class BootstrapRecoverySafety(unittest.TestCase):
+    def setUp(self):
+        import sys
+        sys.path.insert(0,str(Path(__file__).parent))
+        import bootstrap_recovery
+        self.recovery=bootstrap_recovery
+        self.snapshot={'database':'ThingsPanel','owner_matches':True,'casbin_rows':0,'versions':[[0,'0.0.0']], 'native_databases':[], 'relations':list(bootstrap_recovery.RELATIONS),'columns':list(bootstrap_recovery.COLUMNS), 'other_objects':[],'extra_schemas':[],'user_triggers':0,'other_constraints':0,'extensions':['plpgsql','timescaledb'],'sequence_owned':True,'listen_addresses':'*','owners_valid':True,'primary_keys':[['casbin_rule','casbin_rule_pkey',[1]],['sys_version','sys_version_pkey',[1]],['local_fixture_owner','local_fixture_owner_pkey',[1]]],'defaults':[["casbin_rule","id","nextval('casbin_rule_id_seq'::regclass)"]]}
+
+    def test_exact_initial_control_state_is_accepted(self):
+        self.recovery.validate(self.snapshot)
+
+    def test_partial_migration_foreign_owner_or_extra_objects_reject(self):
+        for key,value in [('owner_matches',False),('versions',[[1,'local-develop']]),('casbin_rows',1),('native_databases',['automation']),('other_objects',['function unexpected()']),('extra_schemas',['foreign']),('user_triggers',1),('listen_addresses','')]:
+            with self.assertRaises(ValueError): self.recovery.validate(dict(self.snapshot,**{key:value}))
+        with self.assertRaises(ValueError): self.recovery.validate(dict(self.snapshot,relations=self.snapshot['relations']+[('users','r')]))
+
+
+class BootstrapResumeFlow(unittest.TestCase):
+    def test_resume_runs_pinned_version_and_all_migrations(self):
+        import json, sys, tempfile
+        import bootstrap_recovery
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = root / 'repo'
+            (repo / 'pkg/global').mkdir(parents=True)
+            (repo / 'pkg/global/global.go').write_text('const VERSION_NUMBER = 1')
+            (repo / 'sql/broker').mkdir(parents=True)
+            (repo / 'sql/1.sql').write_text('SELECT 11;')
+            (repo / 'sql/broker/001_test.sql').write_text('SELECT 12;')
+            for path in runtime.DATABASES.values():
+                folder = repo / 'encore-api' / path
+                folder.mkdir(parents=True)
+                (folder / '1_init.up.sql').write_text('SELECT 13;')
+            backend = {'path': str(repo), 'sha': 'a' * 40}
+            manifest = {'project': runtime.PROJECT, 'root': str(root), 'backend': backend, 'runtime_id': 'b' * 64}
+            (root / 'manifest.json').write_text(json.dumps(manifest))
+            (root / 'compose.json').write_text(json.dumps({'services': {'postgres': {'image': 'sha256:test'}}}))
+            inspection = {'Config': {'Labels': {'com.docker.compose.project': runtime.PROJECT}}, 'Mounts': [{'Destination': '/var/lib/postgresql/data', 'Source': str(root / 'postgres')}]}
+            def fake_compose(*args, **kwargs):
+                return json.dumps([{'Service': 'postgres', 'ID': 'isolated'}]) if args[1] == 'ps' else ''
+            def fake_sql(root, database, statement):
+                return '0' if 'FROM pg_database' in statement else ''
+            with patch.object(runtime, 'preflight'), patch.object(runtime, 'source', return_value=backend), patch.object(runtime, 'compose', side_effect=fake_compose), patch.object(runtime, 'run', return_value=json.dumps([inspection])), patch.object(runtime, 'sql', side_effect=fake_sql) as sql, patch.object(bootstrap_recovery, 'validate_container'), patch.object(bootstrap_recovery, 'inspect', return_value={'validated': True}), patch.dict(sys.modules, {'runtime': runtime}):
+                runtime.bootstrap(root, resume_owned_empty=True)
+            statements = [call.args[2] for call in sql.call_args_list]
+            self.assertTrue(any('SELECT 11;' in statement for statement in statements))
+            self.assertEqual(len(json.loads((root / 'migration-ledger.json').read_text())), 7)
+            self.assertEqual((root / 'bootstrap.complete').read_text(), backend['sha'])
+
+
+class AdministratorInitialization(unittest.TestCase):
+    def test_foreign_admin_is_never_adopted(self):
+        import identity, tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); (root/'private').mkdir()
+            with patch.object(identity,'rows',return_value=[{'email':'foreign'}]), patch.object(identity,'api') as api:
+                with self.assertRaisesRegex(ValueError,'refusing adoption'): identity.initialize_administrator(root,runtime)
+                api.assert_not_called()
+
+    def test_formal_init_is_idempotent_and_credentials_stay_private(self):
+        import identity, tempfile, json
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); (root/'private').mkdir()
+            def rows(*args):
+                path=root/'private/local-administrator.json'
+                if not path.exists() or not initialized[0]: return []
+                return [{'email':json.loads(path.read_text())['email'],'status':'N'}]
+            initialized=[False]
+            def api(route, body, *args):
+                if route=='tenant/super-admin/init': initialized[0]=True; return {}
+                self.assertEqual(route,'login'); return {'token':'private'}
+            with patch.object(identity,'rows',side_effect=rows),patch.object(identity,'api',side_effect=api) as call:
+                identity.initialize_administrator(root,runtime); identity.initialize_administrator(root,runtime)
+                self.assertEqual(sum(c.args[0]=='tenant/super-admin/init' for c in call.call_args_list),1)
+            self.assertEqual((root/'private/local-administrator.json').stat().st_mode & 0o777,0o600)

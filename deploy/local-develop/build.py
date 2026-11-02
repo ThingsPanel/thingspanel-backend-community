@@ -98,7 +98,6 @@ def build(root, runtime, phase, base_image=None, system_stage=None, dependency_s
         config['services']['backend']['image'] = image_id
         config['services']['backend']['entrypoint'] = ['/go/src/app/ThingsPanel-Go']
         config['services']['backend']['volumes'] += mounts
-        config['services']['backend']['environment']['GOTP_DB_REDIS_PASSWORD'] = ''
         config['services']['automation-scheduler']['image'] = image_id
         provenance['backend'] = {'sha': sha, 'mode': 'readonly-binary-and-resource-overlay', 'base_image': image_id,
                                  'binary_sha256': digest(binary), 'resources': resources}
