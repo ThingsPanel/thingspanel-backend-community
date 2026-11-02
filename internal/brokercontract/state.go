@@ -11,18 +11,19 @@ import (
 const StatePrefix = "tp-internal/state/v1"
 
 type StateObservation struct {
-	MappingVersion  string    `json:"mapping_version"`
-	PolicyVersion   string    `json:"policy_version"`
-	ContractVersion string    `json:"contract_version"`
-	Principal       Principal `json:"principal"`
-	BrokerCell      string    `json:"broker_cell"`
-	BrokerInstance  string    `json:"broker_instance"`
-	NodeBootID      string    `json:"node_boot_id"`
-	ConnectionID    string    `json:"connection_id"`
-	RouteEpoch      uint64    `json:"route_epoch"`
-	EventSeq        uint64    `json:"event_seq"`
-	Online          bool      `json:"online"`
-	ObservedAt      time.Time `json:"observed_at"`
+	Delegation      *Delegation `json:"delegated_route,omitempty"`
+	MappingVersion  string      `json:"mapping_version"`
+	PolicyVersion   string      `json:"policy_version"`
+	ContractVersion string      `json:"contract_version"`
+	Principal       Principal   `json:"principal"`
+	BrokerCell      string      `json:"broker_cell"`
+	BrokerInstance  string      `json:"broker_instance"`
+	NodeBootID      string      `json:"node_boot_id"`
+	ConnectionID    string      `json:"connection_id"`
+	RouteEpoch      uint64      `json:"route_epoch"`
+	EventSeq        uint64      `json:"event_seq"`
+	Online          bool        `json:"online"`
+	ObservedAt      time.Time   `json:"observed_at"`
 }
 
 func StateTopic(p Principal) (string, error) {
@@ -37,6 +38,9 @@ func EncodeState(s StateObservation) (string, []byte, error) {
 		return "", nil, e
 	}
 	if s.ContractVersion != ContractVersion || !validIdentity(s.BrokerCell) || !validIdentity(s.BrokerInstance) || !validIdentity(s.NodeBootID) || !validIdentity(s.ConnectionID) || s.MappingVersion == "" || s.PolicyVersion == "" || s.RouteEpoch == 0 || s.EventSeq == 0 || s.ObservedAt.IsZero() {
+		return "", nil, ErrInvalidMetadata
+	}
+	if s.Delegation != nil && (s.Delegation.Validate() != nil || s.Delegation.TargetDeviceID != s.Principal.DeviceID || s.Delegation.TargetRouteEpoch != s.RouteEpoch || s.Delegation.BrokerCell != s.BrokerCell || s.Delegation.BrokerInstance != s.BrokerInstance || s.Delegation.ConnectionID != s.ConnectionID || s.Delegation.MappingVersion != s.MappingVersion || !s.Delegation.ObservedAt.Equal(s.ObservedAt)) {
 		return "", nil, ErrInvalidMetadata
 	}
 	b, e := json.Marshal(s)

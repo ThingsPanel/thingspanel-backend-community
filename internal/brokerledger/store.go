@@ -18,6 +18,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
+	"project/internal/brokercontract"
+	"project/internal/brokerdelegate"
+	"project/internal/brokerroute"
 )
 
 var (
@@ -188,6 +191,9 @@ func (s *Store) Accept(ctx context.Context, msg Message) (id string, duplicate b
 		if err := lockTenantCapacity(tx, msg.TenantID); err != nil {
 			return err
 		}
+		if err := lockDelegation(tx, msg, true); err != nil {
+			return err
+		}
 		if err := requireAdmissionBinding(tx, msg.TenantID, msg.DeviceID, msg.BrokerCell, int64(msg.RouteEpoch)); err != nil {
 			return err
 		}
@@ -270,6 +276,7 @@ func canonicalMetadata(input map[string]any) ([]byte, []byte, error) {
 }
 
 var volatileMetadataKeys = map[string]struct{}{
+	"delegated_route": {},
 	"broker_instance": {}, "connection_id": {}, "observed_at": {}, "received_at": {}, "ingestion_id": {},
 	"timestamp":   {},
 	"route_epoch": {}, "broker_cell": {},
@@ -417,6 +424,17 @@ func (s *Store) processOne(ctx context.Context, cell string, handler func(contex
 		if err := lockTenantCapacity(tx, candidate.TenantID); err != nil {
 			return err
 		}
+		candidateMessage, parseErr := rowToMessage(candidate)
+		if parseErr != nil {
+			return parseErr
+		}
+		delegationErr := lockDelegation(tx, candidateMessage, false)
+		if errors.Is(delegationErr, brokerroute.ErrConnecting) {
+			return nil
+		}
+		if delegationErr != nil && !errors.Is(delegationErr, brokerroute.ErrFenced) {
+			return delegationErr
+		}
 		binding, bindingFound, bindingBusy, err := lockBindingSkipLocked(tx, candidate.TenantID, candidate.DeviceID)
 		if err != nil {
 			return err
@@ -439,7 +457,7 @@ func (s *Store) processOne(ctx context.Context, cell string, handler func(contex
 			return nil
 		}
 		processed = true
-		if !bindingFound || binding.Phase != "active" || binding.BrokerCell != claimed.BrokerCell || binding.RouteEpoch != claimed.RouteEpoch {
+		if delegationErr != nil || !bindingFound || binding.Phase != "active" || binding.BrokerCell != claimed.BrokerCell || binding.RouteEpoch != claimed.RouteEpoch {
 			now := time.Now().UTC()
 			fenced = true
 			return tx.Model(&receiptRow{}).Where("id = ? AND state = ?", claimed.ID, statePending).Updates(map[string]any{
@@ -622,4 +640,18 @@ func (s *Store) Stats(ctx context.Context, tenantID string) (Stats, error) {
 		}
 	}
 	return stats, nil
+}
+
+// lockDelegation keeps the receipt's immutable authorization proof and both
+// route epochs inside the same transaction as acceptance/processing.
+func lockDelegation(tx *gorm.DB, msg Message, admission bool) error {
+	value, ok := msg.Metadata["delegated_route"]
+	if !ok {
+		return nil
+	}
+	proof, err := brokercontract.ParseDelegation(value)
+	if err != nil || proof.TargetDeviceID != msg.DeviceID || proof.TargetRouteEpoch != msg.RouteEpoch || proof.BrokerCell != msg.BrokerCell {
+		return brokerroute.ErrFenced
+	}
+	return brokerdelegate.Lock(tx, msg.TenantID, proof, admission)
 }
