@@ -25,8 +25,8 @@ type AttributeData struct {
 	downlinkBus *downlink.Bus // ✨ 依赖注入
 }
 
-func (*AttributeData) GetAttributeDataList(device_id string) (interface{}, error) {
-	data, err := dal.GetAttributeDataListWithDeviceName(device_id)
+func (*AttributeData) GetAttributeDataList(device_id string, contexts ...context.Context) (interface{}, error) {
+	data, err := dal.GetAttributeDataListWithDeviceName(device_id, contexts...)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +67,8 @@ func (*AttributeData) DeleteAttributeData(id string) error {
 	return err
 }
 
-func (*AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq) (interface{}, error) {
-	count, data, err := dal.GetAttributeSetLogsDataListByPage(req)
+func (*AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq, contexts ...context.Context) (interface{}, error) {
+	count, data, err := dal.GetAttributeSetLogsDataListByPage(req, contexts...)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -83,10 +83,10 @@ func (*AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSe
 }
 
 // 根据key查询设备属性
-func (*AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq) (interface{}, error) {
+func (*AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq, contexts ...context.Context) (interface{}, error) {
 	dataMap := make(map[string]interface{})
 
-	data, err := dal.GetAttributeDataByKey(req)
+	data, err := dal.GetAttributeDataByKey(req, contexts...)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return dataMap, nil

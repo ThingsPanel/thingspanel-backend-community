@@ -1,6 +1,7 @@
 package dal
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -28,14 +29,14 @@ left join device_model_attributes dma on dt.id = dma.device_template_id and ad.k
 where devices.id = 'ca33926c-5ee5-3e9f-147e-94e188fde65b'
 */
 // 根据设备ID获取设备属性数据列表并关联查到数据名称如以上sql
-func GetAttributeDataListWithDeviceName(deviceId string) ([]map[string]interface{}, error) {
+func GetAttributeDataListWithDeviceName(deviceId string, contexts ...context.Context) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
-	config, err := getDeviceConfigForRawDataRead(deviceId)
+	config, err := getDeviceConfigForRawDataRead(deviceId, contexts...)
 	if err != nil {
 		return nil, err
 	}
 	if hasNativeDeviceConfigBinding(config) {
-		err = query.AttributeData.
+		err = query.AttributeData.WithContext(ReadContext(contexts...)).
 			Where(query.AttributeData.DeviceID.Eq(deviceId)).
 			Select(query.AttributeData.ALL).
 			Scan(&data)
@@ -44,7 +45,7 @@ func GetAttributeDataListWithDeviceName(deviceId string) ([]map[string]interface
 		}
 		return data, nil
 	}
-	err = query.AttributeData.
+	err = query.AttributeData.WithContext(ReadContext(contexts...)).
 		Select(query.AttributeData.ALL, query.DeviceModelAttribute.DataName, query.DeviceModelAttribute.Unit, query.DeviceModelAttribute.ReadWriteFlag, query.DeviceModelAttribute.DataType, query.DeviceModelAttribute.AdditionalInfo.As("enum")).
 		LeftJoin(query.Device, query.AttributeData.DeviceID.EqCol(query.Device.ID)).
 		LeftJoin(query.DeviceConfig, query.Device.DeviceConfigID.EqCol(query.DeviceConfig.ID)).
@@ -62,8 +63,8 @@ func hasNativeDeviceConfigBinding(config *model.DeviceConfig) bool {
 		config.NativeThingModelRevision != nil)
 }
 
-func getDeviceConfigForRawDataRead(deviceID string) (*model.DeviceConfig, error) {
-	device, err := query.Device.Where(query.Device.ID.Eq(deviceID)).First()
+func getDeviceConfigForRawDataRead(deviceID string, contexts ...context.Context) (*model.DeviceConfig, error) {
+	device, err := query.Device.WithContext(ReadContext(contexts...)).Where(query.Device.ID.Eq(deviceID)).First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -73,7 +74,7 @@ func getDeviceConfigForRawDataRead(deviceID string) (*model.DeviceConfig, error)
 	if device == nil || device.DeviceConfigID == nil || strings.TrimSpace(*device.DeviceConfigID) == "" {
 		return nil, nil
 	}
-	config, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(*device.DeviceConfigID)).First()
+	config, err := query.DeviceConfig.WithContext(ReadContext(contexts...)).Where(query.DeviceConfig.ID.Eq(*device.DeviceConfigID)).First()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

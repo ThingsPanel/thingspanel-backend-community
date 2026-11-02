@@ -11,12 +11,12 @@ import (
 )
 
 // GetDeviceStatusHistoryByPage 获取设备状态历史记录（分页）
-func GetDeviceStatusHistoryByPage(req *model.GetDeviceStatusHistoryReq, tenantID string) (int64, []*model.DeviceStatusHistory, error) {
+func GetDeviceStatusHistoryByPage(req *model.GetDeviceStatusHistoryReq, tenantID string, contexts ...context.Context) (int64, []*model.DeviceStatusHistory, error) {
 	q := query.DeviceStatusHistory
 	var count int64
 	var list []*model.DeviceStatusHistory
 
-	queryBuilder := q.WithContext(context.Background())
+	queryBuilder := q.WithContext(ReadContext(contexts...))
 
 	// 租户过滤
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))

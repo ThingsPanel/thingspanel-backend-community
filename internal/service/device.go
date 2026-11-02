@@ -616,8 +616,8 @@ func (*Device) DeleteDevice(id string, userClaims *utils.UserClaims) error {
 	return nil
 }
 
-func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]interface{}, error) {
-	device, err := dal.GetDeviceByID(id)
+func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims, contexts ...context.Context) (map[string]interface{}, error) {
+	device, err := dal.GetDeviceByID(id, contexts...)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -628,7 +628,7 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
 
-	data, err := dal.GetDeviceDetail(id)
+	data, err := dal.GetDeviceDetail(id, contexts...)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -636,7 +636,7 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 		})
 	}
 	// 查询设备告警状态
-	alarmStatus, err := dal.GetDeviceLatestAlarmStatus(id)
+	alarmStatus, err := dal.GetDeviceLatestAlarmStatus(id, contexts...)
 	if err != nil {
 		logrus.Warnf("[GetDeviceByIDV1] get device alarm status failed, deviceID=%s, err=%v", id, err)
 		alarmStatus = "N"
@@ -652,7 +652,7 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 		// 转换为string
 		deviceConfigID := fmt.Sprintf("%v", v)
 		// 获取设备配置
-		deviceConfig, err := dal.GetDeviceConfigByID(deviceConfigID)
+		deviceConfig, err := dal.GetDeviceConfigByID(deviceConfigID, contexts...)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),
@@ -1365,8 +1365,8 @@ func (*Device) GetDeviceTemplateChartSelect(userClaims *utils.UserClaims) (any, 
 	return data, nil
 }
 
-func (*Device) GetDeviceOnlineStatus(device_id string) (map[string]int, error) {
-	deviceInfo, err := dal.GetDeviceByID(device_id)
+func (*Device) GetDeviceOnlineStatus(device_id string, contexts ...context.Context) (map[string]int, error) {
+	deviceInfo, err := dal.GetDeviceByID(device_id, contexts...)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": "get device info failed:" + err.Error(),
@@ -1672,8 +1672,8 @@ func (d *Device) GetTenantTelemetryData(tenantID string) ([]map[string]interface
 }
 
 // GetDeviceStatusHistory 获取设备状态历史记录
-func (*Device) GetDeviceStatusHistory(req *model.GetDeviceStatusHistoryReq, u *utils.UserClaims) (map[string]interface{}, error) {
-	total, list, err := dal.GetDeviceStatusHistoryByPage(req, u.TenantID)
+func (*Device) GetDeviceStatusHistory(req *model.GetDeviceStatusHistoryReq, u *utils.UserClaims, contexts ...context.Context) (map[string]interface{}, error) {
+	total, list, err := dal.GetDeviceStatusHistoryByPage(req, u.TenantID, contexts...)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),

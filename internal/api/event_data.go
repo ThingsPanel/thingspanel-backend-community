@@ -18,7 +18,7 @@ func (*EventDataApi) HandleEventDatasListByPage(c *gin.Context) {
 		return
 	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.EventData.GetEventDatasListByPage(&req, userClaims)
+	data, err := service.GroupApp.EventData.GetEventDatasListByPage(&req, userClaims, c.Request.Context())
 	if err != nil {
 		c.Error(err)
 		return

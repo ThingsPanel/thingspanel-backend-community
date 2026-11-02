@@ -518,8 +518,8 @@ func GetParentDeviceBySubDeviceID(subDeviceID string) (info *model.Device, err e
 	return
 }
 
-func GetDeviceByID(id string) (*model.Device, error) {
-	device, err := query.Device.Where(query.Device.ID.Eq(id)).First()
+func GetDeviceByID(id string, contexts ...context.Context) (*model.Device, error) {
+	device, err := query.Device.WithContext(ReadContext(contexts...)).Where(query.Device.ID.Eq(id)).First()
 	if err != nil {
 		return nil, err
 	}
@@ -541,14 +541,14 @@ func DeviceExistsForRead(id, tenantID string, allTenants bool) (bool, error) {
 }
 
 // 获取设备详情，关联设备配置
-func GetDeviceDetail(id string) (map[string]interface{}, error) {
+func GetDeviceDetail(id string, contexts ...context.Context) (map[string]interface{}, error) {
 	device := query.Device
 	deviceConfig := query.DeviceConfig
 	t := query.TelemetryCurrentData
 	t2 := query.TelemetryCurrentData.As("t2")
 	data := make(map[string]interface{})
 	// 关联查询设备配置表
-	err := device.LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
+	err := device.WithContext(ReadContext(contexts...)).LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
 		LeftJoin(t.Select(t.T.Max().As("ts"), t.DeviceID).Group(t.DeviceID).As("t2"), t2.DeviceID.EqCol(device.ID)).
 		Where(device.ID.Eq(id)).
 		Select(device.ALL, deviceConfig.Name.As("device_config_name"), t2.T).Scan(&data)
@@ -557,7 +557,7 @@ func GetDeviceDetail(id string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	if data["parent_id"] != nil {
-		parentDevice, err := GetDeviceByID(data["parent_id"].(string))
+		parentDevice, err := GetDeviceByID(data["parent_id"].(string), contexts...)
 		if err != nil {
 			logrus.Error(err)
 			return nil, err
@@ -1293,9 +1293,9 @@ func GetDeviceListByProtocolType(req model.GetDevicesByProtocolPluginReq, device
 }
 
 // GetDeviceLatestAlarmStatus 获取设备的最新告警状态
-func GetDeviceLatestAlarmStatus(deviceID string) (string, error) {
+func GetDeviceLatestAlarmStatus(deviceID string, contexts ...context.Context) (string, error) {
 	lda := query.LatestDeviceAlarm
-	alarm, err := lda.Where(lda.DeviceID.Eq(deviceID)).First()
+	alarm, err := lda.WithContext(ReadContext(contexts...)).Where(lda.DeviceID.Eq(deviceID)).First()
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "N", nil
