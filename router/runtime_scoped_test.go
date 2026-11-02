@@ -70,9 +70,26 @@ func TestRuntimeSimulationFailsClosedBeforeExternalEffects(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("POST", "/api/v1/runtime-scoped/local/telemetry/datas/simulation/send", strings.NewReader(`{"device_id":"d","server":"untrusted"}`))
 	c.Params = gin.Params{{Key: "tenantID", Value: "local"}}
-	c.Set("claims", &utils.UserClaims{TenantID: "local"})
+	c.Set("claims", &utils.UserClaims{TenantID: "local", Authority: "TENANT_ADMIN"})
 	runtimeScope("unsupported", false, nil)(c)
 	if w.Code != 503 {
 		t.Fatalf("unsafe simulation writer accepted: %d", w.Code)
+	}
+}
+
+func TestRuntimeScopeRejectsSameTenantDeviceUsersForReadsAndWrites(t *testing.T) {
+	for _, authority := range []string{"TENANT_USER", "SYS_ADMIN", "", "tenant_admin"} {
+		for _, source := range []string{"param:id", "owner:body:id", "body:device_id"} {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("POST", "/api/v1/runtime-scoped/local/device", strings.NewReader(`{"id":"d","device_id":"d"}`))
+			c.Params = gin.Params{{Key: "tenantID", Value: "local"}, {Key: "id", Value: "d"}}
+			c.Set("claims", &utils.UserClaims{ID: "same-tenant-user", TenantID: "local", Authority: authority})
+			called := false
+			runtimeScope(source, false, func(*gin.Context) { called = true })(c)
+			if w.Code != 403 || called {
+				t.Fatalf("ordinary role accepted: authority=%q source=%s code=%d", authority, source, w.Code)
+			}
+		}
 	}
 }

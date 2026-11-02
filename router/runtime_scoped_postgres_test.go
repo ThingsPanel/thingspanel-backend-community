@@ -87,7 +87,7 @@ func runtimeRequest(id, source string, handler gin.HandlerFunc) *httptest.Respon
 	path := "/api/v1/runtime-scoped/tenant-a/device/detail/" + id
 	c.Request = httptest.NewRequest("GET", path, nil)
 	c.Params = gin.Params{{Key: "tenantID", Value: "tenant-a"}, {Key: "id", Value: id}, {Key: "message_id", Value: id}}
-	c.Set("claims", &utils.UserClaims{ID: "caller", TenantID: "tenant-a", Authority: "SYS_ADMIN"})
+	c.Set("claims", &utils.UserClaims{ID: "caller", TenantID: "tenant-a", Authority: "TENANT_ADMIN"})
 	runtimeScope(source, false, handler)(c)
 	return w
 }

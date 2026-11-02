@@ -2,7 +2,7 @@
 
 The native Community adapter must call `/api/v1/runtime-scoped/:tenantID/<suffix>` for runtime capabilities. Login continues using its existing authentication owner. There is no fallback to the legacy capability URL.
 
-The path tenant must be nonempty and exactly equal to the validated session/API-key tenant. A `SYS_ADMIN` claim does not bypass this rule. An explicit allowlist is registered in `router/runtime_scoped.go`; existing public routes retain their original registration.
+The path tenant must be nonempty and exactly equal to the validated session/API-key tenant. Only a validated `TENANT_ADMIN` session or the existing API-key authentication contract (which produces that authority) can call these internal capabilities. Same-tenant `TENANT_USER` and `SYS_ADMIN` sessions are rejected; a platform administrator must obtain the appropriate tenant administrator session. Legacy Casbin policy absence is never proof of permission. An explicit allowlist is registered in `router/runtime_scoped.go`; existing public routes retain their original registration.
 
 ## Ownership and concurrency
 

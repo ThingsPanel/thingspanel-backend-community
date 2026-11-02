@@ -70,6 +70,13 @@ func runtimeScope(source string, ingress bool, handler gin.HandlerFunc) gin.Hand
 			runtimeReject(c, 403, "runtime tenant scope mismatch")
 			return
 		}
+		// This is an internal admin capability, not a device-user API. Legacy
+		// Casbin policy absence is not proof of permission. API-key authentication
+		// deliberately supplies TENANT_ADMIN under its existing verified contract.
+		if claims.Authority != "TENANT_ADMIN" {
+			runtimeReject(c, 403, "runtime scoped tenant administrator required")
+			return
+		}
 		if source == "unsupported" || (ingress && viper.GetString("mqtt.input_profile") != "ingress_v1") {
 			runtimeReject(c, 503, "runtime scoped atomic writer unavailable")
 			return
