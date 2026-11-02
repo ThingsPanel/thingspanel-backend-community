@@ -18,7 +18,7 @@ def digest(path):
 
 
 def execute(command, cwd, env, root, runtime, phase):
-    runtime.preflight(root)
+    runtime.preflight(root, phase)
     log = root / 'cache' / (phase + '.build.log')
     with log.open('wb') as output:
         process = subprocess.Popen(command, cwd=cwd, env=env, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
@@ -37,11 +37,11 @@ def execute(command, cwd, env, root, runtime, phase):
                 except subprocess.TimeoutExpired:
                     os.killpg(process.pid, signal.SIGKILL)
                     process.wait()
-    runtime.preflight(root)
+    runtime.preflight(root, phase)
 
 
 def build(root, runtime, phase, base_image=None):
-    runtime.preflight(root)
+    runtime.preflight(root, phase)
     manifest = runtime.load_fixture(root)
     config = json.loads((root / 'compose.json').read_text())
     out = root / 'artifacts'

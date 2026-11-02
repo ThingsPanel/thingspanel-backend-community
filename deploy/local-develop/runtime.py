@@ -36,15 +36,14 @@ def source(path):
     return {'path': str(path), 'sha': run(['git', '-C', str(path), 'rev-parse', 'HEAD'])}
 
 
-def preflight(root):
+def preflight(root, phase='runtime'):
     safe_path(root)
     if shutil.disk_usage('/').free < 6 * 1024**3:
         raise ValueError('System disk needs 6 GiB free even with external caches; no builds or startup allowed')
     if shutil.disk_usage('/Volumes/80G').free < 12 * 1024**3:
         raise ValueError('80G needs at least 12 GiB free')
-    # Inspecting the daemon does not prove its VM disk resides on 80G.
-    if os.environ.get('TP_DOCKER_STORAGE_VERIFIED') != '/Volumes/80G':
-        raise ValueError('Verify Docker VM disk and build cache are on 80G, then set TP_DOCKER_STORAGE_VERIFIED=/Volumes/80G')
+    import storage
+    storage.check(sys.modules[__name__], phase)
     info = json.loads(run(['docker', 'info', '--format', '{{json .}}']))
     if not info.get('ServerVersion'):
         raise ValueError('Docker daemon unavailable')

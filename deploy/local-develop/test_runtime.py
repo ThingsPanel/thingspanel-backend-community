@@ -164,3 +164,28 @@ class BuildSafety(unittest.TestCase):
             (root / 'build-provenance.json').write_text(json.dumps({'encore-api': {'sha': 'old', 'base_image': 'sha256:base'}}))
             with self.assertRaisesRegex(ValueError, 'SHA/image mismatch'):
                 self.build.verify(root, {'backend': {'sha': 'new'}}, {'services': {'encore-api': {'image': 'sha256:base'}}})
+
+class StorageSafety(unittest.TestCase):
+    def setUp(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        import storage
+        self.storage = storage
+
+    def test_internal_bounded_requires_explicit_opt_in(self):
+        with patch.dict('os.environ', {'TP_DOCKER_STORAGE_MODE': 'internal-bounded'}, clear=True), patch.object(self.storage, 'orbstack_internal') as locate:
+            with self.assertRaisesRegex(ValueError, 'Explicit'):
+                self.storage.check(runtime)
+            locate.assert_not_called()
+
+    def test_encore_rejects_six_gib_even_with_internal_opt_in(self):
+        usage = type('Usage', (), {'free': 6 * 1024**3})()
+        with patch.dict('os.environ', {'TP_DOCKER_STORAGE_MODE': 'internal-bounded', 'TP_ALLOW_INTERNAL_BOUNDED_BUILD': 'yes'}, clear=True), patch.object(self.storage, 'orbstack_internal', return_value=Path('/verified/internal/image')), patch.object(self.storage.shutil, 'disk_usage', return_value=usage):
+            with self.assertRaisesRegex(ValueError, '12 GiB'):
+                self.storage.check(runtime, 'encore')
+            self.assertEqual(self.storage.check(runtime, 'backend')['mode'], 'internal-bounded')
+
+    def test_bounded_mode_rejects_remote_or_other_context(self):
+        with patch.object(runtime, 'run', return_value='remote'):
+            with self.assertRaisesRegex(ValueError, 'local OrbStack'):
+                self.storage.orbstack_internal(runtime)

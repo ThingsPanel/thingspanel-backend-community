@@ -135,3 +135,41 @@ Run each command with `--root <fixture>`:
   acceptance from the core fixture. Nothing points those modules at an old stack.
 
 Validation: `python3 -m unittest discover -s deploy/local-develop -p 'test_*.py'`.
+
+## Explicit internal OrbStack bounded mode (no relocation)
+
+Local read-only inspection on 2026-11-02 found context `orbstack`, endpoint
+`unix:///Users/junhong/.orbstack/run/docker.sock`, backing file
+`~/Library/Group Containers/HUAQ24HBR6.dev.orbstack/data/data.img.raw` on internal
+`/System/Volumes/Data` (`/dev/disk3s5`), with about 6.1 GiB free. The file is sparse
+(228 GiB logical, about 17 GiB allocated for its data directory); logical size is
+not available capacity. `/var/lib/docker` from Docker info is inside the VM and
+does not establish host storage. No files were moved or deleted.
+
+For this exact verified local layout only, set both:
+
+```sh
+export TP_DOCKER_STORAGE_MODE=internal-bounded
+export TP_ALLOW_INTERNAL_BOUNDED_BUILD=yes
+```
+
+Every preflight rechecks the context, Unix endpoint, actual backing-file location
+and APFS Data volume device. This mode explicitly records **internal** storage;
+it does not set or imply the external-storage attestation.
+
+| Phase | Internal Data free before/after | External 80G free before/after |
+|---|---:|---:|
+| Core runtime / backend overlay | 6 GiB | 12 GiB |
+| Frontend install/build overlay | 6 GiB | 12 GiB |
+| Official Encore Docker build | 12 GiB | 12 GiB |
+| Native Broker image build budget | 16 GiB | 12 GiB |
+
+The build monitor terminates the local process group on observing either volume
+below 4 GiB. This is a stop trigger, **not an OS-enforced storage quota**: polling
+latency, unrelated writes and daemon-side work can cross that floor before the
+local process exits. It does not prune images/caches or kill the Docker daemon.
+Consequently no strict guaranteed 4 GiB reserve can be promised without a storage
+quota or separated writable storage. At observed 6.1 GiB, backend/frontend phases
+have only about 2.1 GiB headroom and remain capacity-sensitive; Encore/Broker are
+blocked by preflight. Do not waive these checks to finish a build. No heavy build
+has been attempted in this mode.
