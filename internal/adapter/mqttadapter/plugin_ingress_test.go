@@ -25,6 +25,20 @@ func TestPluginWireEnvelopeDecodesValuesExactlyOnce(t *testing.T) {
 	}
 }
 
+func TestPluginWireEnvelopeRejectsNoncanonicalLegacyBytes(t *testing.T) {
+	for _, payload := range []string{
+		`{"device_id":"dev-1","values":""}`,
+		`{"device_id":"dev-1","values":"e3\n0="}`,
+		`{"device_id":"dev-1","values":"e30=","extra":1}`,
+		`{"device_id":"dev-1","device_id":"dev-2","values":"e30="}`,
+		`{"device_id":"dev-1\u0000","values":"e30="}`,
+	} {
+		if _, err := decodePluginWirePayload([]byte(payload)); err == nil {
+			t.Fatalf("accepted invalid legacy wrapper: %s", payload)
+		}
+	}
+}
+
 func TestPluginPrincipalPreservesDirectDevicePayload(t *testing.T) {
 	body := []byte(`{"device_id":"logical-id","values":{"temperature":21}}`)
 	decoded, err := decodePluginPrincipalPayload(body, false)
