@@ -216,7 +216,7 @@ def up(root, stage):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['prepare', 'preflight', 'bootstrap', 'build', 'up', 'lock-images', 'provision-native', 'refresh-broker', 'revoke-native'])
+    parser.add_argument('action', choices=['prepare', 'preflight', 'bootstrap', 'build', 'up', 'lock-images', 'provision-native', 'refresh-broker', 'revoke-native', 'configure-runtime-binding'])
     parser.add_argument('--root', required=True)
     parser.add_argument('--stage', choices=['foundation', 'native'], default='foundation')
     parser.add_argument('--device-id', action='append', default=[])
@@ -230,6 +230,9 @@ def main():
         prepare(root, args.backend, args.frontend)
     elif args.action == 'preflight':
         preflight(root)
+    elif args.action == 'configure-runtime-binding':
+        import binding
+        binding.configure(root, sys.modules[__name__])
     elif args.action == 'build':
         if not args.phase:
             raise ValueError('Choose an explicit --phase backend/frontend/encore')

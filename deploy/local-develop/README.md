@@ -173,3 +173,30 @@ quota or separated writable storage. At observed 6.1 GiB, backend/frontend phase
 have only about 2.1 GiB headroom and remain capacity-sensitive; Encore/Broker are
 blocked by preflight. Do not waive these checks to finish a build. No heavy build
 has been attempted in this mode.
+
+## Exact provider/instance fence
+
+The tenant-fence change `1a9eb268e1beec847ab197cda4bd46bcfaa56e24` requires a
+confirmed runtimeRef to match the configured provider UUID, namespace and service
+instance exactly. New fixtures no longer set `TP_RUNTIME_DEVICE_ID_MODE=identity`.
+No provider or instance IDs are guessed, and absence of resources is not hidden
+by UUID identity fallback.
+
+`configure-runtime-binding --root <fixture>` installs settings only after:
+
+- the pinned backend source includes that reviewed fence;
+- the fixture API key is active in the primary database and belongs to the exact
+  test tenant/creator/key previously issued;
+- connector_runtime contains the actual immutable provider release;
+- device_metadata contains at least one actual runtime binding and every binding
+  in this single test tenant matches the exact provider/namespace/instance;
+- `private/runtime-binding.json` (0600) explicitly records those actual
+  `tenant_id`, `provider_id`, `namespace` (`community`) and `service_instance_id`;
+- the configured Community destination remains `http://backend:9999`.
+
+It creates no provider or runtime binding. Current fresh SQL bootstrap creates
+empty resource tables; publication is a private Encore owner requiring verified
+SYS_ADMIN, and no production runtimeRef confirmation writer was found. Therefore
+an empty fixture is correctly blocked until an authenticated owner bootstrap is
+implemented. Adding that entry point is a separate explicit product contract;
+SQL insertion is not a substitute for provider/instance confirmation.

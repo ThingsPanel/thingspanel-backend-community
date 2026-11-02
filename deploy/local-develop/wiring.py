@@ -57,7 +57,7 @@ def generate(root, manifest, password, config):
     account = {'email': 'local-native@example.invalid', 'password': secrets.token_urlsafe(32)}
     write(private / 'native-account.json', account)
     encore_env = dict(common, PORT='14000', ENCORE_LISTEN_ADDR='0.0.0.0:14000',
-        TP_RUNTIME_OUTBOX_DISPATCH='on', TP_BACKGROUND_WORKERS='on', TP_RUNTIME_DEVICE_ID_MODE='identity',
+        TP_RUNTIME_OUTBOX_DISPATCH='on', TP_BACKGROUND_WORKERS='on',
         METADATA_CREDENTIAL_KEYRING_B64=keyring(), METADATA_CREDENTIAL_ACTIVE_KEY_REF='main')
     config['services'].update({
         'broker-owner': {'image': images['broker'], 'command': ['owner'], 'user': '0:0',

@@ -201,3 +201,31 @@ class EncoreBuildContract(unittest.TestCase):
         self.assertEqual(command[command.index('--base') + 1], 'scratch')
         self.assertNotIn('--push', command)
         self.assertIn('--skip-config', command)
+
+class RuntimeBindingSafety(unittest.TestCase):
+    def setUp(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        import binding
+        self.binding = binding
+        self.provider = '123e4567-e89b-12d3-a456-426614174000'
+        self.expected = {'provider_id': self.provider, 'tenant_id': 't', 'namespace': 'community', 'service_instance_id': 'confirmed-instance'}
+        self.rows = [{'runtime_provider_id': self.provider, 'tenant_id': 't', 'runtime_namespace': 'community', 'service_instance_id': 'confirmed-instance', 'runtime_external_id': 'd'}]
+        self.releases = [{'provider_id': self.provider, 'version': 'v1', 'schema_digest': 'digest', 'artifact_digest': 'sha256:digest'}]
+        self.key = {'tenant_id': 't', 'api_key': 'secret'}
+
+    def test_empty_new_database_never_generates_provider_ids(self):
+        with self.assertRaises(ValueError):
+            self.binding.validate(self.expected, [], [], self.key)
+
+    def test_other_tenant_or_service_instance_is_refused(self):
+        for field, value in [('tenant_id', 'other'), ('service_instance_id', 'other'), ('runtime_provider_id', 'other')]:
+            changed = dict(self.rows[0], **{field: value})
+            with self.assertRaises(ValueError):
+                self.binding.validate(self.expected, [changed], self.releases, self.key)
+
+    def test_only_exact_confirmed_resources_install_environment(self):
+        env = self.binding.validate(self.expected, self.rows, self.releases, self.key)
+        self.assertEqual(env['TP_RUNTIME_COMMUNITY_PROVIDER_ID'], self.provider)
+        self.assertEqual(env['TP_RUNTIME_COMMUNITY_SERVICE_INSTANCE_ID'], 'confirmed-instance')
+        self.assertNotIn('TP_RUNTIME_DEVICE_ID_MODE', env)
