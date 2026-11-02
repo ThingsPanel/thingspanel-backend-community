@@ -57,6 +57,9 @@ func (s Scope) Validate() error {
 	if len(s.ServiceInstanceID) > 128 || s.ServiceInstanceID != strings.TrimSpace(s.ServiceInstanceID) {
 		return ErrUnproven
 	}
+	if len(s.CommunityOrigin) > 2048 {
+		return ErrUnproven
+	}
 	u, e := url.Parse(s.CommunityOrigin)
 	if e != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") || s.CommunityOrigin != strings.TrimRight(s.CommunityOrigin, "/") {
 		return ErrUnproven

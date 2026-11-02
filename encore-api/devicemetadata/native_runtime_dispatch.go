@@ -146,7 +146,7 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 		return runtimeApplyOutcome{Skip: true}
 	}
 	binding, bindingErr := runtimetenant.Lookup(ctx, runtimetenant.SQLReader{DB: db.Stdlib()}, item.TenantID, runtimeTenantScope())
-	if bindingErr != nil || binding.ID != item.SourceBindingID.String || binding.Generation != item.SourceBindingGeneration.Int64 {
+	if bindingErr != nil || binding.ID != item.SourceBindingID.String || binding.Generation != item.SourceBindingGeneration.Int64 || a.client.RuntimeOrigin() != binding.Scope.CommunityOrigin {
 		return runtimeApplyOutcome{Skip: true}
 	}
 	legacyID, err := lookupRuntimeDeviceID(ctx, item.TenantID, item.DeviceID)

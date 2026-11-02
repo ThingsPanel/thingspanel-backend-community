@@ -87,6 +87,13 @@ func TestSourceBindingPostgresCollisionAndTerminalLifecycle(t *testing.T) {
 	if e != nil {
 		t.Fatal("load winning source")
 	}
+	otherRaw := "1234abcd"
+	if binding.RawTenantID == otherRaw {
+		otherRaw = "1234-abcd"
+	}
+	if _, e = Revoke(ctx, db, sourceVerifier(otherRaw), "admin", "tenant", scope, native, strings.Repeat("d", 64)); e == nil {
+		t.Fatal("colliding foreign raw principal revoked another binding")
+	}
 	var audits int
 	if e = db.QueryRow("SELECT count(*) FROM runtime_tenant_source_audit").Scan(&audits); e != nil || audits != 1 {
 		t.Fatal("audit not atomic with unique reservation")

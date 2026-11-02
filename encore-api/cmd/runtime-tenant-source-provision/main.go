@@ -147,7 +147,17 @@ func run() error {
 	if e != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" || u.Host+u.EscapedPath() != m.DatabaseAuthority || strings.TrimPrefix(u.Path, "/") != m.DatabaseName {
 		return errors.New("database does not match reviewed target")
 	}
-	database, e := sql.Open("pgx", dsn)
+	query := u.Query()
+	for key := range query {
+		switch key {
+		case "sslmode", "sslrootcert", "sslcert", "sslkey", "connect_timeout", "application_name", "search_path":
+		default:
+			return errors.New("database URL has an unreviewed routing option")
+		}
+	}
+	query.Set("search_path", "public")
+	u.RawQuery = query.Encode()
+	database, e := sql.Open("pgx", u.String())
 	if e != nil {
 		return errors.New("native binding database unavailable")
 	}
@@ -204,6 +214,9 @@ func readPrivateJSON(path string, target any) ([]byte, error) {
 	if e != nil || len(raw) == 0 || len(raw) > 64<<10 {
 		return nil, errors.New("operator file size invalid")
 	}
+	if rejectAmbiguousKeys(raw) != nil {
+		return nil, errors.New("operator JSON contains ambiguous keys")
+	}
 	d := json.NewDecoder(strings.NewReader(string(raw)))
 	d.DisallowUnknownFields()
 	if d.Decode(target) != nil {
@@ -214,4 +227,68 @@ func readPrivateJSON(path string, target any) ([]byte, error) {
 		return nil, errors.New("operator JSON has trailing data")
 	}
 	return raw, nil
+}
+
+func rejectAmbiguousKeys(raw []byte) error {
+	d := json.NewDecoder(strings.NewReader(string(raw)))
+	var walk func(int) error
+	walk = func(depth int) error {
+		if depth > 32 {
+			return errors.New("JSON depth")
+		}
+		token, e := d.Token()
+		if e != nil {
+			return e
+		}
+		delim, ok := token.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch delim {
+		case '{':
+			seen := map[string]bool{}
+			for d.More() {
+				key, e := d.Token()
+				if e != nil {
+					return e
+				}
+				text, ok := key.(string)
+				if !ok {
+					return errors.New("JSON key")
+				}
+				folded := strings.ToLower(text)
+				if seen[folded] {
+					return errors.New("duplicate JSON key")
+				}
+				seen[folded] = true
+				if e = walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			end, e := d.Token()
+			if e != nil || end != json.Delim('}') {
+				return errors.New("JSON object")
+			}
+		case '[':
+			for d.More() {
+				if e = walk(depth + 1); e != nil {
+					return e
+				}
+			}
+			end, e := d.Token()
+			if e != nil || end != json.Delim(']') {
+				return errors.New("JSON array")
+			}
+		default:
+			return errors.New("JSON delimiter")
+		}
+		return nil
+	}
+	if e := walk(0); e != nil {
+		return e
+	}
+	if _, e := d.Token(); e != io.EOF {
+		return errors.New("JSON trailing input")
+	}
+	return nil
 }

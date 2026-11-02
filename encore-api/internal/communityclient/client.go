@@ -67,6 +67,15 @@ func NewFromEnv() *Client {
 	}
 }
 
+// RuntimeOrigin exposes only the immutable configured endpoint, never its
+// credential. Reviewed source bindings must match the actual cached client.
+func (c *Client) RuntimeOrigin() string {
+	if c == nil {
+		return ""
+	}
+	return c.baseURL
+}
+
 // Configured reports whether a base URL and some credential are present.
 func (c *Client) Configured() bool {
 	return c.baseURL != "" && (c.apiKey != "" || (c.email != "" && c.password != ""))

@@ -51,6 +51,9 @@ func nativeRuntimeClient(tenantID string, contexts ...context.Context) *communit
 		return &communityclient.Client{}
 	}
 	runtimeClientOnce.Do(func() { runtimeClientInstance = communityclient.NewFromEnv() })
+	if runtimeClientInstance.RuntimeOrigin() != binding.Scope.CommunityOrigin {
+		return &communityclient.Client{}
+	}
 	return runtimeClientInstance.ForTenant(binding.RawTenantID)
 }
 
