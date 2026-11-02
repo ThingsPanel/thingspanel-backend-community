@@ -149,15 +149,41 @@ func verifyMySQLIndexes(ctx context.Context, conn *sql.Conn, database, table str
 // for these fixed expressions. Literal bytes, case and spaces remain exact.
 func mysqlCheckSignature(expression string) string {
 	var out []byte
+	trimIntroducer := func() {
+		for _, prefix := range []string{"_utf8mb4", "_utf8mb3", "_utf8", "_binary", "_ascii"} {
+			if strings.HasSuffix(string(out), prefix) {
+				out = out[:len(out)-len(prefix)]
+				break
+			}
+		}
+	}
 	for i := 0; i < len(expression); i++ {
 		c := expression[i]
-		if c == '\'' {
-			for _, prefix := range []string{"_utf8mb4", "_utf8mb3", "_utf8", "_binary", "_ascii"} {
-				if strings.HasSuffix(string(out), prefix) {
-					out = out[:len(out)-len(prefix)]
+		// MySQL 8.4 INFORMATION_SCHEMA.CHECK_CONSTRAINTS escapes the quote
+		// delimiters as backslash+quote (verified against the actual HEX value),
+		// while SHOW CREATE TABLE uses ordinary quotes. Decode only this known
+		// outer representation; preserve every literal byte between delimiters.
+		if c == '\\' && i+1 < len(expression) && expression[i+1] == '\'' {
+			trimIntroducer()
+			out = append(out, '\'')
+			i += 2
+			closed := false
+			for ; i < len(expression); i++ {
+				if expression[i] == '\\' && i+1 < len(expression) && expression[i+1] == '\'' {
+					out = append(out, '\'')
+					i++
+					closed = true
 					break
 				}
+				out = append(out, expression[i])
 			}
+			if !closed {
+				return "unsupported-mysql-check-literal:" + expression
+			}
+			continue
+		}
+		if c == '\'' {
+			trimIntroducer()
 			out = append(out, c)
 			for i++; i < len(expression); i++ {
 				c = expression[i]
@@ -177,6 +203,10 @@ func mysqlCheckSignature(expression string) string {
 				}
 			}
 			continue
+		}
+		if c == '(' && strings.HasSuffix(string(out), "octet_length") {
+			// MySQL prints the documented LENGTH synonym in I_S metadata.
+			out = append(out[:len(out)-len("octet_length")], []byte("length")...)
 		}
 		switch c {
 		case '`', '(', ')', ' ', '\t', '\r', '\n', '\v', '\f':

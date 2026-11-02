@@ -1,6 +1,7 @@
 package store
 
 import (
+	"encoding/hex"
 	"reflect"
 	"strings"
 	"testing"
@@ -71,5 +72,33 @@ func TestMySQLSchemaCheckComparisonPreservesLiteralIdentity(t *testing.T) {
 		if mysqlCheckSignature(expected) == mysqlCheckSignature(changed) {
 			t.Fatalf("weakened or altered literal constraint was accepted: %s", changed)
 		}
+	}
+}
+
+func TestMySQLSchemaCheckAcceptsObserved84MetadataWithoutWeakeningLiterals(t *testing.T) {
+	raw, err := hex.DecodeString("286073746174656020696e20285f757466386d62345c276170706c79696e675c272c5f757466386d62345c276170706c6965645c272929")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `state in ('applying','applied')`
+	if mysqlCheckSignature(string(raw)) != mysqlCheckSignature(expected) {
+		t.Fatalf("observed MySQL 8.4.13 metadata was not recognized: %s", raw)
+	}
+	for _, changed := range []string{
+		strings.Replace(string(raw), "applying", "APPLYING", 1),
+		strings.Replace(string(raw), "applying", "applying ", 1),
+		strings.Replace(string(raw), "applying", "apply ing", 1),
+		strings.Replace(string(raw), "applying", "apply\\ing", 1),
+		string(raw) + " or 1=1",
+	} {
+		if mysqlCheckSignature(changed) == mysqlCheckSignature(expected) {
+			t.Fatalf("changed literal or condition was accepted: %s", changed)
+		}
+	}
+	if mysqlCheckSignature(`octet_length(request_digest)=64`) != mysqlCheckSignature("(length(`request_digest`)=64)") {
+		t.Fatal("known byte-length function synonym was rejected")
+	}
+	if mysqlCheckSignature(`char_length(request_digest)=64`) == mysqlCheckSignature(`octet_length(request_digest)=64`) {
+		t.Fatal("different function was accepted")
 	}
 }
