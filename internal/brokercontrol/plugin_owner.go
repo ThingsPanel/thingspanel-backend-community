@@ -2,8 +2,6 @@ package brokercontrol
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sort"
@@ -139,25 +137,7 @@ func buildPluginPolicy(targets []brokercontract.PluginTarget) (brokercontract.Po
 }
 
 func pluginContextID(principal brokercontract.Principal, cell, instance, connectionID string, targets []brokercontract.PluginTarget) (string, error) {
-	targets = append([]brokercontract.PluginTarget(nil), targets...)
-	sort.Slice(targets, func(i, j int) bool {
-		if targets[i].TenantID != targets[j].TenantID {
-			return targets[i].TenantID < targets[j].TenantID
-		}
-		return targets[i].DeviceID < targets[j].DeviceID
-	})
-	data, err := json.Marshal(struct {
-		Principal  brokercontract.Principal      `json:"principal"`
-		Cell       string                        `json:"cell"`
-		Instance   string                        `json:"instance"`
-		Connection string                        `json:"connection"`
-		Targets    []brokercontract.PluginTarget `json:"targets"`
-	}{principal, cell, instance, connectionID, targets})
-	if err != nil {
-		return "", err
-	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:]), nil
+	return brokercontract.PluginContextID(principal, cell, instance, connectionID, targets)
 }
 
 func (o *Owner) persistPluginGrant(ctx context.Context, grant *brokercontract.Grant, cell, instance string, targets []brokercontract.PluginTarget) error {
