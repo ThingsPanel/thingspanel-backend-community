@@ -322,6 +322,14 @@ func updateDeviceByMap(deviceID, tenantID string, deviceMap map[string]interface
 	}
 	var err error
 	if scoped {
+		if tx.Device.UnderlyingDB().Dialector.Name() != "postgres" {
+			tx.Rollback()
+			return nil, ErrDeviceIdentityState
+		}
+		if err := tx.Device.UnderlyingDB().Exec("SET LOCAL lock_timeout='3s'").Error; err != nil {
+			tx.Rollback()
+			return nil, err
+		}
 		db := tx.Device.UnderlyingDB().Session(&gorm.Session{NewDB: true})
 		var current model.Device
 		err = db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND tenant_id=?", deviceID, tenantID).Take(&current).Error

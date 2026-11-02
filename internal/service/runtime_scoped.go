@@ -22,6 +22,12 @@ func runtimeDeviceTx(ctx context.Context, tenant, id string, mutate func(*gorm.D
 		return errors.New("runtime device scope unavailable")
 	}
 	return global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if tx.Dialector.Name() != "postgres" {
+			return errors.New("runtime scope requires PostgreSQL row locking")
+		}
+		if err := tx.Exec("SET LOCAL lock_timeout='3s'").Error; err != nil {
+			return err
+		}
 		var d model.Device
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND tenant_id=?", id, tenant).Take(&d).Error; err != nil {
 			return err

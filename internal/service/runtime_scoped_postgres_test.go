@@ -29,14 +29,7 @@ func runtimeFixture(t *testing.T) *gorm.DB {
 			t.Fatal("seed runtime device")
 		}
 	}
-	for _, r := range []dal.DeviceIDReservation{
-		{ID: "device-b", TenantID: "tenant-b", State: "active", CreatedAt: time.Now()},
-		{ID: "parent-a", TenantID: "tenant-a", State: "active", CreatedAt: time.Now()},
-	} {
-		if err := db.Create(&r).Error; err != nil {
-			t.Fatal("seed runtime reservation")
-		}
-	}
+
 	return db
 }
 

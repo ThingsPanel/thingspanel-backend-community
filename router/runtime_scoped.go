@@ -85,6 +85,9 @@ func runtimeScope(source string, ingress bool, handler gin.HandlerFunc) gin.Hand
 			runtimeReject(c, 503, "runtime scope unavailable")
 			return
 		}
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
+		defer cancel()
+		c.Request = c.Request.WithContext(ctx)
 		if owner {
 			runtimeLegacyRBAC(c, tenant)
 			if !c.IsAborted() {
@@ -92,12 +95,8 @@ func runtimeScope(source string, ingress bool, handler gin.HandlerFunc) gin.Hand
 			}
 			return
 		}
-		// Bound lock waits and handler work; all read handlers leave device rows
-		// untouched. Holding the row prevents tenant transfer, disable or delete
-		// between the authorization decision and the final read/side effect.
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
-		defer cancel()
-		c.Request = c.Request.WithContext(ctx)
+		// The device SHARE lock covers the entire read or external Redis effect.
+
 		err = global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			if tx.Dialector.Name() != "postgres" {
 				return errors.New("runtime scope requires PostgreSQL row locking")
