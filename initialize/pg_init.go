@@ -76,6 +76,9 @@ func PgInit() (*gorm.DB, error) {
 	if err = ApplyDeviceIdentitySchema(db); err != nil {
 		return nil, fmt.Errorf("initialize permanent device identity schema: %w", err)
 	}
+	if err = ApplyServiceAccessSchema(db); err != nil {
+		return nil, fmt.Errorf("initialize service access receipt schema: %w", err)
+	}
 	if err = ApplyMarketInstallSchema(db); err != nil {
 		return nil, fmt.Errorf("initialize market installation schema: %w", err)
 	}

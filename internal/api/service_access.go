@@ -3,6 +3,7 @@ package api
 import (
 	"project/internal/model"
 	"project/internal/service"
+	"project/pkg/errcode"
 	"project/pkg/utils"
 
 	"github.com/gin-gonic/gin"
@@ -17,13 +18,33 @@ func (*ServiceAccessApi) Create(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ServiceAccess.CreateAccess(&req, userClaims)
+	if key := c.GetHeader("Idempotency-Key"); key != "" {
+		if req.OperationKey != "" && req.OperationKey != key {
+			c.Error(errcode.NewWithMessage(errcode.CodeParamError, "Idempotency-Key and operation_key must match"))
+			return
+		}
+		req.OperationKey = key
+	}
+	claimsValue, _ := c.Get("claims")
+	userClaims, _ := claimsValue.(*utils.UserClaims)
+	resp, err := service.GroupApp.ServiceAccess.CreateAccessContext(c.Request.Context(), &req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 	c.Set("data", resp)
+}
+
+// /api/v1/service/access/operations/:key [get]
+func (*ServiceAccessApi) HandleCreateOperation(c *gin.Context) {
+	claimsValue, _ := c.Get("claims")
+	claims, _ := claimsValue.(*utils.UserClaims)
+	observation, err := service.GroupApp.ServiceAccess.GetCreateOperation(c.Request.Context(), c.Param("key"), claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", observation)
 }
 
 // /api/v1/service/access/list

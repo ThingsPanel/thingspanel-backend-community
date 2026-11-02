@@ -75,6 +75,25 @@ func TestServiceAccessTenantMutationsPostgres(t *testing.T) {
 	if err := db.Where("id=?", "access-a").Take(&a).Error; err != nil || a.Name != newName {
 		t.Fatalf("own update missing: %+v err=%v", a, err)
 	}
+	for _, config := range []string{`{"endpoint":"updated"}`, ""} {
+		input := config
+		if err := GroupApp.ServiceAccess.Update(&model.UpdateAccessReq{ID: "access-a", ServiceAccessConfig: &input}, claimsA); err != nil {
+			t.Fatalf("configuration update: %v", err)
+		}
+		if input != config {
+			t.Fatal("configuration update mutated its input")
+		}
+		if err := db.Where("id=?", "access-a").Take(&a).Error; err != nil {
+			t.Fatal(err)
+		}
+		want := config
+		if want == "" {
+			want = "{}"
+		}
+		if a.ServiceAccessConfig == nil || *a.ServiceAccessConfig != want {
+			t.Fatalf("configuration was not persisted: got=%v want=%q", a.ServiceAccessConfig, want)
+		}
+	}
 	if err := GroupApp.ServiceAccess.Delete("access-a", claimsA); err != nil {
 		t.Fatalf("own delete: %v", err)
 	}
