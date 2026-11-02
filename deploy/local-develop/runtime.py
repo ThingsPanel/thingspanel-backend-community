@@ -104,7 +104,11 @@ def bootstrap(root):
     backend = source(manifest['backend']['path'])
     if backend != manifest['backend']:
         raise ValueError('Pinned backend source changed')
-    containers = json.loads(compose(root, 'ps', '--format', 'json'))
+    raw = compose(root, 'ps', '--format', 'json')
+    try:
+        containers = json.loads(raw)
+    except json.JSONDecodeError:
+        containers = [json.loads(line) for line in raw.splitlines() if line.strip()]
     if not isinstance(containers, list):
         containers = [containers]
     pg = [c for c in containers if c.get('Service') == 'postgres']
@@ -185,6 +189,11 @@ def up(root, stage):
     for name, item in lock.items():
         if json.loads(run(['docker', 'image', 'inspect', item['id']]))[0]['Id'] != item['id']:
             raise ValueError('Missing locked local image: ' + name)
+    existing = run(['docker', 'ps', '-aq', '--filter', 'label=com.docker.compose.project=' + PROJECT])
+    for container in existing.splitlines():
+        inspected = json.loads(run(['docker', 'inspect', container]))[0]
+        if inspected['Config']['Labels'].get('com.docker.compose.project.working_dir') != str(root):
+            raise ValueError('Project name already belongs to another runtime; refusing replacement')
     import socket
     # Do not prohibit the old 8080/9999 stack: it remains running and untouched.
     services = {'foundation': ['postgres', 'redis'], 'native': ['broker-owner', 'mosquitto', 'backend', 'encore-api', 'notification-core', 'automation-scheduler', 'frontend']}[stage]

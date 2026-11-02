@@ -96,6 +96,13 @@ def generate(root, manifest, password, config):
                         mount('internal.crt', '/run/config/internal.crt'), mount('internal.key', '/run/config/internal.key')]}})
     write(private / 'tick.sh', '#!/bin/sh\nset -eu\nwhile true; do wget -qO /tmp/tick-result --header="Authorization: Bearer $TP_AUTOMATION_SERVICE_TOKEN" --header="X-Automation-Deployment: $TP_SOURCE_DEPLOYMENT_ID" --post-data=\"{}\" http://encore-api:14000/internal/automation/tick && touch /tmp/last-tick-ok; sleep 5; done\n', True)
     config['services']['automation-scheduler'] = {'image': images['backend'], 'entrypoint': ['/bin/sh', '/run/config/tick.sh'], 'environment': {'TP_AUTOMATION_SERVICE_TOKEN': automation, 'TP_SOURCE_DEPLOYMENT_ID': deployment}, 'volumes': [mount('tick.sh', '/run/config/tick.sh')]}
+    config['services']['broker-owner']['depends_on'] = {'postgres': {'condition': 'service_healthy'}}
+    config['services']['broker-owner']['healthcheck'] = {'test': ['CMD', '/usr/local/bin/tp-broker-readiness', 'owner-liveness'], 'interval': '5s', 'retries': 24}
+    config['services']['mosquitto']['depends_on'] = {'broker-owner': {'condition': 'service_healthy'}}
+    config['services']['backend']['depends_on'] = {'postgres': {'condition': 'service_healthy'}, 'redis': {'condition': 'service_started'}, 'mosquitto': {'condition': 'service_started'}}
+    for service in ('encore-api', 'notification-core', 'automation-scheduler'):
+        config['services'][service]['depends_on'] = ['backend']
+    config['services']['frontend']['depends_on'] = ['backend', 'encore-api', 'notification-core']
     # Preserve develop's exact native API route list. Remove only unavailable ThingsVis
     # locations to avoid nginx startup DNS failures; dashboard remains outside this core fixture.
     nginx = (Path(manifest['frontend']['path']) / 'nginx.conf').read_text()
