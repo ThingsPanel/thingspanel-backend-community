@@ -40,10 +40,41 @@ func verifyMarketInstallSchema(tx *gorm.DB) error {
 		{"market_bundle_installations", "uq_installation_idempotency_tenant", "UNIQUE (idempotency_key, tenant_id)"},
 		{"market_resource_mappings", "uq_resource_mapping", "UNIQUE (installation_id, resource_type, market_resource_key)"},
 		{"market_bundle_binding_status", "uq_binding_key", "UNIQUE (installation_id, binding_key)"},
+		{"market_install_authorizations", "uq_market_install_authorization_request", "UNIQUE (tenant_id, request_key)"},
+		{"market_install_config_receipts", "uq_market_install_config_resource", "UNIQUE (tenant_id, instance_key, resource_key)"},
 	} {
 		if err := verifyNativeConstraint(tx, expected.table, expected.name, expected.definition, "u"); err != nil {
 			return err
 		}
+	}
+	for table, columns := range map[string]map[string]expectedNativeColumn{
+		"market_install_authorizations": {
+			"id": {dataType: "character varying", length: 36, nullable: "NO"}, "tenant_id": {dataType: "text", nullable: "NO"}, "subject_id": {dataType: "text", nullable: "NO"},
+			"authority": {dataType: "text", nullable: "NO"}, "auth_version": {dataType: "bigint", nullable: "NO"}, "actor_id": {dataType: "text", nullable: "NO"}, "actor_version": {dataType: "bigint", nullable: "NO"},
+			"delegated": {dataType: "boolean", nullable: "NO"}, "purpose": {dataType: "text", nullable: "NO"}, "request_key": {dataType: "character varying", length: 128, nullable: "NO"},
+			"request_digest": {dataType: "character varying", length: 67, nullable: "NO"}, "plan_digest": {dataType: "character", length: 64, nullable: "NO"}, "operation_id": {dataType: "text", nullable: "NO"},
+			"plan": {dataType: "jsonb", nullable: "NO"}, "session_hash": {dataType: "text", nullable: "NO"}, "expires_at": {dataType: "timestamp with time zone", nullable: "NO"}, "revoked_at": {dataType: "timestamp with time zone", nullable: "YES"}, "created_at": {dataType: "timestamp with time zone", nullable: "NO"},
+		},
+		"market_install_config_receipts": {
+			"tenant_id": {dataType: "text", nullable: "NO"}, "subject_id": {dataType: "text", nullable: "NO"}, "operation_key": {dataType: "character", length: 64, nullable: "NO"},
+			"payload_hash": {dataType: "character", length: 64, nullable: "NO"}, "instance_key": {dataType: "text", nullable: "NO"}, "resource_key": {dataType: "character varying", length: 128, nullable: "NO"},
+			"config_id": {dataType: "character varying", length: 36, nullable: "NO"}, "binding_revision": {dataType: "bigint", nullable: "NO"}, "result": {dataType: "jsonb", nullable: "NO"}, "created_at": {dataType: "timestamp with time zone", nullable: "NO"},
+		},
+	} {
+		for name, expected := range columns {
+			if err := verifyNativeColumn(tx, table, name, expected); err != nil {
+				return err
+			}
+		}
+	}
+	if err := verifyNativeConstraint(tx, "market_install_config_receipts", "market_install_config_receipts_pkey", "PRIMARY KEY (tenant_id, subject_id, operation_key)", "p"); err != nil {
+		return err
+	}
+	if err := verifyNativeConstraint(tx, "market_install_authorizations", "market_install_authorizations_pkey", "PRIMARY KEY (id)", "p"); err != nil {
+		return err
+	}
+	if err := verifyNativeConstraint(tx, "market_install_authorizations", "market_install_authorizations_purpose_check", `CHECK ((purpose = 'a08.install.v1'::text))`, "c"); err != nil {
+		return err
 	}
 	return nil
 }

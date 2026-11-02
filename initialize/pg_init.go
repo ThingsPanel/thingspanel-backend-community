@@ -73,6 +73,9 @@ func PgInit() (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("检查数据库版本失败: %w", err)
 	}
+	if err = ApplyDeviceIdentitySchema(db); err != nil {
+		return nil, fmt.Errorf("initialize permanent device identity schema: %w", err)
+	}
 	if err = ApplyMarketInstallSchema(db); err != nil {
 		return nil, fmt.Errorf("initialize market installation schema: %w", err)
 	}
@@ -189,13 +192,8 @@ func PgConnect(config *DbConfig) (*gorm.DB, error) {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	log.Println("连接数据库完成...")
-
-	if err = ApplyAppPushSchema(db); err != nil {
-		return nil, fmt.Errorf("initialize app push schema: %w", err)
-	}
-	if err = ApplyAuthSchema(db); err != nil {
-		return nil, err
-	}
+	// Component migrations run once, after the historical base schema exists.
+	// Connecting to an empty database must not attempt an auth ALTER TABLE.
 	return db, nil
 }
 

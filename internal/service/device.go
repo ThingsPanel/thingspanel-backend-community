@@ -145,6 +145,12 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 		err = dal.CreateDeviceWithLockedParent(&device)
 	}
 	if err != nil {
+		if errors.Is(err, dal.ErrDeviceIDReserved) {
+			return device, errcode.NewWithMessage(errcode.CodeOpDenied, "device ID is permanently reserved; choose a new ID")
+		}
+		if errors.Is(err, dal.ErrDeviceBindingInvalid) {
+			return device, errcode.New(errcode.CodeParamError)
+		}
 		if errors.Is(err, dal.ErrParentDeviceUnavailable) {
 			return device, errcode.New(errcode.CodeNoPermission)
 		}
@@ -239,6 +245,12 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 	}
 	err = dal.CreateDeviceBatch(deviceList)
 	if err != nil {
+		if errors.Is(err, dal.ErrDeviceIDReserved) {
+			return nil, errcode.NewWithMessage(errcode.CodeOpDenied, "device ID is permanently reserved; choose a new ID")
+		}
+		if errors.Is(err, dal.ErrDeviceCreateOutcomeUnknown) {
+			return nil, errcode.NewWithMessage(errcode.CodeDBError, "device creation outcome unknown; reconcile before retry")
+		}
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
@@ -1639,10 +1651,8 @@ func (*Device) GetDeviceSelector(req model.DeviceSelectorReq, userClaims *utils.
 }
 
 // 获取租户下最近上报数据的三个设备的遥测数据
-func (*Device) GetTenantTelemetryData(_ string) ([]map[string]interface{}, error) {
-	// Current-data rows and external TSDB reads cannot yet prove device ownership
-	// and deletion generation throughout this multi-stage lookup.
-	return nil, errcode.New(errcode.CodeServiceUnavailable)
+func (d *Device) GetTenantTelemetryData(tenantID string) ([]map[string]interface{}, error) {
+	return d.getTenantTelemetryDataCurrent(tenantID)
 }
 
 // GetDeviceStatusHistory 获取设备状态历史记录

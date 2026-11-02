@@ -932,7 +932,12 @@ func (*DeviceApi) HandleDeviceSelector(c *gin.Context) {
 // 获取租户下最近上报数据的三个设备的遥测数据
 // /api/v1/device/telemetry/latest [get]
 func (*DeviceApi) HandleTenantTelemetryData(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	value, exists := c.Get("claims")
+	userClaims, ok := value.(*utils.UserClaims)
+	if !exists || !ok || userClaims == nil {
+		c.Error(errcode.New(errcode.CodeNoPermission))
+		return
+	}
 
 	data, err := service.GroupApp.Device.GetTenantTelemetryData(userClaims.TenantID)
 	if err != nil {
@@ -1081,8 +1086,7 @@ func (*DeviceApi) InstallBundleFromMarket(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	installService := service.NewMarketBundleInstallService()
-	response, err := installService.InstallBundle(c.Request.Context(), &req, userClaims)
+	response, err := service.InstallMarketBundleWithSelectedOwner(c.Request.Context(), &req, userClaims, c.GetHeader("x-token"))
 	if err != nil {
 		c.Error(err)
 		return
@@ -1237,8 +1241,7 @@ func (*DeviceApi) GetBundleInstallStatus(c *gin.Context) {
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 
-	installService := service.NewMarketBundleInstallService()
-	response, err := installService.GetInstallationStatus(c.Request.Context(), installID, userClaims.TenantID)
+	response, err := service.GetSelectedMarketInstallation(c.Request.Context(), installID, userClaims, c.GetHeader("x-token"))
 	if err != nil {
 		c.Error(err)
 		return

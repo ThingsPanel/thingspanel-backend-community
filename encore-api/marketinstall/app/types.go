@@ -91,6 +91,8 @@ type Provider interface {
 }
 type Operation struct {
 	ID               string `json:"id"`
+	BundleKey        string `json:"bundleKey"`
+	Version          string `json:"version"`
 	TenantID         string `json:"-"`
 	SubjectID        string `json:"-"`
 	AuthorizationRef string `json:"-"`
