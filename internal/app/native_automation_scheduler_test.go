@@ -37,7 +37,7 @@ func (o *schedulerLogObserver) Fire(e *logrus.Entry) error {
 func TestNativeAutomationSchedulerLifecycle(t *testing.T) {
 	mode := os.Getenv("TP_TEST_NATIVE_SCHEDULER")
 	if mode == "" {
-		for _, mode := range []string{"legacy", "native"} {
+		for _, mode := range []string{"legacy", "native", "native-external", "invalid"} {
 			cmd := exec.Command(os.Args[0], "-test.run=^TestNativeAutomationSchedulerLifecycle$")
 			cmd.Env = append(os.Environ(), "TP_TEST_NATIVE_SCHEDULER="+mode)
 			if out, err := cmd.CombinedOutput(); err != nil {
@@ -69,11 +69,29 @@ func TestNativeAutomationSchedulerLifecycle(t *testing.T) {
 		_, _ = w.Write([]byte(`{"replayed":0,"tick":{"schedule_materialized":0,"schedule_executed":0,"outbox_drained":0}}`))
 	}))
 	defer server.Close()
-	t.Setenv("GOTP_AUTOMATION_MODE", mode)
+	executionMode := mode
+	if mode == "native-external" || mode == "invalid" {
+		executionMode = "native"
+	}
+	t.Setenv("GOTP_AUTOMATION_MODE", executionMode)
+	source := "process"
+	if mode == "native-external" {
+		source = ""
+	}
+	if mode == "invalid" {
+		source = "invalid"
+	}
+	t.Setenv("GOTP_AUTOMATION_SCHEDULER", source)
 	t.Setenv("GOTP_AUTOMATION_BASE_URL", server.URL)
 	t.Setenv("GOTP_AUTOMATION_TOKEN", token)
 	t.Setenv("GOTP_AUTOMATION_DEPLOYMENT_ID", "deployment-a")
 	app, err := NewApplication()
+	if mode == "invalid" {
+		if err == nil {
+			t.Fatal("invalid scheduler source accepted")
+		}
+		return
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,9 +104,9 @@ func TestNativeAutomationSchedulerLifecycle(t *testing.T) {
 			scheduler.interval = 10 * time.Millisecond
 		}
 	}
-	if mode == "legacy" {
+	if mode == "legacy" || mode == "native-external" {
 		if workers != 0 {
-			t.Fatal("legacy mode started native scheduler")
+			t.Fatal("external/legacy mode started native scheduler")
 		}
 		return
 	}

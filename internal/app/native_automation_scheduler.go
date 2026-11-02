@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"github.com/sirupsen/logrus"
+	"os"
 	"project/internal/automationbridge"
+	"strings"
 	"sync"
 	"time"
 )
@@ -86,6 +88,16 @@ func (s *nativeAutomationScheduler) Stop() error {
 }
 
 func registerNativeAutomationScheduler(app *Application) error {
+	// Existing deployments use the external systemd tick timer. Never start a
+	// second source merely because native execution is selected.
+	source := strings.TrimSpace(os.Getenv("GOTP_AUTOMATION_SCHEDULER"))
+	switch source {
+	case "", "external":
+		return nil
+	case "process":
+	default:
+		return errors.New("invalid automation scheduler source")
+	}
 	config, err := automationbridge.ReadConfig()
 	if err != nil {
 		return err
