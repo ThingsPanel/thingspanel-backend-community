@@ -20,6 +20,10 @@ def digest(path):
 def execute(command, cwd, env, root, runtime, phase):
     runtime.preflight(root, phase)
     log = root / 'cache' / (phase + '.build.log')
+    if log.exists():
+        previous = log.with_name(phase + '.build.previous-' + digest(log)[:12] + '.log')
+        if not previous.exists():
+            shutil.copyfile(log, previous)
     with log.open('wb') as output:
         process = subprocess.Popen(command, cwd=cwd, env=env, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
         try:
@@ -46,7 +50,7 @@ def encore_command(tag):
         '--services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification', '--skip-config']
 
 
-def build(root, runtime, phase, base_image=None):
+def build(root, runtime, phase, base_image=None, system_stage=None, dependency_seed=None, resume_stage=False):
     runtime.preflight(root, phase)
     manifest = runtime.load_fixture(root)
     config = json.loads((root / 'compose.json').read_text())
@@ -55,7 +59,8 @@ def build(root, runtime, phase, base_image=None):
     cache = root / 'cache'
     env = os.environ.copy()
     for key, directory in {'GOCACHE': 'go-build', 'GOMODCACHE': 'go-mod', 'TMPDIR': 'tmp',
-                           'XDG_CACHE_HOME': 'xdg', 'ENCORE_CACHE_DIR': 'encore', 'ENCORE_CONFIG_DIR': 'encore-config', 'PNPM_HOME': 'pnpm'}.items():
+                           'XDG_CACHE_HOME': 'xdg', 'ENCORE_CACHE_DIR': 'encore', 'ENCORE_CONFIG_DIR': 'encore-config', 'PNPM_HOME': 'pnpm',
+                           'GOPATH': 'gopath', 'npm_config_cache': 'npm-cache', 'COREPACK_HOME': 'corepack'}.items():
         path = cache / directory
         path.mkdir(parents=True, exist_ok=True)
         env[key] = str(path)
@@ -100,29 +105,47 @@ def build(root, runtime, phase, base_image=None):
         provenance['automation-scheduler'] = {'sha': sha, 'mode': 'shell-only-runtime', 'base_image': image_id}
     elif phase == 'frontend':
         # Work in a tracked-source export: pnpm/node_modules never pollutes pinned checkout.
-        stage = root / 'frontend-build'
-        if not stage.exists():
-            stage.mkdir(mode=0o700)
-            archive = subprocess.Popen(['git', '-C', str(repo), 'archive', sha], stdout=subprocess.PIPE)
-            result = subprocess.run(['tar', '-xf', '-', '-C', str(stage)], stdin=archive.stdout)
-            archive.stdout.close()
-            if result.returncode or archive.wait():
-                raise ValueError('Frontend tracked-source export failed')
+        if system_stage or dependency_seed:
+            if not system_stage or not dependency_seed:
+                raise ValueError('Both explicit system stage and matching dependency seed are required')
+            from frontend_seed import prepare
+            stage = prepare(root, source, system_stage, dependency_seed, resume_stage)
+        else:
+            stage = root / 'frontend-build'
+            if not stage.exists():
+                stage.mkdir(mode=0o700)
+                archive = subprocess.Popen(['git', '-C', str(repo), 'archive', sha], stdout=subprocess.PIPE)
+                result = subprocess.run(['tar', '-xf', '-', '-C', str(stage)], stdin=archive.stdout)
+                archive.stdout.close()
+                if result.returncode or archive.wait():
+                    raise ValueError('Frontend tracked-source export failed')
         tracked = runtime.run(['git', '-C', str(repo), 'ls-files', '-z']).split('\0')
         for file in filter(None, tracked):
             if (repo / file).is_file() and (not (stage / file).is_file() or digest(repo / file) != digest(stage / file)):
                 raise ValueError('Frontend source export differs from pinned checkout: ' + file)
         env.pop('GOOS', None)
         env.pop('GOARCH', None)
-        execute(['pnpm', 'install', '--frozen-lockfile', '--store-dir', str(cache / 'pnpm-store')], stage, env, root, runtime, 'frontend-install')
+        if not dependency_seed:
+            execute(['pnpm', 'install', '--frozen-lockfile', '--store-dir', str(cache / 'pnpm-store')], stage, env, root, runtime, 'frontend-install')
+        else:
+            for variable, name in [('TMPDIR', 'tmp'), ('XDG_CACHE_HOME', 'xdg')]:
+                local_cache = stage / '.local-cache' / name
+                local_cache.mkdir(mode=0o700, parents=True, exist_ok=True)
+                env[variable] = str(local_cache)
         execute(['pnpm', 'build'], stage, env, root, runtime, 'frontend')
         dist = stage / 'dist'
         if not (dist / 'index.html').is_file():
             raise ValueError('Frontend build did not create index.html')
+        if dependency_seed:
+            exported = out / 'frontend-dist'
+            if exported.exists():
+                raise ValueError('Frontend output directory already exists; refuse overwrite')
+            shutil.copytree(dist, exported)
+            dist = exported
         config['services']['frontend']['image'] = image_id
         config['services']['frontend']['volumes'].append(str(dist) + ':/usr/share/nginx/html:ro')
         provenance['frontend'] = {'sha': sha, 'mode': 'readonly-dist-overlay', 'base_image': image_id,
-            'files': {str(path.relative_to(dist)): digest(path) for path in dist.rglob('*') if path.is_file()}}
+            'dist_path': str(dist), 'files': {str(path.relative_to(dist)): digest(path) for path in dist.rglob('*') if path.is_file()}}
     elif phase == 'encore':
         version = runtime.run(['encore', 'version'])
         if not version.startswith('encore version v1.58.6'):
@@ -169,7 +192,9 @@ def verify(root, manifest, config):
                 if str(out / ('backend-' + directory)) + ':/go/src/app/' + directory + ':ro' not in mounts:
                     raise ValueError('Backend source resource overlay missing')
         if name == 'frontend':
-            dist = root / 'frontend-build/dist'
+            dist = Path(record.get('dist_path', str(root / 'frontend-build/dist')))
+            if not dist.is_relative_to(root):
+                raise ValueError('Frontend runtime artifacts must remain within fixture on 80G')
             if str(dist) + ':/usr/share/nginx/html:ro' not in mounts:
                 raise ValueError('Frontend develop asset overlay missing')
             actual = {str(p.relative_to(dist)): digest(p) for p in dist.rglob('*') if p.is_file()}

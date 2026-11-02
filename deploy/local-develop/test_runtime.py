@@ -42,7 +42,7 @@ class WiringSafety(unittest.TestCase):
             (root / 'private').mkdir()
             front = root / 'front'
             front.mkdir()
-            (front / 'nginx.conf').write_text('http { server { location /api { proxy_pass http://backend:9999; } } }')
+            (front / 'nginx.conf').write_text('http { server { # callback /thingsvis-api\n location /api { proxy_pass http://backend:9999; } } }')
             manifest = {'backend': {'sha': 'a' * 40}, 'frontend': {'sha': 'b' * 40, 'path': str(front)}}
             def certificate(*args, **kwargs):
                 (root / 'private/internal.crt').write_text('test-certificate')
@@ -201,3 +201,61 @@ class EncoreBuildContract(unittest.TestCase):
         self.assertEqual(command[command.index('--base') + 1], 'scratch')
         self.assertNotIn('--push', command)
         self.assertIn('--skip-config', command)
+
+class RuntimeBindingSafety(unittest.TestCase):
+    def setUp(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        import binding
+        self.binding = binding
+        self.provider = '123e4567-e89b-12d3-a456-426614174000'
+        self.expected = {'provider_id': self.provider, 'tenant_id': 't', 'namespace': 'community', 'service_instance_id': 'confirmed-instance'}
+        self.rows = [{'runtime_provider_id': self.provider, 'tenant_id': 't', 'runtime_namespace': 'community', 'service_instance_id': 'confirmed-instance', 'runtime_external_id': 'd'}]
+        self.releases = [{'provider_id': self.provider, 'version': 'v1', 'schema_digest': 'digest', 'artifact_digest': 'sha256:digest'}]
+        self.key = {'tenant_id': 't', 'api_key': 'secret'}
+
+    def test_empty_new_database_never_generates_provider_ids(self):
+        with self.assertRaises(ValueError):
+            self.binding.validate(self.expected, [], [], self.key)
+
+    def test_other_tenant_or_service_instance_is_refused(self):
+        for field, value in [('tenant_id', 'other'), ('service_instance_id', 'other'), ('runtime_provider_id', 'other')]:
+            changed = dict(self.rows[0], **{field: value})
+            with self.assertRaises(ValueError):
+                self.binding.validate(self.expected, [changed], self.releases, self.key)
+
+    def test_only_exact_confirmed_resources_install_environment(self):
+        env = self.binding.validate(self.expected, self.rows, self.releases, self.key)
+        self.assertEqual(env['TP_RUNTIME_COMMUNITY_PROVIDER_ID'], self.provider)
+        self.assertEqual(env['TP_RUNTIME_COMMUNITY_SERVICE_INSTANCE_ID'], 'confirmed-instance')
+        self.assertNotIn('TP_RUNTIME_DEVICE_ID_MODE', env)
+
+class FrontendWorkspaceSeedSafety(unittest.TestCase):
+    def test_workspace_dependency_must_not_fall_back_to_root_version(self):
+        import sys, tempfile, json
+        sys.path.insert(0, str(Path(__file__).parent))
+        import frontend_seed
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            repo, old, new = base / 'repo', base / 'old', base / 'new'
+            for root in (repo, old, new):
+                (root / 'packages/axios').mkdir(parents=True)
+            (repo / 'package.json').write_text('{}')
+            (repo / 'packages/axios/package.json').write_text(json.dumps({'dependencies': {'axios': '1.6.7'}}))
+            (old / 'packages/axios/node_modules/axios').mkdir(parents=True)
+            (old / 'packages/axios/node_modules/axios/package.json').write_text('{"version":"1.6.7"}')
+            (new / 'node_modules/axios').mkdir(parents=True)
+            (new / 'node_modules/axios/package.json').write_text('{"version":"1.5.1"}')
+            with self.assertRaisesRegex(ValueError, 'missing'):
+                frontend_seed.verify_dependency_versions(repo, old / 'node_modules', new, [Path('packages/axios')])
+            (new / 'packages/axios/node_modules/axios').mkdir(parents=True)
+            (new / 'packages/axios/node_modules/axios/package.json').write_text('{"version":"1.6.7"}')
+            versions = frontend_seed.verify_dependency_versions(repo, old / 'node_modules', new, [Path('packages/axios')])
+            self.assertEqual(versions['packages/axios:axios'], '1.6.7')
+
+    def test_system_stage_must_be_in_fresh_task_directory(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        import frontend_seed
+        with self.assertRaisesRegex(ValueError, 'task directory'):
+            frontend_seed.prepare(Path('/Volumes/80G/test'), {}, '/tmp/not-authorized', '/tmp/node_modules')

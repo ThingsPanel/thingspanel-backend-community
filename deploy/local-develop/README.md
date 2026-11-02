@@ -173,3 +173,58 @@ quota or separated writable storage. At observed 6.1 GiB, backend/frontend phase
 have only about 2.1 GiB headroom and remain capacity-sensitive; Encore/Broker are
 blocked by preflight. Do not waive these checks to finish a build. No heavy build
 has been attempted in this mode.
+
+## Exact provider/instance fence
+
+The tenant-fence change `1a9eb268e1beec847ab197cda4bd46bcfaa56e24` requires a
+confirmed runtimeRef to match the configured provider UUID, namespace and service
+instance exactly. New fixtures no longer set `TP_RUNTIME_DEVICE_ID_MODE=identity`.
+No provider or instance IDs are guessed, and absence of resources is not hidden
+by UUID identity fallback.
+
+`configure-runtime-binding --root <fixture>` installs settings only after:
+
+- the pinned backend source includes that reviewed fence;
+- the fixture API key is active in the primary database and belongs to the exact
+  test tenant/creator/key previously issued;
+- connector_runtime contains the actual immutable provider release;
+- device_metadata contains at least one actual runtime binding and every binding
+  in this single test tenant matches the exact provider/namespace/instance;
+- `private/runtime-binding.json` (0600) explicitly records those actual
+  `tenant_id`, `provider_id`, `namespace` (`community`) and `service_instance_id`;
+- the configured Community destination remains `http://backend:9999`.
+
+It creates no provider or runtime binding. Current fresh SQL bootstrap creates
+empty resource tables; publication is a private Encore owner requiring verified
+SYS_ADMIN, and no production runtimeRef confirmation writer was found. Therefore
+an empty fixture is correctly blocked until an authenticated owner bootstrap is
+implemented. Adding that entry point is a separate explicit product contract;
+SQL insertion is not a substitute for provider/instance confirmation.
+
+## Explicit system-volume frontend cache clone
+
+When USB random I/O makes fresh installation impractical, the operator may opt in
+to a new `~/.codex/local-runtimes/<task>` stage using `--system-frontend-stage`
+and `--dependency-seed <verified-existing-node_modules>`. This path never moves or
+changes an existing checkout/store. It requires matching root lock SHA, pnpm10.8
+isolated layout, matching workspace manifests, same-volume APFS clonefile and
+12 GiB free before cloning. clonefile failure does not fall back to a full copy.
+
+The root dependency virtual store **and every workspace-local node_modules** must
+be cloned. Root-lock equality alone is insufficient: e.g. workspace axios1.6.7
+must not fall back to root axios1.5.1. All root/workspace links must resolve solely
+inside the new stage dependency graph or its pinned packages source, generated
+.bin absolute paths are rebased, and each declared root/workspace dependency's
+actual version must match the existing installed graph. No pnpm install runs
+against the shared store. The private stage then runs the normal typecheck/build;
+only successful new dist output is copied to the fixture on 80G and recorded in
+provenance. Old dist is never copied. The original package cache is trusted by
+its matched locked graph; this is not a fresh integrity download of every package.
+
+`--resume-private-frontend-stage` may complete only this task's previously cloned
+stage whose provenance SHA, lock SHA and every tracked source file still match the
+pinned repository. It adds missing workspace module roots without replacing any
+unrecorded dependency directories. This avoids another full root clone and its
+APFS metadata cost. Existing build logs are retained with content-hash names
+before a subsequent run. A type error from an incomplete workspace dependency
+copy must not be attributed to product source until the complete graph is checked.

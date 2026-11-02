@@ -57,7 +57,7 @@ def generate(root, manifest, password, config):
     account = {'email': 'local-native@example.invalid', 'password': secrets.token_urlsafe(32)}
     write(private / 'native-account.json', account)
     encore_env = dict(common, PORT='14000', ENCORE_LISTEN_ADDR='0.0.0.0:14000',
-        TP_RUNTIME_OUTBOX_DISPATCH='on', TP_BACKGROUND_WORKERS='on', TP_RUNTIME_DEVICE_ID_MODE='identity',
+        TP_RUNTIME_OUTBOX_DISPATCH='on', TP_BACKGROUND_WORKERS='on',
         METADATA_CREDENTIAL_KEYRING_B64=keyring(), METADATA_CREDENTIAL_ACTIVE_KEY_REF='main')
     config['services'].update({
         'broker-owner': {'image': images['broker'], 'command': ['owner'], 'user': '0:0',
@@ -107,8 +107,30 @@ def generate(root, manifest, password, config):
     nginx = (Path(manifest['frontend']['path']) / 'nginx.conf').read_text()
     import re
     nginx = re.sub(r'        location[^\n]*\{[^{}]*proxy_pass http://thingsvis-[^{}]*\}\n', '', nginx)
-    if 'thingsvis-' in nginx:
+    if re.search(r'proxy_pass\s+http://thingsvis-', nginx):
         raise ValueError('Unrecognized ThingsVis nginx block; refuse incomplete gateway rewrite')
+    if not re.search(r'listen\s+8443\s+ssl', nginx):
+        end = nginx.rfind('}')
+        if end < 0:
+            raise ValueError('Invalid source nginx HTTP structure')
+        private_tls = '''
+    server {
+        listen 8443 ssl;
+        server_name frontend;
+        ssl_certificate /run/config/internal.crt;
+        ssl_certificate_key /run/config/internal.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        access_log off;
+        location /api/v1/notification/ {
+            proxy_pass http://backend:9999;
+            proxy_set_header x-token $http_x_token;
+            proxy_set_header Authorization $http_authorization;
+            proxy_set_header X-Notification-Deployment $http_x_notification_deployment;
+        }
+        location / { return 404; }
+    }
+'''
+        nginx = nginx[:end] + private_tls + nginx[end:]
     write(root / 'nginx.conf', nginx, True)
     write(root / 'images.requested.json', images)
     return config
