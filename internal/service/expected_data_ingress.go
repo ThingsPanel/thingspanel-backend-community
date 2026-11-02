@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"project/internal/brokerstate"
+	"project/internal/dal"
 	"project/internal/model"
 	"project/pkg/global"
 	"project/pkg/utils"
@@ -70,8 +71,12 @@ func validateExpectedCreatorTx(ctx context.Context, tx *gorm.DB, claims *utils.U
 		return err
 	}
 	var device model.Device
-	if err := tx.Where("id = ? AND tenant_id = ? AND is_enabled = ? AND activate_flag = ?", deviceID, claims.TenantID, "enabled", "active").Take(&device).Error; err != nil {
+	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ? AND tenant_id = ? AND is_enabled = ? AND activate_flag = ?", deviceID, claims.TenantID, "enabled", "active").Take(&device).Error; err != nil {
 		return errors.New("expected message device is unavailable")
+	}
+	var reservation dal.DeviceIDReservation
+	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=? AND state='active'", deviceID, claims.TenantID).Take(&reservation).Error; err != nil {
+		return errors.New("expected message device lifecycle unavailable")
 	}
 	return nil
 }

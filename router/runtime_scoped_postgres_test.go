@@ -188,3 +188,62 @@ func TestRuntimeScopedPostgresCancellationDoesNotReleaseFenceEarly(t *testing.T)
 		t.Fatal("canceled read did not finish")
 	}
 }
+
+func TestRuntimeScopedPostgresBlockedCancelableReadReleasesFence(t *testing.T) {
+	db := runtimeRouterFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		done <- runtimeRequestContext(ctx, "local", "param:id", func(c *gin.Context) {
+			// Models a driver/gRPC read waiting on its explicit request context.
+			<-c.Request.Context().Done()
+			c.Set("data", map[string]any{"must_not_escape": true})
+		})
+	}()
+	select {
+	case w := <-done:
+		if w.Code != 403 || strings.Contains(w.Body.String(), "must_not_escape") {
+			t.Fatal("canceled read returned stale data")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cancelable read retained fence indefinitely")
+	}
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if e := tx.Exec("SET LOCAL lock_timeout='150ms'").Error; e != nil {
+			return e
+		}
+		return tx.Model(&model.Device{}).Where("id=?", "local").Update("tenant_id", "tenant-b").Error
+	})
+	if err != nil {
+		t.Fatal("completed canceled read left its device lock behind")
+	}
+}
+
+func TestRuntimeScopedPostgresConnectionPoolWaitUsesRequestDeadline(t *testing.T) {
+	db := runtimeRouterFixture(t)
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	held, err := sqlDB.Conn(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		done <- runtimeRequestContext(ctx, "local", "param:id", func(*gin.Context) { t.Error("handler ran despite unavailable scope connection") })
+	}()
+	select {
+	case w := <-done:
+		if w.Code != 503 {
+			t.Fatalf("pool deadline status=%d", w.Code)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("scope connection wait ignored request deadline")
+	}
+}

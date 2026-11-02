@@ -6,6 +6,8 @@ The path tenant must be nonempty and exactly equal to the validated session/API-
 
 ## Ownership and concurrency
 
+Scoped read SQL, TSDB gRPC, and metadata reads carry the bounded request context; the dedicated fence connection is acquired with that deadline. The fence transaction stays alive until the callback exits, so canceling a request cannot release its authorization lock while the callback is still running. Canceled callbacks cannot return data. Debug Redis calls use the configured client network timeouts and bounded result limits.
+
 Read/debug handlers hold PostgreSQL SHARE locks on the target device and its active `device_id_reservations` row until the handler finishes. Device tenant, `is_enabled=enabled`, `activate_flag=active`, and reservation lifecycle must match. Command receipt ownership is resolved from the server-side durable request or legacy command log; caller-provided device IDs cannot authorize a receipt.
 
 Mutation owners use their own transaction, never a separate gateway SHARE lock that they would need to upgrade:
@@ -15,7 +17,7 @@ Mutation owners use their own transaction, never a separate gateway SHARE lock t
 - Voucher rotation locks the tenant device and active reservation before uniqueness checking and updating that same tenant row.
 - Subdevice removal locks the tenant child and verifies the existing parent belongs to that tenant before clearing the binding. Only the authorized frozen parent can be notified.
 - Expected-data delete resolves its device on the server, then locks the tenant device and rechecks record ID, tenant, device association, and pending state under UPDATE lock before deletion.
-- Command publication and expected-data creation require `mqtt.input_profile=ingress_v1`; legacy publication does not establish an atomic fence. Their existing durable owner remains authoritative.
+- Command publication uses its durable owner transaction without a second gateway device lock; expected-data creation now locks the active device and reservation in its own admission transaction. Command publication and expected-data creation require `mqtt.input_profile=ingress_v1`; legacy publication does not establish an atomic fence. Their existing durable owner remains authoritative.
 
 Duplicate identity query values, mixed path/query identifiers, duplicate JSON keys, case aliases, and conflicting body identifiers fail before the capability handler. JSON bodies are limited to 1 MiB and restored for ordinary binding.
 
@@ -28,3 +30,7 @@ A real replacement requires an independent server-issued simulation actor/proof.
 ## Verification
 
 Unit regressions cover tenant/SYS_ADMIN rejection, identity confusion, restored bodies, and explicit simulation refusal. PostgreSQL regressions use only fresh disposable schemas from `TEST_BROKER_DATABASE_DSN`, covering target lifecycle, receipt ownership, writer success/foreign rejection, and lock contention against concurrent tenant transfer. They never modify the configured application database. A skipped PostgreSQL test does not establish concurrent safety; run the isolated suite before acceptance.
+
+## Export follow-up
+
+The native runtime page reader does not request Excel export. The scoped page capability explicitly refuses `export_excel=true`; the existing public export API is unchanged. A complete scoped export needs a separate bounded job owner: immutable tenant/device/caller/epoch scope, tenant-qualified job/artifact IDs, hard row/byte/time limits, finite SQL/TSDB pages with request/job cancellation, streaming output with context checks, temporary output followed by atomic publish only after scope/job-state revalidation, explicit pending/running/cancelled/failed/completed lifecycle and retention cleanup. It must release row locks between job pages and reacquire/revalidate the same immutable lifecycle/epoch for each page; a device change or revoked session fails the job and discards unpublished output. The download owner must check tenant and completed job state. This job/worker/artifact lifecycle is not implemented by the scoped page route and remains a separate capability.

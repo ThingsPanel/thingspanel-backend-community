@@ -38,9 +38,9 @@ func registerRuntimeScoped(v1 *gin.RouterGroup) {
 	add("GET", "event/datas", "query:device_id", false, d.EventDataApi.HandleEventDatasListByPage)
 	add("GET", "telemetry/datas/history/page", "query:device_id", false, api.RuntimeTelemetryHistory)
 	add("GET", "device/status/history", "query:device_id", false, d.DeviceApi.GetDeviceStatusHistory)
-	add("GET", "command/datas/status/:message_id", "command", false, d.CommandSetLogApi.GetCommandStatus)
-	add("POST", "command/datas/pub", "body:device_id", true, d.CommandSetLogApi.CommandPutMessage)
-	add("POST", "expected/data", "body:device_id", true, d.ExpectedDataApi.CreateExpectedData)
+	add("GET", "command/datas/status/:message_id", "command", false, api.RuntimeCommandStatus)
+	add("POST", "command/datas/pub", "owner:body:device_id", true, api.RuntimeCommandPublish)
+	add("POST", "expected/data", "owner:body:device_id", true, d.ExpectedDataApi.CreateExpectedData)
 	add("GET", "expected/data/list", "query:device_id", false, d.ExpectedDataApi.HandleExpectedDataList)
 	// Debug writes only Redis. They do not upgrade the locked device row.
 	add("POST", "device/:device_id/debug", "param:device_id", false, d.DeviceDebugApi.SetDeviceDebug)
@@ -96,6 +96,9 @@ func runtimeScope(source string, ingress bool, handler gin.HandlerFunc) gin.Hand
 		defer cancel()
 		c.Request = c.Request.WithContext(ctx)
 		if owner {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			runtimeLegacyRBAC(c, tenant)
 			if !c.IsAborted() {
 				handler(c)
@@ -104,13 +107,28 @@ func runtimeScope(source string, ingress bool, handler gin.HandlerFunc) gin.Hand
 		}
 		// The device SHARE lock covers the entire read or external Redis effect.
 
-		// Some legacy read handlers use background contexts. The lock-owning
+		// Scoped reads propagate the bounded request context. The lock-owning
 		// transaction must outlive their callback even if the request is canceled;
 		// database/sql would otherwise roll it back early and drop authorization
 		// locks while the handler was still reading. Lock acquisition itself is
 		// bounded below with PostgreSQL lock_timeout.
 		fenceContext := context.WithoutCancel(ctx)
-		err = global.DB.WithContext(fenceContext).Transaction(func(tx *gorm.DB) error {
+		// Acquire the connection with the request deadline before detaching the
+		// transaction context; pool exhaustion must not create an unbounded wait.
+		sqlDB, dbErr := global.DB.DB()
+		if dbErr != nil {
+			runtimeReject(c, 503, "runtime scope unavailable")
+			return
+		}
+		conn, dbErr := sqlDB.Conn(ctx)
+		if dbErr != nil {
+			runtimeReject(c, 503, "runtime scope unavailable")
+			return
+		}
+		defer conn.Close()
+		fenceDB := global.DB.Session(&gorm.Session{NewDB: true, Context: fenceContext})
+		fenceDB.Statement.ConnPool = conn
+		err = fenceDB.Transaction(func(tx *gorm.DB) error {
 			if tx.Dialector.Name() != "postgres" {
 				return errors.New("runtime scope requires PostgreSQL row locking")
 			}
@@ -131,9 +149,16 @@ func runtimeScope(source string, ingress bool, handler gin.HandlerFunc) gin.Hand
 			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=? AND state='active'", deviceID, tenant).Take(&reservation).Error; err != nil {
 				return err
 			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			runtimeLegacyRBAC(c, tenant)
 			if !c.IsAborted() {
 				handler(c)
+				if ctx.Err() != nil {
+					c.Set("data", nil)
+					return ctx.Err()
+				}
 			}
 			return nil
 		})

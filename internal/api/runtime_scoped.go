@@ -4,8 +4,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"project/internal/model"
 	"project/internal/service"
+	"project/pkg/constant"
 	"project/pkg/errcode"
 	"project/pkg/utils"
+	"strconv"
 )
 
 func RuntimeUpdateDevice(c *gin.Context) {
@@ -89,4 +91,28 @@ func RuntimeTelemetryHistory(c *gin.Context) {
 		return
 	}
 	c.Set("data", data)
+}
+
+func RuntimeCommandStatus(c *gin.Context) {
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.CommandData.GetCommandStatus(c.Request.Context(), c.Param("message_id"), claims.TenantID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
+func RuntimeCommandPublish(c *gin.Context) {
+	var req model.PutMessageForCommand
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	id, err := service.GroupApp.CommandData.CommandPutMessageWithResult(c.Request.Context(), claims.ID, &req, strconv.Itoa(constant.Manual), claims.TenantID, communitySessionAuthorization(c))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", gin.H{"message_id": id, "status": "accepted"})
 }

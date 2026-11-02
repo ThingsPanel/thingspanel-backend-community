@@ -210,7 +210,7 @@ func (c *CommandData) commandPutMessageWithResult(ctx context.Context, operatorI
 // GetCommandStatus 按租户查询单条命令状态；不存在或不属于该租户统一返回 not_found。
 func (*CommandData) GetCommandStatus(ctx context.Context, messageID, tenantID string) (*model.CommandStatusResponse, error) {
 	if isIngressV1Commands() {
-		store, err := getDurableCommandStore(global.DB)
+		store, err := getDurableCommandStore(global.DB.WithContext(ctx))
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 		}
