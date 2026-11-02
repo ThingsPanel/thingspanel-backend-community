@@ -170,7 +170,7 @@ func createNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIde
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
 		expireAt := time.Now().Unix() + int64(seconds)
-		state, err := nativeRuntimeClient(identity.tenantID).SetDebug(ctx, legacyID, true, expireAt)
+		state, err := nativeRuntimeClient(identity.tenantID, ctx).SetDebug(ctx, legacyID, true, expireAt)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 		}
@@ -214,7 +214,7 @@ func stopNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIdent
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
-		current, err := nativeRuntimeClient(identity.tenantID).GetDebugState(ctx, legacyID)
+		current, err := nativeRuntimeClient(identity.tenantID, ctx).GetDebugState(ctx, legacyID)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 		}
@@ -223,7 +223,7 @@ func stopNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIdent
 		}
 		state := "expired"
 		if current.Enabled && time.Now().Unix() <= current.ExpireAt {
-			off, err := nativeRuntimeClient(identity.tenantID).SetDebug(ctx, legacyID, false, 0)
+			off, err := nativeRuntimeClient(identity.tenantID, ctx).SetDebug(ctx, legacyID, false, 0)
 			if err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 			}
@@ -257,7 +257,7 @@ func listNativeDebugLogs(ctx context.Context, identity nativeDeviceReadIdentity,
 	if err != nil {
 		return nil, err
 	}
-	rows, total, err := nativeRuntimeClient(identity.tenantID).ListDebugLogs(ctx, legacyID, (page-1)*pageSize, pageSize)
+	rows, total, err := nativeRuntimeClient(identity.tenantID, ctx).ListDebugLogs(ctx, legacyID, (page-1)*pageSize, pageSize)
 	if err != nil {
 		return nil, runtimeUpstreamError(err)
 	}
@@ -271,7 +271,7 @@ func listNativeDebugLogs(ctx context.Context, identity nativeDeviceReadIdentity,
 //encore:api auth raw method=POST path=/api/v2/devices/:deviceID/debug-sessions
 func (s *Service) CreateNativeDeviceDebugSession(w http.ResponseWriter, r *http.Request) {
 	requestID := newID()
-	identity, err := currentNativeDeviceControlIdentity()
+	identity, err := currentNativeDeviceControlIdentity(r.Context())
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return
@@ -306,7 +306,7 @@ func (s *Service) CreateNativeDeviceDebugSession(w http.ResponseWriter, r *http.
 //encore:api auth raw method=DELETE path=/api/v2/devices/:deviceID/debug-sessions/:sessionID
 func (s *Service) StopNativeDeviceDebugSession(w http.ResponseWriter, r *http.Request) {
 	requestID := newID()
-	identity, err := currentNativeDeviceControlIdentity()
+	identity, err := currentNativeDeviceControlIdentity(r.Context())
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return
@@ -341,7 +341,7 @@ func (s *Service) StopNativeDeviceDebugSession(w http.ResponseWriter, r *http.Re
 //encore:api auth raw method=GET path=/api/v2/devices/:deviceID/debug-logs
 func (s *Service) ListNativeDeviceDebugLogs(w http.ResponseWriter, r *http.Request) {
 	requestID := newID()
-	identity, err := currentNativeDeviceControlIdentity()
+	identity, err := currentNativeDeviceControlIdentity(r.Context())
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, true)
 		return

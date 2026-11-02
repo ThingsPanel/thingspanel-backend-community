@@ -41,9 +41,17 @@ var (
 	runtimeClientInstance *communityclient.Client
 )
 
-func nativeRuntimeClient(tenantID string) *communityclient.Client {
+func nativeRuntimeClient(tenantID string, contexts ...context.Context) *communityclient.Client {
+	ctx := context.Background()
+	if len(contexts) > 0 && contexts[0] != nil {
+		ctx = contexts[0]
+	}
+	binding, err := currentRuntimeSource(ctx, tenantID)
+	if err != nil {
+		return &communityclient.Client{}
+	}
 	runtimeClientOnce.Do(func() { runtimeClientInstance = communityclient.NewFromEnv() })
-	return runtimeClientInstance.ForTenant(tenantID)
+	return runtimeClientInstance.ForTenant(binding.RawTenantID)
 }
 
 // resolveRuntimeDeviceID picks the Community device ID for a native device:
@@ -80,6 +88,9 @@ func resolveRuntimeDeviceID(ref *RuntimeRef, nativeID string) (string, error) {
 // loadRuntimeDeviceID proves the device exists in the caller's tenant (and is
 // visible to the principal) before any Community call, then resolves its identity.
 func loadRuntimeDeviceID(ctx context.Context, identity nativeDeviceReadIdentity, deviceID string) (string, error) {
+	if _, err := currentRuntimeSource(ctx, identity.tenantID); err != nil {
+		return "", err
+	}
 	if !identity.permits(deviceID) {
 		return "", &errs.Error{Code: errs.NotFound, Message: "device not found"}
 	}
@@ -131,7 +142,7 @@ func readNativeRuntimeState(ctx context.Context, identity nativeDeviceReadIdenti
 	if err != nil {
 		return nil, err
 	}
-	flag, err := nativeRuntimeClient(identity.tenantID).GetOnlineFlag(ctx, legacyID)
+	flag, err := nativeRuntimeClient(identity.tenantID, ctx).GetOnlineFlag(ctx, legacyID)
 	if err != nil {
 		return nil, runtimeUpstreamError(err)
 	}
@@ -314,7 +325,7 @@ func readNativeReadings(ctx context.Context, identity nativeDeviceReadIdentity, 
 	if err != nil {
 		return nil, err
 	}
-	cli := nativeRuntimeClient(identity.tenantID)
+	cli := nativeRuntimeClient(identity.tenantID, ctx)
 	page := NativeReadingPage{Items: []NativeReading{}, Page: query.page, PageSize: query.pageSize}
 	switch query.kind {
 	case "telemetry", "attribute":

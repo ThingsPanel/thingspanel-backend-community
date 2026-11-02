@@ -29,8 +29,14 @@ type Verifier interface {
 	Verify(context.Context, string) (Principal, error)
 }
 
+type RowScanner interface{ Scan(...any) error }
 type Queryer interface {
-	QueryRowContext(context.Context, string, ...any) *sql.Row
+	QueryRowContext(context.Context, string, ...any) RowScanner
+}
+type SQLReader struct{ DB *sql.DB }
+
+func (r SQLReader) QueryRowContext(ctx context.Context, q string, args ...any) RowScanner {
+	return r.DB.QueryRowContext(ctx, q, args...)
 }
 
 func (s Scope) Validate() error {
@@ -56,7 +62,7 @@ func Lookup(ctx context.Context, q Queryer, tenantID string, scope Scope) (Bindi
 	if e != nil || parsed == uuid.Nil || parsed.String() != tenantID || scope.Validate() != nil {
 		return b, ErrUnproven
 	}
-	e = q.QueryRowContext(ctx, `SELECT id::text,tenant_id::text,source_tenant_id,generation FROM runtime_tenant_sources WHERE tenant_id=$1 AND environment=$2 AND provider_id=$3 AND namespace=$4 AND service_instance_id=$5 AND community_origin=$6 AND state='active'`, tenantID, scope.Environment, scope.ProviderID, scope.Namespace, scope.ServiceInstanceID, scope.CommunityOrigin).Scan(&b.ID, &b.TenantID, &b.RawTenantID, &b.Generation)
+	e = q.QueryRowContext(ctx, `SELECT id::text,tenant_id::text,source_tenant_id,generation FROM runtime_tenant_sources WHERE tenant_id=$1 AND environment=$2 AND provider_id=$3 AND namespace=$4 AND service_instance_id=$5 AND community_origin=$6 AND state='active' FOR SHARE`, tenantID, scope.Environment, scope.ProviderID, scope.Namespace, scope.ServiceInstanceID, scope.CommunityOrigin).Scan(&b.ID, &b.TenantID, &b.RawTenantID, &b.Generation)
 	if e != nil || b.RawTenantID == "" || tenantidentity.NormalizePrincipalID(b.RawTenantID) != tenantID {
 		return Binding{}, ErrUnproven
 	}

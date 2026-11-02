@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"encore.app/l1-access/authn"
 	"errors"
 	"net/http"
 	"time"
@@ -36,20 +37,20 @@ const (
 
 // NativeOperation is the durable job projection defined by the contract.
 type NativeOperation struct {
-	ID              string                   `json:"id"`
-	TenantID        string                   `json:"tenantId"`
-	CreatedAt       time.Time                `json:"createdAt"`
-	UpdatedAt       time.Time                `json:"updatedAt"`
-	CreatedBy       string                   `json:"createdBy"`
-	UpdatedBy       string                   `json:"updatedBy"`
-	ResourceVersion int64                    `json:"resourceVersion"`
-	Kind            string                   `json:"kind"`
-	State           string                   `json:"state"`
-	ResourceID      *string                  `json:"resourceId"`
-	Progress        NativeOperationProgress  `json:"progress"`
-	Result          json.RawMessage          `json:"result"`
-	Failure         json.RawMessage          `json:"failure"`
-	ExpiresAt       *time.Time               `json:"expiresAt"`
+	ID              string                  `json:"id"`
+	TenantID        string                  `json:"tenantId"`
+	CreatedAt       time.Time               `json:"createdAt"`
+	UpdatedAt       time.Time               `json:"updatedAt"`
+	CreatedBy       string                  `json:"createdBy"`
+	UpdatedBy       string                  `json:"updatedBy"`
+	ResourceVersion int64                   `json:"resourceVersion"`
+	Kind            string                  `json:"kind"`
+	State           string                  `json:"state"`
+	ResourceID      *string                 `json:"resourceId"`
+	Progress        NativeOperationProgress `json:"progress"`
+	Result          json.RawMessage         `json:"result"`
+	Failure         json.RawMessage         `json:"failure"`
+	ExpiresAt       *time.Time              `json:"expiresAt"`
 }
 
 type NativeOperationProgress struct {
@@ -128,14 +129,22 @@ func enqueueDeviceRuntimeTx(
 	generation int64,
 	desired any,
 ) error {
+	data := authn.CurrentData()
+	if data == nil {
+		return runtimeSourceUnavailable()
+	}
+	binding, proofErr := verifiedRuntimeSource(ctx, runtimeBindingTxReader{tx: tx}, tenantID, data.TenantID)
+	if proofErr != nil {
+		return proofErr
+	}
 	encoded, err := json.Marshal(desired)
 	if err != nil {
 		return &errs.Error{Code: errs.Internal, Message: "failed to encode runtime request"}
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO device_runtime_outbox(
-			id,tenant_id,device_id,operation_id,kind,generation,desired,state,updated_by)
-		VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,'metadata')`,
-		uuid.NewString(), tenantID, deviceID, operationID, kind, generation, encoded, deviceRuntimeOutboxPending); err != nil {
+			id,tenant_id,device_id,operation_id,kind,generation,desired,state,updated_by,source_binding_id,source_binding_generation)
+		VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,'metadata',$9,$10)`,
+		uuid.NewString(), tenantID, deviceID, operationID, kind, generation, encoded, deviceRuntimeOutboxPending, binding.ID, binding.Generation); err != nil {
 		return err
 	}
 	return nil

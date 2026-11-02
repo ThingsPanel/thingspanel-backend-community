@@ -316,11 +316,14 @@ type simulationSender interface {
 type communitySimulationSender struct{}
 
 func (communitySimulationSender) Send(ctx context.Context, tenantID, deviceID, dataJSON string) error {
+	if _, err := currentRuntimeSource(ctx, tenantID); err != nil {
+		return err
+	}
 	legacyID, err := lookupRuntimeDeviceID(ctx, tenantID, deviceID)
 	if err != nil {
 		return err
 	}
-	return nativeRuntimeClient(tenantID).SimulationSend(ctx, legacyID, dataJSON)
+	return nativeRuntimeClient(tenantID, ctx).SimulationSend(ctx, legacyID, dataJSON)
 }
 
 var activeSimulationSender simulationSender = communitySimulationSender{}

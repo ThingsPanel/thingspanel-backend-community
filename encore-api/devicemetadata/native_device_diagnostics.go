@@ -266,7 +266,7 @@ func (s *Service) GetNativeDeviceDiagnostics(w http.ResponseWriter, r *http.Requ
 		if err != nil {
 			return "", err
 		}
-		flag, err := nativeRuntimeClient(identity.tenantID).GetOnlineFlag(ctx, legacyID)
+		flag, err := nativeRuntimeClient(identity.tenantID, ctx).GetOnlineFlag(ctx, legacyID)
 		if err != nil {
 			return "", err
 		}

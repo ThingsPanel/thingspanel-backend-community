@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"encore.app/internal/communityclient"
+	"encore.app/internal/runtimetenant"
 	"encore.dev/beta/errs"
 	"encore.dev/cron"
 	"encore.dev/rlog"
@@ -35,12 +36,14 @@ import (
 const runtimeDispatchEnv = "TP_RUNTIME_OUTBOX_DISPATCH"
 
 type runtimeOutboxItem struct {
-	EventID    string
-	TenantID   string
-	DeviceID   string
-	Kind       string
-	Generation int64
-	Desired    []byte
+	EventID                 string
+	TenantID                string
+	DeviceID                string
+	Kind                    string
+	Generation              int64
+	Desired                 []byte
+	SourceBindingID         sql.NullString
+	SourceBindingGeneration sql.NullInt64
 }
 
 type runtimeApplyOutcome struct {
@@ -64,7 +67,7 @@ type runtimeDispatchSummary struct {
 // pending (a retryable failure).
 func dispatchRuntimeOutbox(ctx context.Context, applier runtimeApplier, limit int) (runtimeDispatchSummary, error) {
 	var summary runtimeDispatchSummary
-	rows, err := db.Query(ctx, `SELECT o.id::text,o.tenant_id::text,o.device_id::text,o.kind,o.generation,o.desired
+	rows, err := db.Query(ctx, `SELECT o.id::text,o.tenant_id::text,o.device_id::text,o.kind,o.generation,o.desired,o.source_binding_id::text,o.source_binding_generation
 		FROM device_runtime_outbox o
 		JOIN metadata_operations m ON m.tenant_id=o.tenant_id AND m.id=o.operation_id
 		WHERE o.state IN ('pending','failed') AND m.state='pending'
@@ -75,7 +78,7 @@ func dispatchRuntimeOutbox(ctx context.Context, applier runtimeApplier, limit in
 	var items []runtimeOutboxItem
 	for rows.Next() {
 		var item runtimeOutboxItem
-		if err := rows.Scan(&item.EventID, &item.TenantID, &item.DeviceID, &item.Kind, &item.Generation, &item.Desired); err != nil {
+		if err := rows.Scan(&item.EventID, &item.TenantID, &item.DeviceID, &item.Kind, &item.Generation, &item.Desired, &item.SourceBindingID, &item.SourceBindingGeneration); err != nil {
 			rows.Close()
 			return summary, wrapDBErr(err, "list runtime outbox failed")
 		}
@@ -137,11 +140,20 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 	default:
 		return runtimeApplyOutcome{Skip: true}
 	}
+	// Historical intents have no source proof. Never backfill or adopt them
+	// merely because an operator registered a binding later.
+	if !item.SourceBindingID.Valid || !item.SourceBindingGeneration.Valid {
+		return runtimeApplyOutcome{Skip: true}
+	}
+	binding, bindingErr := runtimetenant.Lookup(ctx, runtimetenant.SQLReader{DB: db.Stdlib()}, item.TenantID, runtimeTenantScope())
+	if bindingErr != nil || binding.ID != item.SourceBindingID.String || binding.Generation != item.SourceBindingGeneration.Int64 {
+		return runtimeApplyOutcome{Skip: true}
+	}
 	legacyID, err := lookupRuntimeDeviceID(ctx, item.TenantID, item.DeviceID)
 	if err != nil {
 		return runtimeApplyOutcome{FailureCode: "RUNTIME_IDENTITY_UNKNOWN", Retryable: true}
 	}
-	client := a.client.ForTenant(item.TenantID)
+	client := a.client.ForTenant(binding.RawTenantID)
 	switch item.Kind {
 	case operationKindDeviceRenumber:
 		err = client.SetDeviceNumber(ctx, legacyID, str("deviceNumber"))

@@ -79,7 +79,7 @@ func cancelNativeDeviceCommand(ctx context.Context, identity nativeDeviceWriteId
 			if err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, err
 			}
-			rows, err := nativeRuntimeClient(identity.tenantID).ListExpectedCommands(ctx, legacyID, 1, 100)
+			rows, err := nativeRuntimeClient(identity.tenantID, ctx).ListExpectedCommands(ctx, legacyID, 1, 100)
 			if err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 			}
@@ -92,7 +92,7 @@ func cancelNativeDeviceCommand(ctx context.Context, identity nativeDeviceWriteId
 			if status != "pending" {
 				return metadataWriteResponse{}, metadataWriteAudit{}, nativeCommandConflict("the command is no longer queued in the device runtime")
 			}
-			if err := nativeRuntimeClient(identity.tenantID).DeleteExpected(ctx, expectedID); err != nil {
+			if err := nativeRuntimeClient(identity.tenantID, ctx).DeleteExpected(ctx, expectedID); err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 			}
 			if _, err := tx.Exec(ctx, `UPDATE device_command_executions SET state='cancelled',reason=$4,updated_at=NOW()
@@ -123,7 +123,7 @@ func cancelNativeDeviceCommand(ctx context.Context, identity nativeDeviceWriteId
 //encore:api auth raw method=POST path=/api/v2/devices/:deviceID/command-executions/:executionID/cancellations
 func (s *Service) CancelNativeDeviceCommand(w http.ResponseWriter, r *http.Request) {
 	requestID := newID()
-	identity, err := currentNativeDeviceControlIdentity()
+	identity, err := currentNativeDeviceControlIdentity(r.Context())
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return

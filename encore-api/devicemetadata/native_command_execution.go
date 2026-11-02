@@ -282,7 +282,7 @@ func truncateReason(value string) string {
 
 // ---- control identity ----
 
-func currentNativeDeviceControlIdentity() (nativeDeviceWriteIdentity, error) {
+func currentNativeDeviceControlIdentity(contexts ...context.Context) (nativeDeviceWriteIdentity, error) {
 	read, err := currentNativeDeviceReadIdentity()
 	if err != nil {
 		return nativeDeviceWriteIdentity{}, err
@@ -293,6 +293,13 @@ func currentNativeDeviceControlIdentity() (nativeDeviceWriteIdentity, error) {
 	}
 	if !validAccessTemplateText(data.UserID, 1, 128, true) {
 		return nativeDeviceWriteIdentity{}, &errs.Error{Code: errs.Unauthenticated, Message: "invalid authenticated subject"}
+	}
+	ctx := context.Background()
+	if len(contexts) > 0 && contexts[0] != nil {
+		ctx = contexts[0]
+	}
+	if _, err := currentRuntimeSource(ctx, read.tenantID); err != nil {
+		return nativeDeviceWriteIdentity{}, err
 	}
 	return nativeDeviceWriteIdentity{nativeDeviceReadIdentity: read, subjectID: data.UserID}, nil
 }
@@ -459,13 +466,13 @@ func dispatchNativeCommand(ctx context.Context, identity nativeDeviceWriteIdenti
 	var submitErr error
 	if accepted.deliveryMode == "when_online" {
 		var record communityclient.ExpectedRecord
-		record, submitErr = nativeRuntimeClient(identity.tenantID).CreateExpectedCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.expiresAt, accepted.label)
+		record, submitErr = nativeRuntimeClient(identity.tenantID, ctx).CreateExpectedCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.expiresAt, accepted.label)
 		messageID = expectedMessagePrefix + record.ID
 	} else {
 		// The execution id is the runtime idempotency key, so repeating the call after an
 		// unclear failure cannot send the command twice.
 		for attempt := 0; attempt < 2; attempt++ {
-			messageID, submitErr = nativeRuntimeClient(identity.tenantID).SubmitCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.executionID)
+			messageID, submitErr = nativeRuntimeClient(identity.tenantID, ctx).SubmitCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.executionID)
 			if submitErr == nil || errors.Is(submitErr, communityclient.ErrRejected) || ctx.Err() != nil {
 				break
 			}
@@ -548,7 +555,7 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 				if err != nil {
 					continue
 				}
-				rows, err := nativeRuntimeClient(identity.tenantID).ListExpectedCommands(ctx, legacyID, 1, 100)
+				rows, err := nativeRuntimeClient(identity.tenantID, ctx).ListExpectedCommands(ctx, legacyID, 1, 100)
 				if err != nil {
 					continue
 				}
@@ -563,7 +570,7 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 			}
 			newState = mapExpectedStatus(status)
 		default:
-			status, err := nativeRuntimeClient(identity.tenantID).GetCommandStatus(ctx, *c.messageID)
+			status, err := nativeRuntimeClient(identity.tenantID, ctx).GetCommandStatus(ctx, *c.messageID)
 			if err != nil {
 				continue
 			}
@@ -765,7 +772,7 @@ func requireNativeCommandDevice(ctx context.Context, tenantID, deviceID string) 
 //encore:api auth raw method=POST path=/api/v2/devices/:deviceID/command-executions
 func (s *Service) SubmitNativeDeviceCommand(w http.ResponseWriter, r *http.Request) {
 	requestID := newID()
-	identity, err := currentNativeDeviceControlIdentity()
+	identity, err := currentNativeDeviceControlIdentity(r.Context())
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return
@@ -817,7 +824,7 @@ func (s *Service) SubmitNativeDeviceCommand(w http.ResponseWriter, r *http.Reque
 //encore:api auth raw method=GET path=/api/v2/devices/:deviceID/command-executions
 func (s *Service) ListNativeDeviceCommands(w http.ResponseWriter, r *http.Request) {
 	requestID := newID()
-	identity, err := currentNativeDeviceControlIdentity()
+	identity, err := currentNativeDeviceControlIdentity(r.Context())
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, true)
 		return
@@ -848,7 +855,7 @@ func (s *Service) ListNativeDeviceCommands(w http.ResponseWriter, r *http.Reques
 //encore:api auth raw method=GET path=/api/v2/devices/:deviceID/command-executions/:executionID
 func (s *Service) GetNativeDeviceCommand(w http.ResponseWriter, r *http.Request) {
 	requestID := newID()
-	identity, err := currentNativeDeviceControlIdentity()
+	identity, err := currentNativeDeviceControlIdentity(r.Context())
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return

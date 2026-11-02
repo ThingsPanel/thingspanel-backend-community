@@ -134,11 +134,14 @@ type readingHistorySource interface {
 type communityHistorySource struct{}
 
 func (communityHistorySource) Page(ctx context.Context, tenantID, deviceID, identifier string, fromMs, toMs int64, page, pageSize int) ([]exportSample, int64, error) {
+	if _, err := currentRuntimeSource(ctx, tenantID); err != nil {
+		return nil, 0, err
+	}
 	legacyID, err := lookupRuntimeDeviceID(ctx, tenantID, deviceID)
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, total, err := nativeRuntimeClient(tenantID).ListTelemetryHistory(ctx, legacyID, identifier, fromMs, toMs, page, pageSize)
+	rows, total, err := nativeRuntimeClient(tenantID, ctx).ListTelemetryHistory(ctx, legacyID, identifier, fromMs, toMs, page, pageSize)
 	if err != nil {
 		return nil, 0, err
 	}
