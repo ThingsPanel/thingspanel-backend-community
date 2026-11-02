@@ -33,15 +33,7 @@ func applyComponentMigrations(db *gorm.DB, component componentMigration) error {
 		}
 		seen[file.FileName] = true
 	}
-	return db.Transaction(func(tx *gorm.DB) error {
-		// Serialize creation of the shared ledger, including first startup of
-		// different components. Keep each historical component lock as well.
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", componentMigrationLedgerLock).Error; err != nil {
-			return fmt.Errorf("acquire component ledger migration lock: %w", err)
-		}
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", component.lockKey).Error; err != nil {
-			return fmt.Errorf("acquire %s migration lock: %w", component.description, err)
-		}
+	return runPostgresOwnerMigration(db, component.module, component.lockKey, func(tx *gorm.DB) error {
 		if err := tx.Exec(`CREATE TABLE IF NOT EXISTS ` + componentMigrationLedgerTable + ` (
 			module_name text NOT NULL,
 			file_name text NOT NULL,
@@ -68,8 +60,12 @@ func applyComponentMigrations(db *gorm.DB, component componentMigration) error {
 			if err := tx.Exec(string(file.Contents)).Error; err != nil {
 				return fmt.Errorf("execute %s migration %s: %w", component.description, file.FileName, err)
 			}
-			if err := tx.Exec("INSERT INTO "+componentMigrationLedgerTable+" (module_name, file_name, checksum) VALUES (?, ?, ?)", component.module, file.FileName, checksum).Error; err != nil {
-				return fmt.Errorf("record %s migration %s: %w", component.description, file.FileName, err)
+			recordResult := tx.Exec("INSERT INTO "+componentMigrationLedgerTable+" (module_name, file_name, checksum) VALUES (?, ?, ?)", component.module, file.FileName, checksum)
+			if recordResult.Error != nil {
+				return fmt.Errorf("record %s migration %s: %w", component.description, file.FileName, recordResult.Error)
+			}
+			if recordResult.RowsAffected != 1 {
+				return fmt.Errorf("record %s migration %s: version receipt was not inserted exactly once", component.description, file.FileName)
 			}
 		}
 		return component.verify(tx)
