@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"project/internal/brokercommands"
 	"project/internal/brokerledger"
 	"project/internal/model"
@@ -103,7 +104,14 @@ func (p *ReliableProcessor) expand(ctx context.Context, tx *gorm.DB, device *mod
 	}{{frame.SubDeviceData, false}, {frame.SubGatewayData, true}} {
 		for address, payload := range group.children {
 			var child model.Device
-			if e := tx.WithContext(ctx).Where("parent_id=? AND tenant_id=? AND sub_device_addr=? AND is_enabled='enabled'", device.ID, msg.TenantID, address).Take(&child).Error; e != nil {
+			childQuery := tx.WithContext(ctx)
+			if _, delegated := msg.Metadata["delegated_route"]; delegated {
+				// Keep the selected subtree stable through the receipt commit.
+				// A same-root reparent must not move this device out of the
+				// authenticated target after expansion has selected its row.
+				childQuery = childQuery.Clauses(clause.Locking{Strength: "SHARE"})
+			}
+			if e := childQuery.Where("parent_id=? AND tenant_id=? AND sub_device_addr=? AND is_enabled='enabled'", device.ID, msg.TenantID, address).Take(&child).Error; e != nil {
 				return e
 			}
 			if e := p.expand(ctx, tx, &child, msg, family, payload, group.isGateway, depth+1, count); e != nil {
