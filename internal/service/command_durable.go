@@ -416,6 +416,10 @@ func prepareDurableDownlink(ctx context.Context, db *gorm.DB, message *downlink.
 			return err
 		}
 		if snapshot.Plugin != nil {
+			prepared.TransportRoute, err = brokercommands.CapturePluginRoute(tx, tenant, targetRootID)
+			if err != nil {
+				return err
+			}
 			deviceType = snapshotWireDeviceType(snapshot)
 		}
 		if snapshot.Plugin == nil && snapshot.Devices[0].DeviceType != deviceType {
@@ -593,6 +597,9 @@ func ValidateDurableCommandSnapshot(ctx context.Context, tx *gorm.DB, row broker
 	if err := json.Unmarshal(row.Payload, &prepared); err != nil {
 		return fmt.Errorf("decode prepared command receipt: %w", err)
 	}
+	if prepared.LegacyTelemetryID && prepared.Message.Type != downlink.MessageTypeTelemetry {
+		return brokercommands.ErrRejected
+	}
 	if prepared.ConfigurationSHA256 == "" || len(prepared.Encoded) == 0 || len(prepared.Encoded) > brokercommands.MaxCommandPayload {
 		return fmt.Errorf("%w: prepared command is incomplete", brokercommands.ErrRejected)
 	}
@@ -609,6 +616,13 @@ func ValidateDurableCommandSnapshot(ctx context.Context, tx *gorm.DB, row broker
 	if len(snapshot.Devices) == 0 {
 		return fmt.Errorf("%w: prepared command target snapshot is empty", brokercommands.ErrRejected)
 	}
+	if snapshot.Plugin != nil && prepared.TransportRoute == nil {
+		last := snapshot.Devices[len(snapshot.Devices)-1]
+		if last.ParentID != nil && *last.ParentID != "" {
+			return brokercommands.ErrFenced
+		}
+	}
+
 	if prepared.Message.DeviceNumber == "" || prepared.Message.DeviceNumber != snapshot.Devices[len(snapshot.Devices)-1].DeviceNumber {
 		return fmt.Errorf("%w: prepared command target device number is invalid", brokercommands.ErrRejected)
 	}

@@ -64,14 +64,20 @@ func delegationFixture(t *testing.T) (*gorm.DB, *bc.Delegation) {
  CREATE TABLE committed_effects(id text PRIMARY KEY);`).Error; err != nil {
 		t.Fatal("create isolated fixture")
 	}
-	actor := bc.Principal{TenantID: "t", DeviceID: "service", Kind: bc.PrincipalService}
 	target := bc.PluginTarget{TenantID: "t", DeviceID: "child", DeviceNumber: "number", TopicPrefix: "plugin/test/", MappingVersion: "standard-v1", Kind: bc.PrincipalDevice, RouteEpoch: 3, BindingPhase: "active", TransportDeviceID: "root", TransportRouteEpoch: 9}
-	id, err := bc.PluginContextID(actor, "cell", "instance", "connection", []bc.PluginTarget{target})
+	rootTarget := target
+	rootTarget.DeviceID = target.TransportDeviceID
+	rootTarget.DeviceNumber = "root-number"
+	rootTarget.RouteEpoch = target.TransportRouteEpoch
+	rootTarget.TransportDeviceID = rootTarget.DeviceID
+	rootTarget.TransportRouteEpoch = rootTarget.RouteEpoch
+	actor := bc.Principal{TenantID: "t", DeviceID: "service", Kind: bc.PrincipalService}
+	id, err := bc.PluginContextID(actor, "cell", "instance", "connection", []bc.PluginTarget{target, rootTarget})
 	if err != nil {
 		t.Fatal(err)
 	}
 	principal, _ := json.Marshal(actor)
-	targets, _ := json.Marshal([]bc.PluginTarget{target})
+	targets, _ := json.Marshal([]bc.PluginTarget{target, rootTarget})
 	now := time.Now().UTC()
 	if err := db.Exec(`INSERT INTO broker_plugin_contexts VALUES(?,?::jsonb,'cell','instance','connection',?::jsonb,?,?)`, id, string(principal), string(targets), now.Add(-time.Minute), now.Add(time.Minute)).Error; err != nil {
 		t.Fatal(err)
@@ -93,7 +99,7 @@ func TestDelegatedFenceRejectsEitherMigrationAndChangedOwnership(t *testing.T) {
 		{name: "cross tenant reparent", sql: `UPDATE devices SET parent_id='other' WHERE id='child'`},
 		{name: "cycle", sql: `UPDATE devices SET parent_id='child' WHERE id='root'`},
 		{name: "actor substitution", mutate: func(d *bc.Delegation) { d.Actor.DeviceID = "other-service" }},
-		{name: "target substitution", mutate: func(d *bc.Delegation) { d.TargetDeviceID = "root"; d.TargetRouteEpoch = 9 }},
+		{name: "target substitution", mutate: func(d *bc.Delegation) { d.TargetDeviceID = "unauthorized-device"; d.TargetRouteEpoch = 9 }},
 		{name: "expired observation", mutate: func(d *bc.Delegation) { d.ObservedAt = d.ObservedAt.Add(2 * time.Minute) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -35,8 +35,9 @@ NULL; historical native fixtures without the columns remain readable through
 The initial strict SDK wrapper commit is f6929665. Receipt admission/processing, telemetry batch writes, plugin state projection
 and delayed automation now carry and revalidate the proof. These changes remain
 unvalidated until the queued package and isolated PostgreSQL checks complete.
-Owner root derivation and durable control delivery must be
-completed and tested before advertising support for non-self transport targets.
+Owner root derivation and durable control delivery are implemented in a later
+checkpoint and must pass fixed-commit validation before advertising support for
+non-self transport targets.
 Existing mapping certification, canonical topic scope, caller authorization,
 telemetry commit-unknown handling and transactional winner selection are retained.
 A separate legacy TelemetryFrame publish path is deliberately not introduced.
@@ -48,3 +49,37 @@ ancestor disable/reparent, forged context/actor/selector, connecting admission,
 rollback, concurrent migration versus commit and delayed state projection.
 Then exercise real plugin MQTT telemetry, online/offline and durable control
 including matching response family and root migration between enqueue/delivery.
+
+## Owner and durable controls
+
+The owner derives every transport root from current active tenant-local parent
+rows. A non-self root must also be an explicitly allowlisted plugin target in
+the same immutable context; native roots are not implicitly granted. The owner
+freezes the target and root epochs separately. Mapped plugin targets continue
+to fail closed under the existing certification restriction.
+
+PreparedCommand now freezes `transport_route` within its existing durable JSON.
+Preparation captures the route; Submit, Claim, Dispatch and ACK revalidate it.
+The existing command frame carries the physical route alongside its target
+route. Broker delivery compares both to the current owner lease and runtime
+fences; no legacy TelemetryFrame publish path is used.
+
+Protocol plugins (service_type=1) receive an owner-derived
+`legacy_telemetry_id` flag. Only their telemetry control family may translate
+from the canonical device-number topic to
+`<registered-prefix>devices/telemetry/control/<device-id>`. The private frame
+carries the canonical number and explicit alias flag. Both wire and canonical
+publish scope must be allowed. Other plugin types retain device-number topics.
+The historical `<registered-prefix>#` subscription request is accepted only
+for this owner-marked legacy case; actual READ and MESSAGE_OUT still require a
+finite owner target topic and a valid private frame with both epochs.
+
+Existing durable plugin-child commands lacking the new frozen root proof fail
+closed at delivery/guard; they are never silently rebound to the current root.
+
+Direct per-device plugin credentials do not implicitly gain access to a physical
+parent; a child with a separate parent uses the shared service grant with both
+explicit targets. Existing direct root-plugin credentials retain self routing.
+The nullable migration columns can remain on rollback to the previous binary.
+No credentials, runtime settings, deployment or production migration are part
+of these source changes.

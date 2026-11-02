@@ -75,6 +75,9 @@ func readContext(tx *gorm.DB, id string) (pluginContext, error) {
 	if json.Unmarshal(row.PrincipalJSON, &out.Principal) != nil || json.Unmarshal(row.TargetsJSON, &out.Targets) != nil || bc.ValidatePrincipal(out.Principal) != nil || len(out.Targets) == 0 || len(out.Targets) > bc.MaxPluginTargets {
 		return out, brokerroute.ErrFenced
 	}
+	if bc.ValidatePluginTargets(out.Targets) != nil {
+		return out, brokerroute.ErrFenced
+	}
 	for _, target := range out.Targets {
 		if target.Validate() != nil {
 			return out, brokerroute.ErrFenced

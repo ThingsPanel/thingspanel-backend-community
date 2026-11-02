@@ -153,6 +153,9 @@ func (s *Store) Submit(ctx context.Context, req Request, persist func(*gorm.DB, 
 		if err := lockTenant(tx, req.TenantID); err != nil {
 			return err
 		}
+		if err := lockPreparedRoute(tx, req.TenantID, req.TargetDeviceID, req.Payload); err != nil {
+			return err
+		}
 		binding, err := activeBinding(tx, req.TenantID, req.TargetDeviceID)
 		if err != nil {
 			return err
@@ -246,7 +249,7 @@ func (s *Store) claim(ctx context.Context, cell string, guard func(context.Conte
 	var claimed *Row
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var candidate Row
-		candidateQuery := tx.Select("id", "tenant_id", "target_device_id", "route_cell", "route_epoch").Where("state = ?", StateAccepted)
+		candidateQuery := tx.Select("id", "tenant_id", "target_device_id", "route_cell", "route_epoch", "payload").Where("state = ?", StateAccepted)
 		if cell != "" {
 			candidateQuery = candidateQuery.Where("route_cell=?", cell)
 		}
@@ -256,6 +259,10 @@ func (s *Store) claim(ctx context.Context, cell string, guard func(context.Conte
 		}
 		if query.Error != nil {
 			return query.Error
+		}
+		transportErr := lockPreparedRoute(tx, candidate.TenantID, candidate.TargetDeviceID, candidate.Payload)
+		if transportErr != nil && !errors.Is(transportErr, ErrFenced) {
+			return transportErr
 		}
 		binding, bindingErr := activeBinding(tx, candidate.TenantID, candidate.TargetDeviceID)
 		var row Row
@@ -273,7 +280,7 @@ func (s *Store) claim(ctx context.Context, cell string, guard func(context.Conte
 		if bindingErr != nil && !errors.Is(bindingErr, ErrFenced) {
 			return bindingErr
 		}
-		if row.TenantID != candidate.TenantID || row.TargetDeviceID != candidate.TargetDeviceID || errors.Is(bindingErr, ErrFenced) || binding.BrokerCell != row.RouteCell || binding.RouteEpoch != row.RouteEpoch {
+		if transportErr != nil || row.TenantID != candidate.TenantID || row.TargetDeviceID != candidate.TargetDeviceID || errors.Is(bindingErr, ErrFenced) || binding.BrokerCell != row.RouteCell || binding.RouteEpoch != row.RouteEpoch {
 			return tx.Model(&Row{}).Where("id = ? AND state = ?", row.ID, StateAccepted).Updates(map[string]any{"state": StateFenced, "last_error": ErrFenced.Error(), "completed_at": now, "updated_at": now}).Error
 		}
 		if err := checkDevicePair(tx, row.TenantID, row.DeviceID, row.TargetDeviceID); err != nil {
@@ -332,6 +339,16 @@ func (s *Store) FinishPublish(ctx context.Context, id string, success bool, reas
 func (s *Store) Acknowledge(ctx context.Context, tx *gorm.DB, tenant, transportDevice, commandID string, success bool) error {
 	if s == nil || tx == nil || ctx == nil || tenant == "" || transportDevice == "" || commandID == "" {
 		return ErrInvalid
+	}
+	var command Row
+	if err := tx.WithContext(ctx).Where("id=? AND tenant_id=? AND target_device_id=?", commandID, tenant, transportDevice).Take(&command).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if err := lockPreparedRoute(tx, tenant, transportDevice, command.Payload); err != nil {
+		return err
 	}
 	targetState := StateDeviceReportedFailure
 	if success {

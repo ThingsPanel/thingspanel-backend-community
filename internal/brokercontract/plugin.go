@@ -7,6 +7,7 @@ const MaxPluginTargets = 256
 // PluginTarget is an owner-derived socket route, never a plugin-supplied claim.
 // The legacy topic prefix and credentials remain external SDK contracts.
 type PluginTarget struct {
+	LegacyTelemetryID   bool          `json:"legacy_telemetry_id,omitempty"`
 	TenantID            string        `json:"tenant_id"`
 	DeviceID            string        `json:"device_id"`
 	DeviceNumber        string        `json:"device_number"`
@@ -74,6 +75,9 @@ func validatePluginGrant(g Grant) error {
 	if !validPluginContextID(g.PluginContextID) || len(g.PluginTargets) == 0 || len(g.PluginTargets) > MaxPluginTargets {
 		return ErrInvalidMetadata
 	}
+	if ValidatePluginTargets(g.PluginTargets) != nil {
+		return ErrInvalidMetadata
+	}
 	seen := map[string]bool{}
 	for _, p := range g.PluginTargets {
 		key := p.TenantID + "\x00" + p.DeviceID
@@ -83,6 +87,37 @@ func validatePluginGrant(g Grant) error {
 		seen[key] = true
 		if g.Principal.Kind != PrincipalService && (p.TenantID != g.Principal.TenantID || p.DeviceID != g.Principal.DeviceID) {
 			return ErrUnauthorized
+		}
+	}
+	return nil
+}
+
+// ValidatePluginTargets forbids a delegated transport root from becoming an
+// implicit grant. Every non-self root must be an explicit same-tenant target.
+func ValidatePluginTargets(targets []PluginTarget) error {
+	if len(targets) == 0 || len(targets) > MaxPluginTargets {
+		return ErrInvalidMetadata
+	}
+	byScope := map[string]PluginTarget{}
+	for _, target := range targets {
+		if target.Validate() != nil {
+			return ErrInvalidMetadata
+		}
+		key := target.TenantID + "\x00" + target.DeviceID
+		if _, exists := byScope[key]; exists {
+			return ErrInvalidMetadata
+		}
+		byScope[key] = target
+	}
+	for _, target := range targets {
+		root, epoch := target.Transport()
+		transport, ok := byScope[target.TenantID+"\x00"+root]
+		if !ok || transport.RouteEpoch != epoch {
+			return ErrInvalidMetadata
+		}
+		transportRoot, transportEpoch := transport.Transport()
+		if transportRoot != root || transportEpoch != epoch {
+			return ErrInvalidMetadata
 		}
 	}
 	return nil

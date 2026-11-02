@@ -88,7 +88,25 @@ func (a *Adapter) PublishDurableCommand(ctx context.Context, row brokercommands.
 		canonicalProof = canonicalTopic
 		targetNumberProof = msg.DeviceNumber
 	}
-	frame, err := bc.EncodeCommandFrame(bc.CommandFrame{CommandID: row.ID, TenantID: row.TenantID, TargetDeviceID: row.TargetDeviceID, TargetDeviceNumber: targetNumberProof, RouteEpoch: uint64(row.RouteEpoch), MappingVersion: version, CanonicalTopic: canonicalProof, WireTopic: topic, ExpiresAt: row.ExpiresAt.UnixMilli(), Payload: wirePayload}, time.Now())
+	if prepared.LegacyTelemetryID {
+		if msg.Type != downlink.MessageTypeTelemetry || msg.TopicPrefix == "" || version != "standard-v1" || prepared.TransportRoute == nil {
+			return errors.New("legacy telemetry alias lacks owner transport proof")
+		}
+		canonicalProof = canonicalTopic
+		targetNumberProof = msg.DeviceNumber
+		topic = msg.TopicPrefix + "devices/telemetry/control/" + row.TargetDeviceID
+	}
+	transportID := ""
+	var transportEpoch uint64
+	if prepared.TransportRoute != nil {
+		scope := prepared.TransportRoute
+		if scope.Validate() != nil || scope.TenantID != row.TenantID || scope.TargetID != row.TargetDeviceID || scope.TargetEpoch != uint64(row.RouteEpoch) || scope.Cell != row.RouteCell {
+			return errors.New("durable command transport proof does not match accepted route")
+		}
+		transportID = scope.TransportID
+		transportEpoch = scope.TransportEpoch
+	}
+	frame, err := bc.EncodeCommandFrame(bc.CommandFrame{LegacyTelemetryID: prepared.LegacyTelemetryID, TransportDeviceID: transportID, TransportRouteEpoch: transportEpoch, CommandID: row.ID, TenantID: row.TenantID, TargetDeviceID: row.TargetDeviceID, TargetDeviceNumber: targetNumberProof, RouteEpoch: uint64(row.RouteEpoch), MappingVersion: version, CanonicalTopic: canonicalProof, WireTopic: topic, ExpiresAt: row.ExpiresAt.UnixMilli(), Payload: wirePayload}, time.Now())
 	if err != nil {
 		return err
 	}

@@ -50,3 +50,23 @@ func TestPluginContextHashIncludesIndependentTransportSnapshot(t *testing.T) {
 		t.Fatal("partial root route accepted")
 	}
 }
+
+func TestPluginTargetSetRequiresExplicitPhysicalRoot(t *testing.T) {
+	child := PluginTarget{TenantID: "t", DeviceID: "child", DeviceNumber: "1", TopicPrefix: "plugin/a/", MappingVersion: "standard-v1", Kind: PrincipalDevice, RouteEpoch: 3, BindingPhase: "active", TransportDeviceID: "root", TransportRouteEpoch: 9}
+	if ValidatePluginTargets([]PluginTarget{child}) == nil {
+		t.Fatal("unlisted root granted implicitly")
+	}
+	root := child
+	root.DeviceID = "root"
+	root.DeviceNumber = "2"
+	root.RouteEpoch = 9
+	root.TransportDeviceID = "root"
+	root.TransportRouteEpoch = 9
+	if err := ValidatePluginTargets([]PluginTarget{child, root}); err != nil {
+		t.Fatal(err)
+	}
+	root.TenantID = "other"
+	if ValidatePluginTargets([]PluginTarget{child, root}) == nil {
+		t.Fatal("cross-tenant root substituted")
+	}
+}

@@ -1,10 +1,15 @@
 package brokercommands
 
-import "project/internal/downlink"
+import (
+	"project/internal/brokerroute"
+	"project/internal/downlink"
+)
 
 // PreparedCommand freezes the resolved downlink and encoded protocol bytes at
 // acceptance time so later script/cache changes cannot reinterpret the intent.
 type PreparedCommand struct {
+	LegacyTelemetryID   bool                   `json:"legacy_telemetry_id,omitempty"`
+	TransportRoute      *brokerroute.Snapshot  `json:"transport_route,omitempty"`
 	Message             downlink.Message       `json:"message"`
 	Encoded             []byte                 `json:"encoded"`
 	ConfigurationSHA256 string                 `json:"configuration_sha256"`

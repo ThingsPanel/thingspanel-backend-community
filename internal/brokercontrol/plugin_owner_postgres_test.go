@@ -167,4 +167,22 @@ func TestPluginSocketOwnerPersistsImmutableContext(t *testing.T) {
 	if err := db.Model(&pluginContextRow{}).Count(&rowCount).Error; err != nil || rowCount != 3 {
 		t.Fatalf("context row count=%d err=%v", rowCount, err)
 	}
+	// Root scope is owner-derived and must be explicitly authorized as well.
+	if err := db.Exec(`UPDATE devices SET parent_id='d1' WHERE id='d2';UPDATE broker_transport_bindings SET route_epoch=3 WHERE device_id='d1';UPDATE broker_transport_bindings SET route_epoch=7 WHERE device_id='d2'`).Error; err != nil {
+		t.Fatal(err)
+	}
+	denied, err := owner.resolvePluginTargets(ctx, []string{"d2"}, []string{"tenant-1"}, "community")
+	if err != nil || len(denied) != 0 {
+		t.Fatalf("unlisted physical root was implicitly authorized: %+v %v", denied, err)
+	}
+	delegated, err := owner.resolvePluginTargets(ctx, []string{"d1", "d2"}, []string{"tenant-1"}, "community")
+	if err != nil || len(delegated) != 2 {
+		t.Fatalf("explicit shared scope rejected: %+v %v", delegated, err)
+	}
+	for _, target := range delegated {
+		if target.DeviceID == "d2" && (target.TransportDeviceID != "d1" || target.TransportRouteEpoch != 3 || target.RouteEpoch != 7 || !target.LegacyTelemetryID) {
+			t.Fatalf("owner did not freeze independent routes: %+v", target)
+		}
+	}
+
 }
