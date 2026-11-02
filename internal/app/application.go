@@ -58,6 +58,9 @@ func NewApplication(options ...Option) (*Application, error) {
 		query.SetDefault(app.DB)
 	}
 
+	if err := registerNativeAutomationScheduler(app); err != nil {
+		return nil, err
+	}
 	return app, nil
 }
 

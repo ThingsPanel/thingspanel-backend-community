@@ -45,7 +45,7 @@ func TestMarketInstallSchemaPostgres(t *testing.T) {
 		t.Helper()
 		if err := db.Exec(`DROP TABLE IF EXISTS public.market_bundle_binding_status, public.market_resource_mappings,
 			public.market_installation_audit, public.market_bundle_installations,
-			public.native_component_migration_ledger CASCADE`).Error; err != nil {
+			public.market_install_authorizations, public.market_install_config_receipts, public.native_component_migration_ledger CASCADE`).Error; err != nil {
 			t.Fatal(err)
 		}
 		if err := db.Exec(parts[0]).Error; err != nil {
@@ -66,14 +66,14 @@ func TestMarketInstallSchemaPostgres(t *testing.T) {
 			t.Fatal("legacy identity was fabricated", err)
 		}
 		var before string
-		if err := db.Raw("SELECT checksum || applied_at::text FROM native_component_migration_ledger WHERE module_name=?", marketInstallMigrationModule).Scan(&before).Error; err != nil {
+		if err := db.Raw("SELECT string_agg(checksum || applied_at::text, ',' ORDER BY file_name) FROM native_component_migration_ledger WHERE module_name=?", marketInstallMigrationModule).Scan(&before).Error; err != nil {
 			t.Fatal(err)
 		}
 		if err := ApplyMarketInstallSchema(db); err != nil {
 			t.Fatal(err)
 		}
 		var after string
-		if err := db.Raw("SELECT checksum || applied_at::text FROM native_component_migration_ledger WHERE module_name=?", marketInstallMigrationModule).Scan(&after).Error; err != nil || before != after {
+		if err := db.Raw("SELECT string_agg(checksum || applied_at::text, ',' ORDER BY file_name) FROM native_component_migration_ledger WHERE module_name=?", marketInstallMigrationModule).Scan(&after).Error; err != nil || before != after {
 			t.Fatal("replay rewrote migration evidence", err)
 		}
 	})
@@ -93,7 +93,7 @@ func TestMarketInstallSchemaPostgres(t *testing.T) {
 			}
 		}
 		var count int64
-		if err := db.Table(componentMigrationLedgerTable).Where("module_name=?", marketInstallMigrationModule).Count(&count).Error; err != nil || count != 1 {
+		if err := db.Table(componentMigrationLedgerTable).Where("module_name=?", marketInstallMigrationModule).Count(&count).Error; err != nil || count != 2 {
 			t.Fatal("duplicate migration application", count, err)
 		}
 	})
