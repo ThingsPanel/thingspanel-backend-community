@@ -112,14 +112,15 @@ func main() {
 		fmt.Fprintln(os.Stderr, e.Error())
 		os.Exit(1)
 	}
-	fmt.Println("runtime tenant source provisioned; private receipt saved")
+	fmt.Println("runtime tenant source operation committed; private receipt saved")
 }
 func run() error {
+	action := flag.String("action", "provision", "provision or terminal revoke; neither rebinds a source")
 	manifestPath := flag.String("manifest", "", "absolute private reviewed scope manifest")
 	authPath := flag.String("auth-file", "", "absolute private file with two actual current session tokens")
 	output := flag.String("output", "", "new absolute private receipt path")
 	flag.Parse()
-	if flag.NArg() != 0 || *manifestPath == "" || *authPath == "" || *output == "" || !filepath.IsAbs(*output) {
+	if (*action != "provision" && *action != "revoke") || flag.NArg() != 0 || *manifestPath == "" || *authPath == "" || *output == "" || !filepath.IsAbs(*output) {
 		return errors.New("invalid operator arguments")
 	}
 	var m manifest
@@ -164,7 +165,11 @@ func run() error {
 		return errors.New("actual Community session verifier unavailable")
 	}
 	sum := sha256.Sum256(raw)
-	result, e := runtimetenant.Provision(ctx, database, liveVerifier{origin: m.Scope.CommunityOrigin, sessions: sessions}, credentials.AdminToken, credentials.TenantToken, m.Scope, m.NativeTenantID, hex.EncodeToString(sum[:]))
+	operation := runtimetenant.Provision
+	if *action == "revoke" {
+		operation = runtimetenant.Revoke
+	}
+	result, e := operation(ctx, database, liveVerifier{origin: m.Scope.CommunityOrigin, sessions: sessions}, credentials.AdminToken, credentials.TenantToken, m.Scope, m.NativeTenantID, hex.EncodeToString(sum[:]))
 	if e != nil {
 		return errors.New("runtime tenant source rejected; inspect target for an existing or unknown-commit binding before retry")
 	}

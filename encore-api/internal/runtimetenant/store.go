@@ -15,12 +15,21 @@ import (
 
 var ErrUnproven = errors.New("runtime tenant source is not proven")
 
-type Scope struct{ Environment, ProviderID, Namespace, ServiceInstanceID, CommunityOrigin string }
-type Binding struct {
-	ID, TenantID, RawTenantID string
-	Generation                int64
-	Scope                     Scope
+type Scope struct {
+	Environment       string `json:"environment"`
+	ProviderID        string `json:"providerId"`
+	Namespace         string `json:"namespace"`
+	ServiceInstanceID string `json:"serviceInstanceId"`
+	CommunityOrigin   string `json:"communityOrigin"`
 }
+type Binding struct {
+	ID          string `json:"id"`
+	TenantID    string `json:"nativeTenantId"`
+	RawTenantID string `json:"sourceTenantId"`
+	Generation  int64  `json:"generation"`
+	Scope       Scope  `json:"scope"`
+}
+
 type Principal struct {
 	UserID, RawTenantID, Authority string
 	Delegated                      bool
@@ -116,4 +125,38 @@ func digestValid(v string) bool {
 		}
 	}
 	return true
+}
+
+func Revoke(ctx context.Context, db *sql.DB, verifier Verifier, adminToken, tenantToken string, scope Scope, reviewedTenant, manifestDigest string) (Binding, error) {
+	if db == nil || verifier == nil || scope.Validate() != nil || !digestValid(manifestDigest) {
+		return Binding{}, ErrUnproven
+	}
+	admin, e := verifier.Verify(ctx, adminToken)
+	if e != nil || admin.Delegated || admin.Authority != "SYS_ADMIN" || admin.RawTenantID != "" || admin.UserID == "" {
+		return Binding{}, ErrUnproven
+	}
+	tenant, e := verifier.Verify(ctx, tenantToken)
+	if e != nil || tenant.Delegated || tenant.Authority != "TENANT_ADMIN" || tenant.RawTenantID == "" || tenant.UserID == "" || tenant.UserID == admin.UserID || tenantidentity.NormalizePrincipalID(tenant.RawTenantID) != reviewedTenant {
+		return Binding{}, ErrUnproven
+	}
+	tx, e := db.BeginTx(ctx, nil)
+	if e != nil {
+		return Binding{}, ErrUnproven
+	}
+	defer tx.Rollback()
+	b := Binding{TenantID: reviewedTenant, RawTenantID: tenant.RawTenantID, Scope: scope}
+	e = tx.QueryRowContext(ctx, `SELECT id::text,generation FROM runtime_tenant_sources WHERE tenant_id=$1 AND source_tenant_id=$2 AND environment=$3 AND provider_id=$4 AND namespace=$5 AND service_instance_id=$6 AND community_origin=$7 AND state='active' FOR UPDATE`, reviewedTenant, tenant.RawTenantID, scope.Environment, scope.ProviderID, scope.Namespace, scope.ServiceInstanceID, scope.CommunityOrigin).Scan(&b.ID, &b.Generation)
+	if e != nil {
+		return Binding{}, ErrUnproven
+	}
+	if _, e = tx.ExecContext(ctx, `UPDATE runtime_tenant_sources SET state='revoked',revoked_at=now() WHERE id=$1 AND state='active'`, b.ID); e != nil {
+		return Binding{}, ErrUnproven
+	}
+	if _, e = tx.ExecContext(ctx, `INSERT INTO runtime_tenant_source_audit(id,binding_id,action,platform_actor_id,tenant_actor_id,reviewed_manifest_sha256) VALUES($1,$2,'revoke',$3,$4,$5)`, uuid.NewString(), b.ID, admin.UserID, tenant.UserID, manifestDigest); e != nil {
+		return Binding{}, ErrUnproven
+	}
+	if e = tx.Commit(); e != nil {
+		return Binding{}, ErrUnproven
+	}
+	return b, nil
 }

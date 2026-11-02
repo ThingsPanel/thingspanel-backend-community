@@ -245,6 +245,11 @@ func (s *Service) GetNativeDeviceDiagnostics(w http.ResponseWriter, r *http.Requ
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
 		return
 	}
+	if _, err := currentRuntimeSource(r.Context(), identity.tenantID); err != nil {
+		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
+		return
+	}
+
 	deviceID, err := nativeReadUUID(encore.CurrentRequest().PathParams.Get("deviceID"))
 	if err != nil {
 		nativehttp.WriteProblem(w, requestID, r.URL.Path, err, 0, false)
