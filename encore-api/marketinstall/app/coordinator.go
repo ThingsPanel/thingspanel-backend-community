@@ -133,7 +133,7 @@ func (c *Coordinator) Submit(ctx context.Context, identity Identity, key string,
 	if err := ValidatePlan(plan); err != nil {
 		return Operation{}, err
 	}
-	op := Operation{ID: c.NewID(), TenantID: identity.TenantID, SubjectID: identity.SubjectID, AuthorizationRef: identity.AuthorizationRef, RequestKey: key, RequestDigest: requestDigest, State: Queued, Plan: plan, ArtifactDigest: plan.ArtifactDigest}
+	op := Operation{ID: c.NewID(), BundleKey: normalized.BundleKey, Version: normalized.Version, TenantID: identity.TenantID, SubjectID: identity.SubjectID, AuthorizationRef: identity.AuthorizationRef, RequestKey: key, RequestDigest: requestDigest, State: Queued, Plan: plan, ArtifactDigest: plan.ArtifactDigest}
 	return c.Store.Create(ctx, op)
 }
 func errorsIsNotFound(err error) bool { return errors.Is(err, ErrNotFound) }

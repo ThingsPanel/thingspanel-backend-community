@@ -43,9 +43,20 @@ func createDevicesWithDefaultRootGroup(devices []*model.Device) error {
 		return nil
 	}
 
-	return query.Q.Transaction(func(tx *query.Query) error {
-		return createDevicesWithDefaultRootGroupTx(tx, devices)
-	})
+	tx := query.Use(global.DB).Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if err := createDevicesWithDefaultRootGroupTx(tx.Query, devices); err != nil {
+		if tx.Rollback() != nil {
+			return ErrDeviceCreateOutcomeUnknown
+		}
+		return err
+	}
+	if tx.Commit() != nil {
+		return ErrDeviceCreateOutcomeUnknown
+	}
+	return nil
 }
 
 var ErrParentDeviceUnavailable = errors.New("parent device unavailable")
@@ -87,6 +98,9 @@ func CreateDeviceWithLockedParent(device *model.Device) error {
 func createDevicesWithDefaultRootGroupTx(tx *query.Query, devices []*model.Device) error {
 	if len(devices) == 0 {
 		return nil
+	}
+	if err := reserveDeviceIDs(tx, devices); err != nil {
+		return err
 	}
 	if err := lockNewDeviceConfigurations(tx, devices); err != nil {
 		return err
@@ -407,12 +421,21 @@ func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
 	return true, nil
 }
 
+// DeleteDevice keeps the legacy DAL entry point inside the same identity
+// transaction as service deletions. Callers needing dependency cleanup use
+// DeleteDeviceWithTx inside their wider transaction.
 func DeleteDevice(id string, tenantID string) error {
-	_, err := query.Device.Where(query.Device.ID.Eq(id), query.Device.TenantID.Eq(tenantID)).Delete()
-	if err != nil {
-		logrus.Error(err)
-	}
-	return err
+	return query.Use(global.DB).Transaction(func(tx *query.Query) error {
+		q := tx.Device
+		if _, err := q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First(); err != nil {
+			return err
+		}
+		if err := tombstoneDeviceID(tx, id, tenantID); err != nil {
+			return err
+		}
+		_, err := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).Delete()
+		return err
+	})
 }
 
 // LockTenantDeviceForDelete establishes ownership before any dependent data is touched.
@@ -433,6 +456,9 @@ func HasDeviceDeleteDependencies(id string, tx *query.QueryTx) (bool, bool, erro
 }
 
 func DeleteDeviceWithTx(id, tenantID string, tx *query.QueryTx) (int64, error) {
+	if err := tombstoneDeviceID(tx.Query, id, tenantID); err != nil {
+		return 0, err
+	}
 	q := tx.Device
 	result, err := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).Delete()
 	return result.RowsAffected, err

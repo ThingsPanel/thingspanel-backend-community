@@ -16,14 +16,14 @@ type Store struct{ DB *sql.DB }
 
 func New(db *sql.DB) *Store { return &Store{DB: db} }
 
-const operationColumns = `id,tenant_id,subject_id,authorization_ref,request_key,request_digest,artifact_digest,plan,state,generation,error_code`
+const operationColumns = `id,bundle_key,bundle_version,tenant_id,subject_id,authorization_ref,request_key,request_digest,artifact_digest,plan,state,generation,error_code`
 
 type scanner interface{ Scan(...interface{}) error }
 
 func scanOperation(row scanner) (app.Operation, error) {
 	var op app.Operation
 	var plan []byte
-	if err := row.Scan(&op.ID, &op.TenantID, &op.SubjectID, &op.AuthorizationRef, &op.RequestKey, &op.RequestDigest, &op.ArtifactDigest, &plan, &op.State, &op.Generation, &op.ErrorCode); err != nil {
+	if err := row.Scan(&op.ID, &op.BundleKey, &op.Version, &op.TenantID, &op.SubjectID, &op.AuthorizationRef, &op.RequestKey, &op.RequestDigest, &op.ArtifactDigest, &plan, &op.State, &op.Generation, &op.ErrorCode); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return op, app.ErrNotFound
 		}
@@ -74,6 +74,9 @@ func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, er
 			return app.Operation{}, err
 		}
 		return current, nil
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE market_install_operations SET bundle_key=$2,bundle_version=$3 WHERE id=$1`, op.ID, op.BundleKey, op.Version); err != nil {
+		return app.Operation{}, err
 	}
 	for index, step := range op.Plan.Steps {
 		hash, err := app.StepHash(step)
