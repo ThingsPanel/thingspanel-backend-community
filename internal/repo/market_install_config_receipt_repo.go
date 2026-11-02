@@ -116,8 +116,12 @@ func ExecuteMarketInstallConfigBinding(ctx context.Context, req model.MarketInst
 			if locked.Status == "NATIVE_READY" && (locked.LocalModelID == nil || locked.LocalSnapshotID == nil || locked.LocalRevision == nil || *locked.LocalModelID != *candidate.NativeThingModelID || *locked.LocalSnapshotID != *candidate.NativeThingModelSnapshotID || *locked.LocalRevision != *candidate.NativeThingModelRevision) {
 				return ErrMarketInstallConfigChanged
 			}
-			if err := tx.Create(candidate).Error; err != nil {
-				return err
+			created := tx.Create(candidate)
+			if created.Error != nil {
+				return created.Error
+			}
+			if created.RowsAffected != 1 {
+				return fmt.Errorf("installation configuration was not created exactly once")
 			}
 			result := tx.Table("market_native_model_imports").Where("id=? AND status IN ('IMPORTING','NATIVE_READY')", locked.ID).Updates(map[string]interface{}{"status": "COMPLETE", "local_model_id": *candidate.NativeThingModelID, "local_snapshot_id": *candidate.NativeThingModelSnapshotID, "local_revision": *candidate.NativeThingModelRevision, "local_device_config_id": candidate.ID})
 			if result.Error != nil {
@@ -139,7 +143,14 @@ func ExecuteMarketInstallConfigBinding(ctx context.Context, req model.MarketInst
 			return err
 		}
 		output = MarketInstallConfigReceipt{TenantID: req.TenantID, SubjectID: req.SubjectID, OperationKey: req.IdempotencyKey, PayloadHash: req.PayloadHash, InstanceKey: req.OperationID, ResourceKey: req.Step.ResourceKey, ConfigID: config.ID, BindingRevision: config.NativeBindingRevision, Result: data}
-		return tx.Create(&output).Error
+		created := tx.Create(&output)
+		if created.Error != nil {
+			return created.Error
+		}
+		if created.RowsAffected != 1 {
+			return fmt.Errorf("installation configuration receipt was not created exactly once")
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err

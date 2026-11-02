@@ -75,7 +75,11 @@ func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, er
 		}
 		return current, nil
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE market_install_operations SET bundle_key=$2,bundle_version=$3 WHERE id=$1`, op.ID, op.BundleKey, op.Version); err != nil {
+	if affected != 1 {
+		return app.Operation{}, app.ErrLeaseLost
+	}
+	result, err = tx.ExecContext(ctx, `UPDATE market_install_operations SET bundle_key=$2,bundle_version=$3 WHERE id=$1`, op.ID, op.BundleKey, op.Version)
+	if err := exactlyOne(result, err); err != nil {
 		return app.Operation{}, err
 	}
 	for index, step := range op.Plan.Steps {
@@ -83,7 +87,8 @@ func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, er
 		if err != nil {
 			return app.Operation{}, err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO market_install_steps(operation_id,ordinal,step_id,idempotency_key,payload_hash,state) VALUES($1,$2,$3,$4,$5,'pending')`, op.ID, index, step.ID, app.StableStepKey(op.ID, step), hash); err != nil {
+		result, err := tx.ExecContext(ctx, `INSERT INTO market_install_steps(operation_id,ordinal,step_id,idempotency_key,payload_hash,state) VALUES($1,$2,$3,$4,$5,'pending')`, op.ID, index, step.ID, app.StableStepKey(op.ID, step), hash)
+		if err := exactlyOne(result, err); err != nil {
 			return app.Operation{}, err
 		}
 	}
@@ -110,7 +115,8 @@ func (s *Store) Claim(ctx context.Context, leaseSeconds int) (*app.Work, error) 
 		return nil, err
 	}
 	op.Generation++
-	if _, err := tx.ExecContext(ctx, `UPDATE market_install_operations SET state='running',generation=$2,lease_until=NOW()+($3 * INTERVAL '1 second'),updated_at=NOW() WHERE id=$1`, op.ID, op.Generation, leaseSeconds); err != nil {
+	result, err := tx.ExecContext(ctx, `UPDATE market_install_operations SET state='running',generation=$2,lease_until=NOW()+($3 * INTERVAL '1 second'),updated_at=NOW() WHERE id=$1`, op.ID, op.Generation, leaseSeconds)
+	if err := exactlyOne(result, err); err != nil {
 		return nil, err
 	}
 	op.State = app.Running
@@ -218,7 +224,8 @@ func (s *Store) Confirm(ctx context.Context, w app.Work, receipt app.Receipt) er
 	if pending == 0 {
 		target = app.Completed
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE market_install_operations SET state=$2,lease_until=NULL,error_code='',updated_at=NOW() WHERE id=$1`, w.Operation.ID, target); err != nil {
+	result, err = tx.ExecContext(ctx, `UPDATE market_install_operations SET state=$2,lease_until=NULL,error_code='',updated_at=NOW() WHERE id=$1`, w.Operation.ID, target)
+	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -243,7 +250,8 @@ func (s *Store) Hold(ctx context.Context, w app.Work, state, code string) error 
 	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE market_install_operations SET state=$2,error_code=$3,lease_until=NULL,updated_at=NOW() WHERE id=$1`, w.Operation.ID, state, code); err != nil {
+	result, err = tx.ExecContext(ctx, `UPDATE market_install_operations SET state=$2,error_code=$3,lease_until=NULL,updated_at=NOW() WHERE id=$1`, w.Operation.ID, state, code)
+	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
 	return tx.Commit()
