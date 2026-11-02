@@ -63,7 +63,7 @@ func (*TelemetryData) GetCurrentTelemetrData(device_id string) (interface{}, err
 			return nil, err
 		}
 		// 是否有设备模板
-		if deviceConfig.DeviceTemplateID != nil {
+		if shouldLoadLegacyTelemetryMetadata(deviceConfig) {
 			// 查询遥测模型
 			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
@@ -148,7 +148,7 @@ func (*TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurrentD
 			})
 		}
 		// 是否有设备模板
-		if deviceConfig.DeviceTemplateID != nil {
+		if shouldLoadLegacyTelemetryMetadata(deviceConfig) {
 			// 查询遥测模型
 			telemetryModel, err := dal.GetDeviceModelTelemetryDataList(*deviceConfig.DeviceTemplateID)
 			if err != nil {
@@ -203,6 +203,10 @@ func (*TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurrentD
 	}
 
 	return data, err
+}
+
+func shouldLoadLegacyTelemetryMetadata(config *model.DeviceConfig) bool {
+	return config != nil && config.DeviceTemplateID != nil && !hasNativeDeviceConfigBinding(config)
 }
 
 // 返回数据格式{"key":value,"key1":value1}
@@ -1168,6 +1172,9 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 
 	// 步骤3: 获取设备配置和协议类型
 	// ---------------------------------------------
+	if err := rejectNativeLegacyControl(deviceInfo); err != nil {
+		return err
+	}
 	var (
 		protocolType string
 		deviceConfig *model.DeviceConfig

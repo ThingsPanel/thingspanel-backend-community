@@ -133,6 +133,9 @@ func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID stri
 	if err != nil {
 		return fmt.Errorf("failed to load device from database: %w", err)
 	}
+	if err := rejectNativeLegacyControl(device); err != nil {
+		return err
+	}
 
 	// 2. 生成 message_id（8位唯一字符串）
 	messageId := uuid.New()[:8]
