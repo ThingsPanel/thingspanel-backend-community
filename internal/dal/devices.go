@@ -308,11 +308,32 @@ func BindExistingSubDevices(ctx context.Context, tenantID, parentID string, chil
 }
 
 func UpdateDeviceByMap(deviceID, tenantID string, deviceMap map[string]interface{}) (*model.Device, error) {
+	return updateDeviceByMap(deviceID, tenantID, deviceMap, false)
+}
+
+func RuntimeUpdateDeviceByMap(deviceID, tenantID string, deviceMap map[string]interface{}) (*model.Device, error) {
+	return updateDeviceByMap(deviceID, tenantID, deviceMap, true)
+}
+
+func updateDeviceByMap(deviceID, tenantID string, deviceMap map[string]interface{}, scoped bool) (*model.Device, error) {
 	tx := query.Use(global.DB).Begin()
 	if tx.Error != nil {
 		return nil, tx.Error
 	}
 	var err error
+	if scoped {
+		db := tx.Device.UnderlyingDB().Session(&gorm.Session{NewDB: true})
+		var current model.Device
+		err = db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND tenant_id=?", deviceID, tenantID).Take(&current).Error
+		if err == nil {
+			var reservation DeviceIDReservation
+			err = db.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=? AND state='active'", deviceID, tenantID).Take(&reservation).Error
+		}
+	}
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
 	if value, hasParent := deviceMap["parent_id"]; hasParent {
 		parent, ok := value.(*string)
 		if !ok || parent == nil {

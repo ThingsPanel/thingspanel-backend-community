@@ -302,7 +302,15 @@ func serviceDeviceNumber(tenantID, accessID, externalNumber string) string {
 	return "svc-" + hex.EncodeToString(sum[:])[:32]
 }
 
-func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
+func (d *Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
+	return d.updateDevice(req, claims, false)
+}
+
+func (d *Device) RuntimeUpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims) (*model.Device, error) {
+	return d.updateDevice(req, claims, true)
+}
+
+func (*Device) updateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims, scoped bool) (*model.Device, error) {
 	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
@@ -398,7 +406,12 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims)
 	}
 	condsMap["update_at"] = t
 
-	device, err := dal.UpdateDeviceByMap(req.Id, claims.TenantID, condsMap)
+	var device *model.Device
+	if scoped {
+		device, err = dal.RuntimeUpdateDeviceByMap(req.Id, claims.TenantID, condsMap)
+	} else {
+		device, err = dal.UpdateDeviceByMap(req.Id, claims.TenantID, condsMap)
+	}
 	if err != nil {
 		if errors.Is(err, dal.ErrDeviceBindingOutcomeUnknown) {
 			return nil, errcode.NewWithMessage(errcode.CodeDBError, "device update outcome unknown; reconcile before retry")

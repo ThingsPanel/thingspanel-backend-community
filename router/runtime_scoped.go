@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm/clause"
 	"project/internal/api"
 	bc "project/internal/brokercontract"
+	"project/internal/dal"
 	"project/internal/middleware"
 	"project/internal/model"
 	"project/pkg/global"
@@ -45,15 +46,15 @@ func registerRuntimeScoped(v1 *gin.RouterGroup) {
 	add("POST", "device/:device_id/debug", "param:device_id", false, d.DeviceDebugApi.SetDeviceDebug)
 	add("GET", "device/:device_id/debug/status", "param:device_id", false, d.DeviceDebugApi.GetDeviceDebugStatus)
 	add("GET", "device/:device_id/debug/logs", "param:device_id", false, d.DeviceDebugApi.GetDeviceDebugLogs)
-	// These legacy writers use independent transactions (or async ingress). An
-	// authorization precheck cannot prove that their eventual mutation is scoped.
-	// In particular do not hold SHARE then call a writer upgrading that same row.
-	for _, r := range []struct{ method, path string }{
-		{"PUT", "device"}, {"DELETE", "device/:id"}, {"POST", "device/update/voucher"},
-		{"PUT", "device/sub-remove"}, {"POST", "telemetry/datas/simulation/send"}, {"DELETE", "expected/data/:id"},
-	} {
-		g.Handle(r.method, r.path, runtimeScope("unsupported", false, nil))
-	}
+
+	add("PUT", "device", "owner:body:id", false, api.RuntimeUpdateDevice)
+	add("DELETE", "device/:id", "owner:param:id", false, d.DeviceApi.DeleteDevice)
+	add("POST", "device/update/voucher", "owner:body:device_id", false, api.RuntimeUpdateVoucher)
+	add("PUT", "device/sub-remove", "owner:body:sub_device_id", false, api.RuntimeRemoveSubDevice)
+	add("DELETE", "expected/data/:id", "owner:param:id", false, api.RuntimeDeleteExpected)
+	// Simulation accepts caller-selected transport destinations and publishes
+	// asynchronously. Its eventual ingest cannot be fenced by this transaction.
+	add("POST", "telemetry/datas/simulation/send", "unsupported", false, nil)
 }
 
 func runtimeReject(c *gin.Context, status int, message string) {
@@ -73,13 +74,22 @@ func runtimeScope(source string, ingress bool, handler gin.HandlerFunc) gin.Hand
 			runtimeReject(c, 503, "runtime scoped atomic writer unavailable")
 			return
 		}
+		owner := strings.HasPrefix(source, "owner:")
+		source = strings.TrimPrefix(source, "owner:")
 		deviceID, err := runtimeDeviceID(c, source)
 		if err != nil {
 			runtimeReject(c, 400, "ambiguous or missing runtime device identity")
 			return
 		}
-		if global.DB == nil {
+		if global.DB == nil || global.CasbinEnforcer == nil {
 			runtimeReject(c, 503, "runtime scope unavailable")
+			return
+		}
+		if owner {
+			runtimeLegacyRBAC(c, tenant)
+			if !c.IsAborted() {
+				handler(c)
+			}
 			return
 		}
 		// Bound lock waits and handler work; all read handlers leave device rows
@@ -105,12 +115,11 @@ func runtimeScope(source string, ingress bool, handler gin.HandlerFunc) gin.Hand
 			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=? AND is_enabled=? AND activate_flag=?", deviceID, tenant, "enabled", "active").Take(&device).Error; err != nil {
 				return err
 			}
-			// Preserve legacy RBAC policy on the original resource, never the new
-			// unregistered prefix. The scope check has already removed SYS_ADMIN bypass.
-			saved := c.Request.URL.Path
-			c.Request.URL.Path = "/api/v1/" + strings.SplitN(saved, "/runtime-scoped/"+tenant+"/", 2)[1]
-			middleware.CasbinRBAC()(c)
-			c.Request.URL.Path = saved
+			var reservation dal.DeviceIDReservation
+			if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id=? AND tenant_id=? AND state='active'", deviceID, tenant).Take(&reservation).Error; err != nil {
+				return err
+			}
+			runtimeLegacyRBAC(c, tenant)
 			if !c.IsAborted() {
 				handler(c)
 			}
@@ -166,7 +175,7 @@ func runtimeDeviceID(c *gin.Context, source string) (string, error) {
 		// so authorization and the eventual handler cannot see different IDs.
 		for k := range body {
 			for _, identity := range []string{"device_id", "id", "tenant_id", "parent_id", "sub_device_id", "device_ids"} {
-				if strings.EqualFold(k, identity) && (k != key) {
+				if strings.EqualFold(k, identity) && k != key && !(source == "body:id" && k == "parent_id") {
 					return "", bad
 				}
 			}
@@ -196,4 +205,18 @@ func runtimeCommandDevice(tx *gorm.DB, messageID, tenant string) (string, error)
 	}
 	err := tx.Table("command_set_logs").Clauses(clause.Locking{Strength: "SHARE"}).Select("device_id").Where("message_id=?", messageID).Take(&row).Error
 	return row.DeviceID, err
+}
+
+// Apply the original resource policy after scope authorization; a new prefix
+// must not bypass existing Casbin policy lookup.
+func runtimeLegacyRBAC(c *gin.Context, tenant string) {
+	saved := c.Request.URL.Path
+	parts := strings.SplitN(saved, "/runtime-scoped/"+tenant+"/", 2)
+	if len(parts) != 2 {
+		runtimeReject(c, 400, "invalid runtime scoped path")
+		return
+	}
+	c.Request.URL.Path = "/api/v1/" + parts[1]
+	middleware.CasbinRBAC()(c)
+	c.Request.URL.Path = saved
 }
