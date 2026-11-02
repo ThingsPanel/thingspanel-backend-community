@@ -138,7 +138,7 @@ func (communityHistorySource) Page(ctx context.Context, tenantID, deviceID, iden
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, total, err := nativeRuntimeClient().ListTelemetryHistory(ctx, legacyID, identifier, fromMs, toMs, page, pageSize)
+	rows, total, err := nativeRuntimeClient(tenantID).ListTelemetryHistory(ctx, legacyID, identifier, fromMs, toMs, page, pageSize)
 	if err != nil {
 		return nil, 0, err
 	}

@@ -20,10 +20,10 @@ import (
 
 // Runtime reads (runtime-state, readings) are served from the Community backend
 // through internal/communityclient. The Community device ID is taken from the device's
-// runtimeRef (namespace TP_RUNTIME_COMMUNITY_NAMESPACE, default "community");
+// runtimeRef (configured provider, namespace and service instance);
 // without one the native UUID is used only when TP_RUNTIME_DEVICE_ID_MODE=identity.
 // Every request first proves the device exists in the caller's tenant natively; the
-// Community call only runs afterwards. Fields the Community backend cannot supply
+// Community call only runs afterwards through the tenant-scoped authorization route. Fields the Community backend cannot supply
 // (applied generation, snapshot, aggregation windows, history totals) are reported
 // as null or refused; they are never invented.
 
@@ -31,22 +31,24 @@ const (
 	runtimeIdentityModeEnv = "TP_RUNTIME_DEVICE_ID_MODE"
 	// runtimeNamespaceEnv names the runtimeRef.namespace whose externalId is the
 	// Community device ID. Default "community".
-	runtimeNamespaceEnv = "TP_RUNTIME_COMMUNITY_NAMESPACE"
+	runtimeNamespaceEnv       = "TP_RUNTIME_COMMUNITY_NAMESPACE"
+	runtimeProviderEnv        = "TP_RUNTIME_COMMUNITY_PROVIDER_ID"
+	runtimeServiceInstanceEnv = "TP_RUNTIME_COMMUNITY_SERVICE_INSTANCE_ID"
 )
 
 var (
-	runtimeClientOnce   sync.Once
+	runtimeClientOnce     sync.Once
 	runtimeClientInstance *communityclient.Client
 )
 
-func nativeRuntimeClient() *communityclient.Client {
+func nativeRuntimeClient(tenantID string) *communityclient.Client {
 	runtimeClientOnce.Do(func() { runtimeClientInstance = communityclient.NewFromEnv() })
-	return runtimeClientInstance
+	return runtimeClientInstance.ForTenant(tenantID)
 }
 
 // resolveRuntimeDeviceID picks the Community device ID for a native device:
-//  1. a runtimeRef in the configured Community namespace is the provider-confirmed
-//     identity and wins;
+//  1. a runtimeRef matching the configured Community provider/namespace/instance is the
+//     confirmed identity and wins; mismatching explicit bindings are refused;
 //  2. otherwise the native UUID is used only when the operator declared
 //     TP_RUNTIME_DEVICE_ID_MODE=identity;
 //  3. otherwise the device has no known Community identity and the call is refused.
@@ -55,7 +57,18 @@ func resolveRuntimeDeviceID(ref *RuntimeRef, nativeID string) (string, error) {
 	if namespace == "" {
 		namespace = "community"
 	}
-	if ref != nil && ref.Namespace == namespace && strings.TrimSpace(ref.ExternalID) != "" {
+	if ref != nil {
+		provider := strings.TrimSpace(os.Getenv(runtimeProviderEnv))
+		instance := strings.TrimSpace(os.Getenv(runtimeServiceInstanceEnv))
+		actualInstance := ""
+		if ref.ServiceInstanceID != nil {
+			actualInstance = *ref.ServiceInstanceID
+		}
+		// An explicit binding is authoritative. Never reinterpret a binding to
+		// another provider/instance as identity mode's native UUID.
+		if provider == "" || ref.ProviderID != provider || ref.Namespace != namespace || actualInstance != instance || strings.TrimSpace(ref.ExternalID) == "" {
+			return "", &errs.Error{Code: errs.Unavailable, Message: "device runtime binding does not match the configured Community provider and instance"}
+		}
 		return ref.ExternalID, nil
 	}
 	if strings.TrimSpace(os.Getenv(runtimeIdentityModeEnv)) == "identity" {
@@ -118,7 +131,7 @@ func readNativeRuntimeState(ctx context.Context, identity nativeDeviceReadIdenti
 	if err != nil {
 		return nil, err
 	}
-	flag, err := nativeRuntimeClient().GetOnlineFlag(ctx, legacyID)
+	flag, err := nativeRuntimeClient(identity.tenantID).GetOnlineFlag(ctx, legacyID)
 	if err != nil {
 		return nil, runtimeUpstreamError(err)
 	}
@@ -301,7 +314,7 @@ func readNativeReadings(ctx context.Context, identity nativeDeviceReadIdentity, 
 	if err != nil {
 		return nil, err
 	}
-	cli := nativeRuntimeClient()
+	cli := nativeRuntimeClient(identity.tenantID)
 	page := NativeReadingPage{Items: []NativeReading{}, Page: query.page, PageSize: query.pageSize}
 	switch query.kind {
 	case "telemetry", "attribute":

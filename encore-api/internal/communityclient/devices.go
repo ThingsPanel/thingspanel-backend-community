@@ -185,7 +185,7 @@ func (c *Client) DeviceGone(ctx context.Context, deviceID string) (bool, error) 
 			return false, nil
 		}
 	}
-	if errors.Is(err, ErrRejected) {
+	if !c.scoped && errors.Is(err, ErrRejected) {
 		return true, nil
 	}
 	return false, err
