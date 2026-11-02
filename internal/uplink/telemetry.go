@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"project/initialize"
+	"project/internal/brokercontract"
 	"project/internal/dal"
 	"project/internal/diagnostics"
 	"project/internal/model"
@@ -447,6 +448,17 @@ func (f *TelemetryUplink) processDirectDeviceMessage(device *model.Device, paylo
 	if trusted {
 		stored.Timestamp = observedAt.UnixMilli()
 		stored.BrokerRoute = &storage.TrustedTelemetryRoute{ReceiptID: uuid.NewString(), TransportDeviceID: transportDeviceID, BrokerCell: brokerCell, RouteEpoch: routeEpoch, ObservedAt: observedAt}
+		if value, exists := originalMsg.GetMetadata("delegated_route"); exists {
+			proof, err := brokercontract.ParseDelegation(value)
+			if err != nil || proof.TargetDeviceID != originalMsg.DeviceID || proof.TargetRouteEpoch != routeEpoch || proof.BrokerCell != brokerCell || proof.ObservedAt.UnixMilli() != observedAt.UnixMilli() {
+				f.logger.Error("Invalid delegated telemetry scope")
+				return
+			}
+			stored.BrokerRoute.Delegation = proof
+			stored.BrokerRoute.TransportDeviceID = proof.TransportDeviceID
+			stored.BrokerRoute.RouteEpoch = proof.TransportRouteEpoch
+		}
+
 		if value, exists := originalMsg.GetMetadata("ingestion_id"); exists {
 			ingestionID, ok := value.(string)
 			if !ok || ingestionID == "" || len(ingestionID) > 128 || strings.TrimSpace(ingestionID) != ingestionID {

@@ -208,6 +208,9 @@ func (a *Adapter) HandleIngressMessage(topic string, body []byte, retained bool)
 	if env.Metadata.IngestionID != "" {
 		metadata["ingestion_id"] = env.Metadata.IngestionID
 	}
+	if env.Metadata.Delegation != nil {
+		metadata["delegated_route"] = env.Metadata.Delegation
+	}
 	payload := env.Values
 	switch kind {
 	case uplink.MessageTypeCommandResponse, uplink.MessageTypeGatewayCommandResponse:

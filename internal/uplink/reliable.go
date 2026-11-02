@@ -153,7 +153,11 @@ func (p *ReliableProcessor) write(ctx context.Context, tx *gorm.DB, device *mode
 		}
 		trigger = model.TRIGGER_PARAM_TYPE_ATTR
 	}
-	intent, e := json.Marshal(map[string]interface{}{"trigger_param_type": trigger, "trigger_values": values, "route_epoch": msg.RouteEpoch, "broker_cell": msg.BrokerCell})
+	intentData := map[string]interface{}{"trigger_param_type": trigger, "trigger_values": values, "route_epoch": msg.RouteEpoch, "broker_cell": msg.BrokerCell}
+	if proof, ok := msg.Metadata["delegated_route"]; ok {
+		intentData["delegated_route"] = proof
+	}
+	intent, e := json.Marshal(intentData)
 	if e != nil {
 		return e
 	}

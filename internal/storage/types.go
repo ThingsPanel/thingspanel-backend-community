@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"project/internal/brokercontract"
 	"time"
 )
 
@@ -29,6 +30,7 @@ type Message struct {
 // never in device JSON. Ordinary telemetry remains best effort until the batch
 // commits; this snapshot fences the final write against transport migration.
 type TrustedTelemetryRoute struct {
+	Delegation        *brokercontract.Delegation
 	ReceiptID         string
 	TransportDeviceID string
 	BrokerCell        string

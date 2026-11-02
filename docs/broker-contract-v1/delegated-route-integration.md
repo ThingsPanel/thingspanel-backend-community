@@ -32,8 +32,10 @@ NULL; historical native fixtures without the columns remain readable through
 
 ## Delivery status
 
-The initial strict SDK wrapper commit is f6929665. The follow-up fence work is
-being integrated; owner root derivation and durable control delivery must be
+The initial strict SDK wrapper commit is f6929665. Receipt admission/processing, telemetry batch writes, plugin state projection
+and delayed automation now carry and revalidate the proof. These changes remain
+unvalidated until the queued package and isolated PostgreSQL checks complete.
+Owner root derivation and durable control delivery must be
 completed and tested before advertising support for non-self transport targets.
 Existing mapping certification, canonical topic scope, caller authorization,
 telemetry commit-unknown handling and transactional winner selection are retained.
