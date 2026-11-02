@@ -104,7 +104,13 @@ func runtimeScope(source string, ingress bool, handler gin.HandlerFunc) gin.Hand
 		}
 		// The device SHARE lock covers the entire read or external Redis effect.
 
-		err = global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Some legacy read handlers use background contexts. The lock-owning
+		// transaction must outlive their callback even if the request is canceled;
+		// database/sql would otherwise roll it back early and drop authorization
+		// locks while the handler was still reading. Lock acquisition itself is
+		// bounded below with PostgreSQL lock_timeout.
+		fenceContext := context.WithoutCancel(ctx)
+		err = global.DB.WithContext(fenceContext).Transaction(func(tx *gorm.DB) error {
 			if tx.Dialector.Name() != "postgres" {
 				return errors.New("runtime scope requires PostgreSQL row locking")
 			}

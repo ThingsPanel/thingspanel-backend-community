@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -82,10 +83,13 @@ func runtimeRouterFixture(t *testing.T) *gorm.DB {
 }
 
 func runtimeRequest(id, source string, handler gin.HandlerFunc) *httptest.ResponseRecorder {
+	return runtimeRequestContext(context.Background(), id, source, handler)
+}
+func runtimeRequestContext(ctx context.Context, id, source string, handler gin.HandlerFunc) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	path := "/api/v1/runtime-scoped/tenant-a/device/detail/" + id
-	c.Request = httptest.NewRequest("GET", path, nil)
+	c.Request = httptest.NewRequest("GET", path, nil).WithContext(ctx)
 	c.Params = gin.Params{{Key: "tenantID", Value: "tenant-a"}, {Key: "id", Value: id}, {Key: "message_id", Value: id}}
 	c.Set("claims", &utils.UserClaims{ID: "caller", TenantID: "tenant-a", Authority: "TENANT_ADMIN"})
 	runtimeScope(source, false, handler)(c)
@@ -147,5 +151,40 @@ func TestRuntimeScopedPostgresReadFencePreventsMidRequestTransfer(t *testing.T) 
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("read fence failed to release")
+	}
+}
+
+func TestRuntimeScopedPostgresCancellationDoesNotReleaseFenceEarly(t *testing.T) {
+	db := runtimeRouterFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	entered, release, done := make(chan struct{}), make(chan struct{}), make(chan *httptest.ResponseRecorder, 1)
+	defer close(release)
+	go func() {
+		done <- runtimeRequestContext(ctx, "local", "param:id", func(c *gin.Context) { close(entered); <-release; c.Status(204); c.Writer.WriteHeaderNow() })
+	}()
+	select {
+	case <-entered:
+	case <-time.After(5 * time.Second):
+		t.Fatal("read fence not entered")
+	}
+	cancel()
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if e := tx.Exec("SET LOCAL lock_timeout='150ms'").Error; e != nil {
+			return e
+		}
+		return tx.Model(&model.Device{}).Where("id=?", "local").Update("tenant_id", "tenant-b").Error
+	})
+	if err == nil {
+		t.Fatal("request cancellation released scope fence while legacy handler was still running")
+	}
+	release <- struct{}{}
+	select {
+	case w := <-done:
+		if w.Code != 204 {
+			t.Fatalf("read failed: %d", w.Code)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("canceled read did not finish")
 	}
 }
