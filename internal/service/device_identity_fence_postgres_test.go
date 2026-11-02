@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"project/internal/dal"
 	"project/internal/model"
@@ -40,7 +41,7 @@ func TestDeviceIdentityDatabaseWriterFencePostgres(t *testing.T) {
 		t.Fatal(old.Error)
 	}
 	defer old.Rollback()
-	if err := old.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES('before-cutover','tenant-a','v','before-cutover','enabled','active')`).Error; err != nil {
+	if err := old.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag,is_online) VALUES('before-cutover','tenant-a','v','before-cutover','enabled','active',0)`).Error; err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
@@ -77,14 +78,13 @@ func TestDeviceIdentityDatabaseWriterFencePostgres(t *testing.T) {
 		t.Fatalf("cutover omitted committed in-flight device: %+v %v", reservation, err)
 	}
 	for _, statement := range []string{
-		`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES('old-unreserved','tenant-a','v','old-unreserved','enabled','active')`,
+		`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag,is_online) VALUES('old-unreserved','tenant-a','v','old-unreserved','enabled','active',0)`,
 		`DELETE FROM devices WHERE id='before-cutover'`,
 		`UPDATE devices SET id='renamed-old' WHERE id='before-cutover'`,
 		`UPDATE devices SET tenant_id='tenant-b' WHERE id='before-cutover'`,
 	} {
-		if err := db.Exec(statement).Error; err == nil {
-			t.Fatalf("old device writer bypassed database fence: %s", statement)
-		}
+		assertIdentityFenceRejected(t, db.Exec(statement).Error)
+
 	}
 	claims := &utils.UserClaims{ID: "owner", TenantID: "tenant-a"}
 	id := "fenced-new-device"
@@ -94,15 +94,11 @@ func TestDeviceIdentityDatabaseWriterFencePostgres(t *testing.T) {
 	if err := (&Device{}).DeleteDevice(id, claims); err != nil {
 		t.Fatalf("legal tombstoned delete failed: %v", err)
 	}
-	if err := db.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES(?,'tenant-a','v',?,'enabled','active')`, id, id).Error; err == nil {
-		t.Fatal("old writer resurrected tombstoned identity")
-	}
+	assertIdentityFenceRejected(t, db.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag,is_online) VALUES(?,'tenant-a','v',?,'enabled','active',0)`, id, id).Error)
 	if err := db.Exec(`INSERT INTO device_id_reservations(id,tenant_id,state) VALUES('foreign-reservation','tenant-b','active')`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES('foreign-reservation','tenant-a','v','foreign-reservation','enabled','active')`).Error; err == nil {
-		t.Fatal("foreign reservation authorized device insertion")
-	}
+	assertIdentityFenceRejected(t, db.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag,is_online) VALUES('foreign-reservation','tenant-a','v','foreign-reservation','enabled','active',0)`).Error)
 	if err := db.Exec(`UPDATE devices SET name='ordinary mutable name' WHERE id='before-cutover'`).Error; err != nil {
 		t.Fatalf("fence blocked legal nonidentity update: %v", err)
 	}
@@ -130,5 +126,14 @@ func TestDeviceIdentityDatabaseWriterFencePostgres(t *testing.T) {
 	}
 	if err := dal.CreateDevice(&model.Device{ID: id, TenantID: "tenant-a", Voucher: id, DeviceNumber: id, IsEnabled: "enabled", ActivateFlag: "active"}); !errors.Is(err, dal.ErrDeviceIDReserved) {
 		t.Fatalf("DAL lost permanent conflict under real trigger: %v", err)
+	}
+}
+
+// A missing required fixture column must not masquerade as an identity fence.
+func assertIdentityFenceRejected(t *testing.T, err error) {
+	t.Helper()
+	var pg *pgconn.PgError
+	if !errors.As(err, &pg) || pg.Code != "23514" {
+		t.Fatalf("expected identity check violation 23514, got %v", err)
 	}
 }
