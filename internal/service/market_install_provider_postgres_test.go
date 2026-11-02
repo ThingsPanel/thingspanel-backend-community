@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/casbin/casbin/v2"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -36,6 +37,22 @@ func marketInstallProviderFixture(t *testing.T) *gorm.DB {
 			t.Fatal(err)
 		}
 	}
+	// Grant issuance now requires the same existing install resource as every
+	// public management entrypoint. Seed only this isolated fixture's policies;
+	// production missing-policy configurations remain denied.
+	enforcer, err := casbin.NewEnforcer("../../configs/casbin.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := enforcer.AddNamedGroupingPolicy("g2", MarketInstallationReadResource, "a08-grant-fixture-function"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := enforcer.AddPolicy("a08-grant-fixture-role", "a08-grant-fixture-function", "allow"); err != nil {
+		t.Fatal(err)
+	}
+	previousEnforcer := global.CasbinEnforcer
+	global.CasbinEnforcer = enforcer
+	t.Cleanup(func() { global.CasbinEnforcer = previousEnforcer })
 	return db
 }
 func marketInstallGrantFixture(t *testing.T) (*repo.MarketInstallAuthorization, model.MarketInstallStepRequest, *utils.UserClaims, string) {
@@ -44,6 +61,9 @@ func marketInstallGrantFixture(t *testing.T) (*repo.MarketInstallAuthorization, 
 	user, actor := uuid.NewString(), uuid.NewString()
 	tenant := "tenant-" + uuid.NewString()
 	if err := global.DB.Exec(`INSERT INTO users(id,tenant_id,status,authority,auth_version) VALUES(?,?,'N','TENANT_ADMIN',3),(?,?,'N','TENANT_ADMIN',7)`, user, tenant, actor, tenant).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := global.CasbinEnforcer.AddNamedGroupingPolicy("g", user, "a08-grant-fixture-role"); err != nil {
 		t.Fatal(err)
 	}
 	claims := &utils.UserClaims{ID: user, TenantID: tenant, Authority: "TENANT_ADMIN", AuthVersion: 3, Delegated: true, ActorID: actor, ActorVersion: 7, StandardClaims: jwt.StandardClaims{ExpiresAt: time.Now().Add(time.Hour).Unix()}}

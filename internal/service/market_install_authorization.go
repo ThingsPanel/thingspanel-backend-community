@@ -69,6 +69,13 @@ func IssueMarketInstallAuthorization(ctx context.Context, req model.MarketInstal
 	if claims == nil || claims.ID == "" || claims.TenantID == "" || rawJWT == "" || global.REDIS == nil {
 		return nil, repo.ErrMarketInstallUnauthorized
 	}
+	// Plan preparation may have made remote calls since the initial API check.
+	// Recheck the same current permission before creating a session marker or
+	// immutable execution grant. This assertion does not replace the account,
+	// auth-version, delegation and original-session checks below.
+	if err := requireCurrentMarketInstallationManagement(ctx, claims); err != nil {
+		return nil, err
+	}
 	expiry := time.Now().UTC().Add(time.Hour)
 	tokenExpiry := time.Unix(claims.ExpiresAt, 0)
 	if tokenExpiry.Before(expiry) {

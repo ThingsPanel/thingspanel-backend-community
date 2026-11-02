@@ -111,6 +111,9 @@ func (s *Service) Install(ctx context.Context, req *InstallRequest) (*app.Operat
 	if req == nil {
 		return nil, apiError(app.ErrInvalid)
 	}
+	if err := requireCurrentInstallationManagement(ctx, identity); err != nil {
+		return nil, err
+	}
 	identity.AuthorizationRef = req.AuthorizationRef
 	op, err := s.coordinator.Submit(ctx, identity, req.IdempotencyKey, req.Request)
 	if err != nil {
@@ -123,6 +126,9 @@ func (s *Service) Install(ctx context.Context, req *InstallRequest) (*app.Operat
 func (s *Service) Get(ctx context.Context, id string) (*app.Operation, error) {
 	identity, err := installationIdentity()
 	if err != nil {
+		return nil, err
+	}
+	if err := requireCurrentInstallationManagement(ctx, identity); err != nil {
 		return nil, err
 	}
 	op, err := s.ledger.GetByID(ctx, identity.TenantID, identity.SubjectID, id)
@@ -143,6 +149,9 @@ func (s *Service) Resume(ctx context.Context, id string) error {
 	}
 	if s.coordinator == nil {
 		return &errs.Error{Code: errs.Unavailable, Message: "market installation owner is disabled"}
+	}
+	if err := requireCurrentInstallationManagement(ctx, identity); err != nil {
+		return err
 	}
 	return apiError(s.ledger.Resume(ctx, identity.TenantID, identity.SubjectID, id))
 }
