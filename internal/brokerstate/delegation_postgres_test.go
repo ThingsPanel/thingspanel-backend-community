@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	bc "project/internal/brokercontract"
+	"project/internal/model"
 	"testing"
 	"time"
 )
@@ -104,4 +105,41 @@ func TestDelegatedStateAutomationRetainsBothEpochs(t *testing.T) {
 	if e != nil || proof.TargetRouteEpoch != 1 || proof.TransportRouteEpoch != 9 {
 		t.Fatalf("automation lost dual proof: %+v %v", proof, e)
 	}
+}
+
+func TestMigratedDelegatedActivityDefersRecheckWithoutStateEffects(t *testing.T) {
+	s, o := delegatedStateFixture(t)
+	setActivity(t, s, "ta", "da", "root", "c", 9, o.ObservedAt)
+	raw, e := json.Marshal(o.Delegation)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e := s.db.Exec(`UPDATE broker_telemetry_activity SET delegated_route=?::jsonb,next_check_at=now()-interval '1 hour' WHERE tenant_id='ta' AND device_id='da'`, string(raw)).Error; e != nil {
+		t.Fatal(e)
+	}
+	if e := s.db.Exec(`UPDATE broker_transport_bindings SET route_epoch=10 WHERE device_id='root'`).Error; e != nil {
+		t.Fatal(e)
+	}
+	projected, e := s.ProjectCurrent(context.Background(), "ta", "da")
+	if e != nil || projected.Status != "unknown" || projected.Changed {
+		t.Fatalf("migrated activity produced a state change: %+v %v", projected, e)
+	}
+	var row struct{ NextCheckAt time.Time }
+	if e := s.db.Table("broker_telemetry_activity").Select("next_check_at").Where("tenant_id='ta' AND device_id='da'").Take(&row).Error; e != nil {
+		t.Fatal(e)
+	}
+	if !row.NextCheckAt.After(time.Now().Add(30 * time.Second)) {
+		t.Fatalf("invalid proof kept activity at queue head: %v", row.NextCheckAt)
+	}
+	var effects, histories int64
+	if e := s.db.Table("broker_ingress_effects").Count(&effects).Error; e != nil {
+		t.Fatal(e)
+	}
+	if e := s.db.Model(&model.DeviceStatusHistory{}).Count(&histories).Error; e != nil {
+		t.Fatal(e)
+	}
+	if effects != 0 || histories != 0 {
+		t.Fatalf("migrated activity produced durable effects: automation=%d histories=%d", effects, histories)
+	}
+
 }

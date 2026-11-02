@@ -125,6 +125,14 @@ func evaluateCurrent(tx *gorm.DB, device model.Device, root string, route routeR
 	if e != nil && !errors.Is(e, gorm.ErrRecordNotFound) {
 		return Decision{}, e
 	}
+
+	now := time.Now().UTC()
+	next := now.Add(time.Minute)
+	if hasActivity && project {
+		if e := tx.Model(&activityRow{}).Where("tenant_id=? AND device_id=?", device.TenantID, device.ID).Update("next_check_at", next).Error; e != nil {
+			return Decision{}, e
+		}
+	}
 	if hasActivity && len(activity.DelegatedRoute) > 0 && string(activity.DelegatedRoute) != "null" {
 		var proof brokercontract.Delegation
 		if json.Unmarshal(activity.DelegatedRoute, &proof) != nil || proof.TransportDeviceID != root || proof.TransportRouteEpoch != route.RouteEpoch || proof.BrokerCell != route.BrokerCell || proof.ObservedAt.UnixMilli() != activity.ObservedAt.UnixMilli() {
@@ -141,13 +149,6 @@ func evaluateCurrent(tx *gorm.DB, device model.Device, root string, route routeR
 		}
 		if err != nil {
 			return Decision{}, err
-		}
-	}
-	now := time.Now().UTC()
-	next := now.Add(time.Minute)
-	if hasActivity && project {
-		if e := tx.Model(&activityRow{}).Where("tenant_id=? AND device_id=?", device.TenantID, device.ID).Update("next_check_at", next).Error; e != nil {
-			return Decision{}, e
 		}
 	}
 	if cfg.Heartbeat == 0 && cfg.Timeout == 0 {
