@@ -55,7 +55,7 @@ func sourceFixtureDB(t *testing.T) *sql.DB {
 func sourceVerifier(raw string) fixtureVerifier {
 	return fixtureVerifier{map[string]Principal{"admin": {UserID: "fixture-platform-admin", Authority: "SYS_ADMIN"}, "tenant": {UserID: "fixture-tenant-" + raw, RawTenantID: raw, Authority: "TENANT_ADMIN"}}}
 }
-func TestSourceBindingPostgresCollisionAndTerminalLifecycle(t *testing.T) {
+func TestSourceSchemaPostgresCollisionAndTerminalLifecycle(t *testing.T) {
 	db := sourceFixtureDB(t)
 	ctx := context.Background()
 	scope := fixtureScope()
@@ -68,7 +68,7 @@ func TestSourceBindingPostgresCollisionAndTerminalLifecycle(t *testing.T) {
 		wg.Add(1)
 		go func(raw string) {
 			defer wg.Done()
-			_, e := Provision(ctx, db, sourceVerifier(raw), "admin", "tenant", scope, native, strings.Repeat("a", 64))
+			_, e := seedIsolatedSchemaBinding(ctx, db, raw, scope, native)
 			results <- e
 		}(raw)
 	}
@@ -119,7 +119,27 @@ func TestSourceBindingPostgresCollisionAndTerminalLifecycle(t *testing.T) {
 			t.Fatal("immutable source or audit was changed")
 		}
 	}
-	if _, e = Provision(ctx, db, sourceVerifier(binding.RawTenantID), "admin", "tenant", scope, native, strings.Repeat("c", 64)); e == nil {
+	if _, e = seedIsolatedSchemaBinding(ctx, db, binding.RawTenantID, scope, native); e == nil {
 		t.Fatal("revoked owner was rebound")
 	}
+}
+
+// This is privileged disposable-schema setup, NOT a registration authority or
+// an acceptance test of the paused production Provision operation.
+func seedIsolatedSchemaBinding(ctx context.Context, db *sql.DB, raw string, scope Scope, native string) (Binding, error) {
+	b := Binding{ID: uuid.NewString(), TenantID: native, RawTenantID: raw, Scope: scope, Generation: 1}
+	tx, e := db.BeginTx(ctx, nil)
+	if e != nil {
+		return b, e
+	}
+	defer tx.Rollback()
+	_, e = tx.ExecContext(ctx, `INSERT INTO runtime_tenant_sources(id,tenant_id,source_tenant_id,environment,provider_id,namespace,service_instance_id,community_origin,generation,reviewed_manifest_sha256,platform_actor_id,tenant_actor_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,1,$9,'isolated-platform-admin','isolated-tenant-admin')`, b.ID, native, raw, scope.Environment, scope.ProviderID, scope.Namespace, scope.ServiceInstanceID, scope.CommunityOrigin, strings.Repeat("a", 64))
+	if e != nil {
+		return b, e
+	}
+	_, e = tx.ExecContext(ctx, `INSERT INTO runtime_tenant_source_audit(id,binding_id,action,platform_actor_id,tenant_actor_id,reviewed_manifest_sha256) VALUES($1,$2,'provision','isolated-platform-admin','isolated-tenant-admin',$3)`, uuid.NewString(), b.ID, strings.Repeat("a", 64))
+	if e != nil {
+		return b, e
+	}
+	return b, tx.Commit()
 }

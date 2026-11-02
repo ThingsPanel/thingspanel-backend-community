@@ -53,3 +53,11 @@ func TestRuntimeSourceScopeRejectsCredentialURLsAndIncompleteDeployment(t *testi
 		t.Fatal("complete fixture scope rejected")
 	}
 }
+
+func TestProvisionFailsClosedUntilEmptyTenantOwnerIsVerified(t *testing.T) {
+	verifier := fixtureVerifier{map[string]Principal{"admin": {UserID: "fixture-platform-admin", Authority: "SYS_ADMIN"}, "tenant": {UserID: "fixture-tenant-admin", RawTenantID: "1234abcd", Authority: "TENANT_ADMIN"}}}
+	_, err := Provision(context.Background(), &sql.DB{}, verifier, "admin", "tenant", fixtureScope(), "1234abcd-0000-0000-0000-000000000000", strings.Repeat("a", 64))
+	if !errors.Is(err, ErrRegistrationPaused) {
+		t.Fatalf("unverified native owner registered: %v", err)
+	}
+}

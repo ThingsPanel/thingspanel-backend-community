@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,7 +32,7 @@ func signedFixtureSession(t *testing.T, key string, delegated bool) string {
 }
 func TestLiveVerifierRequiresSignedSessionAndActualMatchingSource(t *testing.T) {
 	const fixtureKey = "isolated-runtime-source-auth-test-key"
-	mismatch := false
+	var mismatch atomic.Bool
 	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
@@ -39,7 +40,7 @@ func TestLiveVerifierRequiresSignedSessionAndActualMatchingSource(t *testing.T) 
 			json.NewEncoder(w).Encode(map[string]any{"code": 200, "data": map[string]any{"id": "isolated-tenant-admin", "tenant_id": "1234abcd", "authority": "TENANT_ADMIN", "status": "N"}})
 		case "/api/v1/notification/session-context":
 			tenant := "1234abcd"
-			if mismatch {
+			if mismatch.Load() {
 				tenant = "another-source-tenant"
 			}
 			json.NewEncoder(w).Encode(map[string]any{"userId": "isolated-tenant-admin", "tenantId": tenant, "authority": "TENANT_ADMIN"})
@@ -61,11 +62,11 @@ func TestLiveVerifierRequiresSignedSessionAndActualMatchingSource(t *testing.T) 
 	if e != nil || principal.RawTenantID != "1234abcd" {
 		t.Fatal("valid isolated signed source session refused")
 	}
-	mismatch = true
+	mismatch.Store(true)
 	if _, e = verifier.Verify(context.Background(), token); e == nil {
 		t.Fatal("same signed token was accepted from a different actual source tenant")
 	}
-	mismatch = false
+	mismatch.Store(false)
 	if _, e = verifier.Verify(context.Background(), signedFixtureSession(t, fixtureKey, true)); e == nil {
 		t.Fatal("delegated session provisioned source authority")
 	}

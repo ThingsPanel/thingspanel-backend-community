@@ -14,6 +14,7 @@ import (
 )
 
 var ErrUnproven = errors.New("runtime tenant source is not proven")
+var ErrRegistrationPaused = errors.New("empty native tenant ownership and concurrent writer scope are not verified")
 
 type Scope struct {
 	Environment       string `json:"environment"`
@@ -99,23 +100,11 @@ func Provision(ctx context.Context, db *sql.DB, verifier Verifier, adminToken, t
 	if native == uuid.Nil.String() || native != reviewedTenant {
 		return Binding{}, ErrUnproven
 	}
-	b := Binding{ID: uuid.NewString(), TenantID: native, RawTenantID: tenant.RawTenantID, Generation: 1, Scope: scope}
-	tx, e := db.BeginTx(ctx, nil)
-	if e != nil {
-		return Binding{}, ErrUnproven
-	}
-	defer tx.Rollback()
-	_, e = tx.ExecContext(ctx, `INSERT INTO runtime_tenant_sources(id,tenant_id,source_tenant_id,environment,provider_id,namespace,service_instance_id,community_origin,generation,reviewed_manifest_sha256,platform_actor_id,tenant_actor_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,1,$9,$10,$11)`, b.ID, b.TenantID, b.RawTenantID, scope.Environment, scope.ProviderID, scope.Namespace, scope.ServiceInstanceID, scope.CommunityOrigin, manifestDigest, admin.UserID, tenant.UserID)
-	if e != nil {
-		return Binding{}, ErrUnproven
-	}
-	if _, e = tx.ExecContext(ctx, `INSERT INTO runtime_tenant_source_audit(id,binding_id,action,platform_actor_id,tenant_actor_id,reviewed_manifest_sha256) VALUES($1,$2,'provision',$3,$4,$5)`, uuid.NewString(), b.ID, admin.UserID, tenant.UserID, manifestDigest); e != nil {
-		return Binding{}, ErrUnproven
-	}
-	if e = tx.Commit(); e != nil {
-		return Binding{}, ErrUnproven
-	}
-	return b, nil
+	// Two live Community administrators prove the source identity, but not
+	// ownership of pre-existing native data or all concurrent native writers.
+	// The cross-table guard experiment is deliberately not an active migration.
+	// Never create a binding until that independent owner contract is verified.
+	return Binding{}, ErrRegistrationPaused
 }
 
 func digestValid(v string) bool {

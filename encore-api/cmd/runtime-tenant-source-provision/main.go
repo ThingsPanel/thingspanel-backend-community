@@ -180,6 +180,9 @@ func run() error {
 		operation = runtimetenant.Revoke
 	}
 	result, e := operation(ctx, database, liveVerifier{origin: m.Scope.CommunityOrigin, sessions: sessions}, credentials.AdminToken, credentials.TenantToken, m.Scope, m.NativeTenantID, hex.EncodeToString(sum[:]))
+	if errors.Is(e, runtimetenant.ErrRegistrationPaused) {
+		return errors.New("source registration is paused: empty native ownership and concurrent writers are not verified; no binding created")
+	}
 	if e != nil {
 		return errors.New("runtime tenant source rejected; inspect target for an existing or unknown-commit binding before retry")
 	}

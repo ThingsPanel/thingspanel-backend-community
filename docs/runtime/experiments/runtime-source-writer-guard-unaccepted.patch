@@ -1,0 +1,315 @@
+diff --git a/encore-api/devicemetadata/group_tenant_tx.go b/encore-api/devicemetadata/group_tenant_tx.go
+index 39120c3b..16af5f6e 100644
+--- a/encore-api/devicemetadata/group_tenant_tx.go
++++ b/encore-api/devicemetadata/group_tenant_tx.go
+@@ -4,6 +4,7 @@ import (
+ 	"context"
+ 	"database/sql"
+ 
++	"encore.app/internal/runtimetenant"
+ 	"encore.dev/beta/errs"
+ 	"github.com/google/uuid"
+ )
+@@ -15,6 +16,11 @@ func beginTenantGroupTx(ctx context.Context, tenantID string, options *sql.TxOpt
+ 	if err != nil || parsed == uuid.Nil || parsed.String() != tenantID {
+ 		return nil, &errs.Error{Code: errs.Unauthenticated, Message: "invalid authenticated tenant context"}
+ 	}
++	if options != nil && options.ReadOnly && options.Isolation == sql.LevelDefault {
++		copy := *options
++		copy.Isolation = sql.LevelRepeatableRead
++		options = &copy
++	}
+ 	tx, err := db.Stdlib().BeginTx(ctx, options)
+ 	if err != nil {
+ 		return nil, err
+@@ -28,5 +34,14 @@ func beginTenantGroupTx(ctx context.Context, tenantID string, options *sql.TxOpt
+ 		_ = tx.Rollback()
+ 		return nil, &errs.Error{Code: errs.Internal, Message: "failed to set authenticated tenant context"}
+ 	}
++	raw := currentRuntimeSourceRaw()
++	if err := tx.QueryRowContext(ctx, `SELECT set_config('app.current_source_tenant_id',$1,true)`, raw).Scan(&configured); err != nil {
++		tx.Rollback()
++		return nil, err
++	}
++	if err := validateSQLSourceRaw(ctx, runtimetenant.SQLTxReader{Tx: tx}, tenantID, raw); err != nil {
++		tx.Rollback()
++		return nil, err
++	}
+ 	return tx, nil
+ }
+diff --git a/encore-api/devicemetadata/migrations/0040_runtime_tenant_sources.up.sql b/encore-api/devicemetadata/migrations/0040_runtime_tenant_sources.up.sql
+index cd6a21d6..a01d8b0b 100644
+--- a/encore-api/devicemetadata/migrations/0040_runtime_tenant_sources.up.sql
++++ b/encore-api/devicemetadata/migrations/0040_runtime_tenant_sources.up.sql
+@@ -1,3 +1,20 @@
++-- A permanent unique owner guard coordinates first native writes with source
++-- provisioning. An unproven historical tenant can never become proven merely
++-- because its last business row was deleted.
++CREATE TABLE runtime_tenant_source_guards (
++ tenant_id UUID PRIMARY KEY,
++ source_tenant_id TEXT,
++ proven BOOLEAN NOT NULL,
++ CHECK((proven AND source_tenant_id IS NOT NULL AND length(source_tenant_id)>0) OR (NOT proven AND source_tenant_id IS NULL)),
++ UNIQUE(tenant_id,source_tenant_id,proven)
++);
++CREATE FUNCTION guard_runtime_tenant_source_reservation() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN
++ IF TG_OP='DELETE' OR NEW IS DISTINCT FROM OLD THEN RAISE EXCEPTION 'runtime tenant source guard is immutable'; END IF;
++ RETURN NEW;
++END;$$;
++CREATE TRIGGER runtime_source_reservation_immutable BEFORE UPDATE OR DELETE ON runtime_tenant_source_guards FOR EACH ROW EXECUTE FUNCTION guard_runtime_tenant_source_reservation();
++
+ -- No automatic backfill: historical UUID normalization cannot prove source
+ -- ownership. Only the local dual-session operator owner may provision a row.
+ CREATE TABLE runtime_tenant_sources (
+@@ -10,6 +27,8 @@ CREATE TABLE runtime_tenant_sources (
+  service_instance_id TEXT NOT NULL,
+  community_origin TEXT NOT NULL,
+  generation BIGINT NOT NULL DEFAULT 1 CHECK(generation=1),
++ source_guard_proven BOOLEAN NOT NULL DEFAULT true CHECK(source_guard_proven),
++ FOREIGN KEY(tenant_id,source_tenant_id,source_guard_proven) REFERENCES runtime_tenant_source_guards(tenant_id,source_tenant_id,proven),
+  state TEXT NOT NULL DEFAULT 'active' CHECK(state IN ('active','revoked')),
+  reviewed_manifest_sha256 TEXT NOT NULL CHECK(reviewed_manifest_sha256 ~ '^[0-9a-f]{64}$'),
+  platform_actor_id TEXT NOT NULL,
+@@ -55,3 +74,30 @@ BEGIN
+  RETURN NEW;
+ END;$$;
+ CREATE TRIGGER runtime_outbox_source_immutable BEFORE UPDATE ON device_runtime_outbox FOR EACH ROW EXECUTE FUNCTION guard_runtime_outbox_source();
++
++-- All native business writers, including a request whose canonical tenant was
++-- cached before registration, must honor the permanent raw source owner. An
++-- An absent guard is resolved by a unique UPSERT, not an absent-row precheck;
++-- REPEATABLE READ callers serialize/fail if the guard was created meanwhile.
++-- Existing guards are immutable; their steady-state reads need no write lock.
++CREATE FUNCTION enforce_runtime_tenant_source_writer() RETURNS trigger LANGUAGE plpgsql SET search_path FROM CURRENT AS $$
++DECLARE target uuid; owner_raw text; owner_proven boolean;
++BEGIN
++ IF TG_OP='DELETE' THEN target:=OLD.tenant_id; ELSE target:=NEW.tenant_id; END IF;
++ SELECT source_tenant_id,proven INTO owner_raw,owner_proven FROM runtime_tenant_source_guards WHERE tenant_id=target;
++ IF NOT FOUND THEN
++  INSERT INTO runtime_tenant_source_guards(tenant_id,source_tenant_id,proven) VALUES(target,NULL,false)
++  ON CONFLICT(tenant_id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id
++  RETURNING source_tenant_id,proven INTO owner_raw,owner_proven;
++ END IF;
++ IF owner_proven AND current_setting('app.current_source_tenant_id',true) IS DISTINCT FROM owner_raw THEN
++  RAISE EXCEPTION 'registered native tenant requires its verified raw source owner';
++ END IF;
++ IF TG_OP='DELETE' THEN RETURN OLD; END IF; RETURN NEW;
++END;$$;
++DO $$ DECLARE item record; BEGIN
++ FOR item IN SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid
++ WHERE n.nspname=current_schema() AND c.relkind IN ('r','p') AND a.attname='tenant_id' AND a.attnum>0 AND NOT a.attisdropped
++ AND c.relname NOT IN ('runtime_tenant_sources','runtime_tenant_source_guards')
++ LOOP EXECUTE format('CREATE TRIGGER runtime_source_writer_guard BEFORE INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION enforce_runtime_tenant_source_writer()',item.relname); END LOOP;
++END;$$;
+diff --git a/encore-api/devicemetadata/native_runtime_receipt.go b/encore-api/devicemetadata/native_runtime_receipt.go
+index 859214d6..b47f1ebd 100644
+--- a/encore-api/devicemetadata/native_runtime_receipt.go
++++ b/encore-api/devicemetadata/native_runtime_receipt.go
+@@ -6,6 +6,7 @@ import (
+ 	"database/sql"
+ 	"encoding/hex"
+ 	"encoding/json"
++	"encore.app/internal/runtimetenant"
+ 	"errors"
+ 	"strings"
+ 
+@@ -105,22 +106,37 @@ func recordRuntimeReceiptTx(ctx context.Context, tx *sqldb.Tx, receipt runtimeRe
+ 	if err := validateRuntimeReceipt(receipt); err != nil {
+ 		return runtimeReceiptOutcome{}, err
+ 	}
++	var sourceID sql.NullString
++	var sourceGeneration sql.NullInt64
++
+ 	var (
+ 		operationID, state, kind string
+ 		generation               int64
+ 		desired                  []byte
+ 	)
+-	err := tx.QueryRow(ctx, `SELECT operation_id::text,state,generation,desired,kind
++	err := tx.QueryRow(ctx, `SELECT operation_id::text,state,generation,desired,kind,source_binding_id::text,source_binding_generation
+ 		FROM device_runtime_outbox
+ 		WHERE tenant_id=$1 AND id=$2 AND device_id=$3
+ 		FOR UPDATE`, receipt.TenantID, receipt.EventID, receipt.DeviceID).
+-		Scan(&operationID, &state, &generation, &desired, &kind)
++		Scan(&operationID, &state, &generation, &desired, &kind, &sourceID, &sourceGeneration)
+ 	if errors.Is(err, sql.ErrNoRows) || errors.Is(err, sqldb.ErrNoRows) {
+ 		return runtimeReceiptOutcome{}, &errs.Error{Code: errs.NotFound, Message: "runtime event not found"}
+ 	}
+ 	if err != nil {
+ 		return runtimeReceiptOutcome{}, wrapDBErr(err, "read runtime event failed")
+ 	}
++	if !sourceID.Valid || !sourceGeneration.Valid {
++		return runtimeReceiptOutcome{}, runtimeSourceUnavailable()
++	}
++	source, sourceErr := runtimetenant.Lookup(ctx, runtimeBindingTxReader{tx: tx}, receipt.TenantID, runtimeTenantScope())
++	if sourceErr != nil || source.ID != sourceID.String || source.Generation != sourceGeneration.Int64 {
++		return runtimeReceiptOutcome{}, runtimeSourceUnavailable()
++	}
++	var configured string
++	if err := tx.QueryRow(ctx, `SELECT set_config('app.current_source_tenant_id',$1,true)`, source.RawTenantID).Scan(&configured); err != nil {
++		return runtimeReceiptOutcome{}, err
++	}
++
+ 	digest, err := runtimeDesiredDigest(desired)
+ 	if err != nil {
+ 		return runtimeReceiptOutcome{}, &errs.Error{Code: errs.Internal, Message: "failed to digest runtime event"}
+diff --git a/encore-api/devicemetadata/native_runtime_tenant_source.go b/encore-api/devicemetadata/native_runtime_tenant_source.go
+index 57528362..225bf9c8 100644
+--- a/encore-api/devicemetadata/native_runtime_tenant_source.go
++++ b/encore-api/devicemetadata/native_runtime_tenant_source.go
+@@ -2,6 +2,8 @@ package devicemetadata
+ 
+ import (
+ 	"context"
++	"database/sql"
++	"errors"
+ 	"os"
+ 	"strings"
+ 	"time"
+@@ -46,3 +48,25 @@ type runtimeBindingTxReader struct{ tx *sqldb.Tx }
+ func (r runtimeBindingTxReader) QueryRowContext(ctx context.Context, q string, args ...any) runtimetenant.RowScanner {
+ 	return r.tx.QueryRow(ctx, q, args...)
+ }
++
++// SQL owners carry exact authenticated provenance into DB write guards. This
++// does not authorize a background caller; a worker must instead load its own
++// immutable outbox binding proof in the same receipt transaction.
++func currentRuntimeSourceRaw() string {
++	data := authn.CurrentData()
++	if data == nil {
++		return ""
++	}
++	return data.TenantID
++}
++func validateSQLSourceRaw(ctx context.Context, reader runtimetenant.Queryer, tenantID, raw string) error {
++	var expected sql.NullString
++	e := reader.QueryRowContext(ctx, `SELECT source_tenant_id FROM runtime_tenant_source_guards WHERE tenant_id=$1 AND proven=true`, tenantID).Scan(&expected)
++	if errors.Is(e, sql.ErrNoRows) || errors.Is(e, sqldb.ErrNoRows) {
++		return nil
++	}
++	if e != nil || !expected.Valid || expected.String != raw {
++		return runtimeSourceUnavailable()
++	}
++	return nil
++}
+diff --git a/encore-api/devicemetadata/tenant_sql_tx.go b/encore-api/devicemetadata/tenant_sql_tx.go
+index 2013f6c3..8746250e 100644
+--- a/encore-api/devicemetadata/tenant_sql_tx.go
++++ b/encore-api/devicemetadata/tenant_sql_tx.go
+@@ -36,6 +36,15 @@ func beginTenantScopedSQLTx(ctx context.Context, tenantID string, readOnly bool)
+ 		_ = tx.Rollback()
+ 		return nil, &errs.Error{Code: errs.Internal, Message: "failed to set authenticated tenant context"}
+ 	}
++	raw := currentRuntimeSourceRaw()
++	if err := tx.QueryRow(ctx, `SELECT set_config('app.current_source_tenant_id',$1,true)`, raw).Scan(&configured); err != nil {
++		tx.Rollback()
++		return nil, err
++	}
++	if err := validateSQLSourceRaw(ctx, runtimeBindingTxReader{tx: tx}, tenantID, raw); err != nil {
++		tx.Rollback()
++		return nil, err
++	}
+ 	return tx, nil
+ }
+ 
+diff --git a/encore-api/internal/runtimetenant/store.go b/encore-api/internal/runtimetenant/store.go
+index 2f554733..1040966c 100644
+--- a/encore-api/internal/runtimetenant/store.go
++++ b/encore-api/internal/runtimetenant/store.go
+@@ -8,6 +8,7 @@ import (
+ 	"errors"
+ 	"net/url"
+ 	"strings"
++	"time"
+ 
+ 	"encore.app/internal/tenantidentity"
+ 	"github.com/google/uuid"
+@@ -48,6 +49,12 @@ func (r SQLReader) QueryRowContext(ctx context.Context, q string, args ...any) R
+ 	return r.DB.QueryRowContext(ctx, q, args...)
+ }
+ 
++type SQLTxReader struct{ Tx *sql.Tx }
++
++func (r SQLTxReader) QueryRowContext(ctx context.Context, q string, args ...any) RowScanner {
++	return r.Tx.QueryRowContext(ctx, q, args...)
++}
++
+ func (s Scope) Validate() error {
+ 	for _, v := range []string{s.Environment, s.ProviderID, s.Namespace} {
+ 		if v == "" || v != strings.TrimSpace(v) || len(v) > 128 {
+@@ -84,6 +91,11 @@ func Lookup(ctx context.Context, q Queryer, tenantID string, scope Scope) (Bindi
+ // Provision is not an HTTP or tenant-self-service operation. Its verifier must
+ // check two independent live identities. Historical data is never modified.
+ func Provision(ctx context.Context, db *sql.DB, verifier Verifier, adminToken, tenantToken string, scope Scope, reviewedTenant, manifestDigest string) (Binding, error) {
++	if ctx == nil {
++		return Binding{}, ErrUnproven
++	}
++	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
++	defer cancel()
+ 	if db == nil || verifier == nil || scope.Validate() != nil || !digestValid(manifestDigest) {
+ 		return Binding{}, ErrUnproven
+ 	}
+@@ -105,6 +117,12 @@ func Provision(ctx context.Context, db *sql.DB, verifier Verifier, adminToken, t
+ 		return Binding{}, ErrUnproven
+ 	}
+ 	defer tx.Rollback()
++	if e = ensureEmptyNativeTenant(ctx, tx, native); e != nil {
++		return Binding{}, ErrUnproven
++	}
++	if _, e = tx.ExecContext(ctx, `INSERT INTO runtime_tenant_source_guards(tenant_id,source_tenant_id,proven) VALUES($1,$2,true)`, native, tenant.RawTenantID); e != nil {
++		return Binding{}, ErrUnproven
++	}
+ 	_, e = tx.ExecContext(ctx, `INSERT INTO runtime_tenant_sources(id,tenant_id,source_tenant_id,environment,provider_id,namespace,service_instance_id,community_origin,generation,reviewed_manifest_sha256,platform_actor_id,tenant_actor_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,1,$9,$10,$11)`, b.ID, b.TenantID, b.RawTenantID, scope.Environment, scope.ProviderID, scope.Namespace, scope.ServiceInstanceID, scope.CommunityOrigin, manifestDigest, admin.UserID, tenant.UserID)
+ 	if e != nil {
+ 		return Binding{}, ErrUnproven
+@@ -163,3 +181,49 @@ func Revoke(ctx context.Context, db *sql.DB, verifier Verifier, adminToken, tena
+ 	}
+ 	return b, nil
+ }
++
++// Registration is deliberately limited to genuinely empty native tenants.
++// Table SHARE locks wait out earlier writers and block new writes until the
++// immutable owner guard is inserted. Existing rows, hidden RLS, unknown tenant
++// types, missing DB guards or an earlier unproven writer all fail closed.
++func ensureEmptyNativeTenant(ctx context.Context, tx *sql.Tx, tenant string) error {
++	if _, e := tx.ExecContext(ctx, `SET LOCAL lock_timeout='2s'; SET LOCAL row_security=off`); e != nil {
++		return ErrUnproven
++	}
++	rows, e := tx.QueryContext(ctx, `SELECT c.relname,a.atttypid::text,EXISTS(SELECT 1 FROM pg_trigger g WHERE g.tgrelid=c.oid AND g.tgname='runtime_source_writer_guard' AND g.tgenabled='O') FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid WHERE n.nspname=current_schema() AND c.relkind IN ('r','p') AND a.attname='tenant_id' AND a.attnum>0 AND NOT a.attisdropped AND c.relname NOT IN ('runtime_tenant_sources','runtime_tenant_source_guards') ORDER BY c.relname`)
++	if e != nil {
++		return ErrUnproven
++	}
++	var tables []string
++	for rows.Next() {
++		var table, kind string
++		var guarded bool
++		if rows.Scan(&table, &kind, &guarded) != nil || kind != "2950" || !guarded {
++			rows.Close()
++			return ErrUnproven
++		}
++		tables = append(tables, table)
++	}
++	if e = rows.Err(); e != nil {
++		rows.Close()
++		return ErrUnproven
++	}
++	rows.Close()
++	if len(tables) == 0 {
++		return ErrUnproven
++	}
++	for _, table := range tables {
++		quoted := `"` + strings.ReplaceAll(table, `"`, `""`) + `"`
++		if _, e = tx.ExecContext(ctx, "LOCK TABLE "+quoted+" IN SHARE MODE"); e != nil {
++			return ErrUnproven
++		}
++	}
++	for _, table := range tables {
++		quoted := `"` + strings.ReplaceAll(table, `"`, `""`) + `"`
++		var exists bool
++		if e = tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM "+quoted+" WHERE tenant_id=$1)", tenant).Scan(&exists); e != nil || exists {
++			return ErrUnproven
++		}
++	}
++	return nil
++}
