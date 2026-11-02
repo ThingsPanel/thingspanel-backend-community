@@ -188,6 +188,9 @@ func RouterInit() *gin.Engine {
 			v1.GET("/devices/:device_id/diagnostics", controllers.DeviceApi.GetDeviceDiagnostics)
 		}
 
+		// Scoped internal routes own their JWT, tenant fence and legacy RBAC.
+		registerRuntimeScoped(v1)
+
 		// 需要权限校验
 		v1.Use(middleware.JWTAuth())
 
