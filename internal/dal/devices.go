@@ -421,12 +421,21 @@ func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
 	return true, nil
 }
 
+// DeleteDevice keeps the legacy DAL entry point inside the same identity
+// transaction as service deletions. Callers needing dependency cleanup use
+// DeleteDeviceWithTx inside their wider transaction.
 func DeleteDevice(id string, tenantID string) error {
-	_, err := query.Device.Where(query.Device.ID.Eq(id), query.Device.TenantID.Eq(tenantID)).Delete()
-	if err != nil {
-		logrus.Error(err)
-	}
-	return err
+	return query.Use(global.DB).Transaction(func(tx *query.Query) error {
+		q := tx.Device
+		if _, err := q.Clauses(clause.Locking{Strength: "UPDATE"}).Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First(); err != nil {
+			return err
+		}
+		if err := tombstoneDeviceID(tx, id, tenantID); err != nil {
+			return err
+		}
+		_, err := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).Delete()
+		return err
+	})
 }
 
 // LockTenantDeviceForDelete establishes ownership before any dependent data is touched.

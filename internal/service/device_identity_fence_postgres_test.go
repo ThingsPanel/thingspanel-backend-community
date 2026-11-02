@@ -113,6 +113,21 @@ func TestDeviceIdentityDatabaseWriterFencePostgres(t *testing.T) {
 	if err := db.Model(&dal.DeviceIDReservation{}).Where("id=? AND state='tombstoned'", id).Count(&n).Error; err != nil || n != 1 {
 		t.Fatalf("migration replay resurrected tombstone: %d %v", n, err)
 	}
+	// The old exported DAL delete entry point must also tombstone atomically.
+	legacyID := "legacy-dal-delete"
+	if err := dal.CreateDevice(&model.Device{ID: legacyID, TenantID: "tenant-a", Voucher: legacyID, DeviceNumber: legacyID, IsEnabled: "enabled", ActivateFlag: "active"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := dal.DeleteDevice(legacyID, "tenant-b"); err == nil {
+		t.Fatal("cross-tenant DAL delete accepted")
+	}
+	if err := dal.DeleteDevice(legacyID, "tenant-a"); err != nil {
+		t.Fatal(err)
+	}
+	var legacyReservation dal.DeviceIDReservation
+	if err := db.Where("id=?", legacyID).Take(&legacyReservation).Error; err != nil || legacyReservation.State != "tombstoned" {
+		t.Fatalf("DAL delete lost tombstone: %+v %v", legacyReservation, err)
+	}
 	if err := dal.CreateDevice(&model.Device{ID: id, TenantID: "tenant-a", Voucher: id, DeviceNumber: id, IsEnabled: "enabled", ActivateFlag: "active"}); !errors.Is(err, dal.ErrDeviceIDReserved) {
 		t.Fatalf("DAL lost permanent conflict under real trigger: %v", err)
 	}
