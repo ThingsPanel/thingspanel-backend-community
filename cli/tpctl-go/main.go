@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"sort"
@@ -43,6 +44,16 @@ type command struct {
 	// idempotency key automatically; reads do not, because a read that is
 	// retried twice is not a problem worth a header.
 	sideEffect bool
+	// headerOnlyKey keeps APIs that use the Idempotency-Key header from
+	// receiving the automation-specific request_id field in their JSON body.
+	headerOnlyKey  bool
+	communityAPI   bool
+	noIdempotency  bool
+	strictPath     bool
+	nativeMetadata bool
+	requireIfMatch bool
+	downloadFile   bool
+	uploadFile     bool
 	// summary is the one-line help.
 	summary string
 	// verdict turns a 200 response into a non-zero exit when the answer is
@@ -189,7 +200,7 @@ func withQuery(base map[string][]string, extra map[string][]string) map[string][
 func commands() commandsList {
 	fileFlag := flagSpec{name: "file", kind: "string", help: "请求体 JSON 文件，- 表示标准输入"}
 
-	return []*command{
+	base := []*command{
 		{
 			name: "rules.list", method: "GET", path: "/v1/rules",
 			summary: "列出规则（分页）",
@@ -630,6 +641,32 @@ func commands() commandsList {
 			},
 		},
 	}
+	added := append(thingModelCommands(), communityDeviceCommands()...)
+	added = append(added, notificationCommands()...)
+	native := nativeMetadataCommands()
+	native = append(native, &command{name: "artifact.download", method: "GET", path: "/api/v2/metadata-downloads/:downloadID", args: []string{"downloadID"}, flags: []flagSpec{{name: "output-file", kind: "string", help: "新文件路径，不覆盖已有文件"}}, nativeMetadata: true, downloadFile: true, summary: "校验 SHA-256 并下载导出文件"})
+	native = append(native, &command{name: "native-assets.upload", method: "POST", path: "/api/v2/file-assets", flags: []flagSpec{{name: "file", kind: "string", help: "模板图片文件"}}, nativeMetadata: true, sideEffect: true, headerOnlyKey: true, uploadFile: true, summary: "上传模板图片"})
+	added = append(added, native...)
+	for _, c := range native {
+		alias := *c
+		for _, pair := range [][2]string{{"native-devices.", "device."}, {"native-templates.", "template."}, {"native-groups.", "group."}, {"native-operations.", "operation."}, {"native-assets.", "asset."}, {"native-providers.", "provider."}} {
+			if strings.HasPrefix(c.name, pair[0]) {
+				alias.name = pair[1] + strings.TrimPrefix(c.name, pair[0])
+				added = append(added, &alias)
+				break
+			}
+		}
+	}
+	for _, cmd := range added {
+		cmd.strictPath = true
+		if cmd.nativeMetadata && cmd.method == "GET" && !cmd.downloadFile {
+			cmd.flags = append(cmd.flags, flagSpec{name: "save-etag", kind: "string", help: "将响应中的原样 ETag 保存到新文件"})
+		}
+		if cmd.requireIfMatch {
+			cmd.flags = append(cmd.flags, flagSpec{name: "if-match-file", kind: "string", help: "读取保存的原样强 ETag"})
+		}
+	}
+	return append(base, added...)
 }
 
 func enabledBody(in *invocation, enabled bool) (any, map[string][]string, error) {
@@ -797,6 +834,40 @@ func run(argv []string, stdout, stderr io.Writer) int {
 	}
 	in.cmd = cmd
 	in.global = g
+	if cmd.nativeMetadata && g.tenant != "" {
+		writeError(stdout, stderr, g, cmd.name, "", &apiError{Code: "usage", Message: "原生元数据接口由授权身份确定租户，请勿设置 --tenant 或 TPCTL_TENANT", ExitCode: exitUsage})
+		return exitUsage
+	}
+	if cmd.nativeMetadata && !validNativeBaseURL(g.baseURL) {
+		writeError(stdout, stderr, g, cmd.name, "", &apiError{Code: "usage", Message: "原生接口需要 HTTPS；仅本机回环地址允许 HTTP", ExitCode: exitUsage})
+		return exitUsage
+	}
+	if cmd.nativeMetadata && cmd.sideEffect && !cmd.noIdempotency && !validNativeIdempotencyKey(g.idempotencyKey) {
+		writeError(stdout, stderr, g, cmd.name, "", &apiError{Code: "usage", Message: "原生元数据写入需要 --idempotency-key（8–128 字符），重试时使用同一键", ExitCode: exitUsage})
+		return exitUsage
+	}
+	ifMatch := in.last("if-match")
+	if etagFile := in.last("if-match-file"); etagFile != "" {
+		if ifMatch != "" {
+			writeError(stdout, stderr, g, cmd.name, "", &apiError{Code: "usage", Message: "--if-match 与 --if-match-file 不能同时使用", ExitCode: exitUsage})
+			return exitUsage
+		}
+		data, err := os.ReadFile(etagFile)
+		if err != nil || len(data) > 512 {
+			writeError(stdout, stderr, g, cmd.name, "", &apiError{Code: "usage", Message: "无法读取 ETag 文件", ExitCode: exitUsage})
+			return exitUsage
+		}
+		ifMatch = string(data)
+		in.values["if-match"] = []string{ifMatch}
+	}
+	if cmd.requireIfMatch && (len(ifMatch) < 2 || !strings.HasPrefix(ifMatch, "\"") || !strings.HasSuffix(ifMatch, "\"") || strings.ContainsAny(ifMatch[1:len(ifMatch)-1], "\"\r\n")) {
+		writeError(stdout, stderr, g, cmd.name, "", &apiError{Code: "usage", Message: "需要 --if-match 和资源读取返回的原样强 ETag（包含引号）", ExitCode: exitUsage})
+		return exitUsage
+	}
+	if cmd.noIdempotency && g.idempotencyKey != "" {
+		writeError(stdout, stderr, g, cmd.name, "", &apiError{Code: "usage", Message: "此接口不保证幂等，不能使用 --idempotency-key", ExitCode: exitUsage})
+		return exitUsage
+	}
 
 	body, query, berr := buildRequest(in)
 	if berr != nil {
@@ -813,23 +884,59 @@ func run(argv []string, stdout, stderr io.Writer) int {
 		})
 		return exitUsage
 	}
+	if cmd.downloadFile {
+		c := newClient(g.baseURL, g.token, "", g.timeout)
+		if err := downloadMetadataArtifact(c, in.args[0], in.last("output-file")); err != nil {
+			writeError(stdout, stderr, g, cmd.name, "", &apiError{Code: "download_failed", Message: err.Error(), ExitCode: exitError})
+			return exitError
+		}
+		body, _ := json.Marshal(map[string]string{"file": in.last("output-file"), "downloadId": in.args[0]})
+		writeSuccess(stdout, g, cmd.name, "", "", &response{status: 200, body: body})
+		return exitOK
+	}
+	if cmd.uploadFile {
+		c := newClient(g.baseURL, g.token, "", g.timeout)
+		requestID := newRequestID()
+		resp, apiErr := uploadNativeAsset(c, in.last("file"), g.idempotencyKey, requestID)
+		if apiErr != nil {
+			if resp != nil && resp.requestID != "" {
+				requestID = resp.requestID
+			}
+			writeError(stdout, stderr, g, cmd.name, requestID, apiErr)
+			return apiErr.ExitCode
+		}
+		g.raw = true
+		writeSuccess(stdout, g, cmd.name, requestID, g.idempotencyKey, resp)
+		return exitOK
+	}
 
 	idem := ""
-	if cmd.sideEffect {
+	if cmd.sideEffect && !cmd.noIdempotency {
 		idem = g.idempotencyKey
 		if idem == "" {
-			idem = intentKey(intentLabel(cmd), cmd.method+" "+cmd.path, body)
+			keyPath := cmd.path
+			if cmd.headerOnlyKey {
+				keyPath = path + "\n" + ifMatch
+			}
+			idem = intentKey(intentLabel(cmd), cmd.method+" "+keyPath, body)
 		}
 		// The key goes into the body as well as the header. Encore's typed
 		// handlers cannot see headers, so a header-only key is a key the
 		// service never reads — the retry would create a second run.
-		body = withRequestID(body, idem)
+		if !cmd.headerOnlyKey {
+			body = withRequestID(body, idem)
+		}
 	}
 	requestID := newRequestID()
 
 	c := newClient(g.baseURL, g.token, g.tenant, g.timeout)
+	c.communityAPI = cmd.communityAPI
+	c.ifMatch = ifMatch
 	resp, apiErr := c.call(cmd.method, path, toValues(query), body, idem, requestID)
 	if apiErr != nil {
+		if !cmd.sideEffect && apiErr.Code == "outcome_unknown" {
+			apiErr.Code, apiErr.ExitCode, apiErr.Message = "unavailable", exitUnavailable, "服务不可达: "+apiErr.Message
+		}
 		if resp != nil && resp.requestID != "" {
 			requestID = resp.requestID
 		}
@@ -845,8 +952,62 @@ func run(argv []string, stdout, stderr io.Writer) int {
 			return v.ExitCode
 		}
 	}
+	if cmd.nativeMetadata {
+		if target := in.last("save-etag"); target != "" {
+			if resp.etag == "" {
+				writeError(stdout, stderr, g, cmd.name, requestID, &apiError{Code: "missing_etag", Message: "服务端响应没有 ETag", ExitCode: exitError})
+				return exitError
+			}
+			file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+			if err != nil {
+				writeError(stdout, stderr, g, cmd.name, requestID, &apiError{Code: "etag_save_failed", Message: "无法创建 ETag 文件: " + err.Error(), ExitCode: exitError})
+				return exitError
+			}
+			_, err = file.WriteString(resp.etag)
+			if closeErr := file.Close(); err == nil {
+				err = closeErr
+			}
+			if err != nil {
+				_ = os.Remove(target)
+				writeError(stdout, stderr, g, cmd.name, requestID, &apiError{Code: "etag_save_failed", Message: "无法保存 ETag 文件", ExitCode: exitError})
+				return exitError
+			}
+		}
+		g.raw = true // native JSON is the service's official envelope
+	}
 	writeSuccess(stdout, g, cmd.name, requestID, idem, resp)
 	return exitOK
+}
+
+func validNativeIdempotencyKey(key string) bool {
+	if len(key) < 8 || len(key) > 128 {
+		return false
+	}
+	for _, c := range key {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("._:-", c)) {
+			return false
+		}
+	}
+	return true
+}
+
+func validNativeBaseURL(base string) bool {
+	u, err := url.Parse(base)
+	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return false
+	}
+	if u.Scheme == "https" {
+		return true
+	}
+	if u.Scheme != "http" {
+		return false
+	}
+	host := u.Hostname()
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // invalidVerdict reads the validation report and turns "valid": false into a
@@ -961,6 +1122,9 @@ func fillPath(cmd *command, args []string) (string, error) {
 			// /v1/rules//enabled, which is a 404 that reads like "this rule
 			// does not exist" instead of "you forgot the id".
 			return "", fmt.Errorf("%s 的 <%s> 不能为空", cmd.name, name)
+		}
+		if cmd.strictPath && (strings.ContainsAny(args[i], "/?#%") || args[i] == "." || args[i] == "..") {
+			return "", fmt.Errorf("%s 的 <%s> 不能包含路径或查询分隔符", cmd.name, name)
 		}
 		path = strings.Replace(path, ":"+name, args[i], 1)
 	}
@@ -1224,6 +1388,7 @@ type envelope struct {
 	RequestID      string          `json:"request_id,omitempty"`
 	IdempotencyKey string          `json:"idempotency_key,omitempty"`
 	HTTPStatus     int             `json:"http_status,omitempty"`
+	ETag           string          `json:"etag,omitempty"`
 	Data           json.RawMessage `json:"data,omitempty"`
 	Error          *apiError       `json:"error,omitempty"`
 }
@@ -1238,7 +1403,7 @@ func writeSuccess(w io.Writer, g globalFlags, command, requestID, idem string, r
 	}
 	env := envelope{
 		OK: true, Command: command, RequestID: requestID,
-		IdempotencyKey: idem, HTTPStatus: resp.status,
+		IdempotencyKey: idem, HTTPStatus: resp.status, ETag: resp.etag,
 	}
 	if len(resp.body) > 0 {
 		env.Data = json.RawMessage(resp.body)
@@ -1308,8 +1473,21 @@ func printHelp(w io.Writer, args []string) {
 			printCommandHelp(w, c)
 			return
 		}
+		var matches []*command
+		for _, c := range cs {
+			if strings.HasPrefix(c.name, args[1]+".") && !c.legacy {
+				matches = append(matches, c)
+			}
+		}
+		if len(matches) > 0 {
+			sort.Slice(matches, func(i, j int) bool { return matches[i].name < matches[j].name })
+			for _, c := range matches {
+				fmt.Fprintf(w, "%-38s %s\n", strings.ReplaceAll(c.name, ".", " "), c.summary)
+			}
+			return
+		}
 	}
-	fmt.Fprintf(w, `tpctl %s — ThingsPanel 自动化命令行
+	fmt.Fprintf(w, `tpctl %s — ThingsPanel 命令行
 
 用法:
   tpctl [全局参数] <组> <动作> [参数] [--标志]
@@ -1335,6 +1513,21 @@ func printHelp(w io.Writer, args []string) {
   bundles    export preview import imports importGet
   alarms     list get ack transitions
   blueprints list preview instantiate
+  devices    list get create update delete status children
+  device-templates list get create update delete
+  device-groups    list get create update delete tree
+  native-devices   原生设备（输入 tpctl help native-devices.list 等查看）
+  native-templates 原生设备接入模板
+  native-groups    原生设备分组
+  native-operations 原生元数据操作状态
+  artifact   download（校验哈希后写入新文件）
+  asset、provider 原生文件资产与连接器目录
+  device、template、group、operation 为上述原生命令的单数名称
+  thingmodels list get versions version resources create update publish update-resources
+  notifications list get send deliveries delivery plugins plugin instances instance
+             groups group group-create group-update test grants grant-set
+             instance-create instance-update instance-validate receipt-credential
+             plugin-register plugin-update tenant-plugins tenant-instances tenant-instance
 
   tpctl legacy      旧命令（automations …）到新命令的映射表
   tpctl help <命令> 单个命令的参数说明
@@ -1360,8 +1553,14 @@ func printCommandHelp(w io.Writer, c *command) {
 			fmt.Fprintf(w, "  --%-16s %s%s\n", f.name, f.help, def)
 		}
 	}
-	if c.sideEffect {
-		fmt.Fprintln(w, "\n这是会改变状态的命令：默认按“命令+请求体”推导幂等键，重试不会重复生效。")
+	if c.noIdempotency {
+		fmt.Fprintln(w, "\n此写接口不保证幂等：超时后先查询结果，再决定是否重试。")
+	} else if c.sideEffect {
+		if c.nativeMetadata {
+			fmt.Fprintln(w, "\n原生写入需要显式 --idempotency-key；结果未知时使用原键和原条件查询或重试。")
+		} else {
+			fmt.Fprintln(w, "\n这是会改变状态的命令：默认按“命令+请求体”推导幂等键，重试不会重复生效。")
+		}
 	}
 }
 
