@@ -1,0 +1,10 @@
+{
+  "empty_leaf_delete": "200 then GET 404 then same-key DELETE 200",
+  "parent_with_child": "409",
+  "member_group_with_member": "409",
+  "group_move": "200",
+  "member_add": "200",
+  "member_remove": "200 after permission repair",
+  "group_delete_after_member_removal": "200",
+  "device_read_before_after": "200/200; no device deletion observed"
+}

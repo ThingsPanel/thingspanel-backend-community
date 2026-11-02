@@ -1,0 +1,81 @@
+{
+  "batch": "template-abatch-v1",
+  "date": "2026-10-28",
+  "branch": "codex/metadata-menus-native-completion",
+  "scope": {
+    "DM-FE": [
+      "设备模板详情 · 协议配置（Topic 映射增删改启停 + 接入信息只读）",
+      "设备模板详情 · 数据处理（六阶段 Lua 脚本增删改启停）",
+      "设备模板详情 · 设备设置（封面、自动注册、在线判定策略、启用/停用）"
+    ],
+    "explicitlyExcluded": [
+      "模板版本/草稿/发布/历史/切版（用户已否定）",
+      "新增后端端点（本批全部复用现有 GET/PATCH 合同）",
+      "数据库迁移与 schema 变更",
+      "自动化/告警（外部 owner，不重复开发验收）"
+    ]
+  },
+  "design": {
+    "singleConfiguration": "模板只有一份当前 configuration，三个 Tab 都通过 PATCH 替换它，不引入版本表。",
+    "bytePreserving": "前端不解析后重编码 configuration：只拼接被改成员/字段，其余 token 原样回传，避免 >2^53 整数被舍入。",
+    "pathSplice": "replaceConfigurationPath 支持嵌套路径与标量替换，因此 access.credentialPolicy.autoRegister、access.onlinePolicy.mode/timeoutSeconds 可单独改而不动 access.parameters。",
+    "frozenReceipt": "共享 attempt 存储按 (templateId, scope) 冻结 payload+ETag+Idempotency-Key；unknown 只允许原请求重试，身份变化清空。",
+    "nonConfigurationPatches": "封面 imageAssetId 与 administrativeState 单独 PATCH，不携带 configuration，避免顺带改写未加载的配置。"
+  },
+  "verification": {
+    "helperTests": {
+      "result": "55 pass / 0 fail",
+      "log": "template-abatch/helper-tests.log",
+      "newThisBatch": {
+        "template-configuration-attempt.test.ts": 6,
+        "template-processing-scripts-state.test.ts": 9,
+        "template-settings-state.test.ts": 6,
+        "template-configuration-raw.test.ts (path splice)": 3
+      },
+      "regression": {
+        "template-topic-mappings-state.test.ts": 11,
+        "template-configuration-raw.test.ts (member splice)": 6,
+        "template-native-transport.test.ts": 6,
+        "template-custom-fields-state.test.ts": 8
+      }
+    },
+    "staticChecks": {
+      "eslint": "0 errors on 15 target files; 18 no-unused-vars warnings on interface parameter names, identical to the untouched transport baseline",
+      "sfcCompile": "4/4 touched SFCs compile (script + template)",
+      "vueTsc": "whole repo 1224 pre-existing diagnostics, 0 in this batch",
+      "log": "template-abatch/target-checks.log"
+    },
+    "sourceFreeze": {
+      "manifest": "template-abatch/frontend-source-manifest-template-abatch-v1.json",
+      "archive": "frontend-source-template-abatch-v1.tar.gz",
+      "files": 105,
+      "changedVsPreviousFreeze": [
+        "src/service/api/metadata-native-http.ts",
+        "src/service/api/template-native-transport.ts",
+        "src/views/device/config-detail/index.vue"
+      ],
+      "addedThisBatch": 15,
+      "previousFreeze": "frontend-source-manifest-device-info-v2.json (0 files drifted)"
+    }
+  },
+  "notSignedOff": {
+    "reason": "Local runtime harness was destroyed: an OrbStack restart dropped the owned API image and its stub container, and the /tmp evidence copies of the earlier protocol-config run were cleaned by the system.",
+    "consequences": [
+      "A1 协议配置 的真实 HTTP/UI 证据（200/412/422、精度保持、刷新读回）此前已执行但制品丢失，不能作为可复核证据引用",
+      "A2 数据处理、A3 设备设置 仅有源码与单元级验证，未做 页面→真实 v2 接口→存储/权限→刷新读回",
+      "三个 Tab 均不得计为功能块完成"
+    ],
+    "environmentBlockers": [
+      "本机 macOS 无法 `encore run` 全应用：notification 服务的隐私守卫硬性要求 GOOS=linux，init 失败即致命退出",
+      "`encore run` 不支持 --services，无法只启动 devicemetadata/thingmodel/fileassets",
+      "`encore build docker --services ... --skip-config` 在 Encore CLI 1.58.6 上挂起 18 分钟无任何输出（仓库 README 已记录该 CLI 在此路径上的循环问题），已终止",
+      "原 owned PG 卷仍在（codex-dm-native-read-57fc52d5-pgdata），但镜像与 infra 配置需重建"
+    ],
+    "nextEnvironmentStep": "改用仓库自带的 Linux 容器通道（docker-compose 的 encore 服务或 deployments/notification/compose.yaml 的 infra 配置形态）重建 harness，再一次性补 A1/A2/A3 的真实 HTTP 与浏览器验收"
+  },
+  "followUps": [
+    "B 批最小端点：DELETE 模板/设备、PUT devices/:id/template-binding、POST device-template-binding-batches、GET subdevices + gateway-membership、PUT administrative-state、POST processing-script-tests",
+    "数据处理「调试运行」需要 POST /api/v2/processing-script-tests，本批在页面上明示不可用，未伪造入口",
+    "候选目录内 0023_access_template_revisions.up.sql 残留待确认是否在别处应用过"
+  ]
+}

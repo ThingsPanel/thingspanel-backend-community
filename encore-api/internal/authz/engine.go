@@ -57,6 +57,31 @@ m = g(r.sub, p.sub) && (p.obj == "*" || r.obj == p.obj) && (p.act == "*" || r.ac
 		_, _ = e.AddPolicy("tenant_admin", "device", "control")
 		_, _ = e.AddPolicy("tenant_admin", "device", "manage")
 		_, _ = e.AddPolicy("tenant_admin", "plugin", "manage")
+		// Native device-metadata group access is granted only to the verified
+		// Community TENANT_ADMIN identity. Scopes are not consulted here: the
+		// current Community user-token issuer does not mint delegated scopes.
+		_, _ = e.AddPolicy("TENANT_ADMIN", "group", "read")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "group", "write")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "group", "delete")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "device", "read")
+		// Sending commands and opening debug sessions are tenant-administrator
+		// actions on the native API; without these rows the command, desired
+		// message and debug tabs answered 403 for a real TENANT_ADMIN.
+		_, _ = e.AddPolicy("TENANT_ADMIN", "device", "control")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "device", "view")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "device", "write")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "device", "credentials:read")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "device", "credentials:write")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "device", "simulate")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "device", "diagnose")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "device", "data:export")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "template", "read")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "template", "write")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "template", "delete")
+		_, _ = e.AddPolicy("TENANT_ADMIN", "template", "diagnose")
+		// Global immutable release publication is a private platform operation;
+		// this grants no tenant resource access or delegated tenant identity.
+		_, _ = e.AddPolicy("SYS_ADMIN", "provider", "publish")
 		_, _ = e.AddPolicy("tenant_operator", "device", "view")
 		_, _ = e.AddPolicy("tenant_operator", "device", "control")
 		_, _ = e.AddPolicy("tenant_viewer", "device", "view")

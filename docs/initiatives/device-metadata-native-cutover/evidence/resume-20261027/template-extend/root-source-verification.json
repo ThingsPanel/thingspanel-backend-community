@@ -1,0 +1,11 @@
+{
+  "frontendFiles": 85,
+  "frontendMismatch": [],
+  "frontendManifestSha256": "4b28559b5539b939b86e5e81ff1113c256bce7a5d49be009ba8cbcc5b5baea91",
+  "frontendArchiveSha256": "74bdc2df448532128c1da6d4c8a5e113b4af5bca5159876a29d15803f75633b4",
+  "backendFiles": 480,
+  "backendMismatch": [],
+  "backendManifestSha256": "8e8ef99be664e57456b8199f701a9d23e45347ba82a33bdc52237f0abbeb38ea",
+  "backendArchiveSha256": "5ef78af75db18c930afd8dfea60bb36894b0c8cc7de7e90ba5861152a15f3d3c",
+  "note": "Root read-only source/archive verification. Does not substitute HTTP/UI acceptance."
+}

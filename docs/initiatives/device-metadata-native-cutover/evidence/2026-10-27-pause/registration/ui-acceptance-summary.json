@@ -1,0 +1,51 @@
+{
+  "status": "passed_with_boundaries",
+  "frontendManifestSha256": "29ec8a747a9e4022c5865fe862f2a42c7bc6fac0ce70ada58d88a32130ccaac8",
+  "backendManifestSha256": "4c1cfb26a70009ee5f3b5350936fece13cd6f13bab0391596942769d3a709857",
+  "httpSummary": "http-acceptance-summary.json",
+  "uiChecks": [
+    {
+      "name": "main_list_load_and_statistics",
+      "result": "passed",
+      "evidence": "25 devices; /api/v2/devices and /api/v2/device-statistics returned 200"
+    },
+    {
+      "name": "search_and_pagination",
+      "result": "passed",
+      "evidence": "search returned 1 matching device; UI pagination advanced; HTTP pagination verified 20+5 without duplicates"
+    },
+    {
+      "name": "template_filter",
+      "result": "passed",
+      "evidence": "real template filter returned 2 devices"
+    },
+    {
+      "name": "group_subtree_and_ungrouped",
+      "result": "passed",
+      "evidence": "parent+child overlap displayed 2 unique devices; ungrouped displayed 23; counts matched HTTP stats/list"
+    },
+    {
+      "name": "compact_view",
+      "result": "partial",
+      "evidence": "compact metadata list retained filter/count; telemetry calls to /proxy-default/telemetry/datas/current/{synthetic-id} returned 404 because telemetry owner is not part of this runtime"
+    },
+    {
+      "name": "unsupported_runtime_and_alarm_filters",
+      "result": "passed_as_error",
+      "evidence": "connectivity=offline and alarmState=active returned 503; UI showed list-read failure and identified displayed rows as last successful result, with details disabled"
+    },
+    {
+      "name": "native_template_name_and_access_protocol_columns",
+      "result": "passed",
+      "evidence": "after hard reload, real template filter showed 2 rows with template name UI-Native-Statistics-11301780; list view showed access as 协议接入(mqtt); unfiltered rows without template displayed 不使用设备模板 and access protocol -"
+    }
+  ],
+  "boundaries": [
+    "Authentication uses a synthetic local static-role session, not real IDP or dynamic-menu acceptance.",
+    "Only user-profile detail was stubbed; device, statistics, group, and template business responses used the real owned API runtime.",
+    "Shell dependencies /proxy-default/logo, /proxy-default/service/plugin/select, and /proxy-default/sys_version returned 404; no business stub was added.",
+    "A transient Vite HMR ReferenceError occurred; a hard reload restored the list and native API requests. No source fix was made for that transient instance.",
+    "External protocol/provider directory was not validated: the shell provider directory request was 404; built-in MQTT access display was verified from native device data."
+  ],
+  "requestLog": "ui-native-request-log.redacted.jsonl"
+}

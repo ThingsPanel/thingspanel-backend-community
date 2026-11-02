@@ -1,0 +1,98 @@
+[
+  {
+    "path": "backend-source-manifest.json",
+    "sha256": "4c1cfb26a70009ee5f3b5350936fece13cd6f13bab0391596942769d3a709857"
+  },
+  {
+    "path": "backend-source-manifest-credentials.json",
+    "sha256": "abcfe2d5ca2b6dc32ac75aa0a8d1799b20da287888c09b8858a6c22901c3c666"
+  },
+  {
+    "path": "backend-source-manifest-credentials-groups.json",
+    "sha256": "9654b44a418d1f76c9b0be296361956f42bd8cb45e3ceeb5de2281f81f31e734"
+  },
+  {
+    "path": "backend-source-credentials-477.tar.gz",
+    "sha256": "9841e2c28e04dac793d681a0a7e50bb8096e8c5abb120ffe50673600b3f0879e"
+  },
+  {
+    "path": "backend-source-credentials-groups-479.tar.gz",
+    "sha256": "de80594fb88be5335208097494e075076d7b5b6b6b72c26d80e37f60c2fc1916"
+  },
+  {
+    "path": "frontend-source-manifest-final.json",
+    "sha256": "29ec8a747a9e4022c5865fe862f2a42c7bc6fac0ce70ada58d88a32130ccaac8"
+  },
+  {
+    "path": "frontend-source-manifest-credentials.json",
+    "sha256": "c5059615a9f88a2b0b141a5eb2f28825647eb9c65151032640767159396bf642"
+  },
+  {
+    "path": "frontend-list-source-final.tar.gz",
+    "sha256": "51e94604f55c6deff11fb728b9fbd63ea5bc48ff32fb4645fbff79bbcf7b3ef4"
+  },
+  {
+    "path": "frontend-source-credentials-final.tar.gz",
+    "sha256": "14378fb6876d58a72a1ff37fef8e76421dd6e0038686dcf56d29a01f19a99f56"
+  },
+  {
+    "path": "native-credential-read-create-retry2.log",
+    "sha256": "2f30543e17d667b3d53f5353b5c41dd6840f195409f934c95ff9dc3e4b0ce996"
+  },
+  {
+    "path": "native-credential-read-tests.log",
+    "sha256": "3c1a1af0f6ad8cb5bdfdcee51ded815968abc63db020d2c7d908470d19e76088"
+  },
+  {
+    "path": "credential-foundation-repaired-tests-v2.log",
+    "sha256": "f1cdef6b09bbe41076ce0afdc96a76bed4c3bf1958362dd1a39b4b18c06df58b"
+  },
+  {
+    "path": "group-delete-targeted.log",
+    "sha256": "24bdc00a8e410a5a5c643792e870044bed23fa2c3648796b8d3c37dd476d59d5"
+  },
+  {
+    "path": "group-delete-targeted-home-modcache.log",
+    "sha256": "693f543a555d0e05d7bccae9f2a9d105663e2c3068735202ef14c888aea0e682"
+  },
+  {
+    "path": "group-delete-targeted-compilefix.log",
+    "sha256": "465fea90b40d8186d3714041395d0babc0054505acab0268b91a5c665a43659d"
+  },
+  {
+    "path": "group-delete-targeted-fixturefix.log",
+    "sha256": "3acc79c025c5e9c989b9c771bea1557def4f2c622a84f98a6a856d9d9c626ab8"
+  },
+  {
+    "path": "frontend-registration-credentials-final-tests.log",
+    "sha256": "68f08e4b46357b3ddac1227ec2e9690abe1f62ef1114d294203a6c0c31c81e5b"
+  },
+  {
+    "path": "plan-cross-reference-current.json",
+    "sha256": "8c961703050fcaff6434e8e4bf92193fb09ffcb6aac6432a0986be3d81fbe0e8"
+  },
+  {
+    "path": "registration/registration-tags-stage-manifest.json",
+    "sha256": "6fcc0c12fa2b8623745387bff7f7ea705d2c135b78e3af08b5e875acf561a2b7"
+  },
+  {
+    "path": "registration/registration-tags-ui-summary.json",
+    "sha256": "c9abcce2ab06bab812e2e9e82790fc2b9b791a1a8f7f83eb7bb0979f7273b656"
+  },
+  {
+    "path": "registration/ui-native-request-log.jsonl",
+    "sha256": "9e1a440ccfed0d3ca01a7ba5b3600a09232f1a004014c343785138d5fb661928"
+  },
+  {
+    "path": "registration/registration-tags-source-archive.tar.gz",
+    "sha256": "0beba9665e2c38636bb04e1284b0d7ce96692ae1af832aabe6d10ffbf2dd97ad"
+  },
+  {
+    "path": "registration/ui-acceptance-summary.json",
+    "sha256": "256e15a2a4d22d572b8118291bc1322619cb89a7f828b7b40c82c201f7064337"
+  },
+  {
+    "path": "registration/ui-native-request-log.redacted.jsonl",
+    "sha256": "fa753f6acb0e9aa45d26a9a83d1e37731292da682079fd83d3ee9c64aa9fa843"
+  }
+]

@@ -1,0 +1,34 @@
+{
+  "status": "readback-complete",
+  "getStatuses": [
+    200,
+    200
+  ],
+  "syntheticFixtureOnly": true,
+  "boundDevice": {
+    "id": "77dba166-b4d4-4b9c-8776-965c01e7343c",
+    "name": "INFO-Bound-f6f0b3d5",
+    "resourceVersion": 5,
+    "activationState": "inactive",
+    "noteMatchesUiSavedChineseValue": false,
+    "countIs7": true,
+    "flagIsFalse": true,
+    "modeIsNull": false,
+    "preciseDecimalToken": "1.000000000000000001",
+    "preciseTokenExact": true,
+    "archivedHistoricalValueToken": "9007199254740993",
+    "archivedTokenExact": true,
+    "optionalKeyAbsent": true,
+    "locationAddressIsConcurrentValue": true,
+    "locationCoordinatesStillNull": true
+  },
+  "locationOnlyDevice": {
+    "id": "2c07b863-1112-4f4b-9b7f-3e0df6a7e425",
+    "name": "INFO-Location-f6f0b3d5",
+    "resourceVersion": 5,
+    "activationState": "inactive",
+    "locationIsNull": true
+  },
+  "boundChecksPassed": false,
+  "locationOnlyCleared": true
+}

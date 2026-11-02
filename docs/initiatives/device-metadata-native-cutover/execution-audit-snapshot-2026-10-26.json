@@ -1,0 +1,296 @@
+{
+  "audit_cutoff": "2026-10-26T15:29:00+08:00",
+  "verified_thread_window": "2026-10-26 07:04–15:29 Asia/Shanghai (about 8h25m)",
+  "thread_id": "01a1754e-7629-7df1-b0c8-ee894c69c35e",
+  "scope_note": "Cumulative candidate footprint; file counts do not imply per-author or per-window attribution. No product tests rerun during this documentation audit.",
+  "repositories": {
+    "backend": {
+      "head": "d638af3e84221b2bb29b1295deef9e72521b8aa3",
+      "tracked_changed_count": 0,
+      "untracked_file_count": 36,
+      "changed_source_files": []
+    },
+    "frontend": {
+      "head": "7d331d15329af0d636265a8a97b9534fff435a21",
+      "tracked_changed_count": 0,
+      "untracked_file_count": 0,
+      "changed_source_files": []
+    },
+    "kernel": {
+      "head": "fafe0f6f8c7d8f58db69e1b4159fedaa7e55eb05",
+      "tracked_changed_count": 12,
+      "untracked_file_count": 37,
+      "changed_source_files": [
+        {
+          "path": "encore-api/devicemetadata/custom_control_service.go",
+          "status": " M",
+          "sha256": "ad33e060726ef21c6ab6a9a7325af6716a5ec731f214d25d4d91d7f220c8c380"
+        },
+        {
+          "path": "encore-api/devicemetadata/device_crud_test.go",
+          "status": " M",
+          "sha256": "67f034f7cf575c56cea2abb75b378db78eb222b3297858b5c24eaa3e94e24fe2"
+        },
+        {
+          "path": "encore-api/devicemetadata/migration_service.go",
+          "status": " M",
+          "sha256": "a987c4a47675bfd8be1be2c408d919b4c350221e31b4a0d131d92589d962ef95"
+        },
+        {
+          "path": "encore-api/devicemetadata/models.go",
+          "status": " M",
+          "sha256": "ed25d4dce2ad266a8118b36471707e933f52fe69aaa15fc65f4ccc6ba805ee81"
+        },
+        {
+          "path": "encore-api/devicemetadata/store.go",
+          "status": " M",
+          "sha256": "9a66f9784ca13d5ce8a5ab0133e99dce6af7d242513c1705fd72e9341937e7ba"
+        },
+        {
+          "path": "encore-api/internal/authz/engine.go",
+          "status": " M",
+          "sha256": "4da25acd62ef5015c9d2527f6a860de77948c16d7c45f5392705020ec58697c4"
+        },
+        {
+          "path": "encore-api/l1-access/authn/auth.go",
+          "status": " M",
+          "sha256": "77760d871a42b777af24bf10839ff5e2d0d48c30f11d5dfb85cfdfff38c7c327"
+        },
+        {
+          "path": "encore-api/l1-access/authn/community_session.go",
+          "status": " M",
+          "sha256": "800d272acf1d05549fd97eb93f7f500bf8c9169f520d43189ed2060f14bbb185"
+        },
+        {
+          "path": "encore-api/thingmodel/postgres.go",
+          "status": " M",
+          "sha256": "545417026bd844a65d17157cdd5c17d8eeae82f64cbb28f77c15382dc823fa5e"
+        },
+        {
+          "path": "encore-api/thingmodel/postgres_test.go",
+          "status": " M",
+          "sha256": "76cb0344efb98cd2d9919a680c4b0fe334d4b653865e94d6fe33552eac38bc19"
+        },
+        {
+          "path": "encore-api/thingmodel/service.go",
+          "status": " M",
+          "sha256": "178282a702baa88343c276e4a8093e204030554316c7dc5e5ee6b3f8bba8ed63"
+        },
+        {
+          "path": "encore-api/thingmodel/transport_test.go",
+          "status": " M",
+          "sha256": "853910f843f14e27b394394ce452c1aa367a3a503ea42f9ccc8db0b82fb2a2e9"
+        },
+        {
+          "path": "deployments/device-metadata-ingress/README.md",
+          "status": "??",
+          "sha256": "28e4212ad9c53ca4c07ba92cc3d4e9e629f5b08f1fc01b7170b99194f1f35f7e"
+        },
+        {
+          "path": "deployments/device-metadata-ingress/go.mod",
+          "status": "??",
+          "sha256": "241b55dd39f8ece7426dbdde6a7af17065390314ed7d85bd91626cea711dcf23"
+        },
+        {
+          "path": "deployments/device-metadata-ingress/main.go",
+          "status": "??",
+          "sha256": "51681df7edd57ec27cfc438e7bc3eafb02c900d41acc205bf378d63a1c88a72e"
+        },
+        {
+          "path": "deployments/device-metadata-ingress/main_test.go",
+          "status": "??",
+          "sha256": "1266ccb53ca0e4830177e1395b73d0007eac7530cdc7122c4fa3a82cdff2d2d9"
+        },
+        {
+          "path": "encore-api/devicemetadata/custom_control_service_test.go",
+          "status": "??",
+          "sha256": "a64f25d22329f82f81e4fc4f69c56811edc957776be4c0dd8956e12baf14550d"
+        },
+        {
+          "path": "encore-api/devicemetadata/device_template_archive_tx_test.go",
+          "status": "??",
+          "sha256": "1a92a23d51d161ecc72a240a307850d4153794c388251d884cb94519e7bc7fb7"
+        },
+        {
+          "path": "encore-api/devicemetadata/device_template_bind_tx_test.go",
+          "status": "??",
+          "sha256": "f118b326dc65216aabc94526deecfbb8de056d5bba6380aeab8d2bb5200e25b0"
+        },
+        {
+          "path": "encore-api/devicemetadata/device_template_derive_tx_test.go",
+          "status": "??",
+          "sha256": "8eec6a6067c31cf47c3af83489c0a2379a65516ae8afd6f4b388401ff3e04e71"
+        },
+        {
+          "path": "encore-api/devicemetadata/device_template_publish_tx_test.go",
+          "status": "??",
+          "sha256": "3ec3f07a6a54cf5ce671ee8e47b6a57b5d41be512f667eee76744c485845c451"
+        },
+        {
+          "path": "encore-api/devicemetadata/device_template_reference_tx_test.go",
+          "status": "??",
+          "sha256": "fbe605afd940b4a2ca9826164e1e26714cf77a5622ecc4f0147ae606ec0c44d8"
+        },
+        {
+          "path": "encore-api/devicemetadata/device_template_tenant_tx_test.go",
+          "status": "??",
+          "sha256": "ebcc36c9fdd29a6bac13adc757a7cd25fe2657bc06087748e03f22867f2b2fbf"
+        },
+        {
+          "path": "encore-api/devicemetadata/device_template_write_tenant_tx_test.go",
+          "status": "??",
+          "sha256": "0587679c227801842232fc75da80e424a4a41913f1ba40860f00746842453d1a"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_members.go",
+          "status": "??",
+          "sha256": "4ed9e932eb61db6215c47ad0c1c2126573cbe6ef0211148fc14d11fd70fb8e4d"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_members_raw.go",
+          "status": "??",
+          "sha256": "3d7d8f06ec3d8c4c6a2c142c955883852b179aa8ddedcc6ffabbc56b5908b6e9"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_members_test.go",
+          "status": "??",
+          "sha256": "bd1edbd733bd37da5cfea74e57ce2a307be691549baa1a0010bf1302daee810a"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_move.go",
+          "status": "??",
+          "sha256": "619933a9a663dab245fff0c611c5cfbfb95971503df87d3693954cfd62e9046e"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_move_test.go",
+          "status": "??",
+          "sha256": "99e89185b7edd75a76109e1c87246af95323c89d18303dd38117fd43f3a9c10e"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_read.go",
+          "status": "??",
+          "sha256": "a3fcd32aba1e81ce3e136ee57248417bb16f4090e9e306823bcf2fd9e627539b"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_read_raw.go",
+          "status": "??",
+          "sha256": "3fdf8c145dbb9b8e0ce4b650c92fa1fe5167e13ecf9d3b97175d96fd8f4f4a99"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_read_test.go",
+          "status": "??",
+          "sha256": "55aec04ab13fa508c2d313cfcd3dae650e38229ff2923bd10a9333902cdac0cc"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_tenant_tx.go",
+          "status": "??",
+          "sha256": "0848b0546c9ee4ce7e8f04868d3ca9ced180b3e89636399320920086d7b1857f"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_tenant_tx_test.go",
+          "status": "??",
+          "sha256": "ab9c1132c6673fdfd99851c3b9916e64a8d43c07651d2a23a3af1551732b02de"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_update.go",
+          "status": "??",
+          "sha256": "90984f5730db3309e34efaf79c823e6827d14e7048bbb69e02f946cef8c9f6f6"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_update_test.go",
+          "status": "??",
+          "sha256": "0186a5997e3d89ff1713eef6fa307dc349ac123bf0e17105f8dc88b6774b3809"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_write.go",
+          "status": "??",
+          "sha256": "47eb3c05d21715b3036dae97133fd59cf51e3955b8368c2ded373df0bbaf1182"
+        },
+        {
+          "path": "encore-api/devicemetadata/group_write_test.go",
+          "status": "??",
+          "sha256": "68ac4d07c374b856c315db28e54187ac9904815cac21b276956cc882f38c93ef"
+        },
+        {
+          "path": "encore-api/devicemetadata/list_response_test.go",
+          "status": "??",
+          "sha256": "37f44c6912c765b8d7ef3695ec123e144225d43ce68932d7bc783034ac84febe"
+        },
+        {
+          "path": "encore-api/devicemetadata/migrations/0018_device_groups.up.sql",
+          "status": "??",
+          "sha256": "fc3c00ca5f2f5eb4945239ebd348203448cae21cce8b8ec87ae663f33b2d795d"
+        },
+        {
+          "path": "encore-api/devicemetadata/migrations/0019_metadata_idempotency.up.sql",
+          "status": "??",
+          "sha256": "2f14c6c97f0b1c54517a63f971899dc410d1074d85e013e5e974a7aaf08779c6"
+        },
+        {
+          "path": "encore-api/devicemetadata/migrations/0020_metadata_audit_events.up.sql",
+          "status": "??",
+          "sha256": "71d3071efdc7e92e6d50cb72038935dd5c394e37375f1da5bd7b6ed88fe952ec"
+        },
+        {
+          "path": "encore-api/devicemetadata/migrations/0021_tenant_id_immutable.up.sql",
+          "status": "??",
+          "sha256": "4db4bc4dc3a57ba464d22781e70ef367eac7db32953334c7e577e9e6cdc4ea89"
+        },
+        {
+          "path": "encore-api/devicemetadata/migrations/0022_tenant_composite_foreign_keys.up.sql",
+          "status": "??",
+          "sha256": "d29f0fa162e2fdc56d44d5a506c6095085cce89c2b103f5e88b185256a93c47a"
+        },
+        {
+          "path": "encore-api/devicemetadata/tenant_composite_fk_test.go",
+          "status": "??",
+          "sha256": "35ff09d4e844b5d75780ffd8574385e1d6576a81c03ebf1b6eb440663ef99968"
+        },
+        {
+          "path": "encore-api/devicemetadata/tenant_immutable_test.go",
+          "status": "??",
+          "sha256": "7359cb6e6e6d1e461f623fe8c26fd60982ebff7f27b8d16878d9bdb0a4737cf1"
+        },
+        {
+          "path": "encore-api/devicemetadata/tenant_sql_tx.go",
+          "status": "??",
+          "sha256": "1dbff90104327e65dba22b6c25ee7aadd36089582e85b64824e405b5e22764a7"
+        },
+        {
+          "path": "encore-api/internal/authz/engine_test.go",
+          "status": "??",
+          "sha256": "3d0cbcb7d5f0ac50fed703649944cb44777e5960684a14eae362ceba9470cfcc"
+        },
+        {
+          "path": "encore-api/l1-access/authn/auth_test.go",
+          "status": "??",
+          "sha256": "36d81905701d169c2316905413e1170e12f6b823015cfc6878b306ce292460e0"
+        }
+      ]
+    }
+  },
+  "http_image_source_comparison": {
+    "encore-api/devicemetadata/store.go": {
+      "current_sha256": "9a66f9784ca13d5ce8a5ab0133e99dce6af7d242513c1705fd72e9341937e7ba",
+      "image_source_sha256": "ef7794910d7887bf550719b608edb00ea15b2f66812c8066d07ce19035afe923",
+      "same": false
+    },
+    "encore-api/devicemetadata/group_read_raw.go": {
+      "current_sha256": "3fdf8c145dbb9b8e0ce4b650c92fa1fe5167e13ecf9d3b97175d96fd8f4f4a99",
+      "image_source_sha256": "3fdf8c145dbb9b8e0ce4b650c92fa1fe5167e13ecf9d3b97175d96fd8f4f4a99",
+      "same": true
+    },
+    "encore-api/devicemetadata/group_members_raw.go": {
+      "current_sha256": "3d7d8f06ec3d8c4c6a2c142c955883852b179aa8ddedcc6ffabbc56b5908b6e9",
+      "image_source_sha256": "3d7d8f06ec3d8c4c6a2c142c955883852b179aa8ddedcc6ffabbc56b5908b6e9",
+      "same": true
+    },
+    "encore-api/l1-access/authn/auth.go": {
+      "current_sha256": "77760d871a42b777af24bf10839ff5e2d0d48c30f11d5dfb85cfdfff38c7c327",
+      "image_source_sha256": "77760d871a42b777af24bf10839ff5e2d0d48c30f11d5dfb85cfdfff38c7c327",
+      "same": true
+    }
+  },
+  "contract_sha256": "f174629a6f39eb72e0833eb46042bf9e693dad050897b85e8e0e9f2d2081b459",
+  "task_requirements_sha256_excluding_state_evidence": "f11740d14fba89950f7c1a8d91ecd34cf8a4a0d093f7c5ea83ca68a38c472f07"
+}

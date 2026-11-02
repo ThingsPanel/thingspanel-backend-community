@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "frontendVersion": "device-info-v2",
+  "sourceFiles": 90,
+  "sourceDrift": [],
+  "backendChanged": false,
+  "httpContractChanged": false,
+  "boundResourceVersion": 5,
+  "expectedBoundVersion": 5,
+  "expectedVersionBasis": "creation version1 plus initial UI save, controlled concurrent save, confirmed save after412, and one unknown-outcome logical save; replay adds no update",
+  "preciseAndArchivedTokensPreserved": true,
+  "optionalStillUnassigned": true,
+  "noteMatchesFinalUnknownIntent": true,
+  "locationOnlyCleared": true,
+  "supersededAssertions": {
+    "file": "device-info-final-readback-summary.json",
+    "fields": [
+      "noteMatchesUiSavedChineseValue",
+      "modeIsNull",
+      "boundChecksPassed"
+    ],
+    "reason": "They compared earlier expectations: Note was intentionally changed again by the unknown-response scenario, and mode intentionally changed from null to Auto. Final Note comparison and UI enum evidence resolve these stale checks; the original readback file is preserved."
+  },
+  "scope": "owned synthetic local main-flow acceptance; no whole-release/real-IDP/runtime claim"
+}

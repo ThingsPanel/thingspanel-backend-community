@@ -1,0 +1,8 @@
+{
+  "files": 480,
+  "ordinaryCloneMismatch": [],
+  "image": "sha256:cc422dadc7014c26e4af8c8880b6afb149f19cc8504795baf85e17d4bea3e3ad",
+  "imageTag": "codex-device-management-20261027-7312c5b5:template-custom-field-changes-480",
+  "api": "http://127.0.0.1:55067",
+  "note": "Root read-only current clone and running-tag check, no test rerun."
+}

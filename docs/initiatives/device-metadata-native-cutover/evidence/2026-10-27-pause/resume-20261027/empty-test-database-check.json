@@ -1,0 +1,18 @@
+[
+  {
+    "database": "codex_dm_test_automation",
+    "public_tables": 0
+  },
+  {
+    "database": "codex_dm_test_connector_runtime",
+    "public_tables": 0
+  },
+  {
+    "database": "codex_dm_test_file_storage",
+    "public_tables": 0
+  },
+  {
+    "database": "codex_dm_test_notification",
+    "public_tables": 0
+  }
+]
