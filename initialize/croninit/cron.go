@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"project/internal/automationbridge"
 	"project/internal/service"
 	"project/pkg/errcode"
 
@@ -43,7 +44,12 @@ func registerAutomationJobs(c *cron.Cron) {
 func CronInit() {
 	// 初始化设备统计定时任务
 	InitDeviceStatsCron(c)
-	registerAutomationJobs(c)
+	config, modeErr := automationbridge.ReadConfig()
+	if modeErr != nil {
+		logrus.WithError(modeErr).Error("automation scheduler configuration invalid")
+	} else if config.Mode == "legacy" {
+		registerAutomationJobs(c)
+	}
 
 	// 每天凌晨2点执行数据清理
 	c.AddFunc("0 2 * * *", func() {

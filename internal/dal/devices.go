@@ -43,9 +43,20 @@ func createDevicesWithDefaultRootGroup(devices []*model.Device) error {
 		return nil
 	}
 
-	return query.Q.Transaction(func(tx *query.Query) error {
-		return createDevicesWithDefaultRootGroupTx(tx, devices)
-	})
+	tx := query.Use(global.DB).Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if err := createDevicesWithDefaultRootGroupTx(tx.Query, devices); err != nil {
+		if tx.Rollback() != nil {
+			return ErrDeviceCreateOutcomeUnknown
+		}
+		return err
+	}
+	if tx.Commit() != nil {
+		return ErrDeviceCreateOutcomeUnknown
+	}
+	return nil
 }
 
 var ErrParentDeviceUnavailable = errors.New("parent device unavailable")
@@ -87,6 +98,9 @@ func CreateDeviceWithLockedParent(device *model.Device) error {
 func createDevicesWithDefaultRootGroupTx(tx *query.Query, devices []*model.Device) error {
 	if len(devices) == 0 {
 		return nil
+	}
+	if err := reserveDeviceIDs(tx, devices); err != nil {
+		return err
 	}
 	if err := lockNewDeviceConfigurations(tx, devices); err != nil {
 		return err
@@ -433,6 +447,9 @@ func HasDeviceDeleteDependencies(id string, tx *query.QueryTx) (bool, bool, erro
 }
 
 func DeleteDeviceWithTx(id, tenantID string, tx *query.QueryTx) (int64, error) {
+	if err := tombstoneDeviceID(tx.Query, id, tenantID); err != nil {
+		return 0, err
+	}
 	q := tx.Device
 	result, err := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).Delete()
 	return result.RowsAffected, err

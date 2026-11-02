@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"sort"
 	"time"
 
@@ -47,6 +48,9 @@ func NewMarketBundleInstallService() *MarketBundleInstallService {
 
 // InstallBundle orchestrates the complete installation of a market bundle
 func (s *MarketBundleInstallService) InstallBundle(ctx context.Context, req *model.InstallBundleRequest, claims *utils.UserClaims) (*model.InstallBundleResponse, error) {
+	if owner := os.Getenv("TP_MARKETINSTALL_OWNER"); owner != "" && owner != "legacy" {
+		return nil, errcode.WithData(errcode.CodeOpDenied, "legacy installation writer is retired or owner selection is invalid; use the selected owner")
+	}
 	tenantID := claims.TenantID
 	if err := supportedInstallPolicy(req.OverwritePolicy); err != nil {
 		return nil, err

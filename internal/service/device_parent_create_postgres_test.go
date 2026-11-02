@@ -125,6 +125,7 @@ func TestCreateDeviceParentFencePostgres(t *testing.T) {
 	if err := db.AutoMigrate(&model.Device{}, &model.Group{}, &model.RGroupDevice{}); err != nil {
 		t.Fatal(err)
 	}
+	installDeviceIdentityFixture(t, db)
 	oldQ, oldDevice, oldDB := *query.Q, query.Device, global.DB
 	global.DB = db
 	*query.Q = *query.Use(db)

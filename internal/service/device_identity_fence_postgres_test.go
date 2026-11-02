@@ -1,0 +1,119 @@
+package service
+
+import (
+	"errors"
+	"gorm.io/gorm"
+	"project/internal/dal"
+	"project/internal/model"
+	"project/pkg/utils"
+	componentsql "project/sql"
+	"testing"
+	"time"
+)
+
+func TestDeviceIdentityDatabaseWriterFencePostgres(t *testing.T) {
+	db := setupSceneDeleteBarrierDB(t)
+	useSceneDeleteBarrierDB(t, db)
+	if err := db.AutoMigrate(&model.Group{}, &model.RGroupDevice{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrator().DropTable(&dal.DeviceIDReservation{}); err != nil {
+		t.Fatal(err)
+	}
+	files, err := componentsql.DeviceIdentityMigrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	apply := func() error {
+		return db.Transaction(func(tx *gorm.DB) error {
+			for _, file := range files {
+				if err := tx.Exec(string(file.Contents)).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	// An old writer already holds a device-table write lock when cutover starts.
+	old := db.Begin()
+	if old.Error != nil {
+		t.Fatal(old.Error)
+	}
+	defer old.Rollback()
+	if err := old.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES('before-cutover','tenant-a','v','before-cutover','enabled','active')`).Error; err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- apply() }()
+	deadline := time.Now().Add(5 * time.Second)
+	waited := false
+	for time.Now().Before(deadline) {
+		var n int64
+		if err := db.Raw(`SELECT count(*) FROM pg_locks WHERE relation='devices'::regclass AND NOT granted`).Scan(&n).Error; err != nil {
+			t.Fatal(err)
+		}
+		if n > 0 {
+			waited = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !waited {
+		t.Fatal("identity migration did not wait for old device writer")
+	}
+	if err := old.Commit().Error; err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("identity migration did not resume")
+	}
+	var reservation dal.DeviceIDReservation
+	if err := db.Where("id='before-cutover'").Take(&reservation).Error; err != nil || reservation.State != "active" {
+		t.Fatalf("cutover omitted committed in-flight device: %+v %v", reservation, err)
+	}
+	for _, statement := range []string{
+		`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES('old-unreserved','tenant-a','v','old-unreserved','enabled','active')`,
+		`DELETE FROM devices WHERE id='before-cutover'`,
+		`UPDATE devices SET id='renamed-old' WHERE id='before-cutover'`,
+		`UPDATE devices SET tenant_id='tenant-b' WHERE id='before-cutover'`,
+	} {
+		if err := db.Exec(statement).Error; err == nil {
+			t.Fatalf("old device writer bypassed database fence: %s", statement)
+		}
+	}
+	claims := &utils.UserClaims{ID: "owner", TenantID: "tenant-a"}
+	id := "fenced-new-device"
+	if _, err := (&Device{}).CreateDevice(model.CreateDeviceReq{ID: &id}, claims); err != nil {
+		t.Fatalf("legal reserved create failed: %v", err)
+	}
+	if err := (&Device{}).DeleteDevice(id, claims); err != nil {
+		t.Fatalf("legal tombstoned delete failed: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES(?,'tenant-a','v',?,'enabled','active')`, id, id).Error; err == nil {
+		t.Fatal("old writer resurrected tombstoned identity")
+	}
+	if err := db.Exec(`INSERT INTO device_id_reservations(id,tenant_id,state) VALUES('foreign-reservation','tenant-b','active')`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`INSERT INTO devices(id,tenant_id,voucher,device_number,is_enabled,activate_flag) VALUES('foreign-reservation','tenant-a','v','foreign-reservation','enabled','active')`).Error; err == nil {
+		t.Fatal("foreign reservation authorized device insertion")
+	}
+	if err := db.Exec(`UPDATE devices SET name='ordinary mutable name' WHERE id='before-cutover'`).Error; err != nil {
+		t.Fatalf("fence blocked legal nonidentity update: %v", err)
+	}
+	if err := apply(); err != nil {
+		t.Fatalf("same migration bytes are not replay-safe: %v", err)
+	}
+	var n int64
+	if err := db.Model(&dal.DeviceIDReservation{}).Where("id=? AND state='tombstoned'", id).Count(&n).Error; err != nil || n != 1 {
+		t.Fatalf("migration replay resurrected tombstone: %d %v", n, err)
+	}
+	if err := dal.CreateDevice(&model.Device{ID: id, TenantID: "tenant-a", Voucher: id, DeviceNumber: id, IsEnabled: "enabled", ActivateFlag: "active"}); !errors.Is(err, dal.ErrDeviceIDReserved) {
+		t.Fatalf("DAL lost permanent conflict under real trigger: %v", err)
+	}
+}
