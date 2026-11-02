@@ -459,13 +459,13 @@ func dispatchNativeCommand(ctx context.Context, identity nativeDeviceWriteIdenti
 	var submitErr error
 	if accepted.deliveryMode == "when_online" {
 		var record communityclient.ExpectedRecord
-		record, submitErr = nativeRuntimeClient().CreateExpectedCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.expiresAt, accepted.label)
+		record, submitErr = nativeRuntimeClient(identity.tenantID).CreateExpectedCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.expiresAt, accepted.label)
 		messageID = expectedMessagePrefix + record.ID
 	} else {
 		// The execution id is the runtime idempotency key, so repeating the call after an
 		// unclear failure cannot send the command twice.
 		for attempt := 0; attempt < 2; attempt++ {
-			messageID, submitErr = nativeRuntimeClient().SubmitCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.executionID)
+			messageID, submitErr = nativeRuntimeClient(identity.tenantID).SubmitCommand(ctx, accepted.runtimeID, accepted.identifier, runtimeParametersText(accepted.parameters), accepted.executionID)
 			if submitErr == nil || errors.Is(submitErr, communityclient.ErrRejected) || ctx.Err() != nil {
 				break
 			}
@@ -548,7 +548,7 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 				if err != nil {
 					continue
 				}
-				rows, err := nativeRuntimeClient().ListExpectedCommands(ctx, legacyID, 1, 100)
+				rows, err := nativeRuntimeClient(identity.tenantID).ListExpectedCommands(ctx, legacyID, 1, 100)
 				if err != nil {
 					continue
 				}
@@ -563,7 +563,7 @@ func refreshNativeDeviceCommands(ctx context.Context, identity nativeDeviceReadI
 			}
 			newState = mapExpectedStatus(status)
 		default:
-			status, err := nativeRuntimeClient().GetCommandStatus(ctx, *c.messageID)
+			status, err := nativeRuntimeClient(identity.tenantID).GetCommandStatus(ctx, *c.messageID)
 			if err != nil {
 				continue
 			}

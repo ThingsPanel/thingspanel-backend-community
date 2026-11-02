@@ -8,6 +8,8 @@ import (
 func TestResolveRuntimeDeviceID(t *testing.T) {
 	const nativeID = "11111111-1111-4111-8111-111111111111"
 	t.Setenv(runtimeNamespaceEnv, "")
+	t.Setenv(runtimeProviderEnv, "p")
+	t.Setenv(runtimeServiceInstanceEnv, "")
 	t.Setenv(runtimeIdentityModeEnv, "")
 
 	if _, err := resolveRuntimeDeviceID(nil, nativeID); err == nil {
@@ -28,6 +30,21 @@ func TestResolveRuntimeDeviceID(t *testing.T) {
 	if got, _ := resolveRuntimeDeviceID(ref, nativeID); got != "legacy-42" {
 		t.Fatal("runtimeRef must win over identity mode")
 	}
+	for _, invalid := range []*RuntimeRef{
+		{ProviderID: "other", Namespace: "community", ExternalID: "legacy-42"},
+		{ProviderID: "p", Namespace: "other", ExternalID: "legacy-42"},
+		{ProviderID: "p", Namespace: "community", ExternalID: "legacy-42", ServiceInstanceID: stringPointer("other-instance")},
+		{ProviderID: "p", Namespace: "community"},
+	} {
+		if _, err := resolveRuntimeDeviceID(invalid, nativeID); err == nil {
+			t.Fatal("identity mode must not bypass an explicit foreign or incomplete binding")
+		}
+	}
+	t.Setenv(runtimeProviderEnv, "")
+	if _, err := resolveRuntimeDeviceID(ref, nativeID); err == nil {
+		t.Fatal("an explicit binding requires a configured provider")
+	}
+	t.Setenv(runtimeProviderEnv, "p")
 	t.Setenv(runtimeNamespaceEnv, "tp-community")
 	custom := &RuntimeRef{ProviderID: "p", Namespace: "tp-community", ExternalID: "legacy-7"}
 	if got, _ := resolveRuntimeDeviceID(custom, nativeID); got != "legacy-7" {

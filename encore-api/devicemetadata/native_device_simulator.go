@@ -320,7 +320,7 @@ func (communitySimulationSender) Send(ctx context.Context, tenantID, deviceID, d
 	if err != nil {
 		return err
 	}
-	return nativeRuntimeClient().SimulationSend(ctx, legacyID, dataJSON)
+	return nativeRuntimeClient(tenantID).SimulationSend(ctx, legacyID, dataJSON)
 }
 
 var activeSimulationSender simulationSender = communitySimulationSender{}

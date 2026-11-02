@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -25,11 +26,31 @@ import (
 //	TP_COMMUNITY_API_KEY   a Community API key for this service (preferred)
 //	TP_COMMUNITY_EMAIL / TP_COMMUNITY_PASSWORD  a dedicated service account, used only when no API key is set
 type Client struct {
+	scoped   bool
+	tenantID string
 	baseURL  string
 	apiKey   string
 	email    string
 	password string
 	http     *http.Client
+}
+
+// ForTenant restricts runtime requests to a dedicated Community authorization
+// boundary. Older backends do not implement this route and fail closed. The
+// authenticated Community credential must belong to this exact tenant; a
+// tenant path never grants a service account access to another tenant.
+func (c *Client) ForTenant(tenantID string) *Client {
+	scoped := *c
+	scoped.scoped = true
+	scoped.tenantID = strings.TrimSpace(tenantID)
+	if c.http != nil {
+		httpClient := *c.http
+		// A redirect must never turn the protected route into a legacy route,
+		// including 307/308 redirects that preserve a write's method and body.
+		httpClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		scoped.http = &httpClient
+	}
+	return &scoped
 }
 
 // ErrNotConfigured is returned by every call when the Community connection is not configured.
@@ -95,6 +116,13 @@ func (c *Client) doJSON(ctx context.Context, method, path, token string, reqBody
 }
 
 func (c *Client) doRaw(ctx context.Context, method, path, token string, reqBody any) (json.RawMessage, error) {
+	if c.scoped && path != "/api/v1/login" {
+		if c.tenantID == "" || !strings.HasPrefix(path, "/api/v1/") {
+			return nil, fmt.Errorf("%w: runtime tenant scope is required", ErrRejected)
+		}
+		path = "/api/v1/runtime-scoped/" + url.PathEscape(c.tenantID) + strings.TrimPrefix(path, "/api/v1")
+	}
+
 	var bodyReader *bytes.Reader
 	if reqBody == nil {
 		bodyReader = bytes.NewReader(nil)

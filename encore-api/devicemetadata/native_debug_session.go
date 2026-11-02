@@ -170,7 +170,7 @@ func createNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIde
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
 		expireAt := time.Now().Unix() + int64(seconds)
-		state, err := nativeRuntimeClient().SetDebug(ctx, legacyID, true, expireAt)
+		state, err := nativeRuntimeClient(identity.tenantID).SetDebug(ctx, legacyID, true, expireAt)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 		}
@@ -214,7 +214,7 @@ func stopNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIdent
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
-		current, err := nativeRuntimeClient().GetDebugState(ctx, legacyID)
+		current, err := nativeRuntimeClient(identity.tenantID).GetDebugState(ctx, legacyID)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 		}
@@ -223,7 +223,7 @@ func stopNativeDebugSession(ctx context.Context, identity nativeDeviceWriteIdent
 		}
 		state := "expired"
 		if current.Enabled && time.Now().Unix() <= current.ExpireAt {
-			off, err := nativeRuntimeClient().SetDebug(ctx, legacyID, false, 0)
+			off, err := nativeRuntimeClient(identity.tenantID).SetDebug(ctx, legacyID, false, 0)
 			if err != nil {
 				return metadataWriteResponse{}, metadataWriteAudit{}, runtimeUpstreamError(err)
 			}
@@ -257,7 +257,7 @@ func listNativeDebugLogs(ctx context.Context, identity nativeDeviceReadIdentity,
 	if err != nil {
 		return nil, err
 	}
-	rows, total, err := nativeRuntimeClient().ListDebugLogs(ctx, legacyID, (page-1)*pageSize, pageSize)
+	rows, total, err := nativeRuntimeClient(identity.tenantID).ListDebugLogs(ctx, legacyID, (page-1)*pageSize, pageSize)
 	if err != nil {
 		return nil, runtimeUpstreamError(err)
 	}

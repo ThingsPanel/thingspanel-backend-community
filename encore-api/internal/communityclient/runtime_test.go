@@ -358,3 +358,71 @@ func TestSimulationSendNeverPassesBrokerTarget(t *testing.T) {
 		}
 	}
 }
+
+func TestTenantScopedRuntimeNeverFallsBackToLegacyRoute(t *testing.T) {
+	calls := 0
+	c := runtimeTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path != "/api/v1/runtime-scoped/tenant-a/telemetry/datas/current/device-a" {
+			t.Errorf("unexpected unscoped request: %s", r.URL.Path)
+		}
+		if r.Header.Get("x-api-key") != "k" {
+			t.Error("service credential missing")
+		}
+		http.NotFound(w, r)
+	})
+	if _, err := c.ForTenant("tenant-a").GetTelemetryCurrentReadings(context.Background(), "device-a"); !errors.Is(err, ErrRejected) {
+		t.Fatalf("old backend should reject scoped runtime: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("request retried an unsafe legacy route: %d calls", calls)
+	}
+	if c.scoped {
+		t.Fatal("scoping must not mutate shared client")
+	}
+	if _, err := c.ForTenant("").GetTelemetryCurrentReadings(context.Background(), "device-a"); !errors.Is(err, ErrRejected) {
+		t.Fatalf("empty tenant must be refused: %v", err)
+	}
+	if calls != 1 {
+		t.Fatal("empty tenant reached Community")
+	}
+}
+
+func TestTenantScopedDeleteDoesNotTreatDenialAsProofOfDeletion(t *testing.T) {
+	c := runtimeTestClient(t, func(w http.ResponseWriter, r *http.Request) { http.Error(w, "denied", http.StatusForbidden) })
+	gone, err := c.ForTenant("tenant-a").DeviceGone(context.Background(), "foreign-device")
+	if gone || !errors.Is(err, ErrRejected) {
+		t.Fatalf("denial is not deletion proof: gone=%v err=%v", gone, err)
+	}
+}
+
+func TestTenantScopedLoginUsesLegacyAuthenticationOnly(t *testing.T) {
+	c := runtimeTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/login" || r.Method != http.MethodPost {
+			t.Errorf("unexpected authentication path: %s %s", r.Method, r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"code":200,"data":{"token":"session-token"}}`))
+	})
+	c.apiKey, c.email, c.password = "", "service@example.test", "test-password"
+	if token, err := c.ForTenant("tenant-a").Login(context.Background()); err != nil || token != "session-token" {
+		t.Fatalf("login: %q %v", token, err)
+	}
+}
+
+func TestTenantScopedRuntimeRefusesRedirectToLegacyWrite(t *testing.T) {
+	legacyCalls := 0
+	c := runtimeTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/device/update/voucher" {
+			legacyCalls++
+			_, _ = w.Write([]byte(`{"code":200}`))
+			return
+		}
+		http.Redirect(w, r, "/api/v1/device/update/voucher", http.StatusTemporaryRedirect)
+	})
+	if err := c.ForTenant("tenant-a").SetDeviceVoucher(context.Background(), "device-a", "test-voucher"); err == nil {
+		t.Fatal("scoped writes must not follow redirects")
+	}
+	if legacyCalls != 0 {
+		t.Fatalf("redirect reached legacy writer: %d", legacyCalls)
+	}
+}

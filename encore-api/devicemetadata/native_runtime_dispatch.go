@@ -141,16 +141,17 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 	if err != nil {
 		return runtimeApplyOutcome{FailureCode: "RUNTIME_IDENTITY_UNKNOWN", Retryable: true}
 	}
+	client := a.client.ForTenant(item.TenantID)
 	switch item.Kind {
 	case operationKindDeviceRenumber:
-		err = a.client.SetDeviceNumber(ctx, legacyID, str("deviceNumber"))
+		err = client.SetDeviceNumber(ctx, legacyID, str("deviceNumber"))
 	case operationKindDeviceDeletion:
-		err = a.client.RemoveDevice(ctx, legacyID)
+		err = client.RemoveDevice(ctx, legacyID)
 		if errors.Is(err, communityclient.ErrRejected) {
 			// A previous pass may have deleted the device before its receipt was
 			// recorded; a repeat is then refused. Count that as applied only if
 			// Community confirms the device no longer exists.
-			if gone, goneErr := a.client.DeviceGone(ctx, legacyID); goneErr == nil && gone {
+			if gone, goneErr := client.DeviceGone(ctx, legacyID); goneErr == nil && gone {
 				err = nil
 			}
 		}
@@ -163,18 +164,18 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 		if plan.FailureCode != "" {
 			return runtimeApplyOutcome{FailureCode: plan.FailureCode, Retryable: plan.Retryable}
 		}
-		err = a.client.SetDeviceVoucher(ctx, legacyID, plan.Voucher)
+		err = client.SetDeviceVoucher(ctx, legacyID, plan.Voucher)
 	case operationKindGatewayBinding:
 		if str("gatewayId") == "" {
 			// No gateway means "unbind": the sub-device becomes free to bind elsewhere.
-			err = a.client.UnbindSubdevice(ctx, legacyID)
+			err = client.UnbindSubdevice(ctx, legacyID)
 			break
 		}
 		gatewayLegacy, gerr := lookupRuntimeDeviceID(ctx, item.TenantID, str("gatewayId"))
 		if gerr != nil {
 			return runtimeApplyOutcome{FailureCode: "RUNTIME_IDENTITY_UNKNOWN", Retryable: true}
 		}
-		err = a.client.BindSubdevice(ctx, legacyID, gatewayLegacy, str("subdeviceAddress"))
+		err = client.BindSubdevice(ctx, legacyID, gatewayLegacy, str("subdeviceAddress"))
 	}
 	if err == nil {
 		return runtimeApplyOutcome{Applied: true}
@@ -188,15 +189,18 @@ func (a communityRuntimeApplier) Apply(ctx context.Context, item runtimeOutboxIt
 // lookupRuntimeDeviceID reads the Community identity straight from the access
 // binding so it also works for devices already soft-deleted.
 func lookupRuntimeDeviceID(ctx context.Context, tenantID, deviceID string) (string, error) {
-	var namespace, externalID sql.NullString
-	err := db.QueryRow(ctx, `SELECT runtime_namespace,runtime_external_id FROM device_access_bindings
-		WHERE tenant_id=$1 AND device_id=$2`, tenantID, deviceID).Scan(&namespace, &externalID)
+	var providerID, namespace, externalID, instanceID sql.NullString
+	err := db.QueryRow(ctx, `SELECT runtime_provider_id,runtime_namespace,runtime_external_id,service_instance_id FROM device_access_bindings
+		WHERE tenant_id=$1 AND device_id=$2`, tenantID, deviceID).Scan(&providerID, &namespace, &externalID, &instanceID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) && !errors.Is(err, sqldb.ErrNoRows) {
 		return "", wrapDBErr(err, "read runtime identity failed")
 	}
 	var ref *RuntimeRef
-	if namespace.Valid && externalID.Valid {
-		ref = &RuntimeRef{Namespace: namespace.String, ExternalID: externalID.String}
+	if providerID.Valid || namespace.Valid || externalID.Valid || instanceID.Valid {
+		ref = &RuntimeRef{ProviderID: providerID.String, Namespace: namespace.String, ExternalID: externalID.String}
+		if instanceID.Valid {
+			ref.ServiceInstanceID = &instanceID.String
+		}
 	}
 	return resolveRuntimeDeviceID(ref, deviceID)
 }
@@ -216,7 +220,7 @@ func DispatchDeviceRuntimeOutbox(ctx context.Context) error {
 	if strings.TrimSpace(os.Getenv(runtimeDispatchEnv)) != "on" {
 		return nil
 	}
-	summary, err := dispatchRuntimeOutbox(ctx, communityRuntimeApplier{client: nativeRuntimeClient()}, 50)
+	summary, err := dispatchRuntimeOutbox(ctx, communityRuntimeApplier{client: communityclient.NewFromEnv()}, 50)
 	if err != nil {
 		return err
 	}
