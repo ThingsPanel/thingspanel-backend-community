@@ -100,7 +100,7 @@ func (*DeviceApi) ActiveDevice(c *gin.Context) {
 func (*DeviceApi) HandleDeviceByID(c *gin.Context) {
 	id := c.Param("id")
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	device, err := service.GroupApp.Device.GetDeviceByIDV1(id, userClaims)
+	device, err := service.GroupApp.Device.GetDeviceByIDV1(id, userClaims, c.Request.Context())
 	if err != nil {
 		c.Error(err)
 		return
@@ -853,7 +853,7 @@ func (*DeviceApi) UpdateDeviceConfig(c *gin.Context) {
 // /api/v1/device/online/status/{id} [get]
 func (*DeviceApi) HandleDeviceOnlineStatus(c *gin.Context) {
 	id := c.Param("id")
-	data, err := service.GroupApp.Device.GetDeviceOnlineStatus(id)
+	data, err := service.GroupApp.Device.GetDeviceOnlineStatus(id, c.Request.Context())
 	if err != nil {
 		c.Error(err)
 		return
@@ -983,7 +983,7 @@ func (*DeviceApi) GetDeviceStatusHistory(c *gin.Context) {
 		return
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetDeviceStatusHistory(&req, userClaims)
+	data, err := service.GroupApp.Device.GetDeviceStatusHistory(&req, userClaims, c.Request.Context())
 	if err != nil {
 		c.Error(err)
 		return

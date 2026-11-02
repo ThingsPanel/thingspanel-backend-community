@@ -16,7 +16,7 @@ type AttributeDataApi struct{}
 // @Router   /api/v1/attribute/datas/{id} [get]
 func (*AttributeDataApi) HandleDataList(c *gin.Context) {
 	id := c.Param("id")
-	data, err := service.GroupApp.AttributeData.GetAttributeDataList(id)
+	data, err := service.GroupApp.AttributeData.GetAttributeDataList(id, c.Request.Context())
 	if err != nil {
 		c.Error(err)
 		return
@@ -31,7 +31,7 @@ func (*AttributeDataApi) HandleAttributeDataByKey(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	data, err := service.GroupApp.AttributeData.GetAttributeDataByKey(req)
+	data, err := service.GroupApp.AttributeData.GetAttributeDataByKey(req, c.Request.Context())
 	if err != nil {
 		c.Error(err)
 		return
@@ -58,7 +58,7 @@ func (*AttributeDataApi) HandleAttributeSetLogsDataListByPage(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	data, err := service.GroupApp.AttributeData.GetAttributeSetLogsDataListByPage(req)
+	data, err := service.GroupApp.AttributeData.GetAttributeSetLogsDataListByPage(req, c.Request.Context())
 	if err != nil {
 		c.Error(err)
 		return

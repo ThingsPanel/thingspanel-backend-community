@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	dal "project/internal/dal"
 	model "project/internal/model"
 	"project/pkg/errcode"
@@ -9,8 +10,8 @@ import (
 
 type EventData struct{}
 
-func (*EventData) GetEventDatasListByPage(req *model.GetEventDatasListByPageReq, _ *utils.UserClaims) (interface{}, error) {
-	count, data, err := dal.GetEventDatasListByPage(req)
+func (*EventData) GetEventDatasListByPage(req *model.GetEventDatasListByPageReq, _ *utils.UserClaims, contexts ...context.Context) (interface{}, error) {
+	count, data, err := dal.GetEventDatasListByPage(req, contexts...)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),

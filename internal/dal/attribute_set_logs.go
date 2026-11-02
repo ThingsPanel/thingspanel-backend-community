@@ -12,12 +12,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq) (int64, []*model.AttributeSetLog, error) {
+func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq, contexts ...context.Context) (int64, []*model.AttributeSetLog, error) {
 
 	var count int64
 	q := query.AttributeSetLog
 	u := query.User
-	queryBuilder := q.WithContext(context.Background())
+	queryBuilder := q.WithContext(ReadContext(contexts...))
 	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(req.DeviceId))
 	if req.Status != nil {
 		queryBuilder = queryBuilder.Where(q.Status.Eq(*req.Status))
@@ -84,8 +84,8 @@ func (AttributeSetLogsQuery) SetAttributeResultUpdate(ctx context.Context, logId
 }
 
 // 根据key查询设备属性
-func GetAttributeDataByKey(req model.GetDataListByKeyReq) (*model.AttributeData, error) {
-	data, err := query.AttributeData.WithContext(context.Background()).Where(query.AttributeData.DeviceID.Eq(req.DeviceId), query.AttributeData.Key.Eq(req.Key)).First()
+func GetAttributeDataByKey(req model.GetDataListByKeyReq, contexts ...context.Context) (*model.AttributeData, error) {
+	data, err := query.AttributeData.WithContext(ReadContext(contexts...)).Where(query.AttributeData.DeviceID.Eq(req.DeviceId), query.AttributeData.Key.Eq(req.Key)).First()
 	if err != nil {
 		logrus.Error(err)
 		return nil, err

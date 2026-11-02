@@ -91,7 +91,11 @@ func DeleteDeviceConfigForTenant(id, tenantID string) error {
 	return finishDeviceBinding(tx, err)
 }
 
-func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
+func GetDeviceConfigByID(id string, contexts ...context.Context) (*model.DeviceConfig, error) {
+	// Request-scoped reads bypass the cache: Redis client cancellation is not guaranteed.
+	if len(contexts) > 0 {
+		return query.DeviceConfig.WithContext(ReadContext(contexts...)).Where(query.DeviceConfig.ID.Eq(id)).First()
+	}
 	// 1. 先从 Redis 缓存读取
 	cacheKey := id + "_config"
 	result, err := global.REDIS.Get(context.Background(), cacheKey).Result()

@@ -10,16 +10,16 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []map[string]interface{}, error) {
+func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq, contexts ...context.Context) (int64, []map[string]interface{}, error) {
 
 	var count int64
 	q := query.EventData
-	config, err := getDeviceConfigForRawDataRead(req.DeviceId)
+	config, err := getDeviceConfigForRawDataRead(req.DeviceId, contexts...)
 	if err != nil {
 		return 0, nil, err
 	}
 	if hasNativeDeviceConfigBinding(config) {
-		queryBuilder := q.WithContext(context.Background()).Where(q.DeviceID.Eq(req.DeviceId))
+		queryBuilder := q.WithContext(ReadContext(contexts...)).Where(q.DeviceID.Eq(req.DeviceId))
 		if req.Identify != nil && *req.Identify != "" {
 			queryBuilder = queryBuilder.Where(q.Identify.Eq(*req.Identify))
 		}
@@ -43,7 +43,7 @@ func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []ma
 	dc := query.DeviceConfig
 	dme := query.DeviceModelEvent
 
-	queryBuilder := q.WithContext(context.Background())
+	queryBuilder := q.WithContext(ReadContext(contexts...))
 
 	queryBuilder = queryBuilder.LeftJoin(d, q.DeviceID.EqCol(d.ID)).
 		LeftJoin(dc, d.DeviceConfigID.EqCol(dc.ID)).
