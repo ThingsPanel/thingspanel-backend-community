@@ -100,3 +100,39 @@ order. Historical idempotent replays still return their original row without
 creating a new action. This older feature baseline must be integrated with the
 latest develop identity provisioning/migration before deployment; copying only
 SQL31 into an older device creation implementation is not a supported rollout.
+
+## Identity integration verification (2026-11-02)
+
+The feature checkpoint `75b5aa66` was checked against isolated PostgreSQL 14.5 /
+TimescaleDB 2.8.1. Command-store tests passed (112.160s), including active
+reservation checks, Submit/Dispatch lock duration, missing schema, independent
+route epochs, retired identities and temporary-table shadow rejection. The
+complete uplink package passed (125.579s), including native heartbeat and
+shared-gateway expansion locking.
+
+The selected service command/automation regressions passed except an independent
+command-plan fixture initially lacked identity provisioning. Adding the same
+synthetic provisioning used by the other fixtures fixed that test; its targeted
+rerun passed (16.846s). App ingress, quarantine and MQTT/startup lifecycle tests
+passed (27.168s). Native opt-in Mosquitto end-to-end tests were not enabled.
+
+An isolated integration branch merged develop `d6577c4a` with this feature
+without source conflicts, then incorporated the fixture fix, producing
+`0e921097`. Against the same isolated PG14/Timescale version, its identity and
+prepared-route command regressions passed (45.604s), and develop's real SQL31
+writer fence plus permanent identity create/delete provisioning tests passed
+(34.481s). This verifies the identity dependency in that exact merged source;
+it does not deploy or merge the feature into develop.
+
+Tests used one private database and serial Go execution. Build caches and DB
+data stayed on the healthy scratch volume; after slow external-volume linking,
+private system-volume build temporaries were used with an initial 12 GiB floor,
+a continuously monitored 4 GiB stop threshold and explicit telemetry paths.
+The completed compatibility run remained above 13.64 GiB. Task databases and
+Redis were stopped after verification. No broker image was built.
+
+Remaining acceptance boundaries: real shared-plugin/device MQTT end-to-end
+traffic, deployment/migration rehearsal and simulator proof/intent admission
+are not established by these tests. The simulator has no newly authorized write
+path in this feature. Rollout still requires current develop identity
+provisioning, and old unauthenticated simulator helpers are not an alternative.
