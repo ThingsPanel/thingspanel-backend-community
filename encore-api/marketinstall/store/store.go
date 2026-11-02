@@ -1,4 +1,4 @@
-// Package store owns the A08 intent/step PostgreSQL ledger. Short local
+// Package store owns the A08 intent/step ledger. Short local
 // transactions fence progress; provider HTTP calls are never inside them.
 package store
 
@@ -8,13 +8,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 
 	"encore.app/marketinstall/app"
 )
 
-type Store struct{ DB *sql.DB }
+type Store struct {
+	DB      *sql.DB
+	dialect Dialect
+}
 
-func New(db *sql.DB) *Store { return &Store{DB: db} }
+// New preserves the established PostgreSQL owner and Encore connection.
+func New(db *sql.DB) *Store { return &Store{DB: db, dialect: PostgreSQL} }
 
 const operationColumns = `id,bundle_key,bundle_version,tenant_id,subject_id,authorization_ref,request_key,request_digest,artifact_digest,plan,state,generation,error_code`
 
@@ -35,10 +40,10 @@ func scanOperation(row scanner) (app.Operation, error) {
 	return op, nil
 }
 func (s *Store) Get(ctx context.Context, tenant, subject, key string) (app.Operation, error) {
-	return scanOperation(s.DB.QueryRowContext(ctx, `SELECT `+operationColumns+` FROM market_install_operations WHERE tenant_id=$1 AND subject_id=$2 AND request_key=$3`, tenant, subject, key))
+	return scanOperation(s.queryRow(ctx, s.DB, `SELECT `+operationColumns+` FROM market_install_operations WHERE tenant_id=$1 AND subject_id=$2 AND request_key=$3`, tenant, subject, key))
 }
 func (s *Store) GetByID(ctx context.Context, tenant, subject, id string) (app.Operation, error) {
-	return scanOperation(s.DB.QueryRowContext(ctx, `SELECT `+operationColumns+` FROM market_install_operations WHERE tenant_id=$1 AND subject_id=$2 AND id=$3`, tenant, subject, id))
+	return scanOperation(s.queryRow(ctx, s.DB, `SELECT `+operationColumns+` FROM market_install_operations WHERE tenant_id=$1 AND subject_id=$2 AND id=$3`, tenant, subject, id))
 }
 func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, error) {
 	if err := app.ValidatePlan(op.Plan); err != nil {
@@ -48,22 +53,30 @@ func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, er
 	if err != nil {
 		return app.Operation{}, err
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.begin(ctx)
 	if err != nil {
 		return app.Operation{}, err
 	}
 	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, `INSERT INTO market_install_operations(id,tenant_id,subject_id,authorization_ref,request_key,request_digest,artifact_digest,plan,state)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,'queued') ON CONFLICT(tenant_id,request_key) DO NOTHING`, op.ID, op.TenantID, op.SubjectID, op.AuthorizationRef, op.RequestKey, op.RequestDigest, op.ArtifactDigest, string(encoded))
-	if err != nil {
+	result, err := s.exec(ctx, tx, s.insertOperationSQL(), op.ID, op.TenantID, op.SubjectID, op.AuthorizationRef, op.RequestKey, op.RequestDigest, op.ArtifactDigest, string(encoded))
+	var affected int64
+	if s.isDuplicate(err) {
+		// MySQL rejects the statement, not the surrounding transaction. Only an
+		// exact existing tenant/key result may turn error 1062 into a replay.
+		affected = 0
+	} else if err != nil {
 		return app.Operation{}, err
-	}
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return app.Operation{}, err
+	} else {
+		affected, err = result.RowsAffected()
+		if err != nil {
+			return app.Operation{}, err
+		}
 	}
 	if affected == 0 {
-		current, err := scanOperation(tx.QueryRowContext(ctx, `SELECT `+operationColumns+` FROM market_install_operations WHERE tenant_id=$1 AND request_key=$2`, op.TenantID, op.RequestKey))
+		current, err := scanOperation(s.queryRow(ctx, tx, `SELECT `+operationColumns+` FROM market_install_operations WHERE tenant_id=$1 AND request_key=$2`, op.TenantID, op.RequestKey))
+		if errors.Is(err, app.ErrNotFound) {
+			return app.Operation{}, app.ErrConflict
+		}
 		if err != nil {
 			return app.Operation{}, err
 		}
@@ -78,7 +91,7 @@ func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, er
 	if affected != 1 {
 		return app.Operation{}, app.ErrLeaseLost
 	}
-	result, err = tx.ExecContext(ctx, `UPDATE market_install_operations SET bundle_key=$2,bundle_version=$3 WHERE id=$1`, op.ID, op.BundleKey, op.Version)
+	result, err = s.exec(ctx, tx, `UPDATE market_install_operations SET bundle_key=$2,bundle_version=$3 WHERE id=$1`, op.ID, op.BundleKey, op.Version)
 	if err := exactlyOne(result, err); err != nil {
 		return app.Operation{}, err
 	}
@@ -87,7 +100,7 @@ func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, er
 		if err != nil {
 			return app.Operation{}, err
 		}
-		result, err := tx.ExecContext(ctx, `INSERT INTO market_install_steps(operation_id,ordinal,step_id,idempotency_key,payload_hash,state) VALUES($1,$2,$3,$4,$5,'pending')`, op.ID, index, step.ID, app.StableStepKey(op.ID, step), hash)
+		result, err := s.exec(ctx, tx, `INSERT INTO market_install_steps(operation_id,ordinal,step_id,idempotency_key,payload_hash,state) VALUES($1,$2,$3,$4,$5,'pending')`, op.ID, index, step.ID, app.StableStepKey(op.ID, step), hash)
 		if err := exactlyOne(result, err); err != nil {
 			return app.Operation{}, err
 		}
@@ -101,35 +114,38 @@ func (s *Store) Claim(ctx context.Context, leaseSeconds int) (*app.Work, error) 
 	if leaseSeconds < 5 || leaseSeconds > 300 {
 		return nil, app.ErrInvalid
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
-	op, err := scanOperation(tx.QueryRowContext(ctx, `SELECT `+operationColumns+` FROM market_install_operations
- WHERE state='queued' OR(state='running' AND lease_until<NOW()) ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`))
+	op, err := scanOperation(s.queryRow(ctx, tx, s.claimSQL()))
 	if errors.Is(err, app.ErrNotFound) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	if op.Generation < 0 || op.Generation == math.MaxInt64 {
+		return nil, fmt.Errorf("installation generation is exhausted or invalid")
+	}
+	previousGeneration := op.Generation
 	op.Generation++
-	result, err := tx.ExecContext(ctx, `UPDATE market_install_operations SET state='running',generation=$2,lease_until=NOW()+($3 * INTERVAL '1 second'),updated_at=NOW() WHERE id=$1`, op.ID, op.Generation, leaseSeconds)
+	result, err := s.exec(ctx, tx, s.claimUpdateSQL(), op.ID, op.Generation, leaseSeconds, previousGeneration)
 	if err := exactlyOne(result, err); err != nil {
 		return nil, err
 	}
 	op.State = app.Running
 	var index int
 	var stepID, key, hash string
-	err = tx.QueryRowContext(ctx, `SELECT ordinal,step_id,idempotency_key,payload_hash FROM market_install_steps WHERE operation_id=$1 AND state<>'confirmed' ORDER BY ordinal LIMIT 1`, op.ID).Scan(&index, &stepID, &key, &hash)
+	err = s.queryRow(ctx, tx, `SELECT ordinal,step_id,idempotency_key,payload_hash FROM market_install_steps WHERE operation_id=$1 AND state<>'confirmed' ORDER BY ordinal LIMIT 1`, op.ID).Scan(&index, &stepID, &key, &hash)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("installation has no pending step but is not complete")
 	}
 	if err != nil {
 		return nil, err
 	}
-	if index >= len(op.Plan.Steps) || op.Plan.Steps[index].ID != stepID {
+	if index < 0 || index >= len(op.Plan.Steps) || op.Plan.Steps[index].ID != stepID {
 		return nil, fmt.Errorf("installation step ledger and plan diverged")
 	}
 	if err := app.ValidatePlan(op.Plan); err != nil {
@@ -143,7 +159,7 @@ func (s *Store) Claim(ctx context.Context, leaseSeconds int) (*app.Work, error) 
 		return nil, fmt.Errorf("installation step identity and plan diverged")
 	}
 	prior := make([]app.PriorResult, 0, index)
-	rows, err := tx.QueryContext(ctx, `SELECT step_id,receipt FROM market_install_steps WHERE operation_id=$1 AND ordinal<$2 AND state='confirmed' ORDER BY ordinal`, op.ID, index)
+	rows, err := s.query(ctx, tx, `SELECT step_id,receipt FROM market_install_steps WHERE operation_id=$1 AND ordinal<$2 AND state='confirmed' ORDER BY ordinal`, op.ID, index)
 	if err != nil {
 		return nil, err
 	}
@@ -173,24 +189,41 @@ func (s *Store) Claim(ctx context.Context, leaseSeconds int) (*app.Work, error) 
 	}
 	return &app.Work{Operation: op, Step: op.Plan.Steps[index], Index: index, IdempotencyKey: key, PayloadHash: hash, PriorResults: prior}, nil
 }
-func lockWork(ctx context.Context, tx *sql.Tx, w app.Work) error {
+func (s *Store) lockWork(ctx context.Context, tx *sql.Tx, w app.Work) error {
 	var id string
-	err := tx.QueryRowContext(ctx, `SELECT id FROM market_install_operations WHERE id=$1 AND tenant_id=$2 AND subject_id=$3 AND generation=$4 AND state='running' AND lease_until>NOW() FOR UPDATE`, w.Operation.ID, w.Operation.TenantID, w.Operation.SubjectID, w.Operation.Generation).Scan(&id)
+	err := s.queryRow(ctx, tx, `SELECT id FROM market_install_operations WHERE id=$1 AND tenant_id=$2 AND subject_id=$3 AND generation=$4 AND state='running' FOR UPDATE`, w.Operation.ID, w.Operation.TenantID, w.Operation.SubjectID, w.Operation.Generation).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return app.ErrLeaseLost
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	// Re-read the server clock after acquiring the row lock. A statement or PG
+	// transaction timestamp taken before a lock wait can outlive the lease.
+	clock := "clock_timestamp()"
+	if s.dialect == MySQL {
+		clock = "UTC_TIMESTAMP(6)"
+	}
+	var valid sql.NullBool
+	if err := s.queryRow(ctx, tx, `SELECT lease_until>`+clock+` FROM market_install_operations WHERE id=$1`, id).Scan(&valid); err != nil {
+		return err
+	}
+	if !valid.Valid || !valid.Bool {
+		return app.ErrLeaseLost
+	}
+	return nil
 }
+
 func (s *Store) Dispatch(ctx context.Context, w app.Work) error {
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if err := lockWork(ctx, tx, w); err != nil {
+	if err := s.lockWork(ctx, tx, w); err != nil {
 		return err
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE market_install_steps SET state='dispatched',updated_at=NOW() WHERE operation_id=$1 AND ordinal=$2 AND step_id=$3 AND payload_hash=$4 AND state IN('pending','dispatched','unknown')`, w.Operation.ID, w.Index, w.Step.ID, w.PayloadHash)
+	result, err := s.exec(ctx, tx, `UPDATE market_install_steps SET state='dispatched',updated_at=CURRENT_TIMESTAMP(6) WHERE operation_id=$1 AND ordinal=$2 AND step_id=$3 AND payload_hash=$4 AND state IN('pending','dispatched','unknown')`, w.Operation.ID, w.Index, w.Step.ID, w.PayloadHash)
 	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
@@ -204,27 +237,27 @@ func (s *Store) Confirm(ctx context.Context, w app.Work, receipt app.Receipt) er
 	if err != nil {
 		return err
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if err := lockWork(ctx, tx, w); err != nil {
+	if err := s.lockWork(ctx, tx, w); err != nil {
 		return err
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE market_install_steps SET state='confirmed',receipt=$5::jsonb,updated_at=NOW() WHERE operation_id=$1 AND ordinal=$2 AND step_id=$3 AND payload_hash=$4 AND state IN('pending','dispatched','unknown')`, w.Operation.ID, w.Index, w.Step.ID, w.PayloadHash, string(encoded))
+	result, err := s.exec(ctx, tx, `UPDATE market_install_steps SET state='confirmed',receipt=`+s.jsonParameter("$5")+`,updated_at=CURRENT_TIMESTAMP(6) WHERE operation_id=$1 AND ordinal=$2 AND step_id=$3 AND payload_hash=$4 AND state IN('pending','dispatched','unknown')`, w.Operation.ID, w.Index, w.Step.ID, w.PayloadHash, string(encoded))
 	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
 	var pending int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM market_install_steps WHERE operation_id=$1 AND state<>'confirmed'`, w.Operation.ID).Scan(&pending); err != nil {
+	if err := s.queryRow(ctx, tx, `SELECT COUNT(*) FROM market_install_steps WHERE operation_id=$1 AND state<>'confirmed'`, w.Operation.ID).Scan(&pending); err != nil {
 		return err
 	}
 	target := app.Queued
 	if pending == 0 {
 		target = app.Completed
 	}
-	result, err = tx.ExecContext(ctx, `UPDATE market_install_operations SET state=$2,lease_until=NULL,error_code='',updated_at=NOW() WHERE id=$1`, w.Operation.ID, target)
+	result, err = s.exec(ctx, tx, `UPDATE market_install_operations SET state=$2,lease_until=NULL,error_code='',updated_at=CURRENT_TIMESTAMP(6) WHERE id=$1 AND generation=$3 AND state='running'`, w.Operation.ID, target, w.Operation.Generation)
 	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
@@ -234,30 +267,30 @@ func (s *Store) Hold(ctx context.Context, w app.Work, state, code string) error 
 	if state != app.Paused && state != app.Rejected {
 		return app.ErrInvalid
 	}
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := s.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if err := lockWork(ctx, tx, w); err != nil {
+	if err := s.lockWork(ctx, tx, w); err != nil {
 		return err
 	}
 	stepState := "unknown"
 	if state == app.Rejected {
 		stepState = "rejected"
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE market_install_steps SET state=$3,updated_at=NOW() WHERE operation_id=$1 AND ordinal=$2 AND state<>'confirmed'`, w.Operation.ID, w.Index, stepState)
+	result, err := s.exec(ctx, tx, `UPDATE market_install_steps SET state=$3,updated_at=CURRENT_TIMESTAMP(6) WHERE operation_id=$1 AND ordinal=$2 AND state<>'confirmed'`, w.Operation.ID, w.Index, stepState)
 	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
-	result, err = tx.ExecContext(ctx, `UPDATE market_install_operations SET state=$2,error_code=$3,lease_until=NULL,updated_at=NOW() WHERE id=$1`, w.Operation.ID, state, code)
+	result, err = s.exec(ctx, tx, `UPDATE market_install_operations SET state=$2,error_code=$3,lease_until=NULL,updated_at=CURRENT_TIMESTAMP(6) WHERE id=$1 AND generation=$4 AND state='running'`, w.Operation.ID, state, code, w.Operation.Generation)
 	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 func (s *Store) Resume(ctx context.Context, tenant, subject, id string) error {
-	result, err := s.DB.ExecContext(ctx, `UPDATE market_install_operations SET state='queued',error_code='',updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND subject_id=$3 AND state='paused'`, id, tenant, subject)
+	result, err := s.exec(ctx, s.DB, `UPDATE market_install_operations SET state='queued',error_code='',updated_at=CURRENT_TIMESTAMP(6) WHERE id=$1 AND tenant_id=$2 AND subject_id=$3 AND state='paused'`, id, tenant, subject)
 	return exactlyOne(result, err)
 }
 func exactlyOne(result sql.Result, err error) error {
