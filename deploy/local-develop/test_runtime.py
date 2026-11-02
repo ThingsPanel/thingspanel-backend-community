@@ -42,7 +42,7 @@ class WiringSafety(unittest.TestCase):
             (root / 'private').mkdir()
             front = root / 'front'
             front.mkdir()
-            (front / 'nginx.conf').write_text('http { server { location /api { proxy_pass http://backend:9999; } } }')
+            (front / 'nginx.conf').write_text('http { server { # callback /thingsvis-api\n location /api { proxy_pass http://backend:9999; } } }')
             manifest = {'backend': {'sha': 'a' * 40}, 'frontend': {'sha': 'b' * 40, 'path': str(front)}}
             def certificate(*args, **kwargs):
                 (root / 'private/internal.crt').write_text('test-certificate')
