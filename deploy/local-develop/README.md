@@ -1,57 +1,88 @@
-# Local develop fixture — incomplete, not accepted
+# Isolated local develop runtime — wired, not accepted
 
-This is a fail-closed foundation for a new local integration environment. It does
-not start or build anything. `build` and `up` deliberately reject execution until
-MQTT owner/plugin identities, five-database Encore runtime, notification identity,
-gateway routes and immutable images have been wired and reviewed.
-
-Use clean, fixed develop source checkouts whose **resolved paths** are on 80G.
-The manifest records both source SHAs; initialization checks the backend SHA again.
-Never point this tool at the existing 8080/9999 installation. It accepts no DSN,
-existing volume, custom project name, or arbitrary database target. 500G and system
-disk paths are rejected, including symlink resolutions.
+`runtime.py` creates a new private fixture on 80G. It never reads an existing
+installation's credentials or database. Both clean source checkout paths must
+resolve to 80G; their immutable SHAs are recorded and rechecked. 500G and system
+paths are rejected, including symlinks. All published ports bind 127.0.0.1:
+frontend 18080, backend 19999, Encore 24000, notifications 28091, PostgreSQL
+15555, Redis 16379 and MQTT 11883. The old 8080/9999 project is untouched.
 
 ```sh
-python3 deploy/local-develop/runtime.py prepare \
-  --root /Volumes/80G/tp-develop-integration/new-fixture \
-  --backend /Volumes/80G/path/to/clean-backend \
-  --frontend /Volumes/80G/path/to/clean-frontend
+python3 deploy/local-develop/runtime.py prepare --root /Volumes/80G/tp-develop-integration/new-fixture \
+  --backend /Volumes/80G/path/to/backend --frontend /Volumes/80G/path/to/frontend
 ```
 
-`prepare` creates a fresh private directory, a random database password, a manifest
-and a PostgreSQL/Redis-only Compose configuration. These files are outside Git,
-mode 0600 under mode 0700 directories. No credentials are read from an existing
-installation. MQTT data directory is reserved, but no substitute anonymous broker
-is provided. Redis has no external binding beyond loopback and is on this fixture's
-private Compose network.
+Generated private files contain random PostgreSQL/MQTT/JWT/automation credentials,
+metadata/notification encryption keyrings, internal TLS and dedicated native
+account credentials. They are mode 0600, outside Git under a 0700 root. Broker
+starts with empty device permission scope. Its root wrapper copies the token to
+0400 uid1883 storage before Mosquitto drops privileges; owner remains root in this
+local private fixture. Do not use this profile as a production hardening template.
 
-Before any Docker operation, verify Docker Desktop/Colima's actual VM disk and
-build cache reside on 80G, then set `TP_DOCKER_STORAGE_VERIFIED=/Volumes/80G`.
-This is a human attestation, not an automated proof; `docker info` cannot establish
-the macOS backing-file location. The script requires 6 GiB system free space and
-12 GiB external free space. Current low system space is therefore a hard blocker.
+## Build window and immutable images
 
-After the remaining launcher work is reviewed, foundation services may be started
-with the generated Compose configuration and **exact** project `tp-develop-local`.
-`bootstrap` requires that isolated PostgreSQL already exist and verifies its
-Compose label and exact external data mount. It accepts only an empty community
-database and absent native databases. It applies community SQL in numeric order,
-then Broker SQL, then five Encore migration directories. It records checksums and
-sets Encore schema_migrations. It never cleans a failed fixture or adopts a
-partially initialized one; use a new empty runtime directory after investigating.
-Backend-owned component migrations still run on first application startup.
+Build execution remains disabled in the CLI until the operator coordinates disk
+and I/O capacity. No builds, migrations or startup have been tested. Before any
+Docker operation, verify its actual VM disk/build cache reside on 80G and set
+`TP_DOCKER_STORAGE_VERIFIED=/Volumes/80G`. This is explicit operator attestation;
+`docker info` cannot prove the macOS backing-file location. Every phase checks
+6 GiB free on system storage and 12 GiB on 80G.
 
-## Remaining blockers
+Build from the pinned clean checkouts only. All Go/pnpm/Encore caches and TMPDIR
+must point beneath the fixture cache directory. Do not build from the canonical
+dirty checkout. Use sequential builds, GOMAXPROCS=1 and GOFLAGS=-p=1.
 
-- Replace provisional base image tags with verified architecture-compatible digests
-  and require all images locally available before startup; no automatic pulls.
-- Build outputs, Go/pnpm/Encore caches and temporary files must all remain on 80G;
-  verify Docker storage before enabling builds. Current script exposes no builder.
-- Complete native MQTT owner secrets, service device allowlists and broker image.
-- Add Encore/notification runtime, five DB password mappings, credential keyrings,
-  Community API identity, scheduler and the develop frontend gateway routes.
-- Add independent ThingsVis/protocol adapters if those modules are in acceptance.
-- Run a fresh-database migration trial, login, device and MQTT command round trip,
-  automation, notification and dashboard acceptance. None has been executed.
+- Backend: root Dockerfile, tag `tp-local-backend:<backend-sha>` and label
+  `org.opencontainers.image.revision=<backend-sha>`. The current root Dockerfile
+  copies the full checkout into the image: budget its storage before building.
+- Broker: `deploy/mosquitto-community/Dockerfile.production`, tag
+  `tp-local-broker:<backend-sha>` and same revision label. Native architecture.
+- Frontend: install using the pinned pnpm lock, build production `pnpm build`;
+  use `deploy/release/Dockerfile`, tag `tp-local-frontend:<frontend-sha>` with
+  frontend revision label. Production mode avoids the hardcoded remote dev API.
+- Encore: CLI 1.58.6 in `encore-api`, run `encore build docker
+  tp-local-encore:<backend-sha> --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification --skip-config`.
+  Add a derived metadata-only Dockerfile `FROM <built-image-id>` plus the backend
+  revision label if Encore did not set it. Never relabel an unrelated image.
+- Foundation images: `timescale/timescaledb:latest-pg14` and `redis:6.2.7-alpine`
+  are initial lookup names only. Obtain compatible reviewed images during the
+  coordinated window, then `lock-images` resolves **already local** images to
+  immutable IDs, checks application revision labels, and sets `pull_policy=never`.
+  Runtime never automatically pulls. Preserve the generated images.lock.json.
+
+## Explicit phase order
+
+Run each command with `--root <fixture>`:
+
+1. `preflight` — storage and Docker availability.
+2. `lock-images` — all foundation/application images must already exist locally.
+3. `up --stage foundation` — only new PostgreSQL and Redis.
+4. `bootstrap` — verifies exact Compose project and external PG mount, requires
+   empty community DB and absent five native DBs, applies core numbered SQL then
+   Broker SQL then five Encore directories in numeric order, records checksums
+   and Encore schema_migrations. A failure requires investigation and a fresh
+   fixture; no automatic cleanup/adoption. Backend component migrations run on
+   first backend startup. Completion marker is written only after all SQL.
+5. `up --stage native` — broker owner/plugin, backend, Encore, notifications,
+   scheduler and frontend. Port conflicts stop execution rather than replacing
+   anything. Startup is not readiness or integration acceptance.
+
+## Required acceptance and outstanding integration
+
+- Health/login through 18080, plus old 8080/9999 identity/data-volume unchanged.
+- Create a dedicated Community user matching private/native-account.json;
+  automatic account provisioning is intentionally not fabricated. Until then
+  native runtime calls to Community cannot authenticate. API-key provisioning can
+  replace this dedicated account after verifying the real API contract.
+- Create isolated tenant/device, refresh the Broker platform service device and
+  tenant allowlists **from this fixture only** and restart owner/plugin. The empty
+  initial scope cannot dispatch commands. Automated refresh is not yet provided.
+- MQTT telemetry/history/command acknowledgement and device credential activation;
+  native devices/templates/groups/files, automation tick and notification delivery.
+  Notification channels/source identities still require real tenant authorization.
+- ThingsVis and protocol adapters are not included. Their proxy blocks are removed
+  from the copied develop nginx to avoid unresolved-upstream startup failure.
+  Dashboard/protocol acceptance therefore remains pending; never claim full-stack
+  acceptance from the core fixture. Nothing points those modules at an old stack.
 
 Validation: `python3 -m unittest discover -s deploy/local-develop -p 'test_*.py'`.

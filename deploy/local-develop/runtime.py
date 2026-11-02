@@ -59,12 +59,12 @@ def prepare(root, backend, frontend):
         raise ValueError('Runtime directory must be new; refusing to overwrite/adopt existing data')
     backend, frontend = source(backend), source(frontend)
     root.mkdir(mode=0o700, parents=True)
-    for name in ('postgres', 'redis', 'mqtt', 'cache', 'private'):
+    for name in ('postgres', 'redis', 'mqtt', 'cache', 'private', 'files'):
         (root / name).mkdir(mode=0o700)
     password = secrets.token_hex(32)
     (root / 'private/postgres-password').write_text(password)
     manifest = {'project': PROJECT, 'backend': backend, 'frontend': frontend, 'root': str(root),
-                'status': 'foundation-only-unaccepted'}
+                'status': 'wired-unaccepted'}
     (root / 'manifest.json').write_text(json.dumps(manifest, indent=2))
     services = {
         'postgres': {'image': 'timescale/timescaledb:latest-pg14',
@@ -79,11 +79,13 @@ def prepare(root, backend, frontend):
     # No arbitrary MQTT broker: native owner/plugin identities are required.
     config = {'name': PROJECT, 'services': services,
               'secrets': {'postgres-password': {'file': str(root / 'private/postgres-password')}}}
+    from wiring import generate
+    config = generate(root, manifest, password, config)
     (root / 'compose.json').write_text(json.dumps(config, indent=2))
     for path in root.rglob('*'):
         if path.is_file():
             path.chmod(0o600)
-    print('Prepared isolated foundation only; no services started. MQTT/application wiring remains blocked.')
+    print('Prepared isolated native fixture; no services started. Lock images before startup.')
 
 
 def sql(root, database, statement):
@@ -141,13 +143,68 @@ def bootstrap(root):
         apply(db, paths)
         latest = int(paths[-1].name.split('_')[0])
         sql(root, db, f'CREATE TABLE schema_migrations(version bigint PRIMARY KEY,dirty boolean NOT NULL); INSERT INTO schema_migrations VALUES({latest},false);')
+    (root / 'bootstrap.complete').write_text(manifest['backend']['sha'])
     print('Fresh fixture SQL applied; backend component migrations still execute at backend startup.')
+
+
+
+def load_fixture(root):
+    manifest = json.loads((root / 'manifest.json').read_text())
+    if manifest['project'] != PROJECT or manifest['root'] != str(root):
+        raise ValueError('Fixture ownership mismatch')
+    for name in ('backend', 'frontend'):
+        if source(manifest[name]['path']) != manifest[name]:
+            raise ValueError('Pinned source changed: ' + name)
+    return manifest
+
+
+def lock_images(root):
+    preflight(root)
+    manifest = load_fixture(root)
+    config = json.loads((root / 'compose.json').read_text())
+    lock = {}
+    for name, service in config['services'].items():
+        image = json.loads(run(['docker', 'image', 'inspect', service['image']]))[0]
+        expected = manifest['frontend']['sha'] if name == 'frontend' else manifest['backend']['sha']
+        if name not in ('postgres', 'redis') and (image['Config'].get('Labels') or {}).get('org.opencontainers.image.revision') != expected:
+            raise ValueError('Image source revision label mismatch: ' + name)
+        lock[name] = {'requested': service['image'], 'id': image['Id']}
+        service['image'] = image['Id']
+        service['pull_policy'] = 'never'
+    (root / 'images.lock.json').write_text(json.dumps(lock, indent=2))
+    (root / 'compose.json').write_text(json.dumps(config, indent=2))
+    print('Locked already-local images by immutable ID; no images pulled.')
+
+
+def up(root, stage):
+    preflight(root)
+    load_fixture(root)
+    if not (root / 'images.lock.json').exists():
+        raise ValueError('Run lock-images after building exact pinned sources; no implicit pulls allowed')
+    lock = json.loads((root / 'images.lock.json').read_text())
+    for name, item in lock.items():
+        if json.loads(run(['docker', 'image', 'inspect', item['id']]))[0]['Id'] != item['id']:
+            raise ValueError('Missing locked local image: ' + name)
+    import socket
+    # Do not prohibit the old 8080/9999 stack: it remains running and untouched.
+    services = {'foundation': ['postgres', 'redis'], 'native': ['broker-owner', 'mosquitto', 'backend', 'encore-api', 'notification-core', 'automation-scheduler', 'frontend']}[stage]
+    if stage == 'native' and not (root / 'bootstrap.complete').exists():
+        raise ValueError('Bootstrap must complete before native startup')
+    for port in ([15555, 16379] if stage == 'foundation' else [18080,19999,24000,28091,11883]):
+        with socket.socket() as sock:
+            try:
+                sock.bind(('127.0.0.1', port))
+            except OSError:
+                raise ValueError('Fixture port already occupied; refusing replacement: ' + str(port))
+    compose(root, 'up', '-d', '--no-build', '--pull', 'never', *services)
+    print('Started fixture stage; integration acceptance still required: ' + stage)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['prepare', 'preflight', 'bootstrap', 'build', 'up'])
+    parser.add_argument('action', choices=['prepare', 'preflight', 'bootstrap', 'build', 'up', 'lock-images'])
     parser.add_argument('--root', required=True)
+    parser.add_argument('--stage', choices=['foundation', 'native'], default='foundation')
     parser.add_argument('--backend')
     parser.add_argument('--frontend')
     args = parser.parse_args()
@@ -156,10 +213,14 @@ def main():
         prepare(root, args.backend, args.frontend)
     elif args.action == 'preflight':
         preflight(root)
+    elif args.action == 'lock-images':
+        lock_images(root)
+    elif args.action == 'up':
+        up(root, args.stage)
     elif args.action == 'bootstrap':
         bootstrap(root)
     else:
-        raise ValueError('NOT IMPLEMENTED: no builds/startup until immutable images, MQTT owner identities, Encore runtime and gateway wiring are reviewed')
+        raise ValueError('Build execution is intentionally disabled pending coordinated disk/I/O window; see README build commands')
 
 
 if __name__ == '__main__':
