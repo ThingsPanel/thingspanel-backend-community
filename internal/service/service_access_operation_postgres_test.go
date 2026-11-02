@@ -128,7 +128,7 @@ func TestServiceAccessCreateOperationPostgres(t *testing.T) {
 		}
 		changed := *req
 		changed.Name = "different"
-		if response, err := svc.CreateAccess(&changed, claims); response != nil || err == nil || !strings.Contains(err.Error(), "SERVICE_ACCESS_OPERATION_CONFLICT") {
+		if response, err := svc.CreateAccess(&changed, claims); response != nil || err == nil || !isServiceAccessOperationConflict(err) {
 			t.Fatalf("same-key different content=%v %v", response, err)
 		}
 		otherSubject := *claims

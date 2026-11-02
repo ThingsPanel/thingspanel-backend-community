@@ -99,9 +99,13 @@ func TestServiceAccessSchemaPostgres(t *testing.T) {
 		if err := ApplyServiceAccessSchema(db); err == nil {
 			t.Fatal("incompatible preexisting table adopted")
 		}
-		var count int64
-		if err := db.Table(componentMigrationLedgerTable).Where("module_name=?", serviceAccessMigrationModule).Count(&count).Error; err != nil || count != 0 {
-			t.Fatalf("failed migration recorded count=%d err=%v", count, err)
+		// The ledger is created inside the same transaction. On a clean
+		// database, a failed migration can roll that table back as well.
+		if db.Migrator().HasTable(componentMigrationLedgerTable) {
+			var count int64
+			if err := db.Table(componentMigrationLedgerTable).Where("module_name=?", serviceAccessMigrationModule).Count(&count).Error; err != nil || count != 0 {
+				t.Fatalf("failed migration recorded count=%d err=%v", count, err)
+			}
 		}
 	})
 	t.Cleanup(reset)

@@ -40,8 +40,8 @@ func verifyServiceAccessSchema(tx *gorm.DB) error {
 		{"service_access_create_receipts_tenant_check", "CHECK ((length(tenant_id) > 0))", "c"},
 		{"service_access_create_receipts_subject_check", "CHECK ((length(subject_id) > 0))", "c"},
 		{"service_access_create_receipts_key_check", "CHECK (((operation_key)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$'::text))", "c"},
-		{"service_access_create_receipts_request_hash_check", "CHECK (((request_hash)::text ~ '^[0-9a-f]{64}$'::text))", "c"},
-		{"service_access_create_receipts_resource_hash_check", "CHECK (((resource_hash)::text ~ '^[0-9a-f]{64}$'::text))", "c"},
+		{"service_access_create_receipts_request_hash_check", "CHECK ((request_hash ~ '^[0-9a-f]{64}$'::text))", "c"},
+		{"service_access_create_receipts_resource_hash_check", "CHECK ((resource_hash ~ '^[0-9a-f]{64}$'::text))", "c"},
 	} {
 		if err := verifyNativeConstraint(tx, "service_access_create_receipts", constraint.name, constraint.definition, constraint.kind); err != nil {
 			return err

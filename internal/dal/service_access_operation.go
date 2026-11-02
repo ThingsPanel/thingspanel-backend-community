@@ -94,7 +94,7 @@ func CreateServiceAccessWithOperation(ctx context.Context, access *model.Service
 	if access == nil || access.ID == "" || access.TenantID == "" || subjectID == "" || key == "" || len(requestHash) != 64 {
 		return nil, fmt.Errorf("invalid service access operation")
 	}
-	db := query.ServiceAccess.UnderlyingDB().Session(&gorm.Session{NewDB: true}).WithContext(ctx)
+	db := query.ServiceAccess.UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
 	if db.Dialector.Name() != "postgres" {
 		return nil, fmt.Errorf("durable service access creation is not supported by this database profile")
 	}
@@ -153,7 +153,7 @@ func CreateServiceAccessWithOperation(ctx context.Context, access *model.Service
 // new creation. not_observed means no committed receipt was visible; an older
 // request may still be in flight, so only the original keyed request is safe.
 func ReadServiceAccessCreateOperation(ctx context.Context, tenantID, subjectID, key string) (*model.ServiceAccessCreateObservation, error) {
-	db := query.ServiceAccess.UnderlyingDB().Session(&gorm.Session{NewDB: true}).WithContext(ctx)
+	db := query.ServiceAccess.UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
 	if db.Dialector.Name() != "postgres" {
 		return nil, fmt.Errorf("durable service access query is not supported by this database profile")
 	}

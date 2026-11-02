@@ -126,11 +126,13 @@ func serviceAccessCreateRequestHash(req model.CreateAccessReq, claims *utils.Use
 func serviceAccessOperationError(err error) error {
 	switch {
 	case errors.Is(err, dal.ErrServiceAccessOperationConflict):
-		return errcode.NewWithMessage(errcode.CodeOpDenied, "SERVICE_ACCESS_OPERATION_CONFLICT: retain the original key and request")
+		return errcode.WithData(errcode.CodeOpDenied, map[string]interface{}{"reason": "SERVICE_ACCESS_OPERATION_CONFLICT"})
 	case errors.Is(err, dal.ErrServiceAccessResourceChanged):
-		return errcode.NewWithMessage(errcode.CodeOpDenied, "SERVICE_ACCESS_RESOURCE_CHANGED: query the original operation; do not recreate")
+		return errcode.WithData(errcode.CodeOpDenied, map[string]interface{}{"reason": "SERVICE_ACCESS_RESOURCE_CHANGED"})
 	case errors.Is(err, dal.ErrServiceAccessOperationUnknown):
-		return errcode.NewWithMessage(errcode.CodeDBError, "service access outcome unknown; query the original operation key before retry")
+		failure := errcode.NewWithMessage(errcode.CodeDBError, "service access outcome unknown; query the original operation key before retry")
+		failure.Data = map[string]interface{}{"reason": "SERVICE_ACCESS_OUTCOME_UNKNOWN"}
+		return failure
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		return errcode.New(errcode.CodeNotFound)
 	default:

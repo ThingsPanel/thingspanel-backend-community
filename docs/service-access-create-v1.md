@@ -19,8 +19,11 @@ connector, grant compensation rights, or establish an SDK execution fence.
   legacy interactive response `{id}` and has no automatic-retry guarantee.
 
 Tenant and subject come from the existing verified request identity. The new
-query remains inside the existing authenticated service-access router group;
-release validation must check its route authorization alongside create access.
+query remains inside the existing authenticated service-access router group. Its
+dynamic key URL is canonically authorized against `api/v1/service/access` using
+the current Casbin subject and role/function mappings. An absent registered
+creation resource, withdrawn permission, missing identity or unavailable
+enforcer denies this query. Other legacy routes keep their existing policy.
 Another tenant cannot read a receipt. Another subject in the same tenant cannot
 take over its key or query its result. The body cannot choose tenant or subject.
 
@@ -42,9 +45,13 @@ an unexpected affected-row count rolls back the entire transaction.
 
 A keyed create returns `id`, `operation_key`, `request_hash`,
 `protocol_version: service-access-create-v1`, `state: confirmed`, `created_at`,
-and `replayed`. Same-key changed content returns the existing API denial error
-with `SERVICE_ACCESS_OPERATION_CONFLICT`. It does not replace the request or
-create another resource.
+and `replayed`. Same-key changed content returns the existing API error code `201002`
+(`CodeOpDenied`) and `data.reason: SERVICE_ACCESS_OPERATION_CONFLICT`. Later
+resource drift uses the same code with `SERVICE_ACCESS_RESOURCE_CHANGED`. These
+are machine-readable fields in the existing error envelope, independent of the
+localized message; no new error-code system is introduced. Unknown transaction
+outcomes use existing `101001` with `data.reason: SERVICE_ACCESS_OUTCOME_UNKNOWN`.
+A conflict does not replace the request or create another resource.
 
 Original-key query states are:
 
@@ -85,7 +92,7 @@ Run against the isolated Team A PostgreSQL fixture:
 
 ```sh
 go test -count=1 -v ./internal/service -run '^TestServiceAccess'
-go test -count=1 -v ./internal/api -run '^TestServiceAccess'
+go test -count=1 -v ./internal/api ./internal/middleware -run '^TestServiceAccess'
 go test -count=1 -v ./initialize -run '^TestServiceAccessSchemaPostgres$'
 ```
 
