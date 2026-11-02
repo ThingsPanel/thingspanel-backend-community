@@ -35,6 +35,8 @@ func installationMySQLMigrations() ([]mysqlMigration, error) {
 	for _, item := range []struct{ name, table string }{
 		{"0001_operations.sql", "market_install_operations"},
 		{"0002_steps.sql", "market_install_steps"},
+		{"0003_exact_plan.sql", "market_install_operations"},
+		{"0004_claim_ready.sql", "market_install_operations"},
 	} {
 		source, err := mysqlMigrationFiles.ReadFile("mysql_migrations/" + item.name)
 		if err != nil {
@@ -86,43 +88,82 @@ func (s *Store) MigrateMySQL(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		for _, m := range migrations {
-			receipt, recorded := receipts[m.name]
-			present, err := mysqlTableExists(ctx, conn, database, m.table)
-			if err != nil {
-				return err
+		prefix, err := mysqlAppliedPrefix(migrations, receipts)
+		if err != nil {
+			return err
+		}
+		latest := map[string]mysqlMigration{}
+		for _, m := range migrations[:prefix] {
+			latest[m.table] = m
+		}
+		pendingTable := ""
+		if prefix < len(migrations) {
+			if receipt, ok := receipts[migrations[prefix].name]; ok && receipt.state == "applying" {
+				pendingTable = migrations[prefix].table
 			}
-			if recorded && receipt.state == "applied" {
-				if err := verifyMySQLTable(ctx, conn, database, m.table); err != nil {
-					return err
-				}
+		}
+		for table, m := range latest {
+			if table == pendingTable {
 				continue
 			}
-			if !recorded {
-				if present {
-					return fmt.Errorf("unowned A08 table %s cannot be adopted by an unrecorded migration", m.table)
-				}
-				result, err := conn.ExecContext(ctx, `INSERT INTO market_install_schema_migrations(version,checksum,state) VALUES(?,?,'applying')`, m.name, m.checksum)
-				if err := exactlyOne(result, err); err != nil {
-					return err
-				}
+			if err := verifyMySQLMigrationSchema(ctx, conn, database, m); err != nil {
+				return err
 			}
-			// A prior executor that still owns the connection also owns GET_LOCK;
-			// a replacement can enter here only after that connection releases it.
-			if !present {
+		}
+		for _, m := range migrations[prefix:] {
+			_, recorded := receipts[m.name]
+			// A recorded intent can be before or after its single atomic DDL. Both
+			// shapes are version-specific; a partial or foreign shape matches neither.
+			afterMatches := false
+			if recorded {
+				afterMatches = verifyMySQLMigrationSchema(ctx, conn, database, m) == nil
+			}
+			if !afterMatches {
+				if previous, hasPrevious := latest[m.table]; hasPrevious {
+					if err := verifyMySQLMigrationSchema(ctx, conn, database, previous); err != nil {
+						return fmt.Errorf("%w: A08 migration %s matches neither its before nor after schema: %v", ownermigration.ErrOutcomeUnknown, m.name, err)
+					}
+				} else {
+					present, err := mysqlTableExists(ctx, conn, database, m.table)
+					if err != nil {
+						return err
+					}
+					if present {
+						return fmt.Errorf("%w: A08 migration %s cannot adopt an unowned or different table", ownermigration.ErrOutcomeUnknown, m.name)
+					}
+				}
+				if !recorded {
+					result, err := conn.ExecContext(ctx, `INSERT INTO market_install_schema_migrations(version,checksum,state) VALUES(?,?,'applying')`, m.name, m.checksum)
+					if err := exactlyOne(result, err); err != nil {
+						return err
+					}
+				}
+				// A matching row count alone cannot prove the original intent was
+				// stored (a BEFORE trigger can rewrite inserted values). Read the
+				// acknowledged original key on this same locked, autocommit session
+				// before any non-transactional DDL side effect is attempted.
+				var intentChecksum, intentState string
+				if err := conn.QueryRowContext(ctx, `SELECT checksum,state FROM market_install_schema_migrations WHERE version=?`, m.name).Scan(&intentChecksum, &intentState); err != nil || intentChecksum != m.checksum || intentState != "applying" {
+					return fmt.Errorf("%w: A08 migration %s original applying receipt was not durably verified", ownermigration.ErrOutcomeUnknown, m.name)
+				}
 				if _, err := conn.ExecContext(ctx, m.contents); err != nil {
 					return fmt.Errorf("%w: execute A08 migration %s: %v", ownermigration.ErrOutcomeUnknown, m.name, err)
 				}
-			}
-			if err := verifyMySQLTable(ctx, conn, database, m.table); err != nil {
-				return fmt.Errorf("%w: A08 migration %s schema does not attest its result: %v", ownermigration.ErrOutcomeUnknown, m.name, err)
+				if err := verifyMySQLMigrationSchema(ctx, conn, database, m); err != nil {
+					return fmt.Errorf("%w: A08 migration %s post-schema does not attest its result: %v", ownermigration.ErrOutcomeUnknown, m.name, err)
+				}
 			}
 			result, err := conn.ExecContext(ctx, `UPDATE market_install_schema_migrations SET state='applied',applied_at=CURRENT_TIMESTAMP(6) WHERE version=? AND checksum=? AND state='applying'`, m.name, m.checksum)
 			if err := exactlyOne(result, err); err != nil {
 				return fmt.Errorf("%w: A08 migration %s receipt was not acknowledged: %v", ownermigration.ErrOutcomeUnknown, m.name, err)
 			}
+			var checksum, state string
+			if err := conn.QueryRowContext(ctx, `SELECT checksum,state FROM market_install_schema_migrations WHERE version=?`, m.name).Scan(&checksum, &state); err != nil || checksum != m.checksum || state != "applied" {
+				return fmt.Errorf("%w: A08 migration %s final receipt was not persisted", ownermigration.ErrOutcomeUnknown, m.name)
+			}
+			latest[m.table] = m
 		}
-		return nil
+		return verifyCompleteMySQLMigrations(ctx, conn, database, migrations)
 	})
 }
 
@@ -140,20 +181,67 @@ func (s *Store) VerifyMySQLSchema(ctx context.Context) error {
 		if err := verifyMySQLTable(ctx, conn, database, mysqlMigrationLedger); err != nil {
 			return err
 		}
-		receipts, err := readMySQLMigrationReceipts(ctx, conn, migrations)
-		if err != nil {
+		return verifyCompleteMySQLMigrations(ctx, conn, database, migrations)
+	})
+}
+
+func verifyMySQLMigrationSchema(ctx context.Context, conn *sql.Conn, database string, m mysqlMigration) error {
+	shape, err := mysqlMigrationShape(m.name)
+	if err != nil {
+		return err
+	}
+	return verifyMySQLTableShape(ctx, conn, database, m.table, shape)
+}
+
+// Only an applied prefix followed by at most one applying intent can be
+// produced by this owner. Missing earlier versions or later applied versions
+// after a dirty receipt are not automatic recovery candidates.
+func mysqlAppliedPrefix(migrations []mysqlMigration, receipts map[string]migrationReceipt) (int, error) {
+	prefix := 0
+	stopped := false
+	for _, m := range migrations {
+		receipt, recorded := receipts[m.name]
+		if stopped {
+			if recorded {
+				return 0, fmt.Errorf("%w: A08 versions are out of order", ownermigration.ErrOutcomeUnknown)
+			}
+			continue
+		}
+		if !recorded {
+			stopped = true
+			continue
+		}
+		if receipt.state == "applying" {
+			stopped = true
+			continue
+		}
+		prefix++
+	}
+	return prefix, nil
+}
+
+func verifyCompleteMySQLMigrations(ctx context.Context, conn *sql.Conn, database string, migrations []mysqlMigration) error {
+	receipts, err := readMySQLMigrationReceipts(ctx, conn, migrations)
+	if err != nil {
+		return err
+	}
+	prefix, err := mysqlAppliedPrefix(migrations, receipts)
+	if err != nil {
+		return err
+	}
+	if prefix != len(migrations) {
+		return fmt.Errorf("%w: A08 owner migrations are not all acknowledged", ownermigration.ErrOutcomeUnknown)
+	}
+	latest := map[string]mysqlMigration{}
+	for _, m := range migrations {
+		latest[m.table] = m
+	}
+	for _, m := range latest {
+		if err := verifyMySQLMigrationSchema(ctx, conn, database, m); err != nil {
 			return err
 		}
-		for _, m := range migrations {
-			if receipt, ok := receipts[m.name]; !ok || receipt.state != "applied" {
-				return fmt.Errorf("%w: A08 migration %s is not acknowledged", ownermigration.ErrOutcomeUnknown, m.name)
-			}
-			if err := verifyMySQLTable(ctx, conn, database, m.table); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func readMySQLMigrationReceipts(ctx context.Context, conn *sql.Conn, migrations []mysqlMigration) (map[string]migrationReceipt, error) {

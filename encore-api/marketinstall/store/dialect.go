@@ -94,12 +94,15 @@ func (s *Store) jsonParameter(parameter string) string {
 }
 
 func (s *Store) insertOperationSQL() string {
+	query := `INSERT INTO market_install_operations(id,tenant_id,subject_id,authorization_ref,request_key,request_digest,artifact_digest,plan,plan_encoding,plan_exact,state`
 	if s.dialect == MySQL {
-		return `INSERT INTO market_install_operations(id,tenant_id,subject_id,authorization_ref,request_key,request_digest,artifact_digest,plan,state,bundle_key,bundle_version)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,'queued','','')`
+		query += `,bundle_key,bundle_version`
 	}
-	query := `INSERT INTO market_install_operations(id,tenant_id,subject_id,authorization_ref,request_key,request_digest,artifact_digest,plan,state)
- VALUES($1,$2,$3,$4,$5,$6,$7,` + s.jsonParameter("$8") + `,'queued')`
+	query += `) VALUES($1,$2,$3,$4,$5,$6,$7,` + s.jsonParameter("$8") + `,'` + PlanEncodingV1 + `',$8,'queued'`
+	if s.dialect == MySQL {
+		query += `,'',''`
+	}
+	query += `)`
 	if s.dialect == PostgreSQL {
 		query += ` ON CONFLICT(tenant_id,request_key) DO NOTHING`
 	}
@@ -107,11 +110,15 @@ func (s *Store) insertOperationSQL() string {
 }
 
 func (s *Store) claimSQL() string {
-	query := `SELECT ` + operationColumns + ` FROM market_install_operations
- WHERE state='queued' OR(state='running' AND lease_until<CURRENT_TIMESTAMP(6)) ORDER BY created_at,id`
 	if s.dialect == MySQL {
-		return query + ` LIMIT 1 FOR UPDATE SKIP LOCKED`
+		// A filesort must not first lock every eligible row and leave another
+		// worker with no candidate. The generated due-time index orders the
+		// queue and expired leases in the same bounded locking range scan.
+		return `SELECT ` + s.operationColumns() + ` FROM market_install_operations FORCE INDEX(market_install_ready)
+ WHERE claim_ready_at<=CURRENT_TIMESTAMP(6) ORDER BY claim_ready_at,id LIMIT 1 FOR UPDATE SKIP LOCKED`
 	}
+	query := `SELECT ` + s.operationColumns() + ` FROM market_install_operations
+ WHERE state='queued' OR(state='running' AND lease_until<CURRENT_TIMESTAMP(6)) ORDER BY created_at,id`
 	return query + ` FOR UPDATE SKIP LOCKED LIMIT 1`
 }
 

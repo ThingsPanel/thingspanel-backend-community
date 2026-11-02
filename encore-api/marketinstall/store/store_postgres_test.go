@@ -89,7 +89,7 @@ func postgresStore(t *testing.T) postgresFixture {
 	selected.RuntimeParams["search_path"] = schema
 	ledger = stdlib.OpenDB(*selected)
 	ledger.SetMaxOpenConns(4)
-	for _, name := range []string{"0001_installations.up.sql", "0002_request_metadata.up.sql"} {
+	for _, name := range []string{"0001_installations.up.sql", "0002_request_metadata.up.sql", "0003_exact_plan.up.sql"} {
 		migration, err := os.ReadFile(filepath.Join("..", "migrations", name))
 		if err != nil {
 			t.Fatal(err)

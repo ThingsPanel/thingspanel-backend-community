@@ -90,3 +90,39 @@ func TestMySQLSilentWritesCannotAcknowledgeUnpersistedState(t *testing.T) {
 		})
 	}
 }
+
+func TestMySQLPartlyChangedTargetAndRewrittenReceiptStillRollback(t *testing.T) {
+	for _, which := range []string{"operation_state_only", "receipt_changed"} {
+		t.Run(which, func(t *testing.T) {
+			f := mysqlStore(t, true)
+			op := testOperation(t, 1)
+			work := f.dispatched(t, op)
+			var trigger string
+			if which == "operation_state_only" {
+				// Timestamp and lease still change, so even changed-row counting is
+				// positive. Only actual target-state verification catches this.
+				trigger = fmt.Sprintf(`CREATE TRIGGER tp_a08_partial BEFORE UPDATE ON market_install_operations FOR EACH ROW BEGIN IF NEW.id='%s' THEN SET NEW.state=OLD.state; END IF; END`, op.ID)
+			} else {
+				trigger = fmt.Sprintf(`CREATE TRIGGER tp_a08_receipt BEFORE UPDATE ON market_install_steps FOR EACH ROW BEGIN IF NEW.operation_id='%s' AND NEW.state='confirmed' THEN SET NEW.receipt=JSON_SET(NEW.receipt,'$.resourceId','different-resource'); END IF; END`, op.ID)
+			}
+			if _, err := f.db.ExecContext(f.ctx, trigger); err != nil {
+				t.Fatal(err)
+			}
+			receipt := app.Receipt{Owner: work.Step.Owner, ResourceID: "original-owner-resource", PayloadHash: work.PayloadHash, Data: json.RawMessage(`{"existing":true}`)}
+			if err := f.store.Confirm(f.ctx, work, receipt); err == nil {
+				t.Fatal("different persisted target/receipt was acknowledged")
+			}
+			if current := f.current(t, op); current.State != app.Running {
+				t.Fatal("failed target did not roll back operation")
+			}
+			var state string
+			var raw []byte
+			if err := f.db.QueryRowContext(f.ctx, `SELECT state,receipt FROM market_install_steps WHERE operation_id=? AND ordinal=0`, op.ID).Scan(&state, &raw); err != nil {
+				t.Fatal(err)
+			}
+			if state != "dispatched" || raw != nil {
+				t.Fatalf("failed target/receipt left an intermediate commit: %s %s", state, raw)
+			}
+		})
+	}
+}

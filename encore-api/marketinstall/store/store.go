@@ -21,29 +21,13 @@ type Store struct {
 // New preserves the established PostgreSQL owner and Encore connection.
 func New(db *sql.DB) *Store { return &Store{DB: db, dialect: PostgreSQL} }
 
-const operationColumns = `id,bundle_key,bundle_version,tenant_id,subject_id,authorization_ref,request_key,request_digest,artifact_digest,plan,state,generation,error_code`
-
 type scanner interface{ Scan(...interface{}) error }
 
-func scanOperation(row scanner) (app.Operation, error) {
-	var op app.Operation
-	var plan []byte
-	if err := row.Scan(&op.ID, &op.BundleKey, &op.Version, &op.TenantID, &op.SubjectID, &op.AuthorizationRef, &op.RequestKey, &op.RequestDigest, &op.ArtifactDigest, &plan, &op.State, &op.Generation, &op.ErrorCode); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return op, app.ErrNotFound
-		}
-		return op, err
-	}
-	if err := json.Unmarshal(plan, &op.Plan); err != nil {
-		return app.Operation{}, err
-	}
-	return op, nil
-}
 func (s *Store) Get(ctx context.Context, tenant, subject, key string) (app.Operation, error) {
-	return scanOperation(s.queryRow(ctx, s.DB, `SELECT `+operationColumns+` FROM market_install_operations WHERE tenant_id=$1 AND subject_id=$2 AND request_key=$3`, tenant, subject, key))
+	return scanOperation(s.queryRow(ctx, s.DB, `SELECT `+s.operationColumns()+` FROM market_install_operations WHERE tenant_id=$1 AND subject_id=$2 AND request_key=$3`, tenant, subject, key))
 }
 func (s *Store) GetByID(ctx context.Context, tenant, subject, id string) (app.Operation, error) {
-	return scanOperation(s.queryRow(ctx, s.DB, `SELECT `+operationColumns+` FROM market_install_operations WHERE tenant_id=$1 AND subject_id=$2 AND id=$3`, tenant, subject, id))
+	return scanOperation(s.queryRow(ctx, s.DB, `SELECT `+s.operationColumns()+` FROM market_install_operations WHERE tenant_id=$1 AND subject_id=$2 AND id=$3`, tenant, subject, id))
 }
 func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, error) {
 	if err := app.ValidatePlan(op.Plan); err != nil {
@@ -73,7 +57,7 @@ func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, er
 		}
 	}
 	if affected == 0 {
-		current, err := scanOperation(s.queryRow(ctx, tx, `SELECT `+operationColumns+` FROM market_install_operations WHERE tenant_id=$1 AND request_key=$2`, op.TenantID, op.RequestKey))
+		current, err := scanOperation(s.queryRow(ctx, tx, `SELECT `+s.operationColumns()+` FROM market_install_operations WHERE tenant_id=$1 AND request_key=$2`, op.TenantID, op.RequestKey))
 		if errors.Is(err, app.ErrNotFound) {
 			return app.Operation{}, app.ErrConflict
 		}
@@ -105,10 +89,14 @@ func (s *Store) Create(ctx context.Context, op app.Operation) (app.Operation, er
 			return app.Operation{}, err
 		}
 	}
+	created, err := s.verifyCreatedOperation(ctx, tx, op, encoded)
+	if err != nil {
+		return app.Operation{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return app.Operation{}, err
 	}
-	return op, nil
+	return created, nil
 }
 func (s *Store) Claim(ctx context.Context, leaseSeconds int) (*app.Work, error) {
 	if leaseSeconds < 5 || leaseSeconds > 300 {
@@ -119,11 +107,18 @@ func (s *Store) Claim(ctx context.Context, leaseSeconds int) (*app.Work, error) 
 		return nil, err
 	}
 	defer tx.Rollback()
-	op, err := scanOperation(s.queryRow(ctx, tx, s.claimSQL()))
+	record, err := scanStoredOperation(s.queryRow(ctx, tx, s.claimSQL()))
+	op := record.operation
 	if errors.Is(err, app.ErrNotFound) {
 		return nil, nil
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := s.verifyPlanLedger(ctx, tx, op, false); err != nil {
+		return nil, err
+	}
+	if err := s.adoptExactPlan(ctx, tx, record); err != nil {
 		return nil, err
 	}
 	if op.Generation < 0 || op.Generation == math.MaxInt64 {
@@ -133,6 +128,9 @@ func (s *Store) Claim(ctx context.Context, leaseSeconds int) (*app.Work, error) 
 	op.Generation++
 	result, err := s.exec(ctx, tx, s.claimUpdateSQL(), op.ID, op.Generation, leaseSeconds, previousGeneration)
 	if err := exactlyOne(result, err); err != nil {
+		return nil, err
+	}
+	if err := s.verifyOperationTarget(ctx, tx, op, app.Running, op.ErrorCode, true); err != nil {
 		return nil, err
 	}
 	op.State = app.Running
@@ -227,6 +225,9 @@ func (s *Store) Dispatch(ctx context.Context, w app.Work) error {
 	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
+	if err := s.verifyStepTarget(ctx, tx, w, "dispatched"); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 func (s *Store) Confirm(ctx context.Context, w app.Work, receipt app.Receipt) error {
@@ -249,6 +250,9 @@ func (s *Store) Confirm(ctx context.Context, w app.Work, receipt app.Receipt) er
 	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
+	if err := s.verifyConfirmedReceipt(ctx, tx, w, string(encoded)); err != nil {
+		return err
+	}
 	var pending int
 	if err := s.queryRow(ctx, tx, `SELECT COUNT(*) FROM market_install_steps WHERE operation_id=$1 AND state<>'confirmed'`, w.Operation.ID).Scan(&pending); err != nil {
 		return err
@@ -259,6 +263,9 @@ func (s *Store) Confirm(ctx context.Context, w app.Work, receipt app.Receipt) er
 	}
 	result, err = s.exec(ctx, tx, `UPDATE market_install_operations SET state=$2,lease_until=NULL,error_code='',updated_at=CURRENT_TIMESTAMP(6) WHERE id=$1 AND generation=$3 AND state='running'`, w.Operation.ID, target, w.Operation.Generation)
 	if err := exactlyOne(result, err); err != nil {
+		return err
+	}
+	if err := s.verifyOperationTarget(ctx, tx, w.Operation, target, "", false); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -283,15 +290,40 @@ func (s *Store) Hold(ctx context.Context, w app.Work, state, code string) error 
 	if err := exactlyOne(result, err); err != nil {
 		return err
 	}
+	if err := s.verifyStepTarget(ctx, tx, w, stepState); err != nil {
+		return err
+	}
 	result, err = s.exec(ctx, tx, `UPDATE market_install_operations SET state=$2,error_code=$3,lease_until=NULL,updated_at=CURRENT_TIMESTAMP(6) WHERE id=$1 AND generation=$4 AND state='running'`, w.Operation.ID, state, code, w.Operation.Generation)
 	if err := exactlyOne(result, err); err != nil {
+		return err
+	}
+	if err := s.verifyOperationTarget(ctx, tx, w.Operation, state, code, false); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 func (s *Store) Resume(ctx context.Context, tenant, subject, id string) error {
-	result, err := s.exec(ctx, s.DB, `UPDATE market_install_operations SET state='queued',error_code='',updated_at=CURRENT_TIMESTAMP(6) WHERE id=$1 AND tenant_id=$2 AND subject_id=$3 AND state='paused'`, id, tenant, subject)
-	return exactlyOne(result, err)
+	tx, err := s.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	op := app.Operation{ID: id, TenantID: tenant, SubjectID: subject}
+	err = s.queryRow(ctx, tx, `SELECT generation FROM market_install_operations WHERE id=$1 AND tenant_id=$2 AND subject_id=$3 AND state='paused' FOR UPDATE`, id, tenant, subject).Scan(&op.Generation)
+	if errors.Is(err, sql.ErrNoRows) {
+		return app.ErrLeaseLost
+	}
+	if err != nil {
+		return err
+	}
+	result, err := s.exec(ctx, tx, `UPDATE market_install_operations SET state='queued',error_code='',lease_until=NULL,updated_at=CURRENT_TIMESTAMP(6) WHERE id=$1 AND tenant_id=$2 AND subject_id=$3 AND generation=$4 AND state='paused'`, id, tenant, subject, op.Generation)
+	if err := exactlyOne(result, err); err != nil {
+		return err
+	}
+	if err := s.verifyOperationTarget(ctx, tx, op, app.Queued, "", false); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 func exactlyOne(result sql.Result, err error) error {
 	if err != nil {

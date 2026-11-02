@@ -9,6 +9,10 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
+// Only the test build exposes the production query for real-server EXPLAIN;
+// no diagnostic or alternate claim entry is added to the runtime API.
+func MySQLClaimSQLForTest() string { return (&Store{dialect: MySQL}).claimSQL() }
+
 func TestDialectBindsRepeatedAndReorderedParameters(t *testing.T) {
 	ledger := &Store{dialect: MySQL}
 	query, args, err := ledger.bind(`UPDATE t SET b=$2,c=$3 WHERE a=$1 OR d=$2`, []any{"first", "second", 3})

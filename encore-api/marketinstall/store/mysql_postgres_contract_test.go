@@ -476,7 +476,7 @@ func TestMySQLSchemaFreshMigrationAndExistingData(t *testing.T) {
 	if err := f.db.QueryRowContext(f.ctx, `SELECT COUNT(*) FROM market_install_schema_migrations WHERE state='applied'`).Scan(&applied); err != nil {
 		t.Fatal(err)
 	}
-	if applied != 2 {
+	if applied != 4 {
 		t.Fatal(fmt.Sprintf("unexpected owner version receipts: %d", applied))
 	}
 }

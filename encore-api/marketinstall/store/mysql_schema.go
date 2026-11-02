@@ -17,6 +17,7 @@ type mysqlShape struct {
 	columns    []mysqlColumn
 	indexes    map[string]mysqlIndex
 	checks     map[string]string
+	generated  map[string]string
 	foreignKey bool
 }
 
@@ -48,12 +49,44 @@ func mysqlShapes() map[string]mysqlShape {
 
 // Recovery checks the database's actual metadata, not text searches in a SQL
 // fixture. Missing/extra columns, weakened indexes, disabled/changed CHECKs,
-// another engine, generated columns, and foreign-owner references fail closed.
+// another engine, unexpected generated expressions, and foreign-owner references
+// fail closed.
 func verifyMySQLTable(ctx context.Context, conn *sql.Conn, database, table string) error {
 	expected, known := mysqlShapes()[table]
 	if !known {
 		return fmt.Errorf("unknown A08 MySQL table")
 	}
+	return verifyMySQLTableShape(ctx, conn, database, table, expected)
+}
+
+func mysqlMigrationShape(name string) (mysqlShape, error) {
+	shapes := mysqlShapes()
+	switch name {
+	case "0001_operations.sql":
+		return shapes["market_install_operations"], nil
+	case "0002_steps.sql":
+		return shapes["market_install_steps"], nil
+	case "0003_exact_plan.sql":
+		shape := shapes["market_install_operations"]
+		shape.columns = append(shape.columns, mysqlColumn{"plan_encoding", "varbinary(40)", "YES", "<NULL>"}, mysqlColumn{"plan_exact", "longtext", "YES", "<NULL>"})
+		shape.checks["market_install_plan_encoding"] = "plan_encoding in ('json-number-lexeme-v1')"
+		shape.checks["market_install_plan_exact_json"] = "plan_exact is null or json_valid(plan_exact)"
+		return shape, nil
+	case "0004_claim_ready.sql":
+		shape, err := mysqlMigrationShape("0003_exact_plan.sql")
+		if err != nil {
+			return mysqlShape{}, err
+		}
+		shape.columns = append(shape.columns, mysqlColumn{"claim_ready_at", "datetime(6)", "YES", "<NULL>"})
+		shape.generated = map[string]string{"claim_ready_at": "CASE state WHEN _binary'queued' THEN created_at WHEN _binary'running' THEN lease_until ELSE NULL END"}
+		shape.indexes["market_install_ready"] = mysqlIndex{false, "claim_ready_at,id"}
+		return shape, nil
+	default:
+		return mysqlShape{}, fmt.Errorf("unknown A08 MySQL migration schema")
+	}
+}
+
+func verifyMySQLTableShape(ctx context.Context, conn *sql.Conn, database, table string, expected mysqlShape) error {
 	var engine, collation, kind string
 	if err := conn.QueryRowContext(ctx, `SELECT ENGINE,TABLE_COLLATION,TABLE_TYPE FROM information_schema.TABLES WHERE CAST(TABLE_SCHEMA AS BINARY)=CAST(? AS BINARY) AND CAST(TABLE_NAME AS BINARY)=CAST(? AS BINARY)`, database, table).Scan(&engine, &collation, &kind); err != nil {
 		return err
@@ -61,7 +94,7 @@ func verifyMySQLTable(ctx context.Context, conn *sql.Conn, database, table strin
 	if engine != "InnoDB" || collation != "utf8mb4_bin" || kind != "BASE TABLE" {
 		return fmt.Errorf("A08 table %s has an unsupported engine, collation or type", table)
 	}
-	rows, err := conn.QueryContext(ctx, `SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,COALESCE(CHARACTER_SET_NAME,''),COALESCE(COLLATION_NAME,'') FROM information_schema.COLUMNS WHERE CAST(TABLE_SCHEMA AS BINARY)=CAST(? AS BINARY) AND CAST(TABLE_NAME AS BINARY)=CAST(? AS BINARY) ORDER BY ORDINAL_POSITION`, database, table)
+	rows, err := conn.QueryContext(ctx, `SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,COALESCE(CHARACTER_SET_NAME,''),COALESCE(COLLATION_NAME,''),COALESCE(GENERATION_EXPRESSION,'') FROM information_schema.COLUMNS WHERE CAST(TABLE_SCHEMA AS BINARY)=CAST(? AS BINARY) AND CAST(TABLE_NAME AS BINARY)=CAST(? AS BINARY) ORDER BY ORDINAL_POSITION`, database, table)
 	if err != nil {
 		return err
 	}
@@ -69,8 +102,8 @@ func verifyMySQLTable(ctx context.Context, conn *sql.Conn, database, table strin
 	for rows.Next() {
 		var column mysqlColumn
 		var defaultValue sql.NullString
-		var extra, charset, columnCollation string
-		if err := rows.Scan(&column.name, &column.kind, &column.nullable, &defaultValue, &extra, &charset, &columnCollation); err != nil {
+		var extra, charset, columnCollation, generated string
+		if err := rows.Scan(&column.name, &column.kind, &column.nullable, &defaultValue, &extra, &charset, &columnCollation, &generated); err != nil {
 			rows.Close()
 			return err
 		}
@@ -79,7 +112,11 @@ func verifyMySQLTable(ctx context.Context, conn *sql.Conn, database, table strin
 			column.defaultValue = strings.ToLower(defaultValue.String)
 		}
 		text := strings.Contains(column.kind, "text") || strings.HasPrefix(column.kind, "varchar(")
-		if extra != "" && extra != "DEFAULT_GENERATED" || text && (charset != "utf8mb4" || columnCollation != "utf8mb4_bin") || !text && (charset != "" || columnCollation != "") {
+		attributesValid := (extra == "" || extra == "DEFAULT_GENERATED") && generated == ""
+		if expression, known := expected.generated[column.name]; known {
+			attributesValid = extra == "STORED GENERATED" && mysqlCheckSignature(expression) == mysqlCheckSignature(generated)
+		}
+		if !attributesValid || text && (charset != "utf8mb4" || columnCollation != "utf8mb4_bin") || !text && (charset != "" || columnCollation != "") {
 			rows.Close()
 			return fmt.Errorf("A08 table %s has unexpected column attributes", table)
 		}
@@ -145,8 +182,9 @@ func verifyMySQLIndexes(ctx context.Context, conn *sql.Conn, database, table str
 }
 
 // The known checks use only one function/comparison or an IN list (plus the
-// receipt's null alternative). Parentheses added by the server can be removed
-// for these fixed expressions. Literal bytes, case and spaces remain exact.
+// receipt's null alternative). The generated readiness expression is one flat
+// CASE with literal branches and column results. Parentheses added by the server
+// can be removed for these fixed expressions. Literal bytes remain exact.
 func mysqlCheckSignature(expression string) string {
 	var out []byte
 	trimIntroducer := func() {
