@@ -275,6 +275,7 @@ func TestLegacyProtocolTelemetryUsesFiniteOwnerAliasAndBothEpochs(t *testing.T) 
 	grant := testPluginServiceGrant()
 	target := &grant.PluginTargets[0]
 	target.LegacyTelemetryID = true
+	target.Kind = bc.PrincipalGateway
 	target.TransportDeviceID = "root-a"
 	target.TransportRouteEpoch = 9
 	root := *target
@@ -295,7 +296,7 @@ func TestLegacyProtocolTelemetryUsesFiniteOwnerAliasAndBothEpochs(t *testing.T) 
 		t.Fatal("broad SDK subscription expanded actual READ scope")
 	}
 	now := time.Now()
-	frame := bc.CommandFrame{LegacyTelemetryID: true, CommandID: "cmd-1", TenantID: target.TenantID, TargetDeviceID: target.DeviceID, TargetDeviceNumber: target.DeviceNumber, RouteEpoch: target.RouteEpoch, TransportDeviceID: target.TransportDeviceID, TransportRouteEpoch: 9, MappingVersion: target.MappingVersion, CanonicalTopic: target.TopicPrefix + "devices/telemetry/control/" + target.DeviceNumber, WireTopic: topic, ExpiresAt: now.Add(time.Minute).UnixMilli(), Payload: []byte(`{"value":1}`)}
+	frame := bc.CommandFrame{LegacyTelemetryID: true, CommandID: "cmd-1", TenantID: target.TenantID, TargetDeviceID: target.DeviceID, TargetDeviceNumber: target.DeviceNumber, RouteEpoch: target.RouteEpoch, TransportDeviceID: target.TransportDeviceID, TransportRouteEpoch: 9, MappingVersion: target.MappingVersion, CanonicalTopic: target.TopicPrefix + "gateway/telemetry/control/" + target.DeviceNumber, WireTopic: topic, ExpiresAt: now.Add(time.Minute).UnixMilli(), Payload: []byte(`{"value":1}`)}
 	body, err := bc.EncodeCommandFrame(frame, now)
 	if err != nil {
 		t.Fatal(err)
