@@ -228,3 +228,21 @@ unrecorded dependency directories. This avoids another full root clone and its
 APFS metadata cost. Existing build logs are retained with content-hash names
 before a subsequent run. A type error from an incomplete workspace dependency
 copy must not be attributed to product source until the complete graph is checked.
+
+## Fresh PostgreSQL readiness and first-transaction recovery
+
+PG health uses explicit `pg_isready -h 127.0.0.1`, never its default Unix socket.
+The pinned Timescale14 entrypoint starts a temporary server with
+`listen_addresses=''`; a same-image isolated tmpfs/no-network regression observed
+Unix readiness exit0 while TCP exited2, then final TCP exit0. This prevents schema
+bootstrap racing the entrypoint's intentional fast shutdown.
+
+`bootstrap --resume-owned-empty-bootstrap` is a narrow, explicit recovery for
+this task's interrupted first transaction. It requires exact project/service,
+image ID, working directory, exclusive data/secret bind mounts, loopback port,
+nonce, three control relations and their indexes/sequence/column/PK/default/owner
+shape, version0/0.0.0, zero Casbin rows, absent five native databases, no ledger or
+completion marker and no extra objects/schemas/triggers. Only the image's exact
+plpgsql/timescaledb extension objects are allowed. Every mismatch refuses recovery.
+No table, row or data directory is dropped/reset/adopted. Earlier logs and failed
+fixture remain; guarded recovery starts again from SQL1 after final TCP readiness.

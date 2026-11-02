@@ -274,3 +274,19 @@ class ActualComposePortsSafety(unittest.TestCase):
         for bindings in (['0.0.0.0:26379:6379'], ['127.0.0.1:8080:8080'], ['127.0.0.1:9999:9999'], ['127.0.0.1:26379:6379'] * 2):
             with self.assertRaises(ValueError):
                 runtime.published_ports({'services': {'redis': {'ports': bindings}}}, ['redis'])
+
+class BootstrapRecoverySafety(unittest.TestCase):
+    def setUp(self):
+        import sys
+        sys.path.insert(0,str(Path(__file__).parent))
+        import bootstrap_recovery
+        self.recovery=bootstrap_recovery
+        self.snapshot={'database':'ThingsPanel','owner_matches':True,'casbin_rows':0,'versions':[[0,'0.0.0']], 'native_databases':[], 'relations':list(bootstrap_recovery.RELATIONS),'columns':list(bootstrap_recovery.COLUMNS), 'other_objects':[],'extra_schemas':[],'user_triggers':0,'other_constraints':0,'extensions':['plpgsql','timescaledb'],'sequence_owned':True,'listen_addresses':'*','owners_valid':True,'primary_keys':[['casbin_rule','casbin_rule_pkey',[1]],['sys_version','sys_version_pkey',[1]],['local_fixture_owner','local_fixture_owner_pkey',[1]]],'defaults':[["casbin_rule","id","nextval('casbin_rule_id_seq'::regclass)"]]}
+
+    def test_exact_initial_control_state_is_accepted(self):
+        self.recovery.validate(self.snapshot)
+
+    def test_partial_migration_foreign_owner_or_extra_objects_reject(self):
+        for key,value in [('owner_matches',False),('versions',[[1,'local-develop']]),('casbin_rows',1),('native_databases',['automation']),('other_objects',['function unexpected()']),('extra_schemas',['foreign']),('user_triggers',1),('listen_addresses','')]:
+            with self.assertRaises(ValueError): self.recovery.validate(dict(self.snapshot,**{key:value}))
+        with self.assertRaises(ValueError): self.recovery.validate(dict(self.snapshot,relations=self.snapshot['relations']+[('users','r')]))
