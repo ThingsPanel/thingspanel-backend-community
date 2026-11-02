@@ -33,6 +33,9 @@ func (*AttributeData) GetAttributeDataList(device_id string, contexts ...context
 
 	var easyData []map[string]interface{}
 	for _, v := range data {
+		if err := dal.ReadContext(contexts...).Err(); err != nil {
+			return nil, err
+		}
 		d := make(map[string]interface{})
 		d["id"] = v["id"]
 		d["device_id"] = device_id
