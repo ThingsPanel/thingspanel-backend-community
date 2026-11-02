@@ -55,7 +55,8 @@ def build(root, runtime, phase, base_image=None):
     cache = root / 'cache'
     env = os.environ.copy()
     for key, directory in {'GOCACHE': 'go-build', 'GOMODCACHE': 'go-mod', 'TMPDIR': 'tmp',
-                           'XDG_CACHE_HOME': 'xdg', 'ENCORE_CACHE_DIR': 'encore', 'ENCORE_CONFIG_DIR': 'encore-config', 'PNPM_HOME': 'pnpm'}.items():
+                           'XDG_CACHE_HOME': 'xdg', 'ENCORE_CACHE_DIR': 'encore', 'ENCORE_CONFIG_DIR': 'encore-config', 'PNPM_HOME': 'pnpm',
+                           'GOPATH': 'gopath', 'npm_config_cache': 'npm-cache', 'COREPACK_HOME': 'corepack'}.items():
         path = cache / directory
         path.mkdir(parents=True, exist_ok=True)
         env[key] = str(path)
