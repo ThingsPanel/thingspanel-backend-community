@@ -200,11 +200,13 @@ func decodePluginWirePayload(payload []byte) (pluginWirePayload, error) {
 	}
 	var encoded string
 	if json.Unmarshal(rawValues, &encoded) == nil {
-		decoded, err := base64.StdEncoding.Strict().DecodeString(encoded)
-		if err != nil || len(decoded) > bc.MaxPayloadBytes {
+		// Use the shared SDK contract so a wrapped payload is decoded exactly
+		// once, with canonical Base64, bounded bytes and a valid target hint.
+		decoded, err := bc.ParseProtocolTelemetry(payload)
+		if err != nil {
 			return out, errPluginIngressDenied
 		}
-		out.Values = decoded
+		out.Values = decoded.Values
 		out.Wrapped = true
 		return out, nil
 	}
