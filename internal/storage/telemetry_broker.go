@@ -173,7 +173,7 @@ func (w *telemetryWriter) commitTrustedTelemetry(batch []*telemetryBatchItem) (a
 		history, _, duplicates := w.deduplicateAndConvert(accepted)
 		if len(history) > 0 {
 			var e error
-			written, e = writeTelemetryWinners(tx, history)
+			written, e = w.historyStore().AppendInTx(tx, history)
 			if e != nil {
 				return e
 			}

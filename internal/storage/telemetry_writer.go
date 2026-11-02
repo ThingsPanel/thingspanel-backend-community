@@ -21,6 +21,7 @@ type telemetryWriter struct {
 	logger  Logger
 	config  Config
 	metrics *metricsCollector
+	history TelemetryHistoryStore
 
 	buffer   []*telemetryBatchItem // 批次缓冲区
 	bufferMu sync.Mutex            // 缓冲区锁
@@ -47,6 +48,7 @@ func newTelemetryWriter(db *gorm.DB, logger Logger, config Config, metrics *metr
 		logger:  logger,
 		config:  config,
 		metrics: metrics,
+		history: postgresHistoryStore{},
 		buffer:  make([]*telemetryBatchItem, 0, config.TelemetryBatchSize),
 		stopCh:  make(chan struct{}),
 		doneCh:  make(chan struct{}),
@@ -364,7 +366,7 @@ func (w *telemetryWriter) legacyWrite(points []TelemetryData) (int, bool, error)
 		return 0, false, tx.Error
 	}
 	defer tx.Rollback()
-	_, err := writeTelemetryWinners(tx, points)
+	_, err := w.historyStore().AppendInTx(tx, points)
 	if err != nil {
 		if rollbackErr := tx.Rollback().Error; rollbackErr != nil {
 			return 0, true, fmt.Errorf("write: %v; rollback outcome unknown: %w", err, rollbackErr)
