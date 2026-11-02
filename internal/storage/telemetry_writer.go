@@ -347,6 +347,9 @@ func writeTelemetryWinners(tx *gorm.DB, points []TelemetryData) (int, error) {
 				return rows[i].Key < rows[j].Key
 			})
 			err = tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}}, DoUpdates: clause.AssignmentColumns([]string{"ts", "bool_v", "number_v", "string_v", "tenant_id"}), Where: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "telemetry_current_datas.ts <= excluded.ts"}}}}).CreateInBatches(&rows, 1000).Error
+			if err == nil {
+				err = verifyTelemetryCurrentWinners(tx, rows)
+			}
 		}
 	}
 	return int(result.RowsAffected), err
