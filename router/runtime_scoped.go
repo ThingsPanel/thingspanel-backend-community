@@ -39,7 +39,11 @@ func registerRuntimeScoped(v1 *gin.RouterGroup) {
 	add("GET", "telemetry/datas/history/page", "query:device_id", false, api.RuntimeTelemetryHistory)
 	add("GET", "device/status/history", "query:device_id", false, d.DeviceApi.GetDeviceStatusHistory)
 	add("GET", "command/datas/status/:message_id", "command", false, api.RuntimeCommandStatus)
-	add("POST", "command/datas/pub", "owner:body:device_id", true, api.RuntimeCommandPublish)
+	// The durable command owner must atomically prove active reservation and
+	// activation lifecycle before this capability can be enabled. Its current
+	// tenant/epoch checks alone are not that proof; never replace them with an
+	// unlocked gateway precheck.
+	add("POST", "command/datas/pub", "unsupported", false, nil)
 	add("POST", "expected/data", "owner:body:device_id", true, d.ExpectedDataApi.CreateExpectedData)
 	add("GET", "expected/data/list", "query:device_id", false, d.ExpectedDataApi.HandleExpectedDataList)
 	// Debug writes only Redis. They do not upgrade the locked device row.

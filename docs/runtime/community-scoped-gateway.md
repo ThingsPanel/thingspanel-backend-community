@@ -17,7 +17,7 @@ Mutation owners use their own transaction, never a separate gateway SHARE lock t
 - Voucher rotation locks the tenant device and active reservation before uniqueness checking and updating that same tenant row.
 - Subdevice removal locks the tenant child and verifies the existing parent belongs to that tenant before clearing the binding. Only the authorized frozen parent can be notified.
 - Expected-data delete resolves its device on the server, then locks the tenant device and rechecks record ID, tenant, device association, and pending state under UPDATE lock before deletion.
-- Command publication uses its durable owner transaction without a second gateway device lock; expected-data creation now locks the active device and reservation in its own admission transaction. Command publication and expected-data creation require `mqtt.input_profile=ingress_v1`; legacy publication does not establish an atomic fence. Their existing durable owner remains authoritative.
+- Command publication is gated with 503 until its durable owner atomically verifies active device reservation and activation lifecycle as well as tenant/cell/epoch. The scoped API wrapper is prepared, but an unlocked precheck is not sufficient to enable it. Expected-data creation locks the active device and reservation in its own admission transaction and requires `mqtt.input_profile=ingress_v1`; legacy publication does not establish an atomic fence.
 
 Duplicate identity query values, mixed path/query identifiers, duplicate JSON keys, case aliases, and conflicting body identifiers fail before the capability handler. JSON bodies are limited to 1 MiB and restored for ordinary binding.
 
@@ -34,3 +34,13 @@ Unit regressions cover tenant/SYS_ADMIN rejection, identity confusion, restored 
 ## Export follow-up
 
 The native runtime page reader does not request Excel export. The scoped page capability explicitly refuses `export_excel=true`; the existing public export API is unchanged. A complete scoped export needs a separate bounded job owner: immutable tenant/device/caller/epoch scope, tenant-qualified job/artifact IDs, hard row/byte/time limits, finite SQL/TSDB pages with request/job cancellation, streaming output with context checks, temporary output followed by atomic publish only after scope/job-state revalidation, explicit pending/running/cancelled/failed/completed lifecycle and retention cleanup. It must release row locks between job pages and reacquire/revalidate the same immutable lifecycle/epoch for each page; a device change or revoked session fails the job and discards unpublished output. The download owner must check tenant and completed job state. This job/worker/artifact lifecycle is not implemented by the scoped page route and remains a separate capability.
+
+## Tenant identity integration gate
+
+The Community authentication claim and device/reservation tenant IDs can be raw 8-hex identifiers, while native device metadata/outbox tenants are normalized UUIDs. The historical native normalization strips/pads characters and is not globally collision-free. The gateway deliberately requires exact raw tenant equality and uses that authenticated raw tenant for every Community database predicate. A normalized native UUID is not currently accepted as an alias. Consequently a native client that supplies only the normalized UUID cannot use this gateway for a short-ID tenant yet; it fails closed.
+
+Enabling that combination requires a trusted, unique raw/native mapping plus preserved raw provenance for foreground and outbox calls, or a collision-safe authoritative identity migration covering all tenant creation and runtime binding owners. A normalization equality test or an unlocked enumeration of existing users is not sufficient to establish that invariant during concurrent tenant creation. This gap remains open and must be resolved before claiming end-to-end native runtime acceptance.
+
+## Current validation status
+
+All changes are saved on `codex/community-runtime-scoped-gateway`. Formatting/diff checks completed. Go compilation, unit regressions, and disposable PostgreSQL regressions have not run in this change session: builds were queued behind another agent and then prohibited when the system disk fell below the agreed stop threshold. These sources remain unaccepted candidates. The command owner lifecycle gate, raw/native tenant identity mapping, safe simulation actor path, and bounded export job lifecycle are explicit remaining integration work.
