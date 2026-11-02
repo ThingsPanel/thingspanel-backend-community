@@ -68,6 +68,7 @@ func RouterInit() *gin.Engine {
 	// Credential routes precede full-body operation logging and ordinary JWT auth.
 	api.RegisterBrokerAIToolRoutes(router)
 	api.RegisterMarketInstallProviderRoutes(router)
+	api.RegisterDictionaryAuthorizationRoutes(router)
 	router.Use(api.BrokerCommandPlanBodyLimits())
 	// 初始化响应处理器
 	handler, err := response.NewHandler("configs/messages.yaml", "configs/messages_str.yaml")

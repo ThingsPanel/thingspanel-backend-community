@@ -212,3 +212,51 @@ func TestDictionaryAuthorizationPostgresCurrentPermission(t *testing.T) {
 		t.Fatal("SQL error became a permission decision")
 	}
 }
+
+func TestDictionaryAuthorizationPostgresEmptyTenantPlatformAdministrator(t *testing.T) {
+	db, enforcer := dictionaryPermissionFixture(t)
+	ctx := context.Background()
+	request := model.DictionaryAuthorizationRequest{ProtocolVersion: 1, SubjectID: "dictionary-subject"}
+	if _, err := enforcer.AddNamedGroupingPolicy("g", request.SubjectID, "dictionary-role"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := enforcer.AddPolicy("dictionary-role", "dictionary-function", "allow"); err != nil {
+		t.Fatal(err)
+	}
+	for _, operation := range []string{"create-column", "create-language", "read-enum", "read-page", "read-languages", "delete-column", "delete-language", "read-protocols"} {
+		t.Run(operation, func(t *testing.T) {
+			input := request
+			input.Operation = operation
+			resource, _ := dictionaryAuthorizationResource(operation)
+			if _, err := enforcer.AddNamedGroupingPolicy("g2", resource, "dictionary-function"); err != nil {
+				t.Fatal(err)
+			}
+			for _, tenant := range []string{"''", "NULL"} {
+				if err := db.Exec(`UPDATE users SET tenant_id=` + tenant + `,authority='SYS_ADMIN',status='N' WHERE id='dictionary-subject'`).Error; err != nil {
+					t.Fatal(err)
+				}
+				result, err := AuthorizeCurrentDictionaryOperation(ctx, input)
+				if err != nil || result == nil || !result.Authorized || result.TenantID != "" || result.SubjectID != input.SubjectID || result.Resource != resource {
+					t.Fatalf("existing platform authority tenant=%s: %#v %v", tenant, result, err)
+				}
+			}
+			if _, err := enforcer.RemoveNamedGroupingPolicy("g2", resource, "dictionary-function"); err != nil {
+				t.Fatal(err)
+			}
+			if result, err := AuthorizeCurrentDictionaryOperation(ctx, input); result != nil || !errors.Is(err, ErrDictionaryPermissionDenied) {
+				t.Fatal("platform role bypassed withdrawn policy")
+			}
+			if _, err := enforcer.AddNamedGroupingPolicy("g2", resource, "dictionary-function"); err != nil {
+				t.Fatal(err)
+			}
+			for _, change := range []string{"authority='TENANT_ADMIN',tenant_id=''", "authority='TENANT_USER',tenant_id=NULL", "authority='PLATFORM_ADMIN',tenant_id=''", "authority='SYS_ADMIN',tenant_id='foreign'", "authority='SYS_ADMIN',tenant_id='',status='F'"} {
+				if err := db.Exec(`UPDATE users SET ` + change + ` WHERE id='dictionary-subject'`).Error; err != nil {
+					t.Fatal(err)
+				}
+				if result, err := AuthorizeCurrentDictionaryOperation(ctx, input); result != nil || !errors.Is(err, ErrDictionaryPermissionDenied) {
+					t.Fatalf("empty-tenant exception expanded to %s: %#v %v", change, result, err)
+				}
+			}
+		})
+	}
+}

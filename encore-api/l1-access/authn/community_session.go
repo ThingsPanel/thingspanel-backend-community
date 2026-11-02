@@ -40,8 +40,9 @@ func checkCommunitySession(ctx context.Context, baseURL, token string, expected 
 	if err != nil {
 		return rejectCommunitySession("configuration")
 	}
+	platformWithoutTenant := expected != nil && expected.TenantID == "" && len(expected.Roles) == 1 && expected.Roles[0] == "SYS_ADMIN"
 	if ctx == nil || strings.TrimSpace(token) == "" || expected == nil ||
-		strings.TrimSpace(expected.UserID) == "" || strings.TrimSpace(expected.TenantID) == "" || len(expected.Roles) != 1 || strings.TrimSpace(expected.Roles[0]) == "" {
+		strings.TrimSpace(expected.UserID) == "" || (strings.TrimSpace(expected.TenantID) == "" && !platformWithoutTenant) || len(expected.Roles) != 1 || strings.TrimSpace(expected.Roles[0]) == "" {
 		return rejectCommunitySession("identity")
 	}
 
@@ -77,6 +78,19 @@ func checkCommunitySession(ctx context.Context, baseURL, token string, expected 
 	var user communitySessionUser
 	if err := json.Unmarshal(envelope.Data, &user); err != nil {
 		return rejectCommunitySession("response_data")
+	}
+	if platformWithoutTenant {
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(envelope.Data, &fields) != nil {
+			return rejectCommunitySession("response_data")
+		}
+		// The current identity owner returns nullable tenant_id; authcore uses
+		// COALESCE for that same field. An explicit empty/null tenant is valid
+		// only for the exact active SYS_ADMIN echoed by the current session.
+		// An omitted field or whitespace is not a confirmed platform identity.
+		if _, present := fields["tenant_id"]; !present || user.TenantID != "" || user.Authority != "SYS_ADMIN" || user.ID != expected.UserID || user.Status != "N" {
+			return rejectCommunitySession("platform_identity_or_status")
+		}
 	}
 	if strings.TrimSpace(user.ID) != strings.TrimSpace(expected.UserID) ||
 		strings.TrimSpace(user.TenantID) != strings.TrimSpace(expected.TenantID) ||

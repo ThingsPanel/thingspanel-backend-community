@@ -81,6 +81,11 @@ func PgInit() (*gorm.DB, error) {
 	if err = ApplyMarketInstallSchema(db); err != nil {
 		return nil, fmt.Errorf("initialize market installation schema: %w", err)
 	}
+	if os.Getenv("TP_PLATFORMCONFIG_OWNER") == "encore" {
+		if err = ApplyPlatformConfigSchema(db); err != nil {
+			return nil, fmt.Errorf("initialize existing platform dictionary schema: %w", err)
+		}
+	}
 	if err = ApplyNativeBindingSchema(db); err != nil {
 		return nil, fmt.Errorf("初始化 native binding schema 失败: %w", err)
 	}

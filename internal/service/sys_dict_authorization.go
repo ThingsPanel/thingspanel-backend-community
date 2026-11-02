@@ -41,7 +41,7 @@ func dictionaryAuthorizationResource(operation string) (resource string, adminis
 // The trusted caller must already have validated a current native/user session.
 func AuthorizeCurrentDictionaryOperation(ctx context.Context, request model.DictionaryAuthorizationRequest) (*model.DictionaryAuthorizationResponse, error) {
 	resource, administrator := dictionaryAuthorizationResource(request.Operation)
-	if request.ProtocolVersion != 1 || resource == "" || strings.TrimSpace(request.TenantID) == "" || strings.TrimSpace(request.SubjectID) == "" {
+	if request.ProtocolVersion != 1 || resource == "" || (request.TenantID != "" && strings.TrimSpace(request.TenantID) == "") || strings.TrimSpace(request.SubjectID) == "" {
 		return nil, ErrDictionaryPermissionDenied
 	}
 	if ctx == nil || global.DB == nil || global.CasbinEnforcer == nil {
@@ -60,7 +60,22 @@ func AuthorizeCurrentDictionaryOperation(ctx context.Context, request model.Dict
 	if err != nil {
 		return nil, ErrDictionaryPermissionUnavailable
 	}
-	if user.ID != request.SubjectID || user.TenantID == nil || *user.TenantID != request.TenantID || user.Status == nil || *user.Status != "N" || user.Authority == nil {
+	if user.ID != request.SubjectID || user.Status == nil || *user.Status != "N" || user.Authority == nil {
+		return nil, ErrDictionaryPermissionDenied
+	}
+	// authcore reads COALESCE(tenant_id,'') and admits an empty tenant only for
+	// the existing SYS_ADMIN authority. Do not invent a synthetic tenant or
+	// accept a client-supplied platform role as proof of this exception.
+	actualTenant := ""
+	if user.TenantID != nil {
+		actualTenant = *user.TenantID
+	}
+	if actualTenant != request.TenantID || (actualTenant == "" && *user.Authority != "SYS_ADMIN") {
+		return nil, ErrDictionaryPermissionDenied
+	}
+	switch *user.Authority {
+	case "SYS_ADMIN", "TENANT_ADMIN", "TENANT_USER":
+	default:
 		return nil, ErrDictionaryPermissionDenied
 	}
 	if administrator && *user.Authority != "SYS_ADMIN" {

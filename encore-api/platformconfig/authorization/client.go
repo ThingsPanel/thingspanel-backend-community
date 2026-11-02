@@ -77,7 +77,7 @@ func New(baseURL, token string) (*Client, error) {
 
 func (c *Client) Authorize(ctx context.Context, principal app.Principal, operation app.Operation) error {
 	resource := Resource(operation)
-	if ctx == nil || c == nil || c.http == nil || resource == "" || principal.TenantID == "" || principal.SubjectID == "" {
+	if ctx == nil || c == nil || c.http == nil || resource == "" || !app.CompleteIdentity(principal) {
 		return app.ErrUnavailable
 	}
 	input := Request{ProtocolVersion: ProtocolVersion, TenantID: principal.TenantID, SubjectID: principal.SubjectID, Operation: operation}
@@ -114,6 +114,14 @@ func (c *Client) Authorize(ctx context.Context, principal app.Principal, operati
 	}
 	var extra any
 	if decoder.Decode(&extra) != io.EOF {
+		return app.ErrUnavailable
+	}
+	// Empty tenant is a legitimate platform identity, so it must still be an
+	// explicit string echo. An omitted/null field is not evidence of agreement.
+	var identityEcho struct {
+		TenantID *string `json:"tenantId"`
+	}
+	if json.Unmarshal(raw, &identityEcho) != nil || identityEcho.TenantID == nil {
 		return app.ErrUnavailable
 	}
 	if result.ProtocolVersion != ProtocolVersion || !result.Authorized || result.TenantID != input.TenantID || result.SubjectID != input.SubjectID || result.Operation != operation || result.Resource != resource {

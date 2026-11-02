@@ -36,25 +36,41 @@ func ValidOperation(operation Operation) bool {
 	}
 }
 
+func IsPlatformAdministrator(principal Principal) bool {
+	for _, role := range principal.Roles {
+		switch strings.ToUpper(role) {
+		case "SYS_ADMIN", "PLATFORM_ADMIN":
+			return true
+		}
+	}
+	return false
+}
+
+// CompleteIdentity follows the existing authcore admission rule: a current
+// SYS_ADMIN (native platform_admin) may have no tenant. This is only identity
+// shape validation; every operation still calls the current policy owner.
+func CompleteIdentity(principal Principal) bool {
+	if strings.TrimSpace(principal.SubjectID) == "" {
+		return false
+	}
+	if principal.TenantID == "" {
+		return IsPlatformAdministrator(principal)
+	}
+	return strings.TrimSpace(principal.TenantID) != ""
+}
+
 func (s *Service) authorize(ctx context.Context, principal Principal, operation Operation) error {
 	if ctx == nil || !ValidOperation(operation) {
 		return ErrInvalid
 	}
-	if strings.TrimSpace(principal.SubjectID) == "" || strings.TrimSpace(principal.TenantID) == "" {
+	if !CompleteIdentity(principal) {
 		return ErrUnauthorized
 	}
 	if s == nil || s.repository == nil || s.authorizer == nil || s.newID == nil || s.now == nil {
 		return ErrUnavailable
 	}
 	if RequiresAdministrator(operation) {
-		administrator := false
-		for _, role := range principal.Roles {
-			switch strings.ToUpper(role) {
-			case "SYS_ADMIN", "PLATFORM_ADMIN":
-				administrator = true
-			}
-		}
-		if !administrator {
+		if !IsPlatformAdministrator(principal) {
 			return ErrUnauthorized
 		}
 	}

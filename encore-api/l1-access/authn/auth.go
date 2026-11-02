@@ -181,7 +181,11 @@ func parseLegacyJwtToken(token, secretKey string) (auth.UID, *Data, error) {
 		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "token expired"}
 	}
 
-	if claims.ID == "" || claims.TenantID == "" {
+	// Match authcore.admissible: the established platform SYS_ADMIN account
+	// may have tenant_id='', while ordinary principals require a tenant.
+	// authenticate still checks the current Community session below; a signed
+	// role claim alone does not authorize an empty-tenant platform operation.
+	if claims.ID == "" || (claims.TenantID == "" && claims.Authority != "SYS_ADMIN") {
 		return "", nil, &errs.Error{Code: errs.Unauthenticated, Message: "missing required claims: id or tenant_id"}
 	}
 
