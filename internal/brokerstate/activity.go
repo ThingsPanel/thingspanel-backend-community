@@ -242,9 +242,19 @@ func (s *Store) DeferCurrentProjection(ctx context.Context, tenant, device strin
 // when creating a delayed automation intent. Native state remains unchanged.
 func stateDelegation(tx *gorm.DB, device model.Device, root string, route routeRow) (*brokercontract.Delegation, error) {
 	var candidates []struct{ Proof json.RawMessage }
-	e := tx.Raw(`SELECT NULLIF(to_jsonb(o)->'delegated_route','null'::jsonb) AS proof FROM broker_connection_observations o WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=? AND observed_at>=now()-interval '60 seconds' AND observed_at<=now()+interval '5 seconds' AND received_at>=now()-interval '60 seconds' AND NULLIF(to_jsonb(o)->'delegated_route','null'::jsonb) IS NOT NULL ORDER BY observed_at DESC LIMIT 257`, device.TenantID, device.ID, route.BrokerCell, route.RouteEpoch).Scan(&candidates).Error
+	// The existing heartbeat-only state owner does not depend on the socket
+	// observation table. Inspect its presence before querying, rather than
+	// causing a missing-relation error that would abort the whole transition.
+	var hasObservations bool
+	e := tx.Raw("SELECT to_regclass('broker_connection_observations') IS NOT NULL").Scan(&hasObservations).Error
 	if e != nil {
 		return nil, e
+	}
+	if hasObservations {
+		e = tx.Raw(`SELECT NULLIF(to_jsonb(o)->'delegated_route','null'::jsonb) AS proof FROM broker_connection_observations o WHERE tenant_id=? AND device_id=? AND broker_cell=? AND route_epoch=? AND observed_at>=now()-interval '60 seconds' AND observed_at<=now()+interval '5 seconds' AND received_at>=now()-interval '60 seconds' AND NULLIF(to_jsonb(o)->'delegated_route','null'::jsonb) IS NOT NULL ORDER BY observed_at DESC LIMIT 257`, device.TenantID, device.ID, route.BrokerCell, route.RouteEpoch).Scan(&candidates).Error
+		if e != nil {
+			return nil, e
+		}
 	}
 	if len(candidates) > 256 {
 		return nil, ErrFenced
