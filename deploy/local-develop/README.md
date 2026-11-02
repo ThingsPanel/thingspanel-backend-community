@@ -21,34 +21,54 @@ local private fixture. Do not use this profile as a production hardening templat
 
 ## Build window and immutable images
 
-Build execution remains disabled in the CLI until the operator coordinates disk
-and I/O capacity. No builds, migrations or startup have been tested. Before any
-Docker operation, verify its actual VM disk/build cache reside on 80G and set
-`TP_DOCKER_STORAGE_VERIFIED=/Volumes/80G`. This is explicit operator attestation;
-`docker info` cannot prove the macOS backing-file location. Every phase checks
-6 GiB free on system storage and 12 GiB on 80G.
+The build command is now executable, but must only be invoked in the coordinated
+I/O window. **No real build has been run or accepted.** Before Docker operations,
+verify its actual VM disk/build cache reside on 80G and set
+`TP_DOCKER_STORAGE_VERIFIED=/Volumes/80G`. This is operator attestation; Docker info
+cannot prove the macOS backing-file location. Each phase starts/finishes with 6 GiB
+free system and 12 GiB free 80G checks. A running build is polled every 2 seconds
+and its process group is terminated if either volume falls below 4 GiB. These
+checks reduce risk but cannot guarantee protection from sudden unrelated writes.
 
-Build from the pinned clean checkouts only. All Go/pnpm/Encore caches and TMPDIR
-must point beneath the fixture cache directory. Do not build from the canonical
-dirty checkout. Use sequential builds, GOMAXPROCS=1 and GOFLAGS=-p=1.
+Use clean pinned source checkouts on 80G. For each command append `--root <fixture>`:
 
-- Backend: root Dockerfile, tag `tp-local-backend:<backend-sha>` and label
-  `org.opencontainers.image.revision=<backend-sha>`. The current root Dockerfile
-  copies the full checkout into the image: budget its storage before building.
-- Broker: `deploy/mosquitto-community/Dockerfile.production`, tag
-  `tp-local-broker:<backend-sha>` and same revision label. Native architecture.
-- Frontend: install using the pinned pnpm lock, build production `pnpm build`;
-  use `deploy/release/Dockerfile`, tag `tp-local-frontend:<frontend-sha>` with
-  frontend revision label. Production mode avoids the hardcoded remote dev API.
-- Encore: CLI 1.58.6 in `encore-api`, run `encore build docker
-  tp-local-encore:<backend-sha> --services=authn,thingmodel,devicemetadata,fileassets,connectorcatalog,automation,notification --skip-config`.
-  Add a derived metadata-only Dockerfile `FROM <built-image-id>` plus the backend
-  revision label if Encore did not set it. Never relabel an unrelated image.
-- Foundation images: `timescale/timescaledb:latest-pg14` and `redis:6.2.7-alpine`
-  are initial lookup names only. Obtain compatible reviewed images during the
-  coordinated window, then `lock-images` resolves **already local** images to
-  immutable IDs, checks application revision labels, and sets `pull_policy=never`.
-  Runtime never automatically pulls. Preserve the generated images.lock.json.
+```sh
+python3 deploy/local-develop/runtime.py build --root <fixture> --phase backend --runtime-image <local-v1.3-backend-image>
+python3 deploy/local-develop/runtime.py build --root <fixture> --phase frontend --runtime-image <local-nginx-or-frontend-image>
+python3 deploy/local-develop/runtime.py build --root <fixture> --phase encore
+```
+
+- Backend uses host Go to cross-compile CGO-disabled **linux/arm64** develop binary
+  directly to 80G, with trimpath and the full source SHA in SYSTEM_VERSION. No new
+  Docker image layer is produced. Its binary and matching source configs/sql/static
+  snapshot are mounted read-only over an already-local linux/arm64 v1.3 runtime
+  image. The old image supplies only runtime filesystem/libraries; it is **not**
+  represented as develop. Binary/resource SHA256, exact source SHA, immutable base
+  image ID and required read-only mount paths are checked again before image lock
+  and startup. Runtime binary/asset compatibility still needs actual acceptance.
+  Resources are snapshot-once; use a fresh fixture after interrupted resource copy.
+- Frontend exports the tracked pinned tree into 80G (checks file hashes on reuse),
+  runs frozen-lockfile pnpm install with store on 80G, then normal production
+  `pnpm build` including typecheck. dist is read-only mounted over the supplied
+  local linux/arm64 nginx image; develop nginx supplies routing. Full asset hash
+  inventory is checked before startup. This avoids a new frontend Docker layer.
+- Encore requires official CLI **1.58.6**, runs its official `encore build docker`
+  with the seven actual services, and verifies linux/arm64 output. It still creates
+  Docker image/cache data, so Docker external storage proof is mandatory. Cache,
+  Go module/build directories, TMPDIR and XDG cache are directed to 80G. Exact SHA,
+  CLI version and output image ID are persisted; no unrelated image is relabeled.
+  The CLI's actual daemon/tool cache behavior must be inspected in the build window.
+- All phases run sequentially with GOMAXPROCS=1/GOFLAGS=-p=1. Output logs live in
+  fixture cache. A failed phase does not activate its runtime configuration. A
+  successful phase invalidates images.lock.json so images must be relocked.
+- Broker source-image build remains explicit/manual using the develop
+  `deploy/mosquitto-community/Dockerfile.production` and native linux/arm64, tagged
+  `tp-local-broker:<backend-sha>` with revision label. This expensive C/CGo phase
+  is not silently substituted with an old broker; it still needs its own budget.
+- PostgreSQL/Redis initial image lookup tags are resolved by `lock-images` to
+  already-local immutable IDs. It checks source labels for non-overlay application
+  images and generated build provenance for overlays/Encore, then sets
+  pull_policy=never. Runtime never pulls images implicitly.
 
 ## Explicit phase order
 

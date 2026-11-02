@@ -127,3 +127,40 @@ class IdentitySafety(unittest.TestCase):
         self.assertEqual(policy['allowed_device_ids'], ['d1'])
         self.assertEqual(policy['allowed_tenant_ids'], ['t'])
         self.assertEqual(policy['policy']['publish'], ['devices/command/+/+', 'gateway/command/+/+'])
+
+class BuildSafety(unittest.TestCase):
+    def setUp(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        import build
+        self.build = build
+
+    def test_build_preflight_failure_never_starts_a_process(self):
+        with patch.object(runtime, 'preflight', side_effect=ValueError('low disk')), patch.object(self.build.subprocess, 'Popen') as popen:
+            with self.assertRaises(ValueError):
+                self.build.execute(['go', 'build'], '.', {}, Path('/Volumes/80G/test'), runtime, 'backend')
+            popen.assert_not_called()
+
+    def test_modified_binary_provenance_is_rejected(self):
+        import tempfile
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'artifacts').mkdir()
+            binary = root / 'artifacts/ThingsPanel-Go'
+            binary.write_bytes(b'original')
+            record = {'backend': {'sha': 'abc', 'base_image': 'sha256:base',
+                'binary_sha256': self.build.digest(binary), 'resources': {}}}
+            (root / 'build-provenance.json').write_text(json.dumps(record))
+            binary.write_bytes(b'changed')
+            with self.assertRaisesRegex(ValueError, 'binary changed'):
+                self.build.verify(root, {'backend': {'sha': 'abc'}}, {'services': {'backend': {'image': 'sha256:base', 'volumes': []}}})
+
+    def test_provenance_cannot_substitute_a_different_source_sha(self):
+        import tempfile
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'build-provenance.json').write_text(json.dumps({'encore-api': {'sha': 'old', 'base_image': 'sha256:base'}}))
+            with self.assertRaisesRegex(ValueError, 'SHA/image mismatch'):
+                self.build.verify(root, {'backend': {'sha': 'new'}}, {'services': {'encore-api': {'image': 'sha256:base'}}})

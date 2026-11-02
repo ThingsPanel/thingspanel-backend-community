@@ -9,6 +9,7 @@ import re
 import secrets
 import shutil
 import subprocess
+import sys
 
 PROJECT = 'tp-develop-local'
 DATABASES = {'device_metadata': 'devicemetadata/migrations', 'automation': 'automation/migrations',
@@ -167,11 +168,13 @@ def lock_images(root):
     preflight(root)
     manifest = load_fixture(root)
     config = json.loads((root / 'compose.json').read_text())
+    from build import verify
+    provenance = verify(root, manifest, config)
     lock = {}
     for name, service in config['services'].items():
         image = json.loads(run(['docker', 'image', 'inspect', service['image']]))[0]
         expected = manifest['frontend']['sha'] if name == 'frontend' else manifest['backend']['sha']
-        if name not in ('postgres', 'redis') and (image['Config'].get('Labels') or {}).get('org.opencontainers.image.revision') != expected:
+        if name not in ('postgres', 'redis') and name not in provenance and (image['Config'].get('Labels') or {}).get('org.opencontainers.image.revision') != expected:
             raise ValueError('Image source revision label mismatch: ' + name)
         lock[name] = {'requested': service['image'], 'id': image['Id']}
         service['image'] = image['Id']
@@ -183,7 +186,9 @@ def lock_images(root):
 
 def up(root, stage):
     preflight(root)
-    load_fixture(root)
+    manifest = load_fixture(root)
+    from build import verify
+    verify(root, manifest, json.loads((root / 'compose.json').read_text()))
     if not (root / 'images.lock.json').exists():
         raise ValueError('Run lock-images after building exact pinned sources; no implicit pulls allowed')
     lock = json.loads((root / 'images.lock.json').read_text())
@@ -216,6 +221,8 @@ def main():
     parser.add_argument('--root', required=True)
     parser.add_argument('--stage', choices=['foundation', 'native'], default='foundation')
     parser.add_argument('--device-id', action='append', default=[])
+    parser.add_argument('--phase', choices=['backend', 'frontend', 'encore'])
+    parser.add_argument('--runtime-image')
     parser.add_argument('--backend')
     parser.add_argument('--frontend')
     args = parser.parse_args()
@@ -224,9 +231,13 @@ def main():
         prepare(root, args.backend, args.frontend)
     elif args.action == 'preflight':
         preflight(root)
+    elif args.action == 'build':
+        if not args.phase:
+            raise ValueError('Choose an explicit --phase backend/frontend/encore')
+        import build
+        build.build(root, sys.modules[__name__], args.phase, args.runtime_image)
     elif args.action in ('provision-native', 'refresh-broker', 'revoke-native'):
         import identity
-        import sys
         import fcntl
         lock_path = root / 'private/identity.lock'
         with lock_path.open('a') as identity_lock:
