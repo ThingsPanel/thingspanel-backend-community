@@ -15,6 +15,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	componentsql "project/sql"
+
 	"project/internal/model"
 )
 
@@ -45,20 +47,11 @@ func openCoreDialects(t *testing.T) (pg, my *gorm.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	contents, err := os.ReadFile("../sql/mysql/001_core_users_devices.sql")
+	statements, err := componentsql.MySQLMigrationStatements("001_core_users_devices.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var kept []string
-	for _, line := range strings.Split(string(contents), "\n") {
-		if !strings.HasPrefix(strings.TrimSpace(line), "--") {
-			kept = append(kept, line)
-		}
-	}
-	for _, statement := range strings.Split(strings.Join(kept, "\n"), ";\n") {
-		if strings.TrimSpace(statement) == "" {
-			continue
-		}
+	for _, statement := range statements {
 		if err := my.Exec(statement).Error; err != nil {
 			t.Fatalf("apply MySQL schema: %v", err)
 		}

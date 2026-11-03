@@ -10,6 +10,7 @@
 --  * json defaults need expressions in MySQL.
 --  * Foreign keys to products, device_configs and service_access are not created here: those
 --    tables are not part of this slice yet.
+-- @@
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) NOT NULL,
     name VARCHAR(255) NULL,
@@ -34,8 +35,8 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url VARCHAR(500) NULL,
     PRIMARY KEY (id),
     CONSTRAINT users_un UNIQUE (email)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
-
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+-- @@
 CREATE TABLE IF NOT EXISTS devices (
     id VARCHAR(36) NOT NULL,
     name VARCHAR(255) NULL,
@@ -73,4 +74,4 @@ CREATE TABLE IF NOT EXISTS devices (
     KEY idx_devices_tenant_active_created (tenant_id, activate_flag, created_at),
     KEY idx_devices_name (name),
     KEY idx_devices_parent (parent_id)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4

@@ -122,8 +122,13 @@ func mysqlPlatformInit() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if pool, e := db.DB(); e == nil {
-		_ = pool.Close()
+	defer func() {
+		if pool, e := db.DB(); e == nil {
+			_ = pool.Close()
+		}
+	}()
+	if err := RequireNoTemporaryTablePrivilege(db); err != nil {
+		return nil, err
 	}
 	return nil, ErrPlatformMySQLSchemaMissing
 }

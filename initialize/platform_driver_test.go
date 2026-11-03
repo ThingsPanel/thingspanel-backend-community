@@ -81,11 +81,36 @@ func TestMysqlPlatformStopsAfterProvingConnectivityPostgresUntouched(t *testing.
 	if pool, e := db.DB(); e == nil {
 		_ = pool.Close()
 	}
-	// PgInit must stop with the explicit error and must not install a global database.
+	// The privileged test account can create temporary tables, so start-up must refuse it.
 	db2, err := PgInit()
-	if db2 != nil || !errors.Is(err, ErrPlatformMySQLSchemaMissing) {
-		t.Fatalf("PgInit with db.driver=mysql: db=%v err=%v", db2 != nil, err)
+	if db2 != nil || !errors.Is(err, ErrMySQLTemporaryTablePrivilege) {
+		t.Fatalf("PgInit with a temporary-table privilege: db=%v err=%v", db2 != nil, err)
 	}
+	// A restricted application account passes the guard and reaches the explicit schema stop.
+	admin, err := MysqlConnect(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, statement := range []string{
+		"CREATE USER IF NOT EXISTS 'tp_app'@'%' IDENTIFIED BY 'app-pass-1'",
+		"GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES, TRIGGER ON `" + name + "`.* TO 'tp_app'@'%'",
+	} {
+		if err := admin.Exec(statement).Error; err != nil {
+			t.Fatalf("%s: %v", statement, err)
+		}
+	}
+	t.Cleanup(func() {
+		_ = admin.Exec("DROP USER IF EXISTS 'tp_app'@'%'").Error
+		if p, e := admin.DB(); e == nil {
+			_ = p.Close()
+		}
+	})
+	setViper(t, map[string]interface{}{"db.mysql.username": "tp_app", "db.mysql.password": "app-pass-1"})
+	db3, err := PgInit()
+	if db3 != nil || !errors.Is(err, ErrPlatformMySQLSchemaMissing) {
+		t.Fatalf("PgInit with a restricted account: db=%v err=%v", db3 != nil, err)
+	}
+	setViper(t, map[string]interface{}{"db.mysql.username": user, "db.mysql.password": pass})
 	// A wrong password must fail at connect, not later.
 	setViper(t, map[string]interface{}{"db.mysql.password": pass + "-wrong"})
 	if _, err := PgInit(); err == nil || errors.Is(err, ErrPlatformMySQLSchemaMissing) {
