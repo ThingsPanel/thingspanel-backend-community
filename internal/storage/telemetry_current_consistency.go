@@ -28,7 +28,7 @@ func verifyTelemetryCurrentWinners(tx *gorm.DB, winners []TelemetryCurrentData) 
 			keys = append(keys, []interface{}{winner.DeviceID, winner.Key})
 		}
 		var stored []TelemetryCurrentData
-		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("(device_id, key) IN ?", keys).Order("device_id").Order("key").Find(&stored).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("(device_id, "+flavorOf(tx).key()+") IN ?", keys).Order("device_id").Order(flavorOf(tx).key()).Find(&stored).Error; err != nil {
 			return err
 		}
 		for _, current := range stored {

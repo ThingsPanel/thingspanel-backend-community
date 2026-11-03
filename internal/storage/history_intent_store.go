@@ -42,41 +42,58 @@ func (s intentHistoryStore) AppendInTx(tx *gorm.DB, points []TelemetryData) (int
 		return points[i].TS < points[j].TS
 	})
 	stored := make(map[intentIdentity]TelemetryData, len(points))
-	const chunk = 500
-	for offset := 0; offset < len(points); offset += chunk {
-		end := offset + chunk
-		if end > len(points) {
-			end = len(points)
-		}
-		args := make([]interface{}, 0, (end-offset)*8)
-		values := make([]string, 0, end-offset)
-		for _, p := range points[offset:end] {
-			if p.TenantID == "" {
-				return 0, errors.New("history intent requires a tenant")
-			}
-			values = append(values, "(?,?,?,?,?,?,?,?)")
-			args = append(args, p.TenantID, p.DeviceID, p.Key, p.TS, p.BoolV, p.NumberV, p.StringV, s.generation)
-		}
-		var inserted []struct {
-			DeviceID string `gorm:"column:device_id"`
-			Key      string `gorm:"column:key"`
-			TS       int64  `gorm:"column:ts"`
-		}
-		if err := tx.Raw(`INSERT INTO telemetry_history_intents (tenant_id, device_id, "key", ts, bool_v, number_v, string_v, generation)
-			VALUES `+strings.Join(values, ",")+`
-			ON CONFLICT (device_id, "key", ts, generation) DO NOTHING
-			RETURNING device_id, "key", ts`, args...).Scan(&inserted).Error; err != nil {
+	if flavorOf(tx).mysql {
+		created, err := insertIntentsMySQL(tx, s.generation, points)
+		if err != nil {
 			return 0, err
 		}
-		byID := make(map[intentIdentity]TelemetryData, end-offset)
-		for _, p := range points[offset:end] {
-			if _, seen := byID[intentIdentity{p.DeviceID, p.Key, p.TS}]; !seen {
-				byID[intentIdentity{p.DeviceID, p.Key, p.TS}] = p
+		first := make(map[intentIdentity]TelemetryData, len(points))
+		for _, p := range points {
+			id := intentIdentity{p.DeviceID, p.Key, p.TS}
+			if _, seen := first[id]; !seen {
+				first[id] = p
 			}
 		}
-		for _, row := range inserted {
-			id := intentIdentity{row.DeviceID, row.Key, row.TS}
-			stored[id] = byID[id]
+		for id := range created {
+			stored[id] = first[id]
+		}
+	} else {
+		const chunk = 500
+		for offset := 0; offset < len(points); offset += chunk {
+			end := offset + chunk
+			if end > len(points) {
+				end = len(points)
+			}
+			args := make([]interface{}, 0, (end-offset)*8)
+			values := make([]string, 0, end-offset)
+			for _, p := range points[offset:end] {
+				if p.TenantID == "" {
+					return 0, errors.New("history intent requires a tenant")
+				}
+				values = append(values, "(?,?,?,?,?,?,?,?)")
+				args = append(args, p.TenantID, p.DeviceID, p.Key, p.TS, p.BoolV, p.NumberV, p.StringV, s.generation)
+			}
+			var inserted []struct {
+				DeviceID string `gorm:"column:device_id"`
+				Key      string `gorm:"column:key"`
+				TS       int64  `gorm:"column:ts"`
+			}
+			if err := tx.Raw(`INSERT INTO telemetry_history_intents (tenant_id, device_id, "key", ts, bool_v, number_v, string_v, generation)
+				VALUES `+strings.Join(values, ",")+`
+				ON CONFLICT (device_id, "key", ts, generation) DO NOTHING
+				RETURNING device_id, "key", ts`, args...).Scan(&inserted).Error; err != nil {
+				return 0, err
+			}
+			byID := make(map[intentIdentity]TelemetryData, end-offset)
+			for _, p := range points[offset:end] {
+				if _, seen := byID[intentIdentity{p.DeviceID, p.Key, p.TS}]; !seen {
+					byID[intentIdentity{p.DeviceID, p.Key, p.TS}] = p
+				}
+			}
+			for _, row := range inserted {
+				id := intentIdentity{row.DeviceID, row.Key, row.TS}
+				stored[id] = byID[id]
+			}
 		}
 	}
 	if len(stored) == 0 {
@@ -100,7 +117,11 @@ func (s intentHistoryStore) AppendInTx(tx *gorm.DB, points []TelemetryData) (int
 		}
 		return rows[i].Key < rows[j].Key
 	})
-	if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}}, DoUpdates: clause.AssignmentColumns([]string{"ts", "bool_v", "number_v", "string_v", "tenant_id"}), Where: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "telemetry_current_datas.ts <= excluded.ts"}}}}).CreateInBatches(&rows, 1000).Error; err != nil {
+	if flavorOf(tx).mysql {
+		if err := upsertCurrentMySQL(tx, rows); err != nil {
+			return 0, err
+		}
+	} else if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "device_id"}, {Name: "key"}}, DoUpdates: clause.AssignmentColumns([]string{"ts", "bool_v", "number_v", "string_v", "tenant_id"}), Where: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "telemetry_current_datas.ts <= excluded.ts"}}}}).CreateInBatches(&rows, 1000).Error; err != nil {
 		return 0, err
 	}
 	if err := verifyTelemetryCurrentWinners(tx, rows); err != nil {

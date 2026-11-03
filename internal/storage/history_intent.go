@@ -49,6 +49,10 @@ func EnqueueHistoryIntents(tx *gorm.DB, generation int64, points []TelemetryData
 		rows = append(rows, HistoryIntent{TenantID: p.TenantID, DeviceID: p.DeviceID, Key: p.Key, TS: p.TS,
 			BoolV: p.BoolV, NumberV: p.NumberV, StringV: p.StringV, Generation: generation})
 	}
+	if flavorOf(tx).mysql {
+		created, err := insertIntentsMySQL(tx, generation, points)
+		return len(created), err
+	}
 	result := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(&rows, 1000)
 	return int(result.RowsAffected), result.Error
 }
@@ -62,10 +66,11 @@ func ReplayHistoryIntents(ctx context.Context, db *gorm.DB, sink HistorySink, ow
 		return 0, errors.New("replay needs an owner, a positive limit and a positive lease")
 	}
 	var claimed []HistoryIntent
+	flavor := flavorOf(db)
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Raw(`SELECT id, tenant_id, device_id, "key", ts, bool_v, number_v, string_v, generation, attempts
+		if err := tx.Raw(`SELECT id, tenant_id, device_id, `+flavor.key()+`, ts, bool_v, number_v, string_v, generation, attempts
 			FROM telemetry_history_intents
-			WHERE state = 'pending' AND (claimed_until IS NULL OR claimed_until < NOW())
+			WHERE state = 'pending' AND (claimed_until IS NULL OR claimed_until < `+flavor.now()+`)
 			ORDER BY id LIMIT ? FOR UPDATE SKIP LOCKED`, limit).Scan(&claimed).Error; err != nil {
 			return err
 		}
@@ -76,9 +81,10 @@ func ReplayHistoryIntents(ctx context.Context, db *gorm.DB, sink HistorySink, ow
 		for i, c := range claimed {
 			ids[i] = c.ID
 		}
+		lease, leaseArg := flavor.leaseExpr(lease.Seconds())
 		return tx.Exec(`UPDATE telemetry_history_intents
-			SET claimed_by = ?, claimed_until = NOW() + make_interval(secs => ?), attempts = attempts + 1
-			WHERE id IN ?`, owner, lease.Seconds(), ids).Error
+			SET claimed_by = ?, claimed_until = `+lease+`, attempts = attempts + 1
+			WHERE id IN ?`, owner, leaseArg, ids).Error
 	})
 	if err != nil || len(claimed) == 0 {
 		return 0, err
@@ -91,7 +97,7 @@ func ReplayHistoryIntents(ctx context.Context, db *gorm.DB, sink HistorySink, ow
 		ids[i] = c.ID
 	}
 	res := db.WithContext(ctx).Exec(`UPDATE telemetry_history_intents
-		SET state = 'applied', applied_at = NOW(), claimed_by = NULL, claimed_until = NULL
+		SET state = 'applied', applied_at = `+flavor.now()+`, claimed_by = NULL, claimed_until = NULL
 		WHERE id IN ? AND state = 'pending' AND claimed_by = ?`, ids, owner)
 	if res.Error != nil {
 		return 0, fmt.Errorf("history intents appended but not acknowledged (replay is safe): %w", res.Error)

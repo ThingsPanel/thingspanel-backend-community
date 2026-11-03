@@ -24,7 +24,7 @@ func EnqueueHistoryDeviceDeletion(tx *gorm.DB, deviceID string) error {
 		return errors.New("history deletion requires a device id")
 	}
 	if err := tx.Exec(`DELETE FROM telemetry_history_intents
-		WHERE device_id = ? AND state = 'pending' AND (claimed_until IS NULL OR claimed_until < NOW())`, deviceID).Error; err != nil {
+		WHERE device_id = ? AND state = 'pending' AND (claimed_until IS NULL OR claimed_until < `+flavorOf(tx).now()+`)`, deviceID).Error; err != nil {
 		return err
 	}
 	return tx.Exec(`INSERT INTO telemetry_history_deletions (device_id) VALUES (?)`, deviceID).Error
@@ -46,18 +46,20 @@ func ReplayHistoryDeletions(ctx context.Context, db *gorm.DB, deleter HistoryDel
 		DeviceID string `gorm:"column:device_id"`
 	}
 	var claimed []deletion
+	flavor := flavorOf(db)
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Raw(`SELECT d.id, d.device_id FROM telemetry_history_deletions d
-			WHERE d.state = 'pending' AND (d.claimed_until IS NULL OR d.claimed_until < NOW())
+			WHERE d.state = 'pending' AND (d.claimed_until IS NULL OR d.claimed_until < `+flavor.now()+`)
 			AND NOT EXISTS (SELECT 1 FROM telemetry_history_intents i
-				WHERE i.device_id = d.device_id AND i.state = 'pending' AND i.claimed_until IS NOT NULL AND i.claimed_until >= NOW())
+				WHERE i.device_id = d.device_id AND i.state = 'pending' AND i.claimed_until IS NOT NULL AND i.claimed_until >= `+flavor.now()+`)
 			ORDER BY d.id LIMIT ? FOR UPDATE OF d SKIP LOCKED`, limit).Scan(&claimed).Error; err != nil {
 			return err
 		}
 		for _, d := range claimed {
+			leaseSQL, leaseArg := flavor.leaseExpr(lease.Seconds())
 			if err := tx.Exec(`UPDATE telemetry_history_deletions
-				SET claimed_by = ?, claimed_until = NOW() + make_interval(secs => ?), attempts = attempts + 1 WHERE id = ?`,
-				owner, lease.Seconds(), d.ID).Error; err != nil {
+				SET claimed_by = ?, claimed_until = `+leaseSQL+`, attempts = attempts + 1 WHERE id = ?`,
+				owner, leaseArg, d.ID).Error; err != nil {
 				return err
 			}
 			// Anything still queued for this device is superseded by the deletion.
@@ -76,7 +78,7 @@ func ReplayHistoryDeletions(ctx context.Context, db *gorm.DB, deleter HistoryDel
 			return done, fmt.Errorf("history deletion (stays pending): %w", err)
 		}
 		res := db.WithContext(ctx).Exec(`UPDATE telemetry_history_deletions
-			SET state = 'applied', applied_at = NOW(), claimed_by = NULL, claimed_until = NULL
+			SET state = 'applied', applied_at = `+flavor.now()+`, claimed_by = NULL, claimed_until = NULL
 			WHERE id = ? AND state = 'pending' AND claimed_by = ?`, d.ID, owner)
 		if res.Error != nil {
 			return done, fmt.Errorf("history deleted but not acknowledged (replay is safe): %w", res.Error)
