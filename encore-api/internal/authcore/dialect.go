@@ -1,0 +1,167 @@
+package authcore
+
+import (
+	"context"
+	"database/sql"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync/atomic"
+)
+
+// Dialect selects how the account queries, written for PostgreSQL, reach the database.
+type Dialect int
+
+const (
+	DialectPostgres Dialect = iota
+	DialectMySQL
+)
+
+// unsupportedStatements counts statements that could not be translated for MySQL. It exists for
+// tests: a translated code path must leave it unchanged.
+var unsupportedStatements atomic.Int64
+
+const unsupportedStatementProbe = "SELECT * FROM tp_unsupported_mysql_statement"
+
+var (
+	placeholder = regexp.MustCompile(`\$(\d+)`)
+	intervalLit = regexp.MustCompile(`(?i)interval\s+'(\d+)\s+(second|minute|hour|day)s?'`)
+	nowCall     = regexp.MustCompile(`(?i)\bnow\(\)`)
+	regexOp     = regexp.MustCompile(`(\$\d+)\s+~\s+('(?:[^']|'')*')`)
+	splitPart   = regexp.MustCompile(`(?i)split_part\(\s*([a-z_]+)\s*,\s*' '\s*,\s*2\s*\)`)
+	onConflict  = regexp.MustCompile(`(?i)\s+ON\s+CONFLICT\s*(?:\([^)]*\))?\s+DO\s+NOTHING`)
+	pgOnly      = regexp.MustCompile(`(?i)::|jsonb|\bON\s+CONFLICT\b|\bRETURNING\b|\bDISTINCT\s+ON\b|\bpg_[a-z_]+|\bhashtext|interval\s+'`)
+)
+
+// rewrite translates one statement. A statement it does not know how to translate is reported as
+// not ok; callers must not run it.
+func (d Dialect) rewrite(query string, args []any) (string, []any, bool) {
+	if d == DialectPostgres {
+		return query, args, true
+	}
+	query = onConflict.ReplaceAllString(query, " ON DUPLICATE KEY UPDATE id=id")
+	query = regexOp.ReplaceAllString(query, "$1 REGEXP $2")
+	query = splitPart.ReplaceAllString(query, "IF(LOCATE(' ',$1)>0,SUBSTRING_INDEX(SUBSTRING_INDEX($1,' ',2),' ',-1),'')")
+	query = intervalLit.ReplaceAllStringFunc(query, func(m string) string {
+		parts := intervalLit.FindStringSubmatch(m)
+		return "INTERVAL " + parts[1] + " " + strings.ToUpper(parts[2])
+	})
+	query = nowCall.ReplaceAllString(query, "NOW(6)")
+	if pgOnly.MatchString(query) {
+		return "", nil, false
+	}
+	var out []any
+	var bad bool
+	var rebuilt strings.Builder
+	// Placeholders inside single-quoted literals are text, not parameters.
+	for _, part := range splitLiterals(query) {
+		if part.literal {
+			rebuilt.WriteString(part.text)
+			continue
+		}
+		rebuilt.WriteString(placeholder.ReplaceAllStringFunc(part.text, func(m string) string {
+			n, err := strconv.Atoi(m[1:])
+			if err != nil || n < 1 || n > len(args) {
+				bad = true
+				return m
+			}
+			out = append(out, args[n-1])
+			return "?"
+		}))
+	}
+	query = rebuilt.String()
+	if bad {
+		return "", nil, false
+	}
+	return query, out, true
+}
+
+type queryer interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+// dialectDB applies Dialect.rewrite to every statement. For PostgreSQL it is a pass-through.
+type dialectDB struct {
+	inner   queryer
+	db      *sql.DB
+	dialect Dialect
+}
+
+func (x dialectDB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	q, a, ok := x.dialect.rewrite(query, args)
+	if !ok {
+		unsupportedStatements.Add(1)
+		return x.inner.ExecContext(ctx, unsupportedStatementProbe)
+	}
+	return x.inner.ExecContext(ctx, q, a...)
+}
+
+func (x dialectDB) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	q, a, ok := x.dialect.rewrite(query, args)
+	if !ok {
+		unsupportedStatements.Add(1)
+		return x.inner.QueryContext(ctx, unsupportedStatementProbe)
+	}
+	return x.inner.QueryContext(ctx, q, a...)
+}
+
+func (x dialectDB) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	q, a, ok := x.dialect.rewrite(query, args)
+	if !ok {
+		unsupportedStatements.Add(1)
+		return x.inner.QueryRowContext(ctx, unsupportedStatementProbe)
+	}
+	return x.inner.QueryRowContext(ctx, q, a...)
+}
+
+// dialectTx is a transaction whose statements are translated.
+type dialectTx struct {
+	dialectDB
+	tx *sql.Tx
+}
+
+func (t dialectTx) Commit() error   { return t.tx.Commit() }
+func (t dialectTx) Rollback() error { return t.tx.Rollback() }
+
+func (x dialectDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (dialectTx, error) {
+	tx, err := x.db.BeginTx(ctx, opts)
+	if err != nil {
+		return dialectTx{}, err
+	}
+	return dialectTx{dialectDB: dialectDB{inner: tx, db: x.db, dialect: x.dialect}, tx: tx}, nil
+}
+
+type queryPart struct {
+	text    string
+	literal bool
+}
+
+// splitLiterals separates single-quoted literals (” is an escaped quote) from the rest.
+func splitLiterals(query string) []queryPart {
+	var parts []queryPart
+	start, inLiteral := 0, false
+	for i := 0; i < len(query); i++ {
+		if query[i] != '\'' {
+			continue
+		}
+		if inLiteral && i+1 < len(query) && query[i+1] == '\'' {
+			i++
+			continue
+		}
+		if !inLiteral {
+			if i > start {
+				parts = append(parts, queryPart{text: query[start:i]})
+			}
+			start, inLiteral = i, true
+		} else {
+			parts = append(parts, queryPart{text: query[start : i+1], literal: true})
+			start, inLiteral = i+1, false
+		}
+	}
+	if start < len(query) {
+		parts = append(parts, queryPart{text: query[start:], literal: inLiteral})
+	}
+	return parts
+}
