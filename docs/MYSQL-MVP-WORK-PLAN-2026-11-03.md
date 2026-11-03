@@ -207,7 +207,7 @@ go test -p 1 ./initialize/ ./internal/dal/ ./internal/service/ ./internal/storag
 11. casbin 基础策略：仓库里只有 `sql/25.sql` 的 3 条，真正的完整策略来源没找到，需要一个参考安装导出。
 12. 遥测上报当前走的是平台订阅 `devices/telemetry` 的旧通道（载荷 `{"device_id":..,"values":"<base64 的 JSON>"}`）；新的 broker 控制面路径还没有 MySQL 版本。
 
-### 8.5 范围决定（用户，2026-11-03）
+### 8.5 范围决定（用户，2026-11-03；最新决定见 `PROGRESS-2026-11-03.md` 第 6 节：E1 已授权重建 18080 栈；broker 控制面暂缓；Windows 包暂缓）
 - **取消 “MySQL+TimescaleDB” 组合**；支持三种：PG+Timescale、PG+TDengine、MySQL+TDengine（后者在没有任何 PG 时必须能跑）。交接说明里原写的“四种”，联合验收报告要如实写明这个范围变更。
 - 开发阶段都放在 `develop` 分支测试，没问题再合 `main`。
 

@@ -2,6 +2,14 @@
 
 把下面的「通用前言」加上某个包的「任务提示」一起交给一个人（或一个 Claude 会话）。每个包独立，可以同时开工。
 
+## 用户决定（2026-11-03，最新）
+1. **E1 已授权**：可以重建 18080 本地栈缺失的 postgres 与 backend 容器（产品后端镜像 bb60421f）。仍遵守：只动这套隔离栈（compose 项目 `tp-develop-local`），先确认数据卷/数据来源，不动别的栈。
+2. **broker 控制面：暂时不支持 MySQL，先不做**（包 B1–B5 暂缓，不要认领）。
+   - 它是什么：负责管理 MQTT broker 的那一层——设备凭据校验、能订阅/发布哪些主题、路由与映射快照、上报消息的入账（幂等账本）、命令下发租约。代码在 `internal/brokercontrol`、`brokerstate`、`brokerledger`、`brokercommands`、`brokerroute`、`brokermapper`，表在 `sql/broker/001-017`，现在只用 PostgreSQL。
+   - 后果（必须如实写进验收和联合报告）：**MySQL+TDengine 档位里，broker 控制面仍依赖 PostgreSQL**，所以交接说明要求的“MySQL+TDengine 完整 profile 在 PostgreSQL 不可用时通过”**无法满足**，这个组合最多做到“平台与 Encore owner 在 MySQL、broker 控制面仍用 PG”。其余两种（PG+Timescale、PG+TDengine）不受影响。
+   - 目前 MySQL 平台上的遥测上报走的是平台订阅 `devices/telemetry` 的旧通道（已验证），不经过 broker 控制面。
+3. **Windows 包暂不构建**（包 W1、W2 暂缓，不要认领，也不需要 HTTPS 分发地址）。
+
 ## 通用前言（每个提示都要带上）
 
 你在接手 ThingsPanel 的多数据库收尾工作。先读两个文件，再动手：
@@ -83,18 +91,23 @@
 你负责包 C6。位置：internal/dal/telemetry_datas.go notification_*.go app_push_devices.go sys_user.go。unnest/to_regclass/咨询锁已由翻译器兜底的位置补双库测试；telemetry_datas 批量 upsert 与 MySQL 兜底历史表对齐。 验收：go test -p 1 ./internal/... 双库全绿。
 
 ### B1 brokercontrol
+**【暂缓】用户已决定暂不做这个包，不要认领。**
 你负责包 B1。位置：internal/brokercontrol sql/broker/001-017。约 71 处 PG 专用 SQL（?::uuid、?::jsonb、UPDATE ... FROM、咨询锁）。MySQL DDL 用生成器从 PG 终态生成，复杂语句写 MySQL 分支。 验收：路由成员、变更事件、屏障在两库上一致。 依赖：决定（没完成就先做不依赖的部分）。
 
 ### B2 brokerstate
+**【暂缓】用户已决定暂不做这个包，不要认领。**
 你负责包 B2。位置：internal/brokerstate。约 46 处，核心是 to_jsonb(o)->'delegated_route' 与连接观测；MySQL 用 JSON_OBJECT/列直读重写。 验收：连接观测、委托路由证明在两库上一致。 依赖：决定（没完成就先做不依赖的部分）。
 
 ### B3 brokerledger + brokercommands + brokerroute + brokermapper
+**【暂缓】用户已决定暂不做这个包，不要认领。**
 你负责包 B3。位置：internal/brokerledger internal/brokercommands internal/brokerroute internal/brokermapper。账本、隔离区、命令、映射快照；SKIP LOCKED 与咨询锁已有翻译器支持，补并发测试。 验收：重复上报只算一次、命令租约、快照不可变在两库上一致。 依赖：决定（没完成就先做不依赖的部分）。
 
 ### B4 入口账本写入：telemetry_broker + uplink/reliable + broker_automation
+**【暂缓】用户已决定暂不做这个包，不要认领。**
 你负责包 B4。位置：internal/storage/telemetry_broker.go internal/uplink/reliable.go internal/service/broker_automation.go。broker_ingress_receipts / effects 的幂等写入（?::jsonb、ON CONFLICT 多行）。 验收：提交未知、重放、乱序场景在两库上一致。 依赖：决定（没完成就先做不依赖的部分）。
 
 ### B5 mosquitto 驱动与启动
+**【暂缓】用户已决定暂不做这个包，不要认领。**
 你负责包 B5。位置：internal/mosquittodriver cmd/tp-mosquitto-plugin cmd/tp-broker-*。插件/驱动对数据库的访问改走 dbx 或 MySQL 配置；不再要求 PG。 验收：MySQL+TDengine 栈用真实 broker 插件完成设备接入。 依赖：B1（没完成就先做不依赖的部分）。
 
 ### I1 PG+Timescale profile
@@ -137,13 +150,16 @@
 你负责包 F2。位置：前端 worktree + 后端 MySQL 栈。VITE_METADATA_CONNECTOR_URL 指向 MySQL 后端，覆盖设备管理、分组、物模型、模板、看板、个人中心（第三方账号区“操作失败”要定位）。 验收：每页截图/结论表。 依赖：D10,F1（没完成就先做不依赖的部分）。
 
 ### W1 构建 Windows 包
-你负责包 W1。位置：installer 仓库。按安装器产出 Windows 包，给出包地址与 SHA256。 验收：地址 + 哈希。 依赖：需要授权 HTTPS 分发地址（没完成就先做不依赖的部分）。
+**【暂缓】用户已决定暂不做这个包，不要认领。**
+你负责包 W1。位置：installer 仓库。按安装器产出 Windows 包，给出包地址与 SHA256。 验收：地址 + 哈希。 依赖：暂缓：用户决定暂不构建（没完成就先做不依赖的部分）。
 
 ### W2 Windows 安装验证
+**【暂缓】用户已决定暂不做这个包，不要认领。**
 你负责包 W2。位置：干净 Windows。同事在 Windows 上安装、启动、登录、卸载。 验收：验证记录。 依赖：W1（没完成就先做不依赖的部分）。
 
 ### E1 重建 18080 本地栈（需用户授权）
-你负责包 E1。位置：/Volumes/80G/tp-develop-integration/fixture-bb60421f-8ea8e1ff。缺 postgres 与 backend 容器；按 build-provenance.json 重建产品后端镜像 bb60421f，起 postgres，恢复数据卷（先确认数据在哪）。 验收：用授权账号登录成功，界面可用。 依赖：授权（没完成就先做不依赖的部分）。 注意：需要先得到「需要用户授权重建镜像」，没有就先停下来问负责人。
+**【已授权】用户已授权重建（2026-11-03）。**
+你负责包 E1。位置：/Volumes/80G/tp-develop-integration/fixture-bb60421f-8ea8e1ff。缺 postgres 与 backend 容器；按 build-provenance.json 重建产品后端镜像 bb60421f，起 postgres，恢复数据卷（先确认数据在哪）。 验收：用授权账号登录成功，界面可用。 依赖：授权（没完成就先做不依赖的部分）。 已获用户授权（2026-11-03），可以动手；仍只动 `tp-develop-local` 这套隔离栈。
 
 ### E2 磁盘清理（见 DISK-CLEANUP-PLAN）
 你负责包 E2。位置：本机。按清理计划分步骤执行，每步先量后删，删除前向用户确认。 验收：系统卷可用空间 ≥ 30 GiB，且证据与源码无损。

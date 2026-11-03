@@ -2,6 +2,14 @@
 
 这是 `MYSQL-MVP-WORK-PLAN-2026-11-03.md` 第五节的进一步拆分：每个包一个人、一个分支、一个验收口径，互相尽量不碰同一批文件。
 通用规则、环境命令、踩坑清单见 `MYSQL-MVP-WORK-PLAN-2026-11-03.md` 第八节；提示语见 `DISPATCH-PROMPTS-2026-11-03.md`。
+## 用户决定（2026-11-03，最新）
+1. **E1 已授权**：可以重建 18080 本地栈缺失的 postgres 与 backend 容器（产品后端镜像 bb60421f）。仍遵守：只动这套隔离栈（compose 项目 `tp-develop-local`），先确认数据卷/数据来源，不动别的栈。
+2. **broker 控制面：暂时不支持 MySQL，先不做**（包 B1–B5 暂缓，不要认领）。
+   - 它是什么：负责管理 MQTT broker 的那一层——设备凭据校验、能订阅/发布哪些主题、路由与映射快照、上报消息的入账（幂等账本）、命令下发租约。代码在 `internal/brokercontrol`、`brokerstate`、`brokerledger`、`brokercommands`、`brokerroute`、`brokermapper`，表在 `sql/broker/001-017`，现在只用 PostgreSQL。
+   - 后果（必须如实写进验收和联合报告）：**MySQL+TDengine 档位里，broker 控制面仍依赖 PostgreSQL**，所以交接说明要求的“MySQL+TDengine 完整 profile 在 PostgreSQL 不可用时通过”**无法满足**，这个组合最多做到“平台与 Encore owner 在 MySQL、broker 控制面仍用 PG”。其余两种（PG+Timescale、PG+TDengine）不受影响。
+   - 目前 MySQL 平台上的遥测上报走的是平台订阅 `devices/telemetry` 的旧通道（已验证），不经过 broker 控制面。
+3. **Windows 包暂不构建**（包 W1、W2 暂缓，不要认领，也不需要 HTTPS 分发地址）。
+
 分支命名 `wp/<编号>-<短名>`，从 `develop` 切，**不要推送、不要碰 main、不要发布生产**。
 
 
@@ -41,7 +49,7 @@
 | C5 | TDengine 作为历史后端 + MySQL 平台整链 | - | `internal/tdenginehistory internal/app/history_backend.go` | MySQL+TDengine 在没有 PG 时整链通过，附日志 |
 | C6 | 平台其余 PG 专用 SQL 清扫 | - | `internal/dal/telemetry_datas.go notification_*.go app_push_devices.go sys_user.go` | go test -p 1 ./internal/... 双库全绿 |
 
-## broker 控制面（需先决定支持范围）
+## broker 控制面（暂缓，不要认领）
 
 | 编号 | 任务 | 依赖 | 位置 | 验收 |
 |---|---|---|---|---|
@@ -83,14 +91,14 @@
 
 | 编号 | 任务 | 依赖 | 位置 | 验收 |
 |---|---|---|---|---|
-| W1 | 构建 Windows 包 | 需要授权 HTTPS 分发地址 | `installer 仓库` | 地址 + 哈希 |
+| W1 | 构建 Windows 包 | 暂缓：用户决定暂不构建 | `installer 仓库` | 地址 + 哈希 |
 | W2 | Windows 安装验证 | W1 | `干净 Windows` | 验证记录 |
 
 ## 环境
 
 | 编号 | 任务 | 依赖 | 位置 | 验收 |
 |---|---|---|---|---|
-| E1 | 重建 18080 本地栈（需用户授权）（需要用户授权重建镜像） | 授权 | `/Volumes/80G/tp-develop-integration/fixture-bb60421f-8ea8e1ff` | 用授权账号登录成功，界面可用 |
+| E1 | 重建 18080 本地栈（需用户授权）（已授权（2026-11-03）） | 授权 | `/Volumes/80G/tp-develop-integration/fixture-bb60421f-8ea8e1ff` | 用授权账号登录成功，界面可用 |
 | E2 | 磁盘清理（见 DISK-CLEANUP-PLAN） | - | `本机` | 系统卷可用空间 ≥ 30 GiB，且证据与源码无损 |
 
 ## 各包详细说明
@@ -223,31 +231,31 @@
 - 验收：go test -p 1 ./internal/... 双库全绿
 
 ### B1 brokercontrol
-- 分组：broker 控制面（需先决定支持范围）；依赖：决定
+- 分组：broker 控制面（暂缓，不要认领）；依赖：决定
 - 位置：internal/brokercontrol sql/broker/001-017
 - 做什么：约 71 处 PG 专用 SQL（?::uuid、?::jsonb、UPDATE ... FROM、咨询锁）。MySQL DDL 用生成器从 PG 终态生成，复杂语句写 MySQL 分支。
 - 验收：路由成员、变更事件、屏障在两库上一致
 
 ### B2 brokerstate
-- 分组：broker 控制面（需先决定支持范围）；依赖：决定
+- 分组：broker 控制面（暂缓，不要认领）；依赖：决定
 - 位置：internal/brokerstate
 - 做什么：约 46 处，核心是 to_jsonb(o)->'delegated_route' 与连接观测；MySQL 用 JSON_OBJECT/列直读重写。
 - 验收：连接观测、委托路由证明在两库上一致
 
 ### B3 brokerledger + brokercommands + brokerroute + brokermapper
-- 分组：broker 控制面（需先决定支持范围）；依赖：决定
+- 分组：broker 控制面（暂缓，不要认领）；依赖：决定
 - 位置：internal/brokerledger internal/brokercommands internal/brokerroute internal/brokermapper
 - 做什么：账本、隔离区、命令、映射快照；SKIP LOCKED 与咨询锁已有翻译器支持，补并发测试。
 - 验收：重复上报只算一次、命令租约、快照不可变在两库上一致
 
 ### B4 入口账本写入：telemetry_broker + uplink/reliable + broker_automation
-- 分组：broker 控制面（需先决定支持范围）；依赖：决定
+- 分组：broker 控制面（暂缓，不要认领）；依赖：决定
 - 位置：internal/storage/telemetry_broker.go internal/uplink/reliable.go internal/service/broker_automation.go
 - 做什么：broker_ingress_receipts / effects 的幂等写入（?::jsonb、ON CONFLICT 多行）。
 - 验收：提交未知、重放、乱序场景在两库上一致
 
 ### B5 mosquitto 驱动与启动
-- 分组：broker 控制面（需先决定支持范围）；依赖：B1
+- 分组：broker 控制面（暂缓，不要认领）；依赖：B1
 - 位置：internal/mosquittodriver cmd/tp-mosquitto-plugin cmd/tp-broker-*
 - 做什么：插件/驱动对数据库的访问改走 dbx 或 MySQL 配置；不再要求 PG。
 - 验收：MySQL+TDengine 栈用真实 broker 插件完成设备接入
@@ -267,7 +275,7 @@
 ### I3 MySQL+TDengine profile（无 PG）
 - 分组：安装器；依赖：A 组完成 MVP-1
 - 位置：同上
-- 做什么：MySQL 8.4（log_bin_trust_function_creators=1、受限应用账号：无 CREATE TEMPORARY TABLES）、TDengine、Redis、Mosquitto；安装期不得出现任何 PG。
+- 做什么：MySQL 8.4（log_bin_trust_function_creators=1、受限应用账号：无 CREATE TEMPORARY TABLES）、TDengine、Redis、Mosquitto；安装期不得出现任何 PG。**注意：broker 控制面暂缓后仍依赖 PG**，所以这个 profile 目前只能做到“平台与 Encore owner 在 MySQL、broker 控制面仍用 PG”，不能宣称“没有 PG 也能跑”。
 - 验收：在没有任何 PG 容器的机器上装起来并通过冒烟
 
 ### I4 升级、中断、搬迁恢复测试
@@ -303,7 +311,7 @@
 ### V5 J-G3：三种 profile 矩阵
 - 分组：验收台账；依赖：I1,I2,I3,C5
 - 位置：同上
-- 做什么：PG+Timescale、PG+TDengine、MySQL+TDengine（PG 不可达时）各自完整链路和关键故障。MySQL+Timescale 已取消，报告里如实写明范围变更。
+- 做什么：PG+Timescale、PG+TDengine、MySQL+TDengine（PG 不可达时）各自完整链路和关键故障。MySQL+TDengine 因 broker 控制面暂缓仍依赖 PG，**无法在 PG 不可用时通过**，报告里如实写成已知缺口。MySQL+Timescale 已取消，报告里如实写明范围变更。
 - 验收：矩阵表 + 每格证据
 
 ### V6 J-G4：唯一 installer 新装/升级/恢复
@@ -331,7 +339,7 @@
 - 验收：每页截图/结论表
 
 ### W1 构建 Windows 包
-- 分组：Windows 包；依赖：需要授权 HTTPS 分发地址
+- 分组：Windows 包；依赖：暂缓：用户决定暂不构建
 - 位置：installer 仓库
 - 做什么：按安装器产出 Windows 包，给出包地址与 SHA256。
 - 验收：地址 + 哈希
@@ -347,7 +355,7 @@
 - 位置：/Volumes/80G/tp-develop-integration/fixture-bb60421f-8ea8e1ff
 - 做什么：缺 postgres 与 backend 容器；按 build-provenance.json 重建产品后端镜像 bb60421f，起 postgres，恢复数据卷（先确认数据在哪）。
 - 验收：用授权账号登录成功，界面可用
-- 需要先得到：需要用户授权重建镜像
+- 需要先得到：已授权（2026-11-03）
 
 ### E2 磁盘清理（见 DISK-CLEANUP-PLAN）
 - 分组：环境；依赖：-
