@@ -355,11 +355,8 @@ func ValidateSourceBridgeStartup(enabled bool, deploymentID string) error {
 	if global.DB == nil || (enabled && deploymentID == "") {
 		return errors.New("source bridge startup unavailable")
 	}
-	var tableCount int
-	if err := global.DB.Session(&gorm.Session{Logger: logger.Discard}).Raw(`SELECT count(*) FROM unnest(ARRAY[
-		to_regclass('notification_source_group_routes'),
-		to_regclass('notification_source_group_route_revisions'),
-		to_regclass('notification_source_outbox')]) AS t(rel) WHERE rel IS NOT NULL`).Scan(&tableCount).Error; err != nil {
+	tableCount, err := countSourceBridgeTables(global.DB.Session(&gorm.Session{Logger: logger.Discard}))
+	if err != nil {
 		return errors.New("source bridge startup unavailable")
 	}
 	if tableCount == 0 && !enabled {

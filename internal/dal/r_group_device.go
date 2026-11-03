@@ -3,6 +3,7 @@ package dal
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	model "project/internal/model"
@@ -34,6 +35,8 @@ func GetDeviceGroupPathsByDeviceIDs(deviceIDs []string, tenantID string, allTena
 		deviceFilter += " AND rgd.tenant_id = ?"
 		args = append(args, tenantID)
 	}
+	// The names of one chain are joined here, not with string_agg/GROUP_CONCAT (dialect specific; GROUP_CONCAT
+	// truncates silently).
 	sql := fmt.Sprintf(`
 		WITH RECURSIVE group_chain AS (
 			SELECT rgd.device_id, rgd.group_id AS assigned_group_id, rgd.tenant_id,
@@ -47,17 +50,39 @@ func GetDeviceGroupPathsByDeviceIDs(deviceIDs []string, tenantID string, allTena
 			FROM groups g
 			JOIN group_chain gc ON gc.parent_id = g.id AND gc.tenant_id = g.tenant_id
 		)
-		SELECT device_id,
-			string_agg(name, '/' ORDER BY level DESC) AS group_path
+		SELECT device_id, assigned_group_id, name, level
 		FROM group_chain
-		GROUP BY device_id, assigned_group_id
-		ORDER BY device_id, group_path
+		ORDER BY device_id, assigned_group_id, level DESC
 	`, deviceFilter)
 
-	paths := []DeviceGroupPath{}
-	if err := global.DB.Raw(sql, args...).Scan(&paths).Error; err != nil {
+	var chain []struct {
+		DeviceID        string `gorm:"column:device_id"`
+		AssignedGroupID string `gorm:"column:assigned_group_id"`
+		Name            string `gorm:"column:name"`
+	}
+	if err := global.DB.Raw(sql, args...).Scan(&chain).Error; err != nil {
 		return nil, err
 	}
+	type pathKey struct{ device, group string }
+	var order []pathKey
+	names := map[pathKey][]string{}
+	for _, row := range chain {
+		key := pathKey{row.DeviceID, row.AssignedGroupID}
+		if _, seen := names[key]; !seen {
+			order = append(order, key)
+		}
+		names[key] = append(names[key], row.Name)
+	}
+	paths := make([]DeviceGroupPath, 0, len(order))
+	for _, key := range order {
+		paths = append(paths, DeviceGroupPath{DeviceID: key.device, GroupPath: strings.Join(names[key], "/")})
+	}
+	sort.SliceStable(paths, func(i, j int) bool {
+		if paths[i].DeviceID != paths[j].DeviceID {
+			return paths[i].DeviceID < paths[j].DeviceID
+		}
+		return paths[i].GroupPath < paths[j].GroupPath
+	})
 	return paths, nil
 }
 

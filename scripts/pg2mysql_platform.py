@@ -5,7 +5,10 @@ The root migrations (sql/1.sql ... sql/32.sql) mix DDL, ALTERs with USING, DO bl
 not translated statement by statement. Instead they are applied to a scratch PostgreSQL and the *resulting*
 catalog is converted. Anything the converter does not understand aborts the run.
 
-Usage: pg2mysql_platform.py <psql command prefix, e.g. "docker exec -i NAME psql -U postgres"> <exclude file> > out.sql
+Usage: pg2mysql_platform.py "<psql command prefix, e.g. docker exec -i NAME psql -U postgres>" > sql/mysql/012_platform_base.sql
+
+Tables already created by the hand-written MySQL migrations (001-011) are skipped; casbin_rule is created by the
+casbin adapter. Everything else, including telemetry_datas as a plain relational history table, is generated.
 
 Rules: every string column is utf8mb4_bin (PostgreSQL compares case-sensitively); text in a key becomes
 VARCHAR(191); timestamp/timestamptz become DATETIME(6); json/jsonb become JSON; uuid CHAR(36); serials
@@ -218,9 +221,24 @@ def convert_check(defn, table, name):
     return e
 
 
+def hand_written_tables():
+    """Names of the tables the hand-written MySQL migrations 001-011 create."""
+    import glob
+    import os
+    names = set()
+    here = os.path.dirname(os.path.abspath(__file__))
+    for path in glob.glob(os.path.join(here, '..', 'sql', 'mysql', '0[01][0-9]_*.sql')):
+        base = os.path.basename(path)
+        if int(base[:3]) > 11:
+            continue
+        names.update(re.findall(r'CREATE TABLE IF NOT EXISTS\s+`?(\w+)`?', open(path).read(), re.I))
+    return names
+
+
 def main():
-    prefix, exclude_file = sys.argv[1], sys.argv[2]
-    exclude = {l.strip() for l in open(exclude_file) if l.strip()}
+    prefix = sys.argv[1]
+    exclude = hand_written_tables()
+    exclude.add('casbin_rule')
     tables = [t for t in fetch(prefix) if t['name'] not in exclude]
     names = {t['name'] for t in tables}
     report, stmts, fk_stmts = [], [], []

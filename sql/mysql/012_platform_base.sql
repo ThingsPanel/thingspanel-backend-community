@@ -1006,6 +1006,18 @@ CREATE TABLE IF NOT EXISTS `sys_ui_elements` (
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
+CREATE TABLE IF NOT EXISTS `telemetry_datas` (
+    `device_id` VARCHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+    `key` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+    `ts` BIGINT NOT NULL,
+    `bool_v` TINYINT(1) NULL,
+    `number_v` DOUBLE NULL,
+    `string_v` LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+    `tenant_id` VARCHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+    UNIQUE KEY `telemetry_datas_device_id_key_ts_key` (`device_id`, `key`, `ts`),
+    KEY `telemetry_datas_ts_idx` (`ts` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
+-- @@
 CREATE TABLE IF NOT EXISTS `telemetry_set_logs` (
     `id` VARCHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
     `device_id` VARCHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,

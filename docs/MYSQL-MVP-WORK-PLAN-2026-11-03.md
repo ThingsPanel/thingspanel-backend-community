@@ -19,12 +19,14 @@
 | 历史存储抽象、TDengine 写读聚合删除 | 真实 TDengine 3.4 |
 | MySQL 核心切片：用户、设备、鉴权、账号、会话、设备身份、服务接入、设备状态历史 | PG 对 MySQL 差分测试 |
 | automation 全部存储层（claim、租约、告警、executor、迁移记录） | 156 步剧本，PG 与 MySQL 8.4 逐步一致，含并发抢占 |
-| 平台根 schema：82 张基础表 + 视图 + 咨询锁表 | `initialize/mysql_platform_base_schema_test.go` 对比列、类型、可空、主键/唯一/普通索引 |
+| 平台根 schema：82 张基础表 + 视图 + 咨询锁表（其中 72 张由生成器产出，含兜底的 `telemetry_datas`） | `initialize/mysql_platform_base_schema_test.go` 对比列、类型、可空、主键/唯一/普通索引 |
 | 全部 MySQL 表默认大小写敏感（`utf8mb4_bin`），行为对齐 PG | LIKE 测试、外键 |
 | 翻译器接到平台 gorm 连接下面：`?` 占位符、`::` 转型、`ON CONFLICT DO NOTHING`、`make_interval`、`pg_advisory_xact_lock`、`FILTER`、保留字 | `pkg/sqldialect` 单测 + 全部 MySQL 套件 |
 
-**还不能做的事：** 平台在 `db.driver=mysql` 时启动会停在 `ErrPlatformMySQLSchemaMissing`（`initialize/platform_driver.go`）。
-这是有意的保护，等主线把迁移运行器和种子数据接上后才会放开。
+**MVP-1 的主流程已经在 MySQL 上跑通（主线完成，2026-11-03）：** `db.driver=mysql` 时平台自己应用全部 MySQL 迁移（含种子数据）并启动；
+`scripts/smoke_mvp1.sh` 覆盖登录、用户、分组、设备增删改查、设备列表、看板统计，`scripts/smoke_mvp1_ingest.sh` 覆盖 MQTT 遥测上报 → 当前值 → 历史 → 删除设备。
+历史遥测在没有 TDengine 时落在 MySQL 自己的 `telemetry_datas`（兜底，仅用于开发和小规模）；生产的 MySQL 档位仍应配 TDengine。
+**还没验证的：** 界面（前端）、TDengine 路径在 MySQL 平台上的整链、插件安装、broker 控制面（本次 MQTT 走的是平台自己订阅 `devices/telemetry` 的旧通道，没有 broker 控制面）。
 
 ## 二、本地测试环境（每个人先做这个）
 
@@ -48,7 +50,7 @@ scripts/dev-databases.sh down            # 用完删掉
 | 阶段 | 目标 | 验收 |
 |---|---|---|
 | **MVP-0（已具备）** | PG + Timescale 默认路径可用，存储层 MySQL 可用 | 现有测试全绿 |
-| **MVP-1：MySQL 平台能启动并登录** | `db.driver=mysql` + TDengine 历史，平台起得来；登录、租户、设备增删改查、设备列表、遥测上报进 TDengine；PG 完全不启动 | 起一套 MySQL+TDengine 栈，用测试账号登录，建设备，用 MQTT 上报一条遥测，在界面看到 |
+| **MVP-1：MySQL 平台能启动并登录（后端已达成，前端未验证）** | `db.driver=mysql` + TDengine 历史，平台起得来；登录、租户、设备增删改查、设备列表、遥测上报进 TDengine；PG 完全不启动 | 起一套 MySQL+TDengine 栈，用测试账号登录，建设备，用 MQTT 上报一条遥测，在界面看到 |
 | **MVP-2：四种库组合的安装器** | 唯一 installer 能产出四种组合（PG+Timescale、PG+TDengine、MySQL+Timescale、MySQL+TDengine），新装、升级、中断恢复 | 每种组合在干净机器上装起来并通过 MVP-1 的验收 |
 | **MVP-3：Encore owner 与 broker 控制面在 MySQL 下可用** | devicemetadata、thingmodel、northbound、l3-core、fileassets、broker 控制面 | 物模型、模板、北向、通知、插件安装在 MySQL 栈下通过 |
 | **MVP-4：J-G0～J-G4** | 真实插件安装、设备上报、故障恢复、旧实例围栏、四种组合、installer 新装升级恢复；35 包 / 100 API 卡 / 357 路由台账；甲乙独立报告；联合验收报告；遗留清单 | 同一组固定源码和制品上跑完，失败和跳过如实记录 |
@@ -65,13 +67,13 @@ scripts/dev-databases.sh down            # 用完删掉
 
 标注：**主线** = 由 Claude 主会话做；其余可由任何人认领。每个包写明「做什么 / 在哪 / 怎么验收 / 依赖」。
 
-### WP-A 平台启动接线 【主线，MVP-1 关键路径】
+### WP-A 平台启动接线 【主线，已完成：见上文 MVP-1】
 - 做什么：`initialize` 里 MySQL 迁移运行器按顺序应用 001–013（每个 owner 自有账本，已有 `applyMySQLMigrations`）；放开 `db.driver=mysql` 的启动；`global.DB` 设为 MySQL 的 gorm 句柄；启动自检（保留 `RequireNoTemporaryTablePrivilege`）。
 - 在哪：`initialize/platform_driver.go`、`initialize/mysql_migration.go`、`main.go`。
 - 验收：`db.driver=mysql` 时进程启动成功，`/api/v1/...` 登录通过；PG 默认路径完全不变。
 - 依赖：WP-B。
 
-### WP-B 种子数据移植
+### WP-B 种子数据移植 【已完成：`scripts/pg2mysql_seed.py` + `014_platform_seed.sql`，71 行与 PG 逐列一致；casbin 基础策略需要一个参考安装导出，当前只有 sql/25.sql 的 3 条】
 - 做什么：PG 迁移里的种子数据要在 MySQL 有等价：`sys_ui_elements`（菜单）、`sys_dict`、`sys_dict_language`、`sys_function`、`data_policy`、`logo`、`notification_services_config`、`service_plugins`、`boards`、默认管理员用户、casbin 规则（`sql/3.sql`、`sql/25.sql`、`sql/29.sql` 等里的 INSERT/UPDATE/DO 块）。casbin 表由适配器启动时自动创建，规则要在建表后补。
 - 做法：在装好全部 PG 迁移的参照库里按表导出行，生成 `sql/mysql/014_platform_seed.sql`（可重复执行：`INSERT ... ON DUPLICATE KEY UPDATE` 或先检查）。写一个生成脚本放 `scripts/`，不要手抄。
 - 验收：新增测试逐表比较 PG 与 MySQL 的种子行（主键 + 全部列）；`TestMySQLPlatformSchemaCovers...` 仍然通过。

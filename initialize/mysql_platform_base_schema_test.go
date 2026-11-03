@@ -199,7 +199,6 @@ func TestMySQLPlatformSchemaCoversEveryPostgresPlatformTable(t *testing.T) {
 	// Platform tables that have no MySQL counterpart by design.
 	ignored := map[string]string{
 		"casbin_rule":     "created by the casbin adapter at start-up",
-		"telemetry_datas": "history lives in the history backend, not in the relational database",
 	}
 	pgCols := readColumns(t, pg, `SELECT table_name, column_name, data_type, data_type, is_nullable, character_maximum_length
         FROM information_schema.columns c WHERE table_schema='public'

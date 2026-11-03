@@ -18,6 +18,7 @@ func TestRewriteTranslatesKnownIdiomsAndRefusesTheRest(t *testing.T) {
 		t.Fatalf("PostgreSQL statements pass through untouched: %q", q)
 	}
 	cases := map[string]string{
+		`SELECT g.id FROM groups g JOIN device_groups d ON d.x = g.id WHERE g.name = 'groups'`: "SELECT g.id FROM `groups` g JOIN device_groups d ON d.x = g.id WHERE g.name = 'groups'",
 		`SELECT count(*) FILTER (WHERE status IN ('a','b')), count(*) FILTER (WHERE NOT enabled), count(*) FROM t`: `SELECT count(CASE WHEN status IN ('a','b') THEN 1 END), count(CASE WHEN NOT enabled THEN 1 END), count(*) FROM t`,
 		"CREATE TABLE t (`signal` INT, `key` INT)": "CREATE TABLE t (`signal` INT, `key` INT)",
 		`SELECT coalesce(report,'null'::jsonb) FROM t WHERE key=$1 AND signal='key' AND x.key=$2 AND idempotency_key=$3`:    "SELECT coalesce(report,CAST('null' AS JSON)) FROM t WHERE `key`=? AND `signal`='key' AND x.`key`=? AND idempotency_key=?",

@@ -44,8 +44,8 @@ var (
 	emptyJSONArray = regexp.MustCompile(`(?i)'\[\]'::jsonb`)
 	nullJSON       = regexp.MustCompile(`(?i)'null'::jsonb`)
 	nullifCast     = regexp.MustCompile(`(?i)(\bNULLIF\((?:\$\d+|\?)\s*,\s*''\))::(?:text|uuid|jsonb|json)\b`)
-	// key and signal are reserved words in MySQL but plain column names in the PostgreSQL-style statements.
-	reservedColumn    = regexp.MustCompile("`?\\b(?:key|signal)\\b`?")
+	// key, signal and groups are reserved words in MySQL but plain table/column names in the PostgreSQL-style statements.
+	reservedColumn    = regexp.MustCompile("`?\\b(?:key|signal|groups)\\b`?")
 	identCast         = regexp.MustCompile(`(?i)\b([A-Za-z_][A-Za-z0-9_.]*)::(?:text|uuid|jsonb|json)\b`)
 	jsonText          = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_.]*)\s*->>\s*'([A-Za-z0-9_]+)'`)
 	jsonValue         = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_.]*)\s*->\s*'([A-Za-z0-9_]+)'`)

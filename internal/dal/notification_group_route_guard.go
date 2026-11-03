@@ -70,11 +70,8 @@ func withLegacyGroupWriteLock(ctx context.Context, key SourceRouteKey, bridgeEna
 			return ErrNotificationGroupReadOnly
 		}
 		if bridgeEnabled {
-			var tables int
-			if err := tx.Raw(`SELECT count(*) FROM unnest(ARRAY[
-				to_regclass('notification_source_group_routes'),
-				to_regclass('notification_source_group_route_revisions'),
-				to_regclass('notification_source_outbox')]) AS t(rel) WHERE rel IS NOT NULL`).Scan(&tables).Error; err != nil || tables != 3 {
+			tables, err := countSourceBridgeTables(tx)
+			if err != nil || tables != 3 {
 				return ErrSourceRouteUnavailable
 			}
 			lockKey := sourceRouteAdvisoryKey(key)
@@ -119,4 +116,23 @@ func GetNotificationGroupByTenantID(id, tenantID string) (*model.NotificationGro
 		return nil, ErrSourceRouteUnavailable
 	}
 	return &group, nil
+}
+
+// sourceBridgeTables are the tables the notification source bridge needs.
+var sourceBridgeTables = []string{"notification_source_group_routes", "notification_source_group_route_revisions", "notification_source_outbox"}
+
+// countSourceBridgeTables counts how many of the bridge tables exist in the current schema. PostgreSQL asks
+// to_regclass (which also honours the search path); MySQL asks information_schema.
+func countSourceBridgeTables(db *gorm.DB) (int, error) {
+	var n int
+	if db.Dialector.Name() == "mysql" {
+		err := db.Raw(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN (?, ?, ?)`,
+			sourceBridgeTables[0], sourceBridgeTables[1], sourceBridgeTables[2]).Scan(&n).Error
+		return n, err
+	}
+	err := db.Raw(`SELECT count(*) FROM unnest(ARRAY[
+		to_regclass('notification_source_group_routes'),
+		to_regclass('notification_source_group_route_revisions'),
+		to_regclass('notification_source_outbox')]) AS t(rel) WHERE rel IS NOT NULL`).Scan(&n).Error
+	return n, err
 }
