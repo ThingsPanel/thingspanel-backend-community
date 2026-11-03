@@ -13,7 +13,7 @@ case "$cmd" in
 up)
   docker rm -f $PG_ORACLE $MY $PG_AUTO $MY_AUTO >/dev/null 2>&1 || true
   docker run -d --name $PG_ORACLE -e POSTGRES_PASSWORD=pw -p 56001:5432 timescale/timescaledb:2.31.0-pg16 >/dev/null
-  docker run -d --name $MY -e MYSQL_ROOT_PASSWORD=pw -e MYSQL_DATABASE=plat -p 56002:3306 mysql:8.4 >/dev/null
+  docker run -d --name $MY -e MYSQL_ROOT_PASSWORD=pw -e MYSQL_DATABASE=plat -p 56002:3306 mysql:8.4 --log-bin-trust-function-creators=1 >/dev/null
   docker run -d --name $PG_AUTO -e POSTGRES_PASSWORD=pw -p 56003:5432 postgres:16 >/dev/null
   docker run -d --name $MY_AUTO -e MYSQL_ROOT_PASSWORD=pw -e MYSQL_DATABASE=auto -p 56004:3306 mysql:8.4 >/dev/null
   until docker exec $PG_ORACLE pg_isready -U postgres >/dev/null 2>&1; do sleep 2; done; sleep 4

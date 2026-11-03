@@ -147,7 +147,10 @@ func keySets(t *testing.T, db *sql.DB, query string) map[string]bool {
 	return out
 }
 
-func TestMySQLPlatformSchemaCoversEveryPostgresPlatformTable(t *testing.T) {
+// openPlatformDialects connects to the PostgreSQL oracle and an empty MySQL database and applies every MySQL
+// migration to it. Both are closed, and MySQL emptied again, when the test ends.
+func openPlatformDialects(t *testing.T) (pg, my *sql.DB) {
+	t.Helper()
 	pgDSN := os.Getenv("TEST_PG_SCHEMA_DSN")
 	host, port, user, pass, name := os.Getenv("TP_MYSQL_TEST_HOST"), os.Getenv("TP_MYSQL_TEST_PORT"), os.Getenv("TP_MYSQL_TEST_USER"), os.Getenv("TP_MYSQL_TEST_PASSWORD"), os.Getenv("TP_MYSQL_TEST_DB")
 	if pgDSN == "" || host == "" || port == "" {
@@ -157,14 +160,14 @@ func TestMySQLPlatformSchemaCoversEveryPostgresPlatformTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pg, _ := pgGorm.DB()
+	pg, _ = pgGorm.DB()
 	t.Cleanup(func() { pg.Close() })
 	portNumber, _ := strconv.Atoi(port)
 	myGorm, err := MysqlConnect(&DbConfig{Host: host, Port: portNumber, Username: user, Password: pass, DbName: name, TimeZone: "UTC", LogLevel: 1, IdleConns: 2, OpenConns: 5})
 	if err != nil {
 		t.Fatal(err)
 	}
-	my, _ := myGorm.DB()
+	my, _ = myGorm.DB()
 	t.Cleanup(func() { my.Close() })
 	ctx := context.Background()
 	conn, err := my.Conn(ctx)
@@ -173,25 +176,7 @@ func TestMySQLPlatformSchemaCoversEveryPostgresPlatformTable(t *testing.T) {
 	}
 	t.Cleanup(func() { conn.Close() })
 	// The platform schema is large and other tests in this package use the same database: start and end empty.
-	dropAll := func() {
-		_, _ = conn.ExecContext(ctx, "SET FOREIGN_KEY_CHECKS = 0")
-		rows, _ := conn.QueryContext(ctx, "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = DATABASE()")
-		var existing [][2]string
-		for rows.Next() {
-			var n, kind string
-			_ = rows.Scan(&n, &kind)
-			existing = append(existing, [2]string{n, kind})
-		}
-		rows.Close()
-		for _, n := range existing {
-			if n[1] == "VIEW" {
-				_, _ = conn.ExecContext(ctx, "DROP VIEW IF EXISTS `"+n[0]+"`")
-			} else {
-				_, _ = conn.ExecContext(ctx, "DROP TABLE IF EXISTS `"+n[0]+"`")
-			}
-		}
-		_, _ = conn.ExecContext(ctx, "SET FOREIGN_KEY_CHECKS = 1")
-	}
+	dropAll := func() { dropAllMySQLObjects(conn) }
 	dropAll()
 	t.Cleanup(dropAll)
 	for _, file := range platformBaseOrder() {
@@ -205,6 +190,11 @@ func TestMySQLPlatformSchemaCoversEveryPostgresPlatformTable(t *testing.T) {
 			}
 		}
 	}
+	return pg, my
+}
+
+func TestMySQLPlatformSchemaCoversEveryPostgresPlatformTable(t *testing.T) {
+	pg, my := openPlatformDialects(t)
 
 	// Platform tables that have no MySQL counterpart by design.
 	ignored := map[string]string{
@@ -339,4 +329,26 @@ func filterKnown(problems []string, known map[string]string) []string {
 		}
 	}
 	return out
+}
+
+// dropAllMySQLObjects empties the test database (tables, views) so the next test starts from nothing.
+func dropAllMySQLObjects(conn *sql.Conn) {
+	ctx := context.Background()
+	_, _ = conn.ExecContext(ctx, "SET FOREIGN_KEY_CHECKS = 0")
+	rows, _ := conn.QueryContext(ctx, "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = DATABASE()")
+	var existing [][2]string
+	for rows.Next() {
+		var n, kind string
+		_ = rows.Scan(&n, &kind)
+		existing = append(existing, [2]string{n, kind})
+	}
+	rows.Close()
+	for _, n := range existing {
+		if n[1] == "VIEW" {
+			_, _ = conn.ExecContext(ctx, "DROP VIEW IF EXISTS `"+n[0]+"`")
+		} else {
+			_, _ = conn.ExecContext(ctx, "DROP TABLE IF EXISTS `"+n[0]+"`")
+		}
+	}
+	_, _ = conn.ExecContext(ctx, "SET FOREIGN_KEY_CHECKS = 1")
 }

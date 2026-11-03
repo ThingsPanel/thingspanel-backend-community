@@ -33,7 +33,7 @@
 ```bash
 scripts/dev-databases.sh up              # 起 4 个临时库（PG+Timescale 参照库、MySQL 8.4、普通 PG、自动化用 MySQL）
 eval "$(scripts/dev-databases.sh env)"   # 导出 TEST_PG_SCHEMA_DSN、TP_MYSQL_TEST_*、TP_AUTO_SCHEMA_* 
-go test ./initialize/ ./internal/dal/ ./internal/service/ ./pkg/...
+go test -p 1 ./initialize/ ./internal/dal/ ./internal/service/ ./pkg/...   # -p 1: the packages share one MySQL database
 (cd encore-api && go test ./automation/... ./pkg/sqldialect/ ./platformconfig/... ./internal/authcore/...)
 scripts/dev-databases.sh down            # 用完删掉
 ```

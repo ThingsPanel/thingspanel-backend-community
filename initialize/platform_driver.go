@@ -1,6 +1,7 @@
 package initialize
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -14,6 +15,7 @@ import (
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 
+	global "project/pkg/global"
 	"project/pkg/sqldialect"
 )
 
@@ -22,9 +24,8 @@ const (
 	PlatformDriverMySQL    = "mysql"
 )
 
-// ErrPlatformMySQLSchemaMissing is returned once a MySQL platform database is reachable:
-// the platform's base schema and queries are still PostgreSQL-only, so start-up must stop
-// rather than run against a database it cannot use.
+// ErrPlatformMySQLSchemaMissing is kept for callers that matched on it. It is no longer returned: the MySQL
+// platform schema is applied at start-up (ApplyMySQLPlatformSchema).
 var ErrPlatformMySQLSchemaMissing = errors.New("platform MySQL is selected and reachable, but the platform schema and queries do not support MySQL yet")
 
 // PlatformDriver returns the configured platform database driver (db.driver). Empty means
@@ -123,8 +124,8 @@ func MysqlConnect(config *DbConfig) (*gorm.DB, error) {
 	return db, nil
 }
 
-// mysqlPlatformInit proves the MySQL database is usable as a connection and then stops with
-// ErrPlatformMySQLSchemaMissing. It never sets global.DB.
+// mysqlPlatformInit connects to the MySQL platform database, refuses an application account that could shadow
+// the device identity fence, brings the schema up to date, and publishes the handle as global.DB.
 func mysqlPlatformInit() (*gorm.DB, error) {
 	config, err := LoadMysqlConfig()
 	if err != nil {
@@ -134,13 +135,26 @@ func mysqlPlatformInit() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
+	closeOnError := func(err error) (*gorm.DB, error) {
 		if pool, e := db.DB(); e == nil {
 			_ = pool.Close()
 		}
-	}()
-	if err := RequireNoTemporaryTablePrivilege(db); err != nil {
 		return nil, err
 	}
-	return nil, ErrPlatformMySQLSchemaMissing
+	if err := RequireNoTemporaryTablePrivilege(db); err != nil {
+		return closeOnError(err)
+	}
+	if err := ApplyMySQLPlatformSchema(context.Background(), db); err != nil {
+		var mysqlErr *mysqldriver.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1419 {
+			return closeOnError(fmt.Errorf("initialize MySQL platform schema: the device identity triggers need log_bin_trust_function_creators=1 "+
+				"(or the SUPER privilege for the migrating account) because binary logging is enabled: %w", err))
+		}
+		return closeOnError(fmt.Errorf("initialize MySQL platform schema: %w", err))
+	}
+	global.DB = db
+	if err := CasbinInit(); err != nil {
+		return closeOnError(err)
+	}
+	return db, nil
 }

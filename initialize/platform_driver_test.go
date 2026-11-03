@@ -1,6 +1,7 @@
 package initialize
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strconv"
@@ -50,7 +51,7 @@ func TestMysqlConfigRequiresDatabaseAndUser(t *testing.T) {
 	}
 }
 
-func TestMysqlPlatformStopsAfterProvingConnectivityPostgresUntouched(t *testing.T) {
+func TestMysqlPlatformStartsWithARestrictedAccountAndRefusesAPrivilegedOne(t *testing.T) {
 	host, port, user, pass, name := os.Getenv("TP_MYSQL_TEST_HOST"), os.Getenv("TP_MYSQL_TEST_PORT"), os.Getenv("TP_MYSQL_TEST_USER"), os.Getenv("TP_MYSQL_TEST_PASSWORD"), os.Getenv("TP_MYSQL_TEST_DB")
 	if host == "" || port == "" || user == "" || name == "" {
 		t.Skip("TP_MYSQL_TEST_{HOST,PORT,USER,PASSWORD,DB} required")
@@ -59,6 +60,12 @@ func TestMysqlPlatformStopsAfterProvingConnectivityPostgresUntouched(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Start-up loads ./configs/casbin.conf relative to the repository root.
+	previous, _ := os.Getwd()
+	if err := os.Chdir(".."); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(previous) })
 	setViper(t, map[string]interface{}{
 		"db.driver": "mysql", "db.mysql.host": host, "db.mysql.port": portNumber, "db.mysql.username": user,
 		"db.mysql.password": pass, "db.mysql.dbname": name, "db.mysql.time_zone": "UTC",
@@ -86,20 +93,26 @@ func TestMysqlPlatformStopsAfterProvingConnectivityPostgresUntouched(t *testing.
 	if db2 != nil || !errors.Is(err, ErrMySQLTemporaryTablePrivilege) {
 		t.Fatalf("PgInit with a temporary-table privilege: db=%v err=%v", db2 != nil, err)
 	}
-	// A restricted application account passes the guard and reaches the explicit schema stop.
+	// A restricted application account passes the guard, gets the schema applied, and starts.
 	admin, err := MysqlConnect(config)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, statement := range []string{
 		"CREATE USER IF NOT EXISTS 'tp_app'@'%' IDENTIFIED BY 'app-pass-1'",
-		"GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES, TRIGGER ON `" + name + "`.* TO 'tp_app'@'%'",
+		"GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES, TRIGGER, CREATE VIEW, SHOW VIEW ON `" + name + "`.* TO 'tp_app'@'%'",
 	} {
 		if err := admin.Exec(statement).Error; err != nil {
 			t.Fatalf("%s: %v", statement, err)
 		}
 	}
 	t.Cleanup(func() {
+		if pool, e := admin.DB(); e == nil {
+			if c, e := pool.Conn(context.Background()); e == nil {
+				dropAllMySQLObjects(c)
+				_ = c.Close()
+			}
+		}
 		_ = admin.Exec("DROP USER IF EXISTS 'tp_app'@'%'").Error
 		if p, e := admin.DB(); e == nil {
 			_ = p.Close()
@@ -107,13 +120,32 @@ func TestMysqlPlatformStopsAfterProvingConnectivityPostgresUntouched(t *testing.
 	})
 	setViper(t, map[string]interface{}{"db.mysql.username": "tp_app", "db.mysql.password": "app-pass-1"})
 	db3, err := PgInit()
-	if db3 != nil || !errors.Is(err, ErrPlatformMySQLSchemaMissing) {
-		t.Fatalf("PgInit with a restricted account: db=%v err=%v", db3 != nil, err)
+	if err != nil || db3 == nil {
+		t.Fatalf("PgInit with a restricted account must apply the schema and return the handle: db=%v err=%v", db3 != nil, err)
+	}
+	var seeded int64
+	if err := db3.Raw("SELECT COUNT(*) FROM sys_ui_elements").Scan(&seeded).Error; err != nil || seeded == 0 {
+		t.Fatalf("the platform seed rows are missing after start-up: %d %v", seeded, err)
+	}
+	var modules int64
+	if err := db3.Raw("SELECT COUNT(DISTINCT module_name) FROM native_component_migration_ledger").Scan(&modules).Error; err != nil || modules < 8 {
+		t.Fatalf("every owner must have recorded its migrations: %d modules, %v", modules, err)
+	}
+	if pool, e := db3.DB(); e == nil {
+		_ = pool.Close()
+	}
+	// A second start-up finds everything applied and changes nothing.
+	again, err := PgInit()
+	if err != nil || again == nil {
+		t.Fatalf("second start-up: %v", err)
+	}
+	if pool, e := again.DB(); e == nil {
+		_ = pool.Close()
 	}
 	setViper(t, map[string]interface{}{"db.mysql.username": user, "db.mysql.password": pass})
 	// A wrong password must fail at connect, not later.
 	setViper(t, map[string]interface{}{"db.mysql.password": pass + "-wrong"})
-	if _, err := PgInit(); err == nil || errors.Is(err, ErrPlatformMySQLSchemaMissing) {
+	if _, err := PgInit(); err == nil {
 		t.Fatalf("a wrong password must fail to connect, got %v", err)
 	}
 }
