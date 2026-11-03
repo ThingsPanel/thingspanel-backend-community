@@ -41,7 +41,7 @@ func selectHistoryBackend(s historyBackendSettings, config *storage.Config) (pre
 		return nil, fmt.Errorf("unsupported storage.history_backend %q", s.Backend)
 	}
 	if !s.Experimental {
-		return nil, errors.New("storage.history_backend=tdengine is incomplete (no aggregation, multi-device statistics or device-scope deletion); set storage.tdengine.experimental=true to accept that")
+		return nil, errors.New("storage.history_backend=tdengine is incomplete (no multi-device statistics or device-scope deletion); set storage.tdengine.experimental=true to accept that")
 	}
 	if s.ModeExplicit != "" && s.ModeExplicit != storage.HistoryModeIntent {
 		return nil, fmt.Errorf("storage.history_mode=%q conflicts with storage.history_backend=tdengine", s.ModeExplicit)

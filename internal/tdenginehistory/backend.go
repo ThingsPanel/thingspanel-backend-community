@@ -164,8 +164,70 @@ func (b *Backend) DeleteTelemetrDataByDeviceId(string, *query.QueryTx) error {
 	return fmt.Errorf("DeleteTelemetrDataByDeviceId: %w", ErrUnsupported)
 }
 
-func (b *Backend) GetTelemetrStatisticaAgregationData(string, string, int64, int64, int64, string) ([]map[string]interface{}, error) {
-	return nil, fmt.Errorf("GetTelemetrStatisticaAgregationData: %w", ErrUnsupported)
+// GetTelemetrStatisticaAgregationData reproduces the PostgreSQL bucketing exactly: windows are whole
+// seconds aligned to the Unix epoch, numeric values with |v| >= 1e15 are ignored, and each
+// bucket reports x (start, ms), x2 (end, ms) and y. Buckets are computed here, not by
+// TDengine's INTERVAL, whose window alignment depends on the server time zone.
+func (b *Backend) GetTelemetrStatisticaAgregationData(deviceID, key string, start, end, windowMillis int64, function string) ([]map[string]interface{}, error) {
+	switch function {
+	case "avg", "max", "min", "sum", "diff":
+	default:
+		return nil, fmt.Errorf("不支持的聚合函数: %s", function)
+	}
+	window := windowMillis / 1000
+	if window < 1 {
+		window = 1
+	}
+	data, err := b.Sink.Query(context.Background(), fmt.Sprintf("SELECT CAST(ts AS BIGINT), number_v FROM %s.telemetry WHERE %s AND number_v IS NOT NULL AND number_v < 1e15 AND number_v > -1e15 ORDER BY ts",
+		b.Sink.Database, b.scope(deviceID, key, start, end)))
+	if err != nil {
+		return nil, err
+	}
+	type bucket struct {
+		start         int64
+		sum, min, max float64
+		count         int
+	}
+	var buckets []*bucket
+	for _, row := range data {
+		ts, ok1 := row[0].(float64)
+		v, ok2 := row[1].(float64)
+		if !ok1 || !ok2 {
+			return nil, errors.New("tdengine returned an unexpected aggregation row")
+		}
+		sec := int64(ts) / 1000
+		x := sec - sec%window
+		if len(buckets) == 0 || buckets[len(buckets)-1].start != x {
+			buckets = append(buckets, &bucket{start: x, min: v, max: v})
+		}
+		cur := buckets[len(buckets)-1]
+		cur.sum += v
+		cur.count++
+		if v < cur.min {
+			cur.min = v
+		}
+		if v > cur.max {
+			cur.max = v
+		}
+	}
+	out := make([]map[string]interface{}, 0, len(buckets))
+	for _, cur := range buckets {
+		var y float64
+		switch function {
+		case "avg":
+			y = cur.sum / float64(cur.count)
+		case "sum":
+			y = cur.sum
+		case "max":
+			y = cur.max
+		case "min":
+			y = cur.min
+		case "diff":
+			y = cur.max - cur.min
+		}
+		out = append(out, map[string]interface{}{"x": cur.start * 1000, "x2": (cur.start + window) * 1000, "y": y})
+	}
+	return out, nil
 }
 
 func (b *Backend) GetTelemetryStatisticDataByDeviceIds([]string, []string, string, *int, string) ([]map[string]interface{}, error) {

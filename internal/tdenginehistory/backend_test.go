@@ -20,6 +20,7 @@ import (
 	"project/internal/model"
 	"project/internal/query"
 	"project/internal/storage"
+	global "project/pkg/global"
 )
 
 type fixture struct {
@@ -56,6 +57,8 @@ func setup(t *testing.T) *fixture {
 		t.Fatal(err)
 	}
 	query.SetDefault(db)
+	previousDB := global.DB
+	global.DB = db
 	user, pass := os.Getenv("TP_TDENGINE_TEST_USER"), os.Getenv("TP_TDENGINE_TEST_PASSWORD")
 	if user == "" {
 		user, pass = "root", "taosdata"
@@ -67,6 +70,7 @@ func setup(t *testing.T) *fixture {
 	pool, _ := db.DB()
 	adminPool, _ := admin.DB()
 	t.Cleanup(func() {
+		global.DB = previousDB
 		_, _ = sink.Query(context.Background(), "DROP DATABASE IF EXISTS "+sink.Database)
 		_ = pool.Close()
 		_ = admin.Exec(`DROP SCHEMA "` + schema + `" CASCADE`).Error
@@ -218,8 +222,8 @@ func TestTDengineBackendUnsupportedOperationsFailLoudly(t *testing.T) {
 	if err := b.DeleteTelemetrDataByDeviceId("d", nil); err == nil {
 		t.Fatal("device-scope deletion must stay unsupported")
 	}
-	if _, err := b.GetTelemetrStatisticaAgregationData("d", "k", 0, 1, 1, "avg"); err == nil {
-		t.Fatal("aggregation must stay unsupported")
+	if _, err := b.GetTelemetrStatisticaAgregationData("d", "k", 0, 1, 1000, "median"); err == nil {
+		t.Fatal("an unknown aggregate function must be rejected before any request is sent")
 	}
 	if _, err := b.GetTelemetryStatisticDataByDeviceIds(nil, nil, "", nil, ""); err == nil {
 		t.Fatal("multi-device statistics must stay unsupported")
@@ -229,4 +233,54 @@ func TestTDengineBackendUnsupportedOperationsFailLoudly(t *testing.T) {
 	if _, _, err := b.GetHistoryTelemetrDataByPage(req); err == nil {
 		t.Fatal("page 0 must be rejected before any request is sent")
 	}
+}
+
+func TestTDengineAggregationMatchesPostgres(t *testing.T) {
+	f := setup(t)
+	base := (time.Now().Add(-3*time.Hour).UnixMilli() / 1000 / 600) * 600 * 1000 // start on a 10-minute boundary
+	f.seed(t, "temp", base, 130)
+	// Values the PostgreSQL query ignores: out-of-range magnitudes.
+	for i, v := range []float64{1e16, -1e16, 1e15} {
+		ts := base + int64(200000+i*1000)
+		big := v
+		tenant := "tenant-td"
+		if err := query.TelemetryData.Create(&model.TelemetryData{DeviceID: f.device, Key: "temp", T: ts, NumberV: &big, TenantID: &tenant}); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.sink.Append(context.Background(), []storage.HistoryIntent{{ID: int64(900 + i), TenantID: tenant, DeviceID: f.device, Key: "temp", TS: ts, NumberV: &big}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	close := func(a, b interface{}) bool {
+		x, y := a.(float64), b.(float64)
+		return x == y || (x-y) < 1e-9*(1+abs(x)) && (y-x) < 1e-9*(1+abs(x))
+	}
+	for _, window := range []int64{30000, 60000, 300000, 600000, 500} {
+		for _, function := range []string{"avg", "max", "min", "sum", "diff"} {
+			name := fmt.Sprintf("%s/%dms", function, window)
+			pg, err := f.pg.GetTelemetrStatisticaAgregationData(f.device, "temp", base, base+400000, window, function)
+			if err != nil {
+				t.Fatalf("%s: pg: %v", name, err)
+			}
+			td, err := f.td.GetTelemetrStatisticaAgregationData(f.device, "temp", base, base+400000, window, function)
+			if err != nil {
+				t.Fatalf("%s: td: %v", name, err)
+			}
+			if len(pg) == 0 || len(pg) != len(td) {
+				t.Fatalf("%s: bucket count pg=%d td=%d", name, len(pg), len(td))
+			}
+			for i := range pg {
+				if pg[i]["x"] != td[i]["x"] || pg[i]["x2"] != td[i]["x2"] || !close(pg[i]["y"], td[i]["y"]) {
+					t.Fatalf("%s bucket %d differs:\npg=%v\ntd=%v", name, i, pg[i], td[i])
+				}
+			}
+		}
+	}
+}
+
+func abs(v float64) float64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
