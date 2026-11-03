@@ -54,7 +54,7 @@ var (
 	nowCall           = regexp.MustCompile(`(?i)\bnow\(\)`)
 	insertFirstColumn = regexp.MustCompile(`(?is)INSERT\s+INTO\s+\w+\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)`)
 	onConflict        = regexp.MustCompile(`(?i)\s+ON\s+CONFLICT\s*(?:\([^)]*\))?\s+DO\s+NOTHING`)
-	pgOnly            = regexp.MustCompile(`(?i)::|jsonb|\bON\s+CONFLICT\b|\bRETURNING\b|\bDISTINCT\s+ON\b|\bpg_[a-z_]+|\bhashtext|interval\s+'|\bILIKE\b|\bcurrent_schema\(|=\s*ANY\s*\(|\bunnest\(|\barray_agg\(|\bstring_agg\(|\bgenerate_series\(|\bjsonb_[a-z_]+\(|\bto_jsonb\(`)
+	pgOnly            = regexp.MustCompile(`(?i)::|jsonb|\bON\s+CONFLICT\b|\bRETURNING\b|\bDISTINCT\s+ON\b|\bpg_[a-z_]+|\bhashtext|interval\s+'|\bILIKE\b|\bcurrent_schema\(|=\s*ANY\s*\(|\bunnest\(|\barray_agg\(|\bstring_agg\(|\bgenerate_series\(|\bjsonb_[a-z_]+\(|\bto_jsonb\(|\bFILTER\s*\(`)
 )
 
 // Rewrite translates one statement for the dialect. ok is false when it cannot be translated.
@@ -96,6 +96,7 @@ func (d Dialect) RewriteIndexed(query string, argCount int) (string, []int, bool
 		}
 		return " ON DUPLICATE KEY UPDATE " + excludedRef.ReplaceAllString(set, "VALUES($1)")
 	})
+	query = rewriteCountFilter(query)
 	query = nullJSON.ReplaceAllString(query, "CAST('null' AS JSON)")
 	query = nullifCast.ReplaceAllString(query, "$1")
 	query = emptyJSON.ReplaceAllString(query, "JSON_OBJECT()")
@@ -250,4 +251,33 @@ func WithoutOnConflictDoNothing(query string) (string, bool) {
 		return query, false
 	}
 	return query[:loc[0]], true
+}
+
+var countFilter = regexp.MustCompile(`(?i)\bcount\(\*\)\s+FILTER\s*\(\s*WHERE\s+`)
+
+// rewriteCountFilter turns count(*) FILTER (WHERE cond) into count(CASE WHEN cond THEN 1 END), which both
+// databases evaluate the same way. Any other use of FILTER stays and is refused.
+func rewriteCountFilter(query string) string {
+	for {
+		loc := countFilter.FindStringIndex(query)
+		if loc == nil {
+			return query
+		}
+		depth, end := 1, -1
+		for i := loc[1]; i < len(query) && end < 0; i++ {
+			switch query[i] {
+			case '(':
+				depth++
+			case ')':
+				depth--
+				if depth == 0 {
+					end = i
+				}
+			}
+		}
+		if end < 0 {
+			return query
+		}
+		query = query[:loc[0]] + "count(CASE WHEN " + query[loc[1]:end] + " THEN 1 END)" + query[end+1:]
+	}
 }
