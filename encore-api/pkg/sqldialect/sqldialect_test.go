@@ -18,9 +18,10 @@ func TestRewriteTranslatesKnownIdiomsAndRefusesTheRest(t *testing.T) {
 		t.Fatalf("PostgreSQL statements pass through untouched: %q", q)
 	}
 	cases := map[string]string{
-		`INSERT INTO t(id,a,b) VALUES($1,$2,$3) ON CONFLICT (id) DO UPDATE SET a=EXCLUDED.a, b = excluded.b`: `INSERT INTO t(id,a,b) VALUES(?,?,?) ON DUPLICATE KEY UPDATE a=VALUES(a), b = VALUES(b)`,
-		`UPDATE t SET p=$1::jsonb, q=$2::bigint WHERE id=$3`:                                                 `UPDATE t SET p=?, q=? WHERE id=?`,
-		`SELECT payload->>'name', payload->'meta' FROM t`:                                                    `SELECT JSON_UNQUOTE(JSON_EXTRACT(payload, '$.name')), JSON_EXTRACT(payload, '$.meta') FROM t`,
+		`INSERT INTO auto_requests (tenant_id, request_key) VALUES ($1,$2) ON CONFLICT (tenant_id, request_key) DO NOTHING`: `INSERT INTO auto_requests (tenant_id, request_key) VALUES (?,?) ON DUPLICATE KEY UPDATE tenant_id=tenant_id`,
+		`INSERT INTO t(id,a,b) VALUES($1,$2,$3) ON CONFLICT (id) DO UPDATE SET a=EXCLUDED.a, b = excluded.b`:                `INSERT INTO t(id,a,b) VALUES(?,?,?) ON DUPLICATE KEY UPDATE a=VALUES(a), b = VALUES(b)`,
+		`UPDATE t SET p=$1::jsonb, q=$2::bigint WHERE id=$3`:                                                                `UPDATE t SET p=?, q=? WHERE id=?`,
+		`SELECT payload->>'name', payload->'meta' FROM t`:                                                                   `SELECT JSON_UNQUOTE(JSON_EXTRACT(payload, '$.name')), JSON_EXTRACT(payload, '$.meta') FROM t`,
 	}
 	for in, want := range cases {
 		if got, _, ok := MySQL.Rewrite(in, []any{1, 2, 3}); !ok || got != want {

@@ -29,9 +29,15 @@ var ErrAlreadyDone = errors.New("already done")
 // Store wraps the database handle.
 type Store struct {
 	DB *sql.DB
+	// MySQL is true when DB came from sqldialect.OpenMySQL: statements are PostgreSQL-style and translated
+	// by the connection, and the few that cannot be translated have a MySQL form chosen with this flag.
+	MySQL bool
 }
 
 func New(db *sql.DB) *Store { return &Store{DB: db} }
+
+// NewMySQL builds the store on a pool returned by sqldialect.OpenMySQL.
+func NewMySQL(db *sql.DB) *Store { return &Store{DB: db, MySQL: true} }
 
 // Rule is a stored rule header.
 type Rule struct {
@@ -57,7 +63,7 @@ type Rule struct {
 	// every import look like a change.
 	BundleHash string
 	CreatedAt  time.Time
-	UpdatedAt   time.Time
+	UpdatedAt  time.Time
 
 	// The three fields below are not columns. They are filled in when the rule
 	// is materialized for one device (A19), so that the run and the pending
@@ -72,6 +78,23 @@ type Rule struct {
 // NextSeq returns a monotonic sequence number used for ordering and dedupe.
 func (s *Store) NextSeq(ctx context.Context) (int64, error) {
 	var seq int64
+	if s.MySQL {
+		// auto_seq_counter replaces the PostgreSQL sequence. LAST_INSERT_ID(expr) is per connection, so both
+		// statements run on one pinned connection, outside any caller transaction: like nextval() the value is
+		// never rolled back and the row lock is held only for the duration of the UPDATE.
+		conn, err := s.DB.Conn(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("next seq: %w", err)
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(ctx, `UPDATE auto_seq_counter SET value = LAST_INSERT_ID(value + 1) WHERE id = 1`); err != nil {
+			return 0, fmt.Errorf("next seq: %w", err)
+		}
+		if err := conn.QueryRowContext(ctx, `SELECT LAST_INSERT_ID()`).Scan(&seq); err != nil {
+			return 0, fmt.Errorf("next seq: %w", err)
+		}
+		return seq, nil
+	}
 	if err := s.DB.QueryRowContext(ctx, `SELECT nextval('auto_seq')`).Scan(&seq); err != nil {
 		return 0, fmt.Errorf("next seq: %w", err)
 	}
@@ -267,7 +290,7 @@ func (s *Store) ListRules(ctx context.Context, tenantID string, f RuleFilter) ([
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
-	where, args := ruleWhere(tenantID, f)
+	where, args := ruleWhere(tenantID, f, s.MySQL)
 	q := `SELECT ` + ruleColumns + ` FROM auto_rules ` + where +
 		fmt.Sprintf(` ORDER BY created_at DESC LIMIT %d OFFSET %d`, limit, f.Offset)
 
@@ -293,7 +316,7 @@ func (s *Store) ListRules(ctx context.Context, tenantID string, f RuleFilter) ([
 // page. A30 found it through the App: the dashboard asks for page_size=1 just to
 // show a badge, so the badge read "1" for every tenant with at least one rule.
 func (s *Store) CountRules(ctx context.Context, tenantID string, f RuleFilter) (int, error) {
-	where, args := ruleWhere(tenantID, f)
+	where, args := ruleWhere(tenantID, f, s.MySQL)
 	var n int
 	err := s.DB.QueryRowContext(ctx, `SELECT count(*) FROM auto_rules `+where, args...).Scan(&n)
 	return n, err
@@ -301,7 +324,7 @@ func (s *Store) CountRules(ctx context.Context, tenantID string, f RuleFilter) (
 
 // ruleWhere builds the shared WHERE clause so the page and the count can never
 // disagree about what "matching" means.
-func ruleWhere(tenantID string, f RuleFilter) (string, []any) {
+func ruleWhere(tenantID string, f RuleFilter, mysql bool) (string, []any) {
 	q := `WHERE tenant_id=$1 AND deleted_at IS NULL`
 	args := []any{tenantID}
 	add := func(cond string, val any) {
@@ -312,12 +335,27 @@ func ruleWhere(tenantID string, f RuleFilter) (string, []any) {
 		add(`kind=$%d`, f.Kind)
 	}
 	if f.Name != "" {
-		add(`name ILIKE '%%' || $%d || '%%'`, f.Name)
+		if mysql {
+			// ILIKE: case-insensitive but accent-sensitive, like PostgreSQL's.
+			add(`name COLLATE utf8mb4_0900_as_ci LIKE CONCAT('%%', $%d, '%%')`, f.Name)
+		} else {
+			add(`name ILIKE '%%' || $%d || '%%'`, f.Name)
+		}
 	}
 	if f.Enabled != nil {
 		add(`enabled=$%d`, *f.Enabled)
 	}
-	if f.DeviceID != "" {
+	if f.DeviceID != "" && mysql {
+		add(`(
+            JSON_CONTAINS(JSON_EXTRACT(definition, '$.targets.device_ids'), JSON_QUOTE($%[1]d))
+            OR EXISTS (
+                SELECT 1
+                  FROM JSON_TABLE(COALESCE(JSON_EXTRACT(definition, '$.trigger.groups'), JSON_ARRAY()), '$[*]' COLUMNS (conds JSON PATH '$.conditions')) g,
+                       JSON_TABLE(COALESCE(g.conds, JSON_ARRAY()), '$[*]' COLUMNS (device_id VARCHAR(64) PATH '$.device_id')) c
+                 WHERE c.device_id COLLATE utf8mb4_bin = $%[1]d
+            )
+        )`, f.DeviceID)
+	} else if f.DeviceID != "" {
 		// A rule belongs to a device when it targets it or watches it. Both
 		// halves are needed: a device automation usually watches the device and
 		// acts on it, but a scene can act without watching.
@@ -331,11 +369,15 @@ func ruleWhere(tenantID string, f RuleFilter) (string, []any) {
             )
         )`, f.DeviceID)
 	}
-	if f.DeviceConfigID != "" {
+	if f.DeviceConfigID != "" && mysql {
+		add(`JSON_CONTAINS(JSON_EXTRACT(definition, '$.targets.device_config_ids'), JSON_QUOTE($%[1]d))`, f.DeviceConfigID)
+	} else if f.DeviceConfigID != "" {
 		add(`definition->'targets'->'device_config_ids' @> to_jsonb($%[1]d::text)`,
 			f.DeviceConfigID)
 	}
-	if f.HasAlarmStep {
+	if f.HasAlarmStep && mysql {
+		q += ` AND JSON_SEARCH(definition, 'one', 'alarm', NULL, '$**.kind') IS NOT NULL`
+	} else if f.HasAlarmStep {
 		// Recursive descent so an alarm step nested inside a branch still counts.
 		q += ` AND jsonb_path_exists(definition, '$.**.kind ? (@ == "alarm")')`
 	}
@@ -350,8 +392,8 @@ func ruleWhere(tenantID string, f RuleFilter) (string, []any) {
 // the caller skips the device→template lookup in that case rather than paying
 // for it on every uplink.
 func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, deviceConfigID, signal, key string) ([]*Rule, error) {
-	rows, err := s.DB.QueryContext(ctx, `
-        SELECT DISTINCT `+ruleColumns+`
+	candidateQuery := `
+        SELECT DISTINCT ` + ruleColumns + `
           FROM auto_rules r
          WHERE r.tenant_id = $1
            AND r.deleted_at IS NULL
@@ -370,7 +412,31 @@ func (s *Store) CandidateRules(ctx context.Context, tenantID, deviceID, deviceCo
                   AND ((b.device_id IS NOT NULL AND b.device_id = $2)
                        OR (b.device_config_id IS NOT NULL AND $3 <> '' AND b.device_config_id = $3))
              )
-           )`, tenantID, deviceID, deviceConfigID, signal, key)
+           )`
+	if s.MySQL {
+		candidateQuery = `
+        SELECT ` + ruleColumns + `
+          FROM auto_rules r
+         WHERE r.tenant_id = $1
+           AND r.deleted_at IS NULL
+           AND r.enabled
+           AND (
+             EXISTS (
+               SELECT 1 FROM JSON_TABLE(COALESCE(JSON_EXTRACT(r.definition, '$.trigger.groups'), JSON_ARRAY()), '$[*]' COLUMNS (conds JSON PATH '$.conditions')) g,
+                             JSON_TABLE(COALESCE(g.conds, JSON_ARRAY()), '$[*]' COLUMNS (source VARCHAR(64) PATH '$.source', signal VARCHAR(128) PATH '$.signal', ckey VARCHAR(128) PATH '$.key')) c
+                WHERE (c.source COLLATE utf8mb4_bin = 'self' OR c.source IS NULL)
+                  AND c.signal COLLATE utf8mb4_bin = $4
+                  AND c.ckey COLLATE utf8mb4_bin = $5
+             )
+             OR EXISTS (
+               SELECT 1 FROM auto_bindings b
+                WHERE b.rule_id = r.id AND b.enabled
+                  AND ((b.device_id IS NOT NULL AND b.device_id = $2)
+                       OR (b.device_config_id IS NOT NULL AND $3 <> '' AND b.device_config_id = $3))
+             )
+           )`
+	}
+	rows, err := s.DB.QueryContext(ctx, candidateQuery, tenantID, deviceID, deviceConfigID, signal, key)
 	if err != nil {
 		return nil, err
 	}

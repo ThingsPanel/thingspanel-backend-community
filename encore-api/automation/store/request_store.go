@@ -50,9 +50,11 @@ func (s *Store) PruneRequests(ctx context.Context, keepHours int) (int64, error)
 	if keepHours <= 0 {
 		keepHours = 24
 	}
-	res, err := s.DB.ExecContext(ctx,
-		`DELETE FROM auto_requests WHERE created_at < now() - ($1 || ' hours')::interval`,
-		keepHours)
+	statement := `DELETE FROM auto_requests WHERE created_at < now() - make_interval(hours => $1)`
+	if s.MySQL {
+		statement = `DELETE FROM auto_requests WHERE created_at < now() - INTERVAL $1 HOUR`
+	}
+	res, err := s.DB.ExecContext(ctx, statement, keepHours)
 	if err != nil {
 		return 0, err
 	}

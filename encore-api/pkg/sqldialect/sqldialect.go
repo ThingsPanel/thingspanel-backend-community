@@ -37,24 +37,49 @@ var Unsupported atomic.Int64
 const probe = "SELECT * FROM tp_unsupported_mysql_statement"
 
 var (
-	placeholder = regexp.MustCompile(`\$(\d+)`)
-	paramCast   = regexp.MustCompile(`(?i)(\$\d+)::(?:text|bigint|int|integer|smallint|numeric|jsonb|json|timestamptz|timestamp|varchar|boolean)\b`)
-	jsonText    = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_.]*)\s*->>\s*'([A-Za-z0-9_]+)'`)
-	jsonValue   = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_.]*)\s*->\s*'([A-Za-z0-9_]+)'`)
-	upsertSet   = regexp.MustCompile(`(?is)\s+ON\s+CONFLICT\s*\([^)]*\)\s+DO\s+UPDATE\s+SET\s+(.*?)\s*$`)
-	excludedRef = regexp.MustCompile(`(?i)\bEXCLUDED\.([A-Za-z_][A-Za-z0-9_]*)`)
-	intervalLit = regexp.MustCompile(`(?i)interval\s+'(\d+)\s+(second|minute|hour|day)s?'`)
-	nowCall     = regexp.MustCompile(`(?i)\bnow\(\)`)
-	onConflict  = regexp.MustCompile(`(?i)\s+ON\s+CONFLICT\s*(?:\([^)]*\))?\s+DO\s+NOTHING`)
-	pgOnly      = regexp.MustCompile(`(?i)::|jsonb|\bON\s+CONFLICT\b|\bRETURNING\b|\bDISTINCT\s+ON\b|\bpg_[a-z_]+|\bhashtext|interval\s+'|\bILIKE\b|\bcurrent_schema\(|=\s*ANY\s*\(|\bunnest\(|\barray_agg\(|\bstring_agg\(|\bgenerate_series\(|\bjsonb_[a-z_]+\(|\bto_jsonb\(`)
+	placeholder       = regexp.MustCompile(`\$(\d+)`)
+	paramCast         = regexp.MustCompile(`(?i)(\$\d+)::(?:text|bigint|int|integer|smallint|numeric|jsonb|json|timestamptz|timestamp|varchar|boolean)\b`)
+	jsonText          = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_.]*)\s*->>\s*'([A-Za-z0-9_]+)'`)
+	jsonValue         = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_.]*)\s*->\s*'([A-Za-z0-9_]+)'`)
+	upsertSet         = regexp.MustCompile(`(?is)\s+ON\s+CONFLICT\s*\([^)]*\)\s+DO\s+UPDATE\s+SET\s+(.*?)\s*$`)
+	excludedRef       = regexp.MustCompile(`(?i)\bEXCLUDED\.([A-Za-z_][A-Za-z0-9_]*)`)
+	intervalLit       = regexp.MustCompile(`(?i)interval\s+'(\d+)\s+(second|minute|hour|day)s?'`)
+	nowCall           = regexp.MustCompile(`(?i)\bnow\(\)`)
+	insertFirstColumn = regexp.MustCompile(`(?is)INSERT\s+INTO\s+\w+\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)`)
+	onConflict        = regexp.MustCompile(`(?i)\s+ON\s+CONFLICT\s*(?:\([^)]*\))?\s+DO\s+NOTHING`)
+	pgOnly            = regexp.MustCompile(`(?i)::|jsonb|\bON\s+CONFLICT\b|\bRETURNING\b|\bDISTINCT\s+ON\b|\bpg_[a-z_]+|\bhashtext|interval\s+'|\bILIKE\b|\bcurrent_schema\(|=\s*ANY\s*\(|\bunnest\(|\barray_agg\(|\bstring_agg\(|\bgenerate_series\(|\bjsonb_[a-z_]+\(|\bto_jsonb\(`)
 )
 
 // Rewrite translates one statement for the dialect. ok is false when it cannot be translated.
 func (d Dialect) Rewrite(query string, args []any) (string, []any, bool) {
-	if d == Postgres {
-		return query, args, true
+	q, idx, ok := d.RewriteIndexed(query, len(args))
+	if !ok {
+		return "", nil, false
 	}
-	query = onConflict.ReplaceAllString(query, " ON DUPLICATE KEY UPDATE id=id")
+	if d == Postgres {
+		return q, args, true
+	}
+	out := make([]any, len(idx))
+	for i, n := range idx {
+		out[i] = args[n]
+	}
+	return q, out, true
+}
+
+// RewriteIndexed translates one statement and reports which of the caller's arguments (0-based) each
+// placeholder of the result takes, in order. For PostgreSQL the statement is returned untouched and idx is nil.
+func (d Dialect) RewriteIndexed(query string, argCount int) (string, []int, bool) {
+	if d == Postgres {
+		return query, nil, true
+	}
+	// DO NOTHING becomes a no-op assignment of the first inserted column (the table may have no "id").
+	if loc := onConflict.FindStringIndex(query); loc != nil {
+		first := insertFirstColumn.FindStringSubmatch(query)
+		if first == nil {
+			return "", nil, false
+		}
+		query = query[:loc[0]] + " ON DUPLICATE KEY UPDATE " + first[1] + "=" + first[1] + query[loc[1]:]
+	}
 	// ON CONFLICT (...) DO UPDATE SET a=EXCLUDED.a becomes ON DUPLICATE KEY UPDATE a=VALUES(a). A conditional
 	// update (WHERE) or anything else after the assignments stays untranslated and is refused below.
 	query = upsertSet.ReplaceAllStringFunc(query, func(m string) string {
@@ -75,7 +100,7 @@ func (d Dialect) Rewrite(query string, args []any) (string, []any, bool) {
 	if pgOnly.MatchString(query) {
 		return "", nil, false
 	}
-	var out []any
+	var idx []int
 	bad := false
 	var rebuilt strings.Builder
 	for _, part := range splitLiterals(query) {
@@ -85,18 +110,21 @@ func (d Dialect) Rewrite(query string, args []any) (string, []any, bool) {
 		}
 		rebuilt.WriteString(placeholder.ReplaceAllStringFunc(part.text, func(m string) string {
 			n, err := strconv.Atoi(m[1:])
-			if err != nil || n < 1 || n > len(args) {
+			if err != nil || n < 1 || n > argCount {
 				bad = true
 				return m
 			}
-			out = append(out, args[n-1])
+			idx = append(idx, n-1)
 			return "?"
 		}))
 	}
 	if bad {
 		return "", nil, false
 	}
-	return rebuilt.String(), out, true
+	if idx == nil {
+		idx = []int{}
+	}
+	return rebuilt.String(), idx, true
 }
 
 type part struct {
