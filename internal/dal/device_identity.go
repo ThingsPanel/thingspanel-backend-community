@@ -3,9 +3,9 @@ package dal
 import (
 	"errors"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"project/internal/model"
 	"project/internal/query"
+	"project/pkg/dbdialect"
 	"sort"
 	"strings"
 	"time"
@@ -38,11 +38,11 @@ func reserveDeviceIDs(tx *query.Query, devices []*model.Device) error {
 	db := tx.Device.UnderlyingDB().Session(&gorm.Session{NewDB: true})
 	for _, d := range sorted {
 		reservation := DeviceIDReservation{ID: d.ID, TenantID: d.TenantID, State: "active", CreatedAt: time.Now().UTC()}
-		result := db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "id"}}, DoNothing: true}).Create(&reservation)
-		if result.Error != nil {
-			return result.Error
+		inserted, err := dbdialect.InsertIfAbsent(db, &reservation, "id")
+		if err != nil {
+			return err
 		}
-		if result.RowsAffected != 1 {
+		if !inserted {
 			return ErrDeviceIDReserved
 		}
 	}
