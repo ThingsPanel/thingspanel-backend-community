@@ -134,6 +134,39 @@ func ApplyMySQLCoreSchema(ctx context.Context, db *gorm.DB) error {
 	return applyMySQLMigrations(ctx, db, mysqlMigration{module: mysqlCoreModule, description: "MySQL core", files: files, verify: verifyMySQLCoreSchema})
 }
 
+const mysqlAuthModule = "mysql-auth"
+
+// ApplyMySQLAuthSchema applies the authentication tables; ApplyMySQLCoreSchema must have run first.
+func ApplyMySQLAuthSchema(ctx context.Context, db *gorm.DB) error {
+	var files []mysqlMigrationFile
+	for _, name := range componentsql.MySQLAuthMigrationNames() {
+		contents, err := componentsql.MySQLMigrationContents(name)
+		if err != nil {
+			return err
+		}
+		statements, err := componentsql.MySQLMigrationStatements(name)
+		if err != nil {
+			return err
+		}
+		files = append(files, mysqlMigrationFile{name: name, contents: contents, statements: statements})
+	}
+	return applyMySQLMigrations(ctx, db, mysqlMigration{module: mysqlAuthModule, description: "MySQL auth", files: files, verify: verifyMySQLAuthSchema})
+}
+
+func verifyMySQLAuthSchema(ctx context.Context, conn *sql.Conn) error {
+	for _, table := range []string{"auth_external_bindings", "auth_audit_events", "auth_provider_settings"} {
+		var n int
+		if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?", table).Scan(&n); err != nil || n != 1 {
+			return fmt.Errorf("MySQL auth schema is incomplete: table %s is missing", table)
+		}
+	}
+	var column int
+	if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'auth_version'").Scan(&column); err != nil || column != 1 {
+		return errors.New("MySQL auth schema is incomplete: users.auth_version is missing (apply the core schema first)")
+	}
+	return nil
+}
+
 func verifyMySQLCoreSchema(ctx context.Context, conn *sql.Conn) error {
 	for _, table := range []string{"users", "devices", "device_id_reservations"} {
 		var n int
