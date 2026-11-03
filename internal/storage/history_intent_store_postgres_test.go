@@ -65,6 +65,25 @@ func randomBatches(seed int64) [][]TelemetryData {
 	return batches
 }
 
+// With TEST_BROKER_TIMESCALE=1 the history table becomes a TimescaleDB hypertable, the
+// layout of the production Timescale profile (sql/1.sql).
+func maybeHypertable(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	if os.Getenv("TEST_BROKER_TIMESCALE") != "1" {
+		return
+	}
+	if err := db.Exec(`CREATE EXTENSION IF NOT EXISTS timescaledb WITH SCHEMA public`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`SELECT public.create_hypertable('telemetry_datas','ts',chunk_time_interval=>86400000::bigint,if_not_exists=>true)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := db.Raw(`SELECT count(*) FROM timescaledb_information.hypertables WHERE hypertable_name='telemetry_datas' AND hypertable_schema=current_schema()`).Scan(&n).Error; err != nil || n != 1 {
+		t.Fatalf("telemetry_datas is not a hypertable: n=%d err=%v", n, err)
+	}
+}
+
 func commit(t *testing.T, db *gorm.DB, store TelemetryHistoryStore, batch []TelemetryData) int {
 	t.Helper()
 	tx := db.Begin()
@@ -90,6 +109,8 @@ func TestIntentHistoryStoreMatchesLegacyPath(t *testing.T) {
 		t.Run(fmt.Sprintf("seed%d", seed), func(t *testing.T) {
 			legacy := newTelemetryBrokerFixture(t)
 			intent := newTelemetryBrokerFixture(t)
+			maybeHypertable(t, legacy.db)
+			maybeHypertable(t, intent.db)
 			migration, err := os.ReadFile("../../sql/history_intent/001_intents.sql")
 			if err != nil {
 				t.Fatal(err)
