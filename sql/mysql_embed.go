@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-//go:embed mysql/001_core_users_devices.sql mysql/002_device_identity.sql mysql/003_auth.sql mysql/004_app_push_devices.sql mysql/005_account_support.sql mysql/006_device_status_history.sql
+//go:embed mysql/001_core_users_devices.sql mysql/002_device_identity.sql mysql/003_auth.sql mysql/004_app_push_devices.sql mysql/005_account_support.sql mysql/006_device_status_history.sql mysql/007_service_access.sql
 var mysqlMigrationFiles embed.FS
 
 // MySQLMigrationContents returns the raw bytes of one MySQL migration file (the ledger checksum input).
@@ -39,6 +39,11 @@ func MySQLMigrationStatements(name string) ([]string, error) {
 // MySQLMigrationNames lists the MySQL core migration files in order (users, devices, identity fence).
 func MySQLMigrationNames() []string {
 	return []string{"001_core_users_devices.sql", "002_device_identity.sql"}
+}
+
+// MySQLServiceAccessMigrationNames lists the service access migration files; they stand alone.
+func MySQLServiceAccessMigrationNames() []string {
+	return []string{"007_service_access.sql"}
 }
 
 // MySQLDeviceStatusMigrationNames lists the device status migration files; they require the core schema.

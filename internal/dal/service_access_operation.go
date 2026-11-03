@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm/clause"
 	"project/internal/model"
 	"project/internal/query"
+	"project/pkg/dbdialect"
 )
 
 var ErrServiceAccessOperationConflict = errors.New("service access operation conflicts with the original request")
@@ -95,7 +96,7 @@ func CreateServiceAccessWithOperation(ctx context.Context, access *model.Service
 		return nil, fmt.Errorf("invalid service access operation")
 	}
 	db := query.ServiceAccess.UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
-	if db.Dialector.Name() != "postgres" {
+	if name := db.Dialector.Name(); name != "postgres" && name != "mysql" {
 		return nil, fmt.Errorf("durable service access creation is not supported by this database profile")
 	}
 	tx := db.Begin()
@@ -111,11 +112,11 @@ func CreateServiceAccessWithOperation(ctx context.Context, access *model.Service
 		RequestHash: requestHash, AccessID: access.ID, ResourceHash: resourceHash,
 		CreatedAt: access.CreateAt,
 	}
-	insert := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tenant_id"}, {Name: "operation_key"}}, DoNothing: true}).Create(&receipt)
-	if insert.Error != nil {
-		return nil, rollbackServiceAccessOperation(tx, insert.Error)
+	inserted, insertErr := dbdialect.InsertIfAbsent(tx, &receipt, "tenant_id", "operation_key")
+	if insertErr != nil {
+		return nil, rollbackServiceAccessOperation(tx, insertErr)
 	}
-	replayed := insert.RowsAffected == 0
+	replayed := !inserted
 	if replayed {
 		if err := tx.Where("tenant_id = ? AND operation_key = ?", access.TenantID, key).Take(&receipt).Error; err != nil {
 			return nil, rollbackServiceAccessOperation(tx, err)
@@ -124,9 +125,6 @@ func CreateServiceAccessWithOperation(ctx context.Context, access *model.Service
 			return nil, rollbackServiceAccessOperation(tx, ErrServiceAccessOperationConflict)
 		}
 	} else {
-		if insert.RowsAffected != 1 {
-			return nil, rollbackServiceAccessOperation(tx, fmt.Errorf("service access receipt was not inserted exactly once"))
-		}
 		insertAccess := tx.Create(access)
 		if insertAccess.Error != nil {
 			return nil, rollbackServiceAccessOperation(tx, insertAccess.Error)
@@ -154,7 +152,7 @@ func CreateServiceAccessWithOperation(ctx context.Context, access *model.Service
 // request may still be in flight, so only the original keyed request is safe.
 func ReadServiceAccessCreateOperation(ctx context.Context, tenantID, subjectID, key string) (*model.ServiceAccessCreateObservation, error) {
 	db := query.ServiceAccess.UnderlyingDB().Session(&gorm.Session{NewDB: true, Context: ctx})
-	if db.Dialector.Name() != "postgres" {
+	if name := db.Dialector.Name(); name != "postgres" && name != "mysql" {
 		return nil, fmt.Errorf("durable service access query is not supported by this database profile")
 	}
 	tx := db.Begin()
