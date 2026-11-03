@@ -12,10 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/redis/go-redis/v9"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func mysqlMigrationStatements(t *testing.T, name string) []string {
@@ -484,6 +487,105 @@ func TestSignupFlagAndProfileDetailMatchOnMySQLAndPostgres(t *testing.T) {
 	}
 	joined := strings.Join(a, "\n")
 	if !strings.Contains(joined, "ok=1 conflict=5") || !strings.Contains(joined, "users=1 home boards=1") || !strings.Contains(joined, "roles=[role-b role-a]") {
+		t.Fatalf("the oracle scenario did not behave as expected:\n%s", joined)
+	}
+}
+
+func TestOpenAccountsDBSelectsAndValidatesTheDriver(t *testing.T) {
+	cases := []struct {
+		name    string
+		config  Config
+		dialect Dialect
+		ok      bool
+	}{
+		{"default is PostgreSQL", Config{DatabaseURL: "postgres://u:p@localhost/db"}, DialectPostgres, true},
+		{"explicit PostgreSQL", Config{DatabaseDriver: "postgres", DatabaseURL: "postgres://u:p@localhost/db"}, DialectPostgres, true},
+		{"MySQL with both options", Config{DatabaseDriver: "mysql", DatabaseURL: "u:p@tcp(localhost:3306)/db?parseTime=true&clientFoundRows=true"}, DialectMySQL, true},
+		{"MySQL without clientFoundRows", Config{DatabaseDriver: "mysql", DatabaseURL: "u:p@tcp(localhost:3306)/db?parseTime=true"}, DialectMySQL, false},
+		{"MySQL without parseTime", Config{DatabaseDriver: "mysql", DatabaseURL: "u:p@tcp(localhost:3306)/db?clientFoundRows=true"}, DialectMySQL, false},
+		{"MySQL with a PostgreSQL URL", Config{DatabaseDriver: "mysql", DatabaseURL: "postgres://u:p@localhost/db"}, DialectMySQL, false},
+		{"unknown driver", Config{DatabaseDriver: "sqlite", DatabaseURL: "x"}, DialectPostgres, false},
+		{"case matters", Config{DatabaseDriver: "MySQL", DatabaseURL: "u:p@tcp(localhost)/db?parseTime=true&clientFoundRows=true"}, DialectPostgres, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			db, dialect, err := openAccountsDB(c.config)
+			if db != nil {
+				defer db.Close()
+			}
+			if (err == nil) != c.ok || (c.ok && dialect != c.dialect) {
+				t.Fatalf("ok=%v dialect=%v err=%v", c.ok, dialect, err)
+			}
+			if err != nil && !errors.Is(err, ErrUnavailable) {
+				t.Fatalf("a refused configuration must be reported as unavailable: %v", err)
+			}
+			if err != nil && strings.Contains(err.Error(), "u:p") {
+				t.Fatalf("the error leaks the credentials: %v", err)
+			}
+		})
+	}
+}
+
+func TestSessionsFollowTheAccountDatabaseOnMySQLAsOnPostgres(t *testing.T) {
+	pg, my, _ := accountFixtures(t)
+	hash, _ := bcrypt.GenerateFromPassword([]byte("correct-password"), bcrypt.MinCost)
+	run := func(a *SQLAccounts, d Dialect) []string {
+		var out []string
+		note := func(format string, args ...any) { out = append(out, fmt.Sprintf(format, args...)) }
+		if _, e := a.DB.Exec(`INSERT INTO users(id,email,name,tenant_id,authority,status,password,phone_number) VALUES(`+q(d, 1)+`,`+q(d, 2)+`,'Sam','t1','TENANT_USER','N',`+q(d, 3)+`,'+1 555')`, "sess-user", "sess@example.com", string(hash)); e != nil {
+			t.Fatal(e)
+		}
+		r := miniredis.RunT(t)
+		s := &Service{Accounts: a, Redis: redis.NewClient(&redis.Options{Addr: r.Addr()}), Key: []byte(strings.Repeat("s", 32)), TTL: time.Hour, MaxFailures: 3, LockDuration: time.Minute}
+		defer s.Redis.Close()
+		ctx := context.Background()
+		_, e := s.VerifyPassword(ctx, "sess@example.com", "wrong-password", "")
+		note("wrong password: %s", kind(e))
+		u, e := s.VerifyPassword(ctx, "sess@example.com", "correct-password", "")
+		note("right password: %s id=%s authority=%s", kind(e), u.ID, u.Authority)
+		first, e := s.Issue(ctx, u)
+		note("issue: %s", kind(e))
+		c, e := s.Check(ctx, first.Token)
+		note("check: %s id=%s version=%d", kind(e), c.ID, c.Version)
+		if _, e := a.dx().ExecContext(ctx, `UPDATE users SET auth_version=auth_version+1 WHERE id=$1`, "sess-user"); e != nil {
+			t.Fatal(e)
+		}
+		_, e = s.Check(ctx, first.Token)
+		note("check after the credential version moved: %s", kind(e))
+		u, _ = s.VerifyPassword(ctx, "sess@example.com", "correct-password", "")
+		second, e := s.Issue(ctx, u)
+		note("re-issue: %s", kind(e))
+		c, e = s.Check(ctx, second.Token)
+		note("check the new session: %s version=%d", kind(e), c.Version)
+		if _, e := a.dx().ExecContext(ctx, `UPDATE users SET status='F' WHERE id=$1`, "sess-user"); e != nil {
+			t.Fatal(e)
+		}
+		_, e = s.Check(ctx, second.Token)
+		note("check a frozen account: %s", kind(e))
+		_, e = s.VerifyPassword(ctx, "sess@example.com", "correct-password", "")
+		note("password login of a frozen account: %s", kind(e))
+		if _, e := a.dx().ExecContext(ctx, `UPDATE users SET status='N' WHERE id=$1`, "sess-user"); e != nil {
+			t.Fatal(e)
+		}
+		note("logout: %s", kind(s.Logout(ctx, second.Token)))
+		_, e = s.Check(ctx, second.Token)
+		note("check after logout: %s", kind(e))
+		return out
+	}
+	a, b := run(pg, DialectPostgres), run(my, DialectMySQL)
+	if !reflect.DeepEqual(a, b) {
+		for i := range a {
+			if i >= len(b) || a[i] != b[i] {
+				bb := ""
+				if i < len(b) {
+					bb = b[i]
+				}
+				t.Errorf("step %d differs\n  pg: %s\n  my: %s", i, a[i], bb)
+			}
+		}
+	}
+	joined := strings.Join(a, "\n")
+	if !strings.Contains(joined, "right password: ok") || !strings.Contains(joined, "check: ok") || !strings.Contains(joined, "check after logout: unauthorized") {
 		t.Fatalf("the oracle scenario did not behave as expected:\n%s", joined)
 	}
 }

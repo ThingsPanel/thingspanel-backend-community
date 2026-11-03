@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	mysqldriver "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
 	"net/url"
@@ -18,6 +19,9 @@ import (
 )
 
 type Config struct {
+	// DatabaseDriver is "postgres" (default) or "mysql". For mysql, DatabaseURL is a go-sql-driver DSN
+	// that must set parseTime=true and clientFoundRows=true.
+	DatabaseDriver    string           `json:"databaseDriver"`
 	DatabaseURL       string           `json:"databaseUrl"`
 	RedisURL          string           `json:"redisUrl"`
 	SigningKey        string           `json:"signingKey"`
@@ -71,9 +75,9 @@ func load() (*Runtime, error) {
 		return nil, ErrUnavailable
 	}
 	c.PublicOrigin = strings.TrimRight(c.PublicOrigin, "/")
-	db, e := sql.Open("pgx", c.DatabaseURL)
+	db, dialect, e := openAccountsDB(c)
 	if e != nil {
-		return nil, ErrUnavailable
+		return nil, e
 	}
 	db.SetMaxOpenConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
@@ -85,7 +89,7 @@ func load() (*Runtime, error) {
 	opts.DialTimeout = 3 * time.Second
 	opts.ReadTimeout = 3 * time.Second
 	opts.WriteTimeout = 3 * time.Second
-	s := &Service{Accounts: &SQLAccounts{DB: db}, Redis: redis.NewClient(opts), Key: []byte(c.SigningKey), TTL: time.Duration(c.SessionSeconds) * time.Second, MaxFailures: c.MaxFailures, LockDuration: time.Duration(c.LockSeconds) * time.Second}
+	s := &Service{Accounts: &SQLAccounts{DB: db, Dialect: dialect}, Redis: redis.NewClient(opts), Key: []byte(c.SigningKey), TTL: time.Duration(c.SessionSeconds) * time.Second, MaxFailures: c.MaxFailures, LockDuration: time.Duration(c.LockSeconds) * time.Second}
 	cleanup := func() { db.Close(); s.Redis.Close() }
 	if c.RSAPrivateKeyFile != "" {
 		b, e := os.ReadFile(c.RSAPrivateKeyFile)
@@ -112,7 +116,7 @@ func load() (*Runtime, error) {
 			key, err = base64.StdEncoding.DecodeString(strings.TrimSpace(string(key)))
 		}
 		if err == nil && len(key) == 32 {
-			r.Settings = &ProviderSettings{DB: db, Key: key, Origin: r.Origin}
+			r.Settings = &ProviderSettings{DB: db, Dialect: dialect, Key: key, Origin: r.Origin}
 			if len(r.Providers) > 0 {
 				r.Diagnostics = append(r.Diagnostics, map[string]string{"id": "settings", "code": "file_providers_require_import"})
 				r.Providers = map[string]*Provider{}
@@ -167,4 +171,33 @@ func (r *Runtime) providerSnapshot(ctx context.Context) (*Runtime, error) {
 
 func DisabledLoginOptions() map[string]any {
 	return map[string]any{"password": map[string]bool{"enabled": true}, "external": map[string]any{"enabled": false, "providers": []map[string]string{}}}
+}
+
+// openAccountsDB opens the account database for the configured driver. A MySQL DSN is refused unless it
+// sets the options the account queries rely on: parseTime (DATETIME columns scan into time.Time) and
+// clientFoundRows (RowsAffected means "rows matched", as in PostgreSQL).
+func openAccountsDB(c Config) (*sql.DB, Dialect, error) {
+	switch c.DatabaseDriver {
+	case "", "postgres":
+		db, e := sql.Open("pgx", c.DatabaseURL)
+		if e != nil {
+			return nil, DialectPostgres, ErrUnavailable
+		}
+		return db, DialectPostgres, nil
+	case "mysql":
+		cfg, e := mysqldriver.ParseDSN(c.DatabaseURL)
+		if e != nil {
+			return nil, DialectMySQL, fmt.Errorf("auth_database_dsn_invalid: %w", ErrUnavailable)
+		}
+		if !cfg.ParseTime || !cfg.ClientFoundRows {
+			return nil, DialectMySQL, fmt.Errorf("auth_database_dsn_needs_parseTime_and_clientFoundRows: %w", ErrUnavailable)
+		}
+		db, e := sql.Open("mysql", cfg.FormatDSN())
+		if e != nil {
+			return nil, DialectMySQL, ErrUnavailable
+		}
+		return db, DialectMySQL, nil
+	default:
+		return nil, DialectPostgres, fmt.Errorf("auth_database_driver_unsupported: %w", ErrUnavailable)
+	}
 }
