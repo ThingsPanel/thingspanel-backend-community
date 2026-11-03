@@ -9,7 +9,7 @@ func TestRewriteTranslatesKnownIdiomsAndRefusesTheRest(t *testing.T) {
 		t.Fatalf("ok=%v\n got %q %v\nwant %q", ok, q, args, want)
 	}
 	for _, bad := range []string{`SELECT a::int FROM t`, `SELECT jsonb_agg(x) FROM t`, `DELETE FROM t RETURNING id`,
-		`SELECT current_schema()`, `SELECT $3 FROM t`, `SELECT a FROM t WHERE b ILIKE $1`} {
+		`SELECT current_schema()`, `SELECT $3 FROM t`} {
 		if _, _, ok := MySQL.Rewrite(bad, []any{1}); ok {
 			t.Errorf("must not translate: %s", bad)
 		}
@@ -18,16 +18,18 @@ func TestRewriteTranslatesKnownIdiomsAndRefusesTheRest(t *testing.T) {
 		t.Fatalf("PostgreSQL statements pass through untouched: %q", q)
 	}
 	cases := map[string]string{
-		`SELECT g.id FROM groups g JOIN device_groups d ON d.x = g.id WHERE g.name = 'groups'`: "SELECT g.id FROM `groups` g JOIN device_groups d ON d.x = g.id WHERE g.name = 'groups'",
-		`SELECT count(*) FILTER (WHERE status IN ('a','b')), count(*) FILTER (WHERE NOT enabled), count(*) FROM t`: `SELECT count(CASE WHEN status IN ('a','b') THEN 1 END), count(CASE WHEN NOT enabled THEN 1 END), count(*) FROM t`,
-		"CREATE TABLE t (`signal` INT, `key` INT)": "CREATE TABLE t (`signal` INT, `key` INT)",
-		`SELECT coalesce(report,'null'::jsonb) FROM t WHERE key=$1 AND signal='key' AND x.key=$2 AND idempotency_key=$3`:    "SELECT coalesce(report,CAST('null' AS JSON)) FROM t WHERE `key`=? AND `signal`='key' AND x.`key`=? AND idempotency_key=?",
-		`UPDATE t SET d=NULLIF($1,'')::jsonb, r=coalesce(NULLIF($2,'')::uuid, r) WHERE id=$3`:                               `UPDATE t SET d=NULLIF(?,''), r=coalesce(NULLIF(?,''), r) WHERE id=?`,
-		`SELECT id::text, coalesce(binding_params,'{}'::jsonb), coalesce(a,'[]'::jsonb) FROM t WHERE r.rule_id::uuid=$1`:    `SELECT id, coalesce(binding_params,JSON_OBJECT()), coalesce(a,JSON_ARRAY()) FROM t WHERE r.rule_id=?`,
-		`INSERT INTO auto_requests (tenant_id, request_key) VALUES ($1,$2) ON CONFLICT (tenant_id, request_key) DO NOTHING`: `INSERT INTO auto_requests (tenant_id, request_key) VALUES (?,?)`,
-		`INSERT INTO t(id,a,b) VALUES($1,$2,$3) ON CONFLICT (id) DO UPDATE SET a=EXCLUDED.a, b = excluded.b`:                `INSERT INTO t(id,a,b) VALUES(?,?,?) ON DUPLICATE KEY UPDATE a=VALUES(a), b = VALUES(b)`,
-		`UPDATE t SET p=$1::jsonb, q=$2::bigint WHERE id=$3`:                                                                `UPDATE t SET p=?, q=? WHERE id=?`,
-		`SELECT payload->>'name', payload->'meta' FROM t`:                                                                   `SELECT JSON_UNQUOTE(JSON_EXTRACT(payload, '$.name')), JSON_EXTRACT(payload, '$.meta') FROM t`,
+		`SELECT a FROM t WHERE name ILIKE $1 AND t.label ILIKE '%x%'`:                                                                                `SELECT a FROM t WHERE LOWER(name) LIKE LOWER(?) AND LOWER(t.label) LIKE LOWER('%x%')`,
+		`SELECT coalesce(count(*),0)::bigint, (SELECT count(*) FROM u WHERE a IN (1,2))::bigint, 0::int, $1::uuid FROM t WHERE d = '{"a":1}'::jsonb`: `SELECT CAST(coalesce(count(*),0) AS SIGNED), CAST((SELECT count(*) FROM u WHERE a IN (1,2)) AS SIGNED), 0, ? FROM t WHERE d = CAST('{"a":1}' AS JSON)`,
+		`SELECT g.id FROM groups g JOIN device_groups d ON d.x = g.id WHERE g.name = 'groups'`:                                                       "SELECT g.id FROM `groups` g JOIN device_groups d ON d.x = g.id WHERE g.name = 'groups'",
+		`SELECT count(*) FILTER (WHERE status IN ('a','b')), count(*) FILTER (WHERE NOT enabled), count(*) FROM t`:                                   `SELECT count(CASE WHEN status IN ('a','b') THEN 1 END), count(CASE WHEN NOT enabled THEN 1 END), count(*) FROM t`,
+		"CREATE TABLE t (`signal` INT, `key` INT)":                                                                                                   "CREATE TABLE t (`signal` INT, `key` INT)",
+		`SELECT coalesce(report,'null'::jsonb) FROM t WHERE key=$1 AND signal='key' AND x.key=$2 AND idempotency_key=$3`:                             "SELECT coalesce(report,CAST('null' AS JSON)) FROM t WHERE `key`=? AND `signal`='key' AND x.`key`=? AND idempotency_key=?",
+		`UPDATE t SET d=NULLIF($1,'')::jsonb, r=coalesce(NULLIF($2,'')::uuid, r) WHERE id=$3`:                                                        `UPDATE t SET d=NULLIF(?,''), r=coalesce(NULLIF(?,''), r) WHERE id=?`,
+		`SELECT id::text, coalesce(binding_params,'{}'::jsonb), coalesce(a,'[]'::jsonb) FROM t WHERE r.rule_id::uuid=$1`:                             `SELECT id, coalesce(binding_params,JSON_OBJECT()), coalesce(a,JSON_ARRAY()) FROM t WHERE r.rule_id=?`,
+		`INSERT INTO auto_requests (tenant_id, request_key) VALUES ($1,$2) ON CONFLICT (tenant_id, request_key) DO NOTHING`:                          `INSERT INTO auto_requests (tenant_id, request_key) VALUES (?,?)`,
+		`INSERT INTO t(id,a,b) VALUES($1,$2,$3) ON CONFLICT (id) DO UPDATE SET a=EXCLUDED.a, b = excluded.b`:                                         `INSERT INTO t(id,a,b) VALUES(?,?,?) ON DUPLICATE KEY UPDATE a=VALUES(a), b = VALUES(b)`,
+		`UPDATE t SET p=$1::jsonb, q=$2::bigint WHERE id=$3`:                                                                                         `UPDATE t SET p=?, q=? WHERE id=?`,
+		`SELECT payload->>'name', payload->'meta' FROM t`:                                                                                            `SELECT JSON_UNQUOTE(JSON_EXTRACT(payload, '$.name')), JSON_EXTRACT(payload, '$.meta') FROM t`,
 	}
 	for in, want := range cases {
 		if got, _, ok := MySQL.Rewrite(in, []any{1, 2, 3}); !ok || got != want {

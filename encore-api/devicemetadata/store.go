@@ -25,6 +25,23 @@ func createThingModel(ctx context.Context, tenantID string, req *ThingModel) (*T
 	}
 	id := newID()
 	actorID := currentUserID()
+	if db.Dialect() == "mysql" {
+		if _, err := db.Exec(ctx, `
+			INSERT INTO thing_models (id, tenant_id, name, description_i18n, category, status, created_by, updated_by, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($6, ''), 'DRAFT'), $7, $7, NOW(), NOW())
+		`, id, tenantID, req.Name, jsonOrNull(req.DescriptionI18n), req.Category, req.Status, actorID); err != nil {
+			if isUniqueViolation(err, "thing_models_tenant_id_name_key") {
+				return nil, &errs.Error{Code: errs.AlreadyExists, Message: "thing model name already exists"}
+			}
+			return nil, wrapDBErr(err, "create thing model failed")
+		}
+		created, err := getThingModelByID(ctx, tenantID, id)
+		if err != nil {
+			return nil, err
+		}
+		*req = *created
+		return req, nil
+	}
 	if err := db.QueryRow(ctx, `
 		INSERT INTO thing_models (id, tenant_id, name, description_i18n, category, status, created_by, updated_by, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($6, ''), 'DRAFT'), $7, $7, NOW(), NOW())
@@ -42,6 +59,19 @@ func createThingModel(ctx context.Context, tenantID string, req *ThingModel) (*T
 
 func getThingModelByID(ctx context.Context, tenantID, id string) (*ThingModel, error) {
 	var out ThingModel
+	if db.Dialect() == "mysql" {
+		var description, webChart, appChart nullableJSONBytes
+		err := db.QueryRow(ctx, `
+			SELECT id, tenant_id, name, description_i18n, COALESCE(category,''), status, current_snapshot_id, web_chart_config, app_chart_config, created_at, updated_at
+			FROM thing_models
+			WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL
+		`, tenantID, id).Scan(&out.ID, &out.TenantID, &out.Name, &description, &out.Category, &out.Status, &out.CurrentSnapshotID, &webChart, &appChart, &out.CreatedAt, &out.UpdatedAt)
+		if err != nil {
+			return nil, wrapDBErr(err, "thing model not found")
+		}
+		out.DescriptionI18n, out.WebChartConfig, out.AppChartConfig = json.RawMessage(description), json.RawMessage(webChart), json.RawMessage(appChart)
+		return &out, nil
+	}
 	err := db.QueryRow(ctx, `
 		SELECT id, tenant_id, name, description_i18n, COALESCE(category,''), status, current_snapshot_id, web_chart_config, app_chart_config, created_at, updated_at
 		FROM thing_models
@@ -56,6 +86,47 @@ func getThingModelByID(ctx context.Context, tenantID, id string) (*ThingModel, e
 func listThingModels(ctx context.Context, tenantID string, q *ThingModelListReq) ([]ThingModel, int, error) {
 	q.pageRequest.normalize()
 	search := "%" + strings.TrimSpace(q.Search) + "%"
+	if db.Dialect() == "mysql" {
+		var total int
+		if err := db.QueryRow(ctx, `
+			SELECT COUNT(*)
+			FROM thing_models
+			WHERE tenant_id = $1 AND deleted_at IS NULL
+			  AND ($2 = '%%' OR LOWER(name) LIKE LOWER($2))
+			  AND ($3 = '' OR category = $3)
+			  AND ($4 = '' OR status = $4)
+		`, tenantID, search, q.Category, q.Status).Scan(&total); err != nil {
+			return nil, 0, wrapDBErr(err, "count thing models failed")
+		}
+		rows, err := db.Query(ctx, `
+			SELECT id, tenant_id, name, description_i18n, COALESCE(category,''), status, current_snapshot_id, web_chart_config, app_chart_config, created_at, updated_at
+			FROM thing_models
+			WHERE tenant_id = $1 AND deleted_at IS NULL
+			  AND ($2 = '%%' OR LOWER(name) LIKE LOWER($2))
+			  AND ($3 = '' OR category = $3)
+			  AND ($4 = '' OR status = $4)
+			ORDER BY updated_at DESC
+			LIMIT $5 OFFSET $6
+		`, tenantID, search, q.Category, q.Status, q.PageSize, (q.Page-1)*q.PageSize)
+		if err != nil {
+			return nil, 0, wrapDBErr(err, "list thing models failed")
+		}
+		defer rows.Close()
+		items := make([]ThingModel, 0)
+		for rows.Next() {
+			var item ThingModel
+			var description, webChart, appChart nullableJSONBytes
+			if err := rows.Scan(&item.ID, &item.TenantID, &item.Name, &description, &item.Category, &item.Status, &item.CurrentSnapshotID, &webChart, &appChart, &item.CreatedAt, &item.UpdatedAt); err != nil {
+				return nil, 0, wrapDBErr(err, "list thing models failed")
+			}
+			item.DescriptionI18n, item.WebChartConfig, item.AppChartConfig = json.RawMessage(description), json.RawMessage(webChart), json.RawMessage(appChart)
+			items = append(items, item)
+		}
+		if err := rows.Err(); err != nil {
+			return nil, 0, wrapDBErr(err, "list thing models failed")
+		}
+		return items, total, nil
+	}
 	rows, err := db.Query(ctx, `
 		SELECT id, tenant_id, name, description_i18n, COALESCE(category,''), status, current_snapshot_id, web_chart_config, app_chart_config, created_at, updated_at,
 		       COUNT(*) OVER()
@@ -83,12 +154,48 @@ func listThingModels(ctx context.Context, tenantID string, q *ThingModelListReq)
 	return items, total, nil
 }
 
+// nullableJSON handles SQL NULL from MySQL JSON columns without converting it to the JSON value null.
+type nullableJSONBytes []byte
+
+func (j *nullableJSONBytes) Scan(src any) error {
+	switch value := src.(type) {
+	case nil:
+		*j = nil
+	case []byte:
+		*j = append((*j)[:0], value...)
+	case string:
+		*j = append((*j)[:0], value...)
+	default:
+		return fmt.Errorf("cannot scan %T into nullable JSON", src)
+	}
+	return nil
+}
+
 func updateThingModel(ctx context.Context, tenantID, id string, req *ThingModel) (*ThingModel, error) {
 	if issues := validateThingModelPayload(req); len(issues) > 0 {
 		return nil, &errs.Error{Code: errs.InvalidArgument, Message: issues[0].Message}
 	}
 	var out ThingModel
 	actorID := currentUserID()
+	if db.Dialect() == "mysql" {
+		res, err := db.Exec(ctx, `
+			UPDATE thing_models
+			SET name = $3, description_i18n = $4, category = $5, web_chart_config = COALESCE($7, web_chart_config), app_chart_config = COALESCE($8, app_chart_config), updated_by = $6, updated_at = NOW()
+			WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL
+		`, tenantID, id, req.Name, jsonOrNull(req.DescriptionI18n), req.Category, actorID, jsonOrNull(req.WebChartConfig), jsonOrNull(req.AppChartConfig))
+		if err != nil {
+			if isUniqueViolation(err, "thing_models_tenant_id_name_key") {
+				return nil, &errs.Error{Code: errs.AlreadyExists, Message: "thing model name already exists"}
+			}
+			return nil, wrapDBErr(err, "thing model not found")
+		}
+		// OpenMySQL requires clientFoundRows=true so RowsAffected counts matched rows,
+		// including updates that leave the stored values unchanged.
+		if res.RowsAffected() == 0 {
+			return nil, wrapDBErr(sqldb.ErrNoRows, "thing model not found")
+		}
+		return getThingModelByID(ctx, tenantID, id)
+	}
 	err := db.QueryRow(ctx, `
 		UPDATE thing_models
 		SET name = $3, description_i18n = $4, category = $5, web_chart_config = COALESCE($7, web_chart_config), app_chart_config = COALESCE($8, app_chart_config), updated_by = $6, updated_at = NOW()

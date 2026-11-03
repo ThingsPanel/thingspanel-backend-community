@@ -23,6 +23,8 @@ func TestMySQLSeedRowsMatchWhatThePostgresMigrationsInsert(t *testing.T) {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	// The migrations stamp these with now(), so they differ on every rebuild of the oracle by construction.
+	ignored := map[string]bool{"service_plugins.create_at": true, "service_plugins.update_at": true, "service_plugins.last_active_time": true}
 	total := 0
 	for _, table := range names {
 		pgRows := readTable(t, pg, table, true)
@@ -38,6 +40,9 @@ func TestMySQLSeedRowsMatchWhatThePostgresMigrationsInsert(t *testing.T) {
 				continue
 			}
 			for column, value := range want {
+				if ignored[table+"."+column] {
+					continue
+				}
 				if !reflect.DeepEqual(value, got[column]) {
 					t.Errorf("%s %s.%s: PostgreSQL %v (%T), MySQL %v (%T)", table, key, column, value, value, got[column], got[column])
 				}
