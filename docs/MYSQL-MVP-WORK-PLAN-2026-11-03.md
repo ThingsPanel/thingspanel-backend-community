@@ -26,7 +26,10 @@
 **MVP-1 的主流程已经在 MySQL 上跑通（主线完成，2026-11-03）：** `db.driver=mysql` 时平台自己应用全部 MySQL 迁移（含种子数据）并启动；
 `scripts/smoke_mvp1.sh` 覆盖登录、用户、分组、设备增删改查、设备列表、看板统计，`scripts/smoke_mvp1_ingest.sh` 覆盖 MQTT 遥测上报 → 当前值 → 历史 → 删除设备。
 历史遥测在没有 TDengine 时落在 MySQL 自己的 `telemetry_datas`（兜底，仅用于开发和小规模）；生产的 MySQL 档位仍应配 TDengine。
-**还没验证的：** 界面（前端）、TDengine 路径在 MySQL 平台上的整链、插件安装、broker 控制面（本次 MQTT 走的是平台自己订阅 `devices/telemetry` 的旧通道，没有 broker 控制面）。
+**界面验证（内置浏览器 + 前端 develop 开发服务器，代理到 MySQL 后端）：** 首次初始化超级管理员、登录、超级管理员和租户管理员各自的动态菜单、首页看板、租户管理页都正常。
+设备管理页显示“Device service request failed (500)”：前端的设备列表走独立的 Encore 设备服务（`/api/v2/devices`，devicemetadata 数据层），这套栈里没有它，属于 WP-D。
+找到并修复了一个真实缺口：gorm 的 `JSONQuery.HasKey` 在 MySQL 上不匹配 JSON 数组，导致菜单为空，现在由 `dal.jsonContainsString` 按方言处理，`TestMenuByAuthorityMatchesPostgresOnMySQL` 证明两个库的菜单一致。
+**还没验证的：** 设备等 Encore 服务驱动的页面、TDengine 路径在 MySQL 平台上的整链、插件安装、broker 控制面（本次 MQTT 走的是平台自己订阅 `devices/telemetry` 的旧通道，没有 broker 控制面）。
 
 ## 二、本地测试环境（每个人先做这个）
 
