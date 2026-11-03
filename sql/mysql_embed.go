@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-//go:embed mysql/001_core_users_devices.sql mysql/002_device_identity.sql mysql/003_auth.sql mysql/004_app_push_devices.sql mysql/005_account_support.sql mysql/006_device_status_history.sql mysql/007_service_access.sql mysql/008_history_intent.sql mysql/009_platformconfig_dictionary.sql mysql/010_automation.sql mysql/011_automation_partial_unique.sql
+//go:embed mysql/001_core_users_devices.sql mysql/002_device_identity.sql mysql/003_auth.sql mysql/004_app_push_devices.sql mysql/005_account_support.sql mysql/006_device_status_history.sql mysql/007_service_access.sql mysql/008_history_intent.sql mysql/009_platformconfig_dictionary.sql mysql/010_automation.sql mysql/011_automation_partial_unique.sql mysql/012_platform_base.sql mysql/013_platform_base_extras.sql
 var mysqlMigrationFiles embed.FS
 
 // MySQLMigrationContents returns the raw bytes of one MySQL migration file (the ledger checksum input).
@@ -69,4 +69,10 @@ func MySQLDeviceStatusMigrationNames() []string {
 // MySQLAuthMigrationNames lists the authentication migration files; they require the core schema.
 func MySQLAuthMigrationNames() []string {
 	return []string{"003_auth.sql", "004_app_push_devices.sql", "005_account_support.sql"}
+}
+
+// MySQLPlatformBaseMigrationNames lists the generated platform base schema (every platform table not owned by
+// an earlier MySQL migration). It is generated from the final PostgreSQL schema by scripts/pg2mysql_platform.py.
+func MySQLPlatformBaseMigrationNames() []string {
+	return []string{"012_platform_base.sql", "013_platform_base_extras.sql"}
 }

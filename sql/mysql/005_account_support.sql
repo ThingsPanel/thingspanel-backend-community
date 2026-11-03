@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS boards (
     vis_type VARCHAR(50) NULL,
     PRIMARY KEY (id),
     KEY idx_boards_tenant (tenant_id)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS sys_function (
     id VARCHAR(36) NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS sys_function (
     description VARCHAR(500) NULL,
     remark VARCHAR(255) NULL,
     PRIMARY KEY (id)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 INSERT IGNORE INTO sys_function (id, name, enable_flag, description) VALUES
     ('function_1', 'use_captcha', 'disable', '验证码登陆'),
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS user_address (
     PRIMARY KEY (id),
     UNIQUE KEY uk_user_address_user_id (user_id),
     CONSTRAINT fk_user_address_user_id FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS casbin_rule (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -66,4 +66,4 @@ CREATE TABLE IF NOT EXISTS casbin_rule (
     v5 VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
     PRIMARY KEY (id),
     UNIQUE KEY idx_casbin_rule (ptype, v0, v1, v2, v3, v4, v5)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin

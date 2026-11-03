@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS device_id_reservations (
     PRIMARY KEY (id),
     CONSTRAINT device_id_reservations_state_check CHECK (state IN ('active', 'tombstoned')),
     CONSTRAINT device_id_reservations_lifecycle_check CHECK ((state = 'active' AND deleted_at IS NULL) OR (state = 'tombstoned' AND deleted_at IS NOT NULL))
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 INSERT IGNORE INTO device_id_reservations (id, tenant_id, state, created_at)
 SELECT id, tenant_id, 'active', COALESCE(created_at, CURRENT_TIMESTAMP(6)) FROM devices

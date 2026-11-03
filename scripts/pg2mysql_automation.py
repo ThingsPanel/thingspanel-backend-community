@@ -185,7 +185,7 @@ class Converter:
             k = re.sub(r'\(([^)]*)\)', lambda m: '(' + ', '.join('`' + c.strip().split()[0] + '`' + (' ' + ' '.join(c.strip().split()[1:]) if len(c.strip().split()) > 1 else '') for c in m.group(1).split(',')) + ')', k, count=1)
             defs.append('    ' + k)
         defs.extend(fks)
-        self.out.append(f'CREATE TABLE IF NOT EXISTS {table} (\n' + ',\n'.join(defs) + '\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4')
+        self.out.append(f'CREATE TABLE IF NOT EXISTS {table} (\n' + ',\n'.join(defs) + '\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin')
 
     def guarded(self, check_sql, action_sql, tag):
         self.out.append(f"SET @tp_{tag} := ({check_sql})")
@@ -240,7 +240,7 @@ class Converter:
             # MySQL has no sequences. A one-row counter advanced with LAST_INSERT_ID(value + 1) on its own
             # autocommit connection behaves like nextval(): monotonic, gaps allowed, not rolled back.
             name = m.group(1)
-            self.out.append(f'CREATE TABLE IF NOT EXISTS {name}_counter (\n    `id` TINYINT NOT NULL PRIMARY KEY,\n    `value` BIGINT NOT NULL\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4')
+            self.out.append(f'CREATE TABLE IF NOT EXISTS {name}_counter (\n    `id` TINYINT NOT NULL PRIMARY KEY,\n    `value` BIGINT NOT NULL\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin')
             self.out.append(f'INSERT IGNORE INTO {name}_counter (`id`, `value`) VALUES (1, 0)')
             return
         raise SystemExit('unsupported statement: ' + stmt[:200])

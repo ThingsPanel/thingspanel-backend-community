@@ -10,4 +10,4 @@ CREATE TABLE IF NOT EXISTS device_status_history (
     PRIMARY KEY (id),
     KEY idx_tenant_device_time (tenant_id, device_id, change_time),
     CONSTRAINT fk_device FOREIGN KEY (device_id) REFERENCES devices (id) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin

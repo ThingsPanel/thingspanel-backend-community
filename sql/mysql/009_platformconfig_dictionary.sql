@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS sys_dict (
     remark VARCHAR(255) NULL,
     PRIMARY KEY (id),
     CONSTRAINT sys_dict_dict_code_dict_value_key UNIQUE (dict_code, dict_value)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS sys_dict_language (
     id VARCHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS sys_dict_language (
     PRIMARY KEY (id),
     CONSTRAINT sys_dict_language_dict_id_language_code_key UNIQUE (dict_id, language_code),
     CONSTRAINT sys_dict_language_dict_id_fkey FOREIGN KEY (dict_id) REFERENCES sys_dict (id) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 INSERT IGNORE INTO sys_dict (id, dict_code, dict_value, created_at, remark) VALUES
     ('0013fb9e-e3be-95d4-9c96-f18d1f9ddfcd', 'GATEWAY_PROTOCOL', 'MQTT', '2024-01-18 15:39:38.469000', NULL),

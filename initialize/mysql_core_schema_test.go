@@ -203,10 +203,9 @@ func TestMysqlCoreSchemaMatchesPostgresBehaviour(t *testing.T) {
 	}
 }
 
-// Known, intentional divergence: LIKE is case-sensitive in PostgreSQL and case-insensitive under
-// MySQL's default collation. Code that relies on either behaviour must say which (ILIKE sites
-// become LOWER(col) LIKE LOWER(?)).
-func TestMysqlCoreSchemaLikeCaseDivergenceIsExplicit(t *testing.T) {
+// Every MySQL table defaults to utf8mb4_bin, so LIKE is case-sensitive exactly as in PostgreSQL. Code that wants
+// a case-insensitive match (ILIKE sites) says so with LOWER(col) LIKE LOWER(?).
+func TestMysqlCoreSchemaLikeIsCaseSensitiveLikePostgres(t *testing.T) {
 	pg, my := openCoreDialects(t)
 	tenant := "tenant-" + uuid.NewString()[:8]
 	suffix := uuid.NewString()[:8]
@@ -224,8 +223,8 @@ func TestMysqlCoreSchemaLikeCaseDivergenceIsExplicit(t *testing.T) {
 		}
 		return n
 	}
-	if pgN, myN := count(pg, "name LIKE ?", "boiler%"), count(my, "name LIKE ?", "boiler%"); pgN != 0 || myN != 1 {
-		t.Fatalf("plain LIKE: pg=%d my=%d, expected the documented divergence 0 vs 1", pgN, myN)
+	if pgN, myN := count(pg, "name LIKE ?", "boiler%"), count(my, "name LIKE ?", "boiler%"); pgN != 0 || myN != 0 {
+		t.Fatalf("plain LIKE must be case-sensitive on both: pg=%d my=%d", pgN, myN)
 	}
 	if pgN, myN := count(pg, "LOWER(name) LIKE LOWER(?)", "BOILER%"), count(my, "LOWER(name) LIKE LOWER(?)", "BOILER%"); pgN != 1 || myN != 1 {
 		t.Fatalf("LOWER(col) LIKE LOWER(?) must behave the same: pg=%d my=%d", pgN, myN)

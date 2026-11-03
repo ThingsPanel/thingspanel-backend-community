@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS service_access (
     tenant_id VARCHAR(36) NOT NULL,
     PRIMARY KEY (id),
     KEY idx_service_access_plugin (service_plugin_id)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS service_access_create_receipts (
     tenant_id VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -36,4 +36,4 @@ CREATE TABLE IF NOT EXISTS service_access_create_receipts (
     CONSTRAINT service_access_create_receipts_key_check CHECK (REGEXP_LIKE(operation_key, '^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$', 'c')),
     CONSTRAINT service_access_create_receipts_request_hash_check CHECK (REGEXP_LIKE(request_hash, '^[0-9a-f]{64}$', 'c')),
     CONSTRAINT service_access_create_receipts_resource_hash_check CHECK (REGEXP_LIKE(resource_hash, '^[0-9a-f]{64}$', 'c'))
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin

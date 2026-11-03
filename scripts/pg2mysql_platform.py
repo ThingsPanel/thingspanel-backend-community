@@ -1,0 +1,365 @@
+#!/usr/bin/env python3
+"""Generate sql/mysql/012_platform_base.sql from the final PostgreSQL platform schema.
+
+The root migrations (sql/1.sql ... sql/32.sql) mix DDL, ALTERs with USING, DO blocks and seed data, so they are
+not translated statement by statement. Instead they are applied to a scratch PostgreSQL and the *resulting*
+catalog is converted. Anything the converter does not understand aborts the run.
+
+Usage: pg2mysql_platform.py <psql command prefix, e.g. "docker exec -i NAME psql -U postgres"> <exclude file> > out.sql
+
+Rules: every string column is utf8mb4_bin (PostgreSQL compares case-sensitively); text in a key becomes
+VARCHAR(191); timestamp/timestamptz become DATETIME(6); json/jsonb become JSON; uuid CHAR(36); serials
+AUTO_INCREMENT; partial indexes become plain indexes (a partial unique index aborts); CHECK constraints are
+reported, not converted; foreign keys are emitted last, guarded by information_schema.
+"""
+import json
+import re
+import shlex
+import subprocess
+import sys
+
+BIG_KEY = 191
+
+Q = r"""
+SELECT json_agg(t ORDER BY t.name) FROM (
+ SELECT c.relname AS name,
+  (SELECT json_agg(json_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'notnull',a.attnotnull,
+          'default',pg_get_expr(d.adbin,d.adrelid)) ORDER BY a.attnum)
+     FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
+    WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped) AS cols,
+  (SELECT json_agg(json_build_object('name',i.relname,'unique',x.indisunique,'primary',x.indisprimary,'def',pg_get_indexdef(x.indexrelid))
+          ORDER BY i.relname)
+     FROM pg_index x JOIN pg_class i ON i.oid=x.indexrelid WHERE x.indrelid=c.oid) AS idx,
+  (SELECT json_agg(json_build_object('name',k.conname,'def',pg_get_constraintdef(k.oid),'type',k.contype) ORDER BY k.conname)
+     FROM pg_constraint k WHERE k.conrelid=c.oid) AS cons
+ FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relkind='r') t
+"""
+
+
+def fetch(prefix):
+    out = subprocess.run(shlex.split(prefix) + ['-At', '-c', Q], capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
+
+
+def split_top(s):
+    parts, depth, cur, quote = [], 0, '', False
+    for ch in s:
+        if ch == "'":
+            quote = not quote
+        if not quote:
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+            elif ch == ',' and depth == 0:
+                parts.append(cur.strip())
+                cur = ''
+                continue
+        cur += ch
+    if cur.strip():
+        parts.append(cur.strip())
+    return parts
+
+
+def parse_type(pg):
+    pg = pg.strip()
+    m = re.match(r'(character varying|varchar)\((\d+)\)$', pg)
+    if m:
+        return ('varchar', int(m.group(2)))
+    m = re.match(r'character\((\d+)\)$', pg)
+    if m:
+        return ('char', int(m.group(1)))
+    simple = {
+        'text': ('text', 0), 'character varying': ('text', 0), 'integer': ('int', 0), 'smallint': ('smallint', 0),
+        'bigint': ('bigint', 0), 'boolean': ('bool', 0), 'double precision': ('double', 0), 'real': ('float', 0),
+        'uuid': ('uuid', 0), 'json': ('json', 0), 'jsonb': ('json', 0), 'bytea': ('blob', 0), 'date': ('date', 0),
+        'timestamp with time zone': ('dt', 0), 'timestamp without time zone': ('dt', 0),
+        'time without time zone': ('time', 0), 'time with time zone': ('time', 0),
+    }
+    if pg in simple:
+        return simple[pg]
+    m = re.match(r'timestamp\(\d+\) (with|without) time zone$', pg)
+    if m:
+        return ('dt', 0)
+    m = re.match(r'time\(\d+\) (with|without) time zone$', pg)
+    if m:
+        return ('time', 0)
+    m = re.match(r'numeric\((\d+),(\d+)\)$', pg)
+    if m:
+        return ('decimal', (int(m.group(1)), int(m.group(2))))
+    if pg == 'numeric':
+        return ('decimal', (38, 10))
+    raise SystemExit(f'unsupported column type: {pg}')
+
+
+STR = {'varchar', 'char', 'text'}
+
+
+def mysql_type(kind, size, in_key):
+    if kind == 'varchar':
+        return f'VARCHAR({size}) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin'
+    if kind == 'char':
+        return f'CHAR({size}) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin'
+    if kind == 'text':
+        if in_key:
+            return f'VARCHAR({BIG_KEY}) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin'
+        return 'LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin'
+    return {'int': 'INT', 'smallint': 'SMALLINT', 'bigint': 'BIGINT', 'bool': 'TINYINT(1)', 'double': 'DOUBLE', 'float': 'FLOAT',
+            'uuid': 'CHAR(36) CHARACTER SET ascii COLLATE ascii_bin', 'json': 'JSON', 'blob': 'LONGBLOB', 'date': 'DATE',
+            'dt': 'DATETIME(6)', 'time': 'TIME'}.get(kind) or f'DECIMAL({size[0]},{size[1]})'
+
+
+def convert_default(expr, kind, report, where):
+    if expr is None:
+        return None, False
+    e = expr.strip()
+    if e.startswith('nextval('):
+        return None, True
+    if re.fullmatch(r'(now\(\)|CURRENT_TIMESTAMP|LOCALTIMESTAMP)', e, re.I):
+        return 'CURRENT_TIMESTAMP(6)', False
+    if re.fullmatch(r'(gen_random_uuid\(\)|uuid_generate_v4\(\))', e, re.I):
+        return '(UUID())', False
+    m = re.fullmatch(r"'((?:[^']|'')*)'(?:::[a-z ]+(?:\(\d+\))?(?:\[\])?)?", e)
+    if m:
+        lit = "'" + m.group(1) + "'"
+        if kind in ('text', 'json', 'blob'):
+            return f'({lit})', False
+        if kind == 'bool':
+            return ('1' if m.group(1).lower() in ('t', 'true', '1') else '0'), False
+        return lit, False
+    if re.fullmatch(r'-?\d+(\.\d+)?', e):
+        return e, False
+    if re.fullmatch(r"\(?-?\d+(\.\d+)?\)?(::[a-z ]+)?", e):
+        return re.sub(r'::.*', '', e).strip('()'), False
+    if e.lower() in ('true', 'false'):
+        return ('1' if e.lower() == 'true' else '0'), False
+    report.append(f'{where}: default {expr!r} not converted (column left without default)')
+    return None, False
+
+
+MAX_KEY_BYTES = 3072
+
+
+def key_bytes(cols, colinfo, in_key_text=BIG_KEY):
+    """Bytes an InnoDB index entry needs for these plain columns (utf8mb4 strings take 4 per character)."""
+    total = 0
+    for c in cols:
+        kind, size = colinfo[c]
+        if kind == 'varchar':
+            total += 4 * size
+        elif kind == 'char':
+            total += 4 * size
+        elif kind == 'text':
+            total += 4 * in_key_text
+        elif kind == 'uuid':
+            total += 36
+        elif kind in ('bigint', 'dt', 'double'):
+            total += 8
+        elif kind in ('int', 'float', 'date'):
+            total += 4
+        elif kind == 'smallint':
+            total += 2
+        elif kind == 'bool':
+            total += 1
+        elif kind == 'time':
+            total += 6
+        else:
+            total += 16
+    return total
+
+
+def split_index_columns(defn):
+    start = re.search(r'USING \w+ \(', defn)
+    if not start:
+        raise SystemExit(f'cannot parse index: {defn}')
+    depth, i = 1, start.end()
+    while depth:
+        depth += {'(': 1, ')': -1}.get(defn[i], 0)
+        i += 1
+    inner = defn[start.end():i - 1]
+    where = re.match(r'\s*WHERE (.*)$', defn[i:], re.S)
+
+    class M:
+        def group(self, n):
+            return inner if n == 1 else (where.group(1) if where else None)
+    m = M()
+    cols = []
+    for part in split_top(m.group(1)):
+        part = re.sub(r'\s+(varchar|text|bpchar)_pattern_ops\b', '', part)
+        desc = bool(re.search(r'\s+DESC\b', part))
+        part = re.sub(r'\s+(DESC|ASC)\b', '', part)
+        part = re.sub(r'\s+NULLS (FIRST|LAST)\b', '', part)
+        cols.append((part.strip(), desc))
+    return cols, m.group(2)
+
+
+def hashed_unique(table, name, cols, notnull, colinfo):
+    """A unique key too long for InnoDB becomes a unique key on a stored SHA-256 of its columns."""
+    for c in cols:
+        if not notnull[c]:
+            raise SystemExit(f'{table}.{name}: over-long unique key with nullable column {c} needs a manual emulation')
+    expr = 'SHA2(CONCAT_WS(CHAR(31), ' + ', '.join('`' + c + '`' for c in cols) + '), 256)'
+    return [f"    `{name}__uk` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin GENERATED ALWAYS AS ({expr}) STORED",
+            f"    UNIQUE KEY `{name}` (`{name}__uk`)"]
+
+
+def convert_check(defn, table, name):
+    """CHECK (expr): drop PostgreSQL casts and turn = ANY (ARRAY[...]) into IN (...)."""
+    m = re.match(r'CHECK \((.*)\)(?: NOT VALID)?$', defn, re.S)
+    if not m:
+        raise SystemExit(f'cannot parse CHECK {name} on {table}: {defn}')
+    e = m.group(1)
+    e = re.sub(r"::(character varying|text|timestamp with time zone|timestamp without time zone|bigint|integer|smallint|uuid|jsonb|boolean|numeric)(\[\])?", '', e)
+    e = re.sub(r'=\s*ANY\s*\(\s*\(\s*ARRAY\[(.*?)\]\s*\)\s*\)', r'IN (\1)', e, flags=re.S)
+    e = re.sub(r'=\s*ANY\s*\(\s*ARRAY\[(.*?)\]\s*\)', r'IN (\1)', e, flags=re.S)
+    if '::' in e or 'ANY' in e or 'ARRAY' in e:
+        raise SystemExit(f'CHECK {name} on {table} still has PostgreSQL syntax: {e}')
+    return e
+
+
+def main():
+    prefix, exclude_file = sys.argv[1], sys.argv[2]
+    exclude = {l.strip() for l in open(exclude_file) if l.strip()}
+    tables = [t for t in fetch(prefix) if t['name'] not in exclude]
+    names = {t['name'] for t in tables}
+    report, stmts, fk_stmts = [], [], []
+    deps = {}
+    for t in tables:
+        deps[t['name']] = set()
+        for k in t['cons'] or []:
+            if k['type'] == 'f':
+                m = re.search(r'REFERENCES (?:public\.)?"?(\w+)"?', k['def'])
+                if m and m.group(1) in names and m.group(1) != t['name']:
+                    deps[t['name']].add(m.group(1))
+    order, done = [], set()
+
+    def visit(n, stack=()):
+        if n in done or n in stack:
+            return
+        for d in sorted(deps[n]):
+            visit(d, stack + (n,))
+        if n not in done:
+            done.add(n)
+            order.append(n)
+    for n in sorted(names):
+        visit(n)
+    by = {t['name']: t for t in tables}
+    created = set()
+    used_names = set()
+
+    def unique_name(table, name):
+        # MySQL constraint names are unique per database, PostgreSQL's per table.
+        final = name if name not in used_names else f'{table}_{name}'
+        used_names.add(final)
+        return final
+    counter = 0
+    for n in order:
+        t = by[n]
+        keycols = set()
+        for ix in t['idx'] or []:
+            if ' WHERE ' in ix['def'] and ix['unique']:
+                raise SystemExit(f"partial unique index {ix['name']} on {n} needs a hand-written emulation")
+            for c, _ in split_index_columns(ix['def'])[0]:
+                keycols.add(c.strip('"'))
+        for k in t['cons'] or []:
+            if k['type'] == 'f':
+                m = re.match(r'FOREIGN KEY \((.*?)\) REFERENCES', k['def'])
+                keycols.update(c.strip().strip('"') for c in m.group(1).split(','))
+        colinfo = {c['name']: parse_type(c['type']) for c in t['cols']}
+        notnull = {c['name']: c['notnull'] for c in t['cols']}
+        lines, pk_auto = [], None
+        serial = set()
+        for c in t['cols']:
+            kind, size = parse_type(c['type'])
+            default, is_serial = convert_default(c['default'], kind, report, f"{n}.{c['name']}")
+            if is_serial:
+                serial.add(c['name'])
+            ty = mysql_type(kind, size, c['name'] in keycols)
+            if kind == 'dt' and default is None and not is_serial and c['default'] is None:
+                pass
+            line = f"    `{c['name']}` {ty}{' NOT NULL' if c['notnull'] or is_serial else ' NULL'}"
+            if is_serial:
+                line += ' AUTO_INCREMENT'
+            elif default is not None:
+                line += f' DEFAULT {default}'
+            lines.append(line)
+        for k in t['cons'] or []:
+            if k['type'] == 'p':
+                cols = re.match(r'PRIMARY KEY \((.*)\)', k['def']).group(1)
+                lines.append('    PRIMARY KEY (' + ', '.join('`' + c.strip().strip('"') + '`' for c in cols.split(',')) + ')')
+            elif k['type'] == 'u':
+                cols = [c.strip().strip('"') for c in re.match(r'UNIQUE \((.*)\)', k['def']).group(1).split(',')]
+                if key_bytes(cols, colinfo) > MAX_KEY_BYTES:
+                    lines.extend(hashed_unique(n, k['name'], cols, notnull, colinfo))
+                else:
+                    lines.append(f"    UNIQUE KEY `{k['name']}` (" + ', '.join('`' + c + '`' for c in cols) + ')')
+            elif k['type'] == 'c':
+                lines.append(f"    CONSTRAINT `{unique_name(n, k['name'])}` CHECK ({convert_check(k['def'], n, k['name'])})")
+            elif k['type'] not in ('f',):
+                report.append(f"{n}: constraint {k['name']} ({k['type']}) {k['def']} not converted")
+        constraint_idx = {k['name'] for k in t['cons'] or [] if k['type'] in ('p', 'u')}
+        for ix in t['idx'] or []:
+            if ix['primary'] or ix['name'] in constraint_idx:
+                continue
+            cols, where = split_index_columns(ix['def'])
+            if where:
+                report.append(f"{n}: index {ix['name']} is partial ({where}); created as a plain index")
+            rendered = []
+            for c, desc in cols:
+                c = c.strip()
+                if re.fullmatch(r'"?\w+"?', c):
+                    rendered.append('`' + c.strip('"') + '`' + (' DESC' if desc else ''))
+                else:
+                    c = re.sub(r'\((\w+)\)::\w+( \w+)*', r'\1', c)
+                    c = re.sub(r'"(\w+)"', r'\1', c)
+                    rendered.append('((' + c + '))')
+            plain = [c.strip('"') for c, _ in cols if re.fullmatch(r'"?\w+"?', c.strip())]
+            if len(plain) == len(cols) and key_bytes(plain, colinfo) > MAX_KEY_BYTES:
+                if ix['unique']:
+                    lines.extend(hashed_unique(n, ix['name'], plain, notnull, colinfo))
+                    continue
+                rendered = []
+                for c, desc in cols:
+                    c = c.strip('"')
+                    prefix = f'({BIG_KEY})' if colinfo[c][0] in ('varchar', 'char', 'text') and (colinfo[c][1] or BIG_KEY) > BIG_KEY else ''
+                    rendered.append(f'`{c}`{prefix}' + (' DESC' if desc else ''))
+                report.append(f"{n}: index {ix['name']} is longer than 3072 bytes; string columns use a {BIG_KEY}-character prefix")
+            kind = 'UNIQUE KEY' if ix['unique'] else 'KEY'
+            lines.append(f"    {kind} `{ix['name']}` (" + ', '.join(rendered) + ')')
+        stmts.append(f"CREATE TABLE IF NOT EXISTS `{n}` (\n" + ',\n'.join(lines) + '\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin')
+        created.add(n)
+        for k in t['cons'] or []:
+            if k['type'] != 'f':
+                continue
+            m = re.match(r'FOREIGN KEY \((.*?)\) REFERENCES (?:public\.)?"?(\w+)"?\((.*?)\)(.*)$', k['def'])
+            cols = ', '.join('`' + c.strip().strip('"') + '`' for c in m.group(1).split(','))
+            refs = ', '.join('`' + c.strip().strip('"') + '`' for c in m.group(3).split(','))
+            tail = m.group(4)
+            actions = ''
+            for kw in ('DELETE', 'UPDATE'):
+                am = re.search(r'ON ' + kw + r' (CASCADE|SET NULL|RESTRICT|NO ACTION|SET DEFAULT)', tail)
+                if am and am.group(1) not in ('NO ACTION',):
+                    if am.group(1) == 'SET DEFAULT':
+                        raise SystemExit(f'SET DEFAULT foreign key {k["name"]}')
+                    actions += f' ON {kw} {am.group(1)}'
+            counter += 1
+            fk_name = unique_name(n, k['name'])
+            fk_stmts.append((n, fk_name, f"ALTER TABLE `{n}` ADD CONSTRAINT `{fk_name}` FOREIGN KEY ({cols}) REFERENCES `{m.group(2)}` ({refs}){actions}"))
+    out = [
+        '-- Generated by scripts/pg2mysql_platform.py from the final PostgreSQL platform schema. Do not edit by hand.',
+    ]
+    out.extend(stmts)
+    for i, (table, name, ddl) in enumerate(fk_stmts, 1):
+        out.append(f"SET @tp_fk{i} := (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = '{table}' AND constraint_name = '{name}')")
+        out.append(f"SET @tp_fk{i}_sql := IF(@tp_fk{i} = 0, '{ddl}', 'SELECT 1')")
+        out.append(f'PREPARE tp_fk{i}_stmt FROM @tp_fk{i}_sql')
+        out.append(f'EXECUTE tp_fk{i}_stmt')
+        out.append(f'DEALLOCATE PREPARE tp_fk{i}_stmt')
+    sys.stdout.write('\n-- @@\n'.join(out) + '\n')
+    for r in report:
+        print(r, file=sys.stderr)
+
+
+if __name__ == '__main__':
+    main()

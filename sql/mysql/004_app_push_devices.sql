@@ -22,4 +22,4 @@ CREATE TABLE IF NOT EXISTS app_push_devices (
     UNIQUE KEY app_push_active_cid (app_id, active_cid),
     UNIQUE KEY app_push_active_installation (app_id, active_installation),
     KEY app_push_member (tenant_id, user_id, active)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin

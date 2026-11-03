@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS auth_external_bindings (
     CONSTRAINT auth_external_bindings_identity UNIQUE (issuer, subject),
     CONSTRAINT auth_external_bindings_user_fk FOREIGN KEY (user_id) REFERENCES users (id),
     KEY auth_external_bindings_user (user_id)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS auth_audit_events (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS auth_audit_events (
     provider VARCHAR(255) NOT NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (id)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS auth_provider_settings (
     id VARCHAR(64) NOT NULL,
@@ -64,4 +64,4 @@ CREATE TABLE IF NOT EXISTS auth_provider_settings (
     PRIMARY KEY (id),
     CONSTRAINT auth_provider_settings_counters_check CHECK (revision > 0 AND published_revision >= 0 AND generation >= 0),
     CONSTRAINT auth_provider_settings_enabled_check CHECK (NOT enabled OR (published IS NOT NULL AND published_secret IS NOT NULL AND published_revision > 0))
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin

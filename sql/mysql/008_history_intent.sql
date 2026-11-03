@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS telemetry_current_datas (
     string_v LONGTEXT NULL,
     tenant_id VARCHAR(36) NULL,
     UNIQUE KEY telemetry_current_datas_unique (device_id, `key`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS telemetry_history_intents (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS telemetry_history_intents (
     CONSTRAINT telemetry_history_intents_state_check CHECK (state IN ('pending', 'applied')),
     CONSTRAINT telemetry_history_intents_tenant_check CHECK (CHAR_LENGTH(tenant_id) > 0),
     CONSTRAINT telemetry_history_intents_applied_check CHECK ((state = 'applied') = (applied_at IS NOT NULL))
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS telemetry_history_deletions (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -59,4 +59,4 @@ CREATE TABLE IF NOT EXISTS telemetry_history_deletions (
     CONSTRAINT telemetry_history_deletions_state_check CHECK (state IN ('pending', 'applied')),
     CONSTRAINT telemetry_history_deletions_device_check CHECK (CHAR_LENGTH(device_id) > 0),
     CONSTRAINT telemetry_history_deletions_applied_check CHECK ((state = 'applied') = (applied_at IS NOT NULL))
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin

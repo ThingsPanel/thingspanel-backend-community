@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS auto_rules (
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `deleted_at` DATETIME(6) NULL
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix2 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_rules' AND index_name = 'auto_rules_tenant')
 -- @@
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS auto_rule_revisions (
     `published_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (`rule_id`, `revision`),
     FOREIGN KEY (`rule_id`) REFERENCES auto_rules (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS auto_bindings (
     `id` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL PRIMARY KEY,
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS auto_bindings (
     `params` JSON NOT NULL DEFAULT (JSON_OBJECT()),
     `enabled` TINYINT(1) NOT NULL DEFAULT 1,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix6 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_bindings' AND index_name = 'auto_bindings_device')
 -- @@
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS auto_inbox (
     `source` LONGTEXT NOT NULL DEFAULT ('uplink'),
     `params` JSON NULL,
     `processed_at` DATETIME(6) NULL
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix9 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_inbox' AND index_name = 'auto_inbox_unprocessed')
 -- @@
@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS auto_state (
     `seq` BIGINT NOT NULL,
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (`device_id`, `signal`, `key`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS auto_pending (
     `scope_key` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL PRIMARY KEY,
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS auto_pending (
     `state` LONGTEXT NOT NULL,
     `defer_count` INT NOT NULL DEFAULT 0,
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix13 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_pending' AND index_name = 'auto_pending_due')
 -- @@
@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS auto_runs (
     `started_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `finished_at` DATETIME(6) NULL,
     `deadline` DATETIME(6) NULL
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix15 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_runs' AND index_name = 'auto_runs_scope')
 -- @@
@@ -211,7 +211,7 @@ CREATE TABLE IF NOT EXISTS auto_steps (
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     UNIQUE (`run_id`, `idx`),
     FOREIGN KEY (`run_id`) REFERENCES auto_runs (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS auto_targets (
     `run_id` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -222,7 +222,7 @@ CREATE TABLE IF NOT EXISTS auto_targets (
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (`run_id`, `device_id`),
     FOREIGN KEY (`run_id`) REFERENCES auto_runs (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 CREATE TABLE IF NOT EXISTS auto_outbox (
     `id` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL PRIMARY KEY,
@@ -241,7 +241,7 @@ CREATE TABLE IF NOT EXISTS auto_outbox (
     `last_error` LONGTEXT NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix20 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_outbox' AND index_name = 'auto_outbox_due')
 -- @@
@@ -261,7 +261,7 @@ CREATE TABLE IF NOT EXISTS auto_events (
     `payload` JSON NOT NULL,
     `seq` BIGINT NOT NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix22 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_events' AND index_name = 'auto_events_tenant')
 -- @@
@@ -276,7 +276,7 @@ DEALLOCATE PREPARE tp_ix22_stmt
 CREATE TABLE IF NOT EXISTS auto_seq_counter (
     `id` TINYINT NOT NULL PRIMARY KEY,
     `value` BIGINT NOT NULL
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 INSERT IGNORE INTO auto_seq_counter (`id`, `value`) VALUES (1, 0)
 -- @@
@@ -295,7 +295,7 @@ CREATE TABLE IF NOT EXISTS alarm_episodes (
     `acked_by` LONGTEXT NULL,
     `cleared_at` DATETIME(6) NULL,
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 -- PARTIAL-UNIQUE alarm_episodes_active ON alarm_episodes(tenant_id, policy_id, subject_id, dimension) WHERE state = 'active'
 CREATE TABLE IF NOT EXISTS alarm_transitions (
@@ -309,7 +309,7 @@ CREATE TABLE IF NOT EXISTS alarm_transitions (
     `evidence` JSON NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     FOREIGN KEY (`episode_id`) REFERENCES alarm_episodes (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix27 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'alarm_transitions' AND index_name = 'alarm_transitions_dedupe')
 -- @@
@@ -328,7 +328,7 @@ CREATE TABLE IF NOT EXISTS auto_run_timers (
     `state` LONGTEXT NOT NULL DEFAULT ('pending'),
     PRIMARY KEY (`run_id`, `pc`),
     FOREIGN KEY (`run_id`) REFERENCES auto_runs (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix29 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_run_timers' AND index_name = 'auto_run_timers_due')
 -- @@
@@ -470,7 +470,7 @@ CREATE TABLE IF NOT EXISTS auto_schedules (
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `deleted_at` DATETIME(6) NULL,
     FOREIGN KEY (`rule_id`) REFERENCES auto_rules (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix42 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_schedules' AND index_name = 'auto_schedules_due')
 -- @@
@@ -509,7 +509,7 @@ CREATE TABLE IF NOT EXISTS auto_schedule_fires (
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     UNIQUE (`schedule_id`, `scheduled_for`),
     FOREIGN KEY (`schedule_id`) REFERENCES auto_schedules (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix45 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_schedule_fires' AND index_name = 'auto_schedule_fires_work')
 -- @@
@@ -705,7 +705,7 @@ CREATE TABLE IF NOT EXISTS alarm_event_intake (
     `transition_id` LONGTEXT NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (`tenant_id`, `policy_key`, `action_id`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix67 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'alarm_event_intake' AND index_name = 'alarm_event_intake_recent')
 -- @@
@@ -750,7 +750,7 @@ CREATE TABLE IF NOT EXISTS auto_blueprint_instances (
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `upgraded_at` DATETIME(6) NULL,
     FOREIGN KEY (`rule_id`) REFERENCES auto_rules (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix71 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_blueprint_instances' AND index_name = 'auto_blueprint_instances_key')
 -- @@
@@ -883,7 +883,7 @@ CREATE TABLE IF NOT EXISTS auto_bundle_imports (
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `activated_at` DATETIME(6) NULL
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix84 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_bundle_imports' AND index_name = 'auto_bundle_imports_identity')
 -- @@
@@ -934,7 +934,7 @@ CREATE TABLE IF NOT EXISTS auto_requests (
     `response` JSON NOT NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (`tenant_id`, `request_key`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix89 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_requests' AND index_name = 'auto_requests_age')
 -- @@
@@ -961,7 +961,7 @@ CREATE TABLE IF NOT EXISTS auto_executors (
     `last_seen_at` DATETIME(6) NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix91 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_executors' AND index_name = 'auto_executors_tenant_name')
 -- @@
@@ -995,7 +995,7 @@ CREATE TABLE IF NOT EXISTS auto_executor_messages (
     `subject` LONGTEXT NULL,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (`tenant_id`, `executor_id`, `idempotency_key`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 -- source: 14_migrations.up.sql
 CREATE TABLE IF NOT EXISTS auto_migrations (
@@ -1011,7 +1011,7 @@ CREATE TABLE IF NOT EXISTS auto_migrations (
     `unresolved` INT NOT NULL DEFAULT 0,
     `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix95 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_migrations' AND index_name = 'auto_migrations_tenant')
 -- @@
@@ -1038,7 +1038,7 @@ CREATE TABLE IF NOT EXISTS auto_migration_items (
     `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (`migration_id`, `legacy_id`),
     FOREIGN KEY (`migration_id`) REFERENCES auto_migrations (`id`) ON DELETE CASCADE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin
 -- @@
 SET @tp_ix97 := (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'auto_migration_items' AND index_name = 'auto_migration_items_status')
 -- @@

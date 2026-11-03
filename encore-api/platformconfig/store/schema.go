@@ -54,7 +54,7 @@ func (s *Store) ValidateReady(ctx context.Context) error {
 
 // The MySQL form of the same contract, written to the owner's MySQL migration (sql/mysql/009).
 const DictionaryMySQLMigrationFile = "009_platformconfig_dictionary.sql"
-const DictionaryMySQLMigrationChecksum = "2bbd7e99c5e3cef362ed3bfc4c1d061f4646a17201b65932642128c74a4bdba6"
+const DictionaryMySQLMigrationChecksum = "79919447de4019aee7518859f99152d56cce5578cdddb4e0bcd0131495d98799"
 
 type mysqlColumn struct {
 	table, name, dataType string
