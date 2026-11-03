@@ -220,7 +220,7 @@ func TestTDengineBackendDeletes(t *testing.T) {
 func TestTDengineBackendUnsupportedOperationsFailLoudly(t *testing.T) {
 	b := &Backend{Sink: &storage.TDengineHistorySink{Database: "x"}}
 	if err := b.DeleteTelemetrDataByDeviceId("d", nil); err == nil {
-		t.Fatal("device-scope deletion must stay unsupported")
+		t.Fatal("device-scope deletion without the device-deletion transaction must be rejected")
 	}
 	if _, err := b.GetTelemetrStatisticaAgregationData("d", "k", 0, 1, 1000, "median"); err == nil {
 		t.Fatal("an unknown aggregate function must be rejected before any request is sent")
@@ -369,5 +369,55 @@ func TestTDengineMultiDeviceStatisticsMatchPostgres(t *testing.T) {
 		if c.method != "count" && len(pg[0]["data"].([]map[string]interface{})) == 0 {
 			t.Fatalf("%s: the test data produced no points; the comparison would prove nothing", name)
 		}
+	}
+}
+
+// Device deletion is carried by the device-deletion transaction: rollback keeps the history,
+// commit removes it once the replay service has run.
+func TestTDengineDeviceDeletionFollowsTheDeviceTransaction(t *testing.T) {
+	f := setup(t)
+	for _, file := range []string{"001_intents.sql", "002_deletions.sql"} {
+		migration, err := os.ReadFile("../../sql/history_intent/" + file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := query.Q.TelemetryData.UnderlyingDB().Exec(string(migration)).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	base := time.Now().Add(-2 * time.Hour).UnixMilli()
+	f.seed(t, "temp", base, 8)
+	db := query.Q.TelemetryData.UnderlyingDB()
+	remaining := func() int64 {
+		n, err := f.td.GetTelemetryDataCountByTenantId("tenant-td")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+
+	tx := query.Q.Begin()
+	if err := f.td.DeleteTelemetrDataByDeviceId(f.device, tx); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := storage.ReplayHistoryDeletions(context.Background(), db, f.sink, "d", 10, time.Minute); err != nil || n != 0 || remaining() != 8 {
+		t.Fatalf("rollback must keep history: n=%d err=%v remaining=%d", n, err, remaining())
+	}
+
+	tx = query.Q.Begin()
+	if err := f.td.DeleteTelemetrDataByDeviceId(f.device, tx); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if remaining() != 8 {
+		t.Fatal("history must not disappear before the replay service runs")
+	}
+	if n, err := storage.ReplayHistoryDeletions(context.Background(), db, f.sink, "d", 10, time.Minute); err != nil || n != 1 || remaining() != 0 {
+		t.Fatalf("commit must remove history: n=%d err=%v remaining=%d", n, err, remaining())
 	}
 }

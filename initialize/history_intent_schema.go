@@ -36,5 +36,16 @@ func verifyHistoryIntentSchema(tx *gorm.DB) error {
 			return err
 		}
 	}
+	for name, expected := range map[string]expectedNativeColumn{
+		"device_id":     {dataType: "text", nullable: "NO"},
+		"state":         {dataType: "text", nullable: "NO"},
+		"attempts":      {dataType: "integer", nullable: "NO"},
+		"claimed_until": {dataType: "timestamp with time zone", nullable: "YES"},
+		"applied_at":    {dataType: "timestamp with time zone", nullable: "YES"},
+	} {
+		if err := verifyNativeColumn(tx, "telemetry_history_deletions", name, expected); err != nil {
+			return err
+		}
+	}
 	return verifyNativeConstraint(tx, "telemetry_history_intents", "telemetry_history_intents_identity", `UNIQUE (device_id, key, ts, generation)`, "u")
 }

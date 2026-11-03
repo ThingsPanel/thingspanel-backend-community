@@ -42,12 +42,14 @@ func newHistoryIntentDB(t *testing.T) *gorm.DB {
 		_ = admin.Exec(`DROP SCHEMA "` + schema + `" CASCADE`).Error
 		_ = adminPool.Close()
 	})
-	migration, err := os.ReadFile("../../sql/history_intent/001_intents.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Exec(string(migration)).Error; err != nil {
-		t.Fatalf("apply migration: %v", err)
+	for _, file := range []string{"001_intents.sql", "002_deletions.sql"} {
+		migration, err := os.ReadFile("../../sql/history_intent/" + file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Exec(string(migration)).Error; err != nil {
+			t.Fatalf("apply migration %s: %v", file, err)
+		}
 	}
 	return db
 }

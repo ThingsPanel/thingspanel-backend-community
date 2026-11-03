@@ -189,3 +189,67 @@ func TestIntentsReplayFromPostgresIntoTDengine(t *testing.T) {
 		t.Fatalf("per-device rows=%v want 10", got)
 	}
 }
+
+func TestDeviceDeletionReplaysIntoTDengineAndSparesOtherDevices(t *testing.T) {
+	sink := newTDengineSink(t)
+	db := newHistoryIntentDB(t)
+	ts := time.Now().Add(-time.Hour).UnixMilli()
+	var points []TelemetryData
+	for i := 0; i < 12; i++ {
+		v := float64(i)
+		points = append(points, TelemetryData{DeviceID: fmt.Sprintf("dev-%d", i%2), Key: fmt.Sprintf("k%d", i%3), TS: ts + int64(i), NumberV: &v, TenantID: "tenant-td"})
+	}
+	tx := db.Begin()
+	if _, err := EnqueueHistoryIntents(tx, 0, points); err != nil {
+		t.Fatal(err)
+	}
+	_ = tx.Commit()
+	for {
+		n, err := ReplayHistoryIntents(context.Background(), db, sink, "w", 50, time.Minute)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			break
+		}
+	}
+	rows := func(device string) string {
+		return fmt.Sprint(tdQuery(t, sink, "SELECT COUNT(*) FROM "+sink.Database+".telemetry WHERE device_id='"+device+"'")[0][0])
+	}
+	if rows("dev-0") != "6" || rows("dev-1") != "6" {
+		t.Fatalf("seed rows dev-0=%s dev-1=%s", rows("dev-0"), rows("dev-1"))
+	}
+	// A device deletion whose transaction rolls back must not touch TDengine.
+	tx = db.Begin()
+	if err := EnqueueHistoryDeviceDeletion(tx, "dev-0"); err != nil {
+		t.Fatal(err)
+	}
+	_ = tx.Rollback()
+	if n, err := ReplayHistoryDeletions(context.Background(), db, sink, "d", 10, time.Minute); err != nil || n != 0 || rows("dev-0") != "6" {
+		t.Fatalf("rollback must keep history: n=%d err=%v rows=%s", n, err, rows("dev-0"))
+	}
+	tx = db.Begin()
+	if err := EnqueueHistoryDeviceDeletion(tx, "dev-0"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit().Error; err != nil {
+		t.Fatal(err)
+	}
+	if rows("dev-0") != "6" {
+		t.Fatal("nothing may be deleted before the replay service runs")
+	}
+	for i := 0; i < 2; i++ { // the second pass proves repeating is harmless
+		if _, err := ReplayHistoryDeletions(context.Background(), db, sink, "d", 10, time.Minute); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if rows("dev-0") != "0" || rows("dev-1") != "6" {
+		t.Fatalf("dev-0=%s dev-1=%s: only the deleted device may lose history", rows("dev-0"), rows("dev-1"))
+	}
+	if count(t, db, `SELECT count(*) FROM telemetry_history_deletions WHERE state='applied'`) != 1 {
+		t.Fatal("the deletion must be acknowledged")
+	}
+	if err := sink.DeleteDevice(context.Background(), "never-existed"); err != nil {
+		t.Fatalf("deleting an unknown device must succeed: %v", err)
+	}
+}

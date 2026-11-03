@@ -28,7 +28,7 @@ func TestHistoryIntentSchemaPostgres(t *testing.T) {
 	if err := db.Raw("SELECT current_database()").Scan(&name).Error; err != nil || name != "qa_component_migration_test" {
 		t.Fatal("refusing non-fixture database")
 	}
-	if err := db.Exec("DROP TABLE IF EXISTS public.telemetry_history_intents").Error; err != nil {
+	if err := db.Exec("DROP TABLE IF EXISTS public.telemetry_history_intents, public.telemetry_history_deletions").Error; err != nil {
 		t.Fatal(err)
 	}
 	if db.Migrator().HasTable(componentMigrationLedgerTable) {
@@ -60,8 +60,8 @@ func TestHistoryIntentSchemaPostgres(t *testing.T) {
 		t.Fatalf("replay must preserve existing rows, rows=%d err=%v", rows, err)
 	}
 	var applied int
-	if err := db.Raw("SELECT count(*) FROM "+componentMigrationLedgerTable+" WHERE module_name = ?", historyIntentMigrationModule).Scan(&applied).Error; err != nil || applied != 1 {
-		t.Fatalf("exactly one ledger entry expected, got %d err=%v", applied, err)
+	if err := db.Raw("SELECT count(*) FROM "+componentMigrationLedgerTable+" WHERE module_name = ?", historyIntentMigrationModule).Scan(&applied).Error; err != nil || applied != 2 {
+		t.Fatalf("one ledger entry per migration file (2) expected, got %d err=%v", applied, err)
 	}
 	if err := db.Exec(`INSERT INTO telemetry_history_intents(tenant_id,device_id,"key",ts,generation) VALUES('t','d','k',1,0)`).Error; err == nil {
 		t.Fatal("duplicate identity must be rejected")

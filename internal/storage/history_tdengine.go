@@ -182,3 +182,24 @@ func (s *TDengineHistorySink) Append(ctx context.Context, intents []HistoryInten
 	}
 	return nil
 }
+
+// DeleteDevice drops every child table of one device. It is idempotent.
+func (s *TDengineHistorySink) DeleteDevice(ctx context.Context, deviceID string) error {
+	if !tdengineName.MatchString(s.Database) {
+		return errors.New("tdengine database name must be a plain identifier")
+	}
+	rows, err := s.Query(ctx, fmt.Sprintf("SELECT DISTINCT tbname FROM %s.telemetry WHERE device_id=%s", s.Database, tdengineQuote(deviceID)))
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		name, ok := row[0].(string)
+		if !ok || !strings.HasPrefix(name, "t_") {
+			return errors.New("tdengine returned an unexpected table name")
+		}
+		if err := s.exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s.%s", s.Database, name)); err != nil {
+			return err
+		}
+	}
+	return nil
+}

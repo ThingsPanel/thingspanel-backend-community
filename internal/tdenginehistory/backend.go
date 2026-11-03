@@ -15,10 +15,6 @@ import (
 	"project/internal/storage"
 )
 
-// ErrUnsupported marks operations this backend does not implement yet. They fail
-// loudly instead of silently reading another store.
-var ErrUnsupported = errors.New("operation is not implemented by the tdengine history backend")
-
 // Backend implements dal.HistoryBackend on top of one TDengine database.
 type Backend struct {
 	Sink *storage.TDengineHistorySink
@@ -156,18 +152,16 @@ func (b *Backend) DeleteTelemetrDataByTime(t int64) error {
 	return err
 }
 
-// DeleteTelemetrDataByDeviceId runs inside the device-deletion transaction, which a
-// time-series store cannot join: dropping history first would lose it if that
-// transaction rolled back. It stays unsupported until deletion is made durable and
-// replayable through a generation.
-func (b *Backend) DeleteTelemetrDataByDeviceId(string, *query.QueryTx) error {
-	return fmt.Errorf("DeleteTelemetrDataByDeviceId: %w", ErrUnsupported)
+// DeleteTelemetrDataByDeviceId is called inside the device-deletion transaction. History is not
+// dropped there: a durable deletion request is committed (or rolled back) together with the
+// device, and the replay service removes the data from TDengine afterwards.
+func (b *Backend) DeleteTelemetrDataByDeviceId(deviceID string, tx *query.QueryTx) error {
+	if tx == nil {
+		return errors.New("device history deletion requires the device-deletion transaction")
+	}
+	return storage.EnqueueHistoryDeviceDeletion(tx.TelemetryData.UnderlyingDB(), deviceID)
 }
 
-// GetTelemetrStatisticaAgregationData reproduces the PostgreSQL bucketing exactly: windows are whole
-// seconds aligned to the Unix epoch, numeric values with |v| >= 1e15 are ignored, and each
-// bucket reports x (start, ms), x2 (end, ms) and y. Buckets are computed here, not by
-// TDengine's INTERVAL, whose window alignment depends on the server time zone.
 func (b *Backend) GetTelemetrStatisticaAgregationData(deviceID, key string, start, end, windowMillis int64, function string) ([]map[string]interface{}, error) {
 	switch function {
 	case "avg", "max", "min", "sum", "diff":

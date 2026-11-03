@@ -16,6 +16,7 @@ type historyReplayer struct {
 	db       *gorm.DB
 	logger   Logger
 	sink     HistorySink
+	deleter  HistoryDeleter // nil when the sink cannot delete a device's history
 	owner    string
 	interval time.Duration
 	batch    int
@@ -31,7 +32,8 @@ func newHistoryReplayer(db *gorm.DB, logger Logger, config Config) *historyRepla
 	if sink == nil {
 		sink = NewPostgresHistorySink(db)
 	}
-	r := &historyReplayer{db: db, logger: logger, sink: sink, owner: "replayer-" + uuid.NewString(),
+	deleter, _ := sink.(HistoryDeleter)
+	r := &historyReplayer{deleter: deleter, db: db, logger: logger, sink: sink, owner: "replayer-" + uuid.NewString(),
 		interval: 500 * time.Millisecond, batch: 200, lease: 60 * time.Second, done: make(chan struct{})}
 	if config.HistoryReplayIntervalMillis > 0 {
 		r.interval = time.Duration(config.HistoryReplayIntervalMillis) * time.Millisecond
@@ -61,6 +63,18 @@ func (r *historyReplayer) run(ctx context.Context) {
 			if err != nil {
 				if ctx.Err() == nil {
 					r.logger.Errorf("history replay failed; intents stay pending: %v", err)
+				}
+				break
+			}
+			if n == 0 {
+				break
+			}
+		}
+		for r.deleter != nil && ctx.Err() == nil {
+			n, err := ReplayHistoryDeletions(ctx, r.db, r.deleter, r.owner, r.batch, r.lease)
+			if err != nil {
+				if ctx.Err() == nil {
+					r.logger.Errorf("history deletion failed; it stays pending: %v", err)
 				}
 				break
 			}
