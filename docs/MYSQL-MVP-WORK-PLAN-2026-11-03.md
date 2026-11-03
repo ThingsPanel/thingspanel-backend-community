@@ -161,7 +161,7 @@ WP-L、WP-J、WP-M 可与上面并行
 - 证据与状态文件：`/Users/junhong/Downloads/code/thingspanel-takeover-evidence-20261102/`（`HANDOFF-next-owner-20261102.md` 是总任务，`STATUS-takeover-session-20261102.md` 是逐步记录，`MVP-WORK-PLAN-20261103.md` 是本文件副本）。
 
 ### 8.2 未完成的在途工作（devicemetadata，WP-D）
-分支上最后一个提交之后有**未验证的改动**（提交信息会写 WIP）：
+下面这些改动已合入 develop（PostgreSQL 路径的 `encore test ./devicemetadata/...` 全绿、测试编译通过），但**没有在 MySQL 上真实运行过**：
 - `encore-api/devicemetadata` 里把 `*sqldb.Tx`/`*sqldb.Row` 全部替换成 `dbx.Tx`/`dbx.Row`，`db` 变成 `dbx.DB`（`db.go`），`isUniqueViolation` 委托给 `dbx.IsUniqueViolation`，
   新增 `configureDatabaseFromEnv`：`TP_DEVICE_METADATA_DB_DRIVER=mysql` + `TP_DEVICE_METADATA_MYSQL_DSN` 时服务改用 MySQL（经翻译器），不碰 PostgreSQL。
 - 验证情况：`encore check`（非测试代码，含 Encore 的 PG 迁移）通过；**测试文件的编译没有确认**（命令 `cd encore-api && encore test -run NONE ./devicemetadata/`，需要 Docker）。先跑它，失败就按报错改（多半是测试里用了 `db.Stdlib()` 或具体的 `sqldb` 类型）。
