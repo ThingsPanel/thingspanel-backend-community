@@ -93,7 +93,7 @@ scripts/dev-databases.sh down            # 用完删掉
 - 验收：清单归零或有书面理由；`go test ./internal/...` 全绿（带双库环境变量）。
 - 依赖：无（可按目录再拆成多人：`internal/dal`、`internal/service`、`internal/repo`、`cmd`）。
 
-### WP-D devicemetadata MySQL 化（最大）
+### WP-D devicemetadata MySQL 化（最大）【地基已完成，详见 `encore-api/devicemetadata/README-mysql.md`：`pkg/dbx` 门面、31 表 MySQL schema、49 个守卫触发器已验证；剩下 330 处调用点改写、行级安全替代、3 个复杂触发器、11 个 CHECK】
 - 做什么：`encore-api/devicemetadata`（约 365 条 SQL、32 个迁移）。按 automation 的做法：`Store{DB, MySQL bool}`，翻译器兜底，翻译不了的写 MySQL 分支，**行级安全（RLS，PG 用 `set_config('app.current_tenant_id')`）在 MySQL 没有，必须改成每条语句显式带 `tenant_id` 条件**，并写测试证明跨租户读不到。
 - 参考：`encore-api/automation/store/*`、`encore-api/pkg/sqldialect`、`scripts/pg2mysql_automation.py`（迁移转换器，遇到不认识的结构会中止）。
 - 验收：`mysql_*_contract_test.go` 双库差分 + 租户隔离测试。

@@ -5,7 +5,9 @@ The root migrations (sql/1.sql ... sql/32.sql) mix DDL, ALTERs with USING, DO bl
 not translated statement by statement. Instead they are applied to a scratch PostgreSQL and the *resulting*
 catalog is converted. Anything the converter does not understand aborts the run.
 
-Usage: pg2mysql_platform.py "<psql command prefix, e.g. docker exec -i NAME psql -U postgres>" > sql/mysql/012_platform_base.sql
+Usage: pg2mysql_platform.py "<psql command prefix, e.g. docker exec -i NAME psql -U postgres>" [--standalone] > out.sql
+(--standalone: an owner with its own database, e.g. device_metadata; nothing is excluded.)
+For the platform: > sql/mysql/012_platform_base.sql
 
 Tables already created by the hand-written MySQL migrations (001-011) are skipped; casbin_rule is created by the
 casbin adapter. Everything else, including telemetry_datas as a plain relational history table, is generated.
@@ -27,7 +29,7 @@ Q = r"""
 SELECT json_agg(t ORDER BY t.name) FROM (
  SELECT c.relname AS name,
   (SELECT json_agg(json_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'notnull',a.attnotnull,
-          'default',pg_get_expr(d.adbin,d.adrelid)) ORDER BY a.attnum)
+          'default',pg_get_expr(d.adbin,d.adrelid),'generated',a.attgenerated::text) ORDER BY a.attnum)
      FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum
     WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped) AS cols,
   (SELECT json_agg(json_build_object('name',i.relname,'unique',x.indisunique,'primary',x.indisprimary,'def',pg_get_indexdef(x.indexrelid))
@@ -109,7 +111,7 @@ def mysql_type(kind, size, in_key):
             return f'VARCHAR({BIG_KEY}) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin'
         return 'LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin'
     return {'int': 'INT', 'smallint': 'SMALLINT', 'bigint': 'BIGINT', 'bool': 'TINYINT(1)', 'double': 'DOUBLE', 'float': 'FLOAT',
-            'uuid': 'CHAR(36) CHARACTER SET ascii COLLATE ascii_bin', 'json': 'JSON', 'blob': 'LONGBLOB', 'date': 'DATE',
+            'uuid': 'CHAR(36) CHARACTER SET ascii COLLATE ascii_bin', 'json': 'JSON', 'blob': 'VARBINARY(255)' if in_key else 'LONGBLOB', 'date': 'DATE',
             'dt': 'DATETIME(6)', 'time': 'TIME'}.get(kind) or f'DECIMAL({size[0]},{size[1]})'
 
 
@@ -207,18 +209,52 @@ def hashed_unique(table, name, cols, notnull, colinfo):
             f"    UNIQUE KEY `{name}` (`{name}__uk`)"]
 
 
-def convert_check(defn, table, name):
-    """CHECK (expr): drop PostgreSQL casts and turn = ANY (ARRAY[...]) into IN (...)."""
-    m = re.match(r'CHECK \((.*)\)(?: NOT VALID)?$', defn, re.S)
-    if not m:
-        raise SystemExit(f'cannot parse CHECK {name} on {table}: {defn}')
-    e = m.group(1)
+class Unsupported(Exception):
+    """An expression the converter cannot express in MySQL."""
+
+
+def convert_expr(e, label):
+    """A PostgreSQL boolean expression as MySQL: casts dropped, = ANY(ARRAY[..]) as IN, and the string, regex and
+    JSON functions the metadata schemas use mapped to their MySQL equivalents. Anything left raises Unsupported."""
+    e = re.sub(r"'(\{\})'::jsonb", r"CAST('\1' AS JSON)", e)
     e = re.sub(r"::(character varying|text|timestamp with time zone|timestamp without time zone|bigint|integer|smallint|uuid|jsonb|boolean|numeric)(\[\])?", '', e)
     e = re.sub(r'=\s*ANY\s*\(\s*\(\s*ARRAY\[(.*?)\]\s*\)\s*\)', r'IN (\1)', e, flags=re.S)
     e = re.sub(r'=\s*ANY\s*\(\s*ARRAY\[(.*?)\]\s*\)', r'IN (\1)', e, flags=re.S)
-    if '::' in e or 'ANY' in e or 'ARRAY' in e:
-        raise SystemExit(f'CHECK {name} on {table} still has PostgreSQL syntax: {e}')
+    e = re.sub(r'\boctet_length\(', 'LENGTH(', e)
+    e = re.sub(r'\blength\(', 'CHAR_LENGTH(', e)
+    e = re.sub(r'\bchr\((\d+)\)', r'CHAR(\1 USING utf8mb4)', e)
+    e = re.sub(r'\bjsonb_typeof\(([^()]*)\)\s*=\s*\'object\'', r"JSON_TYPE(\1) = 'OBJECT'", e)
+    for operator, template in (('!~', "NOT REGEXP_LIKE(%s, %s, 'c')"), ('~', "REGEXP_LIKE(%s, %s, 'c')")):
+        e = re.sub(r"\((\w+)\)\s*" + operator + r"\s*('(?:[^']|'')*')", lambda m: template % (m.group(1), m.group(2)), e)
+        e = re.sub(r"\b(\w+)\s*" + operator + r"\s*('(?:[^']|'')*')", lambda m: template % (m.group(1), m.group(2)), e)
+    e = re.sub(r'\bnum_nonnulls\(([^()]*)\)', lambda m: '(' + ' + '.join(f'({a.strip()} IS NOT NULL)' for a in m.group(1).split(',')) + ')', e)
+    e = e.replace(' ~~ ', ' LIKE ')
+    # btrim(x) trims spaces, like TRIM(x); the two-argument form (a character set) has no equivalent.
+    e = re.sub(r'\bbtrim\(([^(),]*(?:\([^()]*\))?[^(),]*)\)', r'TRIM(\1)', e)
+    allowed = {'CHAR_LENGTH', 'LENGTH', 'TRIM', 'CHAR', 'JSON_TYPE', 'REGEXP_LIKE', 'CAST', 'IF', 'COALESCE', 'POSITION',
+               'NOT', 'IN', 'AND', 'OR', 'IS', 'WHEN', 'THEN', 'ELSE', 'CASE', 'END', 'NULL', 'NULLIF', 'JSON', 'SHA2', 'CONCAT_WS', 'LOWER', 'UPPER', 'ABS'}
+    called = {name.upper() for name in re.findall(r"\b([A-Za-z_]\w*)\s*\(", re.sub(r"'(?:[^']|'')*'", "''", e))}
+    unknown = sorted(called - allowed)
+    if unknown or '::' in e or re.search(r'\bANY\b|\bARRAY\b|~', re.sub(r"'(?:[^']|'')*'", "''", e)):
+        raise Unsupported(f'{label}: {e} (unsupported: {unknown})')
     return e
+
+
+def partial_unique(table, name, cols, where):
+    """A partial unique index becomes a unique key on a generated column that is NULL (never conflicting, as in
+    PostgreSQL) for rows outside the predicate or with a NULL key column, and a hash of the key otherwise."""
+    predicate = convert_expr(where, f'{table}.{name} predicate')
+    not_null = ' AND '.join(f'`{c}` IS NOT NULL' for c in cols)
+    expr = f"IF(({predicate}) AND {not_null}, SHA2(CONCAT_WS(CHAR(31), " + ', '.join('`' + c + '`' for c in cols) + "), 256), NULL)"
+    return [f"    `{name}__uk` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin GENERATED ALWAYS AS ({expr}) STORED",
+            f"    UNIQUE KEY `{name}` (`{name}__uk`)"]
+
+
+def convert_check(defn, table, name):
+    m = re.match(r'CHECK \((.*)\)(?: NOT VALID)?$', defn, re.S)
+    if not m:
+        raise SystemExit(f'cannot parse CHECK {name} on {table}: {defn}')
+    return convert_expr(m.group(1), f'CHECK {name} on {table}')
 
 
 def hand_written_tables():
@@ -237,8 +273,11 @@ def hand_written_tables():
 
 def main():
     prefix = sys.argv[1]
-    exclude = hand_written_tables()
-    exclude.add('casbin_rule')
+    if len(sys.argv) > 2 and sys.argv[2] == '--standalone':
+        exclude = set()   # an owner with its own database: nothing is hand-written, nothing is skipped
+    else:
+        exclude = hand_written_tables()
+        exclude.add('casbin_rule')
     tables = [t for t in fetch(prefix) if t['name'] not in exclude]
     names = {t['name'] for t in tables}
     report, stmts, fk_stmts = [], [], []
@@ -276,8 +315,6 @@ def main():
         t = by[n]
         keycols = set()
         for ix in t['idx'] or []:
-            if ' WHERE ' in ix['def'] and ix['unique']:
-                raise SystemExit(f"partial unique index {ix['name']} on {n} needs a hand-written emulation")
             for c, _ in split_index_columns(ix['def'])[0]:
                 keycols.add(c.strip('"'))
         for k in t['cons'] or []:
@@ -290,6 +327,12 @@ def main():
         serial = set()
         for c in t['cols']:
             kind, size = parse_type(c['type'])
+            if c.get('generated') == 's':
+                # a stored generated column: its expression is in pg_attrdef like a default
+                expr = convert_expr(c['default'], f"{n}.{c['name']} generated expression")
+                ty = mysql_type(kind, size, c['name'] in keycols)
+                lines.append(f"    `{c['name']}` {ty} GENERATED ALWAYS AS ({expr}) STORED{' NOT NULL' if c['notnull'] else ''}")
+                continue
             default, is_serial = convert_default(c['default'], kind, report, f"{n}.{c['name']}")
             if is_serial:
                 serial.add(c['name'])
@@ -304,8 +347,21 @@ def main():
             lines.append(line)
         for k in t['cons'] or []:
             if k['type'] == 'p':
-                cols = re.match(r'PRIMARY KEY \((.*)\)', k['def']).group(1)
-                lines.append('    PRIMARY KEY (' + ', '.join('`' + c.strip().strip('"') + '`' for c in cols.split(',')) + ')')
+                pk_cols = [c.strip().strip('"') for c in re.match(r'PRIMARY KEY \((.*)\)', k['def']).group(1).split(',')]
+                if key_bytes(pk_cols, colinfo) > MAX_KEY_BYTES:
+                    # InnoDB takes a STORED generated column as the primary key: the key is a hash of the real columns,
+                    # and a prefix index keeps lookups by those columns fast.
+                    expr = 'SHA2(CONCAT_WS(CHAR(31), ' + ', '.join('`' + c + '`' for c in pk_cols) + '), 256)'
+                    lines.append(f"    `{n}__pk` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin GENERATED ALWAYS AS ({expr}) STORED NOT NULL")
+                    lines.append(f"    PRIMARY KEY (`{n}__pk`)")
+                    prefixed = []
+                    for c in pk_cols:
+                        kind, size = colinfo[c]
+                        prefixed.append(f'`{c}`(64)' if kind in ('varchar', 'char', 'text') and (size or BIG_KEY) > 64 else f'`{c}`')
+                    lines.append(f"    KEY `{n}__pk_lookup` (" + ', '.join(prefixed) + ')')
+                    report.append(f"{n}: primary key over {MAX_KEY_BYTES} bytes; carried by a stored hash column with a prefix index")
+                else:
+                    lines.append('    PRIMARY KEY (' + ', '.join('`' + c + '`' for c in pk_cols) + ')')
             elif k['type'] == 'u':
                 cols = [c.strip().strip('"') for c in re.match(r'UNIQUE \((.*)\)', k['def']).group(1).split(',')]
                 if key_bytes(cols, colinfo) > MAX_KEY_BYTES:
@@ -313,7 +369,10 @@ def main():
                 else:
                     lines.append(f"    UNIQUE KEY `{k['name']}` (" + ', '.join('`' + c + '`' for c in cols) + ')')
             elif k['type'] == 'c':
-                lines.append(f"    CONSTRAINT `{unique_name(n, k['name'])}` CHECK ({convert_check(k['def'], n, k['name'])})")
+                try:
+                    lines.append(f"    CONSTRAINT `{unique_name(n, k['name'])}` CHECK ({convert_check(k['def'], n, k['name'])})")
+                except Unsupported as exc:
+                    report.append(f"{n}: CHECK {k['name']} not converted (needs a trigger or application validation): {str(exc)[:160]}")
             elif k['type'] not in ('f',):
                 report.append(f"{n}: constraint {k['name']} ({k['type']}) {k['def']} not converted")
         constraint_idx = {k['name'] for k in t['cons'] or [] if k['type'] in ('p', 'u')}
@@ -321,6 +380,13 @@ def main():
             if ix['primary'] or ix['name'] in constraint_idx:
                 continue
             cols, where = split_index_columns(ix['def'])
+            if where and ix['unique']:
+                plain_cols = [c.strip('"') for c, _ in cols if re.fullmatch(r'"?\w+"?', c.strip())]
+                if len(plain_cols) != len(cols):
+                    raise SystemExit(f"partial unique index {ix['name']} on {n} has an expression column")
+                lines.extend(partial_unique(n, ix['name'], plain_cols, where))
+                report.append(f"{n}: partial unique index {ix['name']} ({where}) emulated by a generated column")
+                continue
             if where:
                 report.append(f"{n}: index {ix['name']} is partial ({where}); created as a plain index")
             rendered = []
@@ -329,8 +395,8 @@ def main():
                 if re.fullmatch(r'"?\w+"?', c):
                     rendered.append('`' + c.strip('"') + '`' + (' DESC' if desc else ''))
                 else:
-                    c = re.sub(r'\((\w+)\)::\w+( \w+)*', r'\1', c)
                     c = re.sub(r'"(\w+)"', r'\1', c)
+                    c = convert_expr(c, f"{n}.{ix['name']} index expression")
                     rendered.append('((' + c + '))')
             plain = [c.strip('"') for c, _ in cols if re.fullmatch(r'"?\w+"?', c.strip())]
             if len(plain) == len(cols) and key_bytes(plain, colinfo) > MAX_KEY_BYTES:
