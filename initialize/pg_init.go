@@ -31,6 +31,14 @@ type DbConfig struct {
 }
 
 func PgInit() (*gorm.DB, error) {
+	driver, err := PlatformDriver()
+	if err != nil {
+		return nil, err
+	}
+	if driver == PlatformDriverMySQL {
+		return mysqlPlatformInit()
+	}
+
 	// 初始化配置
 	config, err := LoadDbConfig()
 	if err != nil {
