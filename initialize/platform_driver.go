@@ -87,6 +87,9 @@ func MysqlConnect(config *DbConfig) (*gorm.DB, error) {
 	cfg.Net, cfg.Addr = "tcp", net.JoinHostPort(config.Host, strconv.Itoa(config.Port))
 	cfg.DBName = config.DbName
 	cfg.ParseTime, cfg.Loc = true, location
+	// RowsAffected must count matched rows, as PostgreSQL does; by default MySQL counts only rows whose
+	// values changed, which turns an idempotent UPDATE into an apparent conflict.
+	cfg.ClientFoundRows = true
 	cfg.Params = map[string]string{"charset": "utf8mb4"}
 	cfg.Timeout, cfg.ReadTimeout, cfg.WriteTimeout = 10*time.Second, 30*time.Second, 30*time.Second
 	db, err := gorm.Open(gormmysql.Open(cfg.FormatDSN()), &gorm.Config{

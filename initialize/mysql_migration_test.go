@@ -173,3 +173,17 @@ func TestMySQLRunnerInterruptedFileIsNotRecordedAndCanBeRepaired(t *testing.T) {
 		t.Fatal("a nil database must be rejected")
 	}
 }
+
+func TestMysqlConnectCountsMatchedRowsLikePostgres(t *testing.T) {
+	db := openMySQLRunner(t)
+	if err := db.Exec("CREATE TABLE IF NOT EXISTS runner_probe (id INT PRIMARY KEY, note VARCHAR(10))").Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("INSERT INTO runner_probe VALUES (1, 'x')").Error; err != nil {
+		t.Fatal(err)
+	}
+	result := db.Exec("UPDATE runner_probe SET note = 'x' WHERE id = 1")
+	if result.Error != nil || result.RowsAffected != 1 {
+		t.Fatalf("an UPDATE that changes nothing must still report the matched row: affected=%d err=%v", result.RowsAffected, result.Error)
+	}
+}

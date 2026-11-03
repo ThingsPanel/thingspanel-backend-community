@@ -10,6 +10,10 @@ import (
 )
 
 // Dialect selects how the account queries, written for PostgreSQL, reach the database.
+//
+// A MySQL connection must be opened with clientFoundRows=true: the code treats RowsAffected as
+// "rows matched" (PostgreSQL), but MySQL by default reports "rows changed", so an UPDATE that sets a
+// column to its current value would look like a lost race.
 type Dialect int
 
 const (
