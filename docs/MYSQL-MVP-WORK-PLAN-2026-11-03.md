@@ -208,7 +208,10 @@ go test -p 1 ./initialize/ ./internal/dal/ ./internal/service/ ./internal/storag
 ### 8.6 仍待用户或负责人决定
 1. broker 控制面是否支持 MySQL（建议支持，否则“MySQL+TDengine 且 PG 不可用”不成立）。
 2. Windows 包：需要授权一个测试用 HTTPS 分发地址；目前没有构建过包。
-3. 界面真实验收：`/Volumes/80G` 已挂载，但 `127.0.0.1:18080` 上跑的不是新集成版本，要先有新版本的栈。本地测试账号的凭据在 `/Volumes/80G/tp-develop-integration/fixture-bb60421f-8ea8e1ff/private/native-account.json`（不要把密码写进任何文件或提交）。
+3. 界面真实验收（2026-11-03 实测）：`127.0.0.1:18080` 的前端和 encore-api、notification-core、automation-scheduler、broker-owner、mosquitto、redis 容器在跑，
+   但 compose 里定义的 **postgres 和 backend 容器不存在**（`docker ps -a` 里没有，本机也没有对应的产品后端镜像），登录页提示“无法获取系统初始化状态”，`/api/v1/tenant/setup-state` 返回 404。
+   该栈的 `OPERATIONS.md` 只允许“restart existing isolated services（不 build / 不 pull）”，所以无法用现有材料恢复；要恢复就得按 `build-provenance.json` 重建产品后端镜像（bb60421f）并重新起 postgres，这需要负责人确认。因此我没有用授权账号登录成功过。
+   另：`/Volumes/80G` 已挂载，但 `127.0.0.1:18080` 上跑的不是新集成版本，要先有新版本的栈。本地测试账号的凭据在 `/Volumes/80G/tp-develop-integration/fixture-bb60421f-8ea8e1ff/private/native-account.json`（不要把密码写进任何文件或提交）。
 
 ### 8.7 整体进度（交接时）
 约 40%。J-G0–J-G4 一个都没过。已完成：存储层与 automation 的 MySQL 差分覆盖、平台 schema 与种子、平台在 MySQL 上启动、MVP-1 后端主流程与前端首页/菜单、devicemetadata 的 MySQL 地基。
