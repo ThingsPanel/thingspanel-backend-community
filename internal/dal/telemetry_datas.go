@@ -16,6 +16,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"gorm.io/gen/field"
 
 	tptodb "project/third_party/grpc/tptodb_client"
 	pb "project/third_party/grpc/tptodb_client/grpc_tptodb"
@@ -896,21 +897,25 @@ func getDiffData(deviceId, key string, startTime, endTime int64, timeType string
 // getDiffValueInTimeWindow 获取指定时间窗口内的差值
 func getDiffValueInTimeWindow(deviceId, key string, startTime, endTime int64) (*float64, error) {
 	q := query.TelemetryData
-	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(deviceId))
-	queryBuilder = queryBuilder.Where(q.Key.Eq(key))
-	queryBuilder = queryBuilder.Where(q.T.Between(startTime, endTime))
+	// gorm gen builders are mutable: reusing one for both queries makes the second
+	// inherit the first's ORDER BY, so "oldest" returned the newest row and every
+	// difference was 0. Each edge gets its own builder.
+	edge := func(order field.Expr) ([]map[string]interface{}, error) {
+		var rows []map[string]interface{}
+		err := q.WithContext(context.Background()).
+			Where(q.DeviceID.Eq(deviceId), q.Key.Eq(key), q.T.Between(startTime, endTime)).
+			Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(order).Limit(1).Scan(&rows)
+		return rows, err
+	}
 
 	// 查询最新的值 - 获取number_v和string_v字段
-	var latestData []map[string]interface{}
-	err := queryBuilder.Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(q.T.Desc()).Limit(1).Scan(&latestData)
+	latestData, err := edge(q.T.Desc())
 	if err != nil {
 		return nil, err
 	}
 
 	// 查询最旧的值 - 获取number_v和string_v字段
-	var oldestData []map[string]interface{}
-	err = queryBuilder.Select(q.NumberV.As("number_v"), q.StringV.As("string_v")).Order(q.T.Asc()).Limit(1).Scan(&oldestData)
+	oldestData, err := edge(q.T.Asc())
 	if err != nil {
 		return nil, err
 	}

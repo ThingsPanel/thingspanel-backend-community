@@ -230,6 +230,59 @@ func (b *Backend) GetTelemetrStatisticaAgregationData(deviceID, key string, star
 	return out, nil
 }
 
-func (b *Backend) GetTelemetryStatisticDataByDeviceIds([]string, []string, string, *int, string) ([]map[string]interface{}, error) {
-	return nil, fmt.Errorf("GetTelemetryStatisticDataByDeviceIds: %w", ErrUnsupported)
+// GetTelemetryStatisticDataByDeviceIds shares the window arithmetic with the PostgreSQL
+// implementation through dal.StatisticsByDeviceIds and supplies only the storage queries.
+func (b *Backend) GetTelemetryStatisticDataByDeviceIds(deviceIds []string, keys []string, timeType string, limit *int, aggregateMethod string) ([]map[string]interface{}, error) {
+	return dal.StatisticsByDeviceIds(statisticLeaf{b}, deviceIds, keys, timeType, limit, aggregateMethod)
+}
+
+type statisticLeaf struct{ b *Backend }
+
+func (l statisticLeaf) Count(deviceID, key string, start, end int64) (int64, error) {
+	return l.b.count(context.Background(), l.b.scope(deviceID, key, start, end))
+}
+
+func (l statisticLeaf) Aggregate(deviceID, key, method string, start, end int64) (*float64, error) {
+	var function string
+	switch method {
+	case "avg":
+		function = "AVG"
+	case "sum":
+		function = "SUM"
+	case "max":
+		function = "MAX"
+	case "min":
+		function = "MIN"
+	default:
+		return nil, fmt.Errorf("不支持的聚合方式: %s", method)
+	}
+	data, err := l.b.Sink.Query(context.Background(), fmt.Sprintf("SELECT %s(number_v) FROM %s.telemetry WHERE %s", function, l.b.Sink.Database, l.b.scope(deviceID, key, start, end)))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 || data[0][0] == nil {
+		return nil, nil
+	}
+	v, ok := data[0][0].(float64)
+	if !ok {
+		return nil, errors.New("tdengine returned a non-numeric aggregate")
+	}
+	return &v, nil
+}
+
+func (l statisticLeaf) Edges(deviceID, key string, start, end int64) (latest, oldest map[string]interface{}, found bool, err error) {
+	edge := func(order string) (map[string]interface{}, error) {
+		data, err := l.b.Sink.Query(context.Background(), fmt.Sprintf("SELECT number_v, string_v FROM %s.telemetry WHERE %s ORDER BY ts %s LIMIT 1", l.b.Sink.Database, l.b.scope(deviceID, key, start, end), order))
+		if err != nil || len(data) == 0 {
+			return nil, err
+		}
+		return map[string]interface{}{"number_v": data[0][0], "string_v": data[0][1]}, nil
+	}
+	if latest, err = edge("DESC"); err != nil || latest == nil {
+		return nil, nil, false, err
+	}
+	if oldest, err = edge("ASC"); err != nil || oldest == nil {
+		return nil, nil, false, err
+	}
+	return latest, oldest, true, nil
 }

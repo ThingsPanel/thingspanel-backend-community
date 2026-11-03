@@ -225,8 +225,11 @@ func TestTDengineBackendUnsupportedOperationsFailLoudly(t *testing.T) {
 	if _, err := b.GetTelemetrStatisticaAgregationData("d", "k", 0, 1, 1000, "median"); err == nil {
 		t.Fatal("an unknown aggregate function must be rejected before any request is sent")
 	}
-	if _, err := b.GetTelemetryStatisticDataByDeviceIds(nil, nil, "", nil, ""); err == nil {
-		t.Fatal("multi-device statistics must stay unsupported")
+	if _, err := b.GetTelemetryStatisticDataByDeviceIds([]string{"a"}, nil, "hour", nil, "avg"); err == nil {
+		t.Fatal("mismatched device and key counts must be rejected")
+	}
+	if _, err := b.GetTelemetryStatisticDataByDeviceIds([]string{"a"}, []string{"k"}, "decade", nil, "avg"); err == nil {
+		t.Fatal("an unknown time type must be rejected")
 	}
 	zero := 0
 	req := &model.GetTelemetryHistoryDataByPageReq{Page: &zero, PageSize: &zero}
@@ -283,4 +286,88 @@ func abs(v float64) float64 {
 		return -v
 	}
 	return v
+}
+
+// Data is placed well inside each window so the few milliseconds between the two
+// calls' "now" cannot move a point across a boundary.
+func TestTDengineMultiDeviceStatisticsMatchPostgres(t *testing.T) {
+	f := setup(t)
+	now := time.Now()
+	hourStart := now.Truncate(time.Hour)
+	seedAt := func(key string, at time.Time, v float64) {
+		tenant := "tenant-td"
+		ts := at.UnixMilli()
+		row := &model.TelemetryData{DeviceID: f.device, Key: key, T: ts, NumberV: &v, TenantID: &tenant}
+		if err := query.TelemetryData.Create(row); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.sink.Append(context.Background(), []storage.HistoryIntent{{ID: ts, TenantID: tenant, DeviceID: f.device, Key: key, TS: ts, NumberV: &v}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Three hours of readings, plus earlier days for the day/week/month granularities.
+	for h := 0; h < 3; h++ {
+		for m := 5; m < 55; m += 10 {
+			seedAt("temp", hourStart.Add(-time.Duration(h)*time.Hour).Add(time.Duration(m)*time.Minute), float64(h*100+m))
+		}
+	}
+	for d := 1; d <= 40; d++ {
+		seedAt("temp", hourStart.Add(-time.Duration(d)*24*time.Hour).Add(-30*time.Minute), float64(1000+d))
+	}
+	// A device/key pair with no data must appear with empty results, like PostgreSQL.
+	devices, keys := []string{f.device, f.device}, []string{"temp", "absent"}
+	two, three, forty := 2, 3, 40
+	cases := []struct {
+		timeType, method string
+		limit            *int
+	}{
+		{"hour", "count", &three}, {"hour", "avg", &three}, {"hour", "sum", &three}, {"hour", "max", &three}, {"hour", "min", &three},
+		{"day", "avg", &two}, {"day", "max", &forty}, {"week", "sum", nil}, {"month", "min", &two}, {"year", "avg", nil},
+		{"hour", "diff", &three}, {"day", "diff", &forty}, {"week", "diff", &two}, {"month", "diff", nil},
+	}
+	approx := func(a, b interface{}) bool {
+		x, ok1 := a.(float64)
+		y, ok2 := b.(float64)
+		if !ok1 || !ok2 {
+			return fmt.Sprint(a) == fmt.Sprint(b)
+		}
+		return x == y || abs(x-y) < 1e-9*(1+abs(x))
+	}
+	for _, c := range cases {
+		name := fmt.Sprintf("%s/%s", c.timeType, c.method)
+		pg, err := f.pg.GetTelemetryStatisticDataByDeviceIds(devices, keys, c.timeType, c.limit, c.method)
+		if err != nil {
+			t.Fatalf("%s: pg: %v", name, err)
+		}
+		td, err := f.td.GetTelemetryStatisticDataByDeviceIds(devices, keys, c.timeType, c.limit, c.method)
+		if err != nil {
+			t.Fatalf("%s: td: %v", name, err)
+		}
+		if len(pg) != len(td) || len(pg) != 2 {
+			t.Fatalf("%s: entries pg=%d td=%d", name, len(pg), len(td))
+		}
+		for i := range pg {
+			if pg[i]["device_id"] != td[i]["device_id"] || pg[i]["key"] != td[i]["key"] {
+				t.Fatalf("%s: identity differs: %v vs %v", name, pg[i], td[i])
+			}
+			if c.method == "count" {
+				if pg[i]["count"] != td[i]["count"] {
+					t.Fatalf("%s: count pg=%v td=%v", name, pg[i]["count"], td[i]["count"])
+				}
+				continue
+			}
+			pd, td2 := pg[i]["data"].([]map[string]interface{}), td[i]["data"].([]map[string]interface{})
+			if len(pd) != len(td2) {
+				t.Fatalf("%s %v: points pg=%d td=%d\npg=%v\ntd=%v", name, pg[i]["key"], len(pd), len(td2), pd, td2)
+			}
+			for j := range pd {
+				if pd[j]["timestamp"] != td2[j]["timestamp"] || !approx(pd[j]["value"], td2[j]["value"]) || pd[j]["time"] != td2[j]["time"] {
+					t.Fatalf("%s %v point %d differs:\npg=%v\ntd=%v", name, pg[i]["key"], j, pd[j], td2[j])
+				}
+			}
+		}
+		if c.method != "count" && len(pg[0]["data"].([]map[string]interface{})) == 0 {
+			t.Fatalf("%s: the test data produced no points; the comparison would prove nothing", name)
+		}
+	}
 }
