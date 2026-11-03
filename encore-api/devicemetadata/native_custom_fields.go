@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"fmt"
 	"sort"
 	"strings"
 
 	"encore.app/devicemetadata/accessconfig"
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 )
 
 // mergeNativeCustomFieldChanges changes only customFieldDefinitions and keeps
@@ -114,7 +114,7 @@ func marshalNativeCustomFieldChanges(changes NativeCustomFieldChanges) (json.Raw
 // validateNativeCustomFieldChangesAgainstDevices rejects only destructive
 // changes that make stored live-device values invalid. It does not lock device
 // rows; writers serialize on the template FOR SHARE lock.
-func validateNativeCustomFieldChangesAgainstDevices(ctx context.Context, tx *sqldb.Tx, tenantID, templateID string, oldDefinitions, nextDefinitions []accessconfig.CustomFieldDefinition) error {
+func validateNativeCustomFieldChangesAgainstDevices(ctx context.Context, tx dbx.Tx, tenantID, templateID string, oldDefinitions, nextDefinitions []accessconfig.CustomFieldDefinition) error {
 	oldByKey := make(map[string]accessconfig.CustomFieldDefinition, len(oldDefinitions))
 	nextByKey := make(map[string]accessconfig.CustomFieldDefinition, len(nextDefinitions))
 	for _, definition := range oldDefinitions {

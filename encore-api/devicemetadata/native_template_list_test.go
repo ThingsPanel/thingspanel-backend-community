@@ -3,11 +3,11 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"strings"
 	"testing"
 
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -114,7 +114,7 @@ func TestNativeTemplateListFiltersPagingAndScopedCounts(t *testing.T) {
 	}
 }
 
-func insertTemplateListFixture(t *testing.T, ctx context.Context, tx *sqldb.Tx, tenantID, name, brand string, tags []string, configuration json.RawMessage) *accessTemplateConfigurationRecord {
+func insertTemplateListFixture(t *testing.T, ctx context.Context, tx dbx.Tx, tenantID, name, brand string, tags []string, configuration json.RawMessage) *accessTemplateConfigurationRecord {
 	t.Helper()
 	row, err := insertAccessTemplateConfigurationTx(ctx, tx, tenantID, "template-list-test", &accessTemplateConfigurationRecord{
 		Name: name, Brand: &brand, Tags: tags, Configuration: configuration, AdministrativeState: "enabled",

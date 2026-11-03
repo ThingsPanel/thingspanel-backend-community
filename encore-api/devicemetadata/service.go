@@ -19,6 +19,9 @@ type Service struct {
 }
 
 func initService() (*Service, error) {
+	if err := configureDatabaseFromEnv(); err != nil {
+		return nil, err
+	}
 	bridge, err := newMQTTBridgeFromEnv()
 	if err != nil {
 		return nil, err
@@ -34,7 +37,6 @@ func (s *Service) Healthz(ctx context.Context) (*HealthzResponse, error) {
 	_ = ctx
 	return &HealthzResponse{Status: "ok"}, nil
 }
-
 
 //encore:api auth method=POST path=/api/thing-models
 func (s *Service) CreateThingModel(ctx context.Context, req *ThingModel) (*ThingModel, error) {

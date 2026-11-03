@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"strings"
 
@@ -45,7 +46,7 @@ type metadataWriteAudit struct {
 // redacted audit and durable successful response commit together; errors leave
 // no in-progress receipt behind. It deliberately does not refactor group paths
 // or introduce a second persistence owner.
-func runMetadataWriteTx(ctx context.Context, command metadataWriteCommand, apply func(*sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error)) (*metadataWriteResponse, error) {
+func runMetadataWriteTx(ctx context.Context, command metadataWriteCommand, apply func(dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error)) (*metadataWriteResponse, error) {
 	id, err := uuid.Parse(command.TenantID)
 	if err != nil || id == uuid.Nil || id.String() != command.TenantID || !validAccessTemplateText(command.SubjectID, 1, 128, true) {
 		return nil, &errs.Error{Code: errs.Unauthenticated, Message: "invalid authenticated metadata identity"}

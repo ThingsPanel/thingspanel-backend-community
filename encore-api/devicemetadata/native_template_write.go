@@ -3,6 +3,7 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"reflect"
 
@@ -12,7 +13,6 @@ import (
 	"encore.app/l1-access/authn"
 	"encore.app/thingmodel/core"
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -56,7 +56,7 @@ func validateNativeTemplateAsset(ctx context.Context, tenantID, assetID string) 
 	return nil
 }
 
-func validateNativeTemplateConfigurationTx(ctx context.Context, tx *sqldb.Tx, tenantID string, configuration accessconfig.Configuration, check nativeDeviceConfigurationCheck) error {
+func validateNativeTemplateConfigurationTx(ctx context.Context, tx dbx.Tx, tenantID string, configuration accessconfig.Configuration, check nativeDeviceConfigurationCheck) error {
 	if err := configuration.Validate(); err != nil {
 		return invalid("configuration", "invalid template configuration")
 	}
@@ -120,7 +120,7 @@ func createNativeTemplate(ctx context.Context, identity nativeTemplateWriteIdent
 		return nil, err
 	}
 	command := metadataWriteCommand{TenantID: identity.tenantID, SubjectID: identity.subjectID, Operation: "createDeviceAccessTemplate", Method: "POST", Path: "/api/v2/device-access-templates", Key: key, RequestID: requestID, CanonicalBody: input.CanonicalBody}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		if err := validateNativeTemplateConfigurationTx(ctx, tx, identity.tenantID, input.Configuration, check); err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
 		}
@@ -154,7 +154,7 @@ func updateNativeTemplate(ctx context.Context, identity nativeTemplateWriteIdent
 		return nil, err
 	}
 	command := metadataWriteCommand{TenantID: identity.tenantID, SubjectID: identity.subjectID, Operation: "updateDeviceAccessTemplate", Method: "PATCH", Path: "/api/v2/device-access-templates/" + id, Key: key, RequestID: requestID, IfMatch: ifMatch, CanonicalBody: input.CanonicalBody}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		stored, err := loadAccessTemplateConfigurationTx(ctx, tx, identity.tenantID, id, true)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err

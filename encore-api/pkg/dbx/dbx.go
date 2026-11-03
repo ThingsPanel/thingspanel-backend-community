@@ -52,6 +52,8 @@ type DB interface {
 	Begin(ctx context.Context) (Tx, error)
 	// Dialect reports "postgres" or "mysql" for the few places that must choose a statement form.
 	Dialect() string
+	// Stdlib returns the underlying database/sql pool for code (and tests) that need it.
+	Stdlib() *sql.DB
 }
 
 // ---- Encore (PostgreSQL) -------------------------------------------------------------------------------------
@@ -62,6 +64,7 @@ type encoreDB struct{ db *sqldb.Database }
 func Encore(db *sqldb.Database) DB { return encoreDB{db} }
 
 func (e encoreDB) Dialect() string { return "postgres" }
+func (e encoreDB) Stdlib() *sql.DB { return e.db.Stdlib() }
 func (e encoreDB) Exec(ctx context.Context, q string, a ...any) (ExecResult, error) {
 	return e.db.Exec(ctx, q, a...)
 }
@@ -112,6 +115,7 @@ type sqlDB struct {
 func SQL(db *sql.DB, dialect string) DB { return sqlDB{db, dialect} }
 
 func (s sqlDB) Dialect() string { return s.dialect }
+func (s sqlDB) Stdlib() *sql.DB { return s.db }
 func (s sqlDB) Exec(ctx context.Context, q string, a ...any) (ExecResult, error) {
 	return exec(ctx, s.db, q, a)
 }

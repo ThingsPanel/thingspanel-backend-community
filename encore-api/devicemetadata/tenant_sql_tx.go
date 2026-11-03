@@ -2,9 +2,9 @@ package devicemetadata
 
 import (
 	"context"
+	"encore.app/pkg/dbx"
 
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -12,7 +12,7 @@ import (
 // accepts only the canonical non-nil UUID returned by mustTenantID and binds
 // the setting to the transaction, never the pooled session. Read-only callers
 // receive a repeatable-read snapshot for multi-query responses.
-func beginTenantScopedSQLTx(ctx context.Context, tenantID string, readOnly bool) (*sqldb.Tx, error) {
+func beginTenantScopedSQLTx(ctx context.Context, tenantID string, readOnly bool) (dbx.Tx, error) {
 	parsed, err := uuid.Parse(tenantID)
 	if err != nil || parsed == uuid.Nil || parsed.String() != tenantID {
 		return nil, &errs.Error{Code: errs.Unauthenticated, Message: "invalid authenticated tenant context"}

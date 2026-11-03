@@ -3,11 +3,11 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"strings"
 	"time"
 
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -38,7 +38,7 @@ type NativeDeviceAccessTemplate struct {
 // resolved principal scope; an empty slice means tenant-wide visibility.
 func loadNativeDeviceAccessTemplateTx(
 	ctx context.Context,
-	tx *sqldb.Tx,
+	tx dbx.Tx,
 	tenantID, templateID string,
 	authorizedDeviceIDs []string,
 ) (*NativeDeviceAccessTemplate, error) {
@@ -77,7 +77,7 @@ func loadNativeDeviceAccessTemplateTx(
 	return assembleNativeDeviceAccessTemplate(stored, deviceCount)
 }
 
-func validateNativeTemplateReadContext(tx *sqldb.Tx, tenantID string, authorizedDeviceIDs []string) error {
+func validateNativeTemplateReadContext(tx dbx.Tx, tenantID string, authorizedDeviceIDs []string) error {
 	if tx == nil {
 		return &errs.Error{Code: errs.Internal, Message: "template projection requires an existing transaction"}
 	}

@@ -2,13 +2,12 @@ package devicemetadata
 
 import (
 	"context"
+	"encore.app/pkg/dbx"
 	"errors"
-	"strings"
-	"testing"
-
-	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"strings"
+	"testing"
 )
 
 func TestMetadataOperationsSchemaConstraints(t *testing.T) {
@@ -258,7 +257,7 @@ func TestMetadataOperationsSchemaConstraints(t *testing.T) {
 	`, tenantA, operationID)
 }
 
-func insertMetadataOperationFixture(t *testing.T, ctx context.Context, tx *sqldb.Tx, tenantID, kind string) string {
+func insertMetadataOperationFixture(t *testing.T, ctx context.Context, tx dbx.Tx, tenantID, kind string) string {
 	t.Helper()
 	id := uuid.NewString()
 	if _, err := tx.Exec(ctx, `
@@ -272,7 +271,7 @@ func insertMetadataOperationFixture(t *testing.T, ctx context.Context, tx *sqldb
 	return id
 }
 
-func insertMetadataArtifactFixture(t *testing.T, ctx context.Context, tx *sqldb.Tx, tenantID, operationID, purpose, checksum string) string {
+func insertMetadataArtifactFixture(t *testing.T, ctx context.Context, tx dbx.Tx, tenantID, operationID, purpose, checksum string) string {
 	t.Helper()
 	id := uuid.NewString()
 	if _, err := tx.Exec(ctx, `
@@ -286,7 +285,7 @@ func insertMetadataArtifactFixture(t *testing.T, ctx context.Context, tx *sqldb.
 	return id
 }
 
-func expectMetadataOperationSchemaError(t *testing.T, ctx context.Context, tx *sqldb.Tx, savepoint, wantSQLState, query string, args ...any) {
+func expectMetadataOperationSchemaError(t *testing.T, ctx context.Context, tx dbx.Tx, savepoint, wantSQLState, query string, args ...any) {
 	t.Helper()
 	if _, err := tx.Exec(ctx, "SAVEPOINT "+savepoint); err != nil {
 		t.Fatalf("create %s: %v", savepoint, err)

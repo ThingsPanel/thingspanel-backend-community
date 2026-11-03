@@ -3,6 +3,7 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"fmt"
 	"net/http/httptest"
 	"net/url"
@@ -15,7 +16,6 @@ import (
 	"encore.dev/beta/auth"
 	"encore.dev/beta/errs"
 	"encore.dev/et"
-	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -448,17 +448,17 @@ func seedNativeDeviceReadFixture(t *testing.T, ctx context.Context) nativeDevice
 	return f
 }
 
-func insertNativeReadGroup(ctx context.Context, tx *sqldb.Tx, tenantID, id string, parent *string, name string) error {
+func insertNativeReadGroup(ctx context.Context, tx dbx.Tx, tenantID, id string, parent *string, name string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO device_groups(id,tenant_id,parent_id,name,created_by,updated_by) VALUES($1,$2,$3,$4,'native-read-fixture','native-read-fixture')`, id, tenantID, parent, name)
 	return err
 }
 
-func insertNativeReadGroupMember(ctx context.Context, tx *sqldb.Tx, tenantID, groupID, deviceID string) error {
+func insertNativeReadGroupMember(ctx context.Context, tx dbx.Tx, tenantID, groupID, deviceID string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO device_group_members(tenant_id,group_id,device_id,created_by) VALUES($1,$2,$3,'native-read-fixture')`, tenantID, groupID, deviceID)
 	return err
 }
 
-func insertNativeReadDevice(ctx context.Context, tx *sqldb.Tx, tenantID, id, number, name, labels string, withBinding bool) error {
+func insertNativeReadDevice(ctx context.Context, tx dbx.Tx, tenantID, id, number, name, labels string, withBinding bool) error {
 	row := validDeviceIdentitySchemaRow(tenantID)
 	row.id = id
 	row.deviceNumber = deviceIdentityString(number)

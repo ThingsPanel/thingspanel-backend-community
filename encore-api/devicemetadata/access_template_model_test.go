@@ -3,6 +3,7 @@ package devicemetadata
 import (
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"strings"
 	"testing"
 
@@ -10,7 +11,6 @@ import (
 	"encore.dev/beta/auth"
 	"encore.dev/beta/errs"
 	"encore.dev/et"
-	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -130,7 +130,7 @@ type seededSnapshot struct {
 	resourcesChecksum string
 }
 
-func seedAccessTemplateModelFixture(t *testing.T, ctx context.Context, tx *sqldb.Tx, tenantID, status string, canonicalModel bool, snapshots []seededSnapshot) (string, map[int]string) {
+func seedAccessTemplateModelFixture(t *testing.T, ctx context.Context, tx dbx.Tx, tenantID, status string, canonicalModel bool, snapshots []seededSnapshot) (string, map[int]string) {
 	t.Helper()
 	modelID := uuid.NewString()
 	var canonical any

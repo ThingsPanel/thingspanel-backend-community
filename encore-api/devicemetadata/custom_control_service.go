@@ -2,10 +2,10 @@ package devicemetadata
 
 import (
 	"context"
+	"encore.app/pkg/dbx"
 	"time"
 
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 	"github.com/google/uuid"
 )
 
@@ -208,7 +208,7 @@ func (s *Service) DeleteCustomCommandControl(ctx context.Context, id string) err
 	return nil
 }
 
-func getCustomCommandControlTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) (*CustomCommandControl, error) {
+func getCustomCommandControlTx(ctx context.Context, tx dbx.Tx, tenantID, id string) (*CustomCommandControl, error) {
 	var c CustomCommandControl
 	err := tx.QueryRow(ctx,
 		`SELECT id, thing_model_id, tenant_id, name, COALESCE(description,''), content, enable_status, COALESCE(control_type,''), created_at, updated_at

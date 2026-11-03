@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"encore.dev/beta/errs"
-	"encore.dev/storage/sqldb"
 )
 
 func credentialReceiptFixture(t *testing.T) (context.Context, metadataWriteCommand, CredentialAAD) {
@@ -37,8 +37,8 @@ func credentialReceiptFixture(t *testing.T) (context.Context, metadataWriteComma
 	return ctx, metadataWriteCommand{TenantID: tenant, SubjectID: "credential-receipt-test", Operation: "createDeviceCredential", Path: "/api/v2/devices/" + deviceID + "/credentials", Key: "receipt-" + testTenantID(), Method: "POST", RequestID: testTenantID(), CanonicalBody: []byte(`{"kind":"token","secret":"synthetic-receipt-secret"}`)}, CredentialAAD{TenantID: tenant, OwnerKind: CredentialOwnerDevice, OwnerID: deviceID, Purpose: CredentialPurposeDeviceAccess}
 }
 
-func credentialReceiptApply(ctx context.Context, command metadataWriteCommand, protector *CredentialSecretProtector, calls *atomic.Int32, reject bool) func(*sqldb.Tx, CredentialAAD, time.Time) (metadataWriteResponse, metadataWriteAudit, error) {
-	return func(tx *sqldb.Tx, aad CredentialAAD, expiresAt time.Time) (metadataWriteResponse, metadataWriteAudit, error) {
+func credentialReceiptApply(ctx context.Context, command metadataWriteCommand, protector *CredentialSecretProtector, calls *atomic.Int32, reject bool) func(dbx.Tx, CredentialAAD, time.Time) (metadataWriteResponse, metadataWriteAudit, error) {
+	return func(tx dbx.Tx, aad CredentialAAD, expiresAt time.Time) (metadataWriteResponse, metadataWriteAudit, error) {
 		calls.Add(1)
 		secret := []byte("synthetic-receipt-secret")
 		sealed, err := protector.Seal(aad, secret)
@@ -65,7 +65,7 @@ func TestCredentialSecretReceiptConcurrentReplayRotationAndExpiry(t *testing.T) 
 	ctx, command, owner := credentialReceiptFixture(t)
 	protector := testCredentialProtector(t)
 	var calls, authCalls atomic.Int32
-	authorize := func(*sqldb.Tx) error { authCalls.Add(1); return nil }
+	authorize := func(dbx.Tx) error { authCalls.Add(1); return nil }
 	apply := credentialReceiptApply(ctx, command, protector, &calls, false)
 	type outcome struct {
 		response *metadataWriteResponse
@@ -120,7 +120,7 @@ func TestCredentialSecretReceiptConcurrentReplayRotationAndExpiry(t *testing.T) 
 	if _, err := runCredentialSecretWriteTx(ctx, changed, owner, rotated, authorize, apply); errs.Code(err) != errs.AlreadyExists {
 		t.Fatal("changed secret request must conflict")
 	}
-	deny := func(*sqldb.Tx) error {
+	deny := func(dbx.Tx) error {
 		return &errs.Error{Code: errs.PermissionDenied, Message: "synthetic authority revoked"}
 	}
 	if _, err := runCredentialSecretWriteTx(ctx, command, owner, rotated, deny, apply); errs.Code(err) != errs.PermissionDenied {
@@ -146,7 +146,7 @@ func TestCredentialSecretReceiptRollbackAndRevokedReplay(t *testing.T) {
 	ctx, command, owner := credentialReceiptFixture(t)
 	p := testCredentialProtector(t)
 	var calls atomic.Int32
-	authorize := func(*sqldb.Tx) error { return nil }
+	authorize := func(dbx.Tx) error { return nil }
 	if _, err := runCredentialSecretWriteTx(ctx, command, owner, p, authorize, credentialReceiptApply(ctx, command, p, &calls, true)); errs.Code(err) != errs.InvalidArgument {
 		t.Fatal("expected rejected mutation")
 	}

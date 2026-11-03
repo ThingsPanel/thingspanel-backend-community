@@ -2,15 +2,14 @@ package devicemetadata
 
 import (
 	"context"
+	"encore.app/pkg/dbx"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"strings"
 	"testing"
 	"time"
-
-	"encore.dev/storage/sqldb"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestDeviceIdentitySchemaMigrationPreservesS3LegacyRowsAndTenantFence(t *testing.T) {
@@ -368,7 +367,7 @@ func validDeviceIdentitySchemaRow(tenantID string) deviceIdentitySchemaRow {
 	}
 }
 
-func insertDeviceIdentitySchemaRow(ctx context.Context, tx *sqldb.Tx, row deviceIdentitySchemaRow) error {
+func insertDeviceIdentitySchemaRow(ctx context.Context, tx dbx.Tx, row deviceIdentitySchemaRow) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO devices (
 			id, tenant_id, device_number, name, device_kind,
@@ -387,7 +386,7 @@ func insertDeviceIdentitySchemaRow(ctx context.Context, tx *sqldb.Tx, row device
 	return err
 }
 
-func expectDeviceIdentitySQLState(t *testing.T, ctx context.Context, tx *sqldb.Tx, name, wantSQLState string, operation func() error) {
+func expectDeviceIdentitySQLState(t *testing.T, ctx context.Context, tx dbx.Tx, name, wantSQLState string, operation func() error) {
 	t.Helper()
 	savepoint := "device_identity_" + strings.ReplaceAll(name, "/", "_")
 	if _, err := tx.Exec(ctx, "SAVEPOINT "+savepoint); err != nil {
