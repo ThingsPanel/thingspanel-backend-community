@@ -71,9 +71,10 @@ func prepareArgs(query string, args []driver.NamedValue) (string, []driver.Named
 
 // textBytes sends valid UTF-8 byte slices as text. A []byte parameter reaches MySQL in the binary character
 // set, which a JSON column refuses; the same bytes as text are stored unchanged in BLOB columns too.
+// A nil slice stays NULL.
 func textBytes(args []driver.NamedValue) {
 	for i, a := range args {
-		if b, ok := a.Value.([]byte); ok && utf8.Valid(b) {
+		if b, ok := a.Value.([]byte); ok && b != nil && utf8.Valid(b) {
 			args[i].Value = string(b)
 		}
 	}

@@ -213,6 +213,9 @@ func (s *Store) ClaimDueSchedules(ctx context.Context, now time.Time, limit int,
 	if limit <= 0 {
 		limit = 50
 	}
+	if s.MySQL {
+		return s.claimDueSchedulesMySQL(ctx, now, limit, owner, lease)
+	}
 	rows, err := s.DB.QueryContext(ctx, `
         WITH due AS (
             SELECT s.id
@@ -271,7 +274,7 @@ func (s *Store) ReleaseSchedule(ctx context.Context, id string) error {
 // InsertFire records an occurrence. A duplicate occurrence is reported instead
 // of being inserted, which is what makes a repeated wake-up harmless.
 func (s *Store) InsertFire(ctx context.Context, f *Fire) (bool, error) {
-	res, err := s.DB.ExecContext(ctx, `
+	res, err := s.execOnce(ctx, nil, `
         INSERT INTO auto_schedule_fires (id, schedule_id, tenant_id, rule_id, scheduled_for,
                                          state, missed, lease_owner, lease_until)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
@@ -291,6 +294,9 @@ func (s *Store) InsertFire(ctx context.Context, f *Fire) (bool, error) {
 func (s *Store) ClaimFires(ctx context.Context, now time.Time, limit int, owner string, lease time.Duration) ([]*Fire, error) {
 	if limit <= 0 {
 		limit = 50
+	}
+	if s.MySQL {
+		return s.claimFiresMySQL(ctx, now, limit, owner, lease)
 	}
 	rows, err := s.DB.QueryContext(ctx, `
         WITH work AS (
@@ -409,4 +415,105 @@ func prefixed(cols, alias string) string {
 		}
 	}
 	return strings.Join(out, ", ")
+}
+
+// claimDueSchedulesMySQL is ClaimDueSchedules without UPDATE ... FROM / RETURNING. The lease length is passed
+// as microseconds because MySQL has no text interval parameter.
+func (s *Store) claimDueSchedulesMySQL(ctx context.Context, now time.Time, limit int, owner string, lease time.Duration) ([]*Schedule, error) {
+	var out []*Schedule
+	err := s.WithTx(ctx, func(tx *sql.Tx) error {
+		out = nil
+		ids, err := lockIDs(ctx, tx, `
+            SELECT s.id
+              FROM auto_schedules s
+              JOIN auto_rules r ON r.id = s.rule_id
+             WHERE s.enabled AND s.deleted_at IS NULL
+               AND s.next_fire_at IS NOT NULL AND s.next_fire_at <= $1
+               AND (s.lease_until IS NULL OR s.lease_until < $1)
+               AND r.enabled AND r.deleted_at IS NULL
+             ORDER BY s.next_fire_at
+             LIMIT $2
+             FOR UPDATE OF s SKIP LOCKED`, now, limit)
+		if err != nil || len(ids) == 0 {
+			return err
+		}
+		marks, args := placeholders([]any{owner, now, lease.Microseconds()}, ids)
+		if _, err := tx.ExecContext(ctx, `
+            UPDATE auto_schedules SET lease_owner=$1, lease_until=$2 + INTERVAL $3 MICROSECOND, updated_at=now()
+             WHERE id IN (`+marks+`)`, args...); err != nil {
+			return err
+		}
+		readMarks, readArgs := placeholders(nil, ids)
+		rows, err := tx.QueryContext(ctx, `SELECT `+prefixed(scheduleColumns, "s")+` FROM auto_schedules s
+             WHERE s.id IN (`+readMarks+`) ORDER BY s.next_fire_at`, readArgs...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			sc, err := scanSchedule(rows)
+			if err != nil {
+				return err
+			}
+			out = append(out, sc)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// claimFiresMySQL is ClaimFires without UPDATE ... FROM / RETURNING.
+func (s *Store) claimFiresMySQL(ctx context.Context, now time.Time, limit int, owner string, lease time.Duration) ([]*Fire, error) {
+	var out []*Fire
+	err := s.WithTx(ctx, func(tx *sql.Tx) error {
+		out = nil
+		ids, err := lockIDs(ctx, tx, `
+            SELECT f.id
+              FROM auto_schedule_fires f
+              JOIN auto_schedules s ON s.id = f.schedule_id
+              JOIN auto_rules r ON r.id = f.rule_id
+             WHERE f.state IN ('claimed','running')
+               AND (f.lease_until IS NULL OR f.lease_until < $1)
+               AND s.deleted_at IS NULL
+               AND r.deleted_at IS NULL
+             ORDER BY f.scheduled_for
+             LIMIT $2
+             FOR UPDATE OF f SKIP LOCKED`, now, limit)
+		if err != nil || len(ids) == 0 {
+			return err
+		}
+		marks, args := placeholders([]any{owner, now, lease.Microseconds()}, ids)
+		if _, err := tx.ExecContext(ctx, `
+            UPDATE auto_schedule_fires
+               SET state='running', lease_owner=$1, lease_until=$2 + INTERVAL $3 MICROSECOND,
+                   attempt=attempt+1, updated_at=now()
+             WHERE id IN (`+marks+`)`, args...); err != nil {
+			return err
+		}
+		readMarks, readArgs := placeholders(nil, ids)
+		rows, err := tx.QueryContext(ctx, `
+            SELECT f.id, f.schedule_id, f.tenant_id, f.rule_id, f.scheduled_for,
+                   f.state, coalesce(f.run_id,''), f.attempt, f.missed, coalesce(f.error,''), f.created_at
+              FROM auto_schedule_fires f WHERE f.id IN (`+readMarks+`) ORDER BY f.scheduled_for`, readArgs...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var f Fire
+			if err := rows.Scan(&f.ID, &f.ScheduleID, &f.TenantID, &f.RuleID, &f.ScheduledFor,
+				&f.State, &f.RunID, &f.Attempt, &f.Missed, &f.Error, &f.CreatedAt); err != nil {
+				return err
+			}
+			out = append(out, &f)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }

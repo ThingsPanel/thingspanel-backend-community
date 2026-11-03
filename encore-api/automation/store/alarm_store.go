@@ -395,10 +395,10 @@ func (s *Store) LatestObservedAt(ctx context.Context, deviceID string, signal do
 		return time.Time{}, false, nil
 	}
 	var latest sql.NullTime
+	marks, args := placeholders([]any{deviceID, string(signal)}, keys)
 	err := s.DB.QueryRowContext(ctx, `
         SELECT max(observed_at) FROM auto_state
-         WHERE device_id=$1 AND signal=$2 AND key = ANY($3)`,
-		deviceID, string(signal), keys).Scan(&latest)
+         WHERE device_id=$1 AND signal=$2 AND key IN (`+marks+`)`, args...).Scan(&latest)
 	if err != nil {
 		return time.Time{}, false, err
 	}

@@ -18,6 +18,10 @@ func TestRewriteTranslatesKnownIdiomsAndRefusesTheRest(t *testing.T) {
 		t.Fatalf("PostgreSQL statements pass through untouched: %q", q)
 	}
 	cases := map[string]string{
+		"CREATE TABLE t (`signal` INT, `key` INT)": "CREATE TABLE t (`signal` INT, `key` INT)",
+		`SELECT coalesce(report,'null'::jsonb) FROM t WHERE key=$1 AND signal='key' AND x.key=$2 AND idempotency_key=$3`:    "SELECT coalesce(report,CAST('null' AS JSON)) FROM t WHERE `key`=? AND `signal`='key' AND x.`key`=? AND idempotency_key=?",
+		`UPDATE t SET d=NULLIF($1,'')::jsonb, r=coalesce(NULLIF($2,'')::uuid, r) WHERE id=$3`:                               `UPDATE t SET d=NULLIF(?,''), r=coalesce(NULLIF(?,''), r) WHERE id=?`,
+		`SELECT id::text, coalesce(binding_params,'{}'::jsonb), coalesce(a,'[]'::jsonb) FROM t WHERE r.rule_id::uuid=$1`:    `SELECT id, coalesce(binding_params,JSON_OBJECT()), coalesce(a,JSON_ARRAY()) FROM t WHERE r.rule_id=?`,
 		`INSERT INTO auto_requests (tenant_id, request_key) VALUES ($1,$2) ON CONFLICT (tenant_id, request_key) DO NOTHING`: `INSERT INTO auto_requests (tenant_id, request_key) VALUES (?,?) ON DUPLICATE KEY UPDATE tenant_id=tenant_id`,
 		`INSERT INTO t(id,a,b) VALUES($1,$2,$3) ON CONFLICT (id) DO UPDATE SET a=EXCLUDED.a, b = excluded.b`:                `INSERT INTO t(id,a,b) VALUES(?,?,?) ON DUPLICATE KEY UPDATE a=VALUES(a), b = VALUES(b)`,
 		`UPDATE t SET p=$1::jsonb, q=$2::bigint WHERE id=$3`:                                                                `UPDATE t SET p=?, q=? WHERE id=?`,
@@ -38,5 +42,18 @@ func TestRewriteTranslatesKnownIdiomsAndRefusesTheRest(t *testing.T) {
 	}
 	if q, _, ok := MySQL.Rewrite(`INSERT INTO t(id) VALUES($1) ON CONFLICT DO NOTHING`, []any{1}); !ok || q != `INSERT INTO t(id) VALUES(?) ON DUPLICATE KEY UPDATE id=id` {
 		t.Fatalf("DO NOTHING: ok=%v %q", ok, q)
+	}
+}
+
+func TestWithoutOnConflictDoNothing(t *testing.T) {
+	got, ok := WithoutOnConflictDoNothing("INSERT INTO t(a) VALUES($1) ON CONFLICT (a) DO NOTHING")
+	if !ok || got != "INSERT INTO t(a) VALUES($1)" {
+		t.Fatalf("got %q ok=%v", got, ok)
+	}
+	if _, ok := WithoutOnConflictDoNothing("INSERT INTO t(a) VALUES($1) ON CONFLICT (a) DO UPDATE SET a=EXCLUDED.a"); ok {
+		t.Fatal("DO UPDATE must not be stripped")
+	}
+	if _, ok := WithoutOnConflictDoNothing("INSERT INTO t(a) VALUES($1)"); ok {
+		t.Fatal("a plain insert has nothing to strip")
 	}
 }

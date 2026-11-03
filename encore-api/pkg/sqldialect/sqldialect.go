@@ -37,8 +37,15 @@ var Unsupported atomic.Int64
 const probe = "SELECT * FROM tp_unsupported_mysql_statement"
 
 var (
-	placeholder       = regexp.MustCompile(`\$(\d+)`)
-	paramCast         = regexp.MustCompile(`(?i)(\$\d+)::(?:text|bigint|int|integer|smallint|numeric|jsonb|json|timestamptz|timestamp|varchar|boolean)\b`)
+	placeholder    = regexp.MustCompile(`\$(\d+)`)
+	paramCast      = regexp.MustCompile(`(?i)(\$\d+)::(?:text|bigint|int|integer|smallint|numeric|jsonb|json|timestamptz|timestamp|varchar|boolean)\b`)
+	emptyJSON      = regexp.MustCompile(`(?i)'\{\}'::jsonb`)
+	emptyJSONArray = regexp.MustCompile(`(?i)'\[\]'::jsonb`)
+	nullJSON       = regexp.MustCompile(`(?i)'null'::jsonb`)
+	nullifCast     = regexp.MustCompile(`(?i)(\bNULLIF\(\$\d+\s*,\s*''\))::(?:text|uuid|jsonb|json)\b`)
+	// key and signal are reserved words in MySQL but plain column names in the PostgreSQL-style statements.
+	reservedColumn    = regexp.MustCompile("`?\\b(?:key|signal)\\b`?")
+	identCast         = regexp.MustCompile(`(?i)\b([A-Za-z_][A-Za-z0-9_.]*)::(?:text|uuid|jsonb|json)\b`)
 	jsonText          = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_.]*)\s*->>\s*'([A-Za-z0-9_]+)'`)
 	jsonValue         = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_.]*)\s*->\s*'([A-Za-z0-9_]+)'`)
 	upsertSet         = regexp.MustCompile(`(?is)\s+ON\s+CONFLICT\s*\([^)]*\)\s+DO\s+UPDATE\s+SET\s+(.*?)\s*$`)
@@ -89,7 +96,13 @@ func (d Dialect) RewriteIndexed(query string, argCount int) (string, []int, bool
 		}
 		return " ON DUPLICATE KEY UPDATE " + excludedRef.ReplaceAllString(set, "VALUES($1)")
 	})
+	query = nullJSON.ReplaceAllString(query, "CAST('null' AS JSON)")
+	query = nullifCast.ReplaceAllString(query, "$1")
+	query = emptyJSON.ReplaceAllString(query, "JSON_OBJECT()")
+	query = emptyJSONArray.ReplaceAllString(query, "JSON_ARRAY()")
 	query = paramCast.ReplaceAllString(query, "$1")
+	// uuid columns are CHAR(36) and jsonb columns JSON in the MySQL schema, so casting a column to them changes nothing.
+	query = identCast.ReplaceAllString(query, "$1")
 	query = jsonText.ReplaceAllString(query, "JSON_UNQUOTE(JSON_EXTRACT($1, '$$.$2'))")
 	query = jsonValue.ReplaceAllString(query, "JSON_EXTRACT($1, '$$.$2')")
 	query = intervalLit.ReplaceAllStringFunc(query, func(m string) string {
@@ -108,7 +121,7 @@ func (d Dialect) RewriteIndexed(query string, argCount int) (string, []int, bool
 			rebuilt.WriteString(part.text)
 			continue
 		}
-		rebuilt.WriteString(placeholder.ReplaceAllStringFunc(part.text, func(m string) string {
+		rebuilt.WriteString(placeholder.ReplaceAllStringFunc(quoteReserved(part.text), func(m string) string {
 			n, err := strconv.Atoi(m[1:])
 			if err != nil || n < 1 || n > argCount {
 				bad = true
@@ -216,4 +229,25 @@ func Begin(ctx context.Context, db *sql.DB, d Dialect, opts *sql.TxOptions) (Tx,
 		return Tx{}, err
 	}
 	return Tx{DB: DB{Inner: tx, Dialect: d}, tx: tx}, nil
+}
+
+// quoteReserved backquotes bare key/signal column names and leaves already quoted ones alone.
+func quoteReserved(text string) string {
+	return reservedColumn.ReplaceAllStringFunc(text, func(m string) string {
+		if strings.HasPrefix(m, "`") {
+			return m
+		}
+		return "`" + m + "`"
+	})
+}
+
+// WithoutOnConflictDoNothing removes a trailing "ON CONFLICT [(cols)] DO NOTHING" so the caller can run a plain
+// INSERT and read the duplicate-key error. With clientFoundRows an ON DUPLICATE KEY no-op reports one affected
+// row, exactly as a real insert does, so the affected-row count cannot tell "created" from "already there".
+func WithoutOnConflictDoNothing(query string) (string, bool) {
+	loc := onConflict.FindStringIndex(query)
+	if loc == nil || strings.TrimSpace(query[loc[1]:]) != "" {
+		return query, false
+	}
+	return query[:loc[0]], true
 }
