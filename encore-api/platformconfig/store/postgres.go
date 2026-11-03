@@ -8,6 +8,9 @@ import (
 	"errors"
 	"fmt"
 
+	mysqldriver "github.com/go-sql-driver/mysql"
+
+	"encore.app/pkg/sqldialect"
 	"encore.app/platformconfig/app"
 )
 
@@ -20,8 +23,23 @@ type transaction interface {
 }
 
 type Store struct {
-	db    *sql.DB
-	begin func(context.Context, *sql.TxOptions) (transaction, error)
+	db      *sql.DB
+	dialect sqldialect.Dialect
+	begin   func(context.Context, *sql.TxOptions) (transaction, error)
+}
+
+// dx returns the pool with statement translation for the store's database.
+func (s *Store) dx() sqldialect.DB { return sqldialect.DB{Inner: s.db, Dialect: s.dialect} }
+
+// NewMySQL builds the store on a MySQL 8 pool opened with parseTime=true and clientFoundRows=true.
+func NewMySQL(db *sql.DB) *Store {
+	store := &Store{db: db, dialect: sqldialect.MySQL}
+	if db != nil {
+		store.begin = func(ctx context.Context, opts *sql.TxOptions) (transaction, error) {
+			return sqldialect.Begin(ctx, db, sqldialect.MySQL, opts)
+		}
+	}
+	return store
 }
 
 func New(db *sql.DB) *Store {
@@ -45,6 +63,10 @@ func persistenceError(err error) error {
 	}
 	var state interface{ SQLState() string }
 	if errors.As(err, &state) && state.SQLState() == "23505" {
+		return fmt.Errorf("%w: %w", app.ErrConflict, err)
+	}
+	var mysqlErr *mysqldriver.MySQLError
+	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 { // duplicate entry
 		return fmt.Errorf("%w: %w", app.ErrConflict, err)
 	}
 	return err
@@ -219,7 +241,7 @@ func (s *Store) Enum(ctx context.Context, code, language string) ([]app.EnumValu
 	if err := s.available(ctx); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT d.dict_value,COALESCE(l.translation,'') FROM sys_dict d LEFT JOIN sys_dict_language l ON l.dict_id=d.id AND l.language_code=$2 WHERE d.dict_code=$1 ORDER BY d.created_at,d.id`, code, language)
+	rows, err := s.dx().QueryContext(ctx, `SELECT d.dict_value,COALESCE(l.translation,'') FROM sys_dict d LEFT JOIN sys_dict_language l ON l.dict_id=d.id AND l.language_code=$2 WHERE d.dict_code=$1 ORDER BY d.created_at,d.id`, code, language)
 	if err != nil {
 		return nil, persistenceError(err)
 	}
@@ -272,7 +294,7 @@ func (s *Store) Languages(ctx context.Context, id string) ([]app.Language, error
 	if err := s.available(ctx); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT id,dict_id,language_code,translation FROM sys_dict_language WHERE dict_id=$1 ORDER BY language_code,id`, id)
+	rows, err := s.dx().QueryContext(ctx, `SELECT id,dict_id,language_code,translation FROM sys_dict_language WHERE dict_id=$1 ORDER BY language_code,id`, id)
 	if err != nil {
 		return nil, persistenceError(err)
 	}
@@ -296,7 +318,7 @@ func (s *Store) Protocols(ctx context.Context, language string) ([]app.ProtocolR
 		return nil, err
 	}
 	// The legacy LEFT JOIN plus WHERE on language excluded untranslated rows.
-	rows, err := s.db.QueryContext(ctx, `SELECT d.dict_code,d.dict_value,l.translation FROM sys_dict d JOIN sys_dict_language l ON l.dict_id=d.id WHERE d.dict_code IN ('DRIECT_ATTACHED_PROTOCOL','GATEWAY_PROTOCOL') AND l.language_code=$1 ORDER BY d.created_at,d.id`, language)
+	rows, err := s.dx().QueryContext(ctx, `SELECT d.dict_code,d.dict_value,l.translation FROM sys_dict d JOIN sys_dict_language l ON l.dict_id=d.id WHERE d.dict_code IN ('DRIECT_ATTACHED_PROTOCOL','GATEWAY_PROTOCOL') AND l.language_code=$1 ORDER BY d.created_at,d.id`, language)
 	if err != nil {
 		return nil, persistenceError(err)
 	}
