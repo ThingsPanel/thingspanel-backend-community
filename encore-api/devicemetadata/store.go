@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/base32"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"fmt"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"encore.app/l1-access/authn"
 	"encore.dev/beta/errs"
 	"encore.dev/storage/sqldb"
-	"encore.dev/storage/sqldb/sqlerr"
 	"github.com/google/uuid"
 )
 
@@ -394,7 +394,7 @@ func createThingModelItem(ctx context.Context, tenantID, thingModelID string, re
 }
 
 func insertThingModelItem(ctx context.Context, q interface {
-	QueryRow(context.Context, string, ...interface{}) *sqldb.Row
+	QueryRow(context.Context, string, ...interface{}) dbx.Row
 }, tenantID, thingModelID string, req *ThingModelItem) (*ThingModelItem, error) {
 	var out ThingModelItem
 	sortOrder := req.SortOrder
@@ -547,18 +547,11 @@ func currentUserID() string {
 }
 
 func isUniqueViolation(err error, constraint string) bool {
-	if sqldb.ErrCode(err) != sqlerr.UniqueViolation {
-		return false
-	}
-	var sqlErr *sqldb.Error
-	if errors.As(err, &sqlErr) && constraint != "" {
-		return sqlErr.ConstraintName == constraint
-	}
-	return true
+	return dbx.IsUniqueViolation(err, constraint)
 }
 
 func nextThingModelItemSortOrder(ctx context.Context, q interface {
-	QueryRow(context.Context, string, ...interface{}) *sqldb.Row
+	QueryRow(context.Context, string, ...interface{}) dbx.Row
 }, thingModelID string) int {
 	var next int
 	if err := q.QueryRow(ctx, `SELECT COALESCE(MAX(sort_order), 0) + 100 FROM thing_model_items WHERE thing_model_id = $1`, thingModelID).Scan(&next); err != nil {
@@ -567,12 +560,12 @@ func nextThingModelItemSortOrder(ctx context.Context, q interface {
 	return next
 }
 
-func insertThingModelItemTx(ctx context.Context, tx *sqldb.Tx, tenantID, thingModelID string, req *ThingModelItem) error {
+func insertThingModelItemTx(ctx context.Context, tx dbx.Tx, tenantID, thingModelID string, req *ThingModelItem) error {
 	_, err := insertThingModelItem(ctx, tx, tenantID, thingModelID, req)
 	return err
 }
 
-func getThingModelByIDTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) (*ThingModel, error) {
+func getThingModelByIDTx(ctx context.Context, tx dbx.Tx, tenantID, id string) (*ThingModel, error) {
 	var out ThingModel
 	err := tx.QueryRow(ctx, `
 		SELECT id, tenant_id, name, description_i18n, COALESCE(category,''), status, current_snapshot_id, web_chart_config, app_chart_config, created_at, updated_at
@@ -586,7 +579,7 @@ func getThingModelByIDTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string)
 	return &out, nil
 }
 
-func listThingModelItemsAllTx(ctx context.Context, tx *sqldb.Tx, tenantID, thingModelID string) ([]ThingModelItem, error) {
+func listThingModelItemsAllTx(ctx context.Context, tx dbx.Tx, tenantID, thingModelID string) ([]ThingModelItem, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT id, thing_model_id, tenant_id, type, identifier, name_i18n, description_i18n, value_type, parameters,
 		       access, web_chart_config, app_chart_config, meta_items, sort_order, created_at, updated_at
@@ -610,7 +603,7 @@ func listThingModelItemsAllTx(ctx context.Context, tx *sqldb.Tx, tenantID, thing
 	return out, nil
 }
 
-func collectSnapshotContentTx(ctx context.Context, tx *sqldb.Tx, thingModelID, tenantID string, version int) (json.RawMessage, error) {
+func collectSnapshotContentTx(ctx context.Context, tx dbx.Tx, thingModelID, tenantID string, version int) (json.RawMessage, error) {
 	model, err := getThingModelByIDTx(ctx, tx, tenantID, thingModelID)
 	if err != nil {
 		return nil, err
@@ -626,7 +619,7 @@ func collectSnapshotContentTx(ctx context.Context, tx *sqldb.Tx, thingModelID, t
 	return nowJSON(payload), nil
 }
 
-func loadSnapshotByVersionTx(ctx context.Context, tx *sqldb.Tx, tenantID, thingModelID string, version int) (*ThingModelSnapshot, error) {
+func loadSnapshotByVersionTx(ctx context.Context, tx dbx.Tx, tenantID, thingModelID string, version int) (*ThingModelSnapshot, error) {
 	var out ThingModelSnapshot
 	err := tx.QueryRow(ctx, `
 		SELECT id, thing_model_id, tenant_id, version, content, changelog, published_at, published_by
@@ -639,7 +632,7 @@ func loadSnapshotByVersionTx(ctx context.Context, tx *sqldb.Tx, tenantID, thingM
 	return &out, nil
 }
 
-func insertAuditLogTx(ctx context.Context, tx *sqldb.Tx, tenantID, actorID, action, targetType, targetID string, before, after json.RawMessage) error {
+func insertAuditLogTx(ctx context.Context, tx dbx.Tx, tenantID, actorID, action, targetType, targetID string, before, after json.RawMessage) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO thing_model_audit_log (id, tenant_id, actor_id, action, target_type, target_id, before, after, occurred_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
@@ -673,7 +666,7 @@ func createDeviceTemplate(ctx context.Context, tenantID string, req *DeviceTempl
 	return out, nil
 }
 
-func createDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID string, req *DeviceTemplate) (*DeviceTemplate, error) {
+func createDeviceTemplateTx(ctx context.Context, tx dbx.Tx, tenantID string, req *DeviceTemplate) (*DeviceTemplate, error) {
 	// Verify thing_model exists and belongs to tenant
 	tm, err := getThingModelByIDTx(ctx, tx, tenantID, req.ThingModelID)
 	if err != nil {
@@ -862,7 +855,7 @@ func updateDeviceTemplate(ctx context.Context, tenantID, id string, req *DeviceT
 	return out, nil
 }
 
-func updateDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string, req *DeviceTemplate) (*DeviceTemplate, error) {
+func updateDeviceTemplateTx(ctx context.Context, tx dbx.Tx, tenantID, id string, req *DeviceTemplate) (*DeviceTemplate, error) {
 	// Check if template is ARCHIVED (immutable)
 	var currentStatus string
 	if err := tx.QueryRow(ctx, `
@@ -940,7 +933,7 @@ func deleteDeviceTemplate(ctx context.Context, tenantID, id string) error {
 	return nil
 }
 
-func deleteDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) error {
+func deleteDeviceTemplateTx(ctx context.Context, tx dbx.Tx, tenantID, id string) error {
 	// FOR UPDATE conflicts with the FOR SHARE checks in product/device creation,
 	// so deletion cannot pass reference checks while a new reference is inserted.
 	var lockedID string
@@ -1071,7 +1064,7 @@ func publishDeviceTemplate(ctx context.Context, tenantID, id string) (*DeviceTem
 
 // publishDeviceTemplateTx performs every read, validation and write for a
 // publication while holding the tenant-scoped template row lock.
-func publishDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) (*DeviceTemplate, error) {
+func publishDeviceTemplateTx(ctx context.Context, tx dbx.Tx, tenantID, id string) (*DeviceTemplate, error) {
 	var tpl DeviceTemplate
 	err := tx.QueryRow(ctx, `
 		SELECT id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
@@ -1151,7 +1144,7 @@ func publishDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID, id str
 	return &out, nil
 }
 
-func validateDeviceTemplateSnapshotTx(ctx context.Context, tx *sqldb.Tx, tenantID, thingModelID, snapshotID string) error {
+func validateDeviceTemplateSnapshotTx(ctx context.Context, tx dbx.Tx, tenantID, thingModelID, snapshotID string) error {
 	var snapshotTMID string
 	if err := tx.QueryRow(ctx, `
 		SELECT thing_model_id FROM thing_model_snapshots
@@ -1189,7 +1182,7 @@ func archiveDeviceTemplate(ctx context.Context, tenantID, id string) (*DeviceTem
 	return out, nil
 }
 
-func archiveDeviceTemplateTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) (*DeviceTemplate, error) {
+func archiveDeviceTemplateTx(ctx context.Context, tx dbx.Tx, tenantID, id string) (*DeviceTemplate, error) {
 	var tpl DeviceTemplate
 	err := tx.QueryRow(ctx, `
 		SELECT id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
@@ -1266,7 +1259,7 @@ func deriveDeviceTemplateDraftAdvanced(ctx context.Context, tenantID, id string)
 	return out, nil
 }
 
-func deriveDeviceTemplateDraftAdvancedTx(ctx context.Context, tx *sqldb.Tx, tenantID, id string) (*DeviceTemplate, error) {
+func deriveDeviceTemplateDraftAdvancedTx(ctx context.Context, tx dbx.Tx, tenantID, id string) (*DeviceTemplate, error) {
 	// Lock the published source so derivation and archive serialize on the same row.
 	var src DeviceTemplate
 	err := tx.QueryRow(ctx, `
@@ -1343,7 +1336,7 @@ func bindThingModelVersionAdvanced(ctx context.Context, tenantID, id, snapshotID
 	return out, nil
 }
 
-func bindThingModelVersionAdvancedTx(ctx context.Context, tx *sqldb.Tx, tenantID, id, snapshotID string) (*DeviceTemplate, error) {
+func bindThingModelVersionAdvancedTx(ctx context.Context, tx dbx.Tx, tenantID, id, snapshotID string) (*DeviceTemplate, error) {
 	var tpl DeviceTemplate
 	err := tx.QueryRow(ctx, `
 		SELECT id, tenant_id, name, brand, product_name, model_number, thing_model_id, thing_model_snapshot_id,
@@ -1448,7 +1441,7 @@ func createProduct(ctx context.Context, tenantID string, req *Product) (*Product
 	return out, nil
 }
 
-func createProductTx(ctx context.Context, tx *sqldb.Tx, tenantID string, req *Product, productKey string) (*Product, error) {
+func createProductTx(ctx context.Context, tx dbx.Tx, tenantID string, req *Product, productKey string) (*Product, error) {
 	var templateStatus string
 	if err := tx.QueryRow(ctx, `
 		SELECT status FROM device_access_templates
@@ -1677,7 +1670,7 @@ func createDevice(ctx context.Context, tenantID string, req *Device) (*Device, e
 	return out, nil
 }
 
-func createDeviceTx(ctx context.Context, tx *sqldb.Tx, tenantID string, req *Device) (*Device, error) {
+func createDeviceTx(ctx context.Context, tx dbx.Tx, tenantID string, req *Device) (*Device, error) {
 	// FOR SHARE allows concurrent reference creators but conflicts with the
 	// deleteDeviceTemplateTx FOR UPDATE lock while this reference is inserted.
 	var templateStatus string

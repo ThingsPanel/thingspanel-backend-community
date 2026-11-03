@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"fmt"
 
@@ -15,7 +16,7 @@ import (
 // created credential when the device has no live credential and no activation
 // already waiting. It writes the operation and the outbox row in the caller's
 // transaction.
-func enqueueFirstCredentialActivationTx(ctx context.Context, tx *sqldb.Tx, tenantID, subjectID, deviceID, credentialID, requestID string) error {
+func enqueueFirstCredentialActivationTx(ctx context.Context, tx dbx.Tx, tenantID, subjectID, deviceID, credentialID, requestID string) error {
 	var blocked bool
 	if err := tx.QueryRow(ctx, `SELECT
 			EXISTS (SELECT 1 FROM device_credentials WHERE tenant_id=$1 AND device_id=$2 AND purpose='device_access' AND status='active' AND id<>$3)
@@ -86,7 +87,7 @@ func unusableVoucher() string {
 	return string(encoded)
 }
 
-func loadCredentialVoucher(ctx context.Context, tx *sqldb.Tx, protector *CredentialSecretProtector, tenantID, deviceID, whereSQL string, args ...any) (string, bool, error) {
+func loadCredentialVoucher(ctx context.Context, tx dbx.Tx, protector *CredentialSecretProtector, tenantID, deviceID, whereSQL string, args ...any) (string, bool, error) {
 	var (
 		id, kind, protection string
 		publicIdentifier     sql.NullString
@@ -169,7 +170,7 @@ func planCredentialVoucher(ctx context.Context, tenantID, deviceID string, desir
 // applied credential change did: a rotation makes the replacement the live
 // credential and retires the one it replaced. A revocation was already recorded
 // when it was requested.
-func applyCredentialChangeReceiptTx(ctx context.Context, tx *sqldb.Tx, tenantID, deviceID string, desiredJSON []byte) error {
+func applyCredentialChangeReceiptTx(ctx context.Context, tx dbx.Tx, tenantID, deviceID string, desiredJSON []byte) error {
 	var desired credentialChangeDesired
 	if err := json.Unmarshal(desiredJSON, &desired); err != nil {
 		return err

@@ -54,17 +54,20 @@ scripts/dev-databases.sh down            # 用完删掉
 |---|---|---|
 | **MVP-0（已具备）** | PG + Timescale 默认路径可用，存储层 MySQL 可用 | 现有测试全绿 |
 | **MVP-1：MySQL 平台能启动并登录（后端已达成，前端未验证）** | `db.driver=mysql` + TDengine 历史，平台起得来；登录、租户、设备增删改查、设备列表、遥测上报进 TDengine；PG 完全不启动 | 起一套 MySQL+TDengine 栈，用测试账号登录，建设备，用 MQTT 上报一条遥测，在界面看到 |
-| **MVP-2：四种库组合的安装器** | 唯一 installer 能产出四种组合（PG+Timescale、PG+TDengine、MySQL+Timescale、MySQL+TDengine），新装、升级、中断恢复 | 每种组合在干净机器上装起来并通过 MVP-1 的验收 |
+| **MVP-2：三种库组合的安装器** | 唯一 installer 能产出三种组合（PG+Timescale、PG+TDengine、MySQL+TDengine；**MySQL+Timescale 已取消**，2026-11-03 用户决定），新装、升级、中断恢复 | 每种组合在干净机器上装起来并通过 MVP-1 的验收 |
 | **MVP-3：Encore owner 与 broker 控制面在 MySQL 下可用** | devicemetadata、thingmodel、northbound、l3-core、fileassets、broker 控制面 | 物模型、模板、北向、通知、插件安装在 MySQL 栈下通过 |
-| **MVP-4：J-G0～J-G4** | 真实插件安装、设备上报、故障恢复、旧实例围栏、四种组合、installer 新装升级恢复；35 包 / 100 API 卡 / 357 路由台账；甲乙独立报告；联合验收报告；遗留清单 | 同一组固定源码和制品上跑完，失败和跳过如实记录 |
+| **MVP-4：J-G0～J-G4** | 真实插件安装、设备上报、故障恢复、旧实例围栏、三种组合、installer 新装升级恢复；35 包 / 100 API 卡 / 357 路由台账；甲乙独立报告；联合验收报告；遗留清单 | 同一组固定源码和制品上跑完，失败和跳过如实记录 |
 
 建议先把 MVP-1 做通再测试，其余并行推进。
 
-## 四、需要产品/负责人先拍板的 3 件事（影响工作包范围）
+## 四、已决定与待决定
 
-1. **“MySQL+Timescale”的含义。** Timescale 是 PG 扩展，MySQL 里没有。我的默认建议：关系数据在 MySQL，历史遥测放在**独立的、只存历史的 PG+Timescale 实例**（`storage.history_backend` 指向它）。若不接受，这个组合只能删。
-2. **broker 控制面是否要支持 MySQL。** “MySQL+TDengine 且 PG 不可用”要求它不依赖 PG。我的建议：要支持（WP-H），否则该组合不成立。
-3. **用 Encore `sqldb` 的 owner（devicemetadata、thingmodel、fileassets、northbound）在 MySQL 档位怎么办。** 我的建议：数据层改成 `database/sql` + 翻译器（automation 已经证明可行），不是关闭功能。
+**已决定（2026-11-03，用户）：** 取消“MySQL+TimescaleDB”组合。支持的组合是 PG+Timescale、PG+TDengine、MySQL+TDengine。MySQL 平台不再需要任何 PG；
+`telemetry_datas` 在 MySQL 里只是开发/小规模兜底（关系库自身历史），不是一个对外组合。
+
+**待决定（影响工作包范围，括号内是我的默认建议）：**
+1. broker 控制面是否要支持 MySQL（要：“MySQL+TDengine 且 PG 不可用”要求它不依赖 PG）。
+2. 用 Encore `sqldb` 的 owner（devicemetadata、thingmodel、fileassets、northbound）在 MySQL 档位怎么办（改成 `dbx` 门面 + 翻译器，automation 已证明可行，devicemetadata 地基已完成）。
 
 ## 五、工作包
 
@@ -108,10 +111,10 @@ scripts/dev-databases.sh down            # 用完删掉
 - 难点：`to_jsonb(row)` 和 `UPDATE ... FROM` 翻译器不支持，需要写 MySQL 分支；证明“重复上报只算一次”的幂等账本在 MySQL 下语义不变。
 - 验收：双库差分 + 重放/乱序/提交未知的故障测试。
 
-### WP-I 安装器四种库组合 【MVP-2】
+### WP-I 安装器三种库组合（PG+Timescale、PG+TDengine、MySQL+TDengine）【MVP-2】
 - 仓库：`/Users/junhong/Downloads/code/thingspanel-installer`（`develop`），签名清单已接入（见 `STATUS-takeover-session-20261102.md`）。
-- 做什么：compose 模板与配置生成支持四种组合；新装、升级、中断恢复、搬迁；`config/native/update.py` 事务不变。
-- 验收：每种组合在干净环境装起来；中途杀进程后能恢复；升级保留数据。
+- 做什么：compose 模板与配置生成支持三种组合；新装、升级、中断恢复、搬迁；`config/native/update.py` 事务不变。
+- 验收：每种组合在干净环境装起来（MySQL+TDengine 在没有任何 PG 的环境里）；中途杀进程后能恢复；升级保留数据。
 - 依赖：WP-A（MVP-1）出来后才能装 MySQL 组合；PG 组合可先做。
 
 ### WP-J Windows 包
@@ -146,3 +149,67 @@ WP-L、WP-J、WP-M 可与上面并行
 2. 新增/修改的测试名，以及在哪组环境变量下跑的、结果（含被跳过的）。
 3. 已知没做的部分和已知不一致的地方（例如 MySQL JSON 会重排键、没有行级安全、`INSERT ... ON DUPLICATE KEY` 的行数语义）。
 4. 如果改了翻译器：两份拷贝一致的测试截图/输出。
+
+## 八、交接要点（写给接手的同事；主线会话的 token 用尽，以下是全部上下文）
+
+### 8.1 代码在哪、什么状态
+- 工作树：`/Users/junhong/Downloads/code/thingspanel-history-store-20261103`，分支 `codex/history-store-20261103`。
+- `develop` 已快进到 `00885352`（本文件第一节到第三节的成果都在里面，测试都跑过）。**之后的提交不在 develop 里**，见 8.2。
+- 开发流程：开发都在 `develop` 上测试，没问题再合 `main`。**不要推送，不要发布生产。**
+- 其他仓库：安装器 `/Users/junhong/Downloads/code/thingspanel-installer`（`develop`，签名清单已接入）；
+  前端 `/Users/junhong/Downloads/code/thingspanel-frontend-community`（`develop` = `1da66eca`，目前只合了类型检查清理；主目录检出的是 `master` 且有用户自己的未提交修改，别动，另开 worktree）。
+- 证据与状态文件：`/Users/junhong/Downloads/code/thingspanel-takeover-evidence-20261102/`（`HANDOFF-next-owner-20261102.md` 是总任务，`STATUS-takeover-session-20261102.md` 是逐步记录，`MVP-WORK-PLAN-20261103.md` 是本文件副本）。
+
+### 8.2 未完成的在途工作（devicemetadata，WP-D）
+分支上最后一个提交之后有**未验证的改动**（提交信息会写 WIP）：
+- `encore-api/devicemetadata` 里把 `*sqldb.Tx`/`*sqldb.Row` 全部替换成 `dbx.Tx`/`dbx.Row`，`db` 变成 `dbx.DB`（`db.go`），`isUniqueViolation` 委托给 `dbx.IsUniqueViolation`，
+  新增 `configureDatabaseFromEnv`：`TP_DEVICE_METADATA_DB_DRIVER=mysql` + `TP_DEVICE_METADATA_MYSQL_DSN` 时服务改用 MySQL（经翻译器），不碰 PostgreSQL。
+- 验证情况：`encore check`（非测试代码，含 Encore 的 PG 迁移）通过；**测试文件的编译没有确认**（命令 `cd encore-api && encore test -run NONE ./devicemetadata/`，需要 Docker）。先跑它，失败就按报错改（多半是测试里用了 `db.Stdlib()` 或具体的 `sqldb` 类型）。
+- 通过后再做：README-mysql.md 里的第 1 到 5 项（翻译不了的语句的 MySQL 分支、行级安全替代与跨租户测试、3 个复杂触发器、11 个 CHECK、种子数据）。
+- 这批改动只有在 PostgreSQL 路径的 `encore test ./devicemetadata/...` 全绿后才能合进 `develop`（PostgreSQL 行为必须不变）。
+
+### 8.3 环境与命令（每个人先做）
+```bash
+cd /Users/junhong/Downloads/code/thingspanel-history-store-20261103
+scripts/dev-databases.sh up              # 起临时库（容器 tp-dev-*）；用完 scripts/dev-databases.sh down
+eval "$(scripts/dev-databases.sh env)"   # 导出 TEST_PG_SCHEMA_DSN、TP_MYSQL_TEST_*、TP_AUTO_SCHEMA_*
+go test -p 1 ./initialize/ ./internal/dal/ ./internal/service/ ./internal/storage/ ./pkg/...   # -p 1：共用一个 MySQL 库
+(cd encore-api && go test ./automation/store/ ./pkg/... ./platformconfig/... ./internal/authcore/... ./devicemetadata/mysqlschema/)
+```
+- Go 缓存：外置卷不可用时设 `GOCACHE` 到本机目录。`encore-api` 下含 Encore 运行时的包要用 `encore test`/`encore check`，裸 `go test` 会 panic 或缺生成代码。
+- 容器镜像：`timescale/timescaledb:2.31.0-pg16`、`postgres:16`、`mysql:8.4`（`--log-bin-trust-function-creators=1`，否则触发器建不出来）。
+- 没设环境变量时双库测试是 **跳过** 不是失败，看到 ok 前确认没被跳过（`-v`）。
+- devicemetadata 的 PG 参照库要自己建：`createdb device_metadata`，再按数字顺序执行 `encore-api/devicemetadata/migrations/*.up.sql`；MySQL 侧用空库。环境变量 `TP_DM_PG_DSN`、`TP_DM_MYSQL_DSN`。
+- 平台起一套完整 MySQL 栈做冒烟（我做过的做法）：Redis（密码 `redis`，`--notify-keyspace-events Ex`）+ 普通 Mosquitto（`allow_anonymous true`，镜像 `eclipse-mosquitto:2`；项目自带的 thingspanel-mosquitto 镜像需要 broker 插件令牌，起不来）+ 受限 MySQL 账号
+  （`GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES, TRIGGER, CREATE VIEW, SHOW VIEW ON <库>.*`，**不能有 CREATE TEMPORARY TABLES**），
+  配置里 `db.driver: mysql`、`db.mysql.*`、`telemetry.enabled: false`、`market.enabled: false`，`go build` 后 `./tp-backend -config <文件>`。
+  然后 `scripts/smoke_mvp1.sh http://127.0.0.1:<端口> <邮箱> <密码>` 和 `scripts/smoke_mvp1_ingest.sh ... <mosquitto 容器名>`。
+  种子里的演示租户账号 `tenant@tenant.cn`（密码是项目默认演示值），超级管理员要在前端首次初始化页里创建。
+- 前端对着 MySQL 后端：前端 develop 的 worktree + `.env.development.local` 写 `VITE_METADATA_CONNECTOR_URL=http://127.0.0.1:<后端端口>/api/v1`，`npx vite --port 5173`。
+
+### 8.4 已经踩过的坑（别重复）
+1. MySQL 的 `clientFoundRows=true` 下，`ON DUPLICATE KEY` 的空操作也报告 1 行受影响，所以“插入若不存在并读受影响行数”必须走普通 INSERT + 1062 错误（翻译器的单行 `ON CONFLICT DO NOTHING` 已自动处理；多行插入不行）。
+2. MySQL 保留字 `key`、`signal`、`groups` 作为列/表名，翻译器已自动加反引号；其他保留字（`rank`、`condition`、`window` …）遇到再加。
+3. 唯一键超过 3072 字节：用存储生成列放 SHA-256（生成器已做；主键也是）。部分唯一索引：生成列在条件外为 NULL（生成器已做）。
+4. MySQL 的 JSON 列会重排键；`service_access.service_access_config` 因此存成 LONGTEXT。
+5. gorm 的 `datatypes.JSONQuery.HasKey` 在 MySQL 上不匹配数组，已有 `dal.jsonContainsString`。`gen.Cond` 只接受 datatypes 的几种表达式。
+6. 咨询锁 `pg_advisory_xact_lock(hashtext...)` 由翻译器换成 `tp_advisory_locks` 表上的行锁（事务结束释放）。
+7. MySQL 的 DDL 不是事务性的：迁移必须可重复执行，账本只在整个文件成功后记录。
+8. 所有 MySQL 表默认 `utf8mb4_bin`（和 PG 一样区分大小写）；名称搜索要不区分大小写时显式 `LOWER(col) LIKE LOWER(?)`。
+9. `sqldb.ErrCode`/`sqldb.Error` 只在 Encore 运行时里能用，单元测试里会 panic；用 `dbx.IsUniqueViolation`。
+10. 前端设备列表走 Encore 设备服务（`/api/v2/devices`），不是平台后端；没有 devicemetadata 的 MySQL 数据层，设备管理页会报 500。
+11. casbin 基础策略：仓库里只有 `sql/25.sql` 的 3 条，真正的完整策略来源没找到，需要一个参考安装导出。
+12. 遥测上报当前走的是平台订阅 `devices/telemetry` 的旧通道（载荷 `{"device_id":..,"values":"<base64 的 JSON>"}`）；新的 broker 控制面路径还没有 MySQL 版本。
+
+### 8.5 范围决定（用户，2026-11-03）
+- **取消 “MySQL+TimescaleDB” 组合**；支持三种：PG+Timescale、PG+TDengine、MySQL+TDengine（后者在没有任何 PG 时必须能跑）。交接说明里原写的“四种”，联合验收报告要如实写明这个范围变更。
+- 开发阶段都放在 `develop` 分支测试，没问题再合 `main`。
+
+### 8.6 仍待用户或负责人决定
+1. broker 控制面是否支持 MySQL（建议支持，否则“MySQL+TDengine 且 PG 不可用”不成立）。
+2. Windows 包：需要授权一个测试用 HTTPS 分发地址；目前没有构建过包。
+3. 界面真实验收：`/Volumes/80G` 已挂载，但 `127.0.0.1:18080` 上跑的不是新集成版本，要先有新版本的栈。本地测试账号的凭据在 `/Volumes/80G/tp-develop-integration/fixture-bb60421f-8ea8e1ff/private/native-account.json`（不要把密码写进任何文件或提交）。
+
+### 8.7 整体进度（交接时）
+约 40%。J-G0–J-G4 一个都没过。已完成：存储层与 automation 的 MySQL 差分覆盖、平台 schema 与种子、平台在 MySQL 上启动、MVP-1 后端主流程与前端首页/菜单、devicemetadata 的 MySQL 地基。
+未完成：devicemetadata 数据层改写、thingmodel/northbound/l3-core/fileassets、broker 控制面、TDengine 在 MySQL 平台上的整链、安装器三种组合、Windows 包、验收台账（35 包 / 100 API 卡 / 357 路由）、甲乙独立报告、联合验收报告、真实遗留清单。

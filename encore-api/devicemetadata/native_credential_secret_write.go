@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"strings"
 	"time"
@@ -20,7 +21,7 @@ const credentialSecretReplayWindow = 10 * time.Minute
 // runCredentialSecretWriteTx shares metadata_idempotency and audit ownership
 // with ordinary writes, but never persists plaintext requests or responses.
 // authorize runs inside the transaction on both first writes and replays.
-func runCredentialSecretWriteTx(ctx context.Context, command metadataWriteCommand, owner CredentialAAD, protector *CredentialSecretProtector, authorize func(*sqldb.Tx) error, apply func(*sqldb.Tx, CredentialAAD, time.Time) (metadataWriteResponse, metadataWriteAudit, error)) (*metadataWriteResponse, error) {
+func runCredentialSecretWriteTx(ctx context.Context, command metadataWriteCommand, owner CredentialAAD, protector *CredentialSecretProtector, authorize func(dbx.Tx) error, apply func(dbx.Tx, CredentialAAD, time.Time) (metadataWriteResponse, metadataWriteAudit, error)) (*metadataWriteResponse, error) {
 	if protector == nil {
 		return nil, credentialProtectionUnavailable()
 	}

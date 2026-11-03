@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"encore.app/pkg/dbx"
 	"errors"
 	"io"
 	"net/http"
@@ -180,7 +181,7 @@ func createNativeDeviceCredential(ctx context.Context, identity nativeCredential
 	}
 	owner := CredentialAAD{TenantID: identity.tenantID, OwnerKind: CredentialOwnerDevice, OwnerID: deviceID, Purpose: CredentialPurposeDeviceAccess}
 	result, err := runCredentialSecretWriteTx(ctx, command, owner, protector,
-		func(tx *sqldb.Tx) error {
+		func(tx dbx.Tx) error {
 			data := authn.CurrentData()
 			if data == nil || data.UserID != identity.subjectID || data.TenantID != identity.tenantID {
 				return &errs.Error{Code: errs.Unauthenticated, Message: "authenticated credential identity changed"}
@@ -198,7 +199,7 @@ func createNativeDeviceCredential(ctx context.Context, identity nativeCredential
 			}
 			return err
 		},
-		func(tx *sqldb.Tx, aad CredentialAAD, expiresAt time.Time) (metadataWriteResponse, metadataWriteAudit, error) {
+		func(tx dbx.Tx, aad CredentialAAD, expiresAt time.Time) (metadataWriteResponse, metadataWriteAudit, error) {
 			mode := "encrypted"
 			var protected ProtectedCredential
 			var fingerprint []byte

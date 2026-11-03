@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"encore.app/pkg/dbx"
 	"errors"
 	"net/http"
 
@@ -97,7 +98,7 @@ func decodeExpectedDeviceVersion(raw json.RawMessage) (int64, error) {
 
 // lockDeviceForCredentialChangeTx locks the live device and enforces the
 // caller's expected version; a stale version is a precondition failure.
-func lockDeviceForCredentialChangeTx(ctx context.Context, tx *sqldb.Tx, tenantID, deviceID string, expected int64) (int64, error) {
+func lockDeviceForCredentialChangeTx(ctx context.Context, tx dbx.Tx, tenantID, deviceID string, expected int64) (int64, error) {
 	var version int64
 	err := tx.QueryRow(ctx, `SELECT resource_version FROM devices WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE`,
 		tenantID, deviceID).Scan(&version)
@@ -119,7 +120,7 @@ type lockedCredential struct {
 	supersedesCredentialI *string
 }
 
-func lockCredentialTx(ctx context.Context, tx *sqldb.Tx, tenantID, deviceID, credentialID string) (lockedCredential, error) {
+func lockCredentialTx(ctx context.Context, tx dbx.Tx, tenantID, deviceID, credentialID string) (lockedCredential, error) {
 	var c lockedCredential
 	err := tx.QueryRow(ctx, `SELECT status,rotation_operation_id::text,supersedes_credential_id::text FROM device_credentials
 		WHERE tenant_id=$1 AND device_id=$2 AND id=$3 AND purpose='device_access' FOR UPDATE`,
@@ -130,7 +131,7 @@ func lockCredentialTx(ctx context.Context, tx *sqldb.Tx, tenantID, deviceID, cre
 	return c, err
 }
 
-func nativeCredentialChangeAccepted(ctx context.Context, tx *sqldb.Tx, tenantID, operationID, requestID string) (metadataWriteResponse, error) {
+func nativeCredentialChangeAccepted(ctx context.Context, tx dbx.Tx, tenantID, operationID, requestID string) (metadataWriteResponse, error) {
 	operation, err := loadNativeOperationEncoreTx(ctx, tx, tenantID, operationID)
 	if err != nil {
 		return metadataWriteResponse{}, err
@@ -158,7 +159,7 @@ func rotateNativeDeviceCredential(ctx context.Context, identity nativeCredential
 		TenantID: identity.tenantID, SubjectID: identity.subjectID, Operation: "rotateDeviceCredential",
 		Method: http.MethodPost, Path: path, Key: key, RequestID: requestID, CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		version, err := lockDeviceForCredentialChangeTx(ctx, tx, identity.tenantID, deviceID, input.ExpectedDeviceVersion)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
@@ -234,7 +235,7 @@ func revokeNativeDeviceCredential(ctx context.Context, identity nativeCredential
 		TenantID: identity.tenantID, SubjectID: identity.subjectID, Operation: "revokeDeviceCredential",
 		Method: http.MethodPost, Path: path, Key: key, RequestID: requestID, CanonicalBody: canonical,
 	}
-	result, err := runMetadataWriteTx(ctx, command, func(tx *sqldb.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
+	result, err := runMetadataWriteTx(ctx, command, func(tx dbx.Tx) (metadataWriteResponse, metadataWriteAudit, error) {
 		version, err := lockDeviceForCredentialChangeTx(ctx, tx, identity.tenantID, deviceID, input.ExpectedDeviceVersion)
 		if err != nil {
 			return metadataWriteResponse{}, metadataWriteAudit{}, err
