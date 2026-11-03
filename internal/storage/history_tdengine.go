@@ -37,6 +37,9 @@ type TDengineHistorySink struct {
 
 var tdengineName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
 
+// ValidTDengineDatabaseName reports whether name can be used unquoted as a database name.
+func ValidTDengineDatabaseName(name string) bool { return tdengineName.MatchString(name) }
+
 const (
 	tdengineMaxID     = 64
 	tdengineMaxKey    = 128

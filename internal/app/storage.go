@@ -18,6 +18,7 @@ type StorageServiceWrapper struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	channelBufferSize int
+	prepare           func(context.Context) error
 }
 
 // Name 返回服务名称
@@ -27,6 +28,11 @@ func (s *StorageServiceWrapper) Name() string {
 
 // Start 启动存储服务
 func (s *StorageServiceWrapper) Start() error {
+	if s.prepare != nil {
+		if err := s.prepare(s.ctx); err != nil {
+			return err
+		}
+	}
 	if err := s.storage.Start(s.ctx, s.inputChan); err != nil {
 		return fmt.Errorf("failed to start storage service: %w", err)
 	}
@@ -97,6 +103,19 @@ func WithStorageService() Option {
 			config.HistoryReplayLeaseSeconds = viper.GetInt("storage.history_replay_lease_seconds")
 		}
 
+		prepare, err := selectHistoryBackend(historyBackendSettings{
+			Backend:      viper.GetString("storage.history_backend"),
+			ModeExplicit: viper.GetString("storage.history_mode"),
+			URL:          viper.GetString("storage.tdengine.url"),
+			User:         viper.GetString("storage.tdengine.user"),
+			Password:     viper.GetString("storage.tdengine.password"),
+			Database:     viper.GetString("storage.tdengine.database"),
+			Experimental: viper.GetBool("storage.tdengine.experimental"),
+		}, &config)
+		if err != nil {
+			return err
+		}
+
 		logrus.Infof("Storage config: buffer=%d, batch=%d, flush=%dms, metrics=%v",
 			config.ChannelBufferSize,
 			config.TelemetryBatchSize,
@@ -120,6 +139,7 @@ func WithStorageService() Option {
 			ctx:               ctx,
 			cancel:            cancel,
 			channelBufferSize: config.ChannelBufferSize,
+			prepare:           prepare,
 		}
 
 		// 注册到服务管理器
