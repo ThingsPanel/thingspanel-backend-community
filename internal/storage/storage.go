@@ -24,6 +24,7 @@ type storage struct {
 
 	telemetryWriter *telemetryWriter
 	directWriter    *directWriter
+	replayer        *historyReplayer
 
 	inputChan <-chan *Message
 	stopCh    chan struct{}
@@ -34,7 +35,7 @@ type storage struct {
 func New(db *gorm.DB, logger Logger, config Config) Storage {
 	metrics := newMetricsCollector()
 
-	return &storage{
+	s := &storage{
 		db:              db,
 		logger:          logger,
 		config:          config,
@@ -44,6 +45,11 @@ func New(db *gorm.DB, logger Logger, config Config) Storage {
 		stopCh:          make(chan struct{}),
 		doneCh:          make(chan struct{}),
 	}
+	if config.HistoryMode == HistoryModeIntent {
+		s.telemetryWriter.history = NewIntentHistoryStore(config.HistoryGeneration)
+		s.replayer = newHistoryReplayer(db, logger, config)
+	}
+	return s
 }
 
 // Start 启动存储服务
@@ -55,6 +61,9 @@ func (s *storage) Start(ctx context.Context, inputChan <-chan *Message) error {
 	s.inputChan = inputChan
 
 	s.telemetryWriter.start(ctx)
+	if s.replayer != nil {
+		s.replayer.start(ctx)
+	}
 
 	go s.run(ctx)
 
@@ -74,6 +83,9 @@ func (s *storage) Stop(timeout time.Duration) error {
 	}
 
 	s.telemetryWriter.stop(timeout)
+	if s.replayer != nil {
+		s.replayer.stop(timeout)
+	}
 
 	s.logger.Info("storage service stopped")
 	return nil

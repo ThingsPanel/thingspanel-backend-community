@@ -75,6 +75,28 @@ func WithStorageService() Option {
 			config.EnableMetrics = viper.GetBool("storage.enable_metrics")
 		}
 
+		// History mode is opt-in; an unknown value is an error rather than a silent fallback.
+		if viper.IsSet("storage.history_mode") {
+			config.HistoryMode = viper.GetString("storage.history_mode")
+		}
+		switch config.HistoryMode {
+		case "", storage.HistoryModePostgres, storage.HistoryModeIntent:
+		default:
+			return fmt.Errorf("unsupported storage.history_mode %q", config.HistoryMode)
+		}
+		if viper.IsSet("storage.history_generation") {
+			config.HistoryGeneration = viper.GetInt64("storage.history_generation")
+		}
+		if viper.IsSet("storage.history_replay_interval_ms") {
+			config.HistoryReplayIntervalMillis = viper.GetInt("storage.history_replay_interval_ms")
+		}
+		if viper.IsSet("storage.history_replay_batch") {
+			config.HistoryReplayBatch = viper.GetInt("storage.history_replay_batch")
+		}
+		if viper.IsSet("storage.history_replay_lease_seconds") {
+			config.HistoryReplayLeaseSeconds = viper.GetInt("storage.history_replay_lease_seconds")
+		}
+
 		logrus.Infof("Storage config: buffer=%d, batch=%d, flush=%dms, metrics=%v",
 			config.ChannelBufferSize,
 			config.TelemetryBatchSize,
