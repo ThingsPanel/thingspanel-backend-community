@@ -12,7 +12,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 case "$cmd" in
 up)
   for n in $PG_ORACLE $MY $PG_AUTO $MY_AUTO; do
-    docker rm -f "$n" >/dev/null 2>&1 || true
+    docker rm -fv "$n" >/dev/null 2>&1 || true
     docker network disconnect -f bridge "$n" >/dev/null 2>&1 || true   # a stale endpoint of a force-removed container blocks reuse of the name
   done
   docker run -d --name $PG_ORACLE -e POSTGRES_PASSWORD=pw -p 56001:5432 timescale/timescaledb:2.31.0-pg16 >/dev/null
@@ -36,7 +36,7 @@ export TP_AUTO_SCHEMA_MYSQL_DSN='root:pw@tcp(127.0.0.1:56004)/auto?parseTime=tru
 ENV
   ;;
 down)
-  docker rm -f $PG_ORACLE $MY $PG_AUTO $MY_AUTO >/dev/null 2>&1 || true
+  docker rm -fv $PG_ORACLE $MY $PG_AUTO $MY_AUTO >/dev/null 2>&1 || true
   ;;
 *) echo "usage: $0 up|env|down" >&2; exit 2;;
 esac
