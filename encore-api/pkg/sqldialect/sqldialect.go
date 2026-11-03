@@ -38,11 +38,15 @@ const probe = "SELECT * FROM tp_unsupported_mysql_statement"
 
 var (
 	placeholder = regexp.MustCompile(`\$(\d+)`)
-	textCast    = regexp.MustCompile(`(\$\d+)::text\b`)
+	paramCast   = regexp.MustCompile(`(?i)(\$\d+)::(?:text|bigint|int|integer|smallint|numeric|jsonb|json|timestamptz|timestamp|varchar|boolean)\b`)
+	jsonText    = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_.]*)\s*->>\s*'([A-Za-z0-9_]+)'`)
+	jsonValue   = regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_.]*)\s*->\s*'([A-Za-z0-9_]+)'`)
+	upsertSet   = regexp.MustCompile(`(?is)\s+ON\s+CONFLICT\s*\([^)]*\)\s+DO\s+UPDATE\s+SET\s+(.*?)\s*$`)
+	excludedRef = regexp.MustCompile(`(?i)\bEXCLUDED\.([A-Za-z_][A-Za-z0-9_]*)`)
 	intervalLit = regexp.MustCompile(`(?i)interval\s+'(\d+)\s+(second|minute|hour|day)s?'`)
 	nowCall     = regexp.MustCompile(`(?i)\bnow\(\)`)
 	onConflict  = regexp.MustCompile(`(?i)\s+ON\s+CONFLICT\s*(?:\([^)]*\))?\s+DO\s+NOTHING`)
-	pgOnly      = regexp.MustCompile(`(?i)::|jsonb|\bON\s+CONFLICT\b|\bRETURNING\b|\bDISTINCT\s+ON\b|\bpg_[a-z_]+|\bhashtext|interval\s+'|\bILIKE\b|\bcurrent_schema\(`)
+	pgOnly      = regexp.MustCompile(`(?i)::|jsonb|\bON\s+CONFLICT\b|\bRETURNING\b|\bDISTINCT\s+ON\b|\bpg_[a-z_]+|\bhashtext|interval\s+'|\bILIKE\b|\bcurrent_schema\(|=\s*ANY\s*\(|\bunnest\(|\barray_agg\(|\bstring_agg\(|\bgenerate_series\(|\bjsonb_[a-z_]+\(|\bto_jsonb\(`)
 )
 
 // Rewrite translates one statement for the dialect. ok is false when it cannot be translated.
@@ -51,7 +55,18 @@ func (d Dialect) Rewrite(query string, args []any) (string, []any, bool) {
 		return query, args, true
 	}
 	query = onConflict.ReplaceAllString(query, " ON DUPLICATE KEY UPDATE id=id")
-	query = textCast.ReplaceAllString(query, "$1")
+	// ON CONFLICT (...) DO UPDATE SET a=EXCLUDED.a becomes ON DUPLICATE KEY UPDATE a=VALUES(a). A conditional
+	// update (WHERE) or anything else after the assignments stays untranslated and is refused below.
+	query = upsertSet.ReplaceAllStringFunc(query, func(m string) string {
+		set := upsertSet.FindStringSubmatch(m)[1]
+		if regexp.MustCompile(`(?i)\bWHERE\b|\bRETURNING\b`).MatchString(set) {
+			return m
+		}
+		return " ON DUPLICATE KEY UPDATE " + excludedRef.ReplaceAllString(set, "VALUES($1)")
+	})
+	query = paramCast.ReplaceAllString(query, "$1")
+	query = jsonText.ReplaceAllString(query, "JSON_UNQUOTE(JSON_EXTRACT($1, '$$.$2'))")
+	query = jsonValue.ReplaceAllString(query, "JSON_EXTRACT($1, '$$.$2')")
 	query = intervalLit.ReplaceAllStringFunc(query, func(m string) string {
 		parts := intervalLit.FindStringSubmatch(m)
 		return "INTERVAL " + parts[1] + " " + strings.ToUpper(parts[2])
