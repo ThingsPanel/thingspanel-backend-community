@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 )
 
@@ -38,11 +39,11 @@ const probe = "SELECT * FROM tp_unsupported_mysql_statement"
 
 var (
 	placeholder    = regexp.MustCompile(`\$(\d+)`)
-	paramCast      = regexp.MustCompile(`(?i)(\$\d+)::(?:text|bigint|int|integer|smallint|numeric|jsonb|json|timestamptz|timestamp|varchar|boolean)\b`)
+	paramCast      = regexp.MustCompile(`(?i)(\$\d+|\?)::(?:text|bigint|int|integer|smallint|numeric|jsonb|json|timestamptz|timestamp|varchar|boolean)\b`)
 	emptyJSON      = regexp.MustCompile(`(?i)'\{\}'::jsonb`)
 	emptyJSONArray = regexp.MustCompile(`(?i)'\[\]'::jsonb`)
 	nullJSON       = regexp.MustCompile(`(?i)'null'::jsonb`)
-	nullifCast     = regexp.MustCompile(`(?i)(\bNULLIF\(\$\d+\s*,\s*''\))::(?:text|uuid|jsonb|json)\b`)
+	nullifCast     = regexp.MustCompile(`(?i)(\bNULLIF\((?:\$\d+|\?)\s*,\s*''\))::(?:text|uuid|jsonb|json)\b`)
 	// key and signal are reserved words in MySQL but plain column names in the PostgreSQL-style statements.
 	reservedColumn    = regexp.MustCompile("`?\\b(?:key|signal)\\b`?")
 	identCast         = regexp.MustCompile(`(?i)\b([A-Za-z_][A-Za-z0-9_.]*)::(?:text|uuid|jsonb|json)\b`)
@@ -51,6 +52,9 @@ var (
 	upsertSet         = regexp.MustCompile(`(?is)\s+ON\s+CONFLICT\s*\([^)]*\)\s+DO\s+UPDATE\s+SET\s+(.*?)\s*$`)
 	excludedRef       = regexp.MustCompile(`(?i)\bEXCLUDED\.([A-Za-z_][A-Za-z0-9_]*)`)
 	intervalLit       = regexp.MustCompile(`(?i)interval\s+'(\d+)\s+(second|minute|hour|day)s?'`)
+	makeInterval      = regexp.MustCompile(`(?i)make_interval\(\s*(secs|mins|hours|days)\s*=>\s*(\?|\$\d+)\s*\)`)
+	noopDuplicate     = regexp.MustCompile("(?i)\\s+ON\\s+DUPLICATE\\s+KEY\\s+UPDATE\\s+`?(\\w+)`?\\s*=\\s*`?(\\w+)`?\\s*$")
+	advisoryLock      = regexp.MustCompile(`(?is)^\s*SELECT\s+pg_advisory_xact_lock\((.*)\)\s*;?\s*$`)
 	nowCall           = regexp.MustCompile(`(?i)\bnow\(\)`)
 	insertFirstColumn = regexp.MustCompile(`(?is)INSERT\s+INTO\s+\w+\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)`)
 	onConflict        = regexp.MustCompile(`(?i)\s+ON\s+CONFLICT\s*(?:\([^)]*\))?\s+DO\s+NOTHING`)
@@ -76,16 +80,81 @@ func (d Dialect) Rewrite(query string, args []any) (string, []any, bool) {
 // RewriteIndexed translates one statement and reports which of the caller's arguments (0-based) each
 // placeholder of the result takes, in order. For PostgreSQL the statement is returned untouched and idx is nil.
 func (d Dialect) RewriteIndexed(query string, argCount int) (string, []int, bool) {
+	t, ok := d.Translate(query, argCount)
+	return t.Query, t.Idx, ok
+}
+
+// Translation is one translated statement.
+type Translation struct {
+	Query string
+	// Idx maps each placeholder of Query to the caller's argument (0-based).
+	Idx []int
+	// IgnoreDuplicate is set for a single-row INSERT whose PostgreSQL form was ON CONFLICT DO NOTHING. Query is then
+	// a plain INSERT, and the caller must report a duplicate-key error (1062) as "0 rows affected, no error": with
+	// clientFoundRows an ON DUPLICATE KEY no-op would report 1 row, indistinguishable from a real insert.
+	IgnoreDuplicate bool
+}
+
+type cacheKey struct {
+	query    string
+	argCount int
+}
+
+type cacheValue struct {
+	t  Translation
+	ok bool
+}
+
+var (
+	translationCache     sync.Map
+	translationCacheSize atomic.Int64
+)
+
+const translationCacheLimit = 4096
+
+// Translate is RewriteIndexed with the extra information the driver needs. Results are cached: statements
+// are a small, fixed set, but a dynamic IN list produces many, so the cache is dropped when it grows large.
+func (d Dialect) Translate(query string, argCount int) (Translation, bool) {
 	if d == Postgres {
-		return query, nil, true
+		return Translation{Query: query}, true
 	}
-	// DO NOTHING becomes a no-op assignment of the first inserted column (the table may have no "id").
+	key := cacheKey{query, argCount}
+	if v, ok := translationCache.Load(key); ok {
+		c := v.(cacheValue)
+		return c.t, c.ok
+	}
+	t, ok := d.translate(query, argCount)
+	if translationCacheSize.Add(1) > translationCacheLimit {
+		translationCache.Range(func(k, _ any) bool { translationCache.Delete(k); return true })
+		translationCacheSize.Store(1)
+	}
+	translationCache.Store(key, cacheValue{t, ok})
+	return t, ok
+}
+
+func (d Dialect) translate(query string, argCount int) (Translation, bool) {
+	fail := Translation{}
+	ignoreDuplicate := false
+	rewritten := rewriteAdvisoryLock(query)
+	isLock := rewritten != query
+	query = rewritten
+	// DO NOTHING on a single-row insert becomes a plain INSERT whose duplicate-key error the driver turns into
+	// "0 rows". Anything else becomes a no-op assignment of the first inserted column (the table may have no "id").
 	if loc := onConflict.FindStringIndex(query); loc != nil {
 		first := insertFirstColumn.FindStringSubmatch(query)
 		if first == nil {
-			return "", nil, false
+			return fail, false
 		}
-		query = query[:loc[0]] + " ON DUPLICATE KEY UPDATE " + first[1] + "=" + first[1] + query[loc[1]:]
+		if strings.TrimSpace(query[loc[1]:]) == "" && singleRowInsert(query[:loc[0]]) {
+			query = query[:loc[0]]
+			ignoreDuplicate = true
+		} else {
+			query = query[:loc[0]] + " ON DUPLICATE KEY UPDATE " + first[1] + "=" + first[1] + query[loc[1]:]
+		}
+	} else if m := noopDuplicate.FindStringSubmatchIndex(query); !isLock && m != nil && query[m[2]:m[3]] == query[m[4]:m[5]] && singleRowInsert(query[:m[0]]) {
+		// gorm renders clause.OnConflict{DoNothing: true} for MySQL as ON DUPLICATE KEY UPDATE `c`=`c`.
+		query = query[:m[0]]
+		ignoreDuplicate = true
 	}
 	// ON CONFLICT (...) DO UPDATE SET a=EXCLUDED.a becomes ON DUPLICATE KEY UPDATE a=VALUES(a). A conditional
 	// update (WHERE) or anything else after the assignments stays untranslated and is refused below.
@@ -110,35 +179,50 @@ func (d Dialect) RewriteIndexed(query string, argCount int) (string, []int, bool
 		parts := intervalLit.FindStringSubmatch(m)
 		return "INTERVAL " + parts[1] + " " + strings.ToUpper(parts[2])
 	})
+	query = makeInterval.ReplaceAllStringFunc(query, func(m string) string {
+		parts := makeInterval.FindStringSubmatch(m)
+		unit := map[string]string{"secs": "SECOND", "mins": "MINUTE", "hours": "HOUR", "days": "DAY"}[strings.ToLower(parts[1])]
+		return "INTERVAL " + parts[2] + " " + unit
+	})
 	query = nowCall.ReplaceAllString(query, "NOW(6)")
 	if pgOnly.MatchString(query) {
-		return "", nil, false
+		return fail, false
 	}
 	var idx []int
 	bad := false
+	dollars, questions := 0, 0
 	var rebuilt strings.Builder
 	for _, part := range splitLiterals(query) {
 		if part.literal {
 			rebuilt.WriteString(part.text)
 			continue
 		}
+		questions += strings.Count(part.text, "?")
 		rebuilt.WriteString(placeholder.ReplaceAllStringFunc(quoteReserved(part.text), func(m string) string {
 			n, err := strconv.Atoi(m[1:])
 			if err != nil || n < 1 || n > argCount {
 				bad = true
 				return m
 			}
+			dollars++
 			idx = append(idx, n-1)
 			return "?"
 		}))
 	}
-	if bad {
-		return "", nil, false
+	if bad || (dollars > 0 && questions > 0) {
+		return fail, false
+	}
+	if dollars == 0 {
+		// MySQL-style placeholders (gorm): the arguments pass through in order.
+		idx = make([]int, questions)
+		for i := range idx {
+			idx[i] = i
+		}
 	}
 	if idx == nil {
 		idx = []int{}
 	}
-	return rebuilt.String(), idx, true
+	return Translation{Query: rebuilt.String(), Idx: idx, IgnoreDuplicate: ignoreDuplicate}, true
 }
 
 type part struct {
@@ -280,4 +364,89 @@ func rewriteCountFilter(query string) string {
 		}
 		query = query[:loc[0]] + "count(CASE WHEN " + query[loc[1]:end] + " THEN 1 END)" + query[end+1:]
 	}
+}
+
+// singleRowInsert reports whether the INSERT has exactly one VALUES tuple (and is not INSERT ... SELECT).
+func singleRowInsert(insert string) bool {
+	loc := regexp.MustCompile(`(?i)\bVALUES\s*`).FindStringIndex(insert)
+	if loc == nil {
+		return false
+	}
+	rest := insert[loc[1]:]
+	tuples, depth, inLiteral := 0, 0, false
+	for i := 0; i < len(rest); i++ {
+		switch c := rest[i]; {
+		case c == '\'':
+			if inLiteral && i+1 < len(rest) && rest[i+1] == '\'' {
+				i++
+			} else {
+				inLiteral = !inLiteral
+			}
+		case inLiteral:
+		case c == '(':
+			if depth == 0 {
+				tuples++
+			}
+			depth++
+		case c == ')':
+			depth--
+		case depth == 0 && c != ' ' && c != '\n' && c != '\t' && c != ',' && c != '\r':
+			return tuples == 1 // anything else after the tuples (a clause) ends the VALUES list
+		}
+	}
+	return tuples == 1
+}
+
+// rewriteAdvisoryLock turns pg_advisory_xact_lock(hashtext(k)) (any of its spellings) into a statement that
+// takes an exclusive row lock in tp_advisory_locks. The row lock is held until the transaction ends, exactly
+// like the PostgreSQL lock, and is taken by one statement so Exec/Raw callers need no change.
+func rewriteAdvisoryLock(query string) string {
+	m := advisoryLock.FindStringSubmatch(query)
+	if m == nil {
+		return query
+	}
+	var keys []string
+	for _, arg := range splitTopLevel(m[1]) {
+		arg = strings.TrimSpace(arg)
+		lower := strings.ToLower(arg)
+		switch {
+		case strings.HasPrefix(lower, "hashtextextended(") && strings.HasSuffix(arg, ")"):
+			inner := splitTopLevel(arg[len("hashtextextended(") : len(arg)-1])
+			keys = append(keys, strings.TrimSpace(inner[0]))
+		case strings.HasPrefix(lower, "hashtext(") && strings.HasSuffix(arg, ")"):
+			keys = append(keys, strings.TrimSpace(arg[len("hashtext("):len(arg)-1]))
+		default:
+			keys = append(keys, arg)
+		}
+	}
+	for i, k := range keys {
+		if regexp.MustCompile(`^-?\d+$`).MatchString(k) {
+			keys[i] = "'" + k + "'"
+		}
+	}
+	key := keys[0]
+	if len(keys) > 1 {
+		key = "CONCAT_WS(CHAR(31), " + strings.Join(keys, ", ") + ")"
+	}
+	return "INSERT INTO tp_advisory_locks (lock_key) VALUES (SHA2(" + key + ", 256)) ON DUPLICATE KEY UPDATE lock_key = lock_key"
+}
+
+func splitTopLevel(s string) []string {
+	var parts []string
+	depth, start, inLiteral := 0, 0, false
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case c == '\'':
+			inLiteral = !inLiteral
+		case inLiteral:
+		case c == '(':
+			depth++
+		case c == ')':
+			depth--
+		case c == ',' && depth == 0:
+			parts = append(parts, s[start:i])
+			start = i + 1
+		}
+	}
+	return append(parts, s[start:])
 }

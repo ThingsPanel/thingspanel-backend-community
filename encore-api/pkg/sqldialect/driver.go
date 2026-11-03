@@ -55,18 +55,32 @@ func untranslatable(query string) error {
 }
 
 func prepareArgs(query string, args []driver.NamedValue) (string, []driver.NamedValue, error) {
-	q, idx, ok := MySQL.RewriteIndexed(query, len(args))
+	t, a, err := prepareTranslated(query, args)
+	return t.Query, a, err
+}
+
+func prepareTranslated(query string, args []driver.NamedValue) (Translation, []driver.NamedValue, error) {
+	t, ok := MySQL.Translate(query, len(args))
 	if !ok {
-		return "", nil, untranslatable(query)
+		return t, nil, untranslatable(query)
 	}
-	out := make([]driver.NamedValue, len(idx))
-	for i, n := range idx {
+	out := make([]driver.NamedValue, len(t.Idx))
+	for i, n := range t.Idx {
 		v := args[n]
 		v.Ordinal = i + 1
 		v.Name = ""
 		out[i] = v
 	}
-	return q, out, nil
+	return t, out, nil
+}
+
+// duplicateAsNoRows turns a duplicate-key error of an "insert if absent" statement into a zero-row result.
+func duplicateAsNoRows(res driver.Result, err error, ignore bool) (driver.Result, error) {
+	var mysqlErr *mysqldriver.MySQLError
+	if ignore && errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		return driver.RowsAffected(0), nil
+	}
+	return res, err
 }
 
 // textBytes sends valid UTF-8 byte slices as text. A []byte parameter reaches MySQL in the binary character
@@ -119,12 +133,13 @@ func (c *translatingConn) ExecContext(ctx context.Context, query string, args []
 	if !ok {
 		return nil, driver.ErrSkip
 	}
-	q, a, err := prepareArgs(query, args)
+	t, a, err := prepareTranslated(query, args)
 	if err != nil {
 		return nil, err
 	}
 	textBytes(a)
-	return execer.ExecContext(ctx, q, a)
+	res, err := execer.ExecContext(ctx, t.Query, a)
+	return duplicateAsNoRows(res, err, t.IgnoreDuplicate)
 }
 
 func (c *translatingConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
@@ -188,13 +203,14 @@ func (s *translatingStmt) Query(args []driver.Value) (driver.Rows, error) { //no
 }
 
 func (s *translatingStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	_, a, err := prepareArgs(s.query, args)
+	t, a, err := prepareTranslated(s.query, args)
 	if err != nil {
 		return nil, err
 	}
 	textBytes(a)
 	if exec, ok := s.inner.(driver.StmtExecContext); ok {
-		return exec.ExecContext(ctx, a)
+		res, err := exec.ExecContext(ctx, a)
+		return duplicateAsNoRows(res, err, t.IgnoreDuplicate)
 	}
 	return nil, errors.New("sqldialect: statement does not support ExecContext")
 }

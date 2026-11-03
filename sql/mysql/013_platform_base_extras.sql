@@ -24,3 +24,7 @@ PREPARE tp_ix_ts_stmt FROM @tp_ix_ts_sql
 EXECUTE tp_ix_ts_stmt
 -- @@
 DEALLOCATE PREPARE tp_ix_ts_stmt
+-- @@
+CREATE TABLE IF NOT EXISTS tp_advisory_locks (
+    lock_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin

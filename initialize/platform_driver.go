@@ -13,6 +13,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
+
+	"project/pkg/sqldialect"
 )
 
 const (
@@ -92,7 +94,14 @@ func MysqlConnect(config *DbConfig) (*gorm.DB, error) {
 	cfg.ClientFoundRows = true
 	cfg.Params = map[string]string{"charset": "utf8mb4"}
 	cfg.Timeout, cfg.ReadTimeout, cfg.WriteTimeout = 10*time.Second, 30*time.Second, 30*time.Second
-	db, err := gorm.Open(gormmysql.Open(cfg.FormatDSN()), &gorm.Config{
+	// Every statement goes through the translating driver, so the platform's PostgreSQL-flavoured raw SQL
+	// ($n or ? placeholders, ::casts, ON CONFLICT DO NOTHING, make_interval, advisory locks, ...) runs on MySQL,
+	// and a statement it cannot translate fails closed instead of reaching the server.
+	sqlDB, err := sqldialect.OpenMySQL(cfg.FormatDSN())
+	if err != nil {
+		return nil, fmt.Errorf("connect MySQL platform database: %w", err)
+	}
+	db, err := gorm.Open(gormmysql.New(gormmysql.Config{Conn: sqlDB}), &gorm.Config{
 		Logger:                 logger.Default.LogMode(logger.LogLevel(config.LogLevel)),
 		SkipDefaultTransaction: true,
 		NamingStrategy:         schema.NamingStrategy{SingularTable: false},

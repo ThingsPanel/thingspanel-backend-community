@@ -242,6 +242,8 @@ func GetDeviceGroupStatistics(groupID string, tenantID string) (*model.DeviceGro
 
 func GetDeviceGroupTierById(id, tenantID string) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
+	// The path is joined here instead of with string_agg/GROUP_CONCAT: both are dialect specific, and
+	// GROUP_CONCAT silently truncates at group_concat_max_len.
 	sql := `
 	WITH RECURSIVE group_chain AS (
 		SELECT id, parent_id, name, 1 as level
@@ -253,13 +255,19 @@ func GetDeviceGroupTierById(id, tenantID string) (map[string]interface{}, error)
 		INNER JOIN group_chain gc ON gc.parent_id = g.id
 		WHERE g.tenant_id = ?
 	  )
-	  SELECT string_agg(name, '/' ORDER BY level DESC) AS group_path
-	  FROM group_chain;
+	  SELECT name
+	  FROM group_chain
+	  ORDER BY level DESC;
 	`
-	err := global.DB.Raw(sql, id, tenantID, tenantID).Scan(&r)
-	if err.Error != nil {
-		return nil, err.Error
+	var names []string
+	if err := global.DB.Raw(sql, id, tenantID, tenantID).Scan(&names).Error; err != nil {
+		return nil, err
 	}
+	if len(names) == 0 {
+		r["group_path"] = nil
+		return r, nil
+	}
+	r["group_path"] = strings.Join(names, "/")
 	return r, nil
 }
 
